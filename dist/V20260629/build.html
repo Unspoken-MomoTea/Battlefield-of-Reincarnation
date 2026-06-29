@@ -3,403 +3,417 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>主神空间 - 轮回者建档终端</title>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <title>轮回建档协议 - 主神空间</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+        /* 核心系统色彩与排版 */
         :root {
             --bg: #0b0c10;
-            --surface: #1a1c23;
-            --surface-hover: #252830;
+            --surface: #12141a;
+            --surface-light: #1f222b;
             --text: #c5c6c7;
-            --text-muted: #6b7280;
+            --text-sub: #7a7f85;
             --accent: #66fcf1;
             --accent-dark: #45a29e;
-            --danger: #ef4444;
-            --border: rgba(102, 252, 241, 0.15);
+            --danger: #e74c3c;
+            --border: rgba(102, 252, 241, 0.2);
         }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
-
-        /* 布局：左侧导航，中间内容，右侧统计 */
-        #app { display: flex; width: 100%; height: 100%; }
-
-        /* 左侧导航栏 */
-        .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
-        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid var(--border); }
-        .sidebar-header h2 { color: #fff; font-size: 1.2rem; letter-spacing: 2px; }
-        .sidebar-header span { font-size: 0.7rem; color: var(--accent-dark); font-family: monospace; }
-        .nav-list { flex: 1; padding: 20px 0; }
-        .nav-item { padding: 15px 20px; cursor: pointer; color: var(--text-muted); transition: all 0.3s; border-left: 3px solid transparent; }
-        .nav-item:hover { background: rgba(255,255,255,0.02); color: var(--text); }
-        .nav-item.active { background: rgba(102, 252, 241, 0.05); color: var(--accent); border-left-color: var(--accent); font-weight: bold; }
-
-        /* 中间内容区 */
-        .main-content { flex: 1; padding: 30px 40px; overflow-y: auto; }
-        .section-title { font-size: 1.4rem; color: #fff; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); }
+        * { box-sizing: border-box; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; height: 100vh; display: flex; justify-content: center; align-items: center; }
         
-        /* 表单与输入框 */
-        .form-group { margin-bottom: 20px; }
-        .form-label { display: block; font-size: 0.85rem; color: var(--accent); margin-bottom: 8px; letter-spacing: 1px; }
-        .form-input, .form-select { width: 100%; max-width: 400px; background: var(--bg); border: 1px solid var(--border); color: #fff; padding: 10px 15px; border-radius: 4px; outline: none; }
-        .form-input:focus, .form-select:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(102, 252, 241, 0.2); }
+        /* 4步向导整体布局 */
+        .wizard-layout { width: 100%; max-width: 1000px; height: 95vh; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+        
+        /* 顶部栏 */
+        .app-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; border-bottom: 1px dashed var(--border); background: rgba(0,0,0,0.2); }
+        .app-header h1 { margin: 0; font-size: 1.4rem; color: #fff; letter-spacing: 2px; }
+        .wallet { font-size: 1.1rem; }
+        .wallet .coins { color: #f1c40f; font-weight: bold; font-family: monospace; font-size: 1.3rem; margin-left: 10px;}
 
-        /* 属性加点网格 */
-        .attr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; max-width: 700px; }
-        .attr-card { background: var(--surface); padding: 15px; border: 1px solid var(--border); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
-        .attr-name { font-weight: bold; }
-        .attr-controls { display: flex; align-items: center; gap: 10px; }
-        .attr-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); width: 28px; height: 28px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .attr-btn:hover { border-color: var(--accent); color: var(--accent); }
-        .attr-value { font-family: monospace; font-size: 1.1rem; width: 40px; text-align: center; }
+        /* 步骤进度条 */
+        .step-nav { display: flex; padding: 0 20px; background: var(--surface-light); border-bottom: 1px solid var(--border); }
+        .step-item { flex: 1; padding: 15px 0; text-align: center; color: var(--text-sub); font-size: 0.95rem; font-weight: bold; border-bottom: 3px solid transparent; transition: 0.3s; }
+        .step-item.active { color: var(--accent); border-color: var(--accent); }
 
-        /* 选择卡片库 (装备/技能/剧情) */
+        /* 内容区 */
+        .content-area { flex: 1; overflow-y: auto; padding: 30px 40px; }
+        .step-pane { display: none; animation: fadeIn 0.4s ease; }
+        .step-pane.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 底部导航栏 */
+        .app-footer { display: flex; justify-content: space-between; padding: 20px 40px; border-top: 1px solid var(--border); background: var(--surface-light); }
+        .btn { padding: 12px 30px; font-size: 1rem; font-weight: bold; background: transparent; color: var(--text); border: 1px solid var(--text-sub); border-radius: 4px; cursor: pointer; transition: 0.3s; }
+        .btn:hover { border-color: #fff; color: #fff; }
+        .btn.primary { background: var(--accent); color: #000; border: none; }
+        .btn.primary:hover { background: #fff; box-shadow: 0 0 15px rgba(102, 252, 241, 0.5); }
+
+        /* 表单样式 */
+        .form-group { margin-bottom: 25px; }
+        .form-group label { display: block; margin-bottom: 8px; color: var(--accent-dark); font-size: 0.85rem; font-weight: bold; letter-spacing: 1px; }
+        .form-control { width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: #fff; border-radius: 4px; outline: none; transition: 0.3s; }
+        .form-control:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(102, 252, 241, 0.2); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        
+        /* 属性加点区 */
+        .attr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .attr-card { background: var(--surface-light); border: 1px solid var(--border); padding: 15px; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
+        .attr-card input { width: 80px; text-align: center; background: #000; color: var(--accent); font-weight: bold; border: 1px solid var(--accent-dark); padding: 8px; }
+        .tier-banner { margin-top: 20px; padding: 20px; background: rgba(102,252,241,0.05); border-left: 4px solid var(--accent); display: flex; justify-content: space-between; font-size: 1.1rem; }
+
+        /* 卡片选择区 (装备/技能/剧情) */
         .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
-        .item-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 15px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
-        .item-card:hover { transform: translateY(-2px); border-color: var(--accent-dark); }
-        .item-card.selected { border-color: var(--accent); background: rgba(102, 252, 241, 0.05); }
-        .item-card.selected::after { content: '✓ 已选'; position: absolute; top: 0; right: 0; background: var(--accent); color: #000; font-size: 0.7rem; padding: 2px 8px; border-bottom-left-radius: 6px; font-weight: bold; }
-        .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .item-tier { font-weight: 900; font-family: monospace; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; }
-        .item-name { font-weight: bold; color: #fff; flex: 1; margin-left: 10px; }
-        .item-cost { color: #f59e0b; font-family: monospace; font-size: 0.9rem; }
-        .item-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+        .sel-card { background: var(--surface-light); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; padding: 20px; cursor: pointer; transition: 0.2s; position: relative; }
+        .sel-card:hover { border-color: var(--accent-dark); }
+        .sel-card.selected { border-color: var(--accent); background: rgba(102,252,241,0.08); box-shadow: inset 0 0 15px rgba(102,252,241,0.1); }
+        
+        /* F~SSS 品质色与排版 */
+        .sel-card .tier-badge { position: absolute; top: 15px; right: 15px; padding: 2px 8px; border-radius: 3px; font-weight: 900; font-size: 0.85rem; font-family: monospace; color: #000; }
+        .t-F { background: #888; color:#fff !important;} .t-E { background: #4caf50; color:#fff !important;} .t-D { background: #2196f3; color:#fff !important;}
+        .t-C { background: #9c27b0; color:#fff !important;} .t-B { background: #ff9800; color:#fff !important;} .t-A { background: #e91e63; color:#fff !important;}
+        .t-S, .t-SS, .t-SSS { background: #f1c40f; color:#000 !important; box-shadow: 0 0 10px #f1c40f; }
 
-        /* 等级颜色体系 */
-        .t-F { background: #4b5563; color: #fff; }
-        .t-E { background: #22c55e; color: #fff; }
-        .t-D { background: #3b82f6; color: #fff; }
-        .t-C { background: #a855f7; color: #fff; }
-        .t-B { background: #f97316; color: #fff; }
-        .t-A { background: #ef4444; color: #fff; }
-        .t-S, .t-SS, .t-SSS { background: #eab308; color: #000; box-shadow: 0 0 8px #eab308; }
+        .sel-card h3 { margin: 0 0 8px 0; font-size: 1.05rem; color: #fff; padding-right: 30px; }
+        .sel-card p { margin: 0 0 15px 0; font-size: 0.85rem; color: var(--text-sub); line-height: 1.5; }
+        .sel-card .cost { font-size: 0.9rem; font-family: monospace; font-weight: bold; color: #f1c40f; }
 
-        /* 右侧信息汇总栏 */
-        .summary-panel { width: 300px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; }
-        .summary-header { padding: 20px; border-bottom: 1px solid var(--border); }
-        .currency { display: flex; align-items: center; justify-content: space-between; font-size: 1.1rem; }
-        .currency span { color: #f59e0b; font-family: monospace; font-size: 1.4rem; font-weight: bold; }
-        .summary-content { flex: 1; padding: 20px; overflow-y: auto; }
-        .summary-block { margin-bottom: 20px; }
-        .summary-block h4 { color: var(--accent); font-size: 0.8rem; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 5px; margin-bottom: 10px; }
-        .summary-list { list-style: none; font-size: 0.85rem; color: #fff; }
-        .summary-list li { margin-bottom: 5px; display: flex; justify-content: space-between; }
-        .summary-list li span.cost { color: var(--text-muted); font-family: monospace; }
-        .export-btn { margin: 20px; padding: 15px; background: var(--accent); color: #000; font-weight: bold; text-align: center; border-radius: 6px; cursor: pointer; transition: all 0.2s; letter-spacing: 2px; }
-        .export-btn:hover { background: #fff; box-shadow: 0 0 15px rgba(102, 252, 241, 0.4); }
-
-        /* 自定义滚动条 */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--accent-dark); }
+        /* 自定义伙伴面板 */
+        .custom-box { border: 1px dashed var(--accent-dark); padding: 25px; background: rgba(0,0,0,0.2); margin-top: 15px; }
+        
+        /* 确认页 */
+        .summary-box { background: var(--surface-light); padding: 30px; border: 1px solid var(--border); }
+        .summary-box pre { white-space: pre-wrap; font-family: monospace; color: var(--text); line-height: 1.8; font-size: 0.95rem; }
     </style>
 </head>
 <body>
+    <div class="wizard-layout">
+        <header class="app-header">
+            <h1>命定之诗与黄昏之歌</h1>
+            <div class="wallet">
+                可用空间币: <span class="coins" id="val-coins">10000</span>
+            </div>
+        </header>
 
-<div id="app">
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h2>建档终端</h2>
-            <span>SYSTEM v2.0</span>
+        <div class="step-nav">
+            <div class="step-item active" id="nav-1">1. 信息 / 属性</div>
+            <div class="step-item" id="nav-2">2. 装备 / 技能</div>
+            <div class="step-item" id="nav-3">3. 伙伴 / 背景</div>
+            <div class="step-item" id="nav-4">4. 确认提交</div>
         </div>
-        <div class="nav-list">
-            <div class="nav-item" :class="{active: currentTab === 'base'}" @click="currentTab = 'base'">基础档案</div>
-            <div class="nav-item" :class="{active: currentTab === 'equip'}" @click="currentTab = 'equip'">初始装备</div>
-            <div class="nav-item" :class="{active: currentTab === 'skill'}" @click="currentTab = 'skill'">技能烙印</div>
-            <div class="nav-item" :class="{active: currentTab === 'companion'}" @click="currentTab = 'companion'">伙伴与因果</div>
-        </div>
-    </div>
 
-    <div class="main-content">
-        <div v-show="currentTab === 'base'">
-            <h3 class="section-title">身份与潜能设定</h3>
+        <div class="content-area">
             
-            <div class="form-group">
-                <label class="form-label">代号 / 姓名</label>
-                <input v-model="form.name" type="text" class="form-input" placeholder="输入轮回者姓名...">
-            </div>
+            <div class="step-pane active" id="pane-1">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>代号 / 姓名</label>
+                        <input type="text" class="form-control" id="f-name" placeholder="输入轮回者姓名...">
+                    </div>
+                    <div class="form-group">
+                        <label>性别</label>
+                        <select class="form-control" id="f-gender">
+                            <option>男</option><option>女</option><option>无性别/自定义</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>年龄</label>
+                        <input type="number" class="form-control" id="f-age" value="20">
+                    </div>
+                    <div class="form-group">
+                        <label>种族</label>
+                        <input type="text" class="form-control" id="f-race" value="人类" placeholder="如：人类、精灵...">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>阵营身份 (限定五类)</label>
+                    <select class="form-control" id="f-identity">
+                        <option>执行者</option>
+                        <option>篡夺者</option>
+                        <option>梦魇师</option>
+                        <option>残魂</option>
+                        <option>穿越者</option>
+                    </select>
+                </div>
 
-            <div class="form-group">
-                <label class="form-label">阵营身份 (强制锁定5类)</label>
-                <select v-model="form.identity" class="form-select">
-                    <option v-for="id in db.identities" :value="id">{{ id }}</option>
-                </select>
-            </div>
-
-            <div class="form-group" style="margin-top: 40px;">
-                <label class="form-label">基础属性分配 (无底薪起点)</label>
-                <div class="attr-grid">
-                    <div class="attr-card" v-for="attr in db.attributes" :key="attr">
-                        <span class="attr-name">{{ attr }}</span>
-                        <div class="attr-controls">
-                            <button class="attr-btn" @click="updateAttr(attr, -1)">-</button>
-                            <input class="form-input attr-value" type="number" v-model.number="form.attrs[attr]">
-                            <button class="attr-btn" @click="updateAttr(attr, 1)">+</button>
+                <div class="form-group" style="margin-top: 40px;">
+                    <label>六维属性自由构建</label>
+                    <div class="attr-grid" id="attr-grid">
                         </div>
+                    <div class="tier-banner">
+                        <div>六维属性总和：<strong id="attr-total" style="color:#fff;">0</strong></div>
+                        <div>综合生命层级：<strong id="attr-tier" class="tier-badge t-F">F 级</strong></div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div v-show="currentTab === 'equip'">
-            <h3 class="section-title">战备兑换: 装备与道具</h3>
-            <div class="card-grid">
-                <div class="item-card" v-for="item in db.equipments" :key="item.id" 
-                     :class="{selected: isSelected('equipments', item.id)}"
-                     @click="toggleItem('equipments', item)">
-                    <div class="item-header">
-                        <span class="item-tier" :class="'t-' + item.tier.replace(/S/g, 'S')">{{ item.tier }}</span>
-                        <span class="item-name">{{ item.name }}</span>
-                        <span class="item-cost">{{ item.cost }} 币</span>
-                    </div>
-                    <div class="item-desc">{{ item.desc }}</div>
+            <div class="step-pane" id="pane-2">
+                <div class="form-group">
+                    <label>初始装备授权</label>
+                    <div class="card-grid" id="grid-equip"></div>
+                </div>
+                <div class="form-group" style="margin-top:40px;">
+                    <label>战术道具分配</label>
+                    <div class="card-grid" id="grid-item"></div>
+                </div>
+                <div class="form-group" style="margin-top:40px;">
+                    <label>技能模组烙印</label>
+                    <div class="card-grid" id="grid-skill"></div>
                 </div>
             </div>
-        </div>
 
-        <div v-show="currentTab === 'skill'">
-            <h3 class="section-title">战备兑换: 技能模组</h3>
-            <div class="card-grid">
-                <div class="item-card" v-for="item in db.skills" :key="item.id" 
-                     :class="{selected: isSelected('skills', item.id)}"
-                     @click="toggleItem('skills', item)">
-                    <div class="item-header">
-                        <span class="item-tier" :class="'t-' + item.tier.replace(/S/g, 'S')">{{ item.tier }}</span>
-                        <span class="item-name">{{ item.name }}</span>
-                        <span class="item-cost">{{ item.cost }} 币</span>
+            <div class="step-pane" id="pane-3">
+                <div class="form-group">
+                    <label>协同实体 (伙伴)</label>
+                    <div class="card-grid" id="grid-partner">
+                        </div>
+                    
+                    <button class="btn" style="margin-top: 15px;" onclick="toggleCustomPartner()">+ 招募自定义伙伴</button>
+                    
+                    <div class="custom-box" id="custom-partner-box" style="display:none;">
+                        <div class="grid-2">
+                            <div class="form-group"><label>伙伴姓名</label><input type="text" id="cp-name" class="form-control" placeholder="伙伴名字"></div>
+                            <div class="form-group">
+                                <label>生命层级</label>
+                                <select id="cp-tier" class="form-control">
+                                    <option>F</option><option>E</option><option>D</option><option>C</option><option>B</option><option>A</option><option>S</option><option>SS</option><option>SSS</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label>种族</label><input type="text" id="cp-race" class="form-control" placeholder="如：精灵"></div>
+                            <div class="form-group">
+                                <label>阵营身份</label>
+                                <select id="cp-identity" class="form-control">
+                                    <option>执行者</option><option>篡夺者</option><option>梦魇师</option><option>残魂</option><option>穿越者</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group"><label>外貌特征</label><input type="text" id="cp-app" class="form-control" placeholder="简短描写外貌..."></div>
+                        <div class="form-group"><label>性格与喜爱</label><input type="text" id="cp-like" class="form-control" placeholder="例如：性格冷漠，喜欢甜食..."></div>
+                        <div class="form-group"><label>背景故事</label><textarea id="cp-bg" class="form-control" rows="3" placeholder="一段简短的背景来历..."></textarea></div>
                     </div>
-                    <div class="item-desc">{{ item.desc }}</div>
+                </div>
+
+                <div class="form-group" style="margin-top:40px;">
+                    <label>初始剧情切入点 (必选其一)</label>
+                    <div class="card-grid" id="grid-plot"></div>
                 </div>
             </div>
-        </div>
 
-        <div v-show="currentTab === 'companion'">
-            <h3 class="section-title">协同实体 (自定义伙伴)</h3>
-            <div class="form-group">
-                <label class="form-label">伙伴姓名 (留空则无伙伴)</label>
-                <input v-model="form.companion.name" type="text" class="form-input" placeholder="输入伙伴姓名...">
-            </div>
-            <div class="form-group">
-                <label class="form-label">伙伴阵营身份</label>
-                <select v-model="form.companion.identity" class="form-select">
-                    <option v-for="id in db.identities" :value="id">{{ id }}</option>
-                </select>
-            </div>
-
-            <h3 class="section-title" style="margin-top: 40px;">初始剧情锚点</h3>
-            <div class="card-grid">
-                <div class="item-card" v-for="item in db.plots" :key="item.id" 
-                     :class="{selected: form.selectedPlot === item.id}"
-                     @click="form.selectedPlot = item.id">
-                    <div class="item-header">
-                        <span class="item-tier" :class="'t-' + item.tier.replace(/S/g, 'S')">{{ item.tier }}</span>
-                        <span class="item-name">{{ item.name }}</span>
-                    </div>
-                    <div class="item-desc">{{ item.desc }}</div>
+            <div class="step-pane" id="pane-4">
+                <div class="summary-box">
+                    <h2 style="margin-top:0; color:var(--accent);">数据核对协议</h2>
+                    <p style="color:var(--text-sub); font-size:0.85rem; margin-bottom: 20px;">请核对以下您的轮回建档信息。确认无误后点击下方按钮完成投递。</p>
+                    <pre id="summary-text"></pre>
                 </div>
             </div>
+
         </div>
+
+        <footer class="app-footer">
+            <button class="btn" id="btn-prev" onclick="goStep(-1)" style="visibility:hidden;">返回上一步</button>
+            <button class="btn primary" id="btn-next" onclick="goStep(1)">前往下一步</button>
+        </footer>
     </div>
-
-    <div class="summary-panel">
-        <div class="summary-header">
-            <div class="currency">空间币: <span>{{ currentCoins }}</span></div>
-        </div>
-        <div class="summary-content">
-            <div class="summary-block">
-                <h4>[ 综合生命层级 ]</h4>
-                <div style="display:flex; justify-content:space-between; align-items:center; padding: 10px; background:rgba(255,255,255,0.05); border-radius:4px;">
-                    <span>属性总和: {{ attrTotal }}</span>
-                    <span class="item-tier" :class="'t-' + currentTier.replace(/S/g, 'S')" style="font-size:1.1rem; padding: 2px 10px;">{{ currentTier }} 级</span>
-                </div>
-            </div>
-
-            <div class="summary-block" v-if="form.selectedEquips.length > 0">
-                <h4>[ 已选装备 ]</h4>
-                <ul class="summary-list">
-                    <li v-for="item in form.selectedEquips" :key="item.id">
-                        <span>{{ item.name }}</span>
-                        <span class="cost">-{{ item.cost }}</span>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="summary-block" v-if="form.selectedSkills.length > 0">
-                <h4>[ 已选技能 ]</h4>
-                <ul class="summary-list">
-                    <li v-for="item in form.selectedSkills" :key="item.id">
-                        <span>{{ item.name }}</span>
-                        <span class="cost">-{{ item.cost }}</span>
-                    </li>
-                </ul>
-            </div>
-            
-            <div class="summary-block" v-if="form.selectedPlot">
-                <h4>[ 剧本锚点 ]</h4>
-                <ul class="summary-list">
-                    <li><span style="color:var(--accent)">{{ getSelectedPlotName }}</span></li>
-                </ul>
-            </div>
-        </div>
-        
-        <div class="export-btn" @click="exportData">
-            生成终端档案
-        </div>
-    </div>
-</div>
 
 <script>
-    const { createApp, ref, computed, reactive } = Vue;
+    /** * ==========================================
+     * 👑 你的专属数据库 (DATABASE) 👑
+     * 你之后想加内容，直接在这里复制粘贴改字就行！无需改排版代码！
+     * ========================================== */
+    const DB = {
+        initSpaceCoins: 10000, 
+        attributes: ['力量', '体质', '敏捷', '精神', '感知', '魅力'],
+        
+        equipments: [
+            { id: 'e1', name: '【制式】高频震动刃', tier: 'D', cost: 1500, desc: '基础近战武器，附带轻微破甲。' },
+            { id: 'e2', name: '【深渊】凝血指环', tier: 'C', cost: 3500, desc: '提供微弱的生命偷取与体质加成。' },
+            { id: 'e3', name: '【灭星】反物质巨炮', tier: 'S', cost: 80000, desc: '一击足以蒸发地表，极度危险。' }
+        ],
+        items: [
+            { id: 'i1', name: '高浓缩恢复药剂', tier: 'E', cost: 200, desc: '瞬间恢复部分生命值。' },
+            { id: 'i2', name: '世界锚点信标', tier: 'B', cost: 10000, desc: '强行稳定当前世界的因果线。' }
+        ],
+        skills: [
+            { id: 's1', name: '基础枪械精通', tier: 'F', cost: 150, desc: '熟练使用常规动能武器。' },
+            { id: 's2', name: '暗影步', tier: 'C', cost: 4000, desc: '消耗EP，进行短距离无视障碍瞬移。' },
+            { id: 's3', name: '概念剥离 (残缺)', tier: 'A', cost: 25000, desc: '极高阶位技能残篇，威力巨大且伴随反噬。' }
+        ],
+        plots: [
+            { id: 'p1', name: '【常规降临】废土边缘', tier: 'E', cost: 0, desc: '你在辐射废土的安全屋中醒来，周围暂无威胁。' },
+            { id: 'p2', name: '【危机切入】死局反杀', tier: 'C', cost: 0, desc: '降临瞬间正处于被仇家追杀的绝境，必须立刻战斗！' },
+            { id: 'p3', name: '【伪装潜入】王都盛宴', tier: 'B', cost: 0, desc: '你替换了某位贵族的身份，正在参加暗流涌动的皇室晚宴。' }
+        ]
+    };
 
-    createApp({
-        setup() {
-            // ==========================================
-            // 👑 你的专属数据中心 (DATABASE) 👑
-            // 在这里添加你的装备、技能、剧情！完全无需懂排版代码。
-            // ==========================================
-            const db = {
-                initSpaceCoins: 10000,
-                identities: ['执行者', '篡夺者', '梦魇师', '残魂', '穿越者'],
-                attributes: ['力量', '体质', '敏捷', '精神', '感知', '魅力'],
-                
-                // 装备模板 (全部遵循 F~SSS 分级规则)
-                equipments: [
-                    { id: 'e1', name: '【制式】高频短刃', tier: 'E', cost: 500, desc: '基础近战武器，附带轻微破甲效果。' },
-                    { id: 'e2', name: '【深渊】凝血指环', tier: 'D', cost: 2000, desc: '提供微弱的生命偷取与体质加成。' },
-                    { id: 'e3', name: '【科技】光学迷彩', tier: 'C', cost: 5000, desc: '大幅提升潜行成功率，遭受攻击即解除。' },
-                    { id: 'e4', name: '【史诗】朗基努斯残片', tier: 'S', cost: 80000, desc: '蕴含神性抹杀规则的残片。' }
-                ],
-                
-                // 技能模板
-                skills: [
-                    { id: 's1', name: '基础枪械精通', tier: 'F', cost: 200, desc: '熟练使用常规动能武器。' },
-                    { id: 's2', name: '暗影步', tier: 'D', cost: 2500, desc: '消耗EP，进行短距离无视障碍的瞬移。' },
-                    { id: 's3', name: '概念剥离(残缺)', tier: 'A', cost: 15000, desc: '极高阶位技能残篇，威力巨大但伴随严重反噬。' }
-                ],
+    /** * ==========================================
+     * ⚙️ 核心流程引擎 (不要轻易修改) ⚙️
+     * ========================================== */
+    let currentStep = 1;
+    let currentCoins = DB.initSpaceCoins;
+    let selectedItems = new Set();
+    let selectedPlot = null; // 剧情是单选
 
-                // 剧情模板
-                plots: [
-                    { id: 'p1', name: '【常规降临】废土边缘', tier: 'E', desc: '你在辐射废土的安全屋中醒来，周围无即时威胁，适合稳扎稳打。' },
-                    { id: 'p2', name: '【危机切入】死局反杀', tier: 'C', desc: '降临瞬间正处于被追杀的绝境，必须立刻展开战斗逃脱。' },
-                    { id: 'p3', name: '【绝境锚定】诸神黄昏', tier: 'SSS', desc: '直接降临于高维崩坏的中心，世界排异反应拉满。' }
-                ]
-            };
+    // 1. 页面初始化
+    function init() {
+        document.getElementById('val-coins').innerText = currentCoins;
+        
+        // 渲染属性输入框
+        const attrHtml = DB.attributes.map(attr => `
+            <div class="attr-card">
+                <span>${attr}</span>
+                <input type="number" value="0" min="0" class="attr-input" onchange="calcTier()">
+            </div>
+        `).join('');
+        document.getElementById('attr-grid').innerHTML = attrHtml;
 
-            // ==========================================
-            // ⚙️ 响应式状态与业务逻辑 ⚙️
-            // ==========================================
-            const currentTab = ref('base');
-            
-            const form = reactive({
-                name: '',
-                identity: db.identities[0],
-                attrs: { 力量:0, 体质:0, 敏捷:0, 精神:0, 感知:0, 魅力:0 },
-                selectedEquips: [],
-                selectedSkills: [],
-                selectedPlot: null,
-                companion: { name: '', identity: db.identities[0] }
-            });
+        // 渲染卡片列表函数
+        const renderCards = (containerId, dataList, isPlot = false) => {
+            if(dataList.length === 0) return;
+            const html = dataList.map(item => `
+                <div class="sel-card" id="card-${item.id}" onclick="toggleSelect('${item.id}', ${item.cost}, ${isPlot})">
+                    <div class="tier-badge t-${item.tier.replace(/S/g, 'S')}">${item.tier}</div>
+                    <h3>${item.name}</h3>
+                    <p>${item.desc}</p>
+                    <div class="cost">${item.cost > 0 ? '-' + item.cost + ' 空间币' : '免费接入'}</div>
+                </div>
+            `).join('');
+            document.getElementById(containerId).innerHTML = html;
+        };
 
-            // 属性总和与层级推演 (严格遵循你的 F~SSS 设定)
-            const attrTotal = computed(() => {
-                return Object.values(form.attrs).reduce((sum, val) => sum + (Number(val) || 0), 0);
-            });
+        renderCards('grid-equip', DB.equipments);
+        renderCards('grid-item', DB.items);
+        renderCards('grid-skill', DB.skills);
+        renderCards('grid-plot', DB.plots, true);
+    }
 
-            const currentTier = computed(() => {
-                const total = attrTotal.value;
-                if (total >= 100000) return 'SSS';
-                if (total >= 10000) return 'SS';
-                if (total >= 3000) return 'S';
-                if (total >= 1000) return 'A';
-                if (total >= 300) return 'B';
-                if (total >= 100) return 'C';
-                if (total >= 30) return 'D';
-                if (total >= 15) return 'E';
-                return 'F';
-            });
-
-            // 空间币实时计算 (初始货币 - 装备花费 - 技能花费)
-            const currentCoins = computed(() => {
-                const equipCost = form.selectedEquips.reduce((sum, item) => sum + item.cost, 0);
-                const skillCost = form.selectedSkills.reduce((sum, item) => sum + item.cost, 0);
-                return db.initSpaceCoins - equipCost - skillCost;
-            });
-
-            const getSelectedPlotName = computed(() => {
-                const plot = db.plots.find(p => p.id === form.selectedPlot);
-                return plot ? plot.name : '未选择';
-            });
-
-            // 快捷加减属性
-            const updateAttr = (attr, delta) => {
-                let val = Number(form.attrs[attr]) || 0;
-                val += delta;
-                if(val < 0) val = 0;
-                form.attrs[attr] = val;
-            };
-
-            // 判断卡片是否被选中
-            const isSelected = (type, id) => {
-                const list = type === 'equipments' ? form.selectedEquips : form.selectedSkills;
-                return list.some(item => item.id === id);
-            };
-
-            // 选中/取消选中卡片 (带金币拦截逻辑)
-            const toggleItem = (type, item) => {
-                const list = type === 'equipments' ? form.selectedEquips : form.selectedSkills;
-                const index = list.findIndex(i => i.id === item.id);
-                
-                if (index > -1) {
-                    list.splice(index, 1); // 存在则取消选中，退钱
-                } else {
-                    if (currentCoins.value < item.cost) {
-                        alert('警告：空间币余额不足，法则交易驳回！');
-                        return;
-                    }
-                    list.push(item); // 不存在且钱够，则选中
-                }
-            };
-
-            // 导出数据
-            const exportData = () => {
-                const attrStr = Object.entries(form.attrs).map(([k,v]) => `${k}:${v||0}`).join(', ');
-                const equipStr = form.selectedEquips.length ? form.selectedEquips.map(i=>`[${i.tier}] ${i.name}`).join(' / ') : '无';
-                const skillStr = form.selectedSkills.length ? form.selectedSkills.map(i=>`[${i.tier}] ${i.name}`).join(' / ') : '无';
-                
-                let compStr = '无羁绊实体';
-                if (form.companion.name.trim()) {
-                    compStr = `姓名: ${form.companion.name} | 身份: ${form.companion.identity}`;
-                }
-
-                const result = `=================================
-【主神空间 - 轮回者建档协议】
-=================================
-> 姓名: ${form.name || '未知代号'}
-> 身份: ${form.identity}
-> 生命层级: ${currentTier.value} 级
-> 基础六维: ${attrStr}
-
-【战备物资记录】
-> 剩余空间币: ${currentCoins.value}
-> 随身装备: ${equipStr}
-> 技能烙印: ${skillStr}
-
-【因果与世界线】
-> 协同实体: ${compStr}
-> 初始剧情锚点: ${getSelectedPlotName.value}
-=================================`;
-                
-                alert("建档成功！\n\n(可将此设定发送给AI以开始推演)\n\n" + result);
-                console.log(result);
-            };
-
-            return {
-                db, currentTab, form, attrTotal, currentTier, currentCoins, getSelectedPlotName,
-                updateAttr, isSelected, toggleItem, exportData
-            };
+    // 2. 步骤控制
+    function goStep(dir) {
+        if (dir === 1 && currentStep < 4) currentStep++;
+        else if (dir === -1 && currentStep > 1) currentStep--;
+        
+        // 更新 UI
+        for(let i=1; i<=4; i++) {
+            document.getElementById('nav-'+i).classList.toggle('active', i === currentStep);
+            document.getElementById('pane-'+i).classList.toggle('active', i === currentStep);
         }
-    }).mount('#app');
+        
+        document.getElementById('btn-prev').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        
+        const btnNext = document.getElementById('btn-next');
+        if (currentStep === 4) {
+            btnNext.innerText = '踏上旅程 (生成档案)';
+            btnNext.onclick = generateOutput;
+            updateSummary(); // 刷新第四页的文字
+        } else {
+            btnNext.innerText = '前往下一步';
+            btnNext.onclick = () => goStep(1);
+        }
+    }
+
+    // 3. 属性总和与层级判定
+    function calcTier() {
+        let total = 0;
+        document.querySelectorAll('.attr-input').forEach(input => total += parseInt(input.value || 0));
+        document.getElementById('attr-total').innerText = total;
+
+        let tier = 'F';
+        if (total >= 100000) tier = 'SSS';
+        else if (total >= 30000) tier = 'SS';
+        else if (total >= 10000) tier = 'S';
+        else if (total >= 3000) tier = 'A';
+        else if (total >= 1000) tier = 'B';
+        else if (total >= 300) tier = 'C';
+        else if (total >= 100) tier = 'D';
+        else if (total >= 30) tier = 'E';
+        
+        const tierEl = document.getElementById('attr-tier');
+        tierEl.innerText = tier + ' 级';
+        tierEl.className = 'tier-badge t-' + tier.replace(/S/g, 'S');
+    }
+
+    // 4. 物品选择扣费逻辑
+    function toggleSelect(id, cost, isPlot) {
+        const card = document.getElementById(`card-${id}`);
+        
+        if (isPlot) {
+            // 剧情单选
+            if (selectedPlot) document.getElementById(`card-${selectedPlot}`).classList.remove('selected');
+            selectedPlot = id;
+            card.classList.add('selected');
+            return;
+        }
+
+        // 装备技能多选
+        if (selectedItems.has(id)) {
+            selectedItems.delete(id);
+            currentCoins += cost;
+            card.classList.remove('selected');
+        } else {
+            if (currentCoins < cost) { alert("空间币不足！"); return; }
+            selectedItems.add(id);
+            currentCoins -= cost;
+            card.classList.add('selected');
+        }
+        document.getElementById('val-coins').innerText = currentCoins;
+    }
+
+    // 5. 展开自定义伙伴
+    function toggleCustomPartner() {
+        const box = document.getElementById('custom-partner-box');
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // 6. 生成第四页汇总文本
+    function updateSummary() {
+        const name = document.getElementById('f-name').value || '未知轮回者';
+        const identity = document.getElementById('f-identity').value;
+        const tier = document.getElementById('attr-tier').innerText;
+        
+        const attrs = Array.from(document.querySelectorAll('.attr-input')).map((input, idx) => {
+            return `${DB.attributes[idx]}: ${input.value || 0}`;
+        }).join(', ');
+
+        const getSelected = (dbArray) => dbArray.filter(item => selectedItems.has(item.id)).map(item => `[${item.tier}] ${item.name}`);
+        const equips = getSelected(DB.equipments);
+        const items = getSelected(DB.items);
+        const skills = getSelected(DB.skills);
+        const plotObj = DB.plots.find(p => p.id === selectedPlot);
+
+        const cpName = document.getElementById('cp-name').value;
+        let companionText = "无协同实体";
+        if (cpName) {
+            companionText = `姓名: ${cpName} | 层级: ${document.getElementById('cp-tier').value}级 | 身份: ${document.getElementById('cp-identity').value}`;
+        }
+
+        const text = `=================================
+【轮回者档案接入报告】
+=================================
+> 姓名: ${name}
+> 身份: ${identity}
+> 生命层级: ${tier}
+> 属性: ${attrs}
+
+【战备物资结算】
+> 剩余空间币: ${currentCoins}
+> 随身装备: ${equips.length > 0 ? equips.join(' / ') : '无'}
+> 战术道具: ${items.length > 0 ? items.join(' / ') : '无'}
+> 技能烙印: ${skills.length > 0 ? skills.join(' / ') : '无'}
+
+【因果羁绊】
+> 协同实体 (伙伴): ${companionText}
+> 初始剧情切入: ${plotObj ? plotObj.name : '系统随机分配'}
+  (${plotObj ? plotObj.desc : ''})
+=================================`;
+        document.getElementById('summary-text').innerText = text;
+    }
+
+    // 7. 确认接入
+    function generateOutput() {
+        const summary = document.getElementById('summary-text').innerText;
+        alert("建档成功！\n\n(实际使用中，此处会将数据直接发送至后台/AI)\n\n" + summary);
+    }
+
+    init();
 </script>
 </body>
 </html>

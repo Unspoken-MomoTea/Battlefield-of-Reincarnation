@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主神空间 - 轮回者建档协议</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        :root {
+            --bg: #0b0c10;
+            --surface: #12141a;
+            --surface-light: #1f2229;
+            --text: #c5c6c7;
+            --text-sub: #7a7f85;
+            --accent: #66fcf1;
+            --accent-dark: #45a29e;
+            --accent-soft: rgba(102, 252, 241, 0.12);
+            --danger: #e74c3c;
+            --font-ui: 'Courier New', Courier, monospace; /* 终端字体 */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-ui);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        #app {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--surface);
+            border: 1px solid var(--accent-dark);
+            box-shadow: 0 0 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(102, 252, 241, 0.05);
+            display: flex;
+            flex-direction: column;
+            min-height: 90vh;
+        }
+
+        /* 顶部 Header */
+        .header {
+            padding: 20px;
+            border-bottom: 1px dashed var(--accent-dark);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            color: #fff;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--accent-soft);
+        }
+
+        .header h1::before { content: '> '; color: var(--accent); }
+
+        .coin-display {
+            font-size: 1.2rem;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* 导航 Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--accent-dark);
+            background: var(--surface-light);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 15px 0;
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn:hover { color: #fff; background: rgba(102, 252, 241, 0.05); }
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            background: rgba(102, 252, 241, 0.1);
+        }
+
+        /* 主体内容区 */
+        .content {
+            padding: 24px;
+            flex: 1;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            color: #fff;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .section-title::before { content: '// '; color: var(--accent); }
+
+        /* 表单元素 */
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-sub);
+            font-size: 0.9rem;
+        }
+        
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--accent-dark);
+            color: var(--accent);
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+        }
+        input[type="text"]:focus, select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 10px var(--accent-soft);
+        }
+
+        /* 属性网格 (F~SSS) */
+        .attr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+        .attr-card {
+            background: var(--surface-light);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 15px;
+            text-align: center;
+        }
+        .attr-card label { color: #fff; font-weight: bold; margin-bottom: 10px; display: block; }
+        .attr-card select { text-align: center; font-size: 1.2rem; font-weight: bold; }
+
+        /* 装备/技能商店列表 */
+        .item-list { display: flex; flex-direction: column; gap: 10px; }
+        .item-card {
+            background: var(--surface-light);
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .item-card:hover { border-color: var(--accent-dark); }
+        .item-info h4 { color: #fff; margin-bottom: 5px; }
+        .item-info .tier { 
+            display: inline-block; padding: 2px 6px; 
+            background: var(--accent-soft); color: var(--accent); 
+            font-size: 0.8rem; margin-right: 10px;
+        }
+        .item-info p { font-size: 0.85rem; color: var(--text-sub); }
+        .item-action { text-align: right; }
+        .item-cost { color: var(--accent); font-weight: bold; margin-bottom: 10px; display: block; }
+
+        /* 按钮 */
+        .btn {
+            background: var(--surface-light);
+            color: var(--text);
+            border: 1px solid var(--accent-dark);
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: var(--accent); color: var(--bg); }
+        .btn:disabled { background: rgba(255,255,255,0.05); color: #555; border-color: #333; cursor: not-allowed; }
+        
+        .btn-primary { background: var(--accent-dark); color: #000; font-weight: bold; width: 100%; padding: 15px; font-size: 1.1rem; margin-top: 20px;}
+        .btn-primary:hover { background: var(--accent); box-shadow: 0 0 15px var(--accent); }
+
+        /* 购物车/已选列表 */
+        .cart-box {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px dashed var(--accent-dark);
+            background: rgba(0,0,0,0.3);
+        }
+        .cart-item {
+            display: flex; justify-content: space-between;
+            padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* 剧情选项 */
+        .plot-option {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: var(--surface-light);
+            border: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer;
+        }
+        .plot-option:hover { border-color: var(--accent-dark); }
+        .plot-option input { margin-top: 4px; margin-right: 15px; accent-color: var(--accent); }
+        .plot-content h4 { color: #fff; margin-bottom: 5px; }
+        .plot-content p { font-size: 0.85rem; color: var(--text-sub); }
+
+        @media (max-width: 600px) {
+            .attr-grid { grid-template-columns: 1fr 1fr; }
+            .item-card { flex-direction: column; align-items: flex-start; }
+            .item-action { margin-top: 15px; width: 100%; display: flex; justify-content: space-between; align-items: center; }
+            .item-cost { margin-bottom: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div class="header">
+        <h1>建档终端</h1>
+        <div class="coin-display">空间币: {{ spaceCoins }}</div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn" :class="{active: currentTab === 0}" @click="currentTab = 0">I. 核心实体录入</button>
+        <button class="tab-btn" :class="{active: currentTab === 1}" @click="currentTab = 1">II. 法则资源兑换</button>
+        <button class="tab-btn" :class="{active: currentTab === 2}" @click="currentTab = 2">III. 随员与因果线</button>
+    </div>
+
+    <div class="content" v-show="currentTab === 0">
+        <h2 class="section-title">轮回者身份识别</h2>
+        <div class="form-group">
+            <label>识别代号 (姓名)</label>
+            <input type="text" v-model="character.name" placeholder="输入你的名字...">
+        </div>
+        <div class="form-group">
+            <label>位格阵营 (身份)</label>
+            <select v-model="character.identity">
+                <option v-for="role in identities" :key="role" :value="role">{{ role }}</option>
+            </select>
+        </div>
+
+        <h2 class="section-title" style="margin-top: 30px;">六维法则评级 (由主神强行固化)</h2>
+        <div class="attr-grid">
+            <div class="attr-card" v-for="(val, key) in character.attributes" :key="key">
+                <label>{{ key }}</label>
+                <select v-model="character.attributes[key]">
+                    <option v-for="tier in tiers" :key="tier" :value="tier">{{ tier }} 级</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="content" v-show="currentTab === 1">
+        <h2 class="section-title">主神武装库</h2>
+        <div class="item-list">
+            <div class="item-card" v-for="item in shopItems" :key="item.id">
+                <div class="item-info">
+                    <h4><span class="tier">{{ item.tier }}</span>{{ item.name }} [{{ item.type }}]</h4>
+                    <p>{{ item.desc }}</p>
+                </div>
+                <div class="item-action">
+                    <span class="item-cost">{{ item.cost }} 币</span>
+                    <button class="btn" @click="buyItem(item)" :disabled="spaceCoins < item.cost">申请具现</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="cart-box" v-if="inventory.length > 0">
+            <h2 class="section-title">已具现清单</h2>
+            <div class="cart-item" v-for="(inv, index) in inventory" :key="index">
+                <span>{{ inv.name }} ({{ inv.tier }})</span>
+                <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" @click="sellItem(inv, index)">退回</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="content" v-show="currentTab === 2">
+        <h2 class="section-title">建立随员契约 (自定义伙伴)</h2>
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <input type="text" v-model="newCompanion.name" placeholder="伙伴姓名..." style="flex: 2;">
+            <select v-model="newCompanion.identity" style="flex: 1;">
+                <option v-for="role in identities" :key="role" :value="role">{{ role }}</option>
+            </select>
+            <button class="btn" @click="addCompanion">签订</button>
+        </div>
+        
+        <div class="cart-box" v-if="companions.length > 0" style="margin-top: 0; margin-bottom: 30px;">
+            <div class="cart-item" v-for="(comp, index) in companions" :key="index">
+                <span>[ {{ comp.identity }} ] {{ comp.name }}</span>
+                <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" @click="companions.splice(index, 1)">解除</button>
+            </div>
+        </div>
+
+        <h2 class="section-title">因果线锚定 (开局剧情)</h2>
+        <div>
+            <label class="plot-option" v-for="plot in plotTemplates" :key="plot.id">
+                <input type="radio" :value="plot.id" v-model="selectedPlot">
+                <div class="plot-content">
+                    <h4>{{ plot.title }}</h4>
+                    <p>{{ plot.desc }}</p>
+                </div>
+            </label>
+        </div>
+
+        <button class="btn-primary" @click="generateProfile">完成建档，接入主神空间</button>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+        setup() {
+            // 基础控制台数据
+            const currentTab = ref(0);
+            const spaceCoins = ref(15000); // 你可以在这里修改初始的【空间币】数量
+            
+            // 系统常量字典
+            const identities = ['执行者', '篡夺者', '梦魇师', '残魂', '穿越者'];
+            const tiers = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+
+            // ==========================================
+            // 【可供你日后自由添加/修改的 模板数据库】
+            // ==========================================
+            
+            // 1. 装备与技能模板
+            const shopItems = ref([
+                { id: 1, type: '武器', name: '高频振动切割刃', tier: 'D', cost: 1200, desc: '能够轻易切开常规装甲的近战武器。' },
+                { id: 2, type: '防具', name: '纳米隐身斗篷', tier: 'C', cost: 3500, desc: '开启后屏蔽红外与光学侦查，受到攻击显形。' },
+                { id: 3, type: '技能', name: '暗影潜行', tier: 'D', cost: 1500, desc: '在阴影中隐藏身形，免疫低级感知法则检定。' },
+                { id: 4, type: '血统', name: '初阶吸血鬼', tier: 'C', cost: 5000, desc: '赋予超强自愈与夜视，附带阳光虚弱debuff。' },
+                { id: 5, type: '道具', name: '便携式医疗凝胶', tier: 'E', cost: 300, desc: '快速修复外伤，恢复中量HP，不可复原断肢。' }
+            ]);
+
+            // 2. 开局剧情模板
+            const plotTemplates = ref([
+                { id: 'plot_1', title: '【标准投放】降临者', desc: '主神安排了合法的世界身份。因果线稳定，不易被世界意志排斥。' },
+                { id: 'plot_2', title: '【非法偷渡】时空裂缝', desc: '绕过世界屏障强行突入。开局即引发世界警报，遭遇势力追查。' },
+                { id: 'plot_3', title: '【夺舍重修】残魂复苏', desc: '附身于一具刚死亡的原住民躯体上。继承部分残缺记忆与人际关系。' }
+            ]);
+
+            // ==========================================
+
+            // 玩家当前状态数据
+            const character = ref({
+                name: '',
+                identity: '穿越者',
+                attributes: {
+                    力量: 'F', 体质: 'F', 敏捷: 'F', 精神: 'F', 感知: 'F', 魅力: 'F'
+                }
+            });
+
+            const inventory = ref([]);
+            
+            const companions = ref([]);
+            const newCompanion = ref({ name: '', identity: '执行者' });
+
+            const selectedPlot = ref('plot_1');
+
+            // 核心逻辑函数
+            const buyItem = (item) => {
+                if (spaceCoins.value >= item.cost) {
+                    spaceCoins.value -= item.cost;
+                    inventory.value.push({ ...item });
+                }
+            };
+
+            const sellItem = (item, index) => {
+                spaceCoins.value += item.cost;
+                inventory.value.splice(index, 1);
+            };
+
+            const addCompanion = () => {
+                if (newCompanion.value.name.trim() !== '') {
+                    companions.value.push({ ...newCompanion.value });
+                    newCompanion.value.name = ''; // 清空输入框
+                }
+            };
+
+            // 最终提交逻辑（给酒馆发数据）
+            const generateProfile = () => {
+                // 这里汇总了所有的建档数据，后续你可以对接酒馆的 API 或者发送给 AI
+                const finalData = {
+                    主角: character.value,
+                    空间币: spaceCoins.value,
+                    背包: inventory.value,
+                    伙伴: companions.value,
+                    剧情选择: selectedPlot.value
+                };
+                
+                console.log("【建档完毕，数据流注入中】", finalData);
+                alert("建档协议已生成！请查看按F12查看控制台数据。\n(后续可在此处绑定注入酒馆变量的JS指令)");
+            };
+
+            return {
+                currentTab, spaceCoins, identities, tiers,
+                shopItems, plotTemplates,
+                character, inventory, companions, newCompanion, selectedPlot,
+                buyItem, sellItem, addCompanion, generateProfile
+            }
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

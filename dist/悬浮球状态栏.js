@@ -324,8 +324,10 @@
             backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
             color: var(--sam-text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden;
         }
-        #samsara-panel.open { display: flex; animation: samPanelIn 0.35s cubic-bezier(0.16,1,0.3,1) forwards; }
+        #samsara-panel.open { display: flex; animation: samPanelIn 0.28s cubic-bezier(0.16,1,0.3,1) forwards; }
+        #samsara-panel.closing { display: flex; pointer-events: none; animation: samPanelOut 0.18s cubic-bezier(0.4,0,1,1) forwards; }
         @keyframes samPanelIn { from { opacity: 0; transform: scale(0.94) translateY(20px); } to { opacity: 1; transform: none; } }
+        @keyframes samPanelOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.96) translateY(12px); } }
 
         /* 顶栏 */
         .sam-topbar { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid var(--sam-border); background:linear-gradient(90deg,var(--sam-dark) 0%,transparent 100%); cursor:grab; user-select:none; flex-shrink:0; }
@@ -431,12 +433,24 @@
         .sam-slot-chip { font-size:11px; color:var(--sam-text); font-weight:bold; white-space:nowrap; }
         .sam-slot-chip.full { color:#4ade80; }      /* 满: 绿 */
         .sam-slot-chip.over { color:var(--sam-hp); } /* 超限: 红 */
-        /* 立绘放大查看器 */
-        #samsara-portrait-viewer { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(5,5,12,0.94); backdrop-filter:blur(14px); z-index:999999999; justify-content:center; align-items:center; cursor:zoom-out; }
+        /* 立绘放大查看器 — 全屏 + dvh/safe-area，避免刘海/底栏裁切 */
+        #samsara-portrait-viewer {
+            display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; height:100dvh;
+            background:rgba(5,5,12,0.94); backdrop-filter:blur(14px); z-index:999999999;
+            justify-content:center; align-items:center; flex-direction:column; cursor:zoom-out;
+            padding:env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+            box-sizing:border-box;
+        }
         #samsara-portrait-viewer.show { display:flex; animation:samPvFade 0.2s ease; }
         @keyframes samPvFade { from{opacity:0;} to{opacity:1;} }
-        #sam-pv-img { max-width:88vw; max-height:86vh; object-fit:contain; border:2px solid var(--sam-accent); border-radius:6px; box-shadow:0 0 60px rgba(143,159,255,0.4); display:block; }
-        #sam-pv-label { margin-top:10px; color:var(--sam-accent); font-size:14px; font-weight:bold; }
+        #sam-pv-img {
+            max-width:min(88vw, 100%);
+            max-height:calc(86vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+            max-height:calc(86dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+            object-fit:contain; border:2px solid var(--sam-accent); border-radius:6px;
+            box-shadow:0 0 60px rgba(143,159,255,0.4); display:block;
+        }
+        #sam-pv-label { margin-top:10px; color:var(--sam-accent); font-size:14px; font-weight:bold; text-align:center; padding:0 12px; }
 
         /* 底部状态按钮条(状态名+持续时间, 点击弹二级详情) —— 强制单行横向滚动, 状态再多也不换行/不竖排 */
         .sam-buff-rail { display:flex; flex-wrap:nowrap; gap:5px; padding:6px 12px; border-bottom:1px solid var(--sam-border); overflow-x:auto; overflow-y:hidden; flex-shrink:0; background:var(--sam-card); -webkit-overflow-scrolling:touch; white-space:nowrap; }
@@ -559,15 +573,15 @@
         .sam-buff-chip .sam-fc-del-btn { position:absolute; top:1px; right:1px; width:14px; height:14px; font-size:9px; line-height:1; margin:0; padding:0; border:none; border-radius:50%; z-index:3; }
         .sam-buff-empty { font-size:11px; color:var(--sam-sub); padding:4px 0; }
 
-        /* Tab主体 */
-        .sam-main { display:flex; flex:1; min-height:0; }
-        .sam-tab-rail { flex:0 0 58px; display:flex; flex-direction:column; border-right:1px solid var(--sam-border); background:var(--sam-dark); overflow-y:auto; }
+        /* Tab主体 — flex 滚动链需 min-height:0，否则展开后无法内部滚动 */
+        .sam-main { display:flex; flex:1; min-height:0; overflow:hidden; }
+        .sam-tab-rail { flex:0 0 58px; display:flex; flex-direction:column; border-right:1px solid var(--sam-border); background:var(--sam-dark); overflow-y:auto; min-height:0; -webkit-overflow-scrolling:touch; }
         .sam-tab-rail::-webkit-scrollbar { width:4px; }
         .sam-tab-rail::-webkit-scrollbar-thumb { background:var(--sam-border); }
         .sam-tab-btn { padding:8px 2px; text-align:center; font-size:11px; font-weight:bold; cursor:pointer; border-left:3px solid transparent; color:var(--sam-sub); transition:all 0.2s; line-height:1.2; }
         .sam-tab-btn:hover { background:var(--sam-hover); color:var(--sam-text); }
         .sam-tab-btn.active { color:var(--sam-accent); border-left-color:var(--sam-accent); background:var(--sam-hover); }
-        .sam-tab-content { flex:1; overflow-y:auto; padding:8px 10px; }
+        .sam-tab-content { flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; touch-action:pan-y; padding:8px 10px; }
         .sam-tab-content::-webkit-scrollbar { width:6px; }
         .sam-tab-content::-webkit-scrollbar-thumb { background:var(--sam-border); border-radius:3px; }
 
@@ -758,16 +772,19 @@
         .sam-rumor-trade-btn { margin-left:6px; padding:1px 8px; font-size:11px; font-weight:bold; border-radius:4px; border:1px solid var(--sam-thp); color:var(--sam-thp); background:rgba(229,193,102,0.10); cursor:pointer; }
         .sam-rumor-trade-btn:hover { background:var(--sam-thp); color:#1a1a1a; }
         .sam-rumor-price { display:inline-flex; align-items:center; gap:4px; }
-        /* 确认弹窗: 配合修复版的 margin 居中引擎 */
-        .sam-confirm-box { 
-            min-width:280px; max-width:100%; margin:auto;
-            background:var(--sam-bg); border:1px solid var(--sam-accent); border-radius:10px; 
-            padding:16px; box-shadow:0 12px 40px rgba(0,0,0,0.7); 
+        /* 确认弹窗: 宽度自适应 + 长文可滚 + 触控热区 */
+        .sam-confirm-box {
+            width:min(360px, 100%); min-width:0; max-width:100%; margin:auto;
+            max-height:calc(100vh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+            max-height:calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+            overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+            background:var(--sam-bg); border:1px solid var(--sam-accent); border-radius:10px;
+            padding:16px; box-shadow:0 12px 40px rgba(0,0,0,0.7); box-sizing:border-box;
         }
         .sam-confirm-title { font-size:14px; font-weight:900; color:var(--sam-accent); margin-bottom:10px; }
-        .sam-confirm-body { font-size:12px; color:var(--sam-text); line-height:1.5; margin-bottom:14px; }
+        .sam-confirm-body { font-size:12px; color:var(--sam-text); line-height:1.5; margin-bottom:14px; word-break:break-word; overflow-wrap:anywhere; }
         .sam-confirm-actions { display:flex; justify-content:flex-end; gap:8px; }
-        .sam-confirm-btn { padding:5px 14px; font-size:12px; font-weight:bold; border-radius:4px; border:1px solid var(--sam-border); background:rgba(143,159,255,0.10); color:var(--sam-text); cursor:pointer; }
+        .sam-confirm-btn { min-height:40px; min-width:72px; padding:10px 16px; font-size:13px; font-weight:bold; border-radius:6px; border:1px solid var(--sam-border); background:rgba(143,159,255,0.10); color:var(--sam-text); cursor:pointer; }
         .sam-confirm-btn.ok { border-color:var(--sam-hp); color:var(--sam-hp); }
         .sam-confirm-btn.ok:hover { background:var(--sam-hp); color:#fff; }
         .sam-confirm-btn.cancel:hover { background:rgba(143,159,255,0.25); }
@@ -847,7 +864,8 @@
         /* ===== 物资转移弹窗(向在场NPC转移装备/道具) ===== */
         .sam-npc-transfer { position:absolute; top:4px; z-index:2; padding:3px 8px; font-size:10px; font-weight:bold; color:var(--sam-thp); background:rgba(229,193,102,0.12); border:1px solid rgba(229,193,102,0.4); border-radius:5px; cursor:pointer; line-height:1.4; white-space:nowrap; }
         .sam-npc-transfer:hover { background:rgba(229,193,102,0.28); box-shadow:0 0 8px rgba(229,193,102,0.3); }
-        .sam-trf-list { max-height:50vh; overflow-y:auto; padding:2px; }
+        /* 转移列表：不再固定 50vh 嵌套滚动，交给 .sam-modal-body 单层滚 */
+        .sam-trf-list { padding:2px; }
         .sam-trf-sec { font-size:11px; font-weight:900; color:var(--sam-accent); margin:8px 0 5px; padding:3px 8px; border-left:3px solid var(--sam-accent); background:rgba(143,159,255,0.06); border-radius:0 4px 4px 0; }
         .sam-trf-sec:first-child { margin-top:0; }
         .sam-trf-item { position:relative; padding:8px 10px; margin-bottom:6px; background:var(--sam-card); border:1px solid var(--sam-border); border-left:3px solid var(--sam-sub); border-radius:6px; cursor:pointer; transition:transform 0.15s,box-shadow 0.15s,border-color 0.15s; }
@@ -873,7 +891,7 @@
         .sam-trf-warn { font-size:11px; color:var(--sam-hp); line-height:1.6; margin-bottom:8px; padding:6px 10px; background:rgba(228,88,125,0.08); border:1px solid rgba(228,88,125,0.25); border-radius:5px; }
         .sam-trf-warn strong { color:var(--sam-hp); font-weight:900; }
         .sam-trf-actions { display:flex; gap:8px; justify-content:flex-end; }
-        .sam-trf-btn { padding:7px 18px; font-size:12px; font-weight:bold; border-radius:5px; cursor:pointer; border:1px solid var(--sam-border); transition:all 0.18s; }
+        .sam-trf-btn { min-height:40px; padding:10px 18px; font-size:13px; font-weight:bold; border-radius:6px; cursor:pointer; border:1px solid var(--sam-border); transition:all 0.18s; }
         .sam-trf-btn.cancel { background:rgba(143,159,255,0.1); color:var(--sam-text); }
         .sam-trf-btn.cancel:hover { background:rgba(143,159,255,0.22); }
         .sam-trf-btn.confirm { background:rgba(228,88,125,0.15); color:var(--sam-hp); border-color:var(--sam-hp); }
@@ -909,30 +927,37 @@
         .sam-save-btn { position:fixed; bottom:10px; left:10px; z-index:999999; padding:3px 9px; border-radius:10px; border:none; background:var(--sam-accent); color:#fff; font-size:10px; font-weight:bold; cursor:pointer; box-shadow:0 1px 6px rgba(0,0,0,0.4); }
         .sam-save-btn:hover { transform:scale(1.05); }
 
-        /* 弹窗(必须高于面板999998) - 完美防裁切修复版 */
+        /* 弹窗(必须高于面板999998) — 遮罩不滚，仅 .sam-modal-body 单层滚动 */
         #samsara-modal {
             position:fixed; top:0; left:0; width:100vw; height:100vh; height:100dvh; z-index:1000000;
             display:none; align-items:center; justify-content:center;
             background:var(--sam-modal-overlay); backdrop-filter:blur(4px);
-            overflow-y:auto;
-            padding: 5vh 15px calc(5vh + env(safe-area-inset-bottom, 0px));
-            padding: 5dvh 15px calc(5dvh + env(safe-area-inset-bottom, 0px));
-            box-sizing: border-box;
+            overflow:hidden;
+            padding:max(8px, env(safe-area-inset-top, 0px), 3dvh) 12px max(8px, env(safe-area-inset-bottom, 0px), 3dvh);
+            box-sizing:border-box;
         }
         #samsara-modal.open { display:flex; animation:samFade 0.2s; }
         @keyframes samFade { from{opacity:0;} to{opacity:1;} }
-        
+
         .sam-modal-box {
             width:520px; max-width:100%; margin:0 auto;
-            max-height:calc(90vh - env(safe-area-inset-bottom, 0px));
-            max-height:calc(90dvh - env(safe-area-inset-bottom, 0px));
+            max-height:100%;
             display:flex; flex-direction:column; box-sizing:border-box;
             background:var(--sam-bg); border:1px solid var(--sam-accent); border-radius:10px;
             box-shadow:0 12px 40px rgba(0,0,0,0.7); color:var(--sam-text);
+            min-height:0; overflow:hidden;
         }
-        .sam-modal-head { flex-shrink:0; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--sam-border); font-weight:900; }
-        .sam-modal-body { flex:1 1 auto; min-height:0; overflow-y:auto; padding:12px 16px; }
-        .sam-modal-close { cursor:pointer; color:var(--sam-hp); font-size:20px; line-height:1; padding:0 4px; }
+        .sam-modal-head { flex-shrink:0; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--sam-border); font-weight:900; gap:8px; }
+        .sam-modal-head > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .sam-modal-body {
+            flex:1 1 auto; min-height:0;
+            overflow-x:hidden; overflow-y:auto;
+            -webkit-overflow-scrolling:touch; overscroll-behavior:contain; touch-action:pan-y;
+            padding:12px 16px;
+        }
+        .sam-modal-body::-webkit-scrollbar { width:6px; }
+        .sam-modal-body::-webkit-scrollbar-thumb { background:var(--sam-border); border-radius:3px; }
+        .sam-modal-close { cursor:pointer; color:var(--sam-hp); font-size:20px; line-height:1; padding:4px 6px; flex-shrink:0; min-width:32px; min-height:32px; display:inline-flex; align-items:center; justify-content:center; }
         /* 内联完整资料卡片(装备/道具/技能/血统/形态) */
         .sam-full-card { padding:8px 10px; background:linear-gradient(180deg,var(--sam-card),rgba(0,0,0,0.15)); border:1px solid var(--sam-border); border-left:3px solid var(--sam-sub); border-radius:6px; margin-bottom:6px; transition:box-shadow 0.2s; }
         /* 单列列表(任务/传闻 一条一排) */
@@ -962,15 +987,15 @@
         .sam-fc-q.q-SS { color:var(--sam-q-ss); border-color:var(--sam-q-ss); background:rgba(239,68,68,0.18); text-shadow:0 0 4px rgba(239,68,68,0.6); }
         .sam-fc-q.q-SSS { color:var(--sam-q-sss); border-color:var(--sam-q-sss); background:rgba(236,72,153,0.20); text-shadow:0 0 5px rgba(236,72,153,0.7); box-shadow:0 0 6px rgba(236,72,153,0.4); }
         /* 层级字母(顶部主角层级 / 进度条左右层级 / NPC层级): 按档着色, 与品质徽章同色板 */
-        .sam-hero-tier.q-F,.sam-tier-side.q-F,.sam-npc-tier.q-F { color:var(--sam-q-f); }
-        .sam-hero-tier.q-E,.sam-tier-side.q-E,.sam-npc-tier.q-E { color:var(--sam-q-e); }
-        .sam-hero-tier.q-D,.sam-tier-side.q-D,.sam-npc-tier.q-D { color:var(--sam-q-d); }
-        .sam-hero-tier.q-C,.sam-tier-side.q-C,.sam-npc-tier.q-C { color:var(--sam-q-c); }
-        .sam-hero-tier.q-B,.sam-tier-side.q-B,.sam-npc-tier.q-B { color:var(--sam-q-b); }
-        .sam-hero-tier.q-A,.sam-tier-side.q-A,.sam-npc-tier.q-A { color:var(--sam-q-a); }
-        .sam-hero-tier.q-S,.sam-tier-side.q-S,.sam-npc-tier.q-S { color:var(--sam-q-s); text-shadow:0 0 4px rgba(234,179,8,0.5); }
-        .sam-hero-tier.q-SS,.sam-tier-side.q-SS,.sam-npc-tier.q-SS { color:var(--sam-q-ss); text-shadow:0 0 5px rgba(239,68,68,0.6); }
-        .sam-hero-tier.q-SSS,.sam-tier-side.q-SSS,.sam-npc-tier.q-SSS { color:var(--sam-q-sss); text-shadow:0 0 6px rgba(236,72,153,0.7); }
+        .sam-hero-tier.q-F,.sam-tier-side.q-F,.sam-npc-tier.q-F,.sam-nd-tier.q-F { color:var(--sam-q-f); }
+        .sam-hero-tier.q-E,.sam-tier-side.q-E,.sam-npc-tier.q-E,.sam-nd-tier.q-E { color:var(--sam-q-e); }
+        .sam-hero-tier.q-D,.sam-tier-side.q-D,.sam-npc-tier.q-D,.sam-nd-tier.q-D { color:var(--sam-q-d); }
+        .sam-hero-tier.q-C,.sam-tier-side.q-C,.sam-npc-tier.q-C,.sam-nd-tier.q-C { color:var(--sam-q-c); }
+        .sam-hero-tier.q-B,.sam-tier-side.q-B,.sam-npc-tier.q-B,.sam-nd-tier.q-B { color:var(--sam-q-b); }
+        .sam-hero-tier.q-A,.sam-tier-side.q-A,.sam-npc-tier.q-A,.sam-nd-tier.q-A { color:var(--sam-q-a); }
+        .sam-hero-tier.q-S,.sam-tier-side.q-S,.sam-npc-tier.q-S,.sam-nd-tier.q-S { color:var(--sam-q-s); text-shadow:0 0 4px rgba(234,179,8,0.5); }
+        .sam-hero-tier.q-SS,.sam-tier-side.q-SS,.sam-npc-tier.q-SS,.sam-nd-tier.q-SS { color:var(--sam-q-ss); text-shadow:0 0 5px rgba(239,68,68,0.6); }
+        .sam-hero-tier.q-SSS,.sam-tier-side.q-SSS,.sam-npc-tier.q-SSS,.sam-nd-tier.q-SSS { color:var(--sam-q-sss); text-shadow:0 0 6px rgba(236,72,153,0.7); }
         .sam-fc-rows { font-size:12px; }
         .sam-fc-rows .sam-row { padding:3px 0; }
         .sam-fc-rows .sam-row .v { max-width:75%; }
@@ -1033,14 +1058,14 @@
 
         @media (max-width:768px) {
             #samsara-ball { top:calc(70px + env(safe-area-inset-top, 0px)) !important; bottom:auto !important; right:calc(16px + env(safe-area-inset-right, 0px)) !important; width:30px !important; height:30px !important; }
-            /* 👇 修复此行：改为明确的高度 88vh，去掉 bottom 的冲突计算 */
+            /* 手机端：上下贴边自适应固定视口，内部由 .sam-tab-content 滚动 */
             #samsara-panel {
-                top: 5vh !important; top: 5dvh !important;
-                left: 0 !important; right: 0 !important; bottom: auto !important; 
-                margin: 0 auto !important; width: 94vw !important; max-width: 440px !important; 
-                height: calc(88vh - env(safe-area-inset-bottom, 0px)) !important;
-                height: calc(88dvh - env(safe-area-inset-bottom, 0px)) !important;
-                max-height: none !important; border-radius: 12px !important;
+                top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+                bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+                left: 0 !important; right: 0 !important;
+                margin: 0 auto !important; width: 94vw !important; max-width: 440px !important;
+                height: auto !important; max-height: none !important;
+                border-radius: 12px !important;
             }
             .sam-topbar { padding:10px; cursor:default; }
             .sam-topbar .tl-info { font-size:11px; }
@@ -1069,6 +1094,21 @@
             .sam-fc-title { font-size:13px; }
             .sam-fc-rows { font-size:11px; }
             .sam-save-btn { bottom:8px; left:8px; padding:2px 7px; font-size:9px; }
+            /* 二级弹窗手机加固 */
+            #samsara-modal {
+                padding:max(8px, env(safe-area-inset-top, 0px)) 10px max(8px, env(safe-area-inset-bottom, 0px));
+            }
+            .sam-modal-box { width:100%; border-radius:12px; }
+            .sam-modal-head { padding:10px 12px; font-size:14px; }
+            .sam-modal-body { padding:10px 12px; }
+            .sam-settings-grid { grid-template-columns:1fr; }
+            .sam-toggle-row { gap:10px; align-items:flex-start; }
+            .sam-confirm-box { width:100%; padding:14px; }
+            .sam-confirm-actions { gap:10px; }
+            .sam-confirm-btn { flex:1; min-height:44px; }
+            .sam-trf-actions { gap:10px; }
+            .sam-trf-btn { flex:1; min-height:44px; }
+            .sam-trf-qty-btn { width:36px; height:36px; }
         }
         `;
     }
@@ -1089,12 +1129,27 @@
         var $ball = $('#samsara-ball');
         var isOpen = $panel.hasClass('open');
         if (isOpen) {
-            $panel.removeClass('open');
-            setTimeout(() => { $panel.css('display', 'none'); }, 300);
-            $ball.fadeIn(200);
+            // 打开时写了内联 display:flex，仅 removeClass('open') 不会立刻隐藏
+            // 以前空等 300ms 才 display:none，又没有退场动画，体感像卡了约 1 秒
+            if ($panel.data('samCloseTimer')) {
+                clearTimeout($panel.data('samCloseTimer'));
+                $panel.removeData('samCloseTimer');
+            }
+            $panel.removeClass('open').addClass('closing');
+            var closeTimer = setTimeout(function() {
+                $panel.removeClass('closing').css('display', 'none');
+                $panel.removeData('samCloseTimer');
+            }, 180);
+            $panel.data('samCloseTimer', closeTimer);
+            $ball.stop(true, true).fadeIn(160);
             try { localStorage.setItem(SAM_CONFIG.open, '0'); } catch(e){}
         } else {
-            if (isMobile()) { $panel.css({left:'',top:'',right:'',bottom:'',margin:''}); }
+            if ($panel.data('samCloseTimer')) {
+                clearTimeout($panel.data('samCloseTimer'));
+                $panel.removeData('samCloseTimer');
+            }
+            $panel.removeClass('closing');
+            if (isMobile()) { $panel.css({left:'',top:'',right:'',bottom:'',margin:'',height:''}); }
             else {
                 var r = $ball[0].getBoundingClientRect();
                 var vw = GS_PARENT.innerWidth, vh = GS_PARENT.innerHeight;
@@ -1106,7 +1161,7 @@
             $panel.css('display', 'flex');
             $panel[0].offsetHeight;
             $panel.addClass('open');
-            $ball.fadeOut(200);
+            $ball.stop(true, true).fadeOut(160);
             try { localStorage.setItem(SAM_CONFIG.open, '1'); } catch(e){}
             renderAll();
         }
@@ -1327,12 +1382,11 @@
     }
     function refreshTransferModal() {
         var $body = $('#samsara-modal .sam-modal-body');
-        var $list = $body.find('.sam-trf-list');
-        var saved = $list.length ? ($list[0].scrollTop || 0) : 0;
+        // 列表已改为 body 单层滚动，恢复 body 的 scrollTop
+        var saved = $body.length ? ($body[0].scrollTop || 0) : 0;
         var sd = getStatData();
         $body.html(renderTransferList(sd));
-        var $new = $body.find('.sam-trf-list');
-        if ($new.length && saved > 0) { try { $new[0].scrollTop = saved; } catch(e){} }
+        if ($body.length && saved > 0) { try { $body[0].scrollTop = saved; } catch(e){} }
     }
     function executeTransfer() {
         var eqKeys = Object.keys(transferCart.装备);
@@ -2240,8 +2294,8 @@
             {key:'asset', label:'经营', icon:'🏗️'},
             {key:'rumor', label:'传闻', icon:'📰'},
             {key:'world', label:'世界', icon:'🌍'},
-            {key:'shop', label:'商城', icon:'🛒'},
-            {key:'enhance', label:'强化', icon:'⚒️'}
+            {key:'shop', label:'商城', icon:'🛒'}
+            // {key:'enhance', label:'强化', icon:'⚒️'}
         ];
         var html = '<div class="sam-tab-rail">';
         tabs.forEach(function(t) {
@@ -3411,9 +3465,10 @@
         else ekeys.forEach(function(k) {
             var e = exp[k] || {};
             var path = '世界.探索.'+k;
+            var q = e.风险 ? parseRarity(e.风险) : '';
             var rows = fcRow('探索度', safeNum(e.探索度,0)+'%', path+'.探索度', editMode, 'number');
             var body = fcRow('描述', e.描述, path+'.描述', editMode);
-            expHtml += fullCard('', k, rows, body, worldDelBtn(path));
+            expHtml += fullCard(q, k, rows, body, worldDelBtn(path));
         });
         html += secBlock('🧭 探索点 ('+Object.keys(w.探索||{}).length+')', expHtml, Object.keys(w.探索||{}).length > 0);
         // 势力
@@ -3424,9 +3479,8 @@
         else fkeys.forEach(function(k) {
             var f = forces[k] || {};
             var path = '世界.势力.'+k;
-            var q = parseRarity(f.实力);
+            var q = f.实力 ? parseRarity(f.实力) : '';
             var rows = '';
-            rows += fcRow('实力', q, path+'.实力', editMode);
             rows += fcRow('声望', safeNum(f.声望,0), path+'.声望', editMode, 'number');
             var body = fcRow('描述', f.描述, path+'.描述', editMode);
             forceHtml += fullCard(q, k, rows, body, worldDelBtn(path));
@@ -3532,7 +3586,7 @@
         var keys = Object.keys(equips);
         // 空库提示
         if (keys.length === 0) {
-            html += '<div class="sam-empty">[暂未开放]</div>';
+            html += '<div class="sam-empty">[无可强化的装备]</div>';
             return html;
         }
         // 装备列表
@@ -3768,7 +3822,7 @@
                 // 对象/数组 -> 可伸缩
                 if (Array.isArray(v)) {
                     if (v.length === 0) {
-                        subBlocks += detailSub(k, '<div class="sam-empty">无</div>', false);
+                        // 空数组: 跳过, 不渲染空折叠栏
                     } else if (isStringArray(v)) {
                         // 纯字符串数组 -> tag chips, 不折叠
                         subBlocks += detailTagBlock(k, v, childAnc);
@@ -3776,7 +3830,7 @@
                         subBlocks += detailSub(k, renderDetailArray(v, hidden, childAnc), v.length <= 2);
                     }
                 } else if (Object.keys(v).length === 0) {
-                    subBlocks += detailSub(k, '<div class="sam-empty">无</div>', false);
+                    // 空对象(如原始属性/效果为{}): 跳过, 不渲染空折叠栏
                 } else {
                     subBlocks += detailSub(k, '<div class="sam-d-sub-body">'+renderDetailNode(v, hidden, childAnc)+'</div>', Object.keys(v).length <= 2);
                 }
@@ -3903,9 +3957,10 @@
         return '<button type="button" class="sam-fc-del-btn" data-del-path="'+esc(path)+'" title="'+(label||'删除')+'">✕</button>';
     }
     function fullCard(q, title, rowsHtml, bodyHtml, headExtra) {
-        var qc = parseRarity(q);
-        var head = '<div class="sam-fc-head"><div class="sam-fc-title">'+esc(title)+'</div>'+(headExtra||'')+'<div class="sam-fc-q q-'+qc+'">'+qc+'</div></div>';
-        return '<div class="sam-full-card q-'+qc+'">'+head+(rowsHtml?'<div class="sam-fc-rows">'+rowsHtml+'</div>':'')+(bodyHtml||'')+'</div>';
+        var qc = q ? parseRarity(q) : '';
+        var badge = qc ? '<div class="sam-fc-q q-'+qc+'">'+qc+'</div>' : '';
+        var head = '<div class="sam-fc-head"><div class="sam-fc-title">'+esc(title)+'</div>'+(headExtra||'')+badge+'</div>';
+        return '<div class="sam-full-card'+(qc?' q-'+qc:'')+'">'+head+(rowsHtml?'<div class="sam-fc-rows">'+rowsHtml+'</div>':'')+(bodyHtml||'')+'</div>';
     }
     function fcRow(k, v, path, editMode, type) {
         if (editMode && path && !isReadonlyPath(path)) {

@@ -4154,7 +4154,7 @@
         // 街头巷议
         html += secBlock('🗣️ 街头巷议 ('+nStreet+')',
             renderRumorFullList(street, '传闻.街头巷议', editMode, [
-                {k:'来源', f:'说书人', type:'text'},
+                {k:'来源', f:'来源', type:'text'},
                 {k:'可信度', f:'可信度', type:'select', options:['酒话','可疑','或许可信']},
                 {k:'内容', f:'内容', type:'textarea', block:true}
             ], '街头巷议'), nStreet > 0, clearBtn('街头巷议', nStreet));

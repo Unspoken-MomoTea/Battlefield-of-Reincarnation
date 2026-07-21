@@ -71,12 +71,12 @@
         {label:'鞋子', type:5, cap:1},
         {label:'披风', type:6, cap:1},
         {label:'饰品', type:7, cap:2},
-        {label:'特殊', type:8, cap:0}
+        {label:'世界遗物', type:8, cap:0}
     ];
     /* 道具战术栏槽位上限 */
     var ITEM_SLOT_CAP = 5;
     /* 血统数量上限(与 EQUIP_SLOTS / ITEM_SLOT_CAP 同级常量, 不写入数据库) */
-    var BLOODLINE_CAP = 3;
+    var BLOODLINE_CAP = 2;
     function isReadonlyPath(path) {
         if (!path) return false;
         // 精确匹配 + 前缀匹配(针对最终属性子字段、NPC层级等)
@@ -317,12 +317,19 @@
 
         #samsara-panel {
             position: fixed !important; right: 70px; top: 6%; z-index: 999998;
-            width: 470px; max-width: 94vw; height: 82vh; max-height: 800px;
+            width: 470px; max-width: 94vw; height: 82vh; max-height: 800px; min-height: 280px;
             display: none; flex-direction: column;
             background: var(--sam-bg); border: 1px solid var(--sam-border); border-radius: 10px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 0 40px rgba(0,0,0,0.3);
             backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
             color: var(--sam-text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden;
+        }
+        /* 中等屏幕: 居中显示(不贴右) */
+        @media (max-width: 1100px) and (min-width: 769px) {
+            #samsara-panel {
+                left: 0 !important; right: 0 !important; margin: 0 auto !important;
+                top: 6% !important;
+            }
         }
         #samsara-panel.open { display: flex; animation: samPanelIn 0.28s cubic-bezier(0.16,1,0.3,1) forwards; }
         #samsara-panel.closing { display: flex; pointer-events: none; animation: samPanelOut 0.18s cubic-bezier(0.4,0,1,1) forwards; }
@@ -472,6 +479,10 @@
         .sam-shop-refresh-btn:hover { transform:translateY(-1px); box-shadow:0 3px 8px rgba(229,193,102,0.25); background:linear-gradient(135deg, rgba(212,175,55,0.28), rgba(255,247,214,0.14)); }
         .sam-shop-refresh-btn:active { transform:translateY(0); }
         .sam-shop-refresh-btn[disabled] { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
+        /* "停止刷新"按钮: 仅在刷新中表示层显示, 用于打破卡死的AI请求 */
+        .sam-shop-stop-btn { margin-top:4px; padding:7px 14px; border:1px solid rgba(228,72,72,0.55); border-radius:6px; background:linear-gradient(135deg, rgba(228,72,72,0.18), rgba(255,180,180,0.06)); color:#ffb3b3; font-size:12px; font-weight:bold; cursor:pointer; white-space:nowrap; transition:transform 0.15s, box-shadow 0.15s, background 0.15s; }
+        .sam-shop-stop-btn:hover { transform:translateY(-1px); box-shadow:0 3px 8px rgba(228,72,72,0.28); background:linear-gradient(135deg, rgba(228,72,72,0.28), rgba(255,180,180,0.12)); }
+        .sam-shop-stop-btn:active { transform:translateY(0); }
         /* ===== 商城市场区(刷新商品后展示) ===== */
         /* 区域Tab条: 装备|道具|技能|血统 */
         .sam-shop-tabs { display:flex; flex-wrap:nowrap; gap:4px; padding:6px 4px; border-bottom:1px solid var(--sam-border); overflow-x:auto; overflow-y:hidden; flex-shrink:0; -webkit-overflow-scrolling:touch; }
@@ -495,7 +506,7 @@
         .sam-hold-content { padding:2px 2px 6px; }
         .sam-hold-hint { display:inline-flex; align-items:center; gap:4px; font-size:10px; color:var(--sam-sub); background:rgba(0,0,0,0.25); border:1px solid var(--sam-border); border-radius:10px; padding:2px 9px; margin-bottom:8px; opacity:0.85; }
         /* 上方归类Tab条 + 中部list(滚动) + 底部购物车栏(常驻) 三段式固定布局 */
-        .sam-shop-market { display:flex; flex-direction:column; gap:0; height:420px; min-height:120px; }
+        .sam-shop-market { display:flex; flex-direction:column; gap:0; flex:1; min-height:0; }
         .sam-shop-tabs { flex-shrink:0; }
         .sam-shop-nav { display:flex; flex-direction:row; flex-wrap:nowrap; gap:4px; padding:6px 4px; border-bottom:1px solid var(--sam-border); overflow-x:auto; overflow-y:hidden; flex-shrink:0; -webkit-overflow-scrolling:touch; }
         .sam-shop-nav::-webkit-scrollbar { height:3px; }
@@ -511,6 +522,9 @@
         .sam-shop-refreshing { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:20px; text-align:center; color:var(--sam-sub); font-size:13px; line-height:1.6; }
         .sam-shop-refreshing .sam-shop-refreshing-spin { font-size:24px; animation:sam-spin 1.2s linear infinite reverse; }
         @keyframes sam-spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+        /* 血统融合进行中: 🧬 放大缩小缓动(非旋转), 与商城刷新的旋转图标区分 */
+        .sam-fusion-pulse { display:inline-block; font-size:26px; line-height:1; transform-origin:center; animation:samFusionPulse 1.4s ease-in-out infinite; }
+        @keyframes samFusionPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.25); } }
         /* 商品卡片(参考 开局.html .item-card 选中/禁用模式) */
         .sam-shop-item { background:linear-gradient(180deg, rgba(22,30,46,0.7), rgba(13,18,28,0.8)); border:1px solid var(--sam-border); border-radius:8px; padding:10px; cursor:pointer; transition:all 0.15s; position:relative; overflow:visible; }
         .sam-shop-item::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--sam-border); opacity:0; transition:opacity 0.15s; border-radius:8px 0 0 8px; }
@@ -964,6 +978,8 @@
         .sam-list-1col { display:flex; flex-direction:column; gap:6px; }
         .sam-list-1col .sam-full-card { margin-bottom:0; }
         .sam-card-list { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+        .sam-card-list.sam-card-list-1col { grid-template-columns:1fr; }
+        .sam-card-list > * { min-width:0; }
         .sam-card-list .sam-full-card { margin-bottom:0; }
         .sam-card-list .sam-empty { grid-column:1/-1; }
         .sam-card-list .sam-empty { grid-column:1/-1; }
@@ -1037,9 +1053,21 @@
         /* 标签 */
         .sam-tags { display:flex; gap:3px; flex-wrap:wrap; }
         .sam-tag { font-size:10px; padding:1px 5px; border-radius:3px; background:rgba(143,159,255,0.12); color:var(--sam-sub); border:1px solid var(--sam-border); }
-        /* 数值徽章 */
-        .sam-stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); gap:4px; margin-top:4px; }
+        /* 数值徽章: 自适应多列, 容器变窄时自动从多列降到 1 列, 不再溢出右侧 */
+        .sam-stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); gap:4px; margin-top:4px; }
         .sam-stat-cell { text-align:center; padding:3px 2px; background:rgba(0,0,0,0.2); border-radius:3px; }
+        /* 容器太窄时(手机/弹窗右栏)强制 2 列, 再窄则 1 列 */
+        @media (max-width:480px) { .sam-stat-grid { grid-template-columns:repeat(2,1fr); } }
+        @media (max-width:340px) { .sam-stat-grid { grid-template-columns:1fr; } }
+        /* 持有面板 / 商城卡片网格: PC 端自动多列(220-260px 一卡), 手机端单列, 避免整宽过大或有空床宽 */
+        .sam-list-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px; }
+        .sam-list-grid .sam-full-card { margin-bottom:0; }
+        .sam-list-grid .sam-empty { grid-column:1/-1; }
+        @media (max-width:768px) { .sam-list-grid { display:flex; flex-direction:column; gap:6px; } }
+        /* 商城持有双栏(装备背包/道具背包 多项时 PC 双栏, 手机单列) */
+        .sam-shop-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:8px; }
+        .sam-shop-grid .sam-shop-item { margin-bottom:0; }
+        @media (max-width:768px) { .sam-shop-grid { display:flex; flex-direction:column; gap:8px; } }
         .sam-stat-cell .sn { font-size:9px; color:var(--sam-sub); }
         .sam-stat-cell .sv { font-size:13px; font-weight:bold; color:var(--sam-text); }
 
@@ -1059,13 +1087,23 @@
         @media (max-width:768px) {
             #samsara-ball { top:calc(70px + env(safe-area-inset-top, 0px)) !important; bottom:auto !important; right:calc(16px + env(safe-area-inset-right, 0px)) !important; width:30px !important; height:30px !important; }
             /* 手机端：上下贴边自适应固定视口，内部由 .sam-tab-content 滚动 */
+            /* 手机端: 上下贴边自适应固定视口, 内部由 .sam-tab-content 滚动。
+               优先用 100dvh(动态视口高度)以避开浏览器地址栏/底部工具栏遮挡;
+               不支持 dvh 的浏览器自动回退到 100vh 版本。同时显式给出 top/bottom,
+               便于被 env(safe-area-inset-*) 兜住任务栏安全区。 */
             #samsara-panel {
                 top: calc(8px + env(safe-area-inset-top, 0px)) !important;
                 bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
                 left: 0 !important; right: 0 !important;
                 margin: 0 auto !important; width: 94vw !important; max-width: 440px !important;
-                height: auto !important; max-height: none !important;
+                height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+                height: calc(100vh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+                min-height: 0 !important; max-height: none !important;
                 border-radius: 12px !important;
+            }
+            /* 面板内部滚动容器同样对底部安全区补齐, 避免内容被浏览器底栏遮住 */
+            .sam-tab-content {
+                padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
             }
             .sam-topbar { padding:10px; cursor:default; }
             .sam-topbar .tl-info { font-size:11px; }
@@ -1109,6 +1147,48 @@
             .sam-trf-actions { gap:10px; }
             .sam-trf-btn { flex:1; min-height:44px; }
             .sam-trf-qty-btn { width:36px; height:36px; }
+        }
+        /* ===== 血统融合舱 UI ===== */
+        .sam-fusion-wrap { display:flex; flex-direction:column; gap:14px; }
+        .sam-fusion-head { display:flex; align-items:center; gap:10px; padding:10px 12px; background:linear-gradient(135deg,rgba(143,159,255,0.12),rgba(0,0,0,0.15)); border:1px solid var(--sam-border); border-radius:8px; }
+        .sam-fusion-head .ico { font-size:22px; }
+        .sam-fusion-head .ttl { font-weight:600; letter-spacing:0.5px; }
+        .sam-fusion-head .sub { font-size:11px; color:var(--sam-sub); margin-left:auto; text-align:right; line-height:1.4; }
+        .sam-fusion-pair { display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:start; }
+        .sam-fusion-col { display:flex; flex-direction:column; gap:6px; min-width:0; }
+        .sam-fusion-col-label { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--sam-sub); }
+        .sam-fusion-col-label .tag { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; font-weight:700; font-size:11px; color:#0a0e14; }
+        .sam-fusion-col-label .tag.a { background:var(--sam-accent); }
+        .sam-fusion-col-label .tag.b { background:var(--sam-hp); }
+        .sam-fusion-col-label .role { font-weight:600; color:var(--sam-fg); }
+        .sam-fusion-col-label .note { color:var(--sam-sub); font-size:10px; margin-left:auto; }
+        .sam-fusion-select { width:100%; padding:6px 8px; background:var(--sam-card); color:var(--sam-fg); border:1px solid var(--sam-border); border-radius:6px; font-size:12px; box-sizing:border-box; }
+        .sam-fusion-preview { min-height:60px; }
+        .sam-fusion-preview .sam-full-card { margin-bottom:0; }
+        .sam-fusion-preview-empty { padding:14px 10px; text-align:center; color:var(--sam-sub); font-size:12px; border:1px dashed var(--sam-border); border-radius:6px; }
+        .sam-fusion-arrow { display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--sam-accent); opacity:0.7; animation:samFusionPulse 1.8s ease-in-out infinite; padding-top:24px; }
+        @keyframes samFusionPulse { 0%,100%{transform:scale(1);opacity:0.7;} 50%{transform:scale(1.15);opacity:1;} }
+        .sam-fusion-rule { padding:10px 12px; background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(0,0,0,0.18)); border:1px solid var(--sam-border); border-radius:8px; }
+        .sam-fusion-rule-title { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+        .sam-fusion-rule-title .name { font-weight:600; font-size:13px; color:var(--sam-thp); }
+        .sam-fusion-rule-title .pill { font-size:10px; padding:2px 8px; border-radius:10px; background:var(--sam-accent); color:#0a0e14; font-weight:600; }
+        .sam-fusion-rule-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .sam-fusion-rule-card { padding:8px 10px; background:var(--sam-card); border:1px solid var(--sam-border); border-left:3px solid var(--sam-sub); border-radius:6px; }
+        .sam-fusion-rule-card .rhead { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+        .sam-fusion-rule-card .rname { font-weight:600; font-size:12px; }
+        .sam-fusion-rule-card .rw { font-size:10px; padding:1px 6px; border-radius:8px; background:rgba(143,159,255,0.18); color:var(--sam-sub); }
+        .sam-fusion-rule-card .rlist { list-style:none; margin:0; padding:0; }
+        .sam-fusion-rule-card .rlist li { font-size:11px; color:var(--sam-fg); padding:2px 0 2px 10px; position:relative; line-height:1.5; }
+        .sam-fusion-rule-card .rlist li::before { content:'▸'; position:absolute; left:0; color:var(--sam-accent); }
+        .sam-fusion-rule-card.r-good { border-left-color:var(--sam-lb); }
+        .sam-fusion-rule-card.r-bad { border-left-color:var(--sam-hp); }
+        .sam-fusion-rule-card.r-mid { border-left-color:var(--sam-thp); }
+        .sam-fusion-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:4px; }
+        .sam-fusion-direct-hint { flex:1; text-align:left; font-size:11px; line-height:1.4; }
+        @media (max-width:560px){
+            .sam-fusion-pair { grid-template-columns:1fr; }
+            .sam-fusion-arrow { transform:rotate(90deg); padding:4px 0; }
+            .sam-fusion-rule-grid { grid-template-columns:1fr; }
         }
         `;
     }
@@ -1286,6 +1366,729 @@
     }
     function closeModal() { $('#samsara-modal').removeClass('open'); }
 
+    /* ===== 血统融合：结果完全由正文 API 返回，前端只负责选择、等待与写回 ===== */
+    /* bloodFusionBusy 仅锁定"血统相关"操作(打开融合舱/执行融合/购买商城血统),
+       其他商城操作(切换区域Tab/选装备/道具/技能/刷新商品)不受影响 */
+    var bloodFusionBusy = false;
+    var bloodFusionShopItem = null;
+    var bloodFusionLastVals = { a: null, b: null }; // A/B 联动: 记录各方上次选中值, 用于撞值时交换
+    var BLOODLINE_RANK = { F:1, E:2, D:3, C:4, B:5, A:6, S:7, SS:8, SSS:9 };
+    function bloodFusionEntries(extra) {
+        var sd = getStatData(), blood = sd && sd.主角 && sd.主角.血统 || {}, list = [];
+        Object.keys(blood).forEach(function(name) { list.push({ name:name, data:blood[name] || {}, owned:true }); });
+        if (extra) list.push({ name:extra.name, data:extra, owned:false });
+        return list;
+    }
+    function bloodFusionOption(entry, selected, hidden) {
+        return '<option value="'+esc(entry.name)+'"'+(selected ? ' selected' : '')+(hidden ? ' hidden' : '')+'>'+esc(entry.name)+' · '+esc(entry.data.品质 || 'F')+'</option>';
+    }
+    /* 血统融合规则库: 同级 / 高低级 两套结果公式, 用于融合舱规则面板展示 + 前端概率算法 */
+    var BLOOD_FUSION_RULES = {
+        same: [ // 同级血统融合
+            { name:'完美升阶', weight:20, cls:'r-good', list:['品质+1阶','六维补全至目标品质正常区间','A/B 双优质词条融合','若双方血统均具有形态倾向，可生成1个融合形态'] },
+            { name:'瑕疵升阶', weight:35, cls:'r-mid', list:['品质+1阶','六维补全至目标品质最低区间','A/B 双普通词条融合','附加高危负面代价词条 1 条'] },
+            { name:'变异觉醒', weight:30, cls:'r-mid', list:['品质不变','属性变化随融合度','清空双方所有词条','随机生成变异词条','根据融合结果判定是否觉醒新形态'] },
+            { name:'基因崩溃', weight:15, cls:'r-bad', list:['A 保持原状','B 永久消耗','不产生收益'] }
+        ],
+        diff: [ // 高低级
+            { name:'稳定强化', weight:35, cls:'r-good', list:['品质不变','六维增加 B 的 20%','融合 B 一条适配被动','若A/B 血统存在形态，根据融合结果决定继承、改造'] },
+            { name:'词条变异', weight:35, cls:'r-mid', list:['品质不变','属性保持 A 不变','词条能力重构'] },
+            { name:'基因排斥', weight:20, cls:'r-bad', list:['品质不变','属性保持 A 不变','生成负面基因杂质词条'] },
+            { name:'崩坏消散', weight:10, cls:'r-bad', list:['A 保持原状','B 永久消耗','不产生收益'] }
+        ]
+    };
+    /* 前端概率算法: 按 weight 权重 roll 出一个确定结果(同步 '脚本/脚本测试.js' 算法)
+       输入 mode='same'|'diff', 返回 BLOOD_FUSION_RULES[mode] 中的某个规则对象 {name, weight, list, cls} */
+    function bloodFusionRoll(mode) {
+        var t = BLOOD_FUSION_RULES[mode] || BLOOD_FUSION_RULES.same;
+        var total = 0;
+        for (var i = 0; i < t.length; i++) total += t[i].weight;
+        var r = Math.random() * total;
+        for (var j = 0; j < t.length; j++) {
+            r -= t[j].weight;
+            if (r < 0) return t[j];
+        }
+        return t[t.length - 1];
+    }
+    /* 上一次前端 roll 出的结果(供 bloodFusionStart → bloodFusionBuildPrompt 传给 AI;
+       AI 仅按此结果渲染血统数据, 禁止自行选择) */
+    var bloodFusionResult = null;
+    /* 本次融合正在消耗的血统名(A 与 B), 用于:
+       1) 融合进行中: 升级区里"替换目标 = 这些血统"的升级卡片灰显锁定;
+       2) 融合成功: 升级区里"替换目标 = 被删血统"的升级条目一并从商城升级列表删除
+       (原血统已被融合消耗, 对应的旧升级服务失去意义) */
+    var bloodFusionConsumedNames = [];
+    /* 融合回合计数: 每次 bloodFusionStart +1, 旧 Promise 回调回合不匹配时丢弃结果(支持"停止融合"打断卡死请求);
+       bloodFusionSnap 保存开始时已扣除的空间币与商品库快照, 供 bloodFusionStop / 失败时回滚 */
+    var bloodFusionEpoch = 0;
+    var bloodFusionSnap = null;
+    /* 血统卡片预览(复用 fullCard, 只读): 质量/标签/原始属性/效果/描述 */
+    function bloodFusionPreviewCardHtml(entry) {
+        if (!entry) return '<div class="sam-fusion-preview-empty">— 无可用血统 —</div>';
+        var b = entry.data || {}, q = parseRarity(b.品质);
+        var rows = '', body = '<div class="sam-fc-body">';
+        body += fcBody('标签', formatTags(b.标签 || [], '', false), 'sam-fc-tags');
+        if (b.原始属性 && typeof b.原始属性 === 'object' && Object.keys(b.原始属性).length > 0) {
+            body += fcBodyCollapsible('原始属性', formatStatGrid(b.原始属性, 3), 'sam-fc-stats', false);
+        }
+        body += fcBody('效果', formatEffects(b.效果 || {}, '', false), 'sam-fc-effects');
+        body += fcBody('描述', esc(safeStr(b.描述) || '-'));
+        body += '</div>';
+        var badge = entry.owned ? '<span class="sam-fusion-owned-pill" style="font-size:10px;padding:2px 6px;border-radius:8px;background:rgba(143,159,255,0.18);color:var(--sam-sub)">已持有</span>' : '<span class="sam-fusion-shop-pill" style="font-size:10px;padding:2px 6px;border-radius:8px;background:var(--sam-hp);color:#fff">商城商品</span>';
+        return '<div class="sam-fusion-preview">'+fullCard(q, entry.name, rows, body, badge)+'</div>';
+    }
+    /* 规则面板: 按 mode=same/diff 渲染对应结果公式卡片网格 */
+    function bloodFusionRulePanelHtml(mode) {
+        var list = BLOOD_FUSION_RULES[mode] || [];
+        var title = (mode === 'same') ? '同级融合 · 概率分布' : '高低级融合 · 概率分布';
+        var cards = list.map(function(r) {
+            var lis = r.list.map(function(t){ return '<li>'+esc(t)+'</li>'; }).join('');
+            return '<div class="sam-fusion-rule-card '+r.cls+'">'
+                + '<div class="rhead"><span class="rname">'+esc(r.name)+'</span><span class="rw">'+r.weight+'%</span></div>'
+                + '<ul class="rlist">'+lis+'</ul>'
+                + '</div>';
+        }).join('');
+        return '<div class="sam-fusion-rule">'
+            + '<div class="sam-fusion-rule-title"><span class="name">'+esc(title)+'</span><span class="pill">前端按权重 roll · AI 仅渲染数据</span></div>'
+            + '<div class="sam-fusion-rule-grid">'+cards+'</div></div>';
+    }
+    /* 取 entry 品质数值 */
+    function bloodFusionRankOf(entry) {
+        if (!entry || !entry.data) return 1;
+        return BLOODLINE_RANK[String(entry.data.品质 || 'F').toUpperCase()] || 1;
+    }
+    /* 渲染融合舱内 A/B 下拉框(撞值交换 + 过滤规则, A/B 双向对称):
+       - 本方当前选中项: selected + hidden(展开列表隐藏, select 仍显示当前值)
+       - B 列 maxRank 约束: 品质 > maxRank(A 品质) 的项直接跳过(B 不得高于 A)
+       - excludeName 对方当前同名项: 双方都仅当 A 与 B 当前同品质(同级)时显示 '(= 对方, 点击交换)',
+         否则隐藏(同级才允许交换, 不同级时交换会让 B>A 违反 B≤A)
+       规则总结: B 选项必须 ≤ A 品质; 同名同条血统不可同时被选 A 与 B;
+                 A 与 B 同品质(同级)时, A/B 双方下拉都显示对方当前项作为撞值交换入口 */
+    function bloodFusionSelectHtml(entries, role, selName, maxRank, excludeName) {
+        var selRank = null, exclRank = null;
+        for (var k = 0; k < entries.length; k++) {
+            if (entries[k].name === selName) selRank = bloodFusionRankOf(entries[k]);
+            if (excludeName && entries[k].name === excludeName) exclRank = bloodFusionRankOf(entries[k]);
+        }
+        var sameRank = (selRank !== null && exclRank !== null && selRank === exclRank);
+        var html = '<select class="sam-fusion-select" data-fusion-role="'+role+'" style="width:100%;margin-top:4px">';
+        entries.forEach(function(x) {
+            if (x.name === selName) { html += bloodFusionOption(x, true, true); return; }
+            if (excludeName && x.name === excludeName) {
+                // 双方都仅当 A 与 B 同品质(同级)时才显示 '(= 对方, 点击交换)', 否则隐藏
+                if (sameRank) {
+                    var peer = (role === 'a') ? 'B' : 'A';
+                    html += '<option value="'+esc(x.name)+'">'+esc(x.name)+' · '+esc(x.data.品质 || 'F')+' (点击交换)</option>';
+                }
+                return;
+            }
+            if (role === 'b' && maxRank != null && bloodFusionRankOf(x) > maxRank) return;
+            html += bloodFusionOption(x, false, false);
+        });
+        html += '</select>';
+        return html;
+    }
+    /* 重建 A/B 两个下拉框:
+       - A 列: B 当前同名项仅当 A、B 同品质时显示为 '(= B, 点击交换)', 否则隐藏; 其他项可见可选
+       - B 列: A 当前同名项仅当 A、B 同品质时显示为 '(= A, 点击交换)', 否则隐藏; 品质>A 的项跳过 */
+    function bloodFusionRebuildSelects(entries, aVal, bVal) {
+        var aEntry = null;
+        for (var i = 0; i < entries.length; i++) { if (entries[i].name === aVal) { aEntry = entries[i]; break; } }
+        var maxRank = aEntry ? bloodFusionRankOf(aEntry) : 9;
+        $('.sam-fusion-select[data-fusion-role="a"]').replaceWith(bloodFusionSelectHtml(entries, 'a', aVal, null, bVal));
+        $('.sam-fusion-select[data-fusion-role="b"]').replaceWith(bloodFusionSelectHtml(entries, 'b', bVal, maxRank, aVal));
+    }
+    /* 计算直接购买按钮状态: 血统数已满 → 灰度+左侧提示文案(不弹窗); 否则正常可点 */
+    function bloodFusionDirectBtnState() {
+        if (!bloodFusionShopItem) return { show: false };
+        var sd = getStatData();
+        var cap = BLOODLINE_CAP, count = sd && sd.主角 ? Object.keys(sd.主角.血统 || {}).length : 0;
+        var full = (count >= cap);
+        return { show: true, full: full, count: count, cap: cap };
+    }
+    /* 智能 A/B 初始选值:
+       - 无 shopItem(从血统面板进入): entries 全部为自身血统, 按品质降序, A=最高, B=次高(A≥B)
+       - 有 shopItem(从血统商店进入): B 默认 = 商店血统; A = 自身最高品质血统
+         (除非商店血统品质 > 自身最高品质 → A=商店血统, B=自身最高品质血统) */
+    function bloodFusionPickInitialAB(entries, shopItem) {
+        if (entries.length < 2) return { aName: null, bName: null };
+        var owned = entries.filter(function(e){ return e.owned; }).sort(function(p,q){ return bloodFusionRankOf(q) - bloodFusionRankOf(p); });
+        var shopEntry = shopItem ? entries.filter(function(e){ return !e.owned; })[0] : null;
+        if (!shopEntry) {
+            // 面板入口: A=最高, B=次高
+            return { aName: owned[0].name, bName: owned[1].name };
+        }
+        if (owned.length === 0) return { aName: shopEntry.name, bName: null };
+        var topOwned = owned[0];
+        if (bloodFusionRankOf(shopEntry) > bloodFusionRankOf(topOwned)) {
+            // 商店血统更高级 → A=商店, B=自身最高(同级或更低)
+            return { aName: shopEntry.name, bName: topOwned.name };
+        }
+        // 商店血统 ≤ 自身最高 → A=自身最高, B=商店血统
+        return { aName: topOwned.name, bName: shopEntry.name };
+    }
+    /* 在 entries 中按品质降序, 找到第一个 ≠ excludeName 且 rank ≤ maxRank 的可用项(用于 B 回退) */
+    function bloodFusionPickBUnderA(entries, excludeName, maxRank) {
+        var sorted = entries.slice().sort(function(p,q){ return bloodFusionRankOf(q) - bloodFusionRankOf(p); });
+        for (var i = 0; i < sorted.length; i++) {
+            if (sorted[i].name === excludeName) continue;
+            if (bloodFusionRankOf(sorted[i]) > maxRank) continue;
+            return sorted[i].name;
+        }
+        return null;
+    }
+    /* 判定融合类型: A/B 品质同级 → 'same'(同级融合); 否则 → 'diff'(高低级融合) */
+    function bloodFusionJudgeMode(aName, bName, entries) {
+        var find = function(n) {
+            for (var i = 0; i < entries.length; i++) { if (entries[i].name === n) return entries[i]; }
+            return null;
+        };
+        var a = find(aName), b = find(bName);
+        if (!a || !b) return 'same';
+        var ar = BLOODLINE_RANK[String(a.data.品质 || 'F').toUpperCase()] || 1;
+        var br = BLOODLINE_RANK[String(b.data.品质 || 'F').toUpperCase()] || 1;
+        return (ar === br) ? 'same' : 'diff';
+    }
+    /* 同步刷新舱内 A/B 预览卡片 + 规则面板(不重建下拉框, 由调用方负责 selects) */
+    function bloodFusionRefreshPreview(entries, aName, bName) {
+        var find = function(n) {
+            for (var i = 0; i < entries.length; i++) { if (entries[i].name === n) return entries[i]; }
+            return null;
+        };
+        $('.sam-fusion-col[data-role="a"] .sam-fusion-preview-wrap').html(bloodFusionPreviewCardHtml(find(aName)));
+        $('.sam-fusion-col[data-role="b"] .sam-fusion-preview-wrap').html(bloodFusionPreviewCardHtml(find(bName)));
+        var mode = bloodFusionJudgeMode(aName, bName, entries);
+        $('.sam-fusion-rule-host').html(bloodFusionRulePanelHtml(mode));
+    }
+    /* 渲染融合舱头部行动条(直接购买/取消 + 开始融合) */
+    function bloodFusionActionsHtml(shopItem) {
+        var html = '<div class="sam-fusion-actions" style="display:flex;align-items:center;gap:8px;margin-top:2px;flex-wrap:wrap">';
+        if (shopItem) {
+            var st = bloodFusionDirectBtnState();
+            if (st.full) {
+                html += '<span class="sam-fusion-direct-hint" style="flex:1;min-width:160px;font-size:11px;color:var(--sam-hp);line-height:1.4">⚠ 血统栏已满 ('+st.count+'/'+st.cap+')，无法直接购买，需通过融合替换。</span>'
+                    + '<button type="button" class="sam-confirm-btn cancel sam-fusion-direct" disabled style="opacity:0.5;cursor:not-allowed;filter:grayscale(1)">直接购买</button>';
+            } else {
+                html += '<span class="sam-fusion-direct-hint" style="flex:1;min-width:160px;font-size:11px;color:var(--sam-sub);line-height:1.4">血统栏余位 '+st.count+'/'+st.cap+'，可直接购入。</span>'
+                    + '<button type="button" class="sam-confirm-btn cancel sam-fusion-direct">直接购买</button>';
+            }
+        } else {
+            html += '<button type="button" class="sam-confirm-btn cancel sam-fusion-direct">取消</button>';
+        }
+        html += '<button type="button" class="sam-confirm-btn ok sam-fusion-start">开始融合</button></div>';
+        return html;
+    }
+    function openBloodFusionModal(shopItem) {
+        // ★ 融合进行中: 仍允许打开舱门查看进度, 但只显示等待提示(不可再次发起融合)
+        if (bloodFusionBusy) {
+            showModal('血统融合进行中', '<div class="sam-shop-refreshing"><div class="sam-fusion-pulse">🧬</div><div>主神正在校验血统相性并执行融合算法…<br>请等待当前融合完成后再发起下一次。</div><button type="button" class="sam-shop-stop-btn" data-sam-act="blood-fusion-stop">⏹ 停止融合(卡住时点此恢复)</button></div>');
+            return;
+        }
+        bloodFusionShopItem = shopItem || null;
+        var extra = shopItem ? { name:shopItem.name, 品质:shopItem.rating, 标签:shopItem.tags || [], 原始属性:shopItem.raw_attrs || {}, 效果:shopItem.effects || {}, 描述:shopItem.description || '' } : null;
+        var entries = bloodFusionEntries(extra);
+        var title = shopItem ? '血统购入与融合确认' : '血统融合舱';
+        var head = '<div class="sam-fusion-head">'
+            + '<span class="ico" style="font-size:22px">🧬</span>'
+            + '<span class="ttl" style="font-size:15px;font-weight:600;color:var(--sam-fg)">血统融合舱</span>'
+            + '<span class="sub" style="font-size:11px;color:var(--sam-sub);line-height:1.5">主血统 <b style="color:var(--sam-accent)">A</b> 决定核心方向 · 外貌与主要能力<br>副素材 <b style="color:var(--sam-hp)">B</b> 融合后永久消耗 · 结果不可撤销</span>'
+            + '</div>';
+        // ★ 血统不足2条: 仍打开弹窗, A/B 下拉框为空+灰度不可点, 预览显示空态, 不再弹 toast 拦截
+        if (entries.length < 2) {
+            var emptySelHtml = '<select class="sam-fusion-select" data-fusion-role="" disabled style="opacity:0.5;cursor:not-allowed;filter:grayscale(1)"><option value="" selected disabled>— 无可用血统 —</option></select>';
+            bloodFusionLastVals = { a: null, b: null };
+            var emptyCard = bloodFusionPreviewCardHtml(null);
+            var html2 = '<div class="sam-fusion-wrap">'
+                + head
+                + '<div class="sam-fusion-pair">'
+                + '<div class="sam-fusion-col" data-role="a"><div class="sam-fusion-col-label"><span class="tag a">A</span><span class="role">主血统</span><span class="note">决定核心方向</span></div>'+emptySelHtml+'<div class="sam-fusion-preview-wrap">'+emptyCard+'</div></div>'
+                + '<div class="sam-fusion-arrow">⇌</div>'
+                + '<div class="sam-fusion-col" data-role="b"><div class="sam-fusion-col-label"><span class="tag b">B</span><span class="role">副素材</span><span class="note">永久消耗</span></div>'+emptySelHtml+'<div class="sam-fusion-preview-wrap">'+emptyCard+'</div></div>'
+                + '</div>'
+                + '<div class="sam-shop-warn" style="margin-top:2px">至少需要两条血统才能进行融合。当前血统栏不足。</div>'
+                + (shopItem ? bloodFusionActionsHtml(shopItem).replace('class="sam-confirm-btn ok sam-fusion-start"', 'class="sam-confirm-btn ok sam-fusion-start" disabled style="opacity:0.5;cursor:not-allowed;filter:grayscale(1)"') : '<div style="display:flex;justify-content:flex-end;margin-top:2px"><button type="button" class="sam-confirm-btn cancel sam-fusion-direct">取消</button></div>')
+                + '</div>';
+            showModal(title, html2);
+            return;
+        }
+        // ★ 智能 A/B 初始选值: 面板入口(无 shopItem) → A=自身最高, B=次高; 商店入口 → A=高级方, B=低级方/商店血统
+        var pick = bloodFusionPickInitialAB(entries, shopItem);
+        var aEntry = null, bEntry = null;
+        for (var pi = 0; pi < entries.length; pi++) {
+            if (entries[pi].name === pick.aName) aEntry = entries[pi];
+            if (entries[pi].name === pick.bName) bEntry = entries[pi];
+        }
+        bloodFusionLastVals = { a: pick.aName, b: pick.bName }; // 记录初始值, 供联动交换使用
+        var maxRank0 = aEntry ? bloodFusionRankOf(aEntry) : 9;
+        var mode = bloodFusionJudgeMode(pick.aName, pick.bName, entries);
+        var html = '<div class="sam-fusion-wrap">'
+            + head
+            + '<div class="sam-fusion-pair">'
+            + '<div class="sam-fusion-col" data-role="a"><div class="sam-fusion-col-label"><span class="tag a">A</span><span class="role">主血统</span><span class="note">决定核心方向</span></div>'+bloodFusionSelectHtml(entries, 'a', pick.aName, null, pick.bName)+'<div class="sam-fusion-preview-wrap">'+bloodFusionPreviewCardHtml(aEntry)+'</div></div>'
+            + '<div class="sam-fusion-arrow">⇌</div>'
+            + '<div class="sam-fusion-col" data-role="b"><div class="sam-fusion-col-label"><span class="tag b">B</span><span class="role">副素材</span><span class="note">永久消耗</span></div>'+bloodFusionSelectHtml(entries, 'b', pick.bName, maxRank0, pick.aName)+'<div class="sam-fusion-preview-wrap">'+bloodFusionPreviewCardHtml(bEntry)+'</div></div>'
+            + '</div>'
+            + '<div class="sam-fusion-rule-host">'+bloodFusionRulePanelHtml(mode)+'</div>'
+            + '<div class="sam-shop-warn" style="margin-top:2px">A 须为主血统(品质 ≥ B); B 选项不可高于 A。品质不同时以较高品质血统作为主血统 A。融合结果由主神算法接口返回，无法撤销、不可回档。</div>'
+            + bloodFusionActionsHtml(shopItem)
+            + '</div>';
+        showModal(title, html);
+    }
+    /* A/B 联动(撞值交换 + B≤A 约束):
+       - 撞值交换: 一方切到对方当前同名项 → 对方自动切回本方旧值
+         例: A=D1, B=D2, 在 B 下拉点 'D1 (= A, 点击交换)' → B=D1, A 自动变 D2
+       - A 切换后若 B 失效(品质>A 或与新 A 同名) → B 回退到品质 ≤ A 的最高可用项(≠A 同名)
+       - B 切换后: 已被下拉过滤保证 ≤A; 若 B 新品质 > A 品质(理论不会发生)则兜底回退 */
+    function bloodFusionSyncSelect(role) {
+        var $a = $('.sam-fusion-select[data-fusion-role="a"]');
+        var $b = $('.sam-fusion-select[data-fusion-role="b"]');
+        if (!$a.length || !$b.length) return;
+        var entries = bloodFusionEntries(bloodFusionShopItem ? { name:bloodFusionShopItem.name, 品质:bloodFusionShopItem.rating, 标签:bloodFusionShopItem.tags || [], 原始属性:bloodFusionShopItem.raw_attrs || {}, 效果:bloodFusionShopItem.effects || {}, 描述:bloodFusionShopItem.description || '' } : null);
+        var oldA = bloodFusionLastVals.a, oldB = bloodFusionLastVals.b;
+        var newVal = (role === 'a') ? $a.val() : $b.val();
+        var otherVal = (role === 'a') ? $b.val() : $a.val();
+        var aVal = (role === 'a') ? newVal : otherVal;
+        var bVal = (role === 'b') ? newVal : otherVal;
+        // 撞值交换: 本方新值 = 对方当前值 → 对方切回本方旧值
+        //   例: role='a', A 由 D1 改为 D2(=B 当前), 此时 A 接 B 的旧位 D2, B 应自动接 A 的旧位 D1 → bVal = oldA
+        //   例: role='b', B 由 D2 改为 D1(=A 当前), 此时 B 接 A 的旧位 D1, A 应自动接 B 的旧位 D2 → aVal = oldB
+        if (newVal === otherVal && oldA && oldB && oldA !== oldB) {
+            if (role === 'a') { bVal = oldA; }
+            else { aVal = oldB; }
+        }
+        // B≤A 约束: 若 B 品质 > A 品质 → B 回退到品质 ≤ A 的最高可用项(≠A 同名)
+        var aEntryFinal = null;
+        for (var af = 0; af < entries.length; af++) { if (entries[af].name === aVal) { aEntryFinal = entries[af]; break; } }
+        if (aEntryFinal) {
+            var maxRankF = bloodFusionRankOf(aEntryFinal);
+            var bEntryFinal = null;
+            for (var bf = 0; bf < entries.length; bf++) { if (entries[bf].name === bVal) { bEntryFinal = entries[bf]; break; } }
+            if (!bEntryFinal || bVal === aVal || bloodFusionRankOf(bEntryFinal) > maxRankF) {
+                var pickB = bloodFusionPickBUnderA(entries, aVal, maxRankF);
+                if (pickB) bVal = pickB;
+            }
+        }
+        bloodFusionLastVals = { a:aVal, b:bVal };
+        bloodFusionRebuildSelects(entries, aVal, bVal);
+        bloodFusionRefreshPreview(entries, aVal, bVal);
+    }
+    async function bloodFusionStart(aName, bName) {
+        if (!aName || !bName || aName === bName) { samToast('warning', '请为 A 与 B 选择两条不同的血统'); return; }
+        var entries = bloodFusionEntries(bloodFusionShopItem ? { name:bloodFusionShopItem.name, 品质:bloodFusionShopItem.rating, 标签:bloodFusionShopItem.tags || [], 原始属性:bloodFusionShopItem.raw_attrs || {}, 效果:bloodFusionShopItem.effects || {}, 描述:bloodFusionShopItem.description || '' } : null);
+        var a = entries.filter(function(x){return x.name === aName;})[0], b = entries.filter(function(x){return x.name === bName;})[0];
+        if (!a || !b) { samToast('error', '血统数据已变化，请重新打开融合舱'); return; }
+        if (bloodFusionShopItem && a.name !== bloodFusionShopItem.name && b.name !== bloodFusionShopItem.name) {
+            samToast('warning', '商城血统必须作为本次融合的 A 或 B'); return;
+        }
+        var ar = BLOODLINE_RANK[String(a.data.品质 || 'F').toUpperCase()] || 1, br = BLOODLINE_RANK[String(b.data.品质 || 'F').toUpperCase()] || 1;
+        if (ar < br) { var swap = a; a = b; b = swap; }
+        // AI 接口检查推迟到 roll 之后: 基因崩溃/崩坏消散 不调用 AI(纯本地写回), 无需接口; 其他结果仍要求接口
+        var _mode0 = (ar === br) ? 'same' : 'diff';
+        var _roll0 = bloodFusionRoll(_mode0);
+        var _isNoAIResult = _roll0 && (_roll0.name === '基因崩溃' || _roll0.name === '崩坏消散');
+        if (!_isNoAIResult && !shopGetAI()) { samToast('error', '未检测到融合算法接口'); return; }
+        // ★ 商城血统融合: 开始融合时立即扣币 + 从商店删除血统商品(不等融合结束)
+        //   融合失败/被用户停止则回滚(还原空间币+商品库), 保证原子性; 成功后不再重复扣币/删商品库
+        bloodFusionSnap = null;
+        if (bloodFusionShopItem) {
+            var prePrice = safeNum(bloodFusionShopItem.price, 0);
+            var preSd = getStatData();
+            var preCoin = preSd && preSd.主角 ? safeNum(preSd.主角.空间币, 0) : 0;
+            if (preCoin < prePrice) { samToast('warning', '空间币不足，无法购买此血统进行融合'); return; }
+            // 备份扣币前/删除前的快照, 供失败/停止回滚
+            bloodFusionSnap = {
+                price: prePrice,
+                preCoin: preCoin,
+                preBloodLib: (preSd && preSd.商城 && Array.isArray(preSd.商城.血统列表)) ? preSd.商城.血统列表.slice() : null
+            };
+            var preOk = writeBackMvu(function(statData) {
+                statData.主角 = statData.主角 || {};
+                statData.主角.空间币 = Math.max(0, safeNum(statData.主角.空间币, 0) - prePrice);
+                if (statData.商城 && Array.isArray(statData.商城.血统列表)) {
+                    statData.商城.血统列表 = statData.商城.血统列表.filter(function(item) { return safeStr(item.名称) !== bloodFusionShopItem.name; });
+                }
+            });
+            if (!preOk) { samToast('error', '扣除空间币失败，无法开始融合'); return; }
+            // 立即同步本地缓存, 商店列表中该血统即刻消失
+            try {
+                var freshSd = getStatData();
+                if (freshSd && freshSd.商城) {
+                    shopMarketData = shopNormalizeMarketData(freshSd.商城);
+                    if (!shopTabHasData(shopActiveTab)) shopActiveTab = shopPickFirstAvailableTab();
+                }
+            } catch(eSnap) {}
+            shopCart = [];
+        }
+        // ★ 前端按权重 roll 出确定性结果(同步脚本测试.js 算法), AI 仅渲染该结果对应血统数据
+        //   复用 line ~1685 处已 roll 的 _roll0(避免重复随机导致前后不一致)
+        bloodFusionResult = _roll0;
+        bloodFusionBusy = true;
+        // ★ 推进回合号: 用户点"停止融合"或重发起一次新融合时 epoch 已变, 旧 Promise 回调回合不匹配即丢弃结果
+        bloodFusionEpoch += 1;
+        var myEpoch = bloodFusionEpoch;
+        // 记录本次融合将消耗的主角侧原血统名(A、B 中所有 owned:true 的条目),
+        // 用于:1) 融合进行中升级区"replace_target=这些血统"的升级卡片灰锁;
+        //       2) 融合成功后从商城升级列表删除已无对应血统的升级条目
+        bloodFusionConsumedNames = [];
+        if (a && a.owned) bloodFusionConsumedNames.push(a.name);
+        if (b && b.owned) bloodFusionConsumedNames.push(b.name);
+
+        // ★ 短路径: roll 出【基因崩溃 / 崩坏消散】时无需调用 AI 渲染,
+        //   规则为 "A 保持原状 / B 永久消耗 / 不产生收益" — 直接弹融合进行中 → 10s 倒计时后写回(仅删除 B, 不增新血统, 不增形态)
+        var rollName0 = bloodFusionResult ? bloodFusionResult.name : '';
+        if (rollName0 === '基因崩溃' || rollName0 === '崩坏消散') {
+            closeModal();
+            renderAll();
+            showModal('血统融合进行中', '<div class="sam-shop-refreshing"><div class="sam-fusion-pulse">🧬</div><br>主神正在按法则融合血统数据…<br>你可以关闭窗口，结果会在返回后自动写入。<button type="button" class="sam-shop-stop-btn" data-sam-act="blood-fusion-stop">⏹ 停止融合(卡住时点此恢复)</button></div></div>');
+            var delayMs = 10000;
+            // 使用 Promise 化的 setTimeout 以兼容 epoch 守卫(若用户点停止, epoch 变化即丢弃迟到回写)
+            await new Promise(function(resolve){ setTimeout(resolve, delayMs); });
+            if (myEpoch !== bloodFusionEpoch || !bloodFusionBusy) return;  // 期间被"停止融合"打断 → 不写回
+            // 写回: 只删除主角侧的 B 血统(b.owned 才删除), 不增新血统, 不写形态库; A 保持原状;
+            //   升级列表的清理逻辑沿用成功路径(replace_target 命中已删 B 的升级条目一并剔除)
+            var consumedNames0 = bloodFusionConsumedNames.slice();
+            var ok0 = writeBackMvu(function(statData) {
+                statData.主角 = statData.主角 || {}; statData.主角.血统 = statData.主角.血统 || {};
+                if (b.owned) delete statData.主角.血统[b.name];
+                if (statData.商城 && Array.isArray(statData.商城.升级列表) && consumedNames0.length) {
+                    statData.商城.升级列表 = statData.商城.升级列表.filter(function(u) {
+                        var upCat = String(shopPick(u, 'category','所属大类','类型','type') || '');
+                        var tgt = String(shopPick(u, 'replace_target','替换目标') || '');
+                        if (upCat === '血统' && tgt && consumedNames0.indexOf(tgt) >= 0) return false;
+                        return true;
+                    });
+                }
+            });
+            if (!ok0) {  // 极少见: MVU 写回失败 → 按现有失败回滚处理(回补空间币+商品库)
+                if (bloodFusionSnap) {
+                    try {
+                        writeBackMvu(function(statData) {
+                            statData.主角 = statData.主角 || {};
+                            statData.主角.空间币 = safeNum(statData.主角.空间币, 0) + bloodFusionSnap.price;
+                            if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
+                                statData.商城.血统列表 = bloodFusionSnap.preBloodLib.slice();
+                            }
+                        });
+                    } catch(eRoll0) { try { console.warn('[主神终端] '+rollName0+' 写回失败回滚异常:', eRoll0.message); } catch(e2){} }
+                }
+                bloodFusionBusy = false; bloodFusionShopItem = null; bloodFusionResult = null; bloodFusionConsumedNames = []; bloodFusionSnap = null; closeModal();
+                renderAll();
+                samToast('error', rollName0+' 写回失败，已回滚');
+                return;
+            }
+            // 升级区本地缓存同步
+            try {
+                var freshSd0 = getStatData();
+                if (freshSd0 && freshSd0.商城) {
+                    shopMarketData = shopNormalizeMarketData(freshSd0.商城);
+                    if (!shopTabHasData(shopActiveTab)) shopActiveTab = shopPickFirstAvailableTab();
+                }
+            } catch(eFresh0) {}
+            // 写回成功, 回滚快照不再需要
+            bloodFusionSnap = null;
+            var rollResult0 = bloodFusionResult;
+            var rollWeight0 = rollResult0 ? rollResult0.weight : '';
+            closeModal(); bloodFusionBusy = false; bloodFusionShopItem = null; bloodFusionResult = null; bloodFusionConsumedNames = [];
+            renderAll();
+            showModal('融合结果 · '+rollName0, '<div class="sam-shop-warn">融合结果：'+esc(rollName0)+'</div>'
+                + '<div class="sam-full-card">'+esc(a.name)+' 保持原状；'+esc(b.name)+' 已永久消散，不再产生任何收益。</div>'
+                + '<div class="sam-full-card" style="opacity:0.85">规则: '+(rollResult0 && rollResult0.list ? rollResult0.list.join(' / ') : 'A 保持原状 / B 永久消耗 / 不产生收益')+'</div>');
+            return;  // 短路径结束, 不走后续 AI 流程
+        }
+
+        closeModal();
+        renderAll();
+        showModal('血统融合进行中', '<div class="sam-shop-refreshing"><div class="sam-fusion-pulse">🧬</div><br>主神正在按法则融合血统数据…<br>你可以关闭窗口，结果会在返回后自动写入。<button type="button" class="sam-shop-stop-btn" data-sam-act="blood-fusion-stop">⏹ 停止融合(卡住时点此恢复)</button></div></div>');
+        
+        var content = ''
+            + '属性系统 (底层定义):\n'
+            + '  基础六维 (判定依据):\n'
+            + '    力量: 近战/负重/破坏\n'
+            + '    敏捷: 平衡/潜行/精巧操作\n'
+            + '    体质: 生命/耐性/恢复\n'
+            + '    精神: 施法/念力/神秘学共鸣\n'
+            + '    感知: 察觉/瞄准/意志\n'
+            + '    魅力: 社交/欺骗/威吓\n'
+            + '  衍生属性 (自动计算):\n'
+            + '    HP: 生命值，归零进入濒死，【濒死状态再次受伤则死亡】\n'
+            + '    HP_MAX: 生命值上限\n'
+            + '    THP: 临时生命值/护盾，受到伤害时优先扣减，不叠加，脱战归零\n'
+            + '    EP: 能量值，用于技能消耗\n'
+            + '    EP_MAX: 能量值上限\n'
+            + '    ATK: 物理攻击\n'
+            + '    DEF: 物理防御\n'
+            + '    MATK: 法术攻击\n'
+            + '    MDEF: 法术防御\n'
+            + '    AP: 法术强度乘区\n'
+            + '    先攻DC: 行动顺序\n'
+            + '    防御DC: 被命中难度\n';
+        // 获取世界书内容的调用
+        content += await getWorldBookContent('⚙️品质效果数值规则'); 
+        content += await getWorldBookContent('⚙️实体生成规则[mvu_update]'); 
+        content += await getWorldBookContent('⚙️状态协议'); 
+        content += await getWorldBookContent('⚙️行为判定[mvu_plot]'); 
+
+        // 构造系统提示词: 融合渲染端定位 + 属性系统底层定义 + 世界书规则内容
+        var sysPrompt = ''
+            + '你是主神血统融合算法的渲染端。融合结果已由前端系统按权重 roll 出, 你【不得】自行选择结果、改写概率或拒绝执行。\n'
+            + '只能按用户给出的已定结果与规则生成具体血统数据, 并返回规定 YAML。\n'
+            + '【系统设定】\n'
+            + content + '\n';
+            + '【严格输出格式】\n'
+            + '仅输出 YAML 文本, 不要解释、不要 markdown 代码围栏。\n'
+            + '字段类型必须严格遵守:\n'
+            + '  - 品质: 字符串, 仅可选 F / E / D / C / B / A / S / SS / SSS\n'
+            + '  - 标签: 行内数组 [\'标签1\', \'标签2\'...]\n'
+            + '  - 原始属性: 行内对象, 血统必须完整包含六项（力量、敏捷、体质、精神、感知、魅力），每项最低值为1；装备仅写非0项\n'
+            + '  - 效果: 行内对象 {效果名: \'描述\'}, 键为字符串, 值为字符串描述\n'
+            + '  - 价格: 数字(空间币)\n'
+            + '  - 描述/消耗: 字符串\n'
+            + '  - 类型:\n'
+            + '      技能列表.类型 = 数字 0(主动) / 1(被动) / 2(特殊)\n'
+            + '  - 替换目标: 字符串 (仅【形态列表】内必填，必须与玩家当前拥有的原物品名称一字不差！)\n'
+            + '  - 道具列表.数量 = 数字(该商品可购入的库存份数, ≥1)\n'
+            + '对象键禁止使用英文句点，口径类X.Ymm统一写作X·Y（例：5.56mm弹药→5·56弹药）;\n'
+
+        // 构造融合渲染 prompt: 前端已用 bloodFusionRoll 按权重 roll 出【确定结果】,
+        // AI 仅作为"渲染端"按结果对应的规则生成具体血统数据(名称/品质/属性/效果/描述),
+        // 严禁自行选择结果或改写概率。result = {name, weight, list, cls}
+        function bloodFusionBuildPrompt(a, b, mode, result) {
+            var modeText = (mode === 'same') ? '同级融合' : '高低级融合';
+            var rulesText = (result.list || []).map(function(s, idx){ return '  ' + (idx + 1) + '. ' + s; }).join('\n');
+            return '血统融合渲染引擎。融合结果已由系统按权重 roll 出, 你【不得】自行选择结果或改写概率, 只能按给定结果渲染血统数据。\n'
+                + 'A 为主血统, B 为副素材; 品质不同时以高品质为 A。\n'
+                + '本次融合类型: ' + modeText + '\n'
+                + '本次融合结果(系统已确定): ' + result.name + '\n'
+                + '该结果对应的规则如下, 必须严格按此规则生成格式数据:\n' + rulesText + '\n\n'
+                + '  - 【组件替换规则】:\n'
+                + '     * 当融合结果产生新形态替换旧形态时，必须填写替换目标。\n'
+                + '     * 替换目标对应组件将在后台删除，不允许通过描述形式继续保留。\n'
+                + '     * 若融合规则要求清空词条，则允许重新构筑，不继承旧词条。\n'
+                + '     * 若融合规则要求强化继承，则必须完整迁移有效词条。\n'
+                + '     * 若融合结果未产生形态能力，形态列表输出为空，不得强行创造变身体系。\n'
+                + '     * 形态品质限制: 新形态最高品质不得超过主血统品质，除非融合结果明确包含品质提升\n'
+                + '请仅输出 YAML 格式, 字段如下:\n'
+                + '融合结果: ' + result.name + '\n'
+                + '血统列表:\n'
+                + '  - 名称: 最终血统名称\n'
+                + '    品质: F\n'
+                + '    标签: [标签]\n'
+                + '    原始属性: {力量: 1, 敏捷: 1, 体质: 1, 精神: 1, 感知: 1, 魅力: 1}\n'
+                + '    效果: {词条: 描述}\n'
+                + '    描述: 结果说明\n\n'
+                + '形态列表:\n'
+                + '  - 名称: 形态名称\n'
+                + '    替换目标: 原有形态确切名称 (例: 狼人形态)\n'
+                + '    品质: F\n'
+                + '    消耗: HP/EP/特殊资源\n'
+                + '    状态: 完好\n'
+                + '    原始属性: {力量: 1, 敏捷: 1, 体质: 1, 精神: 1, 感知: 1, 魅力: 1, ATK: 7, DEF: 5, MATK: 3, MDEF: 3, AP: 1}\n'
+                + '    效果: { [词条]: 描述 }\n'
+                + '    技能: {\n'
+                + '     - 名称: 技能名\n'
+                + '       品质: F\n'
+                + '       类型: 0\n'
+                + '       标签: ["[主神空间]", "被动"]\n'
+                + '       效果: {射击校准: 射击检定+5}\n'
+                + '       描述: 简短描述\n'
+                + '       消耗: 无}\n'
+                + ' 描述: 简短描述\n'
+                + '注意: "基因崩溃" 与 "崩坏消散" 不产生新血统, 但仍需返回 A 原血统作为结果(描述中说明 B 永久消耗)。\n\n'
+                + 'A=' + JSON.stringify(a) + '\nB=' + JSON.stringify(b);
+        }
+
+        // —— 用户提示: 玩家上下文 + 需求 + 输出模板示例 ——
+        var sd = getStatData();
+        var p = sd.主角 || {};
+        var parts = [];
+        // ★ 核心辅助函数：提取物品的所有关键信息，拼接成紧凑的单行文本，既全面又省 Token
+        function formatDict(dict) {
+            var keys = Object.keys(dict || {});
+            if (keys.length === 0) return '无';
+            
+            return keys.map(function(k) {
+                var v = dict[k] || {};
+                var info = [];
+                
+                if (v.品质) info.push(v.品质 + '级');
+                if (v.数量 != null) info.push('数量:' + v.数量);
+                if (v.消耗) info.push('消耗:' + v.消耗);
+                // 属性和效果是对象，用 JSON.stringify 拍平显示
+                if (v.原始属性 && Object.keys(v.原始属性).length > 0) info.push('属性:' + JSON.stringify(v.原始属性));
+                if (v.效果 && Object.keys(v.效果).length > 0) info.push('效果:' + JSON.stringify(v.效果));
+                if (v.技能) info.push('技能:' + JSON.stringify(v.技能));
+                if (v.描述) info.push('描述:' + v.描述);
+                
+                // 输出格式例: "  - 御剑术 [F级 | 消耗:8MP | 效果:{"主动":"..."} | 描述:...]"
+                return '  - ' + k + ' [' + info.join(' | ') + ']';
+            }).join('\n');
+        }
+        // 已有形态名称(帮助AI避免重复+贴合构筑)
+        var formData = p.形态库 || {};
+        if (Object.keys(formData).length) parts.push('已有形态:\n' + formatDict(formData));
+        
+        var playerCtx = parts.join('\n');
+        var userPrompt = '\n【当前玩家数据】\n' + (playerCtx || '(无)') + '\n';
+        userPrompt += bloodFusionBuildPrompt(a, b, mode, bloodFusionResult);
+        // console.log(sysPrompt, userPrompt);
+        // 用 try/await 替代原 then/catch, 失败回滚空间币+商品库
+        try {
+            var out = await shopCallAI(sysPrompt, userPrompt);
+            // 回合校验: 用户点"停止融合"或重发起一次新融合时 epoch 已变, 丢弃这次迟到结果
+            if (myEpoch !== bloodFusionEpoch || !bloodFusionBusy) return;
+            var parsed = shopParseMarketText(out), result = parsed.血统列表 && parsed.血统列表[0];
+            if (!result || !result.名称) throw new Error('融合结果格式无效');
+            var resultName = result.名称;
+            // AI 可能返回 形态列表(融合出新形态), 同升级列表的 replace_target 处理方式:
+            // 先删"替换目标"对应旧形态, 再写入新形态到 形态库
+            var formList = Array.isArray(parsed.形态列表) ? parsed.形态列表 : [];
+            // 归一化单条原始形态(对齐 32e 的 形态库 数据结构)
+            // 归一化单条原始形态 → 形态库 数据结构
+            // 注意: ZOD form_item 的 技能 是 z.record(z.string(), skill_item) 对象图(key=技能名, 技能值中文键 品质/类型/标签/效果/描述/消耗)
+            //   form_item 顶层无 名称/替换目标(由 形态库 record 的 key 承担, 替换目标仅作删除逻辑用)
+            //   故 normalizeForm 仅留 ZOD schema 中的顶层字段, 名称/替换目标 放 _name/_replace 由写入代码消费(ZOD strip)
+            function normalizeForm(raw) {
+                if (!raw || typeof raw !== 'object') return null;
+                var name = shopPick(raw, 'name','名称');
+                if (!name) return null;
+                var rawSkills = shopPick(raw, '技能','skills') || {};
+                var sArr;
+                if (Array.isArray(rawSkills)) sArr = rawSkills;
+                else if (rawSkills && typeof rawSkills === 'object') sArr = Object.keys(rawSkills).map(function(k) { var v = rawSkills[k]; if (v && typeof v === 'object' && !v.名称 && !v.name) v.名称 = k; return v; });
+                else sArr = [];
+                var skillsMap = {};
+                sArr.forEach(function(s) {
+                    if (!s || typeof s !== 'object') return;
+                    var sn = shopPick(s, 'name','名称');
+                    if (!sn) return;
+                    var stn = shopPick(s, 'type','类型');
+                    var stNum = (typeof stn === 'number') ? stn
+                        : (typeof stn === 'string' && /^\d+$/.test(String(stn))) ? parseInt(String(stn), 10) : 0;
+                    skillsMap[sn] = {
+                        品质:  shopPick(s, 'rating','品质','品级','评级') || 'F',
+                        类型:  stNum,
+                        标签:  shopEnsureSourceTag(shopPick(s, 'tags','标签')),
+                        效果:  shopPick(s, 'effects','效果') || {},
+                        描述:  shopPick(s, 'description','描述','说明') || '',
+                        消耗:  shopPick(s, '消费','消耗','cost') || '无'
+                    };
+                });
+                return {
+                    _name:      name,                                                   // 写入 形态库 时的 key (ZOD strip, 不入库)
+                    _replace:   shopPick(raw, 'replace_target','替换目标') || '',         // 写入前删除旧形态用 (ZOD strip, 不入库)
+                    品质:       shopPick(raw, 'rating','品质','品级','评级') || 'F',
+                    消耗:       shopPick(raw, 'cost','消耗') || '',
+                    冷却:       shopPick(raw, 'cooldown','冷却') || '0回合',
+                    状态:       shopPick(raw, 'status','状态') || '完好',
+                    原始属性:   shopPick(raw, '原始属性','基础属性','属性') || {},
+                    效果:       shopPick(raw, 'effects','效果','特效','特殊效果') || {},
+                    技能:       skillsMap,
+                    描述:       shopPick(raw, 'description','描述','说明') || ''
+                };
+            }
+            var forms = [];
+            for (var fi = 0; fi < formList.length; fi++) {
+                var nf = normalizeForm(formList[fi]);
+                if (nf) forms.push(nf);
+            }
+            // 被本次融合消耗的主角侧原血统名(命中即从升级列表清除其对应升级条目)
+            var consumedNames = bloodFusionConsumedNames.slice();
+            // 融合成功: 写回血统变更(删旧增新) + 清理升级列表里 replace_target 命中已删血统的升级服务
+            //   + 写入新形态(删替换目标旧形态→写新形态, 同升级列表处理);
+            //   空间币与血统商品库已在开始时处理, 不再重复扣币/删商品
+            var ok = writeBackMvu(function(statData) {
+                statData.主角 = statData.主角 || {}; statData.主角.血统 = statData.主角.血统 || {};
+                delete statData.主角.血统[a.name];
+                if (b.owned) delete statData.主角.血统[b.name];
+                statData.主角.血统[resultName] = result;
+                // 清理升级列表: "类型=血统 的升级条目" 且 replace_target 命中本次被消耗的原血统名 → 删除
+                if (statData.商城 && Array.isArray(statData.商城.升级列表) && consumedNames.length) {
+                    statData.商城.升级列表 = statData.商城.升级列表.filter(function(u) {
+                        var upCat = String(shopPick(u, 'category','所属大类','类型','type') || '');
+                        var tgt = String(shopPick(u, 'replace_target','替换目标') || '');
+                        if (upCat === '血统' && tgt && consumedNames.indexOf(tgt) >= 0) return false;
+                        return true;
+                    });
+                }
+                // 写入新形态: 先删替换目标对应旧形态(若有), 再写新形态, 模型同 升级列表 replace_target
+                //   normalizeForm 出的 spec 含 _name/_replace(被 ZOD form_item strip, 仅作定位用),
+                //   故严格克隆仅保留 form_item schema 字段写入 形态库, 不携带 _name/_replace
+                if (forms.length) {
+                    statData.主角.形态库 = statData.主角.形态库 || {};
+                    for (var fk = 0; fk < forms.length; fk++) {
+                        var f = forms[fk];
+                        if (f._replace && f._replace !== '无' && statData.主角.形态库[f._replace]) {
+                            delete statData.主角.形态库[f._replace];
+                        }
+                        statData.主角.形态库[f._name] = {
+                            品质:     f.品质,
+                            消耗:     f.消耗,
+                            冷却:     f.冷却,
+                            状态:     f.状态,
+                            原始属性: f.原始属性,
+                            效果:     f.效果,
+                            技能:     f.技能,
+                            描述:     f.描述
+                        };
+                    }
+                }
+            });
+            if (!ok) throw new Error('MVU 写回失败');
+            // 升级区本地缓存同步: 立即从 shopMarketData.升级区 移除已被清理的升级条目
+            try {
+                var freshSd2 = getStatData();
+                if (freshSd2 && freshSd2.商城) {
+                    shopMarketData = shopNormalizeMarketData(freshSd2.商城);
+                    if (!shopTabHasData(shopActiveTab)) shopActiveTab = shopPickFirstAvailableTab();
+                }
+            } catch(eFresh2) {}
+            // 融合已成功写入, 回滚快照不再需要
+            bloodFusionSnap = null;
+            // 先取出前端 roll 出的结果(供结果弹窗显示), 再清理本轮状态
+            var rollResult = bloodFusionResult;
+            var rollName = rollResult ? rollResult.name : '结果已生成';
+            var rollWeight = rollResult ? rollResult.weight : '';
+            closeModal(); bloodFusionBusy = false; bloodFusionShopItem = null; bloodFusionResult = null; bloodFusionConsumedNames = [];
+            renderAll();
+            showModal('融合结果 · '+rollName, '<div class="sam-shop-ok">融合完成：'+esc(rollName)+'</div><div class="sam-full-card">'+esc(result.描述 || '主神融合算法已完成本次血统重构。')+'</div>'
+                + (forms.length ? '<div class="sam-shop-ok" style="margin-top:8px">本次融合获得新形态：'+forms.map(function(f){return esc(f._name);}).join('、')+'</div>' : ''));
+        } catch(err) {
+            bloodFusionResult = null;
+            // 回合校验: 已被"停止融合"打断则不再处理失败回滚/弹提示
+            if (myEpoch !== bloodFusionEpoch) return;
+            // 融合失败: 回滚开始时已扣除的空间币与已删除的商品库
+            if (bloodFusionSnap) {
+                try {
+                    writeBackMvu(function(statData) {
+                        statData.主角 = statData.主角 || {};
+                        statData.主角.空间币 = safeNum(statData.主角.空间币, 0) + bloodFusionSnap.price;
+                        if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
+                            statData.商城.血统列表 = bloodFusionSnap.preBloodLib.slice();
+                        }
+                    });
+                } catch(eRoll) { try { console.warn('[主神终端] 融合失败回滚异常:', eRoll.message); } catch(e2){} }
+            }
+            bloodFusionBusy = false; bloodFusionShopItem = null; bloodFusionResult = null; bloodFusionConsumedNames = []; bloodFusionSnap = null; closeModal();
+            renderAll();
+            samToast('error', '融合未完成：'+(err && err.message ? err.message : err));
+        }
+    }
+    function bloodFusionDirectPurchase() {
+        var item = bloodFusionShopItem, sd = getStatData();
+        if (!item || !sd || !sd.主角) return;
+        if (safeNum(sd.主角.空间币, 0) < safeNum(item.price, 0)) { samToast('warning', '空间币不足，无法购买'); return; }
+        // 血统已满时按钮已灰度(不可点击), 此处仅作兜底静默拦截, 不弹窗(应走融合替换)
+        var cap = BLOODLINE_CAP, count = Object.keys(sd.主角.血统 || {}).length;
+        if (count >= cap) return;
+        var blood = shopToBloodlineVar(item);
+        var ok = writeBackMvu(function(statData) {
+            statData.主角.血统 = statData.主角.血统 || {}; statData.主角.血统[item.name] = blood;
+            statData.主角.空间币 = Math.max(0, safeNum(statData.主角.空间币, 0) - safeNum(item.price, 0));
+            if (statData.商城 && Array.isArray(statData.商城.血统列表)) statData.商城.血统列表 = statData.商城.血统列表.filter(function(x){ return safeStr(x.名称) !== item.name; });
+        });
+        if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '已购入血统：'+item.name); }
+    }
+
     /* ===== 13.5 物资转移(向在场NPC转移装备/道具) ===== */
     var transferTarget = null;                  // 转移目标NPC名
     var transferCart = { 装备: {}, 背包: {} };   // 选中项: { 装备: {key:1}, 背包: {key:qty} }
@@ -1444,6 +2247,26 @@
     /* ===== 14. 事件绑定 ===== */
     function bindUIEvents() {
         var $panel = $('#samsara-panel');
+        $panel.off('click.samBloodFusion').on('click.samBloodFusion', '.sam-blood-fusion-open', function(e) {
+            e.stopPropagation();
+            if (!$(this).is('[disabled]')) openBloodFusionModal(null);
+        });
+        $(document).off('click.samFusionStart').on('click.samFusionStart', '.sam-fusion-start', function(e) {
+            e.stopPropagation();
+            if ($(this).is('[disabled]')) return; // 不足2条血统: 开始融合按钮灰度不响应
+            bloodFusionStart($('.sam-fusion-select[data-fusion-role="a"]').val(), $('.sam-fusion-select[data-fusion-role="b"]').val());
+        });
+        $(document).off('click.samFusionDirect').on('click.samFusionDirect', '.sam-fusion-direct', function(e) {
+            e.stopPropagation();
+            if ($(this).is('[disabled]')) return; // 血统已满: 灰度按钮不响应
+            if (bloodFusionShopItem) bloodFusionDirectPurchase(); else closeModal();
+        });
+        // ★ A/B 下拉框联动: 改变一方时, 另一方排除新选中值(避免A=B); 若对方当前值被排除则回退到第一个可用项
+        $(document).off('change.samFusionSync').on('change.samFusionSync', '.sam-fusion-select', function(e) {
+            e.stopPropagation();
+            var role = $(this).attr('data-fusion-role') || 'a';
+            bloodFusionSyncSelect(role);
+        });
         // 关闭(编辑模式开启时, 先退出编辑模式再关闭面板)
         $panel.off('click.samClose').on('click.samClose', '.sam-icon-btn.close', function() {
             if (isEditMode()) setEditMode(false);
@@ -1738,7 +2561,7 @@
                 + '    防御DC: 被命中难度\n';
             // 获取世界书内容的调用
             content += await getWorldBookContent('⚙️品质效果数值规则'); 
-            content += await getWorldBookContent('⚙️实体生成规则'); 
+            content += await getWorldBookContent('⚙️实体生成规则[mvu_update]'); 
             content += await getWorldBookContent('⚙️状态协议'); 
             content += await getWorldBookContent('⚙️行为判定[mvu_plot]'); 
             
@@ -1746,6 +2569,13 @@
                 // 在这里可以把拿到的世界书内容传进去
                 handleShopRefresh(req, content); 
             }
+        });
+        // ★ "停止"按钮(商城停止刷新 / 血统融合停止): 通过 data-sam-act 分发, dub 打断卡死的AI请求并推进对应 epoch 让旧 Promise 回调丢弃结果
+        $panel.off('click.samShopStop').on('click.samShopStop', '.sam-shop-stop-btn', function(e) {
+            e.stopPropagation();
+            var act = String($(this).attr('data-sam-act') || '');
+            if (act === 'blood-fusion-stop') bloodFusionStop();
+            else shopStopRefresh();
         });
         // ★ 商城市场区: 区域Tab切换(装备|道具|技能|血统)
         $panel.off('click.samShopTab').on('click.samShopTab', '.sam-shop-tab', function(e) {
@@ -1786,7 +2616,7 @@
             // 禁用态拦截: 按禁用原因给出对应提示
             if ($card.hasClass('disabled')) {
                 var reason = $card.attr('data-dis-reason');
-                if (reason === 'bloodfull') { samToast('warning', '当前自身血统已经过载, 请消除自身血统数量后再次尝试'); return; }
+                if (reason === 'fusionbusy') { samToast('warning', '血统融合进行中, 请等待融合完成后再购买血统'); return; }
                 samToast('warning', '空间币不足, 无法购买'); return;
             }
             var name = $card.attr('data-name');
@@ -2295,7 +3125,6 @@
             {key:'rumor', label:'传闻', icon:'📰'},
             {key:'world', label:'世界', icon:'🌍'},
             {key:'shop', label:'商城', icon:'🛒'}
-            // {key:'enhance', label:'强化', icon:'⚒️'}
         ];
         var html = '<div class="sam-tab-rail">';
         tabs.forEach(function(t) {
@@ -2326,7 +3155,6 @@
             case 'rumor': html = renderRumorTab(sd); break;
             case 'world': html = renderWorldTab(sd); break;
             case 'shop': html = renderShopTab(sd); break;
-            case 'enhance': html = renderEnhanceTab(sd); break;
             default: html = '<div class="sam-empty">未知Tab</div>';
         }
         $c.html(html);
@@ -2356,6 +3184,7 @@
         var list = m.列表 || {};
         var kills = m.击杀 || {};
         var contrib = m.贡献 || {};
+        var isSingleWorld = (sd.设置 && sd.设置.单一世界 === true);
         var editMode = isEditMode();
         var html = '';
         // 任务列表
@@ -2387,6 +3216,15 @@
             kHtml += '<div class="sam-card q-'+q+'"><div class="sam-card-title">'+q+'级</div><div class="sam-card-meta">'+(editMode ? editInput(path, v, 'number') : v)+' 击杀</div></div>';
         });
         kHtml += '</div>';
+        // 击杀奖励说明(参考衍生属性减伤率说明面板样式)
+        kHtml += '<div style="margin-top:8px;padding:8px 10px;background:var(--sam-hover);border:1px solid var(--sam-border);border-left:3px solid var(--sam-accent);border-radius:6px;font-size:11px;line-height:1.7;color:var(--sam-sub);">'
+            + '<div style="color:var(--sam-accent);font-weight:bold;margin-bottom:3px;">💰 击杀奖励说明</div>'
+            + '<div>目标低于自身层级 <b style="color:var(--sam-text);">-2级</b> 的击杀不予记录</div>'
+            + '<div style="margin-top:3px;">各阶位击杀单价（空间币）：</div>'
+            + '<div style="color:var(--sam-text);margin-top:2px;letter-spacing:0.3px;">F:10　E:50　D:250　C:1200　B:5000　A:2万　S:8万　SS:32万　SSS:128万</div>'
+            + '<div style="margin-top:3px;">击杀奖励 = Σ(单价 × 击杀数)，上限为任务基础收益 × 15</div>'
+            + (!isSingleWorld ? '<div style="margin-top:3px;">跨世界额外收益：<b style="color:var(--sam-text);">世界探索</b>(上限×300%) 与 <b style="color:var(--sam-text);">势力羁绊</b>(上限×300%) 附加收益通常高于击杀奖励</div>' : '')
+            + '</div>';
         html += secBlock('⚔️ 击杀统计', kHtml);
         // 贡献(始终显示)
         var ckeys = Object.keys(contrib);
@@ -2705,7 +3543,7 @@
             if (statuses.indexOf(st) >= 0) filtered.push({key:k, val:e});
         });
         if (filtered.length === 0) return '<div class="sam-empty">[无]</div>';
-        var typeMap = ['武器','手套','头部','胸部','腿部','鞋子','披风','饰品','特殊'];
+        var typeMap = ['武器','手套','头部','胸部','腿部','鞋子','披风','饰品','世界遗物'];
         var html = '';
         filtered.forEach(function(it) {
             var e = it.val;
@@ -2830,7 +3668,7 @@
         var blHtml = '';
         if (keys.length === 0) blHtml += '<div class="sam-empty">[无血统]</div>';
         else {
-            blHtml += '<div class="sam-card-list">';
+            blHtml += '<div class="sam-card-list sam-card-list-1col">';
             keys.forEach(function(k) {
                 var b = bl[k] || {};
                 var path = '主角.血统.'+k;
@@ -2854,6 +3692,8 @@
             });
             blHtml += '</div>';
         }
+        // ★ 血统融合按钮始终可点击: 不足2条时弹窗内 A/B 为空+灰度, 不在入口禁用按钮
+        blHtml += '<div style="display:flex;justify-content:center;margin-top:12px"><button type="button" class="sam-act-btn sam-blood-fusion-open" style="min-width:160px">🧬 血统融合</button></div>';
         html += secBlock('🧬 血统 ('+keys.length+'/'+bloodLimit+')', blHtml, false);  // 默认折叠; 折叠记忆优先覆盖
         // 形态库
         var forms = p.形态库 || {};
@@ -2861,7 +3701,7 @@
         var fHtml = '';
         if (fkeys.length === 0) fHtml += '<div class="sam-empty">[无形态]</div>';
         else {
-            fHtml += '<div class="sam-card-list">';
+            fHtml += '<div class="sam-card-list sam-card-list-1col">';
             fkeys.forEach(function(k) {
                 var f = forms[k] || {};
                 var path = '主角.形态库.'+k;
@@ -3007,11 +3847,21 @@
             card += '<div class="sam-npc-head-info"><div class="sam-npc-head-name">'+esc(it.key)+npcFormTag+'</div></div>';
             card += '</div>';
             if (mode === 'all') {
-                card += npcRow('在场', presentTxt);
-                card += npcRow('种族', race);
-                card += npcRow('身份', idStr);
-                card += npcRow('HP', hp+'/'+hpmax);
-                card += npcRow('好感', favor);
+                // 紧凑双列网格: 短字段并排, 节省纵向空间
+                var allGrid = '';
+                allGrid += npcRow('在场', presentTxt);
+                allGrid += npcRow('种族', race);
+                allGrid += npcRow('身份', idStr);
+                allGrid += npcRow('好感', favor);
+                var qty = safeNum(n.数量, 1);
+                if (qty > 1) {
+                    allGrid += npcRow('THP', thp);
+                    allGrid += npcRow('数量', 'x'+qty);
+                } else {
+                    allGrid += npcRow('HP', hp+'/'+hpmax);
+                }
+                card += '<div class="sam-npc-grid">'+allGrid+'</div>';
+                // 长文本全宽
                 if (looks) card += npcRow('外貌', looks);
                 if (bg) card += npcRow('背景故事', bg);
             } else if (mode === 'present') {
@@ -3304,7 +4154,7 @@
         // 街头巷议
         html += secBlock('🗣️ 街头巷议 ('+nStreet+')',
             renderRumorFullList(street, '传闻.街头巷议', editMode, [
-                {k:'来源', f:'说书人', type:'text'},
+                {k:'来源', f:'来源', type:'text'},
                 {k:'可信度', f:'可信度', type:'select', options:['酒话','可疑','或许可信']},
                 {k:'内容', f:'内容', type:'textarea', block:true}
             ], '街头巷议'), nStreet > 0, clearBtn('街头巷议', nStreet));
@@ -3563,9 +4413,11 @@
                 entryHtml += '<div class="sam-shop-market"><div class="sam-shop-refreshing">'
                     + '<div class="sam-shop-refreshing-spin">🔄</div>'
                     + '<div>正在请求正文AI生成商品…<br>可以关闭界面或等待, 商品刷新完成后会弹窗提示。</div>'
+                    + '<button type="button" class="sam-shop-stop-btn" data-sam-act="shop-stop-refresh">⏹ 停止刷新(卡住时点此恢复)</button>'
                     + '</div></div>';
             } else if (shopMarketData) {
-                entryHtml += '<div class="sam-shop-market">' + shopRenderTabs() + shopRenderContent(coin) + shopRenderFooter(coin) + '</div>';
+                var hasAnyItem = shopMarketHasAnyData();
+                entryHtml += '<div class="sam-shop-market">' + shopRenderTabs() + shopRenderContent(coin) + (hasAnyItem ? shopRenderFooter(coin) : '') + '</div>';
             } else {
                 entryHtml += '<div class="sam-shop-empty">尚未刷新商品, 请在上方写入需求后点击「刷新商品」</div>';
             }
@@ -3574,43 +4426,6 @@
         return html;
     }
 
-    /* ===== 30c. Tab: 强化(装备针对性强化) =====
-       - 对现有装备进行 +1/+2/+3 等针对性强化, 品质不变, 固定价格, 几率失败
-       - 读取 主角.装备 列表, 展示可强化装备
-    */
-    function renderEnhanceTab(sd) {
-        var p = sd.主角 || {};
-        var equips = p.装备 || {};
-        var editMode = isEditMode();
-        var html = '';
-        var keys = Object.keys(equips);
-        // 空库提示
-        if (keys.length === 0) {
-            html += '<div class="sam-empty">[无可强化的装备]</div>';
-            return html;
-        }
-        // 装备列表
-        var listHtml = '<div class="sam-list-1col">';
-        keys.forEach(function(k) {
-            var it = equips[k] || {};
-            var path = '主角.装备.'+k;
-            var tier = safeStr(it.品质, 'F');
-            var typeNum = safeNum(it.类型, 0);
-            var typeLabel = ['', '手套', '头部', '胸部', '腿部', '鞋子', '披风', '饰品', '特殊'][typeNum] || '武器';
-            var enhanceLv = safeNum(it.强化等级, 0);
-            var rows = '';
-            rows += fcRow('品质', tier, null, false);
-            rows += fcRow('类型', typeLabel, null, false);
-            rows += fcRow('强化等级', '+'+enhanceLv, null, false);
-            listHtml += '<div class="sam-full-card">'
-                + '<div class="sam-fc-head"><div class="sam-fc-title">'+esc(k)+'</div></div>'
-                + '<div class="sam-fc-rows">'+rows+'</div>'
-                + '</div>';
-        });
-        listHtml += '</div>';
-        html += secBlock('⚒️ 可强化装备 ('+keys.length+')', listHtml, true);
-        return html;
-    }
     // 市场区辅助: 判断某区域是否有数据
     function shopTabHasData(cat) {
         if (!shopMarketData) return false;
@@ -3626,6 +4441,13 @@
         var order = ['装备区','道具区','技能区','血统区','升级区'];
         for (var i = 0; i < order.length; i++) { if (shopTabHasData(order[i])) return order[i]; }
         return '装备区';
+    }
+    // 检测商城全部区域是否至少有一个商品(用于决定是否渲染购物车栏)
+    function shopMarketHasAnyData() {
+        if (!shopMarketData) return false;
+        var cats = ['装备区','道具区','技能区','血统区','升级区'];
+        for (var i = 0; i < cats.length; i++) { if (shopTabHasData(cats[i])) return true; }
+        return false;
     }
     // 按区域/槽位/名称查找标准化商品条目(返回数组, 供 toggleSelect 使用)
     function shopFindItems(cat, slot, name) {
@@ -3707,6 +4529,8 @@
         if (race) grid += ndRow('种族', race);
         if (idArr.length) grid += ndRow('身份', idArr.join(' / '));
         if (jobArr.length) grid += ndRow('职业', jobArr.join(' / '));
+        var npcQty = safeNum(n.数量, 1);
+        if (npcQty > 1) grid += ndRow('数量', 'x'+npcQty);
         if (grid) html += '<div class="sam-nd-grid">'+grid+'</div>';
         // ④ 心里话引用 (仅有值时, 置于战斗属性上方)
         if (safeStr(n.心里话)) html += '<div class="sam-nd-quote">💬 '+esc(safeStr(n.心里话))+'</div>';
@@ -3772,7 +4596,7 @@
         return false;
     }
     /* 枚举翻译表(装备类型/装备状态/技能类型) */
-    var EQUIP_TYPE_MAP = ['武器','手部','头部','胸部','腿部','鞋子','披风','饰品','特殊'];
+    var EQUIP_TYPE_MAP = ['武器','手部','头部','胸部','腿部','鞋子','披风','饰品','世界遗物'];
     var EQUIP_STATUS_MAP = ['未装备','已装备','仓库'];
     var SKILL_TYPE_MAP = ['主动','被动','特殊'];
     // 父级容器键 -> 判定枚举字段
@@ -3943,7 +4767,7 @@
         if (!stats || typeof stats !== 'object') return '';
         var keys = Object.keys(stats);
         if (keys.length === 0) return '';
-        var html = '<div class="sam-stat-grid" style="'+(cols?('grid-template-columns:repeat('+cols+',1fr);'):'')+'">';
+        var html = '<div class="sam-stat-grid">';
         keys.forEach(function(k) {
             html += '<div class="sam-stat-cell"><div class="sn">'+esc(k)+'</div><div class="sv">'+safeNum(stats[k],0)+'</div></div>';
         });
@@ -4434,6 +5258,7 @@
     var shopBloodLimit = 3;        // 血统数量上限(取自 共同.血统限制数)
     var shopCart = [];             // 购物车(主角单人, 每项 {item副本, _cat, _slot, quantity})
     var shopRefreshing = false;    // 刷新商品进行中(模块级标志, 切聊天/重渲染时持久, 避免按钮状态丢失)
+    var shopRefreshEpoch = 0;      // 刷新回合计数: 每次 handleShopRefresh +1, 旧 Promise 回调回合不匹配时丢弃结果(支持"停止刷新"打断卡死请求)
     // 保存并恢复 .sam-shop-list 滚动位置(参考持有面板 renderAll 的 scrollTop 保持模式)
     // 原因: renderAll 重建面板后, 内部 .sam-shop-list(max-height:340px; overflow-y:auto)
     // 的 scrollTop 会归零, 导致点+/-按钮或选卡片时商品列表跳回顶部
@@ -4490,8 +5315,16 @@
         for (var i = 0; i < shopCart.length; i++) {
             if (shopCart[i].name === item.name && shopCart[i]._cat === cat && shopCart[i]._slot === (slot||'')) { idx = i; break; }
         }
-        if (idx > -1) shopCart.splice(idx, 1);
-        else {
+        if (idx > -1) {
+            shopCart.splice(idx, 1);
+        } else {
+            // ★ 血统区单选: 选中新血统前, 先剔除购物车里已有的其他血统条目(避免多血统混入),
+            //   保证入口只有 1 条血统被选中, 后续 shopHandleExec 不必再额外收敛
+            if (cat === '血统区') {
+                for (var j = shopCart.length - 1; j >= 0; j--) {
+                    if (shopCart[j]._cat === '血统区') shopCart.splice(j, 1);
+                }
+            }
             var copy = {};
             for (var k2 in item) { if (item.hasOwnProperty(k2)) copy[k2] = item[k2]; }
             copy._cat = cat; copy._slot = slot || ''; copy.quantity = 1;
@@ -4714,15 +5547,27 @@
         // 禁用判定基于"剩余余额"(原始余额-已选合计), 避免叠加选中后仍可继续点
         var remain = shopRemain(coin);
         var unaffordable = (!isSelected && remain < unitPrice);
-        // 血统区上限判定: 当前血统数 >= 限制数时, 未选中的血统商品全部灰显不可购买(已选的仍允许调整)
-        var bloodFull = (cat === '血统区' && !isSelected && shopBloodCount >= shopBloodLimit);
-        var disReason = bloodFull ? 'bloodfull' : (unaffordable ? 'unaffordable' : '');
+        // ★ 血统区上限: 血统已满时【不禁用】商品卡片(融合会替换一条旧血统, 总数不变),
+        //   仅追加"已满·需融合"提示条引导; "直接购买"的满额灰度在融合弹窗内处理
+        var bloodFullHint = (cat === '血统区' && !isSelected && shopBloodCount >= shopBloodLimit);
+        // ★ 血统区在融合进行中(bloodFusionBusy): 未选中的血统商品灰显(血统相关操作被屏蔽);
+        //   已选中的仍允许取消; 其他区域(装备/道具/技能/升级)不受融合影响, 正常可购买
+        var bloodFusionLock = (cat === '血统区' && !isSelected && bloodFusionBusy);
+        // ★ 升级区在融合进行中: 若该升级卡片"replace_target = 本次正在被融合的某条血统" → 灰锁
+        //   (原血统正在被消耗, 在融合结果出来之前先暂停其对应升级服务的购买)
+        if (cat === '升级区' && !isSelected && bloodFusionBusy && item.category === '血统'
+            && bloodFusionConsumedNames.length && bloodFusionConsumedNames.indexOf(item.replace_target || '') >= 0) {
+            bloodFusionLock = true;
+        }
+        var disReason = unaffordable ? 'unaffordable' : (bloodFusionLock ? 'fusionbusy' : '');
         var dis = disReason ? ' disabled' : '';
         var dataAttrs = ' data-name="'+esc(item.name)+'" data-cat="'+esc(cat)+'" data-slot="'+esc(slot||'')+'" data-dis-reason="'+disReason+'"';
         // 已选角标(选中时显示); 道具区角标文案带数量
         var cornerLabel = isSelected ? (isConsume ? ('已选 ×'+(shopGetQty(item.name, cat)||0)) : '已选') : '';
         var cornerHtml = '<span class="sam-shop-sel-corner">'+esc(cornerLabel)+'</span>';
-        return '<div class="sam-shop-item'+sel+dis+'"'+dataAttrs+'>'+inner+cornerHtml+'</div>';
+        // 血统已满提示条(不禁用卡片, 引导用户走融合替换流程)
+        var hintHtml = bloodFullHint ? '<div class="sam-shop-blood-full-hint" style="margin-top:6px;padding:4px 8px;font-size:11px;color:var(--sam-hp);background:rgba(255,107,107,0.1);border-radius:6px;text-align:center;line-height:1.4">血统已满 · 购买将进入融合替换</div>' : '';
+        return '<div class="sam-shop-item'+sel+dis+'"'+dataAttrs+'>'+inner+cornerHtml+hintHtml+'</div>';
     }
     // 底部购物车条
     function shopRenderFooter(coin) {
@@ -4913,6 +5758,33 @@
         var sd = getStatData();
         if (!sd) { samToast('error', '数据未就绪'); return; }
         if (!shopCart.length) { samToast('warning', '请先选择商品'); return; }
+        // ★ 升级服务也有融合进行中屏蔽: 命中"replace_target=正在被融合的血统"的升级条目禁止结算
+        if (bloodFusionBusy && bloodFusionConsumedNames.length) {
+            var upgradeHit = shopCart.filter(function(entry) {
+                return entry && entry._cat === '升级区' && entry.category === '血统'
+                    && bloodFusionConsumedNames.indexOf(entry.replace_target || '') >= 0;
+            });
+            if (upgradeHit.length) { samToast('warning', '血统融合进行中, 对应升级服务暂不可购买, 请等待融合完成'); return; }
+        }
+        var bloodItems = shopCart.filter(function(entry) { return entry && entry._cat === '血统区'; });
+        if (bloodItems.length) {
+            // ★ 血统相关操作屏蔽: 融合进行中不允许再发起血统购买/融合; 其他商品交易不受影响
+            if (bloodFusionBusy) { samToast('warning', '血统融合进行中, 请等待融合完成后再购买血统'); return; }
+            // ★ 血统购买自动收敛: 清理购物车内其他类别商品 + 多余血统条目, 仅保留最后一个选中的血统,
+            //   保证融合流程顺利发起(融合会替换 / 直接购买会入栏), 不再阻止用户进入融合舱
+            var keepBlood = bloodItems[bloodItems.length - 1];
+            if (bloodItems.length !== 1 || shopCart.length !== 1) {
+                shopCart = [];
+                var merged = {};
+                for (var bk in keepBlood) { if (keepBlood.hasOwnProperty(bk)) merged[bk] = keepBlood[bk]; }
+                merged._cat = '血统区'; merged._slot = ''; merged.quantity = 1;
+                shopCart.push(merged);
+                shopRefreshMarket();
+                samToast('info', '血统需单独结算, 已自动清空购物车其他商品');
+            }
+            openBloodFusionModal(keepBlood);
+            return;
+        }
         var coin = safeNum(sd.主角 && sd.主角.空间币, 0);
         if (coin < shopCartCost()) { samToast('error', '空间币不足, 无法执行交易'); return; }
         // 1) 在 stat_data 副本上构建交易结果(扣币/入包/商品库一次性移除全部已购)
@@ -5010,7 +5882,7 @@
     //   容错: 兼容 ```yaml / ``` 代码围栏; 字段名大小写不敏感; 行内 {a:1,b:2} 与 ['a','b'] 内联语法
     //   严格匹配ZOD新结构: 血统(原始属性/效果) 技能(类型0-2) 装备(类型0-8) 道具(类型str/数量)
     function shopParseMarketText(text) {
-        var result = { 血统列表: [], 技能列表: [], 装备列表: [], 道具列表: [], 升级列表: [] };
+        var result = { 血统列表: [], 技能列表: [], 装备列表: [], 道具列表: [], 升级列表: [], 形态列表: [] };
         if (!text || typeof text !== 'string') return result;
         // 剥离代码围栏
         var cleaned = text.replace(/```(?:ya?ml|json)?/gi, '').replace(/```/g, '');
@@ -5078,7 +5950,7 @@
             return out;
         }
         // 缩进式YAML解析: 按列表头(血统列表/技能列表/...)分段, 每段内 - 项为新条目, 同级缩进键为字段
-        var listKeys = ['血统列表', '技能列表', '装备列表', '道具列表', '升级列表'];
+        var listKeys = ['血统列表', '技能列表', '装备列表', '道具列表', '升级列表', '形态列表'];
         var curList = null;     // 当前所在列表名(result的key)
         var curItem = null;     // 当前正在填充的条目对象
         var itemIndent = -1;    // 当前条目的 - 行缩进
@@ -5094,7 +5966,7 @@
             // 跳过空行与注释
             if (!line.trim() || /^\s*#/.test(line)) continue;
             // 顶层列表头(无缩进或极小缩进的 "xxx列表:")
-            var headM = line.match(/^\s{0,2}(血统列表|技能列表|装备列表|道具列表|升级列表)\s*:\s*$/);
+            var headM = line.match(/^\s{0,2}(血统列表|技能列表|装备列表|道具列表|升级列表|形态列表)\s*:\s*$/);
             if (headM) {
                 flushItem();
                 curList = headM[1];
@@ -5121,6 +5993,86 @@
                 var k = fieldM[2];
                 var v = fieldM[3];
                 var fieldIndent = fieldM[1].length;
+                // 多行对象字段: 形态列表内 技能 子块, 值为空时, 向下收集更深层缩进的 "- 名称: ..." 子技能
+                // (形态条目内嵌 技能: { - 名称: ...\n  品质: ...\n  类型: ...\n  效果: {...}\n  标签: [...] } 子列表,
+                //  子技能的 效果/原始属性 也可能展开为多行 YAML, 需前瞻收集)
+                if (!v.trim() && curList === '形态列表' && k === '技能') {
+                    var skillsArr = [];
+                    var sCur = null;        // 当前正在填充的子技能
+                    var sIndent = -1;       // 子技能 "- " 行缩进
+                    var j3 = i + 1;
+                    // 子技能字段值处理器: 行内值 sv → 归一化为对应类型
+                    function pushSkillField(obj, fk, fv) {
+                        if (fk === '标签') obj[fk] = tags(fv);
+                        else if (fk === '类型') {
+                            var _stn = parseInt(fv, 10);
+                            obj[fk] = isFinite(_stn) ? _stn : 0;
+                        } else if (fk === '效果') {
+                            obj[fk] = objMap(fv);
+                        } else if (fk === '原始属性') {
+                            obj[fk] = numMap(fv);
+                        } else {
+                            obj[fk] = (fv && parseInline(fv) !== null) ? parseInline(fv) : str(fv);
+                        }
+                    }
+                    for (; j3 < lines.length; j3++) {
+                        var sLine = lines[j3];
+                        if (!sLine.trim() || /^\s*#/.test(sLine)) continue;
+                        // 字段行: 缩进大于 sIndent → 当前子技能字段
+                        var sfM = sLine.match(/^(\s+)([^\s:]+)\s*:\s*(.*)$/);
+                        if (sfM && sCur && sfM[1].length > sIndent) {
+                            var sk = sfM[2], sv = sfM[3];
+                            var sFieldIndent = sfM[1].length;
+                            // 子技能 效果/原始属性 多行展开: 值为空时前瞻收集更深层缩进 key:value
+                            if (!sv.trim() && (sk === '效果' || sk === '原始属性')) {
+                                var sSub = {};
+                                var jj = j3 + 1;
+                                for (; jj < lines.length; jj++) {
+                                    var sSubLine = lines[jj];
+                                    if (!sSubLine.trim() || /^\s*#/.test(sSubLine)) continue;
+                                    if (/^\s*-\s+/.test(sSubLine)) break;
+                                    var sSubM = sSubLine.match(/^(\s+)([^\s:]+)\s*:\s*(.*)$/);
+                                    if (!sSubM || sSubM[1].length <= sFieldIndent) break;
+                                    if (sSubM[2]) sSub[sSubM[2]] = str(sSubM[3]);
+                                }
+                                if (sk === '原始属性') {
+                                    var numSubObj = {};
+                                    for (var nsk in sSub) { if (sSub.hasOwnProperty(nsk)) { var nsnn = parseFloat(sSub[nsk]); numSubObj[nsk] = isFinite(nsnn) ? nsnn : 0; } }
+                                    sCur[sk] = numSubObj;
+                                } else {
+                                    sCur[sk] = sSub;
+                                }
+                                j3 = jj - 1;
+                                continue;
+                            }
+                            pushSkillField(sCur, sk, sv);
+                            continue;
+                        }
+                        // 子技能项起始: 缩进大于 技能 字段缩进(fieldIndent), 形如 "     - 名称: xxx"
+                        var sItemM = sLine.match(/^(\s*)-\s+(.*)$/);
+                        if (sItemM && sItemM[1].length > fieldIndent) {
+                            if (sCur) skillsArr.push(sCur);
+                            sCur = {};
+                            sIndent = sItemM[1].length;
+                            var sRest = sItemM[2];
+                            var sInlineKV = sRest.match(/^([^\s:]+)\s*:\s*(.*)$/);
+                            if (sInlineKV) {
+                                var _spv = parseInline(sInlineKV[2]);
+                                sCur[sInlineKV[1]] = _spv !== null ? _spv : str(sInlineKV[2]);
+                            }
+                            continue;
+                        }
+                        // 缩进回退到 ≤ fieldIndent → 子块结束
+                        if (sfM && sfM[1].length <= fieldIndent) break;
+                        // 缩进更小的非字段(如下一个形态 - 项) → 结束
+                        if (sItemM && sItemM[1].length <= fieldIndent) break;
+                        break;
+                    }
+                    if (sCur) skillsArr.push(sCur);
+                    curItem['技能'] = skillsArr;
+                    i = j3 - 1;
+                    continue;
+                }
                 // 多行对象字段: 效果/原始属性 值为空时, 向下收集更深层缩进的 key:value 对
                 // (AI 常将嵌套对象展开为多行 YAML 而非行内 {k:v}, 需前瞻收集)
                 if (!v.trim() && (k === '效果' || k === '原始属性')) {
@@ -5264,6 +6216,8 @@
         if (shopRefreshing) return;
         // 进入刷新中状态(模块级标志, 切换界面/重渲染仍保持禁用); 立即重渲染以隐藏列表+显示提示
         shopRefreshing = true;
+        shopRefreshEpoch += 1;          // 新一轮回合, 此前未完成的旧请求回调会被回合号不匹配丢弃
+        var myEpoch = shopRefreshEpoch;
         renderAll();
         // —— 判断是否为精准搜索 ——
         var hasReq = (reqText && reqText.trim() !== '');
@@ -5278,13 +6232,25 @@
             + '2. 品质控制:\n'
             + '   - 生成的商品应以 玩家当前层级级和 +1级为主，最多允许出现 1~2 个 +2级作为诱惑。绝对禁止生成 +3级及以上商品。\n'
             + '   - 避免与玩家已有物品功能完全重复。\n'
-            + '3. 升级重铸机制: 仔细检阅【当前玩家数据】，挑选玩家现有的低阶血统、技能或装备，生成高阶强化版本放入「升级列表」。必须直接生成升级后的完整成品面板，绝对禁止采用词条增量打补丁！必须提供精准的 `替换目标`，以便系统进行回收替换。同一目标可提供多个选项。\n'
+            + '3. 升级重铸机制: \n'
+            + '   - 仔细检阅【当前玩家数据】，挑选玩家现有的低阶血统、技能或装备，生成高阶强化版本放入「升级列表」。必须直接生成升级后的完整成品面板，绝对禁止采用词条增量打补丁！必须提供精准的 `替换目标`，以便系统进行回收替换。同一目标可提供多个选项。\n'
+            + '   - 【升级继承规则】:\n'
+            + '      * 升级商品必须完整继承替换目标的已有有效词条。\n'
+            + '      * 禁止使用“融合了原能力”“保留部分能力”等模糊描述替代实际词条记录。\n'
+            + '      * 原装备/技能/血统的已有效果必须逐条迁移到新面板【效果】字段中。\n'
+            + '      * 若旧词条被改造、合并或替换，必须明确记录原词条 → 新词条的对应关系。\n'
             + (hasReq
                 ? '4. 核心聚焦: 玩家提出了明确的【核心需求】。商品生成必须以此为绝对中心。允许某些分类为空（不生成）。若生成其他类型的商品，必须与核心需求构成【流派联动】（例如需求是"狙击枪"，则配套生成"隐身技能"、"穿甲弹药道具"等）。总数控制在 16~24 个。\n'
                 : '4. 均衡刷新: 一次生成约 18~28 个商品，血统/技能/装备/道具 各 4~6 项，升级列表 2~4 项。\n')
             + '5. 商品职责隔离:\n'
             + '   - 【血统列表】: 仅生成玩家未拥有的独立血统体系。若属于玩家已有血统的同源强化、进化、觉醒版本，必须进入升级列表。\n'
-            + '   - 【升级列表】: 仅处理玩家当前已有血统、技能、装备的强化、升阶、重铸或觉醒。必须填写准确替换目标。\n'
+            + '   - 【升级列表】: \n'
+            + '      * 仅处理玩家当前已有血统、技能、装备的强化、升阶、重铸或觉醒。必须填写准确替换目标。\n'
+            + '   - 【世界遗物规则】:\n'
+            + '      * 世界遗物禁止作为商城普通商品生成。\n'
+            + '      * 世界遗物只能通过任务世界探索、特殊事件、剧情奖励或世界结算获得。\n'
+            + '      * 主神空间仅提供世界遗物的解析、修复、强化、融合等服务，不直接出售新的世界遗物。\n'
+            + '      * 世界遗物不可进入普通装备栏体系，不作为常规装备替代品处理。\n'
             + '   - 同一目标禁止同时作为普通商品与升级商品出现。\n'
             + '6. 修炼类道具规则:\n'
             + '   - 【道具列表】允许生成秘籍、功法、心法、修炼资料等成长型道具。\n'
@@ -5308,7 +6274,7 @@
             + '  - 描述/消耗: 字符串\n'
             + '  - 类型:\n'
             + '      技能列表.类型 = 数字 0(主动) / 1(被动) / 2(特殊)\n'
-            + '      装备列表.类型 = 数字 0(武器) / 1(手套) / 2(头部) / 3(胸部) / 4(腿部) / 5(鞋子) / 6(披风) / 7(饰品) / 8(特殊)\n'
+            + '      装备列表.类型 = 数字 0(武器) / 1(手套) / 2(头部) / 3(胸部) / 4(腿部) / 5(鞋子) / 6(披风) / 7(饰品)\n'
             + '      道具列表.类型 = 字符串(消耗品/材料/特殊等, 同类型需复用且不得细分)\n'
             + '  - 替换目标: 字符串 (仅【升级列表】内商品必填，必须与玩家当前拥有的原物品名称一字不差！)\n'
             + '  - 所属大类: 字符串 (仅【升级列表】内商品必填，仅限填写: 血统 / 技能 / 装备)\n'
@@ -5376,6 +6342,8 @@ if (hasReq) {
 }
             // console.log('系统提示词:', sysPrompt, '\n用户提示词:', userPrompt);
         shopCallAI(sysPrompt, userPrompt).then(function (out) {
+            // 回合校验: 用户点了"停止刷新"或重发起一次新刷新时 epoch 已变, 丢弃这次迟到结果
+            if (myEpoch !== shopRefreshEpoch || !shopRefreshing) return;
             var parsed = shopParseMarketText(out);
             // 统计生成数量
             var total = (parsed.血统列表.length + parsed.技能列表.length + parsed.装备列表.length + parsed.道具列表.length + parsed.升级列表.length);
@@ -5411,10 +6379,59 @@ if (hasReq) {
             }
         }).catch(function (e) {
             // 失败: 退出刷新中态, 恢复原商品列表显示, 弹提示
+            if (myEpoch !== shopRefreshEpoch) return;  // 已被打断, 不再处理失败
             shopRefreshing = false;
             renderAll();
             samToast('error', 'AI生成失败, 已恢复原商品列表: ' + (e && e.message ? e.message : e));
         });
+    }
+    /* 32d-6. 停止刷新: 用户在"正在刷新…"态点击停止按钮时调用
+       - 立即解除 shopRefreshing 锁定, renderAll 恢复刷新按钮可用 + 原商品列表显示
+       - 通过推进 shopRefreshEpoch 让已在飞行中的旧 Promise 回调在回合校验处自动丢弃结果,
+         AI 迟到的回复不会再覆盖用户当前操作或写入 商城 */
+    function shopStopRefresh() {
+        if (!shopRefreshing) return;
+        shopRefreshEpoch += 1;          // 让旧回调回合不匹配 → 丢弃返回结果
+        shopRefreshing = false;
+        renderAll();
+        samToast('warning', '已停止商品刷新, 可重新点击「刷新商品」');
+    }
+    /* 32d-7. 停止融合: 用户在"血统融合进行中…"态点击停止按钮时调用
+       - 立即解除 bloodFusionBusy 锁定, renderAll 恢复可发起融合
+       - 通过推进 bloodFusionEpoch 让已在飞行中的旧 Promise 回调在回合校验处自动丢弃结果,
+         AI 迟到的回复不会再覆盖血统库/升级列表/形态库
+       - 若本次为商城血统融合(开始时已扣币+删除商品库), 需回滚 bloodFusionSnap 还原空间币+商品库 */
+    function bloodFusionStop() {
+        if (!bloodFusionBusy) return;
+        bloodFusionEpoch += 1;          // 让旧回调回合不匹配 → 丢弃返回结果
+        bloodFusionBusy = false;
+        bloodFusionShopItem = null;
+        bloodFusionResult = null;
+        bloodFusionConsumedNames = [];
+        // 回滚开始时已扣除的空间币与已删除的商品库
+        if (bloodFusionSnap) {
+            try {
+                writeBackMvu(function(statData) {
+                    statData.主角 = statData.主角 || {};
+                    statData.主角.空间币 = safeNum(statData.主角.空间币, 0) + bloodFusionSnap.price;
+                    if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
+                        statData.商城.血统列表 = bloodFusionSnap.preBloodLib.slice();
+                    }
+                });
+            } catch(eStop) { try { console.warn('[主神终端] 停止融合回滚异常:', eStop.message); } catch(e2){} }
+            // 商店列表本地缓存还原: 让被删除的血统商品回到血统区
+            try {
+                var freshSd = getStatData();
+                if (freshSd && freshSd.商城) {
+                    shopMarketData = shopNormalizeMarketData(freshSd.商城);
+                    if (!shopTabHasData(shopActiveTab)) shopActiveTab = shopPickFirstAvailableTab();
+                }
+            } catch(eSnapStop) {}
+            bloodFusionSnap = null;
+        }
+        closeModal();
+        renderAll();
+        samToast('warning', '已停止血统融合, 空间币与商品库已回滚, 可重新发起融合');
     }
     /* 统一处理装备/道具操作 */
     function handleItemAction(action, path, kind, typeStr, key) {

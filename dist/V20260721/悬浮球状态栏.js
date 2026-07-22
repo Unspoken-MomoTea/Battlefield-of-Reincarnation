@@ -1363,6 +1363,14 @@
         $m.addClass('open');
         $m.off('click.samModal').on('click.samModal', '.sam-modal-close', closeModal);
         $m.off('click.samModalBg').on('click.samModalBg', function(e) { if (e.target === this) closeModal(); });
+        // 停止按钮(.sam-shop-stop-btn, 通过 data-sam-act 分发): modal 在 body 之下独立于 #samsara-panel,
+        // 故在 modal 自身追加分发委托(同 bloodFusionStop / shopStopRefresh), 与 panel 内同名委托解耦共存
+        $m.off('click.samModalStop').on('click.samModalStop', '.sam-shop-stop-btn', function(e) {
+            e.stopPropagation();
+            var act = String($(this).attr('data-sam-act') || '');
+            if (act === 'blood-fusion-stop') bloodFusionStop();
+            else shopStopRefresh();
+        });
     }
     function closeModal() { $('#samsara-modal').removeClass('open'); }
 
@@ -1929,7 +1937,7 @@
         
         var playerCtx = parts.join('\n');
         var userPrompt = '\n【当前玩家数据】\n' + (playerCtx || '(无)') + '\n';
-        userPrompt += bloodFusionBuildPrompt(a, b, mode, bloodFusionResult);
+        userPrompt += bloodFusionBuildPrompt(a, b, _mode0, bloodFusionResult);
         // console.log(sysPrompt, userPrompt);
         // 用 try/await 替代原 then/catch, 失败回滚空间币+商品库
         try {

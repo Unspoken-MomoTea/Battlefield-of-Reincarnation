@@ -319,7 +319,7 @@
 
         #samsara-panel {
             position: fixed !important; right: 70px; top: 6%; z-index: 999998;
-            width: 470px; max-width: 94vw; height: 82vh; max-height: 800px; min-height: 280px;
+            width: 470px; max-width: 94vw; height: 82vh; height: 82dvh; max-height: 800px; min-height: 280px;
             display: none; flex-direction: column;
             background: var(--sam-bg); border: 1px solid var(--sam-border); border-radius: 10px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 0 40px rgba(0,0,0,0.3);
@@ -434,6 +434,18 @@
         .sam-fc-del-btn { margin-left:auto; width:22px; height:22px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; font-size:13px; line-height:1; cursor:pointer; color:var(--sam-hp); background:rgba(228,72,72,0.12); border:1px solid rgba(228,72,72,0.45); border-radius:6px; transition:all 0.18s; }
         .sam-fc-del-btn:hover { background:var(--sam-hp); color:#fff; box-shadow:0 0 8px rgba(228,72,72,0.6); }
         @media (max-width:768px) {
+            /* 新增：主面板在手机端的强制适配 */
+            #samsara-panel {
+                left: 0 !important; 
+                right: 0 !important; 
+                margin: 0 auto !important;
+                /* 使用 env() 避让顶部刘海/灵动岛和底部小白条 */
+                top: env(safe-area-inset-top, 4%) !important;
+                /* 动态计算高度，减去底部的系统安全区 */
+                height: calc(92dvh - env(safe-area-inset-bottom, 0px)) !important;
+                max-height: none !important; /* 移除桌面端的硬性最大高度限制 */
+                width: 96vw !important;
+            }
             .sam-tier-prog { padding:6px 8px; gap:6px; }
             .sam-tier-side { font-size:15px; min-width:28px; }
             .sam-tier-bar { height:11px; }

@@ -5238,7 +5238,22 @@
             html += '</div>';
         }
         // ⑤ 最终属性 (仅非零项, 排除武器对象) + 武器攻击(并入最终属性, ATK/MATK分两排)
-        var attrKeys = Object.keys(attrs).filter(function(k){ return k !== '武器' && safeNum(attrs[k],0) !== 0; });
+        // 固定顺序: 六维 → 力量修正等(修正) → DEF/MDEF/AP → 武器 → 减伤率 → 检定
+        var ATTR_ORDER = [
+            '力量','敏捷','体质','精神','感知','魅力',
+            '力量修正','敏捷修正','体质修正','精神修正','感知修正','魅力修正',
+            'DEF','MDEF','AP',
+            '物理减伤率','魔法减伤率',
+            '先攻DC','防御DC'
+        ];
+        var attrKeys = ATTR_ORDER.filter(function(k){
+            return Object.prototype.hasOwnProperty.call(attrs, k) && k !== '武器' && safeNum(attrs[k],0) !== 0;
+        });
+        // 兜底: ATTR_ORDER 之外的非0非武器键(防漏新字段)
+        Object.keys(attrs).forEach(function(k){
+            if (k === '武器' || ATTR_ORDER.indexOf(k) >= 0) return;
+            if (safeNum(attrs[k],0) !== 0 && attrKeys.indexOf(k) < 0) attrKeys.push(k);
+        });
         var wpn = attrs.武器;
         var wpnKeys = (wpn && typeof wpn === 'object') ? Object.keys(wpn) : [];
         if (attrKeys.length || wpnKeys.length) {

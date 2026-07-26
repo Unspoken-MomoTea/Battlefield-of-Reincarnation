@@ -37,9 +37,11 @@
         'night':   { name: '暗夜', accent: '#8f9fff', hp: '#e4587d', thp: '#e5c166', ep: '#5d97ff', bg: 'rgba(14,19,32,0.88)', card: 'rgba(22,30,46,0.7)', border: 'rgba(143,159,255,0.28)', text: '#f3f5f8', sub: '#8b95a6', dark: '#07090e' },
         'crimson': { name: '绯红', accent: '#ff5f57', hp: '#ff4757', thp: '#ffa502', ep: '#5b8cff', bg: 'rgba(28,12,16,0.9)', card: 'rgba(46,18,24,0.72)', border: 'rgba(255,95,87,0.3)', text: '#fff0f3', sub: '#b08896', dark: '#0e0406' },
         'indigo':  { name: '靛蓝', accent: '#7c5cff', hp: '#ff6b8a', thp: '#ffd166', ep: '#4dabff', bg: 'rgba(14,16,38,0.9)', card: 'rgba(28,30,58,0.72)', border: 'rgba(124,92,255,0.32)', text: '#eef0ff', sub: '#9094c0', dark: '#06081a' },
-        'parchment': { name: '羊皮', accent: '#a8761e', hp: '#c0392b', thp: '#d4a017', ep: '#2c6fbb', bg: 'rgba(245,235,210,0.95)', card: 'rgba(235,222,190,0.8)', border: 'rgba(168,118,30,0.35)', text: '#3a2a14', sub: '#7a6440', dark: '#e8d8b8' }
+        'parchment': { name: '羊皮', accent: '#a8761e', hp: '#c0392b', thp: '#d4a017', ep: '#2c6fbb', bg: 'rgba(245,235,210,0.95)', card: 'rgba(235,222,190,0.8)', border: 'rgba(168,118,30,0.35)', text: '#3a2a14', sub: '#7a6440', dark: '#e8d8b8' },
+        'sakura':   { name: '樱白', accent: '#ff80ab', hp: '#e91e63', thp: '#ffb300', ep: '#42a5f5', bg: 'rgba(255,240,245,0.95)', card: 'rgba(255,224,233,0.82)', border: 'rgba(255,128,171,0.36)', text: '#3d1e2a', sub: '#8a6172', dark: '#f7d4e0' },
+        'matcha':   { name: '抹茶', accent: '#66bb6a', hp: '#ef5350', thp: '#ffa726', ep: '#26c6da', bg: 'rgba(238,246,232,0.95)', card: 'rgba(224,240,210,0.82)', border: 'rgba(102,187,106,0.34)', text: '#1f3320', sub: '#5a7560', dark: '#d6ecc8' }
     };
-    var THEME_ORDER = ['night', 'crimson', 'indigo', 'parchment'];
+    var THEME_ORDER = ['night', 'crimson', 'indigo', 'parchment', 'sakura', 'matcha'];
 
     /* ===== 4. 受保护(只读)字段定义 ===== */
     var READONLY_PATHS = [
@@ -317,7 +319,7 @@
 
         #samsara-panel {
             position: fixed !important; right: 70px; top: 6%; z-index: 999998;
-            width: 470px; max-width: 94vw; height: 82vh; max-height: 800px; min-height: 280px;
+            width: 470px; max-width: 94vw; height: 82vh; height: 82dvh; max-height: 800px; min-height: 280px;
             display: none; flex-direction: column;
             background: var(--sam-bg); border: 1px solid var(--sam-border); border-radius: 10px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 0 40px rgba(0,0,0,0.3);
@@ -368,10 +370,11 @@
         /* 战斗状态徽章: 红色脉冲, 平时不渲染(由JS按 是否战斗中 输出) */
         .sam-hero-combat { align-self:flex-start; display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:bold; color:#fff; background:linear-gradient(135deg, rgba(228,88,125,0.92), rgba(170,38,66,0.9)); border:1px solid var(--sam-hp); border-radius:10px; padding:2px 10px; letter-spacing:0.5px; box-shadow:0 0 8px rgba(228,88,125,0.5); animation:samCombatPulse 1.4s ease-in-out infinite; }
         @keyframes samCombatPulse { 0%,100% { box-shadow:0 0 7px rgba(228,88,125,0.45); } 50% { box-shadow:0 0 16px rgba(228,88,125,0.85); } }
-        /* 层级: 品质描边徽章(文字色由 .q-X 提供, 边框跟随 currentColor) - 独立成行 */
-        .sam-hero-tier { align-self:flex-start; display:inline-flex; align-items:baseline; font-weight:900; line-height:1; color:var(--sam-accent); padding:3px 10px; border:1px solid currentColor; border-radius:8px; background:rgba(0,0,0,0.28); }
-        .sam-hero-tier-num { font-size:19px; }
-        .sam-hero-tier-suf { font-size:11px; opacity:0.75; margin-left:1px; }
+        /* 层级: 品质描边徽章(文字色由 .q-X 提供, 边框跟随 currentColor) - 独立成行
+           固定深色底保证浅色主题下浅色品质文字(F/E)依旧高对比可读 */
+        .sam-hero-tier { align-self:flex-start; display:inline-flex; align-items:baseline; font-weight:900; line-height:1; color:var(--sam-accent); padding:3px 12px; border:2px solid currentColor; border-radius:9px; background:rgba(15,18,28,0.78); box-shadow:0 1px 4px rgba(0,0,0,0.35), inset 0 0 8px rgba(0,0,0,0.3); }
+        .sam-hero-tier-num { font-size:19px; text-shadow:0 1px 2px rgba(0,0,0,0.65); }
+        .sam-hero-tier-suf { font-size:11px; opacity:0.8; margin-left:1px; text-shadow:0 1px 2px rgba(0,0,0,0.65); }
         /* 种族: 次要标签 - 独立成行 */
         .sam-hero-race { align-self:flex-start; display:inline-flex; align-items:center; font-size:12px; font-weight:bold; color:var(--sam-text); line-height:1.2; padding:3px 9px; background:rgba(255,255,255,0.05); border:1px solid var(--sam-border); border-radius:8px; }
         /* 形态: 金色发光标签 */
@@ -431,6 +434,7 @@
         .sam-fc-del-btn { margin-left:auto; width:22px; height:22px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; font-size:13px; line-height:1; cursor:pointer; color:var(--sam-hp); background:rgba(228,72,72,0.12); border:1px solid rgba(228,72,72,0.45); border-radius:6px; transition:all 0.18s; }
         .sam-fc-del-btn:hover { background:var(--sam-hp); color:#fff; box-shadow:0 0 8px rgba(228,72,72,0.6); }
         @media (max-width:768px) {
+            /* 手机端 tier 进度条紧凑化(面板主适配规则在下方 @media max-width:768px 统一处理) */
             .sam-tier-prog { padding:6px 8px; gap:6px; }
             .sam-tier-side { font-size:15px; min-width:28px; }
             .sam-tier-bar { height:11px; }
@@ -493,14 +497,14 @@
         .sam-shop-tab .sam-shop-tab-cnt { font-size:10px; opacity:0.75; margin-left:2px; }
         /* 持有面板子Tab条: 战术栏|装备背包|道具背包|仓库 (四等分卡片式) */
         .sam-hold-tabs { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:8px 2px 10px; flex-shrink:0; }
-        .sam-hold-tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:8px 4px 7px; background:linear-gradient(180deg, rgba(22,30,46,0.5), rgba(13,18,28,0.6)); border:1px solid var(--sam-border); border-radius:10px; cursor:pointer; transition:all 0.18s; position:relative; overflow:visible; line-height:1.1; }
-        .sam-hold-tab:hover { border-color:rgba(143,159,255,0.45); transform:translateY(-1px); }
-        .sam-hold-tab.active { background:linear-gradient(180deg, rgba(143,159,255,0.16), rgba(143,159,255,0.05)); border-color:var(--sam-accent); box-shadow:0 0 0 1px rgba(143,159,255,0.35), 0 0 12px rgba(143,159,255,0.18); }
+        .sam-hold-tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:8px 4px 7px; background:var(--sam-card); border:1px solid var(--sam-border); border-radius:10px; cursor:pointer; transition:all 0.18s; position:relative; overflow:visible; line-height:1.1; }
+        .sam-hold-tab:hover { border-color:var(--sam-accent); transform:translateY(-1px); }
+        .sam-hold-tab.active { background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.04)); border-color:var(--sam-accent); box-shadow:0 0 0 1px var(--sam-border), 0 0 12px rgba(0,0,0,0.18); }
         .sam-hold-tab .sam-hold-tab-ico { font-size:17px; line-height:1; filter:grayscale(0.35); transition:filter 0.18s; }
         .sam-hold-tab.active .sam-hold-tab-ico { filter:grayscale(0); }
-        .sam-hold-tab .sam-hold-tab-lbl { font-size:11px; color:var(--sam-sub); white-space:nowrap; transition:color 0.18s; }
+        .sam-hold-tab .sam-hold-tab-lbl { font-size:11px; color:var(--sam-text); white-space:nowrap; transition:color 0.18s; }
         .sam-hold-tab.active .sam-hold-tab-lbl { color:var(--sam-accent); font-weight:bold; }
-        .sam-hold-tab .sam-hold-tab-cnt { position:absolute; top:-5px; right:-4px; min-width:16px; height:16px; padding:0 4px; font-size:10px; font-weight:bold; line-height:16px; text-align:center; color:#0d1220; background:var(--sam-accent); border-radius:9px; box-shadow:0 0 6px rgba(143,159,255,0.4); }
+        .sam-hold-tab .sam-hold-tab-cnt { position:absolute; top:-5px; right:-4px; min-width:16px; height:16px; padding:0 4px; font-size:10px; font-weight:bold; line-height:16px; text-align:center; color:var(--sam-dark); background:var(--sam-accent); border-radius:9px; box-shadow:0 0 6px color-mix(in srgb, var(--sam-accent) 45%, transparent); }
         .sam-hold-tab .sam-hold-tab-cnt:empty, .sam-hold-tab .sam-hold-tab-cnt.zero { display:none; }
         /* 持有面板内容区 */
         .sam-hold-content { padding:2px 2px 6px; }
@@ -526,22 +530,22 @@
         .sam-fusion-pulse { display:inline-block; font-size:26px; line-height:1; transform-origin:center; animation:samFusionPulse 1.4s ease-in-out infinite; }
         @keyframes samFusionPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.25); } }
         /* 商品卡片(参考 开局.html .item-card 选中/禁用模式) */
-        .sam-shop-item { background:linear-gradient(180deg, rgba(22,30,46,0.7), rgba(13,18,28,0.8)); border:1px solid var(--sam-border); border-radius:8px; padding:10px; cursor:pointer; transition:all 0.15s; position:relative; overflow:visible; }
+        .sam-shop-item { background:var(--sam-card); border:1px solid var(--sam-border); border-radius:8px; padding:10px; cursor:pointer; transition:all 0.15s; position:relative; overflow:visible; }
         .sam-shop-item::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--sam-border); opacity:0; transition:opacity 0.15s; border-radius:8px 0 0 8px; }
-        .sam-shop-item:hover:not(.disabled) { border-color:rgba(143,159,255,0.4); transform:translateY(-1px); }
+        .sam-shop-item:hover:not(.disabled) { border-color:var(--sam-accent); transform:translateY(-1px); }
         .sam-shop-item:hover:not(.disabled)::before { opacity:0.6; }
-        /* 选中态: 边框亮起(青蓝) + 辉光 + 左条加粗, 不整体变红 */
-        .sam-shop-item.selected { background:linear-gradient(180deg, rgba(22,30,46,0.7), rgba(143,159,255,0.08)); border-color:var(--sam-accent); box-shadow:0 0 0 1px rgba(143,159,255,0.35), 0 0 12px rgba(143,159,255,0.18); }
+        /* 选中态: 边框亮起(主题主色) + 辉光 + 左条加粗 */
+        .sam-shop-item.selected { background:linear-gradient(180deg, var(--sam-card), rgba(0,0,0,0.04)); border-color:var(--sam-accent); box-shadow:0 0 0 1px var(--sam-border), 0 0 12px rgba(0,0,0,0.18); }
         .sam-shop-item.selected::before { background:var(--sam-accent); opacity:1; width:4px; }
         /* 右下角"已选"角标(默认隐藏, 选中时显示) */
-        .sam-shop-item .sam-shop-sel-corner { position:absolute; right:-1px; bottom:-1px; background:var(--sam-accent); color:#0a0e14; font-size:10px; font-weight:bold; padding:2px 8px; border-top-left-radius:6px; border-bottom-right-radius:8px; box-shadow:0 0 6px rgba(143,159,255,0.5); display:none; letter-spacing:0.5px; line-height:1.4; }
+        .sam-shop-item .sam-shop-sel-corner { position:absolute; right:-1px; bottom:-1px; background:var(--sam-accent); color:var(--sam-dark); font-size:10px; font-weight:bold; padding:2px 8px; border-top-left-radius:6px; border-bottom-right-radius:8px; box-shadow:0 0 6px rgba(0,0,0,0.25); display:none; letter-spacing:0.5px; line-height:1.4; }
         .sam-shop-item.selected .sam-shop-sel-corner { display:block; }
         /* 禁用态(余额不足): 灰调 + 不可点击 + hover无变化 */
         .sam-shop-item.disabled { opacity:0.45; cursor:not-allowed; filter:grayscale(0.7); }
         .sam-shop-item.disabled:hover { transform:none; box-shadow:none; border-color:var(--sam-border); }
         .sam-shop-item.disabled:hover::before { opacity:0; }
         .sam-shop-item-head { display:flex; align-items:flex-start; justify-content:space-between; gap:6px; margin-bottom:6px; min-width:0; }
-        .sam-shop-item-name { font-weight:bold; font-size:13px; color:var(--sam-fg, #e8f0f8); line-height:1.25; min-width:0; overflow-wrap:anywhere; }
+        .sam-shop-item-name { font-weight:bold; font-size:13px; color:var(--sam-text); line-height:1.25; min-width:0; overflow-wrap:anywhere; }
         .sam-shop-item.selected .sam-shop-item-name { color:var(--sam-accent); }
         .sam-shop-item-meta { flex-shrink:0; font-size:11px; font-weight:900; padding:1px 7px; border-radius:3px; border:1px solid; line-height:1.4; min-width:30px; text-align:center; }
         .sam-shop-item-meta.q-F { color:var(--sam-q-f); border-color:var(--sam-q-f); background:rgba(148,163,184,0.14); }
@@ -554,16 +558,16 @@
         .sam-shop-item-meta.q-SS { color:var(--sam-q-ss); border-color:var(--sam-q-ss); background:rgba(239,68,68,0.18); text-shadow:0 0 4px rgba(239,68,68,0.6); }
         .sam-shop-item-meta.q-SSS { color:var(--sam-q-sss); border-color:var(--sam-q-sss); background:rgba(236,72,153,0.20); text-shadow:0 0 5px rgba(236,72,153,0.7); box-shadow:0 0 6px rgba(236,72,153,0.4); }
         .sam-shop-item-attrs { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; }
-        .sam-shop-chip { font-size:10px; padding:1px 6px; border-radius:8px; background:rgba(0,0,0,0.25); border:1px solid var(--sam-border); color:var(--sam-fg, #d1d8e0); line-height:1.4; }
+        .sam-shop-chip { font-size:10px; padding:1px 6px; border-radius:8px; background:var(--sam-dark); border:1px solid var(--sam-border); color:var(--sam-text); line-height:1.4; }
         .sam-shop-chip b { color:var(--sam-accent); font-weight:normal; }
-        .sam-shop-item-detail { font-size:11px; color:var(--sam-text); padding:4px 0 2px; border-top:1px dashed rgba(255,255,255,0.06); line-height:1.5; }
+        .sam-shop-item-detail { font-size:11px; color:var(--sam-text); padding:4px 0 2px; border-top:1px dashed var(--sam-border); line-height:1.5; }
         .sam-shop-item-detail b { color:var(--sam-accent); }
         .sam-shop-item-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px; }
         .sam-shop-price { font-size:13px; font-weight:bold; color:var(--sam-thp, #e5c166); text-shadow:0 0 5px rgba(229,193,102,0.4); }
         .sam-shop-qty { display:flex; align-items:center; gap:2px; }
-        .sam-shop-qty-btn { width:22px; height:22px; border:1px solid var(--sam-border); border-radius:4px; background:rgba(0,0,0,0.25); color:var(--sam-fg, #d1d8e0); font-size:12px; cursor:pointer; line-height:1; }
+        .sam-shop-qty-btn { width:22px; height:22px; border:1px solid var(--sam-border); border-radius:4px; background:var(--sam-dark); color:var(--sam-text); font-size:12px; cursor:pointer; line-height:1; }
         .sam-shop-qty-btn:hover { border-color:var(--sam-accent); color:var(--sam-accent); }
-        .sam-shop-qty-inp { width:36px; height:22px; text-align:center; border:1px solid var(--sam-border); border-radius:4px; background:rgba(0,0,0,0.25); color:var(--sam-fg, #d1d8e0); font-size:11px; outline:none; }
+        .sam-shop-qty-inp { width:36px; height:22px; text-align:center; border:1px solid var(--sam-border); border-radius:4px; background:var(--sam-dark); color:var(--sam-text); font-size:11px; outline:none; }
         .sam-shop-empty { font-size:12px; color:var(--sam-sub); padding:20px 8px; text-align:center; }
         /* 底部购物车条: flex 末项常驻底部(不再用 sticky) */
         .sam-shop-foot { flex-shrink:0; display:flex; align-items:center; gap:8px; padding:8px 10px; border-top:1px solid var(--sam-border); background:var(--sam-card); z-index:5; }
@@ -685,8 +689,7 @@
         .sam-asset-staff-role { color:var(--sam-sub); }
         /* 待办事件 */
         .sam-asset-todo { display:flex; flex-direction:column; gap:4px; }
-        .sam-asset-todo-item { font-size:12px; color:var(--sam-text); line-height:1.5; padding:5px 9px 5px 22px; position:relative; background:rgba(229,193,102,0.06); border-radius:5px; border-left:2px solid var(--sam-thp); }
-        .sam-asset-todo-item::before { content:'◽'; position:absolute; left:6px; top:2px; font-size:15px; }
+        .sam-asset-todo-item { font-size:12px; color:var(--sam-text); line-height:1.5; padding:5px 9px 5px 12px; position:relative; background:rgba(229,193,102,0.06); border-radius:5px; border-left:2px solid var(--sam-thp); }
         /* NPC单列卡片(关系面板) */
         .sam-npc-card { padding:8px 10px; background:var(--sam-card); border:1px solid var(--sam-border); border-left:3px solid var(--sam-sub); border-radius:6px; margin-bottom:6px; cursor:pointer; transition:transform 0.15s,background 0.15s,box-shadow 0.2s; }
         .sam-npc-card:hover { transform:translateY(-1px); background:var(--sam-hover); box-shadow:0 2px 10px rgba(0,0,0,0.3); }
@@ -822,7 +825,7 @@
         .sam-nd-name { font-size:16px; font-weight:900; color:var(--sam-text); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
         .sam-nd-form { font-size:11px; font-weight:bold; font-style:italic; color:var(--sam-thp); background:rgba(102,170,170,0.15); border:1px solid rgba(102,170,170,0.35); padding:2px 8px; border-radius:10px; }
         .sam-nd-badges { display:flex; gap:5px; align-items:center; }
-        .sam-nd-tier { font-size:13px; font-weight:900; width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:rgba(0,0,0,0.3); border:1px solid currentColor; }
+        .sam-nd-tier { font-size:13px; font-weight:900; width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:rgba(15,18,28,0.78); border:2px solid currentColor; box-shadow:0 1px 3px rgba(0,0,0,0.3); text-shadow:0 1px 2px rgba(0,0,0,0.6); }
         .sam-nd-badge { font-size:10px; font-weight:bold; padding:2px 8px; border-radius:8px; }
         .sam-nd-badge.present { color:#56bf7b; background:rgba(86,191,123,0.14); border:1px solid rgba(86,191,123,0.4); }
         .sam-nd-badge.team { color:var(--sam-thp); background:rgba(229,193,102,0.14); border:1px solid rgba(229,193,102,0.4); }
@@ -878,6 +881,8 @@
         /* ===== 物资转移弹窗(向在场NPC转移装备/道具) ===== */
         .sam-npc-transfer { position:absolute; top:4px; z-index:2; padding:3px 8px; font-size:10px; font-weight:bold; color:var(--sam-thp); background:rgba(229,193,102,0.12); border:1px solid rgba(229,193,102,0.4); border-radius:5px; cursor:pointer; line-height:1.4; white-space:nowrap; }
         .sam-npc-transfer:hover { background:rgba(229,193,102,0.28); box-shadow:0 0 8px rgba(229,193,102,0.3); }
+        .sam-npc-loot { position:absolute; top:4px; z-index:2; padding:3px 8px; font-size:10px; font-weight:bold; color:#f87171; background:rgba(248,113,113,0.12); border:1px solid rgba(248,113,113,0.4); border-radius:5px; cursor:pointer; line-height:1.4; white-space:nowrap; }
+        .sam-npc-loot:hover { background:rgba(248,113,113,0.28); box-shadow:0 0 8px rgba(248,113,113,0.3); }
         /* 转移列表：不再固定 50vh 嵌套滚动，交给 .sam-modal-body 单层滚 */
         .sam-trf-list { padding:2px; }
         .sam-trf-sec { font-size:11px; font-weight:900; color:var(--sam-accent); margin:8px 0 5px; padding:3px 8px; border-left:3px solid var(--sam-accent); background:rgba(143,159,255,0.06); border-radius:0 4px 4px 0; }
@@ -911,6 +916,12 @@
         .sam-trf-btn.confirm { background:rgba(228,88,125,0.15); color:var(--sam-hp); border-color:var(--sam-hp); }
         .sam-trf-btn.confirm:hover:not(:disabled) { background:var(--sam-hp); color:#fff; box-shadow:0 0 10px rgba(228,88,125,0.5); }
         .sam-trf-btn.confirm:disabled { opacity:0.4; cursor:not-allowed; }
+        .sam-loot-btn { min-height:40px; padding:10px 18px; font-size:13px; font-weight:bold; border-radius:6px; cursor:pointer; border:1px solid var(--sam-border); transition:all 0.18s; }
+        .sam-loot-btn.cancel { background:rgba(143,159,255,0.1); color:var(--sam-text); }
+        .sam-loot-btn.cancel:hover { background:rgba(143,159,255,0.22); }
+        .sam-loot-btn.confirm { background:rgba(248,113,113,0.15); color:#f87171; border-color:rgba(248,113,113,0.5); }
+        .sam-loot-btn.confirm:hover:not(:disabled) { background:rgba(248,113,113,0.4); color:#fff; box-shadow:0 0 10px rgba(248,113,113,0.4); }
+        .sam-loot-btn.confirm:disabled { opacity:0.4; cursor:not-allowed; }
 
         /* 子Tab */
         .sam-subtabs { display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap; }
@@ -1072,8 +1083,8 @@
         .sam-stat-cell .sv { font-size:13px; font-weight:bold; color:var(--sam-text); }
 
         /* 设置弹窗 */
-        .sam-settings-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
-        .sam-theme-card { padding:14px 10px; text-align:center; border-radius:8px; cursor:pointer; border:2px solid transparent; transition:all 0.2s; }
+        .sam-settings-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+        .sam-theme-card { padding:10px 6px; text-align:center; border-radius:8px; cursor:pointer; border:2px solid transparent; transition:all 0.2s; }
         .sam-theme-card:hover { transform:scale(1.03); }
         .sam-theme-card.active { border-color:var(--sam-accent); box-shadow:0 0 10px var(--sam-accent); }
         .sam-theme-card .swatch { width:100%; height:24px; border-radius:4px; margin-bottom:6px; }
@@ -1084,6 +1095,32 @@
         .sam-toggle-switch .knob { position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left 0.2s; }
         .sam-toggle-switch.on .knob { left:24px; }
 
+        /* ===== API 配置区块(移植自 Zsd网游论坛) ===== */
+        .sam-api-section { padding-top:6px; }
+        .sam-api-block-label { font-size:12px; font-weight:bold; color:var(--sam-sub); margin:10px 0 4px; }
+        .sam-api-field { margin-bottom:6px; }
+        .sam-api-field > label { display:block; font-size:11px; color:var(--sam-sub); margin-bottom:2px; }
+        .sam-api-input { width:100%; box-sizing:border-box; background:var(--sam-input-bg); border:1px solid var(--sam-border); color:var(--sam-text); padding:5px 8px; border-radius:5px; font-size:12px; outline:none; transition:border-color 0.15s,box-shadow 0.15s; }
+        .sam-api-input:focus { border-color:var(--sam-accent); box-shadow:0 0 0 2px rgba(143,159,255,0.18); }
+        .sam-api-input::placeholder { color:var(--sam-sub); opacity:0.6; }
+        .sam-api-select { width:100%; box-sizing:border-box; background:var(--sam-input-bg); border:1px solid var(--sam-border); color:var(--sam-text); padding:5px 8px; border-radius:5px; font-size:12px; outline:none; cursor:pointer; }
+        .sam-api-select:focus { border-color:var(--sam-accent); }
+        .sam-api-row { display:flex; gap:6px; align-items:stretch; }
+        .sam-api-row > .sam-api-input,
+        .sam-api-row > .sam-api-select { flex:1 1 auto; min-width:0; }
+        .sam-api-btn { flex:0 0 auto; padding:5px 10px; font-size:11px; font-weight:bold; border-radius:5px; border:1px solid var(--sam-border); background:rgba(143,159,255,0.12); color:var(--sam-text); cursor:pointer; transition:background 0.15s,border-color 0.15s,transform 0.1s; white-space:nowrap; }
+        .sam-api-btn:hover { background:var(--sam-accent); border-color:var(--sam-accent); color:#fff; transform:translateY(-1px); }
+        .sam-api-btn:active { transform:translateY(0); }
+        .sam-api-btn.danger { border-color:var(--sam-hp); color:var(--sam-hp); background:rgba(228,88,125,0.12); }
+        .sam-api-btn.danger:hover { background:var(--sam-hp); color:#fff; }
+        .sam-api-btn.save { border-color:#27ae60; color:#2ecc71; background:rgba(46,204,113,0.12); }
+        .sam-api-btn.save:hover { background:#27ae60; color:#fff; }
+        .sam-api-btn[disabled] { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
+        .sam-api-status { font-size:11px; color:var(--sam-sub); margin-top:2px; line-height:1.4; }
+        .sam-api-status.warn { color:var(--sam-thp); }
+        .sam-api-status.err { color:var(--sam-hp); }
+        .sam-api-status.ok { color:#56bf7b; }
+
         @media (max-width:768px) {
             #samsara-ball { top:calc(70px + env(safe-area-inset-top, 0px)) !important; bottom:auto !important; right:calc(16px + env(safe-area-inset-right, 0px)) !important; width:30px !important; height:30px !important; }
             /* 手机端：上下贴边自适应固定视口，内部由 .sam-tab-content 滚动 */
@@ -1093,11 +1130,16 @@
                便于被 env(safe-area-inset-*) 兜住任务栏安全区。 */
             #samsara-panel {
                 top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+                /* bottom 用 dvh 兜底而非 env(safe-area-inset-bottom): 浏览器工具栏/地址栏不属于
+                   系统 safe-area, env() 测不到它; 用动态视口 dvh 自动收缩才能避开。
+                   dvh 不支持时回退 vh(老浏览器 layout viewport, 至少不会被遮到看不见)。 */
                 bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
                 left: 0 !important; right: 0 !important;
                 margin: 0 auto !important; width: 94vw !important; max-width: 440px !important;
-                height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+                /* 高度顺序: vh 在前作 fallback, dvh 在后覆盖(支持时优先动态视口, 浏览器
+                   地址栏/工具栏显隐会自动收缩面板高度, 不再被挡)。 */
                 height: calc(100vh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+                height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
                 min-height: 0 !important; max-height: none !important;
                 border-radius: 12px !important;
             }
@@ -1354,7 +1396,7 @@
     }
 
     /* ===== 13. 弹窗 ===== */
-    function showModal(title, bodyHtml) {
+    function showModal(title, bodyHtml, noBgClose) {
         var $m = $('#samsara-modal');
         if (!$m.length) { $('body').append('<div id="samsara-modal"></div>'); }
         $m = $('#samsara-modal');
@@ -1362,7 +1404,8 @@
         $m[0].scrollTop = 0;
         $m.addClass('open');
         $m.off('click.samModal').on('click.samModal', '.sam-modal-close', closeModal);
-        $m.off('click.samModalBg').on('click.samModalBg', function(e) { if (e.target === this) closeModal(); });
+        $m.off('click.samModalBg');
+        if (!noBgClose) $m.on('click.samModalBg', function(e) { if (e.target === this) closeModal(); });
         // 停止按钮(.sam-shop-stop-btn, 通过 data-sam-act 分发): modal 在 body 之下独立于 #samsara-panel,
         // 故在 modal 自身追加分发委托(同 bloodFusionStop / shopStopRefresh), 与 panel 内同名委托解耦共存
         $m.off('click.samModalStop').on('click.samModalStop', '.sam-shop-stop-btn', function(e) {
@@ -1372,7 +1415,12 @@
             else shopStopRefresh();
         });
     }
-    function closeModal() { $('#samsara-modal').removeClass('open'); }
+    function closeModal() {
+        var $m = $('#samsara-modal');
+        $m.removeClass('open');
+        // 解绑所有可能残留的 modal 相关事件(防止 samConfirm 的遮罩点外关闭残留到下次 showModal 复用)
+        $m.off('click.samModal').off('click.samModalBg').off('click.samConfirm').off('click.samConfirmBg');
+    }
 
     /* ===== 血统融合：结果完全由正文 API 返回，前端只负责选择、等待与写回 ===== */
     /* bloodFusionBusy 仅锁定"血统相关"操作(打开融合舱/执行融合/购买商城血统),
@@ -1440,7 +1488,7 @@
             body += fcBodyCollapsible('原始属性', formatStatGrid(b.原始属性, 3), 'sam-fc-stats', false);
         }
         body += fcBody('效果', formatEffects(b.效果 || {}, '', false), 'sam-fc-effects');
-        body += fcBody('描述', esc(safeStr(b.描述) || '-'));
+        body += fcBody('描述', esc(safeStr(b.描述)));
         body += '</div>';
         var badge = entry.owned ? '<span class="sam-fusion-owned-pill" style="font-size:10px;padding:2px 6px;border-radius:8px;background:rgba(143,159,255,0.18);color:var(--sam-sub)">已持有</span>' : '<span class="sam-fusion-shop-pill" style="font-size:10px;padding:2px 6px;border-radius:8px;background:var(--sam-hp);color:#fff">商城商品</span>';
         return '<div class="sam-fusion-preview">'+fullCard(q, entry.name, rows, body, badge)+'</div>';
@@ -1694,7 +1742,9 @@
         var _mode0 = (ar === br) ? 'same' : 'diff';
         var _roll0 = bloodFusionRoll(_mode0);
         var _isNoAIResult = _roll0 && (_roll0.name === '基因崩溃' || _roll0.name === '崩坏消散');
-        if (!_isNoAIResult && !shopGetAI()) { samToast('error', '未检测到融合算法接口'); return; }
+        // 启用额外模型配置时走自托管API, 否则需 generateRaw 做融合结果生成
+        if (!_isNoAIResult && !isApiConfigEnabled() && !shopGetAI()) { samToast('error', '未检测到融合算法接口(或在设置里启用额外模型配置)'); return; }
+        if (!_isNoAIResult && isApiConfigEnabled() && !getApiConfig().model) { samToast('error', '额外模型配置已启用但未选择模型, 请先在设置面板选择模型'); return; }
         // ★ 商城血统融合: 开始融合时立即扣币 + 从商店删除血统商品(不等融合结束)
         //   融合失败/被用户停止则回滚(还原空间币+商品库), 保证原子性; 成功后不再重复扣币/删商品库
         bloodFusionSnap = null;
@@ -1832,7 +1882,7 @@
             + '    防御DC: 被命中难度\n';
         // 获取世界书内容的调用
         content += await getWorldBookContent('⚙️品质效果数值规则'); 
-        content += await getWorldBookContent('⚙️实体生成规则[mvu_update]'); 
+        content += await getWorldBookContent('⚙️实体生成规则'); 
         content += await getWorldBookContent('⚙️状态协议'); 
         content += await getWorldBookContent('⚙️行为判定[mvu_plot]'); 
 
@@ -1870,11 +1920,13 @@
                 + '该结果对应的规则如下, 必须严格按此规则生成格式数据:\n' + rulesText + '\n\n'
                 + '  - 【组件替换规则】:\n'
                 + '     * 当融合结果产生新形态替换旧形态时，必须填写替换目标。\n'
+                + '     * 替换目标必须从下方【已有形态】实际名单中逐字选取; 不得使用名单外、已删除或不存在的形态名。\n'
                 + '     * 替换目标对应组件将在后台删除，不允许通过描述形式继续保留。\n'
                 + '     * 若融合规则要求清空词条，则允许重新构筑，不继承旧词条。\n'
                 + '     * 若融合规则要求强化继承，则必须完整迁移有效词条。\n'
-                + '     * 若融合结果未产生形态能力，形态列表输出为空，不得强行创造变身体系。\n'
+                + '     * 若融合结果未产生形态能力，形态列表输出为空，不得强行创造变身体系, 替换目标填"无"。\n'
                 + '     * 形态品质限制: 新形态最高品质不得超过主血统品质，除非融合结果明确包含品质提升\n'
+                + '     * 描述中禁止出现"已删除形态"、"删除 XX 形态"等任何对已不存在的形态的引用, 仅依据【已有形态】名单客观陈述。\n'
                 + '请仅输出 YAML 格式, 字段如下:\n'
                 + '融合结果: ' + result.name + '\n'
                 + '血统列表:\n'
@@ -1890,6 +1942,7 @@
                 + '    品质: F\n'
                 + '    消耗: HP/EP/特殊资源\n'
                 + '    状态: 完好\n'
+                + '    标签: [绑定的血统名称/来源]\n'
                 + '    原始属性: {力量: 1, 敏捷: 1, 体质: 1, 精神: 1, 感知: 1, 魅力: 1, ATK: 7, DEF: 5, MATK: 3, MDEF: 3, AP: 1}\n'
                 + '    效果: { [词条]: 描述 }\n'
                 + '    技能: {\n'
@@ -1921,6 +1974,7 @@
                 if (v.品质) info.push(v.品质 + '级');
                 if (v.数量 != null) info.push('数量:' + v.数量);
                 if (v.消耗) info.push('消耗:' + v.消耗);
+                if (Array.isArray(v.标签) && v.标签.length > 0) info.push('标签:' + v.标签.join('、'));
                 // 属性和效果是对象，用 JSON.stringify 拍平显示
                 if (v.原始属性 && Object.keys(v.原始属性).length > 0) info.push('属性:' + JSON.stringify(v.原始属性));
                 if (v.效果 && Object.keys(v.效果).length > 0) info.push('效果:' + JSON.stringify(v.效果));
@@ -1981,6 +2035,8 @@
                         消耗:  shopPick(s, '消费','消耗','cost') || '无'
                     };
                 });
+                var tagsVal = shopPick(raw, 'tags','标签');
+                if (typeof tagsVal === 'string') tagsVal = [tagsVal];
                 return {
                     _name:      name,                                                   // 写入 形态库 时的 key (ZOD strip, 不入库)
                     _replace:   shopPick(raw, 'replace_target','替换目标') || '',         // 写入前删除旧形态用 (ZOD strip, 不入库)
@@ -1988,6 +2044,7 @@
                     消耗:       shopPick(raw, 'cost','消耗') || '',
                     冷却:       shopPick(raw, 'cooldown','冷却') || '0回合',
                     状态:       shopPick(raw, 'status','状态') || '完好',
+                    标签:       shopEnsureSourceTag(Array.isArray(tagsVal) ? tagsVal : []),
                     原始属性:   shopPick(raw, '原始属性','基础属性','属性') || {},
                     效果:       shopPick(raw, 'effects','效果','特效','特殊效果') || {},
                     技能:       skillsMap,
@@ -2025,6 +2082,10 @@
                     statData.主角.形态库 = statData.主角.形态库 || {};
                     for (var fk = 0; fk < forms.length; fk++) {
                         var f = forms[fk];
+                        // 防御: AI 填的"替换目标"若不在当前形态库(已删除/编造), 强制改成"无"避免对孤儿形态的引用溢出到结果文案
+                        if (f._replace && f._replace !== '无' && !statData.主角.形态库[f._replace]) {
+                            f._replace = '无';
+                        }
                         if (f._replace && f._replace !== '无' && statData.主角.形态库[f._replace]) {
                             delete statData.主角.形态库[f._replace];
                         }
@@ -2033,6 +2094,7 @@
                             消耗:     f.消耗,
                             冷却:     f.冷却,
                             状态:     f.状态,
+                            标签:     f.标签,
                             原始属性: f.原始属性,
                             效果:     f.效果,
                             技能:     f.技能,
@@ -2058,7 +2120,10 @@
             var rollWeight = rollResult ? rollResult.weight : '';
             closeModal(); bloodFusionBusy = false; bloodFusionShopItem = null; bloodFusionResult = null; bloodFusionConsumedNames = [];
             renderAll();
-            showModal('融合结果 · '+rollName, '<div class="sam-shop-ok">融合完成：'+esc(rollName)+'</div><div class="sam-full-card">'+esc(result.描述 || '主神融合算法已完成本次血统重构。')+'</div>'
+            // 清理结果描述中可能残留的"已删除形态/删除 XX 形态"误导文案(AI 偶发对不存在形态的引用)
+            var descRaw = String(result.描述 || '主神融合算法已完成本次血统重构。');
+            var descClean = descRaw.replace(/已删除(的)?\s*[^，。、;；\n]*形态/g, '已重置形态槽').replace(/删除\s*[^，。、;；\n]*形态/g, '重置形态槽');
+            showModal('融合结果 · '+rollName, '<div class="sam-shop-ok">融合完成：'+esc(rollName)+'</div><div class="sam-full-card">'+esc(descClean)+'</div>'
                 + (forms.length ? '<div class="sam-shop-ok" style="margin-top:8px">本次融合获得新形态：'+forms.map(function(f){return esc(f._name);}).join('、')+'</div>' : ''));
         } catch(err) {
             bloodFusionResult = null;
@@ -2099,18 +2164,18 @@
 
     /* ===== 13.5 物资转移(向在场NPC转移装备/道具) ===== */
     var transferTarget = null;                  // 转移目标NPC名
-    var transferCart = { 装备: {}, 背包: {} };   // 选中项: { 装备: {key:1}, 背包: {key:qty} }
+    var transferCart = { 装备: {}, 道具: {} };   // 选中项: { 装备: {key:1}, 道具: {key:qty} }
     function openTransferModal(npcName) {
         var sd = getStatData();
         var npc = sd && sd.关系列表 && sd.关系列表[npcName];
         if (!npc) { samToast('error', '未找到该角色'); return; }
         transferTarget = npcName;
-        transferCart = { 装备: {}, 背包: {} };
+        transferCart = { 装备: {}, 道具: {} };
         showModal('向「'+npcName+'」转移物资', renderTransferList(sd));
     }
     function renderTransferList(sd) {
         var equips = (sd.主角 && sd.主角.装备) || {};
-        var backpack = (sd.主角 && sd.主角.背包) || {};
+        var backpack = (sd.主角 && sd.主角.道具) || {};
         var eqList = [], bpList = [];
         Object.keys(equips).forEach(function(k) {
             var e = equips[k] || {};
@@ -2130,13 +2195,13 @@
         }
         if (bpList.length) {
             html += '<div class="sam-trf-sec">🎒 道具 · '+bpList.length+'</div>';
-            bpList.forEach(function(it) { html += transferItemCard('背包', it.key, it.val, it.qty); });
+            bpList.forEach(function(it) { html += transferItemCard('道具', it.key, it.val, it.qty); });
         }
         if (!eqList.length && !bpList.length) {
             html += '<div class="sam-empty">无可转移物资（已装备与特殊装备已自动排除）</div>';
         }
         html += '</div>';
-        var hasSel = Object.keys(transferCart.装备).length + Object.keys(transferCart.背包).length > 0;
+        var hasSel = Object.keys(transferCart.装备).length + Object.keys(transferCart.道具).length > 0;
         html += '<div class="sam-trf-footer">';
         html += '<div class="sam-trf-warn">⚠️ 确认转移后<strong>不可取消、不可取回</strong>，物资将直接归属目标角色，请认真考虑。</div>';
         html += '<div class="sam-trf-actions">';
@@ -2149,11 +2214,14 @@
         var sel = transferCart[cat][key] != null;
         var selQty = sel ? transferCart[cat][key] : 0;
         var q = parseRarity(item.品质);
-        var isItem = (cat === '背包');
+        var isItem = (cat === '道具');
         var corner = sel ? (isItem ? '已选 ×'+selQty : '已选') : '';
         var typeLabel = isItem ? safeStr(item.类型) : (EQUIP_TYPE_MAP[safeNum(item.类型, 0)] || '');
         var attrs = item.原始属性 || {};
-        var attrStr = Object.keys(attrs).map(function(k) { return esc(k)+' '+safeNum(attrs[k], 0); }).join(' / ');
+        // 仅展示非0属性(与 formatStatGrid / 装备卡一致)
+        var attrStr = Object.keys(attrs).filter(function(k) {
+            return safeNum(attrs[k], 0) !== 0;
+        }).map(function(k) { return esc(k)+' '+safeNum(attrs[k], 0); }).join(' / ');
         var desc = safeStr(item.描述) || '';
         var inner = '<div class="sam-trf-head"><span class="sam-trf-name">'+esc(key)+'</span><span class="sam-trf-qtag q-'+q+'">'+esc(q)+'</span></div>';
         if (typeLabel) inner += '<div class="sam-trf-sub">'+esc(typeLabel) + (isItem ? ' · 持有 '+maxQty : '') + '</div>';
@@ -2176,7 +2244,7 @@
     function transferAdjustQty(cat, key, dir) {
         var sd = getStatData();
         var max = 1;
-        if (cat === '背包') max = safeNum(sd.主角.背包[key] && sd.主角.背包[key].数量, 1);
+        if (cat === '道具') max = safeNum(sd.主角.道具[key] && sd.主角.道具[key].数量, 1);
         var cur = transferCart[cat][key] != null ? transferCart[cat][key] : 1;
         if (dir === 'plus') cur = Math.min(max, cur + 1);
         else cur = Math.max(1, cur - 1);
@@ -2186,7 +2254,7 @@
     function transferInputQty(cat, key, val) {
         var sd = getStatData();
         var max = 1;
-        if (cat === '背包') max = safeNum(sd.主角.背包[key] && sd.主角.背包[key].数量, 1);
+        if (cat === '道具') max = safeNum(sd.主角.道具[key] && sd.主角.道具[key].数量, 1);
         var v = Math.max(1, Math.min(max, parseInt(val, 10) || 1));
         transferCart[cat][key] = v;
         refreshTransferModal();
@@ -2201,17 +2269,17 @@
     }
     function executeTransfer() {
         var eqKeys = Object.keys(transferCart.装备);
-        var bpKeys = Object.keys(transferCart.背包);
+        var bpKeys = Object.keys(transferCart.道具);
         if (eqKeys.length + bpKeys.length === 0) return;
         var npcName = transferTarget;
         samConfirm('确认转移', '确定将选中的物资转移给「'+npcName+'」吗？此操作不可取消、不可取回。', function() {
             var ok = writeBackMvu(function(statData) {
                 if (!statData) return;
                 var mc = statData.主角 = statData.主角 || {};
-                mc.装备 = mc.装备 || {}; mc.背包 = mc.背包 || {};
+                mc.装备 = mc.装备 || {}; mc.道具 = mc.道具 || {};
                 var rel = statData.关系列表 = statData.关系列表 || {};
                 var npc = rel[npcName] = rel[npcName] || {};
-                npc.装备 = npc.装备 || {}; npc.背包 = npc.背包 || {};
+                npc.装备 = npc.装备 || {}; npc.道具 = npc.道具 || {};
                 // 装备: 整件复制给NPC(状态置0未装备), 删除主角的
                 eqKeys.forEach(function(key) {
                     var e = mc.装备[key];
@@ -2223,25 +2291,25 @@
                 });
                 // 道具: 按数量转移(NPC已有则累加, 否则新建; 主角扣减, 归0则删)
                 bpKeys.forEach(function(key) {
-                    var b = mc.背包[key];
+                    var b = mc.道具[key];
                     if (!b) return;
                     var have = safeNum(b.数量, 0);
-                    var move = Math.min(transferCart.背包[key] || 1, have);
+                    var move = Math.min(transferCart.道具[key] || 1, have);
                     if (move <= 0) return;
-                    if (npc.背包[key]) {
-                        npc.背包[key].数量 = safeNum(npc.背包[key].数量, 0) + move;
+                    if (npc.道具[key]) {
+                        npc.道具[key].数量 = safeNum(npc.道具[key].数量, 0) + move;
                     } else {
                         var copy2 = (_ && _.cloneDeep) ? _.cloneDeep(b) : JSON.parse(JSON.stringify(b));
                         copy2.数量 = move;
-                        npc.背包[key] = copy2;
+                        npc.道具[key] = copy2;
                     }
                     b.数量 = have - move;
-                    if (b.数量 <= 0) delete mc.背包[key];
+                    if (b.数量 <= 0) delete mc.道具[key];
                 });
             });
             if (ok) {
                 var cnt = eqKeys.length + bpKeys.length;
-                transferCart = { 装备: {}, 背包: {} };
+                transferCart = { 装备: {}, 道具: {} };
                 transferTarget = null;
                 closeModal();
                 samToast('success', '已向「'+npcName+'」转移 '+cnt+' 项物资');
@@ -2252,7 +2320,175 @@
         });
     }
 
-    /* ===== 14. 事件绑定 ===== */
+    /* ===== 13b. NPC死亡检测 + 遗物获取(复用转移模板, 方向: NPC→主角, 无二次确认) ===== */
+    function isNpcDead(n) {
+        if (!n || typeof n !== 'object') return false;
+        var hp = safeNum(n.HP, 0);
+        var hpmax = safeNum(n.HP_MAX, 0);
+        if (hpmax > 0 && hp <= 0) {
+            var isDying = n.状态 && Object.keys(n.状态).some(function(key) { return key.indexOf('濒死') >= 0; });
+            if (!isDying) return true;
+        }
+        var isExplicitlyDead = n.状态 && Object.keys(n.状态).some(function(key) { return key.indexOf('死亡') >= 0; });
+        return !!isExplicitlyDead;
+    }
+    var lootTarget = null;
+    var lootCart = { 装备: {}, 道具: {} };
+    function openLootModal(npcName) {
+        var sd = getStatData();
+        var npc = sd && sd.关系列表 && sd.关系列表[npcName];
+        if (!npc) { samToast('error', '未找到该角色'); return; }
+        lootTarget = npcName;
+        lootCart = { 装备: {}, 道具: {} };
+        showModal('从「'+npcName+'」获取遗物', renderLootList(npc));
+    }
+    function renderLootList(npc) {
+        var equips = npc.装备 || {};
+        var backpack = npc.道具 || {};
+        var eqList = [], bpList = [];
+        Object.keys(equips).forEach(function(k) {
+            var e = equips[k] || {};
+            if (safeNum(e.类型, 0) === 8) return;
+            eqList.push({ key: k, val: e });
+        });
+        Object.keys(backpack).forEach(function(k) {
+            var b = backpack[k] || {};
+            if (safeNum(b.数量, 0) <= 0) return;
+            bpList.push({ key: k, val: b, qty: safeNum(b.数量, 0) });
+        });
+        var html = '<div class="sam-trf-list">';
+        if (eqList.length) {
+            html += '<div class="sam-trf-sec">⚔ 装备 · '+eqList.length+'</div>';
+            eqList.forEach(function(it) { html += lootItemCard('装备', it.key, it.val, 1); });
+        }
+        if (bpList.length) {
+            html += '<div class="sam-trf-sec">🎒 道具 · '+bpList.length+'</div>';
+            bpList.forEach(function(it) { html += lootItemCard('道具', it.key, it.val, it.qty); });
+        }
+        if (!eqList.length && !bpList.length) {
+            html += '<div class="sam-empty">该角色身上没有可获取的物资</div>';
+        }
+        html += '</div>';
+        var hasSel = Object.keys(lootCart.装备).length + Object.keys(lootCart.道具).length > 0;
+        html += '<div class="sam-trf-footer">';
+        html += '<div class="sam-trf-warn">⚠️ 获取遗物后将直接归属主角, 不可退回。</div>';
+        html += '<div class="sam-trf-actions">';
+        html += '<button type="button" class="sam-loot-btn cancel">取消</button>';
+        html += '<button type="button" class="sam-loot-btn confirm"'+(hasSel ? '' : ' disabled')+'>确认获取</button>';
+        html += '</div></div>';
+        return html;
+    }
+    function lootItemCard(cat, key, item, maxQty) {
+        var sel = lootCart[cat][key] != null;
+        var selQty = sel ? lootCart[cat][key] : 0;
+        var q = parseRarity(item.品质);
+        var isItem = (cat === '道具');
+        var corner = sel ? (isItem ? '已选 ×'+selQty : '已选') : '';
+        var typeLabel = isItem ? safeStr(item.类型) : (EQUIP_TYPE_MAP[safeNum(item.类型, 0)] || '');
+        var attrs = item.原始属性 || {};
+        // 仅展示非0属性(与 formatStatGrid / 装备卡一致)
+        var attrStr = Object.keys(attrs).filter(function(k) {
+            return safeNum(attrs[k], 0) !== 0;
+        }).map(function(k) { return esc(k)+' '+safeNum(attrs[k], 0); }).join(' / ');
+        var desc = safeStr(item.描述) || '';
+        var inner = '<div class="sam-trf-head"><span class="sam-trf-name">'+esc(key)+'</span><span class="sam-trf-qtag q-'+q+'">'+esc(q)+'</span></div>';
+        if (typeLabel) inner += '<div class="sam-trf-sub">'+esc(typeLabel) + (isItem ? ' · 持有 '+maxQty : '') + '</div>';
+        if (attrStr) inner += '<div class="sam-trf-attrs">'+attrStr+'</div>';
+        if (desc) inner += '<div class="sam-trf-desc">'+esc(desc)+'</div>';
+        if (isItem && sel) {
+            inner += '<div class="sam-trf-qty">'
+                + '<button type="button" class="sam-loot-qty-btn" data-trf-qty="minus" data-cat="'+esc(cat)+'" data-key="'+esc(key)+'">−</button>'
+                + '<input type="number" class="sam-loot-qty-inp" min="1" max="'+maxQty+'" value="'+selQty+'" data-cat="'+esc(cat)+'" data-key="'+esc(key)+'">'
+                + '<button type="button" class="sam-loot-qty-btn" data-trf-qty="plus" data-cat="'+esc(cat)+'" data-key="'+esc(key)+'">+</button>'
+                + '<span class="sam-trf-qty-max">/'+maxQty+'</span></div>';
+        }
+        return '<div class="sam-trf-item sam-loot-item'+(sel?' selected':'')+'" data-loot-cat="'+esc(cat)+'" data-loot-key="'+esc(key)+'">'+inner+'<span class="sam-trf-corner">'+esc(corner)+'</span></div>';
+    }
+    function lootToggle(cat, key) {
+        if (lootCart[cat][key] != null) delete lootCart[cat][key];
+        else lootCart[cat][key] = 1;
+        refreshLootModal();
+    }
+    function lootAdjustQty(cat, key, dir) {
+        var sd = getStatData();
+        var npc = sd && sd.关系列表 && sd.关系列表[lootTarget];
+        if (!npc) return;
+        var max = 1;
+        if (cat === '道具') max = safeNum(npc.道具[key] && npc.道具[key].数量, 1);
+        var cur = lootCart[cat][key] != null ? lootCart[cat][key] : 1;
+        if (dir === 'plus') cur = Math.min(max, cur + 1);
+        else cur = Math.max(1, cur - 1);
+        lootCart[cat][key] = cur;
+        refreshLootModal();
+    }
+    function lootInputQty(cat, key, val) {
+        var sd = getStatData();
+        var npc = sd && sd.关系列表 && sd.关系列表[lootTarget];
+        if (!npc) return;
+        var max = 1;
+        if (cat === '道具') max = safeNum(npc.道具[key] && npc.道具[key].数量, 1);
+        var v = Math.max(1, Math.min(max, parseInt(val, 10) || 1));
+        lootCart[cat][key] = v;
+        refreshLootModal();
+    }
+    function refreshLootModal() {
+        var $body = $('#samsara-modal .sam-modal-body');
+        var saved = $body.length ? ($body[0].scrollTop || 0) : 0;
+        var sd = getStatData();
+        var npc = sd && sd.关系列表 && sd.关系列表[lootTarget];
+        if (npc) $body.html(renderLootList(npc));
+        if ($body.length && saved > 0) { try { $body[0].scrollTop = saved; } catch(e){} }
+    }
+    function executeLoot() {
+        var eqKeys = Object.keys(lootCart.装备);
+        var bpKeys = Object.keys(lootCart.道具);
+        if (eqKeys.length + bpKeys.length === 0) return;
+        var npcName = lootTarget;
+        var ok = writeBackMvu(function(statData) {
+            if (!statData) return;
+            var mc = statData.主角 = statData.主角 || {};
+            mc.装备 = mc.装备 || {}; mc.道具 = mc.道具 || {};
+            var rel = statData.关系列表 = statData.关系列表 || {};
+            var npc = rel[npcName] = rel[npcName] || {};
+            npc.装备 = npc.装备 || {}; npc.道具 = npc.道具 || {};
+            // 装备: 从NPC复制给主角(状态置0), 删除NPC的
+            eqKeys.forEach(function(key) {
+                var e = npc.装备[key];
+                if (!e) return;
+                var copy = (_ && _.cloneDeep) ? _.cloneDeep(e) : JSON.parse(JSON.stringify(e));
+                copy.状态 = 0;
+                mc.装备[key] = copy;
+                delete npc.装备[key];
+            });
+            // 道具: 按数量从NPC转移给主角
+            bpKeys.forEach(function(key) {
+                var b = npc.道具[key];
+                if (!b) return;
+                var have = safeNum(b.数量, 0);
+                var move = Math.min(lootCart.道具[key] || 1, have);
+                if (move <= 0) return;
+                if (mc.道具[key]) {
+                    mc.道具[key].数量 = safeNum(mc.道具[key].数量, 0) + move;
+                } else {
+                    var copy2 = (_ && _.cloneDeep) ? _.cloneDeep(b) : JSON.parse(JSON.stringify(b));
+                    copy2.数量 = move;
+                    mc.道具[key] = copy2;
+                }
+                b.数量 = have - move;
+                if (b.数量 <= 0) delete npc.道具[key];
+            });
+        });
+        if (ok) {
+            var cnt = eqKeys.length + bpKeys.length;
+            lootCart = { 装备: {}, 道具: {} };
+            lootTarget = null;
+            closeModal();
+            samToast('success', '从「'+npcName+'」获取 '+cnt+' 项遗物');
+            renderAll();
+        } else {
+            samToast('error', '获取失败: 数据写回不可用');
+        }
+    }
     function bindUIEvents() {
         var $panel = $('#samsara-panel');
         $panel.off('click.samBloodFusion').on('click.samBloodFusion', '.sam-blood-fusion-open', function(e) {
@@ -2303,6 +2539,8 @@
             $(this).addClass('active');
             $panel.find('.sam-subpane').removeClass('active').hide();
             $panel.find('.sam-subpane[data-sub="'+sub+'"]').addClass('active').show();
+            // 记住关系面板当前激活的子Tab, 避免 renderAll 后跳回"全部"
+            try { relationActiveSub = sub; } catch(e) {}
         });
         // 卡片点击→详情弹窗
         $panel.off('click.samCard').on('click.samCard', '.sam-card', function(e) {
@@ -2323,6 +2561,31 @@
             e.stopPropagation();
             var name = $(this).data('transfer-npc');
             if (name) openTransferModal(name);
+        });
+        // ★ NPC获取遗物按钮(死亡NPC)→打开获取弹窗
+        $panel.off('click.samLoot').on('click.samLoot', '.sam-npc-loot', function(e) {
+            e.stopPropagation();
+            var name = $(this).data('loot-npc');
+            if (name) openLootModal(name);
+        });
+        // ★ 获取弹窗内交互(委托到document)
+        $(document).off('click.samLootItem').on('click.samLootItem', '.sam-loot-item', function(e) {
+            if ($(e.target).closest('.sam-trf-qty').length) return;
+            lootToggle($(this).data('loot-cat'), $(this).data('loot-key'));
+        });
+        $(document).off('click.samLootQty').on('click.samLootQty', '.sam-loot-qty-btn', function(e) {
+            e.stopPropagation();
+            lootAdjustQty($(this).data('cat'), $(this).data('key'), $(this).data('trf-qty'));
+        });
+        $(document).off('change.samLootInp').on('change.samLootInp', '.sam-loot-qty-inp', function(e) {
+            e.stopPropagation();
+            lootInputQty($(this).data('cat'), $(this).data('key'), this.value);
+        });
+        $(document).off('click.samLootConfirm').on('click.samLootConfirm', '.sam-loot-btn.confirm', function(e) {
+            executeLoot();
+        });
+        $(document).off('click.samLootCancel').on('click.samLootCancel', '.sam-loot-btn.cancel', function(e) {
+            closeModal();
         });
         // ★ 转移弹窗内交互(委托到document, 因modal容器首次showModal时才创建)
         $(document).off('click.samTrfItem').on('click.samTrfItem', '.sam-trf-item', function(e) {
@@ -2354,6 +2617,30 @@
             var parentPath = parts.join('.');
             var label = key;
             samConfirm('删除条目', '确定删除「'+label+'」吗？此操作不可撤销。', function() {
+                deleteWorldEntry(path, parentPath, key);
+            });
+        });
+        // ★ 资产删除按钮(编辑模式)→从MVU删除该资产(复用通用按点路径删除)
+        $panel.off('click.samAssetDel').on('click.samAssetDel', '.sam-fc-del-btn[data-asset-del]', function(e) {
+            e.stopPropagation();
+            var path = $(this).attr('data-asset-del') || '';
+            if (!path) return;
+            var parts = path.split('.');
+            var key = parts.pop();
+            var parentPath = parts.join('.');
+            samConfirm('删除资产', '确定删除资产「'+key+'」吗？此操作不可撤销。', function() {
+                deleteWorldEntry(path, parentPath, key);
+            });
+        });
+        // ★ 建设序列删除按钮(编辑模式)→从MVU删除该建设序列
+        $panel.off('click.samAssetSeqDel').on('click.samAssetSeqDel', '.sam-fc-del-btn[data-asset-seq-del]', function(e) {
+            e.stopPropagation();
+            var path = $(this).attr('data-asset-seq-del') || '';
+            if (!path) return;
+            var parts = path.split('.');
+            var key = parts.pop();
+            var parentPath = parts.join('.');
+            samConfirm('删除建设序列', '确定删除建设序列「'+key+'」吗？此操作不可撤销。', function() {
                 deleteWorldEntry(path, parentPath, key);
             });
         });
@@ -2520,6 +2807,16 @@
                         cur = cur[seg[i]];
                     }
                     if (cur[seg[seg.length - 1]] !== undefined) delete cur[seg[seg.length - 1]];
+                    // ★ 删除形态库中的形态时, 若该形态正被主角"当前形态"激活/引用,
+                    //   须同步重置 当前形态(激活:false, 名称清空), 否则残留指向已删除形态,
+                    //   会导致后续血统购买/AI 拼附形构筑时持续误读为"已存在的形态", 拒绝或报错
+                    if (seg.length === 3 && seg[0] === '主角' && seg[1] === '形态库'
+                        && statData.主角 && statData.主角.当前形态) {
+                        var cf = statData.主角.当前形态;
+                        if (cf && cf.名称 === name) {
+                            cf.激活 = false; cf.名称 = '';
+                        }
+                    }
                 });
                 if (ok) {
                     samToast('success', '已删除: '+name);
@@ -2569,7 +2866,7 @@
                 + '    防御DC: 被命中难度\n';
             // 获取世界书内容的调用
             content += await getWorldBookContent('⚙️品质效果数值规则'); 
-            content += await getWorldBookContent('⚙️实体生成规则[mvu_update]'); 
+            content += await getWorldBookContent('⚙️实体生成规则'); 
             content += await getWorldBookContent('⚙️状态协议'); 
             content += await getWorldBookContent('⚙️行为判定[mvu_plot]'); 
             
@@ -2793,6 +3090,154 @@
     }
 
     /* ===== 15. 设置弹窗 ===== */
+    /* ===== 15a. 额外模型配置(移植自 Zsd网游论坛_本地内联版) =====
+       存储位置: localStorage['samsara_api_config'] = {
+         enabled:      是否启用额外模型配置(开 → 商城/血统融合走自托管API, 关 → 走 generateRaw 正文AI)
+         apiUrl:       自定义 API 地址
+         apiKey:       API Key
+         model:        当前使用模型
+         apiPresets:   [{name, apiUrl, apiKey, model}] 用户保存的多套预设
+         fetchedModels:[] 从 /models 接口加载到的模型列表
+       }
+       说明: 配置存 localStorage(脱离 MVU, 避免被剧情/辅助脚本覆盖; 不广播 VARIABLE_UPDATE_ENDED, 零重渲染副作用)。
+             首次读取时若 localStorage 为空, 自动从旧 MVU stat_data.设置.API 迁移一次。
+             此配置为统一"额外模型"通道: 商城刷新与血统融合的 AI 请求都在 shopCallAI 处统一分发,
+             开关开启 → 走自托管API, 关闭 → 继续 generateRaw 正文AI */
+    var API_DEFAULT_MODELS = {
+        openai:  ['gpt-4o','gpt-4o-mini','gpt-4-turbo','o1','o3-mini','o1-mini'],
+        claude:  ['claude-3-5-sonnet','claude-3-opus','claude-3-haiku','claude-3-5-sonnet-20241022'],
+        deepseek:['deepseek-chat','deepseek-reasoner','deepseek-v4-pro','deepseek-v4-flash'],
+        gemini:  ['gemini-1.5-pro','gemini-1.5-flash','gemini-2.0-flash'],
+        azure:   ['gpt-4o','gpt-4o-mini','gpt-4']
+    };
+    /* ★ API 配置存 localStorage(脱离 MVU, 避免被剧情辅助脚本/变量更新覆盖; 不广播事件, 杜绝重渲染副作用) */
+    var API_CFG_KEY = 'samsara_api_config';
+    /* 读取当前 API 配置(返回安全深拷贝; 首次若有旧 MVU 数据则自动迁移一次) */
+    function getApiConfig() {
+        try {
+            var raw = localStorage.getItem(API_CFG_KEY);
+            if (!raw) {
+                // 兼容旧 MVU 数据: 尝试从 stat_data.设置.API 迁移一次
+                var sd = getStatData();
+                var old = sd && sd.设置 && sd.设置.API;
+                if (old && typeof old === 'object' && (old.apiUrl || old.apiPresets && old.apiPresets.length || old.enabled)) {
+                    var migrated = {
+                        enabled:    (old.enabled === true),
+                        apiUrl:     safeStr(old.apiUrl),
+                        apiKey:     safeStr(old.apiKey),
+                        model:      safeStr(old.model),
+                        apiPresets: (Array.isArray(old.apiPresets) ? old.apiPresets : []).map(function(p){ return {
+                            name:safeStr(p.name), apiUrl:safeStr(p.apiUrl), apiKey:safeStr(p.apiKey), model:safeStr(p.model)
+                        }; }),
+                        fetchedModels: Array.isArray(old.fetchedModels) ? old.fetchedModels.slice() : []
+                    };
+                    localStorage.setItem(API_CFG_KEY, JSON.stringify(migrated));
+                    return migrated;
+                }
+                return { enabled:false, apiUrl:'', apiKey:'', model:'', apiPresets:[], fetchedModels:[] };
+            }
+            var cfg = JSON.parse(raw);
+            return {
+                enabled:    (cfg.enabled === true),
+                apiUrl:     safeStr(cfg.apiUrl),
+                apiKey:     safeStr(cfg.apiKey),
+                model:      safeStr(cfg.model),
+                apiPresets: (Array.isArray(cfg.apiPresets) ? cfg.apiPresets : []).map(function(p){ return {
+                    name:safeStr(p.name), apiUrl:safeStr(p.apiUrl), apiKey:safeStr(p.apiKey), model:safeStr(p.model)
+                }; }),
+                fetchedModels: Array.isArray(cfg.fetchedModels) ? cfg.fetchedModels.slice() : []
+            };
+        } catch(e) { console.warn('[主神终端] 读取API配置失败:', e.message); }
+        return { enabled:false, apiUrl:'', apiKey:'', model:'', apiPresets:[], fetchedModels:[] };
+    }
+    /* 写回 API 配置(localStorage, 不经过 MVU/广播事件, 零副作用) */
+    function saveApiConfig(mutator) {
+        try {
+            var cfg = getApiConfig();
+            if (typeof mutator === 'function') mutator(cfg);
+            localStorage.setItem(API_CFG_KEY, JSON.stringify(cfg));
+            return true;
+        } catch(e) { console.warn('[主神终端] 保存API配置失败:', e.message); return false; }
+    }
+    /* 额外模型聊天补全: 向自托管API发起 OpenAI 兼容 /chat/completions 请求, 返回纯文本回复
+       请求体: { model, messages:[{role,content}...], stream:false, temperature:0.7 }
+       返回: 文本字符串(从 choices[0].message.content 取出) */
+    async function apiChat(systemPrompt, userMsg) {
+        var cfg = getApiConfig();
+        var url = (cfg.apiUrl || '').trim();
+        if (!url || !cfg.enabled) throw new Error('额外模型配置未启用或 API 地址为空');
+        var endpoint = url;
+        if (endpoint.endsWith('/')) endpoint = endpoint.slice(0, -1);
+        if (endpoint.endsWith('/chat/completions')) {
+            // 已是完整端点
+        } else if (endpoint.endsWith('/v1')) {
+            endpoint += '/chat/completions';
+        } else if (endpoint.indexOf('/v1/') >= 0) {
+            endpoint = endpoint.replace(/\/v1\/.*$/, '') + '/v1/chat/completions';
+        } else {
+            endpoint += endpoint.indexOf('/v') >= 0 ? '/chat/completions' : '/v1/chat/completions';
+        }
+        var headers = { 'Content-Type': 'application/json' };
+        if (cfg.apiKey && cfg.apiKey.trim()) headers.Authorization = 'Bearer ' + cfg.apiKey.trim();
+        var body = {
+            model: cfg.model || 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: String(systemPrompt || '') },
+                { role: 'user',   content: String(userMsg || '') }
+            ],
+            stream: false,
+            temperature: 0.7
+        };
+        var resp = await fetch(endpoint, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+        if (!resp.ok) {
+            var errTxt = '';
+            try { errTxt = await resp.text(); } catch(_e){}
+            throw new Error('HTTP ' + resp.status + ': ' + resp.statusText + (errTxt ? (' / ' + errTxt.slice(0, 300)) : ''));
+        }
+        var data = await resp.json();
+        var content = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+        if (!content) throw new Error('API 返回的回复内容为空');
+        return content;
+    }
+    /* 是否启用额外模型通道(供 shopCallAI 统一分发判断) */
+    function isApiConfigEnabled() {
+        var c = getApiConfig();
+        return (c.enabled === true) && !!(c.apiUrl && c.apiUrl.trim());
+    }
+    /* 计算当前可用模型列表: 优先 fetchedModels, 其次按 apiUrl 关键词推断默认列表 */
+    function apiAvailableModels(cfg) {
+        if (cfg.fetchedModels && cfg.fetchedModels.length > 0) return cfg.fetchedModels.slice();
+        var url = (cfg.apiUrl || '').toLowerCase();
+        if (url.indexOf('deepseek') >= 0) return API_DEFAULT_MODELS.deepseek.slice();
+        if (url.indexOf('openai') >= 0 || url.indexOf('chatgpt') >= 0) return API_DEFAULT_MODELS.openai.slice();
+        if (url.indexOf('anthropic') >= 0 || url.indexOf('claude') >= 0) return API_DEFAULT_MODELS.claude.slice();
+        if (url.indexOf('gemini') >= 0 || url.indexOf('google') >= 0) return API_DEFAULT_MODELS.gemini.slice();
+        if (url.indexOf('azure') >= 0) return API_DEFAULT_MODELS.azure.slice();
+        return [];
+    }
+    /* 加载模型列表: 拼接 /v1/models 并带 Authorization 头请求; 成功写入 fetchedModels */
+    async function apiFetchModels() {
+        var cfg = getApiConfig();
+        var url = (cfg.apiUrl || '').trim();
+        if (!url) throw new Error('请先填写自定义 API 地址');
+        var endpoint = url;
+        if (endpoint.endsWith('/')) endpoint = endpoint.slice(0, -1);
+        if (!endpoint.endsWith('/models')) {
+            endpoint += (endpoint.indexOf('/v') >= 0) ? '/models' : '/v1/models';
+        }
+        var headers = {};
+        if (cfg.apiKey && cfg.apiKey.trim()) headers.Authorization = 'Bearer ' + cfg.apiKey.trim();
+        var resp = await fetch(endpoint, { headers: headers });
+        if (!resp.ok) {
+            var errTxt = '';
+            try { errTxt = await resp.text(); } catch(_e){}
+            throw new Error('HTTP ' + resp.status + ': ' + resp.statusText + (errTxt ? (' / ' + errTxt.slice(0, 300)) : ''));
+        }
+        var body = await resp.json();
+        var models = ((body && body.data) || []).map(function(m){ return m.id || m.model || m.name || ''; }).filter(Boolean);
+        if (!models.length) throw new Error('API 返回的模型列表为空');
+        return models;
+    }
     function openSettings() {
         var cur = getTheme();
         var editOn = isEditMode();
@@ -2815,8 +3260,76 @@
             + '<div class="sam-toggle-switch '+(superStable?'on':'')+'" data-toggle="世界超稳"><div class="knob"></div></div></div>'
             + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🪐 单一世界</div><div style="font-size:11px;color:var(--sam-sub);">开启后仅存在单一世界,关闭后可在多世界间选择</div></div>'
             + '<div class="sam-toggle-switch '+(singleWorld?'on':'')+'" data-toggle="单一世界"><div class="knob"></div></div></div>');
-        showModal('⚙️ 设置', html);
+
+        /* ----- 🔌 API 配置区块(移植自 Zsd网游论坛_本地内联版) ----- */
+        var apiCfg = getApiConfig();
+        // 预设下拉框: 完全在 DOM 插入后由 apiRefreshFields() 用 jQuery text() 填值(避免转义/注入问题)
+        var presetOpts = '<option value="">— 选择已保存预设 —</option>';
+        apiCfg.apiPresets.forEach(function(p) {
+            presetOpts += '<option value=""></option>';
+        });
+
+        var modelList = apiAvailableModels(apiCfg);
+        var modelOpts = '<option value="">(未选择模型)</option>';
+        modelList.forEach(function(m){
+            modelOpts += '<option value="'+esc(m)+'"'+(m===apiCfg.model?' selected':'')+'>'+esc(m)+'</option>';
+        });
+        if (apiCfg.model && modelList.indexOf(apiCfg.model) < 0) {
+            modelOpts = '<option value="'+esc(apiCfg.model)+'" selected>'+esc(apiCfg.model)+'</option>' + modelOpts;
+        }
+
+        var fetchedTag = apiCfg.fetchedModels && apiCfg.fetchedModels.length
+            ? '<span class="sam-api-status ok">已加载 '+apiCfg.fetchedModels.length+' 个模型</span>'
+            : '<span class="sam-api-status warn">未加载(使用默认列表)</span>';
+
+        // 启用开关提示语
+        var apiEnableHint = apiCfg.enabled
+            ? '<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合将走自托管 API</span>'
+            : '<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API</span>';
+        var apiHtml = '<div class="sam-api-section">'
+            // 启用开关
+            + '<div class="sam-toggle-row" style="margin-bottom:8px;">'
+              + '<div><div style="font-weight:bold;">🔌 启用额外模型配置</div>'
+              + '<div id="sam-api-enable-state" style="margin-top:2px;">'+apiEnableHint+'</div>'
+              + '</div>'
+              + '<div class="sam-toggle-switch '+(apiCfg.enabled?'on':'')+'" data-toggle="api-enabled"><div class="knob"></div></div>'
+            + '</div>'
+            // 下方配置(开关关时隐藏)
+            + '<div id="sam-api-fields" style="'+(apiCfg.enabled?'':'display:none;')+'">'
+            // 预设管理
+            + '<div class="sam-api-block-label">📜 API 预设(多套配置存档)</div>'
+            + '<div class="sam-api-row">'
+              + '<select class="sam-api-select" id="sam-api-preset-sel" style="flex:1;">'+presetOpts+'</select>'
+              + '<button class="sam-api-btn danger" data-act="delete-preset">删除</button>'
+            + '</div>'
+            + '<div class="sam-api-row" style="margin-top:4px;">'
+              + '<input class="sam-api-input" id="sam-api-preset-name" placeholder="预设名称(保存当前配置为新预设/覆盖同名)" style="flex:1;">'
+              + '<button class="sam-api-btn save" data-act="save-preset">保存预设</button>'
+            + '</div>'
+            // 字段
+            + '<div class="sam-api-field"><label>自定义 API 地址</label>'
+              + '<input class="sam-api-input" data-field="apiUrl" value="'+esc(apiCfg.apiUrl)+'" placeholder="http://127.0.0.1:8808/v1"></div>'
+            + '<div class="sam-api-field"><label>API Key</label>'
+              + '<input class="sam-api-input" data-field="apiKey" type="password" value="'+esc(apiCfg.apiKey)+'" placeholder="sk-..."></div>'
+            + '<div class="sam-api-field"><label>模型</label>'
+              + '<select class="sam-api-select" data-field="model">'+modelOpts+'</select></div>'
+            // 加载模型
+            + '<div class="sam-api-row" style="margin-top:6px;">'
+              + '<button class="sam-api-btn" data-act="load-models">📡 加载模型列表</button>'
+              + '<button class="sam-api-btn" data-act="clear-models">清除</button>'
+              + '<span id="sam-api-models-status" style="margin-left:auto;align-self:center;">'+fetchedTag+'</span>'
+            + '</div>'
+            + '</div>'
+            + '</div>';
+
+        html += '<div class="sam-api-section" style="margin-top:12px;">' + apiHtml + '</div>';
+        showModal('⚙️ 设置', html, true);   // 第三参 true = 设置弹窗禁止点击框外自动关闭(避免误触丢失表单输入)
+        /* ===== API 配置: 声明(必须在 apiRefreshFields 调用前就位, 否则 $apiModal 为 undefined, 虽 jQuery 回退到 document 仍能命中但属脆弱路径) ===== */
+        var $apiModal = $('#samsara-modal');
+        var apiFieldTimer = null;   // 字段实时保存防抖计时器(载入/保存预设前需 clearTimeout 防止旧值回写覆盖)
         // 主题选择
+        // 初始用 jQuery 安全填值: 预设下拉框名字/模型下拉框等(避免 HTML 转义/注入问题)
+        try { apiRefreshFields(); } catch(_e){ console.warn('[主神终端] apiRefreshFields 初始刷新异常:', _e && _e.message); }
         $('#samsara-modal').off('click.samTheme').on('click.samTheme', '.sam-theme-card', function() {
             var tk = $(this).data('theme');
             setTheme(tk);
@@ -2843,6 +3356,155 @@
                 statData.设置[key] = on;
             });
             renderAll();
+        });
+
+        /* ===== API 配置: 事件绑定 ===== */
+        // ($apiModal / apiFieldTimer 已在上方 showModal 后声明)
+        // 局部辅助: 依据 stat 重建模型下拉
+        function apiRenderModelSelect(c) {
+            var list = apiAvailableModels(c);
+            var $m = $('[data-field="model"]', $apiModal);
+            $m.empty().append('<option value="">(未选择模型)</option>');
+            list.forEach(function(m) {
+                var $o = $('<option></option>').val(m).text(m);
+                if (m === c.model) $o.prop('selected', true);
+                $m.append($o);
+            });
+            if (c.model && list.indexOf(c.model) < 0) {
+                $m.prepend($('<option></option>').val(c.model).text(c.model).prop('selected', true));
+            }
+        }
+        // 局部辅助: 依据 stat 刷新 API 区块所有字段(不重开弹窗)
+        function apiRefreshFields() {
+            var c = getApiConfig();
+            // 同步启用开关
+            $('.sam-toggle-switch[data-toggle="api-enabled"]', $apiModal).toggleClass('on', c.enabled === true);
+            $('#sam-api-fields', $apiModal).toggle(c.enabled === true);
+            // 启用状态提示
+            var $hint = $('#sam-api-enable-state', $apiModal);
+            if (c.enabled === true) {
+                $hint.html('<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合将走自托管 API</span>');
+            } else {
+                $hint.html('<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API</span>');
+            }
+            var $ps = $('#sam-api-preset-sel').empty().append('<option value="">— 选择已保存预设 —</option>');
+            c.apiPresets.forEach(function(p) { $ps.append($('<option></option>').val(p.name).text(p.name)); });
+            $('[data-field="apiUrl"]', $apiModal).val(c.apiUrl);
+            $('[data-field="apiKey"]', $apiModal).val(c.apiKey);
+            apiRenderModelSelect(c);
+            if (c.fetchedModels && c.fetchedModels.length) {
+                $('#sam-api-models-status').html('<span class="sam-api-status ok">已加载 '+c.fetchedModels.length+' 个模型</span>');
+            } else {
+                $('#sam-api-models-status').html('<span class="sam-api-status warn">未加载(使用默认列表)</span>');
+            }
+        }
+        // 启用开关: 切换 enabled, 同步显隐下方字段
+        $apiModal.off('click.samApiEnable').on('click.samApiEnable', '.sam-toggle-switch[data-toggle="api-enabled"]', function() {
+            var on = !$(this).hasClass('on');
+            saveApiConfig(function(cfg) { cfg.enabled = on; });
+            apiRefreshFields();
+        });
+        // 选中预设即载入: 把预设里的地址/Key/来源/代理直接贴到输入框, 模型下拉清空到只剩预设中的模型, 预设名同步到下方输入框
+        $apiModal.off('change.samApiPreset').on('change.samApiPreset', '#sam-api-preset-sel', function() {
+            clearTimeout(apiFieldTimer);
+            var $sel = $(this);
+            var name = ($sel.val() || '').trim();
+            if (!name) { $('#sam-api-preset-name').val(''); return; }   // 选回"选择已保存预设"占位项则只清空名称
+            var snap = null, curCfg = getApiConfig();
+            for (var i = 0; i < curCfg.apiPresets.length; i++) {
+                if (curCfg.apiPresets[i].name === name) { snap = curCfg.apiPresets[i]; break; }
+            }
+            if (!snap) { samToast('err', '预设不存在: ' + name); return; }
+            // 写回 localStorage(切换到新 API 地址,旧的已加载模型列表失效,一并清空以初始化)
+            saveApiConfig(function(cfg) {
+                cfg.apiUrl = snap.apiUrl; cfg.apiKey = snap.apiKey; cfg.model = snap.model;
+                cfg.fetchedModels = [];
+            });
+            // 直接贴到输入框
+            $('[data-field="apiUrl"]', $apiModal).val(snap.apiUrl || '');
+            $('[data-field="apiKey"]', $apiModal).val(snap.apiKey || '');
+            // 模型下拉: 清空, 只放预设中的模型(若有则选中, 否则置空)
+            var $m = $('[data-field="model"]', $apiModal).empty().append('<option value="">(未选择模型)</option>');
+            if (snap.model) $m.append($('<option></option>').val(snap.model).text(snap.model));
+            $m.val(snap.model || '');
+            // 预设名同步到下方输入框(便于直接覆盖保存) —— 切换即载入, 无额外提示(字段刷新即为反馈)
+            $('#sam-api-preset-name').val(name);
+            // 初始化已加载模型状态提示(切换到新 API 后旧模型列表已失效)
+            $('#sam-api-models-status').html('<span class="sam-api-status warn">未加载(使用默认列表)</span>');
+        });
+        // 删除预设
+        $apiModal.off('click.samApiDel').on('click.samApiDel', '.sam-api-btn[data-act="delete-preset"]', function() {
+            var name = ($('#sam-api-preset-sel option:selected').text() || '').trim();
+            if (!name) { samToast('warn', '请先选择要删除的预设'); return; }
+            samConfirm('删除预设', '确认删除预设「' + name + '」?此操作不可撤销。', function() {
+                saveApiConfig(function(cfg) {
+                    var idx = (cfg.apiPresets || []).findIndex(function(p){ return p.name === name; });
+                    if (idx >= 0) cfg.apiPresets.splice(idx, 1);
+                    cfg.fetchedModels = [];   // 删除预设同时初始化已加载模型状态
+                });
+                apiRefreshFields();
+                samToast('ok', '已删除预设: ' + name);
+            });
+        });
+        // 保存预设(以弹窗内当前字段值为快照, 写入预设列表, 同名覆盖)
+        $apiModal.off('click.samApiSave').on('click.samApiSave', '.sam-api-btn[data-act="save-preset"]', function() {
+            clearTimeout(apiFieldTimer);   // 取消待写回计时器, 确保快照读到的就是当前屏幕值并随后不被旧值回写覆盖
+            var name = ($('#sam-api-preset-name').val() || '').trim();
+            if (!name) { samToast('warn', '请输入预设名称'); return; }
+            var snap = {
+                apiUrl: $('[data-field="apiUrl"]', $apiModal).val() || '',
+                apiKey: $('[data-field="apiKey"]', $apiModal).val() || '',
+                model: $('[data-field="model"]', $apiModal).val() || ''
+            };
+            saveApiConfig(function(cfg) {
+                var idx = (cfg.apiPresets || []).findIndex(function(p){ return p.name === name; });
+                var entry = { name: name, apiUrl: snap.apiUrl, apiKey: snap.apiKey, model: snap.model };
+                if (idx >= 0) cfg.apiPresets[idx] = entry; else cfg.apiPresets.push(entry);
+            });
+            apiRefreshFields();
+            $('#sam-api-preset-name').val('');
+            samToast('ok', '已保存预设: ' + name);
+        });
+        // 字段实时保存(防抖 + apiUrl 变更时刷新模型下拉; apiFieldTimer 已在前面声明)
+        $apiModal.off('input.samApiField change.samApiField').on('input.samApiField change.samApiField', '[data-field]', function() {
+            var field = $(this).data('field');
+            var val = $(this).val() || '';
+            clearTimeout(apiFieldTimer);
+            apiFieldTimer = setTimeout(function() {
+                saveApiConfig(function(cfg) { cfg[field] = val; });
+                if (field === 'apiUrl') apiRenderModelSelect(getApiConfig());
+            }, 400);
+        });
+        // 加载模型列表(异步 fetch /v1/models, 成功写入 fetchedModels)
+        $apiModal.off('click.samApiLoad').on('click.samApiLoad', '.sam-api-btn[data-act="load-models"]', function() {
+            var $btn = $(this); var $st = $('#sam-api-models-status');
+            $btn.prop('disabled', true).text('加载中…');
+            $st.html('<span class="sam-api-status">正在请求模型列表…</span>');
+            var url = ($('[data-field="apiUrl"]', $apiModal).val() || '').trim();
+            var key = ($('[data-field="apiKey"]', $apiModal).val() || '').trim();
+            saveApiConfig(function(cfg) { cfg.apiUrl = url; cfg.apiKey = key; });
+            apiFetchModels().then(function(models) {
+                // 成功: 清理旧模型 + 旧选择, 列表仅保留本次 API 返回的模型, 跳到"未选择"
+                saveApiConfig(function(cfg) { cfg.fetchedModels = models; cfg.model = ''; });
+                var fresh = getApiConfig();
+                apiRenderModelSelect(fresh);
+                $('[data-field="model"]', $apiModal).val('');
+                $st.html('<span class="sam-api-status ok">已加载 ' + models.length + ' 个模型(已重置选择)</span>');
+                samToast('ok', '已加载 ' + models.length + ' 个模型, 已重置为"未选择模型"');
+            }).catch(function(err) {
+                $st.html('<span class="sam-api-status err">失败: ' + esc(err && err.message || String(err)) + '</span>');
+                samToast('err', '加载失败: ' + (err && err.message || err));
+            }).then(function() {
+                $btn.prop('disabled', false).text('📡 加载模型列表');
+            });
+        });
+        // 清除已加载模型列表(回退到默认模型推荐, 并重置选择)
+        $apiModal.off('click.samApiClear').on('click.samApiClear', '.sam-api-btn[data-act="clear-models"]', function() {
+            saveApiConfig(function(cfg) { cfg.fetchedModels = []; cfg.model = ''; });
+            apiRenderModelSelect(getApiConfig());
+            $('[data-field="model"]', $apiModal).val('');
+            $('#sam-api-models-status').html('<span class="sam-api-status warn">未加载(使用默认列表)</span>');
+            samToast('ok', '已清除已加载模型列表, 已重置为"未选择模型"');
         });
     }
 
@@ -3191,7 +3853,6 @@
         var m = sd.任务 || {};
         var list = m.列表 || {};
         var kills = m.击杀 || {};
-        var contrib = m.贡献 || {};
         var isSingleWorld = (sd.设置 && sd.设置.单一世界 === true);
         var editMode = isEditMode();
         var html = '';
@@ -3203,15 +3864,27 @@
             Object.keys(list).forEach(function(k) {
                 var q = list[k] || {};
                 var path = '任务.列表.'+k;
-                var status = editMode ? editSelect(path+'.状态', ['进行中','可交付','可结算','失败'], safeStr(q.状态,'进行中')) : esc(q.状态 || '进行中');
+                // 难度徽章(任务卡标题最右显示): 用品质色板, 复用 sam-fc-q 样式; 无难度时不渲染
+                var diffRaw = safeStr(q.难度, '');
+                var diffQ = parseRarity(diffRaw);
+                var diffBadge = diffRaw ? '<div class="sam-fc-q q-'+diffQ+'" title="难度">'+esc(diffQ)+'</div>' : '';
+                // 编辑模式: 标题区追加删除按钮(挂 data-del-path, 复用通用删除事件)
+                var delBtn = editMode ? samDelBtn(path, editMode, '删除该任务') : '';
+                var headExtra = delBtn + diffBadge;
+                // 状态行: editSelect/editInput 返回 HTML, 不能再走 fcRow(会二次转义导致乱码)
+                var statusVal = safeStr(q.状态, '进行中');
+                var statusCell = editMode
+                    ? editSelect(path+'.状态', ['进行中','可交付','可结算','失败'], statusVal)
+                    : esc(statusVal);
+                var statusRow = '<div class="sam-row"><span class="k">状态</span><span class="v">'+statusCell+'</span></div>';
                 var rows = '';
                 rows += fcRow('委托方', q.委托方, path+'.委托方', editMode);
-                rows += fcRow('状态', status, null, false);
+                rows += statusRow;
                 rows += fcRow('目标', q.目标, path+'.目标', editMode);
                 rows += fcRow('奖励', q.奖励, path+'.奖励', editMode);
                 rows += fcRow('交付', q.交付, path+'.交付', editMode);
                 var body = fcRow('简介', q.简介, path+'.简介', editMode);
-                tHtml += fullCard('', k, rows, body);
+                tHtml += fullCard('', k, rows, body, headExtra);
             });
             tHtml += '</div>';
         }
@@ -3234,21 +3907,11 @@
             + (!isSingleWorld ? '<div style="margin-top:3px;">跨世界额外收益：<b style="color:var(--sam-text);">世界探索</b>(上限×300%) 与 <b style="color:var(--sam-text);">势力羁绊</b>(上限×300%) 附加收益通常高于击杀奖励</div>' : '')
             + '</div>';
         html += secBlock('⚔️ 击杀统计', kHtml);
-        // 贡献(始终显示)
-        var ckeys = Object.keys(contrib);
-        var conHtml = '';
-        if (ckeys.length === 0) conHtml += '<div class="sam-empty">[暂无贡献记录]</div>';
-        else ckeys.forEach(function(k) {
-            var c = contrib[k] || {};
-            var path = '任务.贡献.'+k;
-            conHtml += '<div class="sam-row"><span class="k">'+esc(k)+'</span><span class="v">'+(editMode ? editInput(path+'.剧情定性', safeStr(c.剧情定性), 'text') : esc(c.剧情定性 || '-'))+'</span></div>';
-        });
-        html += secBlock('🌟 贡献', conHtml);
         // 结算任务: 置于任务面板所有栏目下方; 仅对主神任务起效(提示说明), 点击发送【结算任务】到输入框
         if (sd.系统状态.是否在主神空间 == false && sd.系统状态.是否战斗中 == false) {
             html += '<div class="sam-mission-settle-wrap">'
                 + '<button type="button" class="sam-mission-settle-btn" data-mission-settle>📋 结算任务</button>'
-                + '<div class="sam-mission-settle-hint">⚠️ 仅对主神任务起效</div>'
+                + '<div class="sam-mission-settle-hint">⚠️ 仅对主神任务起效, 一旦确认不可重ROLL ❗</div>'
                 + '</div>';
         }
         return html;
@@ -3402,7 +4065,7 @@
        超限(当前>上限)标红; 满(当前==上限且上限>0)标蓝; 特殊(类型8)无上限显示 当前/X */
     function renderEquipSlotsBar(p) {
         var equips = p.装备 || {};
-        var items = p.背包 || {};
+        var items = p.道具 || {};
         // 装备类型与上限来自模块级常量 EQUIP_SLOTS; 道具上限来自 ITEM_SLOT_CAP
         // 统计各类型已穿戴数
         var counts = {};
@@ -3452,7 +4115,7 @@
         var p = sd.主角 || {};
         var editMode = isEditMode();
         var equips = p.装备 || {};
-        var items = p.背包 || {};
+        var items = p.道具 || {};
         // 统计字典中 状态 命中 statuses 的条目数(用于子Tab角标计数)
         function countByStatus(dict, statuses) {
             var n = 0;
@@ -3500,7 +4163,7 @@
         var p = sd.主角 || {};
         var editMode = isEditMode();
         var equips = p.装备 || {};
-        var items = p.背包 || {};
+        var items = p.道具 || {};
         // 剥离[无]占位, 仅保留真实卡片HTML(避免空占位被grid当作单格占位导致视觉空格)
         function stripEmpty(s){ return (s||'').replace(/<div class="sam-empty">\[无\]<\/div>/g,'').trim(); }
         function mergeList(htmlA, htmlB, emptyMsg){
@@ -3513,7 +4176,7 @@
             // 战术栏: 已装备的装备(status=1) + 已装备的道具(status=1)
             content = mergeList(
                 renderEquipFullList(equips, '主角.装备', editMode, [1]),
-                renderItemFullList(items, '主角.背包', editMode, [1]),
+                renderItemFullList(items, '主角.道具', editMode, [1]),
                 '尚未装备任何战术项'
             );
         } else if (holdActiveTab === 'equip') {
@@ -3526,7 +4189,7 @@
         } else if (holdActiveTab === 'item') {
             // 道具背包: status=0
             content = mergeList(
-                renderItemFullList(items, '主角.背包', editMode, [0]),
+                renderItemFullList(items, '主角.道具', editMode, [0]),
                 '', '道具背包空空如也'
             );
             hint = '战斗时 AI 不可见';
@@ -3534,7 +4197,7 @@
             // 仓库: 装备status=2 + 道具status=2
             content = mergeList(
                 renderEquipFullList(equips, '主角.装备', editMode, [2]),
-                renderItemFullList(items, '主角.背包', editMode, [2]),
+                renderItemFullList(items, '主角.道具', editMode, [2]),
                 '仓库中没有存放任何物品'
             );
             hint = 'AI 不可见';
@@ -3561,7 +4224,7 @@
             var typeStr = typeMap[e.类型] || '未知';
             var rows = '';
             rows += fcRow('类型', typeStr, path+'.类型', false); // 类型是数字枚举, 不可编辑
-            if (e.消耗) rows += fcRow('消耗', e.消耗, path+'.消耗', editMode);
+            if (e.消耗 && e.消耗 !== '0' && e.消耗 !== 0) rows += fcRow('消耗', e.消耗, path+'.消耗', editMode);
             var body = '<div class="sam-fc-body">';
             if (editMode || (Array.isArray(e.标签) && e.标签.length > 0)) body += fcBody('标签', formatTags(e.标签, path+'.标签', editMode), 'sam-fc-tags');
             if (e.原始属性 && typeof e.原始属性 === 'object' && Object.keys(e.原始属性).length > 0) {
@@ -3572,7 +4235,7 @@
             if (editMode && !isReadonlyPath(path+'.描述')) {
                 descContent = editInput(path+'.描述', safeStr(e.描述), 'textarea');
             } else {
-                descContent = esc(safeStr(e.描述) || '-');
+                descContent = esc(safeStr(e.描述));
             }
             body += fcBody('描述', descContent);
             // 操作按钮(类型8特殊装备无按钮无限制); 删除按钮仅在修改模式显示
@@ -3609,7 +4272,7 @@
             if (editMode && !isReadonlyPath(path+'.描述')) {
                 descContent = editInput(path+'.描述', safeStr(v.描述), 'textarea');
             } else {
-                descContent = esc(safeStr(v.描述) || '-');
+                descContent = esc(safeStr(v.描述));
             }
             body += fcBody('描述', descContent);
             body += fcBody('操作', itemActionButtons(path, st, editMode), 'sam-fc-actions');
@@ -3643,7 +4306,7 @@
                 var path = basePath+'.'+it.key;
                 var q = parseRarity(s.品质);
                 var rows = '';
-                rows += fcRow('消耗', s.消耗, path+'.消耗', editMode);
+                if (s.消耗 && s.消耗 !== '0' && s.消耗 !== 0) rows += fcRow('消耗', s.消耗, path+'.消耗', editMode);
                 var body = '<div class="sam-fc-body">';
                 if (editMode || (Array.isArray(s.标签) && s.标签.length > 0)) body += fcBody('标签', formatTags(s.标签, path+'.标签', editMode), 'sam-fc-tags');
                 body += fcBody('效果', formatEffects(s.效果, path+'.效果', editMode), 'sam-fc-effects');
@@ -3651,7 +4314,7 @@
                 if (editMode && !isReadonlyPath(path+'.描述')) {
                     descContent = editInput(path+'.描述', safeStr(s.描述), 'textarea');
                 } else {
-                    descContent = esc(safeStr(s.描述) || '-');
+                    descContent = esc(safeStr(s.描述));
                 }
                 body += fcBody('描述', descContent);
                 body += '</div>';
@@ -3692,7 +4355,7 @@
                 if (editMode && !isReadonlyPath(path+'.描述')) {
                     descContent = editInput(path+'.描述', safeStr(b.描述), 'textarea');
                 } else {
-                    descContent = esc(safeStr(b.描述) || '-');
+                    descContent = esc(safeStr(b.描述));
                 }
                 body += fcBody('描述', descContent);
                 body += '</div>';
@@ -3716,9 +4379,10 @@
                 var q = parseRarity(f.品质);
                 var rows = '';
                 rows += fcRow('状态', f.状态, path+'.状态', editMode);
-                rows += fcRow('消耗', f.消耗, path+'.消耗', editMode);
+                if (f.消耗 && f.消耗 !== '0' && f.消耗 !== 0) rows += fcRow('消耗', f.消耗, path+'.消耗', editMode);
                 // 注: 冷却不再用 fcRow 显示, 由激活按钮(⏳ N回合)统一呈现, 避免重复
                 var body = '<div class="sam-fc-body">';
+                if (editMode || (Array.isArray(f.标签) && f.标签.length > 0)) body += fcBody('标签', formatTags(f.标签, path+'.标签', editMode), 'sam-fc-tags');
                 if (f.原始属性 && typeof f.原始属性 === 'object' && Object.keys(f.原始属性).length > 0) {
                     body += fcBodyCollapsible('原始属性', formatStatGrid(f.原始属性, 3), 'sam-fc-stats', false);
                 }
@@ -3727,7 +4391,7 @@
                 if (editMode && !isReadonlyPath(path+'.描述')) {
                     descContent = editInput(path+'.描述', safeStr(f.描述), 'textarea');
                 } else {
-                    descContent = esc(safeStr(f.描述) || '-');
+                    descContent = esc(safeStr(f.描述));
                 }
                 body += fcBody('描述', descContent);
                 // 形态自带技能子表
@@ -3762,6 +4426,8 @@
     }
 
     /* ===== 27. Tab: 关系 ===== */
+    /* 记住关系面板当前激活的子Tab(全部/在场/不在场/小队), 避免 renderAll 后跳回"全部" */
+    var relationActiveSub = 'all';
     function renderRelationTab(sd) {
         var rel = sd.关系列表 || {};
         var editMode = isEditMode();
@@ -3773,16 +4439,20 @@
             if (n.在场 === true) present.push(item); else absent.push(item);
             if (n.是否队友 === true) team.push(item);
         });
+        // 使用记住的子Tab状态(若无效则回退到'all')
+        var activeSub = relationActiveSub;
+        var validSubs = ['all','present','absent','team'];
+        if (validSubs.indexOf(activeSub) < 0) activeSub = 'all';
         var html = '<div class="sam-subtabs">'
-            + '<div class="sam-subtab active" data-sub="all">全部('+all.length+')</div>'
-            + '<div class="sam-subtab" data-sub="present">在场('+present.length+')</div>'
-            + '<div class="sam-subtab" data-sub="absent">不在场('+absent.length+')</div>'
-            + '<div class="sam-subtab" data-sub="team">小队('+team.length+')</div>'
+            + '<div class="sam-subtab'+(activeSub==='all'?' active':'')+'" data-sub="all">全部('+all.length+')</div>'
+            + '<div class="sam-subtab'+(activeSub==='present'?' active':'')+'" data-sub="present">在场('+present.length+')</div>'
+            + '<div class="sam-subtab'+(activeSub==='absent'?' active':'')+'" data-sub="absent">不在场('+absent.length+')</div>'
+            + '<div class="sam-subtab'+(activeSub==='team'?' active':'')+'" data-sub="team">小队('+team.length+')</div>'
             + '</div>';
-        html += '<div class="sam-subpane active" data-sub="all">'+renderNpcList(all, editMode, 'all')+'</div>';
-        html += '<div class="sam-subpane" data-sub="present" style="display:none;">'+renderNpcList(present, editMode, 'present')+'</div>';
-        html += '<div class="sam-subpane" data-sub="absent" style="display:none;">'+renderNpcList(absent, editMode, 'absent')+'</div>';
-        html += '<div class="sam-subpane" data-sub="team" style="display:none;">'+renderNpcList(team, editMode, 'present')+'</div>';
+        html += '<div class="sam-subpane'+(activeSub==='all'?' active':'')+'" data-sub="all"'+(activeSub==='all'?'':' style="display:none;"')+'>'+renderNpcList(all, editMode, 'all')+'</div>';
+        html += '<div class="sam-subpane'+(activeSub==='present'?' active':'')+'" data-sub="present"'+(activeSub==='present'?'':' style="display:none;"')+'>'+renderNpcList(present, editMode, 'present')+'</div>';
+        html += '<div class="sam-subpane'+(activeSub==='absent'?' active':'')+'" data-sub="absent"'+(activeSub==='absent'?'':' style="display:none;"')+'>'+renderNpcList(absent, editMode, 'absent')+'</div>';
+        html += '<div class="sam-subpane'+(activeSub==='team'?' active':'')+'" data-sub="team"'+(activeSub==='team'?'':' style="display:none;"')+'>'+renderNpcList(team, editMode, 'present')+'</div>';
         return html;
     }
     /* NPC单列卡片: mode决定字段
@@ -3837,6 +4507,11 @@
             if (mode === 'present' && n.在场 === true) {
                 var trfPos = editMode ? 'right:30px;' : 'right:4px;';
                 card += '<button type="button" class="sam-npc-transfer" data-transfer-npc="'+esc(it.key)+'" style="'+trfPos+'" title="向该角色转移物资">📦 转移</button>';
+                // 获取按钮: 仅死亡NPC显示
+                if (isNpcDead(n)) {
+                    var lootPos = editMode ? 'right:88px;' : 'right:62px;';
+                    card += '<button type="button" class="sam-npc-loot" data-loot-npc="'+esc(it.key)+'" style="'+lootPos+'" title="获取该角色遗物">💀 获取</button>';
+                }
             }
             // 头像+名字 横排: 有立绘=小头像(点击放大), 无立绘=小按钮(点击上传)
             var npcPUrl = getNpcPortrait(it.key);
@@ -4004,12 +4679,14 @@
         var integCls = assetIntegClass(integ);
         var integW = Math.max(0, Math.min(100, integ));
 
-        // 头部: 图标 + 名字 + 类型徽章 + 完整度
+        // 头部: 图标 + 名字 + 类型徽章 + 完整度 + (编辑模式)删除按钮
+        var assetDelBtn = editMode ? '<button type="button" class="sam-fc-del-btn sam-asset-del" data-asset-del="' + esc(path) + '" title="删除该资产">✕</button>' : '';
         var head = '<summary class="sam-asset-sum">'
             + '<span class="sam-asset-ico">' + assetTypeIcon(type) + '</span>'
             + '<span class="sam-asset-name">' + esc(name) + '</span>'
             + '<span class="sam-asset-badge">' + esc(type) + '</span>'
             + '<span class="sam-asset-integ ' + integCls + '">' + integ + '%</span>'
+            + assetDelBtn
             + '</summary>';
 
         var body = '<div class="sam-asset-body">';
@@ -4087,15 +4764,22 @@
                 var s = seqs[sk] || {};
                 var spath = path + '.建设序列.' + sk;
                 var stage = safeStr(s.阶段, '基础');
+                var seqDelBtn = editMode ? '<button type="button" class="sam-fc-del-btn sam-asset-seq-del" data-asset-seq-del="' + esc(spath) + '" title="删除该建设序列">✕</button>' : '';
                 body += '<div class="sam-asset-seq">'
                     + '<div class="sam-asset-seq-head">'
                     +   '<span class="sam-asset-seq-name">' + esc(sk) + '</span>'
                     +   '<span class="sam-asset-stage ' + assetStageClass(stage) + '">' + esc(stage) + '</span>'
+                    +   seqDelBtn
                     + '</div>'
                     + '<div class="sam-asset-seq-rows">'
                     +   assetKvRow('功能', assetScalar(spath + '.功能', safeStr(s.功能), 'text', editMode))
-                    +   assetKvRow('产出', assetScalar(spath + '.产出', safeStr(s.产出), 'text', editMode))
-                    +   assetKvRow('上次产出天数', assetScalar(spath + '.上次产出天数', safeNum(s.上次产出天数, 0), 'number', editMode))
+                    +   (function() {
+                            var cv = safeStr(s.产出);
+                            // 产出为空或"无"时隐藏该字段与上次产出天数(编辑模式仍保留以便录入)
+                            if (!editMode && (!cv || cv === '无')) return '';
+                            return assetKvRow('产出', assetScalar(spath + '.产出', cv, 'text', editMode))
+                                + assetKvRow('上次产出天数', assetScalar(spath + '.上次产出天数', safeNum(s.上次产出天数, 0), 'number', editMode));
+                        })()
                     + '</div>'
                     + (Array.isArray(s.加成) && s.加成.length ? '<div class="sam-asset-seq-bonus">' + assetTagChips(s.加成) + '</div>' : '')
                     + '</div>';
@@ -4300,14 +4984,17 @@
         koHtml += '<div class="sam-row"><span class="k">下一节点</span><span class="v">'+(editMode ? editInput('世界.因果轨道.下一节点', safeStr(ko.下一节点), 'text') : esc(ko.下一节点||'-'))+'</span></div>';
         var off = ko.偏移记录 || {};
         var okeys = Object.keys(off);
+        var offHtml = '';
+        okeys.forEach(function(k) {
+            var o = off[k] || {};
+            var path = '世界.因果轨道.偏移记录.'+k;
+            offHtml += '<div class="sam-row"><span class="k">'+esc(k)+'</span><span class="v">'+(editMode ? editInput(path+'.描述', safeStr(o.描述), 'text') : esc(o.描述||'-'))+'</span></div>';
+        });
         if (okeys.length > 0) {
-            var offHtml = '';
-            okeys.forEach(function(k) {
-                var o = off[k] || {};
-                var path = '世界.因果轨道.偏移记录.'+k;
-                offHtml += '<div class="sam-row"><span class="k">'+esc(k)+'</span><span class="v">'+(editMode ? editInput(path+'.描述', safeStr(o.描述), 'text') : esc(o.描述||'-'))+'</span></div>';
-            });
-            koHtml += secBlock('偏差记录 ('+okeys.length+')', offHtml, false);
+            koHtml += '<details class="sam-sec" style="margin-top:6px;">'
+                + '<summary class="sam-sec-sum"><span class="sam-sec-title">偏差记录 ('+okeys.length+')</span></summary>'
+                + '<div class="sam-sec-body">' + offHtml + '</div>'
+                + '</details>';
         }
         html += secBlock('🌀 因果轨道', koHtml);
         // 探索点
@@ -4580,7 +5267,7 @@
         if (safeStr(n.背景故事)) profile += ndBlock('背景故事', n.背景故事);
         if (profile) html += '<details class="sam-nd-sub"><summary>👤 人物档案</summary><div class="sam-nd-sub-body">'+profile+'</div></details>';
         // ⑨ 子系统 (装备/技能/血统/形态库/状态, 仅非空时才折叠显示)
-        var subs = [{k:'状态',d:n.状态},{k:'血统',d:n.血统},{k:'形态库',d:n.形态库},{k:'技能',d:n.技能},{k:'装备',d:n.装备},{k:'背包',d:n.背包}];
+        var subs = [{k:'状态',d:n.状态},{k:'血统',d:n.血统},{k:'形态库',d:n.形态库},{k:'技能',d:n.技能},{k:'装备',d:n.装备},{k:'道具',d:n.道具}];
         subs.forEach(function(s) {
             var d = s.d || {};
             var ks = Object.keys(d);
@@ -4608,10 +5295,10 @@
     var EQUIP_STATUS_MAP = ['未装备','已装备','仓库'];
     var SKILL_TYPE_MAP = ['主动','被动','特殊'];
     // 父级容器键 -> 判定枚举字段
-    var ENUM_PARENTS = { 装备: { 类型: EQUIP_TYPE_MAP, 状态: EQUIP_STATUS_MAP }, 背包: { 状态: EQUIP_STATUS_MAP }, 技能: { 类型: SKILL_TYPE_MAP }, 形态: { 状态: EQUIP_STATUS_MAP } };
+    var ENUM_PARENTS = { 装备: { 类型: EQUIP_TYPE_MAP, 状态: EQUIP_STATUS_MAP }, 道具: { 状态: EQUIP_STATUS_MAP }, 技能: { 类型: SKILL_TYPE_MAP }, 形态: { 状态: EQUIP_STATUS_MAP } };
     function translateEnum(field, value, ancestors) {
         if (!ancestors || ancestors.length < 2) return null;
-        // ancestors: [..., 容器键(装备/技能/背包/形态), 条目名, field]
+        // ancestors: [..., 容器键(装备/技能/道具/形态), 条目名, field]
         // 找到最近的容器键
         for (var i = ancestors.length - 2; i >= 0; i--) {
             var container = ancestors[i];
@@ -4638,10 +5325,13 @@
         if (keys.length === 0) return '<div class="sam-empty">无</div>';
         // 分三类: 短标量/长文本/对象数组
         var shortRows = '', longBlocks = '', subBlocks = '';
+        // 当前节点是否为纯数值对象(如 原始属性 {力量:0, ATK:5}): 值为0的项统一隐藏
+        var nodeIsNumObj = isNumObj(node);
         keys.forEach(function(k) {
             if (hidden && hidden.indexOf(k) >= 0) return;
             var v = node[k];
             if (v == null) return;
+            if (v === '') return;
             // 身份数组: 过滤仅AI可见的关键词(执行者/篡夺者/梦魇师/残魂/穿越者)
             if (k === '身份' && Array.isArray(v)) {
                 // 小队成员或好感度>60时不隐藏阵营身份
@@ -4663,11 +5353,35 @@
                     }
                 } else if (Object.keys(v).length === 0) {
                     // 空对象(如原始属性/效果为{}): 跳过, 不渲染空折叠栏
+                } else if (isNumObj(v)) {
+                    // 纯数值属性对象(原始属性等): 走 formatStatGrid 自动隐藏=0项; 全0则不渲染折叠栏
+                    var gridHtml = formatStatGrid(v, 6);
+                    if (gridHtml) subBlocks += detailSub(k, '<div class="sam-d-sub-body">'+gridHtml+'</div>', false);
                 } else {
-                    subBlocks += detailSub(k, '<div class="sam-d-sub-body">'+renderDetailNode(v, hidden, childAnc)+'</div>', Object.keys(v).length <= 2);
+                    var childHtml = renderDetailNode(v, hidden, childAnc);
+                    // 子节点过滤后可能为空(如原始属性全0), 不渲染空折叠栏
+                    if (childHtml && childHtml.trim() && !/class="sam-empty"/.test(childHtml)) {
+                        subBlocks += detailSub(k, '<div class="sam-d-sub-body">'+childHtml+'</div>', Object.keys(v).length <= 2);
+                    }
                 }
             } else {
-                // 标量
+                // 标量: 纯数值对象内的0值跳过; 枚举字段(类型/状态=0)保留翻译显示
+                if (nodeIsNumObj && safeNum(v, 0) === 0) return;
+                if (!nodeIsNumObj && safeNum(v, NaN) === 0 && (typeof v === 'number' || (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(String(v).trim())))) {
+                    // 非数值对象中的数值0: 枚举字段(装备类型0=武器/状态0=未装备)保留, 其他属性加成类0隐藏
+                    var isEnumField = false;
+                    for (var ei = ancestors.length - 1; ei >= 0; ei--) {
+                        if (ENUM_PARENTS[ancestors[ei]] && ENUM_PARENTS[ancestors[ei]][k]) { isEnumField = true; break; }
+                    }
+                    // 当前节点自身作为容器时也查 ENUM_PARENTS
+                    if (!isEnumField && ENUM_PARENTS[ancestors[ancestors.length - 1]] && ENUM_PARENTS[ancestors[ancestors.length - 1]][k]) isEnumField = true;
+                    // 直接挂在装备/道具/技能条目下: ancestors 末段是条目名, 再前是容器
+                    if (!isEnumField && ancestors.length >= 2) {
+                        var contKey = ancestors[ancestors.length - 2];
+                        if (ENUM_PARENTS[contKey] && ENUM_PARENTS[contKey][k]) isEnumField = true;
+                    }
+                    if (!isEnumField && k !== '好感度' && k !== '数量') return;
+                }
                 var fv = fmtScalar(v, childAnc);
                 if (isLongField(k, v)) {
                     longBlocks += '<div class="sam-d-block"><div class="sam-d-label">'+esc(k)+'</div><div class="sam-d-content">'+esc(fv)+'</div></div>';
@@ -4744,9 +5458,9 @@
     }
     /* 效果对象分行渲染 {a:b,c:d} → 多行 */
     function formatEffects(effects, path, editMode) {
-        if (!effects || typeof effects !== 'object') return '<span class="sam-empty" style="padding:4px 0;">无</span>';
+        if (!effects || typeof effects !== 'object') return '';
         var keys = Object.keys(effects);
-        if (keys.length === 0) return '<span class="sam-empty" style="padding:4px 0;">无</span>';
+        if (keys.length === 0) return '';
         var html = '<div class="sam-effects">';
         keys.forEach(function(k) {
             var v = effects[k];
@@ -4770,10 +5484,12 @@
         html += '</div>';
         return html;
     }
-    /* 数值属性网格 */
+    /* 数值属性网格: 隐藏值为0的属性(装备/血统/形态/状态详情等共用; 装备仅写非0项) */
     function formatStatGrid(stats, cols) {
         if (!stats || typeof stats !== 'object') return '';
-        var keys = Object.keys(stats);
+        var keys = Object.keys(stats).filter(function(k) {
+            return safeNum(stats[k], 0) !== 0;
+        });
         if (keys.length === 0) return '';
         var html = '<div class="sam-stat-grid">';
         keys.forEach(function(k) {
@@ -4799,18 +5515,21 @@
             var val = (type === 'number') ? safeNum(v,0) : v;
             return '<div class="sam-row"><span class="k">'+esc(k)+'</span><span class="v">'+editInput(path, val, type||'text')+'</span></div>';
         }
-        var vs = (v === null || v === undefined) ? '-' : ((typeof v === 'object') ? JSON.stringify(v) : safeStr(v));
+        if (v === null || v === undefined || v === '') return '';
+        var vs = (typeof v === 'object') ? JSON.stringify(v) : safeStr(v);
         return '<div class="sam-row"><span class="k">'+esc(k)+'</span><span class="v">'+esc(vs)+'</span></div>';
     }
     /* 全宽左对齐块: 标签在上, 内容独占整行(效果/描述等长文本用) */
     function fcBody(label, contentHtml, extraClass) {
+        if (!contentHtml || !String(contentHtml).trim()) return '';
         return '<div class="sam-fc-block">'
             + '<div class="sam-fc-label">'+esc(label)+'</div>'
             + '<div class="sam-fc-content '+(extraClass||'')+'">'+contentHtml+'</div>'
             + '</div>';
     }
-    /* 可伸缩全宽块: <details> 折叠(原始属性等大块用) */
+    /* 可伸缩全宽块: <details> 折叠(原始属性等大块用); 内容为空时不渲染(全0属性被过滤后) */
     function fcBodyCollapsible(label, contentHtml, extraClass, openByDefault) {
+        if (!contentHtml || !String(contentHtml).trim()) return '';
         return '<details class="sam-fc-collapse '+(extraClass||'')+'" '+(openByDefault?'open':'')+'>'
             + '<summary class="sam-fc-collapse-sum">'+esc(label)+'</summary>'
             + '<div class="sam-fc-content '+(extraClass||'')+'">'+contentHtml+'</div>'
@@ -5377,6 +6096,9 @@
             if (!obj.hasOwnProperty(k)) continue;
             var v = obj[k];
             if (v === undefined || v === null || v === '') continue;
+            // 数值0不展示(装备/技能属性加成仅写非0项)
+            if (typeof v === 'number' && v === 0) continue;
+            if (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v.trim()) && Number(v) === 0) continue;
             html += shopChip(k, v);
         }
         return html;
@@ -5405,6 +6127,8 @@
         for (var key in SHOP_STAT_LABELS) {
             if (!SHOP_STAT_LABELS.hasOwnProperty(key)) continue;
             if (stats && stats[key] !== undefined && stats[key] !== null) {
+                // 数值0不展示
+                if (safeNum(stats[key], 0) === 0) continue;
                 html += shopChip(SHOP_STAT_LABELS[key], shopSigned(stats[key]));
             }
         }
@@ -5676,7 +6400,7 @@
         if (!character.装备) character.装备 = {};
         if (!character.技能) character.技能 = {};
         if (!character.血统) character.血统 = {};
-        if (!character.背包) character.背包 = {};
+        if (!character.道具) character.道具 = {};
         var itemStrs = [];
         for (var i = 0; i < shopCart.length; i++) {
             var item = shopCart[i];
@@ -5689,13 +6413,13 @@
                 var nextEq = shopToEquipVar(item, item._slot);
                 character.装备[item.name] = nextEq;
             } else if (item._cat === '道具区') {
-                var old = character.背包[item.name];
+                var old = character.道具[item.name];
                 var nextCon = shopToConsumeVar(item, qty);
                 if (old && typeof old === 'object') nextCon.数量 = Number(old.数量 || 0) + qty;
                 var merged = {};
                 if (old && typeof old === 'object') { for (var ok2 in old) { if (old.hasOwnProperty(ok2)) merged[ok2] = old[ok2]; } }
                 for (var nk in nextCon) { if (nextCon.hasOwnProperty(nk)) merged[nk] = nextCon[nk]; }
-                character.背包[item.name] = merged;
+                character.道具[item.name] = merged;
             } else if (item._cat === '升级区') {
                 // 升级商品: 按所属大类决定写入哪个角色字段; 替换目标决定回收哪个旧物品
                 var upCat = item.category || '';
@@ -5871,7 +6595,15 @@
         return null;
     }
     // 32d-2. 统一封装AI调用(返回Promise, 兼容同步/异步)
+    //  统一分发: 若"额外模型配置"开关开启 → 走自托管API(apiChat); 否则 → 走 generateRaw 正文AI
     function shopCallAI(systemPrompt, userMsg) {
+        if (isApiConfigEnabled()) {
+            // 额外模型通道: OpenAI 兼容 /chat/completions 直连(商城刷新/血统融合共用)
+            return apiChat(systemPrompt, userMsg).then(function(content){
+                // generateRaw 返回的通常是字符串; 保持调用方语义一致
+                return content;
+            });
+        }
         return new Promise(function (resolve, reject) {
             var fn = shopGetAI();
             if (!fn) { reject(new Error('未找到正文AI接口 generateRaw')); return; }
@@ -6175,7 +6907,7 @@
         var eqData = p.装备 || {};
         if (Object.keys(eqData).length) parts.push('已有装备:\n' + formatDict(eqData));
         
-        var invData = p.背包 || {};
+        var invData = p.道具 || {};
         if (Object.keys(invData).length) parts.push('已有物品:\n' + formatDict(invData));
 
         var statusData = p.状态 || {};
@@ -6217,9 +6949,13 @@
         if (!sd) { samToast('error', '数据未就绪'); return; }
         var sys = sd.系统状态 || {};
         if (sys.是否战斗中 === true) { samToast('warning', '战斗中无法交易, 请在安全区域后再试'); return; }
-        if (sys.是否在主神空间 !== true) { samToast('warning', '需返回主神空间后才能开启商城交易'); return; }
-        // 检查AI接口
-        if (!shopGetAI()) { samToast('error', '未检测到正文AI接口 generateRaw'); return; }
+        if (sys.是否在主神空间 !== true && sd.设置.单一世界 !== true) { samToast('warning', '需返回主神空间后才能开启商城交易'); return; }
+        // 检查AI接口: 启用额外模型配置时走自托管API, 否则需 generateRaw
+        if (!isApiConfigEnabled() && !shopGetAI()) { samToast('error', '未检测到正文AI接口 generateRaw(或在设置里启用额外模型配置)'); return; }
+        if (isApiConfigEnabled()) {
+            var _apiCfgChk = getApiConfig();
+            if (!_apiCfgChk.model) { samToast('error', '额外模型配置已启用但未选择模型, 请先在设置面板选择模型'); return; }
+        }
         // 防重入: 已在刷新中则忽略
         if (shopRefreshing) return;
         // 进入刷新中状态(模块级标志, 切换界面/重渲染仍保持禁用); 立即重渲染以隐藏列表+显示提示
@@ -6237,11 +6973,16 @@
             + worldBookContent + '\n'
             + '【生成约束】\n'
             + '1. 贴合度: 根据玩家当前的构筑（偏向物理/近战/生存）、层级和购买力生成。\n'
-            + '2. 品质控制:\n'
-            + '   - 生成的商品应以 玩家当前层级级和 +1级为主，最多允许出现 1~2 个 +2级作为诱惑。绝对禁止生成 +3级及以上商品。\n'
+            + '2. 品质与视野权限控制 (商城解锁铁律):\n'
+            + '   - 【前置扫描】: 生成商品前，必须严格检索【当前玩家数据】中的道具/状态，确认玩家当前层级以及是否持有【高阶权限凭证】。\n'
+            + '   - 【基础视野】: 若无特殊凭证，商品品质上限为【玩家当前层级 + 1阶】。允许生成 1~2 个【+2阶】商品作为诱惑（此为平民极限）。\n'
+            + '   - 【凭证解锁】: 若玩家持有【X级权限凭证】（例: D级凭证），则商城常驻视野直接提升至该凭证的品质层级。\n'
+            + '   - 【绝对红线】: 无论如何，绝对禁止生成超出「玩家已解锁最高视野 + 1阶」的商品。阶位序列严格遵循: F → E → D → C → B → A → S → SS → SSS。权限凭证绝不出售或展示!\n'
+            + '   - 【纯净展示】: 权限凭证仅用于解锁AI的“生成视野”。只要商品被生成展示，玩家即可直接花费「空间币」购买。绝对不需要在商品描述或消耗栏中添加任何关于权限凭证的要求。\n'
             + '   - 避免与玩家已有物品功能完全重复。\n'
             + '3. 升级重铸机制: \n'
             + '   - 仔细检阅【当前玩家数据】，挑选玩家现有的低阶血统、技能或装备，生成高阶强化版本放入「升级列表」。必须直接生成升级后的完整成品面板，绝对禁止采用词条增量打补丁！必须提供精准的 `替换目标`，以便系统进行回收替换。同一目标可提供多个选项。\n'
+            + '   - 【阶位限制规则】: 升级与重铸的阶位上限，严格与上述第2条的【品质与视野权限控制】同步。绝不能生成超出玩家视野上限的升级方案。\n'
             + '   - 【升级继承规则】:\n'
             + '      * 升级商品必须完整继承替换目标的已有有效词条。\n'
             + '      * 禁止使用“融合了原能力”“保留部分能力”等模糊描述替代实际词条记录。\n'
@@ -6448,12 +7189,12 @@ if (hasReq) {
         var sd = getStatData();
         if (!sd || !sd.主角) { samToast('error', '数据未就绪'); return; }
         var isEquip = (kind === 'equip');
-        var dict = isEquip ? (sd.主角.装备 || {}) : (sd.主角.背包 || {});
-        var basePath = isEquip ? '主角.装备' : '主角.背包';
+        var dict = isEquip ? (sd.主角.装备 || {}) : (sd.主角.道具 || {});
+        var basePath = isEquip ? '主角.装备' : '主角.道具';
         // 删除: 直接从字典移除
         if (action === 'delete') {
             var ok = writeBackMvu(function(statData) {
-                var d = isEquip ? (statData.主角.装备||{}) : (statData.主角.背包||{});
+                var d = isEquip ? (statData.主角.装备||{}) : (statData.主角.道具||{});
                 if (d[key] !== undefined) delete d[key];
             });
             if (ok) { samToast('success', (isEquip?'装备':'道具')+'已删除: '+key); renderAll(); }
@@ -6507,7 +7248,7 @@ if (hasReq) {
         }
         // 通用: 设目标状态
         var ok2 = writeBackMvu(function(statData) {
-            var d = isEquip ? (statData.主角.装备||{}) : (statData.主角.背包||{});
+            var d = isEquip ? (statData.主角.装备||{}) : (statData.主角.道具||{});
             if (d[key]) d[key].状态 = targetStatus;
         });
         if (ok2) {
@@ -6607,6 +7348,8 @@ if (hasReq) {
         $m.off('click.samConfirm').on('click.samConfirm', '.sam-confirm-btn', function(e) {
             e.stopPropagation();
             var isOk = $(this).hasClass('ok');
+            // 清理 samConfirm 自身全部事件(含遮罩点外关闭), 防止残留到下次复用 #samsara-modal 的 showModal
+            $m.off('click.samConfirm').off('click.samConfirmBg');
             $m.removeClass('open').empty();
             if (isOk && typeof onOk === 'function') {
                 try { onOk(); } catch(err) { console.error('[主神终端] samConfirm onOk error:', err); }
@@ -6614,7 +7357,10 @@ if (hasReq) {
         });
         // 点遮罩(弹窗外部)取消
         $m.off('click.samConfirmBg').on('click.samConfirmBg', function(e) {
-            if (e.target === this) { $m.removeClass('open').empty(); }
+            if (e.target === this) {
+                $m.off('click.samConfirm').off('click.samConfirmBg');
+                $m.removeClass('open').empty();
+            }
         });
     }
 

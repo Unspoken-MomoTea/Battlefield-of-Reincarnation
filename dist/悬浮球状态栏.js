@@ -1808,6 +1808,9 @@
             var ok0 = writeBackMvu(function(statData) {
                 statData.主角 = statData.主角 || {}; statData.主角.血统 = statData.主角.血统 || {};
                 if (b.owned) delete statData.主角.血统[b.name];
+                if (bloodFusionSnap && bloodFusionShopItem) {
+                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+rollName0, bloodFusionSnap.price, statData.主角.空间币));
+                }
                 if (statData.商城 && Array.isArray(statData.商城.升级列表) && consumedNames0.length) {
                     statData.商城.升级列表 = statData.商城.升级列表.filter(function(u) {
                         var upCat = String(shopPick(u, 'category','所属大类','类型','type') || '');
@@ -1942,14 +1945,14 @@
                 + '    品质: F\n'
                 + '    消耗: HP/EP/特殊资源\n'
                 + '    状态: 完好\n'
-                + '    标签: [绑定的血统名称/来源]\n'
+                + '    标签: ["主神空间", 依赖的道具/血统/来源等]\n'
                 + '    原始属性: {力量: 1, 敏捷: 1, 体质: 1, 精神: 1, 感知: 1, 魅力: 1, ATK: 7, DEF: 5, MATK: 3, MDEF: 3, AP: 1}\n'
                 + '    效果: { [词条]: 描述 }\n'
                 + '    技能: {\n'
                 + '     - 名称: 技能名\n'
                 + '       品质: F\n'
                 + '       类型: 0\n'
-                + '       标签: ["[主神空间]", "被动"]\n'
+                + '       标签: ["主神空间", "被动"]\n'
                 + '       效果: {射击校准: 射击检定+5}\n'
                 + '       描述: 简短描述\n'
                 + '       消耗: 无}\n'
@@ -2066,6 +2069,9 @@
                 delete statData.主角.血统[a.name];
                 if (b.owned) delete statData.主角.血统[b.name];
                 statData.主角.血统[resultName] = result;
+                if (bloodFusionSnap && bloodFusionShopItem) {
+                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+resultName, bloodFusionSnap.price, statData.主角.空间币));
+                }
                 // 清理升级列表: "类型=血统 的升级条目" 且 replace_target 命中本次被消耗的原血统名 → 删除
                 if (statData.商城 && Array.isArray(statData.商城.升级列表) && consumedNames.length) {
                     statData.商城.升级列表 = statData.商城.升级列表.filter(function(u) {
@@ -2158,6 +2164,7 @@
             statData.主角.血统 = statData.主角.血统 || {}; statData.主角.血统[item.name] = blood;
             statData.主角.空间币 = Math.max(0, safeNum(statData.主角.空间币, 0) - safeNum(item.price, 0));
             if (statData.商城 && Array.isArray(statData.商城.血统列表)) statData.商城.血统列表 = statData.商城.血统列表.filter(function(x){ return safeStr(x.名称) !== item.name; });
+            shopAppendReceipt(statData, shopReceiptLine('购买血统', item.name, item.price, statData.主角.空间币));
         });
         if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '已购入血统：'+item.name); }
     }
@@ -2881,6 +2888,11 @@
             var act = String($(this).attr('data-sam-act') || '');
             if (act === 'blood-fusion-stop') bloodFusionStop();
             else shopStopRefresh();
+        });
+        // 待播报交易记录: 用户手动清空(模型正常叙事后也会通过JSONPatch自动清空)
+        $panel.off('click.samReceiptClear').on('click.samReceiptClear', '[data-receipt-clear]', function(e) {
+            e.stopPropagation();
+            shopClearReceipt();
         });
         // ★ 商城市场区: 区域Tab切换(装备|道具|技能|血统)
         $panel.off('click.samShopTab').on('click.samShopTab', '.sam-shop-tab', function(e) {
@@ -4224,7 +4236,7 @@
             var typeStr = typeMap[e.类型] || '未知';
             var rows = '';
             rows += fcRow('类型', typeStr, path+'.类型', false); // 类型是数字枚举, 不可编辑
-            if (e.消耗 && e.消耗 !== '0' && e.消耗 !== 0) rows += fcRow('消耗', e.消耗, path+'.消耗', editMode);
+            if (!isCostEmpty(e.消耗)) rows += fcRow('消耗', e.消耗, path+'.消耗', editMode);
             var body = '<div class="sam-fc-body">';
             if (editMode || (Array.isArray(e.标签) && e.标签.length > 0)) body += fcBody('标签', formatTags(e.标签, path+'.标签', editMode), 'sam-fc-tags');
             if (e.原始属性 && typeof e.原始属性 === 'object' && Object.keys(e.原始属性).length > 0) {
@@ -4306,7 +4318,7 @@
                 var path = basePath+'.'+it.key;
                 var q = parseRarity(s.品质);
                 var rows = '';
-                if (s.消耗 && s.消耗 !== '0' && s.消耗 !== 0) rows += fcRow('消耗', s.消耗, path+'.消耗', editMode);
+                if (!isCostEmpty(s.消耗)) rows += fcRow('消耗', s.消耗, path+'.消耗', editMode);
                 var body = '<div class="sam-fc-body">';
                 if (editMode || (Array.isArray(s.标签) && s.标签.length > 0)) body += fcBody('标签', formatTags(s.标签, path+'.标签', editMode), 'sam-fc-tags');
                 body += fcBody('效果', formatEffects(s.效果, path+'.效果', editMode), 'sam-fc-effects');
@@ -4379,7 +4391,7 @@
                 var q = parseRarity(f.品质);
                 var rows = '';
                 rows += fcRow('状态', f.状态, path+'.状态', editMode);
-                if (f.消耗 && f.消耗 !== '0' && f.消耗 !== 0) rows += fcRow('消耗', f.消耗, path+'.消耗', editMode);
+                if (!isCostEmpty(f.消耗)) rows += fcRow('消耗', f.消耗, path+'.消耗', editMode);
                 // 注: 冷却不再用 fcRow 显示, 由激活按钮(⏳ N回合)统一呈现, 避免重复
                 var body = '<div class="sam-fc-body">';
                 if (editMode || (Array.isArray(f.标签) && f.标签.length > 0)) body += fcBody('标签', formatTags(f.标签, path+'.标签', editMode), 'sam-fc-tags');
@@ -5118,6 +5130,12 @@
             }
         }
         html += secBlock('🛒 商城入口', entryHtml, true);
+        var receiptText = safeStr(sys.待播报交易记录, '').trim();
+        var receiptHtml = receiptText
+            ? '<div style="white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.55;color:var(--sam-text)">'+esc(receiptText)+'</div>'
+                + '<div style="display:flex;justify-content:flex-end;margin-top:8px"><button type="button" class="sam-confirm-btn cancel" data-receipt-clear>删除小票</button></div>'
+            : '<div class="sam-empty">暂无待叙事交易</div>';
+        html += secBlock('🧾 待播报交易记录', receiptHtml, true);
         return html;
     }
 
@@ -5326,6 +5344,21 @@
         }
         return null;
     }
+    /* 统一判定"消耗"是否为空/无, 应隐藏不渲染
+       覆盖: undefined/null/''/'无'/'0'/0/'0MP'/'0EP'/'0回合'/'无消耗'/'0 EP' 等一切等价于无消耗的形式 */
+    function isCostEmpty(c) {
+        if (c == null) return true;
+        if (typeof c === 'number') return c === 0;
+        if (typeof c !== 'string') return false;
+        var s = String(c).trim();
+        if (s === '') return true;
+        if (s === '无' || s === '无消耗' || s === '消耗无' || s === '无消耗。' || s === '无。') return true;
+        // 纯数字 0 / 形如 "0"、"0.0"
+        if (/^[0-9.]+$/.test(s)) return parseFloat(s) === 0 || isNaN(parseFloat(s));
+        // 形如 "0MP"、"0 EP"、"0EP"、"0 回合"、"0点"… 消耗数量为0
+        if (/^0(\s|点)?(MP|EP|HP|SP|回合|点|怒气|能量|p|P)?$/.test(s)) return true;
+        return false;
+    }
     function renderDetailNode(node, hidden, ancestors) {
         ancestors = ancestors || [];
         if (node == null) return '<div class="sam-empty">无</div>';
@@ -5347,6 +5380,8 @@
             var v = node[k];
             if (v == null) return;
             if (v === '') return;
+            // ★ 消耗字段: 无/0/0MP 等"等价于无消耗"的形式统一隐藏
+            if (k === '消耗' && isCostEmpty(v)) return;
             // 身份数组: 过滤仅AI可见的关键词(执行者/篡夺者/梦魇师/残魂/穿越者)
             if (k === '身份' && Array.isArray(v)) {
                 // 小队成员或好感度>60时不隐藏阵营身份
@@ -6405,18 +6440,39 @@
             } catch(e) { reject(e); }
         });
     }
-    // 构建交易: 在 stat_data 副本上执行扣币/入包, 返回 { statData, purchaseLog }
+    // 小票只记录已经成功落地的本地商城行为；逐笔换行追加，等待正文模型叙事后清空。
+    function shopAppendReceipt(statData, line) {
+        if (!statData || !line) return;
+        statData.系统状态 = statData.系统状态 || {};
+        var oldText = safeStr(statData.系统状态.待播报交易记录, '').trim();
+        statData.系统状态.待播报交易记录 = oldText ? (oldText + '\n' + line) : line;
+    }
+    function shopReceiptLine(action, detail, cost, balance) {
+        return '['+action+'] '+detail+'｜支付 '+safeNum(cost, 0)+'空间币｜余额 '+safeNum(balance, 0);
+    }
+    function shopClearReceipt() {
+        var ok = writeBackMvu(function(statData) {
+            statData.系统状态 = statData.系统状态 || {};
+            statData.系统状态.待播报交易记录 = '';
+        });
+        if (ok) { renderAll(); samToast('success', '待播报交易记录已删除'); }
+        else samToast('error', '删除失败: MVU写回不可用');
+    }
+    // 构建交易: 在 stat_data 副本上执行扣币/入包, 返回 { statData, purchaseLog, receipts }
     function shopBuildTransaction(statData) {
         var character = statData.主角;
         if (!character) throw new Error('主角数据不存在');
         var total = shopCartCost();
-        if (Number(character.空间币 || 0) < total) throw new Error('主角空间币不足');
-        character.空间币 = Number(character.空间币 || 0) - total;
+        var startCoin = Number(character.空间币 || 0);
+        if (startCoin < total) throw new Error('主角空间币不足');
+        character.空间币 = startCoin - total;
         if (!character.装备) character.装备 = {};
         if (!character.技能) character.技能 = {};
         if (!character.血统) character.血统 = {};
         if (!character.道具) character.道具 = {};
         var itemStrs = [];
+        var receiptLines = [];
+        var receiptBalance = startCoin;
         for (var i = 0; i < shopCart.length; i++) {
             var item = shopCart[i];
             var qty = item.quantity || 1;
@@ -6454,12 +6510,21 @@
                 }
             }
             var qtyStr = qty > 1 ? ' ×'+qty : '';
-            itemStrs.push(item.name + qtyStr + '（Lv.'+item.level+' '+(item.rating||'')+'）');
+            var ratingStr = item.rating ? ('（'+item.rating+'级）') : '';
+            var itemDetail = item.name + qtyStr + ratingStr;
+            var itemCost = Number(item.price || 0) * Number(qty);
+            receiptBalance -= itemCost;
+            itemStrs.push(itemDetail);
+            receiptLines.push(shopReceiptLine('购买', itemDetail, itemCost, receiptBalance));
         }
         shopRecalcDerived(character);
         // 从 stat_data.商城 移除已购买商品(持久化售出状态)
         shopRemovePurchasedFromLibrary(statData, shopCart);
-        return { statData: statData, purchaseLog: '主角兑换了 ' + itemStrs.join('、') };
+        return {
+            statData: statData,
+            purchaseLog: '主角兑换了 ' + itemStrs.join('、'),
+            receipts: receiptLines
+        };
     }
     // 从商品库移除已购物品: 新结构 商城.装备列表/技能列表/血统列表/道具列表 均为扁平数组
     // 所有区域(含道具区)统一"整件移除"——买走的商品直接从商品库消失, 不做数量递减
@@ -6554,6 +6619,9 @@
             var rs = result.statData;
             if (rs.主角) statData.主角 = rs.主角;
             if (rs.商城) statData.商城 = rs.商城;
+            for (var ri = 0; ri < result.receipts.length; ri++) {
+                shopAppendReceipt(statData, result.receipts[ri]);
+            }
         });
         if (!writeOk) {
             samToast('error', '交易失败: MVU写回不可用');
@@ -6990,10 +7058,10 @@
             + '1. 贴合度: 根据玩家当前的构筑（偏向物理/近战/生存）、层级和购买力生成。\n'
             + '2. 品质与视野权限控制 (商城解锁铁律):\n'
             + '   - 【前置扫描】: 生成商品前，必须严格检索【当前玩家数据】中的道具/状态，确认玩家当前层级以及是否持有【高阶权限凭证】。\n'
-            + '   - 【基础视野】: 若无特殊凭证，商品品质上限为【玩家当前层级 + 1阶】。允许生成 1~2 个【+2阶】商品作为诱惑（此为平民极限）。\n'
-            + '   - 【凭证解锁】: 若玩家持有【X级权限凭证】（例: D级凭证），则商城常驻视野直接提升至该凭证的品质层级。\n'
-            + '   - 【绝对红线】: 无论如何，绝对禁止生成超出「玩家已解锁最高视野 + 1阶」的商品。阶位序列严格遵循: F → E → D → C → B → A → S → SS → SSS。权限凭证绝不出售或展示!\n'
-            + '   - 【纯净展示】: 权限凭证仅用于解锁AI的“生成视野”。只要商品被生成展示，玩家即可直接花费「空间币」购买。绝对不需要在商品描述或消耗栏中添加任何关于权限凭证的要求。\n'
+            + '   - 【基础视野】: 若无特殊凭证，商城视野 =【玩家当前层级+1阶】；允许生成1~2件【商城视野+1阶】商品作为诱惑（此为平民极限）。\n'
+            + '   - 【凭证覆盖】: 若玩家持有高于【玩家当前层级+1阶】的【X级权限凭证】（例:D级凭证），则本条直接覆盖【基础视野】，商城视野固定为【X级】。\n'
+            + '   - 【绝对红线】: 商品最高品质 =【商城视野+1阶】。商城视野只能来源于【基础视野】或【权限凭证】其中之一，禁止叠加计算。阶位序列:F→E→D→C→B→A→S→SS→SSS。权限凭证绝不出售或展示！\n'
+            + '   - 【纯净展示】: 权限凭证仅用于决定商城视野。商品一旦生成即可直接购买，禁止在商品描述或购买条件中再次要求权限凭证。\n'
             + '   - 避免与玩家已有物品功能完全重复。\n'
             + '3. 升级重铸机制: \n'
             + '   - 仔细检阅【当前玩家数据】，挑选玩家现有的低阶血统、技能或装备，生成高阶强化版本放入「升级列表」。必须直接生成升级后的完整成品面板，绝对禁止采用词条增量打补丁！必须提供精准的 `替换目标`，以便系统进行回收替换。同一目标可提供多个选项。\n'
@@ -7052,7 +7120,7 @@
             + '血统列表:\n'
             + '  - 名称: 血统名\n'
             + '    品质: E\n'
-            + '    标签: ["[主神空间]", "强化"]\n'
+            + '    标签: ["主神空间", "强化"]\n'
             + '    原始属性: {"力量": 8, "敏捷": 8, "体质": 10, "精神": 6, "感知": 8, "魅力": 5}\n'
             + '    效果: {体能充沛: 基础生命恢复速度小幅提升}\n'
             + '    描述: 简短描述\n'
@@ -7061,7 +7129,7 @@
             + '  - 名称: 技能名\n'
             + '    品质: F\n'
             + '    类型: 0\n'
-            + '    标签: ["[主神空间]", "被动"]\n'
+            + '    标签: ["主神空间", "被动"]\n'
             + '    效果: {射击校准: 射击检定+5}\n'
             + '    描述: 简短描述\n'
             + '    消耗: 无\n'
@@ -7070,7 +7138,7 @@
             + '  - 名称: 装备名\n'
             + '    品质: F\n'
             + '    类型: 0\n'
-            + '    标签: ["[主神空间]", "科技"]\n'
+            + '    标签: ["主神空间", "科技"]\n'
             + '    原始属性: {"DEF": 2}\n'
             + '    效果: {防弹: 对实弹伤害额外减免2点}\n'
             + '    描述: 简短描述\n'
@@ -7081,7 +7149,7 @@
             + '    品质: F\n'
             + '    类型: 消耗品\n'
             + '    数量: 3\n'
-            + '    标签: ["[主神空间]", "辅助"]\n'
+            + '    标签: ["主神空间", "辅助"]\n'
             + '    效果: {急救: 恢复10HP}\n'
             + '    描述: 简短描述\n'
             + '    价格: 50\n'
@@ -7091,7 +7159,7 @@
             + '    所属大类: 装备 (必填: 血统/技能/装备)\n'
             + '    品质: E\n'
             + '    类型: 0\n'
-            + '    标签: ["[主神空间]", "科技", "升级"]\n'
+            + '    标签: ["主神空间", "科技", "升级"]\n'
             + '    原始属性: {"DEF": 4}\n'
             + '    效果: {防弹: 强化减伤效果至4点}\n'
             + '    描述: 回收旧型号进行重铸升阶后的成品\n'

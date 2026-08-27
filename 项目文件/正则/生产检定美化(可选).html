@@ -1,0 +1,371 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工坊生产制作面板</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      .cr-details {
+        margin: 8px 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      /* 金珀工匠折叠按钮（深黑褐底 + 暗金边框，区别于战斗红/行为绿） */
+      .cr-summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 16px;
+        background: #14100a;
+        border: 1.5px solid #b8860b;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        user-select: none;
+        list-style: none;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7);
+      }
+
+      .cr-summary::-webkit-details-marker { display: none; }
+
+      .cr-summary:hover {
+        background: #241c0c;
+        border-color: #d4af37;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(184, 134, 11, 0.35);
+      }
+
+      .cr-details[open] .cr-summary {
+        background: #c9a227;
+        border-color: #ffffff;
+        box-shadow: 0 0 12px rgba(201, 162, 39, 0.6);
+      }
+
+      .cr-icon {
+        width: 16px;
+        height: 16px;
+        fill: #c9a227;
+        transition: transform 0.25s ease, fill 0.25s ease;
+      }
+
+      .cr-summary:hover .cr-icon { fill: #ffffff; }
+      .cr-details[open] .cr-icon { transform: rotate(45deg); fill: #000000; }
+
+      .cr-label {
+        font-size: 0.9em;
+        color: #ffffff;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        max-width: 380px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cr-details[open] .cr-label { color: #000000; font-weight: 800; }
+
+      /* 展开面板（深褐黑底 + 暗金左标） */
+      .cr-content {
+        margin: 8px 0 16px 12px;
+        padding: 14px 16px;
+        background: #100d08;
+        border: 1px solid #3a2f1a;
+        border-left: 4px solid #c9a227;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+        position: relative;
+        overflow: hidden;
+        animation: crFadeIn 0.2s ease-out;
+      }
+
+      @keyframes crFadeIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .cr-line {
+        padding: 4px 0;
+        font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+        font-size: 0.9em;
+        color: #f8fafc;
+        line-height: 1.5;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+      }
+
+      /* 工序模块标题徽章：暗金基调三档微差 */
+      .cr-module-header {
+        font-size: 0.92em;
+        font-weight: 800;
+        color: #ffffff;
+        margin: 8px 0 6px 0;
+        padding: 4px 12px;
+        background: #241c0c;
+        border-left: 4px solid #c9a227;
+        border-radius: 0 4px 4px 0;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .cr-module-header.check  { border-left-color: #d97a06; background: #26180a; } /* 制作检定: 橙铜 */
+      .cr-module-header.settle { border-left-color: #eab308; background: #251f08; } /* 生产结算: 亮金 */
+
+      /* 配方管道数据行 */
+      .cr-pipeline-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;  /* item 多行时顶部对齐, 防止高度拉伸错位 */
+        gap: 8px 14px;
+        padding: 6px 10px;
+        margin: 3px 0;
+        background: #171208;
+        border-radius: 4px;
+        border: 1px solid #2e2718;
+      }
+      .cr-pipeline-row.sub {
+        margin-left: 12px;
+        background: #131007;
+        border-left: 2px solid #c9a227;
+      }
+      /* ★ 生产结算·产出物条目(🔹/🔸/※ 开头的缩进行): 橙铜左边框呼应图标 */
+      .cr-pipeline-row.loot {
+        border-left: 2px solid #d97a06;
+        background: #191106;
+      }
+      .cr-pipeline-item {
+        /* 流式布局: 长公式按整词换行, 避免 flex 收缩把内容挤压成逐字竖排堆叠 */
+        display: inline-block;
+        max-width: 100%;
+        vertical-align: top;
+        overflow-wrap: break-word;  /* 超长 token(长串数字/表达式)兜底强制断行 */
+        line-height: 1.6;
+        color: #f1ead9;
+      }
+
+      /* 暗金主题关键词高亮 */
+      .cr-bracket { color: #e9c46a; font-weight: 700; }
+      .cr-code { background: #2a2110; color: #e8a04c; padding: 2px 6px; border-radius: 4px; font-size: 0.92em; border: 1px solid #b45309; font-weight: 600; }
+      .cr-keyword { color: #ffd43b; font-weight: 800; }
+      .cr-dc { color: #ff4d4f; font-weight: 900; background: rgba(255, 77, 79, 0.15); padding: 1px 4px; border-radius: 3px; }
+      .cr-number { color: #4ade80; font-weight: 700; }
+      .cr-dice { color: #ffa94d; font-weight: 700; background: rgba(255, 169, 77, 0.18); padding: 1px 5px; border-radius: 4px; }
+      .cr-arrow { color: #e9c46a; font-weight: 900; margin: 0 4px; }
+      .cr-mult { color: #e9c46a; font-weight: 800; margin: 0 2px; }
+      .cr-separator { color: #8a7f63; font-weight: 400; margin: 0 4px; opacity: 0.85; }
+      /* ★ 生产结算·备注符号(※): 弱化褐灰斜体 */
+      .cr-note { color: #a89b7a; font-style: italic; }
+      .cr-success { color: #4ade80; font-weight: 800; }
+      .cr-fail { color: #ff4d4f; font-weight: 800; }
+      /* 💥精益求精: 出金爆闪, 呼应"完美产出" */
+      .cr-great { color: #ffd700; font-weight: 900; text-shadow: 0 0 10px rgba(255, 215, 0, 0.55); }
+
+      /* --- 手机端适配代码 --- */
+      @media (max-width: 600px) {
+        body {
+          padding: 12px;
+        }
+
+        .cr-summary {
+          max-width: 95%;
+          padding: 4px 12px;
+          gap: 6px;
+        }
+
+        .cr-label {
+          max-width: calc(85vw - 50px);
+          font-size: 0.85em;
+          letter-spacing: 0;
+        }
+
+        .cr-content {
+          margin: 8px 0 15px 15px;
+          padding: 10px 12px;
+        }
+
+        .cr-line {
+          font-size: 0.85em;
+          padding: 3px 0;
+        }
+
+        .cr-module-header {
+          font-size: 0.85em;
+          padding: 3px 10px;
+          margin: 8px 0 5px 0;
+        }
+
+        .cr-pipeline-row {
+          gap: 4px 8px;
+          padding: 5px 8px;
+        }
+
+        .cr-pipeline-row.sub {
+          margin-left: 6px;
+        }
+
+        .cr-pipeline-item {
+          font-size: 0.9em;
+        }
+
+        .cr-pipeline-item {
+          line-height: 1.55;   /* 手机端多行公式行距收紧 */
+        }
+
+        .cr-code {
+          padding: 1px 4px;
+        }
+      }
+    </style>
+</head>
+<body>
+
+    <!-- 替换模板开始 -->
+    <details class="cr-details" onclick="if(!this.dataset.rendered){window.renderCrNode&&window.renderCrNode(this);this.dataset.rendered='1';}">
+      <summary class="cr-summary">
+        <svg class="cr-icon" viewBox="0 0 24 24">
+          <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
+        </svg>
+        <span class="cr-label">工坊制作</span>
+      </summary>
+      <div class="cr-content"></div>
+      <div class="cr-raw" style="display:none;">$1</div>
+    </details>
+
+    <script>
+      (function() {
+        var moduleIcons = {
+          '生产准备': '📦', '制作检定': '⚒️', '生产结算': '✨'
+        };
+
+        function highlightInline(text) {
+          var keywords = ["DC", "HP", "EP", "vs"];
+          var specialChars = {
+            '[': 'bracket', ']': 'bracket',
+            '✅': 'success', '❌': 'fail', '⚠️': 'fail', '💀': 'fail',
+            '💥': 'great',
+            '🔹': 'bracket', '🔸': 'bracket', '▸': 'bracket',
+            '※': 'note',
+            '➞': 'arrow', '→': 'arrow',
+            '｜': 'separator', '×': 'mult'
+          };
+          var result = '';
+          var inCode = false;
+
+          for (var i = 0; i < text.length; i++) {
+            var char = text[i];
+            if (char === '`') {
+              inCode = !inCode;
+              result += inCode ? '<span class="cr-code">' : '</span>';
+              continue;
+            }
+            if (inCode) { result += char; continue; }
+            if (specialChars[char]) {
+              result += '<span class="cr-' + specialChars[char] + '">' + char + '</span>';
+              continue;
+            }
+            var dcMatch = text.substring(i).match(/^DC\s*\d+/);
+            if (dcMatch) {
+              result += '<span class="cr-dc">' + dcMatch[0] + '</span>';
+              i += dcMatch[0].length - 1;
+              continue;
+            }
+            var matched = false;
+            for (var k = 0; k < keywords.length; k++) {
+              var kw = keywords[k];
+              if (text.substring(i, i + kw.length) === kw && /(^|\s|[^a-zA-Z])/.test(text[i-1] || ' ') && /(\s|$|[^a-zA-Z])/.test(text[i+kw.length] || ' ')) {
+                result += '<span class="cr-keyword">' + kw + '</span>';
+                i += kw.length - 1;
+                matched = true;
+                break;
+              }
+            }
+            if (matched) continue;
+
+            var numMatch = text.substring(i).match(/^(\d+\/\d+|\d*[Dd]\d+(?:\s*[+-]\s*\d+)?|-?\d+%?)/);
+            if (numMatch) {
+              var numStr = numMatch[0];
+              var isDice = /[Dd]/.test(numStr);
+              result += '<span class="' + (isDice ? 'cr-dice' : 'cr-number') + '">' + numStr + '</span>';
+              i += numStr.length - 1;
+              continue;
+            }
+            result += char;
+          }
+          return result;
+        }
+
+        window.renderCrNode = function(detailsEl) {
+          var rawEl = detailsEl.querySelector('.cr-raw');
+          var contentEl = detailsEl.querySelector('.cr-content');
+          var labelEl = detailsEl.querySelector('.cr-label');
+          if (!rawEl || !contentEl) return;
+
+          var rawText = rawEl.textContent.trim();
+          var lines = rawText.split('\n');
+          var finalHtml = '';
+          var headerFound = false;
+
+          lines.forEach(function(line) {
+            var cleanedLine = line.trim();
+            if (!cleanedLine) return;
+
+            // ★ 防御: 模型原样输出模板占位指令 $(若...) 时直接跳过, 不渲染进面板
+            if (cleanedLine.indexOf('$(') === 0) return;
+
+            var modMatch = cleanedLine.match(/^\{([^}]+)\}$/);
+            if (modMatch) {
+              var modName = modMatch[1];
+              if (!headerFound && labelEl) {
+                labelEl.textContent = modName;
+                headerFound = true;
+              }
+              var icon = moduleIcons[modName] || '⚒️';
+              var modClass = 'cr-module-header';
+              if (modName.indexOf('检定') !== -1) modClass += ' check';
+              if (modName.indexOf('结算') !== -1) modClass += ' settle';
+              finalHtml += '<div class="' + modClass + '">' + icon + ' ' + modName + '</div>';
+              return;
+            }
+
+            // ★ 与战斗版同源: 以 '|' 开头即识别为配方管道行(容忍缺尾竖线),
+            //   双空格缩进判定为 sub 子行; 🔹/🔸/※ 开头判定为产出物 loot 条目
+            if (cleanedLine.startsWith('|')) {
+              var isSub = /^\s*\|\s{2,}/.test(line);
+              var inner = cleanedLine.endsWith('|') ? cleanedLine.slice(1, -1) : cleanedLine.slice(1);
+              var segments = inner.split('|');
+              var isLoot = /^\s*\|\s{2,}[🔹🔸※]/.test(line);
+              var rowHtml = '<div class="cr-pipeline-row' + (isSub ? ' sub' : '') + (isLoot ? ' loot' : '') + '">';
+              segments.forEach(function(seg) {
+                var trimmedSeg = seg.trim();
+                if (trimmedSeg) {
+                  rowHtml += '<span class="cr-pipeline-item">' + highlightInline(trimmedSeg) + '</span>';
+                }
+              });
+              rowHtml += '</div>';
+              finalHtml += rowHtml;
+              return;
+            }
+
+            finalHtml += '<div class="cr-line">' + highlightInline(cleanedLine) + '</div>';
+          });
+
+          contentEl.innerHTML = finalHtml;
+        };
+
+        setTimeout(function() {
+          var allDetails = document.querySelectorAll('.cr-details:not([data-rendered])');
+          allDetails.forEach(function(el) {
+            window.renderCrNode(el);
+            el.dataset.rendered = '1';
+          });
+        }, 50);
+      })();
+    </script>
+    <!-- 替换模板结束 -->
+
+</body>
+</html>
+```

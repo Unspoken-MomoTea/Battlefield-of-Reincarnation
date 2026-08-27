@@ -1,0 +1,196 @@
+```
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>毛玻璃动态选项卡片</title>
+    <style>
+        @import url('https://fonts.loli.net/css2?family=Inter:wght@400;500;700&display=swap');
+        @import url('https://fonts.loli.net/css2?family=Noto+Sans+SC:wght@400;500&display=swap');
+
+        :root {
+            --theme-bg: rgba(35, 35, 40, 0.15);
+            --theme-border: rgba(255, 255, 255, 0.15);
+            --theme-text: rgba(240, 240, 240, 1);
+            --theme-hover-bg: rgba(50, 50, 60, 0.2);
+            --theme-hover-border: rgba(255, 255, 255, 0.25);
+            --theme-hover-glow: 0 0 10px 2px rgba(255, 255, 255, 0.2);
+            --theme-active-bg: rgba(80, 80, 90, 0.3);
+            --theme-active-glow: 0 0 12px 3px rgba(255, 255, 255, 0.4);
+        }
+
+        body {
+            background-color: transparent;
+            margin: 0;
+            padding: 10px;
+            font-family: 'Noto Sans SC', 'Inter', sans-serif;
+        }
+
+        .card-final-version {
+            display: flex;
+            flex-direction: column;
+            background: var(--theme-bg);
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--theme-border);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            position: relative;
+            overflow: hidden;
+            max-width: 720px;
+            margin: auto;
+        }
+
+        .card-summary {
+            list-style: none;
+            cursor: pointer;
+            order: 2;
+            margin-top: 8px;
+        }
+
+        .card-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .card-final-version:not([open])>.card-summary {
+            margin-top: 0;
+        }
+
+        .button-group-final {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            order: 1;
+        }
+
+        .action-btn-final {
+            box-sizing: border-box;
+            border-radius: 8px;
+            padding: 9px 12px;
+
+            /* 按钮的字体大小 */
+            font-size: 12px;
+            font-weight: 300;
+            text-align: left;
+            width: 100%;
+            transition: all 0.3s ease;
+            border: 1px solid var(--theme-border);
+            background-color: transparent;
+            color: var(--theme-text);
+            font-family: inherit;
+        }
+
+        .action-btn-final:not(.toggle-collapse-btn) {
+            cursor: pointer;
+        }
+
+        .action-btn-final:not(.toggle-collapse-btn):hover {
+            background-color: var(--theme-hover-bg);
+            border-color: var(--theme-hover-border);
+            transform: translateY(-2px);
+            box-shadow: var(--theme-hover-glow);
+        }
+
+        .action-btn-final.active {
+            background-color: var(--theme-active-bg);
+            border-color: var(--theme-hover-border);
+            box-shadow: var(--theme-active-glow);
+            color: #fff;
+        }
+
+        .toggle-collapse-btn {
+            text-align: center;
+        }
+
+        .card-summary:hover .toggle-collapse-btn {
+            background-color: var(--theme-hover-bg);
+            border-color: var(--theme-hover-border);
+        }
+    </style>
+</head>
+
+<body>
+
+    <details class="card-final-version">
+        <summary class="card-summary">
+            <div class="action-btn-final toggle-collapse-btn">展开</div>
+        </summary>
+        <div class="button-group-final" id="button-container">
+        </div>
+    </details>
+
+    <script type="text/template" id="options-data">
+$1
+</script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const optionsDataSource = document.getElementById('options-data');
+            const container = document.getElementById('button-container');
+
+            if (!optionsDataSource || !container) return;
+
+            const optionsText = optionsDataSource.innerHTML;
+            const lines = optionsText.trim().split('\n');
+
+            container.innerHTML = '';
+
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+
+                const match = trimmedLine.match(/^\s*\d+\.\s*(.*)$/);
+                let actionText = trimmedLine;
+
+                if (match) {
+                    actionText = match[1].trim();
+                }
+
+                const button = document.createElement('button');
+                button.className = 'action-btn-final';
+                button.textContent = trimmedLine;
+                button.setAttribute('data-action', actionText);
+
+                button.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    let textToAppend = button.getAttribute('data-action');
+                    if (!textToAppend) return;
+
+                    // 去除括号内容、方括号内容和表情符号
+                    textToAppend = textToAppend.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '')
+                        .replace(/[\u{1F000}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FAFF}]/gu, '').trim();
+
+
+                    try {
+                        const input = window.parent.document.querySelector('#send_textarea');
+                        if (input) {
+                            const currentValue = input.value.trim();
+                            input.value = currentValue ? `${currentValue}\n${textToAppend}` : textToAppend;
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    } catch (error) {
+                        console.error('SillyTavern Regex Error:', error);
+                    }
+
+                    document.querySelectorAll('#button-container .action-btn-final').forEach(b => b.classList.remove('active'));
+                    button.classList.add('active');
+                });
+
+                container.appendChild(button);
+            });
+        });
+
+        const detailsElement = document.querySelector('.card-final-version');
+        const toggleButton = document.querySelector('.toggle-collapse-btn');
+        if (detailsElement && toggleButton) {
+            detailsElement.addEventListener('toggle', () => {
+                toggleButton.textContent = detailsElement.open ? '收起' : '展开';
+            });
+        }
+    </script>
+
+</body>
+
+</html>
+```

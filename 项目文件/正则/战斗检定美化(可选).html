@@ -1,0 +1,389 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>战斗协议高对比战术面板</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      .cb-details {
+        margin: 8px 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+
+      /* 战术折叠按钮（高对比深黑底+亮荧光红边框） */
+      .cb-summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 16px;
+        background: #0f1117;
+        border: 1.5px solid #ff4d6d;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        user-select: none;
+        list-style: none;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7);
+      }
+
+      .cb-summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .cb-summary:hover {
+        background: #1e1017;
+        border-color: #ff758f;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(255, 77, 109, 0.35);
+      }
+
+      .cb-details[open] .cb-summary {
+        background: #ff4d6d;
+        border-color: #ffffff;
+        box-shadow: 0 0 12px rgba(255, 77, 109, 0.6);
+      }
+
+      .cb-icon {
+        width: 16px;
+        height: 16px;
+        fill: #ff4d6d;
+        transition: transform 0.25s ease, fill 0.25s ease;
+      }
+
+      .cb-summary:hover .cb-icon {
+        fill: #ffffff;
+      }
+
+      .cb-details[open] .cb-icon {
+        transform: rotate(45deg);
+        fill: #000000;
+      }
+
+      /* 按钮文字：纯白反色 */
+      .cb-label {
+        font-size: 0.9em;
+        color: #ffffff;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        max-width: 380px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cb-details[open] .cb-label {
+        color: #000000;
+        font-weight: 800;
+      }
+
+      /* 展开面板（纯黑高对比底色） */
+      .cb-content {
+        margin: 8px 0 16px 12px;
+        padding: 14px 16px;
+        background: #0b0d13;
+        border: 1px solid #334155;
+        border-left: 4px solid #ff4d6d;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+        position: relative;
+        overflow: hidden;
+        animation: cbFadeIn 0.2s ease-out;
+      }
+
+      @keyframes cbFadeIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* 基础正文文本：极致纯白 */
+      .cb-line {
+        padding: 4px 0;
+        font-family: 'SF Mono', 'Consolas', 'Monaco', 'Fira Code', monospace;
+        font-size: 0.9em;
+        color: #f8fafc;
+        line-height: 1.5;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+      }
+
+      /* 战术模块标题徽章：强反色背景 */
+      .cb-module-header {
+        font-size: 0.92em;
+        font-weight: 800;
+        color: #ffffff;
+        margin: 8px 0 6px 0;
+        padding: 4px 12px;
+        background: #1e293b;
+        border-left: 4px solid #38bdf8;
+        border-radius: 0 4px 4px 0;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .cb-module-header.action { color: #ffffff; border-left-color: #ff4d6d; background: #2a121a; }
+      .cb-module-header.damage { color: #ffffff; border-left-color: #fb923c; background: #2d1806; }
+      .cb-module-header.end { color: #ffffff; border-left-color: #4ade80; background: #062817; }
+      .cb-module-header.decision { color: #ffffff; border-left-color: #a78bfa; background: #171229; }
+
+      /* 管道数据网格行：黑底反色边框 */
+      .cb-pipeline-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;  /* item 多行时顶部对齐, 防止高度拉伸错位 */
+        gap: 8px 14px;
+        padding: 6px 10px;
+        margin: 3px 0;
+        background: #141722;
+        border-radius: 4px;
+        border: 1px solid #232936;
+      }
+      .cb-pipeline-row.sub {
+        margin-left: 12px;
+        background: #10131c;
+        border-left: 2px solid #a78bfa;
+      }
+      /* ★ 终局结算·可拾取物条目(🔹/🔸/※ 开头的缩进行): 橙色左边框呼应图标 */
+      .cb-pipeline-row.loot {
+        border-left: 2px solid #fb923c;
+        background: #16130c;
+      }
+      .cb-pipeline-item {
+        /* 流式布局: 长公式按整词换行, 避免 flex 收缩把内容挤压成逐字竖排堆叠 */
+        display: inline-block;
+        max-width: 100%;
+        vertical-align: top;
+        overflow-wrap: break-word;  /* 超长 token(长串数字/表达式)兜底强制断行 */
+        line-height: 1.6;
+        color: #f1f5f9;
+      }
+
+      /* 关键词反色高亮 */
+      .cb-bracket { color: #facc15; font-weight: 700; }
+      .cb-code { background: #1e293b; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.92em; border: 1px solid #0ea5e9; font-weight: 600; }
+      .cb-keyword { color: #f472b6; font-weight: 800; text-transform: uppercase; }
+      .cb-dc { color: #ff4d4f; font-weight: 900; background: rgba(255, 77, 79, 0.15); padding: 1px 4px; border-radius: 3px; }
+      .cb-number { color: #4ade80; font-weight: 700; }
+      .cb-dice { color: #fb923c; font-weight: 700; background: rgba(251, 146, 60, 0.2); padding: 1px 5px; border-radius: 4px; }
+      .cb-arrow { color: #facc15; font-weight: 900; margin: 0 4px; }
+      .cb-mult { color: #facc15; font-weight: 800; margin: 0 2px; }
+      .cb-separator { color: #64748b; font-weight: 400; margin: 0 4px; opacity: 0.85; }
+      /* ★ 终局结算·备注符号(※): 弱化灰蓝斜体 */
+      .cb-note { color: #94a3b8; font-style: italic; }
+      .cb-success { color: #4ade80; font-weight: 800; }
+      .cb-fail { color: #ff4d4f; font-weight: 800; }
+      .cb-damage { color: #ff334b; font-weight: 900; font-size: 1.1em; text-shadow: 0 0 8px rgba(255, 51, 75, 0.4); }
+
+      /* --- 手机端适配代码 --- */
+      @media (max-width: 600px) {
+        body {
+          padding: 12px;
+        }
+
+        .cb-summary {
+          max-width: 95%;
+          padding: 4px 12px;
+          gap: 6px;
+        }
+
+        .cb-label {
+          max-width: calc(85vw - 50px);
+          font-size: 0.85em;
+          letter-spacing: 0;
+        }
+
+        .cb-content {
+          margin: 8px 0 15px 15px;
+          padding: 10px 12px;
+        }
+
+        .cb-line {
+          font-size: 0.85em;
+          padding: 3px 0;
+        }
+
+        .cb-module-header {
+          font-size: 0.85em;
+          padding: 3px 10px;
+          margin: 8px 0 5px 0;
+        }
+
+        .cb-pipeline-row {
+          gap: 4px 8px;
+          padding: 5px 8px;
+        }
+
+        .cb-pipeline-row.sub {
+          margin-left: 6px;
+        }
+
+        .cb-pipeline-item {
+          font-size: 0.9em;
+        }
+
+        .cb-pipeline-item {
+          line-height: 1.55;   /* 手机端多行公式行距收紧 */
+        }
+
+        .cb-code {
+          padding: 1px 4px;
+        }
+      }
+    </style>
+</head>
+<body>
+
+    <!-- 替换模板开始 -->
+    <details class="cb-details" onclick="if(!this.dataset.rendered){window.renderCbNode&&window.renderCbNode(this);this.dataset.rendered='1';}">
+      <summary class="cb-summary">
+        <svg class="cb-icon" viewBox="0 0 24 24">
+          <path d="M14.5 2.5L12 5l2.5 2.5L17 5l-2.5-2.5zM6 10.5L3.5 13 6 15.5 8.5 13 6 10.5zm12.5 0L16 13l2.5 2.5L21 13l-2.5-2.5zM12 18.5L9.5 21 12 23.5 14.5 21 12 18.5zM7.5 7.5L5 10l2.5 2.5L10 10 7.5 7.5zm9 0L14 10l2.5 2.5L19 10l-2.5-2.5zm-9 9L5 19l2.5 2.5L10 19l-2.5-2.5zm9 0L14 19l2.5 2.5L19 19l-2.5-2.5z"/>
+        </svg>
+        <span class="cb-label">战斗阶段</span>
+      </summary>
+      <div class="cb-content"></div>
+      <div class="cb-raw" style="display:none;">$1</div>
+    </details>
+
+    <script>
+      (function() {
+        var moduleIcons = {
+          '战况总览': '🛡️', '行动顺位': '⚡', '主要行动': '⚔️',
+          'NPC战术决策': '🧭', '次要行动与移动': '👟', '伤害结算': '💥',
+          '战意判定': '🧠', '回合收尾·战况更新': '⏱️', '战斗终局结算': '🏆'
+        };
+
+        function highlightInline(text) {
+          var keywords = ["DC","HP","THP","EP","DEF","MDEF","AP","ATK","MATK","vs"];
+          var specialChars = {
+            '[': 'bracket', ']': 'bracket',
+            '✅': 'success', '❌': 'fail', '💥': 'damage', '💚': 'heal',
+            '💀': 'fail', '🔹': 'bracket', '🔸': 'bracket', '▸': 'bracket',
+            '※': 'note',
+            '➞': 'arrow', '→': 'arrow',
+            '｜': 'separator', '×': 'mult'
+          };
+          var result = '';
+          var inCode = false;
+
+          for (var i = 0; i < text.length; i++) {
+            var char = text[i];
+            if (char === '`') {
+              inCode = !inCode;
+              result += inCode ? '<span class="cb-code">' : '</span>';
+              continue;
+            }
+            if (inCode) { result += char; continue; }
+            if (specialChars[char]) {
+              result += '<span class="cb-' + specialChars[char] + '">' + char + '</span>';
+              continue;
+            }
+            if (char === '-' && text.substring(i, i + 2) === '->') {
+              result += '<span class="cb-arrow">-></span>';
+              i += 1;
+              continue;
+            }
+            var dcMatch = text.substring(i).match(/^DC\s*\d+/);
+            if (dcMatch) {
+              result += '<span class="cb-dc">' + dcMatch[0] + '</span>';
+              i += dcMatch[0].length - 1;
+              continue;
+            }
+            var matched = false;
+            for (var k = 0; k < keywords.length; k++) {
+              var kw = keywords[k];
+              if (text.substring(i, i + kw.length) === kw && /(^|\s|[^a-zA-Z])/.test(text[i-1] || ' ') && /(\s|$|[^a-zA-Z])/.test(text[i+kw.length] || ' ')) {
+                result += '<span class="cb-keyword">' + kw + '</span>';
+                i += kw.length - 1;
+                matched = true;
+                break;
+              }
+            }
+            if (matched) continue;
+
+            var numMatch = text.substring(i).match(/^(\d+\/\d+|\d*[Dd]\d+(?:\s*[+-]\s*\d+)?|-?\d+%?)/);
+            if (numMatch) {
+              var numStr = numMatch[0];
+              var isDice = /[Dd]/.test(numStr);
+              result += '<span class="' + (isDice ? 'cb-dice' : 'cb-number') + '">' + numStr + '</span>';
+              i += numStr.length - 1;
+              continue;
+            }
+            result += char;
+          }
+          return result;
+        }
+
+        window.renderCbNode = function(detailsEl) {
+          var rawEl = detailsEl.querySelector('.cb-raw');
+          var contentEl = detailsEl.querySelector('.cb-content');
+          var labelEl = detailsEl.querySelector('.cb-label');
+          if (!rawEl || !contentEl) return;
+
+          var rawText = rawEl.textContent.trim();
+          var lines = rawText.split('\n');
+          var finalHtml = '';
+          var headerFound = false;
+
+          lines.forEach(function(line) {
+            var cleanedLine = line.trim();
+            if (!cleanedLine) return;
+
+            var modMatch = cleanedLine.match(/^\{([^}]+)\}$/);
+            if (modMatch) {
+              var modName = modMatch[1];
+              if (!headerFound && labelEl) {
+                labelEl.textContent = modName;
+                headerFound = true;
+              }
+              var icon = moduleIcons[modName] || '⚔️';
+              var modClass = 'cb-module-header';
+              if (modName.indexOf('行动') !== -1) modClass += ' action';
+              if (modName.indexOf('伤害') !== -1) modClass += ' damage';
+              if (modName.indexOf('结算') !== -1 || modName.indexOf('收尾') !== -1) modClass += ' end';
+              if (modName.indexOf('战术') !== -1 || modName.indexOf('决策') !== -1) modClass += ' decision';
+              finalHtml += '<div class="' + modClass + '">' + icon + ' ' + modName + '</div>';
+              return;
+            }
+
+            if (cleanedLine.startsWith('|')) {
+              var isSub = /^\s*\|\s{2,}/.test(line);
+              var inner = cleanedLine.endsWith('|') ? cleanedLine.slice(1, -1) : cleanedLine.slice(1);
+              var segments = inner.split('|');
+              // ★ 终局结算·可拾取物: 缩进条目以 🔹/🔸/※ 开头时追加 loot 类(橙色边框)
+              var isLoot = /^\s*\|\s{2,}[🔹🔸※]/.test(line);
+              var rowHtml = '<div class="cb-pipeline-row' + (isSub ? ' sub' : '') + (isLoot ? ' loot' : '') + '">';
+              segments.forEach(function(seg) {
+                var trimmedSeg = seg.trim();
+                if (trimmedSeg) {
+                  rowHtml += '<span class="cb-pipeline-item">' + highlightInline(trimmedSeg) + '</span>';
+                }
+              });
+              rowHtml += '</div>';
+              finalHtml += rowHtml;
+              return;
+            }
+
+            finalHtml += '<div class="cb-line">' + highlightInline(cleanedLine) + '</div>';
+          });
+
+          contentEl.innerHTML = finalHtml;
+        };
+
+        setTimeout(function() {
+          var allDetails = document.querySelectorAll('.cb-details:not([data-rendered])');
+          allDetails.forEach(function(el) {
+            window.renderCbNode(el);
+            el.dataset.rendered = '1';
+          });
+        }, 50);
+      })();
+    </script>
+    <!-- 替换模板结束 -->
+
+</body>
+</html>
+```

@@ -1,0 +1,29 @@
+name: Sync achievement update rule
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-achievement-update-rule.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch stale immediate-reward wording
+        shell: bash
+        run: |
+          python -c "from pathlib import Path; p=Path('World Book/[mvu_update]变量更新规则.txt'); b=p.read_bytes(); old='奖励由系统立即发放，AI禁止直接增删奖励道具'.encode(); new='奖励由系统在完整世界结算时统一发放，AI禁止直接增删奖励道具'.encode(); assert b.count(old)==1, b.count(old); p.write_bytes(b.replace(old,new,1))"
+          git -c core.whitespace=cr-at-eol diff --check
+      - name: Commit and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/fix-achievement-update-rule.yml
+          git add 'World Book/[mvu_update]变量更新规则.txt'
+          git commit -m 'sync achievement settlement update rule'
+          git push origin HEAD:main

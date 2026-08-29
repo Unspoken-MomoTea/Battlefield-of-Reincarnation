@@ -1,0 +1,72 @@
+name: Patch shop transaction send
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-shop-transaction-send.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove redundant shop send
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('script/悬浮球状态栏.js')
+          text = path.read_bytes().decode('utf-8')
+          nl = '\r\n' if '\r\n' in text else '\n'
+
+          old_comment = """        // 2) ★ 同步优先直写 MVU(原子操作): 立即把交易结果写回, 商品库一次性移除全部已购物品
+        //    旧流程先 /trigger 触发AI回复, AI的[mvu_update]会覆盖我们的写回(导致只删1个),
+        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 再 /send 记录文本(不触发AI)""".replace('\n', nl)
+          new_comment = """        // 2) ★ 同步优先直写 MVU(原子操作): 立即把交易结果写回, 商品库一次性移除全部已购物品
+        //    旧流程先 /trigger 触发AI回复, AI的[mvu_update]会覆盖我们的写回(导致只删1个),
+        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 待播报记录由交易写回统一留存""".replace('\n', nl)
+
+          old_send = """        // 4) /send 记录交易文本(仅创建用户楼层, 不带 /trigger, 不触发AI回复, 避免AI的mvu_update覆盖商品库)
+        var msg = result.purchaseLog + '。';
+        try {
+            shopTriggerSlash('/send ' + msg).then(function() {
+                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
+            }).catch(function(eSend) {
+                try { console.warn('[主神终端] /send 记录失败(交易已生效):', eSend.message); } catch(e2){}
+                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
+            });
+        } catch(eSync) {
+            try { console.warn('[主神终端] /send 异常(交易已生效):', eSync.message); } catch(e2){}
+            if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
+        }""".replace('\n', nl)
+          new_send = """        if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }"""
+
+          if text.count(old_comment) != 1:
+              raise SystemExit(f'expected old transaction comment once, found {text.count(old_comment)}')
+          if text.count(old_send) != 1:
+              raise SystemExit(f'expected redundant /send block once, found {text.count(old_send)}')
+
+          text = text.replace(old_comment, new_comment, 1)
+          text = text.replace(old_send, new_send, 1)
+          path.write_bytes(text.encode('utf-8'))
+          PY
+
+          git diff --check
+          git diff -- script/悬浮球状态栏.js
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/patch-shop-transaction-send.yml
+          git add script/悬浮球状态栏.js
+          git commit -m 'remove redundant shop transaction send'
+          git push origin HEAD:main

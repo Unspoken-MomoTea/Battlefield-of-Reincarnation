@@ -1,165 +1,1768 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>轮回清算渲染器</title>
-<!--
-  SillyTavern 正则:
-  findRegex: /<settlement tasks>([\s\S]*?)<\/settlement tasks>/gsi
-  replaceString: 使用“替换模板开始~结束”的全部内容
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>轮回清算渲染器</title>
+    <!--
+      正则配置说明 (导入 SillyTavern 酒馆正则时):
+        findRegex:     /<settlement tasks>([\s\S]*?)<\/settlement tasks>/gsi
+        replaceString: 本文件 "替换模板开始" ~ "替换模板结束" 之间的全部内容
+        对应输出格式: 世界书/【结算任务】.txt
+        (settlement tasks 面板, 阶段数量与区块随 单一世界/世界超稳 模式动态变化: 3~5 阶段)
+    -->
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  晋升试炼规则：
-  1. AI 只负责正常输出“任务专属奖励”，不再负责晋升资格面板。
-  2. 本美化器在消息渲染时直接读取 MVU 的 stat_data.任务.列表。
-  3. 发现 委托方===晋升试炼 时，在任务专属奖励下方插入数据库核验面板。
-  4. 仅当全部晋升试炼任务状态===可结算时，写入 系统状态.试炼已完成=true。
--->
-<style>
-*{box-sizing:border-box}body{margin:0;padding:10px;background:transparent;color:#dbe4ee;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.65}
-.st-wrapper{--cyan:#2ee6ff;--gold:#f5d76e;--green:#86efac;--orange:#fb923c;--red:#f87171;--purple:#c084fc;--dim:#8fa0b3;--line:rgba(46,230,255,.16)}
-.st-btn{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border:1px solid rgba(46,230,255,.48);border-radius:4px;background:linear-gradient(135deg,rgba(14,32,42,.96),rgba(9,18,28,.96));color:var(--cyan);cursor:pointer;user-select:none;box-shadow:0 2px 10px rgba(0,0,0,.35);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
-.st-btn:hover,.st-btn.active{border-color:var(--cyan);box-shadow:0 0 16px rgba(46,230,255,.18)}.st-icon{width:18px;height:18px;fill:var(--cyan)}.st-label{font-size:.88em;font-weight:700;letter-spacing:1px}
-.st-panel{display:none;margin:10px 0 18px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:linear-gradient(135deg,rgba(13,17,26,.98),rgba(8,11,18,.98));box-shadow:0 10px 38px rgba(0,0,0,.48)}.st-panel.show{display:block}
-.st-banner{padding:15px 17px 13px;background:radial-gradient(ellipse at 20% 0,rgba(46,230,255,.12),transparent 55%),linear-gradient(180deg,rgba(46,230,255,.05),transparent);border-bottom:1px solid var(--line)}
-.st-title{font-size:1.06em;font-weight:900;color:var(--cyan);letter-spacing:2px;text-shadow:0 0 12px rgba(46,230,255,.35)}.st-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}.st-tag{padding:1px 9px;border:1px solid rgba(46,230,255,.28);border-radius:3px;background:rgba(46,230,255,.05);font-size:.76em;color:#9be8f5}.st-tag b{color:var(--cyan)}
-.st-stage{padding:13px 17px 9px;border-bottom:1px dashed rgba(255,255,255,.06)}.st-stage:last-child{border-bottom:0}.st-stage-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}.st-stage-no{width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex:none;color:var(--cyan);font-size:.72em;font-weight:900;border:1px solid rgba(46,230,255,.35);background:rgba(46,230,255,.06);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}.st-stage-name{font-size:.94em;font-weight:800;letter-spacing:1px;color:#bfeef8}.st-stage-line{height:1px;flex:1;background:linear-gradient(90deg,rgba(46,230,255,.3),transparent)}
-.st-sub{display:flex;align-items:center;gap:7px;margin:10px 0 5px;color:#a8e8f5;font-size:.8em;font-weight:800;letter-spacing:1px}.st-sub:before{content:'◆';font-size:.75em;color:rgba(46,230,255,.7)}.st-sub:after{content:'';height:1px;flex:1;background:linear-gradient(90deg,rgba(46,230,255,.18),transparent)}
-.st-kv{display:flex;gap:8px;padding:3px 0;font-size:.84em;align-items:baseline}.st-kv .k{min-width:7em;flex:none;font-weight:800;color:#9be8f5}.st-kv .v{color:#c7d2df;word-break:break-word}.st-kv.gold .v{color:var(--gold);font-weight:700}.st-kv.good .v{color:var(--green)}.st-kv.bad .v{color:var(--red)}
-.st-comment{margin:7px 0;padding:9px 12px;border-left:2px solid rgba(46,230,255,.45);border-radius:0 6px 6px 0;background:linear-gradient(90deg,rgba(46,230,255,.055),transparent);font-size:.82em;color:#afc1d2}.st-para{padding:3px 0;font-size:.83em;color:#b9c8d6}.st-list{margin:4px 0;padding:6px 10px 6px 20px;border-radius:6px;background:rgba(255,255,255,.025);font-size:.82em;color:#bbc7d5}.st-list:before{content:'•';margin-right:8px;color:var(--cyan)}
-.st-brand{margin:7px 0 11px;padding:11px;text-align:center;border:1px solid rgba(192,132,252,.25);border-radius:7px;background:radial-gradient(ellipse at 50% 0,rgba(192,132,252,.13),transparent 70%)}.st-brand small{display:block;color:#a78bfa;letter-spacing:4px}.st-brand strong{display:block;color:#e9d5ff;font-size:1.22em;letter-spacing:5px;text-shadow:0 0 14px rgba(192,132,252,.5)}
-.st-rate{display:inline-flex;min-width:35px;justify-content:center;padding:1px 8px;border:1px solid currentColor;border-radius:4px;margin:0 3px;font-weight:900}.g-F{color:#94a3b8}.g-E{color:#f8fafc}.g-D{color:#22c55e}.g-C{color:#3b82f6}.g-B{color:#a855f7}.g-A{color:#f97316}.g-S{color:#eab308}.g-SS{color:#ef4444}.g-SSS{color:#ec4899}
-.st-sum{margin:5px 0;padding:7px 11px;border:1px dashed rgba(212,175,55,.25);border-radius:6px;background:rgba(212,175,55,.045)}.st-sum .st-kv .k{color:#b8a36b}.st-sum .st-kv .v{color:var(--gold);font-weight:800}
-.st-punish{margin:5px 0;padding:8px 11px;border:1px solid rgba(248,113,113,.3);border-radius:6px;background:linear-gradient(90deg,rgba(239,68,68,.1),rgba(239,68,68,.025));font-size:.82em;color:#fda4af}.st-empty{margin:4px 0;padding:6px 11px;border:1px dashed rgba(255,255,255,.11);border-radius:6px;color:#8192a5;font-size:.79em}
-.st-total{margin:12px 0 6px;padding:14px;text-align:center;border:1px solid rgba(212,175,55,.42);border-radius:9px;background:radial-gradient(ellipse at 50% 0,rgba(212,175,55,.15),transparent 65%),rgba(212,175,55,.025)}.st-total small{display:block;color:#bfa65d;letter-spacing:5px}.st-total strong{display:block;margin-top:4px;color:var(--gold);font-size:1.8em;letter-spacing:1px;text-shadow:0 0 18px rgba(245,215,110,.4)}
-.st-card{margin:9px 0;padding:13px 14px;border:1px solid rgba(212,175,55,.35);border-radius:8px;background:linear-gradient(135deg,rgba(212,175,55,.08),rgba(212,175,55,.02))}.st-card-title{font-weight:900;letter-spacing:1px;color:var(--gold);margin-bottom:6px}.st-relic{border-color:rgba(236,72,153,.32);background:radial-gradient(ellipse at 30% 0,rgba(236,72,153,.1),transparent 62%)}.st-relic .st-card-title{color:#f9a8d4}.st-relic.gold{border-color:rgba(212,175,55,.38)}.st-relic.gold .st-card-title{color:var(--gold)}
-/* 数据库晋升试炼核验面板 */
-.st-trial{margin:12px 0 8px;padding:13px 14px;border:1px solid rgba(134,239,172,.32);border-radius:8px;background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(8,17,24,.5))}.st-trial.fail{border-color:rgba(251,146,60,.35);background:linear-gradient(135deg,rgba(251,146,60,.07),rgba(8,17,24,.5))}.st-trial-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:9px}.st-trial-title{font-weight:900;color:#b9f6cf;letter-spacing:1px}.st-trial.fail .st-trial-title{color:#fed7aa}.st-trial-count{font:800 .78em Consolas,monospace;color:#d6e8de}.st-trial-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 9px;margin:4px 0;border:1px solid rgba(255,255,255,.07);border-radius:6px;background:rgba(255,255,255,.025)}.st-trial-name{font-size:.81em;color:#cbd8e4;overflow:hidden;text-overflow:ellipsis}.st-state{padding:1px 8px;border-radius:999px;font-size:.73em;font-weight:900;border:1px solid}.st-state.ok{color:var(--green);border-color:rgba(134,239,172,.4);background:rgba(134,239,172,.07)}.st-state.wait{color:var(--orange);border-color:rgba(251,146,60,.4);background:rgba(251,146,60,.07)}.st-state.bad{color:var(--red);border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.07)}.st-trial-bar{height:6px;margin:9px 0 8px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden}.st-trial-fill{height:100%;background:linear-gradient(90deg,#22c55e,#86efac)}.st-trial-verdict{padding-top:6px;border-top:1px dashed rgba(255,255,255,.1);font-size:.82em;font-weight:800}.st-trial-verdict.ok{color:var(--green)}.st-trial-verdict.no{color:#fdba74}.st-trial-source{margin-top:3px;font-size:.7em;color:#75879a}
-.st-notice{margin:9px 0;padding:8px 12px;border:1px dashed rgba(46,230,255,.28);border-radius:6px;background:rgba(46,230,255,.035);color:#9be8f5;font-size:.78em}.st-close{margin:11px 0 4px;padding:10px;text-align:center;border-top:1px solid rgba(134,239,172,.18);border-bottom:1px solid rgba(134,239,172,.18);color:var(--green);font-size:.83em;font-weight:800;letter-spacing:1px}
-@media(max-width:600px){body{padding:7px}.st-stage{padding:11px 12px 7px}.st-kv{display:block}.st-kv .k{display:block;min-width:0}.st-trial-row{grid-template-columns:minmax(0,1fr) auto}.st-total strong{font-size:1.5em}}
-</style>
+      :root {
+        --st-bg-1: rgba(13,17,26,0.97);
+        --st-bg-2: rgba(8,11,18,0.97);
+        --st-cyan: #2ee6ff;
+        --st-cyan-dim: rgba(46,230,255,0.55);
+        --st-cyan-bg: rgba(46,230,255,0.07);
+        --st-gold: #f5d76e;
+        --st-gold-deep: #d4af37;
+        --st-red: #f87171;
+        --st-text: #dbe4ee;
+        --st-text-dim: #8fa0b3;
+        --st-line: rgba(46,230,255,0.16);
+      }
+
+      body {
+        background: transparent;
+        color: var(--st-text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Roboto, sans-serif;
+        padding: 16px;
+        line-height: 1.65;
+      }
+
+      /* ===== 折叠按钮 (青色终端风, 区别于金色主神任务按钮) ===== */
+      .st-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 14px;
+        margin: 2px 0;
+        background: linear-gradient(135deg, rgba(14,32,42,0.94), rgba(9,18,28,0.94));
+        border: 1px solid var(--st-cyan-dim);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+        clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+      }
+
+      .st-btn:hover {
+        background: linear-gradient(135deg, rgba(18,44,58,0.96), rgba(12,26,40,0.96));
+        border-color: var(--st-cyan);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 18px rgba(0,0,0,0.45), 0 0 14px rgba(46,230,255,0.18);
+      }
+
+      .st-btn.active {
+        background: linear-gradient(135deg, rgba(46,230,255,0.16), rgba(20,90,110,0.14));
+        border-color: var(--st-cyan);
+        box-shadow: 0 0 16px rgba(46,230,255,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+      }
+
+      .st-icon {
+        width: 19px;
+        height: 19px;
+        fill: var(--st-cyan);
+        flex-shrink: 0;
+        transition: transform 0.3s ease;
+        filter: drop-shadow(0 0 4px rgba(46,230,255,0.45));
+      }
+
+      .st-btn:hover .st-icon { transform: rotate(90deg) scale(1.08); }
+      .st-btn.active .st-icon { transform: rotate(180deg); }
+
+      .st-label {
+        font-size: 0.88em;
+        font-weight: 600;
+        color: var(--st-cyan);
+        letter-spacing: 1px;
+        max-width: 380px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .st-btn:hover .st-label, .st-btn.active .st-label {
+        text-shadow: 0 0 10px rgba(46,230,255,0.45);
+      }
+
+      /* ===== 展开面板 ===== */
+      .st-panel {
+        display: none;
+        margin: 10px 0 22px;
+        background: linear-gradient(135deg, var(--st-bg-1), var(--st-bg-2));
+        border: 1px solid var(--st-line);
+        border-radius: 10px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        overflow: hidden;
+        position: relative;
+        animation: stFadeIn 0.35s ease;
+      }
+
+      .st-panel.show { display: block; }
+
+      @keyframes stFadeIn {
+        from { opacity: 0; transform: translateY(-12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* 顶部扫描线 */
+      .st-panel::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--st-cyan), transparent);
+        background-size: 50% 100%;
+        background-repeat: no-repeat;
+        animation: stScan 3.2s linear infinite;
+        z-index: 2;
+      }
+
+      @keyframes stScan {
+        0% { background-position: -60% 0; }
+        100% { background-position: 160% 0; }
+      }
+
+      /* ===== 头部横幅 ===== */
+      .st-banner {
+        padding: 16px 18px 14px;
+        background:
+          radial-gradient(ellipse at 20% 0%, rgba(46,230,255,0.12), transparent 55%),
+          linear-gradient(180deg, rgba(46,230,255,0.06), transparent);
+        border-bottom: 1px solid var(--st-line);
+      }
+
+      .st-banner-main {
+        font-size: 1.06em;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: var(--st-cyan);
+        text-shadow: 0 0 14px rgba(46,230,255,0.4);
+      }
+
+      .st-banner-tags {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+        font-size: 0.78em;
+      }
+
+      .st-tag {
+        padding: 1px 10px;
+        border-radius: 3px;
+        border: 1px solid rgba(46,230,255,0.3);
+        background: var(--st-cyan-bg);
+        color: #9be8f5;
+        letter-spacing: 0.5px;
+      }
+
+      .st-tag b { color: var(--st-cyan); font-weight: 700; }
+
+      /* ===== 阶段区块 ===== */
+      .st-stage {
+        padding: 14px 18px 6px;
+        border-bottom: 1px dashed rgba(255,255,255,0.06);
+      }
+
+      .st-stage:last-child { border-bottom: none; }
+
+      .st-stage-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .st-stage-no {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.72em;
+        font-weight: 800;
+        color: var(--st-cyan);
+        border: 1px solid rgba(46,230,255,0.4);
+        background: var(--st-cyan-bg);
+        clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+      }
+
+      .st-stage-name {
+        font-size: 0.94em;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #bfeef8;
+      }
+
+      .st-stage-line {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(46,230,255,0.35), transparent);
+      }
+
+      /* 阶段主题色 */
+      .st-stage.t-story  .st-stage-no { color:#c084fc; border-color:rgba(192,132,252,0.4); background:rgba(192,132,252,0.08); }
+      .st-stage.t-story  .st-stage-name { color: #e2cffc; }
+      .st-stage.t-story  .st-stage-line { background: linear-gradient(90deg, rgba(192,132,252,0.35), transparent); }
+      .st-stage.t-loot   .st-stage-no { color:#fb923c; border-color:rgba(251,146,60,0.4); background:rgba(251,146,60,0.08); }
+      .st-stage.t-loot   .st-stage-name { color: #fed7aa; }
+      .st-stage.t-loot   .st-stage-line { background: linear-gradient(90deg, rgba(251,146,60,0.35), transparent); }
+      .st-stage.t-income .st-stage-no { color:#f5d76e; border-color:rgba(212,175,55,0.45); background:rgba(212,175,55,0.08); }
+      .st-stage.t-income .st-stage-name { color: #f8e6ab; }
+      .st-stage.t-income .st-stage-line { background: linear-gradient(90deg, rgba(212,175,55,0.4), transparent); }
+      .st-stage.t-epilogue .st-stage-no { color:#86efac; border-color:rgba(134,239,172,0.4); background:rgba(134,239,172,0.07); }
+      .st-stage.t-epilogue .st-stage-name { color: #c9f5d9; }
+      .st-stage.t-epilogue .st-stage-line { background: linear-gradient(90deg, rgba(134,239,172,0.35), transparent); }
+
+      /* ===== 通用键值行 ===== */
+      .st-kv {
+        display: flex;
+        gap: 8px;
+        padding: 3px 0;
+        font-size: 0.85em;
+        align-items: baseline;
+      }
+
+      .st-kv .k {
+        flex-shrink: 0;
+        min-width: 5.5em;
+        font-weight: 700;
+        color: var(--st-cyan);
+      }
+
+      .st-kv .v { color: var(--st-text); word-break: break-word; }
+      .st-kv.effect .v { color: #f0abda; }
+      .st-kv.income-v .v { color: #f8e6ab; }
+
+      /* ===== 子节标题 ===== */
+      .st-sub {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 10px 0 6px;
+        font-size: 0.8em;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #a8e8f5;
+      }
+
+      .st-sub::before {
+        content: '◈';
+        color: var(--st-cyan-dim);
+        font-size: 0.9em;
+      }
+
+      .st-sub::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(46,230,255,0.22), transparent);
+      }
+
+      /* ===== 烙印称号 ===== */
+      .st-brand {
+        margin: 8px 0 12px;
+        padding: 12px 16px;
+        text-align: center;
+        position: relative;
+        background:
+          radial-gradient(ellipse at 50% 0%, rgba(192,132,252,0.14), transparent 70%),
+          rgba(255,255,255,0.02);
+        border: 1px solid rgba(192,132,252,0.25);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .st-brand-label {
+        font-size: 0.7em;
+        letter-spacing: 4px;
+        color: #a78bfa;
+        margin-bottom: 4px;
+      }
+
+      .st-brand-name {
+        font-size: 1.3em;
+        font-weight: 900;
+        letter-spacing: 6px;
+        color: #e9d5ff;
+        text-shadow: 0 0 18px rgba(192,132,252,0.55);
+      }
+
+      .st-brand::before, .st-brand::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        width: 42px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(192,132,252,0.6));
+      }
+
+      .st-brand::before { left: 10px; }
+      .st-brand::after { right: 10px; transform: scaleX(-1); }
+
+      /* ===== 时间线 (高光回放 / 世界传闻) ===== */
+      .st-tl { margin: 4px 0 8px; }
+
+      .st-tl-item {
+        position: relative;
+        padding: 6px 10px 6px 22px;
+        margin: 4px 0;
+        background: rgba(255,255,255,0.03);
+        border-radius: 6px;
+        font-size: 0.84em;
+        transition: background 0.2s;
+      }
+
+      .st-tl-item:hover { background: rgba(255,255,255,0.055); }
+
+      .st-tl-item::before {
+        content: '';
+        position: absolute;
+        left: 8px;
+        top: 13px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--st-cyan);
+        box-shadow: 0 0 6px rgba(46,230,255,0.7);
+      }
+
+      .st-tl-item::after {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 20px;
+        bottom: -8px;
+        width: 1px;
+        background: rgba(46,230,255,0.16);
+      }
+
+      .st-tl-item:last-child::after { display: none; }
+
+      .st-tl-item .t {
+        font-weight: 700;
+        color: #9be8f5;
+      }
+
+      .st-tl-item.rumor::before { background: #c084fc; box-shadow: 0 0 6px rgba(192,132,252,0.7); }
+      .st-tl-item.rumor::after { background: rgba(192,132,252,0.16); }
+      .st-tl-item.rumor .t { color: #d8b4fe; }
+
+      .st-tl-item .d { color: #b9c4d2; }
+
+      /* ===== 评级徽章 ===== */
+      .st-rate-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 4px 0;
+        font-size: 0.85em;
+      }
+
+      .st-rate-row .k { font-weight: 700; color: var(--st-cyan); min-width: 5.5em; flex-shrink: 0; }
+
+      .st-grade {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        padding: 1px 8px;
+        border-radius: 4px;
+        border: 1px solid;
+        font-weight: 900;
+        font-size: 0.92em;
+        letter-spacing: 1px;
+      }
+
+      .st-grade.g-F { color:#94a3b8; border-color:#94a3b8; background:rgba(148,163,184,0.14); }
+      .st-grade.g-E { color:#f8fafc; border-color:#f8fafc; background:rgba(248,250,252,0.10); }
+      .st-grade.g-D { color:#22c55e; border-color:#22c55e; background:rgba(34,197,94,0.14); }
+      .st-grade.g-C { color:#3b82f6; border-color:#3b82f6; background:rgba(59,130,246,0.14); }
+      .st-grade.g-B { color:#a855f7; border-color:#a855f7; background:rgba(168,85,247,0.16); }
+      .st-grade.g-A { color:#f97316; border-color:#f97316; background:rgba(249,115,22,0.16); }
+      .st-grade.g-S { color:#eab308; border-color:#eab308; background:rgba(234,179,8,0.16); text-shadow:0 0 5px rgba(234,179,8,0.55); }
+      .st-grade.g-SS { color:#ef4444; border-color:#ef4444; background:rgba(239,68,68,0.18); text-shadow:0 0 5px rgba(239,68,68,0.6); }
+      .st-grade.g-SSS { color:#ec4899; border-color:#ec4899; background:rgba(236,72,153,0.2); text-shadow:0 0 6px rgba(236,72,153,0.7); box-shadow:0 0 7px rgba(236,72,153,0.4); }
+
+      .st-grade.hero {
+        min-width: 46px;
+        font-size: 1.25em;
+        padding: 3px 12px;
+        animation: stPulse 2.2s ease-in-out infinite;
+      }
+
+      .st-grade.wave { font-size: 0.8em; color: var(--st-text-dim); border: none; background: none; min-width: 0; padding: 0; text-shadow: none; letter-spacing: 0; font-weight: 400; }
+
+      @keyframes stPulse {
+        0%, 100% { filter: brightness(1); }
+        50% { filter: brightness(1.35); }
+      }
+
+      /* ===== 稳定值进度条 ===== */
+      .st-stab {
+        margin: 8px 0 4px;
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 6px;
+        font-size: 0.8em;
+      }
+
+      .st-stab-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        color: var(--st-text-dim);
+      }
+
+      .st-stab-label b { color: var(--st-text); }
+
+      .st-stab-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(255,255,255,0.08);
+        overflow: hidden;
+      }
+
+      .st-stab-fill {
+        height: 100%;
+        width: 0;
+        border-radius: 3px;
+        background: linear-gradient(90deg, #f87171, #facc15, #4ade80);
+        box-shadow: 0 0 8px rgba(74,222,128,0.35);
+        transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      /* ===== 系统评述 ===== */
+      .st-comment {
+        margin: 8px 0;
+        padding: 10px 14px;
+        font-size: 0.83em;
+        color: #aec3d4;
+        border-left: 2px solid rgba(46,230,255,0.45);
+        background: linear-gradient(90deg, rgba(46,230,255,0.06), transparent);
+        border-radius: 0 6px 6px 0;
+        line-height: 1.7;
+      }
+
+      /* ===== 收益核算明细 ===== */
+      .st-calc-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 5px 10px;
+        margin: 3px 0;
+        font-size: 0.83em;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 6px;
+        transition: all 0.2s;
+      }
+
+      .st-calc-row:hover {
+        background: rgba(212,175,55,0.06);
+        border-color: rgba(212,175,55,0.25);
+      }
+
+      .st-calc-src {
+        font-weight: 700;
+        color: #9be8f5;
+        flex-shrink: 0;
+      }
+
+      .st-calc-formula {
+        flex: 1;
+        min-width: 140px;
+        color: var(--st-text-dim);
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+        font-size: 0.92em;
+        letter-spacing: 0.3px;
+      }
+
+      .st-calc-sum {
+        flex-shrink: 0;
+        font-weight: 800;
+        color: var(--st-gold);
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+      }
+
+      /* 汇总三行 (合计/上限/计入) */
+      .st-sum-rows {
+        margin: 4px 0 10px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: rgba(212,175,55,0.05);
+        border: 1px dashed rgba(212,175,55,0.25);
+        font-size: 0.8em;
+      }
+
+      .st-sum-row {
+        display: flex;
+        gap: 8px;
+        padding: 2px 0;
+        color: #cbb98a;
+      }
+
+      .st-sum-row .k { min-width: 7em; font-weight: 700; color: #b8a36b; }
+      .st-sum-row .v { color: var(--st-gold); font-weight: 700; }
+      .st-sum-row.final .v { color: #ffe9a0; text-shadow: 0 0 8px rgba(245,215,110,0.4); }
+
+      /* ===== 失败惩罚 ===== */
+      .st-punish {
+        padding: 8px 12px;
+        margin: 4px 0;
+        background: linear-gradient(90deg, rgba(239,68,68,0.1), rgba(239,68,68,0.03));
+        border: 1px solid rgba(239,68,68,0.3);
+        border-radius: 6px;
+        font-size: 0.83em;
+      }
+
+      .st-punish .t {
+        font-weight: 700;
+        color: var(--st-red);
+        margin-right: 6px;
+      }
+
+      .st-punish .d { color: #fda4af; word-break: break-word; }
+
+      /* ===== 空态/注释/提示 ===== */
+      .st-empty {
+        padding: 6px 12px;
+        margin: 4px 0;
+        font-size: 0.8em;
+        color: #7d8fa1;
+        border: 1px dashed rgba(255,255,255,0.12);
+        border-radius: 6px;
+      }
+
+      .st-note {
+        padding: 3px 0;
+        font-size: 0.76em;
+        color: #7d8fa1;
+        letter-spacing: 0.3px;
+      }
+
+      .st-notice {
+        margin: 10px 0;
+        padding: 9px 14px;
+        font-size: 0.8em;
+        color: #9be8f5;
+        border: 1px dashed rgba(46,230,255,0.3);
+        border-radius: 6px;
+        background: rgba(46,230,255,0.04);
+        letter-spacing: 0.4px;
+      }
+
+      .st-warehouse {
+        margin-top: 8px;
+        padding: 7px 12px;
+        font-size: 0.76em;
+        color: #9fb3c6;
+        background: rgba(255,255,255,0.03);
+        border-radius: 6px;
+        border-left: 2px solid rgba(46,230,255,0.35);
+        word-break: break-all;
+      }
+
+      /* ===== 总收益 ===== */
+      .st-total {
+        margin: 12px 0 6px;
+        padding: 16px;
+        text-align: center;
+        position: relative;
+        border: 1px solid rgba(212,175,55,0.4);
+        border-radius: 10px;
+        background:
+          radial-gradient(ellipse at 50% 0%, rgba(212,175,55,0.16), transparent 65%),
+          linear-gradient(180deg, rgba(212,175,55,0.07), rgba(212,175,55,0.02));
+      }
+
+      .st-total::before, .st-total::after {
+        content: '';
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--st-gold-deep);
+      }
+
+      .st-total::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+      .st-total::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+
+      .st-total-label {
+        font-size: 0.74em;
+        letter-spacing: 5px;
+        color: var(--st-gold-deep);
+        margin-bottom: 6px;
+      }
+
+      .st-total-num {
+        font-size: 1.9em;
+        font-weight: 900;
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+        color: var(--st-gold);
+        text-shadow: 0 0 22px rgba(245,215,110,0.5);
+        letter-spacing: 1px;
+      }
+
+      .st-total-num .unit { font-size: 0.5em; font-weight: 700; letter-spacing: 2px; margin-left: 6px; color: #d8c48a; }
+
+      .st-total.neg .st-total-num { color: var(--st-red); text-shadow: 0 0 22px rgba(239,68,68,0.5); }
+      .st-total.neg { border-color: rgba(239,68,68,0.45); background: radial-gradient(ellipse at 50% 0%, rgba(239,68,68,0.14), transparent 65%), linear-gradient(180deg, rgba(239,68,68,0.06), transparent); }
+      .st-total.neg .st-total-label { color: #ef6a6a; }
+      .st-total.neg::before, .st-total.neg::after { border-color: #ef4444; }
+
+      .st-total-debt {
+        margin-top: 6px;
+        font-size: 0.76em;
+        color: var(--st-red);
+        letter-spacing: 1px;
+      }
+
+      .st-total-done {
+        margin-top: 4px;
+        font-size: 0.72em;
+        color: #a89a6d;
+        letter-spacing: 3px;
+      }
+
+      /* ===== 权限凭证卡片 ===== */
+      .st-cert {
+        margin: 10px 0;
+        padding: 14px 16px;
+        border: 1px solid rgba(245,215,110,0.4);
+        border-radius: 8px;
+        background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.03));
+      }
+
+      .st-cert-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: var(--st-gold);
+        font-size: 0.92em;
+        margin-bottom: 8px;
+        text-shadow: 0 0 10px rgba(245,215,110,0.35);
+      }
+
+      .st-cert-desc {
+        font-size: 0.8em;
+        color: #d6c791;
+        line-height: 1.7;
+        padding: 2px 0;
+      }
+
+      /* ===== 晋升试炼数据库核验 ===== */
+      .st-trial-check {
+        margin: 10px 0;
+        padding: 14px 16px;
+        border: 1px solid rgba(134,239,172,0.4);
+        border-radius: 8px;
+        background: linear-gradient(135deg, rgba(134,239,172,0.09), rgba(134,239,172,0.02));
+      }
+      .st-trial-check.pending {
+        border-color: rgba(251,146,60,0.42);
+        background: linear-gradient(135deg, rgba(251,146,60,0.08), rgba(251,146,60,0.02));
+      }
+      .st-trial-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+      .st-trial-title { color:#86efac; font-size:0.9em; font-weight:800; letter-spacing:1px; text-shadow:0 0 10px rgba(134,239,172,0.28); }
+      .st-trial-check.pending .st-trial-title { color:#fdba74; text-shadow:0 0 10px rgba(251,146,60,0.24); }
+      .st-trial-count { color:#b9c8d6; font:700 0.76em 'Cascadia Code','Consolas',monospace; }
+      .st-trial-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px; padding:6px 10px; margin:4px 0; border:1px solid rgba(255,255,255,0.07); border-radius:6px; background:rgba(255,255,255,0.025); }
+      .st-trial-name { min-width:0; overflow:hidden; text-overflow:ellipsis; color:#c8d3df; font-size:0.8em; }
+      .st-trial-state { padding:1px 8px; border-radius:999px; border:1px solid; font-size:0.72em; font-weight:800; white-space:nowrap; }
+      .st-trial-state.ok { color:#86efac; border-color:rgba(134,239,172,0.4); background:rgba(134,239,172,0.07); }
+      .st-trial-state.wait { color:#fdba74; border-color:rgba(251,146,60,0.4); background:rgba(251,146,60,0.07); }
+      .st-trial-state.bad { color:#f87171; border-color:rgba(248,113,113,0.4); background:rgba(248,113,113,0.07); }
+      .st-trial-bar { height:6px; margin:9px 0 8px; overflow:hidden; border-radius:3px; background:rgba(255,255,255,0.08); }
+      .st-trial-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,#22c55e,#86efac); transition:width .45s ease; }
+      .st-trial-verdict { padding-top:7px; border-top:1px dashed rgba(255,255,255,0.1); font-size:0.8em; font-weight:800; }
+      .st-trial-verdict.ok { color:#86efac; }
+      .st-trial-verdict.no { color:#fdba74; }
+
+      /* ===== 纪念物卡片 (世界结晶 / 世界遗物) ===== */
+      .st-relic {
+        margin: 12px 0;
+        padding: 16px 18px;
+        border: 1px solid rgba(236,72,153,0.35);
+        border-radius: 10px;
+        background:
+          radial-gradient(ellipse at 30% 0%, rgba(236,72,153,0.12), transparent 60%),
+          linear-gradient(180deg, rgba(236,72,153,0.05), transparent);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .st-relic::after {
+        content: '✦';
+        position: absolute;
+        right: 14px;
+        top: 10px;
+        font-size: 1.4em;
+        color: rgba(236,72,153,0.35);
+        text-shadow: 0 0 12px rgba(236,72,153,0.5);
+        animation: stTwinkle 2.6s ease-in-out infinite;
+      }
+
+      @keyframes stTwinkle {
+        0%, 100% { opacity: 0.35; transform: scale(1) rotate(0deg); }
+        50% { opacity: 0.9; transform: scale(1.15) rotate(18deg); }
+      }
+
+      .st-relic-label {
+        font-size: 0.7em;
+        letter-spacing: 4px;
+        color: #f0abda;
+        margin-bottom: 8px;
+      }
+
+      .st-relic-name {
+        font-size: 1.02em;
+        font-weight: 800;
+        letter-spacing: 1px;
+        color: #f9a8d4;
+        text-shadow: 0 0 12px rgba(236,72,153,0.4);
+        margin-bottom: 8px;
+      }
+
+      .st-relic .st-kv .k { color: #f0abda; }
+
+      .st-relic-quote {
+        margin-top: 10px;
+        padding: 10px 14px;
+        font-size: 0.85em;
+        font-style: italic;
+        color: #e9c6dc;
+        text-align: center;
+        border-top: 1px dashed rgba(236,72,153,0.25);
+        line-height: 1.8;
+      }
+
+      .st-relic.gold { border-color: rgba(212,175,55,0.4); background: radial-gradient(ellipse at 30% 0%, rgba(212,175,55,0.12), transparent 60%), linear-gradient(180deg, rgba(212,175,55,0.05), transparent); }
+      .st-relic.gold::after { color: rgba(212,175,55,0.4); text-shadow: 0 0 12px rgba(212,175,55,0.5); }
+      .st-relic.gold .st-relic-label { color: #d8c48a; }
+      .st-relic.gold .st-relic-name { color: var(--st-gold); text-shadow: 0 0 12px rgba(212,175,55,0.4); }
+      .st-relic.gold .st-kv .k { color: #e6cf95; }
+      .st-relic.gold .st-relic-quote { color: #e9dbb2; border-top-color: rgba(212,175,55,0.25); }
+
+      /* ===== 遗物嘉奖: 判定依据/判定结果 ===== */
+      .st-reason-head {
+        margin: 10px 0 3px;
+        font-size: 0.72em;
+        font-weight: 700;
+        letter-spacing: 3px;
+        color: #d8c48a;
+      }
+
+      .st-reason {
+        position: relative;
+        padding: 2px 0 2px 15px;
+        font-size: 0.78em;
+        color: #b3a888;
+        word-break: break-word;
+      }
+
+      .st-reason::before {
+        content: '▪';
+        position: absolute;
+        left: 3px;
+        color: rgba(212,175,55,0.65);
+      }
+
+      .st-relic:not(.gold) .st-reason-head { color: #d8a3c8; }
+      .st-relic:not(.gold) .st-reason { color: #c2b0cb; }
+      .st-relic:not(.gold) .st-reason::before { color: rgba(236,72,153,0.5); }
+
+      .st-verdict {
+        display: inline-block;
+        margin: 8px 0 2px;
+        padding: 4px 12px;
+        font-size: 0.8em;
+        font-weight: 700;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+      }
+
+      .st-verdict.ok { color:#86efac; background:rgba(134,239,172,0.08); border:1px solid rgba(134,239,172,0.3); }
+      .st-verdict.no { color:#8fa0b3; background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.15); }
+
+      /* ===== 战利品压缩条目 ===== */
+      .st-loot-item {
+        padding: 7px 12px;
+        margin: 4px 0;
+        background: rgba(251,146,60,0.05);
+        border: 1px solid rgba(251,146,60,0.2);
+        border-radius: 6px;
+        font-size: 0.83em;
+        transition: background 0.2s;
+      }
+
+      .st-loot-item:hover { background: rgba(251,146,60,0.09); }
+
+      .st-loot-item .n { font-weight: 700; color: #fdba74; }
+
+      .st-loot-item .d { color: #c7b6a4; }
+
+      .st-loot-item .compress {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 7px;
+        border-radius: 3px;
+        font-size: 0.88em;
+        font-weight: 700;
+        color: #fdba74;
+        border: 1px solid rgba(251,146,60,0.4);
+        background: rgba(251,146,60,0.1);
+      }
+
+      /* ===== 终章段落 ===== */
+      .st-para {
+        font-size: 0.84em;
+        color: #b9c8d6;
+        padding: 4px 0;
+        line-height: 1.8;
+        text-align: justify;
+      }
+
+      .st-closing {
+        margin: 12px 0 8px;
+        padding: 12px;
+        text-align: center;
+        font-size: 0.86em;
+        font-weight: 700;
+        letter-spacing: 2px;
+        color: #86efac;
+        background: linear-gradient(90deg, transparent, rgba(134,239,172,0.08), transparent);
+        border-top: 1px solid rgba(134,239,172,0.2);
+        border-bottom: 1px solid rgba(134,239,172,0.2);
+        text-shadow: 0 0 10px rgba(134,239,172,0.3);
+      }
+
+      /* ===== 兜底纯文本行 ===== */
+      .st-plain-line {
+        padding: 3px 0;
+        font-size: 0.87em;
+        color: var(--st-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      /* --- 手机端适配 --- */
+      @media (max-width: 600px) {
+        body { padding: 10px; }
+
+        .st-btn { max-width: 96%; }
+        .st-label { max-width: calc(88vw - 54px); }
+
+        .st-banner { padding: 13px 13px 11px; }
+        .st-stage { padding: 12px 13px 4px; }
+
+        .st-kv { flex-direction: column; gap: 0; padding: 3px 0; }
+        .st-kv .k { min-width: 0; }
+        .st-rate-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+        .st-rate-row .k { min-width: 0; }
+
+        .st-calc-row { flex-wrap: wrap; }
+        .st-calc-formula { min-width: 100%; order: 3; }
+
+        .st-total-num { font-size: 1.55em; }
+        .st-brand-name { font-size: 1.1em; letter-spacing: 4px; }
+        .st-trial-row { grid-template-columns:minmax(0,1fr) auto; }
+      }
+    </style>
 </head>
 <body>
-<!-- 替换模板开始 -->
-<div class="st-wrapper">
-  <div class="st-btn">
-    <svg class="st-icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 16.93A7 7 0 1 1 18.93 13H17a5 5 0 1 0-4 3.9v2.03Z"/></svg>
-    <span class="st-label">轮回清算协议</span>
-  </div>
-  <div class="st-panel"></div>
-  <div class="st-raw" style="display:none">$1</div>
-<script>
-(function(){
-'use strict';
-const script=document.currentScript,wrap=script&&script.closest('.st-wrapper');if(!wrap)return;
-const raw=wrap.querySelector('.st-raw').textContent||'';
-const panel=wrap.querySelector('.st-panel'),btn=wrap.querySelector('.st-btn'),label=wrap.querySelector('.st-label');
-const GRADES=['F','E','D','C','B','A','S','SS','SSS'];
-function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
-function clean(v){return String(v||'').replace(/\*\*/g,'').replace(/^[*_\s]+|[*_\s]+$/g,'').trim()}
-function grade(v){const m=String(v||'').toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/);return m?m[0]:''}
-function gradeBadge(v){const all=String(v||'').toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/g)||[];return all.length?all.map(x=>'<span class="st-rate g-'+x+'">'+x+'</span>').join('<span style="color:#728195">~</span>'):esc(v)}
-function deepClone(o){try{return (typeof _!=='undefined'&&_&&_.cloneDeep)?_.cloneDeep(o):JSON.parse(JSON.stringify(o))}catch(e){return o}}
-function mvuContext(){
-  try{
-    const wins=[];try{if(typeof GS_PARENT!=='undefined'&&GS_PARENT)wins.push(GS_PARENT)}catch(e){}try{if(window.parent)wins.push(window.parent)}catch(e){}wins.push(window);
-    for(const w of wins){if(w&&w.Mvu&&typeof w.Mvu.getMvuData==='function'){const d=w.Mvu.getMvuData({type:'message',message_id:'latest'});if(d){return{win:w,data:d,stat:d.stat_data||d}}}}
-  }catch(e){}
-  return null;
-}
-// 必须在结算清理脚本处理 CHARACTER_MESSAGE_RENDERED 之前尽早拍下数据库任务快照。
-const bootCtx=mvuContext();
-function trialSnapshot(ctx){
-  const stat=ctx&&ctx.stat||{};const list=stat&&stat.任务&&stat.任务.列表&&typeof stat.任务.列表==='object'?stat.任务.列表:{};
-  return Object.entries(list).filter(([,t])=>t&&String(t.委托方||'').trim()==='晋升试炼').map(([key,t],idx)=>({
-    key:key,name:String(t.名称||t.任务名||t.标题||key||('晋升试炼·'+(idx+1))),status:String(t.状态||'').trim(),reward:t.奖励,penalty:t.惩罚
-  }));
-}
-const trials=trialSnapshot(bootCtx);
-const trialPass=trials.length>0&&trials.every(t=>t.status==='可结算');
-function commitTrialQualification(){
-  if(!trialPass||!bootCtx||!bootCtx.win||!bootCtx.win.Mvu)return false;
-  try{
-    const c=deepClone(bootCtx.data);const sd=c.stat_data||c;sd.系统状态=sd.系统状态||{};
-    if(sd.系统状态.试炼已完成===true)return true;
-    sd.系统状态.试炼已完成=true;
-    bootCtx.win.Mvu.replaceMvuData(c,{type:'message',message_id:'latest'});
-    try{bootCtx.win.Mvu.replaceMvuData(c,{type:'chat'})}catch(e){}
-    return true;
-  }catch(e){console.warn('[结算美化] 晋升资格写入失败:',e);return false}
-}
-const trialCommitted=commitTrialQualification();
-function trialPanel(){
-  if(!trials.length)return '';
-  const done=trials.filter(t=>t.status==='可结算').length,pct=Math.round(done/trials.length*100);
-  let h='<div class="st-trial '+(trialPass?'':'fail')+'"><div class="st-trial-head"><span class="st-trial-title">◆ 晋升试炼数据库核验</span><span class="st-trial-count">'+done+' / '+trials.length+'</span></div>';
-  trials.forEach((t,i)=>{let cls='wait',txt=t.status||'未标记';if(t.status==='可结算'){cls='ok';txt='已完成'}else if(t.status==='失败'){cls='bad';txt='失败'}else if(t.status==='可交付'){txt='待结算'}else if(t.status==='进行中'){txt='未完成'}h+='<div class="st-trial-row"><span class="st-trial-name">'+esc(t.name)+'</span><span class="st-state '+cls+'">'+esc(txt)+'</span></div>'});
-  h+='<div class="st-trial-bar"><div class="st-trial-fill" style="width:'+pct+'%"></div></div>';
-  h+='<div class="st-trial-verdict '+(trialPass?'ok':'no')+'">'+(trialPass?'✓ 全部试炼已完成，晋升资格已写入数据库。':'✕ 晋升资格未取得：仍有试炼任务未达到【可结算】。')+'</div>';
-  h+='<div class="st-trial-source">检定源：stat_data.任务.列表 ｜ 系统状态.试炼已完成='+(trialPass?'true':'保持原值')+(trialPass&&!trialCommitted?'（写入失败）':'')+'</div></div>';return h;
-}
-function parseHeader(){
-  const title=(raw.match(/^###\s*\*{0,2}【?([^\n】]+)】?\*{0,2}/m)||[])[1]||'主神空间 - 轮回清算协议';
-  const serial=clean((raw.match(/\[协议序列\]\*{0,2}\s*[：:]\s*([^\n]+)/)||[])[1]||'');
-  const player=clean((raw.match(/\[轮回者\]\*{0,2}\s*[：:]\s*([^\n]+)/)||[])[1]||'');return{title,serial,player};
-}
-function stageType(n){if(/评估|稳定/.test(n))return'assess';if(/烙印|回放|传闻/.test(n))return'story';if(/法则|战利品|遗物/.test(n))return'loot';if(/收益|空间币/.test(n))return'income';return'epilogue'}
-function renderLine(line,state){
-  const orig=line;line=line.trim();if(!line)return'';
-  if(/^<\/?/.test(line)||/^\$\(/.test(line))return'';
-  if(/^###/.test(line))return'';
-  let body=line.replace(/^\s*[*+-]\s+/,'').trim();
-  // 兼容旧回复：即使模型仍吐出旧“晋升试炼任务”面板，也彻底隐藏，由数据库面板接管。
-  if(/【?晋升试炼任务】?/.test(clean(body))&&!/晋升试炼[·\.\d一二三四五六七八九十]/.test(body)){state.skipLegacyTrial=true;return''}
-  if(state.skipLegacyTrial){if(/失败惩罚执行|个人最终总收益|主神权限凭证|最终阶段/.test(body))state.skipLegacyTrial=false;else return''}
-  let m;
-  if((m=body.match(/^\*{0,2}副本烙印\s*[｜|]\s*(.+)$/)))return'<div class="st-brand"><small>副 本 烙 印</small><strong>'+esc(clean(m[1]))+'</strong></div>';
-  if((m=body.match(/^\*{0,2}[【\[]?([^*【】\[\]：:]{2,24})[】\]]?\*{0,2}\s*[：:]\s*$/))){const n=m[1].trim();state.sub=n;if(/任务专属奖励/.test(n))state.rewardSeen=true;if(/失败惩罚执行/.test(n)&&state.rewardSeen&&!state.trialInserted&&trials.length){state.trialInserted=true;return trialPanel()+'<div class="st-sub">'+esc(n)+'</div>'}return'<div class="st-sub">'+esc(n)+'</div>'}
-  if((m=body.match(/^\*{0,2}[【\[]?([^*【】\[\]：:]{1,30})[】\]]?\*{0,2}\s*[：:]\s*(.+)$/))){
-    const k=clean(m[1]),v=clean(m[2]);
-    if(/总收益/.test(k)){const num=(v.match(/-?[\d,.]+\s*万?/)||[])[0]||v;return'<div class="st-total"><small>个 人 最 终 总 收 益</small><strong>'+esc(num)+' <span style="font-size:.45em">空间币</span></strong></div>'}
-    if(/评述/.test(k))return'<div class="st-comment">'+esc(v)+'</div>';
-    if(/评级|难度/.test(k)&&grade(v))return'<div class="st-kv"><span class="k">'+esc(k)+'</span><span class="v">'+gradeBadge(v)+'</span></div>';
-    if(state.sub&&/失败惩罚/.test(state.sub)&&/强制执行|惩罚|失败/.test(v+k))return'<div class="st-punish">⚠ <b>'+esc(k)+'</b>：'+esc(v)+'</div>';
-    let cls='';if(state.sub&&/任务专属奖励/.test(state.sub))cls=/已发放|获得/.test(v)?' good':'';else if(/奖励|收益|合计|上限|计入/.test(k))cls=' gold';
-    return'<div class="st-kv'+cls+'"><span class="k">'+esc(k)+'</span><span class="v">'+esc(v)+'</span></div>';
-  }
-  const p=clean(body);
-  if(!p)return'';
-  if(/^【.*完毕.*】$/.test(p))return'<div class="st-close">'+esc(p)+'</div>';
-  if(/^【?提示[：:]/.test(p))return'<div class="st-notice">'+esc(p.replace(/^【?提示[：:]?\s*/,'').replace(/】$/,''))+'</div>';
-  if(/本次.*(?:无|未).*(?:失败|惩罚|遗物|压缩|获得)/.test(p))return'<div class="st-empty">'+esc(p)+'</div>';
-  if(/^\[.+\].*=/.test(p)||/×/.test(p)&&/=/.test(p))return'<div class="st-list">'+esc(p)+'</div>';
-  if(/^[-•]/.test(orig.trim())||/^\s{2,}[*+-]/.test(orig))return'<div class="st-list">'+esc(p)+'</div>';
-  return'<div class="st-para">'+esc(p)+'</div>';
-}
-function render(){
-  const hd=parseHeader();let h='<div class="st-banner"><div class="st-title">'+esc(hd.title)+'</div><div class="st-tags">';if(hd.serial)h+='<span class="st-tag">协议序列 <b>'+esc(hd.serial)+'</b></span>';if(hd.player)h+='<span class="st-tag">轮回者 <b>'+esc(hd.player)+'</b></span>';h+='</div></div>';
-  const lines=raw.replace(/\r/g,'').split('\n');let stage=null,stageHtml='',stageNo=0;const state={sub:'',rewardSeen:false,trialInserted:false,skipLegacyTrial:false};
-  function flush(){if(!stage)return;h+='<section class="st-stage t-'+stageType(stage)+'"><div class="st-stage-head"><span class="st-stage-no">'+stageNo+'</span><span class="st-stage-name">'+esc(stage)+'</span><span class="st-stage-line"></span></div>'+stageHtml+'</section>';stageHtml=''}
-  lines.forEach(line=>{const sm=line.trim().match(/^####\s*\*{0,2}【?(.+?)】?\*{0,2}\s*$/);if(sm){flush();stage=clean(sm[1]).replace(/^【|】$/g,'');stageNo++;state.sub='';return}if(!stage)return;stageHtml+=renderLine(line,state)});
-  if(state.rewardSeen&&!state.trialInserted&&trials.length){stageHtml+=trialPanel();state.trialInserted=true}flush();panel.innerHTML=h;
-  const sm=(hd.serial||'').match(/^Ω-(.+)-结算$/);label.textContent=sm?'轮回清算 · '+sm[1]:'轮回清算协议';
-}
-// 保留原美化器的重要副作用：世界结晶写入道具、世界遗物写入装备。
-function settlementItemsToMvu(){
-  if(!bootCtx||!bootCtx.win||!bootCtx.win.Mvu)return;
-  try{
-    const c=deepClone(bootCtx.data),sd=c.stat_data||c;sd.主角=sd.主角||{};sd.主角.道具=sd.主角.道具||{};sd.主角.装备=sd.主角.装备||{};let changed=false;
-    const diff=(raw.match(/世界难度评级\*{0,2}\s*[：:]\s*([^\n]+)/)||[])[1]||'';const gs=(String(diff).toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/g)||[]);let base='F';if(gs.length)base=gs.reduce((a,b)=>GRADES.indexOf(a)<=GRADES.indexOf(b)?a:b);
-    const cm=raw.match(/世界结晶[\s\S]*?获得物品\*{0,2}\s*[：:]\s*【([^】]+)】[\s\S]*?类型\*{0,2}\s*[：:]\s*([^\n]+)[\s\S]*?效果\*{0,2}\s*[：:]\s*([^\n]+)[\s\S]*?描述\*{0,2}\s*[：:]\s*([^\n]+)/);
-    if(cm&&cm[1]&&!/[{}]|XXX/.test(cm[1])&&!sd.主角.道具[cm[1]]){sd.主角.道具[cm[1]]={品质:base,类型:clean(cm[2])||'纪念物',数量:1,标签:['主神空间'],效果:{因果铭刻:clean(cm[3])},描述:clean(cm[4]),状态:0};changed=true}
-    const gm=raw.match(/世界遗物特别嘉奖[\s\S]*?获得[：:]?\s*\n?\s*[>*+-]*\s*【([^】]+)】[\s\S]*?类型[：:]\s*([^\n]+)[\s\S]*?来源[：:]\s*([^\n]+)[\s\S]*?效果[：:]\s*([^\n]+)[\s\S]*?描述[：:]\s*([^\n]+)/);
-    if(gm&&gm[1]&&!/[{}]|XXX|未获得/.test(gm[1])&&!sd.主角.装备[gm[1]]){sd.主角.装备[gm[1]]={品质:base,类型:8,标签:['主神空间',clean(gm[3])].filter(Boolean),原始属性:{},效果:{持有时:clean(gm[4])},描述:clean(gm[5]),消耗:'',状态:0};changed=true}
-    if(changed){bootCtx.win.Mvu.replaceMvuData(c,{type:'message',message_id:'latest'});try{bootCtx.win.Mvu.replaceMvuData(c,{type:'chat'})}catch(e){}}
-  }catch(e){console.warn('[结算美化] 结算物写入失败:',e)}
-}
-render();settlementItemsToMvu();
-btn.addEventListener('click',()=>{btn.classList.toggle('active');panel.classList.toggle('show')});
-setTimeout(()=>{document.querySelectorAll('.st-trial-fill').forEach(x=>x.style.width=x.style.width)},50);
-})();
-</script>
-</div>
-<!-- 替换模板结束 -->
+
+    <!-- 替换模板开始 -->
+    <div class="st-wrapper">
+      <div class="st-btn">
+        <svg class="st-icon" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95.49-7.4-2.47-7.4-6.42 0-1.74.69-3.31 1.81-4.46l1.42 1.42C7.88 10.42 7.4 11.55 7.4 12.8c0 2.81 2.29 5.1 5.11 5.1.16 0 .33-.01.49-.02v1.05zm0-3.94v1.02c-2.14-.25-3.81-2.05-3.81-4.25 0-1.06.39-2.03 1.03-2.78l1.44 1.44c-.31.4-.5.9-.5 1.45 0 .87.55 1.61 1.32 1.9l.52.52v.7zm6.59 1.94l-1.42-1.42c.71-1.02 1.13-2.26 1.13-3.6 0-3.47-2.83-6.3-6.3-6.3-.2 0-.4.01-.6.03V5.07c3.95-.49 7.4 2.47 7.4 6.42 0 1.79-.7 3.41-1.85 4.62l1.64 1.82z"/>
+        </svg>
+        <span class="st-label"></span>
+      </div>
+      <div class="st-panel"></div>
+      <div class="st-raw" style="display:none;">$1</div>
+
+      <script>
+        (function() {
+          'use strict';
+          const currentScript = document.currentScript;
+          if (!currentScript) return;
+          const wrapper = currentScript.closest('.st-wrapper');
+          if (!wrapper) return;
+
+          function escapeHtml(s) {
+            if (typeof s !== 'string') return '';
+            return s.replace(/&/g, '&')
+                .replace(/</g, '<')
+                .replace(/>/g, '>')
+                .replace(/"/g, '"');
+          }
+
+          // 去除 markdown 装饰: **加粗** / 前后 *_ 空白
+          function stripDecor(s) {
+            return String(s || '')
+                .replace(/\*\*/g, '')
+                .replace(/^[*_\s]+/, '')
+                .replace(/[*_\s]+$/, '')
+                .trim();
+          }
+
+          // 评级字母(F~SSS): 用于徽章配色
+          const GRADES = ['F','E','D','C','B','A','S','SS','SSS'];
+
+          function gradeTier(d) {
+            const m = String(d || '').toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)/);
+            return m ? m[1] : 'F';
+          }
+
+          // 世界难度最低档(F~SSS): "E~A" → "E"; 用于 MVU 写入遗物/纪念物品质
+          function gradeFloor(v) {
+            const s = String(v || '').toUpperCase();
+            const all = s.match(/(SSS|SS|S|A|B|C|D|E|F)/g) || [];
+            if (!all.length) return '';
+            let best = all[0];
+            for (const g of all) if (GRADES.indexOf(g) < GRADES.indexOf(best)) best = g;
+            return best;
+          }
+
+          // "1.2万" -> 12000, "-500" -> -500, "3,500" -> 3500; 失败返回 null
+          function parseCnNum(s) {
+            const m = String(s || '').replace(/[,，]/g, '').match(/-?\d+(?:\.\d+)?(?:万)?/);
+            if (!m) return null;
+            let n = parseFloat(m[0].replace('万', ''));
+            if (/万$/.test(m[0])) n *= 10000;
+            return isFinite(n) ? n : null;
+          }
+
+          function fmtNum(n) {
+            if (n == null || !isFinite(n)) return '';
+            const neg = n < 0;
+            const v = Math.abs(Math.round(n));
+            return (neg ? '-' : '') + v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+          }
+
+          // ===== 晋升试炼数据库核验 =====
+          function clonePlain(value) {
+            try {
+              if (typeof _ !== 'undefined' && _ && _.cloneDeep) return _.cloneDeep(value);
+              return JSON.parse(JSON.stringify(value));
+            } catch (e) { return value; }
+          }
+
+          function getMvuContext() {
+            try {
+              const wins = [];
+              try { if (typeof GS_PARENT !== 'undefined' && GS_PARENT) wins.push(GS_PARENT); } catch (e) {}
+              try { if (window.parent && window.parent !== window) wins.push(window.parent); } catch (e) {}
+              wins.push(window);
+              for (const win of wins) {
+                if (!win || !win.Mvu || typeof win.Mvu.getMvuData !== 'function') continue;
+                const data = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
+                if (data) return { win: win, data: data, stat: data.stat_data || data };
+              }
+            } catch (e) {}
+            return null;
+          }
+
+          function readTrialTasks() {
+            const ctx = getMvuContext();
+            const stat = ctx && ctx.stat ? ctx.stat : {};
+            const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            return Object.keys(list).filter(function(key) {
+              const task = list[key];
+              return task && String(task.委托方 || '').trim() === '晋升试炼';
+            }).map(function(key, index) {
+              const task = list[key] || {};
+              return {
+                key: key,
+                name: String(task.名称 || task.任务名 || task.标题 || key || ('晋升试炼·' + (index + 1))),
+                status: String(task.状态 || '').trim()
+              };
+            });
+          }
+
+          function trialScore(tasks) {
+            return (tasks || []).reduce(function(sum, task) {
+              if (task.status === '可结算' || task.status === '失败') return sum + 3;
+              if (task.status === '可交付') return sum + 2;
+              if (task.status === '进行中') return sum + 1;
+              return sum;
+            }, 0);
+          }
+
+          let trialTasks = readTrialTasks();
+          let bestTrialScore = trialScore(trialTasks);
+          let trialWriteBusy = false;
+
+          function isTrialPassed(tasks) {
+            return tasks.length > 0 && tasks.every(function(task) { return task.status === '可结算'; });
+          }
+
+          function writeTrialQualification() {
+            if (trialWriteBusy || !isTrialPassed(trialTasks)) return;
+            const ctx = getMvuContext();
+            if (!ctx || !ctx.win || !ctx.win.Mvu || typeof ctx.win.Mvu.replaceMvuData !== 'function') return;
+            try {
+              const cloned = clonePlain(ctx.data);
+              const stat = cloned.stat_data || cloned;
+              stat.系统状态 = stat.系统状态 || {};
+              if (stat.系统状态.试炼已完成 === true) return;
+              trialWriteBusy = true;
+              stat.系统状态.试炼已完成 = true;
+              ctx.win.Mvu.replaceMvuData(cloned, { type: 'message', message_id: 'latest' });
+              try { ctx.win.Mvu.replaceMvuData(cloned, { type: 'chat' }); } catch (e2) {}
+            } catch (e) {
+              console.warn('[结算美化] 晋升资格写入失败:', e);
+            } finally {
+              setTimeout(function() { trialWriteBusy = false; }, 0);
+            }
+          }
+
+          function renderTrialPanel() {
+            if (!trialTasks.length) return '';
+            const done = trialTasks.filter(function(task) { return task.status === '可结算'; }).length;
+            const passed = isTrialPassed(trialTasks);
+            const pct = Math.round(done / trialTasks.length * 100);
+            let html = '<div class="st-trial-check' + (passed ? '' : ' pending') + '">';
+            html += '<div class="st-trial-head"><div class="st-trial-title">◆ 晋升试炼数据库核验</div><div class="st-trial-count">' + done + ' / ' + trialTasks.length + '</div></div>';
+            trialTasks.forEach(function(task) {
+              let cls = 'wait';
+              let label = task.status || '未标记';
+              if (task.status === '可结算') { cls = 'ok'; label = '已完成'; }
+              else if (task.status === '失败') { cls = 'bad'; label = '失败'; }
+              else if (task.status === '可交付') { label = '待结算'; }
+              else if (task.status === '进行中') { label = '未完成'; }
+              html += '<div class="st-trial-row"><div class="st-trial-name">' + escapeHtml(task.name) + '</div><div class="st-trial-state ' + cls + '">' + escapeHtml(label) + '</div></div>';
+            });
+            html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%"></div></div>';
+            html += '<div class="st-trial-verdict ' + (passed ? 'ok' : 'no') + '">' + (passed ? '✓ 全部试炼已完成，晋升资格已获得。' : '✕ 晋升资格未取得：仍有试炼任务未达到【可结算】。') + '</div>';
+            html += '</div>';
+            return html;
+          }
+
+          // ===== 解析 <settlement tasks> 原文为结构化数据 =====
+          // 格式来源: 世界书/【结算任务】.txt
+          //   阶段数量随 单一世界/世界超稳 模式变化(3~5阶段), 各区块(战利品压缩/
+          //   世界遗物/势力收益/稳定值/凭证/世界结晶)按条件出现或隐藏
+          //   → 所有字段均为可选, 解析器按关键词分类, 识别不了的行兜底为段落
+          function parseSettlement(text) {
+            const out = {
+              title: '',
+              serial: '',
+              player: '',
+              stages: []   // { name, type, items: [ {kind, ...} ] }
+            };
+            const lines = String(text).replace(/\r/g, '').split('\n');
+            let inNote = false;
+            let curStage = null;
+            let curSub = ''; // 当前子节: 高光回放/世界传闻/主神权限凭证/世界结晶...
+            let cardSec = ''; // 卡片内部小节: '' | 'reasons'(判定依据子项) | 'item'(获得物品名)
+
+            function classifyStage(name) {
+              const n = String(name || '');
+              if (/评估|难度|稳定/.test(n)) return 'assess';
+              if (/烙印|回放|传闻|风格/.test(n)) return 'story';
+              if (/法则|战利品|遗物/.test(n)) return 'loot';
+              if (/收益|核算|空间币/.test(n)) return 'income';
+              if (/演进|暗流|最终|因果/.test(n)) return 'epilogue';
+              return 'generic';
+            }
+
+            function newStage(name) {
+              curStage = { name: name, type: classifyStage(name), items: [] };
+              out.stages.push(curStage);
+              curSub = '';
+              cardSec = '';
+            }
+
+            function push(kind, data) {
+              if (!curStage) newStage('');
+              curStage.items.push(Object.assign({ kind: kind, sub: curSub }, data));
+            }
+
+            for (let i = 0; i < lines.length; i++) {
+              const isList = /^\s*[*+-]\s+/.test(lines[i]);
+              let line = lines[i].trim();
+              if (!line) continue;
+              if (line.startsWith('>')) line = line.replace(/^>\s*/, '').trim();
+              if (!line) continue;
+
+              // $(注： ... ) / $(若 ...) 模板注释块跳过
+              if (inNote) { if (/\)\s*$/.test(line)) inNote = false; continue; }
+              if (/^\$\(\s*(注|若)/.test(line)) { if (!/\)\s*$/.test(line)) inNote = true; continue; }
+
+              // 标签开闭行跳过
+              if (/^<\/?(settlement tasks|System_Rules|dm_think)/i.test(line)) continue;
+
+              // 阶段标题 #### 【第X阶段：xxx】 (4个#, 先判避免被主标题吞掉)
+              let m;
+              if ((m = line.match(/^####(?!#)\s*(.+)$/))) {
+                newStage(stripDecor(m[1]).replace(/^【|】$/g, ''));
+                continue;
+              }
+              // 主标题 ### 【主神空间 - 轮回清算协议】 (1~3个#, 排除4个#)
+              if ((m = line.match(/^#{1,3}(?!#)\s*(.+)$/))) {
+                out.title = stripDecor(m[1]).replace(/^【|】$/g, '');
+                continue;
+              }
+
+              // 头部键: **[协议序列]** / **[轮回者]** (全局唯一, 不入阶段)
+              if ((m = line.match(/^\*{0,2}\[?\s*协议序列\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.serial = stripDecor(m[1]); continue; }
+              if ((m = line.match(/^\*{0,2}\[?\s*轮回者\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.player = stripDecor(m[1]); continue; }
+
+              // 列表体
+              let body = isList ? line.replace(/^\s*[*+-]\s+/, '').trim() : line;
+              // $(可结算任务): xxx → 可结算任务: xxx
+              body = body.replace(/^\$\((.+?)\)\s*[：:]\s*/, '\u0024' + '1：');
+
+              // 提示行: *【提示：回归主神空间...】*
+              if (/^[\*【]*提示[：:]/.test(body)) {
+                push('notice', { text: stripDecor(body.replace(/^[\*【]*提示[：:]?\s*/, '').replace(/[\*】]*$/, '')) });
+                curSub = '';
+                continue;
+              }
+
+              // 副本烙印: **副本烙印｜血肉终结者**
+              if ((m = body.match(/^\*{0,2}副本烙印\s*[｜|]?\s*(.+)$/))) {
+                push('brand', { name: stripDecor(m[1]) });
+                continue;
+              }
+
+              // 卡片区块标题: 主神权限凭证 / 世界结晶 / 世界遗物特别嘉奖
+              if (/主神权限凭证/.test(body) && body.replace(/\*/g, '').length < 30) {
+                curSub = '主神权限凭证';
+                cardSec = '';
+                push('cert', {});
+                continue;
+              }
+              if (/世界结晶/.test(body) && body.replace(/[*【】（）()：:]/g, '').length < 30) {
+                curSub = '世界结晶';
+                cardSec = '';
+                push('relic', { label: '世界结晶 · 通关纪念物', name: '', type: '', effect: '', desc: '' });
+                continue;
+              }
+              if (/世界遗物特别嘉奖/.test(body) && body.replace(/\*/g, '').length < 30) {
+                curSub = '世界遗物';
+                cardSec = '';
+                push('relicGold', { label: '世界遗物 · 特别嘉奖', name: '', type: '', effect: '', desc: '', origin: '' });
+                continue;
+              }
+
+              // 通用子节标题: **高光回放**: / **【法则强制压缩名单】**:
+              if ((m = body.match(/^\*{0,2}[【\[]?([^*【】\[\]：:]{2,16})[】\]]?\*{0,2}\s*[：:]\s*$/))) {
+                const subName = m[1].trim();
+                // 短键(判定依据/获得/检定源等)在卡片内部, 不视为新子节
+                if (!/判定依据|判定结果|^获得$|获得物品|检定源|^结果$/.test(subName)) {
+                  curSub = subName;
+                  push('sub', { name: subName });
+                  continue;
+                }
+              }
+
+              // 收益公式明细行 (无冒号也可): [Ⅰ级目标] 5 × 10 = 50 / 2500 × [涩谷区] (60%) = 1500
+              if (curStage && curStage.type === 'income' && /×/.test(body) && /=/.test(body)) {
+                let src = '', formula = body.replace(/\*\*/g, '');
+                let sm2 = formula.match(/^\[([^\]]+)\]\s*(.+)$/);                     // 前缀 [Ⅰ级目标] n × 单价 = 总额
+                if (!sm2) sm2 = formula.match(/^[^×\[]+×\s*\[([^\]]+)\]\s*(.+)$/);    // 中缀 基础 × [地点] (x%) = 总额
+                if (sm2) { src = sm2[1].trim(); formula = sm2[2].trim(); }
+                else { const bm = formula.match(/\[([^\]]+)\]/); if (bm) src = bm[1]; }
+                push('calc', { src: src, formula: formula, result: formula.split('=').pop().trim() });
+                continue;
+              }
+
+              // 战利品压缩条目: {名称} ([产地: XX世界]): 基础面板已被压缩为 [C 阶极值]
+              if (curStage && curStage.type === 'loot' && /产地/.test(body)) {
+                const cm = body.match(/^(.+?)\s*[（(]\s*产地[：:]\s*([^）)]+)[）)]\s*[：:]?\s*(.*)$/);
+                if (cm) {
+                  push('lootItem', { name: stripDecor(cm[1]), origin: cm[2].trim(), note: stripDecor(cm[3]) });
+                  continue;
+                }
+              }
+
+              // 仓库检测行: *(检测仓库物品: ...)*
+              if ((m = body.match(/^[\(*]*检测仓库物品[：:]?\s*(.+?)\)*$/))) {
+                push('warehouse', { text: m[1].replace(/[\)*]+$/, '').trim() });
+                continue;
+              }
+
+              // 卡片内部无值小节头: "判定依据:" / "判定结果:" / "获得:" (冒号后无值, 内容在后续行)
+              if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
+                const secM = stripDecor(body).match(/^(判定依据|判定结果|获得|获得物品)[：:]?$/);
+                if (secM) {
+                  if (secM[1] === '判定依据' || secM[1] === '判定结果') {
+                    cardSec = 'reasons';
+                    push('reasonHead', { text: secM[1] });
+                  } else {
+                    cardSec = 'item';
+                  }
+                  continue;
+                }
+                // 判定依据/判定结果 子项: "- 深度干涉黑暗之门战役因果" → 回填卡片 reasons, 渲染为小字列表
+                if (cardSec === 'reasons') {
+                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                  const plainR = stripDecor(body);
+                  if (card && plainR && !/[：:]/.test(plainR) && plainR.length <= 40) {
+                    card.reasons = (card.reasons || []).concat(plainR);
+                    push('reason', { text: plainR });
+                    continue;
+                  }
+                }
+              }
+
+              // 通用键值: **键**: 值 (含 [键]/【键】: 值)
+              if ((m = body.match(/^\*{0,2}[【\[]?([^*【】\[\]：:]{1,22})[】\]]?\*{0,2}\s*[：:]\s*(.+)$/))) {
+                const k = m[1].trim();
+                const v = stripDecor(m[2]);
+
+                // 卡片内部小节状态跟随键名切换 (获得/获得物品 → 物品名, 判定依据 → 子项)
+                if (curSub === '世界结晶' || curSub === '世界遗物') {
+                  if (k === '判定依据') cardSec = 'reasons';
+                  else if (k === '获得' || k === '获得物品') cardSec = 'item';
+                  else cardSec = '';
+                }
+
+                // 卡片内部编号事迹行(kv 形态 "1. 沼泽之蚀：xxx") → 回填 effect, 不作普通键值
+                if (curStage && (curSub === '世界结晶' || curSub === '世界遗物') && /^\d+[.、]/.test(k)) {
+                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                  if (card) {
+                    card.effect = (card.effect ? card.effect + '\n' : '') + k + '：' + v;
+                    push('para', { text: k + '：' + v });
+                    continue;
+                  }
+                }
+
+                // 汇总行: 击杀奖励合计/上限/实际计入收益
+                if (curStage && curStage.type === 'income' && /合计|上限|实际计入/.test(k)) {
+                  push('sum', { name: k, v: v });
+                  continue;
+                }
+                // 总收益行: 【 32000 空间币 】 已清算完毕
+                if (/总收益/.test(k)) {
+                  const nm = v.match(/-?[\d,，\.]+\s*万?/);
+                  push('total', { num: nm ? parseCnNum(nm[0]) : null, text: v, debt: /负债/.test(v) });
+                  continue;
+                }
+                // 稳定值变动: 100% → 45%
+                if (/稳定/.test(k) && /→|->/.test(v)) {
+                  const pm = v.match(/(\d+(?:\.\d+)?)\s*%\s*(?:→|->)\s*(\d+(?:\.\d+)?)\s*%/);
+                  if (pm) { push('stab', { from: parseFloat(pm[1]), to: parseFloat(pm[2]) }); continue; }
+                }
+                // 注1/注2
+                if (/^注/.test(k)) { push('note', { text: k + '：' + v }); continue; }
+                // 失败惩罚条目: [失败任务名]: 强制执行惩罚 -> xxx
+                if (curStage && curStage.type === 'income' && isList && !/^注/.test(k) && /->|→|强制执行惩罚/.test(v)) {
+                  push('punish', { name: k.replace(/[[\]]/g, ''), desc: v.replace(/^强制执行惩罚\s*(?:->|→)?\s*/, '') });
+                  continue;
+                }
+                // 高光事件条目: * {事件名}: {描述}
+                if (curStage && curStage.type === 'story' && isList && curSub && /高光|回放/.test(curSub)) {
+                  push('hl', { t: k, d: v });
+                  continue;
+                }
+                // 普通键值
+                // 卡片内部字段: 回填 relic/relicGold 卡片对象(供 MVU 写入), 同时照常渲染
+                if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
+                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                  if (card) {
+                    if (k === '获得物品' || k === '获得') card.name = v.replace(/^[【[]|[】\]]$/g, '').trim() || v;
+                    else if (k === '类型') card.type = v;
+                    else if (k === '效果') card.effect = (card.effect ? card.effect + '\n' : '') + v;
+                    else if (k === '描述') card.desc = v;
+                    else if (k === '来源') card.origin = v;
+                  }
+                }
+                // 普通键值
+                push('kv', { k: k, v: v });
+                continue;
+              }
+
+              // 空态文案: 本次结算无失败任务，无惩罚抵扣 /本次未获得世界遗物等
+              const plainBody = stripDecor(body);
+              if (!/[：:]/.test(plainBody) && plainBody.length < 60 &&
+                  /未|无/.test(plainBody) &&
+                  /惩罚|失败|获得|遗物|检测|压缩|抵扣/.test(plainBody)) {
+                push('empty', { text: plainBody });
+                continue;
+              }
+
+              // 结语: 【轮回清算完毕...】
+              if (/^【.*完毕.*】$/.test(stripDecor(body))) {
+                push('closing', { text: stripDecor(body) });
+                continue;
+              }
+
+              // 卡片内部多行效果续行 (效果: 值 换行后接 "1. xxx" / "2. xxx" 编号行)
+              //   普通段落兜底前, 先把编号事迹行回填到当前卡片 effect
+              if (curStage && (curSub === '世界结晶' || curSub === '世界遗物') && /^\d+[.、]\s*\S/.test(stripDecor(body))) {
+                const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                if (card) {
+                  card.effect = (card.effect ? card.effect + '\n' : '') + stripDecor(body);
+                  push('para', { text: stripDecor(body) });
+                  continue;
+                }
+              }
+              // 卡片物品名独立行: "获得:" 换行后的 【XXX】 (世界遗物格式) → 回填卡片 name
+              //   仅限 item 小节或【】包裹行, 防止判定依据子项被误判为物品名
+              if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
+                const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                const plain0 = stripDecor(body);
+                if (card && !card.name && plain0 && !/[：:]/.test(plain0) &&
+                    (cardSec === 'item' || /^[【\[]/.test(plain0)) &&
+                    plain0.replace(/^[【[]|[】\]]$/g, '').trim().length <= 30) {
+                  card.name = plain0.replace(/^[【[]|[】\]]$/g, '').trim();
+                }
+              }
+              // 普通段落 (终章梗概 / 卡片说明 / 传闻条目)
+              push('para', { text: stripDecor(body) });
+            }
+            return out;
+          }
+
+          // ===== 徽章行 =====
+          function gradeBadge(v, hero) {
+            const t = gradeTier(v);
+            return '<span class="st-grade g-' + t + (hero ? ' hero' : '') + '">' + escapeHtml(t) + '</span>';
+          }
+
+          function rateRow(k, v) {
+            // 单评级: A → hero 徽章; 区间: F-E → 双徽章
+            const gm = String(v).trim().match(/^([A-Za-z]{1,3})\s*[-~—–]\s*([A-Za-z]{1,3})$/);
+            if (gm && GRADES.indexOf(gm[1].toUpperCase()) >= 0 && GRADES.indexOf(gm[2].toUpperCase()) >= 0) {
+              return '<div class="st-rate-row"><span class="k">' + escapeHtml(k) + '</span>' +
+                  '<span class="st-grade g-' + gradeTier(gm[1]) + '">' + escapeHtml(gm[1].toUpperCase()) + '</span>' +
+                  '<span class="st-grade wave">~</span>' +
+                  '<span class="st-grade g-' + gradeTier(gm[2]) + '">' + escapeHtml(gm[2].toUpperCase()) + '</span></div>';
+            }
+            return '<div class="st-rate-row"><span class="k">' + escapeHtml(k) + '</span>' + gradeBadge(v, /表现/.test(k)) + '</div>';
+          }
+
+          // ===== 单项渲染 =====
+          function renderItem(it, st) {
+            switch (it.kind) {
+              case 'sub':
+                return '<div class="st-sub">' + escapeHtml(it.name) + '</div>';
+
+              case 'kv': {
+                const k = it.k, v = it.v;
+                // 评级徽章: 任务表现评级/世界难度评级/凭证等级 等
+                if (/评级|等级|难度|基准/.test(k) && /^[A-Za-z]{1,3}$/.test(v.trim()) && GRADES.indexOf(v.trim().toUpperCase()) >= 0) {
+                  return rateRow(k, v);
+                }
+                if (/难度|评级/.test(k) && /^[A-Za-z]{1,3}\s*[-~—–]\s*[A-Za-z]{1,3}$/.test(v.trim())) {
+                  return rateRow(k, v);
+                }
+                // 纪念物/遗物名称: 获得物品: 【XXX】
+                if ((k === '获得物品' || k === '获得') && /^【.+】$/.test(v)) {
+                  return '<div class="st-relic-name">' + escapeHtml(v) + '</div>';
+                }
+                // 遗物嘉奖判定结果 → 徽章 (满足/授予=绿, 未获得=灰)
+                if (k === '判定结果') {
+                  const okV = /满足|授予/.test(v) && !/未获得/.test(v);
+                  return '<div class="st-verdict ' + (okV ? 'ok' : 'no') + '">' + (okV ? '✔ ' : '✕ ') + escapeHtml(v) + '</div>';
+                }
+                // 结晶描述台词
+                if (k === '描述' && /[“”"]/.test(v)) {
+                  return '<div class="st-relic-quote">' + escapeHtml(v) + '</div>';
+                }
+                // 事迹铭刻
+                if (k === '效果' && /事迹留存/.test(v)) {
+                  return '<div class="st-kv effect"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
+                }
+                // 系统评述
+                if (/评述/.test(k)) {
+                  return '<div class="st-comment">' + escapeHtml(v) + '</div>';
+                }
+                // 收益类键值金色
+                if (st && st.type === 'income' && /奖励|收益/.test(k)) {
+                  return '<div class="st-kv income-v"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
+                }
+                return '<div class="st-kv"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
+              }
+
+              case 'reasonHead':
+                return '<div class="st-reason-head">' + escapeHtml(it.text) + '</div>';
+
+              case 'reason':
+                return '<div class="st-reason">' + escapeHtml(it.text) + '</div>';
+
+              case 'stab':
+                return '<div class="st-stab"><div class="st-stab-label"><span>世界稳定值变动</span><span><b>100%</b> → <b>' + it.to + '%</b></span></div>' +
+                    '<div class="st-stab-bar"><div class="st-stab-fill" data-w="' + Math.max(0, Math.min(100, it.to)) + '"></div></div></div>';
+
+              case 'brand':
+                return '<div class="st-brand"><div class="st-brand-label">副 本 烙 印</div><div class="st-brand-name">' + escapeHtml(it.name) + '</div></div>';
+
+              case 'hl':
+                return '<div class="st-tl-item"><span class="t">' + escapeHtml(it.t) + '</span>' + (it.d ? '<span class="d">：' + escapeHtml(it.d) + '</span>' : '') + '</div>';
+
+              case 'calc': {
+                const tier = (String(it.src).match(/[ⅠⅡⅢⅣⅤⅥⅦⅧⅨ]/) || [''])[0];
+                const srcTxt = tier ? (tier + '级目标') : (it.src || '收益项');
+                return '<div class="st-calc-row"><span class="st-calc-src">[' + escapeHtml(srcTxt) + ']</span>' +
+                    '<span class="st-calc-formula">' + escapeHtml(it.formula) + '</span>' +
+                    '<span class="st-calc-sum">= ' + escapeHtml(it.result) + '</span></div>';
+              }
+
+              case 'punish':
+                return '<div class="st-punish"><span class="t">⚠ ' + escapeHtml(it.name) + '</span><span class="d">' + escapeHtml(it.desc) + '</span></div>';
+
+              case 'sum':
+                return '<div class="st-sum-row' + (/计入/.test(it.name) ? ' final' : '') + '"><span class="k">' + escapeHtml(it.name) + '</span><span class="v">' + escapeHtml(it.v) + '</span></div>';
+
+              case 'total': {
+                const neg = it.num != null && it.num < 0;
+                const numText = it.num != null ? fmtNum(it.num) : it.text;
+                return '<div class="st-total' + (neg ? ' neg' : '') + '">' +
+                    '<div class="st-total-label">个 人 最 终 总 收 益</div>' +
+                    '<div class="st-total-num"><span class="st-num-val">' + escapeHtml(numText) + '</span><span class="unit">空间币</span></div>' +
+                    (it.debt ? '<div class="st-total-debt">⚠ 余额不足 · 账户进入负债状态 · 脱离主神空间前需强制偿还</div>' : '') +
+                    '<div class="st-total-done">已 清 算 完 毕</div></div>';
+              }
+
+              case 'note':
+                return '<div class="st-note">※ ' + escapeHtml(it.text) + '</div>';
+
+              case 'notice':
+                return '<div class="st-notice">◈ ' + escapeHtml(it.text) + '</div>';
+
+              case 'empty':
+                return '<div class="st-empty">' + escapeHtml(it.text) + '</div>';
+
+              case 'warehouse':
+                return '<div class="st-warehouse">📦 仓库检测：' + escapeHtml(it.text) + '</div>';
+
+              case 'lootItem': {
+                const tm = String(it.note || '').match(/[【\[]([^】\]]+)[】\]]/);
+                const badge = tm ? tm[1] : it.note;
+                return '<div class="st-loot-item"><span class="n">' + escapeHtml(it.name) + '</span>' +
+                    '<span class="d"> (产地: ' + escapeHtml(it.origin) + ')</span>' +
+                    (badge ? '<span class="compress">⚡ ' + escapeHtml(badge) + '</span>' : '') + '</div>';
+              }
+
+              case 'closing':
+                return '<div class="st-closing">' + escapeHtml(it.text) + '</div>';
+
+              case 'para': {
+                const t = it.text;
+                const sub = it.sub || '';
+                // 卡内纯名称行: 【宿傩的手指】
+                if (/^【.+】$/.test(t)) return '<div class="st-relic-name">' + escapeHtml(t) + '</div>';
+                // 凭证说明
+                if (/凭证/.test(sub)) return '<div class="st-cert-desc">' + escapeHtml(t) + '</div>';
+                // 遗物嘉奖判定细节 → 小字
+                if (/遗物/.test(sub)) return '<div class="st-note">' + escapeHtml(t) + '</div>';
+                // 世界传闻条目
+                if (/传闻/.test(sub)) return '<div class="st-tl-item rumor"><span class="d">' + escapeHtml(t) + '</span></div>';
+                return '<div class="st-para">' + escapeHtml(t) + '</div>';
+              }
+
+              default:
+                return '';
+            }
+          }
+
+          // ===== 渲染整体面板 =====
+          function renderSettlement(d) {
+            let html = '';
+
+            html += '<div class="st-banner">';
+            html += '<div class="st-banner-main">' + escapeHtml(d.title || '主神空间 · 轮回清算协议') + '</div>';
+            html += '<div class="st-banner-tags">';
+            if (d.serial) html += '<span class="st-tag">协议序列 <b>' + escapeHtml(d.serial) + '</b></span>';
+            if (d.player) html += '<span class="st-tag">轮回者 <b>' + escapeHtml(d.player) + '</b></span>';
+            html += '</div></div>';
+
+            d.stages.forEach(function(st, idx) {
+              if (!st.items.length) return; // 跳过空阶段
+              let inner = '';
+              const items = st.items;
+              let i = 0;
+              let rewardSeen = false;
+              let trialInserted = false;
+              while (i < items.length) {
+                const it = items[i];
+
+                if (it.kind === 'sub' && /任务专属奖励/.test(it.name || '')) rewardSeen = true;
+                if (rewardSeen && !trialInserted && it.kind === 'sub' && !/任务专属奖励/.test(it.name || '') && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
+                  inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
+                  trialInserted = true;
+                }
+
+                // 连续汇总行合并进一个框
+                if (it.kind === 'sum') {
+                  let rows = '';
+                  while (i < items.length && items[i].kind === 'sum') { rows += renderItem(items[i], st); i++; }
+                  inner += '<div class="st-sum-rows">' + rows + '</div>';
+                  continue;
+                }
+                // 卡片: 收集其后同 sub 的 kv/para
+                if (it.kind === 'cert' || it.kind === 'relic' || it.kind === 'relicGold') {
+                  const cardSub = it.sub;
+                  i++;
+                  let card = '';
+                  while (i < items.length && (items[i].kind === 'kv' || items[i].kind === 'para' || items[i].kind === 'reasonHead' || items[i].kind === 'reason') && items[i].sub === cardSub) {
+                    card += renderItem(items[i], st);
+                    i++;
+                  }
+                  if (!card) card = '<div class="st-cert-desc">系统核录完毕。</div>';
+                  if (it.kind === 'cert') {
+                    inner += '<div class="st-cert"><div class="st-cert-title">◆ 主神权限凭证</div>' + card + '</div>';
+                  } else if (it.kind === 'relic') {
+                    inner += '<div class="st-relic"><div class="st-relic-label">' + escapeHtml(it.label || '世界结晶') + '</div>' + card + '</div>';
+                  } else {
+                    inner += '<div class="st-relic gold"><div class="st-relic-label">' + escapeHtml(it.label || '世界遗物') + '</div>' + card + '</div>';
+                  }
+                  continue;
+                }
+                inner += renderItem(it, st);
+                i++;
+              }
+
+              if (rewardSeen && !trialInserted && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
+                inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
+              }
+
+              html += '<div class="st-stage t-' + st.type + '">';
+              html += '<div class="st-stage-head"><span class="st-stage-no">' + (idx + 1) + '</span>';
+              html += '<span class="st-stage-name">' + escapeHtml(st.name || '结算阶段') + '</span>';
+              html += '<span class="st-stage-line"></span></div>';
+              html += inner;
+              html += '</div>';
+            });
+            return html;
+          }
+
+          // 兜底: 解析失败时按行渲染原文
+          function renderPlain(text) {
+            return String(text).replace(/\r/g, '').split('\n')
+                .filter(function(l) { return l.trim(); })
+                .map(function(l) { return '<div class="st-plain-line">' + escapeHtml(l.trim()) + '</div>'; })
+                .join('');
+          }
+
+          // ===== 自动写入 MVU 数据库 =====
+          // 参考 正则/主神任务美化.html 的 win.Mvu.replaceMvuData 写入模式
+          //   世界遗物 → 主角.装备.[名称] (品质=世界难度最低档, 标签=[主神空间, 来源世界])
+          //     已存在同名装备(exists)直接跳过: 不叠加不覆盖, 装备天然不可堆叠
+          //   世界结晶 → 主角.道具.[名称] (效果按编号行逐一写入 效果1/效果2/...)
+          //     已存在同名道具(exists)直接跳过: 纪念物视为唯一收藏, 重复获得不叠加
+          // 压缩战利品/空间币不动, 交给正文 AI 的 UpdateVariable 处理
+          function writeSettlementToMvu(d, worldName) {
+            try {
+              const win = window.parent || window;
+              if (!win.Mvu || !win._ || !win._.set) return;
+              const c = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
+              if (!c) return;
+
+              let changed = false;
+              // 物品已存在(非空对象)则跳过, 防止渲染重复触发时反复覆盖
+              function exists(path) {
+                try {
+                  const cur = win._.get(c, path);
+                  return cur && typeof cur === 'object' && Object.keys(cur).length > 0;
+                } catch (e) { return false; }
+              }
+
+              // ---- 世界难度最低档: 优先 世界难度评级(E~A), 回落 任务难度评级 ----
+              let baseGrade = '';
+              const assess = d.stages.find(function(s) { return s.type === 'assess'; });
+              (assess ? assess.items : []).forEach(function(it) {
+                if (it.kind !== 'kv') return;
+                if (/难度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) {
+                  baseGrade = gradeFloor(it.v);
+                }
+              });
+              if (!baseGrade) {
+                d.stages.forEach(function(s) {
+                  s.items.forEach(function(it) {
+                    if (it.kind === 'kv' && /难度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) {
+                      baseGrade = gradeFloor(it.v);
+                    }
+                  });
+                });
+              }
+              if (!baseGrade) baseGrade = 'F';
+
+              // ---- 收集结算物品 ----
+              const relics = [];   // 世界结晶 → 道具
+              const golds = [];    // 世界遗物 → 装备
+              d.stages.forEach(function(s) {
+                s.items.forEach(function(it) {
+                  if (it.kind === 'relic' && it.name) relics.push(it);
+                  if (it.kind === 'relicGold' && it.name) golds.push(it);
+                });
+              });
+              // 来源世界: 协议序列 Ω-XXX-结算 > 卡片 origin 字段
+              const world = worldName || '';
+
+              // ---- 世界遗物 → 主角.装备.[名称] ----
+              golds.forEach(function(g) {
+                if (!g.name || exists('stat_data.主角.装备.' + g.name)) return;
+                const key = 'stat_data.主角.装备.' + g.name;
+                win._.set(c, key + '.品质', baseGrade);
+                win._.set(c, key + '.类型', 8); // 特殊
+                win._.set(c, key + '.标签', ['主神空间', g.origin || world].filter(Boolean));
+                win._.set(c, key + '.原始属性', {});
+                win._.set(c, key + '.效果', parseEffectLines(g.effect));
+                win._.set(c, key + '.描述', g.desc || (world ? ('世界遗物, 来源: ' + world) : '世界遗物'));
+                win._.set(c, key + '.消耗', '');
+                win._.set(c, key + '.状态', 0);
+                changed = true;
+              });
+
+              // ---- 效果文本 → 语义键字典 (世界结晶/世界遗物共用) ----
+              // "【因果铭刻】无数值加成。事迹留存：" → 因果铭刻: 无数值加成。事迹留存：
+              // "1. 沼泽之蚀：以凡人之躯…"        → 沼泽之蚀: 以凡人之躯…
+              // "【法则重塑】可微调局部物理法则。"   → 法则重塑: 可微调局部物理法则。
+              function parseEffectLines(txt) {
+                const eff = {};
+                if (!txt) return eff;
+                txt.split('\n').map(function(x) { return x.trim(); }).filter(Boolean).forEach(function(ln) {
+                  const nm = ln.match(/^\d+[.、]\s*(.+)$/);                                  // 编号行
+                  const em = ln.match(/^[【\[]([^【】\[\]：:]{1,12})[】\]]\s*[：:]\s*(.+)$/); // 【键】：值
+                  const bm = ln.match(/^[【\[]([^【】\[\]：:]{1,12})[】\]]\s*(.+)$/);         // 【键】值 (无冒号)
+                  if (nm && nm[1].indexOf('：') >= 0) {
+                    const pm = nm[1].split('：');
+                    eff[pm[0].trim()] = pm.slice(1).join('：').trim();
+                  } else if (em) {
+                    eff[em[1].trim()] = em[2].trim();
+                  } else if (nm && bm) {
+                    eff[bm[1].trim()] = bm[2].trim();        // "1. 【键】值" 形态
+                  } else if (nm) {
+                    eff['事迹' + (Object.keys(eff).length + 1)] = nm[1];
+                  } else if (bm) {
+                    eff[bm[1].trim()] = bm[2].trim();
+                  } else {
+                    const last = Object.keys(eff).pop();
+                    if (last) eff[last] += ' ' + ln;
+                    else eff['持有时'] = ln;   // 无效果名时以"持有时"兜底
+                  }
+                });
+                return eff;
+              }
+
+              // ---- 世界结晶 → 主角.道具.[名称] (效果按语义键逐一写入) ----
+              relics.forEach(function(r) {
+                if (!r.name || exists('stat_data.主角.道具.' + r.name)) return;
+                const key = 'stat_data.主角.道具.' + r.name;
+                const eff = parseEffectLines(r.effect);
+                win._.set(c, key + '.品质', baseGrade);
+                win._.set(c, key + '.类型', r.type || '纪念物');
+                win._.set(c, key + '.数量', 1);
+                win._.set(c, key + '.标签', ['主神空间', world].filter(Boolean));
+                win._.set(c, key + '.效果', eff);
+                win._.set(c, key + '.描述', r.desc || '');
+                win._.set(c, key + '.状态', 0);
+                changed = true;
+              });
+
+              if (!changed) return;
+              win.Mvu.replaceMvuData(c, { type: 'message', message_id: 'latest' });
+              try { win.Mvu.replaceMvuData(c, { type: 'chat' }); } catch (e2) {}
+            } catch (e) { console.warn('结算任务写入数据库失败:', e); }
+          }
+
+          // ===== 主流程 =====
+          const btn = wrapper.querySelector('.st-btn');
+          const rawDiv = wrapper.querySelector('.st-raw');
+          const labelSpan = wrapper.querySelector('.st-label');
+          const panelDiv = wrapper.querySelector('.st-panel');
+          if (!btn || !rawDiv || !labelSpan || !panelDiv) return;
+
+          const rawText = rawDiv.textContent;
+          const d = parseSettlement(rawText);
+
+          // 按钮标签: 轮回清算 · 世界名 (取自协议序列 Ω-XXX-结算)
+          let worldName = '';
+          const sm = (d.serial || '').match(/^Ω-(.+)-结算$/);
+          if (sm) worldName = sm[1];
+          labelSpan.textContent = worldName ? ('轮回清算 · ' + worldName) : '轮回清算协议';
+
+          // 结构化判定: 有标题/序列/轮回者/命名阶段/结构化条目才渲染面板, 否则兜底纯文本
+          // (避免完全无关文本被渲染成空阶段框)
+          const hasStruct = d.title || d.serial || d.player ||
+              d.stages.some(function(s) {
+                return s.name || s.items.some(function(i) { return i.kind !== 'para'; });
+              });
+          panelDiv.innerHTML = hasStruct ? renderSettlement(d) : renderPlain(rawText);
+
+          // 解析成功(结构化数据非空)时自动写入数据库
+          if (hasStruct) writeSettlementToMvu(d, worldName);
+
+          function refreshTrialPanel() {
+            const latest = readTrialTasks();
+            if (latest.length) {
+              const score = trialScore(latest);
+              if (score >= bestTrialScore) {
+                trialTasks = latest;
+                bestTrialScore = score;
+              }
+            }
+            if (isTrialPassed(trialTasks)) writeTrialQualification();
+            panelDiv.querySelectorAll('.st-trial-host').forEach(function(host) {
+              host.innerHTML = renderTrialPanel();
+            });
+          }
+
+          // 变量更新结束后再次读取，避免在消息刚渲染时拿到更新前的“进行中”状态。
+          try {
+            const ctx = getMvuContext();
+            const win = ctx && ctx.win;
+            const onFn = win && typeof win.eventOn === 'function' ? win.eventOn : (typeof eventOn === 'function' ? eventOn : null);
+            const mvu = win && win.Mvu ? win.Mvu : (typeof Mvu !== 'undefined' ? Mvu : null);
+            if (onFn && mvu && mvu.events && mvu.events.VARIABLE_UPDATE_ENDED) {
+              onFn(mvu.events.VARIABLE_UPDATE_ENDED, function() { setTimeout(refreshTrialPanel, 0); });
+            }
+          } catch (e) {}
+          setTimeout(refreshTrialPanel, 60);
+          setTimeout(refreshTrialPanel, 180);
+
+          // 稳定值进度条动画
+          setTimeout(function() {
+            panelDiv.querySelectorAll('.st-stab-fill').forEach(function(el) {
+              el.style.width = (el.getAttribute('data-w') || 0) + '%';
+            });
+          }, 60);
+
+          // 总收益数字滚动动画
+          panelDiv.querySelectorAll('.st-num-val').forEach(function(el) {
+            const nm = el.textContent.match(/-?[\d,]+/);
+            if (!nm) return;
+            const target = parseCnNum(nm[0]);
+            if (target == null) return;
+            const dur = 900;
+            const t0 = performance.now();
+            (function tick(t) {
+              const p = Math.min(1, (t - t0) / dur);
+              const eased = 1 - Math.pow(1 - p, 3);
+              el.textContent = fmtNum(target * eased);
+              if (p < 1) requestAnimationFrame(tick);
+            })(t0);
+          });
+
+          btn.addEventListener('click', function() {
+            btn.classList.toggle('active');
+            panelDiv.classList.toggle('show');
+          });
+
+        })();
+      </script>
+    </div>
+    <!-- 替换模板结束 -->
+
 </body>
 </html>

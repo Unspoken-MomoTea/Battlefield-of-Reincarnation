@@ -19,7 +19,7 @@ jobs:
       - name: Recover and run guarded patch
         shell: bash
         run: |
-          git show HEAD^:.github/workflows/merge-achievement-settlement.yml > /tmp/previous-workflow.yml
+          git show c0afda3b5d0200cff8b71d999fb482950aeebbdb:.github/workflows/merge-achievement-settlement.yml > /tmp/previous-workflow.yml
           python - <<'PY'
           from pathlib import Path
           s = Path('/tmp/previous-workflow.yml').read_text(encoding='utf-8')
@@ -29,9 +29,33 @@ jobs:
           end = s.index(end_marker, start)
           block = s[start:end]
           lines = [(line[10:] if line.startswith('          ') else line) for line in block.splitlines()]
-          Path('/tmp/merge-achievement.py').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          source = '\n'.join(lines) + '\n'
+          bad_call = "once(old_tail, new_tail, 'insert achievement module into settlement renderer')"
+          if source.count(bad_call) != 1:
+              raise SystemExit('cannot neutralize old strict insertion')
+          source = source.replace(bad_call, "pass  # insertion handled by stable single-line anchor below", 1)
+          Path('/tmp/merge-achievement.py').write_text(source, encoding='utf-8')
           PY
           python /tmp/merge-achievement.py
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('Regular/结算任务美化.html')
+          text = p.read_text(encoding='utf-8')
+          anchor = "              html += '<div class=\"st-stage t-' + st.type + '\"><div class=\"st-stage-head\"><span class=\"st-stage-no\">' + (idx + 1) + '</span><span class=\"st-stage-name\">' + escapeHtml(st.name || '结算阶段') + '</span><span class=\"st-stage-line\"></span></div>' + inner + '</div>';\n"
+          if text.count(anchor) != 1:
+              raise SystemExit(f'stable stage anchor expected once, got {text.count(anchor)}')
+          insert = (
+              "              // 与晋升试炼一样，副本成就是结算任务美化内部模块，不创建第二个正则窗口。\n"
+              "              if (!achievementInserted && st.type === 'income' && achievementSnapshot.rows.length) {\n"
+              "                inner += '<div class=\"st-achievement-host\">' + renderAchievementPanel() + '</div>';\n"
+              "                achievementInserted = true;\n"
+              "              }\n\n"
+          )
+          text = text.replace(anchor, insert + anchor, 1)
+          p.write_text(text, encoding='utf-8')
+          PY
+
           python - <<'PY'
           from pathlib import Path
           import re
@@ -40,10 +64,14 @@ jobs:
           if len(scripts) != 1:
               raise SystemExit(f'expected one script block, found {len(scripts)}')
           Path('/tmp/settlement.js').write_text(scripts[0], encoding='utf-8')
+          world = Path('World Book/【结算任务】[mvu_plot].txt').read_text(encoding='utf-8')
+          if world.index('<achievement settlement>') > world.index('</settlement tasks>'):
+              raise SystemExit('achievement snapshot is outside settlement tasks')
+          if Path('Regular/成就结算美化.html').exists():
+              raise SystemExit('standalone achievement beautifier still exists')
           PY
           node --check /tmp/settlement.js
           git -c core.whitespace=cr-at-eol diff --check
-          test ! -e 'Regular/成就结算美化.html'
 
       - name: Commit merged module
         shell: bash

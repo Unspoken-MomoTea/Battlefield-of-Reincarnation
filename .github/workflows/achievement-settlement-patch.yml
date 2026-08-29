@@ -1,0 +1,385 @@
+name: Apply achievement settlement patch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/achievement-settlement-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply guarded patch
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new, label):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly 1 match, got {count}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # ============================================================
+          # 1) 辅助计算脚本：取消实时发奖，改为完整世界结算时统一发放
+          # ============================================================
+          helper = Path('script/辅助计算脚本.js')
+          text = helper.read_text(encoding='utf-8')
+
+          old_live_call = '''            // 副本成就首次达成：根据状态变化立即发放锁定盲盒，不等待结算
+            grantAchievementRewards(statData, statDataBefore);
+
+'''
+          new_live_call = '''            // 副本成就这里只记录状态；奖励统一在完整世界结算时发放
+
+'''
+          if text.count(old_live_call) != 1:
+              raise SystemExit(f'helper live grant call: expected 1 match, got {text.count(old_live_call)}')
+          text = text.replace(old_live_call, new_live_call, 1)
+
+          reward_pattern = re.compile(
+              r'''    /\*\*\n     \* 副本成就即时奖励\n.*?\n    }\n\n    /\*\* 规范化生命层级''',
+              re.S,
+          )
+          new_reward_block = r'''    /**
+     * 副本成就结算奖励
+     *   - 仅在完整世界清算时调用；游玩过程中只更新成就状态，不即时发奖
+     *   - 扫描当前副本全部【已达成】成就，同名盲盒聚合后一次性写入背包
+     *   - 完整结算随后清空副本成就，消息级防重入 + 空成就表共同保证不会重复发放
+     * @returns {number} 本次实际发放的盲盒总数
+     */
+    function grantAchievementRewards(statData) {
+        const currentAchievements = statData?.任务?.副本成就;
+        if (!currentAchievements || typeof currentAchievements !== 'object' || !Object.keys(currentAchievements).length) return 0;
+        if (!statData?.主角) return 0;
+
+        const grants = {};
+        const fallbackWorld = String(statData?.世界?.名称 || '').replace(/[【】《》]/g, '').trim();
+        Object.entries(currentAchievements).forEach(([achievementName, achievement]) => {
+            if (achievement?.状态 !== '已达成') return;
+
+            const reward = String(achievement.奖励 || '').trim();
+            let match = reward.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[·・]\s*(.+)$/i);
+            if (!match) match = reward.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[（(]\s*([^）)]*)\s*[）)]$/i);
+            if (!match) match = reward.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*$/i);
+            if (!match) {
+                console.warn('[成就奖励] 结算时无法识别盲盒格式:', achievementName, reward);
+                return;
+            }
+
+            const grade = normalizeTier(match[1]);
+            const world = String(match[2] || fallbackWorld).trim();
+            const boxName = grade + '级盲盒' + (world ? ('·' + world) : '');
+            if (!grants[boxName]) grants[boxName] = { grade, world, count: 0, achievements: [] };
+            grants[boxName].count++;
+            grants[boxName].achievements.push(achievementName);
+        });
+
+        if (!Object.keys(grants).length) return 0;
+        const items = statData.主角.道具 = statData.主角.道具 || {};
+        let grantedCount = 0;
+        Object.entries(grants).forEach(([boxName, grant]) => {
+            const existing = items[boxName] && typeof items[boxName] === 'object' ? items[boxName] : {};
+            const currentQty = safeNum(existing.数量, 0);
+
+            existing.品质 = grant.grade;
+            existing.类型 = '盲盒';
+            existing.数量 = currentQty + grant.count;
+            existing.标签 = Array.from(new Set([...(Array.isArray(existing.标签) ? existing.标签 : []), '主神空间', '盲盒', grant.world].filter(Boolean)));
+            existing.效果 = existing.效果 && typeof existing.效果 === 'object' ? existing.效果 : {};
+            if (!existing.效果.开启) existing.效果.开启 = '盲盒抽奖，打开后随机抽取「' + (grant.world || '主神空间') + '」对应品质的奖励。';
+            if (!existing.描述) existing.描述 = '副本成就奖励。';
+            if (![0, 1, 2].includes(Number(existing.状态))) existing.状态 = 0;
+            items[boxName] = existing;
+
+            grantedCount += grant.count;
+            console.log('[成就奖励] 结算发放:', boxName, '×' + grant.count, grant.achievements);
+        });
+        return grantedCount;
+    }
+
+    /** 规范化生命层级'''
+          text, n = reward_pattern.subn(new_reward_block, text, count=1)
+          if n != 1:
+              raise SystemExit(f'helper reward function: expected 1 match, got {n}')
+
+          settle_anchor = '''                if (shouldCompleteTrial) {
+                    sd.系统状态 = sd.系统状态 || {};
+                    sd.系统状态.试炼已完成 = true;
+                }
+                // 1. 基础数据重置
+'''
+          settle_replacement = '''                if (shouldCompleteTrial) {
+                    sd.系统状态 = sd.系统状态 || {};
+                    sd.系统状态.试炼已完成 = true;
+                }
+                // 完整副本结算：先发放当前副本全部已达成成就的锁定盲盒，再清理副本数据。
+                // 单一世界不生成副本成就，因此仅轮回模式执行。
+                if (!isSingleWorld) {
+                    grantAchievementRewards(sd);
+                }
+                // 1. 基础数据重置
+'''
+          if text.count(settle_anchor) != 1:
+              raise SystemExit(f'helper settlement grant anchor: expected 1 match, got {text.count(settle_anchor)}')
+          text = text.replace(settle_anchor, settle_replacement, 1)
+          helper.write_text(text, encoding='utf-8')
+
+          # ============================================================
+          # 2) 任务规则：文案与实际流程对齐
+          # ============================================================
+          replace_once(
+              'World Book/⚙️任务与委托系统.txt',
+              '    - 副本成就首次达成时由系统立即发放锁定奖励，AI只负责更新成就状态',
+              '    - 副本成就达成时AI只负责更新成就状态；锁定奖励由系统在完整世界结算时统一发放',
+              'task system achievement reward rule',
+          )
+          replace_once(
+              'World Book/⚙️任务与委托系统.txt',
+              '    已达成 + 系统立即发奖（终态）',
+              '    已达成（等待完整世界结算统一发奖，终态）',
+              'task system achievement state machine',
+          )
+
+          # ZOD 注释同步（不改 schema）
+          replace_once(
+              'script/ZOD脚本.js',
+              '        // 副本成就: 首次从未达成变为已达成时，由辅助脚本立即发放奖励',
+              '        // 副本成就: AI仅维护未达成/已达成；完整世界结算时由辅助脚本统一发放奖励',
+              'zod achievement comment',
+          )
+
+          # ============================================================
+          # 3) 结算世界书：把成就快照固化进最终消息，供独立美化器重放
+          # ============================================================
+          settlement = Path('World Book/【结算任务】[mvu_plot].txt')
+          text = settlement.read_text(encoding='utf-8')
+
+          top_anchor = '''  const warehouseSummary = (() => {
+    const parts = [];
+    if (warehouseEquipText) parts.push(`装备: ${warehouseEquipText}`);
+    if (warehouseItemText) parts.push(`道具: ${warehouseItemText}`);
+    return parts.length ? parts.join(' | ') : '（仓库为空）';
+  })();
+'''
+          top_replacement = top_anchor + '''
+  // 副本成就快照：完整结算后数据库会被清空，因此必须把六项成就固化进结算消息本身。
+  // 单一世界不生成副本成就；数据库为空时不输出额外成就窗口。
+  const cleanAchievementField = (value) => String(value == null ? '' : value)
+    .replace(/\\r?\\n/g, ' ')
+    .replace(/\\|/g, '／')
+    .trim();
+  const achievementEntries = Object.entries(_.get(rule_data, '任务.副本成就', {}) || {}).map(([name, item]) => {
+    const a = item && typeof item === 'object' ? item : {};
+    return {
+      name: cleanAchievementField(name),
+      difficulty: cleanAchievementField(a.难度),
+      desc: cleanAchievementField(a.说明),
+      reward: cleanAchievementField(a.奖励),
+      status: cleanAchievementField(a.状态 || '未达成'),
+    };
+  });
+  const achievementDoneCount = achievementEntries.filter((a) => a.status === '已达成').length;
+  const achievementWorldName = cleanAchievementField(_.get(rule_data, '世界.名称', '当前副本')) || '当前副本';
+'''
+          if text.count(top_anchor) != 1:
+              raise SystemExit(f'settlement top anchor: expected 1 match, got {text.count(top_anchor)}')
+          text = text.replace(top_anchor, top_replacement, 1)
+
+          display_anchor = '''前端展示层 (必须使用 `<settlement tasks>` 标签包裹，强制按以下Markdown格式输出，严禁擅自增加无关闲聊):
+============================================================
+<settlement tasks>
+'''
+          display_replacement = '''前端展示层 (必须使用 `<settlement tasks>` 标签包裹，强制按以下Markdown格式输出，严禁擅自增加无关闲聊):
+  - 轮回模式且数据库存在副本成就时：在 `</settlement tasks>` 后必须逐字输出程序预填的 `<achievement settlement>` 成就快照块；严禁改名、改序、改状态、改奖励或遗漏任一项
+  - `<achievement settlement>` 只用于前端成就结算窗口与历史消息重放；AI不得把其中的奖励再次写入变量，奖励由后台结算脚本统一发放
+============================================================
+<settlement tasks>
+'''
+          if text.count(display_anchor) != 1:
+              raise SystemExit(f'settlement display anchor: expected 1 match, got {text.count(display_anchor)}')
+          text = text.replace(display_anchor, display_replacement, 1)
+
+          end_anchor = '''</settlement tasks>
+</System_Rules>
+'''
+          end_replacement = '''</settlement tasks>
+<%_ if (!isSingleWorld && achievementEntries.length) { _%>
+<achievement settlement>
+副本：<%= achievementWorldName %>
+达成：<%= achievementDoneCount %>/<%= achievementEntries.length %>
+<%_ achievementEntries.forEach((a, index) => { _%>
+<%= index + 1 %>|<%= a.difficulty %>|<%= a.name %>|<%= a.desc %>|<%= a.reward %>|<%= a.status %>
+<%_ }); _%>
+</achievement settlement>
+<%_ } _%>
+</System_Rules>
+'''
+          if text.count(end_anchor) != 1:
+              raise SystemExit(f'settlement end anchor: expected 1 match, got {text.count(end_anchor)}')
+          text = text.replace(end_anchor, end_replacement, 1)
+          settlement.write_text(text, encoding='utf-8')
+
+          # ============================================================
+          # 4) 独立成就结算美化器：只吃消息快照，不再依赖已被清空的数据库
+          # ============================================================
+          achievement_html = r'''```text
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>副本成就结算渲染器</title>
+  <!--
+    SillyTavern 正则配置:
+      findRegex:     /<achievement settlement>([\s\S]*?)<\/achievement settlement>/gsi
+      replaceString: 本文件“替换模板开始”到“替换模板结束”之间的全部内容
+  -->
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; padding:12px 16px; background:transparent; color:#e8dfcf; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; }
+    .ac-wrap { margin:2px 0 18px; }
+    .ac-btn { display:inline-flex; align-items:center; gap:8px; padding:5px 14px; cursor:pointer; user-select:none; border:1px solid rgba(251,146,60,.55); border-radius:5px; background:linear-gradient(135deg,rgba(55,31,13,.95),rgba(29,19,12,.95)); box-shadow:0 3px 14px rgba(0,0,0,.35); color:#fdba74; font-size:.88em; font-weight:700; letter-spacing:1px; transition:.2s ease; }
+    .ac-btn:hover,.ac-btn.active { border-color:#fb923c; transform:translateY(-1px); box-shadow:0 5px 18px rgba(0,0,0,.42),0 0 14px rgba(251,146,60,.16); }
+    .ac-icon { font-size:1.05em; text-shadow:0 0 8px rgba(251,146,60,.45); }
+    .ac-panel { display:none; margin-top:9px; max-width:760px; overflow:hidden; border:1px solid rgba(251,146,60,.24); border-radius:10px; background:linear-gradient(145deg,rgba(28,20,15,.98),rgba(13,15,21,.98)); box-shadow:0 10px 36px rgba(0,0,0,.48); }
+    .ac-panel.show { display:block; animation:acIn .25s ease; }
+    @keyframes acIn { from{opacity:0;transform:translateY(-7px)} to{opacity:1;transform:none} }
+    .ac-head { padding:15px 17px 12px; border-bottom:1px solid rgba(251,146,60,.15); background:radial-gradient(ellipse at 18% 0%,rgba(251,146,60,.14),transparent 62%); }
+    .ac-title-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .ac-title { color:#fed7aa; font-weight:900; letter-spacing:2px; text-shadow:0 0 12px rgba(251,146,60,.32); }
+    .ac-count { color:#fdba74; font:800 .82em "Cascadia Code","Consolas",monospace; white-space:nowrap; }
+    .ac-world { margin-top:5px; color:#9da8b5; font-size:.77em; letter-spacing:.6px; }
+    .ac-progress { height:5px; margin-top:10px; border-radius:3px; overflow:hidden; background:rgba(255,255,255,.07); }
+    .ac-progress > i { display:block; height:100%; border-radius:3px; background:linear-gradient(90deg,#f59e0b,#fb923c,#fdba74); box-shadow:0 0 8px rgba(251,146,60,.38); }
+    .ac-list { padding:9px 12px 5px; }
+    .ac-item { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:10px; align-items:start; margin:6px 0; padding:10px 11px; border:1px solid rgba(255,255,255,.065); border-radius:7px; background:rgba(255,255,255,.025); }
+    .ac-item.done { border-color:rgba(134,239,172,.2); background:rgba(134,239,172,.035); }
+    .ac-stars { min-width:54px; color:#fb923c; font-size:.72em; line-height:1.7; letter-spacing:-1px; text-shadow:0 0 7px rgba(251,146,60,.35); }
+    .ac-main { min-width:0; }
+    .ac-name { color:#e7d7c5; font-size:.86em; font-weight:800; word-break:break-word; }
+    .ac-desc { margin-top:3px; color:#9da8b5; font-size:.75em; line-height:1.55; word-break:break-word; }
+    .ac-reward { margin-top:5px; color:#d3b98d; font-size:.72em; word-break:break-word; }
+    .ac-grade { display:inline-block; margin-right:5px; min-width:29px; padding:0 5px; text-align:center; border:1px solid rgba(245,215,110,.38); border-radius:3px; color:#f5d76e; font-weight:900; }
+    .ac-state { align-self:center; padding:2px 8px; border-radius:999px; border:1px solid; font-size:.71em; font-weight:900; white-space:nowrap; }
+    .ac-state.ok { color:#86efac; border-color:rgba(134,239,172,.42); background:rgba(134,239,172,.07); }
+    .ac-state.no { color:#94a3b8; border-color:rgba(148,163,184,.28); background:rgba(148,163,184,.045); }
+    .ac-foot { margin:7px 12px 12px; padding:9px 11px; text-align:center; border-top:1px dashed rgba(255,255,255,.1); color:#b8c2cc; font-size:.77em; letter-spacing:.5px; }
+    .ac-foot b { color:#fdba74; }
+    .ac-empty { padding:18px; text-align:center; color:#8793a0; font-size:.82em; }
+    @media(max-width:600px){ body{padding:9px 10px}.ac-panel{max-width:100%}.ac-item{grid-template-columns:minmax(0,1fr) auto}.ac-stars{grid-column:1/-1;min-width:0}.ac-desc{font-size:.73em} }
+  </style>
+</head>
+<body>
+  <!-- 替换模板开始 -->
+  <div class="ac-wrap">
+    <div class="ac-btn"><span class="ac-icon">✦</span><span class="ac-label">副本成就结算</span></div>
+    <div class="ac-panel"></div>
+    <div class="ac-raw" style="display:none;">$1</div>
+    <script>
+      (function(){
+        'use strict';
+        var script=document.currentScript;
+        var wrap=script&&script.closest('.ac-wrap');
+        if(!wrap)return;
+        var raw=(wrap.querySelector('.ac-raw')||{}).textContent||'';
+        var btn=wrap.querySelector('.ac-btn');
+        var label=wrap.querySelector('.ac-label');
+        var panel=wrap.querySelector('.ac-panel');
+        function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+        var lines=raw.replace(/\r/g,'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
+        var world=''; var done=0; var total=0; var rows=[];
+        lines.forEach(function(line){
+          var m;
+          if((m=line.match(/^副本[：:]\s*(.*)$/))){world=m[1].trim();return;}
+          if((m=line.match(/^达成[：:]\s*(\d+)\s*\/\s*(\d+)/))){done=parseInt(m[1],10)||0;total=parseInt(m[2],10)||0;return;}
+          var p=line.split('|');
+          if(p.length>=6){rows.push({no:p[0],diff:p[1],name:p[2],desc:p[3],reward:p[4],status:p.slice(5).join('|')});}
+        });
+        if(!total) total=rows.length;
+        if(!done) done=rows.filter(function(r){return r.status==='已达成';}).length;
+        if(label) label.textContent='成就结算'+(world?' · '+world:'');
+        var pct=total?Math.round(done/total*100):0;
+        var html='<div class="ac-head"><div class="ac-title-row"><div class="ac-title">◆ 副本成就结算</div><div class="ac-count">'+done+' / '+total+'</div></div>';
+        if(world) html+='<div class="ac-world">'+esc(world)+'</div>';
+        html+='<div class="ac-progress"><i style="width:'+pct+'%"></i></div></div>';
+        if(rows.length){
+          html+='<div class="ac-list">';
+          rows.forEach(function(r){
+            var isDone=r.status==='已达成';
+            var stars=(String(r.diff||'').match(/★/g)||[]).length;
+            var starText=stars?'★'.repeat(stars):(r.diff||'—');
+            var gm=String(r.reward||'').toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒/);
+            html+='<div class="ac-item'+(isDone?' done':'')+'">';
+            html+='<div class="ac-stars">'+esc(starText)+'</div><div class="ac-main"><div class="ac-name">'+esc(r.name||('成就 '+r.no))+'</div>';
+            if(r.desc) html+='<div class="ac-desc">'+esc(r.desc)+'</div>';
+            if(r.reward) html+='<div class="ac-reward">🎁 '+(gm?'<span class="ac-grade">'+esc(gm[1])+'</span>':'')+esc(r.reward)+'</div>';
+            html+='</div><div class="ac-state '+(isDone?'ok':'no')+'">'+(isDone?'已达成':'未达成')+'</div></div>';
+          });
+          html+='</div>';
+          html+='<div class="ac-foot">'+(done>0?'本次达成 <b>'+done+'</b> 项成就，对应盲盒已统一发送至玩家背包。':'本次未达成副本成就，无成就盲盒发放。')+'</div>';
+        }else html+='<div class="ac-empty">未检测到副本成就记录。</div>';
+        panel.innerHTML=html;
+        btn.addEventListener('click',function(){btn.classList.toggle('active');panel.classList.toggle('show');});
+      })();
+    <\/script>
+  </div>
+  <!-- 替换模板结束 -->
+</body>
+</html>
+```
+'''
+          ach_path = Path('Regular/成就结算美化.html')
+          if ach_path.exists():
+              raise SystemExit('Regular/成就结算美化.html already exists; refusing to overwrite unexpectedly')
+          ach_path.write_text(achievement_html, encoding='utf-8')
+
+          # ============================================================
+          # 5) 最终断言
+          # ============================================================
+          helper_text = helper.read_text(encoding='utf-8')
+          assert 'grantAchievementRewards(statData, statDataBefore);' not in helper_text
+          assert 'function grantAchievementRewards(statData)' in helper_text
+          assert 'grantAchievementRewards(sd);' in helper_text
+          assert helper_text.index('grantAchievementRewards(sd);') < helper_text.index('sd.任务.副本成就 = {};')
+
+          settlement_text = settlement.read_text(encoding='utf-8')
+          assert '<achievement settlement>' in settlement_text
+          assert 'achievementEntries.length' in settlement_text
+
+          print('Guarded patch applied successfully.')
+          PY
+
+      - name: Validate JavaScript and patch markers
+        shell: bash
+        run: |
+          node --check 'script/辅助计算脚本.js'
+          grep -q '完整世界结算时由辅助脚本统一发放奖励' 'script/ZOD脚本.js'
+          grep -q '等待完整世界结算统一发奖' 'World Book/⚙️任务与委托系统.txt'
+          grep -q '<achievement settlement>' 'World Book/【结算任务】[mvu_plot].txt'
+          grep -q 'findRegex:.*achievement settlement' 'Regular/成就结算美化.html'
+
+      - name: Commit patched files
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'script/辅助计算脚本.js' 'script/ZOD脚本.js' 'World Book/⚙️任务与委托系统.txt' 'World Book/【结算任务】[mvu_plot].txt' 'Regular/成就结算美化.html'
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'feat: settle achievement rewards at world clear'
+          git push

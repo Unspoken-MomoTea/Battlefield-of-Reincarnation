@@ -113,6 +113,7 @@
         to { opacity: 1; transform: translateY(0); }
       }
 
+      /* 顶部扫描线 */
       .st-panel::before {
         content: '';
         position: absolute;
@@ -130,6 +131,7 @@
         100% { background-position: 160% 0; }
       }
 
+      /* ===== 头部横幅 ===== */
       .st-banner {
         padding: 16px 18px 14px;
         background:
@@ -165,6 +167,7 @@
 
       .st-tag b { color: var(--st-cyan); font-weight: 700; }
 
+      /* ===== 阶段区块 ===== */
       .st-stage {
         padding: 14px 18px 6px;
         border-bottom: 1px dashed rgba(255,255,255,0.06);
@@ -207,6 +210,7 @@
         background: linear-gradient(90deg, rgba(46,230,255,0.35), transparent);
       }
 
+      /* 阶段主题色 */
       .st-stage.t-story  .st-stage-no { color:#c084fc; border-color:rgba(192,132,252,0.4); background:rgba(192,132,252,0.08); }
       .st-stage.t-story  .st-stage-name { color: #e2cffc; }
       .st-stage.t-story  .st-stage-line { background: linear-gradient(90deg, rgba(192,132,252,0.35), transparent); }
@@ -220,6 +224,7 @@
       .st-stage.t-epilogue .st-stage-name { color: #c9f5d9; }
       .st-stage.t-epilogue .st-stage-line { background: linear-gradient(90deg, rgba(134,239,172,0.35), transparent); }
 
+      /* ===== 通用键值行 ===== */
       .st-kv {
         display: flex;
         gap: 8px;
@@ -239,6 +244,7 @@
       .st-kv.effect .v { color: #f0abda; }
       .st-kv.income-v .v { color: #f8e6ab; }
 
+      /* ===== 子节标题 ===== */
       .st-sub {
         display: flex;
         align-items: center;
@@ -263,6 +269,7 @@
         background: linear-gradient(90deg, rgba(46,230,255,0.22), transparent);
       }
 
+      /* ===== 烙印称号 ===== */
       .st-brand {
         margin: 8px 0 12px;
         padding: 12px 16px;
@@ -276,27 +283,108 @@
         overflow: hidden;
       }
 
-      .st-brand-label { font-size: 0.7em; letter-spacing: 4px; color: #a78bfa; margin-bottom: 4px; }
-      .st-brand-name { font-size: 1.3em; font-weight: 900; letter-spacing: 6px; color: #e9d5ff; text-shadow: 0 0 18px rgba(192,132,252,0.55); }
-      .st-brand::before, .st-brand::after { content: ''; position: absolute; top: 50%; width: 42px; height: 1px; background: linear-gradient(90deg, transparent, rgba(192,132,252,0.6)); }
+      .st-brand-label {
+        font-size: 0.7em;
+        letter-spacing: 4px;
+        color: #a78bfa;
+        margin-bottom: 4px;
+      }
+
+      .st-brand-name {
+        font-size: 1.3em;
+        font-weight: 900;
+        letter-spacing: 6px;
+        color: #e9d5ff;
+        text-shadow: 0 0 18px rgba(192,132,252,0.55);
+      }
+
+      .st-brand::before, .st-brand::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        width: 42px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(192,132,252,0.6));
+      }
+
       .st-brand::before { left: 10px; }
       .st-brand::after { right: 10px; transform: scaleX(-1); }
 
+      /* ===== 时间线 (高光回放 / 世界传闻) ===== */
       .st-tl { margin: 4px 0 8px; }
-      .st-tl-item { position: relative; padding: 6px 10px 6px 22px; margin: 4px 0; background: rgba(255,255,255,0.03); border-radius: 6px; font-size: 0.84em; transition: background 0.2s; }
+
+      .st-tl-item {
+        position: relative;
+        padding: 6px 10px 6px 22px;
+        margin: 4px 0;
+        background: rgba(255,255,255,0.03);
+        border-radius: 6px;
+        font-size: 0.84em;
+        transition: background 0.2s;
+      }
+
       .st-tl-item:hover { background: rgba(255,255,255,0.055); }
-      .st-tl-item::before { content: ''; position: absolute; left: 8px; top: 13px; width: 5px; height: 5px; border-radius: 50%; background: var(--st-cyan); box-shadow: 0 0 6px rgba(46,230,255,0.7); }
-      .st-tl-item::after { content: ''; position: absolute; left: 10px; top: 20px; bottom: -8px; width: 1px; background: rgba(46,230,255,0.16); }
+
+      .st-tl-item::before {
+        content: '';
+        position: absolute;
+        left: 8px;
+        top: 13px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--st-cyan);
+        box-shadow: 0 0 6px rgba(46,230,255,0.7);
+      }
+
+      .st-tl-item::after {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 20px;
+        bottom: -8px;
+        width: 1px;
+        background: rgba(46,230,255,0.16);
+      }
+
       .st-tl-item:last-child::after { display: none; }
-      .st-tl-item .t { font-weight: 700; color: #9be8f5; }
+
+      .st-tl-item .t {
+        font-weight: 700;
+        color: #9be8f5;
+      }
+
       .st-tl-item.rumor::before { background: #c084fc; box-shadow: 0 0 6px rgba(192,132,252,0.7); }
       .st-tl-item.rumor::after { background: rgba(192,132,252,0.16); }
       .st-tl-item.rumor .t { color: #d8b4fe; }
+
       .st-tl-item .d { color: #b9c4d2; }
 
-      .st-rate-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 0; font-size: 0.85em; }
+      /* ===== 评级徽章 ===== */
+      .st-rate-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 4px 0;
+        font-size: 0.85em;
+      }
+
       .st-rate-row .k { font-weight: 700; color: var(--st-cyan); min-width: 5.5em; flex-shrink: 0; }
-      .st-grade { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; padding: 1px 8px; border-radius: 4px; border: 1px solid; font-weight: 900; font-size: 0.92em; letter-spacing: 1px; }
+
+      .st-grade {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        padding: 1px 8px;
+        border-radius: 4px;
+        border: 1px solid;
+        font-weight: 900;
+        font-size: 0.92em;
+        letter-spacing: 1px;
+      }
+
       .st-grade.g-F { color:#94a3b8; border-color:#94a3b8; background:rgba(148,163,184,0.14); }
       .st-grade.g-E { color:#f8fafc; border-color:#f8fafc; background:rgba(248,250,252,0.10); }
       .st-grade.g-D { color:#22c55e; border-color:#22c55e; background:rgba(34,197,94,0.14); }
@@ -306,64 +394,277 @@
       .st-grade.g-S { color:#eab308; border-color:#eab308; background:rgba(234,179,8,0.16); text-shadow:0 0 5px rgba(234,179,8,0.55); }
       .st-grade.g-SS { color:#ef4444; border-color:#ef4444; background:rgba(239,68,68,0.18); text-shadow:0 0 5px rgba(239,68,68,0.6); }
       .st-grade.g-SSS { color:#ec4899; border-color:#ec4899; background:rgba(236,72,153,0.2); text-shadow:0 0 6px rgba(236,72,153,0.7); box-shadow:0 0 7px rgba(236,72,153,0.4); }
-      .st-grade.hero { min-width: 46px; font-size: 1.25em; padding: 3px 12px; animation: stPulse 2.2s ease-in-out infinite; }
+
+      .st-grade.hero {
+        min-width: 46px;
+        font-size: 1.25em;
+        padding: 3px 12px;
+        animation: stPulse 2.2s ease-in-out infinite;
+      }
+
       .st-grade.wave { font-size: 0.8em; color: var(--st-text-dim); border: none; background: none; min-width: 0; padding: 0; text-shadow: none; letter-spacing: 0; font-weight: 400; }
-      @keyframes stPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
 
-      .st-stab { margin: 8px 0 4px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 6px; font-size: 0.8em; }
-      .st-stab-label { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--st-text-dim); }
+      @keyframes stPulse {
+        0%, 100% { filter: brightness(1); }
+        50% { filter: brightness(1.35); }
+      }
+
+      /* ===== 稳定值进度条 ===== */
+      .st-stab {
+        margin: 8px 0 4px;
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 6px;
+        font-size: 0.8em;
+      }
+
+      .st-stab-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        color: var(--st-text-dim);
+      }
+
       .st-stab-label b { color: var(--st-text); }
-      .st-stab-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
-      .st-stab-fill { height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, #f87171, #facc15, #4ade80); box-shadow: 0 0 8px rgba(74,222,128,0.35); transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
 
-      .st-comment { margin: 8px 0; padding: 10px 14px; font-size: 0.83em; color: #aec3d4; border-left: 2px solid rgba(46,230,255,0.45); background: linear-gradient(90deg, rgba(46,230,255,0.06), transparent); border-radius: 0 6px 6px 0; line-height: 1.7; }
+      .st-stab-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(255,255,255,0.08);
+        overflow: hidden;
+      }
 
-      .st-calc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 5px 10px; margin: 3px 0; font-size: 0.83em; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; transition: all 0.2s; }
-      .st-calc-row:hover { background: rgba(212,175,55,0.06); border-color: rgba(212,175,55,0.25); }
-      .st-calc-src { font-weight: 700; color: #9be8f5; flex-shrink: 0; }
-      .st-calc-formula { flex: 1; min-width: 140px; color: var(--st-text-dim); font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 0.92em; letter-spacing: 0.3px; }
-      .st-calc-sum { flex-shrink: 0; font-weight: 800; color: var(--st-gold); font-family: 'Cascadia Code', 'Consolas', monospace; }
+      .st-stab-fill {
+        height: 100%;
+        width: 0;
+        border-radius: 3px;
+        background: linear-gradient(90deg, #f87171, #facc15, #4ade80);
+        box-shadow: 0 0 8px rgba(74,222,128,0.35);
+        transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+      }
 
-      .st-sum-rows { margin: 4px 0 10px; padding: 8px 12px; border-radius: 6px; background: rgba(212,175,55,0.05); border: 1px dashed rgba(212,175,55,0.25); font-size: 0.8em; }
-      .st-sum-row { display: flex; gap: 8px; padding: 2px 0; color: #cbb98a; }
+      /* ===== 系统评述 ===== */
+      .st-comment {
+        margin: 8px 0;
+        padding: 10px 14px;
+        font-size: 0.83em;
+        color: #aec3d4;
+        border-left: 2px solid rgba(46,230,255,0.45);
+        background: linear-gradient(90deg, rgba(46,230,255,0.06), transparent);
+        border-radius: 0 6px 6px 0;
+        line-height: 1.7;
+      }
+
+      /* ===== 收益核算明细 ===== */
+      .st-calc-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 5px 10px;
+        margin: 3px 0;
+        font-size: 0.83em;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 6px;
+        transition: all 0.2s;
+      }
+
+      .st-calc-row:hover {
+        background: rgba(212,175,55,0.06);
+        border-color: rgba(212,175,55,0.25);
+      }
+
+      .st-calc-src {
+        font-weight: 700;
+        color: #9be8f5;
+        flex-shrink: 0;
+      }
+
+      .st-calc-formula {
+        flex: 1;
+        min-width: 140px;
+        color: var(--st-text-dim);
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+        font-size: 0.92em;
+        letter-spacing: 0.3px;
+      }
+
+      .st-calc-sum {
+        flex-shrink: 0;
+        font-weight: 800;
+        color: var(--st-gold);
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+      }
+
+      /* 汇总三行 (合计/上限/计入) */
+      .st-sum-rows {
+        margin: 4px 0 10px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: rgba(212,175,55,0.05);
+        border: 1px dashed rgba(212,175,55,0.25);
+        font-size: 0.8em;
+      }
+
+      .st-sum-row {
+        display: flex;
+        gap: 8px;
+        padding: 2px 0;
+        color: #cbb98a;
+      }
+
       .st-sum-row .k { min-width: 7em; font-weight: 700; color: #b8a36b; }
       .st-sum-row .v { color: var(--st-gold); font-weight: 700; }
       .st-sum-row.final .v { color: #ffe9a0; text-shadow: 0 0 8px rgba(245,215,110,0.4); }
 
-      /* 任务专属奖励：与其他收益明细一致的紧凑单框布局 */
-      .st-task-reward-box { border-color: rgba(134,239,172,0.25); background: rgba(134,239,172,0.035); }
-      .st-task-reward-box .st-sum-row { color: #b9c8d6; }
-      .st-task-reward-box .st-sum-row .k { color: #86efac; min-width: 7em; }
-      .st-task-reward-box .st-sum-row .v { color: #c8d3df; font-weight: 500; }
-      .st-task-reward-box .st-sum-row .v.reward-ok { color: #b4ddc3; }
+      /* ===== 失败惩罚 ===== */
+      .st-punish {
+        padding: 8px 12px;
+        margin: 4px 0;
+        background: linear-gradient(90deg, rgba(239,68,68,0.1), rgba(239,68,68,0.03));
+        border: 1px solid rgba(239,68,68,0.3);
+        border-radius: 6px;
+        font-size: 0.83em;
+      }
 
-      .st-punish { padding: 8px 12px; margin: 4px 0; background: linear-gradient(90deg, rgba(239,68,68,0.1), rgba(239,68,68,0.03)); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; font-size: 0.83em; }
-      .st-punish .t { font-weight: 700; color: var(--st-red); margin-right: 6px; }
+      .st-punish .t {
+        font-weight: 700;
+        color: var(--st-red);
+        margin-right: 6px;
+      }
+
       .st-punish .d { color: #fda4af; word-break: break-word; }
 
-      .st-empty { padding: 6px 12px; margin: 4px 0; font-size: 0.8em; color: #7d8fa1; border: 1px dashed rgba(255,255,255,0.12); border-radius: 6px; }
-      .st-note { padding: 3px 0; font-size: 0.76em; color: #7d8fa1; letter-spacing: 0.3px; }
-      .st-notice { margin: 10px 0; padding: 9px 14px; font-size: 0.8em; color: #9be8f5; border: 1px dashed rgba(46,230,255,0.3); border-radius: 6px; background: rgba(46,230,255,0.04); letter-spacing: 0.4px; }
-      .st-warehouse { margin-top: 8px; padding: 7px 12px; font-size: 0.76em; color: #9fb3c6; background: rgba(255,255,255,0.03); border-radius: 6px; border-left: 2px solid rgba(46,230,255,0.35); word-break: break-all; }
+      /* ===== 空态/注释/提示 ===== */
+      .st-empty {
+        padding: 6px 12px;
+        margin: 4px 0;
+        font-size: 0.8em;
+        color: #7d8fa1;
+        border: 1px dashed rgba(255,255,255,0.12);
+        border-radius: 6px;
+      }
 
-      .st-total { margin: 12px 0 6px; padding: 16px; text-align: center; position: relative; border: 1px solid rgba(212,175,55,0.4); border-radius: 10px; background: radial-gradient(ellipse at 50% 0%, rgba(212,175,55,0.16), transparent 65%), linear-gradient(180deg, rgba(212,175,55,0.07), rgba(212,175,55,0.02)); }
-      .st-total::before, .st-total::after { content: ''; position: absolute; width: 18px; height: 18px; border: 2px solid var(--st-gold-deep); }
+      .st-note {
+        padding: 3px 0;
+        font-size: 0.76em;
+        color: #7d8fa1;
+        letter-spacing: 0.3px;
+      }
+
+      .st-notice {
+        margin: 10px 0;
+        padding: 9px 14px;
+        font-size: 0.8em;
+        color: #9be8f5;
+        border: 1px dashed rgba(46,230,255,0.3);
+        border-radius: 6px;
+        background: rgba(46,230,255,0.04);
+        letter-spacing: 0.4px;
+      }
+
+      .st-warehouse {
+        margin-top: 8px;
+        padding: 7px 12px;
+        font-size: 0.76em;
+        color: #9fb3c6;
+        background: rgba(255,255,255,0.03);
+        border-radius: 6px;
+        border-left: 2px solid rgba(46,230,255,0.35);
+        word-break: break-all;
+      }
+
+      /* ===== 总收益 ===== */
+      .st-total {
+        margin: 12px 0 6px;
+        padding: 16px;
+        text-align: center;
+        position: relative;
+        border: 1px solid rgba(212,175,55,0.4);
+        border-radius: 10px;
+        background:
+          radial-gradient(ellipse at 50% 0%, rgba(212,175,55,0.16), transparent 65%),
+          linear-gradient(180deg, rgba(212,175,55,0.07), rgba(212,175,55,0.02));
+      }
+
+      .st-total::before, .st-total::after {
+        content: '';
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--st-gold-deep);
+      }
+
       .st-total::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
       .st-total::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
-      .st-total-label { font-size: 0.74em; letter-spacing: 5px; color: var(--st-gold-deep); margin-bottom: 6px; }
-      .st-total-num { font-size: 1.9em; font-weight: 900; font-family: 'Cascadia Code', 'Consolas', monospace; color: var(--st-gold); text-shadow: 0 0 22px rgba(245,215,110,0.5); letter-spacing: 1px; }
+
+      .st-total-label {
+        font-size: 0.74em;
+        letter-spacing: 5px;
+        color: var(--st-gold-deep);
+        margin-bottom: 6px;
+      }
+
+      .st-total-num {
+        font-size: 1.9em;
+        font-weight: 900;
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+        color: var(--st-gold);
+        text-shadow: 0 0 22px rgba(245,215,110,0.5);
+        letter-spacing: 1px;
+      }
+
       .st-total-num .unit { font-size: 0.5em; font-weight: 700; letter-spacing: 2px; margin-left: 6px; color: #d8c48a; }
+
       .st-total.neg .st-total-num { color: var(--st-red); text-shadow: 0 0 22px rgba(239,68,68,0.5); }
       .st-total.neg { border-color: rgba(239,68,68,0.45); background: radial-gradient(ellipse at 50% 0%, rgba(239,68,68,0.14), transparent 65%), linear-gradient(180deg, rgba(239,68,68,0.06), transparent); }
       .st-total.neg .st-total-label { color: #ef6a6a; }
       .st-total.neg::before, .st-total.neg::after { border-color: #ef4444; }
-      .st-total-debt { margin-top: 6px; font-size: 0.76em; color: var(--st-red); letter-spacing: 1px; }
-      .st-total-done { margin-top: 4px; font-size: 0.72em; color: #a89a6d; letter-spacing: 3px; }
 
-      .st-cert { margin: 10px 0; padding: 14px 16px; border: 1px solid rgba(245,215,110,0.4); border-radius: 8px; background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.03)); }
-      .st-cert-title { display: flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: 2px; color: var(--st-gold); font-size: 0.92em; margin-bottom: 8px; text-shadow: 0 0 10px rgba(245,215,110,0.35); }
-      .st-cert-desc { font-size: 0.8em; color: #d6c791; line-height: 1.7; padding: 2px 0; }
+      .st-total-debt {
+        margin-top: 6px;
+        font-size: 0.76em;
+        color: var(--st-red);
+        letter-spacing: 1px;
+      }
 
+      .st-total-done {
+        margin-top: 4px;
+        font-size: 0.72em;
+        color: #a89a6d;
+        letter-spacing: 3px;
+      }
+
+      /* ===== 权限凭证卡片 ===== */
+      .st-cert {
+        margin: 10px 0;
+        padding: 14px 16px;
+        border: 1px solid rgba(245,215,110,0.4);
+        border-radius: 8px;
+        background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.03));
+      }
+
+      .st-cert-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: var(--st-gold);
+        font-size: 0.92em;
+        margin-bottom: 8px;
+        text-shadow: 0 0 10px rgba(245,215,110,0.35);
+      }
+
+      .st-cert-desc {
+        font-size: 0.8em;
+        color: #d6c791;
+        line-height: 1.7;
+        padding: 2px 0;
+      }
+
+      /* 恢复原晋升试炼奖励卡 UI；仅替换卡内实际奖励内容 */
       .st-cert.promo { border-color: rgba(134,239,172,0.4); background: linear-gradient(135deg, rgba(134,239,172,0.09), rgba(134,239,172,0.02)); }
       .st-cert.promo .st-cert-title { color: #86efac; text-shadow: 0 0 10px rgba(134,239,172,0.35); }
       .st-cert.promo .st-cert-desc { color: #b4ddc3; }
@@ -371,8 +672,18 @@
       .st-cert.promo .st-kv .v { color: #b4ddc3; }
       .st-cert.promo.reward-card { margin: 8px 0; }
 
-      .st-trial-check { margin: 10px 0; padding: 14px 16px; border: 1px solid rgba(134,239,172,0.4); border-radius: 8px; background: linear-gradient(135deg, rgba(134,239,172,0.09), rgba(134,239,172,0.02)); }
-      .st-trial-check.pending { border-color: rgba(251,146,60,0.42); background: linear-gradient(135deg, rgba(251,146,60,0.08), rgba(251,146,60,0.02)); }
+      /* ===== 晋升试炼数据库核验 ===== */
+      .st-trial-check {
+        margin: 10px 0;
+        padding: 14px 16px;
+        border: 1px solid rgba(134,239,172,0.4);
+        border-radius: 8px;
+        background: linear-gradient(135deg, rgba(134,239,172,0.09), rgba(134,239,172,0.02));
+      }
+      .st-trial-check.pending {
+        border-color: rgba(251,146,60,0.42);
+        background: linear-gradient(135deg, rgba(251,146,60,0.08), rgba(251,146,60,0.02));
+      }
       .st-trial-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
       .st-trial-title { color:#86efac; font-size:0.9em; font-weight:800; letter-spacing:1px; text-shadow:0 0 10px rgba(134,239,172,0.28); }
       .st-trial-check.pending .st-trial-title { color:#fdba74; text-shadow:0 0 10px rgba(251,146,60,0.24); }
@@ -389,13 +700,64 @@
       .st-trial-verdict.ok { color:#86efac; }
       .st-trial-verdict.no { color:#fdba74; }
 
-      .st-relic { margin: 12px 0; padding: 16px 18px; border: 1px solid rgba(236,72,153,0.35); border-radius: 10px; background: radial-gradient(ellipse at 30% 0%, rgba(236,72,153,0.12), transparent 60%), linear-gradient(180deg, rgba(236,72,153,0.05), transparent); position: relative; overflow: hidden; }
-      .st-relic::after { content: '✦'; position: absolute; right: 14px; top: 10px; font-size: 1.4em; color: rgba(236,72,153,0.35); text-shadow: 0 0 12px rgba(236,72,153,0.5); animation: stTwinkle 2.6s ease-in-out infinite; }
-      @keyframes stTwinkle { 0%, 100% { opacity: 0.35; transform: scale(1) rotate(0deg); } 50% { opacity: 0.9; transform: scale(1.15) rotate(18deg); } }
-      .st-relic-label { font-size: 0.7em; letter-spacing: 4px; color: #f0abda; margin-bottom: 8px; }
-      .st-relic-name { font-size: 1.02em; font-weight: 800; letter-spacing: 1px; color: #f9a8d4; text-shadow: 0 0 12px rgba(236,72,153,0.4); margin-bottom: 8px; }
+      /* ===== 纪念物卡片 (世界结晶 / 世界遗物) ===== */
+      .st-relic {
+        margin: 12px 0;
+        padding: 16px 18px;
+        border: 1px solid rgba(236,72,153,0.35);
+        border-radius: 10px;
+        background:
+          radial-gradient(ellipse at 30% 0%, rgba(236,72,153,0.12), transparent 60%),
+          linear-gradient(180deg, rgba(236,72,153,0.05), transparent);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .st-relic::after {
+        content: '✦';
+        position: absolute;
+        right: 14px;
+        top: 10px;
+        font-size: 1.4em;
+        color: rgba(236,72,153,0.35);
+        text-shadow: 0 0 12px rgba(236,72,153,0.5);
+        animation: stTwinkle 2.6s ease-in-out infinite;
+      }
+
+      @keyframes stTwinkle {
+        0%, 100% { opacity: 0.35; transform: scale(1) rotate(0deg); }
+        50% { opacity: 0.9; transform: scale(1.15) rotate(18deg); }
+      }
+
+      .st-relic-label {
+        font-size: 0.7em;
+        letter-spacing: 4px;
+        color: #f0abda;
+        margin-bottom: 8px;
+      }
+
+      .st-relic-name {
+        font-size: 1.02em;
+        font-weight: 800;
+        letter-spacing: 1px;
+        color: #f9a8d4;
+        text-shadow: 0 0 12px rgba(236,72,153,0.4);
+        margin-bottom: 8px;
+      }
+
       .st-relic .st-kv .k { color: #f0abda; }
-      .st-relic-quote { margin-top: 10px; padding: 10px 14px; font-size: 0.85em; font-style: italic; color: #e9c6dc; text-align: center; border-top: 1px dashed rgba(236,72,153,0.25); line-height: 1.8; }
+
+      .st-relic-quote {
+        margin-top: 10px;
+        padding: 10px 14px;
+        font-size: 0.85em;
+        font-style: italic;
+        color: #e9c6dc;
+        text-align: center;
+        border-top: 1px dashed rgba(236,72,153,0.25);
+        line-height: 1.8;
+      }
+
       .st-relic.gold { border-color: rgba(212,175,55,0.4); background: radial-gradient(ellipse at 30% 0%, rgba(212,175,55,0.12), transparent 60%), linear-gradient(180deg, rgba(212,175,55,0.05), transparent); }
       .st-relic.gold::after { color: rgba(212,175,55,0.4); text-shadow: 0 0 12px rgba(212,175,55,0.5); }
       .st-relic.gold .st-relic-label { color: #d8c48a; }
@@ -403,46 +765,134 @@
       .st-relic.gold .st-kv .k { color: #e6cf95; }
       .st-relic.gold .st-relic-quote { color: #e9dbb2; border-top-color: rgba(212,175,55,0.25); }
 
-      .st-reason-head { margin: 10px 0 3px; font-size: 0.72em; font-weight: 700; letter-spacing: 3px; color: #d8c48a; }
-      .st-reason { position: relative; padding: 2px 0 2px 15px; font-size: 0.78em; color: #b3a888; word-break: break-word; }
-      .st-reason::before { content: '▪'; position: absolute; left: 3px; color: rgba(212,175,55,0.65); }
+      /* ===== 遗物嘉奖: 判定依据/判定结果 ===== */
+      .st-reason-head {
+        margin: 10px 0 3px;
+        font-size: 0.72em;
+        font-weight: 700;
+        letter-spacing: 3px;
+        color: #d8c48a;
+      }
+
+      .st-reason {
+        position: relative;
+        padding: 2px 0 2px 15px;
+        font-size: 0.78em;
+        color: #b3a888;
+        word-break: break-word;
+      }
+
+      .st-reason::before {
+        content: '▪';
+        position: absolute;
+        left: 3px;
+        color: rgba(212,175,55,0.65);
+      }
+
       .st-relic:not(.gold) .st-reason-head { color: #d8a3c8; }
       .st-relic:not(.gold) .st-reason { color: #c2b0cb; }
       .st-relic:not(.gold) .st-reason::before { color: rgba(236,72,153,0.5); }
-      .st-verdict { display: inline-block; margin: 8px 0 2px; padding: 4px 12px; font-size: 0.8em; font-weight: 700; border-radius: 4px; letter-spacing: 0.5px; }
+
+      .st-verdict {
+        display: inline-block;
+        margin: 8px 0 2px;
+        padding: 4px 12px;
+        font-size: 0.8em;
+        font-weight: 700;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+      }
+
       .st-verdict.ok { color:#86efac; background:rgba(134,239,172,0.08); border:1px solid rgba(134,239,172,0.3); }
       .st-verdict.no { color:#8fa0b3; background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.15); }
 
-      .st-loot-item { padding: 7px 12px; margin: 4px 0; background: rgba(251,146,60,0.05); border: 1px solid rgba(251,146,60,0.2); border-radius: 6px; font-size: 0.83em; transition: background 0.2s; }
+      /* ===== 战利品压缩条目 ===== */
+      .st-loot-item {
+        padding: 7px 12px;
+        margin: 4px 0;
+        background: rgba(251,146,60,0.05);
+        border: 1px solid rgba(251,146,60,0.2);
+        border-radius: 6px;
+        font-size: 0.83em;
+        transition: background 0.2s;
+      }
+
       .st-loot-item:hover { background: rgba(251,146,60,0.09); }
+
       .st-loot-item .n { font-weight: 700; color: #fdba74; }
+
       .st-loot-item .d { color: #c7b6a4; }
-      .st-loot-item .compress { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 3px; font-size: 0.88em; font-weight: 700; color: #fdba74; border: 1px solid rgba(251,146,60,0.4); background: rgba(251,146,60,0.1); }
 
-      .st-para { font-size: 0.84em; color: #b9c8d6; padding: 4px 0; line-height: 1.8; text-align: justify; }
-      .st-closing { margin: 12px 0 8px; padding: 12px; text-align: center; font-size: 0.86em; font-weight: 700; letter-spacing: 2px; color: #86efac; background: linear-gradient(90deg, transparent, rgba(134,239,172,0.08), transparent); border-top: 1px solid rgba(134,239,172,0.2); border-bottom: 1px solid rgba(134,239,172,0.2); text-shadow: 0 0 10px rgba(134,239,172,0.3); }
-      .st-plain-line { padding: 3px 0; font-size: 0.87em; color: var(--st-text); white-space: pre-wrap; word-break: break-word; }
+      .st-loot-item .compress {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 7px;
+        border-radius: 3px;
+        font-size: 0.88em;
+        font-weight: 700;
+        color: #fdba74;
+        border: 1px solid rgba(251,146,60,0.4);
+        background: rgba(251,146,60,0.1);
+      }
 
+      /* ===== 终章段落 ===== */
+      .st-para {
+        font-size: 0.84em;
+        color: #b9c8d6;
+        padding: 4px 0;
+        line-height: 1.8;
+        text-align: justify;
+      }
+
+      .st-closing {
+        margin: 12px 0 8px;
+        padding: 12px;
+        text-align: center;
+        font-size: 0.86em;
+        font-weight: 700;
+        letter-spacing: 2px;
+        color: #86efac;
+        background: linear-gradient(90deg, transparent, rgba(134,239,172,0.08), transparent);
+        border-top: 1px solid rgba(134,239,172,0.2);
+        border-bottom: 1px solid rgba(134,239,172,0.2);
+        text-shadow: 0 0 10px rgba(134,239,172,0.3);
+      }
+
+      /* ===== 兜底纯文本行 ===== */
+      .st-plain-line {
+        padding: 3px 0;
+        font-size: 0.87em;
+        color: var(--st-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      /* --- 手机端适配 --- */
       @media (max-width: 600px) {
         body { padding: 10px; }
+
         .st-btn { max-width: 96%; }
         .st-label { max-width: calc(88vw - 54px); }
+
         .st-banner { padding: 13px 13px 11px; }
         .st-stage { padding: 12px 13px 4px; }
+
         .st-kv { flex-direction: column; gap: 0; padding: 3px 0; }
         .st-kv .k { min-width: 0; }
         .st-rate-row { flex-direction: column; align-items: flex-start; gap: 4px; }
         .st-rate-row .k { min-width: 0; }
+
         .st-calc-row { flex-wrap: wrap; }
         .st-calc-formula { min-width: 100%; order: 3; }
+
         .st-total-num { font-size: 1.55em; }
         .st-brand-name { font-size: 1.1em; letter-spacing: 4px; }
         .st-trial-row { grid-template-columns:minmax(0,1fr) auto; }
-        .st-task-reward-box .st-sum-row { flex-direction: row; }
       }
     </style>
 </head>
 <body>
+
     <!-- 替换模板开始 -->
     <div class="st-wrapper">
       <div class="st-btn">
@@ -464,25 +914,40 @@
 
           function escapeHtml(s) {
             if (typeof s !== 'string') return '';
-            return s.replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;');
+            return s.replace(/&/g, '&')
+                .replace(/</g, '<')
+                .replace(/>/g, '>')
+                .replace(/"/g, '"');
           }
 
+          // 去除 markdown 装饰: **加粗** / 前后 *_ 空白
           function stripDecor(s) {
-            return String(s || '').replace(/\*\*/g, '').replace(/^[*_\s]+/, '').replace(/[*_\s]+$/, '').trim();
+            return String(s || '')
+                .replace(/\*\*/g, '')
+                .replace(/^[*_\s]+/, '')
+                .replace(/[*_\s]+$/, '')
+                .trim();
           }
 
+          // 评级字母(F~SSS): 用于徽章配色
           const GRADES = ['F','E','D','C','B','A','S','SS','SSS'];
-          function gradeTier(d) { const m = String(d || '').toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)/); return m ? m[1] : 'F'; }
+
+          function gradeTier(d) {
+            const m = String(d || '').toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)/);
+            return m ? m[1] : 'F';
+          }
+
+          // 世界难度最低档(F~SSS): "E~A" → "E"; 用于 MVU 写入遗物/纪念物品质
           function gradeFloor(v) {
-            const all = String(v || '').toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)/g) || [];
+            const s = String(v || '').toUpperCase();
+            const all = s.match(/(SSS|SS|S|A|B|C|D|E|F)/g) || [];
             if (!all.length) return '';
             let best = all[0];
             for (const g of all) if (GRADES.indexOf(g) < GRADES.indexOf(best)) best = g;
             return best;
           }
+
+          // "1.2万" -> 12000, "-500" -> -500, "3,500" -> 3500; 失败返回 null
           function parseCnNum(s) {
             const m = String(s || '').replace(/[,，]/g, '').match(/-?\d+(?:\.\d+)?(?:万)?/);
             if (!m) return null;
@@ -490,6 +955,7 @@
             if (/万$/.test(m[0])) n *= 10000;
             return isFinite(n) ? n : null;
           }
+
           function fmtNum(n) {
             if (n == null || !isFinite(n)) return '';
             const neg = n < 0;
@@ -497,9 +963,12 @@
             return (neg ? '-' : '') + v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
           }
 
+          // ===== 晋升试炼数据库核验 =====
           function clonePlain(value) {
-            try { if (typeof _ !== 'undefined' && _ && _.cloneDeep) return _.cloneDeep(value); return JSON.parse(JSON.stringify(value)); }
-            catch (e) { return value; }
+            try {
+              if (typeof _ !== 'undefined' && _ && _.cloneDeep) return _.cloneDeep(value);
+              return JSON.parse(JSON.stringify(value));
+            } catch (e) { return value; }
           }
 
           function getMvuContext() {
@@ -526,7 +995,11 @@
               return task && String(task.委托方 || '').trim() === '晋升试炼';
             }).map(function(key, index) {
               const task = list[key] || {};
-              return { key: key, name: String(task.名称 || task.任务名 || task.标题 || key || ('晋升试炼·' + (index + 1))), status: String(task.状态 || '').trim() };
+              return {
+                key: key,
+                name: String(task.名称 || task.任务名 || task.标题 || key || ('晋升试炼·' + (index + 1))),
+                status: String(task.状态 || '').trim()
+              };
             });
           }
 
@@ -542,7 +1015,10 @@
           let trialTasks = readTrialTasks();
           let bestTrialScore = trialScore(trialTasks);
           let trialWriteBusy = false;
-          function isTrialPassed(tasks) { return tasks.length > 0 && tasks.every(function(task) { return task.status === '可结算'; }); }
+
+          function isTrialPassed(tasks) {
+            return tasks.length > 0 && tasks.every(function(task) { return task.status === '可结算'; });
+          }
 
           function writeTrialQualification() {
             if (trialWriteBusy || !isTrialPassed(trialTasks)) return;
@@ -557,8 +1033,11 @@
               stat.系统状态.试炼已完成 = true;
               ctx.win.Mvu.replaceMvuData(cloned, { type: 'message', message_id: 'latest' });
               try { ctx.win.Mvu.replaceMvuData(cloned, { type: 'chat' }); } catch (e2) {}
-            } catch (e) { console.warn('[结算美化] 晋升资格写入失败:', e); }
-            finally { setTimeout(function() { trialWriteBusy = false; }, 0); }
+            } catch (e) {
+              console.warn('[结算美化] 晋升资格写入失败:', e);
+            } finally {
+              setTimeout(function() { trialWriteBusy = false; }, 0);
+            }
           }
 
           function renderTrialPanel() {
@@ -573,8 +1052,8 @@
               let label = task.status || '未标记';
               if (task.status === '可结算') { cls = 'ok'; label = '已完成'; }
               else if (task.status === '失败') { cls = 'bad'; label = '失败'; }
-              else if (task.status === '可交付') label = '待结算';
-              else if (task.status === '进行中') label = '未完成';
+              else if (task.status === '可交付') { label = '待结算'; }
+              else if (task.status === '进行中') { label = '未完成'; }
               html += '<div class="st-trial-row"><div class="st-trial-name">' + escapeHtml(task.name) + '</div><div class="st-trial-state ' + cls + '">' + escapeHtml(label) + '</div></div>';
             });
             html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%"></div></div>';
@@ -583,10 +1062,15 @@
             return html;
           }
 
+          // ===== 解析 <settlement tasks> 原文为结构化数据 =====
           function parseSettlement(text) {
             const out = { title: '', serial: '', player: '', stages: [] };
             const lines = String(text).replace(/\r/g, '').split('\n');
-            let inNote = false, curStage = null, curSub = '', cardSec = '';
+            let inNote = false;
+            let curStage = null;
+            let curSub = '';
+            let cardSec = '';
+
             function classifyStage(name) {
               const n = String(name || '');
               if (/评估|难度|稳定/.test(n)) return 'assess';
@@ -596,8 +1080,18 @@
               if (/演进|暗流|最终|因果/.test(n)) return 'epilogue';
               return 'generic';
             }
-            function newStage(name) { curStage = { name: name, type: classifyStage(name), items: [] }; out.stages.push(curStage); curSub = ''; cardSec = ''; }
-            function push(kind, data) { if (!curStage) newStage(''); curStage.items.push(Object.assign({ kind: kind, sub: curSub }, data)); }
+
+            function newStage(name) {
+              curStage = { name: name, type: classifyStage(name), items: [] };
+              out.stages.push(curStage);
+              curSub = '';
+              cardSec = '';
+            }
+
+            function push(kind, data) {
+              if (!curStage) newStage('');
+              curStage.items.push(Object.assign({ kind: kind, sub: curSub }, data));
+            }
 
             for (let i = 0; i < lines.length; i++) {
               const isList = /^\s*[*+-]\s+/.test(lines[i]);
@@ -616,9 +1110,13 @@
               if ((m = line.match(/^\*{0,2}\[?\s*轮回者\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.player = stripDecor(m[1]); continue; }
 
               let body = isList ? line.replace(/^\s*[*+-]\s+/, '').trim() : line;
-              body = body.replace(/^\$\((.+?)\)\s*[：:]\s*/, '$1：');
+              body = body.replace(/^\$\((.+?)\)\s*[：:]\s*/, '\u0024' + '1：');
 
-              if (/^[\*【]*提示[：:]/.test(body)) { push('notice', { text: stripDecor(body.replace(/^[\*【]*提示[：:]?\s*/, '').replace(/[\*】]*$/, '')) }); curSub = ''; continue; }
+              if (/^[\*【]*提示[：:]/.test(body)) {
+                push('notice', { text: stripDecor(body.replace(/^[\*【]*提示[：:]?\s*/, '').replace(/[\*】]*$/, '')) });
+                curSub = '';
+                continue;
+              }
               if ((m = body.match(/^\*{0,2}副本烙印\s*[｜|]?\s*(.+)$/))) { push('brand', { name: stripDecor(m[1]) }); continue; }
               if (/主神权限凭证/.test(body) && body.replace(/\*/g, '').length < 30) { curSub = '主神权限凭证'; cardSec = ''; push('cert', {}); continue; }
               if (/世界结晶/.test(body) && body.replace(/[*【】（）()：:]/g, '').length < 30) { curSub = '世界结晶'; cardSec = ''; push('relic', { label: '世界结晶 · 通关纪念物', name: '', type: '', effect: '', desc: '' }); continue; }
@@ -661,22 +1159,27 @@
               }
 
               if ((m = body.match(/^\*{0,2}[【\[]?([^*【】\[\]：:]{1,22})[】\]]?\*{0,2}\s*[：:]\s*(.+)$/))) {
-                const k = m[1].trim(), v = stripDecor(m[2]);
+                const k = m[1].trim();
+                const v = stripDecor(m[2]);
+
                 if (curSub === '世界结晶' || curSub === '世界遗物') {
                   if (k === '判定依据') cardSec = 'reasons';
                   else if (k === '获得' || k === '获得物品') cardSec = 'item';
                   else cardSec = '';
                 }
+
                 if (curStage && (curSub === '世界结晶' || curSub === '世界遗物') && /^\d+[.、]/.test(k)) {
                   const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
                   if (card) { card.effect = (card.effect ? card.effect + '\n' : '') + k + '：' + v; push('para', { text: k + '：' + v }); continue; }
                 }
+
                 if (curStage && curStage.type === 'income' && /合计|上限|实际计入/.test(k)) { push('sum', { name: k, v: v }); continue; }
                 if (/总收益/.test(k)) { const nm = v.match(/-?[\d,，\.]+\s*万?/); push('total', { num: nm ? parseCnNum(nm[0]) : null, text: v, debt: /负债/.test(v) }); continue; }
                 if (/稳定/.test(k) && /→|->/.test(v)) { const pm = v.match(/(\d+(?:\.\d+)?)\s*%\s*(?:→|->)\s*(\d+(?:\.\d+)?)\s*%/); if (pm) { push('stab', { from: parseFloat(pm[1]), to: parseFloat(pm[2]) }); continue; } }
                 if (/^注/.test(k)) { push('note', { text: k + '：' + v }); continue; }
                 if (curStage && curStage.type === 'income' && isList && !/^注/.test(k) && /->|→|强制执行惩罚/.test(v)) { push('punish', { name: k.replace(/[[\]]/g, ''), desc: v.replace(/^强制执行惩罚\s*(?:->|→)?\s*/, '') }); continue; }
                 if (curStage && curStage.type === 'story' && isList && curSub && /高光|回放/.test(curSub)) { push('hl', { t: k, d: v }); continue; }
+
                 if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
                   const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
                   if (card) {
@@ -694,6 +1197,7 @@
               const plainBody = stripDecor(body);
               if (!/[：:]/.test(plainBody) && plainBody.length < 60 && /未|无/.test(plainBody) && /惩罚|失败|获得|遗物|检测|压缩|抵扣/.test(plainBody)) { push('empty', { text: plainBody }); continue; }
               if (/^【.*完毕.*】$/.test(stripDecor(body))) { push('closing', { text: stripDecor(body) }); continue; }
+
               if (curStage && (curSub === '世界结晶' || curSub === '世界遗物') && /^\d+[.、]\s*\S/.test(stripDecor(body))) {
                 const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
                 if (card) { card.effect = (card.effect ? card.effect + '\n' : '') + stripDecor(body); push('para', { text: stripDecor(body) }); continue; }
@@ -708,23 +1212,38 @@
             return out;
           }
 
-          function gradeBadge(v, hero) { const t = gradeTier(v); return '<span class="st-grade g-' + t + (hero ? ' hero' : '') + '">' + escapeHtml(t) + '</span>'; }
+          function gradeBadge(v, hero) {
+            const t = gradeTier(v);
+            return '<span class="st-grade g-' + t + (hero ? ' hero' : '') + '">' + escapeHtml(t) + '</span>';
+          }
+
           function rateRow(k, v) {
             const gm = String(v).trim().match(/^([A-Za-z]{1,3})\s*[-~—–]\s*([A-Za-z]{1,3})$/);
             if (gm && GRADES.indexOf(gm[1].toUpperCase()) >= 0 && GRADES.indexOf(gm[2].toUpperCase()) >= 0) {
-              return '<div class="st-rate-row"><span class="k">' + escapeHtml(k) + '</span><span class="st-grade g-' + gradeTier(gm[1]) + '">' + escapeHtml(gm[1].toUpperCase()) + '</span><span class="st-grade wave">~</span><span class="st-grade g-' + gradeTier(gm[2]) + '">' + escapeHtml(gm[2].toUpperCase()) + '</span></div>';
+              return '<div class="st-rate-row"><span class="k">' + escapeHtml(k) + '</span>' +
+                  '<span class="st-grade g-' + gradeTier(gm[1]) + '">' + escapeHtml(gm[1].toUpperCase()) + '</span>' +
+                  '<span class="st-grade wave">~</span>' +
+                  '<span class="st-grade g-' + gradeTier(gm[2]) + '">' + escapeHtml(gm[2].toUpperCase()) + '</span></div>';
             }
             return '<div class="st-rate-row"><span class="k">' + escapeHtml(k) + '</span>' + gradeBadge(v, /表现/.test(k)) + '</div>';
           }
 
           function renderItem(it, st) {
             switch (it.kind) {
-              case 'sub': return '<div class="st-sub">' + escapeHtml(it.name) + '</div>';
+              case 'sub':
+                return '<div class="st-sub">' + escapeHtml(it.name) + '</div>';
+
               case 'kv': {
                 const k = it.k, v = it.v;
+
+                // 任务专属奖励中的晋升试炼奖励：沿用原绿色晋升卡 UI，仅展示真实奖励内容。
                 if (st && st.type === 'income' && /任务专属奖励/.test(it.sub || '') && /晋升试炼/.test(k)) {
-                  return '<div class="st-cert promo reward-card"><div class="st-cert-title">◆ 晋升试炼任务</div><div class="st-kv"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div></div>';
+                  return '<div class="st-cert promo reward-card">' +
+                      '<div class="st-cert-title">◆ 晋升试炼任务</div>' +
+                      '<div class="st-kv"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>' +
+                      '</div>';
                 }
+
                 if (/评级|等级|难度|基准/.test(k) && /^[A-Za-z]{1,3}$/.test(v.trim()) && GRADES.indexOf(v.trim().toUpperCase()) >= 0) return rateRow(k, v);
                 if (/难度|评级/.test(k) && /^[A-Za-z]{1,3}\s*[-~—–]\s*[A-Za-z]{1,3}$/.test(v.trim())) return rateRow(k, v);
                 if ((k === '获得物品' || k === '获得') && /^【.+】$/.test(v)) return '<div class="st-relic-name">' + escapeHtml(v) + '</div>';
@@ -735,6 +1254,7 @@
                 if (st && st.type === 'income' && /奖励|收益/.test(k)) return '<div class="st-kv income-v"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
                 return '<div class="st-kv"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
               }
+
               case 'reasonHead': return '<div class="st-reason-head">' + escapeHtml(it.text) + '</div>';
               case 'reason': return '<div class="st-reason">' + escapeHtml(it.text) + '</div>';
               case 'stab': return '<div class="st-stab"><div class="st-stab-label"><span>世界稳定值变动</span><span><b>100%</b> → <b>' + it.to + '%</b></span></div><div class="st-stab-bar"><div class="st-stab-fill" data-w="' + Math.max(0, Math.min(100, it.to)) + '"></div></div></div>';
@@ -757,12 +1277,14 @@
               case 'empty': return '<div class="st-empty">' + escapeHtml(it.text) + '</div>';
               case 'warehouse': return '<div class="st-warehouse">📦 仓库检测：' + escapeHtml(it.text) + '</div>';
               case 'lootItem': {
-                const tm = String(it.note || '').match(/[【\[]([^】\]]+)[】\]]/), badge = tm ? tm[1] : it.note;
+                const tm = String(it.note || '').match(/[【\[]([^】\]]+)[】\]]/);
+                const badge = tm ? tm[1] : it.note;
                 return '<div class="st-loot-item"><span class="n">' + escapeHtml(it.name) + '</span><span class="d"> (产地: ' + escapeHtml(it.origin) + ')</span>' + (badge ? '<span class="compress">⚡ ' + escapeHtml(badge) + '</span>' : '') + '</div>';
               }
               case 'closing': return '<div class="st-closing">' + escapeHtml(it.text) + '</div>';
               case 'para': {
-                const t = it.text, sub = it.sub || '';
+                const t = it.text;
+                const sub = it.sub || '';
                 if (/^【.+】$/.test(t)) return '<div class="st-relic-name">' + escapeHtml(t) + '</div>';
                 if (/凭证/.test(sub)) return '<div class="st-cert-desc">' + escapeHtml(t) + '</div>';
                 if (/遗物/.test(sub)) return '<div class="st-note">' + escapeHtml(t) + '</div>';
@@ -774,15 +1296,19 @@
           }
 
           function renderSettlement(d) {
-            let html = '<div class="st-banner"><div class="st-banner-main">' + escapeHtml(d.title || '主神空间 · 轮回清算协议') + '</div><div class="st-banner-tags">';
+            let html = '';
+            html += '<div class="st-banner"><div class="st-banner-main">' + escapeHtml(d.title || '主神空间 · 轮回清算协议') + '</div><div class="st-banner-tags">';
             if (d.serial) html += '<span class="st-tag">协议序列 <b>' + escapeHtml(d.serial) + '</b></span>';
             if (d.player) html += '<span class="st-tag">轮回者 <b>' + escapeHtml(d.player) + '</b></span>';
             html += '</div></div>';
 
             d.stages.forEach(function(st, idx) {
               if (!st.items.length) return;
-              let inner = '', i = 0, rewardSeen = false, trialInserted = false;
+              let inner = '';
               const items = st.items;
+              let i = 0;
+              let rewardSeen = false;
+              let trialInserted = false;
               while (i < items.length) {
                 const it = items[i];
                 if (it.kind === 'sub' && /任务专属奖励/.test(it.name || '')) rewardSeen = true;
@@ -794,7 +1320,6 @@
                   inner += '<div class="st-sum-rows">' + rows + '</div>';
                   continue;
                 }
-
                 if (it.kind === 'cert' || it.kind === 'relic' || it.kind === 'relicGold') {
                   const cardSub = it.sub;
                   i++;
@@ -811,6 +1336,7 @@
               }
 
               if (rewardSeen && !trialInserted && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
+
               html += '<div class="st-stage t-' + st.type + '"><div class="st-stage-head"><span class="st-stage-no">' + (idx + 1) + '</span><span class="st-stage-name">' + escapeHtml(st.name || '结算阶段') + '</span><span class="st-stage-line"></span></div>' + inner + '</div>';
             });
             return html;
@@ -820,38 +1346,6 @@
             return String(text).replace(/\r/g, '').split('\n').filter(function(l) { return l.trim(); }).map(function(l) { return '<div class="st-plain-line">' + escapeHtml(l.trim()) + '</div>'; }).join('');
           }
 
-          function compactTrialRewardCards() {
-            const cards = Array.from(panelDiv.querySelectorAll('.st-cert.promo.reward-card'));
-            if (!cards.length) return;
-            const groups = [];
-            let current = [];
-            cards.forEach(function(card, index) {
-              if (!current.length) current.push(card);
-              else {
-                const prev = current[current.length - 1];
-                if (prev.nextElementSibling === card) current.push(card);
-                else { groups.push(current); current = [card]; }
-              }
-              if (index === cards.length - 1 && current.length) groups.push(current);
-            });
-            groups.forEach(function(group) {
-              const box = document.createElement('div');
-              box.className = 'st-sum-rows st-task-reward-box';
-              group.forEach(function(card) {
-                const k = card.querySelector('.st-kv .k');
-                const v = card.querySelector('.st-kv .v');
-                if (!k || !v) return;
-                const row = document.createElement('div');
-                row.className = 'st-sum-row';
-                const valueClass = /已发放|获得|到账/.test(v.textContent || '') ? ' reward-ok' : '';
-                row.innerHTML = '<span class="k">' + escapeHtml(k.textContent || '') + '</span><span class="v' + valueClass + '">' + escapeHtml(v.textContent || '') + '</span>';
-                box.appendChild(row);
-              });
-              if (box.children.length) group[0].parentNode.insertBefore(box, group[0]);
-              group.forEach(function(card) { card.remove(); });
-            });
-          }
-
           function writeSettlementToMvu(d, worldName) {
             try {
               const win = window.parent || window;
@@ -859,12 +1353,15 @@
               const c = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
               if (!c) return;
               let changed = false;
-              function exists(path) { try { const cur = win._.get(c, path); return cur && typeof cur === 'object' && Object.keys(cur).length > 0; } catch (e) { return false; } }
+              function exists(path) {
+                try { const cur = win._.get(c, path); return cur && typeof cur === 'object' && Object.keys(cur).length > 0; } catch (e) { return false; }
+              }
               let baseGrade = '';
               const assess = d.stages.find(function(s) { return s.type === 'assess'; });
               (assess ? assess.items : []).forEach(function(it) { if (it.kind === 'kv' && /难度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) baseGrade = gradeFloor(it.v); });
               if (!baseGrade) d.stages.forEach(function(s) { s.items.forEach(function(it) { if (it.kind === 'kv' && /难度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) baseGrade = gradeFloor(it.v); }); });
               if (!baseGrade) baseGrade = 'F';
+
               const relics = [], golds = [];
               d.stages.forEach(function(s) { s.items.forEach(function(it) { if (it.kind === 'relic' && it.name) relics.push(it); if (it.kind === 'relicGold' && it.name) golds.push(it); }); });
               const world = worldName || '';
@@ -873,7 +1370,9 @@
                 const eff = {};
                 if (!txt) return eff;
                 txt.split('\n').map(function(x) { return x.trim(); }).filter(Boolean).forEach(function(ln) {
-                  const nm = ln.match(/^\d+[.、]\s*(.+)$/), em = ln.match(/^[【\[]([^【】\[\]：:]{1,12})[】\]]\s*[：:]\s*(.+)$/), bm = ln.match(/^[【\[]([^【】\[\]：:]{1,12})[】\]]\s*(.+)$/);
+                  const nm = ln.match(/^\d+[.、]\s*(.+)$/);
+                  const em = ln.match(/^[【\[]([^【】\[\]：:]{1,12})[】\]]\s*[：:]\s*(.+)$/);
+                  const bm = ln.match(/^[【\[]([^【】\[\]：:]{1,12})[】\]]\s*(.+)$/);
                   if (nm && nm[1].indexOf('：') >= 0) { const pm = nm[1].split('：'); eff[pm[0].trim()] = pm.slice(1).join('：').trim(); }
                   else if (em) eff[em[1].trim()] = em[2].trim();
                   else if (nm && bm) eff[bm[1].trim()] = bm[2].trim();
@@ -889,11 +1388,13 @@
                 const key = 'stat_data.主角.装备.' + g.name;
                 win._.set(c, key + '.品质', baseGrade); win._.set(c, key + '.类型', 8); win._.set(c, key + '.标签', ['主神空间', g.origin || world].filter(Boolean)); win._.set(c, key + '.原始属性', {}); win._.set(c, key + '.效果', parseEffectLines(g.effect)); win._.set(c, key + '.描述', g.desc || (world ? ('世界遗物, 来源: ' + world) : '世界遗物')); win._.set(c, key + '.消耗', ''); win._.set(c, key + '.状态', 0); changed = true;
               });
+
               relics.forEach(function(r) {
                 if (!r.name || exists('stat_data.主角.道具.' + r.name)) return;
                 const key = 'stat_data.主角.道具.' + r.name;
                 win._.set(c, key + '.品质', baseGrade); win._.set(c, key + '.类型', r.type || '纪念物'); win._.set(c, key + '.数量', 1); win._.set(c, key + '.标签', ['主神空间', world].filter(Boolean)); win._.set(c, key + '.效果', parseEffectLines(r.effect)); win._.set(c, key + '.描述', r.desc || ''); win._.set(c, key + '.状态', 0); changed = true;
               });
+
               if (!changed) return;
               win.Mvu.replaceMvuData(c, { type: 'message', message_id: 'latest' });
               try { win.Mvu.replaceMvuData(c, { type: 'chat' }); } catch (e2) {}
@@ -915,10 +1416,7 @@
 
           const hasStruct = d.title || d.serial || d.player || d.stages.some(function(s) { return s.name || s.items.some(function(i) { return i.kind !== 'para'; }); });
           panelDiv.innerHTML = hasStruct ? renderSettlement(d) : renderPlain(rawText);
-          if (hasStruct) {
-            compactTrialRewardCards();
-            writeSettlementToMvu(d, worldName);
-          }
+          if (hasStruct) writeSettlementToMvu(d, worldName);
 
           function refreshTrialPanel() {
             const latest = readTrialTasks();
@@ -939,6 +1437,7 @@
           } catch (e) {}
           setTimeout(refreshTrialPanel, 60);
           setTimeout(refreshTrialPanel, 180);
+
           setTimeout(function() { panelDiv.querySelectorAll('.st-stab-fill').forEach(function(el) { el.style.width = (el.getAttribute('data-w') || 0) + '%'; }); }, 60);
 
           panelDiv.querySelectorAll('.st-num-val').forEach(function(el) {
@@ -955,5 +1454,6 @@
       </script>
     </div>
     <!-- 替换模板结束 -->
+
 </body>
 </html>

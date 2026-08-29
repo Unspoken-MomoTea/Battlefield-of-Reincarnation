@@ -34,6 +34,10 @@ jobs:
           if source.count(bad_call) != 1:
               raise SystemExit('cannot neutralize old strict insertion')
           source = source.replace(bad_call, "pass  # insertion handled by stable single-line anchor below", 1)
+          bad_verify = "final_w = world.read_text(encoding='utf-8')\nif final_w.index('<achievement settlement>') > final_w.index('</settlement tasks>'):\n    raise SystemExit('achievement snapshot still outside settlement tasks')\n"
+          if source.count(bad_verify) != 1:
+              raise SystemExit('cannot neutralize stale snapshot verifier')
+          source = source.replace(bad_verify, "# snapshot placement already guarded by exact old_end replacement\n", 1)
           Path('/tmp/merge-achievement.py').write_text(source, encoding='utf-8')
           PY
           python /tmp/merge-achievement.py
@@ -66,6 +70,12 @@ jobs:
           Path('/tmp/settlement.js').write_text(scripts[0], encoding='utf-8')
           if Path('Regular/成就结算美化.html').exists():
               raise SystemExit('standalone achievement beautifier still exists')
+          world = Path('World Book/【结算任务】[mvu_plot].txt').read_text(encoding='utf-8')
+          actual_tail = world[world.rfind('<%_ if (!isSingleWorld && achievementEntries.length) { _%>'):]
+          if actual_tail.find('<achievement settlement>') < 0 or actual_tail.find('</settlement tasks>') < 0:
+              raise SystemExit('achievement snapshot tail missing')
+          if actual_tail.find('<achievement settlement>') > actual_tail.find('</settlement tasks>'):
+              raise SystemExit('actual achievement snapshot tail is outside settlement tasks')
           PY
           node --check /tmp/settlement.js
           git -c core.whitespace=cr-at-eol diff --check

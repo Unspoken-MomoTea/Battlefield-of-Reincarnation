@@ -1,0 +1,206 @@
+name: Merge achievement settlement module
+
+on:
+  push:
+    paths:
+      - '.github/workflows/merge-achievement-settlement.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge achievement module
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          beautifier = Path('Regular/结算任务美化.html')
+          text = beautifier.read_text(encoding='utf-8')
+
+          def once(old, new, label):
+              global text
+              n = text.count(old)
+              if n != 1:
+                  raise SystemExit(f'{label}: expected 1 match, got {n}')
+              text = text.replace(old, new, 1)
+
+          once(
+              "          function parseSettlement(text) {\n",
+              r'''          function parseAchievementSnapshot(text) {
+            const out = { world: '', done: 0, total: 0, rows: [] };
+            const match = String(text || '').match(/<achievement settlement>([\s\S]*?)<\/achievement settlement>/i);
+            if (!match) return out;
+            String(match[1] || '').replace(/\r/g, '').split('\n').map(function(line) { return line.trim(); }).filter(Boolean).forEach(function(line) {
+              let m = line.match(/^副本[：:]\s*(.*)$/);
+              if (m) { out.world = m[1].trim(); return; }
+              m = line.match(/^达成[：:]\s*(\d+)\s*\/\s*(\d+)/);
+              if (m) { out.done = parseInt(m[1], 10) || 0; out.total = parseInt(m[2], 10) || 0; return; }
+              const parts = line.split('|');
+              if (parts.length < 6) return;
+              out.rows.push({ no:parts[0].trim(), difficulty:parts[1].trim(), name:parts[2].trim(), desc:parts[3].trim(), reward:parts[4].trim(), status:parts.slice(5).join('|').trim() });
+            });
+            if (!out.total) out.total = out.rows.length;
+            out.done = out.rows.filter(function(row) { return row.status === '已达成'; }).length;
+            return out;
+          }
+
+          function renderAchievementPanel() {
+            const a = achievementSnapshot;
+            if (!a || !a.rows || !a.rows.length) return '';
+            const pct = a.total > 0 ? Math.round(a.done / a.total * 100) : 0;
+            let html = '<div class="st-trial-check' + (a.done === a.total ? '' : ' pending') + '">';
+            html += '<div class="st-trial-head"><div class="st-trial-title">✦ 副本成就结算' + (a.world ? ' · ' + escapeHtml(a.world) : '') + '</div><div class="st-trial-count">' + a.done + ' / ' + a.total + '</div></div>';
+            a.rows.forEach(function(row) {
+              const ok = row.status === '已达成';
+              const stars = row.difficulty || '—';
+              html += '<div class="st-trial-row"><div class="st-trial-name">';
+              html += '<div style="font-weight:800;color:' + (ok ? '#f5d76e' : '#c8d3df') + '">' + escapeHtml(stars + ' ' + row.name) + '</div>';
+              if (row.desc) html += '<div style="margin-top:2px;color:#8fa0b3;font-size:.91em;white-space:normal">' + escapeHtml(row.desc) + '</div>';
+              if (row.reward) html += '<div style="margin-top:3px;color:#d6c791;font-size:.91em;white-space:normal">🎁 ' + escapeHtml(row.reward) + '</div>';
+              html += '</div><div class="st-trial-state ' + (ok ? 'ok' : 'wait') + '">' + (ok ? '已达成' : '未达成') + '</div></div>';
+            });
+            html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#f97316,#f5d76e)"></div></div>';
+            html += '<div class="st-note" style="text-align:center">' + (a.done ? ('已达成 ' + a.done + ' 项，锁定盲盒于本次完整结算统一发放。') : '本次未达成副本成就，无成就盲盒发放。') + '</div>';
+            html += '</div>';
+            return html;
+          }
+
+          function parseSettlement(text) {
+''',
+              'add achievement parser/renderer'
+          )
+
+          once(
+              "            let curSub = '';\n            let cardSec = '';\n",
+              "            let curSub = '';\n            let cardSec = '';\n            let inAchievementSnapshot = false;\n",
+              'add achievement parser state'
+          )
+
+          once(
+              "              let line = lines[i].trim();\n              if (!line) continue;\n              if (line.startsWith('>')) line = line.replace(/^>\\s*/, '').trim();\n",
+              "              let line = lines[i].trim();\n              if (!line) continue;\n              if (/^<achievement settlement>$/i.test(line)) { inAchievementSnapshot = true; continue; }\n              if (/^<\\/achievement settlement>$/i.test(line)) { inAchievementSnapshot = false; continue; }\n              if (inAchievementSnapshot) continue;\n              if (line.startsWith('>')) line = line.replace(/^>\\s*/, '').trim();\n",
+              'hide machine snapshot from normal settlement parser'
+          )
+
+          once(
+              "            html += '</div></div>';\n\n            d.stages.forEach(function(st, idx) {\n",
+              "            html += '</div></div>';\n\n            let achievementInserted = false;\n            d.stages.forEach(function(st, idx) {\n",
+              'add achievement insertion guard'
+          )
+
+          old_tail = '''              if (rewardSeen && !trialInserted && (trialTasks.length || /晋升试炼[·\\.]/.test(rawText))) {
+                inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
+              }
+
+              html += '<div class="st-stage t-' + st.type + '"><div class="st-stage-head"><span class="st-stage-no">' + (idx + 1) + '</span><span class="st-stage-name">' + escapeHtml(st.name || '结算阶段') + '</span><span class="st-stage-line"></span></div>' + inner + '</div>';
+            });
+            return html;
+'''
+          new_tail = '''              if (rewardSeen && !trialInserted && (trialTasks.length || /晋升试炼[·\\.]/.test(rawText))) {
+                inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
+              }
+
+              // 与晋升试炼一样，副本成就是结算任务美化内部模块，不创建第二个正则窗口。
+              if (!achievementInserted && st.type === 'income' && achievementSnapshot.rows.length) {
+                inner += '<div class="st-achievement-host">' + renderAchievementPanel() + '</div>';
+                achievementInserted = true;
+              }
+
+              html += '<div class="st-stage t-' + st.type + '"><div class="st-stage-head"><span class="st-stage-no">' + (idx + 1) + '</span><span class="st-stage-name">' + escapeHtml(st.name || '结算阶段') + '</span><span class="st-stage-line"></span></div>' + inner + '</div>';
+            });
+            if (!achievementInserted && achievementSnapshot.rows.length) {
+              html += '<div class="st-stage t-income"><div class="st-stage-head"><span class="st-stage-no">✦</span><span class="st-stage-name">副本成就结算</span><span class="st-stage-line"></span></div><div class="st-achievement-host">' + renderAchievementPanel() + '</div></div>';
+            }
+            return html;
+'''
+          once(old_tail, new_tail, 'insert achievement module into settlement renderer')
+
+          once(
+              "          const rawText = rawDiv.textContent;\n          const d = parseSettlement(rawText);\n",
+              "          const rawText = rawDiv.textContent;\n          const achievementSnapshot = parseAchievementSnapshot(rawText);\n          const d = parseSettlement(rawText);\n",
+              'parse achievement snapshot with existing settlement regex'
+          )
+
+          beautifier.write_text(text, encoding='utf-8')
+
+          world = Path('World Book/【结算任务】[mvu_plot].txt')
+          w = world.read_text(encoding='utf-8')
+          old_rules = '''  - 轮回模式且数据库存在副本成就时：在 `</settlement tasks>` 后必须逐字输出程序预填的 `<achievement settlement>` 成就快照块；严禁改名、改序、改状态、改奖励或遗漏任一项
+  - `<achievement settlement>` 只用于前端成就结算窗口与历史消息重放；AI不得把其中的奖励再次写入变量，奖励由后台结算脚本统一发放
+'''
+          new_rules = '''  - 轮回模式且数据库存在副本成就时：必须在 `</settlement tasks>` 之前逐字保留程序预填的 `<achievement settlement>` 成就快照块；严禁改名、改序、改状态、改奖励或遗漏任一项
+  - `<achievement settlement>` 是同一结算面板内的机器快照，由 `结算任务美化.html` 渲染为成就模块；AI不得把其中的奖励再次写入变量，奖励由后台结算脚本统一发放
+'''
+          if w.count(old_rules) != 1:
+              raise SystemExit(f'worldbook rules: expected 1 match, got {w.count(old_rules)}')
+          w = w.replace(old_rules, new_rules, 1)
+
+          old_end = '''</settlement tasks>
+<%_ if (!isSingleWorld && achievementEntries.length) { _%>
+<achievement settlement>
+副本：<%= achievementWorldName %>
+达成：<%= achievementDoneCount %>/<%= achievementEntries.length %>
+<%_ achievementEntries.forEach((a, index) => { _%>
+<%= index + 1 %>|<%= a.difficulty %>|<%= a.name %>|<%= a.desc %>|<%= a.reward %>|<%= a.status %>
+<%_ }); _%>
+</achievement settlement>
+<%_ } _%>
+</System_Rules>
+'''
+          new_end = '''<%_ if (!isSingleWorld && achievementEntries.length) { _%>
+<achievement settlement>
+副本：<%= achievementWorldName %>
+达成：<%= achievementDoneCount %>/<%= achievementEntries.length %>
+<%_ achievementEntries.forEach((a, index) => { _%>
+<%= index + 1 %>|<%= a.difficulty %>|<%= a.name %>|<%= a.desc %>|<%= a.reward %>|<%= a.status %>
+<%_ }); _%>
+</achievement settlement>
+<%_ } _%>
+</settlement tasks>
+</System_Rules>
+'''
+          if w.count(old_end) != 1:
+              raise SystemExit(f'worldbook snapshot placement: expected 1 match, got {w.count(old_end)}')
+          w = w.replace(old_end, new_end, 1)
+          world.write_text(w, encoding='utf-8')
+
+          standalone = Path('Regular/成就结算美化.html')
+          if not standalone.exists():
+              raise SystemExit('standalone achievement beautifier missing')
+          standalone.unlink()
+
+          final_w = world.read_text(encoding='utf-8')
+          if final_w.index('<achievement settlement>') > final_w.index('</settlement tasks>'):
+              raise SystemExit('achievement snapshot still outside settlement tasks')
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('Regular/结算任务美化.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script>([\s\S]*?)</script>', html)
+          if len(scripts) != 1:
+              raise SystemExit(f'expected one script block, found {len(scripts)}')
+          Path('/tmp/settlement.js').write_text(scripts[0], encoding='utf-8')
+          PY
+          node --check /tmp/settlement.js
+          git -c core.whitespace=cr-at-eol diff --check
+          test ! -e 'Regular/成就结算美化.html'
+
+      - name: Commit merged module
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/merge-achievement-settlement.yml
+          git add -A
+          git commit -m 'merge achievement module into settlement beautifier'
+          git push origin HEAD:main

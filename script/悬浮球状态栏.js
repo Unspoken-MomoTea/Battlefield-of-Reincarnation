@@ -8057,7 +8057,7 @@
         if ($execBtn.length) { $execBtn.prop('disabled', true).text('执行中...'); }
         // 2) ★ 同步优先直写 MVU(原子操作): 立即把交易结果写回, 商品库一次性移除全部已购物品
         //    旧流程先 /trigger 触发AI回复, AI的[mvu_update]会覆盖我们的写回(导致只删1个),
-        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 再 /send 记录文本(不触发AI)
+        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 待播报记录由交易写回统一留存
         var writeOk = writeBackMvu(function(statData) {
             // 用构建好的交易结果整体覆盖主角字段 + 商城商品库
             var rs = result.statData;
@@ -8087,19 +8087,7 @@
         }
         samToast('success', '交易已完成');
         renderAll();
-        // 4) /send 记录交易文本(仅创建用户楼层, 不带 /trigger, 不触发AI回复, 避免AI的mvu_update覆盖商品库)
-        var msg = result.purchaseLog + '。';
-        try {
-            shopTriggerSlash('/send ' + msg).then(function() {
-                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
-            }).catch(function(eSend) {
-                try { console.warn('[主神终端] /send 记录失败(交易已生效):', eSend.message); } catch(e2){}
-                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
-            });
-        } catch(eSync) {
-            try { console.warn('[主神终端] /send 异常(交易已生效):', eSync.message); } catch(e2){}
-            if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
-        }
+        if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
     }
     /* ===== 32d. 商城: 刷新商品(调正文AI generateRaw, 按新ZOD结构生成商品库) =====
        - 二次校验 战斗中/不在主神空间(按钮已禁用, 此处兜底)

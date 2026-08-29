@@ -64,7 +64,7 @@ jobs:
           path.write_bytes(text.encode('utf-8'))
           PY
 
-          git diff --check
+          git -c core.whitespace=cr-at-eol diff --check
           git diff -- script/悬浮球状态栏.js
 
       - name: Commit patch and remove temporary workflow

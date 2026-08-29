@@ -1,0 +1,600 @@
+```text
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>轮回战场 — 接入协议</title>
+    <style>
+        :root {
+            --bg: #0b0c10;
+            --surface: #12141a;
+            --text: #c5c6c7;
+            --text-sub: #7a7f85;
+            --accent: #66fcf1; /* 系统荧光青 */
+            --accent-dark: #45a29e;
+            --accent-soft: rgba(102, 252, 241, 0.12);
+            --font-ui: 'Noto Sans SC', sans-serif;
+            --font-lore: 'Noto Serif SC', serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-ui);
+            line-height: 1.8;
+            min-height: 100vh;
+            overflow-x: hidden;
+            /* 边缘系统扫描线效果 */
+            border-left: 2px solid var(--accent-dark);
+            border-right: 2px solid var(--accent-dark);
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+        }
+
+        /* ===== 主体内容 ===== */
+        .main {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 0 24px 60px;
+        }
+
+        /* 标题区 */
+        .header {
+            text-align: center;
+            padding: 24px 0 32px;
+        }
+
+        .header-tag {
+            font-size: 0.65rem;
+            letter-spacing: 0.6rem;
+            color: var(--accent);
+            opacity: 0.8;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            font-family: monospace;
+        }
+
+        .header h1 {
+            font-family: var(--font-lore);
+            font-size: 2.8rem;
+            font-weight: 900;
+            letter-spacing: 0.4rem;
+            line-height: 1.2;
+            margin-bottom: 12px;
+            color: #fff;
+            text-shadow: 0 0 20px var(--accent-soft);
+        }
+
+        .header-sub {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            letter-spacing: 0.2rem;
+        }
+
+        .header-sub em {
+            color: var(--accent);
+            font-style: normal;
+        }
+
+        /* 引言（世界观） */
+        .quote {
+            text-align: center;
+            padding: 12px 20px 32px;
+            background: linear-gradient(to right, transparent, rgba(102, 252, 241, 0.03), transparent);
+            border-radius: 4px;
+        }
+
+        .quote p {
+            font-family: var(--font-lore);
+            font-size: 1rem;
+            color: var(--text);
+            line-height: 2.2;
+            letter-spacing: 0.05rem;
+        }
+
+        .quote em {
+            color: var(--accent);
+            font-style: normal;
+            font-weight: 700;
+        }
+
+        .quote .aside {
+            margin-top: 12px;
+            font-family: var(--font-ui);
+            font-size: 0.75rem;
+            color: var(--accent-dark);
+            letter-spacing: 0.1rem;
+        }
+
+        /* 分割线 */
+        .sep {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 40px;
+            opacity: 0.5;
+        }
+        .sep::before, .sep::after {
+            content: '';
+            width: 60px;
+            height: 1px;
+            background: var(--accent-dark);
+        }
+        .sep::before { margin-right: 15px; }
+        .sep::after { margin-left: 15px; }
+        .sep span {
+            width: 6px; height: 6px;
+            transform: rotate(45deg);
+            background: var(--accent);
+        }
+
+        /* ===== 系统特色网格 (动态添加以替代原来的空白) ===== */
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 48px;
+        }
+
+        .feat {
+            padding: 20px;
+            background: var(--surface);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-left: 3px solid var(--accent-dark);
+            transition: all 0.3s ease;
+        }
+
+        .feat:hover { 
+            background: rgba(102, 252, 241, 0.05); 
+            border-left-color: var(--accent);
+        }
+
+        .feat-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 8px;
+            letter-spacing: 0.1rem;
+        }
+
+        .feat-desc {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            line-height: 1.6;
+        }
+
+        /* 按钮与交互 */
+        .cta { text-align: center; }
+
+        .btn {
+            display: inline-block;
+            padding: 16px 64px;
+            font-family: var(--font-ui);
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.4rem;
+            color: var(--bg);
+            background: var(--accent);
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(102, 252, 241, 0.2);
+            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+        }
+
+        .btn:hover {
+            background: #fff;
+            box-shadow: 0 0 25px rgba(102, 252, 241, 0.5);
+        }
+
+        .btn:active { transform: scale(0.98); }
+        .btn.loading { opacity: 0.5; pointer-events: none; }
+        .btn.disabled {
+            opacity: 0.3;
+            background: var(--text-sub);
+            pointer-events: none;
+            box-shadow: none;
+        }
+
+        .cta-note {
+            margin-top: 16px;
+            font-size: 0.7rem;
+            color: var(--accent-dark);
+            letter-spacing: 0.1rem;
+            font-family: monospace;
+        }
+
+        /* 用户协议 */
+        .agreement {
+            text-align: center;
+            margin-top: 40px;
+            padding: 24px;
+            border: 1px dashed var(--accent-dark);
+            background: rgba(0,0,0,0.3);
+        }
+
+        .agreement-text {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1.8;
+            letter-spacing: 0.05rem;
+            margin-bottom: 16px;
+        }
+
+        .agreement-text span { color: #e74c3c; }
+
+        .agreement-check {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .agreement-check input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1px solid var(--accent);
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .agreement-check input[type="checkbox"]:checked {
+            background: var(--accent);
+        }
+
+        .agreement-check input[type="checkbox"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 5px;
+            width: 4px; height: 8px;
+            border: solid var(--bg);
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .agreement-check span {
+            font-size: 0.8rem;
+            color: var(--text);
+        }
+
+        /* 依赖检测 (终端风格) */
+        .dep-status {
+            margin-bottom: 40px;
+            padding: 24px;
+            background: #050508;
+            border: 1px solid rgba(255,255,255,0.08);
+            font-family: monospace;
+        }
+
+        .dep-title {
+            font-size: 0.8rem;
+            color: var(--text);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+            padding-bottom: 8px;
+        }
+
+        .dep-title::before { content: '> '; color: var(--accent); }
+
+        .dep-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 0;
+            font-size: 0.75rem;
+            color: var(--text-sub);
+        }
+
+        .dep-name { flex: 1; }
+
+        .dep-tag {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .dep-tag.ok { color: var(--accent); }
+        .dep-tag.fail { color: #e74c3c; }
+
+        .dep-summary {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px dashed rgba(255,255,255,0.1);
+            font-size: 0.75rem;
+        }
+
+        .dep-summary.all-ok { color: var(--accent); }
+        .dep-summary.has-fail { color: #e74c3c; }
+
+        .foot {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.6rem;
+            color: var(--text-sub);
+            letter-spacing: 0.25rem;
+            font-family: monospace;
+            opacity: 0.5;
+        }
+
+        /* ===== 页面加载遮罩 ===== */
+        .page-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        .page-loader.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .page-loader-text {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--accent);
+            letter-spacing: 0.3rem;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        .main { opacity: 0; transition: opacity 0.6s ease; transform: translateY(10px); }
+        .main.visible { opacity: 1; transform: translateY(0); }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size: 2.2rem; }
+            .features { grid-template-columns: 1fr; }
+            .btn { width: 100%; padding: 15px; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="page-loader" id="pageLoader">
+        <span class="page-loader-text">INITIALIZING SYSTEM...</span>
+    </div>
+
+    <div class="main" id="mainContent">
+
+        <div class="cover">
+            </div>
+
+        <div class="header">
+            <div class="header-tag">SYSTEM ACTIVATED // INFINITE EVOLUTION</div>
+            <h1>轮回战场</h1>
+            <p class="header-sub">主神空间 · <em>虚无化潮</em> · 万物升维协议</p>
+        </div>
+
+        <div class="quote">
+            <p>宇宙深处存在一种被称为「<em>虚无化潮</em>」的侵蚀性力量<br>
+            有一台运行数万年的灵魂精炼炉——<br>
+            收集、测试、淘汰、再收集，循环往复，无情遴选。</p>
+            <p class="aside">—— 宇宙自愈本能 · 运营意志体</p>
+        </div>
+
+        <div class="sep"><span></span></div>
+
+        <div class="features">
+            <div class="feat">
+                <div class="feat-label">物理驱动协议</div>
+                <div class="feat-desc">基于D100与高度数值化的物理交互演算，拒绝口胡，装甲与血量的双轨制裁定。</div>
+            </div>
+            <div class="feat">
+                <div class="feat-label">因果演进机制</div>
+                <div class="feat-desc">动态世界稳定度测算，你的任何一次蝴蝶振翅，都将引发世界法则的排异与演化。</div>
+            </div>
+            <div class="feat">
+                <div class="feat-label">万物升维降解</div>
+                <div class="feat-desc">完善的战利品跨界自适应压缩系统，与严密把控的生命阶级(F-SSS)跃迁试炼。</div>
+            </div>
+            <div class="feat">
+                <div class="feat-label">动态生态网络</div>
+                <div class="feat-desc">社会阶层生态位与属性绝对绑定，NPC具备独立的因果链轨、记忆与利益诉求。</div>
+            </div>
+        </div>
+
+        <div class="dep-status" id="depStatus">
+            <div class="dep-title">核心模组状态自检</div>
+            <div class="dep-item">
+                <span class="dep-name">MVU 变量架构</span>
+                <span class="dep-tag" id="dep-mvu-tag">SCANNING...</span>
+            </div>
+            <div class="dep-item">
+                <span class="dep-name">EJS 提示词模板</span>
+                <span class="dep-tag" id="dep-prompt-tag">SCANNING...</span>
+            </div>
+            <div class="dep-item">
+                <span class="dep-name">辅助计算引擎</span>
+                <span class="dep-tag" id="dep-calc-tag">SCANNING...</span>
+            </div>
+            <div class="dep-item">
+                <span class="dep-name">悬浮球状态栏.</span>
+                <span class="dep-tag" id="dep-statusbar-tag">SCANNING...</span>
+            </div>
+            <div class="dep-summary" id="depSummary">等待模组响应...</div>
+        </div>
+
+        <div class="cta">
+            <a class="btn disabled" id="enterBtn">确认接入</a>
+            <p class="cta-note">WAITING FOR AUTHORIZATION...</p>
+        </div>
+
+        <div class="agreement">
+            <p class="agreement-text"><span>⚠</span> 警告：本协议涉及高危因果干涉<br>严禁在常规网络与无防护社区传播本系统数据</p>
+            <label class="agreement-check">
+                <input type="checkbox" id="agreeCheck">
+                <span>我已阅知《万物升维与法则协议》并同意接入</span>
+            </label>
+        </div>
+
+        <div class="foot">MVU ENGINE × REINCARNATION BATTLEFIELD</div>
+    </div>
+
+    <script>
+        // ===== 依赖检测 =====
+        function getWin() {
+            try { return window.parent || window; } catch (e) { return window; }
+        }
+
+        function checkDep(id, test) {
+            const tag = document.getElementById('dep-' + id + '-tag');
+            const ok = test();
+            tag.textContent = ok ? '[ ONLINE ]' : '[ OFFLINE ]';
+            tag.classList.add(ok ? 'ok' : 'fail');
+            return ok;
+        }
+
+        async function runDepChecks() {
+            const win = getWin();
+            let allOk = true;
+
+            // MVU 变量系统
+            allOk &= checkDep('mvu', () => {
+                try {
+                    const mvu = win.Mvu;
+                    return void 0 !== mvu && typeof mvu.getMvuData === 'function' && typeof mvu.replaceMvuData === 'function';
+                } catch (e) { return false; }
+            });
+
+            // 提示词模板 (EJS Template)
+            allOk &= checkDep('prompt', () => {
+                try {
+                    const top = window.top;
+                    if (top && top.SillyTavern) {
+                        const ctx = top.SillyTavern.getContext();
+                        if (ctx && ctx.extensionSettings) {
+                            const ejs = ctx.extensionSettings.EjsTemplate;
+                            return !!(ejs && ejs.enabled);
+                        }
+                    }
+                    return false;
+                } catch (e) { return false; }
+            });
+
+            // 辅助计算脚本
+            allOk &= checkDep('calc', () => {
+                try {
+                    return !!(win.__辅助计算脚本_loaded__);
+                } catch (e) { return false; }
+            });
+
+            // 状态栏.js
+            allOk &= checkDep('statusbar', () => {
+                try {
+                    return !!(win.__悬浮球状态栏_loaded__);
+                } catch (e) { return false; }
+            });
+
+            const summary = document.getElementById('depSummary');
+            if (allOk) {
+                summary.textContent = '>> 核心模组自检通过，允许接入';
+                summary.classList.add('all-ok');
+            } else {
+                summary.textContent = '>> 警告：部分模组响应丢失，可能会引发法则错乱';
+                summary.classList.add('has-fail');
+            }
+        }
+
+        // ===== 页面预加载处理 =====
+        (function () {
+            const loader = document.getElementById('pageLoader');
+            const main = document.getElementById('mainContent');
+            let revealed = false;
+
+            function showPage() {
+                if (revealed) return;
+                revealed = true;
+                loader.classList.add('fade-out');
+                main.classList.add('visible');
+                setTimeout(() => loader.remove(), 600);
+            }
+
+            const images = document.querySelectorAll('img');
+            if (images.length === 0) {
+                showPage();
+            } else {
+                let loaded = 0;
+                const total = images.length;
+                images.forEach(img => {
+                    if (img.complete) {
+                        loaded++;
+                        if (loaded >= total) showPage();
+                    } else {
+                        img.addEventListener('load', () => { if (++loaded >= total) showPage(); });
+                        img.addEventListener('error', () => { if (++loaded >= total) showPage(); });
+                    }
+                });
+            }
+            setTimeout(showPage, 10000); // 10秒兜底
+        })();
+
+        // 延迟执行检测模块
+        setTimeout(runDepChecks, 1500);
+
+        // ===== 授权接入交互 =====
+        const agreeCheck = document.getElementById('agreeCheck');
+        const enterBtn = document.getElementById('enterBtn');
+        const ctaNote = document.querySelector('.cta-note');
+
+        agreeCheck.addEventListener('change', function () {
+            if (this.checked) {
+                enterBtn.classList.remove('disabled');
+                ctaNote.textContent = "READY FOR DEPLOYMENT";
+                ctaNote.style.color = "var(--accent)";
+            } else {
+                enterBtn.classList.add('disabled');
+                ctaNote.textContent = "WAITING FOR AUTHORIZATION...";
+                ctaNote.style.color = "var(--accent-dark)";
+            }
+        });
+
+        enterBtn.addEventListener('click', async function (e) {
+            e.preventDefault();
+            if (!agreeCheck.checked) return;
+            const btn = this;
+            btn.classList.add('loading');
+            btn.textContent = '建立链接中...';
+
+            try {
+                const messages = await getChatMessages("0", { include_swipe: true });
+                const swipeId = 1;
+                if (messages && messages[0].swipes && messages[0].swipes[swipeId]) {
+                    await setChatMessage(messages[0].swipes[swipeId], 0, {
+                        swipe_id: swipeId,
+                        refresh: 'display_and_render_current'
+                    });
+                    if (typeof toastr !== 'undefined') toastr.success('已成功接入主神空间');
+                } else {
+                    throw new Error('未找到剧情接驳点，请确认开场白已就绪。');
+                }
+            } catch (err) {
+                console.error('链接失败:', err);
+                if (typeof toastr !== 'undefined') toastr.error('协议链接断开: ' + err.message);
+                btn.classList.remove('loading');
+                btn.textContent = '重新尝试接入';
+            }
+        });
+    </script>
+</body>
+
+</html>
+```

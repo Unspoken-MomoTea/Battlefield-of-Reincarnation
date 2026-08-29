@@ -131,8 +131,8 @@ AI推演与计算层 (仅在 <dm_think> 中执行，不在正文显示):
 
 ============================================================
 前端展示层 (必须使用 `<settlement tasks>` 标签包裹，强制按以下Markdown格式输出，严禁擅自增加无关闲聊):
-  - 轮回模式且数据库存在副本成就时：在 `</settlement tasks>` 后必须逐字输出程序预填的 `<achievement settlement>` 成就快照块；严禁改名、改序、改状态、改奖励或遗漏任一项
-  - `<achievement settlement>` 只用于前端成就结算窗口与历史消息重放；AI不得把其中的奖励再次写入变量，奖励由后台结算脚本统一发放
+  - 轮回模式且数据库存在副本成就时：必须在 `</settlement tasks>` 之前逐字保留程序预填的 `<achievement settlement>` 成就快照块；严禁改名、改序、改状态、改奖励或遗漏任一项
+  - `<achievement settlement>` 是同一结算面板内的机器快照，由 `结算任务美化.html` 渲染为成就模块；AI不得把其中的奖励再次写入变量，奖励由后台结算脚本统一发放
 ============================================================
 <settlement tasks>
 ### **【主神空间 - 轮回清算协议】**
@@ -249,7 +249,6 @@ $(若检测到玩家满足发放条件，且未持有该等级凭证，则强制
 <%_ } else { _%>
 **【轮回清算完毕。世界因果已剥离凝结为专属纪念物，所有副本临时数据已安全抹除。】**
 <%_ } _%>
-</settlement tasks>
 <%_ if (!isSingleWorld && achievementEntries.length) { _%>
 <achievement settlement>
 副本：<%= achievementWorldName %>
@@ -259,6 +258,7 @@ $(若检测到玩家满足发放条件，且未持有该等级凭证，则强制
 <%_ }); _%>
 </achievement settlement>
 <%_ } _%>
+</settlement tasks>
 </System_Rules>
 <%_
 })();

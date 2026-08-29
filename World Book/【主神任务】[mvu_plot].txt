@@ -1,0 +1,230 @@
+<%_
+;(() => {
+  const rule_data = getMessageVar('stat_data', { defaults: {} }) || {};
+  const isSingleWorld = _.get(rule_data, '设置.单一世界', false) === true;
+
+  // 成就奖励锁定：程序一次性计算6档盲盒品质，AI只负责生成成就名称与条件
+  const achievementGrades = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+  const lifeTiers = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ'];
+  const playerIndexRaw = lifeTiers.indexOf(String(_.get(rule_data, '主角.层级', 'Ⅰ')).trim());
+  const worldIndexRaw = lifeTiers.indexOf(String(_.get(rule_data, '世界.位格', 'Ⅰ')).trim());
+  const playerIndex = playerIndexRaw >= 0 ? playerIndexRaw : 0;
+  const worldIndex = worldIndexRaw >= 0 ? worldIndexRaw : 0;
+  const difficultyText = String(_.get(rule_data, '世界.难度', 'F~F')).toUpperCase();
+  const difficultyMatches = difficultyText.match(/SSS|SS|S|A|B|C|D|E|F/g) || ['F'];
+  const difficultyIndexes = difficultyMatches.map(grade => {
+    const idx = achievementGrades.indexOf(grade);
+    return idx >= 0 ? idx : 0;
+  });
+  const difficultyLowerIndex = Math.min(...difficultyIndexes);
+  const difficultyUpperIndex = difficultyMatches.reduce((max, grade) => {
+    const idx = achievementGrades.indexOf(grade);
+    return Math.max(max, idx >= 0 ? idx : 0);
+  }, 0);
+
+  // 主神任务锁定：按任务数量生成单级难度，并从固定总池中分配空间币
+  const playerRewardBases = [100, 500, 2500, 12000, 50000, 200000, 800000, 3200000, 12800000];
+  const difficultyDelta = difficultyUpperIndex - playerIndex;
+  const taskRewardPoolMultiplier = difficultyDelta < 0
+    ? 0.5
+    : Math.min(3, 1 + difficultyDelta * 0.5);
+  const taskRewardPool = Math.floor(
+    playerRewardBases[playerIndex] * taskRewardPoolMultiplier / 10
+  ) * 10;
+  const taskLabels = ['任务一', '任务二', '任务三', '任务四', '任务五'];
+  const taskPlans = {};
+  [2, 3, 5].forEach(count => {
+    const gradeIndexes = Array.from({ length: count }, (_, idx) => {
+      if (count === 1 || difficultyLowerIndex === difficultyUpperIndex) return difficultyLowerIndex;
+      return Math.round(
+        difficultyLowerIndex + (difficultyUpperIndex - difficultyLowerIndex) * idx / (count - 1)
+      );
+    });
+    const weights = gradeIndexes.map(idx => Math.max(1, idx - difficultyLowerIndex + 1));
+    const weightSum = weights.reduce((sum, value) => sum + value, 0);
+    taskPlans[count] = gradeIndexes.map((gradeIndex, idx) => ({
+      label: taskLabels[idx],
+      difficulty: achievementGrades[gradeIndex],
+      reward: Math.max(10, Math.floor(taskRewardPool * weights[idx] / weightSum / 10) * 10),
+    }));
+  });
+  // 最终上限 = min(世界/玩家取低后+2, 副本上限+2, SSS)
+  const baseRewardCapIndex = Math.min(8, Math.min(worldIndex, playerIndex) + 2);
+  const rewardCapIndex = Math.min(baseRewardCapIndex, Math.min(8, difficultyUpperIndex + 2));
+  // 六星取最终上限，五星取上限-1；一至四星从F向五星品质均匀铺开
+  const fiveStarRewardIndex = Math.max(0, rewardCapIndex - 1);
+  const achievementRewardIndexes = [
+    0,
+    Math.round(fiveStarRewardIndex / 3),
+    Math.round(fiveStarRewardIndex * 2 / 3),
+    fiveStarRewardIndex,
+    fiveStarRewardIndex,
+    rewardCapIndex,
+  ];
+  const achievementRewardGrades = achievementRewardIndexes.map(index => achievementGrades[index]);
+  const achievementWorldName = String(_.get(rule_data, '世界.名称', '当前副本'))
+    .replace(/[【】《》]/g, '').trim() || '当前副本';
+  const achievementRewards = achievementRewardGrades.map(
+    grade => `${grade}级盲盒·${achievementWorldName}`
+  );
+_%>
+<主神任务生成协议>
+【重要】数据写入说明（优先级最高）：
+  - 本协议生成的《主神任务》内容，将由主神空间渲染器（HTML前端）在解析后自动写入数据库
+  - 渲染器负责解析并入库，AI无需关心任务、副本成就数据写入细节
+  - AI禁止正文之后再次修改任务、副本成就相关数据
+
+触发条件:
+  - 当且仅当玩家完成【选择世界】并明确输入【主神任务】或降临副本世界时触发
+  - 前置条件: 系统必须已读取玩家的【当前层级】、【阵营】以及对应世界的【主模块】、【副模块】、【生态】数据
+  - 数据锁定: 该世界的【主模块】、【副模块】、【生态】必须与【选择世界】阶段输出的结果完全一致，AI不得以任何理由修改
+
+## 任务数量锁定协议（强制执行）
+- 【无异端】固定生成2个任务
+- 【死斗局】固定生成3个任务
+- 【混沌局】固定生成5个任务
+- 禁止根据副模块、剧情规模或AI判断增减任务数量
+
+## 任务难度与空间币锁定方案（强制照抄）
+- 当前副本任务等级范围：<%- achievementGrades[difficultyLowerIndex] %>~<%- achievementGrades[difficultyUpperIndex] %>
+- 根据生态只选择下方对应的一套方案；任务难度与奖励必须逐字复制，禁止重算、调换或修改
+<%_ [2, 3, 5].forEach(count => { _%>
+- <%- count %>项方案：<%- taskPlans[count].map(task => `${task.label}【难度:${task.difficulty}｜奖励:${task.reward}空间币】`).join('；') %>
+<%_ }); _%>
+
+## 一、 任务生成与阵营导向法则
+主神任务根据世界局势与玩家阵营，按生态生成2、3或5个【主神任务】
+- 阵营深度绑定: 任务目标必须根据玩家当前的【阵营】和所处世界的【生态】进行深度定制；不同任务彼此独立，可分别推进与完成
+- 递进与多选: 任务难度按锁定方案非递减排列；允许同级，但不得低于世界难度下限或超过世界难度上限
+- 生态冲突映射 (必须严格执行<任务与委托系统>中的“警觉动态响应”)：
+  - 死斗局/混沌局: 至少有1个主神任务涉及猎杀异端或破坏敌对阵营核心利益
+  - 存在异端时，名单中至少1名采用真实成熟作品角色的平行同位体、同人分支或不同阶段版本；其余允许原创
+  - 同位体属于外来轮回者，不受当前副本原著角色限制，具体能力遵守<轮回者能力生成协议>
+  - 每名异端锁定来源与一条简短经历；经历格式为“经历世界→所得能力体系”，不得只写世界名
+  - 无异端: 任务完全聚焦于世界大势、本土反派或副模块带来的极端机制
+- **副模块强制穿透**:
+  - 根据【选择世界】阶段为该世界确定的【副模块】，必须直接影响至少一项主神任务的设计
+  - 副模块必须在【任务执行内容】中留下可识别的实际结果，而不仅是作为描述标签
+  - 示例: 若副模块为【禁止杀戮】，则任务应围绕“囚禁”、“夺取”、“驱逐”、“规则竞争”等非致命方式展开
+
+## 二、 任务难度判定协议 (对接<任务与委托系统>)
+- 生成主神任务内容时，其危险规模必须严格遵守<任务与委托系统>中的【难度评级序列】和【难度生成】规则
+- 每个任务只使用锁定方案中的单一难度评级，禁止输出难度区间
+- 锁定评级是任务内容必须达到的目标；若内容与评级不符，必须重写目标、阻力、限制或失败代价，禁止修改锁定评级
+- 评级由下列五个维度共同构成，不要求全部来自战斗；这些维度只用于设计符合锁定等级的内容，不得用于重新判定等级：
+  1. 敌方生命层级
+  2. 资源获取难度
+  3. 环境压力
+  4. 阵营冲突
+  5. 世界规则限制 (特别是副模块带来的限制)
+- 任务内容尺度：
+  - F：日常或基础行动，阻力很低，失败代价轻微
+  - E：需要训练或谨慎准备，存在明确风险与少量资源消耗
+  - D：具有真实致命性或多重阻碍，需要计划，失败会造成明显损失
+  - C：精英级战术行动，多项压力同时存在，失败可能重伤或导致局势恶化
+  - B：卷入核心区域或主要势力冲突，资源紧张，死亡与重大连锁后果概率很高
+  - A：多阶段灾难级行动，伴随极端环境、强力压制或严重因果代价
+  - S：近乎必死的高压任务，多重致命条件叠加，并足以改变大范围局势
+  - SS：规则级封锁或世界秩序崩坏，容错极低，失败造成长期不可逆后果
+  - SSS：世界存亡或底层法则级终极行动，多项极限条件同时成立，近乎不可能完成
+- 禁止以“击杀普通动物、递送普通物品”等低风险内容承载D级及以上评级；高评级任务也不得为凑强度而生成超过世界位格的敌人，应优先通过环境、资源、阵营与法则压力补足难度
+
+- 副本成就难度：
+  绑定世界观的终极挑战，★至★★★★★★（必含代表世界观上限的终极成就）；明示条件但极难达成
+  ★_探索级：顺路可完成的环境交互或简单击杀
+  ★★_挑战级：需特定规划的条件击杀或中等解密
+  ★★★_破局级：改变局部战局，或击杀带特化词条的精英目标
+  ★★★★_史诗级：深度介入世界大势，完成极度苛刻的生存或击杀指标
+  ★★★★★_传说级：直面原著核心灾难并存活，或击溃当前副本常规战力巅峰（常规BOSS以上）
+  ★★★★★★_世界天花板：触碰并逆转世界底层规则，或单杀代表原著战力天花板的隐藏BOSS/固定角色
+
+## 三、 奖励生成与量化红线 (对接<任务与委托系统>)
+- **空间币奖励 (主神任务专产)**:
+  - 每项任务的空间币已经写入对应锁定方案
+  - AI必须原样复制具体数值，禁止计算、增减、互换或追加其他空间币奖励
+
+- **副本成就/本土奖励 (盲盒机制)**:
+  - AI只填写成就名称与难度描述；下方奖励字段必须原样保留
+
+## 四、 输出格式强制规范 (整合与清晰化)
+必须使用 `<god quest>` 标签包裹，严格按照下方模板输出，严禁在任务名前增添任何"."。
+所有 `[占位符]` 必须替换为基于当前世界观的实际内容。
+
+<god quest>
+<副本任务面板>
+## 副本名称: [《原著IP名称》](世界位格: [Ⅰ~Ⅸ])
+## 降临锚点: [时间/地点] (必须与【选择世界】阶段生成的【时间锚点】一致)
+## 切入身份: [副本身份] (必须与【选择世界】阶段生成的【切入/夺舍身份】一致)
+## 阵营与生态: [玩家阵营](玩家层级: [Ⅰ~Ⅸ]) | [无异端/死斗局/混沌局]
+## 副模块生效: [强制描述当前世界的干涉模式及其如何影响任务与局势]
+
+任务一 (难度: [复制所选方案中的任务一难度])
+名称: [符合世界观的任务名称]
+描述: [任务执行内容，需体现副模块机制与阵营特色]
+奖励: [复制所选方案中的任务一奖励]
+惩罚: [失败代价]
+
+任务二 (难度: [复制所选方案中的任务二难度])
+名称: [名称]
+描述: [描述]
+奖励: [复制所选方案中的任务二奖励]
+惩罚: [失败代价]
+
+任务三 (难度: [若所选方案包含任务三，则复制其难度，否则整项不输出])
+名称: [名称]
+描述: [描述]
+奖励: [复制所选方案中的任务三奖励]
+惩罚: [失败代价]
+
+任务四 (难度: [仅5项方案输出，并复制任务四难度])
+名称: [名称]
+描述: [描述]
+奖励: [复制所选方案中的任务四奖励]
+惩罚: [失败代价]
+
+任务五 (难度: [仅5项方案输出，并复制任务五难度])
+名称: [名称]
+描述: [描述]
+奖励: [复制所选方案中的任务五奖励]
+惩罚: [失败代价]
+
+$(注：
+  - 任务难度必须按所选方案非递减排列，允许同级
+  - 任务一必须是当前副本范围内相对低风险的存活/收集/逃离类任务
+  - 若存在死斗局/混沌局，任务二或任务三必须涉及异端直接对抗或破坏敌对阵营核心利益；若副模块禁止杀戮，则改用囚禁、驱逐、夺取、淘汰等非致命方式
+  - 只输出所选方案包含的任务数量，禁止补充计划外任务
+)
+</副本任务面板>
+
+<因果轨道与成就列表>
+## 因果轨道
+当前阶段: [正在发生的宏观局势或不可逆灾难]
+故事线: [玩家介入或不介入将对世界走向产生何种不可逆的连锁改变，需与副模块联动]
+
+## 副本成就奖励梯度
+★ - [成就名称]: [难度描述] | 奖励：<%- achievementRewards[0] %>
+★★ - [成就名称]: [难度描述] | 奖励：<%- achievementRewards[1] %>
+★★★ - [成就名称]: [难度描述] | 奖励：<%- achievementRewards[2] %>
+★★★★ - [成就名称]: [难度描述] | 奖励：<%- achievementRewards[3] %>
+★★★★★ - [成就名称]: [难度描述] | 奖励：<%- achievementRewards[4] %>
+★★★★★★ - [成就名称]: [难度描述] | 奖励：<%- achievementRewards[5] %>
+$(注：
+  - 每个成就项必须包含【难度描述】、【成就名称】、【盲盒品质】三部分
+  - AI只填写成就名称与难度描述，奖励字段必须原样保留
+  - 难度描述必须体现具体挑战内容，禁止仅输出成就名称+盲盒
+  - 成就梯度必须输出全部6行，按★顺序递增
+)
+</因果轨道与成就列表>
+
+<副本人物生成>
+## 异端名单
+异端: [无异端生态固定填写“无”；死斗局/混沌局填写：【阵营】[职业]角色名·分支〔来源：作品名｜经历：经历世界→所得能力体系〕 (阶位)，多个以分号分隔；原创异端的来源填写“原创”]
+## 固有角色
+角色列表: 名称 (阶位)（仅列出与本次任务密切相关的原著核心角色，必须符合【选择世界】阶段的原著一致性校验）
+</副本人物生成>
+</god quest>
+$(注：本输出仅为纯文本任务内容，渲染器将自动解析入库，AI无需额外操作)
+</主神任务生成协议>
+<%_
+})();
+_%>

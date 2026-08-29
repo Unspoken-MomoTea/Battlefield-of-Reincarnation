@@ -1,0 +1,325 @@
+<%_
+;(() => {
+  const stat_data = getMessageVar('stat_data', { defaults: {} }) || {};
+  const isSingleWorld = _.get(stat_data, '设置.单一世界', false) === true;
+  const canTrial = _.get(stat_data, '系统状态.是否可试炼', false) === true;
+  const trialDone = _.get(stat_data, '系统状态.试炼已完成', false) === true;
+  const inMainSpace = _.get(stat_data, '系统状态.是否在主神空间', false) === true;
+  const inBattle = _.get(stat_data, '系统状态.是否战斗中', false) === true;
+  const lifeTiers = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ'];
+  const grades = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+  const currentTierRaw = String(_.get(stat_data, '主角.层级', 'Ⅰ')).trim();
+  const currentIndexRaw = lifeTiers.indexOf(currentTierRaw);
+  const currentIndex = currentIndexRaw >= 0 ? currentIndexRaw : 0;
+  const currentTier = lifeTiers[currentIndex];
+  const targetIndex = Math.min(8, currentIndex + 1);
+  const targetTier = currentIndex < 8 ? lifeTiers[targetIndex] : '—';
+  const targetGrade = currentIndex < 8 ? grades[targetIndex] : '—';
+  const taskList = _.get(stat_data, '任务.列表', {}) || {};
+  const activeTrial = Object.values(taskList).some(task => {
+    if (!task || String(task.委托方 || '').trim() !== '晋升试炼') return false;
+    return ['进行中', '可交付', '可结算', '失败'].includes(String(task.状态 || '').trim());
+  });
+
+  let rejectReason = '';
+  if (currentIndex >= 8) rejectReason = '当前已达到最高生命层级，无法继续申请晋升试炼。';
+  else if (trialDone) rejectReason = '晋升资格已经取得，请直接在状态栏执行进阶。';
+  else if (activeTrial) rejectReason = '当前已有尚未结算的晋升试炼，禁止重复申请或重新抽取。';
+  else if (inBattle) rejectReason = '当前仍处于战斗中，必须先脱离战斗再申请试炼。';
+  else if (!isSingleWorld && !inMainSpace) rejectReason = '轮回模式只能在主神空间或休整期申请晋升试炼。';
+  else if (!canTrial) rejectReason = '当前沉淀尚未达到试炼门槛，无法生成晋升试炼。';
+
+  let trialData = null;
+  if (!rejectReason && !isSingleWorld) {
+    const lowMainPool = [
+      '低武江湖', '高武大荒', '古典修仙', '洪荒神话', '东方志异',
+      '中式民俗禁忌', '日式怪谈异闻', '诡异民俗', '不明生物', '都市传说',
+      '真实历史战役', '帝国征服史诗', '二战风云', '冷战谍影', '阵营对抗',
+      '架空历史战争', '钢铁阵营决战', '星际全面战争', '史诗族群阵线',
+      '日常都市', '都市异能', '黑帮谍战', '智斗博弈', '现代怪异', '超凡竞技',
+      '灵异侦探', '都市危机', '凶案现场', '硬核科幻', '太空歌剧', '赛博朋克',
+      '废土生存', '机甲巨兽', '末日生化', '智械危机', '星际虫灾', '深空幽寂',
+      '低魔中世纪', '高魔史诗', '蒸汽维多利亚', '暗黑魂系', '暗黑哥特',
+      '魔法学院', '瘟疫诡镇', '旧宅怨灵', '克苏鲁神话', '异常收容',
+      '规则怪谈', '梦核超现实', '童话反转', '阈限空间', '日式轻小说',
+      '架空异界', '不可视存在', '精神污染区', '末日预兆', '开放世界',
+      '游戏世界', '虚拟网游', '死后世界', '历史演义', '美漫超英',
+      '格斗擂台', '硬核动作', '深渊地狱', '热血王道', '荒诞喜剧',
+      '天体陨落', '死亡预演', '巨兽觉醒', '神话传说', 'Galgame向',
+      '黄游里番', 'ABO世界', '魔物娘', '赛博极乐城', '魔法少女'
+    ];
+    const midMainPool = [
+      '高武大荒', '古典修仙', '洪荒神话', '东方志异', '都市异能', '超凡竞技',
+      '现代怪异', '硬核科幻', '太空歌剧', '赛博朋克', '废土生存', '机甲巨兽',
+      '末日生化', '智械危机', '星际虫灾', '星际全面战争', '史诗族群阵线',
+      '高魔史诗', '暗黑魂系', '暗黑哥特', '克苏鲁神话', '异常收容',
+      '规则怪谈', '架空异界', '不可视存在', '精神污染区', '开放世界',
+      '游戏世界', '虚拟网游', '美漫超英', '深渊地狱', '热血王道',
+      '天体陨落', '巨兽觉醒', '神话传说', '魔法少女'
+    ];
+    const highMainPool = [
+      '高武大荒', '古典修仙', '洪荒神话', '星际全面战争', '史诗族群阵线',
+      '太空歌剧', '智械危机', '星际虫灾', '高魔史诗', '克苏鲁神话',
+      '异常收容', '规则怪谈', '不可视存在', '精神污染区', '美漫超英',
+      '深渊地狱', '天体陨落', '巨兽觉醒', '神话传说'
+    ];
+    const subPool = [
+      '大逃杀', '绝境求生', '天灾降临', '死亡倒计时', '世界污染',
+      '冷兵器限定', '近战优势', '远程优势', '无限制格斗', '黑暗森林法则',
+      '阵营对抗', '猎物与猎手', '悬赏通缉', '零和博弈', '非对称对抗',
+      '据点争夺', '两军对垒', '斩首行动', '护送任务', '物资垄断',
+      '全员禁魔', '科技锁死', '属性压制', '禁止杀戮', '禁止治疗',
+      '表里世界', '原著附身', '身份互换', '伤痛共享', '时间狂化',
+      '地牢深潜', '遗迹破译', '无尽怪海', '首领狂暴', '百鬼夜行',
+      '巨物围猎', '寻宝行动', '死亡机关', '深渊逃脱', '高位注视',
+      '领地塔防', '攻城掠地', '战争兵器', '信仰争夺', '世界Boss',
+      '强制发情期', '体液补给', '败者奴役', '魅惑判定', '性转世界',
+      '末日繁衍', '淫乱常识洗脑'
+    ];
+    const mainPool = targetIndex >= 6 ? highMainPool : (targetIndex >= 3 ? midMainPool : lowMainPool);
+    const ecologyPool = ['无异端', '无异端', '无异端', '死斗局', '死斗局', '死斗局', '混沌局', '混沌局'];
+    const ipHeatPool = [
+      ...Array(15).fill('较冷门'), ...Array(10).fill('中等'),
+      ...Array(10).fill('较热门'), ...Array(5).fill('世界知名')
+    ];
+    const main = mainPool[Math.floor(Math.random() * mainPool.length)];
+    const sub = subPool[Math.floor(Math.random() * subPool.length)];
+    const ecology = ecologyPool[Math.floor(Math.random() * ecologyPool.length)];
+    const ipHeat = ipHeatPool[Math.floor(Math.random() * ipHeatPool.length)];
+    const upperStep = ecology === '无异端' ? 1 : 2;
+    const upperIndex = Math.min(8, targetIndex + upperStep);
+    const alienCount = ecology === '无异端'
+      ? 0
+      : (ecology === '死斗局' ? 2 + Math.floor(Math.random() * 2) : 3 + Math.floor(Math.random() * 3));
+    trialData = {
+      main,
+      sub,
+      ecology,
+      ipHeat,
+      upperIndex,
+      difficulty: `${grades[targetIndex]}~${grades[upperIndex]}`,
+      taskCount: ecology === '无异端' ? 2 : (ecology === '死斗局' ? 3 : 5),
+      alienCount,
+    };
+  }
+
+  const singleUpperIndex = Math.min(8, targetIndex + 1);
+  const trialUpperIndex = isSingleWorld
+    ? singleUpperIndex
+    : (trialData ? trialData.upperIndex : targetIndex);
+  const lockedDifficulty = isSingleWorld
+    ? `${grades[targetIndex]}~${grades[singleUpperIndex]}`
+    : (trialData ? trialData.difficulty : `${targetGrade}~${targetGrade}`);
+  const playerRewardBases = [100, 500, 2500, 12000, 50000, 200000, 800000, 3200000, 12800000];
+  // 晋升试炼直接使用目标层级的基础奖励，不再按当前层级倍率换算。
+  const trialRewardPool = playerRewardBases[targetIndex];
+  const taskLabels = ['任务一', '任务二', '任务三', '任务四', '任务五'];
+  const taskCount = isSingleWorld ? 1 : (trialData ? trialData.taskCount : 1);
+  const taskGradeIndexes = Array.from({ length: taskCount }, (_, idx) => {
+    if (taskCount === 1) return trialUpperIndex;
+    return Math.round(targetIndex + (trialUpperIndex - targetIndex) * idx / (taskCount - 1));
+  });
+  const taskWeights = taskGradeIndexes.map(index => Math.max(1, index - targetIndex + 1));
+  const taskWeightSum = taskWeights.reduce((sum, value) => sum + value, 0);
+  let allocatedReward = 0;
+  const taskPlans = taskGradeIndexes.map((gradeIndex, idx) => {
+    const reward = idx === taskGradeIndexes.length - 1
+      ? Math.max(10, trialRewardPool - allocatedReward)
+      : Math.max(10, Math.floor(trialRewardPool * taskWeights[idx] / taskWeightSum / 10) * 10);
+    allocatedReward += reward;
+    return { label: taskLabels[idx], difficulty: grades[gradeIndex], reward };
+  });
+  // 试炼成就比普通副本额外提高一级上限；六档仍由程序固定，AI只写名称和条件。
+  const achievementCapIndex = Math.min(8, currentIndex + 3, trialUpperIndex + 2);
+  const fiveStarIndex = Math.max(0, achievementCapIndex - 1);
+  const achievementIndexes = [
+    0,
+    Math.round(fiveStarIndex / 3),
+    Math.round(fiveStarIndex * 2 / 3),
+    fiveStarIndex,
+    fiveStarIndex,
+    achievementCapIndex,
+  ];
+  const achievementRewardGrades = achievementIndexes.map(index => grades[index]);
+_%>
+<试炼任务生成协议>
+触发条件:
+  - 当且仅当输入明确包含【申请晋升】、【开启试炼】或【晋升试炼任务】时触发
+  - 轮回模式生成一个完整的独立试炼副本；单一世界模式只生成当前世界内的局部试炼
+
+数据与流程锁:
+  - 【层级】绝对只读；AI禁止在试炼生成、执行或完成时直接修改层级
+  - AI禁止修改【是否可试炼】或任何后台晋升资格标记
+  - 试炼数据由程序写入数据库，AI禁止额外输出 `<UpdateVariable>` 写入任务
+  - 必须完成全部【委托方=晋升试炼】的主任务并将其更新为【可结算】，再由玩家输入【结算任务】取得额外晋升资格
+  - 同一时间只允许存在一个未结算的晋升试炼，禁止重新抽取或覆盖
+
+<%_ if (rejectReason) { _%>
+<trial quest>
+模式: <%- isSingleWorld ? '单一世界' : '轮回试炼' %>
+状态: 拒绝
+申请人: <user>
+当前层级: <%- currentTier %>
+目标层级: <%- targetTier %>
+目标品质: <%- targetGrade %>
+拒绝原因: <%- rejectReason %>
+</trial quest>
+<%_ } else { _%>
+晋升锁定数据:
+  - 当前层级: <%- currentTier %>
+  - 目标层级: <%- targetTier %>
+  - 目标品质: <%- targetGrade %>
+  - 试炼难度区间: <%- lockedDifficulty %>
+  - 任务数量: <%- taskCount %>
+  - 试炼任务总奖励池: <%- trialRewardPool %>空间币（直接读取目标层级基础奖励）
+
+任务内容强度锁:
+  - 任务难度与空间币必须严格复制下方锁定方案，禁止重算、调换、增减或追加奖励
+  - 锁定方案: <%- taskPlans.map(task => `${task.label}【难度:${task.difficulty}｜奖励:${task.reward}空间币】`).join('；') %>
+  - 若任务内容与评级不符，必须重写目标、阻力、限制或失败代价，禁止修改锁定评级
+  - 难度由敌方层级、资源压力、环境危险、阵营冲突与规则限制共同构成，不要求全部来自战斗
+  - F/E为基础风险；D为真实致命与多重阻碍；C为精英战术危机；B为核心势力冲突；A为多阶段灾难；S为近乎必死；SS为规则级封锁；SSS为世界存亡或底层法则级行动
+  - 禁止用普通动物、日常跑腿或无实质阻力的内容承载D级以上任务
+  - 禁止为凑强度生成超过世界位格的敌人，应优先使用环境、资源、阵营与既有规则压力补足难度
+
+晋升任务结构锁:
+  - 每项任务彼此独立，但全部都是取得晋升资格的必需主任务，禁止选择性完成
+  - 任务内容必须共同验证玩家已能稳定踏入目标层级，并至少覆盖生存、破局、力量运用中的两类
+  - 每项【描述】必须写清实际目标、阻力与完成条件；禁止模糊写“全力以赴”或临时添加新机制
+  - 每项【惩罚】必须明确失败在当前世界造成的实际后果，但禁止直接降层级
+  - 晋升资格是全部试炼主任务完成后的额外结果，不得写进单项任务的【奖励】字段
+
+<%_ if (!isSingleWorld) { _%>
+模式隔离——轮回试炼:
+  - 本分支生成一个独立试炼世界；数据生成后默认进入副本世界
+  - 禁止引用或继承进入试炼前的世界资料、异端名单、主线状态与任务内容
+
+本次唯一预生成结果:
+  主模块: 【<%- trialData.main %>】
+  副模块: 【<%- trialData.sub %>】
+  生态: 【<%- trialData.ecology %>】
+  难度: 【<%- trialData.difficulty %>】
+  任务数量: 【<%- trialData.taskCount %>项】
+  预计异端: 【<%- trialData.alienCount %>人】
+  IP热度: 【<%- trialData.ipHeat %>】（只用于内部筛选，不得输出）
+
+世界生成锁:
+  - 上述结果是本次唯一随机源；AI不得重新抽取、替换、调换或修正主模块、副模块、生态、难度与异端人数
+  - 必须选择符合主模块及IP热度的真实成熟作品，禁止原创、换皮、伪造IP或虚构冷热门程度
+  - 世界名称、人物、势力、地点、时间锚点、能力体系与主线状态必须全部来自同一原著，任一串台则整条重写
+  - 世界位格只表示该世界允许存在的生命层级上限，不得参与试炼难度重算
+  - 选择的IP与时间锚点必须能够承载锁定难度；不得以此为理由修改预生成难度
+
+副模块与生态锁:
+  - 副模块必须同时改变【干涉模式】、【主线状态】和至少一项试炼主任务，只写名称视为未生效
+  - 无异端固定0人，冲突只来自本土势力、原著角色、环境或世界本身
+  - 死斗局固定<%- trialData.alienCount %>名异端并存在不可调和的敌对利益；混沌局固定<%- trialData.alienCount %>名异端并形成至少三方博弈
+  - 存在异端时，至少1名使用真实成熟作品角色的平行同位体、同人分支或不同阶段版本；其余允许原创
+  - 每名异端必须锁定来源与一条“经历世界→所得能力体系”的简短经历，能力遵守<轮回者能力生成协议>
+  - 异端数量必须与预计人数完全一致
+
+世界法则输出锁:
+  - 严格遵守<世界因果与法则协议>，按世界复杂度生成3~10条，以分号分隔
+  - 法则只禁止或限制玩家的能力、装备与效果；副模块不得混入世界法则
+  - 每条只写一个简单结果：某类能力或装备【无法使用、无法启动、无法生效或无法恢复】
+  - 可使用明确类别或已有标签限定对象，但不得为了法则新增标签
+  - 禁止正向加成；禁止检定、加减值、DC、伤害或消耗计算、异常状态、百分比、距离、计时、轮数、次数与自创新机制
+  - 禁止“正常生效、效果提升、受到压制、额外修正”等含糊表述
+
+异端格式:
+  - 无异端填写“无”
+  - 否则严格填写：【阵营】[职业]识别名〔来源：作品名或原创｜经历：经历世界→所得能力体系〕 (阶位)，多名以分号分隔
+
+完整副本锁:
+  - 根据生态固定生成<%- trialData.taskCount %>项试炼主任务：无异端2项、死斗局3项、混沌局5项；禁止增减
+  - 任务难度必须按锁定方案非递减排列；存在异端时至少一项直接涉及异端对抗或破坏其核心利益
+  - 必须生成★至★★★★★★共6项副本成就；AI只写名称与具体达成条件，盲盒品质必须逐行照抄
+  - 成就是可选挑战，不得写成取得晋升资格的必需条件；成就首次达成后按既有规则即时发放奖励
+  - 六项成就奖励品质: <%- achievementRewardGrades.map((grade, index) => `${'★'.repeat(index + 1)}=${grade}`).join('；') %>
+
+严格输出以下纯文本，禁止HTML、Markdown代码围栏、解释与额外标签:
+<trial quest>
+模式: 轮回试炼
+状态: 允许
+申请人: <user>
+当前层级: <%- currentTier %>
+目标层级: <%- targetTier %>
+目标品质: <%- targetGrade %>
+<试炼世界>
+名称: 【《真实原著IP名称》】
+世界位格: [Ⅰ~Ⅸ]
+主模块: <%- trialData.main %>
+副模块: <%- trialData.sub %>
+生态: <%- trialData.ecology %>
+副本难度: <%- trialData.difficulty %>级
+时间锚点: [原著时间与地点]
+干涉模式: [副模块造成的实际冲突结构] (预计异端: <%- trialData.alienCount %>人)
+主线状态: [当前世界正在发生且被副模块改变的局势]
+世界法则: [3~10条简单禁止规则，以分号分隔]
+切入身份: [符合原著与玩家阵营的合法身份]
+</试炼世界>
+<试炼任务列表>
+<%_ taskPlans.forEach(task => { _%>
+<%- task.label %> (难度: <%- task.difficulty %>)
+名称: [符合世界观的试炼主任务名称]
+描述: [实际目标、阻力与明确完成条件]
+奖励: <%- task.reward %>空间币
+惩罚: [明确失败后果，不得直接降层级]
+
+<%_ }); _%>
+</试炼任务列表>
+<试炼成就列表>
+当前阶段: [正在发生的宏观局势或不可逆灾难]
+故事线: [玩家介入或不介入将造成的连锁改变，必须与副模块联动]
+<%_ achievementRewardGrades.forEach((grade, index) => { _%>
+<%- '★'.repeat(index + 1) %> - [成就名称]: [绑定本世界的具体达成条件] | 奖励：<%- grade %>级盲盒·[原样复制试炼世界名称]
+<%_ }); _%>
+</试炼成就列表>
+<异端名单>
+异端: [严格按生态与锁定人数填写]
+</异端名单>
+</trial quest>
+<%_ } else { _%>
+模式隔离——单一世界:
+  - 本分支只能读取当前世界名称、时间、地点、势力、法则、因果轨道与现有NPC，禁止生成或替换世界
+  - 禁止输出主模块、副模块、生态、世界位格、世界法则、切入身份与异端名单
+  - 禁止修改【是否在主神空间】、【世界】全部字段、现有异端名单与普通主神任务
+  - 试炼表现为当前世界局势中自然出现的局部突破契机；不得宣称主神改写世界底层法则
+  - 试炼任务只允许新增1项【委托方=晋升试炼】的任务
+  - 单项试炼任务同样发放锁定的高额空间币；全部完成并结算后额外取得晋升资格
+  - 不得承诺离开当前世界、世界清空、跨界结算或回归主神空间
+
+单一世界内容锁:
+  - 【异象锚点】必须直接使用当前时间、地点与已发生剧情
+  - 【局势变化】必须由当前敌人、势力、环境或既有因果自然发展而来，禁止凭空刷新无关强敌
+  - 【试炼干涉】只能作为临时任务条件限制玩家，禁止写入或替换当前世界法则
+  - 任务难度与奖励固定为【难度:<%- taskPlans[0].difficulty %>｜奖励:<%- taskPlans[0].reward %>空间币】，禁止重算或改写
+
+严格输出以下纯文本，禁止HTML、Markdown代码围栏、解释与额外标签:
+<trial quest>
+模式: 单一世界
+状态: 允许
+申请人: <user>
+当前层级: <%- currentTier %>
+目标层级: <%- targetTier %>
+目标品质: <%- targetGrade %>
+<试炼现场>
+世界名称: [必须原样复制当前世界名称]
+异象锚点: [当前时间、地点与剧情节点]
+局势变化: [既有势力、敌人或环境自然形成的突破危机]
+试炼干涉: [只在本次任务内生效的能力限制或死局条件]
+</试炼现场>
+<试炼任务列表>
+任务一 (难度: <%- taskPlans[0].difficulty %>)
+名称: [符合当前世界观的专属试炼名]
+描述: [实际目标、阻力与三项全部必需的完成条件]
+奖励: <%- taskPlans[0].reward %>空间币
+惩罚: [明确失败后果，不得直接降层级]
+</试炼任务列表>
+</trial quest>
+<%_ } _%>
+<%_ } _%>
+</试炼任务生成协议>
+<%_
+})();
+_%>

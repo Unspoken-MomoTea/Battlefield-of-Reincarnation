@@ -1,0 +1,13 @@
+<骰子池>
+取骰规则: 
+  - 所有检定的骰子数值必须直接取用 D100，由左至右顺序消耗，禁止随机生成或乱序取用
+  - 每次直接从最左第一颗骰子开始取用，不要考虑前文 
+  - 骰子数值不可修改、重投或干预，失败就是失败
+  - 何时需要掷骰判定参考 <行为判定>，以目标属性和事件难度合理定义，必须合理而无情地判断 DC，不得迁就玩家
+  - 日常生活不要过于频繁的检定
+D100: [{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}},{{roll 1d100}}]
+</骰子池>
+<性格池>
+    规则: 为了避免刻板印象，本次正文生成的新角色,必须从此处随机后的三个性格严格按顺序索引取用，不得修改
+    性格: [{{random::w,W,d,D}}{{random::o,O,h,H}}{{random::a,A,l,L}}{{random::g,G,r,R}}{{random::z,Z,y,Y}}({{random::S,A,F}}),{{random::w,W,d,D}}{{random::o,O,h,H}}{{random::a,A,l,L}}{{random::g,G,r,R}}{{random::z,Z,y,Y}}({{random::S,A,F}}),{{random::w,W,d,D}}{{random::o,O,h,H}}{{random::a,A,l,L}}{{random::g,G,r,R}}{{random::z,Z,y,Y}}({{random::S,A,F}})]
+</性格池>

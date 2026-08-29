@@ -1,0 +1,509 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>晋升试炼渲染器</title>
+  <!--
+    正则配置说明（导入 SillyTavern 酒馆正则时）：
+      findRegex:     /<trial quest>([\s\S]*?)<\/trial quest>/gsi
+      replaceString: 本文件“替换模板开始”至“替换模板结束”之间的全部内容
+      对应输出格式: 世界书/【试炼任务】.txt
+  -->
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --tq-bg:#08090b; --tq-card:#111216; --tq-card2:#191014;
+      --tq-gold:#e04b55; --tq-gold2:#771820; --tq-red:#ff3948;
+      --tq-cyan:#adb4bf; --tq-text:#e8e9ec; --tq-sub:#9297a1;
+      --tq-line:rgba(213,45,57,.24);
+      --qF:#94a3b8; --qE:#f8fafc; --qD:#22c55e; --qC:#3b82f6;
+      --qB:#a855f7; --qA:#f97316; --qS:#eab308; --qSS:#ef4444; --qSSS:#ec4899;
+    }
+    body { background:transparent; color:var(--tq-text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; padding:16px; line-height:1.6; }
+    .tq-wrap { width:100%; max-width:900px; margin:0 auto; }
+    .tq-toggle { display:inline-flex; align-items:center; gap:8px; padding:5px 14px; color:var(--tq-text); background:linear-gradient(135deg,rgba(35,8,12,.97),rgba(15,12,15,.97)); border:1px solid rgba(224,75,85,.58); border-radius:4px; cursor:pointer; box-shadow:0 3px 14px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.035); transition:.25s ease; user-select:none; clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); }
+    .tq-toggle:hover { border-color:var(--tq-red); background:linear-gradient(135deg,rgba(62,10,17,.98),rgba(22,13,17,.98)); transform:translateY(-1px); box-shadow:0 5px 20px rgba(0,0,0,.55),0 0 16px rgba(205,32,45,.18); }
+    .tq-toggle.active { border-color:var(--tq-red); background:linear-gradient(135deg,rgba(92,13,23,.48),rgba(28,12,17,.98)); box-shadow:0 0 18px rgba(205,32,45,.22),inset 0 1px 0 rgba(255,255,255,.04); }
+    .tq-icon { width:19px; height:19px; flex:0 0 auto; fill:var(--tq-red); filter:drop-shadow(0 0 5px rgba(255,40,55,.45)); transition:transform .25s ease; }
+    .tq-toggle:hover .tq-icon,.tq-toggle.active .tq-icon { transform:scale(1.1); }
+    .tq-label { min-width:0; max-width:460px; font-size:.9em; color:#f06a72; font-weight:800; letter-spacing:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .tq-arrow { color:var(--tq-red); transition:transform .2s; }
+    .tq-toggle.active .tq-arrow { transform:rotate(180deg); }
+    .tq-panel { display:none; margin-top:8px; padding:14px; background:linear-gradient(180deg,rgba(17,18,22,.985),rgba(7,8,10,.99)); border:1px solid var(--tq-line); border-radius:7px; box-shadow:0 12px 34px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.025); }
+    .tq-panel.show { display:block; }
+    .tq-hero { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:14px 16px; margin-bottom:12px; background:radial-gradient(circle at 12% 0,rgba(164,19,32,.2),transparent 48%),linear-gradient(135deg,rgba(41,10,16,.68),rgba(10,11,14,.9)); border:1px solid rgba(220,49,62,.28); border-left:3px solid var(--tq-red); border-radius:0 7px 7px 0; }
+    .tq-title { flex:1 1 260px; font-size:18px; font-weight:900; color:#f16a73; letter-spacing:2px; text-shadow:0 0 12px rgba(230,48,62,.25); }
+    .tq-route { display:flex; align-items:center; gap:6px; font-weight:900; }
+    .tq-rank { min-width:42px; text-align:center; padding:4px 10px; border:1px solid currentColor; border-radius:4px; background:rgba(0,0,0,.36); font-size:15px; }
+    .tq-route-arrow { color:var(--tq-sub); }
+    .tq-section { margin-top:12px; border-left:2px solid var(--tq-gold2); background:rgba(255,255,255,.016); border-radius:0 7px 7px 0; padding:13px 14px; }
+    .tq-sec-title { display:flex; align-items:center; gap:8px; color:#ef606a; font-size:14px; font-weight:900; margin-bottom:11px; letter-spacing:1px; }
+    .tq-world-banner { position:relative; overflow:hidden; padding:15px 16px; margin-bottom:10px; background:linear-gradient(120deg,rgba(89,8,18,.24),rgba(11,12,15,.92) 58%); border:1px solid rgba(222,51,64,.24); border-radius:6px; }
+    .tq-world-banner::after { content:'TRIAL'; position:absolute; right:12px; top:-12px; color:rgba(223,50,63,.055); font:900 54px/1 Consolas,monospace; letter-spacing:5px; pointer-events:none; }
+    .tq-world-name { position:relative; z-index:1; color:#f2f2f4; font-size:18px; font-weight:900; letter-spacing:.8px; }
+    .tq-world-sub { position:relative; z-index:1; display:flex; flex-wrap:wrap; gap:10px 18px; margin-top:7px; color:#b2b6be; font-size:12px; }
+    .tq-world-sub strong { color:#ec5b66; font-weight:900; }
+    .tq-module-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-bottom:9px; }
+    .tq-module { padding:9px 10px; background:rgba(0,0,0,.24); border:1px solid rgba(255,255,255,.06); border-top:2px solid rgba(211,43,56,.48); border-radius:0 0 5px 5px; }
+    .tq-module span { display:block; color:#9298a2; font-size:11px; font-weight:700; }
+    .tq-module b { display:block; margin-top:3px; color:#e8e9ec; font-size:13px; }
+    .tq-narrative { display:grid; gap:7px; }
+    .tq-narrative-row { padding:9px 11px; background:rgba(0,0,0,.19); border-left:2px solid rgba(201,37,51,.5); }
+    .tq-narrative-row b { display:block; margin-bottom:3px; color:#e25560; font-size:12px; }
+    .tq-narrative-row span { color:#d7d9de; font-size:13px; line-height:1.65; }
+    .tq-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+    .tq-field { min-width:0; padding:9px 10px; background:rgba(0,0,0,.22); border:1px solid rgba(255,255,255,.06); border-radius:5px; }
+    .tq-field.wide { grid-column:1/-1; }
+    .tq-k { color:#a2a7b0; font-size:12px; margin-bottom:3px; font-weight:700; }
+    .tq-v { color:var(--tq-text); font-size:13px; word-break:break-word; white-space:pre-wrap; }
+    .tq-laws { display:flex; flex-direction:column; gap:4px; }
+    .tq-law { position:relative; padding-left:15px; color:var(--tq-text); font-size:13px; }
+    .tq-law::before { content:'◆'; position:absolute; left:0; top:1px; color:var(--tq-red); font-size:8px; }
+    .tq-task-grid { display:flex; flex-direction:column; gap:9px; }
+    .tq-task { display:grid; grid-template-columns:54px minmax(0,1fr); border:1px solid rgba(224,57,70,.3); border-left:3px solid #b52533; background:linear-gradient(110deg,rgba(78,8,17,.18),rgba(12,13,16,.88) 40%); border-radius:0 7px 7px 0; overflow:hidden; }
+    .tq-task-index { display:grid; place-items:center; color:#d6404d; background:rgba(95,8,18,.2); border-right:1px solid rgba(224,57,70,.18); font:900 17px/1 Consolas,monospace; letter-spacing:1px; }
+    .tq-task-main { min-width:0; }
+    .tq-task-head { display:flex; align-items:center; gap:9px; padding:10px 12px; border-bottom:1px solid rgba(227,106,96,.16); }
+    .tq-task-name { flex:1; min-width:0; color:#f1f2f4; font-size:15px; font-weight:900; letter-spacing:.3px; }
+    .tq-diff { flex:0 0 auto; min-width:28px; text-align:center; padding:1px 6px; font-size:11px; font-weight:900; border:1px solid currentColor; border-radius:4px; }
+    .tq-task-body { padding:10px 12px 12px; display:grid; gap:9px; }
+    .tq-task-line b { display:block; color:#a1a6ae; font-size:12px; margin-bottom:3px; }
+    .tq-task-line span { display:block; color:var(--tq-text); font-size:13px; white-space:pre-wrap; line-height:1.65; }
+    .tq-task-outcome { display:grid; grid-template-columns:minmax(0,.65fr) minmax(0,1.35fr); gap:10px; padding-top:8px; border-top:1px dashed rgba(220,55,68,.2); }
+    .tq-task-line.reward span { color:var(--tq-gold); font-weight:900; }
+    .tq-task-line.punish span { color:#f0a09a; }
+    .tq-ach-list { display:grid; gap:5px; }
+    .tq-ach { display:grid; grid-template-columns:88px minmax(0,1fr); gap:8px; align-items:start; padding:7px 8px; border:1px solid rgba(213,45,57,.16); background:rgba(0,0,0,.2); border-radius:6px; }
+    .tq-stars { font-size:10px; letter-spacing:1px; color:var(--tq-gold); white-space:nowrap; }
+    .tq-ach-name { color:var(--tq-text); font-size:13px; font-weight:900; }
+    .tq-ach-desc { color:var(--tq-sub); font-size:12px; margin-top:2px; }
+    .tq-ach-reward { grid-column:2; color:var(--tq-gold); font-size:12px; font-weight:800; }
+    .tq-alien-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:7px; }
+    .tq-alien { padding:8px; border:1px solid rgba(227,106,96,.22); background:rgba(90,20,20,.09); border-radius:6px; }
+    .tq-alien-head { display:flex; align-items:center; gap:6px; }
+    .tq-alien-name { flex:1; font-size:13px; font-weight:900; color:#ffd6d1; }
+    .tq-alien-rank { color:var(--tq-red); font-size:10px; border:1px solid rgba(227,106,96,.4); border-radius:8px; padding:1px 6px; }
+    .tq-alien-meta { margin-top:5px; color:var(--tq-sub); font-size:12px; line-height:1.55; }
+    .tq-empty { color:var(--tq-sub); font-size:11px; padding:4px 0; }
+    .tq-reject { padding:14px; color:#ffd8d2; border:1px solid rgba(227,106,96,.38); background:rgba(110,25,25,.12); border-radius:7px; }
+    .tq-reject strong { display:block; color:var(--tq-red); margin-bottom:5px; }
+    .tq-error { margin-top:10px; padding:8px 10px; color:#ffd8d2; background:rgba(120,25,25,.15); border:1px solid rgba(227,106,96,.35); border-radius:6px; font-size:11px; }
+    .tq-qualification { margin-top:10px; padding:10px 12px; color:#e6e7ea; background:linear-gradient(90deg,rgba(111,10,21,.22),rgba(20,15,18,.5)); border:1px solid rgba(220,55,68,.22); border-radius:5px; text-align:center; font-size:13px; font-weight:800; letter-spacing:.5px; }
+    .tq-qualification strong { color:#f05b66; }
+    .tq-raw { display:none; }
+    .q-F{color:var(--qF)} .q-E{color:var(--qE)} .q-D{color:var(--qD)} .q-C{color:var(--qC)}
+    .q-B{color:var(--qB)} .q-A{color:var(--qA)} .q-S{color:var(--qS)} .q-SS{color:var(--qSS)} .q-SSS{color:var(--qSSS)}
+    @media (max-width:640px) {
+      body { padding:5px; }
+      .tq-panel { padding:10px; }
+      .tq-grid,.tq-alien-grid { grid-template-columns:1fr; }
+      .tq-module-row { grid-template-columns:1fr; }
+      .tq-task { grid-template-columns:42px minmax(0,1fr); }
+      .tq-task-outcome { grid-template-columns:1fr; }
+      .tq-field.wide { grid-column:auto; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 替换模板开始 -->
+  <div class="tq-wrap">
+    <div class="tq-toggle" role="button" tabindex="0">
+      <svg class="tq-icon" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5.1-3.4 9.7-8 11-4.6-1.3-8-5.9-8-11V5l8-3zm0 4.1L8 7.6v3.1c0 3.4 1.8 6.5 4 7.6 2.2-1.1 4-4.2 4-7.6V7.6l-4-1.5zm-1 2.4h2v4h-2v-4zm0 5.5h2v2h-2v-2z"/></svg>
+      <span class="tq-label"></span>
+      <span class="tq-arrow">⌄</span>
+    </div>
+    <div class="tq-panel"></div>
+    <div class="tq-raw" style="display:none;">$1</div>
+    <script>
+      (function() {
+        'use strict';
+        const script = document.currentScript;
+        if (!script) return;
+        const wrapper = script.closest('.tq-wrap');
+        if (!wrapper) return;
+
+        const toggle = wrapper.querySelector('.tq-toggle');
+        const panel = wrapper.querySelector('.tq-panel');
+        const raw = wrapper.querySelector('.tq-raw');
+        const label = wrapper.querySelector('.tq-label');
+        if (!toggle || !panel || !raw) return;
+
+        const TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
+        const GRADES = ['F','E','D','C','B','A','S','SS','SSS'];
+        function esc(value) {
+          const amp = '&';
+          return String(value == null ? '' : value)
+            .replace(/&/g,amp+'amp;').replace(/</g,amp+'lt;').replace(/>/g,amp+'gt;')
+            .replace(/"/g,amp+'quot;').replace(/'/g,amp+'#39;');
+        }
+        function clean(value) {
+          return String(value == null ? '' : value).trim().replace(/^\*+|\*+$/g,'').trim();
+        }
+        function rawTextOf(element) {
+          const amp = '&';
+          return String(element && (element.innerHTML || element.textContent) || '')
+            .replace(/<br\s*\/?>/gi,'\n')
+            .replace(/<\/(?:p|div|li)>/gi,'\n')
+            .replace(/<[^>]*>/g,'')
+            .replace(new RegExp(amp+'nbsp;','gi'),' ')
+            .replace(new RegExp(amp+'amp;','gi'),'&')
+            .replace(new RegExp(amp+'lt;','gi'),'<')
+            .replace(new RegExp(amp+'gt;','gi'),'>')
+            .replace(new RegExp(amp+'quot;','gi'),'"')
+            .replace(new RegExp(amp+'#39;','gi'),"'");
+        }
+        function gradeOf(value) {
+          const m = String(value || '').toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/);
+          return m ? m[0] : '';
+        }
+        function rankOf(value) {
+          const m = String(value || '').match(/[ⅠⅡⅢⅣⅤⅥⅦⅧⅨ]/);
+          return m ? m[0] : '';
+        }
+        function splitAlienEntries(text) {
+          const entries = [];
+          let current = '', depth = 0;
+          String(text || '').split('').forEach(function(ch) {
+            if (ch === '〔') depth++;
+            if ((ch === '，' || ch === ',' || ch === '；' || ch === ';') && depth === 0) {
+              if (current.trim()) entries.push(current.trim());
+              current = '';
+              return;
+            }
+            current += ch;
+            if (ch === '〕' && depth > 0) depth--;
+          });
+          if (current.trim()) entries.push(current.trim());
+          return entries;
+        }
+        function parseAliens(text) {
+          if (/^(?:无|无异端|0\s*人?)$/.test(String(text || '').trim())) return [];
+          return splitAlienEntries(text).map(function(rawEntry) {
+            const m = rawEntry.match(/^[【\[]([^】\]]+)[】\]]\s*[\[【]([^\]】]+)[\]】]\s*(.+?)\s*[（(]([^）)]+)[）)]\s*$/);
+            if (!m) return null;
+            const details = m[3].trim().match(/^(.*?)\s*〔\s*来源\s*[:：]\s*(.*?)\s*[|｜]\s*经历\s*[:：]\s*(.*?)\s*〕\s*$/);
+            const rank = rankOf(m[4]);
+            if (!details || !rank) return null;
+            return { faction:m[1].trim(), job:m[2].trim(), name:details[1].trim(), source:details[2].trim(), experience:details[3].trim(), rank:rank };
+          }).filter(Boolean);
+        }
+        function parseTrial(text) {
+          const out = { mode:'', status:'', applicant:'', current:'', target:'', grade:'', reason:'', world:{}, scene:{}, tasks:[], achievements:[], stage:'', storyline:'', aliensText:'', aliens:[] };
+          let section = '', curTask = null;
+          const worldKeys = ['名称','世界位格','主模块','副模块','生态','副本难度','时间锚点','干涉模式','主线状态','世界法则','切入身份'];
+          const sceneKeys = ['世界名称','异象锚点','局势变化','试炼干涉'];
+          String(text || '').replace(/\r/g,'').split('\n').forEach(function(sourceLine) {
+            let line = sourceLine.trim().replace(/^>\s*/, '').trim();
+            if (!line) return;
+            if (/^<试炼世界>$/i.test(line)) { section = 'world'; return; }
+            if (/^<试炼现场>$/i.test(line)) { section = 'scene'; return; }
+            if (/^<试炼任务列表>$/i.test(line)) { section = 'tasks'; return; }
+            if (/^<试炼成就列表>$/i.test(line)) { section = 'achievements'; return; }
+            if (/^<晋升任务>$/i.test(line)) {
+              section = 'legacyTask';
+              curTask = { label:'任务一', diff:'', name:'', desc:'', reward:'', punish:'', target:'', limit:'' };
+              out.tasks.push(curTask);
+              return;
+            }
+            if (/^<异端名单>$/i.test(line)) { section = 'aliens'; return; }
+            if (/^<\/(?:试炼世界|试炼现场|试炼任务列表|试炼成就列表|晋升任务|异端名单)>$/i.test(line)) { section = ''; curTask = null; return; }
+
+            let tm = line.match(/^任务([一二三四五六七八九十\d]+)?\s*[（(]\s*难度[：:]\s*([^）)]+)[）)]\s*$/);
+            if (tm) {
+              section = 'tasks';
+              curTask = { label:'任务'+(tm[1] || out.tasks.length + 1), diff:gradeOf(tm[2]), name:'', desc:'', reward:'', punish:'' };
+              out.tasks.push(curTask);
+              return;
+            }
+            let am = line.match(/^(★+)\s*[-—–]\s*(.+)$/);
+            if (am) {
+              section = 'achievements';
+              const rest = am[2].trim();
+              let parts = rest.split(/\s*\|\s*/);
+              const left = (parts.shift() || '').trim();
+              const nm = left.match(/^\[?([^\]：:]+)\]?\s*[：:]\s*(.*)$/);
+              let reward = parts.join(' | ').replace(/^\s*奖励\s*[：:]\s*/, '').trim();
+              out.achievements.push({ stars:Math.min(6,am[1].length), name:nm ? nm[1].trim() : left, desc:nm ? nm[2].trim() : '', reward:reward, grade:gradeOf(reward) });
+              return;
+            }
+
+            const m = line.match(/^(?:[-*]\s*)?(?:\[([^\]]+)\]|([^：:]+))[：:]\s*(.*)$/);
+            if (!m) return;
+            const key = clean(m[1] || m[2]);
+            const value = clean(m[3]);
+            if (section === 'world' || (!curTask && worldKeys.includes(key))) { out.world[key] = value; return; }
+            if (section === 'scene' || (!curTask && sceneKeys.includes(key))) { out.scene[key] = value; return; }
+            if ((section === 'tasks' || section === 'legacyTask') && curTask) {
+              if (key === '名称') { curTask.name = value; return; }
+              if (key === '描述') { curTask.desc = value; return; }
+              if (key === '奖励') { curTask.reward = value; return; }
+              if (key === '惩罚') { curTask.punish = value; return; }
+              if (key === '难度') { curTask.diff = gradeOf(value); return; }
+              if (key === '目标') { curTask.target = value; return; }
+              if (key === '绝对限制') { curTask.limit = value; return; }
+            }
+            if (key === '当前阶段') { out.stage = value; return; }
+            if (key === '故事线') { out.storyline = value; return; }
+            if (key === '异端') { out.aliensText = value; return; }
+            if (key === '模式') out.mode = value;
+            else if (key === '状态') out.status = value;
+            else if (key === '申请人') out.applicant = value;
+            else if (key === '当前层级') out.current = rankOf(value) || value;
+            else if (key === '目标层级') out.target = rankOf(value) || value;
+            else if (key === '目标品质') out.grade = gradeOf(value) || value;
+            else if (key === '拒绝原因') out.reason = value;
+          });
+          out.tasks.forEach(function(task){
+            if (!task.desc && task.target) task.desc = task.target + (task.limit ? '｜绝对限制：'+task.limit : '');
+          });
+          out.aliens = parseAliens(out.aliensText);
+          return out;
+        }
+        function field(labelText, value, wide) {
+          if (!value) return '';
+          return '<div class="tq-field'+(wide?' wide':'')+'"><div class="tq-k">'+esc(labelText)+'</div><div class="tq-v">'+esc(value)+'</div></div>';
+        }
+        function lawsHtml(value) {
+          const laws = String(value || '').split(/[;；]\s*/).map(function(x){return x.trim();}).filter(Boolean);
+          if (!laws.length) return '';
+          return '<div class="tq-field wide"><div class="tq-k">世界法则</div><div class="tq-laws">'+laws.map(function(x){return '<div class="tq-law">'+esc(x)+'</div>';}).join('')+'</div></div>';
+        }
+        function expectedData(q) {
+          const curIdx = TIERS.indexOf(q.current);
+          const targetIdx = curIdx >= 0 ? Math.min(8, curIdx + 1) : -1;
+          const single = q.mode === '单一世界';
+          const ecology = String(q.world.生态 || '').trim();
+          const upperStep = single ? 1 : (ecology === '无异端' ? 1 : 2);
+          const upperIdx = targetIdx >= 0 ? Math.min(8, targetIdx + upperStep) : -1;
+          const taskCount = single ? 1 : (ecology === '无异端' ? 2 : ecology === '死斗局' ? 3 : ecology === '混沌局' ? 5 : 0);
+          const bases = [100,500,2500,12000,50000,200000,800000,3200000,12800000];
+          const rewardPool = targetIdx >= 0 ? bases[targetIdx] : 0;
+          const gradeIndexes = Array.from({length:taskCount},function(_,idx){
+            if (taskCount === 1) return upperIdx;
+            return Math.round(targetIdx+(upperIdx-targetIdx)*idx/(taskCount-1));
+          });
+          const weights = gradeIndexes.map(function(index){return Math.max(1,index-targetIdx+1);});
+          const weightSum = weights.reduce(function(sum,value){return sum+value;},0);
+          let allocated = 0;
+          const tasks = gradeIndexes.map(function(index,idx){
+            const reward = idx === gradeIndexes.length-1 ? Math.max(10,rewardPool-allocated) : Math.max(10,Math.floor(rewardPool*weights[idx]/weightSum/10)*10);
+            allocated += reward;
+            return { grade:GRADES[index], reward:reward };
+          });
+          const achievementCap = curIdx >= 0 && upperIdx >= 0 ? Math.min(8,curIdx+3,upperIdx+2) : 0;
+          const fiveStar = Math.max(0,achievementCap-1);
+          const achievementGrades = [0,Math.round(fiveStar/3),Math.round(fiveStar*2/3),fiveStar,fiveStar,achievementCap].map(function(index){return GRADES[index];});
+          return {
+            currentIndex:curIdx,
+            targetIndex:targetIdx,
+            targetTier:targetIdx >= 0 ? TIERS[targetIdx] : '',
+            targetGrade:targetIdx >= 0 ? GRADES[targetIdx] : '',
+            difficulty:targetIdx >= 0 && upperIdx >= 0 ? GRADES[targetIdx]+'~'+GRADES[upperIdx] : '',
+            taskCount:taskCount,
+            rewardPool:rewardPool,
+            tasks:tasks,
+            achievementGrades:achievementGrades
+          };
+        }
+        function rewardNumber(value) {
+          const m = String(value || '').replace(/[,，]/g,'').match(/(\d+)\s*空间币/);
+          return m ? Number(m[1]) : NaN;
+        }
+        function difficultyOf(value) {
+          const found = String(value || '').toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/g) || [];
+          return found.length ? found[0]+'~'+found[found.length-1] : '';
+        }
+        function validate(q) {
+          if (q.status !== '允许') return [];
+          const errors = [], ex = expectedData(q);
+          if (!['轮回试炼','单一世界'].includes(q.mode)) errors.push('试炼模式无效');
+          if (ex.currentIndex < 0 || ex.targetIndex < 0 || q.target !== ex.targetTier) errors.push('晋升层级不连续');
+          if (q.tasks.length !== ex.taskCount) errors.push('试炼主任务数量与生态不一致');
+          q.tasks.forEach(function(task,index){
+            const plan = ex.tasks[index] || {};
+            if (!task.name || !task.desc || !task.punish) errors.push('任务'+(index+1)+'字段不完整');
+            if (gradeOf(task.diff) !== plan.grade) errors.push('任务'+(index+1)+'难度未按程序锁定');
+            if (rewardNumber(task.reward) !== plan.reward) errors.push('任务'+(index+1)+'空间币未按程序锁定');
+          });
+          if (q.mode === '轮回试炼') {
+            const required = ['名称','世界位格','主模块','副模块','生态','副本难度','时间锚点','干涉模式','主线状态','世界法则','切入身份'];
+            required.forEach(function(k){ if (!q.world[k]) errors.push('试炼世界缺少'+k); });
+            if (difficultyOf(q.world.副本难度) !== ex.difficulty) errors.push('副本难度未按程序锁定');
+            if (!q.stage || !q.storyline) errors.push('因果轨道字段不完整');
+            if (q.achievements.length !== 6) errors.push('副本成就必须完整生成六项');
+            q.achievements.forEach(function(item,index){
+              if (item.stars !== index+1 || !item.name || !item.desc) errors.push('成就'+(index+1)+'格式不完整');
+              if (item.grade !== ex.achievementGrades[index]) errors.push('成就'+(index+1)+'盲盒品质未按程序锁定');
+            });
+            const expectedCountMatch = String(q.world.干涉模式 || '').match(/预计异端\s*[:：]\s*(\d+)\s*人?/);
+            const expectedCount = expectedCountMatch ? Number(expectedCountMatch[1]) : -1;
+            if (q.world.生态 === '无异端') {
+              if (expectedCount !== 0 || q.aliens.length !== 0 || !/^(?:无|无异端|0\s*人?)$/.test(q.aliensText)) errors.push('无异端生态与名单不一致');
+            } else if (expectedCount < 1 || q.aliens.length !== expectedCount) {
+              errors.push('异端名单人数与锁定人数不一致');
+            }
+          } else {
+            if (!q.scene.世界名称 || !q.scene.异象锚点 || !q.scene.局势变化 || !q.scene.试炼干涉) errors.push('单一世界试炼现场字段不完整');
+            if (Object.keys(q.world).length || q.aliensText) errors.push('单一世界分支混入了轮回试炼字段');
+            if (q.achievements.length || q.stage || q.storyline) errors.push('单一世界分支不得生成副本成就或新因果轨道');
+          }
+          return Array.from(new Set(errors));
+        }
+        function render(q, errors) {
+          const ex = expectedData(q);
+          let html = '<div class="tq-hero"><div class="tq-title">位格跃迁核验</div>';
+          html += '<div class="tq-route"><span class="tq-rank q-'+esc(GRADES[ex.currentIndex] || 'F')+'">'+esc(q.current || '?')+'</span><span class="tq-route-arrow">→</span><span class="tq-rank q-'+esc(q.grade || ex.targetGrade || 'F')+'">'+esc(q.target || '?')+'</span></div></div>';
+          if (q.status !== '允许') {
+            html += '<div class="tq-reject"><strong>试炼申请驳回</strong>'+esc(q.reason || '当前条件不满足。')+'</div>';
+            return html;
+          }
+          if (q.mode === '轮回试炼') {
+            html += '<div class="tq-section"><div class="tq-sec-title">01 · 试炼世界</div>';
+            html += '<div class="tq-world-banner"><div class="tq-world-name">'+esc(q.world.名称)+'</div><div class="tq-world-sub"><span>世界位格 <strong>'+esc(q.world.世界位格)+'</strong></span><span>副本难度 <strong>'+esc(q.world.副本难度)+'</strong></span><span>晋升目标 <strong>'+esc(q.current)+' → '+esc(q.target)+'</strong></span></div></div>';
+            html += '<div class="tq-module-row"><div class="tq-module"><span>主模块</span><b>'+esc(q.world.主模块)+'</b></div><div class="tq-module"><span>副模块</span><b>'+esc(q.world.副模块)+'</b></div><div class="tq-module"><span>生态</span><b>'+esc(q.world.生态)+'</b></div></div>';
+            html += '<div class="tq-narrative"><div class="tq-narrative-row"><b>降临锚点</b><span>'+esc(q.world.时间锚点)+'</span></div><div class="tq-narrative-row"><b>切入身份</b><span>'+esc(q.world.切入身份)+'</span></div><div class="tq-narrative-row"><b>干涉模式</b><span>'+esc(q.world.干涉模式)+'</span></div><div class="tq-narrative-row"><b>主线状态</b><span>'+esc(q.world.主线状态)+'</span></div></div>';
+            html += '<div class="tq-grid" style="margin-top:9px">'+lawsHtml(q.world.世界法则)+'</div></div>';
+          } else {
+            html += '<div class="tq-section"><div class="tq-sec-title">01 · 当前世界突破契机</div><div class="tq-world-banner"><div class="tq-world-name">'+esc(q.scene.世界名称)+'</div><div class="tq-world-sub"><span>晋升目标 <strong>'+esc(q.current)+' → '+esc(q.target)+'</strong></span><span>试炼难度 <strong>'+esc(ex.difficulty)+'</strong></span></div></div><div class="tq-narrative"><div class="tq-narrative-row"><b>异象锚点</b><span>'+esc(q.scene.异象锚点)+'</span></div><div class="tq-narrative-row"><b>局势变化</b><span>'+esc(q.scene.局势变化)+'</span></div><div class="tq-narrative-row"><b>试炼干涉</b><span>'+esc(q.scene.试炼干涉)+'</span></div></div></div>';
+          }
+          html += '<div class="tq-section"><div class="tq-sec-title">02 · 必需试炼主任务</div><div class="tq-task-grid">';
+          q.tasks.forEach(function(task,index){
+            const plan = ex.tasks[index] || {};
+            html += '<div class="tq-task"><div class="tq-task-index">'+String(index+1).padStart(2,'0')+'</div><div class="tq-task-main"><div class="tq-task-head"><div class="tq-task-name">'+esc(task.name || '未命名试炼')+'</div><span class="tq-diff q-'+esc(plan.grade || 'F')+'">'+esc(plan.grade || '?')+'</span></div><div class="tq-task-body">';
+            html += '<div class="tq-task-line"><b>任务目标</b><span>'+esc(task.desc)+'</span></div><div class="tq-task-outcome"><div class="tq-task-line reward"><b>锁定奖励</b><span>'+esc(plan.reward || 0)+'空间币</span></div><div class="tq-task-line punish"><b>失败代价</b><span>'+esc(task.punish || '本次试炼失败')+'</span></div></div></div></div></div>';
+          });
+          html += '</div><div class="tq-qualification">全部 <strong>'+esc(ex.taskCount)+' 项主任务</strong>均为晋升必需条件，完成并结算后取得 <strong>'+esc(q.current)+' → '+esc(q.target)+'</strong> 晋升资格</div></div>';
+          if (q.mode === '轮回试炼') {
+            html += '<div class="tq-section"><div class="tq-sec-title">03 · 副本成就</div>';
+            html += '<div class="tq-narrative" style="margin-bottom:9px"><div class="tq-narrative-row"><b>当前阶段</b><span>'+esc(q.stage)+'</span></div><div class="tq-narrative-row"><b>故事线</b><span>'+esc(q.storyline)+'</span></div></div><div class="tq-ach-list">';
+            q.achievements.forEach(function(item,index){
+              const grade = ex.achievementGrades[index] || item.grade || 'F';
+              html += '<div class="tq-ach"><div class="tq-stars">'+esc('★'.repeat(item.stars))+'</div><div><div class="tq-ach-name">'+esc(item.name)+'</div><div class="tq-ach-desc">'+esc(item.desc)+'</div></div><div class="tq-ach-reward">'+esc(grade)+'级盲盒 · '+esc(String(q.world.名称 || '').replace(/[【】《》]/g,''))+'</div></div>';
+            });
+            html += '</div></div>';
+            html += '<div class="tq-section"><div class="tq-sec-title">04 · 异端雷达</div>';
+            if (!q.aliens.length) html += '<div class="tq-empty">本次试炼无异端介入</div>';
+            else {
+              html += '<div class="tq-alien-grid">'+q.aliens.map(function(a){
+                return '<div class="tq-alien"><div class="tq-alien-head"><span class="tq-alien-name">'+esc(a.name)+'</span><span class="tq-alien-rank">'+esc(a.rank)+'阶</span></div><div class="tq-alien-meta">'+esc(a.faction)+' · '+esc(a.job)+'<br>来源：'+esc(a.source)+'<br>经历：'+esc(a.experience)+'</div></div>';
+              }).join('')+'</div>';
+            }
+            html += '</div>';
+          }
+          if (errors.length) html += '<div class="tq-error">试炼数据校验失败：'+errors.map(esc).join('；')+'</div>';
+          return html;
+        }
+        function stripExpectedCount(value) {
+          return String(value || '').replace(/\s*\(?\s*预计异端\s*[:：]\s*\d+\s*人?\s*\)?\s*/g,' ').trim();
+        }
+        function sendData(message) {
+          const win = window.parent || window;
+          try {
+            const slash = typeof win.triggerSlash === 'function' ? win.triggerSlash : (typeof triggerSlash === 'function' ? triggerSlash : null);
+            if (slash) { slash('/send '+String(message).replace(/\|/g,'\\|')+'|/trigger'); return true; }
+          } catch (e) { console.warn('试炼指令自动发送失败:',e); }
+          try {
+            navigator.clipboard.writeText(message);
+            console.warn('试炼已写入，但自动发送失败；后续指令已复制到剪贴板。');
+          } catch (e2) { console.warn('试炼已写入，但后续指令发送失败。',e2); }
+          return false;
+        }
+        function activate(q) {
+          const win = window.parent || window;
+          function fail(message) { console.warn('[晋升试炼自动载入] '+message); return false; }
+          if (!win.Mvu || !win._) return fail('MVU尚未就绪。');
+          const c = win.Mvu.getMvuData({type:'message',message_id:'latest'});
+          if (!c) return fail('未读取到当前变量。');
+          const get = win._.get, set = win._.set;
+          const liveSingle = get(c,'stat_data.设置.单一世界',false) === true;
+          const expectedSingle = q.mode === '单一世界';
+          if (liveSingle !== expectedSingle) return fail('当前模式与试炼卡不一致。');
+          const sys = get(c,'stat_data.系统状态',{}) || {};
+          if (sys.是否战斗中 === true) return fail('战斗中无法启动。');
+          if (sys.是否可试炼 !== true || sys.试炼已完成 === true) return fail('当前晋升状态已经变化。');
+          if (!expectedSingle && sys.是否在主神空间 !== true) return fail('轮回试炼只能从主神空间启动。');
+          const liveTier = rankOf(get(c,'stat_data.主角.层级',''));
+          if (liveTier !== q.current) return fail('当前层级与试炼申请时不一致。');
+          const tasks = get(c,'stat_data.任务.列表',{}) || {};
+          const hasActive = Object.keys(tasks).some(function(name){
+            const t = tasks[name] || {};
+            return String(t.委托方 || '').trim() === '晋升试炼' && ['进行中','可交付','可结算','失败'].includes(String(t.状态 || '').trim());
+          });
+          if (hasActive) return fail('已有尚未结算的晋升试炼。');
+
+          const ex = expectedData(q);
+          q.tasks.forEach(function(task,index){
+            const plan = ex.tasks[index] || {};
+            const safeName = String(task.name || '位格跃迁').replace(/[.。]/g,'·');
+            const taskPath = ['stat_data','任务','列表','【晋升试炼·'+(index+1)+'】'+safeName];
+            set(c,taskPath.concat('委托方'),'晋升试炼');
+            set(c,taskPath.concat('目标'),task.desc || '完成试炼目标');
+            set(c,taskPath.concat('难度'),plan.grade || gradeOf(task.diff));
+            set(c,taskPath.concat('奖励'),String(plan.reward || 0)+'空间币');
+            set(c,taskPath.concat('交付'),'全部试炼主任务完成后统一结算');
+            set(c,taskPath.concat('状态'),'进行中');
+            set(c,taskPath.concat('惩罚'),task.punish || '本次晋升试炼失败');
+          });
+
+          if (!expectedSingle) {
+            set(c,'stat_data.系统状态.是否在主神空间',false);
+            set(c,'stat_data.世界.名称',String(q.world.名称 || '').replace(/^[【\[]|[】\]]$/g,''));
+            set(c,'stat_data.世界.位格',rankOf(q.world.世界位格) || 'Ⅰ');
+            set(c,'stat_data.世界.难度',ex.difficulty);
+            set(c,'stat_data.世界.时间',q.world.时间锚点 || '待初始化');
+            set(c,'stat_data.世界.地点','待投放');
+            set(c,'stat_data.世界.稳定',100);
+            set(c,'stat_data.世界.法则',String(q.world.世界法则 || '').split(/[;；]\s*/).map(function(x){return x.trim();}).filter(Boolean).slice(0,10));
+            set(c,'stat_data.世界.货币',{体系:'',购买力基准:'',经济波动:''});
+            set(c,'stat_data.世界.探索',{});
+            set(c,'stat_data.世界.势力',{});
+            set(c,'stat_data.世界.因果轨道.当前阶段',q.stage || q.world.主线状态 || '试炼投放');
+            set(c,'stat_data.世界.因果轨道.故事线',q.storyline || q.world.主线状态 || '试炼投放');
+            set(c,'stat_data.世界.因果轨道.下一节点',(q.tasks[0] && q.tasks[0].desc) || '完成晋升试炼');
+            set(c,'stat_data.世界.因果轨道.偏移记录',{});
+            set(c,'stat_data.世界.异端雷达.当前模式',stripExpectedCount(q.world.干涉模式));
+            const roster = {};
+            q.aliens.forEach(function(a){ roster[a.name]={来源:a.source,经历:a.experience,阵营:a.faction,职业:a.job,层级:a.rank,状态:'未登场'}; });
+            set(c,'stat_data.世界.异端雷达.名单',roster);
+            set(c,'stat_data.任务.副本成就',{});
+            const worldName = String(q.world.名称 || '晋升试炼').replace(/[【】《》]/g,'').trim() || '晋升试炼';
+            q.achievements.forEach(function(item,index){
+              const achPath = ['stat_data','任务','副本成就',item.name || ('试炼成就'+(index+1))];
+              set(c,achPath.concat('说明'),item.desc || '完成对应试炼挑战');
+              set(c,achPath.concat('难度'),'★'.repeat(index+1));
+              set(c,achPath.concat('奖励'),(ex.achievementGrades[index] || 'F')+'级盲盒·'+worldName);
+              set(c,achPath.concat('状态'),'未达成');
+            });
+          }
+
+          win.Mvu.replaceMvuData(c,{type:'message',message_id:'latest'});
+          try { win.Mvu.replaceMvuData(c,{type:'chat'}); } catch(e) {}
+
+          return true;
+        }
+
+        const rawText = rawTextOf(raw);
+        const q = parseTrial(rawText);
+        const errors = validate(q);
+        const trialName = q.mode === '轮回试炼' ? q.world.名称 : q.scene.世界名称;
+        label.textContent = q.status === '允许' ? ('晋升试炼 · '+(trialName || q.target || '载入中')) : '晋升试炼 · 申请驳回';
+        panel.innerHTML = render(q,errors);
+        if (q.status !== '允许') { toggle.classList.add('active'); panel.classList.add('show'); }
+        function togglePanel() {
+          toggle.classList.toggle('active');
+          panel.classList.toggle('show');
+        }
+        toggle.addEventListener('click',togglePanel);
+        toggle.addEventListener('keydown',function(event){
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); togglePanel(); }
+        });
+        if (q.status === '允许' && !errors.length) activate(q);
+      })();
+    </script>
+  </div>
+  <!-- 替换模板结束 -->
+</body>
+</html>
+```

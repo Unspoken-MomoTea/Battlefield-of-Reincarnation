@@ -26,27 +26,33 @@ jobs:
           text = path.read_bytes().decode('utf-8')
           nl = '\r\n' if '\r\n' in text else '\n'
 
-          old_comment = """        // 2) ★ 同步优先直写 MVU(原子操作): 立即把交易结果写回, 商品库一次性移除全部已购物品
-        //    旧流程先 /trigger 触发AI回复, AI的[mvu_update]会覆盖我们的写回(导致只删1个),
-        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 再 /send 记录文本(不触发AI)""".replace('\n', nl)
-          new_comment = """        // 2) ★ 同步优先直写 MVU(原子操作): 立即把交易结果写回, 商品库一次性移除全部已购物品
-        //    旧流程先 /trigger 触发AI回复, AI的[mvu_update]会覆盖我们的写回(导致只删1个),
-        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 待播报记录由交易写回统一留存""".replace('\n', nl)
+          old_comment = nl.join([
+              "        // 2) ★ 同步优先直写 MVU(原子操作): 立即把交易结果写回, 商品库一次性移除全部已购物品",
+              "        //    旧流程先 /trigger 触发AI回复, AI的[mvu_update]会覆盖我们的写回(导致只删1个),",
+              "        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 再 /send 记录文本(不触发AI)",
+          ])
+          new_comment = nl.join([
+              "        // 2) ★ 同步优先直写 MVU(原子操作): 立即把交易结果写回, 商品库一次性移除全部已购物品",
+              "        //    旧流程先 /trigger 触发AI回复, AI的[mvu_update]会覆盖我们的写回(导致只删1个),",
+              "        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 待播报记录由交易写回统一留存",
+          ])
 
-          old_send = """        // 4) /send 记录交易文本(仅创建用户楼层, 不带 /trigger, 不触发AI回复, 避免AI的mvu_update覆盖商品库)
-        var msg = result.purchaseLog + '。';
-        try {
-            shopTriggerSlash('/send ' + msg).then(function() {
-                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
-            }).catch(function(eSend) {
-                try { console.warn('[主神终端] /send 记录失败(交易已生效):', eSend.message); } catch(e2){}
-                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
-            });
-        } catch(eSync) {
-            try { console.warn('[主神终端] /send 异常(交易已生效):', eSync.message); } catch(e2){}
-            if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
-        }""".replace('\n', nl)
-          new_send = """        if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }"""
+          old_send = nl.join([
+              "        // 4) /send 记录交易文本(仅创建用户楼层, 不带 /trigger, 不触发AI回复, 避免AI的mvu_update覆盖商品库)",
+              "        var msg = result.purchaseLog + '。';",
+              "        try {",
+              "            shopTriggerSlash('/send ' + msg).then(function() {",
+              "                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }",
+              "            }).catch(function(eSend) {",
+              "                try { console.warn('[主神终端] /send 记录失败(交易已生效):', eSend.message); } catch(e2){}",
+              "                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }",
+              "            });",
+              "        } catch(eSync) {",
+              "            try { console.warn('[主神终端] /send 异常(交易已生效):', eSync.message); } catch(e2){}",
+              "            if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }",
+              "        }",
+          ])
+          new_send = "        if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }"
 
           if text.count(old_comment) != 1:
               raise SystemExit(f'expected old transaction comment once, found {text.count(old_comment)}')

@@ -65,7 +65,9 @@ jobs:
               raise SystemExit(f'expected one script block, found {len(scripts)}')
           Path('/tmp/settlement.js').write_text(scripts[0], encoding='utf-8')
           world = Path('World Book/【结算任务】[mvu_plot].txt').read_text(encoding='utf-8')
-          if world.index('<achievement settlement>') > world.index('</settlement tasks>'):
+          snapshot_pos = world.rindex('<achievement settlement>')
+          close_pos = world.rindex('</settlement tasks>')
+          if snapshot_pos > close_pos:
               raise SystemExit('achievement snapshot is outside settlement tasks')
           if Path('Regular/成就结算美化.html').exists():
               raise SystemExit('standalone achievement beautifier still exists')

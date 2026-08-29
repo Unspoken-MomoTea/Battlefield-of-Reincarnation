@@ -368,7 +368,7 @@ export const Schema = z.object({
         难度: safeStr('F~SSS'),
         稳定: clampNum(100, 0, 120),
         法则: safeTags([]).transform(arr => {
-            if (arr.length === 0) return []; // 【修复】天下没有无法则之地
+            if (arr.length === 0) return []; // 允许无法则世界
             return _.take(arr, 10);
         }),
         货币: z.object({

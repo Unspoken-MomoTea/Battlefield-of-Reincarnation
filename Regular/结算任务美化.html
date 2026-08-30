@@ -699,53 +699,13 @@
             return html;
           }
 
-          function parseAchievementSnapshot(text) {
-  const out = { world: '', done: 0, total: 0, rows: [] };
-  const match = String(text || '').match(/<achievement settlement>([\s\S]*?)<\/achievement settlement>/i);
-  if (!match) return out;
-  String(match[1] || '').replace(/\r/g, '').split('\n').map(function(line) { return line.trim(); }).filter(Boolean).forEach(function(line) {
-    let m = line.match(/^副本[：:]\s*(.*)$/);
-    if (m) { out.world = m[1].trim(); return; }
-    m = line.match(/^达成[：:]\s*(\d+)\s*\/\s*(\d+)/);
-    if (m) { out.done = parseInt(m[1], 10) || 0; out.total = parseInt(m[2], 10) || 0; return; }
-    const parts = line.split('|');
-    if (parts.length < 6) return;
-    out.rows.push({ no:parts[0].trim(), difficulty:parts[1].trim(), name:parts[2].trim(), desc:parts[3].trim(), reward:parts[4].trim(), status:parts.slice(5).join('|').trim() });
-  });
-  if (!out.total) out.total = out.rows.length;
-  out.done = out.rows.filter(function(row) { return row.status === '已达成'; }).length;
-  return out;
-}
-
-function renderAchievementPanel() {
-  const a = achievementSnapshot;
-  if (!a || !a.rows || !a.rows.length) return '';
-  const pct = a.total > 0 ? Math.round(a.done / a.total * 100) : 0;
-  let html = '<div class="st-trial-check' + (a.done === a.total ? '' : ' pending') + '">';
-  html += '<div class="st-trial-head"><div class="st-trial-title">✦ 副本成就结算' + (a.world ? ' · ' + escapeHtml(a.world) : '') + '</div><div class="st-trial-count">' + a.done + ' / ' + a.total + '</div></div>';
-  a.rows.forEach(function(row) {
-    const ok = row.status === '已达成';
-    const stars = row.difficulty || '—';
-    html += '<div class="st-trial-row"><div class="st-trial-name">';
-    html += '<div style="font-weight:800;color:' + (ok ? '#f5d76e' : '#c8d3df') + '">' + escapeHtml(stars + ' ' + row.name) + '</div>';
-    if (row.desc) html += '<div style="margin-top:2px;color:#8fa0b3;font-size:.91em;white-space:normal">' + escapeHtml(row.desc) + '</div>';
-    if (row.reward) html += '<div style="margin-top:3px;color:#d6c791;font-size:.91em;white-space:normal">🎁 ' + escapeHtml(row.reward) + '</div>';
-    html += '</div><div class="st-trial-state ' + (ok ? 'ok' : 'wait') + '">' + (ok ? '已达成' : '未达成') + '</div></div>';
-  });
-  html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#f97316,#f5d76e)"></div></div>';
-  html += '<div class="st-note" style="text-align:center">' + (a.done ? ('已达成 ' + a.done + ' 项，锁定盲盒于本次完整结算统一发放。') : '本次未达成副本成就，无成就盲盒发放。') + '</div>';
-  html += '</div>';
-  return html;
-}
-
-function parseSettlement(text) {
+          function parseSettlement(text) {
             const out = { title: '', serial: '', player: '', stages: [] };
             const lines = String(text).replace(/\r/g, '').split('\n');
             let inNote = false;
             let curStage = null;
             let curSub = '';
             let cardSec = '';
-            let inAchievementSnapshot = false;
 
             function classifyStage(name) {
               const n = String(name || '');
@@ -773,9 +733,6 @@ function parseSettlement(text) {
               const isList = /^\s*[*+-]\s+/.test(lines[i]);
               let line = lines[i].trim();
               if (!line) continue;
-              if (/^<achievement settlement>$/i.test(line)) { inAchievementSnapshot = true; continue; }
-              if (/^<\/achievement settlement>$/i.test(line)) { inAchievementSnapshot = false; continue; }
-              if (inAchievementSnapshot) continue;
               if (line.startsWith('>')) line = line.replace(/^>\s*/, '').trim();
               if (!line) continue;
               if (inNote) { if (/\)\s*$/.test(line)) inNote = false; continue; }
@@ -965,7 +922,6 @@ function parseSettlement(text) {
             if (d.player) html += '<span class="st-tag">轮回者 <b>' + escapeHtml(d.player) + '</b></span>';
             html += '</div></div>';
 
-            let achievementInserted = false;
             d.stages.forEach(function(st, idx) {
               if (!st.items.length) return;
               let inner = '';
@@ -1023,12 +979,6 @@ function parseSettlement(text) {
 
               if (rewardSeen && !trialInserted && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
                 inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
-              }
-
-              // 与晋升试炼一样，副本成就是结算任务美化内部模块，不创建第二个正则窗口。
-              if (!achievementInserted && st.type === 'income' && achievementSnapshot.rows.length) {
-                inner += '<div class="st-achievement-host">' + renderAchievementPanel() + '</div>';
-                achievementInserted = true;
               }
 
               html += '<div class="st-stage t-' + st.type + '"><div class="st-stage-head"><span class="st-stage-no">' + (idx + 1) + '</span><span class="st-stage-name">' + escapeHtml(st.name || '结算阶段') + '</span><span class="st-stage-line"></span></div>' + inner + '</div>';
@@ -1146,7 +1096,6 @@ function parseSettlement(text) {
           if (!btn || !rawDiv || !labelSpan || !panelDiv) return;
 
           const rawText = rawDiv.textContent;
-          const achievementSnapshot = parseAchievementSnapshot(rawText);
           const d = parseSettlement(rawText);
 
           let worldName = '';

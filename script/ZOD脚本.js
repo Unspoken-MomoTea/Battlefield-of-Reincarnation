@@ -422,7 +422,7 @@ export const Schema = z.object({
             状态: z.enum(['进行中', '可交付', '可结算', '失败']).prefault('进行中'), // 【修复】收束任务状态
             惩罚: safeStr('')
         }))).prefault({}),
-        // 副本成就: AI仅维护未达成/已达成；完整世界结算时由辅助脚本统一发放奖励
+        // 副本成就: 首次从未达成变为已达成时，由结算美化脚本发放奖励
         副本成就: z.record(z.string(), strictItem(z.object({
             说明: safeStr(''),
             难度: safeStr(''),

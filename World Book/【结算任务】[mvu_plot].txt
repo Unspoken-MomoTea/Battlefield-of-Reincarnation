@@ -26,25 +26,6 @@
     if (warehouseItemText) parts.push(`道具: ${warehouseItemText}`);
     return parts.length ? parts.join(' | ') : '（仓库为空）';
   })();
-
-  // 副本成就快照：完整结算后数据库会被清空，因此把全部成就固化进结算消息本身。
-  // 单一世界不生成副本成就；数据库为空时不输出额外成就窗口。
-  const cleanAchievementField = (value) => String(value == null ? '' : value)
-    .replace(/\r?\n/g, ' ')
-    .replace(/\|/g, '／')
-    .trim();
-  const achievementEntries = Object.entries(_.get(rule_data, '任务.副本成就', {}) || {}).map(([name, item]) => {
-    const a = item && typeof item === 'object' ? item : {};
-    return {
-      name: cleanAchievementField(name),
-      difficulty: cleanAchievementField(a.难度),
-      desc: cleanAchievementField(a.说明),
-      reward: cleanAchievementField(a.奖励),
-      status: cleanAchievementField(a.状态 || '未达成'),
-    };
-  });
-  const achievementDoneCount = achievementEntries.filter((a) => a.status === '已达成').length;
-  const achievementWorldName = cleanAchievementField(_.get(rule_data, '世界.名称', '当前副本')) || '当前副本';
 _%>
 <System_Rules>
 触发条件: 
@@ -131,8 +112,6 @@ AI推演与计算层 (仅在 <dm_think> 中执行，不在正文显示):
 
 ============================================================
 前端展示层 (必须使用 `<settlement tasks>` 标签包裹，强制按以下Markdown格式输出，严禁擅自增加无关闲聊):
-  - 轮回模式且数据库存在副本成就时：必须在 `</settlement tasks>` 之前逐字保留程序预填的 `<achievement settlement>` 成就快照块；严禁改名、改序、改状态、改奖励或遗漏任一项
-  - `<achievement settlement>` 是同一结算面板内的机器快照，由 `结算任务美化.html` 渲染为成就模块；AI不得把其中的奖励再次写入变量，奖励由后台结算脚本统一发放
 ============================================================
 <settlement tasks>
 ### **【主神空间 - 轮回清算协议】**
@@ -248,15 +227,6 @@ $(若检测到玩家满足发放条件，且未持有该等级凭证，则强制
 **【阶段清算完毕。已完成的任务记录已归档，世界因果继续流转，将重新生成主神任务。】**
 <%_ } else { _%>
 **【轮回清算完毕。世界因果已剥离凝结为专属纪念物，所有副本临时数据已安全抹除。】**
-<%_ } _%>
-<%_ if (!isSingleWorld && achievementEntries.length) { _%>
-<achievement settlement>
-副本：<%= achievementWorldName %>
-达成：<%= achievementDoneCount %>/<%= achievementEntries.length %>
-<%_ achievementEntries.forEach((a, index) => { _%>
-<%= index + 1 %>|<%= a.difficulty %>|<%= a.name %>|<%= a.desc %>|<%= a.reward %>|<%= a.status %>
-<%_ }); _%>
-</achievement settlement>
 <%_ } _%>
 </settlement tasks>
 </System_Rules>

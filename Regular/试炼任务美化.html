@@ -410,6 +410,71 @@
           } catch (e2) { console.warn('试炼已写入，但后续指令发送失败。',e2); }
           return false;
         }
+        // ===== 任务生成当层整块锁 =====
+        // 美化器完成任务写入后，把 任务.列表 + 任务.副本成就 作为当前消息的权威快照。
+        // 同一消息随后发生的额外变量更新，由辅助计算脚本强制恢复这两个节点；进入下一消息后自动解锁。
+        function getTaskLockMessageId(win) {
+          const getters = [];
+          try { if (typeof getCurrentMessageId === 'function') getters.push(function() { return getCurrentMessageId(); }); } catch (e) {}
+          try { if (win && typeof win.getCurrentMessageId === 'function') getters.push(function() { return win.getCurrentMessageId(); }); } catch (e) {}
+          try {
+            if (window.parent && window.parent !== window && typeof window.parent.getCurrentMessageId === 'function') {
+              getters.push(function() { return window.parent.getCurrentMessageId(); });
+            }
+          } catch (e) {}
+          for (const getter of getters) {
+            try {
+              const id = Number(getter());
+              if (Number.isInteger(id) && id >= 0) return id;
+            } catch (e) {}
+          }
+          try {
+            const getMsgs = (typeof getChatMessages === 'function')
+              ? getChatMessages
+              : (win && typeof win.getChatMessages === 'function' ? win.getChatMessages.bind(win) : null);
+            const latest = getMsgs ? getMsgs(-1)[0] : null;
+            const id = Number(latest && (latest.message_id != null ? latest.message_id : latest.id));
+            if (Number.isInteger(id) && id >= 0) return id;
+          } catch (e) {}
+          return null;
+        }
+
+        function cloneTaskLockValue(win, value) {
+          if (win && win._ && typeof win._.cloneDeep === 'function') return win._.cloneDeep(value);
+          return JSON.parse(JSON.stringify(value == null ? {} : value));
+        }
+
+        function installTaskGenerationLock(win, mvuData, source) {
+          try {
+            const messageId = getTaskLockMessageId(win);
+            if (messageId === null || !mvuData) {
+              console.warn('[任务生成锁] 无法取得当前消息ID，未建立生成锁');
+              return;
+            }
+            const stat = mvuData.stat_data || mvuData;
+            const taskRoot = stat && stat.任务 && typeof stat.任务 === 'object' ? stat.任务 : {};
+            const lock = {
+              messageId: messageId,
+              source: source || '任务美化器',
+              taskList: cloneTaskLockValue(win, taskRoot.列表 || {}),
+              achievements: cloneTaskLockValue(win, taskRoot.副本成就 || {})
+            };
+            const targets = [];
+            function addTarget(target) { if (target && targets.indexOf(target) < 0) targets.push(target); }
+            addTarget(win);
+            addTarget(window);
+            try { addTarget(window.parent); } catch (e) {}
+            try { addTarget(window.top); } catch (e) {}
+            try { if (typeof GS_PARENT !== 'undefined') addTarget(GS_PARENT); } catch (e) {}
+            targets.forEach(function(target) {
+              try { target.__samsaraTaskGenerationLock = lock; } catch (e) {}
+            });
+            console.log('[任务生成锁] 已锁定当前楼层任务数据:', messageId, lock.source);
+          } catch (e) {
+            console.warn('[任务生成锁] 建立失败:', e);
+          }
+        }
+
         function activate(q) {
           const win = window.parent || window;
           function fail(message) { console.warn('[晋升试炼自动载入] '+message); return false; }
@@ -478,6 +543,8 @@
             });
           }
 
+          // 快照取自试炼美化器已经完成全部赋值的 c；同层额外AI变量更新无法复制或改写任务。
+          installTaskGenerationLock(win, c, '晋升试炼美化');
           win.Mvu.replaceMvuData(c,{type:'message',message_id:'latest'});
           try { win.Mvu.replaceMvuData(c,{type:'chat'}); } catch(e) {}
 

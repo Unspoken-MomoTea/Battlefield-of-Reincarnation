@@ -89,6 +89,10 @@
 
             if (!statData) return;
 
+            // ★ 任务生成当层整块锁：任何后续计算前先恢复美化器权威快照。
+            //   只影响 任务.列表 / 任务.副本成就，不影响 任务.击杀 与其他变量。
+            guardTaskGenerationLock(statData);
+
             const users = statData.主角;
             if (!users) return;
 
@@ -188,6 +192,106 @@
         if (value === undefined) return undefined;
         if (typeof _ !== 'undefined' && _?.cloneDeep) return _.cloneDeep(value);
         return JSON.parse(JSON.stringify(value));
+    }
+
+    /**
+     * 任务生成当层整块镜像锁。
+     * 主神任务/试炼任务美化器在当前消息完成任务赋值后，把完整的
+     * 任务.列表 与 任务.副本成就 快照保存在 __samsaraTaskGenerationLock。
+     * 同一 message_id 的额外变量更新无论修改字段、删除、改名或新增近似任务，
+     * 都直接以该快照整块覆盖；进入下一条消息时锁自动清除。
+     */
+    function taskLockWindows() {
+        const wins = [];
+        const add = (w) => { if (w && !wins.includes(w)) wins.push(w); };
+        try { if (typeof GS_PARENT !== 'undefined') add(GS_PARENT); } catch(e){}
+        try { add(window.parent); } catch(e){}
+        try { add(window.top); } catch(e){}
+        try { add(window); } catch(e){}
+        return wins;
+    }
+
+    function latestMessageIdForTaskLock() {
+        const wins = taskLockWindows();
+        for (const w of wins) {
+            try {
+                if (w && typeof w.getChatMessages === 'function') {
+                    const latest = w.getChatMessages(-1)?.[0];
+                    const id = Number(latest && (latest.message_id != null ? latest.message_id : latest.id));
+                    if (Number.isInteger(id) && id >= 0) return id;
+                }
+            } catch(e){}
+        }
+        try {
+            if (typeof getChatMessages === 'function') {
+                const latest = getChatMessages(-1)?.[0];
+                const id = Number(latest && (latest.message_id != null ? latest.message_id : latest.id));
+                if (Number.isInteger(id) && id >= 0) return id;
+            }
+        } catch(e){}
+        try {
+            if (typeof getCurrentMessageId === 'function') {
+                const id = Number(getCurrentMessageId());
+                if (Number.isInteger(id) && id >= 0) return id;
+            }
+        } catch(e){}
+        return null;
+    }
+
+    function clearTaskGenerationLock(lock) {
+        taskLockWindows().forEach((w) => {
+            try {
+                const cur = w.__samsaraTaskGenerationLock;
+                if (!cur) return;
+                if (cur === lock || Number(cur.messageId) === Number(lock?.messageId)) {
+                    w.__samsaraTaskGenerationLock = null;
+                }
+            } catch(e){}
+        });
+    }
+
+    function guardTaskGenerationLock(statData) {
+        if (!statData || typeof statData !== 'object') return false;
+
+        let lock = null;
+        for (const w of taskLockWindows()) {
+            try {
+                const candidate = w.__samsaraTaskGenerationLock;
+                if (candidate && candidate.messageId != null && candidate.taskList && candidate.achievements) {
+                    lock = candidate;
+                    break;
+                }
+            } catch(e){}
+        }
+        if (!lock) return false;
+
+        const currentMessageId = latestMessageIdForTaskLock();
+        // 取不到楼层号时宁可暂时保留锁，也不做可能跨层的恢复。
+        if (currentMessageId === null) return false;
+
+        if (Number(lock.messageId) !== Number(currentMessageId)) {
+            clearTaskGenerationLock(lock);
+            return false;
+        }
+
+        if (!statData.任务 || typeof statData.任务 !== 'object') statData.任务 = {};
+
+        const oldList = statData.任务.列表 || {};
+        const oldAchievements = statData.任务.副本成就 || {};
+        const listChanged = hasChanged(oldList, lock.taskList);
+        const achievementsChanged = hasChanged(oldAchievements, lock.achievements);
+
+        // 整块恢复而非逐字段修补：任务名只改一两个字后新增的近似任务，也会被直接清掉。
+        statData.任务.列表 = clonePlainValue(lock.taskList) || {};
+        statData.任务.副本成就 = clonePlainValue(lock.achievements) || {};
+
+        if (listChanged || achievementsChanged) {
+            console.warn(
+                `[任务生成锁] ⚠️ 检测到同层额外变量更新修改任务数据，已整块恢复 ` +
+                `(message_id=${currentMessageId}, source=${lock.source || '任务美化器'})`
+            );
+        }
+        return true;
     }
 
     /**

@@ -104,7 +104,8 @@
                 isInitLog = true;
             }
 
-            // 副本成就这里只记录状态；奖励统一在完整世界结算时发放
+            // 副本成就首次达成：根据状态变化立即发放锁定盲盒，不等待结算
+            grantAchievementRewards(statData, statDataBefore);
 
             // 重算所有角色属性（传入 before 供 NPC 群体 THP/数量同步判断）
             recalcAllCharacters(statData, statDataBefore);
@@ -580,28 +581,28 @@
     }
 
     /**
-     * 副本成就结算奖励
-     *   - 仅在完整世界清算时调用；游玩过程中只更新成就状态，不即时发奖
-     *   - 扫描当前副本全部【已达成】成就，同名盲盒聚合后一次性写入背包
-     *   - 完整结算随后清空副本成就；消息级防重入 + 空成就表共同保证不会重复发放
-     * @returns {number} 本次实际发放的盲盒总数
+     * 副本成就即时奖励
+     *   - 仅识别本轮【未达成】→【已达成】，重复渲染或后续回合不会再发
+     *   - 同一轮多项成就奖励同名盲盒时先聚合，再累加数量
+     *   - 若AI误在同轮写入了部分数量，脚本只补足差额，避免双倍发放
      */
-    function grantAchievementRewards(statData) {
+    function grantAchievementRewards(statData, statDataBefore) {
         const currentAchievements = statData?.任务?.副本成就;
-        if (!currentAchievements || typeof currentAchievements !== 'object' || !Object.keys(currentAchievements).length) return 0;
-        if (!statData?.主角) return 0;
+        const previousAchievements = statDataBefore?.任务?.副本成就;
+        if (!currentAchievements || !previousAchievements) return;
 
         const grants = {};
         const fallbackWorld = String(statData?.世界?.名称 || '').replace(/[【】《》]/g, '').trim();
         Object.entries(currentAchievements).forEach(([achievementName, achievement]) => {
-            if (achievement?.状态 !== '已达成') return;
+            const previous = previousAchievements[achievementName];
+            if (!previous || previous.状态 !== '未达成' || achievement?.状态 !== '已达成') return;
 
             const reward = String(achievement.奖励 || '').trim();
             let match = reward.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[·・]\s*(.+)$/i);
             if (!match) match = reward.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[（(]\s*([^）)]*)\s*[）)]$/i);
             if (!match) match = reward.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*$/i);
             if (!match) {
-                console.warn('[成就奖励] 结算时无法识别盲盒格式:', achievementName, reward);
+                console.warn('[成就奖励] 无法识别盲盒格式:', achievementName, reward);
                 return;
             }
 
@@ -613,16 +614,19 @@
             grants[boxName].achievements.push(achievementName);
         });
 
-        if (!Object.keys(grants).length) return 0;
+        if (!Object.keys(grants).length) return;
         const items = statData.主角.道具 = statData.主角.道具 || {};
-        let grantedCount = 0;
+        const previousItems = statDataBefore?.主角?.道具 || {};
         Object.entries(grants).forEach(([boxName, grant]) => {
+            const previousQty = safeNum(previousItems[boxName]?.数量, 0);
             const existing = items[boxName] && typeof items[boxName] === 'object' ? items[boxName] : {};
             const currentQty = safeNum(existing.数量, 0);
+            const alreadyAdded = Math.max(0, currentQty - previousQty);
+            const missing = Math.max(0, grant.count - alreadyAdded);
 
             existing.品质 = grant.grade;
             existing.类型 = '盲盒';
-            existing.数量 = currentQty + grant.count;
+            existing.数量 = currentQty + missing;
             existing.标签 = Array.from(new Set([...(Array.isArray(existing.标签) ? existing.标签 : []), '主神空间', '盲盒', grant.world].filter(Boolean)));
             existing.效果 = existing.效果 && typeof existing.效果 === 'object' ? existing.效果 : {};
             if (!existing.效果.开启) existing.效果.开启 = '盲盒抽奖，打开后随机抽取「' + (grant.world || '主神空间') + '」对应品质的奖励。';
@@ -630,10 +634,8 @@
             if (![0, 1, 2].includes(Number(existing.状态))) existing.状态 = 0;
             items[boxName] = existing;
 
-            grantedCount += grant.count;
-            console.log('[成就奖励] 结算发放:', boxName, '×' + grant.count, grant.achievements);
+            if (missing > 0) console.log('[成就奖励] 已即时发放:', boxName, '×' + missing, grant.achievements);
         });
-        return grantedCount;
     }
 
     /** 规范化生命层级(大层级)字符串为 Ⅰ~Ⅸ；非法值回落 Ⅰ */
@@ -1752,11 +1754,6 @@
                 if (shouldCompleteTrial) {
                     sd.系统状态 = sd.系统状态 || {};
                     sd.系统状态.试炼已完成 = true;
-                }
-                // 完整副本结算：先发放当前副本全部已达成成就的锁定盲盒，再清理副本数据。
-                // 单一世界不生成副本成就，因此仅轮回模式执行。
-                if (!isSingleWorld) {
-                    grantAchievementRewards(sd);
                 }
                 // 1. 基础数据重置
                 sd.任务 = sd.任务 || {};

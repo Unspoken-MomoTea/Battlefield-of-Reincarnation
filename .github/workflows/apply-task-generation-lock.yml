@@ -1,0 +1,51 @@
+name: Apply task generation lock
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-task-generation-lock.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply guarded patch
+        run: python .github/patch-task-generation-lock.py
+
+      - name: Validate JavaScript
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          for src, out in [
+              ('Regular/主神任务美化.html','/tmp/godquest.js'),
+              ('Regular/试炼任务美化.html','/tmp/trial.js'),
+          ]:
+              html = Path(src).read_bytes().decode('utf-8')
+              scripts = re.findall(r'<script>([\s\S]*?)</script>', html)
+              if len(scripts) != 1:
+                  raise SystemExit(f'{src}: expected one script block, found {len(scripts)}')
+              Path(out).write_text(scripts[0], encoding='utf-8')
+          PY
+          node --check /tmp/godquest.js
+          node --check /tmp/trial.js
+          node --check 'script/辅助计算脚本.js'
+          git diff --check -- 'Regular/主神任务美化.html' 'Regular/试炼任务美化.html' 'script/辅助计算脚本.js'
+
+      - name: Commit business change
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-task-generation-lock.yml .github/patch-task-generation-lock.py
+          git add 'Regular/主神任务美化.html' 'Regular/试炼任务美化.html' 'script/辅助计算脚本.js'
+          git commit -m 'lock generated task blocks against same-turn AI updates'
+          git push origin HEAD:main

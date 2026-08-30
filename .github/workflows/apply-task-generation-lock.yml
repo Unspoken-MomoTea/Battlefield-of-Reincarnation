@@ -38,7 +38,7 @@ jobs:
           node --check /tmp/godquest.js
           node --check /tmp/trial.js
           node --check 'script/辅助计算脚本.js'
-          git diff --check -- 'Regular/主神任务美化.html' 'Regular/试炼任务美化.html' 'script/辅助计算脚本.js'
+          git -c core.whitespace=cr-at-eol diff --check -- 'Regular/主神任务美化.html' 'Regular/试炼任务美化.html' 'script/辅助计算脚本.js'
 
       - name: Commit business change
         shell: bash

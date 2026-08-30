@@ -104,9 +104,6 @@
                 isInitLog = true;
             }
 
-            // 副本成就首次达成：根据状态变化立即发放锁定盲盒，不等待结算
-            grantAchievementRewards(statData, statDataBefore);
-
             // 重算所有角色属性（传入 before 供 NPC 群体 THP/数量同步判断）
             recalcAllCharacters(statData, statDataBefore);
 
@@ -578,64 +575,6 @@
         if (TIER_ORDER.includes(up)) return up;
         if (ROMAN_TO_QUALITY[s]) return ROMAN_TO_QUALITY[s]; // AI 错传 Ⅲ → D
         return 'F';
-    }
-
-    /**
-     * 副本成就即时奖励
-     *   - 仅识别本轮【未达成】→【已达成】，重复渲染或后续回合不会再发
-     *   - 同一轮多项成就奖励同名盲盒时先聚合，再累加数量
-     *   - 若AI误在同轮写入了部分数量，脚本只补足差额，避免双倍发放
-     */
-    function grantAchievementRewards(statData, statDataBefore) {
-        const currentAchievements = statData?.任务?.副本成就;
-        const previousAchievements = statDataBefore?.任务?.副本成就;
-        if (!currentAchievements || !previousAchievements) return;
-
-        const grants = {};
-        const fallbackWorld = String(statData?.世界?.名称 || '').replace(/[【】《》]/g, '').trim();
-        Object.entries(currentAchievements).forEach(([achievementName, achievement]) => {
-            const previous = previousAchievements[achievementName];
-            if (!previous || previous.状态 !== '未达成' || achievement?.状态 !== '已达成') return;
-
-            const reward = String(achievement.奖励 || '').trim();
-            let match = reward.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[·・]\s*(.+)$/i);
-            if (!match) match = reward.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[（(]\s*([^）)]*)\s*[）)]$/i);
-            if (!match) match = reward.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*$/i);
-            if (!match) {
-                console.warn('[成就奖励] 无法识别盲盒格式:', achievementName, reward);
-                return;
-            }
-
-            const grade = normalizeTier(match[1]);
-            const world = String(match[2] || fallbackWorld).trim();
-            const boxName = grade + '级盲盒' + (world ? ('·' + world) : '');
-            if (!grants[boxName]) grants[boxName] = { grade, world, count: 0, achievements: [] };
-            grants[boxName].count++;
-            grants[boxName].achievements.push(achievementName);
-        });
-
-        if (!Object.keys(grants).length) return;
-        const items = statData.主角.道具 = statData.主角.道具 || {};
-        const previousItems = statDataBefore?.主角?.道具 || {};
-        Object.entries(grants).forEach(([boxName, grant]) => {
-            const previousQty = safeNum(previousItems[boxName]?.数量, 0);
-            const existing = items[boxName] && typeof items[boxName] === 'object' ? items[boxName] : {};
-            const currentQty = safeNum(existing.数量, 0);
-            const alreadyAdded = Math.max(0, currentQty - previousQty);
-            const missing = Math.max(0, grant.count - alreadyAdded);
-
-            existing.品质 = grant.grade;
-            existing.类型 = '盲盒';
-            existing.数量 = currentQty + missing;
-            existing.标签 = Array.from(new Set([...(Array.isArray(existing.标签) ? existing.标签 : []), '主神空间', '盲盒', grant.world].filter(Boolean)));
-            existing.效果 = existing.效果 && typeof existing.效果 === 'object' ? existing.效果 : {};
-            if (!existing.效果.开启) existing.效果.开启 = '盲盒抽奖，打开后随机抽取「' + (grant.world || '主神空间') + '」对应品质的奖励。';
-            if (!existing.描述) existing.描述 = '副本成就奖励。';
-            if (![0, 1, 2].includes(Number(existing.状态))) existing.状态 = 0;
-            items[boxName] = existing;
-
-            if (missing > 0) console.log('[成就奖励] 已即时发放:', boxName, '×' + missing, grant.achievements);
-        });
     }
 
     /** 规范化生命层级(大层级)字符串为 Ⅰ~Ⅸ；非法值回落 Ⅰ */

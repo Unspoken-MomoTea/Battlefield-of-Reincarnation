@@ -122,7 +122,8 @@ current.任务 = _.cloneDeep(data.任务 || {});
 if (isOneWorld) {
   delete current.任务.副本成就;
 } else {
-  current.任务.副本成就 = _.omitBy(current.任务.副本成就 || {}, item => item?.状态 === '已达成');
+  const visibleAchievements = _.omitBy(current.任务.副本成就 || {}, item => item?.状态 === '已达成');
+  current.任务.副本成就 = _.mapValues(visibleAchievements, item => _.omit(item, ['奖励']));
 }
 
 // 4. 主角基础信息 (已将HP_MAX、EP_MAX和最终属性移入 readonly)

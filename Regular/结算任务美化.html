@@ -612,6 +612,16 @@
             });
           }
 
+          function readAchievementTasks() {
+            const ctx = getMvuContext();
+            const stat = ctx && ctx.stat ? ctx.stat : {};
+            const dict = stat && stat.任务 && stat.任务.副本成就 && typeof stat.任务.副本成就 === 'object' ? stat.任务.副本成就 : {};
+            return Object.keys(dict).map(function(key) {
+              const x = dict[key] || {};
+              return { name:String(x.名称 || x.成就名 || key), desc:String(x.说明 || x.描述 || ''), difficulty:String(x.难度 || ''), reward:String(x.奖励 || ''), status:String(x.状态 || '').trim() };
+            });
+          }
+
           function trialScore(tasks) {
             return (tasks || []).reduce(function(sum, task) {
               if (task.status === '可结算' || task.status === '失败') return sum + 3;
@@ -624,6 +634,7 @@
           let trialTasks = readTrialTasks();
           let bestTrialScore = trialScore(trialTasks);
           let trialWriteBusy = false;
+          const achievementTasks = readAchievementTasks();
 
           function isTrialPassed(tasks) {
             return tasks.length > 0 && tasks.every(function(task) { return task.status === '可结算'; });
@@ -697,6 +708,35 @@
             html += '<div class="st-trial-result"><div class="st-trial-stamp ' + (displayPassed ? 'pass' : 'fail') + '">' + (displayPassed ? '普升通过' : '晋升失败') + '</div></div>';
             html += '</div>';
             return html;
+          }
+
+          function renderAchievementPanel() {
+            if (!achievementTasks.length) return '';
+            const done = achievementTasks.filter(function(x) { return x.status === '已达成'; }).length;
+            const pct = Math.round(done / achievementTasks.length * 100);
+            let html = '<div class="st-trial-check pending">';
+            html += '<div class="st-trial-head"><div class="st-trial-title" style="color:#f5d76e">✦ 副本成就结算</div><div class="st-trial-count">' + done + ' / ' + achievementTasks.length + '</div></div>';
+            achievementTasks.forEach(function(x) {
+              const ok = x.status === '已达成';
+              html += '<div class="st-trial-row"><div class="st-trial-name"><b>' + escapeHtml((x.difficulty ? x.difficulty + ' · ' : '') + x.name) + '</b>';
+              if (x.desc) html += '<div style="margin-top:2px;color:#8fa0b3;font-size:.9em;white-space:normal">' + escapeHtml(x.desc) + '</div>';
+              if (x.reward) html += '<div style="margin-top:2px;color:#d6c791;font-size:.9em;white-space:normal">🎁 ' + escapeHtml(x.reward) + '</div>';
+              html += '</div><div class="st-trial-state ' + (ok ? 'ok' : 'wait') + '">' + (ok ? '已达成' : '未达成') + '</div></div>';
+            });
+            html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#f97316,#f5d76e)"></div></div>';
+            html += '<div class="st-note" style="text-align:center">' + (done ? ('已达成 ' + done + ' 项，成就盲盒将在本次结算统一发放。') : '本次无成就盲盒发放。') + '</div></div>';
+            return html;
+          }
+
+          function parseAchievementReward(reward, fallbackWorld) {
+            const v = String(reward || '').trim();
+            let m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[·・]\s*(.+)$/i);
+            if (!m) m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[（(]\s*([^）)]*)\s*[）)]$/i);
+            if (!m) m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*$/i);
+            if (!m) return null;
+            const grade = gradeTier(m[1]);
+            const world = String(m[2] || fallbackWorld || '').replace(/[【】《》]/g, '').trim();
+            return { grade:grade, world:world, name:grade + '级盲盒' + (world ? '·' + world : '') };
           }
 
           function parseSettlement(text) {
@@ -917,6 +957,7 @@
 
           function renderSettlement(d) {
             let html = '';
+            let achievementInserted = false;
             html += '<div class="st-banner"><div class="st-banner-main">' + escapeHtml(d.title || '主神空间 · 轮回清算协议') + '</div><div class="st-banner-tags">';
             if (d.serial) html += '<span class="st-tag">协议序列 <b>' + escapeHtml(d.serial) + '</b></span>';
             if (d.player) html += '<span class="st-tag">轮回者 <b>' + escapeHtml(d.player) + '</b></span>';
@@ -981,6 +1022,11 @@
                 inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
               }
 
+              if (!achievementInserted && st.type === 'income' && achievementTasks.length) {
+                inner += '<div class="st-achievement-host">' + renderAchievementPanel() + '</div>';
+                achievementInserted = true;
+              }
+
               html += '<div class="st-stage t-' + st.type + '"><div class="st-stage-head"><span class="st-stage-no">' + (idx + 1) + '</span><span class="st-stage-name">' + escapeHtml(st.name || '结算阶段') + '</span><span class="st-stage-line"></span></div>' + inner + '</div>';
             });
             return html;
@@ -1032,6 +1078,28 @@
                 });
               });
               const world = worldName || '';
+
+              const achievementGrants = {};
+              achievementTasks.forEach(function(x) {
+                if (x.status !== '已达成') return;
+                const r = parseAchievementReward(x.reward, world);
+                if (!r) { console.warn('[结算美化] 无法识别成就奖励:', x.name, x.reward); return; }
+                if (!achievementGrants[r.name]) achievementGrants[r.name] = { grade:r.grade, world:r.world, count:0 };
+                achievementGrants[r.name].count++;
+              });
+              Object.keys(achievementGrants).forEach(function(name) {
+                const g = achievementGrants[name], key = 'stat_data.主角.道具.' + name;
+                const old = win._.get(c, key) || {}, tags = Array.isArray(old.标签) ? old.标签.slice() : [];
+                ['主神空间','盲盒',g.world].filter(Boolean).forEach(function(t) { if (tags.indexOf(t) < 0) tags.push(t); });
+                win._.set(c, key + '.品质', g.grade);
+                win._.set(c, key + '.类型', '盲盒');
+                win._.set(c, key + '.数量', (Number(old.数量) || 0) + g.count);
+                win._.set(c, key + '.标签', tags);
+                win._.set(c, key + '.效果', old.效果 && typeof old.效果 === 'object' ? old.效果 : { 开启:'盲盒抽奖，打开后随机抽取「' + (g.world || '主神空间') + '」对应品质的奖励。' });
+                win._.set(c, key + '.描述', old.描述 || '副本成就奖励。');
+                win._.set(c, key + '.状态', [0,1,2].includes(Number(old.状态)) ? Number(old.状态) : 0);
+                changed = true;
+              });
 
               function parseEffectLines(txt) {
                 const eff = {};

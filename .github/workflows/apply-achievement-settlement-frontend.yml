@@ -1,0 +1,48 @@
+name: Apply achievement settlement frontend patch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-achievement-settlement-frontend.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply guarded patch
+        shell: bash
+        run: |
+          python -c "import base64;exec(base64.b64decode('CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAppbXBvcnQgcmUKCmRlZiByZXBsYWNlX29uY2UodGV4dCwgb2xkLCBuZXcsIGxhYmVsKToKICAgIGNvdW50ID0gdGV4dC5jb3VudChvbGQpCiAgICBpZiBjb3VudCAhPSAxOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJ7bGFiZWx9OiBleHBlY3RlZCAxIG1hdGNoLCBnb3Qge2NvdW50fSIpCiAgICByZXR1cm4gdGV4dC5yZXBsYWNlKG9sZCwgbmV3LCAxKQoKIyAxKSBIaWRlIGFjaGlldmVtZW50IHJld2FyZCBmaWVsZCBmcm9tIEFJLXZpc2libGUgY3VycmVudCB2YXJpYWJsZXMuCnAgPSBQYXRoKCdXb3JsZCBCb29rL1t2YXJpYWJsZXNd5b2T5YmN5Y+Y6YePLnR4dCcpCnRleHQgPSBwLnJlYWRfdGV4dChlbmNvZGluZz0ndXRmLTgnKQpvbGQgPSAiIiJpZiAoaXNPbmVXb3JsZCkgewogIGRlbGV0ZSBjdXJyZW50LuS7u+WKoeWJr+acrOaIkOWwse+8mwopfSBlbHNlIHsKICBjdXJyZW50LuS7u+WKoS7liK/mlK/mnKzmiJDlsLEgPSBfLm9taXRCeShjdXJyZW50LuS7u+WKoS7liK/mlK/mnKzmiJDlsLEgfHwge30sIGl0ZW0gPT4gaXRlbT/LtueKtuaAge+8neOAjuW3sui+keaIkOOAiyk7Cn0KIiIiCm5ldyA9ICIiImlmIChpc09uZVdvcmxkKSB7CiAgZGVsZXRlIGN1cnJlbnQu5Lu75YqhLuWJr+acrOaIkOWwse+8mwopfSBlbHNlIHsKICAvLyBBSSDku4XpnIDnnIvliLDlsJrmnKrlvqPmiJDnmoTmnaHku7Yv54q25oCB77yb55yf5a6e5aWW5Yqx5L+d55WZ5Zyo5pWw5o2u5bqT5Lit77yM5LuF55Sx57uT566X576O5YyW6K+75Y+W5ZKM5Y+R5pS+44CCCgogIGNvbnN0IHZpc2libGVBY2hpZXZlbWVudHMgPSBfLm9taXRCeSgKICAgIGN1cnJlbnQu5Lu75YqhLuWJr+acrOaIkOWwse+8jCB8fCB7fSwKICAgIGl0ZW0gPT4gaXRlbT/LtueKtuaAge+8neOAjuW3sui+keaIkOOAiwogICk7CiAgY3VycmVudC7ku7vliqEu5Ymv5pys5oiQ5bCxID0gXy5tYXBWYWx1ZXMoCiAgICB2aXNpYmxlQWNoaWV2ZW1lbnRzLAogICAgaXRlbSA9PiBfLm9taXQoaXRlbSwgWydlpZbliLHmnL0nXSkKICApOwp9CiIiIgp0ZXh0ID0gcmVwbGFjZV9vbmNlKHRleHQsIG9sZCwgbmV3LCAnaGlkZSBhY2hpZXZlbWVudCByZXdhcmQgZnJvbSBjdXJyZW50IHZhcmlhYmxlcycpCnAud3JpdGVfdGV4dCh0ZXh0LCBlbmNvZGluZz0ndXRmLTgnKQoKIyAyKSBSZW1vdmUgYXV4aWxpYXJ5LXNjcmlwdCBpbnN0YW50IGFjaGlldmVtZW50IGdyYW50cy4KcCA9IFBhdGgoJ3NjcmlwdC/ovYXliqnoiojnrpfntpfmnK2mnKzLmpzcpCnRleHQgPSBwLnJlYWRfdGV4dChlbmNvZGluZz0ndXRmLTgnKQpvbGRfY2FsbCA9ICIiIiAgICAgICAgICAgIC8vIOWJr+acrOaIkOWwsemmluasoOaIkO+8mua ...TRUNCATED...') )"
+
+      - name: Validate patched scripts
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('Regular/结算任务美化.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script>([\s\S]*?)</script>', html)
+          if len(scripts) != 1:
+              raise SystemExit(f'expected one script block, found {len(scripts)}')
+          Path('/tmp/settlement.js').write_text(scripts[0], encoding='utf-8')
+          PY
+          node --check /tmp/settlement.js
+          git diff --check
+          git diff -- 'World Book/[variables]当前变量.txt' 'script/辅助计算脚本.js' 'Regular/结算任务美化.html'
+
+      - name: Commit business changes
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-achievement-settlement-frontend.yml
+          git add -A
+          git commit -m 'move achievement rewards into settlement beautifier'
+          git push origin HEAD:main

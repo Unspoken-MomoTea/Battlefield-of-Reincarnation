@@ -705,12 +705,12 @@
           function resolveCredentialGrant(data) {
             const stat = data && (data.stat_data || data);
             if (!stat || !stat.主角) return null;
-
             const LIFE_TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
             const tierRaw = String(stat.主角.层级 || 'Ⅰ').trim();
             let heroIndex = LIFE_TIERS.indexOf(tierRaw);
             if (heroIndex < 0) heroIndex = GRADES.indexOf(gradeTier(tierRaw));
             if (heroIndex < 0) heroIndex = 0;
+            if (heroIndex >= GRADES.length - 1) return null;
 
             let baseGrade = '';
             const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
@@ -721,8 +721,7 @@
                 const task = list[key] || {};
                 if (String(task.委托方 || '').trim() !== '主神任务') return;
                 if (String(task.状态 || '').trim() !== '可结算') return;
-                const grade = gradeTier(task.难度 || '');
-                const idx = GRADES.indexOf(grade);
+                const idx = GRADES.indexOf(gradeTier(task.难度 || ''));
                 if (idx > bestIndex) bestIndex = idx;
               });
               if (bestIndex >= 0) baseGrade = GRADES[bestIndex];
@@ -731,16 +730,10 @@
             }
 
             const gradeIndex = GRADES.indexOf(baseGrade);
-            if (gradeIndex < 0) return null;
-            const normalViewIndex = Math.min(GRADES.length - 1, heroIndex + 1);
-            if (gradeIndex <= normalViewIndex) return null;
-
-            const name = baseGrade + '级权限凭证';
-            const items = stat.主角.道具 && typeof stat.主角.道具 === 'object' ? stat.主角.道具 : {};
-            const statuses = stat.主角.状态 && typeof stat.主角.状态 === 'object' ? stat.主角.状态 : {};
-            if (Object.prototype.hasOwnProperty.call(items, name) || Object.prototype.hasOwnProperty.call(statuses, name)) return null;
-
-            return { grade: baseGrade, name: name, heroTier: tierRaw };
+            const targetIndex = heroIndex + 1;
+            if (gradeIndex < targetIndex) return null;
+            const grantGrade = GRADES[targetIndex];
+            return { grade:grantGrade, name:grantGrade + '级权限凭证', heroTier:tierRaw, sourceGrade:baseGrade };
           }
 
           function renderCredentialPanel(grant) {
@@ -748,7 +741,7 @@
             return '<div class="st-cert">' +
               '<div class="st-cert-title">◆ 主神权限凭证</div>' +
               '<div class="st-kv"><span class="k">凭证等级</span><span class="v">' + gradeBadge(grant.grade, false) + '</span></div>' +
-              '<div class="st-cert-desc">系统核录完毕，获得【' + escapeHtml(grant.name) + '】。已永久解锁主神商城对应阶位的跨阶购买与升级权限。</div>' +
+              '<div class="st-cert-desc">系统核录完毕，本次获得【' + escapeHtml(grant.name) + '】×1。凭证可累计持有，源力灌注普升时每次消耗1枚。</div>' +
               '</div>';
           }
 
@@ -1256,15 +1249,26 @@
 
               if (credentialGrant) {
                 const key = 'stat_data.主角.道具.' + credentialGrant.name;
-                const stateKey = 'stat_data.主角.状态.' + credentialGrant.name;
-                if (!exists(key) && !exists(stateKey)) {
+                const old = win._.get(c, key) || {};
+                const currentQty = (old && typeof old === 'object' && Object.keys(old).length)
+                  ? (Object.prototype.hasOwnProperty.call(old, '数量') ? (Number(old.数量) || 0) : 1)
+                  : 0;
+                const baselineOld = settlementBaselineData ? (win._.get(settlementBaselineData, key) || {}) : {};
+                const baselineQty = (baselineOld && typeof baselineOld === 'object' && Object.keys(baselineOld).length)
+                  ? (Object.prototype.hasOwnProperty.call(baselineOld, '数量') ? (Number(baselineOld.数量) || 0) : 1)
+                  : 0;
+                const requiredQty = baselineQty + 1;
+                const missing = Math.max(0, requiredQty - currentQty);
+                if (missing > 0) {
+                  const tags = Array.isArray(old.标签) ? old.标签.slice() : [];
+                  ['主神空间','权限凭证'].forEach(function(t) { if (tags.indexOf(t) < 0) tags.push(t); });
                   win._.set(c, key + '.品质', credentialGrant.grade);
                   win._.set(c, key + '.类型', '权限凭证');
-                  win._.set(c, key + '.数量', 1);
-                  win._.set(c, key + '.标签', ['主神空间', '权限凭证']);
-                  win._.set(c, key + '.效果', { 商城权限:'永久解锁主神商城' + credentialGrant.grade + '级跨阶购买与升级权限。' });
-                  win._.set(c, key + '.描述', '主神结算授予的永久权限凭证。');
-                  win._.set(c, key + '.状态', 0);
+                  win._.set(c, key + '.数量', currentQty + missing);
+                  win._.set(c, key + '.标签', tags);
+                  win._.set(c, key + '.效果', old.效果 && typeof old.效果 === 'object' ? old.效果 : { 商城权限:'永久解锁主神商城' + credentialGrant.grade + '级跨阶购买与升级权限。' });
+                  win._.set(c, key + '.描述', old.描述 || '主神结算授予的永久权限凭证，可累计持有；源力灌注普升时消耗1枚。');
+                  win._.set(c, key + '.状态', [0,1,2].includes(Number(old.状态)) ? Number(old.状态) : 0);
                   changed = true;
                 }
               }

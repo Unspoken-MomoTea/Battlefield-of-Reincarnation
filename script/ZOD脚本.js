@@ -29,8 +29,6 @@ const safeNum = (val = 0) => z.preprocess(v => {
 }, z.number()).prefault(val);
 
 const clampNum = (defaultVal, min, max) => safeNum(defaultVal).transform(v => _.clamp(v, min, max));
-// 血统/技能/装备/形态的同阶强化次数：只由商城程序维护，每阶 0~3。
-const reinforcementLevel = safeNum(0).transform(v => Math.trunc(_.clamp(v, 0, 3)));
 
 const boolPreprocess = (defaultVal = false) => z.preprocess(v => {
     if (typeof v === 'boolean') return v;
@@ -77,8 +75,8 @@ const E_rank = z.preprocess(v => {
 }, z.enum(['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ']));
 const E_alienStatus = z.preprocess(v => {
     const s = String(v ?? '').trim();
-    return ['未登场', '活跃', '死亡'].includes(s) ? s : '未登场';
-}, z.enum(['未登场', '活跃', '死亡']));
+    return s === '死亡' ? '死亡' : '活跃';
+}, z.enum(['活跃', '死亡']));
 // 品质 F~SSS：非法/缺失值回落 F；AI 若误传罗马数字则自动归正为对应品质字母
 const E_quality = z.preprocess(v => normalizeQuality(v), z.enum(['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS']));
 // 衍生项品质：可容纳品质字母(F~SSS, 含罗马数字归正) 或 0(无/未激活/nil)
@@ -198,7 +196,6 @@ const real_attr = z.record(z.string(), z.any()).prefault({});
 // 血统
 const bloodline_item = strictItem(z.object({
     品质: E_quality.prefault('F'),
-    强化: reinforcementLevel,
     标签: safeTags([]),
     原始属性: blood_attr, // 必须含五维，不能用 z.record（record 允许缺键）
     真属性: real_attr,    // 品质→数值转换后的缓存（含 __tier 快照）
@@ -210,7 +207,6 @@ const bloodline_item = strictItem(z.object({
 // 技能
 const skill_item = strictItem(z.object({
     品质: E_quality.prefault('F'),
-    强化: reinforcementLevel,
     类型: clampNum(0, 0, 2), // 0-主动 1-被动 2-特殊
     标签: safeTags([]),
     效果: z.record(z.string(), z.string()),
@@ -220,7 +216,6 @@ const skill_item = strictItem(z.object({
 // 装备
 const equip_item = strictItem(z.object({
     品质: E_quality.prefault('F'),
-    强化: reinforcementLevel,
     类型: clampNum(0, 0, 8),
     标签: safeTags([]),
     // 稀疏：只保留非0项（例 只写 ATK:15 → {ATK:15}，不会补出力量:0...）
@@ -276,7 +271,6 @@ const form_attr = z.object({
 // 形态
 const form_item = strictItem(z.object({
     层级: E_rank.prefault('Ⅰ'),
-    强化: reinforcementLevel,
     消耗: safeStr(''),
     冷却: safeStr('0回合'),   // 【新增】防无限爆甲流的冷却锁
     状态: safeStr('完好'),    // 【新增】叙事层面的损坏标记（完好/大破等）
@@ -406,7 +400,7 @@ export const Schema = z.object({
                 阵营: safeStr(''),
                 职业: safeStr(''),
                 层级: E_rank.prefault('Ⅰ'),
-                状态: E_alienStatus.prefault('未登场')
+                状态: E_alienStatus.prefault('活跃')
             }))).prefault({})
         }).prefault({})
     }).prefault({}),

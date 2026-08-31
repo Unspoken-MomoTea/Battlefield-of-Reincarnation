@@ -1,0 +1,31 @@
+name: Patch tier receipt
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-tier-receipt.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python .github/patch-tier-receipt.py
+      - name: Validate syntax
+        run: node --check 'script/悬浮球状态栏.js'
+      - name: Commit business change and cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/patch-tier-receipt.py .github/workflows/patch-tier-receipt.yml
+          git add 'script/悬浮球状态栏.js'
+          git add -u .github/patch-tier-receipt.py .github/workflows/patch-tier-receipt.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "record tier upgrades in pending narration"
+          git push

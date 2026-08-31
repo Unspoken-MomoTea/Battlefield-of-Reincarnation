@@ -683,6 +683,75 @@
             return extractAchievementTasks(ctx && ctx.data);
           }
 
+          function readSettlementBaselineData() {
+            const ctx = getMvuContext();
+            const win = ctx && ctx.win;
+            const mvu = win && win.Mvu;
+            const currentId = getPanelMessageId(win);
+            if (mvu && typeof mvu.getMvuData === 'function' && currentId !== null) {
+              for (let step = 1; step <= 3; step++) {
+                const id = currentId - step;
+                if (id < 0) break;
+                try {
+                  const data = mvu.getMvuData({ type: 'message', message_id: id });
+                  const stat = data && (data.stat_data || data);
+                  if (stat && stat.主角) return data;
+                } catch (e) {}
+              }
+            }
+            return ctx && ctx.data;
+          }
+
+          function resolveCredentialGrant(data) {
+            const stat = data && (data.stat_data || data);
+            if (!stat || !stat.主角) return null;
+
+            const LIFE_TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
+            const tierRaw = String(stat.主角.层级 || 'Ⅰ').trim();
+            let heroIndex = LIFE_TIERS.indexOf(tierRaw);
+            if (heroIndex < 0) heroIndex = GRADES.indexOf(gradeTier(tierRaw));
+            if (heroIndex < 0) heroIndex = 0;
+
+            let baseGrade = '';
+            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
+            if (isSingleWorld) {
+              const list = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+              let bestIndex = -1;
+              Object.keys(list).forEach(function(key) {
+                const task = list[key] || {};
+                if (String(task.委托方 || '').trim() !== '主神任务') return;
+                if (String(task.状态 || '').trim() !== '可结算') return;
+                const grade = gradeTier(task.难度 || '');
+                const idx = GRADES.indexOf(grade);
+                if (idx > bestIndex) bestIndex = idx;
+              });
+              if (bestIndex >= 0) baseGrade = GRADES[bestIndex];
+            } else {
+              baseGrade = gradeFloor(stat.世界 && stat.世界.难度);
+            }
+
+            const gradeIndex = GRADES.indexOf(baseGrade);
+            if (gradeIndex < 0) return null;
+            const normalViewIndex = Math.min(GRADES.length - 1, heroIndex + 1);
+            if (gradeIndex <= normalViewIndex) return null;
+
+            const name = baseGrade + '级权限凭证';
+            const items = stat.主角.道具 && typeof stat.主角.道具 === 'object' ? stat.主角.道具 : {};
+            const statuses = stat.主角.状态 && typeof stat.主角.状态 === 'object' ? stat.主角.状态 : {};
+            if (Object.prototype.hasOwnProperty.call(items, name) || Object.prototype.hasOwnProperty.call(statuses, name)) return null;
+
+            return { grade: baseGrade, name: name, heroTier: tierRaw };
+          }
+
+          function renderCredentialPanel(grant) {
+            if (!grant) return '';
+            return '<div class="st-cert">' +
+              '<div class="st-cert-title">◆ 主神权限凭证</div>' +
+              '<div class="st-kv"><span class="k">凭证等级</span><span class="v">' + gradeBadge(grant.grade, false) + '</span></div>' +
+              '<div class="st-cert-desc">系统核录完毕，获得【' + escapeHtml(grant.name) + '】。已永久解锁主神商城对应阶位的跨阶购买与升级权限。</div>' +
+              '</div>';
+          }
+
           function trialScore(tasks) {
             return (tasks || []).reduce(function(sum, task) {
               if (task.status === '可结算' || task.status === '失败') return sum + 3;
@@ -696,6 +765,8 @@
           let bestTrialScore = trialScore(trialTasks);
           let trialWriteBusy = false;
           const achievementTasks = readAchievementTasks();
+          const settlementBaselineData = readSettlementBaselineData();
+          const credentialGrant = resolveCredentialGrant(settlementBaselineData);
 
           function isTrialPassed(tasks) {
             return tasks.length > 0 && tasks.every(function(task) { return task.status === '可结算'; });
@@ -1019,6 +1090,10 @@
           function renderSettlement(d) {
             let html = '';
             let achievementInserted = false;
+            let credentialInserted = false;
+            const hasLegacyCredentialPanel = d.stages.some(function(stage) {
+              return stage.items.some(function(item) { return item.kind === 'cert'; });
+            });
             html += '<div class="st-banner"><div class="st-banner-main">' + escapeHtml(d.title || '主神空间 · 轮回清算协议') + '</div><div class="st-banner-tags">';
             if (d.serial) html += '<span class="st-tag">协议序列 <b>' + escapeHtml(d.serial) + '</b></span>';
             if (d.player) html += '<span class="st-tag">轮回者 <b>' + escapeHtml(d.player) + '</b></span>';
@@ -1086,6 +1161,11 @@
               if (!achievementInserted && st.type === 'income' && achievementTasks.length) {
                 inner += '<div class="st-achievement-host">' + renderAchievementPanel() + '</div>';
                 achievementInserted = true;
+              }
+
+              if (!credentialInserted && !hasLegacyCredentialPanel && st.type === 'income' && credentialGrant) {
+                inner += '<div class="st-cert-host">' + renderCredentialPanel(credentialGrant) + '</div>';
+                credentialInserted = true;
               }
 
               html += '<div class="st-stage t-' + st.type + '"><div class="st-stage-head"><span class="st-stage-no">' + (idx + 1) + '</span><span class="st-stage-name">' + escapeHtml(st.name || '结算阶段') + '</span><span class="st-stage-line"></span></div>' + inner + '</div>';
@@ -1173,6 +1253,21 @@
                 win._.set(c, key + '.状态', [0,1,2].includes(Number(old.状态)) ? Number(old.状态) : 0);
                 changed = true;
               });
+
+              if (credentialGrant) {
+                const key = 'stat_data.主角.道具.' + credentialGrant.name;
+                const stateKey = 'stat_data.主角.状态.' + credentialGrant.name;
+                if (!exists(key) && !exists(stateKey)) {
+                  win._.set(c, key + '.品质', credentialGrant.grade);
+                  win._.set(c, key + '.类型', '权限凭证');
+                  win._.set(c, key + '.数量', 1);
+                  win._.set(c, key + '.标签', ['主神空间', '权限凭证']);
+                  win._.set(c, key + '.效果', { 商城权限:'永久解锁主神商城' + credentialGrant.grade + '级跨阶购买与升级权限。' });
+                  win._.set(c, key + '.描述', '主神结算授予的永久权限凭证。');
+                  win._.set(c, key + '.状态', 0);
+                  changed = true;
+                }
+              }
 
               function parseEffectLines(txt) {
                 const eff = {};

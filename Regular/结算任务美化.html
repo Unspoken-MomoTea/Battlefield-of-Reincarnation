@@ -732,7 +732,7 @@
             const gradeIndex = GRADES.indexOf(baseGrade);
             const targetIndex = heroIndex + 1;
             if (gradeIndex < targetIndex) return null;
-            const grantGrade = GRADES[targetIndex];
+            const grantGrade = baseGrade;
             return { grade:grantGrade, name:grantGrade + '级权限凭证', heroTier:tierRaw, sourceGrade:baseGrade };
           }
 

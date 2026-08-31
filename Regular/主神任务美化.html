@@ -1169,7 +1169,8 @@
                   if (!data) continue;
                   const stat = data.stat_data || data;
                   if (!stat || typeof stat !== 'object') continue;
-                  const taskRoot = stat.任务 && typeof stat.任务 === 'object' ? stat.任务 : {};
+                  if (!stat.任务 || typeof stat.任务 !== 'object') continue;
+                  const taskRoot = stat.任务;
                   return {
                     messageId: id,
                     taskList: cloneTaskLockValue(win, taskRoot.列表 || {}),

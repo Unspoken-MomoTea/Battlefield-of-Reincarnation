@@ -1201,7 +1201,6 @@
         .sam-full-card.q-SSS{border-left-color:var(--sam-q-sss);box-shadow:0 0 8px rgba(255,77,77,0.2);}
         .sam-fc-head { display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:6px; }
         .sam-fc-title { font-size:14px; font-weight:900; color:var(--sam-text); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .sam-fc-reinforce { margin-left:6px; color:#67d7ff; font-size:12px; font-weight:900; text-shadow:0 0 6px rgba(103,215,255,0.35); }
         .sam-fc-head .sam-act-btn { flex:0 0 auto; flex-shrink:0; }
         .sam-fc-q { font-size:11px; font-weight:900; padding:1px 6px; border-radius:3px; border:1px solid; min-width:34px; text-align:center; }
         .sam-fc-q.q-F { color:var(--sam-q-f); border-color:var(--sam-q-f); background:rgba(148,163,184,0.14); }
@@ -2183,13 +2182,6 @@
         function bloodFusionBuildPrompt(a, b, mode, result) {
             var modeText = (mode === 'same') ? '同级融合' : '高低级融合';
             var rulesText = (result.list || []).map(function(s, idx){ return '  ' + (idx + 1) + '. ' + s; }).join('\n');
-            function fusionAiView(source) {
-                var view = {};
-                for (var key in (source || {})) {
-                    if (source.hasOwnProperty(key) && key !== '强化') view[key] = source[key];
-                }
-                return view;
-            }
             return '血统融合渲染引擎。融合结果已由系统按权重 roll 出, 你【不得】自行选择结果或改写概率, 只能按给定结果渲染血统数据。\n'
                 + 'A 为主血统, B 为副素材; 品质不同时以高品质为 A。\n'
                 + '本次融合类型: ' + modeText + '\n'
@@ -2236,9 +2228,8 @@
                 + '       消耗: 无}\n'
                 + '    描述: 简短描述\n'
                 + '注意: "基因崩溃" 与 "崩坏消散" 不产生新血统, 但仍需返回 A 原血统作为结果(描述中说明 B 永久消耗)。\n\n'
-                // 强化次数仅供商城AI读取，血统融合AI不得看到。
-                + 'A=' + JSON.stringify(fusionAiView(a))
-                + '\nB=' + JSON.stringify(fusionAiView(b));
+                + 'A=' + JSON.stringify(a)
+                + '\nB=' + JSON.stringify(b);
         }
 
         // —— 用户提示: 玩家上下文 + 需求 + 输出模板示例 ——
@@ -4871,7 +4862,7 @@
             var btns = equipActionButtons(path, st, Number(e.类型), editMode);
             if (btns) body += fcBody('操作', btns, 'sam-fc-actions');
             body += '</div>';
-            html += fullCard(q, it.key, rows, body, '', e.强化);
+            html += fullCard(q, it.key, rows, body, '');
         });
         return html;
     }
@@ -4948,7 +4939,7 @@
                 }
                 body += fcBody('描述', descContent);
                 body += '</div>';
-                html += fullCard(q, it.key, rows, body, samDelBtn(path, editMode, '删除技能'), s.强化);
+                html += fullCard(q, it.key, rows, body, samDelBtn(path, editMode, '删除技能'));
             });
             html += '</div>';
             html += '</details>';
@@ -4989,7 +4980,7 @@
                 }
                 body += fcBody('描述', descContent);
                 body += '</div>';
-                blHtml += fullCard(q, k, rows, body, samDelBtn(path, editMode, '删除血统'), b.强化);
+                blHtml += fullCard(q, k, rows, body, samDelBtn(path, editMode, '删除血统'));
             });
             blHtml += '</div>';
         }
@@ -5048,7 +5039,7 @@
                     actBtnHtml = '<button class="sam-act-btn" data-act="activate" data-form="'+esc(k)+'">⚡ 激活</button>';
                 }
                 body += '</div>';
-                fHtml += fullCard(q, k, rows, body, (actBtnHtml||'') + samDelBtn(path, editMode, '删除形态'), f.强化);
+                fHtml += fullCard(q, k, rows, body, (actBtnHtml||'') + samDelBtn(path, editMode, '删除形态'));
             });
             fHtml += '</div>';
         }
@@ -6053,12 +6044,12 @@
             var ks = Object.keys(d);
             // ★ 编辑模式: 子系统(状态/血统/技能/装备/形态库/道具)内所有条目递归就地编辑
             if (editMode && ks.length > 0 && !isReadonlyPath(npcPath+'.'+s.k)) {
-                var subEdHtml = renderDetailNode(d, ['隐藏真相','真实内幕','真属性','强化'], [s.k], true, npcPath+'.'+s.k);
+                var subEdHtml = renderDetailNode(d, ['隐藏真相','真实内幕','真属性'], [s.k], true, npcPath+'.'+s.k);
                 html += '<details class="sam-nd-sub" open><summary>✎ '+esc(s.k)+' ('+ks.length+')</summary><div class="sam-nd-sub-body">'+subEdHtml+'</div></details>';
                 return;
             }
             if (ks.length === 0) return;
-            var subHtml = renderDetailNode(d, ['隐藏真相','真实内幕','真属性','强化'], [s.k]);
+            var subHtml = renderDetailNode(d, ['隐藏真相','真实内幕','真属性'], [s.k]);
             html += '<details class="sam-nd-sub"><summary>'+esc(s.k)+' ('+ks.length+')</summary><div class="sam-nd-sub-body">'+subHtml+'</div></details>';
         });
         return html;
@@ -6189,13 +6180,7 @@
                     var childHtml = renderDetailNode(v, hidden, childAnc, childEditMode, childPath);
                     // 子节点过滤后可能为空(如原始属性全0), 不渲染空折叠栏
                     if (childHtml && childHtml.trim() && !/class="sam-empty"/.test(childHtml)) {
-                        var subLabel = k;
-                        var parentKey = ancestors.length ? ancestors[ancestors.length - 1] : '';
-                        if (['血统','技能','装备','形态库'].indexOf(parentKey) >= 0) {
-                            var childReinforce = Math.max(0, Math.min(3, Math.floor(safeNum(v.强化, 0))));
-                            if (childReinforce > 0) subLabel += ' +' + childReinforce;
-                        }
-                        subBlocks += detailSub(subLabel, '<div class="sam-d-sub-body">'+childHtml+'</div>', Object.keys(v).length <= 2 || ed);
+                        subBlocks += detailSub(k, '<div class="sam-d-sub-body">'+childHtml+'</div>', Object.keys(v).length <= 2 || ed);
                     }
                 }
             } else {
@@ -6577,22 +6562,14 @@
         if (!editMode) return '';
         return '<button type="button" class="sam-fc-del-btn" data-del-path="'+esc(path)+'" title="'+(label||'删除')+'">✕</button>';
     }
-    // 强化仍以 0~3 存储和结算；界面统一转换为更直观的阶段名。
-    function samReinforcementLabel(value, includeZero) {
-        var idx = Math.max(0, Math.min(3, Math.floor(safeNum(value, 0))));
-        var labels = ['未强化', '精修', '淬炼', '圆满'];
-        return idx === 0 && !includeZero ? '' : labels[idx];
-    }
-    function fullCard(q, title, rowsHtml, bodyHtml, headExtra, reinforcement) {
+    function fullCard(q, title, rowsHtml, bodyHtml, headExtra) {
         // q 可为: 字符串(品质字母, 显示=着色) 或对象 {label:显示文本, cls:色阶字母}
         //   形态走层级(Ⅰ~Ⅸ): label=罗马数字(显示), cls=对应品质字母(着色 q-class)
         var label, qc;
         if (q && typeof q === 'object') { label = q.label || ''; qc = q.cls ? parseRarity(q.cls) : ''; }
         else { qc = q ? parseRarity(q) : ''; label = qc; }
         var badge = qc ? '<div class="sam-fc-q q-'+qc+'">'+esc(label)+'</div>' : '';
-        var reinforceLabel = samReinforcementLabel(reinforcement, false);
-        var reinforceInline = reinforceLabel ? '<span class="sam-fc-reinforce">· '+esc(reinforceLabel)+'</span>' : '';
-        var head = '<div class="sam-fc-head"><div class="sam-fc-title">'+esc(title)+reinforceInline+'</div>'+(headExtra||'')+badge+'</div>';
+        var head = '<div class="sam-fc-head"><div class="sam-fc-title">'+esc(title)+'</div>'+(headExtra||'')+badge+'</div>';
         return '<div class="sam-full-card'+(qc?' q-'+qc:'')+'">'+head+(rowsHtml?'<div class="sam-fc-rows">'+rowsHtml+'</div>':'')+(bodyHtml||'')+'</div>';
     }
     function fcRow(k, v, path, editMode, type) {
@@ -6893,8 +6870,7 @@
             : (typeof rawType === 'string' && /^\d+$/.test(String(rawType))) ? parseInt(String(rawType), 10) : 0;
         var rawCat = shopPick(raw, '所属大类','category') || '';
         // 形态升级: 层级(罗马数字) 取代 品质 字母, 用于卡片右上角与入库
-        var rawFormTier = shopPick(raw, '层级','level','tier','rating','品质','品级','评级');
-        var formTier = (rawCat === '形态' && rawFormTier != null && rawFormTier !== '') ? tierRomanOf(rawFormTier) : '';
+        var formTier = (rawCat === '形态') ? tierRomanOf(shopPick(raw, '层级','level','tier','rating','品质','品级','评级') || 'Ⅰ') : '';
         // 形态升级: 归一化 技能 子数组 + 状态 字段(供 shopBuildUpgradeCard 渲染技能块, shopToFormVar 入库)
         var formSkills = [], formStatus = '完好';
         if (rawCat === '形态') {
@@ -6965,13 +6941,9 @@
     // 标准化整个商城数据: 产出 { 装备区:{typeLabel:[...]}, 技能区:{typeLabel:[...]}, 道具区:{typeLabel:[...]}, 血统区:[] }
     // 新结构: 商城.装备列表/技能列表/血统列表/道具列表 均为扁平数组
     // 装备/技能/道具按「类型」分组到子对象, 供左nav按类型切换; 血统为纯数组
-    function shopNormalizeMarketData(raw, character) {
+    function shopNormalizeMarketData(raw) {
         var out = { 装备区:{}, 道具区:{}, 技能区:{}, 血统区:[], 升级区:[], 形态区:[] };
         if (!raw || typeof raw !== 'object') return out;
-        if (!character) {
-            var liveSd = getStatData();
-            character = shopResolveCharacter(liveSd, shopCurrentActor).character;
-        }
         // 装备列表(扁平数组) → 按 类型(数字0-8) 分组到 {槽位label: [...]}
         var equips = raw['装备列表'];
         if (Array.isArray(equips)) {
@@ -7015,20 +6987,8 @@
         // 升级列表(扁平数组, 无子分组)
         var upgrades = raw['升级列表'];
         if (Array.isArray(upgrades)) {
-            var seenUpgrade = {};
             for (var ui = 0; ui < upgrades.length; ui++) {
-                if (!upgrades[ui] || typeof upgrades[ui] !== 'object') continue;
-                var normalizedUpgrade = shopNormalizeUpgrade(upgrades[ui]);
-                var upgradeCheck = shopInspectUpgrade(character, normalizedUpgrade);
-                if (!upgradeCheck.valid) continue;
-                var upgradeKey = normalizedUpgrade.category + '|' + normalizedUpgrade.replace_target;
-                if (seenUpgrade[upgradeKey]) continue;
-                seenUpgrade[upgradeKey] = true;
-                normalizedUpgrade._upgrade_mode = upgradeCheck.mode;
-                normalizedUpgrade._source_reinforcement = upgradeCheck.reinforcement;
-                normalizedUpgrade._result_reinforcement = upgradeCheck.nextReinforcement;
-                normalizedUpgrade._display_name = upgradeCheck.mode === 'same' ? normalizedUpgrade.replace_target : normalizedUpgrade.name;
-                out.升级区.push(normalizedUpgrade);
+                if (upgrades[ui] && typeof upgrades[ui] === 'object') out.升级区.push(shopNormalizeUpgrade(upgrades[ui]));
             }
         }
         // 形态列表(扁平数组, 无子分组)
@@ -7052,7 +7012,6 @@
         var out = {
             等级: item.level,
             品质: item.rating,
-            强化: 0,
             类型: item.category_num != null ? item.category_num : 0,
             消耗: item.cost || '',
             效果: item.effects || {},
@@ -7066,7 +7025,6 @@
         var out = {
             等级: item.level,
             品质: item.rating,
-            强化: 0,
             原始属性: item.raw_attrs || {},
             效果: item.effects || {},
             描述: item.description || ''
@@ -7080,7 +7038,6 @@
             类型: item.slot_type_num != null ? item.slot_type_num : 0,
             状态: 0,
             品质: item.rating,
-            强化: 0,
             标签: (item.tags && item.tags.length) ? item.tags : [],
             原始属性: item.raw_attrs || {},
             效果: item.effects || {},
@@ -7122,7 +7079,6 @@
         }
         return {
             层级:     (item.tier != null && item.tier !== '') ? tierRomanOf(item.tier) : '',
-            强化:     0,
             消耗:     item.cost || '',
             状态:     item.status || '完好',
             标签:     (item.tags && item.tags.length) ? item.tags : [],
@@ -7222,91 +7178,6 @@
         }
         var npc = (sd && sd.关系列表 && sd.关系列表[actorName]) ? sd.关系列表[actorName] : null;
         return { character: npc || {}, path: '关系列表.' + actorName, isHero: false, name: actorName };
-    }
-    // 强化只由商城程序维护；旧数据缺失时视为 +0，每阶最多 +3。
-    function shopReinforcementValue(value) {
-        return Math.max(0, Math.min(3, Math.floor(safeNum(value, 0))));
-    }
-    function shopUpgradeSourceMap(character, category) {
-        if (!character || typeof character !== 'object') return null;
-        if (category === '血统') return character.血统 || {};
-        if (category === '技能') return character.技能 || {};
-        if (category === '装备') return character.装备 || {};
-        if (category === '形态') return character.形态库 || {};
-        return null;
-    }
-    function shopQualityIndex(value) {
-        var text = String(value == null ? '' : value).trim().toUpperCase().replace(/\s*级$/, '');
-        return TIER_QUALITY.indexOf(text);
-    }
-    function shopFormTierIndex(value) {
-        var text = String(value == null ? '' : value).trim();
-        var idx = TIER_ROMAN.indexOf(text);
-        if (idx >= 0) return idx;
-        return shopQualityIndex(text);
-    }
-    function shopUpgradeAttrsExceedRank(attrs, maxRank) {
-        if (!attrs || typeof attrs !== 'object') return false;
-        for (var key in attrs) {
-            if (!Object.prototype.hasOwnProperty.call(attrs, key)) continue;
-            var value = attrs[key];
-            if (value && typeof value === 'object') {
-                if (shopUpgradeAttrsExceedRank(value, maxRank)) return true;
-                continue;
-            }
-            var rank = shopQualityIndex(value);
-            if (rank > maxRank) return true;
-        }
-        return false;
-    }
-    // 对升级商品做确定性判定：同阶 +1；跨一阶需已有 +1，且跨阶后归零。
-    function shopInspectUpgrade(character, item) {
-        item = item || {};
-        var category = item.category || '';
-        var targetName = item.replace_target || '';
-        var sourceMap = shopUpgradeSourceMap(character, category);
-        if (!sourceMap || !targetName || !sourceMap[targetName]) return { valid:false, reason:'替换目标不存在' };
-        var source = sourceMap[targetName];
-        var oldRank = category === '形态' ? shopFormTierIndex(source.层级) : shopQualityIndex(source.品质);
-        var newRank = category === '形态' ? shopFormTierIndex(item.tier) : shopQualityIndex(item.rating);
-        if (oldRank < 0 || newRank < 0) return { valid:false, reason:'阶位字段无效' };
-        var reinforcement = shopReinforcementValue(source.强化);
-        var delta = newRank - oldRank;
-        if (delta === 0) {
-            if (reinforcement >= 3) return { valid:false, reason:'当前阶位已强化至上限' };
-            return { valid:true, mode:'same', source:source, sourceMap:sourceMap, targetName:targetName,
-                reinforcement:reinforcement, nextReinforcement:reinforcement + 1, oldRank:oldRank, newRank:newRank };
-        }
-        if (delta === 1) {
-            if (reinforcement < 1) return { valid:false, reason:'至少同阶强化1次后才能升阶' };
-            if (shopUpgradeAttrsExceedRank(item.raw_attrs, newRank)) return { valid:false, reason:'升阶成品原始属性超过新阶位' };
-            return { valid:true, mode:'rankup', source:source, sourceMap:sourceMap, targetName:targetName,
-                reinforcement:reinforcement, nextReinforcement:0, oldRank:oldRank, newRank:newRank };
-        }
-        return { valid:false, reason:delta < 0 ? '禁止降阶' : '每次只能提升一阶' };
-    }
-    // AI输出落库前剔除无效/未解锁升级；同一目标的同阶强化与跨阶升阶只保留一项。
-    function shopFilterRawUpgrades(upgrades, character) {
-        if (!Array.isArray(upgrades)) return [];
-        var out = [], seen = {};
-        for (var i = 0; i < upgrades.length; i++) {
-            var raw = upgrades[i];
-            if (!raw || typeof raw !== 'object') continue;
-            var normalized = shopNormalizeUpgrade(raw);
-            var check = shopInspectUpgrade(character, normalized);
-            if (!check.valid) continue;
-            var key = normalized.category + '|' + normalized.replace_target;
-            if (seen[key]) continue;
-            seen[key] = true;
-            // 同阶商品名在持久化前即归正为原名，AI生成的“强化Ⅰ”等后缀不会进入商库。
-            if (check.mode === 'same') {
-                if (Object.prototype.hasOwnProperty.call(raw, '名称')) raw.名称 = normalized.replace_target;
-                else if (Object.prototype.hasOwnProperty.call(raw, 'name')) raw.name = normalized.replace_target;
-                else raw.名称 = normalized.replace_target;
-            }
-            out.push(raw);
-        }
-        return out;
     }
     // 校正 shopCurrentActor: 若当前选中的NPC不在候选列表里(已离场/非队友), 退回主角
     function shopEnsureActorValid(sd) {
@@ -7542,11 +7413,6 @@
         var attrs = '';
         if (item.replace_target) attrs += shopChip('替换', item.replace_target);
         if (item.category) attrs += shopChip('大类', item.category);
-        if (item._upgrade_mode === 'same') {
-            attrs += shopChip('强化', samReinforcementLabel(item._source_reinforcement, true)+' → '+samReinforcementLabel(item._result_reinforcement, true));
-        } else if (item._upgrade_mode === 'rankup') {
-            attrs += shopChip('强化', samReinforcementLabel(item._source_reinforcement, true)+' → 升阶·未强化');
-        }
         attrs += shopObjChips(item.raw_attrs) + shopTagChips(item.tags);
         var details = shopObjDetails('效果', item.effects) + shopDetail('描述', item.description);
         // 形态升级: 右上角显示 层级(罗马数字) 替代 品质字母; 渲染技能子列表(与形态商品卡一致)
@@ -7556,13 +7422,7 @@
             headTier = item.tier;
             if (Array.isArray(item.skills) && item.skills.length) formExtra = shopBuildFormSkillsBlock(item.skills);
         }
-        var headItem = item;
-        if (item._display_name && item._display_name !== item.name) {
-            headItem = {};
-            for (var hk in item) { if (item.hasOwnProperty(hk)) headItem[hk] = item[hk]; }
-            headItem.name = item._display_name;
-        }
-        return shopCardHead(headItem, headTier) + '<div class="sam-shop-item-attrs">'+attrs+'</div>' + details + formExtra + shopCardFoot(item, false);
+        return shopCardHead(item, headTier) + '<div class="sam-shop-item-attrs">'+attrs+'</div>' + details + formExtra + shopCardFoot(item, false);
     }
     // 形态卡片技能子列表块(形态商品/形态升级共用): 详情式展开, 与 效果/描述 风格一致;
     // 每个技能以"(技能名)"标题 + 品质/类型/消耗/标签/效果/描述 各字段行, 空字段省略
@@ -7843,7 +7703,6 @@
         for (var i = 0; i < shopCart.length; i++) {
             var item = shopCart[i];
             var qty = item.quantity || 1;
-            var upgradeReceiptDetail = '';
             if (item._cat === '技能区') {
                 character.技能[item.name] = shopToSkillVar(item);
             } else if (item._cat === '血统区') {
@@ -7869,52 +7728,41 @@
                 // 形态商品: 直接购买入形态库(键为形态名, 不强制替换; 同名覆盖)
                 character.形态库[item.name] = shopToFormVar(item, item.name);
             } else if (item._cat === '升级区') {
-                // 升级资格、名称和强化次数全部由程序按交易瞬间的角色数据重新判定。
+                // 升级商品: 按所属大类决定写入哪个角色字段; 替换目标决定回收哪个旧物品
                 var upCat = item.category || '';
                 var tgtName = item.replace_target || item.name;
-                var upgradeCheck = shopInspectUpgrade(character, item);
-                if (!upgradeCheck.valid) throw new Error('升级【' + tgtName + '】失败: ' + upgradeCheck.reason);
-                var resultName = upgradeCheck.mode === 'same' ? tgtName : String(item.name || '').trim();
-                if (!resultName) throw new Error('升阶后的正式名称不能为空');
-                if (upgradeCheck.sourceMap[resultName] && resultName !== tgtName) {
-                    throw new Error('升阶名称【' + resultName + '】与现有条目重名');
-                }
                 if (upCat === '血统') {
-                    var newBloodline = shopToBloodlineVar(item);
-                    newBloodline.强化 = upgradeCheck.nextReinforcement;
-                    delete character.血统[tgtName];
-                    character.血统[resultName] = newBloodline;
+                    // ★ 血统上限防御: 升级服务语义是"删旧加新"(数量不变), 但若 AI 生成的
+                    //   replace_target 与角色实际持有的血统名不匹配(数据过期/已被融合/名字幻觉),
+                    //   delete 会沦为空操作, 等效"净增1个血统"→ 绕过 BLOODLINE_CAP 上限。
+                    //   故写入前校验: 替换目标不存在且非同名覆盖时, 购买后数量不得超上限。
+                    var bTgtExists = !!character.血统[tgtName];
+                    var bOverwrite = !!character.血统[item.name];
+                    if (!bTgtExists && !bOverwrite && Object.keys(character.血统).length >= BLOODLINE_CAP) {
+                        throw new Error('血统已达上限(' + BLOODLINE_CAP + '), 升级服务【' + item.name + '】的替换目标【' + tgtName + '】不存在, 无法购买');
+                    }
+                    if (bTgtExists) delete character.血统[tgtName];
+                    character.血统[item.name] = shopToBloodlineVar(item);
                 } else if (upCat === '技能') {
-                    var newSkill = shopToSkillVar(item);
-                    newSkill.强化 = upgradeCheck.nextReinforcement;
-                    delete character.技能[tgtName];
-                    character.技能[resultName] = newSkill;
+                    if (character.技能[tgtName]) delete character.技能[tgtName];
+                    character.技能[item.name] = shopToSkillVar(item);
                 } else if (upCat === '装备') {
-                    var oldEquip = upgradeCheck.source;
+                    var oldEquip = character.装备[tgtName];
                     var newEquip = shopToEquipVar(item, '');
                     if (oldEquip && typeof oldEquip === 'object' && oldEquip.状态 != null) newEquip.状态 = oldEquip.状态;
-                    newEquip.强化 = upgradeCheck.nextReinforcement;
-                    delete character.装备[tgtName];
-                    character.装备[resultName] = newEquip;
+                    if (character.装备[tgtName]) delete character.装备[tgtName];
+                    character.装备[item.name] = newEquip;
                 } else if (upCat === '形态') {
-                    var newForm = shopToFormVar(item, resultName);
-                    newForm.强化 = upgradeCheck.nextReinforcement;
-                    delete character.形态库[tgtName];
-                    character.形态库[resultName] = newForm;
-                    if (character.当前形态 && character.当前形态.激活 === true && character.当前形态.名称 === tgtName) {
-                        character.当前形态.名称 = resultName;
-                    }
+                    // 升级形态: 删旧形态(替换目标)再写新形态; 与"购买形态"同走 shopToFormVar
+                    if (character.形态库[tgtName]) delete character.形态库[tgtName];
+                    character.形态库[item.name] = shopToFormVar(item, item.name);
                 }
-                var resultRankText = upCat === '形态' ? item.tier : item.rating;
-                upgradeReceiptDetail = upgradeCheck.mode === 'same'
-                    ? (resultName + ' +' + upgradeCheck.nextReinforcement)
-                    : (tgtName + ' → ' + resultName + (resultRankText ? '（'+resultRankText+'级·+0）' : '（+0）'));
             }
             var qtyStr = qty > 1 ? ' ×'+qty : '';
             var ratingStr = item.rating ? ('（'+item.rating+'级）') : '';
             // 升级服务小票: 显示 "替换目标→新名称", 操作标记为"升级"; 其他商品为"购买 名称"
             var upTgtName = (item._cat === '升级区' && item.replace_target) ? item.replace_target : '';
-            var itemDetail = upgradeReceiptDetail || (upTgtName ? (upTgtName + ' → ' + item.name + ratingStr) : (item.name + qtyStr + ratingStr));
+            var itemDetail = upTgtName ? (upTgtName + ' → ' + item.name + ratingStr) : (item.name + qtyStr + ratingStr);
             var itemAction = upTgtName ? '升级' : '购买';
             var itemCost = Number(item.price || 0) * Number(qty);
             receiptBalance -= itemCost;
@@ -8057,7 +7905,7 @@
         if ($execBtn.length) { $execBtn.prop('disabled', true).text('执行中...'); }
         // 2) ★ 同步优先直写 MVU(原子操作): 立即把交易结果写回, 商品库一次性移除全部已购物品
         //    旧流程先 /trigger 触发AI回复, AI的[mvu_update]会覆盖我们的写回(导致只删1个),
-        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 待播报记录由交易写回统一留存
+        //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 再 /send 记录文本(不触发AI)
         var writeOk = writeBackMvu(function(statData) {
             // 用构建好的交易结果整体覆盖主角字段 + 商城商品库
             var rs = result.statData;
@@ -8087,7 +7935,19 @@
         }
         samToast('success', '交易已完成');
         renderAll();
-        if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
+        // 4) /send 记录交易文本(仅创建用户楼层, 不带 /trigger, 不触发AI回复, 避免AI的mvu_update覆盖商品库)
+        var msg = result.purchaseLog + '。';
+        try {
+            shopTriggerSlash('/send ' + msg).then(function() {
+                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
+            }).catch(function(eSend) {
+                try { console.warn('[主神终端] /send 记录失败(交易已生效):', eSend.message); } catch(e2){}
+                if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
+            });
+        } catch(eSync) {
+            try { console.warn('[主神终端] /send 异常(交易已生效):', eSync.message); } catch(e2){}
+            if ($execBtn.length) { $execBtn.prop('disabled', false).text('授权执行交易'); }
+        }
     }
     /* ===== 32d. 商城: 刷新商品(调正文AI generateRaw, 按新ZOD结构生成商品库) =====
        - 二次校验 战斗中/不在主神空间(按钮已禁用, 此处兜底)
@@ -8405,17 +8265,15 @@
         if (heroCoin != null) parts.push('空间币: ' + heroCoin);
 
         // ★ 核心辅助函数：提取物品的所有关键信息，拼接成紧凑的单行文本，既全面又省 Token
-        function formatDict(dict, showReinforcement) {
+        function formatDict(dict) {
             var keys = Object.keys(dict || {});
             if (keys.length === 0) return '无';
             
             return keys.map(function(k) {
                 var v = dict[k] || {};
                 var info = [];
-
+                
                 if (v.品质) info.push(v.品质 + '级');
-                if (v.层级) info.push('层级:' + v.层级);
-                if (showReinforcement) info.push('强化:+' + shopReinforcementValue(v.强化));
                 if (v.数量 != null) info.push('数量:' + v.数量);
                 if (v.消耗) info.push('消耗:' + v.消耗);
                 // 属性和效果是对象，用 JSON.stringify 拍平显示
@@ -8430,13 +8288,13 @@
 
         // 已有装备/技能/血统名称(帮助AI避免重复+贴合构筑)
         var blData = p.血统 || {};
-        if (Object.keys(blData).length) parts.push('已有血统:\n' + formatDict(blData, true));
+        if (Object.keys(blData).length) parts.push('已有血统:\n' + formatDict(blData));
         
         var skData = p.技能 || {};
-        if (Object.keys(skData).length) parts.push('已有技能:\n' + formatDict(skData, true));
+        if (Object.keys(skData).length) parts.push('已有技能:\n' + formatDict(skData));
         
         var eqData = p.装备 || {};
-        if (Object.keys(eqData).length) parts.push('已有装备:\n' + formatDict(eqData, true));
+        if (Object.keys(eqData).length) parts.push('已有装备:\n' + formatDict(eqData));
         
         var invData = p.道具 || {};
         if (Object.keys(invData).length) parts.push('已有物品:\n' + formatDict(invData));
@@ -8446,7 +8304,7 @@
 
         // 已有形态库(供AI贴合规避重复构筑; 形态升级服务需据此填"替换目标")
         var formData = p.形态库 || {};
-        if (Object.keys(formData).length) parts.push('已有形态:\n' + formatDict(formData, true));
+        if (Object.keys(formData).length) parts.push('已有形态:\n' + formatDict(formData));
         
         // 世界/任务上下文
         var w = sd.世界 || {};
@@ -8510,12 +8368,12 @@
             + '1. 贴合度: 根据玩家当前的构筑（偏向物理/近战/生存）、职业和购买力生成。\n'
             + '2. 品质与视野权限控制 (商城解锁铁律):\n'
             + '   - 【前置扫描】: 生成商品前，必须严格检索【当前玩家数据】中的道具/状态，确认玩家当前层级以及是否持有【高阶权限凭证】。\n'
-            + '   - 【基础视野】: 若无特殊凭证，商城视野 =【玩家当前层级+1阶】，最高封顶SSS（Ⅰ=F，Ⅱ=E……Ⅸ=SSS）。\n'
-            + '   - 【凭证覆盖】: 若玩家持有高于【玩家当前层级+1阶】的【X级权限凭证】（例:D级凭证），则本条直接覆盖【基础视野】，商城视野固定为【X级】。若存在多个有效权限凭证，只读取其中最高品质者。\n'
-            + '   - 【绝对红线】: 商品最高品质不得超过【商城视野】。商城视野只能来源于【基础视野】或【权限凭证】其中之一，禁止叠加计算。阶位序列:F→E→D→C→B→A→S→SS→SSS。权限凭证绝不出售或展示！\n'
+            + '   - 【基础视野】: 若无特殊凭证，商城视野 =【玩家当前层级+1阶】（Ⅰ=F，Ⅱ=E…）；允许生成1~2件【商城视野+1阶】商品作为诱惑（此为平民极限）。\n'
+            + '   - 【凭证覆盖】: 若玩家持有高于【玩家当前层级+1阶】的【X级权限凭证】（例:D级凭证），则本条直接覆盖【基础视野】，商城视野固定为【X级】。\n'
+            + '   - 【绝对红线】: 商品最高品质 =【商城视野+1阶】。商城视野只能来源于【基础视野】或【权限凭证】其中之一，禁止叠加计算。阶位序列:F→E→D→C→B→A→S→SS→SSS。权限凭证绝不出售或展示！\n'
             + '   - 【纯净展示】: 权限凭证仅用于决定商城视野。商品一旦生成即可直接购买，禁止在商品描述或购买条件中再次要求权限凭证。\n'
             + '   - 避免与玩家已有物品功能完全重复。\n'
-            + '3. 升级与强化机制: \n'
+            + '3. 升级重铸机制: \n'
             + '   - 仔细检阅【当前玩家数据】，挑选玩家现有的血统、技能、装备或形态，生成升级方案放入「升级列表」。必须直接生成升级后的完整成品面板，绝对禁止采用词条增量打补丁！必须提供精准的【替换目标】，以便系统进行回收替换。同一目标可提供多个选项。\n'
             + '   - 【机制边界】:\n'
             + '      * 升级方案只能使用世界书、玩家数据和既有系统协议中已经存在的机制。\n'
@@ -8527,17 +8385,26 @@
             + '      * 血统/技能/装备使用【品质】；形态使用【层级】。\n'
             + '      * 形态禁止使用品质作为阶位，血统/技能/装备禁止使用层级代替品质。\n'
             + '   - 【同阶强化】:\n'
-            + '      * 阶位与名称不变；读取当前【强化:+N】，仅在N<3时生成，逐步接近但不得突破本阶上限。\n'
+            + '      * 阶位不变，仅强化现有属性或效果。\n'
+            + '      * 每个阶位最多完成3次：强化Ⅰ → 强化Ⅱ → 强化Ⅲ。\n'
+            + '      * 强化次数读取玩家当前数据，不得重复生成已完成的强化等级。\n'
+            + '      * 同阶强化不得突破当前阶位正常强度范围。\n'
             + '   - 【跨阶升阶】:\n'
-            + '      * 仅为当前【强化:+1】以上的目标生成；禁止提前展示未解锁方案。\n'
-            + '      * 血统/技能/装备品质、形态层级只能提升1阶，且不得超过商城视野。\n'
-            + '      * 成品必须处于新阶低位：保留未改动属性，只提升升阶所需部分；任何【原始属性】均不得高于成品品质（形态不得高于层级对应品质）。\n'
-            + '      * 可生成新的正式名称，但名称不得包含“强化Ⅰ/Ⅱ/Ⅲ”等次数后缀。\n'
-            + '   - 【方案互斥】:\n'
-            + '     * 同一目标的【同阶强化】最多生成1项。\n'
-            + '     * 满足跨阶条件时，同一目标允许生成多个【跨阶升阶】分支方案。\n'
-            + '     * 同一目标一旦生成跨阶升阶方案，就禁止同时生成同阶强化方案。\n'
-            + '   - 【程序字段】: 禁止输出【强化】字段；同阶+1、升阶归零与购买资格均由商城程序处理。\n'
+            + '      * 血统/技能/装备提升1级品质；形态提升1级层级。\n'
+            + '      * 必须在当前阶位至少完成1次同阶强化后才允许购买。\n'
+            + '      * 商城可以提前展示未解锁的跨阶方案，但不得在未满足前置时购买或结算。\n'
+            + '      * 跨阶后的最终阶位不得超过商城视野上限。\n'
+            + '   - 【升级命名铁律】:\n'
+            + '      * 商品名称采用“替换式命名”，只表示当前最终形态，禁止记录历史升级过程。\n'
+            + '      * 同阶强化保留当前正式名称，仅允许追加“·强化Ⅰ/Ⅱ/Ⅲ”；新的强化等级必须覆盖旧强化标记，不得累积。\n'
+            + '      * 跨阶升阶必须生成新的正式名称，并删除所有成长标记；禁止出现“·强化Ⅱ·进阶”“·初解·进阶”等组合名称。\n'
+            + '      * 跨阶后的再次强化，以新的正式名称为基础，仅追加当前强化等级。\n'
+            + '      * 名称禁止包含多个成长标记。\n'
+            + '   - 【名称解析规则】:\n'
+            + '      * 升级时必须区分【基础名称】与【成长标记】。\n'
+            + '      * “强化Ⅰ/Ⅱ/Ⅲ”“初解”“觉醒”“解放”“真传”“奥义”“进阶”等均视为成长标记，不属于基础名称。\n'
+            + '      * 成长标记禁止继承到跨阶后的新名称中。\n'
+            + '      * 跨阶升阶必须重新生成完整名称，不得简单追加后缀。\n'
             + '   - 【继承】:\n'
             + '      * 升级商品必须完整继承替换目标的有效词条。\n'
             + '      * 未改变的词条必须原样保留。\n'
@@ -8546,14 +8413,14 @@
             + '      * 禁止无理由删除、替换或新增与升级无关的机制。\n'
             + (hasReq
                 ? '4. 核心聚焦: 玩家提出了明确的【核心需求】。商品生成必须以此为绝对中心。允许某些分类为空（不生成）。若生成其他类型的商品，必须与核心需求构成【流派联动】（例如需求是"狙击枪"，则配套生成"隐身技能"、"穿甲弹药道具"等）。总数控制在 16~24 个。\n'
-                : '4. 均衡刷新: 一次生成约 18~28 个商品，血统/形态/技能/装备/道具 均衡分布，升级列表目标2~4项；若合法目标不足，则按实际合法目标数量生成，允许为空。\n')
+                : '4. 均衡刷新: 一次生成约 18~28 个商品，血统/形态/技能/装备/道具 均衡分布，升级列表 2~4 项。\n')
             + '5. 商品职责隔离:\n'
             + '   - 【血统与形态严格隔离】: 两者必须彻底解耦，绝对禁止生成“附带变身形态的血统”。血统是底层生命本质的被动改造；形态是可激活的独立战斗变身面板或外置武装系统。\n'
             + '   - 【形态列表】: 禁止Ⅶ级以上形态商品出售。\n'
             + '   - 【血统列表】: 仅生成玩家未拥有的独立血统体系。若属于玩家已有血统的同源强化、进化、觉醒版本，必须进入升级列表。禁止S级以上血统商品出售。\n'
             + '   - 【升级列表】: \n'
-            + '      * 仅处理玩家当前已有血统、技能、装备、形态的强化、升阶。必须填写准确替换目标。\n'
-            + '      * 满足跨阶升阶的同一目标可以提供多项方案；同阶强化与跨阶升阶不得同时出现。\n'
+            + '      * 仅处理玩家当前已有血统、技能、装备、形态的强化、升阶或重铸。必须填写准确替换目标。\n'
+            + '      * 同阶强化与跨阶升阶均为有效升级方案，同一目标可同时提供同阶强化和跨阶升阶选项。\n'
             + '   - 【世界遗物规则】:\n'
             + '      * 世界遗物禁止作为商城普通商品生成。\n'
             + '      * 世界遗物只能通过任务世界探索、特殊事件、剧情奖励或世界结算获得。\n'
@@ -8600,7 +8467,7 @@
             + '  - 名称: 血统名\n'
             + '    品质: E\n'
             + '    标签: ["主神空间", "强化"]\n'
-            + '    原始属性: {"力量": "E", "敏捷": "F", "体质": "E", "精神": "F", "魅力": "F"}\n'
+            + '    原始属性: {"力量": "E", "敏捷": "C", "体质": "D", "精神": "D", "魅力": "E"}\n'
             + '    效果: {体能充沛: 基础生命恢复速度小幅提升}\n'
             + '    描述: 简短描述\n'
             + '    价格: 450\n'
@@ -8618,7 +8485,7 @@
             + '    品质: F\n'
             + '    类型: 0\n'
             + '    标签: ["主神空间", "科技"]\n'
-            + '    原始属性: {"DEF": "F"}\n'
+            + '    原始属性: {"DEF": "C"}\n'
             + '    效果: {防弹: 对实弹伤害额外减免2点}\n'
             + '    描述: 简短描述\n'
             + '    消耗: 无\n'
@@ -8651,14 +8518,14 @@
             + '    描述: 简短描述\n'
             + '    价格: 300\n'
             + '升级列表:\n'
-            + '  - 名称: 升级后的正式名称（同阶时必须与替换目标相同）\n'
+            + '  - 名称: 进阶装备/技能/血统/形态名称 (例: M16A2突击步枪·强化Ⅰ)\n'
             + '    替换目标: 原有物品确切名称 (例: M16A2突击步枪)\n'
             + '    所属大类: 装备 (必填: 血统/技能/装备/形态)\n'
             + '    层级: Ⅰ\n'
             + '    品质: E\n'
             + '    类型: 0\n'
             + '    标签: ["主神空间", "科技", "升级"]\n'
-            + '    原始属性: {"DEF": "E"}\n'
+            + '    原始属性: {"DEF": "C"}\n'
             + '    效果: {防弹: 强化减伤效果至4点}\n'
             + '    描述: 回收旧型号进行重铸升阶后的成品\n'
             + '    消耗: 无\n'
@@ -8675,9 +8542,6 @@ if (hasReq) {
             // 回合校验: 用户点了"停止刷新"或重发起一次新刷新时 epoch 已变, 丢弃这次迟到结果
             if (myEpoch !== shopRefreshEpoch || !shopRefreshing) return;
             var parsed = shopParseMarketText(out);
-            var validateSd = getStatData() || sd;
-            var validateCharacter = shopResolveCharacter(validateSd, shopCurrentActor).character;
-            parsed.升级列表 = shopFilterRawUpgrades(parsed.升级列表, validateCharacter);
             // 统计生成数量
             var total = (parsed.血统列表.length + parsed.技能列表.length + parsed.装备列表.length + parsed.道具列表.length + parsed.升级列表.length + parsed.形态列表.length);
             if (total === 0) {

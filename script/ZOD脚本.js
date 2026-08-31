@@ -95,6 +95,9 @@
             // ★ 先回滚受保护字段，再执行后续计算
             guardProtectedFields(statData, statDataBefore);
 
+            // 兼容清理：商城已撤销强化计数字段，旧存档中的实体顶层「强化」在更新时直接删除。
+            cleanupLegacyReinforcementFields(statData);
+
             // ★ 原住民NPC位格/血统品质压制: 新登场原住民 层级/血统品质超出 世界.位格 → 压回世界位格
             //   (主神空间中不压制; 轮回者/穿越者/守护者/织梦者/篡夺者/残魂 等特殊身份不压制)
             clampNativeNpcToWorldTier(statData, statDataBefore);
@@ -246,6 +249,23 @@
         }
     }
 
+    /** 删除旧商城强化系统遗留的实体顶层「强化」字段。 */
+    function cleanupLegacyReinforcementFields(statData) {
+        const cleanCharacter = (char) => {
+            if (!char || typeof char !== 'object') return;
+            ['血统', '技能', '装备', '形态库'].forEach(groupKey => {
+                const group = char[groupKey];
+                if (!group || typeof group !== 'object') return;
+                Object.values(group).forEach(entry => {
+                    if (entry && typeof entry === 'object' && Object.prototype.hasOwnProperty.call(entry, '强化')) {
+                        delete entry.强化;
+                    }
+                });
+            });
+        };
+        cleanCharacter(statData && statData.主角);
+        Object.values((statData && statData.关系列表) || {}).forEach(cleanCharacter);
+    }
     /**
      * 数据守卫：回滚被 AI 篡改的只读字段 + 规范化新增装备
      * 覆盖 主角 和 关系列表 中的所有在场 NPC

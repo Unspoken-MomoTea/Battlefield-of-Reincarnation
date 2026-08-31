@@ -381,7 +381,7 @@ const _stripForbidden = (root, forbiddenKeys = ['真属性']) => {
     if (Array.isArray(v)) { v.forEach(walk); return; }
     if (v && typeof v === 'object') {
       for (const k of forbiddenKeys) delete v[k];
-      // 仅隐藏实体顶层的强化计数，避免误删效果表中恰好名为“强化”的正常词条。
+      // 旧存档兼容：实体顶层「强化」已废弃；在后台迁移完成前仅从AI视野剔除，避免污染上下文。
       if (Object.prototype.hasOwnProperty.call(v, '强化')
           && Object.prototype.hasOwnProperty.call(v, '效果')
           && (Object.prototype.hasOwnProperty.call(v, '品质') || Object.prototype.hasOwnProperty.call(v, '层级'))) {

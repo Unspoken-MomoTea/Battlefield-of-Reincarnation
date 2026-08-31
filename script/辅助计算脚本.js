@@ -93,6 +93,9 @@
             //   只影响 任务.列表 / 任务.副本成就，不影响 任务.击杀 与其他变量。
             guardTaskGenerationLock(statData);
 
+            // ★ 后续楼层任务委托方守卫：只保护主神任务 / 晋升试炼的委托方。
+            guardPersistedSystemTaskOwner(statData, statDataBefore);
+
             const users = statData.主角;
             if (!users) return;
 
@@ -192,6 +195,39 @@
         if (value === undefined) return undefined;
         if (typeof _ !== 'undefined' && _?.cloneDeep) return _.cloneDeep(value);
         return JSON.parse(JSON.stringify(value));
+    }
+
+    /**
+     * 后续楼层任务委托方守卫。
+     * 只认上一轮快照中已经属于 主神任务 / 晋升试炼 的任务。
+     * AI可以修改任务的其它字段和状态，但不能把 委托方 改成别的值。
+     */
+    function guardPersistedSystemTaskOwner(statData, statDataBefore) {
+        if (!statData || !statDataBefore) return false;
+
+        const previousList = statDataBefore?.任务?.列表;
+        const currentList = statData?.任务?.列表;
+        if (!previousList || typeof previousList !== 'object') return false;
+        if (!currentList || typeof currentList !== 'object') return false;
+
+        let repaired = false;
+        Object.entries(previousList).forEach(([taskName, oldTask]) => {
+            if (!oldTask || typeof oldTask !== 'object') return;
+            const oldOwner = String(oldTask.委托方 || '').trim();
+            if (oldOwner !== '主神任务' && oldOwner !== '晋升试炼') return;
+
+            const currentTask = currentList[taskName];
+            if (!currentTask || typeof currentTask !== 'object') return;
+
+            const newOwner = String(currentTask.委托方 || '').trim();
+            if (newOwner === oldOwner) return;
+
+            currentTask.委托方 = oldTask.委托方;
+            repaired = true;
+            console.warn(`[任务委托方守卫] ${taskName}.委托方 被修改为 ${newOwner || '(空)'}, 已恢复为 ${oldOwner}`);
+        });
+
+        return repaired;
     }
 
     /**

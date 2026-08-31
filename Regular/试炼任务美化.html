@@ -618,7 +618,7 @@
             set(c,'stat_data.世界.因果轨道.偏移记录',{});
             set(c,'stat_data.世界.异端雷达.当前模式',stripExpectedCount(q.world.干涉模式));
             const roster = {};
-            q.aliens.forEach(function(a){ roster[a.name]={来源:a.source,经历:a.experience,阵营:a.faction,职业:a.job,层级:a.rank,状态:'未登场'}; });
+            q.aliens.forEach(function(a){ roster[a.name]={来源:a.source,经历:a.experience,阵营:a.faction,职业:a.job,层级:a.rank,状态:'活跃'}; });
             set(c,'stat_data.世界.异端雷达.名单',roster);
             set(c,'stat_data.任务.副本成就',{});
             const worldName = String(q.world.名称 || '晋升试炼').replace(/[【】《》]/g,'').trim() || '晋升试炼';

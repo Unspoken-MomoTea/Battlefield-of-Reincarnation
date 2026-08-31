@@ -1117,6 +1117,19 @@
         .sam-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; padding:4px 0; border-bottom:1px dashed rgba(143,159,255,0.08); font-size:12px; }
         .sam-row .k { color:var(--sam-sub); flex:0 0 auto; min-width:60px; }
         .sam-row .v { color:var(--sam-text); font-weight:bold; text-align:right; flex:1; word-break:break-word; overflow-wrap:anywhere; }
+        /* 世界稳定度：0~120，100为正常基准线。 */
+        .sam-world-stability { padding:8px 0 5px; }
+        .sam-world-stability-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:5px; font-size:11px; }
+        .sam-world-stability-head .k { color:var(--sam-sub); }
+        .sam-world-stability-head .v { color:var(--sam-text); font-weight:900; font-size:12px; }
+        .sam-world-stability-track { position:relative; height:12px; border-radius:7px; overflow:hidden; background:rgba(0,0,0,0.3); border:1px solid rgba(143,159,255,0.18); box-shadow:inset 0 1px 4px rgba(0,0,0,0.42); }
+        .sam-world-stability-fill { height:100%; min-width:0; border-radius:6px; background:linear-gradient(90deg, var(--sam-hp), var(--sam-accent)); box-shadow:0 0 9px var(--sam-accent); transition:width .25s ease; }
+        .sam-world-stability-fill.over { background:linear-gradient(90deg, var(--sam-accent), var(--sam-thp)); box-shadow:0 0 10px var(--sam-thp); }
+        .sam-world-stability-mark100 { position:absolute; left:83.333333%; top:-2px; bottom:-2px; width:2px; background:rgba(255,255,255,0.82); box-shadow:0 0 5px rgba(255,255,255,0.65); pointer-events:none; }
+        .sam-world-stability-scale { position:relative; height:14px; margin-top:2px; color:var(--sam-sub); font-size:9px; line-height:14px; }
+        .sam-world-stability-scale .s0 { position:absolute; left:0; }
+        .sam-world-stability-scale .s100 { position:absolute; left:83.333333%; transform:translateX(-50%); color:var(--sam-text); }
+        .sam-world-stability-scale .s120 { position:absolute; right:0; }
         .sam-alien-list { display:flex; flex-direction:column; gap:6px; }
         .sam-alien-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 9px; border:1px solid rgba(143,159,255,0.12); border-radius:6px; background:rgba(0,0,0,0.14); }
         .sam-alien-main { min-width:0; }
@@ -5742,7 +5755,6 @@
             {k:'名称', path:'世界.名称', type:'text'},
             {k:'位格', path:'世界.位格', type:'text'},
             {k:'难度', path:'世界.难度', type:'text'},
-            {k:'稳定', path:'世界.稳定', type:'number', readonly:true},
             {k:'模式', path:'世界.异端雷达.当前模式', type:'text', hideOnSingle:true}
         ];
         var introHtml = '';
@@ -5755,13 +5767,26 @@
             else display = esc(safeStr(v));
             introHtml += '<div class="sam-row"><span class="k">'+esc(f.k)+'</span><span class="v">'+display+'</span></div>';
         });
+        var stabilityValue = Math.max(0, Math.min(120, safeNum(w.稳定, 100)));
+        var stabilityPct = Math.max(0, Math.min(100, (stabilityValue / 120) * 100));
+        var stabilityOverClass = stabilityValue > 100 ? ' over' : '';
+        introHtml += '<div class="sam-world-stability">'
+            + '<div class="sam-world-stability-head"><span class="k">稳定度</span><span class="v">'+esc(stabilityValue)+'</span></div>'
+            + '<div class="sam-world-stability-track"><div class="sam-world-stability-fill'+stabilityOverClass+'" style="width:'+stabilityPct+'%"></div><span class="sam-world-stability-mark100"></span></div>'
+            + '<div class="sam-world-stability-scale"><span class="s0">0</span><span class="s100">100</span><span class="s120">120</span></div>'
+            + '</div>';
+        if (!isSingleWorld && !isInHub) {
+            introHtml += '<div class="sam-row"><span class="k">异端存活数量</span><span class="v"><span class="sam-edit-readonly">'+alienAliveCount+'</span></span></div>';
+        }
         html += secBlock('🌍 世界介绍', introHtml);
-        if (!isSingleWorld && !isInHub && alienNames.length) {
+        // 异端详情暂时对玩家隐藏；保留完整折叠栏代码，后续只需将此开关改为 true 即可恢复。
+        var SHOW_ALIEN_ROSTER_DETAILS = false;
+        if (SHOW_ALIEN_ROSTER_DETAILS && !isSingleWorld && !isInHub && alienNames.length) {
             var alienHtml = '<div class="sam-alien-list">';
             alienNames.forEach(function(name) {
                 var alien = alienRoster[name] || {};
-                var status = ['未登场', '活跃', '死亡'].indexOf(alien.状态) >= 0 ? alien.状态 : '未登场';
-                var stateClass = status === '活跃' ? 'active' : (status === '死亡' ? 'dead' : 'waiting');
+                var status = safeStr(alien.状态) === '死亡' ? '死亡' : '活跃';
+                var stateClass = status === '死亡' ? 'dead' : 'active';
                 var sourceText = alien.来源 ? (alien.来源 === '原创' ? '原创' : '《' + alien.来源 + '》') : '';
                 var meta = [sourceText, alien.阵营, alien.职业, alien.层级 ? alien.层级 + '级' : ''].filter(Boolean).join(' · ');
                 alienHtml += '<div class="sam-alien-item"><div class="sam-alien-main"><div class="sam-alien-name">'+esc(name)+'</div>'

@@ -1331,7 +1331,7 @@
                     阵营: a.faction,
                     职业: a.job,
                     层级: a.rank,
-                    状态: ['未登场', '活跃', '死亡'].includes(oldStatus) ? oldStatus : '未登场'
+                    状态: oldStatus === '死亡' ? '死亡' : '活跃'
                   };
                 });
                 if (!win._.isEqual(currentRoster, nextRoster)) {

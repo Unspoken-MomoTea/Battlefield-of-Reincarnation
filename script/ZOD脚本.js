@@ -97,6 +97,7 @@
 
             // 兼容清理：商城已撤销强化计数字段，旧存档中的实体顶层「强化」在更新时直接删除。
             cleanupLegacyReinforcementFields(statData);
+            normalizeAlienRosterStatuses(statData);
 
             // ★ 原住民NPC位格/血统品质压制: 新登场原住民 层级/血统品质超出 世界.位格 → 压回世界位格
             //   (主神空间中不压制; 轮回者/穿越者/守护者/织梦者/篡夺者/残魂 等特殊身份不压制)
@@ -266,6 +267,16 @@
         cleanCharacter(statData && statData.主角);
         Object.values((statData && statData.关系列表) || {}).forEach(cleanCharacter);
     }
+    /** 兼容旧存档：异端状态已收敛为【活跃|死亡】，其余旧值统一视为活跃。 */
+    function normalizeAlienRosterStatuses(statData) {
+        const roster = statData && statData.世界 && statData.世界.异端雷达 && statData.世界.异端雷达.名单;
+        if (!roster || typeof roster !== 'object' || Array.isArray(roster)) return;
+        Object.values(roster).forEach(alien => {
+            if (!alien || typeof alien !== 'object') return;
+            alien.状态 = alien.状态 === '死亡' ? '死亡' : '活跃';
+        });
+    }
+
     /**
      * 数据守卫：回滚被 AI 篡改的只读字段 + 规范化新增装备
      * 覆盖 主角 和 关系列表 中的所有在场 NPC

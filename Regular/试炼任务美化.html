@@ -481,6 +481,50 @@
           return JSON.parse(JSON.stringify(value == null ? {} : value));
         }
 
+        // ===== 上一楼层任务基线 =====
+        // 不假定“美化器”和“额外变量更新”谁先执行：写入任务前先从前一楼层恢复
+        // 任务.列表 + 任务.副本成就，清掉当前楼层可能由AI抢先写入的新增/改名/删除结果。
+        function readPreviousTaskSnapshot(win, currentMessageId) {
+          try {
+            const currentId = Number(currentMessageId);
+            if (!win || !win.Mvu || !Number.isInteger(currentId) || currentId <= 0) return null;
+            const minId = Math.max(0, currentId - 4);
+            for (let id = currentId - 1; id >= minId; id--) {
+              try {
+                const data = win.Mvu.getMvuData({type:'message', message_id:id});
+                if (!data) continue;
+                const stat = data.stat_data || data;
+                if (!stat || typeof stat !== 'object') continue;
+                const taskRoot = stat.任务 && typeof stat.任务 === 'object' ? stat.任务 : {};
+                return {
+                messageId: id,
+                taskList: cloneTaskLockValue(win, taskRoot.列表 || {}),
+                achievements: cloneTaskLockValue(win, taskRoot.副本成就 || {})
+                };
+              } catch (e) {}
+            }
+          } catch (e) {}
+          return null;
+        }
+
+        function restorePreviousTaskBaseline(win, mvuData, source, snapshot) {
+          try {
+            const currentId = getTaskLockMessageId(win);
+            const baseline = snapshot || readPreviousTaskSnapshot(win, currentId);
+            if (!baseline || !mvuData || !win._ || !win._.set) {
+              console.warn('[任务基线] 无法读取上一楼层任务快照，继续使用当前数据:', source || '任务美化器');
+              return null;
+            }
+            win._.set(mvuData, 'stat_data.任务.列表', cloneTaskLockValue(win, baseline.taskList || {}));
+            win._.set(mvuData, 'stat_data.任务.副本成就', cloneTaskLockValue(win, baseline.achievements || {}));
+            console.log('[任务基线] 已从上一楼层恢复任务块:', baseline.messageId, '→', currentId, source || '任务美化器');
+            return baseline;
+          } catch (e) {
+            console.warn('[任务基线] 恢复失败:', e);
+            return null;
+          }
+        }
+
         function installTaskGenerationLock(win, mvuData, source) {
           try {
             const messageId = getTaskLockMessageId(win);
@@ -528,12 +572,16 @@
           if (!expectedSingle && sys.是否在主神空间 !== true) return fail('轮回试炼只能从主神空间启动。');
           const liveTier = rankOf(get(c,'stat_data.主角.层级',''));
           if (liveTier !== q.current) return fail('当前层级与试炼申请时不一致。');
-          const tasks = get(c,'stat_data.任务.列表',{}) || {};
+          const taskBaseline = readPreviousTaskSnapshot(win, getTaskLockMessageId(win));
+          const tasks = taskBaseline ? (taskBaseline.taskList || {}) : (get(c,'stat_data.任务.列表',{}) || {});
           const hasActive = Object.keys(tasks).some(function(name){
             const t = tasks[name] || {};
             return String(t.委托方 || '').trim() === '晋升试炼' && ['进行中','可交付','可结算','失败'].includes(String(t.状态 || '').trim());
           });
           if (hasActive) return fail('已有尚未结算的晋升试炼。');
+
+          // 无论额外变量更新先还是后：赋值前先以上一楼层任务块为唯一基线。
+          restorePreviousTaskBaseline(win, c, '晋升试炼美化', taskBaseline);
 
           const ex = expectedData(q);
           q.tasks.forEach(function(task,index){

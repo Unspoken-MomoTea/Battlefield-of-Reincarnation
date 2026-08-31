@@ -1,0 +1,44 @@
+name: Remove trial task prefix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-remove-trial-task-prefix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python .github/patch-remove-trial-task-prefix.py
+      - name: Validate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('Regular/试炼任务美化.html').read_bytes().decode('utf-8')
+          scripts = re.findall(r'<script>([\s\S]*?)</script>', html)
+          if len(scripts) != 1:
+              raise SystemExit(f'expected one script block, found {len(scripts)}')
+          Path('/tmp/trial.js').write_text(scripts[0], encoding='utf-8')
+          if "['stat_data','任务','列表','【晋升试炼·'" in html:
+              raise SystemExit('legacy prefixed task key still exists')
+          PY
+          node --check /tmp/trial.js
+          git -c core.whitespace=cr-at-eol diff --check -- 'Regular/试炼任务美化.html'
+      - name: Commit business change
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-remove-trial-task-prefix.yml .github/patch-remove-trial-task-prefix.py
+          git add 'Regular/试炼任务美化.html'
+          git commit -m 'use trial task names as database keys'
+          git push origin HEAD:main

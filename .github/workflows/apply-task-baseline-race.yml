@@ -1,0 +1,53 @@
+name: Apply task baseline race fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-task-baseline-race.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply guarded patch
+        run: python .github/patch-task-baseline-race.py
+
+      - name: Validate scripts and prompt
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          for src, out in [
+              ('Regular/主神任务美化.html','/tmp/godquest.js'),
+              ('Regular/试炼任务美化.html','/tmp/trial.js'),
+          ]:
+              html = Path(src).read_bytes().decode('utf-8')
+              scripts = re.findall(r'<script>([\s\S]*?)</script>', html)
+              if len(scripts) != 1:
+                  raise SystemExit(f'{src}: expected one script block, found {len(scripts)}')
+              Path(out).write_text(scripts[0], encoding='utf-8')
+          PY
+          node --check /tmp/godquest.js
+          node --check /tmp/trial.js
+          git -c core.whitespace=cr-at-eol diff --check -- \
+            'Regular/主神任务美化.html' \
+            'Regular/试炼任务美化.html' \
+            'World Book/【主神任务】[mvu_plot].txt'
+
+      - name: Commit business change
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-task-baseline-race.yml .github/patch-task-baseline-race.py
+          git add 'Regular/主神任务美化.html' 'Regular/试炼任务美化.html' 'World Book/【主神任务】[mvu_plot].txt'
+          git commit -m 'rebuild task blocks from previous message before generation'
+          git push origin HEAD:main

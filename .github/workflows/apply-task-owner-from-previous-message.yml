@@ -1,0 +1,35 @@
+name: Apply persisted task owner guard
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-task-owner-from-previous-message.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python .github/patch-task-owner-from-previous-message.py
+      - name: Validate
+        shell: bash
+        run: |
+          node --check 'script/辅助计算脚本.js'
+          git -c core.whitespace=cr-at-eol diff --check -- 'script/辅助计算脚本.js'
+          grep -F "function readPreviousMessageTaskList()" 'script/辅助计算脚本.js'
+          grep -F "const previousList = readPreviousMessageTaskList() || statDataBefore?.任务?.列表;" 'script/辅助计算脚本.js'
+      - name: Commit business change
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-task-owner-from-previous-message.yml .github/patch-task-owner-from-previous-message.py
+          git add 'script/辅助计算脚本.js'
+          git commit -m 'lock system task owner from previous message snapshot'
+          git push origin HEAD:main

@@ -1,0 +1,36 @@
+name: Apply persisted task owner guard
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-persisted-task-owner-guard.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        run: python .github/patch-persisted-system-task-guard.py
+      - name: Validate
+        shell: bash
+        run: |
+          node --check 'script/辅助计算脚本.js'
+          git -c core.whitespace=cr-at-eol diff --check -- 'script/辅助计算脚本.js'
+          grep -F "guardPersistedSystemTaskOwner(statData, statDataBefore);" 'script/辅助计算脚本.js'
+          grep -F "currentTask.委托方 = oldTask.委托方;" 'script/辅助计算脚本.js'
+          ! grep -F "const LOCKED_FIELDS = ['委托方', '目标', '难度', '奖励', '交付', '惩罚'];" 'script/辅助计算脚本.js'
+      - name: Commit business change
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-persisted-task-owner-guard.yml .github/patch-persisted-system-task-guard.py
+          git add 'script/辅助计算脚本.js'
+          git commit -m 'protect persisted system task owners'
+          git push origin HEAD:main

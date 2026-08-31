@@ -45,3 +45,4 @@ jobs:
           git add 'Regular/主神任务美化.html' 'Regular/试炼任务美化.html'
           git commit -m 'skip empty messages when reading task baseline'
           git push origin HEAD:main
+# retry after making matcher indentation-safe

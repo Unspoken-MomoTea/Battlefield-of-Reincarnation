@@ -469,6 +469,8 @@
                 if (!sourceInfusionConsumeCredential(payer, check.credentialName)) return;
                 payer.空间币 = Math.max(0, safeNum(payer.空间币, 0) - check.cost);
                 target.层级 = check.nextTier;
+                var receiptActor = check.isHero ? '主角' : check.targetName;
+                shopAppendReceipt(statData, '[普升]['+receiptActor+'] 源力灌注：'+check.currentTier+' → '+check.nextTier+'｜消耗 '+sourceInfusionFmtNum(check.cost)+'空间币、'+check.credentialName+'×1');
                 if (check.isHero && statData.系统状态) statData.系统状态.试炼已完成 = false;
                 applied = true;
             }, opts);
@@ -3316,7 +3318,11 @@
                 // ★ 传入层级通行证: replaceMvuData 异步触发的二次 VARIABLE_UPDATE_ENDED
                 //   不在 __samsaraUIMutation 窗口期内, 需凭通行证放行层级变化(否则被守卫回滚)
                 var ok2 = writeBackMvu(function(statData) {
-                    if (statData.主角) statData.主角.层级 = nextTier;
+                    if (statData.主角) {
+                        var oldTier = normalizeLifeTier(statData.主角.层级);
+                        statData.主角.层级 = nextTier;
+                        shopAppendReceipt(statData, '[普升][主角] 晋升试炼完成：'+oldTier+' → '+nextTier);
+                    }
                     // 进阶完成后重置试炼标记, 为下一轮进阶流程做准备
                     if (statData.系统状态) statData.系统状态.试炼已完成 = false;
                 }, { tierPermit: nextTier });

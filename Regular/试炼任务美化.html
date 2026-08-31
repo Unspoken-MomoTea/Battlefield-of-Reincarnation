@@ -587,8 +587,10 @@
           const ex = expectedData(q);
           q.tasks.forEach(function(task,index){
             const plan = ex.tasks[index] || {};
-            const safeName = String(task.name || '位格跃迁').replace(/[.。]/g,'·');
-            const taskPath = ['stat_data','任务','列表','【晋升试炼·'+(index+1)+'】'+safeName];
+            // 数据库键直接使用任务原名；试炼身份只由 委托方=晋升试炼 判定。
+            // 不再把【晋升试炼·N】塞进任务名，列表展示与数据库保持干净。
+            const safeName = String(task.name || ('位格跃迁·' + (index + 1))).replace(/[.。]/g,'·').trim();
+            const taskPath = ['stat_data','任务','列表',safeName];
             set(c,taskPath.concat('委托方'),'晋升试炼');
             set(c,taskPath.concat('目标'),task.desc || '完成试炼目标');
             set(c,taskPath.concat('难度'),plan.grade || gradeOf(task.diff));

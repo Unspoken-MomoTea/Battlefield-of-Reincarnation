@@ -1493,6 +1493,20 @@
         .sam-toggle-switch .knob { position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left 0.2s; }
         .sam-toggle-switch.on .knob { left:24px; }
 
+        /* ===== MVU 变量更新方式 ===== */
+        .sam-varmode-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+        .sam-varmode-btn { width:100%; padding:9px 10px; text-align:left; border:1px solid var(--sam-border); border-radius:7px; background:var(--sam-card); color:var(--sam-text); cursor:pointer; transition:all .16s; font:inherit; }
+        .sam-varmode-btn:hover { border-color:var(--sam-accent); transform:translateY(-1px); }
+        .sam-varmode-btn.active { border-color:var(--sam-accent); background:rgba(143,159,255,.12); box-shadow:0 0 8px rgba(143,159,255,.18); }
+        .sam-varmode-btn[disabled] { opacity:.55; cursor:wait; transform:none; }
+        .sam-varmode-btn .ttl { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:900; }
+        .sam-varmode-btn .tag { font-size:9px; padding:1px 5px; border:1px solid var(--sam-border); border-radius:7px; color:var(--sam-accent); }
+        .sam-varmode-btn .desc { margin-top:4px; font-size:10px; line-height:1.45; color:var(--sam-sub); }
+        .sam-varmode-status { min-height:17px; margin-top:6px; font-size:10px; line-height:1.45; color:var(--sam-sub); }
+        .sam-varmode-status.ok { color:#56bf7b; }
+        .sam-varmode-status.err { color:var(--sam-hp); }
+        @media (max-width:520px) { .sam-varmode-grid { grid-template-columns:1fr; } }
+
         /* ===== API 配置区块(移植自 Zsd网游论坛) ===== */
         .sam-api-section { padding-top:6px; }
         .sam-api-block-label { font-size:12px; font-weight:bold; color:var(--sam-sub); margin:10px 0 4px; }
@@ -3719,6 +3733,131 @@
     }
 
     /* ===== 15. 设置弹窗 ===== */
+    /* ===== 15a. MVU变量更新方式（额外API / 随主AI） ===== */
+    var VARIABLE_API_MODE_KEY = 'samsara_variable_api_mode';
+    var VARIABLE_API_WORLD_BOOK_RULES = {
+        'output_format_(随AI输出开，主API)': { '随主API': true, '额外API': false },
+        '[mvu_update]变量更新规则': { '随主API': false, '额外API': true },
+        '[mvu_update]变量输出规则': { '随主API': false, '额外API': true },
+        '[mvu_update]output_format_(使用额外模型更新变量开)': { '随主API': false, '额外API': true }
+    };
+    function normalizeVariableApiMode(mode) { return mode === '随主API' ? '随主API' : '额外API'; }
+    function variableApiStorage() {
+        try { if (GS_PARENT && GS_PARENT.localStorage) return GS_PARENT.localStorage; } catch(e) {}
+        try { return window.localStorage; } catch(e2) { return null; }
+    }
+    function getVariableApiMode() {
+        try {
+  var storage = variableApiStorage();
+  return normalizeVariableApiMode(storage ? storage.getItem(VARIABLE_API_MODE_KEY) : '额外API');
+        } catch(e) { return '额外API'; }
+    }
+    function saveVariableApiMode(mode) {
+        try {
+  var storage = variableApiStorage();
+  if (storage) storage.setItem(VARIABLE_API_MODE_KEY, normalizeVariableApiMode(mode));
+        } catch(e) {}
+    }
+    function resolveVariableApiHostFunction(name) {
+        var roots = [GS_PARENT, window];
+        try { if (window.parent && roots.indexOf(window.parent) < 0) roots.push(window.parent); } catch(e) {}
+        try { if (window.top && roots.indexOf(window.top) < 0) roots.push(window.top); } catch(e2) {}
+        for (var i = 0; i < roots.length; i++) {
+  var root = roots[i];
+  try {
+      if (root && typeof root[name] === 'function') return root[name].bind(root);
+      if (root && root.TavernHelper && typeof root.TavernHelper[name] === 'function') return root.TavernHelper[name].bind(root.TavernHelper);
+  } catch(e3) {}
+        }
+        return null;
+    }
+    function normalizeVariableApiEntryName(name) { return String(name || '').trim().replace(/\.(txt|ya?ml)$/i, ''); }
+    function variableApiRuleForEntry(name) { return VARIABLE_API_WORLD_BOOK_RULES[normalizeVariableApiEntryName(name)] || null; }
+    function normalizeVariableApiWorldbookEntries(wb) {
+        if (Array.isArray(wb)) return wb;
+        if (wb && Array.isArray(wb.entries)) return wb.entries;
+        return [];
+    }
+    function variableApiPresetDesired(name, mode) {
+        var text = String(name || '');
+        if (text.indexOf('变量额外API') >= 0) return mode === '额外API';
+        if (text.indexOf('变量主API') >= 0) return mode === '随主API';
+        return null;
+    }
+    async function applyVariableApiMode(mode) {
+        mode = normalizeVariableApiMode(mode);
+        var getNames = resolveVariableApiHostFunction('getCharWorldbookNames');
+        var getWorldbookFn = resolveVariableApiHostFunction('getWorldbook');
+        var updateWorldbookFn = resolveVariableApiHostFunction('updateWorldbookWith');
+        if (!getNames || !getWorldbookFn || !updateWorldbookFn) return { ok:false, error:'未检测到世界书切换接口，请确认酒馆助手脚本已启用。' };
+
+        var namesInfo;
+        try { namesInfo = await Promise.resolve(getNames('current')); }
+        catch(e) { return { ok:false, error:'读取当前角色世界书失败: ' + (e && e.message ? e.message : e) }; }
+        namesInfo = namesInfo || {};
+        var worldbookNames = [];
+        [namesInfo.primary].concat(Array.isArray(namesInfo.additional) ? namesInfo.additional : []).forEach(function(name) {
+  if (name && worldbookNames.indexOf(name) < 0) worldbookNames.push(name);
+        });
+        if (!worldbookNames.length) return { ok:false, error:'当前角色没有可切换的世界书。' };
+
+        var worldbookMatched = 0, worldbookChanged = 0, presetMatched = 0, presetChanged = 0;
+        try {
+  for (var wi = 0; wi < worldbookNames.length; wi++) {
+      var wbName = worldbookNames[wi], wb;
+      try { wb = await Promise.resolve(getWorldbookFn(wbName)); } catch(e2) { continue; }
+      var entries = normalizeVariableApiWorldbookEntries(wb);
+      var localMatched = 0, localChanged = 0;
+      entries.forEach(function(entry) {
+          var rule = entry && variableApiRuleForEntry(entry.name);
+          if (!rule) return;
+          localMatched++;
+          if (entry.enabled !== rule[mode]) localChanged++;
+      });
+      if (!localMatched) continue;
+      worldbookMatched += localMatched;
+      if (localChanged) {
+          await Promise.resolve(updateWorldbookFn(wbName, function(nextWb) {
+              normalizeVariableApiWorldbookEntries(nextWb).forEach(function(entry) {
+                  var rule = entry && variableApiRuleForEntry(entry.name);
+                  if (rule) entry.enabled = rule[mode];
+              });
+              return nextWb;
+          }));
+          worldbookChanged += localChanged;
+      }
+  }
+  var getPresetFn = resolveVariableApiHostFunction('getPreset');
+  var updatePresetFn = resolveVariableApiHostFunction('updatePresetWith');
+  if (getPresetFn && updatePresetFn) {
+      var preset = null;
+      try { preset = await Promise.resolve(getPresetFn('in_use')); } catch(e3) {}
+      var prompts = preset && Array.isArray(preset.prompts) ? preset.prompts : [];
+      prompts.forEach(function(prompt) {
+          var desired = variableApiPresetDesired(prompt && (prompt.name || prompt.id), mode);
+          if (desired === null) return;
+          presetMatched++;
+          if (prompt.enabled !== desired) presetChanged++;
+      });
+      if (presetChanged) {
+          await Promise.resolve(updatePresetFn('in_use', function(nextPreset) {
+              var list = nextPreset && Array.isArray(nextPreset.prompts) ? nextPreset.prompts : [];
+              list.forEach(function(prompt) {
+                  var desired = variableApiPresetDesired(prompt && (prompt.name || prompt.id), mode);
+                  if (desired !== null) prompt.enabled = desired;
+              });
+              return nextPreset;
+          }));
+      }
+  }
+        } catch(e4) {
+  return { ok:false, error:'切换变量更新方式失败: ' + (e4 && e4.message ? e4.message : e4), worldbookMatched:worldbookMatched, worldbookChanged:worldbookChanged, presetMatched:presetMatched, presetChanged:presetChanged };
+        }
+        if (!worldbookMatched) return { ok:false, error:'未在当前角色世界书中找到变量更新模式条目，请检查条目名称。', worldbookMatched:0, worldbookChanged:0, presetMatched:presetMatched, presetChanged:presetChanged };
+        saveVariableApiMode(mode);
+        return { ok:true, mode:mode, worldbookMatched:worldbookMatched, worldbookChanged:worldbookChanged, presetMatched:presetMatched, presetChanged:presetChanged };
+    }
+
     /* ===== 15a. 额外模型配置(移植自 Zsd网游论坛_本地内联版) =====
        存储位置: localStorage['samsara_api_config'] = {
          enabled:      是否启用额外模型配置(开 → 商城/血统融合走自托管API, 关 → 走 generateRaw 正文AI)
@@ -3890,6 +4029,19 @@
             + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🪐 单一世界</div><div style="font-size:11px;color:var(--sam-sub);">开启后仅存在单一世界,关闭后可在多世界间选择</div></div>'
             + '<div class="sam-toggle-switch '+(singleWorld?'on':'')+'" data-toggle="单一世界"><div class="knob"></div></div></div>');
 
+        var variableMode = getVariableApiMode();
+        var variableModeHtml = '<div class="sam-varmode-grid">'
+  + '<button type="button" class="sam-varmode-btn '+(variableMode==='额外API'?'active':'')+'" data-variable-api-mode="额外API">'
+    + '<div class="ttl">额外API输出 <span class="tag">推荐</span></div>'
+    + '<div class="desc">独立模型单独更新变量，正文更干净；需在 MVU 扩展中配置额外模型。</div></button>'
+  + '<button type="button" class="sam-varmode-btn '+(variableMode==='随主API'?'active':'')+'" data-variable-api-mode="随主API">'
+    + '<div class="ttl">随主AI输出 <span class="tag">开箱即用</span></div>'
+    + '<div class="desc">正文模型同轮输出变量更新，无需额外模型；长文本更容易出现格式错误。</div></button>'
+  + '</div>'
+  + '<div class="sam-varmode-status" id="sam-varmode-status"></div>'
+  + '<div style="margin-top:5px;font-size:10px;line-height:1.5;color:var(--sam-sub);">此项只切换 MVU 世界书/预设。下方「额外模型配置」仅供商城刷新与血统融合使用，两者互不影响。</div>';
+        html += secBlock('🧭 变量更新方式', variableModeHtml);
+
         /* ----- 🔌 API 配置区块(移植自 Zsd网游论坛_本地内联版) ----- */
         var apiCfg = getApiConfig();
         // 预设下拉框: 完全在 DOM 插入后由 apiRefreshFields() 用 jQuery text() 填值(避免转义/注入问题)
@@ -3985,6 +4137,33 @@
                 statData.设置[key] = on;
             });
             renderAll();
+        });
+
+        // MVU变量更新方式：同开局页共享 localStorage，并立即同步世界书/当前预设
+        function refreshVariableModeFields(message, state) {
+  var mode = getVariableApiMode();
+  $('[data-variable-api-mode]', $apiModal).each(function() {
+      $(this).toggleClass('active', $(this).attr('data-variable-api-mode') === mode);
+  });
+  var $st = $('#sam-varmode-status', $apiModal);
+  if (!$st.length) return;
+  $st.removeClass('ok err').addClass(state || '');
+  $st.text(message || (mode === '额外API' ? '当前：额外API输出' : '当前：随主AI输出'));
+        }
+        refreshVariableModeFields();
+        $apiModal.off('click.samVariableMode').on('click.samVariableMode', '[data-variable-api-mode]', async function() {
+  var mode = normalizeVariableApiMode($(this).attr('data-variable-api-mode'));
+  var $buttons = $('[data-variable-api-mode]', $apiModal).prop('disabled', true);
+  refreshVariableModeFields('正在切换世界书与预设条目…', '');
+  var result = await applyVariableApiMode(mode);
+  $buttons.prop('disabled', false);
+  if (result.ok) {
+      refreshVariableModeFields('已切换 · 世界书变更 '+result.worldbookChanged+' 项 · 预设变更 '+result.presetChanged+' 项', 'ok');
+      samToast('success', '变量更新方式已切换为' + (mode === '额外API' ? '额外API输出' : '随主AI输出'));
+  } else {
+      refreshVariableModeFields(result.error || '切换失败', 'err');
+      samToast('error', result.error || '变量更新方式切换失败');
+  }
         });
 
         /* ===== API 配置: 事件绑定 ===== */

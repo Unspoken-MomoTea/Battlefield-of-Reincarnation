@@ -3736,8 +3736,8 @@
     /* ===== 15a. MVU变量更新方式（额外API / 随主AI） ===== */
     var VARIABLE_API_MODE_KEY = 'samsara_variable_api_mode';
     var VARIABLE_API_WORLD_BOOK_RULES = {
-        'output_format_(随AI输出开，主API)': { '随主API': true, '额外API': false },
-        '[mvu_update]output_format_(使用额外模型更新变量开)': { '随主API': false, '额外API': true }
+        'output_format (随AI输出开，主API)': { '随主API': true, '额外API': false },
+        '[mvu_update]output_format (使用额外模型更新变量开)': { '随主API': false, '额外API': true }
     };
     function normalizeVariableApiMode(mode) { return mode === '随主API' ? '随主API' : '额外API'; }
     function variableApiStorage() {

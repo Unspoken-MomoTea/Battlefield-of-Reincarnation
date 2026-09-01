@@ -1576,12 +1576,9 @@
                 return; // 直接跳过，免受清理
             }
 
-            // 2. 智能死亡判定
-            // 判断条件 A：HP 归零，并且状态里没有“濒死”二字
-            const isHpZero = (typeof npc.HP === 'number' && npc.HP <= 0);
-            // 遍历状态名，防止 AI 起名字叫“严重濒死”之类的
-            const isDying = npc.状态 && Object.keys(npc.状态).some(key => key.includes('濒死')); 
-            const isHpDead = isHpZero && !isDying;
+            // 2. 死亡判定
+            // 判断条件 A：HP 归零
+            const isHpDead = (typeof npc.HP === 'number' && npc.HP <= 0);
             
             // 判断条件 B：AI 直接在状态里明确写了包含“死亡”的词汇（双重保险）
             const isExplicitlyDead = npc.状态 && Object.keys(npc.状态).some(key => key.includes('死亡'));
@@ -1639,17 +1636,15 @@
 
         // —— 0. 战场敌对存活性检测：无在场存活的敌对 NPC 时强制脱战 ——
         //   敌对定义: 在场 且 非队友 且 好感度<0(仇视及以上敌意)
-        //   存活定义: HP>0 且 状态未明确标注“死亡”，且未处于纯濒死无威胁状态
-        //   (濒死单位失去意识、无法行动，视为无威胁；只要还有任一“非濒死且存活”的敌对单位，战斗继续)
+        //   存活定义: HP>0 且 状态未明确标注“死亡”
         function isHostileAlive(npc) {
             if (!npc) return false;
             // 队友 / 好感度非负 → 非敌对
             if (npc.是否队友 === true) return false;
             const affinity = safeNum(npc.好感度, 0);
             if (affinity >= 0) return false;
-            // 死亡判定: HP 归零(且非濒死护盾) 或 状态含“死亡”
-            const isHpDead = (typeof npc.HP === 'number' && npc.HP <= 0)
-                && !(npc.状态 && Object.keys(npc.状态).some(k => k.includes('濒死')));
+            // 死亡判定: HP 归零 或 状态含“死亡”
+            const isHpDead = (typeof npc.HP === 'number' && npc.HP <= 0);
             const isExplicitlyDead = npc.状态 && Object.keys(npc.状态).some(k => k.includes('死亡'));
             if (isHpDead || isExplicitlyDead) return false;
             // 存活且仍有战斗能力的敌对单位

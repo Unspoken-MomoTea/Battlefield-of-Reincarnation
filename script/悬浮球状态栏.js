@@ -2848,11 +2848,7 @@
     function isNpcDead(n) {
         if (!n || typeof n !== 'object') return false;
         var hp = safeNum(n.HP, 0);
-        var hpmax = safeNum(n.HP_MAX, 0);
-        if (hpmax > 0 && hp <= 0) {
-            var isDying = n.状态 && Object.keys(n.状态).some(function(key) { return key.indexOf('濒死') >= 0; });
-            if (!isDying) return true;
-        }
+        if (hp <= 0) return true;
         var isExplicitlyDead = n.状态 && Object.keys(n.状态).some(function(key) { return key.indexOf('死亡') >= 0; });
         return !!isExplicitlyDead;
     }

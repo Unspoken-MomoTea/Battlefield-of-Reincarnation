@@ -21,13 +21,14 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          import textwrap
           src = Path('.github/workflows/add-variable-update-mode-once.yml').read_text(encoding='utf-8')
           start_marker = '      - name: Apply focused migration\n        shell: python\n        run: |\n'
           end_marker = '\n      - name: Validate syntax and scope'
           start = src.index(start_marker) + len(start_marker)
           end = src.index(end_marker, start)
-          code = textwrap.dedent(src[start:end])
+          segment = src[start:end]
+          lines = segment.splitlines()
+          code = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
           exec(compile(code, 'variable-mode-migration.py', 'exec'))
       - name: Validate syntax and scope
         shell: bash

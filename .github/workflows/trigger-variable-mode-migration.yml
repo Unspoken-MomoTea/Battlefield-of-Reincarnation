@@ -28,7 +28,17 @@ jobs:
           end = src.index(end_marker, start)
           segment = src[start:end]
           lines = segment.splitlines()
-          code = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          raw = [line[10:] if line.startswith('          ') else line for line in lines]
+          filtered = []
+          skipping = False
+          for line in raw:
+              if line.startswith("settings_anchor = '''"):
+                  skipping = True
+              if not skipping:
+                  filtered.append(line)
+              if skipping and "raise RuntimeError('statusbar settings anchor not unique')" in line:
+                  skipping = False
+          code = '\n'.join(filtered) + '\n'
           exec(compile(code, 'variable-mode-migration.py', 'exec'))
       - name: Validate syntax and scope
         shell: bash

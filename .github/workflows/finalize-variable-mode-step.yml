@@ -80,6 +80,7 @@ jobs:
           assert 'ensureVariableApiModeBeforeStepChange' in text
           PY
           git config core.whitespace cr-at-eol
+          git config core.quotepath false
           git diff --check
           test "$(git diff --name-only)" = 'Regular/开局.html'
       - name: Commit and remove workflow

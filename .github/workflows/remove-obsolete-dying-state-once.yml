@@ -124,6 +124,7 @@ jobs:
           node --check 'script/辅助计算脚本.js'
           node --check 'script/悬浮球状态栏.js'
           git config core.whitespace cr-at-eol
+          git config core.quotepath false
           git diff --check
           mapfile -t changed < <(git diff --name-only)
           test "${#changed[@]}" -eq 2

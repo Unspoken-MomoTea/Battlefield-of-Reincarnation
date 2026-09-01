@@ -125,7 +125,10 @@ jobs:
           node --check 'script/悬浮球状态栏.js'
           git config core.whitespace cr-at-eol
           git diff --check
-          test "$(git diff --name-only | sort)" = $'script/悬浮球状态栏.js\nscript/辅助计算脚本.js'
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 2
+          printf '%s\n' "${changed[@]}" | grep -Fx 'script/辅助计算脚本.js'
+          printf '%s\n' "${changed[@]}" | grep -Fx 'script/悬浮球状态栏.js'
 
       - name: Commit patched files and remove one-shot workflow
         shell: bash

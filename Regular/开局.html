@@ -1880,14 +1880,25 @@
     }
 
     // ===== 步骤 =====
-    function jumpStep(n) { 
-        currentStep = n; 
-        applyStepUI(); 
+    async function ensureVariableApiModeBeforeStepChange(targetStep) {
+        if (currentStep !== 1 || targetStep <= 1) return true;
+        const result = await chooseVariableApiMode(getVariableApiMode(), { silent:true });
+        if (result.ok) return true;
+        showToast(result.error || '变量更新方式尚未成功应用，请检查酒馆助手与世界书配置。', 'error');
+        return false;
+    }
+    async function jumpStep(n) {
+        if (!(await ensureVariableApiModeBeforeStepChange(n))) return;
+        currentStep = n;
+        applyStepUI();
     }
     
-    function goStep(dir) {
-        if (dir === 1 && currentStep < 4) currentStep++;
-        else if (dir === -1 && currentStep > 1) currentStep--;
+    async function goStep(dir) {
+        let targetStep = currentStep;
+        if (dir === 1 && currentStep < 4) targetStep = currentStep + 1;
+        else if (dir === -1 && currentStep > 1) targetStep = currentStep - 1;
+        if (!(await ensureVariableApiModeBeforeStepChange(targetStep))) return;
+        currentStep = targetStep;
         applyStepUI();
     }
     

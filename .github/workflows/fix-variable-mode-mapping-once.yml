@@ -30,13 +30,15 @@ jobs:
           ]
 
           for path in files:
-              text = path.read_text(encoding='utf-8')
+              raw = path.read_bytes()
+              text = raw.decode('utf-8')
+              nl = '\r\n' if '\r\n' in text else '\n'
               for line in remove_lines:
                   count = text.count(line)
                   if count != 1:
                       raise RuntimeError(f'{path}: expected exactly one mapping line {line!r}, got {count}')
-                  text = text.replace(line + '\n', '', 1)
-              path.write_text(text, encoding='utf-8', newline='')
+                  text = text.replace(line + nl, '', 1)
+              path.write_bytes(text.encode('utf-8'))
 
       - name: Validate exact two-entry mapping
         shell: bash
@@ -73,7 +75,6 @@ jobs:
               entries = re.findall(r"^\s*'[^']+'\s*:\s*\{", body, flags=re.M)
               if len(entries) != 2:
                   raise SystemExit(f'{filename}: expected exactly 2 switch-controlled worldbook entries, got {len(entries)}')
-
               if "return mode === '随主API' ? '随主API' : '额外API'" not in text:
                   raise SystemExit(f'{filename}: default mode is no longer extra API')
           PY
@@ -84,6 +85,7 @@ jobs:
           test "${#changed[@]}" -eq 2
           printf '%s\n' "${changed[@]}" | grep -Fx 'Regular/开局.html'
           printf '%s\n' "${changed[@]}" | grep -Fx 'script/悬浮球状态栏.js'
+          test "$(git diff --numstat | awk '{a+=$1; d+=$2} END {print a+0, d+0}')" = '0 4'
 
       - name: Commit fix and remove workflow
         shell: bash

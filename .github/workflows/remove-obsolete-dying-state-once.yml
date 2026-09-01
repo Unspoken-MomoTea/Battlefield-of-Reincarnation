@@ -123,6 +123,7 @@ jobs:
         run: |
           node --check 'script/辅助计算脚本.js'
           node --check 'script/悬浮球状态栏.js'
+          git config core.whitespace cr-at-eol
           git diff --check
           test "$(git diff --name-only | sort)" = $'script/悬浮球状态栏.js\nscript/辅助计算脚本.js'
 
@@ -131,6 +132,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config core.whitespace cr-at-eol
           git rm '.github/workflows/remove-obsolete-dying-state-once.yml'
           git add 'script/辅助计算脚本.js' 'script/悬浮球状态栏.js'
           git diff --cached --check

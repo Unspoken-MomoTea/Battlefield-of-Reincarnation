@@ -756,33 +756,12 @@
 
           let trialTasks = readTrialTasks();
           let bestTrialScore = trialScore(trialTasks);
-          let trialWriteBusy = false;
           const achievementTasks = readAchievementTasks();
           const settlementBaselineData = readSettlementBaselineData();
           const credentialGrant = resolveCredentialGrant(settlementBaselineData);
 
           function isTrialPassed(tasks) {
             return tasks.length > 0 && tasks.every(function(task) { return task.status === '可结算'; });
-          }
-
-          function writeTrialQualification() {
-            if (trialWriteBusy || !isTrialPassed(trialTasks)) return;
-            const ctx = getMvuContext();
-            if (!ctx || !ctx.win || !ctx.win.Mvu || typeof ctx.win.Mvu.replaceMvuData !== 'function') return;
-            try {
-              const cloned = clonePlain(ctx.data);
-              const stat = cloned.stat_data || cloned;
-              stat.系统状态 = stat.系统状态 || {};
-              if (stat.系统状态.试炼已完成 === true) return;
-              trialWriteBusy = true;
-              stat.系统状态.试炼已完成 = true;
-              ctx.win.Mvu.replaceMvuData(cloned, { type: 'message', message_id: 'latest' });
-              try { ctx.win.Mvu.replaceMvuData(cloned, { type: 'chat' }); } catch (e2) {}
-            } catch (e) {
-              console.warn('[结算美化] 晋升资格写入失败:', e);
-            } finally {
-              setTimeout(function() { trialWriteBusy = false; }, 0);
-            }
           }
 
           function inferTrialTasksFromSettlement(text) {
@@ -1173,12 +1152,98 @@
                 .join('');
           }
 
+          function hasSettlementHeader(text) {
+            return String(text || '').includes('轮回清算协议');
+          }
+
+          function isFullSettlement(text) {
+            const source = String(text || '');
+            return ['轮回清算协议', '世界因果与综合评估', '因果烙印与干涉回放', '因果演进与世界暗流']
+              .every(function(kw) { return source.includes(kw); });
+          }
+
+          function isLatestPanelMessage(win, targetMessageId) {
+            if (targetMessageId === 'latest') return true;
+            try {
+              const getMsgs = (typeof getChatMessages === 'function')
+                ? getChatMessages
+                : (win && typeof win.getChatMessages === 'function' ? win.getChatMessages.bind(win) : null);
+              const latest = getMsgs ? getMsgs(-1)[0] : null;
+              const latestId = latest && (latest.message_id != null ? latest.message_id : latest.id);
+              return latestId != null && Number(latestId) === Number(targetMessageId);
+            } catch (e) {}
+            return false;
+          }
+
+          function applySettlementFinalization(c, isLatestPanel) {
+            // 历史结算面板只负责展示，绝不清理当前数据库。
+            if (!isLatestPanel) return false;
+            const stat = c && (c.stat_data || c);
+            if (!stat) return false;
+
+            const hasHeader = hasSettlementHeader(rawText);
+            const fullSettlement = isFullSettlement(rawText);
+            const trialPassed = isTrialPassed(trialTasks);
+            let changed = false;
+
+            // 对齐原 onShouldIAdvance：仅出现清算协议标题时，也可补写晋升完成标记；
+            // 完整清算则沿用原 onClearCache 语义，只要数据库中的晋升试炼全部可结算就记为完成。
+            if (hasHeader && trialPassed) {
+              const sys = stat.系统状态 = stat.系统状态 || {};
+              if ((fullSettlement || sys.是否可试炼 === true) && sys.试炼已完成 !== true) {
+                sys.试炼已完成 = true;
+                changed = true;
+              }
+            }
+
+            if (!fullSettlement) return changed;
+
+            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
+            stat.任务 = stat.任务 || {};
+            stat.任务.击杀 = {Ⅰ:0, Ⅱ:0, Ⅲ:0, Ⅳ:0, Ⅴ:0, Ⅵ:0, Ⅶ:0, Ⅷ:0, Ⅸ:0};
+            stat.世界 = stat.世界 || {};
+            stat.世界.探索 = {};
+
+            if (!isSingleWorld) {
+              stat.世界.势力 = {};
+              stat.世界.稳定 = 100;
+              stat.世界.异端雷达 = stat.世界.异端雷达 || {};
+              stat.世界.异端雷达.当前模式 = '';
+              stat.世界.异端雷达.名单 = {};
+              stat.世界.法则 = [];
+              stat.世界.货币 = {};
+              stat.世界.因果轨道 = {};
+              stat.任务.列表 = {};
+              stat.任务.副本成就 = {};
+              stat.传闻 = stat.传闻 || {};
+              stat.传闻.街头巷议 = {};
+              stat.传闻.情报交易 = {};
+              stat.传闻.布告与檄文 = {};
+
+              stat.世界.名称 = '主神空间';
+              stat.世界.位格 = 'Ⅸ';
+              stat.世界.难度 = 'F~SSS';
+              stat.系统状态 = stat.系统状态 || {};
+              stat.系统状态.是否在主神空间 = true;
+            } else {
+              stat.任务.列表 = stat.任务.列表 || {};
+              Object.keys(stat.任务.列表).forEach(function(taskKey) {
+                const taskStatus = stat.任务.列表[taskKey] && stat.任务.列表[taskKey].状态;
+                if (taskStatus === '可结算' || taskStatus === '失败') delete stat.任务.列表[taskKey];
+              });
+            }
+
+            // 完整清算本身就是一次需要持久化的数据库变更，即使本次没有新增奖励。
+            return true;
+          }
+
           function writeSettlementToMvu(d, worldName) {
             try {
               const win = window.parent || window;
               if (!win.Mvu || !win._ || !win._.set) return;
               const panelMessageId = getPanelMessageId(win);
               const targetMessageId = panelMessageId === null ? 'latest' : panelMessageId;
+              const isLatestPanel = isLatestPanelMessage(win, targetMessageId);
               const c = win.Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
               if (!c) return;
 
@@ -1323,19 +1388,11 @@
                 changed = true;
               });
 
+              if (applySettlementFinalization(c, isLatestPanel)) changed = true;
+
               if (!changed) return;
               win.Mvu.replaceMvuData(c, { type: 'message', message_id: targetMessageId });
 
-              let isLatestPanel = targetMessageId === 'latest';
-              if (!isLatestPanel) {
-                try {
-                  const getMsgs = (typeof getChatMessages === 'function')
-                    ? getChatMessages
-                    : (win && typeof win.getChatMessages === 'function' ? win.getChatMessages.bind(win) : null);
-                  const latest = getMsgs ? getMsgs(-1)[0] : null;
-                  isLatestPanel = !!latest && Number(latest.message_id) === Number(targetMessageId);
-                } catch (e2) {}
-              }
               if (isLatestPanel) {
                 try { win.Mvu.replaceMvuData(c, { type: 'chat' }); } catch (e3) {}
               }
@@ -1373,7 +1430,6 @@
                 bestTrialScore = score;
               }
             }
-            if (isTrialPassed(trialTasks)) writeTrialQualification();
             panelDiv.querySelectorAll('.st-trial-host').forEach(function(host) {
               host.innerHTML = renderTrialPanel();
             });

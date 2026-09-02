@@ -432,7 +432,6 @@
             '最终属性',   // 整个属性对象由后台全量计算，AI 禁止修改
         ];
         // 主角专属受保护路径: 层级仅可由 进阶流程(悬浮球"开始进阶"按钮→writeBackMvu) 修改,
-        //   AI/世界书变量更新不得自行改写(试炼完成标记由 onShouldIAdvance 写回, 不广播事件, 不受守卫影响)
         //   ★ 仅主角受限; NPC 层级允许剧情演进自由变动(如反派突破/成长), 不做守卫
         const HERO_ONLY_PROTECTED_PATHS = [
             '层级',
@@ -1785,138 +1784,11 @@
         }
     }
 
-    // 结算清理：消息级防重入，避免同一条 AI 消息多次渲染（编辑/重生成/分页）导致重复清算
-    let clearedMessageId = -1;
-
-    // 处理最新正文内容
-    function onCharacter(messageId) {
-        // messageId 就是最新这条 AI 消息在 chat 数组中的索引
-        const lastMsg = context.chat[messageId];
-
-        // 排除用户消息或系统消息
-        if (lastMsg && !lastMsg.is_user && !lastMsg.is_system) {
-            const aiText = lastMsg.mes; // 这就是 AI 最新返回的纯文本正文
-
-            onShouldIAdvance(aiText, messageId);
-            onClearCache(aiText, messageId);
-            
-            clearedMessageId = messageId;
-        }
-    }
-
-    function hasReadyTrialTask(statData) {
-        const taskList = statData && statData.任务 && statData.任务.列表 && typeof statData.任务.列表 === 'object'
-            ? statData.任务.列表
-            : {};
-        const trialTasks = Object.values(taskList).filter(task => task
-            && String(task.委托方 || '').trim() === '晋升试炼');
-        return trialTasks.length > 0
-            && trialTasks.every(task => String(task.状态 || '').trim() === '可结算');
-    }
-
-    // 结算判断是否取得晋升资格：只认数据库中全部到达【可结算】的专用晋升试炼任务。
-    // 禁止再用正文中的“资格/试炼任务”等宽泛关键词，避免普通结算误触发。
-    function onShouldIAdvance(aiText, messageId) {
-        const keywords = ["轮回清算协议"];
-        const isSettlement = keywords.every(kw => aiText.includes(kw)); // 全部命中才触发
-        const isPass = hasReadyTrialTask(getStatData() || {});
-
-        if (isSettlement && isPass && messageId !== clearedMessageId) {
-            // ★ 本回调(CHARACTER_MESSAGE_RENDERED)不在 VARIABLE_UPDATE_ENDED 流程内，
-            //   getStatData() 返回的 stat_data 不保证是 MVU 主存储的同一引用对象，
-            //   原地改字段不会落库。必须走 writeBackMvu → Mvu.replaceMvuData 正式写回
-            //   message/chat 通道才能持久化到数据库。
-            //   clearedMessageId 防重入已保证同一条消息只写回一次，无 schema reconciliation 风险。
-            const ok = writeBackMvu(function (sd) {
-                if (!sd) return;
-                const sys = sd.系统状态 = sd.系统状态 || {};
-                if (sys.是否可试炼 === true && sys.试炼已完成 === false) {
-                    sys.试炼已完成 = true;
-                }
-            });
-            if (!ok) {
-                console.warn('[辅助计算脚本] 试炼完成标记写回失败');
-            }
-        }
-    }
-
-    // 结算清除副本资料
-    function onClearCache(aiText, messageId) {
-        // 必须同时命中全部结算阶段标题，才判定为一次完整的世界清算面板输出
-        // 用 every 而非 some，避免 AI 在闲聊/旁白中复述单个标题导致整盘数据被静默重置
-        const keywords = ["轮回清算协议", "世界因果与综合评估", "因果烙印与干涉回放", "因果演进与世界暗流"];
-        const isSettlement = keywords.every(kw => aiText.includes(kw));
-        // 在清空任务前预先锁定试炼结果，并在同一次写回中落库，避免连续异步写回互相覆盖。
-        const shouldCompleteTrial = isSettlement && hasReadyTrialTask(getStatData() || {});
-        console.log(`[结算清理] 是否结算: ${isSettlement}`,messageId !== clearedMessageId)
-        if (isSettlement && messageId !== clearedMessageId) {
-            // ★ 本回调(CHARACTER_MESSAGE_RENDERED)不在 VARIABLE_UPDATE_ENDED 流程内，
-            //   getStatData() 返回的 stat_data 不保证是 MVU 主存储的同一引用对象，
-            //   原地改字段不会落库。必须走 writeBackMvu → Mvu.replaceMvuData 正式写回
-            //   message/chat 通道才能持久化到数据库。
-            //   clearedMessageId 防重入已保证同一条消息只写回一次，无 schema reconciliation 风险。
-            const ok = writeBackMvu(function (sd) {
-                if (!sd) return;
-                console.log(`[数据]${sd}`,sd)
-                const isSingleWorld = sd.设置 && sd.设置.单一世界 === true;
-                if (shouldCompleteTrial) {
-                    sd.系统状态 = sd.系统状态 || {};
-                    sd.系统状态.试炼已完成 = true;
-                }
-                // 1. 基础数据重置
-                sd.任务 = sd.任务 || {};
-                sd.任务.击杀 = {Ⅰ:0, Ⅱ:0, Ⅲ:0, Ⅳ:0, Ⅴ:0, Ⅵ:0, Ⅶ:0, Ⅷ:0, Ⅸ:0};
-                sd.世界 = sd.世界 || {};
-                sd.世界.探索 = {};
-                // 2. 根据模式执行深度清理
-                if (!isSingleWorld) {
-                    // 完整世界清算：全量格式化
-                    sd.世界.势力 = {};
-                    sd.世界.稳定 = 100;
-                    sd.世界.异端雷达 = sd.世界.异端雷达 || {};
-                    sd.世界.异端雷达.当前模式 = '';
-                    sd.世界.异端雷达.名单 = {};
-                    sd.世界.法则 = [];
-                    sd.世界.货币 = {};
-                    sd.世界.因果轨道 = {};
-                    sd.任务.列表 = {};
-                    sd.任务.副本成就 = {}; // 副本成就绑定当前副本世界, 完整清算时一并清空
-                    sd.传闻 = sd.传闻 || {};
-                    sd.传闻.街头巷议 = {};
-                    sd.传闻.情报交易 = {};
-                    sd.传闻.布告与檄文 = {};
-
-                    sd.世界.名称 = '主神空间';
-                    sd.世界.位格 = 'Ⅸ';
-                    sd.世界.难度 = 'F~SSS';
-                    sd.系统状态 = sd.系统状态 || {};
-                    sd.系统状态.是否在主神空间 = true;
-                } else {
-                    // 单一世界：精准遍历，仅安全移除【可结算】和【失败】任务，保留进行中
-                    if (!sd.任务.列表) sd.任务.列表 = {};
-                    const taskList = sd.任务.列表;
-                    for (const taskKey in taskList) {
-                        const taskStatus = taskList[taskKey] && taskList[taskKey].状态;
-                        if (taskStatus === '可结算' || taskStatus === '失败') {
-                            delete taskList[taskKey]; // 原生 JS 删除键值
-                        }
-                    }
-                }
-            });
-            if (!ok) {
-                console.warn('[辅助计算脚本] 结算清理写回失败');
-            }
-        }
-    }
-
-    const context = SillyTavern.getContext();
-    const { eventSource, eventTypes } = context;
 
     // 初始化事件注册
     const init = async () => {
         await waitGlobalInitialized('Mvu');
         eventOn(Mvu.events.VARIABLE_UPDATE_ENDED, onUpdateData);
-        eventSource.on(eventTypes.CHARACTER_MESSAGE_RENDERED, onCharacter);
         try { (window.parent || window).__辅助计算脚本_loaded__ = true; } catch(e) { window.__辅助计算脚本_loaded__ = true; }
         // console.log('[辅助计算脚本] 脚本已加载 ');
         toastr.success('[辅助计算脚本] 脚本已加载 ');

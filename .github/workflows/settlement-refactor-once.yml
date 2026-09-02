@@ -20,7 +20,18 @@ jobs:
           fetch-depth: 0
 
       - name: Apply patch
-        run: python3 .github/tmp/settlement_refactor.py
+        run: |
+          python3 .github/tmp/settlement_refactor.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('script/辅助计算脚本.js')
+          s = p.read_bytes().decode('utf-8')
+          s, n = re.subn(r'(AI/世界书变量更新不得自行改写\(试炼完成标记由结算任务美化器写回, 不受守卫影响\))[ \t]+(?=\r?\n)', r'\1', s, count=1)
+          if n != 1:
+              raise SystemExit(f'expected one migrated-comment whitespace cleanup, got {n}')
+          p.write_bytes(s.encode('utf-8'))
+          PY
 
       - name: Static checks
         run: |

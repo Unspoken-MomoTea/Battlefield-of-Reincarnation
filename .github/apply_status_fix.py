@@ -1,0 +1,161 @@
+from pathlib import Path
+import re
+
+
+def read(path):
+    return Path(path).read_bytes().decode('utf-8')
+
+
+def write(path, text):
+    Path(path).write_bytes(text.encode('utf-8'))
+
+
+def nl_of(text):
+    return '\r\n' if '\r\n' in text else '\n'
+
+
+def insert_before(path, anchor, line):
+    text = read(path)
+    if line in text:
+        return
+    nl = nl_of(text)
+    if anchor not in text:
+        raise RuntimeError(f'anchor not found: {path}')
+    write(path, text.replace(anchor, line + nl + anchor, 1))
+
+
+def insert_after(path, anchor, line):
+    text = read(path)
+    if line in text:
+        return
+    nl = nl_of(text)
+    if anchor not in text:
+        raise RuntimeError(f'anchor not found: {path}')
+    write(path, text.replace(anchor, anchor + nl + line, 1))
+
+
+def patch_regex(path, pattern, replacement, marker):
+    text = read(path)
+    if marker in text:
+        return
+    nl = nl_of(text)
+    replacement = replacement.replace('\n', nl)
+    new_text, count = re.subn(pattern, lambda _: replacement, text, count=1, flags=re.S)
+    if count != 1:
+        raise RuntimeError(f'block not found: {path}')
+    write(path, new_text)
+
+
+def optional_replace(path, old, new):
+    text = read(path)
+    if old in text:
+        write(path, text.replace(old, new, 1))
+
+
+# AI提示：临时状态必须调用预算表
+insert_before(
+    'World Book/⚙️品质效果数值规则.txt',
+    '临时状态预算表 (品质: 基础属性修正 | ATK/MATK | DEF/MDEF | 持续伤害)',
+    '临时状态量化: 必须按状态品质取下表对应栏数值，禁止自行估值。'
+)
+insert_after(
+    'World Book/⚙️状态协议.txt',
+    '    世界状态: 永久=品质，临时=数值',
+    '    临时状态: 属性增减必须按<临时状态预算表>量化，增益为正、减益为负'
+)
+
+# ZOD：状态基础/衍生属性都接受品质或数值
+patch_regex(
+    'script/ZOD脚本.js',
+    r"const status_form_attr = z\.record\(E_form_attr, z\.any\(\)\)\.prefault\(\{\}\)\.transform\(obj => \{\r?\n.*?\r?\n\}\);",
+    """const status_form_attr = z.record(E_form_attr, z.any()).prefault({}).transform(obj => {
+    if (!obj || typeof obj !== 'object') return {};
+    const out = {};
+    for (const k of Object.keys(obj)) {
+        const raw = obj[k];
+        const q = String(raw).trim();
+        if (q && QUALITY_LETTERS.has(q)) { out[k] = q; continue; }
+        if (q && ROMAN_TO_QUALITY[q]) { out[k] = ROMAN_TO_QUALITY[q]; continue; }
+        const n = Number(raw);
+        if (Number.isFinite(n) && n !== 0) out[k] = n;
+    }
+    return out;
+});""",
+    'if (q && ROMAN_TO_QUALITY[q]) { out[k] = ROMAN_TO_QUALITY[q]; continue; }\n        const n = Number(raw);'
+)
+optional_replace(
+    'script/ZOD脚本.js',
+    ' * - 衍生项（ATK/DEF/MATK/MDEF/AP）：装备走品质字母；状态走数值',
+    ' * - 状态原始属性：永久/成长型用品质字母，临时型用数值'
+)
+optional_replace(
+    'script/ZOD脚本.js',
+    ' * 状态用：五维接受品质字母（永久/成长型）【或】非零数值（临时/DBUFF型）；衍生项只接受非零数值',
+    ' * 状态用：基础/衍生属性均接受品质字母（永久/成长型）或非零数值（临时型）'
+)
+optional_replace(
+    'script/ZOD脚本.js',
+    ' *   - status_form_attr  → 状态 buff_item：五维留品质字母【或】非零数值；衍生项只留非零数值',
+    ' *   - status_form_attr  → 状态 buff_item：全部属性保留品质字母【或】非零数值'
+)
+
+# 辅助计算：永久/成长状态五维走成长档，衍生品质走对应衍生属性表
+patch_regex(
+    'script/辅助计算脚本.js',
+    r"        if \(kind === 'status'\) \{\r?\n            range = GROW_QUALITY_RANGE\[it\];\r?\n        \} else if \(kind === 'blood' \|\| kind === 'form'\) \{",
+    """        if (kind === 'status') {
+            range = attr5_keys_const.includes(attrKey)
+                ? GROW_QUALITY_RANGE[it]
+                : (EQUIP_QUALITY_RANGE[attrKey] && EQUIP_QUALITY_RANGE[attrKey][it]);
+        } else if (kind === 'blood' || kind === 'form') {""",
+    'range = attr5_keys_const.includes(attrKey)'
+)
+patch_regex(
+    'script/辅助计算脚本.js',
+    r"        if \(kind === 'status'\) \{\r?\n            // 状态五维字母 → 成长档；衍生项不走本函数\(数值直累加\)\r?\n            return grow\(\);\r?\n        \}\r?\n        if \(kind === 'blood' \|\| kind === 'form'\) \{",
+    """        if (kind === 'status') {
+            if (attr5_keys_const.includes(attrKey)) return grow();
+            return equipCol(attrKey);
+        }
+        if (kind === 'blood' || kind === 'form') {""",
+    "if (kind === 'status') {\r\n            if (attr5_keys_const.includes(attrKey)) return grow();"
+)
+patch_regex(
+    'script/辅助计算脚本.js',
+    r"            // 状态衍生项：永远数值，原样进真属性\r?\n            if \(kind === 'status' && !attr5_keys_const\.includes\(k\)\) \{\r?\n                real\[k\] = safeNum\(v, 0\);\r?\n                continue;\r?\n            \}\r?\n            // 状态五维 / 装备&血统&形态 全部项：字母→数值；数值→原样",
+    '            // 状态 / 装备 / 血统 / 形态：品质字母→数值；数字→原样',
+    '// 状态 / 装备 / 血统 / 形态：品质字母→数值；数字→原样'
+)
+patch_regex(
+    'script/辅助计算脚本.js',
+    r"        // 状态\.原始属性：ATK/DEF/MATK/MDEF/AP/先攻DC/防御DC 全部计入bonus（状态无武器拆分逻辑）\r?\n        Object\.entries\(状态\)\.forEach\(\(\[sname, s\]\) => \{\r?\n            if \(s && typeof s === 'object' && s\.原始属性\) \{\r?\n                const sb = 状态Before\[sname\];\r?\n                const rs = resolveRealAttr\(s, 'status', sb\);\r?\n                BONUS_KEYS\.forEach\(k => \{ bonus\[k\] \+= safeNum\(rs\[k\]\); \}\);\r?\n            \}\r?\n        \}\);",
+    """        // 状态.原始属性：衍生项全部计入bonus；减益型品质属性按负值结算
+        Object.entries(状态).forEach(([sname, s]) => {
+            if (s && typeof s === 'object' && s.原始属性) {
+                const sb = 状态Before[sname];
+                const rs = resolveRealAttr(s, 'status', sb);
+                const isDebuff = String(s.类型).trim() === '减益';
+                BONUS_KEYS.forEach(k => {
+                    const v = safeNum(rs[k]);
+                    if (isDebuff && isQualityString(s.原始属性[k]) && v > 0) bonus[k] -= v;
+                    else bonus[k] += v;
+                });
+            }
+        });""",
+    'if (isDebuff && isQualityString(s.原始属性[k])'
+)
+optional_replace(
+    'script/辅助计算脚本.js',
+    '【血统/形态/成长状态 单属性加成档】',
+    '【血统/形态/成长状态 基础属性加成档】'
+)
+optional_replace(
+    'script/辅助计算脚本.js',
+    '状态特例：衍生项数值原样进真属性；五维项：字母→数值，数值→原样',
+    '状态：基础/衍生属性均支持字母→数值，数字则原样保留'
+)
+optional_replace(
+    'script/辅助计算脚本.js',
+    '真属性(数值)累加；状态五维双修(字母→真属性 / 数值→原样)，衍生项永远数值',
+    '真属性(数值)累加；状态原始属性支持品质字母→真属性或数值原样'
+)

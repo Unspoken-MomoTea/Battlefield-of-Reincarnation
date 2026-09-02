@@ -1,0 +1,60 @@
+name: settlement-reprocess-refactor-once
+
+on:
+  push:
+    branches:
+      - codex/move-settlement-finalization
+    paths:
+      - .github/workflows/settlement-reprocess-refactor-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/move-settlement-finalization
+          fetch-depth: 0
+
+      - name: Apply patch
+        run: python3 .github/tmp/settlement_reprocess_patch.py
+
+      - name: Static checks
+        run: |
+          node --check script/辅助计算脚本.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          src = Path('Regular/结算任务美化.html').read_bytes().decode('utf-8')
+          m = re.search(r'<script>([\s\S]*?)</script>', src)
+          if not m:
+              raise SystemExit('embedded settlement script not found')
+          code = m.group(1)
+          Path('/tmp/settlement.js').write_text(code, encoding='utf-8')
+          required = [
+              'let settlementWriteBusy = false;',
+              'if (settlementWriteBusy) return;',
+              'function setValue(target, key, value)',
+              'applySettlementFinalization(c, isLatestPanel)',
+          ]
+          for item in required:
+              if item not in code:
+                  raise SystemExit(f'missing required code: {item}')
+          if code.count('if (hasStruct) writeSettlementToMvu(d, worldName);') != 2:
+              raise SystemExit('expected initial + VARIABLE_UPDATE_ENDED settlement writes')
+          PY
+          node --check /tmp/settlement.js
+          git diff --check
+          git diff --stat
+
+      - name: Commit patched source
+        run: |
+          test -n "$(git status --porcelain -- Regular/结算任务美化.html)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Regular/结算任务美化.html
+          git commit -m "fix: rerun settlement finalization after variable reprocess"
+          git push origin HEAD:codex/move-settlement-finalization

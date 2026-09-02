@@ -756,6 +756,7 @@
 
           let trialTasks = readTrialTasks();
           let bestTrialScore = trialScore(trialTasks);
+          let settlementWriteBusy = false;
           const achievementTasks = readAchievementTasks();
           const settlementBaselineData = readSettlementBaselineData();
           const credentialGrant = resolveCredentialGrant(settlementBaselineData);
@@ -1186,58 +1187,84 @@
             const trialPassed = isTrialPassed(trialTasks);
             let changed = false;
 
+            function sameValue(a, b) {
+              if (a === b) return true;
+              try { return JSON.stringify(a) === JSON.stringify(b); }
+              catch (e) { return false; }
+            }
+
+            function setValue(target, key, value) {
+              if (sameValue(target[key], value)) return;
+              target[key] = value;
+              changed = true;
+            }
+
+            function ensureObject(target, key) {
+              const cur = target[key];
+              if (!cur || typeof cur !== 'object' || Array.isArray(cur)) {
+                target[key] = {};
+                changed = true;
+              }
+              return target[key];
+            }
+
             // 对齐原 onShouldIAdvance：仅出现清算协议标题时，也可补写晋升完成标记；
             // 完整清算则沿用原 onClearCache 语义，只要数据库中的晋升试炼全部可结算就记为完成。
             if (hasHeader && trialPassed) {
-              const sys = stat.系统状态 = stat.系统状态 || {};
-              if ((fullSettlement || sys.是否可试炼 === true) && sys.试炼已完成 !== true) {
-                sys.试炼已完成 = true;
-                changed = true;
+              const currentSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
+              if ((fullSettlement || currentSys.是否可试炼 === true) && currentSys.试炼已完成 !== true) {
+                const sys = ensureObject(stat, '系统状态');
+                setValue(sys, '试炼已完成', true);
               }
             }
 
             if (!fullSettlement) return changed;
 
             const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
-            stat.任务 = stat.任务 || {};
-            stat.任务.击杀 = {Ⅰ:0, Ⅱ:0, Ⅲ:0, Ⅳ:0, Ⅴ:0, Ⅵ:0, Ⅶ:0, Ⅷ:0, Ⅸ:0};
-            stat.世界 = stat.世界 || {};
-            stat.世界.探索 = {};
+            const tasks = ensureObject(stat, '任务');
+            const world = ensureObject(stat, '世界');
+            setValue(tasks, '击杀', {Ⅰ:0, Ⅱ:0, Ⅲ:0, Ⅳ:0, Ⅴ:0, Ⅵ:0, Ⅶ:0, Ⅷ:0, Ⅸ:0});
+            setValue(world, '探索', {});
 
             if (!isSingleWorld) {
-              stat.世界.势力 = {};
-              stat.世界.稳定 = 100;
-              stat.世界.异端雷达 = stat.世界.异端雷达 || {};
-              stat.世界.异端雷达.当前模式 = '';
-              stat.世界.异端雷达.名单 = {};
-              stat.世界.法则 = [];
-              stat.世界.货币 = {};
-              stat.世界.因果轨道 = {};
-              stat.任务.列表 = {};
-              stat.任务.副本成就 = {};
-              stat.传闻 = stat.传闻 || {};
-              stat.传闻.街头巷议 = {};
-              stat.传闻.情报交易 = {};
-              stat.传闻.布告与檄文 = {};
+              setValue(world, '势力', {});
+              setValue(world, '稳定', 100);
+              const radar = ensureObject(world, '异端雷达');
+              setValue(radar, '当前模式', '');
+              setValue(radar, '名单', {});
+              setValue(world, '法则', []);
+              setValue(world, '货币', {});
+              setValue(world, '因果轨道', {});
+              setValue(tasks, '列表', {});
+              setValue(tasks, '副本成就', {});
 
-              stat.世界.名称 = '主神空间';
-              stat.世界.位格 = 'Ⅸ';
-              stat.世界.难度 = 'F~SSS';
-              stat.系统状态 = stat.系统状态 || {};
-              stat.系统状态.是否在主神空间 = true;
+              const rumors = ensureObject(stat, '传闻');
+              setValue(rumors, '街头巷议', {});
+              setValue(rumors, '情报交易', {});
+              setValue(rumors, '布告与檄文', {});
+
+              setValue(world, '名称', '主神空间');
+              setValue(world, '位格', 'Ⅸ');
+              setValue(world, '难度', 'F~SSS');
+              const sys = ensureObject(stat, '系统状态');
+              setValue(sys, '是否在主神空间', true);
             } else {
-              stat.任务.列表 = stat.任务.列表 || {};
-              Object.keys(stat.任务.列表).forEach(function(taskKey) {
-                const taskStatus = stat.任务.列表[taskKey] && stat.任务.列表[taskKey].状态;
-                if (taskStatus === '可结算' || taskStatus === '失败') delete stat.任务.列表[taskKey];
+              const taskList = ensureObject(tasks, '列表');
+              Object.keys(taskList).forEach(function(taskKey) {
+                const taskStatus = taskList[taskKey] && taskList[taskKey].状态;
+                if (taskStatus === '可结算' || taskStatus === '失败') {
+                  delete taskList[taskKey];
+                  changed = true;
+                }
               });
             }
 
-            // 完整清算本身就是一次需要持久化的数据库变更，即使本次没有新增奖励。
-            return true;
+            return changed;
           }
 
           function writeSettlementToMvu(d, worldName) {
+            if (settlementWriteBusy) return;
+            settlementWriteBusy = true;
             try {
               const win = window.parent || window;
               if (!win.Mvu || !win._ || !win._.set) return;
@@ -1397,6 +1424,9 @@
                 try { win.Mvu.replaceMvuData(c, { type: 'chat' }); } catch (e3) {}
               }
             } catch (e) { console.warn('结算任务写入数据库失败:', e); }
+            finally {
+              setTimeout(function() { settlementWriteBusy = false; }, 0);
+            }
           }
 
           const btn = wrapper.querySelector('.st-btn');
@@ -1430,6 +1460,8 @@
                 bestTrialScore = score;
               }
             }
+            // “重新处理变量”只触发 VARIABLE_UPDATE_ENDED 时，也重新执行幂等结算写入。
+            if (hasStruct) writeSettlementToMvu(d, worldName);
             panelDiv.querySelectorAll('.st-trial-host').forEach(function(host) {
               host.innerHTML = renderTrialPanel();
             });

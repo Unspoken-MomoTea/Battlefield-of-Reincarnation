@@ -112,7 +112,7 @@ const form_attr_val = clampNum(0, -99999999, 99999999);
 /**
  * 稀疏属性对象（装备/状态/形态共用意图：只保留「写了且有效」的项）
  * - 五维（力量/敏捷/体质/精神/魅力）：品质枚举 E_quality（F~SSS）
- * - 衍生项（ATK/DEF/MATK/MDEF/AP）：装备走品质字母；状态走数值
+ * - 状态原始属性：永久/成长型用品质字母，临时型用数值
  * - z.record 本身不会按枚举补全缺失键；只校验已有键名是否在 E_form_attr 内
  * - 未生成/空对象 → {}
  *
@@ -156,7 +156,7 @@ const sparse_form_attr = z.record(E_form_attr, z.any()).prefault({}).transform(o
     return out;
 });
 /**
- * 状态用：五维接受品质字母（永久/成长型）【或】非零数值（临时/DBUFF型）；衍生项只接受非零数值
+ * 状态用：基础/衍生属性均接受品质字母（永久/成长型）或非零数值（临时型）
  * ★ 同上设计：record 锚定 E_form_attr 由 prefault 兜底补全键；尾部 transform 做稀疏清洗
  *   - 五维：保品质字母(成长/功法型) 或 非零数值(临时/DBUFF型)
  *   - 衍生项：只保非零数值
@@ -165,18 +165,12 @@ const status_form_attr = z.record(E_form_attr, z.any()).prefault({}).transform(o
     if (!obj || typeof obj !== 'object') return {};
     const out = {};
     for (const k of Object.keys(obj)) {
-        if (attr5_keys.includes(k)) {
-            const raw = obj[k];
-            const q = String(raw).trim();
-            if (q && QUALITY_LETTERS.has(q)) { out[k] = q; continue; } // 成长/功法型：品质字母
-            if (q && ROMAN_TO_QUALITY[q]) { out[k] = ROMAN_TO_QUALITY[q]; continue; } // AI 错传罗马数字 → 归正品质字母
-            const n = Number(raw);                                       // 临时/DBUFF型：数值
-            if (Number.isFinite(n) && n !== 0) out[k] = n;
-        } else {
-            // 衍生项：状态一律用数值（仅保留非 0 项）
-            const n = Number(obj[k]);
-            if (Number.isFinite(n) && n !== 0) out[k] = n;
-        }
+        const raw = obj[k];
+        const q = String(raw).trim();
+        if (q && QUALITY_LETTERS.has(q)) { out[k] = q; continue; }
+        if (q && ROMAN_TO_QUALITY[q]) { out[k] = ROMAN_TO_QUALITY[q]; continue; }
+        const n = Number(raw);
+        if (Number.isFinite(n) && n !== 0) out[k] = n;
     }
     return out;
 });

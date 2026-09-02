@@ -565,7 +565,7 @@
         return Object.prototype.hasOwnProperty.call(ROMAN_TO_QUALITY, s);
     }
     /**
-     * 【血统/形态/成长状态 单属性加成档】（按实体品质锁主区间）
+     * 【血统/形态/成长状态 基础属性加成档】（按实体品质锁主区间）
      *   key = 实体品质 ; value = [下限, 上限]
      *   D 级血统: 力量原属性任意品质 → 都在 D 档 120-180 内 9 等分取段
      */
@@ -622,7 +622,9 @@
         const it = normalizeTier(itemTier);
         let range;
         if (kind === 'status') {
-            range = GROW_QUALITY_RANGE[it];
+            range = attr5_keys_const.includes(attrKey)
+                ? GROW_QUALITY_RANGE[it]
+                : (EQUIP_QUALITY_RANGE[attrKey] && EQUIP_QUALITY_RANGE[attrKey][it]);
         } else if (kind === 'blood' || kind === 'form') {
             if (attr5_keys_const.includes(attrKey)) {
                 range = GROW_QUALITY_RANGE[it];
@@ -674,7 +676,7 @@
      *   - 不用任何缓存/快照/before 对比；用"档位区间校验"独立判断品质是否变化
      *   - 品质未变(旧真属性落在当前品质算出的档位 [segBase+1, segBase+w] 内) → 复用旧随机数，不重随机
      *   - 品质变化(单项字母变 / 实体整体品质变 → 落到旧区间外) → 重随机
-     *   - 状态特例：衍生项数值原样进真属性；五维项：字母→数值，数值→原样
+     *   - 状态：基础/衍生属性均支持字母→数值，数字则原样保留
      * @param {object} item 实体（血统/装备/状态/形态）
      * @param {'blood'|'equip'|'form'|'status'} kind 来源类型
      * @param {object} [itemBefore] 保留参数(已不依赖；区间校验取代 before 对比)
@@ -700,12 +702,7 @@
         for (const k of Object.keys(raw)) {
             const v = raw[k];
             const isQ = isQualityString(v);
-            // 状态衍生项：永远数值，原样进真属性
-            if (kind === 'status' && !attr5_keys_const.includes(k)) {
-                real[k] = safeNum(v, 0);
-                continue;
-            }
-            // 状态五维 / 装备&血统&形态 全部项：字母→数值；数值→原样
+            // 状态 / 装备 / 血统 / 形态：品质字母→数值；数字→原样
             //   ★ 区间校验独立于 before：旧真属性落在当前档位区间内 → 保留；否则重随机
             const tier = isQ ? normalizeTier(v) : null;
             if (isQ) {
@@ -1010,7 +1007,7 @@
 
         // —— 1. 最终五维 ——
         // 来源：血统 + (激活形态) + 已穿戴装备五维 + 状态五维
-        // 真属性(数值)累加；状态五维双修(字母→真属性 / 数值→原样)，衍生项永远数值
+        // 真属性(数值)累加；状态原始属性支持品质字母→真属性或数值原样
         const statusSix = {};
         ATTR_NAMES.forEach(a => { statusSix[a] = 0; });
         Object.entries(状态).forEach(([sname, s]) => {
@@ -1123,12 +1120,17 @@
         if (formActive) {
             DERIVED_ATTRS.forEach(k => { bonus[k] += safeNum(sixSource[k]); });
         }
-        // 状态.原始属性：ATK/DEF/MATK/MDEF/AP/先攻DC/防御DC 全部计入bonus（状态无武器拆分逻辑）
+        // 状态.原始属性：衍生项全部计入 bonus；减益型品质属性按负值结算
         Object.entries(状态).forEach(([sname, s]) => {
             if (s && typeof s === 'object' && s.原始属性) {
                 const sb = 状态Before[sname];
                 const rs = resolveRealAttr(s, 'status', sb);
-                BONUS_KEYS.forEach(k => { bonus[k] += safeNum(rs[k]); });
+                const isDebuff = String(s.类型).trim() === '减益';
+                BONUS_KEYS.forEach(k => {
+                    const v = safeNum(rs[k]);
+                    if (isDebuff && isQualityString(s.原始属性[k]) && v > 0) bonus[k] -= v;
+                    else bonus[k] += v;
+                });
             }
         });
 

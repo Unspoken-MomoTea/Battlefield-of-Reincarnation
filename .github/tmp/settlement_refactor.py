@@ -1,0 +1,206 @@
+from pathlib import Path
+import re
+
+helper_path = Path('script/辅助计算脚本.js')
+settlement_path = Path('Regular/结算任务美化.html')
+
+
+def replace_once(text, old, new, label):
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f'{label}: expected exactly 1 literal match, got {count}')
+    return text.replace(old, new, 1)
+
+
+def regex_once(text, pattern, replacement, label):
+    out, count = re.subn(pattern, lambda m: replacement, text, count=1)
+    if count != 1:
+        raise SystemExit(f'{label}: expected exactly 1 regex match, got {count}')
+    return out
+
+
+# --- helper script: remove settlement-only render listener and both handlers ---
+helper = helper_path.read_bytes().decode('utf-8')
+hnl = '\r\n' if '\r\n' in helper else '\n'
+
+helper = regex_once(
+    helper,
+    r'\r?\n    // 结算清理：消息级防重入[\s\S]*?\r?\n    const context = SillyTavern\.getContext\(\);\r?\n    const \{ eventSource, eventTypes \} = context;\r?\n',
+    hnl,
+    'remove helper settlement handlers',
+)
+helper = regex_once(
+    helper,
+    r'\r?\n        eventSource\.on\(eventTypes\.CHARACTER_MESSAGE_RENDERED, onCharacter\);',
+    '',
+    'remove CHARACTER_MESSAGE_RENDERED listener',
+)
+old_comment = 'AI/世界书变量更新不得自行改写(试炼完成标记由 onShouldIAdvance 写回, 不广播事件, 不受守卫影响)'
+new_comment = 'AI/世界书变量更新不得自行改写(试炼完成标记由结算任务美化器写回, 不受守卫影响)'
+helper = replace_once(helper, old_comment, new_comment, 'update stale settlement comment')
+
+for forbidden in (
+    'function onShouldIAdvance(',
+    'function onClearCache(',
+    'function onCharacter(',
+    'eventSource.on(eventTypes.CHARACTER_MESSAGE_RENDERED',
+    'let clearedMessageId =',
+    'function hasReadyTrialTask(',
+):
+    if forbidden in helper:
+        raise SystemExit(f'helper still contains migrated code: {forbidden}')
+helper_path.write_bytes(helper.encode('utf-8'))
+
+
+# --- settlement beautifier: absorb trial-complete + cleanup into the existing one-shot MVU writer ---
+settlement = settlement_path.read_bytes().decode('utf-8')
+snl = '\r\n' if '\r\n' in settlement else '\n'
+
+settlement = replace_once(
+    settlement,
+    snl + '          let trialWriteBusy = false;',
+    '',
+    'remove trialWriteBusy',
+)
+settlement = regex_once(
+    settlement,
+    r'\r?\n          function writeTrialQualification\(\) \{[\s\S]*?\r?\n          \}\r?\n\r?\n          function inferTrialTasksFromSettlement\(text\) \{',
+    snl + '          function inferTrialTasksFromSettlement(text) {',
+    'remove separate trial qualification writer',
+)
+
+marker = '          function writeSettlementToMvu(d, worldName) {'
+finalizer = '''          function hasSettlementHeader(text) {
+            return String(text || '').includes('轮回清算协议');
+          }
+
+          function isFullSettlement(text) {
+            const source = String(text || '');
+            return ['轮回清算协议', '世界因果与综合评估', '因果烙印与干涉回放', '因果演进与世界暗流']
+              .every(function(kw) { return source.includes(kw); });
+          }
+
+          function isLatestPanelMessage(win, targetMessageId) {
+            if (targetMessageId === 'latest') return true;
+            try {
+              const getMsgs = (typeof getChatMessages === 'function')
+                ? getChatMessages
+                : (win && typeof win.getChatMessages === 'function' ? win.getChatMessages.bind(win) : null);
+              const latest = getMsgs ? getMsgs(-1)[0] : null;
+              const latestId = latest && (latest.message_id != null ? latest.message_id : latest.id);
+              return latestId != null && Number(latestId) === Number(targetMessageId);
+            } catch (e) {}
+            return false;
+          }
+
+          function applySettlementFinalization(c, isLatestPanel) {
+            // 历史结算面板只负责展示，绝不清理当前数据库。
+            if (!isLatestPanel) return false;
+            const stat = c && (c.stat_data || c);
+            if (!stat) return false;
+
+            const hasHeader = hasSettlementHeader(rawText);
+            const fullSettlement = isFullSettlement(rawText);
+            const trialPassed = isTrialPassed(trialTasks);
+            let changed = false;
+
+            // 对齐原 onShouldIAdvance：仅出现清算协议标题时，也可补写晋升完成标记；
+            // 完整清算则沿用原 onClearCache 语义，只要数据库中的晋升试炼全部可结算就记为完成。
+            if (hasHeader && trialPassed) {
+              const sys = stat.系统状态 = stat.系统状态 || {};
+              if ((fullSettlement || sys.是否可试炼 === true) && sys.试炼已完成 !== true) {
+                sys.试炼已完成 = true;
+                changed = true;
+              }
+            }
+
+            if (!fullSettlement) return changed;
+
+            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
+            stat.任务 = stat.任务 || {};
+            stat.任务.击杀 = {Ⅰ:0, Ⅱ:0, Ⅲ:0, Ⅳ:0, Ⅴ:0, Ⅵ:0, Ⅶ:0, Ⅷ:0, Ⅸ:0};
+            stat.世界 = stat.世界 || {};
+            stat.世界.探索 = {};
+
+            if (!isSingleWorld) {
+              stat.世界.势力 = {};
+              stat.世界.稳定 = 100;
+              stat.世界.异端雷达 = stat.世界.异端雷达 || {};
+              stat.世界.异端雷达.当前模式 = '';
+              stat.世界.异端雷达.名单 = {};
+              stat.世界.法则 = [];
+              stat.世界.货币 = {};
+              stat.世界.因果轨道 = {};
+              stat.任务.列表 = {};
+              stat.任务.副本成就 = {};
+              stat.传闻 = stat.传闻 || {};
+              stat.传闻.街头巷议 = {};
+              stat.传闻.情报交易 = {};
+              stat.传闻.布告与檄文 = {};
+
+              stat.世界.名称 = '主神空间';
+              stat.世界.位格 = 'Ⅸ';
+              stat.世界.难度 = 'F~SSS';
+              stat.系统状态 = stat.系统状态 || {};
+              stat.系统状态.是否在主神空间 = true;
+            } else {
+              stat.任务.列表 = stat.任务.列表 || {};
+              Object.keys(stat.任务.列表).forEach(function(taskKey) {
+                const taskStatus = stat.任务.列表[taskKey] && stat.任务.列表[taskKey].状态;
+                if (taskStatus === '可结算' || taskStatus === '失败') delete stat.任务.列表[taskKey];
+              });
+            }
+
+            // 完整清算本身就是一次需要持久化的数据库变更，即使本次没有新增奖励。
+            return true;
+          }
+
+'''.replace('\n', snl)
+settlement = replace_once(
+    settlement,
+    marker,
+    finalizer + marker,
+    'insert settlement finalizer',
+)
+
+old_target = "              const targetMessageId = panelMessageId === null ? 'latest' : panelMessageId;"
+new_target = old_target + snl + '              const isLatestPanel = isLatestPanelMessage(win, targetMessageId);'
+settlement = replace_once(settlement, old_target, new_target, 'resolve latest panel before mutation')
+
+old_write_tail = '''              if (!changed) return;
+              win.Mvu.replaceMvuData(c, { type: 'message', message_id: targetMessageId });
+
+              let isLatestPanel = targetMessageId === 'latest';
+              if (!isLatestPanel) {
+                try {
+                  const getMsgs = (typeof getChatMessages === 'function')
+                    ? getChatMessages
+                    : (win && typeof win.getChatMessages === 'function' ? win.getChatMessages.bind(win) : null);
+                  const latest = getMsgs ? getMsgs(-1)[0] : null;
+                  isLatestPanel = !!latest && Number(latest.message_id) === Number(targetMessageId);
+                } catch (e2) {}
+              }
+              if (isLatestPanel) {'''.replace('\n', snl)
+new_write_tail = '''              if (applySettlementFinalization(c, isLatestPanel)) changed = true;
+
+              if (!changed) return;
+              win.Mvu.replaceMvuData(c, { type: 'message', message_id: targetMessageId });
+
+              if (isLatestPanel) {'''.replace('\n', snl)
+settlement = replace_once(settlement, old_write_tail, new_write_tail, 'merge finalization into single MVU write')
+
+settlement = replace_once(
+    settlement,
+    snl + '            if (isTrialPassed(trialTasks)) writeTrialQualification();',
+    '',
+    'remove refresh-time trial writer',
+)
+
+for forbidden in ('writeTrialQualification(', 'trialWriteBusy'):
+    if forbidden in settlement:
+        raise SystemExit(f'settlement still contains obsolete writer: {forbidden}')
+for required in ('function applySettlementFinalization(', 'function isLatestPanelMessage(', 'applySettlementFinalization(c, isLatestPanel)'):
+    if required not in settlement:
+        raise SystemExit(f'settlement missing migrated logic: {required}')
+
+settlement_path.write_bytes(settlement.encode('utf-8'))

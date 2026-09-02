@@ -27,17 +27,16 @@ jobs:
           p = Path('script/辅助计算脚本.js')
           s = p.read_bytes().decode('utf-8')
           lines = s.splitlines(keepends=True)
-          found = 0
-          for i, line in enumerate(lines):
-              if '试炼完成标记由结算任务美化器写回' not in line:
+          kept = []
+          removed = 0
+          for line in lines:
+              if '试炼完成标记由结算任务美化器写回' in line:
+                  removed += 1
                   continue
-              found += 1
-              ending = '\r\n' if line.endswith('\r\n') else ('\n' if line.endswith('\n') else '')
-              body = line[:-len(ending)] if ending else line
-              lines[i] = body.rstrip() + ending
-          if found != 1:
-              raise SystemExit(f'expected one migrated comment line, got {found}')
-          p.write_bytes(''.join(lines).encode('utf-8'))
+              kept.append(line)
+          if removed != 1:
+              raise SystemExit(f'expected one migrated comment line to remove, got {removed}')
+          p.write_bytes(''.join(kept).encode('utf-8'))
           PY
 
       - name: Static checks

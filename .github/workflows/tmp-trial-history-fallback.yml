@@ -26,15 +26,7 @@ jobs:
           rm .github/workflows/tmp-trial-history-fallback.yml
 
       - name: Validate diff
-        run: |
-          git diff --check
-          test "$(git diff --name-only | sort)" = "Regular/结算任务美化.html
-.github/tmp/patch-trial-history-fallback.js
-.github/workflows/tmp-trial-history-fallback.yml" || {
-            echo "Unexpected changed files:"
-            git diff --name-only
-            exit 1
-          }
+        run: git diff --check
 
       - name: Validate embedded JavaScript syntax
         run: |
@@ -47,18 +39,16 @@ jobs:
           NODE
           node --check /tmp/settlement-script.js
 
-      - name: Validate trial fallback behavior markers
+      - name: Validate focused file set and behavior markers
         run: |
           node - <<'NODE'
           const fs = require('fs');
+          const cp = require('child_process');
+          const names = cp.execSync('git diff --name-only', {encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean).sort();
+          const expected = ['.github/tmp/patch-trial-history-fallback.js', '.github/workflows/tmp-trial-history-fallback.yml', 'Regular/结算任务美化.html'].sort();
+          if (JSON.stringify(names) !== JSON.stringify(expected)) throw new Error('Unexpected changed files: ' + names.join(', '));
           const s = fs.readFileSync('Regular/结算任务美化.html', 'utf8');
-          const must = [
-            'function extractTrialTasks(data)',
-            "String(task.委托方 || '').trim() === '晋升试炼'",
-            'currentTasks = extractTrialTasks',
-            'for (let step = 1; step <= 3; step++)',
-            'if (previousHit) return previousHit;'
-          ];
+          const must = ['function extractTrialTasks(data)', "String(task.委托方 || '').trim() === '晋升试炼'", 'currentTasks = extractTrialTasks', 'for (let step = 1; step <= 3; step++)', 'if (previousHit) return previousHit;'];
           for (const x of must) if (!s.includes(x)) throw new Error('Missing: ' + x);
           const banned = ['inferTrialTasksFromSettlement', '晋升试炼[·\\.]', "'晋升试炼·'"];
           for (const x of banned) if (s.includes(x)) throw new Error('Legacy logic remains: ' + x);

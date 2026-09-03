@@ -5423,7 +5423,7 @@
         return html;
     }
     /* NPC单列卡片: mode决定字段
-       all    -> 名字/在场状态/种族/身份/HP·好感/外貌/心里话
+       all    -> 名字/在场状态/种族/身份/HP·好感/外貌/态度
        present-> 能显示都显示+伸缩框(性格/着装/喜爱/状态/装备/技能等)
        absent -> 姓名/种族/身份/层级/好感度/外貌/背景故事 */
     /* 仅AI可见的身份关键词: 不在玩家面板显示(只在数据库中给AI看) */
@@ -5463,7 +5463,7 @@
             var dress = safeStr(n.着装) || '';
             var persona = safeStr(n.性格) || '';
             var likes = safeStr(n.喜爱) || '';
-            var mind = safeStr(n.心里话) || '';
+            var mind = safeStr(n.态度) || '';
             var bg = safeStr(n.背景故事) || '';
             var presentTxt = (n.在场 === true) ? '是' : '否';
             // 在场卡片点击弹详情(同全部/不在场)
@@ -5537,7 +5537,7 @@
                     if (looks) card += npcRow('外貌', looks);
                     if (dress) card += npcRow('着装', dress);
                 }
-                // 心里话
+                // 态度
                 if (mind) { card += '<div class="sam-npc-sec"></div>'; card += '<div class="sam-npc-quote">'+esc(mind)+'</div>'; }
             } else { // absent
                 card += npcRow('种族', race);
@@ -6206,7 +6206,7 @@
 
     /* ===== 31. 详情弹窗(点击卡片) ===== */
     // 玩家不可见的敏感字段(不给玩家看)
-    var HIDDEN_FIELDS = ['隐藏真相', '真实内幕', '心里话', '真属性'];
+    var HIDDEN_FIELDS = ['隐藏真相', '真实内幕', '态度', '真属性'];
     function openDetailModal(path, title) {
         var sd = getStatData();
         if (!sd) return;
@@ -6312,13 +6312,13 @@
             var occHtml = occupationCardsHtml(n.职业);
             if (occHtml) html += occHtml;
         }
-        // ④ 心里话 (编辑模式: 全宽可编辑块(textarea 在 2 列网格中过窄, 故独立渲染); 只读态: 仅有值时显示引用)
+        // ④ 态度 (编辑模式: 全宽可编辑块(textarea 在 2 列网格中过窄, 故独立渲染); 只读态: 仅有值时显示引用)
         if (editMode) {
-            if (!isReadonlyPath(npcPath+'.心里话')) {
-                html += '<div class="sam-nd-block"><div class="sam-nd-block-lbl">心里话</div><div class="sam-nd-block-ct">'+editInput(npcPath+'.心里话', safeStr(n.心里话), 'textarea')+'</div></div>';
+            if (!isReadonlyPath(npcPath+'.态度')) {
+                html += '<div class="sam-nd-block"><div class="sam-nd-block-lbl">态度</div><div class="sam-nd-block-ct">'+editInput(npcPath+'.态度', safeStr(n.态度), 'textarea')+'</div></div>';
             }
-        } else if (safeStr(n.心里话)) {
-            html += '<div class="sam-nd-quote">💬 '+esc(safeStr(n.心里话))+'</div>';
+        } else if (safeStr(n.态度)) {
+            html += '<div class="sam-nd-quote">💬 '+esc(safeStr(n.态度))+'</div>';
         }
         // ⑤ 战斗属性条 (HP_MAX/EP_MAX/THP 任一>0 才显示; 编辑模式: HP/EP/THP 当前值可编辑, 上限只读)
         if (editMode || hpmax > 0 || epmax > 0 || thp > 0) {
@@ -6427,7 +6427,7 @@
         return '<div class="sam-nd-block"><div class="sam-nd-block-lbl">'+esc(label)+'</div><div class="sam-nd-block-ct">'+esc(safeStr(content))+'</div></div>';
     }
     /* 精美递归渲染: 标量分短值(网格行)/长文本(块); 子对象/数组用可伸缩details; 字符串数组用tag chips */
-    var DETAIL_LONG_FIELDS = ['描述','外貌','着装','性格','喜爱','心里话','背景故事','内容','状态','效果','摘要','真实内幕','隐藏真相'];
+    var DETAIL_LONG_FIELDS = ['描述','外貌','着装','性格','喜爱','态度','背景故事','内容','状态','效果','摘要','真实内幕','隐藏真相'];
     function isLongField(k, v) {
         if (DETAIL_LONG_FIELDS.indexOf(k) >= 0) return true;
         if (typeof v === 'string' && v.length > 30) return true;

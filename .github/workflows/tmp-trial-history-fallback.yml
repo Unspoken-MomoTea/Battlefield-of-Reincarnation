@@ -44,7 +44,7 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const cp = require('child_process');
-          const names = cp.execSync('git diff --name-only', {encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean).sort();
+          const names = cp.execSync('git -c core.quotepath=false diff --name-only', {encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean).sort();
           const expected = ['.github/tmp/patch-trial-history-fallback.js', '.github/workflows/tmp-trial-history-fallback.yml', 'Regular/结算任务美化.html'].sort();
           if (JSON.stringify(names) !== JSON.stringify(expected)) throw new Error('Unexpected changed files: ' + names.join(', '));
           const s = fs.readFileSync('Regular/结算任务美化.html', 'utf8');

@@ -328,7 +328,7 @@ const npc_schema = strictItem(z.object({
     着装: safeStr(''),
     是否队友: boolPreprocess(false),
     好感度: clampNum(0, -100, 100),
-    心里话: safeStr(''),
+    态度: safeStr(''),
     背景故事: safeStr(''),
     数量: clampNum(1, 1, 99999999)
 })).transform(char => {

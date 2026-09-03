@@ -595,53 +595,21 @@
             return null;
           }
 
-          function extractTrialTasks(data) {
-            const stat = data && (data.stat_data || data);
+          function readTrialTasks() {
+            const ctx = getMvuContext();
+            const stat = ctx && ctx.stat ? ctx.stat : {};
             const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
             return Object.keys(list).filter(function(key) {
               const task = list[key];
               return task && String(task.委托方 || '').trim() === '晋升试炼';
-            }).map(function(key) {
+            }).map(function(key, index) {
               const task = list[key] || {};
               return {
                 key: key,
-                name: String(task.名称 || task.任务名 || task.标题 || key),
+                name: String(task.名称 || task.任务名 || task.标题 || key || ('晋升试炼·' + (index + 1))),
                 status: String(task.状态 || '').trim()
               };
             });
-          }
-
-          function readTrialTasks() {
-            const ctx = getMvuContext();
-            const win = ctx && ctx.win;
-            const mvu = win && win.Mvu;
-            const currentId = getPanelMessageId(win);
-
-            if (mvu && typeof mvu.getMvuData === 'function' && currentId !== null) {
-              let currentTasks = [];
-              try {
-                currentTasks = extractTrialTasks(mvu.getMvuData({ type: 'message', message_id: currentId }));
-              } catch (e) {}
-
-              let previousHit = null;
-              for (let step = 1; step <= 3; step++) {
-                const id = currentId - step;
-                if (id < 0) break;
-                try {
-                  const data = mvu.getMvuData({ type: 'message', message_id: id });
-                  const tasks = extractTrialTasks(data);
-                  if (tasks.length) {
-                    previousHit = tasks;
-                    break;
-                  }
-                } catch (e) {}
-              }
-
-              if (currentTasks.length) return currentTasks;
-              if (previousHit) return previousHit;
-            }
-
-            return extractTrialTasks(ctx && ctx.data);
           }
 
           let achievementBaselineData = null;
@@ -734,6 +702,11 @@
             return ctx && ctx.data;
           }
 
+          function readHeroTier(data) {
+            const stat = data && (data.stat_data || data);
+            return String(stat && stat.主角 && stat.主角.层级 || '').trim();
+          }
+
           function resolveCredentialGrant(data) {
             const stat = data && (data.stat_data || data);
             if (!stat || !stat.主角) return null;
@@ -791,17 +764,46 @@
           let settlementWriteBusy = false;
           const achievementTasks = readAchievementTasks();
           const settlementBaselineData = readSettlementBaselineData();
+          // 固定结算前的主角层级，防止旧结算面板为已经普升的层级重复授予资格。
+          const settlementBaselineTier = readHeroTier(settlementBaselineData);
           const credentialGrant = resolveCredentialGrant(settlementBaselineData);
 
           function isTrialPassed(tasks) {
             return tasks.length > 0 && tasks.every(function(task) { return task.status === '可结算'; });
           }
 
+          function inferTrialTasksFromSettlement(text) {
+            const source = String(text || '');
+            const rewards = {};
+            const re = /【?晋升试炼[·.]\s*(\d+)】?\s*[：:]\s*([^\n]+)/g;
+            let m;
+            let maxNo = 0;
+            while ((m = re.exec(source)) !== null) {
+              const no = parseInt(m[1], 10);
+              if (!Number.isFinite(no) || no <= 0) continue;
+              rewards[no] = String(m[2] || '').trim();
+              maxNo = Math.max(maxNo, no);
+            }
+            if (!maxNo) return [];
+            const out = [];
+            for (let no = 1; no <= maxNo; no++) {
+              out.push({
+                key: 'replay-' + no,
+                name: '晋升试炼·' + no,
+                status: rewards[no] ? '可结算' : '进行中',
+                replay: true
+              });
+            }
+            return out;
+          }
+
           function renderTrialPanel() {
-            const displayTasks = trialTasks;
+            const live = trialTasks.length > 0;
+            const displayTasks = live ? trialTasks : inferTrialTasksFromSettlement(rawText);
             if (!displayTasks.length) return '';
             const done = displayTasks.filter(function(task) { return task.status === '可结算'; }).length;
             const displayPassed = displayTasks.every(function(task) { return task.status === '可结算'; });
+            const passed = live && isTrialPassed(trialTasks);
             const pct = Math.round(done / displayTasks.length * 100);
             let html = '<div class="st-trial-check' + (displayPassed ? '' : ' pending') + '">';
             html += '<div class="st-trial-head"><div class="st-trial-title">◆ 晋升试炼结算核验</div><div class="st-trial-count">' + done + ' / ' + displayTasks.length + '</div></div>';
@@ -1089,7 +1091,7 @@
                 const it = items[i];
 
                 if (it.kind === 'sub' && /任务专属奖励/.test(it.name || '')) rewardSeen = true;
-                if (rewardSeen && !trialInserted && it.kind === 'sub' && !/任务专属奖励/.test(it.name || '') && trialTasks.length) {
+                if (rewardSeen && !trialInserted && it.kind === 'sub' && !/任务专属奖励/.test(it.name || '') && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
                   inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
                   trialInserted = true;
                 }
@@ -1132,7 +1134,7 @@
                 i++;
               }
 
-              if (rewardSeen && !trialInserted && trialTasks.length) {
+              if (rewardSeen && !trialInserted && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
                 inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
               }
 
@@ -1190,6 +1192,8 @@
             const hasHeader = hasSettlementHeader(rawText);
             const fullSettlement = isFullSettlement(rawText);
             const trialPassed = isTrialPassed(trialTasks);
+            const currentHeroTier = readHeroTier(stat);
+            const heroTierChanged = currentHeroTier !== settlementBaselineTier;
             let changed = false;
 
             function sameValue(a, b) {
@@ -1215,7 +1219,8 @@
 
             // 对齐原 onShouldIAdvance：仅出现清算协议标题时，也可补写晋升完成标记；
             // 完整清算则沿用原 onClearCache 语义，只要数据库中的晋升试炼全部可结算就记为完成。
-            if (hasHeader && trialPassed) {
+            // 层级已经变化表示本次资格已用于普升；旧结算面板不得再次补写。
+            if (hasHeader && trialPassed && !heroTierChanged) {
               const currentSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
               if ((fullSettlement || currentSys.是否可试炼 === true) && currentSys.试炼已完成 !== true) {
                 const sys = ensureObject(stat, '系统状态');

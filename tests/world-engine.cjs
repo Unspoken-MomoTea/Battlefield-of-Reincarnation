@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const file = path.join(__dirname, '../script/世界推进系统.js');
 const source = fs.readFileSync(file, 'utf8');
-const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply} = require(file);
+const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA} = require(file);
 const clone = x => JSON.parse(JSON.stringify(x));
 const fresh = () => ({世界:{名称:'测试世界',时间:'2026年9月7日清晨',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},系统状态:{是否在主神空间:false},设置:{},任务:{列表:{调查:{状态:'进行中'}},副本成就:{发现:{状态:'未达成'}}},关系列表:{},传闻:{}});
 const add = (path,value) => ({op:'add',path,value});
@@ -180,6 +180,92 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const engine = new Engine(host); engine.config.enabled = true; engine.config.requireMacroBackbone = false; engine.config.retryAttempts = 0; engine.worldbook = async () => [];
         return {engine,get:()=>stat,writes:()=>writes,change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
     }
+    await test('WorldResult compiler owns paths, escaping and upsert selection', () => {
+        const stat=fresh();
+        stat.世界.后台.人物.卫兵={...RECORDS.人物,所属世界:'测试世界',行动:'待命'};
+        const compiled=compileWorldResult(stat,{
+            摘要:'业务结果',
+            公开摘要:'城门局势发生变化。',
+            事件:[{名称:'A/B',描述:'新的地区级警报',分类:'宏观节点',状态:'待发生',时间:'2026年9月8日'}],
+            人物:[{名称:'卫兵',行动:'前往城门'}],
+            因果:{宏观顺序:['A/B','第二阶段','第三阶段']}
+        });
+        assert.ok(compiled.patches.some(p=>p.path==='/世界/后台/事件/A~1B'&&p.op==='add'));
+        assert.ok(compiled.patches.some(p=>p.path==='/世界/后台/人物/卫兵'&&p.op==='replace'));
+        assert.ok(compiled.patches.every(p=>!String(p.path).includes('//')));
+        const next=applyPatches(stat,compiled.patches.filter(p=>!p.path.startsWith('/世界/因果轨道/故事线')));
+        assert.equal(next.世界.后台.事件['A/B'].描述,'新的地区级警报');
+        assert.equal(next.世界.后台.人物.卫兵.行动,'前往城门');
+    });
+    await test('new WorldResult reply parses without patches while legacy replies remain compatible', () => {
+        const modern=parseReply(JSON.stringify({摘要:'推进完成',事件:[{名称:'警报',描述:'警报扩散'}]}));
+        assert.equal(modern.kind,'world_result');
+        assert.equal(modern.worldResult.摘要,'推进完成');
+        assert.equal(modern.worldResult.事件[0].名称,'警报');
+        const legacy=parseReply(JSON.stringify({summary:'旧协议',patches:[]}));
+        assert.equal(legacy.kind,'legacy_patches');
+        assert.deepEqual(legacy.patches,[]);
+    });
+    await test('world request asks terminal for structured WorldResult at low temperature', async () => {
+        let options;
+        const x=setup(async (_system,_input,opt)=>{options=opt;return JSON.stringify({摘要:'无变化'});});
+        assert.equal(await x.engine.run(),true);
+        assert.equal(options.structured,'auto');
+        assert.equal(options.schemaName,'samsara_world_result_v1');
+        assert.equal(options.temperature,0.3);
+        assert.equal(options.schema.type,'object');
+        assert.ok(options.schema.properties.事件);
+        assert.equal(WORLD_RESULT_SCHEMA.properties.事件.type,'array');
+    });
+    await test('retry merges accepted WorldResult and requests only the missing business slice', async () => {
+        let calls=0,inputs=[];
+        const x=setup(async (_system,input)=>{
+            calls++;inputs.push(input);
+            if(calls===1)return JSON.stringify({
+                摘要:'人物与一个宏观已确认',
+                人物:[{名称:'卫兵',所属世界:'测试世界',行动:'巡查北门'}],
+                事件:[{名称:'宏观A',描述:'地区进入第一阶段',分类:'宏观节点',状态:'待发生',时间:'2026年9月8日'}],
+                因果:{宏观顺序:['宏观A']}
+            });
+            return JSON.stringify({
+                摘要:'只补缺失宏观',
+                事件:[
+                    {名称:'宏观B',描述:'地区级基础设施发生阶段变化',分类:'宏观节点',状态:'待发生',时间:'2026年9月10日'},
+                    {名称:'宏观C',描述:'社会秩序进入长期重组阶段',分类:'宏观节点',状态:'待发生',时间:'2026年9月14日'}
+                ],
+                因果:{宏观顺序:['宏观A','宏观B','宏观C']}
+            });
+        });
+        x.engine.config.requireMacroBackbone=true;x.engine.config.retryAttempts=2;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,2);
+        assert.equal(x.writes(),1);
+        assert.equal(x.get().世界.后台.人物.卫兵.行动,'巡查北门');
+        assert.equal(Object.values(x.get().世界.后台.事件).filter(e=>e.分类==='宏观节点'&&e.状态==='待发生').length,3);
+        assert.match(inputs[1],/已接受业务结果/);
+        assert.match(inputs[1],/只补充或修正/);
+        assert.match(x.get().世界.因果轨道.故事线,/宏观A.*宏观B.*宏观C/);
+    });
+    await test('new prompt separates business reasoning from storage protocol', async () => {
+        const x=setup(async()=>''),r=await x.engine.buildRequest(x.engine.snapshot());
+        assert.match(r.system,/WorldResult/);
+        assert.match(r.system,/生活自足/);
+        assert.match(r.system,/时间容量/);
+        assert.match(r.system,/信息不对称/);
+        assert.doesNotMatch(r.system,/JSON Pointer/);
+        assert.doesNotMatch(r.system,/\/世界\/后台\/\{事件\|人物/);
+        const payload=JSON.parse(r.input);
+        assert.ok(payload.输入语义);
+        assert.ok(payload.本轮时间容量);
+    });
+    await test('terminal API contains structured-output negotiation with plain fallback', () => {
+        const sourceText=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');
+        assert.match(sourceText,/response_format/);
+        assert.match(sourceText,/json_schema/);
+        assert.match(sourceText,/json_object/);
+        assert.match(sourceText,/options\.temperature/);
+        assert.match(sourceText,/structured/);
+    });
     await test('model causal patches accept whole objects and normalize common 因校轨道 typo', async () => {
         const x=setup(async()=>JSON.stringify({summary:'修复因果轨道',patches:[
             {op:'replace',path:'/世界/因果轨道',value:{当前阶段:'爆发日',故事线:'撤离 -> 灾变 -> 崩溃',下一节点:'撤离',偏移记录:{}}},

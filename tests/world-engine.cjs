@@ -245,6 +245,14 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             await assert.rejects(pending); assert.equal(x.writes(),0);
         }
     });
+    await test('saved prompt presets recover required structural segments without overwriting custom bodies', () => {
+        const host={localStorage:{getItem:()=>JSON.stringify({preset:'自定义总则\n【世界推进】\n我的世界规则'}),setItem:()=>{}},Samsara:{}};
+        const engine=new Engine(host);
+        assert.match(engine.config.preset,/【世界推进】\n我的世界规则/);
+        assert.match(engine.config.preset,/【世界演进准则】/);
+        assert.match(engine.config.preset,/【因果轨道与偏移】/);
+        assert.match(engine.config.preset,/【信息传播】/);
+    });
     await test('terminal handoff restores saved state and close does not disable engine', () => {
         let restored;
         const host = {localStorage:{getItem:()=>null},Samsara:{terminal:{suspend:()=>({open:true,scroll:82}),restore:s=>restored=s}}};
@@ -286,7 +294,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(calls.processCombatAndCooldowns,1);assert.equal(calls.processStatusDuration,1);
     });
     await test('worldbook templates compile including protected public projection', () => {
-        for (const name of ['[variables]当前变量.txt','[mvu_update]变量更新规则.txt']) {
+        for (const name of ['[variables]当前变量.txt','[mvu_update]变量更新规则.txt','⚙️额外思考.txt']) {
             const source=fs.readFileSync(path.join(__dirname,'../World Book',name),'utf8');
             let compiled='';
             for (const tag of source.matchAll(/<%([\s\S]*?)%>/g)) {

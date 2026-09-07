@@ -46,6 +46,22 @@
     function emptyState() {
         return { 版本:2, 已处理楼层:'', 已处理时间:'', 公开摘要:'', 事件:{}, 人物:{}, 势力地区:{}, 剧本:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[] };
     }
+    // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
+    function importStory(stat) {
+        const orbit=stat.世界.因果轨道||{},events=stat.世界.后台?.事件||{};
+        if(Object.values(events).some(e=>e.分类==='主线节点'))return [];
+        const story=String(orbit.故事线||'');
+        const stages=story.split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
+        if(stages.length<2||stages.length>30)return [];
+        const index=stages.findIndex(n=>n===orbit.下一节点);
+        const remaining=index>=0?stages.slice(index):stages;
+        let previous='';
+        return remaining.filter(name=>!Object.hasOwn(events,name)).map(name=>{
+            const value={...copy(RECORDS.事件),描述:name,分类:'主线节点',前因:previous?[previous]:[],条件:previous?'前置节点「'+previous+'」达到进入本阶段所需的条件':'待依据世界设定与正文明确触发条件',下次检查:'本轮首次排程'};
+            previous=name;
+            return {op:'add',path:'/世界/后台/事件/'+name.replace(/~/g,'~0').replace(/\//g,'~1'),value};
+        });
+    }
     function tokens(path) {
         if (typeof path !== 'string' || !path.startsWith('/')) throw new Error('补丁路径必须以 / 开头');
         const parts = path.slice(1).split('/').map(p => p.replace(/~1/g, '/').replace(/~0/g, '~'));
@@ -56,7 +72,10 @@
         return parts.reduce((v, key) => v != null && Object.prototype.hasOwnProperty.call(v, key) ? v[key] : undefined, obj);
     }
     function checkRecord(value, template, optional = {}) {
-        if (!plain(value) || Object.keys(template).some(k => !Object.hasOwn(value,k)) || Object.keys(value).some(k => !Object.hasOwn(template,k) && !Object.hasOwn(optional,k))) throw new Error('记录字段必须完整且不能添加未知字段');
+        if(!plain(value))throw new Error('记录必须是完整对象，不能是文本或数组');
+        const missing=Object.keys(template).filter(k=>!Object.hasOwn(value,k));
+        const unknown=Object.keys(value).filter(k=>!Object.hasOwn(template,k)&&!Object.hasOwn(optional,k));
+        if(missing.length||unknown.length)throw new Error('记录字段不完整或不受支持：'+(missing.length?'缺少 '+missing.join('、'):'')+(unknown.length?'；未知 '+unknown.join('、'):''));
         for (const [key, base] of Object.entries(template)) {
             const v = value[key];
             if (Array.isArray(base) ? !Array.isArray(v) || v.some(x => typeof x !== 'string') : typeof v !== typeof base) throw new Error('记录字段类型错误：' + key);
@@ -150,7 +169,7 @@
             if (!allowed(p,next)) throw new Error('禁止写入：' + patch.path);
             const old = get(next,p);
             if (p[1] === PATH && p[2] === '历史' && (patch.op !== 'add' || old !== undefined)) throw new Error('历史只允许新增');
-            if (patch.op === 'add' && old !== undefined) throw new Error('新增记录已存在：' + patch.path);
+            // 对象 add 按 JSON Patch 语义允许设置已有成员；历史仍只增不改。
             if (patch.op !== 'add' && old === undefined) throw new Error('目标不存在：' + patch.path);
             if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播'))) throw new Error('仅可移除过期传播与传闻，其他记录使用状态结束');
             if (patch.op !== 'remove') {
@@ -179,20 +198,44 @@
         return next;
     }
     function parseReply(text) {
-        let source = String(text).trim();
-        const block = source.match(/<world_update>([\s\S]*?)<\/world_update>/);
-        if (block) source = block[1].trim();
-        source = source.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
-        const result = JSON.parse(source);
-        if (!plain(result) || !Array.isArray(result.patches) || typeof result.summary !== 'string') throw new Error('回复需包含 summary 和 patches');
+        let source=String(text).trim();
+        const block=source.match(/<world_update\s*>([\s\S]*?)<\/world_update>/i);
+        if(block)source=block[1].trim();
+        const fence=source.match(/\x60\x60\x60(?:json)?\s*([\s\S]*?)\x60\x60\x60/i);
+        if(fence)source=fence[1].trim();
+        let result;
+        try {result=JSON.parse(source);}
+        catch(error){
+            const begin=source.indexOf('{'),end=source.lastIndexOf('}');
+            try {if(begin<0||end<begin)throw error;result=JSON.parse(source.slice(begin,end+1));}
+            catch(_){throw new Error('返回 JSON 无法解析：'+error.message+'；原始回复保留在请求检查。');}
+        }
+        if(!plain(result)||!Array.isArray(result.patches)||typeof result.summary!=='string')throw new Error('回复需包含文本 summary 和数组 patches；原始回复保留在请求检查。');
         return result;
+    }
+    function activation(entry, scan, force) {
+        if(!String(entry.content||'').trim())return {read:false,reason:'内容为空'};
+        if(force)return {read:true,reason:'强制读取'};
+        if(!entry.enabled)return {read:false,reason:'条目禁用'};
+        if(entry.mode==='constant')return {read:true,reason:'蓝灯常驻'};
+        if(entry.mode!=='selective')return {read:false,reason:'不支持的激活方式，需显式强制读取'};
+        const list=v=>Array.isArray(v)?v:typeof v==='string'?v.split(',').map(x=>x.trim()).filter(Boolean):[];
+        const match=k=>{
+            if(k instanceof RegExp){k.lastIndex=0;return k.test(scan);}
+            if(plain(k)){try{return new RegExp(k.pattern||k.source||k.regex,k.flags||'').test(scan);}catch(_){return false;}}
+            return !!String(k||'')&&scan.includes(String(k));
+        };
+        if(!list(entry.keys).some(match))return {read:false,reason:'绿灯未命中关键词'};
+        const second=entry.secondary||{},keys=list(second.keys||second),hits=keys.map(match);
+        const ok=!keys.length||(second.logic==='and_all'?hits.every(Boolean):second.logic==='not_all'?!hits.every(Boolean):second.logic==='not_any'?!hits.some(Boolean):hits.some(Boolean));
+        return {read:ok,reason:ok?'绿灯已命中':'绿灯次要条件未满足'};
     }
     function protocol() {
         return `返回 <world_update>{"summary":"简短说明本轮已确认变化与待确认事项","patches":[]}</world_update>，不得输出推理过程。
-补丁只用 add/replace/remove，路径为相对 stat_data 的 JSON Pointer，实例名中的 / 写成 ~1，~ 写成 ~0。add 仅新建，replace 仅已有；空输入或条件不成立可返回空数组。
+补丁只用 add/replace/remove，路径为相对 stat_data 的 JSON Pointer，实例名中的 / 写成 ~1，~ 写成 ~0。add 设置对象成员（已有成员也可设置），replace 修改已有成员；整条记录必须完整。空输入或条件不成立可返回空数组。
 后台根：/世界/后台/{事件|人物|势力地区|剧本|历史|传播}/{稳定名称}。新记录一次给全字段，字段模板：${JSON.stringify(RECORDS)}。
 历史只增不改不删；事件通过状态结束，不删除。关联事件和前因必须指向实际存在的事件，前因不能循环。人物所属世界必须明确。
-公开摘要写 /世界/后台/公开摘要，限5000字，仅包含已发生的公开影响与可见征兆，不能泄露隐藏计划。
+公开摘要默认已存在，用 {"op":"replace","path":"/世界/后台/公开摘要","value":"本轮公开变化"} 更新，限5000字，仅包含已发生的公开影响与可见征兆，不能泄露隐藏计划。
 兼容投影允许：/世界/因果轨道/{当前阶段|故事线|下一节点}、/世界/因果轨道/偏移记录/{名}；/世界/{势力|探索}/{名}；/世界/异端雷达/名单/{名}；/传闻/{街头巷议|情报交易|布告与檄文}/{名}。记录完整字段模板：${JSON.stringify(EXISTING)}。
 已有势力/探索可修改单个字段。声望范围 -5000~10000，单次至多1000；探索度0~100，品质 F/E/D/C/B/A/S/SS/SSS。街头可信度仅酒话/可疑/或许可信。三类传闻各最多3条。异端层级Ⅰ~Ⅸ，状态遵循旧变量及世界书。
 关系仅允许修改既有 /关系列表/{名}/好感度，范围-100~100，单轮至多20。人物目标行动认知写后台.人物，不改人物战斗属性。
@@ -243,29 +286,63 @@
         }
         setEnabled(value) { this.config.enabled = !!value; this.saveConfig(); if (!value) this.cancel(); this.render(); }
         cancel() { ++this.generation; this.pending = false; clearTimeout(this.timer); if (this.controller) this.controller.abort(); }
-        async worldbook() {
-            const namesFn = this.fn('getCharWorldbookNames'), bookFn = this.fn('getWorldbook');
-            if (!namesFn || !bookFn) throw new Error('缺少世界书读取接口');
-            const names = await namesFn('current');
-            const books = [...new Set([names.primary].concat(names.additional || []).filter(Boolean))];
-            if (!books.length) throw new Error('当前角色未绑定世界书');
-            const output = [];
-            for (const name of books) {
-                const entries = await bookFn(name);
-                for (const entry of entries) {
-                    if (entry.enabled === false || entry.disable === true || entry.disabled === true) continue;
-                    const title = entry.name || entry.comment || '';
-                    if (!/世界|因果|人物|NPC|势力|地区|任务|成就|异端|传闻|阵营|组织/.test(title)) continue;
-                    let content = entry.content || '';
-                    if (content.includes('<%')) {
-                        const ejs = this.host.EjsTemplate;
-                        if (!ejs || !ejs.evalTemplate || !ejs.prepareContext) throw new Error('世界书含动态模板，需要 EJS 扩展');
-                        content = await ejs.evalTemplate(content, await ejs.prepareContext({}));
-                    }
-                    output.push({名称:title,内容:content});
-                }
+        async catalogue() {
+            const namesFn=this.fn('getCharWorldbookNames'),get=this.fn('getWorldbook');
+            if(!namesFn||!get) throw new Error('缺少世界书读取接口');
+            const names=await namesFn('current'), result=[];
+            for(const book of [...new Set([names.primary,...(names.additional||[])].filter(Boolean))]){
+                const entries=await get(book);
+                entries.forEach((e,i)=>result.push({book,id:String(e.uid??e.id??i),title:e.name||e.comment||'未命名',enabled:e.enabled!==false&&!e.disable&&!e.disabled,mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),keys:e.strategy?.keys||e.keys||e.key||[],secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},content:e.content||''}));
             }
+            return result;
+        }
+        async worldbook(scan='') {
+            const catalogue=await this.catalogue(),output=[];
+            this.bookCatalogue=catalogue;
+            const report=[];this.readReport=report;
+            for(const e of catalogue){
+                const key=JSON.stringify([e.book,e.id]);
+                const selected=this.config.selectedEntries ? this.config.selectedEntries.includes(key) : e.enabled;
+                const decision=selected?activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
+                report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
+                if(!decision.read)continue;
+                let content=e.content;
+                if(content.includes('<%')){
+                    const ejs=this.host.EjsTemplate;
+                    if(!ejs?.evalTemplate||!ejs?.prepareContext)throw new Error('所选世界书含动态模板，需要 EJS 扩展：'+e.title);
+                    content=await ejs.evalTemplate(content,await ejs.prepareContext({}));
+                }
+                output.push({世界书:e.book,条目ID:e.id,名称:e.title,内容:content});
+            }
+            Object.defineProperty(output,'report',{value:report});
             return output;
+        }
+        async buildRequest(base) {
+            const state=copy(base.stat);
+            state.世界[PATH]=Object.assign(emptyState(),state.世界[PATH]||{});
+            const seedPatches=importStory(state);
+            for(const patch of seedPatches)state.世界[PATH].事件[tokens(patch.path).at(-1)]=patch.value;
+            if(state.设置)delete state.设置.API;
+            delete state.商城;
+            const count=Math.max(1,Math.min(100,Number(this.config.contextTurns)||6));
+            const id=Number(base.message.message_id??base.message.id);
+            const messages=await this.fn('getChatMessages')(Math.max(0,id-count+1)+'-'+id);
+            const floors=messages.filter(m=>Number(m.message_id??m.id)<=id).slice(-count).map(m=>({楼层:m.message_id??m.id,角色:m.role||(m.is_user?'user':'assistant'),正文:m.message??m.mes??''}));
+            if(!floors.length)throw new Error('未读到正文楼层，请检查聊天读取接口');
+            const books=await this.worldbook(floors.map(f=>f.正文).join('\n'));
+            const dateKey=value=>{
+                const m=String(value||'').match(/(\d+)年\s*-?\s*(\d+)月\s*-?\s*(\d+)日/);
+                if(!m)return null;
+                const part=String(value).match(/凌晨|清晨|早晨|上午|中午|午后|下午|傍晚|晚上|深夜/);
+                const hour={凌晨:2,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,晚上:20,深夜:23};
+                return (+m[1]*372 + +m[2]*31 + +m[3])*24+(part?hour[part[0]]:0);
+            };
+            const now=dateKey(state.世界.时间);
+            const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&dateKey(e.时间)!==null&&dateKey(e.时间)<=now).map(([名称,e])=>({名称,时间:e.时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
+            const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。'},null,2);
+            const system=this.config.preset+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(DETAILS)+'\n【节点调度】旧因果轨道只作为导入来源，不再依赖静态故事线驱动。把尚未发生的故事线阶段拆为分类为主线节点的事件，名称稳定并用前因连接，避免重复导入。为下一节点给出有依据的绝对日期；无法确定时写明确可验证的触发条件及下次检查，不允许只写“等待剧情发展”。每轮复核到期事件、人物行程与任务阶段。时间到且条件成立就启动，已有结果才完成；前因表示因果来源，不自动等同于必须完成，依据具体条件判断。未满足条件记录真实阻碍和下次检查，禁止无依据顺延日期。事件后果联动人物行动、势力地区、关联任务阶段与传播。任务档案的阶段状态和下一节点必须随事件更新，旧剧本不是固定文本。';
+            if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
+            return {system,input,seedPatches,due,manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),请求字符数:system.length+input.length}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.config.enabled) return;
@@ -288,19 +365,28 @@
                 this.controller = new AbortController();
                 timeout = setTimeout(() => this.controller.abort(),120000);
                 this.status = '正在读取世界资料'; this.render();
-                const books = await this.worldbook();
-                const state = copy(base.stat); state.世界[PATH] = old;
-                // 接口凭据与商城缓存不属于世界推演资料。
-                if (state.设置) delete state.设置.API;
-                delete state.商城;
-                const input = JSON.stringify({世界书:books,当前变量:state,本轮正文:base.text,说明:'以当前变量为已确认事实；不要重复结算正文变量已记录的数值变化。'});
-                if (input.length > 240000) throw new Error('世界资料超过24万字，请精简绑定世界书或历史记录后再运行');
-                if (token !== this.generation || this.controller.signal.aborted) throw new Error('请求已取消');
-                this.status = '四模块联合推演中'; this.render();
-                const detailRules = '\n可选明细字段（有事实依据才填写；旧记录可用 add 添加明细字段，列表整体 replace）：'+JSON.stringify(DETAILS)+'\n每个人物维护当前行动、开始与预计结束、下次检查；有后续计划时记录行程，承诺、待决事项及认知来源按实际补充。势力记录资源约束和内部派系，地区记录控制权与近期变化，剧本记录阶段、期限、阻碍和完成失败条件。事件给出参与者、关联任务及带时间地点的可见影响。日期一律使用绝对剧情日期，未知就留空。不要用新的事实替换旧事实掩盖因果过程。';
-                const text = await terminal.request(this.config.preset + '\n\n' + protocol()+detailRules,input,{signal:this.controller.signal});
+                const request=await this.buildRequest(base);
+                if(token!==this.generation||this.controller.signal.aborted)throw new Error('请求已取消');
+                this.lastRequest=copy(request);
+                this.lastReply='';this.lastFailure='';
+                this.status='四模块联合推演中';this.render();
+                const text=await terminal.request(request.system,request.input,{signal:this.controller.signal});
+                this.lastReply=String(text); this.lastFailure='';
                 const reply = parseReply(text);
-                let next = applyPatches(base.stat,reply.patches);
+                const prepared=applyPatches(base.stat,request.seedPatches);
+                let next = applyPatches(prepared,reply.patches);
+                // 到期但仍待发生的节点必须得到本轮明确复核，不能用空补丁冒充推进。
+                for(const due of request.due){
+                    const event=next.世界[PATH].事件[due.名称];
+                    if(event.状态==='待发生'&&(event.更新时间!==base.stat.世界.时间||!event.下次检查||!event.条件)){
+                        throw new Error('到期事件未处理：'+due.名称+'。需启动事件，或记录本轮复核日期、阻碍条件与下次检查。');
+                    }
+                }
+                for(const seed of request.seedPatches){
+                    const name=tokens(seed.path).at(-1),event=next.世界[PATH].事件[name];
+                    if(event.条件===seed.value.条件&&event.时间===seed.value.时间&&event.下次检查===seed.value.下次检查)throw new Error('主线节点尚未排程：'+name);
+                }
+                reply.patches=request.seedPatches.concat(reply.patches);
                 // 沿用辅助计算脚本公式；后台提交不能额外消耗战斗轮次或状态持续时间。
                 if (!(next.设置 || {}).世界超稳) {
                     const offsets = (next.世界.因果轨道 || {}).偏移记录 || {};
@@ -331,6 +417,7 @@
                 this.status = '已更新 · ' + reply.summary;
                 return true;
             } catch (error) {
+                this.lastFailure=error.message;
                 this.status = (this.committing ? '写入未确认 · ' : '未写入 · ') + (error.name === 'AbortError' ? '请求已取消或超时' : error.message);
                 throw error;
             } finally {
@@ -383,23 +470,75 @@
                 '#sam-world-engine .we-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:18px 0 25px;background:linear-gradient(100deg,#1a2634,#141f2b);border:1px solid var(--line);border-radius:9px}#sam-world-engine .we-metric{padding:15px 20px;border-right:1px solid var(--line)}#sam-world-engine .we-metric:last-child{border:0}#sam-world-engine .we-metric strong{display:block;font-size:25px;font-weight:500;color:var(--ink);line-height:1.4}#sam-world-engine .we-metric small{color:var(--sub);font-size:11px;letter-spacing:1px}',
                 '#sam-world-engine .we-columns{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(245px,1fr);gap:23px;align-items:start}#sam-world-engine .we-section{margin-bottom:23px;min-width:0}#sam-world-engine .we-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}#sam-world-engine .we-section-head small{color:var(--sub);font-size:11px}#sam-world-engine .we-card{border:1px solid var(--line);border-radius:8px;background:#18222f;padding:16px 18px;margin:9px 0;overflow:hidden}#sam-world-engine .we-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px}#sam-world-engine .we-card-top h3{margin:0}#sam-world-engine .we-card p{font-size:13px;color:#b8c4d3}#sam-world-engine .we-pill{display:inline-block;font-size:10px;line-height:1.6;padding:2px 7px;border:1px solid #7dcbbb30;border-radius:4px;color:var(--mint);background:#7dcbbb09;white-space:nowrap}#sam-world-engine .we-pill.future{color:var(--gold);border-color:#d9b97830;background:#d9b97809}#sam-world-engine .we-pill.dim{color:var(--sub);border-color:var(--line);background:transparent}#sam-world-engine .we-meta{display:flex;gap:8px 15px;flex-wrap:wrap;color:var(--sub);font-size:11px;margin-top:9px}#sam-world-engine .we-chips{display:flex;flex-wrap:wrap;gap:5px}',
                 '#sam-world-engine .we-timeline{border-left:1px solid #d9b97838;margin-left:5px;padding-left:20px}#sam-world-engine .we-timeline .we-card{position:relative;overflow:visible}#sam-world-engine .we-timeline .we-card:before{content:"";position:absolute;left:-26px;top:20px;width:9px;height:9px;background:var(--gold);border:2px solid #101720;border-radius:50%}#sam-world-engine .we-avatar{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#496575,#243440);color:#c1dedc;font-size:15px;flex-shrink:0}#sam-world-engine .we-person{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}#sam-world-engine .we-person:last-child{border:0}#sam-world-engine .we-person>div:last-child{flex:1;min-width:0}#sam-world-engine .we-person strong{font-size:13px}#sam-world-engine .we-person p{font-size:12px;color:#acb8c8;margin:3px 0}',
-                '#sam-world-engine .we-change{display:grid;grid-template-columns:62px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:12px}#sam-world-engine .we-change time{color:var(--gold);font-size:10px}#sam-world-engine .we-change p{margin:2px 0;color:var(--sub)}#sam-world-engine .we-progress{height:4px;background:#ffffff0a;border-radius:4px;margin:10px 0 6px;overflow:hidden}#sam-world-engine .we-progress>i{display:block;height:100%;background:var(--mint);border-radius:4px}#sam-world-engine .we-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 18px}#sam-world-engine dl{margin:12px 0;display:grid;grid-template-columns:85px minmax(0,1fr);gap:8px 14px;font-size:12px}#sam-world-engine dt{color:var(--sub)}#sam-world-engine dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}#sam-world-engine details{border-top:1px solid var(--line);margin-top:12px;padding-top:8px}#sam-world-engine summary{cursor:pointer;color:var(--gold);font-size:11px;list-style:none}#sam-world-engine summary:before{content:"＋ ";}#sam-world-engine details[open]>summary:before{content:"− ";}',
+                '#sam-world-engine .we-change{display:grid;grid-template-columns:62px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:12px}#sam-world-engine .we-change time{color:var(--gold);font-size:10px}#sam-world-engine .we-change p{margin:2px 0;color:var(--sub)}#sam-world-engine .we-progress{height:4px;background:#ffffff0a;border-radius:4px;margin:10px 0 6px;overflow:hidden}#sam-world-engine .we-progress>i{display:block;height:100%;background:var(--mint);border-radius:4px}#sam-world-engine .we-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 18px;align-items:start}#sam-world-engine dl{margin:12px 0;display:grid;grid-template-columns:85px minmax(0,1fr);gap:8px 14px;font-size:12px}#sam-world-engine dt{color:var(--sub)}#sam-world-engine dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}#sam-world-engine details{border-top:1px solid var(--line);margin-top:12px;padding-top:8px}#sam-world-engine summary{cursor:pointer;color:var(--gold);font-size:11px;list-style:none}#sam-world-engine summary:before{content:"＋ ";}#sam-world-engine details[open]>summary:before{content:"− ";}',
                 '#sam-world-engine .we-calendar{background:#18222f;border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:20px}#sam-world-engine .we-calhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}#sam-world-engine .we-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}#sam-world-engine .we-days span{color:var(--sub);font-size:10px;padding:4px}#sam-world-engine .we-days button{position:relative;padding:7px 0;border:1px solid transparent;border-radius:5px;background:none;font-size:11px;min-width:0}#sam-world-engine .we-days button.today{border-color:var(--gold);color:var(--gold)}#sam-world-engine .we-days button.selected{background:#d9b97824}#sam-world-engine .we-days button.has-event:after{content:"";position:absolute;bottom:2px;left:calc(50% - 2px);width:4px;height:4px;background:var(--mint);border-radius:50%}#sam-world-engine .we-days button:hover{background:#ffffff0b}',
                 '#sam-world-engine .we-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:18px 0}#sam-world-engine .we-tools input{min-width:150px;flex:1;background:#17212d;border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:8px 12px;font-size:12px}#sam-world-engine .we-tools button{border:1px solid var(--line);background:none;border-radius:5px;padding:6px 10px;font-size:11px}#sam-world-engine .we-tools button.active{border-color:var(--gold);color:var(--gold)}#sam-world-engine .we-empty{padding:24px 15px;text-align:center;border:1px dashed #ffffff19;border-radius:8px;color:var(--sub);font-size:12px}#sam-world-engine .we-empty b{display:block;color:#bec9d6;margin-bottom:5px;font-weight:500}#sam-world-engine .we-notice{padding:12px 16px;border-left:2px solid var(--gold);background:#d9b97808;margin:15px 0;color:#d4c4a6;font-size:12px}#sam-world-engine textarea{width:100%;min-height:48vh;background:#121b26;color:var(--ink);border:1px solid #ffffff24;border-radius:8px;padding:18px;line-height:1.9;resize:vertical}#sam-world-engine footer{padding:8px 24px;border-top:1px solid var(--line);font-size:10px;color:var(--sub);display:flex;justify-content:space-between;gap:15px}#sam-world-engine footer span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
                 '@media(max-width:1000px){#sam-world-engine .we-columns{grid-template-columns:1fr}#sam-world-engine nav{width:145px}#sam-world-engine main{padding:20px}#sam-world-engine .we-calendar{max-width:400px}}@media(max-width:640px){#sam-world-engine{inset:0;border-radius:0}#sam-world-engine header{padding:0 12px;height:58px;gap:6px}#sam-world-engine .we-brand{font-size:13px;letter-spacing:1px}#sam-world-engine .we-brand small{display:none}#sam-world-engine .we-layout{flex-direction:column}#sam-world-engine nav{width:100%;flex-direction:row;overflow-x:auto;padding:8px;gap:3px;border-right:0;border-bottom:1px solid var(--line)}#sam-world-engine nav .we-navtitle{display:none}#sam-world-engine nav button{white-space:nowrap;padding:7px 10px;font-size:11px}#sam-world-engine nav button span{display:none}#sam-world-engine main{padding:18px 14px}#sam-world-engine .we-hero{gap:12px;align-items:flex-start}#sam-world-engine h1{font-size:23px}#sam-world-engine .we-hero .we-date{min-width:110px;font-size:12px}#sam-world-engine .we-metric{padding:10px}#sam-world-engine .we-metric strong{font-size:20px}#sam-world-engine .we-grid{grid-template-columns:1fr}#sam-world-engine footer{padding:8px 12px}#sam-world-engine footer small{display:none}}'
             ].join('\n');
-            doc.head.appendChild(this.style);
+            this.mount=doc.createElement('div');
+            this.mount.id='sam-world-engine-host';
+            this.mount.style.setProperty('all','initial','important');
+            const isolated=this.mount.attachShadow({mode:'open'});
+            isolated.appendChild(this.style);
+            // 明确占据视口高度，避免宿主 flex/弹窗规则在短屏挤掉正文。
+            this.style.textContent += `
+                #sam-world-engine{top:2vh!important;bottom:auto!important;height:96vh!important;height:96dvh!important;max-height:none!important;min-height:0!important;--ink:#344562;--sub:#6e7887;--line:#e8e6df;--gold:#9d742f;--mint:#4e7966;background:radial-gradient(at 90% 10%,#f3e9df,transparent 55%),linear-gradient(130deg,#e5ede6,#f3f1e9);color:var(--ink);border-color:#dedfd7}
+                #sam-world-engine header{background:#ffffffbd}#sam-world-engine .we-layout{min-height:0!important;flex:1 1 0!important;overflow:hidden}
+                #sam-world-engine nav{background:transparent;flex-shrink:0!important}#sam-world-engine nav button{background:#ffffffb5;border-radius:14px}#sam-world-engine nav button[aria-selected=true]{background:#7183a5;color:#fff;border-color:#c6a05a}
+                #sam-world-engine main{display:block!important;height:auto!important;min-height:0!important;flex:1 1 0!important;overflow:auto!important}
+                #sam-world-engine .we-section{background:#fffefa;border-radius:18px;padding:18px;box-shadow:0 12px 32px #36473a08}
+                #sam-world-engine .we-card,#sam-world-engine .we-calendar{background:#faf9f5;border-color:#ebe7df;border-radius:13px}
+                #sam-world-engine .we-card p,#sam-world-engine .we-person p{color:#667185}#sam-world-engine .we-metrics{background:#fffefa}
+                #sam-world-engine .we-tools input,#sam-world-engine textarea{background:#fffefa;color:var(--ink);border-color:#dadbd8}
+                #sam-world-engine .we-empty{border-color:#e3dfd5}#sam-world-engine .we-empty b{color:var(--sub)}
+                #sam-world-engine .we-notice{color:#786648}#sam-world-engine h2{font-family:Georgia,"SimSun",serif;font-size:19px}
+                #sam-world-engine footer{flex-shrink:0;background:#ffffffa0}
+                #sam-world-engine .we-config-row{display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+                #sam-world-engine .we-config-row input{width:70px}#sam-world-engine select,#sam-world-engine .we-config-row input{font:inherit;padding:7px;border:1px solid #d8ddd8;border-radius:7px;background:#fff;color:var(--ink)}
+                #sam-world-engine .we-book{border:1px solid var(--line);border-radius:12px;padding:12px}
+                #sam-world-engine .we-book-list{max-height:320px;overflow:auto;margin-top:10px}
+                #sam-world-engine .we-book-row{display:flex;gap:10px;align-items:center;padding:11px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+                #sam-world-engine .we-book-title{flex:1;min-width:0;overflow-wrap:anywhere}#sam-world-engine .we-book-title small{display:block;color:var(--sub);font-size:11px}
+                #sam-world-engine .we-read-state{max-width:135px;color:var(--sub);font-size:11px}
+                #sam-world-engine .we-lamp{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+                #sam-world-engine .we-lamp.blue{background:#5794dd;box-shadow:0 0 0 4px #5794dd16}#sam-world-engine .we-lamp.green{background:#58a879;box-shadow:0 0 0 4px #58a87916}#sam-world-engine .we-lamp.gray{background:#a1a6ad}
+                #sam-world-engine .we-request-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+                #sam-world-engine .we-inspect-body{max-height:440px;overflow:auto;padding:10px 3px;overscroll-behavior:contain}
+                #sam-world-engine .we-prose{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
+                #sam-world-engine textarea.we-raw{min-height:180px;height:280px;max-height:400px;font:12px/1.8 monospace;white-space:pre-wrap}
+                #sam-world-engine [data-segment]{min-height:180px;height:240px}
+                #sam-world-engine summary{font-size:13px;line-height:1.7}
+                @media(max-width:640px){#sam-world-engine{top:0!important;height:100vh!important;height:100dvh!important}#sam-world-engine nav{max-height:55px}#sam-world-engine .we-layout{flex-direction:column}#sam-world-engine .we-section{padding:14px}}
+                @media(max-height:400px){#sam-world-engine header{height:40px}#sam-world-engine nav{padding:4px}#sam-world-engine footer{padding:2px 12px}#sam-world-engine main{padding:10px}}
+            `;
             this.panel=doc.createElement('section');this.panel.id='sam-world-engine';this.panel.hidden=true;
             this.panel.setAttribute('role','dialog');this.panel.setAttribute('aria-label','世界引擎');
             this.panel.innerHTML='<header><div class="we-brand"><i>◈</i>世界引擎<small>WORLD CHRONICLE</small></div><button class="we-btn" data-action="enabled"></button><button class="we-btn we-primary" data-action="run">推进世界</button><button class="we-btn" data-action="close" aria-label="返回主神终端">返回 ↗</button></header><div class="we-layout"><nav></nav><main></main></div><footer><span></span><small>剧情时间驱动 · 关闭面板后仍可自动运行</small></footer>';
             this.panel.addEventListener('click',event=>{
                 const button=event.target.closest('button');if(!button)return;
                 const a=button.dataset.action;
+                if(button.dataset.directory){this.directoryTab=button.dataset.directory;this.render();return;}
+                if(button.dataset.faction){this.selectedFaction=button.dataset.faction;this.render();return;}
+                if(button.dataset.person){this.selectedPerson=button.dataset.person;this.render();return;}
                 if(a==='close')this.close();
                 else if(a==='run')this.run().catch(()=>{});
                 else if(a==='enabled')this.setEnabled(!this.config.enabled);
                 else if(a==='cancel'){this.cancel();this.status='已请求停止';this.render();}
-                else if(a==='save'){this.setPreset(this.panel.querySelector('textarea').value);this.status='预设已保存';this.render();}
+                else if(a==='save'){
+                    this.setPreset(Array.from(this.panel.querySelectorAll('[data-segment]')).map(e=>e.value).join('\n'));
+                    this.config.contextTurns=Math.max(1,Math.min(100,Number(this.panel.querySelector('[data-floors]').value)||6));
+                    this.config.activationMode=this.panel.querySelector('[data-activation]').value;
+                    if(this.bookCatalogue)this.config.selectedEntries=Array.from(this.panel.querySelectorAll('[data-book]:checked')).map(e=>e.value);
+                    this.saveConfig();this.status='预设与资料范围已保存';
+                    this.panel.querySelector('footer span').textContent=this.status;
+                }
+                else if(a==='books'){
+                    const drafts=Array.from(this.panel.querySelectorAll('[data-segment], [data-floors], [data-activation]')).map(e=>({selector:e.hasAttribute('data-segment')?'[data-segment="'+e.dataset.segment+'"]':e.hasAttribute('data-floors')?'[data-floors]':'[data-activation]',value:e.value}));
+                    const checked=new Map(Array.from(this.panel.querySelectorAll('[data-book]')).map(e=>[e.value,e.checked]));
+                    this.catalogue().then(list=>{this.bookCatalogue=list;this.render(true);for(const d of drafts){const el=this.panel.querySelector(d.selector);if(el)el.value=d.value;}this.panel.querySelectorAll('[data-book]').forEach(e=>{if(checked.has(e.value))e.checked=checked.get(e.value);});}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
+                }
+                else if(a==='book-all'||a==='book-none'){this.panel.querySelectorAll('[data-book]').forEach(e=>{e.checked=a==='book-all';});}
+                else if(a==='preview'){this.buildRequest(this.snapshot()).then(r=>{this.previewRequest=r;this.tab='请求检查';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});}
                 else if(a==='month'){this.monthOffset=(this.monthOffset||0)+Number(button.dataset.step);this.render();}
                 else if(a==='date'){this.selectedDate=this.selectedDate===button.dataset.date?'':button.dataset.date;this.render();}
                 else if(a==='clear-date'){this.selectedDate='';this.render();}
@@ -412,7 +551,8 @@
                     const input=this.panel.querySelector('[data-search]');input.focus();input.setSelectionRange(caret,caret);
                 }
             });
-            doc.body.appendChild(this.panel);
+            isolated.appendChild(this.panel);
+            doc.body.appendChild(this.mount);
         }
         render(force) {
             if(!this.isOpen())return;
@@ -426,7 +566,7 @@
             this.panel.querySelector('[data-action=run]').disabled=this.busy||!!reason;
             this.panel.querySelector('[data-action=run]').textContent=this.busy?'推演中…':'推进世界';
             this.panel.querySelector('[data-action=enabled]').textContent=this.config.enabled?'自动 · 开启':'自动 · 关闭';
-            const tabs=[['世界推进','◈'],['角色管理','♙'],['势力与地区','⚑'],['任务与剧本','▤'],['传闻','◌'],['提示词预设','✎'],['运行记录','≋']];
+            const tabs=[['世界推进','◈'],['角色管理','♙'],['势力与地区','⚑'],['任务与剧本','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋']];
             this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span>'+i+'</span>'+t+'</button>').join('');
             if(this.tab==='提示词预设'&&main.querySelector('textarea')&&!force)return;
             const text=v=>escape(v==null?'':v);
@@ -471,20 +611,36 @@
             const hero='<div class="we-hero"><div><div class="we-eyebrow">SAMSARA / WORLD ARCHIVE</div><h1>'+text(w.名称&&w.名称!=='待初始化'?w.名称:'世界尚未建立')+'</h1><div class="we-muted">'+text(w.地点||'地点待确认')+' · '+text(orbit.当前阶段&&orbit.当前阶段!=='待初始化'?orbit.当前阶段:'等待篇章开启')+'</div></div><div class="we-date">'+text(w.时间||'副本日期待确认')+'<small>累计游玩 '+text((s.系统状态||{}).游玩天数||0)+' 天 · '+(reason?'推进暂停':'副本进行中')+'</small></div></div>';
             let html=hero+(reason?'<div class="we-notice">'+text(reason)+'</div>':'');
             if(this.tab==='世界推进'){
-                html+='<div class="we-metrics">'+[[active.length,'活跃事件'],[people.size,'人物档案'],[tasks.filter(([,t])=>t.状态==='进行中'||t.状态==='可交付').length,'进行中任务'],[future.length,'未来节点']].map(([n,l])=>'<div class="we-metric"><strong>'+n+'</strong><small>'+l+'</small></div>').join('')+'</div>';
-                const shown=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter)&&(!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate));
                 const changes=(state.最近变化||[]).slice(-7).reverse();
                 const changeHtml=changes.map(c=>'<div class="we-change"><time>'+text(dateLabel(c.时间))+'</time><div><b>'+text(c.名称||c.类别)+' · '+text(c.操作)+'</b><p>'+text(c.内容||c.字段)+'</p></div></div>').join('');
-                html+='<div class="we-columns"><div>'+section('世界动向',state.公开摘要?'<div class="we-notice">'+text(state.公开摘要)+'</div>':empty('世界还没有新的消息','可先查看已有任务与人物，推进后生成世界动向。'),'正文可见')+section('事件时间线',tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p class="we-muted">筛选日期：'+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+(shown.length?'<div class="we-timeline">'+shown.map(([n,e])=>eventCard(n,e)).join('')+'</div>':empty('没有符合条件的事件','日期点选与状态筛选只影响展示，不改变世界时间。')),events.length+' 个节点')+section('任务进展',tasks.length?tasks.slice(0,5).map(([n,t])=>taskCard(n,t)).join(''):empty('当前没有任务','主神任务沿用原来的创建与结算流程。'))+'</div><aside>'+calendar()+section('人物动态',people.size?Array.from(people).slice(0,6).map(([n,p])=>person(n,p)).join(''):empty('暂无人物动态'),people.size+' 人')+section('近期变化',changeHtml||empty('尚未产生变化记录','每次成功推演后自动记录变化对象与日期。'))+section('因果轨道',fields({当前阶段:orbit.当前阶段,故事线:orbit.故事线,下一节点:orbit.下一节点,稳定度:w.稳定})+details('world-laws',{世界法则:w.法则,货币:w.货币,偏移记录:orbit.偏移记录},'世界法则与因果偏移'))+'</aside></div>';
+                const shown=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter)&&(!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate));
+                html+=section('世界动向',state.公开摘要?'<p>'+text(state.公开摘要)+'</p>':empty('尚无公开动态','推进成功后，这里的结果会提供给正文 AI。'));
+                html+='<div class="we-columns"><div>'+section('人物动态',people.size?Array.from(people).slice(0,6).map(([n,p])=>person(n,p)).join('')+'<button class="we-btn" data-tab="角色管理">全部人物 ›</button>':empty('暂无人物动态'))+
+                    '<div class="we-grid">'+section('关系变动',Array.from(people).flatMap(([n,p])=>(p.关系变化||[]).map(r=>'<p><b>'+text(n)+' → '+text(r.对象)+'</b><br>'+text(r.变化)+'</p>')).slice(-5).join('')||empty('本轮无关系变化'))+section('近期变化',changeHtml||empty('本轮无变化记录'))+'</div></div><aside>'+
+                    section('活跃事件',(active.slice(0,3).map(([n,e])=>'<p><b>'+text(n)+'</b><br><small>'+text(e.时间||e.开始时间||'时间待确认')+'</small><br>'+text(e.公开征兆||e.描述)+'</p>').join('')||empty('暂无活跃事件'))+'<button class="we-btn" data-tab="任务与剧本">全部事件 ›</button>')+
+                    section('任务进展',(tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态)).slice(0,3).map(([n,t])=>'<p><b>'+text(n)+'</b> '+pill(t.状态)+'<br>'+text(t.目标||t.说明||'')+'</p>').join('')||empty('暂无进行中任务'))+'<button class="we-btn" data-tab="任务与剧本">全部任务 ›</button>')+'</aside></div>';
+                html+='<details class="we-section" data-detail="world-calendar"'+(opened.has('world-calendar')?' open':'')+'><summary>日历与完整时间线 · '+events.length+' 个事件 / '+future.length+' 个未来节点</summary><div class="we-columns"><div>'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p>筛选日期：'+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(shown.map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的事件'))+'</div></div><aside>'+calendar()+'</aside></div></details>';
             }else if(this.tab==='角色管理'){
                 const list=Array.from(people).filter(([n,p])=>matched(n,p)&&((this.filter||'全部')==='全部'||(this.filter==='在场'?!!(s.关系列表||{})[n]?.在场:!(s.关系列表||{})[n]?.在场)));
-                html+=tools(['全部','在场','场外'])+'<div class="we-grid">'+list.map(([n,p])=>person(n,p,true)).join('')+'</div>'+(list.length?'':empty('没有符合条件的人物'));
-                html+=section('异端档案',entries((w.异端雷达||{}).名单).map(([n,r])=>'<article class="we-card"><div class="we-card-top"><h3>'+text(n)+'</h3>'+pill(r.状态||'状态未明','future')+'</div>'+fields(r)+'</article>').join('')||empty('当前没有异端记录'));
+                const chosen=list.find(([n])=>n===this.selectedPerson)||list[0];
+                html+=tools(['全部','在场','场外'])+'<div class="we-columns"><div>'+section('人物名册','<div class="we-tools">'+list.map(([n])=>'<button data-person="'+text(n)+'" class="'+(chosen?.[0]===n?'active':'')+'">'+text(n)+'</button>').join('')+'</div>')+(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true))+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查})):empty('没有符合条件的人物'))+'</div><aside>'+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['承诺',chosen[1].承诺],['抉择',chosen[1].待决事项],['交际圈',chosen[1].关系变化],['近期动向',chosen[1].公开动态]].map(([label,v])=>section(label,exists(v)?value(v):empty('本轮没有'+label+'记录'))).join(''):'')+'</aside></div>';
             }else if(this.tab==='势力与地区'){
-                html+=tools();
-                html+=section('势力与地区动态','<div class="we-grid">'+entries(state.势力地区).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><div class="we-card-top"><h3>'+text(n)+'</h3>'+pill(r.类型,'dim')+'</div><p>'+text(r.进展||r.公开动态||r.描述)+'</p>'+fields({控制方:r.控制方,目标:r.目标,下次检查:r.下次检查})+details('area-'+n,{争夺方:r.争夺方,资源:r.资源,内部派系:r.内部派系,近期变化:r.近期变化,环境状态:r.环境状态,关联事件:r.关联事件,更新时间:r.更新时间},'资源 · 派系 · 地区变化')+'</article>').join('')+'</div>');
-                html+='<div class="we-columns"><div>'+section('势力声望',entries(w.势力).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><div class="we-card-top"><h3>'+text(n)+'</h3>'+pill('声望 '+r.声望)+'</div><p>'+text(r.描述)+'</p>'+fields({实力:r.实力,领地:r.领地})+'</article>').join('')||empty('尚未接触势力'))+'</div><div>'+section('探索地点',entries(w.探索).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><div class="we-card-top"><h3>'+text(n)+'</h3>'+pill('风险 '+r.风险,'future')+'</div><p>'+text(r.描述)+'</p><div class="we-progress"><i style="width:'+Math.max(0,Math.min(100,Number(r.探索度)||0))+'%"></i></div><div class="we-muted">探索度 '+text(r.探索度)+'%</div>'+details('explore-'+n,{隐藏真相:r.隐藏真相},'主持人档案')+'</article>').join('')||empty('尚未发现探索地点'))+'</div></div>';
+                const records=new Map(entries(state.势力地区));
+                entries(w.势力).forEach(([name,r])=>records.set(name,{...r,...records.get(name),类型:'势力'}));
+                entries(w.探索).forEach(([name,r])=>{if(!records.has(name))records.set(name,{...r,类型:'地区'});});
+                const all=Array.from(records),areas=all.filter(([,r])=>r.类型!=='势力'),factions=all.filter(([,r])=>r.类型==='势力');
+                const selected=factions.find(([n])=>n===this.selectedFaction)||factions[0];
+                const dir=this.directoryTab||'地区';
+                const changes=all.flatMap(([name,r])=>(r.近期变化||[]).map(c=>'<div class="we-change"><time>'+text(c.时间)+'</time><div><b>'+text(name)+'</b><p>'+text(c.事实)+'</p></div></div>'));
+                html+=section('世界动向',changes.join('')||empty('本轮没有已发生的势力或地区变化'));
+                html+=section('名录','<div class="we-tools">'+['地区','热点','势力关系'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+t+'</button>').join('')+'</div>'+
+                    (dir==='地区'?areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.控制方||'控制权未明')+'</summary>'+fields({描述:r.描述,控制方:r.控制方,争夺方:r.争夺方,探索度:r.探索度,环境:r.环境状态})+'</details>').join(''):
+                    dir==='热点'?events.filter(([,e])=>e.状态==='进行中').map(([n,e])=>eventCard(n,e)).join(''):
+                    areas.map(([n,r])=>'<p>'+text(n)+' ← '+text(r.控制方||'未确认')+(r.争夺方?.length?' ／ 争夺：'+text(r.争夺方.join('、')):'')+'</p>').join(''))||empty('暂无名录记录'));
+                html+='<div class="we-columns"><div>'+section('势力格局','<div class="we-grid">'+factions.map(([n,r])=>'<button class="we-card" data-faction="'+text(n)+'"><h3>'+text(n)+'</h3><p>'+text(r.目标||r.描述||'目标未记录')+'</p><small>'+text(r.领地||'领地未记录')+'</small></button>').join('')+'</div><p class="we-muted">只显示已知势力与控制关系，不推测未记录的联盟或敌对。</p>')+'</div><aside>'+section('势力档案',selected?'<h3>'+text(selected[0])+'</h3>'+fields(selected[1]):empty('本轮没有势力记录'))+'</aside></div>';
+                html+=section('各地情势',areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.进展||r.公开动态||r.描述||'情势待确认')+'</summary>'+fields(r)+'</details>').join('')||empty('本轮没有地区记录'));
             }else if(this.tab==='任务与剧本'){
+                html+=section('近期动向 · 事件节点',events.map(([n,e])=>eventCard(n,e)).join('')||empty('尚未排定事件节点','推进时需把故事线拆成有时间或明确触发条件的事件；不把计划视为事实。'));
                 html+=tools(['全部','进行中','可交付','可结算','失败'])+section('当前任务','<div class="we-grid">'+tasks.filter(([n,t])=>matched(n,t)&&((this.filter||'全部')==='全部'||t.状态===this.filter)).map(([n,t])=>taskCard(n,t)).join('')+'</div>');
                 html+=section('剧本与阶段',entries(state.剧本).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><h3>'+text(n)+'</h3><p>'+text(r.描述)+'</p>'+fields({状态:r.状态,期限:r.期限,下一节点:r.下一节点,关联任务:r.关联任务})+details('script-'+n,{阶段:r.阶段,前置条件:r.前置条件,完成条件:r.完成条件,失败条件:r.失败条件,阻碍:r.阻碍,参与者:r.参与者,地点:r.地点,结果:r.结果,关联事件:r.关联事件},'阶段路线与条件')+'</article>').join('')||empty('剧本节点尚未建立'));
                 html+=section('副本成就','<div class="we-grid">'+achievements.filter(([n,t])=>matched(n,t)).map(([n,t])=>taskCard(n,t)).join('')+'</div>',achievements.filter(([,t])=>t.状态==='已达成').length+'/'+achievements.length+' 已达成');
@@ -496,7 +652,34 @@
                 html+='<div class="we-tools"><button data-action="cancel">停止当前请求</button></div>'+section('推演记录',(state.运行记录||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.时间)+'</h3>'+pill(r.补丁数+' 项变化','dim')+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚未执行推演'));
                 html+=section('历史锚点',entries(state.历史).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无已确认的历史锚点'));
             }else if(this.tab==='提示词预设'){
-                html+='<div class="we-notice">调整世界如何演进、人物如何行动。连接与模型沿用主神终端设置。</div><textarea aria-label="世界推进提示词">'+text(this.config.preset)+'</textarea><div class="we-tools"><button class="we-btn we-primary" data-action="save">保存预设</button></div>';
+                html+='<div class="we-notice">先保存设置，再生成请求预览验证。蓝绿灯表示条目触发方式，“实际读取”以请求检查中的本次清单为准。</div>';
+                const groups=new Map();
+                for(const e of this.bookCatalogue||[]){if(!groups.has(e.book))groups.set(e.book,[]);groups.get(e.book).push(e);}
+                const selected=e=>this.config.selectedEntries?this.config.selectedEntries.includes(JSON.stringify([e.book,e.id])):e.enabled;
+                html+=section('资料读取范围','<div class="we-config-row"><label>正文窗口 <input data-floors type="number" min="1" max="100" value="'+(this.config.contextTurns||6)+'"> 层</label><label>读取方式 <select data-activation><option value="respect_activation" '+(this.config.activationMode!=='force_selected'?'selected':'')+'>遵循蓝绿灯</option><option value="force_selected" '+(this.config.activationMode==='force_selected'?'selected':'')+'>强制读取勾选项</option></select></label></div><p class="we-muted">遵循蓝绿灯：蓝灯常驻，绿灯扫描上述正文窗口的关键词；禁用项不读。强制模式：勾选即读，包含禁用项。不会更改酒馆世界书自身的开关。</p><div class="we-tools"><button data-action="books">加载 / 刷新目录</button><button data-action="book-all">全选</button><button data-action="book-none">全不选</button></div>'+
+                    (groups.size?Array.from(groups).map(([book,list])=>'<details class="we-book" open><summary>'+text(book)+' <small>'+list.filter(selected).length+' / '+list.length+' 项已保存勾选</small></summary><div class="we-book-list">'+list.map(e=>{
+                        const report=(this.readReport||[]).find(r=>r.世界书===e.book&&r.条目ID===e.id);
+                        return '<label class="we-book-row"><input type="checkbox" data-book value="'+text(JSON.stringify([e.book,e.id]))+'" '+(selected(e)?'checked':'')+'><span class="we-lamp '+(e.mode==='constant'?'blue':e.mode==='selective'?'green':'gray')+'" title="'+text(e.mode==='constant'?'蓝灯 · 常驻':e.mode==='selective'?'绿灯 · 关键词触发':'其他激活方式')+'"></span><span class="we-book-title"><b>'+text(e.title)+'</b><small>'+text((e.mode==='constant'?'常驻':e.mode==='selective'?'关键词：'+(Array.isArray(e.keys)?e.keys.map(k=>typeof k==='string'?k:'正则条件').join('、'):e.keys):e.mode)+(e.enabled?'':' · 已禁用'))+'</small></span><small class="we-read-state">'+text(report?'上次检查：'+report.原因:'尚未检查')+'</small></label>';
+                    }).join('')+'</div></details>').join(''):empty('尚未加载目录','点击加载；预览会按已保存设置实际读取，并报告命中或跳过原因。')));
+                html+=section('分段提示词',this.config.preset.split(/\n(?=【)/).map((part,i)=>'<details data-detail="preset-'+i+'"><summary>'+text((part.match(/^【([^】]+)】/)||[])[1]||'身份与总则')+' · '+part.length+' 字</summary><textarea data-segment="'+i+'" aria-label="预设分段 '+i+'">'+text(part)+'</textarea></details>').join(''));
+                html+='<div class="we-tools"><button class="we-btn we-primary" data-action="save">保存预设与范围</button><button class="we-btn" data-action="preview">预览下一次请求</button></div>';
+            }else if(this.tab==='请求检查'){
+                const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';
+                const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
+                const readable=(name,v)=>Array.isArray(v)?v.map((item,i)=>fold((item.名称||item.楼层!==undefined&&(item.角色+' · 第 '+item.楼层+' 层')||name+' '+(i+1)),fields(item))).join(''):fields(plain(v)?v:{内容:v});
+                html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
+                for(const [label,r] of [['最近实际发送',this.lastRequest],['下一次请求预览',this.previewRequest]]){
+                    if(!r){html+=section(label,empty('暂无'+label));continue;}
+                    const m=r.manifest,books=m.世界书条目||[],floors=m.正文楼层||[];
+                    let body='<div class="we-request-summary">'+pill(books.length+' 条世界书','dim')+pill(floors.length+' 层正文','dim')+pill(m.请求字符数+' 字符','dim')+'</div>';
+                    body+=fold('资料清单与命中判定（点击展开）',readable('条目',m.读取判定||books)+fold('实际正文楼层',fields({楼层:floors.map(f=>f.楼层+' · '+f.角色+' · '+f.字符数+'字')})));
+                    body+=fold('system · 分段阅读',r.system.split(/\n(?=【)/).map((part,i)=>fold((part.match(/^【([^】]+)】/)||[])[1]||'身份 / 协议 '+(i+1),'<div class="we-prose">'+text(part)+'</div>')).join(''))+raw('system · 完整原文',r.system);
+                    let payload;try{payload=JSON.parse(r.input);}catch(_){payload={正文:r.input};}
+                    body+=fold('user · 分段阅读',Object.entries(payload).map(([name,v])=>fold(name,readable(name,v))).join(''))+raw('user · 完整原文',r.input);
+                    html+=section(label,body);
+                }
+                if(this.lastFailure)html+='<div class="we-notice">'+text(this.lastFailure)+'</div>';
+                if(this.lastReply)html+=section('副 API 原始回复',raw('查看模型返回原文（用于定位格式问题）',this.lastReply));
             }
             main.innerHTML=html;main.scrollTop=force?0:scroll;
         }
@@ -505,6 +688,7 @@
             this.unsub.forEach(off => off()); this.unsub = [];
             if (this.keyHandler) this.host.document.removeEventListener('keydown',this.keyHandler,true);
             if (this.panel) this.panel.remove(); if (this.style) this.style.remove();
+            if (this.mount) this.mount.remove();
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。

@@ -99,9 +99,49 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const host = {localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request}},getCurrentChatId:()=>chat,getChatMessages:()=>[{message_id:3,message:text,role:'assistant'}]};
         let writes = 0;
         host.Mvu = {getMvuData:()=>({stat_data:clone(stat)}),replaceMvuData:async data => {writes++; stat = clone(data.stat_data);}};
-        const engine = new Engine(host); engine.config.enabled = true; engine.worldbook = async () => [];
+        const engine = new Engine(host); engine.config.enabled = true; engine.config.requireMacroBackbone = false; engine.config.retryAttempts = 0; engine.worldbook = async () => [];
         return {engine,get:()=>stat,writes:()=>writes,change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
     }
+    await test('model causal patches accept whole objects and normalize common 因校轨道 typo', () => {
+        const stat=fresh();
+        const patches=[
+            {op:'replace',path:'/世界/因果轨道',value:{当前阶段:'爆发日',故事线:'撤离 -> 灾变 -> 崩溃',下一节点:'撤离',偏移记录:{}}},
+            {op:'replace',path:'/世界/因校轨道/故事线',value:'撤离 -> 灾变 -> 崩溃'}
+        ];
+        const normalized=Engine.normalizeModelPatchesForTest(patches);
+        const next=applyPatches(stat,normalized);
+        assert.equal(next.世界.因果轨道.当前阶段,'爆发日');
+        assert.equal(next.世界.因果轨道.故事线,'撤离 -> 灾变 -> 崩溃');
+        assert.equal(next.世界.因果轨道.下一节点,'撤离');
+    });
+    await test('macro-deficient model replies retry and only commit once a real backbone exists', async () => {
+        let calls=0,inputs=[];
+        const x=setup(async (_system,input)=>{
+            calls++;inputs.push(input);
+            if(calls<3)return JSON.stringify({summary:'仍只处理眼前剧情',patches:[add('/世界/后台/事件/当前混乱',{描述:'当前混乱',分类:'当前事件',状态:'进行中'})]});
+            return JSON.stringify({summary:'已补齐宏观骨架',patches:[
+                add('/世界/后台/事件/城市撤离',{描述:'城市撤离',分类:'宏观节点',状态:'待发生',时间:'2026年9月8日'}),
+                add('/世界/后台/事件/战略级灾难',{描述:'战略级灾难',分类:'宏观节点',状态:'待发生',时间:'2026年9月10日'}),
+                add('/世界/后台/事件/秩序崩溃',{描述:'秩序崩溃',分类:'宏观节点',状态:'待发生',时间:'2026年9月14日'})
+            ]});
+        });
+        x.engine.config.requireMacroBackbone=true;
+        x.engine.config.retryAttempts=3;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,3);
+        assert.equal(x.writes(),1);
+        assert.match(inputs[1],/宏观事件不足/);
+        assert.match(inputs[1],/仍只处理眼前剧情/);
+        assert.equal(Object.values(x.get().世界.后台.事件).filter(e=>e.分类==='宏观节点'&&e.状态==='待发生').length,3);
+        assert.match(x.get().世界.因果轨道.故事线,/城市撤离.*战略级灾难.*秩序崩溃/);
+    });
+    await test('retry limit defaults to three and persists from request-inspection setting', () => {
+        const engine=new Engine({localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{}});
+        assert.equal(engine.config.retryAttempts,3);
+        const sourceText=fs.readFileSync(file,'utf8');
+        assert.match(sourceText,/data-retries/);
+        assert.match(sourceText,/失败重试次数/);
+    });
     await test('master switch off blocks manual world progression', async () => {
         let calls=0;
         const x=setup(async()=>{calls++;return JSON.stringify({summary:'不应执行',patches:[]});});

@@ -109,6 +109,19 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(events['校园突围与校车集结'],undefined);
         assert.equal(Object.values(events).filter(e=>e.分类==='宏观节点'&&e.状态==='待发生').length,3);
     });
+    await test('valid macro storyline still repairs a stale next-node pointer', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'同步下一宏观',patches:[]}));
+        x.change(s=>{
+            s.世界.后台.事件={
+                A:{...RECORDS.事件,分类:'宏观节点',描述:'阶段A',状态:'待发生',时间:'2026年9月8日'},
+                B:{...RECORDS.事件,分类:'宏观节点',描述:'阶段B',状态:'待发生',时间:'2026年9月10日'},
+                C:{...RECORDS.事件,分类:'宏观节点',描述:'阶段C',状态:'待发生',时间:'2026年9月14日'}
+            };
+            s.世界.因果轨道={当前阶段:'危机中',故事线:'A -> B -> C',下一节点:'C',偏移记录:{}};
+        });
+        assert.equal(await x.engine.run(),true);
+        assert.equal(x.get().世界.因果轨道.下一节点,'A');
+    });
     await test('macro storyline deterministically links empty macro predecessors', async () => {
         const x=setup(async()=>JSON.stringify({summary:'宏观链',patches:[]}));
         x.change(s=>{

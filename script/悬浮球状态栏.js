@@ -3093,8 +3093,15 @@
             var tab = $(this).data('tab');
             if (tab === 'world') {
                 var engine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
-                if (!engine) { samToast('error', '请先加载独立脚本：世界推进系统.js'); return; }
-                engine.open();
+                if (engine && typeof engine.isConfigured === 'function' && engine.isConfigured()) {
+                    engine.open();
+                    return;
+                }
+                // 世界推进总开关关闭（或独立脚本未加载）时，恢复原来的世界面板。
+                setCurrentTab('world');
+                renderTabContent('world');
+                $panel.find('.sam-tab-btn').removeClass('active');
+                $(this).addClass('active');
                 return;
             }
             setCurrentTab(tab);
@@ -4022,6 +4029,9 @@
         var cfg = stat.设置 || {};
         var superStable = (cfg.世界超稳 === true);
         var singleWorld = (cfg.单一世界 === true);
+        var worldEngine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
+        var worldAdvanceOn = !!(worldEngine && typeof worldEngine.isConfigured === 'function' && worldEngine.isConfigured());
+        var worldAdvanceReady = !!(worldEngine && typeof worldEngine.isEnabled === 'function' && worldEngine.isEnabled());
         var themeHtml = '';
         THEME_ORDER.forEach(function(key) {
             var th = THEMES[key];
@@ -4036,7 +4046,9 @@
             + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🌐 世界超稳</div><div style="font-size:11px;color:var(--sam-sub);">开启后世界稳定性锁定,因果轨道不再偏移</div></div>'
             + '<div class="sam-toggle-switch '+(superStable?'on':'')+'" data-toggle="世界超稳"><div class="knob"></div></div></div>'
             + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🪐 单一世界</div><div style="font-size:11px;color:var(--sam-sub);">开启后仅存在单一世界,关闭后可在多世界间选择</div></div>'
-            + '<div class="sam-toggle-switch '+(singleWorld?'on':'')+'" data-toggle="单一世界"><div class="knob"></div></div></div>');
+            + '<div class="sam-toggle-switch '+(singleWorld?'on':'')+'" data-toggle="单一世界"><div class="knob"></div></div></div>'
+            + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🌍 世界推进</div><div id="sam-world-engine-state" style="font-size:11px;color:var(--sam-sub);">'+(worldAdvanceOn?(worldAdvanceReady?'已开启 · 独立世界引擎接管':'已开启 · 等待额外模型配置'):'已关闭 · 使用原世界面板与原推演规则')+'</div></div>'
+            + '<div class="sam-toggle-switch '+(worldAdvanceOn?'on':'')+'" data-toggle="world-engine"><div class="knob"></div></div></div>');
 
         var variableMode = getVariableApiMode();
         var variableModeHtml = '<div class="sam-varmode-grid">'
@@ -4146,6 +4158,22 @@
                 statData.设置[key] = on;
             });
             renderAll();
+        });
+
+        // 世界推进总开关：开启时自动启用额外 API；关闭只停世界引擎，不反向关闭额外 API。
+        $('#samsara-modal').off('click.samWorldEngine').on('click.samWorldEngine', '.sam-toggle-switch[data-toggle="world-engine"]', function() {
+            var engine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
+            if (!engine || typeof engine.setEnabled !== 'function') { samToast('error', '请先加载独立脚本：世界推进系统.js'); return; }
+            var on = !$(this).hasClass('on');
+            engine.setEnabled(on);
+            $(this).toggleClass('on', on);
+            var ready = !!(typeof engine.isEnabled === 'function' && engine.isEnabled());
+            $('#sam-world-engine-state', $apiModal).text(on ? (ready ? '已开启 · 独立世界引擎接管' : '已开启 · 等待额外模型配置') : '已关闭 · 使用原世界面板与原推演规则');
+            if (on) {
+                apiRefreshFields();
+                if (ready) samToast('success', '世界推进已开启');
+                else samToast('warning', '世界推进已开启，额外 API 已自动启用；请配置 API 地址并选择模型');
+            } else samToast('success', '世界推进已关闭，已恢复原世界面板与推演规则');
         });
 
         // MVU变量更新方式：同开局页共享 localStorage，并立即同步世界书/当前预设
@@ -4643,8 +4671,7 @@
             case 'relation': html = renderRelationTab(sd); break;
             case 'asset': html = renderAssetTab(sd); break;
             case 'rumor': html = renderRumorTab(sd); break;
-            // 旧 renderWorldTab 保留供后续比较，入口已交给独立世界引擎。
-            case 'world': html = '<div class="sam-empty">点击左侧「世界」打开世界引擎</div>'; break;
+            case 'world': html = renderWorldTab(sd); break;
             case 'shop': html = renderShopTab(sd); break;
             default: html = '<div class="sam-empty">未知Tab</div>';
         }
@@ -9339,6 +9366,10 @@ if (hasReq) {
         GS_PARENT.Samsara.terminal = {
             request: function(system, input, options) { return apiChat(system, input, options); },
             apiReady: function() { return isApiConfigEnabled() && !!getApiConfig().model; },
+            enableApi: function() {
+                saveApiConfig(function(cfg) { cfg.enabled = true; });
+                return isApiConfigEnabled();
+            },
             suspend: function() {
                 var panel = $('#samsara-panel');
                 var state = { open: panel.hasClass('open'), scroll: $('#sam-tab-content').scrollTop() || 0 };

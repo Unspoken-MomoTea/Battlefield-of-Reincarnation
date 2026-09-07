@@ -1154,9 +1154,9 @@
                 const shown=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter)&&(!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate));
                 const runningTasks=tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态));
                 const macroCount=events.filter(([,e])=>e.分类==='宏观节点').length;
-                const macroFuture=events.filter(([,e])=>e.分类==='宏观节点'&&e.状态==='待发生');
-                const orbitMacroPair=macroFuture.find(([n])=>n===orbit.下一节点);
-                const nextPair=orbitMacroPair||macroFuture[0]||null;
+                const timelineView=snapshot?timelineState(s):null;
+                const nextMacroName=timelineView?.下一宏观节点?.名称||'';
+                const nextPair=nextMacroName?events.find(([n,e])=>n===nextMacroName&&e.分类==='宏观节点')||null:null;
                 const nextNode=nextPair?.[0]||'等待宏观节点';
                 const nextEvent=nextPair?.[1]||null;
                 const compactPeople=Array.from(people).filter(([,p])=>p.行动||p.公开动态||p.地点).slice(0,4);

@@ -4060,7 +4060,7 @@
     + '<div class="desc">正文模型同轮输出变量更新，无需额外模型；长文本更容易出现格式错误。</div></button>'
   + '</div>'
   + '<div class="sam-varmode-status" id="sam-varmode-status"></div>'
-  + '<div style="margin-top:5px;font-size:10px;line-height:1.5;color:var(--sam-sub);">此项只切换 MVU 世界书/预设。下方「额外模型配置」仅供商城刷新与血统融合使用，两者互不影响。</div>';
+  + '<div style="margin-top:5px;font-size:10px;line-height:1.5;color:var(--sam-sub);">此项只切换 MVU 世界书/预设。下方「额外模型配置」供商城刷新、血统融合与世界推进共用；世界推进总开关开启时会自动启用该 API 通道。</div>';
         html += secBlock('🧭 变量更新方式', variableModeHtml);
 
         /* ----- 🔌 API 配置区块(移植自 Zsd网游论坛_本地内联版) ----- */
@@ -4086,8 +4086,8 @@
 
         // 启用开关提示语
         var apiEnableHint = apiCfg.enabled
-            ? '<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合将走自托管 API</span>'
-            : '<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API</span>';
+            ? '<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合 / 世界推进可使用自托管 API</span>'
+            : '<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API，世界推进暂停</span>';
         var apiHtml = '<div class="sam-api-section">'
             // 启用开关
             + '<div class="sam-toggle-row" style="margin-bottom:8px;">'
@@ -4228,9 +4228,9 @@
             // 启用状态提示
             var $hint = $('#sam-api-enable-state', $apiModal);
             if (c.enabled === true) {
-                $hint.html('<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合将走自托管 API</span>');
+                $hint.html('<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合 / 世界推进可使用自托管 API</span>');
             } else {
-                $hint.html('<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API</span>');
+                $hint.html('<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API，世界推进暂停</span>');
             }
             var $ps = $('#sam-api-preset-sel').empty().append('<option value="">— 选择已保存预设 —</option>');
             c.apiPresets.forEach(function(p) { $ps.append($('<option></option>').val(p.name).text(p.name)); });
@@ -4241,6 +4241,14 @@
                 $('#sam-api-models-status').html('<span class="sam-api-status ok">已加载 '+c.fetchedModels.length+' 个模型</span>');
             } else {
                 $('#sam-api-models-status').html('<span class="sam-api-status warn">未加载(使用默认列表)</span>');
+            }
+            var engine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
+            if (engine && typeof engine.isConfigured === 'function') {
+                var engineOn = engine.isConfigured();
+                var engineReady = typeof engine.isEnabled === 'function' && engine.isEnabled();
+                $('.sam-toggle-switch[data-toggle="world-engine"]', $apiModal).toggleClass('on', engineOn);
+                $('#sam-world-engine-state', $apiModal).text(engineOn ? (engineReady ? '已开启 · 独立世界引擎接管' : '已开启 · 等待额外模型配置') : '已关闭 · 使用原世界面板与原推演规则');
+                if (typeof engine.render === 'function') engine.render();
             }
         }
         // 启用开关: 切换 enabled, 同步显隐下方字段
@@ -9385,6 +9393,9 @@ if (hasReq) {
                 } else { $('#samsara-ball').show(); }
             }
         };
+        if (GS_PARENT.Samsara.worldEngine && typeof GS_PARENT.Samsara.worldEngine.isConfigured === 'function' && GS_PARENT.Samsara.worldEngine.isConfigured()) {
+            GS_PARENT.Samsara.terminal.enableApi();
+        }
         renderAll();
         try {
             if (localStorage.getItem(SAM_CONFIG.open) === '1') {

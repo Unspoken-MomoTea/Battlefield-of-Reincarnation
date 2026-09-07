@@ -42,6 +42,10 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('[data-event-card="灰港封锁"]').getByText('当前事件',{exact:true}).count(),1);
  assert.equal(await page.locator('[data-event-card="商会紧急议事"]').getByText('近期节点',{exact:true}).count(),1);
  assert.equal(await page.locator('[data-event-card="北境援军抵达"]').getByText('宏观节点',{exact:true}).count(),1);
+ assert.equal(await page.getByText('当前进行',{exact:true}).count(),1);
+ assert.equal(await page.getByText('近期桥接',{exact:true}).count(),1);
+ assert.equal(await page.getByText('宏观锚点',{exact:true}).count(),1);
+ assert.equal(await page.getByRole('heading',{name:'下一宏观节点',exact:true}).count(),1);
  assert.equal(await page.locator('[data-jump-event="北境援军抵达"]').count(),1,'下一关键节点应可点击');
  assert.equal(await page.locator('button[data-jump-event="北境援军抵达"]').count(),1,'下一关键节点必须是按钮');
  await page.locator('[data-jump-event="北境援军抵达"]').click();

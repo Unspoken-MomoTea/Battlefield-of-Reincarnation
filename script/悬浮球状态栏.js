@@ -4679,7 +4679,12 @@
             case 'relation': html = renderRelationTab(sd); break;
             case 'asset': html = renderAssetTab(sd); break;
             case 'rumor': html = renderRumorTab(sd); break;
-            case 'world': html = renderWorldTab(sd); break;
+            case 'world':
+                var activeWorldEngine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
+                html = (activeWorldEngine && typeof activeWorldEngine.isConfigured === 'function' && activeWorldEngine.isConfigured())
+                    ? '<div class="sam-empty">世界推进已开启，请点击左侧「世界」进入独立世界引擎。</div>'
+                    : renderWorldTab(sd);
+                break;
             case 'shop': html = renderShopTab(sd); break;
             default: html = '<div class="sam-empty">未知Tab</div>';
         }

@@ -472,6 +472,10 @@
             this.config = { enabled:false, preset:DEFAULT_PRESET };
             try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
             this.config.preset=ensurePresetStructure(this.config.preset);
+            if(this.config.enabled){
+                const terminal=this.host.Samsara&&this.host.Samsara.terminal;
+                if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
+            }
         }
         fn(name) {
             for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
@@ -520,7 +524,10 @@
             if(on){
                 const terminal=this.host.Samsara&&this.host.Samsara.terminal;
                 if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
-            } else this.cancel();
+            } else {
+                this.cancel();
+                if(this.isOpen())this.close();
+            }
             this.saveConfig();
             this.status=on?(this.isAvailable()?'世界推进已开启':'世界推进已开启 · 等待额外模型配置'):'世界推进已关闭';
             this.render();

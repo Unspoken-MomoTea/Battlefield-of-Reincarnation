@@ -277,8 +277,12 @@
               continue;
             }
             if (inCode) { result += char; continue; }
-            if (specialChars[char]) {
-              result += '<span class="cb-' + specialChars[char] + '">' + char + '</span>';
+            var specialToken = Object.keys(specialChars).find(function(token) {
+              return text.substring(i, i + token.length) === token;
+            });
+            if (specialToken) {
+              result += '<span class="cb-' + specialChars[specialToken] + '">' + specialToken + '</span>';
+              i += specialToken.length - 1;
               continue;
             }
             if (char === '-' && text.substring(i, i + 2) === '->') {

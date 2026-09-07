@@ -1066,6 +1066,14 @@
                     const input=this.panel.querySelector('[data-search]');input.focus();input.setSelectionRange(caret,caret);
                 }
             });
+            this.panel.addEventListener('change',event=>{
+                if(event.target.matches('[data-retries]')){
+                    const value=Math.max(0,Math.min(5,Number(event.target.value)||0));
+                    this.config.retryAttempts=value;event.target.value=value;this.saveConfig();
+                    this.status='失败重试次数已设为 '+value+' 次';
+                    this.panel.querySelector('footer span').textContent=this.status;
+                }
+            });
             isolated.appendChild(this.panel);
             doc.body.appendChild(this.mount);
         }
@@ -1154,7 +1162,7 @@
                     +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>时间线与日历</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p class="we-date-filter">筛选 '+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(shown.slice(0,12).map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的事件'))+'</div>'+(shown.length>12?'<p class="we-muted">当前仅展示前 12 个匹配节点，可用筛选缩小范围。</p>':'')+'</div></div></section>'
                     +section('近期变化',changeHtml||empty('本轮无变化记录'),'最近一次成功推进')
                     +'</div><aside class="we-command-side">'
-                    +section('下一关键节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="跳转到时间线中的对应事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'等待事件图进一步确认')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果轨道')
+                    +section('下一关键节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="点击定位到时间线中的对应宏观事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'本轮需要先建立真实宏观节点')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+(nextEvent?' · 点击定位 →':'')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果轨道')
                     +section('任务进展',(runningTasks.slice(0,3).map(([n,t])=>'<button class="we-brief-row" data-tab="任务与事件"><b>'+text(n)+'</b>'+pill(t.状态||'进行中','future')+'<span>'+text(t.目标||t.说明||'')+'</span></button>').join('')||empty('暂无进行中任务')),'优先显示进行中 / 可交付')
                     +section('人物动态',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'只显示重点 NPC')
                     +'</aside></div>';
@@ -1202,11 +1210,13 @@
                 const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';
                 const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
                 const readable=(name,v)=>Array.isArray(v)?v.map((item,i)=>fold((item.名称||item.楼层!==undefined&&(item.角色+' · 第 '+item.楼层+' 层')||name+' '+(i+1)),fields(item))).join(''):fields(plain(v)?v:{内容:v});
+                const retryLog=(this.lastRetryLog||[]).map(item=>'<div class="we-change"><time>#'+text(item.重试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p></div></div>').join('');
+                html+=section('失败自动重试','<div class="we-config-row"><label>失败重试次数 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求失败后，最多再请求这么多次；默认 3，最大 5。只纠正模型回复/补丁，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||''));
                 html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                 for(const [label,r] of [['最近实际发送',this.lastRequest],['下一次请求预览',this.previewRequest]]){
                     if(!r){html+=section(label,empty('暂无'+label));continue;}
                     const m=r.manifest,books=m.世界书条目||[],floors=m.正文楼层||[];
-                    let body='<div class="we-request-summary">'+pill(books.length+' 条世界书','dim')+pill(floors.length+' 层正文','dim')+pill(m.请求字符数+' 字符','dim')+'</div>';
+                    let body='<div class="we-request-summary">'+pill(books.length+' 条世界书','dim')+pill(floors.length+' 层正文','dim')+pill(m.请求字符数+' 字符','dim')+(m.尝试序号?pill('尝试 '+m.尝试序号,'dim'):'')+(m.最大失败重试!==undefined?pill('最多重试 '+m.最大失败重试,'dim'):'')+'</div>';
                     body+=fold('资料清单与命中判定（点击展开）',readable('条目',m.读取判定||books)+fold('实际正文楼层',fields({楼层:floors.map(f=>f.楼层+' · '+f.角色+' · '+f.字符数+'字')})));
                     body+=fold('system · 分段阅读',r.system.split(/\n(?=【)/).map((part,i)=>fold((part.match(/^【([^】]+)】/)||[])[1]||'身份 / 协议 '+(i+1),'<div class="we-prose">'+text(part)+'</div>')).join(''))+raw('system · 完整原文',r.system);
                     let payload;try{payload=JSON.parse(r.input);}catch(_){payload={正文:r.input};}

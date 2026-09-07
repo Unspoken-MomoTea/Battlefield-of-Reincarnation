@@ -17,11 +17,24 @@
     const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
     const CONFIG = 'samsara_world_engine_v1';
     const PATH = '后台';
+    const EVENT_TARGET = 180;
+    const HISTORY_TARGET = 200;
+    const TECHNICAL_BOOK = [/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
+    const isTechnicalBook = title => TECHNICAL_BOOK.some(rule => rule.test(String(title || '').trim()));
+    function worldDateKey(value) {
+        const source=String(value||'');
+        let m=source.match(/(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/);
+        if(!m)m=source.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+        if(!m)return null;
+        const part=source.match(/凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜/);
+        const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
+        return (+m[1]*372 + +m[2]*31 + +m[3])*24+(part?hour[part[0]]:0);
+    }
     const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的旧状态、世界书设定及本轮实际剧情为依据，统一处理四个模块：
-【世界推进】维护近期事件与远期宏观节点。记录原因、条件、时间、默认走向及玩家干预后的改变。过去已经成立的事实约束未来。未来计划不得记成已发生事实。即使玩家不参与，场外事件也能在时间及条件满足后发生。
-【角色管理】维护人物所在世界、地点、目标、行动、已知信息及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗。人物记录与关系列表按名字关联，不编造整套人物属性。
+【世界推进】以世界.时间为唯一时间锚点，后台.事件是唯一剧情调度图。首次进入副本或缺少时间轴时，必须依据世界书、原著/设定时间线与当前阶段建立分层时间骨架：当前活动层记录未来数小时至约2天内需要精确处理的事件；近期规划层记录接下来数天至数周的重要人物、势力与局部事件；宏观锚点层记录更远的战争、政权、灾难、原著关键节点等世界级变化。紧凑副本可按小时/夜晚细分，大型长期世界只保留必要宏观节点，禁止把遥远未来拆成琐碎行动。每轮随时间滚动：到期节点复核，接近当前时间的宏观节点展开成近期事件，并持续补足有依据的远期宏观节点。过去事实约束未来，未来计划不得记成已发生事实。
+【角色管理】维护场外人物所在世界、地点、目标、行动、已知信息、行程及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗；不得为<user>建立或推进后台行动日程。人物记录与关系列表按名字关联，不编造整套人物属性。
 【势力与地区】处理势力目标、资源、冲突、地区变化、探索线索。声望变化必须有真实行为依据，不能因为经过时间自动涨落。未知探索点保留在内部地区记录，发现后才投影到世界.探索。
-【任务与剧本】维护剧情节点、任务依赖和失败条件；实际条件满足才更新已有任务或成就状态。主神任务、晋升试炼的创建、奖励定义与发奖由原系统负责。
+【任务联动】任务不是第二套剧情树。仅依据后台事件的实际结果更新已有任务或成就状态；主神任务、晋升试炼的创建、奖励定义与发奖由原系统负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。
 【信息传播】事件产生街头巷议、付费情报或公告。区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。人物只有获得信息后才能据此行动。传闻可产生新事件，禁止无因果地每轮刷新。
 只使用世界.时间计算本世界进展；系统状态.游玩天数仅作只读参考。时间未变也可记录本轮新事实，但不得虚构耗时进度。跨多个日期需按依赖顺序补算，先处理到期事件再生成后果。
 事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。宏观远期节点允许时间未定，禁止捏造精确日期。
@@ -43,6 +56,55 @@
         剧本: {状态:'',来源:'',更新时间:'',期限:'',完成条件:'',失败条件:'',结果:'',参与者:[],地点:[],阻碍:[],阶段:[{名称:'',状态:'',时间:'',说明:'',前置阶段:''}]},
         历史:{},传播:{更新时间:'',到期时间:'',受众:[],引发行动:[]}
     };
+    const MODEL_RECORDS = Object.fromEntries(Object.entries(RECORDS).filter(([name])=>name!=='剧本'));
+    const MODEL_DETAILS = copy(DETAILS);
+    delete MODEL_DETAILS.剧本;
+    for (const key of ['承诺','待决事项','关系变化']) delete MODEL_DETAILS.人物[key];
+
+    function collectEventRefs(state) {
+        const refs=new Set();
+        for(const event of Object.values(state.事件||{}))for(const id of event.前因||[])refs.add(id);
+        for(const category of ['人物','势力地区','剧本','传播'])for(const record of Object.values(state[category]||{}))for(const id of record.关联事件||[])refs.add(id);
+        return refs;
+    }
+    function compactFinishedEvents(stat,target=EVENT_TARGET) {
+        const state=stat?.世界?.[PATH]; if(!state?.事件)return [];
+        const archived=[];
+        while(Object.keys(state.事件).length>target){
+            const refs=collectEventRefs(state);
+            const candidate=Object.entries(state.事件).find(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name));
+            if(!candidate)break;
+            const [name,event]=candidate;
+            let key='归档·'+name,seq=2;
+            while(Object.hasOwn(state.历史||{},key))key='归档·'+name+'#'+seq++;
+            state.历史=state.历史||{};
+            state.历史[key]={时间:event.时间||event.更新时间||stat.世界.时间||'',事实:event.结果||event.描述||(event.状态==='已取消'?'事件已取消':'事件已结束'),关联事件:[]};
+            delete state.事件[name]; archived.push(name);
+        }
+        const historyKeys=Object.keys(state.历史||{});
+        if(historyKeys.length>HISTORY_TARGET)for(const key of historyKeys.slice(0,historyKeys.length-HISTORY_TARGET))delete state.历史[key];
+        return archived;
+    }
+    function timelineState(stat) {
+        const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
+        const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));
+        const near=events.filter(([,e])=>['当前事件','近期节点'].includes(e.分类));
+        const macro=events.filter(([,e])=>e.分类==='宏观节点');
+        const macroFuture=macro.filter(([,e])=>e.状态==='待发生');
+        const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
+        const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
+        return {
+            当前时间锚点:stat.世界.时间,
+            需要初始化:near.length===0&&macro.length===0,
+            当前活动事件数:waiting.filter(([,e])=>e.状态==='进行中').length,
+            近期节点数:near.length,
+            宏观节点数:macro.length,
+            需要补充远期:macroFuture.length<3,
+            需要展开的宏观节点:expand.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因})),
+            需语义复核节点:semantic.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,下次检查:e.下次检查})),
+            说明:'先建立有依据的宏观骨架，再按接近程度滚动展开；非公历或作品内时间用世界书语义比较，不得强行改写为公历。'
+        };
+    }
     function emptyState() {
         return { 版本:2, 已处理楼层:'', 已处理时间:'', 公开摘要:'', 事件:{}, 人物:{}, 势力地区:{}, 剧本:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[] };
     }
@@ -97,6 +159,7 @@
         const [a,b,c,d] = parts;
         if (a === '世界' && b === PATH) {
             if (parts.length === 3 && c === '公开摘要') return true;
+            if (c === '剧本') return false;
             if (!Object.hasOwn(RECORDS, c) || !d) return false;
             if (c === '历史') return parts.length === 4;
             return parts.length === 4 || (parts.length === 5 && (Object.hasOwn(RECORDS[c], parts[4]) || Object.hasOwn(DETAILS[c],parts[4])));
@@ -155,7 +218,7 @@
             visiting.add(name); state.事件[name].前因.forEach(visit); visiting.delete(name); visited.add(name);
         }
         Object.keys(state.事件).forEach(visit);
-        for (const category of ['人物','势力地区','剧本','历史','传播']) {
+        for (const category of ['人物','势力地区','剧本','传播']) {
             for (const record of Object.values(state[category])) if (record.关联事件.some(id => !Object.hasOwn(state.事件,id))) throw new Error('关联事件不存在');
         }
     }
@@ -233,8 +296,8 @@
     function protocol() {
         return `返回 <world_update>{"summary":"简短说明本轮已确认变化与待确认事项","patches":[]}</world_update>，不得输出推理过程。
 补丁只用 add/replace/remove，路径为相对 stat_data 的 JSON Pointer，实例名中的 / 写成 ~1，~ 写成 ~0。add 设置对象成员（已有成员也可设置），replace 修改已有成员；整条记录必须完整。空输入或条件不成立可返回空数组。
-后台根：/世界/后台/{事件|人物|势力地区|剧本|历史|传播}/{稳定名称}。新记录一次给全字段，字段模板：${JSON.stringify(RECORDS)}。
-历史只增不改不删；事件通过状态结束，不删除。关联事件和前因必须指向实际存在的事件，前因不能循环。人物所属世界必须明确。
+后台可写根：/世界/后台/{事件|人物|势力地区|历史|传播}/{稳定名称}。新记录一次给全字段，字段模板：${JSON.stringify(MODEL_RECORDS)}。
+后台.剧本为旧档兼容只读，不得新增或更新。历史对模型只增不改不删；事件由模型通过状态结束，引擎会在记录过多时把无引用的已完成/已取消事件压缩进历史后回收。关联事件和前因必须指向实际存在的活动事件，前因不能循环。人物所属世界必须明确。
 公开摘要默认已存在，用 {"op":"replace","path":"/世界/后台/公开摘要","value":"本轮公开变化"} 更新，限5000字，仅包含已发生的公开影响与可见征兆，不能泄露隐藏计划。
 兼容投影允许：/世界/因果轨道/{当前阶段|故事线|下一节点}、/世界/因果轨道/偏移记录/{名}；/世界/{势力|探索}/{名}；/世界/异端雷达/名单/{名}；/传闻/{街头巷议|情报交易|布告与檄文}/{名}。记录完整字段模板：${JSON.stringify(EXISTING)}。
 已有势力/探索可修改单个字段。声望范围 -5000~10000，单次至多1000；探索度0~100，品质 F/E/D/C/B/A/S/SS/SSS。街头可信度仅酒话/可疑/或许可信。三类传闻各最多3条。异端层级Ⅰ~Ⅸ，状态遵循旧变量及世界书。
@@ -292,7 +355,7 @@
             const names=await namesFn('current'), result=[];
             for(const book of [...new Set([names.primary,...(names.additional||[])].filter(Boolean))]){
                 const entries=await get(book);
-                entries.forEach((e,i)=>result.push({book,id:String(e.uid??e.id??i),title:e.name||e.comment||'未命名',enabled:e.enabled!==false&&!e.disable&&!e.disabled,mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),keys:e.strategy?.keys||e.keys||e.key||[],secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},content:e.content||''}));
+                entries.forEach((e,i)=>{const title=e.name||e.comment||'未命名';result.push({book,id:String(e.uid??e.id??i),title,technical:isTechnicalBook(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),keys:e.strategy?.keys||e.keys||e.key||[],secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},content:e.content||''});});
             }
             return result;
         }
@@ -302,8 +365,8 @@
             const report=[];this.readReport=report;
             for(const e of catalogue){
                 const key=JSON.stringify([e.book,e.id]);
-                const selected=this.config.selectedEntries ? this.config.selectedEntries.includes(key) : e.enabled;
-                const decision=selected?activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
+                const selected=!e.technical&&(this.config.selectedEntries ? this.config.selectedEntries.includes(key) : e.enabled);
+                const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:selected?activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
                 report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
                 if(!decision.read)continue;
                 let content=e.content;
@@ -320,27 +383,24 @@
         async buildRequest(base) {
             const state=copy(base.stat);
             state.世界[PATH]=Object.assign(emptyState(),state.世界[PATH]||{});
+            compactFinishedEvents(state);
             const seedPatches=importStory(state);
             for(const patch of seedPatches)state.世界[PATH].事件[tokens(patch.path).at(-1)]=patch.value;
             if(state.设置)delete state.设置.API;
             delete state.商城;
+            // 旧剧本数据只为兼容存档保留，不进入新世界调度请求。
+            state.世界[PATH].剧本={};
             const count=Math.max(1,Math.min(100,Number(this.config.contextTurns)||6));
             const id=Number(base.message.message_id??base.message.id);
             const messages=await this.fn('getChatMessages')(Math.max(0,id-count+1)+'-'+id);
             const floors=messages.filter(m=>Number(m.message_id??m.id)<=id).slice(-count).map(m=>({楼层:m.message_id??m.id,角色:m.role||(m.is_user?'user':'assistant'),正文:m.message??m.mes??''}));
             if(!floors.length)throw new Error('未读到正文楼层，请检查聊天读取接口');
             const books=await this.worldbook(floors.map(f=>f.正文).join('\n'));
-            const dateKey=value=>{
-                const m=String(value||'').match(/(\d+)年\s*-?\s*(\d+)月\s*-?\s*(\d+)日/);
-                if(!m)return null;
-                const part=String(value).match(/凌晨|清晨|早晨|上午|中午|午后|下午|傍晚|晚上|深夜/);
-                const hour={凌晨:2,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,晚上:20,深夜:23};
-                return (+m[1]*372 + +m[2]*31 + +m[3])*24+(part?hour[part[0]]:0);
-            };
-            const now=dateKey(state.世界.时间);
-            const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&dateKey(e.时间)!==null&&dateKey(e.时间)<=now).map(([名称,e])=>({名称,时间:e.时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
-            const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。'},null,2);
-            const system=this.config.preset+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(DETAILS)+'\n【节点调度】旧因果轨道只作为导入来源，不再依赖静态故事线驱动。把尚未发生的故事线阶段拆为分类为主线节点的事件，名称稳定并用前因连接，避免重复导入。为下一节点给出有依据的绝对日期；无法确定时写明确可验证的触发条件及下次检查，不允许只写“等待剧情发展”。每轮复核到期事件、人物行程与任务阶段。时间到且条件成立就启动，已有结果才完成；前因表示因果来源，不自动等同于必须完成，依据具体条件判断。未满足条件记录真实阻碍和下次检查，禁止无依据顺延日期。事件后果联动人物行动、势力地区、关联任务阶段与传播。任务档案的阶段状态和下一节点必须随事件更新，旧剧本不是固定文本。';
+            const now=worldDateKey(state.世界.时间);
+            const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
+            const timeline=timelineState(state);
+            const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,时间线调度:timeline,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。'},null,2);
+            const system=this.config.preset+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(MODEL_DETAILS)+'\n【节点调度】后台.事件是唯一调度图，旧因果轨道只作为兼容导入与宏观投影。若“时间线调度.需要初始化”为真，先依据世界书和当前时间锚点建立当前活动层、近期规划层、宏观锚点层；不能确认的历史或未来不要编造。若“需要补充远期”为真，补足有依据的宏观节点；“需要展开的宏观节点”接近当前时间时拆成更具体的近期事件并保持前因关系。非公历、作品内纪年或“第X夜”等时间按世界书语义比较，并逐项复核“需语义复核节点”，禁止强行换算成虚构公历。每轮复核到期事件、人物行程、语义时间节点和即将展开的宏观节点。时间到且条件成立就启动，已有结果才完成；未满足条件记录真实阻碍和下次检查，禁止无依据顺延。事件后果联动场外人物、势力地区、传播以及已有任务状态。后台.剧本不再参与调度。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
             return {system,input,seedPatches,due,manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),请求字符数:system.length+input.length}};
         }
@@ -374,7 +434,9 @@
                 this.lastReply=String(text); this.lastFailure='';
                 const reply = parseReply(text);
                 const prepared=applyPatches(base.stat,request.seedPatches);
+                compactFinishedEvents(prepared);
                 let next = applyPatches(prepared,reply.patches);
+                compactFinishedEvents(next);
                 // 到期但仍待发生的节点必须得到本轮明确复核，不能用空补丁冒充推进。
                 for(const due of request.due){
                     const event=next.世界[PATH].事件[due.名称];
@@ -399,7 +461,8 @@
                     const parts=tokens(p.path), back=parts[1]===PATH;
                     return {时间:base.stat.世界.时间,类别:back?parts[2]:parts[1],名称:back?parts[3]:parts[2],字段:parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.内容||'记录已更新'):''};
                 });
-                next.世界[PATH].最近变化 = (old.最近变化 || []).concat(changes).slice(-100);
+                // “最近变化”只表示本轮成功提交的新变化；跨轮历史由运行记录/历史锚点承担。
+                next.世界[PATH].最近变化 = changes.slice(-100);
                 next.世界[PATH].运行记录 = old.运行记录.concat([{时间:base.stat.世界.时间,摘要:reply.summary,补丁数:reply.patches.length}]).slice(-20);
                 const checked = validate(next);
                 // 校验器可能补默认值或重算其他字段，只取此次允许写入的路径。
@@ -537,7 +600,7 @@
                     const checked=new Map(Array.from(this.panel.querySelectorAll('[data-book]')).map(e=>[e.value,e.checked]));
                     this.catalogue().then(list=>{this.bookCatalogue=list;this.render(true);for(const d of drafts){const el=this.panel.querySelector(d.selector);if(el)el.value=d.value;}this.panel.querySelectorAll('[data-book]').forEach(e=>{if(checked.has(e.value))e.checked=checked.get(e.value);});}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
                 }
-                else if(a==='book-all'||a==='book-none'){this.panel.querySelectorAll('[data-book]').forEach(e=>{e.checked=a==='book-all';});}
+                else if(a==='book-all'||a==='book-none'){this.panel.querySelectorAll('[data-book]').forEach(e=>{e.checked=a==='book-all'&&!e.disabled;});}
                 else if(a==='preview'){this.buildRequest(this.snapshot()).then(r=>{this.previewRequest=r;this.tab='请求检查';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});}
                 else if(a==='month'){this.monthOffset=(this.monthOffset||0)+Number(button.dataset.step);this.render();}
                 else if(a==='date'){this.selectedDate=this.selectedDate===button.dataset.date?'':button.dataset.date;this.render();}
@@ -566,7 +629,7 @@
             this.panel.querySelector('[data-action=run]').disabled=this.busy||!!reason;
             this.panel.querySelector('[data-action=run]').textContent=this.busy?'推演中…':'推进世界';
             this.panel.querySelector('[data-action=enabled]').textContent=this.config.enabled?'自动 · 开启':'自动 · 关闭';
-            const tabs=[['世界推进','◈'],['角色管理','♙'],['势力与地区','⚑'],['任务与剧本','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋']];
+            const tabs=[['世界推进','◈'],['角色管理','♙'],['势力与地区','⚑'],['任务与事件','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋']];
             this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span>'+i+'</span>'+t+'</button>').join('');
             if(this.tab==='提示词预设'&&main.querySelector('textarea')&&!force)return;
             const text=v=>escape(v==null?'':v);
@@ -586,14 +649,13 @@
             const people=new Map(entries(state.人物));entries(s.关系列表).forEach(([n,p])=>{if(!people.has(n))people.set(n,{状态:p.在场?'在场':'场外',公开动态:p.态度||'',地点:'',目标:'',行动:''});});
             const person=(name,p,full=false)=>{
                 const rel=(s.关系列表||{})[name]||{};
-                return '<article class="'+(full?'we-card':'we-person')+'">'+(!full?'<div class="we-avatar">'+text(name.slice(0,1))+'</div>':'')+'<div><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(p.状态||(rel.在场?'在场':'场外'),'dim')+'</div><p>'+text(p.行动||p.公开动态||rel.态度||'尚无行动记录')+'</p><div class="we-meta"><span>⌖ '+text(p.地点||'地点未明')+'</span>'+(p.预计结束?'<span>至 '+text(dateLabel(p.预计结束))+'</span>':'')+'</div>'+(full?fields({目标:p.目标,当前时间段:[p.开始时间,p.预计结束].filter(Boolean).join(' → '),下次检查:p.下次检查,所属世界:p.所属世界,好感度:rel.好感度})+details('person-'+name,{行程:p.行程,承诺:p.承诺,待决事项:p.待决事项,认知:p.认知,认知来源:p.认知来源,关系变化:p.关系变化,登场条件:p.登场条件,关联事件:p.关联事件,更新时间:p.更新时间,人物背景:rel.背景故事},'行程 · 承诺 · 认知 · 关系'):'')+'</div></article>';
+                return '<article class="'+(full?'we-card':'we-person')+'">'+(!full?'<div class="we-avatar">'+text(name.slice(0,1))+'</div>':'')+'<div><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(p.状态||(rel.在场?'在场':'场外'),'dim')+'</div><p>'+text(p.行动||p.公开动态||rel.态度||'尚无行动记录')+'</p><div class="we-meta"><span>⌖ '+text(p.地点||'地点未明')+'</span>'+(p.预计结束?'<span>至 '+text(dateLabel(p.预计结束))+'</span>':'')+'</div>'+(full?fields({目标:p.目标,当前时间段:[p.开始时间,p.预计结束].filter(Boolean).join(' → '),下次检查:p.下次检查,所属世界:p.所属世界,好感度:rel.好感度})+details('person-'+name,{行程:p.行程,认知:p.认知,认知来源:p.认知来源,登场条件:p.登场条件,关联事件:p.关联事件,更新时间:p.更新时间,人物背景:rel.背景故事},'行程 · 认知 · 关联事件'):'')+'</div></article>';
             };
             const eventCard=(name,e)=>'<article class="we-card"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div><div class="we-meta"><span>◷ '+text(e.时间||e.开始时间||'日期未定')+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,关联任务:e.关联任务,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
             const taskCard=(name,t)=>{
-                const script=entries(state.剧本).find(([,r])=>(r.关联任务||[]).includes(name));
-                const r=script?script[1]:{},stages=r.阶段||[],done=stages.filter(x=>['已完成','完成','可结算'].includes(x.状态)).length;
-                const completed=['可结算','已达成'].includes(t.状态),pct=stages.length?Math.round(done/stages.length*100):completed?100:null;
-                return '<article class="we-card"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(t.状态||r.状态||'进行中',completed?'':'future')+'</div><p>'+text(t.目标||t.说明||r.描述||'等待目标记录')+'</p>'+(pct!==null?'<div class="we-progress"><i style="width:'+pct+'%"></i></div>':'')+'<div class="we-meta"><span>'+text(stages.length?done+'/'+stages.length+' 阶段完成':completed?'完成条件已满足':'进度依据实际剧情确认')+'</span>'+(r.期限?'<span>期限 '+text(r.期限)+'</span>':'')+'</div>'+details('task-'+name,{来源:t.委托方||r.来源,难度:t.难度,阶段:stages,完成条件:r.完成条件,失败条件:r.失败条件,阻碍:r.阻碍,下一节点:r.下一节点,关联事件:r.关联事件,奖励:t.奖励,惩罚:t.惩罚,交付:t.交付},'任务阶段与条件')+'</article>';
+                const linked=events.filter(([,e])=>(e.关联任务||[]).includes(name)),completed=['可结算','已达成'].includes(t.状态);
+                const linkedNames=linked.map(([n])=>n),activeLinked=linked.filter(([,e])=>['进行中','待发生'].includes(e.状态)).length;
+                return '<article class="we-card"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(t.状态||'进行中',completed?'':'future')+'</div><p>'+text(t.目标||t.说明||'等待目标记录')+'</p><div class="we-meta"><span>'+text(completed?'完成条件已满足':linked.length?linked.length+' 个关联事件 · '+activeLinked+' 个待处理':'进度依据实际剧情确认')+'</span></div>'+details('task-'+name,{来源:t.委托方,难度:t.难度,关联事件:linkedNames,奖励:t.奖励,惩罚:t.惩罚,交付:t.交付},'任务与关联事件')+'</article>';
             };
             const matched=(name,obj)=>!this.query||(name+' '+Object.values(obj).filter(v=>typeof v==='string').join(' ')).toLowerCase().includes(this.query.toLowerCase());
             const tools=(filters=[])=>'<div class="we-tools"><input data-search aria-label="搜索档案" placeholder="搜索名称、地点或内容…" value="'+text(this.query||'')+'">'+filters.map(f=>'<button data-filter="'+f+'" class="'+((this.filter||'全部')===f?'active':'')+'">'+f+'</button>').join('')+'</div>';
@@ -616,14 +678,14 @@
                 const shown=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter)&&(!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate));
                 html+=section('世界动向',state.公开摘要?'<p>'+text(state.公开摘要)+'</p>':empty('尚无公开动态','推进成功后，这里的结果会提供给正文 AI。'));
                 html+='<div class="we-columns"><div>'+section('人物动态',people.size?Array.from(people).slice(0,6).map(([n,p])=>person(n,p)).join('')+'<button class="we-btn" data-tab="角色管理">全部人物 ›</button>':empty('暂无人物动态'))+
-                    '<div class="we-grid">'+section('关系变动',Array.from(people).flatMap(([n,p])=>(p.关系变化||[]).map(r=>'<p><b>'+text(n)+' → '+text(r.对象)+'</b><br>'+text(r.变化)+'</p>')).slice(-5).join('')||empty('本轮无关系变化'))+section('近期变化',changeHtml||empty('本轮无变化记录'))+'</div></div><aside>'+
-                    section('活跃事件',(active.slice(0,3).map(([n,e])=>'<p><b>'+text(n)+'</b><br><small>'+text(e.时间||e.开始时间||'时间待确认')+'</small><br>'+text(e.公开征兆||e.描述)+'</p>').join('')||empty('暂无活跃事件'))+'<button class="we-btn" data-tab="任务与剧本">全部事件 ›</button>')+
-                    section('任务进展',(tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态)).slice(0,3).map(([n,t])=>'<p><b>'+text(n)+'</b> '+pill(t.状态)+'<br>'+text(t.目标||t.说明||'')+'</p>').join('')||empty('暂无进行中任务'))+'<button class="we-btn" data-tab="任务与剧本">全部任务 ›</button>')+'</aside></div>';
+                    '<div class="we-grid">'+section('近期变化',changeHtml||empty('本轮无变化记录'))+'</div></div><aside>'+
+                    section('活跃事件',(active.slice(0,3).map(([n,e])=>'<p><b>'+text(n)+'</b><br><small>'+text(e.时间||e.开始时间||'时间待确认')+'</small><br>'+text(e.公开征兆||e.描述)+'</p>').join('')||empty('暂无活跃事件'))+'<button class="we-btn" data-tab="任务与事件">全部事件 ›</button>')+
+                    section('任务进展',(tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态)).slice(0,3).map(([n,t])=>'<p><b>'+text(n)+'</b> '+pill(t.状态)+'<br>'+text(t.目标||t.说明||'')+'</p>').join('')||empty('暂无进行中任务'))+'<button class="we-btn" data-tab="任务与事件">全部任务 ›</button>')+'</aside></div>';
                 html+='<details class="we-section" data-detail="world-calendar"'+(opened.has('world-calendar')?' open':'')+'><summary>日历与完整时间线 · '+events.length+' 个事件 / '+future.length+' 个未来节点</summary><div class="we-columns"><div>'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p>筛选日期：'+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(shown.map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的事件'))+'</div></div><aside>'+calendar()+'</aside></div></details>';
             }else if(this.tab==='角色管理'){
                 const list=Array.from(people).filter(([n,p])=>matched(n,p)&&((this.filter||'全部')==='全部'||(this.filter==='在场'?!!(s.关系列表||{})[n]?.在场:!(s.关系列表||{})[n]?.在场)));
                 const chosen=list.find(([n])=>n===this.selectedPerson)||list[0];
-                html+=tools(['全部','在场','场外'])+'<div class="we-columns"><div>'+section('人物名册','<div class="we-tools">'+list.map(([n])=>'<button data-person="'+text(n)+'" class="'+(chosen?.[0]===n?'active':'')+'">'+text(n)+'</button>').join('')+'</div>')+(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true))+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查})):empty('没有符合条件的人物'))+'</div><aside>'+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['承诺',chosen[1].承诺],['抉择',chosen[1].待决事项],['交际圈',chosen[1].关系变化],['近期动向',chosen[1].公开动态]].map(([label,v])=>section(label,exists(v)?value(v):empty('本轮没有'+label+'记录'))).join(''):'')+'</aside></div>';
+                html+=tools(['全部','在场','场外'])+'<div class="we-columns"><div>'+section('人物名册','<div class="we-tools">'+list.map(([n])=>'<button data-person="'+text(n)+'" class="'+(chosen?.[0]===n?'active':'')+'">'+text(n)+'</button>').join('')+'</div>')+(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true))+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查})):empty('没有符合条件的人物'))+'</div><aside>'+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['近期动向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
             }else if(this.tab==='势力与地区'){
                 const records=new Map(entries(state.势力地区));
                 entries(w.势力).forEach(([name,r])=>records.set(name,{...r,...records.get(name),类型:'势力'}));
@@ -639,10 +701,9 @@
                     areas.map(([n,r])=>'<p>'+text(n)+' ← '+text(r.控制方||'未确认')+(r.争夺方?.length?' ／ 争夺：'+text(r.争夺方.join('、')):'')+'</p>').join(''))||empty('暂无名录记录'));
                 html+='<div class="we-columns"><div>'+section('势力格局','<div class="we-grid">'+factions.map(([n,r])=>'<button class="we-card" data-faction="'+text(n)+'"><h3>'+text(n)+'</h3><p>'+text(r.目标||r.描述||'目标未记录')+'</p><small>'+text(r.领地||'领地未记录')+'</small></button>').join('')+'</div><p class="we-muted">只显示已知势力与控制关系，不推测未记录的联盟或敌对。</p>')+'</div><aside>'+section('势力档案',selected?'<h3>'+text(selected[0])+'</h3>'+fields(selected[1]):empty('本轮没有势力记录'))+'</aside></div>';
                 html+=section('各地情势',areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.进展||r.公开动态||r.描述||'情势待确认')+'</summary>'+fields(r)+'</details>').join('')||empty('本轮没有地区记录'));
-            }else if(this.tab==='任务与剧本'){
-                html+=section('近期动向 · 事件节点',events.map(([n,e])=>eventCard(n,e)).join('')||empty('尚未排定事件节点','推进时需把故事线拆成有时间或明确触发条件的事件；不把计划视为事实。'));
+            }else if(this.tab==='任务与事件'){
+                html+=section('世界事件节点',events.map(([n,e])=>eventCard(n,e)).join('')||empty('尚未排定事件节点','世界引擎会围绕当前时间锚点建立活动、近期与宏观节点；任务直接关联这些事件。'));
                 html+=tools(['全部','进行中','可交付','可结算','失败'])+section('当前任务','<div class="we-grid">'+tasks.filter(([n,t])=>matched(n,t)&&((this.filter||'全部')==='全部'||t.状态===this.filter)).map(([n,t])=>taskCard(n,t)).join('')+'</div>');
-                html+=section('剧本与阶段',entries(state.剧本).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><h3>'+text(n)+'</h3><p>'+text(r.描述)+'</p>'+fields({状态:r.状态,期限:r.期限,下一节点:r.下一节点,关联任务:r.关联任务})+details('script-'+n,{阶段:r.阶段,前置条件:r.前置条件,完成条件:r.完成条件,失败条件:r.失败条件,阻碍:r.阻碍,参与者:r.参与者,地点:r.地点,结果:r.结果,关联事件:r.关联事件},'阶段路线与条件')+'</article>').join('')||empty('剧本节点尚未建立'));
                 html+=section('副本成就','<div class="we-grid">'+achievements.filter(([n,t])=>matched(n,t)).map(([n,t])=>taskCard(n,t)).join('')+'</div>',achievements.filter(([,t])=>t.状态==='已达成').length+'/'+achievements.length+' 已达成');
             }else if(this.tab==='传闻'){
                 html+=tools();
@@ -655,11 +716,11 @@
                 html+='<div class="we-notice">先保存设置，再生成请求预览验证。蓝绿灯表示条目触发方式，“实际读取”以请求检查中的本次清单为准。</div>';
                 const groups=new Map();
                 for(const e of this.bookCatalogue||[]){if(!groups.has(e.book))groups.set(e.book,[]);groups.get(e.book).push(e);}
-                const selected=e=>this.config.selectedEntries?this.config.selectedEntries.includes(JSON.stringify([e.book,e.id])):e.enabled;
-                html+=section('资料读取范围','<div class="we-config-row"><label>正文窗口 <input data-floors type="number" min="1" max="100" value="'+(this.config.contextTurns||6)+'"> 层</label><label>读取方式 <select data-activation><option value="respect_activation" '+(this.config.activationMode!=='force_selected'?'selected':'')+'>遵循蓝绿灯</option><option value="force_selected" '+(this.config.activationMode==='force_selected'?'selected':'')+'>强制读取勾选项</option></select></label></div><p class="we-muted">遵循蓝绿灯：蓝灯常驻，绿灯扫描上述正文窗口的关键词；禁用项不读。强制模式：勾选即读，包含禁用项。不会更改酒馆世界书自身的开关。</p><div class="we-tools"><button data-action="books">加载 / 刷新目录</button><button data-action="book-all">全选</button><button data-action="book-none">全不选</button></div>'+
+                const selected=e=>!e.technical&&(this.config.selectedEntries?this.config.selectedEntries.includes(JSON.stringify([e.book,e.id])):e.enabled);
+                html+=section('资料读取范围','<div class="we-config-row"><label>正文窗口 <input data-floors type="number" min="1" max="100" value="'+(this.config.contextTurns||6)+'"> 层</label><label>读取方式 <select data-activation><option value="respect_activation" '+(this.config.activationMode!=='force_selected'?'selected':'')+'>遵循蓝绿灯</option><option value="force_selected" '+(this.config.activationMode==='force_selected'?'selected':'')+'>强制读取勾选项</option></select></label></div><p class="we-muted">遵循蓝绿灯：蓝灯常驻，绿灯扫描上述正文窗口的关键词；禁用项不读。强制模式可纳入普通禁用项，但 [variables]、[mvu_update]、正文额外思考及任务/输出技术条目始终隔离，避免重复协议污染世界推演。</p><div class="we-tools"><button data-action="books">加载 / 刷新目录</button><button data-action="book-all">全选</button><button data-action="book-none">全不选</button></div>'+
                     (groups.size?Array.from(groups).map(([book,list])=>'<details class="we-book" open><summary>'+text(book)+' <small>'+list.filter(selected).length+' / '+list.length+' 项已保存勾选</small></summary><div class="we-book-list">'+list.map(e=>{
                         const report=(this.readReport||[]).find(r=>r.世界书===e.book&&r.条目ID===e.id);
-                        return '<label class="we-book-row"><input type="checkbox" data-book value="'+text(JSON.stringify([e.book,e.id]))+'" '+(selected(e)?'checked':'')+'><span class="we-lamp '+(e.mode==='constant'?'blue':e.mode==='selective'?'green':'gray')+'" title="'+text(e.mode==='constant'?'蓝灯 · 常驻':e.mode==='selective'?'绿灯 · 关键词触发':'其他激活方式')+'"></span><span class="we-book-title"><b>'+text(e.title)+'</b><small>'+text((e.mode==='constant'?'常驻':e.mode==='selective'?'关键词：'+(Array.isArray(e.keys)?e.keys.map(k=>typeof k==='string'?k:'正则条件').join('、'):e.keys):e.mode)+(e.enabled?'':' · 已禁用'))+'</small></span><small class="we-read-state">'+text(report?'上次检查：'+report.原因:'尚未检查')+'</small></label>';
+                        return '<label class="we-book-row"><input type="checkbox" data-book value="'+text(JSON.stringify([e.book,e.id]))+'" '+(selected(e)?'checked':'')+' '+(e.technical?'disabled':'')+'><span class="we-lamp '+(e.technical?'gray':e.mode==='constant'?'blue':e.mode==='selective'?'green':'gray')+'" title="'+text(e.technical?'技术条目 · 已隔离':e.mode==='constant'?'蓝灯 · 常驻':e.mode==='selective'?'绿灯 · 关键词触发':'其他激活方式')+'"></span><span class="we-book-title"><b>'+text(e.title)+'</b><small>'+text(e.technical?'技术条目 · 世界引擎不读取':(e.mode==='constant'?'常驻':e.mode==='selective'?'关键词：'+(Array.isArray(e.keys)?e.keys.map(k=>typeof k==='string'?k:'正则条件').join('、'):e.keys):e.mode)+(e.enabled?'':' · 已禁用'))+'</small></span><small class="we-read-state">'+text(report?'上次检查：'+report.原因:e.technical?'固定隔离':'尚未检查')+'</small></label>';
                     }).join('')+'</div></details>').join(''):empty('尚未加载目录','点击加载；预览会按已保存设置实际读取，并报告命中或跳过原因。')));
                 html+=section('分段提示词',this.config.preset.split(/\n(?=【)/).map((part,i)=>'<details data-detail="preset-'+i+'"><summary>'+text((part.match(/^【([^】]+)】/)||[])[1]||'身份与总则')+' · '+part.length+' 字</summary><textarea data-segment="'+i+'" aria-label="预设分段 '+i+'">'+text(part)+'</textarea></details>').join(''));
                 html+='<div class="we-tools"><button class="we-btn we-primary" data-action="save">保存预设与范围</button><button class="we-btn" data-action="preview">预览下一次请求</button></div>';

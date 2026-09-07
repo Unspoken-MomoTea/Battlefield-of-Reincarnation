@@ -36,6 +36,7 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  assert.equal(await page.locator('.we-people-strip .we-person-compact').count()<=4,true,'人物动态保持紧凑摘要');
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),1,'世界推进只保留一处世界动向');
  assert.equal(await page.locator('[data-jump-event="北境援军抵达"]').count(),1,'下一关键节点应可点击');
+ assert.equal(await page.locator('button[data-jump-event="北境援军抵达"]').count(),1,'下一关键节点必须是按钮');
  await page.locator('[data-jump-event="北境援军抵达"]').click();
  assert.equal(await page.locator('[data-search]').inputValue(),'北境援军抵达');
  assert.equal(await page.locator('[data-event-card="北境援军抵达"]').count(),1,'点击关键节点后应定位对应事件');
@@ -53,6 +54,11 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  assert.equal(await page.getByText('日落前提交第一份报告',{exact:true}).count(),0);
  await page.screenshot({path:path.join(out,'world-people.png')});
  for(const tab of ['探索与势力','任务与事件','传闻','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
+ await page.locator('[data-tab="请求检查"]').click();
+ assert.equal(await page.locator('[data-retries]').inputValue(),'3','失败重试次数默认3');
+ await page.locator('[data-retries]').fill('2');
+ await page.locator('[data-retries]').dispatchEvent('change');
+ assert.equal(await page.evaluate(()=>Samsara.worldEngine.config.retryAttempts),2,'请求检查可修改失败重试次数');
  await page.locator('[data-tab="探索与势力"]').click();
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),0,'探索与势力不重复世界动向');
  assert.equal(await page.locator('[data-tab="势力与地区"]').count(),0,'旧页签名称应移除');

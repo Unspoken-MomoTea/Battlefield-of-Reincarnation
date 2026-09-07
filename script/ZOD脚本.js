@@ -352,6 +352,18 @@ export const Schema = z.object({
         时间: safeStr('待初始化'),
         地点: safeStr('待初始化'),
         名称: safeStr('待初始化'),
+        // 世界引擎的楼层状态；正文仅取得公开摘要，完整记录由独立脚本校验。
+        后台: z.object({
+            版本: safeNum(1), 已处理楼层: safeStr(''), 已处理时间: safeStr(''), 公开摘要: safeStr(''),
+            事件: z.record(z.string(), z.any()).prefault({}),
+            人物: z.record(z.string(), z.any()).prefault({}),
+            势力地区: z.record(z.string(), z.any()).prefault({}),
+            剧本: z.record(z.string(), z.any()).prefault({}),
+            历史: z.record(z.string(), z.any()).prefault({}),
+            传播: z.record(z.string(), z.any()).prefault({}),
+            运行记录: z.array(z.any()).prefault([])
+            ,最近变化: z.array(z.any()).prefault([])
+        }).prefault({}),
         位格: E_rank.prefault('Ⅸ'),
         难度: safeStr('F~SSS'),
         稳定: clampNum(100, 0, 120),
@@ -428,7 +440,7 @@ export const Schema = z.object({
         }))).prefault({})
     }).prefault({}),
 
-    主角: z.object({
+    角色: z.object({
         种族: safeStr('人类'),
         身份: safeTags([]),
         职业: z.record(z.string(), occupation_item).prefault({}),
@@ -448,7 +460,7 @@ export const Schema = z.object({
         形态库: z.record(z.string(), form_item).prefault({}),
         当前形态: current_form
     }).prefault({}).transform(char => {
-        // 主角跨节点幽灵机甲清理
+        // 角色跨节点幽灵机甲清理
         if (char.当前形态?.激活 && char.当前形态?.名称) {
             if (!char.形态库 || !char.形态库[char.当前形态.名称]) {
                 char.当前形态.激活 = false;
@@ -592,4 +604,7 @@ export const Schema = z.object({
 // 注册完全体 Schema
 $(() => {
     registerMvuSchema(Schema);
+    const host = window.parent && window.parent !== window ? window.parent : window;
+    host.Samsara = host.Samsara || {};
+    host.Samsara.validateWorldState = value => Schema.parse(value);
 });

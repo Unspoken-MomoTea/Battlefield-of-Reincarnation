@@ -54,6 +54,32 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(next.世界.后台.事件.空.描述,'待调查事件');
         assert.equal(next.世界.后台.事件.空.状态,'待发生');
     });
+    await test('backend replace behaves as safe upsert for missing records and optional detail fields', () => {
+        const stat=fresh();
+        stat.世界.异端雷达={名单:{'张彪·狂暴分支':{来源:'原创',经历:'',阵营:'篡夺者',职业:'',层级:'Ⅰ',状态:'活跃'}}};
+        let next=applyPatches(stat,[{op:'replace',path:'/世界/后台/事件/校医室聚集/开始时间',value:'2026年9月7日上午'}]);
+        assert.equal(next.世界.后台.事件.校医室聚集.描述,'校医室聚集');
+        assert.equal(next.世界.后台.事件.校医室聚集.开始时间,'2026年9月7日上午');
+        next=applyPatches(next,[{op:'replace',path:'/世界/后台/人物/张彪~1狂暴分支',value:{所属世界:'测试世界',行动:'追踪目标'}}]);
+        assert.equal(next.世界.后台.人物['张彪·狂暴分支'].行动,'追踪目标');
+        assert.equal(next.世界.后台.人物['张彪/狂暴分支'],undefined);
+    });
+
+    await test('incomplete causal projection is rebuilt from existing world events without inventing new facts', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'同步宏观轨道',patches:[]}));
+        x.change(s=>{
+            s.世界.因果轨道={当前阶段:'死体危机爆发',故事线:'藤美学园陷落',下一节点:'集结主角团',偏移记录:{}};
+            s.世界.后台.事件={
+                '死体危机爆发':{...RECORDS.事件,描述:'危机爆发',状态:'进行中',时间:'2026年9月7日上午'},
+                '异端介入':{...RECORDS.事件,描述:'异端进入学校',状态:'进行中',时间:'2026年9月7日上午'},
+                '主角团集结':{...RECORDS.事件,描述:'核心角色开始汇合',状态:'待发生',时间:'2026年9月7日中午'}
+            };
+        });
+        assert.equal(await x.engine.run(),true);
+        const orbit=x.get().世界.因果轨道;
+        assert.match(orbit.故事线,/死体危机爆发.*异端介入.*主角团集结/);
+        assert.equal(orbit.下一节点,'主角团集结');
+    });
     await test('world stable mode, both clocks, awards and achievement rollback protected', () => {
         const stat = fresh(); stat.设置.世界超稳 = true; stat.任务.副本成就.发现.状态 = '已达成';
         for (const p of ['/世界/时间','/系统状态/游玩天数','/任务/列表/调查/奖励','/世界/因果轨道/偏移记录/偏移']) assert.throws(() => applyPatches(stat,[add(p,1)]),/禁止/);
@@ -194,15 +220,26 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         x.text('轮回清算协议'); assert.equal(await x.engine.run(),false);
         x.text('结算后继续调查'); assert.equal(await x.engine.run(),true);
     });
-    await test('late responses after chat switch, cancellation, or variable update never commit', async () => {
-        for (const kind of ['chat','cancel','variables','settle']) {
+    await test('unrelated MVU changes during request are rebased instead of discarding world progress', async () => {
+        let resolve,started;const ready=new Promise(r=>started=r);
+        const x=setup(()=>{started();return new Promise(r=>resolve=r);});
+        x.change(s=>s.角色={HP:10});
+        const pending=x.engine.run();await ready;
+        x.change(s=>s.角色.HP=9);
+        resolve(JSON.stringify({summary:'世界继续推进',patches:[add('/世界/后台/事件/警报',{描述:'警报响起',状态:'进行中'})]}));
+        assert.equal(await pending,true);
+        assert.equal(x.get().角色.HP,9);
+        assert.equal(x.get().世界.后台.事件.警报.状态,'进行中');
+    });
+    await test('late responses after chat switch, cancellation, world-time change, or settlement never commit', async () => {
+        for (const kind of ['chat','cancel','world-time','settle']) {
             let resolve, started;
             const ready = new Promise(r=>started=r);
             const x = setup(() => {started();return new Promise(r=>resolve=r);});
             const pending = x.engine.run(); await ready;
             if (kind==='chat') x.chat();
             if (kind==='cancel') x.engine.cancel();
-            if (kind==='variables') x.change(s=>s.世界.时间='2026年9月8日');
+            if (kind==='world-time') x.change(s=>s.世界.时间='2026年9月8日');
             if (kind==='settle') x.change(s=>{s.系统状态.是否在主神空间=true;s.世界.后台={};});
             resolve('{"summary":"迟到","patches":[]}');
             await assert.rejects(pending); assert.equal(x.writes(),0);

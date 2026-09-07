@@ -1014,10 +1014,30 @@
             const books=await this.worldbook([proseScan,chronologyScan].filter(Boolean).join('\n'),{timelineBackbone:needBackbone});
             const now=worldDateKey(state.世界.时间);
             const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
-            const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,程序结构修复:structuralFixes,时间线调度:timeline,推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:'当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断'},可选宏观资料补充:needBackbone,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。世界书为空不构成阻塞。'},null,2);
-            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【写入协议】\n'+protocol()+'\n\n【可选字段明细】\n'+JSON.stringify(MODEL_DETAILS)+'\n\n【本轮执行顺序】\n1. 读事实：以当前变量、已确认正文和历史为准；模型已有的原著知识用于建立默认未来，世界书仅作补充校正。没有世界书也不得停止推演；不确定的原著时间或情节标成待核实，不当作已发生事实。\n2. 读调度：先检查时间线调度的需要初始化、需要补充远期、因果轨道需重建。必要时先建立宏观骨架，至少维持3个有依据的待发生宏观节点；原著确定性大事件优先，局部行动不得凑数。若准确日期未知，用作品内时间或明确条件，不编造公历日期。\n3. 处理本轮：逐项复核到期事件和人物行程。满足条件则启动或推进；实际结果已确认才完成。未满足时写明阻碍及下次检查。只展开当前时间至下一宏观节点的区间桥接，不预写远期细节。\n4. 联动：依照实际因果更新场外人物、探索与势力、信息传播及已有任务状态；任务和人物引用同一事件，不新建旧剧本调度。偏移成立时同步修正宏观投影。\n5. 输出：公开摘要仅放当前可观察影响，内部计划、未确认情报和未来结局不得泄露。运行摘要只总结本批补丁真正更新的内容，不把正文已完成的玩家/NPC属性初始化说成本引擎的功劳。最后检查路径、字段、引用、状态、到期复核与宏观数量，仅返回 world_update。';
+            const capacity=worldTimeCapacity(state.世界[PATH].已处理时间,state.世界.时间);
+            const input=JSON.stringify({
+                输入语义:{
+                    世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
+                    当前变量:'唯一存档基准；已存在内容默认已确认，只输出本轮真正新增或改变的业务事实。',
+                    正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
+                    程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
+                    时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
+                    WorldResult:'唯一业务交付物；不包含 JSON Pointer、add/replace 路径或程序日志。'
+                },
+                世界书:books,
+                当前变量:state,
+                正文楼层:floors,
+                程序结构修复:structuralFixes,
+                本轮时间容量:capacity,
+                时间线调度:timeline,
+                推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:'当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断'},
+                可选宏观资料补充:needBackbone,
+                本轮必须复核的到期事件:due,
+                说明:'当前变量为已确认事实，不重复结算；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
+            },null,2);
+            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+protocol()+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件和未完事项；符合条件才启动/推进，有实际结果才完成。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。即将与<user>见面时停在见面前一步。\n6. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
-            return {system,input,seedPatches,due,timeline:copy(timeline),manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),程序结构修复:copy(structuralFixes),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
+            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),程序结构修复:copy(structuralFixes),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;

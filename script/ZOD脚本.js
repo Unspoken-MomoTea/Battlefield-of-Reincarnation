@@ -361,8 +361,8 @@ export const Schema = z.object({
             剧本: z.record(z.string(), z.any()).prefault({}),
             历史: z.record(z.string(), z.any()).prefault({}),
             传播: z.record(z.string(), z.any()).prefault({}),
-            运行记录: z.array(z.any()).prefault([])
-            ,最近变化: z.array(z.any()).prefault([])
+            运行记录: z.array(z.any()).prefault([]),
+            最近变化: z.array(z.any()).prefault([])
         }).prefault({}),
         位格: E_rank.prefault('Ⅸ'),
         难度: safeStr('F~SSS'),

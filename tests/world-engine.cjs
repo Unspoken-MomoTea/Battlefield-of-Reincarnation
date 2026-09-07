@@ -36,6 +36,16 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(updated.世界.后台.人物.卫兵.行动,'返回哨所');
         assert.throws(()=>applyPatches(stat,[add('/世界/后台/人物/卫兵',{所属世界:'测试世界',行程:[{行动:'缺少日期及其他字段'}]})]),/完整/);
     });
+    await test('legacy partial backend records self-heal before validating a new patch', () => {
+        const stat=fresh();
+        stat.世界.后台.人物.旧人物={所属世界:'测试世界',地点:'旧校舍',行动:'等待'};
+        stat.世界.后台.势力地区.旧地区={类型:'地区',描述:'封锁中'};
+        const next=applyPatches(stat,[add('/世界/后台/人物/新人',{所属世界:'测试世界',行动:'巡逻'})]);
+        assert.equal(next.世界.后台.人物.旧人物.公开动态,'');
+        assert.deepEqual(next.世界.后台.人物.旧人物.关联事件,[]);
+        assert.equal(next.世界.后台.势力地区.旧地区.公开动态,'');
+        assert.deepEqual(next.世界.后台.势力地区.旧地区.关联事件,[]);
+    });
     await test('history immutable, dangerous paths rejected, partial records normalized', () => {
         const stat = fresh(); stat.世界.后台.历史.旧事 = {...RECORDS.历史};
         assert.throws(() => applyPatches(stat,[{op:'replace',path:'/世界/后台/历史/旧事',value:RECORDS.历史}]),/只允许新增/);

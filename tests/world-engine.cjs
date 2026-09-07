@@ -1,0 +1,227 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const file = path.join(__dirname, '../script/世界推进系统.js');
+const source = fs.readFileSync(file, 'utf8');
+const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply} = require(file);
+const clone = x => JSON.parse(JSON.stringify(x));
+const fresh = () => ({世界:{名称:'测试世界',时间:'2026年9月7日清晨',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},系统状态:{是否在主神空间:false},设置:{},任务:{列表:{调查:{状态:'进行中'}},副本成就:{发现:{状态:'未达成'}}},关系列表:{},传闻:{}});
+const add = (path,value) => ({op:'add',path,value});
+let tests = 0;
+async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); }
+(async () => {
+    await test('all changed entities commit together; original snapshot stays unchanged', () => {
+        const stat = fresh();
+        const event = {...RECORDS.事件,描述:'补给延误',时间:'2026年9月8日',前因:[]};
+        const next = applyPatches(stat,[add('/世界/后台/事件/延误',event),add('/世界/后台/历史/报告',{时间:stat.世界.时间,事实:'报告已送达',关联事件:['延误']})]);
+        assert.equal(next.世界.后台.事件.延误.描述,'补给延误'); assert.deepEqual(stat.世界.后台.事件,{});
+        assert.throws(() => applyPatches(stat,[add('/世界/后台/事件/延误',event),add('/角色/空间币',100)]),/禁止写入/);
+        assert.deepEqual(stat.世界.后台.事件,{});
+    });
+    await test('causal links reject missing parents and cycles', () => {
+        assert.throws(() => applyPatches(fresh(),[add('/世界/后台/事件/A',{...RECORDS.事件,前因:['B']})]),/不存在/);
+        assert.throws(() => applyPatches(fresh(),[add('/世界/后台/事件/A',{...RECORDS.事件,前因:['B']}),add('/世界/后台/事件/B',{...RECORDS.事件,前因:['A']})]),/循环/);
+    });
+    await test('detailed schedules and commitments coexist with old records and reject malformed entries', () => {
+        const stat=fresh();
+        const person={...RECORDS.人物,所属世界:'测试世界',行程:[{开始:'2026年9月7日',结束:'2026年9月8日',地点:'城门',行动:'调查',状态:'计划中',结果:''}],承诺:[{对象:'商会',内容:'调查商路',期限:'2026年9月8日',解除条件:''}],认知来源:[{事实:'商路受阻',来源:'车夫',获知时间:'2026年9月7日',状态:'待核实'}]};
+        const next=applyPatches(stat,[add('/世界/后台/人物/卫兵',person)]);
+        assert.equal(next.世界.后台.人物.卫兵.行程[0].行动,'调查');
+        assert.throws(()=>applyPatches(stat,[add('/世界/后台/人物/卫兵',{...person,行程:[{行动:'缺少日期及其他字段'}]})]),/完整/);
+        assert.doesNotThrow(()=>applyPatches(stat,[add('/世界/后台/人物/旧人物',RECORDS.人物)]));
+    });
+    await test('history immutable, dangerous paths rejected, record schema complete', () => {
+        const stat = fresh(); stat.世界.后台.历史.旧事 = {...RECORDS.历史};
+        assert.throws(() => applyPatches(stat,[{op:'replace',path:'/世界/后台/历史/旧事',value:RECORDS.历史}]),/只允许新增/);
+        assert.throws(() => applyPatches(stat,[add('/世界/后台/事件/__proto__',RECORDS.事件)]),/非法/);
+        assert.throws(() => applyPatches(stat,[add('/世界/后台/事件/空',{})]),/完整/);
+    });
+    await test('world stable mode, both clocks, awards and achievement rollback protected', () => {
+        const stat = fresh(); stat.设置.世界超稳 = true; stat.任务.副本成就.发现.状态 = '已达成';
+        for (const p of ['/世界/时间','/系统状态/游玩天数','/任务/列表/调查/奖励','/世界/因果轨道/偏移记录/偏移']) assert.throws(() => applyPatches(stat,[add(p,1)]),/禁止/);
+        assert.throws(() => applyPatches(stat,[{op:'replace',path:'/任务/副本成就/发现/状态',value:'未达成'}]),/回退/);
+    });
+    await test('numeric and enum validation cannot be silently clamped', () => {
+        assert.throws(() => applyPatches(fresh(),[add('/世界/势力/商会',{实力:'F',领地:'城',描述:'商会',声望:1001})]),/1000/);
+        assert.throws(() => applyPatches(fresh(),[add('/世界/探索/遗迹',{风险:'F',探索度:101,描述:'遗迹',隐藏真相:''})]),/越界/);
+        assert.throws(() => applyPatches(fresh(),[{op:'replace',path:'/任务/列表/调查/状态',value:'已发奖'}]),/任务状态/);
+        assert.equal(parseReply('<world_update>{"summary":"无变化","patches":[]}</world_update>').patches.length,0);
+    });
+    function setup(request) {
+        let stat = fresh(), text = '玩家调查了城门。', chat = 'chat-1';
+        const host = {localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request}},getCurrentChatId:()=>chat,getChatMessages:()=>[{message_id:3,message:text,role:'assistant'}]};
+        let writes = 0;
+        host.Mvu = {getMvuData:()=>({stat_data:clone(stat)}),replaceMvuData:async data => {writes++; stat = clone(data.stat_data);}};
+        const engine = new Engine(host); engine.worldbook = async () => [];
+        return {engine,get:()=>stat,writes:()=>writes,change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
+    }
+    await test('successful run persists once; same floor cannot double award', async () => {
+        let calls = 0;
+        const x = setup(async () => {calls++;return '{"summary":"无变化","patches":[]}';});
+        assert.equal(await x.engine.run(),true); assert.equal(await x.engine.run(),false);
+        assert.equal(calls,1); assert.equal(x.writes(),1); assert.equal(x.get().世界.后台.运行记录.length,1);
+    });
+    await test('model add can update preinitialized public summary and commit through run', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'守卫开始巡逻',patches:[add('/世界/后台/公开摘要','守卫开始巡逻。')]}));
+        assert.equal(await x.engine.run(),true);
+        assert.equal(x.get().世界.后台.公开摘要,'守卫开始巡逻。');
+        assert.equal(x.writes(),1);
+    });
+    await test('worldbook blue/green activation, secondary keys and force mode use actual scanned prose', async () => {
+        const x=setup(async()=>''),e=x.engine;
+        e.worldbook=Engine.prototype.worldbook;
+        e.host.getCharWorldbookNames=()=>({primary:'设定',additional:[]});
+        e.host.getWorldbook=()=>[
+            {uid:1,name:'常驻',content:'常驻内容',strategy:{type:'constant'}},
+            {uid:2,name:'城门',content:'城门内容',strategy:{type:'selective',keys:['城门']}},
+            {uid:3,name:'未命中',content:'隐藏内容',strategy:{type:'selective',keys:['海港']}},
+            {uid:4,name:'禁用',content:'禁用内容',enabled:false,strategy:{type:'constant'}},
+            {uid:5,name:'次要条件',content:'附加内容',strategy:{type:'selective',keys:['城门'],keys_secondary:{keys:['卫兵'],logic:'and_all'}}}
+        ];
+        const r=await e.buildRequest(e.snapshot());
+        assert.deepEqual(JSON.parse(r.input).世界书.map(x=>x.名称),['常驻','城门']);
+        assert.equal(r.manifest.读取判定.find(x=>x.名称==='次要条件').读取,false);
+        e.config.activationMode='force_selected';
+        e.config.selectedEntries=[JSON.stringify(['设定','4'])];
+        assert.deepEqual((await e.worldbook('')).map(x=>x.名称),['禁用']);
+    });
+    await test('reply wrappers are accepted without repairing malformed JSON or unsafe writes', () => {
+        assert.equal(parseReply('这是结果：\n'+JSON.stringify({summary:'正常',patches:[]})+'\n结束').summary,'正常');
+        assert.throws(()=>parseReply('{"summary":"破损","patches":[}'),/无法解析/);
+        const stat=fresh();stat.世界.后台.历史.事实={...RECORDS.历史};
+        assert.throws(()=>applyPatches(stat,[add('/世界/后台/历史/事实',RECORDS.历史)]),/只允许新增/);
+        assert.throws(()=>applyPatches(stat,[add('/世界/时间','明天')]),/禁止/);
+    });
+    await test('due events cannot be silently ignored; failed scheduling is atomic', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'无变化',patches:[]}));
+        x.change(s=>s.世界.后台.事件.到期={...RECORDS.事件,时间:'2026年9月6日清晨'});
+        await assert.rejects(()=>x.engine.run(),/到期事件未处理/);
+        assert.equal(x.writes(),0);
+        assert.equal(x.get().世界.后台.事件.到期.状态,'待发生');
+    });
+    await test('explicit old storyline is offered as editable events, never committed without scheduling', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'无变化',patches:[]}));
+        x.change(s=>s.世界.因果轨道={故事线:'调查 → 封锁 → 援军',下一节点:'封锁',偏移记录:{}});
+        const r=await x.engine.buildRequest(x.engine.snapshot());
+        assert.deepEqual(r.manifest.导入节点,['封锁','援军']);
+        assert.equal(JSON.parse(r.input).当前变量.世界.后台.事件.援军.前因[0],'封锁');
+        await assert.rejects(()=>x.engine.run(),/尚未排程/);
+        assert.equal(x.writes(),0);
+    });
+    await test('recent changes carry actual story dates and readable entity names', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'卫兵开始调查',patches:[add('/世界/后台/人物/卫兵',{...RECORDS.人物,行动:'调查商路'})]}));
+        await x.engine.run();const change=x.get().世界.后台.最近变化[0];
+        assert.equal(change.名称,'卫兵');assert.equal(change.时间,'2026年9月7日清晨');assert.equal(change.内容,'调查商路');
+    });
+    await test('space and settlement block manual and auto execution; single-world next turn resumes', async () => {
+        const x = setup(async () => '{"summary":"无变化","patches":[]}');
+        x.change(s=>s.系统状态.是否在主神空间=true); assert.equal(await x.engine.run(),false);
+        x.change(s=>{s.系统状态.是否在主神空间=false;s.设置.单一世界=true;});
+        x.text('轮回清算协议'); assert.equal(await x.engine.run(),false);
+        x.text('结算后继续调查'); assert.equal(await x.engine.run(),true);
+    });
+    await test('late responses after chat switch, cancellation, or variable update never commit', async () => {
+        for (const kind of ['chat','cancel','variables','settle']) {
+            let resolve, started;
+            const ready = new Promise(r=>started=r);
+            const x = setup(() => {started();return new Promise(r=>resolve=r);});
+            const pending = x.engine.run(); await ready;
+            if (kind==='chat') x.chat();
+            if (kind==='cancel') x.engine.cancel();
+            if (kind==='variables') x.change(s=>s.世界.时间='2026年9月8日');
+            if (kind==='settle') x.change(s=>{s.系统状态.是否在主神空间=true;s.世界.后台={};});
+            resolve('{"summary":"迟到","patches":[]}');
+            await assert.rejects(pending); assert.equal(x.writes(),0);
+        }
+    });
+    await test('terminal handoff restores saved state and close does not disable engine', () => {
+        let restored;
+        const host = {localStorage:{getItem:()=>null},Samsara:{terminal:{suspend:()=>({open:true,scroll:82}),restore:s=>restored=s}}};
+        const engine = new Engine(host); engine.config.enabled=true;
+        engine.createPanel=()=>{engine.panel={hidden:true};}; engine.render=()=>{};
+        engine.open(); engine.open(); engine.close(); engine.close();
+        assert.deepEqual(restored,{open:true,scroll:82}); assert.equal(engine.config.enabled,true);
+    });
+    await test('actual settlement function clears ordinary world only, keeps relationships and both clocks', () => {
+        const html=fs.readFileSync(path.join(__dirname,'../Regular/结算任务美化.html'),'utf8');
+        const snippet=html.slice(html.indexOf('function applySettlementFinalization('),html.indexOf('function writeSettlementToMvu('));
+        const finalize = new Function(`const rawText='轮回清算协议'; const hasSettlementHeader=()=>true; const isFullSettlement=()=>true; const isTrialPassed=()=>false; const trialTasks=[]; const readReincarnatorTier=()=> 'Ⅰ'; const settlementBaselineTier='Ⅰ'; ${snippet}; return applySettlementFinalization;`)();
+        for (const single of [false,true]) {
+            const stat=fresh(); stat.设置.单一世界=single; stat.系统状态.游玩天数=12;
+            stat.关系列表.旅伴={好感度:10}; stat.世界.后台.公开摘要='仍在推进';
+            stat.任务.列表.结束={状态:'可结算'};
+            const time=stat.世界.时间;
+            finalize({stat_data:stat},true);
+            assert.equal(stat.世界.时间,time); assert.equal(stat.系统状态.游玩天数,12);
+            assert.equal(stat.关系列表.旅伴.好感度,10);
+            assert.equal(stat.任务.列表.结束,undefined);
+            if (single) {assert.equal(stat.世界.后台.公开摘要,'仍在推进'); assert.ok(stat.任务.列表.调查); assert.equal(stat.系统状态.是否在主神空间,false);}
+            else {assert.deepEqual(stat.世界.后台,{});assert.equal(stat.系统状态.是否在主神空间,true);}
+        }
+        const historical=fresh(), before=clone(historical);
+        finalize({stat_data:historical},false); assert.deepEqual(historical,before);
+    });
+    await test('auxiliary callback skips duration ticks for engine commit but processes subsequent prose', () => {
+        const source=fs.readFileSync(path.join(__dirname,'../script/辅助计算脚本.js'),'utf8');
+        const snippet=source.slice(source.indexOf('function onUpdateData('),source.indexOf('// ===== 轻量路径工具'));
+        const names=['guardTaskGenerationLock','guardPersistedSystemTaskOwner','guardProtectedFields','clampNativeNpcToWorldTier','recalcAllCharacters','checkTrialEligibility','updatePlayDays','autoHarvestAssets','cleanupZeroQuantityItems','processStatusDuration','cleanupDeadNPCs','calcWorldStability','processCombatAndCooldowns'];
+        const calls={}; const stubs=Object.fromEntries(names.map(name=>[name,()=>{calls[name]=(calls[name]||0)+1;}]));
+        const update=new Function('stubs',`let isProcessing=false,isInitLog=false;const {${names.join(',')}}=stubs;${snippet};return onUpdateData;`)(stubs);
+        const stat=fresh();stat.角色={};stat.世界.后台.已处理楼层='commit-1';
+        const after={stat_data:stat,__samsaraWorldCommit:'commit-1'};
+        update(after,{stat_data:clone(stat)});
+        assert.equal(calls.calcWorldStability,1);assert.equal(calls.processCombatAndCooldowns,undefined);assert.equal(calls.processStatusDuration,undefined);
+        update(after,clone(after));
+        assert.equal(calls.processCombatAndCooldowns,1);assert.equal(calls.processStatusDuration,1);
+    });
+    await test('worldbook templates compile including protected public projection', () => {
+        for (const name of ['[variables]当前变量.txt','[mvu_update]变量更新规则.txt']) {
+            const source=fs.readFileSync(path.join(__dirname,'../World Book',name),'utf8');
+            let compiled='';
+            for (const tag of source.matchAll(/<%([\s\S]*?)%>/g)) {
+                const inner=tag[1].replace(/[_-]$/,'');
+                compiled += /^[=-]/.test(inner) ? `void (${inner.slice(1)});\n` : inner.replace(/^_/, '')+'\n';
+            }
+            new vm.Script(compiled);
+        }
+    });
+    await test('browser bootstrap can use lexical sandbox interfaces and release subscriptions', () => {
+        let stopped=0;
+        const host={document:{addEventListener:()=>{},removeEventListener:()=>{}},localStorage:{getItem:()=>null}};
+        const root={parent:host,addEventListener:()=>{}};
+        const sandbox={window:root,setTimeout,clearTimeout,AbortController,console,
+            Mvu:{events:{VARIABLE_UPDATE_ENDED:'mvu'}},
+            tavern_events:{CHAT_CHANGED:'chat',MESSAGE_SWIPED:'swipe',MESSAGE_DELETED:'delete'},
+            eventOn:()=>({stop:()=>stopped++}), getChatMessages:()=>[],getCurrentChatId:()=> 'sandbox',
+            getCharWorldbookNames:()=>({primary:'book'}),getWorldbook:()=>[]};
+        vm.runInNewContext(source,sandbox);
+        assert.equal(host.Samsara.worldEngine.fn('getCurrentChatId')(),'sandbox');
+        host.Samsara.worldEngine.dispose(); assert.equal(stopped,4);
+    });
+    await test('current-variable projection removes private plans and suppresses space digest', () => {
+        const source=fs.readFileSync(path.join(__dirname,'../World Book/[variables]当前变量.txt'),'utf8');
+        const start=source.indexOf('if (current.世界) {',source.indexOf('// 后台完整状态'));
+        const end=source.indexOf('// 世界超稳模式:',start);
+        const render=new Function('current','data','readonly','_',source.slice(start,end));
+        const lodash={get:(v,p,d)=>p.split('.').reduce((a,k)=>a?.[k],v)??d};
+        const stat=fresh();stat.世界.后台.公开摘要='城门戒严';stat.世界.后台.事件.秘密={结果:'隐藏真相'};
+        for (const space of [false,true]) {
+            stat.系统状态.是否在主神空间=space;
+            const current={世界:clone(stat.世界)},readonly={世界:{}};
+            render(current,stat,readonly,lodash);
+            assert.equal(current.世界.后台,undefined);
+            assert.equal(readonly.世界.后台公开动态,space?undefined:'城门戒严');
+            assert.equal(JSON.stringify([current,readonly]).includes('隐藏真相'),false);
+        }
+    });
+    await test('updated JS and embedded settlement scripts compile', () => {
+        new vm.Script(source);
+        new vm.Script(fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8'));
+        const html=fs.readFileSync(path.join(__dirname,'../Regular/结算任务美化.html'),'utf8');
+        for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) new vm.Script(match[1]);
+        const zod=fs.readFileSync(path.join(__dirname,'../script/ZOD脚本.js'),'utf8').replace(/^import .*;$/m,'').replace('export const Schema','const Schema');
+        new vm.Script(zod);
+    });
+    console.log(`${tests} tests passed`);
+})().catch(error=>{console.error(error);process.exitCode=1;});

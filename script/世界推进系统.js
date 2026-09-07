@@ -540,6 +540,7 @@
             if (patch.op === 'remove') delete parent[p.at(-1)]; else parent[p.at(-1)] = copy(value);
         }
         normalizeBackendState(next);
+        normalizeEventLayers(next);
         validateState(next);
         for (const [name,item] of Object.entries(next.世界.势力 || {})) {
             const old = (stat.世界.势力 || {})[name];
@@ -556,7 +557,12 @@
         compactFinishedEvents(next);
         next=applyPatches(next,modelPatches||[]);
         compactFinishedEvents(next);
-        const repairPatches=repairCausalProjection(next);
+        const layerPatches=normalizeEventLayers(next);
+        const causalPatches=repairCausalProjection(next);
+        const predecessorPatches=repairMacroPredecessors(next);
+        const linkPatches=repairExplicitEventLinks(next);
+        validateState(next);
+        const repairPatches=[...layerPatches,...causalPatches,...predecessorPatches,...linkPatches];
         return {next,appliedSeeds,repairPatches};
     }
     function ensureDueHandled(next,dueList,worldTime) {
@@ -734,9 +740,11 @@
             const state=copy(base.stat);
             state.世界[PATH]=Object.assign(emptyState(),state.世界[PATH]||{});
             normalizeBackendState(state);
+            normalizeEventLayers(state);
             compactFinishedEvents(state);
             const seedPatches=importStory(state);
             for(const patch of seedPatches)state.世界[PATH].事件[tokens(patch.path).at(-1)]=patch.value;
+            normalizeEventLayers(state);
             if(state.设置)delete state.设置.API;
             delete state.商城;
             // 旧剧本数据只为兼容存档保留，不进入新世界调度请求。

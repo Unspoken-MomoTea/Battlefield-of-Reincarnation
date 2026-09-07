@@ -137,6 +137,32 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         e.config.selectedEntries=[JSON.stringify(['设定','4'])];
         assert.deepEqual((await e.worldbook('')).map(x=>x.名称),['禁用']);
     });
+    await test('missing macro timeline force-reads enabled chronology backbone without opening unrelated lore', async () => {
+        const x=setup(async()=>''),e=x.engine;
+        e.worldbook=Engine.prototype.worldbook;
+        e.host.getCharWorldbookNames=()=>({primary:'设定',additional:[]});
+        e.host.getWorldbook=()=>[
+            {uid:1,name:'世界年表',content:'后续存在跨国战略灾难与电磁脉冲影响。',strategy:{type:'selective',keys:['核爆','EMP']}},
+            {uid:2,name:'高城沙耶',content:'人物详档',strategy:{type:'selective',keys:['高城沙耶']}},
+            {uid:3,name:'当前地点',content:'城门资料',strategy:{type:'selective',keys:['城门']}}
+        ];
+        const r=await e.buildRequest(e.snapshot()),payload=JSON.parse(r.input);
+        assert.deepEqual(payload.世界书.map(x=>x.名称),['世界年表','当前地点']);
+        assert.equal(r.manifest.读取判定.find(x=>x.名称==='世界年表').原因,'宏观时间骨架');
+        assert.match(r.system,/原著确定性大事件/);
+        x.change(stat=>{
+            for(const name of ['远期A','远期B','远期C'])stat.世界.后台.事件[name]={...RECORDS.事件,分类:'宏观节点',状态:'待发生',时间:'2026年10月'+(10+Object.keys(stat.世界.后台.事件).length)+'日',描述:name};
+        });
+        const complete=await e.buildRequest(e.snapshot());
+        assert.equal(JSON.parse(complete.input).世界书.some(x=>x.名称==='世界年表'),false);
+    });
+    await test('world-engine-enabled MVU keeps purchase conversion rules but cannot generate rumors', () => {
+        const src=fs.readFileSync(path.join(__dirname,'../World Book/[mvu_update]变量更新规则.txt'),'utf8');
+        assert.match(src,/世界引擎开启时的即时情报交互/);
+        assert.match(src,/禁止新增(?:任何)?传闻/);
+        assert.match(src,/购买后remove/);
+        assert.match(src,/转化为【任务】或【探索】/);
+    });
     await test('world engine isolates MVU/output prompt books even in force mode and exposes timeline scheduling needs', async () => {
         const x=setup(async()=>''),e=x.engine;
         e.worldbook=Engine.prototype.worldbook;

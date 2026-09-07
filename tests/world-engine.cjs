@@ -253,6 +253,46 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(engine.config.preset,/【因果轨道与偏移】/);
         assert.match(engine.config.preset,/【信息传播】/);
     });
+    await test('world advance master switch enables extra API and only becomes effective when model API is ready', () => {
+        let apiEnabled=false,enableCalls=0,disableCalls=0,saved='';
+        const host={
+            localStorage:{getItem:()=>null,setItem:(_,v)=>{saved=v;}},
+            Samsara:{terminal:{
+                apiReady:()=>apiEnabled,
+                enableApi:()=>{enableCalls++;apiEnabled=true;},
+                disableApi:()=>{disableCalls++;apiEnabled=false;}
+            }}
+        };
+        const engine=new Engine(host);
+        assert.equal(engine.isConfigured(),false);
+        assert.equal(engine.isEnabled(),false);
+        engine.setEnabled(true);
+        assert.equal(enableCalls,1);
+        assert.equal(engine.isConfigured(),true);
+        assert.equal(engine.isEnabled(),true);
+        assert.equal(JSON.parse(saved).enabled,true);
+        engine.setEnabled(false);
+        assert.equal(engine.isConfigured(),false);
+        assert.equal(engine.isEnabled(),false);
+        assert.equal(disableCalls,0);
+        assert.equal(apiEnabled,true);
+    });
+    await test('world advance stays configured but falls back when extra model is unavailable', () => {
+        let enabled=false;
+        const host={localStorage:{getItem:()=>JSON.stringify({enabled:true}),setItem:()=>{}},Samsara:{terminal:{apiReady:()=>false,enableApi:()=>{enabled=true;}}}};
+        const engine=new Engine(host);
+        assert.equal(engine.isConfigured(),true);
+        assert.equal(engine.isEnabled(),false);
+        assert.equal(enabled,false);
+    });
+    await test('status bar routes world button by master switch and exposes world advance setting', () => {
+        const source=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');
+        assert.match(source,/data-toggle=["']world-engine["']/);
+        assert.match(source,/engine\.isConfigured\(\)/);
+        assert.match(source,/renderWorldTab\(sd\)/);
+        assert.match(source,/case ['"]world['"]:\s*html\s*=\s*renderWorldTab\(sd\)/);
+        assert.match(source,/enableApi:\s*function\s*\(/);
+    });
     await test('terminal handoff restores saved state and close does not disable engine', () => {
         let restored;
         const host = {localStorage:{getItem:()=>null},Samsara:{terminal:{suspend:()=>({open:true,scroll:82}),restore:s=>restored=s}}};

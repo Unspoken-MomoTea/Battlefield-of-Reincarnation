@@ -123,15 +123,20 @@
     function repairCausalProjection(stat) {
         const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
         const existing=storyStages(orbit.故事线);
-        if(existing.length>=3&&existing.length<=5)return [];
-        const entries=Object.entries(stat.世界[PATH]?.事件||{}).filter(([,e])=>e.状态!=='已取消').map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)})).sort((a,b)=>(a.key??Infinity)-(b.key??Infinity)||a.index-b.index).map(x=>x.item);
-        if(entries.length<3)return [];
+        const macroEntries=Object.entries(stat.世界[PATH]?.事件||{})
+            .filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消')
+            .map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
+            .sort((a,b)=>(a.key??Infinity)-(b.key??Infinity)||a.index-b.index)
+            .map(x=>x.item);
+        const macroNames=new Set(macroEntries.map(([name])=>name));
+        if(existing.length>=3&&existing.length<=5&&existing.every(name=>macroNames.has(name)))return [];
+        // 因果轨道只能由宏观事件投影。宏观事实不足时宁可等待模型补齐，
+        // 也不能拿当前事件/近期节点凑出一条“看似完整”的故事线。
+        if(macroEntries.length<3)return [];
         const chosen=[],seen=new Set();
-        const take=name=>{if(name&&!seen.has(name)&&entries.some(([n])=>n===name)){seen.add(name);chosen.push(name);}};
+        const take=name=>{if(name&&macroNames.has(name)&&!seen.has(name)){seen.add(name);chosen.push(name);}};
         take(orbit.当前阶段);
-        for(const [name,e] of entries)if(['主线节点','宏观节点','近期节点','当前事件'].includes(e.分类))take(name);
-        for(const [name,e] of entries)if(e.状态==='进行中')take(name);
-        for(const [name,e] of entries)if(e.状态==='待发生')take(name);
+        for(const [name] of macroEntries)take(name);
         if(chosen.length<3)return [];
         const line=chosen.slice(0,5),patches=[];
         const story=line.join(' -> ');
@@ -151,6 +156,8 @@
         const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
         const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
         const orbit=stat.世界.因果轨道||{},orbitStages=storyStages(orbit.故事线);
+        const macroNames=new Set(macro.map(([name])=>name));
+        const orbitProjectionInvalid=orbitStages.length<3||orbitStages.length>5||orbitStages.some(name=>!macroNames.has(name));
         const orbitMacro=macroFuture.find(([name])=>name===orbit.下一节点);
         const datedMacro=macroFuture.map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
             .filter(x=>x.key!==null&&(now===null||x.key>=now))
@@ -169,7 +176,7 @@
         return {
             当前时间锚点:stat.世界.时间,
             因果轨道节点数:orbitStages.length,
-            因果轨道需重建:orbitStages.length<3||orbitStages.length>5,
+            因果轨道需重建:orbitProjectionInvalid,
             需要初始化:near.length===0&&macro.length===0,
             当前活动事件数:waiting.filter(([,e])=>e.状态==='进行中').length,
             近期节点数:near.length,

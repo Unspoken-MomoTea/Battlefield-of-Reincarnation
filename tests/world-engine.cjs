@@ -137,6 +137,32 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         e.config.selectedEntries=[JSON.stringify(['设定','4'])];
         assert.deepEqual((await e.worldbook('')).map(x=>x.名称),['禁用']);
     });
+    await test('macro planning works without any worldbook and treats model canon knowledge as primary', async () => {
+        const x=setup(async()=>''),e=x.engine;
+        e.worldbook=Engine.prototype.worldbook;
+        const r=await e.buildRequest(e.snapshot()),payload=JSON.parse(r.input);
+        assert.deepEqual(payload.世界书,[]);
+        assert.equal(payload.推演阶段.宏观优先,true);
+        assert.match(r.system,/模型已有的原著知识/);
+        assert.match(r.system,/世界书.*补充|补充.*世界书/);
+        assert.match(r.system,/没有世界书.*不得/);
+    });
+    await test('timeline request exposes the next macro boundary for interval simulation', async () => {
+        const x=setup(async()=>''),e=x.engine;
+        x.change(stat=>{
+            stat.世界.因果轨道={当前阶段:'危机爆发',故事线:'危机爆发 -> 城市撤离 -> 战略级灾难',下一节点:'城市撤离',偏移记录:{}};
+            stat.世界.后台.事件={
+                '当前混乱':{...RECORDS.事件,分类:'当前事件',状态:'进行中',时间:'2026年9月7日清晨',描述:'当前混乱'},
+                '城市撤离':{...RECORDS.事件,分类:'宏观节点',状态:'待发生',时间:'2026年9月10日清晨',描述:'城市撤离'},
+                '战略级灾难':{...RECORDS.事件,分类:'宏观节点',状态:'待发生',时间:'2026年10月1日清晨',描述:'战略级灾难'}
+            };
+        });
+        const payload=JSON.parse((await e.buildRequest(e.snapshot())).input);
+        assert.equal(payload.时间线调度.下一宏观节点.名称,'城市撤离');
+        assert.equal(payload.时间线调度.桥接区间.起点,'2026年9月7日清晨');
+        assert.equal(payload.时间线调度.桥接区间.终点,'2026年9月10日清晨');
+        assert.equal(payload.推演阶段.近期细节边界,'城市撤离');
+    });
     await test('missing macro timeline force-reads enabled chronology backbone without opening unrelated lore', async () => {
         const x=setup(async()=>''),e=x.engine;
         e.worldbook=Engine.prototype.worldbook;
@@ -148,7 +174,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         ];
         const r=await e.buildRequest(e.snapshot()),payload=JSON.parse(r.input);
         assert.deepEqual(payload.世界书.map(x=>x.名称),['世界年表','当前地点']);
-        assert.equal(r.manifest.读取判定.find(x=>x.名称==='世界年表').原因,'宏观时间骨架');
+        assert.equal(r.manifest.读取判定.find(x=>x.名称==='世界年表').原因,'宏观资料补充');
         assert.match(r.system,/原著确定性大事件/);
         x.change(stat=>{
             for(const name of ['远期A','远期B','远期C'])stat.世界.后台.事件[name]={...RECORDS.事件,分类:'宏观节点',状态:'待发生',时间:'2026年10月'+(10+Object.keys(stat.世界.后台.事件).length)+'日',描述:name};

@@ -18,6 +18,8 @@ b.剧本={'补给危机':{...RECORDS.剧本,描述:'一条中断的商路，让�
 b.最近变化=[{时间:'2026年9月7日清晨',类别:'事件',名称:'灰港封锁',操作:'新增',字段:'状态',内容:'北门进入临时管制。'},{时间:'2026年9月7日清晨',类别:'人物',名称:'守备官艾琳',操作:'更新',字段:'行动',内容:'开始审问返回的车夫。'},{时间:'2026年9月7日清晨',类别:'任务',名称:'追查失踪车队',操作:'更新',字段:'阶段',内容:'已完成询问，下一步前往旧桥。'}];
 b.运行记录=[{时间:'2026年9月7日清晨',摘要:'确认补给中断，建立调查与商会议事的因果联系。',补丁数:8}];
 const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间:'2026年9月7日清晨',稳定:96,后台:b,因果轨道:{当前阶段:'第一幕 · 北境来信',故事线:'北境援军抵达 → 商路争夺 → 灰港改组',下一节点:'北境援军抵达',偏移记录:{}},法则:['低魔世界','契约具有约束力'],货币:{体系:'银冠',经济波动:'粮价小幅上涨'},势力:{灰港商会:{实力:'C',声望:320,领地:'灰港集市',描述:'希望尽快恢复北方商路。'}},探索:{废弃旧桥:{风险:'D',探索度:35,描述:'桥头留有车轮与拖拽痕迹。',隐藏真相:'桥下存在一条隐蔽通道。'}},异端雷达:{名单:{}}},系统状态:{游玩天数:23,是否在主神空间:false},设置:{},关系列表:{商人莱昂:{在场:true,好感度:25,态度:'愿意交换消息'},守备官艾琳:{在场:false,好感度:10}},任务:{列表:{追查失踪车队:{状态:'进行中',目标:'沿北境旧驿道寻找失踪的补给车队。',委托方:'灰港卫队',难度:'D',奖励:'200银冠'}},副本成就:{迷雾中的足迹:{状态:'未达成',说明:'在补给危机结束前找到旧桥的秘密。',难度:'D',奖励:'D级盲盒'}}},传闻:{街头巷议:{粮仓里的低语:{来源:'酒馆常客',内容:'听说北门外又停了两支商队，面包恐怕还要涨价。',可信度:'或许可信'}}}};
+// 故意打乱写入顺序：UI 必须按“进行中 → 近期 → 宏观”而不是对象插入顺序显示。
+b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议事':b.事件['商会紧急议事'],'灰港封锁':b.事件['灰港封锁']};
 (async()=>{
  const browser=await chromium.launch({channel:'msedge',headless:true});
  try{
@@ -35,6 +37,11 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  assert.equal(await page.locator('.we-dashboard').count(),1,'世界推进采用独立仪表盘布局');
  assert.equal(await page.locator('.we-people-strip .we-person-compact').count()<=4,true,'人物动态保持紧凑摘要');
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),1,'世界推进只保留一处世界动向');
+ const timelineNames=await page.locator('.we-timeline [data-event-card] h3').allTextContents();
+ assert.deepEqual(timelineNames.slice(0,3),['灰港封锁','商会紧急议事','北境援军抵达'],'时间线必须按层级排序而不是对象插入顺序');
+ assert.equal(await page.locator('[data-event-card="灰港封锁"]').getByText('当前事件',{exact:true}).count(),1);
+ assert.equal(await page.locator('[data-event-card="商会紧急议事"]').getByText('近期节点',{exact:true}).count(),1);
+ assert.equal(await page.locator('[data-event-card="北境援军抵达"]').getByText('宏观节点',{exact:true}).count(),1);
  assert.equal(await page.locator('[data-jump-event="北境援军抵达"]').count(),1,'下一关键节点应可点击');
  assert.equal(await page.locator('button[data-jump-event="北境援军抵达"]').count(),1,'下一关键节点必须是按钮');
  await page.locator('[data-jump-event="北境援军抵达"]').click();

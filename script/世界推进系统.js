@@ -36,7 +36,7 @@
 【世界演进准则】原著世界必须结合当前时间锚点、当前地点、当前剧情阶段、已知角色状态、原著人物行动规律、世界势力动态；据此推演人物行动、势力变化、剧情推进、世界事件。原创/衍生世界基于当前世界法则与本土势力动态持续推演。通用原则：世界持续运行，不因<user>未行动而暂停。
 【因果轨道与偏移】世界.因果轨道是后台事件图的宏观投影，不是第二套独立剧情。故事线必须维持3~5个默认大事件节点，用“ -> ”串联并覆盖当前阶段前后；下一节点是下一个宏观边界或检查点。仅在章节切换、地图切换、关键任务完成或重大剧情事件发生时更新。只有关键人物命运、重大事件、势力格局或主线被玩家/其他人物实质改变时才写偏移记录，日常、战斗动作、交易、对话不记偏移。偏移记录写明描述、引发者、影响程度；负值表示使原轨道更不稳定，正值表示修复/强化原轨道。新增偏移后若原主线无法继续，立即重构故事线与下一节点；否则保留原轨道。世界超稳时不得新增偏移。
 【角色管理】维护场外人物所在世界、地点、目标、行动、已知信息、行程及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗；不得为<user>建立或推进后台行动日程。人物记录与关系列表按稳定名字关联，不编造整套人物属性。
-【势力与地区】处理势力目标、资源、冲突、地区变化、探索线索。声望变化必须有真实行为依据，不能因为经过时间自动涨落。未知探索点保留在内部地区记录，发现后才投影到世界.探索。
+【探索与势力】处理势力目标、资源、冲突、地区变化、探索线索。声望变化必须有真实行为依据，不能因为经过时间自动涨落。未知探索点保留在内部地区记录，发现后才投影到世界.探索。
 【任务联动】任务不是第二套剧情树。仅依据后台事件的实际结果更新已有任务或成就状态；主神任务、晋升试炼的创建、奖励定义与发奖由原系统负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。
 【信息传播】世界引擎负责场外传闻与传播链。事件产生街头巷议、付费情报或公告，区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。人物只有获得信息后才能据此行动。传闻可产生新事件，但禁止无因果地每轮刷新；当前场景内用户刚刚直接听到/买到的即时信息仍以正文事实为准。
 只使用世界.时间计算本世界进展；系统状态.游玩天数仅作只读参考。时间未变也可记录本轮新事实，但不得虚构耗时进度。跨多个日期需按依赖顺序补算，先处理到期事件再生成后果。
@@ -59,7 +59,8 @@
         return segment.title?'【'+segment.title+'】\n'+String(segment.body||'').trim():String(segment.body||'').trim();
     }
     function ensurePresetStructure(value) {
-        const current=splitPresetSegments(value||DEFAULT_PRESET),defaults=splitPresetSegments(DEFAULT_PRESET);
+        const current=splitPresetSegments(value||DEFAULT_PRESET).map(segment=>segment.title==='势力与地区'?{...segment,title:'探索与势力'}:segment);
+        const defaults=splitPresetSegments(DEFAULT_PRESET);
         const titles=new Set(current.map(s=>s.title).filter(Boolean));
         for(const segment of defaults)if(segment.title&&!titles.has(segment.title))current.push(segment);
         return current.map(segmentText).filter(Boolean).join('\n');
@@ -814,7 +815,7 @@
             const availabilityReason=this.isConfigured()&&!this.isAvailable()?'额外模型未准备好：请在主神终端设置中配置 API 地址并选择模型':'';
             this.panel.querySelector('[data-action=run]').disabled=this.busy||!!reason||!!availabilityReason;
             this.panel.querySelector('[data-action=run]').textContent=this.busy?'推演中…':'推进世界';
-            const tabs=[['世界推进','◈'],['角色管理','♙'],['势力与地区','⚑'],['任务与事件','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋']];
+            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['任务与事件','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋']];
             this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span>'+i+'</span>'+t+'</button>').join('');
             if(this.tab==='提示词预设'&&main.querySelector('textarea')&&!force)return;
             const text=v=>escape(v==null?'':v);
@@ -831,7 +832,10 @@
             const events=entries(state.事件).sort((a,b)=>{const da=parseDate(a[1].时间||a[1].开始时间),db=parseDate(b[1].时间||b[1].开始时间);return (da?da.y*372+da.m*31+da.d:Infinity)-(db?db.y*372+db.m*31+db.d:Infinity);});
             const active=events.filter(([,e])=>e.状态==='进行中'),future=events.filter(([,e])=>e.状态==='待发生');
             const tasks=entries((s.任务||{}).列表),achievements=entries((s.任务||{}).副本成就);
-            const people=new Map(entries(state.人物));entries(s.关系列表).forEach(([n,p])=>{if(!people.has(n))people.set(n,{状态:p.在场?'在场':'场外',公开动态:p.态度||'',地点:'',目标:'',行动:''});});
+            const peopleAll=new Map(entries(state.人物));entries(s.关系列表).forEach(([n,p])=>{if(!peopleAll.has(n))peopleAll.set(n,{状态:p.在场?'在场':'场外',公开动态:p.态度||'',地点:'',目标:'',行动:''});});
+            const userName=String(this.host.SillyTavern?.name1||this.env.SillyTavern?.name1||this.host.SillyTavern?.getContext?.()?.name1||this.host.name1||'').trim();
+            const playerAliases=new Set([userName,'{{user}}','<user>','玩家'].filter(Boolean).map(nameKey));
+            const people=new Map(Array.from(peopleAll).filter(([name])=>!playerAliases.has(nameKey(name))));
             const person=(name,p,full=false)=>{
                 const rel=(s.关系列表||{})[name]||{};
                 return '<article class="'+(full?'we-card':'we-person')+'">'+(!full?'<div class="we-avatar">'+text(name.slice(0,1))+'</div>':'')+'<div><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(p.状态||(rel.在场?'在场':'场外'),'dim')+'</div><p>'+text(p.行动||p.公开动态||rel.态度||'尚无行动记录')+'</p><div class="we-meta"><span>⌖ '+text(p.地点||'地点未明')+'</span>'+(p.预计结束?'<span>至 '+text(dateLabel(p.预计结束))+'</span>':'')+'</div>'+(full?fields({目标:p.目标,当前时间段:[p.开始时间,p.预计结束].filter(Boolean).join(' → '),下次检查:p.下次检查,所属世界:p.所属世界,好感度:rel.好感度})+details('person-'+name,{行程:p.行程,认知:p.认知,认知来源:p.认知来源,登场条件:p.登场条件,关联事件:p.关联事件,更新时间:p.更新时间,人物背景:rel.背景故事},'行程 · 认知 · 关联事件'):'')+'</div></article>';
@@ -871,7 +875,7 @@
                 const list=Array.from(people).filter(([n,p])=>matched(n,p)&&((this.filter||'全部')==='全部'||(this.filter==='在场'?!!(s.关系列表||{})[n]?.在场:!(s.关系列表||{})[n]?.在场)));
                 const chosen=list.find(([n])=>n===this.selectedPerson)||list[0];
                 html+=tools(['全部','在场','场外'])+'<div class="we-columns"><div>'+section('人物名册','<div class="we-tools">'+list.map(([n])=>'<button data-person="'+text(n)+'" class="'+(chosen?.[0]===n?'active':'')+'">'+text(n)+'</button>').join('')+'</div>')+(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true))+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查})):empty('没有符合条件的人物'))+'</div><aside>'+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['近期动向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
-            }else if(this.tab==='势力与地区'){
+            }else if(this.tab==='探索与势力'){
                 const records=new Map(entries(state.势力地区));
                 entries(w.势力).forEach(([name,r])=>records.set(name,{...r,...records.get(name),类型:'势力'}));
                 entries(w.探索).forEach(([name,r])=>{if(!records.has(name))records.set(name,{...r,类型:'地区'});});

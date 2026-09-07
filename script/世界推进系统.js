@@ -1005,6 +1005,7 @@
                 #sam-world-engine button.we-card:hover,#sam-world-engine .we-card:hover{background:#f1f4f2}
                 #sam-world-engine .we-section .we-card details{border-top:1px solid #e4e8e7}
                 #sam-world-engine .we-card p,#sam-world-engine .we-person p{color:#657185}
+                #sam-world-engine .we-card-tags{display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end}
                 #sam-world-engine .we-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 14px}
                 #sam-world-engine .we-kpi{min-width:0;padding:13px 15px;border:1px solid #dce2e3;border-radius:13px;background:#f9f8f3}
                 #sam-world-engine .we-kpi small{display:block;color:#7e8793;font-size:10px;letter-spacing:1px}
@@ -1195,7 +1196,21 @@
             const entries=obj=>Object.entries(obj||{});
             const parseDate=str=>{const m=String(str||'').match(/(\d+)\s*年\s*-?\s*(\d+)\s*月\s*-?\s*(\d+)\s*日/);return m?{y:+m[1],m:+m[2],d:+m[3],key:+m[1]+'-'+(+m[2])+'-'+(+m[3])}:null;};
             const dateLabel=str=>{const d=parseDate(str);return d?d.m+'月'+d.d+'日':str||'日期未定';};
-            const events=entries(state.事件).sort((a,b)=>{const da=parseDate(a[1].时间||a[1].开始时间),db=parseDate(b[1].时间||b[1].开始时间);return (da?da.y*372+da.m*31+da.d:Infinity)-(db?db.y*372+db.m*31+db.d:Infinity);});
+            const displayBucket=e=>{
+                if(e.状态==='进行中')return 0;
+                if(e.状态==='待发生'&&e.分类==='当前事件')return 1;
+                if(e.状态==='待发生'&&e.分类==='近期节点')return 2;
+                if(e.状态==='待发生'&&e.分类==='宏观节点')return 3;
+                if(e.状态==='已完成')return 4;
+                if(e.状态==='已取消')return 5;
+                return 6;
+            };
+            const events=entries(state.事件).sort((a,b)=>{
+                const bucket=displayBucket(a[1])-displayBucket(b[1]);if(bucket)return bucket;
+                const da=worldDateKey(a[1].时间||a[1].开始时间),db=worldDateKey(b[1].时间||b[1].开始时间);
+                if(da!==db)return (da??Infinity)-(db??Infinity);
+                return String(a[0]).localeCompare(String(b[0]),'zh-CN');
+            });
             const active=events.filter(([,e])=>e.状态==='进行中'),future=events.filter(([,e])=>e.状态==='待发生');
             const tasks=entries((s.任务||{}).列表),achievements=entries((s.任务||{}).副本成就);
             const peopleAll=new Map(entries(state.人物));entries(s.关系列表).forEach(([n,p])=>{if(!peopleAll.has(n))peopleAll.set(n,{状态:p.在场?'在场':'场外',公开动态:p.态度||'',地点:'',目标:'',行动:''});});
@@ -1210,7 +1225,7 @@
                 const rel=(s.关系列表||{})[name]||{};
                 return '<button class="we-person-compact" data-jump-person="'+text(name)+'"><span class="we-avatar">'+text(name.slice(0,1))+'</span><span class="we-person-copy"><strong>'+text(name)+'</strong><small>'+text(p.地点||'地点未明')+'</small><em>'+text(p.行动||p.公开动态||rel.态度||'暂无新动态')+'</em></span></button>';
             };
-            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div><div class="we-meta"><span>◷ '+text(e.时间||e.开始时间||'日期未定')+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,关联任务:e.关联任务,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
+            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(e.时间||e.开始时间||'日期未定')+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,关联任务:e.关联任务,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
             const taskCard=(name,t)=>{
                 const linked=events.filter(([,e])=>(e.关联任务||[]).includes(name)),completed=['可结算','已达成'].includes(t.状态);
                 const linkedNames=linked.map(([n])=>n),activeLinked=linked.filter(([,e])=>['进行中','待发生'].includes(e.状态)).length;

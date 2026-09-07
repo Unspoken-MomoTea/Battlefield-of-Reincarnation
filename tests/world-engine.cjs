@@ -146,6 +146,13 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         for (const p of ['/世界/时间','/系统状态/游玩天数','/任务/列表/调查/奖励','/世界/因果轨道/偏移记录/偏移']) assert.throws(() => applyPatches(stat,[add(p,1)]),/禁止/);
         assert.throws(() => applyPatches(stat,[{op:'replace',path:'/任务/副本成就/发现/状态',value:'未达成'}]),/回退/);
     });
+    await test('task-world intelligence trades cannot be newly priced in space coins', () => {
+        const stat=fresh();
+        assert.throws(()=>applyPatches(stat,[add('/传闻/情报交易/异端动向',{卖家:'匿名商人',情报评级:'D',摘要:'异常者踪迹',要价:'500空间币',真实内幕:'目标位于二楼'})]),/本地货币/);
+        stat.系统状态.是否在主神空间=true;stat.世界.名称='主神空间';
+        const next=applyPatches(stat,[add('/传闻/情报交易/异端动向',{卖家:'终端',情报评级:'D',摘要:'异常者踪迹',要价:'500空间币',真实内幕:'目标位于二楼'})]);
+        assert.equal(next.传闻.情报交易.异端动向.要价,'500空间币');
+    });
     await test('numeric and enum validation cannot be silently clamped', () => {
         assert.throws(() => applyPatches(fresh(),[add('/世界/势力/商会',{实力:'F',领地:'城',描述:'商会',声望:1001})]),/1000/);
         assert.throws(() => applyPatches(fresh(),[add('/世界/探索/遗迹',{风险:'F',探索度:101,描述:'遗迹',隐藏真相:''})]),/越界/);

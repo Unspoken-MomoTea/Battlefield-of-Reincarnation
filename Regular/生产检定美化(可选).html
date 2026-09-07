@@ -44,6 +44,20 @@
         box-shadow: 0 0 12px rgba(201, 162, 39, 0.6);
       }
 
+      /* 造物重铸：紫金炉火主题，与普通生产的暗金主题区分 */
+      .cr-details.reforge .cr-summary {
+        background: #171126;
+        border-color: #8b5cf6;
+        box-shadow: 0 3px 12px rgba(139, 92, 246, 0.28);
+      }
+      .cr-details.reforge[open] .cr-summary {
+        background: #8b5cf6;
+        border-color: #ddd6fe;
+        box-shadow: 0 0 14px rgba(139, 92, 246, 0.65);
+      }
+      .cr-details.reforge .cr-content { border-left-color: #8b5cf6; }
+      .cr-details.reforge .cr-icon { fill: #c4b5fd; }
+
       .cr-icon {
         width: 16px;
         height: 16px;
@@ -113,6 +127,7 @@
       }
       .cr-module-header.check  { border-left-color: #d97a06; background: #26180a; } /* 制作检定: 橙铜 */
       .cr-module-header.settle { border-left-color: #eab308; background: #251f08; } /* 生产结算: 亮金 */
+      .cr-details.reforge .cr-module-header { border-left-color: #a78bfa; background: #211735; }
 
       /* 配方管道数据行 */
       .cr-pipeline-row {
@@ -130,6 +145,11 @@
         margin-left: 12px;
         background: #131007;
         border-left: 2px solid #c9a227;
+      }
+      .cr-pipeline-row.reforge:not(.loot) {
+        background: #191126;
+        border-color: #4c3477;
+        border-left: 2px solid #8b5cf6;
       }
       /* ★ 生产结算·产出物条目(🔹/🔸/※ 开头的缩进行): 橙铜左边框呼应图标 */
       .cr-pipeline-row.loot {
@@ -162,6 +182,7 @@
       .cr-fail { color: #ff4d4f; font-weight: 800; }
       /* 💥精益求精: 出金爆闪, 呼应"完美产出" */
       .cr-great { color: #ffd700; font-weight: 900; text-shadow: 0 0 10px rgba(255, 215, 0, 0.55); }
+      .cr-reforge { color: #ddd6fe; font-weight: 900; background: rgba(139, 92, 246, 0.2); padding: 1px 5px; border: 1px solid rgba(167, 139, 250, 0.5); border-radius: 4px; }
 
       /* --- 手机端适配代码 --- */
       @media (max-width: 600px) {
@@ -262,8 +283,18 @@
               continue;
             }
             if (inCode) { result += char; continue; }
-            if (specialChars[char]) {
-              result += '<span class="cr-' + specialChars[char] + '">' + char + '</span>';
+            var reforgeMatch = text.substring(i).match(/^(造物重铸|重铸目标|重铸变化)/);
+            if (reforgeMatch) {
+              result += '<span class="cr-reforge">' + reforgeMatch[0] + '</span>';
+              i += reforgeMatch[0].length - 1;
+              continue;
+            }
+            var specialToken = Object.keys(specialChars).find(function(token) {
+              return text.substring(i, i + token.length) === token;
+            });
+            if (specialToken) {
+              result += '<span class="cr-' + specialChars[specialToken] + '">' + specialToken + '</span>';
+              i += specialToken.length - 1;
               continue;
             }
             var dcMatch = text.substring(i).match(/^DC\s*\d+/);
@@ -307,6 +338,8 @@
           var lines = rawText.split('\n');
           var finalHtml = '';
           var headerFound = false;
+          var isReforgePanel = /制作类型\s*[:：]\s*造物重铸/.test(rawText);
+          detailsEl.classList.toggle('reforge', isReforgePanel);
 
           lines.forEach(function(line) {
             var cleanedLine = line.trim();
@@ -319,7 +352,7 @@
             if (modMatch) {
               var modName = modMatch[1];
               if (!headerFound && labelEl) {
-                labelEl.textContent = modName;
+                labelEl.textContent = modName + (isReforgePanel ? ' · 造物重铸' : '');
                 headerFound = true;
               }
               var icon = moduleIcons[modName] || '⚒️';
@@ -337,7 +370,8 @@
               var inner = cleanedLine.endsWith('|') ? cleanedLine.slice(1, -1) : cleanedLine.slice(1);
               var segments = inner.split('|');
               var isLoot = /^\s*\|\s{2,}[🔹🔸※]/.test(line);
-              var rowHtml = '<div class="cr-pipeline-row' + (isSub ? ' sub' : '') + (isLoot ? ' loot' : '') + '">';
+              var isReforgeRow = isReforgePanel && /(造物重铸|重铸目标|重铸变化)/.test(inner);
+              var rowHtml = '<div class="cr-pipeline-row' + (isSub ? ' sub' : '') + (isLoot ? ' loot' : '') + (isReforgeRow ? ' reforge' : '') + '">';
               segments.forEach(function(seg) {
                 var trimmedSeg = seg.trim();
                 if (trimmedSeg) {

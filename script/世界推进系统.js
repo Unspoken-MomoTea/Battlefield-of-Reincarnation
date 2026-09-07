@@ -1173,7 +1173,13 @@
         render(force) {
             if(!this.isOpen())return;
             let snapshot,state=emptyState(),reason='';
-            try{snapshot=this.snapshot();state=Object.assign(state,snapshot.stat.世界[PATH]||{});reason=this.blocked(snapshot);}catch(e){reason=e.message;}
+            try{
+                snapshot=this.snapshot();
+                snapshot.stat.世界[PATH]=Object.assign(emptyState(),snapshot.stat.世界[PATH]||{});
+                normalizeBackendState(snapshot.stat);normalizeEventLayers(snapshot.stat);
+                state=Object.assign(state,snapshot.stat.世界[PATH]||{});
+                reason=this.blocked(snapshot);
+            }catch(e){reason=e.message;}
             const s=snapshot?snapshot.stat:{},w=s.世界||{},orbit=w.因果轨道||{};
             if(this.tab==='总览')this.tab='世界推进';
             const main=this.panel.querySelector('main'),scroll=main.scrollTop;

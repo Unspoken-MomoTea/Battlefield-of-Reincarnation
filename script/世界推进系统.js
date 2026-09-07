@@ -163,15 +163,13 @@
             .filter(x=>x.key!==null&&(now===null||x.key>=now))
             .sort((a,b)=>a.key-b.key||a.index-b.index);
         const nextPair=orbitMacro||datedMacro[0]?.item||macroFuture[0]||null;
-        const fallbackPair=!nextPair&&orbit.下一节点?events.find(([name,e])=>name===orbit.下一节点&&e.状态==='待发生')||null:null;
-        const boundary=nextPair||fallbackPair;
-        const nextMacro=boundary?{
-            名称:boundary[0],
-            时间:boundary[1].时间||boundary[1].开始时间||'',
-            分类:boundary[1].分类||'',
-            条件:boundary[1].条件||'',
-            前因:boundary[1].前因||[],
-            来源:nextPair?'宏观事件图':'因果轨道兼容节点'
+        const nextMacro=nextPair?{
+            名称:nextPair[0],
+            时间:nextPair[1].时间||nextPair[1].开始时间||'',
+            分类:nextPair[1].分类||'',
+            条件:nextPair[1].条件||'',
+            前因:nextPair[1].前因||[],
+            来源:'宏观事件图'
         }:null;
         return {
             当前时间锚点:stat.世界.时间,
@@ -1042,8 +1040,10 @@
                 const shown=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter)&&(!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate));
                 const runningTasks=tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态));
                 const macroCount=events.filter(([,e])=>e.分类==='宏观节点').length;
-                const nextNode=orbit.下一节点||future[0]?.[0]||active[0]?.[0]||'等待下一节点';
-                const nextPair=events.find(([n])=>n===nextNode);
+                const macroFuture=events.filter(([,e])=>e.分类==='宏观节点'&&e.状态==='待发生');
+                const orbitMacroPair=macroFuture.find(([n])=>n===orbit.下一节点);
+                const nextPair=orbitMacroPair||macroFuture[0]||null;
+                const nextNode=nextPair?.[0]||'等待宏观节点';
                 const nextEvent=nextPair?.[1]||null;
                 const compactPeople=Array.from(people).filter(([,p])=>p.行动||p.公开动态||p.地点).slice(0,4);
                 html+='<div class="we-kpi-grid">'

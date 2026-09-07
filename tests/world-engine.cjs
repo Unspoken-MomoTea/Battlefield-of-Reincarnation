@@ -99,6 +99,14 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const engine = new Engine(host); engine.worldbook = async () => [];
         return {engine,get:()=>stat,writes:()=>writes,change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
     }
+    await test('master switch off blocks manual world progression', async () => {
+        let calls=0;
+        const x=setup(async()=>{calls++;return JSON.stringify({summary:'不应执行',patches:[]});});
+        x.engine.config.enabled=false;
+        assert.equal(await x.engine.run(),false);
+        assert.equal(calls,0);
+        assert.equal(x.writes(),0);
+    });
     await test('successful run persists once; same floor cannot double award', async () => {
         let calls = 0;
         const x = setup(async () => {calls++;return '{"summary":"无变化","patches":[]}';});

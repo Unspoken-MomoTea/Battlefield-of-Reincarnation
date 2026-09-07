@@ -598,6 +598,7 @@
         }
         async run() {
             if (this.disposed || this.busy) return false;
+            if (!this.isConfigured()) { this.status='世界推进已关闭'; this.render(); return false; }
             const terminal = this.host.Samsara && this.host.Samsara.terminal;
             this.busy = true; const token = this.generation; let timeout;
             try {

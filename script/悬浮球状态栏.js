@@ -45,8 +45,8 @@
 
     /* ===== 4. 受保护(只读)字段定义 ===== */
     var READONLY_PATHS = [
-        '主角.HP_MAX', '主角.EP_MAX', '主角.最终属性', '主角.层级',
-        '主角.当前形态', '主角.形态库',
+        '角色.HP_MAX', '角色.EP_MAX', '角色.最终属性', '角色.层级',
+        '角色.当前形态', '角色.形态库',
         '世界.稳定', '世界.当前轮次', '系统状态.当前轮次'
     ];
     /* 层级阈值表: F→E→D→C→B→A→S→SS→SSS (下限值; 进阶任务才升层级, 故进度条只显示进度不自动升级) */
@@ -131,7 +131,7 @@
     }
 
     /* ===== 7. 写回MVU(编辑模式保存) ===== */
-    /* opts.tierPermit: 主角层级"普升通行证"(罗马数字层级字符串, 如 'Ⅱ')
+    /* opts.tierPermit: 角色层级"普升通行证"(罗马数字层级字符串, 如 'Ⅱ')
        仅"开始进阶"按钮传入; 配合 辅助计算脚本 tierPermitAllows() 放行
        replaceMvuData 异步触发的二次 VARIABLE_UPDATE_ENDED 中的层级变化,
        否则异步事件落在 __samsaraUIMutation 窗口期之外, 会被变量守卫当 AI 篡改回滚 → 普升"闪一下又降回" */
@@ -178,7 +178,7 @@
                 GS_PARENT.__samsaraUIMutation = false;
                 if (win !== GS_PARENT) win.__samsaraUIMutation = false;
             } catch(e6) { try { window.__samsaraUIMutation = false; } catch(e7){} }
-            // ★ 主角层级普升通行证: 写在 win(事件广播方) 与 GS_PARENT 上, 多窗口都读得到
+            // ★ 角色层级普升通行证: 写在 win(事件广播方) 与 GS_PARENT 上, 多窗口都读得到
             //   replaceMvuData 是异步的, 它自己会再触发一次 VARIABLE_UPDATE_ENDED(不经过本函数),
             //   那次事件里 __samsaraUIMutation 已复位 → 守卫会回滚层级; 通行证覆盖该异步事件
             if (opts && opts.tierPermit) {
@@ -361,37 +361,37 @@
         return total;
     }
     /* 权限凭证持有数：新格式读取道具数量；兼容旧存档中同名状态凭证。 */
-    function sourceInfusionCredentialQty(hero, credentialName) {
-        if (!hero || !credentialName) return 0;
+    function sourceInfusionCredentialQty(reincarnator, credentialName) {
+        if (!reincarnator || !credentialName) return 0;
         var total = 0;
-        var items = hero.道具 || {};
+        var items = reincarnator.道具 || {};
         var item = items[credentialName];
         if (item && typeof item === 'object') {
             var q = Object.prototype.hasOwnProperty.call(item, '数量') ? safeNum(item.数量, 0) : 1;
             total += Math.max(0, q);
         }
-        var states = hero.状态 || {};
+        var states = reincarnator.状态 || {};
         if (states && Object.prototype.hasOwnProperty.call(states, credentialName)) total += 1;
         return total;
     }
 
     /* 消耗恰好1枚指定凭证；优先消耗道具堆叠，旧状态凭证仅作兼容兜底。 */
-    function sourceInfusionConsumeCredential(hero, credentialName) {
-        if (!hero || !credentialName) return false;
-        hero.道具 = hero.道具 || {};
-        var item = hero.道具[credentialName];
+    function sourceInfusionConsumeCredential(reincarnator, credentialName) {
+        if (!reincarnator || !credentialName) return false;
+        reincarnator.道具 = reincarnator.道具 || {};
+        var item = reincarnator.道具[credentialName];
         if (item && typeof item === 'object') {
             var q = Object.prototype.hasOwnProperty.call(item, '数量') ? safeNum(item.数量, 0) : 1;
             if (q > 0) {
                 q -= 1;
-                if (q <= 0) delete hero.道具[credentialName];
+                if (q <= 0) delete reincarnator.道具[credentialName];
                 else item.数量 = q;
                 return true;
             }
         }
-        hero.状态 = hero.状态 || {};
-        if (Object.prototype.hasOwnProperty.call(hero.状态, credentialName)) {
-            delete hero.状态[credentialName];
+        reincarnator.状态 = reincarnator.状态 || {};
+        if (Object.prototype.hasOwnProperty.call(reincarnator.状态, credentialName)) {
+            delete reincarnator.状态[credentialName];
             return true;
         }
         return false;
@@ -399,13 +399,13 @@
 
     /* 统一生成一次“当前层级→下一层级”的源力灌注计划；绝不按凭证品质跳级。 */
     function sourceInfusionPlan(sd, targetName) {
-        if (!sd || !sd.主角) return { error:'数据未就绪' };
-        var isHero = (targetName === '主角');
-        var target = isHero ? sd.主角 : (sd.关系列表 && sd.关系列表[targetName]);
+        if (!sd || !sd.角色) return { error:'数据未就绪' };
+        var isReincarnator = (targetName === '角色');
+        var target = isReincarnator ? sd.角色 : (sd.关系列表 && sd.关系列表[targetName]);
         if (!target) return { error:'未找到目标角色' };
-        if (!isHero && target.是否队友 !== true) return { error:'仅队友可使用源力灌注' };
+        if (!isReincarnator && target.是否队友 !== true) return { error:'仅队友可使用源力灌注' };
         if (sd.系统状态 && sd.系统状态.是否战斗中 === true) return { error:'请在安全区域内再重新尝试' };
-        if (isHero && sd.系统状态 && sd.系统状态.试炼已完成 === true) return { error:'晋升试炼已完成，请直接使用「开始进阶」' };
+        if (isReincarnator && sd.系统状态 && sd.系统状态.试炼已完成 === true) return { error:'晋升试炼已完成，请直接使用「开始进阶」' };
 
         var currentTier = normalizeLifeTier(target.层级);
         var idx = TIER_ROMAN.indexOf(currentTier);
@@ -418,7 +418,7 @@
         var nextGrade = TIER_QUALITY[idx + 1];
         var credentialName = nextGrade + '级权限凭证';
         return {
-            isHero: isHero,
+            isReincarnator: isReincarnator,
             targetName: targetName,
             currentTier: currentTier,
             nextTier: nextTier,
@@ -426,8 +426,8 @@
             score: score,
             cost: safeNum(SOURCE_INFUSION_COSTS[nextGrade], 0),
             credentialName: credentialName,
-            coin: safeNum(sd.主角.空间币, 0),
-            credentialQty: sourceInfusionCredentialQty(sd.主角, credentialName)
+            coin: safeNum(sd.角色.空间币, 0),
+            credentialQty: sourceInfusionCredentialQty(sd.角色, credentialName)
         };
     }
 
@@ -437,14 +437,14 @@
     }
 
     function openSourceInfusion(targetName) {
-        targetName = targetName || '主角';
+        targetName = targetName || '角色';
         var first = sourceInfusionPlan(getStatData(), targetName);
         if (first.error) { samToast('warning', first.error); return; }
-        var label = first.isHero ? '主角' : first.targetName;
+        var label = first.isReincarnator ? '角色' : first.targetName;
         var body = '目标: '+label+' '+first.currentTier+' → '+first.nextTier+'（'+first.nextGrade+'）'
             +' ｜ 空间币: '+sourceInfusionFmtNum(first.cost)+'（持有 '+sourceInfusionFmtNum(first.coin)+'）'
             +' ｜ 凭证: '+first.credentialName+' ×1（持有 ×'+first.credentialQty+'）'
-            +' ｜ 确认后由主角账户支付，并直接完成本次普升。';
+            +' ｜ 确认后由角色账户支付，并直接完成本次普升。';
         samConfirm('源力灌注 · '+first.currentTier+' → '+first.nextTier, body, function() {
             var latest = sourceInfusionPlan(getStatData(), targetName);
             if (latest.error) { samToast('warning', latest.error); return; }
@@ -458,20 +458,20 @@
             }
 
             var applied = false;
-            var opts = latest.isHero ? { tierPermit: latest.nextTier } : undefined;
+            var opts = latest.isReincarnator ? { tierPermit: latest.nextTier } : undefined;
             var ok = writeBackMvu(function(statData) {
                 var check = sourceInfusionPlan(statData, targetName);
                 if (check.error || check.nextTier !== latest.nextTier || check.nextGrade !== latest.nextGrade) return;
                 if (check.coin < check.cost || check.credentialQty < 1) return;
-                var payer = statData.主角;
-                var target = check.isHero ? payer : (statData.关系列表 && statData.关系列表[check.targetName]);
-                if (!target || (!check.isHero && target.是否队友 !== true)) return;
+                var payer = statData.角色;
+                var target = check.isReincarnator ? payer : (statData.关系列表 && statData.关系列表[check.targetName]);
+                if (!target || (!check.isReincarnator && target.是否队友 !== true)) return;
                 if (!sourceInfusionConsumeCredential(payer, check.credentialName)) return;
                 payer.空间币 = Math.max(0, safeNum(payer.空间币, 0) - check.cost);
                 target.层级 = check.nextTier;
-                var receiptActor = check.isHero ? '主角' : check.targetName;
+                var receiptActor = check.isReincarnator ? '角色' : check.targetName;
                 shopAppendReceipt(statData, '[普升]['+receiptActor+'] 源力灌注：'+check.currentTier+' → '+check.nextTier+'｜消耗 '+sourceInfusionFmtNum(check.cost)+'空间币、'+check.credentialName+'×1');
-                if (check.isHero && statData.系统状态) statData.系统状态.试炼已完成 = false;
+                if (check.isReincarnator && statData.系统状态) statData.系统状态.试炼已完成 = false;
                 applied = true;
             }, opts);
             if (ok && applied) {
@@ -620,8 +620,8 @@
         .sam-icon-btn.edit-on { background:var(--sam-accent); color:#fff; box-shadow:0 0 10px var(--sam-accent); }
 
         /* 中部:角色条(左头像列+层级/种族/形态 / 右HP+EP+THP三栏 纯色) */
-        .sam-hero { display:flex; padding:8px 12px; gap:10px; border-bottom:1px solid var(--sam-border); flex-shrink:0; align-items:center; }
-        .sam-hero-left { display:flex; align-items:center; gap:10px; flex:0 1 auto; min-width:0; }
+        .sam-reincarnator { display:flex; padding:8px 12px; gap:10px; border-bottom:1px solid var(--sam-border); flex-shrink:0; align-items:center; }
+        .sam-reincarnator-left { display:flex; align-items:center; gap:10px; flex:0 1 auto; min-width:0; }
         /* 头像: 大头像, 空态点击=上传, 有图点击=放大, 右上角✎按钮=上传 */
         .sam-avatar { width:90px; height:110px; border-radius:6px; border:2px solid var(--sam-accent); background:var(--sam-card); display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; overflow:hidden; cursor:pointer; box-shadow:0 0 10px rgba(143,159,255,0.25); position:relative; transition:box-shadow 0.2s, transform 0.15s; }
         .sam-avatar:hover { box-shadow:0 0 16px rgba(143,159,255,0.5); transform:translateY(-1px); }
@@ -633,23 +633,23 @@
         .sam-ava-ph { display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--sam-sub); }
         .sam-ava-ph .sam-ava-ico { font-size:30px; opacity:0.7; }
         .sam-ava-ph .sam-ava-hint { font-size:9px; text-align:center; line-height:1.2; opacity:0.8; }
-        .sam-hero-text { display:flex; flex-direction:column; min-width:0; flex:1 1 auto; gap:5px; }
+        .sam-reincarnator-text { display:flex; flex-direction:column; min-width:0; flex:1 1 auto; gap:5px; }
         /* 战斗状态徽章: 红色脉冲, 平时不渲染(由JS按 是否战斗中 输出) */
-        .sam-hero-combat { align-self:flex-start; display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:bold; color:#fff; background:linear-gradient(135deg, rgba(228,88,125,0.92), rgba(170,38,66,0.9)); border:1px solid var(--sam-hp); border-radius:10px; padding:2px 10px; letter-spacing:0.5px; box-shadow:0 0 8px rgba(228,88,125,0.5); animation:samCombatPulse 1.4s ease-in-out infinite; }
+        .sam-reincarnator-combat { align-self:flex-start; display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:bold; color:#fff; background:linear-gradient(135deg, rgba(228,88,125,0.92), rgba(170,38,66,0.9)); border:1px solid var(--sam-hp); border-radius:10px; padding:2px 10px; letter-spacing:0.5px; box-shadow:0 0 8px rgba(228,88,125,0.5); animation:samCombatPulse 1.4s ease-in-out infinite; }
         @keyframes samCombatPulse { 0%,100% { box-shadow:0 0 7px rgba(228,88,125,0.45); } 50% { box-shadow:0 0 16px rgba(228,88,125,0.85); } }
         /* 层级: 品质描边徽章(文字色由 .q-X 提供, 边框跟随 currentColor) - 独立成行
            固定深色底保证浅色主题下浅色品质文字(F/E)依旧高对比可读 */
-        .sam-hero-tier { align-self:flex-start; display:inline-flex; align-items:baseline; font-weight:900; line-height:1; color:var(--sam-accent); padding:3px 12px; border:2px solid currentColor; border-radius:9px; background:rgba(15,18,28,0.78); box-shadow:0 1px 4px rgba(0,0,0,0.35), inset 0 0 8px rgba(0,0,0,0.3); }
-        .sam-hero-tier-num { font-size:19px; text-shadow:0 1px 2px rgba(0,0,0,0.65); }
-        .sam-hero-tier-suf { font-size:11px; opacity:0.8; margin-left:1px; text-shadow:0 1px 2px rgba(0,0,0,0.65); }
+        .sam-reincarnator-tier { align-self:flex-start; display:inline-flex; align-items:baseline; font-weight:900; line-height:1; color:var(--sam-accent); padding:3px 12px; border:2px solid currentColor; border-radius:9px; background:rgba(15,18,28,0.78); box-shadow:0 1px 4px rgba(0,0,0,0.35), inset 0 0 8px rgba(0,0,0,0.3); }
+        .sam-reincarnator-tier-num { font-size:19px; text-shadow:0 1px 2px rgba(0,0,0,0.65); }
+        .sam-reincarnator-tier-suf { font-size:11px; opacity:0.8; margin-left:1px; text-shadow:0 1px 2px rgba(0,0,0,0.65); }
         /* 种族: 次要标签 - 独立成行 */
-        .sam-hero-race { align-self:flex-start; display:inline-flex; align-items:center; font-size:12px; font-weight:bold; color:var(--sam-text); line-height:1.2; padding:3px 9px; background:rgba(255,255,255,0.05); border:1px solid var(--sam-border); border-radius:8px; }
+        .sam-reincarnator-race { align-self:flex-start; display:inline-flex; align-items:center; font-size:12px; font-weight:bold; color:var(--sam-text); line-height:1.2; padding:3px 9px; background:rgba(255,255,255,0.05); border:1px solid var(--sam-border); border-radius:8px; }
         /* 形态: 金色发光标签 */
-        .sam-hero-form { align-self:flex-start; display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:bold; color:var(--sam-thp); line-height:1.2; padding:2px 9px; background:rgba(229,193,102,0.1); border:1px solid rgba(229,193,102,0.4); border-radius:8px; box-shadow:0 0 7px rgba(229,193,102,0.18); }
-        .sam-hero-form-name { font-size:13px; }
+        .sam-reincarnator-form { align-self:flex-start; display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:bold; color:var(--sam-thp); line-height:1.2; padding:2px 9px; background:rgba(229,193,102,0.1); border:1px solid rgba(229,193,102,0.4); border-radius:8px; box-shadow:0 0 7px rgba(229,193,102,0.18); }
+        .sam-reincarnator-form-name { font-size:13px; }
         /* 右侧HP/EP/THP三排 */
         /* 右侧HP/EP/THP三排 */
-        .sam-hero-bars { 
+        .sam-reincarnator-bars { 
             flex: 1 1 auto;             /* 允许伸缩，自动填充剩余空间 */
             display: flex; 
             flex-direction: column; 
@@ -658,7 +658,7 @@
             max-width: 210px;           /* 👈 核心修改：将最大宽度限制在 200px 左右，这就是黄金比例 */
             margin-left: auto;          /* 把它推到最右侧 */
         }
-        .sam-hero-bars .stat-bar-box { min-width: 0; }
+        .sam-reincarnator-bars .stat-bar-box { min-width: 0; }
         .stat-labels { display:flex; justify-content:space-between; font-size:11px; font-weight:bold; margin-bottom:2px; color:var(--sam-sub); }
         .bar-track { width:100%; height:13px; background:var(--sam-dark); border-radius:6px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.08); }
         .bar-fill { height:100%; position:absolute; top:0; left:0; border-radius:6px; transition:width 0.5s cubic-bezier(0.2,0.8,0.2,1); }
@@ -666,7 +666,7 @@
         .fill-thp { background:var(--sam-thp); z-index:2; opacity:0.85; box-shadow:0 0 6px var(--sam-thp); }
         .fill-ep { background:var(--sam-ep); }
         .fill-thp2 { background:var(--sam-thp); }
-        /* THP行(顶部主角): 临时护盾/额外生命值, 无进度条, 外框包裹, 略向下偏移 */
+        /* THP行(顶部角色): 临时护盾/额外生命值, 无进度条, 外框包裹, 略向下偏移 */
         .sam-thp-row { margin-top:3px; padding:5px 10px; border:1px solid var(--sam-thp); border-radius:6px; background:rgba(255,255,255,0.04); }
         .sam-thp-row .stat-labels { margin-bottom:0; }
         /* THP行(NPC): 外框包裹, 标签可完整显示 */
@@ -1189,7 +1189,7 @@
         .sam-nd-sub[open] > summary { margin-bottom:4px; }
         .sam-nd-sub-body { padding:4px 0 0 10px; border-left:2px solid rgba(143,159,255,0.12); margin-left:4px; }
         @media (max-width:520px) { .sam-nd-grid { grid-template-columns:1fr; } }
-        /* ===== 武器攻击面板(主角衍生属性 + NPC详情最终属性) ===== */
+        /* ===== 武器攻击面板(角色衍生属性 + NPC详情最终属性) ===== */
         .sam-wpn-divider { font-size:11px; font-weight:bold; color:var(--sam-accent); margin:10px 0 5px; padding-bottom:3px; border-bottom:1px solid rgba(143,159,255,0.15); }
         .sam-wpn-list { display:flex; flex-direction:column; gap:5px; }
         .sam-wpn-row { display:flex; flex-direction:column; gap:3px; padding:5px 10px; border-radius:5px; background:rgba(0,0,0,0.15); border:1px solid var(--sam-border); }
@@ -1365,16 +1365,16 @@
         .sam-fc-q.q-S { color:var(--sam-q-s); border-color:var(--sam-q-s); background:rgba(234,179,8,0.16); text-shadow:0 0 4px rgba(234,179,8,0.5); }
         .sam-fc-q.q-SS { color:var(--sam-q-ss); border-color:var(--sam-q-ss); background:rgba(239,68,68,0.18); text-shadow:0 0 4px rgba(239,68,68,0.6); }
         .sam-fc-q.q-SSS { color:var(--sam-q-sss); border-color:var(--sam-q-sss); background:rgba(236,72,153,0.20); text-shadow:0 0 5px rgba(236,72,153,0.7); box-shadow:0 0 6px rgba(236,72,153,0.4); }
-        /* 层级字母(顶部主角层级 / 进度条左右层级 / NPC层级): 按档着色, 与品质徽章同色板 */
-        .sam-hero-tier.q-F,.sam-tier-side.q-F,.sam-npc-tier.q-F,.sam-nd-tier.q-F { color:var(--sam-q-f); }
-        .sam-hero-tier.q-E,.sam-tier-side.q-E,.sam-npc-tier.q-E,.sam-nd-tier.q-E { color:var(--sam-q-e); }
-        .sam-hero-tier.q-D,.sam-tier-side.q-D,.sam-npc-tier.q-D,.sam-nd-tier.q-D { color:var(--sam-q-d); }
-        .sam-hero-tier.q-C,.sam-tier-side.q-C,.sam-npc-tier.q-C,.sam-nd-tier.q-C { color:var(--sam-q-c); }
-        .sam-hero-tier.q-B,.sam-tier-side.q-B,.sam-npc-tier.q-B,.sam-nd-tier.q-B { color:var(--sam-q-b); }
-        .sam-hero-tier.q-A,.sam-tier-side.q-A,.sam-npc-tier.q-A,.sam-nd-tier.q-A { color:var(--sam-q-a); }
-        .sam-hero-tier.q-S,.sam-tier-side.q-S,.sam-npc-tier.q-S,.sam-nd-tier.q-S { color:var(--sam-q-s); text-shadow:0 0 4px rgba(234,179,8,0.5); }
-        .sam-hero-tier.q-SS,.sam-tier-side.q-SS,.sam-npc-tier.q-SS,.sam-nd-tier.q-SS { color:var(--sam-q-ss); text-shadow:0 0 5px rgba(239,68,68,0.6); }
-        .sam-hero-tier.q-SSS,.sam-tier-side.q-SSS,.sam-npc-tier.q-SSS,.sam-nd-tier.q-SSS { color:var(--sam-q-sss); text-shadow:0 0 6px rgba(236,72,153,0.7); }
+        /* 层级字母(顶部角色层级 / 进度条左右层级 / NPC层级): 按档着色, 与品质徽章同色板 */
+        .sam-reincarnator-tier.q-F,.sam-tier-side.q-F,.sam-npc-tier.q-F,.sam-nd-tier.q-F { color:var(--sam-q-f); }
+        .sam-reincarnator-tier.q-E,.sam-tier-side.q-E,.sam-npc-tier.q-E,.sam-nd-tier.q-E { color:var(--sam-q-e); }
+        .sam-reincarnator-tier.q-D,.sam-tier-side.q-D,.sam-npc-tier.q-D,.sam-nd-tier.q-D { color:var(--sam-q-d); }
+        .sam-reincarnator-tier.q-C,.sam-tier-side.q-C,.sam-npc-tier.q-C,.sam-nd-tier.q-C { color:var(--sam-q-c); }
+        .sam-reincarnator-tier.q-B,.sam-tier-side.q-B,.sam-npc-tier.q-B,.sam-nd-tier.q-B { color:var(--sam-q-b); }
+        .sam-reincarnator-tier.q-A,.sam-tier-side.q-A,.sam-npc-tier.q-A,.sam-nd-tier.q-A { color:var(--sam-q-a); }
+        .sam-reincarnator-tier.q-S,.sam-tier-side.q-S,.sam-npc-tier.q-S,.sam-nd-tier.q-S { color:var(--sam-q-s); text-shadow:0 0 4px rgba(234,179,8,0.5); }
+        .sam-reincarnator-tier.q-SS,.sam-tier-side.q-SS,.sam-npc-tier.q-SS,.sam-nd-tier.q-SS { color:var(--sam-q-ss); text-shadow:0 0 5px rgba(239,68,68,0.6); }
+        .sam-reincarnator-tier.q-SSS,.sam-tier-side.q-SSS,.sam-npc-tier.q-SSS,.sam-nd-tier.q-SSS { color:var(--sam-q-sss); text-shadow:0 0 6px rgba(236,72,153,0.7); }
         /* ★ 职业记录渲染: 折叠面板 {职业名:{类型,特性[],来源}} */
         .sam-occ-panel { margin:4px 0; border:1px solid var(--sam-border); border-radius:8px; background:rgba(143,159,255,0.04); overflow:hidden; }
         .sam-occ-summary { list-style:none; cursor:pointer; padding:8px 10px; font-weight:bold; font-size:13px; color:var(--sam-text); display:flex; align-items:center; gap:8px; flex-wrap:wrap; user-select:none; }
@@ -1570,14 +1570,14 @@
             .sam-grid-2, .sam-card-list, .sam-list-1col { display:flex; flex-direction:column; gap:6px; }
             .sam-grid-2 { gap:6px; }
             .sam-grid-2 > .sam-row { padding:4px 6px; }
-            .sam-hero { padding:6px 8px; gap:6px; }
+            .sam-reincarnator { padding:6px 8px; gap:6px; }
             .sam-avatar { width:64px; height:80px; font-size:22px; }
             .sam-ava-ph .sam-ava-ico { font-size:22px; }
             .sam-ava-ph .sam-ava-hint { font-size:8px; }
-            .sam-hero-tier { padding:2px 8px; }
-            .sam-hero-tier-num { font-size:16px; }
-            .sam-hero-race { font-size:11px; padding:2px 7px; }
-            .sam-hero-bars { gap:4px; max-width:none; flex:1; margin-left:10px; }
+            .sam-reincarnator-tier { padding:2px 8px; }
+            .sam-reincarnator-tier-num { font-size:16px; }
+            .sam-reincarnator-race { font-size:11px; padding:2px 7px; }
+            .sam-reincarnator-bars { gap:4px; max-width:none; flex:1; margin-left:10px; }
             .stat-labels { font-size:9px; }
             .bar-track { height:10px; }
             .sam-row { font-size:11px; padding:3px 0; }
@@ -1839,7 +1839,7 @@
        其他商城操作(切换区域Tab/选装备/道具/技能/刷新商品)不受影响 */
     var bloodFusionBusy = false;
     var bloodFusionShopItem = null;
-    var bloodFusionActionActor = '主角'; // 本次融合的写入目标(面板入口=主角, 商店入口跟随 shopCurrentActor)
+    var bloodFusionActionActor = '角色'; // 本次融合的写入目标(面板入口=角色, 商店入口跟随 shopCurrentActor)
     var bloodFusionLastVals = { a: null, b: null }; // A/B 联动: 记录各方上次选中值, 用于撞值时交换
     var BLOODLINE_RANK = { F:1, E:2, D:3, C:4, B:5, A:6, S:7, SS:8, SSS:9 };
     function bloodFusionEntries(extra) {
@@ -2060,8 +2060,8 @@
             return;
         }
         bloodFusionShopItem = shopItem || null;
-        // ★ 融合写入目标: 血统面板入口(无商店血统) → 主角; 商店入口(有 shopItem) → 跟随当前商城选中角色
-        bloodFusionActionActor = shopItem ? (shopCurrentActor || SHOP_ACTOR_HERO) : SHOP_ACTOR_HERO;
+        // ★ 融合写入目标: 血统面板入口(无商店血统) → 角色; 商店入口(有 shopItem) → 跟随当前商城选中角色
+        bloodFusionActionActor = shopItem ? (shopCurrentActor || SHOP_ACTOR_REINCARNATOR) : SHOP_ACTOR_REINCARNATOR;
         var extra = shopItem ? { name:shopItem.name, 品质:shopItem.rating, 标签:shopItem.tags || [], 原始属性:shopItem.raw_attrs || {}, 效果:shopItem.effects || {}, 描述:shopItem.description || '' } : null;
         var entries = bloodFusionEntries(extra);
         var title = shopItem ? '血统购入与融合确认' : '血统融合舱';
@@ -2172,10 +2172,10 @@
         if (bloodFusionShopItem) {
             var prePrice = safeNum(bloodFusionShopItem.price, 0);
             var preSd = getStatData();
-            var preCoin = preSd && preSd.主角 ? safeNum(preSd.主角.空间币, 0) : 0;
+            var preCoin = preSd && preSd.角色 ? safeNum(preSd.角色.空间币, 0) : 0;
             if (preCoin < prePrice) { samToast('warning', '空间币不足，无法购买此血统进行融合'); return; }
-            // ★ 多角色: 货币仍从 主角.空间币 扣除; 血统商品从 当次融合目标角色 的 商城库 删除
-            var preActor = bloodFusionActionActor || SHOP_ACTOR_HERO;
+            // ★ 多角色: 货币仍从 角色.空间币 扣除; 血统商品从 当次融合目标角色 的 商城库 删除
+            var preActor = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
             var preActorLib = shopGetActorLibRaw(preSd && preSd.商城, preActor);
             var preBloodArr = (preActorLib && Array.isArray(preActorLib.血统列表)) ? preActorLib.血统列表.slice() : null;
             // 备份扣币前/删除前的快照, 供失败/停止回滚
@@ -2186,8 +2186,8 @@
                 preBloodLib: preBloodArr
             };
             var preOk = writeBackMvu(function(statData) {
-                statData.主角 = statData.主角 || {};
-                statData.主角.空间币 = Math.max(0, safeNum(statData.主角.空间币, 0) - prePrice);
+                statData.角色 = statData.角色 || {};
+                statData.角色.空间币 = Math.max(0, safeNum(statData.角色.空间币, 0) - prePrice);
                 var _lib = shopGetActorLibRaw(statData.商城, preActor);
                 if (_lib && Array.isArray(_lib.血统列表)) {
                     _lib.血统列表 = _lib.血统列表.filter(function(item) { return safeStr(item.名称) !== bloodFusionShopItem.name; });
@@ -2212,7 +2212,7 @@
         // ★ 推进回合号: 用户点"停止融合"或重发起一次新融合时 epoch 已变, 旧 Promise 回调回合不匹配即丢弃结果
         bloodFusionEpoch += 1;
         var myEpoch = bloodFusionEpoch;
-        // 记录本次融合将消耗的主角侧原血统名(A、B 中所有 owned:true 的条目),
+        // 记录本次融合将消耗的角色侧原血统名(A、B 中所有 owned:true 的条目),
         // 用于:1) 融合进行中升级区"replace_target=这些血统"的升级卡片灰锁;
         //       2) 融合成功后从商城升级列表删除已无对应血统的升级条目
         bloodFusionConsumedNames = [];
@@ -2230,17 +2230,17 @@
             // 使用 Promise 化的 setTimeout 以兼容 epoch 守卫(若用户点停止, epoch 变化即丢弃迟到回写)
             await new Promise(function(resolve){ setTimeout(resolve, delayMs); });
             if (myEpoch !== bloodFusionEpoch || !bloodFusionBusy) return;  // 期间被"停止融合"打断 → 不写回
-            // 写回: 只删除主角侧的 B 血统(b.owned 才删除), 不增新血统, 不写形态库; A 保持原状;
+            // 写回: 只删除角色侧的 B 血统(b.owned 才删除), 不增新血统, 不写形态库; A 保持原状;
             //   升级列表的清理逻辑沿用成功路径(replace_target 命中已删 B 的升级条目一并剔除)
             var consumedNames0 = bloodFusionConsumedNames.slice();
-            var _actor0 = bloodFusionActionActor || SHOP_ACTOR_HERO;
+            var _actor0 = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
             var ok0 = writeBackMvu(function(statData) {
                 var _ctx0 = shopResolveCharacter(statData, _actor0);
                 var _ch0 = _ctx0.character || {};
                 _ch0.血统 = _ch0.血统 || {};
                 if (b.owned) delete _ch0.血统[b.name];
                 if (bloodFusionSnap && bloodFusionShopItem) {
-                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+rollName0, bloodFusionSnap.price, statData.主角.空间币, (bloodFusionActionActor === SHOP_ACTOR_HERO ? '主角' : bloodFusionActionActor)));
+                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+rollName0, bloodFusionSnap.price, statData.角色.空间币, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? '角色' : bloodFusionActionActor)));
                 }
                 var _ulib0 = shopGetActorLibRaw(statData.商城, _actor0);
                 if (_ulib0 && Array.isArray(_ulib0.升级列表) && consumedNames0.length) {
@@ -2256,8 +2256,8 @@
                 if (bloodFusionSnap) {
                     try {
                         writeBackMvu(function(statData) {
-                            statData.主角 = statData.主角 || {};
-                            statData.主角.空间币 = safeNum(statData.主角.空间币, 0) + bloodFusionSnap.price;
+                            statData.角色 = statData.角色 || {};
+                            statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
                             if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                                 var _rlib0 = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
                                 if (_rlib0) _rlib0.血统列表 = bloodFusionSnap.preBloodLib.slice();
@@ -2303,20 +2303,23 @@
             + '    体质: 生命/耐性/恢复\n'
             + '    精神: 施法/察觉/意志\n'
             + '    魅力: 社交/欺骗/威吓\n'
-            + '  衍生属性 (自动计算):\n'
+            + '  资源属性:\n'
             + '    HP: 生命值，HP≤0即判定死亡\n'
             + '    HP_MAX: 生命值上限\n'
             + '    THP: 临时生命值/护盾，受到伤害时优先扣减，不叠加，脱战归零\n'
             + '    EP: 能量值，用于技能消耗\n'
             + '    EP_MAX: 能量值上限\n'
+            + '  衍生属性:\n'
             + '    ATK: 物理攻击\n'
             + '    DEF: 物理防御\n'
             + '    MATK: 法术攻击\n'
             + '    MDEF: 法术防御\n'
             + '    AP: 法术强度乘区\n'
+            + '  行动属性 (全局禁止添加):\n'
             + '    先攻DC: 行动顺序\n'
             + '    防御DC: 被命中难度\n';
         // 获取世界书内容的调用
+        content += await getWorldBookContent('⚙️生命层级与社会生态'); 
         content += await getWorldBookContent('⚙️品质效果数值规则'); 
         content += await getWorldBookContent('⚙️实体生成规则'); 
         content += await getWorldBookContent('⚙️状态协议'); 
@@ -2333,7 +2336,7 @@
             + '字段类型必须严格遵守:\n'
             + '  - 品质: 字符串, 仅可选 F / E / D / C / B / A / S / SS / SSS\n'
             + '  - 标签: 行内数组 [\'标签1\', \'标签2\'...]\n'
-            + '  - 原始属性: 行内对象, 血统必须完整包含六项（力量、敏捷、体质、精神、魅力），每项最低品质为F；装备仅写非0项\n'
+            + '  - 原始属性: 行内对象，定档遵循《品质效果数值规则》；血统必须完整包含五维（力量、敏捷、体质、精神、魅力），装备仅写有效非0项\n'
             + '  - 效果: 行内对象 {效果名: \'描述\'}, 键为字符串, 值为字符串描述\n'
             + '  - 价格: 数字(空间币)\n'
             + '  - 描述/消耗: 字符串\n'
@@ -2365,15 +2368,14 @@
                 + '  - 【形态生成规则】:\n'
                 + '     * 形态属于独立战斗模式，不继承主血统的层级判定。\n'
                 + '     * 形态层级独立于血统品质与角色当前生命层级，按形态自身战斗位格生成。\n'
-                + '     * 形态原始属性必须依据形态自身特征独立生成，禁止复制、继承或微调主血统属性；允许高于、低于或不同于主血统。\n'
-                + '     * 形态属性必须与其层级、形态特征和战斗定位一致。\n'
+                + '     * 形态原始属性按自身特征和战斗定位生成，不得复制、继承或微调主血统属性。\n'
                 + '请仅输出 YAML 格式, 字段如下:\n'
                 + '融合结果: ' + result.name + '\n'
                 + '血统列表:\n'
                 + '  - 名称: 最终血统名称\n'
                 + '    品质: F\n'
                 + '    标签: [标签]\n'
-                + '    原始属性: {力量: F, 敏捷: F, 体质: F, 精神: F, 魅力: F}\n'
+                + '    原始属性: {力量: C, 敏捷: E, 体质: D, 精神: F, 魅力: E}\n'
                 + '    效果: {词条: 描述}\n'
                 + '    描述: 结果说明\n\n'
                 + '形态列表:\n'
@@ -2499,12 +2501,12 @@
                 var nf = normalizeForm(formList[fi]);
                 if (nf) forms.push(nf);
             }
-            // 被本次融合消耗的主角侧原血统名(命中即从升级列表清除其对应升级条目)
+            // 被本次融合消耗的角色侧原血统名(命中即从升级列表清除其对应升级条目)
             var consumedNames = bloodFusionConsumedNames.slice();
             // 融合成功: 写回血统变更(删旧增新) + 清理升级列表里 replace_target 命中已删血统的升级服务
             //   + 写入新形态(删替换目标旧形态→写新形态, 同升级列表处理);
             //   空间币与血统商品库已在开始时处理, 不再重复扣币/删商品
-            var _fActor = bloodFusionActionActor || SHOP_ACTOR_HERO;
+            var _fActor = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
             var ok = writeBackMvu(function(statData) {
                 var _fctx = shopResolveCharacter(statData, _fActor);
                 var _fch = _fctx.character || {};
@@ -2513,7 +2515,7 @@
                 if (b.owned) delete _fch.血统[b.name];
                 _fch.血统[resultName] = result;
                 if (bloodFusionSnap && bloodFusionShopItem) {
-                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+resultName, bloodFusionSnap.price, statData.主角.空间币, (bloodFusionActionActor === SHOP_ACTOR_HERO ? '主角' : bloodFusionActionActor)));
+                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+resultName, bloodFusionSnap.price, statData.角色.空间币, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? '角色' : bloodFusionActionActor)));
                 }
                 // 清理升级列表: "类型=血统 的升级条目" 且 replace_target 命中本次被消耗的原血统名 → 删除
                 var _fulib = shopGetActorLibRaw(statData.商城, _fActor);
@@ -2592,8 +2594,8 @@
             if (bloodFusionSnap) {
                 try {
                     writeBackMvu(function(statData) {
-                        statData.主角 = statData.主角 || {};
-                        statData.主角.空间币 = safeNum(statData.主角.空间币, 0) + bloodFusionSnap.price;
+                        statData.角色 = statData.角色 || {};
+                        statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
                         if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                             var _rlibF = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
                             if (_rlibF) _rlibF.血统列表 = bloodFusionSnap.preBloodLib.slice();
@@ -2608,12 +2610,12 @@
     }
     function bloodFusionDirectPurchase() {
         var item = bloodFusionShopItem, sd = getStatData();
-        if (!item || !sd || !sd.主角) return;
-        var dpActor = bloodFusionActionActor || SHOP_ACTOR_HERO;
+        if (!item || !sd || !sd.角色) return;
+        var dpActor = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
         var dpCtx = shopResolveCharacter(sd, dpActor);
         var dpCh = dpCtx.character;
         if (!dpCh) { samToast('error', '目标角色数据不存在, 无法购买'); return; }
-        if (safeNum(sd.主角.空间币, 0) < safeNum(item.price, 0)) { samToast('warning', '空间币不足，无法购买'); return; }
+        if (safeNum(sd.角色.空间币, 0) < safeNum(item.price, 0)) { samToast('warning', '空间币不足，无法购买'); return; }
         // 血统已满时前端已改走"融合/替换"双选项, 此处仅作兜底静默拦截, 不弹窗
         var cap = BLOODLINE_CAP, count = Object.keys(dpCh.血统 || {}).length;
         if (count >= cap) return;
@@ -2622,10 +2624,10 @@
             var _dctx = shopResolveCharacter(statData, dpActor);
             var _dch = _dctx.character || {};
             _dch.血统 = _dch.血统 || {}; _dch.血统[item.name] = blood;
-            statData.主角.空间币 = Math.max(0, safeNum(statData.主角.空间币, 0) - safeNum(item.price, 0));
+            statData.角色.空间币 = Math.max(0, safeNum(statData.角色.空间币, 0) - safeNum(item.price, 0));
             var _dlib = shopGetActorLibRaw(statData.商城, dpActor);
             if (_dlib && Array.isArray(_dlib.血统列表)) _dlib.血统列表 = _dlib.血统列表.filter(function(x){ return safeStr(x.名称) !== item.name; });
-            shopAppendReceipt(statData, shopReceiptLine('购买血统', item.name, item.price, statData.主角.空间币, (dpActor === SHOP_ACTOR_HERO ? '主角' : dpActor)));
+            shopAppendReceipt(statData, shopReceiptLine('购买血统', item.name, item.price, statData.角色.空间币, (dpActor === SHOP_ACTOR_REINCARNATOR ? '角色' : dpActor)));
         });
         if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '已购入血统：'+item.name); }
     }
@@ -2634,7 +2636,7 @@
         var item = bloodFusionShopItem;
         if (!item) return;
         var sd = getStatData();
-        var rctx = shopResolveCharacter(sd, bloodFusionActionActor || SHOP_ACTOR_HERO);
+        var rctx = shopResolveCharacter(sd, bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR);
         var rch = rctx.character || {};
         var rblood = rch.血统 || {};
         var rkeys = Object.keys(rblood);
@@ -2657,13 +2659,13 @@
     }
     function bloodFusionReplacePurchase(targetName) {
         var item = bloodFusionShopItem, sd = getStatData();
-        if (!item || !sd || !sd.主角 || !targetName) return;
-        var rpActor = bloodFusionActionActor || SHOP_ACTOR_HERO;
+        if (!item || !sd || !sd.角色 || !targetName) return;
+        var rpActor = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
         var rpCtx = shopResolveCharacter(sd, rpActor);
         var rpCh = rpCtx.character;
         if (!rpCh) { samToast('error', '目标角色数据不存在, 无法购买'); return; }
         if (!(rpCh.血统 && rpCh.血统[targetName])) { samToast('error', '未找到待替换的血统'); return; }
-        if (safeNum(sd.主角.空间币, 0) < safeNum(item.price, 0)) { samToast('warning', '空间币不足，无法购买'); return; }
+        if (safeNum(sd.角色.空间币, 0) < safeNum(item.price, 0)) { samToast('warning', '空间币不足，无法购买'); return; }
         var blood = shopToBloodlineVar(item);
         var ok = writeBackMvu(function(statData) {
             var _rctx = shopResolveCharacter(statData, rpActor);
@@ -2671,7 +2673,7 @@
             _rch.血统 = _rch.血统 || {};
             delete _rch.血统[targetName];              // 移除被替换的旧血统
             _rch.血统[item.name] = blood;              // 写入商店购入的新血统
-            statData.主角.空间币 = Math.max(0, safeNum(statData.主角.空间币, 0) - safeNum(item.price, 0));
+            statData.角色.空间币 = Math.max(0, safeNum(statData.角色.空间币, 0) - safeNum(item.price, 0));
             var _rlib = shopGetActorLibRaw(statData.商城, rpActor);
             if (_rlib && Array.isArray(_rlib.血统列表)) _rlib.血统列表 = _rlib.血统列表.filter(function(x){ return safeStr(x.名称) !== item.name; });
             // ★ 同步删除升级服务中针对被替换血统的商品(所属大类=血统 且 replace_target 指向该血统)
@@ -2683,7 +2685,7 @@
                     return true;
                 });
             }
-            shopAppendReceipt(statData, shopReceiptLine('替换血统', targetName+' → '+item.name, item.price, statData.主角.空间币, (rpActor === SHOP_ACTOR_HERO ? '主角' : rpActor)));
+            shopAppendReceipt(statData, shopReceiptLine('替换血统', targetName+' → '+item.name, item.price, statData.角色.空间币, (rpActor === SHOP_ACTOR_REINCARNATOR ? '角色' : rpActor)));
         });
         if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '已替换血统：'+targetName+' → '+item.name); }
     }
@@ -2700,8 +2702,8 @@
         showModal('向「'+npcName+'」转移物资', renderTransferList(sd));
     }
     function renderTransferList(sd) {
-        var equips = (sd.主角 && sd.主角.装备) || {};
-        var backpack = (sd.主角 && sd.主角.道具) || {};
+        var equips = (sd.角色 && sd.角色.装备) || {};
+        var backpack = (sd.角色 && sd.角色.道具) || {};
         var eqList = [], bpList = [];
         Object.keys(equips).forEach(function(k) {
             var e = equips[k] || {};
@@ -2775,7 +2777,7 @@
     function transferAdjustQty(cat, key, dir) {
         var sd = getStatData();
         var max = 1;
-        if (cat === '道具') max = safeNum(sd.主角.道具[key] && sd.主角.道具[key].数量, 1);
+        if (cat === '道具') max = safeNum(sd.角色.道具[key] && sd.角色.道具[key].数量, 1);
         var cur = transferCart[cat][key] != null ? transferCart[cat][key] : 1;
         if (dir === 'plus') cur = Math.min(max, cur + 1);
         else cur = Math.max(1, cur - 1);
@@ -2785,7 +2787,7 @@
     function transferInputQty(cat, key, val) {
         var sd = getStatData();
         var max = 1;
-        if (cat === '道具') max = safeNum(sd.主角.道具[key] && sd.主角.道具[key].数量, 1);
+        if (cat === '道具') max = safeNum(sd.角色.道具[key] && sd.角色.道具[key].数量, 1);
         var v = Math.max(1, Math.min(max, parseInt(val, 10) || 1));
         transferCart[cat][key] = v;
         refreshTransferModal();
@@ -2806,13 +2808,13 @@
         samConfirm('确认转移', '确定将选中的物资转移给「'+npcName+'」吗？此操作不可取消、不可取回。', function() {
             var ok = writeBackMvu(function(statData) {
                 if (!statData) return;
-                var mc = statData.主角 = statData.主角 || {};
+                var mc = statData.角色 = statData.角色 || {};
                 mc.装备 = mc.装备 || {}; mc.道具 = mc.道具 || {};
                 var rel = statData.关系列表 = statData.关系列表 || {};
                 var npc = rel[npcName] = rel[npcName] || {};
                 npc.装备 = npc.装备 || {}; npc.道具 = npc.道具 || {};
                 var movedParts = []; // ★ 实际转移成功的明细, 用于待播报记录
-                // 装备: 整件复制给NPC(状态置0未装备), 删除主角的
+                // 装备: 整件复制给NPC(状态置0未装备), 删除角色的
                 eqKeys.forEach(function(key) {
                     var e = mc.装备[key];
                     if (!e) return;
@@ -2822,7 +2824,7 @@
                     delete mc.装备[key];
                     movedParts.push('装备「' + key + '」');
                 });
-                // 道具: 按数量转移(NPC已有则累加, 否则新建; 主角扣减, 归0则删)
+                // 道具: 按数量转移(NPC已有则累加, 否则新建; 角色扣减, 归0则删)
                 bpKeys.forEach(function(key) {
                     var b = mc.道具[key];
                     if (!b) return;
@@ -2842,7 +2844,7 @@
                 });
                 // ★ 前端赠送NPC物资 → 记入待播报记录(与本次写回同一落盘, 待正文模型叙事后自动清空)
                 if (movedParts.length) {
-                    shopAppendReceipt(statData, '[赠送][主角] 向「' + npcName + '」转移 ' + movedParts.join('、'));
+                    shopAppendReceipt(statData, '[赠送][角色] 向「' + npcName + '」转移 ' + movedParts.join('、'));
                 }
             });
             if (ok) {
@@ -2858,7 +2860,7 @@
         });
     }
 
-    /* ===== 13b. NPC死亡检测 + 遗物获取(复用转移模板, 方向: NPC→主角, 无二次确认) ===== */
+    /* ===== 13b. NPC死亡检测 + 遗物获取(复用转移模板, 方向: NPC→角色, 无二次确认) ===== */
     function isNpcDead(n) {
         if (!n || typeof n !== 'object') return false;
         var hp = safeNum(n.HP, 0);
@@ -2905,7 +2907,7 @@
         html += '</div>';
         var hasSel = Object.keys(lootCart.装备).length + Object.keys(lootCart.道具).length > 0;
         html += '<div class="sam-trf-footer">';
-        html += '<div class="sam-trf-warn">⚠️ 获取遗物后将直接归属主角, 不可退回。</div>';
+        html += '<div class="sam-trf-warn">⚠️ 获取遗物后将直接归属角色, 不可退回。</div>';
         html += '<div class="sam-trf-actions">';
         html += '<button type="button" class="sam-loot-btn cancel">取消</button>';
         html += '<button type="button" class="sam-loot-btn confirm"'+(hasSel ? '' : ' disabled')+'>确认获取</button>';
@@ -2985,13 +2987,13 @@
         var npcName = lootTarget;
         var ok = writeBackMvu(function(statData) {
             if (!statData) return;
-            var mc = statData.主角 = statData.主角 || {};
+            var mc = statData.角色 = statData.角色 || {};
             mc.装备 = mc.装备 || {}; mc.道具 = mc.道具 || {};
             var rel = statData.关系列表 = statData.关系列表 || {};
             var npc = rel[npcName] = rel[npcName] || {};
             npc.装备 = npc.装备 || {}; npc.道具 = npc.道具 || {};
             var lootedParts = []; // ★ 实际拿取成功的明细, 用于待播报记录
-            // 装备: 从NPC复制给主角(状态置0), 删除NPC的
+            // 装备: 从NPC复制给角色(状态置0), 删除NPC的
             eqKeys.forEach(function(key) {
                 var e = npc.装备[key];
                 if (!e) return;
@@ -3001,7 +3003,7 @@
                 delete npc.装备[key];
                 lootedParts.push('装备「' + key + '」');
             });
-            // 道具: 按数量从NPC转移给主角
+            // 道具: 按数量从NPC转移给角色
             bpKeys.forEach(function(key) {
                 var b = npc.道具[key];
                 if (!b) return;
@@ -3021,7 +3023,7 @@
             });
             // ★ 前端从NPC拿取物资 → 记入待播报记录(与本次写回同一落盘, 待正文模型叙事后自动清空)
             if (lootedParts.length) {
-                shopAppendReceipt(statData, '[获取][主角] 从「' + npcName + '」处获得 ' + lootedParts.join('、'));
+                shopAppendReceipt(statData, '[获取][角色] 从「' + npcName + '」处获得 ' + lootedParts.join('、'));
             }
         });
         if (ok) {
@@ -3089,6 +3091,12 @@
         // Tab切换
         $panel.off('click.samTab').on('click.samTab', '.sam-tab-btn', function() {
             var tab = $(this).data('tab');
+            if (tab === 'world') {
+                var engine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
+                if (!engine) { samToast('error', '请先加载独立脚本：世界推进系统.js'); return; }
+                engine.open();
+                return;
+            }
             setCurrentTab(tab);
             renderTabContent(tab);
             $panel.find('.sam-tab-btn').removeClass('active');
@@ -3307,22 +3315,22 @@
             bindEditorEvents($('#samsara-modal')); // modal 独立DOM, 需单独委托编辑事件
         });
         // ★ 职业结构化编辑器事件已迁移至 bindEditorEvents($root)(panel/modal 共用)
-        // ★ 源力灌注：主角/队友共用同一执行器；只允许当前层级→下一层级。
+        // ★ 源力灌注：角色/队友共用同一执行器；只允许当前层级→下一层级。
         $panel.off('click.samSourceInfusion').on('click.samSourceInfusion', '.sam-tier-infuse-btn', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            openSourceInfusion($(this).attr('data-tier-target') || '主角');
+            openSourceInfusion($(this).attr('data-tier-target') || '角色');
         });
         // ★ 进阶按钮(层级进度条中部): 属性总点达下层级下限才显示; 战斗中拦截
         //   - 申请进阶(进阶试炼未完成): 发送"【当前进阶条件已满足，申请进阶试炼】"到输入框
-        //   - 开始进阶(试炼已完成): writeBackMvu(主角.层级=nextTier) + renderAll() 刷新进度条/顶部层级
+        //   - 开始进阶(试炼已完成): writeBackMvu(角色.层级=nextTier) + renderAll() 刷新进度条/顶部层级
         $panel.off('click.samTierAdv').on('click.samTierAdv', '.sam-tier-adv-btn', function(e) {
             e.stopPropagation();
             var $b = $(this);
             var act = $b.attr('data-tier-act') || '';
             var nextTier = $b.attr('data-tier-next') || '';
             var sd = getStatData();
-            if (!sd || !sd.主角) { samToast('error', '数据未就绪'); return; }
+            if (!sd || !sd.角色) { samToast('error', '数据未就绪'); return; }
             var sys = sd.系统状态 || {};
             // 战斗中拦截: 任何进阶操作均不可在战斗中执行
             if (sys.是否战斗中 === true) {
@@ -3336,15 +3344,15 @@
                 if (ok) samToast('success', '已发送到输入框: '+text);
                 else samToast('warning', '未找到输入框, 已复制到剪贴板');
             } else if (act === 'start') {
-                // 开始进阶: 直接提升主角层级到下一级(F→E→...→SSS), 进阶试炼完成后执行
+                // 开始进阶: 直接提升角色层级到下一级(F→E→...→SSS), 进阶试炼完成后执行
                 if (!nextTier) { samToast('error', '未知目标层级'); return; }
                 // ★ 传入层级通行证: replaceMvuData 异步触发的二次 VARIABLE_UPDATE_ENDED
                 //   不在 __samsaraUIMutation 窗口期内, 需凭通行证放行层级变化(否则被守卫回滚)
                 var ok2 = writeBackMvu(function(statData) {
-                    if (statData.主角) {
-                        var oldTier = normalizeLifeTier(statData.主角.层级);
-                        statData.主角.层级 = nextTier;
-                        shopAppendReceipt(statData, '[普升][主角] 晋升试炼完成：'+oldTier+' → '+nextTier);
+                    if (statData.角色) {
+                        var oldTier = normalizeLifeTier(statData.角色.层级);
+                        statData.角色.层级 = nextTier;
+                        shopAppendReceipt(statData, '[普升][角色] 晋升试炼完成：'+oldTier+' → '+nextTier);
                     }
                     // 进阶完成后重置试炼标记, 为下一轮进阶流程做准备
                     if (statData.系统状态) statData.系统状态.试炼已完成 = false;
@@ -3382,12 +3390,12 @@
                         cur = cur[seg[i]];
                     }
                     if (cur[seg[seg.length - 1]] !== undefined) delete cur[seg[seg.length - 1]];
-                    // ★ 删除形态库中的形态时, 若该形态正被主角"当前形态"激活/引用,
+                    // ★ 删除形态库中的形态时, 若该形态正被角色"当前形态"激活/引用,
                     //   须同步重置 当前形态(激活:false, 名称清空), 否则残留指向已删除形态,
                     //   会导致后续血统购买/AI 拼附形构筑时持续误读为"已存在的形态", 拒绝或报错
-                    if (seg.length === 3 && seg[0] === '主角' && seg[1] === '形态库'
-                        && statData.主角 && statData.主角.当前形态) {
-                        var cf = statData.主角.当前形态;
+                    if (seg.length === 3 && seg[0] === '角色' && seg[1] === '形态库'
+                        && statData.角色 && statData.角色.当前形态) {
+                        var cf = statData.角色.当前形态;
                         if (cf && cf.名称 === name) {
                             cf.激活 = false; cf.名称 = '';
                         }
@@ -3427,20 +3435,23 @@
                 + '    体质: 生命/耐性/恢复\n'
                 + '    精神: 施法/察觉/意志\n'
                 + '    魅力: 社交/欺骗/威吓\n'
-                + '  衍生属性 (自动计算):\n'
+                + '  资源属性:\n'
                 + '    HP: 生命值，HP≤0即判定死亡\n'
                 + '    HP_MAX: 生命值上限\n'
                 + '    THP: 临时生命值/护盾，受到伤害时优先扣减，不叠加，脱战归零\n'
                 + '    EP: 能量值，用于技能消耗\n'
                 + '    EP_MAX: 能量值上限\n'
+                + '  衍生属性:\n'
                 + '    ATK: 物理攻击\n'
                 + '    DEF: 物理防御\n'
                 + '    MATK: 法术攻击\n'
                 + '    MDEF: 法术防御\n'
                 + '    AP: 法术强度乘区\n'
+                + '  行动属性 (全局禁止添加):\n'
                 + '    先攻DC: 行动顺序\n'
                 + '    防御DC: 被命中难度\n';
             // 获取世界书内容的调用
+            content += await getWorldBookContent('⚙️生命层级与社会生态'); 
             content += await getWorldBookContent('⚙️品质效果数值规则'); 
             content += await getWorldBookContent('⚙️实体生成规则'); 
             content += await getWorldBookContent('⚙️状态协议'); 
@@ -3544,7 +3555,7 @@
                     var fnd = shopFindItems(cat, slot, name);
                     if (fnd.length) unitPrice = Number(fnd[0].price || 0);
                 }
-                var coinNow = (function(){ var sd = getStatData(); return sd && sd.主角 ? safeNum(sd.主角.空间币, 0) : 0; })();
+                var coinNow = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.空间币, 0) : 0; })();
                 // 剩余余额 = 原始余额 - 已选合计(含本商品已选数量)
                 var remainNow = shopRemain(coinNow) + (cur * unitPrice); // 移除本商品已占额度后才是真正可加的剩余
                 if (remainNow < unitPrice * (cur + 1)) { samToast('warning', '空间币不足, 无法再加1(剩余 '+remainNow.toLocaleString()+')'); return; }
@@ -3568,7 +3579,7 @@
                 var up = 0;
                 for (var k = 0; k < shopCart.length; k++) { if (shopCart[k].name === name && shopCart[k]._cat === '道具区') { up = Number(shopCart[k].price || 0); break; } }
                 if (!up) { var f = shopFindItems('道具区', '', name); if (f.length) up = Number(f[0].price || 0); }
-                var cn = (function(){ var sd = getStatData(); return sd && sd.主角 ? safeNum(sd.主角.空间币, 0) : 0; })();
+                var cn = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.空间币, 0) : 0; })();
                 // 剩余余额 = 原始余额 - 已选合计; 但本商品已选数量应排除(因为是把它从 cur 改到 nxt)
                 var curQty = shopGetQty(name, '道具区') || 0;
                 var remainB = shopRemain(cn) + (curQty * up);
@@ -3588,7 +3599,7 @@
                 var upInp = 0;
                 for (var k2 = 0; k2 < shopCart.length; k2++) { if (shopCart[k2].name === name && shopCart[k2]._cat === '道具区') { upInp = Number(shopCart[k2].price || 0); break; } }
                 if (!upInp) { var fInp = shopFindItems('道具区', '', name); if (fInp.length) upInp = Number(fInp[0].price || 0); }
-                var cnInp = (function(){ var sd = getStatData(); return sd && sd.主角 ? safeNum(sd.主角.空间币, 0) : 0; })();
+                var cnInp = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.空间币, 0) : 0; })();
                 var curQtyInp = shopGetQty(name, '道具区') || 0;
                 var remainInp = shopRemain(cnInp) + (curQtyInp * upInp);
                 if (remainInp < upInp * qty) {
@@ -3711,10 +3722,10 @@
     }
     /* ===== 14b. 立绘相关事件绑定(头像点击放大/上传 + 查看器关闭) ===== */
     function bindPortraitEvents() {
-        // 主角头像点击: 不管有无立绘, 直接弹自定义立绘框(不再放大/不再有✎角标)
+        // 角色头像点击: 不管有无立绘, 直接弹自定义立绘框(不再放大/不再有✎角标)
         $(document).off('click.samPortrait', '.sam-avatar').on('click.samPortrait', '.sam-avatar', function(e) {
             e.stopPropagation();
-            openHeroPortraitUp();
+            openReincarnatorPortraitUp();
         });
         // NPC头像点击: 不管有无立绘, 直接弹自定义立绘框(阻止冒泡到卡片详情)
         $(document).off('click.samNpcAvatar', '.sam-npc-avatar').on('click.samNpcAvatar', '.sam-npc-avatar', function(e) {
@@ -3928,7 +3939,7 @@
     /* 额外模型聊天补全: 向自托管API发起 OpenAI 兼容 /chat/completions 请求, 返回纯文本回复
        请求体: { model, messages:[{role,content}...], stream:false, temperature:0.7 }
        返回: 文本字符串(从 choices[0].message.content 取出) */
-    async function apiChat(systemPrompt, userMsg) {
+    async function apiChat(systemPrompt, userMsg, options) {
         var cfg = getApiConfig();
         var url = (cfg.apiUrl || '').trim();
         if (!url || !cfg.enabled) throw new Error('额外模型配置未启用或 API 地址为空');
@@ -3954,7 +3965,7 @@
             stream: false,
             temperature: 0.7
         };
-        var resp = await fetch(endpoint, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+        var resp = await fetch(endpoint, { method: 'POST', headers: headers, body: JSON.stringify(body), signal: options && options.signal });
         if (!resp.ok) {
             var errTxt = '';
             try { errTxt = await resp.text(); } catch(_e){}
@@ -4335,7 +4346,7 @@
         } catch(_e) {}
         var statData = getStatData();
         var $panel = $('#samsara-panel');
-        if (!statData || !statData.主角) {
+        if (!statData || !statData.角色) {
             // 终端未响应: 顶栏仍提供 刷新/关闭 按钮(刷新复用.sam-icon-btn.refresh, 事件已在bindUIEvents委托)
             $panel.html('<div class="sam-topbar"><div class="tl-info"><div class="tl-time" style="color:var(--sam-sub);">终端未响应</div></div><div class="tl-actions"><div class="sam-icon-btn refresh" title="刷新数据">🔄</div><div class="sam-icon-btn close" title="关闭">✕</div></div></div><div class="sam-empty"><div style="font-size:36px;opacity:0.6;animation:samPulse 2s infinite;">📡</div><div style="margin-top:10px;">因果链尚未接入...</div><div style="font-size:11px;opacity:0.6;">(请等待新剧本初始化或推进时间, 或点右上🔄刷新)</div></div>');
             $('#samsara-ball').removeClass('combat-mode');
@@ -4349,20 +4360,20 @@
         }
         // 已收到数据: 清除"终端未响应"自动刷新定时器, 避免影响用户滚动/操作与无谓性能消耗
         if (window.samsaraRefreshTimer) { clearInterval(window.samsaraRefreshTimer); window.samsaraRefreshTimer = null; }
-        var p = statData.主角;
+        var p = statData.角色;
         var sys = statData.系统状态 || {};
         var world = statData.世界 || {};
         // 新开局检测: 种族为空 + 身份为空数组 + 空间币为0 (已获取信息后判定)
-        // → 清除主角立绘 + 所有NPC立绘(避免上一局头像残留到新角色)
+        // → 清除角色立绘 + 所有NPC立绘(避免上一局头像残留到新角色)
         try {
             var raceStr = safeStr(p.种族, '');
             var idArr = Array.isArray(p.身份) ? p.身份 : [];
             var coin = safeNum(p.空间币, 0);
             var freshSig = (raceStr === '' && idArr.length === 0 && coin === 0) ? 'FRESH' : 'PLAY';
-            if (freshSig === 'FRESH' && lastHeroSig !== 'FRESH') {
+            if (freshSig === 'FRESH' && lastReincarnatorSig !== 'FRESH') {
                 clearAllPortraits();
             }
-            lastHeroSig = freshSig;
+            lastReincarnatorSig = freshSig;
         } catch(e) {}
         var isCombat = sys.是否战斗中 === true;
         if (isCombat) $('#samsara-ball').addClass('combat-mode');
@@ -4373,7 +4384,7 @@
         // 顶栏
         html += renderTopbar(world, sys, editMode);
         // 中部角色条
-        html += renderHeroBar(p, sys, editMode);
+        html += renderReincarnatorBar(p, sys, editMode);
         // 底部状态图标条
         html += renderBuffRail(p, editMode);
         // Tab主体
@@ -4428,13 +4439,13 @@
     }
 
     /* ===== 19. 角色条(左头像列+层级/种族/形态 / 右HP+EP+THP三栏 纯色) ===== */
-    var SAM_PORTRAIT_KEY = 'samsara_hero_portrait';
+    var SAM_PORTRAIT_KEY = 'samsara_reincarnator_portrait';
     var SAM_NPC_PORTRAIT_PREFIX = 'samsara_npc_portrait_';
     // 角色签名: 用于检测新开局(种族空+身份空+空间币0)→清除旧立绘
-    var lastHeroSig = null;
+    var lastReincarnatorSig = null;
     // <details>折叠状态记忆: key=summary纯文本, value=true(展开)/false(折叠); 跨刷新保持
     var detailsOpenState = {};
-    // 清除主角立绘 + 所有NPC立绘(localStorage中以SAM_NPC_PORTRAIT_PREFIX开头的键)
+    // 清除角色立绘 + 所有NPC立绘(localStorage中以SAM_NPC_PORTRAIT_PREFIX开头的键)
     function clearAllPortraits() {
         try {
             localStorage.removeItem(SAM_PORTRAIT_KEY);
@@ -4447,10 +4458,10 @@
             try { console.log('%c[主神终端] 🧹 检测到新开局, 已清除全部旧立绘 ('+(1+keysToRemove.length)+'个)', 'color:#fbbf24'); } catch(e){}
         } catch(e) { try { console.warn('[主神终端] 清除立绘失败:', e.message); } catch(x){} }
     }
-    function getHeroPortrait() {
+    function getReincarnatorPortrait() {
         try { return localStorage.getItem(SAM_PORTRAIT_KEY) || ''; } catch(e) { return ''; }
     }
-    function saveHeroPortrait(dataUrl) {
+    function saveReincarnatorPortrait(dataUrl) {
         try {
             if (dataUrl) localStorage.setItem(SAM_PORTRAIT_KEY, dataUrl);
             else localStorage.removeItem(SAM_PORTRAIT_KEY);
@@ -4458,7 +4469,7 @@
         closeModal();
         renderAll();
     }
-    // NPC立绘(localStorage, 以名称为键; 独立于主角)
+    // NPC立绘(localStorage, 以名称为键; 独立于角色)
     function getNpcPortrait(name) {
         if (!name) return '';
         try { return localStorage.getItem(SAM_NPC_PORTRAIT_PREFIX + name) || ''; } catch(e) { return ''; }
@@ -4482,10 +4493,10 @@
         if (lbl) lbl.textContent = label || '';
         pv.classList.add('show');
     }
-    // 自定义立绘上传弹窗(主角/NPC通用; name为主角时存SAM_PORTRAIT_KEY, 否则存NPC键)
+    // 自定义立绘上传弹窗(角色/NPC通用; name为角色时存SAM_PORTRAIT_KEY, 否则存NPC键)
     function openPortraitUpload(name) {
-        var isHero = (!name || name === '主角');
-        var title = isHero ? '自定义主角立绘' : ('自定义立绘 · ' + name);
+        var isReincarnator = (!name || name === '角色');
+        var title = isReincarnator ? '自定义角色立绘' : ('自定义立绘 · ' + name);
         var body = '<div style="display:flex;gap:8px;margin-bottom:10px;">'
             + '<input type="text" id="sam-portrait-url" placeholder="粘贴图片URL..." style="flex:1;font-size:13px;padding:8px;background:var(--sam-input-bg);color:var(--sam-text);border:1px solid var(--sam-border);border-radius:3px;">'
             + '</div>'
@@ -4497,7 +4508,7 @@
             + '<div style="margin-top:10px;"><button type="button" id="sam-portrait-clear-btn" style="width:100%;padding:8px;cursor:pointer;background:rgba(40,15,10,0.6);color:var(--sam-hp);border:1px solid var(--sam-border);border-radius:3px;font-weight:bold;">🗑️ 清除自定义立绘</button></div>'
             + '<div style="margin-top:8px;font-size:11px;color:var(--sam-sub);">本地图片不做大小限制(仅受浏览器存储上限约束)。</div>';
         showModal(title, body);
-        var doSave = function(u) { isHero ? saveHeroPortrait(u) : saveNpcPortrait(name, u); };
+        var doSave = function(u) { isReincarnator ? saveReincarnatorPortrait(u) : saveNpcPortrait(name, u); };
         $('#sam-portrait-url-btn').off('click.samPt').on('click.samPt', function() {
             var u = ($('#sam-portrait-url').val() || '').trim();
             if (!u) return;
@@ -4513,8 +4524,8 @@
         });
         $('#sam-portrait-clear-btn').off('click.samPt').on('click.samPt', function() { doSave(''); });
     }
-    function openHeroPortraitUp() { openPortraitUpload('主角'); }
-    function renderHeroBar(p, sys, editMode) {
+    function openReincarnatorPortraitUp() { openPortraitUpload('角色'); }
+    function renderReincarnatorBar(p, sys, editMode) {
         var maxHp = safeNum(p.HP_MAX, 1), curHp = safeNum(p.HP, 0), curThp = safeNum(p.THP, 0);
         var maxEp = safeNum(p.EP_MAX, 1), curEp = safeNum(p.EP, 0);
         var hpPct = Math.min(100, Math.max(0, (curHp/maxHp)*100));
@@ -4531,18 +4542,18 @@
         var combatBadge = '';
         if (sys && sys.是否战斗中 === true) {
             var combatRound = safeNum(sys.当前轮次, 0);
-            combatBadge = '<div class="sam-hero-combat">⚔️ 战斗中'+(combatRound > 0 ? ' · 第'+combatRound+'轮' : '')+'</div>';
+            combatBadge = '<div class="sam-reincarnator-combat">⚔️ 战斗中'+(combatRound > 0 ? ' · 第'+combatRound+'轮' : '')+'</div>';
         }
         // 顶部排版: 竖排四行 战斗徽章(战斗时) / 层级 / 种族 / 形态标签(激活时)
-        var tierField = (editMode && !isReadonlyPath('主角.层级')) ? editInput('主角.层级', ownTier, 'text') : '<span class="sam-hero-tier-num">'+esc(tier)+'</span><span class="sam-hero-tier-suf">级</span>';
-        var raceField = editMode ? editInput('主角.种族', race, 'text') : esc(race);
+        var tierField = (editMode && !isReadonlyPath('角色.层级')) ? editInput('角色.层级', ownTier, 'text') : '<span class="sam-reincarnator-tier-num">'+esc(tier)+'</span><span class="sam-reincarnator-tier-suf">级</span>';
+        var raceField = editMode ? editInput('角色.种族', race, 'text') : esc(race);
         var formField = '';
         if (formActive) {
             // 当前形态由能力面板"激活按钮"统一管理, 修改模式下也不可手动编辑名称
-            formField = '<div class="sam-hero-form">🌀 <span class="sam-hero-form-name">'+esc(safeStr(cf.名称))+'</span></div>';
+            formField = '<div class="sam-reincarnator-form">🌀 <span class="sam-reincarnator-form-name">'+esc(safeStr(cf.名称))+'</span></div>';
         }
         // 头像: 自定义立绘优先, 否则占位符; 不管有无图, 点击框体均弹自定义立绘框
-        var portraitUrl = getHeroPortrait();
+        var portraitUrl = getReincarnatorPortrait();
         if (portraitUrl) {
             var avatarHtml = '<div class="sam-avatar" data-portrait="'+esc(portraitUrl)+'">'
                 + '<img src="'+esc(portraitUrl)+'" alt="立绘">'
@@ -4553,16 +4564,16 @@
                 + '</div>';
         }
         // HP/EP/THP 三栏(编辑模式下数字可改,HP_MAX/EP_MAX只读)
-        var hpNum = editMode ? editInput('主角.HP', curHp, 'number') : (curHp + ' / ' + maxHp);
-        var epNum = editMode ? editInput('主角.EP', curEp, 'number') : (curEp + ' / ' + maxEp);
-        var thpNum = editMode ? editInput('主角.THP', curThp, 'number') : curThp;
-        return '<div class="sam-hero">'
-            + '<div class="sam-hero-left">'+avatarHtml
-            + '<div class="sam-hero-text">'+combatBadge
-            + '<div class="sam-hero-tier q-'+tierQ+'">'+tierField+'</div>'
-            + '<div class="sam-hero-race">'+raceField+'</div>'
+        var hpNum = editMode ? editInput('角色.HP', curHp, 'number') : (curHp + ' / ' + maxHp);
+        var epNum = editMode ? editInput('角色.EP', curEp, 'number') : (curEp + ' / ' + maxEp);
+        var thpNum = editMode ? editInput('角色.THP', curThp, 'number') : curThp;
+        return '<div class="sam-reincarnator">'
+            + '<div class="sam-reincarnator-left">'+avatarHtml
+            + '<div class="sam-reincarnator-text">'+combatBadge
+            + '<div class="sam-reincarnator-tier q-'+tierQ+'">'+tierField+'</div>'
+            + '<div class="sam-reincarnator-race">'+raceField+'</div>'
             + formField+'</div></div>'
-            + '<div class="sam-hero-bars">'
+            + '<div class="sam-reincarnator-bars">'
             + '<div class="stat-bar-box"><div class="stat-labels"><span style="color:var(--sam-hp)">HP</span><span>'+hpNum+'</span></div><div class="bar-track"><div class="bar-fill fill-hp" style="width:'+hpPct+'%;"></div></div></div>'
             + '<div class="stat-bar-box"><div class="stat-labels"><span style="color:var(--sam-ep)">EP</span><span>'+epNum+'</span></div><div class="bar-track"><div class="bar-fill fill-ep" style="width:'+epPct+'%;"></div></div></div>'
             + '<div class="sam-thp-row"><div class="stat-labels"><span style="color:var(--sam-thp)">THP (临时护盾/额外生命值)</span><span>'+thpNum+'</span></div></div>'
@@ -4580,7 +4591,7 @@
             var b = buffs[k] || {};
             var type = safeStr(b.类型, '增益');
             var dur = safeStr(b.持续, '');
-            var path = '主角.状态.'+k;
+            var path = '角色.状态.'+k;
             // 按钮显示: 状态名 + 持续时间(若有)
             var durHtml = dur ? '<span class="sam-buff-dur">⏳ '+esc(dur)+'</span>' : '';
             var label = (editMode ? '📝 ' : '') + esc(k);
@@ -4632,7 +4643,8 @@
             case 'relation': html = renderRelationTab(sd); break;
             case 'asset': html = renderAssetTab(sd); break;
             case 'rumor': html = renderRumorTab(sd); break;
-            case 'world': html = renderWorldTab(sd); break;
+            // 旧 renderWorldTab 保留供后续比较，入口已交给独立世界引擎。
+            case 'world': html = '<div class="sam-empty">点击左侧「世界」打开世界引擎</div>'; break;
             case 'shop': html = renderShopTab(sd); break;
             default: html = '<div class="sam-empty">未知Tab</div>';
         }
@@ -4806,7 +4818,7 @@
         } else if (!isMax && canTrial) {
             advBtnHtml = '<div class="sam-tier-actions">'
                 + '<button type="button" class="sam-tier-adv-btn apply" data-tier-act="apply" data-tier-next="'+esc(TIER_ROMAN[idx+1])+'">☠ 申请进阶</button>'
-                + '<button type="button" class="sam-tier-infuse-btn" data-tier-target="主角">✧ 源力灌注</button>'
+                + '<button type="button" class="sam-tier-infuse-btn" data-tier-target="角色">✧ 源力灌注</button>'
                 + '</div>';
         }
         var leftHtml = '<div class="sam-tier-side q-'+curTier+'">'+esc(TIER_ROMAN[idx])+'</div>';
@@ -4845,15 +4857,15 @@
         return '<div class="sam-tier-prog npc">'+left+mid+right+'</div>';
     }
 
-    /* ===== 24. Tab: 信息(主角详情) ===== */
+    /* ===== 24. Tab: 信息(角色详情) ===== */
     function renderInfoTab(sd) {
-        var p = sd.主角 || {};
+        var p = sd.角色 || {};
         var editMode = isEditMode();
         var html = '';
         // 角色信息
         var infoHtml = '';
         var fields = [
-            {k:'身份', path:'主角.身份', type:'text', arr:true}
+            {k:'身份', path:'角色.身份', type:'text', arr:true}
         ];
         fields.forEach(function(f) {
             var v = resolvePath(sd, f.path);
@@ -4871,9 +4883,9 @@
         // ★ 职业: 已改为记录对象 {职业名:{类型,特性[],来源}}; 显示态折叠面板, 编辑态结构化编辑器
         html += secBlock('📋 角色信息', infoHtml);
         {
-            var occ = resolvePath(sd, '主角.职业');
-            if (editMode && !isReadonlyPath('主角.职业')) {
-                html += secBlock('🎖 职业', occupationEditHtml(occ, '主角.职业'));
+            var occ = resolvePath(sd, '角色.职业');
+            if (editMode && !isReadonlyPath('角色.职业')) {
+                html += secBlock('🎖 职业', occupationEditHtml(occ, '角色.职业'));
             } else if (occupationNames(occ).length) {
                 html += occupationCardsHtml(occ);
             }
@@ -4885,7 +4897,7 @@
         var baseHtml = '<div class="sam-grid-2">';
         ['力量','敏捷','体质','精神','魅力'].forEach(function(an) {
             var v = safeNum(fa[an], 0);
-            var path = '主角.最终属性.'+an;
+            var path = '角色.最终属性.'+an;
             var valCell = (editMode && !isReadonlyPath(path) ? editInput(path, v, 'number') : '<span class="sam-edit-readonly">'+v+'</span>');
             // 段位徽章: 取当前层级下单维属性值对应的段位分→品质字母(F~SSS), 复用 sam-fc-q 着色样式
             var score = attrTierScore(v, lifeTier);
@@ -4894,14 +4906,14 @@
             baseHtml += '<div class="sam-row"><span class="k">'+esc(an)+'</span><span class="v">'+valCell+tierBadge+'</span></div>';
         });
         baseHtml += '</div>';
-        // 层级进度条: 当前层级(取自主角.层级,只读) → 下一层级; 中间显示基础属性总点数与进度
+        // 层级进度条: 当前层级(取自角色.层级,只读) → 下一层级; 中间显示基础属性总点数与进度
         html += renderTierProgressBar(p, fa, sd.系统状态 || {});
         html += secBlock('💪 基础属性', baseHtml);
         // 2.修正值(6项)
         var modHtml = '<div class="sam-grid-2">';
         ['力量修正','敏捷修正','体质修正','精神修正','魅力修正'].forEach(function(an) {
             var v = safeNum(fa[an], 0);
-            var path = '主角.最终属性.'+an;
+            var path = '角色.最终属性.'+an;
             modHtml += '<div class="sam-row"><span class="k">'+esc(an)+'</span><span class="v">'+(editMode && !isReadonlyPath(path) ? editInput(path, v, 'number') : '<span class="sam-edit-readonly">'+v+'</span>')+'</span></div>';
         });
         modHtml += '</div>';
@@ -4922,7 +4934,7 @@
             var key = item.key, label = item.label;
             var v = safeNum(fa[key], 0);
             var unit = (key === 'AP' || key.indexOf('减伤率')>=0) ? '%' : '';
-            var path = '主角.最终属性.'+key;
+            var path = '角色.最终属性.'+key;
             derHtml += '<div class="sam-row"><span class="k">'+esc(label)+'</span><span class="v">'+(editMode && !isReadonlyPath(path) ? editInput(path, v, 'number') : '<span class="sam-edit-readonly">'+v+unit+'</span>')+'</span></div>';
         });
         derHtml += '</div>';
@@ -5013,7 +5025,7 @@
     /* 收集当前子Tab下已有条目的类型计数(按该Tab对应状态过滤)
        返回 {counts:{类型:条目数}, order:[类型...]} —— 装备类型按 EQUIP_SLOTS 顺序在前, 道具类型按首次出现顺序在后 */
     function holdCollectTypes(sd) {
-        var p = sd.主角 || {};
+        var p = sd.角色 || {};
         var equips = p.装备 || {}, items = p.道具 || {};
         var statuses, useEquip, useItem;
         if (holdActiveTab === 'tactical')      { statuses = [1]; useEquip = true;  useItem = true;  }
@@ -5067,7 +5079,7 @@
         return out;
     }
     function renderHoldTab(sd) {
-        var p = sd.主角 || {};
+        var p = sd.角色 || {};
         var editMode = isEditMode();
         var equips = p.装备 || {};
         var items = p.道具 || {};
@@ -5117,7 +5129,7 @@
     /* 持有面板内容区: 按当前 holdActiveTab 渲染对应状态卡片列表 + 战斗可见性提示
        独立于Tab条, 供子Tab切换时局部刷新(不触发Tab条DOM重建, 消除抖动) */
     function renderHoldBody(sd) {
-        var p = sd.主角 || {};
+        var p = sd.角色 || {};
         var editMode = isEditMode();
         // 类型筛选: holdTypeFilter 非空时仅保留匹配类型的条目(在原字典上做浅拷贝过滤)
         var equips = holdFilterByType(p.装备 || {}, true);
@@ -5134,29 +5146,29 @@
         if (holdActiveTab === 'tactical') {
             // 战术栏: 已装备的装备(status=1) + 已装备的道具(status=1)
             content = mergeList(
-                renderEquipFullList(equips, '主角.装备', editMode, [1]),
-                renderItemFullList(items, '主角.道具', editMode, [1]),
+                renderEquipFullList(equips, '角色.装备', editMode, [1]),
+                renderItemFullList(items, '角色.道具', editMode, [1]),
                 '尚未装备任何战术项'
             );
         } else if (holdActiveTab === 'equip') {
             // 装备背包: status=0
             content = mergeList(
-                renderEquipFullList(equips, '主角.装备', editMode, [0]),
+                renderEquipFullList(equips, '角色.装备', editMode, [0]),
                 '', '装备背包空空如也'
             );
             hint = '战斗时 AI 不可见';
         } else if (holdActiveTab === 'item') {
             // 道具背包: status=0
             content = mergeList(
-                renderItemFullList(items, '主角.道具', editMode, [0]),
+                renderItemFullList(items, '角色.道具', editMode, [0]),
                 '', '道具背包空空如也'
             );
             hint = '战斗时 AI 不可见';
         } else {
             // 仓库: 装备status=2 + 道具status=2
             content = mergeList(
-                renderEquipFullList(equips, '主角.装备', editMode, [2]),
-                renderItemFullList(items, '主角.道具', editMode, [2]),
+                renderEquipFullList(equips, '角色.装备', editMode, [2]),
+                renderItemFullList(items, '角色.道具', editMode, [2]),
                 '仓库中没有存放任何物品'
             );
             hint = 'AI 不可见';
@@ -5288,7 +5300,7 @@
 
     /* ===== 26. Tab: 血统(血统/形态库/技能) ===== */
     function renderBloodTab(sd) {
-        var p = sd.主角 || {};
+        var p = sd.角色 || {};
         var bl = p.血统 || {};
         var editMode = isEditMode();
         var keys = Object.keys(bl);
@@ -5302,7 +5314,7 @@
             blHtml += '<div class="sam-card-list sam-card-list-1col">';
             keys.forEach(function(k) {
                 var b = bl[k] || {};
-                var path = '主角.血统.'+k;
+                var path = '角色.血统.'+k;
                 var q = parseRarity(b.品质);
                 var rows = '';
                 var body = '<div class="sam-fc-body">';
@@ -5337,7 +5349,7 @@
             fHtml += '<div class="sam-card-list sam-card-list-1col">';
             fkeys.forEach(function(k) {
                 var f = forms[k] || {};
-                var path = '主角.形态库.'+k;
+                var path = '角色.形态库.'+k;
                 // 形态走层级(Ⅰ~Ⅸ): 徽章显示罗马数字, 色阶用对应品质字母(q-class); 兼容旧品质字母数据
                 var _fTierRaw = f.层级 != null ? f.层级 : f.品质;
                 var q = { label: tierRomanOf(_fTierRaw), cls: tierQOfClass(_fTierRaw) };
@@ -5388,7 +5400,7 @@
         }
         // 技能(直接列出主动/被动/特殊三个折叠栏, 不再套外层"主技能栏"section)
         var skills = p.技能 || {};
-        html += renderSkillFullList(skills, '主角.技能', editMode);
+        html += renderSkillFullList(skills, '角色.技能', editMode);
         return html;
     }
 
@@ -5585,7 +5597,7 @@
             +   '<div class="ae-section"><div class="ae-h">可经营类型</div>'
             +     '<ul>'
             +       '<li><b>固定地产</b>：领地 / 庄园 / 店铺 / 秘密据点，含建设序列、驻扎人员、待办事件</li>'
-            +       '<li><b>大型载具与要塞</b>：星舰 / 战争兵器，可下场参战或场外火力支援，受能源与完整度约束</li>'
+            +       '<li><b>大型载具或要塞</b>：星舰 / 战争兵器，可下场参战或场外火力支援，受能源与完整度约束</li>'
             +     '</ul>'
             +   '</div>'
             +   '<div class="ae-section"><div class="ae-h">如何获得</div>'
@@ -5601,8 +5613,8 @@
     }
     // 资产类型 → 图标
     function assetTypeIcon(type) {
-        if (type === '大型载具与要塞') return '🚀';
-        if (type === '便携式据点') return '🎒';
+        if (type === '大型载具' || type === '要塞' || type === '载具') return '🚀';
+        if (type === '便携式据点' || type === '据点' || type === '安全屋') return '🎒';
         return '🏛️';
     }
     // 完整度 → 状态色类
@@ -5952,7 +5964,7 @@
             introHtml += '<div class="sam-row"><span class="k">异端存活数量</span><span class="v"><span class="sam-edit-readonly">'+alienAliveCount+'</span></span></div>';
         }
         html += secBlock('🌍 世界介绍', introHtml);
-        // 异端详情暂时对玩家隐藏；保留完整折叠栏代码，后续只需将此开关改为 true 即可恢复。
+        // 异端详情暂时对角色隐藏；保留完整折叠栏代码，后续只需将此开关改为 true 即可恢复。
         var SHOW_ALIEN_ROSTER_DETAILS = false;
         if (SHOW_ALIEN_ROSTER_DETAILS && !isSingleWorld && !isInHub && alienNames.length) {
             var alienHtml = '<div class="sam-alien-list">';
@@ -6042,20 +6054,20 @@
     }
 
     /* ===== 30b. Tab: 商城(主神空间交易终端) =====
-       - 顶部紧凑余额条: 显示当前空间币(主角.空间币, 只读, 由系统结算发放)
+       - 顶部紧凑余额条: 显示当前空间币(角色.空间币, 只读, 由系统结算发放)
        - 状态提示条: 战斗中/任务世界/主神空间 三态, 置于商城入口栏目上方
        - 交易规则栏目(折叠): 双轨经济/物价锚点等, 置于商城入口上方
        - 商城入口栏目: 需求输入框(左) + 刷新商品按钮(右); 不在主神空间/战斗中时禁用
          刷新商品按钮: 调正文AI generateRaw 生成商品库 → 写回 stat_data.商城 → renderAll
      */
     function renderShopTab(sd) {
-        var p = sd.主角 || {};
+        var p = sd.角色 || {};
         var sys = sd.系统状态 || {};
         var editMode = isEditMode();
         var coin = safeNum(p.空间币, 0);
         var inHub = (sys.是否在主神空间 === true);
         var isCombat = (sys.是否战斗中 === true);
-        // ★ 多角色商城: 校正 shopCurrentActor(若当前NPC已离场则退回主角), 并解析当前角色对象
+        // ★ 多角色商城: 校正 shopCurrentActor(若当前NPC已离场则退回角色), 并解析当前角色对象
         shopEnsureActorValid(sd);
         var actorCtx = shopResolveCharacter(sd, shopCurrentActor);
         var curCharacter = actorCtx.character;
@@ -6065,7 +6077,7 @@
         var isSingleWorld = (sd && sd.设置 && sd.设置.单一世界 === true);
         var html = '';
         // 顶部紧凑余额条(空间币由系统结算发放, 余额只读展示; 编辑模式仅作兜底)
-        var coinDisplay = editMode ? editInput('主角.空间币', coin, 'number') : esc(String(coin));
+        var coinDisplay = editMode ? editInput('角色.空间币', coin, 'number') : esc(String(coin));
         html += '<div class="sam-shop-coin-mini"><span class="lbl">💰 余额</span><span class="val">' + coinDisplay + '</span><span class="lbl">空间币</span></div>';
         // 状态提示条: 置于商城入口上方(独立于栏目, 不折叠)
         if (isCombat) {
@@ -6093,7 +6105,7 @@
         var refreshDisabled = (!canShop || shopRefreshing) ? ' disabled' : '';
         var refreshBtnText = shopRefreshing ? '🔄 正在刷新商品…' : '🔄 刷新商品';
         var reqDisabled = (!canShop || shopRefreshing) ? ' disabled' : '';
-        // ★ 角色下拉框: 主角自身 + 在场队友NPC; 刷新中也一并禁用
+        // ★ 角色下拉框: 角色自身 + 在场队友NPC; 刷新中也一并禁用
         var actorDisabled = (!canShop || shopRefreshing) ? ' disabled' : '';
         var actorOpts = shopBuildActorOptions(sd);
         var actorHtml = '<span class="sam-shop-actor-label">为目标:</span>'
@@ -6205,7 +6217,7 @@
     }
 
     /* ===== 31. 详情弹窗(点击卡片) ===== */
-    // 玩家不可见的敏感字段(不给玩家看)
+    // 角色不可见的敏感字段(不给角色看)
     var HIDDEN_FIELDS = ['隐藏真相', '真实内幕', '态度', '真属性'];
     function openDetailModal(path, title) {
         var sd = getStatData();
@@ -6223,7 +6235,7 @@
             if (editMode) bindEditorEvents($('#samsara-modal')); // modal 独立DOM, 需单独委托编辑事件
             return;
         }
-        // ★ 编辑模式: 通用详情(世界条目/主角状态等)也走递归编辑渲染, 底部追加保存按钮
+        // ★ 编辑模式: 通用详情(世界条目/角色状态等)也走递归编辑渲染, 底部追加保存按钮
         var ed2 = isEditMode();
         var hidden = HIDDEN_FIELDS;
         var html = ed2 ? renderDetailNode(obj, hidden, [], ed2, path) : renderDetailNode(obj, hidden);
@@ -6305,7 +6317,7 @@
             if (npcQty > 1) grid += ndRow('数量', 'x'+npcQty);
         }
         if (grid) html += '<div class="sam-nd-grid">'+grid+'</div>';
-        // ★ 职业: 编辑模式→结构化编辑器(同主角面板); 只读态→折叠面板(自带 🎖 标题)
+        // ★ 职业: 编辑模式→结构化编辑器(同角色面板); 只读态→折叠面板(自带 🎖 标题)
         if (editMode && !isReadonlyPath(npcPath+'.职业')) {
             html += occupationEditHtml(n.职业, npcPath+'.职业');
         } else {
@@ -6681,7 +6693,7 @@
         html += '</span>';
         return html;
     }
-    // 折叠面板: summary(标题+数量+各职业名/类型速览) → 展开后逐职业卡片(名+类型徽章+特性chips+来源)，用于主角信息面板/NPC详情面板
+    // 折叠面板: summary(标题+数量+各职业名/类型速览) → 展开后逐职业卡片(名+类型徽章+特性chips+来源)，用于角色信息面板/NPC详情面板
     function occupationCardsHtml(occ) {
         var names = occupationNames(occ);
         if (names.length === 0) return '';
@@ -7026,7 +7038,7 @@
     }
     /* ===== 32c2. 商城市场区: 归一化/解析/购物车/渲染/执行 =====
        移植自 打开商店代码.html, 删除同伴交易(空间币互转+多收件人分账),
-       仅保留主角单人购物. 区域改为 装备|道具|技能|血统(4类).
+       仅保留角色单人购物. 区域改为 装备|道具|技能|血统(4类).
        装备区遵循"左类型nav + 右物品list"布局; 其余区为单列list. */
     // ---- 字段归一化层(ES5改写) ----
     function shopPick(obj) {
@@ -7492,21 +7504,21 @@
     var shopActiveSlot = '';       // 当前装备区槽位
     var shopBloodCount = 0;        // 当前玩家已拥有血统数(用于商城血统区上限判定)
     var shopBloodLimit = 3;        // 血统数量上限(取自 共同.血统限制数)
-    var shopCart = [];             // 购物车(主角单人, 每项 {item副本, _cat, _slot, quantity})
+    var shopCart = [];             // 购物车(角色单人, 每项 {item副本, _cat, _slot, quantity})
     var shopRefreshing = false;    // 刷新商品进行中(模块级标志, 切聊天/重渲染时持久, 避免按钮状态丢失)
     var shopRefreshEpoch = 0;      // 刷新回合计数: 每次 handleShopRefresh +1, 旧 Promise 回调回合不匹配时丢弃结果(支持"停止刷新"打断卡死请求)
     var shopReqText = '';          // 需求输入框内容(模块级, 跨刷新保留: 刷新后 renderAll 重建DOM, 用 value 属性回填使其不丢; 不满意可基于原需求继续刷)
-    // ★ 多角色商城: 当前选中的购买对象。'主角' 为主角自身, 否则为 关系列表 中的 NPC 名字
-    var shopCurrentActor = '主角';
+    // ★ 多角色商城: 当前选中的购买对象。'角色' 为角色自身, 否则为 关系列表 中的 NPC 名字
+    var shopCurrentActor = '角色';
     // 角色独有商城商品库的存储名称: 商城.成员商库 = { '<角色名键>': { 血统列表:[...], 技能列表:[...], 装备列表:[...], 道具列表:[...], 升级列表:[...] } }
-    // '主角'键 对应主角自己的商城商品(与旧的 stat_data.商城 顶层结构兼容); NPC 键 对应该 NPC 的商城商品
+    // '角色'键 对应角色自己的商城商品(与旧的 stat_data.商城 顶层结构兼容); NPC 键 对应该 NPC 的商城商品
     var SHOP_ACTOR_LIB_KEY = '成员商库';  // 商城下存放多角色商品库的子键名
-    var SHOP_ACTOR_HERO = '主角';          // 主角键名常量
+    var SHOP_ACTOR_REINCARNATOR = '角色';          // 角色键名常量
     // ===== ★ 多角色商城: 角色切换与商品库隔离辅助 =====
-    // 获取可选角色下拉项: 主角自己 + 关系列表中 在场=true 且 是否队友=true 的 NPC
-    // 返回 [{name, label}], name='主角' 或 NPC名; label 用于下拉显示
+    // 获取可选角色下拉项: 角色自己 + 关系列表中 在场=true 且 是否队友=true 的 NPC
+    // 返回 [{name, label}], name='角色' 或 NPC名; label 用于下拉显示
     function shopBuildActorOptions(sd) {
-        var list = [{ name: SHOP_ACTOR_HERO, label: '主角(自身)' }];
+        var list = [{ name: SHOP_ACTOR_REINCARNATOR, label: '角色(自身)' }];
         var relations = (sd && sd.关系列表) ? sd.关系列表 : null;
         if (relations && typeof relations === 'object') {
             var allNpc = Object.keys(relations);
@@ -7522,34 +7534,34 @@
         }
         return list;
     }
-    // 解析当前角色对象 {character, path, isHero, name}
+    // 解析当前角色对象 {character, path, isReincarnator, name}
     function shopResolveCharacter(sd, actorName) {
-        actorName = actorName || shopCurrentActor || SHOP_ACTOR_HERO;
-        if (actorName === SHOP_ACTOR_HERO) {
-            return { character: (sd && sd.主角) || {}, path: '主角', isHero: true, name: SHOP_ACTOR_HERO };
+        actorName = actorName || shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
+        if (actorName === SHOP_ACTOR_REINCARNATOR) {
+            return { character: (sd && sd.角色) || {}, path: '角色', isReincarnator: true, name: SHOP_ACTOR_REINCARNATOR };
         }
         var npc = (sd && sd.关系列表 && sd.关系列表[actorName]) ? sd.关系列表[actorName] : null;
-        return { character: npc || {}, path: '关系列表.' + actorName, isHero: false, name: actorName };
+        return { character: npc || {}, path: '关系列表.' + actorName, isReincarnator: false, name: actorName };
     }
-    // 校正 shopCurrentActor: 若当前选中的NPC不在候选列表里(已离场/非队友), 退回主角
+    // 校正 shopCurrentActor: 若当前选中的NPC不在候选列表里(已离场/非队友), 退回角色
     function shopEnsureActorValid(sd) {
-        if (shopCurrentActor === SHOP_ACTOR_HERO) return;
+        if (shopCurrentActor === SHOP_ACTOR_REINCARNATOR) return;
         var opts = shopBuildActorOptions(sd);
         var found = false;
         for (var i = 0; i < opts.length; i++) { if (opts[i].name === shopCurrentActor) { found = true; break; } }
-        if (!found) shopCurrentActor = SHOP_ACTOR_HERO;
+        if (!found) shopCurrentActor = SHOP_ACTOR_REINCARNATOR;
     }
     // 取得当前角色对应的商品库对象(读写时直接深拷贝该对象的引用; 不存在则创建空结构)
-    //★ 兼容升级: 主角读取商库时, 若 成员商库 不存在, 则沿用旧的 stat_data.商城 顶层结构(向后兼容)
+    //★ 兼容升级: 角色读取商库时, 若 成员商库 不存在, 则沿用旧的 stat_data.商城 顶层结构(向后兼容)
     function shopGetActorLibRaw(rawMarket, actorName) {
-        actorName = actorName || shopCurrentActor || SHOP_ACTOR_HERO;
+        actorName = actorName || shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
         if (!rawMarket) return null;
         var libMap = rawMarket[SHOP_ACTOR_LIB_KEY];
         if (libMap && typeof libMap === 'object' && libMap[actorName]) {
             return libMap[actorName];
         }
-        if (actorName === SHOP_ACTOR_HERO) {
-            // 兼容旧数据: 顶层有 血统列表/技能列表... 则作为主角商库
+        if (actorName === SHOP_ACTOR_REINCARNATOR) {
+            // 兼容旧数据: 顶层有 血统列表/技能列表... 则作为角色商库
             if (Array.isArray(rawMarket.血统列表) || Array.isArray(rawMarket.技能列表)
                 || Array.isArray(rawMarket.装备列表) || Array.isArray(rawMarket.道具列表) || Array.isArray(rawMarket.升级列表) || Array.isArray(rawMarket.形态列表)) {
                 return rawMarket;
@@ -7577,7 +7589,7 @@
     function shopRefreshMarket() {
         shopPreserveScroll(function() {
             var $market = $('#samsara-panel .sam-shop-market');
-            if ($market.length) { var sd = getStatData(); var coin = sd && sd.主角 ? safeNum(sd.主角.空间币, 0) : 0; $market.html(shopRenderTabs() + shopRenderContent(coin) + shopRenderFooter(coin)); }
+            if ($market.length) { var sd = getStatData(); var coin = sd && sd.角色 ? safeNum(sd.角色.空间币, 0) : 0; $market.html(shopRenderTabs() + shopRenderContent(coin) + shopRenderFooter(coin)); }
             else renderAll();
         });
     }
@@ -8020,7 +8032,7 @@
         statData.系统状态.待播报记录 = oldText ? (oldText + '\n' + line) : line;
     }
     function shopReceiptLine(action, detail, cost, balance, actorLabel) {
-        var who = actorLabel || '主角';
+        var who = actorLabel || '角色';
         return '['+action+']['+who+'] '+detail+'｜支付 '+safeNum(cost, 0)+'空间币｜余额 '+safeNum(balance, 0);
     }
     function shopClearReceipt() {
@@ -8032,16 +8044,16 @@
         else samToast('error', '删除失败: MVU写回不可用');
     }
     // 构建交易: 在 stat_data 副本上执行扣币/入包, 返回 { statData, purchaseLog, receipts, actorName }
-    // ★ 多角色商城: 接收者(打包装入背包的角色)由 shopCurrentActor 决定(主角或NPC); 货币永远从 主角.空间币 扣除
+    // ★ 多角色商城: 接收者(打包装入背包的角色)由 shopCurrentActor 决定(角色或NPC); 货币永远从 角色.空间币 扣除
     function shopBuildTransaction(statData) {
-        var coinOwner = statData.主角;
-        if (!coinOwner) throw new Error('主角数据不存在');
-        var actorName = shopCurrentActor || SHOP_ACTOR_HERO;
-        var character = (actorName === SHOP_ACTOR_HERO) ? coinOwner : (statData.关系列表 && statData.关系列表[actorName]);
+        var coinOwner = statData.角色;
+        if (!coinOwner) throw new Error('角色数据不存在');
+        var actorName = shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
+        var character = (actorName === SHOP_ACTOR_REINCARNATOR) ? coinOwner : (statData.关系列表 && statData.关系列表[actorName]);
         if (!character) throw new Error('角色数据不存在: ' + actorName);
         var total = shopCartCost();
         var startCoin = Number(coinOwner.空间币 || 0);
-        if (startCoin < total) throw new Error('主角空间币不足');
+        if (startCoin < total) throw new Error('角色空间币不足');
         coinOwner.空间币 = startCoin - total;
         if (!character.装备) character.装备 = {};
         if (!character.技能) character.技能 = {};
@@ -8051,7 +8063,7 @@
         var itemStrs = [];
         var receiptLines = [];
         var receiptBalance = startCoin;
-        var _actorLabel = (actorName === SHOP_ACTOR_HERO) ? '主角' : actorName;
+        var _actorLabel = (actorName === SHOP_ACTOR_REINCARNATOR) ? '角色' : actorName;
         for (var i = 0; i < shopCart.length; i++) {
             var item = shopCart[i];
             var qty = item.quantity || 1;
@@ -8138,12 +8150,12 @@
     function shopRemovePurchasedFromLibrary(statData, cart, actorName) {
         if (!statData.商城) return;
         var libMap = statData.商城[SHOP_ACTOR_LIB_KEY];
-        actorName = actorName || shopCurrentActor || SHOP_ACTOR_HERO;
+        actorName = actorName || shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
         var lib = null;
         if (libMap && libMap[actorName]) {
             lib = libMap[actorName];
-        } else if (actorName === SHOP_ACTOR_HERO) {
-            // 兼容旧数据: 主角商库可能直接平铺在 商城 顶层
+        } else if (actorName === SHOP_ACTOR_REINCARNATOR) {
+            // 兼容旧数据: 角色商库可能直接平铺在 商城 顶层
             if (Array.isArray(statData.商城.装备列表) || Array.isArray(statData.商城.技能列表)
                 || Array.isArray(statData.商城.血统列表) || Array.isArray(statData.商城.道具列表) || Array.isArray(statData.商城.升级列表) || Array.isArray(statData.商城.形态列表)) {
                 lib = statData.商城;
@@ -8235,11 +8247,11 @@
             openBloodFusionModal(keepBlood);
             return;
         }
-        // ★ 多角色商城: 货币永远从 主角.空间币 扣除; 校验主角空间币余额
-        var coin = safeNum(sd.主角 && sd.主角.空间币, 0);
+        // ★ 多角色商城: 货币永远从 角色.空间币 扣除; 校验角色空间币余额
+        var coin = safeNum(sd.角色 && sd.角色.空间币, 0);
         if (coin < shopCartCost()) { samToast('error', '空间币不足, 无法执行交易'); return; }
         // ★ 校验当前目标角色(NPC) 是否仍在场(切换后可能离场)
-        if (shopCurrentActor !== SHOP_ACTOR_HERO) {
+        if (shopCurrentActor !== SHOP_ACTOR_REINCARNATOR) {
             var actorNpc = (sd.关系列表 && sd.关系列表[shopCurrentActor]) ? sd.关系列表[shopCurrentActor] : null;
             if (!actorNpc) { samToast('error', '目标角色已离场, 无法为其购买, 请重新选择'); return; }
         }
@@ -8259,10 +8271,10 @@
         //    旧流程先 /trigger 触发AI回复, AI的[mvu_update]会覆盖我们的写回(导致只删1个),
         //    改为: 先直写MVU(不可被覆盖) → 清空购物车 → 再 /send 记录文本(不触发AI)
         var writeOk = writeBackMvu(function(statData) {
-            // 用构建好的交易结果整体覆盖主角字段 + 商城商品库
+            // 用构建好的交易结果整体覆盖角色字段 + 商城商品库
             var rs = result.statData;
-            // ★ 写回: 主角(含空间币扣除, 主角购物时含新装备) + 商城(商品库已移除已购) + 关系列表(NPC购物时含新装备)
-            if (rs.主角) statData.主角 = rs.主角;
+            // ★ 写回: 角色(含空间币扣除, 角色购物时含新装备) + 商城(商品库已移除已购) + 关系列表(NPC购物时含新装备)
+            if (rs.角色) statData.角色 = rs.角色;
             if (rs.商城) statData.商城 = rs.商城;
             if (rs.关系列表) statData.关系列表 = rs.关系列表;
             for (var ri = 0; ri < result.receipts.length; ri++) {
@@ -8597,15 +8609,15 @@
         return result;
     }
     // 32d-4. 构造玩家上下文摘要(供AI参考玩家构筑与层级)
-    // ★ 多角色商城: actorName 指定本次为谁生成上下文(主角或NPC); 空间币始终展示主角余额(由主角支付)
+    // ★ 多角色商城: actorName 指定本次为谁生成上下文(角色或NPC); 空间币始终展示角色余额(由角色支付)
     function shopBuildPlayerContext(sd, actorName) {
-        actorName = actorName || shopCurrentActor || SHOP_ACTOR_HERO;
+        actorName = actorName || shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
         var ctx = shopResolveCharacter(sd, actorName);
         var p = ctx.character || {};
-        var heroCoin = (sd.主角 && sd.主角.空间币 != null) ? sd.主角.空间币 : null;
+        var reincarnatorCoin = (sd.角色 && sd.角色.空间币 != null) ? sd.角色.空间币 : null;
         var parts = [];
-        // 顶部标注本次生成目标(主角/队友名), 供AI对齐构筑
-        parts.push('本次购买目标: ' + (ctx.isHero ? '主角(玩家本人)' : (actorName + '(队友)')));
+        // 顶部标注本次生成目标(角色/队友名), 供AI对齐构筑
+        parts.push('本次购买目标: ' + (ctx.isReincarnator ? '角色(玩家本人)' : (actorName + '(队友)')));
         if (p.种族) parts.push('种族: ' + p.种族);
         if (Array.isArray(p.身份) && p.身份.length) parts.push('身份: ' + p.身份.join('/'));
         {
@@ -8613,8 +8625,8 @@
             if (_occTxt) parts.push('职业: ' + _occTxt);
         }
         if (p.层级) parts.push('层级: ' + p.层级);
-        // 空间币(支付池)始终以主角余额为准
-        if (heroCoin != null) parts.push('空间币: ' + heroCoin);
+        // 空间币(支付池)始终以角色余额为准
+        if (reincarnatorCoin != null) parts.push('空间币: ' + reincarnatorCoin);
 
         // ★ 核心辅助函数：提取物品的所有关键信息，拼接成紧凑的单行文本，既全面又省 Token
         function formatDict(dict) {
@@ -8768,7 +8780,7 @@
             + '  - 层级: 字符串, 仅可选 Ⅰ / Ⅱ / Ⅲ / Ⅳ / Ⅴ / Ⅵ / Ⅶ / Ⅷ / Ⅸ\n'
             + '  - 品质: 字符串, 仅可选 F / E / D / C / B / A / S / SS / SSS\n'
             + '  - 标签: 行内数组 [\'标签1\', \'标签2\'...]\n'
-            + '  - 原始属性: 行内对象。血统必须完整包含五维（力量、敏捷、体质、精神、魅力）；【形态】必须完整包含五维，且强制附加相关的【衍生属性】；每项最低品质为F；装备仅写非0项。\n'
+            + '  - 原始属性: 行内对象，定档遵循《品质效果数值规则》；血统必须完整包含五维（力量、敏捷、体质、精神、魅力），【形态】必须完整包含五维并附加相关【衍生属性】，装备仅写有效非0项。\n'
             + '  - 效果: 行内对象 {效果名: \'描述\'}, 键为字符串, 值为字符串描述\n'
             + '  - 价格: 数字(空间币)\n'
             + '  - 描述/消耗: 字符串\n'
@@ -8785,12 +8797,12 @@
         // ★ 多角色: 上下文以当前选中角色为准; AI据此为该角色量身生成商品/升级方案
         var playerCtx = shopBuildPlayerContext(sd, shopCurrentActor);
         var userPrompt = '\n【当前购买对象数据】\n' + (playerCtx || '(无)') + '\n';
-        userPrompt += '\n【输出结构】\n'
+        userPrompt += '\n【输出结构】\n以下内容仅演示字段格式，具体档位按商品定位生成。\n'
             + '血统列表:\n'
             + '  - 名称: 血统名\n'
             + '    品质: E\n'
             + '    标签: ["主神空间", "强化"]\n'
-            + '    原始属性: {"力量": "E", "敏捷": "C", "体质": "D", "精神": "D", "魅力": "E"}\n'
+            + '    原始属性: {"力量": "C", "敏捷": "F", "体质": "D", "精神": "E", "魅力": "F"}\n'
             + '    效果: {体能充沛: 基础生命恢复速度小幅提升}\n'
             + '    描述: 简短描述\n'
             + '    价格: 450\n'
@@ -8805,14 +8817,14 @@
             + '    价格: 80\n'
             + '装备列表:\n'
             + '  - 名称: 装备名\n'
-            + '    品质: F\n'
+            + '    品质: D\n'
             + '    类型: 0\n'
             + '    标签: ["主神空间", "科技"]\n'
-            + '    原始属性: {"DEF": "C"}\n'
-            + '    效果: {防弹: 对实弹伤害额外减免2点}\n'
+            + '    原始属性: {"ATK": "C", "敏捷": "F"}\n'
+            + '    效果: {射击稳定: 连续射击检定+15}\n'
             + '    描述: 简短描述\n'
             + '    消耗: 无\n'
-            + '    价格: 50\n'
+            + '    价格: 3000\n'
             + '道具列表:\n'
             + '  - 名称: 道具名\n'
             + '    品质: F\n'
@@ -8848,8 +8860,8 @@
             + '    品质: E\n'
             + '    类型: 0\n'
             + '    标签: ["主神空间", "科技", "升级"]\n'
-            + '    原始属性: {"DEF": "C"}\n'
-            + '    效果: {防弹: 强化减伤效果至4点}\n'
+            + '    原始属性: {"ATK": "C", "敏捷": "E"}\n'
+            + '    效果: {精密射击: 瞄准射击检定+10}\n'
             + '    描述: 回收旧型号进行重铸升阶后的成品\n'
             + '    消耗: 无\n'
             + '    价格: 300\n'
@@ -8875,8 +8887,8 @@ if (hasReq) {
                 return;
             }
             // ★ 写回 当前角色的专属商库(商城.成员商库.<角色名>); 不影响其他角色的商库
-            //   主角键沿用旧顶层结构时迁入 成员商库.主角, 以实现多角色隔离
-            var refreshActor = shopCurrentActor || SHOP_ACTOR_HERO;
+            //   角色键沿用旧顶层结构时迁入 成员商库.角色, 以实现多角色隔离
+            var refreshActor = shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
             var ok = writeBackMvu(function (statData) {
                 if (!statData.商城 || typeof statData.商城 !== 'object') statData.商城 = {};
                 var market = statData.商城;
@@ -8885,8 +8897,8 @@ if (hasReq) {
                     market[SHOP_ACTOR_LIB_KEY] = {};
                 }
                 var libMap = market[SHOP_ACTOR_LIB_KEY];
-                // 主角首次迁入: 将旧顶层扁平商库作为主角初始库存(仅当尚未存在主角键时)
-                if (refreshActor === SHOP_ACTOR_HERO && !libMap[SHOP_ACTOR_HERO]) {
+                // 角色首次迁入: 将旧顶层扁平商库作为角色初始库存(仅当尚未存在角色键时)
+                if (refreshActor === SHOP_ACTOR_REINCARNATOR && !libMap[SHOP_ACTOR_REINCARNATOR]) {
                     var oldTop = null;
                     if (Array.isArray(market.血统列表) || Array.isArray(market.技能列表)
                         || Array.isArray(market.装备列表) || Array.isArray(market.道具列表) || Array.isArray(market.升级列表) || Array.isArray(market.形态列表)) {
@@ -8899,7 +8911,7 @@ if (hasReq) {
                             形态列表: Array.isArray(market.形态列表) ? market.形态列表 : []
                         };
                     }
-                    libMap[SHOP_ACTOR_HERO] = oldTop || { 血统列表:[], 技能列表:[], 装备列表:[], 道具列表:[], 升级列表:[], 形态列表:[] };
+                    libMap[SHOP_ACTOR_REINCARNATOR] = oldTop || { 血统列表:[], 技能列表:[], 装备列表:[], 道具列表:[], 升级列表:[], 形态列表:[] };
                     // 清除旧顶层冗余字段, 统一迁移到成员商库
                     delete market.血统列表;
                     delete market.技能列表;
@@ -8966,8 +8978,8 @@ if (hasReq) {
         if (bloodFusionSnap) {
             try {
                 writeBackMvu(function(statData) {
-                    statData.主角 = statData.主角 || {};
-                    statData.主角.空间币 = safeNum(statData.主角.空间币, 0) + bloodFusionSnap.price;
+                    statData.角色 = statData.角色 || {};
+                    statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
                     if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                         var _rlibS = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
                         if (_rlibS) _rlibS.血统列表 = bloodFusionSnap.preBloodLib.slice();
@@ -8994,14 +9006,14 @@ if (hasReq) {
         if (!action || !path) return;
         var type = Number(typeStr);
         var sd = getStatData();
-        if (!sd || !sd.主角) { samToast('error', '数据未就绪'); return; }
+        if (!sd || !sd.角色) { samToast('error', '数据未就绪'); return; }
         var isEquip = (kind === 'equip');
-        var dict = isEquip ? (sd.主角.装备 || {}) : (sd.主角.道具 || {});
-        var basePath = isEquip ? '主角.装备' : '主角.道具';
+        var dict = isEquip ? (sd.角色.装备 || {}) : (sd.角色.道具 || {});
+        var basePath = isEquip ? '角色.装备' : '角色.道具';
         // 删除: 直接从字典移除
         if (action === 'delete') {
             var ok = writeBackMvu(function(statData) {
-                var d = isEquip ? (statData.主角.装备||{}) : (statData.主角.道具||{});
+                var d = isEquip ? (statData.角色.装备||{}) : (statData.角色.道具||{});
                 if (d[key] !== undefined) delete d[key];
             });
             if (ok) { samToast('success', (isEquip?'装备':'道具')+'已删除: '+key); renderAll(); }
@@ -9036,7 +9048,7 @@ if (hasReq) {
                     });
                     if (replaced.length > 0) {
                         var okR = writeBackMvu(function(statData) {
-                            var d = statData.主角.装备 || {};
+                            var d = statData.角色.装备 || {};
                             replaced.forEach(function(k){ if (d[k]) d[k].状态 = 0; });
                             if (d[key]) d[key].状态 = 1;
                         });
@@ -9055,7 +9067,7 @@ if (hasReq) {
         }
         // 通用: 设目标状态
         var ok2 = writeBackMvu(function(statData) {
-            var d = isEquip ? (statData.主角.装备||{}) : (statData.主角.道具||{});
+            var d = isEquip ? (statData.角色.装备||{}) : (statData.角色.道具||{});
             if (d[key]) d[key].状态 = targetStatus;
         });
         if (ok2) {
@@ -9071,8 +9083,8 @@ if (hasReq) {
     function handleFormActivate(formName) {
         if (!formName) return;
         var sd = getStatData();
-        if (!sd || !sd.主角) { samToast('error', '数据未就绪'); return; }
-        var p = sd.主角;
+        if (!sd || !sd.角色) { samToast('error', '数据未就绪'); return; }
+        var p = sd.角色;
         var cf = p.当前形态 || {};
         // 已激活的形态(当前生效)不可重复激活
         if (cf.激活 === true && safeStr(cf.名称) === formName) {
@@ -9090,7 +9102,7 @@ if (hasReq) {
         }
         // 写回: 设当前形态 + 该形态冷却2回合(不清理其他形态冷却)
         var ok = writeBackMvu(function(statData) {
-            var pp = statData.主角;
+            var pp = statData.角色;
             if (!pp) return;
             // 设当前形态
             pp.当前形态 = { 激活: true, 名称: formName };
@@ -9100,7 +9112,7 @@ if (hasReq) {
                 ff[formName].冷却 = '2/2 回合';
             }
             // ★ 前端形态激活 → 记入待播报记录(与本次写回同一落盘, 待正文模型叙事后自动清空)
-            shopAppendReceipt(statData, '[变身][主角] 激活形态「' + formName + '」');
+            shopAppendReceipt(statData, '[变身][角色] 激活形态「' + formName + '」');
         });
         if (ok) {
             samToast('success', '形态已激活: ' + formName + ' (冷却1回合)');
@@ -9114,8 +9126,8 @@ if (hasReq) {
     function handleFormDeactivate(formName) {
         if (!formName) return;
         var sd = getStatData();
-        if (!sd || !sd.主角) { samToast('error', '数据未就绪'); return; }
-        var p = sd.主角;
+        if (!sd || !sd.角色) { samToast('error', '数据未就绪'); return; }
+        var p = sd.角色;
         var cf = p.当前形态 || {};
         // 只有当前激活的就是这个形态才能取消
         if (!(cf.激活 === true && safeStr(cf.名称) === formName)) {
@@ -9124,11 +9136,11 @@ if (hasReq) {
         }
         // 写回: 当前形态设为未激活 + 清空名称(冷却不动, 按原倒数继续走)
         var ok = writeBackMvu(function(statData) {
-            var pp = statData.主角;
+            var pp = statData.角色;
             if (!pp) return;
             pp.当前形态 = { 激活: false, 名称: '' };
             // ★ 前端形态取消激活 → 记入待播报记录(与本次写回同一落盘, 待正文模型叙事后自动清空)
-            shopAppendReceipt(statData, '[变身结束][主角] 取消形态「' + formName + '」');
+            shopAppendReceipt(statData, '[变身结束][角色] 取消形态「' + formName + '」');
         });
         if (ok) {
             samToast('success', '已取消形态: ' + formName);
@@ -9288,7 +9300,7 @@ if (hasReq) {
                 try {
                     var v = c.val;
                     // ★ 职业已改为记录对象: 编辑模式下以JSON文本提交, 写回前尝试还原为对象
-                    if (/\.(主角|关系列表\.[^.]+)\.职业$/.test(c.path) && typeof v === 'string') {
+                    if (/^(?:角色|关系列表\.[^.]+)\.职业$/.test(c.path) && typeof v === 'string') {
                         var trimmed = v.trim();
                         if (trimmed === '') { v = {}; }
                         else { try { v = JSON.parse(trimmed); } catch(e2) { /* 非法JSON保留原字符串,ZOD层会拒绝并回退 */ } }
@@ -9322,6 +9334,26 @@ if (hasReq) {
     function init() {
         initSamsaraCSS();
         initSamsaraDOM();
+        // 仅共享调用能力，密钥仍由终端管理。面板交接不修改正式开关。
+        GS_PARENT.Samsara = GS_PARENT.Samsara || {};
+        GS_PARENT.Samsara.terminal = {
+            request: function(system, input, options) { return apiChat(system, input, options); },
+            apiReady: function() { return isApiConfigEnabled() && !!getApiConfig().model; },
+            suspend: function() {
+                var panel = $('#samsara-panel');
+                var state = { open: panel.hasClass('open'), scroll: $('#sam-tab-content').scrollTop() || 0 };
+                panel.hide(); $('#samsara-ball').hide();
+                return state;
+            },
+            restore: function(state) {
+                if (state && state.open) {
+                    if (!isEditMode()) renderAll();
+                    $('#samsara-panel').css('display', 'flex').addClass('open');
+                    $('#samsara-ball').hide();
+                    $('#sam-tab-content').scrollTop(state.scroll || 0);
+                } else { $('#samsara-ball').show(); }
+            }
+        };
         renderAll();
         try {
             if (localStorage.getItem(SAM_CONFIG.open) === '1') {
@@ -9375,8 +9407,10 @@ if (hasReq) {
             if (!document.getElementById('samsara-ball') || !document.getElementById('samsara-panel')) {
                 initSamsaraDOM();
                 renderAll();
+                if (GS_PARENT.Samsara.worldEngine && GS_PARENT.Samsara.worldEngine.isOpen()) GS_PARENT.Samsara.terminal.suspend();
             }
         }, 15000);
+        if (GS_PARENT.Samsara.worldEngine && GS_PARENT.Samsara.worldEngine.isOpen()) GS_PARENT.Samsara.terminal.suspend();
         try { (window.parent || window).__悬浮球状态栏_loaded__ = true; } catch(e) { window.__悬浮球状态栏_loaded__ = true; }
         // 注: 数据刷新定时器已移至 renderAll() 的"终端未响应"分支内按需启动, 收到数据后自动清除, 避免无谓刷新影响滚动与性能
         try { console.log('%c[主神终端] ✅ v2 初始化完成,监听因果链...', 'color:#86efac;font-weight:bold'); } catch(e){}

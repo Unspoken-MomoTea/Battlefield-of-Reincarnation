@@ -889,7 +889,7 @@
         constructor(host, env) {
             this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
-            this.lastRetryLog=[]; this.lastAttemptCount=0;
+            this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
             this.config = { enabled:false, preset:DEFAULT_PRESET, retryAttempts:3, requireMacroBackbone:true };
             try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
             this.config.preset=ensurePresetStructure(this.config.preset);
@@ -1077,13 +1077,13 @@
 
                 const maxRetries=Math.max(0,Math.min(5,Number(this.config.retryAttempts)||0));
                 this.lastRetryLog=[];this.lastAttemptCount=0;this.lastReply='';this.lastFailure='';
-                let attempt=0,lastError=null,lastRejectedReply='',prepared=null;
+                let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null;
 
                 while(attempt<=maxRetries){
                     if(token!==this.generation)throw new Error('请求已取消');
                     this.controller=new AbortController();
                     clearTimeout(timeout);timeout=setTimeout(()=>this.controller.abort(),120000);
-                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxRetries);
+                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxRetries,acceptedWorldResult);
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
                     actualRequest.manifest=Object.assign({},copy(request.manifest),{
@@ -1098,7 +1098,7 @@
 
                     let received='';
                     try{
-                        received=String(await terminal.request(request.system,attemptInput,{signal:this.controller.signal}));
+                        received=String(await terminal.request(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature:0.3}));
                         clearTimeout(timeout);
                         if(token!==this.generation||this.controller.signal.aborted)throw new Error('请求已取消');
                         this.lastReply=received;this.lastFailure='';

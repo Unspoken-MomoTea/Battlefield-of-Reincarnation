@@ -495,11 +495,12 @@
         }
     }    function ensureMacroBackbone(next,timeline,required=true) {
         if(!required||!timeline?.需要补充远期)return;
-        const macro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态==='待发生');
-        if(macro.length<3)throw new Error('宏观事件不足：需要至少3个待发生宏观节点，当前仅'+macro.length+'个');
+        const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消');
+        const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
+        if(futureMacro.length<3)throw new Error('宏观事件不足：需要至少3个待发生宏观节点，当前仅'+futureMacro.length+'个');
         const stages=storyStages(next?.世界?.因果轨道?.故事线);
-        const names=new Set(macro.map(([name])=>name));
-        if(stages.length<3||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');
+        const names=new Set(allMacro.map(([name])=>name));
+        if(stages.length<3||stages.length>5||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');
     }
 
     function progressionAnchorChanged(before,after) {

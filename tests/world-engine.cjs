@@ -96,7 +96,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const host = {localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request}},getCurrentChatId:()=>chat,getChatMessages:()=>[{message_id:3,message:text,role:'assistant'}]};
         let writes = 0;
         host.Mvu = {getMvuData:()=>({stat_data:clone(stat)}),replaceMvuData:async data => {writes++; stat = clone(data.stat_data);}};
-        const engine = new Engine(host); engine.worldbook = async () => [];
+        const engine = new Engine(host); engine.config.enabled = true; engine.worldbook = async () => [];
         return {engine,get:()=>stat,writes:()=>writes,change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
     }
     await test('master switch off blocks manual world progression', async () => {

@@ -206,6 +206,14 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(legacy.kind,'legacy_patches');
         assert.deepEqual(legacy.patches,[]);
     });
+    await test('WorldResult parser unwraps common structured-provider envelopes without retry', () => {
+        for(const wrapper of ['WorldResult','world_result','world_update','result']){
+            const parsed=parseReply(JSON.stringify({[wrapper]:{摘要:'已解包',事件:[{名称:'节点',描述:'变化'}]}}));
+            assert.equal(parsed.kind,'world_result');
+            assert.equal(parsed.worldResult.摘要,'已解包');
+            assert.equal(parsed.worldResult.事件[0].名称,'节点');
+        }
+    });
     await test('world request asks terminal for structured WorldResult at low temperature', async () => {
         let options;
         const x=setup(async (_system,_input,opt)=>{options=opt;return JSON.stringify({摘要:'无变化'});});

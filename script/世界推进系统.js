@@ -133,6 +133,45 @@
     function get(obj, parts) {
         return parts.reduce((v, key) => v != null && Object.prototype.hasOwnProperty.call(v, key) ? v[key] : undefined, obj);
     }
+    function pointer(parts) {
+        return '/'+parts.map(p=>String(p).replace(/~/g,'~0').replace(/\//g,'~1')).join('/');
+    }
+    const nameKey=value=>String(value||'').toLowerCase().replace(/[\\/／·・._\-\s]+/g,'');
+    function canonicalizeParts(parts,stat) {
+        const p=parts.slice();
+        if(p[0]==='世界'&&p[1]===PATH&&p[3]&&['人物','事件','势力地区'].includes(p[2])){
+            const pools=[];
+            const state=stat?.世界?.[PATH]||{};
+            if(plain(state[p[2]]))pools.push(...Object.keys(state[p[2]]));
+            if(p[2]==='人物'){
+                pools.push(...Object.keys(stat?.关系列表||{}));
+                pools.push(...Object.keys(stat?.世界?.异端雷达?.名单||{}));
+            }
+            const key=nameKey(p[3]),matches=[...new Set(pools)].filter(name=>nameKey(name)===key);
+            if(matches.length===1)p[3]=matches[0];
+        }
+        return p;
+    }
+    function bootstrapBackendParent(stat,parts) {
+        if(parts[0]!=='世界'||parts[1]!==PATH||parts.length!==5)return;
+        const category=parts[2],name=parts[3];
+        if(!['事件','人物','势力地区','传播'].includes(category))return;
+        const bucket=stat.世界[PATH][category]||(stat.世界[PATH][category]={});
+        if(Object.hasOwn(bucket,name))return;
+        const seed=category==='事件'?{描述:name}:category==='人物'?{所属世界:stat.世界.名称||'',地点:'',行动:''}:{};
+        bucket[name]=normalizeBackendRecord(category,seed);
+    }
+    function canUpsertMissing(parts,stat) {
+        if(parts[0]==='世界'&&parts[1]===PATH){
+            if(parts[2]==='历史'||parts[2]==='剧本')return false;
+            if(parts.length===4&&['事件','人物','势力地区','传播'].includes(parts[2]))return true;
+            if(parts.length===5&&['事件','人物','势力地区','传播'].includes(parts[2])&&!!get(stat,parts.slice(0,4)))return true;
+        }
+        if(parts[0]==='世界'&&parts[1]==='因果轨道'&&parts[2]==='偏移记录'&&parts.length===4)return true;
+        if(parts[0]==='世界'&&['势力','探索'].includes(parts[1])&&parts.length===3)return true;
+        if(parts[0]==='传闻'&&['街头巷议','情报交易','布告与檄文'].includes(parts[1])&&parts.length===3)return true;
+        return false;
+    }
     function checkRecord(value, template, optional = {}) {
         if(!plain(value))throw new Error('记录必须是完整对象，不能是文本或数组');
         const missing=Object.keys(template).filter(k=>!Object.hasOwn(value,k));
@@ -259,12 +298,14 @@
         normalizeBackendState(next);
         for (const patch of patches) {
             if (!plain(patch) || !['add','replace','remove'].includes(patch.op)) throw new Error('不支持的补丁操作');
-            const p = tokens(patch.path);
+            let p = canonicalizeParts(tokens(patch.path),next);
+            patch.path=pointer(p);
             if (!allowed(p,next)) throw new Error('禁止写入：' + patch.path);
+            bootstrapBackendParent(next,p);
             const old = get(next,p);
             if (p[1] === PATH && p[2] === '历史' && (patch.op !== 'add' || old !== undefined)) throw new Error('历史只允许新增');
-            // 对象 add 按 JSON Patch 语义允许设置已有成员；历史仍只增不改。
-            if (patch.op !== 'add' && old === undefined) throw new Error('目标不存在：' + patch.path);
+            // 世界模型经常把“首次设置”写成 replace；对允许创建的世界记录按 upsert 处理。
+            if (patch.op !== 'add' && old === undefined && !canUpsertMissing(p,next)) throw new Error('目标不存在：' + patch.path);
             if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播'))) throw new Error('仅可移除过期传播与传闻，其他记录使用状态结束');
             let value=patch.value;
             if (patch.op !== 'remove') {
@@ -274,7 +315,15 @@
                     value=normalizeBackendRecord(category,value,old);
                     checkRecord(value,RECORDS[category],DETAILS[category]);
                     checkDetails(value,DETAILS[category]);
-                } else if (EXISTING[category]) checkRecord(value, EXISTING[category]);
+                } else if (EXISTING[category]) {
+                    const schema=EXISTING[category];
+                    if(plain(value)){
+                        const merged=Object.assign(copy(schema),plain(old)?copy(old):{});
+                        for(const key of Object.keys(schema))if(Object.hasOwn(value,key))merged[key]=copy(value[key]);
+                        value=merged;
+                    }
+                    checkRecord(value,schema);
+                }
                 else if (old !== undefined && (typeof old !== typeof value || Array.isArray(old) !== Array.isArray(value))) throw new Error('字段类型发生改变');
                 if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('数值无效');
                 if (p[0] === '世界' && p[1] === '因果轨道' && p.length === 3 && typeof value !== 'string') throw new Error('因果摘要必须是文本');

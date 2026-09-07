@@ -395,6 +395,30 @@
         }
         return next;
     }
+    function materializeWorldUpdate(stat,seedPatches,modelPatches) {
+        const work=copy(stat);
+        work.世界[PATH]=Object.assign(emptyState(),work.世界[PATH]||{});
+        normalizeBackendState(work);compactFinishedEvents(work);
+        const appliedSeeds=(seedPatches||[]).filter(p=>get(work,canonicalizeParts(tokens(p.path),work))===undefined);
+        let next=applyPatches(work,appliedSeeds);
+        compactFinishedEvents(next);
+        next=applyPatches(next,modelPatches||[]);
+        compactFinishedEvents(next);
+        const repairPatches=repairCausalProjection(next);
+        return {next,appliedSeeds,repairPatches};
+    }
+    function ensureDueHandled(next,dueList,worldTime) {
+        for(const due of dueList||[]){
+            const event=next.世界[PATH].事件[due.名称];
+            if(!event)continue;
+            if(event.状态==='待发生'&&(event.更新时间!==worldTime||!event.下次检查||!event.条件)){
+                throw new Error('到期事件未处理：'+due.名称+'。需启动事件，或记录本轮复核日期、阻碍条件与下次检查。');
+            }
+        }
+    }
+    function progressionAnchorChanged(before,after) {
+        return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
+    }
     function parseReply(text) {
         let source=String(text).trim();
         const block=source.match(/<world_update\s*>([\s\S]*?)<\/world_update>/i);
@@ -567,28 +591,29 @@
                 if(token!==this.generation||this.controller.signal.aborted)throw new Error('请求已取消');
                 this.lastRequest=copy(request);
                 this.lastReply='';this.lastFailure='';
-                this.status='四模块联合推演中';this.render();
+                this.status='六模块联合推演中';this.render();
                 const text=await terminal.request(request.system,request.input,{signal:this.controller.signal});
                 this.lastReply=String(text); this.lastFailure='';
                 const reply = parseReply(text);
                 reply.patches=sanitizeModelPatches(reply.patches);
-                const preparedBase=copy(base.stat);
-                preparedBase.世界[PATH]=Object.assign(emptyState(),preparedBase.世界[PATH]||{});
-                compactFinishedEvents(preparedBase);
-                const prepared=applyPatches(preparedBase,request.seedPatches);
-                compactFinishedEvents(prepared);
-                let next = applyPatches(prepared,reply.patches);
-                compactFinishedEvents(next);
-                // 到期但仍待发生的节点必须得到本轮明确复核，不能用空补丁冒充推进。
-                for(const due of request.due){
-                    const event=next.世界[PATH].事件[due.名称];
-                    if(event.状态==='待发生'&&(event.更新时间!==base.stat.世界.时间||!event.下次检查||!event.条件)){
-                        throw new Error('到期事件未处理：'+due.名称+'。需启动事件，或记录本轮复核日期、阻碍条件与下次检查。');
-                    }
+                const modelPatches=reply.patches;
+                let sourceStat=base.stat;
+                let built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
+                let next=built.next;
+                ensureDueHandled(next,request.due,base.stat.世界.时间);
+
+                const current = this.snapshot();
+                if (token !== this.generation || this.controller.signal.aborted || current.fingerprint !== base.fingerprint || this.blocked(current)) throw new Error('上下文已经切换，本次结果已丢弃');
+                if(progressionAnchorChanged(base.stat,current.stat))throw new Error('推演期间世界时间或副本锚点发生变化，请重新运行');
+                // 其它 MVU/辅助脚本若只改了不相干字段，则把世界补丁重基到最新状态，避免无意义整轮作废。
+                if(!same(current.stat,base.stat)){
+                    sourceStat=current.stat;
+                    built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
+                    next=built.next;
+                    ensureDueHandled(next,request.due,base.stat.世界.时间);
                 }
-                // 旧因果轨道只导入为安全骨架；若本轮资料不足，允许保持待发生，
-                // 后续由滚动时间轴逐步补充时间、条件和默认走向，不再拒绝整批结果。
-                reply.patches=request.seedPatches.concat(reply.patches);
+                const committedPatches=built.appliedSeeds.concat(modelPatches,built.repairPatches);
+
                 // 沿用辅助计算脚本公式；后台提交不能额外消耗战斗轮次或状态持续时间。
                 if (!(next.设置 || {}).世界超稳) {
                     const offsets = (next.世界.因果轨道 || {}).偏移记录 || {};
@@ -597,22 +622,18 @@
                 }
                 next.世界[PATH].已处理楼层 = base.fingerprint;
                 next.世界[PATH].已处理时间 = base.stat.世界.时间;
-                const changes = reply.patches.filter(p=>p.path !== '/世界/后台/公开摘要').map(p=>{
+                const changes = committedPatches.filter(p=>p.path !== '/世界/后台/公开摘要').map(p=>{
                     const parts=tokens(p.path), back=parts[1]===PATH;
                     return {时间:base.stat.世界.时间,类别:back?parts[2]:parts[1],名称:back?parts[3]:parts[2],字段:parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.内容||'记录已更新'):''};
                 });
-                // “最近变化”只表示本轮成功提交的新变化；跨轮历史由运行记录/历史锚点承担。
                 next.世界[PATH].最近变化 = changes.slice(-100);
-                next.世界[PATH].运行记录 = old.运行记录.concat([{时间:base.stat.世界.时间,摘要:reply.summary,补丁数:reply.patches.length}]).slice(-20);
+                const sourceOld=Object.assign(emptyState(),sourceStat.世界[PATH]||{});
+                next.世界[PATH].运行记录 = sourceOld.运行记录.concat([{时间:base.stat.世界.时间,摘要:reply.summary,补丁数:committedPatches.length}]).slice(-20);
                 const checked = validate(next);
-                // 校验器可能补默认值或重算其他字段，只取此次允许写入的路径。
-                for (const patch of reply.patches) {
+                for (const patch of committedPatches) {
                     if (patch.op !== 'remove' && !same(get(checked,tokens(patch.path)),get(next,tokens(patch.path)))) throw new Error('字段未通过完整 Schema 校验：'+patch.path);
                 }
-                const current = this.snapshot();
-                if (token !== this.generation || this.controller.signal.aborted || current.fingerprint !== base.fingerprint || this.blocked(current)) throw new Error('上下文已经切换，本次结果已丢弃');
-                // 整轮校验后再提交。任何并行变量变化都让本轮失效，避免覆盖原系统结果。
-                if (!same(current.stat,base.stat)) throw new Error('推演期间变量发生变化，请重新运行');
+                reply.patches=committedPatches;
                 this.committing = true;
                 const result = current.raw; result.stat_data = next;
                 result.__samsaraWorldCommit = base.fingerprint;

@@ -1663,7 +1663,7 @@
                 const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
                 const readable=(name,v)=>Array.isArray(v)?v.map((item,i)=>fold((item.名称||item.楼层!==undefined&&(item.角色+' · 第 '+item.楼层+' 层')||name+' '+(i+1)),fields(item))).join(''):fields(plain(v)?v:{内容:v});
                 const retryLog=(this.lastRetryLog||[]).map(item=>'<div class="we-change"><time>#'+text(item.重试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p></div></div>').join('');
-                html+=section('失败自动重试','<div class="we-config-row"><label>失败重试次数 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求失败后，最多再请求这么多次；默认 3，最大 5。只纠正模型回复/补丁，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||''));
+                html+=section('失败自动重试','<div class="we-config-row"><label>失败重试次数 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求失败后，最多再请求这么多次；默认 3，最大 5。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||''));
                 html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                 for(const [label,r] of [['最近实际发送',this.lastRequest],['下一次请求预览',this.previewRequest]]){
                     if(!r){html+=section(label,empty('暂无'+label));continue;}

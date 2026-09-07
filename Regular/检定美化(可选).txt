@@ -254,6 +254,11 @@
         opacity: 0.6;
       }
 
+      .tk-note {
+        color: #9ca3af;
+        font-style: italic;
+      }
+
 
 /* --- 手机端适配代码 --- */
 @media (max-width: 600px) {
@@ -313,7 +318,9 @@
               const specialChars = {
                   '[': 'bracket', ']': 'bracket', '`': 'code',
                   '✅': 'success', '❌': 'fail', '💥': 'damage', '💚': 'heal',
-                  '➞': 'arrow', '→': 'arrow', '|': 'separator'
+                  '⚠️': 'fail', '💀': 'fail',
+                  '🔹': 'bracket', '🔸': 'bracket', '▸': 'bracket', '※': 'note',
+                  '➞': 'arrow', '→': 'arrow', '|': 'separator', '｜': 'separator', '×': 'separator'
               };
               const lines = text.trim().split('\n');
               let finalHtml = '';
@@ -345,8 +352,12 @@
                           lineHtml += char;
                           continue;
                       }
-                      if (specialChars[char]) {
-                          lineHtml += `<span class="tk-${specialChars[char]}">${char}</span>`;
+                      const specialToken = Object.keys(specialChars).find(token =>
+                          cleanedLine.substring(i, i + token.length) === token
+                      );
+                      if (specialToken) {
+                          lineHtml += `<span class="tk-${specialChars[specialToken]}">${specialToken}</span>`;
+                          i += specialToken.length - 1;
                           continue;
                       }
                       // DC + 数字: 整体标红 (如 DC42, DC 12)

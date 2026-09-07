@@ -466,6 +466,7 @@
         }
         for (const [name,event] of Object.entries(state.事件)) {
             if (!['待发生','进行中','已完成','已取消'].includes(event.状态)) throw new Error('非法事件状态');
+            if (!EVENT_CATEGORIES.has(event.分类)) throw new Error('非法事件分类：'+name+' = '+String(event.分类||'空'));
             if (event.前因.some(id => !Object.hasOwn(state.事件,id))) throw new Error('事件前因不存在：' + name);
         }
         const ranks = ['F','E','D','C','B','A','S','SS','SSS'];

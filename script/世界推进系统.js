@@ -148,7 +148,22 @@
         const macroFuture=macro.filter(([,e])=>e.状态==='待发生');
         const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
         const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
-        const orbitStages=storyStages(stat.世界.因果轨道?.故事线);
+        const orbit=stat.世界.因果轨道||{},orbitStages=storyStages(orbit.故事线);
+        const orbitMacro=macroFuture.find(([name])=>name===orbit.下一节点);
+        const datedMacro=macroFuture.map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
+            .filter(x=>x.key!==null&&(now===null||x.key>=now))
+            .sort((a,b)=>a.key-b.key||a.index-b.index);
+        const nextPair=orbitMacro||datedMacro[0]?.item||macroFuture[0]||null;
+        const fallbackPair=!nextPair&&orbit.下一节点?events.find(([name,e])=>name===orbit.下一节点&&e.状态==='待发生')||null:null;
+        const boundary=nextPair||fallbackPair;
+        const nextMacro=boundary?{
+            名称:boundary[0],
+            时间:boundary[1].时间||boundary[1].开始时间||'',
+            分类:boundary[1].分类||'',
+            条件:boundary[1].条件||'',
+            前因:boundary[1].前因||[],
+            来源:nextPair?'宏观事件图':'因果轨道兼容节点'
+        }:null;
         return {
             当前时间锚点:stat.世界.时间,
             因果轨道节点数:orbitStages.length,
@@ -158,9 +173,15 @@
             近期节点数:near.length,
             宏观节点数:macro.length,
             需要补充远期:macroFuture.length<3,
+            下一宏观节点:nextMacro,
+            桥接区间:{
+                起点:stat.世界.时间,
+                终点:nextMacro?.时间||'待建立宏观节点',
+                边界事件:nextMacro?.名称||''
+            },
             需要展开的宏观节点:expand.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因})),
             需语义复核节点:semantic.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,下次检查:e.下次检查})),
-            说明:'先建立有依据的宏观骨架，再按接近程度滚动展开；非公历或作品内时间用世界书语义比较，不得强行改写为公历。'
+            说明:'先用因果轨道、当前事实与模型已有世界/原著知识建立宏观骨架；世界书若存在只作补充校正。随后仅展开当前时间到下一宏观节点之间的近期事件、人物、势力与传播。非公历或作品内时间按作品语义比较，不强行改写为公历。'
         };
     }
     function emptyState() {

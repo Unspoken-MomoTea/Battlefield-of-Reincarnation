@@ -1,7 +1,7 @@
 <%_
 ;(() => {
 const data = _.cloneDeep(getMessageVar('stat_data', { defaults: {} }));
-if (!data || !data.主角) { _%>
+if (!data || !data.角色) { _%>
 <status_current_variables>
 数据为空
 </status_current_variables>
@@ -9,7 +9,7 @@ if (!data || !data.主角) { _%>
 
 // 全局状态标识 (用于信息遮蔽)
 const isCombat = _.get(data, '系统状态.是否战斗中', false) === true;
-const isFormActive = _.get(data, '主角.当前形态.激活', false) === true;
+const isFormActive = _.get(data, '角色.当前形态.激活', false) === true;
 const isOneWorld = _.get(data, '设置.单一世界', false) === true;
 const isStable = _.get(data, '设置.世界超稳', false) === true;
 
@@ -46,16 +46,16 @@ readonly.世界 = {
   稳定: _.get(data, '世界.稳定', 100)
 };
 
-// 2. 主角只读信息
-readonly.主角 = {
-  层级: displayLayer(data.主角),  // 形态激活且层级更高时展示形态层级
-  HP_MAX: data.主角.HP_MAX,
-  EP_MAX: data.主角.EP_MAX
+// 2. 角色只读信息
+readonly.角色 = {
+  层级: displayLayer(data.角色),  // 形态激活且层级更高时展示形态层级
+  HP_MAX: data.角色.HP_MAX,
+  EP_MAX: data.角色.EP_MAX
 };
-if (data.主角.最终属性) {
-  readonly.主角.最终属性 = _.cloneDeep(data.主角.最终属性);
-  delete readonly.主角.最终属性.DEF;  // 隐藏固定防御值，只暴露减伤率
-  delete readonly.主角.最终属性.MDEF;
+if (data.角色.最终属性) {
+  readonly.角色.最终属性 = _.cloneDeep(data.角色.最终属性);
+  delete readonly.角色.最终属性.DEF;  // 隐藏固定防御值，只暴露减伤率
+  delete readonly.角色.最终属性.MDEF;
 }
 
 // 3. 关系列表只读信息 (提取NPC的最终属性与生命上限)
@@ -104,6 +104,14 @@ if (!isCombat) {
   }
 }
 
+// 后台完整状态含未来计划、私有认知与传播真相，只向正文投影公开摘要。
+// 战斗中也保留这份短摘要，让已经发生的世界影响不会因界面过滤而消失。
+if (current.世界) {
+  delete current.世界.后台;
+  const worldDigest = _.get(data, '世界.后台.公开摘要', '');
+  if (!_.get(data, '系统状态.是否在主神空间', false) && worldDigest) readonly.世界.后台公开动态 = worldDigest;
+}
+
 // 世界超稳模式: 隐藏因果轨道偏移记录中的「影响程度」数值, 仅保留叙事性字段(描述/引发者)
 if (isStable && current.世界 && current.世界.因果轨道 && current.世界.因果轨道.偏移记录) {
   current.世界.因果轨道.偏移记录 = _.mapValues(
@@ -126,26 +134,26 @@ if (isOneWorld) {
   current.任务.副本成就 = _.mapValues(visibleAchievements, item => _.omit(item, ['奖励']));
 }
 
-// 4. 主角基础信息 (已将HP_MAX、EP_MAX和最终属性移入 readonly)
-current.主角 = {
-  种族: data.主角.种族,
-  身份: data.主角.身份,
-  职业: data.主角.职业,
-  空间币: data.主角.空间币,
-  HP: data.主角.HP,
-  THP: data.主角.THP || 0,
-  EP: data.主角.EP
+// 4. 角色基础信息 (已将HP_MAX、EP_MAX和最终属性移入 readonly)
+current.角色 = {
+  种族: data.角色.种族,
+  身份: data.角色.身份,
+  职业: data.角色.职业,
+  空间币: data.角色.空间币,
+  HP: data.角色.HP,
+  THP: data.角色.THP || 0,
+  EP: data.角色.EP
 };
 
 // --- 【核心逻辑 2】三段式物资视野剔除 ---
 if (!isCombat) {
-  const 道具 = _.cloneDeep(data.主角.道具 || {});
-  current.主角.道具 = _.transform(道具, (result, item, name) => {
+  const 道具 = _.cloneDeep(data.角色.道具 || {});
+  current.角色.道具 = _.transform(道具, (result, item, name) => {
     // 【状态2】：丢在空间仓库，全全局彻底屏蔽，节约海量Token
     if (item.状态 === 2) return;
     
     // 酒馆自带的简略显示配置
-    if (isBriefPath(`/主角/道具/${name}`)) {
+    if (isBriefPath(`/角色/道具/${name}`)) {
       result[name] = 简略显示占位;
       return;
     }
@@ -157,28 +165,28 @@ if (!isCombat) {
     };
   }, {});
   
-  if (_.isEmpty(current.主角.道具)) delete current.主角.道具;
+  if (_.isEmpty(current.角色.道具)) delete current.角色.道具;
 } else {
   // 战斗状态下，直接过滤出状态为 1 的战术栏道具
-  const 道具 = _.cloneDeep(data.主角.道具 || {});
+  const 道具 = _.cloneDeep(data.角色.道具 || {});
   const 快捷道具 = _.transform(道具, (result, item, name) => {
     if (item.状态 === 1) {
       result[name] = { ...item, 状态: "1 // [战术栏]" };
     }
   }, {});
   
-  if (!_.isEmpty(快捷道具)) current.主角.道具 = 快捷道具;
+  if (!_.isEmpty(快捷道具)) current.角色.道具 = 快捷道具;
 }
 
 // --- 【核心逻辑 3】战斗中屏蔽未穿戴装备 & 剥离装备属性 ---
-const 装备 = _.cloneDeep(data.主角.装备 || {});
-current.主角.装备 = _.transform(装备, (result, item, key) => {
+const 装备 = _.cloneDeep(data.角色.装备 || {});
+current.角色.装备 = _.transform(装备, (result, item, key) => {
   // 若在仓库中,则直接不显示
   if (item.状态 === 2) return;
   // 若在战斗中，且装备未穿戴（状态为0），直接丢弃不发给AI
   if (isCombat && item.状态 === 0) return;
 
-  if (isBriefPath(`/主角/装备/${key}`)) {
+  if (isBriefPath(`/角色/装备/${key}`)) {
     result[key] = 简略显示占位;
     return;
   }
@@ -195,35 +203,35 @@ current.主角.装备 = _.transform(装备, (result, item, key) => {
 }, {});
 
 // --- 技能 / 血统 / 状态 / 形态库 ---
-if (!_.isEmpty(data.主角.技能)) current.主角.技能 = data.主角.技能;
+if (!_.isEmpty(data.角色.技能)) current.角色.技能 = data.角色.技能;
 
 // 【核心修改】战斗中剥离血统的加成原始属性，防止AI重复计算
-if (!_.isEmpty(data.主角.血统)) {
+if (!_.isEmpty(data.角色.血统)) {
   if (isCombat) {
-    current.主角.血统 = _.mapValues(data.主角.血统, bloodline => _.omit(bloodline, ['原始属性']));
+    current.角色.血统 = _.mapValues(data.角色.血统, bloodline => _.omit(bloodline, ['原始属性']));
   } else {
-    current.主角.血统 = data.主角.血统;
+    current.角色.血统 = data.角色.血统;
   }
 }
 
 // 【核心修改】战斗中剥离状态的加成原始属性，防止AI重复计算
-if (!_.isEmpty(data.主角.状态)) {
+if (!_.isEmpty(data.角色.状态)) {
   if (isCombat) {
-    current.主角.状态 = _.mapValues(data.主角.状态, status => _.omit(status, ['原始属性']));
+    current.角色.状态 = _.mapValues(data.角色.状态, status => _.omit(status, ['原始属性']));
   } else {
-    current.主角.状态 = data.主角.状态;
+    current.角色.状态 = data.角色.状态;
   }
 }
 
 // --- 【核心逻辑 4】形态库动态战术遮蔽 ---
-if (!_.isEmpty(data.主角.形态库)) {
+if (!_.isEmpty(data.角色.形态库)) {
   if (!isCombat) {
     // 非战斗状态：全量展示所有形态，供日常管理、维护或查阅
-    current.主角.形态库 = data.主角.形态库;
+    current.角色.形态库 = data.角色.形态库;
   } else {
     // 战斗状态：展示简化的形态列表，全量展示激活的形态
-    current.主角.形态库 = _.transform(data.主角.形态库, (result, form, name) => {
-      const isActive = (isFormActive && data.主角.当前形态.名称 === name);
+    current.角色.形态库 = _.transform(data.角色.形态库, (result, form, name) => {
+      const isActive = (isFormActive && data.角色.当前形态.名称 === name);
       if (isActive) {
         const activeForm = _.cloneDeep(form);
         delete activeForm.原始属性; // 剥离原始属性防干扰
@@ -236,7 +244,7 @@ if (!_.isEmpty(data.主角.形态库)) {
   }
 }
 
-if (data.主角.当前形态) current.主角.当前形态 = data.主角.当前形态;
+if (data.角色.当前形态) current.角色.当前形态 = data.角色.当前形态;
 
 // 5. 关系列表 (NPC)
 const 关系 = data.关系列表 || {};
@@ -259,11 +267,11 @@ current.关系列表 = _.pickBy(_.mapValues(关系, (person, name) => {
       '在场', '种族', '身份', '层级', '性格', '好感度', '背景故事', '是否队友'
     ]);
   } else {
-    // 【在场展示】触发与主角完全一致的战术遮蔽协议
+    // 【在场展示】触发与角色完全一致的战术遮蔽协议
     const npcFormActive = _.get(copy, '当前形态.激活', false) === true;
     copy.层级 = displayLayer(copy);  // 形态激活且层级更高时展示形态层级
 
-    // --- 战斗与非战斗的动态遮蔽 (双分支, 对齐主角三段式协议) ---
+    // --- 战斗与非战斗的动态遮蔽 (双分支, 对齐角色三段式协议) ---
     if (isCombat) {
       // (1) NPC 道具: 战斗中仅保留战术栏(状态1), 剔除状态0随身与状态2仓库
       if (copy.道具) {
@@ -381,7 +389,7 @@ const _stripForbidden = (root, forbiddenKeys = ['真属性']) => {
     if (Array.isArray(v)) { v.forEach(walk); return; }
     if (v && typeof v === 'object') {
       for (const k of forbiddenKeys) delete v[k];
-      // 旧存档兼容：实体顶层「强化」已废弃；在后台迁移完成前仅从AI视野剔除，避免污染上下文。
+      // 仅隐藏实体顶层的强化计数，避免误删效果表中恰好名为“强化”的正常词条。
       if (Object.prototype.hasOwnProperty.call(v, '强化')
           && Object.prototype.hasOwnProperty.call(v, '效果')
           && (Object.prototype.hasOwnProperty.call(v, '品质') || Object.prototype.hasOwnProperty.call(v, '层级'))) {

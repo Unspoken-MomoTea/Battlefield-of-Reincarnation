@@ -102,17 +102,15 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const engine = new Engine(host); engine.config.enabled = true; engine.config.requireMacroBackbone = false; engine.config.retryAttempts = 0; engine.worldbook = async () => [];
         return {engine,get:()=>stat,writes:()=>writes,change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
     }
-    await test('model causal patches accept whole objects and normalize common 因校轨道 typo', () => {
-        const stat=fresh();
-        const patches=[
+    await test('model causal patches accept whole objects and normalize common 因校轨道 typo', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'修复因果轨道',patches:[
             {op:'replace',path:'/世界/因果轨道',value:{当前阶段:'爆发日',故事线:'撤离 -> 灾变 -> 崩溃',下一节点:'撤离',偏移记录:{}}},
             {op:'replace',path:'/世界/因校轨道/故事线',value:'撤离 -> 灾变 -> 崩溃'}
-        ];
-        const normalized=Engine.normalizeModelPatchesForTest(patches);
-        const next=applyPatches(stat,normalized);
-        assert.equal(next.世界.因果轨道.当前阶段,'爆发日');
-        assert.equal(next.世界.因果轨道.故事线,'撤离 -> 灾变 -> 崩溃');
-        assert.equal(next.世界.因果轨道.下一节点,'撤离');
+        ]}));
+        assert.equal(await x.engine.run(),true);
+        assert.equal(x.get().世界.因果轨道.当前阶段,'爆发日');
+        assert.equal(x.get().世界.因果轨道.故事线,'撤离 -> 灾变 -> 崩溃');
+        assert.equal(x.get().世界.因果轨道.下一节点,'撤离');
     });
     await test('macro-deficient model replies retry and only commit once a real backbone exists', async () => {
         let calls=0,inputs=[];

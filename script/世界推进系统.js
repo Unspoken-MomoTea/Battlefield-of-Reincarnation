@@ -320,15 +320,15 @@
     }
     function protocol() {
         return `返回 <world_update>{"summary":"简短说明本轮已确认变化与待确认事项","patches":[]}</world_update>，不得输出推理过程。
-补丁只用 add/replace/remove，路径为相对 stat_data 的 JSON Pointer，实例名中的 / 写成 ~1，~ 写成 ~0。add 设置对象成员（已有成员也可设置），replace 修改已有成员；整条记录必须完整。空输入或条件不成立可返回空数组。
-后台可写根：/世界/后台/{事件|人物|势力地区|历史|传播}/{稳定名称}。新记录一次给全字段，字段模板：${JSON.stringify(MODEL_RECORDS)}。
+补丁只用 add/replace/remove，路径为相对 stat_data 的 JSON Pointer，实例名中的 / 写成 ~1，~ 写成 ~0。add 设置对象成员（已有成员也可设置），replace 修改已有成员。后台整记录允许只提交本轮确认的字段，引擎会自动补缺省字段并与旧记录合并；可选明细数组中的单条对象仍需字段完整。空输入或条件不成立可返回空数组。
+后台可写根：/世界/后台/{事件|人物|势力地区|历史|传播}/{稳定名称}。记录字段模板：${JSON.stringify(MODEL_RECORDS)}。
 后台.剧本为旧档兼容只读，不得新增或更新。历史对模型只增不改不删；事件由模型通过状态结束，引擎会在记录过多时把无引用的已完成/已取消事件压缩进历史后回收。关联事件和前因必须指向实际存在的活动事件，前因不能循环。人物所属世界必须明确。
 公开摘要默认已存在，用 {"op":"replace","path":"/世界/后台/公开摘要","value":"本轮公开变化"} 更新，限5000字，仅包含已发生的公开影响与可见征兆，不能泄露隐藏计划。
 兼容投影允许：/世界/因果轨道/{当前阶段|故事线|下一节点}、/世界/因果轨道/偏移记录/{名}；/世界/{势力|探索}/{名}；/世界/异端雷达/名单/{名}；/传闻/{街头巷议|情报交易|布告与檄文}/{名}。记录完整字段模板：${JSON.stringify(EXISTING)}。
 已有势力/探索可修改单个字段。声望范围 -5000~10000，单次至多1000；探索度0~100，品质 F/E/D/C/B/A/S/SS/SSS。街头可信度仅酒话/可疑/或许可信。三类传闻各最多3条。异端层级Ⅰ~Ⅸ，状态遵循旧变量及世界书。
 关系仅允许修改既有 /关系列表/{名}/好感度，范围-100~100，单轮至多20。人物目标行动认知写后台.人物，不改人物战斗属性。
 任务仅允许修改既有 /任务/列表/{名}/状态 或 /任务/副本成就/{名}/状态；任务状态进行中/可交付/可结算/失败，成就未达成/已达成。禁止回退已达成成就。不得创建主神任务、晋升试炼或发放奖励。
-禁止修改世界时间、世界身份、系统状态、玩家属性、击杀计数、装备、货币、奖励。正文和现有变量已经确认的变化不要重复加算，尤其好感与声望。未来走向写后台事件，不能当作当前事实投影。`;
+禁止修改世界时间、世界身份、系统状态、玩家属性、击杀计数、装备、货币、奖励。不要输出 /系统状态/待播报记录、/世界/后台/运行记录、/世界/后台/最近变化、/世界/后台/已处理楼层、/世界/后台/已处理时间 或旧 /世界/后台/剧本 补丁，这些由程序维护。正文和现有变量已经确认的变化不要重复加算，尤其好感与声望。未来走向写后台事件，不能当作当前事实投影。`;
     }
     class SamsaraWorldEngine {
         constructor(host, env) {
@@ -458,6 +458,7 @@
                 const text=await terminal.request(request.system,request.input,{signal:this.controller.signal});
                 this.lastReply=String(text); this.lastFailure='';
                 const reply = parseReply(text);
+                reply.patches=sanitizeModelPatches(reply.patches);
                 const preparedBase=copy(base.stat);
                 preparedBase.世界[PATH]=Object.assign(emptyState(),preparedBase.世界[PATH]||{});
                 compactFinishedEvents(preparedBase);
@@ -472,10 +473,8 @@
                         throw new Error('到期事件未处理：'+due.名称+'。需启动事件，或记录本轮复核日期、阻碍条件与下次检查。');
                     }
                 }
-                for(const seed of request.seedPatches){
-                    const name=tokens(seed.path).at(-1),event=next.世界[PATH].事件[name];
-                    if(event.条件===seed.value.条件&&event.时间===seed.value.时间&&event.下次检查===seed.value.下次检查)throw new Error('主线节点尚未排程：'+name);
-                }
+                // 旧因果轨道只导入为安全骨架；若本轮资料不足，允许保持待发生，
+                // 后续由滚动时间轴逐步补充时间、条件和默认走向，不再拒绝整批结果。
                 reply.patches=request.seedPatches.concat(reply.patches);
                 // 沿用辅助计算脚本公式；后台提交不能额外消耗战斗轮次或状态持续时间。
                 if (!(next.设置 || {}).世界超稳) {

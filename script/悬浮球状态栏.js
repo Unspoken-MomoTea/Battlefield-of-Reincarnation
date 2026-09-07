@@ -3972,7 +3972,13 @@
         var cacheKey = endpoint + '|' + model;
         var wantsStructured = options.structured === 'auto' && options.schema;
         var cached = wantsStructured ? API_STRUCTURED_MODE_CACHE[cacheKey] : '';
-        var modes = wantsStructured ? (cached ? [cached] : ['json_schema','json_object','plain']) : ['plain'];
+        var modes = ['plain'];
+        if (wantsStructured) {
+            if (cached === 'json_schema') modes=['json_schema','json_object','plain'];
+            else if (cached === 'json_object') modes=['json_object','plain'];
+            else if (cached === 'plain') modes=['plain'];
+            else modes=['json_schema','json_object','plain'];
+        }
         var lastError = '';
 
         for (var mi=0; mi<modes.length; mi++) {

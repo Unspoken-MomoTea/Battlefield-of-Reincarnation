@@ -840,6 +840,10 @@
                 const rel=(s.关系列表||{})[name]||{};
                 return '<article class="'+(full?'we-card':'we-person')+'">'+(!full?'<div class="we-avatar">'+text(name.slice(0,1))+'</div>':'')+'<div><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(p.状态||(rel.在场?'在场':'场外'),'dim')+'</div><p>'+text(p.行动||p.公开动态||rel.态度||'尚无行动记录')+'</p><div class="we-meta"><span>⌖ '+text(p.地点||'地点未明')+'</span>'+(p.预计结束?'<span>至 '+text(dateLabel(p.预计结束))+'</span>':'')+'</div>'+(full?fields({目标:p.目标,当前时间段:[p.开始时间,p.预计结束].filter(Boolean).join(' → '),下次检查:p.下次检查,所属世界:p.所属世界,好感度:rel.好感度})+details('person-'+name,{行程:p.行程,认知:p.认知,认知来源:p.认知来源,登场条件:p.登场条件,关联事件:p.关联事件,更新时间:p.更新时间,人物背景:rel.背景故事},'行程 · 认知 · 关联事件'):'')+'</div></article>';
             };
+            const compactPerson=(name,p)=>{
+                const rel=(s.关系列表||{})[name]||{};
+                return '<button class="we-person-compact" data-person="'+text(name)+'" data-tab="角色管理"><span class="we-avatar">'+text(name.slice(0,1))+'</span><span class="we-person-copy"><strong>'+text(name)+'</strong><small>'+text(p.地点||'地点未明')+'</small><em>'+text(p.行动||p.公开动态||rel.态度||'暂无新动态')+'</em></span></button>';
+            };
             const eventCard=(name,e)=>'<article class="we-card"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div><div class="we-meta"><span>◷ '+text(e.时间||e.开始时间||'日期未定')+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,关联任务:e.关联任务,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
             const taskCard=(name,t)=>{
                 const linked=events.filter(([,e])=>(e.关联任务||[]).includes(name)),completed=['可结算','已达成'].includes(t.状态);
@@ -862,15 +866,29 @@
             const hero='<div class="we-hero"><div><div class="we-eyebrow">SAMSARA / WORLD ARCHIVE</div><h1>'+text(w.名称&&w.名称!=='待初始化'?w.名称:'世界尚未建立')+'</h1><div class="we-muted">'+text(w.地点||'地点待确认')+' · '+text(orbit.当前阶段&&orbit.当前阶段!=='待初始化'?orbit.当前阶段:'等待篇章开启')+'</div></div><div class="we-date">'+text(w.时间||'副本日期待确认')+'<small>累计游玩 '+text((s.系统状态||{}).游玩天数||0)+' 天 · '+(reason?'推进暂停':'副本进行中')+'</small></div></div>';
             let html=hero+(reason?'<div class="we-notice">'+text(reason)+'</div>':'')+(availabilityReason?'<div class="we-notice">'+text(availabilityReason)+'</div>':'');
             if(this.tab==='世界推进'){
-                const changes=(state.最近变化||[]).slice(-7).reverse();
+                const changes=(state.最近变化||[]).slice(-6).reverse();
                 const changeHtml=changes.map(c=>'<div class="we-change"><time>'+text(dateLabel(c.时间))+'</time><div><b>'+text(c.名称||c.类别)+' · '+text(c.操作)+'</b><p>'+text(c.内容||c.字段)+'</p></div></div>').join('');
                 const shown=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter)&&(!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate));
-                html+=section('世界动向',state.公开摘要?'<p>'+text(state.公开摘要)+'</p>':empty('尚无公开动态','推进成功后，这里的结果会提供给正文 AI。'));
-                html+='<div class="we-columns"><div>'+section('人物动态',people.size?Array.from(people).slice(0,6).map(([n,p])=>person(n,p)).join('')+'<button class="we-btn" data-tab="角色管理">全部人物 ›</button>':empty('暂无人物动态'))+
-                    '<div class="we-grid">'+section('近期变化',changeHtml||empty('本轮无变化记录'))+'</div></div><aside>'+
-                    section('活跃事件',(active.slice(0,3).map(([n,e])=>'<p><b>'+text(n)+'</b><br><small>'+text(e.时间||e.开始时间||'时间待确认')+'</small><br>'+text(e.公开征兆||e.描述)+'</p>').join('')||empty('暂无活跃事件'))+'<button class="we-btn" data-tab="任务与事件">全部事件 ›</button>')+
-                    section('任务进展',(tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态)).slice(0,3).map(([n,t])=>'<p><b>'+text(n)+'</b> '+pill(t.状态)+'<br>'+text(t.目标||t.说明||'')+'</p>').join('')||empty('暂无进行中任务'))+'<button class="we-btn" data-tab="任务与事件">全部任务 ›</button>')+'</aside></div>';
-                html+='<details class="we-section" data-detail="world-calendar"'+(opened.has('world-calendar')?' open':'')+'><summary>时间线与日历 · '+events.length+' 个事件 / '+future.length+' 个未来节点 / '+events.filter(([,e])=>e.分类==='宏观节点').length+' 个宏观节点</summary><div class="we-columns"><div>'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p>筛选日期：'+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(shown.map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的事件'))+'</div></div><aside>'+calendar()+'</aside></div></details>';
+                const runningTasks=tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态));
+                const macroCount=events.filter(([,e])=>e.分类==='宏观节点').length;
+                const nextNode=orbit.下一节点||future[0]?.[0]||active[0]?.[0]||'等待下一节点';
+                const nextEvent=events.find(([n])=>n===nextNode)?.[1]||{};
+                const compactPeople=Array.from(people).filter(([,p])=>p.行动||p.公开动态||p.地点).slice(0,4);
+                html+='<div class="we-kpi-grid">'
+                    +'<div class="we-kpi"><small>活动事件</small><strong>'+active.length+'</strong><span>'+future.length+' 个待发生</span></div>'
+                    +'<div class="we-kpi"><small>宏观节点</small><strong>'+macroCount+'</strong><span>'+text(orbit.当前阶段||'阶段待确认')+'</span></div>'
+                    +'<div class="we-kpi"><small>任务推进</small><strong>'+runningTasks.length+'</strong><span>'+tasks.length+' 个任务记录</span></div>'
+                    +'<div class="we-kpi"><small>场外人物</small><strong>'+people.size+'</strong><span>只统计 NPC</span></div>'
+                    +'</div>';
+                html+='<div class="we-dashboard"><div class="we-command-main">'
+                    +section('世界动向',state.公开摘要?'<div class="we-pulse"><span class="we-pulse-mark">LIVE</span><p>'+text(state.公开摘要)+'</p></div>':empty('尚无公开动态','推进成功后，这里的结果会提供给正文 AI。'),'本轮可见变化')
+                    +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>时间线与日历</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p class="we-date-filter">筛选 '+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(shown.slice(0,12).map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的事件'))+'</div>'+(shown.length>12?'<p class="we-muted">当前仅展示前 12 个匹配节点，可用筛选缩小范围。</p>':'')+'</div></div></section>'
+                    +section('近期变化',changeHtml||empty('本轮无变化记录'),'最近一次成功推进')
+                    +'</div><aside class="we-command-side">'
+                    +section('下一关键节点','<div class="we-next-node"><span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent.公开征兆||nextEvent.描述||'等待事件图进一步确认')+'</p><small>'+text(nextEvent.时间||nextEvent.开始时间||'时间待确认')+'</small></div></div>','因果轨道')
+                    +section('任务进展',(runningTasks.slice(0,3).map(([n,t])=>'<button class="we-brief-row" data-tab="任务与事件"><b>'+text(n)+'</b>'+pill(t.状态||'进行中','future')+'<span>'+text(t.目标||t.说明||'')+'</span></button>').join('')||empty('暂无进行中任务')),'优先显示进行中 / 可交付')
+                    +section('人物动态',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'只显示重点 NPC')
+                    +'</aside></div>';
             }else if(this.tab==='角色管理'){
                 const list=Array.from(people).filter(([n,p])=>matched(n,p)&&((this.filter||'全部')==='全部'||(this.filter==='在场'?!!(s.关系列表||{})[n]?.在场:!(s.关系列表||{})[n]?.在场)));
                 const chosen=list.find(([n])=>n===this.selectedPerson)||list[0];
@@ -881,13 +899,11 @@
                 entries(w.探索).forEach(([name,r])=>{if(!records.has(name))records.set(name,{...r,类型:'地区'});});
                 const all=Array.from(records),areas=all.filter(([,r])=>r.类型!=='势力'),factions=all.filter(([,r])=>r.类型==='势力');
                 const selected=factions.find(([n])=>n===this.selectedFaction)||factions[0];
-                const dir=this.directoryTab||'地区';
-                const changes=all.flatMap(([name,r])=>(r.近期变化||[]).map(c=>'<div class="we-change"><time>'+text(c.时间)+'</time><div><b>'+text(name)+'</b><p>'+text(c.事实)+'</p></div></div>'));
-                html+=section('世界动向',changes.join('')||empty('本轮没有已发生的势力或地区变化'));
-                html+=section('名录','<div class="we-tools">'+['地区','热点','势力关系'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+t+'</button>').join('')+'</div>'+
-                    (dir==='地区'?areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.控制方||'控制权未明')+'</summary>'+fields({描述:r.描述,控制方:r.控制方,争夺方:r.争夺方,探索度:r.探索度,环境:r.环境状态})+'</details>').join(''):
+                const dir=this.directoryTab||'探索';
+                html+=section('探索名录','<div class="we-tools">'+['探索','热点','势力'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+t+'</button>').join('')+'</div>'+
+                    (dir==='探索'?areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.控制方||'控制权未明')+'</summary>'+fields({描述:r.描述,控制方:r.控制方,争夺方:r.争夺方,探索度:r.探索度,环境:r.环境状态})+'</details>').join(''):
                     dir==='热点'?events.filter(([,e])=>e.状态==='进行中').map(([n,e])=>eventCard(n,e)).join(''):
-                    areas.map(([n,r])=>'<p>'+text(n)+' ← '+text(r.控制方||'未确认')+(r.争夺方?.length?' ／ 争夺：'+text(r.争夺方.join('、')):'')+'</p>').join(''))||empty('暂无名录记录'));
+                    factions.map(([n,r])=>'<button class="we-brief-row" data-faction="'+text(n)+'"><b>'+text(n)+'</b><span>'+text(r.目标||r.描述||'目标未记录')+'</span></button>').join(''))||empty('暂无名录记录'));
                 html+='<div class="we-columns"><div>'+section('势力格局','<div class="we-grid">'+factions.map(([n,r])=>'<button class="we-card" data-faction="'+text(n)+'"><h3>'+text(n)+'</h3><p>'+text(r.目标||r.描述||'目标未记录')+'</p><small>'+text(r.领地||'领地未记录')+'</small></button>').join('')+'</div><p class="we-muted">只显示已知势力与控制关系，不推测未记录的联盟或敌对。</p>')+'</div><aside>'+section('势力档案',selected?'<h3>'+text(selected[0])+'</h3>'+fields(selected[1]):empty('本轮没有势力记录'))+'</aside></div>';
                 html+=section('各地情势',areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.进展||r.公开动态||r.描述||'情势待确认')+'</summary>'+fields(r)+'</details>').join('')||empty('本轮没有地区记录'));
             }else if(this.tab==='任务与事件'){

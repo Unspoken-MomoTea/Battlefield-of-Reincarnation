@@ -515,11 +515,11 @@
         properties:{
             摘要:{type:'string'},
             公开摘要:{type:'string'},
-            事件:{type:'array',maxItems:30,items:namedEntitySchema({...RECORDS.事件,...DETAILS.事件})},
-            人物:{type:'array',maxItems:25,items:namedEntitySchema({...RECORDS.人物,...DETAILS.人物})},
-            势力地区:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.势力地区,...DETAILS.势力地区})},
+            事件:{type:'array',maxItems:30,items:namedEntitySchema({...RECORDS.事件,...MODEL_DETAILS.事件})},
+            人物:{type:'array',maxItems:25,items:namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物})},
+            势力地区:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.势力地区,...MODEL_DETAILS.势力地区})},
             历史:{type:'array',maxItems:12,items:namedEntitySchema(RECORDS.历史,['更新','撤销本轮'])},
-            传播:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.传播,...DETAILS.传播},['更新','移除','撤销本轮'])},
+            传播:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.传播,...MODEL_DETAILS.传播},['更新','移除','撤销本轮'])},
             因果:{type:'object',additionalProperties:false,properties:{
                 当前阶段:{type:'string'},
                 宏观顺序:{type:'array',minItems:0,maxItems:5,items:{type:'string'}},
@@ -539,11 +539,11 @@
         }
     };
     function sampleForWorldResultList(key) {
-        if(key==='事件')return {...RECORDS.事件,...DETAILS.事件};
-        if(key==='人物')return {...RECORDS.人物,...DETAILS.人物};
-        if(key==='势力地区')return {...RECORDS.势力地区,...DETAILS.势力地区};
+        if(key==='事件')return {...RECORDS.事件,...MODEL_DETAILS.事件};
+        if(key==='人物')return {...RECORDS.人物,...MODEL_DETAILS.人物};
+        if(key==='势力地区')return {...RECORDS.势力地区,...MODEL_DETAILS.势力地区};
         if(key==='历史')return RECORDS.历史;
-        if(key==='传播')return {...RECORDS.传播,...DETAILS.传播};
+        if(key==='传播')return {...RECORDS.传播,...MODEL_DETAILS.传播};
         if(key==='势力')return EXISTING.势力;
         if(key==='探索')return EXISTING.探索;
         if(key==='异端')return EXISTING.名单;
@@ -650,10 +650,10 @@
             patches.push({op:old===undefined?'add':'replace',path:pointer(actual),value:record});
         };
         if(Object.hasOwn(result,'公开摘要'))patches.push({op:'replace',path:'/世界/后台/公开摘要',value:result.公开摘要});
-        for(const item of result.事件)addEntity(['世界',PATH,'事件',item.名称],item,{...RECORDS.事件,...DETAILS.事件},{event:true});
-        for(const item of result.人物)addEntity(['世界',PATH,'人物',item.名称],item,{...RECORDS.人物,...DETAILS.人物},{person:true});
-        for(const item of result.势力地区)addEntity(['世界',PATH,'势力地区',item.名称],item,{...RECORDS.势力地区,...DETAILS.势力地区});
-        for(const item of result.传播)addEntity(['世界',PATH,'传播',item.名称],item,{...RECORDS.传播,...DETAILS.传播},{removable:true});
+        for(const item of result.事件)addEntity(['世界',PATH,'事件',item.名称],item,{...RECORDS.事件,...MODEL_DETAILS.事件},{event:true});
+        for(const item of result.人物)addEntity(['世界',PATH,'人物',item.名称],item,{...RECORDS.人物,...MODEL_DETAILS.人物},{person:true});
+        for(const item of result.势力地区)addEntity(['世界',PATH,'势力地区',item.名称],item,{...RECORDS.势力地区,...MODEL_DETAILS.势力地区});
+        for(const item of result.传播)addEntity(['世界',PATH,'传播',item.名称],item,{...RECORDS.传播,...MODEL_DETAILS.传播},{removable:true});
         for(const item of result.历史){
             if(item.操作==='撤销本轮')continue;
             let name=item.名称,parts=['世界',PATH,'历史',name],record=resultFields(item,RECORDS.历史);

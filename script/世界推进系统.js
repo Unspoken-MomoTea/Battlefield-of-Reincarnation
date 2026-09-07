@@ -446,6 +446,7 @@
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
             this.config = { enabled:false, preset:DEFAULT_PRESET };
             try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
+            this.config.preset=ensurePresetStructure(this.config.preset);
         }
         fn(name) {
             for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
@@ -480,8 +481,9 @@
         saveConfig() { this.host.localStorage.setItem(CONFIG,JSON.stringify(this.config)); }
         setPreset(text) {
             if (typeof text !== 'string' || text.length > 30000) throw new Error('预设限30000字');
-            this.config.preset = text; this.saveConfig();
+            this.config.preset = ensurePresetStructure(text); this.saveConfig();
         }
+        isEnabled() { return !!this.config.enabled; }
         setEnabled(value) { this.config.enabled = !!value; this.saveConfig(); if (!value) this.cancel(); this.render(); }
         cancel() { ++this.generation; this.pending = false; clearTimeout(this.timer); if (this.controller) this.controller.abort(); }
         async catalogue() {
@@ -536,7 +538,7 @@
             const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
             const timeline=timelineState(state);
             const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,时间线调度:timeline,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。'},null,2);
-            const system=this.config.preset+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(MODEL_DETAILS)+'\n【节点调度】后台.事件是唯一调度图，旧因果轨道只作为兼容导入与宏观投影。若“时间线调度.需要初始化”为真，先依据世界书和当前时间锚点建立当前活动层、近期规划层、宏观锚点层；优先重用并重新分类已有事件，不重复创建同名节点；不能确认的历史或未来不要编造。若“需要补充远期”为真，在资料足够时维持至少3个有依据的远期宏观节点；“需要展开的宏观节点”接近当前时间时拆成更具体的近期事件并保持前因关系。非公历、作品内纪年或“第X夜”等时间按世界书语义比较，并逐项复核“需语义复核节点”，禁止强行换算成虚构公历。每轮复核到期事件、人物行程、语义时间节点和即将展开的宏观节点。时间到且条件成立就启动，已有结果才完成；未满足条件记录真实阻碍和下次检查，禁止无依据顺延。事件后果联动场外人物、势力地区、传播以及已有任务状态。后台.剧本不再参与调度。';
+            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(MODEL_DETAILS)+'\n【节点调度】后台.事件是唯一调度图，旧因果轨道只作为兼容导入与宏观投影。若“时间线调度.需要初始化”为真，先依据世界书和当前时间锚点建立当前活动层、近期规划层、宏观锚点层；优先重用并重新分类已有事件，不重复创建同名节点；不能确认的历史或未来不要编造。若“需要补充远期”为真，在资料足够时维持至少3个有依据的远期宏观节点；“需要展开的宏观节点”接近当前时间时拆成更具体的近期事件并保持前因关系。非公历、作品内纪年或“第X夜”等时间按世界书语义比较，并逐项复核“需语义复核节点”，禁止强行换算成虚构公历。每轮复核到期事件、人物行程、语义时间节点和即将展开的宏观节点。时间到且条件成立就启动，已有结果才完成；未满足条件记录真实阻碍和下次检查，禁止无依据顺延。事件后果联动场外人物、势力地区、传播以及已有任务状态。后台.剧本不再参与调度。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
             return {system,input,seedPatches,due,manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),请求字符数:system.length+input.length}};
         }
@@ -726,7 +728,7 @@
                 else if(a==='enabled')this.setEnabled(!this.config.enabled);
                 else if(a==='cancel'){this.cancel();this.status='已请求停止';this.render();}
                 else if(a==='save'){
-                    this.setPreset(Array.from(this.panel.querySelectorAll('[data-segment]')).map(e=>e.value).join('\n'));
+                    this.setPreset(Array.from(this.panel.querySelectorAll('[data-segment]')).map(e=>e.dataset.title?'【'+e.dataset.title+'】\n'+e.value:e.value).join('\n'));
                     this.config.contextTurns=Math.max(1,Math.min(100,Number(this.panel.querySelector('[data-floors]').value)||6));
                     this.config.activationMode=this.panel.querySelector('[data-activation]').value;
                     if(this.bookCatalogue)this.config.selectedEntries=Array.from(this.panel.querySelectorAll('[data-book]:checked')).map(e=>e.value);
@@ -860,7 +862,7 @@
                         const report=(this.readReport||[]).find(r=>r.世界书===e.book&&r.条目ID===e.id);
                         return '<label class="we-book-row"><input type="checkbox" data-book value="'+text(JSON.stringify([e.book,e.id]))+'" '+(selected(e)?'checked':'')+' '+(e.technical?'disabled':'')+'><span class="we-lamp '+(e.technical?'gray':e.mode==='constant'?'blue':e.mode==='selective'?'green':'gray')+'" title="'+text(e.technical?'技术条目 · 已隔离':e.mode==='constant'?'蓝灯 · 常驻':e.mode==='selective'?'绿灯 · 关键词触发':'其他激活方式')+'"></span><span class="we-book-title"><b>'+text(e.title)+'</b><small>'+text(e.technical?'技术条目 · 世界引擎不读取':(e.mode==='constant'?'常驻':e.mode==='selective'?'关键词：'+(Array.isArray(e.keys)?e.keys.map(k=>typeof k==='string'?k:'正则条件').join('、'):e.keys):e.mode)+(e.enabled?'':' · 已禁用'))+'</small></span><small class="we-read-state">'+text(report?'上次检查：'+report.原因:e.technical?'固定隔离':'尚未检查')+'</small></label>';
                     }).join('')+'</div></details>').join(''):empty('尚未加载目录','点击加载；预览会按已保存设置实际读取，并报告命中或跳过原因。')));
-                html+=section('分段提示词',this.config.preset.split(/\n(?=【)/).map((part,i)=>'<details data-detail="preset-'+i+'"><summary>'+text((part.match(/^【([^】]+)】/)||[])[1]||'身份与总则')+' · '+part.length+' 字</summary><textarea data-segment="'+i+'" aria-label="预设分段 '+i+'">'+text(part)+'</textarea></details>').join(''));
+                html+=section('分段提示词',splitPresetSegments(this.config.preset).map((part,i)=>'<details data-detail="preset-'+i+'"><summary>'+text(part.title||'身份与总则')+' · '+part.body.length+' 字</summary><textarea data-segment="'+i+'" data-title="'+text(part.title)+'" aria-label="预设分段 '+i+'">'+text(part.body)+'</textarea></details>').join('')+'<p class="we-muted">分段标题是结构锚点，由系统固定保存；你只编辑正文。即使某段正文被清空，核心约束仍会单独注入，不会让调度结构失效。</p>');
                 html+='<div class="we-tools"><button class="we-btn we-primary" data-action="save">保存预设与范围</button><button class="we-btn" data-action="preview">预览下一次请求</button></div>';
             }else if(this.tab==='请求检查'){
                 const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';

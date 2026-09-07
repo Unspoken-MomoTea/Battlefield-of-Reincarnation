@@ -303,7 +303,7 @@
       .gq-grade.g-SS { color:#ef4444; border-color:#ef4444; background:rgba(239,68,68,0.18); text-shadow:0 0 5px rgba(239,68,68,0.6); }
       .gq-grade.g-SSS { color:#ec4899; border-color:#ec4899; background:rgba(236,72,153,0.2); text-shadow:0 0 6px rgba(236,72,153,0.7); box-shadow:0 0 7px rgba(236,72,153,0.4); }
 
-      .gq-grade.hero {
+      .gq-grade.reincarnator {
         min-width: 46px;
         font-size: 1.2em;
         padding: 3px 12px;
@@ -961,7 +961,7 @@
             const g = s.toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)/);
             const roman = s.replace(/[（(][^）)]*[）)]/g, '').trim() || s;
             if (g) {
-              return '<span class="gq-grade g-' + g[1] + ' hero">位格 ' + escapeHtml(roman) + '</span>';
+              return '<span class="gq-grade g-' + g[1] + ' reincarnator">位格 ' + escapeHtml(roman) + '</span>';
             }
             return '<span class="gq-rank-badge">位格 ' + escapeHtml(s) + '</span>';
           }

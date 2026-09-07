@@ -23,19 +23,26 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.throws(() => applyPatches(fresh(),[add('/世界/后台/事件/A',{...RECORDS.事件,前因:['B']})]),/不存在/);
         assert.throws(() => applyPatches(fresh(),[add('/世界/后台/事件/A',{...RECORDS.事件,前因:['B']}),add('/世界/后台/事件/B',{...RECORDS.事件,前因:['A']})]),/循环/);
     });
-    await test('detailed schedules and commitments coexist with old records and reject malformed entries', () => {
+    await test('backend records accept partial model objects while preserving strict detail shapes', () => {
         const stat=fresh();
-        const person={...RECORDS.人物,所属世界:'测试世界',行程:[{开始:'2026年9月7日',结束:'2026年9月8日',地点:'城门',行动:'调查',状态:'计划中',结果:''}],承诺:[{对象:'商会',内容:'调查商路',期限:'2026年9月8日',解除条件:''}],认知来源:[{事实:'商路受阻',来源:'车夫',获知时间:'2026年9月7日',状态:'待核实'}]};
-        const next=applyPatches(stat,[add('/世界/后台/人物/卫兵',person)]);
-        assert.equal(next.世界.后台.人物.卫兵.行程[0].行动,'调查');
-        assert.throws(()=>applyPatches(stat,[add('/世界/后台/人物/卫兵',{...person,行程:[{行动:'缺少日期及其他字段'}]})]),/完整/);
-        assert.doesNotThrow(()=>applyPatches(stat,[add('/世界/后台/人物/旧人物',RECORDS.人物)]));
+        const partial={所属世界:'测试世界',地点:'城门',行动:'调查'};
+        const next=applyPatches(stat,[add('/世界/后台/人物/卫兵',partial)]);
+        assert.equal(next.世界.后台.人物.卫兵.行动,'调查');
+        assert.equal(next.世界.后台.人物.卫兵.公开动态,'');
+        assert.deepEqual(next.世界.后台.人物.卫兵.关联事件,[]);
+        const updated=applyPatches(next,[add('/世界/后台/人物/卫兵',{行动:'返回哨所'})]);
+        assert.equal(updated.世界.后台.人物.卫兵.所属世界,'测试世界');
+        assert.equal(updated.世界.后台.人物.卫兵.地点,'城门');
+        assert.equal(updated.世界.后台.人物.卫兵.行动,'返回哨所');
+        assert.throws(()=>applyPatches(stat,[add('/世界/后台/人物/卫兵',{所属世界:'测试世界',行程:[{行动:'缺少日期及其他字段'}]})]),/完整/);
     });
-    await test('history immutable, dangerous paths rejected, record schema complete', () => {
+    await test('history immutable, dangerous paths rejected, partial records normalized', () => {
         const stat = fresh(); stat.世界.后台.历史.旧事 = {...RECORDS.历史};
         assert.throws(() => applyPatches(stat,[{op:'replace',path:'/世界/后台/历史/旧事',value:RECORDS.历史}]),/只允许新增/);
         assert.throws(() => applyPatches(stat,[add('/世界/后台/事件/__proto__',RECORDS.事件)]),/非法/);
-        assert.throws(() => applyPatches(stat,[add('/世界/后台/事件/空',{})]),/完整/);
+        const next=applyPatches(stat,[add('/世界/后台/事件/空',{描述:'待调查事件'})]);
+        assert.equal(next.世界.后台.事件.空.描述,'待调查事件');
+        assert.equal(next.世界.后台.事件.空.状态,'待发生');
     });
     await test('world stable mode, both clocks, awards and achievement rollback protected', () => {
         const stat = fresh(); stat.设置.世界超稳 = true; stat.任务.副本成就.发现.状态 = '已达成';
@@ -126,6 +133,20 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(Object.keys(state.历史).some(name=>name.startsWith('归档·旧事件')));
         assert.equal(state.事件.旧事件0,undefined);assert.deepEqual(state.剧本.旧剧本.关联事件,['旧事件0']);
     });
+    await test('engine-owned and legacy paths from model replies are ignored instead of aborting the whole run', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'正常推进',patches:[
+            add('/系统状态/待播报记录','不应由世界引擎写入'),
+            add('/世界/后台/运行记录',[{时间:'伪造'}]),
+            add('/世界/后台/剧本/旧节点',{描述:'旧模型误写'}),
+            add('/世界/后台/人物/卫兵',{所属世界:'测试世界',行动:'继续巡逻'})
+        ]}));
+        assert.equal(await x.engine.run(),true);
+        assert.equal(x.writes(),1);
+        assert.equal(x.get().系统状态.待播报记录,undefined);
+        assert.equal(x.get().世界.后台.运行记录.length,1);
+        assert.equal(x.get().世界.后台.剧本.旧节点,undefined);
+        assert.equal(x.get().世界.后台.人物.卫兵.公开动态,'');
+    });
     await test('reply wrappers are accepted without repairing malformed JSON or unsafe writes', () => {
         assert.equal(parseReply('这是结果：\n'+JSON.stringify({summary:'正常',patches:[]})+'\n结束').summary,'正常');
         assert.throws(()=>parseReply('{"summary":"破损","patches":[}'),/无法解析/);
@@ -140,14 +161,16 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(x.writes(),0);
         assert.equal(x.get().世界.后台.事件.到期.状态,'待发生');
     });
-    await test('explicit old storyline is offered as editable events, never committed without scheduling', async () => {
-        const x=setup(async()=>JSON.stringify({summary:'无变化',patches:[]}));
+    await test('explicit old storyline imports as safe skeleton events without forcing same-run scheduling', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'先建立主线骨架',patches:[]}));
         x.change(s=>s.世界.因果轨道={故事线:'调查 → 封锁 → 援军',下一节点:'封锁',偏移记录:{}});
         const r=await x.engine.buildRequest(x.engine.snapshot());
         assert.deepEqual(r.manifest.导入节点,['封锁','援军']);
         assert.equal(JSON.parse(r.input).当前变量.世界.后台.事件.援军.前因[0],'封锁');
-        await assert.rejects(()=>x.engine.run(),/尚未排程/);
-        assert.equal(x.writes(),0);
+        assert.equal(await x.engine.run(),true);
+        assert.equal(x.writes(),1);
+        assert.equal(x.get().世界.后台.事件.封锁.状态,'待发生');
+        assert.equal(x.get().世界.后台.事件.援军.状态,'待发生');
     });
     await test('recent changes carry actual story dates and readable entity names', async () => {
         const x=setup(async()=>JSON.stringify({summary:'卫兵开始调查',patches:[add('/世界/后台/人物/卫兵',{...RECORDS.人物,行动:'调查商路'})]}));

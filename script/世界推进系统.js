@@ -446,15 +446,19 @@
         if(error?.name==='AbortError')return false;
         return true;
     }
-    function retryInput(baseInput,error,lastReply,attempt,maxRetries) {
+    function retryInput(baseInput,error,lastReply,attempt,maxRetries,acceptedResult) {
         let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
         payload.纠错重试={
             当前重试:attempt,
             最大重试次数:maxRetries,
             上次拒绝原因:String(error?.message||error||''),
             上次模型回复:String(lastReply||'').slice(-12000),
-            要求:'重新输出完整 <world_update>。保留已确认事实，只修正导致拒绝的路径、结构、字段、因果关系或宏观事件缺失；不要解释错误。'
+            已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
+            要求:acceptedResult
+                ?'只补充或修正导致拒绝的业务片段。已接受业务结果默认保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。'
+                :'修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。'
         };
+        if(payload.纠错重试.已接受业务结果===undefined)delete payload.纠错重试.已接受业务结果;
         return JSON.stringify(payload,null,2);
     }
     // 仅允许世界叙事字段；数值属性、货币、奖励发放和时钟不在写入名单内。

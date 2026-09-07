@@ -336,6 +336,11 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(sourceText,/data-retries/);
         assert.match(sourceText,/失败重试次数/);
     });
+    await test('request inspection names business/compiler correction instead of model patches', () => {
+        const sourceText=fs.readFileSync(file,'utf8');
+        assert.match(sourceText,/只纠正 WorldResult 业务结果\/编译校验/);
+        assert.doesNotMatch(sourceText,/只纠正模型回复\/补丁/);
+    });
     await test('master switch off blocks manual world progression', async () => {
         let calls=0;
         const x=setup(async()=>{calls++;return JSON.stringify({summary:'不应执行',patches:[]});});

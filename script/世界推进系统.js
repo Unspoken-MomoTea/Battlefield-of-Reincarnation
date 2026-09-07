@@ -165,6 +165,16 @@
         }
         return out;
     }
+    function normalizeBackendState(stat) {
+        const state=stat?.世界?.[PATH]; if(!state)return stat;
+        for(const category of Object.keys(RECORDS)){
+            if(!plain(state[category]))state[category]={};
+            for(const [name,value] of Object.entries(state[category])){
+                if(plain(value))state[category][name]=normalizeBackendRecord(category,value);
+            }
+        }
+        return stat;
+    }
     const MODEL_IGNORED_PATHS = [
         /^\/系统状态\/待播报记录$/,
         /^\/世界\/后台\/(?:版本|已处理楼层|已处理时间|运行记录|最近变化)(?:\/|$)/,
@@ -246,6 +256,7 @@
         if (!Array.isArray(patches) || patches.length > 100) throw new Error('每轮最多 100 条补丁');
         const next = copy(stat);
         next.世界[PATH] = Object.assign(emptyState(), next.世界[PATH] || {});
+        normalizeBackendState(next);
         for (const patch of patches) {
             if (!plain(patch) || !['add','replace','remove'].includes(patch.op)) throw new Error('不支持的补丁操作');
             const p = tokens(patch.path);
@@ -408,6 +419,7 @@
         async buildRequest(base) {
             const state=copy(base.stat);
             state.世界[PATH]=Object.assign(emptyState(),state.世界[PATH]||{});
+            normalizeBackendState(state);
             compactFinishedEvents(state);
             const seedPatches=importStory(state);
             for(const patch of seedPatches)state.世界[PATH].事件[tokens(patch.path).at(-1)]=patch.value;

@@ -35,7 +35,7 @@
         const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
         return (+m[1]*372 + +m[2]*31 + +m[3])*24+(part?hour[part[0]]:0);
     }
-    const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的旧状态、世界书设定及本轮实际剧情为依据，统一处理六个模块：
+    const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的已确认状态、本轮实际剧情、模型已有的世界/原著知识，以及存在时可用的世界书补充设定为依据，统一处理六个模块：
 【世界推进】世界推进的首要职责是维护“宏观世界演进”，不是替正文重复每个细节。世界.因果轨道是3~5个宏观大事件的简明投影，后台.事件则是它的展开版调度图；事件分类固定使用“当前事件 / 近期节点 / 宏观节点”（旧存档兼容可暂留“主线节点”）。
 先建立宏观骨架：原著世界优先结合当前已确认事实与模型已有的原著知识，推导当前时间之后仍应存在的关键篇章转折、世界级灾难、战争/政权变化、基础设施级失效、关键人物命运与主角团重大迁移；世界书若存在则作为额外设定、同人差异和时间资料的补充校正，若没有世界书也必须正常推演。原创/衍生世界则依据当前世界法则、既有历史与势力格局推导宏观节点。
 再做区间桥接：确定“当前时间之后的下一个宏观节点”，只把当前时间 → 该宏观节点之间需要实际发生的内容展开为当前事件与近期节点；角色管理、势力变化、探索线索、传闻传播均服务于这段区间。下一个宏观节点之后的内容保持宏观锚点，不提前拆成大量琐碎行动。到达宏观边界后，再滚动展开下一段。过去事实约束未来，未来计划不得记成已发生事实。
@@ -572,9 +572,9 @@
             const namesFn=this.fn('getCharWorldbookNames'),get=this.fn('getWorldbook');
             // 世界书只是可选补充资料。无限流世界即使没有绑定世界书，也必须能依靠模型已有知识完成宏观推演。
             if(!namesFn||!get) return [];
-            const names=await namesFn('current'), result=[];
+            const names=await namesFn('current')||{}, result=[];
             for(const book of [...new Set([names.primary,...(names.additional||[])].filter(Boolean))]){
-                const entries=await get(book);
+                const entries=await get(book)||[];
                 entries.forEach((e,i)=>{const title=e.name||e.comment||'未命名';result.push({book,id:String(e.uid??e.id??i),title,technical:isTechnicalBook(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),keys:e.strategy?.keys||e.keys||e.key||[],secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},content:e.content||''});});
             }
             return result;

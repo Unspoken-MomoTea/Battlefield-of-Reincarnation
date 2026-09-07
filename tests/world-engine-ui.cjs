@@ -34,9 +34,14 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  await page.locator('[data-action="clear-date"]').click();
  await page.locator('nav [data-tab="角色管理"]').click();await page.locator('summary').first().click();
  assert.equal(await page.getByRole('heading',{name:'异端档案',exact:true}).count(),0);
- await page.getByText('日落前提交第一份报告',{exact:true}).first().waitFor();
+ assert.equal(await page.getByRole('heading',{name:'承诺',exact:true}).count(),0);
+ assert.equal(await page.getByRole('heading',{name:'抉择',exact:true}).count(),0);
+ assert.equal(await page.getByRole('heading',{name:'交际圈',exact:true}).count(),0);
+ assert.equal(await page.getByText('日落前提交第一份报告',{exact:true}).count(),0);
  await page.screenshot({path:path.join(out,'world-people.png')});
- for(const tab of ['势力与地区','任务与剧本','传闻','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
+ for(const tab of ['势力与地区','任务与事件','传闻','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
+ await page.locator('[data-tab="任务与事件"]').click();
+ assert.equal(await page.getByRole('heading',{name:'剧本与阶段',exact:true}).count(),0);
  await page.locator('[data-tab="世界推进"]').click();await page.setViewportSize({width:390,height:844});
  await page.screenshot({path:path.join(out,'world-mobile.png')});
  assert.equal(await page.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
@@ -48,12 +53,13 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  assert.equal(await page.locator('#sam-world-engine main').evaluate(el=>el.clientHeight>60),true,'宿主全局样式不能压扁独立面板');
  await page.evaluate(()=>{
    window.getCharWorldbookNames=()=>({primary:'测试世界书',additional:[]});
-   window.getWorldbook=()=>[{uid:1,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:2,name:'禁用条目',content:'不得默认读取',enabled:false}];
+   window.getWorldbook=()=>[{uid:1,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:2,name:'禁用条目',content:'不得默认读取',enabled:false},{uid:3,name:'[variables]当前变量',content:'技术投影',enabled:true}];
  });
  await page.locator('[data-tab="提示词预设"]').click();
  await page.locator('[data-action="books"]').click();
  await page.locator('[data-book]').first().waitFor();
  assert.equal(await page.locator('[data-book]:checked').count(),1);
+ assert.equal(await page.locator('[data-book]:disabled').count(),1);
  await page.locator('[data-floors]').fill('3');
  await page.setViewportSize({width:1440,height:1080});
  await page.screenshot({path:path.join(out,'world-settings.png')});

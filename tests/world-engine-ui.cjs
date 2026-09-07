@@ -140,6 +140,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.locator('[data-tab="提示词预设"]').click();
  assert.equal(await page.locator('[data-segment][data-title="世界推进"]').count(),1);
  assert.equal(await page.locator('[data-segment][data-title="世界演进准则"]').count(),1);
+ assert.equal(await page.locator('[data-segment][data-title="质量评分"]').count(),1);
+ assert.equal(await page.locator('[data-segment][data-title="时间容量与信息边界"]').count(),1);
  assert.equal(await page.locator('[data-segment][data-title="因果轨道与偏移"]').count(),1);
  assert.equal(await page.locator('[data-segment][data-title="探索与势力"]').count(),1);
  assert.equal(await page.locator('[data-segment][data-title="势力与地区"]').count(),0);
@@ -162,9 +164,17 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.getByText('assistant · 第 1 层',{exact:true}).click();
  await page.getByText('车夫递来一封信。',{exact:true}).waitFor();
  const request=await page.evaluate(()=>Samsara.worldEngine.previewRequest);
- assert.equal(JSON.parse(request.input).世界书[0].名称,'无关键词条目');
- assert.equal(JSON.parse(request.input).世界书.length,1);
+ const requestPayload=JSON.parse(request.input);
+ assert.equal(requestPayload.世界书[0].名称,'无关键词条目');
+ assert.equal(requestPayload.世界书.length,1);
  assert.equal(request.manifest.正文楼层.length,1);
+ assert.equal(request.manifest.输出协议,'WorldResult v1');
+ assert.equal(request.schema.type,'object');
+ assert.equal(request.schema.properties.事件.type,'array');
+ assert.ok(requestPayload.输入语义.WorldResult);
+ assert.ok(requestPayload.本轮时间容量);
+ assert.equal(request.system.includes('路径为相对 stat_data'),false);
+ assert.equal(await page.getByText('输出契约 · JSON Schema',{exact:true}).count(),1);
  await page.setViewportSize({width:390,height:844});
  await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>window.restored),true);
  await page.evaluate(()=>{const e=Samsara.worldEngine;e.snapshot=()=>({stat:{世界:{名称:'待初始化',后台:{},因果轨道:{}},系统状态:{}}});e.open();});

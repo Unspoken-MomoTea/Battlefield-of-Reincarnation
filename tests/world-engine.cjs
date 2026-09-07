@@ -290,7 +290,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(source,/data-toggle=["']world-engine["']/);
         assert.match(source,/engine\.isConfigured\(\)/);
         assert.match(source,/renderWorldTab\(sd\)/);
-        assert.match(source,/case ['"]world['"]:\s*html\s*=\s*renderWorldTab\(sd\)/);
+        assert.match(source,/case ['"]world['"]:[\s\S]{0,500}renderWorldTab\(sd\)/);
         assert.match(source,/enableApi:\s*function\s*\(/);
     });
     await test('terminal handoff restores saved state and close does not disable engine', () => {

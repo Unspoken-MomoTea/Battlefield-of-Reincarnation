@@ -154,6 +154,26 @@
             } else if (typeof v !== typeof base) throw new Error('明细类型错误：'+key);
         }
     }
+    // LLM 常会只返回本轮实际变化的字段。后台整记录在安全边界内自动补默认值/合并旧值，
+    // 未知字段直接丢弃；可选明细若提供，仍按完整明细结构严格校验。
+    function normalizeBackendRecord(category,value,old) {
+        if(!plain(value)||!Object.hasOwn(RECORDS,category))return value;
+        const template=RECORDS[category],optional=DETAILS[category]||{};
+        const out=Object.assign(copy(template),plain(old)?copy(old):{});
+        for(const [key,item] of Object.entries(value)){
+            if(Object.hasOwn(template,key)||Object.hasOwn(optional,key))out[key]=copy(item);
+        }
+        return out;
+    }
+    const MODEL_IGNORED_PATHS = [
+        /^\/系统状态\/待播报记录$/,
+        /^\/世界\/后台\/(?:版本|已处理楼层|已处理时间|运行记录|最近变化)(?:\/|$)/,
+        /^\/世界\/后台\/剧本(?:\/|$)/
+    ];
+    function sanitizeModelPatches(patches) {
+        if(!Array.isArray(patches))return patches;
+        return patches.filter(p=>!(plain(p)&&typeof p.path==='string'&&MODEL_IGNORED_PATHS.some(rule=>rule.test(p.path))));
+    }
     // 仅允许世界叙事字段；数值属性、货币、奖励发放和时钟不在写入名单内。
     function allowed(parts, stat) {
         const [a,b,c,d] = parts;
@@ -235,15 +255,20 @@
             // 对象 add 按 JSON Patch 语义允许设置已有成员；历史仍只增不改。
             if (patch.op !== 'add' && old === undefined) throw new Error('目标不存在：' + patch.path);
             if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播'))) throw new Error('仅可移除过期传播与传闻，其他记录使用状态结束');
+            let value=patch.value;
             if (patch.op !== 'remove') {
-                if (patch.value === undefined) throw new Error('缺少补丁值');
+                if (value === undefined) throw new Error('缺少补丁值');
                 const category = p.length === 3 ? p[1] : p.length === 4 ? p[2] : '';
-                if (EXISTING[category]) checkRecord(patch.value, EXISTING[category]);
-                else if (old !== undefined && (typeof old !== typeof patch.value || Array.isArray(old) !== Array.isArray(patch.value))) throw new Error('字段类型发生改变');
-                if (typeof patch.value === 'number' && !Number.isFinite(patch.value)) throw new Error('数值无效');
-                if (p[0] === '世界' && p[1] === '因果轨道' && p.length === 3 && typeof patch.value !== 'string') throw new Error('因果摘要必须是文本');
-                if (p[0] === '任务' && p[1] === '副本成就' && old === '已达成' && patch.value !== old) throw new Error('不能回退已达成成就');
-                if (p[p.length-1] === '好感度' && Math.abs(patch.value - old) > 20) throw new Error('单轮好感变动超过20');
+                if(p[0]==='世界'&&p[1]===PATH&&p.length===4&&Object.hasOwn(RECORDS,category)){
+                    value=normalizeBackendRecord(category,value,old);
+                    checkRecord(value,RECORDS[category],DETAILS[category]);
+                    checkDetails(value,DETAILS[category]);
+                } else if (EXISTING[category]) checkRecord(value, EXISTING[category]);
+                else if (old !== undefined && (typeof old !== typeof value || Array.isArray(old) !== Array.isArray(value))) throw new Error('字段类型发生改变');
+                if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('数值无效');
+                if (p[0] === '世界' && p[1] === '因果轨道' && p.length === 3 && typeof value !== 'string') throw new Error('因果摘要必须是文本');
+                if (p[0] === '任务' && p[1] === '副本成就' && old === '已达成' && value !== old) throw new Error('不能回退已达成成就');
+                if (p[p.length-1] === '好感度' && Math.abs(value - old) > 20) throw new Error('单轮好感变动超过20');
             }
             let parent = next;
             for (const key of p.slice(0,-1)) {
@@ -251,7 +276,7 @@
                 if (!plain(parent[key])) throw new Error('父路径不是对象');
                 parent = parent[key];
             }
-            if (patch.op === 'remove') delete parent[p.at(-1)]; else parent[p.at(-1)] = copy(patch.value);
+            if (patch.op === 'remove') delete parent[p.at(-1)]; else parent[p.at(-1)] = copy(value);
         }
         validateState(next);
         for (const [name,item] of Object.entries(next.世界.势力 || {})) {

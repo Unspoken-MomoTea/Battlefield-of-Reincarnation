@@ -70,6 +70,8 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  assert.equal(await page.locator('[data-segment][data-title="世界推进"]').count(),1);
  assert.equal(await page.locator('[data-segment][data-title="世界演进准则"]').count(),1);
  assert.equal(await page.locator('[data-segment][data-title="因果轨道与偏移"]').count(),1);
+ assert.equal(await page.locator('[data-segment][data-title="探索与势力"]').count(),1);
+ assert.equal(await page.locator('[data-segment][data-title="势力与地区"]').count(),0);
  assert.equal((await page.locator('[data-segment][data-title="世界推进"]').inputValue()).includes('【世界推进】'),false);
 
  await page.locator('[data-action="books"]').click();

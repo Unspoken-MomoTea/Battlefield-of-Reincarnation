@@ -148,6 +148,19 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(calls,0);
         assert.equal(x.writes(),0);
     });
+    await test('an already-processed floor may self-repair when its macro backbone is still missing', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'补齐缺失宏观',patches:[
+            add('/世界/后台/事件/宏观A',{描述:'宏观A',分类:'宏观节点',状态:'待发生',时间:'2026年9月8日'}),
+            add('/世界/后台/事件/宏观B',{描述:'宏观B',分类:'宏观节点',状态:'待发生',时间:'2026年9月10日'}),
+            add('/世界/后台/事件/宏观C',{描述:'宏观C',分类:'宏观节点',状态:'待发生',时间:'2026年9月14日'})
+        ]}));
+        x.engine.config.requireMacroBackbone=true;x.engine.config.retryAttempts=0;
+        const fp=x.engine.snapshot().fingerprint;
+        x.change(s=>{s.世界.后台.已处理楼层=fp;s.世界.后台.已处理时间=s.世界.时间;});
+        assert.equal(await x.engine.run(),true);
+        assert.equal(x.writes(),1);
+        assert.equal(Object.values(x.get().世界.后台.事件).filter(e=>e.分类==='宏观节点').length,3);
+    });
     await test('successful run persists once; same floor cannot double award', async () => {
         let calls = 0;
         const x = setup(async () => {calls++;return '{"summary":"无变化","patches":[]}';});

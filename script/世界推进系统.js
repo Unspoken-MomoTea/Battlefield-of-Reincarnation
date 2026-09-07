@@ -1104,9 +1104,26 @@
                         this.lastReply=received;this.lastFailure='';
 
                         const reply=parseReply(received);
-                        reply.patches=sanitizeModelPatches(normalizeModelPatches(reply.patches));
-                        const modelPatches=reply.patches;
-                        let sourceStat=base.stat;
+                        let legacyPatches=[];
+                        if(reply.kind==='world_result'){
+                            acceptedWorldResult=mergeWorldResults(acceptedWorldResult,reply.worldResult);
+                            reply.summary=acceptedWorldResult.摘要||reply.summary;
+                        } else {
+                            legacyPatches=sanitizeModelPatches(normalizeModelPatches(reply.patches));
+                        }
+                        const compileFor=sourceStat=>{
+                            const patches=[],warnings=[];
+                            if(acceptedWorldResult){
+                                const compiled=compileWorldResult(sourceStat,acceptedWorldResult);
+                                patches.push(...compiled.patches);warnings.push(...compiled.warnings);
+                            }
+                            if(legacyPatches.length)patches.push(...legacyPatches);
+                            return {patches,warnings};
+                        };
+                        let sourceStat=base.stat,compiled=compileFor(sourceStat),modelPatches=compiled.patches;
+                        this.lastWorldResult=acceptedWorldResult?copy(acceptedWorldResult):null;
+                        this.lastCompiledPatches=copy(modelPatches);
+                        this.lastCompileWarnings=copy(compiled.warnings);
                         let built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
                         let next=built.next;
                         ensureDueHandled(next,request.due,base.stat.世界.时间);
@@ -1118,6 +1135,9 @@
 
                         if(!same(current.stat,base.stat)){
                             sourceStat=current.stat;
+                            compiled=compileFor(sourceStat);modelPatches=compiled.patches;
+                            this.lastCompiledPatches=copy(modelPatches);
+                            this.lastCompileWarnings=copy(compiled.warnings);
                             built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
                             next=built.next;
                             ensureDueHandled(next,request.due,base.stat.世界.时间);

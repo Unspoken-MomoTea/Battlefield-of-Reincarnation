@@ -64,7 +64,7 @@
     function collectEventRefs(state) {
         const refs=new Set();
         for(const event of Object.values(state.事件||{}))for(const id of event.前因||[])refs.add(id);
-        for(const category of ['人物','势力地区','剧本','传播'])for(const record of Object.values(state[category]||{}))for(const id of record.关联事件||[])refs.add(id);
+        for(const category of ['人物','势力地区','传播'])for(const record of Object.values(state[category]||{}))for(const id of record.关联事件||[])refs.add(id);
         return refs;
     }
     function compactFinishedEvents(stat,target=EVENT_TARGET) {
@@ -400,7 +400,7 @@
             const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
             const timeline=timelineState(state);
             const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,时间线调度:timeline,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。'},null,2);
-            const system=this.config.preset+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(MODEL_DETAILS)+'\n【节点调度】后台.事件是唯一调度图，旧因果轨道只作为兼容导入与宏观投影。若“时间线调度.需要初始化”为真，先依据世界书和当前时间锚点建立当前活动层、近期规划层、宏观锚点层；不能确认的历史或未来不要编造。若“需要补充远期”为真，补足有依据的宏观节点；“需要展开的宏观节点”接近当前时间时拆成更具体的近期事件并保持前因关系。非公历、作品内纪年或“第X夜”等时间按世界书语义比较，并逐项复核“需语义复核节点”，禁止强行换算成虚构公历。每轮复核到期事件、人物行程、语义时间节点和即将展开的宏观节点。时间到且条件成立就启动，已有结果才完成；未满足条件记录真实阻碍和下次检查，禁止无依据顺延。事件后果联动场外人物、势力地区、传播以及已有任务状态。后台.剧本不再参与调度。';
+            const system=this.config.preset+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(MODEL_DETAILS)+'\n【节点调度】后台.事件是唯一调度图，旧因果轨道只作为兼容导入与宏观投影。若“时间线调度.需要初始化”为真，先依据世界书和当前时间锚点建立当前活动层、近期规划层、宏观锚点层；优先重用并重新分类已有事件，不重复创建同名节点；不能确认的历史或未来不要编造。若“需要补充远期”为真，在资料足够时维持至少3个有依据的远期宏观节点；“需要展开的宏观节点”接近当前时间时拆成更具体的近期事件并保持前因关系。非公历、作品内纪年或“第X夜”等时间按世界书语义比较，并逐项复核“需语义复核节点”，禁止强行换算成虚构公历。每轮复核到期事件、人物行程、语义时间节点和即将展开的宏观节点。时间到且条件成立就启动，已有结果才完成；未满足条件记录真实阻碍和下次检查，禁止无依据顺延。事件后果联动场外人物、势力地区、传播以及已有任务状态。后台.剧本不再参与调度。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
             return {system,input,seedPatches,due,manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),请求字符数:system.length+input.length}};
         }
@@ -433,7 +433,10 @@
                 const text=await terminal.request(request.system,request.input,{signal:this.controller.signal});
                 this.lastReply=String(text); this.lastFailure='';
                 const reply = parseReply(text);
-                const prepared=applyPatches(base.stat,request.seedPatches);
+                const preparedBase=copy(base.stat);
+                preparedBase.世界[PATH]=Object.assign(emptyState(),preparedBase.世界[PATH]||{});
+                compactFinishedEvents(preparedBase);
+                const prepared=applyPatches(preparedBase,request.seedPatches);
                 compactFinishedEvents(prepared);
                 let next = applyPatches(prepared,reply.patches);
                 compactFinishedEvents(next);

@@ -35,6 +35,11 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  assert.equal(await page.locator('.we-dashboard').count(),1,'世界推进采用独立仪表盘布局');
  assert.equal(await page.locator('.we-people-strip .we-person-compact').count()<=4,true,'人物动态保持紧凑摘要');
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),1,'世界推进只保留一处世界动向');
+ assert.equal(await page.locator('[data-jump-event="商会紧急议事"]').count(),1,'下一关键节点应可点击');
+ await page.locator('[data-jump-event="商会紧急议事"]').click();
+ assert.equal(await page.locator('[data-search]').inputValue(),'商会紧急议事');
+ assert.equal(await page.locator('[data-event-card="商会紧急议事"]').count(),1,'点击关键节点后应定位对应事件');
+ await page.locator('[data-search]').fill('');
  assert.equal(await page.locator('[data-detail="world-calendar"] .we-calendar').isVisible(),true,'日历默认可见');
  await page.locator('[data-action="date"][data-date="2026-9-8"]').click();
  assert.equal(await page.locator('.we-timeline .we-card').count(),1);

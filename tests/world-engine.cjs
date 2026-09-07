@@ -267,6 +267,26 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(sourceText,/options\.temperature/);
         assert.match(sourceText,/structured/);
     });
+    await test('terminal structured mode falls back once and caches provider capability', async () => {
+        const sourceText=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');
+        const start=sourceText.indexOf('    var API_STRUCTURED_MODE_CACHE');
+        const end=sourceText.indexOf('    /* 是否启用额外模型通道',start);
+        const snippet=sourceText.slice(start,end);
+        const calls=[];
+        const fakeFetch=async (_url,opt)=>{
+            const body=JSON.parse(opt.body);calls.push(body.response_format?.type||'plain');
+            if(calls.length===1)return {ok:false,status:400,statusText:'Bad Request',text:async()=> 'unsupported response_format json_schema'};
+            return {ok:true,status:200,statusText:'OK',json:async()=>({choices:[{message:{content:'{"摘要":"ok"}'}}]})};
+        };
+        const apiChat=new Function('getApiConfig','fetch',snippet+'; return apiChat;')(
+            ()=>({enabled:true,apiUrl:'https://example.invalid/v1',apiKey:'',model:'demo'}),fakeFetch
+        );
+        const options={structured:'auto',schemaName:'samsara_world_result_v1',schema:{type:'object',properties:{摘要:{type:'string'}}},temperature:0.3};
+        assert.equal(await apiChat('JSON only','test',options),'{"摘要":"ok"}');
+        assert.deepEqual(calls,['json_schema','json_object']);
+        await apiChat('JSON only','test',options);
+        assert.deepEqual(calls,['json_schema','json_object','json_object']);
+    });
     await test('model causal patches accept whole objects and normalize common 因校轨道 typo', async () => {
         const x=setup(async()=>JSON.stringify({summary:'修复因果轨道',patches:[
             {op:'replace',path:'/世界/因果轨道',value:{当前阶段:'爆发日',故事线:'撤离 -> 灾变 -> 崩溃',下一节点:'撤离',偏移记录:{}}},

@@ -6,6 +6,13 @@ const isCombat = _.get(data, '系统状态.是否战斗中', false) === true;
 const isOneWorld = _.get(data, '设置.单一世界', false) === true;
 const isSpace = _.get(data, '系统状态.是否在主神空间', false) === true;
 const isStable = _.get(data, '设置.世界超稳', false) === true;
+const isWorldEngineEnabled = (() => {
+  try {
+    const host = (typeof window !== 'undefined' && window.parent && window.parent !== window) ? window.parent : (typeof window !== 'undefined' ? window : null);
+    const engine = host?.Samsara?.worldEngine;
+    return typeof engine?.isEnabled === 'function' ? engine.isEnabled() : engine?.config?.enabled === true;
+  } catch (_) { return false; }
+})();
 if (data) { _%>
 variables_update_rules:
   _复用:
@@ -26,8 +33,13 @@ variables_update_rules:
     - &P_传闻通用 "总量≤3条, 为空补2条, 约60字/条, 不围绕<user>除非影响重大"
 
   全局:
-    世界引擎边界: "世界.后台仅由独立世界引擎维护；世界.因果轨道在副本初始化后也仅由独立世界引擎维护。正文及普通变量模型禁止新增、覆盖、删除这些节点。后台公开动态与因果轨道是已确认的叙事依据，不要重复结算已反映在当前变量中的声望、好感、任务进度。原有当前场景变量更新继续工作，世界引擎只在变量更新完成后合并场外结果。"
+<%_ if (isWorldEngineEnabled) { _%>
+    世界引擎边界: "独立世界引擎已开启：世界.后台、世界.因果轨道及场外传闻由独立世界引擎维护。正文及普通变量模型禁止新增、覆盖、删除这些节点；只处理当前场景直接事实。后台公开动态与因果轨道是已确认叙事依据，不重复结算。"
     只读字段: [/角色/最终属性, /NPC/最终属性, /世界/后台, /世界/因果轨道]
+<%_ } else { _%>
+    世界引擎边界: "独立世界引擎未开启：沿用本变量规则维护因果轨道与传闻；世界.后台仍不由普通变量模型创建。"
+    只读字段: [/角色/最终属性, /NPC/最终属性, /世界/后台]
+<%_ } _%>
     新节点硬约束: [insert=创建完整对象，不是局部patch；凡insert新节点，value必须覆盖目标节点type定义的全部字段；缺任一字段视为无效insert，输出前必须修复]
     insert非空约束: ["insert时对象字段不得写{}；map/record类型至少给1个有效key；若节点有最小数量约束按该约束执行"]
     通用约束: [更新字段能增量就不全量, 数值超range按上下限截断]
@@ -121,6 +133,30 @@ variables_update_rules:
             - 帮助势力或成员增加；敌对、背叛或造成损失时减少
             - 单次变化≤±1000；仅重大核心事件可超过±500
             - 同一事件只结算一次
+<%_ if (!isWorldEngineEnabled && !isCombat && !isSpace) { _%>
+    # 【EJS_WORLD_ENGINE_CAUSAL】
+    因果轨道:
+      type: |-
+        {
+          当前阶段: string;
+          故事线: string;   // 必须用 " -> " 串联 3~5 个默认大事件节点，覆盖前后
+          下一节点: string;
+          偏移记录: {
+            [事件名: string]: {
+              描述: string;
+              引发者: string;
+              影响程度: number;
+            }
+          }
+        }
+      check:
+        - 仅记录宏观主线，不记录日常、战斗、交易或对话
+        - 仅在章节切换、地图切换、关键任务完成或重大剧情事件发生时更新
+        - 只有关键人物命运、重大事件、势力格局或主线被实质改变时新增偏移
+        - 新增偏移后，若原主线无法继续，重构故事线与下一节点；否则保持原轨道
+        - 影响程度为0时不记录偏移
+        - 世界超稳模式下禁止产生偏移记录，故事线保持默认轨道
+<%_ } _%>
 if (!isOneWorld && !isSpace) {
     异端雷达:
       当前模式: 
@@ -490,7 +526,7 @@ if (isOneWorld) {
         type: number
         check:
           - 数量变化时更新
-if (!isCombat) {
+<%_ if (!isWorldEngineEnabled && !isCombat) { _%>
   传闻:
     note: 悬赏线索/商路动向/势力情报/遗迹坐标/人物行踪/黑市消息/宝物传闻/怪物异动/深渊异变/种族摩擦/物价波动
     街头巷议:
@@ -521,6 +557,6 @@ if (!isCombat) {
         - *P_传闻通用
          - 到达新大区域或主要城镇时覆盖旧公告
         - 发布者必须关联当前[势力]
-}
+<%_ } _%>
 <%_ }
 })(); _%>

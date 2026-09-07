@@ -308,6 +308,48 @@
         if(!Array.isArray(patches))return patches;
         return patches.filter(p=>!(plain(p)&&typeof p.path==='string'&&MODEL_IGNORED_PATHS.some(rule=>rule.test(p.path))));
     }
+    function normalizeModelPatches(patches) {
+        if(!Array.isArray(patches))return patches;
+        const out=[],esc=value=>String(value).replace(/~/g,'~0').replace(/\//g,'~1');
+        for(const raw of patches){
+            if(!plain(raw)){out.push(raw);continue;}
+            const patch=copy(raw);
+            if(typeof patch.path==='string')patch.path=patch.path.replace(/^\/世界\/因校轨道(?=\/|$)/,'/世界/因果轨道');
+            if(patch.path==='/世界/因果轨道'&&patch.op!=='remove'&&plain(patch.value)){
+                for(const key of ['当前阶段','故事线','下一节点']){
+                    if(Object.hasOwn(patch.value,key))out.push({op:'add',path:'/世界/因果轨道/'+key,value:copy(patch.value[key])});
+                }
+                if(plain(patch.value.偏移记录))for(const [name,value] of Object.entries(patch.value.偏移记录)){
+                    out.push({op:'add',path:'/世界/因果轨道/偏移记录/'+esc(name),value:copy(value)});
+                }
+                continue;
+            }
+            if(patch.path==='/世界/因果轨道/偏移记录'&&patch.op!=='remove'&&plain(patch.value)){
+                for(const [name,value] of Object.entries(patch.value))out.push({op:'add',path:'/世界/因果轨道/偏移记录/'+esc(name),value:copy(value)});
+                continue;
+            }
+            out.push(patch);
+        }
+        return out;
+    }
+    function retryableModelFailure(error) {
+        const message=String(error?.message||error||'');
+        if(!message)return false;
+        if(/^(?:请求已取消|上下文已经切换|推演期间世界时间或副本锚点发生变化|请在主神终端设置|请加载更新后的|禁止写入：)/.test(message))return false;
+        if(error?.name==='AbortError')return false;
+        return true;
+    }
+    function retryInput(baseInput,error,lastReply,attempt,maxRetries) {
+        let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
+        payload.纠错重试={
+            当前重试:attempt,
+            最大重试次数:maxRetries,
+            上次拒绝原因:String(error?.message||error||''),
+            上次模型回复:String(lastReply||'').slice(-12000),
+            要求:'重新输出完整 <world_update>。保留已确认事实，只修正导致拒绝的路径、结构、字段、因果关系或宏观事件缺失；不要解释错误。'
+        };
+        return JSON.stringify(payload,null,2);
+    }
     // 仅允许世界叙事字段；数值属性、货币、奖励发放和时钟不在写入名单内。
     function allowed(parts, stat) {
         const [a,b,c,d] = parts;
@@ -423,6 +465,7 @@
             }
             if (patch.op === 'remove') delete parent[p.at(-1)]; else parent[p.at(-1)] = copy(value);
         }
+        normalizeBackendState(next);
         validateState(next);
         for (const [name,item] of Object.entries(next.世界.势力 || {})) {
             const old = (stat.世界.势力 || {})[name];
@@ -450,7 +493,15 @@
                 throw new Error('到期事件未处理：'+due.名称+'。需启动事件，或记录本轮复核日期、阻碍条件与下次检查。');
             }
         }
+    }    function ensureMacroBackbone(next,timeline,required=true) {
+        if(!required||!timeline?.需要补充远期)return;
+        const macro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态==='待发生');
+        if(macro.length<3)throw new Error('宏观事件不足：需要至少3个待发生宏观节点，当前仅'+macro.length+'个');
+        const stages=storyStages(next?.世界?.因果轨道?.故事线);
+        const names=new Set(macro.map(([name])=>name));
+        if(stages.length<3||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');
     }
+
     function progressionAnchorChanged(before,after) {
         return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
     }
@@ -503,9 +554,12 @@
         constructor(host, env) {
             this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
-            this.config = { enabled:false, preset:DEFAULT_PRESET };
+            this.lastRetryLog=[]; this.lastAttemptCount=0;
+            this.config = { enabled:false, preset:DEFAULT_PRESET, retryAttempts:3, requireMacroBackbone:true };
             try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
             this.config.preset=ensurePresetStructure(this.config.preset);
+            this.config.retryAttempts=Math.max(0,Math.min(5,Number(this.config.retryAttempts) || 0));
+            if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
             if(this.config.enabled){
                 const terminal=this.host.Samsara&&this.host.Samsara.terminal;
                 if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();

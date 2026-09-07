@@ -9,6 +9,7 @@ b.事件={
  '北境援军抵达':{...RECORDS.事件,描述:'北境援军沿旧驿道南下，可能改变地区格局。',时间:'2026年9月12日清晨',地点:'灰港外城',状态:'待发生',前因:['灰港封锁'],公开征兆:'北方驿站传来军队集结的消息。',条件:'旧驿道保持畅通'}
 };
 b.人物={
+ '测试玩家':{...RECORDS.人物,所属世界:'灰港纪事',地点:'银鸥酒馆',目标:'',行动:'玩家当前行动不应出现在后台人物名册',状态:'在场'},
  '守备官艾琳':{...RECORDS.人物,所属世界:'灰港纪事',地点:'北门哨所',目标:'查明补给线失踪原因',行动:'正在审问最后一名返回的车夫。',状态:'场外',下次检查:'2026年9月7日午后',关联事件:['灰港封锁'],认知:['补给队未按期抵达'],开始时间:'2026年9月7日清晨',预计结束:'2026年9月7日午后',行程:[{开始:'2026年9月7日午后',结束:'2026年9月7日傍晚',地点:'北境旧驿道',行动:'派遣斥候调查',状态:'计划中',结果:''}],承诺:[{对象:'灰港议会',内容:'日落前提交第一份报告',期限:'2026年9月7日傍晚',解除条件:'调查确认无法继续'}],认知来源:[{事实:'补给队未抵达',来源:'北门登记簿',获知时间:'2026年9月7日清晨',状态:'已确认'}]},
  '商人莱昂':{...RECORDS.人物,所属世界:'灰港纪事',地点:'银鸥酒馆',目标:'寻找安全的新商路',行动:'向旅人打听南侧河道的通航情况。',关联事件:['商会紧急议事'],状态:'在场',认知:[],下次检查:'2026年9月8日下午'}
 };
@@ -22,7 +23,7 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  try{
  const page=await browser.newPage({viewport:{width:1440,height:1080}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('https://world-engine.test/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-CN"><meta charset="utf-8"><body style="margin:0;background:#080e17"></body></html>'}));await page.goto('https://world-engine.test/');
- await page.evaluate(stat=>{window.getCurrentChatId=()=> 'preview';window.getChatMessages=()=>[{message_id:1,message:'车夫递来一封信。',role:'assistant'}];window.Mvu={events:{VARIABLE_UPDATE_ENDED:'updated'},getMvuData:()=>({stat_data:stat})};window.eventOn=()=>()=>{};window.Samsara={terminal:{suspend:()=>({open:true}),restore:()=>{window.restored=true;},apiReady:()=>false}};},stat);
+ await page.evaluate(stat=>{window.SillyTavern={name1:'测试玩家'};window.getCurrentChatId=()=> 'preview';window.getChatMessages=()=>[{message_id:1,message:'车夫递来一封信。',role:'assistant'}];window.Mvu={events:{VARIABLE_UPDATE_ENDED:'updated'},getMvuData:()=>({stat_data:stat})};window.eventOn=()=>()=>{};window.Samsara={terminal:{suspend:()=>({open:true}),restore:()=>{window.restored=true;},apiReady:()=>false}};},stat);
  await page.addScriptTag({path:path.join(__dirname,'../script/世界推进系统.js')});await page.evaluate(()=>{Samsara.worldEngine.setEnabled(true);Samsara.worldEngine.open();});
  const out=path.join(__dirname,'artifacts');fs.mkdirSync(out,{recursive:true});
  await page.screenshot({path:path.join(out,'world-desktop.png')});
@@ -31,18 +32,25 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  assert.equal(await page.locator('[data-action="run"]').isDisabled(),true);
  assert.equal(await page.getByText(/额外模型未准备好/).count(),1);
  assert.equal(await page.getByRole('heading',{name:'任务进展',exact:true}).count(),1);
- await page.locator('[data-detail="world-calendar"] > summary').click();
+ assert.equal(await page.locator('.we-dashboard').count(),1,'世界推进采用独立仪表盘布局');
+ assert.equal(await page.locator('.we-people-strip .we-person-compact').count()<=4,true,'人物动态保持紧凑摘要');
+ assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),1,'世界推进只保留一处世界动向');
+ assert.equal(await page.locator('[data-detail="world-calendar"] .we-calendar').isVisible(),true,'日历默认可见');
  await page.locator('[data-action="date"][data-date="2026-9-8"]').click();
  assert.equal(await page.locator('.we-timeline .we-card').count(),1);
  await page.locator('[data-action="clear-date"]').click();
  await page.locator('nav [data-tab="角色管理"]').click();await page.locator('summary').first().click();
+ assert.equal(await page.getByRole('button',{name:'测试玩家',exact:true}).count(),0,'人物名册不能包含当前玩家');
  assert.equal(await page.getByRole('heading',{name:'异端档案',exact:true}).count(),0);
  assert.equal(await page.getByRole('heading',{name:'承诺',exact:true}).count(),0);
  assert.equal(await page.getByRole('heading',{name:'抉择',exact:true}).count(),0);
  assert.equal(await page.getByRole('heading',{name:'交际圈',exact:true}).count(),0);
  assert.equal(await page.getByText('日落前提交第一份报告',{exact:true}).count(),0);
  await page.screenshot({path:path.join(out,'world-people.png')});
- for(const tab of ['势力与地区','任务与事件','传闻','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
+ for(const tab of ['探索与势力','任务与事件','传闻','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
+ await page.locator('[data-tab="探索与势力"]').click();
+ assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),0,'探索与势力不重复世界动向');
+ assert.equal(await page.locator('[data-tab="势力与地区"]').count(),0,'旧页签名称应移除');
  await page.locator('[data-tab="任务与事件"]').click();
  assert.equal(await page.getByRole('heading',{name:'剧本与阶段',exact:true}).count(),0);
  await page.locator('[data-tab="世界推进"]').click();await page.setViewportSize({width:390,height:844});

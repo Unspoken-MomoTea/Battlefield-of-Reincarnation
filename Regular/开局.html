@@ -554,7 +554,7 @@
 
       <h2 class="section-title">基础信息录入</h2>
                 <div class="grid-2">
-                    <div class="form-group"><label>代号 / 姓名</label><input type="text" class="form-control" id="f-name" placeholder="输入轮回者姓名..."></div>
+                    <div class="form-group"><label>代号 / 姓名</label><input type="text" class="form-control" id="f-name" placeholder="输入角色姓名..."></div>
                     <div class="form-group"><label>性别</label><select class="form-control" id="f-gender"><option>男</option><option>女</option><option>扶她</option><option>男娘</option><option>药娘</option><option>太监</option><option>无性别</option></select></div>
                     <div class="form-group"><label>年龄</label><input type="number" class="form-control" id="f-age" value="20"></div>
                     <div class="form-group"><label>种族</label><input type="text" class="form-control" id="f-race" value="人类" placeholder="如：人类、精灵..."></div>
@@ -1084,8 +1084,8 @@
     let useCustomPartnerFlag = false;
     let partnerCostPaid = 0;        // 已为自定义伙伴建档扣除的空间币(改层级重算/删除退回)
     let singleWorldEnabled = false;
-    // 单一世界身份覆盖：进入单一世界时强制身份为「穿越者」，离开则还原玩家第一页原始选择
-    let originalIdentity = null;                  // 玩家在第一页手动选定的原始身份
+    // 单一世界身份覆盖：进入单一世界时强制身份为「穿越者」，离开则还原角色第一页原始选择
+    let originalIdentity = null;                  // 角色在第一页手动选定的原始身份
     let singleWorldIdentityOverridden = false;    // 当前是否处于「单一世界身份覆盖」状态
     // 单一世界模式下 f-identity 下拉的禁用锁定标记
     let singleWorldIdentityLocked = false;
@@ -1577,7 +1577,7 @@
                 <div class="form-group"><label>性别</label><select id="cp-gender" class="form-control"><option>男</option><option>女</option><option>扶她</option><option>男娘</option><option>药娘</option><option>太监</option><option>无性别</option></select></div>
             </div>
             <div class="form-group"><label>外貌特征</label><input type="text" id="cp-app" class="form-control" placeholder="简短描写外貌..."></div>
-            <div class="form-group"><label>喜爱</label><input type="text" id="cp-like" class="form-control" placeholder="例如：喜欢与主角贴贴，喜欢甜食..."></div>
+            <div class="form-group"><label>喜爱</label><input type="text" id="cp-like" class="form-control" placeholder="例如：喜欢与角色贴贴，喜欢甜食..."></div>
             <div class="form-group"><label>背景故事</label><textarea id="cp-bg" class="form-control" rows="3" placeholder="一段简短的背景来历..."></textarea></div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 <button class="btn primary" id="cp-build-btn" onclick="useCustomPartner()">确认建档</button>
@@ -1757,7 +1757,7 @@
         $('plot-tabs').innerHTML = DB.plotCategories.map(c => `
             <button class="tab-button ${c.key===activePlotCat?'active':''}" onclick="switchPlotCat('${c.key}')">${c.label}</button>`).join('');
     }
-    // 单一世界身份覆盖：进入单一世界把身份强切为「穿越者」并锁住下拉；离开则还原玩家原始选择并解锁
+    // 单一世界身份覆盖：进入单一世界把身份强切为「穿越者」并锁住下拉；离开则还原角色原始选择并解锁
     const IDENTITY_SINGLE_WORLD = '穿越者';
     function applySingleWorldIdentityOverride() {
         const idEl = $('f-identity');
@@ -2369,17 +2369,17 @@
                 _set(c, 'stat_data.设置.世界超稳', wsLocked);
                 _set(c, 'stat_data.设置.单一世界', singleWorldEnabled);
 
-                // 主角资产与血统 (完美避开覆盖 HP/EP 等其他属性)
-                _set(c, 'stat_data.主角.种族', race);
-                _set(c, 'stat_data.主角.身份', [identity, gender, age+'岁']);
-                _set(c, 'stat_data.主角.空间币', currentCoins);
+                // 角色资产与血统 (完美避开覆盖 HP/EP 等其他属性)
+                _set(c, 'stat_data.角色.种族', race);
+                _set(c, 'stat_data.角色.身份', [identity, gender, age+'岁']);
+                _set(c, 'stat_data.角色.空间币', currentCoins);
                 
-                _set(c, 'stat_data.主角.道具', itemObj);
-                _set(c, 'stat_data.主角.装备', equipObj);
-                _set(c, 'stat_data.主角.技能', skillObj);
+                _set(c, 'stat_data.角色.道具', itemObj);
+                _set(c, 'stat_data.角色.装备', equipObj);
+                _set(c, 'stat_data.角色.技能', skillObj);
                 
                 // 血统精准写入
-                _set(c, `stat_data.主角.血统.${bloodlineName}`, {
+                _set(c, `stat_data.角色.血统.${bloodlineName}`, {
                     品质: tier,
                     标签: ['初始血统', race],
                     原始属性: attrTierObj,
@@ -2387,7 +2387,7 @@
                     描述: '最初的基础，却有无限可能'
                 });
 
-                // 伙伴注入(阵营以最终确认时主角阵营为准, 防止建档后改阵营导致不一致)
+                // 伙伴注入(阵营以最终确认时角色阵营为准, 防止建档后改阵营导致不一致)
                 if (partnerNode && Array.isArray(partnerNode.身份)) partnerNode.身份[0] = $('f-identity').value;
                 if (partnerNode) _set(c, `stat_data.关系列表.${partnerNode.姓名}`, partnerNode);
 
@@ -2432,7 +2432,7 @@
             worldText = `【${$('sw-name').value.trim() || '未知世界'}】
 时间锚点: ${$('sw-time').value.trim() || '未设定'}
 主线状态: ${$('sw-mainstate').value.trim() || '未设定'}
-切入身份: ${$('sw-identity').value.trim() || '轮回者'}
+切入身份: ${$('sw-identity').value.trim() || '角色'}
 主神任务: ${$('sw-goal').value.trim() || '无'}`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
@@ -2474,7 +2474,7 @@
         // 2. 动态生成环境与传闻指令（核心修改）
         const envInstruction = isWorldAnchored
             ? "在叙事中，根据当前【时间锚点】与世界背景，更新货币、因果轨道、势力等地点变量，并全量刷新传闻，必须完整且符合世界当前局势。最后生成【主神任务】。"
-            : "在叙事中，请重点描绘「主神空间」或私人休整区的宏大/静谧环境、光影变幻或系统光球的微光。聚焦于主角刚到此处的状态。";
+            : "在叙事中，请重点描绘「主神空间」或私人休整区的宏大/静谧环境、光影变幻或系统光球的微光。聚焦于角色刚到此处的状态。";
         const promptText = `进行开局初始化，请根据以下配置展开叙事：
 （注：系统已将角色的初始装备、道具、血统与羁绊对象直接写入底层数据库。人物与羁绊基本属性已存在，禁止在初始化时替换它们，请直接提取使用。）
 
@@ -2499,12 +2499,12 @@ ${worldText}
 ---
 【系统指令与叙事要求】：
 生成一个极具沉浸感的开局场景。
-首次降临时，请根据玩家填写的【种族】特性，为「${bloodlineName}」设计 1~2 个符合【${tier}级】强度限制的专属血统效果，并在剧情中表现出觉醒的异象！
+首次降临时，请根据角色填写的【种族】特性，为「${bloodlineName}」设计 1~2 个符合【${tier}级】强度限制的专属血统效果，并在剧情中表现出觉醒的异象！
 ${envInstruction}
-${partnerNode ? `[协同实体补全指令]：主角身边存在专属伙伴「${partnerNode.姓名 || '未命名'}」。该实体当前仅具有基础概念（层级、阵营、背景故事、喜好），缺乏具体战斗数据。请你基于其资料与【${partnerNode.层级 || '未知'}级】的强度限制，**自动为其推演并补全空白的战术模块**：
+${partnerNode ? `[协同实体补全指令]：角色身边存在专属伙伴「${partnerNode.姓名 || '未命名'}」。该实体当前仅具有基础概念（层级、阵营、背景故事、喜好），缺乏具体战斗数据。请你基于其资料与【${partnerNode.层级 || '未知'}级】的强度限制，**自动为其推演并补全空白的战术模块**：
 1. 赋予契合人设并符合层级限制的【血统】与【技能】。
 2. 为其配备 1~2 件符合层级的【初始装备/武器】。
-【叙事要求】：在开局场景中，请按时间锚点合理编排伙伴与主角的切入关系。在登场时，必须通过外貌细节与动作描写，自然地展现出伙伴补全的外貌着装等，并清晰呈现其性格、当前对主角的信任状态及真实态度。` : ''}`;
+【叙事要求】：在开局场景中，请按时间锚点合理编排伙伴与角色的切入关系。在登场时，必须通过外貌细节与动作描写，自然地展现出伙伴补全的外貌着装等，并清晰呈现其性格、当前对角色的信任状态及真实态度。` : ''}`;
 
         // -----------------------------------------------------
         // 3. 拦截酒馆文本框并发送

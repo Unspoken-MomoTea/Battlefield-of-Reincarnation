@@ -115,7 +115,7 @@
         const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
         const existing=storyStages(orbit.故事线);
         if(existing.length>=3&&existing.length<=5)return [];
-        const entries=Object.entries(stat.世界[PATH]?.事件||{}).filter(([,e])=>e.状态!=='已取消');
+        const entries=Object.entries(stat.世界[PATH]?.事件||{}).filter(([,e])=>e.状态!=='已取消').map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)})).sort((a,b)=>(a.key??Infinity)-(b.key??Infinity)||a.index-b.index).map(x=>x.item);
         if(entries.length<3)return [];
         const chosen=[],seen=new Set();
         const take=name=>{if(name&&!seen.has(name)&&entries.some(([n])=>n===name)){seen.add(name);chosen.push(name);}};

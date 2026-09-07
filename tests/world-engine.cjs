@@ -86,6 +86,44 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         e.config.selectedEntries=[JSON.stringify(['设定','4'])];
         assert.deepEqual((await e.worldbook('')).map(x=>x.名称),['禁用']);
     });
+    await test('world engine isolates MVU/output prompt books even in force mode and exposes timeline scheduling needs', async () => {
+        const x=setup(async()=>''),e=x.engine;
+        e.worldbook=Engine.prototype.worldbook;
+        e.host.getCharWorldbookNames=()=>({primary:'设定',additional:[]});
+        e.host.getWorldbook=()=>[
+            {uid:1,name:'[variables]当前变量',content:'变量投影',strategy:{type:'constant'}},
+            {uid:2,name:'[mvu_update]变量更新规则',content:'更新协议',strategy:{type:'constant'}},
+            {uid:3,name:'⚙️额外思考',content:'正文思考',strategy:{type:'constant'}},
+            {uid:4,name:'世界年表',content:'世界设定',strategy:{type:'constant'}}
+        ];
+        e.config.activationMode='force_selected';
+        e.config.selectedEntries=['1','2','3','4'].map(id=>JSON.stringify(['设定',id]));
+        const r=await e.buildRequest(e.snapshot()),payload=JSON.parse(r.input);
+        assert.deepEqual(payload.世界书.map(x=>x.名称),['世界年表']);
+        for(const name of ['[variables]当前变量','[mvu_update]变量更新规则','⚙️额外思考']){
+            const row=r.manifest.读取判定.find(x=>x.名称===name);
+            assert.equal(row.读取,false);assert.match(row.原因,/隔离/);
+        }
+        assert.equal(payload.时间线调度.需要初始化,true);
+        assert.equal(payload.时间线调度.需要补充远期,true);
+        assert.equal(payload.时间线调度.当前时间锚点,'2026年9月7日清晨');
+        x.change(stat=>stat.世界.后台.事件.第二夜={...RECORDS.事件,分类:'近期节点',时间:'圣杯战争第二夜',描述:'夜间冲突'});
+        const semantic=JSON.parse((await e.buildRequest(e.snapshot())).input).时间线调度.需语义复核节点;
+        assert.equal(semantic[0].名称,'第二夜');
+    });
+    await test('recent changes are current-run only and old finished events are compacted into history', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'本轮更新',patches:[add('/世界/后台/人物/卫兵',{...RECORDS.人物,所属世界:'测试世界',行动:'巡逻'})]}));
+        x.change(s=>{
+            s.世界.后台.最近变化=[{时间:'旧时间',类别:'事件',名称:'旧变化',操作:'更新',字段:'状态',内容:'旧记录'}];
+            for(let i=0;i<205;i++)s.世界.后台.事件['旧事件'+i]={...RECORDS.事件,描述:'已经结束的旧事件'+i,时间:'2026年8月'+String(i%28+1)+'日',状态:'已完成',结果:'事件已经结束'};
+        });
+        await x.engine.run();
+        const state=x.get().世界.后台;
+        assert.equal(state.最近变化.some(c=>c.名称==='旧变化'),false);
+        assert.equal(state.最近变化.some(c=>c.名称==='卫兵'),true);
+        assert.ok(Object.keys(state.事件).length<=180);
+        assert.ok(Object.keys(state.历史).some(name=>name.startsWith('归档·旧事件')));
+    });
     await test('reply wrappers are accepted without repairing malformed JSON or unsafe writes', () => {
         assert.equal(parseReply('这是结果：\n'+JSON.stringify({summary:'正常',patches:[]})+'\n结束').summary,'正常');
         assert.throws(()=>parseReply('{"summary":"破损","patches":[}'),/无法解析/);

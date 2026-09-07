@@ -3943,10 +3943,15 @@
             return true;
         } catch(e) { console.warn('[主神终端] 保存API配置失败:', e.message); return false; }
     }
-    /* 额外模型聊天补全: 向自托管API发起 OpenAI 兼容 /chat/completions 请求, 返回纯文本回复
-       请求体: { model, messages:[{role,content}...], stream:false, temperature:0.7 }
-       返回: 文本字符串(从 choices[0].message.content 取出) */
+    /* 额外模型聊天补全：世界引擎可请求结构化 JSON。
+       structured=auto 时依次尝试 json_schema → json_object → plain，并按 endpoint+model 缓存可用模式。 */
+    var API_STRUCTURED_MODE_CACHE = {};
+    function structuredFormatUnsupported(status, text) {
+        return [400,404,415,422].indexOf(Number(status)) >= 0 &&
+            /response[_ -]?format|json[_ -]?schema|json[_ -]?object|unknown (?:field|parameter)|unrecognized|unsupported|not supported|invalid.*schema/i.test(String(text||''));
+    }
     async function apiChat(systemPrompt, userMsg, options) {
+        options = options || {};
         var cfg = getApiConfig();
         var url = (cfg.apiUrl || '').trim();
         if (!url || !cfg.enabled) throw new Error('额外模型配置未启用或 API 地址为空');
@@ -3963,25 +3968,63 @@
         }
         var headers = { 'Content-Type': 'application/json' };
         if (cfg.apiKey && cfg.apiKey.trim()) headers.Authorization = 'Bearer ' + cfg.apiKey.trim();
-        var body = {
-            model: cfg.model || 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: String(systemPrompt || '') },
-                { role: 'user',   content: String(userMsg || '') }
-            ],
-            stream: false,
-            temperature: 0.7
-        };
-        var resp = await fetch(endpoint, { method: 'POST', headers: headers, body: JSON.stringify(body), signal: options && options.signal });
-        if (!resp.ok) {
-            var errTxt = '';
-            try { errTxt = await resp.text(); } catch(_e){}
-            throw new Error('HTTP ' + resp.status + ': ' + resp.statusText + (errTxt ? (' / ' + errTxt.slice(0, 300)) : ''));
+        var model = cfg.model || 'gpt-4o-mini';
+        var cacheKey = endpoint + '|' + model;
+        var wantsStructured = options.structured === 'auto' && options.schema;
+        var cached = wantsStructured ? API_STRUCTURED_MODE_CACHE[cacheKey] : '';
+        var modes = wantsStructured ? (cached ? [cached] : ['json_schema','json_object','plain']) : ['plain'];
+        var lastError = '';
+
+        for (var mi=0; mi<modes.length; mi++) {
+            var mode=modes[mi];
+            var body = {
+                model: model,
+                messages: [
+                    { role: 'system', content: String(systemPrompt || '') },
+                    { role: 'user',   content: String(userMsg || '') }
+                ],
+                stream: false,
+                temperature: Number.isFinite(Number(options.temperature)) ? Number(options.temperature) : 0.7
+            };
+            if (mode === 'json_schema') {
+                body.response_format = {
+                    type:'json_schema',
+                    json_schema:{
+                        name:String(options.schemaName || 'samsara_structured_result').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64),
+                        strict:false,
+                        schema:options.schema
+                    }
+                };
+            } else if (mode === 'json_object') {
+                body.response_format = {type:'json_object'};
+            }
+
+            var resp;
+            try {
+                resp = await fetch(endpoint, { method: 'POST', headers: headers, body: JSON.stringify(body), signal: options.signal });
+            } catch(fetchError) {
+                throw fetchError;
+            }
+            if (!resp.ok) {
+                var errTxt = '';
+                try { errTxt = await resp.text(); } catch(_e){}
+                lastError='HTTP ' + resp.status + ': ' + resp.statusText + (errTxt ? (' / ' + errTxt.slice(0, 300)) : '');
+                if (mode !== 'plain' && structuredFormatUnsupported(resp.status,errTxt)) {
+                    if (cached) delete API_STRUCTURED_MODE_CACHE[cacheKey];
+                    continue;
+                }
+                throw new Error(lastError);
+            }
+            var data = await resp.json();
+            var message = data && data.choices && data.choices[0] && data.choices[0].message;
+            var raw = message && message.content;
+            var content = typeof raw === 'string' ? raw : (raw && typeof raw === 'object' ? JSON.stringify(raw) : '');
+            if (!content && message && message.parsed) content=JSON.stringify(message.parsed);
+            if (!content) throw new Error('API 返回的回复内容为空');
+            if (wantsStructured) API_STRUCTURED_MODE_CACHE[cacheKey]=mode;
+            return content;
         }
-        var data = await resp.json();
-        var content = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
-        if (!content) throw new Error('API 返回的回复内容为空');
-        return content;
+        throw new Error(lastError || 'API 不支持当前结构化输出模式');
     }
     /* 是否启用额外模型通道(供 shopCallAI 统一分发判断) */
     function isApiConfigEnabled() {

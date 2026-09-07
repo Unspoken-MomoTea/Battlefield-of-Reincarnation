@@ -468,6 +468,217 @@
         布告与檄文:{发布者:'',内容:'',张贴位置:''},
         名单:{来源:'',经历:'',阵营:'',职业:'',层级:'',状态:''}
     };
+    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','异端','关系','任务状态','成就状态'];
+    const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
+    const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
+    function schemaFromSample(sample) {
+        if(Array.isArray(sample))return {type:'array',items:sample.length?schemaFromSample(sample[0]):{type:'string'}};
+        if(plain(sample)){
+            const properties=Object.fromEntries(Object.entries(sample).map(([key,value])=>[key,schemaFromSample(value)]));
+            return {type:'object',properties,additionalProperties:false};
+        }
+        if(typeof sample==='number')return {type:'number'};
+        if(typeof sample==='boolean')return {type:'boolean'};
+        return {type:'string'};
+    }
+    function namedEntitySchema(sample,operations=['更新','撤销本轮'],requiredFields=[]) {
+        const properties={名称:{type:'string',minLength:1},操作:{type:'string',enum:operations}};
+        for(const [key,value] of Object.entries(sample||{}))properties[key]=schemaFromSample(value);
+        return {type:'object',properties,required:['名称',...requiredFields],additionalProperties:false};
+    }
+    const WORLD_RESULT_SCHEMA={
+        type:'object',
+        additionalProperties:false,
+        required:['摘要'],
+        properties:{
+            摘要:{type:'string'},
+            公开摘要:{type:'string'},
+            事件:{type:'array',maxItems:30,items:namedEntitySchema({...RECORDS.事件,...DETAILS.事件})},
+            人物:{type:'array',maxItems:25,items:namedEntitySchema({...RECORDS.人物,...DETAILS.人物})},
+            势力地区:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.势力地区,...DETAILS.势力地区})},
+            历史:{type:'array',maxItems:12,items:namedEntitySchema(RECORDS.历史,['更新','撤销本轮'])},
+            传播:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.传播,...DETAILS.传播},['更新','移除','撤销本轮'])},
+            因果:{type:'object',additionalProperties:false,properties:{
+                当前阶段:{type:'string'},
+                宏观顺序:{type:'array',minItems:0,maxItems:5,items:{type:'string'}},
+                偏移记录:{type:'array',maxItems:10,items:namedEntitySchema(EXISTING.偏移记录)}
+            }},
+            势力:{type:'array',maxItems:15,items:namedEntitySchema(EXISTING.势力)},
+            探索:{type:'array',maxItems:20,items:namedEntitySchema(EXISTING.探索)},
+            异端:{type:'array',maxItems:15,items:namedEntitySchema(EXISTING.名单)},
+            传闻:{type:'object',additionalProperties:false,properties:{
+                街头巷议:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.街头巷议,['更新','移除','撤销本轮'],['来源','内容','可信度'])},
+                情报交易:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.情报交易,['更新','移除','撤销本轮'],['卖家','情报评级','摘要','要价','真实内幕'])},
+                布告与檄文:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.布告与檄文,['更新','移除','撤销本轮'],['发布者','内容','张贴位置'])}
+            }},
+            关系:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['名称','好感度'],properties:{名称:{type:'string'},操作:{type:'string',enum:['更新','撤销本轮']},好感度:{type:'number'}}}},
+            任务状态:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string'},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['进行中','可交付','可结算','失败']}}}},
+            成就状态:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string'},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['未达成','已达成']}}}}
+        }
+    };
+    function sampleForWorldResultList(key) {
+        if(key==='事件')return {...RECORDS.事件,...DETAILS.事件};
+        if(key==='人物')return {...RECORDS.人物,...DETAILS.人物};
+        if(key==='势力地区')return {...RECORDS.势力地区,...DETAILS.势力地区};
+        if(key==='历史')return RECORDS.历史;
+        if(key==='传播')return {...RECORDS.传播,...DETAILS.传播};
+        if(key==='势力')return EXISTING.势力;
+        if(key==='探索')return EXISTING.探索;
+        if(key==='异端')return EXISTING.名单;
+        return {};
+    }
+    function normalizeResultField(value,sample) {
+        if(Array.isArray(sample)){
+            if(Array.isArray(value))return copy(value);
+            if(value===undefined||value===null||value==='')return [];
+            return [copy(value)];
+        }
+        if(typeof sample==='number'){
+            const number=Number(value);
+            return Number.isFinite(number)?number:value;
+        }
+        if(typeof sample==='string'&&value!==undefined&&value!==null)return String(value);
+        return copy(value);
+    }
+    function normalizeNamedResultList(value,sample,allowedOps=['更新','撤销本轮']) {
+        if(!Array.isArray(value))return [];
+        const fields=new Set(Object.keys(sample||{})),map=new Map();
+        for(const raw of value){
+            if(!plain(raw))continue;
+            const name=String(raw.名称??raw.name??'').trim();
+            if(!name)continue;
+            const item={名称:name};
+            const operation=String(raw.操作||'更新');
+            item.操作=allowedOps.includes(operation)?operation:'更新';
+            for(const key of fields)if(Object.hasOwn(raw,key))item[key]=normalizeResultField(raw[key],sample[key]);
+            const id=nameKey(name),prev=map.get(id);
+            if(item.操作==='撤销本轮'){map.delete(id);continue;}
+            map.set(id,prev?Object.assign(prev,item):item);
+        }
+        return Array.from(map.values());
+    }
+    function normalizeWorldResult(value) {
+        if(!plain(value))throw new Error('WorldResult 必须是 JSON 对象');
+        const result={摘要:String(value.摘要??value.summary??'世界继续推进')};
+        if(Object.hasOwn(value,'公开摘要')||Object.hasOwn(value,'public_summary'))result.公开摘要=String(value.公开摘要??value.public_summary??'');
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端']){
+            const operations=(key==='传播')?['更新','移除','撤销本轮']:['更新','撤销本轮'];
+            result[key]=normalizeNamedResultList(value[key],sampleForWorldResultList(key),operations);
+        }
+        result.因果={};
+        const causal=plain(value.因果)?value.因果:{};
+        if(Object.hasOwn(causal,'当前阶段'))result.因果.当前阶段=String(causal.当前阶段||'');
+        if(Array.isArray(causal.宏观顺序))result.因果.宏观顺序=causal.宏观顺序.map(x=>String(x||'').trim()).filter(Boolean).slice(0,5);
+        result.因果.偏移记录=normalizeNamedResultList(causal.偏移记录,EXISTING.偏移记录,['更新','撤销本轮']);
+        result.传闻={};
+        const rumors=plain(value.传闻)?value.传闻:{};
+        for(const key of WORLD_RESULT_RUMORS)result.传闻[key]=normalizeNamedResultList(rumors[key],EXISTING[key],['更新','移除','撤销本轮']);
+        result.关系=normalizeNamedResultList(value.关系,{好感度:0},['更新','撤销本轮']);
+        result.任务状态=normalizeNamedResultList(value.任务状态,{状态:''},['更新','撤销本轮']);
+        result.成就状态=normalizeNamedResultList(value.成就状态,{状态:''},['更新','撤销本轮']);
+        return result;
+    }
+    function mergeNamedResultLists(base,incoming) {
+        const map=new Map();
+        for(const item of base||[])map.set(nameKey(item.名称),copy(item));
+        for(const item of incoming||[]){
+            const id=nameKey(item.名称);
+            if(item.操作==='撤销本轮'){map.delete(id);continue;}
+            map.set(id,Object.assign(map.get(id)||{},copy(item)));
+        }
+        return Array.from(map.values());
+    }
+    function mergeWorldResults(base,incoming) {
+        const a=base?normalizeWorldResult(base):normalizeWorldResult({摘要:''});
+        const b=normalizeWorldResult(incoming);
+        const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
+        if(Object.hasOwn(b,'公开摘要'))result.公开摘要=b.公开摘要;
+        else if(Object.hasOwn(a,'公开摘要'))result.公开摘要=a.公开摘要;
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','关系','任务状态','成就状态'])result[key]=mergeNamedResultLists(a[key],b[key]);
+        result.因果={
+            偏移记录:mergeNamedResultLists(a.因果?.偏移记录,b.因果?.偏移记录)
+        };
+        if(Object.hasOwn(b.因果||{},'当前阶段'))result.因果.当前阶段=b.因果.当前阶段;
+        else if(Object.hasOwn(a.因果||{},'当前阶段'))result.因果.当前阶段=a.因果.当前阶段;
+        if(Array.isArray(b.因果?.宏观顺序)&&b.因果.宏观顺序.length)result.因果.宏观顺序=copy(b.因果.宏观顺序);
+        else if(Array.isArray(a.因果?.宏观顺序))result.因果.宏观顺序=copy(a.因果.宏观顺序);
+        result.传闻={};
+        for(const key of WORLD_RESULT_RUMORS)result.传闻[key]=mergeNamedResultLists(a.传闻?.[key],b.传闻?.[key]);
+        return result;
+    }
+    function resultFields(item,sample) {
+        const out={};
+        for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
+        return out;
+    }
+    function compileWorldResult(stat,value) {
+        const result=normalizeWorldResult(value),patches=[],warnings=[];
+        const exists=parts=>get(stat,canonicalizeParts(parts,stat));
+        const addEntity=(parts,item,sample,options={})=>{
+            if(item.操作==='撤销本轮')return;
+            let actual=canonicalizeParts(parts,stat),old=get(stat,actual);
+            if(item.操作==='移除'){
+                if(old!==undefined&&options.removable)patches.push({op:'remove',path:pointer(actual)});
+                return;
+            }
+            const record=resultFields(item,sample);
+            if(options.person&&!old&&!Object.hasOwn(record,'所属世界'))record.所属世界=stat.世界?.名称||'';
+            if(options.event&&!Object.hasOwn(record,'描述'))record.描述=item.名称;
+            if(!Object.keys(record).length){warnings.push('忽略空业务记录：'+item.名称);return;}
+            patches.push({op:old===undefined?'add':'replace',path:pointer(actual),value:record});
+        };
+        if(Object.hasOwn(result,'公开摘要'))patches.push({op:'replace',path:'/世界/后台/公开摘要',value:result.公开摘要});
+        for(const item of result.事件)addEntity(['世界',PATH,'事件',item.名称],item,{...RECORDS.事件,...DETAILS.事件},{event:true});
+        for(const item of result.人物)addEntity(['世界',PATH,'人物',item.名称],item,{...RECORDS.人物,...DETAILS.人物},{person:true});
+        for(const item of result.势力地区)addEntity(['世界',PATH,'势力地区',item.名称],item,{...RECORDS.势力地区,...DETAILS.势力地区});
+        for(const item of result.传播)addEntity(['世界',PATH,'传播',item.名称],item,{...RECORDS.传播,...DETAILS.传播},{removable:true});
+        for(const item of result.历史){
+            if(item.操作==='撤销本轮')continue;
+            let name=item.名称,parts=['世界',PATH,'历史',name],record=resultFields(item,RECORDS.历史);
+            if(!Object.keys(record).length){warnings.push('忽略空历史记录：'+name);continue;}
+            if(get(stat,parts)!==undefined){
+                const old=get(stat,parts);
+                if(same(normalizeBackendRecord('历史',record,old),old))continue;
+                let n=2;while(get(stat,['世界',PATH,'历史',name+'#'+n])!==undefined)n++;
+                name=name+'#'+n;parts=['世界',PATH,'历史',name];
+            }
+            patches.push({op:'add',path:pointer(parts),value:record});
+        }
+        const causal=result.因果||{};
+        if(Object.hasOwn(causal,'当前阶段')){
+            const parts=['世界','因果轨道','当前阶段'],old=get(stat,parts);
+            patches.push({op:old===undefined?'add':'replace',path:pointer(parts),value:causal.当前阶段});
+        }
+        if(Array.isArray(causal.宏观顺序)&&causal.宏观顺序.length>=3&&causal.宏观顺序.length<=5){
+            const parts=['世界','因果轨道','故事线'],story=causal.宏观顺序.join(' -> '),old=get(stat,parts);
+            patches.push({op:old===undefined?'add':'replace',path:pointer(parts),value:story});
+        } else if(Array.isArray(causal.宏观顺序)&&causal.宏观顺序.length)warnings.push('宏观顺序不足3个，等待补齐后再投影因果轨道');
+        for(const item of causal.偏移记录||[]){
+            if((stat.设置||{}).世界超稳){warnings.push('世界超稳：忽略偏移 '+item.名称);continue;}
+            addEntity(['世界','因果轨道','偏移记录',item.名称],item,EXISTING.偏移记录);
+        }
+        for(const item of result.势力)addEntity(['世界','势力',item.名称],item,EXISTING.势力);
+        for(const item of result.探索)addEntity(['世界','探索',item.名称],item,EXISTING.探索);
+        if(!(stat.设置||{}).单一世界)for(const item of result.异端)addEntity(['世界','异端雷达','名单',item.名称],item,EXISTING.名单);
+        else if(result.异端.length)warnings.push('单一世界：忽略异端雷达新增/更新');
+        for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻[key])addEntity(['传闻',key,item.名称],item,EXISTING[key],{removable:true});
+        for(const item of result.关系){
+            if(item.操作==='撤销本轮')continue;
+            const target=Object.keys(stat.关系列表||{}).find(name=>nameKey(name)===nameKey(item.名称));
+            if(!target){warnings.push('关系对象不存在，已忽略：'+item.名称);continue;}
+            if(!Object.hasOwn(item,'好感度'))continue;
+            patches.push({op:'replace',path:pointer(['关系列表',target,'好感度']),value:Number(item.好感度)});
+        }
+        for(const [key,bucket] of [['任务状态','列表'],['成就状态','副本成就']])for(const item of result[key]){
+            if(item.操作==='撤销本轮')continue;
+            const target=Object.keys(stat.任务?.[bucket]||{}).find(name=>nameKey(name)===nameKey(item.名称));
+            if(!target){warnings.push((key==='任务状态'?'任务':'成就')+'不存在，已忽略：'+item.名称);continue;}
+            if(!Object.hasOwn(item,'状态'))continue;
+            patches.push({op:'replace',path:pointer(['任务',bucket,target,'状态']),value:String(item.状态)});
+        }
+        return {result,patches,warnings};
+    }
+
     function validateState(stat) {
         const state = stat.世界[PATH];
         if (typeof state.公开摘要 !== 'string' || state.公开摘要.length > 5000) throw new Error('公开摘要限 5000 字');

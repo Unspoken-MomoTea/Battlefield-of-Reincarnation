@@ -753,6 +753,9 @@
             const seedPatches=importStory(state);
             for(const patch of seedPatches)state.世界[PATH].事件[tokens(patch.path).at(-1)]=patch.value;
             structuralFixes.push(...normalizeEventLayers(state));
+            structuralFixes.push(...repairCausalProjection(state));
+            structuralFixes.push(...repairMacroPredecessors(state));
+            structuralFixes.push(...repairExplicitEventLinks(state));
             if(state.设置)delete state.设置.API;
             delete state.商城;
             // 旧剧本数据只为兼容存档保留，不进入新世界调度请求。
@@ -1187,7 +1190,7 @@
             try{
                 snapshot=this.snapshot();
                 snapshot.stat.世界[PATH]=Object.assign(emptyState(),snapshot.stat.世界[PATH]||{});
-                normalizeBackendState(snapshot.stat);normalizeEventLayers(snapshot.stat);
+                normalizeBackendState(snapshot.stat);normalizeEventLayers(snapshot.stat);repairCausalProjection(snapshot.stat);
                 state=Object.assign(state,snapshot.stat.世界[PATH]||{});
                 reason=this.blocked(snapshot);
             }catch(e){reason=e.message;}

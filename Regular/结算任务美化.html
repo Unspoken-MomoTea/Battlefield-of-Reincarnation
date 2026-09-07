@@ -305,7 +305,7 @@
       .st-grade.g-S { color:#eab308; border-color:#eab308; background:rgba(234,179,8,0.16); text-shadow:0 0 5px rgba(234,179,8,0.55); }
       .st-grade.g-SS { color:#ef4444; border-color:#ef4444; background:rgba(239,68,68,0.18); text-shadow:0 0 5px rgba(239,68,68,0.6); }
       .st-grade.g-SSS { color:#ec4899; border-color:#ec4899; background:rgba(236,72,153,0.2); text-shadow:0 0 6px rgba(236,72,153,0.7); box-shadow:0 0 7px rgba(236,72,153,0.4); }
-      .st-grade.hero { min-width: 46px; font-size: 1.25em; padding: 3px 12px; animation: stPulse 2.2s ease-in-out infinite; }
+      .st-grade.reincarnator { min-width: 46px; font-size: 1.25em; padding: 3px 12px; animation: stPulse 2.2s ease-in-out infinite; }
       .st-grade.wave { font-size: 0.8em; color: var(--st-text-dim); border: none; background: none; min-width: 0; padding: 0; text-shadow: none; letter-spacing: 0; font-weight: 400; }
       @keyframes stPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
 
@@ -695,27 +695,27 @@
                 try {
                   const data = mvu.getMvuData({ type: 'message', message_id: id });
                   const stat = data && (data.stat_data || data);
-                  if (stat && stat.主角) return data;
+                  if (stat && stat.角色) return data;
                 } catch (e) {}
               }
             }
             return ctx && ctx.data;
           }
 
-          function readHeroTier(data) {
+          function readReincarnatorTier(data) {
             const stat = data && (data.stat_data || data);
-            return String(stat && stat.主角 && stat.主角.层级 || '').trim();
+            return String(stat && stat.角色 && stat.角色.层级 || '').trim();
           }
 
           function resolveCredentialGrant(data) {
             const stat = data && (data.stat_data || data);
-            if (!stat || !stat.主角) return null;
+            if (!stat || !stat.角色) return null;
             const LIFE_TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
-            const tierRaw = String(stat.主角.层级 || 'Ⅰ').trim();
-            let heroIndex = LIFE_TIERS.indexOf(tierRaw);
-            if (heroIndex < 0) heroIndex = GRADES.indexOf(gradeTier(tierRaw));
-            if (heroIndex < 0) heroIndex = 0;
-            if (heroIndex >= GRADES.length - 1) return null;
+            const tierRaw = String(stat.角色.层级 || 'Ⅰ').trim();
+            let reincarnatorIndex = LIFE_TIERS.indexOf(tierRaw);
+            if (reincarnatorIndex < 0) reincarnatorIndex = GRADES.indexOf(gradeTier(tierRaw));
+            if (reincarnatorIndex < 0) reincarnatorIndex = 0;
+            if (reincarnatorIndex >= GRADES.length - 1) return null;
 
             let baseGrade = '';
             const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
@@ -735,10 +735,10 @@
             }
 
             const gradeIndex = GRADES.indexOf(baseGrade);
-            const targetIndex = heroIndex + 1;
+            const targetIndex = reincarnatorIndex + 1;
             if (gradeIndex < targetIndex) return null;
             const grantGrade = baseGrade;
-            return { grade:grantGrade, name:grantGrade + '级权限凭证', heroTier:tierRaw, sourceGrade:baseGrade };
+            return { grade:grantGrade, name:grantGrade + '级权限凭证', reincarnatorTier:tierRaw, sourceGrade:baseGrade };
           }
 
           function renderCredentialPanel(grant) {
@@ -764,8 +764,8 @@
           let settlementWriteBusy = false;
           const achievementTasks = readAchievementTasks();
           const settlementBaselineData = readSettlementBaselineData();
-          // 固定结算前的主角层级，防止旧结算面板为已经普升的层级重复授予资格。
-          const settlementBaselineTier = readHeroTier(settlementBaselineData);
+          // 固定结算前的角色层级，防止旧结算面板为已经普升的层级重复授予资格。
+          const settlementBaselineTier = readReincarnatorTier(settlementBaselineData);
           const credentialGrant = resolveCredentialGrant(settlementBaselineData);
 
           function isTrialPassed(tasks) {
@@ -996,9 +996,9 @@
             return out;
           }
 
-          function gradeBadge(v, hero) {
+          function gradeBadge(v, reincarnator) {
             const t = gradeTier(v);
-            return '<span class="st-grade g-' + t + (hero ? ' hero' : '') + '">' + escapeHtml(t) + '</span>';
+            return '<span class="st-grade g-' + t + (reincarnator ? ' reincarnator' : '') + '">' + escapeHtml(t) + '</span>';
           }
 
           function rateRow(k, v) {
@@ -1192,8 +1192,8 @@
             const hasHeader = hasSettlementHeader(rawText);
             const fullSettlement = isFullSettlement(rawText);
             const trialPassed = isTrialPassed(trialTasks);
-            const currentHeroTier = readHeroTier(stat);
-            const heroTierChanged = currentHeroTier !== settlementBaselineTier;
+            const currentReincarnatorTier = readReincarnatorTier(stat);
+            const reincarnatorTierChanged = currentReincarnatorTier !== settlementBaselineTier;
             let changed = false;
 
             function sameValue(a, b) {
@@ -1220,7 +1220,7 @@
             // 对齐原 onShouldIAdvance：仅出现清算协议标题时，也可补写晋升完成标记；
             // 完整清算则沿用原 onClearCache 语义，只要数据库中的晋升试炼全部可结算就记为完成。
             // 层级已经变化表示本次资格已用于普升；旧结算面板不得再次补写。
-            if (hasHeader && trialPassed && !heroTierChanged) {
+            if (hasHeader && trialPassed && !reincarnatorTierChanged) {
               const currentSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
               if ((fullSettlement || currentSys.是否可试炼 === true) && currentSys.试炼已完成 !== true) {
                 const sys = ensureObject(stat, '系统状态');
@@ -1237,6 +1237,8 @@
             setValue(world, '探索', {});
 
             if (!isSingleWorld) {
+              // 与副本缓存同生命周期，避免后台事件跨副本继承。
+              setValue(world, '后台', {});
               setValue(world, '势力', {});
               setValue(world, '稳定', 100);
               const radar = ensureObject(world, '异端雷达');
@@ -1326,7 +1328,7 @@
                 achievementGrants[r.name].count++;
               });
               Object.keys(achievementGrants).forEach(function(name) {
-                const g = achievementGrants[name], key = 'stat_data.主角.道具.' + name;
+                const g = achievementGrants[name], key = 'stat_data.角色.道具.' + name;
                 const old = win._.get(c, key) || {};
                 const currentQty = Number(old.数量) || 0;
                 const baselineQty = achievementBaselineData
@@ -1350,7 +1352,7 @@
               });
 
               if (credentialGrant) {
-                const key = 'stat_data.主角.道具.' + credentialGrant.name;
+                const key = 'stat_data.角色.道具.' + credentialGrant.name;
                 const old = win._.get(c, key) || {};
                 const currentQty = (old && typeof old === 'object' && Object.keys(old).length)
                   ? (Object.prototype.hasOwnProperty.call(old, '数量') ? (Number(old.数量) || 0) : 1)
@@ -1399,8 +1401,8 @@
               }
 
               golds.forEach(function(g) {
-                if (!g.name || exists('stat_data.主角.装备.' + g.name)) return;
-                const key = 'stat_data.主角.装备.' + g.name;
+                if (!g.name || exists('stat_data.角色.装备.' + g.name)) return;
+                const key = 'stat_data.角色.装备.' + g.name;
                 win._.set(c, key + '.品质', baseGrade);
                 win._.set(c, key + '.类型', 8);
                 win._.set(c, key + '.标签', ['主神空间', g.origin || world].filter(Boolean));
@@ -1413,8 +1415,8 @@
               });
 
               relics.forEach(function(r) {
-                if (!r.name || exists('stat_data.主角.道具.' + r.name)) return;
-                const key = 'stat_data.主角.道具.' + r.name;
+                if (!r.name || exists('stat_data.角色.道具.' + r.name)) return;
+                const key = 'stat_data.角色.道具.' + r.name;
                 win._.set(c, key + '.品质', baseGrade);
                 win._.set(c, key + '.类型', r.type || '纪念物');
                 win._.set(c, key + '.数量', 1);
@@ -1425,6 +1427,10 @@
                 changed = true;
               });
 
+              if (isLatestPanel && isFullSettlement(rawText)) {
+                const engine = win.Samsara && win.Samsara.worldEngine;
+                if (engine) engine.cancel();
+              }
               if (applySettlementFinalization(c, isLatestPanel)) changed = true;
 
               if (!changed) return;

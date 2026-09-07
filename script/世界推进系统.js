@@ -698,7 +698,15 @@
                 const base = this.snapshot(), reason = this.blocked(base);
                 if (reason) { this.status = reason; return false; }
                 const old = Object.assign(emptyState(),base.stat.世界[PATH] || {});
-                if (old.已处理楼层 === base.fingerprint) { this.status = '本楼层已处理，不重复结算'; return false; }
+                if (old.已处理楼层 === base.fingerprint) {
+                    const recoveryStat=copy(base.stat);
+                    recoveryStat.世界[PATH]=Object.assign(emptyState(),recoveryStat.世界[PATH]||{});
+                    normalizeBackendState(recoveryStat);
+                    const recoveryTimeline=timelineState(recoveryStat);
+                    const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.需要补充远期||recoveryTimeline.因果轨道需重建);
+                    if(!needsMacroRepair){this.status='本楼层已处理，不重复结算';return false;}
+                    this.status='检测到宏观骨架不完整 · 修复本楼层';
+                }
                 if (!terminal || !terminal.apiReady()) throw new Error('请在主神终端设置中启用额外模型并选择模型');
                 const validate = this.host.Samsara && this.host.Samsara.validateWorldState;
                 if (!validate) throw new Error('请加载更新后的 ZOD脚本.js');

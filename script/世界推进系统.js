@@ -30,8 +30,8 @@
         const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
         return (+m[1]*372 + +m[2]*31 + +m[3])*24+(part?hour[part[0]]:0);
     }
-    const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的旧状态、世界书设定及本轮实际剧情为依据，统一处理四个模块：
-【世界推进】以世界.时间为唯一时间锚点，后台.事件是唯一剧情调度图。首次进入副本或缺少时间轴时，必须依据世界书、原著/设定时间线与当前阶段建立分层时间骨架：当前活动层记录未来数小时至约2天内需要精确处理的事件；近期规划层记录接下来数天至数周的重要人物、势力与局部事件；宏观锚点层记录更远的战争、政权、灾难、原著关键节点等世界级变化。紧凑副本可按小时/夜晚细分，大型长期世界只保留必要宏观节点，禁止把遥远未来拆成琐碎行动。每轮随时间滚动：到期节点复核，接近当前时间的宏观节点展开成近期事件，并持续补足有依据的远期宏观节点。过去事实约束未来，未来计划不得记成已发生事实。
+    const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的旧状态、世界书设定及本轮实际剧情为依据，统一处理五个模块：
+【世界推进】以世界.时间为唯一时间锚点，后台.事件是唯一剧情调度图。事件分类固定使用“当前事件 / 近期节点 / 宏观节点”（旧故事线兼容导入可保留“主线节点”）。首次进入副本或缺少时间轴时，必须依据世界书、原著/设定时间线与当前阶段建立分层时间骨架：当前活动层记录未来数小时至约2天内需要精确处理的事件；近期规划层记录接下来数天至数周的重要人物、势力与局部事件；宏观锚点层记录更远的战争、政权、灾难、原著关键节点等世界级变化。紧凑副本可按小时/夜晚细分，大型长期世界只保留必要宏观节点，禁止把遥远未来拆成琐碎行动。每轮随时间滚动：到期节点复核，接近当前时间的宏观节点展开成近期事件，并持续补足有依据的远期宏观节点。过去事实约束未来，未来计划不得记成已发生事实。
 【角色管理】维护场外人物所在世界、地点、目标、行动、已知信息、行程及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗；不得为<user>建立或推进后台行动日程。人物记录与关系列表按名字关联，不编造整套人物属性。
 【势力与地区】处理势力目标、资源、冲突、地区变化、探索线索。声望变化必须有真实行为依据，不能因为经过时间自动涨落。未知探索点保留在内部地区记录，发现后才投影到世界.探索。
 【任务联动】任务不是第二套剧情树。仅依据后台事件的实际结果更新已有任务或成就状态；主神任务、晋升试炼的创建、奖励定义与发奖由原系统负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。
@@ -218,7 +218,7 @@
             visiting.add(name); state.事件[name].前因.forEach(visit); visiting.delete(name); visited.add(name);
         }
         Object.keys(state.事件).forEach(visit);
-        for (const category of ['人物','势力地区','剧本','传播']) {
+        for (const category of ['人物','势力地区','传播']) {
             for (const record of Object.values(state[category])) if (record.关联事件.some(id => !Object.hasOwn(state.事件,id))) throw new Error('关联事件不存在');
         }
     }
@@ -664,7 +664,7 @@
             const tools=(filters=[])=>'<div class="we-tools"><input data-search aria-label="搜索档案" placeholder="搜索名称、地点或内容…" value="'+text(this.query||'')+'">'+filters.map(f=>'<button data-filter="'+f+'" class="'+((this.filter||'全部')===f?'active':'')+'">'+f+'</button>').join('')+'</div>';
             const calendar=()=>{
                 const today=parseDate(w.时间);
-                if(!today)return '<div class="we-calendar"><h3>世界日期待初始化</h3><p class="we-muted">'+text(w.时间||'尚无副本时间')+'</p></div>';
+                if(!today){const semantic=events.filter(([,e])=>!parseDate(e.时间||e.开始时间)&&String(e.时间||e.开始时间||'').trim()).slice(0,12);return '<div class="we-calendar"><h3>作品内时间轴</h3><p class="we-muted">当前锚点 · '+text(w.时间||'尚无副本时间')+'</p>'+(semantic.length?'<div class="we-timeline">'+semantic.map(([n,e])=>'<p><b>'+text(e.时间||e.开始时间)+'</b><br>'+text(n)+'</p>').join('')+'</div>':'<p class="we-muted">暂无带作品内时间标记的事件</p>')+'</div>';}
                 const month=new Date(0);month.setFullYear(today.y,today.m-1+(this.monthOffset||0),1);month.setHours(0,0,0,0);
                 const y=month.getFullYear(),m=month.getMonth()+1,first=(month.getDay()+6)%7;
                 const last=new Date(month);last.setMonth(last.getMonth()+1,0);const count=last.getDate();
@@ -684,7 +684,7 @@
                     '<div class="we-grid">'+section('近期变化',changeHtml||empty('本轮无变化记录'))+'</div></div><aside>'+
                     section('活跃事件',(active.slice(0,3).map(([n,e])=>'<p><b>'+text(n)+'</b><br><small>'+text(e.时间||e.开始时间||'时间待确认')+'</small><br>'+text(e.公开征兆||e.描述)+'</p>').join('')||empty('暂无活跃事件'))+'<button class="we-btn" data-tab="任务与事件">全部事件 ›</button>')+
                     section('任务进展',(tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态)).slice(0,3).map(([n,t])=>'<p><b>'+text(n)+'</b> '+pill(t.状态)+'<br>'+text(t.目标||t.说明||'')+'</p>').join('')||empty('暂无进行中任务'))+'<button class="we-btn" data-tab="任务与事件">全部任务 ›</button>')+'</aside></div>';
-                html+='<details class="we-section" data-detail="world-calendar"'+(opened.has('world-calendar')?' open':'')+'><summary>日历与完整时间线 · '+events.length+' 个事件 / '+future.length+' 个未来节点</summary><div class="we-columns"><div>'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p>筛选日期：'+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(shown.map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的事件'))+'</div></div><aside>'+calendar()+'</aside></div></details>';
+                html+='<details class="we-section" data-detail="world-calendar"'+(opened.has('world-calendar')?' open':'')+'><summary>时间线与日历 · '+events.length+' 个事件 / '+future.length+' 个未来节点 / '+events.filter(([,e])=>e.分类==='宏观节点').length+' 个宏观节点</summary><div class="we-columns"><div>'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p>筛选日期：'+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(shown.map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的事件'))+'</div></div><aside>'+calendar()+'</aside></div></details>';
             }else if(this.tab==='角色管理'){
                 const list=Array.from(people).filter(([n,p])=>matched(n,p)&&((this.filter||'全部')==='全部'||(this.filter==='在场'?!!(s.关系列表||{})[n]?.在场:!(s.关系列表||{})[n]?.在场)));
                 const chosen=list.find(([n])=>n===this.selectedPerson)||list[0];

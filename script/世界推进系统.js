@@ -30,16 +30,39 @@
         const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
         return (+m[1]*372 + +m[2]*31 + +m[3])*24+(part?hour[part[0]]:0);
     }
-    const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的旧状态、世界书设定及本轮实际剧情为依据，统一处理五个模块：
+    const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的旧状态、世界书设定及本轮实际剧情为依据，统一处理六个模块：
 【世界推进】以世界.时间为唯一时间锚点，后台.事件是唯一剧情调度图。事件分类固定使用“当前事件 / 近期节点 / 宏观节点”（旧故事线兼容导入可保留“主线节点”）。首次进入副本或缺少时间轴时，必须依据世界书、原著/设定时间线与当前阶段建立分层时间骨架：当前活动层记录未来数小时至约2天内需要精确处理的事件；近期规划层记录接下来数天至数周的重要人物、势力与局部事件；宏观锚点层记录更远的战争、政权、灾难、原著关键节点等世界级变化。紧凑副本可按小时/夜晚细分，大型长期世界只保留必要宏观节点，禁止把遥远未来拆成琐碎行动。每轮随时间滚动：到期节点复核，接近当前时间的宏观节点展开成近期事件，并持续补足有依据的远期宏观节点。过去事实约束未来，未来计划不得记成已发生事实。
-【角色管理】维护场外人物所在世界、地点、目标、行动、已知信息、行程及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗；不得为<user>建立或推进后台行动日程。人物记录与关系列表按名字关联，不编造整套人物属性。
+原著世界推演必须结合：当前时间锚点、当前地点、当前剧情阶段、已知角色状态、原著人物行动规律、世界势力动态；据此推演人物行动、势力变化、剧情推进与世界事件。原创/衍生世界则依据当前世界法则与本土势力动态持续推演。世界持续运行，不因<user>未行动而暂停。
+【因果轨道与偏移】世界.因果轨道是后台事件图的宏观投影，不是第二套独立剧情。故事线必须维持3~5个默认大事件节点，用“ -> ”串联并覆盖当前阶段前后；下一节点是下一个宏观边界或检查点。仅在章节切换、地图切换、关键任务完成或重大剧情事件发生时更新。只有关键人物命运、重大事件、势力格局或主线被玩家/其他人物实质改变时才写偏移记录，日常、战斗动作、交易、对话不记偏移。偏移记录写明描述、引发者、影响程度；负值表示使原轨道更不稳定，正值表示修复/强化原轨道。新增偏移后若原主线无法继续，立即重构故事线与下一节点；否则保留原轨道。世界超稳时不得新增偏移。
+【角色管理】维护场外人物所在世界、地点、目标、行动、已知信息、行程及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗；不得为<user>建立或推进后台行动日程。人物记录与关系列表按稳定名字关联，不编造整套人物属性。
 【势力与地区】处理势力目标、资源、冲突、地区变化、探索线索。声望变化必须有真实行为依据，不能因为经过时间自动涨落。未知探索点保留在内部地区记录，发现后才投影到世界.探索。
 【任务联动】任务不是第二套剧情树。仅依据后台事件的实际结果更新已有任务或成就状态；主神任务、晋升试炼的创建、奖励定义与发奖由原系统负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。
-【信息传播】事件产生街头巷议、付费情报或公告。区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。人物只有获得信息后才能据此行动。传闻可产生新事件，禁止无因果地每轮刷新。
+【信息传播】世界引擎负责场外传闻与传播链。事件产生街头巷议、付费情报或公告，区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。人物只有获得信息后才能据此行动。传闻可产生新事件，但禁止无因果地每轮刷新；当前场景内用户刚刚直接听到/买到的即时信息仍以正文事实为准。
 只使用世界.时间计算本世界进展；系统状态.游玩天数仅作只读参考。时间未变也可记录本轮新事实，但不得虚构耗时进度。跨多个日期需按依赖顺序补算，先处理到期事件再生成后果。
 事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。宏观远期节点允许时间未定，禁止捏造精确日期。
 世界超稳时保持默认宏观轨道，不新增偏移。单一世界的局部结算不能重置世界。普通副本返回主神空间后停止本世界推演。
 初始化时依据当前设定建立必要的近远期节点；无依据的记录保持空。没有变化就返回空补丁。公开摘要只包含当前可观察的事实、征兆和已知线索，隐藏真相和未来结局留在后台。`;
+    const CORE_WORLD_RULES = `【世界引擎核心约束】
+1. 后台.事件是唯一调度图；因果轨道只是它的3~5节点宏观投影。故事线少于3个节点、超过5个节点、只写一句概括或与当前事件图明显脱节时，本轮必须优先修复。
+2. 原著世界必须结合当前时间锚点、地点、剧情阶段、已知角色状态、原著人物行动规律与势力动态；原创/衍生世界按世界法则和本土势力动态运行。世界不会因为<user>没行动而暂停。
+3. 玩家或任何人物若改变关键人物命运、重大事件结果、势力格局或主线可行性，评估偏移记录；仅宏观实质偏离才记录。若偏移使原故事线不可继续，同轮重构故事线和下一节点。
+4. 场外人物、势力、未来事件、传播与传闻由世界引擎负责；正文/MVU只负责当前场景直接事实。旧后台.剧本不参与调度。
+5. 用户可编辑分段提示词正文，但这些核心约束始终生效，不依赖任何分段标题是否存在。`;
+    function splitPresetSegments(value) {
+        return String(value||'').split(/\n(?=【)/).filter(Boolean).map(part=>{
+            const m=part.match(/^【([^】]+)】\s*\n?/);
+            return m?{title:m[1],body:part.slice(m[0].length)}:{title:'',body:part};
+        });
+    }
+    function segmentText(segment) {
+        return segment.title?'【'+segment.title+'】\n'+String(segment.body||'').trim():String(segment.body||'').trim();
+    }
+    function ensurePresetStructure(value) {
+        const current=splitPresetSegments(value||DEFAULT_PRESET),defaults=splitPresetSegments(DEFAULT_PRESET);
+        const titles=new Set(current.map(s=>s.title).filter(Boolean));
+        for(const segment of defaults)if(segment.title&&!titles.has(segment.title))current.push(segment);
+        return current.map(segmentText).filter(Boolean).join('\n');
+    }
     const RECORDS = {
         事件: { 描述:'', 时间:'', 条件:'', 前因:[], 状态:'待发生', 默认走向:'', 结果:'', 公开征兆:'', 地点:'' },
         人物: { 所属世界:'', 地点:'', 目标:'', 行动:'', 认知:[], 下次检查:'', 关联事件:[], 公开动态:'' },
@@ -85,6 +108,31 @@
         if(historyKeys.length>HISTORY_TARGET)for(const key of historyKeys.slice(0,historyKeys.length-HISTORY_TARGET))delete state.历史[key];
         return archived;
     }
+    function storyStages(value) {
+        return String(value||'').split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
+    }
+    function repairCausalProjection(stat) {
+        const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
+        const existing=storyStages(orbit.故事线);
+        if(existing.length>=3&&existing.length<=5)return [];
+        const entries=Object.entries(stat.世界[PATH]?.事件||{}).filter(([,e])=>e.状态!=='已取消');
+        if(entries.length<3)return [];
+        const chosen=[],seen=new Set();
+        const take=name=>{if(name&&!seen.has(name)&&entries.some(([n])=>n===name)){seen.add(name);chosen.push(name);}};
+        take(orbit.当前阶段);
+        for(const [name,e] of entries)if(['主线节点','宏观节点','近期节点','当前事件'].includes(e.分类))take(name);
+        for(const [name,e] of entries)if(e.状态==='进行中')take(name);
+        for(const [name,e] of entries)if(e.状态==='待发生')take(name);
+        if(chosen.length<3)return [];
+        const line=chosen.slice(0,5),patches=[];
+        const story=line.join(' -> ');
+        if(orbit.故事线!==story){orbit.故事线=story;patches.push({op:'replace',path:'/世界/因果轨道/故事线',value:story});}
+        const nextName=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='待发生')||orbit.下一节点||'';
+        if(nextName&&orbit.下一节点!==nextName){orbit.下一节点=nextName;patches.push({op:'replace',path:'/世界/因果轨道/下一节点',value:nextName});}
+        const current=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='进行中');
+        if(current&&(!orbit.当前阶段||orbit.当前阶段==='待初始化')){orbit.当前阶段=current;patches.push({op:'replace',path:'/世界/因果轨道/当前阶段',value:current});}
+        return patches;
+    }
     function timelineState(stat) {
         const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
         const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));
@@ -93,8 +141,11 @@
         const macroFuture=macro.filter(([,e])=>e.状态==='待发生');
         const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
         const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
+        const orbitStages=storyStages(stat.世界.因果轨道?.故事线);
         return {
             当前时间锚点:stat.世界.时间,
+            因果轨道节点数:orbitStages.length,
+            因果轨道需重建:orbitStages.length<3||orbitStages.length>5,
             需要初始化:near.length===0&&macro.length===0,
             当前活动事件数:waiting.filter(([,e])=>e.状态==='进行中').length,
             近期节点数:near.length,
@@ -112,8 +163,7 @@
     function importStory(stat) {
         const orbit=stat.世界.因果轨道||{},events=stat.世界.后台?.事件||{};
         if(Object.values(events).some(e=>e.分类==='主线节点'))return [];
-        const story=String(orbit.故事线||'');
-        const stages=story.split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
+        const stages=storyStages(orbit.故事线);
         if(stages.length<2||stages.length>30)return [];
         const index=stages.findIndex(n=>n===orbit.下一节点);
         const remaining=index>=0?stages.slice(index):stages;

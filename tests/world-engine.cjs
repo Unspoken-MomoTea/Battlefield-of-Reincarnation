@@ -65,6 +65,64 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(next.世界.后台.人物['张彪/狂暴分支'],undefined);
     });
 
+    await test('event structure self-heals legacy categories and obvious local macro inflation', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'结构修复',patches:[]}));
+        x.change(s=>{
+            s.世界.后台.事件={
+                '校园突围与校车集结':{...RECORDS.事件,分类:'宏观节点',描述:'幸存者集结并夺取校车逃离校园。',地点:'藤美学园-正门',状态:'待发生',时间:'2026年9月7日中午'},
+                '床主大桥封锁线':{...RECORDS.事件,分类:'宏观节点',描述:'幸存者抵达床主大桥并寻找绕行路线。',地点:'床主大桥',状态:'待发生',时间:'2026年9月7日下午'},
+                '高城家据点保卫战':{...RECORDS.事件,分类:'宏观节点',描述:'主要庇护据点遭大规模尸潮围攻并改变后续生存阶段。',地点:'高城宅邸',状态:'待发生',时间:'2026年9月8日'},
+                '天台门扉突破':{...RECORDS.事件,分类:'近期事件',描述:'天台入口铁门被撞开。',地点:'主教学楼-天台入口',状态:'进行中',时间:'2026年9月7日上午'},
+                '医务室劫掠危机':{...RECORDS.事件,分类:'近期事件',描述:'张彪·狂暴分支正冲向医务室。',地点:'主教学楼-二楼-医务室',状态:'进行中',时间:'2026年9月7日上午'}
+            };
+            s.世界.后台.人物['张彪·狂暴分支']={...RECORDS.人物,所属世界:'测试世界',行动:'冲向医务室'};
+        });
+        assert.equal(await x.engine.run(),true);
+        const events=x.get().世界.后台.事件;
+        assert.equal(events['校园突围与校车集结'].分类,'近期节点');
+        assert.equal(events['床主大桥封锁线'].分类,'近期节点');
+        assert.equal(events['高城家据点保卫战'].分类,'宏观节点');
+        assert.equal(events['天台门扉突破'].分类,'当前事件');
+        assert.equal(events['医务室劫掠危机'].分类,'当前事件');
+        assert.deepEqual(x.get().世界.后台.人物['张彪·狂暴分支'].关联事件,['医务室劫掠危机']);
+    });
+    await test('macro acceptance demotes obvious local actions before counting backbone nodes', async () => {
+        let calls=0;
+        const x=setup(async()=>{
+            calls++;
+            if(calls===1)return JSON.stringify({summary:'局部事件冒充宏观',patches:[
+                add('/世界/后台/事件/校园突围与校车集结',{描述:'夺取校车离开校园',地点:'藤美学园-正门',分类:'宏观节点',状态:'待发生',时间:'2026年9月7日中午'}),
+                add('/世界/后台/事件/床主大桥封锁线',{描述:'抵达大桥并寻找绕路',地点:'床主大桥',分类:'宏观节点',状态:'待发生',时间:'2026年9月7日下午'}),
+                add('/世界/后台/事件/医务室会合',{描述:'在医务室完成会合',地点:'主教学楼-医务室',分类:'宏观节点',状态:'待发生',时间:'2026年9月7日下午'})
+            ]});
+            return JSON.stringify({summary:'真正宏观骨架',patches:[
+                add('/世界/后台/事件/高城据点阶段',{描述:'主要庇护据点建立并改变幸存者生存阶段',地点:'床主市',分类:'宏观节点',状态:'待发生',时间:'2026年9月8日'}),
+                add('/世界/后台/事件/战略级基础设施失效',{描述:'更大范围战略级灾难导致通讯和电子基础设施失效',地点:'全国范围',分类:'宏观节点',状态:'待发生',时间:'爆发后数日'}),
+                add('/世界/后台/事件/社会秩序长期崩溃',{描述:'地区社会秩序进入长期崩溃和流亡阶段',地点:'关东地区',分类:'宏观节点',状态:'待发生',时间:'爆发后一周内'})
+            ]});
+        });
+        x.engine.config.requireMacroBackbone=true;x.engine.config.retryAttempts=2;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,2);
+        assert.match(x.engine.lastRetryLog[0].错误,/宏观事件不足/);
+        const events=x.get().世界.后台.事件;
+        assert.equal(events['校园突围与校车集结'],undefined);
+        assert.equal(Object.values(events).filter(e=>e.分类==='宏观节点'&&e.状态==='待发生').length,3);
+    });
+    await test('macro storyline deterministically links empty macro predecessors', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'宏观链',patches:[]}));
+        x.change(s=>{
+            s.世界.后台.事件={
+                A:{...RECORDS.事件,分类:'宏观节点',描述:'地区阶段A',状态:'待发生',时间:'2026年9月8日'},
+                B:{...RECORDS.事件,分类:'宏观节点',描述:'地区阶段B',状态:'待发生',时间:'2026年9月10日'},
+                C:{...RECORDS.事件,分类:'宏观节点',描述:'地区阶段C',状态:'待发生',时间:'2026年9月14日'}
+            };
+            s.世界.因果轨道={当前阶段:'',故事线:'A -> B -> C',下一节点:'A',偏移记录:{}};
+        });
+        assert.equal(await x.engine.run(),true);
+        assert.deepEqual(x.get().世界.后台.事件.B.前因,['A']);
+        assert.deepEqual(x.get().世界.后台.事件.C.前因,['B']);
+    });
     await test('causal projection is rebuilt only from macro events, never from current-scene details', async () => {
         const x=setup(async()=>JSON.stringify({summary:'同步宏观轨道',patches:[]}));
         x.change(s=>{

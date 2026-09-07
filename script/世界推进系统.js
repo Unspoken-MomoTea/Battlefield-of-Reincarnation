@@ -508,8 +508,24 @@
             if (typeof text !== 'string' || text.length > 30000) throw new Error('预设限30000字');
             this.config.preset = ensurePresetStructure(text); this.saveConfig();
         }
-        isEnabled() { return !!this.config.enabled; }
-        setEnabled(value) { this.config.enabled = !!value; this.saveConfig(); if (!value) this.cancel(); this.render(); }
+        isConfigured() { return !!this.config.enabled; }
+        isAvailable() {
+            const terminal=this.host.Samsara&&this.host.Samsara.terminal;
+            return !!(terminal&&typeof terminal.apiReady==='function'&&terminal.apiReady());
+        }
+        isEnabled() { return this.isConfigured()&&this.isAvailable(); }
+        setEnabled(value) {
+            const on=!!value;
+            this.config.enabled=on;
+            if(on){
+                const terminal=this.host.Samsara&&this.host.Samsara.terminal;
+                if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
+            } else this.cancel();
+            this.saveConfig();
+            this.status=on?(this.isAvailable()?'世界推进已开启':'世界推进已开启 · 等待额外模型配置'):'世界推进已关闭';
+            this.render();
+            return this.isEnabled();
+        }
         cancel() { ++this.generation; this.pending = false; clearTimeout(this.timer); if (this.controller) this.controller.abort(); }
         async catalogue() {
             const namesFn=this.fn('getCharWorldbookNames'),get=this.fn('getWorldbook');
@@ -568,7 +584,7 @@
             return {system,input,seedPatches,due,manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),请求字符数:system.length+input.length}};
         }
         schedule() {
-            if (this.disposed || this.committing || !this.config.enabled) return;
+            if (this.disposed || this.committing || !this.isEnabled()) return;
             if (this.busy) { this.pending = true; return; }
             clearTimeout(this.timer);
             this.timer = setTimeout(() => this.run().catch(() => {}), 900);
@@ -738,7 +754,7 @@
             `;
             this.panel=doc.createElement('section');this.panel.id='sam-world-engine';this.panel.hidden=true;
             this.panel.setAttribute('role','dialog');this.panel.setAttribute('aria-label','世界引擎');
-            this.panel.innerHTML='<header><div class="we-brand"><i>◈</i>世界引擎<small>WORLD CHRONICLE</small></div><button class="we-btn" data-action="enabled"></button><button class="we-btn we-primary" data-action="run">推进世界</button><button class="we-btn" data-action="close" aria-label="返回主神终端">返回 ↗</button></header><div class="we-layout"><nav></nav><main></main></div><footer><span></span><small>剧情时间驱动 · 关闭面板后仍可自动运行</small></footer>';
+            this.panel.innerHTML='<header><div class="we-brand"><i>◈</i>世界引擎<small>WORLD CHRONICLE</small></div><button class="we-btn we-primary" data-action="run">推进世界</button><button class="we-btn" data-action="close" aria-label="返回主神终端">返回 ↗</button></header><div class="we-layout"><nav></nav><main></main></div><footer><span></span><small>剧情时间驱动 · 由主神终端「世界推进」总开关控制</small></footer>';
             this.panel.addEventListener('click',event=>{
                 const button=event.target.closest('button');if(!button)return;
                 const a=button.dataset.action;
@@ -747,7 +763,6 @@
                 if(button.dataset.person){this.selectedPerson=button.dataset.person;this.render();return;}
                 if(a==='close')this.close();
                 else if(a==='run')this.run().catch(()=>{});
-                else if(a==='enabled')this.setEnabled(!this.config.enabled);
                 else if(a==='cancel'){this.cancel();this.status='已请求停止';this.render();}
                 else if(a==='save'){
                     this.setPreset(Array.from(this.panel.querySelectorAll('[data-segment]')).map(e=>e.dataset.title?'【'+e.dataset.title+'】\n'+e.value:e.value).join('\n'));
@@ -788,9 +803,9 @@
             const main=this.panel.querySelector('main'),scroll=main.scrollTop;
             const opened=new Set(Array.from(main.querySelectorAll('details[open]')).map(d=>d.dataset.detail));
             this.panel.querySelector('footer span').textContent=this.status;
-            this.panel.querySelector('[data-action=run]').disabled=this.busy||!!reason;
+            const availabilityReason=this.isConfigured()&&!this.isAvailable()?'额外模型未准备好：请在主神终端设置中配置 API 地址并选择模型':'';
+            this.panel.querySelector('[data-action=run]').disabled=this.busy||!!reason||!!availabilityReason;
             this.panel.querySelector('[data-action=run]').textContent=this.busy?'推演中…':'推进世界';
-            this.panel.querySelector('[data-action=enabled]').textContent=this.config.enabled?'自动 · 开启':'自动 · 关闭';
             const tabs=[['世界推进','◈'],['角色管理','♙'],['势力与地区','⚑'],['任务与事件','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋']];
             this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span>'+i+'</span>'+t+'</button>').join('');
             if(this.tab==='提示词预设'&&main.querySelector('textarea')&&!force)return;
@@ -833,7 +848,7 @@
                 return '<div class="we-calendar"><div class="we-calhead"><button class="we-btn" data-action="month" data-step="-1" aria-label="上月">‹</button><strong>'+y+' 年 '+m+' 月</strong><button class="we-btn" data-action="month" data-step="1" aria-label="下月">›</button></div><div class="we-days">'+cells+'</div><div class="we-meta"><span>金框 · 当前日期</span><span>绿点 · 已排定事件</span></div></div>';
             };
             const hero='<div class="we-hero"><div><div class="we-eyebrow">SAMSARA / WORLD ARCHIVE</div><h1>'+text(w.名称&&w.名称!=='待初始化'?w.名称:'世界尚未建立')+'</h1><div class="we-muted">'+text(w.地点||'地点待确认')+' · '+text(orbit.当前阶段&&orbit.当前阶段!=='待初始化'?orbit.当前阶段:'等待篇章开启')+'</div></div><div class="we-date">'+text(w.时间||'副本日期待确认')+'<small>累计游玩 '+text((s.系统状态||{}).游玩天数||0)+' 天 · '+(reason?'推进暂停':'副本进行中')+'</small></div></div>';
-            let html=hero+(reason?'<div class="we-notice">'+text(reason)+'</div>':'');
+            let html=hero+(reason?'<div class="we-notice">'+text(reason)+'</div>':'')+(availabilityReason?'<div class="we-notice">'+text(availabilityReason)+'</div>':'');
             if(this.tab==='世界推进'){
                 const changes=(state.最近变化||[]).slice(-7).reverse();
                 const changeHtml=changes.map(c=>'<div class="we-change"><time>'+text(dateLabel(c.时间))+'</time><div><b>'+text(c.名称||c.类别)+' · '+text(c.操作)+'</b><p>'+text(c.内容||c.字段)+'</p></div></div>').join('');

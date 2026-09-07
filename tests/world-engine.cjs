@@ -277,13 +277,13 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(disableCalls,0);
         assert.equal(apiEnabled,true);
     });
-    await test('world advance stays configured but falls back when extra model is unavailable', () => {
-        let enabled=false;
-        const host={localStorage:{getItem:()=>JSON.stringify({enabled:true}),setItem:()=>{}},Samsara:{terminal:{apiReady:()=>false,enableApi:()=>{enabled=true;}}}};
+    await test('persisted world advance re-enables extra API on startup but falls back until a model is ready', () => {
+        let enableCalls=0;
+        const host={localStorage:{getItem:()=>JSON.stringify({enabled:true}),setItem:()=>{}},Samsara:{terminal:{apiReady:()=>false,enableApi:()=>{enableCalls++;}}}};
         const engine=new Engine(host);
         assert.equal(engine.isConfigured(),true);
         assert.equal(engine.isEnabled(),false);
-        assert.equal(enabled,false);
+        assert.equal(enableCalls,1);
     });
     await test('status bar routes world button by master switch and exposes world advance setting', () => {
         const source=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');

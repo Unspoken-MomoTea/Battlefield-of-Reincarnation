@@ -943,7 +943,7 @@
         }
 
         confirmButton.addEventListener('click', function (event) {
-            // 只有玩家真实点击确认按钮才允许提交世界并离开主神空间。
+            // 只有真实点击确认按钮才允许提交世界并离开主神空间。
             if (!event.isTrusted) return;
             if (selectedIndex === null) {
                 alert('错误：未选择任何世界坐标。');

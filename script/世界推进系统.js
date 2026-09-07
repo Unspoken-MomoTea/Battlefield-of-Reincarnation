@@ -525,6 +525,7 @@
                         value=merged;
                     }
                     checkRecord(value,schema);
+                    if(p[0]==='传闻'&&p[1]==='情报交易'&&!(next.系统状态||{}).是否在主神空间&&next.世界?.名称!=='主神空间'&&/空间币/.test(String(value.要价||'')))throw new Error('任务世界情报交易必须使用本地货币，不能使用空间币');
                 }
                 else if (old !== undefined && (typeof old !== typeof value || Array.isArray(old) !== Array.isArray(value))) throw new Error('字段类型发生改变');
                 if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('数值无效');

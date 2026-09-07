@@ -850,6 +850,9 @@
             catch(_){throw new Error('返回 JSON 无法解析：'+error.message+'；原始回复保留在请求检查。');}
         }
         if(!plain(result))throw new Error('回复必须是一个 JSON 对象');
+        for(const key of ['WorldResult','world_result','world_update','result']){
+            if(plain(result[key])&&Object.keys(result).length===1){result=result[key];break;}
+        }
         if(Array.isArray(result.patches)&&typeof result.summary==='string'){
             return {kind:'legacy_patches',summary:result.summary,patches:result.patches};
         }

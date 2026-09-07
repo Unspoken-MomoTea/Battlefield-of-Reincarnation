@@ -254,11 +254,13 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         }
     });
     await test('saved prompt presets recover required structural segments without overwriting custom bodies', () => {
-        const host={localStorage:{getItem:()=>JSON.stringify({preset:'自定义总则\n【世界推进】\n我的世界规则'}),setItem:()=>{}},Samsara:{}};
+        const host={localStorage:{getItem:()=>JSON.stringify({preset:'自定义总则\n【世界推进】\n我的世界规则\n【势力与地区】\n旧版势力规则'}),setItem:()=>{}},Samsara:{}};
         const engine=new Engine(host);
         assert.match(engine.config.preset,/【世界推进】\n我的世界规则/);
         assert.match(engine.config.preset,/【世界演进准则】/);
         assert.match(engine.config.preset,/【因果轨道与偏移】/);
+        assert.match(engine.config.preset,/【探索与势力】\n旧版势力规则/);
+        assert.doesNotMatch(engine.config.preset,/【势力与地区】/);
         assert.match(engine.config.preset,/【信息传播】/);
     });
     await test('world advance master switch enables extra API and only becomes effective when model API is ready', () => {

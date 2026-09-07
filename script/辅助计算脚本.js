@@ -89,6 +89,16 @@
 
             if (!statData) return;
 
+            // 世界引擎的独立提交仅更新叙事数据，不能当成又一轮正文消耗状态/冷却。
+            // 标记随本楼层保存；后续正文继承同一标记时 before/after 相等，照常计算。
+            const worldCommit = rawVariables?.__samsaraWorldCommit;
+            if (worldCommit && worldCommit === statData.世界?.后台?.已处理楼层
+                && rawVariablesBefore && worldCommit !== rawVariablesBefore.__samsaraWorldCommit) {
+                guardTaskGenerationLock(statData);
+                calcWorldStability(statData);
+                return;
+            }
+
             // ★ 任务生成当层整块锁：任何后续计算前先恢复美化器权威快照。
             //   只影响 任务.列表 / 任务.副本成就，不影响 任务.击杀 与其他变量。
             guardTaskGenerationLock(statData);
@@ -96,14 +106,14 @@
             // ★ 后续楼层任务委托方守卫：只保护主神任务 / 晋升试炼的委托方。
             guardPersistedSystemTaskOwner(statData, statDataBefore);
 
-            const users = statData.主角;
+            const users = statData.角色;
             if (!users) return;
 
             // ★ 先回滚受保护字段，再执行后续计算
             guardProtectedFields(statData, statDataBefore);
 
             // ★ 原住民NPC位格/血统品质压制: 新登场原住民 层级/血统品质超出 世界.位格 → 压回世界位格
-            //   (主神空间中不压制; 轮回者/穿越者/守护者/织梦者/篡夺者/残魂 等特殊身份不压制)
+            //   (主神空间中不压制; 角色/穿越者/守护者/织梦者/篡夺者/残魂 等特殊身份不压制)
             clampNativeNpcToWorldTier(statData, statDataBefore);
 
             // 初始化日志（只打印一次）
@@ -114,17 +124,17 @@
             // 重算所有角色属性（传入 before 供 NPC 群体 THP/数量同步判断）
             recalcAllCharacters(statData, statDataBefore);
 
-            // ★ 主角普升检测：五维阶位累计≥24 → 系统状态.是否可试炼=true/false
+            // ★ 角色普升检测：五维阶位累计≥24 → 系统状态.是否可试炼=true/false
             //   必须在 recalcAllCharacters 之后执行(依赖最终属性已结算+层级截断)
-            if (statData.主角 && statData.系统状态) {
-                checkTrialEligibility(statData.主角, statData.系统状态);
+            if (statData.角色 && statData.系统状态) {
+                checkTrialEligibility(statData.角色, statData.系统状态);
             }
 
             // 插入：功法熟练度守卫 (模块4)
-            // guardProficiency(statData.主角);
+            // guardProficiency(statData.角色);
 
             // 插入：伴生神器自动成长 (模块3)
-            // processArtifactGrowth(statData.主角);
+            // processArtifactGrowth(statData.角色);
 
             // 插入：真实游玩天数推进 (世界.时间日期变动 → 系统状态.游玩天数+1)
             updatePlayDays(statData);
@@ -135,10 +145,10 @@
             // 【新增】：执行三大后台清理逻辑
             const isCombat = statData.系统状态?.是否战斗中 === true;
 
-            // 1. 清理主角的道具和状态
-            if (statData.主角) {
-                cleanupZeroQuantityItems(statData.主角);
-                processStatusDuration(statData.主角, isCombat);
+            // 1. 清理角色的道具和状态
+            if (statData.角色) {
+                cleanupZeroQuantityItems(statData.角色);
+                processStatusDuration(statData.角色, isCombat);
             }
             
             // 2. 清理 NPC 的道具和状态
@@ -383,7 +393,7 @@
     }
 
     /**
-     * 主角层级"普升通行证"校验
+     * 角色层级"普升通行证"校验
      *   "开始进阶"按钮 writeBackMvu 时会携带 opts.tierPermit=目标层级(如 'Ⅱ'), 写入
      *   win/GS_PARENT/window 的 __samsaraTierPermit。原因: Mvu.replaceMvuData 是异步的,
      *   它自身会再触发一次 VARIABLE_UPDATE_ENDED——该次事件发生时 __samsaraUIMutation 已复位,
@@ -391,7 +401,7 @@
      *   通行证允许 newVal === permit(仅此一档)时放行层级变化, 并在消费后立刻作废(一次性);
      *   多窗口(win/GS_PARENT/parent/top/window)任一命中即视为有效(与 isUIMutationActive 同策略)。
      *   permit 由悬浮球写入, 20s 后由其兜底清除, 不会长期残留。
-     * @param {string} newVal 本次事件里的主角.层级 新值
+     * @param {string} newVal 本次事件里的角色.层级 新值
      * @returns {boolean} 是否放行
      */
     function tierPermitAllows(newVal) {
@@ -417,7 +427,7 @@
 
     /**
      * 数据守卫：回滚被 AI 篡改的只读字段 + 规范化新增装备
-     * 覆盖 主角 和 关系列表 中的所有在场 NPC
+     * 覆盖 角色 和 关系列表 中的所有在场 NPC
      * @param {object} statData 本次更新后的 stat_data
      * @param {object} statDataBefore 上一帧 stat_data
      */
@@ -431,14 +441,14 @@
             'EP_MAX',
             '最终属性',   // 整个属性对象由后台全量计算，AI 禁止修改
         ];
-        // 主角专属受保护路径: 层级仅可由 进阶流程(悬浮球"开始进阶"按钮→writeBackMvu) 修改,
-        //   ★ 仅主角受限; NPC 层级允许剧情演进自由变动(如反派突破/成长), 不做守卫
-        const HERO_ONLY_PROTECTED_PATHS = [
+        // 角色专属受保护路径: 层级仅可由 进阶流程(悬浮球"开始进阶"按钮→writeBackMvu) 修改,
+        //   ★ 仅角色受限; NPC 层级允许剧情演进自由变动(如反派突破/成长), 不做守卫
+        const REINCARNATOR_ONLY_PROTECTED_PATHS = [
             '层级',
         ];
 
         // —— 2. 通用的回滚函数：对比并回滚一个角色对象的只读字段 ——
-        //   extraPaths: 额外受保护路径(如主角专属的"层级"), 仅调用方指定时生效
+        //   extraPaths: 额外受保护路径(如角色专属的"层级"), 仅调用方指定时生效
         function rollbackProtectedFields(char, charBefore, label, extraPaths) {
             if (!char || typeof char !== 'object') return;
             if (!charBefore || typeof charBefore !== 'object') return;
@@ -456,20 +466,20 @@
             }
         }
 
-        // —— 3. 回滚主角 ——
-        const user = statData?.主角;
-        const userBefore = statDataBefore?.主角;
+        // —— 3. 回滚角色 ——
+        const user = statData?.角色;
+        const userBefore = statDataBefore?.角色;
         if (user && userBefore) {
-            // 主角额外保护"层级": 仅进阶流程可改, AI 篡改一律回滚
+            // 角色额外保护"层级": 仅进阶流程可改, AI 篡改一律回滚
             //   ★ UI 操作窗口期(悬浮球"开始进阶"按钮→writeBackMvu 广播事件)放行层级变化,
             //     否则合法进阶会被守卫回滚
             //   ★ 普升通行证: replaceMvuData 异步触发的二次 VARIABLE_UPDATE_ENDED 不在
             //     __samsaraUIMutation 窗口期内(标志已复位), 凭 __samsaraTierPermit
             //     (=目标层级, 由"开始进阶"按钮写入, 20s 兜底过期)放行, 覆盖"闪升又降回"缺陷
-            const extraHeroPaths = isUIMutationActive()
+            const extraReincarnatorPaths = isUIMutationActive()
                 ? []
-                : (tierPermitAllows(user.层级) ? [] : HERO_ONLY_PROTECTED_PATHS);
-            rollbackProtectedFields(user, userBefore, '主角', extraHeroPaths);
+                : (tierPermitAllows(user.层级) ? [] : REINCARNATOR_ONLY_PROTECTED_PATHS);
+            rollbackProtectedFields(user, userBefore, '角色', extraReincarnatorPaths);
         }
 
         // —— 4. 回滚关系列表中的所有在场 NPC ——
@@ -486,10 +496,10 @@
             }
         }
 
-         // —— 5. 新增装备守卫（主角装备，原有逻辑保持不变） ——
+         // —— 5. 新增装备守卫（角色装备，原有逻辑保持不变） ——
         // 仅处理“新增装备”，不动已有装备
-        const oldEquip = statDataBefore?.主角?.装备 || {};
-        const newEquip = statData?.主角?.装备 || {};
+        const oldEquip = statDataBefore?.角色?.装备 || {};
+        const newEquip = statData?.角色?.装备 || {};
         for (const [equipKey, equipVal] of Object.entries(newEquip)) {
             if (!equipVal || typeof equipVal !== 'object') continue;
             const isNewEquip = oldEquip[equipKey] === undefined;
@@ -762,7 +772,7 @@
      *   触发条件 (全部满足才压制):
      *     1. 新登场 NPC: 上一帧 关系列表 不存在该名字 (避免反复覆盖剧情合理成长)
      *     2. 不在主神空间 (系统状态.是否在主神空间 !== true)
-     *     3. 身份不含 轮回者/穿越者/守护者/织梦者/篡夺者/残魂 (为特殊身份留通道)
+     *     3. 身份不含 角色/穿越者/守护者/织梦者/篡夺者/残魂 (为特殊身份留通道)
      *   压制规则:
      *     - NPC.层级 (Ⅰ~Ⅸ) 超过 世界.位格 → 压回 世界.位格
      *     - 每条 血统[name].层级 或 .品质 超出 世界.位格 对应品质字母 → 压回 capQuality
@@ -890,7 +900,7 @@
      */
     function syncNpcGroupThp(char, charBefore, label) {
         if (!char || typeof char !== 'object') return;
-        // 仅处理关系列表 NPC；主角无“数量”群体语义
+        // 仅处理关系列表 NPC；角色无“数量”群体语义
         if (!label || String(label).indexOf('NPC:') !== 0) return;
         // 无数量字段的旧数据按单体处理
         if (char.数量 === undefined || char.数量 === null) return;
@@ -961,8 +971,8 @@
     }
 
     /**
-     * 重算单个角色（主角或NPC）的全套属性面板
-     * @param {object} char 角色对象（主角 或 关系列表[某NPC]）
+     * 重算单个角色（角色或NPC）的全套属性面板
+     * @param {object} char 角色对象（角色 或 关系列表[某NPC]）
      * @param {string} label 日志标识
      * @param {object|null} [charBefore] 上一帧角色对象（NPC 群体同步用）
      */
@@ -1163,7 +1173,7 @@
         }
 
         // —— 5.5 NPC 群体单位：THP 池初始化 + 按 THP 反推数量 ——
-        // 必须在 HP_MAX 结算之后；主角跳过；数量<=1 时 THP 仍是普通护盾
+        // 必须在 HP_MAX 结算之后；角色跳过；数量<=1 时 THP 仍是普通护盾
         syncNpcGroupThp(char, charBefore || null, label);
 
         // —— 6. 衍生属性（公式 + 加值叠加）——
@@ -1208,15 +1218,15 @@
     }
 
     /**
-     * 主角普升检测：按最终五维属性值在【当前生命层级】内的相对段位判定，五维累计≥24 → 是否可试炼=true
-     *   - 单维分：取主角当前层级(Ⅰ~Ⅸ)对应的 LIFE_TIER_RANGE [lo,hi]，9 等分为 F~SSS 九段
+     * 角色普升检测：按最终五维属性值在【当前生命层级】内的相对段位判定，五维累计≥24 → 是否可试炼=true
+     *   - 单维分：取角色当前层级(Ⅰ~Ⅸ)对应的 LIFE_TIER_RANGE [lo,hi]，9 等分为 F~SSS 九段
      *     属性值落在第几段 → 段位分(F=1, E=2 … SSS=9)，与 qualitySegValue 分段逻辑对齐
      *   - 低于当前层级下限(lo) → 保底 F=1 分（属性过低但仍给基础分，非 0 分）
      *     例：层级Ⅲ范围[100,299]，魅力=20 < 100 → 判 F=1 分
      *   - 阈值 24：五维满分 45(5×9)，24 ≈ 五维均达当前层级 B 段(5分)以上方可试炼
      *   - 进阶后新层级范围更大、属性需重新达标；属性下降导致累计<24 → 立即置 false
-     *   - 仅作用于主角(系统状态.是否可试炼)，NPC 无此机制
-     * @param {object} hero 主角对象
+     *   - 仅作用于角色(系统状态.是否可试炼)，NPC 无此机制
+     * @param {object} reincarnator 角色对象
      * @param {object} sys 系统状态对象
      */
     const TRIAL_SCORE_THRESHOLD = 24;
@@ -1247,26 +1257,26 @@
         const segIdx = Math.min(8, Math.floor((v - lo) / w));
         return segIdx + 1;
     }
-    function checkTrialEligibility(hero, sys) {
-        if (!hero || !sys) return;
-        const attr = hero.最终属性;
+    function checkTrialEligibility(reincarnator, sys) {
+        if (!reincarnator || !sys) return;
+        const attr = reincarnator.最终属性;
         if (!attr || typeof attr !== 'object') return;
-        const lifeTier = hero.层级;
+        const lifeTier = reincarnator.层级;
         let total = 0;
         ATTR_NAMES.forEach(a => { total += attrTierScore(attr[a], lifeTier); });
         const eligible = total >= TRIAL_SCORE_THRESHOLD;
         if (sys.是否可试炼 !== eligible) {
             sys.是否可试炼 = eligible;
-            // console.log(`[普升检测] 主角层级=${lifeTier} 五维段位累计=${total} (阈值${TRIAL_SCORE_THRESHOLD}) → 是否可试炼=${eligible}`);
+            // console.log(`[普升检测] 角色层级=${lifeTier} 五维段位累计=${total} (阈值${TRIAL_SCORE_THRESHOLD}) → 是否可试炼=${eligible}`);
         }
     }
 
-    /** 遍历主角 + 全部NPC，逐个重算（后台全量计算，与是否在场无关） */
+    /** 遍历角色 + 全部NPC，逐个重算（后台全量计算，与是否在场无关） */
     function recalcAllCharacters(statData, statDataBefore) {
         if (!statData) return;
-        // 主角
-        if (statData.主角) {
-            recalcCharacter(statData.主角, '主角', statDataBefore?.主角);
+        // 角色
+        if (statData.角色) {
+            recalcCharacter(statData.角色, '角色', statDataBefore?.角色);
         }
         // 关系列表全部NPC（不在场也需重算属性，供面板查阅；是否展示给AI由变量可见性控制）
         const rel = statData.关系列表;
@@ -1445,10 +1455,10 @@
         const currentTier = char.层级; // F ~ SSS
         const oldTier = artifact.品质;
 
-        // 如果神器品质已经等于主角层级，则不需要成长
+        // 如果神器品质已经等于角色层级，则不需要成长
         if (oldTier === currentTier) return;
 
-        // 装备品质自动对齐主角位格
+        // 装备品质自动对齐角色位格
         artifact.品质 = currentTier;
         
         // 动态重写特效与属性
@@ -1475,7 +1485,7 @@
                 break;
         }
         
-        // console.log(`[神器成长] 伴生神器已随主角突破！当前品质: ${currentTier}`);
+        // console.log(`[神器成长] 伴生神器已随角色突破！当前品质: ${currentTier}`);
     }
 
     /** 功法/熟练度 溢出进阶守卫 */
@@ -1693,10 +1703,10 @@
             if (wasCombatBefore) {
                 // console.log(`[战斗系统] 离开战斗，触发冷却与护盾(THP)清空协议`);
                 
-                // 1. 清空主角的临时生命值
-                if (statData.主角 && typeof statData.主角.THP !== 'undefined') {
-                    statData.主角.THP = 0;
-                    // console.log(`[战斗系统] 主角 THP 已脱战归零`);
+                // 1. 清空角色的临时生命值
+                if (statData.角色 && typeof statData.角色.THP !== 'undefined') {
+                    statData.角色.THP = 0;
+                    // console.log(`[战斗系统] 角色 THP 已脱战归零`);
                 }
 
                 // 2. 清空所有NPC的临时生命值
@@ -1772,8 +1782,8 @@
             processDict(actor.形态库, actorBefore?.形态库);
         }
 
-        // 执行主角的冷却递减
-        tickCooldowns(statData.主角, statDataBefore?.主角, "主角");
+        // 执行角色的冷却递减
+        tickCooldowns(statData.角色, statDataBefore?.角色, "角色");
         // 执行在场 NPC 的冷却递减
         if (statData.关系列表) {
             Object.entries(statData.关系列表).forEach(([npcName, npc]) => {

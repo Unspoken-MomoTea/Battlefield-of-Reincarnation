@@ -743,11 +743,11 @@
             const state=copy(base.stat);
             state.世界[PATH]=Object.assign(emptyState(),state.世界[PATH]||{});
             normalizeBackendState(state);
-            normalizeEventLayers(state);
+            const structuralFixes=normalizeEventLayers(state);
             compactFinishedEvents(state);
             const seedPatches=importStory(state);
             for(const patch of seedPatches)state.世界[PATH].事件[tokens(patch.path).at(-1)]=patch.value;
-            normalizeEventLayers(state);
+            structuralFixes.push(...normalizeEventLayers(state));
             if(state.设置)delete state.设置.API;
             delete state.商城;
             // 旧剧本数据只为兼容存档保留，不进入新世界调度请求。
@@ -764,10 +764,10 @@
             const books=await this.worldbook([proseScan,chronologyScan].filter(Boolean).join('\n'),{timelineBackbone:needBackbone});
             const now=worldDateKey(state.世界.时间);
             const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
-            const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,时间线调度:timeline,推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:'当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断'},可选宏观资料补充:needBackbone,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。世界书为空不构成阻塞。'},null,2);
+            const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,程序结构修复:structuralFixes,时间线调度:timeline,推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:'当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断'},可选宏观资料补充:needBackbone,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。世界书为空不构成阻塞。'},null,2);
             const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(MODEL_DETAILS)+'\n【节点调度】后台.事件是唯一调度图，因果轨道是它的宏观摘要。按两个阶段工作：\nA. 宏观骨架：先检查“时间线调度.需要初始化 / 需要补充远期 / 因果轨道需重建”。原著世界首先使用当前确认事实与模型已有的原著知识识别后续确定性大事件；世界书如有则用于补充、校正同人差异和时间资料，没有世界书也不得停止宏观推演或退化为只写当前剧情。宏观节点应是篇章转折、跨地区灾难、战争/政权变化、主要据点体系兴亡、基础设施级失效、关键人物命运、主角团重大迁移等真正改变阶段状态的边界；至少维持3个有依据的待发生宏观节点。抢夺车辆、穿越单座桥梁、进入某房间、单次会合/战斗/突破属于桥接细节，默认只能是当前事件或近期节点，除非其结果本身直接造成地区级以上阶段改变。准确公历时间不确定时使用作品内相对时间，不为排程捏造日期。\nB. 区间桥接：读取“时间线调度.下一宏观节点 / 桥接区间”。只展开当前时间到该边界之间的当前事件、近期节点、场外人物、势力地区、探索与传播；所有细节都应解释这段时间世界如何走向下一宏观节点，或解释偏移为何使它改变。下一宏观节点之后保持宏观层，不提前生成大量人物日程和琐碎事件。若尚无下一宏观节点，先完成阶段A，再生成必要桥接细节。\n原著世界推演规则沿用额外思考中的世界推演：结合当前时间锚点、当前地点、当前剧情阶段、已知角色状态、原著人物行动规律、世界势力动态；推演人物行动、势力变化、剧情推进、世界事件。原创/衍生世界基于当前世界法则与本土势力动态持续推演。世界持续运行，不因<user>未行动而暂停。\n每轮仍需复核到期事件、人物行程与语义时间节点。时间到且条件成立就启动，已有结果才完成；未满足条件记录真实阻碍和下次检查。事件后果联动场外人物、势力地区、传播以及已有任务状态。后台.剧本不参与调度。'
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
-            return {system,input,seedPatches,due,timeline:copy(timeline),manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
+            return {system,input,seedPatches,due,timeline:copy(timeline),manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),程序结构修复:copy(structuralFixes),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;

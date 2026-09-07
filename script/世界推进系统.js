@@ -542,7 +542,8 @@
         cancel() { ++this.generation; this.pending = false; clearTimeout(this.timer); if (this.controller) this.controller.abort(); }
         async catalogue() {
             const namesFn=this.fn('getCharWorldbookNames'),get=this.fn('getWorldbook');
-            if(!namesFn||!get) throw new Error('缺少世界书读取接口');
+            // 世界书只是可选补充资料。无限流世界即使没有绑定世界书，也必须能依靠模型已有知识完成宏观推演。
+            if(!namesFn||!get) return [];
             const names=await namesFn('current'), result=[];
             for(const book of [...new Set([names.primary,...(names.additional||[])].filter(Boolean))]){
                 const entries=await get(book);
@@ -558,7 +559,7 @@
                 const key=JSON.stringify([e.book,e.id]);
                 const selected=!e.technical&&(this.config.selectedEntries ? this.config.selectedEntries.includes(key) : e.enabled);
                 const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&isTimelineBackboneEntry(e.title);
-                const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观时间骨架'}:selected?activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
+                const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
                 report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
                 if(!decision.read)continue;
                 let content=e.content;
@@ -595,10 +596,10 @@
             const books=await this.worldbook([proseScan,chronologyScan].filter(Boolean).join('\n'),{timelineBackbone:needBackbone});
             const now=worldDateKey(state.世界.时间);
             const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
-            const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,时间线调度:timeline,宏观时间骨架读取:needBackbone,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。'},null,2);
+            const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,时间线调度:timeline,可选宏观资料补充:needBackbone,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。'},null,2);
             const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(MODEL_DETAILS)+'\n【节点调度】后台.事件是唯一调度图，旧因果轨道只作为兼容导入与宏观投影。若“时间线调度.需要初始化”为真，先依据世界书、原著确定性大事件和当前时间锚点建立当前活动层、近期规划层、宏观锚点层；优先重用并重新分类已有事件，不重复创建同名节点。原著世界的宏观骨架不得只围绕当前地点或最近数小时：必须优先记录当前时间之后仍会发生的原著确定性大事件/篇章转折/跨地区灾难/战争或政权变化/基础设施级失效/主角团重大迁移等远景节点。若准确公历时间不确定，用“爆发后数日”“第X夜”“某篇章前后”等作品内相对时间，禁止为已知事件捏造精确日期。世界书未完整列出但属于模型高度确定的原著经典事件，可作为原著知识建立宏观节点；不确定的细节则保持模糊，不得杜撰结果。若“需要补充远期”为真，默认维持至少3个待发生的宏观节点，且不能用多个当前场景小行动充数；“需要展开的宏观节点”接近当前时间时拆成更具体的近期事件并保持前因关系。非公历、作品内纪年或“第X夜”等时间按世界书语义比较，并逐项复核“需语义复核节点”，禁止强行换算成虚构公历。每轮复核到期事件、人物行程、语义时间节点和即将展开的宏观节点。时间到且条件成立就启动，已有结果才完成；未满足条件记录真实阻碍和下次检查，禁止无依据顺延。事件后果联动场外人物、势力地区、传播以及已有任务状态。后台.剧本不再参与调度。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
-            return {system,input,seedPatches,due,manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),宏观时间骨架读取:needBackbone,请求字符数:system.length+input.length}};
+            return {system,input,seedPatches,due,manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;

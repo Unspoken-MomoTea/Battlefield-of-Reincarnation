@@ -1026,6 +1026,10 @@
                 #sam-world-engine .we-timeline{margin-left:4px;padding-left:15px}
                 #sam-world-engine .we-timeline .we-card{padding:11px 13px}
                 #sam-world-engine .we-timeline .we-card:before{left:-21px;top:17px;width:7px;height:7px;border-color:#fffdf8}
+                #sam-world-engine .we-timeline-group{margin:0 0 14px}
+                #sam-world-engine .we-timeline-group-title{display:flex;align-items:center;gap:7px;margin:8px 0 6px;color:#6f7b8c;font-size:10px;font-weight:700;letter-spacing:1.2px}
+                #sam-world-engine .we-timeline-group-title:after{content:"";height:1px;background:#e2e6e4;flex:1}
+                #sam-world-engine .we-timeline-group-title small{order:2;padding:1px 5px;border-radius:999px;background:#ecefea;color:#87909a;font-size:9px;letter-spacing:0}
                 #sam-world-engine .we-date-filter{font-size:11px;color:var(--sub)}
                 #sam-world-engine .we-next-node{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px}
                 #sam-world-engine button.we-next-node{width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;border-radius:9px;transition:background .15s ease,transform .15s ease}
@@ -1233,6 +1237,15 @@
                 return '<button class="we-person-compact" data-jump-person="'+text(name)+'"><span class="we-avatar">'+text(name.slice(0,1))+'</span><span class="we-person-copy"><strong>'+text(name)+'</strong><small>'+text(p.地点||'地点未明')+'</small><em>'+text(p.行动||p.公开动态||rel.态度||'暂无新动态')+'</em></span></button>';
             };
             const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(e.时间||e.开始时间||'日期未定')+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,关联任务:e.关联任务,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
+            const timelineCards=list=>{
+                const groups=[
+                    ['当前进行',list.filter(([,e])=>e.状态==='进行中'||(e.状态==='待发生'&&e.分类==='当前事件'))],
+                    ['近期桥接',list.filter(([,e])=>e.状态!=='进行中'&&e.状态==='待发生'&&e.分类==='近期节点')],
+                    ['宏观锚点',list.filter(([,e])=>e.状态!=='进行中'&&e.状态==='待发生'&&e.分类==='宏观节点')],
+                    ['已结束',list.filter(([,e])=>['已完成','已取消'].includes(e.状态))]
+                ];
+                return groups.filter(([,items])=>items.length).map(([title,items])=>'<div class="we-timeline-group"><div class="we-timeline-group-title">'+text(title)+'<small>'+items.length+'</small></div>'+items.map(([n,e])=>eventCard(n,e)).join('')+'</div>').join('');
+            };
             const taskCard=(name,t)=>{
                 const linked=events.filter(([,e])=>(e.关联任务||[]).includes(name)),completed=['可结算','已达成'].includes(t.状态);
                 const linkedNames=linked.map(([n])=>n),activeLinked=linked.filter(([,e])=>['进行中','待发生'].includes(e.状态)).length;
@@ -1273,10 +1286,10 @@
                     +'</div>';
                 html+='<div class="we-dashboard"><div class="we-command-main">'
                     +section('世界动向',state.公开摘要?'<div class="we-pulse"><span class="we-pulse-mark">LIVE</span><p>'+text(state.公开摘要)+'</p></div>':empty('尚无公开动态','推进成功后，这里的结果会提供给正文 AI。'),'本轮可见变化')
-                    +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>时间线与日历</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p class="we-date-filter">筛选 '+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(shown.slice(0,12).map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的事件'))+'</div>'+(shown.length>12?'<p class="we-muted">当前仅展示前 12 个匹配节点，可用筛选缩小范围。</p>':'')+'</div></div></section>'
+                    +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>时间线与日历</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p class="we-date-filter">筛选 '+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(timelineCards(shown.slice(0,12))||empty('没有符合条件的事件'))+'</div>'+(shown.length>12?'<p class="we-muted">当前仅展示前 12 个匹配节点，可用筛选缩小范围。</p>':'')+'</div></div></section>'
                     +section('近期变化',changeHtml||empty('本轮无变化记录'),'最近一次成功推进')
                     +'</div><aside class="we-command-side">'
-                    +section('下一关键节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="点击定位到时间线中的对应宏观事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'本轮需要先建立真实宏观节点')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+(nextEvent?' · 点击定位 →':'')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果轨道')
+                    +section('下一宏观节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="点击定位到时间线中的对应宏观事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'本轮需要先建立真实宏观节点')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+(nextEvent?' · 点击定位 →':'')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果轨道')
                     +section('任务进展',(runningTasks.slice(0,3).map(([n,t])=>'<button class="we-brief-row" data-tab="任务与事件"><b>'+text(n)+'</b>'+pill(t.状态||'进行中','future')+'<span>'+text(t.目标||t.说明||'')+'</span></button>').join('')||empty('暂无进行中任务')),'优先显示进行中 / 可交付')
                     +section('人物动态',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'只显示重点 NPC')
                     +'</aside></div>';

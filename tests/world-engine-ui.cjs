@@ -23,10 +23,13 @@ const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间
  const page=await browser.newPage({viewport:{width:1440,height:1080}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('https://world-engine.test/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-CN"><meta charset="utf-8"><body style="margin:0;background:#080e17"></body></html>'}));await page.goto('https://world-engine.test/');
  await page.evaluate(stat=>{window.getCurrentChatId=()=> 'preview';window.getChatMessages=()=>[{message_id:1,message:'车夫递来一封信。',role:'assistant'}];window.Mvu={events:{VARIABLE_UPDATE_ENDED:'updated'},getMvuData:()=>({stat_data:stat})};window.eventOn=()=>()=>{};window.Samsara={terminal:{suspend:()=>({open:true}),restore:()=>{window.restored=true;},apiReady:()=>false}};},stat);
- await page.addScriptTag({path:path.join(__dirname,'../script/世界推进系统.js')});await page.evaluate(()=>Samsara.worldEngine.open());
+ await page.addScriptTag({path:path.join(__dirname,'../script/世界推进系统.js')});await page.evaluate(()=>{Samsara.worldEngine.setEnabled(true);Samsara.worldEngine.open();});
  const out=path.join(__dirname,'artifacts');fs.mkdirSync(out,{recursive:true});
  await page.screenshot({path:path.join(out,'world-desktop.png')});
  assert.equal(await page.locator('#sam-world-engine pre').count(),0);
+ assert.equal(await page.locator('[data-action="enabled"]').count(),0);
+ assert.equal(await page.locator('[data-action="run"]').isDisabled(),true);
+ assert.equal(await page.getByText(/额外模型未准备好/).count(),1);
  assert.equal(await page.getByRole('heading',{name:'任务进展',exact:true}).count(),1);
  await page.locator('[data-detail="world-calendar"] > summary').click();
  await page.locator('[data-action="date"][data-date="2026-9-8"]').click();

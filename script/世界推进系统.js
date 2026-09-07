@@ -589,7 +589,7 @@
             const floors=messages.filter(m=>Number(m.message_id??m.id)<=id).slice(-count).map(m=>({楼层:m.message_id??m.id,角色:m.role||(m.is_user?'user':'assistant'),正文:m.message??m.mes??''}));
             if(!floors.length)throw new Error('未读到正文楼层，请检查聊天读取接口');
             const timeline=timelineState(state);
-            const needBackbone=timeline.需要初始化||timeline.需要补充远期||timeline.因果轨道需重建;
+            const needBackbone=timeline.需要初始化||timeline.需要补充远期;
             const proseScan=floors.map(f=>f.正文).join('\n');
             const chronologyScan=needBackbone?[state.世界.名称,'原著','时间线','时间轴','年表','大事记','大事件','剧情大纲','剧情章节','章节','未来','后续'].filter(Boolean).join(' '):'';
             const books=await this.worldbook([proseScan,chronologyScan].filter(Boolean).join('\n'),{timelineBackbone:needBackbone});

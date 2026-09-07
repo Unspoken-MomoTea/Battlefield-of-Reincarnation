@@ -65,20 +65,23 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(next.世界.后台.人物['张彪/狂暴分支'],undefined);
     });
 
-    await test('incomplete causal projection is rebuilt from existing world events without inventing new facts', async () => {
+    await test('causal projection is rebuilt only from macro events, never from current-scene details', async () => {
         const x=setup(async()=>JSON.stringify({summary:'同步宏观轨道',patches:[]}));
         x.change(s=>{
-            s.世界.因果轨道={当前阶段:'死体危机爆发',故事线:'藤美学园陷落',下一节点:'集结主角团',偏移记录:{}};
+            s.世界.因果轨道={当前阶段:'死体危机爆发',故事线:'藤美学园陷落',下一节点:'城市撤离',偏移记录:{}};
             s.世界.后台.事件={
-                '死体危机爆发':{...RECORDS.事件,描述:'危机爆发',状态:'进行中',时间:'2026年9月7日上午'},
-                '异端介入':{...RECORDS.事件,描述:'异端进入学校',状态:'进行中',时间:'2026年9月7日上午'},
-                '主角团集结':{...RECORDS.事件,描述:'核心角色开始汇合',状态:'待发生',时间:'2026年9月7日中午'}
+                '校医室混乱':{...RECORDS.事件,分类:'当前事件',描述:'眼前混乱',状态:'进行中',时间:'2026年9月7日上午'},
+                '夺取校巴':{...RECORDS.事件,分类:'近期节点',描述:'局部撤离动作',状态:'待发生',时间:'2026年9月7日中午'},
+                '城市撤离':{...RECORDS.事件,分类:'宏观节点',描述:'主角团离开当前城市核心区',状态:'待发生',时间:'2026年9月8日'},
+                '战略级灾难':{...RECORDS.事件,分类:'宏观节点',描述:'世界级基础设施失效',状态:'待发生',时间:'2026年9月10日'},
+                '秩序全面崩溃':{...RECORDS.事件,分类:'宏观节点',描述:'社会秩序进入下一阶段',状态:'待发生',时间:'2026年9月14日'}
             };
         });
         assert.equal(await x.engine.run(),true);
         const orbit=x.get().世界.因果轨道;
-        assert.match(orbit.故事线,/死体危机爆发.*异端介入.*主角团集结/);
-        assert.equal(orbit.下一节点,'主角团集结');
+        assert.match(orbit.故事线,/城市撤离.*战略级灾难.*秩序全面崩溃/);
+        assert.doesNotMatch(orbit.故事线,/校医室混乱|夺取校巴/);
+        assert.equal(orbit.下一节点,'城市撤离');
     });
     await test('world stable mode, both clocks, awards and achievement rollback protected', () => {
         const stat = fresh(); stat.设置.世界超稳 = true; stat.任务.副本成就.发现.状态 = '已达成';

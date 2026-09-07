@@ -1,0 +1,29 @@
+---
+<status_current_variables>
+<%_ {
+  const data = getMessageVar('stat_data', { defaults: {} });
+  const cleanData = _.omit(_.cloneDeep(data), ['事件', '日历']);
+
+  // 不在场角色只保留以下字段（减少token消耗）
+  const keepFieldsWhenAbsent = [
+    '在场状态', '关系', '态度', '实际班级', '外观特征'
+  ];
+
+  // 过滤学生系统中不在场角色的详细数据
+  const filterStudentSystem = (genderData) => {
+    if (!genderData) return;
+    _.forOwn(genderData, (npc, npcName) => {
+      if (npc && npc.在场状态 !== '在场') {
+        genderData[npcName] = _.pick(npc, keepFieldsWhenAbsent);
+      }
+    });
+  };
+
+  if (cleanData.学生系统) {
+    filterStudentSystem(cleanData.学生系统.男);
+    filterStudentSystem(cleanData.学生系统.女);
+  }
+_%>
+<%= YAML.stringify(cleanData, { blockQuote: 'literal' }) _%>
+<%_ } _%>
+</status_current_variables>

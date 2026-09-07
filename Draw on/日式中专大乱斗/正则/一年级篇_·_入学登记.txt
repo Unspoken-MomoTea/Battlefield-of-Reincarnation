@@ -1,0 +1,385 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一年级篇 · 入学登记</title>
+<style>
+:root {
+  --c-bg: rgba(18,14,32,0.92); --c-card: rgba(28,22,48,0.8); --c-inset: rgba(16,12,30,0.65);
+  --c-text: #e0ddf0; --c-sub: #8a85a8; --c-muted: #5c5878; --c-accent: #b8a9e8;
+  --c-accent-soft: rgba(184,169,232,0.15); --c-gold: #ffd780; --c-gold-soft: rgba(255,215,128,0.12);
+  --c-success: #69db7c; --c-danger: #ff6b6b; --c-border: rgba(255,255,255,0.06);
+  --c-shadow: rgba(0,0,0,0.35); --c-glass: 14px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system,'Segoe UI','Noto Sans SC',sans-serif; background: transparent; padding: 6px; color: var(--c-text); font-size: 13px; line-height: 1.5; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-accent); }
+
+#cote-root { width: min(680px, 96%); margin: 0 auto; }
+.cote-panel { background: var(--c-bg); backdrop-filter: blur(var(--c-glass)); border-radius: 16px; border: 1px solid var(--c-border); padding: 20px; box-shadow: 6px 6px 14px var(--c-shadow); }
+
+.cote-header { text-align: center; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--c-border); }
+.cote-subtitle { color: var(--c-accent); font-size: 10px; letter-spacing: 2px; font-weight: 600; }
+.cote-title { font-size: 1.5rem; font-weight: 700; margin: 6px 0 4px; }
+.cote-desc, .cote-preset-desc { font-size: 11px; color: var(--c-muted); }
+.cote-preset-desc { margin-bottom: 12px; padding: 6px 8px; background: var(--c-inset); border-radius: 6px; line-height: 1.6; }
+
+/* 分步导航条 */
+.cote-steps-bar { display: flex; justify-content: space-between; margin-bottom: 16px; position: relative; }
+.cote-steps-bar::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: var(--c-border); z-index: 0; transform: translateY(-50%); }
+.cote-step { position: relative; z-index: 1; background: var(--c-inset); color: var(--c-muted); padding: 4px 16px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--c-border); transition: all 0.3s; }
+.cote-step.active { background: var(--c-accent); color: #fff; border-color: var(--c-accent); box-shadow: 0 0 8px var(--c-accent-soft); }
+
+.step-content { display: none; animation: fadeIn 0.3s ease; }
+.step-content.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+.cote-section { background: var(--c-card); border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--c-border); }
+.cote-section-title { font-size: 12px; color: var(--c-muted); letter-spacing: 1px; margin-bottom: 12px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+
+.cote-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.cote-wide { grid-column: 1/-1; }
+.cote-field { display: flex; flex-direction: column; gap: 4px; }
+.cote-label { font-size: 10px; color: var(--c-accent); font-weight: 600; }
+.cote-field select, .cote-input, .cote-preset-row select { width: 100%; border: 1px solid var(--c-border); border-radius: 6px; padding: 8px 10px; background: var(--c-inset); color: var(--c-text); font-size: 12px; outline: none; }
+.cote-field select:focus, .cote-input:focus { border-color: var(--c-accent); }
+.cote-row-2, .cote-row-flex { display: flex; gap: 6px; }
+.cote-row-2 select, .cote-row-flex select, .cote-row-flex .cote-input { flex: 1; }
+.cote-hidden { display: none !important; }
+
+.cote-gacha-container { text-align: center; background: var(--c-inset); padding: 16px; border-radius: 8px; border: 1px dashed var(--c-border); margin-bottom: 16px; }
+
+.cote-preset-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cote-preset-label { font-size: 11px; color: var(--c-sub); font-weight: 500; }
+
+.cote-oaa-item { margin-bottom: 12px; padding: 10px; background: var(--c-inset); border-radius: 8px; border: 1px solid transparent; }
+.cote-oaa-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.cote-oaa-name { font-size: 12px; font-weight: 600; color: var(--c-text); }
+.cote-oaa-grade { font-size: 14px; font-weight: 700; transition: color 0.2s; }
+.g-a { color: var(--c-danger); } .g-b { color: var(--c-gold); } .g-c { color: #ffd43b; } .g-d { color: var(--c-success); } .g-e { color: #74c0fc; }
+.cote-oaa-ctrl { display: flex; align-items: center; gap: 4px; justify-content: center; flex-wrap: wrap; }
+.cote-btn-step { border: none; border-radius: 4px; padding: 4px 6px; font-size: 10px; font-weight: 600; cursor: pointer; background: var(--c-card); color: var(--c-sub); min-width: 28px; transition: all 0.2s; }
+.cote-btn-step:hover:not(:disabled) { background: var(--c-accent-soft); color: var(--c-accent); }
+.cote-btn-step:disabled { opacity: 0.3; cursor: not-allowed; }
+.cote-oaa-input { width: 52px; text-align: center; border: 1px solid var(--c-border); border-radius: 6px; padding: 4px; background: var(--c-card); color: var(--c-gold); font-size: 14px; font-weight: 700; outline: none; -moz-appearance: textfield; }
+.cote-oaa-input::-webkit-outer-spin-button, .cote-oaa-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.cote-oaa-bar { width: 100%; height: 4px; background: rgba(0,0,0,0.15); border-radius: 2px; margin-top: 6px; overflow: hidden;}
+.cote-oaa-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--c-accent), var(--c-gold)); width: 100%; transform-origin: left; transform: scaleX(0); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.oaa-rolling .cote-oaa-fill { background: linear-gradient(90deg, var(--c-success), var(--c-accent)); }
+
+.cote-summary-card { background: var(--c-card); border-radius: 10px; padding: 12px 14px; margin-top: 12px; border: 1px solid var(--c-border); }
+.cote-summary-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 12px; color: var(--c-text); }
+.cote-summary-row span:nth-child(2) { color: var(--c-gold); font-weight: 700; font-size: 16px; }
+.cote-summary-grade { font-size: 18px; font-weight: 700; }
+.cote-summary-remain { border-top: 1px solid var(--c-border); margin-top: 6px; padding-top: 6px; }
+.cote-summary-warn { font-size: 10px; color: var(--c-danger); margin-top: 6px; padding: 6px 8px; background: rgba(201, 42, 42, 0.08); border-radius: 4px; }
+
+.cote-preview-wrap { margin-bottom: 12px; border-radius: 8px; border: 1px solid var(--c-border); overflow: hidden; }
+.cote-preview-header { padding: 10px 14px; background: var(--c-card); color: var(--c-sub); font-size: 12px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; list-style: none; }
+.cote-preview-header::-webkit-details-marker { display: none; }
+.cote-preview-body { background: var(--c-inset); padding: 12px; border-top: 1px solid var(--c-border); }
+#previewText { white-space: pre-wrap; font-size: 11px; color: var(--c-text); line-height: 1.6; font-family: monospace; }
+
+.cote-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; }
+.cote-btn-primary, .cote-btn-secondary, .cote-btn-link { border: none; cursor: pointer; font-weight: 600; font-size: 12px; border-radius: 8px; padding: 10px 20px; transition: all 0.2s; }
+.cote-btn-primary { background: var(--c-accent); color: #fff; box-shadow: 0 3px 8px var(--c-accent-soft); }
+.cote-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.cote-btn-secondary { background: var(--c-inset); color: var(--c-text); border: 1px solid var(--c-border); }
+.cote-btn-link { background: transparent; color: var(--c-muted); text-decoration: underline; padding: 4px 8px; font-weight: 500; }
+.mode-manual .oaa-gacha-ui { display: none; } .mode-manual .oaa-manual-ui { display: flex; } .mode-gacha .oaa-manual-ui { display: none; }
+
+.cote-btn-primary:active:not(:disabled), .cote-btn-secondary:active, .cote-btn-step:active:not(:disabled) { transform: scale(0.96); }
+
+@media (max-width: 480px) { .cote-oaa-ctrl { gap: 2px; } .cote-btn-step { padding: 3px 4px; font-size: 9px; min-width: 22px; } .cote-oaa-input { width: 44px; font-size: 12px; } }
+</style>
+</head>
+<body>
+<div id="cote-root">
+  <div class="cote-panel">
+    <header class="cote-header">
+      <div class="cote-subtitle">高度育成高级中学</div>
+      <h1 class="cote-title">一年级篇 · 入学登记</h1>
+      <p class="cote-desc">请如实填写入学时的身份背景与OAA能力评价</p>
+    </header>
+
+    <!-- 一年级精简为三步 -->
+    <div class="cote-steps-bar">
+      <div class="cote-step active" data-step="1">1. 基础信息</div>
+      <div class="cote-step" data-step="2">2. 能力评估</div>
+      <div class="cote-step" data-step="3">3. 确认入学</div>
+    </div>
+
+    <!-- Step 1 -->
+    <section class="cote-section step-content active" id="step1">
+      <div class="cote-section-title">第一步：基础信息</div>
+      <div class="cote-form-grid">
+        <label class="cote-field"><span class="cote-label">性别</span><select id="fGender"><option value="男">男</option><option value="女">女</option></select></label>
+        <label class="cote-field"><span class="cote-label">生日</span><div class="cote-row-2"><select id="fBirthMonth"></select><select id="fBirthDay"></select></div></label>
+        <label class="cote-field cote-wide"><span class="cote-label">出身大类</span><select id="fOriginType"><option value="日本本土" selected>日本本土</option><option value="外籍学生">外籍学生</option></select></label>
+        <label class="cote-field cote-wide cote-hidden" id="fNatWrap"><span class="cote-label">外籍国籍</span><div class="cote-row-flex"><select id="fNat"><option value="中国" selected>中国</option><option value="美国">美国</option><option value="韩国">韩国</option><option value="科威特(中东)">科威特(中东)</option><option value="俄罗斯">俄罗斯</option><option value="自定义">自定义</option></select><input type="text" id="fNatCustom" class="cote-hidden cote-input" placeholder="输入国籍"></div></label>
+        <label class="cote-field cote-wide"><span class="cote-label">具体身份</span><div class="cote-row-flex"><select id="fIdentity"></select><input type="text" id="fIdentityCustom" class="cote-hidden cote-input" placeholder="输入身份"></div></label>
+        <label class="cote-field cote-wide"><span class="cote-label">入学班级</span><select id="fClass"><option value="D班" selected>D班</option><option value="C班">C班</option><option value="B班">B班</option><option value="A班">A班</option></select></label>
+      </div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="cote-section step-content" id="step2">
+      <div class="cote-section-title">
+        <span>第二步：OAA 能力评价</span>
+        <button id="btnToggleOAAMode" class="cote-btn-link" style="padding:0;margin:0;">切换至手动</button>
+      </div>
+      <div class="cote-preset-row">
+        <span class="cote-preset-label">预设档案</span>
+        <select id="fPreset">
+          <option value="lower">档案·下位</option>
+          <option value="deviant">档案·偏差</option>
+          <option value="middle" selected>档案·中位</option>
+          <option value="upper">档案·上位</option>
+          <option value="genius">档案·特异</option>
+          <option value="perfect">档案·完全</option>
+        </select>
+      </div>
+      <div class="cote-preset-desc" id="presetDesc"></div>
+
+      <div id="oaaContainer" class="mode-gacha">
+        <div id="oaaGachaOverlay" class="cote-gacha-container oaa-gacha-ui">
+          <div class="cote-desc" id="oaaGachaDesc">入学初始能力尚未检测，请进行系统评估</div>
+          <button class="cote-btn-primary" id="btnOAAGacha" style="width:100%;margin-top:10px;background:var(--c-success);">开始能力扫描</button>
+        </div>
+
+        <div class="cote-oaa-list" id="oaaListArea"></div>
+
+        <div class="cote-summary-card">
+          <div class="cote-summary-row"><span>综合评价</span><span id="summaryScore">--</span><span class="cote-summary-grade" id="summaryGrade">-</span></div>
+          <div class="cote-summary-row cote-summary-remain oaa-manual-ui"><span>剩余可用</span><span id="summaryRemain">--</span></div>
+          <div class="cote-summary-warn cote-hidden" id="summaryWarn"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3 -->
+    <section class="cote-section step-content" id="step3">
+      <div class="cote-section-title">第三步：确认开局指令</div>
+      <details class="cote-preview-wrap" open>
+        <summary class="cote-preview-header"><span>查看生成内容预览 (后台指令)</span><span class="cote-preview-arrow">▼</span></summary>
+        <div class="cote-preview-body"><pre id="previewText"></pre></div>
+      </details>
+    </section>
+
+    <div class="cote-actions">
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="cote-btn-link" id="btnBack" style="padding-left:0;">返回封面</button>
+        <button class="cote-btn-link" id="btnReset">重置数据</button>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="cote-btn-secondary cote-hidden" id="btnPrev">上一步</button>
+        <button class="cote-btn-primary" id="btnNext">下一步</button>
+        <button class="cote-btn-primary cote-hidden" id="btnSubmit" style="background:var(--c-success);">确认一年级篇开局</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+  function val(id) { var el=$(id); return el?el.value.trim():''; }
+  function clamp(v,mn,mx) { return Math.max(mn,Math.min(mx,v)); }
+  function getGrade(v) { return v>=81?'A':v>=61?'B':v>=41?'C':v>=21?'D':'E'; }
+
+  var ATTRS = ['学力', '身体能力', '灵活思考力', '社会贡献性'];
+  var PRESETS = {
+    lower:   { name: '档案·下位', overallCap: 35, overallMin: 15, singleCap: 60, specialSlots: 0, desc: '综合评价上限≤35 | 每项最高60', base: 5, dice: 95 },
+    deviant: { name: '档案·偏差', overallCap: 35, overallMin: 25, singleCap: 40, specialSlots: 1, specialCap: 100, desc: '综合评价上限≤35 | 1项无上限，其余最高40', base: 5, dice: 95 },
+    middle:  { name: '档案·中位', overallCap: 50, overallMin: 25, singleCap: 60, specialSlots: 1, specialCap: 80, desc: '综合评价上限≤50 | 1项最高80，其余最高60', base: 10, dice: 90 },
+    upper:   { name: '档案·上位', overallCap: 60, overallMin: 40, singleCap: 80, specialSlots: 0, desc: '综合评价上限≤60 | 每项最高80', base: 15, dice: 85 },
+    genius:  { name: '档案·特异', overallCap: 72, overallMin: 50, singleCap: 80, specialSlots: 1, specialCap: 100, desc: '综合评价上限≤72 | 1项无上限，其余最高80', base: 15, dice: 85 },
+    perfect: { name: '档案·完全', overallCap: 999, overallMin: 62, singleCap: 100, specialSlots: 0, desc: '无限制', base: 20, dice: 80 }
+  };
+  var IDENTITIES = {
+    '日本本土': ['风兰福利院(孤儿)','冈山县普通家庭','东京中产阶级','京都传统家庭','单亲家庭(母)','单亲家庭(父)','政商财阀子弟','高级官僚家庭','医师世家','海外归国子女','中产收养家庭(谷风家)','自定义'],
+    '外籍_common': ['驻日外交官家属','跨国企业高管家庭','跨国企业职员家属','海外富裕投资者家庭','自定义'],
+    '外籍_美国': ['美军家属','驻日外交官家属','跨国企业高管家庭','跨国企业职员家属','海外富裕投资者家庭','自定义'],
+    '外籍_中国': ['高级士官子女','央企驻日代表家属','驻日外交官家属','跨国企业高管家庭','跨国企业职员家属','海外富裕投资者家庭','自定义']
+  };
+
+  var curStep = 1, isOAAMan = false, isOAARolling = false, oaaRolled = false;
+
+  function initOAAUI() {
+    var html = '';
+    ATTRS.forEach(function(a) {
+      html += '<div class="cote-oaa-item" data-attr="'+a+'"><div class="cote-oaa-head"><span class="cote-oaa-name">'+a+(a==='社会贡献性'?' <span class="cote-oaa-note" style="color:var(--c-muted);font-weight:normal;">(×0.5)</span>':'')+'</span><span class="cote-oaa-grade" id="grade_'+a+'">C</span></div><div class="cote-oaa-ctrl oaa-manual-ui"><button class="cote-btn-step" data-d="-25">-25</button><button class="cote-btn-step" data-d="-10">-10</button><button class="cote-btn-step" data-d="-1">-1</button><input type="number" class="cote-oaa-input" id="val_'+a+'" value="50"><button class="cote-btn-step" data-d="1">+1</button><button class="cote-btn-step" data-d="10">+10</button><button class="cote-btn-step" data-d="25">+25</button></div><div class="cote-oaa-bar"><div class="cote-oaa-fill" id="bar_'+a+'"></div></div></div>';
+    });
+    $('oaaListArea').innerHTML = html;
+  }
+
+  function getOverall() { var a=parseInt(val('val_学力'))||0, b=parseInt(val('val_身体能力'))||0, c=parseInt(val('val_灵活思考力'))||0, d=parseInt(val('val_社会贡献性'))||0; return Math.round((a+b+c+d*0.5)/350*100); }
+  function getHighest() { var m=-1,n=''; ATTRS.forEach(function(a){var v=parseInt(val('val_'+a))||0;if(v>m){m=v;n=a;}}); return n; }
+
+  function getFinalIdentity() {
+    var originType = val('fOriginType');
+    var nationality = '日本本土';
+    if (originType === '外籍学生') {
+      var nat = val('fNat') === '自定义' ? (val('fNatCustom') || '未知') : val('fNat');
+      nationality = '外籍学生(' + nat + ')';
+    }
+    var identity = val('fIdentity') === '自定义' ? (val('fIdentityCustom') || '普通家庭') : val('fIdentity');
+    return nationality + '-' + identity;
+  }
+
+  function updatePreview() {
+    var a = parseInt(val('val_学力'))||0, b = parseInt(val('val_身体能力'))||0, c = parseInt(val('val_灵活思考力'))||0, d = parseInt(val('val_社会贡献性'))||0;
+    var ov = getOverall();
+    $('previewText').textContent = '【入学】\n【开场白】\n【角色信息】\n'
+      + '姓名: {{user}}\n年龄: 15\n性别: ' + val('fGender') + '\n生日: ' + val('fBirthMonth') + '月' + val('fBirthDay') + '日\n'
+      + '身份标签: ' + getFinalIdentity() + '\n入学班级: ' + val('fClass') + '\nOAA能力评价:\n'
+      + '  学力: ' + a + ' (' + getGrade(a) + ')\n  身体能力: ' + b + ' (' + getGrade(b) + ')\n'
+      + '  灵活思考力: ' + c + ' (' + getGrade(c) + ')\n  社会贡献性: ' + d + ' (' + getGrade(d) + ')\n'
+      + '  综合评价: ' + ov + ' (' + getGrade(ov) + ')\n\n---\n【开局描写】\n叙事要求:\n'
+      + '本次输出正文字数要求不少于700字，在保证行文节奏的基础上，创作完包含以下全部信息的开场白。\n'
+      + '时间: 2015年04月06日\n叙事内容:\n'
+      + '在初中毕业时,你收到了允许入学高度育成高级中学的通知,那所传闻中百分百升学和就业的学校.\n'
+      + '四月初,你抵达了东京的公交车站台,准备登上前往高度育成高级中学的公交车.\n'
+      + '公交车从道路尽头驶来，停在站台前.\n'
+      + '在描绘完到公交车抵达站台后就【必须立即停止剧情】。\n\n'
+      + '\n【/开场白】';
+  }
+
+  function updateUI() {
+    var p = PRESETS[val('fPreset')], ov = getOverall(), oG = getGrade(ov), warn=[];
+    ATTRS.forEach(function(a) {
+      var v=clamp(parseInt(val('val_'+a))||0,0,100); $('val_'+a).value=v; $('grade_'+a).textContent=getGrade(v); $('grade_'+a).className='cote-oaa-grade g-'+getGrade(v).toLowerCase();
+      if(!isOAARolling&&$('bar_'+a)) $('bar_'+a).style.transform='scaleX('+(v/100)+')';
+      var cap = (p.specialSlots>0 && p.specialCap && getHighest()===a) ? p.specialCap : p.singleCap;
+      if(v>cap) warn.push(a+'超出单项上限('+cap+')');
+    });
+    $('summaryScore').textContent=ov; $('summaryGrade').textContent=oG; $('summaryGrade').className='cote-summary-grade cote-oaa-grade g-'+oG.toLowerCase();
+    $('summaryRemain').textContent=p.overallCap>=999?'无限制':((p.overallCap-ov>=0)?p.overallCap-ov:'已超出 '+Math.abs(p.overallCap-ov));
+    if(p.overallCap<999&&(ov>p.overallCap||ov<p.overallMin)) warn.push('综合评价('+ov+')超出范围('+p.overallMin+'-'+p.overallCap+')');
+    $('summaryWarn').innerHTML=warn.join('<br>'); $('summaryWarn').classList.toggle('cote-hidden', warn.length===0); $('presetDesc').textContent=p.desc;
+
+    if(curStep===3) $('btnSubmit').disabled = warn.length>0;
+    else $('btnNext').disabled = (curStep===2 && (!isOAAMan&&!oaaRolled || isOAARolling || warn.length>0));
+
+    updatePreview();
+  }
+
+  function updateSteps() {
+    document.querySelectorAll('.step-content').forEach(function(e){ e.classList.toggle('active', parseInt(e.id.replace('step',''))===curStep); });
+    document.querySelectorAll('.cote-step').forEach(function(e){ e.classList.toggle('active', parseInt(e.getAttribute('data-step'))===curStep); });
+    $('btnPrev').classList.toggle('cote-hidden', curStep===1);
+    if(curStep===3){ $('btnNext').classList.add('cote-hidden'); $('btnSubmit').classList.remove('cote-hidden'); } else { $('btnNext').classList.remove('cote-hidden'); $('btnSubmit').classList.add('cote-hidden'); }
+    updateUI();
+  }
+
+  /* 事件绑定 */
+  $('oaaListArea').addEventListener('click', function(e) { if(e.target.classList.contains('cote-btn-step')) { var inp=$('val_'+e.target.closest('.cote-oaa-item').getAttribute('data-attr')); inp.value=clamp((parseInt(inp.value)||0)+parseInt(e.target.getAttribute('data-d')),0,100); updateUI(); } });
+  $('oaaListArea').addEventListener('input', function(e) { if(e.target.classList.contains('cote-oaa-input')) { e.target.value=clamp(parseInt(e.target.value)||0,0,100); updateUI(); } });
+
+  $('btnNext').onclick=function(){ if(curStep<3){ curStep++; updateSteps(); } };
+  $('btnPrev').onclick=function(){ if(curStep>1){ curStep--; updateSteps(); } };
+  $('btnToggleOAAMode').onclick=function(){ isOAAMan=!isOAAMan; $('oaaContainer').className=isOAAMan?'mode-manual':'mode-gacha'; $('oaaGachaOverlay').classList.toggle('cote-hidden',isOAAMan); this.textContent=isOAAMan?"切换至抽卡分配":"切换至手动"; updateUI(); };
+
+  $('btnOAAGacha').onclick=function(){
+    if(isOAARolling)return; isOAARolling=true; $('oaaListArea').classList.add('oaa-rolling');
+    var preset = PRESETS[val('fPreset')]; var tk=0;
+    var tm=setInterval(function(){
+      tk++; ATTRS.forEach(function(a){ $('val_'+a).value=Math.floor(Math.random()*100); }); updateUI();
+      if(tk>25){
+        clearInterval(tm);
+        var finalVals = {}; var maxCycles = 100;
+        while (maxCycles-- > 0) {
+          ATTRS.forEach(function(name) { finalVals[name] = clamp(preset.base + Math.floor(Math.random() * preset.dice), 1, preset.singleCap); });
+          if (preset.specialSlots > 0 && preset.specialCap) { var luckyAttr = ATTRS[Math.floor(Math.random() * ATTRS.length)]; finalVals[luckyAttr] = clamp(preset.base + Math.floor(Math.random() * preset.dice) + 15, 1, preset.specialCap); }
+          var curOverall = Math.round((finalVals['学力'] + finalVals['身体能力'] + finalVals['灵活思考力'] + finalVals['社会贡献性'] * 0.5) / 350 * 100);
+          if (preset.overallCap >= 999 || (curOverall >= preset.overallMin && curOverall <= preset.overallCap)) break;
+        }
+        ATTRS.forEach(function(a){ $('val_'+a).value = finalVals[a]; });
+        $('oaaListArea').classList.remove('oaa-rolling'); oaaRolled=true; isOAARolling=false; updateUI();
+      }
+    },50);
+  };
+
+  $('fOriginType').onchange=$('fNat').onchange=function(){ var idS=$('fIdentity'); idS.innerHTML=''; var o=val('fOriginType')==='日本本土'?IDENTITIES['日本本土']:(IDENTITIES['外籍_'+val('fNat')]||IDENTITIES['外籍_common']); o.forEach(function(x){idS.innerHTML+='<option value="'+x+'">'+x+'</option>'}); $('fNatWrap').classList.toggle('cote-hidden',val('fOriginType')==='日本本土'); $('fIdentityCustom').classList.toggle('cote-hidden',true); updatePreview(); };
+  $('fIdentity').onchange=function(){ $('fIdentityCustom').classList.toggle('cote-hidden', val('fIdentity')!=='自定义'); updatePreview(); };
+  ['fGender','fClass','fPreset','fNatCustom','fIdentityCustom'].forEach(function(id){ $(id).addEventListener('change', updatePreview); });
+
+  $('btnSubmit').onclick = async function() {
+    if(this.disabled) return;
+
+    // MVU 变量静默写入逻辑
+    if (typeof Mvu !== 'undefined' && typeof Mvu.getMvuData === 'function') {
+      try {
+        var mvuData = Mvu.getMvuData({ type: 'message', message_id: 'latest' });
+        if (mvuData && mvuData.stat_data) {
+          var sd = mvuData.stat_data;
+
+          if (!sd['章节管理']) sd['章节管理'] = {};
+          if (!sd['学生证']) sd['学生证'] = {};
+          if (!sd['学生证']['能力档案']) sd['学生证']['能力档案'] = {};
+          if (!sd['班级终端']) sd['班级终端'] = {};
+
+          var selGender = val('fGender');
+          var selBirth = val('fBirthMonth') + '月' + val('fBirthDay') + '日';
+          var selClass = val('fClass');
+
+          sd['章节管理']['学年'] = "第一学年";
+          sd['章节管理']['学期'] = "第一学期";
+
+          sd['学生证']['年龄'] = 15;
+          sd['学生证']['所属年级'] = "一年级";
+          sd['学生证']['当前时间'] = "2015年-04月-06日-星期一-07:00";
+          sd['学生证']['性别'] = selGender;
+          sd['学生证']['生日'] = selBirth;
+          sd['学生证']['班级'] = selClass;
+          sd['学生证']['实际班级'] = selClass;
+
+          ATTRS.forEach(function(a) {
+            var v = parseInt(val('val_'+a)) || 0;
+            var g = getGrade(v);
+            if (!sd['学生证']['能力档案'][a]) sd['学生证']['能力档案'][a] = {};
+            sd['学生证']['能力档案'][a]['分数'] = v;
+            sd['学生证']['能力档案'][a]['评级'] = g;
+            sd['学生证']['能力档案'][a]['经验值'] = 0;
+          });
+
+          sd['班级终端']['班级排名'] = {
+            "A班": { 显示名: "A班", 领导者: "未指定", 排名: "第1名", 班级点数: 1000 },
+            "B班": { 显示名: "B班", 领导者: "未指定", 排名: "第2名", 班级点数: 1000 },
+            "C班": { 显示名: "C班", 领导者: "未指定", 排名: "第3名", 班级点数: 1000 },
+            "D班": { 显示名: "D班", 领导者: "未指定", 排名: "第4名", 班级点数: 1000 }
+          };
+
+          await Mvu.replaceMvuData(mvuData, { type: 'message', message_id: 'latest' });
+        }
+      } catch (e) { console.warn('[ANHS] 一年级MVU开局数据写入失败:', e); }
+    }
+
+    // 发送预览文案逻辑
+    var t=$('previewText').textContent;
+    try{
+      var i=window.parent.document.querySelector('#send_textarea'), b=window.parent.document.querySelector('#send_but');
+      if(i&&b){ i.value=t; i.dispatchEvent(new Event('input',{bubbles:true})); b.click(); }
+    }catch(e){}
+  };
+
+  $('btnReset').onclick=function(){ curStep=1; $('fGender').value='男'; $('fClass').value='D班'; $('fPreset').value='middle'; isOAAMan=false; oaaRolled=false; $('oaaGachaOverlay').classList.remove('cote-hidden'); $('oaaContainer').className='mode-gacha'; initOAAUI(); $('fOriginType').onchange(); updateSteps(); };
+  $('btnBack').onclick=async function(){ try{ var ms=await getChatMessages('0',{include_swipe:true}); if(ms&&ms[0]&&ms[0].swipes&&ms[0].swipes[0]) await setChatMessage(ms[0].swipes[0],0,{swipe_id:0,refresh:'display_and_render_current'}); }catch(e){} };
+
+  var mEl=$('fBirthMonth'), dEl=$('fBirthDay'); for(var m=1;m<=12;m++) mEl.innerHTML+='<option value="'+m+'">'+m+'月</option>';
+  mEl.onchange=function(){ dEl.innerHTML=''; for(var d=1;d<=new Date(2015,mEl.value,0).getDate();d++) dEl.innerHTML+='<option value="'+d+'">'+d+'日</option>'; updatePreview(); }; mEl.value=4; mEl.onchange(); dEl.onchange=updatePreview;
+
+  initOAAUI(); $('fOriginType').onchange(); updateSteps();
+})();
+</script>
+</body>
+</html>
+```

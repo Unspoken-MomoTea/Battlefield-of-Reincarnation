@@ -1,0 +1,490 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>扩展模块管理终端</title>
+<style>
+  :root {
+    --dlc-bg: rgba(14,10,28,0.95);
+    --dlc-surface: rgba(24,18,42,0.85);
+    --dlc-card: rgba(32,26,54,0.8);
+    --dlc-inset: rgba(12,8,24,0.6);
+    --dlc-text: #e8e4f4;
+    --dlc-sub: #9a94b8;
+    --dlc-muted: #5c5878;
+    --dlc-wine: #8B1E3F;
+    --dlc-wine-light: #B82E55;
+    --dlc-gold: #C6A15B;
+    --dlc-gold-soft: rgba(198,161,91,0.12);
+    --dlc-accent: #b8a9e8;
+    --dlc-border: rgba(255,255,255,0.06);
+    --dlc-shadow: rgba(0,0,0,0.4);
+    --dlc-success: #69db7c;
+    --dlc-glass: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: transparent;
+    padding: 6px;
+    color: var(--dlc-text);
+    line-height: 1.5;
+  }
+
+  .dlc-shell {
+    width: min(600px, 100%);
+    margin: 0 auto;
+    background: var(--dlc-bg);
+    backdrop-filter: blur(var(--dlc-glass));
+    -webkit-backdrop-filter: blur(var(--dlc-glass));
+    border-radius: 16px;
+    border: 1px solid var(--dlc-border);
+    box-shadow: 0 20px 44px var(--dlc-shadow);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* 背景光效 */
+  .dlc-shell::before {
+    content: "";
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    top: -60px;
+    left: -40px;
+    background: var(--dlc-wine);
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.3;
+    pointer-events: none;
+  }
+  .dlc-shell::after {
+    content: "";
+    position: absolute;
+    width: 150px;
+    height: 150px;
+    bottom: -40px;
+    right: -30px;
+    background: var(--dlc-gold);
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  /* 顶栏 */
+  .dlc-header {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, var(--dlc-wine), var(--dlc-wine-light));
+    border-bottom: 3px solid var(--dlc-gold);
+    box-shadow: 0 6px 18px rgba(139,30,63,0.25);
+  }
+
+  .dlc-header h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.06em;
+  }
+  .dlc-header-sub {
+    font-size: 10px;
+    color: rgba(255,255,255,0.55);
+    margin-top: 2px;
+    letter-spacing: 0.04em;
+  }
+
+  .dlc-refresh-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--dlc-gold);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    transition: background 0.15s, transform 0.15s;
+    font-family: inherit;
+  }
+  .dlc-refresh-btn:hover {
+    background: rgba(255,255,255,0.15);
+    transform: translateY(-1px);
+  }
+
+  /* 列表区 */
+  .dlc-list {
+    position: relative;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 420px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--dlc-wine) transparent;
+  }
+  .dlc-list::-webkit-scrollbar { width: 4px; }
+  .dlc-list::-webkit-scrollbar-track { background: transparent; }
+  .dlc-list::-webkit-scrollbar-thumb { background: var(--dlc-wine); border-radius: 2px; }
+
+  /* DLC条目 */
+  .dlc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--dlc-card);
+    border: 1px solid var(--dlc-border);
+    border-radius: 12px;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .dlc-item:hover {
+    transform: translateY(-2px);
+    border-color: rgba(198,161,91,0.2);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+  }
+
+  .dlc-item-info { display: flex; flex-direction: column; gap: 4px; }
+
+  .dlc-item-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dlc-text);
+  }
+
+  .dlc-item-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--dlc-gold-soft);
+    color: var(--dlc-gold);
+    font-weight: 500;
+    border: 1px solid rgba(198,161,91,0.2);
+  }
+
+  .dlc-item-stats {
+    font-size: 11px;
+    color: var(--dlc-sub);
+  }
+
+  /* Switch开关 */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--dlc-inset);
+    border: 1px solid var(--dlc-border);
+    border-radius: 24px;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    width: 16px;
+    height: 16px;
+    left: 4px;
+    top: 3px;
+    background: var(--dlc-muted);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+  input:checked + .slider {
+    background: var(--dlc-wine);
+    border-color: var(--dlc-wine-light);
+  }
+  input:checked + .slider:before {
+    transform: translateX(20px);
+    background: #fff;
+  }
+  input:disabled + .slider {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* 空状态与加载 */
+  .dlc-empty {
+    text-align: center;
+    padding: 36px 20px;
+    color: var(--dlc-muted);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .dlc-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 36px;
+    color: var(--dlc-gold);
+    font-size: 12px;
+  }
+  @keyframes dlc-spin { to { transform: rotate(360deg); } }
+  .dlc-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(198,161,91,0.2);
+    border-top-color: var(--dlc-gold);
+    border-radius: 50%;
+    animation: dlc-spin 0.8s linear infinite;
+    margin-right: 10px;
+  }
+
+  /* 底部 */
+  .dlc-footer {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    padding: 12px 20px;
+    background: var(--dlc-surface);
+    border-top: 1px solid var(--dlc-border);
+  }
+  .dlc-return-btn {
+    background: transparent;
+    border: none;
+    color: var(--dlc-sub);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 6px 16px;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    font-family: inherit;
+  }
+  .dlc-return-btn:hover {
+    color: var(--dlc-gold);
+    background: var(--dlc-gold-soft);
+  }
+
+  /* 响应式 */
+  @media (max-width: 420px) {
+    body { padding: 4px; }
+    .dlc-header { padding: 12px 14px; }
+    .dlc-header h2 { font-size: 1rem; }
+    .dlc-list { padding: 12px; max-height: 350px; }
+    .dlc-item { padding: 12px; }
+    .dlc-item-name { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="dlc-shell">
+  <div class="dlc-header">
+    <div>
+      <h2>扩展模块管理终端</h2>
+      <div class="dlc-header-sub">DLC Module Manager</div>
+    </div>
+    <button class="dlc-refresh-btn" onclick="loadDLCs()">扫描刷新</button>
+  </div>
+
+  <div class="dlc-list" id="dlc-list-container">
+    <div class="dlc-loading">
+      <div class="dlc-spinner"></div>正在读取世界书条目...
+    </div>
+  </div>
+
+  <div class="dlc-footer">
+    <button class="dlc-return-btn" onclick="dlcBackCover()">← 返回封面</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  var currentWorldbook = null;
+  var dlcData = {};
+
+  /* 解析正则：匹配 [DLC][角色][项目名称] 或 [DLC][扩展][项目名称] */
+  var dlcRegex = /^\[DLC\]\[(?:角色|扩展)\]\[([^\]]+)\].*$/;
+
+  /* 初始化获取世界书名称 */
+  async function initWorldbookName() {
+    try {
+      if (typeof getCharWorldbookNames === 'function') {
+        currentWorldbook = getCharWorldbookNames('current').primary;
+      }
+      return !!currentWorldbook;
+    } catch (e) {
+      console.error('[DLC终端] 获取世界书名称失败:', e);
+      return false;
+    }
+  }
+
+  /* 加载并解析DLC数据 */
+  window.loadDLCs = async function() {
+    var container = document.getElementById('dlc-list-container');
+    container.innerHTML = '<div class="dlc-loading"><div class="dlc-spinner"></div>正在扫描 DLC 模块...</div>';
+
+    if (!currentWorldbook) {
+      var ok = await initWorldbookName();
+      if (!ok) {
+        container.innerHTML = '<div class="dlc-empty">未检测到绑定的世界书<br>请先为当前角色绑定世界书</div>';
+        return;
+      }
+    }
+
+    try {
+      if (typeof getWorldbook !== 'function') throw new Error('酒馆版本不支持 getWorldbook API');
+
+      var entries = await getWorldbook(currentWorldbook);
+      dlcData = {};
+
+      entries.forEach(function(entry) {
+        if (!entry.name) return;
+        var match = entry.name.match(dlcRegex);
+        if (match) {
+          var projectName = match[1];
+          if (!dlcData[projectName]) {
+            dlcData[projectName] = { total: 0, enabled: 0, uids: [] };
+          }
+          dlcData[projectName].total += 1;
+          dlcData[projectName].uids.push(entry.uid);
+          if (entry.enabled) {
+            dlcData[projectName].enabled += 1;
+          }
+        }
+      });
+
+      renderDLCList();
+
+    } catch (error) {
+      console.error('[DLC终端] 读取失败:', error);
+      container.innerHTML = '<div class="dlc-empty">读取失败: ' + error.message + '</div>';
+      dlcToast('读取世界书失败', 'error');
+    }
+  };
+
+  /* 渲染列表 */
+  function renderDLCList() {
+    var container = document.getElementById('dlc-list-container');
+    var projects = Object.keys(dlcData);
+
+    if (projects.length === 0) {
+      container.innerHTML = '<div class="dlc-empty">未扫描到任何有效的 DLC 条目<br><span style="font-size:10px;opacity:0.5;display:block;margin-top:6px;">条目命名格式：[DLC][角色][名称]xxx</span></div>';
+      return;
+    }
+
+    var html = '';
+    projects.forEach(function(project) {
+      var data = dlcData[project];
+      var isChecked = data.enabled > 0;
+      var statusText = '';
+      if (data.enabled === data.total) {
+        statusText = '已全开';
+      } else if (data.enabled === 0) {
+        statusText = '已关闭';
+      } else {
+        statusText = '部分开启 (' + data.enabled + '/' + data.total + ')';
+      }
+
+      html += '<div class="dlc-item">'
+        + '<div class="dlc-item-info">'
+        + '<div class="dlc-item-name">' + project + ' <span class="dlc-item-badge">DLC</span></div>'
+        + '<div class="dlc-item-stats">' + data.total + ' 个条目 · <span id="status-' + project + '">' + statusText + '</span></div>'
+        + '</div>'
+        + '<label class="switch">'
+        + '<input type="checkbox" id="toggle-' + project + '" ' + (isChecked ? 'checked' : '') + ' onchange="toggleDLC(\'' + project + '\', this.checked)">'
+        + '<span class="slider"></span>'
+        + '</label>'
+        + '</div>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  /* 切换DLC开关状态 */
+  window.toggleDLC = async function(project, turnOn) {
+    var checkbox = document.getElementById('toggle-' + project);
+    var statusEl = document.getElementById('status-' + project);
+    checkbox.disabled = true;
+
+    try {
+      var entries = await getWorldbook(currentWorldbook);
+      var targetUids = dlcData[project].uids;
+      var updateCount = 0;
+
+      var updatedEntries = entries.map(function(entry) {
+        if (targetUids.indexOf(entry.uid) !== -1) {
+          updateCount++;
+          var copy = {};
+          for (var k in entry) {
+            if (Object.prototype.hasOwnProperty.call(entry, k)) copy[k] = entry[k];
+          }
+          copy.enabled = turnOn;
+          return copy;
+        }
+        return entry;
+      });
+
+      await replaceWorldbook(currentWorldbook, updatedEntries);
+
+      dlcData[project].enabled = turnOn ? dlcData[project].total : 0;
+      statusEl.textContent = turnOn ? '已全开' : '已关闭';
+
+      dlcToast('[' + project + '] ' + (turnOn ? '已开启' : '已关闭') + ' (' + updateCount + '个条目)', 'success');
+
+    } catch (error) {
+      console.error('[DLC终端] 切换失败:', error);
+      checkbox.checked = !turnOn;
+      dlcToast('操作失败，请重试', 'error');
+    } finally {
+      checkbox.disabled = false;
+    }
+  };
+
+  /* 返回封面页 */
+  window.dlcBackCover = async function() {
+    try {
+      if (typeof getChatMessages !== 'function' || typeof setChatMessage !== 'function') {
+        dlcToast('当前环境不支持返回封面', 'error');
+        return;
+      }
+      var messages = await getChatMessages('0', { include_swipe: true });
+      if (messages && messages[0] && messages[0].swipes && messages[0].swipes[0]) {
+        await setChatMessage(messages[0].swipes[0], 0, {
+          swipe_id: 0,
+          refresh: 'display_and_render_current'
+        });
+      } else {
+        dlcToast('未找到封面页数据', 'error');
+      }
+    } catch (error) {
+      console.error('[DLC终端] 返回封面失败:', error);
+      dlcToast('返回封面失败', 'error');
+    }
+  };
+
+  /* Toast通知 */
+  function dlcToast(msg, type) {
+    if (typeof toastr !== 'undefined') {
+      if (type === 'success') toastr.success(msg);
+      else if (type === 'error') toastr.error(msg);
+      else toastr.info(msg);
+    } else {
+      console.log('[' + (type || 'info') + '] ' + msg);
+    }
+  }
+
+  /* 延迟加载 */
+  setTimeout(function() { loadDLCs(); }, 500);
+})();
+</script>
+
+</body>
+</html>
+```

@@ -1,0 +1,58 @@
+<%_
+  // 获取当前学年和学期变量
+  var currentYear = getMessageVar("stat_data.章节管理.学年", { defaults: "第一学年" });
+  var currentTerm = getMessageVar("stat_data.章节管理.学期", { defaults: "第一学期" });
+
+  // 建立转换映射表，将学年转换为 Z 开头
+  var yearMap = {
+    "第一学年": "Z1",
+    "第二学年": "Z2",
+    "第三学年": "Z3"
+  };
+
+  var termMap = {
+    "第一学期": "Y1",
+    "暑假": "Y2",
+    "第二学期": "Y3",
+    "寒假": "Y4",
+    "第三学期": "Y5",
+    "春假": "Y6"
+  };
+
+  if (typeof currentYear === 'string' && typeof currentTerm === 'string') {
+    // 进行转换，如果遇到未知变量则默认使用 Z1 和 Y1
+    var sCode = yearMap[currentYear] || "Z1";
+    var yCode = termMap[currentTerm] || "Y1";
+
+    // 拼接出最终的条目名称，例如："Z1_Y1"
+    var entryName = sCode + "_" + yCode;
+
+    // 尝试读取该条目
+    var plotContent = await getwi(entryName);
+
+    // 如果该条目存在且不为空，则输出剧情
+    if (plotContent !== null) {
+_%>
+<当前学期剧情大纲>
+<%- plotContent %>
+</当前学期剧情大纲>
+
+<!-- SYSTEM_COMMAND_START -->
+<System_Notice>
+【强制防OOC与剧情推进警告】
+1. 当前学期剧情大纲只提供阶段素材、事件空气、班级差分、后台推进与可偏离条件，不是必须逐条执行的命运脚本。演绎时应根据当前时间、当前地点、{{user}}行动与已发生变量选择合适内容，不得强行回到原作路线。
+
+2. 若当前剧情涉及尚未加载完整档案的核心角色,禁止描写其外貌细节、内心独白、复杂性格判断或原创深层动机
+
+3. 当剧情进入考试、体育祭、调查、围猎、救场、审议、摊牌、告白、背叛、退学危机等高张力场景时，必须在关键转折前停顿，给{{user}}行动机会。尤其不得替{{user}}自动选择介入、旁观、救人、揭发、战斗、谈判或放弃。
+
+4. 若{{user}}已经介入并改变局势，必须优先承认{{user}}造成的偏离结果。禁止强行把剧情拉回原作结果，禁止让原作角色无视{{user}}已完成的行动重新获得同样收益。
+
+5. “后台推进”和“绫小路失败/偏离”只用于判断局势与收益归属，不得直接当成正文剧透输出。只有当剧情自然触发、{{user}}行动相关、或变量已经支持时，才可表现对应后果。
+
+</System_Notice>
+<!-- SYSTEM_COMMAND_END -->
+<%_
+    }
+  }
+_%>

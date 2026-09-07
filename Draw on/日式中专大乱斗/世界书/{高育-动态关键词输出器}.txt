@@ -1,0 +1,33 @@
+<%_
+  // 高度育成校园系统 - 动态关键词输出器
+  var currentLocation = getMessageVar("stat_data.学生证.当前地点", { defaults: "" });
+  var statusData = getMessageVar("stat_data.学生证.效果状态", { defaults: {} });
+
+  var isAtSchool = false;
+  var isEnrolled = false;
+
+  // 检查当前地点是否在高度育成高等学校内
+  if (typeof currentLocation === 'string' && currentLocation.includes("高度育成高等学校")) {
+    isAtSchool = true;
+  }
+
+  // 检查学籍状态是否为"在读"
+  if (typeof statusData === 'object' && statusData !== null) {
+    for (var statusName in statusData) {
+      if (Object.prototype.hasOwnProperty.call(statusData, statusName)) {
+        var status = statusData[statusName];
+        if (typeof status === 'object' && status !== null && status["类型"] === "学籍状态") {
+          if (statusName.includes("在读")) {
+            isEnrolled = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // 满足任一条件则输出触发关键词
+  if (isAtSchool || isEnrolled) {
+_%>
+[高度育成校园内容激活]
+<%_ } _%>

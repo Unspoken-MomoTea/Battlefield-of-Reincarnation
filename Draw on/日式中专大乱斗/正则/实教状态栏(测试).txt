@@ -1,0 +1,1058 @@
+```html
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+  /* ⚡ 哥哥，这是全新重构的四个沉浸感主题 ⚡ */
+  :root {
+    /* 主题一：【黑客帝国·暗影监测】(默认) */
+    --bg-main: rgba(6, 4, 10, 0.96);
+    --bg-card: rgba(14, 10, 22, 0.85);
+    --bg-inset: rgba(8, 5, 14, 0.75);
+    --bg-tab: rgba(18, 12, 28, 0.8);
+    --bg-tab-active: rgba(28, 18, 44, 0.95);
+    --text-primary: #39ff14; /* 荧光毒素绿 */
+    --text-secondary: #00f3ff; /* 冰晶全息蓝 */
+    --text-muted: #4e6a66;
+    --accent: #00f3ff;
+    --accent-soft: rgba(0, 243, 255, 0.15);
+    --highlight: #39ff14;
+    --highlight-soft: rgba(57, 255, 20, 0.12);
+    --sakura: #ff007f;
+    --success: #39ff14;
+    --danger: #ff003c;
+    --info: #00f3ff;
+    --border: rgba(0, 243, 255, 0.2);
+    --shadow-dark: rgba(0, 0, 0, 0.6);
+    --shadow-light: rgba(0, 243, 255, 0.05);
+    --glass-blur: 16px;
+    --eff-text: #00f3ff;
+    --eff-label: #4e6a66;
+  }
+
+  [data-theme="light"] {
+    /* 主题二：【白银特权·白金会所】(高贵玫瑰金与大理石灰) */
+    --bg-main: rgba(246, 244, 238, 0.98);
+    --bg-card: rgba(235, 232, 222, 0.9);
+    --bg-inset: rgba(220, 216, 204, 0.75);
+    --bg-tab: rgba(228, 224, 212, 0.8);
+    --bg-tab-active: rgba(250, 248, 242, 0.95);
+    --text-primary: #1c2d42; /* 深午夜蓝 */
+    --text-secondary: #7d6855; /* 哑光玫瑰金 */
+    --text-muted: #968a7c;
+    --accent: #b89070; /* 玫瑰金 */
+    --accent-soft: rgba(184, 144, 112, 0.18);
+    --highlight: #c5a059; /* 白金 */
+    --highlight-soft: rgba(197, 160, 89, 0.12);
+    --sakura: #b55a5a;
+    --success: #2b8a3e;
+    --danger: #c92a2a;
+    --info: #2a6a8a;
+    --border: rgba(125, 104, 85, 0.25);
+    --shadow-dark: rgba(28, 45, 66, 0.15);
+    --shadow-light: rgba(255, 255, 255, 0.6);
+    --eff-text: #1c2d42;
+    --eff-label: #7d6855;
+  }
+
+  [data-theme="cold"] {
+    /* 主题三：【绝对零度·高岭之花】(极冷调冰川灰绿) */
+    --bg-main: rgba(10, 18, 20, 0.95);
+    --bg-card: rgba(16, 28, 30, 0.85);
+    --bg-inset: rgba(8, 14, 16, 0.7);
+    --bg-tab: rgba(14, 24, 26, 0.8);
+    --bg-tab-active: rgba(22, 38, 40, 0.95);
+    --text-primary: #8bf0e0; /* 极光青 */
+    --text-secondary: #a0b8b4; /* 霜灰色 */
+    --text-muted: #5a7874;
+    --accent: #8bf0e0;
+    --accent-soft: rgba(139, 240, 224, 0.15);
+    --highlight: #f0c878;
+    --highlight-soft: rgba(240, 200, 120, 0.1);
+    --sakura: #90e8d0;
+    --success: #60e090;
+    --danger: #f08080;
+    --info: #80d8e8;
+    --border: rgba(139, 240, 224, 0.15);
+    --shadow-dark: rgba(0, 0, 0, 0.5);
+    --shadow-light: rgba(40, 120, 100, 0.05);
+  }
+
+  [data-theme="warm"] {
+    /* 主题四：【点数至上·黄金博弈】(黑曜石红与奢华香槟金) */
+    --bg-main: rgba(16, 6, 8, 0.97);
+    --bg-card: rgba(30, 14, 16, 0.88);
+    --bg-inset: rgba(12, 5, 6, 0.75);
+    --bg-tab: rgba(26, 10, 12, 0.8);
+    --bg-tab-active: rgba(40, 18, 20, 0.95);
+    --text-primary: #f3e5ab; /* 香槟金 */
+    --text-secondary: #ff4d4d; /* 宝石红 */
+    --text-muted: #9e7250;
+    --accent: #f0b840; /* 筹码金 */
+    --accent-soft: rgba(240, 184, 64, 0.18);
+    --highlight: #ff3333;
+    --highlight-soft: rgba(255, 51, 51, 0.12);
+    --sakura: #f0d060;
+    --success: #d4a830;
+    --danger: #ff3333;
+    --info: #f0b840;
+    --border: rgba(240, 184, 64, 0.2);
+    --shadow-dark: rgba(0, 0, 0, 0.6);
+    --shadow-light: rgba(160, 80, 20, 0.05);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 6px;
+    font-family: -apple-system, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    color: var(--text-primary);
+    line-height: 1.5;
+    font-size: 16px;
+  }
+
+  .s-container {
+    background: var(--bg-main);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    padding: 10px;
+    box-shadow: 6px 6px 14px var(--shadow-dark), -3px -3px 10px var(--shadow-light);
+    width: 100%;
+  }
+
+  .s-global {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 10px;
+    margin-bottom: 8px;
+    background: var(--bg-inset);
+    border-radius: 8px;
+    box-shadow: inset 1px 1px 3px var(--shadow-dark);
+    font-size: 13px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .s-global .g-time { color: var(--accent); }
+  .s-global .g-location { color: var(--sakura); }
+
+  .s-theme-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .s-ctrl-label { font-size: 11px; color: var(--text-muted); margin-right: 2px; }
+  .theme-dot {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid var(--border);
+    cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .theme-dot:hover { transform: scale(1.2); }
+  .theme-dot.active { box-shadow: 0 0 0 2px var(--accent); transform: scale(1.15); }
+  .theme-dot[data-t="dark"] { background: linear-gradient(135deg, #06040a, #39ff14); }
+  .theme-dot[data-t="light"] { background: linear-gradient(135deg, #f6f4ee, #b89070); }
+  .theme-dot[data-t="cold"] { background: linear-gradient(135deg, #0a1214, #8bf0e0); }
+  .theme-dot[data-t="warm"] { background: linear-gradient(135deg, #100608, #f0b840); border-color: rgba(240,184,64,0.3); }
+
+  .s-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+  .s-tab-btn {
+    flex: 1; padding: 8px 2px; border: none; border-radius: 8px;
+    background: var(--bg-tab); color: var(--text-muted);
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+    box-shadow: 2px 2px 5px var(--shadow-dark), -1px -1px 3px var(--shadow-light);
+  }
+  .s-tab-btn.active {
+    background: var(--bg-tab-active); color: var(--accent);
+    box-shadow: inset 2px 2px 4px var(--shadow-dark), inset -1px -1px 2px var(--shadow-light);
+  }
+
+  .s-panel { display: none; }
+  .s-panel.active { display: block; }
+  .s-scroll { width: 100%; max-height: none; overflow-y: visible; }
+  .s-scroll.scrollable {
+    max-height: 450px; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: var(--accent-soft) transparent;
+  }
+  .s-scroll.scrollable::-webkit-scrollbar { width: 3px; }
+  .s-scroll.scrollable::-webkit-scrollbar-thumb { background: var(--accent-soft); border-radius: 2px; }
+
+  .s-npc-filters {
+    display: flex; gap: 3px; padding: 4px; margin-bottom: 6px;
+    background: var(--bg-inset); border-radius: 6px;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .s-npc-filters::-webkit-scrollbar { display: none; }
+  .s-filter-btn {
+    flex: 1; padding: 4px 2px; border: none; border-radius: 4px;
+    background: transparent; color: var(--text-muted);
+    font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+    white-space: nowrap; text-align: center;
+  }
+  .s-filter-btn.active {
+    background: var(--bg-card); color: var(--accent);
+    box-shadow: 1px 1px 3px var(--shadow-dark);
+  }
+
+  .s-card {
+    background: var(--bg-card); border-radius: 10px; padding: 10px; margin-bottom: 8px;
+    box-shadow: 2px 2px 5px var(--shadow-dark), -1px -1px 3px var(--shadow-light);
+    border: 1px solid var(--border);
+  }
+  .s-card-title { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.8px; margin-bottom: 6px; font-weight: 600; }
+  .s-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+  .s-label { color: var(--text-secondary); font-size: 14px; }
+  .s-val { color: var(--text-primary); font-weight: 500; font-size: 15px; }
+  .s-val.hl { color: var(--accent); }
+
+  /* ⚜️ 点数流光掠过动画 ⚜️ */
+  .s-val.pts {
+    color: var(--highlight); font-weight: 800; font-size: 20px;
+    text-shadow: 0 0 6px var(--accent-soft);
+    background: linear-gradient(90deg, var(--text-primary), var(--accent), var(--text-primary));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gold-shine 3s linear infinite;
+  }
+  @keyframes gold-shine {
+    0% { background-position: 0% center; }
+    100% { background-position: 200% center; }
+  }
+
+  /* 📊 HTML5 Canvas 雷达图容器 📊 */
+  .s-radar-container {
+    width: 100%; display: flex; flex-direction: column; align-items: center;
+    padding: 10px 0; background: var(--bg-inset); border-radius: 8px;
+    box-shadow: inset 1px 1px 3px var(--shadow-dark); margin-bottom: 8px;
+  }
+  .s-radar-canvas {
+    width: 180px; height: 180px;
+  }
+
+  .s-ability-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .s-ab-item {
+    background: var(--bg-inset); border-radius: 8px; padding: 8px 6px; text-align: center;
+    box-shadow: inset 1px 1px 2px var(--shadow-dark);
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  }
+  .s-ab-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
+
+  .s-ab-grade {
+    font-size: 15px; font-weight: 800; width: 28px; height: 28px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 4px var(--shadow-dark); border: 1px solid rgba(255,255,255,0.1);
+  }
+  .s-ab-grade.g-a { background: linear-gradient(135deg, #ff6b6b, #fa5252); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+  .s-ab-grade.g-b { background: linear-gradient(135deg, #ffa94d, #fd7e14); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+  .s-ab-grade.g-c { background: linear-gradient(135deg, #ffd43b, #fab005); color: #1a1a2e; }
+  .s-ab-grade.g-d { background: linear-gradient(135deg, #69db7c, #40c057); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+  .s-ab-grade.g-e { background: linear-gradient(135deg, #74c0fc, #228be6); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+
+  .s-ab-score { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+  .s-ab-bar { width: 90%; height: 4px; background: rgba(0,0,0,0.25); border-radius: 2px; margin-top: 4px; }
+  .s-ab-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--info)); }
+
+  .s-card-toggle {
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; user-select: none;
+  }
+  .s-card-toggle .s-toggle-arrow { font-size: 10px; color: var(--text-secondary); transition: transform 0.2s ease; }
+  .s-card-toggle.open .s-toggle-arrow { transform: rotate(180deg); }
+  .s-card-body { display: none; }
+
+  .s-effects-container {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0;
+  }
+  .s-effect-capsule {
+    display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
+    border-radius: 13px; background: var(--bg-inset); border: 1px solid var(--border);
+    cursor: pointer; transition: all 0.2s ease; user-select: none;
+  }
+  .s-effect-capsule:active { transform: scale(0.95); }
+  .s-effect-capsule.active {
+    background: var(--accent-soft); border-color: var(--accent);
+  }
+
+  .s-capsule-dot {
+    width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; flex-shrink: 0;
+  }
+  .s-capsule-dot.ct-学籍状态 { background: var(--success); box-shadow: 0 0 4px var(--success); }
+  .s-capsule-dot.ct-身份标签 { background: var(--info); box-shadow: 0 0 4px var(--info); }
+  .s-capsule-dot.ct-消费观念 { background: var(--highlight); box-shadow: 0 0 4px var(--highlight); }
+  .s-capsule-dot.ct-增益 { background: #a9e34b; box-shadow: 0 0 4px #a9e34b; }
+  .s-capsule-dot.ct-减益 { background: var(--danger); box-shadow: 0 0 4px var(--danger); }
+  .s-capsule-dot.ct-特殊 { background: var(--accent); box-shadow: 0 0 4px var(--accent); }
+
+  .s-capsule-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+
+  .s-capsule-drawer {
+    display: none; width: 100%; margin-top: 4px; margin-bottom: 6px;
+    background: rgba(0, 0, 0, 0.18); border-radius: 6px; padding: 8px 10px;
+    border-left: 3px solid var(--accent); box-shadow: inset 1px 1px 3px rgba(0,0,0,0.3);
+  }
+  .s-capsule-drawer.ct-学籍状态 { border-left-color: var(--success); }
+  .s-capsule-drawer.ct-身份标签 { border-left-color: var(--info); }
+  .s-capsule-drawer.ct-消费观念 { border-left-color: var(--highlight); }
+  .s-capsule-drawer.ct-增益 { border-left-color: #a9e34b; }
+  .s-capsule-drawer.ct-减益 { border-left-color: var(--danger); }
+  .s-capsule-drawer.ct-特殊 { border-left-color: var(--accent); }
+
+  .s-drawer-row { font-size: 12px; color: var(--eff-text); line-height: 1.5; padding: 1px 0; }
+  .s-drawer-row span { color: var(--eff-label); font-weight: 500; }
+
+  .s-class-item {
+    display: flex; align-items: center; padding: 10px; margin-bottom: 6px;
+    background: var(--bg-card); border-radius: 10px;
+    box-shadow: 2px 2px 5px var(--shadow-dark), -1px -1px 3px var(--shadow-light);
+    border: 1px solid var(--border);
+  }
+  .s-rank-badge {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; margin-right: 10px; flex-shrink: 0;
+  }
+  .s-rank-badge.r1 { background: linear-gradient(135deg, #ffd700, #ffaa00); color: #1a1a2e; }
+  .s-rank-badge.r2 { background: linear-gradient(135deg, #c0c0c0, #999); color: #1a1a2e; }
+  .s-rank-badge.r3 { background: linear-gradient(135deg, #cd7f32, #a0522d); color: #fff; }
+  .s-rank-badge.r4 { background: var(--bg-inset); color: var(--text-secondary); }
+  .s-class-info { flex: 1; }
+  .s-class-name { font-size: 15px; color: var(--text-primary); font-weight: 500; }
+  .s-class-leader { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+  .s-class-cp { text-align: right; }
+  .s-class-cp-num { font-size: 17px; font-weight: 600; color: var(--accent); }
+  .s-class-cp-label { font-size: 10px; color: var(--text-secondary); }
+
+  .s-npc-section { font-size: 13px; color: var(--accent); margin: 8px 0 4px; padding-left: 6px; border-left: 2px solid var(--accent); }
+  .s-npc-item {
+    display: flex; align-items: center; padding: 8px; margin-bottom: 3px;
+    background: var(--bg-inset); border-radius: 7px; cursor: pointer; transition: background 0.15s;
+  }
+  .s-npc-item:active { background: var(--accent-soft); }
+
+  .s-npc-dot { width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; position: relative; }
+  .s-npc-dot.in {
+    background: var(--success);
+    box-shadow: 0 0 4px var(--success);
+  }
+  .s-npc-dot.in::after {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    border-radius: 50%; background: var(--success); opacity: 0.8;
+    animation: radar-pulse 1.8s infinite ease-out;
+  }
+  .s-npc-dot.out { background: var(--text-muted); }
+
+  @keyframes radar-pulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(3.5); opacity: 0; }
+  }
+
+  .s-npc-name { color: var(--text-primary); font-weight: 500; font-size: 15px; }
+  .s-npc-class { color: var(--text-secondary); font-size: 12px; margin-left: 6px; flex: 1; }
+  .s-npc-att { font-size: 12px; padding: 2px 6px; border-radius: 4px; background: var(--bg-card); }
+  .att-倾心 { color: #ff6b9d; }
+  .att-亲密 { color: #ff9ff3; }
+  .att-要好 { color: #feca57; }
+  .att-友善 { color: #69db7c; }
+  .att-熟识 { color: #74c0fc; }
+  .att-陌生 { color: var(--text-muted); }
+  .att-冷淡 { color: #888899; }
+  .att-反感 { color: #ff8844; }
+  .att-厌恶 { color: #ff4444; }
+
+  /* ⚖️ 重新设计的双向情感天平波动条 ⚖️ */
+  .s-relation-scale {
+    margin: 10px 0; background: var(--bg-inset); padding: 8px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .s-scale-header { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+  .s-scale-axis {
+    position: relative; height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--danger) 0%, var(--text-muted) 40%, var(--success) 75%, var(--sakura) 100%);
+  }
+  .s-scale-pointer {
+    position: absolute; top: -4px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--text-primary); border: 2px solid var(--accent);
+    box-shadow: 0 0 6px var(--accent); transition: left 0.3s ease-out;
+    transform: translateX(-50%);
+  }
+
+  /* 🔬 重新设计的 SVG 矢量身体扫描器 🔬 */
+  .s-body-scanner {
+    display: flex; background: var(--bg-inset); border-radius: 8px; padding: 10px;
+    border: 1px solid var(--border); margin-top: 6px; align-items: center; gap: 10px;
+  }
+  .s-scanner-svg-wrap {
+    width: 100px; display: flex; justify-content: center; position: relative;
+  }
+  .s-scanner-svg {
+    width: 90px; height: 160px; filter: drop-shadow(0 0 2px var(--accent-soft));
+  }
+  .s-scanner-details {
+    flex: 1; display: flex; flex-direction: column; gap: 4px;
+  }
+  .s-scanner-row {
+    font-size: 11px; background: rgba(0,0,0,0.15); padding: 4px 6px; border-radius: 4px;
+    border-left: 2px solid var(--border); display: flex; justify-content: space-between;
+  }
+  .s-scanner-label { color: var(--text-secondary); }
+  .s-scanner-val { color: var(--text-primary); font-weight: 600; }
+  .s-scanner-val.active-sens { color: var(--sakura); animation: text-flicker 1.5s infinite alternate; }
+
+  /* 扫描器呼吸敏感红点 */
+  .s-sens-dot {
+    fill: var(--danger); stroke: #fff; stroke-width: 0.5px; opacity: 0;
+  }
+  .s-sens-dot.active {
+    opacity: 1; animation: svg-pulse 1.5s infinite ease-out;
+  }
+  @keyframes svg-pulse {
+    0% { r: 1.5px; opacity: 1; }
+    50% { r: 3.5px; opacity: 0.7; }
+    100% { r: 1.5px; opacity: 1; }
+  }
+  @keyframes text-flicker {
+    0% { opacity: 0.7; text-shadow: 0 0 2px var(--sakura); }
+    100% { opacity: 1; text-shadow: 0 0 6px var(--sakura); }
+  }
+
+  .s-phys-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px;
+  }
+  .s-phys-item {
+    background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column;
+  }
+  .s-phys-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; }
+  .s-phys-val { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+
+  .s-virgin-badge {
+    display: inline-block; padding: 3px 8px; border-radius: 6px;
+    font-size: 12px; font-weight: 600; text-align: center; margin-bottom: 6px;
+  }
+  .s-virgin-badge.yes { background: rgba(105, 219, 124, 0.15); color: var(--success); border: 1px solid rgba(105, 219, 124, 0.3); }
+  .s-virgin-badge.no { background: rgba(255, 107, 107, 0.15); color: var(--danger); border: 1px solid rgba(255, 107, 107, 0.3); }
+
+  .s-kink-card {
+    background: var(--bg-inset); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; margin-bottom: 6px;
+  }
+  .s-kink-header {
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px dashed var(--border); padding-bottom: 4px; margin-bottom: 6px;
+  }
+  .s-kink-title { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .s-kink-desc { font-size: 12px; color: var(--text-primary); line-height: 1.4; padding-left: 4px; white-space: pre-wrap; }
+
+  .s-detail-back {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 13px;
+    color: var(--accent); cursor: pointer; margin-bottom: 8px; padding: 5px 10px;
+    border-radius: 6px; background: var(--accent-soft);
+  }
+  .s-detail-title { font-size: 17px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
+  .s-detail-section { margin-bottom: 10px; }
+  .s-detail-section .s-card-title { margin-bottom: 4px; }
+
+  .s-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 16px 0; }
+
+  @media (max-width: 420px) {
+    body { padding: 4px; font-size: 15px; }
+    .s-container { padding: 8px; border-radius: 12px; }
+    .s-tab-btn { font-size: 12px; padding: 6px 2px; }
+    .s-ability-grid { gap: 4px; }
+    .s-ab-item { padding: 6px 4px; }
+    .s-ab-grade { width: 24px; height: 24px; font-size: 13px; }
+    .s-scroll.scrollable { max-height: 380px; }
+  }
+  </style>
+
+  <script type="module">
+    var currentFilter = '全部';
+
+    function getV(path, def) {
+      return _.get(getAllVariables(), 'stat_data.' + path, def);
+    }
+
+    function formatTime(raw) {
+      if (!raw || raw === 'N/A') return '--';
+      var parts = raw.split('-');
+      if (parts.length >= 5) return parts[1] + parts[2] + ' ' + parts[3] + ' ' + parts[4];
+      if (parts.length >= 3) return parts[1] + parts[2];
+      return raw;
+    }
+
+    function gradeClass(g) {
+      return 'g-' + (g || 'e').charAt(0).toLowerCase();
+    }
+
+    /* 📊 Canvas绘制OAA四维雷达蛛网图 📊 */
+    function drawOaaRadar(canvasId, abilities) {
+      var canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      var ctx = canvas.getContext('2d');
+      var width = canvas.width = 180;
+      var height = canvas.height = 180;
+      var cx = width / 2;
+      var cy = height / 2;
+      var maxRadius = 70;
+
+      /* 轴名定义：学力(12点方向), 身体能力(3点), 灵活思考(6点), 社会贡献(9点) */
+      var axes = ['学力', '身体能力', '灵活思考力', '社会贡献性'];
+      var scores = axes.map(function(name) {
+        return _.get(abilities, name + '.分数', 0);
+      });
+
+      ctx.clearRect(0, 0, width, height);
+
+      /* 1. 绘制底色雷达网格(5圈蛛网) */
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(0, 243, 255, 0.2)';
+      ctx.lineWidth = 0.5;
+      for (var r = 1; r <= 5; r++) {
+        var radius = maxRadius * (r / 5);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - radius);
+        ctx.lineTo(cx + radius, cy);
+        ctx.lineTo(cx, cy + radius);
+        ctx.lineTo(cx - radius, cy);
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      /* 2. 绘制十字交叉轴线 */
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - maxRadius); ctx.lineTo(cx, cy + maxRadius);
+      ctx.moveTo(cx - maxRadius, cy); ctx.lineTo(cx + maxRadius, cy);
+      ctx.stroke();
+
+      /* 3. 绘制雷达分数多边形 */
+      var points = [
+        { x: cx, y: cy - maxRadius * (scores[0] / 100) }, /* 学力 */
+        { x: cx + maxRadius * (scores[1] / 100), y: cy }, /* 身体能力 */
+        { x: cx, y: cy + maxRadius * (scores[2] / 100) }, /* 灵活思考力 */
+        { x: cx - maxRadius * (scores[3] / 100), y: cy }  /* 社会贡献性 */
+      ];
+
+      var accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00f3ff';
+
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (var i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = accentColor.replace('rgb', 'rgba').replace(')', ', 0.3)'); /* 半透明填充 */
+      ctx.fill();
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      /* 4. 绘制各端点得分小圆圈 */
+      ctx.fillStyle = '#fff';
+      points.forEach(function(pt) {
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+
+      /* 5. 标上雷达图文本 */
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#00f3ff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('学力', cx, cy - maxRadius - 10);
+      ctx.fillText('身体', cx + maxRadius + 15, cy);
+      ctx.fillText('思考', cx, cy + maxRadius + 10);
+      ctx.fillText('社会', cx - maxRadius - 15, cy);
+    }
+
+    /* ⚖️ 态度波动条比例映射 ⚖️ */
+    function getAttScaleLeft(att) {
+      var map = {
+        '厌恶': 5, '反感': 16, '冷淡': 28, '陌生': 40,
+        '熟识': 52, '友善': 64, '要好': 76, '亲密': 88, '倾心': 95
+      };
+      return map[att] !== undefined ? map[att] : 40;
+    }
+
+    function renderEffects(effects, uniquePrefix) {
+      if (!effects || Object.keys(effects).length === 0) return '<div class="s-empty">无状态</div>';
+      var html = '<div class="s-effects-container">';
+      var prefix = uniquePrefix || 'fx';
+
+      Object.entries(effects).forEach(function(e, idx) {
+        var name = e[0], d = e[1] || {};
+        var type = d['类型'] || '特殊';
+        var drawerId = prefix + '-drawer-' + idx;
+
+        html += '<div class="s-effect-capsule" data-drawer="' + drawerId + '">';
+        html += '<span class="s-capsule-dot ct-' + type + '"></span>';
+        html += '<span class="s-capsule-name">' + name + '</span>';
+        html += '</div>';
+
+        html += '<div class="s-capsule-drawer ct-' + type + '" id="' + drawerId + '">';
+        html += '<div class="s-drawer-row"><span>分类：</span>' + type + '</div>';
+        if (d['效果']) html += '<div class="s-drawer-row"><span>效果：</span>' + d['效果'] + '</div>';
+        html += '<div class="s-drawer-row"><span>剩余：</span>' + (d['剩余时间'] || '永久') + '</div>';
+        if (d['来源']) html += '<div class="s-drawer-row"><span>来源：</span>' + d['来源'] + '</div>';
+        html += '</div>';
+      });
+
+      html += '</div>';
+      return html;
+    }
+
+    function renderAbilityGrid(ab) {
+      if (!ab) return '';
+      var names = ['学力','身体能力','灵活思考力','社会贡献性'];
+      var html = '<div class="s-ability-grid">';
+      names.forEach(function(name) {
+        var d = ab[name] || {};
+        var grade = d['评级'] || '-';
+        var score = d['分数'] || 0;
+        var exp = d['经验值'] || 0;
+        html += '<div class="s-ab-item">';
+        html += '<div class="s-ab-name">' + name + '</div>';
+        html += '<div class="s-ab-grade ' + gradeClass(grade) + '">' + grade + '</div>';
+        html += '<div class="s-ab-score">' + score + '/100</div>';
+        html += '<div class="s-ab-bar"><div class="s-ab-fill" style="width:' + exp + '%"></div></div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function populateData() {
+      var v = getAllVariables();
+
+      $('#g-time').text(formatTime(_.get(v, 'stat_data.学生证.当前时间', '')));
+      $('#g-loc').text(_.get(v, 'stat_data.学生证.当前地点', '--'));
+
+      $('#stu-name').text(_.get(v, 'stat_data.学生证.姓名', '--'));
+      $('#stu-age').text(_.get(v, 'stat_data.学生证.年龄', '--'));
+      $('#stu-grade').text(_.get(v, 'stat_data.学生证.所属年级', '--'));
+      $('#stu-class').text(_.get(v, 'stat_data.学生证.实际班级', '--'));
+      $('#stu-club').text(_.get(v, 'stat_data.学生证.社团', '无'));
+      var pp = _.get(v, 'stat_data.学生证.个人点数', 0);
+      $('#stu-pp').text(Number(pp).toLocaleString() + ' PP');
+
+      var abilities = _.get(v, 'stat_data.学生证.能力档案', {});
+      drawOaaRadar('stu-radar-canvas', abilities);
+
+      var abilitiesList = ['学力','身体能力','灵活思考力','社会贡献性'];
+      abilitiesList.forEach(function(name) {
+        var d = _.get(v, 'stat_data.学生证.能力档案.' + name, {});
+        var $el = $('.s-ab-item[data-ab="' + name + '"]');
+        var grade = d['评级'] || '-';
+        $el.find('.s-ab-grade').text(grade).attr('class', 's-ab-grade ' + gradeClass(grade));
+        $el.find('.s-ab-score').text((d['分数'] || 0) + '/100');
+        $el.find('.s-ab-fill').css('width', (d['经验值'] || 0) + '%');
+      });
+
+      var effects = _.get(v, 'stat_data.学生证.效果状态', {});
+      $('#stu-effects').html(renderEffects(effects, 'user'));
+
+      var classRank = _.get(v, 'stat_data.班级终端.班级排名', {});
+      var sorted = Object.entries(classRank).sort(function(a, b) {
+        var ra = parseInt(((a[1]['排名'] || '第4名').match(/\d+/) || ['4'])[0]);
+        var rb = parseInt(((b[1]['排名'] || '第4名').match(/\d+/) || ['4'])[0]);
+        return ra - rb;
+      });
+      var cHtml = '';
+      sorted.forEach(function(e) {
+        var d = e[1];
+        var rn = parseInt(((d['排名'] || '第4名').match(/\d+/) || ['4'])[0]);
+        cHtml += '<div class="s-class-item">'
+          + '<div class="s-rank-badge r' + rn + '">' + rn + '</div>'
+          + '<div class="s-class-info"><div class="s-class-name">' + (d['显示名'] || e[0]) + '</div>'
+          + '<div class="s-class-leader">领导者: ' + (d['领导者'] || '--') + '</div></div>'
+          + '<div class="s-class-cp"><div class="s-class-cp-num">' + Number(d['班级点数'] || 0).toLocaleString() + '</div>'
+          + '<div class="s-class-cp-label">CP</div></div></div>';
+      });
+      $('#class-list').html(cHtml || '<div class="s-empty">无数据</div>');
+
+      renderNPCList();
+    }
+
+    function renderNPCList() {
+      var v = getAllVariables();
+      var maleNPCs = _.get(v, 'stat_data.学生系统.男', {});
+      var femaleNPCs = _.get(v, 'stat_data.学生系统.女', {});
+
+      function npcListHtml(npcs, gender) {
+        if (!npcs || Object.keys(npcs).length === 0) return '';
+        var html = '';
+        Object.entries(npcs).forEach(function(e) {
+          var name = e[0], d = e[1] || {};
+
+          var classKey = d['班级'] || '';
+          if (currentFilter !== '全部') {
+            if (currentFilter === '其他') {
+              if (['A班', 'B班', 'C班', 'D班'].includes(classKey)) return;
+            } else {
+              if (classKey !== currentFilter) return;
+            }
+          }
+
+          var present = d['在场状态'] === '在场';
+          var att = d['态度'] || '陌生';
+          var cls = d['实际班级'] || '';
+          html += '<div class="s-npc-item" data-npc="' + name + '" data-gender="' + gender + '">'
+            + '<span class="s-npc-dot ' + (present ? 'in' : 'out') + '"></span>'
+            + '<span class="s-npc-name">' + name + '</span>'
+            + '<span class="s-npc-class">' + cls + '</span>'
+            + '<span class="s-npc-att att-' + att + '">' + att + '</span>'
+            + '</div>';
+        });
+        return html;
+      }
+
+      var fHtml = npcListHtml(femaleNPCs, '女');
+      var mHtml = npcListHtml(maleNPCs, '男');
+
+      var nHtml = '';
+      if (fHtml) nHtml += '<div class="s-npc-section">♀ 女性角色</div>' + fHtml;
+      if (mHtml) nHtml += '<div class="s-npc-section">♂ 男性角色</div>' + mHtml;
+      $('#npc-list').html(nHtml || '<div class="s-empty">暂无符合条件的追踪角色</div>');
+    }
+
+    function showNpcDetail(npcName, gender) {
+      var v = getAllVariables();
+      var d = _.get(v, 'stat_data.学生系统.' + gender + '.' + npcName, {});
+      if (!d) return;
+
+      $('.s-detail-title').text(npcName);
+      var html = '';
+
+      html += '<div class="s-detail-section"><div class="s-card-title">基础信息</div><div class="s-card">';
+      html += '<div class="s-row"><span class="s-label">实际班级</span><span class="s-val hl">' + (d['实际班级'] || '--') + '</span></div>';
+      html += '<div class="s-row"><span class="s-label">在场状态</span><span class="s-val">' + (d['在场状态'] === '在场' ? '🟢 在场' : '⚫ 不在场') + '</span></div>';
+      html += '<div class="s-row"><span class="s-label">关系</span><span class="s-val">' + (d['关系'] || '--') + '</span></div>';
+
+      /* ⚖️ 态度升级为双向天平波动条 ⚖️ */
+      var currentAtt = d['态度'] || '陌生';
+      html += '<div class="s-relation-scale">';
+      html += '<div class="s-scale-header"><span>态度：' + currentAtt + '</span></div>';
+      html += '<div class="s-scale-axis">';
+      html += '<div class="s-scale-pointer" style="left: ' + getAttScaleLeft(currentAtt) + '%"></div>';
+      html += '</div></div>';
+
+      if (d['个人点数'] !== undefined) html += '<div class="s-row"><span class="s-label">个人点数</span><span class="s-val pts">' + Number(d['个人点数']).toLocaleString() + ' PP</span></div>';
+      html += '</div></div>';
+
+      /* 📊 动态雷达图 📊 */
+      if (d['能力档案']) {
+        html += '<div class="s-detail-section"><div class="s-card-title">能力雷达监视 (OAA)</div>';
+        html += '<div class="s-radar-container"><canvas id="npc-radar-canvas" class="s-radar-canvas"></canvas></div></div>';
+      }
+
+      if (d['外观特征']) {
+        html += '<div class="s-detail-section"><div class="s-card-title">外观特征</div><div class="s-card">';
+        Object.entries(d['外观特征']).forEach(function(e) {
+          html += '<div class="s-row"><span class="s-label">' + e[0] + '</span><span class="s-val">' + e[1] + '</span></div>';
+        });
+        html += '</div></div>';
+      }
+
+      if (d['当前服装']) {
+        html += '<div class="s-detail-section"><div class="s-card-title">当前服装</div><div class="s-card">';
+        Object.entries(d['当前服装']).forEach(function(e) {
+          if (e[1]) html += '<div class="s-row"><span class="s-label">' + e[0] + '</span><span class="s-val">' + e[1] + '</span></div>';
+        });
+        html += '</div></div>';
+      }
+
+      if (d['效果状态'] && Object.keys(d['效果状态']).length > 0) {
+        html += '<div class="s-detail-section">';
+        html += '<div class="s-card-title s-card-toggle" data-target="detail-effects"><span>效果状态</span><span class="s-toggle-arrow">▼</span></div>';
+        html += '<div class="s-card-body" id="detail-effects">' + renderEffects(d['效果状态'], 'npc') + '</div>';
+        html += '</div>';
+      }
+
+      if (d['互动记录']) {
+        html += '<div class="s-detail-section"><div class="s-card-title">互动记录</div><div class="s-card">';
+        if (d['互动记录']['最近互动']) html += '<div class="s-row"><span class="s-label">最近</span><span class="s-val">' + d['互动记录']['最近互动'] + '</span></div>';
+        if (d['互动记录']['难忘事件'] && Object.keys(d['互动记录']['难忘事件']).length > 0) {
+          html += '<div style="margin-top:8px;margin-bottom:4px;font-size:12px;color:var(--text-secondary);font-weight:600;">难忘事件记录：</div>';
+          Object.entries(d['互动记录']['难忘事件']).forEach(function(ev) {
+            html += '<div style="font-size:13px;padding:6px 0;border-bottom:1px dashed var(--border);">';
+            html += '<div style="color:var(--accent);font-weight:600;">• ' + ev[0] + '</div>';
+            html += '<div style="color:var(--text-primary);margin-top:4px;padding-left:8px;white-space:pre-wrap;line-height:1.4;font-size:12px;">' + ev[1] + '</div>';
+            html += '</div>';
+          });
+        }
+        html += '</div></div>';
+      }
+
+      if (gender === '女' && d['性经验']) {
+        html += '<div class="s-detail-section"><div class="s-card-title">性经验</div><div class="s-card">';
+        var sx = d['性经验'];
+
+        if (sx['处女'] !== undefined) {
+          if (sx['处女']) {
+            html += '<div class="s-virgin-badge yes">🟢 纯洁处女</div>';
+          } else {
+            html += '<div class="s-virgin-badge no">🔴 已开发</div>';
+          }
+        }
+
+        if (sx['性交次数'] !== undefined) html += '<div class="s-row"><span class="s-label">性交次数</span><span class="s-val">' + sx['性交次数'] + '</span></div>';
+        if (sx['性伴侣数'] !== undefined) html += '<div class="s-row"><span class="s-label">性伴侣数</span><span class="s-val">' + sx['性伴侣数'] + '</span></div>';
+        if (sx['初次对象']) html += '<div class="s-row"><span class="s-label">初次对象</span><span class="s-val">' + sx['初次对象'] + '</span></div>';
+        if (sx['口交经验']) html += '<div class="s-row"><span class="s-label">口交经验</span><span class="s-val">' + sx['口交经验'] + '</span></div>';
+        if (sx['后庭经验']) html += '<div class="s-row"><span class="s-label">后庭经验</span><span class="s-val">' + sx['后庭经验'] + '</span></div>';
+        if (sx['性交经验']) html += '<div class="s-row"><span class="s-label">性交经验</span><span class="s-val">' + sx['性交经验'] + '</span></div>';
+
+        if (sx['性癖好'] && Object.keys(sx['性癖好']).length > 0) {
+          html += '<div style="margin-top:10px;font-size:12px;color:var(--text-secondary);font-weight:600;margin-bottom:6px;">性癖好觉醒：</div>';
+          Object.entries(sx['性癖好']).forEach(function(k) {
+            html += '<div class="s-kink-card">';
+            html += '<div class="s-kink-header">';
+            html += '<span class="s-kink-title">✨ ' + k[0] + '</span>';
+            html += '</div>';
+            html += '<div class="s-kink-desc">' + k[1] + '</div>';
+            html += '</div>';
+          });
+        }
+        html += '</div></div>';
+      }
+
+      /* 🔬 女性生理状态：SVG身体轮廓红外感应扫描器 🔬 */
+      if (gender === '女' && d['生理状态']) {
+        var ph = d['生理状态'];
+        var hasLub = !!ph['阴道润滑'];
+        var hasNip = !!ph['乳头状态'];
+        var hasCli = !!ph['阴蒂状态'];
+        var hasUt = !!ph['子宫状态'];
+
+        if (hasLub || hasNip || hasCli || hasUt) {
+          html += '<div class="s-detail-section"><div class="s-card-title">生理扫描与红外监视</div>';
+          html += '<div class="s-body-scanner">';
+
+          /* 左侧：SVG极简女性人体线框图 */
+          html += '<div class="s-scanner-svg-wrap">';
+          html += '<svg class="s-scanner-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">';
+          /* 极简女性身体轮廓线条 */
+          html += '<path d="M50,15 C45,15 42,22 42,28 C42,35 45,40 50,40 C55,40 58,35 58,28 C58,22 55,15 50,15 Z M42,40 L58,40 M42,40 C35,46 32,58 32,70 C32,80 34,95 38,110 L44,110 C41,120 40,140 42,190 L48,190 L46,120 L54,120 L52,190 L58,190 C60,140 59,120 56,110 L62,110 C66,95 68,80 68,70 C68,58 65,46 58,40" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" opacity="0.6"/>';
+          /* 胸部敏感点（乳头） */
+          html += '<circle class="s-sens-dot ' + (hasNip ? 'active' : '') + '" cx="44" cy="62" r="2.5" />';
+          html += '<circle class="s-sens-dot ' + (hasNip ? 'active' : '') + '" cx="56" cy="62" r="2.5" />';
+          /* 子宫敏感点 */
+          html += '<circle class="s-sens-dot ' + (hasUt ? 'active' : '') + '" cx="50" cy="92" r="3" />';
+          /* 阴蒂/阴道敏感点 */
+          html += '<circle class="s-sens-dot ' + (hasLub || hasCli ? 'active' : '') + '" cx="50" cy="106" r="3" />';
+          html += '</svg>';
+          html += '</div>';
+
+          /* 右侧：扫描详细状态 */
+          html += '<div class="s-scanner-details">';
+          html += '<div class="s-scanner-row"><span class="s-scanner-label">核心体温</span><span class="s-scanner-val">' + (hasLub ? '37.8 ℃' : '36.5 ℃') + '</span></div>';
+          if (ph['乳头状态']) html += '<div class="s-scanner-row"><span class="s-scanner-label">胸部</span><span class="s-scanner-val active-sens">' + ph['乳头状态'] + '</span></div>';
+          if (ph['子宫状态']) html += '<div class="s-scanner-row"><span class="s-scanner-label">子宫</span><span class="s-scanner-val active-sens">' + ph['子宫状态'] + '</span></div>';
+          if (ph['阴蒂状态']) html += '<div class="s-scanner-row"><span class="s-scanner-label">阴蒂</span><span class="s-scanner-val active-sens">' + ph['阴蒂状态'] + '</span></div>';
+          if (ph['阴道润滑']) html += '<div class="s-scanner-row"><span class="s-scanner-label">阴道</span><span class="s-scanner-val active-sens">' + ph['阴道润滑'] + '</span></div>';
+          html += '</div>';
+
+          html += '</div></div>';
+        }
+      }
+
+      $('#detail-body').html(html);
+      $('#sys-list-view').hide();
+      $('#sys-detail-view').show();
+
+      /* 在DOM渲染后，绘制NPC的雷达图 */
+      if (d['能力档案']) {
+        setTimeout(function() {
+          drawOaaRadar('npc-radar-canvas', d['能力档案']);
+        }, 50);
+      }
+    }
+
+    function closeNpcDetail() {
+      $('#sys-detail-view').hide();
+      $('#sys-list-view').show();
+    }
+
+    async function init() {
+      await waitGlobalInitialized('Mvu');
+      populateData();
+
+      eventOn(Mvu.events.VARIABLE_UPDATE_ENDED, function() {
+        populateData();
+      });
+
+      var savedTheme = localStorage.getItem('cote_status_theme');
+      if (savedTheme) {
+        $('.s-container').attr('data-theme', savedTheme);
+        $('.theme-dot').removeClass('active');
+        $('.theme-dot[data-t="' + savedTheme + '"]').addClass('active');
+      }
+
+      $('.s-tab-btn').on('click', function() {
+        var target = $(this).data('tab');
+        $('.s-tab-btn').removeClass('active');
+        $(this).addClass('active');
+        $('.s-panel').removeClass('active');
+        $('#panel-' + target).addClass('active');
+        if (target === 'sys') { closeNpcDetail(); }
+      });
+
+      $('.theme-dot').on('click', function() {
+        var t = $(this).data('t');
+        $('.s-container').attr('data-theme', t);
+        $('.theme-dot').removeClass('active');
+        $(this).addClass('active');
+        localStorage.setItem('cote_status_theme', t);
+        /* 主题改变后重新渲染画布 */
+        populateData();
+      });
+
+      $(document).on('click', '.s-filter-btn', function() {
+        $('.s-filter-btn').removeClass('active');
+        $(this).addClass('active');
+        currentFilter = $(this).data('filter');
+        renderNPCList();
+      });
+
+      $(document).on('click', '.s-npc-item', function() {
+        var name = $(this).data('npc');
+        var gender = $(this).data('gender');
+        showNpcDetail(name, gender);
+      });
+
+      $(document).on('click', '.s-detail-back', function() {
+        closeNpcDetail();
+      });
+
+      $(document).on('click', '.s-card-toggle', function() {
+        var target = $(this).data('target');
+        var body = $('#' + target);
+        var self = $(this);
+
+        body.slideToggle(200, function() {
+          self.toggleClass('open', body.is(':visible'));
+        });
+      });
+
+      $(document).on('click', '.s-effect-capsule', function(e) {
+        e.stopPropagation();
+        var drawerId = $(this).data('drawer');
+        var drawer = $('#' + drawerId);
+
+        $(this).toggleClass('active');
+        drawer.slideToggle(150);
+      });
+    }
+
+    $(errorCatched(init));
+  </script>
+</head>
+<body>
+  <div class="s-container" data-theme="dark">
+    <div class="s-global">
+      <span class="g-time">🕐 <span id="g-time">--</span></span>
+      <span class="g-location">📍 <span id="g-loc">--</span></span>
+    </div>
+
+    <div class="s-theme-bar">
+      <span class="s-ctrl-label">主题</span>
+      <div class="theme-dot active" data-t="dark" title="暗影监测"></div>
+      <div class="theme-dot" data-t="light" title="白银特权"></div>
+      <div class="theme-dot" data-t="cold" title="绝对零度"></div>
+      <div class="theme-dot" data-t="warm" title="黄金博弈"></div>
+    </div>
+
+    <div class="s-tabs">
+      <button class="s-tab-btn active" data-tab="stu">学生证</button>
+      <button class="s-tab-btn" data-tab="cls">班级终端</button>
+      <button class="s-tab-btn" data-tab="sys">学生系统</button>
+    </div>
+
+    <div class="s-panel active" id="panel-stu">
+      <div class="s-scroll">
+        <div class="s-card">
+          <div class="s-card-title">STUDENT ID</div>
+          <div class="s-row"><span class="s-label">姓名</span><span class="s-val" id="stu-name">--</span></div>
+          <div class="s-row"><span class="s-label">年龄</span><span class="s-val" id="stu-age">--</span></div>
+          <div class="s-row"><span class="s-label">年级</span><span class="s-val" id="stu-grade">--</span></div>
+          <div class="s-row"><span class="s-label">班级</span><span class="s-val hl" id="stu-class">--</span></div>
+          <div class="s-row"><span class="s-label">社团</span><span class="s-val" id="stu-club">--</span></div>
+        </div>
+
+        <div class="s-card">
+          <div class="s-card-title">PRIVATE POINTS</div>
+          <div style="text-align:center;padding:4px 0;">
+            <span class="s-val pts" id="stu-pp">--</span>
+          </div>
+        </div>
+
+        <!-- 📊 学生证雷达图 📊 -->
+        <div class="s-card">
+          <div class="s-card-title">ABILITY RADAR (OAA)</div>
+          <div class="s-radar-container">
+            <canvas id="stu-radar-canvas" class="s-radar-canvas"></canvas>
+          </div>
+          <div class="s-ability-grid">
+            <div class="s-ab-item" data-ab="学力">
+              <div class="s-ab-name">学力</div><div class="s-ab-grade">-</div>
+              <div class="s-ab-score">-/100</div><div class="s-ab-bar"><div class="s-ab-fill" style="width:0%"></div></div>
+            </div>
+            <div class="s-ab-item" data-ab="身体能力">
+              <div class="s-ab-name">身体能力</div><div class="s-ab-grade">-</div>
+              <div class="s-ab-score">-/100</div><div class="s-ab-bar"><div class="s-ab-fill" style="width:0%"></div></div>
+            </div>
+            <div class="s-ab-item" data-ab="灵活思考力">
+              <div class="s-ab-name">灵活思考力</div><div class="s-ab-grade">-</div>
+              <div class="s-ab-score">-/100</div><div class="s-ab-bar"><div class="s-ab-fill" style="width:0%"></div></div>
+            </div>
+            <div class="s-ab-item" data-ab="社会贡献性">
+              <div class="s-ab-name">社会贡献性</div><div class="s-ab-grade">-</div>
+              <div class="s-ab-score">-/100</div><div class="s-ab-bar"><div class="s-ab-fill" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="s-card">
+          <div class="s-card-title s-card-toggle" data-target="stu-effects">
+            <span>STATUS EFFECTS</span>
+            <span class="s-toggle-arrow">▼</span>
+          </div>
+          <div class="s-card-body" id="stu-effects"><div class="s-empty">无状态</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="s-panel" id="panel-cls">
+      <div class="s-scroll">
+        <div id="class-list"><div class="s-empty">无数据</div></div>
+      </div>
+    </div>
+
+    <div class="s-panel" id="panel-sys">
+      <div class="s-scroll scrollable" id="sys-list-view">
+        <div class="s-npc-filters">
+          <button class="s-filter-btn active" data-filter="全部">全部</button>
+          <button class="s-filter-btn" data-filter="A班">A班</button>
+          <button class="s-filter-btn" data-filter="B班">B班</button>
+          <button class="s-filter-btn" data-filter="C班">C班</button>
+          <button class="s-filter-btn" data-filter="D班">D班</button>
+          <button class="s-filter-btn" data-filter="其他">其他</button>
+        </div>
+        <div id="npc-list"><div class="s-empty">暂无已追踪角色</div></div>
+      </div>
+      <div class="s-scroll scrollable" id="sys-detail-view" style="display:none;">
+        <div class="s-detail-back">← 返回列表</div>
+        <div class="s-detail-title">--</div>
+        <div id="detail-body"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+```

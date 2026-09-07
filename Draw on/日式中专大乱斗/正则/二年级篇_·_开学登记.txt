@@ -1,0 +1,700 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二年级篇 · 开局设定</title>
+<style>
+:root {
+  --c-bg: rgba(18,14,32,0.92); --c-card: rgba(28,22,48,0.8); --c-inset: rgba(16,12,30,0.65);
+  --c-text: #e0ddf0; --c-sub: #8a85a8; --c-muted: #5c5878; --c-accent: #b8a9e8;
+  --c-accent-soft: rgba(184,169,232,0.15); --c-gold: #ffd780; --c-gold-soft: rgba(255,215,128,0.12);
+  --c-success: #69db7c; --c-danger: #ff6b6b; --c-border: rgba(255,255,255,0.06);
+  --c-shadow: rgba(0,0,0,0.35); --c-glass: 14px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system,'Segoe UI','Noto Sans SC',sans-serif; background: transparent; padding: 6px; color: var(--c-text); font-size: 13px; line-height: 1.5; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-accent); }
+
+#cote-root { width: min(680px, 96%); margin: 0 auto; }
+.cote-panel { background: var(--c-bg); backdrop-filter: blur(var(--c-glass)); border-radius: 16px; border: 1px solid var(--c-border); padding: 20px; box-shadow: 6px 6px 14px var(--c-shadow); }
+
+.cote-header { text-align: center; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--c-border); }
+.cote-subtitle { color: var(--c-accent); font-size: 10px; letter-spacing: 2px; font-weight: 600; }
+.cote-title { font-size: 1.5rem; font-weight: 700; margin: 6px 0 4px; }
+.cote-desc, .cote-preset-desc { font-size: 11px; color: var(--c-muted); }
+.cote-preset-desc { margin-bottom: 12px; padding: 6px 8px; background: var(--c-inset); border-radius: 6px; line-height: 1.6; }
+
+.cote-steps-bar { display: flex; justify-content: space-between; margin-bottom: 16px; position: relative; }
+.cote-steps-bar::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: var(--c-border); z-index: 0; transform: translateY(-50%); }
+.cote-step { position: relative; z-index: 1; background: var(--c-inset); color: var(--c-muted); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--c-border); transition: all 0.3s; }
+.cote-step.active { background: var(--c-accent); color: #fff; border-color: var(--c-accent); box-shadow: 0 0 8px var(--c-accent-soft); }
+
+.step-content { display: none; animation: fadeIn 0.3s ease; }
+.step-content.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+.cote-section { background: var(--c-card); border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--c-border); }
+.cote-section-title { font-size: 12px; color: var(--c-muted); letter-spacing: 1px; margin-bottom: 12px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+
+.cote-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.cote-wide { grid-column: 1/-1; }
+.cote-field { display: flex; flex-direction: column; gap: 4px; }
+.cote-label { font-size: 10px; color: var(--c-accent); font-weight: 600; }
+.cote-display-box { border: 1px solid var(--c-border); border-radius: 6px; padding: 8px 10px; background: rgba(0,0,0,0.05); color: var(--c-sub); font-size: 12px; }
+.cote-field select, .cote-input, .cote-preset-row select, .cote-relation-sel, .cote-relation-custom { width: 100%; border: 1px solid var(--c-border); border-radius: 6px; padding: 8px 10px; background: var(--c-inset); color: var(--c-text); font-size: 12px; outline: none; }
+.cote-relation-sel, .cote-relation-custom { padding: 4px 6px; background: var(--c-card); font-size: 11px; }
+.cote-field select:focus, .cote-input:focus { border-color: var(--c-accent); }
+.cote-row-2, .cote-row-flex { display: flex; gap: 6px; }
+.cote-row-2 select, .cote-row-flex select, .cote-row-flex .cote-input { flex: 1; }
+.cote-hidden { display: none !important; }
+
+.cote-gacha-container { text-align: center; background: var(--c-inset); padding: 16px; border-radius: 8px; border: 1px dashed var(--c-border); margin-bottom: 16px; }
+.cote-gacha-display { font-size: 24px; font-weight: 900; color: var(--c-gold); letter-spacing: 1px; margin-bottom: 6px; transition: color 0.3s; }
+.cote-gacha-display.rolling { color: var(--c-text); filter: blur(1px); }
+
+.cote-preset-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cote-preset-label { font-size: 11px; color: var(--c-sub); font-weight: 500; }
+
+.cote-oaa-item { margin-bottom: 12px; padding: 10px; background: var(--c-inset); border-radius: 8px; border: 1px solid transparent; }
+.cote-oaa-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.cote-oaa-name { font-size: 12px; font-weight: 600; color: var(--c-text); }
+.cote-oaa-grade { font-size: 14px; font-weight: 700; transition: color 0.2s; }
+.g-a { color: var(--c-danger); } .g-b { color: var(--c-gold); } .g-c { color: #ffd43b; } .g-d { color: var(--c-success); } .g-e { color: #74c0fc; }
+.cote-oaa-ctrl { display: flex; align-items: center; gap: 4px; justify-content: center; }
+.cote-btn-step { border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: 600; cursor: pointer; background: var(--c-card); color: var(--c-sub); min-width: 32px; transition: all 0.2s; }
+.cote-btn-step:hover:not(:disabled) { background: var(--c-accent-soft); color: var(--c-accent); }
+.cote-oaa-input { width: 56px; text-align: center; border: 1px solid var(--c-border); border-radius: 6px; padding: 4px; background: var(--c-card); color: var(--c-gold); font-size: 14px; font-weight: 700; outline: none; -moz-appearance: textfield; }
+.cote-oaa-input::-webkit-outer-spin-button, .cote-oaa-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.cote-oaa-bar { width: 100%; height: 4px; background: rgba(0,0,0,0.15); border-radius: 2px; margin-top: 6px; overflow: hidden;}
+.cote-oaa-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--c-accent), var(--c-gold)); width: 100%; transform-origin: left; transform: scaleX(0); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.oaa-rolling .cote-oaa-fill { background: linear-gradient(90deg, var(--c-success), var(--c-accent)); }
+
+.cote-summary-card { background: var(--c-card); border-radius: 10px; padding: 12px 14px; margin-top: 12px; border: 1px solid var(--c-border); }
+.cote-summary-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 12px; color: var(--c-text); }
+.cote-summary-row span:nth-child(2) { color: var(--c-gold); font-weight: 700; font-size: 16px; }
+.cote-summary-grade { font-size: 18px; font-weight: 700; }
+.cote-summary-remain { border-top: 1px solid var(--c-border); margin-top: 6px; padding-top: 6px; }
+.cote-summary-warn { font-size: 10px; color: var(--c-danger); margin-top: 6px; padding: 6px 8px; background: rgba(201, 42, 42, 0.08); border-radius: 4px; }
+
+.cote-pool-container { background: var(--c-inset); padding: 12px; border-radius: 8px; border: 1px solid var(--c-border); margin-bottom: 16px; }
+.cote-tag-pool { display: flex; flex-wrap: wrap; gap: 6px; }
+.cote-char-tag { display: inline-flex; align-items: center; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 500; color: var(--c-text); cursor: pointer; transition: all 0.2s; user-select: none; }
+.cote-char-tag:hover { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent-soft); transform: translateY(-1px); }
+.cote-char-tag.selected { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; transform: none; background: var(--c-card); border-color: var(--c-border); color: var(--c-muted); }
+
+.cote-relation-group-title { font-size: 11px; color: var(--c-accent); font-weight: 600; margin-bottom: 6px; border-bottom: 1px dashed var(--c-border); padding-bottom: 4px; }
+.cote-relation-list { display: flex; flex-direction: column; gap: 8px; min-height: 40px; margin-bottom: 12px; }
+
+.cote-relation-card { display: flex; flex-direction: column; background: var(--c-inset); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--c-border); animation: slideDown 0.25s ease; }
+.cote-relation-row-main { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+.cote-relation-info { display: flex; align-items: center; gap: 8px; flex: 1; }
+.cote-relation-name { font-size: 12px; font-weight: 600; color: var(--c-text); width: 80px; }
+.cote-relation-del { cursor: pointer; color: var(--c-muted); font-size: 14px; font-weight: 700; margin-left: 8px; padding: 2px 6px; transition: color 0.2s; }
+.cote-relation-del:hover { color: var(--c-danger); }
+
+.cote-relation-details { width: 100%; border-top: 1px dashed var(--c-border); padding-top: 6px; margin-top: 6px; }
+.cote-relation-details-header { font-size: 10px; color: var(--c-muted); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+.cote-relation-details-header::-webkit-details-marker { display: none; }
+.cote-relation-details-header span { font-size: 8px; transition: transform 0.2s; }
+.cote-relation-details[open] .cote-relation-details-header span { transform: rotate(180deg); }
+.cote-relation-reason { width: 100%; min-height: 44px; margin-top: 6px; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 4px; padding: 6px 8px; color: var(--c-text); font-size: 11px; resize: vertical; outline: none; line-height: 1.5; font-family: inherit; }
+.cote-relation-reason:focus { border-color: var(--c-accent); }
+
+.route-container { display: flex; gap: 16px; margin-bottom: 20px; min-height: 200px; }
+.route-list { width: 30%; display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+.route-list::-webkit-scrollbar { width: 4px; }
+.route-list::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 4px; }
+.route-btn { background: var(--c-inset); color: var(--c-sub); border: 1px solid var(--c-border); padding: 10px 12px; border-radius: 8px; cursor: pointer; text-align: left; font-weight: 600; font-size: 12px; transition: all 0.2s; flex-shrink: 0; }
+.route-btn.active { background: var(--c-accent-soft); color: var(--c-accent); border-color: var(--c-accent); box-shadow: inset 3px 0 0 var(--c-accent); }
+.route-info { width: 70%; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; }
+.route-info-title { font-size: 14px; color: var(--c-gold); font-weight: 700; margin-bottom: 12px; }
+.route-info-desc { color: var(--c-text); font-size: 12px; line-height: 1.7; flex: 1; }
+.route-info-tag { align-self: flex-start; background: rgba(0,0,0,0.08); padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; color: var(--c-muted); margin-top: 12px; border: 1px solid var(--c-border); }
+
+.cote-preview-wrap { margin-bottom: 12px; border-radius: 8px; border: 1px solid var(--c-border); overflow: hidden; }
+.cote-preview-header { padding: 10px 14px; background: var(--c-card); color: var(--c-sub); font-size: 12px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; list-style: none; }
+.cote-preview-header::-webkit-details-marker { display: none; }
+.cote-preview-body { background: var(--c-inset); padding: 12px; border-top: 1px solid var(--c-border); }
+#previewText { white-space: pre-wrap; font-size: 11px; color: var(--c-text); line-height: 1.6; font-family: monospace; }
+
+.cote-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; }
+.cote-btn-primary, .cote-btn-secondary, .cote-btn-link { border: none; cursor: pointer; font-weight: 600; font-size: 12px; border-radius: 8px; padding: 10px 20px; transition: all 0.2s; }
+.cote-btn-primary { background: var(--c-accent); color: #fff; box-shadow: 0 3px 8px var(--c-accent-soft); }
+.cote-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.cote-btn-secondary { background: var(--c-inset); color: var(--c-text); border: 1px solid var(--c-border); }
+.cote-btn-link { background: transparent; color: var(--c-muted); text-decoration: underline; padding: 4px 8px; font-weight: 500; }
+.mode-manual .oaa-gacha-ui { display: none; } .mode-manual .oaa-manual-ui { display: flex; } .mode-gacha .oaa-manual-ui { display: none; }
+
+.cote-btn-primary:active:not(:disabled), .cote-btn-secondary:active, .route-btn:active, .cote-btn-step:active:not(:disabled) { transform: scale(0.96); }
+
+@media (max-width: 480px) { .route-container { flex-direction: column; } .route-list, .route-info { width: 100%; } .cote-relation-info { flex-direction: column; align-items: flex-start; gap: 4px; } .cote-relation-sel, .cote-relation-custom { width: 100%; } }
+</style>
+</head>
+<body>
+<div id="cote-root">
+  <div class="cote-panel">
+    <header class="cote-header">
+      <div class="cote-subtitle">高度育成高级中学</div>
+      <h1 class="cote-title">二年级篇 · 局势与档案</h1>
+      <p class="cote-desc">新学年开启，请逐步确认你的开局设定</p>
+    </header>
+
+    <div class="cote-steps-bar">
+      <div class="cote-step active" data-step="1">1. 基础档案</div><div class="cote-step" data-step="2">2. 局势与关系</div><div class="cote-step" data-step="3">3. 资产与能力</div><div class="cote-step" data-step="4">4. 确认开局</div>
+    </div>
+
+    <!-- Step 1 -->
+    <section class="cote-section step-content active" id="step1">
+      <div class="cote-section-title">第一步：基础信息</div>
+      <div class="cote-form-grid">
+        <label class="cote-field"><span class="cote-label">性别</span><select id="fGender"><option value="男">男</option><option value="女">女</option></select></label>
+        <label class="cote-field"><span class="cote-label">生日</span><div class="cote-row-2"><select id="fBirthMonth"></select><select id="fBirthDay"></select></div></label>
+        <label class="cote-field cote-wide"><span class="cote-label">出身大类</span><select id="fOriginType"><option value="日本本土">日本本土</option><option value="外籍学生">外籍学生</option></select></label>
+        <label class="cote-field cote-wide" id="fNatWrap"><span class="cote-label">外籍国籍</span><div class="cote-row-flex"><select id="fNat"><option value="中国">中国</option><option value="美国">美国</option><option value="韩国">韩国</option><option value="科威特(中东)">科威特(中东)</option><option value="俄罗斯">俄罗斯</option><option value="自定义">自定义</option></select><input type="text" id="fNatCustom" class="cote-hidden cote-input" placeholder="输入国籍"></div></label>
+        <label class="cote-field cote-wide"><span class="cote-label">具体身份</span><div class="cote-row-flex"><select id="fIdentity"></select><input type="text" id="fIdentityCustom" class="cote-hidden cote-input" placeholder="输入身份"></div></label>
+        <label class="cote-field cote-wide"><span class="cote-label">所属班级</span><select id="fClass"><option value="D班" selected>D班</option><option value="C班">C班</option><option value="B班">B班</option><option value="A班">A班</option></select></label>
+      </div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="cote-section step-content" id="step2">
+      <div class="cote-section-title">第二步：当前班级局势 (默认二年级初状态)</div>
+      <div class="cote-form-grid" style="margin-bottom:16px;">
+        <div class="cote-field"><span class="cote-label">A班 (坂柳班)</span><div class="cote-display-box">领导者: 坂柳有栖 <span style="float:right;color:var(--c-gold);font-weight:bold;">1119 CP</span></div></div>
+        <div class="cote-field"><span class="cote-label">B班 (一之濑班)</span><div class="cote-display-box">领导者: 一之濑帆波 <span style="float:right;color:var(--c-gold);font-weight:bold;">542 CP</span></div></div>
+        <div class="cote-field"><span class="cote-label">C班 (龙园班)</span><div class="cote-display-box">领导者: 龙园翔 <span style="float:right;color:var(--c-gold);font-weight:bold;">540 CP</span></div></div>
+        <div class="cote-field"><span class="cote-label">D班 (堀北班)</span><div class="cote-display-box">领导者: 堀北铃音 <span style="float:right;color:var(--c-gold);font-weight:bold;">275 CP</span></div></div>
+      </div>
+      <div class="cote-section-title">建立社会关系</div>
+      <div class="cote-preset-desc">点击下方角色标签添加初始关系。下拉选择关系后，下方会自动填入一段合理的前情提要，可展开编辑。<br><span style="color:var(--c-accent); font-weight:600;">（系统自动检测已启用的 [DLC] 条目解锁特殊角色）</span></div>
+      <div class="cote-pool-container"><span class="cote-label" style="display:block;margin-bottom:6px;">点击添加角色：</span><div id="relationPool" class="cote-tag-pool"></div></div>
+      <div class="cote-relation-group-title">已添加的同班同学</div><div id="relationListInner" class="cote-relation-list"></div>
+      <div class="cote-relation-group-title" style="margin-top:12px;">已添加的他班同学</div><div id="relationListOuter" class="cote-relation-list"></div>
+    </section>
+
+    <!-- Step 3 -->
+    <section class="cote-section step-content" id="step3">
+      <div class="cote-section-title"><span>第三步：个人持有资产 (PP)</span><button id="btnTogglePPMode" class="cote-btn-link" style="padding:0;margin:0;">切换至手动</button></div>
+      <div id="ppGachaMode" class="cote-gacha-container"><div class="cote-gacha-display" id="ppGachaDisplay">??? PP</div><div class="cote-desc" id="ppGachaDesc">点击下方按钮抽取你在第一学年攒下的个人点数</div><button class="cote-btn-primary" id="btnPPGacha" style="width:100%;margin-top:10px;">抽取点数</button></div>
+      <div id="ppManualMode" class="cote-form-grid cote-hidden" style="margin-bottom:16px;"><label class="cote-field cote-wide"><span class="cote-label" id="ppManualLabel">手动输入点数</span><input type="number" id="fManualPP" class="cote-input" value="0" min="0"></label></div>
+      <div class="cote-section-title" style="border-top:1px dashed var(--c-border);padding-top:16px;"><span>OAA 能力评价</span><button id="btnToggleOAAMode" class="cote-btn-link" style="padding:0;margin:0;">切换至手动</button></div>
+      <div class="cote-preset-row"><span class="cote-preset-label">预设档案</span><select id="fPreset"><option value="lower">档案·下位</option><option value="deviant">档案·偏差</option><option value="middle" selected>档案·中位</option><option value="upper">档案·上位</option><option value="genius">档案·特异</option><option value="perfect">档案·完全</option></select></div>
+      <div class="cote-preset-desc" id="presetDesc"></div>
+      <div id="oaaContainer" class="mode-gacha">
+        <div id="oaaGachaOverlay" class="cote-gacha-container oaa-gacha-ui"><div class="cote-desc" id="oaaGachaDesc">OAA数值尚未检测，请进行系统评估</div><button class="cote-btn-primary" id="btnOAAGacha" style="width:100%;margin-top:10px;background:var(--c-success);">开始能力扫描</button></div>
+        <div class="cote-oaa-list" id="oaaListArea"></div>
+        <div class="cote-summary-card">
+          <div class="cote-summary-row"><span>综合评价</span><span id="summaryScore">--</span><span class="cote-summary-grade" id="summaryGrade">-</span></div>
+          <div class="cote-summary-row cote-summary-remain oaa-manual-ui"><span>剩余可用</span><span id="summaryRemain">--</span></div>
+          <div class="cote-summary-warn cote-hidden" id="summaryWarn"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 4 -->
+    <section class="cote-section step-content" id="step4">
+      <div class="cote-section-title">第四步：选择开局路线与确认</div>
+      <div class="route-container">
+        <div class="route-list" id="routeList"></div>
+        <div class="route-info"><div class="route-info-title" id="routeTitle"></div><div class="route-info-desc" id="routeDesc"></div><div class="route-info-tag" id="routeTag"></div></div>
+      </div>
+      <details class="cote-preview-wrap"><summary class="cote-preview-header"><span>查看完整开局设定文案 (发给AI的后台指令)</span><span class="cote-preview-arrow">▼</span></summary><div class="cote-preview-body"><pre id="previewText"></pre></div></details>
+    </section>
+
+    <div class="cote-actions">
+      <button class="cote-btn-link" id="btnReset" style="padding-left:0;">重置所有数据</button>
+      <div style="display:flex;gap:10px;"><button class="cote-btn-secondary cote-hidden" id="btnPrev">上一步</button><button class="cote-btn-primary" id="btnNext">下一步</button><button class="cote-btn-primary cote-hidden" id="btnSubmit" style="background:var(--c-success);">确认开局</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  function $(id) { return document.getElementById(id); }
+  function val(id) { var el=$(id); return el?el.value.trim():''; }
+  function clamp(v,mn,mx) { return Math.max(mn,Math.min(mx,v)); }
+  function getGrade(v) { return v>=81?'A':v>=61?'B':v>=41?'C':v>=21?'D':'E'; }
+
+  var ATTRS = ['学力', '身体能力', '灵活思考力', '社会贡献性'];
+  var PRESETS = {
+    lower: {name: '档案·下位', overallCap:35, overallMin:15, singleCap:60, specialSlots:0, desc:'综合上限≤35 | 每项最高60', base:5, dice:95},
+    deviant: {name: '档案·偏差', overallCap:35, overallMin:25, singleCap:40, specialSlots:1, specialCap:100, desc:'综合上限≤35 | 1项无上限，其余最高40', base:5, dice:95},
+    middle: {name: '档案·中位', overallCap:50, overallMin:25, singleCap:60, specialSlots:1, specialCap:80, desc:'综合上限≤50 | 1项最高80，其余最高60', base:10, dice:90},
+    upper: {name: '档案·上位', overallCap:60, overallMin:40, singleCap:80, specialSlots:0, desc:'综合上限≤60 | 每项最高80', base:15, dice:85},
+    genius: {name: '档案·特异', overallCap:72, overallMin:50, singleCap:80, specialSlots:1, specialCap:100, desc:'综合上限≤72 | 1项无上限，其余最高80', base:15, dice:85},
+    perfect: {name: '档案·完全', overallCap:999, overallMin:62, singleCap:100, specialSlots:0, desc:'无限制', base:20, dice:80}
+  };
+  var CLASS_PP_RULES = { 'A班':{min:150000,max:1200000}, 'B班':{min:50000,max:500000}, 'C班':{min:20000,max:700000}, 'D班':{min:5000,max:200000} };
+  var IDENTITIES = {
+    '日本本土': ['风兰福利院(孤儿)','冈山县普通家庭','东京中产阶级','京都传统家庭','单亲家庭(母)','单亲家庭(父)','政商财阀子弟','高级官僚家庭','医师世家','海外归国子女','中产收养家庭(谷风家)','自定义'],
+    '外籍_common': ['驻日外交官家属','跨国企业高管家庭','跨国企业职员家属','海外富裕投资者家庭','自定义'],
+    '外籍_美国': ['美军家属','驻日外交官家属','跨国企业高管家庭','跨国企业职员家属','海外富裕投资者家庭','自定义'],
+    '外籍_中国': ['高级士官子女','央企驻日代表家属','驻日外交官家属','跨国企业高管家庭','跨国企业职员家属','海外富裕投资者家庭','自定义']
+  };
+
+  var CHARS = {
+    '坂柳有栖': { class: 'A班', gender: '女', customOpt: [] },
+    '葛城康平': { class: 'A班', gender: '男', customOpt: ['不合'] },
+    '桥本正义': { class: 'A班', gender: '男', customOpt: ['提防'] },
+    '神室真澄': { class: 'A班', gender: '女', customOpt: [] },
+    '一之濑帆波': { class: 'B班', gender: '女', customOpt: [] },
+    '神崎隆二': { class: 'B班', gender: '男', customOpt: [] },
+    '姬野结希': { class: 'B班', gender: '女', customOpt: [] },
+    '网仓麻子': { class: 'B班', gender: '女', customOpt: [] },
+    '龙园翔': { class: 'C班', gender: '男', customOpt: ['冲突'] },
+    '椎名日和': { class: 'C班', gender: '女', customOpt: ['书友'] },
+    '伊吹澪': { class: 'C班', gender: '女', customOpt: ['互不顺眼的熟人'] },
+    '山田阿尔伯特': { class: 'C班', gender: '男', customOpt: [] },
+    '石崎大地': { class: 'C班', gender: '男', customOpt: [] },
+    '堀北铃音': { class: 'D班', gender: '女', customOpt: [] },
+    '平田洋介': { class: 'D班', gender: '男', customOpt: ['排斥'] },
+    '栉田桔梗': { class: 'D班', gender: '女', customOpt: ['知情者(友善)', '知情者(敌对)'] },
+    '松下千秋': { class: 'D班', gender: '女', customOpt: [] },
+    '轻井泽惠': { class: 'D班', gender: '女', noRomance: true, customOpt: [] },
+    '绫小路清隆': { class: 'D班', gender: '男', noRomance: true, customOpt: ['敌对'] },
+    '椎名真昼': { class: 'A班', gender: '女', dlc: '邻家天使', customOpt: [] },
+    '周防有希': { class: 'A班', gender: '女', dlc: '俄语邻座', customOpt: [] },
+    '艾莉莎·米哈伊罗夫纳·九条': { class: 'A班', gender: '女', dlc: '俄语邻座', customOpt: ['邻座同学'] },
+    '君岛绫乃': { class: 'A班', gender: '女', dlc: '俄语邻座', customOpt: [] },
+    '玛利亚·米哈伊罗芙娜·九条': { class: '高年级', gender: '女', dlc: '俄语邻座', customOpt: [] },
+    '四宫辉夜': { class: 'A班', gender: '女', dlc: '恋爱头脑战', customOpt: [] },
+    '藤原千花': { class: 'A班', gender: '女', dlc: '恋爱头脑战', customOpt: [] },
+    '早坂爱': { class: 'B班', gender: '女', dlc: '恋爱头脑战', customOpt: [] },
+    '伊井野弥子': { class: '低年级', gender: '女', dlc: '恋爱头脑战', customOpt: [] },
+    '白银圭': { class: '低年级', gender: '女', dlc: '恋爱头脑战', customOpt: [] },
+    '楪祈': { class: 'C班', gender: '女', dlc: '罪恶王冠', customOpt: ['歌迷与歌手'] },
+    '七濑悠月': { class: 'B班', gender: '女', dlc: '弹波汽水的女主', customOpt: [] },
+    '内田优空': { class: 'B班', gender: '女', dlc: '弹波汽水的女主', customOpt: [] },
+    '柊夕湖': { class: 'B班', gender: '女', dlc: '弹波汽水的女主', customOpt: [] },
+    '青海阳': { class: 'C班', gender: '女', dlc: '弹波汽水的女主', customOpt: [] },
+    '西野明日风': { class: '高年级', gender: '女', dlc: '弹波汽水的女主', customOpt: [] },
+    '望月穗波': { class: 'A班', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '桐谷遥': { class: 'B班', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '星乃一歌': { class: 'B班', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '天马咲希': { class: 'B班', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '日野森志步': { class: 'C班', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '小豆泽心羽': { class: 'C班', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '花里实乃理': { class: 'C班', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '白石杏': { class: 'C班', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '东云绘名': { class: '高年级', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '朝比奈真冬': { class: '高年级', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '日野森雫': { class: '高年级', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '桃井爱莉': { class: '高年级', gender: '女', dlc: 'PJSK', customOpt: [] },
+    '桐须真冬': { class: '校方', gender: '女', dlc: '学不来', customOpt: ['授课教师', '私人补习老师'] },
+    '井上泷奈': { class: 'B班', gender: '女', dlc: '莉可丽丝', customOpt: [] },
+    '锦木千束': { class: 'B班', gender: '女', dlc: '莉可丽丝', customOpt: [] },
+    '式部茉优': { class: '高年级', gender: '女', dlc: 'RIDDLE JOKER', customOpt: [] }
+  };
+
+
+  /* 关系前情预设文本库 */
+  var RELATION_LORE_DB = {
+    '通用': { '同班同学': '普通的同班同学，日常维持基础的班级社交距离，没有特殊交集。', '同届同学': '不同班级的同届学生，偶尔在走廊或食堂碰面，仅维持点头之交的距离。' },
+    '绫小路清隆': { '敌对': '你察觉到他日常中刻意压低存在感的伪装，对他这种暗中把周围人当道具使用的行事逻辑感到本能的排斥。你不对他假辞色，双方维持着警惕的距离。' },
+    '平田洋介': { '排斥': '你对他日常中试图讨好所有人、维持班级表面和平的作风感到不爽。你认为他的做法虚伪且脆弱，日常中拒绝配合他的任何班级融洽计划。' },
+    '龙园翔': { '冲突': '你看不惯他用暴力和恐吓控制班级的手段。你们曾因某次班级纠纷发生过直接的肢体或言语对峙，目前双方处于明确的敌对状态。' },
+    '葛城康平': { '竞争': '你对他在A班过度保守和死板的防守策略感到不屑。双方在之前的考试中代表各自班级有过正面交锋，维持着互相防备的竞争关系。' },
+    '桥本正义': { '提防': '你识破了他作为A班间谍四处逢迎的墙头草本质。你曾当面拆穿他的某次情报刺探，目前双方在接触时都带着明显的戒备。' },
+    '轻井泽惠': { '同班同学': '你们是普通的同班同学。她维持着辣妹群体的上位者姿态，你没有主动介入她的圈子，双方仅有极少的表面交流。' },
+    '堀北铃音': { '青梅竹马_本土': '你们在国中之前住在同一个社区。你记得她还没开始完全模仿哥哥时的样子，这让你成了现在唯一能和她聊起过去而不会被赶走的人。', '青梅竹马_外籍': '你曾在海外的某个夏季阅读营里和她分在一组。当时她为了完成任务独自通宵，你顺手帮她整理了资料。之后在高度育成重逢，她对你还有些许印象。', '暧昧': '你习惯在午休时去同一个安静的楼梯角，这恰好是她常去的地方。长期的无言共处让你们习惯了彼此的存在，偶尔会交换对午餐的评价，维持着未挑明的默契。', '炮友(已本番)': '在某次特别考试后她因高烧晕倒，你将她带回宿舍。在极度虚弱和不甘心中，她主动拉住了你。事后为了维持那份高傲的自尊，她固执地将这定义为各取所需的肉体交易。(已本番)', '恋人(未本番)': '你接纳了她不坦率的性格。她开始在私下里允许你触碰她的头发，遇到与哥哥相关的事情时也会罕见地向你示弱。双方都知道彼此的心意，但还没跨过最后一条线。(未本番)', '恋人(已本番)': '她习惯了你的步调。某次周末闲聊时，她用平淡的陈述句承认了对你的依赖。当晚在她的房间，她主动脱下外套靠向你，你们顺理成章地发生了关系。(已本番)' },
+    '栉田桔梗': { '青梅竹马_本土': '你们就读于同一所国小。你见过她曾经作为班级中心的光鲜，也隐约察觉到她为了维持形象所承受的压力，这让她在你面前无法维持完美的伪装。', '青梅竹马_外籍': '你初到日本寄宿时，她曾作为志愿者接待过你。你当时就察觉到她过度热情的背后有某种精确的计算，这让她对你抱有特别的在意。', '知情者(友善)': '你某天提前回到宿舍，无意中在隔音不好的防火门后听到了她发泄压力的粗口。你没有拆穿，只是递过一张纸巾，这种不带评判的举动让她放下了部分戒备。', '知情者(敌对)': '你无意间听到了她发泄压力的粗口，她察觉后试图用谎言封口被你平淡的态度激怒。目前她表面甜美，私下将你视为隐患。', '炮友(已本番 - 友善)': '你撞破了她的阴暗面。某次她在你房间借用笔记时，为了确认你是否真的不在意，主动拉着你的手按在自己胸口。随后这演变成了你们在宿舍里心照不宣的发泄途径。(已本番)', '炮友(已本番 - 非友善)': '她为了封口，试图用身体作为筹码将你绑定。虽然关系始于一场交易，但她逐渐习惯了在你这里不用伪装的轻松感，维持着充满抱怨的肉体关系。(已本番)', '暧昧对象(未本番)': '你撞破了她的阴暗面却没有揭发。她为了稳住你而频繁找你借资料或请教问题，在这种日常的频繁接触中，双方习惯了这种无需假笑的相处模式。', '恋人(未本番)': '你完全接纳了她糟糕的里人格。她现在会习惯性地在放学后找你抱怨同学，抱怨完后会自然地挽住你的手臂，只差一句正式的确立。(未本番)', '恋人(已本番)': '她放弃了在你面前的所有伪装。确立关系后，她会在私下里用最直接的方式索要亲热，享受连阴暗面都被你彻底包裹和接纳的肉体关系。(已本番)' },
+    '椎名日和': { '青梅竹马_本土': '你们在国中时常去同一家市立图书馆。虽然当时交流不多，但经常坐在相邻的桌子看书。这份早年的眼熟让你们在高中迅速拉近了距离。', '青梅竹马_外籍': '你们曾在某本海外冷门推理小说的网络论坛上进行过邮件交流。开学后在图书馆通过随身携带的外文原版书认出了彼此的身份。', '书友': '你们在图书馆推理小说区经常借阅同一系列的书。某次因为同时伸手拿同一本书而搭上话，形成了分享阅读进度的默契。', '暧昧对象(未本番)': '在长期共享书单的过程中，你们习惯了在周末的咖啡厅一起看书。身体距离在并肩阅读时逐渐拉近，双方都享受这种不挑明的舒适感。', '炮友(已本番)': '某次图书馆闭馆后突降暴雨，你们在同一把伞下挤回宿舍。因为衣物湿透而在你房间借用毛巾时，擦拭雨水的动作演变成了接吻和隐秘的身体交叠。(已本番)', '恋人(未本番)': '她已经习惯将你纳入自己的日常轨迹。她会在你阅读时自然地靠在你的肩膀上，遇到喜欢的书会第一时间跑到你的宿舍分享。(未本番)', '恋人(已本番)': '在长期的陪伴中，她确认了你就是那个不需要她过多解释的人。某次看完同一本书后，她安静地跨坐在你腿上，你们确立了关系并完成了实质性的占有。(已本番)' },
+    '伊吹澪': { '青梅竹马_本土': '你们曾在同一家道场学习过基础格斗。你熟悉她不服输的性格和动线直觉，她是少数允许你靠近而不会立刻进入防备状态的人。', '青梅竹马_外籍': '你刚搬到日本时，曾在一个雨天的街头帮她找回过丢失的物品。她不喜欢欠人情，这种补偿心理让你们在入学前就建立了一种生硬但稳定的联系。', '互不顺眼的熟人': '你在便利店抢先买走了最后一份她想要的便当。她对你毫不让步的态度感到不爽，每次碰面都会用嫌麻烦的语气吐槽两句。', '暧昧对象(未本番)': '你曾在她因找不到路而烦躁时，直接用最简短的路线图帮她指路。她虽然嘴上不谢，但后来在校园里遇到你时不再刻意绕开。', '炮友(已本番)': '某次在旧体育馆后方，你们因为争夺休息场地发生口角。简单的肢体推搡因为双方都不服输而变了质，最终演变成把你按在地板上确认主导权的肉体纠缠。(已本番)', '恋人(未本番)': '你习惯了她冷硬的说话方式，会在买饮料时顺手帮她带一罐。她不再排斥这种靠近，偶尔会在你独处时一声不吭地坐到你旁边。(未本番)', '恋人(已本番)': '在漫长的日常磨合后，她允许你介入她的个人空间。确立关系后，她允许你触碰她最敏感的后颈，虽然还是会别过脸，但身体已经完全向你坦诚。(已本番)' },
+    '一之濑帆波': { '青梅竹马_本土': '你们在国中时期是同校生，你曾在她遭遇初中偷窃事件和休学风波时知晓部分内情。这层过去的联系让她在你面前偶尔会卸下完美的领导者外壳。', '青梅竹马_外籍': '你作为外籍转校生进入她的国中时，她曾负责帮助你适应环境。你见证了她因压力休学前最后的状态，这让你们多了一层互相理解的底色。', '暧昧对象(未本番)': '你在她因为处理班级日常琐事而疲惫时，递给她一杯热茶并建议她偶尔放下担子。她开始在休息日单独找你散步，保持着超越普通朋友的距离。', '炮友(已本番)': '她长期背负着B班全员的期待，压力大到在你的房间里崩溃大哭。为了安抚她，拥抱最终越了界。她把这段关系当成唯一可以不用做‘好人’的秘密出口，但始终不敢承认这是爱。(已本番)', '恋人(未本番)': '她习惯了在你面前卸下完美的领导者外壳。她会自然地牵起你的手分享日常的烦恼，从你这里获取继续前进的动力。(未本番)', '恋人(已本番)': '在多次日常的互相倾听后，她完全向你敞开了心扉。确立关系后，她会在清晨为你准备早餐，在床上毫无保留地贴紧你，从你这里汲取全部的底气。(已本番)' },
+    '坂柳有栖': { '青梅竹马_本土': '你曾跟随父母出席过政商宴会，在那时与作为理事长女儿的她有过短暂接触。她记住了你当时没有因为她的腿疾而产生同情的平淡态度。', '青梅竹马_外籍': '你的家庭曾与坂柳理事长有过海外项目合作。在一次跨国视察中，你陪同她度过了一个无聊的下午，她对你讲的海外见闻产生了一点兴趣。', '暧昧对象(未本番)': '你在咖啡厅偶尔帮她捡起过掉落的手杖，并没有因为她的腿疾而表现出多余的同情。她对你平淡的态度产生兴趣，开始频繁在公共场合找你搭话。', '炮友(已本番)': '某次雨天地面湿滑，你在无人的楼道里将她抱起。这种失去重心的依赖感让她产生了兴趣，她用带有挑逗意味的动作扯开你的领带，将意外转化为了肉体关系。(已本番)', '恋人(未本番)': '她习惯了在日常中对你进行小小的恶作剧，并在你无奈包容时露出满意的笑容。她会在走路累了时理所当然地靠向你。(未本番)', '恋人(已本番)': '她确认了你不会因为她的身体条件而小心翼翼。在私下里，她会乖巧地坐在床边任由你褪去她的衣物，展现出纯粹的少女姿态和彻底的交付。(已本番)' },
+    '神室真澄': { '青梅竹马_本土': '你们在国中时期住在同一个街区。你曾撞见过她在便利店拿走小物件的举动但没有告发，这层旧识关系延续到了现在。', '青梅竹马_外籍': '你刚到日本时曾在她打工的店铺附近徘徊，偶然帮她掩盖了一次违规操作。她对你这种不按日本常理出牌的举动感到意外，从而记住了你。', '暧昧对象(未本番)': '你在便利店撞见她顺手拿走小物件，但你只是看了一眼便移开视线，没有告发。这种不干涉的态度让她开始偶尔在放学后跟在你身后。', '炮友(已本番)': '某次她在你宿舍躲避坂柳的差遣，百无聊赖的闲聊演变成了打发时间的身体接触。她用冷淡的语气抱怨着你的动作，但干脆地脱下了衣服默认了这种关系。(已本番)', '恋人(未本番)': '她习惯了你在她生活中的存在。她会在你面前毫不掩饰地抱怨别人，在喝同一罐饮料时不再犹豫，双方相处极度舒适。(未本番)', '恋人(已本番)': '她剥离了对所有人的防备，唯独对你敞开。确立关系后，她允许你完全介入她的私人空间，即使嘴上还在嫌弃，身体却会在睡着时本能地往你怀里缩。(已本番)' },
+    '松下千秋': { '青梅竹马_本土': '你们国中同校，你见过她那时作为正常优等生拼命努力的样子。所以当她在高中开始装作普通女生藏拙时，你是唯一知道她底细的人。', '青梅竹马_外籍': '你在她家附近的英语辅导班上过课。她为了躲避学校熟人特意去那里，你们因此认识，她知道你了解她课外真实的英语水平。', '青梅竹马_孤儿': '她曾在志愿活动中来过福利院。你当时平淡地指出了她只是在应付差事，她因为被你看穿了不想出力的本性而记住了你。', '暧昧对象(未本番)': '你识破了她在女生圈子里隐藏实力的伪装。她为了探你的底细频繁在私下找你搭话，你们在试探中拉近了距离。', '炮友(已本番)': '她为了让你保守她藏拙的秘密，半开玩笑地提出用身体交换。她以为自己能低耗掌控这段关系，实际上在衣服剥落和肉体接触中逐渐失去了主导权。(已本番)', '恋人(未本番)': '你接住了她偶尔冒出的现实吐槽。她开始觉得在你面前不需要装普通女生，周末会主动约你出门，但还没有跨越最后一条线。(未本番)', '恋人(已本番)': '她放弃了在你面前的低耗伪装。确立关系后，她习惯在周末赖在你床上，用最放松的姿态褪去防备，索要拥抱和亲热。(已本番)' },
+    '姬野结希': { '青梅竹马_本土': '你们曾住在同一栋公寓楼。她习惯一个人走，你偶尔和她同路，维持着不说话也不觉得尴尬的距离，这种不费力的相处模式一直延续至今。', '青梅竹马_外籍': '你刚到日本时在书店迷路，她用简短的英语帮你指了方向。开学后你们在班里认出了对方，维持着不远不近的熟人关系。', '青梅竹马_孤儿': '她常去福利院后巷喂流浪猫。她知道你住在那里但从没多问，这种不干涉对方边界的态度反而让你们成了互相认可的熟人。', '暧昧对象(未本番)': '你在班级事务中没有强求她参与，而是让她做自己想做的部分。她对你这种不逼迫的态度感到放松，偶尔会在你旁边坐下。', '炮友(已本番)': '某次课后大扫除，你们被单独留下来。因为一些小摩擦导致的肢体接触演变成了沉默的纠缠。她没有推开，用行动默认了这种不谈感情的肉体关系。(已本番)', '恋人(未本番)': '她习惯了你的距离感，开始在你面前偶尔吐槽班里的人。她允许你碰她的头发，这是她对你单向开放的安全区。(未本番)', '恋人(已本番)': '她完全接纳了你越过她的安全距离。现在的她会在私下里主动靠向你，褪去衣物时虽然话少，但身体极度配合你的动作。(已本番)' },
+    '网仓麻子': { '青梅竹马_本土': '你们从小在同一个社区长大。她习惯结伴，你曾是她最常拉着一起去小卖部的玩伴。她对你有着超越普通同学的天然信任。', '青梅竹马_外籍': '你作为留学生插班时，她是被老师指派带你熟悉环境的同学。她过度的担心和事无巨细的讲解让你很快融入了这里。', '青梅竹马_孤儿': '她曾因为迷路走到福利院附近，你帮她指了路。她为了感谢你硬塞给你一包糖果，之后你们在同一所高中认出彼此时，她主动拉近了关系。', '暧昧对象(未本番)': '你察觉到她在女生圈子里过度迎合的疲惫，递过一次水。她开始在私下里单独找你，享受不用时刻照顾气氛的时间。', '炮友(已本番)': '她因为小圈子的人际压力在你房间里哭诉，寻求安慰的拥抱越了界。当你的手探入她的制服时她没有拒绝，把这当成了获取安全感的隐秘方式。(已本番)', '恋人(未本番)': '她把对你的依赖摆在了小圈子前面。她会拒绝别人的聚会来找你，虽然你们还没发生实质性的关系。(未本番)', '恋人(已本番)': '她把主导权完全交给了你。确立关系后，她会在房事中完全顺从你的节奏，事后赤裸着黏着你不放，需要你反复确认对她的需要。(已本番)' },
+    /* PJSK */
+    '星乃一歌': { '青梅竹马_本土': '你们从小在同一个街区长大，你曾和她们四个女孩一起看过那场流星雨。上高中后虽然不在同一个班，但她依然习惯在买炒面面包时顺手帮你带一个。', '青梅竹马_外籍': '你刚到日本时曾偶然听过她在街头弹唱，用并不熟练的日语夸奖过她。开学后在班里认出彼此时，这种奇妙的缘分让你们迅速熟络起来。', '青梅竹马_孤儿': '她国中时经常在福利院附近的公园空地练习吉他弹唱。你常坐在长椅上听，虽然很少搭话，但这让你们在高中开学时一眼就认出了对方。', '暧昧对象(未本番)': '你经常在她一个人听歌时递上一半耳机。长期的日常相伴让你们习惯了彼此的频率，她会在你靠近时自然地调整坐姿方便你靠过来。', '炮友(已本番)': '某次她在雨中为朋友的事心烦意乱，你带她回宿舍避雨。她借着吹干头发的距离寻求依靠，普通的安抚演变成了顺理成章的越界。事后她没有逃避，只是默认了这种无需言语的身体交流。(已本番)', '恋人(未本番)': '她习惯了你的存在，会把新写的歌词第一个拿给你看。双方的距离已经远超普通朋友，只差那句挑明关系的话。(未本番)', '恋人(已本番)': '你们在一次长谈后确立了关系。现在的她会在私下里摘下冷酷的面具，红着脸主动抱紧你，在床上坦诚地表达对你的依赖。(已本番)' },
+    '天马咲希': { '青梅竹马_本土': '你们是童年玩伴，你见证过她因病住院的时期。她出院后重新集结了大家，你也顺理成章地重新融入了她的日常，她对你有着毫无保留的天然亲近。', '青梅竹马_外籍': '你曾在海外的某家疗养院做过短期志愿者，巧合的是她当时也在那里静养。回到日本在学校重逢，这段特殊的病友/看护经历让你们的关系天然亲近。', '青梅竹马_孤儿': '福利院曾接受过她父母医院的旧物捐赠，她出院后跟着父母来过几次。她对谁都自来熟，把你当成了在这里认识的第一个玩伴。', '暧昧对象(未本番)': '她对你的身体接触从不设防，总是笑嘻嘻地挽着你的手。虽然她平时对谁都热情，但唯独在遇到真正难过的事时只会单独找你。', '炮友(已本番)': '她因为体力透支在你房间休息，醒来后面对身体的虚弱产生了一丝恐惧。为了证明自己‘还活着’，她主动跨坐到你身上索求接触。你们把这种略带疯狂的肉体关系当成了她释放压力的秘密方式。(已本番)', '恋人(未本番)': '她把所有的脆弱和眼泪都留给了你。你们分享了太多只有彼此知道的秘密，相处模式已经完全像一对情侣。(未本番)', '恋人(已本番)': '确立关系后，她对你的欲望变得直白。她会缠着你做各种情侣间的小事，在性事中也毫无保留地展示她的热情和索求。(已本番)' },
+    '望月穗波': { '青梅竹马_本土': '从小一起长大的玩伴。在国中时期她因照顾所有人感受而孤立无援时，你没有去逼迫她表态，只是偶尔陪她在长椅上坐一会。这份安静的陪伴延续至今。', '青梅竹马_外籍': '你初来日本时，她是被指派带你熟悉街区的热心同学。你察觉到她对谁都好的性格背后的疲惫，偶尔用外语跟她开开玩笑，成了她放松的出口。', '青梅竹马_孤儿': '她国中时常来福利院做义工。你察觉到她总是勉强自己去迎合其他小孩子的吵闹，所以你总会顺手帮她搬重物或整理场地，让她能喘口气。', '暧昧对象(未本番)': '你总能一眼看穿她勉强自己的假笑，然后递给她一块苹果派。她习惯了在你这里卸下‘好孩子’的包袱，周末常和你单独待在图书馆。', '炮友(已本番)': '她为了照顾所有人而压力过载，在你房间借用笔记时突然崩溃。你用强势的拥抱打断了她的自我否定，这演变成了一场发泄性质的做爱。她把这当成不用对任何人负责的隐秘出口。(已本番)', '恋人(未本番)': '她开始学会只对你一个人自私。她会拒绝别人的请求来陪你，在你面前露出偶尔有些任性的一面，享受着被你偏爱的感觉。(未本番)', '恋人(已本番)': '她把主导权完全交给了你。在私下里，她褪去了所有温和的外壳，在床上极度配合你的动作，从你这里获取被完全接纳的安全感。(已本番)' },
+    '日野森志步': { '青梅竹马_本土': '童年时期的玩伴。你清楚她表面孤僻实际上很在意那几个朋友的性格。你是少数能面无表情地听完她对其他人的抱怨，然后顺手递给她一杯果汁的人。', '青梅竹马_外籍': '你在一家冷门的海外摇滚乐唱片店遇到过她，因为抢同一张黑胶唱片而结识。她虽然性格孤僻，但对于能聊音乐的你并没有表现出排斥。', '青梅竹马_孤儿': '她以前总总是躲在福利院后巷的围墙外听摇滚乐。你翻墙出去时撞见过她几次，你没有多管闲事，她也懒得挪地方，形成了一种奇怪的眼熟。', '暧昧对象(未本番)': '你习惯了她冷淡的吐槽，她也习惯了你不管怎么被赶都不走的厚脸皮。她会在买饮料时下意识多买一罐你喜欢的口味，然后硬塞给你。', '炮友(已本番)': '某次争吵后，你们在旧体育馆的角落里僵持。因为谁都不肯退让，肢体的拉扯变质成了确认主导权的交媾。她讨厌被看穿，却用身体默认了这种干脆直接的关系。(已本番)', '恋人(未本番)': '她虽然嘴上还是不饶人，但允许你随时进入她的私人领域。她会在你靠近时停下贝斯的练习，别过头不看你但耳根微红。(未本番)', '恋人(已本番)': '长期的磨合让你们极度契合。她不喜欢甜言蜜语，但在床上会坦诚地回应你的每一个动作，用最直接的方式表达她的感情。(已本番)' },
+    '桐谷遥': { '青梅竹马_本土': '你们在国小前就认识。你知道她放弃偶像身份背后的疲惫。在高度育成重逢时，你没有把她当成前国民偶像，只把她当成普通的熟人，这让她松了口气。', '青梅竹马_外籍': '你作为外籍学生并不了解日本的偶像圈，这反而成了她最看重的一点。你刚转学时把她当成普通同学问路，这种不带滤镜的接触让她对你放下了戒备。', '青梅竹马_孤儿': '她作为偶像时曾随团来福利院做过慰问演出。你偶然在后门撞见她累得靠在墙上的样子，你只是递了瓶水没声张，她记住了你当时不加滤镜的态度。', '暧昧对象(未本番)': '你从不把她当偶像看待的平淡态度让她感到轻松。她开始在午休时主动来找你，你们习惯了并肩坐在角落分享午餐的宁静时间。', '炮友(已本番)': '她习惯了时刻克制自己不去压垮别人，但在你这里她发现不需要这种顾虑。某次高强度的运动后，积累的疲惫和压力让她放弃了自律。她主动跨过了界限，把这段不谈感情的肉体关系当成了她唯一可以彻底失控、不用当‘完美偶像’的休息区。(已本番)', '恋人(未本番)': '她渐渐依赖上了你提供的日常感。她会在你面前展示出普通女高中生的烦恼和笨拙，双方默契地维护着这份特殊的亲近。(未本番)', '恋人(已本番)': '确立关系后，她彻底放下了戒备。她会在清晨毫无防备地睡在你怀里，在性事中展现出平时绝对看不到的柔软和顺从。(已本番)' },
+    '小豆泽心羽': { '青梅竹马_本土': '你们国中同校，你曾偶然帮内向的她找回过掉落的挂件。到了高中，她看到熟人会感到安心，渐渐习惯了在人群中跟在你身后半步的距离。', '青梅竹马_外籍': '你在书店偶然帮她够到过高处的摄影集。她当时紧张得只敢鞠躬，后来在学校里再遇到时，她为了鼓起勇气和你说话练习了好久。', '青梅竹马_孤儿': '她以前在福利院附近的街区喂过流浪猫。有次她被窜出来的野狗吓哭，你顺手帮她赶走了狗。高中再见面时，她鼓起勇气主动向你打了招呼。', '暧昧对象(未本番)': '你总能在她紧张到说不出话时自然地替她解围。她对你的依赖感与日俱增，看向你的眼神里总是藏着不敢说出口的在意。', '炮友(已本番)': '某次她在人群中感到极度恐慌，你把她拉进空教室安抚。她在极度缺乏安全感的情况下主动寻求了更深层的接触，事后因为怯懦不敢面对感情，只能用肉体关系来维持联系。(已本番)', '恋人(未本番)': '她为了能跟上你的步伐一直在暗自努力。她会在私下里鼓起勇气牵你的手，虽然还是会紧张得发抖，但绝不松开。(未本番)', '恋人(已本番)': '你给了她全部的安全感。在私下里，她虽然还是会害羞，但会乖巧地任由你褪去衣物，在床上用细小的声音回应你的每一次索求。(已本番)' },
+    '花里实乃理': { '青梅竹马_本土': '你们国中同班，你见过她无数次试镜失败却依然元气满满的样子。她习惯了向你单方面输出对偶像的热爱，而你也习惯了当一个安静的听众。', '青梅竹马_外籍': '你刚搬来时在公园看她练习舞蹈动作，没有嘲笑反而跟着比划了两下。她觉得你是个好人，从此就把你当成了可以分享练习进度的朋友。', '青梅竹马_孤儿': '你经常在福利院附近的空地看到她一个人笨拙但卖力地练习舞蹈动作。你偶尔会帮她指出动作不对的地方，她把你当成了见证她努力的固定观众。', '暧昧对象(未本番)': '你永远是她最忠实的听众。她习惯了把一天的喜怒哀乐全部分享给你，而你也习惯了她叽叽喳喳在身边转悠，双方距离早已超越普通朋友。', '炮友(已本番)': '她在某次重要选拔失败后跑到你房间大哭。为了安抚她，拥抱变了味。她把这当成一次冲动的越界，却又因为贪恋这种温暖而食髓知味，发展成了隐秘的炮友关系。(已本番)', '恋人(未本番)': '她对你的喜欢几乎全写在脸上。她会在你对她好时露出夸张的开心表情，全心全意地围着你转。(未本番)', '恋人(已本番)': '确立关系后，她对你的热情毫无保留。她会在床上坦率地表达她的舒服和喜欢，用最直白的方式回应你的触碰。(已本番)' },
+    '白石杏': { '青梅竹马_本土': '你从小就常去她父亲的咖啡店。你习惯了她咋咋呼呼的性格，也认识她的青梅竹马遥。她把你当成不用客气的死党，遇到开心的事总会第一个拍你的后背。', '青梅竹马_外籍': '你曾在她家的咖啡店躲雨，和她父亲聊过几句海外的街头文化。她对你讲的那些事很感兴趣，一来二去就把你当成了经常串门的朋友。', '暧昧对象(未本番)': '你们的关系好到经常被周围人起哄。她虽然总是大笑着反驳，但每次和你单独相处时，语气总会不自觉地软下来。', '炮友(已本番)': '某次周末你们在街头闲逛到很晚，因为突降大雨去情人旅馆避雨。气氛到了，顺理成章地擦枪走火。事后为了不破坏‘死党’的表面关系，默契地把这当成了纯粹的身体需求。(已本番)', '恋人(未本番)': '她习惯了有你兜底的日常。你们可以毫无顾忌地互相吐槽，也可以在对方失落时提供最坚实的肩膀。(未本番)', '恋人(已本番)': '捅破窗户纸后，她收起了平时大大咧咧的一面。在私密空间里，她会红着脸展现出意外纯情的一面，任由你掌控一切。(已本番)' },
+    '东云绘名': { '暧昧对象(未本番)': '你偶尔会给她那些画作一些直接但不敷衍的评价。她虽然嘴上说你不懂艺术，但每次画完都会第一个发给你看，习惯了和你深夜的闲聊。', '炮友(已本番)': '她因为画不出满意的作品而情绪崩溃，在你面前歇斯底里。你没有安慰，只是用强硬的身体接触堵住了她的嘴。她把这种激烈的做爱当成了逃避现实和寻找灵感的病态方式。(已本番)', '恋人(未本番)': '她允许你看到她没化妆、穿着旧T恤的邋遢样子。她会在你面前毫无顾忌地发脾气，然后又别别扭扭地向你道歉。(未本番)', '恋人(已本番)': '她把所有的不安全感都交给了你。确立关系后，她会在床上极度渴望你的认可和赞美，用身体索要你的陪伴。(已本番)' },
+    '朝比奈真冬': { '暧昧对象(未本番)': '你是少数能察觉到她‘优等生’面具下空洞的人。她觉得在你面前不用假笑很轻松，偶尔会在放学后跟你去一些没人认识的地方发呆。', '炮友(已本番)': '你对她完美的优等生面具毫无反应，这让她在你面前停止了营业。某次独处时，她按着胸口困惑地问你什么是‘感觉’，你没有用说教或安慰回应，而是直接用肉体接触给了她最清晰的生理反馈。她把这当成确认自己存在的方式，维持着没有感情交流的交媾。(已本番)', '恋人(未本番)': '你一点点融化了她的冰冷。她开始会在你面前表达简单的喜恶，在你牵她手时不再僵硬，慢慢找回了属于自己的温度。(未本番)', '恋人(已本番)': '她完全依赖于你给予的实感。在私下里，她像个初生的婴儿般顺从你的摆弄，在性事中紧紧抱住你，确认你不会离开。(已本番)' },
+    '日野森雫': { '暧昧对象(未本番)': '你经常帮毫无方向感的她带路。她习惯了对你露出毫无防备的笑容，完全不把你当外人，导致你们的物理距离总是近得有些危险。', '炮友(已本番)': '她因为被周围人过度神化而感到窒息。某次在你房间，她主动脱下了完美的外壳，用身体接触来证明自己只是个普通的女人。你接纳了她的发泄，维持着这段不为人知的关系。(已本番)', '恋人(未本番)': '她跟你时的天然呆和依赖感与日俱增。她会理所当然地把吃了一半的甜点喂给你，完全没意识到这已经是情侣才会做的事。(未本番)', '恋人(已本番)': '确立关系后，她把所有的柔软都给了你。她会在床上露出温柔到让人沉溺的笑容，包容你的所有要求，展现出极致的母性和爱意。(已本番)' },
+    '桃井爱莉': { '暧昧对象(未本番)': '你总能看穿她强撑的坚强，偶尔的几句关心总能准确戳中她的软肋。她虽然平时凶巴巴的，但在你面前总是很快败下阵来。', '炮友(已本番)': '某次她为了掩饰自己的脆弱对你发了脾气，你没有退让反而强势地压制了她。在剧烈的争吵中擦枪走火，事后她死鸭子嘴硬不肯认错，只能用身体维持这段别扭的联系。(已本番)', '恋人(未本番)': '她习惯了你的照顾。她会在你生病时一边抱怨一边无微不至地照顾你，所有的关心都藏在她傲娇的言语之下。(未本番)', '恋人(已本番)': '她放弃了在你面前的逞强。在床上，她虽然还会红着脸骂你两句，但身体早就软成了一滩水，任由你随心所欲地索求。(已本番)' },
+    /* 邻家天使 */
+    '椎名真昼': { '青梅竹马_本土': '你们在国中之前住在同一个街区。你曾见过她一个人坐在公园秋千上发呆的样子，并顺手分给她一半零食。这让她对你保留了一份最初的亲近。', '青梅竹马_外籍': '你刚搬到日本时恰好住在她家附近。你曾因为不清楚日本复杂的垃圾分类规则而被她细心指导过，这种充满生活气息的初见让你们熟络起来。', '青梅竹马_孤儿': '她曾因为父母的安排，作为赞助者家属来过福利院。你看出她笑容里的勉强，分给了她一半偷偷藏起来的零食，她没有嫌弃地接了过去。', '暧昧对象(未本番)': '你在某个雨天偶然把伞借给了没带伞的她。为了还人情，她开始偶尔给你做便当。长期的日常相处让你们习惯了这种充满生活气息的默契。', '炮友(已本番)': '她因为家庭原因极度缺乏安全感。某次她发高烧，你在她房间照顾她。在生病的脆弱中，她主动拉住你索求体温和拥抱。事后她因为害怕确认感情会再次失去，选择用这种肉体接触来获取短暂的安心。(已本番)', '恋人(未本番)': '她习惯了在你面前卸下‘完美天使’的伪装。她会在你宿舍的沙发上毫无防备地睡着，偶尔还会用轻微的恶作剧来试探你的底线。(未本番)', '恋人(已本番)': '她确信了你永远不会抛弃她。在私下里，她褪去了所有的防备，在床上极度贪恋你的拥抱，用最柔软的姿态回应你的一切。(已本番)' },
+    /* 莉可丽丝 */
+    '锦木千束': { '青梅竹马_本土': '你们从小在同一个社区长大。她总是那个拉着你到处跑、探索各种‘秘密基地’的乐天派。你习惯了她毫无距离感的接触和咋咋呼呼的性格。', '青梅竹马_外籍': '你初到日本在街头迷路时，她用极其夸张的肢体动作和蹩脚的英语硬是把你带到了目的地。她对外国文化的好奇让你们迅速成了朋友。', '青梅竹马_孤儿': '她小时候到处乱跑，曾翻墙闯进过风兰福利院的后院。她完全不在意你的孤儿身份，硬是拉着你溜出去打了一下午街机。', '暧昧对象(未本番)': '你从来不拒绝她那些突如其来的奇怪点子。她习惯了把你拉进各种热闹的日常中，并且在你身边时，她总会笑得比平时更加毫无顾忌。', '炮友(已本番)': '她总是为了让所有人开心而过度消耗自己。某次她在你房间休息时罕见地露出了疲惫。为了寻找一种不需要思考、纯粹的放松方式，她主动发起了越界的身体接触。你们把这当成她专属的秘密充电站。(已本番)', '恋人(未本番)': '她对你的特殊待遇已经完全无法掩饰。她会理所当然地吃掉你手里的最后一口零食，遇到好玩的事永远第一个拉着你去。(未本番)', '恋人(已本番)': '确立关系后，她的热情在两人独处时毫无保留。她会在床上直白地表达她有多舒服、有多喜欢你，用最坦率的方式交出自己。(已本番)' },
+    '井上泷奈': { '青梅竹马_本土': '你们在国中时曾在同一个风纪委员会共事。你早就习惯了她一板一眼、极度追求效率的做事风格，是少数不会对她的死板感到厌烦的人。', '青梅竹马_外籍': '你刚来日本时因为不了解本地的各种规矩，被她极其认真地纠正过无数次。这种生硬但负责的接触，反而成了你们之间最稳固的信任基础。', '青梅竹马_孤儿': '她曾作为风纪代表来福利院协助过管理工作。你对她一板一眼的死板规矩毫不买账，你们因为打扫卫生的标准问题吵过一架，反而不打不相识。', '暧昧对象(未本番)': '你总能用最简单直接的方式帮她理清那些复杂的日常事务。她开始在做任何计划时都下意识地把你考虑进去，对你的意见极度重视。', '炮友(已本番)': '某次她在负责班级后勤安排时因为一点失误陷入了严重的自我怀疑。你用强硬的物理接触打断了她钻牛角尖的思绪。她虽然觉得这不合规矩，但发现这种直接的刺激确实能有效缓解焦虑，于是将其默认了下来。(已本番)', '恋人(未本番)': '她开始学会为了你打破她那死板的计划表。她会在你突然约她出门时虽然嘴上说着不合效率，但还是会换上好看的私服按时赴约。(未本番)', '恋人(已本番)': '确立关系后，她把‘做好你的恋人’当成了最重要的事情。在性事上，她虽然会因为害羞而满脸通红，但依然会一本正经地配合你的所有要求。(已本番)' },
+    /* 学不来 */
+    '桐须真冬': { '授课教师': '她是负责你班级世界史的授课教师。在课堂和走廊上，你们维持着最标准的师生距离，除了课业问题外没有私人交集。', '私人补习老师': '因为你某次测试成绩压线，她出于教师的责任感在课后将你留下来单独补习。你发现了她冷硬外表下对学生课业极度负责的耐心。', '暧昧对象(未本番)': '你偶然撞破了她私生活极度糟糕、房间乱作一团的真实面貌，并顺手帮她收拾了垃圾。她为了维持威严试图用简短的词汇赶你走，但不再锁死你进门的权限。', '炮友(已本番)': '某次她因工作失误极度自责，在乱糟糟的房间里喝多了酒。你前去送文件时，她在酒精和脆弱的驱使下拽住了你。普通的搀扶演变成接吻，随后失控在沙发上发生了关系。事后她用教师身份死撑，将这定义为成年人酒后的意外，却默认了你周末继续留宿。(已本番)', '恋人(未本番)': '她习惯了你帮她打理生活。她会在你做饭时安静地靠在厨房门边，虽然嘴上还在用‘怠慢’之类的词掩饰，但看向你的眼神已经完全越过了师生的界限。(未本番)', '恋人(已本番)': '她终于放弃了用‘老师’的身份来推开你。在私密空间里，她褪去了正装和威严，在床上用意外坦率的短句索求你的触碰，彻底交出了自己。(已本番)' },
+    /* Riddle Joker */
+    '式部茉优': { '青梅竹马_孤儿': '你们在风兰福利院一起长大。她习惯了包揽福利院的家务和照顾年幼的孩子，但你是唯一见过她干完活后瘫在沙发上嫌麻烦的人。这层知根知底的关系延续到了高度育成。', '暧昧对象(未本番)': '你偶然发现了她作为高年级前辈、完美成熟外壳下的随性和嫌麻烦。她觉得在你这里不用端着架子很轻松，开始习惯在午休时把你拉到没人的保健室闲聊。', '炮友(已本番)': '某次她为了躲避高年级繁杂的社交，藏在保健室里睡着了。你发现她时，她半梦半醒间把你当成了抱枕。醒来后的尴尬在肢体接触中变了味，她索性用前辈的从容掩饰慌乱，干脆解开制服跨越了界限，把这当成释放压力的休息区。(已本番)', '炮友_孤儿(已本番)': '因为从小在福利院一起长大，她对你缺乏男女防备。某次在你房间，她抱怨着照顾别人的疲惫，你顺手按了按她的肩膀。她借着放松的借口主动拉下白大褂的领口，把这当成了不用扮演‘懂事姐姐’的肉体发泄口。事后她一边扣扣子一边用姐姐的口吻掩饰，但身体的食髓知味却骗不了人。(已本番)', '恋人(未本番)': '她越来越频繁地占用你的时间。她会理所当然地使唤你帮她泡咖啡，但在你遇到麻烦时又会用极其可靠的方式替你出头，双方的距离已经完全越界。(未本番)', '恋人(已本番)': '她不再把你当成需要照顾的弟弟。确立关系后，她会在无人的保健室里锁上门，主动敞开白大褂露出丰满的内衣边缘，用充满色气的动作跨坐到你腿上，毫无保留地索要你的全部。(已本番)' },
+    /* 罪恶王冠 */
+    '楪祈': { '青梅竹马_孤儿': '她曾跟随某个不知名的地下乐队来福利院做过慰问演出。她唱歌时你一直坐在最前排，她下台后把一根断掉的吉他拨片送给了你。', '歌迷与歌手': '你偶然在网络上听到了她的试唱，成为了她早期的听众。开学后，你通过她特有的哼唱习惯在校园里认出了她，她对你能认出她的声音感到意外。', '暧昧对象(未本番)': '她对常识极度缺乏，你经常需要用最直白的语言给她解释学校的规则。她习惯了跟在你身后，像一只缺乏安全感的小动物。', '炮友(已本番)': '某次她因为缺乏常识，在你房间换衣服时毫无防备。你没有移开视线，她也不懂拒绝，只是因为好奇和需要体温而任由你将她推倒。她把这种纯粹的肉体接触当成了获取安心感的捷径。(已本番)', '恋人(未本番)': '她开始极度依赖你的体温。她会在你和其他女生说话时安静地扯住你的袖角，用直勾勾的眼神盯着你，表达她的习惯与亲近。(未本番)', '恋人(已本番)': '她完全把自己交给了你。在床上，她虽然话不多，但会紧紧搂住你的脖子，用哼唱般的细碎喘息回应你的动作，极度贪恋你的温度。(已本番)' },
+    /* 弹波汽水 */
+    '七濑悠月': { '暧昧对象(未本番)': '你从不配合她那套完美的现充剧本，这反而让她在你面前放下了面具。她开始在私下里对你露出嫌麻烦的本性，经常找你抱怨维持形象有多累。', '炮友(已本番)': '她因为维持完美形象压力过载，在你面前卸下伪装时情绪失控。为了堵住她的眼泪，你用强硬的身体接触打断了她。她把这种粗暴的做爱当成了发泄压力的排污口，事后一边整理裙摆一边冷脸否认感情。(已本番)', '恋人(未本番)': '她只在你一个人面前展示她的恶劣和狡黠。她会在周末不化妆穿着居家服去找你，理所当然地躺在你的床上休息。(未本番)', '恋人(已本番)': '确立关系后，她不再用完美的笑容敷衍你。在私密空间里，她会用极具攻击性的方式索要你的触碰，在床上展现出坦诚的配合度。(已本番)' },
+    '内田优空': { '暧昧对象(未本番)': '你总能在她默默把所有杂务揽下来时，顺手帮她分担掉一半。她习惯了你这种不声张的帮忙，会在课后特意留下来陪你一起打扫卫生。', '炮友(已本番)': '她习惯了迎合所有人，却在某次班级纠纷中受了委屈。在你房间借用医药箱时，她第一次没有假装坚强。普通的安抚演变成了身体的纠缠，她把这当成唯一可以自私索取的秘密空间。(已本番)', '恋人(未本番)': '她开始把你放在比其他人更重要的位置。她会每天变着花样给你带手作便当，并且在你吃的时候紧张地观察你的表情。(未本番)', '恋人(已本番)': '她把所有的温柔都倾注在了你身上。在床上，她包容你的所有要求，用最温顺的姿态任由你摆弄，从你的反应中获取存在感。(已本番)' },
+    '柊夕湖': { '暧昧对象(未本番)': '她习惯了成为所有人的中心，却发现你对她的光环无动于衷。这种挫败感让她开始频繁在你面前刷存在感，试图引起你的注意。', '炮友(已本番)': '某次她向你隐晦地表达好感却被你平淡带过。出于不甘心和强烈的自尊，她主动把你拉进空教室，用近乎发泄的身体接触来证明自己的魅力。事后双方默契地将这定义为一场不谈感情的肉体博弈。(已本番)', '恋人(未本番)': '她对你的在意已经完全藏不住了。她会在你身边大方地展现亲昵，用理直气壮的态度拉着你走在人群中。(未本番)', '恋人(已本番)': '确立关系后，她的热情极度高涨。在私下里，她会主动换上让你喜欢的内衣，在床上用最直白的方式索取快感，毫无保留地展现她的爱意。(已本番)' },
+    '青海阳': { '暧昧对象(未本番)': '你经常在她晨跑结束后递上一条毛巾。她习惯了你这种恰到好处的照顾，遇到开心的事总会第一个跑过来拍你的肩膀分享。', '炮友(已本番)': '某次高强度的体育测试后，你们在更衣室死角休息。因为运动后的心跳加速和体温升高，气氛变得危险。她没有拒绝你探入运动服的手，把这当成了另一种消耗体力的运动。(已本番)', '恋人(未本番)': '她对你的喜欢非常直接，会毫不掩饰地在人群中大声叫你的名字，拉着你去看她喜欢的比赛。(未本番)', '恋人(已本番)': '确立关系后，她的坦率也延伸到了床上。她不会害羞扭捏，而是积极地配合你的节奏，在性事中展现出极好的体力和毫不掩饰的舒服反应。(已本番)' },
+    '西野明日风': { '暧昧对象(未本番)': '你没有把她当成难以接近的高年级前辈，而是用平等的态度和她交流。她觉得你是个有趣的人，开始偶尔在放学后请你喝咖啡。', '炮友(已本番)': '某次她在指导你处理学生会事务时，靠得过近的距离引发了意外。她试图用学姐的游刃有余来化解尴尬，却被你顺势压制。她对这种失去主导权的感觉感到新奇，用身体默认了这段危险的关系。(已本番)', '恋人(未本番)': '她逐渐放下了前辈的架子。她会在你遇到麻烦时提供极其精准的建议，但私下里却会露出偶尔迷糊的一面，享受被你反过来照顾的感觉。(未本番)', '恋人(已本番)': '她完全向你交出了主导权。在私密空间里，她褪去了从容的外壳，在床上任由你褪去她的衣物，用微哑的声音回应你的动作。(已本番)' },
+    /* 辉夜大小姐 */
+    '四宫辉夜': { '青梅竹马_本土': '你的家庭曾与四宫家的某个下游企业有过业务往来。在一次极为正式的宴会上，你曾帮她解围过一次来自其他财阀子弟的无聊纠缠，她记住了你。', '青梅竹马_外籍': '你的家族企业曾与四宫集团有过一次海外合作谈判。在陪同父母的间隙，你和她因为同样觉得无聊而一起溜出去逛了当地的市集。', '青梅竹马_孤儿': '四宫家曾对风兰福利院有过一笔捐款。她作为代表来访时，你直言不讳地指出这种施舍并不能解决根本问题。她第一次听到这种不加修饰的尖锐意见，记住了你。', '暧昧对象(未本番)': '你多次在她因为缺乏常识而陷入尴尬时，用不经意的方式帮她解围。她开始习惯在遇到不懂的‘庶民文化’时，第一个看向你。', '炮友(已本番)': '某次她因为睡眠不足导致理性防线崩溃，在你面前露出了孩子气的一面。你没有嘲笑她，反而觉得很有趣。她为了报复你的‘无礼’，用大小姐的方式主动命令你和她发生关系，试图在身体上夺回主导权。(已本番)', '恋人(未本番)': '她会在周末以‘视察庶民生活’为由约你出门，但实际上只是想和你一起逛街。她开始不自觉地向你暴露她不懂常识的笨拙一面。(未本番)', '恋人(已本番)': '确立关系后，她对你的依赖变得直白。在私下里，她会用不容置喙的命令语气要求你抱她，在床上展现出与平时冰冷外表截然相反的热情。(已本番)' },
+    '藤原千花': { '青梅竹马_本土': '你们小时候是同一个钢琴班的学生。你曾见证过她因为撞墙期而哭着不想练琴的样子，也陪她玩过很多她家里不允许碰的掌机游戏。', '青梅竹马_外籍': '她曾跟随母亲（外交官）在你所在的国家短暂居住。你们在国际学校里是同学，你教了她很多本地人才知道的桌游玩法，是她最早的‘损友’。', '青梅竹马_孤儿': '她曾组织过一场面向福利院的慈善桌游活动。你在活动中用各种作弊手段赢了她，她不但没生气，反而觉得你这个人很有趣，缠着你教她‘出千’。', '暧昧对象(未本番)': '你总能接住她那些天马行空的烂梗，并且在桌游上和她玩得不相上下。她把你当成了最佳玩伴，去任何地方都会下意识地叫上你。', '炮友(已本番)': '某次在学生会室加班到深夜，她突然提议玩‘国王游戏’。在酒精（其实是果汁）和气氛的催化下，国王的命令演变成了真实的身体接触。事后她红着脸说‘这只是游戏’，但你们都心知肚明。(已本番)', '恋人(未本番)': '她对你的亲近已经到了毫不设防的地步，会理所当然地趴在你背上撒娇，或者抢走你正在吃的零食。双方的关系只差最后一步。(未本番)', '恋人(已本番)': '确立关系后，她的热情在床上毫无保留。她会像一只黏人的小动物一样缠着你，用最直接的方式表达她的舒服和喜欢。(已本番)' },
+    '早坂爱': { '青梅竹马_本土': '你们在国中时是同一个游泳馆的常客。你只当她是个普通的辣妹同学，这种不带任何特殊眼光的平淡态度，让她觉得在你身边可以稍微放松。', '青梅竹马_外籍': '你刚到日本时，她曾受辉夜的‘命令’来接触你。但她很快就觉得这个任务很麻烦，索性和你一起翘掉了下午的行程，去游戏厅打了一下午电动。', '青梅竹马_孤儿': '她曾为了躲避辉夜的麻烦，伪装成义工混进福利院。你一眼就看穿了她身上的高级香水味和格格不入的气质，但你没有拆穿她，只是默默地看着她演戏。', '暧昧对象(未本番)': '你多次在她扮演辣妹角色感到疲惫时，顺手递给她一杯她喜欢的咖啡。她虽然嘴上说着‘多管闲事’，但开始习惯在你面前偶尔卸下伪装。', '炮友(已本番)': '她因为长期无休的工作累倒在你房间。你照顾她时，她在半梦半醒间把你当成了可以撒娇的母亲，主动寻求拥抱。醒来后为了掩饰尴尬，她索性用更直接的肉体关系将错就错。(已本番)', '恋人(未本番)': '她不再在你面前刻意扮演任何角色。她会穿着朴素的私服和你一起去便利店，抱怨辉夜的各种麻烦事，享受这种无需伪装的日常。(未本番)', '恋人(已本番)': '她把所有的疲惫和脆弱都交给了你。在床上，她不再是那个无所不能的近侍，而是一个会哭会撒娇的普通女孩，极度依赖你的体温。(已本番)' },
+    '伊井野弥子': { '学妹': '你是她所在班级的直属学长/学姐。因为风纪活动或班级事务有过几次接触，她对你保持着标准的、礼貌但有距离感的后辈态度。' },
+    '白银圭': { '学妹': '你在校园里见过她几次，对她那与白银会长极为相似的眼神留有印象。你们之间没有直接交集，只是互相知道对方存在的陌生人。' },
+    /* 俄语邻座 */
+    '周防有希': { '青梅竹马_本土': '你们在国中时期参加过同一个地区的学生会联盟。你对她那套完美无缺的社交辞令感到有趣，偶尔会用一些宅系梗去试探她，而她居然能接住。', '青梅竹马_外籍': '你作为交换生参加过她所在中学的学园祭。你完全没被她‘大小姐’的表象唬住，直接邀请她一起去逛鬼屋，结果她被吓得不轻。', '青梅竹马_孤儿': '她曾跟随学生会来福利院进行慰问。你当时正在看一本冷门的轻小说，她认出了封面，并用只有你们懂的黑话吐槽了剧情。这是你们的秘密开端。', '暧昧对象(未本番)': '你总能接住她那些充满宅梗的试探，并用更深度的黑话反击。她把你当成了唯一能让她在学校里也放飞自我的对象，经常在私下拉着你吐槽。', '炮友(已本番)': '她为了测试你的底线，在无人的学生会室对你进行了极具挑逗性的恶作剧。你没有退缩反而强势地反客为主，让她第一次体验到失去掌控的感觉。她对这种刺激食髓知味，发展成了固定的肉体关系。(已本番)', '恋人(未本番)': '她不再用大小姐的伪装来面对你。她会在你面前毫无顾忌地瘫在沙发上，用最放松的姿态和你聊着新出的动漫和游戏。(未本番)', '恋人(已本番)': '确立关系后，她的小恶魔属性在床上展露无遗。她会用各种你只在漫画里见过的姿势和台词来逗弄你，享受着把你玩弄于股掌之间的快感。(已本番)' },
+    '艾莉莎·米哈伊罗夫纳·九条': { '青梅竹马_本土': '你们国中时是邻班同学。你曾偶然听到她用俄语小声抱怨，并用一句简单的俄语回应了她。她因为秘密被发现而对你产生了极强的戒心和在意。', '青梅竹马_外籍': '你和她在同一个俄语角活动中认识。你流利的俄语水平让她感到惊讶，也让她在你面前无法再用俄语来隐藏真心话，从而产生了奇妙的对抗心。', '青梅竹马_孤儿': '她曾在福利院附近的公园练习芭蕾舞。你经常坐在远处看，有一次在她崴脚时递上了冰袋。她虽然嘴上说着不需要，但还是接受了你的帮助。', '邻座同学': '你们是邻座。她维持着冷淡优等生的姿态，但你总能听到她用俄语小声吐槽。你偶尔会用纸条写下她刚才吐槽内容的罗马音递给她，看她瞬间脸红的样子。', '暧昧对象(未本番)': '你多次在她嘴硬的时候，用俄语说出她真正想表达的关心。她因为被你看穿而气急败坏，却又忍不住在你遇到麻烦时第一个站出来。', '炮友(已本番)': '某次她因为成绩被你超越而极度不甘，在你宿舍补习到深夜。不服输的竞争演变成了肉体上的角力。她试图用高挑丰满的身体优势榨取你的体力来找回场子，却在敏感度上败下阵来。事后她红着眼睛，用俄语骂了你一晚上。(已本番)', '恋人(未本番)': '她不再掩饰对你的在意。她会用各种蹩脚的借口约你出门，在你面前努力维持着完美的形象，但总会被你一句俄语弄得破功。(未本番)', '恋人(已本番)': '她完全放弃了在你面前的伪装。在私下里，她会利用丰满的胸围主动发起身体接触，用坦率的俄语表达需求，在性事中展现出极佳的体力和配合度。(已本番)' },
+    '君岛绫乃': { '青梅竹马_本土': '你曾在一次校园冲突中被高年级学生找麻烦，她以学生会总务的身份出现，用极其高效且冷静的方式解决了问题。你对她这种隐藏的实力留下了深刻印象。', '青梅竹马_外籍': '你刚转来时因为不熟悉环境，经常在校园里迷路。她总能像幽灵一样突然出现，用最简短的词汇给你指路，然后又悄无声息地消失。', '青梅竹马_孤儿': '福利院的厨房后面是你常去的秘密基地。有一次你发现她正悄无声息地躲在那里观察来往的人。你们对视了一眼，谁也没有说话，形成了一种奇怪的默契。', '暧昧对象(未本番)': '你多次在她执行‘任务’时，顺手帮她处理了一些收尾的麻烦。她虽然表情不变，但开始在你出现时不再刻意消除气息，默认了你的存在。', '炮友(已本番)': '某次她在执行监视任务时被你反过来跟踪。在你将她堵在死角后，她以为你要揭发她，但你只是用身体压制了她。这种纯粹的力量压制让她产生了从未有过的服从感，默认了这段关系。(已本番)', '恋人(未本番)': '她开始在你面前做出一些‘无用’的行为，比如为你泡茶、整理房间。她把这理解为新的‘任务’，但实际上只是想找借口待在你身边。(未本番)', '恋人(已本番)': '她把你当成了新的‘主人’。在私下里，她会以最顺从的姿态褪去衣物，执行你的任何命令，并在你满足后露出极度安心的表情。(已本番)' },
+    '玛利亚·米哈伊罗芙娜·九条': { '暧昧对象(未本番)': '你总能察觉到她温柔笑容下的疲惫，并在她需要独处时恰到好处地走开。她对你这种不需要她时刻维持‘圣母’形象的默契感到放松。', '炮友(已本番)': '她因为照顾所有人而心力交瘁，在你房间里难得地抱怨了几句。你没有安慰她，只是从背后抱住了她。她第一次被人照顾，在这种陌生的安心感中放弃了抵抗，任由你褪去她的衣物。(已本番)', '恋人(未本番)': '她开始期待你的照顾。她会在你做饭时像小猫一样凑过来，在你给她递上热茶时露出真心的笑容，享受着被你宠爱的感觉。(未本番)', '恋人(已本番)': '她把所有的温柔都毫无保留地给了你。在床上，她会用近乎溺爱的姿态包容你的一切，在你耳边用最柔软的声音回应你。(已本番)' }
+  };
+
+  var ROUTE_DB = {
+    'default': { name: '常规路线', title: '樱花与开学典礼', desc: '清晨，你独自整理好制服，查看着手机上新安装的OAA系统。走出宿舍，在前往体育馆参加开学典礼的林荫步道上，你安静地回想着过去一年各班的变化，准备迎接新的学年。', tag: '氛围基调：平稳、旁观、日常起步', instruction: '1. **清晨整理：** {{user}} 在宿舍整理好制服，拿起手机，查看校方今晨全面公开的「OAA系统」APP。\n2. **步道回想：** {{user}} 走出宿舍楼。走在前往体育馆的林荫步道上，天色微明。你看着周围三两成群、神色各异的同届学生，心中回想起新学年的局势。\n3. **班级交往：** 在路上，你遇到了与你存在社会关系的学生，通过简单的物理互动展现你们的客观社会距离，不进行过度的心理揣测。\n4. **抵达会场：** 你顺着人流抵达主体育馆。体育馆内灯光大亮，一至三年级的学生已经开始按班级列队，空气中弥漫着新学期特有的喧嚣与低声议论。' },
+    'kei_lover': { name: '轻井泽惠', title: '清晨的秘密会面', desc: '作为恋人，你们约定在开学典礼前稍微见一面。为了避开同班同学的视线，你提前来到了宿舍楼后的死角。不久后，精心打扮过的轻井泽惠带着一点紧张和雀跃出现在你面前。短暂的亲昵后，你们需要装作若无其事地分别前往体育馆。', tag: '氛围基调：隐秘、甜腻、防备他人视线', instruction: '1. **清晨整理：** {{user}} 在宿舍整理好制服，拿起手机，查看校方今晨全面公开的「OAA系统」APP。随后，按照事先约定，你提前出门来到了宿舍楼后的隐蔽处。\n2. **秘密会面：** 很快，轻井泽惠避开他人视线悄悄来到你身边。请重点白描她为了今天开学精心打理过的细节（如发丝、唇彩、裙摆等），以及你们在隐蔽处短暂且带有一丝背德刺激感的亲密互动。\n3. **步道回想：** 短暂温存后，你们装作若无其事地先后分开。走在前往体育馆的林荫步道上，你心中回想起新学年的局势。\n4. **抵达会场：** 你顺着人流抵达主体育馆。体育馆内灯光大亮，各班已经开始列队，空气中弥漫着新学期特有的喧嚣。' },
+    'masumi_fw': { name: '神室真澄', title: '衣柜里的外套', desc: '开学典礼的清晨，你从自己的床上醒来，而神室真澄正背对着你默默穿上制服衬衫。昨晚的荒唐还没有完全散去，她用一如既往的冷淡语气抱怨着你的粗暴，同时催促你把她的外套递过去。你们之间没有甜言蜜语，只有这种被秘密绑定的干脆。', tag: '氛围基调：慵懒、冷淡、肉体关系', instruction: '1. **清晨互动：** 清晨，你从宿舍的床上醒来，而神室真澄正背对着你在床边默默穿上制服衬衫。请通过白描展现她穿衣时暴露的肉体线条、皮肤上的痕迹，以及她用冷淡且略带嫌麻烦的语气与你的简短对话。\n2. **步道回想：** 等她整理完毕先一步离开房间后，你查看了手机上的OAA系统并独自走出宿舍楼。走在前往体育馆的林荫步道上，你心中回想起新学年的局势。\n3. **班级交往：** 在路上，你遇到了与其他存在社会关系的学生简单的照面或眼神交汇，展现你们的客观社会距离。\n4. **抵达会场：** 你顺着人流抵达主体育馆。体育馆内灯光大亮，各班已经开始列队，空气中弥漫着新学期的喧嚣。' },
+    'hiyori_friend': { name: '椎名日和 (书友)', title: '大厅沙发上的阅读者', desc: '清晨，你乘电梯来到宿舍一楼大厅，看到椎名日和正坐在大厅的沙发上安静地看书。察觉到你走出电梯，她合上书本站起身，向你展示了一下封面，随后自然地与你并肩走出宿舍，一起前往体育馆。', tag: '氛围基调：安静、舒适、无需多言的默契', instruction: '1. **清晨整理：** {{user}} 在宿舍整理好制服，拿起手机，查看校方今晨全面公开的「OAA系统」APP。\n2. **大厅偶遇：** {{user}} 乘坐电梯来到宿舍一楼大厅。你看到椎名日和正坐在大厅的沙发上看书。请白描她翻阅书页的安静姿态。\n3. **并肩同行：** 察觉到你走出电梯，她合上书本站起身，自然地走到你身边。你们简短交流了几句关于书籍的话题，随后并肩走出宿舍楼。走在前往体育馆的林荫步道上，你回想起新学年的局势。\n4. **抵达会场：** 你顺着人流抵达主体育馆。体育馆内灯光大亮，各班已经开始列队，空气中弥漫着新学期的喧嚣。' },
+    'hiyori_ambiguous': { name: '椎名日和 (暧昧)', title: '不经意的靠近', desc: '在前往体育馆的林荫步道上，你“偶然”遇到了椎名日和。她手里拿着书，步速比平时稍慢。当你们并肩同行时，偶尔靠近的肩膀和不经意的视线交汇，透着一种顺理成章的亲昵，但谁也没有把这种默契挑明。', tag: '氛围基调：微妙距离、顺理成章的亲昵', instruction: '1. **清晨整理：** {{user}} 在宿舍整理好制服，拿起手机，查看校方今晨全面公开的「OAA系统」APP。\n2. **步道回想：** {{user}} 走出宿舍楼。走在前往体育馆的林荫步道上，你回想起新学年的局势。\n3. **合理的偶遇：** 你在步道上遇到了拿着书的椎名日和。请白描她调整步速与你并肩同行的动作。重点描写两人在交谈时偶尔拉近的物理距离、不经意的视线交汇，以及那种顺理成章但尚未完全挑明关系的亲昵感。\n4. **抵达会场：** 你们保持着这份默契的距离走到体育馆入口。体育馆内灯光大亮，学生们已经开始按班级列队，空气中弥漫着喧嚣与低声议论。' },
+    'hiyori_lover_un': { name: '椎名日和 (恋人未本番)', title: '清晨的等待', desc: '清晨，你刚走出宿舍门，就看到椎名日和安静地等在外面。看到你出来，她露出柔柔的笑容，主动走到你身边。你们自然地并肩走向体育馆，这段短暂的路程是新学期开始前，只属于你们两人的时间。', tag: '氛围基调：柔和、主动的亲近、日常陪伴', instruction: '1. **清晨整理：** {{user}} 在宿舍整理好制服，拿起手机，查看校方今晨全面公开的「OAA系统」APP。\n2. **主动寻找：** {{user}} 走出宿舍房间。在走廊或宿舍楼下，你看到椎名日和正安静地等在那里。请白描她看到你出现时主动走近的动作，以及她用平时那副慢节奏的语调，轻声与你交谈的日常画面。\n3. **并肩同行：** 你们自然地并肩走向体育馆，在此期间你心中回想起新学年的局势。\n4. **抵达会场：** 接近人流密集的体育馆前，你们稍微拉开了一点距离。你步入体育馆，看到各班已经开始列队，空气中弥漫着新学期特有的喧嚣。' },
+    'hiyori_lover_done': { name: '椎名日和 (恋人已本番)', title: '晨光与早安吻', desc: '昨晚她在你的房间过夜。清晨，当你醒来时，她已经坐在床边穿好了制服。看到你起身，她自然地凑过来，在你唇上留下一个轻柔的吻。随后她拿起书本，轻声说在外面等你，先一步离开了房间。', tag: '氛围基调：生活气息、自然依赖、纯爱', instruction: '1. **清晨苏醒：** 昨晚椎名日和在你的宿舍过夜。清晨，当你醒来时，她已经坐在床边穿好了制服。请重点白描她看到你起身时，自然地倾身靠近，在你唇上留下一个轻柔的早安吻的动作，展现出顺理成章的亲昵与依赖。\n2. **离室查看：** 她拿起自己的书本，轻声说一句先走，便离开了房间。你随后起身整理好制服，拿起手机，查看校方今晨全面公开的「OAA系统」APP。\n3. **步道回想：** 你走出宿舍楼。走在前往体育馆的林荫步道上，天色微明。你看着周围的同届学生，心中回想起新学年的局势。\n4. **抵达会场：** 你顺着人流抵达主体育馆。体育馆内灯光大亮，学生已经开始按班级列队，空气中弥漫着新学期特有的喧嚣。' },
+    'hiyori_fw': { name: '椎名日和 (炮友)', title: '藏在袖口下的指尖', desc: '你们之间的关系始于身体，但渐渐多了一些未挑明的默契。在前往体育馆的步道上，你们并肩走着。她的手偶尔碰到你的手背，视线微微低垂，似乎想牵手，却又因为没有明确的恋人身份而不好意思主动提出来。', tag: '氛围基调：克制的亲昵、微妙的界限', instruction: '1. **清晨整理：** {{user}} 在宿舍整理好制服，查看校方今晨全面公开的「OAA系统」APP。\n2. **步道同行：** 你走出宿舍，在前往体育馆的林荫步道上与椎名日和并肩而行。请白描两人行走时手臂之间微小的距离。重点描写她的手背偶尔擦过你的手背，视线微微下垂，手指蜷缩在袖口边缘，展现出她想要被牵手却又因关系未挑明而不好意思主动的细微动作，透出一种顺理成章却又克制的亲昵感。\n3. **局势回想：** 你们保持着这种微妙的距离继续前行。你心中回想起新学年的局势。\n4. **抵达会场：** 接近体育馆时，她收回了手，恢复了平时的安静姿态。你顺着人流抵达主体育馆。体育馆内灯光大亮，各班已经开始列队，空气中弥漫着新学期的喧嚣。' },
+    'aris_friend': { name: '坂柳有栖 (熟人)', title: '晨间的同行者', desc: '在前往体育馆的林荫步道上，你遇到了正巧走在同一条路上的一之濑帆波。她向你扬起明媚的笑容打招呼。两人随意交流了几句关于新学期的话题，随后自然地结伴同行。', tag: '氛围基调：礼貌、轻松的闲聊', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **步道偶遇：** 在前往体育馆的林荫步道上，你遇到了同样正前往会场的坂柳有栖。请白描她看到你时，微笑着停下脚步向你打招呼的自然举动。\n3. **结伴同行：** 你们像平时在咖啡厅相遇时那样，随意聊了几句关于新学期的闲话。在此期间，你心中回想起了新学年的局势。\n4. **抵达会场：** 走到体育馆入口附近时，你们结束了交谈。你步入体育馆，看到各班已经开始列队，空气中弥漫着新学期的喧嚣。' },
+    'aris_ambiguous': { name: '坂柳有栖 (暧昧)', title: '步道上的试探', desc: '前往体育馆的路上，坂柳有栖突然从路旁出现，与你并肩而行。她用轻快的语调说出一句充满歧义的玩笑话，随后微微偏过头，饶有兴致地观察着你的反应。直到抵达体育馆前，她才收起笑容，挥挥手走向了自己的班级队列。', tag: '氛围基调：少女心、试探、愉快的观察', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **步道相遇：** 走在林荫步道上时，坂柳有栖自然地走到你身旁与你并肩同行。请白描她用带有少女轻快语调的玩笑话向你搭话，随后微微偏头，目光停留在你脸上，安静观察你反应的细微神态。\n3. **试探与回想：** 在这种带有试探意味的轻松氛围中，你们继续前行。你心中回想起了新学年的局势。\n4. **抵达会场：** 接近体育馆时，她收起了玩笑的姿态，轻声说了句待会见，便走向了自己班级的区域。你步入体育馆，看到各班已经开始列队。' },
+    'aris_lover_un': { name: '坂柳有栖 (恋人未本番)', title: '清晨的恶作剧', desc: '刚走出宿舍楼，你就看到了等在那里的坂柳有栖。她带着狡黠的笑容走上前，像平时一样用言语轻轻逗弄了你几句。这种只针对你的小恶作剧，是你们两人独有的恋爱步调。', tag: '氛围基调：狡黠、恋爱独有的逗弄', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **主动等待：** 在宿舍楼下或步道起点，坂柳有栖正等在那里。请白描她看到你时走上前的动作，以及她带着狡黠的笑容，用亲昵的言语故意逗弄你的日常恋爱互动。\n3. **并肩同行：** 你们在轻松的氛围中并肩走向体育馆，这段时间里你心中回想起了新学年的局势。\n4. **抵达会场：** 走到体育馆入口附近时，你们自然分开。你步入体育馆，看到各班已经开始列队，空气中弥漫着新学期特有的喧嚣。' },
+    'aris_lover_done': { name: '坂柳有栖 (恋人已本番)', title: '温牛奶与早晨', desc: '昨晚她在你的房间过夜。清晨醒来时，你看到她正双腿并拢正坐在床边，制服只穿了一半，双手捧着杯子小口喝着温牛奶。察觉到你醒来，她像个乖巧的少女般向你露出一个笑容。', tag: '氛围基调：乖巧、生活感、毫无防备', instruction: '1. **清晨苏醒：** 昨晚坂柳有栖在你的房间过夜。清晨你醒来时，请重点白描她正双腿并拢正坐在床边，制服只穿了一半（露出部分肩膀或内衣边缘），双手捧着杯子小口喝着温牛奶的乖巧姿态。\n2. **离室查看：** 察觉到你醒来，她露出柔和的笑容。等她穿好衣服先一步离开后，你拿起手机，查看校方今晨全面公开的「OAA系统」APP。\n3. **步道回想：** 你独自走在前往体育馆的林荫步道上，天色微明。你看着周围的同届学生，心中回想起新学年的局势。\n4. **抵达会场：** 你顺顺着人流抵达主体育馆。体育馆内灯光大亮，学生已经开始按班级列队，空气中弥漫着新学期的喧嚣。' },
+    'aris_fw': { name: '坂柳有栖 (炮友)', title: '隐秘角落的裙摆', desc: '在前往开学典礼的途中，你被她拉进了无人的角落。没有多余的交流，她只是带着若有若无的笑意，轻轻拉起了自己的裙摆向你展示，用这种极具视觉冲击力的方式完成了早晨的挑逗，随后像什么都没发生过一样前往会场。', tag: '氛围基调：直接的色情张力、挑逗', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **隐秘挑逗：** 在前往体育馆途中的无人死角，你遇到了坂柳有栖。请重点白描她带着若有若无的笑意，一言不发地轻轻拉起裙摆向你展示大腿及内衣边缘的动作。用这种纯粹的肢体动作展现直接的色情张力与挑逗。\n3. **步道回想：** 结束短暂的互动后，她像往常一样前往会场。你随后独自走在林荫步道上，心中回想起新学年的局势。\n4. **抵达会场：** 你顺着人流抵达主体育馆。体育馆内灯光大亮，各班已经开始列队，空气中弥漫着新学期的喧嚣。' },
+    'honami_friend': { name: '一之濑帆波 (熟人)', title: '清晨的同行者', desc: '在前往体育馆的林荫步道上，你遇到了正巧走在同一条路上的一之濑帆波。她向你扬起明媚的笑容打招呼。两人随意交流了几句关于新学期的话题，随后自然地结伴同行。', tag: '氛围基调：明媚、活力的日常相遇', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **步道偶遇：** 在前往体育馆的林荫步道上，你遇到了同样正前往会场的一之濑帆波。请白描她看到你时，扬起明媚笑容并主动打招呼的自然举动。\n3. **结伴同行：** 你们随意聊了几句关于新学期的闲话。在此期间，你心中回想起了新学年的局势。\n4. **抵达会场：** 走到体育馆入口附近时，你们结束了交谈。你步入体育馆，看到各班已经开始列队，空气中弥漫着新学期的喧嚣。' },
+    'honami_ambiguous': { name: '一之濑帆波 (暧昧)', title: '不经意的靠近', desc: '在林荫步道上，一之濑帆波自然地放慢脚步与你并肩。谈话间，她因为避让路人而微微向你靠拢，肩膀几乎相触。两人都没有刻意拉开距离，维持着这种顺理成章却未曾挑明的亲昵感直到会场。', tag: '氛围基调：微妙距离、顺理成章的亲昵', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **步道同行：** 在林荫步道上，一之濑帆波自然地放慢脚步与你并肩而行。请白描人在避让迎面走来的路人时，身体微微向你靠拢的动作。\n3. **未挑明的亲昵：** 重点描写两人肩膀几乎相触的物理距离，以及双方都没有刻意拉开距离的默契。在这种顺理成章的亲昵氛围中，你心中回想起了新学年的局势。\n4. **抵达会场：** 接近体育馆时，这种微妙的距离才自然拉开。你步入体育馆，看到各班已经开始列队。' },
+    'honami_lover_un': { name: '一之濑帆波 (恋人未本番)', title: '阳光下的牵手', desc: '刚走出宿舍楼，一之濑帆波就带着明亮的笑容迎了上来。她没有刻意隐藏，自然地牵起你的手。在前往体育馆的路上，她用充满活力的声音分享着对新学期的期待，偶尔轻轻晃动交握的手指。', tag: '氛围基调：明亮、活力、大方的亲昵', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **主动迎接：** 在宿舍楼下，一之濑帆波带着明亮的笑容迎上前来。请白描她走到你身边，自然地牵起你的手，并偶尔轻轻晃动交握手指的日常恋爱互动。\n3. **并肩同行：** 你们在充满活力的交谈中并肩走向体育馆，这段时间里你心中回想起了新学年的局势。\n4. **抵达会场：** 走到体育馆入口附近人流密集处时，你们自然地松开了手。你步入体育馆，看到各班已经开始列队，空气中弥漫着新学期特有的喧嚣。' },
+    'honami_lover_done': { name: '一之濑帆波 (恋人已本番)', title: '早餐与穿衣的背影', desc: '昨晚她在你的房间过夜。清晨醒来时，桌上已经放着做好的简单早餐，而她正背对着你站在床边穿戴制服。从她解开的衬衫缝隙和内衣边缘，到她熟练地扣上扣子、整理裙摆，你安静地注视着这充满生活气息的一幕。', tag: '氛围基调：生活气息、踏实、安心感', instruction: '1. **清晨苏醒：** 昨晚一之濑帆波在你的房间过夜。清晨你醒来时，桌上已经放着做好的早餐。请重点白描她正背对着你站在床边穿衣服的过程：从只穿着衬衫和内衣的背影轮廓，到她熟练地扣上衬衫扣子、整理百褶裙裙摆的具体动作，展现出一种充满生活气息的安心感。\n2. **离室查看：** 察觉到你醒来，她回头露出一个早安的笑容。等她整理完毕先一步离开后，你拿起手机，查看校方今晨全面公开的「OAA系统」APP。\n3. **步道回想：** 你独自走在前往体育馆的林荫步道上，天色微明。你看着周围的同届学生，心中回想起新学年的局势。\n4. **抵达会场：** 你顺着人流抵达主体育馆。体育馆内灯光大亮，学生已经开始按班级列队，空气中弥漫着新学期的喧嚣。' },
+    'honami_fw': { name: '一之濑帆波 (炮友)', title: '胸下的触感', desc: '在前往开学典礼前的宿舍走廊死角，你从背后抱住了她。当你的手习惯性向上移动时，意外卡在了她丰满的胸部下缘与肋骨之间。感受到这份沉甸甸的重量，两人都陷入了短暂的尴尬沉默，随后她红着脸轻轻拍开了你的手。', tag: '氛围基调：肉感、真实的尴尬、顺理成章的身体接触', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **走廊死角：** 在前往体育馆途中的宿舍走廊死角，你遇到了一之濑帆波并从背后环抱住她。请重点白描你的手臂向上移动时，手背卡在她丰满的胸部下缘与身体之间的动作。\n3. **尴尬的亲昵：** 描写手背感受到乳房底部沉甸甸重量的物理触感，以及两人因此陷入的短暂尴尬沉默。随后她红着脸轻轻拍开你的手。结束互动后，她像往常一样前往会场。你独自走在步道上，心中回想起新学年的局势。\n4. **抵达会场：** 你顺着人流抵达主体育馆。体育馆内灯光大亮，各班已经开始列队，空气中弥漫着新学期的喧嚣。' },
+    'suzune_fw': { name: '堀北铃音 (炮友)', title: '制服下的余温', desc: '在开学典礼前的宿舍房间里，你的手正隔着制服衬衫揉捏着她的胸部。这段关系始于曾经的点数交易，如今已变成一种单方面的调戏与默认的承受。她用一如既往的冷淡语气提醒你时间，等你停手后，她背过身整理好被揉皱的内衣和衬衫，先一步前往体育馆。', tag: '氛围基调：冷淡、承受、单方面调戏', instruction: '1. **清晨互动：** 清晨，在宿舍房间内。开局时，{{user}} 的手正隔着制服衬衫揉捏着堀北铃音的胸部。请重点白描手指陷入她圆锥型乳房的物理触感，以及她微微咬唇承受、忍耐身体本能反应的细微动作。\n2. **整理离开：** 她用平时那种冷淡且夹杂着些许不悦的语气提醒你该去参加开学典礼了。等你停下动作后，她背过身，熟练地扣好被解开的内衣后扣，拉平揉皱的衬衫和百褶裙。整理完毕后，她没有多余的道别，直接推门离开。\n3. **步道回想：** 等她离开后，你整理好校服，拿起手机，查看校方今晨全面公开的「OAA系统」APP。随后你走出宿舍，在前往体育馆的林荫步道上，天色微明。你回想起新学年的局势。\n4. **抵达会场：** 你顺着人流抵达主体育馆。体育馆内灯光大亮，一至三年级的学生已经开始按班级列队，空气中弥漫着新学期特有的喧嚣与低声议论。' },
+    'kushida_friend': { name: '栉田桔梗 (知情者-友善)', title: '温和的平衡', desc: '在前往体育馆的林荫步道上，你遇到了栉田桔梗。你掌握了她的秘密，但你友善的态度让她稍微放下了戒备。她用平时的温柔语调与你结伴而行，但偶尔看向你的眼神中，带着只有你们两人能懂的试探。', tag: '氛围基调：试探、温和的平衡', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **步道偶遇：** 在前往体育馆的林荫步道上，你遇到了栉田桔梗。请白描她看到你时，微笑着停下脚步向你打招呼的举动。\n3. **并肩同行：** 你们像普通朋友一样随意聊着新学期的话题。因为你掌握着她的秘密，在无人的拐角处，她看向你的眼神中会不经意闪过只有你们两人能懂的试探。在此期间，你心中回想起了新学年的局势。\n4. **抵达会场：** 走到体育馆入口附近时，你们自然拉开了一点距离。你步入体育馆，看到各班已经开始列队。' },
+    'kushida_enemy': { name: '栉田桔梗 (知情者-敌对)', title: '小树林的警告', desc: '步道旁无人的小树林里，你被栉田桔梗拦了下来。她彻底卸下了平日的温柔面具，眼神冰冷，用警告的言语要求你对她的过去保持沉默。直到其他学生路过时，她才瞬间恢复平日的甜美笑脸，若无其事地离开。', tag: '氛围基调：冰冷、警告、伪装的瞬间切换', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **树林被拦：** 在前往体育馆的步道旁，你被栉田桔梗拦下并带进了无人的小树林里。请白描人在确认周围没人后，瞬间消失的温柔笑容，以及冰冷、充满防备的对视。\n3. **冷酷警告：** 她用极其冷淡且带有威胁意图的言语，警告你对她的过去保持沉默，不准向任何人透露。在此期间，你心中回想起新学年的局势。\n4. **瞬间切换：** 听到有其他学生的脚步声接近，她在一秒钟内切换回明媚的甜美笑脸，自然地先一步走出树林。你随后走出，独自前往体育馆。' },
+    'kushida_fw_friendly': { name: '栉田桔梗 (炮友-友善)', title: '被迫顺从的日常', desc: '你掌握了她初中的秘密，但这已经成了你们在宿舍里心照不宣的情趣。每次温存时，她都会故意假装出一副“因为有把柄在你手上而不得不顺从”的可怜模样，实际上却非常配合。结束后，她会红着脸吐槽你的恶趣味。', tag: '氛围基调：被迫顺从的伪装、心照不宣的情趣', instruction: '1. **清晨情趣：** 清晨，在宿舍房间内。开局时，{{user}} 刚将栉田桔梗按在身下，你掌握她秘密这件事成了房事中独有的情趣。请白描她红着脸、故意配合你扮演“因为把柄被握住而被迫顺从”的可怜姿态，以及身体却极其诚实配合的反差反应。\n2. **卸下表演：** 结束后，她不再演戏，恢复了日常的亲近。她红着脸，用轻快的语调小声吐槽你拿秘密当情趣的恶趣味，并开始换衣服。\n3. **整理查看：** 你们整理好衣服，她先一步离开房间。你拿起手机，查看校方今晨全面公开的「OAA系统」APP上的个人数据。\n4. **步道回想：** 你独自走在前往体育馆的林荫步道上，天色微明。你回想起新学年的局势。\n5. **抵达会场：** 你顺着人流抵达主体育馆。' },
+    'kushida_fw_unfriendly': { name: '栉田桔梗 (炮友-非友善)', title: '晨间的抱怨', desc: '曾经她试图用指纹勒索你，结果被你指出指纹在织物上留不长。为了封口和继续掌控你，她选择用身体作为手段。清晨在房间里，她一边扣着制服扣子，一边不爽地低声抱怨胸部好像被你摸大了一些，随后不耐烦地催促你出门。', tag: '氛围基调：妥协后的抱怨、克制的日常纠葛', instruction: '1. **前情交代：** 你们的关系始于曾经的指纹勒索。她曾引导你在她衣服上留下指纹企图拿捏你，却被你用科学事实戳穿了指纹在织物上留不长的秘密。为了封口和掌控你，她选择与你维持了肉体关系。\n2. **晨间抱怨：** 清晨，在宿舍房间内。栉田桔梗站在镜子前，有些不耐烦地系着扣子，拉扯内裤，用有点不爽的语气低声抱怨胸部好像又被你摸大了一些。请白描她微微抿嘴、有些赌气穿衣的动作。\n3. **整理查看：** 她整理完毕后，为了报复你，直接伸出舌头并拉开了你的裤子在晨勃的肉棒上舔了一下，想让你顶一早上的帐篷丢人，然后先一步拉开门离开房间。你拿起手机，查看校方今晨全面公开的「OAA系统」APP。\n4. **步道回想：** 你独自走在林荫步道上，看着周围的同届学生，心中回想起新学年的局势。\n5. **抵达会场：** 你步入主体育馆。' },
+    'kushida_ambiguous': { name: '栉田桔梗 (暧昧)', title: '保存期限的试探', desc: '在林荫步道旁的小树林里，她冷着脸主动拉过你的手按在自己胸口，企图在衣服上留下指纹作为威胁。在得知指纹留不长后，她选择通过高频率的见面来“保持指纹有效”。虽然嘴上不承认，但她其实早就习惯了被你触碰。', tag: '氛围基调：嘴硬的防守、习惯性索求', instruction: '1. **前情交代：** 你们并未跨过最后一步。为了在衣服上留下你的指纹作勒索封口的筹码，她每隔几天就会主动找你。在得知指纹在织物上消散极快后，她嘴硬地选择通过提高见面的频率来“维持有效性”。\n2. **小树林按手：** 在林荫步道旁无人的小树林里。栉田桔梗冷着脸，主动拉过你的手，按在她制服衬衫下的胸部。请白描你的手指隔着布料陷进乳肉的真实物理触感，以及她微微咬唇、内心默默吐槽“都被摸大了”的害羞动摇。\n3. **整理查看：** 她拍开你的手并扣好领口，先一步离开树林。你随后查看手机上的「OAA系统」APP。\n4. **步道回想：** 你独自走在步道上，心中回想起新学年的局势。\n5. **抵达会场：** 你步入主体育馆。' },
+    'kushida_lover_un': { name: '栉田桔梗 (恋人未本番)', title: '大方的亲昵', desc: '一看到你，她就小跑着迎了上来，自然且大方地挽住你的手臂。在前往体育馆的路上，她扬起明媚的笑脸，用甜美、元气的语调和你分享昨天刚听到的校园八卦，完全沉浸在只属于你们两人的甜蜜氛围中。', tag: '氛围基调：大方亲昵、甜蜜的校园日常', instruction: '1. **清晨出发：** {{user}} 离开宿舍，查看手机上全面公开的「OAA系统」APP。\n2. **大方挽手：** 在林荫步道上，栉田桔梗一看到你就小跑过来，自然且大方地挽住你的手臂。请白描她明媚温暖的笑容，以及手臂贴在一起时，胸部挤压你侧身的柔软触感。\n3. **步道同行：** 你们并肩走在步道上，她用充满元气的声音和你分享昨天听到的校园八卦。你心中回想起新学年的局势。\n4. **抵达会场：** 走到体育馆入口附近时，为了避免他人视线，你们稍微拉开距离。你步入体育馆，看到各班已经开始列队。' },
+    'kushida_lover_done': { name: '栉田桔梗 (恋人已本番)', title: '宽大T恤与束衣', desc: '昨晚她在你的房间过夜。清晨，你看到她正穿着你宽大的T恤在床边伸懒腰，衣服被高高顶起，胸下自然空出一片中空的曲线。发现你在盯着她看，她带着狡黠的笑容用手束起衣服，问你“看够了吗？该换制服去开学典礼了”。', tag: '氛围基调：生活质感、狡黠挑逗、完全放松的甜蜜', instruction: '1. **晨曦伸展：** 昨晚栉田桔梗在你的房间过夜。清晨你醒来时，看到她正穿着你宽大的T恤在床边伸懒腰。请重点白描T恤因她丰满的胸部高高顶起、在胸部下方到腹部之间形成完全悬空、中空的物理状态。\n2. **少女逗弄：** 察觉到你的目光，她带着笑意转过身，用手在胸部下方将T恤下摆收拢束紧，显露出凹凸有致的线条。她狡黠地轻笑：“看够了吗？该换衣服去参加开学典礼了哦。”\n3. **整理查看：** 她走进卫浴间换制服。你拿起手机，查看校方今晨全面公开的「OAA系统」APP。\n4. **步道回想：** 你独自走在前往体育馆的林荫步道上，天色微明。你看着周围的同届学生，心中回想起新学年的局势。\n5. **抵达会场：** 你顺着人流抵达主体育馆。' }
+  };
+
+  var curStep=1, isPPMan=false, isOAAMan=false, finalPP=0, isPPRolling=false, isOAARolling=false, oaaRolled=false, relState={}, curRoute='default', enabledDLCs=[];
+
+  function getAttitude(rel) {
+    if (rel.indexOf('恋人') !== -1 || rel.indexOf('暧昧对象') !== -1) return '亲密';
+    if (rel.indexOf('青梅竹马') !== -1 || rel.indexOf('炮友') !== -1) return '要好';
+    if (rel.indexOf('知情者(敌对)') !== -1 || rel.indexOf('敌对') !== -1 || rel.indexOf('冲突') !== -1 || rel.indexOf('排斥') !== -1) return '反感';
+    if (rel.indexOf('知情者(友善)') !== -1) return '友善';
+    if (rel.indexOf('互不顺眼的熟人') !== -1 || rel.indexOf('提防') !== -1 || rel.indexOf('不合') !== -1) return '冷淡';
+    var friendlyList = ['咖啡厅熟人', '学习搭档', '酒肉朋友', '讨论搭档', '吐槽搭档', '边缘圈同好', '饭搭子', '小圈子成员', '书友', '欢喜冤家'];
+    for(var i=0; i<friendlyList.length; i++) if (rel.indexOf(friendlyList[i]) !== -1) return '友善';
+    return '熟识';
+  }
+
+  function initOAAUI() {
+    var html = '';
+    ATTRS.forEach(function(a) {
+      html += '<div class="cote-oaa-item" data-attr="'+a+'"><div class="cote-oaa-head"><span class="cote-oaa-name">'+a+(a==='社会贡献性'?' <span class="cote-oaa-note" style="color:var(--c-muted);font-weight:normal;">(×0.5)</span>':'')+'</span><span class="cote-oaa-grade" id="grade_'+a+'">C</span></div><div class="cote-oaa-ctrl oaa-manual-ui"><button class="cote-btn-step" data-d="-25">-25</button><button class="cote-btn-step" data-d="-1">-1</button><input type="number" class="cote-oaa-input" id="val_'+a+'" value="0"><button class="cote-btn-step" data-d="1">+1</button><button class="cote-btn-step" data-d="25">+25</button></div><div class="cote-oaa-bar"><div class="cote-oaa-fill" id="bar_'+a+'"></div></div></div>';
+    });
+    $('oaaListArea').innerHTML = html;
+  }
+
+  function getOverall() { var a=parseInt(val('val_学力'))||0, b=parseInt(val('val_身体能力'))||0, c=parseInt(val('val_灵活思考力'))||0, d=parseInt(val('val_社会贡献性'))||0; return Math.round((a+b+c+d*0.5)/350*100); }
+  function getHighest() { var m=-1,n=''; ATTRS.forEach(function(a){var v=parseInt(val('val_'+a))||0;if(v>m){m=v;n=a;}}); return n; }
+
+  async function checkDLCs() {
+    try { if(typeof getCharWorldbookNames==='function'&&typeof getWorldbook==='function') {
+      var w=getCharWorldbookNames('current').primary; if(w) { var es=await getWorldbook(w); es.forEach(function(e){ if(e.name&&e.enabled) { var m=e.name.match(/^\[DLC\]\[.*?\]\[([^\]]+)\]/); if(m) enabledDLCs.push(m[1]); } }); }
+    }}catch(e){}
+  }
+
+  function getLoreForRelation(charName, relVal) {
+    var isOrphan = (val('fIdentity') || '').indexOf('孤儿') !== -1;
+    var cleanVal = relVal.replace(/\(.*?\)/g, '').trim();
+    var charDB = RELATION_LORE_DB[charName] || {};
+    var genDB = RELATION_LORE_DB['通用'] || {};
+    if (relVal === '青梅竹马') {
+      var isLocal = val('fOriginType') === '日本本土';
+      if (isOrphan) { return charDB['青梅竹马_孤儿'] || charDB['青梅竹马_本土'] || ''; }
+      return charDB['青梅竹马_' + (isLocal ? '本土' : '外籍')] || '';
+    }
+    return charDB[relVal] || charDB[cleanVal] || genDB[relVal] || genDB[cleanVal] || '';
+  }
+
+  function renderRelations() {
+    var uCls=val('fClass'), uGen=val('fGender'), inHtml='', outHtml='', poolHtml='', inCnt=0, outCnt=0;
+    for(var name in CHARS) {
+      var c = CHARS[name]; if(c.dlc && enabledDLCs.indexOf(c.dlc)===-1) { delete relState[name]; continue; }
+      var isInner = (c.class === uCls);
+      if(!isInner && ['一之濑帆波','神崎隆二','龙园翔','椎名日和','伊吹澪','平田洋介','绫小路清隆','堀北铃音','栉田桔梗','坂柳有栖','桥本正义','伊井野弥子','白银圭','玛利亚·米哈伊罗芙娜·九条','西野明日风','东云绘名','朝比奈真冬','日野森雫','桃井爱莉','式部茉优'].indexOf(name)===-1 && !c.dlc) { delete relState[name]; continue; }
+      if(!relState[name]) relState[name] = { act:false, v:isInner?'同班同学':'同届同学', c:'', r:'' };
+
+      poolHtml += '<div class="cote-char-tag'+(relState[name].act?' selected':'')+'" data-name="'+name+'">+ '+name+'</div>';
+      if(relState[name].act) {
+        var opts = [isInner?'同班同学':'同届同学'];
+        if(uGen!==c.gender && !c.noRomance) {
+          if(name==='栉田桔梗') opts.push('青梅竹马','暧昧对象(未本番)','炮友(已本番 - 友善)','炮友(已本番 - 非友善)','恋人(未本番)','恋人(已本番)');
+          else opts.push('青梅竹马','暧昧对象(未本番)','炮友(已本番)','恋人(未本番)','恋人(已本番)');
+        }
+        else if (uGen!==c.gender && c.noRomance) {
+          opts.push('青梅竹马');
+        }
+        c.customOpt.forEach(function(opt){ if(opt.indexOf('(仅同班)')>-1&&!isInner)return; if(opt.indexOf('(仅班外)')>-1&&isInner)return; if(opt.indexOf('(仅同班女)')>-1&&(!isInner||uGen!=='女'))return; opts.push(opt); });
+        opts.push('自定义');
+        var cv = relState[name].v; if(opts.indexOf(cv)===-1) cv=opts[0]; relState[name].v=cv;
+
+        var defaultLore = getLoreForRelation(name, cv);
+        if (!relState[name].r) relState[name].r = defaultLore;
+
+        var card = '<div class="cote-relation-card" data-name="'+name+'">' +
+                     '<div class="cote-relation-row-main">' +
+                       '<div class="cote-relation-info">' +
+                         '<span class="cote-relation-name">'+name+'</span>' +
+                         '<select class="cote-relation-sel">'+opts.map(function(o){return '<option value="'+o+'" '+(o===cv?'selected':'')+'>'+o+'</option>'}).join('')+'</select>' +
+                         '<input type="text" class="cote-relation-custom '+(cv==='自定义'?'':'cote-hidden')+'" value="'+relState[name].c+'" placeholder="输入关系...">' +
+                       '</div>' +
+                       '<span class="cote-relation-del">×</span>' +
+                     '</div>' +
+                     '<details class="cote-relation-details">' +
+                       '<summary class="cote-relation-details-header">设定关系形成前情 <span>▼</span></summary>' +
+                       '<textarea class="cote-relation-reason" placeholder="简述关系形成的原因（避免AI剧情突兀）...">'+(relState[name].r||'')+'</textarea>' +
+                     '</details>' +
+                   '</div>';
+
+        if(isInner) { inHtml+=card; inCnt++; } else { outHtml+=card; outCnt++; }
+      }
+    }
+    $('relationPool').innerHTML = poolHtml;
+    $('relationListInner').innerHTML = inCnt?inHtml:'<div style="text-align:center;color:var(--c-muted);font-size:11px;padding:10px;">暂无</div>';
+    $('relationListOuter').innerHTML = outCnt?outHtml:'<div style="text-align:center;color:var(--c-muted);font-size:11px;padding:10px;">暂无</div>';
+    checkExclusiveRelations();
+  }
+
+  function checkExclusiveRelations() {
+    var lover = null, childhood = null;
+    for(var n in relState) { if(relState[n].act) { if(relState[n].v.indexOf('恋人')>-1) lover=n; if(relState[n].v.indexOf('青梅竹马')>-1) childhood=n; } }
+    document.querySelectorAll('.cote-relation-sel').forEach(function(s) {
+      var nm = s.closest('.cote-relation-card').getAttribute('data-name');
+      Array.from(s.options).forEach(function(o) {
+        if(o.value.indexOf('恋人')>-1) { o.disabled=(lover&&lover!==nm); o.textContent=o.value.split(' (已占用)')[0]+(o.disabled?' (已占用)':''); }
+        if(o.value.indexOf('青梅竹马')>-1) { o.disabled=(childhood&&childhood!==nm); o.textContent=o.value.split(' (已占用)')[0]+(o.disabled?' (已占用)':''); }
+      });
+    });
+  }
+
+  function updateRouteList() {
+    var rts = ['default'];
+    if(relState['轻井泽惠']&&relState['轻井泽惠'].act&&relState['轻井泽惠'].v.indexOf('恋人')>-1) rts.push('kei_lover');
+    if(relState['神室真澄']&&relState['神室真澄'].act&&relState['神室真澄'].v.indexOf('炮友')>-1) rts.push('masumi_fw');
+    if(relState['椎名日和']&&relState['椎名日和'].act) { var v=relState['椎名日和'].v; if(v==='书友')rts.push('hiyori_friend'); else if(v.indexOf('暧昧对象')>-1)rts.push('hiyori_ambiguous'); else if(v.indexOf('恋人(未本番)')>-1)rts.push('hiyori_lover_un'); else if(v.indexOf('恋人(已本番)')>-1)rts.push('hiyori_lover_done'); else if(v.indexOf('炮友')>-1)rts.push('hiyori_fw'); }
+    if(relState['坂柳有栖']&&relState['坂柳有栖'].act) { var v=relState['坂柳有栖'].v; if(v==='咖啡厅熟人')rts.push('aris_friend'); else if(v.indexOf('暧昧对象')>-1)rts.push('aris_ambiguous'); else if(v.indexOf('恋人(未本番)')>-1)rts.push('aris_lover_un'); else if(v.indexOf('恋人(已本番)')>-1)rts.push('aris_lover_done'); else if(v.indexOf('炮友')>-1)rts.push('aris_fw'); }
+    if(relState['一之濑帆波']&&relState['一之濑帆波'].act) { var v=relState['一之濑帆波'].v; if(v==='熟人')rts.push('honami_friend'); else if(v.indexOf('暧昧对象')>-1)rts.push('honami_ambiguous'); else if(v.indexOf('恋人(未本番)')>-1)rts.push('honami_lover_un'); else if(v.indexOf('恋人(已本番)')>-1)rts.push('honami_lover_done'); else if(v.indexOf('炮友')>-1)rts.push('honami_fw'); }
+    if(relState['堀北铃音']&&relState['堀北铃音'].act&&relState['堀北铃音'].v.indexOf('炮友')>-1) rts.push('suzune_fw');
+    if(relState['栉田桔梗']&&relState['栉田桔梗'].act) { var v=relState['栉田桔梗'].v; if(v==='知情者(友善)')rts.push('kushida_friend'); else if(v==='知情者(敌对)')rts.push('kushida_enemy'); else if(v==='炮友(已本番 - 友善)')rts.push('kushida_fw_friendly'); else if(v==='炮友(已本番 - 非友善)')rts.push('kushida_fw_unfriendly'); else if(v.indexOf('暧昧对象')>-1)rts.push('kushida_ambiguous'); else if(v.indexOf('恋人(未本番)')>-1)rts.push('kushida_lover_un'); else if(v.indexOf('恋人(已本番)')>-1)rts.push('kushida_lover_done'); }
+
+    if(rts.indexOf(curRoute)===-1) curRoute='default';
+    $('routeList').innerHTML = rts.map(function(id){return '<button class="route-btn '+(id===curRoute?'active':'')+'" data-id="'+id+'">'+ROUTE_DB[id].name+'</button>'}).join('');
+    var d = ROUTE_DB[curRoute]; $('routeTitle').textContent=d.title; $('routeDesc').textContent=d.desc; $('routeTag').textContent=d.tag;
+
+    var relLines = [], attLines = [];
+    for (var name in relState) {
+      if (relState[name].act) {
+        var rVal = relState[name].v;
+        var cleanVal = rVal.replace(/\(.*?\)/g, '').trim();
+        if (rVal === '自定义') cleanVal = relState[name].c || '熟人';
+        var relStr = '  - ' + name + ': ' + cleanVal;
+        if (relState[name].r) { relStr += '\n    - 前情设定: ' + relState[name].r; }
+        relLines.push(relStr);
+        attLines.push('  - ' + name + ': ' + getAttitude(rVal));
+      }
+    }
+    var iden = val('fOriginType')==='日本本土'?'日本本土':'外籍学生('+(val('fNat')==='自定义'?val('fNatCustom'):val('fNat'))+')'; iden += '-' + (val('fIdentity')==='自定义'?val('fIdentityCustom'):val('fIdentity'));
+    $('previewText').textContent = '【第二学年开学】\n【开场白】\n【角色信息】\n姓名: {{user}}\n年龄: 16\n性别: '+val('fGender')+'\n生日: '+val('fBirthMonth')+'月'+val('fBirthDay')+'日\n身份标签: '+iden+'\n班级: '+val('fClass')+'\n\n【核心角色初始社会关系】\n'+(relLines.length?relLines.join('\n'):'  - 无特定社会关系')+'\n【核心角色初始态度】\n'+(attLines.length?attLines.join('\n'):'  - 无特定初始态度')+'\n\n---\n【开局描写】\n## 剧情大纲与必须包含的要素：\n'+d.instruction+'\n\n## 最高优先级指令\n- 请在后处理中，将身份标签、消费习惯、学籍情况初始化\n- 在描绘完 {{user}} 步入体育馆列队、并看清馆内各班集结的远景画面后，【必须立即停止输出】。\n- 请在后处理中，将所有出现在【核心角色初始社会关系】中的NPC（即使本场景未登场）录入学生系统。\n【/开场白】';
+  }
+
+  function updateUI() {
+    var p = PRESETS[val('fPreset')], ov = getOverall(), oG = getGrade(ov), warn=[];
+    var ppR = CLASS_PP_RULES[val('fClass')]; $('fManualPP').max=ppR.max;
+    if(!isPPMan) { if(finalPP>ppR.max) finalPP=ppR.max; else if(finalPP<ppR.min&&finalPP>0) finalPP=ppR.min; $('ppGachaDisplay').textContent=finalPP.toLocaleString()+" PP"; }
+
+    ATTRS.forEach(function(a) {
+      var v=clamp(parseInt(val('val_'+a))||0,0,100); $('val_'+a).value=v; $('grade_'+a).textContent=getGrade(v); $('grade_'+a).className='cote-oaa-grade g-'+getGrade(v).toLowerCase();
+      if(!isOAARolling&&$('bar_'+a)) $('bar_'+a).style.transform='scaleX('+(v/100)+')';
+      var cap = (p.specialSlots>0 && p.specialCap && getHighest()===a) ? p.specialCap : p.singleCap;
+      if(v>cap) warn.push(a+'超出单项上限('+cap+')');
+    });
+    $('summaryScore').textContent=ov; $('summaryGrade').textContent=oG; $('summaryGrade').className='cote-summary-grade cote-oaa-grade g-'+oG.toLowerCase();
+    $('summaryRemain').textContent=p.overallCap>=999?'无限制':((p.overallCap-ov>=0)?p.overallCap-ov:'已超出 '+Math.abs(p.overallCap-ov));
+    if(p.overallCap<999&&(ov>p.overallCap||ov<p.overallMin)) warn.push('综合评价('+ov+')超出范围('+p.overallMin+'-'+p.overallCap+')');
+    $('summaryWarn').innerHTML=warn.join('<br>'); $('summaryWarn').classList.toggle('cote-hidden', warn.length===0); $('presetDesc').textContent=p.desc;
+
+    var ppValid = isPPMan ? (parseInt(val('fManualPP'))>=0) : finalPP>0;
+    if(curStep===4) $('btnSubmit').disabled = warn.length>0;
+    else $('btnNext').disabled = (curStep===3 && (!ppValid || (!isOAAMan&&!oaaRolled) || isPPRolling || isOAARolling || warn.length>0));
+  }
+
+  // 事件委托与绑定
+  $('relationPool').addEventListener('click', function(e) { if(e.target.classList.contains('cote-char-tag') && !e.target.classList.contains('selected')) { relState[e.target.getAttribute('data-name')].act=true; renderRelations(); updateRouteList(); } });
+  ['relationListInner','relationListOuter'].forEach(function(id) { $(id).addEventListener('click', function(e) { if(e.target.classList.contains('cote-relation-del')) { relState[e.target.closest('.cote-relation-card').getAttribute('data-name')].act=false; renderRelations(); updateRouteList(); } }); });
+  ['relationListInner','relationListOuter'].forEach(function(id) {
+    $(id).addEventListener('change', function(e) {
+      if(e.target.classList.contains('cote-relation-sel')) {
+        var card = e.target.closest('.cote-relation-card');
+        var n = card.getAttribute('data-name');
+        relState[n].v=e.target.value;
+        card.querySelector('.cote-relation-custom').classList.toggle('cote-hidden', e.target.value!=='自定义');
+        var defaultLore = getLoreForRelation(n, e.target.value);
+        relState[n].r = defaultLore;
+        card.querySelector('.cote-relation-reason').value = defaultLore;
+        checkExclusiveRelations(); updateRouteList();
+      }
+    });
+  });
+  ['relationListInner','relationListOuter'].forEach(function(id) {
+    $(id).addEventListener('input', function(e) {
+      var n = e.target.closest('.cote-relation-card').getAttribute('data-name');
+      if(e.target.classList.contains('cote-relation-custom')) { relState[n].c = e.target.value.trim(); }
+      else if (e.target.classList.contains('cote-relation-reason')) { relState[n].r = e.target.value.trim(); }
+      updateRouteList();
+    });
+  });
+  $('routeList').addEventListener('click', function(e) { if(e.target.classList.contains('route-btn')) { curRoute=e.target.getAttribute('data-id'); updateRouteList(); } });
+
+  $('oaaListArea').addEventListener('click', function(e) { if(e.target.classList.contains('cote-btn-step')) { var inp=$('val_'+e.target.closest('.cote-oaa-item').getAttribute('data-attr')); inp.value=clamp((parseInt(inp.value)||0)+parseInt(e.target.getAttribute('data-d')),0,100); updateUI(); } });
+  $('oaaListArea').addEventListener('input', function(e) { if(e.target.classList.contains('cote-oaa-input')) { e.target.value=clamp(parseInt(e.target.value)||0,0,100); updateUI(); } });
+
+  $('btnNext').onclick=function(){ if(curStep<4){ if(curStep===1){ renderRelations(); updateRouteList(); } curStep++; updateSteps(); } };
+  $('btnPrev').onclick=function(){ if(curStep>1){ curStep--; updateSteps(); } };
+  $('btnTogglePPMode').onclick=function(){ isPPMan=!isPPMan; $('ppGachaMode').classList.toggle('cote-hidden',isPPMan); $('ppManualMode').classList.toggle('cote-hidden',!isPPMan); this.textContent=isPPMan?"切换至抽卡分配":"切换至手动"; updateUI(); };
+  $('btnToggleOAAMode').onclick=function(){ isOAAMan=!isOAAMan; $('oaaContainer').className=isOAAMan?'mode-manual':'mode-gacha'; $('oaaGachaOverlay').classList.toggle('cote-hidden',isOAAMan); this.textContent=isOAAMan?"切换至抽卡分配":"切换至手动"; updateUI(); };
+
+  $('btnPPGacha').onclick=function(){
+    if(isPPRolling)return; isPPRolling=true; var d=$('ppGachaDisplay'); d.classList.add('rolling');
+    var ppRule = CLASS_PP_RULES[val('fClass')]; var r = Math.random(); var target = 0; var range = ppRule.max - ppRule.min;
+    if (r < 0.2) target = ppRule.min + Math.floor(Math.random() * (range * 0.1));
+    else if (r < 0.7) target = ppRule.min + Math.floor(range * 0.1 + Math.random() * (range * 0.4));
+    else if (r < 0.95) target = ppRule.min + Math.floor(range * 0.5 + Math.random() * (range * 0.4));
+    else target = ppRule.min + Math.floor(range * 0.9 + Math.random() * (range * 0.1));
+    var tk=0; var tm=setInterval(function(){
+      tk++; d.textContent=Math.floor(Math.random()*ppRule.max).toLocaleString()+" PP";
+      if(tk>20){ clearInterval(tm); finalPP=clamp(target, ppRule.min, ppRule.max); d.textContent=finalPP.toLocaleString()+" PP"; d.classList.remove('rolling'); isPPRolling=false; updateUI(); }
+    },50);
+  };
+
+  $('btnOAAGacha').onclick=function(){
+    if(isOAARolling)return; isOAARolling=true; $('oaaListArea').classList.add('oaa-rolling');
+    var preset = PRESETS[val('fPreset')]; var tk=0;
+    var tm=setInterval(function(){
+      tk++; ATTRS.forEach(function(a){ $('val_'+a).value=Math.floor(Math.random()*100); }); updateUI();
+      if(tk>25){
+        clearInterval(tm);
+        var finalVals = {}; var maxCycles = 100;
+        while (maxCycles-- > 0) {
+          ATTRS.forEach(function(name) { finalVals[name] = clamp(preset.base + Math.floor(Math.random() * preset.dice), 1, preset.singleCap); });
+          if (preset.specialSlots > 0 && preset.specialCap) { var luckyAttr = ATTRS[Math.floor(Math.random() * ATTRS.length)]; finalVals[luckyAttr] = clamp(preset.base + Math.floor(Math.random() * preset.dice) + 15, 1, preset.specialCap); }
+          var curOverall = Math.round((finalVals['学力'] + finalVals['身体能力'] + finalVals['灵活思考力'] + finalVals['社会贡献性'] * 0.5) / 350 * 100);
+          if (preset.overallCap >= 999 || (curOverall >= preset.overallMin && curOverall <= preset.overallCap)) break;
+        }
+        ATTRS.forEach(function(a){ $('val_'+a).value = finalVals[a]; });
+        $('oaaListArea').classList.remove('oaa-rolling'); oaaRolled=true; isOAARolling=false; updateUI();
+      }
+    },50);
+  };
+
+  function updateSteps() {
+    document.querySelectorAll('.step-content').forEach(function(e){ e.classList.toggle('active', parseInt(e.id.replace('step',''))===curStep); });
+    document.querySelectorAll('.cote-step').forEach(function(e){ e.classList.toggle('active', parseInt(e.getAttribute('data-step'))===curStep); });
+    $('btnPrev').classList.toggle('cote-hidden', curStep===1);
+    if(curStep===4){ $('btnNext').classList.add('cote-hidden'); $('btnSubmit').classList.remove('cote-hidden'); updateRouteList(); } else { $('btnNext').classList.remove('cote-hidden'); $('btnSubmit').classList.add('cote-hidden'); }
+    updateUI();
+  }
+
+  // 初始化
+  var mEl=$('fBirthMonth'), dEl=$('fBirthDay'); for(var m=1;m<=12;m++) mEl.innerHTML+='<option value="'+m+'">'+m+'月</option>';
+  mEl.onchange=function(){ dEl.innerHTML=''; for(var d=1;d<=new Date(2016,mEl.value,0).getDate();d++) dEl.innerHTML+='<option value="'+d+'">'+d+'日</option>'; }; mEl.value=4; mEl.onchange();
+
+  $('fOriginType').onchange=$('fNat').onchange=function(){ var idS=$('fIdentity'); idS.innerHTML=''; var o=val('fOriginType')==='日本本土'?IDENTITIES['日本本土']:(IDENTITIES['外籍_'+val('fNat')]||IDENTITIES['外籍_common']); o.forEach(function(x){idS.innerHTML+='<option value="'+x+'">'+x+'</option>'}); $('fNatWrap').classList.toggle('cote-hidden',val('fOriginType')==='日本本土'); $('fIdentityCustom').classList.toggle('cote-hidden',true); renderRelations(); updateRouteList(); };
+  $('fIdentity').onchange=function(){ $('fIdentityCustom').classList.toggle('cote-hidden', val('fIdentity')!=='自定义'); renderRelations(); updateRouteList(); };
+
+  function getActualClass(c) {
+    if(c==='A班')return 'A班(坂柳班)'; if(c==='B班')return 'B班(一之濑班)'; if(c==='C班')return 'C班(龙园班)'; if(c==='D班')return 'D班(堀北班)'; return c;
+  }
+
+  $('btnSubmit').onclick = async function() {
+    if(this.disabled) return;
+    if (typeof Mvu !== 'undefined' && typeof Mvu.getMvuData === 'function') {
+      try {
+        var mvuData = Mvu.getMvuData({ type: 'message', message_id: 'latest' });
+        if (mvuData && mvuData.stat_data) {
+          var sd = mvuData.stat_data;
+
+          if (!sd['章节管理']) sd['章节管理'] = {};
+          if (!sd['学生证']) sd['学生证'] = {};
+          if (!sd['学生证']['能力档案']) sd['学生证']['能力档案'] = {};
+          if (!sd['班级终端']) sd['班级终端'] = {};
+
+          var selGender = val('fGender');
+          var selBirth = val('fBirthMonth') + '月' + val('fBirthDay') + '日';
+          var selClass = val('fClass');
+          var ppRule = CLASS_PP_RULES[selClass];
+          var pp = isPPMan ? clamp(parseInt(val('fManualPP')) || 0, 0, ppRule.max) : finalPP;
+
+          sd['章节管理']['学年'] = "第二学年";
+          sd['章节管理']['学期'] = "第一学期";
+
+          sd['学生证']['年龄'] = 16;
+          sd['学生证']['所属年级'] = "二年级";
+          sd['学生证']['当前时间'] = "2016年-04月-06日-星期三-07:00";
+          sd['学生证']['性别'] = selGender;
+          sd['学生证']['生日'] = selBirth;
+          sd['学生证']['班级'] = selClass;
+          sd['学生证']['实际班级'] = getActualClass(selClass);
+          sd['学生证']['个人点数'] = pp;
+
+          ATTRS.forEach(function(a) {
+            var v = parseInt(val('val_'+a)) || 0;
+            var g = getGrade(v);
+            if (!sd['学生证']['能力档案'][a]) sd['学生证']['能力档案'][a] = {};
+            sd['学生证']['能力档案'][a]['分数'] = v;
+            sd['学生证']['能力档案'][a]['评级'] = g;
+            sd['学生证']['能力档案'][a]['经验值'] = 0;
+          });
+
+          sd['班级终端']['班级排名'] = {
+            "A班": { 显示名: "A班", 领导者: "坂柳有栖", 排名: "第1名", 班级点数: 1119 },
+            "B班": { 显示名: "B班", 领导者: "一之濑帆波", 排名: "第2名", 班级点数: 542 },
+            "C班": { 显示名: "C班", 领导者: "龙园翔", 排名: "第3名", 班级点数: 540 },
+            "D班": { 显示名: "D班", 领导者: "堀北铃音", 排名: "第4名", 班级点数: 275 }
+          };
+
+          await Mvu.replaceMvuData(mvuData, { type: 'message', message_id: 'latest' });
+        }
+      } catch (e) { console.warn('[ANHS] MVU开局数据写入失败:', e); }
+    }
+    var t=$('previewText').textContent;
+    try {
+      var i=window.parent.document.querySelector('#send_textarea');
+      var b=window.parent.document.querySelector('#send_but');
+      if(i&&b){ i.value=t; i.dispatchEvent(new Event('input',{bubbles:true})); b.click(); }
+    } catch(e){}
+  };
+
+  $('btnReset').onclick=function(){ curStep=1; $('fGender').value='男'; $('fClass').value='D班'; $('fPreset').value='middle'; isPPMan=isOAAMan=false; finalPP=0; oaaRolled=false; relState={}; $('ppGachaDisplay').textContent="??? PP"; $('ppGachaMode').classList.remove('cote-hidden'); $('ppManualMode').classList.add('cote-hidden'); $('oaaGachaOverlay').classList.remove('cote-hidden'); $('oaaContainer').className='mode-gacha'; initOAAUI(); $('fOriginType').onchange(); renderRelations(); updateRouteList(); updateSteps(); };
+
+  initOAAUI(); $('fOriginType').onchange();
+  setTimeout(async function(){ await checkDLCs(); renderRelations(); updateRouteList(); updateSteps(); }, 300);
+})();
+</script>
+</body>
+</html>
+```

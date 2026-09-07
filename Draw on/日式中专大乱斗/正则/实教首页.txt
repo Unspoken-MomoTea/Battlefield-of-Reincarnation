@@ -1,0 +1,940 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高度育成学生终端</title>
+</head>
+<body>
+<!--
+  高度育成学生终端 · 封面页 (暗色统一版)
+  定位：独立封面开场白
+  功能：介绍卡片、选择篇章、同步世界书、切换开场白、解析模式控制
+-->
+
+<div id="anhs-home-root">
+  <section class="anhs-shell">
+    <div class="anhs-grid-bg"></div>
+    <div class="anhs-glow anhs-glow-1"></div>
+    <div class="anhs-glow anhs-glow-2"></div>
+
+    <!-- 顶栏 -->
+    <header class="anhs-topbar">
+      <div class="anhs-brand">
+        <div class="anhs-logo">AN</div>
+        <div class="anhs-brand-text">
+          <h1>高度育成学生终端</h1>
+          <p>Advanced Nurturing High School · Enrollment Console</p>
+        </div>
+      </div>
+      <div class="anhs-system-state">
+        <span class="anhs-dot"></span>
+        SYSTEM ONLINE
+      </div>
+    </header>
+
+    <!-- 学校概要横幅 -->
+    <div class="anhs-banner">
+      <div class="anhs-banner-content">
+        <h2>东京都高度育成高级中学</h2>
+        <p>位于东京都人造岛上的全寄宿制国立高中。班级点数、个人点数与特别考试持续筛选每一名学生。</p>
+      </div>
+      <div class="anhs-banner-stats">
+        <div class="anhs-stat-chip"><span>CP</span>班级点数</div>
+        <div class="anhs-stat-chip"><span>PP</span>个人点数</div>
+        <div class="anhs-stat-chip"><span>EX</span>特别考试</div>
+      </div>
+    </div>
+
+    <!-- 主操作区 -->
+    <main class="anhs-main">
+      <div class="anhs-section-header">
+        <div class="anhs-section-left">
+          <span class="anhs-kicker">START MENU</span>
+          <h2>选择开局篇章</h2>
+        </div>
+        <div class="anhs-steps">
+          <span class="anhs-step" data-step="1">① 选择</span>
+          <span class="anhs-step" data-step="2">② 同步</span>
+          <span class="anhs-step" data-step="3">③ 进入</span>
+        </div>
+      </div>
+
+      <!-- 学年选择 -->
+      <div class="anhs-group">
+        <div class="anhs-group-label">学年篇章</div>
+        <div class="anhs-card-list">
+          <button class="anhs-card" data-year="y1" data-label="一年级篇" data-swipe="1" onclick="anhsSelectYear(this)">
+            <div class="anhs-card-code">YEAR 01</div>
+            <div class="anhs-card-body">
+              <strong>一年级篇</strong>
+              <span>S系统 · 入学班级 · 初始状态</span>
+            </div>
+            <div class="anhs-card-mark">Ⅰ</div>
+          </button>
+
+          <!-- 二年级篇 -->
+          <button class="anhs-card" data-year="y2" data-label="二年级篇" data-swipe="2" onclick="anhsSelectYear(this)">
+            <div class="anhs-card-code">YEAR 02</div>
+            <div class="anhs-card-body">
+              <strong>二年级篇</strong>
+              <span>OAA · 二年级班级 · 能力评价</span>
+            </div>
+            <div class="anhs-card-mark">Ⅱ</div>
+          </button>
+
+          <button class="anhs-card anhs-card-locked" data-year="y3" data-label="三年级篇" data-swipe="3" disabled>
+            <div class="anhs-card-code">YEAR 03</div>
+            <div class="anhs-card-body">
+              <strong>三年级篇 <span class="anhs-badge anhs-badge-wip">未完成</span></strong>
+              <span>最终年度 · OAA · 毕业竞争</span>
+            </div>
+            <div class="anhs-card-mark">Ⅲ</div>
+          </button>
+
+          <!-- 后日谈 -->
+          <button class="anhs-card anhs-card-locked" data-year="y_after" data-label="后日谈" data-swipe="4" disabled>
+            <div class="anhs-card-code">AFTER</div>
+            <div class="anhs-card-body">
+              <strong>后日谈 <span class="anhs-badge anhs-badge-wip">未完成</span></strong>
+              <span>毕业之后 · 新的旅程</span>
+            </div>
+            <div class="anhs-card-mark">∞</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 核心重点：解析模式控制区 (雷霆重制版) -->
+      <div class="anhs-group anhs-mode-highlight-zone">
+        <div class="anhs-group-label anhs-flash-label">
+          <span class="anhs-lightning-icon">⚡</span> 解析模式设置 <span class="anhs-lightning-icon">⚡</span>
+        </div>
+        <div class="anhs-mode-desc-strong">
+          ⚠️ <strong>使用主API：</strong>请务必激活左侧 <strong style="color: #ff3366;">【主变量】</strong> 模式。<br>
+          ⚠️ <strong>使用额外解析：</strong>请务必激活右侧 <strong style="color: #00f0ff;">【额外解析】</strong> 模式。
+        </div>
+        <div class="anhs-mode-switch-heavy">
+          <button class="anhs-mode-btn-heavy" id="anhsModeMain" onclick="anhsSetParseMode('main')">
+            主变量模式
+          </button>
+          <button class="anhs-mode-btn-heavy" id="anhsModeExtra" onclick="anhsSetParseMode('extra')">
+            额外解析模式
+          </button>
+        </div>
+      </div>
+
+      <!-- DLC管理 -->
+      <div class="anhs-group">
+        <div class="anhs-group-label">扩展模块</div>
+        <div class="anhs-card-list">
+          <button class="anhs-card anhs-card-dlc" data-label="扩展模块管理" data-swipe="5" onclick="anhsSelectDlc(this)">
+            <div class="anhs-card-code anhs-code-gold">MODULE</div>
+            <div class="anhs-card-body">
+              <strong>扩展模块管理 <span class="anhs-badge anhs-badge-dlc">DLC</span></strong>
+              <span>外部角色联动 · 额外扩展内容</span>
+            </div>
+            <div class="anhs-card-mark anhs-mark-gold">+</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 操作面板 -->
+      <div class="anhs-action-panel">
+        <div class="anhs-status-area">
+          <span class="anhs-status-label">当前状态</span>
+          <strong id="anhsSyncStatus">请选择篇章</strong>
+        </div>
+        <div class="anhs-action-btns">
+          <button class="anhs-btn anhs-btn-outline" id="anhsSyncBtn" onclick="anhsSyncWorldbook()">同步并初始化</button>
+          <button class="anhs-btn anhs-btn-primary" id="anhsEnterBtn" onclick="anhsConfirmEnter()" disabled>确认进入</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- 底部 -->
+    <footer class="anhs-footer">
+      <span>进入对应篇章后，再填写S系统或OAA等开局信息</span>
+      <span class="anhs-footer-ver">ANHS / STUDENT TERMINAL / VER 2.1</span>
+    </footer>
+  </section>
+</div>
+
+<style>
+  :root {
+    --anhs-bg: rgba(14,10,28,0.95);
+    --anhs-surface: rgba(24,18,42,0.85);
+    --anhs-card-bg: rgba(32,26,54,0.8);
+    --anhs-inset: rgba(12,8,24,0.6);
+    --anhs-text: #e8e4f4;
+    --anhs-sub: #9a94b8;
+    --anhs-muted: #5c5878;
+    --anhs-wine: #8B1E3F;
+    --anhs-wine-light: #B82E55;
+    --anhs-gold: #C6A15B;
+    --anhs-gold-soft: rgba(198,161,91,0.12);
+    --anhs-accent: #b8a9e8;
+    --anhs-border: rgba(255,255,255,0.06);
+    --anhs-shadow: rgba(0,0,0,0.4);
+    --anhs-glass: 14px;
+    --anhs-success: #69db7c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, 'Segoe UI', 'Noto Sans SC', sans-serif;
+    background: transparent;
+    color: var(--anhs-text);
+    line-height: 1.5;
+  }
+
+  #anhs-home-root {
+    width: min(960px, 96%);
+    margin: 16px auto;
+    padding: 6px;
+  }
+
+  .anhs-shell {
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px;
+    background: var(--anhs-bg);
+    border: 1px solid var(--anhs-border);
+    box-shadow: 0 24px 48px var(--anhs-shadow);
+    padding: 20px;
+    backdrop-filter: blur(var(--anhs-glass));
+    -webkit-backdrop-filter: blur(var(--anhs-glass));
+  }
+
+  /* 背景装饰 */
+  .anhs-grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(184,169,232,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(184,169,232,0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent 70%);
+    pointer-events: none;
+  }
+  .anhs-glow {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(80px);
+    opacity: 0.4;
+  }
+  .anhs-glow-1 {
+    width: 300px; height: 300px;
+    top: -80px; left: -60px;
+    background: var(--anhs-wine);
+  }
+  .anhs-glow-2 {
+    width: 200px; height: 200px;
+    bottom: -40px; right: -40px;
+    background: var(--anhs-gold);
+    opacity: 0.2;
+  }
+
+  /* 顶栏 */
+  .anhs-topbar {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--anhs-wine), var(--anhs-wine-light));
+    border-bottom: 3px solid var(--anhs-gold);
+    box-shadow: 0 8px 24px rgba(139,30,63,0.3);
+  }
+  .anhs-brand { display: flex; align-items: center; gap: 14px; }
+  .anhs-logo {
+    width: 48px; height: 48px;
+    display: grid; place-items: center;
+    border-radius: 10px;
+    background: linear-gradient(145deg, rgba(255,255,255,0.9), var(--anhs-gold));
+    color: var(--anhs-wine);
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .anhs-brand-text h1 {
+    font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.06em;
+  }
+  .anhs-brand-text p {
+    margin-top: 3px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 0.06em;
+  }
+  .anhs-system-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.8);
+    white-space: nowrap;
+  }
+  .anhs-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--anhs-success);
+    box-shadow: 0 0 8px var(--anhs-success);
+  }
+
+  /* 横幅 */
+  .anhs-banner {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: var(--anhs-surface);
+    border: 1px solid var(--anhs-border);
+  }
+  .anhs-banner-content h2 {
+    font-size: 1.1rem;
+    color: var(--anhs-gold);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .anhs-banner-content p {
+    font-size: 12px;
+    color: var(--anhs-sub);
+    line-height: 1.6;
+    max-width: 420px;
+  }
+  .anhs-banner-stats {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .anhs-stat-chip {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--anhs-inset);
+    border: 1px solid var(--anhs-border);
+    text-align: center;
+    font-size: 10px;
+    color: var(--anhs-sub);
+  }
+  .anhs-stat-chip span {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--anhs-accent);
+    margin-bottom: 2px;
+  }
+
+  /* 主操作区 */
+  .anhs-main {
+    position: relative;
+    margin-top: 16px;
+    padding: 20px;
+    border-radius: 14px;
+    background: var(--anhs-surface);
+    border: 1px solid var(--anhs-border);
+  }
+  .anhs-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--anhs-border);
+    margin-bottom: 16px;
+  }
+  .anhs-kicker {
+    font-size: 10px;
+    color: var(--anhs-gold);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
+  .anhs-section-header h2 {
+    font-size: 1.3rem;
+    color: var(--anhs-text);
+    margin-top: 4px;
+  }
+  .anhs-steps {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .anhs-step {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--anhs-gold-soft);
+    border: 1px solid rgba(198,161,91,0.2);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--anhs-gold);
+  }
+
+  /* 分组 */
+  .anhs-group { margin-bottom: 18px; }
+  .anhs-group-label {
+    font-size: 10px;
+    color: var(--anhs-muted);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    padding-left: 4px;
+  }
+  .anhs-card-list { display: grid; gap: 8px; }
+
+  /* 卡片 */
+  .anhs-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 72px 1fr 38px;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px;
+    border: 1px solid var(--anhs-border);
+    border-radius: 12px;
+    background: var(--anhs-card-bg);
+    color: var(--anhs-text);
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+    font-size: inherit;
+  }
+  .anhs-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    border-radius: 12px 0 0 12px;
+    background: transparent;
+    transition: background 0.15s;
+  }
+  .anhs-card:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: var(--anhs-wine);
+    box-shadow: 0 8px 20px rgba(139,30,63,0.15);
+  }
+  .anhs-card.selected {
+    border-color: var(--anhs-wine);
+    background: rgba(139,30,63,0.08);
+  }
+  .anhs-card.selected::before { background: var(--anhs-wine); }
+
+  .anhs-card-locked {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .anhs-card-locked:hover { transform: none; border-color: var(--anhs-border); box-shadow: none; }
+
+  .anhs-card-code {
+    display: grid;
+    place-items: center;
+    height: 50px;
+    border-radius: 8px;
+    background: rgba(139,30,63,0.12);
+    color: var(--anhs-wine-light);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+  }
+  .anhs-code-gold {
+    background: var(--anhs-gold-soft);
+    color: var(--anhs-gold);
+  }
+  .anhs-card-body strong {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--anhs-text);
+  }
+  .anhs-card-body span {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--anhs-sub);
+  }
+  .anhs-card-mark {
+    width: 34px; height: 34px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: rgba(139,30,63,0.1);
+    color: var(--anhs-wine-light);
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .anhs-card.selected .anhs-card-mark {
+    background: var(--anhs-wine);
+    color: #fff;
+  }
+  .anhs-mark-gold {
+    background: var(--anhs-gold-soft);
+    color: var(--anhs-gold);
+  }
+
+  /* 徽章 */
+  .anhs-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+  .anhs-badge-wip { background: var(--anhs-muted); color: #fff; }
+  .anhs-badge-dlc { background: var(--anhs-gold); color: #1a1a2e; }
+
+  /* ==========================================
+     【雷霆重点：核心解析模式控制 UI】
+     ========================================== */
+  .anhs-mode-highlight-zone {
+    border: 2px solid #ff3b30;
+    background: linear-gradient(145deg, rgba(255, 59, 48, 0.05), rgba(139, 30, 63, 0.1));
+    padding: 16px;
+    border-radius: 14px;
+    margin-bottom: 20px;
+    position: relative;
+    box-shadow: 0 0 15px rgba(255, 59, 48, 0.2);
+    animation: anhsZoneAlert 3.5s infinite ease-in-out;
+  }
+
+  @keyframes anhsZoneAlert {
+    0%, 100% { border-color: rgba(255, 59, 48, 0.8); box-shadow: 0 0 12px rgba(255, 59, 48, 0.2); }
+    50% { border-color: #ffcc00; box-shadow: 0 0 25px rgba(255, 204, 0, 0.45); }
+  }
+
+  .anhs-flash-label {
+    font-size: 13px !important;
+    color: #ffcc00 !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.1em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px !important;
+    text-transform: uppercase;
+  }
+
+  .anhs-lightning-icon {
+    font-size: 16px;
+    color: #ffcc00;
+    animation: anhsLightning 0.6s infinite alternate;
+  }
+
+  @keyframes anhsLightning {
+    0% { opacity: 0.4; transform: scale(0.9); }
+    100% { opacity: 1; transform: scale(1.3); filter: drop-shadow(0 0 10px #ffcc00); }
+  }
+
+  .anhs-mode-desc-strong {
+    font-size: 12px;
+    color: #e8e4f4;
+    background: rgba(12, 8, 24, 0.85);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border-left: 4px solid #ffcc00;
+    margin-bottom: 14px;
+    line-height: 1.6;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+  }
+
+  .anhs-mode-switch-heavy {
+    display: flex;
+    gap: 12px;
+    background: var(--anhs-inset);
+    padding: 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .anhs-mode-btn-heavy {
+    flex: 1;
+    position: relative;
+    padding: 14px 10px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--anhs-sub);
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    font-family: inherit;
+    text-align: center;
+    outline: none;
+  }
+
+  .anhs-mode-btn-heavy:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  /* 激活状态：主变量模式 (爆裂霓虹绯红光晕) */
+  .anhs-mode-btn-heavy#anhsModeMain.active {
+    background: linear-gradient(135deg, #ff0055, #8b1e3f);
+    color: #ffffff;
+    border-color: #ff3366;
+    box-shadow: 0 0 30px rgba(255, 0, 85, 0.85), inset 0 0 15px rgba(255, 255, 255, 0.4);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    animation: anhsPulseRed 1.2s infinite alternate;
+  }
+
+  /* 激活状态：额外解析模式 (爆裂霓虹雷电蓝光晕) */
+  .anhs-mode-btn-heavy#anhsModeExtra.active {
+    background: linear-gradient(135deg, #00d2ff, #0055ff);
+    color: #ffffff;
+    border-color: #00f0ff;
+    box-shadow: 0 0 30px rgba(0, 210, 255, 0.85), inset 0 0 15px rgba(255, 255, 255, 0.4);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    animation: anhsPulseBlue 1.2s infinite alternate;
+  }
+
+  @keyframes anhsPulseRed {
+    0% { box-shadow: 0 0 15px rgba(255, 0, 85, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.2); transform: scale(1); }
+    100% { box-shadow: 0 0 35px rgba(255, 0, 85, 1), inset 0 0 20px rgba(255, 255, 255, 0.5); transform: scale(1.02); }
+  }
+
+  @keyframes anhsPulseBlue {
+    0% { box-shadow: 0 0 15px rgba(0, 210, 255, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.2); transform: scale(1); }
+    100% { box-shadow: 0 0 35px rgba(0, 210, 255, 1), inset 0 0 20px rgba(255, 255, 255, 0.5); transform: scale(1.02); }
+  }
+
+  /* 操作面板 */
+  .anhs-action-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--anhs-inset);
+    border: 1px solid var(--anhs-border);
+  }
+  .anhs-status-label {
+    display: block;
+    font-size: 10px;
+    color: var(--anhs-muted);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .anhs-status-area strong {
+    font-size: 12px;
+    color: var(--anhs-accent);
+  }
+  .anhs-action-btns { display: flex; gap: 8px; }
+
+  .anhs-btn {
+    border: none;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    transition: transform 0.12s, opacity 0.12s;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .anhs-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .anhs-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .anhs-btn-outline {
+    background: transparent;
+    color: var(--anhs-wine-light);
+    border: 1px solid var(--anhs-wine);
+  }
+  .anhs-btn-outline:hover:not(:disabled) { background: rgba(139,30,63,0.08); }
+  .anhs-btn-primary {
+    background: linear-gradient(135deg, var(--anhs-wine), var(--anhs-wine-light));
+    color: var(--anhs-gold);
+    border: none;
+  }
+
+  /* 底部 */
+  .anhs-footer {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 0 4px;
+    font-size: 11px;
+    color: var(--anhs-muted);
+  }
+  .anhs-footer-ver {
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  /* 响应式 */
+  @media (max-width: 768px) {
+    #anhs-home-root { padding: 4px; }
+    .anhs-shell { padding: 14px; border-radius: 16px; }
+    .anhs-topbar { flex-wrap: wrap; padding: 12px 14px; }
+    .anhs-brand-text h1 { font-size: 1.1rem; }
+    .anhs-banner { flex-direction: column; align-items: flex-start; }
+    .anhs-banner-stats { width: 100%; }
+    .anhs-section-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .anhs-steps { justify-content: flex-start; }
+    .anhs-card { grid-template-columns: 60px 1fr 32px; padding: 12px; }
+    .anhs-action-panel { flex-direction: column; align-items: stretch; }
+    .anhs-action-btns { flex-direction: column; }
+    .anhs-btn { width: 100%; text-align: center; }
+    .anhs-footer { flex-direction: column; text-align: center; gap: 4px; }
+  }
+
+  @media (max-width: 420px) {
+    .anhs-shell { padding: 10px; }
+    .anhs-topbar { padding: 10px 12px; }
+    .anhs-logo { width: 40px; height: 40px; font-size: 14px; }
+    .anhs-brand-text h1 { font-size: 1rem; }
+    .anhs-system-state { font-size: 9px; padding: 5px 10px; }
+    .anhs-banner { padding: 12px; }
+    .anhs-main { padding: 14px; }
+    .anhs-card-code { height: 42px; font-size: 9px; }
+    .anhs-card-body strong { font-size: 13px; }
+  }
+</style>
+
+<script>
+(function () {
+  var selectedYear = null;
+  var selectedLabel = null;
+  var selectedSwipeId = null;
+  var worldbookSynced = false;
+  var worldBook = null;
+
+  /* 选择学年篇章 */
+  window.anhsSelectYear = function (el) {
+    if (el.hasAttribute('disabled')) return;
+
+    var cards = document.querySelectorAll('.anhs-card');
+    for (var i = 0; i < cards.length; i++) { cards[i].classList.remove('selected'); }
+    el.classList.add('selected');
+
+    selectedYear = el.getAttribute('data-year');
+    selectedLabel = el.getAttribute('data-label');
+    selectedSwipeId = Number(el.getAttribute('data-swipe'));
+    worldbookSynced = false;
+
+    var enterBtn = document.getElementById('anhsEnterBtn');
+    enterBtn.disabled = true;
+    enterBtn.textContent = '确认进入';
+
+    var syncBtn = document.getElementById('anhsSyncBtn');
+    syncBtn.disabled = false;
+
+    document.getElementById('anhsSyncStatus').textContent = '已选择：' + selectedLabel + '，请先同步世界书';
+  };
+
+  /* 选择DLC入口 */
+  window.anhsSelectDlc = function (el) {
+    if (el.hasAttribute('disabled')) return;
+
+    var cards = document.querySelectorAll('.anhs-card');
+    for (var i = 0; i < cards.length; i++) { cards[i].classList.remove('selected'); }
+    el.classList.add('selected');
+
+    selectedYear = null;
+    selectedLabel = el.getAttribute('data-label');
+    selectedSwipeId = Number(el.getAttribute('data-swipe'));
+    worldbookSynced = true;
+
+    var enterBtn = document.getElementById('anhsEnterBtn');
+    enterBtn.disabled = false;
+    enterBtn.textContent = '进入终端';
+
+    var syncBtn = document.getElementById('anhsSyncBtn');
+    syncBtn.disabled = true;
+
+    document.getElementById('anhsSyncStatus').textContent = '已选择：' + selectedLabel + '，可直接进入';
+  };
+
+  /* 同步世界书与初始化状态 */
+  window.anhsSyncWorldbook = async function () {
+    if (!selectedYear) {
+      anhsToast('请先选择篇章', 'warning');
+      return;
+    }
+
+    var btn = document.getElementById('anhsSyncBtn');
+    var status = document.getElementById('anhsSyncStatus');
+
+    btn.disabled = true;
+    btn.textContent = '同步中...';
+    status.textContent = '正在同步：' + selectedLabel;
+
+    try {
+      await anhsApplyYearWorldbook(selectedYear);
+      worldbookSynced = true;
+      document.getElementById('anhsEnterBtn').disabled = false;
+      status.textContent = '已同步：' + selectedLabel + ' 且已初始化状态';
+      anhsToast(selectedLabel + '世界书已同步', 'success');
+    } catch (error) {
+      console.error('[ANHS] 世界书同步失败:', error);
+      status.textContent = '同步失败，请检查世界书API或手动切换';
+      anhsToast('世界书同步失败', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '同步并初始化';
+    }
+  };
+
+  /* 确认进入 */
+  window.anhsConfirmEnter = function () {
+    if (!selectedLabel) {
+      anhsToast('请先选择项目', 'warning');
+      return;
+    }
+    if (!worldbookSynced) {
+      anhsToast('请先同步世界书', 'warning');
+      return;
+    }
+    anhsSwitchToOpening(selectedSwipeId);
+  };
+
+  /* 初始化世界书 */
+  async function anhsInitWorldbook() {
+    if (!worldBook && typeof getCharWorldbookNames === 'function') {
+      worldBook = getCharWorldbookNames('current').primary;
+    }
+    return worldBook;
+  }
+
+  /* 批量设置条目启用状态(按前缀或包含) */
+  async function anhsSetEntriesByTag(tag, enabled) {
+    await anhsInitWorldbook();
+    if (!worldBook || typeof getWorldbook !== 'function' || typeof replaceWorldbook !== 'function') return false;
+
+    var entries = await getWorldbook(worldBook);
+    var updated = entries.map(function(entry) {
+      if (entry.name && entry.name.includes(tag)) {
+        var copy = {};
+        for (var k in entry) { if (Object.prototype.hasOwnProperty.call(entry, k)) copy[k] = entry[k]; }
+        copy.enabled = enabled;
+        return copy;
+      }
+      return entry;
+    });
+    await replaceWorldbook(worldBook, updated);
+    return true;
+  }
+
+  /* 新增：精确匹配名称修改世界书状态 */
+  async function anhsSetEntriesByExactName(nameStr, enabled) {
+    await anhsInitWorldbook();
+    if (!worldBook || typeof getWorldbook !== 'function' || typeof replaceWorldbook !== 'function') return false;
+
+    var entries = await getWorldbook(worldBook);
+    var updated = entries.map(function(entry) {
+      if (entry.name && entry.name === nameStr) {
+        var copy = {};
+        for (var k in entry) { if (Object.prototype.hasOwnProperty.call(entry, k)) copy[k] = entry[k]; }
+        copy.enabled = enabled;
+        return copy;
+      }
+      return entry;
+    });
+    await replaceWorldbook(worldBook, updated);
+    return true;
+  }
+
+  /* 新增：切换解析模式逻辑 */
+  window.anhsSetParseMode = async function(mode) {
+    var btnMain = document.getElementById('anhsModeMain');
+    var btnExtra = document.getElementById('anhsModeExtra');
+
+    // UI样式切换
+    if (mode === 'main') {
+      btnMain.classList.add('active');
+      btnExtra.classList.remove('active');
+    } else {
+      btnExtra.classList.add('active');
+      btnMain.classList.remove('active');
+    }
+
+    try {
+      if (mode === 'main') {
+        await anhsSetEntriesByExactName('output_format (随AI输出开，主API)', true);
+        await anhsSetEntriesByExactName('[mvu_update]output_format (使用额外模型更新变量开)', false);
+        anhsToast('已开启主变量解析模式', 'success');
+      } else {
+        await anhsSetEntriesByExactName('[mvu_update]output_format (使用额外模型更新变量开)', true);
+        await anhsSetEntriesByExactName('output_format (随AI输出开，主API)', false);
+        anhsToast('已开启额外解析模式', 'success');
+      }
+    } catch (e) {
+      console.error('[ANHS] 模式切换失败:', e);
+      anhsToast('模式切换失败，请检查世界书连接', 'error');
+    }
+  };
+
+  /* 应用学年世界书（仅控制对应世界书条目的启闭，去除冗余的MVU初始化） */
+  async function anhsApplyYearWorldbook(year) {
+    var yearTagMap = { y1: 'S1_', y2: 'S2_', y3: 'S3_' };
+
+    await anhsSetEntriesByTag('S1_', false);
+    await anhsSetEntriesByTag('S2_', false);
+    await anhsSetEntriesByTag('S3_', false);
+    await anhsSetEntriesByTag(yearTagMap[year], true);
+  }
+
+  /* 切换开场白 */
+  async function anhsSwitchToOpening(swipeId) {
+    var btn = document.getElementById('anhsEnterBtn');
+    btn.disabled = true;
+    btn.textContent = '正在进入...';
+
+    try {
+      var messages = await getChatMessages('0', { include_swipe: true });
+      if (messages && messages[0] && messages[0].swipes && messages[0].swipes[swipeId]) {
+        await setChatMessage(messages[0].swipes[swipeId], 0, {
+          swipe_id: swipeId,
+          refresh: 'display_and_render_current'
+        });
+        anhsToast('已进入' + selectedLabel, 'success');
+      } else {
+        throw new Error('开场白 ' + (swipeId + 1) + ' 未找到');
+      }
+    } catch (error) {
+      console.error('[ANHS] 切换开场白失败:', error);
+      anhsToast('进入失败：' + error.message, 'error');
+      btn.disabled = false;
+      btn.textContent = '确认进入';
+    }
+  }
+
+  /* Toast通知 */
+  function anhsToast(message, type) {
+    if (typeof toastr !== 'undefined') {
+      if (type === 'success') toastr.success(message);
+      else if (type === 'error') toastr.error(message);
+      else if (type === 'warning') toastr.warning(message);
+      else toastr.info(message);
+    } else {
+      console.log('[' + (type || 'info') + '] ' + message);
+    }
+  }
+})();
+</script>
+
+</body>
+</html>
+```

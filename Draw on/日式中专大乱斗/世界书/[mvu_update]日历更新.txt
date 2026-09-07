@@ -1,0 +1,29 @@
+---
+<%_ {
+  const rootConfigKey = 'aoo_calendar.calendar_root_path';
+  const calendarKeyConfigKey = 'aoo_calendar.calendar_key';
+  const rootRootPath = String(getvar(rootConfigKey, { defaults: 'stat_data' }) || 'stat_data').trim() || 'stat_data';
+  const calendarKey = String(getvar(calendarKeyConfigKey, { defaults: '日历' }) || '日历').trim() || '日历';
+  const rootPath = `${rootRootPath}.${calendarKey}`;
+  const displayPath = rootPath.replace(/^stat_data\./, '');
+_%>
+变量更新规则（日历事件规划）:
+  <%= displayPath %>.${临时|重复}:
+    type: |-
+      {
+        [ID: string]: // 必须匹配 regex: `/^[a-zA-Z0-9_]+$/`，推荐简短英文缩写
+        {
+          标题: string;
+          内容: string; // 客观视角，详细描述、备忘信息
+          时间: optional[string]; // 必须严格使用 `YYYY年-MM月-DD日-星期X-HH:MM` 格式
+          结束时间: optional[string]; // 格式要求同开始时间
+          重复规则: '无' | '每天' | '每周' | '每月' | '每年' | '仅工作日' | '仅节假日';
+          完成后: optional['自动清理'];
+          重要度: optional['普通' | '重要'];
+        }
+      }
+    check:
+      - 清理带有自动清理的已完成事件
+      - 时间不允许使用如`明天`等相对时间，而应该使用绝对时间以避免语义漂移
+      - 事件生成遵循<事件生成规则>及<calendar_think_format>要求
+<%_ } _%>

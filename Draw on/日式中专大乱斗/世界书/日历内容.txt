@@ -1,0 +1,24 @@
+---
+
+<当前日历事件>
+<%_ {
+  const rootConfigKey = 'aoo_calendar.calendar_root_path';
+  const calendarKeyConfigKey = 'aoo_calendar.calendar_key';
+  const rootRootPath = String(getvar(rootConfigKey, { defaults: 'stat_data' }) || 'stat_data').trim() || 'stat_data';
+  const calendarKey = String(getvar(calendarKeyConfigKey, { defaults: '日历' }) || '日历').trim() || '日历';
+  const rootPath = `${rootRootPath}.${calendarKey}`;
+  const displayPath = rootPath.replace(/^stat_data\./, '');
+
+  const data = getMessageVar('stat_data', { defaults: {} });
+
+  if (!_.isObject(_.get(data, displayPath))) {
+    setMessageVar(rootPath, { 临时: {}, 重复: {} });
+  }
+
+  const calendar = getMessageVar(rootPath, { defaults: { 临时: {}, 重复: {} } });
+  const displayOutput = {};
+  _.set(displayOutput, displayPath, calendar);
+_%>
+<%= YAML.stringify(displayOutput, { blockQuote: 'literal' }) %>
+<%_ } _%>
+</当前日历事件>

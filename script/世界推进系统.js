@@ -35,6 +35,16 @@
         const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
         return (+m[1]*372 + +m[2]*31 + +m[3])*24+(part?hour[part[0]]:0);
     }
+    // 仅供日历显示：接受中式日期和 ISO 日期，拒绝不存在的日期，不推测作品内时间。
+    function calendarDate(value) {
+        const source=String(value||'').trim();
+        const m=source.match(/^(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/)||source.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?!\d)/);
+        if(!m)return null;
+        const y=+m[1],month=+m[2],d=+m[3],date=new Date(0);
+        date.setFullYear(y,month-1,d);date.setHours(0,0,0,0);
+        if(date.getFullYear()!==y||date.getMonth()!==month-1||date.getDate()!==d)return null;
+        return {y,m:month,d,key:y+'-'+month+'-'+d};
+    }
     const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的已确认状态、本轮实际剧情、模型已有的世界/原著知识，以及存在时可用的世界书补充设定为依据，统一处理六个模块：
 【世界推进】世界推进的首要职责是维护“宏观世界演进”，不是替正文重复每个细节。世界.因果轨道是3~5个宏观大事件的简明投影，后台.事件则是它的展开版调度图。事件分类只允许“当前事件 / 近期节点 / 宏观节点”：正在发生或当前场景已直接启动的事件属于当前事件；连接当前时间与下一宏观边界的撤离、会合、调查、赶路、单次战斗等属于近期节点；只有会改变篇章/地区/社会/战争/据点体系/基础设施/关键人物命运等阶段状态的事件才属于宏观节点。不得为满足数量把抢车、过桥、开门、单次会合等桥接动作提升成宏观节点。
 先建立宏观骨架：原著世界优先结合当前已确认事实与模型已有的原著知识，推导当前时间之后仍应存在的关键篇章转折、世界级灾难、战争/政权变化、基础设施级失效、关键人物命运与主角团重大迁移；世界书若存在则作为额外设定、同人差异和时间资料的补充校正，若没有世界书也必须正常推演。原创/衍生世界则依据当前世界法则、既有历史与势力格局推导宏观节点。
@@ -773,7 +783,7 @@
             const now=worldDateKey(state.世界.时间);
             const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
             const input=JSON.stringify({世界书:books,当前变量:state,正文楼层:floors,程序结构修复:structuralFixes,时间线调度:timeline,推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:'当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断'},可选宏观资料补充:needBackbone,本轮必须复核的到期事件:due,待拆分旧故事线:state.世界.因果轨道,说明:'当前变量为已确认事实，不重复结算；只用世界.时间推进。世界书为空不构成阻塞。'},null,2);
-            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n'+protocol()+'\n可选明细字段：'+JSON.stringify(MODEL_DETAILS)+'\n【节点调度】后台.事件是唯一调度图，因果轨道是它的宏观摘要。按两个阶段工作：\nA. 宏观骨架：先检查“时间线调度.需要初始化 / 需要补充远期 / 因果轨道需重建”。原著世界首先使用当前确认事实与模型已有的原著知识识别后续确定性大事件；世界书如有则用于补充、校正同人差异和时间资料，没有世界书也不得停止宏观推演或退化为只写当前剧情。宏观节点应是篇章转折、跨地区灾难、战争/政权变化、主要据点体系兴亡、基础设施级失效、关键人物命运、主角团重大迁移等真正改变阶段状态的边界；至少维持3个有依据的待发生宏观节点。抢夺车辆、穿越单座桥梁、进入某房间、单次会合/战斗/突破属于桥接细节，默认只能是当前事件或近期节点，除非其结果本身直接造成地区级以上阶段改变。准确公历时间不确定时使用作品内相对时间，不为排程捏造日期。\nB. 区间桥接：读取“时间线调度.下一宏观节点 / 桥接区间”。只展开当前时间到该边界之间的当前事件、近期节点、场外人物、势力地区、探索与传播；所有细节都应解释这段时间世界如何走向下一宏观节点，或解释偏移为何使它改变。下一宏观节点之后保持宏观层，不提前生成大量人物日程和琐碎事件。若尚无下一宏观节点，先完成阶段A，再生成必要桥接细节。\n原著世界推演规则沿用额外思考中的世界推演：结合当前时间锚点、当前地点、当前剧情阶段、已知角色状态、原著人物行动规律、世界势力动态；推演人物行动、势力变化、剧情推进、世界事件。原创/衍生世界基于当前世界法则与本土势力动态持续推演。世界持续运行，不因<user>未行动而暂停。\n每轮仍需复核到期事件、人物行程与语义时间节点。时间到且条件成立就启动，已有结果才完成；未满足条件记录真实阻碍和下次检查。事件后果联动场外人物、势力地区、传播以及已有任务状态。后台.剧本不参与调度。'
+            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【写入协议】\n'+protocol()+'\n\n【可选字段明细】\n'+JSON.stringify(MODEL_DETAILS)+'\n\n【本轮执行顺序】\n1. 读事实：以当前变量、已确认正文和历史为准；模型已有的原著知识用于建立默认未来，世界书仅作补充校正。没有世界书也不得停止推演；不确定的原著时间或情节标成待核实，不当作已发生事实。\n2. 读调度：先检查时间线调度的需要初始化、需要补充远期、因果轨道需重建。必要时先建立宏观骨架，至少维持3个有依据的待发生宏观节点；原著确定性大事件优先，局部行动不得凑数。若准确日期未知，用作品内时间或明确条件，不编造公历日期。\n3. 处理本轮：逐项复核到期事件和人物行程。满足条件则启动或推进；实际结果已确认才完成。未满足时写明阻碍及下次检查。只展开当前时间至下一宏观节点的区间桥接，不预写远期细节。\n4. 联动：依照实际因果更新场外人物、探索与势力、信息传播及已有任务状态；任务和人物引用同一事件，不新建旧剧本调度。偏移成立时同步修正宏观投影。\n5. 输出：公开摘要仅放当前可观察影响，内部计划、未确认情报和未来结局不得泄露。运行摘要只总结本批补丁真正更新的内容，不把正文已完成的玩家/NPC属性初始化说成本引擎的功劳。最后检查路径、字段、引用、状态、到期复核与宏观数量，仅返回 world_update。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
             return {system,input,seedPatches,due,timeline:copy(timeline),manifest:{读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),程序结构修复:copy(structuralFixes),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }
@@ -821,6 +831,7 @@
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
                     actualRequest.manifest=Object.assign({},copy(request.manifest),{
+                        请求字符数:request.system.length+attemptInput.length,
                         尝试序号:attempt+1,
                         最大失败重试:maxRetries,
                         失败记录:copy(this.lastRetryLog)
@@ -1141,7 +1152,14 @@
                 if(button.dataset.directory){this.directoryTab=button.dataset.directory;this.render();return;}
                 if(button.dataset.faction){this.selectedFaction=button.dataset.faction;this.render();return;}
                 if(button.dataset.jumpPerson){this.selectedPerson=button.dataset.jumpPerson;this.tab='角色管理';this.filter='全部';this.query='';this.selectedDate='';this.render(true);return;}
-                if(button.dataset.jumpEvent){this.jumpEvent=button.dataset.jumpEvent;this.tab='世界推进';this.filter='全部';this.query=this.jumpEvent;this.selectedDate='';this.render(true);return;}
+                if(button.dataset.jumpEvent){
+                    this.jumpEvent=button.dataset.jumpEvent;this.tab='世界推进';this.filter='全部';this.query='';
+                    const world=this.snapshot().stat.世界,event=world[PATH]?.事件?.[this.jumpEvent];
+                    const date=calendarDate(event?.时间||event?.开始时间),today=calendarDate(world.时间);
+                    this.selectedDate=date?.key||'';this.calendarMode=date?'date':'undated';
+                    this.monthOffset=date&&today?(date.y-today.y)*12+date.m-today.m:0;
+                    this.eventLimit=Number.MAX_SAFE_INTEGER;this.render(true);return;
+                }
                 if(button.dataset.person){this.selectedPerson=button.dataset.person;this.render();return;}
                 if(a==='close')this.close();
                 else if(a==='run')this.run().catch(()=>{});
@@ -1161,11 +1179,19 @@
                 }
                 else if(a==='book-all'||a==='book-none'){this.panel.querySelectorAll('[data-book]').forEach(e=>{e.checked=a==='book-all'&&!e.disabled;});}
                 else if(a==='preview'){this.buildRequest(this.snapshot()).then(r=>{this.previewRequest=r;this.tab='请求检查';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});}
-                else if(a==='month'){this.monthOffset=(this.monthOffset||0)+Number(button.dataset.step);this.render();}
-                else if(a==='date'){this.selectedDate=this.selectedDate===button.dataset.date?'':button.dataset.date;this.render();}
-                else if(a==='clear-date'){this.selectedDate='';this.render();}
+                else if(a==='month'){
+                    this.monthOffset=(this.monthOffset||0)+Number(button.dataset.step);
+                    const today=calendarDate(this.snapshot().stat.世界.时间),date=new Date(0);
+                    if(today){date.setFullYear(today.y,today.m-1+this.monthOffset,1);this.selectedDate=date.getFullYear()+'-'+(date.getMonth()+1)+'-1';}
+                    this.calendarMode='date';this.eventLimit=12;this.render();
+                }
+                else if(a==='date'){this.selectedDate=button.dataset.date;this.calendarMode='date';this.eventLimit=12;this.render();}
+                else if(a==='clear-date'){this.selectedDate='';this.calendarMode='all';this.eventLimit=12;this.render();}
+                else if(a==='today'){this.selectedDate=undefined;this.calendarMode='today';this.monthOffset=0;this.eventLimit=12;this.render();}
+                else if(a==='undated'){this.selectedDate='';this.calendarMode='undated';this.eventLimit=12;this.render();}
+                else if(a==='more-events'){this.eventLimit=(this.eventLimit||12)+12;this.render();}
                 else if(button.dataset.filter){this.filter=button.dataset.filter;this.render();}
-                else if(button.dataset.tab){this.tab=button.dataset.tab;this.filter='全部';this.query='';this.selectedDate='';this.render(true);}
+                else if(button.dataset.tab){this.tab=button.dataset.tab;this.filter='全部';this.query='';this.selectedDate=undefined;this.calendarMode='today';this.monthOffset=0;this.eventLimit=12;this.render(true);}
             });
             this.panel.addEventListener('input',event=>{
                 if(event.target.matches('[data-search]')){
@@ -1214,7 +1240,14 @@
             const details=(id,obj,title='查看完整档案')=>Object.values(obj).some(exists)?'<details data-detail="'+text(id)+'"'+(opened.has(id)?' open':'')+'><summary>'+text(title)+'</summary>'+fields(obj)+'</details>':'';
             const section=(title,body,hint='')=>'<section class="we-section"><div class="we-section-head"><h2>'+text(title)+'</h2><small>'+text(hint)+'</small></div>'+body+'</section>';
             const entries=obj=>Object.entries(obj||{});
-            const parseDate=str=>{const m=String(str||'').match(/(\d+)\s*年\s*-?\s*(\d+)\s*月\s*-?\s*(\d+)\s*日/);return m?{y:+m[1],m:+m[2],d:+m[3],key:+m[1]+'-'+(+m[2])+'-'+(+m[3])}:null;};
+            const parseDate=calendarDate;
+            const contextKey=JSON.stringify([snapshot?.fingerprint?JSON.parse(snapshot.fingerprint)[0]:null,w.名称]);
+            if(this.calendarContext!==contextKey){this.calendarContext=contextKey;this.selectedDate=undefined;this.calendarMode="today";this.monthOffset=0;}
+            if(this.selectedDate===undefined||this.calendarMode==="today")this.selectedDate=parseDate(w.时间)?.key||"";
+            if(this.calendarMode==='date'){
+                const anchor=parseDate(w.时间),selected=parseDate(this.selectedDate);
+                if(anchor&&selected)this.monthOffset=(selected.y-anchor.y)*12+selected.m-anchor.m;
+            }
             const dateLabel=str=>{const d=parseDate(str);return d?d.m+'月'+d.d+'日':str||'日期未定';};
             const displayBucket=e=>{
                 if(e.状态==='进行中')return 0;
@@ -1253,6 +1286,8 @@
                     ['宏观锚点',list.filter(([,e])=>e.状态!=='进行中'&&e.状态==='待发生'&&e.分类==='宏观节点')],
                     ['已结束',list.filter(([,e])=>['已完成','已取消'].includes(e.状态))]
                 ];
+                const assigned=new Set(groups.flatMap(([,items])=>items.map(([name])=>name)));
+                groups.push(['待归类记录',list.filter(([name])=>!assigned.has(name))]);
                 return groups.filter(([,items])=>items.length).map(([title,items])=>'<div class="we-timeline-group"><div class="we-timeline-group-title">'+text(title)+'<small>'+items.length+'</small></div>'+items.map(([n,e])=>eventCard(n,e)).join('')+'</div>').join('');
             };
             const taskCard=(name,t)=>{
@@ -1261,6 +1296,7 @@
                 return '<article class="we-card"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(t.状态||'进行中',completed?'':'future')+'</div><p>'+text(t.目标||t.说明||'等待目标记录')+'</p><div class="we-meta"><span>'+text(completed?'完成条件已满足':linked.length?linked.length+' 个关联事件 · '+activeLinked+' 个待处理':'进度依据实际剧情确认')+'</span></div>'+details('task-'+name,{来源:t.委托方,难度:t.难度,关联事件:linkedNames,奖励:t.奖励,惩罚:t.惩罚,交付:t.交付},'任务与关联事件')+'</article>';
             };
             const matched=(name,obj)=>!this.query||(name+' '+Object.values(obj).filter(v=>typeof v==='string').join(' ')).toLowerCase().includes(this.query.toLowerCase());
+            const calendarCandidates=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter));
             const tools=(filters=[])=>'<div class="we-tools"><input data-search aria-label="搜索档案" placeholder="搜索名称、地点或内容…" value="'+text(this.query||'')+'">'+filters.map(f=>'<button data-filter="'+f+'" class="'+((this.filter||'全部')===f?'active':'')+'">'+f+'</button>').join('')+'</div>';
             const calendar=()=>{
                 const today=parseDate(w.时间);
@@ -1268,9 +1304,10 @@
                 const month=new Date(0);month.setFullYear(today.y,today.m-1+(this.monthOffset||0),1);month.setHours(0,0,0,0);
                 const y=month.getFullYear(),m=month.getMonth()+1,first=(month.getDay()+6)%7;
                 const last=new Date(month);last.setMonth(last.getMonth()+1,0);const count=last.getDate();
-                const marked=new Set(events.map(([,e])=>parseDate(e.时间||e.开始时间)?.key).filter(Boolean));
+                const marked=new Map();
+                calendarCandidates.forEach(([,e])=>{const key=parseDate(e.时间||e.开始时间)?.key;if(key)marked.set(key,(marked.get(key)||0)+1);});
                 let cells=['一','二','三','四','五','六','日'].map(x=>'<span>'+x+'</span>').join('')+'<span></span>'.repeat(first);
-                for(let d=1;d<=count;d++){const key=y+'-'+m+'-'+d;cells+='<button data-action="date" data-date="'+key+'" aria-label="'+key+'" class="'+(today.key===key?'today ':'')+(marked.has(key)?'has-event ':'')+(this.selectedDate===key?'selected':'')+'">'+d+'</button>';}
+                for(let d=1;d<=count;d++){const key=y+'-'+m+'-'+d;cells+='<button data-action="date" data-date="'+key+'" aria-label="'+key+'" aria-pressed="'+(this.selectedDate===key)+'" title="'+key+' · '+(marked.get(key)||0)+' 个匹配事件" class="'+(today.key===key?'today ':'')+(marked.has(key)?'has-event ':'')+(this.selectedDate===key?'selected':'')+'">'+d+'</button>';}
                 return '<div class="we-calendar"><div class="we-calhead"><button class="we-btn" data-action="month" data-step="-1" aria-label="上月">‹</button><strong>'+y+' 年 '+m+' 月</strong><button class="we-btn" data-action="month" data-step="1" aria-label="下月">›</button></div><div class="we-days">'+cells+'</div><div class="we-meta"><span>金框 · 当前日期</span><span>绿点 · 已排定事件</span></div></div>';
             };
             const hero='<div class="we-hero"><div><div class="we-eyebrow">SAMSARA / WORLD ARCHIVE</div><h1>'+text(w.名称&&w.名称!=='待初始化'?w.名称:'世界尚未建立')+'</h1><div class="we-muted">'+text(w.地点||'地点待确认')+' · '+text(orbit.当前阶段&&orbit.当前阶段!=='待初始化'?orbit.当前阶段:'等待篇章开启')+'</div></div><div class="we-date">'+text(w.时间||'副本日期待确认')+'<small>累计游玩 '+text((s.系统状态||{}).游玩天数||0)+' 天 · '+(reason?'推进暂停':'副本进行中')+'</small></div></div>';
@@ -1278,7 +1315,7 @@
             if(this.tab==='世界推进'){
                 const changes=(state.最近变化||[]).slice(-6).reverse();
                 const changeHtml=changes.map(c=>'<div class="we-change"><time>'+text(dateLabel(c.时间))+'</time><div><b>'+text(c.名称||c.类别)+' · '+text(c.操作)+'</b><p>'+text(c.内容||c.字段)+'</p></div></div>').join('');
-                const shown=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter)&&(!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate));
+                const shown=calendarCandidates.filter(([,e])=>this.calendarMode==='undated'?!parseDate(e.时间||e.开始时间):!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate);
                 const runningTasks=tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态));
                 const macroCount=events.filter(([,e])=>e.分类==='宏观节点').length;
                 const timelineView=snapshot?timelineState(s):null;
@@ -1295,7 +1332,7 @@
                     +'</div>';
                 html+='<div class="we-dashboard"><div class="we-command-main">'
                     +section('世界动向',state.公开摘要?'<div class="we-pulse"><span class="we-pulse-mark">LIVE</span><p>'+text(state.公开摘要)+'</p></div>':empty('尚无公开动态','推进成功后，这里的结果会提供给正文 AI。'),'本轮可见变化')
-                    +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>时间线与日历</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+(this.selectedDate?'<p class="we-date-filter">筛选 '+text(this.selectedDate)+' <button class="we-btn" data-action="clear-date">显示全部</button></p>':'')+'<div class="we-timeline">'+(timelineCards(shown.slice(0,12))||empty('没有符合条件的事件'))+'</div>'+(shown.length>12?'<p class="we-muted">当前仅展示前 12 个匹配节点，可用筛选缩小范围。</p>':'')+'</div></div></section>'
+                    +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>时间线与日历</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+'<div class="we-tools"><span>'+text(this.calendarMode==='undated'?'未定日 / 作品内时间':this.selectedDate||'全部日期')+'</span><button data-action="today">回到今天</button><button data-action="clear-date">全部日期</button><button data-action="undated">未定日事件</button></div>'+'<div class="we-timeline">'+(timelineCards(shown.slice(0,this.eventLimit||12))||empty('没有符合条件的事件'))+'</div>'+(shown.length>(this.eventLimit||12)?'<button class="we-btn" data-action="more-events">显示更多（共 '+shown.length+' 项）</button>':'')+'</div></div></section>'
                     +section('近期变化',changeHtml||empty('本轮无变化记录'),'最近一次成功推进')
                     +'</div><aside class="we-command-side">'
                     +section('下一宏观节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="点击定位到时间线中的对应宏观事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'本轮需要先建立真实宏观节点')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+(nextEvent?' · 点击定位 →':'')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果轨道')

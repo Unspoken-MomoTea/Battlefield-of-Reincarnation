@@ -1991,6 +1991,44 @@ ${schemaText}
                 #sam-world-engine .we-dashboard{grid-template-columns:minmax(0,1fr) minmax(285px,325px)}
                 #sam-world-engine .we-dashboard .we-section{border-color:#d2dcdd;background:#fff}
                 #sam-world-engine .we-timeline-board{box-shadow:none}
+                #sam-world-engine .we-ledger-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 12px}
+                #sam-world-engine .we-ledger-stat{min-width:0;padding:11px 13px;border:1px solid #d8e0e1;border-radius:11px;background:#fff}
+                #sam-world-engine .we-ledger-stat small{display:block;color:#8a929c;font-size:9px;letter-spacing:.8px}
+                #sam-world-engine .we-ledger-stat strong{display:block;margin:2px 0;font:600 21px/1.15 Georgia,serif;color:#30455d}
+                #sam-world-engine .we-ledger-stat span{display:block;color:#7b8490;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+                #sam-world-engine .we-explore-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,330px);gap:12px;align-items:start}
+                #sam-world-engine .we-explore-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+                #sam-world-engine .we-explore-card{display:block;width:100%;min-width:0;padding:13px;border:1px solid #d6dfe0;border-radius:12px;background:#fff;text-align:left;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+                #sam-world-engine .we-explore-card:hover{border-color:#b9c9c7;box-shadow:0 5px 16px #22314210;transform:translateY(-1px)}
+                #sam-world-engine .we-explore-card.active{border-color:#b28a4a;box-shadow:0 0 0 2px #d9b97825}
+                #sam-world-engine .we-explore-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+                #sam-world-engine .we-explore-head>div{min-width:0}
+                #sam-world-engine .we-explore-head small{display:block;color:#8b949d;font-size:9px}
+                #sam-world-engine .we-explore-head h3{margin:2px 0 0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+                #sam-world-engine .we-risk-badge{flex:0 0 auto;padding:2px 7px;border:1px solid #d7dfe0;border-radius:999px;background:#f7f8f5;color:#536476;font-size:9px}
+                #sam-world-engine .we-explore-score{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin:11px 0 5px}
+                #sam-world-engine .we-explore-score strong{font:600 23px/1 Georgia,serif;color:#31475f}
+                #sam-world-engine .we-explore-score strong small{display:inline;font:500 10px/1 system-ui;color:#7b8793}
+                #sam-world-engine .we-explore-score span{font-size:10px;color:#8b6a33}
+                #sam-world-engine .we-explore-bar{height:6px;overflow:hidden;border-radius:999px;background:#e8eceb}
+                #sam-world-engine .we-explore-bar>i{display:block;height:100%;border-radius:999px;background:#6f9d8c}
+                #sam-world-engine .we-explore-meta{display:flex;flex-wrap:wrap;gap:5px 9px;margin-top:9px;color:#788491;font-size:9px}
+                #sam-world-engine .we-explore-card p{margin:8px 0 0;color:#657185;font-size:10px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+                #sam-world-engine .we-area-side{position:sticky;top:0}
+                #sam-world-engine .we-area-hero{padding:2px 0 10px;border-bottom:1px solid #e2e7e6}
+                #sam-world-engine .we-area-hero small{color:#8a939d;font-size:9px}
+                #sam-world-engine .we-area-hero h3{margin:2px 0 8px;font-size:17px}
+                #sam-world-engine .we-area-progress{display:grid;grid-template-columns:auto minmax(0,1fr);gap:11px;align-items:center}
+                #sam-world-engine .we-area-progress>strong{font:600 31px/1 Georgia,serif;color:#30465f}
+                #sam-world-engine .we-area-progress>div>span{display:flex;justify-content:space-between;color:#7b8791;font-size:9px;margin-bottom:5px}
+                #sam-world-engine .we-area-progress em{font-style:normal;color:#8b6a33}
+                #sam-world-engine .we-area-note{margin-top:10px;padding:9px 10px;border-radius:9px;background:#f5f7f3;color:#647180;font-size:10px;line-height:1.6}
+                #sam-world-engine .we-faction-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+                #sam-world-engine .we-faction-card{display:block;width:100%;padding:12px 13px;border:1px solid #d6dfe0;border-radius:11px;background:#fff;text-align:left}
+                #sam-world-engine .we-faction-card.active{border-color:#b28a4a;box-shadow:0 0 0 2px #d9b97822}
+                #sam-world-engine .we-faction-card .we-card-top h3{font-size:13px}
+                #sam-world-engine .we-rep{display:flex;justify-content:space-between;gap:8px;margin:8px 0 4px;font-size:10px;color:#788491}
+                #sam-world-engine .we-rep b{color:#8b6a33}
                 #sam-world-engine .we-preset-toolbar{position:sticky;top:-1px;z-index:8;display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 14px;padding:12px 14px;border:1px solid #c7d2d4;border-radius:13px;background:#fffdf9f2;backdrop-filter:blur(10px);box-shadow:0 8px 22px #22314212}
                 #sam-world-engine .we-preset-toolbar>div:first-child{display:flex;flex-direction:column;min-width:0}
                 #sam-world-engine .we-preset-toolbar b{font-size:14px;color:#2c3e50}
@@ -2019,6 +2057,8 @@ ${schemaText}
                 @media(max-width:1100px){
                     #sam-world-engine .we-world-focus{grid-template-columns:1fr}
                     #sam-world-engine .we-dashboard{grid-template-columns:1fr}
+                    #sam-world-engine .we-explore-layout{grid-template-columns:1fr}
+                    #sam-world-engine .we-area-side{position:static}
                     #sam-world-engine .we-command-side{position:static;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
                     #sam-world-engine .we-command-side>.we-section{margin-bottom:0}
                     #sam-world-engine .we-calendar-layout{grid-template-columns:minmax(220px,260px) minmax(0,1fr)}
@@ -2036,6 +2076,8 @@ ${schemaText}
                     #sam-world-engine h1{font-size:21px}
                     #sam-world-engine .we-hero .we-date{min-width:105px;font-size:11px}
                     #sam-world-engine .we-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+                    #sam-world-engine .we-ledger-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+                    #sam-world-engine .we-explore-grid,#sam-world-engine .we-faction-grid{grid-template-columns:1fr}
                     #sam-world-engine .we-preset-toolbar{align-items:flex-start}
                     #sam-world-engine .we-doc-create{grid-template-columns:1fr 1fr}
                     #sam-world-engine .we-doc-create input{grid-column:1/-1}

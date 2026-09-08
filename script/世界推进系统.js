@@ -549,25 +549,54 @@
         if(key==='异端')return EXISTING.名单;
         return {};
     }
+    function detailTextField(sample) {
+        for(const key of ['名称','事实','行动','影响','内容','说明','问题','对象','地点']){
+            if(Object.hasOwn(sample||{},key)&&typeof sample[key]==='string')return key;
+        }
+        return Object.keys(sample||{}).find(key=>typeof sample[key]==='string')||'';
+    }
+    function normalizeStructuredDetail(value,sample) {
+        const out=copy(sample||{});
+        if(plain(value)){
+            for(const key of Object.keys(sample||{})){
+                if(Object.hasOwn(value,key))out[key]=normalizeResultField(value[key],sample[key]);
+            }
+            return out;
+        }
+        if(value!==undefined&&value!==null&&value!==''){
+            const key=detailTextField(sample);
+            if(key)out[key]=normalizeResultField(value,sample[key]);
+        }
+        return out;
+    }
     function normalizeResultField(value,sample) {
         if(Array.isArray(sample)){
-            if(Array.isArray(value))return copy(value);
-            if(value===undefined||value===null||value==='')return [];
-            return [copy(value)];
+            const list=Array.isArray(value)?value:(value===undefined||value===null||value===''?[]:[value]);
+            if(sample.length&&plain(sample[0]))return list.filter(item=>item!==undefined&&item!==null&&item!=='').map(item=>normalizeStructuredDetail(item,sample[0]));
+            return list.map(copy);
+        }
+        if(plain(sample)){
+            if(!plain(value))return copy(sample);
+            const out=copy(sample);
+            for(const key of Object.keys(sample))if(Object.hasOwn(value,key))out[key]=normalizeResultField(value[key],sample[key]);
+            return out;
         }
         if(typeof sample==='number'){
             const number=Number(value);
             return Number.isFinite(number)?number:value;
         }
+        if(typeof sample==='boolean')return typeof value==='boolean'?value:!!value;
         if(typeof sample==='string'&&value!==undefined&&value!==null)return String(value);
         return copy(value);
     }
     function normalizeNamedResultList(value,sample,allowedOps=['更新','撤销本轮']) {
+        const sampleKeys=Object.keys(sample||{}),singleField=sampleKeys.length===1?sampleKeys[0]:'';
         const list=Array.isArray(value)?value:plain(value)?Object.entries(value).map(([name,item])=>{
-            if(!plain(item))return null;
-            return Object.assign({名称:name},copy(item));
+            if(plain(item))return Object.assign({名称:name},copy(item));
+            if(singleField&&item!==undefined&&item!==null)return {名称:name,[singleField]:copy(item)};
+            return null;
         }).filter(Boolean):[];
-        const fields=new Set(Object.keys(sample||{})),map=new Map();
+        const fields=new Set(sampleKeys),map=new Map();
         const aliases={
             所在世界:'所属世界',
             已知信息:'认知',

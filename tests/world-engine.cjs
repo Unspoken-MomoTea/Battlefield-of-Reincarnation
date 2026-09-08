@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const file = path.join(__dirname, '../script/世界推进系统.js');
 const source = fs.readFileSync(file, 'utf8');
-const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA, projectWorldContext, compactWorldLifecycle, calendarDate} = require(file);
+const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA, projectWorldContext, compactWorldLifecycle, calendarDate, repairExplorationGranularity} = require(file);
 const clone = x => JSON.parse(JSON.stringify(x));
 const fresh = () => ({世界:{名称:'测试世界',时间:'2026年9月7日清晨',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},系统状态:{是否在主神空间:false},设置:{},任务:{列表:{调查:{状态:'进行中'}},副本成就:{发现:{状态:'未达成'}}},关系列表:{},传闻:{}});
 const add = (path,value) => ({op:'add',path,value});
@@ -264,27 +264,20 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(next.世界.后台.事件.天台入口攻防.前因,['病毒向高层蔓延']);
         assert.ok(next.世界.后台.事件.病毒向高层蔓延);
     });
-    await test('exploration reward ledger rejects micro locations and self-heals old child-area records', async () => {
+    await test('exploration reward ledger rejects micro locations and self-heals old child-area records', () => {
         const stat=fresh();
         assert.throws(()=>compileWorldResult(stat,{
             摘要:'错误探索粒度',
             探索:[{名称:'藤美学园-天台',风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}]
         }),/探索粒度过细.*藤美学园-天台/);
-        stat.世界.探索={'藤美学园-天台':{风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}};
-        let raw={stat_data:stat};
-        const host={
-            localStorage:{getItem:()=>null,setItem:()=>{}},
-            Samsara:{terminal:{apiReady:()=>true,request:async()=>JSON.stringify({摘要:'无额外变化'})}},
-            Mvu:{getMvuData:()=>raw,replaceMvuData:async data=>{raw=data;}},
-            getCurrentChatId:()=> 'explore-repair',
-            getChatMessages:()=>[{message_id:1,message:'玩家在学校中行动。',role:'assistant'}]
+        stat.世界.探索={
+            '藤美学园':{风险:'F',探索度:10,描述:'已进入校园',隐藏真相:''},
+            '藤美学园-天台':{风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}
         };
-        const engine=new Engine(host);engine.config.enabled=true;engine.config.requireMacroBackbone=false;
-        engine.snapshot=()=>({id:1,stat:raw.stat_data,raw,chat:'explore-repair',fingerprint:JSON.stringify(['explore-repair',1,raw.stat_data.世界.名称,raw.stat_data.世界.时间]),mvu:host.Mvu});
-        engine.blocked=()=>false;engine.render=()=>{};engine.notifyFailure=()=>{};
-        assert.equal(await engine.run(),true);
-        assert.equal(raw.stat_data.世界.探索['藤美学园-天台'],undefined);
-        assert.equal(raw.stat_data.世界.探索.藤美学园.探索度,20);
+        const repairs=repairExplorationGranularity(stat);
+        assert.equal(stat.世界.探索['藤美学园-天台'],undefined);
+        assert.equal(stat.世界.探索.藤美学园.探索度,20);
+        assert.ok(repairs.some(p=>p.op==='remove'&&p.path==='/世界/探索/藤美学园-天台'));
     });
     await test('WorldResult can update world currency economy fields without touching player balances', () => {
         const stat=fresh();

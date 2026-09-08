@@ -144,7 +144,7 @@
         updatedAt:'2026-09-09T00:00:00.000Z',
         settings:{
             // 直接引用当前 DEFAULT_PRESET，避免以后修改默认提示词却忘记同步“默认设置”文档。
-            preset:DEFAULT_PRESET,
+            preset:normalizeEditablePreset(DEFAULT_PRESET),
             contextTurns:3,
             activationMode:'respect_activation',
             selectedEntries:copy(BUILTIN_DEFAULT_SELECTED_ENTRIES)

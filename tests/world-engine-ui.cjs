@@ -46,14 +46,29 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(xlargeSettingSmall>standardSettingSmall,true,'字号设置必须实际放大面板内部文字');
  assert.equal(await page.locator('#sam-world-engine').evaluate(el=>getComputedStyle(el).fontSize),'20px','特大字号应使用完整20px级别');
  await page.locator('[data-font-option="standard"]').click();
- await page.locator('[data-tone-option="parchment"]').click();
- const parchmentContrast=await page.locator('nav button:not([aria-selected="true"])').first().evaluate(el=>{
-   const nav=getComputedStyle(el.closest('nav')),button=getComputedStyle(el);
-   const rgb=s=>{const m=s.match(/\d+(?:\.\d+)?/g)||[];return m.slice(0,3).map(Number);};
-   const lum=arr=>{const v=arr.map(x=>x/255).map(x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4));return .2126*v[0]+.7152*v[1]+.0722*v[2];};
-   const a=lum(rgb(button.color)),b=lum(rgb(nav.backgroundColor));return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
- });
- assert.equal(parchmentContrast>=4.5,true,'羊皮色未选中导航文字必须达到可读对比度');
+ for(const [tone,label] of [['parchment','羊皮'],['sakura','樱白'],['matcha','抹茶']]){
+   await page.locator(`[data-tone-option="${tone}"]`).click();
+   const chromeContrast=await page.locator('nav button:not([aria-selected="true"])').first().evaluate(el=>{
+     const root=getComputedStyle(el.closest('#sam-world-engine')),button=getComputedStyle(el);
+     const rgb=s=>{
+       s=String(s||'').trim();
+       if(s.startsWith('#')){let h=s.slice(1);if(h.length===3)h=h.split('').map(x=>x+x).join('');return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));}
+       const m=s.match(/\d+(?:\.\d+)?/g)||[];return m.slice(0,3).map(Number);
+     };
+     const lum=arr=>{const v=arr.map(x=>x/255).map(x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4));return .2126*v[0]+.7152*v[1]+.0722*v[2];};
+     const ratio=(a,b)=>{a=lum(rgb(a));b=lum(rgb(b));return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);};
+     const active=el.closest('nav').querySelector('button[aria-selected="true"]'),activeStyle=getComputedStyle(active);
+     const headerButton=el.closest('#sam-world-engine').querySelector('header button.we-btn:not(.we-primary)'),headerStyle=getComputedStyle(headerButton);
+     return {
+       nav:ratio(button.color,root.getPropertyValue('--we-nav')),
+       active:ratio(activeStyle.color,activeStyle.backgroundColor),
+       header:ratio(headerStyle.color,root.getPropertyValue('--we-head'))
+     };
+   });
+   assert.equal(chromeContrast.nav>=4.5,true,`${label}色未选中导航文字必须达到可读对比度`);
+   assert.equal(chromeContrast.active>=4.5,true,`${label}色当前导航按钮必须达到可读对比度`);
+   assert.equal(chromeContrast.header>=4.5,true,`${label}色头部按钮必须达到可读对比度`);
+ }
  await page.locator('[data-tone-option="night"]').click();
  await page.locator('[data-tone-option="crimson"]').click();
  assert.equal(await page.locator('#sam-world-engine').getAttribute('data-tone'),'crimson');

@@ -888,6 +888,52 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.doesNotMatch(engine.config.preset,/【势力与地区】/);
         assert.match(engine.config.preset,/【信息传播】/);
     });
+    await test('editable prompt presets can permanently remove default segments after legacy migration', () => {
+        let saved='';
+        const host={localStorage:{getItem:()=>JSON.stringify({presetEditorVersion:2,preset:'【自定义段】\n只保留这一段'}),setItem:(_,v)=>{saved=v;}},Samsara:{}};
+        const engine=new Engine(host);
+        assert.equal(engine.config.preset,'【自定义段】\n只保留这一段');
+        assert.doesNotMatch(engine.config.preset,/【世界推进】/);
+        engine.setPreset('【另一段】\n新的正文');
+        assert.equal(engine.config.preset,'【另一段】\n新的正文');
+        assert.equal(JSON.parse(saved).presetEditorVersion,2);
+        assert.doesNotMatch(JSON.parse(saved).preset,/【信息传播】/);
+    });
+    await test('prompt documents save import apply and delete complete prompt settings', () => {
+        let stored='';
+        const host={localStorage:{getItem:()=>null,setItem:(_,v)=>{stored=v;}},Samsara:{}};
+        const engine=new Engine(host);
+        const settings={preset:'【世界推进】\n文档A',contextTurns:9,activationMode:'force_selected',selectedEntries:['["设定","7"]']};
+        const first=engine.savePromptDocument('文档A',settings);
+        assert.equal(engine.config.activePromptDocumentId,first.id);
+        assert.equal(engine.getPromptDocuments().length,1);
+        const imported=engine.importPromptDocument(JSON.stringify({type:'samsara-world-prompt-document',version:1,name:'文档B',settings:{preset:'【自定义】\n导入内容',contextTurns:4,activationMode:'respect_activation',selectedEntries:[]}}));
+        assert.equal(engine.getPromptDocuments().length,2);
+        assert.equal(engine.config.activePromptDocumentId,first.id,'导入不应偷偷应用文档');
+        engine.applyPromptSettings(imported.settings);
+        engine.config.activePromptDocumentId=imported.id;engine.saveConfig();
+        assert.equal(engine.config.preset,'【自定义】\n导入内容');
+        assert.equal(engine.config.contextTurns,4);
+        assert.deepEqual(engine.config.selectedEntries,[]);
+        assert.equal(engine.deletePromptDocument(imported.id),true);
+        assert.equal(engine.getPromptDocuments().length,1);
+        assert.ok(JSON.parse(stored).promptDocuments.length===1);
+    });
+    await test('worldbook catalogue includes character chat-bound and globally enabled books with deduped sources', async () => {
+        const host={
+            localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{},
+            getCharWorldbookNames:()=>({primary:'主书',additional:['附书','共享书']}),
+            getChatWorldbookName:()=> '聊天书',
+            getGlobalWorldbookNames:()=>['全局外挂书','共享书'],
+            getWorldbook:name=>[{uid:1,name:name+'条目',content:name+'内容',enabled:true,strategy:{type:'constant'}}]
+        };
+        const engine=new Engine(host);
+        const list=await engine.catalogue(),books=[...new Set(list.map(x=>x.book))];
+        assert.deepEqual(books,['主书','附书','共享书','聊天书','全局外挂书']);
+        assert.deepEqual(list.find(x=>x.book==='共享书').sources,['角色附加','全局启用']);
+        assert.equal(list.find(x=>x.book==='聊天书').sources[0],'聊天绑定');
+        assert.equal(list.find(x=>x.book==='全局外挂书').sources[0],'全局启用');
+    });
     await test('world advance master switch enables extra API and only becomes effective when model API is ready', () => {
         let apiEnabled=false,enableCalls=0,disableCalls=0,saved='';
         const host={

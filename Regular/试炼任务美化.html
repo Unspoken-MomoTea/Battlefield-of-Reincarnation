@@ -610,6 +610,7 @@
             set(c,'stat_data.世界.稳定',100);
             set(c,'stat_data.世界.法则',String(q.world.世界法则 || '').split(/[;；]\s*/).map(function(x){return x.trim();}).filter(Boolean).slice(0,10));
             set(c,'stat_data.世界.货币',{体系:'',购买力基准:'',经济波动:''});
+            set(c,'stat_data.世界.历法',{名称:'',月份天数:[],闰年规则:''});
             set(c,'stat_data.世界.探索',{});
             set(c,'stat_data.世界.势力',{});
             set(c,'stat_data.世界.因果轨道.当前阶段',q.stage || q.world.主线状态 || '试炼投放');

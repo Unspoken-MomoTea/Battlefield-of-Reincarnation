@@ -1388,16 +1388,24 @@ ${schemaText}
                 .filter(doc=>plain(doc)&&typeof doc.name==='string'&&plain(doc.settings)&&typeof doc.settings.preset==='string'&&doc.id!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id&&doc.name!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.name)
                 .slice(0,59);
             this.config.promptDocuments.unshift(copy(BUILTIN_DEFAULT_PROMPT_DOCUMENT));
-            if(Number(this.config.builtinDefaultPromptVersionApplied||0)<BUILTIN_DEFAULT_PROMPT_VERSION){
-                const settings=BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings;
-                this.config.preset=normalizeEditablePreset(settings.preset);
-                this.config.presetEditorVersion=2;
-                this.config.contextTurns=settings.contextTurns;
-                this.config.activationMode=settings.activationMode;
-                this.config.selectedEntries=copy(settings.selectedEntries);
-                this.config.activePromptDocumentId=BUILTIN_DEFAULT_PROMPT_DOCUMENT.id;
-                this.config.builtinDefaultPromptVersionApplied=BUILTIN_DEFAULT_PROMPT_VERSION;
-                this.saveConfig();
+            {
+                const appliedVersion=Number(this.config.builtinDefaultPromptVersionApplied||0);
+                if(appliedVersion<BUILTIN_DEFAULT_PROMPT_VERSION){
+                    // 首次安装自动应用默认；之后只有当前仍在使用内置默认时才跟随升级。
+                    // 已切到自定义文档/自定义提示词的用户只更新内置文档版本号，不强行覆盖当前工作配置。
+                    const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id;
+                    if(shouldApply){
+                        const settings=BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings;
+                        this.config.preset=normalizeEditablePreset(settings.preset);
+                        this.config.presetEditorVersion=2;
+                        this.config.contextTurns=settings.contextTurns;
+                        this.config.activationMode=settings.activationMode;
+                        this.config.selectedEntries=copy(settings.selectedEntries);
+                        this.config.activePromptDocumentId=BUILTIN_DEFAULT_PROMPT_DOCUMENT.id;
+                    }
+                    this.config.builtinDefaultPromptVersionApplied=BUILTIN_DEFAULT_PROMPT_VERSION;
+                    this.saveConfig();
+                }
             }
             this.config.retryAttempts=Math.max(0,Math.min(5,Number(this.config.retryAttempts) || 0));
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;

@@ -264,6 +264,23 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(next.世界.后台.事件.天台入口攻防.前因,['病毒向高层蔓延']);
         assert.ok(next.世界.后台.事件.病毒向高层蔓延);
     });
+    await test('WorldResult can update world currency economy fields without touching player balances', () => {
+        const stat=fresh();
+        stat.世界.货币={体系:'银冠',购买力基准:'普通餐食约3银冠',经济波动:'价格平稳'};
+        stat.角色={空间币:999};
+        const compiled=compileWorldResult(stat,{
+            摘要:'市场变化',
+            货币:{经济波动:'北门封锁后粮价明显上涨',购买力基准:'普通餐食约5银冠',玩家余额:'不应接受'}
+        });
+        assert.ok(WORLD_RESULT_SCHEMA.properties.货币);
+        assert.deepEqual(compiled.result.货币,{购买力基准:'普通餐食约5银冠',经济波动:'北门封锁后粮价明显上涨'});
+        assert.deepEqual(compiled.patches.map(p=>p.path),['/世界/货币/购买力基准','/世界/货币/经济波动']);
+        const next=applyPatches(stat,compiled.patches);
+        assert.equal(next.世界.货币.体系,'银冠');
+        assert.equal(next.世界.货币.购买力基准,'普通餐食约5银冠');
+        assert.equal(next.世界.货币.经济波动,'北门封锁后粮价明显上涨');
+        assert.equal(next.角色.空间币,999);
+    });
     await test('street rumors normalize classification, dedupe duplicates, and cap at three', () => {
         const stat=fresh();
         const compiled=compileWorldResult(stat,{
@@ -418,6 +435,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(options.schema.type,'object');
         assert.ok(options.schema.properties.事件);
         assert.equal(WORLD_RESULT_SCHEMA.properties.事件.type,'array');
+        assert.equal(WORLD_RESULT_SCHEMA.properties.货币.type,'object');
+        assert.deepEqual(Object.keys(WORLD_RESULT_SCHEMA.properties.货币.properties),['体系','购买力基准','经济波动']);
     });
     await test('retry merges accepted WorldResult and requests only the missing business slice', async () => {
         let calls=0,inputs=[];
@@ -471,6 +490,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.doesNotMatch(r.system,/"成就状态"\s*:/);
         assert.match(r.system,/资源.*对象数组.*名称.*数量.*用途.*限制/);
         assert.match(r.system,/任务.*成就.*不读取.*不更新/);
+        assert.match(r.system,/货币与经济/);
+        assert.match(r.system,/体系.*购买力基准.*经济波动/);
+        assert.match(r.system,/玩家持币余额.*不由 WorldResult 写入/);
         assert.match(r.system,/不要输出“名称→对象”的 map 简写/);
         assert.match(r.system,/已完成.*历史锚点|历史锚点.*已完成/);
         assert.match(r.system,/传播.*到期.*回收|过期传播.*回收/);
@@ -777,6 +799,11 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(enabled,/仅当本轮正文明确完成某条已有情报交易时[\s\S]*remove/);
         assert.match(enabled,/转化为【任务】或【探索】/);
         assert.match(src,/insert\/replace单条“\/传闻\/街头巷议\/\[标题\]”时，value必须是完整object/);
+        assert.match(src,/只读字段:[^\n]*\/世界\/货币/);
+        const currencyStart=src.indexOf('    货币: ');
+        const currencyGuard=src.lastIndexOf('<%_ if (!isWorldEngineEnabled) { _%>',currencyStart);
+        const explorationStart=src.indexOf('    探索:',currencyStart);
+        assert.ok(currencyGuard>=0&&currencyGuard<currencyStart&&explorationStart>currencyStart,'世界引擎开启时普通MVU必须隐藏货币更新规则');
         const commonAnchor=src.indexOf('&P_传闻通用');
         const guard=src.lastIndexOf('<%_ if (!isWorldEngineEnabled) { _%>',commonAnchor);
         assert.ok(guard>=0&&guard<commonAnchor,'世界引擎开启时不再注入“为空补传闻”的冲突规则');

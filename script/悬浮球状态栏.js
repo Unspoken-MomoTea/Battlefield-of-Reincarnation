@@ -4103,7 +4103,8 @@
             + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🪐 单一世界</div><div style="font-size:11px;color:var(--sam-sub);">开启后仅存在单一世界,关闭后可在多世界间选择</div></div>'
             + '<div class="sam-toggle-switch '+(singleWorld?'on':'')+'" data-toggle="单一世界"><div class="knob"></div></div></div>'
             + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🌍 世界推进</div><div id="sam-world-engine-state" style="font-size:11px;color:var(--sam-sub);">'+(worldAdvanceOn?(worldAdvanceReady?'已开启 · 独立世界引擎接管':worldAdvanceWaitingText):'已关闭 · 使用原世界面板与原推演规则')+'</div></div>'
-            + '<div class="sam-toggle-switch '+(worldAdvanceOn?'on':'')+'" data-toggle="world-engine"><div class="knob"></div></div></div>');
+            + '<div class="sam-toggle-switch '+(worldAdvanceOn?'on':'')+'" data-toggle="world-engine"><div class="knob"></div></div></div>'
+            + '<div style="display:flex;justify-content:flex-end;margin-top:8px;"><button type="button" class="sam-api-btn" data-act="world-engine-settings">打开世界推进设置</button></div>');
 
         var variableMode = getVariableApiMode();
         var variableModeHtml = '<div class="sam-varmode-grid">'
@@ -4213,6 +4214,15 @@
                 statData.设置[key] = on;
             });
             renderAll();
+        });
+
+        $apiModal.off('click.samWorldEngineSettings').on('click.samWorldEngineSettings', '[data-act="world-engine-settings"]', function() {
+            var engine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
+            if (!engine || typeof engine.open !== 'function') { samToast('error', '请先加载独立脚本：世界推进系统.js'); return; }
+            closeModal();
+            engine.tab = '设置';
+            engine.open();
+            if (typeof engine.render === 'function') engine.render(true);
         });
 
         // 世界推进总开关：专属 API 优先；只有未启用专属 API 时才复用/启用主神终端额外模型。

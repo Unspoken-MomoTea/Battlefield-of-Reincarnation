@@ -399,6 +399,17 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(payload.输入语义);
         assert.ok(payload.本轮时间容量);
     });
+    await test('world prompt includes the canonical WorldResult schema even when API structured output falls back', async () => {
+        const x=setup(async()=>''),r=await x.engine.buildRequest(x.engine.snapshot());
+        assert.match(r.system,/【WorldResult 标准字段结构】/);
+        assert.match(r.system,/API.*json_object.*plain.*仍必须严格遵守/i);
+        assert.match(r.system,/"事件"\s*:\s*\{[\s\S]{0,120}"type"\s*:\s*"array"/);
+        assert.match(r.system,/"资源"\s*:\s*\{[\s\S]{0,120}"type"\s*:\s*"array"/);
+        assert.match(r.system,/"任务状态"\s*:\s*\{[\s\S]{0,120}"type"\s*:\s*"array"/);
+        assert.match(r.system,/资源.*对象数组.*名称.*数量.*用途.*限制/);
+        assert.match(r.system,/任务状态.*数组.*名称.*状态/);
+        assert.match(r.system,/不要输出“名称→对象”的 map 简写/);
+    });
     await test('terminal API contains structured-output negotiation with plain fallback', () => {
         const sourceText=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');
         assert.match(sourceText,/response_format/);

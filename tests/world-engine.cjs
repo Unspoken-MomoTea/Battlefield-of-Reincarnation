@@ -310,6 +310,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(normalize('大业十三年-02月-31日-下午',{月份天数:[31,28,31]}),'大业十三年-03月-03日-下午');
         assert.equal(normalize('2024年-02月-29日-下午',{月份天数:[]}), '2024年-02月-29日-下午');
         assert.equal(normalize('2026年-02月-31日-下午',{月份天数:[]}), '2026年-03月-03日-下午');
+        assert.equal(normalize('大业十三年-02月-31日-下午',{月份天数:[]}), '大业十三年-02月-31日-下午','未知作品历法不能借2026规则擅自改日期');
     });
     await test('street rumors normalize classification, dedupe duplicates, and cap at three', () => {
         const stat=fresh();

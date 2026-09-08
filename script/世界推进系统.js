@@ -1286,7 +1286,7 @@ ${schemaText}
             if(!Array.isArray(this.config.promptDocuments))this.config.promptDocuments=[];
             return this.config.promptDocuments;
         }
-        savePromptDocument(name,settings) {
+        savePromptDocument(name,settings,activate=true) {
             const clean=String(name||'').trim().slice(0,80);
             if(!clean)throw new Error('请先填写预设文档名称');
             const docs=this.getPromptDocuments(),now=new Date().toISOString();
@@ -1298,7 +1298,7 @@ ${schemaText}
                 docs.unshift(doc);
             }
             this.config.promptDocuments=docs.slice(0,60);
-            this.config.activePromptDocumentId=doc.id;
+            if(activate)this.config.activePromptDocumentId=doc.id;
             this.saveConfig();
             return doc;
         }
@@ -1321,7 +1321,7 @@ ${schemaText}
                 activationMode:settings.activationMode==='force_selected'?'force_selected':'respect_activation',
                 selectedEntries:Array.isArray(settings.selectedEntries)?settings.selectedEntries.filter(x=>typeof x==='string'):null
             };
-            return this.savePromptDocument(name,normalized);
+            return this.savePromptDocument(name,normalized,false);
         }
         exportPromptDocument(id) {
             const doc=this.getPromptDocuments().find(item=>item.id===id);

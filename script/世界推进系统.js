@@ -2370,19 +2370,103 @@ ${schemaText}
                 const chosen=list.find(([n])=>n===this.selectedPerson)||list[0];
                 html+=tools(['全部','在场','场外'])+'<div class="we-columns"><div>'+section('人物名册','<div class="we-tools">'+list.map(([n])=>'<button data-person="'+text(n)+'" class="'+(chosen?.[0]===n?'active':'')+'">'+text(n)+'</button>').join('')+'</div>')+(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true))+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查})):empty('没有符合条件的人物'))+'</div><aside>'+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['近期动向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
             }else if(this.tab==='探索与势力'){
-                const records=new Map(entries(state.势力地区));
-                entries(w.势力).forEach(([name,r])=>records.set(name,{...r,...records.get(name),类型:'势力'}));
-                entries(w.探索).forEach(([name,r])=>{if(!records.has(name))records.set(name,{...r,类型:'地区'});});
-                const all=Array.from(records),areas=all.filter(([,r])=>r.类型!=='势力'),factions=all.filter(([,r])=>r.类型==='势力');
-                const selected=factions.find(([n])=>n===this.selectedFaction)||factions[0];
+                const regionRecords=state.势力地区||{};
+                const exploration=entries(w.探索).map(([name,ledger])=>[name,{...(regionRecords[name]||{}),...ledger,类型:'探索'}]);
+                const factionList=entries(w.势力).map(([name,ledger])=>[name,{...(regionRecords[name]||{}),...ledger,类型:'势力'}]);
+                const projectedNames=new Set([...exploration.map(([n])=>n),...factionList.map(([n])=>n)]);
+                const backstageAreas=entries(regionRecords).filter(([name,r])=>r.类型!=='势力'&&!projectedNames.has(name));
                 const dir=this.directoryTab||'探索';
-                html+='<div class="we-notice">世界.探索与世界.势力.声望会直接参与空间币结算：探索只记整体地标，子房间/天台/走廊不得独立计探索度；声望只记该势力对玩家的真实关系变化。</div>';
-                html+=section('探索名录','<div class="we-tools">'+['探索','热点','势力'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+t+'</button>').join('')+'</div>'+
-                    (dir==='探索'?areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.控制方||'控制权未明')+'</summary>'+fields({描述:r.描述,控制方:r.控制方,争夺方:r.争夺方,探索度:r.探索度,环境:r.环境状态})+'</details>').join(''):
-                    dir==='热点'?events.filter(([,e])=>e.状态==='进行中').map(([n,e])=>eventCard(n,e)).join(''):
-                    factions.map(([n,r])=>'<button class="we-brief-row" data-faction="'+text(n)+'"><b>'+text(n)+'</b><span>'+text(r.目标||r.描述||'目标未记录')+'</span></button>').join(''))||empty('暂无名录记录'));
-                html+='<div class="we-columns"><div>'+section('势力格局','<div class="we-grid">'+factions.map(([n,r])=>'<button class="we-card" data-faction="'+text(n)+'"><h3>'+text(n)+'</h3><p>'+text(r.目标||r.描述||'目标未记录')+'</p><small>'+text(r.领地||'领地未记录')+'</small></button>').join('')+'</div><p class="we-muted">只显示已知势力与控制关系，不推测未记录的联盟或敌对。</p>')+'</div><aside>'+section('势力档案',selected?'<h3>'+text(selected[0])+'</h3>'+fields(selected[1]):empty('本轮没有势力记录'))+'</aside></div>';
-                html+=section('各地情势',areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.进展||r.公开动态||r.描述||'情势待确认')+'</summary>'+fields(r)+'</details>').join('')||empty('本轮没有地区记录'));
+                const progressStage=value=>{
+                    const n=Math.max(0,Math.min(100,Number(value)||0));
+                    if(n>=100)return '核心';
+                    if(n>=90)return '掌控';
+                    if(n>=60)return '深入';
+                    if(n>=30)return '熟悉';
+                    if(n>=10)return '浅尝';
+                    return '无知';
+                };
+                const repStage=value=>{
+                    const n=Number(value)||0;
+                    if(n<=-5000)return '敌对';
+                    if(n<=-1000)return '仇视';
+                    if(n<500)return '冷淡';
+                    if(n<2000)return '中立';
+                    if(n<5000)return '友好';
+                    if(n<10000)return '崇敬';
+                    return '崇拜';
+                };
+                const riskRank=value=>Math.max(0,['F','E','D','C','B','A','S','SS','SSS'].indexOf(String(value||'F')));
+                const totalProgress=exploration.reduce((sum,[,r])=>sum+(Number(r.探索度)||0),0);
+                const deepCount=exploration.filter(([,r])=>(Number(r.探索度)||0)>=60).length;
+                const highRiskCount=exploration.filter(([,r])=>riskRank(r.风险)>=4).length;
+                const contestedCount=exploration.filter(([,r])=>Array.isArray(r.争夺方)?r.争夺方.length>0:!!r.争夺方).length;
+                const chosenArea=exploration.find(([n])=>n===this.selectedArea)||exploration[0];
+                const chosenFaction=factionList.find(([n])=>n===this.selectedFaction)||factionList[0];
+                const factionWeight=factionList.reduce((sum,[,r])=>sum+Math.abs(Number(r.声望)||0)/100,0);
+                const friendlyCount=factionList.filter(([,r])=>(Number(r.声望)||0)>=2000).length;
+                const hostileCount=factionList.filter(([,r])=>(Number(r.声望)||0)<=-1000).length;
+
+                html+='<div class="we-notice">这里显示的是结算台账，不是地图数据库：只有 <b>世界.探索</b> 中的整体地标才计探索收益；后台尚未投影的地区不会出现在探索名录中。势力声望同样只记录势力对玩家的真实关系结算。</div>';
+                html+='<div class="we-tools">'+['探索','热点','势力'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+t+'</button>').join('')+'</div>';
+
+                if(dir==='探索'){
+                    html+='<div class="we-ledger-strip">'
+                        +'<div class="we-ledger-stat"><small>已记录地标</small><strong>'+exploration.length+'</strong><span>仅玩家已获得的探索台账</span></div>'
+                        +'<div class="we-ledger-stat"><small>探索结算权重</small><strong>'+totalProgress+'%</strong><span>最终结算最多计入 300%</span></div>'
+                        +'<div class="we-ledger-stat"><small>深入以上</small><strong>'+deepCount+'</strong><span>探索度 ≥ 60</span></div>'
+                        +'<div class="we-ledger-stat"><small>高风险 / 争夺</small><strong>'+highRiskCount+' / '+contestedCount+'</strong><span>B级以上风险 · 存在争夺方</span></div>'
+                        +'</div>';
+                    const cards=exploration.map(([n,r])=>{
+                        const progress=Math.max(0,Math.min(100,Number(r.探索度)||0));
+                        const control=r.控制方||'控制权未明';
+                        const environment=Array.isArray(r.环境状态)&&r.环境状态.length?r.环境状态.join('、'):r.环境状态||'环境未记录';
+                        return '<button class="we-explore-card '+(chosenArea?.[0]===n?'active':'')+'" data-area="'+text(n)+'">'
+                            +'<div class="we-explore-head"><div><small>探索地标</small><h3>'+text(n)+'</h3></div><span class="we-risk-badge">风险 '+text(r.风险||'F')+'</span></div>'
+                            +'<div class="we-explore-score"><strong>'+progress+'<small>%</small></strong><span>'+text(progressStage(progress))+'</span></div>'
+                            +'<div class="we-explore-bar"><i style="width:'+progress+'%"></i></div>'
+                            +'<div class="we-explore-meta"><span>控制 · '+text(control)+'</span><span>环境 · '+text(environment)+'</span></div>'
+                            +'<p>'+text(r.描述||r.公开动态||'尚无区域描述')+'</p>'
+                            +'</button>';
+                    }).join('');
+                    const areaDetail=chosenArea?(()=>{
+                        const [n,r]=chosenArea,progress=Math.max(0,Math.min(100,Number(r.探索度)||0));
+                        const backstage=regionRecords[n]||{};
+                        const next=progress>=100?'已抵达核心':progress>=90?'距离核心仍有关键真相':progress>=60?'继续深入关键区域':progress>=30?'补全路线、资源与风险情报':progress>=10?'建立稳定认知与行动路线':'尚未形成有效探索';
+                        return '<div class="we-area-hero"><small>当前选择</small><h3>'+text(n)+'</h3><div class="we-area-progress"><strong>'+progress+'%</strong><div><span><b>'+text(progressStage(progress))+'</b><em>'+text(next)+'</em></span><div class="we-explore-bar"><i style="width:'+progress+'%"></i></div></div></div></div>'
+                            +fields({风险:r.风险,控制方:r.控制方||'未明',争夺方:r.争夺方,环境状态:r.环境状态})
+                            +'<div class="we-area-note">'+text(r.描述||'暂无已确认的玩家探索描述。')+'</div>'
+                            +(exists(backstage.进展)||exists(backstage.公开动态)||exists(backstage.资源)?details('area-world-'+n,{世界进展:backstage.进展,公开动态:backstage.公开动态,资源:backstage.资源,近期变化:backstage.近期变化},'世界地区档案'):'')
+                            +(exists(r.隐藏真相)?details('area-truth-'+n,{隐藏真相:r.隐藏真相},'主持人档案'):'');
+                    })():empty('暂无探索地标','只有已经投影到世界.探索的整体区域才会出现在这里。');
+                    html+=section('探索结算名录','<div class="we-explore-layout"><div class="we-explore-grid">'+(cards||empty('暂无探索地标','等待玩家实际发现整体区域。'))+'</div><aside class="we-area-side">'+section('区域档案',areaDetail,'点击左侧地标切换')+'</aside></div>','总权重 '+totalProgress+'% · 结算上限 300%');
+                    if(backstageAreas.length){
+                        html+=section('后台未投影地区','<details><summary>'+backstageAreas.length+' 个世界地区尚未计入玩家探索奖励</summary>'+backstageAreas.map(([n,r])=>'<div class="we-brief-row"><b>'+text(n)+'</b><span>'+text(r.进展||r.公开动态||r.描述||'后台运行中')+'</span></div>').join('')+'</details>','仅主持人参考 · 不计探索收益');
+                    }
+                }else if(dir==='热点'){
+                    const hotspots=events.filter(([,e])=>e.状态==='进行中');
+                    html+='<div class="we-ledger-strip">'
+                        +'<div class="we-ledger-stat"><small>进行中热点</small><strong>'+hotspots.length+'</strong><span>当前世界正在发生</span></div>'
+                        +'<div class="we-ledger-stat"><small>涉及已探索地标</small><strong>'+hotspots.filter(([,e])=>exploration.some(([n])=>String(e.地点||'').includes(n))).length+'</strong><span>可直接关联探索台账</span></div>'
+                        +'<div class="we-ledger-stat"><small>近期桥接</small><strong>'+events.filter(([,e])=>e.分类==='近期节点'&&e.状态==='待发生').length+'</strong><span>当前到下一宏观节点</span></div>'
+                        +'<div class="we-ledger-stat"><small>宏观节点</small><strong>'+events.filter(([,e])=>e.分类==='宏观节点'&&e.状态==='待发生').length+'</strong><span>未来边界</span></div>'
+                        +'</div>';
+                    html+=section('当前热点',hotspots.map(([n,e])=>eventCard(n,e)).join('')||empty('暂无进行中的热点','世界当前没有进行中的事件。'));
+                }else{
+                    html+='<div class="we-ledger-strip">'
+                        +'<div class="we-ledger-stat"><small>已知势力</small><strong>'+factionList.length+'</strong><span>进入声望结算台账</span></div>'
+                        +'<div class="we-ledger-stat"><small>声望结算权重</small><strong>'+factionWeight.toFixed(1)+'×</strong><span>按 |声望| ÷ 100 汇总 · 上限 300%</span></div>'
+                        +'<div class="we-ledger-stat"><small>友好以上</small><strong>'+friendlyCount+'</strong><span>声望 ≥ 2000</span></div>'
+                        +'<div class="we-ledger-stat"><small>仇视以上</small><strong>'+hostileCount+'</strong><span>声望 ≤ -1000</span></div>'
+                        +'</div>';
+                    const factionCards=factionList.map(([n,r])=>{
+                        const rep=Number(r.声望)||0,stage=repStage(rep),width=Math.min(100,Math.abs(rep)/100);
+                        return '<button class="we-faction-card '+(chosenFaction?.[0]===n?'active':'')+'" data-faction="'+text(n)+'"><div class="we-card-top"><h3>'+text(n)+'</h3><span class="we-risk-badge">实力 '+text(r.实力||'F')+'</span></div>'
+                            +'<div class="we-rep"><span>声望 '+rep+'</span><b>'+text(stage)+'</b></div><div class="we-explore-bar"><i style="width:'+width+'%"></i></div>'
+                            +'<p>'+text(r.描述||r.目标||'暂无势力描述')+'</p><small>'+text(r.领地||'领地未记录')+'</small></button>';
+                    }).join('');
+                    const factionDetail=chosenFaction?'<h3>'+text(chosenFaction[0])+'</h3>'+fields({实力:chosenFaction[1].实力,声望:chosenFaction[1].声望,关系阶段:repStage(chosenFaction[1].声望),领地:chosenFaction[1].领地,目标:chosenFaction[1].目标,描述:chosenFaction[1].描述,当前进展:chosenFaction[1].进展}):empty('暂无势力记录');
+                    html+=section('势力结算名录','<div class="we-explore-layout"><div class="we-faction-grid">'+(factionCards||empty('暂无已知势力'))+'</div><aside class="we-area-side">'+section('势力档案',factionDetail,'点击左侧势力切换')+'</aside></div>','声望只反映势力对玩家的真实关系');
+                }
             }else if(this.tab==='世界事件'){
                 const list=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter));
                 html+=tools(['全部','进行中','待发生','已完成','已取消'])+section('世界事件',list.map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的世界事件','按当前事件、近期节点和宏观节点组织。'));

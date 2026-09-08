@@ -63,7 +63,9 @@ function normalizeWorldTimeByCalendar(value, calendar) {
         if (custom.length) return custom[m - 1] || null;
         const year = Number.isInteger(y) ? y : 2026;
         if (m < 1 || m > 12) return null;
-        return new Date(year, m, 0).getDate();
+        const date = new Date(0);
+        date.setFullYear(year, m, 0);
+        return date.getDate();
     };
     const firstMax = monthDays(month, numericYear);
     if (!firstMax || day <= firstMax) return text;

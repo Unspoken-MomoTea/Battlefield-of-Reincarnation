@@ -214,6 +214,27 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(legacy.kind,'legacy_patches');
         assert.deepEqual(legacy.patches,[]);
     });
+    await test('WorldResult parser accepts named-object maps without silently dropping entities', () => {
+        const parsed=parseReply(JSON.stringify({
+            摘要:'对象映射格式',
+            事件:{
+                '藤美学园爆发':{描述:'校园全面失序',分类:'宏观节点',状态:'进行中',时间:'2010年-04月-13日-上午'},
+                '床主市大混乱':{描述:'城市社会秩序彻底崩溃',分类:'宏观节点',状态:'待发生',时间:'2010年-04月-13日-傍晚'}
+            },
+            人物:{
+                '毒岛冴子':{地点:'二楼走廊',目标:'寻找生还者',行动:'向楼梯间推进'}
+            },
+            传播:{
+                '校门口的惨剧':{来源:'逃命学生',范围:'藤美学园校内',时间:'2010年-04月-13日-09:30',关联事件:'藤美学园爆发',内容:'校门口发生咬人事件'}
+            },
+            因果:{宏观顺序:['藤美学园爆发','床主市大混乱','后续阶段']}
+        }));
+        assert.equal(parsed.kind,'world_result');
+        assert.deepEqual(parsed.worldResult.事件.map(x=>x.名称),['藤美学园爆发','床主市大混乱']);
+        assert.equal(parsed.worldResult.人物[0].名称,'毒岛冴子');
+        assert.equal(parsed.worldResult.传播[0].名称,'校门口的惨剧');
+        assert.deepEqual(parsed.worldResult.传播[0].关联事件,['藤美学园爆发']);
+    });
     await test('WorldResult parser unwraps common structured-provider envelopes without retry', () => {
         for(const wrapper of ['WorldResult','world_result','world_update','result']){
             const parsed=parseReply(JSON.stringify({[wrapper]:{摘要:'已解包',事件:[{名称:'节点',描述:'变化'}]}}));

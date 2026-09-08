@@ -1669,7 +1669,7 @@ ${schemaText}
                 if(this.isOpen())this.close();
             }
             this.saveConfig();
-            this.status=on?(this.isAvailable()?'世界推进已开启':'世界推进已开启 · 等待额外模型配置'):'世界推进已关闭';
+            this.status=on?(this.isAvailable()?'世界推进已开启':(this.usesDedicatedApi()?'世界推进已开启 · 等待专属 API 配置':'世界推进已开启 · 等待额外模型配置')):'世界推进已关闭';
             this.render();
             return this.isEnabled();
         }
@@ -2484,8 +2484,14 @@ ${schemaText}
                     if(WORLD_FONT_SCALES[scale]){this.config.fontScale=scale;this.panel.dataset.fontScale=scale;this.saveConfig();this.status='界面字号已切换为 '+WORLD_FONT_SCALES[scale].name;this.render(true);}
                 }
                 else if(a==='dedicated-toggle'){
+                    this.cancel();
                     const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
-                    api.enabled=!api.enabled;this.config.dedicatedApi=api;this.saveConfig();
+                    api.enabled=!api.enabled;this.config.dedicatedApi=api;
+                    if(!api.enabled&&this.isConfigured()){
+                        const terminal=this.host.Samsara&&this.host.Samsara.terminal;
+                        if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
+                    }
+                    this.saveConfig();
                     this.status=api.enabled?'已启用世界推进专属 API · 不再使用主神终端 API':'已关闭专属 API · 回退使用主神终端 API';
                     this.render(true);
                 }

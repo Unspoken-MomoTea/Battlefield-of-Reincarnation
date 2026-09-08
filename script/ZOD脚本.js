@@ -45,6 +45,48 @@ const safeTags = (defaultVal = []) => z.preprocess(
     z.array(z.string())
 ).prefault(defaultVal).transform(arr => _.uniq(arr));
 
+// 世界时间最终防线：普通变量 AI 仍负责推进时间，但日期必须服从世界.历法。
+// 对“本月只有28天却写到31日”这类溢出自动进位；无法安全判断跨作品纪年年份时不擅自改年号。
+function normalizeWorldTimeByCalendar(value, calendar) {
+    const text = String(value ?? '');
+    const match = text.match(/(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/);
+    if (!match) return text;
+    let month = Number(match[1]), day = Number(match[2]);
+    if (!Number.isInteger(month) || !Number.isInteger(day) || month < 1 || day < 1) return text;
+    const custom = Array.isArray(calendar?.月份天数)
+        ? calendar.月份天数.map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 99).slice(0, 24)
+        : [];
+    if (custom.length && month > custom.length) return text;
+    const yearMatch = text.match(/(\d{1,4})\s*年/);
+    const numericYear = yearMatch ? Number(yearMatch[1]) : null;
+    const monthDays = (m, y) => {
+        if (custom.length) return custom[m - 1] || null;
+        const year = Number.isInteger(y) ? y : 2026;
+        if (m < 1 || m > 12) return null;
+        return new Date(year, m, 0).getDate();
+    };
+    const firstMax = monthDays(month, numericYear);
+    if (!firstMax || day <= firstMax) return text;
+    let nextMonth = month, nextDay = day, nextYear = numericYear;
+    for (let guard = 0; guard < 48; guard++) {
+        const max = monthDays(nextMonth, nextYear);
+        if (!max) return text;
+        if (nextDay <= max) break;
+        nextDay -= max;
+        nextMonth += 1;
+        const monthCount = custom.length || 12;
+        if (nextMonth > monthCount) {
+            nextMonth = 1;
+            if (nextYear === null) return text;
+            nextYear += 1;
+        }
+    }
+    let out = text.replace(match[0], String(nextMonth).padStart(2, '0') + '月-' + String(nextDay).padStart(2, '0') + '日');
+    if (numericYear !== null && nextYear !== numericYear) out = out.replace(/(\d{1,4})(\s*年)/, String(nextYear) + '$2');
+    return out;
+}
+
+
 
 // ==========================================
 // 🎲 核心枚举与共用模块
@@ -376,6 +418,13 @@ export const Schema = z.object({
             购买力基准: safeStr(''),
             经济波动: safeStr('')
         }).prefault({}),
+        历法: z.object({
+            名称: safeStr(''),
+            月份天数: z.preprocess(v => Array.isArray(v)
+                ? v.map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 99).slice(0, 24)
+                : [], z.array(z.number().int().min(1).max(99))).prefault([]),
+            闰年规则: safeStr('')
+        }).prefault({}),
         探索: z.record(z.string(), z.object({
             风险: E_quality.prefault('F'),
             探索度: clampNum(0, 0, 100),
@@ -409,7 +458,10 @@ export const Schema = z.object({
                 状态: E_alienStatus.prefault('活跃')
             }))).prefault({})
         }).prefault({})
-    }).prefault({}),
+    }).prefault({}).transform(world => {
+        world.时间 = normalizeWorldTimeByCalendar(world.时间, world.历法);
+        return world;
+    }),
 
     任务: z.object({
         列表: z.record(z.string(), strictItem(z.object({

@@ -54,15 +54,22 @@
         }
         return {起点:from,终点:to,小时:null,等级:'作品内时间',允许:'按作品内时间语义保守估计行动容量；无法确认跨度时只推进一步，不直接跳到长期结果。'};
     }
-    // 仅供日历显示：接受中式日期和 ISO 日期，拒绝不存在的日期，不推测作品内时间。
+    // 仅供日历显示：优先使用可识别数字年份；作品纪年无法识别年份但能识别月日时，用 2026 作为日历显示年。
     function calendarDate(value) {
         const source=String(value||'').trim();
-        const m=source.match(/^(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/)||source.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?!\d)/);
-        if(!m)return null;
-        const y=+m[1],month=+m[2],d=+m[3],date=new Date(0);
+        const full=source.match(/(?:^|[^\d])(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/)||source.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?!\d)/);
+        let y,month,d,fallbackYear=false;
+        if(full){
+            y=+full[1];month=+full[2];d=+full[3];
+        }else{
+            const md=source.match(/(?:^|[^\d])(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/)||source.match(/(?:^|[^\d])(\d{1,2})[-/.](\d{1,2})(?!\d)/);
+            if(!md)return null;
+            y=2026;month=+md[1];d=+md[2];fallbackYear=true;
+        }
+        const date=new Date(0);
         date.setFullYear(y,month-1,d);date.setHours(0,0,0,0);
         if(date.getFullYear()!==y||date.getMonth()!==month-1||date.getDate()!==d)return null;
-        return {y,m:month,d,key:y+'-'+month+'-'+d};
+        return {y,m:month,d,key:y+'-'+month+'-'+d,fallbackYear};
     }
     const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的已确认状态、本轮实际剧情、模型已有的世界/原著知识，以及存在时可用的世界书补充设定为依据，统一处理六个模块：
 【世界推进】世界推进的首要职责是维护“宏观世界演进”，不是替正文重复每个细节。世界.因果轨道是3~5个宏观大事件的简明投影，后台.事件则是它的展开版调度图。事件分类只允许“当前事件 / 近期节点 / 宏观节点”：正在发生或当前场景已直接启动的事件属于当前事件；连接当前时间与下一宏观边界的撤离、会合、调查、赶路、单次战斗等属于近期节点；只有会改变篇章/地区/社会/战争/据点体系/基础设施/关键人物命运等阶段状态的事件才属于宏观节点。不得为满足数量把抢车、过桥、开门、单次会合等桥接动作提升成宏观节点。
@@ -2295,7 +2302,7 @@ ${schemaText}
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {

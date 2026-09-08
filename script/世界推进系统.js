@@ -1236,7 +1236,7 @@ ${schemaText}
             this.config.presetEditorVersion=2;
             if(!Array.isArray(this.config.promptDocuments))this.config.promptDocuments=[];
             this.config.promptDocuments=this.config.promptDocuments
-                .filter(doc=>plain(doc)&&typeof doc.name==='string'&&plain(doc.settings)&&typeof doc.settings.preset==='string'&&doc.id!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)
+                .filter(doc=>plain(doc)&&typeof doc.name==='string'&&plain(doc.settings)&&typeof doc.settings.preset==='string'&&doc.id!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id&&doc.name!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.name)
                 .slice(0,59);
             this.config.promptDocuments.unshift(copy(BUILTIN_DEFAULT_PROMPT_DOCUMENT));
             if(Number(this.config.builtinDefaultPromptVersionApplied||0)<BUILTIN_DEFAULT_PROMPT_VERSION){

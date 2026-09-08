@@ -70,7 +70,7 @@
 【因果轨道与偏移】世界.因果轨道是后台事件图的宏观投影，不是第二套独立剧情。故事线必须维持3~5个默认大事件节点，用“ -> ”串联并覆盖当前阶段前后；下一节点是下一个宏观边界或检查点。仅在章节切换、地图切换、关键任务完成或重大剧情事件发生时更新。只有关键人物命运、重大事件、势力格局或主线被玩家/其他人物实质改变时才写偏移记录，日常、战斗动作、交易、对话不记偏移。偏移记录写明描述、引发者、影响程度；负值表示使原轨道更不稳定，正值表示修复/强化原轨道。新增偏移后若原主线无法继续，立即重构故事线与下一节点；否则保留原轨道。世界超稳时不得新增偏移。
 【角色管理】维护场外人物所在世界、地点、目标、行动、已知信息、行程及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗；不得为<user>建立或推进后台行动日程。人物记录与关系列表按稳定名字关联，不编造整套人物属性。
 【探索与势力】处理势力目标、资源、冲突、地区变化、探索线索。声望变化必须有真实行为依据，不能因为经过时间自动涨落。未知探索点保留在内部地区记录，发现后才投影到世界.探索。
-【任务联动】任务不是第二套剧情树。仅依据后台事件的实际结果更新已有任务或成就状态；主神任务、晋升试炼的创建、奖励定义与发奖由原系统负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。
+【任务联动】主神任务、晋升试炼、任务状态与副本成就不属于世界引擎职责：不读取、不更新、不据此驱动后台事件。它们由正文AI、结算美化程序及玩家操作负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。
 【信息传播】世界引擎负责场外传闻与传播链。事件产生街头巷议、付费情报或公告，区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。人物只有获得信息后才能据此行动。传闻可产生新事件，但禁止无因果地每轮刷新。进入城镇、营地、聚集地等非战斗区域时，只有确有新传播事实才维护1~3条街头巷议并淘汰失效旧闻；处于交易区、酒馆、黑市等真实情报交易场所时，可维护1~2条付费情报，字段必须包含卖家、情报评级、购买前摘要、带本地货币单位的要价和仅AI可见的真实内幕；任务世界不得使用空间币定价。到达主要城镇或新大区域时，公告/檄文必须有真实发布者并关联当前势力。当前场景内用户刚刚直接购买情报的支付、remove及转化为任务/探索由普通MVU处理，世界引擎下一轮只同步其场外传播后果，不重复扣款或重复创建任务。
 只使用世界.时间计算本世界进展；系统状态.游玩天数仅作只读参考。时间未变也可记录本轮新事实，但不得虚构耗时进度。跨多个日期需按依赖顺序补算，先处理到期事件再生成后果。
 事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。宏观远期节点允许时间未定，禁止捏造精确日期。
@@ -82,7 +82,7 @@
 3. 区间桥接：宏观骨架存在后，以“当前时间 → 下一宏观节点”为本轮细节推演边界。当前事件、近期节点、场外人物行动、势力变化、探索与传播只展开到这个边界；更远未来保持宏观节点，等边界接近后再展开。
 4. 世界推演：原著世界结合当前时间锚点、地点、剧情阶段、已知角色状态、原著人物行动规律、世界势力动态与已知原著进程；原创/衍生世界依据世界法则、本土势力与历史持续运行。世界不会因为<user>没行动而暂停。
 5. 偏移：玩家或其他人物只有实质改变关键人物命运、重大事件结果、势力格局或主线可行性时才写偏移。偏移导致默认宏观事件不再成立时，同轮修订宏观事件图、故事线与下一节点；日常动作、普通交易或对话不记偏移。
-6. 职责隔离：场外人物、势力、未来事件与传播由世界引擎负责；正文/MVU只负责当前场景直接事实与即时消费。旧后台.剧本不参与调度。用户可编辑分段提示词，但以上核心约束始终生效。
+6. 职责隔离：场外人物、势力、资产条件、未来事件与传播由世界引擎负责；正文/MVU负责当前场景直接事实与即时消费。主神任务、晋升试炼、任务状态与副本成就不读取、不更新；旧后台.剧本不参与调度。用户可编辑分段提示词，但以上核心约束始终生效。
 7. 输出分层：模型只提交 WorldResult 业务事实，不生成 JSON Pointer 或 add/replace 路径；程序负责名称归一、增量合并、路径转义、补丁编译、事件分类修复、宏观投影和安全校验。`
     function splitPresetSegments(value) {
         return String(value||'').split(/\n(?=【)/).filter(Boolean).map(part=>{
@@ -490,7 +490,7 @@
         布告与檄文:{发布者:'',内容:'',张贴位置:''},
         名单:{来源:'',经历:'',阵营:'',职业:'',层级:'',状态:''}
     };
-    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','异端','关系','任务状态','成就状态'];
+    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'];
     const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
     const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
     function schemaFromSample(sample) {
@@ -533,9 +533,7 @@
                 情报交易:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.情报交易,['更新','移除','撤销本轮'],['卖家','情报评级','摘要','要价','真实内幕'])},
                 布告与檄文:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.布告与檄文,['更新','移除','撤销本轮'],['发布者','内容','张贴位置'])}
             }},
-            关系:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['名称','好感度'],properties:{名称:{type:'string'},操作:{type:'string',enum:['更新','撤销本轮']},好感度:{type:'number'}}}},
-            任务状态:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string'},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['进行中','可交付','可结算','失败']}}}},
-            成就状态:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string'},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['未达成','已达成']}}}}
+            关系:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['名称','好感度'],properties:{名称:{type:'string'},操作:{type:'string',enum:['更新','撤销本轮']},好感度:{type:'number'}}}}
         }
     };
     function sampleForWorldResultList(key) {
@@ -656,8 +654,6 @@
             result.传闻[key]=list;
         }
         result.关系=normalizeNamedResultList(value.关系,{好感度:0},['更新','撤销本轮']);
-        result.任务状态=normalizeNamedResultList(value.任务状态,{状态:''},['更新','撤销本轮']);
-        result.成就状态=normalizeNamedResultList(value.成就状态,{状态:''},['更新','撤销本轮']);
         return result;
     }
     function mergeNamedResultLists(base,incoming) {
@@ -676,7 +672,7 @@
         const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
         if(Object.hasOwn(b,'公开摘要'))result.公开摘要=b.公开摘要;
         else if(Object.hasOwn(a,'公开摘要'))result.公开摘要=a.公开摘要;
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','关系','任务状态','成就状态'])result[key]=mergeNamedResultLists(a[key],b[key]);
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
         result.因果={
             偏移记录:mergeNamedResultLists(a.因果?.偏移记录,b.因果?.偏移记录)
         };
@@ -750,13 +746,6 @@
             if(!target){warnings.push('关系对象不存在，已忽略：'+item.名称);continue;}
             if(!Object.hasOwn(item,'好感度'))continue;
             patches.push({op:'replace',path:pointer(['关系列表',target,'好感度']),value:Number(item.好感度)});
-        }
-        for(const [key,bucket] of [['任务状态','列表'],['成就状态','副本成就']])for(const item of result[key]){
-            if(item.操作==='撤销本轮')continue;
-            const target=Object.keys(stat.任务?.[bucket]||{}).find(name=>nameKey(name)===nameKey(item.名称));
-            if(!target){warnings.push((key==='任务状态'?'任务':'成就')+'不存在，已忽略：'+item.名称);continue;}
-            if(!Object.hasOwn(item,'状态'))continue;
-            patches.push({op:'replace',path:pointer(['任务',bucket,target,'状态']),value:String(item.状态)});
         }
         return {result,patches,warnings};
     }
@@ -958,21 +947,144 @@
         const ok=!keys.length||(second.logic==='and_all'?hits.every(Boolean):second.logic==='not_all'?!hits.every(Boolean):second.logic==='not_any'?!hits.some(Boolean):hits.some(Boolean));
         return {read:ok,reason:ok?'绿灯已命中':'绿灯次要条件未满足'};
     }
+    function omitKeys(value,keys=[]) {
+        if(!plain(value))return copy(value);
+        const out=copy(value);
+        for(const key of keys)delete out[key];
+        return out;
+    }
+    function projectAbilityMap(value) {
+        if(!plain(value))return {};
+        const out={};
+        for(const [name,item] of Object.entries(value)){
+            if(!plain(item))continue;
+            out[name]=omitKeys(item,['原始属性','最终属性','强化','真属性']);
+        }
+        return out;
+    }
+    function projectEquipped(value) {
+        if(!plain(value))return {};
+        const out={};
+        for(const [name,item] of Object.entries(value)){
+            if(!plain(item)||Number(item.状态)!==1)continue;
+            out[name]=omitKeys(item,['原始属性','最终属性','强化','真属性']);
+        }
+        return out;
+    }
+    function projectCarriedItems(value) {
+        if(!plain(value))return {};
+        const out={};
+        for(const [name,item] of Object.entries(value)){
+            if(!plain(item)||Number(item.状态)===2)continue;
+            out[name]=omitKeys(item,['原始属性','最终属性','强化','真属性']);
+        }
+        return out;
+    }
+    function projectForms(value) {
+        if(!plain(value))return {};
+        const out={};
+        for(const [name,item] of Object.entries(value)){
+            if(!plain(item))continue;
+            out[name]=omitKeys(item,['原始属性','最终属性','强化','真属性']);
+        }
+        return out;
+    }
+    function projectCharacterForWorld(value) {
+        const source=plain(value)?value:{},out={};
+        for(const key of ['在场','种族','身份','职业','层级','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事','数量']){
+            if(Object.hasOwn(source,key))out[key]=copy(source[key]);
+        }
+        const 状态=projectAbilityMap(source.状态),血统=projectAbilityMap(source.血统),技能=projectAbilityMap(source.技能);
+        const 装备=projectEquipped(source.装备),道具=projectCarriedItems(source.道具),形态库=projectForms(source.形态库);
+        if(Object.keys(状态).length)out.状态=状态;
+        if(Object.keys(血统).length)out.血统=血统;
+        if(Object.keys(技能).length)out.技能=技能;
+        if(Object.keys(装备).length)out.装备=装备;
+        if(Object.keys(道具).length)out.道具=道具;
+        if(Object.keys(形态库).length)out.形态库=形态库;
+        if(plain(source.当前形态))out.当前形态=copy(source.当前形态);
+        return out;
+    }
+    function projectAssetsForWorld(value) {
+        if(!plain(value))return {};
+        const out={};
+        for(const [name,asset] of Object.entries(value)){
+            if(!plain(asset))continue;
+            const item=copy(asset);
+            if(plain(item.建设序列)){
+                for(const seq of Object.values(item.建设序列||{})){
+                    if(!plain(seq))continue;
+                    delete seq.下次产出日期;
+                    delete seq.下次产出游天;
+                }
+            }
+            out[name]=item;
+        }
+        return out;
+    }
+    function projectWorldContext(stat) {
+        const src=plain(stat)?stat:{},world=plain(src.世界)?src.世界:{},backend=plain(world[PATH])?world[PATH]:{};
+        const projectedBackend={
+            版本:backend.版本,
+            已处理时间:backend.已处理时间,
+            公开摘要:backend.公开摘要,
+            事件:copy(backend.事件||{}),
+            人物:copy(backend.人物||{}),
+            势力地区:copy(backend.势力地区||{}),
+            历史:copy(backend.历史||{}),
+            传播:copy(backend.传播||{})
+        };
+        const out={
+            世界:{
+                时间:world.时间,
+                地点:world.地点,
+                名称:world.名称,
+                位格:world.位格,
+                难度:world.难度,
+                稳定:world.稳定,
+                法则:copy(world.法则||[]),
+                货币:copy(world.货币||{}),
+                探索:copy(world.探索||{}),
+                势力:copy(world.势力||{}),
+                因果轨道:copy(world.因果轨道||{}),
+                异端雷达:copy(world.异端雷达||{}),
+                [PATH]:projectedBackend
+            },
+            角色:projectCharacterForWorld(src.角色),
+            关系列表:{},
+            资产:projectAssetsForWorld(src.资产),
+            传闻:copy(src.传闻||{}),
+            系统状态:{
+                是否战斗中:!!src.系统状态?.是否战斗中,
+                是否在主神空间:!!src.系统状态?.是否在主神空间
+            },
+            世界模式:{
+                单一世界:!!src.设置?.单一世界,
+                世界超稳:!!src.设置?.世界超稳
+            }
+        };
+        for(const [name,person] of Object.entries(src.关系列表||{}))out.关系列表[name]=projectCharacterForWorld(person);
+        if(!Object.keys(out.角色||{}).length)delete out.角色;
+        if(!Object.keys(out.关系列表).length)delete out.关系列表;
+        if(!Object.keys(out.资产).length)delete out.资产;
+        if(!Object.keys(out.传闻).length)delete out.传闻;
+        return out;
+    }
     function protocol() {
         const schemaText=JSON.stringify(WORLD_RESULT_SCHEMA,null,2);
         return `只输出一个 WorldResult JSON 对象，不输出 Markdown、解释、思考过程、<thinking> 或 JSON Pointer。
-顶层业务字段：摘要、公开摘要、事件、人物、势力地区、历史、传播、因果、势力、探索、异端、传闻、关系、任务状态、成就状态。除“摘要”外都可以省略；省略表示本轮没有该类变化。
+顶层业务字段：摘要、公开摘要、事件、人物、势力地区、历史、传播、因果、势力、探索、异端、传闻、关系。除“摘要”外都可以省略；省略表示本轮没有该类变化。
 实体用“名称”标识，不写路径。已有实体只写本轮真正变化的业务字段；新增实体写足以确定该实体的事实字段，程序负责判断 add/replace、名称归一、JSON Pointer 转义、默认字段合并和最终 Schema 校验。
 “操作”默认“更新”。只有传播和三类传闻允许“移除”；“撤销本轮”只用于纠错重试，表示从本次尚未落盘的业务结果中撤回该实体，不删除存档中的既有实体。
 事件只写业务事实：名称、描述、时间、条件、前因、状态、默认走向、结果、公开征兆、地点、分类及可选明细。分类只允许当前事件/近期节点/宏观节点。程序会对明显局部的伪宏观降级。
 因果不要写故事线路径；只写“当前阶段”“宏观顺序”“偏移记录”。宏观顺序是3~5个宏观事件名称，程序生成故事线、下一节点和前因链。
 人物、势力地区、传播的关联事件只写事件名称；程序负责同步明确的双向引用。不要为玩家建立人物后台记录。
-任务/成就只写已有名称的新状态；关系只写已有名称的新好感度。世界时间、玩家属性、货币、奖励、装备、击杀计数和系统状态不属于 WorldResult。
+关系只写已有名称的新好感度。主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数均不属于 WorldResult；世界时间、玩家属性、货币、装备和系统状态也不由 WorldResult 写入。
 公开摘要只包含当前可观察事实、征兆和已知线索；隐藏计划、未确认内幕和未来结局留在后台字段。
 
 【WorldResult 标准字段结构】
 这是模型必须遵守的标准输出形状。即使 API 从 json_schema 降级为 json_object 或 plain，也仍必须严格遵守本结构，不得自行改成其他 JSON 组织方式。
-- 事件 / 人物 / 势力地区 / 历史 / 传播 / 势力 / 探索 / 异端 / 关系 / 任务状态 / 成就状态：标准输出一律为数组；不要输出“名称→对象”的 map 简写。
+- 事件 / 人物 / 势力地区 / 历史 / 传播 / 势力 / 探索 / 异端 / 关系：标准输出一律为数组；不要输出“名称→对象”的 map 简写。
 - 因果.偏移记录：标准输出为数组，每项必须带“名称”；因果.宏观顺序为字符串数组。
 - 传闻.街头巷议 / 情报交易 / 布告与檄文：标准输出均为数组，不得输出对象 map。
 - 关联事件 / 前因 / 参与者 / 关联任务 / 认知 / 受众 / 引发行动 / 环境状态 / 争夺方：均为字符串数组。
@@ -982,7 +1094,7 @@
 - 事件.可见影响是对象数组，每项结构为 {时间:string, 地点:string, 影响:string}。
 - 人物.行程是对象数组，每项结构为 {开始:string, 结束:string, 地点:string, 行动:string, 状态:string, 结果:string}。
 - 人物.认知来源是对象数组，每项结构为 {事实:string, 来源:string, 获知时间:string, 状态:string}。
-- 关系 / 任务状态 / 成就状态均为数组：关系数组项为 {名称:string, 好感度:number}；任务状态数组项为 {名称:string, 状态:"进行中"|"可交付"|"可结算"|"失败"}；成就状态数组项为 {名称:string, 状态:"未达成"|"已达成"}。
+- 关系为数组，数组项为 {名称:string, 好感度:number}。主神任务、晋升试炼、任务状态和副本成就不读取、不更新，也不得出现在 WorldResult。
 - 街头巷议每项使用 {名称, 来源, 内容, 可信度}，可信度只允许“酒话 / 可疑 / 或许可信”；当前最多3条。
 - 不得添加 Schema 未定义字段。可选字段没有变化时直接省略，不要发明同义字段名。
 
@@ -1126,9 +1238,14 @@ ${schemaText}
             state.世界[PATH].剧本={};
             const count=Math.max(1,Math.min(100,Number(this.config.contextTurns)||6));
             const id=Number(base.message.message_id??base.message.id);
-            const messages=await this.fn('getChatMessages')(Math.max(0,id-count+1)+'-'+id);
-            const floors=messages.filter(m=>Number(m.message_id??m.id)<=id).slice(-count).map(m=>({楼层:m.message_id??m.id,角色:m.role||(m.is_user?'user':'assistant'),正文:m.message??m.mes??''}));
-            if(!floors.length)throw new Error('未读到正文楼层，请检查聊天读取接口');
+            const messages=await this.fn('getChatMessages')(Math.max(0,id-count*3+1)+'-'+id);
+            const isAssistant=m=>{
+                const role=String(m?.role||'').toLowerCase();
+                if(m?.is_user===true||role==='user'||role==='system')return false;
+                return role==='assistant'||!role;
+            };
+            const floors=messages.filter(m=>Number(m.message_id??m.id)<=id&&isAssistant(m)).slice(-count).map(m=>({楼层:m.message_id??m.id,角色:'assistant',正文:m.message??m.mes??''}));
+            if(!floors.length)throw new Error('未读到AI正文楼层，请检查聊天读取接口');
             const timeline=timelineState(state);
             const needBackbone=timeline.需要初始化||timeline.需要补充远期;
             const proseScan=floors.map(f=>f.正文).join('\n');
@@ -1140,14 +1257,14 @@ ${schemaText}
             const input=JSON.stringify({
                 输入语义:{
                     世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
-                    当前变量:'唯一存档基准；已存在内容默认已确认，只输出本轮真正新增或改变的业务事实。',
+                    当前变量:'世界推进专用MVU投影；仅含世界、人物能力、资产、传播与必要模式信息。未提供的任务/商城/纯结算数据不属于本引擎职责。',
                     正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
                     程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
                     时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
                     WorldResult:'唯一业务交付物；不包含 JSON Pointer、add/replace 路径或程序日志。'
                 },
                 世界书:books,
-                当前变量:state,
+                当前变量:projectWorldContext(state),
                 正文楼层:floors,
                 程序结构修复:structuralFixes,
                 本轮时间容量:capacity,
@@ -1822,7 +1939,7 @@ ${schemaText}
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {

@@ -16,6 +16,19 @@
     const escape = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
     const CONFIG = 'samsara_world_engine_v1';
+    const WORLD_TONES = {
+        night:{name:'暗夜',swatch:['#07090e','#8f9fff','#e4587d']},
+        crimson:{name:'绯红',swatch:['#0e0406','#ff5f57','#ffa502']},
+        indigo:{name:'靛蓝',swatch:['#06081a','#7c5cff','#4dabff']},
+        parchment:{name:'羊皮',swatch:['#e8d8b8','#a8761e','#c0392b']},
+        sakura:{name:'樱白',swatch:['#f7d4e0','#ff80ab','#e91e63']},
+        matcha:{name:'抹茶',swatch:['#d6ecc8','#66bb6a','#26c6da']}
+    };
+    const WORLD_FONT_SCALES = {
+        standard:{name:'标准',size:'15px',desc:'比旧版更清晰'},
+        large:{name:'大字',size:'16px',desc:'适合高分屏'},
+        xlarge:{name:'特大',size:'17px',desc:'远距离阅读'}
+    };
     const PATH = '后台';
     const EVENT_TARGET = 180;
     const HISTORY_TARGET = 200;

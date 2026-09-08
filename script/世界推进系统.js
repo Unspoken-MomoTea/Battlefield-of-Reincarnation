@@ -959,6 +959,7 @@
         return {read:ok,reason:ok?'绿灯已命中':'绿灯次要条件未满足'};
     }
     function protocol() {
+        const schemaText=JSON.stringify(WORLD_RESULT_SCHEMA,null,2);
         return `只输出一个 WorldResult JSON 对象，不输出 Markdown、解释、思考过程、<thinking> 或 JSON Pointer。
 顶层业务字段：摘要、公开摘要、事件、人物、势力地区、历史、传播、因果、势力、探索、异端、传闻、关系、任务状态、成就状态。除“摘要”外都可以省略；省略表示本轮没有该类变化。
 实体用“名称”标识，不写路径。已有实体只写本轮真正变化的业务字段；新增实体写足以确定该实体的事实字段，程序负责判断 add/replace、名称归一、JSON Pointer 转义、默认字段合并和最终 Schema 校验。
@@ -968,7 +969,28 @@
 人物、势力地区、传播的关联事件只写事件名称；程序负责同步明确的双向引用。不要为玩家建立人物后台记录。
 任务/成就只写已有名称的新状态；关系只写已有名称的新好感度。世界时间、玩家属性、货币、奖励、装备、击杀计数和系统状态不属于 WorldResult。
 公开摘要只包含当前可观察事实、征兆和已知线索；隐藏计划、未确认内幕和未来结局留在后台字段。
-兼容说明：旧版 summary+patches 回复仍可解析，但新请求一律使用 WorldResult。输出字段结构由随请求提供的 JSON Schema 与程序编译器共同约束。`;
+
+【WorldResult 标准字段结构】
+这是模型必须遵守的标准输出形状。即使 API 从 json_schema 降级为 json_object 或 plain，也仍必须严格遵守本结构，不得自行改成其他 JSON 组织方式。
+- 事件 / 人物 / 势力地区 / 历史 / 传播 / 势力 / 探索 / 异端 / 关系 / 任务状态 / 成就状态：标准输出一律为数组；不要输出“名称→对象”的 map 简写。
+- 因果.偏移记录：标准输出为数组，每项必须带“名称”；因果.宏观顺序为字符串数组。
+- 传闻.街头巷议 / 情报交易 / 布告与檄文：标准输出均为数组，不得输出对象 map。
+- 关联事件 / 前因 / 参与者 / 关联任务 / 认知 / 受众 / 引发行动 / 环境状态 / 争夺方：均为字符串数组。
+- 势力地区.资源是对象数组，每项结构为 {名称:string, 数量:string, 用途:string, 限制:string}，不得写成字符串数组。
+- 势力地区.内部派系是对象数组，每项结构为 {名称:string, 立场:string, 行动:string, 影响:string}。
+- 势力地区.近期变化是对象数组，每项结构为 {时间:string, 事实:string, 关联事件:string}。
+- 事件.可见影响是对象数组，每项结构为 {时间:string, 地点:string, 影响:string}。
+- 人物.行程是对象数组，每项结构为 {开始:string, 结束:string, 地点:string, 行动:string, 状态:string, 结果:string}。
+- 人物.认知来源是对象数组，每项结构为 {事实:string, 来源:string, 获知时间:string, 状态:string}。
+- 关系必须写成 [{名称:string, 好感度:number}]；任务状态必须写成 [{名称:string, 状态:"进行中"|"可交付"|"可结算"|"失败"}]；成就状态必须写成 [{名称:string, 状态:"未达成"|"已达成"}]。
+- 街头巷议每项使用 {名称, 来源, 内容, 可信度}，可信度只允许“酒话 / 可疑 / 或许可信”；当前最多3条。
+- 不得添加 Schema 未定义字段。可选字段没有变化时直接省略，不要发明同义字段名。
+
+【Canonical WorldResult JSON Schema】
+下面这份 Schema 与程序实际编译器共用，是唯一字段结构定义；文字说明与 Schema 冲突时以 Schema 为准：
+${schemaText}
+
+兼容说明：程序仍可容忍部分历史/常见格式漂移，但那只是防故障兼容，不是模型应采用的标准输出。旧版 summary+patches 回复仍可解析，但新请求一律使用上述 WorldResult 结构。`;
     }
     class SamsaraWorldEngine {
         constructor(host, env) {

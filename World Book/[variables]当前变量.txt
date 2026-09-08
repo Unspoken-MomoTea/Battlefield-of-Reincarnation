@@ -107,6 +107,8 @@ if (!isCombat) {
 // 后台完整状态含未来计划、私有认知与传播真相，只向正文投影公开摘要。
 // 战斗中也保留这份短摘要，让已经发生的世界影响不会因界面过滤而消失。
 if (current.世界) {
+  // 世界.历法仅供世界引擎与程序校验使用，正文/普通变量AI不可见。
+  delete current.世界.历法;
   delete current.世界.后台;
   const worldDigest = _.get(data, '世界.后台.公开摘要', '');
   if (!_.get(data, '系统状态.是否在主神空间', false) && worldDigest) readonly.世界.后台公开动态 = worldDigest;

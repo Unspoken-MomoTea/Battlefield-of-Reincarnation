@@ -768,6 +768,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(enabled,/禁止对\/传闻\/街头巷议及其子节点输出insert、replace、remove/);
         assert.match(enabled,/仅当本轮正文明确完成某条已有情报交易时[\s\S]*remove/);
         assert.match(enabled,/转化为【任务】或【探索】/);
+        assert.match(src,/insert\/replace单条“\/传闻\/街头巷议\/\[标题\]”时，value必须是完整object/);
         const commonAnchor=src.indexOf('&P_传闻通用');
         const guard=src.lastIndexOf('<%_ if (!isWorldEngineEnabled) { _%>',commonAnchor);
         assert.ok(guard>=0&&guard<commonAnchor,'世界引擎开启时不再注入“为空补传闻”的冲突规则');

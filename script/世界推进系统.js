@@ -2398,7 +2398,7 @@ ${schemaText}
             this.panel=doc.createElement('section');this.panel.id='sam-world-engine';this.panel.hidden=true;
             this.panel.dataset.tone=this.config.tone||'night';this.panel.dataset.fontScale=this.config.fontScale||'standard';
             this.panel.setAttribute('role','dialog');this.panel.setAttribute('aria-label','世界引擎');
-            this.panel.innerHTML='<header><div class="we-brand"><i>◈</i>世界引擎<small>WORLD CHRONICLE</small></div><button class="we-btn we-primary" data-action="run">推进世界</button><button class="we-btn" data-action="close" aria-label="返回主神终端">返回 ↗</button></header><div class="we-layout"><nav></nav><main></main></div><footer><span></span><small>剧情时间驱动 · 由主神终端「世界推进」总开关控制</small></footer>';
+            this.panel.innerHTML='<header><div class="we-brand"><i>◈</i>世界引擎<small>WORLD CHRONICLE</small></div><button class="we-btn we-primary" data-action="run">推进世界</button><button class="we-btn" data-tab="设置" aria-label="世界引擎设置">设置 ⚙</button><button class="we-btn" data-action="close" aria-label="返回主神终端">返回 ↗</button></header><div class="we-layout"><nav></nav><main></main></div><footer><span></span><small>剧情时间驱动 · 由主神终端「世界推进」总开关控制</small></footer>';
             this.panel.addEventListener('click',event=>{
                 const button=event.target.closest('button');if(!button)return;
                 const a=button.dataset.action;
@@ -2475,6 +2475,36 @@ ${schemaText}
                     this.promptDraft=null;
                     this.buildRequest(this.snapshot()).then(r=>{this.previewRequest=r;this.tab='请求检查';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
                 }
+                else if(button.dataset.toneOption){
+                    const tone=button.dataset.toneOption;
+                    if(WORLD_TONES[tone]){this.config.tone=tone;this.panel.dataset.tone=tone;this.saveConfig();this.status='界面色调已切换为 '+WORLD_TONES[tone].name;this.render(true);}
+                }
+                else if(button.dataset.fontOption){
+                    const scale=button.dataset.fontOption;
+                    if(WORLD_FONT_SCALES[scale]){this.config.fontScale=scale;this.panel.dataset.fontScale=scale;this.saveConfig();this.status='界面字号已切换为 '+WORLD_FONT_SCALES[scale].name;this.render(true);}
+                }
+                else if(a==='dedicated-toggle'){
+                    const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
+                    api.enabled=!api.enabled;this.config.dedicatedApi=api;this.saveConfig();
+                    this.status=api.enabled?'已启用世界推进专属 API · 不再使用主神终端 API':'已关闭专属 API · 回退使用主神终端 API';
+                    this.render(true);
+                }
+                else if(a==='dedicated-models'){
+                    this.status='正在加载专属 API 模型列表';this.panel.querySelector('footer span').textContent=this.status;
+                    this.fetchDedicatedModels().then(list=>{this.status='已加载 '+list.length+' 个模型';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
+                }
+                else if(a==='dedicated-preset-save'){
+                    try{
+                        const name=this.panel.querySelector('[data-dedicated-preset-name]')?.value||'';
+                        const entry=this.saveDedicatedApiPreset(name);
+                        this.status='已保存 API 预设：'+entry.name;this.render(true);
+                    }catch(e){this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;}
+                }
+                else if(a==='dedicated-preset-delete'){
+                    const name=this.panel.querySelector('[data-dedicated-preset]')?.value||'';
+                    if(!name){this.status='请先选择要删除的 API 预设';this.panel.querySelector('footer span').textContent=this.status;}
+                    else if(this.deleteDedicatedApiPreset(name)){this.status='已删除 API 预设：'+name;this.render(true);}
+                }
                 else if(a==='month'){
                     this.monthOffset=(this.monthOffset||0)+Number(button.dataset.step);
                     const world=this.snapshot().stat.世界,calendar=world.历法,today=calendarDate(world.时间,calendar);
@@ -2521,6 +2551,20 @@ ${schemaText}
                         const doc=this.importPromptDocument(raw);
                         this.status='已导入预设文档：'+doc.name;this.render(true);
                     }).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;}).finally(()=>{input.value='';});
+                }
+                else if(event.target.matches('[data-dedicated-field]')){
+                    const field=event.target.dataset.dedicatedField,value=event.target.value||'';
+                    if(['apiUrl','apiKey','model'].includes(field)){
+                        this.setDedicatedApi({[field]:value});
+                        this.status='专属 API 配置已保存';this.panel.querySelector('footer span').textContent=this.status;
+                    }
+                }
+                else if(event.target.matches('[data-dedicated-preset]')){
+                    const name=event.target.value||'';
+                    if(name){
+                        try{this.applyDedicatedApiPreset(name);this.status='已应用 API 预设：'+name;this.render(true);}
+                        catch(e){this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;}
+                    }
                 }
             });
             isolated.appendChild(this.panel);

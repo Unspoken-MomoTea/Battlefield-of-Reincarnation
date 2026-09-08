@@ -4,13 +4,57 @@ const vm = require('node:vm');
 const path = require('node:path');
 const file = path.join(__dirname, '../script/世界推进系统.js');
 const source = fs.readFileSync(file, 'utf8');
-const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA} = require(file);
+const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA, projectWorldContext, compactWorldLifecycle} = require(file);
 const clone = x => JSON.parse(JSON.stringify(x));
 const fresh = () => ({世界:{名称:'测试世界',时间:'2026年9月7日清晨',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},系统状态:{是否在主神空间:false},设置:{},任务:{列表:{调查:{状态:'进行中'}},副本成就:{发现:{状态:'未达成'}}},关系列表:{},传闻:{}});
 const add = (path,value) => ({op:'add',path,value});
 let tests = 0;
 async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); }
 (async () => {
+    await test('world lifecycle archives stale finished events and expires propagation without touching active references', () => {
+        const stat=fresh();
+        stat.世界.时间='2026年9月8日晚上';
+        stat.世界.后台.事件={
+            '旧战斗':{...RECORDS.事件,描述:'旧战斗已经结束',时间:'2026年9月7日清晨',状态:'已完成',分类:'近期节点'},
+            '刚结束':{...RECORDS.事件,描述:'刚刚结束',时间:'2026年9月8日晚上',状态:'已完成',分类:'当前事件'},
+            '关键前因':{...RECORDS.事件,描述:'仍被后续事件引用',时间:'2026年9月7日清晨',状态:'已完成',分类:'宏观节点'},
+            '后续行动':{...RECORDS.事件,描述:'仍在推进',时间:'2026年9月8日晚上',状态:'进行中',分类:'近期节点',前因:['关键前因']}
+        };
+        stat.世界.后台.传播={
+            '过期广播':{...RECORDS.传播,关联事件:['旧战斗'],内容:'旧广播',状态:'传播中',到期时间:'2026年9月8日上午'},
+            '明确结束':{...RECORDS.传播,内容:'已经失效',状态:'已结束'},
+            '仍在传播':{...RECORDS.传播,内容:'仍有效',状态:'传播中',到期时间:'2026年9月9日上午'}
+        };
+        const report=compactWorldLifecycle(stat);
+        assert.equal(stat.世界.后台.事件['旧战斗'],undefined);
+        assert.ok(stat.世界.后台.历史['归档·旧战斗']);
+        assert.ok(stat.世界.后台.事件['刚结束']);
+        assert.ok(stat.世界.后台.事件['关键前因']);
+        assert.ok(stat.世界.后台.事件['后续行动']);
+        assert.equal(stat.世界.后台.传播['过期广播'],undefined);
+        assert.equal(stat.世界.后台.传播['明确结束'],undefined);
+        assert.ok(stat.世界.后台.传播['仍在传播']);
+        assert.deepEqual(report.归档事件,['旧战斗']);
+        assert.deepEqual(report.回收传播,['过期广播','明确结束']);
+    });
+    await test('world context exposes only hot history and recent causal offsets while preserving the full MVU ledger', () => {
+        const stat=fresh();
+        stat.世界.稳定=73;
+        stat.世界.后台.历史={};
+        for(let i=0;i<40;i++)stat.世界.后台.历史['历史'+i]={时间:'2026年9月'+String(i+1)+'日',事实:'事实'+i,关联事件:[]};
+        stat.世界.因果轨道={当前阶段:'当前阶段',故事线:'A -> B -> C',下一节点:'B',偏移记录:{}};
+        for(let i=0;i<12;i++)stat.世界.因果轨道.偏移记录['偏移'+i]={描述:'偏移描述'+i,引发者:'角色'+i,影响程度:i%2===0?-2:1};
+        const before=clone(stat.世界.因果轨道.偏移记录);
+        const ctx=projectWorldContext(stat);
+        const historyKeys=Object.keys(ctx.世界.后台.历史);
+        const offsetKeys=Object.keys(ctx.世界.因果轨道.偏移记录);
+        assert.equal(historyKeys.length,24);
+        assert.equal(historyKeys[0],'历史16');
+        assert.equal(historyKeys.at(-1),'历史39');
+        assert.deepEqual(offsetKeys,['偏移4','偏移5','偏移6','偏移7','偏移8','偏移9','偏移10','偏移11']);
+        assert.deepEqual(ctx.世界.因果轨道.偏移摘要,{记录总数:12,隐藏旧记录数:4,累计影响:-6,当前稳定:73});
+        assert.deepEqual(stat.世界.因果轨道.偏移记录,before);
+    });
     await test('all changed entities commit together; original snapshot stays unchanged', () => {
         const stat = fresh();
         const event = {...RECORDS.事件,描述:'补给延误',时间:'2026年9月8日',前因:[]};
@@ -410,6 +454,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(r.system,/资源.*对象数组.*名称.*数量.*用途.*限制/);
         assert.match(r.system,/任务.*成就.*不读取.*不更新/);
         assert.match(r.system,/不要输出“名称→对象”的 map 简写/);
+        assert.match(r.system,/已完成.*历史锚点|历史锚点.*已完成/);
+        assert.match(r.system,/传播.*到期.*回收|过期传播.*回收/);
     });
     await test('world request projects only world-relevant MVU, keeps assets and character capabilities, and excludes user prose', async () => {
         const x=setup(async()=>JSON.stringify({摘要:'无变化'}));

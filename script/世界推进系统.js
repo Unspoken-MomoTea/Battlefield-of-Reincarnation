@@ -2440,13 +2440,27 @@ ${schemaText}
                     background:var(--we-input)!important;color:var(--we-ink)!important;border:1px solid var(--we-line)!important;
                     font-weight:500!important
                 }
-                /* 羊皮色顶部原先使用棕字叠棕底，改为高对比导航文字 */
+                /* 浅色正文主题仍使用深色顶部铬层：正文 ink/sub 不能直接叠到 header/nav 上 */
                 #sam-world-engine[data-tone="parchment"] header{color:#fff8e8!important}
                 #sam-world-engine[data-tone="parchment"] .we-brand small{color:#ead9b7!important}
                 #sam-world-engine[data-tone="parchment"] nav button{color:#f0dfbd!important}
                 #sam-world-engine[data-tone="parchment"] nav button:hover{color:#fffaf0!important;background:#ffffff18!important}
                 #sam-world-engine[data-tone="parchment"] nav button[aria-selected=true]{
                     background:#d49a32!important;border-color:#e0ac4c!important;color:#21170a!important
+                }
+                #sam-world-engine[data-tone="sakura"] header{color:#fff5f9!important}
+                #sam-world-engine[data-tone="sakura"] .we-brand small{color:#f0c8d7!important}
+                #sam-world-engine[data-tone="sakura"] nav button{color:#f7d4e0!important}
+                #sam-world-engine[data-tone="sakura"] nav button:hover{color:#fff8fb!important;background:#ffffff18!important}
+                #sam-world-engine[data-tone="sakura"] nav button[aria-selected=true]{
+                    background:#e86998!important;border-color:#f18ab1!important;color:#3a1e29!important
+                }
+                #sam-world-engine[data-tone="matcha"] header{color:#f5fbf0!important}
+                #sam-world-engine[data-tone="matcha"] .we-brand small{color:#cfe1c9!important}
+                #sam-world-engine[data-tone="matcha"] nav button{color:#deecd9!important}
+                #sam-world-engine[data-tone="matcha"] nav button:hover{color:#fbfff8!important;background:#ffffff16!important}
+                #sam-world-engine[data-tone="matcha"] nav button[aria-selected=true]{
+                    background:#68ad6d!important;border-color:#7cbc80!important;color:#17301f!important
                 }
                 /* 设置页 */
                 #sam-world-engine .we-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}

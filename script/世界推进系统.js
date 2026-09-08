@@ -19,6 +19,11 @@
     const PATH = '后台';
     const EVENT_TARGET = 180;
     const HISTORY_TARGET = 200;
+    const RECENT_FINISHED_EVENT_TARGET = 8;
+    const FINISHED_EVENT_GRACE_HOURS = 24;
+    const HOT_HISTORY_TARGET = 24;
+    const HOT_OFFSET_TARGET = 8;
+    const HOT_PROPAGATION_TARGET = 24;
     const TECHNICAL_BOOK = [/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
     const isTechnicalBook = title => TECHNICAL_BOOK.some(rule => rule.test(String(title || '').trim()));
     function isTimelineBackboneEntry(title) {
@@ -71,9 +76,9 @@
 【角色管理】维护场外人物所在世界、地点、目标、行动、已知信息、行程及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗；不得为<user>建立或推进后台行动日程。人物记录与关系列表按稳定名字关联，不编造整套人物属性。
 【探索与势力】处理势力目标、资源、冲突、地区变化、探索线索。声望变化必须有真实行为依据，不能因为经过时间自动涨落。未知探索点保留在内部地区记录，发现后才投影到世界.探索。
 【任务联动】主神任务、晋升试炼、任务状态与副本成就不属于世界引擎职责：不读取、不更新、不据此驱动后台事件。它们由正文AI、结算美化程序及玩家操作负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。
-【信息传播】世界引擎负责场外传闻与传播链。事件产生街头巷议、付费情报或公告，区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。人物只有获得信息后才能据此行动。传闻可产生新事件，但禁止无因果地每轮刷新。进入城镇、营地、聚集地等非战斗区域时，只有确有新传播事实才维护1~3条街头巷议并淘汰失效旧闻；处于交易区、酒馆、黑市等真实情报交易场所时，可维护1~2条付费情报，字段必须包含卖家、情报评级、购买前摘要、带本地货币单位的要价和仅AI可见的真实内幕；任务世界不得使用空间币定价。到达主要城镇或新大区域时，公告/檄文必须有真实发布者并关联当前势力。当前场景内用户刚刚直接购买情报的支付、remove及转化为任务/探索由普通MVU处理，世界引擎下一轮只同步其场外传播后果，不重复扣款或重复创建任务。
+【信息传播】世界引擎负责场外传闻与传播链。事件产生街头巷议、付费情报或公告，区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。传播明确结束或到期后由程序自动回收，不要复活已经过期的传播记录。人物只有获得信息后才能据此行动。传闻可产生新事件，但禁止无因果地每轮刷新。进入城镇、营地、聚集地等非战斗区域时，只有确有新传播事实才维护1~3条街头巷议并淘汰失效旧闻；处于交易区、酒馆、黑市等真实情报交易场所时，可维护1~2条付费情报，字段必须包含卖家、情报评级、购买前摘要、带本地货币单位的要价和仅AI可见的真实内幕；任务世界不得使用空间币定价。到达主要城镇或新大区域时，公告/檄文必须有真实发布者并关联当前势力。当前场景内用户刚刚直接购买情报的支付、remove及转化为任务/探索由普通MVU处理，世界引擎下一轮只同步其场外传播后果，不重复扣款或重复创建任务。
 只使用世界.时间计算本世界进展；系统状态.游玩天数仅作只读参考。时间未变也可记录本轮新事实，但不得虚构耗时进度。跨多个日期需按依赖顺序补算，先处理到期事件再生成后果。
-事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。宏观远期节点允许时间未定，禁止捏造精确日期。
+事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。已完成/已取消事件由程序在失去活跃引用且超过保留窗口后压缩成历史锚点，不要为了“保留历史”重复创建旧事件。宏观远期节点允许时间未定，禁止捏造精确日期。
 世界超稳时保持默认宏观轨道，不新增偏移。单一世界的局部结算不能重置世界。普通副本返回主神空间后停止本世界推演。
 初始化时依据当前设定建立必要的近远期节点；无依据的记录保持空。没有变化就返回仅含摘要的空 WorldResult。公开摘要只包含当前可观察的事实、征兆和已知线索，隐藏真相和未来结局留在后台。`;
     const CORE_WORLD_RULES = `【世界引擎核心约束】
@@ -127,23 +132,63 @@
         for(const category of ['人物','势力地区','传播'])for(const record of Object.values(state[category]||{}))for(const id of record.关联事件||[])refs.add(id);
         return refs;
     }
+    function archiveFinishedEvent(stat,state,name,event,archived) {
+        let key='归档·'+name,seq=2;
+        while(Object.hasOwn(state.历史||{},key))key='归档·'+name+'#'+seq++;
+        state.历史=state.历史||{};
+        state.历史[key]={
+            时间:event.更新时间||event.预计结束||event.时间||stat.世界.时间||'',
+            事实:event.结果||event.描述||(event.状态==='已取消'?'事件已取消':'事件已结束'),
+            关联事件:[]
+        };
+        delete state.事件[name];
+        archived.push(name);
+    }
+    function propagationEnded(record,nowKey) {
+        if(!plain(record))return true;
+        const status=String(record.状态||'').trim();
+        if(/^(?:已结束|结束|已停止|停止|已失效|失效|已过期|过期|传播结束)$/.test(status))return true;
+        const expiry=worldDateKey(record.到期时间);
+        return expiry!==null&&nowKey!==null&&expiry<=nowKey;
+    }
     function compactFinishedEvents(stat,target=EVENT_TARGET) {
         const state=stat?.世界?.[PATH]; if(!state?.事件)return [];
-        const archived=[];
-        while(Object.keys(state.事件).length>target){
-            const refs=collectEventRefs(state);
-            const candidate=Object.entries(state.事件).find(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name));
+        const archived=[],now=worldDateKey(stat?.世界?.时间);
+        let refs=collectEventRefs(state);
+        const finished=()=>Object.entries(state.事件||{}).filter(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name));
+        // 有明确时间的旧结束事件，在经过一个世界日后直接冷归档；刚刚结束的内容至少保留到下一阶段。
+        for(const [name,event] of finished()){
+            const endedAt=worldDateKey(event.更新时间||event.预计结束||event.时间);
+            if(now!==null&&endedAt!==null&&now-endedAt>=FINISHED_EVENT_GRACE_HOURS)archiveFinishedEvent(stat,state,name,event,archived);
+        }
+        // 无法比较作品内时间时，用“最多保留最近8条结束事件”兜底，避免长期无限增长。
+        refs=collectEventRefs(state);
+        let candidates=finished();
+        while(candidates.length>RECENT_FINISHED_EVENT_TARGET){
+            const [name,event]=candidates[0];
+            archiveFinishedEvent(stat,state,name,event,archived);
+            refs=collectEventRefs(state);candidates=finished();
+        }
+        // 旧存档超大时继续沿用硬上限兜底，只回收无引用的结束事件。
+        while(Object.keys(state.事件||{}).length>target){
+            refs=collectEventRefs(state);
+            const candidate=Object.entries(state.事件||{}).find(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name));
             if(!candidate)break;
-            const [name,event]=candidate;
-            let key='归档·'+name,seq=2;
-            while(Object.hasOwn(state.历史||{},key))key='归档·'+name+'#'+seq++;
-            state.历史=state.历史||{};
-            state.历史[key]={时间:event.时间||event.更新时间||stat.世界.时间||'',事实:event.结果||event.描述||(event.状态==='已取消'?'事件已取消':'事件已结束'),关联事件:[]};
-            delete state.事件[name]; archived.push(name);
+            archiveFinishedEvent(stat,state,candidate[0],candidate[1],archived);
         }
         const historyKeys=Object.keys(state.历史||{});
         if(historyKeys.length>HISTORY_TARGET)for(const key of historyKeys.slice(0,historyKeys.length-HISTORY_TARGET))delete state.历史[key];
         return archived;
+    }
+    function compactWorldLifecycle(stat) {
+        const state=stat?.世界?.[PATH];
+        if(!state)return {归档事件:[],回收传播:[]};
+        const now=worldDateKey(stat?.世界?.时间),removed=[];
+        for(const [name,record] of Object.entries(state.传播||{})){
+            if(propagationEnded(record,now)){delete state.传播[name];removed.push(name);}
+        }
+        const archived=compactFinishedEvents(stat);
+        return {归档事件:archived,回收传播:removed};
     }
     function storyStages(value) {
         return String(value||'').split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
@@ -850,12 +895,10 @@
     function materializeWorldUpdate(stat,seedPatches,modelPatches) {
         const work=copy(stat);
         work.世界[PATH]=Object.assign(emptyState(),work.世界[PATH]||{});
-        normalizeBackendState(work);compactFinishedEvents(work);
+        normalizeBackendState(work);compactWorldLifecycle(work);
         const appliedSeeds=(seedPatches||[]).filter(p=>get(work,canonicalizeParts(tokens(p.path),work))===undefined);
         let next=applyPatches(work,appliedSeeds);
-        compactFinishedEvents(next);
         next=applyPatches(next,modelPatches||[]);
-        compactFinishedEvents(next);
         const layerPatches=normalizeEventLayers(next);
         const causalPatches=repairCausalProjection(next);
         const predecessorPatches=repairMacroPredecessors(next);
@@ -1022,6 +1065,27 @@
         }
         return out;
     }
+    function tailRecord(value,limit) {
+        if(!plain(value))return {};
+        return Object.fromEntries(Object.entries(value).slice(-Math.max(0,Number(limit)||0)).map(([key,item])=>[key,copy(item)]));
+    }
+    function projectCausalOrbitForWorld(value,currentStability) {
+        const orbit=plain(value)?value:{},entries=Object.entries(orbit.偏移记录||{});
+        const recent=entries.slice(-HOT_OFFSET_TARGET);
+        const total=entries.reduce((sum,[,item])=>sum+(Number(item?.影响程度)||0),0);
+        return {
+            当前阶段:orbit.当前阶段,
+            故事线:orbit.故事线,
+            下一节点:orbit.下一节点,
+            偏移记录:Object.fromEntries(recent.map(([name,item])=>[name,copy(item)])),
+            偏移摘要:{
+                记录总数:entries.length,
+                隐藏旧记录数:Math.max(0,entries.length-recent.length),
+                累计影响:total,
+                当前稳定:currentStability
+            }
+        };
+    }
     function projectWorldContext(stat) {
         const src=plain(stat)?stat:{},world=plain(src.世界)?src.世界:{},backend=plain(world[PATH])?world[PATH]:{};
         const projectedBackend={
@@ -1031,8 +1095,8 @@
             事件:copy(backend.事件||{}),
             人物:copy(backend.人物||{}),
             势力地区:copy(backend.势力地区||{}),
-            历史:copy(backend.历史||{}),
-            传播:copy(backend.传播||{})
+            历史:tailRecord(backend.历史,HOT_HISTORY_TARGET),
+            传播:tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
         };
         const out={
             世界:{
@@ -1046,7 +1110,7 @@
                 货币:copy(world.货币||{}),
                 探索:copy(world.探索||{}),
                 势力:copy(world.势力||{}),
-                因果轨道:copy(world.因果轨道||{}),
+                因果轨道:projectCausalOrbitForWorld(world.因果轨道,world.稳定),
                 异端雷达:copy(world.异端雷达||{}),
                 [PATH]:projectedBackend
             },
@@ -1077,7 +1141,7 @@
 实体用“名称”标识，不写路径。已有实体只写本轮真正变化的业务字段；新增实体写足以确定该实体的事实字段，程序负责判断 add/replace、名称归一、JSON Pointer 转义、默认字段合并和最终 Schema 校验。
 “操作”默认“更新”。只有传播和三类传闻允许“移除”；“撤销本轮”只用于纠错重试，表示从本次尚未落盘的业务结果中撤回该实体，不删除存档中的既有实体。
 事件只写业务事实：名称、描述、时间、条件、前因、状态、默认走向、结果、公开征兆、地点、分类及可选明细。分类只允许当前事件/近期节点/宏观节点。程序会对明显局部的伪宏观降级。
-因果不要写故事线路径；只写“当前阶段”“宏观顺序”“偏移记录”。宏观顺序是3~5个宏观事件名称，程序生成故事线、下一节点和前因链。
+因果不要写故事线路径；只写“当前阶段”“宏观顺序”“偏移记录”。宏观顺序是3~5个宏观事件名称，程序生成故事线、下一节点和前因链。输入中的“偏移摘要”是程序生成的只读统计；旧偏移可能被隐藏，只依据可见近期偏移与摘要判断，不要重建已隐藏记录。
 人物、势力地区、传播的关联事件只写事件名称；程序负责同步明确的双向引用。不要为玩家建立人物后台记录。
 关系只写已有名称的新好感度。主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数均不属于 WorldResult；世界时间、玩家属性、货币、装备和系统状态也不由 WorldResult 写入。
 公开摘要只包含当前可观察事实、征兆和已知线索；隐藏计划、未确认内幕和未来结局留在后台字段。
@@ -1225,7 +1289,7 @@ ${schemaText}
             state.世界[PATH]=Object.assign(emptyState(),state.世界[PATH]||{});
             normalizeBackendState(state);
             const structuralFixes=normalizeEventLayers(state);
-            compactFinishedEvents(state);
+            const lifecycle=compactWorldLifecycle(state);
             const seedPatches=importStory(state);
             for(const patch of seedPatches)state.世界[PATH].事件[tokens(patch.path).at(-1)]=patch.value;
             structuralFixes.push(...normalizeEventLayers(state));
@@ -1257,7 +1321,7 @@ ${schemaText}
             const input=JSON.stringify({
                 输入语义:{
                     世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
-                    当前变量:'世界推进专用MVU投影；仅含世界、人物能力、资产、传播与必要模式信息。未提供的任务/商城/纯结算数据不属于本引擎职责。',
+                    当前变量:'世界推进专用热数据投影；仅含世界、人物能力、资产、活跃传播、近期历史与近期因果偏移。旧历史/旧偏移仍可留在MVU冷存档，但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',
                     正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
                     程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
                     时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
@@ -1272,11 +1336,12 @@ ${schemaText}
                 推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:'当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断'},
                 可选宏观资料补充:needBackbone,
                 本轮必须复核的到期事件:due,
-                说明:'当前变量为已确认事实，不重复结算；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
+                生命周期整理:lifecycle,
+                说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
             },null,2);
             const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+protocol()+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件和未完事项；符合条件才启动/推进，有实际结果才完成。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。即将与<user>见面时停在见面前一步。\n6. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
-            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),程序结构修复:copy(structuralFixes),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
+            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;
@@ -1939,7 +2004,7 @@ ${schemaText}
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {

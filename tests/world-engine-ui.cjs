@@ -33,7 +33,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('[data-action="enabled"]').count(),0);
  assert.equal(await page.locator('[data-action="run"]').isDisabled(),true);
  assert.equal(await page.getByText(/额外模型未准备好/).count(),1);
- assert.equal(await page.getByRole('heading',{name:'任务进展',exact:true}).count(),1);
+ assert.equal(await page.getByRole('heading',{name:'任务进展',exact:true}).count(),0);
  assert.equal(await page.locator('.we-dashboard').count(),1,'世界推进采用独立仪表盘布局');
  assert.equal(await page.locator('.we-people-strip .we-person-compact').count()<=4,true,'人物动态保持紧凑摘要');
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),1,'世界推进只保留一处世界动向');
@@ -113,7 +113,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.getByRole('heading',{name:'交际圈',exact:true}).count(),0);
  assert.equal(await page.getByText('日落前提交第一份报告',{exact:true}).count(),0);
  await page.screenshot({path:path.join(out,'world-people.png')});
- for(const tab of ['探索与势力','任务与事件','传闻','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
+ for(const tab of ['探索与势力','世界事件','传闻','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
  await page.locator('[data-tab="请求检查"]').click();
  assert.equal(await page.locator('[data-retries]').inputValue(),'3','失败重试次数默认3');
  await page.locator('[data-retries]').fill('2');
@@ -122,7 +122,10 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.locator('[data-tab="探索与势力"]').click();
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),0,'探索与势力不重复世界动向');
  assert.equal(await page.locator('[data-tab="势力与地区"]').count(),0,'旧页签名称应移除');
- await page.locator('[data-tab="任务与事件"]').click();
+ await page.locator('[data-tab="世界事件"]').click();
+ assert.equal(await page.getByRole('heading',{name:'当前任务',exact:true}).count(),0);
+ assert.equal(await page.getByRole('heading',{name:'副本成就',exact:true}).count(),0);
+ assert.equal(await page.locator('nav [data-tab="任务与事件"]').count(),0);
  assert.equal(await page.getByRole('heading',{name:'剧本与阶段',exact:true}).count(),0);
  await page.locator('[data-tab="世界推进"]').click();await page.setViewportSize({width:390,height:844});
  await page.screenshot({path:path.join(out,'world-mobile.png')});
@@ -160,7 +163,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.screenshot({path:path.join(out,'world-request.png')});
  assert.equal(await page.locator('.we-inspect[open]').count(),0,'请求条目与原文默认折叠');
  await page.getByText('user · 分段阅读',{exact:true}).click();
- await page.getByText('正文楼层',{exact:true}).click();
+ await page.locator('summary').filter({hasText:/^正文楼层$/}).click();
  await page.getByText('assistant · 第 1 层',{exact:true}).click();
  await page.getByText('车夫递来一封信。',{exact:true}).waitFor();
  const request=await page.evaluate(()=>Samsara.worldEngine.previewRequest);

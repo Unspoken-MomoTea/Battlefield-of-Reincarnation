@@ -232,6 +232,16 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(x.toasts()[0].title,'世界推进失败');
         assert.match(x.toasts()[0].message,/HTTP 400: invalid argument/);
     });
+    await test('legacy model replies cannot mutate tasks and old event task links stay out of projected context', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'兼容回复',patches:[{op:'replace',path:'/任务/列表/调查/状态',value:'失败'}]}));
+        assert.equal(await x.engine.run(),true);
+        assert.equal(x.get().任务.列表.调查.状态,'进行中');
+        const stat=fresh();
+        stat.世界.后台.事件.事件={...RECORDS.事件,关联任务:['秘密任务名称']};
+        assert.equal(projectWorldContext(stat).世界.后台.事件.事件.关联任务,undefined);
+        assert.deepEqual(stat.世界.后台.事件.事件.关联任务,['秘密任务名称']);
+        assert.equal(JSON.stringify(WORLD_RESULT_SCHEMA).includes('关联任务'),false);
+    });
     await test('WorldResult same-run event causes resolve when both events are submitted together', () => {
         const stat=fresh();
         const compiled=compileWorldResult(stat,{

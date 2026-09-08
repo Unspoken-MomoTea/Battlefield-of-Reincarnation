@@ -950,6 +950,18 @@
             if (!EVENT_CATEGORIES.has(event.分类)) throw new Error('非法事件分类：'+name+' = '+String(event.分类||'空'));
             if (event.前因.some(id => !Object.hasOwn(state.事件,id))) throw new Error('事件前因不存在：' + name);
         }
+        const calendar=plain(stat.世界?.历法)?stat.世界.历法:{};
+        const monthDays=Array.isArray(calendar.月份天数)?calendar.月份天数:[];
+        if(monthDays.length>24||monthDays.some(n=>!Number.isInteger(Number(n))||Number(n)<1||Number(n)>99))throw new Error('世界历法月份天数无效');
+        const hasMonthDay=value=>/\d{1,2}\s*月\s*-?\s*\d{1,2}\s*日/.test(String(value||''));
+        if(monthDays.length&&hasMonthDay(stat.世界.时间)&&!calendarDate(stat.世界.时间,calendar))throw new Error('世界时间违反历法月长：'+stat.世界.时间);
+        if(monthDays.length){
+            for(const [name,event] of Object.entries(state.事件)){
+                for(const value of [event.时间,event.开始时间,event.结束时间]){
+                    if(hasMonthDay(value)&&!calendarDate(value,calendar))throw new Error('事件日期违反世界历法：'+name+' = '+value);
+                }
+            }
+        }
         const ranks = ['F','E','D','C','B','A','S','SS','SSS'];
         const range = (v,min,max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
         for (const item of Object.values(stat.世界.势力 || {})) if (!ranks.includes(item.实力) || !range(item.声望,-5000,10000)) throw new Error('势力品质或声望越界');

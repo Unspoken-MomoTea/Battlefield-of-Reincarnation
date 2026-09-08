@@ -1138,12 +1138,13 @@
                 const validate = this.host.Samsara && this.host.Samsara.validateWorldState;
                 if (!validate) throw new Error('请加载更新后的 ZOD脚本.js');
 
+                this.lastRetryLog=[];this.lastAttemptCount=0;this.lastReply='';this.lastFailure='';
+                this.lastWorldResult=null;this.lastCompiledPatches=[];this.lastCompileWarnings=[];
                 this.status = '正在读取世界资料'; this.render();
                 const request=await this.buildRequest(base);
                 if(token!==this.generation)throw new Error('请求已取消');
 
                 const maxRetries=Math.max(0,Math.min(5,Number(this.config.retryAttempts)||0));
-                this.lastRetryLog=[];this.lastAttemptCount=0;this.lastReply='';this.lastFailure='';
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null;
 
                 while(attempt<=maxRetries){

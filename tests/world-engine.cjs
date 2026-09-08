@@ -264,6 +264,28 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(next.世界.后台.事件.天台入口攻防.前因,['病毒向高层蔓延']);
         assert.ok(next.世界.后台.事件.病毒向高层蔓延);
     });
+    await test('exploration reward ledger rejects micro locations and self-heals old child-area records', async () => {
+        const stat=fresh();
+        assert.throws(()=>compileWorldResult(stat,{
+            摘要:'错误探索粒度',
+            探索:[{名称:'藤美学园-天台',风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}]
+        }),/探索粒度过细.*藤美学园-天台/);
+        stat.世界.探索={'藤美学园-天台':{风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}};
+        let raw={stat_data:stat};
+        const host={
+            localStorage:{getItem:()=>null,setItem:()=>{}},
+            Samsara:{terminal:{apiReady:()=>true,request:async()=>JSON.stringify({摘要:'无额外变化'})}},
+            Mvu:{getMvuData:()=>raw,replaceMvuData:async data=>{raw=data;}},
+            getCurrentChatId:()=> 'explore-repair',
+            getChatMessages:()=>[{message_id:1,message:'玩家在学校中行动。',role:'assistant'}]
+        };
+        const engine=new Engine(host);engine.config.enabled=true;engine.config.requireMacroBackbone=false;
+        engine.snapshot=()=>({id:1,stat:raw.stat_data,raw,chat:'explore-repair',fingerprint:JSON.stringify(['explore-repair',1,raw.stat_data.世界.名称,raw.stat_data.世界.时间]),mvu:host.Mvu});
+        engine.blocked=()=>false;engine.render=()=>{};engine.notifyFailure=()=>{};
+        assert.equal(await engine.run(),true);
+        assert.equal(raw.stat_data.世界.探索['藤美学园-天台'],undefined);
+        assert.equal(raw.stat_data.世界.探索.藤美学园.探索度,20);
+    });
     await test('WorldResult can update world currency economy fields without touching player balances', () => {
         const stat=fresh();
         stat.世界.货币={体系:'银冠',购买力基准:'普通餐食约3银冠',经济波动:'价格平稳'};
@@ -280,6 +302,21 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(next.世界.货币.购买力基准,'普通餐食约5银冠');
         assert.equal(next.世界.货币.经济波动,'北门封锁后粮价明显上涨');
         assert.equal(next.角色.空间币,999);
+    });
+    await test('world calendar metadata is structured and ZOD normalizes day overflow by month length', () => {
+        assert.equal(WORLD_RESULT_SCHEMA.properties.历法.type,'object');
+        const stat=fresh();
+        stat.世界.历法={名称:'测试历',月份天数:[31,28,31],闰年规则:''};
+        const compiled=compileWorldResult(stat,{摘要:'历法确认',历法:{名称:'测试历',月份天数:[31,28,31],闰年规则:'无闰月'}});
+        assert.ok(compiled.patches.some(p=>p.path==='/世界/历法/闰年规则'&&p.value==='无闰月'));
+        const zod=fs.readFileSync(path.join(__dirname,'../script/ZOD脚本.js'),'utf8');
+        const start=zod.indexOf('function normalizeWorldTimeByCalendar');
+        const end=zod.indexOf('// ==========================================',start);
+        assert.ok(start>=0&&end>start);
+        const normalize=new Function(zod.slice(start,end)+'; return normalizeWorldTimeByCalendar;')();
+        assert.equal(normalize('大业十三年-02月-31日-下午',{月份天数:[31,28,31]}),'大业十三年-03月-03日-下午');
+        assert.equal(normalize('2024年-02月-29日-下午',{月份天数:[]}), '2024年-02月-29日-下午');
+        assert.equal(normalize('2026年-02月-31日-下午',{月份天数:[]}), '2026年-03月-03日-下午');
     });
     await test('street rumors normalize classification, dedupe duplicates, and cap at three', () => {
         const stat=fresh();
@@ -493,6 +530,11 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(r.system,/货币与经济/);
         assert.match(r.system,/体系.*购买力基准.*经济波动/);
         assert.match(r.system,/玩家持币余额.*不由 WorldResult 写入/);
+        assert.match(r.system,/世界\.探索与世界\.势力.*空间币结算/);
+        assert.match(r.system,/禁止天台、教室、走廊、楼梯/);
+        assert.match(r.system,/声望锚点-5000敌对.*10000崇拜/);
+        assert.match(r.system,/货币体系不是跨界后永久锁死/);
+        assert.match(r.system,/历法一致性/);
         assert.match(r.system,/不要输出“名称→对象”的 map 简写/);
         assert.match(r.system,/已完成.*历史锚点|历史锚点.*已完成/);
         assert.match(r.system,/传播.*到期.*回收|过期传播.*回收/);
@@ -804,6 +846,13 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const currencyGuard=src.lastIndexOf('<%_ if (!isWorldEngineEnabled) { _%>',currencyStart);
         const explorationStart=src.indexOf('    探索:',currencyStart);
         assert.ok(currencyGuard>=0&&currencyGuard<currencyStart&&explorationStart>currencyStart,'世界引擎开启时普通MVU必须隐藏货币更新规则');
+        assert.match(src,/只读字段:[^\n]*\/世界\/探索/);
+        assert.match(src,/只读字段:[^\n]*\/世界\/势力/);
+        assert.match(src,/只读字段:[^\n]*\/世界\/历法/);
+        const exploreStart=src.indexOf('    探索:');
+        const exploreGuard=src.lastIndexOf('<%_ if (!isWorldEngineEnabled) { _%>',exploreStart);
+        assert.ok(exploreGuard>=0&&exploreGuard<exploreStart,'世界引擎开启时普通MVU必须隐藏探索/势力可写规则');
+        assert.match(src,/本月上限28日[\s\S]*必须进位到下月/);
         const commonAnchor=src.indexOf('&P_传闻通用');
         const guard=src.lastIndexOf('<%_ if (!isWorldEngineEnabled) { _%>',commonAnchor);
         assert.ok(guard>=0&&guard<commonAnchor,'世界引擎开启时不再注入“为空补传闻”的冲突规则');

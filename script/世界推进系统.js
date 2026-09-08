@@ -2059,10 +2059,11 @@ ${schemaText}
                 if(button.dataset.jumpPerson){this.selectedPerson=button.dataset.jumpPerson;this.tab='角色管理';this.filter='全部';this.query='';this.selectedDate='';this.render(true);return;}
                 if(button.dataset.jumpEvent){
                     this.jumpEvent=button.dataset.jumpEvent;this.tab='世界推进';this.filter='全部';this.query='';
-                    const world=this.snapshot().stat.世界,event=world[PATH]?.事件?.[this.jumpEvent];
-                    const date=calendarDate(event?.时间||event?.开始时间),today=calendarDate(world.时间);
+                    const world=this.snapshot().stat.世界,event=world[PATH]?.事件?.[this.jumpEvent],calendar=world.历法;
+                    const date=calendarDate(event?.时间||event?.开始时间,calendar),today=calendarDate(world.时间,calendar);
+                    const monthsPerYear=Array.isArray(calendar?.月份天数)&&calendar.月份天数.length?calendar.月份天数.length:12;
                     this.selectedDate=date?.key||'';this.calendarMode=date?'date':'undated';
-                    this.monthOffset=date&&today?(date.y-today.y)*12+date.m-today.m:0;
+                    this.monthOffset=date&&today?(date.y-today.y)*monthsPerYear+date.m-today.m:0;
                     this.eventLimit=Number.MAX_SAFE_INTEGER;this.render(true);return;
                 }
                 if(button.dataset.person){this.selectedPerson=button.dataset.person;this.render();return;}
@@ -2127,8 +2128,19 @@ ${schemaText}
                 }
                 else if(a==='month'){
                     this.monthOffset=(this.monthOffset||0)+Number(button.dataset.step);
-                    const today=calendarDate(this.snapshot().stat.世界.时间),date=new Date(0);
-                    if(today){date.setFullYear(today.y,today.m-1+this.monthOffset,1);this.selectedDate=date.getFullYear()+'-'+(date.getMonth()+1)+'-1';}
+                    const world=this.snapshot().stat.世界,calendar=world.历法,today=calendarDate(world.时间,calendar);
+                    if(today){
+                        const custom=Array.isArray(calendar?.月份天数)?calendar.月份天数.map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=99).slice(0,24):[];
+                        if(custom.length){
+                            let y=today.y,m=today.m+this.monthOffset;
+                            while(m<1){m+=custom.length;y--;}
+                            while(m>custom.length){m-=custom.length;y++;}
+                            this.selectedDate=y+'-'+m+'-1';
+                        }else{
+                            const date=new Date(0);date.setFullYear(today.y,today.m-1+this.monthOffset,1);
+                            this.selectedDate=date.getFullYear()+'-'+(date.getMonth()+1)+'-1';
+                        }
+                    }
                     this.calendarMode='date';this.eventLimit=12;this.render();
                 }
                 else if(a==='date'){this.selectedDate=button.dataset.date;this.calendarMode='date';this.eventLimit=12;this.render();}
@@ -2201,7 +2213,8 @@ ${schemaText}
             if(this.selectedDate===undefined||this.calendarMode==="today")this.selectedDate=parseDate(w.时间)?.key||"";
             if(this.calendarMode==='date'){
                 const anchor=parseDate(w.时间),selected=parseDate(this.selectedDate);
-                if(anchor&&selected)this.monthOffset=(selected.y-anchor.y)*12+selected.m-anchor.m;
+                const monthsPerYear=Array.isArray(w.历法?.月份天数)&&w.历法.月份天数.length?w.历法.月份天数.length:12;
+                if(anchor&&selected)this.monthOffset=(selected.y-anchor.y)*monthsPerYear+selected.m-anchor.m;
             }
             const dateLabel=str=>{const d=parseDate(str);return d?d.m+'月'+d.d+'日':str||'日期未定';};
             const displayBucket=e=>{

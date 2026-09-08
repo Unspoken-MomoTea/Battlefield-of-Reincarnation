@@ -188,6 +188,38 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(x.toasts()[0].title,'世界推进失败');
         assert.match(x.toasts()[0].message,/HTTP 400: invalid argument/);
     });
+    await test('WorldResult same-run event causes resolve when both events are submitted together', () => {
+        const stat=fresh();
+        const compiled=compileWorldResult(stat,{
+            摘要:'同轮因果',
+            事件:[
+                {名称:'天台入口攻防',描述:'铁门受冲击',前因:['病毒向高层蔓延'],状态:'进行中',分类:'当前事件'},
+                {名称:'病毒向高层蔓延',描述:'死体向高层扩散',前因:['藤美学园爆发'],状态:'已完成',分类:'近期节点'},
+                {名称:'藤美学园爆发',描述:'校园爆发',状态:'进行中',分类:'宏观节点'}
+            ]
+        });
+        const next=applyPatches(stat,compiled.patches);
+        assert.deepEqual(next.世界.后台.事件.天台入口攻防.前因,['病毒向高层蔓延']);
+        assert.ok(next.世界.后台.事件.病毒向高层蔓延);
+    });
+    await test('street rumors normalize classification, dedupe duplicates, and cap at three', () => {
+        const stat=fresh();
+        const compiled=compileWorldResult(stat,{
+            摘要:'传闻兼容',
+            传闻:{街头巷议:[
+                {名称:'校门惨剧',来源:'学生',内容:'校门发生咬人事件',分类:'事实'},
+                {名称:'疯病传闻',来源:'手机简讯',内容:'被咬就会发疯',分类:'猜测'},
+                {名称:'操场巨响',来源:'操场幸存者',内容:'操场有车被掀翻',分类:'事实'},
+                {名称:'操场异动',来源:'操场幸存者',内容:'操场有车被掀翻',分类:'事实'},
+                {名称:'超人出没',来源:'目击学生',内容:'有人像忍者一样移动',分类:'谣言'}
+            ]}
+        });
+        const rumorPatches=compiled.patches.filter(p=>p.path.startsWith('/传闻/街头巷议/'));
+        assert.equal(rumorPatches.length,3);
+        assert.deepEqual(rumorPatches.map(p=>p.value.可信度),['或许可信','可疑','或许可信']);
+        const next=applyPatches(stat,compiled.patches);
+        assert.equal(Object.keys(next.传闻.街头巷议).length,3);
+    });
     await test('WorldResult compiler owns paths, escaping and upsert selection', () => {
         const stat=fresh();
         stat.世界.后台.人物.卫兵={...RECORDS.人物,所属世界:'测试世界',行动:'待命'};
@@ -213,6 +245,15 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const legacy=parseReply(JSON.stringify({summary:'旧协议',patches:[]}));
         assert.equal(legacy.kind,'legacy_patches');
         assert.deepEqual(legacy.patches,[]);
+    });
+    await test('WorldResult parser keeps the first complete JSON object when providers append trailing output', () => {
+        const first=JSON.stringify({摘要:'第一份有效结果',事件:[{名称:'前因',描述:'已发生',状态:'已完成'},{名称:'后果',描述:'正在发生',前因:['前因'],状态:'进行中'}]});
+        const second=JSON.stringify({摘要:'不应混入的第二对象'});
+        const parsed=parseReply(first+'\n'+second);
+        assert.equal(parsed.kind,'world_result');
+        assert.equal(parsed.worldResult.摘要,'第一份有效结果');
+        assert.deepEqual(parsed.worldResult.事件.map(x=>x.名称),['前因','后果']);
+        assert.throws(()=>parseReply('{"摘要":"破损","事件":[}'),/无法解析/);
     });
     await test('WorldResult parser accepts named-object maps without silently dropping entities', () => {
         const parsed=parseReply(JSON.stringify({

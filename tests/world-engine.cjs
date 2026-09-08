@@ -1146,21 +1146,51 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(host.Samsara.worldEngine.fn('getCurrentChatId')(),'sandbox');
         host.Samsara.worldEngine.dispose(); assert.equal(stopped,4);
     });
-    await test('current-variable projection removes private plans and suppresses space digest', () => {
+    await test('dedicated world API takes precedence over terminal API and never silently falls back', async () => {
+        let terminalCalls=0,enableCalls=0,fetchCalls=[];
+        const storage={value:'',getItem:()=>storage.value||null,setItem:(_,v)=>{storage.value=v;}};
+        const host={
+            localStorage:storage,
+            Samsara:{terminal:{
+                apiReady:()=>true,
+                enableApi:()=>{enableCalls++;return true;},
+                request:async()=>{terminalCalls++;return 'terminal';}
+            }},
+            fetch:async(url,options)=>{
+                fetchCalls.push({url,options});
+                return {ok:true,status:200,statusText:'OK',json:async()=>({choices:[{message:{content:'dedicated'}}]})};
+            }
+        };
+        const engine=new Engine(host);
+        engine.setDedicatedApi({enabled:true,apiUrl:'https://api.example.test/v1',model:'world-model'});
+        engine.setEnabled(true);
+        assert.equal(engine.usesDedicatedApi(),true);
+        assert.equal(engine.isAvailable(),true);
+        assert.equal(enableCalls,0,'启用世界推进时专属API不得顺手开启主神终端API');
+        assert.equal(await engine.requestAI('system','user',{}),'dedicated');
+        assert.equal(terminalCalls,0,'专属API启用时不得调用 terminal.request');
+        assert.equal(fetchCalls[0].url,'https://api.example.test/v1/chat/completions');
+        engine.setDedicatedApi({enabled:false});
+        assert.equal(await engine.requestAI('system','user',{}),'terminal');
+        assert.equal(terminalCalls,1,'关闭专属API后才允许回退主神终端API');
+    });
+    await test('current-variable projection hides all backend data when world engine is inactive', () => {
         const source=fs.readFileSync(path.join(__dirname,'../World Book/[variables]当前变量.txt'),'utf8');
         const start=source.indexOf('if (current.世界) {',source.indexOf('// 后台完整状态'));
         const end=source.indexOf('// 世界超稳模式:',start);
-        const render=new Function('current','data','readonly','_',source.slice(start,end));
+        const render=new Function('current','data','readonly','_','isWorldEngineEnabled',source.slice(start,end));
         const lodash={get:(v,p,d)=>p.split('.').reduce((a,k)=>a?.[k],v)??d};
         const stat=fresh();stat.世界.后台.公开摘要='城门戒严';stat.世界.后台.事件.秘密={结果:'隐藏真相'};stat.世界.历法={名称:'隐藏历',月份天数:[31,28,31],闰年规则:''};
-        for (const space of [false,true]) {
-            stat.系统状态.是否在主神空间=space;
-            const current={世界:clone(stat.世界)},readonly={世界:{}};
-            render(current,stat,readonly,lodash);
-            assert.equal(current.世界.后台,undefined);
-            assert.equal(current.世界.历法,undefined,'正文/普通AI当前变量不得看到内部历法');
-            assert.equal(readonly.世界.后台公开动态,space?undefined:'城门戒严');
-            assert.equal(JSON.stringify([current,readonly]).includes('隐藏真相'),false);
+        for (const engineOn of [false,true]) {
+            for (const space of [false,true]) {
+                stat.系统状态.是否在主神空间=space;
+                const current={世界:clone(stat.世界)},readonly={世界:{}};
+                render(current,stat,readonly,lodash,engineOn);
+                assert.equal(current.世界.后台,undefined);
+                assert.equal(current.世界.历法,undefined,'正文/普通AI当前变量不得看到内部历法');
+                assert.equal(readonly.世界.后台公开动态,engineOn&&!space?'城门戒严':undefined,'关闭世界推进后连后台公开摘要也不得暴露');
+                assert.equal(JSON.stringify([current,readonly]).includes('隐藏真相'),false);
+            }
         }
     });
     await test('updated JS and embedded settlement scripts compile', () => {

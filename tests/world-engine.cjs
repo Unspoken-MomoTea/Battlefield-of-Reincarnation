@@ -306,6 +306,36 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(await apiChat('JSON only','test',options),'{"摘要":"ok"}');
         assert.deepEqual(calls,['json_schema','json_object','json_object','plain','plain']);
     });
+    await test('terminal structured mode downgrades generic upstream INVALID_ARGUMENT before failing plain mode', async () => {
+        const sourceText=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');
+        const start=sourceText.indexOf('    var API_STRUCTURED_MODE_CACHE');
+        const end=sourceText.indexOf('    /* 是否启用额外模型通道',start);
+        const snippet=sourceText.slice(start,end);
+        const calls=[];
+        const wrapped400='{"error":{"message":"upstream status 400: {\\\"error\\\":{\\\"code\\\":400,\\\"message\\\":\\\"Request contains an invalid argument.\\\",\\\"status\\\":\\\"INVALID_ARGUMENT\\\"}}","type":"invalid_request_error","param":null,"code":"invalid_argument"}}';
+        const fakeFetch=async (_url,opt)=>{
+            const body=JSON.parse(opt.body);calls.push(body.response_format?.type||'plain');
+            if(calls.length<3)return {ok:false,status:400,statusText:'Bad Request',text:async()=>wrapped400};
+            return {ok:true,status:200,statusText:'OK',json:async()=>({choices:[{message:{content:'{"摘要":"plain ok"}'}}]})};
+        };
+        const apiChat=new Function('getApiConfig','fetch',snippet+'; return apiChat;')(
+            ()=>({enabled:true,apiUrl:'https://example.invalid/v1',apiKey:'',model:'demo-generic-400'}),fakeFetch
+        );
+        const options={structured:'auto',schemaName:'samsara_world_result_v1',schema:{type:'object',properties:{摘要:{type:'string'}}},temperature:0.3};
+        assert.equal(await apiChat('JSON only','test',options),'{"摘要":"plain ok"}');
+        assert.deepEqual(calls,['json_schema','json_object','plain']);
+
+        const plainCalls=[];
+        const always400=async (_url,opt)=>{
+            const body=JSON.parse(opt.body);plainCalls.push(body.response_format?.type||'plain');
+            return {ok:false,status:400,statusText:'Bad Request',text:async()=>wrapped400};
+        };
+        const apiChatFails=new Function('getApiConfig','fetch',snippet+'; return apiChat;')(
+            ()=>({enabled:true,apiUrl:'https://example.invalid/v1',apiKey:'',model:'demo-generic-400-fail'}),always400
+        );
+        await assert.rejects(()=>apiChatFails('JSON only','test',options),/HTTP 400/);
+        assert.deepEqual(plainCalls,['json_schema','json_object','plain']);
+    });
     await test('model causal patches accept whole objects and normalize common 因校轨道 typo', async () => {
         const x=setup(async()=>JSON.stringify({summary:'修复因果轨道',patches:[
             {op:'replace',path:'/世界/因果轨道',value:{当前阶段:'爆发日',故事线:'撤离 -> 灾变 -> 崩溃',下一节点:'撤离',偏移记录:{}}},

@@ -1193,6 +1193,13 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             }
         }
     });
+    await test('terminal settings do not claim shared API when world engine uses a dedicated API', () => {
+        const terminalSource=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');
+        assert.match(terminalSource,/worldEngine\.usesDedicatedApi/);
+        assert.match(terminalSource,/等待世界推进专属 API 配置/);
+        assert.match(terminalSource,/世界推进「设置」中完成专属 API 配置/);
+        assert.doesNotMatch(terminalSource,/世界推进已开启，额外 API 已自动启用/);
+    });
     await test('updated JS and embedded settlement scripts compile', () => {
         new vm.Script(source);
         new vm.Script(fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8'));

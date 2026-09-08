@@ -907,6 +907,17 @@
             for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
             return null;
         }
+        notifyFailure(message) {
+            const raw=String(message||'世界推进失败').trim();
+            if(!raw||/^(?:请求已取消|上下文已经切换|已切换上下文)/.test(raw))return false;
+            const shown=raw.length>900?raw.slice(0,897)+'…':raw;
+            const toast=(this.host&&this.host.toastr)||(this.env&&this.env.toastr)||(this.host&&this.host.parent&&this.host.parent.toastr);
+            if(toast&&typeof toast.error==='function'){
+                try{toast.error(shown,'世界推进失败');return true;}catch(_){}
+            }
+            try{console.error('[世界推进] '+shown);}catch(_){}
+            return false;
+        }
         snapshot() {
             const mvu = this.env.Mvu || this.host.Mvu;
             const getMessages = this.fn('getChatMessages');
@@ -1056,7 +1067,7 @@
             if (this.disposed || this.busy) return false;
             if (!this.isConfigured()) { this.status='世界推进已关闭'; this.render(); return false; }
             const terminal = this.host.Samsara && this.host.Samsara.terminal;
-            this.busy = true; const token = this.generation; let timeout;
+            this.busy = true; const token = this.generation; let timeout, timedOut=false;
             try {
                 const base = this.snapshot(), reason = this.blocked(base);
                 if (reason) { this.status = reason; return false; }
@@ -1085,7 +1096,8 @@
                 while(attempt<=maxRetries){
                     if(token!==this.generation)throw new Error('请求已取消');
                     this.controller=new AbortController();
-                    clearTimeout(timeout);timeout=setTimeout(()=>this.controller.abort(),120000);
+                    timedOut=false;
+                    clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},120000);
                     const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxRetries,acceptedWorldResult);
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
@@ -1193,9 +1205,11 @@
                 this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 重试'+this.lastRetryLog.length+'次':'');
                 return true;
             } catch (error) {
-                this.lastFailure=error.message;
+                const failureMessage=error.name==='AbortError'?(timedOut?'请求超时（120秒）':'请求已取消'):String(error.message||error);
+                this.lastFailure=failureMessage;
                 const retryNote=this.lastRetryLog?.length?' · 已重试'+this.lastRetryLog.length+'次':'';
-                this.status=(this.committing?'写入未确认 · ':'未写入 · ')+(error.name==='AbortError'?'请求已取消或超时':error.message)+retryNote;
+                this.status=(this.committing?'写入未确认 · ':'未写入 · ')+failureMessage+retryNote;
+                if(!(error.name==='AbortError'&&!timedOut))this.notifyFailure(this.status);
                 throw error;
             } finally {
                 clearTimeout(timeout); if(this.controller)this.controller=null; this.committing=false; this.busy=false; this.render();

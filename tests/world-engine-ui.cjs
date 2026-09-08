@@ -38,7 +38,6 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('.we-world-focus').count(),1,'当前局势与下一宏观节点必须形成明确首屏焦点');
  assert.equal(await page.locator('.we-people-strip .we-person-compact').count()<=4,true,'人物动态保持紧凑摘要');
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),1,'世界推进只保留一处世界动向');
- assert.equal(await page.getByText(/探索与.*声望.*空间币结算/).count()>=0,true);
  assert.equal(await page.getByRole('heading',{name:'当前活动',exact:true}).count(),0,'重复的当前活动侧栏必须移除');
  assert.equal(await page.getByRole('heading',{name:'货币与经济',exact:true}).count(),1,'世界面板必须显示货币与经济');
  assert.equal(await page.getByText('银冠',{exact:true}).count()>=1,true);
@@ -130,6 +129,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.evaluate(()=>Samsara.worldEngine.config.retryAttempts),2,'请求检查可修改失败重试次数');
  await page.locator('[data-tab="探索与势力"]').click();
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),0,'探索与势力不重复世界动向');
+ assert.equal(await page.getByText(/世界\.探索与世界\.势力\.声望会直接参与空间币结算/).count(),1,'探索与声望必须明确标记为结算台账');
  assert.equal(await page.locator('[data-tab="势力与地区"]').count(),0,'旧页签名称应移除');
  await page.locator('[data-tab="世界事件"]').click();
  assert.equal(await page.getByRole('heading',{name:'当前任务',exact:true}).count(),0);

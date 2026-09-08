@@ -2067,7 +2067,8 @@ ${schemaText}
                 const button=event.target.closest('button');if(!button)return;
                 const a=button.dataset.action;
                 if(button.dataset.directory){this.directoryTab=button.dataset.directory;this.render();return;}
-                if(button.dataset.faction){this.selectedFaction=button.dataset.faction;this.render();return;}
+                if(button.dataset.area){this.selectedArea=button.dataset.area;this.directoryTab='探索';this.render();return;}
+                if(button.dataset.faction){this.selectedFaction=button.dataset.faction;this.directoryTab='势力';this.render();return;}
                 if(button.dataset.jumpPerson){this.selectedPerson=button.dataset.jumpPerson;this.tab='角色管理';this.filter='全部';this.query='';this.selectedDate='';this.render(true);return;}
                 if(button.dataset.jumpEvent){
                     this.jumpEvent=button.dataset.jumpEvent;this.tab='世界推进';this.filter='全部';this.query='';

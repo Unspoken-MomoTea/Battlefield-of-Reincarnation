@@ -1330,7 +1330,17 @@ ${schemaText}
             this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
             this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
-            this.config = { enabled:false, preset:DEFAULT_PRESET, retryAttempts:3, requireMacroBackbone:true, presetEditorVersion:0, promptDocuments:[] };
+            this.config = {
+                enabled:false,
+                preset:DEFAULT_PRESET,
+                retryAttempts:3,
+                requireMacroBackbone:true,
+                presetEditorVersion:0,
+                promptDocuments:[],
+                tone:'night',
+                fontScale:'standard',
+                dedicatedApi:{enabled:false,apiUrl:'',apiKey:'',model:'',apiPresets:[],fetchedModels:[]}
+            };
             try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
             if(Number(this.config.presetEditorVersion||0)<2)this.config.preset=ensurePresetStructure(this.config.preset);
             else this.config.preset=normalizeEditablePreset(this.config.preset);
@@ -1353,7 +1363,11 @@ ${schemaText}
             }
             this.config.retryAttempts=Math.max(0,Math.min(5,Number(this.config.retryAttempts) || 0));
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
-            if(this.config.enabled){
+            if(!['night','crimson','indigo','parchment','sakura','matcha'].includes(this.config.tone))this.config.tone='night';
+            if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
+            this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
+            this.apiModeCache={};
+            if(this.config.enabled&&!this.usesDedicatedApi()){
                 const terminal=this.host.Samsara&&this.host.Samsara.terminal;
                 if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
             }
@@ -1401,6 +1415,135 @@ ${schemaText}
         }
         saveConfig() {
             try{this.host.localStorage?.setItem?.(CONFIG,JSON.stringify(this.config));}catch(_){}
+        }
+        normalizeDedicatedApi(value) {
+            const api=plain(value)?value:{};
+            return {
+                enabled:api.enabled===true,
+                apiUrl:String(api.apiUrl||'').trim(),
+                apiKey:String(api.apiKey||''),
+                model:String(api.model||'').trim(),
+                apiPresets:Array.isArray(api.apiPresets)?api.apiPresets.filter(plain).map(p=>({
+                    name:String(p.name||'').trim().slice(0,80),
+                    apiUrl:String(p.apiUrl||'').trim(),
+                    apiKey:String(p.apiKey||''),
+                    model:String(p.model||'').trim()
+                })).filter(p=>p.name).slice(0,30):[],
+                fetchedModels:Array.isArray(api.fetchedModels)?api.fetchedModels.map(String).filter(Boolean).slice(0,500):[]
+            };
+        }
+        usesDedicatedApi() { return this.config.dedicatedApi?.enabled===true; }
+        dedicatedApiReady() {
+            const api=this.config.dedicatedApi||{};
+            return api.enabled===true&&!!String(api.apiUrl||'').trim()&&!!String(api.model||'').trim();
+        }
+        apiSourceLabel() { return this.usesDedicatedApi()?'世界推进专属 API':'主神终端额外模型'; }
+        setDedicatedApi(patch) {
+            const current=this.normalizeDedicatedApi(this.config.dedicatedApi);
+            const next=this.normalizeDedicatedApi(Object.assign({},current,plain(patch)?patch:{}));
+            if(patch&&Object.hasOwn(patch,'apiUrl')&&String(patch.apiUrl||'').trim()!==current.apiUrl)next.fetchedModels=[];
+            this.config.dedicatedApi=next;
+            this.saveConfig();
+            return next;
+        }
+        saveDedicatedApiPreset(name) {
+            const clean=String(name||'').trim().slice(0,80);
+            if(!clean)throw new Error('请输入 API 预设名称');
+            const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
+            const entry={name:clean,apiUrl:api.apiUrl,apiKey:api.apiKey,model:api.model};
+            const idx=api.apiPresets.findIndex(p=>p.name===clean);
+            if(idx>=0)api.apiPresets[idx]=entry;else api.apiPresets.unshift(entry);
+            api.apiPresets=api.apiPresets.slice(0,30);
+            this.config.dedicatedApi=api;this.saveConfig();return entry;
+        }
+        deleteDedicatedApiPreset(name) {
+            const clean=String(name||'').trim(),api=this.normalizeDedicatedApi(this.config.dedicatedApi);
+            const before=api.apiPresets.length;api.apiPresets=api.apiPresets.filter(p=>p.name!==clean);
+            this.config.dedicatedApi=api;this.saveConfig();return before!==api.apiPresets.length;
+        }
+        applyDedicatedApiPreset(name) {
+            const api=this.normalizeDedicatedApi(this.config.dedicatedApi),preset=api.apiPresets.find(p=>p.name===String(name||''));
+            if(!preset)throw new Error('API 预设不存在');
+            api.apiUrl=preset.apiUrl;api.apiKey=preset.apiKey;api.model=preset.model;api.fetchedModels=[];
+            this.config.dedicatedApi=api;this.saveConfig();return api;
+        }
+        dedicatedEndpoint(kind='chat') {
+            const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
+            let endpoint=String(api.apiUrl||'').trim().replace(/\/+$/,'');
+            if(!endpoint)throw new Error('请先填写专属 API 地址');
+            if(kind==='models'){
+                if(/\/chat\/completions$/i.test(endpoint))endpoint=endpoint.replace(/\/chat\/completions$/i,'/models');
+                else if(/\/v1$/i.test(endpoint))endpoint+='/models';
+                else if(/\/v1\//i.test(endpoint))endpoint=endpoint.replace(/\/v1\/.*$/i,'/v1/models');
+                else endpoint+=/\/v\d+$/i.test(endpoint)?'/models':'/v1/models';
+                return endpoint;
+            }
+            if(/\/chat\/completions$/i.test(endpoint))return endpoint;
+            if(/\/v1$/i.test(endpoint))return endpoint+'/chat/completions';
+            if(/\/v1\//i.test(endpoint))return endpoint.replace(/\/v1\/.*$/i,'/v1/chat/completions');
+            return endpoint+(/\/v\d+$/i.test(endpoint)?'/chat/completions':'/v1/chat/completions');
+        }
+        async fetchDedicatedModels() {
+            const api=this.normalizeDedicatedApi(this.config.dedicatedApi),fetcher=this.host.fetch||(typeof fetch!=='undefined'?fetch:null);
+            if(!fetcher)throw new Error('当前环境没有 fetch');
+            const headers={};if(api.apiKey.trim())headers.Authorization='Bearer '+api.apiKey.trim();
+            const response=await fetcher(this.dedicatedEndpoint('models'),{headers});
+            if(!response.ok){
+                let body='';try{body=await response.text();}catch(_){}
+                throw new Error('加载模型失败：HTTP '+response.status+(body?' / '+body.slice(0,240):''));
+            }
+            const body=await response.json();
+            const raw=Array.isArray(body?.data)?body.data:Array.isArray(body?.models)?body.models:[];
+            const models=raw.map(item=>typeof item==='string'?item:item?.id||item?.name).filter(Boolean).map(String);
+            if(!models.length)throw new Error('API 返回的模型列表为空');
+            api.fetchedModels=Array.from(new Set(models)).sort().slice(0,500);
+            if(api.model&&!api.fetchedModels.includes(api.model))api.fetchedModels.unshift(api.model);
+            this.config.dedicatedApi=api;this.saveConfig();return api.fetchedModels;
+        }
+        structuredUnsupported(status,body) {
+            const code=Number(status),text=String(body||'');
+            return [400,404,415,422].includes(code)&&/response[_ -]?format|json[_ -]?schema|json[_ -]?object|unknown (?:field|parameter)|unrecognized|unsupported|not supported|invalid.*schema|INVALID_ARGUMENT|invalid[_ -]?argument/i.test(text);
+        }
+        async requestDedicatedApi(system,input,options={}) {
+            const api=this.normalizeDedicatedApi(this.config.dedicatedApi),fetcher=this.host.fetch||(typeof fetch!=='undefined'?fetch:null);
+            if(!this.dedicatedApiReady())throw new Error('世界推进专属 API 已启用，但地址或模型未配置完整');
+            if(!fetcher)throw new Error('当前环境没有 fetch');
+            const endpoint=this.dedicatedEndpoint('chat'),headers={'Content-Type':'application/json'};
+            if(api.apiKey.trim())headers.Authorization='Bearer '+api.apiKey.trim();
+            const cacheKey=endpoint+'|'+api.model,wants=options.structured==='auto'&&plain(options.schema);
+            const cached=wants?this.apiModeCache[cacheKey]:'';
+            const modes=!wants?['plain']:cached==='json_schema'?['json_schema','json_object','plain']:cached==='json_object'?['json_object','plain']:cached==='plain'?['plain']:['json_schema','json_object','plain'];
+            let lastError='';
+            for(const mode of modes){
+                const body={
+                    model:api.model,
+                    messages:[{role:'system',content:String(system||'')},{role:'user',content:String(input||'')}],
+                    stream:false,
+                    temperature:Number.isFinite(Number(options.temperature))?Number(options.temperature):0.3
+                };
+                if(mode==='json_schema')body.response_format={type:'json_schema',json_schema:{name:String(options.schemaName||'samsara_world_result').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64),strict:false,schema:options.schema}};
+                else if(mode==='json_object')body.response_format={type:'json_object'};
+                const response=await fetcher(endpoint,{method:'POST',headers,body:JSON.stringify(body),signal:options.signal});
+                if(!response.ok){
+                    let err='';try{err=await response.text();}catch(_){}
+                    lastError='HTTP '+response.status+': '+response.statusText+(err?' / '+err.slice(0,300):'');
+                    if(mode!=='plain'&&this.structuredUnsupported(response.status,err)){delete this.apiModeCache[cacheKey];continue;}
+                    throw new Error(lastError);
+                }
+                const data=await response.json(),message=data?.choices?.[0]?.message;
+                const raw=message?.content;
+                const content=typeof raw==='string'?raw:(plain(raw)?JSON.stringify(raw):message?.parsed?JSON.stringify(message.parsed):'');
+                if(!content)throw new Error('专属 API 返回内容为空');
+                if(wants)this.apiModeCache[cacheKey]=mode;
+                return content;
+            }
+            throw new Error(lastError||'专属 API 不支持当前结构化输出模式');
+        }
+        async requestAI(system,input,options={}) {
+            if(this.usesDedicatedApi())return this.requestDedicatedApi(system,input,options);
+            const terminal=this.host.Samsara&&this.host.Samsara.terminal;
+            if(!terminal||typeof terminal.request!=='function'||!terminal.apiReady?.())throw new Error('请在主神终端设置中启用额外模型并选择模型');
+            return terminal.request(system,input,options);
         }
         setPreset(text) {
             if (typeof text !== 'string' || text.length > 30000) throw new Error('预设限30000字');
@@ -1497,6 +1640,7 @@ ${schemaText}
         }
         isConfigured() { return !!this.config.enabled; }
         isAvailable() {
+            if(this.usesDedicatedApi())return this.dedicatedApiReady();
             const terminal=this.host.Samsara&&this.host.Samsara.terminal;
             return !!(terminal&&typeof terminal.apiReady==='function'&&terminal.apiReady());
         }
@@ -1504,10 +1648,10 @@ ${schemaText}
         setEnabled(value) {
             const on=!!value;
             this.config.enabled=on;
-            if(on){
+            if(on&&!this.usesDedicatedApi()){
                 const terminal=this.host.Samsara&&this.host.Samsara.terminal;
                 if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
-            } else {
+            } else if(!on) {
                 this.cancel();
                 if(this.isOpen())this.close();
             }
@@ -1661,7 +1805,7 @@ ${schemaText}
                     if(!needsMacroRepair){this.status='本楼层已处理，不重复结算';return false;}
                     this.status='检测到宏观骨架不完整 · 修复本楼层';
                 }
-                if (!terminal || !terminal.apiReady()) throw new Error('请在主神终端设置中启用额外模型并选择模型');
+                if (!this.isAvailable()) throw new Error(this.usesDedicatedApi()?'请在世界推进「设置」中完成专属 API 地址与模型配置':'请在主神终端设置中启用额外模型并选择模型');
                 const validate = this.host.Samsara && this.host.Samsara.validateWorldState;
                 if (!validate) throw new Error('请加载更新后的 ZOD脚本.js');
 
@@ -1694,7 +1838,7 @@ ${schemaText}
 
                     let received='';
                     try{
-                        received=String(await terminal.request(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature:0.3}));
+                        received=String(await this.requestAI(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature:0.3}));
                         clearTimeout(timeout);
                         if(token!==this.generation||this.controller.signal.aborted)throw new Error('请求已取消');
                         this.lastReply=received;this.lastFailure='';

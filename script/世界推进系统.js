@@ -563,10 +563,23 @@
         return copy(value);
     }
     function normalizeNamedResultList(value,sample,allowedOps=['更新','撤销本轮']) {
-        if(!Array.isArray(value))return [];
+        const list=Array.isArray(value)?value:plain(value)?Object.entries(value).map(([name,item])=>{
+            if(!plain(item))return null;
+            return Object.assign({名称:name},copy(item));
+        }).filter(Boolean):[];
         const fields=new Set(Object.keys(sample||{})),map=new Map();
-        for(const raw of value){
-            if(!plain(raw))continue;
+        const aliases={
+            所在世界:'所属世界',
+            已知信息:'认知',
+            下次检查条件:'下次检查',
+            事实:'内容'
+        };
+        for(const source of list){
+            if(!plain(source))continue;
+            const raw=copy(source);
+            for(const [from,to] of Object.entries(aliases)){
+                if(fields.has(to)&&Object.hasOwn(raw,from)&&!Object.hasOwn(raw,to))raw[to]=raw[from];
+            }
             const name=String(raw.名称??raw.name??'').trim();
             if(!name)continue;
             const item={名称:name};

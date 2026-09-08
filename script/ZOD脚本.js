@@ -59,6 +59,8 @@ function normalizeWorldTimeByCalendar(value, calendar) {
     if (custom.length && month > custom.length) return text;
     const yearMatch = text.match(/(\d{1,4})\s*年/);
     const numericYear = yearMatch ? Number(yearMatch[1]) : null;
+    // 作品纪年若既没有数字年份也没有世界.历法月长，ZOD 不猜月长；2026 仅供世界推进面板做 UI 显示映射。
+    if (!custom.length && numericYear === null) return text;
     const monthDays = (m, y) => {
         if (custom.length) return custom[m - 1] || null;
         const year = Number.isInteger(y) ? y : 2026;

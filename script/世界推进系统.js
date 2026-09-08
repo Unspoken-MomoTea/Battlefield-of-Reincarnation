@@ -54,8 +54,9 @@
         }
         return {起点:from,终点:to,小时:null,等级:'作品内时间',允许:'按作品内时间语义保守估计行动容量；无法确认跨度时只推进一步，不直接跳到长期结果。'};
     }
-    // 仅供日历显示：优先使用可识别数字年份；作品纪年无法识别年份但能识别月日时，用 2026 作为日历显示年。
-    function calendarDate(value) {
+    // 仅供日历显示：优先使用可识别数字年份；作品纪年无法识别年份但能识别月日时，用 2026 作为显示年。
+    // 若世界.历法提供月份天数，则以该历法为准，不再套用公历月长。
+    function calendarDate(value, calendar) {
         const source=String(value||'').trim();
         const full=source.match(/(?:^|[^\d])(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/)||source.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?!\d)/);
         let y,month,d,fallbackYear=false;
@@ -66,10 +67,15 @@
             if(!md)return null;
             y=2026;month=+md[1];d=+md[2];fallbackYear=true;
         }
+        const custom=Array.isArray(calendar?.月份天数)?calendar.月份天数.map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=99).slice(0,24):[];
+        if(custom.length){
+            if(month<1||month>custom.length||d<1||d>custom[month-1])return null;
+            return {y,m:month,d,key:y+'-'+month+'-'+d,fallbackYear,customCalendar:true};
+        }
         const date=new Date(0);
         date.setFullYear(y,month-1,d);date.setHours(0,0,0,0);
         if(date.getFullYear()!==y||date.getMonth()!==month-1||date.getDate()!==d)return null;
-        return {y,m:month,d,key:y+'-'+month+'-'+d,fallbackYear};
+        return {y,m:month,d,key:y+'-'+month+'-'+d,fallbackYear,customCalendar:false};
     }
     const DEFAULT_PRESET = `你是轮回战场的世界演进主持者。以当前世界的已确认状态、本轮实际剧情、模型已有的世界/原著知识，以及存在时可用的世界书补充设定为依据，统一处理六个模块：
 【世界推进】世界推进的首要职责是维护“宏观世界演进”，不是替正文重复每个细节。世界.因果轨道是3~5个宏观大事件的简明投影，后台.事件则是它的展开版调度图。事件分类只允许“当前事件 / 近期节点 / 宏观节点”：正在发生或当前场景已直接启动的事件属于当前事件；连接当前时间与下一宏观边界的撤离、会合、调查、赶路、单次战斗等属于近期节点；只有会改变篇章/地区/社会/战争/据点体系/基础设施/关键人物命运等阶段状态的事件才属于宏观节点。不得为满足数量把抢车、过桥、开门、单次会合等桥接动作提升成宏观节点。
@@ -2189,7 +2195,7 @@ ${schemaText}
             const details=(id,obj,title='查看完整档案')=>Object.values(obj).some(exists)?'<details data-detail="'+text(id)+'"'+(opened.has(id)?' open':'')+'><summary>'+text(title)+'</summary>'+fields(obj)+'</details>':'';
             const section=(title,body,hint='')=>'<section class="we-section"><div class="we-section-head"><h2>'+text(title)+'</h2><small>'+text(hint)+'</small></div>'+body+'</section>';
             const entries=obj=>Object.entries(obj||{});
-            const parseDate=calendarDate;
+            const parseDate=value=>calendarDate(value,w.历法);
             const contextKey=JSON.stringify([snapshot?.fingerprint?JSON.parse(snapshot.fingerprint)[0]:null,w.名称]);
             if(this.calendarContext!==contextKey){this.calendarContext=contextKey;this.selectedDate=undefined;this.calendarMode="today";this.monthOffset=0;}
             if(this.selectedDate===undefined||this.calendarMode==="today")this.selectedDate=parseDate(w.时间)?.key||"";
@@ -2244,14 +2250,22 @@ ${schemaText}
             const calendar=()=>{
                 const today=parseDate(w.时间);
                 if(!today){const semantic=events.filter(([,e])=>!parseDate(e.时间||e.开始时间)&&String(e.时间||e.开始时间||'').trim()).slice(0,12);return '<div class="we-calendar"><h3>作品内时间轴</h3><p class="we-muted">当前锚点 · '+text(w.时间||'尚无副本时间')+'</p>'+(semantic.length?'<div class="we-timeline">'+semantic.map(([n,e])=>'<p><b>'+text(e.时间||e.开始时间)+'</b><br>'+text(n)+'</p>').join('')+'</div>':'<p class="we-muted">暂无带作品内时间标记的事件</p>')+'</div>';}
-                const month=new Date(0);month.setFullYear(today.y,today.m-1+(this.monthOffset||0),1);month.setHours(0,0,0,0);
-                const y=month.getFullYear(),m=month.getMonth()+1,first=(month.getDay()+6)%7;
-                const last=new Date(month);last.setMonth(last.getMonth()+1,0);const count=last.getDate();
+                const customMonths=Array.isArray(w.历法?.月份天数)?w.历法.月份天数.map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=99).slice(0,24):[];
+                let y=today.y,m=today.m+(this.monthOffset||0),first=0,count=0;
+                if(customMonths.length){
+                    while(m<1){m+=customMonths.length;y--;}
+                    while(m>customMonths.length){m-=customMonths.length;y++;}
+                    count=customMonths[m-1];
+                }else{
+                    const month=new Date(0);month.setFullYear(today.y,today.m-1+(this.monthOffset||0),1);month.setHours(0,0,0,0);
+                    y=month.getFullYear();m=month.getMonth()+1;first=(month.getDay()+6)%7;
+                    const last=new Date(month);last.setMonth(last.getMonth()+1,0);count=last.getDate();
+                }
                 const marked=new Map();
                 calendarCandidates.forEach(([,e])=>{const key=parseDate(e.时间||e.开始时间)?.key;if(key)marked.set(key,(marked.get(key)||0)+1);});
                 let cells=['一','二','三','四','五','六','日'].map(x=>'<span>'+x+'</span>').join('')+'<span></span>'.repeat(first);
                 for(let d=1;d<=count;d++){const key=y+'-'+m+'-'+d;cells+='<button data-action="date" data-date="'+key+'" aria-label="'+key+'" aria-pressed="'+(this.selectedDate===key)+'" title="'+key+' · '+(marked.get(key)||0)+' 个匹配事件" class="'+(today.key===key?'today ':'')+(marked.has(key)?'has-event ':'')+(this.selectedDate===key?'selected':'')+'">'+d+'</button>';}
-                return '<div class="we-calendar"><div class="we-calhead"><button class="we-btn" data-action="month" data-step="-1" aria-label="上月">‹</button><strong>'+y+' 年 '+m+' 月</strong><button class="we-btn" data-action="month" data-step="1" aria-label="下月">›</button></div><div class="we-days">'+cells+'</div><div class="we-meta"><span>金框 · 当前日期</span><span>绿点 · 已排定事件</span></div></div>';
+                return '<div class="we-calendar"><div class="we-calhead"><button class="we-btn" data-action="month" data-step="-1" aria-label="上月">‹</button><strong>'+y+' 年 '+m+' 月</strong><button class="we-btn" data-action="month" data-step="1" aria-label="下月">›</button></div><div class="we-days">'+cells+'</div><div class="we-meta"><span>'+text(customMonths.length?(w.历法?.名称||'作品历法')+' · 本月 '+count+' 天':'公历显示 · 本月 '+count+' 天')+'</span><span>金框 · 当前日期</span><span>绿点 · 已排定事件</span></div></div>';
             };
             const hero='<div class="we-hero"><div><div class="we-eyebrow">SAMSARA / WORLD ARCHIVE</div><h1>'+text(w.名称&&w.名称!=='待初始化'?w.名称:'世界尚未建立')+'</h1><div class="we-muted">'+text(w.地点||'地点待确认')+' · '+text(orbit.当前阶段&&orbit.当前阶段!=='待初始化'?orbit.当前阶段:'等待篇章开启')+'</div></div><div class="we-date">'+text(w.时间||'副本日期待确认')+'<small>累计游玩 '+text((s.系统状态||{}).游玩天数||0)+' 天 · '+(reason?'推进暂停':'副本进行中')+'</small></div></div>';
             let html=hero+(reason?'<div class="we-notice">'+text(reason)+'</div>':'')+(availabilityReason?'<div class="we-notice">'+text(availabilityReason)+'</div>':'');

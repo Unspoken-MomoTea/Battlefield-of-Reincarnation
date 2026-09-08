@@ -2288,6 +2288,7 @@ ${schemaText}
                 const all=Array.from(records),areas=all.filter(([,r])=>r.类型!=='势力'),factions=all.filter(([,r])=>r.类型==='势力');
                 const selected=factions.find(([n])=>n===this.selectedFaction)||factions[0];
                 const dir=this.directoryTab||'探索';
+                html+='<div class="we-notice">世界.探索与世界.势力.声望会直接参与空间币结算：探索只记整体地标，子房间/天台/走廊不得独立计探索度；声望只记该势力对玩家的真实关系变化。</div>';
                 html+=section('探索名录','<div class="we-tools">'+['探索','热点','势力'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+t+'</button>').join('')+'</div>'+
                     (dir==='探索'?areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.控制方||'控制权未明')+'</summary>'+fields({描述:r.描述,控制方:r.控制方,争夺方:r.争夺方,探索度:r.探索度,环境:r.环境状态})+'</details>').join(''):
                     dir==='热点'?events.filter(([,e])=>e.状态==='进行中').map(([n,e])=>eventCard(n,e)).join(''):

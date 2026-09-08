@@ -842,11 +842,10 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(currencyGuard>=0&&currencyGuard<currencyStart&&explorationStart>currencyStart,'世界引擎开启时普通MVU必须隐藏货币更新规则');
         assert.match(src,/只读字段:[^\n]*\/世界\/探索/);
         assert.match(src,/只读字段:[^\n]*\/世界\/势力/);
-        assert.match(src,/只读字段:[^\n]*\/世界\/历法/);
+        assert.doesNotMatch(src,/历法/,'普通 MVU 提示词不得暴露程序内部历法');
         const exploreStart=src.indexOf('    探索:');
         const exploreGuard=src.lastIndexOf('<%_ if (!isWorldEngineEnabled) { _%>',exploreStart);
         assert.ok(exploreGuard>=0&&exploreGuard<exploreStart,'世界引擎开启时普通MVU必须隐藏探索/势力可写规则');
-        assert.match(src,/本月上限28日[\s\S]*必须进位到下月/);
         const commonAnchor=src.indexOf('&P_传闻通用');
         const guard=src.lastIndexOf('<%_ if (!isWorldEngineEnabled) { _%>',commonAnchor);
         assert.ok(guard>=0&&guard<commonAnchor,'世界引擎开启时不再注入“为空补传闻”的冲突规则');
@@ -1153,12 +1152,13 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const end=source.indexOf('// 世界超稳模式:',start);
         const render=new Function('current','data','readonly','_',source.slice(start,end));
         const lodash={get:(v,p,d)=>p.split('.').reduce((a,k)=>a?.[k],v)??d};
-        const stat=fresh();stat.世界.后台.公开摘要='城门戒严';stat.世界.后台.事件.秘密={结果:'隐藏真相'};
+        const stat=fresh();stat.世界.后台.公开摘要='城门戒严';stat.世界.后台.事件.秘密={结果:'隐藏真相'};stat.世界.历法={名称:'隐藏历',月份天数:[31,28,31],闰年规则:''};
         for (const space of [false,true]) {
             stat.系统状态.是否在主神空间=space;
             const current={世界:clone(stat.世界)},readonly={世界:{}};
             render(current,stat,readonly,lodash);
             assert.equal(current.世界.后台,undefined);
+            assert.equal(current.世界.历法,undefined,'正文/普通AI当前变量不得看到内部历法');
             assert.equal(readonly.世界.后台公开动态,space?undefined:'城门戒严');
             assert.equal(JSON.stringify([current,readonly]).includes('隐藏真相'),false);
         }

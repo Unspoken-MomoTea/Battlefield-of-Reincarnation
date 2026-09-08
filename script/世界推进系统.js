@@ -136,8 +136,9 @@
 3. 区间桥接：宏观骨架存在后，以“当前时间 → 下一宏观节点”为本轮细节推演边界。当前事件、近期节点、场外人物行动、势力变化、探索与传播只展开到这个边界；更远未来保持宏观节点，等边界接近后再展开。
 4. 世界推演：原著世界结合当前时间锚点、地点、剧情阶段、已知角色状态、原著人物行动规律、世界势力动态与已知原著进程；原创/衍生世界依据世界法则、本土势力与历史持续运行。世界不会因为<user>没行动而暂停。
 5. 偏移：玩家或其他人物只有实质改变关键人物命运、重大事件结果、势力格局或主线可行性时才写偏移。偏移导致默认宏观事件不再成立时，同轮修订宏观事件图、故事线与下一节点；日常动作、普通交易或对话不记偏移。
-6. 职责隔离：场外人物、势力、资产条件、未来事件与传播由世界引擎负责；正文/MVU负责当前场景直接事实与即时消费。主神任务、晋升试炼、任务状态与副本成就不读取、不更新；旧后台.剧本不参与调度。用户可编辑分段提示词，但以上核心约束始终生效。
-7. 输出分层：模型只提交 WorldResult 业务事实，不生成 JSON Pointer 或 add/replace 路径；程序负责名称归一、增量合并、路径转义、补丁编译、事件分类修复、宏观投影和安全校验。`
+6. 职责隔离：场外人物、势力、资产条件、未来事件、传播以及世界货币与经济状态由世界引擎负责；正文/MVU负责当前场景直接事实与即时消费。主神任务、晋升试炼、任务状态与副本成就不读取、不更新；旧后台.剧本不参与调度。用户可编辑分段提示词，但以上核心约束始终生效。
+7. 货币与经济：可维护世界.货币的体系、购买力基准、经济波动。体系只在跨界初始化或设定明确改变时更新；购买力基准和经济波动只在供需、战争、灾害、封锁、势力控制等造成实际市场变化时更新，不能因为时间经过随意波动。任务世界不得使用空间币作为本地货币、定价或经济依据。
+8. 输出分层：模型只提交 WorldResult 业务事实，不生成 JSON Pointer 或 add/replace 路径；程序负责名称归一、增量合并、路径转义、补丁编译、事件分类修复、宏观投影和安全校验。`
     function splitPresetSegments(value) {
         return String(value||'').split(/\n(?=【)/).filter(Boolean).map(part=>{
             const m=part.match(/^【([^】]+)】\s*\n?/);
@@ -581,6 +582,7 @@
             if (['当前阶段','故事线','下一节点'].includes(c)) return parts.length === 3;
             return !(stat.设置 || {}).世界超稳 && c === '偏移记录' && parts.length === 4;
         }
+        if (a === '世界' && b === '货币') return parts.length === 3 && Object.hasOwn(CURRENCY_FIELDS,c);
         if (a === '世界' && ['势力','探索'].includes(b)) return parts.length === 3 || (parts.length === 4 && Object.hasOwn(b === '势力' ? {实力:0,领地:0,描述:0,声望:0} : {风险:0,探索度:0,描述:0,隐藏真相:0},d));
         if (a === '世界' && b === '异端雷达') return parts.length === 4 && c === '名单' && !(stat.设置 || {}).单一世界;
         if (a === '传闻' && ['街头巷议','情报交易','布告与檄文'].includes(b)) return parts.length === 3;
@@ -589,6 +591,7 @@
         if (a === '任务') return parts.length === 4 && ['列表','副本成就'].includes(b) && d === '状态' && !!get(stat,[a,b,c]);
         return false;
     }
+    const CURRENCY_FIELDS={体系:'',购买力基准:'',经济波动:''};
     const EXISTING = {
         势力: {实力:'',领地:'',描述:'',声望:0}, 探索:{风险:'',探索度:0,描述:'',隐藏真相:''},
         偏移记录:{描述:'',引发者:'',影响程度:0},
@@ -621,6 +624,11 @@
         properties:{
             摘要:{type:'string'},
             公开摘要:{type:'string'},
+            货币:{type:'object',additionalProperties:false,properties:{
+                体系:{type:'string'},
+                购买力基准:{type:'string'},
+                经济波动:{type:'string'}
+            }},
             事件:{type:'array',maxItems:30,items:namedEntitySchema({...RECORDS.事件,...MODEL_DETAILS.事件})},
             人物:{type:'array',maxItems:25,items:namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物})},
             势力地区:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.势力地区,...MODEL_DETAILS.势力地区})},
@@ -733,6 +741,10 @@
         if(!plain(value))throw new Error('WorldResult 必须是 JSON 对象');
         const result={摘要:String(value.摘要??value.summary??'世界继续推进')};
         if(Object.hasOwn(value,'公开摘要')||Object.hasOwn(value,'public_summary'))result.公开摘要=String(value.公开摘要??value.public_summary??'');
+        result.货币={};
+        if(plain(value.货币)){
+            for(const key of Object.keys(CURRENCY_FIELDS))if(Object.hasOwn(value.货币,key))result.货币[key]=String(value.货币[key]??'');
+        }
         for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端']){
             const operations=(key==='传播')?['更新','移除','撤销本轮']:['更新','撤销本轮'];
             result[key]=normalizeNamedResultList(value[key],sampleForWorldResultList(key),operations);
@@ -778,6 +790,7 @@
         const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
         if(Object.hasOwn(b,'公开摘要'))result.公开摘要=b.公开摘要;
         else if(Object.hasOwn(a,'公开摘要'))result.公开摘要=a.公开摘要;
+        result.货币=Object.assign({},a.货币||{},b.货币||{});
         for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
         result.因果={
             偏移记录:mergeNamedResultLists(a.因果?.偏移记录,b.因果?.偏移记录)
@@ -812,6 +825,10 @@
             patches.push({op:old===undefined?'add':'replace',path:pointer(actual),value:record});
         };
         if(Object.hasOwn(result,'公开摘要'))patches.push({op:'replace',path:'/世界/后台/公开摘要',value:result.公开摘要});
+        for(const [key,value] of Object.entries(result.货币||{})){
+            const parts=['世界','货币',key],old=get(stat,parts);
+            if(old!==value)patches.push({op:old===undefined?'add':'replace',path:pointer(parts),value});
+        }
         for(const item of result.事件)addEntity(['世界',PATH,'事件',item.名称],item,{...RECORDS.事件,...MODEL_DETAILS.事件},{event:true});
         for(const item of result.人物)addEntity(['世界',PATH,'人物',item.名称],item,{...RECORDS.人物,...MODEL_DETAILS.人物},{person:true});
         for(const item of result.势力地区)addEntity(['世界',PATH,'势力地区',item.名称],item,{...RECORDS.势力地区,...MODEL_DETAILS.势力地区});
@@ -1200,17 +1217,18 @@
     function protocol() {
         const schemaText=JSON.stringify(WORLD_RESULT_SCHEMA,null,2);
         return `只输出一个 WorldResult JSON 对象，不输出 Markdown、解释、思考过程、<thinking> 或 JSON Pointer。
-顶层业务字段：摘要、公开摘要、事件、人物、势力地区、历史、传播、因果、势力、探索、异端、传闻、关系。除“摘要”外都可以省略；省略表示本轮没有该类变化。
+顶层业务字段：摘要、公开摘要、货币、事件、人物、势力地区、历史、传播、因果、势力、探索、异端、传闻、关系。除“摘要”外都可以省略；省略表示本轮没有该类变化。
 实体用“名称”标识，不写路径。已有实体只写本轮真正变化的业务字段；新增实体写足以确定该实体的事实字段，程序负责判断 add/replace、名称归一、JSON Pointer 转义、默认字段合并和最终 Schema 校验。
 “操作”默认“更新”。只有传播和三类传闻允许“移除”；“撤销本轮”只用于纠错重试，表示从本次尚未落盘的业务结果中撤回该实体，不删除存档中的既有实体。
 事件只写业务事实：名称、描述、时间、条件、前因、状态、默认走向、结果、公开征兆、地点、分类及可选明细。分类只允许当前事件/近期节点/宏观节点。程序会对明显局部的伪宏观降级。
 因果不要写故事线路径；只写“当前阶段”“宏观顺序”“偏移记录”。宏观顺序是3~5个宏观事件名称，程序生成故事线、下一节点和前因链。输入中的“偏移摘要”是程序生成的只读统计；旧偏移可能被隐藏，只依据可见近期偏移与摘要判断，不要重建已隐藏记录。
 人物、势力地区、传播的关联事件只写事件名称；程序负责同步明确的双向引用。不要为玩家建立人物后台记录。
-关系只写已有名称的新好感度。主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数均不属于 WorldResult；世界时间、玩家属性、货币、装备和系统状态也不由 WorldResult 写入。
+货币只写本轮真实变化的“体系 / 购买力基准 / 经济波动”；不写玩家持币余额，不创造跨世界汇率。关系只写已有名称的新好感度。主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数均不属于 WorldResult；世界时间、玩家属性、玩家持币余额、装备和系统状态不由 WorldResult 写入。
 公开摘要只包含当前可观察事实、征兆和已知线索；隐藏计划、未确认内幕和未来结局留在后台字段。
 
 【WorldResult 标准字段结构】
 这是模型必须遵守的标准输出形状。即使 API 从 json_schema 降级为 json_object 或 plain，也仍必须严格遵守本结构，不得自行改成其他 JSON 组织方式。
+- 货币：对象，只允许可选字段 {体系:string, 购买力基准:string, 经济波动:string}；只写发生变化的字段。
 - 事件 / 人物 / 势力地区 / 历史 / 传播 / 势力 / 探索 / 异端 / 关系：标准输出一律为数组；不要输出“名称→对象”的 map 简写。
 - 因果.偏移记录：标准输出为数组，每项必须带“名称”；因果.宏观顺序为字符串数组。
 - 传闻.街头巷议 / 情报交易 / 布告与檄文：标准输出均为数组，不得输出对象 map。
@@ -2203,7 +2221,7 @@ ${schemaText}
                 html+='<div class="we-dashboard"><div class="we-command-main">'
                     +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>事件时间线</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+'<div class="we-tools"><span>'+text(this.calendarMode==='undated'?'未定日 / 作品内时间':this.selectedDate||'全部日期')+'</span><button data-action="today">回到今天</button><button data-action="clear-date">全部日期</button><button data-action="undated">未定日事件</button></div>'+'<div class="we-timeline">'+(timelineCards(shown.slice(0,this.eventLimit||12))||empty('没有符合条件的事件'))+'</div>'+(shown.length>(this.eventLimit||12)?'<button class="we-btn" data-action="more-events">显示更多（共 '+shown.length+' 项）</button>':'')+'</div></div></section>'
                     +'</div><aside class="we-command-side">'
-                    +section('当前活动',(active.length?active.slice(0,3).map(([n,e])=>'<button class="we-brief-row" data-jump-event="'+text(n)+'"><b>'+text(n)+'</b><span>'+text(e.地点||e.时间||'状态进行中')+'</span><span>'+text(e.公开征兆||e.描述||'等待后续变化')+'</span></button>').join(''):empty('暂无进行中的事件','世界当前没有需要立即处理的活动事件。')),'最多显示 3 项')
+                    +section('货币与经济',exists(w.货币)?fields({货币体系:w.货币?.体系,购买力基准:w.货币?.购买力基准,经济波动:w.货币?.经济波动}):empty('尚无货币资料','世界推进会在设定或经济局势明确时维护。'),'世界推进维护')
                     +section('近期变化',changeHtml||empty('本轮无变化记录'),'最近一次成功推进')
                     +section('人物动向',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'重点 NPC')
                     +'</aside></div>';

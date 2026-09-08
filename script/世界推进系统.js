@@ -568,7 +568,7 @@
         if(payload.纠错重试.已接受业务结果===undefined)delete payload.纠错重试.已接受业务结果;
         return JSON.stringify(payload,null,2);
     }
-    // 仅允许世界叙事字段；数值属性、货币、奖励发放和时钟不在写入名单内。
+    // 仅允许世界叙事字段与世界经济三字段；玩家数值、持币余额、奖励发放和时钟不在写入名单内。
     function allowed(parts, stat) {
         const [a,b,c,d] = parts;
         if (a === '世界' && b === PATH) {

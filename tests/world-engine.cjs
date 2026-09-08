@@ -12,10 +12,10 @@ let tests = 0;
 async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); }
 (async () => {
     await test('calendar uses 2026 when an era year is unreadable but month and day are available', () => {
-        assert.deepEqual(calendarDate('大业十三年-08月-12日-午时四刻'),{y:2026,m:8,d:12,key:'2026-8-12',fallbackYear:true});
+        assert.deepEqual(calendarDate('大业十三年-08月-12日-午时四刻'),{y:2026,m:8,d:12,key:'2026-8-12',fallbackYear:true,customCalendar:false});
         assert.deepEqual(calendarDate('08月12日-午时'),{y:2026,m:8,d:12,key:'2026-8-12',fallbackYear:true});
-        assert.deepEqual(calendarDate('斗罗历2634年-03月-15日-上午'),{y:2634,m:3,d:15,key:'2634-3-15',fallbackYear:false});
-        assert.deepEqual(calendarDate('2026-09-08'),{y:2026,m:9,d:8,key:'2026-9-8',fallbackYear:false});
+        assert.deepEqual(calendarDate('斗罗历2634年-03月-15日-上午'),{y:2634,m:3,d:15,key:'2634-3-15',fallbackYear:false,customCalendar:false});
+        assert.deepEqual(calendarDate('2026-09-08'),{y:2026,m:9,d:8,key:'2026-9-8',fallbackYear:false,customCalendar:false});
         assert.equal(calendarDate('近期'),null);
         assert.equal(calendarDate('大业十三年-02月-30日'),null);
     });

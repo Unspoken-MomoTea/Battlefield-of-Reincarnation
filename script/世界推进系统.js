@@ -95,8 +95,18 @@
             return m?{title:m[1],body:part.slice(m[0].length)}:{title:'',body:part};
         });
     }
+    function cleanSegmentTitle(value) {
+        return String(value||'').replace(/[【】\r\n]/g,' ').replace(/\s+/g,' ').trim().slice(0,80);
+    }
     function segmentText(segment) {
-        return segment.title?'【'+segment.title+'】\n'+String(segment.body||'').trim():String(segment.body||'').trim();
+        const title=cleanSegmentTitle(segment.title);
+        return title?'【'+title+'】\n'+String(segment.body||'').trim():String(segment.body||'').trim();
+    }
+    function normalizeEditablePreset(value) {
+        return splitPresetSegments(value).map(segment=>({
+            title:cleanSegmentTitle(segment.title),
+            body:String(segment.body||'')
+        })).map(segmentText).filter(Boolean).join('\n');
     }
     function ensurePresetStructure(value) {
         const current=splitPresetSegments(value||DEFAULT_PRESET).map(segment=>segment.title==='势力与地区'?{...segment,title:'探索与势力'}:segment);
@@ -1177,9 +1187,15 @@ ${schemaText}
             this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
             this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
-            this.config = { enabled:false, preset:DEFAULT_PRESET, retryAttempts:3, requireMacroBackbone:true };
+            this.config = { enabled:false, preset:DEFAULT_PRESET, retryAttempts:3, requireMacroBackbone:true, presetEditorVersion:0, promptDocuments:[] };
             try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
-            this.config.preset=ensurePresetStructure(this.config.preset);
+            if(Number(this.config.presetEditorVersion||0)<2)this.config.preset=ensurePresetStructure(this.config.preset);
+            else this.config.preset=normalizeEditablePreset(this.config.preset);
+            this.config.presetEditorVersion=2;
+            if(!Array.isArray(this.config.promptDocuments))this.config.promptDocuments=[];
+            this.config.promptDocuments=this.config.promptDocuments
+                .filter(doc=>plain(doc)&&typeof doc.name==='string'&&plain(doc.settings)&&typeof doc.settings.preset==='string')
+                .slice(0,60);
             this.config.retryAttempts=Math.max(0,Math.min(5,Number(this.config.retryAttempts) || 0));
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
             if(this.config.enabled){
@@ -1231,7 +1247,94 @@ ${schemaText}
         saveConfig() { this.host.localStorage.setItem(CONFIG,JSON.stringify(this.config)); }
         setPreset(text) {
             if (typeof text !== 'string' || text.length > 30000) throw new Error('预设限30000字');
-            this.config.preset = ensurePresetStructure(text); this.saveConfig();
+            this.config.preset = normalizeEditablePreset(text);
+            this.config.presetEditorVersion=2;
+            this.saveConfig();
+        }
+        readPromptEditor() {
+            const panel=this.panel;
+            const list=panel&&panel.querySelector('[data-segment-list]');
+            const rows=list?Array.from(list.querySelectorAll('[data-segment-row]')):[];
+            const preset=list?rows.map(row=>segmentText({
+                title:row.querySelector('[data-segment-title]')?.value||'',
+                body:row.querySelector('[data-segment]')?.value||''
+            })).filter(Boolean).join('\n'):this.config.preset;
+            const floors=panel&&panel.querySelector('[data-floors]');
+            const activation=panel&&panel.querySelector('[data-activation]');
+            const books=panel?Array.from(panel.querySelectorAll('[data-book]')):[];
+            return {
+                preset,
+                contextTurns:Math.max(1,Math.min(100,Number(floors?.value??this.config.contextTurns)||6)),
+                activationMode:activation?.value||this.config.activationMode||'respect_activation',
+                selectedEntries:books.length
+                    ?books.filter(e=>e.checked&&!e.disabled).map(e=>e.value)
+                    :(Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):null)
+            };
+        }
+        applyPromptSettings(settings) {
+            if(!plain(settings)||typeof settings.preset!=='string'||settings.preset.length>30000)throw new Error('预设文档内容无效或超过30000字');
+            this.config.preset=normalizeEditablePreset(settings.preset);
+            this.config.presetEditorVersion=2;
+            this.config.contextTurns=Math.max(1,Math.min(100,Number(settings.contextTurns)||6));
+            this.config.activationMode=settings.activationMode==='force_selected'?'force_selected':'respect_activation';
+            if(Array.isArray(settings.selectedEntries))this.config.selectedEntries=settings.selectedEntries.filter(x=>typeof x==='string');
+            else delete this.config.selectedEntries;
+            this.saveConfig();
+            return this.config;
+        }
+        getPromptDocuments() {
+            if(!Array.isArray(this.config.promptDocuments))this.config.promptDocuments=[];
+            return this.config.promptDocuments;
+        }
+        savePromptDocument(name,settings) {
+            const clean=String(name||'').trim().slice(0,80);
+            if(!clean)throw new Error('请先填写预设文档名称');
+            const docs=this.getPromptDocuments(),now=new Date().toISOString();
+            let doc=docs.find(item=>item.id===this.config.activePromptDocumentId&&item.name===clean)||docs.find(item=>item.name===clean);
+            if(doc){
+                doc.name=clean;doc.updatedAt=now;doc.settings=copy(settings);
+            }else{
+                doc={id:'prompt-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),name:clean,createdAt:now,updatedAt:now,settings:copy(settings)};
+                docs.unshift(doc);
+            }
+            this.config.promptDocuments=docs.slice(0,60);
+            this.config.activePromptDocumentId=doc.id;
+            this.saveConfig();
+            return doc;
+        }
+        deletePromptDocument(id) {
+            const before=this.getPromptDocuments().length;
+            this.config.promptDocuments=this.getPromptDocuments().filter(doc=>doc.id!==id);
+            if(this.config.activePromptDocumentId===id)delete this.config.activePromptDocumentId;
+            this.saveConfig();
+            return before!==this.config.promptDocuments.length;
+        }
+        importPromptDocument(raw) {
+            let parsed;try{parsed=JSON.parse(String(raw||''));}catch(_){throw new Error('导入文件不是有效 JSON');}
+            const settings=plain(parsed.settings)?parsed.settings:parsed;
+            if(typeof settings.preset!=='string')throw new Error('导入文件缺少 preset');
+            if(settings.preset.length>30000)throw new Error('导入预设超过30000字');
+            const name=String(parsed.name||settings.name||'导入预设').trim().slice(0,80)||'导入预设';
+            const normalized={
+                preset:normalizeEditablePreset(settings.preset),
+                contextTurns:Math.max(1,Math.min(100,Number(settings.contextTurns)||6)),
+                activationMode:settings.activationMode==='force_selected'?'force_selected':'respect_activation',
+                selectedEntries:Array.isArray(settings.selectedEntries)?settings.selectedEntries.filter(x=>typeof x==='string'):null
+            };
+            return this.savePromptDocument(name,normalized);
+        }
+        exportPromptDocument(id) {
+            const doc=this.getPromptDocuments().find(item=>item.id===id);
+            if(!doc)throw new Error('预设文档不存在');
+            const BlobCtor=this.host.Blob||(typeof Blob!=='undefined'?Blob:null);
+            const URLApi=this.host.URL||(typeof URL!=='undefined'?URL:null);
+            if(!BlobCtor||!URLApi?.createObjectURL)throw new Error('当前环境不支持文件导出');
+            const payload={type:'samsara-world-prompt-document',version:1,name:doc.name,exportedAt:new Date().toISOString(),settings:copy(doc.settings)};
+            const blob=new BlobCtor([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
+            const href=URLApi.createObjectURL(blob),a=this.host.document.createElement('a');
+            a.href=href;a.download=doc.name.replace(/[\\/:*?"<>|]+/g,'_')+'.world-prompt.json';a.style.display='none';
+            this.host.document.body.appendChild(a);a.click();a.remove();
+            setTimeout(()=>URLApi.revokeObjectURL(href),1000);
         }
         isConfigured() { return !!this.config.enabled; }
         isAvailable() {
@@ -1256,13 +1359,41 @@ ${schemaText}
         }
         cancel() { ++this.generation; this.pending = false; clearTimeout(this.timer); if (this.controller) this.controller.abort(); }
         async catalogue() {
-            const namesFn=this.fn('getCharWorldbookNames'),get=this.fn('getWorldbook');
-            // 世界书只是可选补充资料。无限流世界即使没有绑定世界书，也必须能依靠模型已有知识完成宏观推演。
-            if(!namesFn||!get) return [];
-            const names=await namesFn('current')||{}, result=[];
-            for(const book of [...new Set([names.primary,...(names.additional||[])].filter(Boolean))]){
+            const get=this.fn('getWorldbook');
+            if(!get)return [];
+            const sources=new Map(),addSource=(book,label)=>{
+                const name=String(book||'').trim();if(!name)return;
+                if(!sources.has(name))sources.set(name,new Set());
+                sources.get(name).add(label);
+            };
+            const namesFn=this.fn('getCharWorldbookNames');
+            if(namesFn){
+                const names=await namesFn('current')||{};
+                addSource(names.primary,'角色主书');
+                for(const book of names.additional||[])addSource(book,'角色附加');
+            }
+            const chatFn=this.fn('getChatWorldbookName');
+            if(chatFn){
+                try{addSource(await chatFn('current'),'聊天绑定');}catch(_){}
+            }
+            const globalFn=this.fn('getGlobalWorldbookNames');
+            if(globalFn){
+                try{for(const book of await globalFn()||[])addSource(book,'全局启用');}catch(_){}
+            }
+            const result=[];
+            for(const [book,labels] of sources){
                 const entries=await get(book)||[];
-                entries.forEach((e,i)=>{const title=e.name||e.comment||'未命名';result.push({book,id:String(e.uid??e.id??i),title,technical:isTechnicalBook(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),keys:e.strategy?.keys||e.keys||e.key||[],secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},content:e.content||''});});
+                entries.forEach((e,i)=>{
+                    const title=e.name||e.comment||'未命名';
+                    result.push({
+                        book,id:String(e.uid??e.id??i),title,sources:Array.from(labels),
+                        technical:isTechnicalBook(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,
+                        mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),
+                        keys:e.strategy?.keys||e.keys||e.key||[],
+                        secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},
+                        content:e.content||''
+                    });
+                });
             }
             return result;
         }
@@ -1692,7 +1823,41 @@ ${schemaText}
                 #sam-world-engine [data-segment]{min-height:180px;height:240px}
                 #sam-world-engine summary{font-size:12px;line-height:1.7;transition:color .15s ease}
                 #sam-world-engine summary:hover{color:#7d5f2d}
+                #sam-world-engine .we-world-focus{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(285px,.75fr);gap:12px;margin-bottom:12px}
+                #sam-world-engine .we-world-focus .we-section{height:100%;margin:0;border-color:#cfd9db;background:#fff;box-shadow:0 4px 14px #2231420b}
+                #sam-world-engine .we-world-focus-main .we-section{border-left:4px solid #4f7d6d}
+                #sam-world-engine .we-world-focus-next .we-section{border-left:4px solid #b28a4a}
+                #sam-world-engine .we-kpi-compact{margin-bottom:12px}
+                #sam-world-engine .we-kpi-compact .we-kpi{background:#fff;border-color:#cfd9db;box-shadow:0 3px 12px #22314208}
+                #sam-world-engine .we-dashboard{grid-template-columns:minmax(0,1fr) minmax(285px,325px)}
+                #sam-world-engine .we-dashboard .we-section{border-color:#d2dcdd;background:#fff}
+                #sam-world-engine .we-timeline-board{box-shadow:none}
+                #sam-world-engine .we-preset-toolbar{position:sticky;top:-1px;z-index:8;display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 14px;padding:12px 14px;border:1px solid #c7d2d4;border-radius:13px;background:#fffdf9f2;backdrop-filter:blur(10px);box-shadow:0 8px 22px #22314212}
+                #sam-world-engine .we-preset-toolbar>div:first-child{display:flex;flex-direction:column;min-width:0}
+                #sam-world-engine .we-preset-toolbar b{font-size:14px;color:#2c3e50}
+                #sam-world-engine .we-preset-toolbar small{font-size:10px;color:var(--sub)}
+                #sam-world-engine .we-preset-toolbar>div:last-child{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+                #sam-world-engine .we-doc-create{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;gap:8px;margin-bottom:10px}
+                #sam-world-engine .we-doc-create input{min-width:0;padding:8px 10px;border:1px solid #d4dcdd;border-radius:9px;background:#fff;color:var(--ink)}
+                #sam-world-engine .we-doc-list{display:grid;gap:7px}
+                #sam-world-engine .we-doc-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 11px;border:1px solid #d9e1e1;border-radius:10px;background:#fafbf8}
+                #sam-world-engine .we-doc-row>div{min-width:0}
+                #sam-world-engine .we-doc-row b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+                #sam-world-engine .we-doc-row small{display:block;color:var(--sub);font-size:10px;margin-top:2px}
+                #sam-world-engine .we-doc-actions{display:flex;gap:5px}
+                #sam-world-engine .we-doc-actions button,#sam-world-engine .we-segment-actions button{border:1px solid #d2dbdc;border-radius:7px;background:#fff;padding:5px 8px;color:#556579;font-size:10px}
+                #sam-world-engine .we-doc-actions button:hover,#sam-world-engine .we-segment-actions button:hover{border-color:#b28a4a;color:#76592b;background:#fbf4e8}
+                #sam-world-engine .we-segment-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px;color:var(--sub);font-size:11px}
+                #sam-world-engine .we-segment-list{display:grid;gap:10px}
+                #sam-world-engine .we-segment{border:1px solid #d3dddd;border-radius:12px;background:#fbfcf9;overflow:hidden}
+                #sam-world-engine .we-segment-head{display:grid;grid-template-columns:minmax(140px,1fr) auto auto;gap:8px;align-items:center;padding:9px 10px;border-bottom:1px solid #dce4e4;background:#f1f5f2}
+                #sam-world-engine .we-segment-head input{min-width:0;border:0;border-bottom:1px solid #c6d1d2;background:transparent;padding:4px 2px;font-weight:700;color:#31445d}
+                #sam-world-engine .we-segment-head input:focus{outline:none;border-bottom-color:#b28a4a}
+                #sam-world-engine .we-segment-head small{color:var(--sub);font-size:10px}
+                #sam-world-engine .we-segment-actions{display:flex;gap:4px}
+                #sam-world-engine .we-segment textarea{display:block;width:100%;min-height:170px;height:210px;border:0;border-radius:0;background:#fff;padding:12px 13px;resize:vertical}
                 @media(max-width:1100px){
+                    #sam-world-engine .we-world-focus{grid-template-columns:1fr}
                     #sam-world-engine .we-dashboard{grid-template-columns:1fr}
                     #sam-world-engine .we-command-side{position:static;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
                     #sam-world-engine .we-command-side>.we-section{margin-bottom:0}
@@ -1711,6 +1876,14 @@ ${schemaText}
                     #sam-world-engine h1{font-size:21px}
                     #sam-world-engine .we-hero .we-date{min-width:105px;font-size:11px}
                     #sam-world-engine .we-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+                    #sam-world-engine .we-preset-toolbar{align-items:flex-start}
+                    #sam-world-engine .we-doc-create{grid-template-columns:1fr 1fr}
+                    #sam-world-engine .we-doc-create input{grid-column:1/-1}
+                    #sam-world-engine .we-doc-row{grid-template-columns:1fr}
+                    #sam-world-engine .we-doc-actions{flex-wrap:wrap}
+                    #sam-world-engine .we-segment-head{grid-template-columns:1fr auto}
+                    #sam-world-engine .we-segment-head small{display:none}
+                    #sam-world-engine .we-segment-actions{grid-column:1/-1}
                     #sam-world-engine .we-command-side{display:block}
                     #sam-world-engine .we-command-side>.we-section{margin-bottom:10px}
                     #sam-world-engine .we-calendar-layout{grid-template-columns:1fr}
@@ -1749,20 +1922,61 @@ ${schemaText}
                 else if(a==='run')this.run().catch(()=>{});
                 else if(a==='cancel'){this.cancel();this.status='已请求停止';this.render();}
                 else if(a==='save'){
-                    this.setPreset(Array.from(this.panel.querySelectorAll('[data-segment]')).map(e=>e.dataset.title?'【'+e.dataset.title+'】\n'+e.value:e.value).join('\n'));
-                    this.config.contextTurns=Math.max(1,Math.min(100,Number(this.panel.querySelector('[data-floors]').value)||6));
-                    this.config.activationMode=this.panel.querySelector('[data-activation]').value;
-                    if(this.bookCatalogue)this.config.selectedEntries=Array.from(this.panel.querySelectorAll('[data-book]:checked')).map(e=>e.value);
-                    this.saveConfig();this.status='预设与资料范围已保存';
+                    const settings=this.readPromptEditor();
+                    this.applyPromptSettings(settings);
+                    this.promptDraft=null;
+                    this.status='提示词与资料范围已保存';
                     this.panel.querySelector('footer span').textContent=this.status;
                 }
+                else if(a==='segment-add'){
+                    const list=this.panel.querySelector('[data-segment-list]');if(!list)return;
+                    const row=this.host.document.createElement('div');row.className='we-segment';row.setAttribute('data-segment-row','');
+                    row.innerHTML='<div class="we-segment-head"><input data-segment-title aria-label="分段标题" placeholder="分段标题（可留空）"><small>新分段</small><span class="we-segment-actions"><button type="button" data-action="segment-up" title="上移">↑</button><button type="button" data-action="segment-down" title="下移">↓</button><button type="button" data-action="segment-delete" title="删除">删除</button></span></div><textarea data-segment data-title="" aria-label="新分段正文" placeholder="输入这一段的提示词正文…"></textarea>';
+                    list.appendChild(row);row.querySelector('[data-segment-title]').focus();
+                }
+                else if(a==='segment-up'||a==='segment-down'){
+                    const row=button.closest('[data-segment-row]'),parent=row?.parentElement;if(!row||!parent)return;
+                    if(a==='segment-up'&&row.previousElementSibling)parent.insertBefore(row,row.previousElementSibling);
+                    if(a==='segment-down'&&row.nextElementSibling)parent.insertBefore(row.nextElementSibling,row);
+                }
+                else if(a==='segment-delete'){button.closest('[data-segment-row]')?.remove();}
+                else if(a==='doc-save'){
+                    try{
+                        const settings=this.readPromptEditor(),name=this.panel.querySelector('[data-doc-name]')?.value||'';
+                        this.applyPromptSettings(settings);
+                        const doc=this.savePromptDocument(name,settings);this.promptDraft=null;
+                        this.status='已保存预设文档：'+doc.name;this.render(true);
+                    }catch(e){this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;}
+                }
+                else if(a==='doc-apply'){
+                    const doc=this.getPromptDocuments().find(item=>item.id===button.dataset.docId);if(!doc)return;
+                    this.applyPromptSettings(doc.settings);this.config.activePromptDocumentId=doc.id;this.saveConfig();this.promptDraft=null;
+                    this.status='已应用预设文档：'+doc.name;this.render(true);
+                }
+                else if(a==='doc-export'){
+                    try{this.exportPromptDocument(button.dataset.docId);this.status='预设文档已导出';this.panel.querySelector('footer span').textContent=this.status;}
+                    catch(e){this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;}
+                }
+                else if(a==='doc-delete'){
+                    this.promptDraft=this.readPromptEditor();
+                    const doc=this.getPromptDocuments().find(item=>item.id===button.dataset.docId);
+                    if(this.deletePromptDocument(button.dataset.docId)){this.status='已删除预设文档'+(doc?'：'+doc.name:'');this.render(true);}
+                }
+                else if(a==='doc-import'){
+                    this.promptDraft=this.readPromptEditor();
+                    const input=this.panel.querySelector('[data-doc-import]');if(input){input.value='';input.click();}
+                }
                 else if(a==='books'){
-                    const drafts=Array.from(this.panel.querySelectorAll('[data-segment], [data-floors], [data-activation]')).map(e=>({selector:e.hasAttribute('data-segment')?'[data-segment="'+e.dataset.segment+'"]':e.hasAttribute('data-floors')?'[data-floors]':'[data-activation]',value:e.value}));
-                    const checked=new Map(Array.from(this.panel.querySelectorAll('[data-book]')).map(e=>[e.value,e.checked]));
-                    this.catalogue().then(list=>{this.bookCatalogue=list;this.render(true);for(const d of drafts){const el=this.panel.querySelector(d.selector);if(el)el.value=d.value;}this.panel.querySelectorAll('[data-book]').forEach(e=>{if(checked.has(e.value))e.checked=checked.get(e.value);});}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
+                    this.promptDraft=this.readPromptEditor();
+                    this.catalogue().then(list=>{this.bookCatalogue=list;this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
                 }
                 else if(a==='book-all'||a==='book-none'){this.panel.querySelectorAll('[data-book]').forEach(e=>{e.checked=a==='book-all'&&!e.disabled;});}
-                else if(a==='preview'){this.buildRequest(this.snapshot()).then(r=>{this.previewRequest=r;this.tab='请求检查';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});}
+                else if(a==='preview'){
+                    const settings=this.tab==='提示词预设'?this.readPromptEditor():null;
+                    if(settings)this.applyPromptSettings(settings);
+                    this.promptDraft=null;
+                    this.buildRequest(this.snapshot()).then(r=>{this.previewRequest=r;this.tab='请求检查';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
+                }
                 else if(a==='month'){
                     this.monthOffset=(this.monthOffset||0)+Number(button.dataset.step);
                     const today=calendarDate(this.snapshot().stat.世界.时间),date=new Date(0);
@@ -1781,6 +1995,9 @@ ${schemaText}
                 if(event.target.matches('[data-search]')){
                     const caret=event.target.selectionStart;this.query=event.target.value;this.render();
                     const input=this.panel.querySelector('[data-search]');input.focus();input.setSelectionRange(caret,caret);
+                }else if(event.target.matches('[data-segment-title]')){
+                    const row=event.target.closest('[data-segment-row]'),body=row?.querySelector('[data-segment]');
+                    if(body)body.dataset.title=cleanSegmentTitle(event.target.value);
                 }
             });
             this.panel.addEventListener('change',event=>{
@@ -1789,6 +2006,12 @@ ${schemaText}
                     this.config.retryAttempts=value;event.target.value=value;this.saveConfig();
                     this.status='失败重试次数已设为 '+value+' 次';
                     this.panel.querySelector('footer span').textContent=this.status;
+                }else if(event.target.matches('[data-doc-import]')){
+                    const input=event.target,file=input.files&&input.files[0];if(!file)return;
+                    Promise.resolve(file.text()).then(raw=>{
+                        const doc=this.importPromptDocument(raw);
+                        this.status='已导入预设文档：'+doc.name;this.render(true);
+                    }).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;}).finally(()=>{input.value='';});
                 }
             });
             isolated.appendChild(this.panel);
@@ -1901,20 +2124,22 @@ ${schemaText}
                 const nextNode=nextPair?.[0]||'等待宏观节点';
                 const nextEvent=nextPair?.[1]||null;
                 const compactPeople=Array.from(people).filter(([,p])=>p.行动||p.公开动态||p.地点).slice(0,4);
-                html+='<div class="we-kpi-grid">'
-                    +'<div class="we-kpi"><small>活动事件</small><strong>'+active.length+'</strong><span>'+future.length+' 个待发生</span></div>'
-                    +'<div class="we-kpi"><small>宏观节点</small><strong>'+macroCount+'</strong><span>'+text(orbit.当前阶段||'阶段待确认')+'</span></div>'
-                    +'<div class="we-kpi"><small>近期节点</small><strong>'+events.filter(([,e])=>e.分类==='近期节点').length+'</strong><span>当前宏观边界内的事件</span></div>'
-                    +'<div class="we-kpi"><small>场外人物</small><strong>'+people.size+'</strong><span>只统计 NPC</span></div>'
+                html+='<div class="we-world-focus">'
+                    +'<div class="we-world-focus-main">'+section('世界动向',state.公开摘要?'<div class="we-pulse"><span class="we-pulse-mark">LIVE</span><p>'+text(state.公开摘要)+'</p></div>':empty('尚无公开动态','推进成功后，这里的结果会提供给正文 AI。'),'当前可见局势')+'</div>'
+                    +'<div class="we-world-focus-next">'+section('下一宏观节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="点击定位到时间线中的对应宏观事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'本轮需要先建立真实宏观节点')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+(nextEvent?' · 点击定位 →':'')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果边界')+'</div>'
+                    +'</div>';
+                html+='<div class="we-kpi-grid we-kpi-compact">'
+                    +'<div class="we-kpi"><small>正在发生</small><strong>'+active.length+'</strong><span>当前活动事件</span></div>'
+                    +'<div class="we-kpi"><small>近期桥接</small><strong>'+events.filter(([,e])=>e.分类==='近期节点'&&e.状态==='待发生').length+'</strong><span>下一宏观边界之前</span></div>'
+                    +'<div class="we-kpi"><small>宏观锚点</small><strong>'+macroCount+'</strong><span>'+text(orbit.当前阶段||'阶段待确认')+'</span></div>'
+                    +'<div class="we-kpi"><small>场外人物</small><strong>'+people.size+'</strong><span>'+future.length+' 个未来事件</span></div>'
                     +'</div>';
                 html+='<div class="we-dashboard"><div class="we-command-main">'
-                    +section('世界动向',state.公开摘要?'<div class="we-pulse"><span class="we-pulse-mark">LIVE</span><p>'+text(state.公开摘要)+'</p></div>':empty('尚无公开动态','推进成功后，这里的结果会提供给正文 AI。'),'本轮可见变化')
-                    +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>时间线与日历</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+'<div class="we-tools"><span>'+text(this.calendarMode==='undated'?'未定日 / 作品内时间':this.selectedDate||'全部日期')+'</span><button data-action="today">回到今天</button><button data-action="clear-date">全部日期</button><button data-action="undated">未定日事件</button></div>'+'<div class="we-timeline">'+(timelineCards(shown.slice(0,this.eventLimit||12))||empty('没有符合条件的事件'))+'</div>'+(shown.length>(this.eventLimit||12)?'<button class="we-btn" data-action="more-events">显示更多（共 '+shown.length+' 项）</button>':'')+'</div></div></section>'
-                    +section('近期变化',changeHtml||empty('本轮无变化记录'),'最近一次成功推进')
+                    +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>事件时间线</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+'<div class="we-tools"><span>'+text(this.calendarMode==='undated'?'未定日 / 作品内时间':this.selectedDate||'全部日期')+'</span><button data-action="today">回到今天</button><button data-action="clear-date">全部日期</button><button data-action="undated">未定日事件</button></div>'+'<div class="we-timeline">'+(timelineCards(shown.slice(0,this.eventLimit||12))||empty('没有符合条件的事件'))+'</div>'+(shown.length>(this.eventLimit||12)?'<button class="we-btn" data-action="more-events">显示更多（共 '+shown.length+' 项）</button>':'')+'</div></div></section>'
                     +'</div><aside class="we-command-side">'
-                    +section('下一宏观节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="点击定位到时间线中的对应宏观事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'本轮需要先建立真实宏观节点')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+(nextEvent?' · 点击定位 →':'')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果轨道')
-                    +section('世界事件','<p>'+events.length+' 个事件 · '+future.length+' 个待发生</p><button class="we-link-btn" data-tab="世界事件">查看全部世界事件 →</button>','事件档案')
-                    +section('人物动态',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'只显示重点 NPC')
+                    +section('当前活动',(active.length?active.slice(0,3).map(([n,e])=>'<button class="we-brief-row" data-jump-event="'+text(n)+'"><b>'+text(n)+'</b><span>'+text(e.地点||e.时间||'状态进行中')+'</span><span>'+text(e.公开征兆||e.描述||'等待后续变化')+'</span></button>').join(''):empty('暂无进行中的事件','世界当前没有需要立即处理的活动事件。')),'最多显示 3 项')
+                    +section('近期变化',changeHtml||empty('本轮无变化记录'),'最近一次成功推进')
+                    +section('人物动向',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'重点 NPC')
                     +'</aside></div>';
             }else if(this.tab==='角色管理'){
                 const list=Array.from(people).filter(([n,p])=>matched(n,p)&&((this.filter||'全部')==='全部'||(this.filter==='在场'?!!(s.关系列表||{})[n]?.在场:!(s.关系列表||{})[n]?.在场)));
@@ -1944,17 +2169,28 @@ ${schemaText}
                 html+='<div class="we-tools"><button data-action="cancel">停止当前请求</button></div>'+section('推演记录',(state.运行记录||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.时间)+'</h3>'+pill(r.补丁数+' 项变化','dim')+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚未执行推演'));
                 html+=section('历史锚点',entries(state.历史).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无已确认的历史锚点'));
             }else if(this.tab==='提示词预设'){
-                html+='<div class="we-notice">先保存设置，再生成请求预览验证。蓝绿灯表示条目触发方式，“实际读取”以请求检查中的本次清单为准。</div>';
+                const promptView=this.promptDraft||{
+                    preset:this.config.preset,
+                    contextTurns:this.config.contextTurns||6,
+                    activationMode:this.config.activationMode||'respect_activation',
+                    selectedEntries:Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):null
+                };
+                const docs=this.getPromptDocuments(),activeDoc=docs.find(doc=>doc.id===this.config.activePromptDocumentId);
+                html+='<div class="we-preset-toolbar"><div><b>提示词工作台</b><small>主要操作固定在顶部，不需要再滚到页面底部寻找保存。</small></div><div><button class="we-btn we-primary" data-action="save">保存当前设置</button><button class="we-btn" data-action="preview">预览下一次请求</button></div></div>';
+                html+=section('预设文档','<div class="we-doc-create"><input data-doc-name maxlength="80" placeholder="文档名称，例如：原著推进·标准" value="'+text(activeDoc?.name||'')+'"><button class="we-btn we-primary" data-action="doc-save">保存为文档</button><button class="we-btn" data-action="doc-import">导入文档</button><input data-doc-import type="file" accept=".json,application/json" hidden></div>'+
+                    (docs.length?'<div class="we-doc-list">'+docs.map(doc=>'<div class="we-doc-row"><div><b>'+text(doc.name)+'</b><small>'+text(doc.updatedAt?new Date(doc.updatedAt).toLocaleString():'未记录时间')+(doc.id===this.config.activePromptDocumentId?' · 当前应用':'')+'</small></div><span class="we-doc-actions"><button data-action="doc-apply" data-doc-id="'+text(doc.id)+'">应用</button><button data-action="doc-export" data-doc-id="'+text(doc.id)+'">导出</button><button data-action="doc-delete" data-doc-id="'+text(doc.id)+'">删除</button></span></div>').join('')+'</div>':empty('还没有预设文档','保存当前设置后，可以在这里应用、导出或删除。')),'文档保存提示词、正文窗口、读取方式和世界书勾选范围');
+                html+='<div class="we-notice">世界书目录会读取角色主书、角色附加书、当前聊天绑定书和酒馆全局启用书。蓝绿灯表示条目触发方式；“实际读取”仍以请求检查中的本次清单为准。</div>';
                 const groups=new Map();
                 for(const e of this.bookCatalogue||[]){if(!groups.has(e.book))groups.set(e.book,[]);groups.get(e.book).push(e);}
-                const selected=e=>!e.technical&&(this.config.selectedEntries?this.config.selectedEntries.includes(JSON.stringify([e.book,e.id])):e.enabled);
-                html+=section('资料读取范围','<div class="we-config-row"><label>正文窗口 <input data-floors type="number" min="1" max="100" value="'+(this.config.contextTurns||6)+'"> 层</label><label>读取方式 <select data-activation><option value="respect_activation" '+(this.config.activationMode!=='force_selected'?'selected':'')+'>遵循蓝绿灯</option><option value="force_selected" '+(this.config.activationMode==='force_selected'?'selected':'')+'>强制读取勾选项</option></select></label></div><p class="we-muted">遵循蓝绿灯：蓝灯常驻，绿灯扫描上述正文窗口的关键词；禁用项不读。世界推进的宏观骨架不依赖世界书：没有世界书时直接使用当前事实与模型已有的原著/世界知识。若时间轴未初始化或待发生宏观节点少于3个，已启用且标题明确属于校历、年表、时间线、大事记、大事件摘要、剧情大纲/章节控制的条目会临时作为「宏观资料补充」读取，供模型校正；补足后恢复普通绿灯。强制模式可纳入普通禁用项，但 [variables]、[mvu_update]、正文额外思考及任务/输出技术条目始终隔离。</p><div class="we-tools"><button data-action="books">加载 / 刷新目录</button><button data-action="book-all">全选</button><button data-action="book-none">全不选</button></div>'+
-                    (groups.size?Array.from(groups).map(([book,list])=>'<details class="we-book" open><summary>'+text(book)+' <small>'+list.filter(selected).length+' / '+list.length+' 项已保存勾选</small></summary><div class="we-book-list">'+list.map(e=>{
+                const selectedEntries=Array.isArray(promptView.selectedEntries)?promptView.selectedEntries:null;
+                const selected=e=>!e.technical&&(selectedEntries?selectedEntries.includes(JSON.stringify([e.book,e.id])):e.enabled);
+                html+=section('资料读取范围','<div class="we-config-row"><label>正文窗口 <input data-floors type="number" min="1" max="100" value="'+text(promptView.contextTurns||6)+'"> 层</label><label>读取方式 <select data-activation><option value="respect_activation" '+(promptView.activationMode!=='force_selected'?'selected':'')+'>遵循蓝绿灯</option><option value="force_selected" '+(promptView.activationMode==='force_selected'?'selected':'')+'>强制读取勾选项</option></select></label></div><p class="we-muted">遵循蓝绿灯：蓝灯常驻，绿灯扫描上述正文窗口关键词；禁用项不读。强制模式可纳入普通禁用项，但 [variables]、[mvu_update]、正文额外思考及任务/输出技术条目始终隔离。未绑定且未全局启用的世界书不会被自动读取。</p><div class="we-tools"><button data-action="books">加载 / 刷新目录</button><button data-action="book-all">全选</button><button data-action="book-none">全不选</button></div>'+
+                    (groups.size?Array.from(groups).map(([book,list])=>'<details class="we-book" open><summary>'+text(book)+' <small>'+text((list[0]?.sources||[]).join(' · ')||'已绑定')+' · '+list.filter(selected).length+' / '+list.length+' 项已勾选</small></summary><div class="we-book-list">'+list.map(e=>{
                         const report=(this.readReport||[]).find(r=>r.世界书===e.book&&r.条目ID===e.id);
                         return '<label class="we-book-row"><input type="checkbox" data-book value="'+text(JSON.stringify([e.book,e.id]))+'" '+(selected(e)?'checked':'')+' '+(e.technical?'disabled':'')+'><span class="we-lamp '+(e.technical?'gray':e.mode==='constant'?'blue':e.mode==='selective'?'green':'gray')+'" title="'+text(e.technical?'技术条目 · 已隔离':e.mode==='constant'?'蓝灯 · 常驻':e.mode==='selective'?'绿灯 · 关键词触发':'其他激活方式')+'"></span><span class="we-book-title"><b>'+text(e.title)+'</b><small>'+text(e.technical?'技术条目 · 世界引擎不读取':(e.mode==='constant'?'常驻':e.mode==='selective'?'关键词：'+(Array.isArray(e.keys)?e.keys.map(k=>typeof k==='string'?k:'正则条件').join('、'):e.keys):e.mode)+(e.enabled?'':' · 已禁用'))+'</small></span><small class="we-read-state">'+text(report?'上次检查：'+report.原因:e.technical?'固定隔离':'尚未检查')+'</small></label>';
-                    }).join('')+'</div></details>').join(''):empty('尚未加载目录','点击加载；预览会按已保存设置实际读取，并报告命中或跳过原因。')));
-                html+=section('分段提示词',splitPresetSegments(this.config.preset).map((part,i)=>'<details data-detail="preset-'+i+'"><summary>'+text(part.title||'身份与总则')+' · '+part.body.length+' 字</summary><textarea data-segment="'+i+'" data-title="'+text(part.title)+'" aria-label="预设分段 '+i+'">'+text(part.body)+'</textarea></details>').join('')+'<p class="we-muted">分段标题是结构锚点，由系统固定保存；你只编辑正文。即使某段正文被清空，核心约束仍会单独注入，不会让调度结构失效。</p>');
-                html+='<div class="we-tools"><button class="we-btn we-primary" data-action="save">保存预设与范围</button><button class="we-btn" data-action="preview">预览下一次请求</button></div>';
+                    }).join('')+'</div></details>').join(''):empty('尚未加载目录','点击“加载 / 刷新目录”读取当前绑定和全局启用的世界书。')));
+                const segments=splitPresetSegments(promptView.preset);
+                html+=section('分段提示词','<div class="we-segment-toolbar"><span>标题和正文都可编辑；上下顺序就是最终 system 中的顺序。</span><button class="we-btn" data-action="segment-add">＋ 新增分段</button></div><div class="we-segment-list" data-segment-list>'+segments.map((part,i)=>'<div class="we-segment" data-segment-row><div class="we-segment-head"><input data-segment-title aria-label="分段标题 '+i+'" placeholder="分段标题（可留空）" value="'+text(part.title)+'"><small>'+part.body.length+' 字</small><span class="we-segment-actions"><button type="button" data-action="segment-up" title="上移">↑</button><button type="button" data-action="segment-down" title="下移">↓</button><button type="button" data-action="segment-delete" title="删除">删除</button></span></div><textarea data-segment="'+i+'" data-title="'+text(part.title)+'" aria-label="预设分段 '+i+'">'+text(part.body)+'</textarea></div>').join('')+'</div><p class="we-muted">这些分段属于可编辑工作层，可以新增、删除或调整顺序。世界引擎的安全边界与 WorldResult 核心协议仍由程序独立注入，不依赖某个可编辑分段是否存在。</p>');
             }else if(this.tab==='请求检查'){
                 const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';
                 const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
@@ -2011,6 +2247,8 @@ ${schemaText}
     if (typeof getChatMessages === 'function') runtime.getChatMessages = (...args) => getChatMessages(...args);
     if (typeof getCurrentChatId === 'function') runtime.getCurrentChatId = (...args) => getCurrentChatId(...args);
     if (typeof getCharWorldbookNames === 'function') runtime.getCharWorldbookNames = (...args) => getCharWorldbookNames(...args);
+    if (typeof getChatWorldbookName === 'function') runtime.getChatWorldbookName = (...args) => getChatWorldbookName(...args);
+    if (typeof getGlobalWorldbookNames === 'function') runtime.getGlobalWorldbookNames = (...args) => getGlobalWorldbookNames(...args);
     if (typeof getWorldbook === 'function') runtime.getWorldbook = (...args) => getWorldbook(...args);
     host.Samsara = host.Samsara || {};
     if (host.Samsara.worldEngine) host.Samsara.worldEngine.dispose();

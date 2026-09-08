@@ -25,9 +25,9 @@
         matcha:{name:'抹茶',swatch:['#d6ecc8','#66bb6a','#26c6da']}
     };
     const WORLD_FONT_SCALES = {
-        standard:{name:'标准',size:'15px',desc:'比旧版更清晰'},
-        large:{name:'大字',size:'16px',desc:'适合高分屏'},
-        xlarge:{name:'特大',size:'17px',desc:'远距离阅读'}
+        standard:{name:'标准',size:'16px',desc:'正文约14px，辅助字不低于12px'},
+        large:{name:'大字',size:'18px',desc:'正文约16px，适合高分屏'},
+        xlarge:{name:'特大',size:'20px',desc:'正文约17px，远距离阅读'}
     };
     const PATH = '后台';
     const EVENT_TARGET = 180;
@@ -2244,19 +2244,27 @@ ${schemaText}
                 #sam-world-engine .we-segment-actions{display:flex;gap:4px}
                 #sam-world-engine .we-segment textarea{display:block;width:100%;min-height:170px;height:210px;border:0;border-radius:0;background:#fff;padding:12px 13px;resize:vertical}
                 /* ===== 世界引擎独立外观：默认暗夜，可在设置中切换 ===== */
-                #sam-world-engine[data-tone="night"]{--we-shell:#0e1320;--we-main:#101824;--we-surface:#151e2c;--we-card:#1b2636;--we-card-hover:#213044;--we-input:#111a27;--we-line:#344357;--we-ink:#edf3f8;--we-sub:#9cabbc;--we-accent:#8f9fff;--we-accent-soft:#8f9fff24;--we-gold:#d9b978;--we-mint:#7dcbbb;--we-head:#111a27;--we-nav:#0c1420;--we-notice:#251f18}
-                #sam-world-engine[data-tone="crimson"]{--we-shell:#170d12;--we-main:#1b1016;--we-surface:#24131a;--we-card:#301923;--we-card-hover:#3a1f2b;--we-input:#180d13;--we-line:#5b2f3a;--we-ink:#fff2f5;--we-sub:#c29ba5;--we-accent:#ff5f57;--we-accent-soft:#ff5f5724;--we-gold:#ffa502;--we-mint:#d8849a;--we-head:#230f16;--we-nav:#180a10;--we-notice:#2d1b13}
-                #sam-world-engine[data-tone="indigo"]{--we-shell:#0d1024;--we-main:#11152d;--we-surface:#171b39;--we-card:#20254a;--we-card-hover:#292f5a;--we-input:#0e1229;--we-line:#373d72;--we-ink:#f0f2ff;--we-sub:#a2a7ce;--we-accent:#7c5cff;--we-accent-soft:#7c5cff25;--we-gold:#ffd166;--we-mint:#65c9c3;--we-head:#11162f;--we-nav:#0a0d20;--we-notice:#29231a}
+                #sam-world-engine[data-tone="night"]{--we-shell:#0e1320;--we-main:#101824;--we-surface:#151e2c;--we-card:#1b2636;--we-card-hover:#213044;--we-input:#111a27;--we-line:#344357;--we-ink:#edf3f8;--we-sub:#bac6d4;--we-accent:#8f9fff;--we-accent-soft:#8f9fff24;--we-gold:#d9b978;--we-mint:#7dcbbb;--we-head:#111a27;--we-nav:#0c1420;--we-notice:#251f18}
+                #sam-world-engine[data-tone="crimson"]{--we-shell:#170d12;--we-main:#1b1016;--we-surface:#24131a;--we-card:#301923;--we-card-hover:#3a1f2b;--we-input:#180d13;--we-line:#5b2f3a;--we-ink:#fff2f5;--we-sub:#d8b8c0;--we-accent:#ff5f57;--we-accent-soft:#ff5f5724;--we-gold:#ffa502;--we-mint:#d8849a;--we-head:#230f16;--we-nav:#180a10;--we-notice:#2d1b13}
+                #sam-world-engine[data-tone="indigo"]{--we-shell:#0d1024;--we-main:#11152d;--we-surface:#171b39;--we-card:#20254a;--we-card-hover:#292f5a;--we-input:#0e1229;--we-line:#373d72;--we-ink:#f0f2ff;--we-sub:#bec3e8;--we-accent:#7c5cff;--we-accent-soft:#7c5cff25;--we-gold:#ffd166;--we-mint:#65c9c3;--we-head:#11162f;--we-nav:#0a0d20;--we-notice:#29231a}
                 #sam-world-engine[data-tone="parchment"]{--we-shell:#e8dcc3;--we-main:#f1e7d2;--we-surface:#fff7e7;--we-card:#f4e6ca;--we-card-hover:#eddcbc;--we-input:#fffaf0;--we-line:#c9ad79;--we-ink:#392b18;--we-sub:#765f3c;--we-accent:#a8761e;--we-accent-soft:#a8761e20;--we-gold:#a8761e;--we-mint:#6d8a52;--we-head:#5c4325;--we-nav:#6b5030;--we-notice:#f2dfb9}
                 #sam-world-engine[data-tone="sakura"]{--we-shell:#f4dce4;--we-main:#fff0f5;--we-surface:#fff9fb;--we-card:#fbe3eb;--we-card-hover:#f6d8e3;--we-input:#fffafd;--we-line:#ddb6c5;--we-ink:#432532;--we-sub:#876373;--we-accent:#e86998;--we-accent-soft:#ff80ab22;--we-gold:#bd7a3b;--we-mint:#6e9f8c;--we-head:#6c3148;--we-nav:#7b3d55;--we-notice:#f7e2d3}
                 #sam-world-engine[data-tone="matcha"]{--we-shell:#dcebd4;--we-main:#eef5e8;--we-surface:#fbfdf8;--we-card:#e3efd9;--we-card-hover:#d8e8cc;--we-input:#fbfff7;--we-line:#b7cbaa;--we-ink:#263823;--we-sub:#61735c;--we-accent:#579b5d;--we-accent-soft:#66bb6a22;--we-gold:#99782f;--we-mint:#4d8f77;--we-head:#31563a;--we-nav:#284630;--we-notice:#edf0ce}
                 #sam-world-engine[data-tone]{
                     --ink:var(--we-ink);--sub:var(--we-sub);--line:var(--we-line);--gold:var(--we-gold);--mint:var(--we-mint);
+                    --we-fs-root:16px;--we-fs-body:14px;--we-fs-small:13px;--we-fs-tiny:12px;--we-fs-control:14px;
+                    --we-fs-h1:28px;--we-fs-h2:19px;--we-fs-h3:16px;--we-fs-metric:25px;--we-fs-hero:32px;
                     background:var(--we-shell)!important;color:var(--we-ink)!important;border-color:var(--we-line)!important;
-                    font-size:15px!important;line-height:1.72!important;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased
+                    font-size:var(--we-fs-root)!important;line-height:1.72!important;text-rendering:optimizeLegibility;-webkit-font-smoothing:auto
                 }
-                #sam-world-engine[data-font-scale="large"]{font-size:16px!important}
-                #sam-world-engine[data-font-scale="xlarge"]{font-size:17px!important}
+                #sam-world-engine[data-font-scale="large"]{
+                    --we-fs-root:18px;--we-fs-body:16px;--we-fs-small:14px;--we-fs-tiny:13px;--we-fs-control:16px;
+                    --we-fs-h1:31px;--we-fs-h2:21px;--we-fs-h3:18px;--we-fs-metric:28px;--we-fs-hero:35px
+                }
+                #sam-world-engine[data-font-scale="xlarge"]{
+                    --we-fs-root:20px;--we-fs-body:17px;--we-fs-small:15px;--we-fs-tiny:14px;--we-fs-control:17px;
+                    --we-fs-h1:34px;--we-fs-h2:23px;--we-fs-h3:19px;--we-fs-metric:31px;--we-fs-hero:38px
+                }
                 #sam-world-engine[data-tone] header{background:linear-gradient(120deg,var(--we-head),var(--we-nav))!important;color:var(--we-ink)!important}
                 #sam-world-engine[data-tone] nav{background:var(--we-nav)!important;border-color:var(--we-line)!important}
                 #sam-world-engine[data-tone] nav button{color:var(--we-sub)!important;font-size:.86em!important}
@@ -2348,6 +2356,98 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-tools button{font-size:12px!important}
                 #sam-world-engine[data-tone] h2{font-size:18px!important}
                 #sam-world-engine[data-tone] h3{font-size:15px!important}
+                /* 全面字号系统：字号设置必须作用于整个面板，而不是只影响继承 root 字号的按钮 */
+                #sam-world-engine[data-tone] main{font-size:var(--we-fs-body)!important}
+                #sam-world-engine[data-tone] header button,
+                #sam-world-engine[data-tone] nav button,
+                #sam-world-engine[data-tone] main button,
+                #sam-world-engine[data-tone] main input,
+                #sam-world-engine[data-tone] main select,
+                #sam-world-engine[data-tone] main textarea{font-size:var(--we-fs-control)!important}
+                #sam-world-engine[data-tone] h1{font-size:var(--we-fs-h1)!important;line-height:1.28!important}
+                #sam-world-engine[data-tone] h2{font-size:var(--we-fs-h2)!important;line-height:1.35!important}
+                #sam-world-engine[data-tone] h3,
+                #sam-world-engine[data-tone] .we-explore-head h3,
+                #sam-world-engine[data-tone] .we-faction-card .we-card-top h3,
+                #sam-world-engine[data-tone] .we-area-hero h3{font-size:var(--we-fs-h3)!important;line-height:1.4!important}
+                #sam-world-engine[data-tone] main p,
+                #sam-world-engine[data-tone] .we-card p,
+                #sam-world-engine[data-tone] .we-person p,
+                #sam-world-engine[data-tone] .we-pulse p,
+                #sam-world-engine[data-tone] .we-next-node p,
+                #sam-world-engine[data-tone] .we-explore-card p,
+                #sam-world-engine[data-tone] .we-prose,
+                #sam-world-engine[data-tone] .we-area-note,
+                #sam-world-engine[data-tone] .we-rep{font-size:var(--we-fs-body)!important;line-height:1.68!important}
+                #sam-world-engine[data-tone] .we-muted,
+                #sam-world-engine[data-tone] dl,
+                #sam-world-engine[data-tone] summary,
+                #sam-world-engine[data-tone] .we-meta,
+                #sam-world-engine[data-tone] .we-hero .we-date small,
+                #sam-world-engine[data-tone] .we-metric small,
+                #sam-world-engine[data-tone] .we-section-head small,
+                #sam-world-engine[data-tone] .we-date-filter,
+                #sam-world-engine[data-tone] .we-brief-row>b,
+                #sam-world-engine[data-tone] .we-person-copy strong,
+                #sam-world-engine[data-tone] .we-book-title small,
+                #sam-world-engine[data-tone] .we-read-state,
+                #sam-world-engine[data-tone] .we-segment-toolbar,
+                #sam-world-engine[data-tone] .we-tone-card b,
+                #sam-world-engine[data-tone] .we-setting-copy b{font-size:var(--we-fs-small)!important}
+                #sam-world-engine[data-tone] small,
+                #sam-world-engine[data-tone] footer,
+                #sam-world-engine[data-tone] .we-brand small,
+                #sam-world-engine[data-tone] nav .we-navtitle,
+                #sam-world-engine[data-tone] .we-eyebrow,
+                #sam-world-engine[data-tone] .we-pill,
+                #sam-world-engine[data-tone] .we-change time,
+                #sam-world-engine[data-tone] .we-days span,
+                #sam-world-engine[data-tone] .we-pulse-mark,
+                #sam-world-engine[data-tone] .we-timeline-group-title,
+                #sam-world-engine[data-tone] .we-timeline-group-title small,
+                #sam-world-engine[data-tone] .we-next-node small,
+                #sam-world-engine[data-tone] .we-brief-row>span:last-child,
+                #sam-world-engine[data-tone] .we-person-copy small,
+                #sam-world-engine[data-tone] .we-person-copy em,
+                #sam-world-engine[data-tone] .we-link-btn,
+                #sam-world-engine[data-tone] .we-ledger-stat small,
+                #sam-world-engine[data-tone] .we-ledger-stat span,
+                #sam-world-engine[data-tone] .we-explore-head small,
+                #sam-world-engine[data-tone] .we-risk-badge,
+                #sam-world-engine[data-tone] .we-explore-score strong small,
+                #sam-world-engine[data-tone] .we-explore-score span,
+                #sam-world-engine[data-tone] .we-explore-meta,
+                #sam-world-engine[data-tone] .we-area-hero small,
+                #sam-world-engine[data-tone] .we-area-progress>div>span,
+                #sam-world-engine[data-tone] .we-preset-toolbar small,
+                #sam-world-engine[data-tone] .we-doc-row small,
+                #sam-world-engine[data-tone] .we-doc-badge,
+                #sam-world-engine[data-tone] .we-segment-head small,
+                #sam-world-engine[data-tone] .we-tone-card small,
+                #sam-world-engine[data-tone] .we-setting-copy small,
+                #sam-world-engine[data-tone] .we-api-grid label,
+                #sam-world-engine[data-tone] .we-source-badge{font-size:var(--we-fs-tiny)!important;line-height:1.55!important}
+                #sam-world-engine[data-tone] .we-kpi strong,
+                #sam-world-engine[data-tone] .we-ledger-stat strong,
+                #sam-world-engine[data-tone] .we-explore-score strong{font-size:var(--we-fs-metric)!important}
+                #sam-world-engine[data-tone] .we-area-progress>strong{font-size:var(--we-fs-hero)!important}
+                #sam-world-engine[data-tone] textarea.we-raw{font-size:var(--we-fs-small)!important}
+                #sam-world-engine[data-tone] .we-person strong{font-size:var(--we-fs-body)!important}
+                #sam-world-engine[data-tone] .we-doc-actions button,
+                #sam-world-engine[data-tone] .we-segment-actions button{font-size:var(--we-fs-tiny)!important}
+                /* 区域档案说明卡跟随主题，避免暗色下出现刺眼白框和灰字 */
+                #sam-world-engine[data-tone] .we-area-note{
+                    background:var(--we-input)!important;color:var(--we-ink)!important;border:1px solid var(--we-line)!important;
+                    font-weight:500!important
+                }
+                /* 羊皮色顶部原先使用棕字叠棕底，改为高对比导航文字 */
+                #sam-world-engine[data-tone="parchment"] header{color:#fff8e8!important}
+                #sam-world-engine[data-tone="parchment"] .we-brand small{color:#ead9b7!important}
+                #sam-world-engine[data-tone="parchment"] nav button{color:#f0dfbd!important}
+                #sam-world-engine[data-tone="parchment"] nav button:hover{color:#fffaf0!important;background:#ffffff18!important}
+                #sam-world-engine[data-tone="parchment"] nav button[aria-selected=true]{
+                    background:#d49a32!important;border-color:#e0ac4c!important;color:#21170a!important
+                }
                 /* 设置页 */
                 #sam-world-engine .we-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
                 #sam-world-engine .we-tone-card{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:center;padding:10px;border:1px solid var(--we-line,var(--line));border-radius:11px;background:var(--we-card,#fff);text-align:left}
@@ -2868,7 +2968,7 @@ ${schemaText}
                 const sourceState=this.usesDedicatedApi()
                     ?(this.dedicatedApiReady()?'专属 API 已就绪':'专属 API 已接管，但配置尚不完整')
                     :(terminalReady?'使用主神终端额外模型':'主神终端额外模型尚未准备好');
-                html+=section('界面外观','<div class="we-settings-grid">'+toneCards+'</div><div class="we-setting-row"><div class="we-setting-copy"><b>界面字号</b><small>旧版 9~10px 辅助文字已经整体放大；这里还能继续增大整个界面。</small></div><div class="we-setting-actions">'+fontButtons+'</div></div>','默认：暗夜 · 标准 15px');
+                html+=section('界面外观','<div class="we-settings-grid">'+toneCards+'</div><div class="we-setting-row"><div class="we-setting-copy"><b>界面字号</b><small>旧版 9~10px 辅助文字已经整体放大；这里还能继续增大整个界面。</small></div><div class="we-setting-actions">'+fontButtons+'</div></div>','默认：暗夜 · 标准 16px');
                 html+=section('模型接口',
                     '<div class="we-setting-row"><div class="we-setting-copy"><b>当前调用来源</b><small>'+text(sourceState)+'</small></div><div class="we-setting-actions"><span class="we-source-badge">'+text(this.apiSourceLabel())+'</span></div></div>'
                     +'<div class="we-setting-row"><div class="we-setting-copy"><b>世界推进专属 API</b><small>开启后世界推进只走这里，不再调用状态栏 / 主神终端的 API；即使配置不完整也不会偷偷回退。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(api.enabled?'on':'')+'" data-action="dedicated-toggle"><span>'+text(api.enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>'

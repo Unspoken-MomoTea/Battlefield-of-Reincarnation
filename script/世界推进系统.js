@@ -124,6 +124,7 @@
     const MODEL_RECORDS = Object.fromEntries(Object.entries(RECORDS).filter(([name])=>name!=='剧本'));
     const MODEL_DETAILS = copy(DETAILS);
     delete MODEL_DETAILS.剧本;
+    delete MODEL_DETAILS.事件.关联任务;
     for (const key of ['承诺','待决事项','关系变化']) delete MODEL_DETAILS.人物[key];
 
     function collectEventRefs(state) {
@@ -452,6 +453,7 @@
     }
 
     const MODEL_IGNORED_PATHS = [
+        /^\/任务(?:\/|$)/,
         /^\/系统状态\/待播报记录$/,
         /^\/世界\/后台\/(?:版本|已处理楼层|已处理时间|运行记录|最近变化)(?:\/|$)/,
         /^\/世界\/后台\/剧本(?:\/|$)/
@@ -1098,6 +1100,8 @@
             历史:tailRecord(backend.历史,HOT_HISTORY_TARGET),
             传播:tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
         };
+        // 旧档中可能仍有事件→任务引用；后台不再消费任务数据。
+        for(const event of Object.values(projectedBackend.事件))if(plain(event))delete event.关联任务;
         const out={
             世界:{
                 时间:world.时间,
@@ -1151,7 +1155,7 @@
 - 事件 / 人物 / 势力地区 / 历史 / 传播 / 势力 / 探索 / 异端 / 关系：标准输出一律为数组；不要输出“名称→对象”的 map 简写。
 - 因果.偏移记录：标准输出为数组，每项必须带“名称”；因果.宏观顺序为字符串数组。
 - 传闻.街头巷议 / 情报交易 / 布告与檄文：标准输出均为数组，不得输出对象 map。
-- 关联事件 / 前因 / 参与者 / 关联任务 / 认知 / 受众 / 引发行动 / 环境状态 / 争夺方：均为字符串数组。
+- 关联事件 / 前因 / 参与者 / 认知 / 受众 / 引发行动 / 环境状态 / 争夺方：均为字符串数组。
 - 势力地区.资源是对象数组，每项结构为 {名称:string, 数量:string, 用途:string, 限制:string}，不得写成字符串数组。
 - 势力地区.内部派系是对象数组，每项结构为 {名称:string, 立场:string, 行动:string, 影响:string}。
 - 势力地区.近期变化是对象数组，每项结构为 {时间:string, 事实:string, 关联事件:string}。
@@ -1808,7 +1812,7 @@ ${schemaText}
             const availabilityReason=this.isConfigured()&&!this.isAvailable()?'额外模型未准备好：请在主神终端设置中配置 API 地址并选择模型':'';
             this.panel.querySelector('[data-action=run]').disabled=this.busy||!!reason||!!availabilityReason;
             this.panel.querySelector('[data-action=run]').textContent=this.busy?'推演中…':'推进世界';
-            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['任务与事件','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋']];
+            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋']];
             this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span>'+i+'</span>'+t+'</button>').join('');
             if(this.tab==='提示词预设'&&main.querySelector('textarea')&&!force)return;
             const text=v=>escape(v==null?'':v);
@@ -1845,7 +1849,6 @@ ${schemaText}
                 return String(a[0]).localeCompare(String(b[0]),'zh-CN');
             });
             const active=events.filter(([,e])=>e.状态==='进行中'),future=events.filter(([,e])=>e.状态==='待发生');
-            const tasks=entries((s.任务||{}).列表),achievements=entries((s.任务||{}).副本成就);
             const peopleAll=new Map(entries(state.人物));entries(s.关系列表).forEach(([n,p])=>{if(!peopleAll.has(n))peopleAll.set(n,{状态:p.在场?'在场':'场外',公开动态:p.态度||'',地点:'',目标:'',行动:''});});
             const userName=String(this.host.SillyTavern?.name1||this.env.SillyTavern?.name1||this.host.SillyTavern?.getContext?.()?.name1||this.host.name1||'').trim();
             const playerAliases=new Set([userName,'{{user}}','<user>','玩家'].filter(Boolean).map(nameKey));
@@ -1858,7 +1861,7 @@ ${schemaText}
                 const rel=(s.关系列表||{})[name]||{};
                 return '<button class="we-person-compact" data-jump-person="'+text(name)+'"><span class="we-avatar">'+text(name.slice(0,1))+'</span><span class="we-person-copy"><strong>'+text(name)+'</strong><small>'+text(p.地点||'地点未明')+'</small><em>'+text(p.行动||p.公开动态||rel.态度||'暂无新动态')+'</em></span></button>';
             };
-            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(e.时间||e.开始时间||'日期未定')+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,关联任务:e.关联任务,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
+            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(e.时间||e.开始时间||'日期未定')+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
             const timelineCards=list=>{
                 const groups=[
                     ['当前进行',list.filter(([,e])=>e.状态==='进行中'||(e.状态==='待发生'&&e.分类==='当前事件'))],
@@ -1869,11 +1872,6 @@ ${schemaText}
                 const assigned=new Set(groups.flatMap(([,items])=>items.map(([name])=>name)));
                 groups.push(['待归类记录',list.filter(([name])=>!assigned.has(name))]);
                 return groups.filter(([,items])=>items.length).map(([title,items])=>'<div class="we-timeline-group"><div class="we-timeline-group-title">'+text(title)+'<small>'+items.length+'</small></div>'+items.map(([n,e])=>eventCard(n,e)).join('')+'</div>').join('');
-            };
-            const taskCard=(name,t)=>{
-                const linked=events.filter(([,e])=>(e.关联任务||[]).includes(name)),completed=['可结算','已达成'].includes(t.状态);
-                const linkedNames=linked.map(([n])=>n),activeLinked=linked.filter(([,e])=>['进行中','待发生'].includes(e.状态)).length;
-                return '<article class="we-card"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(t.状态||'进行中',completed?'':'future')+'</div><p>'+text(t.目标||t.说明||'等待目标记录')+'</p><div class="we-meta"><span>'+text(completed?'完成条件已满足':linked.length?linked.length+' 个关联事件 · '+activeLinked+' 个待处理':'进度依据实际剧情确认')+'</span></div>'+details('task-'+name,{来源:t.委托方,难度:t.难度,关联事件:linkedNames,奖励:t.奖励,惩罚:t.惩罚,交付:t.交付},'任务与关联事件')+'</article>';
             };
             const matched=(name,obj)=>!this.query||(name+' '+Object.values(obj).filter(v=>typeof v==='string').join(' ')).toLowerCase().includes(this.query.toLowerCase());
             const calendarCandidates=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter));
@@ -1896,7 +1894,6 @@ ${schemaText}
                 const changes=(state.最近变化||[]).slice(-6).reverse();
                 const changeHtml=changes.map(c=>'<div class="we-change"><time>'+text(dateLabel(c.时间))+'</time><div><b>'+text(c.名称||c.类别)+' · '+text(c.操作)+'</b><p>'+text(c.内容||c.字段)+'</p></div></div>').join('');
                 const shown=calendarCandidates.filter(([,e])=>this.calendarMode==='undated'?!parseDate(e.时间||e.开始时间):!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate);
-                const runningTasks=tasks.filter(([,t])=>['进行中','可交付'].includes(t.状态));
                 const macroCount=events.filter(([,e])=>e.分类==='宏观节点').length;
                 const timelineView=snapshot?timelineState(s):null;
                 const nextMacroName=timelineView?.下一宏观节点?.名称||'';
@@ -1907,7 +1904,7 @@ ${schemaText}
                 html+='<div class="we-kpi-grid">'
                     +'<div class="we-kpi"><small>活动事件</small><strong>'+active.length+'</strong><span>'+future.length+' 个待发生</span></div>'
                     +'<div class="we-kpi"><small>宏观节点</small><strong>'+macroCount+'</strong><span>'+text(orbit.当前阶段||'阶段待确认')+'</span></div>'
-                    +'<div class="we-kpi"><small>任务推进</small><strong>'+runningTasks.length+'</strong><span>'+tasks.length+' 个任务记录</span></div>'
+                    +'<div class="we-kpi"><small>近期节点</small><strong>'+events.filter(([,e])=>e.分类==='近期节点').length+'</strong><span>当前宏观边界内的事件</span></div>'
                     +'<div class="we-kpi"><small>场外人物</small><strong>'+people.size+'</strong><span>只统计 NPC</span></div>'
                     +'</div>';
                 html+='<div class="we-dashboard"><div class="we-command-main">'
@@ -1916,7 +1913,7 @@ ${schemaText}
                     +section('近期变化',changeHtml||empty('本轮无变化记录'),'最近一次成功推进')
                     +'</div><aside class="we-command-side">'
                     +section('下一宏观节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="点击定位到时间线中的对应宏观事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'本轮需要先建立真实宏观节点')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+(nextEvent?' · 点击定位 →':'')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果轨道')
-                    +section('任务进展',(runningTasks.slice(0,3).map(([n,t])=>'<button class="we-brief-row" data-tab="任务与事件"><b>'+text(n)+'</b>'+pill(t.状态||'进行中','future')+'<span>'+text(t.目标||t.说明||'')+'</span></button>').join('')||empty('暂无进行中任务')),'优先显示进行中 / 可交付')
+                    +section('世界事件','<p>'+events.length+' 个事件 · '+future.length+' 个待发生</p><button class="we-link-btn" data-tab="世界事件">查看全部世界事件 →</button>','事件档案')
                     +section('人物动态',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'只显示重点 NPC')
                     +'</aside></div>';
             }else if(this.tab==='角色管理'){
@@ -1936,10 +1933,9 @@ ${schemaText}
                     factions.map(([n,r])=>'<button class="we-brief-row" data-faction="'+text(n)+'"><b>'+text(n)+'</b><span>'+text(r.目标||r.描述||'目标未记录')+'</span></button>').join(''))||empty('暂无名录记录'));
                 html+='<div class="we-columns"><div>'+section('势力格局','<div class="we-grid">'+factions.map(([n,r])=>'<button class="we-card" data-faction="'+text(n)+'"><h3>'+text(n)+'</h3><p>'+text(r.目标||r.描述||'目标未记录')+'</p><small>'+text(r.领地||'领地未记录')+'</small></button>').join('')+'</div><p class="we-muted">只显示已知势力与控制关系，不推测未记录的联盟或敌对。</p>')+'</div><aside>'+section('势力档案',selected?'<h3>'+text(selected[0])+'</h3>'+fields(selected[1]):empty('本轮没有势力记录'))+'</aside></div>';
                 html+=section('各地情势',areas.map(([n,r])=>'<details><summary>'+text(n)+' · '+text(r.进展||r.公开动态||r.描述||'情势待确认')+'</summary>'+fields(r)+'</details>').join('')||empty('本轮没有地区记录'));
-            }else if(this.tab==='任务与事件'){
-                html+=section('世界事件节点',events.map(([n,e])=>eventCard(n,e)).join('')||empty('尚未排定事件节点','世界引擎会围绕当前时间锚点建立活动、近期与宏观节点；任务直接关联这些事件。'));
-                html+=tools(['全部','进行中','可交付','可结算','失败'])+section('当前任务','<div class="we-grid">'+tasks.filter(([n,t])=>matched(n,t)&&((this.filter||'全部')==='全部'||t.状态===this.filter)).map(([n,t])=>taskCard(n,t)).join('')+'</div>');
-                html+=section('副本成就','<div class="we-grid">'+achievements.filter(([n,t])=>matched(n,t)).map(([n,t])=>taskCard(n,t)).join('')+'</div>',achievements.filter(([,t])=>t.状态==='已达成').length+'/'+achievements.length+' 已达成');
+            }else if(this.tab==='世界事件'){
+                const list=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter));
+                html+=tools(['全部','进行中','待发生','已完成','已取消'])+section('世界事件',list.map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的世界事件','按当前事件、近期节点和宏观节点组织。'));
             }else if(this.tab==='传闻'){
                 html+=tools();
                 for(const category of ['街头巷议','情报交易','布告与檄文'])html+=section(category,entries((s.传闻||{})[category]).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><h3>'+text(n)+'</h3><p>'+text(r.内容||r.摘要)+'</p>'+fields({来源:r.来源||r.卖家||r.发布者,可信度:r.可信度,要价:r.要价,位置:r.张贴位置})+details('rumor-'+n,{真实内幕:r.真实内幕},'主持人档案')+'</article>').join('')||empty('暂无'+category,'传闻来自已发生事件与传播渠道。'));

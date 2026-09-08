@@ -4085,6 +4085,8 @@
         var worldEngine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
         var worldAdvanceOn = !!(worldEngine && typeof worldEngine.isConfigured === 'function' && worldEngine.isConfigured());
         var worldAdvanceReady = !!(worldEngine && typeof worldEngine.isEnabled === 'function' && worldEngine.isEnabled());
+        var worldUsesDedicatedApi = !!(worldEngine && typeof worldEngine.usesDedicatedApi === 'function' && worldEngine.usesDedicatedApi());
+        var worldAdvanceWaitingText = worldUsesDedicatedApi ? '已开启 · 等待世界推进专属 API 配置' : '已开启 · 等待额外模型配置';
         var themeHtml = '';
         THEME_ORDER.forEach(function(key) {
             var th = THEMES[key];
@@ -4100,7 +4102,7 @@
             + '<div class="sam-toggle-switch '+(superStable?'on':'')+'" data-toggle="世界超稳"><div class="knob"></div></div></div>'
             + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🪐 单一世界</div><div style="font-size:11px;color:var(--sam-sub);">开启后仅存在单一世界,关闭后可在多世界间选择</div></div>'
             + '<div class="sam-toggle-switch '+(singleWorld?'on':'')+'" data-toggle="单一世界"><div class="knob"></div></div></div>'
-            + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🌍 世界推进</div><div id="sam-world-engine-state" style="font-size:11px;color:var(--sam-sub);">'+(worldAdvanceOn?(worldAdvanceReady?'已开启 · 独立世界引擎接管':'已开启 · 等待额外模型配置'):'已关闭 · 使用原世界面板与原推演规则')+'</div></div>'
+            + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🌍 世界推进</div><div id="sam-world-engine-state" style="font-size:11px;color:var(--sam-sub);">'+(worldAdvanceOn?(worldAdvanceReady?'已开启 · 独立世界引擎接管':worldAdvanceWaitingText):'已关闭 · 使用原世界面板与原推演规则')+'</div></div>'
             + '<div class="sam-toggle-switch '+(worldAdvanceOn?'on':'')+'" data-toggle="world-engine"><div class="knob"></div></div></div>');
 
         var variableMode = getVariableApiMode();
@@ -4113,7 +4115,7 @@
     + '<div class="desc">正文模型同轮输出变量更新，无需额外模型；长文本更容易出现格式错误。</div></button>'
   + '</div>'
   + '<div class="sam-varmode-status" id="sam-varmode-status"></div>'
-  + '<div style="margin-top:5px;font-size:10px;line-height:1.5;color:var(--sam-sub);">此项只切换 MVU 世界书/预设。下方「额外模型配置」供商城刷新、血统融合与世界推进共用；世界推进总开关开启时会自动启用该 API 通道。</div>';
+  + '<div style="margin-top:5px;font-size:10px;line-height:1.5;color:var(--sam-sub);">此项只切换 MVU 世界书/预设。下方「额外模型配置」供商城刷新、血统融合使用；世界推进未启用专属 API 时也会复用该通道。若世界推进启用专属 API，则两套接口完全分离。</div>';
         html += secBlock('🧭 变量更新方式', variableModeHtml);
 
         /* ----- 🔌 API 配置区块(移植自 Zsd网游论坛_本地内联版) ----- */
@@ -4213,7 +4215,7 @@
             renderAll();
         });
 
-        // 世界推进总开关：开启时自动启用额外 API；关闭只停世界引擎，不反向关闭额外 API。
+        // 世界推进总开关：专属 API 优先；只有未启用专属 API 时才复用/启用主神终端额外模型。
         $('#samsara-modal').off('click.samWorldEngine').on('click.samWorldEngine', '.sam-toggle-switch[data-toggle="world-engine"]', function() {
             var engine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
             if (!engine || typeof engine.setEnabled !== 'function') { samToast('error', '请先加载独立脚本：世界推进系统.js'); return; }
@@ -4221,11 +4223,13 @@
             engine.setEnabled(on);
             $(this).toggleClass('on', on);
             var ready = !!(typeof engine.isEnabled === 'function' && engine.isEnabled());
-            $('#sam-world-engine-state', $apiModal).text(on ? (ready ? '已开启 · 独立世界引擎接管' : '已开启 · 等待额外模型配置') : '已关闭 · 使用原世界面板与原推演规则');
+            var dedicated = !!(typeof engine.usesDedicatedApi === 'function' && engine.usesDedicatedApi());
+            $('#sam-world-engine-state', $apiModal).text(on ? (ready ? '已开启 · 独立世界引擎接管' : (dedicated ? '已开启 · 等待世界推进专属 API 配置' : '已开启 · 等待额外模型配置')) : '已关闭 · 使用原世界面板与原推演规则');
             if (on) {
                 apiRefreshFields();
-                if (ready) samToast('success', '世界推进已开启');
-                else samToast('warning', '世界推进已开启，额外 API 已自动启用；请配置 API 地址并选择模型');
+                if (ready) samToast('success', dedicated ? '世界推进已开启 · 使用专属 API' : '世界推进已开启 · 使用主神终端额外模型');
+                else if (dedicated) samToast('warning', '世界推进已开启，请在世界推进「设置」中完成专属 API 配置');
+                else samToast('warning', '世界推进已开启，主神终端额外模型尚未配置完整');
             } else samToast('success', '世界推进已关闭，已恢复原世界面板与推演规则');
         });
 
@@ -4281,9 +4285,13 @@
             // 启用状态提示
             var $hint = $('#sam-api-enable-state', $apiModal);
             if (c.enabled === true) {
-                $hint.html('<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合 / 世界推进可使用自托管 API</span>');
+                var _engineForApiHint = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
+                var _dedicatedForApiHint = !!(_engineForApiHint && typeof _engineForApiHint.usesDedicatedApi === 'function' && _engineForApiHint.usesDedicatedApi());
+                $hint.html('<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合可使用自托管 API'+(_dedicatedForApiHint?'；世界推进使用专属 API':'；世界推进可复用此通道')+'</span>');
             } else {
-                $hint.html('<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API，世界推进暂停</span>');
+                var _engineForApiHint = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
+                var _dedicatedForApiHint = !!(_engineForApiHint && typeof _engineForApiHint.usesDedicatedApi === 'function' && _engineForApiHint.usesDedicatedApi());
+                $hint.html('<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API'+(_dedicatedForApiHint?'；世界推进继续使用专属 API':'；世界推进等待额外模型配置')+'</span>');
             }
             var $ps = $('#sam-api-preset-sel').empty().append('<option value="">— 选择已保存预设 —</option>');
             c.apiPresets.forEach(function(p) { $ps.append($('<option></option>').val(p.name).text(p.name)); });
@@ -4300,7 +4308,8 @@
                 var engineOn = engine.isConfigured();
                 var engineReady = typeof engine.isEnabled === 'function' && engine.isEnabled();
                 $('.sam-toggle-switch[data-toggle="world-engine"]', $apiModal).toggleClass('on', engineOn);
-                $('#sam-world-engine-state', $apiModal).text(engineOn ? (engineReady ? '已开启 · 独立世界引擎接管' : '已开启 · 等待额外模型配置') : '已关闭 · 使用原世界面板与原推演规则');
+                var engineDedicated = typeof engine.usesDedicatedApi === 'function' && engine.usesDedicatedApi();
+                $('#sam-world-engine-state', $apiModal).text(engineOn ? (engineReady ? '已开启 · 独立世界引擎接管' : (engineDedicated ? '已开启 · 等待世界推进专属 API 配置' : '已开启 · 等待额外模型配置')) : '已关闭 · 使用原世界面板与原推演规则');
                 if (typeof engine.render === 'function') engine.render();
             }
         }

@@ -12,6 +12,13 @@ const isCombat = _.get(data, '系统状态.是否战斗中', false) === true;
 const isFormActive = _.get(data, '角色.当前形态.激活', false) === true;
 const isOneWorld = _.get(data, '设置.单一世界', false) === true;
 const isStable = _.get(data, '设置.世界超稳', false) === true;
+const isWorldEngineEnabled = (() => {
+  try {
+    const host = (typeof window !== 'undefined' && window.parent && window.parent !== window) ? window.parent : (typeof window !== 'undefined' ? window : null);
+    const engine = host?.Samsara?.worldEngine;
+    return typeof engine?.isEnabled === 'function' ? engine.isEnabled() : engine?.config?.enabled === true;
+  } catch (_) { return false; }
+})();
 
 // 生命层级(Ⅰ~Ⅸ)序列, 用于序位比较
 const LIFE_TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
@@ -111,7 +118,7 @@ if (current.世界) {
   delete current.世界.历法;
   delete current.世界.后台;
   const worldDigest = _.get(data, '世界.后台.公开摘要', '');
-  if (!_.get(data, '系统状态.是否在主神空间', false) && worldDigest) readonly.世界.后台公开动态 = worldDigest;
+  if (isWorldEngineEnabled && !_.get(data, '系统状态.是否在主神空间', false) && worldDigest) readonly.世界.后台公开动态 = worldDigest;
 }
 
 // 世界超稳模式: 隐藏因果轨道偏移记录中的「影响程度」数值, 仅保留叙事性字段(描述/引发者)

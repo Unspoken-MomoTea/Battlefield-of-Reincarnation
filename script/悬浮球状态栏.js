@@ -9452,7 +9452,8 @@ if (hasReq) {
             }
         };
         if (GS_PARENT.Samsara.worldEngine && typeof GS_PARENT.Samsara.worldEngine.isConfigured === 'function' && GS_PARENT.Samsara.worldEngine.isConfigured()) {
-            GS_PARENT.Samsara.terminal.enableApi();
+            var _worldUsesDedicated = typeof GS_PARENT.Samsara.worldEngine.usesDedicatedApi === 'function' && GS_PARENT.Samsara.worldEngine.usesDedicatedApi();
+            if (!_worldUsesDedicated) GS_PARENT.Samsara.terminal.enableApi();
         }
         renderAll();
         try {

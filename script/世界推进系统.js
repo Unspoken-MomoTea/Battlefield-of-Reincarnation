@@ -2211,6 +2211,137 @@ ${schemaText}
                 #sam-world-engine .we-segment-head small{color:var(--sub);font-size:10px}
                 #sam-world-engine .we-segment-actions{display:flex;gap:4px}
                 #sam-world-engine .we-segment textarea{display:block;width:100%;min-height:170px;height:210px;border:0;border-radius:0;background:#fff;padding:12px 13px;resize:vertical}
+                /* ===== 世界引擎独立外观：默认暗夜，可在设置中切换 ===== */
+                #sam-world-engine[data-tone="night"]{--we-shell:#0e1320;--we-main:#101824;--we-surface:#151e2c;--we-card:#1b2636;--we-card-hover:#213044;--we-input:#111a27;--we-line:#344357;--we-ink:#edf3f8;--we-sub:#9cabbc;--we-accent:#8f9fff;--we-accent-soft:#8f9fff24;--we-gold:#d9b978;--we-mint:#7dcbbb;--we-head:#111a27;--we-nav:#0c1420;--we-notice:#251f18}
+                #sam-world-engine[data-tone="crimson"]{--we-shell:#170d12;--we-main:#1b1016;--we-surface:#24131a;--we-card:#301923;--we-card-hover:#3a1f2b;--we-input:#180d13;--we-line:#5b2f3a;--we-ink:#fff2f5;--we-sub:#c29ba5;--we-accent:#ff5f57;--we-accent-soft:#ff5f5724;--we-gold:#ffa502;--we-mint:#d8849a;--we-head:#230f16;--we-nav:#180a10;--we-notice:#2d1b13}
+                #sam-world-engine[data-tone="indigo"]{--we-shell:#0d1024;--we-main:#11152d;--we-surface:#171b39;--we-card:#20254a;--we-card-hover:#292f5a;--we-input:#0e1229;--we-line:#373d72;--we-ink:#f0f2ff;--we-sub:#a2a7ce;--we-accent:#7c5cff;--we-accent-soft:#7c5cff25;--we-gold:#ffd166;--we-mint:#65c9c3;--we-head:#11162f;--we-nav:#0a0d20;--we-notice:#29231a}
+                #sam-world-engine[data-tone="parchment"]{--we-shell:#e8dcc3;--we-main:#f1e7d2;--we-surface:#fff7e7;--we-card:#f4e6ca;--we-card-hover:#eddcbc;--we-input:#fffaf0;--we-line:#c9ad79;--we-ink:#392b18;--we-sub:#765f3c;--we-accent:#a8761e;--we-accent-soft:#a8761e20;--we-gold:#a8761e;--we-mint:#6d8a52;--we-head:#5c4325;--we-nav:#6b5030;--we-notice:#f2dfb9}
+                #sam-world-engine[data-tone="sakura"]{--we-shell:#f4dce4;--we-main:#fff0f5;--we-surface:#fff9fb;--we-card:#fbe3eb;--we-card-hover:#f6d8e3;--we-input:#fffafd;--we-line:#ddb6c5;--we-ink:#432532;--we-sub:#876373;--we-accent:#e86998;--we-accent-soft:#ff80ab22;--we-gold:#bd7a3b;--we-mint:#6e9f8c;--we-head:#6c3148;--we-nav:#7b3d55;--we-notice:#f7e2d3}
+                #sam-world-engine[data-tone="matcha"]{--we-shell:#dcebd4;--we-main:#eef5e8;--we-surface:#fbfdf8;--we-card:#e3efd9;--we-card-hover:#d8e8cc;--we-input:#fbfff7;--we-line:#b7cbaa;--we-ink:#263823;--we-sub:#61735c;--we-accent:#579b5d;--we-accent-soft:#66bb6a22;--we-gold:#99782f;--we-mint:#4d8f77;--we-head:#31563a;--we-nav:#284630;--we-notice:#edf0ce}
+                #sam-world-engine[data-tone]{
+                    --ink:var(--we-ink);--sub:var(--we-sub);--line:var(--we-line);--gold:var(--we-gold);--mint:var(--we-mint);
+                    background:var(--we-shell)!important;color:var(--we-ink)!important;border-color:var(--we-line)!important;
+                    font-size:15px!important;line-height:1.72!important;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased
+                }
+                #sam-world-engine[data-font-scale="large"]{font-size:16px!important}
+                #sam-world-engine[data-font-scale="xlarge"]{font-size:17px!important}
+                #sam-world-engine[data-tone] header{background:linear-gradient(120deg,var(--we-head),var(--we-nav))!important;color:var(--we-ink)!important}
+                #sam-world-engine[data-tone] nav{background:var(--we-nav)!important;border-color:var(--we-line)!important}
+                #sam-world-engine[data-tone] nav button{color:var(--we-sub)!important;font-size:.86em!important}
+                #sam-world-engine[data-tone] nav button[aria-selected=true]{background:var(--we-accent)!important;border-color:var(--we-accent)!important;color:#fff!important}
+                #sam-world-engine[data-tone] main{background:var(--we-main)!important;color:var(--we-ink)!important}
+                #sam-world-engine[data-tone] .we-hero,
+                #sam-world-engine[data-tone] .we-section,
+                #sam-world-engine[data-tone] .we-world-focus .we-section,
+                #sam-world-engine[data-tone] .we-dashboard .we-section{background:var(--we-surface)!important;border-color:var(--we-line)!important;box-shadow:none!important}
+                #sam-world-engine[data-tone] .we-card,
+                #sam-world-engine[data-tone] .we-kpi,
+                #sam-world-engine[data-tone] .we-kpi-compact .we-kpi,
+                #sam-world-engine[data-tone] .we-ledger-stat,
+                #sam-world-engine[data-tone] .we-explore-card,
+                #sam-world-engine[data-tone] .we-faction-card,
+                #sam-world-engine[data-tone] .we-doc-row,
+                #sam-world-engine[data-tone] .we-segment,
+                #sam-world-engine[data-tone] .we-book{background:var(--we-card)!important;border-color:var(--we-line)!important;color:var(--we-ink)!important}
+                #sam-world-engine[data-tone] .we-card:hover,
+                #sam-world-engine[data-tone] button.we-card:hover,
+                #sam-world-engine[data-tone] .we-explore-card:hover,
+                #sam-world-engine[data-tone] .we-faction-card:hover,
+                #sam-world-engine[data-tone] .we-brief-row:hover,
+                #sam-world-engine[data-tone] .we-person-compact:hover{background:var(--we-card-hover)!important}
+                #sam-world-engine[data-tone] .we-card p,
+                #sam-world-engine[data-tone] .we-person p,
+                #sam-world-engine[data-tone] .we-pulse p,
+                #sam-world-engine[data-tone] .we-next-node p,
+                #sam-world-engine[data-tone] .we-explore-card p{color:var(--we-sub)!important}
+                #sam-world-engine[data-tone] .we-kpi strong,
+                #sam-world-engine[data-tone] .we-ledger-stat strong,
+                #sam-world-engine[data-tone] .we-explore-score strong,
+                #sam-world-engine[data-tone] .we-area-progress>strong{color:var(--we-ink)!important}
+                #sam-world-engine[data-tone] .we-kpi small,
+                #sam-world-engine[data-tone] .we-kpi span,
+                #sam-world-engine[data-tone] .we-ledger-stat small,
+                #sam-world-engine[data-tone] .we-ledger-stat span,
+                #sam-world-engine[data-tone] .we-explore-head small,
+                #sam-world-engine[data-tone] .we-explore-meta,
+                #sam-world-engine[data-tone] .we-area-hero small{color:var(--we-sub)!important}
+                #sam-world-engine[data-tone] .we-tools input,
+                #sam-world-engine[data-tone] select,
+                #sam-world-engine[data-tone] .we-config-row input,
+                #sam-world-engine[data-tone] .we-doc-create input,
+                #sam-world-engine[data-tone] .we-segment-head input,
+                #sam-world-engine[data-tone] textarea,
+                #sam-world-engine[data-tone] .we-setting-input{background:var(--we-input)!important;color:var(--we-ink)!important;border-color:var(--we-line)!important}
+                #sam-world-engine[data-tone] .we-tools button,
+                #sam-world-engine[data-tone] .we-doc-actions button,
+                #sam-world-engine[data-tone] .we-segment-actions button,
+                #sam-world-engine[data-tone] .we-setting-btn{background:var(--we-card)!important;color:var(--we-ink)!important;border-color:var(--we-line)!important}
+                #sam-world-engine[data-tone] .we-tools button.active,
+                #sam-world-engine[data-tone] .we-setting-btn.active{border-color:var(--we-accent)!important;color:var(--we-accent)!important;background:var(--we-accent-soft)!important}
+                #sam-world-engine[data-tone] .we-empty{background:var(--we-card)!important;border-color:var(--we-line)!important}
+                #sam-world-engine[data-tone] .we-empty b{color:var(--we-ink)!important}
+                #sam-world-engine[data-tone] .we-notice{background:var(--we-notice)!important;color:var(--we-ink)!important;border-left-color:var(--we-gold)!important}
+                #sam-world-engine[data-tone] footer{background:var(--we-nav)!important;color:var(--we-sub)!important}
+                #sam-world-engine[data-tone] .we-timeline .we-card:before{border-color:var(--we-surface)!important}
+                #sam-world-engine[data-tone] .we-timeline-group-title:after{background:var(--we-line)!important}
+                #sam-world-engine[data-tone] .we-explore-bar{background:color-mix(in srgb,var(--we-line) 70%,transparent)!important}
+                #sam-world-engine[data-tone] .we-explore-bar>i{background:var(--we-mint)!important}
+                #sam-world-engine[data-tone] .we-risk-badge{background:var(--we-input)!important;color:var(--we-sub)!important;border-color:var(--we-line)!important}
+                #sam-world-engine[data-tone] .we-preset-toolbar{background:var(--we-surface)!important;border-color:var(--we-line)!important;box-shadow:none!important}
+                #sam-world-engine[data-tone] .we-segment-head{background:var(--we-card)!important;border-color:var(--we-line)!important}
+                #sam-world-engine[data-tone] .we-book-row,
+                #sam-world-engine[data-tone] .we-brief-row,
+                #sam-world-engine[data-tone] .we-section-head,
+                #sam-world-engine[data-tone] .we-area-hero{border-color:var(--we-line)!important}
+                #sam-world-engine[data-tone] .we-next-node>span{background:var(--we-accent)!important;color:#fff!important}
+                #sam-world-engine[data-tone] button.we-next-node:hover{background:var(--we-card-hover)!important}
+                /* 可读性：旧版 9/10px 文本整体提升 */
+                #sam-world-engine[data-tone] .we-kpi small,
+                #sam-world-engine[data-tone] .we-kpi span,
+                #sam-world-engine[data-tone] .we-ledger-stat small,
+                #sam-world-engine[data-tone] .we-ledger-stat span,
+                #sam-world-engine[data-tone] .we-person-copy small,
+                #sam-world-engine[data-tone] .we-person-copy em,
+                #sam-world-engine[data-tone] .we-next-node small,
+                #sam-world-engine[data-tone] .we-brief-row>span:last-child,
+                #sam-world-engine[data-tone] .we-explore-head small,
+                #sam-world-engine[data-tone] .we-explore-meta,
+                #sam-world-engine[data-tone] .we-area-hero small,
+                #sam-world-engine[data-tone] .we-risk-badge{font-size:11px!important}
+                #sam-world-engine[data-tone] .we-card p,
+                #sam-world-engine[data-tone] .we-person p,
+                #sam-world-engine[data-tone] .we-muted,
+                #sam-world-engine[data-tone] dl,
+                #sam-world-engine[data-tone] summary,
+                #sam-world-engine[data-tone] .we-tools button{font-size:12px!important}
+                #sam-world-engine[data-tone] h2{font-size:18px!important}
+                #sam-world-engine[data-tone] h3{font-size:15px!important}
+                /* 设置页 */
+                #sam-world-engine .we-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+                #sam-world-engine .we-tone-card{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:center;padding:10px;border:1px solid var(--we-line,var(--line));border-radius:11px;background:var(--we-card,#fff);text-align:left}
+                #sam-world-engine .we-tone-card.active{border-color:var(--we-accent,var(--gold));box-shadow:0 0 0 2px var(--we-accent-soft,#d9b97822)}
+                #sam-world-engine .we-tone-swatch{height:28px;border-radius:7px;border:1px solid #ffffff22}
+                #sam-world-engine .we-tone-card b{display:block;font-size:13px}
+                #sam-world-engine .we-tone-card small{display:block;color:var(--we-sub,var(--sub));font-size:11px}
+                #sam-world-engine .we-setting-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(220px,1.2fr);gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--we-line,var(--line))}
+                #sam-world-engine .we-setting-row:last-child{border-bottom:0}
+                #sam-world-engine .we-setting-copy b{display:block;font-size:14px}
+                #sam-world-engine .we-setting-copy small{display:block;color:var(--we-sub,var(--sub));font-size:11px;margin-top:3px}
+                #sam-world-engine .we-setting-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
+                #sam-world-engine .we-setting-btn{border:1px solid var(--we-line,var(--line));border-radius:8px;padding:7px 10px}
+                #sam-world-engine .we-api-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+                #sam-world-engine .we-api-grid label{display:flex;flex-direction:column;gap:5px;color:var(--we-sub,var(--sub));font-size:11px}
+                #sam-world-engine .we-api-grid label.wide{grid-column:1/-1}
+                #sam-world-engine .we-setting-input{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--we-line,var(--line));border-radius:8px}
+                #sam-world-engine .we-api-toolbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:10px 0}
+                #sam-world-engine .we-api-toolbar select,#sam-world-engine .we-api-toolbar input{min-width:160px;flex:1}
+                #sam-world-engine .we-source-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border-radius:999px;border:1px solid var(--we-line,var(--line));background:var(--we-card,#fff);font-size:11px}
+                #sam-world-engine .we-source-badge:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--we-mint,var(--mint))}
+                #sam-world-engine .we-switch{display:inline-flex;align-items:center;gap:8px}
+                #sam-world-engine .we-switch-track{width:42px;height:23px;border-radius:999px;background:var(--we-line,var(--line));padding:3px;transition:background .15s}
+                #sam-world-engine .we-switch-track i{display:block;width:17px;height:17px;border-radius:50%;background:#fff;transition:transform .15s}
+                #sam-world-engine .we-switch.on .we-switch-track{background:var(--we-accent,var(--gold))}
+                #sam-world-engine .we-switch.on .we-switch-track i{transform:translateX(19px)}
                 @media(max-width:1100px){
                     #sam-world-engine .we-world-focus{grid-template-columns:1fr}
                     #sam-world-engine .we-dashboard{grid-template-columns:1fr}
@@ -2252,6 +2383,11 @@ ${schemaText}
                     #sam-world-engine footer{padding:7px 10px}
                     #sam-world-engine footer small{display:none}
                 }
+                    #sam-world-engine .we-settings-grid{grid-template-columns:1fr 1fr}
+                    #sam-world-engine .we-setting-row{grid-template-columns:1fr}
+                    #sam-world-engine .we-setting-actions{justify-content:flex-start}
+                    #sam-world-engine .we-api-grid{grid-template-columns:1fr}
+                    #sam-world-engine .we-api-grid label.wide{grid-column:auto}
                 @media(max-height:400px){
                     #sam-world-engine header{height:40px}
                     #sam-world-engine nav{padding:3px 8px;min-height:36px}
@@ -2260,6 +2396,7 @@ ${schemaText}
                 }
             `;
             this.panel=doc.createElement('section');this.panel.id='sam-world-engine';this.panel.hidden=true;
+            this.panel.dataset.tone=this.config.tone||'night';this.panel.dataset.fontScale=this.config.fontScale||'standard';
             this.panel.setAttribute('role','dialog');this.panel.setAttribute('aria-label','世界引擎');
             this.panel.innerHTML='<header><div class="we-brand"><i>◈</i>世界引擎<small>WORLD CHRONICLE</small></div><button class="we-btn we-primary" data-action="run">推进世界</button><button class="we-btn" data-action="close" aria-label="返回主神终端">返回 ↗</button></header><div class="we-layout"><nav></nav><main></main></div><footer><span></span><small>剧情时间驱动 · 由主神终端「世界推进」总开关控制</small></footer>';
             this.panel.addEventListener('click',event=>{

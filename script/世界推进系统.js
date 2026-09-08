@@ -2581,14 +2581,18 @@ ${schemaText}
                 reason=this.blocked(snapshot);
             }catch(e){reason=e.message;}
             const s=snapshot?snapshot.stat:{},w=s.世界||{},orbit=w.因果轨道||{};
+            this.panel.dataset.tone=this.config.tone||'night';
+            this.panel.dataset.fontScale=this.config.fontScale||'standard';
             if(this.tab==='总览')this.tab='世界推进';
             const main=this.panel.querySelector('main'),scroll=main.scrollTop;
             const opened=new Set(Array.from(main.querySelectorAll('details[open]')).map(d=>d.dataset.detail));
             this.panel.querySelector('footer span').textContent=this.status;
-            const availabilityReason=this.isConfigured()&&!this.isAvailable()?'额外模型未准备好：请在主神终端设置中配置 API 地址并选择模型':'';
+            const availabilityReason=this.isConfigured()&&!this.isAvailable()
+                ?(this.usesDedicatedApi()?'专属 API 未准备好：请在「设置」中填写 API 地址并选择模型':'主神终端额外模型未准备好：请在主神终端设置中配置 API 地址并选择模型')
+                :'';
             this.panel.querySelector('[data-action=run]').disabled=this.busy||!!reason||!!availabilityReason;
             this.panel.querySelector('[data-action=run]').textContent=this.busy?'推演中…':'推进世界';
-            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋']];
+            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['传闻','◌'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋'],['设置','⚙']];
             this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span>'+i+'</span>'+t+'</button>').join('');
             if(this.tab==='提示词预设'&&main.querySelector('textarea')&&!force)return;
             const text=v=>escape(v==null?'':v);
@@ -2815,6 +2819,26 @@ ${schemaText}
             }else if(this.tab==='运行记录'){
                 html+='<div class="we-tools"><button data-action="cancel">停止当前请求</button></div>'+section('推演记录',(state.运行记录||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.时间)+'</h3>'+pill(r.补丁数+' 项变化','dim')+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚未执行推演'));
                 html+=section('历史锚点',entries(state.历史).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无已确认的历史锚点'));
+            }else if(this.tab==='设置'){
+                const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
+                const toneCards=Object.entries(WORLD_TONES).map(([key,tone])=>'<button class="we-tone-card '+(this.config.tone===key?'active':'')+'" data-tone-option="'+key+'"><span class="we-tone-swatch" style="background:linear-gradient(90deg,'+tone.swatch.join(',')+')"></span><span><b>'+text(tone.name)+'</b><small>'+(key==='night'?'默认暗色调':'点击切换色调')+'</small></span></button>').join('');
+                const fontButtons=Object.entries(WORLD_FONT_SCALES).map(([key,item])=>'<button class="we-setting-btn '+(this.config.fontScale===key?'active':'')+'" data-font-option="'+key+'">'+text(item.name)+' · '+text(item.size)+'</button>').join('');
+                const presets=api.apiPresets.map(p=>'<option value="'+text(p.name)+'">'+text(p.name)+'</option>').join('');
+                const modelOptions=Array.from(new Set([api.model,...api.fetchedModels].filter(Boolean))).map(model=>'<option value="'+text(model)+'"></option>').join('');
+                const terminalReady=!!(this.host.Samsara?.terminal?.apiReady?.());
+                const sourceState=this.usesDedicatedApi()
+                    ?(this.dedicatedApiReady()?'专属 API 已就绪':'专属 API 已接管，但配置尚不完整')
+                    :(terminalReady?'使用主神终端额外模型':'主神终端额外模型尚未准备好');
+                html+=section('界面外观','<div class="we-settings-grid">'+toneCards+'</div><div class="we-setting-row"><div class="we-setting-copy"><b>界面字号</b><small>旧版 9~10px 辅助文字已经整体放大；这里还能继续增大整个界面。</small></div><div class="we-setting-actions">'+fontButtons+'</div></div>','默认：暗夜 · 标准 15px');
+                html+=section('模型接口',
+                    '<div class="we-setting-row"><div class="we-setting-copy"><b>当前调用来源</b><small>'+text(sourceState)+'</small></div><div class="we-setting-actions"><span class="we-source-badge">'+text(this.apiSourceLabel())+'</span></div></div>'
+                    +'<div class="we-setting-row"><div class="we-setting-copy"><b>世界推进专属 API</b><small>开启后世界推进只走这里，不再调用状态栏 / 主神终端的 API；即使配置不完整也不会偷偷回退。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(api.enabled?'on':'')+'" data-action="dedicated-toggle"><span>'+text(api.enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>'
+                    +(api.enabled
+                        ?'<div class="we-api-toolbar"><select class="we-setting-input" data-dedicated-preset><option value="">— 选择已保存 API 预设 —</option>'+presets+'</select><input class="we-setting-input" data-dedicated-preset-name maxlength="80" placeholder="预设名称"><button class="we-setting-btn" data-action="dedicated-preset-save">保存预设</button><button class="we-setting-btn" data-action="dedicated-preset-delete">删除预设</button></div>'
+                         +'<div class="we-api-grid"><label class="wide">API 地址<input class="we-setting-input" data-dedicated-field="apiUrl" value="'+text(api.apiUrl)+'" placeholder="https://example.com/v1"></label><label class="wide">API Key<input class="we-setting-input" data-dedicated-field="apiKey" type="password" value="'+text(api.apiKey)+'" autocomplete="off" placeholder="sk-..."></label><label>模型<input class="we-setting-input" data-dedicated-field="model" list="we-dedicated-models" value="'+text(api.model)+'" placeholder="输入或加载模型名"><datalist id="we-dedicated-models">'+modelOptions+'</datalist></label><label>模型目录<span class="we-setting-actions"><button class="we-setting-btn" data-action="dedicated-models">加载模型 / 测试连接</button></span></label></div>'
+                         +'<p class="we-muted">接口按 OpenAI-compatible /v1/chat/completions 与 /v1/models 方式连接，并保留 JSON Schema → JSON Object → 普通文本的结构化兼容降级。</p>'
+                        :'<div class="we-notice">当前关闭专属 API。世界推进继续使用主神终端「额外模型配置」；这里不会复制或读取状态栏里的 API Key。</div>')
+                    ,'接口配置只存本地 localStorage，不写入 MVU');
             }else if(this.tab==='提示词预设'){
                 const promptView=this.promptDraft||{
                     preset:this.config.preset,

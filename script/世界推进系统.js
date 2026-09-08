@@ -81,6 +81,48 @@
 事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。已完成/已取消事件由程序在失去活跃引用且超过保留窗口后压缩成历史锚点，不要为了“保留历史”重复创建旧事件。宏观远期节点允许时间未定，禁止捏造精确日期。
 世界超稳时保持默认宏观轨道，不新增偏移。单一世界的局部结算不能重置世界。普通副本返回主神空间后停止本世界推演。
 初始化时依据当前设定建立必要的近远期节点；无依据的记录保持空。没有变化就返回仅含摘要的空 WorldResult。公开摘要只包含当前可观察的事实、征兆和已知线索，隐藏真相和未来结局留在后台。`;
+    const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
+    "id": "builtin-default",
+    "type": "samsara-world-prompt-document",
+    "version": 1,
+    "builtin": true,
+    "name": "默认设置",
+    "exportedAt": "2026-09-08T13:09:45.350Z",
+    "createdAt": "2026-09-08T13:09:45.350Z",
+    "updatedAt": "2026-09-08T13:09:45.350Z",
+    "settings": {
+        "preset": "你是轮回战场的世界演进主持者。以当前世界的旧状态、世界书设定及本轮实际剧情为依据，统一处理四个模块：\n【世界推进】\n维护近期事件与远期宏观节点。记录原因、条件、时间、默认走向及玩家干预后的改变。过去已经成立的事实约束未来。未来计划不得记成已发生事实。即使玩家不参与，场外事件也能在时间及条件满足后发生。\n【角色管理】\n维护人物所在世界、地点、目标、行动、已知信息及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗。人物记录与关系列表按名字关联，不编造整套人物属性。\n【探索与势力】\n处理势力目标、资源、冲突、地区变化、探索线索。声望变化必须有真实行为依据，不能因为经过时间自动涨落。未知探索点保留在内部地区记录，发现后才投影到世界.探索。\n【任务与剧本】\n维护剧情节点、任务依赖和失败条件；实际条件满足才更新已有任务或成就状态。主神任务、晋升试炼的创建、奖励定义与发奖由原系统负责。\n【信息传播】\n事件产生街头巷议、付费情报或公告。区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。人物只有获得信息后才能据此行动。传闻可产生新事件，禁止无因果地每轮刷新。\n只使用世界.时间计算本世界进展；系统状态.游玩天数仅作只读参考。时间未变也可记录本轮新事实，但不得虚构耗时进度。跨多个日期需按依赖顺序补算，先处理到期事件再生成后果。\n事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。宏观远期节点允许时间未定，禁止捏造精确日期。\n世界超稳时保持默认宏观轨道，不新增偏移。单一世界的局部结算不能重置世界。普通副本返回主神空间后停止本世界推演。\n初始化时依据当前设定建立必要的近远期节点；无依据的记录保持空。没有变化就返回空补丁。公开摘要只包含当前可观察的事实、征兆和已知线索，隐藏真相和未来结局留在后台。\n【世界演进准则】\n原著世界必须结合当前时间锚点、当前地点、当前剧情阶段、已知角色状态、原著人物行动规律、世界势力动态；据此推演人物行动、势力变化、剧情推进、世界事件。原创/衍生世界基于当前世界法则与本土势力动态持续推演。通用原则：世界持续运行，不因<user>未行动而暂停。\n【因果轨道与偏移】\n世界.因果轨道是后台事件图的宏观投影，不是第二套独立剧情。故事线必须维持3~5个默认大事件节点，用“ -> ”串联并覆盖当前阶段前后；下一节点是下一个宏观边界或检查点。仅在章节切换、地图切换、关键任务完成或重大剧情事件发生时更新。只有关键人物命运、重大事件、势力格局或主线被玩家/其他人物实质改变时才写偏移记录，日常、战斗动作、交易、对话不记偏移。偏移记录写明描述、引发者、影响程度；负值表示使原轨道更不稳定，正值表示修复/强化原轨道。新增偏移后若原主线无法继续，立即重构故事线与下一节点；否则保留原轨道。世界超稳时不得新增偏移。\n【任务联动】\n任务不是第二套剧情树。仅依据后台事件的实际结果更新已有任务或成就状态；主神任务、晋升试炼的创建、奖励定义与发奖由原系统负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。\n【质量评分】\n优先产出高质量后台世界样本：①生活自足——场外人物因自己的职责、生计、利益和麻烦行动，不围着<user>空转；②时间真实——行动耗时、体力、路程与资源对得上，同一人物不能同一时段出现在两处；③因果推进——未完事项只向前推进合理一步，不原地复述也不突兀跳结局；④信息不对称——没有在场、认知来源、传播记录、信使、公告或当面传达就不能知道；⑤各司其职——事件记客观局势，人物记自己行动与认知，地区记环境秩序，传播记消息链，不互相抄整段；⑥即将与<user>相遇时停在见面前一步，把真正交互留给正文。\n重扣：复述正文已演出的对白/动作；替正在正文同场的人物补琐碎同步动作；场外人物无故围绕<user>；全知反应；把局部桥接动作冒充宏观；静止交差只改一两个字段但世界其余部分无理由冻结。\n【时间容量与信息边界】\n严格使用请求中的“本轮时间容量”。时间未推进时只能同步即时事实；数分钟到2小时只够短谈、通讯、案头事务和同区短移动；数小时允许同城区行动、有限调查或一次准备阶段；半天至一天允许完整日常事务、阶段性成果或城区迁移；数日以上才适合长途、物资转运和大型组织行动。消息不会凭空传播：实体采取行动若依赖某事实，必须能从本人在场、已有认知、传播记录或本轮明确传播路径之一获得；条件不足时只允许打听、送信、等待或保持不知情。",
+        "contextTurns": 3,
+        "activationMode": "respect_activation",
+        "selectedEntries": [
+            "[\"轮回战场V3.6.1\",\"915830\"]",
+            "[\"轮回战场V3.6.1\",\"196248\"]",
+            "[\"轮回战场V3.6.1\",\"503929\"]",
+            "[\"轮回战场V3.6.1\",\"931853\"]",
+            "[\"轮回战场V3.6.1\",\"446543\"]",
+            "[\"轮回战场V3.6.1\",\"381583\"]",
+            "[\"轮回战场V3.6.1\",\"965161\"]",
+            "[\"轮回战场V3.6.1\",\"556346\"]",
+            "[\"轮回战场V3.6.1\",\"122086\"]",
+            "[\"轮回战场V3.6.1\",\"2\"]",
+            "[\"轮回战场V3.6.1\",\"562289\"]",
+            "[\"轮回战场V3.6.1\",\"937185\"]",
+            "[\"轮回战场V3.6.1\",\"612483\"]",
+            "[\"轮回战场V3.6.1\",\"544521\"]",
+            "[\"轮回战场V3.6.1\",\"454622\"]",
+            "[\"轮回战场V3.6.1\",\"671885\"]",
+            "[\"轮回战场V3.6.1\",\"345604\"]",
+            "[\"轮回战场V3.6.1\",\"558862\"]",
+            "[\"轮回战场V3.6.1\",\"78614\"]",
+            "[\"轮回战场V3.6.1\",\"229663\"]",
+            "[\"轮回战场V3.6.1\",\"985921\"]",
+            "[\"轮回战场V3.6.1\",\"625413\"]",
+            "[\"轮回战场V3.6.1\",\"8412\"]",
+            "[\"轮回战场V3.6.1\",\"559085\"]"
+        ]
+    }
+};
+    const BUILTIN_DEFAULT_PROMPT_VERSION = BUILTIN_DEFAULT_PROMPT_DOCUMENT.version;
     const CORE_WORLD_RULES = `【世界引擎核心约束】
 1. 宏观优先：因果轨道是3~5个大事件的摘要窗口，后台.事件是其展开版。每轮先检查宏观骨架是否成立，再处理细节。宏观节点必须代表阶段状态变化；程序会把明显属于房间/楼层/校门/单座桥梁、会合、夺取交通工具、单次突破等局部动作降级为当前事件或近期节点，因此不得用局部行动凑宏观数量。
 2. 知识来源：当前变量与已确认剧情优先级最高；有世界书时用其补充/校正作品设定与同人差异；没有世界书不得停止宏观推演，必须使用模型已有的原著/世界知识继续建立宏观事件，不能因资料条目缺失而只写眼前剧情。
@@ -1194,8 +1236,20 @@ ${schemaText}
             this.config.presetEditorVersion=2;
             if(!Array.isArray(this.config.promptDocuments))this.config.promptDocuments=[];
             this.config.promptDocuments=this.config.promptDocuments
-                .filter(doc=>plain(doc)&&typeof doc.name==='string'&&plain(doc.settings)&&typeof doc.settings.preset==='string')
-                .slice(0,60);
+                .filter(doc=>plain(doc)&&typeof doc.name==='string'&&plain(doc.settings)&&typeof doc.settings.preset==='string'&&doc.id!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)
+                .slice(0,59);
+            this.config.promptDocuments.unshift(copy(BUILTIN_DEFAULT_PROMPT_DOCUMENT));
+            if(Number(this.config.builtinDefaultPromptVersionApplied||0)<BUILTIN_DEFAULT_PROMPT_VERSION){
+                const settings=BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings;
+                this.config.preset=normalizeEditablePreset(settings.preset);
+                this.config.presetEditorVersion=2;
+                this.config.contextTurns=settings.contextTurns;
+                this.config.activationMode=settings.activationMode;
+                this.config.selectedEntries=copy(settings.selectedEntries);
+                this.config.activePromptDocumentId=BUILTIN_DEFAULT_PROMPT_DOCUMENT.id;
+                this.config.builtinDefaultPromptVersionApplied=BUILTIN_DEFAULT_PROMPT_VERSION;
+                this.saveConfig();
+            }
             this.config.retryAttempts=Math.max(0,Math.min(5,Number(this.config.retryAttempts) || 0));
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
             if(this.config.enabled){
@@ -1289,8 +1343,9 @@ ${schemaText}
         savePromptDocument(name,settings,activate=true) {
             const clean=String(name||'').trim().slice(0,80);
             if(!clean)throw new Error('请先填写预设文档名称');
+            if(clean===BUILTIN_DEFAULT_PROMPT_DOCUMENT.name)throw new Error('“默认设置”是内置文档，请换一个名称保存自定义版本');
             const docs=this.getPromptDocuments(),now=new Date().toISOString();
-            let doc=docs.find(item=>item.id===this.config.activePromptDocumentId&&item.name===clean)||docs.find(item=>item.name===clean);
+            let doc=docs.find(item=>!item.builtin&&item.id===this.config.activePromptDocumentId&&item.name===clean)||docs.find(item=>!item.builtin&&item.name===clean);
             if(doc){
                 doc.name=clean;doc.updatedAt=now;doc.settings=copy(settings);
             }else{
@@ -1303,6 +1358,7 @@ ${schemaText}
             return doc;
         }
         deletePromptDocument(id) {
+            if(id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)return false;
             const before=this.getPromptDocuments().length;
             this.config.promptDocuments=this.getPromptDocuments().filter(doc=>doc.id!==id);
             if(this.config.activePromptDocumentId===id)delete this.config.activePromptDocumentId;
@@ -1844,6 +1900,7 @@ ${schemaText}
                 #sam-world-engine .we-doc-row>div{min-width:0}
                 #sam-world-engine .we-doc-row b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
                 #sam-world-engine .we-doc-row small{display:block;color:var(--sub);font-size:10px;margin-top:2px}
+                #sam-world-engine .we-doc-badge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;background:#e8f1ec;color:#4f7d6d;font:700 9px/1.6 system-ui}
                 #sam-world-engine .we-doc-actions{display:flex;gap:5px}
                 #sam-world-engine .we-doc-actions button,#sam-world-engine .we-segment-actions button{border:1px solid #d2dbdc;border-radius:7px;background:#fff;padding:5px 8px;color:#556579;font-size:10px}
                 #sam-world-engine .we-doc-actions button:hover,#sam-world-engine .we-segment-actions button:hover{border-color:#b28a4a;color:#76592b;background:#fbf4e8}
@@ -2177,8 +2234,8 @@ ${schemaText}
                 };
                 const docs=this.getPromptDocuments(),activeDoc=docs.find(doc=>doc.id===this.config.activePromptDocumentId);
                 html+='<div class="we-preset-toolbar"><div><b>提示词工作台</b><small>主要操作固定在顶部，不需要再滚到页面底部寻找保存。</small></div><div><button class="we-btn we-primary" data-action="save">保存当前设置</button><button class="we-btn" data-action="preview">预览下一次请求</button></div></div>';
-                html+=section('预设文档','<div class="we-doc-create"><input data-doc-name maxlength="80" placeholder="文档名称，例如：原著推进·标准" value="'+text(activeDoc?.name||'')+'"><button class="we-btn we-primary" data-action="doc-save">保存为文档</button><button class="we-btn" data-action="doc-import">导入文档</button><input data-doc-import type="file" accept=".json,application/json" hidden></div>'+
-                    (docs.length?'<div class="we-doc-list">'+docs.map(doc=>'<div class="we-doc-row"><div><b>'+text(doc.name)+'</b><small>'+text(doc.updatedAt?new Date(doc.updatedAt).toLocaleString():'未记录时间')+(doc.id===this.config.activePromptDocumentId?' · 当前应用':'')+'</small></div><span class="we-doc-actions"><button data-action="doc-apply" data-doc-id="'+text(doc.id)+'">应用</button><button data-action="doc-export" data-doc-id="'+text(doc.id)+'">导出</button><button data-action="doc-delete" data-doc-id="'+text(doc.id)+'">删除</button></span></div>').join('')+'</div>':empty('还没有预设文档','保存当前设置后，可以在这里应用、导出或删除。')),'文档保存提示词、正文窗口、读取方式和世界书勾选范围');
+                html+=section('预设文档','<div class="we-doc-create"><input data-doc-name maxlength="80" placeholder="文档名称，例如：原著推进·标准" value="'+text(activeDoc?.builtin?'':activeDoc?.name||'')+'"><button class="we-btn we-primary" data-action="doc-save">保存为文档</button><button class="we-btn" data-action="doc-import">导入文档</button><input data-doc-import type="file" accept=".json,application/json" hidden></div>'+
+                    (docs.length?'<div class="we-doc-list">'+docs.map(doc=>'<div class="we-doc-row"><div><b>'+text(doc.name)+(doc.builtin?' <span class="we-doc-badge">内置默认</span>':'')+'</b><small>'+text(doc.updatedAt?new Date(doc.updatedAt).toLocaleString():'未记录时间')+(doc.id===this.config.activePromptDocumentId?' · 当前应用':'')+'</small></div><span class="we-doc-actions"><button data-action="doc-apply" data-doc-id="'+text(doc.id)+'">应用</button><button data-action="doc-export" data-doc-id="'+text(doc.id)+'">导出</button>'+(doc.builtin?'':'<button data-action="doc-delete" data-doc-id="'+text(doc.id)+'">删除</button>')+'</span></div>').join('')+'</div>':empty('还没有预设文档','保存当前设置后，可以在这里应用、导出或删除。')),'内置“默认设置”随脚本提供并首次自动应用；其他文档保存提示词、正文窗口、读取方式和世界书勾选范围');
                 html+='<div class="we-notice">世界书目录会读取角色主书、角色附加书、当前聊天绑定书和酒馆全局启用书。蓝绿灯表示条目触发方式；“实际读取”仍以请求检查中的本次清单为准。</div>';
                 const groups=new Map();
                 for(const e of this.bookCatalogue||[]){if(!groups.has(e.book))groups.set(e.book,[]);groups.get(e.book).push(e);}

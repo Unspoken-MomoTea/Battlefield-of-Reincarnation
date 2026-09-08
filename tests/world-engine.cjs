@@ -173,13 +173,21 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(parseReply('<world_update>{"summary":"无变化","patches":[]}</world_update>').patches.length,0);
     });
     function setup(request) {
-        let stat = fresh(), text = '玩家调查了城门。', chat = 'chat-1';
-        const host = {localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request}},getCurrentChatId:()=>chat,getChatMessages:()=>[{message_id:3,message:text,role:'assistant'}]};
+        let stat = fresh(), text = '玩家调查了城门。', chat = 'chat-1', toasts = [];
+        const host = {localStorage:{getItem:()=>null,setItem:()=>{}},toastr:{error:(message,title)=>toasts.push({message:String(message),title:String(title||'')})},Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request}},getCurrentChatId:()=>chat,getChatMessages:()=>[{message_id:3,message:text,role:'assistant'}]};
         let writes = 0;
         host.Mvu = {getMvuData:()=>({stat_data:clone(stat)}),replaceMvuData:async data => {writes++; stat = clone(data.stat_data);}};
         const engine = new Engine(host); engine.config.enabled = true; engine.config.requireMacroBackbone = false; engine.config.retryAttempts = 0; engine.worldbook = async () => [];
-        return {engine,get:()=>stat,writes:()=>writes,change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
+        return {engine,get:()=>stat,writes:()=>writes,toasts:()=>clone(toasts),change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
     }
+    await test('final world-engine failure surfaces through Tavern toastr without writing MVU', async () => {
+        const x=setup(async()=>{throw new Error('HTTP 400: invalid argument');});
+        await assert.rejects(()=>x.engine.run(),/HTTP 400/);
+        assert.equal(x.writes(),0);
+        assert.equal(x.toasts().length,1);
+        assert.equal(x.toasts()[0].title,'世界推进失败');
+        assert.match(x.toasts()[0].message,/HTTP 400: invalid argument/);
+    });
     await test('WorldResult compiler owns paths, escaping and upsert selection', () => {
         const stat=fresh();
         stat.世界.后台.人物.卫兵={...RECORDS.人物,所属世界:'测试世界',行动:'待命'};

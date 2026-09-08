@@ -755,12 +755,22 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const complete=await e.buildRequest(e.snapshot());
         assert.equal(JSON.parse(complete.input).世界书.some(x=>x.名称==='世界年表'),false);
     });
-    await test('world-engine-enabled MVU keeps purchase conversion rules but cannot generate rumors', () => {
+    await test('world-engine-enabled MVU exposes readonly rumor shapes and only permits purchased-intel consumption', () => {
         const src=fs.readFileSync(path.join(__dirname,'../World Book/[mvu_update]变量更新规则.txt'),'utf8');
-        assert.match(src,/世界引擎开启时的即时情报交互/);
-        assert.match(src,/禁止新增(?:任何)?传闻/);
-        assert.match(src,/购买后remove/);
-        assert.match(src,/转化为【任务】或【探索】/);
+        const enabledStart=src.indexOf('<%_ if (isWorldEngineEnabled && !isCombat) { _%>');
+        const enabledEnd=src.indexOf('<%_ } else if (!isCombat) { _%>',enabledStart);
+        const enabled=src.slice(enabledStart,enabledEnd);
+        assert.match(src,/\/传闻\/街头巷议/);
+        assert.match(src,/\/传闻\/布告与檄文/);
+        assert.match(enabled,/街头巷议:[\s\S]*来源:str;内容:str;可信度:酒话\|可疑\|或许可信/);
+        assert.match(enabled,/布告与檄文:[\s\S]*发布者:str;内容:str;张贴位置:str/);
+        assert.match(enabled,/严禁把标题对应的value写成纯字符串/);
+        assert.match(enabled,/禁止对\/传闻\/街头巷议及其子节点输出insert、replace、remove/);
+        assert.match(enabled,/仅当本轮正文明确完成某条已有情报交易时[\s\S]*remove/);
+        assert.match(enabled,/转化为【任务】或【探索】/);
+        const commonAnchor=src.indexOf('&P_传闻通用');
+        const guard=src.lastIndexOf('<%_ if (!isWorldEngineEnabled) { _%>',commonAnchor);
+        assert.ok(guard>=0&&guard<commonAnchor,'世界引擎开启时不再注入“为空补传闻”的冲突规则');
     });
     await test('world engine isolates MVU/output prompt books even in force mode and exposes timeline scheduling needs', async () => {
         const x=setup(async()=>''),e=x.engine;
@@ -879,7 +889,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         }
     });
     await test('saved prompt presets recover required structural segments without overwriting custom bodies', () => {
-        const host={localStorage:{getItem:()=>JSON.stringify({preset:'自定义总则\n【世界推进】\n我的世界规则\n【势力与地区】\n旧版势力规则'}),setItem:()=>{}},Samsara:{}};
+        const host={localStorage:{getItem:()=>JSON.stringify({builtinDefaultPromptVersionApplied:1,preset:'自定义总则\n【世界推进】\n我的世界规则\n【势力与地区】\n旧版势力规则'}),setItem:()=>{}},Samsara:{}};
         const engine=new Engine(host);
         assert.match(engine.config.preset,/【世界推进】\n我的世界规则/);
         assert.match(engine.config.preset,/【世界演进准则】/);
@@ -890,7 +900,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     });
     await test('editable prompt presets can permanently remove default segments after legacy migration', () => {
         let saved='';
-        const host={localStorage:{getItem:()=>JSON.stringify({presetEditorVersion:2,preset:'【自定义段】\n只保留这一段'}),setItem:(_,v)=>{saved=v;}},Samsara:{}};
+        const host={localStorage:{getItem:()=>JSON.stringify({builtinDefaultPromptVersionApplied:1,presetEditorVersion:2,preset:'【自定义段】\n只保留这一段'}),setItem:(_,v)=>{saved=v;}},Samsara:{}};
         const engine=new Engine(host);
         assert.equal(engine.config.preset,'【自定义段】\n只保留这一段');
         assert.doesNotMatch(engine.config.preset,/【世界推进】/);
@@ -899,6 +909,24 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(JSON.parse(saved).presetEditorVersion,2);
         assert.doesNotMatch(JSON.parse(saved).preset,/【信息传播】/);
     });
+    await test('built-in default prompt document is seeded, visible, and applied on first load', () => {
+        let stored='';
+        const host={localStorage:{getItem:()=>null,setItem:(_,v)=>{stored=v;}},Samsara:{}};
+        const engine=new Engine(host),docs=engine.getPromptDocuments(),doc=docs.find(x=>x.id==='builtin-default');
+        assert.ok(doc&&doc.builtin,'内置默认文档必须始终存在');
+        assert.equal(doc.name,'默认设置');
+        assert.equal(engine.config.activePromptDocumentId,'builtin-default');
+        assert.equal(engine.config.builtinDefaultPromptVersionApplied,1);
+        assert.equal(engine.config.contextTurns,3);
+        assert.equal(engine.config.activationMode,'respect_activation');
+        assert.equal(engine.config.selectedEntries.length,24);
+        assert.equal(engine.config.selectedEntries[0],'["轮回战场V3.6.1","915830"]');
+        assert.equal(engine.config.selectedEntries.at(-1),'["轮回战场V3.6.1","559085"]');
+        assert.match(engine.config.preset,/以当前世界的旧状态、世界书设定及本轮实际剧情为依据/);
+        assert.match(engine.config.preset,/【时间容量与信息边界】/);
+        assert.equal(engine.deletePromptDocument('builtin-default'),false,'内置默认文档不可删除');
+        assert.ok(JSON.parse(stored).promptDocuments.some(x=>x.id==='builtin-default'));
+    });
     await test('prompt documents save import apply and delete complete prompt settings', () => {
         let stored='';
         const host={localStorage:{getItem:()=>null,setItem:(_,v)=>{stored=v;}},Samsara:{}};
@@ -906,9 +934,10 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const settings={preset:'【世界推进】\n文档A',contextTurns:9,activationMode:'force_selected',selectedEntries:['["设定","7"]']};
         const first=engine.savePromptDocument('文档A',settings);
         assert.equal(engine.config.activePromptDocumentId,first.id);
-        assert.equal(engine.getPromptDocuments().length,1);
-        const imported=engine.importPromptDocument(JSON.stringify({type:'samsara-world-prompt-document',version:1,name:'文档B',settings:{preset:'【自定义】\n导入内容',contextTurns:4,activationMode:'respect_activation',selectedEntries:[]}}));
         assert.equal(engine.getPromptDocuments().length,2);
+        assert.ok(engine.getPromptDocuments().some(x=>x.id==='builtin-default'));
+        const imported=engine.importPromptDocument(JSON.stringify({type:'samsara-world-prompt-document',version:1,name:'文档B',settings:{preset:'【自定义】\n导入内容',contextTurns:4,activationMode:'respect_activation',selectedEntries:[]}}));
+        assert.equal(engine.getPromptDocuments().length,3);
         assert.equal(engine.config.activePromptDocumentId,first.id,'导入不应偷偷应用文档');
         engine.applyPromptSettings(imported.settings);
         engine.config.activePromptDocumentId=imported.id;engine.saveConfig();
@@ -916,8 +945,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(engine.config.contextTurns,4);
         assert.deepEqual(engine.config.selectedEntries,[]);
         assert.equal(engine.deletePromptDocument(imported.id),true);
-        assert.equal(engine.getPromptDocuments().length,1);
-        assert.ok(JSON.parse(stored).promptDocuments.length===1);
+        assert.equal(engine.getPromptDocuments().length,2);
+        assert.ok(JSON.parse(stored).promptDocuments.length===2);
+        assert.ok(JSON.parse(stored).promptDocuments.some(x=>x.id==='builtin-default'));
     });
     await test('worldbook catalogue includes character chat-bound and globally enabled books with deduped sources', async () => {
         const host={

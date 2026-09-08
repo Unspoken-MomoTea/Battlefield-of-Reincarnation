@@ -580,6 +580,10 @@
             for(const [from,to] of Object.entries(aliases)){
                 if(fields.has(to)&&Object.hasOwn(raw,from)&&!Object.hasOwn(raw,to))raw[to]=raw[from];
             }
+            if(fields.has('可信度')&&!Object.hasOwn(raw,'可信度')){
+                const rumorClass=String(raw.分类||'').trim();
+                raw.可信度=({'事实':'或许可信','猜测':'可疑','谣言':'酒话','酒话':'酒话','可疑':'可疑','或许可信':'或许可信'})[rumorClass]||'可疑';
+            }
             const name=String(raw.名称??raw.name??'').trim();
             if(!name)continue;
             const item={名称:name};
@@ -607,7 +611,21 @@
         result.因果.偏移记录=normalizeNamedResultList(causal.偏移记录,EXISTING.偏移记录,['更新','撤销本轮']);
         result.传闻={};
         const rumors=plain(value.传闻)?value.传闻:{};
-        for(const key of WORLD_RESULT_RUMORS)result.传闻[key]=normalizeNamedResultList(rumors[key],EXISTING[key],['更新','移除','撤销本轮']);
+        for(const key of WORLD_RESULT_RUMORS){
+            let list=normalizeNamedResultList(rumors[key],EXISTING[key],['更新','移除','撤销本轮']);
+            if(key==='街头巷议'){
+                const seen=new Set(),deduped=[];
+                for(const item of list){
+                    const signature=String(item.内容||'').replace(/\s+/g,' ').trim();
+                    if(signature&&seen.has(signature))continue;
+                    if(signature)seen.add(signature);
+                    deduped.push(item);
+                    if(deduped.length>=3)break;
+                }
+                list=deduped;
+            }
+            result.传闻[key]=list;
+        }
         result.关系=normalizeNamedResultList(value.关系,{好感度:0},['更新','撤销本轮']);
         result.任务状态=normalizeNamedResultList(value.任务状态,{状态:''},['更新','撤销本轮']);
         result.成就状态=normalizeNamedResultList(value.成就状态,{状态:''},['更新','撤销本轮']);
@@ -849,6 +867,28 @@
     function progressionAnchorChanged(before,after) {
         return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
     }
+    function firstCompleteJsonObject(source) {
+        const text=String(source||''),start=text.indexOf('{');
+        if(start<0)return '';
+        let depth=0,inString=false,escaped=false;
+        for(let i=start;i<text.length;i++){
+            const ch=text[i];
+            if(inString){
+                if(escaped)escaped=false;
+                else if(ch==='\\')escaped=true;
+                else if(ch==='"')inString=false;
+                continue;
+            }
+            if(ch==='"'){inString=true;continue;}
+            if(ch==='{')depth++;
+            else if(ch==='}'){
+                depth--;
+                if(depth===0)return text.slice(start,i+1);
+                if(depth<0)return '';
+            }
+        }
+        return '';
+    }
     function parseReply(text) {
         let source=String(text).trim();
         const block=source.match(/<world_update\s*>([\s\S]*?)<\/world_update>/i);
@@ -858,8 +898,8 @@
         let result;
         try {result=JSON.parse(source);}
         catch(error){
-            const begin=source.indexOf('{'),end=source.lastIndexOf('}');
-            try {if(begin<0||end<begin)throw error;result=JSON.parse(source.slice(begin,end+1));}
+            const candidate=firstCompleteJsonObject(source);
+            try {if(!candidate)throw error;result=JSON.parse(candidate);}
             catch(_){throw new Error('返回 JSON 无法解析：'+error.message+'；原始回复保留在请求检查。');}
         }
         if(!plain(result))throw new Error('回复必须是一个 JSON 对象');

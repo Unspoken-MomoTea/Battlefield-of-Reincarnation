@@ -1198,7 +1198,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(terminalSource,/worldEngine\.usesDedicatedApi/);
         assert.match(terminalSource,/等待世界推进专属 API 配置/);
         assert.match(terminalSource,/世界推进「设置」中完成专属 API 配置/);
+        assert.match(terminalSource,/data-act="world-engine-settings"/,'关闭世界推进时也应能先打开专属设置');
         assert.doesNotMatch(terminalSource,/世界推进已开启，额外 API 已自动启用/);
+        assert.doesNotMatch(terminalSource,/世界推进暂停|世界推进可使用自托管 API/,'共享 API 文案不得把专属世界推进误判为暂停或共用');
     });
     await test('updated JS and embedded settlement scripts compile', () => {
         new vm.Script(source);

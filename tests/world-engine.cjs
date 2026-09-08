@@ -220,6 +220,30 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const next=applyPatches(stat,compiled.patches);
         assert.equal(Object.keys(next.传闻.街头巷议).length,3);
     });
+    await test('a new manual world run clears previous inspection results but keeps retry accumulation within the run', async () => {
+        let calls=0,enteredSecond,releaseSecond;
+        const secondEntered=new Promise(resolve=>{enteredSecond=resolve;});
+        const secondReply=new Promise(resolve=>{releaseSecond=resolve;});
+        const x=setup(async ()=>{
+            calls++;
+            if(calls===1)return JSON.stringify({摘要:'第一轮',人物:[{名称:'卫兵',行动:'第一轮巡查'}]});
+            enteredSecond();
+            return secondReply;
+        });
+        assert.equal(await x.engine.run(),true);
+        assert.equal(x.engine.lastWorldResult.摘要,'第一轮');
+        assert.ok(x.engine.lastCompiledPatches.length>0);
+        x.text('玩家继续向城内移动。');
+        const running=x.engine.run();
+        await secondEntered;
+        assert.equal(x.engine.lastWorldResult,null);
+        assert.deepEqual(x.engine.lastCompiledPatches,[]);
+        assert.deepEqual(x.engine.lastCompileWarnings,[]);
+        assert.equal(x.engine.lastReply,'');
+        releaseSecond(JSON.stringify({摘要:'第二轮'}));
+        assert.equal(await running,true);
+        assert.equal(x.engine.lastWorldResult.摘要,'第二轮');
+    });
     await test('WorldResult compiler owns paths, escaping and upsert selection', () => {
         const stat=fresh();
         stat.世界.后台.人物.卫兵={...RECORDS.人物,所属世界:'测试世界',行动:'待命'};

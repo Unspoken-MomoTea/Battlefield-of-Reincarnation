@@ -138,11 +138,11 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.addStyleTag({content:'main,section,nav,header{height:0!important;max-height:1px!important;display:none!important}'});
  assert.equal(await page.locator('#sam-world-engine main').evaluate(el=>el.clientHeight>60),true,'宿主全局样式不能压扁独立面板');
  await page.evaluate(()=>{
-   window.getCharWorldbookNames=()=>({primary:'测试世界书',additional:['附加世界书']});
+   window.getCharWorldbookNames=()=>({primary:'轮回战场V3.6.1',additional:['附加世界书']});
    window.getChatWorldbookName=()=> '聊天世界书';
    window.getGlobalWorldbookNames=()=> ['外挂世界书'];
    window.getWorldbook=name=>{
-     if(name==='测试世界书')return [{uid:1,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:2,name:'禁用条目',content:'不得默认读取',enabled:false},{uid:3,name:'[variables]当前变量',content:'技术投影',enabled:true}];
+     if(name==='轮回战场V3.6.1')return [{uid:915830,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:999,name:'禁用条目',content:'不得默认读取',enabled:false},{uid:3,name:'[variables]当前变量',content:'技术投影',enabled:true}];
      if(name==='附加世界书')return [{uid:10,name:'附加设定',content:'附加内容',enabled:false}];
      if(name==='聊天世界书')return [{uid:20,name:'聊天设定',content:'聊天内容',enabled:false}];
      if(name==='外挂世界书')return [{uid:30,name:'外挂设定',content:'外挂内容',enabled:false}];
@@ -150,6 +150,13 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
    };
  });
  await page.locator('[data-tab="提示词预设"]').click();
+ const builtinDoc=page.locator('.we-doc-row').filter({hasText:'默认设置'});
+ assert.equal(await builtinDoc.count(),1,'加载脚本后内置默认文档必须直接显示');
+ assert.equal(await builtinDoc.getByText('内置默认',{exact:true}).count(),1);
+ assert.equal(await builtinDoc.getByText(/当前应用/).count(),1,'首次加载必须自动应用默认文档');
+ assert.equal(await builtinDoc.locator('[data-action="doc-delete"]').count(),0,'内置默认文档不可删除');
+ assert.equal(await page.locator('[data-floors]').inputValue(),'3','默认文档正文窗口为3层');
+ assert.equal(await page.locator('[data-activation]').inputValue(),'respect_activation','默认文档使用遵循蓝绿灯');
  assert.equal(await page.locator('[data-segment][data-title="世界推进"]').count(),1);
  assert.equal(await page.locator('[data-segment][data-title="世界演进准则"]').count(),1);
  assert.equal(await page.locator('[data-segment][data-title="质量评分"]').count(),1);

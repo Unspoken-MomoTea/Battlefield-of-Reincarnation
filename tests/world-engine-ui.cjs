@@ -185,11 +185,11 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.addStyleTag({content:'main,section,nav,header{height:0!important;max-height:1px!important;display:none!important}'});
  assert.equal(await page.locator('#sam-world-engine main').evaluate(el=>el.clientHeight>60),true,'宿主全局样式不能压扁独立面板');
  await page.evaluate(()=>{
-   window.getCharWorldbookNames=()=>({primary:'轮回战场V3.6.1',additional:['附加世界书']});
+   window.getCharWorldbookNames=()=>({primary:'轮回战场V3.7.0',additional:['附加世界书']});
    window.getChatWorldbookName=()=> '聊天世界书';
    window.getGlobalWorldbookNames=()=> ['外挂世界书'];
    window.getWorldbook=name=>{
-     if(name==='轮回战场V3.6.1')return [{uid:915830,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:999,name:'禁用条目',content:'不得默认读取',enabled:false},{uid:3,name:'[variables]当前变量',content:'技术投影',enabled:true}];
+     if(name==='轮回战场V3.7.0')return [{uid:915830,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:999,name:'禁用条目',content:'不得默认读取',enabled:false},{uid:3,name:'[variables]当前变量',content:'技术投影',enabled:true}];
      if(name==='附加世界书')return [{uid:10,name:'附加设定',content:'附加内容',enabled:false}];
      if(name==='聊天世界书')return [{uid:20,name:'聊天设定',content:'聊天内容',enabled:false}];
      if(name==='外挂世界书')return [{uid:30,name:'外挂设定',content:'外挂内容',enabled:false}];
@@ -215,8 +215,13 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
 
  await page.locator('[data-action="books"]').click();
  await page.locator('[data-book]').first().waitFor();
- assert.equal(await page.locator('[data-book]:checked').count(),1);
+ assert.equal(await page.locator('[data-book]:checked').count(),1,'内置默认应在世界书版本号变化后仍勾选同一条目');
  assert.equal(await page.locator('[data-book]:disabled').count(),1);
+ await page.locator('[data-action="book-none"]').click();
+ await page.locator('[data-action="save"]').click();
+ assert.equal(await page.locator('[data-book]:checked').count(),0,'手动保存全不选后应保持为空');
+ await builtinDoc.locator('[data-action="doc-apply"]').click();
+ assert.equal(await page.locator('[data-book]:checked').count(),1,'重新点击应用默认设置后必须恢复默认世界书勾选');
  assert.equal(await page.locator('.we-book').filter({hasText:'聊天世界书'}).filter({hasText:'聊天绑定'}).count(),1,'聊天绑定世界书必须进入目录');
  assert.equal(await page.locator('.we-book').filter({hasText:'外挂世界书'}).filter({hasText:'全局启用'}).count(),1,'酒馆全局启用世界书必须进入目录');
  assert.equal(await page.locator('.we-preset-toolbar [data-action="save"]').count(),1,'保存当前设置固定在顶部工作条');

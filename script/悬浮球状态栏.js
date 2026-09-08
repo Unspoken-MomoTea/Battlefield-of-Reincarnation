@@ -3947,8 +3947,12 @@
        structured=auto 时依次尝试 json_schema → json_object → plain，并按 endpoint+model 缓存可用模式。 */
     var API_STRUCTURED_MODE_CACHE = {};
     function structuredFormatUnsupported(status, text) {
-        return [400,404,415,422].indexOf(Number(status)) >= 0 &&
-            /response[_ -]?format|json[_ -]?schema|json[_ -]?object|unknown (?:field|parameter)|unrecognized|unsupported|not supported|invalid.*schema/i.test(String(text||''));
+        var code=Number(status),body=String(text||'');
+        var explicit=[400,404,415,422].indexOf(code) >= 0 &&
+            /response[_ -]?format|json[_ -]?schema|json[_ -]?object|unknown (?:field|parameter)|unrecognized|unsupported|not supported|invalid.*schema/i.test(body);
+        var genericInvalidArgument=code===400 &&
+            /INVALID_ARGUMENT|invalid[_ -]?argument|Request contains an invalid argument/i.test(body);
+        return explicit||genericInvalidArgument;
     }
     async function apiChat(systemPrompt, userMsg, options) {
         options = options || {};

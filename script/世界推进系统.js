@@ -834,8 +834,14 @@
         for(const name of Object.keys(bucket)){
             const info=explorationGranularity(name);if(!info.invalid||!info.parent)continue;
             const child=bucket[name],parent=bucket[info.parent];
-            const merged=Object.assign(copy(EXISTING.探索),plain(parent)?copy(parent):{},plain(child)?copy(child):{});
-            if(plain(parent))merged.探索度=Math.max(Number(parent.探索度)||0,Number(child?.探索度)||0);
+            const merged=plain(parent)
+                ? Object.assign(copy(EXISTING.探索),copy(parent),{探索度:Math.max(Number(parent.探索度)||0,Number(child?.探索度)||0)})
+                : Object.assign(copy(EXISTING.探索),{
+                    风险:String(child?.风险||'F'),
+                    探索度:Number(child?.探索度)||0,
+                    描述:'由旧版子区域探索记录合并，待补充整体地标描述',
+                    隐藏真相:''
+                });
             bucket[info.parent]=merged;delete bucket[name];
             patches.push({op:parent?'replace':'add',path:pointer(['世界','探索',info.parent]),value:copy(merged)});
             patches.push({op:'remove',path:pointer(['世界','探索',name])});

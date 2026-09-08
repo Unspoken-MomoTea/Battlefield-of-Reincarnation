@@ -178,7 +178,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         let writes = 0;
         host.Mvu = {getMvuData:()=>({stat_data:clone(stat)}),replaceMvuData:async data => {writes++; stat = clone(data.stat_data);}};
         const engine = new Engine(host); engine.config.enabled = true; engine.config.requireMacroBackbone = false; engine.config.retryAttempts = 0; engine.worldbook = async () => [];
-        return {engine,get:()=>stat,writes:()=>writes,toasts:()=>clone(toasts),change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
+        return {engine,host,get:()=>stat,writes:()=>writes,toasts:()=>clone(toasts),change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
     }
     await test('final world-engine failure surfaces through Tavern toastr without writing MVU', async () => {
         const x=setup(async()=>{throw new Error('HTTP 400: invalid argument');});
@@ -261,17 +261,17 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const next=applyPatches(stat,compiled.patches);
         assert.equal(next.世界.后台.势力地区.藤美学园.资源[0].名称,'极度匮乏（医疗物资、淡水、载具）');
     });
-    await test('WorldResult accepts scalar maps for task, achievement, and relationship updates', () => {
+    await test('WorldResult ignores task and achievement mutations while preserving relationship updates', () => {
         const stat=fresh();
         stat.关系列表.卫兵={好感度:0};
         const parsed=parseReply(JSON.stringify({
-            摘要:'状态简写',
-            任务状态:{调查:'进行中'},
-            成就状态:{发现:'未达成'},
+            摘要:'职责隔离',
+            任务状态:{调查:'失败'},
+            成就状态:{发现:'已达成'},
             关系:{卫兵:5}
         }));
-        assert.deepEqual(parsed.worldResult.任务状态,[{名称:'调查',操作:'更新',状态:'进行中'}]);
-        assert.deepEqual(parsed.worldResult.成就状态,[{名称:'发现',操作:'更新',状态:'未达成'}]);
+        assert.equal(Object.hasOwn(parsed.worldResult,'任务状态'),false);
+        assert.equal(Object.hasOwn(parsed.worldResult,'成就状态'),false);
         assert.deepEqual(parsed.worldResult.关系,[{名称:'卫兵',操作:'更新',好感度:5}]);
         const compiled=compileWorldResult(stat,parsed.worldResult);
         const next=applyPatches(stat,compiled.patches);
@@ -405,10 +405,99 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(r.system,/API.*json_object.*plain.*仍必须严格遵守/i);
         assert.match(r.system,/"事件"\s*:\s*\{[\s\S]{0,120}"type"\s*:\s*"array"/);
         assert.match(r.system,/"资源"\s*:\s*\{[\s\S]{0,120}"type"\s*:\s*"array"/);
-        assert.match(r.system,/"任务状态"\s*:\s*\{[\s\S]{0,120}"type"\s*:\s*"array"/);
+        assert.doesNotMatch(r.system,/"任务状态"\s*:/);
+        assert.doesNotMatch(r.system,/"成就状态"\s*:/);
         assert.match(r.system,/资源.*对象数组.*名称.*数量.*用途.*限制/);
-        assert.match(r.system,/任务状态.*数组.*名称.*状态/);
+        assert.match(r.system,/任务.*成就.*不读取.*不更新/);
         assert.match(r.system,/不要输出“名称→对象”的 map 简写/);
+    });
+    await test('world request projects only world-relevant MVU, keeps assets and character capabilities, and excludes user prose', async () => {
+        const x=setup(async()=>JSON.stringify({摘要:'无变化'}));
+        x.change(s=>{
+            s.商城={技能列表:[{名称:'不应发送'}]};
+            s.设置={API:{key:'secret'},单一世界:false,世界超稳:true};
+            s.资产={
+                '机动装甲A':{
+                    类型:'载具',主体规模:3,完整度:86,状态:'待命',
+                    能源:{类型:'电池',当前:60,上限:100,描述:'可短程出击'},
+                    消耗单元:{导弹:{余量:4,上限:8,加成:['远程']}},
+                    建设序列:{维护:{阶段:'进阶',功能:'维修',加成:['自检'],产出:'无',下次产出日期:'2026年9月9日',下次产出游天:99}},
+                    驻扎人员:{玛雅:'驾驶员'},待办事件:['更换装甲板']
+                },
+                '安全屋':{类型:'固定地产',主体规模:2,完整度:100,状态:'正常',建设序列:{},驻扎人员:{幸存者A:'暂住'},待办事件:[]}
+            };
+            s.角色={
+                种族:'人类',身份:['轮回者'],职业:{术士:{类型:'战斗',特性:['诅咒'],来源:'主神空间'}},层级:'Ⅱ',
+                HP_MAX:100,HP:80,THP:0,EP_MAX:100,EP:70,
+                最终属性:{ATK:999},
+                血统:{魔眼:{品质:'C',原始属性:{精神:'C'},效果:{远视:'可跨区域观察'},描述:'魔眼'}},
+                技能:{血咒:{品质:'B',类型:0,标签:['诅咒','远程'],效果:{追咒:'取得媒介后可远程施咒'},描述:'远程诅咒',消耗:'20EP'}},
+                状态:{负伤:{类型:'减益',品质:'F',持续:'1天',来源:'战斗',原始属性:{体质:'F'},效果:{行动受限:'移动减慢'}}},
+                装备:{
+                    穿戴甲:{品质:'C',类型:3,标签:['防护'],原始属性:{体质:'D'},效果:{防弹:'降低枪击伤害'},描述:'护甲',消耗:'无',状态:1},
+                    背包备用甲:{品质:'C',类型:3,标签:[],原始属性:{},效果:{},描述:'备用',消耗:'无',状态:0},
+                    仓库甲:{品质:'A',类型:3,标签:[],原始属性:{},效果:{},描述:'仓库',消耗:'无',状态:2}
+                },
+                道具:{
+                    通讯器:{品质:'D',类型:'工具',数量:1,标签:['通讯'],效果:{远程联络:'可跨城区通信'},描述:'通讯器',状态:0},
+                    手雷:{品质:'D',类型:'消耗品',数量:2,标签:['爆炸'],效果:{爆炸:'范围杀伤'},描述:'手雷',状态:1},
+                    仓库核弹:{品质:'SSS',类型:'道具',数量:1,标签:[],效果:{},描述:'不应发送',状态:2}
+                },
+                形态库:{狼形:{层级:'Ⅲ',状态:'完好',冷却:'无',原始属性:{力量:'C'},标签:['高速'],效果:{追踪:'强化嗅觉'},技能:{},描述:'狼形'}},
+                当前形态:{激活:false,名称:''},
+                空间币:999999
+            };
+            s.关系列表.玛雅={
+                在场:false,种族:'精灵',身份:['从者'],职业:{弓手:{类型:'战斗',特性:['远射'],来源:'故乡'}},层级:'Ⅱ',
+                HP_MAX:90,HP:90,THP:0,EP_MAX:120,EP:100,最终属性:{ATK:888},
+                状态:{警戒:{类型:'增益',品质:'F',持续:'持续',来源:'自身',原始属性:{},效果:{警觉:'难以被偷袭'}}},
+                血统:{自然之子:{品质:'C',原始属性:{},效果:{感知:'感知自然异常'},描述:'自然亲和'}},
+                技能:{鹰眼:{品质:'C',类型:1,标签:['侦察'],效果:{远视:'远距离观察'},描述:'侦察技能',消耗:'无'}},
+                装备:{长弓:{品质:'C',类型:0,标签:['远程'],原始属性:{},效果:{狙击:'远距离射击'},描述:'长弓',消耗:'无',状态:1},备用刀:{品质:'D',类型:0,标签:[],原始属性:{},效果:{},描述:'备用',消耗:'无',状态:0}},
+                道具:{信号弹:{品质:'D',类型:'工具',数量:2,标签:['信号'],效果:{求援:'远程示警'},描述:'信号弹',状态:0}},
+                形态库:{},当前形态:{激活:false,名称:''},
+                性格:'冷静',喜爱:'森林与弓术',外貌:'银发',着装:'轻甲',是否队友:true,好感度:25,态度:'信任并保护玩家',背景故事:'来自森林王国',数量:1
+            };
+        });
+        x.host.getChatMessages=()=>[
+            {message_id:1,message:'玩家秘密计划：我要埋伏玛雅。',role:'user',is_user:true},
+            {message_id:2,message:'玛雅在远处观察到城市上空的黑烟。',role:'assistant',is_user:false},
+            {message_id:3,message:'玩家输入：这段不应进入世界模型。',role:'user',is_user:true}
+        ];
+        x.host.getCurrentChatId=()=> 'chat-1';
+        const snap=x.engine.snapshot();
+        snap.message={message_id:3,message:'玩家输入：这段不应进入世界模型。',role:'assistant',is_user:false};
+        snap.id=3;snap.text=snap.message.message;snap.fingerprint=JSON.stringify(['chat-1',3,0,'manual']);
+        const r=await x.engine.buildRequest(snap);
+        const p=JSON.parse(r.input),ctx=p.当前变量;
+        assert.ok(ctx.资产['机动装甲A']);
+        assert.equal(ctx.资产['机动装甲A'].建设序列.维护.下次产出游天,undefined);
+        assert.equal(ctx.任务,undefined);
+        assert.equal(ctx.商城,undefined);
+        assert.equal(ctx.设置,undefined);
+        assert.equal(ctx.角色.最终属性,undefined);
+        assert.equal(ctx.角色.空间币,undefined);
+        assert.ok(ctx.角色.血统.魔眼);
+        assert.ok(ctx.角色.技能.血咒);
+        assert.ok(ctx.角色.状态.负伤);
+        assert.ok(ctx.角色.装备.穿戴甲);
+        assert.equal(ctx.角色.装备.背包备用甲,undefined);
+        assert.equal(ctx.角色.装备.仓库甲,undefined);
+        assert.ok(ctx.角色.道具.通讯器);
+        assert.ok(ctx.角色.道具.手雷);
+        assert.equal(ctx.角色.道具.仓库核弹,undefined);
+        assert.equal(ctx.角色.血统.魔眼.原始属性,undefined);
+        assert.equal(ctx.关系列表.玛雅.最终属性,undefined);
+        assert.equal(ctx.关系列表.玛雅.性格,'冷静');
+        assert.equal(ctx.关系列表.玛雅.喜爱,'森林与弓术');
+        assert.equal(ctx.关系列表.玛雅.着装,'轻甲');
+        assert.equal(ctx.关系列表.玛雅.态度,'信任并保护玩家');
+        assert.equal(ctx.关系列表.玛雅.背景故事,'来自森林王国');
+        assert.ok(ctx.关系列表.玛雅.技能.鹰眼);
+        assert.ok(ctx.关系列表.玛雅.装备.长弓);
+        assert.equal(ctx.关系列表.玛雅.装备.备用刀,undefined);
+        assert.deepEqual(p.正文楼层.map(f=>f.正文),['玛雅在远处观察到城市上空的黑烟。']);
+        assert.doesNotMatch(r.input,/玩家秘密计划|玩家输入：这段不应进入世界模型/);
     });
     await test('terminal API contains structured-output negotiation with plain fallback', () => {
         const sourceText=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');

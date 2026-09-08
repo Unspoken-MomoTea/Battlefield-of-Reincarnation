@@ -4142,8 +4142,8 @@
 
         // 启用开关提示语
         var apiEnableHint = apiCfg.enabled
-            ? '<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合 / 世界推进可使用自托管 API</span>'
-            : '<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API，世界推进暂停</span>';
+            ? '<span class="sam-api-status ok">已启用: 商城刷新 / 血统融合可使用自托管 API'+(worldUsesDedicatedApi?'；世界推进使用专属 API':'；世界推进可复用此通道')+'</span>'
+            : '<span class="sam-api-status warn">未启用: 商城刷新 / 血统融合将走正文 API'+(worldUsesDedicatedApi?'；世界推进继续使用专属 API':'；世界推进等待额外模型配置')+'</span>';
         var apiHtml = '<div class="sam-api-section">'
             // 启用开关
             + '<div class="sam-toggle-row" style="margin-bottom:8px;">'

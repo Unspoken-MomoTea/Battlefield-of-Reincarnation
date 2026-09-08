@@ -35,6 +35,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.getByText(/额外模型未准备好/).count(),1);
  assert.equal(await page.getByRole('heading',{name:'任务进展',exact:true}).count(),0);
  assert.equal(await page.locator('.we-dashboard').count(),1,'世界推进采用独立仪表盘布局');
+ assert.equal(await page.locator('.we-world-focus').count(),1,'当前局势与下一宏观节点必须形成明确首屏焦点');
  assert.equal(await page.locator('.we-people-strip .we-person-compact').count()<=4,true,'人物动态保持紧凑摘要');
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),1,'世界推进只保留一处世界动向');
  const timelineNames=await page.locator('.we-timeline [data-event-card] h3').allTextContents();
@@ -137,8 +138,16 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.addStyleTag({content:'main,section,nav,header{height:0!important;max-height:1px!important;display:none!important}'});
  assert.equal(await page.locator('#sam-world-engine main').evaluate(el=>el.clientHeight>60),true,'宿主全局样式不能压扁独立面板');
  await page.evaluate(()=>{
-   window.getCharWorldbookNames=()=>({primary:'测试世界书',additional:[]});
-   window.getWorldbook=()=>[{uid:1,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:2,name:'禁用条目',content:'不得默认读取',enabled:false},{uid:3,name:'[variables]当前变量',content:'技术投影',enabled:true}];
+   window.getCharWorldbookNames=()=>({primary:'测试世界书',additional:['附加世界书']});
+   window.getChatWorldbookName=()=> '聊天世界书';
+   window.getGlobalWorldbookNames=()=> ['外挂世界书'];
+   window.getWorldbook=name=>{
+     if(name==='测试世界书')return [{uid:1,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:2,name:'禁用条目',content:'不得默认读取',enabled:false},{uid:3,name:'[variables]当前变量',content:'技术投影',enabled:true}];
+     if(name==='附加世界书')return [{uid:10,name:'附加设定',content:'附加内容',enabled:false}];
+     if(name==='聊天世界书')return [{uid:20,name:'聊天设定',content:'聊天内容',enabled:false}];
+     if(name==='外挂世界书')return [{uid:30,name:'外挂设定',content:'外挂内容',enabled:false}];
+     return [];
+   };
  });
  await page.locator('[data-tab="提示词预设"]').click();
  assert.equal(await page.locator('[data-segment][data-title="世界推进"]').count(),1);
@@ -154,7 +163,36 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.locator('[data-book]').first().waitFor();
  assert.equal(await page.locator('[data-book]:checked').count(),1);
  assert.equal(await page.locator('[data-book]:disabled').count(),1);
+ assert.equal(await page.locator('.we-book').filter({hasText:'聊天世界书'}).filter({hasText:'聊天绑定'}).count(),1,'聊天绑定世界书必须进入目录');
+ assert.equal(await page.locator('.we-book').filter({hasText:'外挂世界书'}).filter({hasText:'全局启用'}).count(),1,'酒馆全局启用世界书必须进入目录');
+ assert.equal(await page.locator('.we-preset-toolbar [data-action="save"]').count(),1,'保存当前设置固定在顶部工作条');
+ assert.equal(await page.locator('[data-action="doc-import"]').count(),1,'预设文档提供导入入口');
+ const segmentCount=await page.locator('[data-segment-row]').count();
+ await page.locator('[data-action="segment-add"]').click();
+ const customSegment=page.locator('textarea[aria-label="新分段正文"]').locator('..');
+ await customSegment.locator('[data-segment-title]').fill('自定义测试段');
+ await customSegment.locator('[data-segment]').fill('这是可自由移动和删除的测试正文。');
+ await customSegment.locator('[data-action="segment-up"]').click();
+ assert.equal(await page.locator('[data-segment-row]').count(),segmentCount+1,'可新增提示词分段');
+ const segmentTitles=await page.locator('[data-segment-title]').evaluateAll(nodes=>nodes.map(node=>node.value));
+ assert.equal(segmentTitles.at(-2),'自定义测试段','分段可以调整顺序');
  await page.locator('[data-floors]').fill('3');
+ await page.locator('[data-action="save"]').click();
+ assert.equal(await page.evaluate(()=>Samsara.worldEngine.config.preset.includes('【自定义测试段】')),true,'新增分段可保存');
+ await customSegment.locator('[data-action="segment-delete"]').click();
+ await page.locator('[data-action="save"]').click();
+ assert.equal(await page.evaluate(()=>Samsara.worldEngine.config.preset.includes('【自定义测试段】')),false,'删除分段后不会被系统自动补回');
+ await page.locator('[data-doc-name]').fill('UI测试预设');
+ await page.locator('[data-action="doc-save"]').click();
+ const docRow=page.locator('.we-doc-row').filter({hasText:'UI测试预设'});
+ assert.equal(await docRow.count(),1,'当前提示词设置可以保存成文档');
+ assert.equal(await docRow.locator('[data-action="doc-export"]').count(),1,'预设文档提供导出');
+ await page.locator('[data-floors]').fill('9');
+ await docRow.locator('[data-action="doc-apply"]').click();
+ assert.equal(await page.locator('[data-floors]').inputValue(),'3','应用文档恢复完整设置而不只恢复正文');
+ await page.locator('.we-doc-row').filter({hasText:'UI测试预设'}).locator('[data-action="doc-delete"]').click();
+ assert.equal(await page.locator('.we-doc-row').filter({hasText:'UI测试预设'}).count(),0,'预设文档可删除');
+
  await page.setViewportSize({width:1440,height:1080});
  await page.screenshot({path:path.join(out,'world-settings.png')});
  await page.locator('[data-action="save"]').click();

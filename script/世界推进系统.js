@@ -1298,7 +1298,9 @@ ${schemaText}
             if (snapshot.message.is_user || snapshot.message.role === 'user') return '等待正文完成';
             return '';
         }
-        saveConfig() { this.host.localStorage.setItem(CONFIG,JSON.stringify(this.config)); }
+        saveConfig() {
+            try{this.host.localStorage?.setItem?.(CONFIG,JSON.stringify(this.config));}catch(_){}
+        }
         setPreset(text) {
             if (typeof text !== 'string' || text.length > 30000) throw new Error('预设限30000字');
             this.config.preset = normalizeEditablePreset(text);

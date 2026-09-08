@@ -994,13 +994,15 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(doc&&doc.builtin,'内置默认文档必须始终存在');
         assert.equal(doc.name,'默认设置');
         assert.equal(engine.config.activePromptDocumentId,'builtin-default');
-        assert.equal(engine.config.builtinDefaultPromptVersionApplied,1);
+        assert.equal(engine.config.builtinDefaultPromptVersionApplied,2);
         assert.equal(engine.config.contextTurns,3);
         assert.equal(engine.config.activationMode,'respect_activation');
         assert.equal(engine.config.selectedEntries.length,24);
         assert.equal(engine.config.selectedEntries[0],'["轮回战场V3.6.1","915830"]');
         assert.equal(engine.config.selectedEntries.at(-1),'["轮回战场V3.6.1","559085"]');
-        assert.match(engine.config.preset,/以当前世界的旧状态、世界书设定及本轮实际剧情为依据/);
+        assert.match(engine.config.preset,/以当前世界的已确认状态、本轮实际剧情/);
+        assert.doesNotMatch(engine.config.preset,/【任务与剧本】/,'内置默认文档不能停留在旧提示词版本');
+        assert.equal(engine.config.preset,doc.settings.preset,'内置默认文档必须直接绑定当前 DEFAULT_PRESET');
         assert.match(engine.config.preset,/【时间容量与信息边界】/);
         assert.equal(engine.deletePromptDocument('builtin-default'),false,'内置默认文档不可删除');
         assert.ok(JSON.parse(stored).promptDocuments.some(x=>x.id==='builtin-default'));
@@ -1026,6 +1028,21 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(engine.getPromptDocuments().length,2);
         assert.ok(JSON.parse(stored).promptDocuments.length===2);
         assert.ok(JSON.parse(stored).promptDocuments.some(x=>x.id==='builtin-default'));
+    });
+    await test('built-in default worldbook selections survive versioned worldbook renames', async () => {
+        const host={
+            localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{},
+            getCharWorldbookNames:()=>({primary:'轮回战场V3.7.0',additional:[]}),
+            getWorldbook:name=>name==='轮回战场V3.7.0'?[
+                {uid:915830,name:'默认应勾选',content:'默认资料',enabled:true,strategy:{type:'constant'}},
+                {uid:999999,name:'默认不应勾选',content:'额外资料',enabled:true,strategy:{type:'constant'}}
+            ]:[]
+        };
+        const engine=new Engine(host);
+        const catalogue=await engine.catalogue();
+        assert.equal(catalogue.length,2);
+        const books=await engine.worldbook('');
+        assert.deepEqual(books.map(x=>x.名称),['默认应勾选'],'旧文档保存的 V3.6.1 条目应在 V3.7.0 同ID世界书中继续命中');
     });
     await test('worldbook catalogue includes character chat-bound and globally enabled books with deduped sources', async () => {
         const host={

@@ -222,7 +222,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
                 '床主市大混乱':{描述:'城市社会秩序彻底崩溃',分类:'宏观节点',状态:'待发生',时间:'2010年-04月-13日-傍晚'}
             },
             人物:{
-                '毒岛冴子':{地点:'二楼走廊',目标:'寻找生还者',行动:'向楼梯间推进'}
+                '毒岛冴子':{所在世界:'学园默示录',地点:'二楼走廊',目标:'寻找生还者',行动:'向楼梯间推进',已知信息:'死体头部是弱点',下次检查条件:'到达楼梯间'}
             },
             传播:{
                 '校门口的惨剧':{来源:'逃命学生',范围:'藤美学园校内',时间:'2010年-04月-13日-09:30',关联事件:'藤美学园爆发',内容:'校门口发生咬人事件'}
@@ -232,6 +232,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(parsed.kind,'world_result');
         assert.deepEqual(parsed.worldResult.事件.map(x=>x.名称),['藤美学园爆发','床主市大混乱']);
         assert.equal(parsed.worldResult.人物[0].名称,'毒岛冴子');
+        assert.equal(parsed.worldResult.人物[0].所属世界,'学园默示录');
+        assert.deepEqual(parsed.worldResult.人物[0].认知,['死体头部是弱点']);
+        assert.equal(parsed.worldResult.人物[0].下次检查,'到达楼梯间');
         assert.equal(parsed.worldResult.传播[0].名称,'校门口的惨剧');
         assert.deepEqual(parsed.worldResult.传播[0].关联事件,['藤美学园爆发']);
     });

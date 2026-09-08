@@ -244,6 +244,41 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(await running,true);
         assert.equal(x.engine.lastWorldResult.摘要,'第二轮');
     });
+    await test('WorldResult normalizes partial object-detail arrays instead of rejecting the whole run', () => {
+        const stat=fresh();
+        const compiled=compileWorldResult(stat,{
+            摘要:'地区资源简写',
+            势力地区:[{
+                名称:'藤美学园',
+                资源:['极度匮乏（医疗物资、淡水、载具）'],
+                近期变化:['走廊布满血迹']
+            }]
+        });
+        const patch=compiled.patches.find(p=>p.path==='/世界/后台/势力地区/藤美学园');
+        assert.ok(patch);
+        assert.deepEqual(patch.value.资源,[{名称:'极度匮乏（医疗物资、淡水、载具）',数量:'',用途:'',限制:''}]);
+        assert.deepEqual(patch.value.近期变化,[{时间:'',事实:'走廊布满血迹',关联事件:''}]);
+        const next=applyPatches(stat,compiled.patches);
+        assert.equal(next.世界.后台.势力地区.藤美学园.资源[0].名称,'极度匮乏（医疗物资、淡水、载具）');
+    });
+    await test('WorldResult accepts scalar maps for task, achievement, and relationship updates', () => {
+        const stat=fresh();
+        stat.关系列表.卫兵={好感度:0};
+        const parsed=parseReply(JSON.stringify({
+            摘要:'状态简写',
+            任务状态:{调查:'进行中'},
+            成就状态:{发现:'未达成'},
+            关系:{卫兵:5}
+        }));
+        assert.deepEqual(parsed.worldResult.任务状态,[{名称:'调查',操作:'更新',状态:'进行中'}]);
+        assert.deepEqual(parsed.worldResult.成就状态,[{名称:'发现',操作:'更新',状态:'未达成'}]);
+        assert.deepEqual(parsed.worldResult.关系,[{名称:'卫兵',操作:'更新',好感度:5}]);
+        const compiled=compileWorldResult(stat,parsed.worldResult);
+        const next=applyPatches(stat,compiled.patches);
+        assert.equal(next.任务.列表.调查.状态,'进行中');
+        assert.equal(next.任务.副本成就.发现.状态,'未达成');
+        assert.equal(next.关系列表.卫兵.好感度,5);
+    });
     await test('WorldResult compiler owns paths, escaping and upsert selection', () => {
         const stat=fresh();
         stat.世界.后台.人物.卫兵={...RECORDS.人物,所属世界:'测试世界',行动:'待命'};

@@ -1837,6 +1837,30 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(block.includes('只包含名称、状态、时间、地点、公开征兆、可见影响'),false,'字段投影实现细节不应塞进正文思考');
         assert.equal(block.includes('只投影真正热人物的非空地点'),false,'热人物筛选实现细节不应塞进正文思考');
     });
+    await test('world-engine variable rules stay write-focused and omit prose implementation details', () => {
+        const source=fs.readFileSync(path.join(__dirname,'../World Book/[mvu_update]变量更新规则.txt'),'utf8');
+        const enabledStart=source.indexOf('<%_ if (isWorldEngineEnabled) { _%>');
+        const enabledEnd=source.indexOf('<%_ } else { _%>',enabledStart);
+        const globalBlock=source.slice(enabledStart,enabledEnd);
+        assert.ok(globalBlock.includes('仅处理当前场景直接变量'));
+        assert.ok(globalBlock.includes('只读字段禁止任何patch'));
+        assert.equal(globalBlock.includes('故事线/下一节点'),false,'变量AI不需要正文叙事方向说明');
+        assert.equal(globalBlock.includes('不代表角色预知'),false,'角色认知属于正文提示词，不属于变量更新规则');
+        assert.equal(globalBlock.includes('热人物的地点/目标/行动'),false,'场外人物投影实现细节不应发送给变量AI');
+
+        const rumorStart=source.indexOf('<%_ if (isWorldEngineEnabled && !isCombat) { _%>');
+        const rumorEnd=source.indexOf('<%_ } else if (!isCombat) { _%>',rumorStart);
+        const rumorBlock=source.slice(rumorStart,rumorEnd);
+        assert.equal(rumorBlock.includes('type:'),false,'只读传闻不需要重复发送对象Schema');
+        assert.ok(rumorBlock.includes('探索解锁交由世界引擎'));
+        assert.ok(rumorBlock.includes('禁止修改/世界/探索'));
+
+        const alienStart=source.indexOf('    异端雷达:');
+        const alienEnd=source.indexOf('\n}',alienStart);
+        const alienBlock=source.slice(alienStart,alienEnd);
+        assert.equal(alienBlock.includes('世界.后台.人物持续维护'),false,'变量AI不需要知道异端后台调度实现');
+        assert.equal(alienBlock.includes('正文AI本来就可读取'),false,'正文可见性说明不属于变量AI');
+    });
     await test('worldbook templates compile including protected public projection', () => {
         for (const name of ['[variables]当前变量.txt','[mvu_update]变量更新规则.txt','⚙️额外思考.txt','【主神任务】[mvu_plot].txt','【试炼任务】[mvu_plot].txt','【结算任务】[mvu_plot].txt','⚙️任务与委托系统.txt']) {
             const source=fs.readFileSync(path.join(__dirname,'../World Book',name),'utf8');

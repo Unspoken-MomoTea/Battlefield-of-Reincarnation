@@ -52,14 +52,26 @@
             'summonoverview','lootlog','experiencelog','questcontract','merchantstore','combatsnapshot',
             'ash-review','acu-review','ash_review','acu_review','ash_note','acu_note','ash-review-slot',
             'script','style','head','iframe']); // 'combatresult','craftresult','checkresult',
+        // 部分正文模型通过 assistant prefill 注入隐藏块的开始标签，最终楼层只会保存结束标签。
+        // 仅对思考类标签启用“首个隐藏标签为孤立结束标签”的兼容，避免误吞变量/面板前的正常正文。
+        const prefillHidden=new Set(['think','thinking','reasoning','analysis','konatan_planning','dm_think','chain_of_thought']);
         // 按标签栈移除整个技术块，支持嵌套与属性；未闭合技术块的剩余内容也不发送。
         const tags=/<\s*(\/?)\s*([a-z_][\w-]*)\b[^>]*>/gi;
-        const stack=[];let text='',cursor=0,match;
+        const stack=[];let text='',cursor=0,match,seenHiddenTag=false;
         while((match=tags.exec(source))){
             const name=match[2].toLowerCase();
             if(!hidden.has(name))continue;
+            const closing=!!match[1];
+            // assistant prefill 可能把 <thinking>/<konatan_planning~> 等开始标签放在保存文本之外。
+            // 若本楼第一个隐藏边界就是对应结束标签，则从消息开头到该标签都属于隐藏思考。
+            if(closing&&!stack.length&&!seenHiddenTag&&prefillHidden.has(name)){
+                cursor=tags.lastIndex;
+                seenHiddenTag=true;
+                continue;
+            }
+            seenHiddenTag=true;
             if(!stack.length)text+=source.slice(cursor,match.index);
-            if(match[1]){
+            if(closing){
                 const at=stack.lastIndexOf(name);
                 if(at>=0)stack.length=at;
             }else if(!/\/\s*>$/.test(match[0]))stack.push(name);

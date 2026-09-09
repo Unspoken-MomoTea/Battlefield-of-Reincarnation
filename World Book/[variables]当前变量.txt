@@ -111,24 +111,53 @@ if (!isCombat) {
   }
 }
 
-// 后台完整状态含未来计划、私有认知与传播真相，正文只读取“局势摘要 + 正文承接”。
-// 战斗中也保留这份短投影，让已经发生且已触达当前场景的世界影响不会因界面过滤而消失。
+// 后台完整状态含未来计划、私有认知与传播真相，正文永远不直接读取后台。
+// 世界推进开启时只暴露两类单一事实源：因果轨道.当前阶段 + 程序过滤后的“进行中当前事件”公开字段。
+// 关闭世界推进后不改原因果轨道结构，继续沿用旧正文/MVU流程自然衔接。
 if (current.世界) {
   // 世界.历法仅供世界引擎与程序校验使用，正文/普通变量AI不可见。
   delete current.世界.历法;
   delete current.世界.后台;
-  const worldDigest = String(_.get(data, '世界.后台.公开摘要', '') || '').trim();
-  const rawHandoff = _.get(data, '世界.后台.正文承接', []);
-  const worldHandoff = (Array.isArray(rawHandoff) ? rawHandoff : []).slice(0, 3).map(item => ({
-    来源: String(item?.来源 || ''),
-    触达方式: String(item?.触达方式 || ''),
-    可见事实: String(item?.可见事实 || ''),
-    当前场景影响: String(item?.当前场景影响 || '')
-  })).filter(item => item.来源 && item.触达方式 && item.可见事实 && item.当前场景影响);
-  if (isWorldEngineEnabled && !_.get(data, '系统状态.是否在主神空间', false) && (worldDigest || worldHandoff.length)) {
-    readonly.世界.后台公开动态 = {};
-    if (worldDigest) readonly.世界.后台公开动态.局势摘要 = worldDigest;
-    if (worldHandoff.length) readonly.世界.后台公开动态.正文承接 = worldHandoff;
+
+  if (isWorldEngineEnabled && !_.get(data, '系统状态.是否在主神空间', false)) {
+    const currentStage = String(_.get(data, '世界.因果轨道.当前阶段', '') || '').trim();
+    // 世界推进开启时隐藏故事线/下一节点/偏移记录等未来宏观信息，只保留当前阶段这段现实局势描述。
+    current.世界.因果轨道 = { 当前阶段: currentStage || '待初始化' };
+
+    const currentLocation = String(_.get(data, '世界.地点', '') || '').trim();
+    const rawEvents = _.get(data, '世界.后台.事件', {}) || {};
+    const locationRelated = (a, b) => {
+      const x = String(a || '').trim(), y = String(b || '').trim();
+      return !!(x && y && (x.includes(y) || y.includes(x)));
+    };
+    const publicEvents = Object.entries(rawEvents)
+      .filter(([, event]) => event && event.分类 === '当前事件' && event.状态 === '进行中')
+      .map(([name, event]) => {
+        const impacts = (Array.isArray(event.可见影响) ? event.可见影响 : []).slice(0, 6)
+          .map(item => ({
+            时间: String(item?.时间 || ''),
+            地点: String(item?.地点 || ''),
+            影响: String(item?.影响 || '')
+          }))
+          .filter(item => item.影响);
+        return {
+          名称: String(name),
+          状态: '进行中',
+          时间: String(event.时间 || event.开始时间 || ''),
+          地点: String(event.地点 || ''),
+          公开征兆: String(event.公开征兆 || ''),
+          可见影响: impacts
+        };
+      })
+      // 没有任何公开征兆/可见影响的后台事件不暴露，避免事件名本身泄露秘密计划。
+      .filter(event => event.公开征兆 || event.可见影响.length)
+      .sort((a, b) => {
+        const ar = locationRelated(a.地点, currentLocation) || a.可见影响.some(x => locationRelated(x.地点, currentLocation)) ? 0 : 1;
+        const br = locationRelated(b.地点, currentLocation) || b.可见影响.some(x => locationRelated(x.地点, currentLocation)) ? 0 : 1;
+        return ar - br || a.名称.localeCompare(b.名称, 'zh-CN');
+      })
+      .slice(0, 6);
+    if (publicEvents.length) readonly.世界.当前事件 = publicEvents;
   }
 }
 

@@ -516,7 +516,48 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(Object.values(x.get().世界.后台.事件).filter(e=>e.分类==='宏观节点'&&e.状态==='待发生').length,3);
         assert.match(inputs[1],/已接受业务结果/);
         assert.match(inputs[1],/只补充或修正/);
+        const retry=JSON.parse(inputs[1]).纠错重试;
+        assert.deepEqual(retry.已接受业务结果.事件.map(x=>x.名称),['宏观A']);
+        assert.match(retry.补充清单.join('\n'),/还需补充至少2个待发生宏观节点/);
+        assert.match(retry.补充清单.join('\n'),/因果\.宏观顺序/);
         assert.match(x.get().世界.因果轨道.故事线,/宏观A.*宏观B.*宏观C/);
+    });
+    await test('retry keeps valid slices, rejects only the bad entity, and asks AI for both correction and missing macro nodes', async () => {
+        let calls=0,inputs=[];
+        const x=setup(async (_system,input)=>{
+            calls++;inputs.push(input);
+            if(calls===1)return JSON.stringify({
+                摘要:'首轮大部分有效',
+                人物:[{名称:'卫兵',所属世界:'测试世界',行动:'巡查北门'}],
+                事件:[{名称:'宏观A',描述:'城区进入戒严阶段',分类:'宏观节点',状态:'待发生',时间:'2026年9月8日'}],
+                探索:[{名称:'学校-教室',风险:'D',探索度:10,描述:'玩家查看了教室'}],
+                因果:{宏观顺序:['宏观A']}
+            });
+            return JSON.stringify({
+                摘要:'修正探索并补齐宏观',
+                探索:[{名称:'学校',风险:'D',探索度:10,描述:'玩家已确认学校内部局部情况'}],
+                事件:[
+                    {名称:'宏观B',描述:'城区交通网络中断',分类:'宏观节点',状态:'待发生',时间:'2026年9月10日'},
+                    {名称:'宏观C',描述:'幸存者势力形成稳定据点',分类:'宏观节点',状态:'待发生',时间:'2026年9月14日'}
+                ],
+                因果:{宏观顺序:['宏观A','宏观B','宏观C']}
+            });
+        });
+        x.engine.config.requireMacroBackbone=true;x.engine.config.retryAttempts=2;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,2);
+        assert.equal(x.writes(),1,'失败首轮不得提前写入正式 MVU');
+        const retry=JSON.parse(inputs[1]).纠错重试;
+        assert.equal(retry.已接受业务结果.探索.length,0,'非法探索实体不得污染暂存结果');
+        assert.equal(retry.已接受业务结果.人物.some(x=>x.名称==='卫兵'),true,'正确人物必须保留');
+        assert.equal(retry.已接受业务结果.事件.some(x=>x.名称==='宏观A'),true,'正确宏观节点必须保留');
+        const plan=retry.补充清单.join('\n');
+        assert.match(plan,/探索\/学校-教室.*探索粒度过细/);
+        assert.match(plan,/还需补充至少2个待发生宏观节点/);
+        assert.equal(x.get().世界.后台.人物.卫兵.行动,'巡查北门');
+        assert.equal(x.get().世界.探索.学校.探索度,10);
+        assert.equal(x.get().世界.探索['学校-教室'],undefined);
+        assert.equal(Object.values(x.get().世界.后台.事件).filter(e=>e.分类==='宏观节点'&&e.状态==='待发生').length,3);
     });
     await test('new prompt separates business reasoning from storage protocol', async () => {
         const x=setup(async()=>''),r=await x.engine.buildRequest(x.engine.snapshot());

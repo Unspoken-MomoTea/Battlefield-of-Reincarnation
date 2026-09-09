@@ -89,6 +89,10 @@
 
             if (!statData) return;
 
+            // ★ 关系列表是普通角色是否继续受后台人物调度的生命周期信号。
+            //   明确从关系列表删除的角色，同步从 世界.后台.人物 删除，避免继续占用世界推进上下文；异端雷达独立管理，不在此处修改。
+            syncRemovedRelationshipPeople(statData, statDataBefore);
+
             // 世界引擎的独立提交仅更新叙事数据，不能当成又一轮正文消耗状态/冷却。
             // 标记随本楼层保存；后续正文继承同一标记时 before/after 相等，照常计算。
             const worldCommit = rawVariables?.__samsaraWorldCommit;
@@ -206,6 +210,46 @@
         if (value === undefined) return undefined;
         if (typeof _ !== 'undefined' && _?.cloneDeep) return _.cloneDeep(value);
         return JSON.parse(JSON.stringify(value));
+    }
+
+    /**
+     * 关系列表删除 → 世界后台人物同步退休。
+     * 只响应“上一状态存在、当前状态消失”的明确删除，不清理从未进入关系列表的纯场外NPC。
+     * 世界.异端雷达.名单是独立生命周期，绝不在此函数中修改。
+     */
+    function syncRemovedRelationshipPeople(statData, statDataBefore) {
+        if (!statData || !statDataBefore) return [];
+        const beforeRelations = statDataBefore.关系列表;
+        const currentRelations = statData.关系列表;
+        const backendPeople = statData.世界?.后台?.人物;
+        if (!beforeRelations || typeof beforeRelations !== 'object' || Array.isArray(beforeRelations)) return [];
+        if (!currentRelations || typeof currentRelations !== 'object' || Array.isArray(currentRelations)) return [];
+        if (!backendPeople || typeof backendPeople !== 'object' || Array.isArray(backendPeople)) return [];
+
+        const nameKey = (value) => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
+        const currentKeys = new Set(Object.keys(currentRelations).map(nameKey));
+        const removedNames = Object.keys(beforeRelations).filter(name => !currentKeys.has(nameKey(name)));
+        const deleted = [];
+
+        removedNames.forEach((relationName) => {
+            if (Object.prototype.hasOwnProperty.call(backendPeople, relationName)) {
+                delete backendPeople[relationName];
+                deleted.push(relationName);
+                return;
+            }
+            const key = nameKey(relationName);
+            const matches = Object.keys(backendPeople).filter(name => nameKey(name) === key);
+            // 只有唯一规范化匹配时才自动删除，避免名称碰撞误伤其他角色。
+            if (matches.length === 1) {
+                delete backendPeople[matches[0]];
+                deleted.push(matches[0]);
+            }
+        });
+
+        if (deleted.length) {
+            console.log('[后台人物同步] 关系列表已删除角色，人物管理同步退休：' + deleted.join('、'));
+        }
+        return deleted;
     }
 
     /**

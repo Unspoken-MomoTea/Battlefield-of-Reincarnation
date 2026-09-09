@@ -500,7 +500,6 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         stat.世界.后台.人物.卫兵={...RECORDS.人物,所属世界:'测试世界',行动:'待命'};
         const compiled=compileWorldResult(stat,{
             摘要:'业务结果',
-            公开摘要:'城门局势发生变化。',
             事件:[{名称:'A/B',描述:'新的地区级警报',分类:'宏观节点',状态:'待发生',时间:'2026年9月8日'}],
             人物:[{名称:'卫兵',行动:'前往城门'}],
             因果:{宏观顺序:['A/B','第二阶段','第三阶段']}
@@ -1017,10 +1016,11 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(await x.engine.run(),true); assert.equal(await x.engine.run(),false);
         assert.equal(calls,1); assert.equal(x.writes(),1); assert.equal(x.get().世界.后台.运行记录.length,1);
     });
-    await test('model add can update preinitialized public summary and commit through run', async () => {
-        const x=setup(async()=>JSON.stringify({summary:'守卫开始巡逻',patches:[add('/世界/后台/公开摘要','守卫开始巡逻。')]}));
+    await test('legacy patch protocol can still update causal current stage but cannot restore removed public summary', async () => {
+        const x=setup(async()=>JSON.stringify({summary:'守卫开始巡逻',patches:[add('/世界/因果轨道/当前阶段','守卫开始逐步封锁城门，城内通行明显收紧。')]}));
         assert.equal(await x.engine.run(),true);
-        assert.equal(x.get().世界.后台.公开摘要,'守卫开始巡逻。');
+        assert.equal(x.get().世界.因果轨道.当前阶段,'守卫开始逐步封锁城门，城内通行明显收紧。');
+        assert.equal(Object.hasOwn(x.get().世界.后台,'公开摘要'),false);
         assert.equal(x.writes(),1);
     });
     await test('worldbook blue/green activation, secondary keys and force mode use actual scanned prose', async () => {
@@ -1468,7 +1468,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const finalize = new Function(`const rawText='轮回清算协议'; const hasSettlementHeader=()=>true; const isFullSettlement=()=>true; const isTrialPassed=()=>false; const trialTasks=[]; const readReincarnatorTier=()=> 'Ⅰ'; const settlementBaselineTier='Ⅰ'; ${snippet}; return applySettlementFinalization;`)();
         for (const single of [false,true]) {
             const stat=fresh(); stat.设置.单一世界=single; stat.系统状态.游玩天数=12;
-            stat.关系列表.旅伴={好感度:10}; stat.世界.后台.公开摘要='仍在推进';
+            stat.关系列表.旅伴={好感度:10}; stat.世界.因果轨道.当前阶段='当前世界仍在持续推进。';
             stat.任务.列表.结束={状态:'可结算'};
             stat.任务.副本成就={旧成就:{状态:'已达成',奖励:'F级盲盒·测试世界'}};
             const time=stat.世界.时间;
@@ -1476,7 +1476,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             assert.equal(stat.世界.时间,time); assert.equal(stat.系统状态.游玩天数,12);
             assert.equal(stat.关系列表.旅伴.好感度,10);
             assert.equal(stat.任务.列表.结束,undefined);
-            if (single) {assert.equal(stat.世界.后台.公开摘要,'仍在推进'); assert.ok(stat.任务.列表.调查); assert.deepEqual(stat.任务.副本成就,{}); assert.equal(stat.系统状态.是否在主神空间,false);}
+            if (single) {assert.equal(stat.世界.因果轨道.当前阶段,'当前世界仍在持续推进。'); assert.ok(stat.任务.列表.调查); assert.deepEqual(stat.任务.副本成就,{}); assert.equal(stat.系统状态.是否在主神空间,false);}
             else {assert.deepEqual(stat.世界.后台,{});assert.deepEqual(stat.任务.副本成就,{});assert.equal(stat.系统状态.是否在主神空间,true);}
         }
         const historical=fresh(), before=clone(historical);

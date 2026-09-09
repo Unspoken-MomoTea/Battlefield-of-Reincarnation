@@ -1309,7 +1309,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(doc&&doc.builtin,'内置默认文档必须始终存在');
         assert.equal(doc.name,'默认设置');
         assert.equal(engine.config.activePromptDocumentId,'builtin-default');
-        assert.equal(engine.config.builtinDefaultPromptVersionApplied,5);
+        assert.equal(engine.config.builtinDefaultPromptVersionApplied,6);
         assert.equal(engine.config.contextTurns,3);
         assert.equal(engine.config.activationMode,'respect_activation');
         assert.equal(engine.config.selectedEntries.length,24);
@@ -1321,6 +1321,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(engine.config.preset,/【时间容量与信息边界】/);
         assert.match(engine.config.preset,/因果轨道\.当前阶段/);
         assert.match(engine.config.preset,/当前事件.*公开征兆.*可见影响/);
+        assert.match(engine.config.preset,/场外人物动态/);
+        assert.match(engine.config.preset,/活跃.*异端.*每轮|异端.*活跃.*每轮/);
         assert.doesNotMatch(engine.config.preset,/正文承接/);
         assert.doesNotMatch(engine.config.preset,/公开摘要/);
         assert.equal(engine.deletePromptDocument('builtin-default'),false,'内置默认文档不可删除');
@@ -1689,6 +1691,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
                 assert.equal(current.世界.历法,undefined,'正文/普通AI当前变量不得看到内部历法');
                 if(engineOn&&!space){
                     assert.deepEqual(current.世界.因果轨道,stat.世界.因果轨道,'世界推进开启时非战斗正文应保留完整因果轨道，维持长期方向与偏移记忆');
+                    assert.equal(current.世界.异端雷达.名单.异端甲.状态,'活跃','异端雷达本身继续对正文可见');
                     assert.deepEqual(readonly.世界.当前事件,[{
                         名称:'北门身份核验',
                         状态:'进行中',

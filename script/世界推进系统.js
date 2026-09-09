@@ -599,19 +599,24 @@
         if(error?.name==='AbortError')return false;
         return true;
     }
-    function retryInput(baseInput,error,lastReply,attempt,maxRetries,acceptedResult) {
+    function retryInput(baseInput,error,lastReply,attempt,maxRetries,acceptedResult,retryPlan=[]) {
         let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
+        const plan=Array.isArray(retryPlan)?retryPlan.filter(Boolean).map(String):[];
         payload.纠错重试={
             当前重试:attempt,
             最大重试次数:maxRetries,
             上次拒绝原因:String(error?.message||error||''),
             上次模型回复:String(lastReply||'').slice(-12000),
             已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
+            补充清单:plan.length?copy(plan):undefined,
             要求:acceptedResult
-                ?'只补充或修正导致拒绝的业务片段。已接受业务结果默认保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。'
+                ?(plan.length
+                    ?'严格按“补充清单”只补充或修正未通过的业务片段。已接受业务结果已经通过本地验收，默认全部保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。'
+                    :'只补充或修正导致拒绝的业务片段。已接受业务结果默认保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。')
                 :'修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。'
         };
         if(payload.纠错重试.已接受业务结果===undefined)delete payload.纠错重试.已接受业务结果;
+        if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;
         return JSON.stringify(payload,null,2);
     }
     // 仅允许世界叙事字段与世界经济三字段；玩家数值、持币余额、奖励发放和时钟不在写入名单内。
@@ -869,6 +874,75 @@
         result.传闻={};
         for(const key of WORLD_RESULT_RUMORS)result.传闻[key]=mergeNamedResultLists(a.传闻?.[key],b.传闻?.[key]);
         return result;
+    }
+    function worldResultFragments(value) {
+        const result=normalizeWorldResult(value),fragments=[];
+        const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
+        if(Object.hasOwn(result,'公开摘要'))push('公开摘要',{公开摘要:result.公开摘要});
+        for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
+        for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端']){
+            for(const item of result[key]||[])push(key+'/'+item.名称,{[key]:[copy(item)]});
+        }
+        if(Object.hasOwn(result.因果||{},'当前阶段'))push('因果/当前阶段',{因果:{当前阶段:result.因果.当前阶段}});
+        if(Array.isArray(result.因果?.宏观顺序)&&result.因果.宏观顺序.length)push('因果/宏观顺序',{因果:{宏观顺序:copy(result.因果.宏观顺序)}});
+        for(const item of result.因果?.偏移记录||[])push('因果/偏移记录/'+item.名称,{因果:{偏移记录:[copy(item)]}});
+        for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻?.[key]||[])push('传闻/'+key+'/'+item.名称,{传闻:{[key]:[copy(item)]}});
+        for(const item of result.关系||[])push('关系/'+item.名称,{关系:[copy(item)]});
+        return {摘要:result.摘要,fragments};
+    }
+    function stageWorldResult(stat,accepted,incoming) {
+        const split=worldResultFragments(incoming);
+        let staged=accepted?mergeWorldResults(accepted,{摘要:split.摘要}):normalizeWorldResult({摘要:split.摘要});
+        let pending=split.fragments.map(unit=>Object.assign({},unit,{error:null})),progress=true;
+        while(pending.length&&progress){
+            progress=false;
+            const nextPending=[];
+            for(const unit of pending){
+                const candidate=mergeWorldResults(staged,unit.result);
+                try{
+                    const compiled=compileWorldResult(stat,candidate);
+                    materializeWorldUpdate(stat,[],compiled.patches);
+                    staged=candidate;
+                    progress=true;
+                }catch(error){
+                    unit.error=error;
+                    nextPending.push(unit);
+                }
+            }
+            pending=nextPending;
+        }
+        return {
+            accepted:staged,
+            rejected:pending.map(unit=>({片段:unit.label,原因:String(unit.error?.message||unit.error||'业务片段未通过校验')}))
+        };
+    }
+    function retryPlanForFailure(error,rejected=[]) {
+        const plan=[];
+        for(const item of rejected||[])plan.push(item.片段+'：'+item.原因);
+        const message=String(error?.message||error||'');
+        let match=message.match(/宏观事件不足：需要至少3个待发生宏观节点，当前仅(\d+)个/);
+        if(match){
+            const current=Math.max(0,Number(match[1])||0),missing=Math.max(0,3-current);
+            plan.push('宏观骨架：当前仅'+current+'个待发生宏观节点，还需补充至少'+missing+'个待发生宏观节点；新增事件必须使用 分类=宏观节点、状态=待发生，并给出可执行的时间/条件/前因。');
+            plan.push('因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序，使用最终3~5个已建立宏观节点名称形成顺序。');
+        }else if(/因果轨道未形成有效宏观投影/.test(message)){
+            plan.push('因果轨道：不要重写已接受事件，只补写 因果.宏观顺序；长度必须3~5，且每个名称都必须对应已建立且未取消的宏观节点。');
+        }else if((match=message.match(/到期事件未处理：([^。]+)/))){
+            plan.push('到期事件/'+match[1]+'：本轮必须明确启动该事件，或更新本轮复核日期、阻碍条件与下次检查。');
+        }else if(message&&!rejected.length){
+            plan.push('整体校验：'+message);
+        }
+        return Array.from(new Set(plan.filter(Boolean)));
+    }
+    function makeRetryFailure(rejected,globalError) {
+        const reasons=[];
+        if(rejected?.length)reasons.push('部分业务片段未通过：'+rejected.map(x=>x.片段).join('、'));
+        if(globalError)reasons.push(String(globalError.message||globalError));
+        const error=new Error(reasons.join('；')||'WorldResult 未通过业务校验');
+        error.retryPlan=retryPlanForFailure(globalError,rejected);
+        error.rejectedSlices=copy(rejected||[]);
+        return error;
     }
     const MICRO_EXPLORATION_SEGMENT=/^(?:天台|教室|走廊|楼梯|楼层|办公室|医务室|校医室|房间|寝室|宿舍房间|洗手间|浴室|食堂|门厅|入口|出口|校门|桥头|街口|小巷)$/;
     function explorationGranularity(name) {
@@ -1874,14 +1948,14 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 if(token!==this.generation)throw new Error('请求已取消');
 
                 const maxRetries=Math.max(0,Math.min(5,Number(this.config.retryAttempts)||0));
-                let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null;
+                let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];
 
                 while(attempt<=maxRetries){
                     if(token!==this.generation)throw new Error('请求已取消');
                     this.controller=new AbortController();
                     timedOut=false;
                     clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},120000);
-                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxRetries,acceptedWorldResult);
+                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxRetries,acceptedWorldResult,lastRetryPlan);
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
                     actualRequest.manifest=Object.assign({},copy(request.manifest),{
@@ -1902,9 +1976,11 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                         this.lastReply=received;this.lastFailure='';
 
                         const reply=parseReply(received);
-                        let legacyPatches=[];
+                        let legacyPatches=[],rejectedSlices=[];
                         if(reply.kind==='world_result'){
-                            acceptedWorldResult=mergeWorldResults(acceptedWorldResult,reply.worldResult);
+                            const staged=stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult);
+                            acceptedWorldResult=staged.accepted;
+                            rejectedSlices=staged.rejected;
                             reply.summary=acceptedWorldResult.摘要||reply.summary;
                         } else {
                             legacyPatches=sanitizeModelPatches(normalizeModelPatches(reply.patches));
@@ -1924,8 +2000,12 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                         this.lastCompileWarnings=copy(compiled.warnings);
                         let built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
                         let next=built.next;
-                        ensureDueHandled(next,request.due,base.stat.世界.时间);
-                        ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
+                        let globalError=null;
+                        try{
+                            ensureDueHandled(next,request.due,base.stat.世界.时间);
+                            ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
+                        }catch(error){globalError=error;}
+                        if(rejectedSlices.length||globalError)throw makeRetryFailure(rejectedSlices,globalError);
 
                         const current=this.snapshot();
                         if(token!==this.generation||this.controller.signal.aborted||current.fingerprint!==base.fingerprint||this.blocked(current))throw new Error('上下文已经切换，本次结果已丢弃');
@@ -1938,8 +2018,12 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                             this.lastCompileWarnings=copy(compiled.warnings);
                             built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
                             next=built.next;
-                            ensureDueHandled(next,request.due,base.stat.世界.时间);
-                            ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
+                            let currentGlobalError=null;
+                            try{
+                                ensureDueHandled(next,request.due,base.stat.世界.时间);
+                                ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
+                            }catch(error){currentGlobalError=error;}
+                            if(currentGlobalError)throw makeRetryFailure([],currentGlobalError);
                         }
                         const committedPatches=built.appliedSeeds.concat(modelPatches,built.repairPatches);
 
@@ -1970,6 +2054,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                         clearTimeout(timeout);
                         lastError=error;
                         lastRejectedReply=received||this.lastReply||'';
+                        lastRetryPlan=Array.isArray(error?.retryPlan)&&error.retryPlan.length?copy(error.retryPlan):retryPlanForFailure(error,[]);
                         const canRetry=!!received&&retryableModelFailure(error)&&attempt<maxRetries;
                         if(!canRetry)throw error;
                         this.lastRetryLog.push({重试:attempt+1,错误:String(error.message||error)});

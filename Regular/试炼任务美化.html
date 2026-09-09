@@ -583,6 +583,10 @@
 
           // 无论额外变量更新先还是后：赋值前先以上一楼层任务块为唯一基线。
           restorePreviousTaskBaseline(win, c, '晋升试炼美化', taskBaseline);
+          if (expectedSingle) {
+            // 单一世界没有副本成就；清除旧副本/旧版本残留，避免任务基线把盲盒成就带回当前世界。
+            set(c,'stat_data.任务.副本成就',{});
+          }
 
           const ex = expectedData(q);
           q.tasks.forEach(function(task,index){

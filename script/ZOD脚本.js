@@ -403,15 +403,9 @@ export const Schema = z.object({
         时间: safeStr('待初始化'),
         地点: safeStr('待初始化'),
         名称: safeStr('待初始化'),
-        // 世界引擎的楼层状态；正文只取得“局势摘要 + 正文承接”，完整记录由独立脚本校验。
+        // 世界引擎的完整后台状态；正文只通过当前变量读取当前阶段与安全过滤后的当前事件。
         后台: z.object({
-            版本: safeNum(3), 已处理楼层: safeStr(''), 已处理时间: safeStr(''), 公开摘要: safeStr(''),
-            正文承接: z.array(z.object({
-                来源: safeStr(''),
-                触达方式: safeStr(''),
-                可见事实: safeStr(''),
-                当前场景影响: safeStr('')
-            })).prefault([]).transform(arr => arr.filter(item => item.来源 && item.触达方式 && item.可见事实 && item.当前场景影响).slice(0, 3)),
+            版本: safeNum(4), 已处理楼层: safeStr(''), 已处理时间: safeStr(''),
             事件: z.record(z.string(), z.any()).prefault({}),
             人物: z.record(z.string(), z.any()).prefault({}),
             势力地区: z.record(z.string(), z.any()).prefault({}),

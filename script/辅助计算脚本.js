@@ -92,6 +92,8 @@
             // ★ 关系列表是普通角色是否继续受后台人物调度的生命周期信号。
             //   明确从关系列表删除的角色，同步从 世界.后台.人物 删除，避免继续占用世界推进上下文；异端雷达独立管理，不在此处修改。
             syncRemovedRelationshipPeople(statData, statDataBefore);
+            // ★ 异端生命周期独立于普通关系列表：死亡不可逆；死亡后同时退休关系实体和后台人物活动，雷达保留死亡记录。
+            syncAlienLifecycle(statData, statDataBefore);
 
             // 世界引擎的独立提交仅更新叙事数据，不能当成又一轮正文消耗状态/冷却。
             // 标记随本楼层保存；后续正文继承同一标记时 before/after 相等，照常计算。
@@ -250,6 +252,66 @@
             console.log('[后台人物同步] 关系列表已删除角色，人物管理同步退休：' + deleted.join('、'));
         }
         return deleted;
+    }
+
+    /**
+     * 异端生命周期守卫。
+     * - 雷达已死亡不可逆，拒绝被后续模型改回活跃。
+     * - 关系实体 HP<=0 或状态明确死亡时，同步雷达=死亡。
+     * - 死亡异端从关系列表与世界.后台.人物同步删除，避免正文继续发送、世界引擎继续活动；雷达死亡记录保留。
+     */
+    function syncAlienLifecycle(statData, statDataBefore) {
+        const roster = statData?.世界?.异端雷达?.名单;
+        if (!roster || typeof roster !== 'object' || Array.isArray(roster)) return { 死亡: [], 删除关系: [], 删除后台: [] };
+
+        const beforeRoster = statDataBefore?.世界?.异端雷达?.名单 || {};
+        const relations = statData.关系列表 && typeof statData.关系列表 === 'object' ? statData.关系列表 : {};
+        const backendPeople = statData.世界?.后台?.人物 && typeof statData.世界.后台.人物 === 'object' ? statData.世界.后台.人物 : {};
+        const nameKey = (value) => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
+        const uniqueMatch = (bucket, name) => {
+            if (!bucket || typeof bucket !== 'object') return '';
+            if (Object.prototype.hasOwnProperty.call(bucket, name)) return name;
+            const key = nameKey(name);
+            const matches = Object.keys(bucket).filter(item => nameKey(item) === key);
+            return matches.length === 1 ? matches[0] : '';
+        };
+        const relationDead = (npc) => {
+            if (!npc || typeof npc !== 'object') return false;
+            if (typeof npc.HP === 'number' && npc.HP <= 0) return true;
+            const statuses = npc.状态 && typeof npc.状态 === 'object' ? Object.keys(npc.状态) : [];
+            return statuses.some(key => String(key).includes('死亡'));
+        };
+
+        const report = { 死亡: [], 删除关系: [], 删除后台: [] };
+        for (const [alienName, alien] of Object.entries(roster)) {
+            if (!alien || typeof alien !== 'object') continue;
+            const previousName = uniqueMatch(beforeRoster, alienName);
+            const wasDead = previousName && beforeRoster[previousName]?.状态 === '死亡';
+            const relationName = uniqueMatch(relations, alienName);
+            const npc = relationName ? relations[relationName] : null;
+
+            if (wasDead && alien.状态 !== '死亡') {
+                alien.状态 = '死亡';
+                console.warn('[异端生命周期] ' + alienName + ' 已死亡，拒绝恢复为活跃。');
+            }
+            if (alien.状态 !== '死亡' && relationDead(npc)) {
+                alien.状态 = '死亡';
+                console.log('[异端生命周期] ' + alienName + ' 已由角色死亡事实同步为死亡。');
+            }
+            if (alien.状态 !== '死亡') continue;
+
+            report.死亡.push(alienName);
+            if (relationName && Object.prototype.hasOwnProperty.call(relations, relationName)) {
+                delete relations[relationName];
+                report.删除关系.push(relationName);
+            }
+            const backendName = uniqueMatch(backendPeople, alienName);
+            if (backendName && Object.prototype.hasOwnProperty.call(backendPeople, backendName)) {
+                delete backendPeople[backendName];
+                report.删除后台.push(backendName);
+            }
+        }
+        return report;
     }
 
     /**

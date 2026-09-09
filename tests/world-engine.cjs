@@ -582,6 +582,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(WORLD_RESULT_SCHEMA.properties.势力.items.properties.实力.enum,['F','E','D','C','B','A','S','SS','SSS']);
         assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.minimum,-5000);
         assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.maximum,10000);
+        assert.deepEqual(WORLD_RESULT_SCHEMA.properties.异端.items.properties.状态.enum,['活跃','死亡']);
+        assert.equal(WORLD_RESULT_SCHEMA.properties.异端.items.properties.来源,undefined,'异端身份字段由任务锁维护，世界引擎只更新生死状态');
     });
     await test('active alien roster members are mandatory world-person activities and dead aliens cannot resurrect', async () => {
         let calls=0,inputs=[];
@@ -621,6 +623,21 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(x.get().世界.后台.人物.异端乙,undefined,'死亡异端后台人物必须被程序清除，禁止诈尸');
         assert.equal(x.writes(),1);
     });
+    await test('world engine may end an active alien without demanding another activity record', async () => {
+        let calls=0;
+        const x=setup(async()=>{calls++;return JSON.stringify({摘要:'异端确认死亡',异端:[{名称:'异端甲',状态:'死亡'}]});});
+        x.change(s=>{
+            s.世界.异端雷达={当前模式:'干涉局',名单:{
+                异端甲:{来源:'原创',经历:'潜伏',阵营:'篡夺者',职业:'刺客',层级:'Ⅱ',状态:'活跃'}
+            }};
+            s.世界.后台.人物.异端甲={...RECORDS.人物,所属世界:'测试世界',地点:'北门',目标:'潜伏',行动:'跟踪',更新时间:'旧时间'};
+        });
+        x.engine.config.requireMacroBackbone=false;x.engine.config.retryAttempts=1;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,1);
+        assert.equal(x.get().世界.异端雷达.名单.异端甲.状态,'死亡');
+        assert.equal(x.get().世界.后台.人物.异端甲,undefined,'异端死亡后同轮即停止后台人物活动');
+    });
     await test('dead alien person proposals are ignored even if the model tries to recreate them', () => {
         const stat=fresh();
         stat.世界.异端雷达={当前模式:'干涉局',名单:{
@@ -628,10 +645,13 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         }};
         const compiled=compileWorldResult(stat,{
             摘要:'错误复活尝试',
-            人物:[{名称:'死亡异端',所属世界:'测试世界',地点:'战场',目标:'继续作战',行动:'重新站起来'}]
+            人物:[{名称:'死亡异端',所属世界:'测试世界',地点:'战场',目标:'继续作战',行动:'重新站起来'}],
+            异端:[{名称:'死亡异端',状态:'活跃'}]
         });
         assert.equal(compiled.patches.some(p=>p.path.includes('/后台/人物/死亡异端')),false);
+        assert.equal(compiled.patches.some(p=>p.path.includes('/异端雷达/名单/死亡异端/状态')),false,'死亡异端不得被改回活跃');
         assert.match(compiled.warnings.join('\n'),/死亡异端.*禁止恢复|异端已死亡/);
+        assert.match(compiled.warnings.join('\n'),/死亡异端状态不可逆/);
     });
     await test('world run forces stale active events and legacy future timestamps to be repaired before commit', async () => {
         let calls=0,inputs=[];
@@ -1675,7 +1695,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             异端亡者:{来源:'原创',经历:'已阵亡',阵营:'篡夺者',职业:'战士',层级:'Ⅱ',状态:'死亡'}
         }};
         stat.世界.后台.人物={
-            异端甲:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点附近',目标:'观察玩家去向',行动:'混在人群中跟踪北门出入者',公开动态:'一名陌生旅人反复出现在北门附近',状态:'潜伏',更新时间:'2026年9月7日上午',关联事件:['北门身份核验']},
+            异端甲:{...RECORDS.人物,所属世界:'测试世界',地点:'遥远城南',目标:'观察玩家去向',行动:'混在人群中跟踪北门出入者',公开动态:'一名陌生旅人正在远处布置后续行动',状态:'潜伏',更新时间:'2026年9月6日下午',关联事件:[]},
             异端亡者:{...RECORDS.人物,所属世界:'测试世界',地点:'墓地',目标:'不应存在',行动:'诈尸'},
             守备官:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'维持封锁',行动:'核查通行文件',公开动态:'守备官正在北门指挥检查',状态:'值勤',更新时间:'2026年9月7日上午',关联事件:['北门身份核验']},
             纯冷NPC:{...RECORDS.人物,所属世界:'测试世界',地点:'遥远村庄',目标:'种田',行动:'长期无关行动'}

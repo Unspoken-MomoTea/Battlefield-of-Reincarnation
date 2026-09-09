@@ -284,9 +284,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const compiled=compileWorldResult(stat,{
             摘要:'同轮因果',
             事件:[
-                {名称:'天台入口攻防',描述:'铁门受冲击',前因:['病毒向高层蔓延'],状态:'进行中',分类:'当前事件'},
-                {名称:'病毒向高层蔓延',描述:'死体向高层扩散',前因:['藤美学园爆发'],状态:'已完成',分类:'近期节点'},
-                {名称:'藤美学园爆发',描述:'校园爆发',状态:'进行中',分类:'宏观节点'}
+                {名称:'天台入口攻防',描述:'铁门受冲击',前因:['病毒向高层蔓延'],状态:'进行中',分类:'当前事件',时间:'2026年9月7日上午'},
+                {名称:'病毒向高层蔓延',描述:'死体向高层扩散',前因:['藤美学园爆发'],状态:'已完成',分类:'近期节点',时间:'2026年9月7日上午'},
+                {名称:'藤美学园爆发',描述:'校园爆发',状态:'进行中',分类:'宏观节点',时间:'2026年9月7日上午'}
             ]
         });
         const next=applyPatches(stat,compiled.patches);
@@ -517,6 +517,34 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(WORLD_RESULT_SCHEMA.properties.势力.items.properties.实力.enum,['F','E','D','C','B','A','S','SS','SSS']);
         assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.minimum,-5000);
         assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.maximum,10000);
+    });
+    await test('existing vague or empty event schedules are explicitly requested and repaired', async () => {
+        let calls=0,inputs=[];
+        const x=setup(async (_system,input)=>{
+            calls++;inputs.push(input);
+            return JSON.stringify({
+                摘要:'补全旧事件时间',
+                事件:[
+                    {名称:'旧宏观A',时间:'2026年9月8日下午'},
+                    {名称:'旧宏观B',时间:'旧宏观A完成后当日傍晚'}
+                ]
+            });
+        });
+        x.change(s=>{
+            s.世界.后台.事件={
+                旧宏观A:{...RECORDS.事件,描述:'A',分类:'宏观节点',状态:'待发生',时间:''},
+                旧宏观B:{...RECORDS.事件,描述:'B',分类:'宏观节点',状态:'待发生',时间:'近期',前因:['旧宏观A']},
+                旧宏观C:{...RECORDS.事件,描述:'C',分类:'宏观节点',状态:'待发生',时间:'2026年9月10日'}
+            };
+            s.世界.因果轨道={当前阶段:'',故事线:'旧宏观A -> 旧宏观B -> 旧宏观C',下一节点:'旧宏观A',偏移记录:{}};
+        });
+        x.engine.config.requireMacroBackbone=true;x.engine.config.retryAttempts=1;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,1);
+        const payload=JSON.parse(inputs[0]);
+        assert.deepEqual(payload.本轮必须补全的事件时间锚点.map(x=>x.名称),['旧宏观A','旧宏观B']);
+        assert.equal(x.get().世界.后台.事件.旧宏观A.时间,'2026年9月8日下午');
+        assert.equal(x.get().世界.后台.事件.旧宏观B.时间,'旧宏观A完成后当日傍晚');
     });
     await test('retry merges accepted WorldResult and requests only the missing business slice', async () => {
         let calls=0,inputs=[];

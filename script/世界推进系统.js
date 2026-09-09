@@ -106,7 +106,7 @@
 只使用世界.时间计算本世界进展；系统状态.游玩天数仅作只读参考。时间未变也可记录本轮新事实，但不得虚构耗时进度。跨多个日期需按依赖顺序补算，先处理到期事件再生成后果。
 事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。所有待发生与进行中事件都必须提供可排序的时间锚点：能确定世界日期/时段就写具体时间；无法确定精确日期的远期宏观节点写明确的相对或因果时间（如“爆发后数日”“校舍突围战后当日傍晚”），不得留空，也不得只写“近期/稍后/未来/待定/未知”。已完成/已取消事件由程序在失去活跃引用且超过保留窗口后压缩成历史锚点，不要为了“保留历史”重复创建旧事件；禁止无依据捏造精确日历日期。
 世界超稳时保持默认宏观轨道，不新增偏移。单一世界的局部结算不能重置世界。普通副本返回主神空间后停止本世界推演。
-初始化时依据当前设定建立必要的近远期节点；无依据的记录保持空。没有变化就返回仅含摘要的空 WorldResult。公开摘要只包含当前可观察的事实、征兆和已知线索，隐藏真相和未来结局留在后台。`;
+初始化时依据当前设定建立必要的近远期节点；无依据的记录保持空。没有变化就返回仅含摘要的空 WorldResult。公开摘要只负责概括当前可观察的世界局势、征兆和已知线索，隐藏真相和未来结局留在后台。另用“正文承接”交付0~3条已经能够通过合理渠道触达<user>当前场景的公开结果；每条必须写来源、触达方式、可见事实、当前场景影响。正文承接不是未来计划、不是后台秘密，也不是泛泛新闻；如果本轮没有任何后台变化已经触达当前场景，输出空数组。`;
     const BUILTIN_DEFAULT_SELECTED_ENTRIES = [
             "[\"轮回战场V3.6.1\",\"915830\"]",
             "[\"轮回战场V3.6.1\",\"196248\"]",
@@ -161,7 +161,7 @@
 7. 探索与势力结算约束：世界.探索和世界.势力会直接参与空间币结算，以下格式和值域就是世界引擎自身的完整规则，不依赖外部变量更新文档。WorldResult.探索必须是数组，每项格式 {名称:string, 操作?:"更新"|"撤销本轮", 风险:"F"|"E"|"D"|"C"|"B"|"A"|"S"|"SS"|"SSS", 探索度:number(0~100), 描述:string, 隐藏真相?:string}；新建探索项至少写名称/风险/探索度/描述，已有项只写变化字段。WorldResult.势力必须是数组，每项格式 {名称:string, 操作?:"更新"|"撤销本轮", 实力:"F"|"E"|"D"|"C"|"B"|"A"|"S"|"SS"|"SSS", 领地:string, 描述:string, 声望:number(-5000~10000)}；新建势力至少写名称/实力/领地/描述/声望，已有项只写变化字段。探索只记录整体地标/区域，禁止天台、教室、走廊、楼梯、单个房间、办公室、医务室等子区域单独建档；微观发现只累加到所属主区域。世界.探索只代表<user>实际到达、调查或通过可靠情报获得的探索成果，后台NPC自己的发现写后台记录，不得转成玩家探索度。探索度锚点为0无知/10浅尝/30熟悉/60深入/90掌控/100核心，已确认探索进度不得无因降低。世界.势力在玩家首次接触或通过可靠布告/情报确认后建档；实力/领地/描述可随世界局势更新，但声望只表示该势力对<user>的结算关系，不等于势力自身兴衰。声望锚点-5000敌对/-1000仇视/0冷淡/500中立/2000友好/5000崇敬/10000崇拜；只有<user>对该势力或成员造成真实帮助、损害、背叛等结果才变化，同一事件只结算一次，单轮绝对变化不得超过1000，超过500仅限重大核心事件。
 8. 货币与经济：可维护世界.货币的体系、购买力基准、经济波动。货币体系不是跨界后永久锁死：若战争、末日、政权崩溃或流通网络断裂使旧货币在数小时/一天内实际失效，应把体系更新为当前真实交易媒介（如以物易物、粮食、药品、弹药或新发行票据），并同步购买力基准与经济波动。不得仅因时间经过随意改币制；任务世界不得使用空间币作为本地货币、定价或经济依据。
 9. 历法一致性：世界引擎维护世界.历法的名称、月份天数与闰年规则；只有世界设定或可靠资料明确时填写。普通正文AI仍负责依据实际经过时间更新世界.时间，但必须服从该历法。若某月只有28天，日期越过28日必须进位到下月，禁止出现本历法不存在的29/30/31日。世界.历法为空时，数字公历按正常公历校验；作品纪年无明确历法规格时不要臆造月长。
-10. 输出分层：模型只提交 WorldResult 业务事实，不生成 JSON Pointer 或 add/replace 路径；程序负责名称归一、增量合并、路径转义、补丁编译、事件分类修复、宏观投影和安全校验。`
+10. 输出分层：模型只提交 WorldResult 业务事实，不生成 JSON Pointer 或 add/replace 路径；程序负责名称归一、增量合并、路径转义、补丁编译、事件分类修复、宏观投影和安全校验。公开摘要只回答“世界现在发生了什么”；正文承接只回答“其中哪些结果已经能够触达<user>当前场景并应在下一次正文中被感知”。正文承接最多3条，必须遵守信息传播渠道，不得泄露隐藏计划或把尚未发生的未来节点伪装成已发生影响。`
     function splitPresetSegments(value) {
         return String(value||'').split(/\n(?=【)/).filter(Boolean).map(part=>{
             const m=part.match(/^【([^】]+)】\s*\n?/);
@@ -258,9 +258,29 @@
         const expiry=worldDateKey(record.到期时间);
         return expiry!==null&&nowKey!==null&&expiry<=nowKey;
     }
+    function pruneSoftRefsToColdFinishedEvents(state,now) {
+        if(now===null)return [];
+        const cold=new Set();
+        for(const [name,event] of Object.entries(state?.事件||{})){
+            if(!['已完成','已取消'].includes(event?.状态))continue;
+            const endedAt=worldDateKey(event.更新时间||event.预计结束||event.时间);
+            if(endedAt!==null&&now-endedAt>=FINISHED_EVENT_GRACE_HOURS)cold.add(name);
+        }
+        if(!cold.size)return [];
+        const changed=[];
+        for(const category of ['人物','势力地区','传播']){
+            for(const [name,record] of Object.entries(state?.[category]||{})){
+                if(!Array.isArray(record?.关联事件)||!record.关联事件.some(id=>cold.has(id)))continue;
+                record.关联事件=record.关联事件.filter(id=>!cold.has(id));
+                changed.push(category+'/'+name);
+            }
+        }
+        return changed;
+    }
     function compactFinishedEvents(stat,target=EVENT_TARGET) {
         const state=stat?.世界?.[PATH]; if(!state?.事件)return [];
         const archived=[],now=worldDateKey(stat?.世界?.时间);
+        pruneSoftRefsToColdFinishedEvents(state,now);
         let refs=collectEventRefs(state);
         const finished=()=>Object.entries(state.事件||{}).filter(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name));
         // 有明确时间的旧结束事件，在经过一个世界日后直接冷归档；刚刚结束的内容至少保留到下一阶段。
@@ -312,6 +332,52 @@
         const predecessors=Array.isArray(event?.前因)?event.前因.filter(Boolean):[];
         if(predecessors.length)return '前置节点后 · '+predecessors.join('、');
         return '时间待补';
+    }
+    const STALE_CURRENT_EVENT_HOURS=7*24;
+    const STALE_NEAR_EVENT_HOURS=30*24;
+    function staleActiveEvents(stat) {
+        const now=worldDateKey(stat?.世界?.时间);if(now===null)return [];
+        const out=[];
+        for(const [名称,event] of Object.entries(stat?.世界?.[PATH]?.事件||{})){
+            if(event?.状态!=='进行中'||event?.分类==='宏观节点')continue;
+            const touched=worldDateKey(event.更新时间||event.时间||event.开始时间);
+            if(touched===null)continue;
+            const threshold=event.分类==='当前事件'?STALE_CURRENT_EVENT_HOURS:STALE_NEAR_EVENT_HOURS;
+            const age=now-touched;
+            if(age>threshold)out.push({名称,分类:event.分类,状态:event.状态,时间:event.时间||event.开始时间||'',更新时间:event.更新时间||'',已陈旧小时:age,说明:'局部活动长期停留在进行中；应结束/取消，或确认仍持续并更新到当前世界时间、当前进展与下次检查。'});
+        }
+        return out;
+    }
+    function temporalAnomalies(stat) {
+        const now=worldDateKey(stat?.世界?.时间);if(now===null)return [];
+        const state=stat?.世界?.[PATH]||{},out=[];
+        const push=(类型,名称,字段,值,原因)=>{
+            const key=worldDateKey(值);if(key!==null&&key>now)out.push({类型,名称,字段,值:String(值||''),原因});
+        };
+        for(const [name,event] of Object.entries(state.事件||{})){
+            if(['进行中','已完成'].includes(event?.状态))push('事件',name,'时间',event.时间||event.开始时间,'已发生/进行中的事件不能晚于当前世界时间');
+            if(event?.更新时间)push('事件',name,'更新时间',event.更新时间,'事件更新时间不能晚于当前世界时间');
+        }
+        for(const [name,person] of Object.entries(state.人物||{}))if(person?.更新时间)push('人物',name,'更新时间',person.更新时间,'人物当前动态不能来自未来');
+        for(const [name,area] of Object.entries(state.势力地区||{})){
+            if(area?.更新时间)push('势力地区',name,'更新时间',area.更新时间,'地区当前状态不能来自未来');
+            for(const change of area?.近期变化||[])if(change?.时间)push('势力地区',name,'近期变化.时间',change.时间,'已经发生的地区变化不能来自未来');
+        }
+        for(const [name,item] of Object.entries(state.历史||{}))if(item?.时间)push('历史',name,'时间',item.时间,'历史事实不能晚于当前世界时间');
+        for(const [name,item] of Object.entries(state.传播||{}))if(item?.时间)push('传播',name,'时间',item.时间,'已经开始传播的信息不能晚于当前世界时间');
+        return out;
+    }
+    function validateTemporalWrites(before,next,patches) {
+        const touched=new Set();
+        for(const patch of patches||[]){
+            let parts;try{parts=tokens(patch.path);}catch(_){continue;}
+            if(parts[0]!=='世界'||parts[1]!==PATH)continue;
+            if(['事件','人物','势力地区','历史','传播'].includes(parts[2])&&parts[3])touched.add(parts[2]+'\u0000'+parts[3]);
+        }
+        if(!touched.size)return;
+        const all=temporalAnomalies(next);
+        const hit=all.find(item=>touched.has(item.类型+'\u0000'+item.名称));
+        if(hit)throw new Error('时间事实超过当前世界时间：'+hit.类型+'/'+hit.名称+' '+hit.字段+'='+hit.值+'；'+hit.原因);
     }
     function eventDisplayBucket(event) {
         if(event?.状态==='进行中')return 0;
@@ -416,7 +482,7 @@
         };
     }
     function emptyState() {
-        return { 版本:2, 已处理楼层:'', 已处理时间:'', 公开摘要:'', 事件:{}, 人物:{}, 势力地区:{}, 剧本:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[] };
+        return { 版本:3, 已处理楼层:'', 已处理时间:'', 公开摘要:'', 正文承接:[], 事件:{}, 人物:{}, 势力地区:{}, 剧本:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[] };
     }
     // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
     function importStory(stat) {
@@ -515,6 +581,13 @@
     }
     function normalizeBackendState(stat) {
         const state=stat?.世界?.[PATH]; if(!state)return stat;
+        if(!Array.isArray(state.正文承接))state.正文承接=[];
+        state.正文承接=state.正文承接.filter(plain).slice(0,3).map(item=>({
+            来源:String(item.来源||''),
+            触达方式:String(item.触达方式||''),
+            可见事实:String(item.可见事实||''),
+            当前场景影响:String(item.当前场景影响||'')
+        })).filter(item=>item.来源&&item.触达方式&&item.可见事实&&item.当前场景影响);
         for(const category of Object.keys(RECORDS)){
             if(!plain(state[category]))state[category]={};
             for(const [name,value] of Object.entries(state[category])){
@@ -662,7 +735,7 @@
     function allowed(parts, stat) {
         const [a,b,c,d] = parts;
         if (a === '世界' && b === PATH) {
-            if (parts.length === 3 && c === '公开摘要') return true;
+            if (parts.length === 3 && ['公开摘要','正文承接'].includes(c)) return true;
             if (c === '剧本') return false;
             if (!Object.hasOwn(RECORDS, c) || !d) return false;
             if (c === '历史') return parts.length === 4;
@@ -723,6 +796,16 @@
         properties:{
             摘要:{type:'string'},
             公开摘要:{type:'string'},
+            正文承接:{type:'array',maxItems:3,items:{
+                type:'object',additionalProperties:false,
+                required:['来源','触达方式','可见事实','当前场景影响'],
+                properties:{
+                    来源:{type:'string',minLength:1,maxLength:160},
+                    触达方式:{type:'string',minLength:1,maxLength:160},
+                    可见事实:{type:'string',minLength:1,maxLength:500},
+                    当前场景影响:{type:'string',minLength:1,maxLength:500}
+                }
+            }},
             货币:{type:'object',additionalProperties:false,properties:{
                 体系:{type:'string'},
                 购买力基准:{type:'string'},
@@ -845,6 +928,14 @@
         if(!plain(value))throw new Error('WorldResult 必须是 JSON 对象');
         const result={摘要:String(value.摘要??value.summary??'世界继续推进')};
         if(Object.hasOwn(value,'公开摘要')||Object.hasOwn(value,'public_summary'))result.公开摘要=String(value.公开摘要??value.public_summary??'');
+        if(Object.hasOwn(value,'正文承接')){
+            result.正文承接=(Array.isArray(value.正文承接)?value.正文承接:[]).filter(plain).slice(0,3).map(item=>({
+                来源:String(item.来源||'').trim(),
+                触达方式:String(item.触达方式||'').trim(),
+                可见事实:String(item.可见事实||'').trim(),
+                当前场景影响:String(item.当前场景影响||'').trim()
+            })).filter(item=>item.来源&&item.触达方式&&item.可见事实&&item.当前场景影响);
+        }
         result.货币={};
         if(plain(value.货币)){
             for(const key of Object.keys(CURRENCY_FIELDS))if(Object.hasOwn(value.货币,key))result.货币[key]=String(value.货币[key]??'');
@@ -900,6 +991,8 @@
         const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
         if(Object.hasOwn(b,'公开摘要'))result.公开摘要=b.公开摘要;
         else if(Object.hasOwn(a,'公开摘要'))result.公开摘要=a.公开摘要;
+        if(Object.hasOwn(b,'正文承接'))result.正文承接=copy(b.正文承接);
+        else if(Object.hasOwn(a,'正文承接'))result.正文承接=copy(a.正文承接);
         result.货币=Object.assign({},a.货币||{},b.货币||{});
         result.历法=Object.assign({},a.历法||{},b.历法||{});
         for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
@@ -918,6 +1011,7 @@
         const result=normalizeWorldResult(value),fragments=[];
         const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
         if(Object.hasOwn(result,'公开摘要'))push('公开摘要',{公开摘要:result.公开摘要});
+        if(Object.hasOwn(result,'正文承接'))push('正文承接',{正文承接:copy(result.正文承接)});
         for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
         for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
         for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端']){
@@ -979,6 +1073,10 @@
             plan.push('事件/'+match[1]+'：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。');
         }else if((match=message.match(/事件时间锚点仍未补全：([^；]+)/))){
             for(const name of match[1].split('、').filter(Boolean))plan.push('事件/'+name+'：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。');
+        }else if((match=message.match(/超期活动事件仍未复核：([^；]+)/))){
+            for(const name of match[1].split('、').filter(Boolean))plan.push('事件/'+name+'：该局部活动已远超正常持续窗口。若实际早已结束则改为已完成并补结果；若失效则已取消；只有确实仍持续时才保留进行中，并把更新时间写为当前世界时间、更新当前描述并填写下次检查。');
+        }else if((match=message.match(/时间越界记录仍未修复：([^；]+)/))){
+            plan.push('时间一致性：修复这些已经发生的记录，任何已完成/进行中事件、人物更新时间、地区已发生变化、历史与传播都不得晚于当前世界时间：'+match[1]);
         }else if(message&&!rejected.length){
             plan.push('整体校验：'+message);
         }
@@ -1027,7 +1125,7 @@
         for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
         return out;
     }
-    function compileWorldResult(stat,value) {
+    function compileWorldResult(stat,value,options={}) {
         const result=normalizeWorldResult(value),patches=[],warnings=[];
         const exists=parts=>get(stat,canonicalizeParts(parts,stat));
         const addEntity=(parts,item,sample,options={})=>{
@@ -1051,6 +1149,10 @@
             patches.push({op:old===undefined?'add':'replace',path:pointer(actual),value:record});
         };
         if(Object.hasOwn(result,'公开摘要'))patches.push({op:'replace',path:'/世界/后台/公开摘要',value:result.公开摘要});
+        if(Object.hasOwn(result,'正文承接')||options.finalizeHandoff){
+            const handoff=Object.hasOwn(result,'正文承接')?copy(result.正文承接):[];
+            if(!same(stat.世界?.[PATH]?.正文承接||[],handoff))patches.push({op:'replace',path:'/世界/后台/正文承接',value:handoff});
+        }
         for(const [key,value] of Object.entries(result.货币||{})){
             const parts=['世界','货币',key],old=get(stat,parts);
             if(old!==value)patches.push({op:old===undefined?'add':'replace',path:pointer(parts),value});
@@ -1112,6 +1214,10 @@
     function validateState(stat) {
         const state = stat.世界[PATH];
         if (typeof state.公开摘要 !== 'string' || state.公开摘要.length > 5000) throw new Error('公开摘要限 5000 字');
+        if(!Array.isArray(state.正文承接)||state.正文承接.length>3)throw new Error('正文承接最多3条');
+        for(const [index,item] of state.正文承接.entries()){
+            if(!plain(item)||['来源','触达方式','可见事实','当前场景影响'].some(key=>typeof item[key]!=='string'||!item[key].trim()))throw new Error('正文承接格式错误：第'+(index+1)+'条');
+        }
         for (const [category, template] of Object.entries(RECORDS)) {
             if (!plain(state[category]) || Object.keys(state[category]).length > 300) throw new Error(category + '记录过多或结构错误');
             for (const [name,value] of Object.entries(state[category])) {
@@ -1210,6 +1316,7 @@
         }
         normalizeBackendState(next);
         normalizeEventLayers(next);
+        validateTemporalWrites(stat,next,patches);
         validateState(next);
         for (const [name,item] of Object.entries(next.世界.势力 || {})) {
             const old = (stat.世界.势力 || {})[name];
@@ -1229,8 +1336,10 @@
         const causalPatches=repairCausalProjection(next);
         const predecessorPatches=repairMacroPredecessors(next);
         const linkPatches=repairExplicitEventLinks(next);
+        const finalLifecycle=compactWorldLifecycle(next);
         validateState(next);
         const repairPatches=[...explorationPatches,...layerPatches,...causalPatches,...predecessorPatches,...linkPatches];
+        if(finalLifecycle.归档事件.length||finalLifecycle.回收传播.length)repairPatches.push({op:'replace',path:'/世界/后台/版本',value:next.世界[PATH].版本});
         return {next,appliedSeeds,repairPatches};
     }
     function ensureDueHandled(next,dueList,worldTime) {
@@ -1258,6 +1367,25 @@
             if(!anchor||VAGUE_EVENT_TIME.test(anchor))missing.push(item.名称);
         }
         if(missing.length)throw new Error('事件时间锚点仍未补全：'+missing.join('、')+'；请逐项补写具体世界日期/时段，或明确相对/因果时间，禁止空值和“近期/稍后/未来/待定/未知”');
+    }
+    function ensureStaleActiveHandled(next,required=[],worldTime='') {
+        const now=worldDateKey(worldTime);
+        const unresolved=[];
+        for(const item of required||[]){
+            const event=next?.世界?.[PATH]?.事件?.[item.名称];
+            if(!event||['已完成','已取消'].includes(event.状态))continue;
+            const updated=worldDateKey(event.更新时间);
+            if(event.状态==='进行中'&&updated!==null&&now!==null&&updated===now&&String(event.下次检查||'').trim())continue;
+            unresolved.push(item.名称);
+        }
+        if(unresolved.length)throw new Error('超期活动事件仍未复核：'+unresolved.join('、')+'；局部事件跨越过长时间仍标记进行中，必须结束/取消，或更新到当前时间并填写下次检查');
+    }
+    function ensureTemporalAnomaliesResolved(next,required=[]) {
+        if(!(required||[]).length)return;
+        const remaining=temporalAnomalies(next);
+        const keys=new Set((required||[]).map(item=>item.类型+'\u0000'+item.名称));
+        const bad=remaining.filter(item=>keys.has(item.类型+'\u0000'+item.名称));
+        if(bad.length)throw new Error('时间越界记录仍未修复：'+bad.map(item=>item.类型+'/'+item.名称+'('+item.字段+'='+item.值+')').join('、'));
     }
     function ensureMacroBackbone(next,timeline,required=true) {
         if(!required||!timeline?.需要补充远期)return;
@@ -1436,6 +1564,7 @@
             版本:backend.版本,
             已处理时间:backend.已处理时间,
             公开摘要:backend.公开摘要,
+            正文承接:copy(backend.正文承接||[]),
             事件:copy(backend.事件||{}),
             人物:copy(backend.人物||{}),
             势力地区:copy(backend.势力地区||{}),
@@ -1484,7 +1613,7 @@
     function protocol() {
         const schemaText=JSON.stringify(WORLD_RESULT_SCHEMA,null,2);
         return `只输出一个 WorldResult JSON 对象，不输出 Markdown、解释、思考过程、<thinking> 或 JSON Pointer。
-顶层业务字段：摘要、公开摘要、货币、历法、事件、人物、势力地区、历史、传播、因果、势力、探索、异端、传闻、关系。除“摘要”外都可以省略；省略表示本轮没有该类变化。
+顶层业务字段：摘要、公开摘要、正文承接、货币、历法、事件、人物、势力地区、历史、传播、因果、势力、探索、异端、传闻、关系。除“摘要”外都可以省略；省略表示本轮没有该类变化。正文承接建议每轮显式输出，若没有已触达当前场景的事项就写空数组。
 实体用“名称”标识，不写路径。已有实体只写本轮真正变化的业务字段；新增实体写足以确定该实体的事实字段，程序负责判断 add/replace、名称归一、JSON Pointer 转义、默认字段合并和最终 Schema 校验。
 “操作”默认“更新”。只有传播和三类传闻允许“移除”；“撤销本轮”只用于纠错重试，表示从本次尚未落盘的业务结果中撤回该实体，不删除存档中的既有实体。
 事件只写业务事实：名称、描述、时间、条件、前因、状态、默认走向、结果、公开征兆、地点、分类及可选明细。分类只允许当前事件/近期节点/宏观节点。程序会对明显局部的伪宏观降级。
@@ -1492,9 +1621,11 @@
 人物、势力地区、传播的关联事件只写事件名称；程序负责同步明确的双向引用。不要为玩家建立人物后台记录。
 货币只写本轮真实变化的“体系 / 购买力基准 / 经济波动”；不写玩家持币余额，不创造跨世界汇率。关系只写已有名称的新好感度。主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数均不属于 WorldResult；世界时间、玩家属性、玩家持币余额、装备和系统状态不由 WorldResult 写入。
 公开摘要只包含当前可观察事实、征兆和已知线索；隐藏计划、未确认内幕和未来结局留在后台字段。
+正文承接不是公开摘要的复述，而是0~3条“已经能够触达当前场景”的交接事项。每条固定为 {来源,触达方式,可见事实,当前场景影响}；必须存在合理信息/物理传播渠道，禁止写后台秘密、未来计划、尚未发生结果或泛泛世界新闻。若没有可触达事项写 []。
 
 【WorldResult 标准字段结构】
 这是模型必须遵守的标准输出形状。即使 API 从 json_schema 降级为 json_object 或 plain，也仍必须严格遵守本结构，不得自行改成其他 JSON 组织方式。
+- 正文承接：数组，最多3条，每项固定 {来源:string, 触达方式:string, 可见事实:string, 当前场景影响:string}；只写已经能够触达<user>当前场景的公开现实结果。
 - 货币：对象，只允许可选字段 {体系:string, 购买力基准:string, 经济波动:string}；只写发生变化的字段。
 - 历法：对象，只允许可选字段 {名称:string, 月份天数:number[], 闰年规则:string}；月份天数按第1月到第N月顺序给出，仅在设定明确时维护。
 - 事件 / 人物 / 势力地区 / 历史 / 传播 / 势力 / 探索 / 异端 / 关系：标准输出一律为数组；不要输出“名称→对象”的 map 简写。
@@ -1963,6 +2094,8 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
             const now=worldDateKey(state.世界.时间);
             const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
             const unscheduled=unscheduledEvents(state);
+            const staleActive=staleActiveEvents(state);
+            const timeAnomalies=temporalAnomalies(state);
             const capacity=worldTimeCapacity(state.世界[PATH].已处理时间,state.世界.时间);
             const input=JSON.stringify({
                 输入语义:{
@@ -1983,12 +2116,14 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 可选宏观资料补充:needBackbone,
                 本轮必须复核的到期事件:due,
                 本轮必须补全的事件时间锚点:unscheduled,
+                本轮必须复核的超期活动事件:staleActive,
+                本轮必须修复的时间越界记录:timeAnomalies,
                 生命周期整理:lifecycle,
                 说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
             },null,2);
-            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件和未完事项；符合条件才启动/推进，有实际结果才完成。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。即将与<user>见面时停在见面前一步。\n6. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
+            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件、超期活动事件、时间越界记录和未完事项；符合条件才启动/推进，有实际结果才完成。任何“已经发生”的记录都不得越过当前世界时间。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。即将与<user>见面时停在见面前一步。\n6. 正文交接：公开摘要概括世界局势；正文承接只列已经通过合理渠道触达当前场景、下一次正文必须能感知的0~3条公开结果。不要把后台秘密或远期计划塞给正文。\n7. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
-            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
+            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;
@@ -2012,8 +2147,9 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                     const recoveryTimeline=timelineState(recoveryStat);
                     const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.需要补充远期||recoveryTimeline.因果轨道需重建);
                     const needsScheduleRepair=unscheduledEvents(recoveryStat).length>0;
-                    if(!needsMacroRepair&&!needsScheduleRepair){this.status='本楼层已处理，不重复结算';return false;}
-                    this.status=needsMacroRepair?'检测到宏观骨架不完整 · 修复本楼层':'检测到事件时间锚点缺失 · 修复本楼层';
+                    const needsLifecycleRepair=staleActiveEvents(recoveryStat).length>0||temporalAnomalies(recoveryStat).length>0;
+                    if(!needsMacroRepair&&!needsScheduleRepair&&!needsLifecycleRepair){this.status='本楼层已处理，不重复结算';return false;}
+                    this.status=needsMacroRepair?'检测到宏观骨架不完整 · 修复本楼层':needsScheduleRepair?'检测到事件时间锚点缺失 · 修复本楼层':'检测到生命周期或时间异常 · 修复本楼层';
                 }
                 if (!this.isAvailable()) throw new Error(this.usesDedicatedApi()?'请在世界推进「设置」中完成专属 API 地址与模型配置':'请在主神终端设置中启用额外模型并选择模型');
                 const validate = this.host.Samsara && this.host.Samsara.validateWorldState;
@@ -2065,7 +2201,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                         const compileFor=sourceStat=>{
                             const patches=[],warnings=[];
                             if(acceptedWorldResult){
-                                const compiled=compileWorldResult(sourceStat,acceptedWorldResult);
+                                const compiled=compileWorldResult(sourceStat,acceptedWorldResult,{finalizeHandoff:true});
                                 patches.push(...compiled.patches);warnings.push(...compiled.warnings);
                             }
                             if(legacyPatches.length)patches.push(...legacyPatches);
@@ -2081,6 +2217,8 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                         try{
                             ensureDueHandled(next,request.due,base.stat.世界.时间);
                             ensureEventTimeAnchors(next,request.unscheduled);
+                            ensureStaleActiveHandled(next,request.staleActive,base.stat.世界.时间);
+                            ensureTemporalAnomaliesResolved(next,request.timeAnomalies);
                             ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                         }catch(error){globalError=error;}
                         if(rejectedSlices.length||globalError)throw makeRetryFailure(rejectedSlices,globalError);
@@ -2100,6 +2238,8 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                             try{
                                 ensureDueHandled(next,request.due,base.stat.世界.时间);
                                 ensureEventTimeAnchors(next,request.unscheduled);
+                                ensureStaleActiveHandled(next,request.staleActive,base.stat.世界.时间);
+                                ensureTemporalAnomaliesResolved(next,request.timeAnomalies);
                                 ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                             }catch(error){currentGlobalError=error;}
                             if(currentGlobalError)throw makeRetryFailure([],currentGlobalError);
@@ -2113,7 +2253,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                         }
                         next.世界[PATH].已处理楼层=base.fingerprint;
                         next.世界[PATH].已处理时间=base.stat.世界.时间;
-                        const changes=committedPatches.filter(p=>p.path!=='/世界/后台/公开摘要').map(p=>{
+                        const changes=committedPatches.filter(p=>!['/世界/后台/公开摘要','/世界/后台/正文承接'].includes(p.path)).map(p=>{
                             const parts=tokens(p.path),back=parts[1]===PATH;
                             return {时间:base.stat.世界.时间,类别:back?parts[2]:parts[1],名称:back?parts[3]:parts[2],字段:parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.内容||'记录已更新'):''};
                         });
@@ -3296,7 +3436,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {

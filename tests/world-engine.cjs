@@ -1265,7 +1265,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(doc&&doc.builtin,'内置默认文档必须始终存在');
         assert.equal(doc.name,'默认设置');
         assert.equal(engine.config.activePromptDocumentId,'builtin-default');
-        assert.equal(engine.config.builtinDefaultPromptVersionApplied,2);
+        assert.equal(engine.config.builtinDefaultPromptVersionApplied,3);
         assert.equal(engine.config.contextTurns,3);
         assert.equal(engine.config.activationMode,'respect_activation');
         assert.equal(engine.config.selectedEntries.length,24);
@@ -1275,8 +1275,27 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.doesNotMatch(engine.config.preset,/【任务与剧本】/,'内置默认文档不能停留在旧提示词版本');
         assert.equal(engine.config.preset,doc.settings.preset,'内置默认文档必须直接绑定当前 DEFAULT_PRESET');
         assert.match(engine.config.preset,/【时间容量与信息边界】/);
+        assert.match(engine.config.preset,/正文承接/);
         assert.equal(engine.deletePromptDocument('builtin-default'),false,'内置默认文档不可删除');
         assert.ok(JSON.parse(stored).promptDocuments.some(x=>x.id==='builtin-default'));
+    });
+    await test('legacy personal default no longer shadows the versioned built-in default', () => {
+        const legacySettings={preset:'【旧个人默认】\n旧内容',contextTurns:8,activationMode:'force_selected',selectedEntries:['["旧书","1"]']};
+        const host={localStorage:{getItem:()=>JSON.stringify({
+            builtinDefaultPromptVersionApplied:2,
+            activePromptDocumentId:'builtin-default',
+            userDefaultPromptSettings:legacySettings,
+            promptDocuments:[]
+        }),setItem:()=>{}},Samsara:{}};
+        const engine=new Engine(host);
+        const builtin=engine.getPromptDocuments().find(x=>x.id==='builtin-default');
+        const personal=engine.getPromptDocuments().find(x=>x.id==='user-default');
+        assert.ok(builtin&&personal,'旧个人默认应迁移为独立个人文档');
+        assert.doesNotMatch(builtin.settings.preset,/旧个人默认/);
+        assert.match(builtin.settings.preset,/正文承接/);
+        assert.equal(personal.settings.preset,'【旧个人默认】\n旧内容');
+        assert.equal(engine.config.activePromptDocumentId,'builtin-default');
+        assert.equal(engine.config.preset,builtin.settings.preset,'使用内置默认时版本升级必须应用最新代码模板');
     });
     await test('prompt documents save import apply and delete complete prompt settings', () => {
         let stored='';
@@ -1406,6 +1425,35 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         engine.open(); engine.open(); engine.close(); engine.close();
         assert.deepEqual(restored,{open:true,scroll:82}); assert.equal(engine.config.enabled,true);
     });
+    await test('single-world mode hides achievements from prose and disables achievement generation and settlement grants', () => {
+        const vars=fs.readFileSync(path.join(__dirname,'../World Book/[variables]当前变量.txt'),'utf8');
+        const taskStart=vars.indexOf('// 3. 任务列表');
+        const taskEnd=vars.indexOf('// 4. 角色基础信息',taskStart);
+        const renderTasks=new Function('current','data','isOneWorld','_',vars.slice(taskStart,taskEnd));
+        const lodash={cloneDeep:clone,omitBy:(obj,pred)=>Object.fromEntries(Object.entries(obj||{}).filter(([,v])=>!pred(v))),mapValues:(obj,fn)=>Object.fromEntries(Object.entries(obj||{}).map(([k,v])=>[k,fn(v)])),omit:(obj,keys)=>Object.fromEntries(Object.entries(obj||{}).filter(([k])=>!keys.includes(k)))};
+        const data={任务:{列表:{主线:{状态:'进行中'}},副本成就:{隐藏成就:{状态:'未达成',奖励:'F级盲盒·测试'}}}};
+        const current={};renderTasks(current,data,true,lodash);
+        assert.equal(current.任务.副本成就,undefined);
+
+        const god=fs.readFileSync(path.join(__dirname,'../World Book/【主神任务】[mvu_plot].txt'),'utf8');
+        assert.match(god,/单一世界.*禁止生成副本成就/);
+        assert.match(god,/<%_ if \(!isSingleWorld\) \{ _%>[\s\S]*副本成就奖励梯度/);
+
+        const trial=fs.readFileSync(path.join(__dirname,'../World Book/【试炼任务】[mvu_plot].txt'),'utf8');
+        assert.match(trial,/单一世界.*不得生成副本成就/);
+
+        const godUi=fs.readFileSync(path.join(__dirname,'../Regular/主神任务美化.html'),'utf8');
+        assert.match(godUi,/isSingleWorldMode[\s\S]*q\.achievements\s*=\s*\[\]/);
+        assert.match(godUi,/if \(!singleWorld\) \{[\s\S]*q\.achievements\.forEach/);
+
+        const trialUi=fs.readFileSync(path.join(__dirname,'../Regular/试炼任务美化.html'),'utf8');
+        assert.match(trialUi,/if \(expectedSingle\)[\s\S]*stat_data\.任务\.副本成就/);
+
+        const settlement=fs.readFileSync(path.join(__dirname,'../Regular/结算任务美化.html'),'utf8');
+        assert.match(settlement,/function isSingleWorldMode/);
+        assert.match(settlement,/if \(isSingleWorldMode\(\)\) return \[\];/);
+        assert.match(settlement,/if \(!isSingleWorldSettlement\)[\s\S]*achievementTasks\.forEach/);
+    });
     await test('actual settlement function clears ordinary world only, keeps relationships and both clocks', () => {
         const html=fs.readFileSync(path.join(__dirname,'../Regular/结算任务美化.html'),'utf8');
         const snippet=html.slice(html.indexOf('function applySettlementFinalization('),html.indexOf('function writeSettlementToMvu('));
@@ -1414,13 +1462,14 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             const stat=fresh(); stat.设置.单一世界=single; stat.系统状态.游玩天数=12;
             stat.关系列表.旅伴={好感度:10}; stat.世界.后台.公开摘要='仍在推进';
             stat.任务.列表.结束={状态:'可结算'};
+            stat.任务.副本成就={旧成就:{状态:'已达成',奖励:'F级盲盒·测试世界'}};
             const time=stat.世界.时间;
             finalize({stat_data:stat},true);
             assert.equal(stat.世界.时间,time); assert.equal(stat.系统状态.游玩天数,12);
             assert.equal(stat.关系列表.旅伴.好感度,10);
             assert.equal(stat.任务.列表.结束,undefined);
-            if (single) {assert.equal(stat.世界.后台.公开摘要,'仍在推进'); assert.ok(stat.任务.列表.调查); assert.equal(stat.系统状态.是否在主神空间,false);}
-            else {assert.deepEqual(stat.世界.后台,{});assert.equal(stat.系统状态.是否在主神空间,true);}
+            if (single) {assert.equal(stat.世界.后台.公开摘要,'仍在推进'); assert.ok(stat.任务.列表.调查); assert.deepEqual(stat.任务.副本成就,{}); assert.equal(stat.系统状态.是否在主神空间,false);}
+            else {assert.deepEqual(stat.世界.后台,{});assert.deepEqual(stat.任务.副本成就,{});assert.equal(stat.系统状态.是否在主神空间,true);}
         }
         const historical=fresh(), before=clone(historical);
         finalize({stat_data:historical},false); assert.deepEqual(historical,before);

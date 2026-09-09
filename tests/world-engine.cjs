@@ -583,6 +583,56 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.minimum,-5000);
         assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.maximum,10000);
     });
+    await test('active alien roster members are mandatory world-person activities and dead aliens cannot resurrect', async () => {
+        let calls=0,inputs=[];
+        const x=setup(async (_system,input)=>{
+            calls++;inputs.push(input);
+            if(calls===1)return JSON.stringify({摘要:'首轮遗漏异端活动'});
+            return JSON.stringify({
+                摘要:'补齐异端活动',
+                人物:[{
+                    名称:'异端甲',
+                    所属世界:'测试世界',
+                    地点:'北门外废仓',
+                    目标:'截获进入城区的关键人物',
+                    行动:'伪装成难民观察北门守卫换岗规律',
+                    更新时间:'2026年9月7日清晨',
+                    公开动态:'北门外有一名陌生难民长时间观察岗哨。'
+                }]
+            });
+        });
+        x.change(s=>{
+            s.世界.异端雷达={当前模式:'干涉局',名单:{
+                异端甲:{来源:'原创',经历:'潜伏专家',阵营:'篡夺者',职业:'刺客',层级:'Ⅱ',状态:'活跃'},
+                异端乙:{来源:'原创',经历:'已阵亡',阵营:'篡夺者',职业:'战士',层级:'Ⅱ',状态:'死亡'}
+            }};
+            s.世界.后台.人物.异端乙={...RECORDS.人物,所属世界:'测试世界',地点:'旧战场',目标:'已死亡却仍有目标',行动:'不应继续行动'};
+        });
+        x.engine.config.requireMacroBackbone=false;x.engine.config.retryAttempts=2;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,2,'首轮遗漏活跃异端活动时必须定点重试');
+        const first=JSON.parse(inputs[0]);
+        assert.deepEqual(first.本轮必须维持的异端活动.map(x=>x.名称),['异端甲']);
+        assert.ok(first.本轮必须维持的异端活动[0].要求.includes('人物'));
+        const retry=JSON.parse(inputs[1]).纠错重试;
+        assert.match(retry.补充清单.join('\n'),/异端活动\/异端甲/);
+        assert.equal(x.get().世界.后台.人物.异端甲.行动,'伪装成难民观察北门守卫换岗规律');
+        assert.equal(x.get().世界.后台.人物.异端甲.更新时间,'2026年9月7日清晨');
+        assert.equal(x.get().世界.后台.人物.异端乙,undefined,'死亡异端后台人物必须被程序清除，禁止诈尸');
+        assert.equal(x.writes(),1);
+    });
+    await test('dead alien person proposals are ignored even if the model tries to recreate them', () => {
+        const stat=fresh();
+        stat.世界.异端雷达={当前模式:'干涉局',名单:{
+            死亡异端:{来源:'原创',经历:'已阵亡',阵营:'篡夺者',职业:'战士',层级:'Ⅱ',状态:'死亡'}
+        }};
+        const compiled=compileWorldResult(stat,{
+            摘要:'错误复活尝试',
+            人物:[{名称:'死亡异端',所属世界:'测试世界',地点:'战场',目标:'继续作战',行动:'重新站起来'}]
+        });
+        assert.equal(compiled.patches.some(p=>p.path.includes('/后台/人物/死亡异端')),false);
+        assert.match(compiled.warnings.join('\n'),/死亡异端.*禁止恢复|异端已死亡/);
+    });
     await test('world run forces stale active events and legacy future timestamps to be repaired before commit', async () => {
         let calls=0,inputs=[];
         const x=setup(async (_system,input)=>{
@@ -1513,10 +1563,38 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(after.世界.后台.人物.纯后台NPC,'从未进入关系列表的纯场外NPC不得误删');
         assert.ok(after.世界.异端雷达.名单.异端甲,'异端雷达名单必须完全独立，不随关系列表删除');
     });
+    await test('alien death is irreversible and removes relationship plus backend activity while keeping radar history', () => {
+        const source=fs.readFileSync(path.join(__dirname,'../script/辅助计算脚本.js'),'utf8');
+        const start=source.indexOf('function syncAlienLifecycle(');
+        const end=source.indexOf('/**',start+20);
+        const sync=new Function('console',source.slice(start,end)+';return syncAlienLifecycle;')({log:()=>{},warn:()=>{}});
+
+        const before=fresh();
+        before.世界.异端雷达={当前模式:'干涉局',名单:{
+            异端甲:{来源:'原创',经历:'潜伏',阵营:'篡夺者',职业:'刺客',层级:'Ⅱ',状态:'活跃'},
+            异端乙:{来源:'原创',经历:'阵亡',阵营:'篡夺者',职业:'战士',层级:'Ⅱ',状态:'死亡'}
+        }};
+        before.关系列表.异端甲={HP:100,状态:{},在场:true,好感度:-100};
+        before.世界.后台.人物.异端甲={...RECORDS.人物,所属世界:'测试世界',行动:'潜伏'};
+        before.世界.后台.人物.异端乙={...RECORDS.人物,所属世界:'测试世界',行动:'错误残留'};
+
+        const after=clone(before);
+        after.关系列表.异端甲.HP=0;
+        after.世界.异端雷达.名单.异端乙.状态='活跃'; // 尝试把已死亡异端改回活跃
+        const report=sync(after,before);
+
+        assert.equal(after.世界.异端雷达.名单.异端甲.状态,'死亡','关系实体确认死亡时程序应同步异端雷达');
+        assert.equal(after.世界.异端雷达.名单.异端乙.状态,'死亡','死亡异端状态不可逆');
+        assert.equal(after.关系列表.异端甲,undefined,'死亡异端不再作为普通NPC发送给正文');
+        assert.equal(after.世界.后台.人物.异端甲,undefined);
+        assert.equal(after.世界.后台.人物.异端乙,undefined);
+        assert.ok(after.世界.异端雷达.名单.异端甲,'雷达保留死亡记录用于历史追踪');
+        assert.ok(report.死亡.includes('异端甲')&&report.死亡.includes('异端乙'));
+    });
     await test('auxiliary callback skips duration ticks for engine commit but processes subsequent prose', () => {
         const source=fs.readFileSync(path.join(__dirname,'../script/辅助计算脚本.js'),'utf8');
         const snippet=source.slice(source.indexOf('function onUpdateData('),source.indexOf('// ===== 轻量路径工具'));
-        const names=['syncRemovedRelationshipPeople','guardTaskGenerationLock','guardPersistedSystemTaskOwner','guardProtectedFields','clampNativeNpcToWorldTier','recalcAllCharacters','checkTrialEligibility','updatePlayDays','autoHarvestAssets','cleanupZeroQuantityItems','processStatusDuration','cleanupDeadNPCs','calcWorldStability','processCombatAndCooldowns'];
+        const names=['syncRemovedRelationshipPeople','syncAlienLifecycle','guardTaskGenerationLock','guardPersistedSystemTaskOwner','guardProtectedFields','clampNativeNpcToWorldTier','recalcAllCharacters','checkTrialEligibility','updatePlayDays','autoHarvestAssets','cleanupZeroQuantityItems','processStatusDuration','cleanupDeadNPCs','calcWorldStability','processCombatAndCooldowns'];
         const calls={}; const stubs=Object.fromEntries(names.map(name=>[name,()=>{calls[name]=(calls[name]||0)+1;}]));
         const update=new Function('stubs',`let isProcessing=false,isInitLog=false;const {${names.join(',')}}=stubs;${snippet};return onUpdateData;`)(stubs);
         const stat=fresh();stat.角色={};stat.世界.后台.已处理楼层='commit-1';
@@ -1590,6 +1668,17 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             北门身份核验:{...RECORDS.事件,描述:'后台完整描述不得暴露',时间:'2026年9月7日上午',状态:'进行中',地点:'测试地点',分类:'当前事件',公开征兆:'守卫正在逐人检查证件。',可见影响:[{时间:'当前',地点:'测试地点',影响:'出城速度明显下降。'}],默认走向:'隐藏未来走向',条件:'隐藏条件'},
             远期政变:{...RECORDS.事件,描述:'隐藏宏观未来',时间:'2026年10月1日',状态:'待发生',地点:'王都',分类:'宏观节点',公开征兆:'不应提前显示'}
         };
+        stat.世界.异端雷达={当前模式:'干涉局',名单:{
+            异端甲:{来源:'原创',经历:'潜伏专家',阵营:'篡夺者',职业:'刺客',层级:'Ⅱ',状态:'活跃'},
+            异端亡者:{来源:'原创',经历:'已阵亡',阵营:'篡夺者',职业:'战士',层级:'Ⅱ',状态:'死亡'}
+        }};
+        stat.世界.后台.人物={
+            异端甲:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点附近',目标:'观察玩家去向',行动:'混在人群中跟踪北门出入者',公开动态:'一名陌生旅人反复出现在北门附近',状态:'潜伏',更新时间:'2026年9月7日上午',关联事件:['北门身份核验']},
+            异端亡者:{...RECORDS.人物,所属世界:'测试世界',地点:'墓地',目标:'不应存在',行动:'诈尸'},
+            守备官:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'维持封锁',行动:'核查通行文件',公开动态:'守备官正在北门指挥检查',状态:'值勤',更新时间:'2026年9月7日上午',关联事件:['北门身份核验']},
+            纯冷NPC:{...RECORDS.人物,所属世界:'测试世界',地点:'遥远村庄',目标:'种田',行动:'长期无关行动'}
+        };
+        stat.关系列表.守备官={好感度:10,在场:false};
         stat.世界.历法={名称:'隐藏历',月份天数:[31,28,31],闰年规则:''};
         for (const engineOn of [false,true]) {
             for (const space of [false,true]) {
@@ -1608,8 +1697,13 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
                         公开征兆:'守卫正在逐人检查证件。',
                         可见影响:[{时间:'当前',地点:'测试地点',影响:'出城速度明显下降。'}]
                     }]);
+                    assert.ok(readonly.世界.场外人物动态.some(x=>x.名称==='异端甲'&&x.异端===true&&/跟踪/.test(x.行动)),'活跃异端必须始终进入正文人物动态');
+                    assert.ok(readonly.世界.场外人物动态.some(x=>x.名称==='守备官'&&x.异端===false),'相关普通后台人物应进入正文人物动态');
+                    assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='异端亡者'),false,'死亡异端不得进入正文动态');
+                    assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='纯冷NPC'),false,'无关系、无当前事件、远离当前地点的冷人物不占正文Token');
                 }else{
                     assert.equal(readonly.世界.当前事件,undefined);
+                    assert.equal(readonly.世界.场外人物动态,undefined);
                     if(!space&&!engineOn)assert.equal(current.世界.因果轨道.故事线,'封锁升级 -> 城区戒严 -> 战时管制','关闭世界推进后沿用原因果轨道结构');
                 }
                 const visible=JSON.stringify([current,readonly]);
@@ -1628,6 +1722,10 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(think,/叙事方向|方向约束/);
         assert.match(think,/不代表.*预知|不得.*预知/);
         assert.match(think,/当前事件/);
+        assert.match(think,/场外人物动态/);
+        assert.match(think,/目标.*行动|行动.*目标/);
+        assert.match(think,/异端.*活动|活跃异端/);
+        assert.match(think,/人物动态.*不代表.*知情|不得.*人物动态.*角色知情/);
         assert.match(think,/公开征兆/);
         assert.match(think,/可见影响/);
         assert.match(think,/必须自然体现/);

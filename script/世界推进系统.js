@@ -147,15 +147,16 @@
             "[\"轮回战场V3.6.1\",\"8412\"]",
             "[\"轮回战场V3.6.1\",\"559085\"]"
         ];
+    const USER_DEFAULT_PROMPT_DOCUMENT_ID='user-default';
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:2,
+        version:3,
         builtin:true,
         name:'默认设置',
-        exportedAt:'2026-09-09T00:00:00.000Z',
+        exportedAt:'2026-09-09T12:00:00.000Z',
         createdAt:'2026-09-08T13:09:45.350Z',
-        updatedAt:'2026-09-09T00:00:00.000Z',
+        updatedAt:'2026-09-09T12:00:00.000Z',
         settings:{
             // 直接引用当前 DEFAULT_PRESET，避免以后修改默认提示词却忘记同步“默认设置”文档。
             preset:normalizeEditablePreset(DEFAULT_PRESET),
@@ -1709,16 +1710,31 @@ ${schemaText}
             if(!Array.isArray(this.config.promptDocuments))this.config.promptDocuments=[];
             this.config.promptDocuments=this.config.promptDocuments
                 .filter(doc=>plain(doc)&&typeof doc.name==='string'&&plain(doc.settings)&&typeof doc.settings.preset==='string'&&doc.id!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id&&doc.name!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.name)
-                .slice(0,59);
-this.config.promptDocuments.unshift({...copy(BUILTIN_DEFAULT_PROMPT_DOCUMENT),settings:copy(this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings)});
+                .slice(0,58);
+            // 旧版“保存为默认设置”曾直接覆盖内置默认。v3 起把这份本地内容迁移为独立个人文档，
+            // 内置“默认设置”始终绑定代码中的最新 DEFAULT_PRESET，不再被 localStorage 遮蔽。
+            if(plain(this.config.userDefaultPromptSettings)&&typeof this.config.userDefaultPromptSettings.preset==='string'){
+                const legacySettings={
+                    structurePrompt:typeof this.config.userDefaultPromptSettings.structurePrompt==='string'?this.config.userDefaultPromptSettings.structurePrompt:undefined,
+                    preset:normalizeEditablePreset(this.config.userDefaultPromptSettings.preset),
+                    contextTurns:Math.max(1,Math.min(100,Number(this.config.userDefaultPromptSettings.contextTurns)||3)),
+                    activationMode:this.config.userDefaultPromptSettings.activationMode==='force_selected'?'force_selected':'respect_activation',
+                    selectedEntries:Array.isArray(this.config.userDefaultPromptSettings.selectedEntries)?copy(this.config.userDefaultPromptSettings.selectedEntries):null
+                };
+                let personal=this.config.promptDocuments.find(doc=>doc.id===USER_DEFAULT_PROMPT_DOCUMENT_ID);
+                if(personal)personal.settings=copy(legacySettings);
+                else this.config.promptDocuments.unshift({id:USER_DEFAULT_PROMPT_DOCUMENT_ID,type:'samsara-world-prompt-document',version:1,builtin:false,name:'个人默认设置',createdAt:'',updatedAt:'',settings:copy(legacySettings)});
+            }
+            this.config.promptDocuments=this.config.promptDocuments.filter(doc=>doc.id!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id).slice(0,59);
+            this.config.promptDocuments.unshift(copy(BUILTIN_DEFAULT_PROMPT_DOCUMENT));
             {
                 const appliedVersion=Number(this.config.builtinDefaultPromptVersionApplied||0);
                 if(appliedVersion<BUILTIN_DEFAULT_PROMPT_VERSION){
-                    // 首次安装自动应用默认；之后只有当前仍在使用内置默认时才跟随升级。
-                    // 已切到自定义文档/自定义提示词的用户只更新内置文档版本号，不强行覆盖当前工作配置。
+                    // 首次安装自动应用；已在使用内置默认的用户随版本升级。
+                    // 自定义文档/个人默认不会被强制覆盖，但内置默认文档本身始终升级到最新代码模板。
                     const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id;
                     if(shouldApply){
-const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings;
+                        const settings=BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings;
                         this.config.structurePrompt=settings.structurePrompt;
                         this.config.preset=normalizeEditablePreset(settings.preset);
                         this.config.presetEditorVersion=2;
@@ -2971,8 +2987,13 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 else if(a==='save-default'){
                     const settings=this.readPromptEditor();this.applyPromptSettings(settings);
                     this.config.userDefaultPromptSettings=copy(settings);
-                    const doc=this.getPromptDocuments().find(d=>d.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id);if(doc)doc.settings=copy(settings);
-                    this.saveConfig();this.status='已保存为默认设置';this.panel.querySelector('footer span').textContent=this.status;
+                    const docs=this.getPromptDocuments();
+                    let doc=docs.find(d=>d.id===USER_DEFAULT_PROMPT_DOCUMENT_ID);
+                    const now=new Date().toISOString();
+                    if(doc){doc.settings=copy(settings);doc.updatedAt=now;}
+                    else docs.push({id:USER_DEFAULT_PROMPT_DOCUMENT_ID,type:'samsara-world-prompt-document',version:1,builtin:false,name:'个人默认设置',createdAt:now,updatedAt:now,settings:copy(settings)});
+                    this.config.activePromptDocumentId=USER_DEFAULT_PROMPT_DOCUMENT_ID;
+                    this.saveConfig();this.status='已保存为个人默认设置';this.panel.querySelector('footer span').textContent=this.status;
                 }
                 else if(a==='segment-add'){
                     if(!this.promptEditing)return;
@@ -3415,9 +3436,9 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                     selectedEntries:Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):null
                 };
                 const docs=this.getPromptDocuments(),activeDoc=docs.find(doc=>doc.id===this.config.activePromptDocumentId);
-                html+='<div class="we-preset-toolbar"><div><b>提示词工作台</b><small>主要操作固定在顶部，不需要再滚到页面底部寻找保存。</small></div><div><button class="we-btn we-primary" data-action="save">保存当前设置</button><button class="we-btn" data-action="save-default">保存为默认设置</button><button class="we-btn" data-action="preview">预览下一次请求</button></div></div>';
+                html+='<div class="we-preset-toolbar"><div><b>提示词工作台</b><small>主要操作固定在顶部，不需要再滚到页面底部寻找保存。</small></div><div><button class="we-btn we-primary" data-action="save">保存当前设置</button><button class="we-btn" data-action="save-default">保存为个人默认</button><button class="we-btn" data-action="preview">预览下一次请求</button></div></div>';
                 html+=section('预设文档','<div class="we-doc-create"><input data-doc-name maxlength="80" placeholder="文档名称，例如：原著推进·标准" value="'+text(activeDoc?.builtin?'':activeDoc?.name||'')+'"><button class="we-btn we-primary" data-action="doc-save">保存为文档</button><button class="we-btn" data-action="doc-import">导入文档</button><input data-doc-import type="file" accept=".json,application/json" hidden></div>'+
-                    (docs.length?'<div class="we-doc-list">'+docs.map(doc=>'<div class="we-doc-row"><div><b>'+text(doc.name)+(doc.builtin?' <span class="we-doc-badge">内置默认</span>':'')+'</b><small>'+text(doc.updatedAt?new Date(doc.updatedAt).toLocaleString():'未记录时间')+(doc.id===this.config.activePromptDocumentId?' · 当前应用':'')+'</small></div><span class="we-doc-actions"><button data-action="doc-apply" data-doc-id="'+text(doc.id)+'">应用</button><button data-action="doc-export" data-doc-id="'+text(doc.id)+'">导出</button>'+(doc.builtin?'':'<button data-action="doc-delete" data-doc-id="'+text(doc.id)+'">删除</button>')+'</span></div>').join('')+'</div>':empty('还没有预设文档','保存当前设置后，可以在这里应用、导出或删除。')),'“保存为默认设置”保存当前分段、结构说明与资料范围；默认内容在本机持久保存，也可导出备份');
+                    (docs.length?'<div class="we-doc-list">'+docs.map(doc=>'<div class="we-doc-row"><div><b>'+text(doc.name)+(doc.builtin?' <span class="we-doc-badge">内置默认</span>':'')+'</b><small>'+text(doc.updatedAt?new Date(doc.updatedAt).toLocaleString():'未记录时间')+(doc.id===this.config.activePromptDocumentId?' · 当前应用':'')+'</small></div><span class="we-doc-actions"><button data-action="doc-apply" data-doc-id="'+text(doc.id)+'">应用</button><button data-action="doc-export" data-doc-id="'+text(doc.id)+'">导出</button>'+(doc.builtin?'':'<button data-action="doc-delete" data-doc-id="'+text(doc.id)+'">删除</button>')+'</span></div>').join('')+'</div>':empty('还没有预设文档','保存当前设置后，可以在这里应用、导出或删除。')),'内置“默认设置”始终跟随代码版本；“保存为个人默认”会另存当前分段、结构说明与资料范围，不会覆盖内置模板');
                 html+='<div class="we-notice">世界书目录会读取角色主书、角色附加书、当前聊天绑定书和酒馆全局启用书。蓝绿灯表示条目触发方式；“实际读取”仍以请求检查中的本次清单为准。</div>';
                 const groups=new Map();
                 for(const e of this.bookCatalogue||[]){if(!groups.has(e.book))groups.set(e.book,[]);groups.get(e.book).push(e);}

@@ -1622,6 +1622,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const stat=fresh();stat.角色={};stat.世界.后台.已处理楼层='commit-1';
         const after={stat_data:stat,__samsaraWorldCommit:'commit-1'};
         update(after,{stat_data:clone(stat)});
+        assert.equal(calls.syncAlienLifecycle,1,'世界引擎提交同样要执行异端死亡清理');
         assert.equal(calls.calcWorldStability,1);assert.equal(calls.processCombatAndCooldowns,undefined);assert.equal(calls.processStatusDuration,undefined);
         update(after,clone(after));
         assert.equal(calls.processCombatAndCooldowns,1);assert.equal(calls.processStatusDuration,1);

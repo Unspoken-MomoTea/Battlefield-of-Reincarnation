@@ -113,7 +113,7 @@
 重扣：复述正文已演出的对白/动作；替正在正文同场的人物补琐碎同步动作；场外人物无故围绕<user>；全知反应；把局部桥接动作冒充宏观；静止交差只改一两个字段但世界其余部分无理由冻结。
 【时间容量与信息边界】严格使用请求中的“本轮时间容量”。时间未推进时只能同步即时事实；数分钟到2小时只够短谈、通讯、案头事务和同区短移动；数小时允许同城区行动、有限调查或一次准备阶段；半天至一天允许完整日常事务、阶段性成果或城区迁移；数日以上才适合长途、物资转运和大型组织行动。消息不会凭空传播：实体采取行动若依赖某事实，必须能从本人在场、已有认知、传播记录或本轮明确传播路径之一获得；条件不足时只允许打听、送信、等待或保持不知情。
 【因果轨道与偏移】世界.因果轨道是后台事件图的宏观投影，不是第二套独立剧情。故事线必须维持3~5个默认大事件节点，用“ -> ”串联并覆盖当前阶段前后；下一节点是下一个宏观边界或检查点。仅在章节切换、地图切换、关键任务完成或重大剧情事件发生时更新。只有关键人物命运、重大事件、势力格局或主线被玩家/其他人物实质改变时才写偏移记录，日常、战斗动作、交易、对话不记偏移。偏移记录写明描述、引发者、影响程度；负值表示使原轨道更不稳定，正值表示修复/强化原轨道。新增偏移后若原主线无法继续，立即重构故事线与下一节点；否则保留原轨道。世界超稳时不得新增偏移。
-【角色管理】维护场外人物所在世界、地点、目标、行动、已知信息、行程及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗；不得为<user>建立或推进后台行动日程。人物记录与关系列表按稳定名字关联，不编造整套人物属性。
+【角色管理】维护场外人物所在世界、地点、目标、行动、已知信息、行程及下次检查条件。场外行动受路程、资源、能力及认知限制。在场人物以正文为准，不能替玩家行动或裁决未结束战斗；不得为<user>建立或推进后台行动日程。人物记录与关系列表按稳定名字关联，不编造整套人物属性。正文会通过程序只读投影重要“场外人物动态”（地点、目标、行动、状态、更新时间、公开动态、关联事件），这些是叙事调度依据，不代表角色自动知情。普通人物只保留与当前地点、当前事件、关系列表或近期活动有关的热记录；异端雷达中仍为【活跃】的异端属于强制热人物，每轮都必须复核并维持明确地点、目标、行动和当前世界时间的更新时间。异端状态【死亡】不可逆，死亡后不得再创建或更新其后台人物活动。
 【探索与势力】世界.探索与世界.势力直接参与空间币结算，必须严格维护。WorldResult 中“探索”和“势力”都使用数组，不得输出名称→对象的 Map。探索项格式为 {名称, 操作?, 风险, 探索度, 描述, 隐藏真相?}：风险只能是 F/E/D/C/B/A/S/SS/SSS，探索度只能是0~100数字；新建探索项至少写名称、风险、探索度、描述，已有项只写本轮变化字段。势力项格式为 {名称, 操作?, 实力, 领地, 描述, 声望}：实力只能是 F/E/D/C/B/A/S/SS/SSS，声望只能是-5000~10000数字；新建势力至少写名称、实力、领地、描述、声望，已有项只写本轮变化字段。探索只记录整体地标，禁止天台、教室、走廊、楼梯、办公室、医务室、单个房间等子区域单独建档；微观进展累加到主区域。只有<user>实际到达、调查或可靠获知的新区域/信息才提升探索度，后台NPC的发现不得算给玩家；探索度按0无知/10浅尝/30熟悉/60深入/90掌控/100核心。势力首次接触或可靠获知后建档；实力、领地、描述反映客观势力状态，声望只表示该势力对<user>的关系结算。声望锚点-5000敌对/-1000仇视/0冷淡/500中立/2000友好/5000崇敬/10000崇拜；帮助/损害/背叛等真实结果才改变，同一事件只结算一次，单轮≤±1000，超过±500仅限重大核心事件。未知探索点保留在后台地区记录，玩家发现后才投影到世界.探索。
 【任务联动】主神任务、晋升试炼、任务状态与副本成就不属于世界引擎职责：不读取、不更新、不据此驱动后台事件。它们由正文AI、结算美化程序及玩家操作负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。
 【信息传播】世界引擎负责场外传闻与传播链。事件产生街头巷议、付费情报或公告，区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。传播明确结束或到期后由程序自动回收，不要复活已经过期的传播记录。人物只有获得信息后才能据此行动。传闻可产生新事件，但禁止无因果地每轮刷新。进入城镇、营地、聚集地等非战斗区域时，只有确有新传播事实才维护1~3条街头巷议并淘汰失效旧闻；处于交易区、酒馆、黑市等真实情报交易场所时，可维护1~2条付费情报，字段必须包含卖家、情报评级、购买前摘要、带本地货币单位的要价和仅AI可见的真实内幕；任务世界不得使用空间币定价。到达主要城镇或新大区域时，公告/檄文必须有真实发布者并关联当前势力。当前场景内用户刚刚直接购买情报的支付、remove及转化为任务/探索由普通MVU处理，世界引擎下一轮只同步其场外传播后果，不重复扣款或重复创建任务。
@@ -151,12 +151,12 @@
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:5,
+        version:6,
         builtin:true,
         name:'默认设置',
-        exportedAt:'2026-09-09T16:31:00.000Z',
+        exportedAt:'2026-09-10T00:00:00.000Z',
         createdAt:'2026-09-08T13:09:45.350Z',
-        updatedAt:'2026-09-09T16:31:00.000Z',
+        updatedAt:'2026-09-10T00:00:00.000Z',
         settings:{
             // 直接引用当前 DEFAULT_PRESET，避免以后修改默认提示词却忘记同步“默认设置”文档。
             preset:normalizeEditablePreset(DEFAULT_PRESET),
@@ -172,7 +172,7 @@
 3. 区间桥接：宏观骨架存在后，以“当前时间 → 下一宏观节点”为本轮细节推演边界。当前事件、近期节点、场外人物行动、势力变化、探索与传播只展开到这个边界；更远未来保持宏观节点，等边界接近后再展开。所有待发生/进行中事件必须有时间锚点；精确日期未知时使用明确相对/因果时间，禁止空值以及单独使用“近期/稍后/未来/待定/未知”。
 4. 世界推演：原著世界结合当前时间锚点、地点、剧情阶段、已知角色状态、原著人物行动规律、世界势力动态与已知原著进程；原创/衍生世界依据世界法则、本土势力与历史持续运行。世界不会因为<user>没行动而暂停。
 5. 偏移：玩家或其他人物只有实质改变关键人物命运、重大事件结果、势力格局或主线可行性时才写偏移。偏移导致默认宏观事件不再成立时，同轮修订宏观事件图、故事线与下一节点；日常动作、普通交易或对话不记偏移。
-6. 职责隔离：场外人物、势力、资产条件、未来事件、传播、世界货币经济、玩家探索结算台账与玩家对势力声望由世界引擎负责；正文/MVU负责当前场景直接事实与即时消费。主神任务、晋升试炼、任务状态与副本成就不读取、不更新；旧后台.剧本不参与调度。用户可编辑分段提示词，但以上核心约束始终生效。
+6. 职责隔离：场外人物、势力、资产条件、未来事件、传播、世界货币经济、玩家探索结算台账与玩家对势力声望由世界引擎负责；正文/MVU负责当前场景直接事实与即时消费。正文可读取程序筛出的场外人物动态用于保持人物行动连续性，但不能据此让角色凭空知情。异端雷达中【活跃】成员必须始终保持后台人物活动，每轮至少复核地点/目标/行动并把更新时间写到当前世界时间；【死亡】异端不可恢复后台人物。主神任务、晋升试炼、任务状态与副本成就不读取、不更新；旧后台.剧本不参与调度。用户可编辑分段提示词，但以上核心约束始终生效。
 7. 探索与势力结算约束：世界.探索和世界.势力会直接参与空间币结算，以下格式和值域就是世界引擎自身的完整规则，不依赖外部变量更新文档。WorldResult.探索必须是数组，每项格式 {名称:string, 操作?:"更新"|"撤销本轮", 风险:"F"|"E"|"D"|"C"|"B"|"A"|"S"|"SS"|"SSS", 探索度:number(0~100), 描述:string, 隐藏真相?:string}；新建探索项至少写名称/风险/探索度/描述，已有项只写变化字段。WorldResult.势力必须是数组，每项格式 {名称:string, 操作?:"更新"|"撤销本轮", 实力:"F"|"E"|"D"|"C"|"B"|"A"|"S"|"SS"|"SSS", 领地:string, 描述:string, 声望:number(-5000~10000)}；新建势力至少写名称/实力/领地/描述/声望，已有项只写变化字段。探索只记录整体地标/区域，禁止天台、教室、走廊、楼梯、单个房间、办公室、医务室等子区域单独建档；微观发现只累加到所属主区域。世界.探索只代表<user>实际到达、调查或通过可靠情报获得的探索成果，后台NPC自己的发现写后台记录，不得转成玩家探索度。探索度锚点为0无知/10浅尝/30熟悉/60深入/90掌控/100核心，已确认探索进度不得无因降低。世界.势力在玩家首次接触或通过可靠布告/情报确认后建档；实力/领地/描述可随世界局势更新，但声望只表示该势力对<user>的结算关系，不等于势力自身兴衰。声望锚点-5000敌对/-1000仇视/0冷淡/500中立/2000友好/5000崇敬/10000崇拜；只有<user>对该势力或成员造成真实帮助、损害、背叛等结果才变化，同一事件只结算一次，单轮绝对变化不得超过1000，超过500仅限重大核心事件。
 8. 货币与经济：可维护世界.货币的体系、购买力基准、经济波动。货币体系不是跨界后永久锁死：若战争、末日、政权崩溃或流通网络断裂使旧货币在数小时/一天内实际失效，应把体系更新为当前真实交易媒介（如以物易物、粮食、药品、弹药或新发行票据），并同步购买力基准与经济波动。不得仅因时间经过随意改币制；任务世界不得使用空间币作为本地货币、定价或经济依据。
 9. 历法一致性：世界引擎维护世界.历法的名称、月份天数与闰年规则；只有世界设定或可靠资料明确时填写。普通正文AI仍负责依据实际经过时间更新世界.时间，但必须服从该历法。若某月只有28天，日期越过28日必须进位到下月，禁止出现本历法不存在的29/30/31日。世界.历法为空时，数字公历按正常公历校验；作品纪年无明确历法规格时不要臆造月长。
@@ -540,6 +540,65 @@
         return '/'+parts.map(p=>String(p).replace(/~/g,'~0').replace(/\//g,'~1')).join('/');
     }
     const nameKey=value=>String(value||'').toLowerCase().replace(/[\\/／·・._\-\s]+/g,'');
+    function stableNameIn(bucket,name) {
+        if(!plain(bucket))return '';
+        if(Object.hasOwn(bucket,name))return name;
+        const key=nameKey(name),matches=Object.keys(bucket).filter(item=>nameKey(item)===key);
+        return matches.length===1?matches[0]:'';
+    }
+    function alienRosterMatch(stat,name) {
+        const roster=stat?.世界?.异端雷达?.名单||{},matched=stableNameIn(roster,name);
+        return matched?{名称:matched,记录:roster[matched]}:null;
+    }
+    function pruneDeadAlienPeople(stat) {
+        const people=stat?.世界?.[PATH]?.人物,roster=stat?.世界?.异端雷达?.名单;
+        if(!plain(people)||!plain(roster))return [];
+        const removed=[];
+        for(const [alienName,alien] of Object.entries(roster)){
+            if(alien?.状态!=='死亡')continue;
+            const personName=stableNameIn(people,alienName);
+            if(personName){delete people[personName];removed.push(personName);}
+        }
+        return removed;
+    }
+    function activeAlienActivityRequirements(stat) {
+        if((stat?.设置||{}).单一世界)return [];
+        const roster=stat?.世界?.异端雷达?.名单||{},people=stat?.世界?.[PATH]?.人物||{},required=[];
+        for(const [alienName,alien] of Object.entries(roster)){
+            if(!alien||alien.状态==='死亡')continue;
+            const personName=stableNameIn(people,alienName)||alienName,person=people[personName]||{};
+            required.push({
+                名称:personName,雷达名称:alienName,来源:String(alien.来源||''),经历:String(alien.经历||''),阵营:String(alien.阵营||''),职业:String(alien.职业||''),层级:String(alien.层级||''),
+                当前活动:{地点:String(person.地点||''),目标:String(person.目标||''),行动:String(person.行动||''),更新时间:String(person.更新时间||'')},
+                要求:'本轮必须在 WorldResult.人物 中提交该异端的活动复核；至少给出非空地点、目标、行动，并将更新时间精确写为当前世界时间。若本轮已确认其死亡，则只把异端状态更新为死亡，不再提交人物活动。'
+            });
+        }
+        return required;
+    }
+    function seedMissingAlienPeople(stat,required) {
+        const state=stat?.世界?.[PATH],patches=[];if(!state)return patches;
+        const people=state.人物||(state.人物={});
+        for(const item of required||[]){
+            if(stableNameIn(people,item.名称))continue;
+            const relationName=stableNameIn(stat.关系列表||{},item.雷达名称),relation=relationName?(stat.关系列表||{})[relationName]:null;
+            const seed=normalizeBackendRecord('人物',{所属世界:stat.世界?.名称||'',地点:String(relation?.地点||''),目标:'',行动:'',公开动态:''});
+            people[item.名称]=seed;
+            patches.push({op:'add',path:pointer(['世界',PATH,'人物',item.名称]),value:copy(seed)});
+        }
+        return patches;
+    }
+    function ensureActiveAlienActivity(next,required,acceptedResult,worldTime) {
+        const roster=next?.世界?.异端雷达?.名单||{},people=next?.世界?.[PATH]?.人物||{},proposals=acceptedResult?.人物||[],missing=[];
+        for(const item of required||[]){
+            const rosterName=stableNameIn(roster,item.雷达名称||item.名称),alien=rosterName?roster[rosterName]:null;
+            if(!alien||alien.状态==='死亡')continue;
+            const personName=stableNameIn(people,item.名称)||stableNameIn(people,rosterName),person=personName?people[personName]:null;
+            const proposal=proposals.find(p=>nameKey(p.名称)===nameKey(item.名称)||nameKey(p.名称)===nameKey(rosterName));
+            const complete=person&&String(person.地点||'').trim()&&String(person.目标||'').trim()&&String(person.行动||'').trim()&&String(person.更新时间||'').trim()===String(worldTime||'').trim();
+            if(!proposal||!complete)missing.push(rosterName||item.名称);
+        }
+        if(missing.length)throw new Error('异端活动未复核：'+missing.join('、')+'；活跃异端每轮都必须提交人物活动，写明地点、目标、行动，并把更新时间精确写为当前世界时间；若已死亡则更新异端状态为死亡');
+    }
     function canonicalizeParts(parts,stat) {
         const p=parts.slice();
         if(p[0]==='世界'&&p[1]===PATH&&p[3]&&['人物','事件','势力地区'].includes(p[2])){
@@ -624,6 +683,7 @@
                 if(plain(value))state[category][name]=normalizeBackendRecord(category,value);
             }
         }
+        pruneDeadAlienPeople(stat);
         return stat;
     }
     const EVENT_CATEGORIES=new Set(['当前事件','近期节点','宏观节点']);
@@ -846,7 +906,7 @@
             }},
             势力:{type:'array',maxItems:15,items:FACTION_RESULT_SCHEMA},
             探索:{type:'array',maxItems:20,items:EXPLORATION_RESULT_SCHEMA},
-            异端:{type:'array',maxItems:15,items:namedEntitySchema(EXISTING.名单)},
+            异端:{type:'array',maxItems:15,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['活跃','死亡']}}}},
             传闻:{type:'object',additionalProperties:false,properties:{
                 街头巷议:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.街头巷议,['更新','移除','撤销本轮'],['来源','内容','可信度'])},
                 情报交易:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.情报交易,['更新','移除','撤销本轮'],['卖家','情报评级','摘要','要价','真实内幕'])},
@@ -956,10 +1016,11 @@
             if(Array.isArray(value.历法.月份天数))result.历法.月份天数=value.历法.月份天数.map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=99).slice(0,24);
             if(Object.hasOwn(value.历法,'闰年规则'))result.历法.闰年规则=String(value.历法.闰年规则??'');
         }
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端']){
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索']){
             const operations=(key==='传播')?['更新','移除','撤销本轮']:['更新','撤销本轮'];
             result[key]=normalizeNamedResultList(value[key],sampleForWorldResultList(key),operations);
         }
+        result.异端=(Array.isArray(value.异端)?value.异端:[]).filter(plain).map(item=>({名称:String(item.名称||'').trim(),操作:item.操作==='撤销本轮'?'撤销本轮':'更新',状态:item.状态==='死亡'?'死亡':'活跃'})).filter(item=>item.名称);
         result.因果={};
         const causal=plain(value.因果)?value.因果:{};
         if(Object.hasOwn(causal,'当前阶段'))result.因果.当前阶段=String(causal.当前阶段||'');
@@ -1082,6 +1143,8 @@
             for(const name of match[1].split('、').filter(Boolean))plan.push('事件/'+name+'：该局部活动已远超正常持续窗口。若实际早已结束则改为已完成并补结果；若失效则已取消；只有确实仍持续时才保留进行中，并把更新时间写为当前世界时间、更新当前描述并填写下次检查。');
         }else if((match=message.match(/时间越界记录仍未修复：([^；]+)/))){
             plan.push('时间一致性：修复这些已经发生的记录，任何已完成/进行中事件、人物更新时间、地区已发生变化、历史与传播都不得晚于当前世界时间：'+match[1]);
+        }else if((match=message.match(/异端活动未复核：([^；]+)/))){
+            for(const name of match[1].split('、').filter(Boolean))plan.push('异端活动/'+name+'：在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动，并把更新时间精确写为当前世界时间；若本轮已确认死亡，则只更新异端状态=死亡，不再提交人物活动。');
         }else if(message&&!rejected.length){
             plan.push('整体校验：'+message);
         }
@@ -1162,7 +1225,12 @@
             if(!same(old,value))patches.push({op:old===undefined?'add':'replace',path:pointer(parts),value:copy(value)});
         }
         for(const item of result.事件)addEntity(['世界',PATH,'事件',item.名称],item,{...RECORDS.事件,...MODEL_DETAILS.事件},{event:true});
-        for(const item of result.人物)addEntity(['世界',PATH,'人物',item.名称],item,{...RECORDS.人物,...MODEL_DETAILS.人物},{person:true});
+        const plannedDead=new Set((result.异端||[]).filter(item=>item.操作!=='撤销本轮'&&item.状态==='死亡').map(item=>nameKey(item.名称)));
+        for(const item of result.人物){
+            const alien=alienRosterMatch(stat,item.名称);
+            if((alien&&alien.记录?.状态==='死亡')||plannedDead.has(nameKey(item.名称))){warnings.push('异端已死亡，禁止恢复后台人物：'+item.名称);continue;}
+            addEntity(['世界',PATH,'人物',item.名称],item,{...RECORDS.人物,...MODEL_DETAILS.人物},{person:true});
+        }
         for(const item of result.势力地区)addEntity(['世界',PATH,'势力地区',item.名称],item,{...RECORDS.势力地区,...MODEL_DETAILS.势力地区});
         for(const item of result.传播)addEntity(['世界',PATH,'传播',item.名称],item,{...RECORDS.传播,...MODEL_DETAILS.传播},{removable:true});
         for(const item of result.历史){
@@ -1198,8 +1266,15 @@
             if(old&&Object.hasOwn(item,'探索度')&&Number(item.探索度)<Number(old.探索度||0))throw new Error('探索度不能无因回退：'+item.名称+' '+old.探索度+' -> '+item.探索度);
             addEntity(['世界','探索',item.名称],item,EXISTING.探索);
         }
-        if(!(stat.设置||{}).单一世界)for(const item of result.异端)addEntity(['世界','异端雷达','名单',item.名称],item,EXISTING.名单);
-        else if(result.异端.length)warnings.push('单一世界：忽略异端雷达新增/更新');
+        if(!(stat.设置||{}).单一世界)for(const item of result.异端){
+            if(item.操作==='撤销本轮')continue;
+            const roster=stat.世界?.异端雷达?.名单||{},target=stableNameIn(roster,item.名称);
+            if(!target){warnings.push('异端名单对象不存在，禁止世界引擎新增：'+item.名称);continue;}
+            const oldStatus=roster[target]?.状态;
+            if(oldStatus==='死亡'&&item.状态!=='死亡'){warnings.push('死亡异端状态不可逆：'+target);continue;}
+            if(oldStatus===item.状态)continue;
+            patches.push({op:'replace',path:pointer(['世界','异端雷达','名单',target,'状态']),value:item.状态});
+        } else if(result.异端.length)warnings.push('单一世界：忽略异端雷达更新');
         for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻[key])addEntity(['传闻',key,item.名称],item,EXISTING[key],{removable:true});
         for(const item of result.关系){
             if(item.操作==='撤销本轮')continue;
@@ -2079,8 +2154,10 @@ ${schemaText}
             normalizeBackendState(state);
             const structuralFixes=normalizeEventLayers(state);
             const lifecycle=compactWorldLifecycle(state);
+            const alienActivity=activeAlienActivityRequirements(state);
             const seedPatches=importStory(state);
-            for(const patch of seedPatches)state.世界[PATH].事件[tokens(patch.path).at(-1)]=patch.value;
+            seedPatches.push(...seedMissingAlienPeople(state,alienActivity));
+            for(const patch of seedPatches){const parts=tokens(patch.path);if(parts[2]==='事件')state.世界[PATH].事件[parts.at(-1)]=patch.value;}
             structuralFixes.push(...normalizeEventLayers(state));
             structuralFixes.push(...repairCausalProjection(state));
             structuralFixes.push(...repairMacroPredecessors(state));
@@ -2129,19 +2206,20 @@ ${schemaText}
                 正文可见投影规则:{
                     当前时间:state.世界.时间,
                     当前地点:state.世界.地点,
-                    要求:'非战斗正文会读取完整因果轨道：当前阶段用于当前局势，故事线/下一节点用于长期叙事方向，偏移记录用于跨章因果记忆；这些是规划依据，不等于角色预知或自动知晓幕后信息。正文还会读取进行中当前事件的名称/状态/时间/地点/公开征兆/可见影响。可能影响当前场景的当前事件应维护公开征兆和可见影响；不要把隐藏条件、默认走向或未来宏观事件详情塞进公开字段。'
+                    要求:'非战斗正文会读取完整因果轨道：当前阶段用于当前局势，故事线/下一节点用于长期叙事方向，偏移记录用于跨章因果记忆；这些是规划依据，不等于角色预知或自动知晓幕后信息。正文还会读取进行中当前事件的名称/状态/时间/地点/公开征兆/可见影响，以及程序筛选的场外人物动态（地点/目标/行动/状态/更新时间/公开动态/关联事件）；活跃异端始终进入人物动态。人物目标/行动用于保持叙事连续性，不代表角色已知。可能影响当前场景的当前事件应维护公开征兆和可见影响；不要把隐藏条件、默认走向或未来宏观事件详情塞进公开字段。'
                 },
                 可选宏观资料补充:needBackbone,
                 本轮必须复核的到期事件:due,
                 本轮必须补全的事件时间锚点:unscheduled,
                 本轮必须复核的超期活动事件:staleActive,
                 本轮必须修复的时间越界记录:timeAnomalies,
+                本轮必须维持的异端活动:alienActivity,
                 生命周期整理:lifecycle,
                 说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
             },null,2);
-            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件、超期活动事件、时间越界记录和未完事项；符合条件才启动/推进，有实际结果才完成。任何“已经发生”的记录都不得越过当前世界时间。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。即将与<user>见面时停在见面前一步。\n6. 正文可见层：非战斗正文读取完整因果轨道作为长期方向与因果记忆，其中故事线/下一节点是规划方向、偏移记录是连续性依据，不代表角色预知；进行中的当前事件通过公开征兆/可见影响向正文暴露可感知现实。不要输出公开摘要/正文承接，也不要把后台秘密、默认走向或未来宏观事件详情写进公开字段。\n7. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
+            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件、超期活动事件、时间越界记录和未完事项；符合条件才启动/推进，有实际结果才完成。任何“已经发生”的记录都不得越过当前世界时间。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。异端雷达中仍为活跃的成员每轮都必须作为人物活动复核，死亡则只更新雷达状态并停止人物活动。即将与<user>见面时停在见面前一步。\n6. 正文可见层：非战斗正文读取完整因果轨道作为长期方向与因果记忆，其中故事线/下一节点是规划方向、偏移记录是连续性依据，不代表角色预知；进行中的当前事件通过公开征兆/可见影响向正文暴露可感知现实；程序还会投影热场外人物的地点/目标/行动/状态/更新时间/公开动态，其中所有活跃异端始终优先保留。人物目标与行动是叙事调度依据，不代表角色知情。不要输出公开摘要/正文承接，也不要把后台秘密、默认走向或未来宏观事件详情写进公开字段。\n7. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
-            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
+            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;
@@ -2166,8 +2244,12 @@ ${schemaText}
                     const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.需要补充远期||recoveryTimeline.因果轨道需重建);
                     const needsScheduleRepair=unscheduledEvents(recoveryStat).length>0;
                     const needsLifecycleRepair=staleActiveEvents(recoveryStat).length>0||temporalAnomalies(recoveryStat).length>0;
-                    if(!needsMacroRepair&&!needsScheduleRepair&&!needsLifecycleRepair){this.status='本楼层已处理，不重复结算';return false;}
-                    this.status=needsMacroRepair?'检测到宏观骨架不完整 · 修复本楼层':needsScheduleRepair?'检测到事件时间锚点缺失 · 修复本楼层':'检测到生命周期或时间异常 · 修复本楼层';
+                    const needsAlienRepair=activeAlienActivityRequirements(recoveryStat).some(item=>{
+                        const personName=stableNameIn(recoveryStat.世界?.[PATH]?.人物||{},item.名称),person=personName?recoveryStat.世界[PATH].人物[personName]:null;
+                        return !person||!String(person.地点||'').trim()||!String(person.目标||'').trim()||!String(person.行动||'').trim();
+                    });
+                    if(!needsMacroRepair&&!needsScheduleRepair&&!needsLifecycleRepair&&!needsAlienRepair){this.status='本楼层已处理，不重复结算';return false;}
+                    this.status=needsMacroRepair?'检测到宏观骨架不完整 · 修复本楼层':needsScheduleRepair?'检测到事件时间锚点缺失 · 修复本楼层':needsAlienRepair?'检测到异端活动缺失 · 修复本楼层':'检测到生命周期或时间异常 · 修复本楼层';
                 }
                 if (!this.isAvailable()) throw new Error(this.usesDedicatedApi()?'请在世界推进「设置」中完成专属 API 地址与模型配置':'请在主神终端设置中启用额外模型并选择模型');
                 const validate = this.host.Samsara && this.host.Samsara.validateWorldState;
@@ -2237,6 +2319,7 @@ ${schemaText}
                             ensureEventTimeAnchors(next,request.unscheduled);
                             ensureStaleActiveHandled(next,request.staleActive,base.stat.世界.时间);
                             ensureTemporalAnomaliesResolved(next,request.timeAnomalies);
+                            ensureActiveAlienActivity(next,request.alienActivity,acceptedWorldResult,base.stat.世界.时间);
                             ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                         }catch(error){globalError=error;}
                         if(rejectedSlices.length||globalError)throw makeRetryFailure(rejectedSlices,globalError);
@@ -2258,6 +2341,7 @@ ${schemaText}
                                 ensureEventTimeAnchors(next,request.unscheduled);
                                 ensureStaleActiveHandled(next,request.staleActive,base.stat.世界.时间);
                                 ensureTemporalAnomaliesResolved(next,request.timeAnomalies);
+                                ensureActiveAlienActivity(next,request.alienActivity,acceptedWorldResult,base.stat.世界.时间);
                                 ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                             }catch(error){currentGlobalError=error;}
                             if(currentGlobalError)throw makeRetryFailure([],currentGlobalError);
@@ -3459,7 +3543,7 @@ ${schemaText}
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {

@@ -111,14 +111,25 @@ if (!isCombat) {
   }
 }
 
-// 后台完整状态含未来计划、私有认知与传播真相，只向正文投影公开摘要。
-// 战斗中也保留这份短摘要，让已经发生的世界影响不会因界面过滤而消失。
+// 后台完整状态含未来计划、私有认知与传播真相，正文只读取“局势摘要 + 正文承接”。
+// 战斗中也保留这份短投影，让已经发生且已触达当前场景的世界影响不会因界面过滤而消失。
 if (current.世界) {
   // 世界.历法仅供世界引擎与程序校验使用，正文/普通变量AI不可见。
   delete current.世界.历法;
   delete current.世界.后台;
-  const worldDigest = _.get(data, '世界.后台.公开摘要', '');
-  if (isWorldEngineEnabled && !_.get(data, '系统状态.是否在主神空间', false) && worldDigest) readonly.世界.后台公开动态 = worldDigest;
+  const worldDigest = String(_.get(data, '世界.后台.公开摘要', '') || '').trim();
+  const rawHandoff = _.get(data, '世界.后台.正文承接', []);
+  const worldHandoff = (Array.isArray(rawHandoff) ? rawHandoff : []).slice(0, 3).map(item => ({
+    来源: String(item?.来源 || ''),
+    触达方式: String(item?.触达方式 || ''),
+    可见事实: String(item?.可见事实 || ''),
+    当前场景影响: String(item?.当前场景影响 || '')
+  })).filter(item => item.来源 && item.触达方式 && item.可见事实 && item.当前场景影响);
+  if (isWorldEngineEnabled && !_.get(data, '系统状态.是否在主神空间', false) && (worldDigest || worldHandoff.length)) {
+    readonly.世界.后台公开动态 = {};
+    if (worldDigest) readonly.世界.后台公开动态.局势摘要 = worldDigest;
+    if (worldHandoff.length) readonly.世界.后台公开动态.正文承接 = worldHandoff;
+  }
 }
 
 // 世界超稳模式: 隐藏因果轨道偏移记录中的「影响程度」数值, 仅保留叙事性字段(描述/引发者)

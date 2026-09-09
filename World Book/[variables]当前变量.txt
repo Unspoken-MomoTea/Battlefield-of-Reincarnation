@@ -47,6 +47,12 @@ const safeStringify = (obj) => {
   }
   return JSON.stringify(obj, null, 2);
 };
+const projectionNameKey = value => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
+const deadAlienNameKeys = new Set(
+  Object.entries(_.get(data, '世界.异端雷达.名单', {}) || {})
+    .filter(([, alien]) => alien?.状态 === '死亡')
+    .map(([name]) => projectionNameKey(name))
+);
 
 // 1. 世界只读信息
 readonly.世界 = {
@@ -69,6 +75,7 @@ if (data.角色.最终属性) {
 if (!_.isEmpty(data.关系列表)) {
   readonly.关系列表 = {};
   _.forEach(data.关系列表, (npc, name) => {
+    if (deadAlienNameKeys.has(projectionNameKey(name))) return;
     readonly.关系列表[name] = {};
     if (npc.HP_MAX !== undefined) readonly.关系列表[name].HP_MAX = npc.HP_MAX;
     if (npc.EP_MAX !== undefined) readonly.关系列表[name].EP_MAX = npc.EP_MAX;
@@ -353,6 +360,7 @@ if (data.角色.当前形态) current.角色.当前形态 = data.角色.当前�
 // 5. 关系列表 (NPC)
 const 关系 = data.关系列表 || {};
 current.关系列表 = _.pickBy(_.mapValues(关系, (person, name) => {
+  if (deadAlienNameKeys.has(projectionNameKey(name))) return undefined;
   if (isBriefPath(`/关系列表/${name}`)) return 简略显示占位;
   const copy = _.cloneDeep(person);
 

@@ -406,6 +406,9 @@ export const Schema = z.object({
         // 世界引擎的完整后台状态；正文只通过当前变量读取当前阶段与安全过滤后的当前事件。
         后台: z.object({
             版本: safeNum(4), 已处理楼层: safeStr(''), 已处理时间: safeStr(''),
+            // 仅用于 v3→v4 旧存档迁移；world transform 会马上转入 因果轨道.当前阶段 并删除。
+            公开摘要: safeStr('').optional(),
+            正文承接: z.any().optional(),
             事件: z.record(z.string(), z.any()).prefault({}),
             人物: z.record(z.string(), z.any()).prefault({}),
             势力地区: z.record(z.string(), z.any()).prefault({}),
@@ -469,6 +472,13 @@ export const Schema = z.object({
         }).prefault({})
     }).prefault({}).transform(world => {
         world.时间 = normalizeWorldTimeByCalendar(world.时间, world.历法);
+        const legacySummary = String(world.后台?.公开摘要 || '').trim();
+        if (legacySummary) world.因果轨道.当前阶段 = legacySummary;
+        if (world.后台) {
+            delete world.后台.公开摘要;
+            delete world.后台.正文承接;
+            world.后台.版本 = Math.max(4, Number(world.后台.版本) || 0);
+        }
         return world;
     }),
 

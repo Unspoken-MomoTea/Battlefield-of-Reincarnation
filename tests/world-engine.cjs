@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const file = path.join(__dirname, '../script/世界推进系统.js');
 const source = fs.readFileSync(file, 'utf8');
-const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA, projectWorldContext, compactWorldLifecycle, calendarDate, repairExplorationGranularity, sortWorldEvents, eventScheduleLabel} = require(file);
+const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA, projectWorldContext, compactWorldLifecycle, calendarDate, repairExplorationGranularity, sortWorldEvents, eventScheduleLabel, staleActiveEvents, temporalAnomalies} = require(file);
 const clone = x => JSON.parse(JSON.stringify(x));
 const fresh = () => ({世界:{名称:'测试世界',时间:'2026年9月7日清晨',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},系统状态:{是否在主神空间:false},设置:{},任务:{列表:{调查:{状态:'进行中'}},副本成就:{发现:{状态:'未达成'}}},关系列表:{},传闻:{}});
 const add = (path,value) => ({op:'add',path,value});
@@ -59,6 +59,36 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(stat.世界.后台.传播['仍在传播']);
         assert.deepEqual(report.归档事件,['旧战斗']);
         assert.deepEqual(report.回收传播,['过期广播','明确结束']);
+    });
+    await test('stale active local events are surfaced for mandatory lifecycle review', () => {
+        const stat=fresh();
+        stat.世界.时间='斗罗历2643年-12月-20日-酉时二刻';
+        stat.世界.后台.事件={
+            '九年前巡逻':{...RECORDS.事件,描述:'旧巡逻',时间:'斗罗历2634年-03月-18日-上午',状态:'进行中',分类:'当前事件'},
+            '八年前追踪':{...RECORDS.事件,描述:'旧追踪',时间:'斗罗历2635年-03月-16日-下午',状态:'进行中',分类:'当前事件'},
+            '今日封锁':{...RECORDS.事件,描述:'今日封锁',时间:'斗罗历2643年-12月-20日-上午',状态:'进行中',分类:'当前事件'}
+        };
+        assert.deepEqual(staleActiveEvents(stat).map(x=>x.名称),['九年前巡逻','八年前追踪']);
+    });
+    await test('old finished events detach soft person links and archive instead of staying hot forever', () => {
+        const stat=fresh();
+        stat.世界.时间='2026年10月20日上午';
+        stat.世界.后台.事件.旧调查={...RECORDS.事件,描述:'旧调查已结束',时间:'2026年9月1日上午',状态:'已完成',分类:'近期节点'};
+        stat.世界.后台.人物.卫兵={...RECORDS.人物,所属世界:'测试世界',行动:'值勤',关联事件:['旧调查']};
+        const report=compactWorldLifecycle(stat);
+        assert.equal(stat.世界.后台.事件.旧调查,undefined);
+        assert.deepEqual(stat.世界.后台.人物.卫兵.关联事件,[]);
+        assert.ok(stat.世界.后台.历史['归档·旧调查']);
+        assert.ok(report.归档事件.includes('旧调查'));
+    });
+    await test('temporal anomaly scanner catches completed events and backend updates written beyond world time', () => {
+        const stat=fresh();
+        stat.世界.时间='斗罗历2643年-12月-20日-酉时二刻';
+        stat.世界.后台.事件.未来完成={...RECORDS.事件,描述:'不应提前完成',时间:'斗罗历2644年-01月-01日',状态:'已完成',分类:'近期节点'};
+        stat.世界.后台.人物.未来人物={...RECORDS.人物,所属世界:'测试世界',行动:'未来动作',更新时间:'斗罗历2644年-12月-20日'};
+        const list=temporalAnomalies(stat);
+        assert.ok(list.some(x=>x.类型==='事件'&&x.名称==='未来完成'));
+        assert.ok(list.some(x=>x.类型==='人物'&&x.名称==='未来人物'));
     });
     await test('world context exposes only hot history and recent causal offsets while preserving the full MVU ledger', () => {
         const stat=fresh();
@@ -432,6 +462,35 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             事件:[{名称:'远期节点',描述:'阶段变化',分类:'宏观节点',状态:'待发生',时间:'前置节点完成后当日傍晚'}]
         }));
     });
+    await test('WorldResult compiles scene handoff separately from public situation summary', () => {
+        const stat=fresh();
+        stat.世界.后台.正文承接=[{来源:'旧消息',触达方式:'旧渠道',可见事实:'旧事实',当前场景影响:'旧影响'}];
+        const compiled=compileWorldResult(stat,{
+            摘要:'世界推进',
+            公开摘要:'北门封锁已经成为公开事实。',
+            正文承接:[{
+                来源:'北门守备队',
+                触达方式:'哨卡公告',
+                可见事实:'北门从今日起执行二次身份检查。',
+                当前场景影响:'当前场景所有出城人员都会被守卫拦下核验。'
+            }]
+        },{finalizeHandoff:true});
+        const next=applyPatches(stat,compiled.patches);
+        assert.equal(next.世界.后台.公开摘要,'北门封锁已经成为公开事实。');
+        assert.deepEqual(next.世界.后台.正文承接,[{
+            来源:'北门守备队',
+            触达方式:'哨卡公告',
+            可见事实:'北门从今日起执行二次身份检查。',
+            当前场景影响:'当前场景所有出城人员都会被守卫拦下核验。'
+        }]);
+        const cleared=compileWorldResult(next,{摘要:'本轮无可触达事项'},{finalizeHandoff:true});
+        assert.deepEqual(applyPatches(next,cleared.patches).世界.后台.正文承接,[]);
+    });
+    await test('new writes cannot mark events or backend updates in the future as already-real facts', () => {
+        const stat=fresh();stat.世界.时间='斗罗历2643年-12月-20日-酉时二刻';
+        assert.throws(()=>applyPatches(stat,[add('/世界/后台/事件/未来完成',{...RECORDS.事件,描述:'未来完成',时间:'斗罗历2644年-01月-01日',状态:'已完成',分类:'近期节点'})]),/超过当前世界时间/);
+        assert.throws(()=>applyPatches(stat,[add('/世界/后台/人物/未来人',{...RECORDS.人物,所属世界:'测试世界',行动:'未来行动',更新时间:'斗罗历2644年-01月-01日'})]),/超过当前世界时间/);
+    });
     await test('WorldResult compiler owns paths, escaping and upsert selection', () => {
         const stat=fresh();
         stat.世界.后台.人物.卫兵={...RECORDS.人物,所属世界:'测试世界',行动:'待命'};
@@ -509,6 +568,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(options.schema.type,'object');
         assert.ok(options.schema.properties.事件);
         assert.equal(WORLD_RESULT_SCHEMA.properties.事件.type,'array');
+        assert.equal(WORLD_RESULT_SCHEMA.properties.正文承接.type,'array');
+        assert.equal(WORLD_RESULT_SCHEMA.properties.正文承接.maxItems,3);
+        assert.deepEqual(WORLD_RESULT_SCHEMA.properties.正文承接.items.required,['来源','触达方式','可见事实','当前场景影响']);
         assert.equal(WORLD_RESULT_SCHEMA.properties.货币.type,'object');
         assert.deepEqual(Object.keys(WORLD_RESULT_SCHEMA.properties.货币.properties),['体系','购买力基准','经济波动']);
         assert.deepEqual(WORLD_RESULT_SCHEMA.properties.探索.items.properties.风险.enum,['F','E','D','C','B','A','S','SS','SSS']);
@@ -517,6 +579,49 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(WORLD_RESULT_SCHEMA.properties.势力.items.properties.实力.enum,['F','E','D','C','B','A','S','SS','SSS']);
         assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.minimum,-5000);
         assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.maximum,10000);
+    });
+    await test('world run forces stale active events and legacy future timestamps to be repaired before commit', async () => {
+        let calls=0,inputs=[];
+        const x=setup(async (_system,input)=>{
+            calls++;inputs.push(input);
+            return JSON.stringify({
+                摘要:'清理陈旧世界状态',
+                公开摘要:'旧巡逻与旧追踪均已成为历史，当前边境局势恢复到现时状态。',
+                正文承接:[{
+                    来源:'边境哨卡公开记录',
+                    触达方式:'值班军士当面说明',
+                    可见事实:'多年以前的巡逻与追踪任务均已结束，不再占用现役人手。',
+                    当前场景影响:'当前哨卡人员按现行任务重新安排巡逻，不再沿用旧任务状态。'
+                }],
+                事件:[
+                    {名称:'九年前巡逻',状态:'已完成',结果:'巡逻任务早已结束。',更新时间:'斗罗历2643年-12月-20日-酉时二刻'},
+                    {名称:'八年前追踪',状态:'已完成',结果:'魂兽追踪早已结束。',更新时间:'斗罗历2643年-12月-20日-酉时二刻'},
+                    {名称:'未来完成',时间:'斗罗历2643年-12月-20日-下午',状态:'已完成',结果:'已按当前时间校正。'},
+                ],
+                人物:[{名称:'未来人物',行动:'正在处理当前事务',更新时间:'斗罗历2643年-12月-20日-酉时二刻'}]
+            });
+        });
+        x.change(s=>{
+            s.世界.时间='斗罗历2643年-12月-20日-酉时二刻';
+            s.世界.后台.事件={
+                '九年前巡逻':{...RECORDS.事件,描述:'旧巡逻',时间:'斗罗历2634年-03月-18日-上午',状态:'进行中',分类:'当前事件'},
+                '八年前追踪':{...RECORDS.事件,描述:'旧追踪',时间:'斗罗历2635年-03月-16日-下午',状态:'进行中',分类:'当前事件'},
+                '未来完成':{...RECORDS.事件,描述:'未来时间污染',时间:'斗罗历2644年-01月-01日',状态:'已完成',分类:'近期节点'}
+            };
+            s.世界.后台.人物.未来人物={...RECORDS.人物,所属世界:'测试世界',行动:'未来动作',更新时间:'斗罗历2644年-12月-20日'};
+        });
+        x.engine.config.requireMacroBackbone=false;x.engine.config.retryAttempts=1;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,1);
+        const payload=JSON.parse(inputs[0]);
+        assert.deepEqual(payload.本轮必须复核的超期活动事件.map(x=>x.名称),['九年前巡逻','八年前追踪']);
+        assert.ok(payload.本轮必须修复的时间越界记录.some(x=>x.名称==='未来完成'));
+        assert.ok(payload.本轮必须修复的时间越界记录.some(x=>x.名称==='未来人物'));
+        assert.equal(x.get().世界.后台.事件['九年前巡逻'],undefined,'已解决的陈旧局部事件应立即转入历史冷档');
+        assert.equal(x.get().世界.后台.事件['八年前追踪'],undefined,'已解决的陈旧局部事件应立即转入历史冷档');
+        assert.equal(x.get().世界.后台.事件.未来完成.时间,'斗罗历2643年-12月-20日-下午');
+        assert.equal(x.get().世界.后台.人物.未来人物.更新时间,'斗罗历2643年-12月-20日-酉时二刻');
+        assert.equal(x.get().世界.后台.正文承接.length,1);
     });
     await test('existing vague or empty event schedules are explicitly requested and repaired', async () => {
         let calls=0,inputs=[];
@@ -688,6 +793,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(r.system,/传播.*到期.*回收|过期传播.*回收/);
         assert.match(r.system,/所有.*待发生.*进行中.*事件.*时间锚点/);
         assert.match(r.system,/不得.*近期.*稍后.*未来.*待定/);
+        assert.match(r.system,/正文承接/);
+        assert.match(r.system,/已经能够触达.*当前场景|当前场景.*已经能够触达/);
     });
     await test('world request projects only world-relevant MVU, keeps assets and character capabilities, and excludes user prose', async () => {
         const x=setup(async()=>JSON.stringify({摘要:'无变化'}));
@@ -1381,7 +1488,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const end=source.indexOf('// 世界超稳模式:',start);
         const render=new Function('current','data','readonly','_','isWorldEngineEnabled',source.slice(start,end));
         const lodash={get:(v,p,d)=>p.split('.').reduce((a,k)=>a?.[k],v)??d};
-        const stat=fresh();stat.世界.后台.公开摘要='城门戒严';stat.世界.后台.事件.秘密={结果:'隐藏真相'};stat.世界.历法={名称:'隐藏历',月份天数:[31,28,31],闰年规则:''};
+        const stat=fresh();stat.世界.后台.公开摘要='城门戒严';stat.世界.后台.正文承接=[{来源:'守备队',触达方式:'公告',可见事实:'北门封锁',当前场景影响:'守卫会检查出城者'}];stat.世界.后台.事件.秘密={结果:'隐藏真相'};stat.世界.历法={名称:'隐藏历',月份天数:[31,28,31],闰年规则:''};
         for (const engineOn of [false,true]) {
             for (const space of [false,true]) {
                 stat.系统状态.是否在主神空间=space;
@@ -1389,10 +1496,17 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
                 render(current,stat,readonly,lodash,engineOn);
                 assert.equal(current.世界.后台,undefined);
                 assert.equal(current.世界.历法,undefined,'正文/普通AI当前变量不得看到内部历法');
-                assert.equal(readonly.世界.后台公开动态,engineOn&&!space?'城门戒严':undefined,'关闭世界推进后连后台公开摘要也不得暴露');
+                assert.deepEqual(readonly.世界.后台公开动态,engineOn&&!space?{局势摘要:'城门戒严',正文承接:[{来源:'守备队',触达方式:'公告',可见事实:'北门封锁',当前场景影响:'守卫会检查出城者'}]}:undefined,'正文只应拿到局势摘要和已触达当前场景的承接事项');
                 assert.equal(JSON.stringify([current,readonly]).includes('隐藏真相'),false);
             }
         }
+    });
+    await test('正文思考协议 treats scene handoff as a required visible consequence instead of optional background news', () => {
+        const think=fs.readFileSync(path.join(__dirname,'../World Book/⚙️额外思考.txt'),'utf8');
+        assert.match(think,/正文承接/);
+        assert.match(think,/必须自然体现至少一项/);
+        assert.match(think,/不得.*凭空知情/);
+        assert.match(think,/不得重新推演.*后台/);
     });
     await test('terminal settings do not claim shared API when world engine uses a dedicated API', () => {
         const terminalSource=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');

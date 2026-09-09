@@ -199,12 +199,12 @@
             "[\"轮回战场V3.6.1\",\"8412\"]",
             "[\"轮回战场V3.6.1\",\"559085\"]"
         ];
-    const BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS = new Set(['任务与委托系统','实体生成规则','NPC生成规则','状态协议']);
+    const BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS = new Set(['任务与委托系统']);
     const USER_DEFAULT_PROMPT_DOCUMENT_ID='user-default';
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:7,
+        version:8,
         builtin:true,
         name:'默认设置',
         exportedAt:'2026-09-10T00:00:00.000Z',

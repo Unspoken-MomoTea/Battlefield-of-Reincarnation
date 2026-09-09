@@ -274,11 +274,14 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
 
  await page.locator('[data-action="books"]').click();
  await page.locator('[data-book]').first().waitFor();
- assert.equal(await page.locator('[data-book]:checked').count(),1,'内置默认应在世界书版本号变化后仍只勾选需要的世界资料');
- for(const name of ['任务与委托系统','实体生成规则','NPC生成规则','状态协议']){
+ assert.equal(await page.locator('[data-book]:checked').count(),4,'内置默认应勾选世界资料与三条NPC构筑规则');
+ const taskRow=page.locator('.we-book-row').filter({hasText:'任务与委托系统'});
+ assert.equal(await taskRow.count(),1,'默认目录应包含任务与委托系统');
+ assert.equal(await taskRow.locator('[data-book]').isChecked(),false,'任务与委托系统继续默认取消勾选');
+ for(const name of ['实体生成规则','NPC生成规则','状态协议']){
    const row=page.locator('.we-book-row').filter({hasText:name});
    assert.equal(await row.count(),1,'默认目录应包含 '+name);
-   assert.equal(await row.locator('[data-book]').isChecked(),false,'默认设置必须取消勾选 '+name);
+   assert.equal(await row.locator('[data-book]').isChecked(),true,'角色管理构筑强化需要默认勾选 '+name);
  }
  assert.equal(await page.locator('[data-book]:disabled').count(),1);
  await page.locator('[data-action="book-none"]').click();

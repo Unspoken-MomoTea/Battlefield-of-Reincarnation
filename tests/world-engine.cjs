@@ -1481,7 +1481,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(doc&&doc.builtin,'内置默认文档必须始终存在');
         assert.equal(doc.name,'默认设置');
         assert.equal(engine.config.activePromptDocumentId,'builtin-default');
-        assert.equal(engine.config.builtinDefaultPromptVersionApplied,7);
+        assert.equal(engine.config.builtinDefaultPromptVersionApplied,8);
         assert.equal(engine.config.contextTurns,3);
         assert.equal(engine.config.activationMode,'respect_activation');
         assert.equal(engine.config.selectedEntries.length,24);
@@ -1500,7 +1500,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(engine.deletePromptDocument('builtin-default'),false,'内置默认文档不可删除');
         assert.ok(JSON.parse(stored).promptDocuments.some(x=>x.id==='builtin-default'));
     });
-    await test('built-in default deselects backend-irrelevant worldbook rules by title', async () => {
+    await test('built-in default keeps NPC build rules selected and excludes only task rules', async () => {
         let stored='';
         const host={
             localStorage:{getItem:()=>null,setItem:(_,v)=>{stored=v;}},
@@ -1518,11 +1518,12 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         await engine.catalogue();
         const selectedIds=engine.config.selectedEntries.map(raw=>JSON.parse(raw)[1]);
         assert.ok(selectedIds.includes('915830'),'普通世界资料仍保持默认勾选');
-        for(const id of ['196248','503929','931853','446543'])assert.equal(selectedIds.includes(id),false,'后台无关规则不应保持默认勾选：'+id);
-        assert.deepEqual(new Set(engine.config.builtinDefaultWorldbookExclusionsApplied),new Set(['任务与委托系统','实体生成规则','NPC生成规则','状态协议']));
+        assert.equal(selectedIds.includes('196248'),false,'任务与委托系统继续默认取消');
+        for(const id of ['503929','931853','446543'])assert.equal(selectedIds.includes(id),true,'NPC构筑相关规则应恢复默认勾选：'+id);
+        assert.deepEqual(new Set(engine.config.builtinDefaultWorldbookExclusionsApplied),new Set(['任务与委托系统']));
         const builtin=engine.getPromptDocuments().find(x=>x.id==='builtin-default');
         assert.deepEqual(builtin.settings.selectedEntries,engine.config.selectedEntries,'内置默认文档在目录解析后同步真实勾选范围');
-        assert.ok(JSON.parse(stored).builtinDefaultWorldbookExclusionsApplied.length===4,'迁移结果应保存，避免用户之后手动重勾又被重复取消');
+        assert.equal(JSON.parse(stored).builtinDefaultWorldbookExclusionsApplied.length,1,'迁移结果只记录任务规则排除');
     });
     await test('legacy personal default no longer shadows the versioned built-in default', () => {
         const legacySettings={preset:'【旧个人默认】\n旧内容',contextTurns:8,activationMode:'force_selected',selectedEntries:['["旧书","1"]']};

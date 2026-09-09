@@ -3,6 +3,17 @@
   const rule_data = getMessageVar('stat_data', { defaults: {} }) || {};
   const isSingleWorld = _.get(rule_data, '设置.单一世界', false) === true;
   const isStable = _.get(rule_data, '设置.世界超稳', false) === true;
+  // 势力奖励由模板按真实变量预先核算，负声望/零声望永远不参与收益。
+  const reputationGrades = ['F','E','D','C','B','A','S','SS','SSS'];
+  const reputationBases = [100,500,2500,12000,50000,200000,800000,3200000,12800000];
+  const worldGrades = String(_.get(rule_data, '世界.难度', '')).toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/g) || [];
+  const reputationBase = worldGrades.length ? reputationBases[Math.min(...worldGrades.map(q=>reputationGrades.indexOf(q)))] : 0;
+  const positiveFactions = Object.entries(_.get(rule_data, '世界.势力', {}) || {}).filter(([,f])=>Number(f?.声望)>0);
+  const reputationWeight = positiveFactions.reduce((sum,[,f])=>sum+Number(f.声望)/100,0);
+  const reputationTotal = reputationBase * reputationWeight;
+  const reputationCap = reputationBase * 3;
+  const reputationReward = Math.min(reputationTotal,reputationCap);
+
 
   // 仓库物品不在 stat_data.仓库 下；真实路径是 角色.装备/道具 中 状态===2
   // [variables]当前变量.txt 会全局屏蔽状态2以省Token，结算任务必须从原始 rule_data 自行提取
@@ -76,7 +87,7 @@ _%>
     - 击杀目标附加收益 = Σ(各目标自身评级对应单价 × 击杀数量)。总额上限: 任务综合基础收益 × 10
     - 世界探索附加收益 = 【奖励基准评级对应基础奖励】 × 【总探索度%】。总额上限: 【奖励基准评级对应基础奖励】 × 300%。
 <%_ if (!isSingleWorld) { _%>
-    - 势力羁绊附加收益 = 【奖励基准评级对应基础奖励】 × (核心势力声望绝对值 ÷ 100)。总额上限: 【奖励基准评级对应基础奖励】 × 300%
+    - 势力羁绊附加收益只计声望>0的势力，声望≤0一律为0，禁止取绝对值。程序已按当前世界难度最低评级算出：基础奖励 <%= reputationBase %>，正声望总权重 <%= reputationWeight %>，封顶后实际收益 <%= reputationReward %> 空间币。面板、个人最终总收益和空间币变量增量必须使用此金额，不得由AI重算或追加负声望奖励。
 <%_ } _%>
     - 任务专属奖励 = 提取【可结算】主神任务中尚未发放的专属奖励，逐项单独核算，不重复计入其他收益
     - 失败任务惩罚扣除 = 提取【失败】主神任务中明确注明的空间币惩罚数值
@@ -181,10 +192,12 @@ AI推演与计算层 (仅在 <dm_think> 中执行，不在正文显示):
     * **探索实际计入收益**: **{取上述二者中的较小值}** 空间币
 <%_ if (!isSingleWorld) { _%>
 * **势力羁绊附加收益明细**:
-    $(若 stat_data.世界.势力.势力名.声望 不为0 则输出: * {基础奖励数值} × [势力名] (|{{get_message_variable::stat_data.世界.势力.势力名.声望}}| ÷ 100) = {总额})
-    * **声望奖励合计**: **{所有声望总额}** 空间币
-    * **声望奖励上限**: **{基础奖励数值 × 300%}** 空间币
-    * **声望实际计入收益**: **{取上述二者中的较小值}** 空间币
+<%_ for (const [name, faction] of positiveFactions) { _%>
+    * <%= reputationBase %> × [<%= name %>] (<%= Number(faction.声望) %> ÷ 100) = <%= reputationBase * Number(faction.声望) / 100 %>
+<%_ } _%>
+    * **声望奖励合计**: **<%= reputationTotal %>** 空间币
+    * **声望奖励上限**: **<%= reputationCap %>** 空间币
+    * **声望实际计入收益**: **<%= reputationReward %>** 空间币
 <%_ } _%>
 * **任务专属奖励**:
     $(可结算任务): {奖励}

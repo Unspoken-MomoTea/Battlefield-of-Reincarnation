@@ -18,6 +18,7 @@ b.剧本={'补给危机':{...RECORDS.剧本,描述:'一条中断的商路，让�
 b.最近变化=[{时间:'2026年9月7日清晨',类别:'事件',名称:'灰港封锁',操作:'新增',字段:'状态',内容:'北门进入临时管制。'},{时间:'2026年9月7日清晨',类别:'人物',名称:'守备官艾琳',操作:'更新',字段:'行动',内容:'开始审问返回的车夫。'},{时间:'2026年9月7日清晨',类别:'任务',名称:'追查失踪车队',操作:'更新',字段:'阶段',内容:'已完成询问，下一步前往旧桥。'}];
 b.运行记录=[{时间:'2026年9月7日清晨',摘要:'确认补给中断，建立调查与商会议事的因果联系。',补丁数:8}];
 const stat={世界:{名称:'灰港纪事',地点:'灰港 · 银鸥酒馆',时间:'2026年9月7日清晨',稳定:96,后台:b,因果轨道:{当前阶段:'第一幕 · 北境来信',故事线:'北境援军抵达 → 商路争夺 → 灰港改组',下一节点:'北境援军抵达',偏移记录:{}},法则:['低魔世界','契约具有约束力'],货币:{体系:'银冠',购买力基准:'普通餐食约3银冠',经济波动:'粮价小幅上涨'},历法:{名称:'灰港历',月份天数:[31,28,31,30,31,30,31,31,28,31,30,31],闰年规则:''},势力:{灰港商会:{实力:'C',声望:320,领地:'灰港集市',描述:'希望尽快恢复北方商路。'}},探索:{废弃旧桥:{风险:'D',探索度:35,描述:'桥头留有车轮与拖拽痕迹。',隐藏真相:'桥下存在一条隐蔽通道。'},灰港外港:{风险:'B',探索度:65,描述:'已摸清外港主路、货栈与两处可用泊位。',隐藏真相:'夜间有不明船只使用废弃泊位。'},旧驿道:{风险:'C',探索度:15,描述:'只确认了离城后的前两处分岔口。',隐藏真相:''}},异端雷达:{名单:{}}},系统状态:{游玩天数:23,是否在主神空间:false},设置:{},关系列表:{商人莱昂:{在场:true,好感度:25,态度:'愿意交换消息'},守备官艾琳:{在场:false,好感度:10}},任务:{列表:{追查失踪车队:{状态:'进行中',目标:'沿北境旧驿道寻找失踪的补给车队。',委托方:'灰港卫队',难度:'D',奖励:'200银冠'}},副本成就:{迷雾中的足迹:{状态:'未达成',说明:'在补给危机结束前找到旧桥的秘密。',难度:'D',奖励:'D级盲盒'}}},传闻:{街头巷议:{粮仓里的低语:{来源:'酒馆常客',内容:'听说北门外又停了两支商队，面包恐怕还要涨价。',可信度:'或许可信'}}}};
+stat.世界.因果轨道.偏移记录={补给线截断:{描述:'商路受阻改变援军部署。',引发者:'河运派',影响程度:-10},恢复渡口:{描述:'修复了原定运输路线。',引发者:'测试玩家',影响程度:2},议会调停:{描述:'议会介入冲突。',引发者:'议会',影响程度:1},隐藏偏移:{描述:'其余记录可展开阅读。',引发者:'商会',影响程度:-1}};
 // 故意打乱写入顺序：UI 必须按“进行中 → 近期 → 宏观”而不是对象插入顺序显示。
 b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议事':b.事件['商会紧急议事'],'灰港封锁':b.事件['灰港封锁']};
 (async()=>{
@@ -30,6 +31,15 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  const out=path.join(__dirname,'artifacts');fs.mkdirSync(out,{recursive:true});
  await page.screenshot({path:path.join(out,'world-desktop.png')});
  assert.equal(await page.locator('#sam-world-engine pre').count(),0);
+ assert.equal(await page.getByRole('heading',{name:'近期变化',exact:true}).count(),0);
+ assert.equal(await page.getByRole('heading',{name:'因果状态',exact:true}).count(),1);
+ assert.equal(await page.locator('[data-world-stability]').innerText(),'96','读取稳定值，不从偏移记录重新计算');
+ assert.equal(await page.locator('.we-offset').first().innerText().then(t=>t.includes('-10')&&t.includes('河运派')),true);
+ assert.equal(await page.locator('.we-offset').nth(1).innerText().then(t=>t.includes('+2')),true);
+ assert.equal(await page.locator('.we-offset').nth(3).isVisible(),false);
+ await page.locator('.we-offset-more summary').click();
+ assert.equal(await page.locator('.we-offset').nth(3).isVisible(),true);
+ await page.locator('.we-offset-more summary').click();
  assert.equal(await page.locator('[data-action="enabled"]').count(),0);
  assert.equal(await page.locator('[data-action="run"]').isDisabled(),true);
  assert.equal(await page.getByText(/额外模型未准备好/).count(),1);
@@ -263,6 +273,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('.we-preset-toolbar [data-action="save"]').count(),1,'保存当前设置固定在顶部工作条');
  assert.equal(await page.locator('[data-action="doc-import"]').count(),1,'预设文档提供导入入口');
  const segmentCount=await page.locator('[data-segment-row]').count();
+ await page.locator('[data-action="prompt-edit"]').click();
  await page.locator('[data-action="segment-add"]').click();
  const customSegment=page.locator('textarea[aria-label="新分段正文"]').locator('..');
  await customSegment.locator('[data-segment-title]').fill('自定义测试段');

@@ -4106,6 +4106,16 @@
             + '<div class="sam-toggle-switch '+(worldAdvanceOn?'on':'')+'" data-toggle="world-engine"><div class="knob"></div></div></div>'
             + '<div style="display:flex;justify-content:flex-end;margin-top:8px;"><button type="button" class="sam-api-btn" data-act="world-engine-settings">打开世界推进设置</button></div>');
 
+        var difficulty = ['体验', '正常', '困难', '挑战'].indexOf(cfg.难度) >= 0 ? cfg.难度 : '体验';
+        var difficultyNotes = {
+            '体验': '保持现有规则，不额外强化。',
+            '正常': '新敌对 NPC 的血统、技能、装备、状态和形态至少与自身生命层级齐平。',
+            '困难': '正常基础上，原始属性品质提升 2 阶。',
+            '挑战': '原始属性品质提升 4 阶，体质 SSS；装备、状态、形态至少高于生命层级 1 阶。'
+        };
+        html += secBlock('⚔️ 难度', '<div style="display:grid;gap:10px;">' + ['体验', '正常', '困难', '挑战'].map(function(mode) {
+            return '<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;"><input type="radio" name="sam-difficulty" value="'+mode+'" '+(difficulty===mode?'checked':'')+'><span><b>'+mode+'</b><br><small>'+difficultyNotes[mode]+'</small></span></label>';
+        }).join('') + '</div><div style="margin-top:8px;color:var(--sam-sub);font-size:11px;">仅影响后续新建且好感度为负的非队友 NPC；品质最高 SSS，生命层级最高 Ⅸ。</div>');
         var variableMode = getVariableApiMode();
         var variableModeHtml = '<div class="sam-varmode-grid">'
   + '<button type="button" class="sam-varmode-btn '+(variableMode==='额外API'?'active':'')+'" data-variable-api-mode="额外API">'
@@ -4202,6 +4212,17 @@
             $(this).toggleClass('on', on);
             setEditMode(on);
             closeModal();
+            renderAll();
+        });
+        $('#samsara-modal').off('change.samDifficulty').on('change.samDifficulty', 'input[name="sam-difficulty"]', function() {
+            var mode = this.value;
+            if (['体验', '正常', '困难', '挑战'].indexOf(mode) < 0) return;
+            var ok = writeBackMvu(function(statData) {
+                if (!statData.设置) statData.设置 = {};
+                statData.设置.难度 = mode;
+            });
+            if (!ok) { samToast('error', '难度保存失败'); openSettings(); return; }
+            samToast('success', '难度已设为'+mode+'，对后续新敌对 NPC 生效');
             renderAll();
         });
         // 世界超稳 / 单一世界 开关(写回 MVU 设置节点)

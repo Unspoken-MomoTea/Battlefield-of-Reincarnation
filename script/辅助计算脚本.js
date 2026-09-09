@@ -115,6 +115,7 @@
             // ★ 原住民NPC位格/血统品质压制: 新登场原住民 层级/血统品质超出 世界.位格 → 压回世界位格
             //   (主神空间中不压制; 角色/穿越者/守护者/织梦者/篡夺者/残魂 等特殊身份不压制)
             clampNativeNpcToWorldTier(statData, statDataBefore);
+            applyNewNpcDifficulty(statData, statDataBefore);
 
             // 初始化日志（只打印一次）
             if (!isInitLog) {
@@ -828,6 +829,40 @@
                         b.品质 = capQuality;
                     }
                 }
+            }
+        }
+    }
+
+    // 只在存在更新前快照时识别新角色；加载旧存档不追溯强化。
+    function applyNewNpcDifficulty(statData, statDataBefore) {
+        if (!statDataBefore) return;
+        const mode = statData.设置?.难度 || '体验';
+        if (!['正常', '困难', '挑战'].includes(mode)) return;
+        const before = statDataBefore.关系列表 || {};
+        const steps = mode === '挑战' ? 4 : mode === '困难' ? 2 : 0;
+        for (const [name, npc] of Object.entries(statData.关系列表 || {})) {
+            if (!npc || typeof npc !== 'object' || Object.hasOwn(before, name)) continue;
+            if (npc.是否队友 === true || !(Number(npc.好感度) < 0)) continue;
+            const life = LIFE_TIER_ORDER.indexOf(normalizeLifeTier(npc.层级));
+            function upgrade(item, kind) {
+                if (!item || typeof item !== 'object') return;
+                const floor = Math.min(8, life + (mode === '挑战' && ['装备', '状态', '形态库'].includes(kind) ? 1 : 0));
+                const rank = Math.max(floor, tierRank(item.层级 ?? item.品质));
+                if (kind === '形态库' || item.层级 != null) item.层级 = LIFE_TIER_ORDER[rank];
+                else item.品质 = TIER_ORDER[rank];
+                const raw = item.原始属性;
+                if (raw && typeof raw === 'object') {
+                    for (const key of Object.keys(raw)) {
+                        // 数字型临时加减值及 0 不属于品质阶位，保持其语义。
+                        if (isQualityString(raw[key])) raw[key] = TIER_ORDER[Math.min(8, tierRank(raw[key]) + steps)];
+                    }
+                    if (mode === '挑战' && (kind === '血统' || kind === '形态库' || Object.hasOwn(raw, '体质'))) raw.体质 = 'SSS';
+                    item.真属性 = {};
+                }
+                for (const skill of Object.values(item.技能 || {})) upgrade(skill, '技能');
+            }
+            for (const kind of ['血统', '技能', '装备', '状态', '形态库']) {
+                for (const item of Object.values(npc[kind] || {})) upgrade(item, kind);
             }
         }
     }

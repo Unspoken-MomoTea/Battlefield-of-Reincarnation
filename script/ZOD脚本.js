@@ -394,6 +394,11 @@ const npc_schema = strictItem(z.object({
 // ==========================================
 
 export const Schema = z.object({
+    设置: z.object({
+        难度: z.enum(['体验', '正常', '困难', '挑战']).catch('体验').prefault('体验'),
+        世界超稳: boolPreprocess(false),
+        单一世界: boolPreprocess(false)
+    }).passthrough().prefault({}),
     世界: z.object({
         时间: safeStr('待初始化'),
         地点: safeStr('待初始化'),

@@ -764,6 +764,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const payload=JSON.parse(r.input);
         assert.ok(payload.输入语义);
         assert.ok(payload.本轮时间容量);
+        assert.equal(payload.正文交接目标.当前地点,'测试地点');
+        assert.match(payload.正文交接目标.要求,/0~3条.*触达当前场景/);
     });
     await test('world prompt includes the canonical WorldResult schema even when API structured output falls back', async () => {
         const x=setup(async()=>''),r=await x.engine.buildRequest(x.engine.snapshot());

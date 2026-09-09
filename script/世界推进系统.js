@@ -104,7 +104,7 @@
 【任务联动】主神任务、晋升试炼、任务状态与副本成就不属于世界引擎职责：不读取、不更新、不据此驱动后台事件。它们由正文AI、结算美化程序及玩家操作负责。旧后台.剧本只作存档兼容，不新增、不更新，也不依赖阶段推进。
 【信息传播】世界引擎负责场外传闻与传播链。事件产生街头巷议、付费情报或公告，区分事实、猜测、谣言；记录传播来源、范围、时间和关联事件。传播明确结束或到期后由程序自动回收，不要复活已经过期的传播记录。人物只有获得信息后才能据此行动。传闻可产生新事件，但禁止无因果地每轮刷新。进入城镇、营地、聚集地等非战斗区域时，只有确有新传播事实才维护1~3条街头巷议并淘汰失效旧闻；处于交易区、酒馆、黑市等真实情报交易场所时，可维护1~2条付费情报，字段必须包含卖家、情报评级、购买前摘要、带本地货币单位的要价和仅AI可见的真实内幕；任务世界不得使用空间币定价。到达主要城镇或新大区域时，公告/檄文必须有真实发布者并关联当前势力。当前场景内用户刚刚直接购买情报的支付、remove及转化为任务/探索由普通MVU处理，世界引擎下一轮只同步其场外传播后果，不重复扣款或重复创建任务。
 只使用世界.时间计算本世界进展；系统状态.游玩天数仅作只读参考。时间未变也可记录本轮新事实，但不得虚构耗时进度。跨多个日期需按依赖顺序补算，先处理到期事件再生成后果。
-事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。已完成/已取消事件由程序在失去活跃引用且超过保留窗口后压缩成历史锚点，不要为了“保留历史”重复创建旧事件。宏观远期节点允许时间未定，禁止捏造精确日期。
+事件分待发生、进行中、已完成、已取消；受玩家当前互动影响而尚无结果时保持进行中。所有待发生与进行中事件都必须提供可排序的时间锚点：能确定世界日期/时段就写具体时间；无法确定精确日期的远期宏观节点写明确的相对或因果时间（如“爆发后数日”“校舍突围战后当日傍晚”），不得留空，也不得只写“近期/稍后/未来/待定/未知”。已完成/已取消事件由程序在失去活跃引用且超过保留窗口后压缩成历史锚点，不要为了“保留历史”重复创建旧事件；禁止无依据捏造精确日历日期。
 世界超稳时保持默认宏观轨道，不新增偏移。单一世界的局部结算不能重置世界。普通副本返回主神空间后停止本世界推演。
 初始化时依据当前设定建立必要的近远期节点；无依据的记录保持空。没有变化就返回仅含摘要的空 WorldResult。公开摘要只包含当前可观察的事实、征兆和已知线索，隐藏真相和未来结局留在后台。`;
     const BUILTIN_DEFAULT_SELECTED_ENTRIES = [
@@ -154,7 +154,7 @@
     const CORE_WORLD_RULES = `【世界引擎核心约束】
 1. 宏观优先：因果轨道是3~5个大事件的摘要窗口，后台.事件是其展开版。每轮先检查宏观骨架是否成立，再处理细节。宏观节点必须代表阶段状态变化；程序会把明显属于房间/楼层/校门/单座桥梁、会合、夺取交通工具、单次突破等局部动作降级为当前事件或近期节点，因此不得用局部行动凑宏观数量。
 2. 知识来源：当前变量与已确认剧情优先级最高；有世界书时用其补充/校正作品设定与同人差异；没有世界书不得停止宏观推演，必须使用模型已有的原著/世界知识继续建立宏观事件，不能因资料条目缺失而只写眼前剧情。
-3. 区间桥接：宏观骨架存在后，以“当前时间 → 下一宏观节点”为本轮细节推演边界。当前事件、近期节点、场外人物行动、势力变化、探索与传播只展开到这个边界；更远未来保持宏观节点，等边界接近后再展开。
+3. 区间桥接：宏观骨架存在后，以“当前时间 → 下一宏观节点”为本轮细节推演边界。当前事件、近期节点、场外人物行动、势力变化、探索与传播只展开到这个边界；更远未来保持宏观节点，等边界接近后再展开。所有待发生/进行中事件必须有时间锚点；精确日期未知时使用明确相对/因果时间，禁止空值以及单独使用“近期/稍后/未来/待定/未知”。
 4. 世界推演：原著世界结合当前时间锚点、地点、剧情阶段、已知角色状态、原著人物行动规律、世界势力动态与已知原著进程；原创/衍生世界依据世界法则、本土势力与历史持续运行。世界不会因为<user>没行动而暂停。
 5. 偏移：玩家或其他人物只有实质改变关键人物命运、重大事件结果、势力格局或主线可行性时才写偏移。偏移导致默认宏观事件不再成立时，同轮修订宏观事件图、故事线与下一节点；日常动作、普通交易或对话不记偏移。
 6. 职责隔离：场外人物、势力、资产条件、未来事件、传播、世界货币经济、玩家探索结算台账与玩家对势力声望由世界引擎负责；正文/MVU负责当前场景直接事实与即时消费。主神任务、晋升试炼、任务状态与副本成就不读取、不更新；旧后台.剧本不参与调度。用户可编辑分段提示词，但以上核心约束始终生效。
@@ -299,6 +299,45 @@
     }
     function storyStages(value) {
         return String(value||'').split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
+    }
+    const VAGUE_EVENT_TIME=/^(?:近期|稍后|未来|之后|待定|未定|未知|不详|待确认|时间未定|日期未定)$/;
+    function eventTimeAnchor(event) {
+        return String(event?.时间||event?.开始时间||'').trim();
+    }
+    function eventScheduleLabel(event) {
+        const raw=eventTimeAnchor(event);
+        if(raw&&!VAGUE_EVENT_TIME.test(raw))return raw;
+        const condition=String(event?.条件||'').trim();
+        if(condition)return '条件触发 · '+condition;
+        const predecessors=Array.isArray(event?.前因)?event.前因.filter(Boolean):[];
+        if(predecessors.length)return '前置节点后 · '+predecessors.join('、');
+        return '时间待补';
+    }
+    function eventDisplayBucket(event) {
+        if(event?.状态==='进行中')return 0;
+        if(event?.状态==='待发生'&&event?.分类==='当前事件')return 1;
+        if(event?.状态==='待发生'&&event?.分类==='近期节点')return 2;
+        if(event?.状态==='待发生'&&event?.分类==='宏观节点')return 3;
+        if(event?.状态==='已完成')return 4;
+        if(event?.状态==='已取消')return 5;
+        return 6;
+    }
+    function sortWorldEvents(records,orbit={}) {
+        const storyIndex=new Map(storyStages(orbit?.故事线).map((name,index)=>[nameKey(name),index]));
+        return Object.entries(records||{}).sort((a,b)=>{
+            const bucket=eventDisplayBucket(a[1])-eventDisplayBucket(b[1]);if(bucket)return bucket;
+            if(a[1]?.分类==='宏观节点'&&b[1]?.分类==='宏观节点'){
+                const ai=storyIndex.get(nameKey(a[0])),bi=storyIndex.get(nameKey(b[0]));
+                if(ai!==undefined||bi!==undefined){
+                    if(ai===undefined)return 1;
+                    if(bi===undefined)return -1;
+                    if(ai!==bi)return ai-bi;
+                }
+            }
+            const da=worldDateKey(a[1]?.时间||a[1]?.开始时间),db=worldDateKey(b[1]?.时间||b[1]?.开始时间);
+            if(da!==db)return (da??Infinity)-(db??Infinity);
+            return String(a[0]).localeCompare(String(b[0]),'zh-CN');
+        });
     }
     function repairCausalProjection(stat) {
         const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
@@ -936,6 +975,8 @@
             plan.push('因果轨道：不要重写已接受事件，只补写 因果.宏观顺序；长度必须3~5，且每个名称都必须对应已建立且未取消的宏观节点。');
         }else if((match=message.match(/到期事件未处理：([^。]+)/))){
             plan.push('到期事件/'+match[1]+'：本轮必须明确启动该事件，或更新本轮复核日期、阻碍条件与下次检查。');
+        }else if((match=message.match(/事件时间锚点缺失或过于模糊：([^；]+)/))){
+            plan.push('事件/'+match[1]+'：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。');
         }else if(message&&!rejected.length){
             plan.push('整体校验：'+message);
         }
@@ -997,6 +1038,13 @@
             const record=resultFields(item,sample);
             if(options.person&&!old&&!Object.hasOwn(record,'所属世界'))record.所属世界=stat.世界?.名称||'';
             if(options.event&&!Object.hasOwn(record,'描述'))record.描述=item.名称;
+            if(options.event){
+                const mergedEvent=Object.assign({},plain(old)?old:{},record);
+                if(['待发生','进行中'].includes(mergedEvent.状态)){
+                    const anchor=eventTimeAnchor(mergedEvent);
+                    if(!anchor||VAGUE_EVENT_TIME.test(anchor))throw new Error('事件时间锚点缺失或过于模糊：'+item.名称+'；请填写具体世界时间/时段，或明确相对/因果时间（如“爆发后数日”“前置节点完成后当日傍晚”），禁止空值和“近期/稍后/未来/待定/未知”');
+                }
+            }
             if(!Object.keys(record).length){warnings.push('忽略空业务记录：'+item.名称);return;}
             patches.push({op:old===undefined?'add':'replace',path:pointer(actual),value:record});
         };
@@ -1455,6 +1503,7 @@ ${schemaText}
         constructor(host, env) {
             this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
+            this.lastRequest=null; this.previewRequest=null; this.lastReply=''; this.lastFailure='';
             this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
             this.config = {
                 enabled:false,
@@ -1947,8 +1996,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 const validate = this.host.Samsara && this.host.Samsara.validateWorldState;
                 if (!validate) throw new Error('请加载更新后的 ZOD脚本.js');
 
-                this.lastRetryLog=[];this.lastAttemptCount=0;this.lastReply='';this.lastFailure='';
-                this.lastWorldResult=null;this.lastCompiledPatches=[];this.lastCompileWarnings=[];
+                this.resetInspection();
                 this.status = '正在读取世界资料'; this.render();
                 const request=await this.buildRequest(base);
                 if(token!==this.generation)throw new Error('请求已取消');
@@ -2091,6 +2139,10 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
             }
         }
         getState() { return copy(Object.assign(emptyState(),this.snapshot().stat.世界[PATH] || {})); }
+        resetInspection() {
+            this.lastRequest=null;this.previewRequest=null;this.lastReply='';this.lastFailure='';
+            this.lastRetryLog=[];this.lastAttemptCount=0;this.lastWorldResult=null;this.lastCompiledPatches=[];this.lastCompileWarnings=[];
+        }
         init() {
             const on = this.fn('eventOn');
             const mvu = this.env.Mvu || this.host.Mvu;
@@ -2101,7 +2153,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 this.render(); this.schedule();
             });
             const events = this.env.tavern_events || this.host.tavern_events || {};
-            for (const key of ['CHAT_CHANGED','MESSAGE_SWIPED','MESSAGE_DELETED']) bind(events[key], () => { this.cancel(); this.status = '已切换上下文'; this.render(); });
+            for (const key of ['CHAT_CHANGED','MESSAGE_SWIPED','MESSAGE_DELETED']) bind(events[key], () => { this.cancel(); this.resetInspection(); this.status = '已切换上下文'; this.render(); });
             this.keyHandler = event => { if (event.key === 'Escape' && this.isOpen()) { event.stopImmediatePropagation(); this.close(); } };
             this.host.document.addEventListener('keydown',this.keyHandler,true);
         }
@@ -2917,22 +2969,8 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 const monthsPerYear=Array.isArray(w.历法?.月份天数)&&w.历法.月份天数.length?w.历法.月份天数.length:12;
                 if(anchor&&selected)this.monthOffset=(selected.y-anchor.y)*monthsPerYear+selected.m-anchor.m;
             }
-            const dateLabel=str=>{const d=parseDate(str);return d?d.m+'月'+d.d+'日':str||'日期未定';};
-            const displayBucket=e=>{
-                if(e.状态==='进行中')return 0;
-                if(e.状态==='待发生'&&e.分类==='当前事件')return 1;
-                if(e.状态==='待发生'&&e.分类==='近期节点')return 2;
-                if(e.状态==='待发生'&&e.分类==='宏观节点')return 3;
-                if(e.状态==='已完成')return 4;
-                if(e.状态==='已取消')return 5;
-                return 6;
-            };
-            const events=entries(state.事件).sort((a,b)=>{
-                const bucket=displayBucket(a[1])-displayBucket(b[1]);if(bucket)return bucket;
-                const da=worldDateKey(a[1].时间||a[1].开始时间),db=worldDateKey(b[1].时间||b[1].开始时间);
-                if(da!==db)return (da??Infinity)-(db??Infinity);
-                return String(a[0]).localeCompare(String(b[0]),'zh-CN');
-            });
+            const dateLabel=str=>{const d=parseDate(str);return d?d.m+'月'+d.d+'日':str||'时间待补';};
+            const events=sortWorldEvents(state.事件,orbit);
             const active=events.filter(([,e])=>e.状态==='进行中'),future=events.filter(([,e])=>e.状态==='待发生');
             const peopleAll=new Map(entries(state.人物));entries(s.关系列表).forEach(([n,p])=>{if(!peopleAll.has(n))peopleAll.set(n,{状态:p.在场?'在场':'场外',公开动态:p.态度||'',地点:'',目标:'',行动:''});});
             const userName=String(this.host.SillyTavern?.name1||this.env.SillyTavern?.name1||this.host.SillyTavern?.getContext?.()?.name1||this.host.name1||'').trim();
@@ -2946,7 +2984,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 const rel=(s.关系列表||{})[name]||{};
                 return '<button class="we-person-compact" data-jump-person="'+text(name)+'"><span class="we-avatar">'+text(name.slice(0,1))+'</span><span class="we-person-copy"><strong>'+text(name)+'</strong><small>'+text(p.地点||'地点未明')+'</small><em>'+text(p.行动||p.公开动态||rel.态度||'暂无新动态')+'</em></span></button>';
             };
-            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(e.时间||e.开始时间||'日期未定')+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
+            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(eventScheduleLabel(e))+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
             const timelineCards=list=>{
                 const groups=[
                     ['当前进行',list.filter(([,e])=>e.状态==='进行中'||(e.状态==='待发生'&&e.分类==='当前事件'))],
@@ -3133,7 +3171,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 }
             }else if(this.tab==='世界事件'){
                 const list=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter));
-                html+=tools(['全部','进行中','待发生','已完成','已取消'])+section('世界事件',list.map(([n,e])=>eventCard(n,e)).join('')||empty('没有符合条件的世界事件','按当前事件、近期节点和宏观节点组织。'));
+                html+=tools(['全部','进行中','待发生','已完成','已取消'])+section('世界事件','<div class="we-timeline">'+(timelineCards(list)||empty('没有符合条件的世界事件','按当前事件、近期节点和宏观节点组织。'))+'</div>','按状态层级与因果顺序排列');
             }else if(this.tab==='传闻'){
                 html+=tools();
                 for(const category of ['街头巷议','情报交易','布告与檄文'])html+=section(category,entries((s.传闻||{})[category]).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><h3>'+text(n)+'</h3><p>'+text(r.内容||r.摘要)+'</p>'+fields({来源:r.来源||r.卖家||r.发布者,可信度:r.可信度,要价:r.要价,位置:r.张贴位置})+details('rumor-'+n,{真实内幕:r.真实内幕},'主持人档案')+'</article>').join('')||empty('暂无'+category,'传闻来自已发生事件与传播渠道。'));
@@ -3233,7 +3271,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {

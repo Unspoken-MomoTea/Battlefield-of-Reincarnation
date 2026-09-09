@@ -891,7 +891,7 @@
         for(const item of result.关系||[])push('关系/'+item.名称,{关系:[copy(item)]});
         return {摘要:result.摘要,fragments};
     }
-    function stageWorldResult(stat,accepted,incoming) {
+    function stageWorldResult(stat,accepted,incoming,validate) {
         const split=worldResultFragments(incoming);
         let staged=accepted?mergeWorldResults(accepted,{摘要:split.摘要}):normalizeWorldResult({摘要:split.摘要});
         let pending=split.fragments.map(unit=>Object.assign({},unit,{error:null})),progress=true;
@@ -902,7 +902,13 @@
                 const candidate=mergeWorldResults(staged,unit.result);
                 try{
                     const compiled=compileWorldResult(stat,candidate);
-                    materializeWorldUpdate(stat,[],compiled.patches);
+                    const built=materializeWorldUpdate(stat,[],compiled.patches);
+                    if(typeof validate==='function'){
+                        const checked=validate(built.next);
+                        for(const patch of compiled.patches){
+                            if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(built.next,tokens(patch.path))))throw new Error('字段未通过完整 Schema 校验：'+patch.path);
+                        }
+                    }
                     staged=candidate;
                     progress=true;
                 }catch(error){
@@ -1978,7 +1984,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                         const reply=parseReply(received);
                         let legacyPatches=[],rejectedSlices=[];
                         if(reply.kind==='world_result'){
-                            const staged=stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult);
+                            const staged=stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult,validate);
                             acceptedWorldResult=staged.accepted;
                             rejectedSlices=staged.rejected;
                             reply.summary=acceptedWorldResult.摘要||reply.summary;

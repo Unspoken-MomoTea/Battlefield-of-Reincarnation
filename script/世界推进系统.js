@@ -1020,7 +1020,11 @@
             const operations=(key==='传播')?['更新','移除','撤销本轮']:['更新','撤销本轮'];
             result[key]=normalizeNamedResultList(value[key],sampleForWorldResultList(key),operations);
         }
-        result.异端=(Array.isArray(value.异端)?value.异端:[]).filter(plain).map(item=>({名称:String(item.名称||'').trim(),操作:item.操作==='撤销本轮'?'撤销本轮':'更新',状态:item.状态==='死亡'?'死亡':'活跃'})).filter(item=>item.名称);
+        result.异端=(Array.isArray(value.异端)?value.异端:[]).filter(plain).map(item=>({
+            名称:String(item.名称||'').trim(),
+            操作:item.操作==='撤销本轮'?'撤销本轮':'更新',
+            状态:['活跃','死亡'].includes(item.状态)?item.状态:''
+        })).filter(item=>item.名称&&item.状态);
         result.因果={};
         const causal=plain(value.因果)?value.因果:{};
         if(Object.hasOwn(causal,'当前阶段'))result.因果.当前阶段=String(causal.当前阶段||'');
@@ -2156,7 +2160,9 @@ ${schemaText}
             const lifecycle=compactWorldLifecycle(state);
             const alienActivity=activeAlienActivityRequirements(state);
             const seedPatches=importStory(state);
-            seedPatches.push(...seedMissingAlienPeople(state,alienActivity));
+            // 缺少后台人物的活跃异端只在本次请求副本中放一个空壳，帮助模型明确这是待补活动；
+            // 不把空壳作为正式 seed patch，避免与本轮模型真正创建的人物记录发生 add/add 冲突。
+            seedMissingAlienPeople(state,alienActivity);
             for(const patch of seedPatches){const parts=tokens(patch.path);if(parts[2]==='事件')state.世界[PATH].事件[parts.at(-1)]=patch.value;}
             structuralFixes.push(...normalizeEventLayers(state));
             structuralFixes.push(...repairCausalProjection(state));
@@ -2246,7 +2252,7 @@ ${schemaText}
                     const needsLifecycleRepair=staleActiveEvents(recoveryStat).length>0||temporalAnomalies(recoveryStat).length>0;
                     const needsAlienRepair=activeAlienActivityRequirements(recoveryStat).some(item=>{
                         const personName=stableNameIn(recoveryStat.世界?.[PATH]?.人物||{},item.名称),person=personName?recoveryStat.世界[PATH].人物[personName]:null;
-                        return !person||!String(person.地点||'').trim()||!String(person.目标||'').trim()||!String(person.行动||'').trim();
+                        return !person||!String(person.地点||'').trim()||!String(person.目标||'').trim()||!String(person.行动||'').trim()||String(person.更新时间||'').trim()!==String(recoveryStat.世界?.时间||'').trim();
                     });
                     if(!needsMacroRepair&&!needsScheduleRepair&&!needsLifecycleRepair&&!needsAlienRepair){this.status='本楼层已处理，不重复结算';return false;}
                     this.status=needsMacroRepair?'检测到宏观骨架不完整 · 修复本楼层':needsScheduleRepair?'检测到事件时间锚点缺失 · 修复本楼层':needsAlienRepair?'检测到异端活动缺失 · 修复本楼层':'检测到生命周期或时间异常 · 修复本楼层';

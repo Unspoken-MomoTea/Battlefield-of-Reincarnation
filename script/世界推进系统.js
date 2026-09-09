@@ -49,6 +49,13 @@
         let m=source.match(/(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/);
         if(!m)m=source.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
         if(!m)return null;
+        const y=+m[1],month=+m[2],day=+m[3];
+        if(!Number.isInteger(y)||!Number.isInteger(month)||!Number.isInteger(day)||month<1||month>12||day<1)return null;
+        const date=new Date(0);
+        date.setUTCFullYear(y,month-1,day);date.setUTCHours(0,0,0,0);
+        // 数字年月日按真实公历天序计算，避免 2月28日→3月1日 被旧“每月31天”近似拉成96小时。
+        // 非公历/相对语义本来就不会匹配这里，继续由语义复核处理。
+        if(date.getUTCFullYear()!==y||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return null;
         const part=source.match(/凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜/);
         const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
         let dayHour=part?hour[part[0]]:0;
@@ -58,7 +65,7 @@
             const quarterMap={一:1,二:2,三:3,四:4,'1':1,'2':2,'3':3,'4':4};
             dayHour=branchHour[branch[1]]+(quarterMap[branch[2]]||0)*0.25;
         }
-        return (+m[1]*372 + +m[2]*31 + +m[3])*24+dayHour;
+        return date.getTime()/3600000+dayHour;
     }
     function worldTimeCapacity(previous,current) {
         const from=String(previous||'').trim(),to=String(current||'').trim();

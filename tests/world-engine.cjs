@@ -33,6 +33,12 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             '保留正文\n\n继续正文'
         );
     });
+    await test('WorldResult.NPC rejects HP or EP beyond existing maxima', () => {
+        const stat=fresh();
+        stat.关系列表.角色={在场:false,种族:'人类',身份:[],层级:'Ⅰ',HP_MAX:50,HP:50,THP:0,EP_MAX:20,EP:20,是否队友:false,好感度:0,态度:''};
+        assert.throws(()=>compileWorldResult(stat,{摘要:'错值',NPC:[{名称:'角色',HP:51}]}),/HP 不能超过 HP_MAX/);
+        assert.throws(()=>compileWorldResult(stat,{摘要:'错值',NPC:[{名称:'角色',EP:21}]}),/EP 不能超过 EP_MAX/);
+    });
     await test('world event ordering follows causal macro order when dates are unavailable', () => {
         const records={
             '终局节点':{...RECORDS.事件,描述:'终局',分类:'宏观节点',状态:'待发生',时间:''},
@@ -47,6 +53,38 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(eventScheduleLabel({时间:'近期',条件:'主角团离开校园'}),'条件触发 · 主角团离开校园');
         assert.equal(eventScheduleLabel({时间:'',前因:['校舍突围战']}),'前置节点后 · 校舍突围战');
         assert.equal(eventScheduleLabel({时间:'',条件:''}),'时间待补');
+    });
+    await test('WorldResult.NPC sparsely updates existing NPC state without creating new NPCs', () => {
+        const stat=fresh();
+        stat.关系列表.剧情角色={
+            在场:true,种族:'人类',身份:['旧身份'],层级:'Ⅱ',HP_MAX:120,HP:120,THP:0,EP_MAX:60,EP:40,
+            是否队友:true,好感度:10,态度:'同行'
+        };
+        const compiled=compileWorldResult(stat,{
+            摘要:'剧情杀与身份变化',
+            NPC:[
+                {名称:'剧情角色',身份:['新身份','阵亡者'],在场:false,是否队友:false,HP:0,EP:0,态度:'已死亡'},
+                {名称:'不存在角色',HP:0}
+            ]
+        });
+        const paths=compiled.patches.map(p=>p.path);
+        for(const field of ['身份','在场','是否队友','HP','EP','态度'])assert.ok(paths.includes('/关系列表/剧情角色/'+field),'应生成既有NPC字段补丁：'+field);
+        assert.equal(compiled.patches.some(p=>p.path.includes('不存在角色')),false,'后台AI不得通过NPC接口创建关系列表对象');
+        assert.ok(compiled.warnings.some(x=>x.includes('NPC对象不存在')));
+        const next=applyPatches(stat,compiled.patches);
+        assert.deepEqual(next.关系列表.剧情角色.身份,['新身份','阵亡者']);
+        assert.equal(next.关系列表.剧情角色.HP,0,'HP=0 必须能表达既有NPC剧情死亡');
+        assert.equal(next.关系列表.剧情角色.在场,false);
+        assert.equal(next.关系列表.剧情角色.是否队友,false);
+        assert.equal(next.关系列表.剧情角色.HP_MAX,120,'NPC接口不得覆盖HP_MAX');
+    });
+    await test('WorldResult.NPC schema exposes only the approved existing-NPC sync fields', () => {
+        const props=WORLD_RESULT_SCHEMA.properties.NPC.items.properties;
+        assert.deepEqual(Object.keys(props),['名称','操作','在场','种族','身份','层级','HP','THP','EP','是否队友','好感度','态度']);
+        assert.equal(Object.hasOwn(props,'HP_MAX'),false);
+        assert.equal(Object.hasOwn(props,'最终属性'),false);
+        assert.equal(Object.hasOwn(props,'技能'),false);
+        assert.equal(Object.hasOwn(props,'状态'),false);
     });
     await test('world lifecycle archives stale finished events and expires propagation without touching active references', () => {
         const stat=fresh();

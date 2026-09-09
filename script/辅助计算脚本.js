@@ -332,6 +332,19 @@
     function guardTaskGenerationLock(statData) {
         if (!statData || typeof statData !== 'object') return false;
 
+        // 单一世界从数据层就不允许存在副本成就。即使旧版本任务锁仍携带成就快照，
+        // 也只能恢复任务列表，不能把副本成就重新带回当前世界。
+        const singleWorld = statData?.设置?.单一世界 === true;
+        let singleWorldAchievementClear = false;
+        if (singleWorld) {
+            if (!statData.任务 || typeof statData.任务 !== 'object') statData.任务 = {};
+            const currentAchievements = statData.任务.副本成就;
+            if (currentAchievements && typeof currentAchievements === 'object' && Object.keys(currentAchievements).length) {
+                statData.任务.副本成就 = {};
+                singleWorldAchievementClear = true;
+            }
+        }
+
         let lock = null;
         for (const w of taskLockWindows()) {
             try {
@@ -342,7 +355,7 @@
                 }
             } catch(e){}
         }
-        if (!lock) return false;
+        if (!lock) return singleWorldAchievementClear;
 
         const currentMessageId = latestMessageIdForTaskLock();
         // 取不到楼层号时宁可暂时保留锁，也不做可能跨层的恢复。
@@ -357,12 +370,13 @@
 
         const oldList = statData.任务.列表 || {};
         const oldAchievements = statData.任务.副本成就 || {};
+        const expectedAchievements = singleWorld ? {} : (lock.achievements || {});
         const listChanged = hasChanged(oldList, lock.taskList);
-        const achievementsChanged = hasChanged(oldAchievements, lock.achievements);
+        const achievementsChanged = hasChanged(oldAchievements, expectedAchievements);
 
         // 整块恢复而非逐字段修补：任务名只改一两个字后新增的近似任务，也会被直接清掉。
         statData.任务.列表 = clonePlainValue(lock.taskList) || {};
-        statData.任务.副本成就 = clonePlainValue(lock.achievements) || {};
+        statData.任务.副本成就 = clonePlainValue(expectedAchievements) || {};
 
         if (listChanged || achievementsChanged) {
             console.warn(

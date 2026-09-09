@@ -1459,6 +1459,10 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const taskRules=fs.readFileSync(path.join(__dirname,'../World Book/⚙️任务与委托系统.txt'),'utf8');
         assert.match(taskRules,/单一世界不存在副本成就与成就盲盒/);
         assert.match(taskRules,/<%_ if \(!_.get\(rule_data, '设置\.单一世界', false\)\) \{ _%>[\s\S]*副本成就:/);
+
+        const aux=fs.readFileSync(path.join(__dirname,'../script/辅助计算脚本.js'),'utf8');
+        assert.match(aux,/singleWorldAchievementClear/);
+        assert.match(aux,/expectedAchievements = singleWorld \? \{\} : \(lock\.achievements \|\| \{\}\)/);
     });
     await test('actual settlement function clears ordinary world only, keeps relationships and both clocks', () => {
         const html=fs.readFileSync(path.join(__dirname,'../Regular/结算任务美化.html'),'utf8');
@@ -1583,6 +1587,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     await test('updated JS and embedded settlement scripts compile', () => {
         new vm.Script(source);
         new vm.Script(fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8'));
+        new vm.Script(fs.readFileSync(path.join(__dirname,'../script/辅助计算脚本.js'),'utf8'));
         for (const htmlName of ['结算任务美化.html','主神任务美化.html','试炼任务美化.html']) {
             const html=fs.readFileSync(path.join(__dirname,'../Regular',htmlName),'utf8');
             for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) new vm.Script(match[1]);

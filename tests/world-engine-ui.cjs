@@ -190,6 +190,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.getByRole('heading',{name:'承诺',exact:true}).count(),0);
  assert.equal(await page.getByRole('heading',{name:'抉择',exact:true}).count(),0);
  assert.equal(await page.getByRole('heading',{name:'交际圈',exact:true}).count(),0);
+ assert.equal(await page.getByRole('heading',{name:'NPC构筑审计',exact:true}).count(),1,'角色管理应直接展示所选NPC的构筑审计');
+ assert.equal(await page.getByText(/复用NPC生成规则/).count(),1);
  assert.equal(await page.getByText('日落前提交第一份报告',{exact:true}).count(),0);
  await page.screenshot({path:path.join(out,'world-people.png')});
  for(const tab of ['探索与势力','世界事件','传闻','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}

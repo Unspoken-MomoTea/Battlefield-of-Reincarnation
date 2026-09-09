@@ -39,6 +39,89 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.throws(()=>compileWorldResult(stat,{摘要:'错值',关系:[{名称:'角色',HP:51}]}),/HP 不能超过 HP_MAX/);
         assert.throws(()=>compileWorldResult(stat,{摘要:'错值',关系:[{名称:'角色',EP:21}]}),/EP 不能超过 EP_MAX/);
     });
+    await test('request exposes only hot incomplete NPCs for build audit with raw build data but no computed cache', async () => {
+        const x=setup(async()=>JSON.stringify({摘要:'无变化'}));
+        x.change(s=>{
+            s.世界.时间='斗罗历2643年-12月-20日-酉时二刻';
+            s.世界.地点='诺丁城';
+            s.关系列表.热精英={
+                在场:true,种族:'人类',身份:['敌对精英'],职业:{剑士:{类型:'战斗',特性:['近战'],来源:'诺丁城'}},层级:'Ⅳ',
+                HP_MAX:300,HP:300,THP:0,EP_MAX:100,EP:100,状态:{},最终属性:{ATK:999},
+                血统:{凡人武者:{品质:'C',标签:['诺丁城'],原始属性:{力量:'C',敏捷:'C',体质:'C',精神:'D',魅力:'D'},真属性:{力量:999},效果:{体魄:'适应近战'},描述:'武者体魄'}},
+                装备:{铁剑:{品质:'C',类型:0,标签:['诺丁城','力量','伤害','单体','敌方','物理'],原始属性:{ATK:'C'},真属性:{ATK:999},效果:{斩击:'造成(固定伤害+ATK)物理伤害'},描述:'制式长剑',消耗:'无',状态:1}},
+                技能:{},道具:{},形态库:{},当前形态:{激活:false,名称:''},
+                性格:'冷硬',喜爱:'',外貌:'',着装:'皮甲',是否队友:false,好感度:-30,态度:'敌视',背景故事:'城防军中的强硬派',数量:1
+            };
+            s.关系列表.冷旧NPC={
+                在场:false,种族:'人类',身份:['旧友'],职业:{农夫:{类型:'生活',特性:['耕作'],来源:'村庄'}},层级:'Ⅳ',
+                HP_MAX:100,HP:100,THP:0,EP_MAX:20,EP:20,状态:{},最终属性:{},血统:{},装备:{},技能:{},道具:{},形态库:{},当前形态:{激活:false,名称:''},
+                性格:'平和',喜爱:'农活',外貌:'普通',着装:'布衣',是否队友:false,好感度:20,态度:'多年未见',背景故事:'旧村民',数量:1
+            };
+            s.世界.后台.人物.热精英={...RECORDS.人物,所属世界:'测试世界',地点:'诺丁城',目标:'阻拦玩家',行动:'守住街口',更新时间:'斗罗历2643年-12月-20日',关联事件:[]};
+        });
+        const req=await x.engine.buildRequest(x.engine.snapshot());
+        const payload=JSON.parse(req.input);
+        const audit=payload.角色管理.NPC构筑审计;
+        assert.deepEqual(audit.map(x=>x.名称),['热精英'],'冷旧NPC不能仅因高层级进入构筑审计');
+        assert.equal(audit[0].审计级别,'精英级');
+        assert.ok(audit[0].缺口.some(x=>/技能不足/.test(x)));
+        assert.ok(audit[0].缺口.some(x=>/防御\/生存/.test(x)));
+        assert.equal(audit[0].当前构筑.最终属性,undefined);
+        assert.equal(audit[0].当前构筑.血统.凡人武者.真属性,undefined);
+        assert.deepEqual(audit[0].当前构筑.血统.凡人武者.原始属性,{力量:'C',敏捷:'C',体质:'C',精神:'D',魅力:'D'});
+        assert.equal(req.manifest.NPC构筑审计.length,1);
+        assert.match(req.system,/角色管理 · NPC构筑审计/);
+        assert.doesNotMatch(req.system,/副本难度.*提高人物层级/);
+    });
+    await test('WorldResult relation build completion merges component maps and never overwrites existing entries', () => {
+        const stat=fresh();
+        stat.世界.时间='2026年9月7日清晨';stat.世界.地点='测试地点';
+        stat.关系列表.精英={
+            在场:true,种族:'人类',身份:['精英'],职业:{剑士:{类型:'战斗',特性:['近战'],来源:'本地'}},层级:'Ⅳ',
+            HP_MAX:300,HP:300,THP:0,EP_MAX:120,EP:120,状态:{},最终属性:{},
+            血统:{武者:{品质:'C',标签:['本地'],原始属性:{力量:'C',敏捷:'C',体质:'C',精神:'D',魅力:'D'},真属性:{力量:1},效果:{体魄:'适应近战'},描述:'武者'}},
+            装备:{旧剑:{品质:'C',类型:0,标签:['伤害'],原始属性:{ATK:'C'},真属性:{ATK:1},效果:{斩击:'造成(固定伤害+ATK)物理伤害'},描述:'旧剑',消耗:'无',状态:1}},
+            技能:{},道具:{},形态库:{},当前形态:{激活:false,名称:''},
+            性格:'果断',喜爱:'比武',外貌:'高大',着装:'皮甲',是否队友:false,好感度:-20,态度:'敌视',背景故事:'守卫精英',数量:1
+        };
+        stat.世界.后台.人物.精英={...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'阻拦',行动:'迎战',更新时间:'2026年9月7日清晨'};
+        const compiled=compileWorldResult(stat,{摘要:'补齐构筑',关系:[{名称:'精英',
+            装备:{盾牌:{品质:'C',类型:1,标签:['防御'],原始属性:{DEF:'C'},效果:{格挡:'受到物理攻击时提供固定DEF防护'},描述:'铁盾',消耗:'无',状态:1}},
+            技能:{突进:{品质:'C',类型:0,标签:['机动','单体','敌方'],效果:{突进:'移动至近距离并进行一次攻击'},描述:'突进技',消耗:'10EP'}}
+        }]});
+        const next=applyPatches(stat,compiled.patches);
+        assert.ok(next.关系列表.精英.装备.旧剑,'旧装备必须保留');
+        assert.ok(next.关系列表.精英.装备.盾牌,'新装备应合并');
+        assert.deepEqual(next.关系列表.精英.装备.盾牌.真属性,{},'程序自动清空新组件真属性缓存');
+        assert.ok(next.关系列表.精英.技能.突进);
+        assert.equal(compiled.patches.some(p=>p.path==='/关系列表/精英/HP_MAX'),false);
+    });
+    await test('world run retries when a listed NPC build audit makes no progress', async () => {
+        let calls=0,inputs=[];
+        const x=setup(async (_system,input)=>{
+            calls++;inputs.push(input);
+            if(calls===1)return JSON.stringify({摘要:'只改无关数值',关系:[{名称:'精英',好感度:-21}]});
+            return JSON.stringify({摘要:'补技能',关系:[{名称:'精英',技能:{
+                突进斩:{品质:'C',类型:0,标签:['力量','伤害','机动','单体','敌方','物理'],效果:{突进斩:'移动至近距离并造成(固定伤害+ATK)物理伤害'},描述:'高速接敌技能',消耗:'10EP'}
+            }}]});
+        });
+        x.change(s=>{
+            s.关系列表.精英={
+                在场:true,种族:'人类',身份:['精英'],职业:{剑士:{类型:'战斗',特性:['近战'],来源:'本地'}},层级:'Ⅳ',
+                HP_MAX:300,HP:300,THP:0,EP_MAX:100,EP:100,状态:{},最终属性:{},
+                血统:{武者:{品质:'C',标签:['本地'],原始属性:{力量:'C',敏捷:'C',体质:'C',精神:'D',魅力:'D'},真属性:{},效果:{体魄:'适应近战'},描述:'武者'}},
+                装备:{长剑:{品质:'C',类型:0,标签:['伤害'],原始属性:{ATK:'C'},真属性:{},效果:{斩击:'造成(固定伤害+ATK)物理伤害'},描述:'长剑',消耗:'无',状态:1}},
+                技能:{},道具:{},形态库:{},当前形态:{激活:false,名称:''},
+                性格:'果断',喜爱:'比武',外貌:'高大',着装:'皮甲',是否队友:false,好感度:-20,态度:'敌视',背景故事:'精英守卫',数量:1
+            };
+            s.世界.后台.人物.精英={...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'阻拦',行动:'迎战',更新时间:'2026年9月7日清晨'};
+        });
+        x.engine.config.retryAttempts=1;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,2);
+        assert.match(JSON.parse(inputs[1]).纠错重试.补充清单.join('\n'),/NPC构筑审计\/精英/);
+        assert.ok(x.get().关系列表.精英.技能.突进斩);
+    });
     await test('world event ordering follows causal macro order when dates are unavailable', () => {
         const records={
             '终局节点':{...RECORDS.事件,描述:'终局',分类:'宏观节点',状态:'待发生',时间:''},
@@ -82,11 +165,11 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     });
     await test('WorldResult.关系 schema exposes only the approved existing-NPC sync fields', () => {
         const props=WORLD_RESULT_SCHEMA.properties.关系.items.properties;
-        assert.deepEqual(Object.keys(props),['名称','操作','在场','种族','身份','层级','HP','THP','EP','是否队友','好感度','态度']);
+        for(const key of ['名称','操作','在场','种族','身份','职业','层级','HP','THP','EP','状态','血统','装备','技能','形态库','当前形态','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事'])assert.equal(Object.hasOwn(props,key),true,'关系Schema必须支持 '+key);
         assert.equal(Object.hasOwn(props,'HP_MAX'),false);
+        assert.equal(Object.hasOwn(props,'EP_MAX'),false);
         assert.equal(Object.hasOwn(props,'最终属性'),false);
-        assert.equal(Object.hasOwn(props,'技能'),false);
-        assert.equal(Object.hasOwn(props,'状态'),false);
+        assert.equal(Object.hasOwn(props,'道具'),false);
     });
     await test('world lifecycle archives stale finished events and expires propagation without touching active references', () => {
         const stat=fresh();

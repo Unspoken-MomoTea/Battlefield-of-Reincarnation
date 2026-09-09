@@ -910,9 +910,19 @@
         布告与檄文:{发布者:'',内容:'',张贴位置:''},
         名单:{来源:'',经历:'',阵营:'',职业:'',层级:'',状态:''}
     };
-    const RELATION_SYNC_FIELDS={在场:false,种族:'',身份:[],层级:'Ⅰ',HP:0,THP:0,EP:0,是否队友:false,好感度:0,态度:''};
-    const RELATION_SYNC_KEYS=new Set(Object.keys(RELATION_SYNC_FIELDS));
     const RELATION_RANKS=['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
+    const RELATION_QUALITIES=['F','E','D','C','B','A','S','SS','SSS'];
+    const RELATION_SYNC_FIELDS={
+        在场:false,种族:'',身份:[],职业:{},层级:'Ⅰ',HP:0,THP:0,EP:0,
+        状态:{},血统:{},装备:{},技能:{},形态库:{},当前形态:{},
+        性格:'',喜爱:'',外貌:'',着装:'',是否队友:false,好感度:0,态度:'',背景故事:''
+    };
+    const RELATION_SYNC_KEYS=new Set(Object.keys(RELATION_SYNC_FIELDS));
+    const RELATION_COMPONENT_FIELDS=new Set(['职业','状态','血统','装备','技能','形态库']);
+    const RELATION_BUILD_FIELDS=new Set(['职业','状态','血统','装备','技能','形态库','当前形态','性格','喜爱','外貌','着装','背景故事']);
+    const RELATION_ATTR_KEYS=['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'];
+    const RELATION_ATTR5=['力量','敏捷','体质','精神','魅力'];
+    const NPC_BUILD_AUDIT_LIMIT=4;
     const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'];
     const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
     const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
@@ -937,6 +947,40 @@
     const EXPLORATION_RESULT_SCHEMA=namedEntitySchema(EXISTING.探索);
     EXPLORATION_RESULT_SCHEMA.properties.风险={type:'string',enum:copy(QUALITY_RANKS)};
     EXPLORATION_RESULT_SCHEMA.properties.探索度={type:'number',minimum:0,maximum:100};
+    const relationQualitySchema=()=>({type:'string',enum:copy(RELATION_QUALITIES)});
+    const relationTagsSchema=()=>({type:'array',maxItems:24,items:{type:'string'}});
+    const relationStringMapSchema=()=>({type:'object',additionalProperties:{type:'string'}});
+    const relationRawAttrSchema=(requireFive=false,allowNumbers=false)=>{
+        const properties={};
+        for(const key of RELATION_ATTR_KEYS)properties[key]=allowNumbers?{anyOf:[relationQualitySchema(),{type:'number'}]}:relationQualitySchema();
+        return {type:'object',additionalProperties:false,properties,required:requireFive?copy(RELATION_ATTR5):undefined};
+    };
+    const RELATION_SKILL_SCHEMA={type:'object',additionalProperties:false,required:['品质','类型','标签','效果','描述','消耗'],properties:{
+        品质:relationQualitySchema(),类型:{type:'integer',minimum:0,maximum:2},标签:relationTagsSchema(),
+        效果:relationStringMapSchema(),描述:{type:'string'},消耗:{type:'string'}
+    }};
+    const RELATION_OCCUPATION_SCHEMA={type:'object',additionalProperties:false,required:['类型','特性','来源'],properties:{
+        类型:{type:'string',enum:['战斗','生活','辅助']},特性:relationTagsSchema(),来源:{type:'string'}
+    }};
+    const RELATION_BLOODLINE_SCHEMA={type:'object',additionalProperties:false,required:['品质','标签','原始属性','效果','描述'],properties:{
+        品质:relationQualitySchema(),标签:relationTagsSchema(),原始属性:relationRawAttrSchema(true,false),
+        效果:relationStringMapSchema(),描述:{type:'string'}
+    }};
+    const RELATION_EQUIP_SCHEMA={type:'object',additionalProperties:false,required:['品质','类型','标签','原始属性','效果','描述','消耗','状态'],properties:{
+        品质:relationQualitySchema(),类型:{type:'integer',minimum:0,maximum:8},标签:relationTagsSchema(),
+        原始属性:relationRawAttrSchema(false,false),效果:relationStringMapSchema(),描述:{type:'string'},消耗:{type:'string'},
+        状态:{type:'integer',minimum:0,maximum:2}
+    }};
+    const RELATION_STATUS_SCHEMA={type:'object',additionalProperties:false,required:['类型','品质','持续','来源','原始属性','效果'],properties:{
+        类型:{type:'string',enum:['增益','减益','特殊']},品质:relationQualitySchema(),持续:{type:'string'},来源:{type:'string'},
+        原始属性:relationRawAttrSchema(false,true),效果:{type:'string'}
+    }};
+    const RELATION_FORM_SCHEMA={type:'object',additionalProperties:false,required:['层级','消耗','冷却','状态','标签','原始属性','效果','技能','描述'],properties:{
+        层级:{type:'string',enum:copy(RELATION_RANKS)},消耗:{type:'string'},冷却:{type:'string'},状态:{type:'string'},标签:relationTagsSchema(),
+        原始属性:relationRawAttrSchema(true,false),效果:relationStringMapSchema(),
+        技能:{type:'object',additionalProperties:copy(RELATION_SKILL_SCHEMA),maxProperties:8},描述:{type:'string'}
+    }};
+    const RELATION_CURRENT_FORM_SCHEMA={type:'object',additionalProperties:false,required:['激活','名称'],properties:{激活:{type:'boolean'},名称:{type:'string'}}};
     const WORLD_RESULT_SCHEMA={
         type:'object',
         additionalProperties:false,
@@ -973,10 +1017,18 @@
             }},
             关系:{type:'array',maxItems:25,items:{type:'object',additionalProperties:false,required:['名称'],properties:{
                 名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},
-                在场:{type:'boolean'},种族:{type:'string'},身份:{type:'array',maxItems:24,items:{type:'string'}},
+                在场:{type:'boolean'},种族:{type:'string'},身份:relationTagsSchema(),
+                职业:{type:'object',additionalProperties:copy(RELATION_OCCUPATION_SCHEMA),maxProperties:12},
                 层级:{type:'string',enum:copy(RELATION_RANKS)},HP:{type:'number',minimum:0,maximum:99999999},
                 THP:{type:'number',minimum:0,maximum:99999999},EP:{type:'number',minimum:0,maximum:99999999},
-                是否队友:{type:'boolean'},好感度:{type:'number',minimum:-100,maximum:100},态度:{type:'string'}
+                状态:{type:'object',additionalProperties:copy(RELATION_STATUS_SCHEMA),maxProperties:12},
+                血统:{type:'object',additionalProperties:copy(RELATION_BLOODLINE_SCHEMA),maxProperties:2},
+                装备:{type:'object',additionalProperties:copy(RELATION_EQUIP_SCHEMA),maxProperties:6},
+                技能:{type:'object',additionalProperties:copy(RELATION_SKILL_SCHEMA),maxProperties:4},
+                形态库:{type:'object',additionalProperties:copy(RELATION_FORM_SCHEMA),maxProperties:4},
+                当前形态:copy(RELATION_CURRENT_FORM_SCHEMA),
+                性格:{type:'string'},喜爱:{type:'string'},外貌:{type:'string'},着装:{type:'string'},
+                是否队友:{type:'boolean'},好感度:{type:'number',minimum:-100,maximum:100},态度:{type:'string'},背景故事:{type:'string'}
             }}}
         }
     };
@@ -1067,6 +1119,27 @@
         }
         return Array.from(map.values());
     }
+    function normalizeRelationResultList(value) {
+        const list=Array.isArray(value)?value:[],map=new Map();
+        for(const source of list){
+            if(!plain(source))continue;
+            const name=String(source.名称??source.name??'').trim();if(!name)continue;
+            const item={名称:name,操作:source.操作==='撤销本轮'?'撤销本轮':'更新'};
+            for(const key of RELATION_SYNC_KEYS){
+                if(!Object.hasOwn(source,key))continue;
+                const raw=source[key];
+                if(['在场','是否队友'].includes(key))item[key]=typeof raw==='boolean'?raw:!!raw;
+                else if(['HP','THP','EP','好感度'].includes(key)){const n=Number(raw);item[key]=Number.isFinite(n)?n:raw;}
+                else if(key==='身份')item[key]=Array.isArray(raw)?raw.filter(x=>typeof x==='string'):raw;
+                else if(RELATION_COMPONENT_FIELDS.has(key)||key==='当前形态')item[key]=copy(raw);
+                else item[key]=raw==null?'':String(raw);
+            }
+            const id=nameKey(name),prev=map.get(id);
+            if(item.操作==='撤销本轮'){map.delete(id);continue;}
+            map.set(id,prev?Object.assign(prev,item):item);
+        }
+        return Array.from(map.values());
+    }
     function normalizeWorldResult(value) {
         if(!plain(value))throw new Error('WorldResult 必须是 JSON 对象');
         const result={摘要:String(value.摘要??value.summary??'世界继续推进')};
@@ -1116,7 +1189,7 @@
         const relationSource=plain(value.关系)&&!Array.isArray(value.关系)
             ?Object.entries(value.关系).map(([name,item])=>plain(item)?Object.assign({名称:name},copy(item)):{名称:name,好感度:item})
             :value.关系;
-        result.关系=normalizeNamedResultList(relationSource,RELATION_SYNC_FIELDS,['更新','撤销本轮']);
+        result.关系=normalizeRelationResultList(relationSource);
         return result;
     }
     function mergeNamedResultLists(base,incoming) {
@@ -1217,6 +1290,8 @@
             plan.push('时间一致性：修复这些已经发生的记录，任何已完成/进行中事件、人物更新时间、地区已发生变化、历史与传播都不得晚于当前世界时间：'+match[1]);
         }else if((match=message.match(/异端活动未复核：([^；]+)/))){
             for(const name of match[1].split('、').filter(Boolean))plan.push('异端活动/'+name+'：在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动，并把更新时间精确写为当前世界时间；若本轮已确认死亡，则只更新异端状态=死亡，不再提交人物活动。');
+        }else if((match=message.match(/NPC构筑审计未推进：([^；]+)/))){
+            for(const name of match[1].split('、').filter(Boolean))plan.push('NPC构筑审计/'+name+'：只在 WorldResult.关系 中补齐该既有NPC至少一个列出的构筑缺口；优先补职业/血统/装备/技能/状态/形态或缺失档案字段，不得新建NPC、改HP_MAX/EP_MAX或输出真属性/最终属性。');
         }else if(message&&!rejected.length){
             plan.push('整体校验：'+message);
         }
@@ -1265,11 +1340,79 @@
         for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
         return out;
     }
+    function validateStringArray(value,label) {
+        if(!Array.isArray(value)||value.some(x=>typeof x!=='string'))throw new Error(label+' 必须是 string[]');
+    }
+    function validateStringMap(value,label) {
+        if(!plain(value)||Object.values(value).some(x=>typeof x!=='string'))throw new Error(label+' 必须是 string map');
+    }
+    function validateQuality(value,label) {
+        if(!RELATION_QUALITIES.includes(String(value||'')))throw new Error(label+' 只允许 '+RELATION_QUALITIES.join('/'));
+    }
+    function validateRawAttributes(value,label,{requireFive=false,allowNumbers=false}={}) {
+        if(!plain(value))throw new Error(label+' 必须是对象');
+        for(const key of Object.keys(value)){
+            if(!RELATION_ATTR_KEYS.includes(key))throw new Error(label+' 含非法属性 '+key);
+            if(allowNumbers&&typeof value[key]==='number'&&Number.isFinite(value[key]))continue;
+            validateQuality(value[key],label+'.'+key);
+        }
+        if(requireFive)for(const key of RELATION_ATTR5)if(!Object.hasOwn(value,key))throw new Error(label+' 缺少基础属性 '+key);
+    }
+    function validateComponentShape(field,value,name='NPC') {
+        if(!plain(value))throw new Error(name+' '+field+' 必须是对象');
+        const assertFields=(item,keys,label)=>{for(const key of keys)if(!Object.hasOwn(item,key))throw new Error(label+' 缺少字段 '+key);};
+        for(const [entryName,item] of Object.entries(value)){
+            const label=name+' '+field+'.'+entryName;
+            if(!entryName||!plain(item))throw new Error(label+' 必须是完整对象');
+            if(field==='职业'){
+                assertFields(item,['类型','特性','来源'],label);
+                if(!['战斗','生活','辅助'].includes(item.类型))throw new Error(label+' 类型无效');
+                validateStringArray(item.特性,label+'.特性');
+                if(typeof item.来源!=='string')throw new Error(label+'.来源 必须是 string');
+            }else if(field==='技能'){
+                assertFields(item,['品质','类型','标签','效果','描述','消耗'],label);
+                validateQuality(item.品质,label+'.品质');
+                if(!Number.isInteger(item.类型)||item.类型<0||item.类型>2)throw new Error(label+'.类型 只能是0/1/2');
+                validateStringArray(item.标签,label+'.标签');validateStringMap(item.效果,label+'.效果');
+                if(typeof item.描述!=='string'||typeof item.消耗!=='string')throw new Error(label+' 描述/消耗必须是 string');
+            }else if(field==='血统'){
+                assertFields(item,['品质','标签','原始属性','效果','描述'],label);
+                validateQuality(item.品质,label+'.品质');validateStringArray(item.标签,label+'.标签');
+                validateRawAttributes(item.原始属性,label+'.原始属性',{requireFive:true});validateStringMap(item.效果,label+'.效果');
+                if(typeof item.描述!=='string')throw new Error(label+'.描述 必须是 string');
+            }else if(field==='装备'){
+                assertFields(item,['品质','类型','标签','原始属性','效果','描述','消耗','状态'],label);
+                validateQuality(item.品质,label+'.品质');
+                if(!Number.isInteger(item.类型)||item.类型<0||item.类型>8)throw new Error(label+'.类型 只能是0~8');
+                if(!Number.isInteger(item.状态)||item.状态<0||item.状态>2)throw new Error(label+'.状态 只能是0/1/2');
+                validateStringArray(item.标签,label+'.标签');validateRawAttributes(item.原始属性,label+'.原始属性');
+                validateStringMap(item.效果,label+'.效果');
+                if(typeof item.描述!=='string'||typeof item.消耗!=='string')throw new Error(label+' 描述/消耗必须是 string');
+            }else if(field==='状态'){
+                assertFields(item,['类型','品质','持续','来源','原始属性','效果'],label);
+                if(!['增益','减益','特殊'].includes(item.类型))throw new Error(label+'.类型无效');
+                validateQuality(item.品质,label+'.品质');validateRawAttributes(item.原始属性,label+'.原始属性',{allowNumbers:true});
+                if(typeof item.持续!=='string'||typeof item.来源!=='string'||typeof item.效果!=='string')throw new Error(label+' 持续/来源/效果必须是 string');
+            }else if(field==='形态库'){
+                assertFields(item,['层级','消耗','冷却','状态','标签','原始属性','效果','技能','描述'],label);
+                if(!RELATION_RANKS.includes(item.层级))throw new Error(label+'.层级无效');
+                validateStringArray(item.标签,label+'.标签');validateRawAttributes(item.原始属性,label+'.原始属性',{requireFive:true});
+                validateStringMap(item.效果,label+'.效果');
+                for(const key of ['消耗','冷却','状态','描述'])if(typeof item[key]!=='string')throw new Error(label+'.'+key+' 必须是 string');
+                validateComponentShape('技能',item.技能,label);
+            }
+        }
+    }
     function validateRelationSyncValue(field,value,npc,name='NPC') {
         if(field==='在场'||field==='是否队友'){if(typeof value!=='boolean')throw new Error(name+' '+field+' 必须是 boolean');return;}
-        if(field==='种族'||field==='态度'){if(typeof value!=='string')throw new Error(name+' '+field+' 必须是 string');return;}
-        if(field==='身份'){if(!Array.isArray(value)||value.some(x=>typeof x!=='string'))throw new Error(name+' 身份必须是 string[]');return;}
+        if(['种族','性格','喜爱','外貌','着装','态度','背景故事'].includes(field)){if(typeof value!=='string')throw new Error(name+' '+field+' 必须是 string');return;}
+        if(field==='身份'){validateStringArray(value,name+' 身份');return;}
         if(field==='层级'){if(!RELATION_RANKS.includes(value))throw new Error(name+' 层级只允许 '+RELATION_RANKS.join('/'));return;}
+        if(RELATION_COMPONENT_FIELDS.has(field)){validateComponentShape(field,value,name);return;}
+        if(field==='当前形态'){
+            if(!plain(value)||typeof value.激活!=='boolean'||typeof value.名称!=='string')throw new Error(name+' 当前形态必须是 {激活:boolean,名称:string}');
+            return;
+        }
         if(['HP','THP','EP','好感度'].includes(field)){
             if(typeof value!=='number'||!Number.isFinite(value))throw new Error(name+' '+field+' 必须是有效数字');
             if(field==='好感度'&&(value<-100||value>100))throw new Error(name+' 好感度范围 -100~100');
@@ -1278,6 +1421,23 @@
             if(field==='EP'&&Number.isFinite(Number(npc?.EP_MAX))&&value>Number(npc.EP_MAX))throw new Error(name+' EP 不能超过 EP_MAX');
         }
     }
+    function materializeRelationComponent(field,value) {
+        const out=copy(value);
+        if(['血统','装备','状态','形态库'].includes(field)&&plain(out)){
+            for(const item of Object.values(out)){
+                if(!plain(item))continue;
+                item.真属性={};
+            }
+        }
+        return out;
+    }
+    function mergeRelationComponent(field,oldValue,incoming) {
+        if(!RELATION_COMPONENT_FIELDS.has(field))return materializeRelationComponent(field,incoming);
+        const merged=plain(oldValue)?copy(oldValue):{};
+        for(const [name,item] of Object.entries(incoming||{}))merged[name]=materializeRelationComponent(field,{[name]:item})[name];
+        return merged;
+    }
+
     function compileWorldResult(stat,value) {
         const result=normalizeWorldResult(value),patches=[],warnings=[];
         const exists=parts=>get(stat,canonicalizeParts(parts,stat));
@@ -1361,6 +1521,7 @@
             patches.push({op:'replace',path:pointer(['世界','异端雷达','名单',target,'状态']),value:item.状态});
         } else if(result.异端.length)warnings.push('单一世界：忽略异端雷达更新');
         for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻[key])addEntity(['传闻',key,item.名称],item,EXISTING[key],{removable:true});
+        const auditNames=new Set(npcBuildAudit(stat).map(item=>nameKey(item.名称)));
         for(const item of result.关系||[]){
             if(item.操作==='撤销本轮')continue;
             const target=stableNameIn(stat.关系列表||{},item.名称);
@@ -1368,9 +1529,19 @@
             const npc=stat.关系列表[target],fields=resultFields(item,RELATION_SYNC_FIELDS);
             if(!Object.keys(fields).length){warnings.push('忽略空关系更新：'+target);continue;}
             for(const [field,value] of Object.entries(fields)){
+                if(RELATION_BUILD_FIELDS.has(field)&&!auditNames.has(nameKey(target))){
+                    warnings.push('NPC当前不在构筑审计名单，忽略构筑字段：'+target+'/'+field);
+                    continue;
+                }
                 validateRelationSyncValue(field,value,npc,target);
-                if(same(npc?.[field],value))continue;
-                patches.push({op:npc?.[field]===undefined?'add':'replace',path:pointer(['关系列表',target,field]),value:copy(value)});
+                const nextValue=RELATION_COMPONENT_FIELDS.has(field)?mergeRelationComponent(field,npc?.[field],value):materializeRelationComponent(field,value);
+                if(RELATION_COMPONENT_FIELDS.has(field)){
+                    const count=Object.keys(nextValue||{}).length;
+                    const limit=field==='血统'?2:field==='装备'?6:field==='技能'?4:field==='形态库'?4:12;
+                    if(count>limit)throw new Error(target+' '+field+' 数量超过NPC生成规则上限 '+limit);
+                }
+                if(same(npc?.[field],nextValue))continue;
+                patches.push({op:npc?.[field]===undefined?'add':'replace',path:pointer(['关系列表',target,field]),value:copy(nextValue)});
             }
         }
         return {result,patches,warnings};
@@ -1673,6 +1844,120 @@
         }
         return out;
     }
+    function projectAuditComponentMap(value,{equipment=false}={}) {
+        if(!plain(value))return {};
+        const out={};
+        for(const [name,item] of Object.entries(value)){
+            if(!plain(item))continue;
+            if(equipment&&Number(item.状态)===2)continue;
+            const clean=omitKeys(item,['最终属性','强化','真属性']);
+            if(plain(clean.技能)){
+                clean.技能=Object.fromEntries(Object.entries(clean.技能).filter(([,skill])=>plain(skill)).map(([skillName,skill])=>[skillName,omitKeys(skill,['最终属性','强化','真属性'])]));
+            }
+            out[name]=clean;
+        }
+        return out;
+    }
+    function projectCharacterForAudit(value) {
+        const source=plain(value)?value:{},out={};
+        for(const key of ['在场','种族','身份','职业','层级','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事']){
+            if(Object.hasOwn(source,key))out[key]=copy(source[key]);
+        }
+        const 状态=projectAuditComponentMap(source.状态),血统=projectAuditComponentMap(source.血统),技能=projectAuditComponentMap(source.技能);
+        const 装备=projectAuditComponentMap(source.装备,{equipment:true}),形态库=projectAuditComponentMap(source.形态库);
+        if(Object.keys(状态).length)out.状态=状态;
+        if(Object.keys(血统).length)out.血统=血统;
+        if(Object.keys(技能).length)out.技能=技能;
+        if(Object.keys(装备).length)out.装备=装备;
+        if(Object.keys(形态库).length)out.形态库=形态库;
+        if(plain(source.当前形态))out.当前形态=copy(source.当前形态);
+        return out;
+    }
+    function sameWorldTimeAnchor(a,b) {
+        const x=String(a||'').trim(),y=String(b||'').trim();if(!x||!y)return false;
+        if(x===y)return true;
+        const shorter=x.length<=y.length?x:y,longer=x.length<=y.length?y:x;
+        return shorter.length>=8&&longer.includes(shorter);
+    }
+    function npcBuildText(value) {
+        try{return JSON.stringify(value||{});}catch(_){return String(value||'');}
+    }
+    function npcBuildAssessment(stat,name,npc) {
+        if(!plain(npc)||Number(npc.HP)<=0)return null;
+        const rank=Math.max(0,RELATION_RANKS.indexOf(String(npc.层级||'Ⅰ')));
+        const profileText=[...(Array.isArray(npc.身份)?npc.身份:[]),...Object.keys(npc.职业||{}),npc.背景故事,npc.态度].filter(Boolean).join(' ');
+        const bossHint=/(?:boss|首领|领主|头目|魔王|王者|宗主|掌门|教皇|最终敌人|最终对手)/i.test(profileText);
+        const level=(bossHint||rank>=5)?'首领/Boss级':rank>=2?'精英级':'杂兵级';
+        const minimum=level==='首领/Boss级'?{血统:1,装备:3,技能:2}:level==='精英级'?{血统:1,装备:2,技能:1}:{血统:1,装备:1,技能:0};
+        const counts={血统:Object.keys(npc.血统||{}).length,装备:Object.values(npc.装备||{}).filter(item=>plain(item)&&Number(item.状态)!==2).length,技能:Object.keys(npc.技能||{}).length,状态:Object.keys(npc.状态||{}).length,形态:Object.keys(npc.形态库||{}).length};
+        const gaps=[],suggest=new Set();
+        for(const field of ['种族','身份','职业','外貌','着装','性格','喜爱','背景故事','态度']){
+            const value=npc[field],missing=Array.isArray(value)?!value.length:plain(value)?!Object.keys(value).length:!String(value||'').trim();
+            if(missing){gaps.push('资料缺失/'+field);suggest.add(field);}
+        }
+        for(const field of ['血统','装备','技能']){
+            if(counts[field]<minimum[field]){gaps.push(field+'不足 '+counts[field]+'/'+minimum[field]);suggest.add(field);}
+        }
+        const combatText=npcBuildText({职业:npc.职业,血统:npc.血统,装备:npc.装备,技能:npc.技能,状态:npc.状态,形态库:npc.形态库});
+        if(level!=='杂兵级'){
+            const offense=/(?:伤害|攻击|斩|刺|射击|爆破|火力|ATK|MATK|杀伤|输出|毒|灼烧|雷击|炮击)/i.test(combatText);
+            const survival=/(?:防御|护盾|减伤|恢复|治疗|格挡|护甲|屏障|再生|吸收|DEF|MDEF|生存)/i.test(combatText);
+            const control=/(?:控制|位移|突进|冲刺|束缚|眩晕|减速|沉默|击退|牵引|冻结|召唤|机动|封锁|禁锢)/i.test(combatText);
+            if(!offense){gaps.push('缺主要杀伤手段');suggest.add('技能');suggest.add('装备');}
+            if(!survival){gaps.push('缺防御/生存手段');suggest.add('技能');suggest.add('装备');suggest.add('状态');}
+            if(!control){gaps.push('缺机动/控制手段');suggest.add('技能');suggest.add('形态库');}
+        }
+        if(level==='首领/Boss级'){
+            const stage=counts.形态>0||/(?:阶段|二阶段|变身|形态|解放|觉醒|狂暴|转阶段|状态切换)/i.test(combatText);
+            if(!stage){gaps.push('缺Boss阶段/形态/状态变化机制');suggest.add('形态库');suggest.add('状态');suggest.add('技能');}
+        }
+        return {名称:name,审计级别:level,层级:String(npc.层级||'Ⅰ'),当前组件:counts,缺口:gaps,建议字段:Array.from(suggest),当前构筑:projectCharacterForAudit(npc)};
+    }
+    function npcBuildAudit(stat,limit=NPC_BUILD_AUDIT_LIMIT) {
+        const relations=stat?.关系列表||{},backend=stat?.世界?.[PATH]||{},people=backend.人物||{},events=backend.事件||{},roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
+        const currentLocation=String(stat?.世界?.地点||''),worldTime=String(stat?.世界?.时间||'');
+        const activeEventNames=new Set(Object.entries(events).filter(([,e])=>e&&['待发生','进行中'].includes(e.状态)&&['当前事件','近期节点'].includes(e.分类)).map(([eventName])=>eventName));
+        const currentParticipants=new Set();
+        for(const [eventName,event] of Object.entries(events)){
+            if(!activeEventNames.has(eventName))continue;
+            for(const p of event?.参与者||[])currentParticipants.add(nameKey(p));
+        }
+        const rows=[];
+        for(const [name,npc] of Object.entries(relations)){
+            const assessment=npcBuildAssessment(stat,name,npc);if(!assessment||!assessment.缺口.length)continue;
+            const backendName=stableNameIn(people,name),person=backendName?people[backendName]:null;
+            const alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
+            const activeAlien=!!(alien&&alien.状态!=='死亡');
+            const linked=!!(person&&(person.关联事件||[]).some(eventName=>activeEventNames.has(eventName)))||currentParticipants.has(nameKey(name));
+            const here=!!npc.在场||!!(person&&currentLocation&&String(person.地点||'')&&(String(person.地点).includes(currentLocation)||currentLocation.includes(String(person.地点))));
+            const updated=!!(person&&sameWorldTimeAnchor(person.更新时间,worldTime));
+            if(!activeAlien&&!linked&&!here&&!updated)continue;
+            const reasons=[];
+            if(activeAlien)reasons.push('活跃异端');
+            if(linked)reasons.push('当前/近期事件参与者');
+            if(here)reasons.push(npc.在场?'当前在场':'当前地点相关');
+            if(updated)reasons.push('本轮人物动态已更新');
+            const levelWeight=assessment.审计级别==='首领/Boss级'?40:assessment.审计级别==='精英级'?20:0;
+            const priority=(activeAlien?80:0)+(linked?60:0)+(here?40:0)+(updated?20:0)+levelWeight+assessment.缺口.length;
+            rows.push({...assessment,触发依据:reasons,__priority:priority});
+        }
+        return rows.sort((a,b)=>b.__priority-a.__priority||a.名称.localeCompare(b.名称,'zh-CN')).slice(0,Math.max(0,Number(limit)||0)).map(item=>{const out={...item};delete out.__priority;return out;});
+    }
+    function ensureNpcBuildAuditProgress(next,required=[],acceptedResult) {
+        if(!(required||[]).length)return;
+        const proposals=acceptedResult?.关系||[],failed=[];
+        for(const before of required){
+            const target=stableNameIn(next?.关系列表||{},before.名称);
+            if(!target)continue;
+            const after=npcBuildAssessment(next,target,next.关系列表[target]);
+            if(!after)continue;
+            const proposal=proposals.find(item=>nameKey(item.名称)===nameKey(before.名称));
+            const touched=proposal&&before.建议字段.some(field=>Object.hasOwn(proposal,field));
+            if(!touched||after.缺口.length>=before.缺口.length)failed.push(before.名称);
+        }
+        if(failed.length)throw new Error('NPC构筑审计未推进：'+failed.join('、')+'；每个列出的审计对象本轮至少补齐一个真实缺口，禁止只改好感、HP或无关字段');
+    }
+
     function projectCharacterForWorld(value) {
         const source=plain(value)?value:{},out={};
         for(const key of ['在场','种族','身份','职业','层级','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事','数量']){
@@ -1786,7 +2071,7 @@
 事件只写业务事实：名称、描述、时间、条件、前因、状态、默认走向、结果、公开征兆、地点、分类及可选明细。分类只允许当前事件/近期节点/宏观节点。程序会对明显局部的伪宏观降级。进行中的当前事件如果可能被正文感知，必须维护公开征兆和/或可见影响；这两项会被程序安全投影给正文，所以只能包含已经成为现实的公开信息，不能塞默认走向、隐藏条件或未来计划。
 因果不要写故事线路径；只写“当前阶段”“宏观顺序”“偏移记录”。当前阶段必须是一段直接可读的当前世界局势描述，而不是“爆发初期/发展期”之类孤立标签；它就是世界动向的唯一持久化来源。宏观顺序是3~5个宏观事件名称，程序生成故事线、下一节点和前因链。输入中的“偏移摘要”是程序生成的只读统计；旧偏移可能被隐藏，只依据可见近期偏移与摘要判断，不要重建已隐藏记录。
 人物、势力地区、传播的关联事件只写事件名称；程序负责同步明确的双向引用。不要为玩家建立人物后台记录。
-货币只写本轮真实变化的“体系 / 购买力基准 / 经济波动”；不写玩家持币余额，不创造跨世界汇率。关系只更新关系列表中已经存在的对象，沿用旧格式并扩展为 {名称, 操作?, 在场?, 种族?, 身份?, 层级?, HP?, THP?, EP?, 是否队友?, 好感度?, 态度?}；只写真实变化字段，禁止新建 NPC。旧版 {名称,好感度} 以及对象简写 {NPC名:好感度} 继续兼容。HP=0 用于已经确认的剧情死亡/场外死亡，不得替正文进行常规战斗结算。主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数均不属于 WorldResult；世界时间、玩家属性、玩家持币余额、装备和系统状态不由 WorldResult 写入。
+货币只写本轮真实变化的“体系 / 购买力基准 / 经济波动”；不写玩家持币余额，不创造跨世界汇率。关系只更新关系列表中已经存在的对象，沿用旧格式并扩展基础字段与构筑补全字段；基础字段为 {名称, 操作?, 在场?, 种族?, 身份?, 层级?, HP?, THP?, EP?, 是否队友?, 好感度?, 态度?}，构筑审计对象还可写 职业/状态/血统/装备/技能/形态库/当前形态/性格/喜爱/外貌/着装/背景故事。只写真实变化字段，禁止新建 NPC。动态组件map只提交新增/修正项，程序与旧map合并。旧版 {名称,好感度} 以及对象简写 {NPC名:好感度} 继续兼容。HP=0 用于已经确认的剧情死亡/场外死亡，不得替正文进行常规战斗结算。主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数均不属于 WorldResult；世界时间、玩家属性、玩家持币余额、装备和系统状态不由 WorldResult 写入。
 不要输出“公开摘要”或“正文承接”；这两项已废弃。总体世界动向写因果.当前阶段，正文推进直接来自当前事件的公开征兆/可见影响安全投影。
 
 【WorldResult 标准字段结构】
@@ -1806,7 +2091,7 @@
 - 事件.可见影响是对象数组，每项结构为 {时间:string, 地点:string, 影响:string}。
 - 人物.行程是对象数组，每项结构为 {开始:string, 结束:string, 地点:string, 行动:string, 状态:string, 结果:string}。
 - 人物.认知来源是对象数组，每项结构为 {事实:string, 来源:string, 获知时间:string, 状态:string}。
-- 关系为数组，只允许更新既有关系列表对象；数组项为 {名称:string, 操作?, 在场?:boolean, 种族?:string, 身份?:string[], 层级?:"Ⅰ".."Ⅸ", HP?:number, THP?:number, EP?:number, 是否队友?:boolean, 好感度?:number, 态度?:string}。旧版仅写 {名称,好感度} 仍兼容。主神任务、晋升试炼、任务状态和副本成就不读取、不更新，也不得出现在 WorldResult。
+- 关系为数组，只允许更新既有关系列表对象；基础字段为 {名称:string, 操作?, 在场?:boolean, 种族?:string, 身份?:string[], 层级?:"Ⅰ".."Ⅸ", HP?:number, THP?:number, EP?:number, 是否队友?:boolean, 好感度?:number, 态度?:string}。构筑审计对象还可更新 职业/状态/血统/装备/技能/形态库/当前形态/性格/喜爱/外貌/着装/背景故事；组件格式以 Canonical Schema 为准。旧版仅写 {名称,好感度} 仍兼容。主神任务、晋升试炼、任务状态和副本成就不读取、不更新，也不得出现在 WorldResult。
 - 街头巷议每项使用 {名称, 来源, 内容, 可信度}，可信度只允许“酒话 / 可疑 / 或许可信”；当前最多3条。
 - 不得添加 Schema 未定义字段。可选字段没有变化时直接省略，不要发明同义字段名。
 
@@ -1816,6 +2101,17 @@ ${schemaText}
 
 兼容说明：程序仍可容忍部分历史/常见格式漂移，但那只是防故障兼容，不是模型应采用的标准输出。旧版 summary+patches 回复仍可解析，但新请求一律使用上述 WorldResult 结构。`;
     }
+    const NPC_BUILD_AUDIT_RULES=`【角色管理 · NPC构筑审计】
+以下规则只对“角色管理.NPC构筑审计”列出的既有关系列表 NPC 生效。没有列出的 NPC 不得借构筑补全之名随意改造。
+1. 目标：修复变量AI已经建立但明显残缺的NPC档案。构筑补全不是难度加成，不得因为“困难/挑战”凭空提高人物层级，也不得改HP_MAX/EP_MAX；现有难度辅助脚本仍负责对已有组件做品质抬升。
+2. 组件数量沿用现有NPC生成规则：杂兵级至少血统1、装备1、技能可0；精英级至少血统1、装备2、技能1；首领/Boss级至少血统1、装备3、技能2。血统最多2、装备最多6、技能最多4。只补真实缺口，不覆盖或改名堆叠已经完整的同类能力。
+3. 精英及以上必须形成明确战斗定位，并具备主要杀伤、防御/生存、机动/控制三类手段。Boss还必须具备至少一种阶段转换、形态变化、状态变化或技能机制。
+4. 组件归属：血统=本体条件；技能=执行方式；状态=当前结果；装备=穿戴/使用实体；形态=独立战斗模式。同一能力只保留一个主要归属，禁止改名重复。
+5. 输出只能使用 WorldResult.关系 更新既有 NPC。构筑组件允许字段为 职业/状态/血统/装备/技能/形态库/当前形态，以及缺失的性格/喜爱/外貌/着装/背景故事等档案字段。动态map只提交新增或需要修正的组件项；程序会与原组件map合并，不得删除旧组件。
+6. AI不得输出真属性、最终属性或强化缓存。血统原始属性必须含力量/敏捷/体质/精神/魅力五维；装备原始属性只写实际生效项；形态原始属性必须含五维；技能不得写基础/衍生属性。程序会为需要重新计算的组件清空真属性缓存。
+7. 技能/装备/血统效果必须可结算、无随机概率词条；不确定性继续交给D100行为判定。禁止组件直接修改HP_MAX/EP_MAX。
+8. 每个本轮审计对象至少修复一个“缺口”。若资料不足以设计复杂能力，优先补与现有身份、职业、层级和已演出能力最一致的最小完整构筑，不要发明跨作品体系。
+`;
     class SamsaraWorldEngine {
         constructor(host, env) {
             this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
@@ -2309,6 +2605,7 @@ ${schemaText}
             const staleActive=staleActiveEvents(state);
             const timeAnomalies=temporalAnomalies(state);
             const capacity=worldTimeCapacity(state.世界[PATH].已处理时间,state.世界.时间);
+            const npcAudit=npcBuildAudit(state);
             const input=JSON.stringify({
                 输入语义:{
                     世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
@@ -2316,10 +2613,12 @@ ${schemaText}
                     正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
                     程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
                     时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
-                    WorldResult:'唯一业务交付物；不包含 JSON Pointer、add/replace 路径或程序日志。'
+                    WorldResult:'唯一业务交付物；不包含 JSON Pointer、add/replace 路径或程序日志。',
+                    角色管理:'若提供NPC构筑审计，只处理列出的既有NPC缺口；完整构筑资料只在审计对象中提供，避免全量NPC重复占用上下文。'
                 },
                 世界书:books,
                 当前变量:projectWorldContext(state),
+                角色管理:npcAudit.length?{NPC构筑审计:npcAudit}:undefined,
                 正文楼层:floors,
                 程序结构修复:structuralFixes,
                 本轮时间容量:capacity,
@@ -2339,9 +2638,9 @@ ${schemaText}
                 生命周期整理:lifecycle,
                 说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
             },null,2);
-            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件、超期活动事件、时间越界记录和未完事项；符合条件才启动/推进，有实际结果才完成。任何“已经发生”的记录都不得越过当前世界时间。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。变量AI已经建立的关系列表 NPC 若因本轮场外推进产生身份、在场、队友关系、HP/EP、层级或态度等真实变化，用 WorldResult.关系 稀疏同步；不存在的 NPC 禁止创建。异端雷达中仍为活跃的成员每轮都必须作为人物活动复核，死亡则只更新雷达状态并停止人物活动。即将与<user>见面时停在见面前一步。\n6. 正文可见层：非战斗正文读取完整因果轨道作为长期方向与因果记忆，其中故事线/下一节点是规划方向、偏移记录是连续性依据，不代表角色预知；进行中的当前事件通过公开征兆/可见影响向正文暴露可感知现实；程序还会投影热场外人物的地点/目标/行动/状态/更新时间/公开动态，其中所有活跃异端始终优先保留。人物目标与行动是叙事调度依据，不代表角色知情。不要输出公开摘要/正文承接，也不要把后台秘密、默认走向或未来宏观事件详情写进公开字段。\n7. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
+            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+(npcAudit.length?'\n\n'+NPC_BUILD_AUDIT_RULES:'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件、超期活动事件、时间越界记录和未完事项；符合条件才启动/推进，有实际结果才完成。任何“已经发生”的记录都不得越过当前世界时间。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。变量AI已经建立的关系列表 NPC 若因本轮场外推进产生身份、在场、队友关系、HP/EP、层级或态度等真实变化，用 WorldResult.关系 稀疏同步；不存在的 NPC 禁止创建。若输入提供“角色管理.NPC构筑审计”，每个审计对象本轮至少补齐一个真实缺口，并严格复用其已有体系与NPC生成规则，不得把难度设置当作升阶理由。异端雷达中仍为活跃的成员每轮都必须作为人物活动复核，死亡则只更新雷达状态并停止人物活动。即将与<user>见面时停在见面前一步。\n6. 正文可见层：非战斗正文读取完整因果轨道作为长期方向与因果记忆，其中故事线/下一节点是规划方向、偏移记录是连续性依据，不代表角色预知；进行中的当前事件通过公开征兆/可见影响向正文暴露可感知现实；程序还会投影热场外人物的地点/目标/行动/状态/更新时间/公开动态，其中所有活跃异端始终优先保留。人物目标与行动是叙事调度依据，不代表角色知情。不要输出公开摘要/正文承接，也不要把后台秘密、默认走向或未来宏观事件详情写进公开字段。\n7. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
-            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
+            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;
@@ -2442,6 +2741,7 @@ ${schemaText}
                             ensureStaleActiveHandled(next,request.staleActive,base.stat.世界.时间);
                             ensureTemporalAnomaliesResolved(next,request.timeAnomalies);
                             ensureActiveAlienActivity(next,request.alienActivity,acceptedWorldResult,base.stat.世界.时间);
+                            ensureNpcBuildAuditProgress(next,request.npcAudit,acceptedWorldResult);
                             ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                         }catch(error){globalError=error;}
                         if(rejectedSlices.length||globalError)throw makeRetryFailure(rejectedSlices,globalError);
@@ -3469,7 +3769,14 @@ ${schemaText}
 
                 const list=Array.from(people).filter(([n,p])=>matched(n,p)&&((this.filter||'全部')==='全部'||(this.filter==='在场'?!!(s.关系列表||{})[n]?.在场:!(s.关系列表||{})[n]?.在场)));
                 const chosen=list.find(([n])=>n===this.selectedPerson)||list[0];
-                html+=tools(['全部','在场','场外'])+'<div class="we-columns"><div>'+section('人物名册','<div class="we-tools">'+list.map(([n])=>'<button data-person="'+text(n)+'" class="'+(chosen?.[0]===n?'active':'')+'">'+text(n)+'</button>').join('')+'</div>')+(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true))+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查})):empty('没有符合条件的人物'))+'</div><aside>'+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['近期动向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
+                const chosenAudit=chosen&&plain((s.关系列表||{})[chosen[0]])?npcBuildAssessment(s,chosen[0],(s.关系列表||{})[chosen[0]]):null;
+                const auditPanel=chosenAudit?section('NPC构筑审计',
+                    '<div class="we-card"><div class="we-card-top"><h3>'+text(chosenAudit.审计级别)+'</h3>'+pill(chosenAudit.缺口.length?'待补强':'构筑完整',chosenAudit.缺口.length?'future':'dim')+'</div>'
+                    +fields({层级:chosenAudit.层级,当前组件:chosenAudit.当前组件})
+                    +(chosenAudit.缺口.length?'<div class="we-chips">'+chosenAudit.缺口.map(x=>pill(x,'future')).join('')+'</div><p class="we-muted">进入世界推进请求的热人物会由后台优先补齐缺口；难度脚本只负责已有组件的品质调整。</p>':'<p class="we-muted">当前构筑已达到本层级审计最低要求。</p>')+'</div>',
+                    '复用NPC生成规则'
+                ):'';
+                html+=tools(['全部','在场','场外'])+'<div class="we-columns"><div>'+section('人物名册','<div class="we-tools">'+list.map(([n])=>'<button data-person="'+text(n)+'" class="'+(chosen?.[0]===n?'active':'')+'">'+text(n)+'</button>').join('')+'</div>')+(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true))+auditPanel+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查})):empty('没有符合条件的人物'))+'</div><aside>'+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['近期动向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
             }else if(this.tab==='探索与势力'){
                 const regionRecords=state.势力地区||{};
                 const exploration=entries(w.探索).map(([name,ledger])=>[name,{...(regionRecords[name]||{}),...ledger,类型:'探索'}]);

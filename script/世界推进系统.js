@@ -977,6 +977,8 @@
             plan.push('到期事件/'+match[1]+'：本轮必须明确启动该事件，或更新本轮复核日期、阻碍条件与下次检查。');
         }else if((match=message.match(/事件时间锚点缺失或过于模糊：([^；]+)/))){
             plan.push('事件/'+match[1]+'：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。');
+        }else if((match=message.match(/事件时间锚点仍未补全：([^；]+)/))){
+            for(const name of match[1].split('、').filter(Boolean))plan.push('事件/'+name+'：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。');
         }else if(message&&!rejected.length){
             plan.push('整体校验：'+message);
         }
@@ -1039,7 +1041,7 @@
             if(options.person&&!old&&!Object.hasOwn(record,'所属世界'))record.所属世界=stat.世界?.名称||'';
             if(options.event&&!Object.hasOwn(record,'描述'))record.描述=item.名称;
             if(options.event){
-                const mergedEvent=Object.assign({},plain(old)?old:{},record);
+                const mergedEvent=Object.assign(copy(RECORDS.事件),plain(old)?old:{},record);
                 if(['待发生','进行中'].includes(mergedEvent.状态)){
                     const anchor=eventTimeAnchor(mergedEvent);
                     if(!anchor||VAGUE_EVENT_TIME.test(anchor))throw new Error('事件时间锚点缺失或过于模糊：'+item.名称+'；请填写具体世界时间/时段，或明确相对/因果时间（如“爆发后数日”“前置节点完成后当日傍晚”），禁止空值和“近期/稍后/未来/待定/未知”');
@@ -1239,7 +1241,25 @@
                 throw new Error('到期事件未处理：'+due.名称+'。需启动事件，或记录本轮复核日期、阻碍条件与下次检查。');
             }
         }
-    }    function ensureMacroBackbone(next,timeline,required=true) {
+    }
+    function unscheduledEvents(stat) {
+        return Object.entries(stat?.世界?.[PATH]?.事件||{}).filter(([,event])=>{
+            if(!['待发生','进行中'].includes(event?.状态))return false;
+            const anchor=eventTimeAnchor(event);
+            return !anchor||VAGUE_EVENT_TIME.test(anchor);
+        }).map(([名称,event])=>({名称,分类:event.分类,状态:event.状态,条件:event.条件,前因:copy(event.前因||[]),当前时间:eventTimeAnchor(event)}));
+    }
+    function ensureEventTimeAnchors(next,required=[]) {
+        const missing=[];
+        for(const item of required||[]){
+            const event=next?.世界?.[PATH]?.事件?.[item.名称];
+            if(!event||!['待发生','进行中'].includes(event.状态))continue;
+            const anchor=eventTimeAnchor(event);
+            if(!anchor||VAGUE_EVENT_TIME.test(anchor))missing.push(item.名称);
+        }
+        if(missing.length)throw new Error('事件时间锚点仍未补全：'+missing.join('、')+'；请逐项补写具体世界日期/时段，或明确相对/因果时间，禁止空值和“近期/稍后/未来/待定/未知”');
+    }
+    function ensureMacroBackbone(next,timeline,required=true) {
         if(!required||!timeline?.需要补充远期)return;
         const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消');
         const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
@@ -1942,6 +1962,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
             const books=await this.worldbook([proseScan,chronologyScan].filter(Boolean).join('\n'),{timelineBackbone:needBackbone});
             const now=worldDateKey(state.世界.时间);
             const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
+            const unscheduled=unscheduledEvents(state);
             const capacity=worldTimeCapacity(state.世界[PATH].已处理时间,state.世界.时间);
             const input=JSON.stringify({
                 输入语义:{
@@ -1961,12 +1982,13 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:'当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断'},
                 可选宏观资料补充:needBackbone,
                 本轮必须复核的到期事件:due,
+                本轮必须补全的事件时间锚点:unscheduled,
                 生命周期整理:lifecycle,
                 说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
             },null,2);
             const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件和未完事项；符合条件才启动/推进，有实际结果才完成。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。即将与<user>见面时停在见面前一步。\n6. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
-            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
+            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;
@@ -1989,8 +2011,9 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                     normalizeBackendState(recoveryStat);
                     const recoveryTimeline=timelineState(recoveryStat);
                     const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.需要补充远期||recoveryTimeline.因果轨道需重建);
-                    if(!needsMacroRepair){this.status='本楼层已处理，不重复结算';return false;}
-                    this.status='检测到宏观骨架不完整 · 修复本楼层';
+                    const needsScheduleRepair=unscheduledEvents(recoveryStat).length>0;
+                    if(!needsMacroRepair&&!needsScheduleRepair){this.status='本楼层已处理，不重复结算';return false;}
+                    this.status=needsMacroRepair?'检测到宏观骨架不完整 · 修复本楼层':'检测到事件时间锚点缺失 · 修复本楼层';
                 }
                 if (!this.isAvailable()) throw new Error(this.usesDedicatedApi()?'请在世界推进「设置」中完成专属 API 地址与模型配置':'请在主神终端设置中启用额外模型并选择模型');
                 const validate = this.host.Samsara && this.host.Samsara.validateWorldState;
@@ -2057,6 +2080,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                         let globalError=null;
                         try{
                             ensureDueHandled(next,request.due,base.stat.世界.时间);
+                            ensureEventTimeAnchors(next,request.unscheduled);
                             ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                         }catch(error){globalError=error;}
                         if(rejectedSlices.length||globalError)throw makeRetryFailure(rejectedSlices,globalError);
@@ -2075,6 +2099,7 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                             let currentGlobalError=null;
                             try{
                                 ensureDueHandled(next,request.due,base.stat.世界.时间);
+                                ensureEventTimeAnchors(next,request.unscheduled);
                                 ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                             }catch(error){currentGlobalError=error;}
                             if(currentGlobalError)throw makeRetryFailure([],currentGlobalError);

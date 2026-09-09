@@ -45,7 +45,7 @@
         source=source.replace(/<!--[\s\S]*?(?:-->|$)/g,'\n');
         source=source.replace(/<details\b[^>]*>\s*<summary\b[^>]*>([\s\S]*?)<\/summary>[\s\S]*?(?:<\/details>|$)/gi,
             (block,title)=>/思考|思维链|变量|更新|检定|结算|状态栏|thinking|reasoning|analysis/i.test(title)?'\n':block);
-        const hidden=new Set(['think','thinking','reasoning','analysis','konatan_planning~','dm_think','chain_of_thought',
+        const hidden=new Set(['think','thinking','reasoning','analysis','konatan_planning','dm_think','chain_of_thought',
             'updatevariable','jsonpatch','variables','status_current_variables','user_status_readonly',
             'worldresult','options','statusplaceholder',
             'action','summary','update','scene_time','pic','dicecombat','dicecheck','enemyoverview',

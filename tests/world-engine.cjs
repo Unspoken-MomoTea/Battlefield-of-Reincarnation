@@ -18,8 +18,6 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(calendarDate('2026-09-08'),{y:2026,m:9,d:8,key:'2026-9-8',fallbackYear:false,customCalendar:false});
         assert.equal(calendarDate('近期'),null);
         assert.equal(calendarDate('大业十三年-02月-30日'),null);
-        const crossMonthEngine=new Engine({localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{}});
-        assert.equal(crossMonthEngine.constructor!==undefined,true);
     });
     await test('world event ordering follows causal macro order when dates are unavailable', () => {
         const records={
@@ -293,6 +291,12 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const engine = new Engine(host); engine.config.enabled = true; engine.config.requireMacroBackbone = false; engine.config.retryAttempts = 0; engine.worldbook = async () => [];
         return {engine,host,get:()=>stat,writes:()=>writes,toasts:()=>clone(toasts),change:fn=>fn(stat),chat:()=>{chat='chat-2';},text:v=>{text=v;}};
     }
+    await test('numeric world time capacity uses real cross-month calendar distance', async () => {
+        const x=setup(async()=>JSON.stringify({摘要:'无变化'}));
+        x.change(s=>{s.世界.时间='2026年3月1日上午';s.世界.后台.已处理时间='2026年2月28日上午';});
+        const request=await x.engine.buildRequest(x.engine.snapshot());
+        assert.equal(JSON.parse(request.input).本轮时间容量.小时,24);
+    });
     await test('final world-engine failure surfaces through Tavern toastr without writing MVU', async () => {
         const x=setup(async()=>{throw new Error('HTTP 400: invalid argument');});
         await assert.rejects(()=>x.engine.run(),/HTTP 400/);

@@ -837,7 +837,7 @@
         if (a === '世界' && b === '货币') return parts.length === 3 && Object.hasOwn(CURRENCY_FIELDS,c);
         if (a === '世界' && b === '历法') return parts.length === 3 && Object.hasOwn(CALENDAR_FIELDS,c);
         if (a === '世界' && ['势力','探索'].includes(b)) return parts.length === 3 || (parts.length === 4 && Object.hasOwn(b === '势力' ? {实力:0,领地:0,描述:0,声望:0} : {风险:0,探索度:0,描述:0,隐藏真相:0},d));
-        if (a === '世界' && b === '异端雷达') return parts.length === 4 && c === '名单' && !(stat.设置 || {}).单一世界;
+        if (a === '世界' && b === '异端雷达') return parts.length === 5 && c === '名单' && parts[4] === '状态' && !(stat.设置 || {}).单一世界;
         if (a === '传闻' && ['街头巷议','情报交易','布告与檄文'].includes(b)) return parts.length === 3;
         // 人物动态在后台.人物中管理；直接关系变动只允许既有人物的好感度。
         if (a === '关系列表') return parts.length === 3 && c === '好感度' && !!get(stat,[a,b]);

@@ -96,6 +96,21 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(next.关系列表.精英.技能.突进);
         assert.equal(compiled.patches.some(p=>p.path==='/关系列表/精英/HP_MAX'),false);
     });
+    await test('non-audit existing NPC may still receive real status transitions without opening build supplementation', () => {
+        const stat=fresh();
+        stat.关系列表.完整角色={
+            在场:false,种族:'人类',身份:['成熟角色'],职业:{剑士:{类型:'战斗',特性:['近战'],来源:'本地'}},层级:'Ⅱ',
+            HP_MAX:100,HP:80,THP:0,EP_MAX:50,EP:30,状态:{},最终属性:{},
+            血统:{人类:{品质:'E',标签:['本地'],原始属性:{力量:'E',敏捷:'E',体质:'E',精神:'E',魅力:'E'},真属性:{},效果:{适应:'普通人类体质'},描述:'人类'}},
+            装备:{剑:{品质:'E',类型:0,标签:['伤害'],原始属性:{ATK:'E'},真属性:{},效果:{斩击:'造成(固定伤害+ATK)物理伤害'},描述:'剑',消耗:'无',状态:1}},
+            技能:{},道具:{},形态库:{},当前形态:{激活:false,名称:''},
+            性格:'沉稳',喜爱:'安静',外貌:'普通',着装:'便服',是否队友:false,好感度:0,态度:'中立',背景故事:'普通剑士',数量:1
+        };
+        const compiled=compileWorldResult(stat,{摘要:'负伤延续',关系:[{名称:'完整角色',状态:{
+            骨折:{类型:'减益',品质:'E',持续:'3天',来源:'坠落事故',原始属性:{敏捷:-5},效果:'移动与攀爬行动受限'}
+        }}]});
+        assert.ok(compiled.patches.some(p=>p.path==='/关系列表/完整角色/状态'),'真实剧情状态不应要求先进入构筑审计');
+    });
     await test('world run retries when a listed NPC build audit makes no progress', async () => {
         let calls=0,inputs=[];
         const x=setup(async (_system,input)=>{

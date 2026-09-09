@@ -919,7 +919,8 @@
     };
     const RELATION_SYNC_KEYS=new Set(Object.keys(RELATION_SYNC_FIELDS));
     const RELATION_COMPONENT_FIELDS=new Set(['职业','状态','血统','装备','技能','形态库']);
-    const RELATION_BUILD_FIELDS=new Set(['职业','状态','血统','装备','技能','形态库','当前形态','性格','喜爱','外貌','着装','背景故事']);
+    // 只有会永久改变角色战斗构筑的字段要求进入审计名单；状态/当前形态及档案文字仍可因真实剧情变化正常同步。
+    const RELATION_AUDIT_ONLY_FIELDS=new Set(['职业','血统','装备','技能','形态库']);
     const RELATION_ATTR_KEYS=['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'];
     const RELATION_ATTR5=['力量','敏捷','体质','精神','魅力'];
     const NPC_BUILD_AUDIT_LIMIT=4;
@@ -1353,7 +1354,10 @@
         if(!plain(value))throw new Error(label+' 必须是对象');
         for(const key of Object.keys(value)){
             if(!RELATION_ATTR_KEYS.includes(key))throw new Error(label+' 含非法属性 '+key);
-            if(allowNumbers&&typeof value[key]==='number'&&Number.isFinite(value[key]))continue;
+            if(allowNumbers&&typeof value[key]==='number'&&Number.isFinite(value[key])){
+                if(value[key]===0)throw new Error(label+'.'+key+' 数值0应省略，避免ZOD清洗后产生无效差异');
+                continue;
+            }
             validateQuality(value[key],label+'.'+key);
         }
         if(requireFive)for(const key of RELATION_ATTR5)if(!Object.hasOwn(value,key))throw new Error(label+' 缺少基础属性 '+key);
@@ -1529,7 +1533,7 @@
             const npc=stat.关系列表[target],fields=resultFields(item,RELATION_SYNC_FIELDS);
             if(!Object.keys(fields).length){warnings.push('忽略空关系更新：'+target);continue;}
             for(const [field,value] of Object.entries(fields)){
-                if(RELATION_BUILD_FIELDS.has(field)&&!auditNames.has(nameKey(target))){
+                if(RELATION_AUDIT_ONLY_FIELDS.has(field)&&!auditNames.has(nameKey(target))){
                     warnings.push('NPC当前不在构筑审计名单，忽略构筑字段：'+target+'/'+field);
                     continue;
                 }

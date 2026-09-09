@@ -1231,9 +1231,18 @@
             }
           }
 
+          function isSingleWorldMode() {
+            try {
+              const win = window.parent || window;
+              if (!win.Mvu || !win._ || typeof win.Mvu.getMvuData !== 'function') return false;
+              const c = win.Mvu.getMvuData({type:'message', message_id:'latest'});
+              return win._.get(c,'stat_data.设置.单一世界',false) === true;
+            } catch (e) { return false; }
+          }
+
           // ===== 自动写入 MVU 数据库: 任务 + 成就 + 因果轨道 + 异端名单 =====
           // 参考 正则/【选择世界】.txt 的 win.Mvu.replaceMvuData 写入模式
-          function writeQuestToMvu(q) {
+          function writeQuestToMvu(q, singleWorld) {
             try {
               if (!q.tasks.length && !q.achievements.length && !q.stage && !q.storyline && !q.noAliens && !q.alienEntries.length) return;
               const win = window.parent || window;
@@ -1246,6 +1255,10 @@
               // 先回到上一楼层的干净任务块，再叠加本次正文解析结果。
               if (q.tasks.length || q.achievements.length) {
                 restorePreviousTaskBaseline(win, c, '主神任务美化');
+              }
+              if (singleWorld) {
+                // 单一世界不拥有副本成就；同时清掉旧楼层/旧版本遗留，防任务基线把成就带回来。
+                win._.set(c, 'stat_data.任务.副本成就', {});
               }
 
               let changed = false;
@@ -1285,19 +1298,21 @@
 
               // 副本成就 → stat_data.任务.副本成就.[成就名]
               //   说明=直接填写 / 难度=按顺序照搬★数 / 奖励=直接填写 / 状态=未达成
-              q.achievements.forEach(function(a) {
-                if (!a.name) return;
-                const key = 'stat_data.任务.副本成就.' + a.name;
-                try {
-                  const cur = win._.get(c, key);
-                  if (cur && typeof cur === 'object' && Object.keys(cur).length) return;
-                } catch (e) { /* 不存在则继续写入 */ }
-                win._.set(c, key + '.说明', a.desc || '');
-                win._.set(c, key + '.难度', '★'.repeat(a.stars));
-                win._.set(c, key + '.奖励', a.reward || '');
-                win._.set(c, key + '.状态', '未达成');
-                changed = true;
-              });
+              if (!singleWorld) {
+                q.achievements.forEach(function(a) {
+                  if (!a.name) return;
+                  const key = 'stat_data.任务.副本成就.' + a.name;
+                  try {
+                    const cur = win._.get(c, key);
+                    if (cur && typeof cur === 'object' && Object.keys(cur).length) return;
+                  } catch (e) { /* 不存在则继续写入 */ }
+                  win._.set(c, key + '.说明', a.desc || '');
+                  win._.set(c, key + '.难度', '★'.repeat(a.stars));
+                  win._.set(c, key + '.奖励', a.reward || '');
+                  win._.set(c, key + '.状态', '未达成');
+                  changed = true;
+                });
+              }
 
               // 因果轨道 → stat_data.世界.因果轨道 (当前阶段/故事线)
               // 仅在初始态(待初始化/空)时写入, 避免覆盖剧情推进后 AI replace 更新的轨道值
@@ -1359,6 +1374,8 @@
 
           const rawText = rawDiv.textContent;
           const q = parseQuest(rawText);
+          const singleWorld = isSingleWorldMode();
+          if (singleWorld) q.achievements = [];
           // 按钮标签: 优先取副本名称
           labelSpan.textContent = q.name ? ('主神任务 · ' + q.name) : '主神任务面板';
 
@@ -1367,7 +1384,7 @@
           panelDiv.innerHTML = hasStruct ? renderQuest(q) : renderPlain(rawText);
 
           // 解析成功(结构化数据非空)时自动写入数据库
-          if (hasStruct) writeQuestToMvu(q);
+          if (hasStruct) writeQuestToMvu(q, singleWorld);
 
           // 奖励数字滚动动画
           panelDiv.querySelectorAll('.gq-num-val').forEach(function(el) {

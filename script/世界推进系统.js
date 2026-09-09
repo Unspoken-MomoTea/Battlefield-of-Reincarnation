@@ -239,6 +239,17 @@
         for(const category of ['人物','势力地区','传播'])for(const record of Object.values(state[category]||{}))for(const id of record.关联事件||[])refs.add(id);
         return refs;
     }
+    function detachEventSoftRefs(state,eventName) {
+        const changed=[];
+        for(const category of ['人物','势力地区','传播']){
+            for(const [name,record] of Object.entries(state?.[category]||{})){
+                if(!Array.isArray(record?.关联事件)||!record.关联事件.includes(eventName))continue;
+                record.关联事件=record.关联事件.filter(id=>id!==eventName);
+                changed.push(category+'/'+name);
+            }
+        }
+        return changed;
+    }
     function archiveFinishedEvent(stat,state,name,event,archived) {
         let key='归档·'+name,seq=2;
         while(Object.hasOwn(state.历史||{},key))key='归档·'+name+'#'+seq++;
@@ -268,12 +279,13 @@
         }
         if(!cold.size)return [];
         const changed=[];
-        for(const category of ['人物','势力地区','传播']){
-            for(const [name,record] of Object.entries(state?.[category]||{})){
-                if(!Array.isArray(record?.关联事件)||!record.关联事件.some(id=>cold.has(id)))continue;
-                record.关联事件=record.关联事件.filter(id=>!cold.has(id));
-                changed.push(category+'/'+name);
-            }
+        for(const eventName of cold)changed.push(...detachEventSoftRefs(state,eventName));
+        // 已结束且同样进入冷区的事件之间不再互相作为热前因引用；
+        // 活跃/未来事件的前因仍保留，因此不会破坏仍在推进的因果链。
+        for(const [name,event] of Object.entries(state?.事件||{})){
+            if(!cold.has(name)||!Array.isArray(event?.前因)||!event.前因.some(id=>cold.has(id)))continue;
+            event.前因=event.前因.filter(id=>!cold.has(id));
+            changed.push('事件/'+name);
         }
         return changed;
     }
@@ -281,8 +293,9 @@
         const state=stat?.世界?.[PATH]; if(!state?.事件)return [];
         const archived=[],now=worldDateKey(stat?.世界?.时间);
         pruneSoftRefsToColdFinishedEvents(state,now);
+        const protectedNames=new Set(storyStages(stat?.世界?.因果轨道?.故事线));
         let refs=collectEventRefs(state);
-        const finished=()=>Object.entries(state.事件||{}).filter(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name));
+        const finished=()=>Object.entries(state.事件||{}).filter(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name)&&!protectedNames.has(name));
         // 有明确时间的旧结束事件，在经过一个世界日后直接冷归档；刚刚结束的内容至少保留到下一阶段。
         for(const [name,event] of finished()){
             const endedAt=worldDateKey(event.更新时间||event.预计结束||event.时间);
@@ -1336,10 +1349,9 @@
         const causalPatches=repairCausalProjection(next);
         const predecessorPatches=repairMacroPredecessors(next);
         const linkPatches=repairExplicitEventLinks(next);
-        const finalLifecycle=compactWorldLifecycle(next);
+        compactWorldLifecycle(next);
         validateState(next);
         const repairPatches=[...explorationPatches,...layerPatches,...causalPatches,...predecessorPatches,...linkPatches];
-        if(finalLifecycle.归档事件.length||finalLifecycle.回收传播.length)repairPatches.push({op:'replace',path:'/世界/后台/版本',value:next.世界[PATH].版本});
         return {next,appliedSeeds,repairPatches};
     }
     function ensureDueHandled(next,dueList,worldTime) {
@@ -1369,16 +1381,25 @@
         if(missing.length)throw new Error('事件时间锚点仍未补全：'+missing.join('、')+'；请逐项补写具体世界日期/时段，或明确相对/因果时间，禁止空值和“近期/稍后/未来/待定/未知”');
     }
     function ensureStaleActiveHandled(next,required=[],worldTime='') {
-        const now=worldDateKey(worldTime);
-        const unresolved=[];
+        const now=worldDateKey(worldTime),state=next?.世界?.[PATH];
+        const unresolved=[],resolved=[];
         for(const item of required||[]){
-            const event=next?.世界?.[PATH]?.事件?.[item.名称];
-            if(!event||['已完成','已取消'].includes(event.状态))continue;
+            const event=state?.事件?.[item.名称];
+            if(!event)continue;
+            if(['已完成','已取消'].includes(event.状态)){resolved.push(item.名称);continue;}
             const updated=worldDateKey(event.更新时间);
             if(event.状态==='进行中'&&updated!==null&&now!==null&&updated===now&&String(event.下次检查||'').trim())continue;
             unresolved.push(item.名称);
         }
         if(unresolved.length)throw new Error('超期活动事件仍未复核：'+unresolved.join('、')+'；局部事件跨越过长时间仍标记进行中，必须结束/取消，或更新到当前时间并填写下次检查');
+        // 对“本轮刚刚确认早已结束”的陈旧局部事件绕过24小时展示宽限：
+        // 清理人物/地区/传播的软引用；若没有活跃事件继续依赖它，则立即压成历史。
+        for(const name of resolved){
+            const event=state?.事件?.[name];if(!event)continue;
+            detachEventSoftRefs(state,name);
+            const hardRef=Object.entries(state.事件||{}).some(([other,record])=>other!==name&&!['已完成','已取消'].includes(record?.状态)&&Array.isArray(record?.前因)&&record.前因.includes(name));
+            if(!hardRef)archiveFinishedEvent(next,state,name,event,[]);
+        }
     }
     function ensureTemporalAnomaliesResolved(next,required=[]) {
         if(!(required||[]).length)return;

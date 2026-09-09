@@ -1819,6 +1819,24 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         update(after,clone(after));
         assert.equal(calls.processCombatAndCooldowns,1);assert.equal(calls.processStatusDuration,1);
     });
+    await test('world-engine Step.5 stays concise while preserving prose boundaries', () => {
+        const source=fs.readFileSync(path.join(__dirname,'../World Book/⚙️额外思考.txt'),'utf8');
+        const start=source.indexOf('  Step.5 现实后果与变量规划:');
+        const end=source.indexOf('<%_ } else { _%>',start);
+        assert.ok(start>=0&&end>start,'世界推进开启分支必须保留独立 Step.5');
+        const block=source.slice(start,end);
+        assert.ok(block.length<1800,'Step.5 不应重新膨胀成实现说明书');
+        for(const phrase of [
+            '以上均不等于角色知识',
+            '不得替其推进下一步',
+            '禁止修改或规划【世界.后台】【世界.因果轨道】',
+            '不得重推、改因或重复结算',
+            '严禁写代码',
+            '战斗轮次递增、状态持续时间与【形态】冷却由后台自动处理'
+        ])assert.ok(block.includes(phrase),'关键边界不得丢失：'+phrase);
+        assert.equal(block.includes('只包含名称、状态、时间、地点、公开征兆、可见影响'),false,'字段投影实现细节不应塞进正文思考');
+        assert.equal(block.includes('只投影真正热人物的非空地点'),false,'热人物筛选实现细节不应塞进正文思考');
+    });
     await test('worldbook templates compile including protected public projection', () => {
         for (const name of ['[variables]当前变量.txt','[mvu_update]变量更新规则.txt','⚙️额外思考.txt','【主神任务】[mvu_plot].txt','【试炼任务】[mvu_plot].txt','【结算任务】[mvu_plot].txt','⚙️任务与委托系统.txt']) {
             const source=fs.readFileSync(path.join(__dirname,'../World Book',name),'utf8');

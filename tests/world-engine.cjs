@@ -1727,6 +1727,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         stat.世界.因果轨道={当前阶段:'北门已经进入戒严阶段。',故事线:'封锁升级 -> 城区戒严 -> 战时管制',下一节点:'城区戒严',偏移记录:{秘密偏移:{描述:'隐藏',引发者:'幕后者',影响程度:-10}}};
         stat.世界.后台.事件={
             北门身份核验:{...RECORDS.事件,描述:'后台完整描述不得暴露',时间:'2026年9月7日上午',状态:'进行中',地点:'测试地点',分类:'当前事件',公开征兆:'守卫正在逐人检查证件。',可见影响:[{时间:'当前',地点:'测试地点',影响:'出城速度明显下降。'}],默认走向:'隐藏未来走向',条件:'隐藏条件'},
+            空影响巡逻:{...RECORDS.事件,描述:'后台描述',时间:'2026年9月7日上午',状态:'进行中',地点:'测试地点',分类:'当前事件',公开征兆:'巡逻队临时增加了一班岗哨。',可见影响:[]},
             远期政变:{...RECORDS.事件,描述:'隐藏宏观未来',时间:'2026年10月1日',状态:'待发生',地点:'王都',分类:'宏观节点',公开征兆:'不应提前显示'}
         };
         stat.世界.异端雷达={当前模式:'干涉局',名单:{
@@ -1736,10 +1737,17 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         stat.世界.后台.人物={
             异端甲:{...RECORDS.人物,所属世界:'测试世界',地点:'遥远城南',目标:'观察玩家去向',行动:'混在人群中跟踪北门出入者',公开动态:'一名陌生旅人正在远处布置后续行动',状态:'潜伏',更新时间:'2026年9月6日下午',关联事件:[]},
             异端亡者:{...RECORDS.人物,所属世界:'测试世界',地点:'墓地',目标:'不应存在',行动:'诈尸'},
+            测试玩家:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'不应进入场外投影',行动:'玩家自己的当前行动',状态:'玩家',更新时间:'2026年9月7日上午',关联事件:['北门身份核验']},
             守备官:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'维持封锁',行动:'核查通行文件',公开动态:'守备官正在北门指挥检查',状态:'值勤',更新时间:'2026年9月7日上午',关联事件:['北门身份核验']},
+            空字段使者:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'',行动:'递送当前事件公文',公开动态:'',状态:'',更新时间:'2026年9月7日上午',关联事件:[]},
+            在场NPC:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'现场交谈',行动:'不应重复进入场外投影',状态:'在场',更新时间:'2026年9月7日上午',关联事件:[]},
+            旧关系NPC:{...RECORDS.人物,所属世界:'测试世界',地点:'遥远旧城',目标:'八年前的旧目标',行动:'八年前的旧行动',状态:'',更新时间:'2018年1月1日',关联事件:[]},
             纯冷NPC:{...RECORDS.人物,所属世界:'测试世界',地点:'遥远村庄',目标:'种田',行动:'长期无关行动'}
         };
+        stat.角色.名称='测试玩家';
         stat.关系列表.守备官={好感度:10,在场:false};
+        stat.关系列表.在场NPC={好感度:0,在场:true};
+        stat.关系列表.旧关系NPC={好感度:20,在场:false};
         stat.世界.历法={名称:'隐藏历',月份天数:[31,28,31],闰年规则:''};
         for (const engineOn of [false,true]) {
             for (const space of [false,true]) {
@@ -1751,18 +1759,29 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
                 if(engineOn&&!space){
                     assert.deepEqual(current.世界.因果轨道,stat.世界.因果轨道,'世界推进开启时非战斗正文应保留完整因果轨道，维持长期方向与偏移记忆');
                     assert.equal(current.世界.异端雷达.名单.异端甲.状态,'活跃','异端雷达本身继续对正文可见');
-                    assert.deepEqual(readonly.世界.当前事件,[{
+                    const publicIdentity=readonly.世界.当前事件.find(x=>x.名称==='北门身份核验');
+                    assert.deepEqual(publicIdentity,{
                         名称:'北门身份核验',
                         状态:'进行中',
                         时间:'2026年9月7日上午',
                         地点:'测试地点',
                         公开征兆:'守卫正在逐人检查证件。',
                         可见影响:[{时间:'当前',地点:'测试地点',影响:'出城速度明显下降。'}]
-                    }]);
-                    assert.ok(readonly.世界.场外人物动态.some(x=>x.名称==='异端甲'&&x.异端===true&&/跟踪/.test(x.行动)),'活跃异端必须始终进入正文人物动态');
-                    assert.ok(readonly.世界.场外人物动态.some(x=>x.名称==='守备官'&&x.异端===false),'相关普通后台人物应进入正文人物动态');
+                    });
+                    const emptyImpactEvent=readonly.世界.当前事件.find(x=>x.名称==='空影响巡逻');
+                    assert.ok(emptyImpactEvent&&emptyImpactEvent.公开征兆);
+                    assert.equal(Object.hasOwn(emptyImpactEvent,'可见影响'),false,'当前事件的空可见影响数组也应省略');
+                    assert.ok(readonly.世界.场外人物动态.some(x=>x.名称==='异端甲'&&/跟踪/.test(x.行动)),'活跃异端必须始终进入正文人物动态');
+                    assert.ok(readonly.世界.场外人物动态.some(x=>x.名称==='守备官'),'相关普通后台人物应进入正文人物动态');
+                    assert.equal(readonly.世界.场外人物动态.some(x=>Object.hasOwn(x,'异端')),false,'异端身份已有雷达名单，人物动态不再重复映射布尔字段');
+                    assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='测试玩家'),false,'玩家本人不得进入场外人物动态');
+                    assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='在场NPC'),false,'已在正文现场的 NPC 不得重复进入场外人物动态');
+                    assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='旧关系NPC'),false,'仅存在于关系列表的多年旧行动不得继续污染正文');
                     assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='异端亡者'),false,'死亡异端不得进入正文动态');
-                    assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='纯冷NPC'),false,'无关系、无当前事件、远离当前地点的冷人物不占正文Token');
+                    assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='纯冷NPC'),false,'无当前地点、当前事件或本轮更新的冷人物不占正文Token');
+                    const compactPerson=readonly.世界.场外人物动态.find(x=>x.名称==='空字段使者');
+                    assert.ok(compactPerson&&compactPerson.行动==='递送当前事件公文');
+                    for(const key of ['目标','状态','公开动态','关联事件'])assert.equal(Object.hasOwn(compactPerson,key),false,'空字段必须从人物投影省略：'+key);
                 }else{
                     assert.equal(readonly.世界.当前事件,undefined);
                     assert.equal(readonly.世界.场外人物动态,undefined);

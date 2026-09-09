@@ -763,8 +763,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(payload.输入语义);
         assert.ok(payload.本轮时间容量);
         assert.equal(payload.正文可见投影规则.当前地点,'测试地点');
-        assert.match(payload.正文可见投影规则.要求,/当前阶段.*当前事件/);
-        assert.match(payload.正文可见投影规则.要求,/公开征兆.*可见影响/);
+        assert.match(payload.正文可见投影规则.要求,/当前阶段.*故事线.*下一节点.*偏移记录/);
+        assert.match(payload.正文可见投影规则.要求,/当前事件.*公开征兆.*可见影响/);
     });
     await test('world prompt includes the canonical WorldResult schema even when API structured output falls back', async () => {
         const x=setup(async()=>''),r=await x.engine.buildRequest(x.engine.snapshot());
@@ -1259,7 +1259,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(doc&&doc.builtin,'内置默认文档必须始终存在');
         assert.equal(doc.name,'默认设置');
         assert.equal(engine.config.activePromptDocumentId,'builtin-default');
-        assert.equal(engine.config.builtinDefaultPromptVersionApplied,4);
+        assert.equal(engine.config.builtinDefaultPromptVersionApplied,5);
         assert.equal(engine.config.contextTurns,3);
         assert.equal(engine.config.activationMode,'respect_activation');
         assert.equal(engine.config.selectedEntries.length,24);
@@ -1599,7 +1599,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
                 assert.equal(current.世界.后台,undefined);
                 assert.equal(current.世界.历法,undefined,'正文/普通AI当前变量不得看到内部历法');
                 if(engineOn&&!space){
-                    assert.deepEqual(current.世界.因果轨道,{当前阶段:'北门已经进入戒严阶段。'},'世界推进开启时正文只保留因果轨道当前阶段，不暴露未来故事线');
+                    assert.deepEqual(current.世界.因果轨道,stat.世界.因果轨道,'世界推进开启时非战斗正文应保留完整因果轨道，维持长期方向与偏移记忆');
                     assert.deepEqual(readonly.世界.当前事件,[{
                         名称:'北门身份核验',
                         状态:'进行中',
@@ -1622,6 +1622,11 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     await test('正文思考协议 consumes current stage and safe current-event projection without resimulating backend', () => {
         const think=fs.readFileSync(path.join(__dirname,'../World Book/⚙️额外思考.txt'),'utf8');
         assert.match(think,/因果轨道\.当前阶段/);
+        assert.match(think,/故事线/);
+        assert.match(think,/下一节点/);
+        assert.match(think,/偏移记录/);
+        assert.match(think,/叙事方向|方向约束/);
+        assert.match(think,/不代表.*预知|不得.*预知/);
         assert.match(think,/当前事件/);
         assert.match(think,/公开征兆/);
         assert.match(think,/可见影响/);

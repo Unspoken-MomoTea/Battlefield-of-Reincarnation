@@ -45,6 +45,14 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('#sam-world-engine').getAttribute('data-tone'),'night','世界推进默认暗夜色调');
  assert.equal(await page.locator('#sam-world-engine').getAttribute('data-font-scale'),'standard');
  assert.equal(await page.locator('#sam-world-engine').evaluate(el=>getComputedStyle(el).fontSize),'16px','默认字号应比旧版更清晰');
+ assert.equal(await page.locator('header [data-tab="设置"]').count(),0,'头部不应重复放置设置入口');
+ assert.equal(await page.locator('nav [data-tab="设置"]').count(),1,'设置只保留在导航 Tab');
+ const rumorTab=page.locator('nav [data-tab="传闻"]'),rumorIcon=rumorTab.locator('.we-tab-icon');
+ const rumorBefore=await rumorIcon.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {text:el.textContent,width:r.width,height:r.height,fontSize:s.fontSize,lineHeight:s.lineHeight,fontWeight:s.fontWeight};});
+ assert.equal(rumorBefore.text,'◎','传闻使用普通符号而不是字体回退不稳定的 dotted circle');
+ await rumorTab.click();
+ const rumorAfter=await page.locator('nav [data-tab="传闻"] .we-tab-icon').evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {text:el.textContent,width:r.width,height:r.height,fontSize:s.fontSize,lineHeight:s.lineHeight,fontWeight:s.fontWeight};});
+ assert.deepEqual(rumorAfter,rumorBefore,'传闻 Tab 选中前后图标尺寸必须完全一致');
  await page.locator('[data-tab="设置"]').first().click();
  assert.equal(await page.getByRole('heading',{name:'界面外观',exact:true}).count(),1);
  assert.equal(await page.locator('.we-tone-card').count(),6,'设置页提供与状态栏同风格的六套色调');
@@ -221,6 +229,10 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('nav [data-tab="任务与事件"]').count(),0);
  assert.equal(await page.getByRole('heading',{name:'剧本与阶段',exact:true}).count(),0);
  await page.locator('[data-tab="世界推进"]').click();await page.setViewportSize({width:390,height:844});
+ const mobileHeader=await page.locator('#sam-world-engine header').evaluate(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {paddingTop:parseFloat(s.paddingTop),height:r.height};});
+ assert.equal(mobileHeader.paddingTop>=24,true,'手机端头部必须为刘海/灵动岛保留最低安全区');
+ assert.equal(mobileHeader.height>=80,true,'手机端头部高度必须包含安全区而不是把按钮顶到系统状态栏');
+ for(const selector of ['[data-action="run"]','[data-action="close"]'])assert.equal(await page.locator('#sam-world-engine header '+selector).isVisible(),true,'手机端头部操作必须保持可见可点');
  await page.screenshot({path:path.join(out,'world-mobile.png')});
  assert.equal(await page.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
  for(const viewport of [{width:320,height:568},{width:800,height:300},{width:390,height:240}]){
@@ -234,7 +246,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
    window.getChatWorldbookName=()=> '聊天世界书';
    window.getGlobalWorldbookNames=()=> ['外挂世界书'];
    window.getWorldbook=name=>{
-     if(name==='轮回战场V3.7.0')return [{uid:915830,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:999,name:'禁用条目',content:'不得默认读取',enabled:false},{uid:3,name:'[variables]当前变量',content:'技术投影',enabled:true}];
+     if(name==='轮回战场V3.7.0')return [{uid:915830,name:'无关键词条目',content:'这是一条普通设定',enabled:true},{uid:196248,name:'⚙️任务与委托系统',content:'任务规则',enabled:true},{uid:503929,name:'⚙️实体生成规则',content:'实体规则',enabled:true},{uid:931853,name:'⚙️NPC生成规则',content:'NPC规则',enabled:true},{uid:446543,name:'⚙️状态协议',content:'状态规则',enabled:true},{uid:999,name:'禁用条目',content:'不得默认读取',enabled:false},{uid:3,name:'[variables]当前变量',content:'技术投影',enabled:true}];
      if(name==='附加世界书')return [{uid:10,name:'附加设定',content:'附加内容',enabled:false}];
      if(name==='聊天世界书')return [{uid:20,name:'聊天设定',content:'聊天内容',enabled:false}];
      if(name==='外挂世界书')return [{uid:30,name:'外挂设定',content:'外挂内容',enabled:false}];
@@ -260,7 +272,12 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
 
  await page.locator('[data-action="books"]').click();
  await page.locator('[data-book]').first().waitFor();
- assert.equal(await page.locator('[data-book]:checked').count(),1,'内置默认应在世界书版本号变化后仍勾选同一条目');
+ assert.equal(await page.locator('[data-book]:checked').count(),1,'内置默认应在世界书版本号变化后仍只勾选需要的世界资料');
+ for(const name of ['任务与委托系统','实体生成规则','NPC生成规则','状态协议']){
+   const row=page.locator('.we-book-row').filter({hasText:name});
+   assert.equal(await row.count(),1,'默认目录应包含 '+name);
+   assert.equal(await row.locator('[data-book]').isChecked(),false,'默认设置必须取消勾选 '+name);
+ }
  assert.equal(await page.locator('[data-book]:disabled').count(),1);
  await page.locator('[data-action="book-none"]').click();
  await page.locator('[data-action="save"]').click();

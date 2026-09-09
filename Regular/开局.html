@@ -2297,6 +2297,14 @@
     // ==========================================
     // 🚀 终极执行：精准写入 MVU 与酒馆 AI 对接
     // ==========================================
+    function parseOpeningWorldLaws(value) {
+        return String(value || '')
+            .split(/\s*[；;]\s*/)
+            .map(s => s.trim())
+            .filter(Boolean)
+            .slice(0, 10);
+    }
+
     async function executeJourney() {
         const name = $('f-name').value.trim() || '';
         const gender = $('f-gender').value;
@@ -2411,6 +2419,9 @@
                             const tierRaw = String(p.tier).replace(/\s+/g,'').replace(/[-–—]/g,'~').toUpperCase();
                             if (tierRaw) _set(c, 'stat_data.世界.难度', tierRaw);
                         }
+                        // 预设世界法则已经固化在 DB.plots.p.law 中，开局时直接程序写入。
+                        // p.risk 是风险/后果提示，不属于世界法则数组。
+                        _set(c, 'stat_data.世界.法则', parseOpeningWorldLaws(p.law));
                         // 干涉模式 + 空名单；异端身份由随后的主神任务初始化
                         _set(c, 'stat_data.世界.异端雷达.当前模式', p.ecology || p.eco || '');
                         _set(c, 'stat_data.世界.异端雷达.名单', {});
@@ -2449,7 +2460,8 @@
 时间锚点: ${p.time}
 干涉模式: ${p.ecology} (预计异端: ${p.aliens!=null?p.aliens:0}人)
 主线状态: ${p.deviation}
-世界法则: ${p.law} ${p.risk}
+世界法则: ${p.law}
+风险提示: ${p.risk}
 切入身份: ${p.identity}`;
             }
         }
@@ -2473,7 +2485,7 @@
         }
         // 2. 动态生成环境与传闻指令（核心修改）
         const envInstruction = isWorldAnchored
-            ? "在叙事中，根据当前【时间锚点】与世界背景，更新货币、因果轨道、势力等地点变量，并全量刷新传闻，必须完整且符合世界当前局势。最后生成【主神任务】。"
+            ? "在叙事中，根据当前【时间锚点】与世界背景，更新货币、因果轨道、势力等地点变量，并全量刷新传闻，必须完整且符合世界当前局势。预设世界的世界法则已由开局程序写入当前变量，禁止重新生成或覆盖。最后生成【主神任务】。"
             : "在叙事中，请重点描绘「主神空间」或私人休整区的宏大/静谧环境、光影变幻或系统光球的微光。聚焦于角色刚到此处的状态。";
         const promptText = `进行开局初始化，请根据以下配置展开叙事：
 （注：系统已将角色的初始装备、道具、血统与羁绊对象直接写入底层数据库。人物与羁绊基本属性已存在，禁止在初始化时替换它们，请直接提取使用。）

@@ -838,15 +838,6 @@
             return rows.find(row => row.label && pattern.test(row.label));
         }
 
-        function parseWorldLawList(value) {
-            const emptyMarkers = new Set(['无','暂无','无特殊法则','无明确法则','无特殊世界法则']);
-            return String(value || '')
-                .split(/\s*[；;]\s*/)
-                .map(s => s.trim())
-                .filter(law => law && !emptyMarkers.has(law))
-                .slice(0, 10);
-        }
-
         function renderLawValue(value) {
             const laws = String(value || '').split(/\s*[；;]\s*/).map(s => s.trim()).filter(Boolean);
             if (laws.length <= 1) return escapeHtml(value);
@@ -987,7 +978,7 @@
 ## 【世界背景】
 ${worldDescriptionSend}
 
-## 根据当前【世界信息】与【世界背景】，更新货币、因果轨道、探索、势力等变量，并根据当前【时间锚点】全量刷新传闻，寻找合适的身份切入点。世界法则已由选界程序写入当前变量，不得重新生成或覆盖。
+## 根据当前【世界信息】与【世界背景】，更新货币、法则、因果轨道、探索、势力等变量，并根据当前【时间锚点】全量刷新传闻，寻找合适的身份切入点。
 ## 开始生成【主神任务】，正在进入该世界...
       `.trim();
 
@@ -1024,10 +1015,6 @@ ${worldDescriptionSend}
                         const tierRaw = String(parsed.ratingCore).replace(/\s+/g,'').replace(/[-–—]/g,'~').toUpperCase();
                         if (tierRaw) _set(c, 'stat_data.世界.难度', tierRaw);
                     }
-                    // 世界法则来自已选中的世界卡片，程序直接写入，避免后续AI漏更/重写。
-                    // 无法则或缺少法则行时必须写 []，防止从上一个世界继承旧法则。
-                    const lawRow = parsed.rows.find(r => /^(世界法则|法则)$/.test(r.label));
-                    _set(c, 'stat_data.世界.法则', parseWorldLawList(lawRow ? lawRow.value : ''));
                     // 干涉模式行: 仅保留模式；异端名单由随后的主神任务初始化
                     const modeRow = parsed.rows.find(r => /干涉模式/.test(r.label));
                     if (modeRow) {

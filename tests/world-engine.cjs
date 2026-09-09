@@ -1107,21 +1107,20 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(p.正文楼层.map(f=>f.正文),['玛雅在远处观察到城市上空的黑烟。']);
         assert.doesNotMatch(r.input,/玩家秘密计划|玩家输入：这段不应进入世界模型/);
     });
-    await test('world selection program persists selected laws before downstream AI', () => {
-        const sourceText=fs.readFileSync(path.join(__dirname,'../Regular/选择世界美化.txt'),'utf8');
-        const start=sourceText.indexOf('        function parseWorldLawList(value) {');
-        const end=sourceText.indexOf('        function renderLawValue(value) {',start);
-        assert.ok(start>=0&&end>start,'选界美化必须提供纯程序法则解析器');
-        const parseWorldLawList=new Function(sourceText.slice(start,end)+'; return parseWorldLawList;')();
-        assert.deepEqual(parseWorldLawList('魂力只可通过武魂体系运转；神祇权能可影响凡俗法则; 契约成立后双方受约束'),[
-            '魂力只可通过武魂体系运转','神祇权能可影响凡俗法则','契约成立后双方受约束'
+    await test('opening preset world writes DB laws into MVU before the first narrative turn', () => {
+        const sourceText=fs.readFileSync(path.join(__dirname,'../Regular/开局.html'),'utf8');
+        const start=sourceText.indexOf('    function parseOpeningWorldLaws(value) {');
+        const end=sourceText.indexOf('    async function executeJourney() {',start);
+        assert.ok(start>=0&&end>start,'开局必须提供纯程序世界法则解析器');
+        const parseOpeningWorldLaws=new Function(sourceText.slice(start,end)+'; return parseOpeningWorldLaws;')();
+        assert.deepEqual(parseOpeningWorldLaws('物理法则主导；死体病毒被咬必异变; 超自然体系受排异压制。'),[
+            '物理法则主导','死体病毒被咬必异变','超自然体系受排异压制。'
         ]);
-        assert.deepEqual(parseWorldLawList('无'),[]);
-        assert.deepEqual(parseWorldLawList('暂无'),[]);
-        assert.equal(parseWorldLawList(Array.from({length:12},(_,i)=>'法则'+i).join('；')).length,10,'世界法则最多程序写入10条');
-        assert.match(sourceText,/_set\(c, 'stat_data\.世界\.法则', parseWorldLawList\(lawRow \? lawRow\.value : ''\)\)/);
-        assert.doesNotMatch(sourceText,/更新货币、法则、因果轨道/,'法则程序写入后不应再要求下游AI重新生成');
-        assert.match(sourceText,/世界法则已由选界程序写入当前变量，不得重新生成或覆盖/);
+        assert.equal(parseOpeningWorldLaws(Array.from({length:12},(_,i)=>'法则'+i).join('；')).length,10);
+        assert.ok(sourceText.includes("_set(c, 'stat_data.世界.法则', parseOpeningWorldLaws(p.law));"),'预设世界必须在开局程序中直接写入法则');
+        assert.ok(sourceText.includes('世界法则: ${p.law}'), '开局发送文本必须保留法则');
+        assert.ok(sourceText.includes('风险提示: ${p.risk}'), '风险提示必须与法则分离');
+        assert.ok(sourceText.includes('预设世界的世界法则已由开局程序写入当前变量，禁止重新生成或覆盖。'));
     });
     await test('terminal API contains structured-output negotiation with plain fallback', () => {
         const sourceText=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');

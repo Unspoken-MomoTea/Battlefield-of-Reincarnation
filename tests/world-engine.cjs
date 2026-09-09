@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const file = path.join(__dirname, '../script/世界推进系统.js');
 const source = fs.readFileSync(file, 'utf8');
-const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA, projectWorldContext, compactWorldLifecycle, calendarDate, repairExplorationGranularity} = require(file);
+const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA, projectWorldContext, compactWorldLifecycle, calendarDate, repairExplorationGranularity, sortWorldEvents, eventScheduleLabel} = require(file);
 const clone = x => JSON.parse(JSON.stringify(x));
 const fresh = () => ({世界:{名称:'测试世界',时间:'2026年9月7日清晨',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},系统状态:{是否在主神空间:false},设置:{},任务:{列表:{调查:{状态:'进行中'}},副本成就:{发现:{状态:'未达成'}}},关系列表:{},传闻:{}});
 const add = (path,value) => ({op:'add',path,value});
@@ -18,6 +18,21 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(calendarDate('2026-09-08'),{y:2026,m:9,d:8,key:'2026-9-8',fallbackYear:false,customCalendar:false});
         assert.equal(calendarDate('近期'),null);
         assert.equal(calendarDate('大业十三年-02月-30日'),null);
+    });
+    await test('world event ordering follows causal macro order when dates are unavailable', () => {
+        const records={
+            '终局节点':{...RECORDS.事件,描述:'终局',分类:'宏观节点',状态:'待发生',时间:''},
+            '起始节点':{...RECORDS.事件,描述:'起始',分类:'宏观节点',状态:'待发生',时间:''},
+            '中间节点':{...RECORDS.事件,描述:'中间',分类:'宏观节点',状态:'待发生',时间:''}
+        };
+        const sorted=sortWorldEvents(records,{故事线:'起始节点 -> 中间节点 -> 终局节点'});
+        assert.deepEqual(sorted.map(([name])=>name),['起始节点','中间节点','终局节点']);
+    });
+    await test('event schedule labels never surface bare vague time tokens', () => {
+        assert.equal(eventScheduleLabel({时间:'2010年-04月-13日-下午'}),'2010年-04月-13日-下午');
+        assert.equal(eventScheduleLabel({时间:'近期',条件:'主角团离开校园'}),'条件触发 · 主角团离开校园');
+        assert.equal(eventScheduleLabel({时间:'',前因:['校舍突围战']}),'前置节点后 · 校舍突围战');
+        assert.equal(eventScheduleLabel({时间:'',条件:''}),'时间待补');
     });
     await test('world lifecycle archives stale finished events and expires propagation without touching active references', () => {
         const stat=fresh();
@@ -403,6 +418,20 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(next.任务.副本成就.发现.状态,'未达成');
         assert.equal(next.关系列表.卫兵.好感度,5);
     });
+    await test('new active and pending events require a concrete or causal time anchor', () => {
+        assert.throws(()=>compileWorldResult(fresh(),{
+            摘要:'模糊时间',
+            事件:[{名称:'远期节点',描述:'阶段变化',分类:'宏观节点',状态:'待发生',时间:'近期'}]
+        }),/事件时间锚点/);
+        assert.throws(()=>compileWorldResult(fresh(),{
+            摘要:'空时间',
+            事件:[{名称:'当前危机',描述:'危机正在发生',分类:'当前事件',状态:'进行中'}]
+        }),/事件时间锚点/);
+        assert.doesNotThrow(()=>compileWorldResult(fresh(),{
+            摘要:'因果时间',
+            事件:[{名称:'远期节点',描述:'阶段变化',分类:'宏观节点',状态:'待发生',时间:'前置节点完成后当日傍晚'}]
+        }));
+    });
     await test('WorldResult compiler owns paths, escaping and upsert selection', () => {
         const stat=fresh();
         stat.世界.后台.人物.卫兵={...RECORDS.人物,所属世界:'测试世界',行动:'待命'};
@@ -629,6 +658,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(r.system,/不要输出“名称→对象”的 map 简写/);
         assert.match(r.system,/已完成.*历史锚点|历史锚点.*已完成/);
         assert.match(r.system,/传播.*到期.*回收|过期传播.*回收/);
+        assert.match(r.system,/所有.*待发生.*进行中.*事件.*时间锚点/);
+        assert.match(r.system,/不得.*近期.*稍后.*未来.*待定/);
     });
     await test('world request projects only world-relevant MVU, keeps assets and character capabilities, and excludes user prose', async () => {
         const x=setup(async()=>JSON.stringify({摘要:'无变化'}));
@@ -1197,6 +1228,32 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(source,/enableApi:\s*function\s*\(/);
         assert.doesNotMatch(source,/data-act=["']world-engine-settings["']/);
         assert.doesNotMatch(source,/click\.samWorldEngineSettings/);
+    });
+    await test('switching chat clears request-inspection memory instead of showing the previous save', () => {
+        const engine=new Engine({localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{}});
+        engine.lastRequest={input:'旧档纠错重试'};
+        engine.previewRequest={input:'旧档预览'};
+        engine.lastReply='旧档回复';
+        engine.lastFailure='旧档失败';
+        engine.lastWorldResult={摘要:'旧档'};
+        engine.lastCompiledPatches=[{path:'/旧档'}];
+        engine.lastCompileWarnings=['旧档'];
+        engine.lastRetryLog=[{重试:1,错误:'旧档'}];
+        engine.lastAttemptCount=2;
+        engine.resetInspection();
+        assert.equal(engine.lastRequest,null);
+        assert.equal(engine.previewRequest,null);
+        assert.equal(engine.lastReply,'');
+        assert.equal(engine.lastFailure,'');
+        assert.equal(engine.lastWorldResult,null);
+        assert.deepEqual(engine.lastCompiledPatches,[]);
+        assert.deepEqual(engine.lastCompileWarnings,[]);
+        assert.deepEqual(engine.lastRetryLog,[]);
+        assert.equal(engine.lastAttemptCount,0);
+        assert.match(source,/CHAT_CHANGED[\s\S]{0,350}resetInspection\(\)/);
+    });
+    await test('world events page groups events instead of rendering one flat name-sorted list', () => {
+        assert.match(source,/this\.tab===['"]世界事件['"][\s\S]{0,350}timelineCards\(list\)/);
     });
     await test('terminal handoff restores saved state and close does not disable engine', () => {
         let restored;

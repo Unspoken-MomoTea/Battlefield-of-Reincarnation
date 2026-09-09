@@ -2141,6 +2141,11 @@ const settings=this.config.userDefaultPromptSettings||BUILTIN_DEFAULT_PROMPT_DOC
                 本轮时间容量:capacity,
                 时间线调度:timeline,
                 推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:'当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断'},
+                正文交接目标:{
+                    当前时间:state.世界.时间,
+                    当前地点:state.世界.地点,
+                    要求:'只从本轮已确认世界变化中挑选0~3条已经通过合理渠道触达当前场景的公开结果；写清来源、触达方式、可见事实、当前场景影响。若尚未触达则不要为了“有推进感”强行写入。'
+                },
                 可选宏观资料补充:needBackbone,
                 本轮必须复核的到期事件:due,
                 本轮必须补全的事件时间锚点:unscheduled,

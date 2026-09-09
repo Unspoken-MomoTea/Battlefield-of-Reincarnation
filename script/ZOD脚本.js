@@ -405,7 +405,7 @@ export const Schema = z.object({
         名称: safeStr('待初始化'),
         // 世界引擎的楼层状态；正文只取得“局势摘要 + 正文承接”，完整记录由独立脚本校验。
         后台: z.object({
-            版本: safeNum(1), 已处理楼层: safeStr(''), 已处理时间: safeStr(''), 公开摘要: safeStr(''),
+            版本: safeNum(3), 已处理楼层: safeStr(''), 已处理时间: safeStr(''), 公开摘要: safeStr(''),
             正文承接: z.array(z.object({
                 来源: safeStr(''),
                 触达方式: safeStr(''),

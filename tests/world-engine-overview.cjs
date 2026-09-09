@@ -41,9 +41,9 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  for(const label of ['C-B','Ⅳ']) assert.ok(await page.locator('.we-hero').getByText(label,{exact:true}).count(),label);
  assert.equal(await page.getByText('世界概况',{exact:true}).count(),0);
  assert.equal(await page.getByText('异端存活数量',{exact:true}).count(),0);
- const laws=page.locator('.we-reading-section').filter({hasText:'世界法则'});
- assert.equal(await laws.getAttribute('open'),null);
- await laws.locator('summary').click();
+ const laws=page.locator('.we-command-side .we-section').filter({has:page.getByRole('heading',{name:'世界法则',exact:true})});
+ assert.equal(await laws.count(),1,'世界法则应排在右侧辅助栏');
+ assert.equal(await laws.locator('summary').count(),0,'右侧世界法则不再占用全宽折叠面板');
  assert.equal(await laws.locator('.we-reading article').count(),2);
  assert.equal(await laws.locator('.we-pill').count(),0);
  assert.equal(await laws.locator('p').first().evaluate(e=>getComputedStyle(e).whiteSpace),'pre-wrap');
@@ -52,7 +52,6 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await laws.locator('.we-reading').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);
  }
  await page.setViewportSize({width:1440,height:1080});
- await laws.locator('summary').click();
  await page.locator('main').evaluate(e=>e.scrollTop=0);
  await page.screenshot({path:path.join(__dirname,'artifacts/world-overview-fixed.png')});
  await page.locator('[data-tab="角色管理"]').first().click();
@@ -85,7 +84,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  }
  await page.evaluate(()=>{const stat=Mvu.getMvuData().stat_data;stat.世界.势力.朋友.声望=-20;Samsara.worldEngine.render(true);});
  assert.equal(await page.getByText('0.0×',{exact:true}).count(),1);
- await page.evaluate(()=>{const stat=Mvu.getMvuData().stat_data;stat.世界.异端雷达={名单:{}};Samsara.worldEngine.tab='世界推进';Samsara.worldEngine.render(true);});
+ await page.evaluate(()=>{const stat=Mvu.getMvuData().stat_data;stat.世界.异端雷达={名单:{}};stat.世界.法则=[];Samsara.worldEngine.tab='世界推进';Samsara.worldEngine.render(true);});
+ assert.equal(await page.getByRole('heading',{name:'世界法则',exact:true}).count(),0,'无法则时整个世界法则面板必须隐藏');
  assert.equal(await page.getByText('异端存活数量',{exact:true}).count(),0);
  assert.equal(await page.getByText('干涉模式',{exact:true}).count(),0);
  await page.setViewportSize({width:390,height:844});

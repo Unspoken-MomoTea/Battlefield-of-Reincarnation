@@ -1107,6 +1107,22 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(p.正文楼层.map(f=>f.正文),['玛雅在远处观察到城市上空的黑烟。']);
         assert.doesNotMatch(r.input,/玩家秘密计划|玩家输入：这段不应进入世界模型/);
     });
+    await test('world selection program persists selected laws before downstream AI', () => {
+        const sourceText=fs.readFileSync(path.join(__dirname,'../Regular/选择世界美化.txt'),'utf8');
+        const start=sourceText.indexOf('        function parseWorldLawList(value) {');
+        const end=sourceText.indexOf('        function renderLawValue(value) {',start);
+        assert.ok(start>=0&&end>start,'选界美化必须提供纯程序法则解析器');
+        const parseWorldLawList=new Function(sourceText.slice(start,end)+'; return parseWorldLawList;')();
+        assert.deepEqual(parseWorldLawList('魂力只可通过武魂体系运转；神祇权能可影响凡俗法则; 契约成立后双方受约束'),[
+            '魂力只可通过武魂体系运转','神祇权能可影响凡俗法则','契约成立后双方受约束'
+        ]);
+        assert.deepEqual(parseWorldLawList('无'),[]);
+        assert.deepEqual(parseWorldLawList('暂无'),[]);
+        assert.equal(parseWorldLawList(Array.from({length:12},(_,i)=>'法则'+i).join('；')).length,10,'世界法则最多程序写入10条');
+        assert.match(sourceText,/_set\(c, 'stat_data\.世界\.法则', parseWorldLawList\(lawRow \? lawRow\.value : ''\)\)/);
+        assert.doesNotMatch(sourceText,/更新货币、法则、因果轨道/,'法则程序写入后不应再要求下游AI重新生成');
+        assert.match(sourceText,/世界法则已由选界程序写入当前变量，不得重新生成或覆盖/);
+    });
     await test('terminal API contains structured-output negotiation with plain fallback', () => {
         const sourceText=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');
         assert.match(sourceText,/response_format/);

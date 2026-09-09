@@ -39,6 +39,46 @@
     const HOT_PROPAGATION_TARGET = 24;
     const TECHNICAL_BOOK = [/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
     const isTechnicalBook = title => TECHNICAL_BOOK.some(rule => rule.test(String(title || '').trim()));
+    // 聊天接口返回原始消息，不会应用酒馆的显示正则。发送和关键词扫描共用此抽取结果。
+    function extractWorldProse(value) {
+        let source=String(value??'').replace(/\r\n?/g,'\n');
+        source=source.replace(/<!--[\s\S]*?(?:-->|$)/g,'\n');
+        source=source.replace(/<details\b[^>]*>\s*<summary\b[^>]*>([\s\S]*?)<\/summary>[\s\S]*?(?:<\/details>|$)/gi,
+            (block,title)=>/思考|思维链|变量|更新|检定|结算|状态栏|thinking|reasoning|analysis/i.test(title)?'\n':block);
+        const hidden=new Set(['think','thinking','reasoning','analysis','dm_think','chain_of_thought',
+            'updatevariable','jsonpatch','variables','status_current_variables','user_status_readonly',
+            'combatresult','craftresult','checkresult','worldresult','options','statusplaceholder',
+            'action','summary','update','scene_time','pic','dicecombat','dicecheck','enemyoverview',
+            'summonoverview','lootlog','experiencelog','questcontract','merchantstore','combatsnapshot',
+            'ash-review','acu-review','ash_review','acu_review','ash_note','acu_note','ash-review-slot',
+            'script','style','head','iframe']);
+        // 按标签栈移除整个技术块，支持嵌套与属性；未闭合技术块的剩余内容也不发送。
+        const tags=/<\s*(\/?)\s*([a-z_][\w-]*)\b[^>]*>/gi;
+        const stack=[];let text='',cursor=0,match;
+        while((match=tags.exec(source))){
+            const name=match[2].toLowerCase();
+            if(!hidden.has(name))continue;
+            if(!stack.length)text+=source.slice(cursor,match.index);
+            if(match[1]){
+                const at=stack.lastIndexOf(name);
+                if(at>=0)stack.length=at;
+            }else if(!/\/\s*>$/.test(match[0]))stack.push(name);
+            cursor=tags.lastIndex;
+            if(!stack.length)text+='\n';
+        }
+        if(!stack.length)text+=source.slice(cursor);
+        // 代码面板不属于已演出剧情；无语言标记的纯叙事围栏仍可兼容。
+        text=text.replace(/^[ \t]*(`{3,}|~{3,})([^\n]*)\n([\s\S]*?)(?:^[ \t]*\1[ \t]*$|(?![\s\S]))/gm,
+            (_block,_fence,language,body)=>{
+                if(/^(?:json\w*|ya?ml|html|xml|javascript|js|typescript|ts|css|python|diff)\b/i.test(language.trim()))return '\n';
+                try{const data=JSON.parse(body);if(data&&typeof data==='object')return '\n';}catch(_){}
+                return body;
+            });
+        // 对应参考助手 bodyTagsText 为空的模式：始终清洗整楼，不按正文标签截取。
+        try{const data=JSON.parse(text);if(data&&typeof data==='object')return '';}catch(_){}
+        return text.replace(/<[^>]+>/g,tag=>/^<user>$/i.test(tag)?tag:'')
+            .replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+    }
     function isTimelineBackboneEntry(title) {
         const name=String(title||'').replace(/\s+/g,'');
         if(/(?:变量|输出格式|更新规则|COT|思考|风格|助手|状态栏)/i.test(name))return false;
@@ -2175,14 +2215,18 @@ ${schemaText}
             state.世界[PATH].剧本={};
             const count=Math.max(1,Math.min(100,Number(this.config.contextTurns)||6));
             const id=Number(base.message.message_id??base.message.id);
-            const messages=await this.fn('getChatMessages')(Math.max(0,id-count*3+1)+'-'+id);
+            // 先清洗所有历史候选，再取最近 N 条非空正文；技术楼层再多也不会挤掉正文名额。
+            const messages=await this.fn('getChatMessages')('0-'+id);
             const isAssistant=m=>{
                 const role=String(m?.role||'').toLowerCase();
-                if(m?.is_user===true||role==='user'||role==='system')return false;
+                if(!m||m.is_hidden||m.is_user===true||role==='user'||role==='system')return false;
                 return role==='assistant'||!role;
             };
-            const floors=messages.filter(m=>Number(m.message_id??m.id)<=id&&isAssistant(m)).slice(-count).map(m=>({楼层:m.message_id??m.id,角色:'assistant',正文:m.message??m.mes??''}));
-            if(!floors.length)throw new Error('未读到AI正文楼层，请检查聊天读取接口');
+            const floors=messages.filter(m=>Number(m.message_id??m.id)<=id&&isAssistant(m))
+                .sort((a,b)=>Number(a.message_id??a.id)-Number(b.message_id??b.id))
+                .map(m=>({楼层:m.message_id??m.id,角色:'assistant',正文:extractWorldProse(m.message??m.mes??'')}))
+                .filter(f=>f.正文).slice(-count);
+            if(!floors.length)throw new Error('未读到可用AI正文：楼层为空或仅含思考、变量更新与面板，请检查聊天内容');
             const timeline=timelineState(state);
             const needBackbone=timeline.需要初始化||timeline.需要补充远期;
             const proseScan=floors.map(f=>f.正文).join('\n');
@@ -3551,7 +3595,7 @@ ${schemaText}
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople,extractWorldProse}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {

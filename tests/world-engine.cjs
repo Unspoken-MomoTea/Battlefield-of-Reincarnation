@@ -1742,6 +1742,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             空字段使者:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'',行动:'递送当前事件公文',公开动态:'',状态:'',更新时间:'2026年9月7日上午',关联事件:[]},
             在场NPC:{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'现场交谈',行动:'不应重复进入场外投影',状态:'在场',更新时间:'2026年9月7日上午',关联事件:[]},
             旧关系NPC:{...RECORDS.人物,所属世界:'测试世界',地点:'遥远旧城',目标:'八年前的旧目标',行动:'八年前的旧行动',状态:'',更新时间:'2018年1月1日',关联事件:[]},
+            同日远端NPC:{...RECORDS.人物,所属世界:'测试世界',地点:'遥远新城',目标:'推进同日计划',行动:'正在处理同一天的场外事务',状态:'',更新时间:'2026年9月7日',关联事件:[]},
             纯冷NPC:{...RECORDS.人物,所属世界:'测试世界',地点:'遥远村庄',目标:'种田',行动:'长期无关行动'}
         };
         stat.角色.名称='测试玩家';
@@ -1777,6 +1778,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
                     assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='测试玩家'),false,'玩家本人不得进入场外人物动态');
                     assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='在场NPC'),false,'已在正文现场的 NPC 不得重复进入场外人物动态');
                     assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='旧关系NPC'),false,'仅存在于关系列表的多年旧行动不得继续污染正文');
+                    assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='同日远端NPC'),true,'同一日期但精度较低的本轮场外更新仍应视为热人物');
                     assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='异端亡者'),false,'死亡异端不得进入正文动态');
                     assert.equal(readonly.世界.场外人物动态.some(x=>x.名称==='纯冷NPC'),false,'无当前地点、当前事件或本轮更新的冷人物不占正文Token');
                     const compactPerson=readonly.世界.场外人物动态.find(x=>x.名称==='空字段使者');

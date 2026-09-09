@@ -196,6 +196,14 @@ if (current.世界) {
         .map(([name]) => name)
     );
     const worldTime = String(_.get(data, '世界.时间', '') || '').trim();
+    const sameTimeAnchor = (a, b) => {
+      const x = String(a || '').trim(), y = String(b || '').trim();
+      if (!x || !y) return false;
+      if (x === y) return true;
+      const shorter = x.length <= y.length ? x : y;
+      const longer = x.length <= y.length ? y : x;
+      return shorter.length >= 8 && longer.includes(shorter);
+    };
 
     const projectedPeople = Object.entries(rawPeople).map(([name, person]) => {
       if (!person || typeof person !== 'object') return null;
@@ -213,7 +221,7 @@ if (current.世界) {
         .slice(0, 6);
       const atCurrentLocation = locationRelated(person.地点, currentLocation);
       const linkedCurrentEvent = links.length > 0;
-      const updatedNow = !!(worldTime && String(person.更新时间 || '').trim() === worldTime);
+      const updatedNow = sameTimeAnchor(person.更新时间, worldTime);
 
       // 活跃异端永远是热人物；普通人物只保留当前地点、当前事件或本轮刚更新者。
       // “存在于关系列表”本身不再构成热度，避免多年未更新的旧行动污染正文。

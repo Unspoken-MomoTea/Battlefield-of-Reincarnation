@@ -1484,10 +1484,41 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const historical=fresh(), before=clone(historical);
         finalize({stat_data:historical},false); assert.deepEqual(historical,before);
     });
+    await test('relationship deletion retires matching backend person but never touches alien radar', () => {
+        const source=fs.readFileSync(path.join(__dirname,'../script/辅助计算脚本.js'),'utf8');
+        const start=source.indexOf('function syncRemovedRelationshipPeople(');
+        const end=source.indexOf('/**',start+20);
+        const sync=new Function(source.slice(start,end)+';return syncRemovedRelationshipPeople;')();
+
+        const before=fresh();
+        before.关系列表={
+            '玛 雅':{好感度:20},
+            '异端甲':{好感度:-50},
+            '保留者':{好感度:10}
+        };
+        before.世界.后台.人物={
+            '玛雅':{...RECORDS.人物,所属世界:'测试世界',行动:'持续后台行动'},
+            '异端甲':{...RECORDS.人物,所属世界:'测试世界',行动:'潜伏'},
+            '纯后台NPC':{...RECORDS.人物,所属世界:'测试世界',行动:'巡逻'}
+        };
+        before.世界.异端雷达={当前模式:'混沌局',名单:{
+            '异端甲':{来源:'原创',经历:'潜伏',阵营:'篡夺者',职业:'刺客',层级:'Ⅱ',状态:'活跃'}
+        }};
+
+        const after=clone(before);
+        after.关系列表={保留者:{好感度:10}};
+        const removed=sync(after,before);
+
+        assert.deepEqual(removed.sort(),['异端甲','玛雅'].sort());
+        assert.equal(after.世界.后台.人物.玛雅,undefined,'规范化同名后台人物应同步删除');
+        assert.equal(after.世界.后台.人物.异端甲,undefined,'普通后台人物记录即使同名异端也应退休');
+        assert.ok(after.世界.后台.人物.纯后台NPC,'从未进入关系列表的纯场外NPC不得误删');
+        assert.ok(after.世界.异端雷达.名单.异端甲,'异端雷达名单必须完全独立，不随关系列表删除');
+    });
     await test('auxiliary callback skips duration ticks for engine commit but processes subsequent prose', () => {
         const source=fs.readFileSync(path.join(__dirname,'../script/辅助计算脚本.js'),'utf8');
         const snippet=source.slice(source.indexOf('function onUpdateData('),source.indexOf('// ===== 轻量路径工具'));
-        const names=['guardTaskGenerationLock','guardPersistedSystemTaskOwner','guardProtectedFields','clampNativeNpcToWorldTier','recalcAllCharacters','checkTrialEligibility','updatePlayDays','autoHarvestAssets','cleanupZeroQuantityItems','processStatusDuration','cleanupDeadNPCs','calcWorldStability','processCombatAndCooldowns'];
+        const names=['syncRemovedRelationshipPeople','guardTaskGenerationLock','guardPersistedSystemTaskOwner','guardProtectedFields','clampNativeNpcToWorldTier','recalcAllCharacters','checkTrialEligibility','updatePlayDays','autoHarvestAssets','cleanupZeroQuantityItems','processStatusDuration','cleanupDeadNPCs','calcWorldStability','processCombatAndCooldowns'];
         const calls={}; const stubs=Object.fromEntries(names.map(name=>[name,()=>{calls[name]=(calls[name]||0)+1;}]));
         const update=new Function('stubs',`let isProcessing=false,isInitLog=false;const {${names.join(',')}}=stubs;${snippet};return onUpdateData;`)(stubs);
         const stat=fresh();stat.角色={};stat.世界.后台.已处理楼层='commit-1';

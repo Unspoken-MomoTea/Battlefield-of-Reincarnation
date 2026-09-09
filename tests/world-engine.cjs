@@ -1453,6 +1453,12 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(settlement,/function isSingleWorldMode/);
         assert.match(settlement,/if \(isSingleWorldMode\(\)\) return \[\];/);
         assert.match(settlement,/if \(!isSingleWorldSettlement\)[\s\S]*achievementTasks\.forEach/);
+
+        const settlementPrompt=fs.readFileSync(path.join(__dirname,'../World Book/【结算任务】[mvu_plot].txt'),'utf8');
+        assert.match(settlementPrompt,/单一世界没有副本成就：禁止读取、统计、展示副本成就任务，禁止发放成就盲盒/);
+        const taskRules=fs.readFileSync(path.join(__dirname,'../World Book/⚙️任务与委托系统.txt'),'utf8');
+        assert.match(taskRules,/单一世界不存在副本成就与成就盲盒/);
+        assert.match(taskRules,/<%_ if \(!_.get\(rule_data, '设置\.单一世界', false\)\) \{ _%>[\s\S]*副本成就:/);
     });
     await test('actual settlement function clears ordinary world only, keeps relationships and both clocks', () => {
         const html=fs.readFileSync(path.join(__dirname,'../Regular/结算任务美化.html'),'utf8');
@@ -1488,7 +1494,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(calls.processCombatAndCooldowns,1);assert.equal(calls.processStatusDuration,1);
     });
     await test('worldbook templates compile including protected public projection', () => {
-        for (const name of ['[variables]当前变量.txt','[mvu_update]变量更新规则.txt','⚙️额外思考.txt']) {
+        for (const name of ['[variables]当前变量.txt','[mvu_update]变量更新规则.txt','⚙️额外思考.txt','【主神任务】[mvu_plot].txt','【试炼任务】[mvu_plot].txt','【结算任务】[mvu_plot].txt','⚙️任务与委托系统.txt']) {
             const source=fs.readFileSync(path.join(__dirname,'../World Book',name),'utf8');
             let compiled='';
             for (const tag of source.matchAll(/<%([\s\S]*?)%>/g)) {
@@ -1577,8 +1583,10 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     await test('updated JS and embedded settlement scripts compile', () => {
         new vm.Script(source);
         new vm.Script(fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8'));
-        const html=fs.readFileSync(path.join(__dirname,'../Regular/结算任务美化.html'),'utf8');
-        for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) new vm.Script(match[1]);
+        for (const htmlName of ['结算任务美化.html','主神任务美化.html','试炼任务美化.html']) {
+            const html=fs.readFileSync(path.join(__dirname,'../Regular',htmlName),'utf8');
+            for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)) new vm.Script(match[1]);
+        }
         const zod=fs.readFileSync(path.join(__dirname,'../script/ZOD脚本.js'),'utf8').replace(/^import .*;$/m,'').replace('export const Schema','const Schema');
         new vm.Script(zod);
     });

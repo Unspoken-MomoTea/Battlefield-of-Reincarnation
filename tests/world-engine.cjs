@@ -220,9 +220,23 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     });
     await test('numeric and enum validation cannot be silently clamped', () => {
         assert.throws(() => applyPatches(fresh(),[add('/世界/势力/商会',{实力:'F',领地:'城',描述:'商会',声望:1001})]),/1000/);
-        assert.throws(() => applyPatches(fresh(),[add('/世界/探索/遗迹',{风险:'F',探索度:101,描述:'遗迹',隐藏真相:''})]),/越界/);
+        assert.throws(() => applyPatches(fresh(),[add('/世界/探索/遗迹',{风险:'F',探索度:101,描述:'遗迹',隐藏真相:''})]),/探索品质或进度越界：遗迹.*探索度=101/);
+        assert.throws(() => applyPatches(fresh(),[add('/世界/探索/遗迹',{风险:'Ⅲ',探索度:30,描述:'遗迹',隐藏真相:''})]),/风险=Ⅲ.*只允许 F\/E\/D\/C\/B\/A\/S\/SS\/SSS/);
         assert.throws(() => applyPatches(fresh(),[{op:'replace',path:'/任务/列表/调查/状态',value:'已发奖'}]),/任务状态/);
         assert.equal(parseReply('<world_update>{"summary":"无变化","patches":[]}</world_update>').patches.length,0);
+    });
+    await test('new exploration and faction WorldResult records get valid settlement defaults when optional quality is omitted', () => {
+        const stat=fresh();
+        const compiled=compileWorldResult(stat,{
+            摘要:'建立结算台账',
+            探索:[{名称:'古代遗迹',探索度:30,描述:'已确认外围结构'}],
+            势力:[{名称:'港口商会',领地:'港区',描述:'控制主要仓储',声望:500}]
+        });
+        const next=applyPatches(stat,compiled.patches);
+        assert.equal(next.世界.探索.古代遗迹.风险,'F');
+        assert.equal(next.世界.探索.古代遗迹.探索度,30);
+        assert.equal(next.世界.势力.港口商会.实力,'F');
+        assert.equal(next.世界.势力.港口商会.声望,500);
     });
     function setup(request) {
         let stat = fresh(), text = '玩家调查了城门。', chat = 'chat-1', toasts = [];
@@ -468,6 +482,12 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(WORLD_RESULT_SCHEMA.properties.事件.type,'array');
         assert.equal(WORLD_RESULT_SCHEMA.properties.货币.type,'object');
         assert.deepEqual(Object.keys(WORLD_RESULT_SCHEMA.properties.货币.properties),['体系','购买力基准','经济波动']);
+        assert.deepEqual(WORLD_RESULT_SCHEMA.properties.探索.items.properties.风险.enum,['F','E','D','C','B','A','S','SS','SSS']);
+        assert.equal(WORLD_RESULT_SCHEMA.properties.探索.items.properties.探索度.minimum,0);
+        assert.equal(WORLD_RESULT_SCHEMA.properties.探索.items.properties.探索度.maximum,100);
+        assert.deepEqual(WORLD_RESULT_SCHEMA.properties.势力.items.properties.实力.enum,['F','E','D','C','B','A','S','SS','SSS']);
+        assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.minimum,-5000);
+        assert.equal(WORLD_RESULT_SCHEMA.properties.势力.items.properties.声望.maximum,10000);
     });
     await test('retry merges accepted WorldResult and requests only the missing business slice', async () => {
         let calls=0,inputs=[];
@@ -525,6 +545,11 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(r.system,/体系.*购买力基准.*经济波动/);
         assert.match(r.system,/玩家持币余额.*不由 WorldResult 写入/);
         assert.match(r.system,/世界\.探索与世界\.势力.*空间币结算/);
+        assert.match(r.system,/WorldResult\.探索必须是数组/);
+        assert.match(r.system,/风险:"F"\|"E"\|"D"\|"C"\|"B"\|"A"\|"S"\|"SS"\|"SSS"/);
+        assert.match(r.system,/探索度:number\(0~100\)/);
+        assert.match(r.system,/WorldResult\.势力必须是数组/);
+        assert.match(r.system,/声望:number\(-5000~10000\)/);
         assert.match(r.system,/禁止天台、教室、走廊、楼梯/);
         assert.match(r.system,/声望锚点-5000敌对.*10000崇拜/);
         assert.match(r.system,/货币体系不是跨界后永久锁死/);
@@ -1091,13 +1116,15 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(engine.isEnabled(),false);
         assert.equal(enableCalls,1);
     });
-    await test('status bar routes world button by master switch and exposes world advance setting', () => {
+    await test('status bar routes world button by master switch without a redundant world-engine settings button', () => {
         const source=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');
         assert.match(source,/data-toggle=["']world-engine["']/);
         assert.match(source,/engine\.isConfigured\(\)/);
         assert.match(source,/renderWorldTab\(sd\)/);
         assert.match(source,/case ['"]world['"]:[\s\S]{0,500}renderWorldTab\(sd\)/);
         assert.match(source,/enableApi:\s*function\s*\(/);
+        assert.doesNotMatch(source,/data-act=["']world-engine-settings["']/);
+        assert.doesNotMatch(source,/click\.samWorldEngineSettings/);
     });
     await test('terminal handoff restores saved state and close does not disable engine', () => {
         let restored;
@@ -1215,7 +1242,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(terminalSource,/worldEngine\.usesDedicatedApi/);
         assert.match(terminalSource,/等待世界推进专属 API 配置/);
         assert.match(terminalSource,/世界推进「设置」中完成专属 API 配置/);
-        assert.match(terminalSource,/data-act="world-engine-settings"/,'关闭世界推进时也应能先打开专属设置');
+        assert.doesNotMatch(terminalSource,/data-act="world-engine-settings"/,'状态栏设置面板不再提供世界推进设置按钮');
         assert.doesNotMatch(terminalSource,/世界推进已开启，额外 API 已自动启用/);
         assert.doesNotMatch(terminalSource,/世界推进暂停|世界推进可使用自托管 API/,'共享 API 文案不得把专属世界推进误判为暂停或共用');
     });

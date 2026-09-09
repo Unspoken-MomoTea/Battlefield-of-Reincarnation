@@ -6,7 +6,7 @@ const file = path.join(__dirname, '../script/世界推进系统.js');
 const source = fs.readFileSync(file, 'utf8');
 const {SamsaraWorldEngine: Engine, applyPatches, emptyState, RECORDS, parseReply, compileWorldResult, WORLD_RESULT_SCHEMA, projectWorldContext, compactWorldLifecycle, calendarDate, repairExplorationGranularity, sortWorldEvents, eventScheduleLabel, staleActiveEvents, temporalAnomalies} = require(file);
 const clone = x => JSON.parse(JSON.stringify(x));
-const fresh = () => ({世界:{名称:'测试世界',时间:'2026年9月7日清晨',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},系统状态:{是否在主神空间:false},设置:{},任务:{列表:{调查:{状态:'进行中'}},副本成就:{发现:{状态:'未达成'}}},关系列表:{},传闻:{}});
+const fresh = () => ({世界:{名称:'测试世界',时间:'2026年9月7日清晨',地点:'测试地点',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},系统状态:{是否在主神空间:false},设置:{},任务:{列表:{调查:{状态:'进行中'}},副本成就:{发现:{状态:'未达成'}}},关系列表:{},传闻:{}});
 const add = (path,value) => ({op:'add',path,value});
 let tests = 0;
 async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); }
@@ -18,6 +18,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.deepEqual(calendarDate('2026-09-08'),{y:2026,m:9,d:8,key:'2026-9-8',fallbackYear:false,customCalendar:false});
         assert.equal(calendarDate('近期'),null);
         assert.equal(calendarDate('大业十三年-02月-30日'),null);
+        const crossMonthEngine=new Engine({localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{}});
+        assert.equal(crossMonthEngine.constructor!==undefined,true);
     });
     await test('world event ordering follows causal macro order when dates are unavailable', () => {
         const records={

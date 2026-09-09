@@ -595,6 +595,12 @@
             return null;
           }
 
+          function isSingleWorldMode() {
+            const ctx = getMvuContext();
+            const stat = ctx && ctx.stat ? ctx.stat : {};
+            return !!(stat.设置 && stat.设置.单一世界 === true);
+          }
+
           function readTrialTasks() {
             const ctx = getMvuContext();
             const stat = ctx && ctx.stat ? ctx.stat : {};
@@ -645,6 +651,7 @@
           function readAchievementTasks() {
             achievementBaselineData = null;
             achievementUsedFallback = false;
+            if (isSingleWorldMode()) return [];
 
             const ctx = getMvuContext();
             const win = ctx && ctx.win;
@@ -1261,6 +1268,8 @@
               const sys = ensureObject(stat, '系统状态');
               setValue(sys, '是否在主神空间', true);
             } else {
+              // 单一世界没有副本成就；结算时同步清理旧副本/旧版本残留，但不影响当前世界与未结算任务。
+              setValue(tasks, '副本成就', {});
               const taskList = ensureObject(tasks, '列表');
               Object.keys(taskList).forEach(function(taskKey) {
                 const taskStatus = taskList[taskKey] && taskList[taskKey].状态;
@@ -1285,6 +1294,8 @@
               const isLatestPanel = isLatestPanelMessage(win, targetMessageId);
               const c = win.Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
               if (!c) return;
+              const settlementStat = c.stat_data || c;
+              const isSingleWorldSettlement = !!(settlementStat.设置 && settlementStat.设置.单一世界 === true);
 
               let changed = false;
               function exists(path) {
@@ -1319,6 +1330,7 @@
               });
               const world = worldName || '';
 
+              if (!isSingleWorldSettlement) {
               const achievementGrants = {};
               achievementTasks.forEach(function(x) {
                 if (x.status !== '已达成') return;
@@ -1350,6 +1362,7 @@
                 win._.set(c, key + '.状态', [0,1,2].includes(Number(old.状态)) ? Number(old.状态) : 0);
                 changed = true;
               });
+              }
 
               if (credentialGrant) {
                 const key = 'stat_data.角色.道具.' + credentialGrant.name;

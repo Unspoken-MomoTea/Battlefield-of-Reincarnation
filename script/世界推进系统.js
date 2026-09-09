@@ -896,7 +896,7 @@
         if (a === '世界' && b === '异端雷达') return parts.length === 5 && c === '名单' && parts[4] === '状态' && !(stat.设置 || {}).单一世界;
         if (a === '传闻' && ['街头巷议','情报交易','布告与檄文'].includes(b)) return parts.length === 3;
         // 只允许修改变量AI已经建立的 NPC；禁止通过世界引擎创建关系列表对象。
-        if (a === '关系列表') return parts.length === 3 && NPC_SYNC_KEYS.has(c) && !!get(stat,[a,b]);
+        if (a === '关系列表') return parts.length === 3 && RELATION_SYNC_KEYS.has(c) && !!get(stat,[a,b]);
         if (a === '任务') return parts.length === 4 && ['列表','副本成就'].includes(b) && d === '状态' && !!get(stat,[a,b,c]);
         return false;
     }
@@ -910,10 +910,10 @@
         布告与檄文:{发布者:'',内容:'',张贴位置:''},
         名单:{来源:'',经历:'',阵营:'',职业:'',层级:'',状态:''}
     };
-    const NPC_SYNC_FIELDS={在场:false,种族:'',身份:[],层级:'Ⅰ',HP:0,THP:0,EP:0,是否队友:false,好感度:0,态度:''};
-    const NPC_SYNC_KEYS=new Set(Object.keys(NPC_SYNC_FIELDS));
-    const NPC_RANKS=['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
-    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','异端','NPC','关系'];
+    const RELATION_SYNC_FIELDS={在场:false,种族:'',身份:[],层级:'Ⅰ',HP:0,THP:0,EP:0,是否队友:false,好感度:0,态度:''};
+    const RELATION_SYNC_KEYS=new Set(Object.keys(RELATION_SYNC_FIELDS));
+    const RELATION_RANKS=['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
+    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'];
     const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
     const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
     function schemaFromSample(sample) {
@@ -966,19 +966,18 @@
             势力:{type:'array',maxItems:15,items:FACTION_RESULT_SCHEMA},
             探索:{type:'array',maxItems:20,items:EXPLORATION_RESULT_SCHEMA},
             异端:{type:'array',maxItems:15,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['活跃','死亡']}}}},
-            NPC:{type:'array',maxItems:25,items:{type:'object',additionalProperties:false,required:['名称'],properties:{
-                名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},
-                在场:{type:'boolean'},种族:{type:'string'},身份:{type:'array',maxItems:24,items:{type:'string'}},
-                层级:{type:'string',enum:copy(NPC_RANKS)},HP:{type:'number',minimum:0,maximum:99999999},
-                THP:{type:'number',minimum:0,maximum:99999999},EP:{type:'number',minimum:0,maximum:99999999},
-                是否队友:{type:'boolean'},好感度:{type:'number',minimum:-100,maximum:100},态度:{type:'string'}
-            }}},
             传闻:{type:'object',additionalProperties:false,properties:{
                 街头巷议:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.街头巷议,['更新','移除','撤销本轮'],['来源','内容','可信度'])},
                 情报交易:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.情报交易,['更新','移除','撤销本轮'],['卖家','情报评级','摘要','要价','真实内幕'])},
                 布告与檄文:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.布告与檄文,['更新','移除','撤销本轮'],['发布者','内容','张贴位置'])}
             }},
-            关系:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,required:['名称','好感度'],properties:{名称:{type:'string'},操作:{type:'string',enum:['更新','撤销本轮']},好感度:{type:'number'}}}}
+            关系:{type:'array',maxItems:25,items:{type:'object',additionalProperties:false,required:['名称'],properties:{
+                名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},
+                在场:{type:'boolean'},种族:{type:'string'},身份:{type:'array',maxItems:24,items:{type:'string'}},
+                层级:{type:'string',enum:copy(RELATION_RANKS)},HP:{type:'number',minimum:0,maximum:99999999},
+                THP:{type:'number',minimum:0,maximum:99999999},EP:{type:'number',minimum:0,maximum:99999999},
+                是否队友:{type:'boolean'},好感度:{type:'number',minimum:-100,maximum:100},态度:{type:'string'}
+            }}}
         }
     };
     function sampleForWorldResultList(key) {
@@ -1114,8 +1113,10 @@
             }
             result.传闻[key]=list;
         }
-        result.NPC=normalizeNamedResultList(value.NPC??value.npc,NPC_SYNC_FIELDS,['更新','撤销本轮']);
-        result.关系=normalizeNamedResultList(value.关系,{好感度:0},['更新','撤销本轮']);
+        const relationSource=plain(value.关系)&&!Array.isArray(value.关系)
+            ?Object.entries(value.关系).map(([name,item])=>plain(item)?Object.assign({名称:name},copy(item)):{名称:name,好感度:item})
+            :value.关系;
+        result.关系=normalizeNamedResultList(relationSource,RELATION_SYNC_FIELDS,['更新','撤销本轮']);
         return result;
     }
     function mergeNamedResultLists(base,incoming) {
@@ -1134,7 +1135,7 @@
         const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
         result.货币=Object.assign({},a.货币||{},b.货币||{});
         result.历法=Object.assign({},a.历法||{},b.历法||{});
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','NPC','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
         result.因果={
             偏移记录:mergeNamedResultLists(a.因果?.偏移记录,b.因果?.偏移记录)
         };
@@ -1151,7 +1152,7 @@
         const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
         for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
         for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','NPC']){
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端']){
             for(const item of result[key]||[])push(key+'/'+item.名称,{[key]:[copy(item)]});
         }
         if(Object.hasOwn(result.因果||{},'当前阶段'))push('因果/当前阶段',{因果:{当前阶段:result.因果.当前阶段}});
@@ -1264,11 +1265,11 @@
         for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
         return out;
     }
-    function validateNpcSyncValue(field,value,npc,name='NPC') {
+    function validateRelationSyncValue(field,value,npc,name='NPC') {
         if(field==='在场'||field==='是否队友'){if(typeof value!=='boolean')throw new Error(name+' '+field+' 必须是 boolean');return;}
         if(field==='种族'||field==='态度'){if(typeof value!=='string')throw new Error(name+' '+field+' 必须是 string');return;}
         if(field==='身份'){if(!Array.isArray(value)||value.some(x=>typeof x!=='string'))throw new Error(name+' 身份必须是 string[]');return;}
-        if(field==='层级'){if(!NPC_RANKS.includes(value))throw new Error(name+' 层级只允许 '+NPC_RANKS.join('/'));return;}
+        if(field==='层级'){if(!RELATION_RANKS.includes(value))throw new Error(name+' 层级只允许 '+RELATION_RANKS.join('/'));return;}
         if(['HP','THP','EP','好感度'].includes(field)){
             if(typeof value!=='number'||!Number.isFinite(value))throw new Error(name+' '+field+' 必须是有效数字');
             if(field==='好感度'&&(value<-100||value>100))throw new Error(name+' 好感度范围 -100~100');
@@ -1360,24 +1361,17 @@
             patches.push({op:'replace',path:pointer(['世界','异端雷达','名单',target,'状态']),value:item.状态});
         } else if(result.异端.length)warnings.push('单一世界：忽略异端雷达更新');
         for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻[key])addEntity(['传闻',key,item.名称],item,EXISTING[key],{removable:true});
-        for(const item of result.NPC||[]){
+        for(const item of result.关系||[]){
             if(item.操作==='撤销本轮')continue;
             const target=stableNameIn(stat.关系列表||{},item.名称);
-            if(!target){warnings.push('NPC对象不存在，禁止世界引擎新建：'+item.名称);continue;}
-            const npc=stat.关系列表[target],fields=resultFields(item,NPC_SYNC_FIELDS);
-            if(!Object.keys(fields).length){warnings.push('忽略空 NPC 更新：'+target);continue;}
+            if(!target){warnings.push('关系对象不存在，禁止世界引擎新建：'+item.名称);continue;}
+            const npc=stat.关系列表[target],fields=resultFields(item,RELATION_SYNC_FIELDS);
+            if(!Object.keys(fields).length){warnings.push('忽略空关系更新：'+target);continue;}
             for(const [field,value] of Object.entries(fields)){
-                validateNpcSyncValue(field,value,npc,target);
+                validateRelationSyncValue(field,value,npc,target);
                 if(same(npc?.[field],value))continue;
                 patches.push({op:npc?.[field]===undefined?'add':'replace',path:pointer(['关系列表',target,field]),value:copy(value)});
             }
-        }
-        for(const item of result.关系){
-            if(item.操作==='撤销本轮')continue;
-            const target=Object.keys(stat.关系列表||{}).find(name=>nameKey(name)===nameKey(item.名称));
-            if(!target){warnings.push('关系对象不存在，已忽略：'+item.名称);continue;}
-            if(!Object.hasOwn(item,'好感度'))continue;
-            patches.push({op:'replace',path:pointer(['关系列表',target,'好感度']),value:Number(item.好感度)});
         }
         return {result,patches,warnings};
     }
@@ -1470,7 +1464,7 @@
                 if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('数值无效');
                 if (p[0] === '世界' && p[1] === '因果轨道' && p.length === 3 && typeof value !== 'string') throw new Error('因果摘要必须是文本');
                 if (p[0] === '任务' && p[1] === '副本成就' && old === '已达成' && value !== old) throw new Error('不能回退已达成成就');
-                if(p[0]==='关系列表'&&p.length===3)validateNpcSyncValue(p[2],value,next.关系列表?.[p[1]],p[1]);
+                if(p[0]==='关系列表'&&p.length===3)validateRelationSyncValue(p[2],value,next.关系列表?.[p[1]],p[1]);
                 if (p[p.length-1] === '好感度' && Math.abs(value - old) > 20) throw new Error('单轮好感变动超过20');
             }
             let parent = next;
@@ -1786,20 +1780,20 @@
     function protocol() {
         const schemaText=JSON.stringify(WORLD_RESULT_SCHEMA,null,2);
         return `只输出一个 WorldResult JSON 对象，不输出 Markdown、解释、思考过程、<thinking> 或 JSON Pointer。
-顶层业务字段：摘要、货币、历法、事件、人物、势力地区、历史、传播、因果、势力、探索、异端、传闻、NPC、关系。除“摘要”外都可以省略；省略表示本轮没有该类变化。
+顶层业务字段：摘要、货币、历法、事件、人物、势力地区、历史、传播、因果、势力、探索、异端、传闻、关系。除“摘要”外都可以省略；省略表示本轮没有该类变化。
 实体用“名称”标识，不写路径。已有实体只写本轮真正变化的业务字段；新增实体写足以确定该实体的事实字段，程序负责判断 add/replace、名称归一、JSON Pointer 转义、默认字段合并和最终 Schema 校验。
 “操作”默认“更新”。只有传播和三类传闻允许“移除”；“撤销本轮”只用于纠错重试，表示从本次尚未落盘的业务结果中撤回该实体，不删除存档中的既有实体。
 事件只写业务事实：名称、描述、时间、条件、前因、状态、默认走向、结果、公开征兆、地点、分类及可选明细。分类只允许当前事件/近期节点/宏观节点。程序会对明显局部的伪宏观降级。进行中的当前事件如果可能被正文感知，必须维护公开征兆和/或可见影响；这两项会被程序安全投影给正文，所以只能包含已经成为现实的公开信息，不能塞默认走向、隐藏条件或未来计划。
 因果不要写故事线路径；只写“当前阶段”“宏观顺序”“偏移记录”。当前阶段必须是一段直接可读的当前世界局势描述，而不是“爆发初期/发展期”之类孤立标签；它就是世界动向的唯一持久化来源。宏观顺序是3~5个宏观事件名称，程序生成故事线、下一节点和前因链。输入中的“偏移摘要”是程序生成的只读统计；旧偏移可能被隐藏，只依据可见近期偏移与摘要判断，不要重建已隐藏记录。
 人物、势力地区、传播的关联事件只写事件名称；程序负责同步明确的双向引用。不要为玩家建立人物后台记录。
-货币只写本轮真实变化的“体系 / 购买力基准 / 经济波动”；不写玩家持币余额，不创造跨世界汇率。NPC 只更新关系列表中已经存在的对象，格式为 {名称, 操作?, 在场?, 种族?, 身份?, 层级?, HP?, THP?, EP?, 是否队友?, 好感度?, 态度?}，只写真实变化字段；禁止新建 NPC。HP=0 用于已经确认的剧情死亡/场外死亡，不得替正文进行常规战斗结算。关系字段仅保留旧版“名称+好感度”兼容。主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数均不属于 WorldResult；世界时间、玩家属性、玩家持币余额、装备和系统状态不由 WorldResult 写入。
+货币只写本轮真实变化的“体系 / 购买力基准 / 经济波动”；不写玩家持币余额，不创造跨世界汇率。关系只更新关系列表中已经存在的对象，沿用旧格式并扩展为 {名称, 操作?, 在场?, 种族?, 身份?, 层级?, HP?, THP?, EP?, 是否队友?, 好感度?, 态度?}；只写真实变化字段，禁止新建 NPC。旧版 {名称,好感度} 以及对象简写 {NPC名:好感度} 继续兼容。HP=0 用于已经确认的剧情死亡/场外死亡，不得替正文进行常规战斗结算。主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数均不属于 WorldResult；世界时间、玩家属性、玩家持币余额、装备和系统状态不由 WorldResult 写入。
 不要输出“公开摘要”或“正文承接”；这两项已废弃。总体世界动向写因果.当前阶段，正文推进直接来自当前事件的公开征兆/可见影响安全投影。
 
 【WorldResult 标准字段结构】
 这是模型必须遵守的标准输出形状。即使 API 从 json_schema 降级为 json_object 或 plain，也仍必须严格遵守本结构，不得自行改成其他 JSON 组织方式。
 - 货币：对象，只允许可选字段 {体系:string, 购买力基准:string, 经济波动:string}；只写发生变化的字段。
 - 历法：对象，只允许可选字段 {名称:string, 月份天数:number[], 闰年规则:string}；月份天数按第1月到第N月顺序给出，仅在设定明确时维护。
-- 事件 / 人物 / 势力地区 / 历史 / 传播 / 势力 / 探索 / 异端 / NPC / 关系：标准输出一律为数组；不要输出“名称→对象”的 map 简写。
+- 事件 / 人物 / 势力地区 / 历史 / 传播 / 势力 / 探索 / 异端 / 关系：标准输出一律为数组；新输出不要使用“名称→对象”的 map 简写。
 - 探索数组项格式：{名称, 操作?, 风险, 探索度, 描述, 隐藏真相?}。风险只允许 F/E/D/C/B/A/S/SS/SSS，探索度只能是0~100数字；新建项至少写名称、风险、探索度、描述。
 - 势力数组项格式：{名称, 操作?, 实力, 领地, 描述, 声望}。实力只允许 F/E/D/C/B/A/S/SS/SSS，声望只能是-5000~10000数字；新建项至少写名称、实力、领地、描述、声望。
 - 异端数组只用于更新既有异端的生死状态，格式固定为 {名称, 操作?, 状态:"活跃"|"死亡"}。禁止通过 WorldResult 新增异端，禁止改写来源、经历、阵营、职业、层级；死亡状态不可逆。
@@ -1812,7 +1806,7 @@
 - 事件.可见影响是对象数组，每项结构为 {时间:string, 地点:string, 影响:string}。
 - 人物.行程是对象数组，每项结构为 {开始:string, 结束:string, 地点:string, 行动:string, 状态:string, 结果:string}。
 - 人物.认知来源是对象数组，每项结构为 {事实:string, 来源:string, 获知时间:string, 状态:string}。
-- NPC 为数组，只允许更新既有关系列表对象；数组项为 {名称:string, 操作?, 在场?:boolean, 种族?:string, 身份?:string[], 层级?:"Ⅰ".."Ⅸ", HP?:number, THP?:number, EP?:number, 是否队友?:boolean, 好感度?:number, 态度?:string}。关系为旧版兼容数组 {名称:string, 好感度:number}。主神任务、晋升试炼、任务状态和副本成就不读取、不更新，也不得出现在 WorldResult。
+- 关系为数组，只允许更新既有关系列表对象；数组项为 {名称:string, 操作?, 在场?:boolean, 种族?:string, 身份?:string[], 层级?:"Ⅰ".."Ⅸ", HP?:number, THP?:number, EP?:number, 是否队友?:boolean, 好感度?:number, 态度?:string}。旧版仅写 {名称,好感度} 仍兼容。主神任务、晋升试炼、任务状态和副本成就不读取、不更新，也不得出现在 WorldResult。
 - 街头巷议每项使用 {名称, 来源, 内容, 可信度}，可信度只允许“酒话 / 可疑 / 或许可信”；当前最多3条。
 - 不得添加 Schema 未定义字段。可选字段没有变化时直接省略，不要发明同义字段名。
 
@@ -2345,7 +2339,7 @@ ${schemaText}
                 生命周期整理:lifecycle,
                 说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
             },null,2);
-            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件、超期活动事件、时间越界记录和未完事项；符合条件才启动/推进，有实际结果才完成。任何“已经发生”的记录都不得越过当前世界时间。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。变量AI已经建立的关系列表 NPC 若因本轮场外推进产生身份、在场、队友关系、HP/EP、层级或态度等真实变化，用 WorldResult.NPC 稀疏同步；不存在的 NPC 禁止创建。异端雷达中仍为活跃的成员每轮都必须作为人物活动复核，死亡则只更新雷达状态并停止人物活动。即将与<user>见面时停在见面前一步。\n6. 正文可见层：非战斗正文读取完整因果轨道作为长期方向与因果记忆，其中故事线/下一节点是规划方向、偏移记录是连续性依据，不代表角色预知；进行中的当前事件通过公开征兆/可见影响向正文暴露可感知现实；程序还会投影热场外人物的地点/目标/行动/状态/更新时间/公开动态，其中所有活跃异端始终优先保留。人物目标与行动是叙事调度依据，不代表角色知情。不要输出公开摘要/正文承接，也不要把后台秘密、默认走向或未来宏观事件详情写进公开字段。\n7. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
+            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件、超期活动事件、时间越界记录和未完事项；符合条件才启动/推进，有实际结果才完成。任何“已经发生”的记录都不得越过当前世界时间。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。变量AI已经建立的关系列表 NPC 若因本轮场外推进产生身份、在场、队友关系、HP/EP、层级或态度等真实变化，用 WorldResult.关系 稀疏同步；不存在的 NPC 禁止创建。异端雷达中仍为活跃的成员每轮都必须作为人物活动复核，死亡则只更新雷达状态并停止人物活动。即将与<user>见面时停在见面前一步。\n6. 正文可见层：非战斗正文读取完整因果轨道作为长期方向与因果记忆，其中故事线/下一节点是规划方向、偏移记录是连续性依据，不代表角色预知；进行中的当前事件通过公开征兆/可见影响向正文暴露可感知现实；程序还会投影热场外人物的地点/目标/行动/状态/更新时间/公开动态，其中所有活跃异端始终优先保留。人物目标与行动是叙事调度依据，不代表角色知情。不要输出公开摘要/正文承接，也不要把后台秘密、默认走向或未来宏观事件详情写进公开字段。\n7. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
             if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
             return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
         }

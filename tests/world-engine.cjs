@@ -468,29 +468,27 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             事件:[{名称:'远期节点',描述:'阶段变化',分类:'宏观节点',状态:'待发生',时间:'前置节点完成后当日傍晚'}]
         }));
     });
-    await test('WorldResult compiles scene handoff separately from public situation summary', () => {
+    await test('current stage is the single persisted world-movement description', () => {
         const stat=fresh();
-        stat.世界.后台.正文承接=[{来源:'旧消息',触达方式:'旧渠道',可见事实:'旧事实',当前场景影响:'旧影响'}];
+        stat.世界.因果轨道.当前阶段='旧阶段短标签';
         const compiled=compileWorldResult(stat,{
             摘要:'世界推进',
-            公开摘要:'北门封锁已经成为公开事实。',
-            正文承接:[{
-                来源:'北门守备队',
-                触达方式:'哨卡公告',
-                可见事实:'北门从今日起执行二次身份检查。',
-                当前场景影响:'当前场景所有出城人员都会被守卫拦下核验。'
-            }]
-        },{finalizeHandoff:true});
+            因果:{当前阶段:'北门进入全面戒严，守备队已开始逐人核验通行身份。'}
+        });
         const next=applyPatches(stat,compiled.patches);
-        assert.equal(next.世界.后台.公开摘要,'北门封锁已经成为公开事实。');
-        assert.deepEqual(next.世界.后台.正文承接,[{
-            来源:'北门守备队',
-            触达方式:'哨卡公告',
-            可见事实:'北门从今日起执行二次身份检查。',
-            当前场景影响:'当前场景所有出城人员都会被守卫拦下核验。'
-        }]);
-        const cleared=compileWorldResult(next,{摘要:'本轮无可触达事项'},{finalizeHandoff:true});
-        assert.deepEqual(applyPatches(next,cleared.patches).世界.后台.正文承接,[]);
+        assert.equal(next.世界.因果轨道.当前阶段,'北门进入全面戒严，守备队已开始逐人核验通行身份。');
+        assert.equal(Object.hasOwn(next.世界.后台,'公开摘要'),false);
+        assert.equal(Object.hasOwn(next.世界.后台,'正文承接'),false);
+    });
+    await test('legacy public summary migrates once into causal current stage and legacy handoff is removed', () => {
+        const stat=fresh();
+        stat.世界.因果轨道.当前阶段='爆发初期';
+        stat.世界.后台.公开摘要='死体病毒已经席卷藤美学园，校园秩序全面崩溃。';
+        stat.世界.后台.正文承接=[{来源:'旧结构',触达方式:'旧结构',可见事实:'旧结构',当前场景影响:'旧结构'}];
+        const next=applyPatches(stat,[]);
+        assert.equal(next.世界.因果轨道.当前阶段,'死体病毒已经席卷藤美学园，校园秩序全面崩溃。');
+        assert.equal(Object.hasOwn(next.世界.后台,'公开摘要'),false);
+        assert.equal(Object.hasOwn(next.世界.后台,'正文承接'),false);
     });
     await test('new writes cannot mark events or backend updates in the future as already-real facts', () => {
         const stat=fresh();stat.世界.时间='斗罗历2643年-12月-20日-酉时二刻';
@@ -574,9 +572,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(options.schema.type,'object');
         assert.ok(options.schema.properties.事件);
         assert.equal(WORLD_RESULT_SCHEMA.properties.事件.type,'array');
-        assert.equal(WORLD_RESULT_SCHEMA.properties.正文承接.type,'array');
-        assert.equal(WORLD_RESULT_SCHEMA.properties.正文承接.maxItems,3);
-        assert.deepEqual(WORLD_RESULT_SCHEMA.properties.正文承接.items.required,['来源','触达方式','可见事实','当前场景影响']);
+        assert.equal(WORLD_RESULT_SCHEMA.properties.公开摘要,undefined);
+        assert.equal(WORLD_RESULT_SCHEMA.properties.正文承接,undefined);
+        assert.equal(WORLD_RESULT_SCHEMA.properties.因果.properties.当前阶段.type,'string');
         assert.equal(WORLD_RESULT_SCHEMA.properties.货币.type,'object');
         assert.deepEqual(Object.keys(WORLD_RESULT_SCHEMA.properties.货币.properties),['体系','购买力基准','经济波动']);
         assert.deepEqual(WORLD_RESULT_SCHEMA.properties.探索.items.properties.风险.enum,['F','E','D','C','B','A','S','SS','SSS']);
@@ -592,13 +590,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             calls++;inputs.push(input);
             return JSON.stringify({
                 摘要:'清理陈旧世界状态',
-                公开摘要:'旧巡逻与旧追踪均已成为历史，当前边境局势恢复到现时状态。',
-                正文承接:[{
-                    来源:'边境哨卡公开记录',
-                    触达方式:'值班军士当面说明',
-                    可见事实:'多年以前的巡逻与追踪任务均已结束，不再占用现役人手。',
-                    当前场景影响:'当前哨卡人员按现行任务重新安排巡逻，不再沿用旧任务状态。'
-                }],
+                因果:{当前阶段:'旧巡逻与旧追踪均已成为历史，当前边境哨卡已恢复按现行任务运转。'},
                 事件:[
                     {名称:'九年前巡逻',状态:'已完成',结果:'巡逻任务早已结束。',更新时间:'斗罗历2643年-12月-20日-酉时二刻'},
                     {名称:'八年前追踪',状态:'已完成',结果:'魂兽追踪早已结束。',更新时间:'斗罗历2643年-12月-20日-酉时二刻'},
@@ -627,7 +619,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(x.get().世界.后台.事件['八年前追踪'],undefined,'已解决的陈旧局部事件应立即转入历史冷档');
         assert.equal(x.get().世界.后台.事件.未来完成.时间,'斗罗历2643年-12月-20日-下午');
         assert.equal(x.get().世界.后台.人物.未来人物.更新时间,'斗罗历2643年-12月-20日-酉时二刻');
-        assert.equal(x.get().世界.后台.正文承接.length,1);
+        assert.equal(x.get().世界.因果轨道.当前阶段,'旧巡逻与旧追踪均已成为历史，当前边境哨卡已恢复按现行任务运转。');
+        assert.equal(Object.hasOwn(x.get().世界.后台,'正文承接'),false);
     });
     await test('existing vague or empty event schedules are explicitly requested and repaired', async () => {
         let calls=0,inputs=[];
@@ -770,8 +763,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const payload=JSON.parse(r.input);
         assert.ok(payload.输入语义);
         assert.ok(payload.本轮时间容量);
-        assert.equal(payload.正文交接目标.当前地点,'测试地点');
-        assert.match(payload.正文交接目标.要求,/0~3条.*触达当前场景/);
+        assert.equal(payload.正文可见投影规则.当前地点,'测试地点');
+        assert.match(payload.正文可见投影规则.要求,/当前阶段.*当前事件/);
+        assert.match(payload.正文可见投影规则.要求,/公开征兆.*可见影响/);
     });
     await test('world prompt includes the canonical WorldResult schema even when API structured output falls back', async () => {
         const x=setup(async()=>''),r=await x.engine.buildRequest(x.engine.snapshot());
@@ -801,8 +795,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(r.system,/传播.*到期.*回收|过期传播.*回收/);
         assert.match(r.system,/所有.*待发生.*进行中.*事件.*时间锚点/);
         assert.match(r.system,/不得.*近期.*稍后.*未来.*待定/);
-        assert.match(r.system,/正文承接/);
-        assert.match(r.system,/已经能够触达.*当前场景|当前场景.*已经能够触达/);
+        assert.match(r.system,/因果轨道\.当前阶段/);
+        assert.match(r.system,/当前事件.*公开征兆.*可见影响/);
     });
     await test('world request projects only world-relevant MVU, keeps assets and character capabilities, and excludes user prose', async () => {
         const x=setup(async()=>JSON.stringify({摘要:'无变化'}));
@@ -1265,7 +1259,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.ok(doc&&doc.builtin,'内置默认文档必须始终存在');
         assert.equal(doc.name,'默认设置');
         assert.equal(engine.config.activePromptDocumentId,'builtin-default');
-        assert.equal(engine.config.builtinDefaultPromptVersionApplied,3);
+        assert.equal(engine.config.builtinDefaultPromptVersionApplied,4);
         assert.equal(engine.config.contextTurns,3);
         assert.equal(engine.config.activationMode,'respect_activation');
         assert.equal(engine.config.selectedEntries.length,24);
@@ -1275,7 +1269,10 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.doesNotMatch(engine.config.preset,/【任务与剧本】/,'内置默认文档不能停留在旧提示词版本');
         assert.equal(engine.config.preset,doc.settings.preset,'内置默认文档必须直接绑定当前 DEFAULT_PRESET');
         assert.match(engine.config.preset,/【时间容量与信息边界】/);
-        assert.match(engine.config.preset,/正文承接/);
+        assert.match(engine.config.preset,/因果轨道\.当前阶段/);
+        assert.match(engine.config.preset,/当前事件.*公开征兆.*可见影响/);
+        assert.doesNotMatch(engine.config.preset,/正文承接/);
+        assert.doesNotMatch(engine.config.preset,/公开摘要/);
         assert.equal(engine.deletePromptDocument('builtin-default'),false,'内置默认文档不可删除');
         assert.ok(JSON.parse(stored).promptDocuments.some(x=>x.id==='builtin-default'));
     });
@@ -1292,7 +1289,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const personal=engine.getPromptDocuments().find(x=>x.id==='user-default');
         assert.ok(builtin&&personal,'旧个人默认应迁移为独立个人文档');
         assert.doesNotMatch(builtin.settings.preset,/旧个人默认/);
-        assert.match(builtin.settings.preset,/正文承接/);
+        assert.match(builtin.settings.preset,/因果轨道\.当前阶段/);
+        assert.doesNotMatch(builtin.settings.preset,/正文承接|公开摘要/);
         assert.equal(personal.settings.preset,'【旧个人默认】\n旧内容');
         assert.equal(engine.config.activePromptDocumentId,'builtin-default');
         assert.equal(engine.config.preset,builtin.settings.preset,'使用内置默认时版本升级必须应用最新代码模板');
@@ -1586,7 +1584,13 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const end=source.indexOf('// 世界超稳模式:',start);
         const render=new Function('current','data','readonly','_','isWorldEngineEnabled',source.slice(start,end));
         const lodash={get:(v,p,d)=>p.split('.').reduce((a,k)=>a?.[k],v)??d};
-        const stat=fresh();stat.世界.后台.公开摘要='城门戒严';stat.世界.后台.正文承接=[{来源:'守备队',触达方式:'公告',可见事实:'北门封锁',当前场景影响:'守卫会检查出城者'}];stat.世界.后台.事件.秘密={结果:'隐藏真相'};stat.世界.历法={名称:'隐藏历',月份天数:[31,28,31],闰年规则:''};
+        const stat=fresh();
+        stat.世界.因果轨道={当前阶段:'北门已经进入戒严阶段。',故事线:'封锁升级 -> 城区戒严 -> 战时管制',下一节点:'城区戒严',偏移记录:{秘密偏移:{描述:'隐藏',引发者:'幕后者',影响程度:-10}}};
+        stat.世界.后台.事件={
+            北门身份核验:{...RECORDS.事件,描述:'后台完整描述不得暴露',时间:'2026年9月7日上午',状态:'进行中',地点:'测试地点',分类:'当前事件',公开征兆:'守卫正在逐人检查证件。',可见影响:[{时间:'当前',地点:'测试地点',影响:'出城速度明显下降。'}],默认走向:'隐藏未来走向',条件:'隐藏条件'},
+            远期政变:{...RECORDS.事件,描述:'隐藏宏观未来',时间:'2026年10月1日',状态:'待发生',地点:'王都',分类:'宏观节点',公开征兆:'不应提前显示'}
+        };
+        stat.世界.历法={名称:'隐藏历',月份天数:[31,28,31],闰年规则:''};
         for (const engineOn of [false,true]) {
             for (const space of [false,true]) {
                 stat.系统状态.是否在主神空间=space;
@@ -1594,17 +1598,36 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
                 render(current,stat,readonly,lodash,engineOn);
                 assert.equal(current.世界.后台,undefined);
                 assert.equal(current.世界.历法,undefined,'正文/普通AI当前变量不得看到内部历法');
-                assert.deepEqual(readonly.世界.后台公开动态,engineOn&&!space?{局势摘要:'城门戒严',正文承接:[{来源:'守备队',触达方式:'公告',可见事实:'北门封锁',当前场景影响:'守卫会检查出城者'}]}:undefined,'正文只应拿到局势摘要和已触达当前场景的承接事项');
-                assert.equal(JSON.stringify([current,readonly]).includes('隐藏真相'),false);
+                if(engineOn&&!space){
+                    assert.deepEqual(current.世界.因果轨道,{当前阶段:'北门已经进入戒严阶段。'},'世界推进开启时正文只保留因果轨道当前阶段，不暴露未来故事线');
+                    assert.deepEqual(readonly.世界.当前事件,[{
+                        名称:'北门身份核验',
+                        状态:'进行中',
+                        时间:'2026年9月7日上午',
+                        地点:'测试地点',
+                        公开征兆:'守卫正在逐人检查证件。',
+                        可见影响:[{时间:'当前',地点:'测试地点',影响:'出城速度明显下降。'}]
+                    }]);
+                }else{
+                    assert.equal(readonly.世界.当前事件,undefined);
+                    if(!space&&!engineOn)assert.equal(current.世界.因果轨道.故事线,'封锁升级 -> 城区戒严 -> 战时管制','关闭世界推进后沿用原因果轨道结构');
+                }
+                const visible=JSON.stringify([current,readonly]);
+                assert.equal(visible.includes('隐藏宏观未来'),false);
+                assert.equal(visible.includes('隐藏未来走向'),false);
+                assert.equal(visible.includes('隐藏条件'),false);
             }
         }
     });
-    await test('正文思考协议 treats scene handoff as a required visible consequence instead of optional background news', () => {
+    await test('正文思考协议 consumes current stage and safe current-event projection without resimulating backend', () => {
         const think=fs.readFileSync(path.join(__dirname,'../World Book/⚙️额外思考.txt'),'utf8');
-        assert.match(think,/正文承接/);
-        assert.match(think,/必须自然体现至少一项/);
-        assert.match(think,/不得.*凭空知情/);
+        assert.match(think,/因果轨道\.当前阶段/);
+        assert.match(think,/当前事件/);
+        assert.match(think,/公开征兆/);
+        assert.match(think,/可见影响/);
+        assert.match(think,/必须自然体现/);
         assert.match(think,/不得重新推演.*后台/);
+        assert.doesNotMatch(think,/正文承接/);
     });
     await test('terminal settings do not claim shared API when world engine uses a dedicated API', () => {
         const terminalSource=fs.readFileSync(path.join(__dirname,'../script/悬浮球状态栏.js'),'utf8');

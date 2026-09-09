@@ -238,9 +238,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(next.世界.势力.港口商会.实力,'F');
         assert.equal(next.世界.势力.港口商会.声望,500);
     });
-    function setup(request) {
+    function setup(request, validateWorldState=clone) {
         let stat = fresh(), text = '玩家调查了城门。', chat = 'chat-1', toasts = [];
-        const host = {localStorage:{getItem:()=>null,setItem:()=>{}},toastr:{error:(message,title)=>toasts.push({message:String(message),title:String(title||'')})},Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request}},getCurrentChatId:()=>chat,getChatMessages:()=>[{message_id:3,message:text,role:'assistant'}]};
+        const host = {localStorage:{getItem:()=>null,setItem:()=>{}},toastr:{error:(message,title)=>toasts.push({message:String(message),title:String(title||'')})},Samsara:{validateWorldState,terminal:{apiReady:()=>true,request}},getCurrentChatId:()=>chat,getChatMessages:()=>[{message_id:3,message:text,role:'assistant'}]};
         let writes = 0;
         host.Mvu = {getMvuData:()=>({stat_data:clone(stat)}),replaceMvuData:async data => {writes++; stat = clone(data.stat_data);}};
         const engine = new Engine(host); engine.config.enabled = true; engine.config.requireMacroBackbone = false; engine.config.retryAttempts = 0; engine.worldbook = async () => [];
@@ -558,6 +558,37 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(x.get().世界.探索.学校.探索度,10);
         assert.equal(x.get().世界.探索['学校-教室'],undefined);
         assert.equal(Object.values(x.get().世界.后台.事件).filter(e=>e.分类==='宏观节点'&&e.状态==='待发生').length,3);
+    });
+    await test('full Schema normalization rejects only the affected staged slice', async () => {
+        let calls=0,inputs=[];
+        const validateWorldState=stat=>{
+            const checked=clone(stat);
+            const guard=checked.世界?.后台?.人物?.卫兵;
+            if(guard?.行动==='不规范行动')guard.行动='规范行动';
+            return checked;
+        };
+        const x=setup(async (_system,input)=>{
+            calls++;inputs.push(input);
+            if(calls===1)return JSON.stringify({
+                摘要:'首轮含一个会被Schema改写的人物',
+                人物:[{名称:'卫兵',所属世界:'测试世界',行动:'不规范行动'}],
+                探索:[{名称:'学校',风险:'D',探索度:10,描述:'学校已确认'}]
+            });
+            return JSON.stringify({
+                摘要:'只修正人物',
+                人物:[{名称:'卫兵',所属世界:'测试世界',行动:'规范行动'}]
+            });
+        },validateWorldState);
+        x.engine.config.requireMacroBackbone=false;x.engine.config.retryAttempts=1;
+        assert.equal(await x.engine.run(),true);
+        assert.equal(calls,2);
+        assert.equal(x.writes(),1);
+        const retry=JSON.parse(inputs[1]).纠错重试;
+        assert.equal(retry.已接受业务结果.人物.length,0,'会被完整Schema改写的人物不得进入暂存');
+        assert.equal(retry.已接受业务结果.探索.some(x=>x.名称==='学校'),true,'无关的合法探索必须保留');
+        assert.match(retry.补充清单.join('\n'),/人物\/卫兵.*字段未通过完整 Schema 校验/);
+        assert.equal(x.get().世界.后台.人物.卫兵.行动,'规范行动');
+        assert.equal(x.get().世界.探索.学校.探索度,10);
     });
     await test('new prompt separates business reasoning from storage protocol', async () => {
         const x=setup(async()=>''),r=await x.engine.buildRequest(x.engine.snapshot());

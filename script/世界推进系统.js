@@ -51,7 +51,14 @@
         if(!m)return null;
         const part=source.match(/凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜/);
         const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
-        return (+m[1]*372 + +m[2]*31 + +m[3])*24+(part?hour[part[0]]:0);
+        let dayHour=part?hour[part[0]]:0;
+        const branch=source.match(/([子丑寅卯辰巳午未申酉戌亥])时(?:([一二三四1234])刻)?/);
+        if(branch){
+            const branchHour={子:23,丑:1,寅:3,卯:5,辰:7,巳:9,午:11,未:13,申:15,酉:17,戌:19,亥:21};
+            const quarterMap={一:1,二:2,三:3,四:4,'1':1,'2':2,'3':3,'4':4};
+            dayHour=branchHour[branch[1]]+(quarterMap[branch[2]]||0)*0.25;
+        }
+        return (+m[1]*372 + +m[2]*31 + +m[3])*24+dayHour;
     }
     function worldTimeCapacity(previous,current) {
         const from=String(previous||'').trim(),to=String(current||'').trim();

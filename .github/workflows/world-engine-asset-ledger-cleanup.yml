@@ -1,4 +1,4 @@
-name: World Engine Asset Ledger Cleanup
+name: World Engine Asset Ownership Writeback
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  asset-ledger-cleanup:
+  asset-writeback:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -18,15 +18,15 @@ jobs:
           ref: fix/world-engine-asset-ledger-cleanup
           fetch-depth: 0
 
-      - name: Red - current implementation violates corrected contract
+      - name: Red - asset ownership/writeback contract is not implemented yet
         run: |
-          if node tests/world-engine-asset-ledger-cleanup.cjs; then
-            echo 'Expected pre-fix implementation to fail.'
+          if node tests/world-engine-asset-writeback.cjs; then
+            echo 'Expected pre-refactor implementation to fail the new asset writeback contract.'
             exit 1
           fi
 
-      - name: Apply correction
-        run: python tools/run-world-engine-asset-ledger-cleanup.py
+      - name: Apply asset ownership/writeback refactor
+        run: python tools/refactor-world-engine-asset-writeback.py
 
       - name: Rebuild delivery script
         run: |
@@ -36,6 +36,7 @@ jobs:
 
       - name: Focused acceptance
         run: |
+          node tests/world-engine-asset-writeback.cjs
           node tests/world-engine-asset-ledger-cleanup.cjs
           node tests/world-engine-scene-context.cjs
           node tests/world-engine-person-scene-ui.cjs
@@ -55,26 +56,45 @@ jobs:
           node tests/world-engine-lifecycle-audit.cjs
           node tests/world-engine-temporary-people.cjs
 
-      - name: Verify scope
+      - name: Verify asset boundaries
         run: |
+          grep -q "所属对象: safeStr('<user>')" script/ZOD脚本.js
+          grep -q 'WorldResult.资产' script/world-engine-src/40-engine-runtime.part.js
+          grep -q "if (a === '资产') return parts.length === 2" script/world-engine-src/10-world-state.part.js
+          grep -q 'isPlayerOwnedAsset' 'World Book/[variables]当前变量.txt'
+          grep -q 'isPlayerOwnedAsset' script/辅助计算脚本.js
           ! grep -R -n '资源点' script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/10-world-state.part.js script/world-engine-src/40-engine-runtime.part.js script/world-engine-src/50-engine-ui.part.js 'World Book/[variables]当前变量.txt'
           test "$(grep -o 'delete area\.资源点' script/world-engine-src/30-context-protocol.part.js | wc -l)" -eq 1
           ! grep -q '<small>当前选择</small>' script/world-engine-src/50-engine-ui.part.js
-          grep -q '现有资产账簿' script/world-engine-src/00-foundation-prompt.part.js
-          grep -q '驻扎人员、待办事件、建设序列、能源与消耗' script/world-engine-src/00-foundation-prompt.part.js
           git diff --check
 
       - name: Commit permanent changes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add 'World Book/[variables]当前变量.txt' docs/世界引擎V2审计.md script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/10-world-state.part.js script/world-engine-src/30-context-protocol.part.js script/world-engine-src/40-engine-runtime.part.js script/world-engine-src/50-engine-ui.part.js script/世界引擎接入说明.md script/世界推进系统.js tests/world-engine-asset-ledger-cleanup.cjs tests/world-engine-scene-context.cjs tests/world-engine-person-scene-ui.cjs tests/world-engine-hot-scenes.cjs tests/world-engine-context-ui-redesign.cjs tests/world-engine-prompt-pipeline.cjs
+          git add \
+            'World Book/[variables]当前变量.txt' \
+            'World Book/[mvu_update]变量更新规则.txt' \
+            'World Book/⚙️资产与载具规则.txt' \
+            'World Book/⚙️行为判定[mvu_plot].txt' \
+            docs/世界引擎V2审计.md \
+            script/ZOD脚本.js \
+            script/辅助计算脚本.js \
+            script/world-engine-src/00-foundation-prompt.part.js \
+            script/world-engine-src/10-world-state.part.js \
+            script/world-engine-src/20-world-result.part.js \
+            script/world-engine-src/30-context-protocol.part.js \
+            script/world-engine-src/40-engine-runtime.part.js \
+            script/世界引擎接入说明.md \
+            script/世界推进系统.js \
+            tests/world-engine-asset-writeback.cjs \
+            tests/world-engine-prompt-pipeline.cjs
           git diff --cached --check
-          git commit -m 'fix: use existing asset ledger for world simulation'
+          git commit -m 'feat: let world engine manage owned assets'
           git push origin HEAD:fix/world-engine-asset-ledger-cleanup
 
       - name: Remove one-shot construction files
         run: |
-          git rm tools/refactor-world-engine-asset-ledger-cleanup.py tools/run-world-engine-asset-ledger-cleanup.py .github/workflows/world-engine-asset-ledger-cleanup.yml
-          git commit -m 'chore: remove asset-ledger cleanup tooling'
+          git rm -f tools/refactor-world-engine-asset-writeback.py .github/workflows/world-engine-asset-ledger-cleanup.yml
+          git commit -m 'chore: remove asset writeback tooling'
           git push origin HEAD:fix/world-engine-asset-ledger-cleanup

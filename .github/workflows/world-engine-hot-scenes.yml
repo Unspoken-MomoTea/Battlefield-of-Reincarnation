@@ -23,6 +23,19 @@ jobs:
             exit 1
           fi
 
+      - name: Align one-shot runtime anchor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/refactor-world-engine-hot-scenes.py')
+          s=p.read_text(encoding='utf-8')
+          old="以及程序筛选的场外人物动态（地点/目标/行动/状态/更新时间/公开动态/关联事件）；活跃异端始终进入人物动态。人物目标/行动用于保持叙事连续性，不代表角色已知。"
+          new="以及程序按地区聚合的场外人物动态（地区共享现场 + 人物自身地点/目标/行动/状态/更新时间/公开动态/关联事件）；活跃异端始终进入人物动态。人物目标/行动用于保持叙事连续性，不代表角色已知。"
+          if old not in s:
+              raise SystemExit('one-shot runtime anchor text not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+
       - name: Apply hot scene refactor
         run: python tools/refactor-world-engine-hot-scenes.py
 

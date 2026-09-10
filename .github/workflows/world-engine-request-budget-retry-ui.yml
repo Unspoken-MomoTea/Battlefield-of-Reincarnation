@@ -28,6 +28,7 @@ jobs:
       - name: Green - apply focused patch
         run: |
           python tools/refactor-world-engine-request-budget-retry-ui.py
+          python tools/fix-world-engine-observability-test.py
           python tools/build-world-engine.py
           python tools/build-world-engine.py --check
           node --check 'script/世界推进系统.js'
@@ -74,6 +75,7 @@ jobs:
             docs/世界引擎V2审计.md \
             tests/world-engine-request-budget-retry-ui.cjs \
             tests/world-engine-schema-retry-diagnostics.cjs \
+            tests/world-engine-observability.cjs \
             tests/world-engine-prose.cjs \
             tests/world-engine-macro-open-backbone.cjs \
             tests/world-engine.cjs

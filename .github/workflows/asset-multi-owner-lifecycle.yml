@@ -1,3 +1,4 @@
+# acceptance rerun after contract assertion fix
 name: Asset Multi Owner Lifecycle
 
 on:

@@ -13,6 +13,7 @@ const parts = [
   '30-context-protocol.part.js',
   '40-engine-runtime.part.js',
   '50-engine-ui.part.js',
+  '55-policy-compat.part.js',
   '60-bootstrap.part.js',
 ];
 
@@ -40,6 +41,9 @@ assert.doesNotMatch(texts['40-engine-runtime.part.js'], /        createPanel\(\)
 assert.match(texts['50-engine-ui.part.js'], /^        createPanel\(\) \{/);
 assert.match(texts['50-engine-ui.part.js'], /        render\(force\) \{/);
 assert.match(texts['50-engine-ui.part.js'], /        dispose\(\) \{/);
+assert.match(texts['55-policy-compat.part.js'], /^    \/\/ 可选策略层/);
+assert.match(texts['55-policy-compat.part.js'], /npcBuildAuditEnabled/);
+assert.match(texts['55-policy-compat.part.js'], /事件前因不存在/);
 assert.match(texts['60-bootstrap.part.js'], /^    \/\/ CommonJS 入口仅供离线测试/);
 assert.match(texts['60-bootstrap.part.js'], /module\.exports/);
 assert.match(texts['60-bootstrap.part.js'], /\}\)\(typeof window !== 'undefined' \? window : globalThis\);\s*$/);

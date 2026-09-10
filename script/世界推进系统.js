@@ -8,6 +8,59 @@
     const copy = value => JSON.parse(JSON.stringify(value));
     const plain = value => !!value && typeof value === 'object' && !Array.isArray(value);
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    // P1-C 诊断只需要稳定的近似量级；不同模型 tokenizer 不同，只有 API usage 才视为精确 token。
+    function estimateTokens(value) {
+        const source=typeof value==='string'?value:JSON.stringify(value??'');
+        if(!source)return 0;
+        let eastAsian=0,nonAscii=0,ascii=0;
+        for(const ch of source){
+            const cp=ch.codePointAt(0);
+            const east=(cp>=0x3400&&cp<=0x9fff)||(cp>=0xf900&&cp<=0xfaff)||(cp>=0x3040&&cp<=0x30ff)||(cp>=0x31f0&&cp<=0x31ff)||(cp>=0xac00&&cp<=0xd7af)||(cp>=0x3100&&cp<=0x312f)||(cp>=0xff00&&cp<=0xffef);
+            if(east)eastAsian++;
+            else if(cp<=0x7f)ascii++;
+            else nonAscii++;
+        }
+        return Math.max(1,Math.ceil(eastAsian*1.08+nonAscii+ascii/3.8));
+    }
+    function formatTokenCount(count,estimated=true) {
+        const n=Math.max(0,Math.round(Number(count)||0));
+        let value=String(n);
+        if(n>=1000){
+            const digits=n>=100000?0:n>=10000?1:2;
+            value=(n/1000).toFixed(digits).replace(/(\.\d*?[1-9])0+$|\.0+$/,'$1')+'k';
+        }
+        return (estimated?'≈':'')+value+' tk';
+    }
+    function normalizeTokenUsage(usage) {
+        if(!plain(usage))return null;
+        const finite=value=>Number.isFinite(Number(value))&&Number(value)>=0?Math.round(Number(value)):null;
+        const inputTokens=finite(usage.prompt_tokens??usage.input_tokens??usage.promptTokens??usage.inputTokens);
+        const outputTokens=finite(usage.completion_tokens??usage.output_tokens??usage.completionTokens??usage.outputTokens);
+        let totalTokens=finite(usage.total_tokens??usage.totalTokens);
+        if(totalTokens===null&&inputTokens!==null&&outputTokens!==null)totalTokens=inputTokens+outputTokens;
+        return inputTokens===null&&outputTokens===null&&totalTokens===null?null:{inputTokens,outputTokens,totalTokens};
+    }
+    function requestTokenTelemetry(system,input,schema) {
+        const systemText=String(system||''),inputText=String(input||'');
+        let payload=null;try{payload=JSON.parse(inputText);}catch(_){}
+        const systemParts=systemText.split(/\n(?=【)/).filter(Boolean).map((part,index)=>({
+            名称:(part.match(/^【([^】]+)】/)||[])[1]||'system '+(index+1),
+            估算Tokens:estimateTokens(part)
+        }));
+        const userParts=plain(payload)?Object.entries(payload).filter(([,value])=>value!==undefined).map(([name,value])=>({
+            名称:name,估算Tokens:estimateTokens(JSON.stringify({[name]:value},null,2))
+        })):[];
+        const systemTokens=estimateTokens(systemText),userTokens=estimateTokens(inputText);
+        return {
+            估算:true,
+            请求估算Tokens:systemTokens+userTokens,
+            System估算Tokens:systemTokens,
+            User估算Tokens:userTokens,
+            Schema估算Tokens:estimateTokens(JSON.stringify(schema||{},null,2)),
+            System分段:systemParts,
+            User分段:userParts
+        };
+    }
     function digest(text) {
         let a = 2166136261, b = 5381;
         for (let i=0;i<text.length;i++) { a = Math.imul(a ^ text.charCodeAt(i),16777619); b = Math.imul(b,33) ^ text.charCodeAt(i); }
@@ -2221,7 +2274,7 @@ ${schemaText}
             this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
             this.lastRequest=null; this.previewRequest=null; this.lastReply=''; this.lastFailure='';
-            this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
+            this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastAttemptTelemetry=[]; this.lastTransportInfo=null; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
             this.config = {
                 enabled:false,
                 preset:DEFAULT_PRESET,
@@ -2430,8 +2483,9 @@ ${schemaText}
             const cacheKey=endpoint+'|'+api.model,wants=options.structured==='auto'&&plain(options.schema);
             const cached=wants?this.apiModeCache[cacheKey]:'';
             const modes=!wants?['plain']:cached==='json_schema'?['json_schema','json_object','plain']:cached==='json_object'?['json_object','plain']:cached==='plain'?['plain']:['json_schema','json_object','plain'];
-            let lastError='';
+            let lastError='';const modeAttempts=[];
             for(const mode of modes){
+                modeAttempts.push(mode);
                 const body={
                     model:api.model,
                     messages:[{role:'system',content:String(system||'')},{role:'user',content:String(input||'')}],
@@ -2445,6 +2499,7 @@ ${schemaText}
                     let err='';try{err=await response.text();}catch(_){}
                     lastError='HTTP '+response.status+': '+response.statusText+(err?' / '+err.slice(0,300):'');
                     if(mode!=='plain'&&this.structuredUnsupported(response.status,err)){delete this.apiModeCache[cacheKey];continue;}
+                    this.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:null};
                     throw new Error(lastError);
                 }
                 const data=await response.json(),message=data?.choices?.[0]?.message;
@@ -2452,14 +2507,20 @@ ${schemaText}
                 const content=typeof raw==='string'?raw:(plain(raw)?JSON.stringify(raw):message?.parsed?JSON.stringify(message.parsed):'');
                 if(!content)throw new Error('专属 API 返回内容为空');
                 if(wants)this.apiModeCache[cacheKey]=mode;
+                this.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:normalizeTokenUsage(data?.usage)};
                 return content;
             }
             throw new Error(lastError||'专属 API 不支持当前结构化输出模式');
         }
         async requestAI(system,input,options={}) {
-            if(this.usesDedicatedApi())return this.requestDedicatedApi(system,input,options);
+            if(this.usesDedicatedApi()){
+                const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
+                this.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:'请求中',尝试模式:[],usage:null};
+                return this.requestDedicatedApi(system,input,options);
+            }
             const terminal=this.host.Samsara&&this.host.Samsara.terminal;
             if(!terminal||typeof terminal.request!=='function'||!terminal.apiReady?.())throw new Error('请在主神终端设置中启用额外模型并选择模型');
+            this.lastTransportInfo={接口:'主神终端额外模型',模型:'',结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
             return terminal.request(system,input,options);
         }
         setPreset(text) {
@@ -2744,8 +2805,8 @@ ${schemaText}
                 说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
             },null,2);
             const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+(npcAudit.length?'\n\n'+NPC_BUILD_AUDIT_RULES:'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'\n\n【本轮执行顺序】\n1. 读事实：先区分设定、已演出正文、当前存档和程序结构修复。正文已经发生的动作不复述；程序修过的分类/指针不改回旧值。\n2. 宏观优先：检查需要初始化、需要补充远期、因果轨道需重建。必要时先建立真正阶段级宏观骨架；原著确定性大事件优先，局部行动不得凑数。\n3. 容量约束：严格服从“本轮时间容量”；时间不足时只推进一步。人物行动还必须满足路程、资源、体力与信息来源。\n4. 区间桥接：只展开当前时间至下一宏观节点。逐项复核到期事件、超期活动事件、时间越界记录和未完事项；符合条件才启动/推进，有实际结果才完成。任何“已经发生”的记录都不得越过当前世界时间。\n5. 联动一致性：事件记客观局势，人物记自己的行动/认知，地区记环境秩序，传播记消息渠道；各实体互相引用但不要复制整段。变量AI已经建立的关系列表 NPC 若因本轮场外推进产生身份、在场、队友关系、HP/EP、层级或态度等真实变化，用 WorldResult.关系 稀疏同步；不存在的 NPC 禁止创建。若输入提供“角色管理.NPC构筑审计”，每个审计对象本轮至少补齐一个真实缺口，并严格复用其已有体系与NPC生成规则，不得把难度设置当作升阶理由。异端雷达中仍为活跃的成员每轮都必须作为人物活动复核，死亡则只更新雷达状态并停止人物活动。即将与<user>见面时停在见面前一步。\n6. 正文可见层：非战斗正文读取完整因果轨道作为长期方向与因果记忆，其中故事线/下一节点是规划方向、偏移记录是连续性依据，不代表角色预知；进行中的当前事件通过公开征兆/可见影响向正文暴露可感知现实；程序还会投影热场外人物的地点/目标/行动/状态/更新时间/公开动态，其中所有活跃异端始终优先保留。人物目标与行动是叙事调度依据，不代表角色知情。不要输出公开摘要/正文承接，也不要把后台秘密、默认走向或未来宏观事件详情写进公开字段。\n7. 输出业务结果：只返回一个 WorldResult JSON。已有实体只写变化字段；新实体写足够的事实字段。程序负责名称匹配、路径转义、增量补丁、因果投影、引用修复和最终 Schema 校验。';
-            if(system.length+input.length>240000)throw new Error('请求超过24万字，请减少所选条目或正文层数');
-            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',读取判定:copy(books.report||[]),世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,字符数:b.内容.length})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,字符数:f.正文.length})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,请求字符数:system.length+input.length}};
+            if(system.length+input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(system)+estimateTokens(input),true)+'），请减少所选条目或正文层数');
+            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;
@@ -2798,21 +2859,29 @@ ${schemaText}
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
                     actualRequest.manifest=Object.assign({},copy(request.manifest),{
-                        请求字符数:request.system.length+attemptInput.length,
+                        观测:requestTokenTelemetry(request.system,attemptInput,request.schema),
                         尝试序号:attempt+1,
                         最大失败重试:maxRetries,
                         失败记录:copy(this.lastRetryLog)
                     });
+                    actualRequest.manifest.观测.请求类型=attempt===0?'首次请求':'纠错重试';
+                    this.lastAttemptCount=attempt+1;
                     this.lastRequest=actualRequest;
                     this.status=attempt===0?'六模块联合推演中':'纠错重试 '+attempt+'/'+maxRetries;
                     this.render();
 
-                    let received='';
+                    let received='',attemptTelemetry=null;
+                    const attemptStarted=Date.now();this.lastTransportInfo=null;
                     try{
                         received=String(await this.requestAI(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature:0.3}));
                         clearTimeout(timeout);
                         if(token!==this.generation||this.controller.signal.aborted)throw new Error('请求已取消');
                         this.lastReply=received;this.lastFailure='';
+                        const elapsed=Math.max(0,Date.now()-attemptStarted),transport=this.lastTransportInfo||{},usage=transport.usage||null,observation=actualRequest.manifest.观测;
+                        Object.assign(observation,{接口来源:transport.接口||this.apiSourceLabel(),模型:transport.模型||'',结构化实际模式:transport.结构化模式||'未知',模式尝试:copy(transport.尝试模式||[]),耗时毫秒:elapsed,输出估算Tokens:estimateTokens(received)});
+                        if(usage){observation.实际输入Tokens=usage.inputTokens;observation.实际输出Tokens=usage.outputTokens;observation.实际总Tokens=usage.totalTokens;}
+                        attemptTelemetry={尝试:attempt+1,结果:'待验收',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:observation.输出估算Tokens,API输入Tokens:usage?.inputTokens??null,API输出Tokens:usage?.outputTokens??null,API总Tokens:usage?.totalTokens??null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed};
+                        this.lastAttemptTelemetry.push(attemptTelemetry);
 
                         const reply=parseReply(received);
                         let legacyPatches=[],rejectedSlices=[];
@@ -2896,10 +2965,16 @@ ${schemaText}
                         }
                         reply.patches=committedPatches;
                         prepared={reply,next,current};
-                        this.lastAttemptCount=attempt+1;
+                        if(attemptTelemetry)attemptTelemetry.结果='接受';
                         break;
                     }catch(error){
                         clearTimeout(timeout);
+                        if(attemptTelemetry){attemptTelemetry.结果='拒绝';attemptTelemetry.原因=String(error.message||error);}
+                        else{
+                            const elapsed=Math.max(0,Date.now()-attemptStarted),transport=this.lastTransportInfo||{},observation=actualRequest.manifest.观测;
+                            Object.assign(observation,{接口来源:transport.接口||this.apiSourceLabel(),模型:transport.模型||'',结构化实际模式:transport.结构化模式||'未返回',模式尝试:copy(transport.尝试模式||[]),耗时毫秒:elapsed});
+                            this.lastAttemptTelemetry.push({尝试:attempt+1,结果:'请求失败',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:0,API输入Tokens:null,API输出Tokens:null,API总Tokens:null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed,原因:String(error.message||error)});
+                        }
                         lastError=error;
                         lastRejectedReply=received||this.lastReply||'';
                         lastRetryPlan=Array.isArray(error?.retryPlan)&&error.retryPlan.length?copy(error.retryPlan):retryPlanForFailure(error,[]);
@@ -2935,7 +3010,7 @@ ${schemaText}
         getState() { return copy(Object.assign(emptyState(),this.snapshot().stat.世界[PATH] || {})); }
         resetInspection() {
             this.lastRequest=null;this.previewRequest=null;this.lastReply='';this.lastFailure='';
-            this.lastRetryLog=[];this.lastAttemptCount=0;this.lastWorldResult=null;this.lastCompiledPatches=[];this.lastCompileWarnings=[];
+            this.lastRetryLog=[];this.lastAttemptCount=0;this.lastAttemptTelemetry=[];this.lastTransportInfo=null;this.lastWorldResult=null;this.lastCompiledPatches=[];this.lastCompileWarnings=[];
         }
         statusTone() {
             try {
@@ -4063,20 +4138,37 @@ ${schemaText}
                         return '<label class="we-book-row"><input type="checkbox" data-book value="'+text(JSON.stringify([e.book,e.id]))+'" '+(selected(e)?'checked':'')+' '+(e.technical?'disabled':'')+'><span class="we-lamp '+(e.technical?'gray':e.mode==='constant'?'blue':e.mode==='selective'?'green':'gray')+'" title="'+text(e.technical?'技术条目 · 已隔离':e.mode==='constant'?'蓝灯 · 常驻':e.mode==='selective'?'绿灯 · 关键词触发':'其他激活方式')+'"></span><span class="we-book-title"><b>'+text(e.title)+'</b><small>'+text(e.technical?'技术条目 · 世界引擎不读取':(e.mode==='constant'?'常驻':e.mode==='selective'?'关键词：'+(Array.isArray(e.keys)?e.keys.map(k=>typeof k==='string'?k:'正则条件').join('、'):e.keys):e.mode)+(e.enabled?'':' · 已禁用'))+'</small></span><small class="we-read-state">'+text(report?'上次检查：'+report.原因:e.technical?'固定隔离':'尚未检查')+'</small></label>';
                     }).join('')+'</div></details>').join(''):empty('尚未加载目录','点击“加载 / 刷新目录”读取当前绑定和全局启用的世界书。')));
                 const segments=splitPresetSegments(promptView.preset);
-                html+=section('分段提示词','<div class="we-segment-toolbar"><span>默认只读，展开查看；开启编辑后可修改。</span><button class="we-btn" data-action="prompt-edit" aria-pressed="'+!!this.promptEditing+'">'+(this.promptEditing?'锁定编辑':'开启编辑')+'</button><button class="we-btn" data-action="segment-add" '+(this.promptEditing?'':'disabled')+'>＋ 新增分段</button></div><div class="we-segment-list" data-segment-list>'+segments.map((part,i)=>'<details class="we-segment" data-segment-row><summary>'+text(part.title||'未命名分段')+' <small>'+part.body.length+' 字</small></summary><div class="we-segment-head"><input '+(this.promptEditing?'':'readonly')+' data-segment-title aria-label="分段标题 '+i+'" placeholder="分段标题（可留空）" value="'+text(part.title)+'"><small>'+part.body.length+' 字</small><span class="we-segment-actions"><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-up" title="上移">↑</button><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-down" title="下移">↓</button><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-delete" title="删除">删除</button></span></div><textarea '+(this.promptEditing?'':'readonly')+' data-segment="'+i+'" data-title="'+text(part.title)+'" aria-label="预设分段 '+i+'">'+text(part.body)+'</textarea></details>').join('')+'</div><p class="we-muted">这些分段属于可编辑工作层，可以新增、删除或调整顺序。世界引擎的安全边界与 WorldResult 核心协议仍由程序独立注入，不依赖某个可编辑分段是否存在。</p>');
+                html+=section('分段提示词','<div class="we-segment-toolbar"><span>默认只读，展开查看；开启编辑后可修改。</span><button class="we-btn" data-action="prompt-edit" aria-pressed="'+!!this.promptEditing+'">'+(this.promptEditing?'锁定编辑':'开启编辑')+'</button><button class="we-btn" data-action="segment-add" '+(this.promptEditing?'':'disabled')+'>＋ 新增分段</button></div><div class="we-segment-list" data-segment-list>'+segments.map((part,i)=>'<details class="we-segment" data-segment-row><summary>'+text(part.title||'未命名分段')+' <small>'+formatTokenCount(estimateTokens(part.body),true)+'</small></summary><div class="we-segment-head"><input '+(this.promptEditing?'':'readonly')+' data-segment-title aria-label="分段标题 '+i+'" placeholder="分段标题（可留空）" value="'+text(part.title)+'"><small>'+formatTokenCount(estimateTokens(part.body),true)+'</small><span class="we-segment-actions"><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-up" title="上移">↑</button><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-down" title="下移">↓</button><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-delete" title="删除">删除</button></span></div><textarea '+(this.promptEditing?'':'readonly')+' data-segment="'+i+'" data-title="'+text(part.title)+'" aria-label="预设分段 '+i+'">'+text(part.body)+'</textarea></details>').join('')+'</div><p class="we-muted">这些分段属于可编辑工作层，可以新增、删除或调整顺序。世界引擎的安全边界与 WorldResult 核心协议仍由程序独立注入，不依赖某个可编辑分段是否存在。</p>');
                 html+=section('结构提示词','<details class="we-segment"><summary>WorldResult 协议说明 · 点击展开</summary><textarea data-structure-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'</textarea></details><details class="we-segment"><summary>程序字段 Schema · 只读</summary><textarea readonly>'+text(JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'</textarea></details><p class="we-muted">协议说明使用上方编辑开关。保存后用于实际 system 请求；Schema 与核心约束仍由程序注入，修改说明不会改变变量结构。</p>');
             }else if(this.tab==='请求检查'){
                 const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';
                 const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
                 const readable=(name,v)=>Array.isArray(v)?v.map((item,i)=>fold((item.名称||item.楼层!==undefined&&(item.角色+' · 第 '+item.楼层+' 层')||name+' '+(i+1)),fields(item))).join(''):fields(plain(v)?v:{内容:v});
                 const retryLog=(this.lastRetryLog||[]).map(item=>'<div class="we-change"><time>#'+text(item.重试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p></div></div>').join('');
-                html+=section('失败自动重试','<div class="we-config-row"><label>失败重试次数 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求失败后，最多再请求这么多次；默认 3，最大 5。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||''));
+                const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
+                const attemptRows=(this.lastAttemptTelemetry||[]).map(item=>({
+                    名称:'尝试 #'+item.尝试,
+                    结果:item.结果,
+                    输入:item.API输入Tokens!=null?tokenLabel(item.API输入Tokens,false):tokenLabel(item.输入估算Tokens,true),
+                    输出:item.API输出Tokens!=null?tokenLabel(item.API输出Tokens,false):tokenLabel(item.输出估算Tokens,true),
+                    总量:item.API总Tokens!=null?tokenLabel(item.API总Tokens,false):'',
+                    接口:item.接口,
+                    模型:item.模型,
+                    结构化模式:item.结构化模式,
+                    模式尝试:Array.isArray(item.模式尝试)&&item.模式尝试.length?item.模式尝试.join(' → '):'',
+                    耗时:Number.isFinite(Number(item.耗时毫秒))?(Number(item.耗时毫秒)/1000).toFixed(2).replace(/\.00$/,'')+' s':'',
+                    原因:item.原因||''
+                }));
+                html+=section('失败自动重试','<div class="we-config-row"><label>失败重试次数 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求失败后，最多再请求这么多次；默认 3，最大 5。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||'')+(attemptRows.length?fold('每次尝试观测（点击展开）',readable('尝试',attemptRows)) : ''));
                 html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                 for(const [label,r] of [['最近实际发送',this.lastRequest],['下一次请求预览',this.previewRequest]]){
                     if(!r){html+=section(label,empty('暂无'+label));continue;}
-                    const m=r.manifest,books=m.世界书条目||[],floors=m.正文楼层||[];
-                    let body='<div class="we-request-summary">'+pill(m.输出协议||'WorldResult v1','dim')+pill('结构化 '+(m.结构化输出||'auto'),'dim')+pill(books.length+' 条世界书','dim')+pill(floors.length+' 层正文','dim')+pill(m.请求字符数+' 字符','dim')+(m.尝试序号?pill('尝试 '+m.尝试序号,'dim'):'')+(m.最大失败重试!==undefined?pill('最多重试 '+m.最大失败重试,'dim'):'')+'</div>';
-                    body+=fold('资料清单与命中判定（点击展开）',readable('条目',m.读取判定||books)+fold('实际正文楼层',fields({楼层:floors.map(f=>f.楼层+' · '+f.角色+' · '+f.字符数+'字')}))+fold('时间容量',fields(m.本轮时间容量||{})));
+                    const m=r.manifest||{},books=m.世界书条目||[],floors=m.正文楼层||[],obs=m.观测||requestTokenTelemetry(r.system,r.input,r.schema||WORLD_RESULT_SCHEMA);
+                    const exactInput=obs.实际输入Tokens!=null,exactOutput=obs.实际输出Tokens!=null;
+                    let body='<div class="we-request-summary">'+pill(m.输出协议||'WorldResult v1','dim')+pill('结构化 '+(obs.结构化实际模式||m.结构化输出||'auto'),'dim')+pill(obs.接口来源||m.接口来源||this.apiSourceLabel(),'dim')+pill(books.length+' 条世界书','dim')+pill(floors.length+' 层正文','dim')+pill((exactInput?tokenLabel(obs.实际输入Tokens,false):tokenLabel(obs.请求估算Tokens,true))+' 输入','dim')+(obs.输出估算Tokens!=null?pill((exactOutput?tokenLabel(obs.实际输出Tokens,false):tokenLabel(obs.输出估算Tokens,true))+' 输出','dim'):'')+(m.尝试序号?pill('尝试 '+m.尝试序号,'dim'):'')+(m.最大失败重试!==undefined?pill('最多重试 '+m.最大失败重试,'dim'):'')+'</div>';
+                    body+='<p class="we-muted">带“≈”的 tk 为本地估算；不同模型 tokenizer 会有差异。专属 API 返回 usage 时，输入/输出总量改用服务端实际 token；分段构成仍保持估算。Schema 已包含在 system 内，不要与 system 再相加。</p>';
+                    body+=fold('Token 构成（点击展开）',fields({总输入:exactInput?tokenLabel(obs.实际输入Tokens,false):tokenLabel(obs.请求估算Tokens,true),System:tokenLabel(obs.System估算Tokens,true),User:tokenLabel(obs.User估算Tokens,true),Schema子项:tokenLabel(obs.Schema估算Tokens,true),世界书:tokenLabel(books.reduce((sum,item)=>sum+(Number(item.估算Tokens)||0),0),true),正文:tokenLabel(floors.reduce((sum,item)=>sum+(Number(item.估算Tokens)||0),0),true),接口:obs.接口来源||m.接口来源||'',模型:obs.模型||'',模式尝试:Array.isArray(obs.模式尝试)&&obs.模式尝试.length?obs.模式尝试.join(' → '):'',耗时:Number.isFinite(Number(obs.耗时毫秒))?(Number(obs.耗时毫秒)/1000).toFixed(2).replace(/\.00$/,'')+' s':''})+fold('system 分段',fields({分段:(obs.System分段||[]).map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))}))+fold('user 分段',fields({分段:(obs.User分段||[]).map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))})));
+                    body+=fold('资料清单与命中判定（点击展开）',readable('条目',m.读取判定||[])+fold('实际读取世界书',fields({条目:books.map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))}))+fold('实际正文楼层',fields({楼层:floors.map(f=>'第 '+f.楼层+' 层 · '+f.角色+' · '+tokenLabel(f.估算Tokens,true))}))+fold('时间容量',fields(m.本轮时间容量||{})));
                     body+=fold('输出契约 · JSON Schema',raw('samsara_world_result_v1',JSON.stringify(r.schema||WORLD_RESULT_SCHEMA,null,2)));
                     body+=fold('system · 分段阅读',r.system.split(/\n(?=【)/).map((part,i)=>fold((part.match(/^【([^】]+)】/)||[])[1]||'身份 / 协议 '+(i+1),'<div class="we-prose">'+text(part)+'</div>')).join(''))+raw('system · 完整原文',r.system);
                     let payload;try{payload=JSON.parse(r.input);}catch(_){payload={正文:r.input};}
@@ -4087,7 +4179,7 @@ ${schemaText}
                 if((this.lastCompiledPatches||[]).length)html+=section('程序编译补丁 · 存储层',raw('由 WorldResult Compiler 生成，模型不直接控制这些路径',JSON.stringify(this.lastCompiledPatches,null,2)));
                 if((this.lastCompileWarnings||[]).length)html+=section('编译警告',(this.lastCompileWarnings||[]).map(w=>'<div class="we-notice">'+text(w)+'</div>').join(''));
                 if(this.lastFailure)html+='<div class="we-notice">'+text(this.lastFailure)+'</div>';
-                if(this.lastReply)html+=section('副 API 原始回复',raw('查看模型返回原文（用于定位格式问题）',this.lastReply));
+                if(this.lastReply){const lastAttempt=(this.lastAttemptTelemetry||[]).at(-1),replyTk=lastAttempt?.API输出Tokens!=null?formatTokenCount(lastAttempt.API输出Tokens,false):formatTokenCount(estimateTokens(this.lastReply),true);html+=section('副 API 原始回复 · '+replyTk,raw('查看模型返回原文（用于定位格式问题）',this.lastReply));}
             }
             main.innerHTML=html;main.scrollTop=force?0:scroll;
             if(this.jumpEvent){
@@ -4110,7 +4202,7 @@ ${schemaText}
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople,extractWorldProse,derivePersonWorldContext,projectHotWorldPeople,WORLD_UI_THEMES,WORLD_FONT_SCALES}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople,extractWorldProse,derivePersonWorldContext,projectHotWorldPeople,WORLD_UI_THEMES,WORLD_FONT_SCALES,estimateTokens,formatTokenCount,normalizeTokenUsage,requestTokenTelemetry}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {

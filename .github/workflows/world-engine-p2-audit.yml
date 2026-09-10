@@ -1,0 +1,24 @@
+name: World Engine P2 Modularization Audit
+
+on:
+  push:
+    branches: [refactor/world-engine-p2-modularize]
+    paths:
+      - '.github/workflows/world-engine-p2-audit.yml'
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/world-engine-p2-modularize
+      - name: Map world engine boundaries
+        run: python tools/audit-world-engine-p2.py
+      - name: Confirm deployment facts
+        shell: bash
+        run: |
+          test ! -f package.json
+          grep -q '作为独立酒馆脚本加载' 'script/世界引擎接入说明.md'
+          grep -q '没有构建产物自动发布步骤' 'script/世界引擎接入说明.md'
+          node --check 'script/世界推进系统.js'

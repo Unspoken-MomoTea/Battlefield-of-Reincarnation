@@ -1,0 +1,71 @@
+name: World Engine Context UI Final Acceptance
+
+on:
+  push:
+    branches: [fix/world-engine-context-ui-redesign]
+    paths:
+      - '.github/workflows/world-engine-context-ui-final.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  final:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/world-engine-context-ui-redesign
+          fetch-depth: 0
+
+      - name: Build and syntax
+        run: |
+          python tools/build-world-engine.py --check
+          node --check 'script/世界推进系统.js'
+
+      - name: Scene and UI contracts
+        run: |
+          node tests/world-engine-hot-scenes.cjs
+          node tests/world-engine-context-ui-redesign.cjs
+          node tests/world-engine-person-scene-ui.cjs
+          node tests/world-engine-scene-context.cjs
+          node tests/world-engine-ui-theme.cjs
+
+      - name: Engine contracts
+        run: |
+          node tests/world-engine-modules.cjs
+          node tests/world-engine-prompt-pipeline.cjs
+          node tests/world-engine-request-transparency.cjs
+          node tests/world-engine-request-budget-retry-ui.cjs
+          node tests/world-engine-schema-retry-diagnostics.cjs
+          node tests/world-engine-macro-open-backbone.cjs
+          node tests/world-engine-observability.cjs
+          node tests/world-engine-lifecycle-audit.cjs
+          node tests/world-engine-temporary-people.cjs
+
+      - name: Final scope audit
+        run: |
+          git fetch origin main
+          git diff --check origin/main...HEAD
+          changed="$(git diff --name-only origin/main...HEAD)"
+          echo "$changed"
+          if echo "$changed" | grep -E '^Regular/|[Rr]egex|正则'; then
+            echo 'Unexpected regex/Regular change in world-engine feature.' >&2
+            exit 1
+          fi
+          ! grep -q 'readonly.世界.场外人物动态' 'World Book/[variables]当前变量.txt'
+          ! grep -q '/世界/场外人物动态' 'World Book/[mvu_update]变量更新规则.txt'
+          ! grep -q '【世界.场外人物动态】' 'World Book/⚙️额外思考.txt'
+          grep -q 'readonly.世界.场外场景 = hotScenes' 'World Book/[variables]当前变量.txt'
+          grep -q 'const criticalScenes = candidates.filter(scene => scene.强制保留)' 'World Book/[variables]当前变量.txt'
+          ! grep -q "section('后台活动人物'" script/world-engine-src/50-engine-ui.part.js
+          ! grep -q 'we-temp-person-list' script/world-engine-src/50-engine-ui.part.js
+          grep -q "section('区域档案',areaDetail" script/world-engine-src/50-engine-ui.part.js
+
+      - name: Remove this temporary workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/world-engine-context-ui-final.yml
+          git commit -m 'chore: remove final context UI workflow'
+          git push origin HEAD:fix/world-engine-context-ui-redesign

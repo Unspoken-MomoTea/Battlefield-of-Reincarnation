@@ -277,7 +277,7 @@ if (current.世界) {
       if (!name) return null;
       let scene = sceneCandidates.get(name);
       if (!scene) {
-        scene = { 地区: name, 记录: matchedArea?.记录 || {}, 优先级: priority, 人物: [], 关联事件: [], 异端场景: false };
+        scene = { 地区: name, 记录: matchedArea?.记录 || {}, 优先级: priority, 人物: [], 关联事件: [], 强制保留: false };
         sceneCandidates.set(name, scene);
       } else {
         scene.优先级 = Math.min(scene.优先级, priority);
@@ -294,18 +294,24 @@ if (current.世界) {
       delete clean.__异端;
       delete clean.__优先级;
       scene.人物.push(compactProjection(clean));
-      if (person.__异端) scene.异端场景 = true;
+      if (person.__异端) scene.强制保留 = true;
     }
 
     // 有公开进行中事件的地区即使没有人物，也属于正在运行的热场景；这里只挂事件名，详细公开事实仍由世界.当前事件唯一承载。
     for (const event of publicEvents) {
       const scene = ensureScene(event.地点, 0);
-      if (scene && !scene.关联事件.includes(event.名称)) scene.关联事件.push(event.名称);
+      if (scene) {
+        scene.强制保留 = true;
+        if (!scene.关联事件.includes(event.名称)) scene.关联事件.push(event.名称);
+      }
     }
 
     // 当前地区与本轮刚更新的地区可以独立成为热场景，支持大型世界的多地并行演进。
     const currentArea = sceneAreaFor(currentLocation);
-    if (currentArea && hasSceneFacts(currentArea.记录)) ensureScene(currentArea.名称, 1);
+    if (currentArea && hasSceneFacts(currentArea.记录)) {
+      const scene = ensureScene(currentArea.名称, 1);
+      if (scene) scene.强制保留 = true;
+    }
     for (const [name, area] of areaEntries) {
       if (sameTimeAnchor(area.更新时间, worldTime) && hasSceneFacts(area)) ensureScene(name, 2);
     }
@@ -320,12 +326,14 @@ if (current.世界) {
 
     const candidates = Array.from(sceneCandidates.values())
       .filter(scene => scene.人物.length || scene.关联事件.length || hasSceneFacts(scene.记录));
-    const forcedScenes = candidates.filter(scene => scene.异端场景)
+    // 当前地区、公开进行中事件、活跃异端是剧情连续性的硬边界，不能互相争抢固定名额。
+    // 本轮刚更新地区、普通热人物、下一宏观地区仅作为补充场景竞争有限名额。
+    const criticalScenes = candidates.filter(scene => scene.强制保留)
       .sort((a, b) => a.优先级 - b.优先级 || a.地区.localeCompare(b.地区, 'zh-CN'));
-    const ordinaryScenes = candidates.filter(scene => !scene.异端场景)
+    const supplementalScenes = candidates.filter(scene => !scene.强制保留)
       .sort((a, b) => a.优先级 - b.优先级 || a.地区.localeCompare(b.地区, 'zh-CN'))
-      .slice(0, Math.max(0, 6 - forcedScenes.length));
-    const hotScenes = [...forcedScenes, ...ordinaryScenes]
+      .slice(0, 4);
+    const hotScenes = [...criticalScenes, ...supplementalScenes]
       .sort((a, b) => a.优先级 - b.优先级 || a.地区.localeCompare(b.地区, 'zh-CN'))
       .map(scene => {
         const record = scene.记录 || {};

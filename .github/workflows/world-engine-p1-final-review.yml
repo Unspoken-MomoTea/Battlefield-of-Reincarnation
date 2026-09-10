@@ -1,0 +1,47 @@
+name: World Engine P1 Final Visual Review
+
+on:
+  push:
+    branches: [refactor/world-engine-p1-visual]
+    paths:
+      - '.github/workflows/world-engine-p1-final-review.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/world-engine-p1-visual
+      - name: Align next-node action tokens
+        run: python tools/fix-world-engine-next-action.py
+      - name: Syntax check
+        run: node --check 'script/世界推进系统.js'
+      - name: Theme and typography acceptance
+        run: node tests/world-engine-ui-theme.cjs
+      - name: Core P1 regressions
+        shell: bash
+        run: |
+          node tests/world-engine-person-scene-ui.cjs
+          node tests/world-engine-temporary-people.cjs
+          node tests/world-engine-scene-context.cjs
+          node tests/world-engine-prompt-pipeline.cjs
+      - name: Verify no display-regex integration
+        shell: bash
+        run: |
+          test -z "$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)regex-|\.json$' || true)"
+      - name: Commit final visual review fix
+        shell: bash
+        run: |
+          if git diff --quiet -- 'script/世界推进系统.js'; then
+            echo 'No source changes to commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'script/世界推进系统.js'
+          git commit -m 'fix: align next-node action contrast'
+          git push origin HEAD:refactor/world-engine-p1-visual

@@ -1,0 +1,51 @@
+name: World Engine P1 Hardcoded Color Review
+
+on:
+  push:
+    branches: [refactor/world-engine-p1-visual]
+    paths:
+      - '.github/workflows/world-engine-p1-hardcoded-color-review.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/world-engine-p1-visual
+      - name: Apply guarded semantic color cleanup
+        run: python tools/finalize-world-engine-p1-visual.py
+      - name: Syntax check
+        run: node --check 'script/世界推进系统.js'
+      - name: Theme and typography acceptance
+        run: node tests/world-engine-ui-theme.cjs
+      - name: Core P1 regressions
+        shell: bash
+        run: |
+          node tests/world-engine-person-scene-ui.cjs
+          node tests/world-engine-temporary-people.cjs
+          node tests/world-engine-scene-context.cjs
+          node tests/world-engine-prompt-pipeline.cjs
+      - name: Documentation consistency
+        shell: bash
+        run: |
+          ! grep -q '允许更新已存在的公开摘要' 'script/世界引擎接入说明.md'
+          grep -q '旧 `公开摘要 / 正文承接` 仅在存档归一时迁移后删除' 'script/世界引擎接入说明.md'
+      - name: Verify no display-regex integration
+        shell: bash
+        run: test -z "$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)regex-|\.json$' || true)"
+      - name: Commit review cleanup
+        shell: bash
+        run: |
+          if git diff --quiet -- 'script/世界推进系统.js' 'script/世界引擎接入说明.md'; then
+            echo 'No source changes to commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'script/世界推进系统.js' 'script/世界引擎接入说明.md'
+          git commit -m 'fix: finish world engine theme semantics'
+          git push origin HEAD:refactor/world-engine-p1-visual

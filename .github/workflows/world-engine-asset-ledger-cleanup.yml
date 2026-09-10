@@ -25,8 +25,60 @@ jobs:
             exit 1
           fi
 
+      - name: Repair one-shot test anchor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('tools/refactor-world-engine-asset-ledger-cleanup.py')
+          s=p.read_text(encoding='utf-8')
+          pattern=r"s=replace_once\(s,\n\s*'\"version:10,[\s\S]*?'pipeline version assertion'\)\n"
+          s2,n=re.subn(pattern,'',s,count=1)
+          if n!=1:
+              raise SystemExit(f'patcher version-block count={n}')
+          p.write_text(s2,encoding='utf-8')
+          PY
+
       - name: Apply semantic and UI correction
         run: python tools/refactor-world-engine-asset-ledger-cleanup.py
+
+      - name: Align permanent tests with corrected compatibility boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('tests/world-engine-prompt-pipeline.cjs')
+          s=p.read_text(encoding='utf-8')
+          old='assert(source.includes("version:10,\\n        builtin:true,\\n        name:\'默认设置\'"), \'built-in prompt version should be 10\');'
+          new='assert(source.includes("version:11,\\n        builtin:true,\\n        name:\'默认设置\'"), \'built-in prompt version should be 11\');'
+          if s.count(old)!=1:
+              raise SystemExit(f'pipeline version assertion count={s.count(old)}')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          p=Path('tests/world-engine-asset-ledger-cleanup.cjs')
+          s=p.read_text(encoding='utf-8')
+          old="""for (const [name, text] of [
+  ['交付脚本', source],
+  ['世界状态源码', stateSource],
+  ['运行时源码', runtimeSource],
+  ['UI源码', uiSource],
+  ['正文只读投影', proseProjection],
+]) {
+  assert.doesNotMatch(text, /资源点/, `${name} 不应继续维护误加的资源点概念`);
+}"""
+          new="""for (const [name, text] of [
+  ['世界状态源码', stateSource],
+  ['运行时源码', runtimeSource],
+  ['UI源码', uiSource],
+  ['正文只读投影', proseProjection],
+]) {
+  assert.doesNotMatch(text, /资源点/, `${name} 不应继续维护误加的资源点概念`);
+}
+assert.match(source, /delete area\.资源点/, '交付脚本只允许保留旧存档资源点的只读过滤兼容');"""
+          if s.count(old)!=1:
+              raise SystemExit(f'asset cleanup compatibility test block count={s.count(old)}')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
 
       - name: Rebuild delivery script
         run: |
@@ -57,11 +109,11 @@ jobs:
 
       - name: Verify corrected ownership and scope
         run: |
-          ! grep -R -n '资源点' script/world-engine-src script/世界推进系统.js 'World Book/[variables]当前变量.txt'
+          ! grep -R -n '资源点' script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/10-world-state.part.js script/world-engine-src/40-engine-runtime.part.js script/world-engine-src/50-engine-ui.part.js 'World Book/[variables]当前变量.txt'
+          test "$(grep -o 'delete area\.资源点' script/world-engine-src/30-context-protocol.part.js | wc -l)" -eq 1
           ! grep -q '<small>当前选择</small>' script/world-engine-src/50-engine-ui.part.js
           grep -q '现有资产账簿' script/world-engine-src/00-foundation-prompt.part.js
           grep -q '驻扎人员、待办事件、建设序列、能源与消耗' script/world-engine-src/00-foundation-prompt.part.js
-          grep -q 'delete area.资源点' script/world-engine-src/30-context-protocol.part.js
           git diff --check
 
       - name: Commit permanent changes

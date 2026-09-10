@@ -1,4 +1,4 @@
-name: World Engine Asset Ownership Writeback
+name: World Engine Asset Ownership Writeback Final
 
 on:
   push:
@@ -18,24 +18,21 @@ jobs:
           ref: fix/world-engine-asset-ledger-cleanup
           fetch-depth: 0
 
-      - name: Red - asset ownership/writeback contract is not implemented yet
+      - name: Confirm red contract before refactor
         run: |
           if node tests/world-engine-asset-writeback.cjs; then
-            echo 'Expected pre-refactor implementation to fail the new asset writeback contract.'
+            echo 'Expected the branch source to still require the one-shot refactor.'
             exit 1
           fi
 
-      - name: Apply asset ownership/writeback refactor
+      - name: Apply refactor
         run: python tools/refactor-world-engine-asset-writeback.py
 
-      - name: Rebuild delivery script
+      - name: Build and validate
         run: |
           python tools/build-world-engine.py
           python tools/build-world-engine.py --check
           node --check 'script/世界推进系统.js'
-
-      - name: Focused acceptance
-        run: |
           node tests/world-engine-asset-writeback.cjs
           node tests/world-engine-asset-ledger-cleanup.cjs
           node tests/world-engine-scene-context.cjs
@@ -43,9 +40,6 @@ jobs:
           node tests/world-engine-hot-scenes.cjs
           node tests/world-engine-context-ui-redesign.cjs
           node tests/world-engine-prompt-pipeline.cjs
-
-      - name: Supporting acceptance
-        run: |
           node tests/world-engine-modules.cjs
           node tests/world-engine-request-transparency.cjs
           node tests/world-engine-schema-retry-diagnostics.cjs
@@ -56,8 +50,9 @@ jobs:
           node tests/world-engine-lifecycle-audit.cjs
           node tests/world-engine-temporary-people.cjs
 
-      - name: Verify asset boundaries
+      - name: Verify boundaries
         run: |
+          git config core.whitespace cr-at-eol
           grep -q "所属对象: safeStr('<user>')" script/ZOD脚本.js
           grep -q 'WorldResult.资产' script/world-engine-src/40-engine-runtime.part.js
           grep -q "if (a === '资产') return parts.length === 2" script/world-engine-src/10-world-state.part.js
@@ -69,34 +64,11 @@ jobs:
           ! grep -q '<small>当前选择</small>' script/world-engine-src/50-engine-ui.part.js
           git diff --check
 
-      - name: Commit permanent changes
+      - name: Commit formal changes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            'World Book/[variables]当前变量.txt' \
-            'World Book/[mvu_update]变量更新规则.txt' \
-            'World Book/⚙️资产与载具规则.txt' \
-            'World Book/⚙️行为判定[mvu_plot].txt' \
-            docs/世界引擎V2审计.md \
-            script/ZOD脚本.js \
-            script/辅助计算脚本.js \
-            script/world-engine-src/00-foundation-prompt.part.js \
-            script/world-engine-src/10-world-state.part.js \
-            script/world-engine-src/20-world-result.part.js \
-            script/world-engine-src/30-context-protocol.part.js \
-            script/world-engine-src/40-engine-runtime.part.js \
-            script/世界引擎接入说明.md \
-            script/世界推进系统.js \
-            tests/world-engine-asset-writeback.cjs \
-            tests/world-engine-scene-context.cjs \
-            tests/world-engine-prompt-pipeline.cjs
+          git add 'World Book/[variables]当前变量.txt' 'World Book/[mvu_update]变量更新规则.txt' 'World Book/⚙️资产与载具规则.txt' 'World Book/⚙️行为判定[mvu_plot].txt' docs/世界引擎V2审计.md script/ZOD脚本.js script/辅助计算脚本.js script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/10-world-state.part.js script/world-engine-src/20-world-result.part.js script/world-engine-src/30-context-protocol.part.js script/world-engine-src/40-engine-runtime.part.js script/世界引擎接入说明.md script/世界推进系统.js tests/world-engine-asset-writeback.cjs tests/world-engine-scene-context.cjs tests/world-engine-prompt-pipeline.cjs
           git diff --cached --check
           git commit -m 'feat: let world engine manage owned assets'
-          git push origin HEAD:fix/world-engine-asset-ledger-cleanup
-
-      - name: Remove one-shot construction files
-        run: |
-          git rm -f tools/refactor-world-engine-asset-writeback.py .github/workflows/world-engine-asset-ledger-cleanup.yml
-          git commit -m 'chore: remove asset writeback tooling'
           git push origin HEAD:fix/world-engine-asset-ledger-cleanup

@@ -1,0 +1,74 @@
+name: World Engine P1 Visual Acceptance
+
+on:
+  push:
+    branches: [refactor/world-engine-p1-visual]
+
+permissions:
+  contents: write
+
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/world-engine-p1-visual
+      - name: Apply guarded visual refactor
+        run: python tools/refactor-world-engine-p1-visual.py
+      - name: Syntax check
+        run: node --check 'script/世界推进系统.js'
+      - name: Theme and typography acceptance
+        run: node tests/world-engine-ui-theme.cjs
+      - name: Person scene UI acceptance
+        run: node tests/world-engine-person-scene-ui.cjs
+      - name: Temporary person lifecycle acceptance
+        run: node tests/world-engine-temporary-people.cjs
+      - name: Shared scene acceptance
+        run: node tests/world-engine-scene-context.cjs
+      - name: Prompt pipeline acceptance
+        run: node tests/world-engine-prompt-pipeline.cjs
+      - name: Existing regression parity with main
+        shell: bash
+        run: |
+          cp 'script/世界推进系统.js' /tmp/branch-world-engine.js
+          git fetch origin main --depth=1
+          for test_file in tests/world-engine-lifecycle-audit.cjs tests/world-engine-prose.cjs tests/world-engine.cjs; do
+            cp /tmp/branch-world-engine.js 'script/世界推进系统.js'
+            set +e
+            node "$test_file" >/tmp/branch-test.log 2>&1
+            branch_status=$?
+            set -e
+            git checkout FETCH_HEAD -- 'script/世界推进系统.js'
+            set +e
+            node "$test_file" >/tmp/main-test.log 2>&1
+            main_status=$?
+            set -e
+            echo "$test_file: branch=$branch_status main=$main_status"
+            if [ "$branch_status" -ne "$main_status" ]; then
+              echo 'Regression parity failed'
+              echo '--- branch ---'; cat /tmp/branch-test.log
+              echo '--- main ---'; cat /tmp/main-test.log
+              exit 1
+            fi
+          done
+          cp /tmp/branch-world-engine.js 'script/世界推进系统.js'
+      - name: Verify UI-only source boundary
+        shell: bash
+        run: |
+          test -z "$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)regex-|\.json$' || true)"
+          grep -q 'WORLD_UI_THEMES' 'script/世界推进系统.js'
+          grep -q '\${WORLD_UI_THEME_CSS}' 'script/世界推进系统.js'
+          ! grep -q '可读性：旧版 9/10px' 'script/世界推进系统.js'
+      - name: Commit P1 visual refactor
+        shell: bash
+        run: |
+          if git diff --quiet -- 'script/世界推进系统.js'; then
+            echo 'No source changes to commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'script/世界推进系统.js'
+          git commit -m 'refactor: unify world engine visual tokens'
+          git push origin HEAD:refactor/world-engine-p1-visual

@@ -300,6 +300,7 @@
         const near=events.filter(([,e])=>['当前事件','近期节点'].includes(e.分类));
         const macro=events.filter(([,e])=>e.分类==='宏观节点');
         const macroFuture=macro.filter(([,e])=>e.状态==='待发生');
+        const macroOpen=macro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
         const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
         const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
         const orbit=stat.世界.因果轨道||{},orbitStages=storyStages(orbit.故事线);
@@ -326,7 +327,7 @@
             当前活动事件数:waiting.filter(([,e])=>e.状态==='进行中').length,
             近期节点数:near.length,
             宏观节点数:macro.length,
-            需要补充远期:macroFuture.length<3,
+            需要补充远期:macroOpen.length<3,
             下一宏观节点:nextMacro,
             桥接区间:{
                 起点:stat.世界.时间,

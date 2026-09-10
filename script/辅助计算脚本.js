@@ -92,6 +92,8 @@
             // ★ 关系列表是普通角色是否继续受后台人物调度的生命周期信号。
             //   明确从关系列表删除的角色，同步从 世界.后台.人物 删除，避免继续占用世界推进上下文；异端雷达独立管理，不在此处修改。
             syncRemovedRelationshipPeople(statData, statDataBefore);
+            // 资产删除与重新建立同样走程序生命周期墓碑。
+            syncRemovedAssets(statData, statDataBefore);
             // ★ 异端生命周期独立于普通关系列表：死亡不可逆；死亡后同时退休关系实体和后台人物活动，雷达保留死亡记录。
             syncAlienLifecycle(statData, statDataBefore);
 
@@ -1469,16 +1471,30 @@
         sys.上次世界日期 = dateKey;
     }
 
-    function isPlayerOwnedAsset(asset, statData) {
-        const normalize = value => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
-        let playerName = '';
-        try {
-            const host = (typeof window !== 'undefined' && window.parent && window.parent !== window) ? window.parent : (typeof window !== 'undefined' ? window : null);
-            playerName = String(host?.SillyTavern?.name1 || host?.SillyTavern?.getContext?.()?.name1 || host?.name1 || '').trim();
-        } catch (e) {}
-        const owners = new Set(['<user>', '{{user}}', '玩家', playerName].filter(Boolean).map(normalize));
-        const owner = String(asset?.所属对象 || '<user>').trim() || '<user>';
-        return owners.has(normalize(owner));
+    function isPlayerOwnedAsset(asset) {
+        const owners = Array.isArray(asset?.所属对象)
+            ? asset.所属对象
+            : (typeof asset?.所属对象 === 'string' ? [asset.所属对象] : []);
+        return owners.some(owner => String(owner || '').trim() === '<user>');
+    }
+
+    /** 记录资产显式删除，防止世界引擎根据旧剧情记忆把同名资产重新创建。 */
+    function syncRemovedAssets(statData, statDataBefore) {
+        if (!statData || !statDataBefore) return [];
+        const beforeAssets = statDataBefore.资产 && typeof statDataBefore.资产 === 'object' ? statDataBefore.资产 : {};
+        const currentAssets = statData.资产 && typeof statData.资产 === 'object' ? statData.资产 : {};
+        statData.世界 = statData.世界 || {};
+        statData.世界.后台 = statData.世界.后台 || {};
+        const tombstones = statData.世界.后台.资产墓碑 = statData.世界.后台.资产墓碑 || {};
+        const removed = [];
+        Object.keys(beforeAssets).forEach(name => {
+            if (Object.prototype.hasOwnProperty.call(currentAssets, name)) return;
+            tombstones[name] = String(statData.世界.时间 || '已删除');
+            removed.push(name);
+        });
+        // 用户/MVU明确重新建立同名资产时解除墓碑。
+        Object.keys(currentAssets).forEach(name => { if (Object.prototype.hasOwnProperty.call(tombstones, name)) delete tombstones[name]; });
+        return removed;
     }
 
     /** 资产全自动收菜系统 (改由 系统状态.游玩天数 轴驱动, 免疫副本时间跳跃) */
@@ -1512,7 +1528,7 @@
         const fmtByPlay = (n) => fmtDate(currentDays + (n - playDays));
 
         Object.entries(assets).forEach(([assetName, asset]) => {
-            if (!isPlayerOwnedAsset(asset, statData)) return;
+            if (!isPlayerOwnedAsset(asset)) return;
             if (!asset || !asset.建设序列) return;
             if (!Array.isArray(asset.待办事件)) asset.待办事件 = [];
 

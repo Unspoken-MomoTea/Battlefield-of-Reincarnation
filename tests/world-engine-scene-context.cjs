@@ -93,6 +93,6 @@ assert.doesNotMatch(variableProjection, /身边发展:\s*Object\.keys\(surroundi
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
 assert.match(source, /先更新[^\n]*地区现场[^\n]*再决定人物行动/, '默认 Pipeline 应改为世界现场优先');
 assert.match(source, /同一现场事实不得复制|不复制地点现场/, 'Prompt 必须约束共享现场去重');
-assert.match(source, /version:12,\n        builtin:true,\n        name:'默认设置'/, '资产写回开放后内置默认提示词应升级到 v12');
+assert.match(source, /version:13,\n        builtin:true,\n        name:'默认设置'/, '资产写回开放后内置默认提示词应升级到 v13');
 
 console.log('world-engine scene context acceptance passed');

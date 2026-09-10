@@ -1808,7 +1808,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     await test('auxiliary callback skips duration ticks for engine commit but processes subsequent prose', () => {
         const source=fs.readFileSync(path.join(__dirname,'../script/辅助计算脚本.js'),'utf8');
         const snippet=source.slice(source.indexOf('function onUpdateData('),source.indexOf('// ===== 轻量路径工具'));
-        const names=['syncRemovedRelationshipPeople','syncAlienLifecycle','guardTaskGenerationLock','guardPersistedSystemTaskOwner','guardProtectedFields','clampNativeNpcToWorldTier','recalcAllCharacters','checkTrialEligibility','updatePlayDays','autoHarvestAssets','cleanupZeroQuantityItems','processStatusDuration','cleanupDeadNPCs','calcWorldStability','processCombatAndCooldowns'];
+        const names=['syncRemovedRelationshipPeople','syncRemovedAssets','syncAlienLifecycle','guardTaskGenerationLock','guardPersistedSystemTaskOwner','guardProtectedFields','clampNativeNpcToWorldTier','recalcAllCharacters','checkTrialEligibility','updatePlayDays','autoHarvestAssets','cleanupZeroQuantityItems','processStatusDuration','cleanupDeadNPCs','calcWorldStability','processCombatAndCooldowns'];
         const calls={}; const stubs=Object.fromEntries(names.map(name=>[name,()=>{calls[name]=(calls[name]||0)+1;}]));
         const update=new Function('stubs',`let isProcessing=false,isInitLog=false;const {${names.join(',')}}=stubs;${snippet};return onUpdateData;`)(stubs);
         const stat=fresh();stat.角色={};stat.世界.后台.已处理楼层='commit-1';

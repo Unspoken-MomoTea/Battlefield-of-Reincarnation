@@ -45,6 +45,18 @@ const safeTags = (defaultVal = []) => z.preprocess(
     z.array(z.string())
 ).prefault(defaultVal).transform(arr => _.uniq(arr));
 
+const normalizeAssetOwners = v => {
+    const source = Array.isArray(v) ? v : (v === undefined ? ['<user>'] : [v]);
+    const out = [];
+    for (const raw of source) {
+        const owner = String(raw ?? '').trim();
+        if (!owner || owner === '无主') continue;
+        if (!out.includes(owner)) out.push(owner);
+    }
+    return out;
+};
+const assetOwners = z.preprocess(v => normalizeAssetOwners(v), z.array(z.string())).prefault(['<user>']);
+
 // 世界时间最终防线：普通变量 AI 仍负责推进时间，但日期必须服从世界.历法。
 // 对“本月只有28天却写到31日”这类溢出自动进位；无法安全判断跨作品纪年年份时不擅自改年号。
 function normalizeWorldTimeByCalendar(value, calendar) {
@@ -416,7 +428,9 @@ export const Schema = z.object({
             历史: z.record(z.string(), z.any()).prefault({}),
             传播: z.record(z.string(), z.any()).prefault({}),
             运行记录: z.array(z.any()).prefault([]),
-            最近变化: z.array(z.any()).prefault([])
+            最近变化: z.array(z.any()).prefault([]),
+            // 程序生命周期墓碑：只记用户/MVU明确删除的资产名，防止世界引擎因旧剧情记忆重新创建。
+            资产墓碑: z.record(z.string(), safeStr('')).prefault({})
         }).prefault({}),
         位格: E_rank.prefault('Ⅸ'),
         难度: safeStr('F~SSS'),
@@ -542,7 +556,7 @@ export const Schema = z.object({
     }),
 
     资产: z.record(z.string(), strictItem(z.object({
-        所属对象: safeStr('<user>'),
+        所属对象: assetOwners,
         类型: safeStr(''),
         主体规模: clampNum(1, 1, 10),
         完整度: clampNum(100, 0, 100),

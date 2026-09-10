@@ -48,16 +48,11 @@ const safeStringify = (obj) => {
   return JSON.stringify(obj, null, 2);
 };
 const projectionNameKey = value => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
-const projectionPlayerName = (() => {
-  try {
-    const host = (typeof window !== 'undefined' && window.parent && window.parent !== window) ? window.parent : (typeof window !== 'undefined' ? window : null);
-    return String(host?.SillyTavern?.name1 || host?.SillyTavern?.getContext?.()?.name1 || host?.name1 || '').trim();
-  } catch (_) { return ''; }
-})();
-const playerOwnerKeys = new Set(['<user>', '{{user}}', '玩家', projectionPlayerName].filter(Boolean).map(projectionNameKey));
 const isPlayerOwnedAsset = asset => {
-  const owner = String(asset?.所属对象 || '<user>').trim() || '<user>';
-  return playerOwnerKeys.has(projectionNameKey(owner));
+  const owners = Array.isArray(asset?.所属对象)
+    ? asset.所属对象
+    : (typeof asset?.所属对象 === 'string' ? [asset.所属对象] : []);
+  return owners.some(owner => String(owner || '').trim() === '<user>');
 };
 const deadAlienNameKeys = new Set(
   Object.entries(_.get(data, '世界.异端雷达.名单', {}) || {})

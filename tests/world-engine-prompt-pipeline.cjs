@@ -13,7 +13,7 @@ const preset = capture(/const DEFAULT_PRESET = `([\s\S]*?)`;\n    const BUILTIN_
 const core = capture(/const CORE_WORLD_RULES = `([\s\S]*?)`;?\n    function splitPresetSegments/, 'CORE_WORLD_RULES');
 const protocol = capture(/function protocol\(\)[\s\S]*?return `([\s\S]*?)`;\n    \}/, 'protocol');
 
-assert(source.includes("version:12,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 11');
+assert(source.includes("version:13,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 11');
 assert(source.includes("const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id"), 'built-in migration must not overwrite custom prompt documents');
 
 for (let i = 1; i <= 7; i += 1) {

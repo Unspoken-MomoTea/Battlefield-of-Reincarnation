@@ -17,11 +17,24 @@
     const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
     const CONFIG = 'samsara_world_engine_v1';
     const STATUS_THEME_CONFIG = 'samsara_theme_v2';
-    const WORLD_TONE_KEYS = new Set(['night','crimson','indigo','parchment','sakura','matcha']);
+    // 六主题只在这里维护色值。CSS 只消费语义 token，避免羊皮/樱白等主题再堆局部补丁。
+    const WORLD_UI_THEMES = Object.freeze({
+        night:Object.freeze({scheme:'dark',shell:'#0e1320',main:'#101824',surface:'#151e2c',card:'#1b2636',cardHover:'#213044',input:'#111a27',line:'#344357',ink:'#edf3f8',sub:'#bac6d4',accent:'#9aa8ff',accentSoft:'#9aa8ff24',gold:'#d9b978',mint:'#7dcbbb',head:'#111a27',nav:'#0c1420',notice:'#251f18',action:'#9aa8ff',actionInk:'#111827'}),
+        crimson:Object.freeze({scheme:'dark',shell:'#170d12',main:'#1b1016',surface:'#24131a',card:'#301923',cardHover:'#3a1f2b',input:'#180d13',line:'#5b2f3a',ink:'#fff2f5',sub:'#d8b8c0',accent:'#ff7670',accentSoft:'#ff767024',gold:'#ffb347',mint:'#e49aac',head:'#230f16',nav:'#180a10',notice:'#2d1b13',action:'#ff7670',actionInk:'#2a0e13'}),
+        indigo:Object.freeze({scheme:'dark',shell:'#0d1024',main:'#11152d',surface:'#171b39',card:'#20254a',cardHover:'#292f5a',input:'#0e1229',line:'#373d72',ink:'#f0f2ff',sub:'#bec3e8',accent:'#8b78ff',accentSoft:'#8b78ff25',gold:'#ffd166',mint:'#65c9c3',head:'#11162f',nav:'#0a0d20',notice:'#29231a',action:'#8b78ff',actionInk:'#101426'}),
+        parchment:Object.freeze({scheme:'light',shell:'#e8dcc3',main:'#f1e7d2',surface:'#fff7e7',card:'#f4e6ca',cardHover:'#eddcbc',input:'#fffaf0',line:'#c9ad79',ink:'#392b18',sub:'#6c5432',accent:'#855a16',accentSoft:'#855a1620',gold:'#7a5215',mint:'#4f6f3d',head:'#5c4325',nav:'#6b5030',notice:'#f2dfb9',action:'#d9a441',actionInk:'#2b1a08'}),
+        sakura:Object.freeze({scheme:'light',shell:'#f4dce4',main:'#fff0f5',surface:'#fff9fb',card:'#fbe3eb',cardHover:'#f6d8e3',input:'#fffafd',line:'#ddb6c5',ink:'#432532',sub:'#765466',accent:'#a63f69',accentSoft:'#a63f6922',gold:'#8a5624',mint:'#446f62',head:'#6c3148',nav:'#7b3d55',notice:'#f7e2d3',action:'#ee8eb3',actionInk:'#3b1e2a'}),
+        matcha:Object.freeze({scheme:'light',shell:'#dcebd4',main:'#eef5e8',surface:'#fbfdf8',card:'#e3efd9',cardHover:'#d8e8cc',input:'#fbfff7',line:'#b7cbaa',ink:'#263823',sub:'#53694f',accent:'#3e7746',accentSoft:'#3e774622',gold:'#73591f',mint:'#39725f',head:'#31563a',nav:'#284630',notice:'#edf0ce',action:'#79b77e',actionInk:'#17311f'})
+    });
+    const WORLD_TONE_KEYS = new Set(Object.keys(WORLD_UI_THEMES));
+    const WORLD_UI_THEME_CSS = Object.entries(WORLD_UI_THEMES).map(([tone,theme])=>{
+        const vars=Object.entries(theme).filter(([key])=>key!=='scheme').map(([key,value])=>'--we-'+key.replace(/[A-Z]/g,c=>'-'+c.toLowerCase())+':'+value).join(';');
+        return '#sam-world-engine[data-tone="'+tone+'"]{'+vars+';color-scheme:'+theme.scheme+'}';
+    }).join('\n');
     const WORLD_FONT_SCALES = {
-        standard:{name:'标准',size:'16px',desc:'正文约14px，辅助字不低于12px'},
-        large:{name:'大字',size:'18px',desc:'正文约16px，适合高分屏'},
-        xlarge:{name:'特大',size:'20px',desc:'正文约17px，远距离阅读'}
+        standard:{name:'标准',size:'16px',desc:'正文约15px，辅助字不低于13px'},
+        large:{name:'大字',size:'18px',desc:'正文约17px，辅助字约14-15px'},
+        xlarge:{name:'特大',size:'20px',desc:'正文约19px，远距离阅读'}
     };
     const PATH = '后台';
     const EVENT_TARGET = 180;
@@ -3123,7 +3136,7 @@ ${schemaText}
                 #sam-world-engine summary{font-size:12px;line-height:1.7;transition:color .15s ease}
                 #sam-world-engine summary:hover{color:#7d5f2d}
                 #sam-world-engine .we-world-ranks{display:flex;flex-wrap:wrap;gap:8px 20px;margin:0 0 10px;color:var(--sub);font-size:13px}
-                #sam-world-engine .we-world-ranks b{color:var(--text);font-weight:600;margin-left:6px}
+                #sam-world-engine .we-world-ranks b{color:var(--we-ink,var(--ink));font-weight:600;margin-left:6px}
                 #sam-world-engine .we-hero>div:first-child{min-width:0}
                 #sam-world-engine .we-reading-section summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-weight:600}
                 #sam-world-engine .we-reading-section summary small{font-weight:400;color:var(--sub)}
@@ -3205,27 +3218,24 @@ ${schemaText}
                 #sam-world-engine .we-segment-actions{display:flex;gap:4px}
                 #sam-world-engine .we-segment>summary{padding:12px;cursor:pointer;color:var(--we-ink)}
                 #sam-world-engine .we-segment textarea{display:block;width:100%;min-height:170px;height:210px;border:0;border-radius:0;background:#fff;padding:12px 13px;resize:vertical}
-                /* ===== 世界引擎独立外观：默认暗夜，可在设置中切换 ===== */
-                #sam-world-engine[data-tone="night"]{--we-shell:#0e1320;--we-main:#101824;--we-surface:#151e2c;--we-card:#1b2636;--we-card-hover:#213044;--we-input:#111a27;--we-line:#344357;--we-ink:#edf3f8;--we-sub:#bac6d4;--we-accent:#8f9fff;--we-accent-soft:#8f9fff24;--we-gold:#d9b978;--we-mint:#7dcbbb;--we-head:#111a27;--we-nav:#0c1420;--we-notice:#251f18}
-                #sam-world-engine[data-tone="crimson"]{--we-shell:#170d12;--we-main:#1b1016;--we-surface:#24131a;--we-card:#301923;--we-card-hover:#3a1f2b;--we-input:#180d13;--we-line:#5b2f3a;--we-ink:#fff2f5;--we-sub:#d8b8c0;--we-accent:#ff5f57;--we-accent-soft:#ff5f5724;--we-gold:#ffa502;--we-mint:#d8849a;--we-head:#230f16;--we-nav:#180a10;--we-notice:#2d1b13}
-                #sam-world-engine[data-tone="indigo"]{--we-shell:#0d1024;--we-main:#11152d;--we-surface:#171b39;--we-card:#20254a;--we-card-hover:#292f5a;--we-input:#0e1229;--we-line:#373d72;--we-ink:#f0f2ff;--we-sub:#bec3e8;--we-accent:#7c5cff;--we-accent-soft:#7c5cff25;--we-gold:#ffd166;--we-mint:#65c9c3;--we-head:#11162f;--we-nav:#0a0d20;--we-notice:#29231a}
-                #sam-world-engine[data-tone="parchment"]{--we-shell:#e8dcc3;--we-main:#f1e7d2;--we-surface:#fff7e7;--we-card:#f4e6ca;--we-card-hover:#eddcbc;--we-input:#fffaf0;--we-line:#c9ad79;--we-ink:#392b18;--we-sub:#765f3c;--we-accent:#a8761e;--we-accent-soft:#a8761e20;--we-gold:#a8761e;--we-mint:#6d8a52;--we-head:#5c4325;--we-nav:#6b5030;--we-notice:#f2dfb9}
-                #sam-world-engine[data-tone="sakura"]{--we-shell:#f4dce4;--we-main:#fff0f5;--we-surface:#fff9fb;--we-card:#fbe3eb;--we-card-hover:#f6d8e3;--we-input:#fffafd;--we-line:#ddb6c5;--we-ink:#432532;--we-sub:#876373;--we-accent:#e86998;--we-accent-soft:#ff80ab22;--we-gold:#bd7a3b;--we-mint:#6e9f8c;--we-head:#6c3148;--we-nav:#7b3d55;--we-notice:#f7e2d3}
-                #sam-world-engine[data-tone="matcha"]{--we-shell:#dcebd4;--we-main:#eef5e8;--we-surface:#fbfdf8;--we-card:#e3efd9;--we-card-hover:#d8e8cc;--we-input:#fbfff7;--we-line:#b7cbaa;--we-ink:#263823;--we-sub:#61735c;--we-accent:#579b5d;--we-accent-soft:#66bb6a22;--we-gold:#99782f;--we-mint:#4d8f77;--we-head:#31563a;--we-nav:#284630;--we-notice:#edf0ce}
+                /* ===== 世界引擎独立外观：跟随主神终端六色调；未设置时回退暗夜 ===== */
+                ${WORLD_UI_THEME_CSS}
                 #sam-world-engine[data-tone]{
                     --ink:var(--we-ink);--sub:var(--we-sub);--line:var(--we-line);--gold:var(--we-gold);--mint:var(--we-mint);
-                    --we-fs-root:16px;--we-fs-body:14px;--we-fs-small:13px;--we-fs-tiny:12px;--we-fs-control:14px;
-                    --we-fs-h1:28px;--we-fs-h2:19px;--we-fs-h3:16px;--we-fs-metric:25px;--we-fs-hero:32px;
+                    --we-chrome-ink:#f7fbff;--we-chrome-sub:#c9d3dd;--we-nav-ink:#d6dee7;
+                    --we-chrome-control:#ffffff0d;--we-chrome-control-hover:#ffffff18;--we-chrome-border:#ffffff2d;
+                    --we-fs-root:16px;--we-fs-body:15px;--we-fs-small:13px;--we-fs-tiny:13px;--we-fs-control:14px;
+                    --we-fs-h1:29px;--we-fs-h2:19px;--we-fs-h3:16px;--we-fs-metric:26px;--we-fs-hero:32px;
                     background:var(--we-shell)!important;color:var(--we-ink)!important;border-color:var(--we-line)!important;
                     font-size:var(--we-fs-root)!important;line-height:1.72!important;text-rendering:optimizeLegibility;-webkit-font-smoothing:auto
                 }
                 #sam-world-engine[data-font-scale="large"]{
-                    --we-fs-root:18px;--we-fs-body:16px;--we-fs-small:14px;--we-fs-tiny:13px;--we-fs-control:16px;
-                    --we-fs-h1:31px;--we-fs-h2:21px;--we-fs-h3:18px;--we-fs-metric:28px;--we-fs-hero:35px
+                    --we-fs-root:18px;--we-fs-body:17px;--we-fs-small:15px;--we-fs-tiny:14px;--we-fs-control:16px;
+                    --we-fs-h1:33px;--we-fs-h2:22px;--we-fs-h3:18px;--we-fs-metric:30px;--we-fs-hero:35px
                 }
                 #sam-world-engine[data-font-scale="xlarge"]{
-                    --we-fs-root:20px;--we-fs-body:17px;--we-fs-small:15px;--we-fs-tiny:14px;--we-fs-control:17px;
-                    --we-fs-h1:34px;--we-fs-h2:23px;--we-fs-h3:19px;--we-fs-metric:31px;--we-fs-hero:38px
+                    --we-fs-root:20px;--we-fs-body:19px;--we-fs-small:17px;--we-fs-tiny:15px;--we-fs-control:18px;
+                    --we-fs-h1:36px;--we-fs-h2:24px;--we-fs-h3:20px;--we-fs-metric:34px;--we-fs-hero:39px
                 }
                 .we-causal{min-width:0;overflow-wrap:anywhere}
                 .we-stability{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -3241,10 +3251,16 @@ ${schemaText}
                 .we-offset-head span{flex-shrink:0;font-weight:700;color:var(--we-ink)}
                 .we-offset p{margin:8px 0;font-size:var(--we-fs-body)}
                 .we-offset-more summary{cursor:pointer;margin-top:12px;color:var(--we-ink)}
-                #sam-world-engine[data-tone] header{background:linear-gradient(120deg,var(--we-head),var(--we-nav))!important;color:var(--we-ink)!important}
+                #sam-world-engine[data-tone] header{background:linear-gradient(120deg,var(--we-head),var(--we-nav))!important;color:var(--we-chrome-ink)!important}
+                #sam-world-engine[data-tone] .we-brand i{color:var(--we-action)!important}
+                #sam-world-engine[data-tone] .we-brand small{color:var(--we-chrome-sub)!important}
+                #sam-world-engine[data-tone] header button.we-btn{background:var(--we-chrome-control)!important;border-color:var(--we-chrome-border)!important;color:var(--we-chrome-ink)!important}
+                #sam-world-engine[data-tone] header button.we-btn:hover{background:var(--we-chrome-control-hover)!important;border-color:var(--we-chrome-sub)!important}
+                #sam-world-engine[data-tone] header button.we-primary{background:var(--we-action)!important;border-color:var(--we-action)!important;color:var(--we-action-ink)!important}
                 #sam-world-engine[data-tone] nav{background:var(--we-nav)!important;border-color:var(--we-line)!important}
-                #sam-world-engine[data-tone] nav button{color:var(--we-sub)!important;font-size:.86em!important}
-                #sam-world-engine[data-tone] nav button[aria-selected=true]{background:var(--we-accent)!important;border-color:var(--we-accent)!important;color:#fff!important}
+                #sam-world-engine[data-tone] nav button{color:var(--we-nav-ink)!important}
+                #sam-world-engine[data-tone] nav button:hover{background:var(--we-chrome-control-hover)!important;color:var(--we-chrome-ink)!important}
+                #sam-world-engine[data-tone] nav button[aria-selected=true]{background:var(--we-action)!important;border-color:var(--we-action)!important;color:var(--we-action-ink)!important}
                 #sam-world-engine[data-tone] main{background:var(--we-main)!important;color:var(--we-ink)!important}
                 #sam-world-engine[data-tone] .we-hero,
                 #sam-world-engine[data-tone] .we-section,
@@ -3297,7 +3313,7 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-empty{background:var(--we-card)!important;border-color:var(--we-line)!important}
                 #sam-world-engine[data-tone] .we-empty b{color:var(--we-ink)!important}
                 #sam-world-engine[data-tone] .we-notice{background:var(--we-notice)!important;color:var(--we-ink)!important;border-left-color:var(--we-gold)!important}
-                #sam-world-engine[data-tone] footer{background:var(--we-nav)!important;color:var(--we-sub)!important}
+                #sam-world-engine[data-tone] footer{background:var(--we-nav)!important;color:var(--we-chrome-sub)!important}
                 #sam-world-engine[data-tone] .we-timeline .we-card:before{border-color:var(--we-surface)!important}
                 #sam-world-engine[data-tone] .we-timeline-group-title:after{background:var(--we-line)!important}
                 #sam-world-engine[data-tone] .we-explore-bar{background:color-mix(in srgb,var(--we-line) 70%,transparent)!important}
@@ -3309,31 +3325,28 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-brief-row,
                 #sam-world-engine[data-tone] .we-section-head,
                 #sam-world-engine[data-tone] .we-area-hero{border-color:var(--we-line)!important}
-                #sam-world-engine[data-tone] .we-next-node>span{background:var(--we-accent)!important;color:#fff!important}
+                #sam-world-engine[data-tone] .we-next-node>span{background:var(--we-action)!important;color:var(--we-action-ink)!important}
                 #sam-world-engine[data-tone] button.we-next-node:hover{background:var(--we-card-hover)!important}
-                /* 可读性：旧版 9/10px 文本整体提升 */
-                #sam-world-engine[data-tone] .we-kpi small,
-                #sam-world-engine[data-tone] .we-kpi span,
-                #sam-world-engine[data-tone] .we-ledger-stat small,
-                #sam-world-engine[data-tone] .we-ledger-stat span,
-                #sam-world-engine[data-tone] .we-person-copy small,
-                #sam-world-engine[data-tone] .we-person-copy em,
                 #sam-world-engine[data-tone] .we-next-node small,
+                #sam-world-engine[data-tone] .we-person-copy small,
+                #sam-world-engine[data-tone] .we-link-btn,
+                #sam-world-engine[data-tone] .we-explore-score span,
+                #sam-world-engine[data-tone] .we-area-progress em,
+                #sam-world-engine[data-tone] .we-rep b{color:var(--we-gold)!important}
+                #sam-world-engine[data-tone] .we-timeline-group-title,
+                #sam-world-engine[data-tone] .we-timeline-group-title small,
                 #sam-world-engine[data-tone] .we-brief-row>span:last-child,
-                #sam-world-engine[data-tone] .we-explore-head small,
-                #sam-world-engine[data-tone] .we-explore-meta,
-                #sam-world-engine[data-tone] .we-area-hero small,
-                #sam-world-engine[data-tone] .we-risk-badge{font-size:11px!important}
-                #sam-world-engine[data-tone] .we-card p,
-                #sam-world-engine[data-tone] .we-person p,
-                #sam-world-engine[data-tone] .we-muted,
-                #sam-world-engine[data-tone] dl,
-                #sam-world-engine[data-tone] summary,
-                #sam-world-engine[data-tone] .we-tools button{font-size:12px!important}
-                #sam-world-engine[data-tone] h2{font-size:18px!important}
-                #sam-world-engine[data-tone] h3{font-size:15px!important}
+                #sam-world-engine[data-tone] .we-person-copy em,
+                #sam-world-engine[data-tone] .we-area-progress>div>span{color:var(--we-sub)!important}
+                #sam-world-engine[data-tone] .we-timeline-group-title small{background:var(--we-card)!important}
+                #sam-world-engine[data-tone] .we-preset-toolbar b{color:var(--we-ink)!important}
+                #sam-world-engine[data-tone] summary:hover{color:var(--we-accent)!important}
+                #sam-world-engine[data-tone] .we-card.is-jump{outline-color:var(--we-action)!important;background:var(--we-accent-soft)!important}
                 /* 全面字号系统：字号设置必须作用于整个面板，而不是只影响继承 root 字号的按钮 */
                 #sam-world-engine[data-tone] main{font-size:var(--we-fs-body)!important}
+                #sam-world-engine[data-tone] .we-brand{font-size:var(--we-fs-h3)!important;line-height:1.2!important}
+                #sam-world-engine[data-tone] .we-hero .we-date{font-size:var(--we-fs-h3)!important;line-height:1.45!important}
+                #sam-world-engine[data-tone] .we-world-ranks{font-size:var(--we-fs-small)!important}
                 #sam-world-engine[data-tone] header button,
                 #sam-world-engine[data-tone] nav button,
                 #sam-world-engine[data-tone] main button,
@@ -3367,8 +3380,7 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-person-copy strong,
                 #sam-world-engine[data-tone] .we-book-title small,
                 #sam-world-engine[data-tone] .we-read-state,
-                #sam-world-engine[data-tone] .we-segment-toolbar,
-                #sam-world-engine[data-tone] .we-setting-copy b{font-size:var(--we-fs-small)!important}
+                #sam-world-engine[data-tone] .we-segment-toolbar{font-size:var(--we-fs-small)!important}
                 #sam-world-engine[data-tone] small,
                 #sam-world-engine[data-tone] footer,
                 #sam-world-engine[data-tone] .we-brand small,
@@ -3406,35 +3418,15 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-explore-score strong{font-size:var(--we-fs-metric)!important}
                 #sam-world-engine[data-tone] .we-area-progress>strong{font-size:var(--we-fs-hero)!important}
                 #sam-world-engine[data-tone] textarea.we-raw{font-size:var(--we-fs-small)!important}
-                #sam-world-engine[data-tone] .we-person strong{font-size:var(--we-fs-body)!important}
+                #sam-world-engine[data-tone] .we-person strong,
+                #sam-world-engine[data-tone] .we-preset-toolbar b,
+                #sam-world-engine[data-tone] .we-setting-copy b{font-size:var(--we-fs-body)!important}
                 #sam-world-engine[data-tone] .we-doc-actions button,
                 #sam-world-engine[data-tone] .we-segment-actions button{font-size:var(--we-fs-tiny)!important}
                 /* 区域档案说明卡跟随主题，避免暗色下出现刺眼白框和灰字 */
                 #sam-world-engine[data-tone] .we-area-note{
                     background:var(--we-input)!important;color:var(--we-ink)!important;border:1px solid var(--we-line)!important;
                     font-weight:500!important
-                }
-                /* 浅色正文主题仍使用深色顶部铬层：正文 ink/sub 不能直接叠到 header/nav 上 */
-                #sam-world-engine[data-tone="parchment"] header{color:#fff8e8!important}
-                #sam-world-engine[data-tone="parchment"] .we-brand small{color:#ead9b7!important}
-                #sam-world-engine[data-tone="parchment"] nav button{color:#f0dfbd!important}
-                #sam-world-engine[data-tone="parchment"] nav button:hover{color:#fffaf0!important;background:#ffffff18!important}
-                #sam-world-engine[data-tone="parchment"] nav button[aria-selected=true]{
-                    background:#d49a32!important;border-color:#e0ac4c!important;color:#21170a!important
-                }
-                #sam-world-engine[data-tone="sakura"] header{color:#fff5f9!important}
-                #sam-world-engine[data-tone="sakura"] .we-brand small{color:#f0c8d7!important}
-                #sam-world-engine[data-tone="sakura"] nav button{color:#f7d4e0!important}
-                #sam-world-engine[data-tone="sakura"] nav button:hover{color:#fff8fb!important;background:#ffffff18!important}
-                #sam-world-engine[data-tone="sakura"] nav button[aria-selected=true]{
-                    background:#e86998!important;border-color:#f18ab1!important;color:#3a1e29!important
-                }
-                #sam-world-engine[data-tone="matcha"] header{color:#f5fbf0!important}
-                #sam-world-engine[data-tone="matcha"] .we-brand small{color:#cfe1c9!important}
-                #sam-world-engine[data-tone="matcha"] nav button{color:#deecd9!important}
-                #sam-world-engine[data-tone="matcha"] nav button:hover{color:#fbfff8!important;background:#ffffff16!important}
-                #sam-world-engine[data-tone="matcha"] nav button[aria-selected=true]{
-                    background:#68ad6d!important;border-color:#7cbc80!important;color:#17301f!important
                 }
                 /* 设置页 */
                 #sam-world-engine .we-setting-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(220px,1.2fr);gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--we-line,var(--line))}
@@ -3496,11 +3488,11 @@ ${schemaText}
                     #sam-world-engine .we-section{padding:13px}
                     #sam-world-engine footer{padding:7px max(10px,var(--we-safe-right)) calc(7px + var(--we-safe-bottom)) max(10px,var(--we-safe-left))}
                     #sam-world-engine footer small{display:none}
-                }
                     #sam-world-engine .we-setting-row{grid-template-columns:1fr}
                     #sam-world-engine .we-setting-actions{justify-content:flex-start}
                     #sam-world-engine .we-api-grid{grid-template-columns:1fr}
                     #sam-world-engine .we-api-grid label.wide{grid-column:auto}
+                }
                 @media(max-height:400px){
                     #sam-world-engine header{height:calc(40px + var(--we-safe-top,0px));min-height:calc(40px + var(--we-safe-top,0px))}
                     #sam-world-engine nav{padding:3px 8px;min-height:36px}
@@ -4118,7 +4110,7 @@ ${schemaText}
         }
     }
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople,extractWorldProse,derivePersonWorldContext,projectHotWorldPeople}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople,extractWorldProse,derivePersonWorldContext,projectHotWorldPeople,WORLD_UI_THEMES,WORLD_FONT_SCALES}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {

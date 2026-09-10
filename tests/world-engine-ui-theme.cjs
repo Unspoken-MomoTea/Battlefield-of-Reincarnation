@@ -39,19 +39,28 @@ for (const [name, t] of Object.entries(WORLD_UI_THEMES)) {
   checkContrast(name, t.sub, t.card, 'sub/card');
   checkContrast(name, t.accent, t.surface, 'accent/surface');
   checkContrast(name, t.gold, t.surface, 'gold/surface');
+  checkContrast(name, t.gold, t.card, 'gold/card');
   checkContrast(name, t.mint, t.card, 'mint/card');
   checkContrast(name, t.actionInk, t.action, 'action text');
   checkContrast(name, '#f7fbff', t.head, 'header text');
   checkContrast(name, '#d6dee7', t.nav, 'nav text');
+  checkContrast(name, '#c9d3dd', t.nav, 'chrome secondary/nav');
 }
 
 assert.match(source, /const WORLD_TONE_KEYS = new Set\(Object\.keys\(WORLD_UI_THEMES\)\);/, 'tone keys must derive from the theme registry');
 assert.match(source, /\$\{WORLD_UI_THEME_CSS\}/, 'theme CSS must be generated from the registry');
 assert.doesNotMatch(source, /data-tone=\\?"(?:parchment|sakura|matcha)\\?"\]\s+(?:header|nav)/, 'light themes must not use one-off header/nav patches');
 assert.doesNotMatch(source, /可读性：旧版 9\/10px 文本整体提升/, 'obsolete fixed-size readability patch must be removed');
+assert.doesNotMatch(source, /var\(--text\)/, 'world engine CSS must not depend on undefined --text');
 assert.match(source, /header button\.we-primary\{background:var\(--we-action\)!important;border-color:var\(--we-action\)!important;color:var\(--we-action-ink\)!important\}/, 'header primary action must use theme action tokens');
 assert.match(source, /nav button\[aria-selected=true\]\{background:var\(--we-action\)!important;border-color:var\(--we-action\)!important;color:var\(--we-action-ink\)!important\}/, 'active navigation must use the same action tokens');
 assert.match(source, /\.we-next-node>span\{background:var\(--we-action\)!important;color:var\(--we-action-ink\)!important\}/, 'next macro action must use the same accessible action token pair');
+assert.match(source, /footer\{background:var\(--we-nav\)!important;color:var\(--we-chrome-sub\)!important\}/, 'footer on chrome must use chrome secondary text');
+assert.match(source, /\.we-next-node small,[\s\S]*\.we-rep b\{color:var\(--we-gold\)!important\}/, 'accent-like secondary labels must share gold semantics');
+assert.match(source, /\.we-timeline-group-title,[\s\S]*\.we-area-progress>div>span\{color:var\(--we-sub\)!important\}/, 'secondary informational labels must share sub semantics');
+assert.match(source, /\.we-preset-toolbar b\{color:var\(--we-ink\)!important\}/, 'prompt toolbar heading must follow themed ink');
+assert.match(source, /summary:hover\{color:var\(--we-accent\)!important\}/, 'summary hover must use theme accent rather than old parchment brown');
+assert.match(source, /\.we-card\.is-jump\{outline-color:var\(--we-action\)!important;background:var\(--we-accent-soft\)!important\}/, 'jump highlight must follow theme tokens');
 assert.match(source, /\.we-area-note\{\s*background:var\(--we-input\)!important;color:var\(--we-ink\)!important;border:1px solid var\(--we-line\)!important;/, 'area archive note must follow semantic theme tokens');
 assert.match(source, /\.we-brand\{font-size:var\(--we-fs-h3\)!important/, 'font scale must include the panel brand');
 assert.match(source, /\.we-hero \.we-date\{font-size:var\(--we-fs-h3\)!important/, 'font scale must include the hero date');

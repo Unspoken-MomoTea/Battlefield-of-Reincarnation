@@ -5,6 +5,7 @@ const path = require('path');
 const file = path.join(__dirname, '..', 'script', '世界推进系统.js');
 const source = fs.readFileSync(file, 'utf8');
 const {
+  SamsaraWorldEngine,
   estimateTokens,
   formatTokenCount,
   normalizeTokenUsage,
@@ -57,4 +58,31 @@ assert.match(source, /请求超过内部安全上限（'\+formatTokenCount/, 'ov
 assert.match(source, /system\.length\+input\.length>240000/, 'existing internal safety ceiling must remain unchanged in P1-C');
 assert.match(source, /this\.lastAttemptTelemetry=\[\];this\.lastTransportInfo=null;/, 'context reset must clear observability state');
 
-console.log('world-engine observability acceptance passed');
+(async()=>{
+  let calls=0;
+  const host={
+    localStorage:{getItem:()=>null,setItem:()=>{}},
+    Samsara:{},
+    fetch:async()=>{
+      calls++;
+      if(calls===1)return {ok:false,status:400,statusText:'Bad Request',text:async()=> 'unsupported response_format json_schema'};
+      return {
+        ok:true,
+        json:async()=>({
+          choices:[{message:{content:'{"摘要":"观测成功"}'}}],
+          usage:{prompt_tokens:321,completion_tokens:45,total_tokens:366}
+        })
+      };
+    }
+  };
+  const engine=new SamsaraWorldEngine(host);
+  engine.config.dedicatedApi={enabled:true,apiUrl:'https://api.example.test/v1',apiKey:'',model:'mock-model',apiPresets:[],fetchedModels:[]};
+  const reply=await engine.requestAI('system','user',{structured:'auto',schema:{type:'object'},schemaName:'world_test'});
+  assert.equal(reply,'{"摘要":"观测成功"}');
+  assert.equal(calls,2,'json_schema rejection should fall back to json_object');
+  assert.deepEqual(engine.lastTransportInfo.尝试模式,['json_schema','json_object']);
+  assert.equal(engine.lastTransportInfo.结构化模式,'json_object');
+  assert.equal(engine.lastTransportInfo.模型,'mock-model');
+  assert.deepEqual(engine.lastTransportInfo.usage,{inputTokens:321,outputTokens:45,totalTokens:366});
+  console.log('world-engine observability acceptance passed');
+})().catch(error=>{console.error(error);process.exitCode=1;});

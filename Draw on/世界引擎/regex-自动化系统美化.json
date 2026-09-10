@@ -1,0 +1,17 @@
+{
+    "disabled": false,
+    "findRegex": "/<自动化系统\\s*\\/>/g",
+    "id": "8641a2c1-ed15-49a9-b6fd-23f18f4a0cf2",
+    "markdownOnly": true,
+    "maxDepth": 2,
+    "minDepth": null,
+    "placement": [
+        2
+    ],
+    "promptOnly": false,
+    "replaceString": "```\n<body>\n<script>\n$('body').load('https://testingcf.jsdelivr.net/gh/d1040426514-crypto/tavern_helper_template-main@v0.0.42/dist/自动化系统/index.html')\n</script>\n</body>\n```",
+    "runOnEdit": true,
+    "scriptName": "自动化系统美化",
+    "substituteRegex": 0,
+    "trimStrings": []
+}

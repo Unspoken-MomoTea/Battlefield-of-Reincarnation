@@ -1,0 +1,18 @@
+{
+    "disabled": false,
+    "findRegex": "/(<QuestPlan>[\\s\\S]*?<\\/QuestPlan>)|(<工作流变量更新>[\\s\\S]*?<\\/工作流变量更新>)|(<资产账本\\s*\\/>)|(<自动化系统\\s*\\/>)/gsi",
+    "id": "5bfaf7a4-2457-4314-9ec7-49f2836c41d9",
+    "markdownOnly": false,
+    "maxDepth": null,
+    "minDepth": null,
+    "placement": [
+        1,
+        2
+    ],
+    "promptOnly": true,
+    "replaceString": "",
+    "runOnEdit": true,
+    "scriptName": "[不发送]-剧情规划参考+附加状态栏占位符",
+    "substituteRegex": 0,
+    "trimStrings": []
+}

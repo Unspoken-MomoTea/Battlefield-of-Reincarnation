@@ -26,7 +26,9 @@ jobs:
           fi
 
       - name: Apply refactor
-        run: python tools/refactor-asset-multi-owner.py
+        run: |
+          python tools/fix-asset-multi-owner-patcher.py
+          python tools/refactor-asset-multi-owner.py
 
       - name: Build and validate
         run: |

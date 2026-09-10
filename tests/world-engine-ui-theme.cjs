@@ -51,6 +51,7 @@ assert.doesNotMatch(source, /data-tone=\\?"(?:parchment|sakura|matcha)\\?"\]\s+(
 assert.doesNotMatch(source, /可读性：旧版 9\/10px 文本整体提升/, 'obsolete fixed-size readability patch must be removed');
 assert.match(source, /header button\.we-primary\{background:var\(--we-action\)!important;border-color:var\(--we-action\)!important;color:var\(--we-action-ink\)!important\}/, 'header primary action must use theme action tokens');
 assert.match(source, /nav button\[aria-selected=true\]\{background:var\(--we-action\)!important;border-color:var\(--we-action\)!important;color:var\(--we-action-ink\)!important\}/, 'active navigation must use the same action tokens');
+assert.match(source, /\.we-next-node>span\{background:var\(--we-action\)!important;color:var\(--we-action-ink\)!important\}/, 'next macro action must use the same accessible action token pair');
 assert.match(source, /\.we-area-note\{\s*background:var\(--we-input\)!important;color:var\(--we-ink\)!important;border:1px solid var\(--we-line\)!important;/, 'area archive note must follow semantic theme tokens');
 assert.match(source, /\.we-brand\{font-size:var\(--we-fs-h3\)!important/, 'font scale must include the panel brand');
 assert.match(source, /\.we-hero \.we-date\{font-size:var\(--we-fs-h3\)!important/, 'font scale must include the hero date');

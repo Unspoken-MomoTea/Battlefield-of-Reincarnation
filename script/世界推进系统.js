@@ -641,6 +641,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         const near=events.filter(([,e])=>['当前事件','近期节点'].includes(e.分类));
         const macro=events.filter(([,e])=>e.分类==='宏观节点');
         const macroFuture=macro.filter(([,e])=>e.状态==='待发生');
+        const macroOpen=macro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
         const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
         const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
         const orbit=stat.世界.因果轨道||{},orbitStages=storyStages(orbit.故事线);
@@ -667,7 +668,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             当前活动事件数:waiting.filter(([,e])=>e.状态==='进行中').length,
             近期节点数:near.length,
             宏观节点数:macro.length,
-            需要补充远期:macroFuture.length<3,
+            需要补充远期:macroOpen.length<3,
             下一宏观节点:nextMacro,
             桥接区间:{
                 起点:stat.世界.时间,
@@ -1448,11 +1449,11 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         const plan=[];
         for(const item of rejected||[])plan.push(item.片段+'：'+item.原因);
         const message=String(error?.message||error||'');
-        let match=message.match(/宏观事件不足：需要至少3个待发生宏观节点，当前仅(\d+)个/);
+        let match=message.match(/宏观事件不足：需要至少3个可推进宏观节点（进行中\+待发生），当前仅(\d+)个（进行中(\d+)个，待发生(\d+)个）/);
         if(match){
-            const current=Math.max(0,Number(match[1])||0),missing=Math.max(0,3-current);
-            plan.push('宏观骨架：当前仅'+current+'个待发生宏观节点，还需补充至少'+missing+'个待发生宏观节点；新增事件必须使用 分类=宏观节点、状态=待发生，并给出可执行的时间/条件/前因。');
-            plan.push('因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序，使用最终3~5个已建立宏观节点名称形成顺序。');
+            const current=Math.max(0,Number(match[1])||0),active=Math.max(0,Number(match[2])||0),future=Math.max(0,Number(match[3])||0),missing=Math.max(0,3-current);
+            plan.push('宏观骨架：当前可推进宏观节点'+current+'个（进行中'+active+'、待发生'+future+'），还需补充至少'+missing+'个真正的待发生宏观节点；会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。新增宏观事件必须给出可执行的时间/条件/前因。');
+            plan.push('因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序，使用最终3~5个仍可推进的宏观节点名称形成顺序。');
         }else if(/因果轨道未形成有效宏观投影/.test(message)){
             plan.push('因果轨道：不要重写已接受事件，只补写 因果.宏观顺序；长度必须3~5，且每个名称都必须对应已建立且未取消的宏观节点。');
         }else if((match=message.match(/到期事件未处理：([^。]+)/))){
@@ -1910,8 +1911,10 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     function ensureMacroBackbone(next,timeline,required=true) {
         if(!required||!timeline?.需要补充远期)return;
         const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消');
+        const activeMacro=allMacro.filter(([,e])=>e.状态==='进行中');
         const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
-        if(futureMacro.length<3)throw new Error('宏观事件不足：需要至少3个待发生宏观节点，当前仅'+futureMacro.length+'个');
+        const openMacro=allMacro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
+        if(openMacro.length<3)throw new Error('宏观事件不足：需要至少3个可推进宏观节点（进行中+待发生），当前仅'+openMacro.length+'个（进行中'+activeMacro.length+'个，待发生'+futureMacro.length+'个）');
         const stages=storyStages(next?.世界?.因果轨道?.故事线);
         const names=new Set(allMacro.map(([name])=>name));
         if(stages.length<3||stages.length>5||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');

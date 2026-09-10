@@ -25,7 +25,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  try{
  const page=await browser.newPage({viewport:{width:1440,height:1080}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('https://world-engine.test/**',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><html lang="zh-CN"><meta charset="utf-8"><body style="margin:0;background:#080e17"></body></html>'}));await page.goto('https://world-engine.test/');
- await page.evaluate(stat=>{window.SillyTavern={name1:'测试玩家'};window.getCurrentChatId=()=> 'preview';window.getChatMessages=()=>[{message_id:1,message:'车夫递来一封信。',role:'assistant'}];window.Mvu={events:{VARIABLE_UPDATE_ENDED:'updated'},getMvuData:()=>({stat_data:stat})};window.eventOn=()=>()=>{};window.Samsara={terminal:{suspend:()=>({open:true}),restore:()=>{window.restored=true;},apiReady:()=>false}};},stat);
+ await page.evaluate(stat=>{window.SillyTavern={name1:'测试玩家'};window.getCurrentChatId=()=> 'preview';window.getChatMessages=()=>[{message_id:1,message:'车夫递来一封信。',role:'assistant'}];window.Mvu={events:{VARIABLE_UPDATE_ENDED:'updated'},getMvuData:()=>({stat_data:stat})};window.eventOn=()=>()=>{};window.Samsara={terminal:{suspend:()=>({open:true}),restore:()=>{window.restored=true;},apiReady:()=>false}};localStorage.setItem('samsara_theme_v2','night');localStorage.setItem('samsara_world_engine_v1',JSON.stringify({tone:'crimson'}));},stat);
  await page.addScriptTag({path:path.join(__dirname,'../script/世界推进系统.js')});await page.evaluate(()=>{Samsara.worldEngine.setEnabled(true);Samsara.worldEngine.open();});
  const out=path.join(__dirname,'artifacts');fs.mkdirSync(out,{recursive:true});
  await page.screenshot({path:path.join(out,'world-desktop.png')});
@@ -42,7 +42,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('[data-action="enabled"]').count(),0);
  assert.equal(await page.locator('[data-action="run"]').isDisabled(),true);
  assert.equal(await page.getByText(/额外模型未准备好/).count(),1);
- assert.equal(await page.locator('#sam-world-engine').getAttribute('data-tone'),'night','世界推进默认暗夜色调');
+ assert.equal(await page.locator('#sam-world-engine').getAttribute('data-tone'),'night','世界推进必须读取状态栏共享色调，而不是旧的独立 crimson 配置');
+ assert.equal(await page.evaluate(()=>Object.hasOwn(Samsara.worldEngine.config,'tone')),false,'世界推进配置不再保存独立色调');
  assert.equal(await page.locator('#sam-world-engine').getAttribute('data-font-scale'),'standard');
  assert.equal(await page.locator('#sam-world-engine').evaluate(el=>getComputedStyle(el).fontSize),'16px','默认字号应比旧版更清晰');
  assert.equal(await page.locator('header [data-tab="设置"]').count(),0,'头部不应重复放置设置入口');
@@ -54,8 +55,9 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  const rumorAfter=await page.locator('nav [data-tab="传闻"] .we-tab-icon').evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {text:el.textContent,width:r.width,height:r.height,fontSize:s.fontSize,lineHeight:s.lineHeight,fontWeight:s.fontWeight};});
  assert.deepEqual(rumorAfter,rumorBefore,'传闻 Tab 选中前后图标尺寸必须完全一致');
  await page.locator('[data-tab="设置"]').first().click();
- assert.equal(await page.getByRole('heading',{name:'界面外观',exact:true}).count(),1);
- assert.equal(await page.locator('.we-tone-card').count(),6,'设置页提供与状态栏同风格的六套色调');
+ assert.equal(await page.getByRole('heading',{name:'界面字号',exact:true}).count(),1);
+ assert.equal(await page.locator('.we-tone-card').count(),0,'世界推进设置不再提供独立色调卡片');
+ assert.equal(await page.locator('[data-tone-option]').count(),0,'世界推进不得保留独立色调切换入口');
  const standardSettingSmall=await page.locator('.we-setting-copy small').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
  assert.equal(standardSettingSmall>=12,true,'标准字号下辅助文字不得再落回9~11px');
  await page.locator('[data-font-option="xlarge"]').click();
@@ -64,7 +66,9 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('#sam-world-engine').evaluate(el=>getComputedStyle(el).fontSize),'20px','特大字号应使用完整20px级别');
  await page.locator('[data-font-option="standard"]').click();
  for(const [tone,label] of [['parchment','羊皮'],['sakura','樱白'],['matcha','抹茶']]){
-   await page.locator(`[data-tone-option="${tone}"]`).click();
+   await page.evaluate(t=>localStorage.setItem('samsara_theme_v2',t),tone);
+   await page.evaluate(()=>Samsara.worldEngine.render(true));
+   assert.equal(await page.locator('#sam-world-engine').getAttribute('data-tone'),tone,label+'必须从状态栏共享色调同步到世界推进');
    const chromeContrast=await page.locator('nav button:not([aria-selected="true"])').first().evaluate(el=>{
      const root=getComputedStyle(el.closest('#sam-world-engine')),button=getComputedStyle(el);
      const rgb=s=>{
@@ -86,11 +90,9 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
    assert.equal(chromeContrast.active>=4.5,true,`${label}色当前导航按钮必须达到可读对比度`);
    assert.equal(chromeContrast.header>=4.5,true,`${label}色头部按钮必须达到可读对比度`);
  }
- await page.locator('[data-tone-option="night"]').click();
- await page.locator('[data-tone-option="crimson"]').click();
- assert.equal(await page.locator('#sam-world-engine').getAttribute('data-tone'),'crimson');
- await page.locator('[data-tone-option="night"]').click();
- assert.equal(await page.locator('#sam-world-engine').getAttribute('data-tone'),'night');
+ await page.evaluate(()=>localStorage.setItem('samsara_theme_v2','night'));
+ await page.evaluate(()=>Samsara.worldEngine.render(true));
+ assert.equal(await page.locator('#sam-world-engine').getAttribute('data-tone'),'night','状态栏恢复暗夜后世界推进随之恢复');
  assert.equal(await page.getByRole('heading',{name:'模型接口',exact:true}).count(),1);
  await page.locator('[data-action="dedicated-toggle"]').click();
  assert.equal(await page.locator('[data-dedicated-field="apiUrl"]').count(),1,'开启专属API后显示独立配置字段');

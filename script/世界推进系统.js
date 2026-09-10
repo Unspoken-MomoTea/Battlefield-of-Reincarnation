@@ -16,14 +16,8 @@
     const escape = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
     const CONFIG = 'samsara_world_engine_v1';
-    const WORLD_TONES = {
-        night:{name:'暗夜',swatch:['#07090e','#8f9fff','#e4587d']},
-        crimson:{name:'绯红',swatch:['#0e0406','#ff5f57','#ffa502']},
-        indigo:{name:'靛蓝',swatch:['#06081a','#7c5cff','#4dabff']},
-        parchment:{name:'羊皮',swatch:['#e8d8b8','#a8761e','#c0392b']},
-        sakura:{name:'樱白',swatch:['#f7d4e0','#ff80ab','#e91e63']},
-        matcha:{name:'抹茶',swatch:['#d6ecc8','#66bb6a','#26c6da']}
-    };
+    const STATUS_THEME_CONFIG = 'samsara_theme_v2';
+    const WORLD_TONE_KEYS = new Set(['night','crimson','indigo','parchment','sakura','matcha']);
     const WORLD_FONT_SCALES = {
         standard:{name:'标准',size:'16px',desc:'正文约14px，辅助字不低于12px'},
         large:{name:'大字',size:'18px',desc:'正文约16px，适合高分屏'},
@@ -2129,11 +2123,12 @@ ${schemaText}
                 requireMacroBackbone:true,
                 presetEditorVersion:0,
                 promptDocuments:[],
-                tone:'night',
                 fontScale:'standard',
                 dedicatedApi:{enabled:false,apiUrl:'',apiKey:'',model:'',apiPresets:[],fetchedModels:[]}
             };
             try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
+            const hadLegacyTone=Object.hasOwn(this.config,'tone');
+            delete this.config.tone;
             if(Number(this.config.presetEditorVersion||0)<2)this.config.preset=ensurePresetStructure(this.config.preset);
             else this.config.preset=normalizeEditablePreset(this.config.preset);
             this.config.presetEditorVersion=2;
@@ -2179,10 +2174,10 @@ ${schemaText}
             }
             this.config.retryAttempts=Math.max(0,Math.min(5,Number(this.config.retryAttempts) || 0));
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
-            if(!['night','crimson','indigo','parchment','sakura','matcha'].includes(this.config.tone))this.config.tone='night';
             if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
             this.apiModeCache={};
+            if(hadLegacyTone)this.saveConfig();
             if(this.config.enabled&&!this.usesDedicatedApi()){
                 const terminal=this.host.Samsara&&this.host.Samsara.terminal;
                 if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
@@ -2836,6 +2831,18 @@ ${schemaText}
             this.lastRequest=null;this.previewRequest=null;this.lastReply='';this.lastFailure='';
             this.lastRetryLog=[];this.lastAttemptCount=0;this.lastWorldResult=null;this.lastCompiledPatches=[];this.lastCompileWarnings=[];
         }
+        statusTone() {
+            try {
+                const tone=this.host.localStorage.getItem(STATUS_THEME_CONFIG);
+                if(WORLD_TONE_KEYS.has(tone))return tone;
+            } catch (_) {}
+            return 'night';
+        }
+        syncStatusTone() {
+            const tone=this.statusTone();
+            if(this.panel)this.panel.dataset.tone=tone;
+            return tone;
+        }
         init() {
             const on = this.fn('eventOn');
             const mvu = this.env.Mvu || this.host.Mvu;
@@ -3267,7 +3274,6 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-book-title small,
                 #sam-world-engine[data-tone] .we-read-state,
                 #sam-world-engine[data-tone] .we-segment-toolbar,
-                #sam-world-engine[data-tone] .we-tone-card b,
                 #sam-world-engine[data-tone] .we-setting-copy b{font-size:var(--we-fs-small)!important}
                 #sam-world-engine[data-tone] small,
                 #sam-world-engine[data-tone] footer,
@@ -3298,7 +3304,6 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-doc-row small,
                 #sam-world-engine[data-tone] .we-doc-badge,
                 #sam-world-engine[data-tone] .we-segment-head small,
-                #sam-world-engine[data-tone] .we-tone-card small,
                 #sam-world-engine[data-tone] .we-setting-copy small,
                 #sam-world-engine[data-tone] .we-api-grid label,
                 #sam-world-engine[data-tone] .we-source-badge{font-size:var(--we-fs-tiny)!important;line-height:1.55!important}
@@ -3338,12 +3343,6 @@ ${schemaText}
                     background:#68ad6d!important;border-color:#7cbc80!important;color:#17301f!important
                 }
                 /* 设置页 */
-                #sam-world-engine .we-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
-                #sam-world-engine .we-tone-card{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:center;padding:10px;border:1px solid var(--we-line,var(--line));border-radius:11px;background:var(--we-card,#fff);text-align:left}
-                #sam-world-engine .we-tone-card.active{border-color:var(--we-accent,var(--gold));box-shadow:0 0 0 2px var(--we-accent-soft,#d9b97822)}
-                #sam-world-engine .we-tone-swatch{height:28px;border-radius:7px;border:1px solid #ffffff22}
-                #sam-world-engine .we-tone-card b{display:block;font-size:13px}
-                #sam-world-engine .we-tone-card small{display:block;color:var(--we-sub,var(--sub));font-size:11px}
                 #sam-world-engine .we-setting-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(220px,1.2fr);gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--we-line,var(--line))}
                 #sam-world-engine .we-setting-row:last-child{border-bottom:0}
                 #sam-world-engine .we-setting-copy b{display:block;font-size:14px}
@@ -3404,7 +3403,6 @@ ${schemaText}
                     #sam-world-engine footer{padding:7px max(10px,var(--we-safe-right)) calc(7px + var(--we-safe-bottom)) max(10px,var(--we-safe-left))}
                     #sam-world-engine footer small{display:none}
                 }
-                    #sam-world-engine .we-settings-grid{grid-template-columns:1fr 1fr}
                     #sam-world-engine .we-setting-row{grid-template-columns:1fr}
                     #sam-world-engine .we-setting-actions{justify-content:flex-start}
                     #sam-world-engine .we-api-grid{grid-template-columns:1fr}
@@ -3417,7 +3415,7 @@ ${schemaText}
                 }
             `;
             this.panel=doc.createElement('section');this.panel.id='sam-world-engine';this.panel.hidden=true;
-            this.panel.dataset.tone=this.config.tone||'night';this.panel.dataset.fontScale=this.config.fontScale||'standard';
+            this.panel.dataset.tone=this.statusTone();this.panel.dataset.fontScale=this.config.fontScale||'standard';
             this.panel.setAttribute('role','dialog');this.panel.setAttribute('aria-label','世界引擎');
             this.panel.innerHTML='<header><div class="we-brand"><i>◈</i>世界引擎<small>WORLD CHRONICLE</small></div><button class="we-btn we-primary" data-action="run">推进世界</button><button class="we-btn" data-action="close" aria-label="返回主神终端">返回 ↗</button></header><div class="we-layout"><nav></nav><main></main></div><footer><span></span><small>剧情时间驱动 · 由主神终端「世界推进」总开关控制</small></footer>';
             this.panel.addEventListener('click',event=>{
@@ -3523,10 +3521,6 @@ ${schemaText}
                     if(settings)this.applyPromptSettings(settings);
                     this.promptDraft=null;
                     this.buildRequest(this.snapshot()).then(r=>{this.previewRequest=r;this.tab='请求检查';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
-                }
-                else if(button.dataset.toneOption){
-                    const tone=button.dataset.toneOption;
-                    if(WORLD_TONES[tone]){this.config.tone=tone;this.panel.dataset.tone=tone;this.saveConfig();this.status='界面色调已切换为 '+WORLD_TONES[tone].name;this.render(true);}
                 }
                 else if(button.dataset.fontOption){
                     const scale=button.dataset.fontOption;
@@ -3636,7 +3630,7 @@ ${schemaText}
                 reason=this.blocked(snapshot);
             }catch(e){reason=e.message;}
             const s=snapshot?snapshot.stat:{},w=s.世界||{},orbit=w.因果轨道||{};
-            this.panel.dataset.tone=this.config.tone||'night';
+            this.syncStatusTone();
             this.panel.dataset.fontScale=this.config.fontScale||'standard';
             if(this.tab==='总览')this.tab='世界推进';
             const main=this.panel.querySelector('main'),scroll=main.scrollTop;
@@ -3894,7 +3888,6 @@ ${schemaText}
                 html+=section('历史锚点',entries(state.历史).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无已确认的历史锚点'));
             }else if(this.tab==='设置'){
                 const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
-                const toneCards=Object.entries(WORLD_TONES).map(([key,tone])=>'<button class="we-tone-card '+(this.config.tone===key?'active':'')+'" data-tone-option="'+key+'"><span class="we-tone-swatch" style="background:linear-gradient(90deg,'+tone.swatch.join(',')+')"></span><span><b>'+text(tone.name)+'</b><small>'+(key==='night'?'默认暗色调':'点击切换色调')+'</small></span></button>').join('');
                 const fontButtons=Object.entries(WORLD_FONT_SCALES).map(([key,item])=>'<button class="we-setting-btn '+(this.config.fontScale===key?'active':'')+'" data-font-option="'+key+'">'+text(item.name)+' · '+text(item.size)+'</button>').join('');
                 const presets=api.apiPresets.map(p=>'<option value="'+text(p.name)+'">'+text(p.name)+'</option>').join('');
                 const modelOptions=Array.from(new Set([api.model,...api.fetchedModels].filter(Boolean))).map(model=>'<option value="'+text(model)+'"></option>').join('');
@@ -3902,7 +3895,7 @@ ${schemaText}
                 const sourceState=this.usesDedicatedApi()
                     ?(this.dedicatedApiReady()?'专属 API 已就绪':'专属 API 已接管，但配置尚不完整')
                     :(terminalReady?'使用主神终端额外模型':'主神终端额外模型尚未准备好');
-                html+=section('界面外观','<div class="we-settings-grid">'+toneCards+'</div><div class="we-setting-row"><div class="we-setting-copy"><b>界面字号</b><small>旧版 9~10px 辅助文字已经整体放大；这里还能继续增大整个界面。</small></div><div class="we-setting-actions">'+fontButtons+'</div></div>','默认：暗夜 · 标准 16px');
+                html+=section('界面字号','<div class="we-setting-row"><div class="we-setting-copy"><b>界面字号</b><small>色调跟随主神终端；这里仅调整世界推进自己的文字大小。</small></div><div class="we-setting-actions">'+fontButtons+'</div></div>','色调跟随主神终端 · 默认标准 16px');
                 html+=section('模型接口',
                     '<div class="we-setting-row"><div class="we-setting-copy"><b>当前调用来源</b><small>'+text(sourceState)+'</small></div><div class="we-setting-actions"><span class="we-source-badge">'+text(this.apiSourceLabel())+'</span></div></div>'
                     +'<div class="we-setting-row"><div class="we-setting-copy"><b>世界推进专属 API</b><small>开启后世界推进只走这里，不再调用状态栏 / 主神终端的 API；即使配置不完整也不会偷偷回退。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(api.enabled?'on':'')+'" data-action="dedicated-toggle"><span>'+text(api.enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>'

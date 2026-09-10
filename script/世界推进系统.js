@@ -3136,7 +3136,7 @@ ${schemaText}
                 #sam-world-engine summary{font-size:12px;line-height:1.7;transition:color .15s ease}
                 #sam-world-engine summary:hover{color:#7d5f2d}
                 #sam-world-engine .we-world-ranks{display:flex;flex-wrap:wrap;gap:8px 20px;margin:0 0 10px;color:var(--sub);font-size:13px}
-                #sam-world-engine .we-world-ranks b{color:var(--text);font-weight:600;margin-left:6px}
+                #sam-world-engine .we-world-ranks b{color:var(--we-ink,var(--ink));font-weight:600;margin-left:6px}
                 #sam-world-engine .we-hero>div:first-child{min-width:0}
                 #sam-world-engine .we-reading-section summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-weight:600}
                 #sam-world-engine .we-reading-section summary small{font-weight:400;color:var(--sub)}
@@ -3313,7 +3313,7 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-empty{background:var(--we-card)!important;border-color:var(--we-line)!important}
                 #sam-world-engine[data-tone] .we-empty b{color:var(--we-ink)!important}
                 #sam-world-engine[data-tone] .we-notice{background:var(--we-notice)!important;color:var(--we-ink)!important;border-left-color:var(--we-gold)!important}
-                #sam-world-engine[data-tone] footer{background:var(--we-nav)!important;color:var(--we-sub)!important}
+                #sam-world-engine[data-tone] footer{background:var(--we-nav)!important;color:var(--we-chrome-sub)!important}
                 #sam-world-engine[data-tone] .we-timeline .we-card:before{border-color:var(--we-surface)!important}
                 #sam-world-engine[data-tone] .we-timeline-group-title:after{background:var(--we-line)!important}
                 #sam-world-engine[data-tone] .we-explore-bar{background:color-mix(in srgb,var(--we-line) 70%,transparent)!important}
@@ -3327,6 +3327,21 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-area-hero{border-color:var(--we-line)!important}
                 #sam-world-engine[data-tone] .we-next-node>span{background:var(--we-action)!important;color:var(--we-action-ink)!important}
                 #sam-world-engine[data-tone] button.we-next-node:hover{background:var(--we-card-hover)!important}
+                #sam-world-engine[data-tone] .we-next-node small,
+                #sam-world-engine[data-tone] .we-person-copy small,
+                #sam-world-engine[data-tone] .we-link-btn,
+                #sam-world-engine[data-tone] .we-explore-score span,
+                #sam-world-engine[data-tone] .we-area-progress em,
+                #sam-world-engine[data-tone] .we-rep b{color:var(--we-gold)!important}
+                #sam-world-engine[data-tone] .we-timeline-group-title,
+                #sam-world-engine[data-tone] .we-timeline-group-title small,
+                #sam-world-engine[data-tone] .we-brief-row>span:last-child,
+                #sam-world-engine[data-tone] .we-person-copy em,
+                #sam-world-engine[data-tone] .we-area-progress>div>span{color:var(--we-sub)!important}
+                #sam-world-engine[data-tone] .we-timeline-group-title small{background:var(--we-card)!important}
+                #sam-world-engine[data-tone] .we-preset-toolbar b{color:var(--we-ink)!important}
+                #sam-world-engine[data-tone] summary:hover{color:var(--we-accent)!important}
+                #sam-world-engine[data-tone] .we-card.is-jump{outline-color:var(--we-action)!important;background:var(--we-accent-soft)!important}
                 /* 全面字号系统：字号设置必须作用于整个面板，而不是只影响继承 root 字号的按钮 */
                 #sam-world-engine[data-tone] main{font-size:var(--we-fs-body)!important}
                 #sam-world-engine[data-tone] .we-brand{font-size:var(--we-fs-h3)!important;line-height:1.2!important}

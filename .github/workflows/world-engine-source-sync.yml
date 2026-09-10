@@ -7,6 +7,7 @@ on:
       - 'script/world-engine-src/**'
       - 'tools/build-world-engine.py'
       - 'tests/world-engine-npc-audit-toggle.cjs'
+      - 'tests/world-engine-modules.cjs'
       - '.github/workflows/world-engine-source-sync.yml'
 
 permissions:
@@ -25,6 +26,8 @@ jobs:
         run: node --check script/世界推进系统.js
       - name: Targeted regression tests
         run: node tests/world-engine-npc-audit-toggle.cjs
+      - name: Module synchronization test
+        run: node tests/world-engine-modules.cjs
       - name: Commit generated delivery
         run: |
           if git diff --quiet -- script/世界推进系统.js; then

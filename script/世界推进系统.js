@@ -3325,7 +3325,7 @@ ${schemaText}
                 #sam-world-engine[data-tone] .we-brief-row,
                 #sam-world-engine[data-tone] .we-section-head,
                 #sam-world-engine[data-tone] .we-area-hero{border-color:var(--we-line)!important}
-                #sam-world-engine[data-tone] .we-next-node>span{background:var(--we-accent)!important;color:#fff!important}
+                #sam-world-engine[data-tone] .we-next-node>span{background:var(--we-action)!important;color:var(--we-action-ink)!important}
                 #sam-world-engine[data-tone] button.we-next-node:hover{background:var(--we-card-hover)!important}
                 /* 全面字号系统：字号设置必须作用于整个面板，而不是只影响继承 root 字号的按钮 */
                 #sam-world-engine[data-tone] main{font-size:var(--we-fs-body)!important}

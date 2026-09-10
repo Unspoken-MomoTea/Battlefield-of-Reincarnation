@@ -25,9 +25,10 @@ assert.match(ui, /世界人物/, '纯后台人物应以轻量来源标签出现�
 assert.match(ui, /异端档案/, '异端选中时应能查看雷达中的阵营、职业、层级等信息');
 assert.match(ui, /derivePersonWorldContext\(s,chosen\[0\],userName\)/, '纯后台人物也应复用统一世界现场详情');
 
-// 探索页必须把地区详情移出窄右栏，现场群体/资源点使用完整宽度展示。
+// 探索页必须把地区详情移出窄右栏，并删除与上方选中地标重复的摘要。
 assert.match(ui, /we-area-detail/, '探索页应有全宽区域详情布局');
-assert.match(ui, /we-area-scene-wide/, '现场群体与资源点应使用宽版现场布局');
+assert.doesNotMatch(ui, /<small>当前选择<\/small>/, '区域档案不应重复上方选中地标摘要');
+assert.doesNotMatch(ui, /sceneLane\('资源点'/, '区域档案不应再渲染误加的资源点栏');
 assert.doesNotMatch(ui, /<aside class=\"we-area-side\">'\+section\('区域档案'/, '区域档案不能继续塞在右侧窄栏');
 assert.match(ui, /section\('区域档案',areaDetail/, '区域档案应独立成完整宽度区块');
 

@@ -55,9 +55,6 @@ stat.世界.后台.势力地区 = {
       { 名称: '残余圣骑士', 规模: '8人', 身份: '战斗员', 动态: '正在修整铠甲' },
       { 名称: '洛丹伦难民', 规模: '约180人', 身份: '平民', 动态: '正在篝火旁取暖' },
     ],
-    资源点: [
-      { 名称: '临时粮仓', 类型: '补给', 状态: '紧缺', 控制方: '白银之手残部', 动态: '每日消耗加快' },
-    ],
   },
 };
 
@@ -68,7 +65,6 @@ assert.equal(context.控制方, '白银之手残部');
 assert.deepEqual(context.背景关联.map(x => x.名称), ['白银之手骑士团', '洛丹伦流亡者核心']);
 assert.deepEqual(context.关联事件, ['洛丹伦的陷落']);
 assert.deepEqual(context.现场群体.map(x => x.名称), ['残余圣骑士', '洛丹伦难民']);
-assert.deepEqual(context.资源点.map(x => x.名称), ['临时粮仓']);
 assert.deepEqual(context.身边人物.map(x => x.名称), ['巴拉斯·希尔维', '远方斥候', '难民传令兵']);
 assert.equal(context.身边人物[0].关系, '贴身');
 assert.equal(context.身边人物[0].身份, '副官');
@@ -84,7 +80,6 @@ stat.世界.后台.人物['光明使者乌瑟尔'].地点 = '提瑞斯法林地�
 const moved = derivePersonWorldContext(stat, '光明使者乌瑟尔', '测试玩家');
 assert.equal(moved.地区, '');
 assert.deepEqual(moved.现场群体, []);
-assert.deepEqual(moved.资源点, []);
 assert.equal(stat.世界.后台.势力地区['安多哈尔南郊'].现场群体.length, 2);
 
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
@@ -102,7 +97,6 @@ for (const marker of [
   '档案名称',
   '现场标签',
   '现场群体',
-  '资源点',
 ]) {
   assert.ok(source.includes(marker), `角色管理 UI 缺少：${marker}`);
 }

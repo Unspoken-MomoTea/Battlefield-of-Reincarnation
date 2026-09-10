@@ -27,7 +27,7 @@ assert(preset.length < 1900, `DEFAULT_PRESET regressed into a long rule manual: 
 const businessInvariants = [
   '只用世界.时间计算本世界进展',
   '待发生/进行中事件必须有可排序',
-  '死亡异端不可恢复',
+  '死亡不可恢复',
   '探索度以0/10/30/60/90/100',
   '单轮绝对变化≤1000',
   '影响程度负值表示偏离原轨道',

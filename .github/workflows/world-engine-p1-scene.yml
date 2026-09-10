@@ -1,0 +1,71 @@
+name: World Engine P1 Scene Refactor
+
+on:
+  push:
+    branches:
+      - refactor/world-engine-p0
+    paths:
+      - .github/workflows/world-engine-p1-scene.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/world-engine-p0
+      - name: Apply P1 scene refactor
+        run: python tools/refactor-world-engine-p1-scene.py
+      - name: Syntax check
+        run: node --check 'script/世界推进系统.js'
+      - name: Prompt pipeline acceptance
+        run: node tests/world-engine-prompt-pipeline.cjs
+      - name: World scene acceptance
+        run: node tests/world-engine-scene-context.cjs
+      - name: Existing regression parity with main
+        shell: bash
+        run: |
+          cp 'script/世界推进系统.js' /tmp/branch-world-engine.js
+          cp 'World Book/[variables]当前变量.txt' /tmp/branch-vars.txt
+          git fetch origin main --depth=1
+          for test_file in tests/world-engine-lifecycle-audit.cjs tests/world-engine-prose.cjs tests/world-engine.cjs; do
+            cp /tmp/branch-world-engine.js 'script/世界推进系统.js'
+            cp /tmp/branch-vars.txt 'World Book/[variables]当前变量.txt'
+            set +e
+            node "$test_file" >/tmp/branch-test.log 2>&1
+            branch_status=$?
+            set -e
+
+            git checkout FETCH_HEAD -- 'script/世界推进系统.js' 'World Book/[variables]当前变量.txt'
+            set +e
+            node "$test_file" >/tmp/main-test.log 2>&1
+            main_status=$?
+            set -e
+
+            echo "$test_file: branch=$branch_status main=$main_status"
+            if [ "$branch_status" -ne "$main_status" ]; then
+              echo "Regression parity failed for $test_file"
+              echo '--- branch ---'
+              cat /tmp/branch-test.log
+              echo '--- main ---'
+              cat /tmp/main-test.log
+              exit 1
+            fi
+          done
+          cp /tmp/branch-world-engine.js 'script/世界推进系统.js'
+          cp /tmp/branch-vars.txt 'World Book/[variables]当前变量.txt'
+      - name: Commit P1 scene refactor
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'script/世界推进系统.js' 'World Book/[variables]当前变量.txt'
+          git commit -m 'feat: add shared world scene context for NPCs'
+          git push origin HEAD:refactor/world-engine-p0

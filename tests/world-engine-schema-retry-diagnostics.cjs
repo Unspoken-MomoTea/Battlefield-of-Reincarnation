@@ -46,7 +46,7 @@ function setup(responses, validate){
     return next;
   };
   const rumorReply=JSON.stringify({摘要:'更新校园传闻',传闻:{街头巷议:[{名称:'狂犬病爆发说',操作:'更新',来源:'藤美学园幸存学生',内容:'被咬伤的人会迅速变异。',可信度:'低'}]}});
-  const a=setup([rumorReply],tolerantValidate);a.engine.config.retryAttempts=0;
+  const a=setup([rumorReply],tolerantValidate);a.engine.config.retryAttempts=1;
   assert.equal(await a.engine.run(),true,'ZOD 可安全归正的可信度别名不应触发重试');
   assert.equal(a.calls(),1);assert.equal(a.writes(),1);
   assert.equal(a.get().传闻.街头巷议['狂犬病爆发说'].可信度,'酒话');
@@ -58,7 +58,7 @@ function setup(responses, validate){
   };
   const bad=JSON.stringify({摘要:'第一次',人物:[{名称:'卫兵',操作:'更新',地点:'校门',目标:'警戒',行动:'含糊行动',状态:'活跃',更新时间:'2010年-04月-13日-上午'}]});
   const good=JSON.stringify({摘要:'第二次',人物:[{名称:'卫兵',操作:'更新',行动:'规范行动'}]});
-  const b=setup([bad,good],rewriteValidate);b.engine.config.retryAttempts=1;
+  const b=setup([bad,good],rewriteValidate);b.engine.config.retryAttempts=2;
   assert.equal(await b.engine.run(),true);
   assert.equal(b.calls(),2);
   assert.match(b.engine.lastRetryLog[0].错误,/部分业务片段未通过/);
@@ -67,15 +67,13 @@ function setup(responses, validate){
   assert.match(b.engine.lastRetryLog[0].片段[0].原因,/含糊行动/);
   assert.match(b.engine.lastRetryLog[0].片段[0].原因,/规范行动/);
   const retry=JSON.parse(b.inputs[1]).纠错重试;
-  assert.equal(retry.当前总尝试,2);
-  assert.equal(retry.最大总尝试,2);
-  assert.equal(retry.当前额外重试,1);
-  assert.equal(retry.额外重试上限,1);
-  assert.equal(retry.当前重试,undefined,'旧的歧义字段不再发送');
+  assert.equal(retry.当前尝试,2);
+  assert.equal(retry.最大尝试次数,2);
+  for(const key of ['当前总尝试','最大总尝试','当前额外重试','额外重试上限'])assert.equal(retry[key],undefined);
 
-  assert.match(source,/失败后额外重试/,'UI 应明确这是首次请求之外的额外重试');
-  assert.match(source,/首次请求 1 次 \+ 最多额外/,'UI 应明确总尝试次数的组成');
-  assert.doesNotMatch(source,/label>失败重试次数 /,'旧歧义标签应移除');
+  assert.match(source,/最大尝试次数/,'UI 应直接使用包含首次请求的总尝试次数');
+  assert.match(source,/1 = 只请求一次/);
+  assert.doesNotMatch(source,/失败后额外重试/);
 
   console.log('world-engine schema/retry diagnostics acceptance passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

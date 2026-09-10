@@ -1034,14 +1034,12 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         if(error?.name==='AbortError')return false;
         return true;
     }
-    function retryInput(baseInput,error,lastReply,attempt,maxRetries,acceptedResult,retryPlan=[]) {
+    function retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]) {
         let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
         const plan=Array.isArray(retryPlan)?retryPlan.filter(Boolean).map(String):[];
         payload.纠错重试={
-            当前总尝试:attempt+1,
-            最大总尝试:maxRetries+1,
-            当前额外重试:attempt,
-            额外重试上限:maxRetries,
+            当前尝试:attempt+1,
+            最大尝试次数:maxAttempts,
             上次拒绝原因:String(error?.message||error||''),
             上次模型回复:String(lastReply||'').slice(-12000),
             已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
@@ -2383,7 +2381,7 @@ ${schemaText}
                     this.saveConfig();
                 }
             }
-            this.config.retryAttempts=Math.max(0,Math.min(5,Number(this.config.retryAttempts) || 0));
+            this.config.retryAttempts=Math.max(1,Math.min(5,Number(this.config.retryAttempts) || 3));
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
             if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
@@ -2899,27 +2897,27 @@ ${schemaText}
                 const request=await this.buildRequest(base);
                 if(token!==this.generation)throw new Error('请求已取消');
 
-                const maxRetries=Math.max(0,Math.min(5,Number(this.config.retryAttempts)||0));
+                const maxAttempts=Math.max(1,Math.min(5,Number(this.config.retryAttempts)||3));
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];
 
-                while(attempt<=maxRetries){
+                while(attempt<maxAttempts){
                     if(token!==this.generation)throw new Error('请求已取消');
                     this.controller=new AbortController();
                     timedOut=false;
-                    clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},120000);
-                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxRetries,acceptedWorldResult,lastRetryPlan);
+                    clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},300000);
+                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan);
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
                     actualRequest.manifest=Object.assign({},copy(request.manifest),{
                         观测:requestTokenTelemetry(request.system,attemptInput,request.schema),
                         尝试序号:attempt+1,
-                        最大失败重试:maxRetries,
+                        最大尝试次数:maxAttempts,
                         失败记录:copy(this.lastRetryLog)
                     });
                     actualRequest.manifest.观测.请求类型=attempt===0?'首次请求':'纠错重试';
                     this.lastAttemptCount=attempt+1;
                     this.lastRequest=actualRequest;
-                    this.status=attempt===0?'六模块联合推演中':'纠错重试 '+attempt+'/'+maxRetries;
+                    this.status=attempt===0?'六模块联合推演中':'纠错重试 '+(attempt+1)+'/'+maxAttempts;
                     this.render();
 
                     let received='',attemptTelemetry=null;
@@ -3030,11 +3028,12 @@ ${schemaText}
                         lastError=error;
                         lastRejectedReply=received||this.lastReply||'';
                         lastRetryPlan=Array.isArray(error?.retryPlan)&&error.retryPlan.length?copy(error.retryPlan):retryPlanForFailure(error,[]);
-                        const canRetry=!!received&&retryableModelFailure(error)&&attempt<maxRetries;
+                        const rejectedByModel=!!received&&retryableModelFailure(error);
+                        if(rejectedByModel)this.lastRetryLog.push({尝试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
+                        const canRetry=rejectedByModel&&attempt+1<maxAttempts;
                         if(!canRetry)throw error;
-                        this.lastRetryLog.push({重试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
                         attempt++;
-                        this.status='回复未通过 · 自动纠错 '+attempt+'/'+maxRetries;
+                        this.status='回复未通过 · 自动纠错 '+(attempt+1)+'/'+maxAttempts;
                         this.render();
                     }
                 }
@@ -3045,12 +3044,12 @@ ${schemaText}
                 result.stat_data=prepared.next;
                 result.__samsaraWorldCommit=base.fingerprint;
                 await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
-                this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 重试'+this.lastRetryLog.length+'次':'');
+                this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 前序失败'+this.lastRetryLog.length+'次':'');
                 return true;
             } catch (error) {
-                const failureMessage=error.name==='AbortError'?(timedOut?'请求超时（120秒）':'请求已取消'):String(error.message||error);
+                const failureMessage=error.name==='AbortError'?(timedOut?'请求超时（300秒）':'请求已取消'):String(error.message||error);
                 this.lastFailure=failureMessage;
-                const retryNote=this.lastRetryLog?.length?' · 已重试'+this.lastRetryLog.length+'次':'';
+                const retryNote=this.lastRetryLog?.length?' · 已记录失败'+this.lastRetryLog.length+'次':'';
                 this.status=(this.committing?'写入未确认 · ':'未写入 · ')+failureMessage+retryNote;
                 if(!(error.name==='AbortError'&&!timedOut))this.notifyFailure(this.status);
                 throw error;
@@ -3803,9 +3802,9 @@ ${schemaText}
             });
             this.panel.addEventListener('change',event=>{
                 if(event.target.matches('[data-retries]')){
-                    const value=Math.max(0,Math.min(5,Number(event.target.value)||0));
+                    const value=Math.max(1,Math.min(5,Number(event.target.value)||1));
                     this.config.retryAttempts=value;event.target.value=value;this.saveConfig();
-                    this.status='额外重试次数已设为 '+value+' 次 · 最多总尝试 '+(value+1)+' 次';
+                    this.status='最大尝试次数已设为 '+value+' 次';
                     this.panel.querySelector('footer span').textContent=this.status;
                 }else if(event.target.matches('[data-doc-import]')){
                     const input=event.target,file=input.files&&input.files[0];if(!file)return;
@@ -4201,32 +4200,20 @@ ${schemaText}
                     const slices=Array.isArray(item.片段)?item.片段:[],plans=Array.isArray(item.补充清单)?item.补充清单:[];
                     const details=slices.length?'<p><b>具体原因</b><br>'+slices.map(x=>text(x.片段)+'：'+text(x.原因)).join('<br>')+'</p>':'';
                     const guidance=plans.length?'<p><b>下一次纠错要求</b><br>'+plans.map(text).join('<br>')+'</p>':'';
-                    return '<div class="we-change"><time>#'+text(item.重试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p>'+details+guidance+'</div></div>';
+                    return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p>'+details+guidance+'</div></div>';
                 }).join('');
                 const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
-                const attemptRows=(this.lastAttemptTelemetry||[]).map(item=>({
-                    名称:'尝试 #'+item.尝试,
-                    结果:item.结果,
-                    输入:item.API输入Tokens!=null?tokenLabel(item.API输入Tokens,false):tokenLabel(item.输入估算Tokens,true),
-                    输出:item.API输出Tokens!=null?tokenLabel(item.API输出Tokens,false):tokenLabel(item.输出估算Tokens,true),
-                    总量:item.API总Tokens!=null?tokenLabel(item.API总Tokens,false):'',
-                    接口:item.接口,
-                    模型:item.模型,
-                    结构化模式:item.结构化模式,
-                    模式尝试:Array.isArray(item.模式尝试)&&item.模式尝试.length?item.模式尝试.join(' → '):'',
-                    耗时:Number.isFinite(Number(item.耗时毫秒))?(Number(item.耗时毫秒)/1000).toFixed(2).replace(/\.00$/,'')+' s':'',
-                    原因:item.原因||''
-                }));
-                html+=section('失败自动重试','<div class="we-config-row"><label>失败后额外重试 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求 1 次 + 最多额外重试 0~5 次；设为 5 时最多总尝试 6 次。默认额外 3，最大额外 5。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次：首次请求 1 次 + 额外重试 '+text(Math.max(0,this.lastAttemptCount-1))+' 次 = 共 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||'')+(attemptRows.length?fold('每次尝试观测（点击展开）',readable('尝试',attemptRows)) : ''));
+                html+=section('失败自动重试','<div class="we-config-row"><label>最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">包含首次请求。1 = 只请求一次；5 = 最多总共尝试 5 次。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次；每次模型业务拒绝都会在下方完整保留，包括最后一次失败。</p>':'')+(retryLog||''));
                 html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                 for(const [label,r] of [['最近实际发送',this.lastRequest],['下一次请求预览',this.previewRequest]]){
                     if(!r){html+=section(label,empty('暂无'+label));continue;}
                     const m=r.manifest||{},books=m.世界书条目||[],floors=m.正文楼层||[],obs=m.观测||requestTokenTelemetry(r.system,r.input,r.schema||WORLD_RESULT_SCHEMA);
                     const readChecks=(m.读取判定||[]).filter(item=>item.读取===true);
                     const exactInput=obs.实际输入Tokens!=null,exactOutput=obs.实际输出Tokens!=null;
-                    let body='<div class="we-request-summary">'+pill(m.输出协议||'WorldResult v1','dim')+pill('结构化 '+(obs.结构化实际模式||m.结构化输出||'auto'),'dim')+pill(obs.接口来源||m.接口来源||this.apiSourceLabel(),'dim')+pill(books.length+' 条世界书','dim')+pill(floors.length+' 层正文','dim')+pill((exactInput?tokenLabel(obs.实际输入Tokens,false):tokenLabel(obs.请求估算Tokens,true))+' 输入','dim')+(obs.输出估算Tokens!=null?pill((exactOutput?tokenLabel(obs.实际输出Tokens,false):tokenLabel(obs.输出估算Tokens,true))+' 输出','dim'):'')+(m.尝试序号?pill('尝试 '+m.尝试序号,'dim'):'')+(m.最大失败重试!==undefined?pill('最多重试 '+m.最大失败重试,'dim'):'')+'</div>';
-                    body+='<p class="we-muted">带“≈”的 tk 为本地估算；不同模型 tokenizer 会有差异。专属 API 返回 usage 时，输入/输出总量改用服务端实际 token；分段构成仍保持估算。Schema 已包含在 system 内，不要与 system 再相加。</p>';
-                    body+=fold('Token 构成（点击展开）',fields({总输入:exactInput?tokenLabel(obs.实际输入Tokens,false):tokenLabel(obs.请求估算Tokens,true),System:tokenLabel(obs.System估算Tokens,true),User:tokenLabel(obs.User估算Tokens,true),Schema子项:tokenLabel(obs.Schema估算Tokens,true),世界书:tokenLabel(books.reduce((sum,item)=>sum+(Number(item.估算Tokens)||0),0),true),正文:tokenLabel(floors.reduce((sum,item)=>sum+(Number(item.估算Tokens)||0),0),true),接口:obs.接口来源||m.接口来源||'',模型:obs.模型||'',模式尝试:Array.isArray(obs.模式尝试)&&obs.模式尝试.length?obs.模式尝试.join(' → '):'',耗时:Number.isFinite(Number(obs.耗时毫秒))?(Number(obs.耗时毫秒)/1000).toFixed(2).replace(/\.00$/,'')+' s':''})+fold('system 分段',fields({分段:(obs.System分段||[]).map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))}))+fold('user 分段',fields({分段:(obs.User分段||[]).map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))})));
+                    let body='<div class="we-request-summary">'+pill(m.输出协议||'WorldResult v1','dim')+pill('结构化 '+(obs.结构化实际模式||m.结构化输出||'auto'),'dim')+pill(obs.接口来源||m.接口来源||this.apiSourceLabel(),'dim')+pill(books.length+' 条世界书','dim')+pill(floors.length+' 层正文','dim')+pill((exactInput?tokenLabel(obs.实际输入Tokens,false):tokenLabel(obs.请求估算Tokens,true))+' 输入','dim')+(obs.输出估算Tokens!=null?pill((exactOutput?tokenLabel(obs.实际输出Tokens,false):tokenLabel(obs.输出估算Tokens,true))+' 输出','dim'):'')+(m.尝试序号?pill('尝试 '+m.尝试序号,'dim'):'')+(m.最大尝试次数!==undefined?pill('最多尝试 '+m.最大尝试次数,'dim'):'')+'</div>';
+                    const userTokenFields=Object.fromEntries((obs.User分段||[]).map(item=>[item.名称,tokenLabel(item.估算Tokens,true)]));
+                    body+='<p class="we-muted">带“≈”的 tk 只是本地容量粗估，不等于服务商真实 token；主神终端通道拿不到 usage 时无法确认精确总量。总输入 = System + 下列 User 分项；这里不再重复显示 User 总项或 Schema 子项。专属 API 返回 usage 时仅总输入/输出改用服务端实际 token。</p>';
+                    body+=fold('Token 构成（点击展开）',fields(Object.assign({总输入:exactInput?tokenLabel(obs.实际输入Tokens,false):tokenLabel(obs.请求估算Tokens,true),System:tokenLabel(obs.System估算Tokens,true)},userTokenFields,{接口:obs.接口来源||m.接口来源||'',模型:obs.模型||'',模式尝试:Array.isArray(obs.模式尝试)&&obs.模式尝试.length?obs.模式尝试.join(' → '):'',耗时:Number.isFinite(Number(obs.耗时毫秒))?(Number(obs.耗时毫秒)/1000).toFixed(2).replace(/\.00$/,'')+' s':''}))+fold('system 分段',fields({分段:(obs.System分段||[]).map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))})));
                     body+=fold('本轮实际读取资料（点击展开）',(readChecks.length?readable('条目',readChecks):empty('本轮未读取世界书','没有勾选命中或强制读取的世界书条目。'))+fold('实际读取世界书',fields({条目:books.map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))}))+fold('实际正文楼层',fields({楼层:floors.map(f=>'第 '+f.楼层+' 层 · '+f.角色+' · '+tokenLabel(f.估算Tokens,true))}))+fold('时间容量',fields(m.本轮时间容量||{})));
                     body+=fold('输出契约 · JSON Schema',raw('samsara_world_result_v1',JSON.stringify(r.schema||WORLD_RESULT_SCHEMA,null,2)));
                     body+=fold('system · 分段阅读',r.system.split(/\n(?=【)/).map((part,i)=>fold((part.match(/^【([^】]+)】/)||[])[1]||'身份 / 协议 '+(i+1),'<div class="we-prose">'+text(part)+'</div>')).join(''))+raw('system · 实际发送原文',r.system);

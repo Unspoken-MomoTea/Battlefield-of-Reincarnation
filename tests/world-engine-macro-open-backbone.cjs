@@ -45,7 +45,7 @@ host.Mvu={
 (async()=>{
   const engine=new Engine(host);
   engine.config.enabled=true;
-  engine.config.retryAttempts=0;
+  engine.config.retryAttempts=1;
   engine.config.requireMacroBackbone=true;
   engine.worldbook=async()=>[];
 

@@ -60,7 +60,7 @@
                     this.saveConfig();
                 }
             }
-            this.config.retryAttempts=Math.max(0,Math.min(5,Number(this.config.retryAttempts) || 0));
+            this.config.retryAttempts=Math.max(1,Math.min(5,Number(this.config.retryAttempts) || 3));
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
             if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
@@ -576,27 +576,27 @@
                 const request=await this.buildRequest(base);
                 if(token!==this.generation)throw new Error('请求已取消');
 
-                const maxRetries=Math.max(0,Math.min(5,Number(this.config.retryAttempts)||0));
+                const maxAttempts=Math.max(1,Math.min(5,Number(this.config.retryAttempts)||3));
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];
 
-                while(attempt<=maxRetries){
+                while(attempt<maxAttempts){
                     if(token!==this.generation)throw new Error('请求已取消');
                     this.controller=new AbortController();
                     timedOut=false;
-                    clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},120000);
-                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxRetries,acceptedWorldResult,lastRetryPlan);
+                    clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},300000);
+                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan);
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
                     actualRequest.manifest=Object.assign({},copy(request.manifest),{
                         观测:requestTokenTelemetry(request.system,attemptInput,request.schema),
                         尝试序号:attempt+1,
-                        最大失败重试:maxRetries,
+                        最大尝试次数:maxAttempts,
                         失败记录:copy(this.lastRetryLog)
                     });
                     actualRequest.manifest.观测.请求类型=attempt===0?'首次请求':'纠错重试';
                     this.lastAttemptCount=attempt+1;
                     this.lastRequest=actualRequest;
-                    this.status=attempt===0?'六模块联合推演中':'纠错重试 '+attempt+'/'+maxRetries;
+                    this.status=attempt===0?'六模块联合推演中':'纠错重试 '+(attempt+1)+'/'+maxAttempts;
                     this.render();
 
                     let received='',attemptTelemetry=null;
@@ -707,11 +707,12 @@
                         lastError=error;
                         lastRejectedReply=received||this.lastReply||'';
                         lastRetryPlan=Array.isArray(error?.retryPlan)&&error.retryPlan.length?copy(error.retryPlan):retryPlanForFailure(error,[]);
-                        const canRetry=!!received&&retryableModelFailure(error)&&attempt<maxRetries;
+                        const rejectedByModel=!!received&&retryableModelFailure(error);
+                        if(rejectedByModel)this.lastRetryLog.push({尝试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
+                        const canRetry=rejectedByModel&&attempt+1<maxAttempts;
                         if(!canRetry)throw error;
-                        this.lastRetryLog.push({重试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
                         attempt++;
-                        this.status='回复未通过 · 自动纠错 '+attempt+'/'+maxRetries;
+                        this.status='回复未通过 · 自动纠错 '+(attempt+1)+'/'+maxAttempts;
                         this.render();
                     }
                 }
@@ -722,12 +723,12 @@
                 result.stat_data=prepared.next;
                 result.__samsaraWorldCommit=base.fingerprint;
                 await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
-                this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 重试'+this.lastRetryLog.length+'次':'');
+                this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 前序失败'+this.lastRetryLog.length+'次':'');
                 return true;
             } catch (error) {
-                const failureMessage=error.name==='AbortError'?(timedOut?'请求超时（120秒）':'请求已取消'):String(error.message||error);
+                const failureMessage=error.name==='AbortError'?(timedOut?'请求超时（300秒）':'请求已取消'):String(error.message||error);
                 this.lastFailure=failureMessage;
-                const retryNote=this.lastRetryLog?.length?' · 已重试'+this.lastRetryLog.length+'次':'';
+                const retryNote=this.lastRetryLog?.length?' · 已记录失败'+this.lastRetryLog.length+'次':'';
                 this.status=(this.committing?'写入未确认 · ':'未写入 · ')+failureMessage+retryNote;
                 if(!(error.name==='AbortError'&&!timedOut))this.notifyFailure(this.status);
                 throw error;

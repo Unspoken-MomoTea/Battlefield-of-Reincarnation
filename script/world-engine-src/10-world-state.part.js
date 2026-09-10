@@ -693,14 +693,12 @@
         if(error?.name==='AbortError')return false;
         return true;
     }
-    function retryInput(baseInput,error,lastReply,attempt,maxRetries,acceptedResult,retryPlan=[]) {
+    function retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]) {
         let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
         const plan=Array.isArray(retryPlan)?retryPlan.filter(Boolean).map(String):[];
         payload.纠错重试={
-            当前总尝试:attempt+1,
-            最大总尝试:maxRetries+1,
-            当前额外重试:attempt,
-            额外重试上限:maxRetries,
+            当前尝试:attempt+1,
+            最大尝试次数:maxAttempts,
             上次拒绝原因:String(error?.message||error||''),
             上次模型回复:String(lastReply||'').slice(-12000),
             已接受业务结果:acceptedResult?copy(acceptedResult):undefined,

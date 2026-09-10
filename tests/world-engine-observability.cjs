@@ -52,7 +52,7 @@ assert.match(source, /lastAttemptTelemetry=\[\]/, 'attempt telemetry must be in-
 assert.match(source, /this\.lastAttemptTelemetry\.push\(attemptTelemetry\)/, 'returned attempts must be observed');
 assert.match(source, /结构化模式:mode,尝试模式:copy\(modeAttempts\),usage:normalizeTokenUsage\(data\?\.usage\)/, 'dedicated API must record actual structured mode and provider usage');
 assert.match(source, /auto（由主神终端协商）/, 'terminal path must not fake an actual structured mode');
-assert.match(source, /带“≈”的 tk 为本地估算/, 'UI must explain estimated vs provider token usage');
+assert.match(source, /带“≈”的 tk 只是本地容量粗估/, 'UI must explain estimated vs provider token usage');
 assert.match(source, /副 API 原始回复 · '\+replyTk/, 'raw reply heading must expose token size');
 assert.match(source, /请求超过内部安全上限（'\+formatTokenCount/, 'oversize error must be token-facing even if internal safety remains character based');
 assert.match(source, /system\.length\+input\.length>240000/, 'existing internal safety ceiling must remain unchanged in P1-C');

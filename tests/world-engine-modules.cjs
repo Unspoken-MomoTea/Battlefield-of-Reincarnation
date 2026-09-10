@@ -38,7 +38,7 @@ assert.match(texts['40-engine-runtime.part.js'], /async requestDedicatedApi\(/);
 assert.match(texts['40-engine-runtime.part.js'], /async run\(/);
 assert.doesNotMatch(texts['40-engine-runtime.part.js'], /        createPanel\(\) \{/);
 assert.match(texts['50-engine-ui.part.js'], /^        createPanel\(\) \{/);
-assert.match(texts['50-engine-ui.part.js'], /        render\(force=false\) \{/);
+assert.match(texts['50-engine-ui.part.js'], /        render\(force\) \{/);
 assert.match(texts['50-engine-ui.part.js'], /        dispose\(\) \{/);
 assert.match(texts['60-bootstrap.part.js'], /^    \/\/ CommonJS 入口仅供离线测试/);
 assert.match(texts['60-bootstrap.part.js'], /module\.exports/);

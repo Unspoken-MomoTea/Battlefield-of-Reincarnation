@@ -1,4 +1,4 @@
-name: World Engine P0 Review
+name: World Engine P0 Acceptance
 
 on:
   push:
@@ -7,38 +7,26 @@ on:
     paths:
       - .github/workflows/world-engine-p0.yml
 
-permissions:
-  contents: write
-
 jobs:
-  review:
+  acceptance:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: refactor/world-engine-p0
-      - name: Restore business invariants
-        run: python tools/review-world-engine-p0.py
       - name: Syntax check
         run: node --check 'script/世界推进系统.js'
-      - name: Verify prompt architecture
-        shell: bash
-        run: |
-          grep -q 'Step 7 · 输出差分' 'script/世界推进系统.js'
-          grep -q '【Canonical WorldResult JSON Schema】' 'script/世界推进系统.js'
-          if grep -q '【WorldResult 标准字段结构】' 'script/世界推进系统.js'; then
-            echo 'Duplicated field manual still present'
-            exit 1
-          fi
-      - name: Commit review fixes
-        shell: bash
-        run: |
-          if git diff --quiet; then
-            echo 'No changes to commit'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add 'script/世界推进系统.js'
-          git commit -m 'fix: preserve world engine business invariants'
-          git push origin HEAD:refactor/world-engine-p0
+      - name: Prompt pipeline audit
+        run: node tests/world-engine-prompt-pipeline.cjs
+      - name: Prompt editor regression
+        run: node tests/world-engine-prompt-editor.cjs
+      - name: Lifecycle regression
+        run: node tests/world-engine-lifecycle-audit.cjs
+      - name: Overview regression
+        run: node tests/world-engine-overview.cjs
+      - name: Prose projection regression
+        run: node tests/world-engine-prose.cjs
+      - name: Core world engine regression
+        run: node tests/world-engine.cjs
+      - name: UI regression
+        run: node tests/world-engine-ui.cjs

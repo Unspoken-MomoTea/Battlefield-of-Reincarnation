@@ -1469,6 +1469,18 @@
         sys.上次世界日期 = dateKey;
     }
 
+    function isPlayerOwnedAsset(asset, statData) {
+        const normalize = value => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
+        let playerName = '';
+        try {
+            const host = (typeof window !== 'undefined' && window.parent && window.parent !== window) ? window.parent : (typeof window !== 'undefined' ? window : null);
+            playerName = String(host?.SillyTavern?.name1 || host?.SillyTavern?.getContext?.()?.name1 || host?.name1 || '').trim();
+        } catch (e) {}
+        const owners = new Set(['<user>', '{{user}}', '玩家', playerName].filter(Boolean).map(normalize));
+        const owner = String(asset?.所属对象 || '<user>').trim() || '<user>';
+        return owners.has(normalize(owner));
+    }
+
     /** 资产全自动收菜系统 (改由 系统状态.游玩天数 轴驱动, 免疫副本时间跳跃) */
     function autoHarvestAssets(statData, statDataBefore) {
         const assets = statData?.资产;
@@ -1500,6 +1512,7 @@
         const fmtByPlay = (n) => fmtDate(currentDays + (n - playDays));
 
         Object.entries(assets).forEach(([assetName, asset]) => {
+            if (!isPlayerOwnedAsset(asset, statData)) return;
             if (!asset || !asset.建设序列) return;
             if (!Array.isArray(asset.待办事件)) asset.待办事件 = [];
 

@@ -542,6 +542,7 @@ export const Schema = z.object({
     }),
 
     资产: z.record(z.string(), strictItem(z.object({
+        所属对象: safeStr('<user>'),
         类型: safeStr(''),
         主体规模: clampNum(1, 1, 10),
         完整度: clampNum(100, 0, 100),

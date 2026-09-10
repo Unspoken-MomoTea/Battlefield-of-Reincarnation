@@ -713,7 +713,7 @@
         if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;
         return JSON.stringify(payload,null,2);
     }
-    // 仅允许世界叙事字段与世界经济三字段；玩家数值、持币余额、奖励发放和时钟不在写入名单内。
+    // 允许世界叙事、世界经济与共享资产账簿；玩家属性、持币余额、奖励发放和时钟仍不在写入名单内。
     function allowed(parts, stat) {
         const [a,b,c,d] = parts;
         if (a === '世界' && b === PATH) {
@@ -731,6 +731,7 @@
         if (a === '世界' && ['势力','探索'].includes(b)) return parts.length === 3 || (parts.length === 4 && Object.hasOwn(b === '势力' ? {实力:0,领地:0,描述:0,声望:0} : {风险:0,探索度:0,描述:0,隐藏真相:0},d));
         if (a === '世界' && b === '异端雷达') return parts.length === 5 && c === '名单' && parts[4] === '状态' && !(stat.设置 || {}).单一世界;
         if (a === '传闻' && ['街头巷议','情报交易','布告与檄文'].includes(b)) return parts.length === 3;
+        if (a === '资产') return parts.length === 2 && !!b;
         // 只允许修改变量AI已经建立的 NPC；禁止通过世界引擎创建关系列表对象。
         if (a === '关系列表') return parts.length === 3 && RELATION_SYNC_KEYS.has(c) && !!get(stat,[a,b]);
         if (a === '任务') return parts.length === 4 && ['列表','副本成就'].includes(b) && d === '状态' && !!get(stat,[a,b,c]);

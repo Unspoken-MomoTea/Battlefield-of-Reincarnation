@@ -507,7 +507,7 @@
             const input=JSON.stringify({
                 输入语义:{
                     世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
-                    当前变量:'世界推进专用热数据投影；仅含世界、人物能力、资产、活跃传播、近期历史与近期因果偏移。旧历史/旧偏移仍可留在MVU冷存档，但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',
+                    当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史与近期因果偏移。资产通过WorldResult.资产与同一顶层账簿双向同步；旧历史/旧偏移仍可留在MVU冷存档但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',
                     正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
                     程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
                     时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
@@ -684,8 +684,8 @@
                         next.世界[PATH].已处理楼层=base.fingerprint;
                         next.世界[PATH].已处理时间=base.stat.世界.时间;
                         const changes=committedPatches.map(p=>{
-                            const parts=tokens(p.path),back=parts[1]===PATH;
-                            return {时间:base.stat.世界.时间,类别:back?parts[2]:parts[1],名称:back?parts[3]:parts[2],字段:parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.内容||'记录已更新'):''};
+                            const parts=tokens(p.path),back=parts[1]===PATH,asset=parts[0]==='资产';
+                            return {时间:base.stat.世界.时间,类别:asset?'资产':back?parts[2]:parts[1],名称:asset?parts[1]:back?parts[3]:parts[2],字段:asset?'资产':parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.状态||p.value.内容||'记录已更新'):''};
                         });
                         next.世界[PATH].最近变化=changes.slice(-100);
                         const sourceOld=Object.assign(emptyState(),sourceStat.世界[PATH]||{});

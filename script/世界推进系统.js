@@ -226,7 +226,7 @@
 Step 1 · 读取事实：以当前变量与本轮已确认剧情为最高事实；明确世界书用于补充或校正设定；资料缺失时可使用模型已有的原著/世界知识，但不得覆盖已确认差异。主神任务、晋升试炼、任务状态、副本成就不属于输入依据。
 Step 2 · 校准宏观骨架：维护3~5个真正会改变篇章、地区、社会、战争、基础设施、势力格局或关键人物命运的宏观节点，并确定当前局势与下一个宏观边界。撤离、赶路、会合、调查、单次战斗、通过局部障碍等只属于当前事件或近期节点。
 Step 3 · 推进当前区间：只展开“当前世界时间 → 下一宏观节点”之间需要发生的事实。严格服从请求给出的本轮时间容量；先处理已经到期或正在进行的事项，再让未完事项向前推进合理一步。时间未推进时只能同步即时事实；未来计划不得写成已发生事实，下一个宏观边界之后不要提前拆成琐碎行动。
-Step 4 · 推演世界现场与场外实体：先更新当前区间内确实变化的地区现场，再决定人物行动。现场群体和环境事实写在势力地区；人物只维护自身地点、目标、行动、认知与持续背景关联，不复制地点现场。场外人物、势力与地区按职责、利益、现有资产与地区资源、路程、能力和认知运行，不围绕<user>空转；同场人物以正文为准，即将与<user>相遇时停在交互前一步。活跃异端始终复核地点、目标、行动与更新时间；死亡异端不可恢复活动。
+Step 4 · 推演世界现场与场外实体：先更新当前区间内确实变化的地区现场，再决定人物行动。现场群体和环境事实写在势力地区；人物只维护自身地点、目标、行动、认知与持续背景关联，不复制地点现场。场外人物、势力与地区按职责、利益、现有资产与地区资源、路程、能力和认知运行，不围绕<user>空转；已确认的场外资产变化同步到唯一资产账簿，可新增、更新、转移归属或移除已彻底消失资产；同场人物以正文为准，即将与<user>相遇时停在交互前一步。活跃异端始终复核地点、目标、行动与更新时间；死亡异端不可恢复活动。
 Step 5 · 维护因果与玩家结算台账：只有关键人物命运、重大事件结果、势力格局或主线可行性被实质改变时才写偏移；若原宏观轨道因此失效，同轮重构宏观顺序。探索只记录<user>实际到达、调查或可靠获知的整体区域成果，后台NPC的发现不转成玩家探索度；势力声望只因<user>对该势力造成的真实帮助、损害、背叛等结果变化。
 Step 6 · 维护世界传播与基础状态：只在事件确实产生新传播时维护传闻、情报或公告，并区分事实、猜测和谣言；已结束/过期传播不得复活。货币与历法只在世界事实确有变化或可靠设定明确时维护；任务世界不得把空间币当作本地货币。
 Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 业务事实；没有业务变化时只写摘要。因果.当前阶段是一段可直接阅读的当前世界局势；正在发生且可能被正文感知的当前事件，把已经成为现实的公开征兆/可见影响写入公开字段，隐藏计划、内幕和未来结局继续留在后台字段。
@@ -262,7 +262,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:11,
+        version:12,
         builtin:true,
         name:'默认设置',
         exportedAt:'2026-09-10T00:00:00.000Z',
@@ -281,7 +281,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
 1. 事实优先级：当前变量与已确认剧情 > 明确世界书 > 模型一般知识；过去事实约束未来，计划不等于事实。
 2. 宏观与区间：因果轨道只投影3~5个阶段级宏观节点；细节只展开到下一个宏观边界，局部行动不得升级为宏观节点。没有重大因果变化时保持宏观顺序稳定。
 3. 时间与事件：只用世界.时间计算本世界进展，严格服从本轮时间容量、路程和资源；无法确认跨度时只推进一步。待发生/进行中事件必须有可排序的具体时间或明确因果时间，不得只写“近期/稍后/未来/待定/未知”；受正文未决互动影响而尚无结果的事件保持进行中。
-4. 认知与职责：人物只有通过在场、既有认知或传播链获得信息后才能行动，不得全知反应。世界引擎负责场外世界；现有资产账簿只作为世界推演条件读取，驻扎人员、待办事件、建设序列、能源与消耗可影响后台行动；资产增减、战损、消费与收益仍由正文/MVU资产流程结算。当前场景直接事实与即时消费由正文/MVU负责。不得替<user>建立后台行动；主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界的局部结算不得重置世界。
+4. 认知与职责：人物只有通过在场、既有认知或传播链获得信息后才能行动，不得全知反应。顶层资产是个人与势力共用的唯一资产账簿；世界引擎可按已确认场外事实新增、更新、转移或移除资产，并维护所属对象、完整度、能源、消耗、建设、驻扎人员与待办事件。正文/MVU已结算的当前场景资产变化只同步，不重复扣算。不得替<user>建立后台行动；主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界的局部结算不得重置世界。
 5. 现场与人物：现场群体与环境事实属于势力地区，人物背景关联只记录持续的团体、组织、社交圈或阵营关系；同一现场事实不得复制进人物。先推进地区现场，再决定人物行动。活跃异端始终按当前世界时间复核地点、目标、行动与更新时间，死亡不可恢复；普通人物只维护真正热记录。
 6. 玩家台账：探索只结算<user>实际到达/调查/可靠获知的整体区域，后台NPC发现不计玩家探索；探索度以0/10/30/60/90/100作为无知/浅尝/熟悉/深入/掌控/核心锚点，已确认进度不得无因降低。势力仅在<user>首次接触或可靠获知后投影；声望只因<user>造成的真实关系结果变化，同一结果只结算一次，单轮绝对变化≤1000，超过500仅限重大核心事件。
 7. 因果偏移：只有关键人物命运、重大事件结果、势力格局或主线可行性被实质改变时记录偏移；影响程度负值表示偏离原轨道，正值表示修复/强化。世界超稳时不新增偏移；重大偏移使旧轨道失效时必须同轮重构宏观顺序。
@@ -1054,7 +1054,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;
         return JSON.stringify(payload,null,2);
     }
-    // 仅允许世界叙事字段与世界经济三字段；玩家数值、持币余额、奖励发放和时钟不在写入名单内。
+    // 允许世界叙事、世界经济与共享资产账簿；玩家属性、持币余额、奖励发放和时钟仍不在写入名单内。
     function allowed(parts, stat) {
         const [a,b,c,d] = parts;
         if (a === '世界' && b === PATH) {
@@ -1072,6 +1072,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         if (a === '世界' && ['势力','探索'].includes(b)) return parts.length === 3 || (parts.length === 4 && Object.hasOwn(b === '势力' ? {实力:0,领地:0,描述:0,声望:0} : {风险:0,探索度:0,描述:0,隐藏真相:0},d));
         if (a === '世界' && b === '异端雷达') return parts.length === 5 && c === '名单' && parts[4] === '状态' && !(stat.设置 || {}).单一世界;
         if (a === '传闻' && ['街头巷议','情报交易','布告与檄文'].includes(b)) return parts.length === 3;
+        if (a === '资产') return parts.length === 2 && !!b;
         // 只允许修改变量AI已经建立的 NPC；禁止通过世界引擎创建关系列表对象。
         if (a === '关系列表') return parts.length === 3 && RELATION_SYNC_KEYS.has(c) && !!get(stat,[a,b]);
         if (a === '任务') return parts.length === 4 && ['列表','副本成就'].includes(b) && d === '状态' && !!get(stat,[a,b,c]);
@@ -1110,7 +1111,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     const RELATION_ATTR_KEYS=['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'];
     const RELATION_ATTR5=['力量','敏捷','体质','精神','魅力'];
     const NPC_BUILD_AUDIT_LIMIT=4;
-    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'];
+    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'];
     const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
     const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
     function schemaFromSample(sample) {
@@ -1177,6 +1178,17 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         技能:{type:'object',additionalProperties:copy(RELATION_SKILL_SCHEMA),maxProperties:8},描述:{type:'string'}
     }};
     const RELATION_CURRENT_FORM_SCHEMA={type:'object',additionalProperties:false,required:['激活','名称'],properties:{激活:{type:'boolean'},名称:{type:'string'}}};
+    const ASSET_RESULT_SCHEMA={
+        type:'object',additionalProperties:false,required:['名称'],properties:{
+            名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','移除','撤销本轮']},
+            所属对象:{type:'string',minLength:1},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
+            能源:{anyOf:[{type:'object',additionalProperties:false,properties:{类型:{type:'string'},当前:{type:'number'},上限:{type:'number'},描述:{type:'string'}}},{type:'null'}]},
+            消耗单元:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{余量:{type:'number'},上限:{type:'number'},加成:{type:'array',items:{type:'string'}}}},{type:'null'}]}},
+            建设序列:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{阶段:{type:'string',enum:['基础','进阶','专业','顶尖','禁忌']},功能:{type:'string'},加成:{type:'array',items:{type:'string'}},产出:{type:'string'}}},{type:'null'}]}},
+            驻扎人员:{type:'object',additionalProperties:{anyOf:[{type:'string'},{type:'null'}]}},
+            待办事件:{type:'array',items:{type:'string'}}
+        }
+    };
     const WORLD_RESULT_SCHEMA={
         type:'object',
         additionalProperties:false,
@@ -1205,6 +1217,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             }},
             势力:{type:'array',maxItems:15,items:FACTION_RESULT_SCHEMA},
             探索:{type:'array',maxItems:20,items:EXPLORATION_RESULT_SCHEMA},
+            资产:{type:'array',maxItems:20,items:ASSET_RESULT_SCHEMA},
             异端:{type:'array',maxItems:15,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['活跃','死亡']}}}},
             传闻:{type:'object',additionalProperties:false,properties:{
                 街头巷议:{type:'array',maxItems:3,items:STREET_RUMOR_RESULT_SCHEMA},
@@ -1315,6 +1328,67 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         }
         return Array.from(map.values());
     }
+    function normalizeAssetResultList(value) {
+        const sourceList=Array.isArray(value)?value:plain(value)?Object.entries(value).map(([name,item])=>plain(item)?Object.assign({名称:name},copy(item)):{名称:name,操作:item==='移除'?'移除':'更新'}):[];
+        const map=new Map(),stringFields=['所属对象','类型','状态'],numberFields=['主体规模','完整度'];
+        const normalizeMap=(value,kind)=>{
+            if(!plain(value))return {};
+            const out={};
+            for(const [name,raw] of Object.entries(value)){
+                if(forbidden.has(name))continue;
+                if(raw===null){out[name]=null;continue;}
+                if(kind==='person'){
+                    if(typeof raw==='string')out[name]=raw;
+                    continue;
+                }
+                if(!plain(raw))continue;
+                const item={};
+                if(kind==='unit'){
+                    for(const key of ['余量','上限'])if(Object.hasOwn(raw,key)){const n=Number(raw[key]);if(Number.isFinite(n))item[key]=n;}
+                    if(Array.isArray(raw.加成))item.加成=raw.加成.filter(x=>typeof x==='string');
+                }else{
+                    if(Object.hasOwn(raw,'阶段'))item.阶段=String(raw.阶段||'');
+                    for(const key of ['功能','产出'])if(Object.hasOwn(raw,key))item[key]=String(raw[key]??'');
+                    if(Array.isArray(raw.加成))item.加成=raw.加成.filter(x=>typeof x==='string');
+                }
+                out[name]=item;
+            }
+            return out;
+        };
+        const mergeItem=(previous,item)=>{
+            if(!previous)return item;
+            const merged=Object.assign({},previous,item);
+            for(const field of ['消耗单元','建设序列','驻扎人员']){
+                if(plain(previous[field])&&plain(item[field]))merged[field]=Object.assign({},previous[field],item[field]);
+            }
+            if(plain(previous.能源)&&plain(item.能源))merged.能源=Object.assign({},previous.能源,item.能源);
+            return merged;
+        };
+        for(const source of sourceList){
+            if(!plain(source))continue;
+            const name=String(source.名称??source.name??'').trim();if(!name||forbidden.has(name))continue;
+            const operation=['更新','移除','撤销本轮'].includes(source.操作)?source.操作:'更新';
+            const id=nameKey(name);
+            if(operation==='撤销本轮'){map.delete(id);continue;}
+            const item={名称:name,操作:operation};
+            for(const field of stringFields)if(Object.hasOwn(source,field))item[field]=String(source[field]??'');
+            for(const field of numberFields)if(Object.hasOwn(source,field)){const n=Number(source[field]);item[field]=Number.isFinite(n)?n:source[field];}
+            if(Object.hasOwn(source,'能源')){
+                if(source.能源===null)item.能源=null;
+                else if(plain(source.能源)){
+                    item.能源={};
+                    for(const field of ['类型','描述'])if(Object.hasOwn(source.能源,field))item.能源[field]=String(source.能源[field]??'');
+                    for(const field of ['当前','上限'])if(Object.hasOwn(source.能源,field)){const n=Number(source.能源[field]);if(Number.isFinite(n))item.能源[field]=n;}
+                }
+            }
+            if(Object.hasOwn(source,'消耗单元'))item.消耗单元=normalizeMap(source.消耗单元,'unit');
+            if(Object.hasOwn(source,'建设序列'))item.建设序列=normalizeMap(source.建设序列,'build');
+            if(Object.hasOwn(source,'驻扎人员'))item.驻扎人员=normalizeMap(source.驻扎人员,'person');
+            if(Object.hasOwn(source,'待办事件'))item.待办事件=Array.isArray(source.待办事件)?source.待办事件.filter(x=>typeof x==='string'):[];
+            map.set(id,mergeItem(map.get(id),item));
+        }
+        return Array.from(map.values());
+    }
     function normalizeRelationResultList(value) {
         const list=Array.isArray(value)?value:[],map=new Map();
         for(const source of list){
@@ -1354,6 +1428,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             const operations=(key==='传播')?['更新','移除','撤销本轮']:['更新','撤销本轮'];
             result[key]=normalizeNamedResultList(value[key],sampleForWorldResultList(key),operations);
         }
+        result.资产=normalizeAssetResultList(value.资产);
         result.异端=(Array.isArray(value.异端)?value.异端:[]).filter(plain).map(item=>({
             名称:String(item.名称||'').trim(),
             操作:item.操作==='撤销本轮'?'撤销本轮':'更新',
@@ -1405,7 +1480,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
         result.货币=Object.assign({},a.货币||{},b.货币||{});
         result.历法=Object.assign({},a.历法||{},b.历法||{});
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
         result.因果={
             偏移记录:mergeNamedResultLists(a.因果?.偏移记录,b.因果?.偏移记录)
         };
@@ -1422,7 +1497,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
         for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
         for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端']){
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端']){
             for(const item of result[key]||[])push(key+'/'+item.名称,{[key]:[copy(item)]});
         }
         if(Object.hasOwn(result.因果||{},'当前阶段'))push('因果/当前阶段',{因果:{当前阶段:result.因果.当前阶段}});
@@ -1666,6 +1741,50 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         return merged;
     }
 
+    const ASSET_DEFAULTS={所属对象:'<user>',类型:'',主体规模:1,完整度:100,状态:'',建设序列:{},驻扎人员:{},待办事件:[]};
+    const ASSET_ENERGY_DEFAULTS={类型:'',当前:0,上限:0,描述:''};
+    const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
+    const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
+    function materializeAssetRecord(oldValue,item,isNew=false) {
+        const oldAsset=plain(oldValue)?copy(oldValue):{},asset=Object.assign(copy(ASSET_DEFAULTS),oldAsset);
+        if(!String(asset.所属对象||'').trim())asset.所属对象='<user>';
+        if(isNew){
+            if(!Object.hasOwn(item,'所属对象')||!String(item.所属对象||'').trim())throw new Error('新资产必须明确所属对象：'+item.名称);
+            if(!Object.hasOwn(item,'类型')||!String(item.类型||'').trim())throw new Error('新资产必须明确类型：'+item.名称);
+        }
+        for(const field of ['所属对象','类型','主体规模','完整度','状态'])if(Object.hasOwn(item,field))asset[field]=copy(item[field]);
+        if(Object.hasOwn(item,'能源')){
+            if(item.能源===null)delete asset.能源;
+            else asset.能源=Object.assign(copy(ASSET_ENERGY_DEFAULTS),plain(oldAsset.能源)?copy(oldAsset.能源):{},plain(item.能源)?copy(item.能源):{});
+        }
+        const mergeNamedMap=(field,defaults)=>{
+            if(!Object.hasOwn(item,field))return;
+            const merged=plain(oldAsset[field])?copy(oldAsset[field]):{};
+            for(const [name,value] of Object.entries(item[field]||{})){
+                if(forbidden.has(name))continue;
+                if(value===null){delete merged[name];continue;}
+                const previous=plain(merged[name])?copy(merged[name]):{};
+                merged[name]=Object.assign(copy(defaults),previous,copy(value));
+            }
+            if(Object.keys(merged).length)asset[field]=merged;else delete asset[field];
+        };
+        mergeNamedMap('消耗单元',ASSET_UNIT_DEFAULTS);
+        mergeNamedMap('建设序列',ASSET_BUILD_DEFAULTS);
+        if(Object.hasOwn(item,'驻扎人员')){
+            const merged=plain(oldAsset.驻扎人员)?copy(oldAsset.驻扎人员):{};
+            for(const [name,value] of Object.entries(item.驻扎人员||{})){
+                if(forbidden.has(name))continue;
+                if(value===null)delete merged[name];else merged[name]=String(value??'');
+            }
+            asset.驻扎人员=merged;
+        }
+        if(Object.hasOwn(item,'待办事件'))asset.待办事件=copy(item.待办事件||[]);
+        if(!plain(asset.建设序列))asset.建设序列={};
+        if(!plain(asset.驻扎人员))asset.驻扎人员={};
+        if(!Array.isArray(asset.待办事件))asset.待办事件=[];
+        return asset;
+    }
+
     function compileWorldResult(stat,value) {
         const result=normalizeWorldResult(value),patches=[],warnings=[];
         const exists=parts=>get(stat,canonicalizeParts(parts,stat));
@@ -1732,6 +1851,19 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             addEntity(['世界','因果轨道','偏移记录',item.名称],item,EXISTING.偏移记录);
         }
         for(const item of result.势力)addEntity(['世界','势力',item.名称],item,EXISTING.势力);
+        for(const item of result.资产||[]){
+            if(item.操作==='撤销本轮')continue;
+            const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;
+            if(item.操作==='移除'){
+                if(target)patches.push({op:'remove',path:pointer(['资产',target])});
+                else warnings.push('资产对象不存在，忽略移除：'+item.名称);
+                continue;
+            }
+            const finalName=target||item.名称;
+            const record=materializeAssetRecord(existing,item,!target);
+            if(existing&&same(existing,record))continue;
+            patches.push({op:target?'replace':'add',path:pointer(['资产',finalName]),value:record});
+        }
         for(const item of result.探索){
             const granularity=explorationGranularity(item.名称);
             if(granularity.invalid)throw new Error('探索粒度过细：'+item.名称+'。世界.探索只记录整体地标/区域'+(granularity.parent?'，请改为“'+granularity.parent+'”并把微观进展累加到主区域':'，禁止把天台、教室、走廊、房间等子区域作为独立探索项'));
@@ -1840,7 +1972,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             if (p[1] === PATH && p[2] === '历史' && (patch.op !== 'add' || old !== undefined)) throw new Error('历史只允许新增');
             // 世界模型经常把“首次设置”写成 replace；对允许创建的世界记录按 upsert 处理。
             if (patch.op !== 'add' && old === undefined && !canUpsertMissing(p,next)) throw new Error('目标不存在：' + patch.path);
-            if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播'))) throw new Error('仅可移除过期传播与传闻，其他记录使用状态结束');
+            if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播') || (p[0] === '资产' && p.length === 2))) throw new Error('仅可移除过期传播、传闻与已彻底消失的资产，其他记录使用状态结束');
             let value=patch.value;
             if (patch.op !== 'remove') {
                 if (value === undefined) throw new Error('缺少补丁值');
@@ -2302,7 +2434,8 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
 事件分类只使用当前事件/近期节点/宏观节点。进行中的当前事件若可能被正文感知，公开征兆/可见影响只能写已经成为现实的公开信息，不得包含隐藏条件、默认走向或未来计划。
 因果只提交当前阶段、宏观顺序和偏移记录。当前阶段必须是可直接阅读的当前世界局势；宏观顺序只列3~5个宏观事件名称；输入中的偏移摘要是只读统计，不得据此重建已经隐藏的旧偏移。
 人物背景关联只记录持续的团体/组织/社交关系，不复制地点或事件；现场群体与环境变化写在势力地区，由地点关系形成身边发展。人物、势力地区、传播仍只用事件名称建立关联；不得为玩家建立后台人物记录。关系只更新关系列表中已经存在的对象；HP=0 只用于剧情已确认或场外已确认的死亡，不替正文进行常规战斗结算。
-主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数、世界时间、玩家属性、玩家持币余额和资产账簿均不属于 WorldResult。不要输出已废弃的“公开摘要”或“正文承接”。
+资产使用顶层资产作为唯一账簿；所属对象写实际个人或势力，<user>统一写<user>。世界引擎可按已确认场外事件新增、更新、转移或移除资产；当前场景已经结算的变化只同步，不重复计算。
+主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数、世界时间、玩家属性和玩家持币余额均不属于 WorldResult。不要输出已废弃的“公开摘要”或“正文承接”。
 
 【Canonical WorldResult JSON Schema】
 以下 Schema 是唯一字段结构定义；即使 API 降级到 json_object 或 plain，也必须严格遵守。文字业务约束与 Schema 冲突时以 Schema 的字段结构和值域为准：
@@ -2830,7 +2963,7 @@ ${schemaText}
             const input=JSON.stringify({
                 输入语义:{
                     世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
-                    当前变量:'世界推进专用热数据投影；仅含世界、人物能力、资产、活跃传播、近期历史与近期因果偏移。旧历史/旧偏移仍可留在MVU冷存档，但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',
+                    当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史与近期因果偏移。资产通过WorldResult.资产与同一顶层账簿双向同步；旧历史/旧偏移仍可留在MVU冷存档但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',
                     正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
                     程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
                     时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
@@ -3007,8 +3140,8 @@ ${schemaText}
                         next.世界[PATH].已处理楼层=base.fingerprint;
                         next.世界[PATH].已处理时间=base.stat.世界.时间;
                         const changes=committedPatches.map(p=>{
-                            const parts=tokens(p.path),back=parts[1]===PATH;
-                            return {时间:base.stat.世界.时间,类别:back?parts[2]:parts[1],名称:back?parts[3]:parts[2],字段:parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.内容||'记录已更新'):''};
+                            const parts=tokens(p.path),back=parts[1]===PATH,asset=parts[0]==='资产';
+                            return {时间:base.stat.世界.时间,类别:asset?'资产':back?parts[2]:parts[1],名称:asset?parts[1]:back?parts[3]:parts[2],字段:asset?'资产':parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.状态||p.value.内容||'记录已更新'):''};
                         });
                         next.世界[PATH].最近变化=changes.slice(-100);
                         const sourceOld=Object.assign(emptyState(),sourceStat.世界[PATH]||{});

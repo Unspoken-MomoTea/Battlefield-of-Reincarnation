@@ -31,7 +31,7 @@
     const RELATION_ATTR_KEYS=['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'];
     const RELATION_ATTR5=['力量','敏捷','体质','精神','魅力'];
     const NPC_BUILD_AUDIT_LIMIT=4;
-    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'];
+    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'];
     const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
     const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
     function schemaFromSample(sample) {
@@ -98,6 +98,17 @@
         技能:{type:'object',additionalProperties:copy(RELATION_SKILL_SCHEMA),maxProperties:8},描述:{type:'string'}
     }};
     const RELATION_CURRENT_FORM_SCHEMA={type:'object',additionalProperties:false,required:['激活','名称'],properties:{激活:{type:'boolean'},名称:{type:'string'}}};
+    const ASSET_RESULT_SCHEMA={
+        type:'object',additionalProperties:false,required:['名称'],properties:{
+            名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','移除','撤销本轮']},
+            所属对象:{type:'string',minLength:1},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
+            能源:{anyOf:[{type:'object',additionalProperties:false,properties:{类型:{type:'string'},当前:{type:'number'},上限:{type:'number'},描述:{type:'string'}}},{type:'null'}]},
+            消耗单元:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{余量:{type:'number'},上限:{type:'number'},加成:{type:'array',items:{type:'string'}}}},{type:'null'}]}},
+            建设序列:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{阶段:{type:'string',enum:['基础','进阶','专业','顶尖','禁忌']},功能:{type:'string'},加成:{type:'array',items:{type:'string'}},产出:{type:'string'}}},{type:'null'}]}},
+            驻扎人员:{type:'object',additionalProperties:{anyOf:[{type:'string'},{type:'null'}]}},
+            待办事件:{type:'array',items:{type:'string'}}
+        }
+    };
     const WORLD_RESULT_SCHEMA={
         type:'object',
         additionalProperties:false,
@@ -126,6 +137,7 @@
             }},
             势力:{type:'array',maxItems:15,items:FACTION_RESULT_SCHEMA},
             探索:{type:'array',maxItems:20,items:EXPLORATION_RESULT_SCHEMA},
+            资产:{type:'array',maxItems:20,items:ASSET_RESULT_SCHEMA},
             异端:{type:'array',maxItems:15,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['活跃','死亡']}}}},
             传闻:{type:'object',additionalProperties:false,properties:{
                 街头巷议:{type:'array',maxItems:3,items:STREET_RUMOR_RESULT_SCHEMA},
@@ -236,6 +248,67 @@
         }
         return Array.from(map.values());
     }
+    function normalizeAssetResultList(value) {
+        const sourceList=Array.isArray(value)?value:plain(value)?Object.entries(value).map(([name,item])=>plain(item)?Object.assign({名称:name},copy(item)):{名称:name,操作:item==='移除'?'移除':'更新'}):[];
+        const map=new Map(),stringFields=['所属对象','类型','状态'],numberFields=['主体规模','完整度'];
+        const normalizeMap=(value,kind)=>{
+            if(!plain(value))return {};
+            const out={};
+            for(const [name,raw] of Object.entries(value)){
+                if(forbidden.has(name))continue;
+                if(raw===null){out[name]=null;continue;}
+                if(kind==='person'){
+                    if(typeof raw==='string')out[name]=raw;
+                    continue;
+                }
+                if(!plain(raw))continue;
+                const item={};
+                if(kind==='unit'){
+                    for(const key of ['余量','上限'])if(Object.hasOwn(raw,key)){const n=Number(raw[key]);if(Number.isFinite(n))item[key]=n;}
+                    if(Array.isArray(raw.加成))item.加成=raw.加成.filter(x=>typeof x==='string');
+                }else{
+                    if(Object.hasOwn(raw,'阶段'))item.阶段=String(raw.阶段||'');
+                    for(const key of ['功能','产出'])if(Object.hasOwn(raw,key))item[key]=String(raw[key]??'');
+                    if(Array.isArray(raw.加成))item.加成=raw.加成.filter(x=>typeof x==='string');
+                }
+                out[name]=item;
+            }
+            return out;
+        };
+        const mergeItem=(previous,item)=>{
+            if(!previous)return item;
+            const merged=Object.assign({},previous,item);
+            for(const field of ['消耗单元','建设序列','驻扎人员']){
+                if(plain(previous[field])&&plain(item[field]))merged[field]=Object.assign({},previous[field],item[field]);
+            }
+            if(plain(previous.能源)&&plain(item.能源))merged.能源=Object.assign({},previous.能源,item.能源);
+            return merged;
+        };
+        for(const source of sourceList){
+            if(!plain(source))continue;
+            const name=String(source.名称??source.name??'').trim();if(!name||forbidden.has(name))continue;
+            const operation=['更新','移除','撤销本轮'].includes(source.操作)?source.操作:'更新';
+            const id=nameKey(name);
+            if(operation==='撤销本轮'){map.delete(id);continue;}
+            const item={名称:name,操作:operation};
+            for(const field of stringFields)if(Object.hasOwn(source,field))item[field]=String(source[field]??'');
+            for(const field of numberFields)if(Object.hasOwn(source,field)){const n=Number(source[field]);item[field]=Number.isFinite(n)?n:source[field];}
+            if(Object.hasOwn(source,'能源')){
+                if(source.能源===null)item.能源=null;
+                else if(plain(source.能源)){
+                    item.能源={};
+                    for(const field of ['类型','描述'])if(Object.hasOwn(source.能源,field))item.能源[field]=String(source.能源[field]??'');
+                    for(const field of ['当前','上限'])if(Object.hasOwn(source.能源,field)){const n=Number(source.能源[field]);if(Number.isFinite(n))item.能源[field]=n;}
+                }
+            }
+            if(Object.hasOwn(source,'消耗单元'))item.消耗单元=normalizeMap(source.消耗单元,'unit');
+            if(Object.hasOwn(source,'建设序列'))item.建设序列=normalizeMap(source.建设序列,'build');
+            if(Object.hasOwn(source,'驻扎人员'))item.驻扎人员=normalizeMap(source.驻扎人员,'person');
+            if(Object.hasOwn(source,'待办事件'))item.待办事件=Array.isArray(source.待办事件)?source.待办事件.filter(x=>typeof x==='string'):[];
+            map.set(id,mergeItem(map.get(id),item));
+        }
+        return Array.from(map.values());
+    }
     function normalizeRelationResultList(value) {
         const list=Array.isArray(value)?value:[],map=new Map();
         for(const source of list){
@@ -275,6 +348,7 @@
             const operations=(key==='传播')?['更新','移除','撤销本轮']:['更新','撤销本轮'];
             result[key]=normalizeNamedResultList(value[key],sampleForWorldResultList(key),operations);
         }
+        result.资产=normalizeAssetResultList(value.资产);
         result.异端=(Array.isArray(value.异端)?value.异端:[]).filter(plain).map(item=>({
             名称:String(item.名称||'').trim(),
             操作:item.操作==='撤销本轮'?'撤销本轮':'更新',
@@ -326,7 +400,7 @@
         const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
         result.货币=Object.assign({},a.货币||{},b.货币||{});
         result.历法=Object.assign({},a.历法||{},b.历法||{});
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
         result.因果={
             偏移记录:mergeNamedResultLists(a.因果?.偏移记录,b.因果?.偏移记录)
         };
@@ -343,7 +417,7 @@
         const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
         for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
         for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端']){
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端']){
             for(const item of result[key]||[])push(key+'/'+item.名称,{[key]:[copy(item)]});
         }
         if(Object.hasOwn(result.因果||{},'当前阶段'))push('因果/当前阶段',{因果:{当前阶段:result.因果.当前阶段}});
@@ -587,6 +661,50 @@
         return merged;
     }
 
+    const ASSET_DEFAULTS={所属对象:'<user>',类型:'',主体规模:1,完整度:100,状态:'',建设序列:{},驻扎人员:{},待办事件:[]};
+    const ASSET_ENERGY_DEFAULTS={类型:'',当前:0,上限:0,描述:''};
+    const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
+    const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
+    function materializeAssetRecord(oldValue,item,isNew=false) {
+        const oldAsset=plain(oldValue)?copy(oldValue):{},asset=Object.assign(copy(ASSET_DEFAULTS),oldAsset);
+        if(!String(asset.所属对象||'').trim())asset.所属对象='<user>';
+        if(isNew){
+            if(!Object.hasOwn(item,'所属对象')||!String(item.所属对象||'').trim())throw new Error('新资产必须明确所属对象：'+item.名称);
+            if(!Object.hasOwn(item,'类型')||!String(item.类型||'').trim())throw new Error('新资产必须明确类型：'+item.名称);
+        }
+        for(const field of ['所属对象','类型','主体规模','完整度','状态'])if(Object.hasOwn(item,field))asset[field]=copy(item[field]);
+        if(Object.hasOwn(item,'能源')){
+            if(item.能源===null)delete asset.能源;
+            else asset.能源=Object.assign(copy(ASSET_ENERGY_DEFAULTS),plain(oldAsset.能源)?copy(oldAsset.能源):{},plain(item.能源)?copy(item.能源):{});
+        }
+        const mergeNamedMap=(field,defaults)=>{
+            if(!Object.hasOwn(item,field))return;
+            const merged=plain(oldAsset[field])?copy(oldAsset[field]):{};
+            for(const [name,value] of Object.entries(item[field]||{})){
+                if(forbidden.has(name))continue;
+                if(value===null){delete merged[name];continue;}
+                const previous=plain(merged[name])?copy(merged[name]):{};
+                merged[name]=Object.assign(copy(defaults),previous,copy(value));
+            }
+            if(Object.keys(merged).length)asset[field]=merged;else delete asset[field];
+        };
+        mergeNamedMap('消耗单元',ASSET_UNIT_DEFAULTS);
+        mergeNamedMap('建设序列',ASSET_BUILD_DEFAULTS);
+        if(Object.hasOwn(item,'驻扎人员')){
+            const merged=plain(oldAsset.驻扎人员)?copy(oldAsset.驻扎人员):{};
+            for(const [name,value] of Object.entries(item.驻扎人员||{})){
+                if(forbidden.has(name))continue;
+                if(value===null)delete merged[name];else merged[name]=String(value??'');
+            }
+            asset.驻扎人员=merged;
+        }
+        if(Object.hasOwn(item,'待办事件'))asset.待办事件=copy(item.待办事件||[]);
+        if(!plain(asset.建设序列))asset.建设序列={};
+        if(!plain(asset.驻扎人员))asset.驻扎人员={};
+        if(!Array.isArray(asset.待办事件))asset.待办事件=[];
+        return asset;
+    }
+
     function compileWorldResult(stat,value) {
         const result=normalizeWorldResult(value),patches=[],warnings=[];
         const exists=parts=>get(stat,canonicalizeParts(parts,stat));
@@ -653,6 +771,19 @@
             addEntity(['世界','因果轨道','偏移记录',item.名称],item,EXISTING.偏移记录);
         }
         for(const item of result.势力)addEntity(['世界','势力',item.名称],item,EXISTING.势力);
+        for(const item of result.资产||[]){
+            if(item.操作==='撤销本轮')continue;
+            const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;
+            if(item.操作==='移除'){
+                if(target)patches.push({op:'remove',path:pointer(['资产',target])});
+                else warnings.push('资产对象不存在，忽略移除：'+item.名称);
+                continue;
+            }
+            const finalName=target||item.名称;
+            const record=materializeAssetRecord(existing,item,!target);
+            if(existing&&same(existing,record))continue;
+            patches.push({op:target?'replace':'add',path:pointer(['资产',finalName]),value:record});
+        }
         for(const item of result.探索){
             const granularity=explorationGranularity(item.名称);
             if(granularity.invalid)throw new Error('探索粒度过细：'+item.名称+'。世界.探索只记录整体地标/区域'+(granularity.parent?'，请改为“'+granularity.parent+'”并把微观进展累加到主区域':'，禁止把天台、教室、走廊、房间等子区域作为独立探索项'));
@@ -761,7 +892,7 @@
             if (p[1] === PATH && p[2] === '历史' && (patch.op !== 'add' || old !== undefined)) throw new Error('历史只允许新增');
             // 世界模型经常把“首次设置”写成 replace；对允许创建的世界记录按 upsert 处理。
             if (patch.op !== 'add' && old === undefined && !canUpsertMissing(p,next)) throw new Error('目标不存在：' + patch.path);
-            if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播'))) throw new Error('仅可移除过期传播与传闻，其他记录使用状态结束');
+            if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播') || (p[0] === '资产' && p.length === 2))) throw new Error('仅可移除过期传播、传闻与已彻底消失的资产，其他记录使用状态结束');
             let value=patch.value;
             if (patch.op !== 'remove') {
                 if (value === undefined) throw new Error('缺少补丁值');

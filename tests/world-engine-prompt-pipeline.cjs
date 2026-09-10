@@ -13,7 +13,7 @@ const preset = capture(/const DEFAULT_PRESET = `([\s\S]*?)`;\n    const BUILTIN_
 const core = capture(/const CORE_WORLD_RULES = `([\s\S]*?)`;?\n    function splitPresetSegments/, 'CORE_WORLD_RULES');
 const protocol = capture(/function protocol\(\)[\s\S]*?return `([\s\S]*?)`;\n    \}/, 'protocol');
 
-assert(source.includes("version:11,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 11');
+assert(source.includes("version:12,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 11');
 assert(source.includes("const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id"), 'built-in migration must not overwrite custom prompt documents');
 
 for (let i = 1; i <= 7; i += 1) {
@@ -46,7 +46,8 @@ assert(protocol.includes('【Canonical WorldResult JSON Schema】'), 'protocol m
 assert(protocol.includes('${schemaText}'), 'protocol must inject the canonical schema');
 assert(protocol.includes('人物背景关联只记录持续的团体/组织/社交关系'), 'protocol should define background-link ownership');
 assert(protocol.includes('现场群体与环境变化写在势力地区'), 'protocol should define shared scene ownership');
-assert(core.includes('现有资产账簿') && core.includes('驻扎人员') && core.includes('待办事件'), 'core should make existing asset ledger relevant to offscreen world actions');
+assert(core.includes('唯一资产账簿') && core.includes('驻扎人员') && core.includes('待办事件'), 'core should define the shared writable asset ledger');
+assert(protocol.includes('资产使用顶层资产作为唯一账簿') && protocol.includes('新增、更新、转移或移除资产'), 'protocol should expose asset writeback semantics');
 assert(!protocol.includes('【WorldResult 标准字段结构】'), 'duplicated field-manual section must stay removed');
 assert(!core.includes('WorldResult.探索必须是数组'), 'schema-level exploration shape must not return to core rules');
 assert(!preset.includes('风险只能是 F/E/D/C/B/A/S/SS/SSS'), 'schema enum must not be duplicated in default prompt');

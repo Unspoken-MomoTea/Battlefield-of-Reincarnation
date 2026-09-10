@@ -1219,7 +1219,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(engine.config.retryAttempts,3);
         const sourceText=fs.readFileSync(file,'utf8');
         assert.match(sourceText,/data-retries/);
-        assert.match(sourceText,/失败重试次数/);
+        assert.match(sourceText,/失败后额外重试/);
     });
     await test('request inspection names business/compiler correction instead of model patches', () => {
         const sourceText=fs.readFileSync(file,'utf8');

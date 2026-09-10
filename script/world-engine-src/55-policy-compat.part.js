@@ -32,6 +32,17 @@
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
+    const makeRetryFailureBeforeConcreteReasons=makeRetryFailure;
+    makeRetryFailure=function(rejected,globalError) {
+        const error=makeRetryFailureBeforeConcreteReasons(rejected,globalError);
+        const details=(rejected||[]).map(item=>item?.片段&&item?.原因?item.片段+'：'+item.原因:'').filter(Boolean);
+        if(details.length){
+            const summary=String(error.message||'WorldResult 未通过业务校验').split('\n\n具体原因\n')[0];
+            error.message=summary+'\n\n具体原因\n'+details.join('\n');
+        }
+        return error;
+    };
+
     const WORLD_STATE_DERIVED_SCHEMA_KEYS=new Set(['真属性','最终属性','强化']);
     function syncWorldStateDerivedSchemaFields(target,checked) {
         if(Array.isArray(target)&&Array.isArray(checked)){

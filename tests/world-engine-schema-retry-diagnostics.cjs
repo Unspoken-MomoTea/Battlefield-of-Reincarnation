@@ -27,6 +27,11 @@ function setup(responses, validate){
 }
 
 (async()=>{
+  const eventSchema=WORLD_RESULT_SCHEMA.properties.事件.items.properties;
+  assert.deepEqual(eventSchema.状态.enum,['待发生','进行中','已完成','已取消'],'事件状态应由 Canonical Schema 直接约束');
+  assert.deepEqual(eventSchema.分类.enum,['当前事件','近期节点','宏观节点'],'事件分类应由 Canonical Schema 直接约束');
+  const offsetSchema=WORLD_RESULT_SCHEMA.properties.因果.properties.偏移记录.items.properties.影响程度;
+  assert.equal(offsetSchema.minimum,-100);assert.equal(offsetSchema.maximum,120);
   const streetSchema=WORLD_RESULT_SCHEMA.properties.传闻.properties.街头巷议.items.properties.可信度;
   assert.deepEqual(streetSchema.enum,['酒话','可疑','或许可信'],'WorldResult Schema 应直接暴露街头巷议合法三档');
   const intelSchema=WORLD_RESULT_SCHEMA.properties.传闻.properties.情报交易.items.properties.情报评级;

@@ -22,7 +22,8 @@ const assembled = parts.map(name => texts[name]).join('');
 const output = fs.readFileSync(delivery, 'utf8');
 assert.equal(assembled, output, 'source parts must reproduce the checked-in single-file delivery byte-for-byte');
 
-assert.match(texts['00-foundation-prompt.part.js'], /^\/\* 轮回战场 · 世界引擎\/[\s\S]*\(function \(root\) \{/);
+assert.ok(texts['00-foundation-prompt.part.js'].startsWith('/* 轮回战场 · 世界引擎\n'), 'foundation part must own the delivery header');
+assert.ok(texts['00-foundation-prompt.part.js'].includes('(function (root) {'), 'foundation part must open the shared IIFE');
 assert.match(texts['00-foundation-prompt.part.js'], /const DEFAULT_PRESET = `/);
 assert.match(texts['10-world-state.part.js'], /^    const RECORDS = \{/);
 assert.match(texts['10-world-state.part.js'], /function compactWorldLifecycle\(/);

@@ -1,0 +1,63 @@
+name: World Engine Macro Backbone Count Acceptance
+
+on:
+  push:
+    branches: [fix/world-engine-macro-backbone-count]
+    paths:
+      - '.github/workflows/world-engine-macro-backbone-count.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  macro-backbone:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/world-engine-macro-backbone-count
+          fetch-depth: 0
+      - name: Red - reproduce old retry loop
+        shell: bash
+        run: |
+          if node tests/world-engine-macro-open-backbone.cjs; then
+            echo 'Expected regression test to fail before implementation.' >&2
+            exit 1
+          fi
+          echo 'Regression reproduced: old code rejects 1 active + 2 future macro nodes.'
+      - name: Green - apply focused fix
+        run: |
+          python tools/refactor-world-engine-macro-backbone-count.py
+          python tools/build-world-engine.py
+          python tools/build-world-engine.py --check
+          node --check 'script/世界推进系统.js'
+      - name: Green - focused and regression acceptance
+        run: |
+          node tests/world-engine-macro-open-backbone.cjs
+          node tests/world-engine-modules.cjs
+          node tests/world-engine-request-transparency.cjs
+          node tests/world-engine-observability.cjs
+          node tests/world-engine-prompt-pipeline.cjs
+          node tests/world-engine-scene-context.cjs
+      - name: Verify scope and contract
+        shell: bash
+        run: |
+          git diff --check
+          grep -q "需要补充远期:macroOpen.length<3" script/world-engine-src/10-world-state.part.js
+          grep -q "需要至少3个可推进宏观节点" script/world-engine-src/20-world-result.part.js
+          ! grep -q "需要至少3个待发生宏观节点" script/world-engine-src/20-world-result.part.js
+          test -z "$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)regex-|World Book/.*regex' || true)"
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            script/world-engine-src/10-world-state.part.js \
+            script/world-engine-src/20-world-result.part.js \
+            script/世界推进系统.js \
+            script/世界引擎接入说明.md \
+            tests/world-engine-macro-open-backbone.cjs
+          git diff --cached --check
+          git commit -m 'fix: align macro backbone counting with active horizon'
+          git push origin HEAD:fix/world-engine-macro-backbone-count

@@ -1,0 +1,69 @@
+name: World Engine Schema Retry Diagnostics Acceptance
+
+on:
+  push:
+    branches: [fix/world-engine-schema-retry-diagnostics]
+    paths:
+      - '.github/workflows/world-engine-schema-retry-diagnostics.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  schema-retry:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/world-engine-schema-retry-diagnostics
+          fetch-depth: 0
+      - name: Red - reproduce schema mismatch and retry ambiguity
+        shell: bash
+        run: |
+          if node tests/world-engine-schema-retry-diagnostics.cjs; then
+            echo 'Expected focused regression test to fail before implementation.' >&2
+            exit 1
+          fi
+          echo 'Regression reproduced.'
+      - name: Green - apply focused fix
+        run: |
+          python tools/refactor-world-engine-schema-retry-diagnostics.py
+          python tools/build-world-engine.py
+          python tools/build-world-engine.py --check
+          node --check 'script/世界推进系统.js'
+      - name: Green - focused acceptance
+        run: |
+          node tests/world-engine-schema-retry-diagnostics.cjs
+          node tests/world-engine-macro-open-backbone.cjs
+          node tests/world-engine-modules.cjs
+          node tests/world-engine-request-transparency.cjs
+          node tests/world-engine-observability.cjs
+          node tests/world-engine-prompt-pipeline.cjs
+          node tests/world-engine-scene-context.cjs
+      - name: Verify contract and scope
+        shell: bash
+        run: |
+          git diff --check
+          grep -q "RUMOR_CREDIBILITY=\['酒话','可疑','或许可信'\]" script/world-engine-src/20-world-result.part.js
+          grep -q "失败后额外重试" script/world-engine-src/50-engine-ui.part.js
+          grep -q "当前总尝试:attempt+1" script/world-engine-src/10-world-state.part.js
+          grep -q "schemaMismatchError" script/world-engine-src/20-world-result.part.js
+          ! grep -q "<label>失败重试次数 " script/world-engine-src/50-engine-ui.part.js
+          test -z "$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)regex-|World Book/.*regex' || true)"
+      - name: Commit implementation
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            script/world-engine-src/10-world-state.part.js \
+            script/world-engine-src/20-world-result.part.js \
+            script/world-engine-src/40-engine-runtime.part.js \
+            script/world-engine-src/50-engine-ui.part.js \
+            script/世界推进系统.js \
+            script/世界引擎接入说明.md \
+            tests/world-engine.cjs \
+            tests/world-engine-schema-retry-diagnostics.cjs
+          git diff --cached --check
+          git commit -m 'fix: align schema normalization and retry diagnostics'
+          git push origin HEAD:fix/world-engine-schema-retry-diagnostics

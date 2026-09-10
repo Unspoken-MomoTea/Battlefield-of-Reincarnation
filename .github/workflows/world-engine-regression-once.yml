@@ -1,0 +1,25 @@
+name: World engine regression once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/world-engine-regression-once.yml'
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax
+        run: node --check script/世界推进系统.js
+      - name: Core world engine
+        run: node tests/world-engine.cjs
+      - name: NPC audit toggle
+        run: node tests/world-engine-npc-audit-toggle.cjs
+      - name: Prompt pipeline
+        run: node tests/world-engine-prompt-pipeline.cjs
+      - name: Request transparency
+        run: node tests/world-engine-request-transparency.cjs
+      - name: Module synchronization
+        run: node tests/world-engine-modules.cjs

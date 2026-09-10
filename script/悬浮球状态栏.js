@@ -229,6 +229,9 @@
         // ★ tags 类型(标签数组): 逗号/顿号分隔输入→拆为数组
         if (type === 'tags') {
             val = String(val).split(/[,，、]/).map(function(s){return s.trim();}).filter(Boolean);
+            if (/^资产\.[^.]+\.所属对象$/.test(path)) {
+                val = val.filter(function(owner, idx, arr){ return owner !== '无主' && arr.indexOf(owner) === idx; });
+            }
         }
         // ★ json 类型(嵌套对象): 尝试还原为对象; 非法JSON保留原字符串(ZOD层会拒绝并回退)
         if (type === 'json') {
@@ -935,7 +938,11 @@
         .sam-asset-integ.good { color:#7fd6a0; background:rgba(127,214,160,0.12); }
         .sam-asset-integ.warn { color:var(--sam-thp); background:rgba(229,193,102,0.12); }
         .sam-asset-integ.bad { color:var(--sam-hp); background:rgba(228,88,125,0.12); }
-        .sam-asset-body { padding:10px 12px 12px; border-top:1px solid rgba(143,159,255,0.10); display:flex; flex-direction:column; gap:10px; }
+.sam-asset-owner-chip { display:inline-flex; align-items:center; max-width:180px; padding:1px 7px; border-radius:9px; border:1px solid var(--sam-border); background:var(--sam-hover); color:var(--sam-text); font-size:10px; line-height:1.5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .sam-asset-owner-chip.player { color:var(--sam-accent); border-color:var(--sam-accent); }
+        .sam-asset-owner-chip.unowned { color:var(--sam-sub); border-style:dashed; }
+        .sam-asset-owner-list { display:flex; align-items:center; justify-content:flex-end; gap:4px; flex-wrap:wrap; min-width:0; }
+                .sam-asset-body { padding:10px 12px 12px; border-top:1px solid rgba(143,159,255,0.10); display:flex; flex-direction:column; gap:10px; }
         /* 概览区: 完整度进度条 / 规模点阵 / 类型 */
         .sam-asset-overview { display:flex; flex-direction:column; gap:6px; padding:8px 10px; background:rgba(0,0,0,0.16); border-radius:6px; }
         .sam-asset-ov-row { display:flex; align-items:center; gap:8px; font-size:12px; }
@@ -5715,7 +5722,7 @@
         if (keys.length === 0) return ''
             + '<div class="sam-asset-empty">'
             +   '<div class="ae-title">🏗️ 经营资产</div>'
-            +   '<div class="ae-desc">在此管理你的产业、据点与大型载具——它们能为角色提供检定加成、定期产出与战斗支援。</div>'
+            +   '<div class="ae-desc">这里显示数据库中的全部资产，包括玩家、NPC、势力共同资产与无主遗迹；只有所属对象包含<user>的资产才启用玩家自动收菜。</div>'
             +   '<div class="ae-section"><div class="ae-h">可经营类型</div>'
             +     '<ul>'
             +       '<li><b>固定地产</b>：领地 / 庄园 / 店铺 / 秘密据点，含建设序列、驻扎人员、待办事件</li>'
@@ -5733,6 +5740,23 @@
         html += '</div>';
         return html;
     }
+    function normalizeAssetOwnersUi(value) {
+        var source = Array.isArray(value) ? value : (value == null ? ['<user>'] : [value]);
+        var out = [];
+        source.forEach(function(raw) {
+            var owner = safeStr(raw).trim();
+            if (!owner || owner === '无主' || out.indexOf(owner) >= 0) return;
+            out.push(owner);
+        });
+        return out;
+    }
+    function assetOwnerChips(owners) {
+        if (!owners.length) return '<span class="sam-asset-owner-chip unowned">无主</span>';
+        return '<span class="sam-asset-owner-list">' + owners.map(function(owner) {
+            return '<span class="sam-asset-owner-chip'+(owner === '<user>' ? ' player' : '')+'">'+esc(owner === '<user>' ? '<user> · 玩家' : owner)+'</span>';
+        }).join('') + '</span>';
+    }
+
     // 资产类型 → 图标
     function assetTypeIcon(type) {
         if (type === '大型载具' || type === '要塞' || type === '载具') return '🚀';
@@ -5781,6 +5805,8 @@
         var scale = safeNum(a.主体规模, 1);
         var integCls = assetIntegClass(integ);
         var integW = Math.max(0, Math.min(100, integ));
+        var owners = normalizeAssetOwnersUi(a.所属对象);
+        var ownerHead = owners.length === 0 ? '无主' : (owners.length === 1 ? (owners[0] === '<user>' ? '玩家' : owners[0]) : '共管 ' + owners.length);
 
         // 头部: 图标 + 名字 + 类型徽章 + 完整度 + (编辑模式)删除按钮
         var assetDelBtn = editMode ? '<button type="button" class="sam-fc-del-btn sam-asset-del" data-asset-del="' + esc(path) + '" title="删除该资产">✕</button>' : '';
@@ -5788,6 +5814,7 @@
             + '<span class="sam-asset-ico">' + assetTypeIcon(type) + '</span>'
             + '<span class="sam-asset-name">' + esc(name) + '</span>'
             + '<span class="sam-asset-badge">' + esc(type) + '</span>'
+            + '<span class="sam-asset-badge">' + esc(ownerHead) + '</span>'
             + '<span class="sam-asset-integ ' + integCls + '">' + integ + '%</span>'
             + assetDelBtn
             + '</summary>';
@@ -5808,6 +5835,10 @@
             + '<div class="sam-asset-ov-row">'
             +   '<span class="sam-asset-ov-lbl">类型</span>'
             +   '<span class="sam-asset-ov-val">' + (editMode ? editSelect(path + '.类型', ['固定地产', '大型载具与要塞', '便携式据点'], type) : esc(type)) + '</span>'
+            + '</div>'
+            + '<div class="sam-asset-ov-row">'
+            +   '<span class="sam-asset-ov-lbl">所属对象</span>'
+            +   '<span class="sam-asset-ov-val">' + (editMode ? editInput(path + '.所属对象', owners, 'tags') : assetOwnerChips(owners)) + '</span>'
             + '</div>'
             + '</div>';
 

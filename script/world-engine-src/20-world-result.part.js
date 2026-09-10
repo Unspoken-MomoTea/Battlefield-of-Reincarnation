@@ -101,7 +101,7 @@
     const ASSET_RESULT_SCHEMA={
         type:'object',additionalProperties:false,required:['名称'],properties:{
             名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','移除','撤销本轮']},
-            所属对象:{type:'string',minLength:1},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
+            所属对象:{type:'array',items:{type:'string',minLength:1},maxItems:12},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
             能源:{anyOf:[{type:'object',additionalProperties:false,properties:{类型:{type:'string'},当前:{type:'number'},上限:{type:'number'},描述:{type:'string'}}},{type:'null'}]},
             消耗单元:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{余量:{type:'number'},上限:{type:'number'},加成:{type:'array',items:{type:'string'}}}},{type:'null'}]}},
             建设序列:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{阶段:{type:'string',enum:['基础','进阶','专业','顶尖','禁忌']},功能:{type:'string'},加成:{type:'array',items:{type:'string'}},产出:{type:'string'}}},{type:'null'}]}},
@@ -250,7 +250,12 @@
     }
     function normalizeAssetResultList(value) {
         const sourceList=Array.isArray(value)?value:plain(value)?Object.entries(value).map(([name,item])=>plain(item)?Object.assign({名称:name},copy(item)):{名称:name,操作:item==='移除'?'移除':'更新'}):[];
-        const map=new Map(),stringFields=['所属对象','类型','状态'],numberFields=['主体规模','完整度'];
+        const map=new Map(),stringFields=['类型','状态'],numberFields=['主体规模','完整度'];
+        const normalizeOwners=value=>{
+            const source=Array.isArray(value)?value:(value===undefined?[]:[value]),out=[];
+            for(const raw of source){const owner=String(raw??'').trim();if(!owner||owner==='无主'||out.includes(owner))continue;out.push(owner);}
+            return out.slice(0,12);
+        };
         const normalizeMap=(value,kind)=>{
             if(!plain(value))return {};
             const out={};
@@ -291,6 +296,7 @@
             const id=nameKey(name);
             if(operation==='撤销本轮'){map.delete(id);continue;}
             const item={名称:name,操作:operation};
+            if(Object.hasOwn(source,'所属对象'))item.所属对象=normalizeOwners(source.所属对象);
             for(const field of stringFields)if(Object.hasOwn(source,field))item[field]=String(source[field]??'');
             for(const field of numberFields)if(Object.hasOwn(source,field)){const n=Number(source[field]);item[field]=Number.isFinite(n)?n:source[field];}
             if(Object.hasOwn(source,'能源')){
@@ -661,18 +667,21 @@
         return merged;
     }
 
-    const ASSET_DEFAULTS={所属对象:'<user>',类型:'',主体规模:1,完整度:100,状态:'',建设序列:{},驻扎人员:{},待办事件:[]};
+    const ASSET_DEFAULTS={所属对象:[],类型:'',主体规模:1,完整度:100,状态:'',建设序列:{},驻扎人员:{},待办事件:[]};
     const ASSET_ENERGY_DEFAULTS={类型:'',当前:0,上限:0,描述:''};
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     function materializeAssetRecord(oldValue,item,isNew=false) {
         const oldAsset=plain(oldValue)?copy(oldValue):{},asset=Object.assign(copy(ASSET_DEFAULTS),oldAsset);
-        if(!String(asset.所属对象||'').trim())asset.所属对象='<user>';
+        const normalizeOwners=value=>{const source=Array.isArray(value)?value:(value===undefined?[]:[value]),out=[];for(const raw of source){const owner=String(raw??'').trim();if(!owner||owner==='无主'||out.includes(owner))continue;out.push(owner);}return out.slice(0,12);};
+        // 旧资产没有所属对象时兼容为玩家资产；显式空数组则表示无主。
+        asset.所属对象=Object.hasOwn(oldAsset,'所属对象')?normalizeOwners(oldAsset.所属对象):['<user>'];
         if(isNew){
-            if(!Object.hasOwn(item,'所属对象')||!String(item.所属对象||'').trim())throw new Error('新资产必须明确所属对象：'+item.名称);
+            if(!Object.hasOwn(item,'所属对象'))throw new Error('新资产必须明确所属对象数组；无主资产请使用空数组：'+item.名称);
             if(!Object.hasOwn(item,'类型')||!String(item.类型||'').trim())throw new Error('新资产必须明确类型：'+item.名称);
         }
-        for(const field of ['所属对象','类型','主体规模','完整度','状态'])if(Object.hasOwn(item,field))asset[field]=copy(item[field]);
+        if(Object.hasOwn(item,'所属对象'))asset.所属对象=normalizeOwners(item.所属对象);
+        for(const field of ['类型','主体规模','完整度','状态'])if(Object.hasOwn(item,field))asset[field]=copy(item[field]);
         if(Object.hasOwn(item,'能源')){
             if(item.能源===null)delete asset.能源;
             else asset.能源=Object.assign(copy(ASSET_ENERGY_DEFAULTS),plain(oldAsset.能源)?copy(oldAsset.能源):{},plain(item.能源)?copy(item.能源):{});
@@ -774,6 +783,8 @@
         for(const item of result.资产||[]){
             if(item.操作==='撤销本轮')continue;
             const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;
+            const tombstoneName=stableNameIn(stat?.世界?.[PATH]?.资产墓碑||{},item.名称);
+            if(!target&&item.操作!=='移除'&&tombstoneName)throw new Error('资产已被用户或MVU删除，受删除保护，世界引擎不得重建：'+item.名称);
             if(item.操作==='移除'){
                 if(target)patches.push({op:'remove',path:pointer(['资产',target])});
                 else warnings.push('资产对象不存在，忽略移除：'+item.名称);

@@ -38,7 +38,7 @@ const stat = {
   系统状态: { 是否战斗中: false, 是否在主神空间: false },
   资产: {
     远征堡: {
-      所属对象: '<user>',
+      所属对象: ['<user>'],
       类型: '固定地产',
       主体规模: 4,
       完整度: 88,
@@ -62,7 +62,7 @@ const update = compileWorldResult(stat, {
   摘要: '白银之手正式接管远征堡并调整后勤。',
   资产: [{
     名称: '远征堡',
-    所属对象: '白银之手',
+    所属对象: ['白银之手'],
     完整度: 76,
     能源: { 当前: 25 },
     消耗单元: {
@@ -84,7 +84,7 @@ assert.equal(update.patches.length, 1, '单个资产应作为一次原子账簿�
 assert.equal(update.patches[0].path, '/资产/远征堡');
 let next = applyPatches(stat, update.patches);
 const fort = next.资产.远征堡;
-assert.equal(fort.所属对象, '白银之手', '资产可以从个人转移给势力');
+assert.deepEqual(fort.所属对象, ['白银之手'], '资产可以从个人转移给势力');
 assert.equal(fort.类型, '固定地产', '局部更新不能丢失既有资产字段');
 assert.equal(fort.主体规模, 4);
 assert.equal(fort.完整度, 76);
@@ -104,7 +104,7 @@ const created = compileWorldResult(next, {
   摘要: '白银之手在南门建立新的前线要塞。',
   资产: [{
     名称: '南门前线要塞',
-    所属对象: '白银之手',
+    所属对象: ['白银之手'],
     类型: '固定地产',
     主体规模: 3,
     状态: '正在加固城墙',
@@ -116,7 +116,7 @@ const created = compileWorldResult(next, {
 });
 next = applyPatches(next, created.patches);
 const newAsset = next.资产.南门前线要塞;
-assert.equal(newAsset.所属对象, '白银之手');
+assert.deepEqual(newAsset.所属对象, ['白银之手']);
 assert.equal(newAsset.完整度, 100, '新资产由程序补足安全默认字段');
 assert.deepEqual(newAsset.建设序列.城防, {
   阶段: '基础',
@@ -133,7 +133,7 @@ assert.throws(() => compileWorldResult(next, {
 }), /所属对象/, '新资产必须明确归属，禁止默认把世界资产送给玩家');
 
 const projected = projectWorldContext(next);
-assert.equal(projected.资产.远征堡.所属对象, '白银之手', '世界引擎上下文必须看到势力资产与归属');
+assert.deepEqual(projected.资产.远征堡.所属对象, ['白银之手'], '世界引擎上下文必须看到势力资产与归属');
 assert.ok(projected.资产.南门前线要塞, '世界引擎必须读取非玩家资产');
 
 const removed = compileWorldResult(next, {
@@ -151,12 +151,13 @@ const helper = fs.readFileSync('script/辅助计算脚本.js', 'utf8');
 const checks = fs.readFileSync('World Book/⚙️行为判定[mvu_plot].txt', 'utf8');
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
 
-assert.match(zod, /所属对象:\s*safeStr\('<user>'\)/, '旧资产应兼容迁移为玩家所属');
-assert.match(mvuRules, /所属对象:[\s\S]{0,220}个人或势力/, '变量规则必须定义资产归属');
-assert.match(assetRules, /所属对象[\s\S]{0,220}个人或势力/, '资产规则必须定义个人/势力归属');
+assert.match(zod, /const assetOwners[\s\S]{0,220}z\.array\(z\.string\(\)\)/, '旧资产所属对象应兼容迁移为数组');
+assert.match(zod, /所属对象:\s*assetOwners/, '资产 Schema 应使用所属对象数组规范器');
+assert.match(mvuRules, /所属对象:[\s\S]{0,260}string\[\][\s\S]{0,260}(?:多个对象|共同持有|共管|空数组)/, '变量规则必须定义多主体/无主资产归属');
+assert.match(assetRules, /所属对象[\s\S]{0,320}字符串数组[\s\S]{0,320}(?:多方共管|空数组|无主)/, '资产规则必须定义数组、多主体与无主归属');
 assert.match(source, /WorldResult\.资产|资产账簿/, '世界引擎提示词必须明确资产写入职责');
 assert.match(source, /场外[^\n]{0,160}资产[^\n]{0,160}(?:新增|更新|移除|转移)|资产[^\n]{0,160}(?:新增|更新|移除|转移)/, 'Prompt 应允许世界引擎维护资产变化');
-assert.match(source, /version:12,\n        builtin:true,\n        name:'默认设置'/, '资产写回语义变更应升级内置默认提示词到 v12');
+assert.match(source, /version:13,\n        builtin:true,\n        name:'默认设置'/, '资产写回语义变更应升级内置默认提示词到 v13');
 assert.match(variables, /isPlayerOwnedAsset/, '正文变量投影必须区分玩家资产与世界资产');
 assert.match(helper, /isPlayerOwnedAsset/, '自动收菜必须区分玩家资产与世界资产');
 assert.match(checks, /所属对象[^\n]*(?:执行者|角色)/, '资产检定加值必须受所属对象约束');

@@ -262,7 +262,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:12,
+        version:13,
         builtin:true,
         name:'默认设置',
         exportedAt:'2026-09-10T00:00:00.000Z',
@@ -281,7 +281,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
 1. 事实优先级：当前变量与已确认剧情 > 明确世界书 > 模型一般知识；过去事实约束未来，计划不等于事实。
 2. 宏观与区间：因果轨道只投影3~5个阶段级宏观节点；细节只展开到下一个宏观边界，局部行动不得升级为宏观节点。没有重大因果变化时保持宏观顺序稳定。
 3. 时间与事件：只用世界.时间计算本世界进展，严格服从本轮时间容量、路程和资源；无法确认跨度时只推进一步。待发生/进行中事件必须有可排序的具体时间或明确因果时间，不得只写“近期/稍后/未来/待定/未知”；受正文未决互动影响而尚无结果的事件保持进行中。
-4. 认知与职责：人物只有通过在场、既有认知或传播链获得信息后才能行动，不得全知反应。顶层资产是个人与势力共用的唯一资产账簿；世界引擎可按已确认场外事实新增、更新、转移或移除资产，并维护所属对象、完整度、能源、消耗、建设、驻扎人员与待办事件。正文/MVU已结算的当前场景资产变化只同步，不重复扣算。不得替<user>建立后台行动；主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界的局部结算不得重置世界。
+4. 认知与职责：人物只有通过在场、既有认知或传播链获得信息后才能行动，不得全知反应。顶层资产是个人与势力共用的唯一资产账簿；所属对象使用数组，多主体可共管，空数组表示无主，数组含<user>才表示玩家拥有/共管。世界引擎可按已确认场外事实新增、更新、转移或移除资产，并维护完整度、能源、消耗、建设、驻扎人员与待办事件；已进入资产删除保护的同名资产不得自动重建。正文/MVU已结算的当前场景资产变化只同步，不重复扣算。不得替<user>建立后台行动；主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界的局部结算不得重置世界。
 5. 现场与人物：现场群体与环境事实属于势力地区，人物背景关联只记录持续的团体、组织、社交圈或阵营关系；同一现场事实不得复制进人物。先推进地区现场，再决定人物行动。活跃异端始终按当前世界时间复核地点、目标、行动与更新时间，死亡不可恢复；普通人物只维护真正热记录。
 6. 玩家台账：探索只结算<user>实际到达/调查/可靠获知的整体区域，后台NPC发现不计玩家探索；探索度以0/10/30/60/90/100作为无知/浅尝/熟悉/深入/掌控/核心锚点，已确认进度不得无因降低。势力仅在<user>首次接触或可靠获知后投影；声望只因<user>造成的真实关系结果变化，同一结果只结算一次，单轮绝对变化≤1000，超过500仅限重大核心事件。
 7. 因果偏移：只有关键人物命运、重大事件结果、势力格局或主线可行性被实质改变时记录偏移；影响程度负值表示偏离原轨道，正值表示修复/强化。世界超稳时不新增偏移；重大偏移使旧轨道失效时必须同轮重构宏观顺序。
@@ -681,7 +681,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         };
     }
     function emptyState() {
-        return { 版本:4, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 剧本:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[] };
+        return { 版本:4, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 剧本:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
     }
     // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
     function importStory(stat) {
@@ -1181,7 +1181,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     const ASSET_RESULT_SCHEMA={
         type:'object',additionalProperties:false,required:['名称'],properties:{
             名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','移除','撤销本轮']},
-            所属对象:{type:'string',minLength:1},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
+            所属对象:{type:'array',items:{type:'string',minLength:1},maxItems:12},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
             能源:{anyOf:[{type:'object',additionalProperties:false,properties:{类型:{type:'string'},当前:{type:'number'},上限:{type:'number'},描述:{type:'string'}}},{type:'null'}]},
             消耗单元:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{余量:{type:'number'},上限:{type:'number'},加成:{type:'array',items:{type:'string'}}}},{type:'null'}]}},
             建设序列:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{阶段:{type:'string',enum:['基础','进阶','专业','顶尖','禁忌']},功能:{type:'string'},加成:{type:'array',items:{type:'string'}},产出:{type:'string'}}},{type:'null'}]}},
@@ -1330,7 +1330,12 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     }
     function normalizeAssetResultList(value) {
         const sourceList=Array.isArray(value)?value:plain(value)?Object.entries(value).map(([name,item])=>plain(item)?Object.assign({名称:name},copy(item)):{名称:name,操作:item==='移除'?'移除':'更新'}):[];
-        const map=new Map(),stringFields=['所属对象','类型','状态'],numberFields=['主体规模','完整度'];
+        const map=new Map(),stringFields=['类型','状态'],numberFields=['主体规模','完整度'];
+        const normalizeOwners=value=>{
+            const source=Array.isArray(value)?value:(value===undefined?[]:[value]),out=[];
+            for(const raw of source){const owner=String(raw??'').trim();if(!owner||owner==='无主'||out.includes(owner))continue;out.push(owner);}
+            return out.slice(0,12);
+        };
         const normalizeMap=(value,kind)=>{
             if(!plain(value))return {};
             const out={};
@@ -1371,6 +1376,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             const id=nameKey(name);
             if(operation==='撤销本轮'){map.delete(id);continue;}
             const item={名称:name,操作:operation};
+            if(Object.hasOwn(source,'所属对象'))item.所属对象=normalizeOwners(source.所属对象);
             for(const field of stringFields)if(Object.hasOwn(source,field))item[field]=String(source[field]??'');
             for(const field of numberFields)if(Object.hasOwn(source,field)){const n=Number(source[field]);item[field]=Number.isFinite(n)?n:source[field];}
             if(Object.hasOwn(source,'能源')){
@@ -1741,18 +1747,21 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         return merged;
     }
 
-    const ASSET_DEFAULTS={所属对象:'<user>',类型:'',主体规模:1,完整度:100,状态:'',建设序列:{},驻扎人员:{},待办事件:[]};
+    const ASSET_DEFAULTS={所属对象:[],类型:'',主体规模:1,完整度:100,状态:'',建设序列:{},驻扎人员:{},待办事件:[]};
     const ASSET_ENERGY_DEFAULTS={类型:'',当前:0,上限:0,描述:''};
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     function materializeAssetRecord(oldValue,item,isNew=false) {
         const oldAsset=plain(oldValue)?copy(oldValue):{},asset=Object.assign(copy(ASSET_DEFAULTS),oldAsset);
-        if(!String(asset.所属对象||'').trim())asset.所属对象='<user>';
+        const normalizeOwners=value=>{const source=Array.isArray(value)?value:(value===undefined?[]:[value]),out=[];for(const raw of source){const owner=String(raw??'').trim();if(!owner||owner==='无主'||out.includes(owner))continue;out.push(owner);}return out.slice(0,12);};
+        // 旧资产没有所属对象时兼容为玩家资产；显式空数组则表示无主。
+        asset.所属对象=Object.hasOwn(oldAsset,'所属对象')?normalizeOwners(oldAsset.所属对象):['<user>'];
         if(isNew){
-            if(!Object.hasOwn(item,'所属对象')||!String(item.所属对象||'').trim())throw new Error('新资产必须明确所属对象：'+item.名称);
+            if(!Object.hasOwn(item,'所属对象'))throw new Error('新资产必须明确所属对象数组；无主资产请使用空数组：'+item.名称);
             if(!Object.hasOwn(item,'类型')||!String(item.类型||'').trim())throw new Error('新资产必须明确类型：'+item.名称);
         }
-        for(const field of ['所属对象','类型','主体规模','完整度','状态'])if(Object.hasOwn(item,field))asset[field]=copy(item[field]);
+        if(Object.hasOwn(item,'所属对象'))asset.所属对象=normalizeOwners(item.所属对象);
+        for(const field of ['类型','主体规模','完整度','状态'])if(Object.hasOwn(item,field))asset[field]=copy(item[field]);
         if(Object.hasOwn(item,'能源')){
             if(item.能源===null)delete asset.能源;
             else asset.能源=Object.assign(copy(ASSET_ENERGY_DEFAULTS),plain(oldAsset.能源)?copy(oldAsset.能源):{},plain(item.能源)?copy(item.能源):{});
@@ -1854,6 +1863,8 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         for(const item of result.资产||[]){
             if(item.操作==='撤销本轮')continue;
             const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;
+            const tombstoneName=stableNameIn(stat?.世界?.[PATH]?.资产墓碑||{},item.名称);
+            if(!target&&item.操作!=='移除'&&tombstoneName)throw new Error('资产已被用户或MVU删除，受删除保护，世界引擎不得重建：'+item.名称);
             if(item.操作==='移除'){
                 if(target)patches.push({op:'remove',path:pointer(['资产',target])});
                 else warnings.push('资产对象不存在，忽略移除：'+item.名称);
@@ -2409,6 +2420,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             角色:projectCharacterForWorld(src.角色),
             关系列表:{},
             资产:projectAssetsForWorld(src.资产),
+            资产删除保护:Object.keys(backend.资产墓碑||{}).filter(name=>!stableNameIn(src.资产||{},name)).slice(-50),
             传闻:copy(src.传闻||{}),
             系统状态:{
                 是否战斗中:!!src.系统状态?.是否战斗中,
@@ -2423,6 +2435,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         if(!Object.keys(out.角色||{}).length)delete out.角色;
         if(!Object.keys(out.关系列表).length)delete out.关系列表;
         if(!Object.keys(out.资产).length)delete out.资产;
+        if(!out.资产删除保护.length)delete out.资产删除保护;
         if(!Object.keys(out.传闻).length)delete out.传闻;
         return out;
     }
@@ -2434,7 +2447,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
 事件分类只使用当前事件/近期节点/宏观节点。进行中的当前事件若可能被正文感知，公开征兆/可见影响只能写已经成为现实的公开信息，不得包含隐藏条件、默认走向或未来计划。
 因果只提交当前阶段、宏观顺序和偏移记录。当前阶段必须是可直接阅读的当前世界局势；宏观顺序只列3~5个宏观事件名称；输入中的偏移摘要是只读统计，不得据此重建已经隐藏的旧偏移。
 人物背景关联只记录持续的团体/组织/社交关系，不复制地点或事件；现场群体与环境变化写在势力地区，由地点关系形成身边发展。人物、势力地区、传播仍只用事件名称建立关联；不得为玩家建立后台人物记录。关系只更新关系列表中已经存在的对象；HP=0 只用于剧情已确认或场外已确认的死亡，不替正文进行常规战斗结算。
-资产使用顶层资产作为唯一账簿；所属对象写实际个人或势力，<user>统一写<user>。世界引擎可按已确认场外事件新增、更新、转移或移除资产；当前场景已经结算的变化只同步，不重复计算。
+资产使用顶层资产作为唯一账簿；所属对象必须是数组，可包含多个个人/势力，包含<user>表示玩家共同持有，空数组表示无主。世界引擎可按已确认场外事件新增、更新、转移或移除资产；输入中的资产删除保护表示用户/MVU已明确删除的同名资产，不得凭旧剧情记忆重建；当前场景已经结算的变化只同步，不重复计算。
 主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数、世界时间、玩家属性和玩家持币余额均不属于 WorldResult。不要输出已废弃的“公开摘要”或“正文承接”。
 
 【Canonical WorldResult JSON Schema】

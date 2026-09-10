@@ -31,16 +31,22 @@ jobs:
           python tools/build-world-engine.py
           python tools/build-world-engine.py --check
           node --check 'script/世界推进系统.js'
-      - name: Green - focused acceptance
-        run: |
-          node tests/world-engine-request-budget-retry-ui.cjs
-          node tests/world-engine-schema-retry-diagnostics.cjs
-          node tests/world-engine-macro-open-backbone.cjs
-          node tests/world-engine-observability.cjs
-          node tests/world-engine-request-transparency.cjs
-          node tests/world-engine-prompt-pipeline.cjs
-          node tests/world-engine-scene-context.cjs
-          node tests/world-engine-modules.cjs
+      - name: Green - request budget and retry UI
+        run: node tests/world-engine-request-budget-retry-ui.cjs
+      - name: Green - schema retry diagnostics
+        run: node tests/world-engine-schema-retry-diagnostics.cjs
+      - name: Green - macro backbone
+        run: node tests/world-engine-macro-open-backbone.cjs
+      - name: Green - observability
+        run: node tests/world-engine-observability.cjs
+      - name: Green - request transparency
+        run: node tests/world-engine-request-transparency.cjs
+      - name: Green - prompt pipeline
+        run: node tests/world-engine-prompt-pipeline.cjs
+      - name: Green - scene context
+        run: node tests/world-engine-scene-context.cjs
+      - name: Green - modules
+        run: node tests/world-engine-modules.cjs
       - name: Verify scope and semantics
         shell: bash
         run: |

@@ -173,9 +173,10 @@ if (current.世界) {
     if (publicEvents.length) readonly.世界.当前事件 = publicEvents;
 
     // 场外人物动态：只读的真正热人物投影，不复制完整后台人物档案。
-    // 目标/行动供正文维持叙事连续性，不代表角色自动知情；真正可被角色观察的内容优先看“公开动态”。
+    // 目标/行动、背景关联与身边发展供正文维持叙事连续性，不代表角色自动知情；真正可被角色观察的内容仍需服从地点、观察与传播来源。
     // 异端身份不在这里重复标注：任务世界已有异端雷达名单；单一世界本就没有异端。
     const rawPeople = _.get(data, '世界.后台.人物', {}) || {};
+    const rawAreas = _.get(data, '世界.后台.势力地区', {}) || {};
     const alienRoster = isOneWorld ? {} : (_.get(data, '世界.异端雷达.名单', {}) || {});
     const relationRoster = _.get(data, '关系列表', {}) || {};
     const personNameKey = value => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
@@ -204,6 +205,47 @@ if (current.世界) {
       const longer = x.length <= y.length ? y : x;
       return shorter.length >= 8 && longer.includes(shorter);
     };
+    const areaEntries = Object.entries(rawAreas)
+      .filter(([, area]) => area && typeof area === 'object' && area.类型 !== '势力');
+    const sceneAreaFor = location => {
+      const matches = areaEntries
+        .filter(([name]) => locationRelated(name, location))
+        .sort((a, b) => String(b[0]).length - String(a[0]).length || String(a[0]).localeCompare(String(b[0]), 'zh-CN'));
+      return matches.length ? { 名称: matches[0][0], 记录: matches[0][1] } : null;
+    };
+    const compactSceneList = (value, fields, limit = 4) => (Array.isArray(value) ? value : [])
+      .filter(item => item && typeof item === 'object')
+      .map(item => compactProjection(Object.fromEntries(fields.map(field => [field, item[field]]))))
+      .filter(item => item.名称)
+      .slice(0, limit);
+    const nearbyPeopleFor = (selfName, self, sceneArea) => {
+      const selfLocation = String(self?.地点 || '').trim();
+      const areaName = String(sceneArea?.名称 || '').trim();
+      if (!selfLocation && !areaName) return [];
+      return Object.entries(rawPeople)
+        .filter(([otherName, other]) => {
+          if (!other || typeof other !== 'object' || personNameKey(otherName) === personNameKey(selfName)) return false;
+          const key = personNameKey(otherName);
+          if (playerKeys.has(key)) return false;
+          if (alienByKey.get(key)?.alien?.状态 === '死亡') return false;
+          if (relationByKey.get(key)?.person?.在场 === true) return false;
+          const otherLocation = String(other.地点 || '').trim();
+          if (!otherLocation) return false;
+          return areaName ? locationRelated(otherLocation, areaName) : locationRelated(otherLocation, selfLocation);
+        })
+        .map(([otherName, other]) => {
+          const relation = relationByKey.get(personNameKey(otherName))?.person;
+          const identity = Array.isArray(relation?.身份) ? relation.身份[0] : String(relation?.身份 || '');
+          const exact = personNameKey(other.地点) === personNameKey(selfLocation);
+          return compactProjection({
+            名称: String(otherName),
+            关系: exact ? '贴身' : '同地区',
+            身份: identity,
+            行动: String(other.行动 || other.公开动态 || '')
+          });
+        })
+        .slice(0, 4);
+    };
 
     const projectedPeople = Object.entries(rawPeople).map(([name, person]) => {
       if (!person || typeof person !== 'object') return null;
@@ -227,6 +269,17 @@ if (current.世界) {
       // “存在于关系列表”本身不再构成热度，避免多年未更新的旧行动污染正文。
       if (!isAlien && !atCurrentLocation && !linkedCurrentEvent && !updatedNow) return null;
 
+      const sceneArea = sceneAreaFor(person.地点);
+      const sceneRecord = sceneArea?.记录 || {};
+      const backgroundLinks = compactSceneList(person.背景关联, ['类型', '名称', '关系'], 6);
+      const surroundings = compactProjection({
+        地区: String(sceneArea?.名称 || ''),
+        地区动态: String(sceneRecord.公开动态 || sceneRecord.进展 || ''),
+        身边人物: nearbyPeopleFor(name, person, sceneArea),
+        现场群体: compactSceneList(sceneRecord.现场群体, ['名称', '规模', '身份', '动态'], 4),
+        资源点: compactSceneList(sceneRecord.资源点, ['名称', '类型', '状态', '控制方', '动态'], 4),
+        环境状态: (Array.isArray(sceneRecord.环境状态) ? sceneRecord.环境状态 : []).filter(Boolean).slice(0, 4)
+      });
       return {
         ...compactProjection({
           名称: String(name),
@@ -236,6 +289,8 @@ if (current.世界) {
           状态: String(person.状态 || ''),
           更新时间: String(person.更新时间 || ''),
           公开动态: String(person.公开动态 || ''),
+          背景关联: backgroundLinks,
+          身边发展: Object.keys(surroundings).length ? surroundings : undefined,
           关联事件: links
         }),
         __异端: isAlien,

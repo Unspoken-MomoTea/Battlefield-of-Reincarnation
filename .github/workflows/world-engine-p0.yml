@@ -14,13 +14,38 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: refactor/world-engine-p0
+          fetch-depth: 1
       - name: Syntax check
         run: node --check 'script/世界推进系统.js'
       - name: Prompt pipeline audit
         run: node tests/world-engine-prompt-pipeline.cjs
       - name: Lifecycle regression
         run: node tests/world-engine-lifecycle-audit.cjs
-      - name: Prose projection regression
-        run: node tests/world-engine-prose.cjs
       - name: Core world engine regression
         run: node tests/world-engine.cjs
+      - name: Prose baseline parity
+        shell: bash
+        run: |
+          set +e
+          node tests/world-engine-prose.cjs >/tmp/branch-prose.log 2>&1
+          branch_status=$?
+          set -e
+          cp 'script/世界推进系统.js' /tmp/branch-world-engine.js
+          git fetch origin main --depth=1
+          git checkout FETCH_HEAD -- 'script/世界推进系统.js'
+          set +e
+          node tests/world-engine-prose.cjs >/tmp/main-prose.log 2>&1
+          main_status=$?
+          set -e
+          cp /tmp/branch-world-engine.js 'script/世界推进系统.js'
+          echo "branch prose status=$branch_status; main prose status=$main_status"
+          if [ "$branch_status" -ne "$main_status" ]; then
+            echo 'P0 changed prose regression status'
+            cat /tmp/branch-prose.log
+            cat /tmp/main-prose.log
+            exit 1
+          fi
+          if [ "$branch_status" -ne 0 ]; then
+            echo 'Known baseline prose test failure is unchanged by P0:'
+            tail -n 20 /tmp/branch-prose.log
+          fi

@@ -7,6 +7,10 @@
 2. 街头巷议随当前地区、说书人/目击者和局势替换1~2条，远离后移除失去本地价值的旧条；情报交易有卖家时更新1~2条，购买后移除；布告与檄文随当前地区与发布势力替换。
 3. 后台传播是人物知情与公开传闻的因果链。新可传播事实建立或推进传播；关联事件变化、传播陈旧或到期时复核范围、受众、内容与引发行动，结束/过期传播不复活。
 4. 优先话题：${RUMOR_LIVELINESS_TOPICS.join(' / ')}。`;
+    const RUMOR_PRESET_STEP_OLD='Step 6 · 更新传播：只维护本轮真实变化的传播、货币与历法；结束/过期传播不复活。';
+    const RUMOR_PRESET_STEP_NEW='Step 6 · 信息传播：传闻是常驻活跃层；三类公开传闻为空时补2条，并随地区、卖家、发布势力与局势替换。新可传播事实建立或推进传播链，关联事件变化、陈旧或到期时复核。';
+    const upgradeRumorPreset=value=>String(value||'').includes(RUMOR_PRESET_STEP_OLD)?String(value).replace(RUMOR_PRESET_STEP_OLD,RUMOR_PRESET_STEP_NEW):String(value||'');
+    if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=upgradeRumorPreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
     let ACTIVE_RUMOR_MAINTENANCE=null;
 
     function rumorEventTouchedKey(event) {
@@ -99,6 +103,13 @@
 
     const SamsaraWorldEngineBeforeRumorLiveliness=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorLiveliness {
+        constructor(host,env) {
+            super(host,env);
+            if(this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
+                const upgraded=upgradeRumorPreset(this.config.preset);
+                if(upgraded!==this.config.preset){this.config.preset=upgraded;this.saveConfig();}
+            }
+        }
         async buildRequest(base) {
             const rumorMaintenance=rumorMaintenanceRequirements(base?.stat||{});
             ACTIVE_RUMOR_MAINTENANCE=rumorMaintenance;

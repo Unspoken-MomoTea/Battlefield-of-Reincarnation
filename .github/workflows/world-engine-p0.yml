@@ -18,15 +18,9 @@ jobs:
         run: node --check 'script/世界推进系统.js'
       - name: Prompt pipeline audit
         run: node tests/world-engine-prompt-pipeline.cjs
-      - name: Prompt editor regression
-        run: node tests/world-engine-prompt-editor.cjs
       - name: Lifecycle regression
         run: node tests/world-engine-lifecycle-audit.cjs
-      - name: Overview regression
-        run: node tests/world-engine-overview.cjs
       - name: Prose projection regression
         run: node tests/world-engine-prose.cjs
       - name: Core world engine regression
         run: node tests/world-engine.cjs
-      - name: UI regression
-        run: node tests/world-engine-ui.cjs

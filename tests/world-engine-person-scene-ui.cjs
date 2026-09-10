@@ -12,7 +12,6 @@ const stat = {
   关系列表: {
     '光明使者乌瑟尔': { 身份: ['圣骑士'], 在场: false, 背景故事: '白银之手的领袖。' },
     '巴拉斯·希尔维': { 身份: ['副官'], 在场: false },
-    '远方斥候': { 身份: ['斥候'], 在场: false },
   },
 };
 
@@ -37,6 +36,11 @@ stat.世界.后台.人物 = {
     所属世界: '艾泽拉斯',
     地点: '安多哈尔南郊-旧路口',
     行动: '监视北侧道路',
+  },
+  '难民传令兵': {
+    所属世界: '艾泽拉斯',
+    地点: '安多哈尔南郊-乱石岗',
+    行动: '传递粮食短缺的消息',
   },
 };
 
@@ -65,10 +69,14 @@ assert.deepEqual(context.背景关联.map(x => x.名称), ['白银之手骑士�
 assert.deepEqual(context.关联事件, ['洛丹伦的陷落']);
 assert.deepEqual(context.现场群体.map(x => x.名称), ['残余圣骑士', '洛丹伦难民']);
 assert.deepEqual(context.资源点.map(x => x.名称), ['临时粮仓']);
-assert.deepEqual(context.身边人物.map(x => x.名称), ['巴拉斯·希尔维', '远方斥候']);
+assert.deepEqual(context.身边人物.map(x => x.名称), ['巴拉斯·希尔维', '远方斥候', '难民传令兵']);
 assert.equal(context.身边人物[0].关系, '贴身');
-assert.equal(context.身边人物[1].关系, '同地区');
 assert.equal(context.身边人物[0].身份, '副官');
+assert.equal(context.身边人物[0].可查看档案, true);
+assert.equal(context.身边人物[0].档案名称, '巴拉斯·希尔维');
+assert.equal(context.身边人物[1].可查看档案, false);
+assert.equal(context.身边人物[2].可查看档案, false);
+assert.equal(context.身边人物[2].档案名称, '');
 
 // 人物移动只改变派生视图，不能复制/改写地区现场。
 stat.世界.后台.人物['光明使者乌瑟尔'].地点 = '提瑞斯法林地北部';
@@ -82,9 +90,15 @@ const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
 for (const marker of [
   "section('身边发展'",
   "section('背景关联'",
+  "section('后台活动人物'",
   'we-scene-grid',
   'we-context-list',
   'derivePersonWorldContext(s,chosen[0],userName)',
+  '正式人物名册',
+  '临时调度，不会自动进入关系列表',
+  '可查看档案',
+  '档案名称',
+  '现场标签',
   '现场群体',
   '资源点',
 ]) {
@@ -92,5 +106,7 @@ for (const marker of [
 }
 assert.ok(source.includes('人物背景:rel.背景故事'), 'MVU 背景故事仍应保留在人物完整档案');
 assert.ok(!source.includes('chosen[1].身边发展'), 'UI 必须使用派生现场，不能读取持久化身边发展');
+assert.ok(!source.includes("kind==='person')return '<button class=\"we-scene-item\" data-person="), '身边人物不能一律变成正式人物按钮');
+assert.ok(source.includes('data-jump-person'), '已有正式档案的现场人物应复用安全跳转入口');
 
 console.log('world-engine person scene UI acceptance passed');

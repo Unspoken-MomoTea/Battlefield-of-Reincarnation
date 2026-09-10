@@ -1,4 +1,4 @@
-name: World Engine P0 Refactor
+name: World Engine P0 Review
 
 on:
   push:
@@ -11,17 +11,26 @@ permissions:
   contents: write
 
 jobs:
-  refactor:
+  review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: refactor/world-engine-p0
-      - name: Refactor prompt layers
-        run: python tools/refactor-world-engine-p0.py
+      - name: Restore business invariants
+        run: python tools/review-world-engine-p0.py
       - name: Syntax check
         run: node --check 'script/世界推进系统.js'
-      - name: Commit refactor
+      - name: Verify prompt architecture
+        shell: bash
+        run: |
+          grep -q 'Step 7 · 输出差分' 'script/世界推进系统.js'
+          grep -q '【Canonical WorldResult JSON Schema】' 'script/世界推进系统.js'
+          if grep -q '【WorldResult 标准字段结构】' 'script/世界推进系统.js'; then
+            echo 'Duplicated field manual still present'
+            exit 1
+          fi
+      - name: Commit review fixes
         shell: bash
         run: |
           if git diff --quiet; then
@@ -31,5 +40,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add 'script/世界推进系统.js'
-          git commit -m 'refactor: streamline world engine prompt pipeline'
+          git commit -m 'fix: preserve world engine business invariants'
           git push origin HEAD:refactor/world-engine-p0

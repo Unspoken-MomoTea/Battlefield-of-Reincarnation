@@ -60,7 +60,7 @@ jobs:
           node tests/world-engine-prompt-pipeline.cjs
           node tests/world-engine-request-transparency.cjs
           node tests/world-engine-schema-retry-diagnostics.cjs
-          node tests/world-engine-macro-backbone.cjs
+          node tests/world-engine-macro-open-backbone.cjs
 
       - name: Verify renamed readonly contract
         run: |

@@ -56,9 +56,9 @@
                     关系:key(other.地点)===key(location)?'贴身':'同地区',
                     身份:identity,
                     行动:String(other.行动||other.公开动态||relation.态度||''),
-                    可查看档案:true,
-                    档案名称:String(profile?.名称||name),
-                    档案类型:profile?'正式档案':'世界人物'
+                    可查看档案:!!profile,
+                    档案名称:String(profile?.名称||''),
+                    档案类型:profile?'正式档案':'现场标签'
                 };
             })
             .slice(0,8);

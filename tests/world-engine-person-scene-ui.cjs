@@ -74,10 +74,10 @@ assert.equal(context.身边人物[0].关系, '贴身');
 assert.equal(context.身边人物[0].身份, '副官');
 assert.equal(context.身边人物[0].可查看档案, true);
 assert.equal(context.身边人物[0].档案名称, '巴拉斯·希尔维');
-assert.equal(context.身边人物[1].可查看档案, true);
-assert.equal(context.身边人物[2].可查看档案, true);
-assert.equal(context.身边人物[2].档案名称, '难民传令兵');
-assert.equal(context.身边人物[2].档案类型, '世界人物');
+assert.equal(context.身边人物[1].可查看档案, false);
+assert.equal(context.身边人物[2].可查看档案, false);
+assert.equal(context.身边人物[2].档案名称, '');
+assert.equal(context.身边人物[2].档案类型, '现场标签');
 
 // 人物移动只改变派生视图，不能复制/改写地区现场。
 stat.世界.后台.人物['光明使者乌瑟尔'].地点 = '提瑞斯法林地北部';
@@ -109,6 +109,7 @@ for (const marker of [
 assert.ok(source.includes('人物背景:rel.背景故事'), 'MVU 背景故事仍应保留在人物完整档案');
 assert.ok(!source.includes('chosen[1].身边发展'), 'UI 必须使用派生现场，不能读取持久化身边发展');
 assert.ok(!source.includes("section('后台活动人物'"), '角色管理不应再把世界人物拆成独立后台面板');
-assert.ok(source.includes('data-jump-person'), '正式人物与世界人物都应能跳转统一名册，不会因此写入关系列表');
+assert.ok(source.includes('data-jump-person'), '统一人物名册中的正式人物与世界人物都应可查看，不会因此写入关系列表');
+assert.ok(source.includes('可查看档案:!!profile'), '身边人物只有已有正式关系列表档案时才允许跳转');
 
 console.log('world-engine person scene UI acceptance passed');

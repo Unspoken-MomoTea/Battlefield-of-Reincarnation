@@ -13,7 +13,7 @@ const preset = capture(/const DEFAULT_PRESET = `([\s\S]*?)`;\n    const BUILTIN_
 const core = capture(/const CORE_WORLD_RULES = `([\s\S]*?)`;?\n    function splitPresetSegments/, 'CORE_WORLD_RULES');
 const protocol = capture(/function protocol\(\)[\s\S]*?return `([\s\S]*?)`;\n    \}/, 'protocol');
 
-assert(source.includes("version:10,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 10');
+assert(source.includes("version:12,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 11');
 assert(source.includes("const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id"), 'built-in migration must not overwrite custom prompt documents');
 
 for (let i = 1; i <= 7; i += 1) {
@@ -34,7 +34,7 @@ const businessInvariants = [
   '世界超稳时不新增偏移',
   '普通副本返回主神空间后停止本世界推演',
   '主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界',
-  '现场群体/资源点属于势力地区',
+  '现场群体与环境事实属于势力地区',
   '同一现场事实不得复制进人物',
 ];
 for (const marker of businessInvariants) {
@@ -45,7 +45,9 @@ assert(core.length < 1550, `CORE_WORLD_RULES regressed into a long rule manual: 
 assert(protocol.includes('【Canonical WorldResult JSON Schema】'), 'protocol must retain canonical schema');
 assert(protocol.includes('${schemaText}'), 'protocol must inject the canonical schema');
 assert(protocol.includes('人物背景关联只记录持续的团体/组织/社交关系'), 'protocol should define background-link ownership');
-assert(protocol.includes('现场群体、资源点与环境变化写在势力地区'), 'protocol should define shared scene ownership');
+assert(protocol.includes('现场群体与环境变化写在势力地区'), 'protocol should define shared scene ownership');
+assert(core.includes('唯一资产账簿') && core.includes('驻扎人员') && core.includes('待办事件'), 'core should define the shared writable asset ledger');
+assert(protocol.includes('资产使用顶层资产作为唯一账簿') && protocol.includes('新增、更新、转移或移除资产'), 'protocol should expose asset writeback semantics');
 assert(!protocol.includes('【WorldResult 标准字段结构】'), 'duplicated field-manual section must stay removed');
 assert(!core.includes('WorldResult.探索必须是数组'), 'schema-level exploration shape must not return to core rules');
 assert(!preset.includes('风险只能是 F/E/D/C/B/A/S/SS/SSS'), 'schema enum must not be duplicated in default prompt');

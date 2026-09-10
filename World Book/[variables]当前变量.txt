@@ -48,6 +48,17 @@ const safeStringify = (obj) => {
   return JSON.stringify(obj, null, 2);
 };
 const projectionNameKey = value => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
+const projectionPlayerName = (() => {
+  try {
+    const host = (typeof window !== 'undefined' && window.parent && window.parent !== window) ? window.parent : (typeof window !== 'undefined' ? window : null);
+    return String(host?.SillyTavern?.name1 || host?.SillyTavern?.getContext?.()?.name1 || host?.name1 || '').trim();
+  } catch (_) { return ''; }
+})();
+const playerOwnerKeys = new Set(['<user>', '{{user}}', '玩家', projectionPlayerName].filter(Boolean).map(projectionNameKey));
+const isPlayerOwnedAsset = asset => {
+  const owner = String(asset?.所属对象 || '<user>').trim() || '<user>';
+  return playerOwnerKeys.has(projectionNameKey(owner));
+};
 const deadAlienNameKeys = new Set(
   Object.entries(_.get(data, '世界.异端雷达.名单', {}) || {})
     .filter(([, alien]) => alien?.状态 === '死亡')
@@ -267,8 +278,7 @@ if (current.世界) {
     const hasSceneFacts = record => !!(record && typeof record === 'object' && (
       String(record.公开动态 || record.进展 || '').trim() ||
       (Array.isArray(record.环境状态) && record.环境状态.length) ||
-      (Array.isArray(record.现场群体) && record.现场群体.length) ||
-      (Array.isArray(record.资源点) && record.资源点.length)
+      (Array.isArray(record.现场群体) && record.现场群体.length)
     ));
     const sceneCandidates = new Map();
     const ensureScene = (location, priority = 9) => {
@@ -344,7 +354,6 @@ if (current.世界) {
           争夺方: (Array.isArray(record.争夺方) ? record.争夺方 : []).filter(Boolean).slice(0, 6),
           环境状态: (Array.isArray(record.环境状态) ? record.环境状态 : []).filter(Boolean).slice(0, 6),
           现场群体: compactSceneList(record.现场群体, ['名称', '规模', '身份', '动态'], 6),
-          资源点: compactSceneList(record.资源点, ['名称', '类型', '状态', '控制方', '动态'], 6),
           关联事件: scene.关联事件.slice(0, 6),
           人物: scene.人物
         });
@@ -590,10 +599,11 @@ current.关系列表 = _.pickBy(_.mapValues(关系, (person, name) => {
 // 6. 资产 (战斗中开启“战术降级”模式，防噪音)
 // 下次产出日期/下次产出游天 为后台收菜调度字段(由脚本基于隐藏的真实游玩天数轴自动维护), 对AI不可见
 const stripHarvestFields = (seq) => _.omit(seq, ['下次产出日期', '下次产出游天']);
-if (!_.isEmpty(data.资产)) {
+const playerAssets = _.pickBy(data.资产 || {}, asset => isPlayerOwnedAsset(asset));
+if (!_.isEmpty(playerAssets)) {
   if (!isCombat) {
     // 非战斗状态：全量展示(剔除系统托管的收菜调度字段)，处理待办事件和周产收益
-    current.资产 = _.mapValues(data.资产, (asset, name) => {
+    current.资产 = _.mapValues(playerAssets, (asset, name) => {
       const copy = _.cloneDeep(asset);
       if (!_.isEmpty(copy.建设序列)) {
         copy.建设序列 = _.mapValues(copy.建设序列, stripHarvestFields);
@@ -602,7 +612,7 @@ if (!_.isEmpty(data.资产)) {
     });
   } else {
     // 战斗状态：保留资产实体，但剔除所有经营管理噪音
-    current.资产 = _.transform(data.资产, (result, asset, name) => {
+    current.资产 = _.transform(playerAssets, (result, asset, name) => {
       const tacticalAsset = _.cloneDeep(asset);
       
       // 绝对屏蔽 待办事件 (战斗时不需要看收件箱和抱怨)

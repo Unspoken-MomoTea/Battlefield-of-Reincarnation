@@ -226,7 +226,7 @@
 Step 1 · 读取事实：以当前变量与本轮已确认剧情为最高事实；明确世界书用于补充或校正设定；资料缺失时可使用模型已有的原著/世界知识，但不得覆盖已确认差异。主神任务、晋升试炼、任务状态、副本成就不属于输入依据。
 Step 2 · 校准宏观骨架：维护3~5个真正会改变篇章、地区、社会、战争、基础设施、势力格局或关键人物命运的宏观节点，并确定当前局势与下一个宏观边界。撤离、赶路、会合、调查、单次战斗、通过局部障碍等只属于当前事件或近期节点。
 Step 3 · 推进当前区间：只展开“当前世界时间 → 下一宏观节点”之间需要发生的事实。严格服从请求给出的本轮时间容量；先处理已经到期或正在进行的事项，再让未完事项向前推进合理一步。时间未推进时只能同步即时事实；未来计划不得写成已发生事实，下一个宏观边界之后不要提前拆成琐碎行动。
-Step 4 · 推演世界现场与场外实体：先更新当前区间内确实变化的地区现场，再决定人物行动。现场群体、资源点和环境事实写在势力地区；人物只维护自身地点、目标、行动、认知与持续背景关联，不复制地点现场。场外人物、势力与地区按职责、利益、资源、路程、能力和认知运行，不围绕<user>空转；同场人物以正文为准，即将与<user>相遇时停在交互前一步。活跃异端始终复核地点、目标、行动与更新时间；死亡异端不可恢复活动。
+Step 4 · 推演世界现场与场外实体：先更新当前区间内确实变化的地区现场，再决定人物行动。现场群体和环境事实写在势力地区；人物只维护自身地点、目标、行动、认知与持续背景关联，不复制地点现场。场外人物、势力与地区按职责、利益、现有资产与地区资源、路程、能力和认知运行，不围绕<user>空转；已确认的场外资产变化同步到唯一资产账簿，可新增、更新、转移归属或移除已彻底消失资产；同场人物以正文为准，即将与<user>相遇时停在交互前一步。活跃异端始终复核地点、目标、行动与更新时间；死亡异端不可恢复活动。
 Step 5 · 维护因果与玩家结算台账：只有关键人物命运、重大事件结果、势力格局或主线可行性被实质改变时才写偏移；若原宏观轨道因此失效，同轮重构宏观顺序。探索只记录<user>实际到达、调查或可靠获知的整体区域成果，后台NPC的发现不转成玩家探索度；势力声望只因<user>对该势力造成的真实帮助、损害、背叛等结果变化。
 Step 6 · 维护世界传播与基础状态：只在事件确实产生新传播时维护传闻、情报或公告，并区分事实、猜测和谣言；已结束/过期传播不得复活。货币与历法只在世界事实确有变化或可靠设定明确时维护；任务世界不得把空间币当作本地货币。
 Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 业务事实；没有业务变化时只写摘要。因果.当前阶段是一段可直接阅读的当前世界局势；正在发生且可能被正文感知的当前事件，把已经成为现实的公开征兆/可见影响写入公开字段，隐藏计划、内幕和未来结局继续留在后台字段。
@@ -262,7 +262,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:10,
+        version:12,
         builtin:true,
         name:'默认设置',
         exportedAt:'2026-09-10T00:00:00.000Z',
@@ -281,8 +281,8 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
 1. 事实优先级：当前变量与已确认剧情 > 明确世界书 > 模型一般知识；过去事实约束未来，计划不等于事实。
 2. 宏观与区间：因果轨道只投影3~5个阶段级宏观节点；细节只展开到下一个宏观边界，局部行动不得升级为宏观节点。没有重大因果变化时保持宏观顺序稳定。
 3. 时间与事件：只用世界.时间计算本世界进展，严格服从本轮时间容量、路程和资源；无法确认跨度时只推进一步。待发生/进行中事件必须有可排序的具体时间或明确因果时间，不得只写“近期/稍后/未来/待定/未知”；受正文未决互动影响而尚无结果的事件保持进行中。
-4. 认知与职责：人物只有通过在场、既有认知或传播链获得信息后才能行动，不得全知反应。世界引擎负责场外世界，资产只作为世界推演条件读取；当前场景直接事实与即时消费由正文/MVU负责。不得替<user>建立后台行动；主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界的局部结算不得重置世界。
-5. 现场与人物：现场群体/资源点属于势力地区，人物背景关联只记录持续的团体、组织、社交圈或阵营关系；同一现场事实不得复制进人物。先推进地区现场，再决定人物行动。活跃异端始终按当前世界时间复核地点、目标、行动与更新时间，死亡不可恢复；普通人物只维护真正热记录。
+4. 认知与职责：人物只有通过在场、既有认知或传播链获得信息后才能行动，不得全知反应。顶层资产是个人与势力共用的唯一资产账簿；世界引擎可按已确认场外事实新增、更新、转移或移除资产，并维护所属对象、完整度、能源、消耗、建设、驻扎人员与待办事件。正文/MVU已结算的当前场景资产变化只同步，不重复扣算。不得替<user>建立后台行动；主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界的局部结算不得重置世界。
+5. 现场与人物：现场群体与环境事实属于势力地区，人物背景关联只记录持续的团体、组织、社交圈或阵营关系；同一现场事实不得复制进人物。先推进地区现场，再决定人物行动。活跃异端始终按当前世界时间复核地点、目标、行动与更新时间，死亡不可恢复；普通人物只维护真正热记录。
 6. 玩家台账：探索只结算<user>实际到达/调查/可靠获知的整体区域，后台NPC发现不计玩家探索；探索度以0/10/30/60/90/100作为无知/浅尝/熟悉/深入/掌控/核心锚点，已确认进度不得无因降低。势力仅在<user>首次接触或可靠获知后投影；声望只因<user>造成的真实关系结果变化，同一结果只结算一次，单轮绝对变化≤1000，超过500仅限重大核心事件。
 7. 因果偏移：只有关键人物命运、重大事件结果、势力格局或主线可行性被实质改变时记录偏移；影响程度负值表示偏离原轨道，正值表示修复/强化。世界超稳时不新增偏移；重大偏移使旧轨道失效时必须同轮重构宏观顺序。
 8. 输出分层：只提交 WorldResult 业务事实，不生成补丁路径。因果.当前阶段是唯一持久世界局势摘要；故事线/下一节点由宏观顺序投影。当前事件公开字段只写已经成为现实且可被合理感知的信息，不泄露后台秘密或未来结局。
@@ -351,7 +351,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     const DETAILS = {
         事件: {分类:'',开始时间:'',预计结束:'',更新时间:'',下次检查:'',参与者:[],关联任务:[],可见影响:[{时间:'',地点:'',影响:''}]},
         人物: {状态:'',更新时间:'',开始时间:'',预计结束:'',行程:[{开始:'',结束:'',地点:'',行动:'',状态:'',结果:''}],承诺:[{对象:'',内容:'',期限:'',解除条件:''}],待决事项:[{问题:'',选项:[],等待:''}],关系变化:[{对象:'',关系:'',变化:'',时间:''}],认知来源:[{事实:'',来源:'',获知时间:'',状态:''}],登场条件:'',背景关联:[{类型:'',名称:'',关系:''}]},
-        势力地区: {更新时间:'',控制方:'',争夺方:[],资源:[{名称:'',数量:'',用途:'',限制:''}],内部派系:[{名称:'',立场:'',行动:'',影响:''}],近期变化:[{时间:'',事实:'',关联事件:''}],环境状态:[],现场群体:[{名称:'',规模:'',身份:'',动态:''}],资源点:[{名称:'',类型:'',状态:'',控制方:'',动态:''}]},
+        势力地区: {更新时间:'',控制方:'',争夺方:[],资源:[{名称:'',数量:'',用途:'',限制:''}],内部派系:[{名称:'',立场:'',行动:'',影响:''}],近期变化:[{时间:'',事实:'',关联事件:''}],环境状态:[],现场群体:[{名称:'',规模:'',身份:'',动态:''}]},
         剧本: {状态:'',来源:'',更新时间:'',期限:'',完成条件:'',失败条件:'',结果:'',参与者:[],地点:[],阻碍:[],阶段:[{名称:'',状态:'',时间:'',说明:'',前置阶段:''}]},
         历史:{},传播:{更新时间:'',到期时间:'',受众:[],引发行动:[]}
     };
@@ -413,8 +413,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             背景关联:objectList(person.背景关联,8),
             关联事件:Array.isArray(person.关联事件)?person.关联事件.filter(Boolean).slice(0,8):[],
             身边人物:nearby,
-            现场群体:objectList(area.现场群体,8),
-            资源点:objectList(area.资源点,8)
+            现场群体:objectList(area.现场群体,8)
         };
     }
 
@@ -1055,7 +1054,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;
         return JSON.stringify(payload,null,2);
     }
-    // 仅允许世界叙事字段与世界经济三字段；玩家数值、持币余额、奖励发放和时钟不在写入名单内。
+    // 允许世界叙事、世界经济与共享资产账簿；玩家属性、持币余额、奖励发放和时钟仍不在写入名单内。
     function allowed(parts, stat) {
         const [a,b,c,d] = parts;
         if (a === '世界' && b === PATH) {
@@ -1073,6 +1072,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         if (a === '世界' && ['势力','探索'].includes(b)) return parts.length === 3 || (parts.length === 4 && Object.hasOwn(b === '势力' ? {实力:0,领地:0,描述:0,声望:0} : {风险:0,探索度:0,描述:0,隐藏真相:0},d));
         if (a === '世界' && b === '异端雷达') return parts.length === 5 && c === '名单' && parts[4] === '状态' && !(stat.设置 || {}).单一世界;
         if (a === '传闻' && ['街头巷议','情报交易','布告与檄文'].includes(b)) return parts.length === 3;
+        if (a === '资产') return parts.length === 2 && !!b;
         // 只允许修改变量AI已经建立的 NPC；禁止通过世界引擎创建关系列表对象。
         if (a === '关系列表') return parts.length === 3 && RELATION_SYNC_KEYS.has(c) && !!get(stat,[a,b]);
         if (a === '任务') return parts.length === 4 && ['列表','副本成就'].includes(b) && d === '状态' && !!get(stat,[a,b,c]);
@@ -1111,7 +1111,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     const RELATION_ATTR_KEYS=['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'];
     const RELATION_ATTR5=['力量','敏捷','体质','精神','魅力'];
     const NPC_BUILD_AUDIT_LIMIT=4;
-    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'];
+    const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'];
     const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
     const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
     function schemaFromSample(sample) {
@@ -1178,6 +1178,17 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         技能:{type:'object',additionalProperties:copy(RELATION_SKILL_SCHEMA),maxProperties:8},描述:{type:'string'}
     }};
     const RELATION_CURRENT_FORM_SCHEMA={type:'object',additionalProperties:false,required:['激活','名称'],properties:{激活:{type:'boolean'},名称:{type:'string'}}};
+    const ASSET_RESULT_SCHEMA={
+        type:'object',additionalProperties:false,required:['名称'],properties:{
+            名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','移除','撤销本轮']},
+            所属对象:{type:'string',minLength:1},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
+            能源:{anyOf:[{type:'object',additionalProperties:false,properties:{类型:{type:'string'},当前:{type:'number'},上限:{type:'number'},描述:{type:'string'}}},{type:'null'}]},
+            消耗单元:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{余量:{type:'number'},上限:{type:'number'},加成:{type:'array',items:{type:'string'}}}},{type:'null'}]}},
+            建设序列:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{阶段:{type:'string',enum:['基础','进阶','专业','顶尖','禁忌']},功能:{type:'string'},加成:{type:'array',items:{type:'string'}},产出:{type:'string'}}},{type:'null'}]}},
+            驻扎人员:{type:'object',additionalProperties:{anyOf:[{type:'string'},{type:'null'}]}},
+            待办事件:{type:'array',items:{type:'string'}}
+        }
+    };
     const WORLD_RESULT_SCHEMA={
         type:'object',
         additionalProperties:false,
@@ -1206,6 +1217,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             }},
             势力:{type:'array',maxItems:15,items:FACTION_RESULT_SCHEMA},
             探索:{type:'array',maxItems:20,items:EXPLORATION_RESULT_SCHEMA},
+            资产:{type:'array',maxItems:20,items:ASSET_RESULT_SCHEMA},
             异端:{type:'array',maxItems:15,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['活跃','死亡']}}}},
             传闻:{type:'object',additionalProperties:false,properties:{
                 街头巷议:{type:'array',maxItems:3,items:STREET_RUMOR_RESULT_SCHEMA},
@@ -1316,6 +1328,67 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         }
         return Array.from(map.values());
     }
+    function normalizeAssetResultList(value) {
+        const sourceList=Array.isArray(value)?value:plain(value)?Object.entries(value).map(([name,item])=>plain(item)?Object.assign({名称:name},copy(item)):{名称:name,操作:item==='移除'?'移除':'更新'}):[];
+        const map=new Map(),stringFields=['所属对象','类型','状态'],numberFields=['主体规模','完整度'];
+        const normalizeMap=(value,kind)=>{
+            if(!plain(value))return {};
+            const out={};
+            for(const [name,raw] of Object.entries(value)){
+                if(forbidden.has(name))continue;
+                if(raw===null){out[name]=null;continue;}
+                if(kind==='person'){
+                    if(typeof raw==='string')out[name]=raw;
+                    continue;
+                }
+                if(!plain(raw))continue;
+                const item={};
+                if(kind==='unit'){
+                    for(const key of ['余量','上限'])if(Object.hasOwn(raw,key)){const n=Number(raw[key]);if(Number.isFinite(n))item[key]=n;}
+                    if(Array.isArray(raw.加成))item.加成=raw.加成.filter(x=>typeof x==='string');
+                }else{
+                    if(Object.hasOwn(raw,'阶段'))item.阶段=String(raw.阶段||'');
+                    for(const key of ['功能','产出'])if(Object.hasOwn(raw,key))item[key]=String(raw[key]??'');
+                    if(Array.isArray(raw.加成))item.加成=raw.加成.filter(x=>typeof x==='string');
+                }
+                out[name]=item;
+            }
+            return out;
+        };
+        const mergeItem=(previous,item)=>{
+            if(!previous)return item;
+            const merged=Object.assign({},previous,item);
+            for(const field of ['消耗单元','建设序列','驻扎人员']){
+                if(plain(previous[field])&&plain(item[field]))merged[field]=Object.assign({},previous[field],item[field]);
+            }
+            if(plain(previous.能源)&&plain(item.能源))merged.能源=Object.assign({},previous.能源,item.能源);
+            return merged;
+        };
+        for(const source of sourceList){
+            if(!plain(source))continue;
+            const name=String(source.名称??source.name??'').trim();if(!name||forbidden.has(name))continue;
+            const operation=['更新','移除','撤销本轮'].includes(source.操作)?source.操作:'更新';
+            const id=nameKey(name);
+            if(operation==='撤销本轮'){map.delete(id);continue;}
+            const item={名称:name,操作:operation};
+            for(const field of stringFields)if(Object.hasOwn(source,field))item[field]=String(source[field]??'');
+            for(const field of numberFields)if(Object.hasOwn(source,field)){const n=Number(source[field]);item[field]=Number.isFinite(n)?n:source[field];}
+            if(Object.hasOwn(source,'能源')){
+                if(source.能源===null)item.能源=null;
+                else if(plain(source.能源)){
+                    item.能源={};
+                    for(const field of ['类型','描述'])if(Object.hasOwn(source.能源,field))item.能源[field]=String(source.能源[field]??'');
+                    for(const field of ['当前','上限'])if(Object.hasOwn(source.能源,field)){const n=Number(source.能源[field]);if(Number.isFinite(n))item.能源[field]=n;}
+                }
+            }
+            if(Object.hasOwn(source,'消耗单元'))item.消耗单元=normalizeMap(source.消耗单元,'unit');
+            if(Object.hasOwn(source,'建设序列'))item.建设序列=normalizeMap(source.建设序列,'build');
+            if(Object.hasOwn(source,'驻扎人员'))item.驻扎人员=normalizeMap(source.驻扎人员,'person');
+            if(Object.hasOwn(source,'待办事件'))item.待办事件=Array.isArray(source.待办事件)?source.待办事件.filter(x=>typeof x==='string'):[];
+            map.set(id,mergeItem(map.get(id),item));
+        }
+        return Array.from(map.values());
+    }
     function normalizeRelationResultList(value) {
         const list=Array.isArray(value)?value:[],map=new Map();
         for(const source of list){
@@ -1355,6 +1428,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             const operations=(key==='传播')?['更新','移除','撤销本轮']:['更新','撤销本轮'];
             result[key]=normalizeNamedResultList(value[key],sampleForWorldResultList(key),operations);
         }
+        result.资产=normalizeAssetResultList(value.资产);
         result.异端=(Array.isArray(value.异端)?value.异端:[]).filter(plain).map(item=>({
             名称:String(item.名称||'').trim(),
             操作:item.操作==='撤销本轮'?'撤销本轮':'更新',
@@ -1406,7 +1480,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
         result.货币=Object.assign({},a.货币||{},b.货币||{});
         result.历法=Object.assign({},a.历法||{},b.历法||{});
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'])result[key]=mergeNamedResultLists(a[key],b[key]);
         result.因果={
             偏移记录:mergeNamedResultLists(a.因果?.偏移记录,b.因果?.偏移记录)
         };
@@ -1423,7 +1497,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
         for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
         for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
-        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','异端']){
+        for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端']){
             for(const item of result[key]||[])push(key+'/'+item.名称,{[key]:[copy(item)]});
         }
         if(Object.hasOwn(result.因果||{},'当前阶段'))push('因果/当前阶段',{因果:{当前阶段:result.因果.当前阶段}});
@@ -1667,6 +1741,50 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         return merged;
     }
 
+    const ASSET_DEFAULTS={所属对象:'<user>',类型:'',主体规模:1,完整度:100,状态:'',建设序列:{},驻扎人员:{},待办事件:[]};
+    const ASSET_ENERGY_DEFAULTS={类型:'',当前:0,上限:0,描述:''};
+    const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
+    const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
+    function materializeAssetRecord(oldValue,item,isNew=false) {
+        const oldAsset=plain(oldValue)?copy(oldValue):{},asset=Object.assign(copy(ASSET_DEFAULTS),oldAsset);
+        if(!String(asset.所属对象||'').trim())asset.所属对象='<user>';
+        if(isNew){
+            if(!Object.hasOwn(item,'所属对象')||!String(item.所属对象||'').trim())throw new Error('新资产必须明确所属对象：'+item.名称);
+            if(!Object.hasOwn(item,'类型')||!String(item.类型||'').trim())throw new Error('新资产必须明确类型：'+item.名称);
+        }
+        for(const field of ['所属对象','类型','主体规模','完整度','状态'])if(Object.hasOwn(item,field))asset[field]=copy(item[field]);
+        if(Object.hasOwn(item,'能源')){
+            if(item.能源===null)delete asset.能源;
+            else asset.能源=Object.assign(copy(ASSET_ENERGY_DEFAULTS),plain(oldAsset.能源)?copy(oldAsset.能源):{},plain(item.能源)?copy(item.能源):{});
+        }
+        const mergeNamedMap=(field,defaults)=>{
+            if(!Object.hasOwn(item,field))return;
+            const merged=plain(oldAsset[field])?copy(oldAsset[field]):{};
+            for(const [name,value] of Object.entries(item[field]||{})){
+                if(forbidden.has(name))continue;
+                if(value===null){delete merged[name];continue;}
+                const previous=plain(merged[name])?copy(merged[name]):{};
+                merged[name]=Object.assign(copy(defaults),previous,copy(value));
+            }
+            if(Object.keys(merged).length)asset[field]=merged;else delete asset[field];
+        };
+        mergeNamedMap('消耗单元',ASSET_UNIT_DEFAULTS);
+        mergeNamedMap('建设序列',ASSET_BUILD_DEFAULTS);
+        if(Object.hasOwn(item,'驻扎人员')){
+            const merged=plain(oldAsset.驻扎人员)?copy(oldAsset.驻扎人员):{};
+            for(const [name,value] of Object.entries(item.驻扎人员||{})){
+                if(forbidden.has(name))continue;
+                if(value===null)delete merged[name];else merged[name]=String(value??'');
+            }
+            asset.驻扎人员=merged;
+        }
+        if(Object.hasOwn(item,'待办事件'))asset.待办事件=copy(item.待办事件||[]);
+        if(!plain(asset.建设序列))asset.建设序列={};
+        if(!plain(asset.驻扎人员))asset.驻扎人员={};
+        if(!Array.isArray(asset.待办事件))asset.待办事件=[];
+        return asset;
+    }
+
     function compileWorldResult(stat,value) {
         const result=normalizeWorldResult(value),patches=[],warnings=[];
         const exists=parts=>get(stat,canonicalizeParts(parts,stat));
@@ -1733,6 +1851,19 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             addEntity(['世界','因果轨道','偏移记录',item.名称],item,EXISTING.偏移记录);
         }
         for(const item of result.势力)addEntity(['世界','势力',item.名称],item,EXISTING.势力);
+        for(const item of result.资产||[]){
+            if(item.操作==='撤销本轮')continue;
+            const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;
+            if(item.操作==='移除'){
+                if(target)patches.push({op:'remove',path:pointer(['资产',target])});
+                else warnings.push('资产对象不存在，忽略移除：'+item.名称);
+                continue;
+            }
+            const finalName=target||item.名称;
+            const record=materializeAssetRecord(existing,item,!target);
+            if(existing&&same(existing,record))continue;
+            patches.push({op:target?'replace':'add',path:pointer(['资产',finalName]),value:record});
+        }
         for(const item of result.探索){
             const granularity=explorationGranularity(item.名称);
             if(granularity.invalid)throw new Error('探索粒度过细：'+item.名称+'。世界.探索只记录整体地标/区域'+(granularity.parent?'，请改为“'+granularity.parent+'”并把微观进展累加到主区域':'，禁止把天台、教室、走廊、房间等子区域作为独立探索项'));
@@ -1841,7 +1972,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             if (p[1] === PATH && p[2] === '历史' && (patch.op !== 'add' || old !== undefined)) throw new Error('历史只允许新增');
             // 世界模型经常把“首次设置”写成 replace；对允许创建的世界记录按 upsert 处理。
             if (patch.op !== 'add' && old === undefined && !canUpsertMissing(p,next)) throw new Error('目标不存在：' + patch.path);
-            if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播'))) throw new Error('仅可移除过期传播与传闻，其他记录使用状态结束');
+            if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播') || (p[0] === '资产' && p.length === 2))) throw new Error('仅可移除过期传播、传闻与已彻底消失的资产，其他记录使用状态结束');
             let value=patch.value;
             if (patch.op !== 'remove') {
                 if (value === undefined) throw new Error('缺少补丁值');
@@ -2256,6 +2387,8 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         };
         // 旧档中可能仍有事件→任务引用；后台不再消费任务数据。
         for(const event of Object.values(projectedBackend.事件))if(plain(event))delete event.关联任务;
+        // 早期世界引擎曾误加地区“资源点”。保留旧存档兼容，但不再发送给模型；资产只读取现有顶层资产账簿。
+        for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.资源点;
         const out={
             世界:{
                 时间:world.时间,
@@ -2300,7 +2433,8 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
 “操作”默认“更新”；移除只用于 Schema 允许移除的传播/传闻记录；“撤销本轮”只用于纠错重试，不代表删除存档中的既有实体。
 事件分类只使用当前事件/近期节点/宏观节点。进行中的当前事件若可能被正文感知，公开征兆/可见影响只能写已经成为现实的公开信息，不得包含隐藏条件、默认走向或未来计划。
 因果只提交当前阶段、宏观顺序和偏移记录。当前阶段必须是可直接阅读的当前世界局势；宏观顺序只列3~5个宏观事件名称；输入中的偏移摘要是只读统计，不得据此重建已经隐藏的旧偏移。
-人物背景关联只记录持续的团体/组织/社交关系，不复制地点或事件；现场群体、资源点与环境变化写在势力地区，由地点关系形成身边发展。人物、势力地区、传播仍只用事件名称建立关联；不得为玩家建立后台人物记录。关系只更新关系列表中已经存在的对象；HP=0 只用于剧情已确认或场外已确认的死亡，不替正文进行常规战斗结算。
+人物背景关联只记录持续的团体/组织/社交关系，不复制地点或事件；现场群体与环境变化写在势力地区，由地点关系形成身边发展。人物、势力地区、传播仍只用事件名称建立关联；不得为玩家建立后台人物记录。关系只更新关系列表中已经存在的对象；HP=0 只用于剧情已确认或场外已确认的死亡，不替正文进行常规战斗结算。
+资产使用顶层资产作为唯一账簿；所属对象写实际个人或势力，<user>统一写<user>。世界引擎可按已确认场外事件新增、更新、转移或移除资产；当前场景已经结算的变化只同步，不重复计算。
 主神任务、晋升试炼、任务状态、副本成就、奖励、击杀计数、世界时间、玩家属性和玩家持币余额均不属于 WorldResult。不要输出已废弃的“公开摘要”或“正文承接”。
 
 【Canonical WorldResult JSON Schema】
@@ -2829,7 +2963,7 @@ ${schemaText}
             const input=JSON.stringify({
                 输入语义:{
                     世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
-                    当前变量:'世界推进专用热数据投影；仅含世界、人物能力、资产、活跃传播、近期历史与近期因果偏移。旧历史/旧偏移仍可留在MVU冷存档，但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',
+                    当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史与近期因果偏移。资产通过WorldResult.资产与同一顶层账簿双向同步；旧历史/旧偏移仍可留在MVU冷存档但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',
                     正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
                     程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
                     时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
@@ -2847,7 +2981,7 @@ ${schemaText}
                 正文可见投影规则:{
                     当前时间:state.世界.时间,
                     当前地点:state.世界.地点,
-                    要求:'非战斗正文会读取完整因果轨道：当前阶段用于当前局势，故事线/下一节点用于长期叙事方向，偏移记录用于跨章因果记忆；这些是规划依据，不等于角色预知或自动知晓幕后信息。正文还会读取进行中当前事件的公开字段，以及程序筛选的场外场景：每个热地区只出现一次共享环境/现场群体/资源点，人物列表只携带各自行动事实，关联事件只作索引；活跃异端始终保留在其所在热场景。以上均用于叙事连续性，不代表角色已知。可能影响当前场景的当前事件应维护公开征兆和可见影响；不要把隐藏条件、默认走向或未来宏观事件详情塞进公开字段。'
+                    要求:'非战斗正文会读取完整因果轨道：当前阶段用于当前局势，故事线/下一节点用于长期叙事方向，偏移记录用于跨章因果记忆；这些是规划依据，不等于角色预知或自动知晓幕后信息。正文还会读取进行中当前事件的公开字段，以及程序筛选的场外场景：每个热地区只出现一次共享环境/现场群体，人物列表只携带各自行动事实，关联事件只作索引；活跃异端始终保留在其所在热场景。以上均用于叙事连续性，不代表角色已知。可能影响当前场景的当前事件应维护公开征兆和可见影响；不要把隐藏条件、默认走向或未来宏观事件详情塞进公开字段。'
                 },
                 可选宏观资料补充:needBackbone,
                 本轮必须复核的到期事件:due,
@@ -3006,8 +3140,8 @@ ${schemaText}
                         next.世界[PATH].已处理楼层=base.fingerprint;
                         next.世界[PATH].已处理时间=base.stat.世界.时间;
                         const changes=committedPatches.map(p=>{
-                            const parts=tokens(p.path),back=parts[1]===PATH;
-                            return {时间:base.stat.世界.时间,类别:back?parts[2]:parts[1],名称:back?parts[3]:parts[2],字段:parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.内容||'记录已更新'):''};
+                            const parts=tokens(p.path),back=parts[1]===PATH,asset=parts[0]==='资产';
+                            return {时间:base.stat.世界.时间,类别:asset?'资产':back?parts[2]:parts[1],名称:asset?parts[1]:back?parts[3]:parts[2],字段:asset?'资产':parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.状态||p.value.内容||'记录已更新'):''};
                         });
                         next.世界[PATH].最近变化=changes.slice(-100);
                         const sourceOld=Object.assign(emptyState(),sourceStat.世界[PATH]||{});
@@ -3124,7 +3258,7 @@ ${schemaText}
                 '#sam-world-engine .we-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:18px 0 25px;background:linear-gradient(100deg,#1a2634,#141f2b);border:1px solid var(--line);border-radius:9px}#sam-world-engine .we-metric{padding:15px 20px;border-right:1px solid var(--line)}#sam-world-engine .we-metric:last-child{border:0}#sam-world-engine .we-metric strong{display:block;font-size:25px;font-weight:500;color:var(--ink);line-height:1.4}#sam-world-engine .we-metric small{color:var(--sub);font-size:11px;letter-spacing:1px}',
                 '#sam-world-engine .we-columns{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(245px,1fr);gap:23px;align-items:start}#sam-world-engine .we-section{margin-bottom:23px;min-width:0}#sam-world-engine .we-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}#sam-world-engine .we-section-head small{color:var(--sub);font-size:11px}#sam-world-engine .we-card{border:1px solid var(--line);border-radius:8px;background:#18222f;padding:16px 18px;margin:9px 0;overflow:hidden}#sam-world-engine .we-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px}#sam-world-engine .we-card-top h3{margin:0}#sam-world-engine .we-card p{font-size:13px;color:#b8c4d3}#sam-world-engine .we-pill{display:inline-block;font-size:10px;line-height:1.6;padding:2px 7px;border:1px solid #7dcbbb30;border-radius:4px;color:var(--mint);background:#7dcbbb09;white-space:nowrap}#sam-world-engine .we-pill.future{color:var(--gold);border-color:#d9b97830;background:#d9b97809}#sam-world-engine .we-pill.dim{color:var(--sub);border-color:var(--line);background:transparent}#sam-world-engine .we-meta{display:flex;gap:8px 15px;flex-wrap:wrap;color:var(--sub);font-size:11px;margin-top:9px}#sam-world-engine .we-chips{display:flex;flex-wrap:wrap;gap:5px}',
                 '#sam-world-engine .we-timeline{border-left:1px solid #d9b97838;margin-left:5px;padding-left:20px}#sam-world-engine .we-timeline .we-card{position:relative;overflow:visible}#sam-world-engine .we-timeline .we-card:before{content:"";position:absolute;left:-26px;top:20px;width:9px;height:9px;background:var(--gold);border:2px solid #101720;border-radius:50%}#sam-world-engine .we-avatar{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#496575,#243440);color:#c1dedc;font-size:15px;flex-shrink:0}#sam-world-engine .we-person{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}#sam-world-engine .we-person:last-child{border:0}#sam-world-engine .we-person>div:last-child{flex:1;min-width:0}#sam-world-engine .we-person strong{font-size:13px}#sam-world-engine .we-person p{font-size:12px;color:#acb8c8;margin:3px 0}',
-                '#sam-world-engine .we-context-list{display:grid;gap:8px}#sam-world-engine .we-context-row{width:100%;display:grid;grid-template-columns:minmax(56px,auto) minmax(0,1fr);align-items:start;gap:10px;padding:11px 12px;border:1px solid var(--we-line,var(--line));border-radius:9px;background:var(--we-card,#18222f);text-align:left;color:var(--we-ink,var(--ink))}#sam-world-engine button.we-context-row:hover{background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-context-kind{color:var(--we-accent,var(--gold));font-size:var(--we-fs-tiny,11px);font-weight:700;letter-spacing:.06em}#sam-world-engine .we-context-copy{min-width:0}#sam-world-engine .we-context-copy b{display:block;font-size:var(--we-fs-body,13px);overflow-wrap:anywhere}#sam-world-engine .we-context-copy small{display:block;margin-top:2px;color:var(--we-sub,var(--sub));font-size:var(--we-fs-small,12px)}#sam-world-engine .we-scene-hero{padding:14px 16px;border:1px solid var(--we-line,var(--line));border-radius:11px;background:var(--we-card,#18222f)}#sam-world-engine .we-scene-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}#sam-world-engine .we-scene-head h3{margin:0}#sam-world-engine .we-scene-head small{color:var(--we-sub,var(--sub))}#sam-world-engine .we-scene-hero>p{margin:8px 0 0;color:var(--we-sub,var(--sub))}#sam-world-engine .we-scene-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:11px}#sam-world-engine .we-scene-lane{min-width:0;border:1px solid var(--we-line,var(--line));border-radius:10px;background:var(--we-card,#18222f);padding:11px}#sam-world-engine .we-scene-lane-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}#sam-world-engine .we-scene-lane-head b{font-size:var(--we-fs-small,12px)}#sam-world-engine .we-scene-lane-head span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-scene-item{display:block;width:100%;padding:9px 8px;border:0;border-top:1px solid var(--we-line,var(--line));background:transparent;text-align:left;color:var(--we-ink,var(--ink))}#sam-world-engine .we-scene-item:first-of-type{border-top:0}#sam-world-engine button.we-scene-item:hover{background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-scene-item b{display:block;font-size:var(--we-fs-body,13px);overflow-wrap:anywhere}#sam-world-engine .we-scene-item small{display:block;color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px);margin-top:2px}#sam-world-engine .we-scene-item p{margin:4px 0 0!important;color:var(--we-sub,var(--sub))!important;font-size:var(--we-fs-small,12px)!important;line-height:1.5!important}#sam-world-engine .we-scene-label,#sam-world-engine .we-person-label{cursor:default}#sam-world-engine .we-roster-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#sam-world-engine .we-roster-person{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;width:100%;min-width:0;padding:11px 12px;border:1px solid var(--we-line,var(--line));border-radius:10px;background:var(--we-card,#18222f);text-align:left;color:var(--we-ink,var(--ink))}#sam-world-engine .we-roster-person:hover{background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-roster-person.active{border-color:var(--we-accent,var(--gold));box-shadow:0 0 0 2px color-mix(in srgb,var(--we-accent,var(--gold)) 18%,transparent)}#sam-world-engine .we-roster-copy{min-width:0}#sam-world-engine .we-roster-copy b{display:block;font-size:var(--we-fs-body,13px);overflow-wrap:anywhere}#sam-world-engine .we-roster-copy small{display:block;margin-top:2px;color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-roster-copy em{display:block;margin-top:5px;color:var(--we-sub,var(--sub));font-size:var(--we-fs-small,12px);font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#sam-world-engine .we-area-scene-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}#sam-world-engine .we-area-detail{display:grid;gap:14px}#sam-world-engine .we-area-summary-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:12px;align-items:stretch}#sam-world-engine .we-area-summary-main,#sam-world-engine .we-area-facts{min-width:0;padding:14px 16px;border:1px solid var(--we-line,var(--line));border-radius:11px;background:var(--we-card,#18222f)}#sam-world-engine .we-area-summary-main .we-area-hero{padding-top:0}#sam-world-engine .we-area-scene-wide{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#sam-world-engine .we-area-archive{padding:0 2px}#sam-world-engine .we-explore-index{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}@media(max-width:900px){#sam-world-engine .we-roster-list,#sam-world-engine .we-scene-grid,#sam-world-engine .we-area-scene-grid,#sam-world-engine .we-area-summary-grid,#sam-world-engine .we-area-scene-wide{grid-template-columns:1fr}}',
+                '#sam-world-engine .we-context-list{display:grid;gap:8px}#sam-world-engine .we-context-row{width:100%;display:grid;grid-template-columns:minmax(56px,auto) minmax(0,1fr);align-items:start;gap:10px;padding:11px 12px;border:1px solid var(--we-line,var(--line));border-radius:9px;background:var(--we-card,#18222f);text-align:left;color:var(--we-ink,var(--ink))}#sam-world-engine button.we-context-row:hover{background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-context-kind{color:var(--we-accent,var(--gold));font-size:var(--we-fs-tiny,11px);font-weight:700;letter-spacing:.06em}#sam-world-engine .we-context-copy{min-width:0}#sam-world-engine .we-context-copy b{display:block;font-size:var(--we-fs-body,13px);overflow-wrap:anywhere}#sam-world-engine .we-context-copy small{display:block;margin-top:2px;color:var(--we-sub,var(--sub));font-size:var(--we-fs-small,12px)}#sam-world-engine .we-scene-hero{padding:14px 16px;border:1px solid var(--we-line,var(--line));border-radius:11px;background:var(--we-card,#18222f)}#sam-world-engine .we-scene-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}#sam-world-engine .we-scene-head h3{margin:0}#sam-world-engine .we-scene-head small{color:var(--we-sub,var(--sub))}#sam-world-engine .we-scene-hero>p{margin:8px 0 0;color:var(--we-sub,var(--sub))}#sam-world-engine .we-scene-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:11px}#sam-world-engine .we-scene-lane{min-width:0;border:1px solid var(--we-line,var(--line));border-radius:10px;background:var(--we-card,#18222f);padding:11px}#sam-world-engine .we-scene-lane-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}#sam-world-engine .we-scene-lane-head b{font-size:var(--we-fs-small,12px)}#sam-world-engine .we-scene-lane-head span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-scene-item{display:block;width:100%;padding:9px 8px;border:0;border-top:1px solid var(--we-line,var(--line));background:transparent;text-align:left;color:var(--we-ink,var(--ink))}#sam-world-engine .we-scene-item:first-of-type{border-top:0}#sam-world-engine button.we-scene-item:hover{background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-scene-item b{display:block;font-size:var(--we-fs-body,13px);overflow-wrap:anywhere}#sam-world-engine .we-scene-item small{display:block;color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px);margin-top:2px}#sam-world-engine .we-scene-item p{margin:4px 0 0!important;color:var(--we-sub,var(--sub))!important;font-size:var(--we-fs-small,12px)!important;line-height:1.5!important}#sam-world-engine .we-scene-label,#sam-world-engine .we-person-label{cursor:default}#sam-world-engine .we-roster-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#sam-world-engine .we-roster-person{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;width:100%;min-width:0;padding:11px 12px;border:1px solid var(--we-line,var(--line));border-radius:10px;background:var(--we-card,#18222f);text-align:left;color:var(--we-ink,var(--ink))}#sam-world-engine .we-roster-person:hover{background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-roster-person.active{border-color:var(--we-accent,var(--gold));box-shadow:0 0 0 2px color-mix(in srgb,var(--we-accent,var(--gold)) 18%,transparent)}#sam-world-engine .we-roster-copy{min-width:0}#sam-world-engine .we-roster-copy b{display:block;font-size:var(--we-fs-body,13px);overflow-wrap:anywhere}#sam-world-engine .we-roster-copy small{display:block;margin-top:2px;color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-roster-copy em{display:block;margin-top:5px;color:var(--we-sub,var(--sub));font-size:var(--we-fs-small,12px);font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#sam-world-engine .we-area-scene-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}#sam-world-engine .we-area-detail{display:grid;gap:14px}#sam-world-engine .we-area-facts{min-width:0;padding:14px 16px;border:1px solid var(--we-line,var(--line));border-radius:11px;background:var(--we-card,#18222f)}#sam-world-engine .we-area-archive{padding:0 2px}#sam-world-engine .we-explore-index{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}@media(max-width:900px){#sam-world-engine .we-roster-list,#sam-world-engine .we-scene-grid,#sam-world-engine .we-area-scene-grid{grid-template-columns:1fr}}',
                 '#sam-world-engine .we-change{display:grid;grid-template-columns:62px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:12px}#sam-world-engine .we-change time{color:var(--gold);font-size:10px}#sam-world-engine .we-change p{margin:2px 0;color:var(--sub)}#sam-world-engine .we-progress{height:4px;background:#ffffff0a;border-radius:4px;margin:10px 0 6px;overflow:hidden}#sam-world-engine .we-progress>i{display:block;height:100%;background:var(--mint);border-radius:4px}#sam-world-engine .we-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 18px;align-items:start}#sam-world-engine dl{margin:12px 0;display:grid;grid-template-columns:85px minmax(0,1fr);gap:8px 14px;font-size:12px}#sam-world-engine dt{color:var(--sub)}#sam-world-engine dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}#sam-world-engine details{border-top:1px solid var(--line);margin-top:12px;padding-top:8px}#sam-world-engine summary{cursor:pointer;color:var(--gold);font-size:11px;list-style:none}#sam-world-engine summary:before{content:"＋ ";}#sam-world-engine details[open]>summary:before{content:"− ";}',
                 '#sam-world-engine .we-calendar{background:#18222f;border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:20px}#sam-world-engine .we-calhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}#sam-world-engine .we-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}#sam-world-engine .we-days span{color:var(--sub);font-size:10px;padding:4px}#sam-world-engine .we-days button{position:relative;padding:7px 0;border:1px solid transparent;border-radius:5px;background:none;font-size:11px;min-width:0}#sam-world-engine .we-days button.today{border-color:var(--gold);color:var(--gold)}#sam-world-engine .we-days button.selected{background:#d9b97824}#sam-world-engine .we-days button.has-event:after{content:"";position:absolute;bottom:2px;left:calc(50% - 2px);width:4px;height:4px;background:var(--mint);border-radius:50%}#sam-world-engine .we-days button:hover{background:#ffffff0b}',
                 '#sam-world-engine .we-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:18px 0}#sam-world-engine .we-tools input{min-width:150px;flex:1;background:#17212d;border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:8px 12px;font-size:12px}#sam-world-engine .we-tools button{border:1px solid var(--line);background:none;border-radius:5px;padding:6px 10px;font-size:11px}#sam-world-engine .we-tools button.active{border-color:var(--gold);color:var(--gold)}#sam-world-engine .we-empty{padding:24px 15px;text-align:center;border:1px dashed #ffffff19;border-radius:8px;color:var(--sub);font-size:12px}#sam-world-engine .we-empty b{display:block;color:#bec9d6;margin-bottom:5px;font-weight:500}#sam-world-engine .we-notice{padding:12px 16px;border-left:2px solid var(--gold);background:#d9b97808;margin:15px 0;color:#d4c4a6;font-size:12px}#sam-world-engine textarea{width:100%;min-height:48vh;background:#121b26;color:var(--ink);border:1px solid #ffffff24;border-radius:8px;padding:18px;line-height:1.9;resize:vertical}#sam-world-engine footer{padding:8px 24px;border-top:1px solid var(--line);font-size:10px;color:var(--sub);display:flex;justify-content:space-between;gap:15px}#sam-world-engine footer span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
@@ -3928,20 +4062,20 @@ ${schemaText}
                             :'<article class="we-scene-item we-scene-label">'+inner+'</article>';
                     }
                     if(kind==='group')return '<article class="we-scene-item"><b>'+text(item.名称||'未命名群体')+'</b><small>'+text([item.规模,item.身份].filter(Boolean).join(' · ')||'现场群体')+'</small>'+(item.动态?'<p>'+text(item.动态)+'</p>':'')+'</article>';
-                    return '<article class="we-scene-item"><b>'+text(item.名称||'未命名资源点')+'</b><small>'+text([item.类型,item.状态,item.控制方].filter(Boolean).join(' · ')||'世界资源点')+'</small>'+(item.动态?'<p>'+text(item.动态)+'</p>':'')+'</article>';
+                    return '';
                 }).join('');
                 return '<div class="we-scene-lane"><div class="we-scene-lane-head"><b>'+text(title)+'</b><span>'+list.length+'</span></div>'+(body||'<div class="we-muted">暂无记录</div>')+'</div>';
             };
             const sceneContextBody=context=>{
-                const hasScene=!!(context&&(context.地区||context.身边人物?.length||context.现场群体?.length||context.资源点?.length));
+                const hasScene=!!(context&&(context.地区||context.身边人物?.length||context.现场群体?.length));
                 if(!hasScene)return empty('暂无身边发展','人物尚未匹配到可用的地区现场；不会为填充面板而虚构周边信息。');
                 const control=[context.控制方?'控制 · '+context.控制方:'',context.争夺方?.length?'争夺 · '+context.争夺方.join('、'):''].filter(Boolean).join(' · ');
-                return '<div class="we-scene-hero"><div class="we-scene-head"><div><small>当前世界现场</small><h3>'+text(context.地区||'未命名地区')+'</h3></div><small>'+text(control||'控制关系未记录')+'</small></div>'+(context.地区动态?'<p>'+text(context.地区动态)+'</p>':'')+(context.环境状态?.length?'<div class="we-chips">'+context.环境状态.map(x=>pill(x,'dim')).join('')+'</div>':'')+'</div><div class="we-scene-grid">'+sceneLane('身边人物',context.身边人物,'person')+sceneLane('现场群体',context.现场群体,'group')+sceneLane('资源点',context.资源点,'resource')+'</div>';
+                return '<div class="we-scene-hero"><div class="we-scene-head"><div><small>当前世界现场</small><h3>'+text(context.地区||'未命名地区')+'</h3></div><small>'+text(control||'控制关系未记录')+'</small></div>'+(context.地区动态?'<p>'+text(context.地区动态)+'</p>':'')+(context.环境状态?.length?'<div class="we-chips">'+context.环境状态.map(x=>pill(x,'dim')).join('')+'</div>':'')+'</div><div class="we-scene-grid">'+sceneLane('身边人物',context.身边人物,'person')+sceneLane('现场群体',context.现场群体,'group')+'</div>';
             };
             const areaSceneBody=record=>{
-                const groups=Array.isArray(record?.现场群体)?record.现场群体:[],resources=Array.isArray(record?.资源点)?record.资源点:[];
-                if(!groups.length&&!resources.length)return '';
-                return '<div class="we-area-scene-wide">'+sceneLane('现场群体',groups,'group')+sceneLane('资源点',resources,'resource')+'</div>';
+                const groups=Array.isArray(record?.现场群体)?record.现场群体:[];
+                if(!groups.length)return '';
+                return sceneLane('现场群体',groups,'group');
             };
             const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(eventScheduleLabel(e))+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
             const timelineCards=list=>{
@@ -4127,16 +4261,15 @@ ${schemaText}
                             +'</button>';
                     }).join('');
                     const areaDetail=chosenArea?(()=>{
-                        const [n,r]=chosenArea,progress=Math.max(0,Math.min(100,Number(r.探索度)||0));
+                        const [n,r]=chosenArea;
                         const backstage=regionRecords[n]||{};
-                        const next=progress>=100?'已抵达核心':progress>=90?'距离核心仍有关键真相':progress>=60?'继续深入关键区域':progress>=30?'补全路线、资源与风险情报':progress>=10?'建立稳定认知与行动路线':'尚未形成有效探索';
-                        return '<div class="we-area-detail"><div class="we-area-summary-grid"><div class="we-area-summary-main"><div class="we-area-hero"><small>当前选择</small><h3>'+text(n)+'</h3><div class="we-area-progress"><strong>'+progress+'%</strong><div><span><b>'+text(progressStage(progress))+'</b><em>'+text(next)+'</em></span><div class="we-explore-bar"><i style="width:'+progress+'%"></i></div></div></div></div><div class="we-area-note">'+text(r.描述||'暂无已确认的玩家探索描述。')+'</div></div><div class="we-area-facts">'+fields({风险:r.风险,控制方:r.控制方||'未明',争夺方:r.争夺方,环境状态:r.环境状态})+'</div></div>'
+                        return '<div class="we-area-detail"><div class="we-area-facts">'+fields({风险:r.风险,控制方:r.控制方||'未明',争夺方:r.争夺方,环境状态:r.环境状态})+'<div class="we-area-note">'+text(r.描述||'暂无已确认的玩家探索描述。')+'</div></div>'
                             +areaSceneBody(backstage)
                             +'<div class="we-area-archive">'+(exists(backstage.进展)||exists(backstage.公开动态)||exists(backstage.资源)||exists(backstage.近期变化)?details('area-world-'+n,{世界进展:backstage.进展,公开动态:backstage.公开动态,资源:backstage.资源,近期变化:backstage.近期变化},'世界地区档案'):'')
                             +(exists(r.隐藏真相)?details('area-truth-'+n,{隐藏真相:r.隐藏真相},'主持人档案'):'')+'</div></div>';
                     })():empty('暂无探索地标','只有已经投影到世界.探索的整体区域才会出现在这里。');
                     html+=section('探索结算名录','<div class="we-explore-grid we-explore-index">'+(cards||empty('暂无探索地标','等待玩家实际发现整体区域。'))+'</div>','总权重 '+totalProgress+'% · 结算上限 300%');
-                    html+=section('区域档案',areaDetail,'完整宽度地区现场 · 点击上方地标切换');
+                    html+=section('区域档案',areaDetail,'地区现场与后台档案 · 点击上方地标切换');
                     if(backstageAreas.length){
                         html+=section('后台未投影地区','<details><summary>'+backstageAreas.length+' 个世界地区尚未计入玩家探索奖励</summary>'+backstageAreas.map(([n,r])=>'<div class="we-brief-row"><b>'+text(n)+'</b><span>'+text(r.进展||r.公开动态||r.描述||'后台运行中')+'</span></div>').join('')+'</details>','仅主持人参考 · 不计探索收益');
                     }

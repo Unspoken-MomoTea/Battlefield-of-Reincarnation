@@ -696,7 +696,7 @@
                 if(event.target.matches('[data-retries]')){
                     const value=Math.max(0,Math.min(5,Number(event.target.value)||0));
                     this.config.retryAttempts=value;event.target.value=value;this.saveConfig();
-                    this.status='失败重试次数已设为 '+value+' 次';
+                    this.status='额外重试次数已设为 '+value+' 次 · 最多总尝试 '+(value+1)+' 次';
                     this.panel.querySelector('footer span').textContent=this.status;
                 }else if(event.target.matches('[data-doc-import]')){
                     const input=event.target,file=input.files&&input.files[0];if(!file)return;
@@ -1088,7 +1088,12 @@
                 const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';
                 const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
                 const readable=(name,v)=>Array.isArray(v)?v.map((item,i)=>fold((item.名称||item.楼层!==undefined&&(item.角色+' · 第 '+item.楼层+' 层')||name+' '+(i+1)),fields(item))).join(''):fields(plain(v)?v:{内容:v});
-                const retryLog=(this.lastRetryLog||[]).map(item=>'<div class="we-change"><time>#'+text(item.重试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p></div></div>').join('');
+                const retryLog=(this.lastRetryLog||[]).map(item=>{
+                    const slices=Array.isArray(item.片段)?item.片段:[],plans=Array.isArray(item.补充清单)?item.补充清单:[];
+                    const details=slices.length?'<p><b>具体原因</b><br>'+slices.map(x=>text(x.片段)+'：'+text(x.原因)).join('<br>')+'</p>':'';
+                    const guidance=plans.length?'<p><b>下一次纠错要求</b><br>'+plans.map(text).join('<br>')+'</p>':'';
+                    return '<div class="we-change"><time>#'+text(item.重试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p>'+details+guidance+'</div></div>';
+                }).join('');
                 const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
                 const attemptRows=(this.lastAttemptTelemetry||[]).map(item=>({
                     名称:'尝试 #'+item.尝试,
@@ -1103,7 +1108,7 @@
                     耗时:Number.isFinite(Number(item.耗时毫秒))?(Number(item.耗时毫秒)/1000).toFixed(2).replace(/\.00$/,'')+' s':'',
                     原因:item.原因||''
                 }));
-                html+=section('失败自动重试','<div class="we-config-row"><label>失败重试次数 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求失败后，最多再请求这么多次；默认 3，最大 5。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||'')+(attemptRows.length?fold('每次尝试观测（点击展开）',readable('尝试',attemptRows)) : ''));
+                html+=section('失败自动重试','<div class="we-config-row"><label>失败后额外重试 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求 1 次 + 最多额外重试 0~5 次；设为 5 时最多总尝试 6 次。默认额外 3，最大额外 5。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次：首次请求 1 次 + 额外重试 '+text(Math.max(0,this.lastAttemptCount-1))+' 次 = 共 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||'')+(attemptRows.length?fold('每次尝试观测（点击展开）',readable('尝试',attemptRows)) : ''));
                 html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                 for(const [label,r] of [['最近实际发送',this.lastRequest],['下一次请求预览',this.previewRequest]]){
                     if(!r){html+=section(label,empty('暂无'+label));continue;}

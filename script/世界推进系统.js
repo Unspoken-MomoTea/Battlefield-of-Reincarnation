@@ -1038,8 +1038,10 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
         const plan=Array.isArray(retryPlan)?retryPlan.filter(Boolean).map(String):[];
         payload.纠错重试={
-            当前重试:attempt,
-            最大重试次数:maxRetries,
+            当前总尝试:attempt+1,
+            最大总尝试:maxRetries+1,
+            当前额外重试:attempt,
+            额外重试上限:maxRetries,
             上次拒绝原因:String(error?.message||error||''),
             上次模型回复:String(lastReply||'').slice(-12000),
             已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
@@ -1080,6 +1082,15 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     const CURRENCY_FIELDS={体系:'',购买力基准:'',经济波动:''};
     const CALENDAR_FIELDS={名称:'',月份天数:[],闰年规则:''};
     const QUALITY_RANKS=['F','E','D','C','B','A','S','SS','SSS'];
+    const RUMOR_CREDIBILITY=['酒话','可疑','或许可信'];
+    const INTEL_RATINGS=[...QUALITY_RANKS,'日常','战略'];
+    function normalizeRumorCredibility(value) {
+        const raw=String(value??'').trim();
+        if(RUMOR_CREDIBILITY.includes(raw))return raw;
+        if(/^(?:可信|属实|真实|确实|高|较高|很高|基本属实)$/.test(raw))return '或许可信';
+        if(/^(?:不可信|虚假|谣言|低|较低|很低|纯属谣言)$/.test(raw))return '酒话';
+        return '可疑';
+    }
     const EXISTING = {
         势力: {实力:'F',领地:'',描述:'',声望:0}, 探索:{风险:'F',探索度:0,描述:'',隐藏真相:''},
         偏移记录:{描述:'',引发者:'',影响程度:0},
@@ -1125,6 +1136,15 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
     const EXPLORATION_RESULT_SCHEMA=namedEntitySchema(EXISTING.探索);
     EXPLORATION_RESULT_SCHEMA.properties.风险={type:'string',enum:copy(QUALITY_RANKS)};
     EXPLORATION_RESULT_SCHEMA.properties.探索度={type:'number',minimum:0,maximum:100};
+    const EVENT_RESULT_SCHEMA=namedEntitySchema({...RECORDS.事件,...MODEL_DETAILS.事件});
+    EVENT_RESULT_SCHEMA.properties.状态={type:'string',enum:['待发生','进行中','已完成','已取消']};
+    EVENT_RESULT_SCHEMA.properties.分类={type:'string',enum:Array.from(EVENT_CATEGORIES)};
+    const OFFSET_RESULT_SCHEMA=namedEntitySchema(EXISTING.偏移记录);
+    OFFSET_RESULT_SCHEMA.properties.影响程度={type:'number',minimum:-100,maximum:120};
+    const STREET_RUMOR_RESULT_SCHEMA=namedEntitySchema(EXISTING.街头巷议,['更新','移除','撤销本轮'],['来源','内容','可信度']);
+    STREET_RUMOR_RESULT_SCHEMA.properties.可信度={type:'string',enum:copy(RUMOR_CREDIBILITY)};
+    const INTEL_TRADE_RESULT_SCHEMA=namedEntitySchema(EXISTING.情报交易,['更新','移除','撤销本轮'],['卖家','情报评级','摘要','要价','真实内幕']);
+    INTEL_TRADE_RESULT_SCHEMA.properties.情报评级={type:'string',enum:copy(INTEL_RATINGS)};
     const relationQualitySchema=()=>({type:'string',enum:copy(RELATION_QUALITIES)});
     const relationTagsSchema=()=>({type:'array',maxItems:24,items:{type:'string'}});
     const relationStringMapSchema=()=>({type:'object',additionalProperties:{type:'string'}});
@@ -1175,7 +1195,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
                 月份天数:{type:'array',maxItems:24,items:{type:'integer',minimum:1,maximum:99}},
                 闰年规则:{type:'string'}
             }},
-            事件:{type:'array',maxItems:30,items:namedEntitySchema({...RECORDS.事件,...MODEL_DETAILS.事件})},
+            事件:{type:'array',maxItems:30,items:EVENT_RESULT_SCHEMA},
             人物:{type:'array',maxItems:25,items:namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物})},
             势力地区:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.势力地区,...MODEL_DETAILS.势力地区})},
             历史:{type:'array',maxItems:12,items:namedEntitySchema(RECORDS.历史,['更新','撤销本轮'])},
@@ -1183,14 +1203,14 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             因果:{type:'object',additionalProperties:false,properties:{
                 当前阶段:{type:'string'},
                 宏观顺序:{type:'array',minItems:0,maxItems:5,items:{type:'string'}},
-                偏移记录:{type:'array',maxItems:10,items:namedEntitySchema(EXISTING.偏移记录)}
+                偏移记录:{type:'array',maxItems:10,items:OFFSET_RESULT_SCHEMA}
             }},
             势力:{type:'array',maxItems:15,items:FACTION_RESULT_SCHEMA},
             探索:{type:'array',maxItems:20,items:EXPLORATION_RESULT_SCHEMA},
             异端:{type:'array',maxItems:15,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['活跃','死亡']}}}},
             传闻:{type:'object',additionalProperties:false,properties:{
-                街头巷议:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.街头巷议,['更新','移除','撤销本轮'],['来源','内容','可信度'])},
-                情报交易:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.情报交易,['更新','移除','撤销本轮'],['卖家','情报评级','摘要','要价','真实内幕'])},
+                街头巷议:{type:'array',maxItems:3,items:STREET_RUMOR_RESULT_SCHEMA},
+                情报交易:{type:'array',maxItems:3,items:INTEL_TRADE_RESULT_SCHEMA},
                 布告与檄文:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.布告与檄文,['更新','移除','撤销本轮'],['发布者','内容','张贴位置'])}
             }},
             关系:{type:'array',maxItems:25,items:{type:'object',additionalProperties:false,required:['名称'],properties:{
@@ -1352,6 +1372,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         for(const key of WORLD_RESULT_RUMORS){
             let list=normalizeNamedResultList(rumors[key],EXISTING[key],['更新','移除','撤销本轮']);
             if(key==='街头巷议'){
+                for(const item of list)if(Object.hasOwn(item,'可信度'))item.可信度=normalizeRumorCredibility(item.可信度);
                 const seen=new Set(),deduped=[];
                 for(const item of list){
                     const signature=String(item.内容||'').replace(/\s+/g,' ').trim();
@@ -1413,6 +1434,34 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
         for(const item of result.关系||[])push('关系/'+item.名称,{关系:[copy(item)]});
         return {摘要:result.摘要,fragments};
     }
+    function shortSchemaValue(value) {
+        if(value===undefined)return 'undefined';
+        let raw;try{raw=JSON.stringify(value);}catch(_){raw=String(value);}
+        if(raw===undefined)raw=String(value);
+        return raw.length>140?raw.slice(0,137)+'…':raw;
+    }
+    function firstSchemaDifference(before,after,parts) {
+        if(same(before,after))return null;
+        if(plain(before)&&plain(after)){
+            const keys=Array.from(new Set([...Object.keys(before),...Object.keys(after)]));
+            for(const key of keys){
+                const diff=firstSchemaDifference(before[key],after[key],parts.concat(key));
+                if(diff)return diff;
+            }
+        }
+        if(Array.isArray(before)&&Array.isArray(after)&&before.length===after.length){
+            for(let i=0;i<before.length;i++){
+                const diff=firstSchemaDifference(before[i],after[i],parts.concat(String(i)));
+                if(diff)return diff;
+            }
+        }
+        return {parts,before,after};
+    }
+    function schemaMismatchError(beforeState,afterState,patchPath) {
+        const parts=tokens(patchPath),before=get(beforeState,parts),after=get(afterState,parts);
+        const diff=firstSchemaDifference(before,after,parts)||{parts,before,after};
+        return new Error('字段未通过完整 Schema 校验：'+pointer(diff.parts)+'（'+shortSchemaValue(diff.before)+' → '+shortSchemaValue(diff.after)+'）');
+    }
     function stageWorldResult(stat,accepted,incoming,validate) {
         const split=worldResultFragments(incoming);
         let staged=accepted?mergeWorldResults(accepted,{摘要:split.摘要}):normalizeWorldResult({摘要:split.摘要});
@@ -1428,7 +1477,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
                     if(typeof validate==='function'){
                         const checked=validate(built.next);
                         for(const patch of compiled.patches){
-                            if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(built.next,tokens(patch.path))))throw new Error('字段未通过完整 Schema 校验：'+patch.path);
+                            if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(built.next,tokens(patch.path))))throw schemaMismatchError(built.next,checked,patch.path);
                         }
                     }
                     staged=candidate;
@@ -1739,7 +1788,7 @@ Step 7 · 输出差分：只提交本轮新确认或真实变化的 WorldResult 
             }
         }
         for (const [name,event] of Object.entries(state.事件)) {
-            if (!['待发生','进行中','已完成','已取消'].includes(event.状态)) throw new Error('非法事件状态');
+            if (!['待发生','进行中','已完成','已取消'].includes(event.状态)) throw new Error('非法事件状态：'+name+' = '+String(event.状态||'空')+'；只允许 待发生/进行中/已完成/已取消');
             if (!EVENT_CATEGORIES.has(event.分类)) throw new Error('非法事件分类：'+name+' = '+String(event.分类||'空'));
             if (event.前因.some(id => !Object.hasOwn(state.事件,id))) throw new Error('事件前因不存在：' + name);
         }
@@ -2964,7 +3013,7 @@ ${schemaText}
 
                         const checked=validate(next);
                         for(const patch of committedPatches){
-                            if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(next,tokens(patch.path))))throw new Error('字段未通过完整 Schema 校验：'+patch.path);
+                            if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(next,tokens(patch.path))))throw schemaMismatchError(next,checked,patch.path);
                         }
                         reply.patches=committedPatches;
                         prepared={reply,next,current};
@@ -2983,7 +3032,7 @@ ${schemaText}
                         lastRetryPlan=Array.isArray(error?.retryPlan)&&error.retryPlan.length?copy(error.retryPlan):retryPlanForFailure(error,[]);
                         const canRetry=!!received&&retryableModelFailure(error)&&attempt<maxRetries;
                         if(!canRetry)throw error;
-                        this.lastRetryLog.push({重试:attempt+1,错误:String(error.message||error)});
+                        this.lastRetryLog.push({重试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
                         attempt++;
                         this.status='回复未通过 · 自动纠错 '+attempt+'/'+maxRetries;
                         this.render();
@@ -3756,7 +3805,7 @@ ${schemaText}
                 if(event.target.matches('[data-retries]')){
                     const value=Math.max(0,Math.min(5,Number(event.target.value)||0));
                     this.config.retryAttempts=value;event.target.value=value;this.saveConfig();
-                    this.status='失败重试次数已设为 '+value+' 次';
+                    this.status='额外重试次数已设为 '+value+' 次 · 最多总尝试 '+(value+1)+' 次';
                     this.panel.querySelector('footer span').textContent=this.status;
                 }else if(event.target.matches('[data-doc-import]')){
                     const input=event.target,file=input.files&&input.files[0];if(!file)return;
@@ -4148,7 +4197,12 @@ ${schemaText}
                 const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';
                 const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
                 const readable=(name,v)=>Array.isArray(v)?v.map((item,i)=>fold((item.名称||item.楼层!==undefined&&(item.角色+' · 第 '+item.楼层+' 层')||name+' '+(i+1)),fields(item))).join(''):fields(plain(v)?v:{内容:v});
-                const retryLog=(this.lastRetryLog||[]).map(item=>'<div class="we-change"><time>#'+text(item.重试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p></div></div>').join('');
+                const retryLog=(this.lastRetryLog||[]).map(item=>{
+                    const slices=Array.isArray(item.片段)?item.片段:[],plans=Array.isArray(item.补充清单)?item.补充清单:[];
+                    const details=slices.length?'<p><b>具体原因</b><br>'+slices.map(x=>text(x.片段)+'：'+text(x.原因)).join('<br>')+'</p>':'';
+                    const guidance=plans.length?'<p><b>下一次纠错要求</b><br>'+plans.map(text).join('<br>')+'</p>':'';
+                    return '<div class="we-change"><time>#'+text(item.重试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p>'+details+guidance+'</div></div>';
+                }).join('');
                 const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
                 const attemptRows=(this.lastAttemptTelemetry||[]).map(item=>({
                     名称:'尝试 #'+item.尝试,
@@ -4163,7 +4217,7 @@ ${schemaText}
                     耗时:Number.isFinite(Number(item.耗时毫秒))?(Number(item.耗时毫秒)/1000).toFixed(2).replace(/\.00$/,'')+' s':'',
                     原因:item.原因||''
                 }));
-                html+=section('失败自动重试','<div class="we-config-row"><label>失败重试次数 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求失败后，最多再请求这么多次；默认 3，最大 5。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||'')+(attemptRows.length?fold('每次尝试观测（点击展开）',readable('尝试',attemptRows)) : ''));
+                html+=section('失败自动重试','<div class="we-config-row"><label>失败后额外重试 <input data-retries type="number" min="0" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">首次请求 1 次 + 最多额外重试 0~5 次；设为 5 时最多总尝试 6 次。默认额外 3，最大额外 5。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次：首次请求 1 次 + 额外重试 '+text(Math.max(0,this.lastAttemptCount-1))+' 次 = 共 '+text(this.lastAttemptCount)+' 次。</p>':'')+(retryLog||'')+(attemptRows.length?fold('每次尝试观测（点击展开）',readable('尝试',attemptRows)) : ''));
                 html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                 for(const [label,r] of [['最近实际发送',this.lastRequest],['下一次请求预览',this.previewRequest]]){
                     if(!r){html+=section(label,empty('暂无'+label));continue;}

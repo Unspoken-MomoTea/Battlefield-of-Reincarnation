@@ -690,7 +690,7 @@
 
                         const checked=validate(next);
                         for(const patch of committedPatches){
-                            if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(next,tokens(patch.path))))throw new Error('字段未通过完整 Schema 校验：'+patch.path);
+                            if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(next,tokens(patch.path))))throw schemaMismatchError(next,checked,patch.path);
                         }
                         reply.patches=committedPatches;
                         prepared={reply,next,current};
@@ -709,7 +709,7 @@
                         lastRetryPlan=Array.isArray(error?.retryPlan)&&error.retryPlan.length?copy(error.retryPlan):retryPlanForFailure(error,[]);
                         const canRetry=!!received&&retryableModelFailure(error)&&attempt<maxRetries;
                         if(!canRetry)throw error;
-                        this.lastRetryLog.push({重试:attempt+1,错误:String(error.message||error)});
+                        this.lastRetryLog.push({重试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
                         attempt++;
                         this.status='回复未通过 · 自动纠错 '+attempt+'/'+maxRetries;
                         this.render();

@@ -1,4 +1,4 @@
-# acceptance rerun after contract assertion migration
+# final acceptance rerun after stale assertion cleanup
 name: Asset Multi Owner Lifecycle
 
 on:

@@ -27,7 +27,7 @@
         let value=String(n);
         if(n>=1000){
             const digits=n>=100000?0:n>=10000?1:2;
-            value=(n/1000).toFixed(digits).replace(/\.0+$|(?<=\.[0-9])0+$/,'')+'k';
+            value=(n/1000).toFixed(digits).replace(/(\.\d*?[1-9])0+$|\.0+$/,'$1')+'k';
         }
         return (estimated?'≈':'')+value+' tk';
     }

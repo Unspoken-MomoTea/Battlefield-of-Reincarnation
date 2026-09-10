@@ -1,4 +1,4 @@
-# acceptance rerun after contract assertion fix
+# acceptance rerun after contract assertion migration
 name: Asset Multi Owner Lifecycle
 
 on:
@@ -30,6 +30,7 @@ jobs:
         run: |
           python tools/fix-asset-multi-owner-patcher.py
           python tools/refactor-asset-multi-owner.py
+          python tools/fix-asset-multi-owner-tests.py
 
       - name: Build and validate
         run: |

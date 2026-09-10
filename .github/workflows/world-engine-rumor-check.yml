@@ -38,3 +38,4 @@ jobs:
           git add script/世界推进系统.js
           git commit -m "build: sync rumor liveliness delivery"
           git push
+# one-shot verification workflow; removed after the integration is green

@@ -2381,7 +2381,10 @@ ${schemaText}
                     this.saveConfig();
                 }
             }
-            this.config.retryAttempts=Math.max(1,Math.min(5,Number(this.config.retryAttempts) || 3));
+            {
+                const retryLimit=Number(this.config.retryAttempts);
+                this.config.retryAttempts=Math.max(1,Math.min(5,Number.isFinite(retryLimit)?retryLimit:3));
+            }
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
             if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
@@ -2897,7 +2900,7 @@ ${schemaText}
                 const request=await this.buildRequest(base);
                 if(token!==this.generation)throw new Error('请求已取消');
 
-                const maxAttempts=Math.max(1,Math.min(5,Number(this.config.retryAttempts)||3));
+                const configuredAttempts=Number(this.config.retryAttempts),maxAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:3));
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];
 
                 while(attempt<maxAttempts){

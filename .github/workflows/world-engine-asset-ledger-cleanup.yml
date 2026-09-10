@@ -1,0 +1,95 @@
+name: World Engine Asset Ledger Cleanup
+
+on:
+  push:
+    branches: [fix/world-engine-asset-ledger-cleanup]
+    paths:
+      - '.github/workflows/world-engine-asset-ledger-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  asset-ledger-cleanup:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/world-engine-asset-ledger-cleanup
+          fetch-depth: 0
+
+      - name: Red - current implementation must violate corrected contract
+        run: |
+          if node tests/world-engine-asset-ledger-cleanup.cjs; then
+            echo 'Expected pre-fix implementation to fail the asset-ledger cleanup contract.'
+            exit 1
+          fi
+
+      - name: Apply semantic and UI correction
+        run: python tools/refactor-world-engine-asset-ledger-cleanup.py
+
+      - name: Rebuild delivery script
+        run: |
+          python tools/build-world-engine.py
+          python tools/build-world-engine.py --check
+          node --check 'script/世界推进系统.js'
+
+      - name: Focused acceptance
+        run: |
+          node tests/world-engine-asset-ledger-cleanup.cjs
+          node tests/world-engine-scene-context.cjs
+          node tests/world-engine-person-scene-ui.cjs
+          node tests/world-engine-hot-scenes.cjs
+          node tests/world-engine-context-ui-redesign.cjs
+          node tests/world-engine-prompt-pipeline.cjs
+
+      - name: Supporting world-engine acceptance
+        run: |
+          node tests/world-engine-modules.cjs
+          node tests/world-engine-request-transparency.cjs
+          node tests/world-engine-schema-retry-diagnostics.cjs
+          node tests/world-engine-macro-open-backbone.cjs
+          node tests/world-engine-request-budget-retry-ui.cjs
+          node tests/world-engine-ui-theme.cjs
+          node tests/world-engine-observability.cjs
+          node tests/world-engine-lifecycle-audit.cjs
+          node tests/world-engine-temporary-people.cjs
+
+      - name: Verify corrected ownership and scope
+        run: |
+          ! grep -R -n '资源点' script/world-engine-src script/世界推进系统.js 'World Book/[variables]当前变量.txt'
+          ! grep -q '<small>当前选择</small>' script/world-engine-src/50-engine-ui.part.js
+          grep -q '现有资产账簿' script/world-engine-src/00-foundation-prompt.part.js
+          grep -q '驻扎人员、待办事件、建设序列、能源与消耗' script/world-engine-src/00-foundation-prompt.part.js
+          grep -q 'delete area.资源点' script/world-engine-src/30-context-protocol.part.js
+          git diff --check
+
+      - name: Commit permanent changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            'World Book/[variables]当前变量.txt' \
+            docs/世界引擎V2审计.md \
+            script/world-engine-src/00-foundation-prompt.part.js \
+            script/world-engine-src/10-world-state.part.js \
+            script/world-engine-src/30-context-protocol.part.js \
+            script/world-engine-src/40-engine-runtime.part.js \
+            script/world-engine-src/50-engine-ui.part.js \
+            script/世界引擎接入说明.md \
+            script/世界推进系统.js \
+            tests/world-engine-asset-ledger-cleanup.cjs \
+            tests/world-engine-scene-context.cjs \
+            tests/world-engine-person-scene-ui.cjs \
+            tests/world-engine-hot-scenes.cjs \
+            tests/world-engine-context-ui-redesign.cjs \
+            tests/world-engine-prompt-pipeline.cjs
+          git diff --cached --check
+          git commit -m 'fix: use existing asset ledger for world simulation'
+          git push origin HEAD:fix/world-engine-asset-ledger-cleanup
+
+      - name: Remove one-shot construction files
+        run: |
+          git rm tools/refactor-world-engine-asset-ledger-cleanup.py .github/workflows/world-engine-asset-ledger-cleanup.yml
+          git commit -m 'chore: remove asset-ledger cleanup tooling'
+          git push origin HEAD:fix/world-engine-asset-ledger-cleanup

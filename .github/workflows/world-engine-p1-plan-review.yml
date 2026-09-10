@@ -1,50 +1,10 @@
 name: World Engine P1 Plan Consistency Review
 
 on:
-  push:
-    branches: [refactor/world-engine-p1-visual]
-    paths:
-      - '.github/workflows/world-engine-p1-plan-review.yml'
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
-  review:
+  completed:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: refactor/world-engine-p1-visual
-      - name: Reconcile source comments and plans
-        run: python tools/reconcile-world-engine-p1-plan.py
-      - name: Syntax check
-        run: node --check 'script/世界推进系统.js'
-      - name: Visual token acceptance
-        run: node tests/world-engine-ui-theme.cjs
-      - name: Plan consistency checks
-        shell: bash
-        run: |
-          grep -q 'P1-B：角色关系 UI 与视觉系统（已完成）' 'docs/世界引擎V2审计.md'
-          grep -q 'P1-B 角色关系 UI 与视觉系统（已完成） → P1-C Prompt 可观测性 → P2 单文件拆分' 'docs/世界引擎V2审计.md'
-          ! grep -q 'P1-B：角色管理世界关系 UI' 'docs/世界引擎V2审计.md'
-          grep -q 'WORLD_UI_THEMES' 'docs/世界引擎V2审计.md'
-          grep -q '跟随主神终端六色调' 'script/世界推进系统.js'
-          grep -q '不再维护第二份色调选择状态' 'script/世界引擎接入说明.md'
-          ! grep -q '可在设置中切换与主神终端一致的六种色调' 'script/世界引擎接入说明.md'
-      - name: Verify integration boundary
-        shell: bash
-        run: |
-          test -z "$(git status --porcelain | awk '{print $2}' | grep -E '(^|/)regex-|\.json$' || true)"
-      - name: Commit plan reconciliation
-        shell: bash
-        run: |
-          if git diff --quiet -- 'script/世界推进系统.js' 'docs/世界引擎V2审计.md' 'script/世界引擎接入说明.md'; then
-            echo 'No reconciliation changes to commit'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add 'script/世界推进系统.js' 'docs/世界引擎V2审计.md' 'script/世界引擎接入说明.md'
-          git commit -m 'docs: reconcile P1 visual plan and implementation'
-          git push origin HEAD:refactor/world-engine-p1-visual
+      - run: echo 'P1 plan review already completed; temporary workflow will be removed before merge.'

@@ -1,0 +1,45 @@
+name: World Engine Retry Zero Migration Acceptance
+
+on:
+  push:
+    branches: [fix/world-engine-retry-zero-migration]
+    paths:
+      - '.github/workflows/world-engine-retry-zero-migration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  retry-zero-migration:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/world-engine-retry-zero-migration
+          fetch-depth: 0
+      - name: Red - legacy zero should mean one total attempt
+        run: |
+          if node tests/world-engine-retry-zero-migration.cjs; then
+            echo 'Expected legacy zero migration test to fail before patch.' >&2
+            exit 1
+          fi
+      - name: Green - patch and build
+        run: |
+          python tools/fix-world-engine-retry-zero-migration.py
+          python tools/build-world-engine.py
+          python tools/build-world-engine.py --check
+          node --check 'script/世界推进系统.js'
+      - name: Green - acceptance
+        run: |
+          node tests/world-engine-retry-zero-migration.cjs
+          node tests/world-engine-request-budget-retry-ui.cjs
+          node tests/world-engine-schema-retry-diagnostics.cjs
+          node tests/world-engine-modules.cjs
+      - name: Commit implementation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add script/world-engine-src/40-engine-runtime.part.js script/世界推进系统.js tests/world-engine-retry-zero-migration.cjs
+          git diff --cached --check
+          git commit -m 'fix: migrate zero retries to one total attempt'
+          git push origin HEAD:fix/world-engine-retry-zero-migration

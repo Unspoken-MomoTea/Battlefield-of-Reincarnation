@@ -6,6 +6,9 @@ on:
       - refactor/world-engine-p0
     paths:
       - .github/workflows/world-engine-p1-scene.yml
+      - tools/refactor-world-engine-p1-scene.py
+      - tests/world-engine-prompt-pipeline.cjs
+      - tests/world-engine-scene-context.cjs
 
 permissions:
   contents: write

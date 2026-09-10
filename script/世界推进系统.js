@@ -3218,7 +3218,7 @@ ${schemaText}
                 #sam-world-engine .we-segment-actions{display:flex;gap:4px}
                 #sam-world-engine .we-segment>summary{padding:12px;cursor:pointer;color:var(--we-ink)}
                 #sam-world-engine .we-segment textarea{display:block;width:100%;min-height:170px;height:210px;border:0;border-radius:0;background:#fff;padding:12px 13px;resize:vertical}
-                /* ===== 世界引擎独立外观：默认暗夜，可在设置中切换 ===== */
+                /* ===== 世界引擎独立外观：跟随主神终端六色调；未设置时回退暗夜 ===== */
                 ${WORLD_UI_THEME_CSS}
                 #sam-world-engine[data-tone]{
                     --ink:var(--we-ink);--sub:var(--we-sub);--line:var(--we-line);--gold:var(--we-gold);--mint:var(--we-mint);

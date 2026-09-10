@@ -72,6 +72,30 @@ const vars = fs.readFileSync('World Book/[variables]当前变量.txt','utf8');
 const rules = fs.readFileSync('World Book/⚙️资产与载具规则.txt','utf8');
 const source = fs.readFileSync('script/世界推进系统.js','utf8');
 
+// 直接执行辅助脚本中的两个纯函数，锁定“只有字面 <user> 才收菜”与删除墓碑行为。
+const ownerStart = helper.indexOf('function isPlayerOwnedAsset(');
+const ownerEnd = helper.indexOf('/** 记录资产显式删除', ownerStart);
+assert.ok(ownerStart >= 0 && ownerEnd > ownerStart, '必须能提取资产归属判定函数');
+const isPlayerOwnedAsset = new Function(helper.slice(ownerStart, ownerEnd) + ';return isPlayerOwnedAsset;')();
+assert.equal(isPlayerOwnedAsset({所属对象:['<user>','白银之手']}), true);
+assert.equal(isPlayerOwnedAsset({所属对象:['玩家']}), false);
+assert.equal(isPlayerOwnedAsset({所属对象:['{{user}}']}), false);
+assert.equal(isPlayerOwnedAsset({所属对象:[]}), false);
+assert.equal(isPlayerOwnedAsset({}), false, '新语义下缺失归属不能直接触发自动收菜；旧数据由 ZOD 迁移为 [<user>]');
+
+const syncStart = helper.indexOf('function syncRemovedAssets(');
+const syncEnd = helper.indexOf('/** 资产全自动收菜系统', syncStart);
+assert.ok(syncStart >= 0 && syncEnd > syncStart, '必须能提取资产删除同步函数');
+const syncRemovedAssets = new Function(helper.slice(syncStart, syncEnd) + ';return syncRemovedAssets;')();
+const beforeManualDelete = {世界:{时间:'第10日',后台:{}},资产:{旧塔:{所属对象:[]}}};
+const afterManualDelete = {世界:{时间:'第10日',后台:{}},资产:{}};
+assert.deepEqual(syncRemovedAssets(afterManualDelete, beforeManualDelete), ['旧塔']);
+assert.equal(afterManualDelete.世界.后台.资产墓碑.旧塔, '第10日');
+const beforeRebuild = JSON.parse(JSON.stringify(afterManualDelete));
+afterManualDelete.资产.旧塔 = {所属对象:[],类型:'固定地产'};
+syncRemovedAssets(afterManualDelete, beforeRebuild);
+assert.equal(afterManualDelete.世界.后台.资产墓碑.旧塔, undefined, '明确重建同名资产后必须解除删除保护');
+
 assert.match(zod, /const assetOwners[\s\S]{0,220}z\.array\(z\.string\(\)\)/, 'ZOD 必须定义所属对象字符串数组规范器');
 assert.match(zod, /所属对象:\s*assetOwners/, '资产字段必须使用统一 owner 数组规范器');
 assert.match(zod, /资产墓碑/, '后台 Schema 必须允许程序保存资产删除墓碑');

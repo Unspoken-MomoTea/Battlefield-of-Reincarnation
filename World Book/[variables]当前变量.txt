@@ -172,9 +172,9 @@ if (current.世界) {
       .slice(0, 6);
     if (publicEvents.length) readonly.世界.当前事件 = publicEvents;
 
-    // 场外人物动态：按地区聚合真正热人物。共享现场只在地区层出现一次，人物条目只保留自身地点/目标/行动等事实。
-    // 这些内容用于正文维持叙事连续性，不代表角色自动知情；真正可被角色观察的内容仍需服从地点、观察与传播来源。
-    // 异端身份不在这里重复标注：任务世界已有异端雷达名单；单一世界本就没有异端。
+    // 场外场景：正文只读取当前真正“热”的世界现场。地区共享事实只出现一次，人物与事件挂在场景下面。
+    // 热度来源：当前地点对应地区、公开进行中事件、本轮刚更新地区、真正热人物，以及活跃异端所在场景。
+    // 这只是只读规划上下文，不代表当前角色自动知道场外事实；可感知性仍服从地点、观察与传播来源。
     const rawPeople = _.get(data, '世界.后台.人物', {}) || {};
     const rawAreas = _.get(data, '世界.后台.势力地区', {}) || {};
     const alienRoster = isOneWorld ? {} : (_.get(data, '世界.异端雷达.名单', {}) || {});
@@ -223,7 +223,7 @@ if (current.世界) {
       const key = personNameKey(name);
       if (playerKeys.has(key)) return null;
       const relationRef = relationByKey.get(key)?.person;
-      // 已在正文现场的人物由正文直接维护，不再作为“场外人物”重复发送。
+      // 已在正文现场的人物由正文直接维护，不再作为场外人物重复发送。
       if (relationRef?.在场 === true) return null;
 
       const alienRef = alienByKey.get(key);
@@ -237,10 +237,8 @@ if (current.世界) {
       const updatedNow = sameTimeAnchor(person.更新时间, worldTime);
 
       // 活跃异端永远是热人物；普通人物只保留当前地点、当前事件或本轮刚更新者。
-      // “存在于关系列表”本身不再构成热度，避免多年未更新的旧行动污染正文。
       if (!isAlien && !atCurrentLocation && !linkedCurrentEvent && !updatedNow) return null;
 
-      const sceneArea = sceneAreaFor(person.地点);
       const backgroundLinks = compactSceneList(person.背景关联, ['类型', '名称', '关系'], 6);
       return {
         ...compactProjection({
@@ -255,8 +253,7 @@ if (current.世界) {
           关联事件: links
         }),
         __异端: isAlien,
-        __优先级: isAlien ? -10 : atCurrentLocation ? 0 : linkedCurrentEvent ? 1 : 2,
-        __地区: String(sceneArea?.名称 || person.地点 || '地点未明')
+        __优先级: isAlien ? -20 : atCurrentLocation ? 0 : linkedCurrentEvent ? 1 : 2
       };
     }).filter(Boolean);
 
@@ -266,42 +263,85 @@ if (current.世界) {
       .sort((a, b) => a.__优先级 - b.__优先级 || a.名称.localeCompare(b.名称, 'zh-CN'))
       .slice(0, 8);
     const hotPeople = [...alienPeople, ...ordinaryPeople];
-    const sceneGroups = new Map();
-    for (const person of hotPeople) {
-      const groupName = String(person.__地区 || person.地点 || '地点未明');
-      let group = sceneGroups.get(groupName);
-      if (!group) {
-        const sceneArea = sceneAreaFor(person.地点);
-        const sceneRecord = sceneArea?.记录 || {};
-        group = compactProjection({
-          地区: String(sceneArea?.名称 || groupName),
-          地区动态: String(sceneRecord.公开动态 || sceneRecord.进展 || ''),
-          控制方: String(sceneRecord.控制方 || ''),
-          争夺方: (Array.isArray(sceneRecord.争夺方) ? sceneRecord.争夺方 : []).filter(Boolean).slice(0, 6),
-          现场群体: compactSceneList(sceneRecord.现场群体, ['名称', '规模', '身份', '动态'], 6),
-          资源点: compactSceneList(sceneRecord.资源点, ['名称', '类型', '状态', '控制方', '动态'], 6),
-          环境状态: (Array.isArray(sceneRecord.环境状态) ? sceneRecord.环境状态 : []).filter(Boolean).slice(0, 6)
-        });
-        group.人物 = [];
-        sceneGroups.set(groupName, group);
+
+    const hasSceneFacts = record => !!(record && typeof record === 'object' && (
+      String(record.公开动态 || record.进展 || '').trim() ||
+      (Array.isArray(record.环境状态) && record.环境状态.length) ||
+      (Array.isArray(record.现场群体) && record.现场群体.length) ||
+      (Array.isArray(record.资源点) && record.资源点.length)
+    ));
+    const sceneCandidates = new Map();
+    const ensureScene = (location, priority = 9) => {
+      const matchedArea = sceneAreaFor(location);
+      const name = String(matchedArea?.名称 || location || '').trim();
+      if (!name) return null;
+      let scene = sceneCandidates.get(name);
+      if (!scene) {
+        scene = { 地区: name, 记录: matchedArea?.记录 || {}, 优先级: priority, 人物: [], 关联事件: [], 异端场景: false };
+        sceneCandidates.set(name, scene);
+      } else {
+        scene.优先级 = Math.min(scene.优先级, priority);
+        if (!Object.keys(scene.记录 || {}).length && matchedArea?.记录) scene.记录 = matchedArea.记录;
       }
+      return scene;
+    };
+
+    // 人物只贡献自己的行动；共享场景事实永远从势力地区读取一次。
+    for (const person of hotPeople) {
+      const scene = ensureScene(person.地点, person.__异端 ? -20 : person.__优先级 + 2);
+      if (!scene) continue;
       const clean = { ...person };
       delete clean.__异端;
       delete clean.__优先级;
-      delete clean.__地区;
-      group.人物.push(compactProjection(clean));
+      scene.人物.push(compactProjection(clean));
+      if (person.__异端) scene.异端场景 = true;
     }
-    const groupedScenes = Array.from(sceneGroups.values()).map(group => compactProjection({
-      地区: group.地区,
-      地区动态: group.地区动态,
-      控制方: group.控制方,
-      争夺方: group.争夺方,
-      环境状态: group.环境状态,
-      现场群体: group.现场群体,
-      资源点: group.资源点,
-      人物: group.人物
-    }));
-    if (groupedScenes.length) readonly.世界.场外人物动态 = groupedScenes;
+
+    // 有公开进行中事件的地区即使没有人物，也属于正在运行的热场景；这里只挂事件名，详细公开事实仍由世界.当前事件唯一承载。
+    for (const event of publicEvents) {
+      const scene = ensureScene(event.地点, 0);
+      if (scene && !scene.关联事件.includes(event.名称)) scene.关联事件.push(event.名称);
+    }
+
+    // 当前地区与本轮刚更新的地区可以独立成为热场景，支持大型世界的多地并行演进。
+    const currentArea = sceneAreaFor(currentLocation);
+    if (currentArea && hasSceneFacts(currentArea.记录)) ensureScene(currentArea.名称, 1);
+    for (const [name, area] of areaEntries) {
+      if (sameTimeAnchor(area.更新时间, worldTime) && hasSceneFacts(area)) ensureScene(name, 2);
+    }
+
+    // 下一宏观节点只用于决定哪些“当前地区事实”值得保留，不在场景中重复未来事件详情。
+    const nextMacroName = String(_.get(data, '世界.因果轨道.下一节点', '') || '').trim();
+    const nextMacroEvent = nextMacroName ? rawEvents[nextMacroName] : null;
+    if (nextMacroEvent?.地点) {
+      const nextArea = sceneAreaFor(nextMacroEvent.地点);
+      if (nextArea && hasSceneFacts(nextArea.记录)) ensureScene(nextArea.名称, 4);
+    }
+
+    const candidates = Array.from(sceneCandidates.values())
+      .filter(scene => scene.人物.length || scene.关联事件.length || hasSceneFacts(scene.记录));
+    const forcedScenes = candidates.filter(scene => scene.异端场景)
+      .sort((a, b) => a.优先级 - b.优先级 || a.地区.localeCompare(b.地区, 'zh-CN'));
+    const ordinaryScenes = candidates.filter(scene => !scene.异端场景)
+      .sort((a, b) => a.优先级 - b.优先级 || a.地区.localeCompare(b.地区, 'zh-CN'))
+      .slice(0, Math.max(0, 6 - forcedScenes.length));
+    const hotScenes = [...forcedScenes, ...ordinaryScenes]
+      .sort((a, b) => a.优先级 - b.优先级 || a.地区.localeCompare(b.地区, 'zh-CN'))
+      .map(scene => {
+        const record = scene.记录 || {};
+        return compactProjection({
+          地区: scene.地区,
+          地区动态: String(record.公开动态 || record.进展 || ''),
+          控制方: String(record.控制方 || ''),
+          争夺方: (Array.isArray(record.争夺方) ? record.争夺方 : []).filter(Boolean).slice(0, 6),
+          环境状态: (Array.isArray(record.环境状态) ? record.环境状态 : []).filter(Boolean).slice(0, 6),
+          现场群体: compactSceneList(record.现场群体, ['名称', '规模', '身份', '动态'], 6),
+          资源点: compactSceneList(record.资源点, ['名称', '类型', '状态', '控制方', '动态'], 6),
+          关联事件: scene.关联事件.slice(0, 6),
+          人物: scene.人物
+        });
+      });
+    if (hotScenes.length) readonly.世界.场外场景 = hotScenes;
   }
 }
 

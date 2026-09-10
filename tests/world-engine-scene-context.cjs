@@ -79,14 +79,15 @@ for (const marker of [
   "const rawAreas = _.get(data, '世界.后台.势力地区', {}) || {};",
   'sceneAreaFor',
   '背景关联',
-  'sceneGroups',
+  'sceneCandidates',
   '现场群体',
   '资源点',
-  '人物: group.人物',
+  '关联事件: scene.关联事件',
+  '人物: scene.人物',
 ]) {
   assert.ok(variableProjection.includes(marker), `正文只读投影缺少现场语义：${marker}`);
 }
-assert.match(variableProjection, /readonly\.世界\.场外人物动态 = groupedScenes/, '正文场外人物动态必须按地区聚合输出');
+assert.match(variableProjection, /readonly\.世界\.场外场景 = hotScenes/, '正文必须输出地区级热场景');
 assert.doesNotMatch(variableProjection, /身边发展:\s*Object\.keys\(surroundings\)/, '正文投影不得为每个人复制共享现场');
 
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');

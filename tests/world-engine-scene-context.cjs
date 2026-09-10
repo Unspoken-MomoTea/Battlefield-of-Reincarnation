@@ -79,14 +79,16 @@ for (const marker of [
   "const rawAreas = _.get(data, '世界.后台.势力地区', {}) || {};",
   'sceneAreaFor',
   '背景关联',
-  '身边发展',
+  'sceneCandidates',
   '现场群体',
   '资源点',
-  '身边人物',
+  '关联事件: scene.关联事件',
+  '人物: scene.人物',
 ]) {
   assert.ok(variableProjection.includes(marker), `正文只读投影缺少现场语义：${marker}`);
 }
-assert.match(variableProjection, /\.slice\(0, 4\)/, '身边发展必须限制投影规模');
+assert.match(variableProjection, /readonly\.世界\.场外场景 = hotScenes/, '正文必须输出地区级热场景');
+assert.doesNotMatch(variableProjection, /身边发展:\s*Object\.keys\(surroundings\)/, '正文投影不得为每个人复制共享现场');
 
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
 assert.match(source, /先更新[^\n]*地区现场[^\n]*再决定人物行动/, '默认 Pipeline 应改为世界现场优先');

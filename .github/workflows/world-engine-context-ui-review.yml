@@ -1,0 +1,52 @@
+name: World Engine Context UI Final Review
+
+on:
+  push:
+    branches: [fix/world-engine-context-ui-redesign]
+    paths:
+      - '.github/workflows/world-engine-context-ui-review.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  final-review:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/world-engine-context-ui-redesign
+          fetch-depth: 0
+      - name: Apply regression review fix
+        run: python tools/review-world-engine-context-ui-redesign.py
+      - name: Build consistency
+        run: |
+          python tools/build-world-engine.py --check
+          node --check 'script/世界推进系统.js'
+      - name: Focused redesign acceptance
+        run: |
+          node tests/world-engine-context-ui-redesign.cjs
+          node tests/world-engine-person-scene-ui.cjs
+          node tests/world-engine-scene-context.cjs
+      - name: Full world engine regression
+        run: node tests/world-engine.cjs
+      - name: Supporting regression
+        run: |
+          node tests/world-engine-prompt-pipeline.cjs
+          node tests/world-engine-request-transparency.cjs
+          node tests/world-engine-modules.cjs
+      - name: Verify no duplicate UI or projection contract
+        run: |
+          git diff --check
+          ! grep -q "section('后台活动人物'" script/world-engine-src/50-engine-ui.part.js
+          ! grep -q 'we-temp-person-list' script/world-engine-src/50-engine-ui.part.js
+          ! grep -q '身边发展: Object.keys(surroundings)' 'World Book/[variables]当前变量.txt'
+          grep -q 'const offstagePeople=offstageScenes.flatMap' tests/world-engine.cjs
+      - name: Commit review fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/world-engine.cjs
+          git diff --cached --check
+          git commit -m 'test: align grouped scene projection regression'
+          git push origin HEAD:fix/world-engine-context-ui-redesign

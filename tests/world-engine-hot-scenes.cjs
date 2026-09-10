@@ -54,13 +54,17 @@ const data = {
   关系列表: {},
 };
 
-const current = { 世界: clone(data.世界) };
-const readonly = { 世界: {} };
-render(current, data, readonly, lodash, true, false);
+function project(sample) {
+  const current = { 世界: clone(sample.世界) };
+  const readonly = { 世界: {} };
+  render(current, sample, readonly, lodash, true, false);
+  return readonly.世界;
+}
 
-assert.equal(readonly.世界.场外人物动态, undefined, '旧的场外人物动态字段必须退出正文投影');
-assert.ok(Array.isArray(readonly.世界.场外场景), '正文应输出场外场景数组');
-const scenes = readonly.世界.场外场景;
+const readonlyWorld = project(data);
+assert.equal(readonlyWorld.场外人物动态, undefined, '旧的场外人物动态字段必须退出正文投影');
+assert.ok(Array.isArray(readonlyWorld.场外场景), '正文应输出场外场景数组');
+const scenes = readonlyWorld.场外场景;
 assert.equal(new Set(scenes.map(scene => scene.地区)).size, scenes.length, '同一地区只能出现一个热场景');
 
 const andorhal = scenes.find(scene => scene.地区 === '东部王国-西瘟疫之地-安多哈尔');
@@ -86,6 +90,30 @@ for (const person of scenes.flatMap(scene => scene.人物 || [])) {
   for (const key of ['身边发展', '身边人物', '现场群体', '资源点', '环境状态']) {
     assert.equal(Object.hasOwn(person, key), false, `人物子项不得复制地区共享现场：${person.名称}/${key}`);
   }
+}
+
+// 大型世界压力：很多活跃异端分散在不同大陆时，不能把当前地区和公开进行中事件挤出场景投影。
+const crowded = clone(data);
+for (let i = 1; i <= 7; i++) {
+  const name = `异端远征者${i}`;
+  crowded.世界.异端雷达.名单[name] = { 状态: '活跃' };
+  crowded.世界.后台.人物[name] = {
+    地点: `未知大陆${i}-前线营地`,
+    目标: '维持干涉行动',
+    行动: '观察当地局势',
+    状态: '活跃',
+    更新时间: '很久以前',
+    公开动态: '',
+    关联事件: [],
+  };
+}
+const crowdedScenes = project(crowded).场外场景 || [];
+assert.ok(crowdedScenes.some(scene => scene.地区 === '东部王国-暴风城-法师区'), '当前玩家所在地区必须强制保留，不能被大量异端场景挤出');
+assert.ok(crowdedScenes.some(scene => scene.地区 === '东部王国-西瘟疫之地-安多哈尔'), '公开进行中事件所在地区必须强制保留');
+assert.ok(crowdedScenes.some(scene => scene.地区 === '诺森德-冰冠堡垒'), '无人但公开进行中的事件场景也必须强制保留');
+for (const name of Object.keys(crowded.世界.异端雷达.名单)) {
+  if (crowded.世界.异端雷达.名单[name].状态 === '死亡') continue;
+  assert.ok(crowdedScenes.some(scene => (scene.人物 || []).some(person => person.名称 === name)), `活跃异端所在场景必须保留：${name}`);
 }
 
 console.log('world-engine hot scene projection acceptance passed');

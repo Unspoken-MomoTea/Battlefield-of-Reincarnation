@@ -1,4 +1,4 @@
-# final acceptance rerun after stale assertion cleanup
+# clean acceptance rerun after duplicate migration fix
 name: Asset Multi Owner Lifecycle
 
 on:

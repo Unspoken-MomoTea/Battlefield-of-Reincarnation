@@ -63,6 +63,7 @@ jobs:
           grep -q "if (a === '资产') return parts.length === 2" script/world-engine-src/10-world-state.part.js
           grep -q 'isPlayerOwnedAsset' 'World Book/[variables]当前变量.txt'
           grep -q 'isPlayerOwnedAsset' script/辅助计算脚本.js
+          ! grep -R -n 'version:11' tests/world-engine-*.cjs
           ! grep -R -n '资源点' script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/10-world-state.part.js script/world-engine-src/40-engine-runtime.part.js script/world-engine-src/50-engine-ui.part.js 'World Book/[variables]当前变量.txt'
           test "$(grep -o 'delete area\.资源点' script/world-engine-src/30-context-protocol.part.js | wc -l)" -eq 1
           ! grep -q '<small>当前选择</small>' script/world-engine-src/50-engine-ui.part.js
@@ -88,6 +89,7 @@ jobs:
             script/世界引擎接入说明.md \
             script/世界推进系统.js \
             tests/world-engine-asset-writeback.cjs \
+            tests/world-engine-scene-context.cjs \
             tests/world-engine-prompt-pipeline.cjs
           git diff --cached --check
           git commit -m 'feat: let world engine manage owned assets'

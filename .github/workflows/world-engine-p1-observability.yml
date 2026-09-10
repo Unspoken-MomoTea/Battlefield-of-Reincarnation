@@ -17,6 +17,19 @@ jobs:
         with:
           ref: refactor/world-engine-p1-observability
           fetch-depth: 1
+      - name: Fix helper replacement escaping
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/refactor-world-engine-p1-observability.py')
+          s=p.read_text(encoding='utf-8')
+          old="new_text, count = re.subn(pattern, repl, text, count=1, flags=flags)"
+          new="new_text, count = re.subn(pattern, lambda _match: repl, text, count=1, flags=flags)"
+          if s.count(old)!=1:
+              raise SystemExit(f'helper escaping anchor count={s.count(old)}')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
       - name: Apply guarded observability refactor
         run: python tools/refactor-world-engine-p1-observability.py
       - name: Syntax check

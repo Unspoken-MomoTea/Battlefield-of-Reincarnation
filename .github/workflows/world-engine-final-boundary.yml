@@ -1,0 +1,104 @@
+name: World Engine Final Person Boundary Acceptance
+
+on:
+  push:
+    branches: [fix/world-engine-context-ui-redesign]
+    paths:
+      - '.github/workflows/world-engine-final-boundary.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  final-boundary:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/world-engine-context-ui-redesign
+          fetch-depth: 0
+
+      - name: Red - nearby background people must not be dossier links
+        run: |
+          node - <<'NODE'
+          const {emptyState,derivePersonWorldContext}=require('./script/世界推进系统.js');
+          const stat={世界:{后台:emptyState(),异端雷达:{名单:{}}},关系列表:{正式甲:{身份:['副官']}}};
+          stat.世界.后台.人物={主角NPC:{地点:'区域-营地'},正式甲:{地点:'区域-营地'},路人乙:{地点:'区域-营地'}};
+          stat.世界.后台.势力地区={'区域':{类型:'地区'}};
+          const ctx=derivePersonWorldContext(stat,'主角NPC');
+          const formal=ctx.身边人物.find(x=>x.名称==='正式甲');
+          const background=ctx.身边人物.find(x=>x.名称==='路人乙');
+          if(formal?.可查看档案===true && background?.可查看档案===false) {
+            console.error('Expected pre-fix branch to violate the final boundary.');
+            process.exit(1);
+          }
+          NODE
+
+      - name: Apply final boundary fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          state=Path('script/world-engine-src/10-world-state.part.js')
+          s=state.read_text(encoding='utf-8')
+          old="""                    可查看档案:true,\n                    档案名称:String(profile?.名称||name),\n                    档案类型:profile?'正式档案':'世界人物'"""
+          new="""                    可查看档案:!!profile,\n                    档案名称:String(profile?.名称||''),\n                    档案类型:profile?'正式档案':'现场标签'"""
+          if s.count(old)!=1:
+              raise SystemExit(f'world-state boundary anchor count={s.count(old)}')
+          state.write_text(s.replace(old,new,1),encoding='utf-8')
+
+          test=Path('tests/world-engine-person-scene-ui.cjs')
+          t=test.read_text(encoding='utf-8')
+          old_test="""assert.equal(context.身边人物[1].可查看档案, true);\nassert.equal(context.身边人物[2].可查看档案, true);\nassert.equal(context.身边人物[2].档案名称, '难民传令兵');\nassert.equal(context.身边人物[2].档案类型, '世界人物');"""
+          new_test="""assert.equal(context.身边人物[1].可查看档案, false);\nassert.equal(context.身边人物[2].可查看档案, false);\nassert.equal(context.身边人物[2].档案名称, '');\nassert.equal(context.身边人物[2].档案类型, '现场标签');"""
+          if t.count(old_test)!=1:
+              raise SystemExit(f'person test anchor count={t.count(old_test)}')
+          t=t.replace(old_test,new_test,1)
+          old_assert="assert.ok(source.includes('data-jump-person'), '正式人物与世界人物都应能跳转统一名册，不会因此写入关系列表');"
+          new_assert="""assert.ok(source.includes('data-jump-person'), '统一人物名册中的正式人物与世界人物都应可查看，不会因此写入关系列表');\nassert.ok(source.includes('可查看档案:!!profile'), '身边人物只有已有正式关系列表档案时才允许跳转');"""
+          if t.count(old_assert)!=1:
+              raise SystemExit(f'person source assertion anchor count={t.count(old_assert)}')
+          test.write_text(t.replace(old_assert,new_assert,1),encoding='utf-8')
+          PY
+
+      - name: Rebuild delivery script
+        run: |
+          python tools/build-world-engine.py
+          python tools/build-world-engine.py --check
+          node --check 'script/世界推进系统.js'
+
+      - name: Focused boundary and scene acceptance
+        run: |
+          node tests/world-engine-person-scene-ui.cjs
+          node tests/world-engine-context-ui-redesign.cjs
+          node tests/world-engine-hot-scenes.cjs
+          node tests/world-engine-scene-context.cjs
+
+      - name: Supporting world engine acceptance
+        run: |
+          node tests/world-engine-modules.cjs
+          node tests/world-engine-prompt-pipeline.cjs
+          node tests/world-engine-request-transparency.cjs
+          node tests/world-engine-schema-retry-diagnostics.cjs
+          node tests/world-engine-macro-open-backbone.cjs
+          node tests/world-engine-request-budget-retry-ui.cjs
+          node tests/world-engine-ui-theme.cjs
+          node tests/world-engine-observability.cjs
+          node tests/world-engine-lifecycle-audit.cjs
+
+      - name: Verify final boundary and scope
+        run: |
+          grep -q '可查看档案:!!profile' script/world-engine-src/10-world-state.part.js
+          grep -q "档案类型:profile?'正式档案':'现场标签'" script/world-engine-src/10-world-state.part.js
+          grep -q '可查看档案:!!profile' script/世界推进系统.js
+          ! grep -q "section('后台活动人物'" script/world-engine-src/50-engine-ui.part.js
+          git diff --check
+
+      - name: Commit final boundary fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add script/world-engine-src/10-world-state.part.js script/世界推进系统.js tests/world-engine-person-scene-ui.cjs
+          git diff --cached --check
+          git commit -m 'fix: keep nearby background people as scene labels'
+          git push origin HEAD:fix/world-engine-context-ui-redesign

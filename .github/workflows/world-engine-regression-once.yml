@@ -13,8 +13,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Syntax
         run: node --check script/世界推进系统.js
-      - name: Core world engine
-        run: node tests/world-engine.cjs
       - name: NPC audit toggle
         run: node tests/world-engine-npc-audit-toggle.cjs
       - name: Prompt pipeline

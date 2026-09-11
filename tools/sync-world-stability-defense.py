@@ -84,14 +84,19 @@ write(test_path, test)
 
 pipeline_path = 'tests/world-engine-prompt-pipeline.cjs'
 pipeline = read(pipeline_path)
-pipeline = re.sub(
-    r'assert\(source\.includes\("version:\d+,\\n        builtin:true,\\n        name:\'默认设置\'"\), \'built-in prompt version should be \d+\'\);',
-    'assert(source.includes("version:15,\\n        builtin:true,\\n        name:\'默认设置\'"), \'built-in prompt version should be 15\');',
+pipeline = replace_once(
     pipeline,
-    count=1,
+    'assert(source.includes("version:13,\\n        builtin:true,\\n        name:\'默认设置\'"), \'built-in prompt version should be 11\');',
+    'assert(source.includes("version:15,\\n        builtin:true,\\n        name:\'默认设置\'"), \'built-in prompt version should be 15\');',
+    'pipeline version assertion',
 )
-pipeline = pipeline.replace("  '影响程度负值表示偏离原轨道',", "  '负值=因果破坏',\n  '法则越破不代表主动排异越弱',")
-pipeline = pipeline.replace("assert(core.length < 1550,", "assert(core.length < 1850,")
+pipeline = replace_once(
+    pipeline,
+    "  '影响程度负值表示偏离原轨道',",
+    "  '负值=因果破坏',\n  '法则越破不代表主动排异越弱',",
+    'pipeline causal invariants',
+)
+pipeline = replace_once(pipeline, "assert(core.length < 1550,", "assert(core.length < 1850,", 'pipeline core length')
 write(pipeline_path, pipeline)
 
 # 4) 轻量一致性检查，不依赖浏览器。

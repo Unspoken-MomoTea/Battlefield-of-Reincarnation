@@ -13,6 +13,8 @@ PARTS = (
     '30-context-protocol.part.js',
     '40-engine-runtime.part.js',
     '50-engine-ui.part.js',
+    '55-policy-compat.part.js',
+    '56-rumor-liveliness.part.js',
     '60-bootstrap.part.js',
 )
 

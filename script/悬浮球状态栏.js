@@ -3553,6 +3553,7 @@
             if ($card.hasClass('disabled')) {
                 var reason = $card.attr('data-dis-reason');
                 if (reason === 'fusionbusy') { samToast('warning', '血统融合进行中, 请等待融合完成后再购买血统'); return; }
+                if (reason === 'permission') { samToast('warning', '权限不足, 当前层级/权限凭证无法购买该档位商品'); return; }
                 samToast('warning', '空间币不足, 无法购买'); return;
             }
             var name = $card.attr('data-name');
@@ -7696,6 +7697,83 @@
         var npc = (sd && sd.关系列表 && sd.关系列表[actorName]) ? sd.关系列表[actorName] : null;
         return { character: npc || {}, path: '关系列表.' + actorName, isReincarnator: false, name: actorName };
     }
+// SHOP_PERMISSION_GUARD_START
+var SHOP_PERMISSION_QUALITY_ORDER = ['F','E','D','C','B','A','S','SS','SSS'];
+var SHOP_PERMISSION_TIER_ORDER = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
+function shopPermissionRank(value) {
+    var raw = String(value == null ? '' : value).trim().toUpperCase().replace(/\s+/g, '').replace(/级$/, '');
+    var qualityIndex = SHOP_PERMISSION_QUALITY_ORDER.indexOf(raw);
+    if (qualityIndex >= 0) return qualityIndex;
+    var tierIndex = SHOP_PERMISSION_TIER_ORDER.indexOf(raw);
+    if (tierIndex >= 0) return tierIndex;
+    if (/^[1-9]$/.test(raw)) return Number(raw) - 1;
+    return -1;
+}
+function shopPermissionGrade(rank) {
+    rank = Number(rank);
+    if (!Number.isFinite(rank)) return '?';
+    rank = Math.max(0, Math.min(SHOP_PERMISSION_QUALITY_ORDER.length - 1, Math.floor(rank)));
+    return SHOP_PERMISSION_QUALITY_ORDER[rank];
+}
+function shopPermissionCredentialRank(character) {
+    var best = -1;
+    function scan(dict, checkQuantity) {
+        if (!dict || typeof dict !== 'object') return;
+        for (var key in dict) {
+            if (!Object.prototype.hasOwnProperty.call(dict, key)) continue;
+            var entry = dict[key];
+            if (checkQuantity && entry && typeof entry === 'object' && entry.数量 != null && Number(entry.数量) <= 0) continue;
+            var names = [String(key || '')];
+            if (entry && typeof entry === 'object' && entry.名称) names.push(String(entry.名称));
+            var rank = -1;
+            for (var i = 0; i < names.length; i++) {
+                var match = names[i].match(/(SSS|SS|S|A|B|C|D|E|F)级(?:权限)?凭证/i);
+                if (match) { rank = shopPermissionRank(match[1]); break; }
+            }
+            if (rank < 0 && entry && typeof entry === 'object') {
+                var tagText = Array.isArray(entry.标签) ? entry.标签.join('/') : String(entry.标签 || '');
+                var credentialLike = String(entry.类型 || '').indexOf('权限凭证') >= 0
+                    || tagText.indexOf('权限凭证') >= 0
+                    || String(key || '').indexOf('权限凭证') >= 0;
+                if (credentialLike) rank = shopPermissionRank(entry.品质 || entry.品级 || entry.评级);
+            }
+            if (rank > best) best = rank;
+        }
+    }
+    scan(character && character.道具, true);
+    scan(character && character.状态, false);
+    return best;
+}
+function shopPermissionCapRank(character) {
+    var tierRank = shopPermissionRank(character && character.层级);
+    if (tierRank < 0) tierRank = 0;
+    var baseRank = Math.min(SHOP_PERMISSION_QUALITY_ORDER.length - 1, tierRank + 1);
+    var credentialRank = shopPermissionCredentialRank(character || {});
+    return Math.max(baseRank, credentialRank);
+}
+function shopPermissionItemRank(item) {
+    if (!item || typeof item !== 'object') return -1;
+    var tierRank = shopPermissionRank(item.tier);
+    if (tierRank >= 0) return tierRank;
+    return shopPermissionRank(item.rating);
+}
+function shopPermissionDecision(character, item) {
+    var capRank = shopPermissionCapRank(character || {});
+    var requiredRank = shopPermissionItemRank(item);
+    return {
+        allowed: requiredRank >= 0 && requiredRank <= capRank,
+        capRank: capRank,
+        requiredRank: requiredRank,
+        capGrade: shopPermissionGrade(capRank),
+        requiredGrade: requiredRank >= 0 ? shopPermissionGrade(requiredRank) : '?'
+    };
+}
+function shopPermissionMessage(decision, item) {
+    var name = item && item.name ? item.name : '该商品';
+    if (!decision || decision.requiredRank < 0) return '商城权限校验失败: ' + name + ' 的品质/层级无效';
+    return '权限不足: 当前商城上限为' + decision.capGrade + '级，' + name + '为' + decision.requiredGrade + '级';
+}
+// SHOP_PERMISSION_GUARD_END
     // 校正 shopCurrentActor: 若当前选中的NPC不在候选列表里(已离场/非队友), 退回角色
     function shopEnsureActorValid(sd) {
         if (shopCurrentActor === SHOP_ACTOR_REINCARNATOR) return;
@@ -7781,6 +7859,9 @@
         if (idx > -1) {
             shopCart.splice(idx, 1);
         } else {
+            var permissionCtx = shopResolveCharacter(getStatData() || {}, shopCurrentActor);
+            var permission = shopPermissionDecision(permissionCtx.character || {}, item);
+            if (!permission.allowed) { samToast('warning', shopPermissionMessage(permission, item)); return; }
             // ★ 血统区单选: 选中新血统前, 先剔除购物车里已有的其他血统条目(避免多血统混入),
             //   保证入口只有 1 条血统被选中, 后续 shopHandleExec 不必再额外收敛
             if (cat === '血统区') {
@@ -8011,6 +8092,7 @@
     // coin 用于卡片禁用判定(余额不足时灰调)
     function shopRenderContent(coin) {
         if (!shopMarketData) return '<div class="sam-shop-list"><div class="sam-shop-empty">尚未刷新商品, 请在上方商城入口写入需求后点击「刷新商品」</div></div>';
+        var permissionCharacter = shopResolveCharacter(getStatData() || {}, shopCurrentActor).character || {};
         var cat = shopActiveTab || '装备区';
         // 装备区/技能区/道具区: 顶部nav(类型) + 中部list(按类型分组)
         if (cat === '装备区' || cat === '技能区' || cat === '道具区') {
@@ -8026,7 +8108,7 @@
                 var cnt = groups[sk].length;
                 navHtml += '<button type="button" class="sam-shop-nav-btn'+(sk === activeSlot ? ' active' : '')+'" data-shop-slot="'+esc(sk)+'">'+esc(sk)+'<span class="sam-shop-nav-cnt">'+cnt+'</span></button>';
             }
-            var listHtml = shopRenderGroupList(groups[activeSlot] || [], cat, activeSlot, coin);
+            var listHtml = shopRenderGroupList(groups[activeSlot] || [], cat, activeSlot, coin, permissionCharacter);
             return '<div class="sam-shop-nav">'+navHtml+'</div><div class="sam-shop-list">'+listHtml+'</div>';
         }
         // 血统区: 纯list(无nav, 单列布局)
@@ -8034,21 +8116,21 @@
         if (!items.length) return '<div class="sam-shop-list"><div class="sam-shop-empty">'+esc(cat.replace('区',''))+'区暂无商品</div></div>';
         var listHtml3 = '';
         for (var j = 0; j < items.length; j++) {
-            listHtml3 += shopRenderItemCard(items[j], cat, '', coin);
+            listHtml3 += shopRenderItemCard(items[j], cat, '', coin, permissionCharacter);
         }
         return '<div class="sam-shop-list">'+listHtml3+'</div>';
     }
     // 分组列表渲染(装备区/技能区/道具区通用: 按类型分组后的单组列表)
-    function shopRenderGroupList(items, cat, slot, coin) {
+    function shopRenderGroupList(items, cat, slot, coin, permissionCharacter) {
         if (!items || !items.length) return '<div class="sam-shop-empty">此分类暂无商品</div>';
         var html = '';
         for (var i = 0; i < items.length; i++) {
-            html += shopRenderItemCard(items[i], cat, slot, coin);
+            html += shopRenderItemCard(items[i], cat, slot, coin, permissionCharacter);
         }
         return html;
     }
     // 单卡片渲染(含选中态/禁用态/数量回填/已选角标)
-    function shopRenderItemCard(item, cat, slot, coin) {
+    function shopRenderItemCard(item, cat, slot, coin, permissionCharacter) {
         var inner = '';
         var isConsume = (cat === '道具区');
         if (cat === '技能区') inner = shopBuildSkillCard(item);
@@ -8060,6 +8142,9 @@
         else inner = shopBuildSkillCard(item);
         var isSelected = shopIsSelected(item.name, cat, slot);
         var sel = isSelected ? ' selected' : '';
+        var permission = shopPermissionDecision(permissionCharacter || {}, item);
+        // 已选中的越权旧条目仍允许点击取消；未选中的越权商品直接锁死。
+        var permissionLocked = (!isSelected && !permission.allowed);
         // 禁用判定: 已选中的不灰(允许调整数量/取消); 未选中且单件价格>余额 → 灰调禁用
         // 道具区按"1件价格"判定(可后续加数量); 其他区按单件价格
         var unitPrice = Number(item.price || 0);
@@ -8078,7 +8163,7 @@
             && bloodFusionConsumedNames.length && bloodFusionConsumedNames.indexOf(item.replace_target || '') >= 0) {
             bloodFusionLock = true;
         }
-        var disReason = unaffordable ? 'unaffordable' : (bloodFusionLock ? 'fusionbusy' : '');
+        var disReason = permissionLocked ? 'permission' : (unaffordable ? 'unaffordable' : (bloodFusionLock ? 'fusionbusy' : ''));
         var dis = disReason ? ' disabled' : '';
         var dataAttrs = ' data-name="'+esc(item.name)+'" data-cat="'+esc(cat)+'" data-slot="'+esc(slot||'')+'" data-dis-reason="'+disReason+'"';
         // 已选角标(选中时显示); 道具区角标文案带数量
@@ -8086,7 +8171,8 @@
         var cornerHtml = '<span class="sam-shop-sel-corner">'+esc(cornerLabel)+'</span>';
         // 血统已满提示条(不禁用卡片, 引导用户走融合替换流程)
         var hintHtml = bloodFullHint ? '<div class="sam-shop-blood-full-hint" style="margin-top:6px;padding:4px 8px;font-size:11px;color:var(--sam-hp);background:rgba(255,107,107,0.1);border-radius:6px;text-align:center;line-height:1.4">血统已满 · 购买将进入融合替换</div>' : '';
-        return '<div class="sam-shop-item'+sel+dis+'"'+dataAttrs+'>'+inner+cornerHtml+hintHtml+'</div>';
+        var permissionHint = (!permission.allowed) ? '<div class="sam-shop-permission-hint" style="margin-top:6px;padding:5px 8px;font-size:11px;color:var(--sam-warning);background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-radius:6px;text-align:center;line-height:1.4">🔒 权限不足 · 当前上限 '+esc(permission.capGrade)+' · 商品 '+esc(permission.requiredGrade)+'</div>' : '';
+        return '<div class="sam-shop-item'+sel+dis+'"'+dataAttrs+'>'+inner+cornerHtml+hintHtml+permissionHint+'</div>';
     }
     // 底部购物车条
     function shopRenderFooter(coin) {
@@ -8204,6 +8290,11 @@
         var actorName = shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
         var character = (actorName === SHOP_ACTOR_REINCARNATOR) ? coinOwner : (statData.关系列表 && statData.关系列表[actorName]);
         if (!character) throw new Error('角色数据不存在: ' + actorName);
+        for (var gateI = 0; gateI < shopCart.length; gateI++) {
+            var gateItem = shopCart[gateI] || {};
+            var gate = shopPermissionDecision(character, gateItem);
+            if (!gate.allowed) throw new Error(shopPermissionMessage(gate, gateItem));
+        }
         var total = shopCartCost();
         var startCoin = Number(coinOwner.空间币 || 0);
         if (startCoin < total) throw new Error('角色空间币不足');
@@ -8884,14 +8975,14 @@
             + '【生成约束】\n'
             + '1. 贴合度: 根据玩家当前的构筑（偏向物理/近战/生存）、职业和购买力生成。\n'
             + '2. 品质与视野权限控制 (商城解锁铁律):\n'
-            + '   - 【前置扫描】: 生成商品前，必须严格检索【当前玩家数据】中的道具/状态，确认玩家当前层级以及是否持有【高阶权限凭证】。\n'
+            + '   - 【前置扫描】: 生成商品前，必须严格检索【当前购买对象数据】中的道具/状态，确认玩家当前层级以及是否持有【高阶权限凭证】。\n'
             + '   - 【基础视野】: 若无特殊凭证，商城视野 =【玩家当前层级+1阶】，最高封顶SSS（Ⅰ=F，Ⅱ=E……Ⅸ=SSS）。\n'
             + '   - 【凭证覆盖】: 若玩家持有高于【玩家当前层级+1阶】的【X级权限凭证】（例:D级凭证），则本条直接覆盖【基础视野】，商城视野固定为【X级】。若存在多个有效权限凭证，只读取其中最高品质者。\n'
             + '   - 【绝对红线】: 商品最高品质不得超过【商城视野】。商城视野只能来源于【基础视野】或【权限凭证】其中之一，禁止叠加计算。阶位序列:F→E→D→C→B→A→S→SS→SSS。权限凭证绝不出售或展示！\n'
-            + '   - 【纯净展示】: 权限凭证仅用于决定商城视野。商品一旦生成即可直接购买，禁止在商品描述或购买条件中再次要求权限凭证。\n'
+            + '   - 【纯净展示】: 权限凭证仅用于决定商城视野；选购与结算仍由程序按同一上限硬校验。合法视野内商品无需再次写权限条件，超出商城视野的商品不得生成。\n'
             + '   - 避免与玩家已有物品功能完全重复。\n'
             + '3. 升级重铸机制: \n'
-            + '   - 仔细检阅【当前玩家数据】，挑选玩家现有的低阶血统、技能、装备或形态，生成高阶强化版本放入「升级列表」。必须直接生成升级后的完整成品面板，绝对禁止采用词条增量打补丁！必须提供精准的 `替换目标`，以便系统进行回收替换。同一目标可提供多个选项。\n'
+            + '   - 仔细检阅【当前购买对象数据】，挑选玩家现有的低阶血统、技能、装备或形态，生成高阶强化版本放入「升级列表」。必须直接生成升级后的完整成品面板，绝对禁止采用词条增量打补丁！必须提供精准的 `替换目标`，以便系统进行回收替换。同一目标可提供多个选项。\n'
             + '   - 【升级命名】: 成品必须使用简洁完整的名称；禁止在旧名称后追加或累积“改/强化/进阶/精制/Ⅰ/Ⅱ/Plus”等升级后缀，需要改名时直接整体重命名。\n'
             + '   - 【阶位限制规则】: 升级与重铸的阶位上限，严格与上述第2条的【品质与视野权限控制】同步。绝不能生成超出玩家视野上限的升级方案。\n'
             + '   - 【升级继承规则】:\n'

@@ -20,6 +20,8 @@ jobs:
         run: python tools/build-world-engine.py
       - name: Syntax check
         run: node --check script/世界推进系统.js
+      - name: Super-stable prompt regression
+        run: node tests/world-engine-superstable-prompt.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
       - name: NPC audit regression

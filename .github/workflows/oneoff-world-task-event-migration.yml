@@ -1,0 +1,40 @@
+name: oneoff-world-task-event-migration
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/oneoff-world-task-event-migration.yml'
+      - 'tools/oneoff-world-task-event-migration.py'
+permissions:
+  contents: write
+jobs:
+  migrate-build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply migration
+        run: python tools/oneoff-world-task-event-migration.py
+      - name: Build delivery
+        run: python tools/build-world-engine.py
+      - name: Syntax check
+        run: node --check script/世界推进系统.js
+      - name: Task-event regression
+        run: node tests/world-engine-task-awareness.cjs
+      - name: Core regression
+        run: node tests/world-engine.cjs
+      - name: Module synchronization
+        run: node tests/world-engine-modules.cjs
+      - name: Commit migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add script/ZOD脚本.js script/世界推进系统.js script/世界引擎接入说明.md script/world-engine-src tests
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "refactor: link world events to readonly tasks [world-task-event-migrated]"
+          git push

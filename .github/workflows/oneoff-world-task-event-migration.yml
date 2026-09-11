@@ -20,6 +20,18 @@ jobs:
           python-version: '3.12'
       - name: Apply migration
         run: python tools/oneoff-world-task-event-migration.py
+      - name: Remove empty legacy plot store
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('script/world-engine-src/10-world-state.part.js')
+          text=p.read_text(encoding='utf-8')
+          old="事件:{}, 人物:{}, 势力地区:{}, 剧本:{}, 历史:{}, 传播:{}"
+          new="事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 传播:{}"
+          if text.count(old)!=1:
+              raise SystemExit(f'emptyState legacy plot store: expected 1 match, got {text.count(old)}')
+          p.write_text(text.replace(old,new,1),encoding='utf-8')
+          PY
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax check

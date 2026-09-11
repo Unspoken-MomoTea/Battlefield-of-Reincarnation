@@ -518,10 +518,7 @@ export const Schema = z.object({
             Ⅰ: safeNum(0), Ⅱ: safeNum(0), Ⅲ: safeNum(0),
             Ⅳ: safeNum(0), Ⅴ: safeNum(0), Ⅵ: safeNum(0),
             Ⅶ: safeNum(0), Ⅷ: safeNum(0), Ⅸ: safeNum(0)
-        }).prefault({}),
-        贡献: z.record(z.string(), strictItem(z.object({
-            剧情定性: safeStr('')
-        }))).prefault({})
+        }).prefault({})
     }).prefault({}),
 
     角色: z.object({
@@ -541,6 +538,11 @@ export const Schema = z.object({
         装备: z.record(z.string(), equip_item).prefault({}),
         道具: z.record(z.string(), backpack_item).prefault({}),
         空间币: safeNum(0).transform(v => Math.max(0, v)),
+        权限凭证: z.object({
+            F: safeNum(0), E: safeNum(0), D: safeNum(0),
+            C: safeNum(0), B: safeNum(0), A: safeNum(0),
+            S: safeNum(0), SS: safeNum(0), SSS: safeNum(0)
+        }).prefault({}),
         形态库: z.record(z.string(), form_item).prefault({}),
         当前形态: current_form
     }).prefault({}).transform(char => {

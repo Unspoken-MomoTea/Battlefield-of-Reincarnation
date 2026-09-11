@@ -4017,6 +4017,15 @@ ${schemaText}`;
                 if(anchor&&selected)this.monthOffset=(selected.y-anchor.y)*monthsPerYear+selected.m-anchor.m;
             }
             const dateLabel=str=>{const d=parseDate(str);return d?d.m+'月'+d.d+'日':str||'时间待补';};
+            // 区间标题与效果逐字取自 ⚙️世界因果与法则协议。
+            const stabilityStages=[{"min":111,"max":120,"title":"黄金祝福 | 法则强化","effects":["概率触发世界奇迹","隐藏机缘开启","高级剧情提前开放","世界关键资源刷新率提升","原生体系强化，外来体系强压"]},{"min":101,"max":110,"title":"世界青睐 | 稳定强化","effects":["世界秩序稳定","原生势力协作提升","资源生成率提高","符合主因果行为更易成功"]},{"min":100,"max":100,"title":"原著时间线 | 稳定","effects":["标准轨迹运行，无额外奖惩"]},{"min":90,"max":99,"title":"轻度偏移 | 稳定","effects":["世界局部细节开始偏离原著","小概率出现异常巧合","部分NPC行为出现轻微变化","世界因果链开始产生细小波纹"]},{"min":80,"max":89,"title":"初步警觉 | 稳定","effects":["环境恶化","敌对单位刷新率提升","世界轻微排斥轮回者"]},{"min":70,"max":79,"title":"因果紊乱 | 松动","effects":["时间线不可预测偏移","原著剧情失控","外来力量压制出现缺口"]},{"min":60,"max":69,"title":"世界疏离 | 松动","effects":["NPC信任度整体下降","补给难度上升","社会秩序逐步崩坏"]},{"min":50,"max":59,"title":"时空渗透 | 法则松动","effects":["空间裂缝生成","外来异常存在渗透","高危存在易锁定轮回者"]},{"min":40,"max":49,"title":"世界畸变 | 法则崩坏","effects":["畸变体大量生成","局部规则异常","原生体系加成失效","力量体系冲突污染"]},{"min":30,"max":39,"title":"英雄崩塌 | 法则崩坏","effects":["关键角色精神异常","英雄阵营分裂","核心秩序瓦解"]},{"min":10,"max":29,"title":"终焉倒计时 | 法则混乱","effects":["法则大面积失效","大规模空间裂缝","因果链断裂","全体系约束解除","世界进入无序释放"]}];
+            const stabilityDescription=stable=>{
+                if(s.设置?.世界超稳===true)return '<p class="we-muted">世界稳定值固定为100<br>世界法则完整度强制锁定为「稳定强化」</p>';
+                if(stable===null)return '<p class="we-muted">世界稳定值未记录</p>';
+                if(stable<10)return '<p class="we-muted"><b>终末格式化</b><br>不可修复异常时间线</p>';
+                const stage=stabilityStages.find(item=>stable>=item.min&&stable<item.max+1);
+                return stage?'<div class="we-stability-description"><p><b>'+text(stage.title)+'</b></p><ul>'+stage.effects.map(effect=>'<li>'+text(effect)+'</li>').join('')+'</ul></div>':'<p class="we-muted">稳定值超出协议范围</p>';
+            };
             const events=sortWorldEvents(state.事件,orbit);
             const active=events.filter(([,e])=>e.状态==='进行中'),future=events.filter(([,e])=>e.状态==='待发生');
             const relationRoster=s.关系列表||{};
@@ -4139,7 +4148,7 @@ ${schemaText}`;
                 };
                 const causalHtml='<div class="we-causal"><div class="we-stability"><div><small>世界稳定值</small><strong data-world-stability>'+text(stable===null?'未记录':stable)+'</strong></div><span>'+((s.设置||{}).世界超稳?'世界超稳 · 禁止新增偏移':'原轨道基准 100')+'</span></div>'
                     +(stable===null?'':'<meter min="0" max="120" value="'+Math.max(0,Math.min(120,stable))+'" aria-label="世界稳定值">'+stable+'</meter>')
-                    +'<p class="we-muted">读取当前变量，不在面板重算。负向偏移使原轨道更不稳定，正向偏移修复或强化原轨道。</p>'
+                    +stabilityDescription(stable)
                     +'<div class="we-offset-heading">偏移记录 <span>'+offsets.length+' 条</span></div>'
                     +(offsets.length?offsets.slice(0,3).map(offsetCard).join('')+(offsets.length>3?'<details class="we-offset-more"><summary>展开其余 '+(offsets.length-3)+' 条偏移</summary>'+offsets.slice(3).map(offsetCard).join('')+'</details>':''):empty('暂无因果偏移','关键人物命运、重大事件或势力格局实质改变后记录。'))+'</div>';
                 const shown=calendarCandidates.filter(([,e])=>this.calendarMode==='undated'?!parseDate(e.时间||e.开始时间):!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate);

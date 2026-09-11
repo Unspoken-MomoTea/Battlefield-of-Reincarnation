@@ -236,8 +236,6 @@
             历史:tailRecord(backend.历史,HOT_HISTORY_TARGET),
             传播:tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
         };
-        // 旧档中可能仍有事件→任务引用；后台不再消费任务数据。
-        for(const event of Object.values(projectedBackend.事件))if(plain(event))delete event.关联任务;
         // 早期世界引擎曾误加地区“资源点”。保留旧存档兼容，但不再发送给模型；资产只读取现有顶层资产账簿。
         for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.资源点;
         const out={

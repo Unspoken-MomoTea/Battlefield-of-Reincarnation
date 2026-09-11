@@ -1382,7 +1382,6 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         x.change(s=>{
             s.世界.后台.最近变化=[{时间:'旧时间',类别:'事件',名称:'旧变化',操作:'更新',字段:'状态',内容:'旧记录'}];
             for(let i=0;i<205;i++)s.世界.后台.事件['旧事件'+i]={...RECORDS.事件,描述:'已经结束的旧事件'+i,时间:'2026年8月'+String(i%28+1)+'日',状态:'已完成',结果:'事件已经结束'};
-            s.世界.后台.剧本.旧剧本={...RECORDS.剧本,描述:'旧版兼容数据',关联事件:['旧事件0']};
         });
         await x.engine.run();
         const state=x.get().世界.后台;

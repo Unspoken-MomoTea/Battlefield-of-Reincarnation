@@ -15,6 +15,7 @@ const parts = [
   '50-engine-ui.part.js',
   '55-policy-compat.part.js',
   '56-rumor-liveliness.part.js',
+  '57-task-awareness.part.js',
   '60-bootstrap.part.js',
 ];
 
@@ -48,6 +49,9 @@ assert.match(texts['55-policy-compat.part.js'], /事件前因不存在/);
 assert.match(texts['56-rumor-liveliness.part.js'], /^    \/\/ 传闻是常驻活跃层/);
 assert.match(texts['56-rumor-liveliness.part.js'], /RUMOR_LIVELINESS_RULES/);
 assert.match(texts['56-rumor-liveliness.part.js'], /ensureRumorLiveliness/);
+assert.match(texts['57-task-awareness.part.js'], /^    \/\/ 任务感知层/);
+assert.match(texts['57-task-awareness.part.js'], /TASK_AWARENESS_RULES/);
+assert.match(texts['57-task-awareness.part.js'], /projectTaskListForWorld/);
 assert.match(texts['60-bootstrap.part.js'], /^    \/\/ CommonJS 入口仅供离线测试/);
 assert.match(texts['60-bootstrap.part.js'], /module\.exports/);
 assert.match(texts['60-bootstrap.part.js'], /\}\)\(typeof window !== 'undefined' \? window : globalThis\);\s*$/);

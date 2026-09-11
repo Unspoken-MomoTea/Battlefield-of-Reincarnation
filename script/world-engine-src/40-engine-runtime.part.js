@@ -482,8 +482,6 @@
             structuralFixes.push(...repairExplicitEventLinks(state));
             if(state.设置)delete state.设置.API;
             delete state.商城;
-            // 旧剧本数据只为兼容存档保留，不进入新世界调度请求。
-            state.世界[PATH].剧本={};
             const count=Math.max(1,Math.min(100,Number(this.config.contextTurns)||6));
             const id=Number(base.message.message_id??base.message.id);
             // 先清洗所有历史候选，再取最近 N 条非空正文；技术楼层再多也不会挤掉正文名额。

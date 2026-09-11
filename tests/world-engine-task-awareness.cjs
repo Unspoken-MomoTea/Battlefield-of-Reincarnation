@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {SamsaraWorldEngine:Engine,emptyState,RECORDS,projectWorldContext}=require('../script/世界推进系统.js');
+const {SamsaraWorldEngine:Engine,emptyState,RECORDS,projectWorldContext,compileWorldResult,WORLD_RESULT_SCHEMA}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 
 function freshState(){
@@ -34,6 +34,21 @@ function freshState(){
   assert.equal(ctx.任务.列表.调查黑鸦商队.惩罚,undefined,'结算惩罚不属于世界后台推演输入');
   assert.deepEqual(ctx.世界.后台.事件['黑鸦商队失踪'].关联任务,['调查黑鸦商队'],'事件的任务关联必须保留给世界后台');
 
+  assert.equal(Object.hasOwn(RECORDS,'剧本'),false,'新版世界后台不再定义剧本记录');
+  assert.equal(Object.hasOwn(emptyState(),'剧本'),false,'新版世界后台不再初始化剧本字段');
+  assert.equal(WORLD_RESULT_SCHEMA.properties.任务,undefined,'WorldResult 不得提供任务写入口');
+
+  const accepted=compileWorldResult(state,{摘要:'任务推动世界变化',事件:[{名称:'黑鸦商队失踪',关联任务:['调查黑鸦商队'],公开征兆:'商会追加了失踪者悬赏。'}]});
+  assert.ok(accepted.patches.some(p=>p.path.includes('/事件/黑鸦商队失踪')&&Array.isArray(p.value?.关联任务)&&p.value.关联任务.includes('调查黑鸦商队')),'存在的任务名允许作为事件因果索引');
+  assert.throws(
+    ()=>compileWorldResult(state,{摘要:'错误关联',事件:[{名称:'黑鸦商队失踪',关联任务:['调查黑龙阴谋']}]}),
+    /事件\/黑鸦商队失踪：关联任务不存在：调查黑龙阴谋/,
+    '不存在的任务关联必须显式拒绝'
+  );
+  state.世界.后台.剧本={旧剧本:{描述:'不应进入上下文'}};
+  const noLegacyPlot=projectWorldContext(state);
+  assert.equal(noLegacyPlot.世界.后台.剧本,undefined,'旧剧本数据不得进入世界推进上下文');
+
   let stored='';
   const message={message_id:9,role:'assistant',message:'北境商会正在四处打听失踪商队的下落。'};
   const host={
@@ -60,7 +75,8 @@ function freshState(){
   const request=await engine.buildRequest(engine.snapshot()),payload=JSON.parse(request.input);
   assert.deepEqual(payload.当前变量.任务,ctx.任务,'实际请求应携带精简任务列表');
   assert.match(request.system,/【任务感知 · 只读】/,'系统提示应声明任务只读边界');
-  assert.match(request.system,/任务状态机以<任务与委托系统>为准/,'世界推进必须以正式任务系统为权威');
+  assert.match(request.system,/任务列表是世界因果来源之一/,'任务列表必须作为只读世界因果来源');
+  assert.match(request.system,/事件可用“关联任务”引用当前任务\.列表中已存在的任务名/,'事件应允许关联已有任务');
   assert.match(request.system,/购买、付款与消费性删除由MVU按正文结果处理/,'世界引擎不得抢情报购买结算职责');
   assert.doesNotMatch(request.system,/情报交易有卖家时更新1~2条，购买后移除/,'旧的世界引擎购买后删除指令必须消失');
 

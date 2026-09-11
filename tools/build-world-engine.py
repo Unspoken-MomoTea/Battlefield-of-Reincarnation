@@ -15,6 +15,7 @@ PARTS = (
     '50-engine-ui.part.js',
     '55-policy-compat.part.js',
     '56-rumor-liveliness.part.js',
+    '57-task-awareness.part.js',
     '60-bootstrap.part.js',
 )
 

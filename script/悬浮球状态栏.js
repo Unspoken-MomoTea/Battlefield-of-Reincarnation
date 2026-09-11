@@ -363,44 +363,24 @@
         });
         return total;
     }
-    /* 权限凭证持有数：新格式读取道具数量；兼容旧存档中同名状态凭证。 */
-    function sourceInfusionCredentialQty(reincarnator, credentialName) {
-        if (!reincarnator || !credentialName) return 0;
-        var total = 0;
-        var items = reincarnator.道具 || {};
-        var item = items[credentialName];
-        if (item && typeof item === 'object') {
-            var q = Object.prototype.hasOwnProperty.call(item, '数量') ? safeNum(item.数量, 0) : 1;
-            total += Math.max(0, q);
-        }
-        var states = reincarnator.状态 || {};
-        if (states && Object.prototype.hasOwnProperty.call(states, credentialName)) total += 1;
-        return total;
+    // SOURCE_INFUSION_CREDENTIAL_START
+    /* 权限凭证持有数：只读取角色.权限凭证.<品质>。 */
+    function sourceInfusionCredentialQty(reincarnator, credentialGrade) {
+        if (!reincarnator || !credentialGrade) return 0;
+        var ledger = reincarnator.权限凭证 || {};
+        return Math.max(0, Math.floor(safeNum(ledger[credentialGrade], 0)));
     }
 
-    /* 消耗恰好1枚指定凭证；优先消耗道具堆叠，旧状态凭证仅作兼容兜底。 */
-    function sourceInfusionConsumeCredential(reincarnator, credentialName) {
-        if (!reincarnator || !credentialName) return false;
-        reincarnator.道具 = reincarnator.道具 || {};
-        var item = reincarnator.道具[credentialName];
-        if (item && typeof item === 'object') {
-            var q = Object.prototype.hasOwnProperty.call(item, '数量') ? safeNum(item.数量, 0) : 1;
-            if (q > 0) {
-                q -= 1;
-                if (q <= 0) delete reincarnator.道具[credentialName];
-                else item.数量 = q;
-                return true;
-            }
-        }
-        reincarnator.状态 = reincarnator.状态 || {};
-        if (Object.prototype.hasOwnProperty.call(reincarnator.状态, credentialName)) {
-            delete reincarnator.状态[credentialName];
-            return true;
-        }
-        return false;
+    /* 消耗恰好1枚指定品质凭证；凭证为独立数值账本，不再从道具/状态中查找。 */
+    function sourceInfusionConsumeCredential(reincarnator, credentialGrade) {
+        if (!reincarnator || !credentialGrade) return false;
+        reincarnator.权限凭证 = reincarnator.权限凭证 || {};
+        var q = Math.max(0, Math.floor(safeNum(reincarnator.权限凭证[credentialGrade], 0)));
+        if (q < 1) return false;
+        reincarnator.权限凭证[credentialGrade] = q - 1;
+        return true;
     }
-
-    /* 统一生成一次“当前层级→下一层级”的源力灌注计划；绝不按凭证品质跳级。 */
+    // SOURCE_INFUSION_CREDENTIAL_END    /* 统一生成一次“当前层级→下一层级”的源力灌注计划；绝不按凭证品质跳级。 */
     function sourceInfusionPlan(sd, targetName) {
         if (!sd || !sd.角色) return { error:'数据未就绪' };
         var isReincarnator = (targetName === '角色');
@@ -429,8 +409,9 @@
             score: score,
             cost: safeNum(SOURCE_INFUSION_COSTS[nextGrade], 0),
             credentialName: credentialName,
+            credentialGrade: nextGrade,
             coin: safeNum(sd.角色.空间币, 0),
-            credentialQty: sourceInfusionCredentialQty(sd.角色, credentialName)
+            credentialQty: sourceInfusionCredentialQty(sd.角色, nextGrade)
         };
     }
 
@@ -469,7 +450,7 @@
                 var payer = statData.角色;
                 var target = check.isReincarnator ? payer : (statData.关系列表 && statData.关系列表[check.targetName]);
                 if (!target || (!check.isReincarnator && target.是否队友 !== true)) return;
-                if (!sourceInfusionConsumeCredential(payer, check.credentialName)) return;
+                if (!sourceInfusionConsumeCredential(payer, check.credentialGrade)) return;
                 payer.空间币 = Math.max(0, safeNum(payer.空间币, 0) - check.cost);
                 target.层级 = check.nextTier;
                 var receiptActor = check.isReincarnator ? '角色' : check.targetName;
@@ -752,6 +733,10 @@
         .sam-shop-coin-mini { display:flex; align-items:center; justify-content:center; gap:6px; padding:4px 10px; background:linear-gradient(135deg, rgba(212,175,55,0.12), rgba(255,247,214,0.06)); border:1px solid rgba(229,193,102,0.4); border-radius:16px; font-size:12px; color:var(--sam-thp); margin-bottom:6px; line-height:1.2; }
         .sam-shop-coin-mini .lbl { font-weight:normal; color:var(--sam-sub); opacity:0.85; }
         .sam-shop-coin-mini .val { font-weight:900; text-shadow:0 0 6px rgba(229,193,102,0.5); }
+        .sam-shop-credential-mini { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:5px; padding:5px 8px; margin-bottom:6px; background:rgba(143,159,255,0.06); border:1px solid var(--sam-border); border-radius:8px; font-size:11px; line-height:1.25; }
+        .sam-shop-credential-mini .lbl { color:var(--sam-sub); margin-right:2px; }
+        .sam-shop-credential-chip { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border:1px solid var(--sam-border); border-radius:10px; color:var(--sam-accent); background:var(--sam-card); font-weight:800; }
+        .sam-shop-credential-empty { color:var(--sam-sub); opacity:0.75; }
         .sam-shop-warn { font-size:12px; color:var(--sam-hp); padding:8px 10px; background:rgba(228,88,125,0.10); border:1px solid rgba(228,88,125,0.35); border-radius:6px; margin-bottom:8px; line-height:1.5; }
         .sam-shop-ok { font-size:12px; color:#56bf7b; padding:8px 10px; background:rgba(86,191,123,0.10); border:1px solid rgba(86,191,123,0.35); border-radius:6px; margin-bottom:8px; line-height:1.5; }
         /* 商城入口: 输入框独占一排(手机端不被挤窄); 目标下拉框 + 刷新按钮占下一排 */
@@ -6233,6 +6218,16 @@
         // 顶部紧凑余额条(空间币由系统结算发放, 余额只读展示; 编辑模式仅作兜底)
         var coinDisplay = editMode ? editInput('角色.空间币', coin, 'number') : esc(String(coin));
         html += '<div class="sam-shop-coin-mini"><span class="lbl">💰 余额</span><span class="val">' + coinDisplay + '</span><span class="lbl">空间币</span></div>';
+        var credentialLedger = p.权限凭证 || {};
+        var credentialChips = [];
+        for (var _uiCi = 0; _uiCi < SHOP_PERMISSION_QUALITY_ORDER.length; _uiCi++) {
+            var _uiGrade = SHOP_PERMISSION_QUALITY_ORDER[_uiCi];
+            var _uiQty = Math.max(0, Math.floor(safeNum(credentialLedger[_uiGrade], 0)));
+            if (_uiQty > 0) credentialChips.push('<span class="sam-shop-credential-chip">'+esc(_uiGrade)+' ×'+_uiQty+'</span>');
+        }
+        html += '<div class="sam-shop-credential-mini"><span class="lbl">🎫 权限凭证</span>'
+            + (credentialChips.length ? credentialChips.join('') : '<span class="sam-shop-credential-empty">无</span>')
+            + '</div>';
         // 状态提示条: 置于商城入口上方(独立于栏目, 不折叠)
         if (isCombat) {
             html += '<div class="sam-shop-warn">⚔️ 战斗中无法交易, 请在安全区域后再试</div>';
@@ -7715,50 +7710,29 @@ function shopPermissionGrade(rank) {
     rank = Math.max(0, Math.min(SHOP_PERMISSION_QUALITY_ORDER.length - 1, Math.floor(rank)));
     return SHOP_PERMISSION_QUALITY_ORDER[rank];
 }
-function shopPermissionCredentialRank(character) {
+function shopPermissionCredentialRank(credentials) {
     var best = -1;
-    function scan(dict, checkQuantity) {
-        if (!dict || typeof dict !== 'object') return;
-        for (var key in dict) {
-            if (!Object.prototype.hasOwnProperty.call(dict, key)) continue;
-            var entry = dict[key];
-            if (checkQuantity && entry && typeof entry === 'object' && entry.数量 != null && Number(entry.数量) <= 0) continue;
-            var names = [String(key || '')];
-            if (entry && typeof entry === 'object' && entry.名称) names.push(String(entry.名称));
-            var rank = -1;
-            for (var i = 0; i < names.length; i++) {
-                var match = names[i].match(/(SSS|SS|S|A|B|C|D|E|F)级(?:权限)?凭证/i);
-                if (match) { rank = shopPermissionRank(match[1]); break; }
-            }
-            if (rank < 0 && entry && typeof entry === 'object') {
-                var tagText = Array.isArray(entry.标签) ? entry.标签.join('/') : String(entry.标签 || '');
-                var credentialLike = String(entry.类型 || '').indexOf('权限凭证') >= 0
-                    || tagText.indexOf('权限凭证') >= 0
-                    || String(key || '').indexOf('权限凭证') >= 0;
-                if (credentialLike) rank = shopPermissionRank(entry.品质 || entry.品级 || entry.评级);
-            }
-            if (rank > best) best = rank;
-        }
+    var ledger = credentials && typeof credentials === 'object' ? credentials : {};
+    for (var i = 0; i < SHOP_PERMISSION_QUALITY_ORDER.length; i++) {
+        var grade = SHOP_PERMISSION_QUALITY_ORDER[i];
+        if (Number(ledger[grade] || 0) > 0) best = i;
     }
-    scan(character && character.道具, true);
-    scan(character && character.状态, false);
     return best;
 }
-function shopPermissionCapRank(character) {
+function shopPermissionCapRank(character, credentials) {
     var tierRank = shopPermissionRank(character && character.层级);
     if (tierRank < 0) tierRank = 0;
     var baseRank = Math.min(SHOP_PERMISSION_QUALITY_ORDER.length - 1, tierRank + 1);
-    var credentialRank = shopPermissionCredentialRank(character || {});
+    var credentialRank = shopPermissionCredentialRank(credentials || {});
     return Math.max(baseRank, credentialRank);
-}
-function shopPermissionItemRank(item) {
+}function shopPermissionItemRank(item) {
     if (!item || typeof item !== 'object') return -1;
     var tierRank = shopPermissionRank(item.tier);
     if (tierRank >= 0) return tierRank;
     return shopPermissionRank(item.rating);
 }
-function shopPermissionDecision(character, item) {
-    var capRank = shopPermissionCapRank(character || {});
+function shopPermissionDecision(character, item, credentials) {
+    var capRank = shopPermissionCapRank(character || {}, credentials || {});
     var requiredRank = shopPermissionItemRank(item);
     return {
         allowed: requiredRank >= 0 && requiredRank <= capRank,
@@ -7859,8 +7833,9 @@ function shopPermissionMessage(decision, item) {
         if (idx > -1) {
             shopCart.splice(idx, 1);
         } else {
-            var permissionCtx = shopResolveCharacter(getStatData() || {}, shopCurrentActor);
-            var permission = shopPermissionDecision(permissionCtx.character || {}, item);
+            var permissionSd = getStatData() || {};
+            var permissionCtx = shopResolveCharacter(permissionSd, shopCurrentActor);
+            var permission = shopPermissionDecision(permissionCtx.character || {}, item, permissionSd.角色 && permissionSd.角色.权限凭证);
             if (!permission.allowed) { samToast('warning', shopPermissionMessage(permission, item)); return; }
             // ★ 血统区单选: 选中新血统前, 先剔除购物车里已有的其他血统条目(避免多血统混入),
             //   保证入口只有 1 条血统被选中, 后续 shopHandleExec 不必再额外收敛
@@ -8142,7 +8117,8 @@ function shopPermissionMessage(decision, item) {
         else inner = shopBuildSkillCard(item);
         var isSelected = shopIsSelected(item.name, cat, slot);
         var sel = isSelected ? ' selected' : '';
-        var permission = shopPermissionDecision(permissionCharacter || {}, item);
+        var permissionSd = getStatData() || {};
+        var permission = shopPermissionDecision(permissionCharacter || {}, item, permissionSd.角色 && permissionSd.角色.权限凭证);
         // 已选中的越权旧条目仍允许点击取消；未选中的越权商品直接锁死。
         var permissionLocked = (!isSelected && !permission.allowed);
         // 禁用判定: 已选中的不灰(允许调整数量/取消); 未选中且单件价格>余额 → 灰调禁用
@@ -8292,7 +8268,7 @@ function shopPermissionMessage(decision, item) {
         if (!character) throw new Error('角色数据不存在: ' + actorName);
         for (var gateI = 0; gateI < shopCart.length; gateI++) {
             var gateItem = shopCart[gateI] || {};
-            var gate = shopPermissionDecision(character, gateItem);
+            var gate = shopPermissionDecision(character, gateItem, coinOwner.权限凭证);
             if (!gate.allowed) throw new Error(shopPermissionMessage(gate, gateItem));
         }
         var total = shopCartCost();
@@ -8859,6 +8835,7 @@ function shopPermissionMessage(decision, item) {
         var ctx = shopResolveCharacter(sd, actorName);
         var p = ctx.character || {};
         var reincarnatorCoin = (sd.角色 && sd.角色.空间币 != null) ? sd.角色.空间币 : null;
+        var reincarnatorCredentials = (sd.角色 && sd.角色.权限凭证 && typeof sd.角色.权限凭证 === 'object') ? sd.角色.权限凭证 : {};
         var parts = [];
         // 顶部标注本次生成目标(角色/队友名), 供AI对齐构筑
         parts.push('本次购买目标: ' + (ctx.isReincarnator ? '角色(玩家本人)' : (actorName + '(队友)')));
@@ -8869,8 +8846,15 @@ function shopPermissionMessage(decision, item) {
             if (_occTxt) parts.push('职业: ' + _occTxt);
         }
         if (p.层级) parts.push('层级: ' + p.层级);
-        // 空间币(支付池)始终以角色余额为准
+        // 空间币与权限凭证都属于角色账户；即使当前为NPC购买，也使用角色账户支付/授权。
         if (reincarnatorCoin != null) parts.push('空间币: ' + reincarnatorCoin);
+        var credentialParts = [];
+        for (var _ci = 0; _ci < SHOP_PERMISSION_QUALITY_ORDER.length; _ci++) {
+            var _cg = SHOP_PERMISSION_QUALITY_ORDER[_ci];
+            var _cq = Math.max(0, Math.floor(safeNum(reincarnatorCredentials[_cg], 0)));
+            if (_cq > 0) credentialParts.push(_cg + '×' + _cq);
+        }
+        parts.push('权限凭证(角色账户): ' + (credentialParts.length ? credentialParts.join(' / ') : '无'));
 
         // ★ 核心辅助函数：提取物品的所有关键信息，拼接成紧凑的单行文本，既全面又省 Token
         function formatDict(dict) {
@@ -8975,9 +8959,9 @@ function shopPermissionMessage(decision, item) {
             + '【生成约束】\n'
             + '1. 贴合度: 根据玩家当前的构筑（偏向物理/近战/生存）、职业和购买力生成。\n'
             + '2. 品质与视野权限控制 (商城解锁铁律):\n'
-            + '   - 【前置扫描】: 生成商品前，必须严格检索【当前角色数据】中的道具/状态，确认玩家当前层级以及是否持有【高阶权限凭证】。\n'
-            + '   - 【基础视野】: 若无特殊凭证，商城视野 =【玩家当前层级+1阶】，最高封顶SSS（Ⅰ=F，Ⅱ=E……Ⅸ=SSS）。\n'
-            + '   - 【凭证覆盖】: 若玩家持有高于【玩家当前层级+1阶】的【X级权限凭证】（例:D级凭证），则本条直接覆盖【基础视野】，商城视野固定为【X级】。若存在多个有效权限凭证，只读取其中最高品质者。\n'
+            + '   - 【前置扫描】: 生成商品前，必须读取【当前角色数据】中的购买对象层级，以及独立字段【权限凭证(角色账户)】。权限凭证不在道具/状态中查找。\n'
+            + '   - 【基础视野】: 若无更高权限凭证，商城视野 =【购买对象当前层级+1阶】，最高封顶SSS（Ⅰ=F，Ⅱ=E……Ⅸ=SSS）。\n'
+            + '   - 【凭证覆盖】: 若【权限凭证(角色账户)】中存在数量>0且高于【购买对象当前层级+1阶】的X级凭证，则商城视野提升至X级；多个有效凭证只取最高品质。凭证数量不会叠加品质。\n'
             + '   - 【绝对红线】: 商品最高品质不得超过【商城视野】。商城视野只能来源于【基础视野】或【权限凭证】其中之一，禁止叠加计算。阶位序列:F→E→D→C→B→A→S→SS→SSS。权限凭证绝不出售或展示！\n'
             + '   - 【纯净展示】: 权限凭证仅用于决定商城视野；选购与结算仍由程序按同一上限硬校验。合法视野内商品无需再次写权限条件，超出商城视野的商品不得生成。\n'
             + '   - 避免与玩家已有物品功能完全重复。\n'

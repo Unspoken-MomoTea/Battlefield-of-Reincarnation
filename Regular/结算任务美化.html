@@ -1365,27 +1365,14 @@
               }
 
               if (credentialGrant) {
-                const key = 'stat_data.角色.道具.' + credentialGrant.name;
-                const old = win._.get(c, key) || {};
-                const currentQty = (old && typeof old === 'object' && Object.keys(old).length)
-                  ? (Object.prototype.hasOwnProperty.call(old, '数量') ? (Number(old.数量) || 0) : 1)
-                  : 0;
-                const baselineOld = settlementBaselineData ? (win._.get(settlementBaselineData, key) || {}) : {};
-                const baselineQty = (baselineOld && typeof baselineOld === 'object' && Object.keys(baselineOld).length)
-                  ? (Object.prototype.hasOwnProperty.call(baselineOld, '数量') ? (Number(baselineOld.数量) || 0) : 1)
-                  : 0;
+                const key = 'stat_data.角色.权限凭证.' + credentialGrant.grade;
+                const currentQty = Math.max(0, Number(win._.get(c, key)) || 0);
+                const baselineQty = settlementBaselineData
+                  ? Math.max(0, Number(win._.get(settlementBaselineData, key)) || 0)
+                  : currentQty;
                 const requiredQty = baselineQty + 1;
-                const missing = Math.max(0, requiredQty - currentQty);
-                if (missing > 0) {
-                  const tags = Array.isArray(old.标签) ? old.标签.slice() : [];
-                  ['主神空间','权限凭证'].forEach(function(t) { if (tags.indexOf(t) < 0) tags.push(t); });
-                  win._.set(c, key + '.品质', credentialGrant.grade);
-                  win._.set(c, key + '.类型', '权限凭证');
-                  win._.set(c, key + '.数量', currentQty + missing);
-                  win._.set(c, key + '.标签', tags);
-                  win._.set(c, key + '.效果', old.效果 && typeof old.效果 === 'object' ? old.效果 : { 商城权限:'永久解锁主神商城' + credentialGrant.grade + '级跨阶购买与升级权限。' });
-                  win._.set(c, key + '.描述', old.描述 || '主神结算授予的永久权限凭证，可累计持有；源力灌注普升时消耗1枚。');
-                  win._.set(c, key + '.状态', [0,1,2].includes(Number(old.状态)) ? Number(old.状态) : 0);
+                if (currentQty < requiredQty) {
+                  win._.set(c, key, requiredQty);
                   changed = true;
                 }
               }

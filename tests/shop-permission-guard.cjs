@@ -13,36 +13,31 @@ vm.runInNewContext(`${match[0]}\nthis.guard = { shopPermissionCapRank, shopPermi
 const { shopPermissionCapRank, shopPermissionDecision } = sandbox.guard;
 const grade = rank => ['F','E','D','C','B','A','S','SS','SSS'][rank];
 
-// Reported regression: III-tier character + E credential must NOT unlock SSS.
-const reported = { 层级: 'Ⅲ', 道具: { 'E级权限凭证': { 数量: 1 } }, 状态: {} };
-assert.equal(grade(shopPermissionCapRank(reported)), 'C');
-assert.equal(shopPermissionDecision(reported, { name: 'SSS升级', rating: 'SSS' }).allowed, false);
-assert.equal(shopPermissionDecision(reported, { name: 'C升级', rating: 'C' }).allowed, true);
+const reported = { 层级: 'Ⅲ' };
+const eCredential = { E: 1 };
+assert.equal(grade(shopPermissionCapRank(reported, eCredential)), 'C');
+assert.equal(shopPermissionDecision(reported, { name: 'SSS升级', rating: 'SSS' }, eCredential).allowed, false);
+assert.equal(shopPermissionDecision(reported, { name: 'C升级', rating: 'C' }, eCredential).allowed, true);
 
-// A credential only raises the cap when it is higher than the natural tier+1 view.
-const withS = { 层级: 'Ⅲ', 道具: { 'S级权限凭证': { 数量: 1 } } };
-assert.equal(grade(shopPermissionCapRank(withS)), 'S');
-assert.equal(shopPermissionDecision(withS, { rating: 'S' }).allowed, true);
-assert.equal(shopPermissionDecision(withS, { rating: 'SS' }).allowed, false);
+const sCredential = { S: 1 };
+assert.equal(grade(shopPermissionCapRank(reported, sCredential)), 'S');
+assert.equal(shopPermissionDecision(reported, { rating: 'S' }, sCredential).allowed, true);
+assert.equal(shopPermissionDecision(reported, { rating: 'SS' }, sCredential).allowed, false);
 
-// Zero-count credentials cannot grant access.
-const emptyCredential = { 层级: 'Ⅲ', 道具: { 'SSS级权限凭证': { 数量: 0 } } };
-assert.equal(grade(shopPermissionCapRank(emptyCredential)), 'C');
+assert.equal(grade(shopPermissionCapRank(reported, { SSS: 0 })), 'C');
+assert.equal(shopPermissionDecision(reported, { tier: 'Ⅳ' }, eCredential).allowed, true);
+assert.equal(shopPermissionDecision(reported, { tier: 'Ⅸ' }, eCredential).allowed, false);
 
-// Roman form tiers use the same F→SSS ladder.
-assert.equal(shopPermissionDecision(reported, { tier: 'Ⅳ' }).allowed, true);
-assert.equal(shopPermissionDecision(reported, { tier: 'Ⅸ' }).allowed, false);
+const topTier = { 层级: 'Ⅸ' };
+assert.equal(grade(shopPermissionCapRank(topTier, {})), 'SSS');
+assert.equal(shopPermissionDecision(topTier, { rating: 'SSS' }, {}).allowed, true);
 
-// Top-tier characters naturally cap at SSS without overflow.
-const topTier = { 层级: 'Ⅸ', 道具: {} };
-assert.equal(grade(shopPermissionCapRank(topTier)), 'SSS');
-assert.equal(shopPermissionDecision(topTier, { rating: 'SSS' }).allowed, true);
-
-// Defense-in-depth seams: locked UI + authoritative pre-deduction transaction guard + prompt section alignment.
 assert(source.includes("var permissionLocked = (!isSelected && !permission.allowed);"));
 assert(source.includes("if (!gate.allowed) throw new Error(shopPermissionMessage(gate, gateItem));"));
 assert(source.includes("if (reason === 'permission')"));
-assert(source.includes('【当前购买对象数据】中的道具/状态'));
+assert(source.includes('权限凭证(角色账户)'));
+assert(source.includes('coinOwner.权限凭证'));
+assert(!source.includes('scan(character && character.道具, true)'));
 assert(!source.includes('商品一旦生成即可直接购买'));
 
 console.log('shop permission guard regression passed');

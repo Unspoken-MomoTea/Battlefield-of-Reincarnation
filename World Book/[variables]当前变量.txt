@@ -384,11 +384,15 @@ current.角色 = {
   种族: data.角色.种族,
   身份: data.角色.身份,
   职业: data.角色.职业,
-  空间币: data.角色.空间币,
   HP: data.角色.HP,
   THP: data.角色.THP || 0,
   EP: data.角色.EP
 };
+if (!isCombat) {
+  current.角色.空间币 = data.角色.空间币;
+  const credentialLedger = _.pickBy(_.cloneDeep(data.角色.权限凭证 || {}), value => Number(value) > 0);
+  if (!_.isEmpty(credentialLedger)) current.角色.权限凭证 = credentialLedger;
+}
 
 // --- 【核心逻辑 2】三段式物资视野剔除 ---
 if (!isCombat) {

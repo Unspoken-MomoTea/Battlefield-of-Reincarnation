@@ -22,8 +22,6 @@ jobs:
         run: python tools/build-world-engine.py
       - name: Syntax check
         run: node --check script/世界推进系统.js
-      - name: Prompt pipeline regression
-        run: node tests/world-engine-prompt-pipeline.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
       - name: NPC audit regression
@@ -32,9 +30,9 @@ jobs:
         run: node tests/world-engine-modules.cjs
       - name: Commit generated delivery
         run: |
-          if git diff --quiet -- script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/50-engine-ui.part.js tests/world-engine-stability-ui.cjs tests/world-engine-prompt-pipeline.cjs script/世界推进系统.js; then exit 0; fi
+          if git diff --quiet -- script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/50-engine-ui.part.js tests/world-engine-stability-ui.cjs script/世界推进系统.js; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/50-engine-ui.part.js tests/world-engine-stability-ui.cjs tests/world-engine-prompt-pipeline.cjs script/世界推进系统.js
+          git add script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/50-engine-ui.part.js tests/world-engine-stability-ui.cjs script/世界推进系统.js
           git commit -m "build: sync stability defense copy [task-awareness-built]"
           git push

@@ -1,0 +1,24 @@
+name: task-awareness-check
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  task-awareness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Task awareness regression
+        run: node tests/world-engine-task-awareness.cjs
+      - name: NPC audit regression
+        run: node tests/world-engine-npc-audit-toggle.cjs
+      - name: Module synchronization
+        run: node tests/world-engine-modules.cjs
+      - name: Generated delivery synchronized
+        run: python tools/build-world-engine.py --check

@@ -36,3 +36,38 @@ jobs:
           git add script/世界推进系统.js
           git commit -m "build: sync task awareness delivery [task-awareness-built]"
           git push
+
+  shop-permission-hotfix:
+    needs: build-test-commit
+    if: ${{ !contains(github.event.head_commit.message, '[shop-permission-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply focused hotfix
+        run: |
+          git fetch origin fix/shop-permission-guard
+          git show FETCH_HEAD:tools/apply-shop-permission-hotfix.py > /tmp/apply-shop-permission-hotfix.py
+          python /tmp/apply-shop-permission-hotfix.py
+      - name: Syntax check
+        run: node --check script/悬浮球状态栏.js
+      - name: Shop permission regression
+        run: node tests/shop-permission-guard.cjs
+      - name: Diff hygiene
+        run: git diff --check
+      - name: Commit verified hotfix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add script/悬浮球状态栏.js tests/shop-permission-guard.cjs
+          git diff --cached --quiet && exit 1
+          git commit -m "fix: enforce deterministic shop permission cap [shop-permission-fixed]"
+          git push

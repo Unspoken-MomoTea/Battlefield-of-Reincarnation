@@ -342,7 +342,6 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         事件: { 描述:'', 时间:'', 条件:'', 前因:[], 状态:'待发生', 默认走向:'', 结果:'', 公开征兆:'', 地点:'' },
         人物: { 所属世界:'', 地点:'', 目标:'', 行动:'', 认知:[], 下次检查:'', 关联事件:[], 公开动态:'' },
         势力地区: { 类型:'地区', 描述:'', 目标:'', 进展:'', 下次检查:'', 关联事件:[], 公开动态:'' },
-        剧本: { 描述:'', 关联任务:[], 前置条件:'', 下一节点:'', 关联事件:[], 公开动态:'' },
         历史: { 时间:'', 事实:'', 关联事件:[] },
         传播: { 关联事件:[], 来源:'', 范围:'', 时间:'', 内容:'', 真相:'', 状态:'传播中' }
     };
@@ -351,13 +350,10 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         事件: {分类:'',开始时间:'',预计结束:'',更新时间:'',下次检查:'',参与者:[],关联任务:[],可见影响:[{时间:'',地点:'',影响:''}]},
         人物: {状态:'',更新时间:'',开始时间:'',预计结束:'',行程:[{开始:'',结束:'',地点:'',行动:'',状态:'',结果:''}],承诺:[{对象:'',内容:'',期限:'',解除条件:''}],待决事项:[{问题:'',选项:[],等待:''}],关系变化:[{对象:'',关系:'',变化:'',时间:''}],认知来源:[{事实:'',来源:'',获知时间:'',状态:''}],登场条件:'',背景关联:[{类型:'',名称:'',关系:''}]},
         势力地区: {更新时间:'',控制方:'',争夺方:[],资源:[{名称:'',数量:'',用途:'',限制:''}],内部派系:[{名称:'',立场:'',行动:'',影响:''}],近期变化:[{时间:'',事实:'',关联事件:''}],环境状态:[],现场群体:[{名称:'',规模:'',身份:'',动态:''}]},
-        剧本: {状态:'',来源:'',更新时间:'',期限:'',完成条件:'',失败条件:'',结果:'',参与者:[],地点:[],阻碍:[],阶段:[{名称:'',状态:'',时间:'',说明:'',前置阶段:''}]},
         历史:{},传播:{更新时间:'',到期时间:'',受众:[],引发行动:[]}
     };
-    const MODEL_RECORDS = Object.fromEntries(Object.entries(RECORDS).filter(([name])=>name!=='剧本'));
+    const MODEL_RECORDS = copy(RECORDS);
     const MODEL_DETAILS = copy(DETAILS);
-    delete MODEL_DETAILS.剧本;
-    delete MODEL_DETAILS.事件.关联任务;
     for (const key of ['承诺','待决事项','关系变化']) delete MODEL_DETAILS.人物[key];
 
     function derivePersonWorldContext(stat, personName, playerName='') {
@@ -680,7 +676,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         };
     }
     function emptyState() {
-        return { 版本:4, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 剧本:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
+        return { 版本:4, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
     }
     // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
     function importStory(stat) {
@@ -2395,8 +2391,6 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
             历史:tailRecord(backend.历史,HOT_HISTORY_TARGET),
             传播:tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
         };
-        // 旧档中可能仍有事件→任务引用；后台不再消费任务数据。
-        for(const event of Object.values(projectedBackend.事件))if(plain(event))delete event.关联任务;
         // 早期世界引擎曾误加地区“资源点”。保留旧存档兼容，但不再发送给模型；资产只读取现有顶层资产账簿。
         for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.资源点;
         const out={
@@ -2485,6 +2479,7 @@ ${schemaText}`;
             // 内置“默认设置”始终绑定代码中的最新 DEFAULT_PRESET，不再被 localStorage 遮蔽。
             if(plain(this.config.userDefaultPromptSettings)&&typeof this.config.userDefaultPromptSettings.preset==='string'){
                 const legacySettings={
+                    npcAuditPrompt:typeof this.config.userDefaultPromptSettings.npcAuditPrompt==='string'?this.config.userDefaultPromptSettings.npcAuditPrompt:undefined,
                     structurePrompt:typeof this.config.userDefaultPromptSettings.structurePrompt==='string'?this.config.userDefaultPromptSettings.structurePrompt:undefined,
                     preset:normalizeEditablePreset(this.config.userDefaultPromptSettings.preset),
                     contextTurns:Math.max(1,Math.min(100,Number(this.config.userDefaultPromptSettings.contextTurns)||3)),
@@ -2504,7 +2499,8 @@ ${schemaText}`;
                     const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id;
                     if(shouldApply){
                         const settings=BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings;
-                        this.config.structurePrompt=settings.structurePrompt;
+                        this.config.npcAuditPrompt=settings.npcAuditPrompt;
+            this.config.structurePrompt=settings.structurePrompt;
                         this.config.preset=normalizeEditablePreset(settings.preset);
                         this.config.presetEditorVersion=2;
                         this.config.contextTurns=settings.contextTurns;
@@ -2731,6 +2727,7 @@ ${schemaText}`;
             const books=panel?Array.from(panel.querySelectorAll('[data-book]')):[];
             return {
                 preset,
+                npcAuditPrompt:panel?.querySelector('[data-npc-audit-prompt]')?.value??this.config.npcAuditPrompt,
                 structurePrompt:panel?.querySelector('[data-structure-prompt]')?.value??this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim(),
                 contextTurns:Math.max(1,Math.min(100,Number(floors?.value??this.config.contextTurns)||6)),
                 activationMode:activation?.value||this.config.activationMode||'respect_activation',
@@ -2741,7 +2738,9 @@ ${schemaText}`;
         }
         applyPromptSettings(settings) {
             if(!plain(settings)||typeof settings.preset!=='string'||settings.preset.length>30000)throw new Error('预设文档内容无效或超过30000字');
+            if(settings.npcAuditPrompt!==undefined&&(typeof settings.npcAuditPrompt!=='string'||settings.npcAuditPrompt.length>30000))throw new Error('NPC审计提示词限30000字');
             if(settings.structurePrompt!==undefined&&(typeof settings.structurePrompt!=='string'||settings.structurePrompt.length>30000))throw new Error('结构提示词限30000字');
+            this.config.npcAuditPrompt=settings.npcAuditPrompt;
             this.config.structurePrompt=settings.structurePrompt;
             this.config.preset=normalizeEditablePreset(settings.preset);
             this.config.presetEditorVersion=2;
@@ -2788,6 +2787,7 @@ ${schemaText}`;
             if(settings.preset.length>30000)throw new Error('导入预设超过30000字');
             const name=String(parsed.name||settings.name||'导入预设').trim().slice(0,80)||'导入预设';
             const normalized={
+                npcAuditPrompt:typeof settings.npcAuditPrompt==='string'?settings.npcAuditPrompt:undefined,
                 structurePrompt:typeof settings.structurePrompt==='string'?settings.structurePrompt:undefined,
                 preset:normalizeEditablePreset(settings.preset),
                 contextTurns:Math.max(1,Math.min(100,Number(settings.contextTurns)||6)),
@@ -2933,8 +2933,6 @@ ${schemaText}`;
             structuralFixes.push(...repairExplicitEventLinks(state));
             if(state.设置)delete state.设置.API;
             delete state.商城;
-            // 旧剧本数据只为兼容存档保留，不进入新世界调度请求。
-            state.世界[PATH].剧本={};
             const count=Math.max(1,Math.min(100,Number(this.config.contextTurns)||6));
             const id=Number(base.message.message_id??base.message.id);
             // 先清洗所有历史候选，再取最近 N 条非空正文；技术楼层再多也不会挤掉正文名额。
@@ -2993,7 +2991,7 @@ ${schemaText}`;
                 生命周期整理:lifecycle,
                 说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
             },null,2);
-            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+(npcAudit.length?'\n\n'+NPC_BUILD_AUDIT_RULES:'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2));
+            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+(npcAudit.length?'\n\n'+(this.config.npcAuditPrompt??NPC_BUILD_AUDIT_RULES):'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2));
             if(system.length+input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(system)+estimateTokens(input),true)+'），请减少所选条目或正文层数');
             return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
         }
@@ -3250,6 +3248,7 @@ ${schemaText}`;
             const doc=this.host.document;
             this.style=doc.createElement('style');
             this.style.textContent = [
+                '#sam-world-engine .we-event-tasks{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--we-surface,transparent)}#sam-world-engine .we-event-task{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}#sam-world-engine .we-event-task summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}#sam-world-engine .we-event-task summary:before{content:"▸";color:var(--sub)}#sam-world-engine .we-event-task[open] summary:before{content:"▾"}#sam-world-engine .we-task-name{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:600}#sam-world-engine .we-event-task summary .we-pill{flex-shrink:0}#sam-world-engine .we-event-task p{overflow-wrap:anywhere}',
                 '#sam-world-engine[hidden]{display:none!important}',
                 '#sam-world-engine{--ink:#dce5ef;--sub:#8897aa;--line:#ffffff12;--gold:#d9b978;--mint:#7dcbbb;position:fixed;inset:4vh max(2vw,calc((100vw - 1440px)/2));z-index:999999;background:#101720;color:var(--ink);border:1px solid #53606a;border-radius:14px;box-shadow:0 30px 120px #000b;display:flex;flex-direction:column;overflow:hidden;font:14px/1.65 system-ui,"Microsoft YaHei",sans-serif}',
                 '#sam-world-engine *{box-sizing:border-box}#sam-world-engine button,#sam-world-engine input,#sam-world-engine textarea{font:inherit}#sam-world-engine button{cursor:pointer;color:inherit}#sam-world-engine button:focus-visible,#sam-world-engine input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}#sam-world-engine button:disabled{opacity:.4;cursor:default}',
@@ -3774,7 +3773,7 @@ ${schemaText}`;
                 const a=button.dataset.action;
                 if(button.dataset.directory){this.directoryTab=button.dataset.directory;this.render();return;}
                 if(button.dataset.area){this.selectedArea=button.dataset.area;this.directoryTab='探索';this.render();return;}
-                if(button.dataset.faction){this.selectedFaction=button.dataset.faction;this.directoryTab='势力';this.render();return;}
+                if(button.dataset.faction){if(button.hasAttribute('data-asset-owner'))this.tab='探索与势力';this.selectedFaction=button.dataset.faction;this.directoryTab='势力';this.render();return;}
                 if(button.dataset.jumpPerson){this.selectedPerson=button.dataset.jumpPerson;this.tab='角色管理';this.filter='全部';this.query='';this.selectedDate='';this.render(true);return;}
                 if(button.dataset.jumpEvent){
                     this.jumpEvent=button.dataset.jumpEvent;this.tab='世界推进';this.filter='全部';this.query='';
@@ -3802,7 +3801,7 @@ ${schemaText}`;
                 else if(a==='prompt-edit'){
                     this.promptEditing=!this.promptEditing;
                     button.textContent=this.promptEditing?'锁定编辑':'开启编辑';button.setAttribute('aria-pressed',String(this.promptEditing));
-                    this.panel.querySelectorAll('[data-segment-title],[data-segment],[data-structure-prompt]').forEach(el=>el.readOnly=!this.promptEditing);
+                    this.panel.querySelectorAll('[data-segment-title],[data-segment],[data-structure-prompt],[data-npc-audit-prompt]').forEach(el=>el.readOnly=!this.promptEditing);
                     this.panel.querySelectorAll('[data-action^="segment-"]').forEach(el=>el.disabled=!this.promptEditing);
                 }
                 else if(a==='save-default'){
@@ -3996,7 +3995,7 @@ ${schemaText}`;
             runButton.textContent=this.busy?(this.committing?'保存中…':stopping?'停止中…':'停止推进'):'推进世界';
             runButton.setAttribute('aria-label',runButton.textContent);
 
-            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['传闻','◎'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋'],['设置','⚙']];
+            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['资产','▣'],['传闻','◎'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋'],['设置','⚙']];
             this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span class="we-tab-icon" aria-hidden="true">'+i+'</span>'+t+'</button>').join('');
             if(this.tab==='提示词预设'&&main.querySelector('textarea')&&!force)return;
             const text=v=>escape(v==null?'':v);
@@ -4078,7 +4077,18 @@ ${schemaText}`;
                 if(!groups.length)return '';
                 return sceneLane('现场群体',groups,'group');
             };
-            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(eventScheduleLabel(e))+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
+            const eventTasks=(eventName,event)=>{
+                const names=Array.from(new Set((Array.isArray(event.关联任务)?event.关联任务:[]).filter(name=>typeof name==='string'&&name.trim())));
+                if(!names.length)return '';
+                const roster=s.任务?.列表||{};
+                return '<div class="we-event-tasks"><div class="we-meta"><b>关联任务</b><span>'+names.length+' 项</span></div>'+names.map(name=>{
+                    const task=Object.hasOwn(roster,name)&&plain(roster[name])?roster[name]:null;
+                    const id='event-task-'+JSON.stringify([eventName,name]);
+                    return '<details class="we-event-task" data-detail="'+text(id)+'"'+(opened.has(id)?' open':'')+'><summary><span class="we-task-name">'+text(name)+'</span>'+pill(task?.状态|| (task?'状态未记录':'任务记录缺失'),'dim')+'</summary>'
+                        +(task?'<p>'+text(task.目标||'目标尚未记录')+'</p>'+fields({委托方:task.委托方,难度:task.难度,交付:task.交付}):'<p class="we-muted">当前任务列表中未找到该任务，保留事件中的关联名称。</p>')+'</details>';
+                }).join('')+'</div>';
+            };
+            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状态,e.状态==='待发生'?'future':e.状态==='进行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(eventScheduleLabel(e))+'</span><span>⌖ '+text(e.地点||'地点未明')+'</span></div><p>'+text(e.公开征兆||e.描述||'等待明确事件内容')+'</p>'+eventTasks(name,e)+details('event-'+name,{事件描述:e.描述,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果关联与事件详情')+'</article>';
             const timelineCards=list=>{
                 const groups=[
                     ['当前进行',list.filter(([,e])=>e.状态==='进行中'||(e.状态==='待发生'&&e.分类==='当前事件'))],
@@ -4177,7 +4187,7 @@ ${schemaText}`;
                 const chosenMeta=chosen?.[2]||{};
                 const chosenContext=chosen?derivePersonWorldContext(s,chosen[0],userName):null;
                 const chosenRelation=chosenMeta.正式&&plain(relationRoster[chosen?.[0]])?relationRoster[chosen[0]]:null;
-                const chosenAudit=chosenRelation?npcBuildAssessment(s,chosen[0],chosenRelation):null;
+                const chosenAudit=this.isNpcBuildAuditEnabled()&&chosenRelation?npcBuildAssessment(s,chosen[0],chosenRelation):null;
                 const chosenAlien=chosen?alienByKey.get(nameKey(chosen[0]))?.记录:null;
                 const auditPanel=chosenAudit?section('NPC构筑审计',
                     '<div class="we-card"><div class="we-card-top"><h3>'+text(chosenAudit.审计级别)+'</h3>'+pill(chosenAudit.缺口.length?'待补强':'构筑完整',chosenAudit.缺口.length?'future':'dim')+'</div>'
@@ -4300,6 +4310,24 @@ ${schemaText}`;
                     const factionDetail=chosenFaction?'<h3>'+text(chosenFaction[0])+'</h3>'+fields({实力:chosenFaction[1].实力,声望:chosenFaction[1].声望,关系阶段:repStage(chosenFaction[1].声望),领地:chosenFaction[1].领地,目标:chosenFaction[1].目标,描述:chosenFaction[1].描述,当前进展:chosenFaction[1].进展}):empty('暂无势力记录');
                     html+=section('势力结算名录','<div class="we-explore-layout"><div class="we-faction-grid">'+(factionCards||empty('暂无已知势力'))+'</div><aside class="we-area-side">'+section('势力档案',factionDetail,'点击左侧势力切换')+'</aside></div>','声望只反映势力对玩家的真实关系');
                 }
+            }else if(this.tab==='资产'){
+                const ownersOf=asset=>Array.from(new Set((Object.hasOwn(asset,'所属对象')?(Array.isArray(asset.所属对象)?asset.所属对象:[asset.所属对象]):['<user>']).map(x=>String(x??'').trim()).filter(x=>x&&x!=='无主')));
+                const assets=entries(s.资产).filter(([,asset])=>plain(asset));
+                const list=assets.filter(([name,asset])=>{
+                    const owners=ownersOf(asset),category=this.filter||'全部';
+                    return (category==='全部'||category==='玩家相关'&&owners.includes('<user>')||category==='共同持有'&&owners.length>1||category==='无主'&&!owners.length)&&matched(name,{...asset,归属:owners.join(' ')});
+                });
+                html+=tools(['全部','玩家相关','共同持有','无主']);
+                html+=section('资产与归属',list.map(([name,asset])=>{
+                    const owners=ownersOf(asset);
+                    const ownerLinks=owners.length?owners.map(owner=>{
+                        const label=owner==='<user>'?(userName||'玩家'):owner;
+                        if(owner!=='<user>'&&(relationNamesByKey.has(nameKey(owner))||people.has(owner)))return '<button data-jump-person="'+text(relationNamesByKey.get(nameKey(owner))||owner)+'">'+text(label)+' ↗</button>';
+                        if(Object.hasOwn(w.势力||{},owner))return '<button data-faction="'+text(owner)+'" data-asset-owner>'+text(label)+' ↗</button>';
+                        return pill(label,'dim');
+                    }).join(''):pill('无主','dim');
+                    return '<article class="we-card" data-asset-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(asset.类型||'类型未记录','dim')+'</div><div class="we-tools"><b>所属对象</b>'+ownerLinks+(owners.length>1?pill('共同持有','future'):'')+'</div><p>'+text(asset.状态||'状态未记录')+'</p>'+fields({主体规模:asset.主体规模,完整度:asset.完整度==null?undefined:asset.完整度+'%'})+details('asset-'+name,{能源:asset.能源,建设序列:asset.建设序列,驻扎人员:asset.驻扎人员,待办事件:asset.待办事件},'运转详情 · 建设 / 驻扎 / 待办')+'</article>';
+                }).join('')||empty('暂无符合条件的资产'),'共 '+assets.length+' 项 · 可按名称、所属对象或状态搜索');
             }else if(this.tab==='世界事件'){
                 const list=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter));
                 html+=tools(['全部','进行中','待发生','已完成','已取消'])+section('世界事件','<div class="we-timeline">'+(timelineCards(list)||empty('没有符合条件的世界事件','按当前事件、近期节点和宏观节点组织。'))+'</div>','按状态层级与因果顺序排列');
@@ -4335,6 +4363,7 @@ ${schemaText}`;
                 const promptView=this.promptDraft||{
                     preset:this.config.preset,
                     structurePrompt:this.config.structurePrompt,
+                    npcAuditPrompt:this.config.npcAuditPrompt,
                     contextTurns:this.config.contextTurns||6,
                     activationMode:this.config.activationMode||'respect_activation',
                     selectedEntries:Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):null
@@ -4347,7 +4376,7 @@ ${schemaText}`;
                 const groups=new Map();
                 for(const e of this.bookCatalogue||[]){if(!groups.has(e.book))groups.set(e.book,[]);groups.get(e.book).push(e);}
                 const selectedEntries=Array.isArray(promptView.selectedEntries)?promptView.selectedEntries:null;
-                const selected=e=>!e.technical&&selectedEntryMatches(e,selectedEntries);
+                const selected=e=>!e.technical&&(this.isNpcAuditWorldbook(e)?this.isNpcBuildAuditEnabled():selectedEntryMatches(e,selectedEntries));
                 html+=section('资料读取范围','<div class="we-config-row"><label>正文窗口 <input data-floors type="number" min="1" max="100" value="'+text(promptView.contextTurns||6)+'"> 层</label><label>读取方式 <select data-activation><option value="respect_activation" '+(promptView.activationMode!=='force_selected'?'selected':'')+'>遵循蓝绿灯</option><option value="force_selected" '+(promptView.activationMode==='force_selected'?'selected':'')+'>强制读取勾选项</option></select></label></div><p class="we-muted">遵循蓝绿灯：蓝灯常驻，绿灯扫描上述正文窗口关键词；禁用项不读。强制模式可纳入普通禁用项，但 [variables]、[mvu_update]、正文额外思考及任务/输出技术条目始终隔离。未绑定且未全局启用的世界书不会被自动读取。</p><div class="we-tools"><button data-action="books">加载 / 刷新目录</button><button data-action="book-all">全选</button><button data-action="book-none">全不选</button></div>'+
                     (groups.size?Array.from(groups).map(([book,list])=>'<details class="we-book" open><summary>'+text(book)+' <small>'+text((list[0]?.sources||[]).join(' · ')||'已绑定')+' · '+list.filter(selected).length+' / '+list.length+' 项已勾选</small></summary><div class="we-book-list">'+list.map(e=>{
                         const report=(this.readReport||[]).find(r=>r.世界书===e.book&&r.条目ID===e.id);
@@ -4355,8 +4384,8 @@ ${schemaText}`;
                     }).join('')+'</div></details>').join(''):empty('尚未加载目录','点击“加载 / 刷新目录”读取当前绑定和全局启用的世界书。')));
                 const segments=splitPresetSegments(promptView.preset);
                 html+=section('分段提示词','<div class="we-segment-toolbar"><span>默认只读，展开查看；开启编辑后可修改。</span><button class="we-btn" data-action="prompt-edit" aria-pressed="'+!!this.promptEditing+'">'+(this.promptEditing?'锁定编辑':'开启编辑')+'</button><button class="we-btn" data-action="segment-add" '+(this.promptEditing?'':'disabled')+'>＋ 新增分段</button></div><div class="we-segment-list" data-segment-list>'+segments.map((part,i)=>'<details class="we-segment" data-segment-row><summary>'+text(part.title||'未命名分段')+' <small>'+formatTokenCount(estimateTokens(part.body),true)+'</small></summary><div class="we-segment-head"><input '+(this.promptEditing?'':'readonly')+' data-segment-title aria-label="分段标题 '+i+'" placeholder="分段标题（可留空）" value="'+text(part.title)+'"><small>'+formatTokenCount(estimateTokens(part.body),true)+'</small><span class="we-segment-actions"><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-up" title="上移">↑</button><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-down" title="下移">↓</button><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-delete" title="删除">删除</button></span></div><textarea '+(this.promptEditing?'':'readonly')+' data-segment="'+i+'" data-title="'+text(part.title)+'" aria-label="预设分段 '+i+'">'+text(part.body)+'</textarea></details>').join('')+'</div><p class="we-muted">这些分段属于可编辑工作层，可以新增、删除或调整顺序。世界引擎的安全边界与 WorldResult 核心协议仍由程序独立注入，不依赖某个可编辑分段是否存在。</p>');
-                html+=section('固定系统注入','<div class="we-notice">最终 system 拼装顺序：可编辑分段 → 世界引擎核心约束 → 按需 NPC 构筑审计 → WorldResult 业务输出协议 → Canonical Schema。这里展示的是程序强制层，不会另生成第二套执行流程。</div><details class="we-segment"><summary>世界引擎核心约束 · 固定只读</summary><textarea readonly>'+text(CORE_WORLD_RULES)+'</textarea></details><details class="we-segment"><summary>角色管理 · NPC构筑审计 · 条件注入</summary><textarea readonly>'+text(NPC_BUILD_AUDIT_RULES)+'</textarea><p class="we-muted">只有本轮存在 NPC 构筑审计对象时才实际加入 system；没有审计对象时不会发送。</p></details>','不可编辑 · 与实际 system 共用同一常量');
-                html+=section('WorldResult 输出协议','<details class="we-segment"><summary>WorldResult 协议说明 · 点击展开</summary><textarea data-structure-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'</textarea></details><details class="we-segment"><summary>程序字段 Schema · 只读</summary><textarea readonly>'+text(JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'</textarea></details><p class="we-muted">协议说明使用上方编辑开关。保存后用于实际 system 请求；Schema 固定只读，核心约束与条件审计见上方“固定系统注入”，修改说明不会改变变量结构。</p>');
+                html+=section('系统注入','<div class="we-notice">世界引擎核心约束固定生效；NPC 构筑审计随设置开关自动启停，仅在本轮存在审计对象时发送。</div><details class="we-segment"><summary>世界引擎核心约束 · 固定只读</summary><textarea readonly>'+text(CORE_WORLD_RULES)+'</textarea></details>'+(this.isNpcBuildAuditEnabled()?'<details class="we-segment"><summary>角色管理 · NPC构筑审计 · 自动启用</summary><textarea data-npc-audit-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.npcAuditPrompt??NPC_BUILD_AUDIT_RULES)+'</textarea><p class="we-muted">使用上方“开启编辑”修改，保存后用于实际请求。关闭审计时隐藏并停止注入，已保存内容会保留。</p></details>':'<p class="we-muted">NPC 构筑审计已关闭，审计提示词未启用。</p>'),'NPC 审计支持编辑 · 随开关自动启停');
+                html+=section('WorldResult 输出协议','<details class="we-segment"><summary>WorldResult 协议说明 · 点击展开</summary><textarea data-structure-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'</textarea></details><details class="we-segment"><summary>程序字段 Schema · 只读</summary><textarea readonly>'+text(JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'</textarea></details><p class="we-muted">协议说明使用上方编辑开关。保存后用于实际 system 请求；Schema 固定只读，核心约束与条件审计见上方“系统注入”，修改说明不会改变变量结构。</p>');
             }else if(this.tab==='请求检查'){
                 const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';
                 const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
@@ -4496,9 +4525,44 @@ ${schemaText}`;
         }
         syncNpcBuildAuditFeature() {
             NPC_BUILD_AUDIT_FEATURE_ENABLED=this.config.npcBuildAuditEnabled===true;
+            this.syncNpcAuditWorldbookSelection();
             return NPC_BUILD_AUDIT_FEATURE_ENABLED;
         }
         isNpcBuildAuditEnabled() { return this.config.npcBuildAuditEnabled===true; }
+        isNpcAuditWorldbook(entry) {
+            return ['实体生成规则','NPC生成规则','状态协议'].includes(normalizeWorldbookEntryTitle(entry.title));
+        }
+        syncNpcAuditWorldbookSelection(catalogue=this.bookCatalogue||[]) {
+            const matches=catalogue.filter(entry=>this.isNpcAuditWorldbook(entry));
+            if(!matches.length)return;
+            const sync=settings=>{
+                if(!settings)return;
+                const previous=settings.selectedEntries;
+                let selected=Array.isArray(previous)?copy(previous):catalogue.filter(entry=>!entry.technical&&selectedEntryMatches(entry,previous)).map(entry=>JSON.stringify([entry.book,entry.id]));
+                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
+                if(this.isNpcBuildAuditEnabled())for(const entry of matches){
+                    if(!entry.technical)selected.push(JSON.stringify([entry.book,entry.id]));
+                }
+                if(JSON.stringify(previous)!==JSON.stringify(selected))settings.selectedEntries=selected;
+            };
+            sync(this.config);
+            sync(this.promptDraft);
+            sync(this.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)?.settings);
+        }
+        async catalogue() {
+            const result=await super.catalogue();
+            this.bookCatalogue=result;
+            this.syncNpcAuditWorldbookSelection(result);
+            this.saveConfig();
+            return result;
+        }
+        applyPromptSettings(settings) {
+            super.applyPromptSettings(settings);
+            this.syncNpcAuditWorldbookSelection();
+            this.saveConfig();
+            return this.config;
+        }
+
         setNpcBuildAuditEnabled(value) {
             const wasBusy=!!this.busy;
             if(wasBusy)this.cancel();
@@ -4550,8 +4614,8 @@ ${schemaText}`;
             if(this.tab==='设置'){
                 const block=this.host.document.createElement('section');
                 block.className='we-section';block.setAttribute('data-npc-audit-setting','');
-                block.innerHTML='<div class="we-section-head"><h2>NPC构筑审计</h2><small>备选功能 · 默认关闭</small></div>'
-                    +'<div class="we-setting-row"><div class="we-setting-copy"><b>自动补全热 NPC 构筑</b><small>关闭时不扫描或补写职业、血统、装备、技能、形态；关系仍按实际剧情正常稀疏同步。开启后才对热 NPC 执行构筑缺口审计。</small></div>'
+                block.innerHTML='<div class="we-section-head"><h2>NPC构筑审计 <span class="we-pill future">实验性功能</span></h2><small>备选功能 · 默认关闭</small></div>'
+                    +'<div class="we-setting-row"><div class="we-setting-copy"><b>自动补全热 NPC 构筑</b><small>关闭时不扫描或补写职业、血统、装备、技能、形态；关系仍按实际剧情正常稀疏同步。开启后才对热 NPC 执行构筑缺口审计。实体生成规则、NPC生成规则、状态协议的资料勾选随此开关同步。</small></div>'
                     +'<div class="we-setting-actions"><button class="we-setting-btn we-switch '+(enabled?'on':'')+'" data-action="npc-audit-toggle" aria-pressed="'+enabled+'"><span>'+(enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>';
                 const sections=Array.from(main.children),modelSection=sections.find(section=>section.querySelector?.('h2')?.textContent?.trim()==='模型接口');
                 main.insertBefore(block,modelSection||null);
@@ -4568,7 +4632,7 @@ ${schemaText}`;
     const RUMOR_STALE_HOURS=72;
     const RUMOR_LIVELINESS_RULES=`【传闻与传播 · 常驻活跃层】
 1. 街头巷议、情报交易、布告与檄文各自最多3条；某类为空时本轮补2条。单条约60字，除非影响重大，不围绕<user>。
-2. 街头巷议随当前地区、说书人/目击者和局势替换1~2条，远离后移除失去本地价值的旧条；情报交易有卖家时更新1~2条，购买后移除；布告与檄文随当前地区与发布势力替换。
+2. 街头巷议随当前地区、说书人/目击者和局势替换1~2条，远离后移除失去本地价值的旧条；情报交易有卖家时更新1~2条，购买、付款与消费性删除由MVU按正文结果处理；布告与檄文随当前地区与发布势力替换。
 3. 后台传播是人物知情与公开传闻的因果链。新可传播事实建立或推进传播；关联事件变化、传播陈旧或到期时复核范围、受众、内容与引发行动，结束/过期传播不复活。
 4. 优先话题：${RUMOR_LIVELINESS_TOPICS.join(' / ')}。`;
     const RUMOR_PRESET_STEP_OLD='Step 6 · 更新传播：只维护本轮真实变化的传播、货币与历法；结束/过期传播不复活。';
@@ -4705,6 +4769,98 @@ ${schemaText}`;
             };
             try{return await super.run();}
             finally{if(temporalAnomalies!==temporalAnomaliesBeforeRumorRecovery)temporalAnomalies=temporalAnomaliesBeforeRumorRecovery;}
+        }
+    };
+    // 任务感知层：任务.列表是现有 MVU 的唯一正式任务账簿；世界引擎只读消费，不建立第二套后台任务库。
+    const TASK_AWARENESS_RULES=`【任务感知 · 只读】
+任务列表是世界因果来源之一。世界推进不得创建、删除或修改任务，也不得推进任务状态、交付、结算或奖励；任务影响只通过事件、人物行动、势力地区、探索与传播表现。事件可用“关联任务”引用当前任务.列表中已存在的任务名，作为因果来源；禁止引用不存在的任务。
+情报交易由世界引擎生成或刷新；购买、扣款、消费性删除及购买后创建任务由MVU/变量AI处理，世界引擎下一轮只读接续。副本成就、击杀、奖励与惩罚不进入世界推进上下文。`;
+    const TASK_WORLD_BOOK_TITLE='任务与委托系统';
+    // 旧版曾把正式任务规则从内置默认资料中排除；现在恢复为可读取的权威规则。
+    BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS.delete(TASK_WORLD_BOOK_TITLE);
+
+    function projectTaskListForWorld(value) {
+        if(!plain(value))return {};
+        const out={};
+        for(const [name,task] of Object.entries(value)){
+            if(!plain(task))continue;
+            const projected={};
+            for(const key of ['委托方','目标','隐藏真相','难度','交付','状态']){
+                if(Object.hasOwn(task,key))projected[key]=copy(task[key]);
+            }
+            if(Object.keys(projected).length)out[name]=projected;
+        }
+        return out;
+    }
+
+    const projectWorldContextBeforeTaskAwareness=projectWorldContext;
+    projectWorldContext=function(stat) {
+        const out=projectWorldContextBeforeTaskAwareness(stat);
+        const tasks=projectTaskListForWorld(stat?.任务?.列表);
+        if(Object.keys(tasks).length)out.任务={列表:tasks};
+        return out;
+    };
+
+    const compileWorldResultBeforeTaskAwareness=compileWorldResult;
+    compileWorldResult=function(stat,value) {
+        const result=normalizeWorldResult(value);
+        const taskNames=new Set(Object.keys(stat?.任务?.列表||{}));
+        for(const event of result.事件||[]){
+            if(!Array.isArray(event?.关联任务))continue;
+            for(const taskName of event.关联任务){
+                const name=String(taskName||'').trim();
+                if(name&&!taskNames.has(name))throw new Error('事件/'+String(event.名称||'未命名')+'：关联任务不存在：'+name);
+            }
+        }
+        return compileWorldResultBeforeTaskAwareness(stat,result);
+    };
+
+    const SamsaraWorldEngineBeforeTaskAwareness=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeTaskAwareness {
+        restoreTaskWorldbookSelection(catalogue) {
+            if(this.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue))return false;
+            const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===TASK_WORLD_BOOK_TITLE&&!entry.technical);
+            let changed=false;
+            if(matches.length){
+                const selected=Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):[];
+                for(const entry of matches){
+                    const raw=JSON.stringify([entry.book,entry.id]);
+                    if(!selected.includes(raw)){selected.push(raw);changed=true;}
+                }
+                this.config.selectedEntries=selected;
+            }
+            const applied=Array.isArray(this.config.builtinDefaultWorldbookExclusionsApplied)?this.config.builtinDefaultWorldbookExclusionsApplied:[];
+            const cleaned=applied.filter(title=>title!==TASK_WORLD_BOOK_TITLE);
+            if(cleaned.length!==applied.length){this.config.builtinDefaultWorldbookExclusionsApplied=cleaned;changed=true;}
+            if(changed){
+                const builtin=this.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id);
+                if(builtin?.settings)builtin.settings.selectedEntries=copy(this.config.selectedEntries||[]);
+                this.saveConfig();
+            }
+            return changed;
+        }
+        async catalogue() {
+            const result=await super.catalogue();
+            this.restoreTaskWorldbookSelection(result);
+            return result;
+        }
+        async buildRequest(base) {
+            const request=await super.buildRequest(base);
+            const payload=JSON.parse(request.input);
+            if(plain(payload.输入语义)){
+                payload.输入语义.当前变量='世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史、近期因果偏移，以及任务.列表的只读因果字段。任务奖励、惩罚、副本成就、击杀、商城与纯结算数据不进入世界推进。';
+                payload.输入语义.任务列表='只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。';
+            }
+            request.input=JSON.stringify(payload,null,2);
+            // 兼容上一版传闻活跃层中的旧措辞；购买后的消费性 remove 不属于世界引擎。
+            request.system=String(request.system||'').replace(
+                '情报交易有卖家时更新1~2条，购买后移除；',
+                '情报交易有卖家时更新1~2条；购买结算由变量AI按正文事实处理；'
+            )+'\n\n'+TASK_AWARENESS_RULES;
+            request.manifest=Object.assign({},request.manifest,{任务感知:{任务数量:Object.keys(payload?.当前变量?.任务?.列表||{}).length,只读:true,副本成就:false}});
+            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
+            if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
+            return request;
         }
     };
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。

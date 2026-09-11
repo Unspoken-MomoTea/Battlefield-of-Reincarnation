@@ -77,7 +77,13 @@ function setup({reply='',validate,storedConfig}={}){
     assert.match(on.system,/【角色管理 · NPC构筑审计】/);
     assert.equal(JSON.parse(x.getStored()).npcBuildAuditEnabled,true,'开关必须持久化到世界推进配置');
 
+    x.engine.config.npcAuditPrompt='自定义审计规则标记';
+    const custom=await x.engine.buildRequest(x.engine.snapshot());
+    assert.match(custom.system,/自定义审计规则标记/);
+    assert.doesNotMatch(custom.system,/【角色管理 · NPC构筑审计】/);
     assert.equal(x.engine.setNpcBuildAuditEnabled(false),false);
+    const disabledCustom=await x.engine.buildRequest(x.engine.snapshot());
+    assert.doesNotMatch(disabledCustom.system,/自定义审计规则标记/);
     assert.equal(JSON.parse(x.getStored()).npcBuildAuditEnabled,false);
   }
 

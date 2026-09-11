@@ -82,9 +82,44 @@
         }
         syncNpcBuildAuditFeature() {
             NPC_BUILD_AUDIT_FEATURE_ENABLED=this.config.npcBuildAuditEnabled===true;
+            this.syncNpcAuditWorldbookSelection();
             return NPC_BUILD_AUDIT_FEATURE_ENABLED;
         }
         isNpcBuildAuditEnabled() { return this.config.npcBuildAuditEnabled===true; }
+        isNpcAuditWorldbook(entry) {
+            return ['实体生成规则','NPC生成规则','状态协议'].includes(normalizeWorldbookEntryTitle(entry.title));
+        }
+        syncNpcAuditWorldbookSelection(catalogue=this.bookCatalogue||[]) {
+            const matches=catalogue.filter(entry=>this.isNpcAuditWorldbook(entry));
+            if(!matches.length)return;
+            const sync=settings=>{
+                if(!settings)return;
+                const previous=settings.selectedEntries;
+                let selected=Array.isArray(previous)?copy(previous):catalogue.filter(entry=>!entry.technical&&selectedEntryMatches(entry,previous)).map(entry=>JSON.stringify([entry.book,entry.id]));
+                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
+                if(this.isNpcBuildAuditEnabled())for(const entry of matches){
+                    if(!entry.technical)selected.push(JSON.stringify([entry.book,entry.id]));
+                }
+                if(JSON.stringify(previous)!==JSON.stringify(selected))settings.selectedEntries=selected;
+            };
+            sync(this.config);
+            sync(this.promptDraft);
+            sync(this.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)?.settings);
+        }
+        async catalogue() {
+            const result=await super.catalogue();
+            this.bookCatalogue=result;
+            this.syncNpcAuditWorldbookSelection(result);
+            this.saveConfig();
+            return result;
+        }
+        applyPromptSettings(settings) {
+            super.applyPromptSettings(settings);
+            this.syncNpcAuditWorldbookSelection();
+            this.saveConfig();
+            return this.config;
+        }
+
         setNpcBuildAuditEnabled(value) {
             const wasBusy=!!this.busy;
             if(wasBusy)this.cancel();
@@ -136,8 +171,8 @@
             if(this.tab==='设置'){
                 const block=this.host.document.createElement('section');
                 block.className='we-section';block.setAttribute('data-npc-audit-setting','');
-                block.innerHTML='<div class="we-section-head"><h2>NPC构筑审计</h2><small>备选功能 · 默认关闭</small></div>'
-                    +'<div class="we-setting-row"><div class="we-setting-copy"><b>自动补全热 NPC 构筑</b><small>关闭时不扫描或补写职业、血统、装备、技能、形态；关系仍按实际剧情正常稀疏同步。开启后才对热 NPC 执行构筑缺口审计。</small></div>'
+                block.innerHTML='<div class="we-section-head"><h2>NPC构筑审计 <span class="we-pill future">实验性功能</span></h2><small>备选功能 · 默认关闭</small></div>'
+                    +'<div class="we-setting-row"><div class="we-setting-copy"><b>自动补全热 NPC 构筑</b><small>关闭时不扫描或补写职业、血统、装备、技能、形态；关系仍按实际剧情正常稀疏同步。开启后才对热 NPC 执行构筑缺口审计。实体生成规则、NPC生成规则、状态协议的资料勾选随此开关同步。</small></div>'
                     +'<div class="we-setting-actions"><button class="we-setting-btn we-switch '+(enabled?'on':'')+'" data-action="npc-audit-toggle" aria-pressed="'+enabled+'"><span>'+(enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>';
                 const sections=Array.from(main.children),modelSection=sections.find(section=>section.querySelector?.('h2')?.textContent?.trim()==='模型接口');
                 main.insertBefore(block,modelSection||null);

@@ -424,7 +424,6 @@ export const Schema = z.object({
             事件: z.record(z.string(), z.any()).prefault({}),
             人物: z.record(z.string(), z.any()).prefault({}),
             势力地区: z.record(z.string(), z.any()).prefault({}),
-            剧本: z.record(z.string(), z.any()).prefault({}),
             历史: z.record(z.string(), z.any()).prefault({}),
             传播: z.record(z.string(), z.any()).prefault({}),
             运行记录: z.array(z.any()).prefault([]),

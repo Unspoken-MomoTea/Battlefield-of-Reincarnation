@@ -342,7 +342,6 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         事件: { 描述:'', 时间:'', 条件:'', 前因:[], 状态:'待发生', 默认走向:'', 结果:'', 公开征兆:'', 地点:'' },
         人物: { 所属世界:'', 地点:'', 目标:'', 行动:'', 认知:[], 下次检查:'', 关联事件:[], 公开动态:'' },
         势力地区: { 类型:'地区', 描述:'', 目标:'', 进展:'', 下次检查:'', 关联事件:[], 公开动态:'' },
-        剧本: { 描述:'', 关联任务:[], 前置条件:'', 下一节点:'', 关联事件:[], 公开动态:'' },
         历史: { 时间:'', 事实:'', 关联事件:[] },
         传播: { 关联事件:[], 来源:'', 范围:'', 时间:'', 内容:'', 真相:'', 状态:'传播中' }
     };
@@ -351,13 +350,10 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         事件: {分类:'',开始时间:'',预计结束:'',更新时间:'',下次检查:'',参与者:[],关联任务:[],可见影响:[{时间:'',地点:'',影响:''}]},
         人物: {状态:'',更新时间:'',开始时间:'',预计结束:'',行程:[{开始:'',结束:'',地点:'',行动:'',状态:'',结果:''}],承诺:[{对象:'',内容:'',期限:'',解除条件:''}],待决事项:[{问题:'',选项:[],等待:''}],关系变化:[{对象:'',关系:'',变化:'',时间:''}],认知来源:[{事实:'',来源:'',获知时间:'',状态:''}],登场条件:'',背景关联:[{类型:'',名称:'',关系:''}]},
         势力地区: {更新时间:'',控制方:'',争夺方:[],资源:[{名称:'',数量:'',用途:'',限制:''}],内部派系:[{名称:'',立场:'',行动:'',影响:''}],近期变化:[{时间:'',事实:'',关联事件:''}],环境状态:[],现场群体:[{名称:'',规模:'',身份:'',动态:''}]},
-        剧本: {状态:'',来源:'',更新时间:'',期限:'',完成条件:'',失败条件:'',结果:'',参与者:[],地点:[],阻碍:[],阶段:[{名称:'',状态:'',时间:'',说明:'',前置阶段:''}]},
         历史:{},传播:{更新时间:'',到期时间:'',受众:[],引发行动:[]}
     };
-    const MODEL_RECORDS = Object.fromEntries(Object.entries(RECORDS).filter(([name])=>name!=='剧本'));
+    const MODEL_RECORDS = copy(RECORDS);
     const MODEL_DETAILS = copy(DETAILS);
-    delete MODEL_DETAILS.剧本;
-    delete MODEL_DETAILS.事件.关联任务;
     for (const key of ['承诺','待决事项','关系变化']) delete MODEL_DETAILS.人物[key];
 
     function derivePersonWorldContext(stat, personName, playerName='') {
@@ -680,7 +676,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         };
     }
     function emptyState() {
-        return { 版本:4, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 剧本:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
+        return { 版本:4, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
     }
     // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
     function importStory(stat) {
@@ -2395,8 +2391,6 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
             历史:tailRecord(backend.历史,HOT_HISTORY_TARGET),
             传播:tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
         };
-        // 旧档中可能仍有事件→任务引用；后台不再消费任务数据。
-        for(const event of Object.values(projectedBackend.事件))if(plain(event))delete event.关联任务;
         // 早期世界引擎曾误加地区“资源点”。保留旧存档兼容，但不再发送给模型；资产只读取现有顶层资产账簿。
         for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.资源点;
         const out={
@@ -2933,8 +2927,6 @@ ${schemaText}`;
             structuralFixes.push(...repairExplicitEventLinks(state));
             if(state.设置)delete state.设置.API;
             delete state.商城;
-            // 旧剧本数据只为兼容存档保留，不进入新世界调度请求。
-            state.世界[PATH].剧本={};
             const count=Math.max(1,Math.min(100,Number(this.config.contextTurns)||6));
             const id=Number(base.message.message_id??base.message.id);
             // 先清洗所有历史候选，再取最近 N 条非空正文；技术楼层再多也不会挤掉正文名额。
@@ -4709,10 +4701,8 @@ ${schemaText}`;
     };
     // 任务感知层：任务.列表是现有 MVU 的唯一正式任务账簿；世界引擎只读消费，不建立第二套后台任务库。
     const TASK_AWARENESS_RULES=`【任务感知 · 只读】
-1. 当前变量.任务.列表仅用于世界因果推演；任务状态机以<任务与委托系统>为准。可据此维持委托人、目标、相关人物、地区、事件与传播的连续性，世界不会因<user>暂未处理任务而冻结。
-2. 任务.列表是唯一正式任务账簿。不得通过 WorldResult 新增、修改、删除任务，不得自动推进任务状态、交付、结算或发奖；只能把任务带来的客观后果写入世界事件、人物、势力地区、探索或传播等本引擎已有字段。
-3. 情报交易由世界引擎生成、刷新或因失去交易价值而淘汰；购买、付款与消费性删除由MVU按正文结果处理。若购买形成任务，也由变量AI按<任务与委托系统>写入任务.列表；世界引擎下一轮只读接续，不得代扣款、不得代付款、不得创建任务。
-4. 副本成就、击杀统计与任务奖励/惩罚不进入世界推进上下文。`;
+任务列表是世界因果来源之一。世界推进不得创建、删除或修改任务，也不得推进任务状态、交付、结算或奖励；任务影响只通过事件、人物行动、势力地区、探索与传播表现。事件可用“关联任务”引用当前任务.列表中已存在的任务名，作为因果来源；禁止引用不存在的任务。
+情报交易由世界引擎生成或刷新；购买、扣款、消费性删除及购买后创建任务由MVU/变量AI处理，世界引擎下一轮只读接续。副本成就、击杀、奖励与惩罚不进入世界推进上下文。`;
     const TASK_WORLD_BOOK_TITLE='任务与委托系统';
     // 旧版曾把正式任务规则从内置默认资料中排除；现在恢复为可读取的权威规则。
     BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS.delete(TASK_WORLD_BOOK_TITLE);
@@ -4736,13 +4726,21 @@ ${schemaText}`;
         const out=projectWorldContextBeforeTaskAwareness(stat);
         const tasks=projectTaskListForWorld(stat?.任务?.列表);
         if(Object.keys(tasks).length)out.任务={列表:tasks};
-        // 旧存档里已有的事件→任务索引仍有因果价值，只读恢复；WorldResult 仍没有任务写入口。
-        const sourceEvents=stat?.世界?.[PATH]?.事件||{},projectedEvents=out?.世界?.[PATH]?.事件||{};
-        for(const [name,event] of Object.entries(projectedEvents)){
-            const related=sourceEvents?.[name]?.关联任务;
-            if(plain(event)&&Array.isArray(related)&&related.length)event.关联任务=copy(related);
-        }
         return out;
+    };
+
+    const compileWorldResultBeforeTaskAwareness=compileWorldResult;
+    compileWorldResult=function(stat,value) {
+        const result=normalizeWorldResult(value);
+        const taskNames=new Set(Object.keys(stat?.任务?.列表||{}));
+        for(const event of result.事件||[]){
+            if(!Array.isArray(event?.关联任务))continue;
+            for(const taskName of event.关联任务){
+                const name=String(taskName||'').trim();
+                if(name&&!taskNames.has(name))throw new Error('事件/'+String(event.名称||'未命名')+'：关联任务不存在：'+name);
+            }
+        }
+        return compileWorldResultBeforeTaskAwareness(stat,result);
     };
 
     const SamsaraWorldEngineBeforeTaskAwareness=SamsaraWorldEngine;
@@ -4779,7 +4777,7 @@ ${schemaText}`;
             const payload=JSON.parse(request.input);
             if(plain(payload.输入语义)){
                 payload.输入语义.当前变量='世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史、近期因果偏移，以及任务.列表的只读因果字段。任务奖励、惩罚、副本成就、击杀、商城与纯结算数据不进入世界推进。';
-                payload.输入语义.任务列表='只读。用于人物、事件、势力地区、探索与传播的因果连续性；正式状态机、购买转任务、交付、结算与奖励仍由MVU及<任务与委托系统>负责。';
+                payload.输入语义.任务列表='只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。';
             }
             request.input=JSON.stringify(payload,null,2);
             // 兼容上一版传闻活跃层中的旧措辞；购买后的消费性 remove 不属于世界引擎。

@@ -75,40 +75,23 @@ ui = replace_once(ui, "impact<0?'偏离原轨道':impact>0?'修复 / 强化原�
 ui = replace_once(ui, "'原轨道基准 100'", "'基准 100 · 失稳将强化世界排异'", 'stability subtitle')
 write(ui_path, ui)
 
-# 3) 同步现有回归断言。
+# 3) 同步稳定值 UI 回归断言。
 test_path = 'tests/world-engine-stability-ui.cjs'
 test = read(test_path)
 if '世界局部细节开始偏离原著' in test:
     test = test.replace('世界局部细节开始偏离原著', '世界开始识别异常源')
 write(test_path, test)
 
-pipeline_path = 'tests/world-engine-prompt-pipeline.cjs'
-pipeline = read(pipeline_path)
-pipeline = replace_once(
-    pipeline,
-    'assert(source.includes("version:13,\\n        builtin:true,\\n        name:\'默认设置\'"), \'built-in prompt version should be 11\');',
-    'assert(source.includes("version:15,\\n        builtin:true,\\n        name:\'默认设置\'"), \'built-in prompt version should be 15\');',
-    'pipeline version assertion',
-)
-pipeline = replace_once(
-    pipeline,
-    "  '影响程度负值表示偏离原轨道',",
-    "  '负值=因果破坏',\n  '法则越破不代表主动排异越弱',",
-    'pipeline causal invariants',
-)
-pipeline = replace_once(pipeline, "assert(core.length < 1550,", "assert(core.length < 1850,", 'pipeline core length')
-write(pipeline_path, pipeline)
-
-# 4) 轻量一致性检查，不依赖浏览器。
+# 4) 精确自检：避免旧文案残留，也保证提示词真的要求执行世界自救。
 def require(text, marker, label):
     if marker not in text:
         raise SystemExit(f'{label}: missing {marker}')
 
 prompt = read(prompt_path)
 ui = read(ui_path)
-for marker in ['结算玩家影响与世界自救', '90警觉/80定向排异/70追猎', '法则越破不代表主动排异越弱']:
+for marker in ['version:15,', '结算玩家影响与世界自救', '90警觉/80定向排异/70追猎', '法则越破不代表主动排异越弱', '不给NPC全知']:
     require(prompt, marker, 'prompt')
-for marker in ['因果警觉 | 稳定', '定向排异 | 稳定', '全面围剿 | 松动', '世界武器化 | 松动', '猎杀现实 | 崩坏', '献祭式清除 | 崩坏', '终焉围猎 | 混乱', '同归于尽 | 混乱', '世界毁灭']:
+for marker in ['因果警觉 | 稳定', '定向排异 | 稳定', '全面围剿 | 松动', '世界武器化 | 松动', '猎杀现实 | 崩坏', '献祭式清除 | 崩坏', '终焉围猎 | 混乱', '同归于尽 | 混乱', '世界毁灭', '失稳将强化世界排异']:
     require(ui, marker, 'ui')
 for stale in ['轻度偏移 | 稳定', '初步警觉 | 稳定', '世界疏离 | 松动', '终焉倒计时 | 法则混乱']:
     if stale in ui:

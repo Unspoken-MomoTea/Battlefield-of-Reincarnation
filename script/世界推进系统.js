@@ -227,7 +227,7 @@ Step 1 · 取事实：按“当前变量/本轮已确认剧情 > 明确世界书
 Step 2 · 定边界：确认当前阶段与下一宏观节点；只有篇章、地区、战争、势力或关键人物命运发生阶段变化时才调整宏观骨架。
 Step 3 · 推区间：严格按本轮时间容量，先处理到期/进行中事项，再把未完事项推进合理一步；计划不是事实，不越过下一宏观边界。
 Step 4 · 现场到人物：先更新当前区间内确实变化的地区现场，再决定人物行动。人物受地点、路程、能力、认知、职责、资产与地区条件约束；同场正文未决时停在交互前。活跃异端每轮复核。
-Step 5 · 结算玩家影响：只按<user>已确认行为结算探索与势力；只有重大因果改变才记偏移，必要时重构宏观骨架。
+Step 5 · 结算玩家影响与世界自救：只按<user>已确认行为结算探索、势力与重大因果偏移；读取世界.稳定，按当前阶段让排异压力优先收束到造成异常的轮回者及其据点、关系网和行动路径，必要时重构宏观骨架。
 Step 6 · 更新传播：只维护本轮真实变化的传播、货币与历法；结束/过期传播不复活。
 Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业务变化只写摘要。
 【执行检查】
@@ -263,12 +263,12 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:14,
+        version:15,
         builtin:true,
         name:'默认设置',
-        exportedAt:'2026-09-10T00:00:00.000Z',
+        exportedAt:'2026-09-11T11:30:00.000Z',
         createdAt:'2026-09-08T13:09:45.350Z',
-        updatedAt:'2026-09-10T00:00:00.000Z',
+        updatedAt:'2026-09-11T11:30:00.000Z',
         settings:{
             // 直接引用当前 DEFAULT_PRESET，避免以后修改默认提示词却忘记同步“默认设置”文档。
             preset:normalizeEditablePreset(DEFAULT_PRESET),
@@ -285,7 +285,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
 4. 人物边界：活跃异端每轮复核，死亡不可恢复；普通人物只保留真正热记录。不得替<user>建立后台行动。主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界局部结算不重置世界。
 5. 资产：顶层资产是唯一资产账簿；所属对象为数组，多主体可共管，空数组表示无主，含<user>表示玩家拥有/共管。可按已确认场外事实新增、更新、转移或移除资产；删除保护中的同名资产不得自动重建。正文/MVU已结算的当前场景变化只同步，不重复结算。
 6. 玩家台账：探索只结算<user>实际到达、调查或可靠获知的整体区域；探索度以0/10/30/60/90/100为阶段锚点且无因不回退。势力声望只因<user>真实关系结果变化，同一结果只结算一次，单轮绝对变化≤1000，超过500仅限重大事件。
-7. 因果：只在关键人物命运、重大事件结果、势力格局或主线可行性实质改变时记偏移；影响程度负值表示偏离原轨道，正值表示修复/强化。世界超稳时不新增偏移；旧轨道失效时同轮重构宏观顺序。
+7. 因果与自救：只在关键人物命运、重大事件结果、势力格局或主线可行性实质改变时记偏移；负值=因果破坏，正值=修复/强化。世界超稳不新增偏移。稳定<100时按90警觉/80定向排异/70追猎/60全面围剿/50世界武器化/40猎杀现实/30献祭式清除/10终焉围猎/1同归于尽/0毁灭逐级针对轮回者；必须借世界观内合理载体作用于轮回者及其关系网，不给NPC全知。法则越破不代表主动排异越弱；旧轨道失效时同轮重构宏观顺序。
 8. 公开与基础：当前事件公开字段只写已成为现实且可合理感知的信息。货币只随真实流通体系变化，任务世界不用空间币作本地货币；历法只在可靠设定明确时维护。`;
     function splitPresetSegments(value) {
         return String(value||'').split(/\n(?=【)/).filter(Boolean).map(part=>{
@@ -4017,13 +4017,27 @@ ${schemaText}`;
                 if(anchor&&selected)this.monthOffset=(selected.y-anchor.y)*monthsPerYear+selected.m-anchor.m;
             }
             const dateLabel=str=>{const d=parseDate(str);return d?d.m+'月'+d.d+'日':str||'时间待补';};
-            // 区间标题与效果逐字取自 ⚙️世界因果与法则协议。
-            const stabilityStages=[{"min":111,"max":120,"title":"黄金祝福 | 法则强化","effects":["概率触发世界奇迹","隐藏机缘开启","高级剧情提前开放","世界关键资源刷新率提升","原生体系强化，外来体系强压"]},{"min":101,"max":110,"title":"世界青睐 | 稳定强化","effects":["世界秩序稳定","原生势力协作提升","资源生成率提高","符合主因果行为更易成功"]},{"min":100,"max":100,"title":"原著时间线 | 稳定","effects":["标准轨迹运行，无额外奖惩"]},{"min":90,"max":99,"title":"轻度偏移 | 稳定","effects":["世界局部细节开始偏离原著","小概率出现异常巧合","部分NPC行为出现轻微变化","世界因果链开始产生细小波纹"]},{"min":80,"max":89,"title":"初步警觉 | 稳定","effects":["环境恶化","敌对单位刷新率提升","世界轻微排斥轮回者"]},{"min":70,"max":79,"title":"因果紊乱 | 松动","effects":["时间线不可预测偏移","原著剧情失控","外来力量压制出现缺口"]},{"min":60,"max":69,"title":"世界疏离 | 松动","effects":["NPC信任度整体下降","补给难度上升","社会秩序逐步崩坏"]},{"min":50,"max":59,"title":"时空渗透 | 法则松动","effects":["空间裂缝生成","外来异常存在渗透","高危存在易锁定轮回者"]},{"min":40,"max":49,"title":"世界畸变 | 法则崩坏","effects":["畸变体大量生成","局部规则异常","原生体系加成失效","力量体系冲突污染"]},{"min":30,"max":39,"title":"英雄崩塌 | 法则崩坏","effects":["关键角色精神异常","英雄阵营分裂","核心秩序瓦解"]},{"min":10,"max":29,"title":"终焉倒计时 | 法则混乱","effects":["法则大面积失效","大规模空间裂缝","因果链断裂","全体系约束解除","世界进入无序释放"]}];
+            // 稳定阶段与防御强度取自 ⚙️世界因果与法则协议；这里只展示当前阶段。
+            const stabilityStages=[
+                {min:111,max:120,title:'黄金祝福 | 稳定强化',effects:['世界基本消化外来干涉，原生因果处于高强度收束状态','轮回者没有主动围剿压力，但外来力量仍受完整原生法则约束']},
+                {min:101,max:110,title:'世界青睐 | 稳定强化',effects:['因果结构优于原始基准，秩序与资源循环趋于健康','世界对轮回者的主动排异很低']},
+                {min:100,max:100,title:'原著时间线 | 稳定',effects:['世界按既定轨迹运行，不主动针对轮回者，也不提供额外庇护']},
+                {min:90,max:99,title:'因果警觉 | 稳定',effects:['世界开始识别异常源','目击、调查、误会与敌意沿合理因果链向轮回者汇聚']},
+                {min:80,max:89,title:'定向排异 | 稳定',effects:['藏身处、计划、联系人与资源链持续受压','压力优先集中到轮回者本人及其直接关系网']},
+                {min:70,max:79,title:'因果追猎 | 松动',effects:['原生强者、组织与主线冲突逐步被因果收束引向轮回者','据点、盟友、补给与撤退路线开始被系统性破坏']},
+                {min:60,max:69,title:'全面围剿 | 松动',effects:['多个原生势力可从各自合理动机同时追捕、封锁或攻击轮回者','普通安全生活基本结束，逃离一处不代表摆脱追猎']},
+                {min:50,max:59,title:'世界武器化 | 松动',effects:['战争、灾害、怪物潮与原生顶级强者可被因果链引向轮回者活动区','世界开始接受区域毁灭与大规模误伤作为清除代价']},
+                {min:40,max:49,title:'猎杀现实 | 崩坏',effects:['环境、空间、时间与残存原生规则都可成为猎杀轮回者的载体','世界接受永久区域毁灭，只求把入侵源一并埋葬']},
+                {min:30,max:39,title:'献祭式清除 | 崩坏',effects:['世界进入免疫风暴，围剿不再优先保护自身秩序','可牺牲主线人物、城市、国家乃至文明结构换取清除轮回者']},
+                {min:10,max:29,title:'终焉围猎 | 混乱',effects:['毁灭性事件持续向轮回者及其停留区域收束','长期停留会把灾难引向当前位置，必须修复因果或持续撤离']},
+                {min:1,max:9,title:'同归于尽 | 混乱',effects:['世界放弃自保，主动牺牲法则、时间线与现实结构清除轮回者','只剩修复异常根源或在世界死亡前撤离']},
+                {min:0,max:0,title:'世界毁灭',effects:['因果链、世界法则、时间线与现实结构全部终止','所有未撤离实体的生命、意识与灵魂一并被彻底抹除']}
+            ];
             const stabilityDescription=stable=>{
-                if(s.设置?.世界超稳===true)return '<p class="we-muted">世界稳定值固定为100<br>世界法则完整度强制锁定为「稳定强化」</p>';
+                if(s.设置?.世界超稳===true)return '<p class="we-muted">世界超稳 · 稳定值固定100<br>禁止新增因果偏移与主动排异升级</p>';
                 if(stable===null)return '<p class="we-muted">世界稳定值未记录</p>';
-                if(stable<10)return '<p class="we-muted"><b>终末格式化</b><br>不可修复异常时间线</p>';
-                const stage=stabilityStages.find(item=>stable>=item.min&&stable<item.max+1);
+                const normalized=Math.max(0,Math.min(120,Number(stable)));
+                const stage=stabilityStages.find(item=>normalized>=item.min&&normalized<=item.max);
                 return stage?'<div class="we-stability-description"><p><b>'+text(stage.title)+'</b></p><ul>'+stage.effects.map(effect=>'<li>'+text(effect)+'</li>').join('')+'</ul></div>':'<p class="we-muted">稳定值超出协议范围</p>';
             };
             const events=sortWorldEvents(state.事件,orbit);
@@ -4144,9 +4158,9 @@ ${schemaText}`;
                 const signed=n=>(n>0?'+':'')+n;
                 const offsetCard=([name,r])=>{
                     const impact=r?.影响程度!==null&&r?.影响程度!==''&&Number.isFinite(Number(r?.影响程度))?Number(r.影响程度):null;
-                    return '<article class="we-offset"><div class="we-offset-head"><b>'+text(name)+'</b><span>'+text(impact===null?'影响未记录':signed(impact))+'</span></div><p>'+text(r?.描述||'暂无偏移描述')+'</p><small>引发者 · '+text(r?.引发者||'未记录')+' · '+(impact===null?'待确认':impact<0?'偏离原轨道':impact>0?'修复 / 强化原轨道':'无数值变化')+'</small></article>';
+                    return '<article class="we-offset"><div class="we-offset-head"><b>'+text(name)+'</b><span>'+text(impact===null?'影响未记录':signed(impact))+'</span></div><p>'+text(r?.描述||'暂无偏移描述')+'</p><small>引发者 · '+text(r?.引发者||'未记录')+' · '+(impact===null?'待确认':impact<0?'因果破坏':impact>0?'因果修复 / 强化':'无数值变化')+'</small></article>';
                 };
-                const causalHtml='<div class="we-causal"><div class="we-stability"><div><small>世界稳定值</small><strong data-world-stability>'+text(stable===null?'未记录':stable)+'</strong></div><span>'+((s.设置||{}).世界超稳?'世界超稳 · 禁止新增偏移':'原轨道基准 100')+'</span></div>'
+                const causalHtml='<div class="we-causal"><div class="we-stability"><div><small>世界稳定值</small><strong data-world-stability>'+text(stable===null?'未记录':stable)+'</strong></div><span>'+((s.设置||{}).世界超稳?'世界超稳 · 禁止新增偏移':'基准 100 · 失稳将强化世界排异')+'</span></div>'
                     +(stable===null?'':'<meter min="0" max="120" value="'+Math.max(0,Math.min(120,stable))+'" aria-label="世界稳定值">'+stable+'</meter>')
                     +stabilityDescription(stable)
                     +'<div class="we-offset-heading">偏移记录 <span>'+offsets.length+' 条</span></div>'

@@ -20,7 +20,7 @@ jobs:
           python-version: '3.12'
       - name: Apply migration
         run: python tools/oneoff-world-task-event-migration.py
-      - name: Remove empty legacy plot store
+      - name: Finish migration seam fixes
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -30,6 +30,14 @@ jobs:
           new="事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 传播:{}"
           if text.count(old)!=1:
               raise SystemExit(f'emptyState legacy plot store: expected 1 match, got {text.count(old)}')
+          p.write_text(text.replace(old,new,1),encoding='utf-8')
+
+          p=Path('tests/world-engine-task-awareness.cjs')
+          text=p.read_text(encoding='utf-8')
+          old="  assert.ok(accepted.patches.some(p=>p.path.includes('/事件/黑鸦商队失踪/关联任务')),'存在的任务名允许作为事件因果索引');"
+          new="  assert.ok(accepted.patches.some(p=>p.path.includes('/事件/黑鸦商队失踪')&&Array.isArray(p.value?.关联任务)&&p.value.关联任务.includes('调查黑鸦商队')),'存在的任务名允许作为事件因果索引');"
+          if text.count(old)!=1:
+              raise SystemExit(f'task link assertion: expected 1 match, got {text.count(old)}')
           p.write_text(text.replace(old,new,1),encoding='utf-8')
           PY
       - name: Build delivery

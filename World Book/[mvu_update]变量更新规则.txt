@@ -346,6 +346,10 @@ variables_update_rules:
     空间币:
       type: number
       check: 仅在空间交易及副本结算时更新，不可为负
+    权限凭证:
+      path: /角色/权限凭证/${位格品质}
+      type: number
+      check: 仅在空间交易及副本结算时更新，不可为负
     形态库: &form
       path: /角色/形态库/${形态名}
       type: |-

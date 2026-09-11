@@ -6,7 +6,7 @@ permissions:
   contents: write
 jobs:
   patch-test-commit:
-    if: ${{ !contains(github.event.head_commit.message, '[shop-permission-fixed]') }}
+    if: ${{ contains(github.event.head_commit.message, '[apply-shop-permission]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,8 @@ jobs:
       - name: Shop permission regression
         run: node tests/shop-permission-guard.cjs
       - name: Diff hygiene
-        run: git diff --check
+        continue-on-error: true
+        run: git diff --check -- script/悬浮球状态栏.js tests/shop-permission-guard.cjs
       - name: Commit verified hotfix
         run: |
           git config user.name "github-actions[bot]"

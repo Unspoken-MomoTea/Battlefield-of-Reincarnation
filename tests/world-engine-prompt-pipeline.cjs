@@ -21,7 +21,7 @@ for (let i = 1; i <= 7; i += 1) {
 }
 assert(preset.includes('【执行检查】'), 'pipeline should end with execution checks');
 assert(preset.includes('先更新当前区间内确实变化的地区现场'), 'pipeline should advance shared world scenes before person actions');
-assert(preset.includes('不复制地点现场'), 'pipeline should keep shared scene facts out of person records');
+assert(core.includes('同一现场事实不得复制进人物'), 'pipeline should keep shared scene facts out of person records');
 assert(preset.length < 1900, `DEFAULT_PRESET regressed into a long rule manual: ${preset.length} chars`);
 
 const businessInvariants = [

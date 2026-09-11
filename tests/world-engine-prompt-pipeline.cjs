@@ -21,7 +21,7 @@ for (let i = 1; i <= 7; i += 1) {
 }
 assert(preset.includes('【执行检查】'), 'pipeline should end with execution checks');
 assert(preset.includes('先更新当前区间内确实变化的地区现场'), 'pipeline should advance shared world scenes before person actions');
-assert(core.includes('同一现场事实不得复制进人物'), 'pipeline should keep shared scene facts out of person records');
+assert(preset.includes('不复制地点现场'), 'pipeline should keep shared scene facts out of person records');
 assert(preset.length < 1900, `DEFAULT_PRESET regressed into a long rule manual: ${preset.length} chars`);
 
 const businessInvariants = [
@@ -31,7 +31,7 @@ const businessInvariants = [
   '探索度以0/10/30/60/90/100',
   '单轮绝对变化≤1000',
   '影响程度负值表示偏离原轨道',
-  '世界超稳不新增偏移',
+  '世界超稳时不新增偏移',
   '普通副本返回主神空间后停止本世界推演',
   '主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界',
   '现场群体与环境事实属于势力地区',

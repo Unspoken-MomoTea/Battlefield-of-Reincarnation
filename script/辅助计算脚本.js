@@ -1788,7 +1788,12 @@
 
     /** 世界稳定值自动推演 */
     function calcWorldStability(statData) {
-        if (!statData || !statData.世界 || !statData.世界.因果轨道 || statData.设置.世界超稳) return;
+        if (!statData || !statData.世界) return;
+        if (statData.设置?.世界超稳 === true) {
+            statData.世界.稳定 = 100;
+            return;
+        }
+        if (!statData.世界.因果轨道) return;
         const records = statData.世界.因果轨道.偏移记录;
         
         let totalOffset = 0;

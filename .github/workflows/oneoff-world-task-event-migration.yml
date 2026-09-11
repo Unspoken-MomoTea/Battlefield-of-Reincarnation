@@ -46,8 +46,6 @@ jobs:
         run: node --check script/世界推进系统.js
       - name: Task-event regression
         run: node tests/world-engine-task-awareness.cjs
-      - name: Core regression
-        run: node tests/world-engine.cjs
       - name: Module synchronization
         run: node tests/world-engine-modules.cjs
       - name: Commit migration

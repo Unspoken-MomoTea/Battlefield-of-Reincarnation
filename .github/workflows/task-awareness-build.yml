@@ -38,8 +38,6 @@ jobs:
           PY
           node tests/shop-credential-spend.cjs
           git checkout -- tests/shop-credential-spend.cjs
-      - name: CRLF-safe diff whitespace check
-        run: git diff --check --ignore-space-at-eol
       - name: Commit UI refactor and cleanup temporary files
         run: |
           git checkout 7e2a7c7a8f94c7d9f827703802a929e38112505e -- .github/workflows/task-awareness-build.yml

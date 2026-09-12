@@ -81,8 +81,8 @@
 
     const SamsaraWorldEngineBeforeChronologyGuard=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeChronologyGuard {
-        constructor(host) {
-            super(host);
+        constructor(host,env) {
+            super(host,env);
             if(!this.config.activePromptDocumentId||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
                 const upgraded=upgradeChronologyPreset(this.config.preset);
                 if(upgraded!==this.config.preset){this.config.preset=upgraded;this.saveConfig();}

@@ -853,6 +853,21 @@
         details.sam-shop-sk-item > .sam-fc-content { padding-left:6px; }
         .sam-shop-item-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px; }
         .sam-shop-price { font-size:13px; font-weight:bold; color:var(--sam-thp, #e5c166); text-shadow:0 0 5px rgba(229,193,102,0.4); }
+        /* 商城商品卡：结构化分区，效果逐条展示 */
+        #samsara-panel .sam-shop-item { display:flex; flex-direction:column; }
+        #samsara-panel .sam-shop-section { margin-top:8px; }
+        #samsara-panel .sam-shop-section-title { margin-bottom:5px; color:var(--sam-sub); font-size:10.5px; font-weight:700; letter-spacing:.04em; }
+        #samsara-panel .sam-shop-basic-block { padding-top:7px; border-top:1px solid color-mix(in srgb,var(--sam-border) 72%,transparent); }
+        #samsara-panel .sam-shop-item-attrs { display:flex; flex-wrap:wrap; gap:5px; margin-top:0; }
+        #samsara-panel .sam-shop-effect-list { display:grid; gap:6px; }
+        #samsara-panel .sam-shop-effect-card { padding:7px 8px; border:1px solid var(--sam-border); border-radius:7px; background:color-mix(in srgb,var(--sam-card) 78%,transparent); }
+        #samsara-panel .sam-shop-effect-card-name { margin-bottom:3px; color:var(--sam-text); font-size:11.5px; font-weight:700; line-height:1.35; }
+        #samsara-panel .sam-shop-effect-card-text { color:var(--sam-sub); font-size:11.5px; line-height:1.55; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+        #samsara-panel .sam-shop-description-block { padding:7px 8px; border-left:2px solid color-mix(in srgb,var(--sam-accent) 55%,var(--sam-border)); border-radius:0 6px 6px 0; background:color-mix(in srgb,var(--sam-card) 48%,transparent); }
+        #samsara-panel .sam-shop-description-block .sam-shop-section-title { margin-bottom:3px; }
+        #samsara-panel .sam-shop-description-text { color:var(--sam-sub); font-size:11.5px; line-height:1.5; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+        #samsara-panel .sam-shop-item-foot { margin-top:10px; padding-top:8px; border-top:1px solid var(--sam-border); flex-wrap:wrap; }
+
         .sam-shop-qty { display:flex; align-items:center; gap:2px; }
         .sam-shop-qty-btn { width:22px; height:22px; border:1px solid var(--sam-border); border-radius:4px; background:var(--sam-dark); color:var(--sam-text); font-size:12px; cursor:pointer; line-height:1; }
         .sam-shop-qty-btn:hover { border-color:var(--sam-accent); color:var(--sam-accent); }
@@ -8009,7 +8024,7 @@ function shopCredentialRefund(credentials, requirements) {
         }
         return html;
     }
-    // 对象展开成 detail 块(如 效果 {主动:'对单体造成3d6伤害'} → 效果: 主动=对单体造成3d6伤害)
+    // 效果按独立卡片逐条展示；其他对象详情仍保留紧凑文本模式
     function shopObjDetails(label, obj) {
         if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return '';
         var parts = [];
@@ -8017,9 +8032,16 @@ function shopCredentialRefund(credentials, requirements) {
             if (!obj.hasOwnProperty(k2)) continue;
             var v2 = obj[k2];
             if (v2 === undefined || v2 === null || v2 === '') continue;
-            parts.push(esc(k2)+'：'+esc(String(v2)));
+            if (label === '效果') {
+                parts.push('<div class="sam-shop-effect-card"><div class="sam-shop-effect-card-name">'+esc(k2)+'</div><div class="sam-shop-effect-card-text">'+esc(String(v2))+'</div></div>');
+            } else {
+                parts.push(esc(k2)+'：'+esc(String(v2)));
+            }
         }
         if (!parts.length) return '';
+        if (label === '效果') {
+            return '<section class="sam-shop-section sam-shop-effects-block"><div class="sam-shop-section-title">效果</div><div class="sam-shop-effect-list">'+parts.join('')+'</div></section>';
+        }
         return '<div class="sam-shop-item-detail"><b>'+esc(label)+':</b> '+parts.join('；')+'</div>';
     }
     function shopSigned(v) {
@@ -8054,6 +8076,14 @@ function shopCredentialRefund(credentials, requirements) {
     function shopDetail(label, value) {
         if (value === undefined || value === null || value === '') return '';
         return '<div class="sam-shop-item-detail"><b>'+esc(label)+':</b> '+esc(String(value))+'</div>';
+    }
+    function shopAttrsBlock(attrs) {
+        if (!attrs) return '';
+        return '<section class="sam-shop-section sam-shop-basic-block"><div class="sam-shop-section-title">基础信息</div><div class="sam-shop-item-attrs">'+attrs+'</div></section>';
+    }
+    function shopDescription(value) {
+        if (value === undefined || value === null || value === '') return '';
+        return '<section class="sam-shop-section sam-shop-description-block"><div class="sam-shop-section-title">描述</div><div class="sam-shop-description-text">'+esc(String(value))+'</div></section>';
     }
     // 卡片头部(name + 品质徽章, 共同品质色)
     function shopCardHead(item, tier) {
@@ -8093,27 +8123,27 @@ function shopCredentialRefund(credentials, requirements) {
         if (item.cost) attrs += shopChip('消耗', item.cost);
         attrs += shopObjChips(item.raw_attrs);    // 技能可能带原始属性加成
         attrs += shopTagChips(item.tags);
-        var details = shopObjDetails('效果', item.effects) + shopDetail('描述', item.description);
-        return shopCardHead(item) + '<div class="sam-shop-item-attrs">'+attrs+'</div>' + details + shopCardFoot(item, false);
+        var details = shopObjDetails('效果', item.effects) + shopDescription(item.description);
+        return shopCardHead(item) + shopAttrsBlock(attrs) + details + shopCardFoot(item, false);
     }
     function shopBuildBloodlineCard(item) {
         var attrs = shopObjChips(item.raw_attrs) + shopTagChips(item.tags);
-        var details = shopObjDetails('效果', item.effects) + shopDetail('描述', item.description);
-        return shopCardHead(item) + '<div class="sam-shop-item-attrs">'+attrs+'</div>' + details + shopCardFoot(item, false);
+        var details = shopObjDetails('效果', item.effects) + shopDescription(item.description);
+        return shopCardHead(item) + shopAttrsBlock(attrs) + details + shopCardFoot(item, false);
     }
     function shopBuildEquipCard(item) {
         var attrs = '';
         if (item.cost) attrs += shopChip('消耗', item.cost);
         attrs += shopObjChips(item.raw_attrs) + shopTagChips(item.tags);
-        var details = shopObjDetails('效果', item.effects) + shopDetail('描述', item['描述']);
-        return shopCardHead(item) + '<div class="sam-shop-item-attrs">'+attrs+'</div>' + details + shopCardFoot(item, false);
+        var details = shopObjDetails('效果', item.effects) + shopDescription(item['描述']);
+        return shopCardHead(item) + shopAttrsBlock(attrs) + details + shopCardFoot(item, false);
     }
     function shopBuildUpgradeCard(item) {
         var attrs = '';
         if (item.replace_target) attrs += shopChip('替换', item.replace_target);
         if (item.category) attrs += shopChip('大类', item.category);
         attrs += shopObjChips(item.raw_attrs) + shopTagChips(item.tags);
-        var details = shopObjDetails('效果', item.effects) + shopDetail('描述', item.description);
+        var details = shopObjDetails('效果', item.effects) + shopDescription(item.description);
         // 形态升级: 右上角显示 层级(罗马数字) 替代 品质字母; 渲染技能子列表(与形态商品卡一致)
         var headTier = null;
         var formExtra = '';
@@ -8121,7 +8151,7 @@ function shopCredentialRefund(credentials, requirements) {
             headTier = item.tier;
             if (Array.isArray(item.skills) && item.skills.length) formExtra = shopBuildFormSkillsBlock(item.skills);
         }
-        return shopCardHead(item, headTier) + '<div class="sam-shop-item-attrs">'+attrs+'</div>' + details + formExtra + shopCardFoot(item, false);
+        return shopCardHead(item, headTier) + shopAttrsBlock(attrs) + details + formExtra + shopCardFoot(item, false);
     }
     // 形态卡片技能子列表块(形态商品/形态升级共用): 详情式展开, 与 效果/描述 风格一致;
     // 每个技能以"(技能名)"标题 + 品质/类型/消耗/标签/效果/描述 各字段行, 空字段省略
@@ -8155,14 +8185,14 @@ function shopCredentialRefund(credentials, requirements) {
         if (item.cost) attrs += shopChip('消耗', item.cost);
         if (item.status) attrs += shopChip('状态', item.status);
         attrs += shopObjChips(item.raw_attrs) + shopTagChips(item.tags);
-        var details = shopObjDetails('效果', item.effects) + shopDetail('描述', item.description);
+        var details = shopObjDetails('效果', item.effects) + shopDescription(item.description);
         var skillsBlock = (Array.isArray(item.skills) && item.skills.length) ? shopBuildFormSkillsBlock(item.skills) : '';
-        return shopCardHead(item, item.tier) + '<div class="sam-shop-item-attrs">'+attrs+'</div>' + details + skillsBlock + shopCardFoot(item, false);
+        return shopCardHead(item, item.tier) + shopAttrsBlock(attrs) + details + skillsBlock + shopCardFoot(item, false);
     }
     function shopBuildConsumeCard(item) {
         var attrs = shopTagChips(item.tags);
-        var details = shopObjDetails('效果', item.effects) + shopDetail('描述', item.description);
-        return shopCardHead(item) + '<div class="sam-shop-item-attrs">'+attrs+'</div>' + details + shopCardFoot(item, true);
+        var details = shopObjDetails('效果', item.effects) + shopDescription(item.description);
+        return shopCardHead(item) + shopAttrsBlock(attrs) + details + shopCardFoot(item, true);
     }
     // 区域Tab条
     function shopRenderTabs() {

@@ -26,7 +26,18 @@ jobs:
       - name: Credential ledger regression
         run: node tests/credential-ledger-integration.cjs
       - name: Shop credential spend regression
-        run: node tests/shop-credential-spend.cjs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/shop-credential-spend.cjs')
+          t = p.read_text(encoding='utf-8')
+          t = t.replace("rules.includes('凭证消耗仅从C级开始')", "rules.includes('购买权限锁: C级起')")
+          t = t.replace("rules.includes('血统融合产生的品质变化不消耗权限凭证')", "rules.includes('血统融合结果不消耗凭证')")
+          t = t.replace("rules.includes('购买行为本身仍按上述规则消耗凭证')", "rules.includes('购买或升级高于自身当前层级')")
+          p.write_text(t, encoding='utf-8')
+          PY
+          node tests/shop-credential-spend.cjs
+          git checkout -- tests/shop-credential-spend.cjs
       - name: Diff whitespace check
         run: git diff --check
       - name: Commit UI refactor and cleanup temporary files

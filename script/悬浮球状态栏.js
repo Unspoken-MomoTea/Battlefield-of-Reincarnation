@@ -2259,8 +2259,8 @@
                         writeBackMvu(function(statData) {
                             statData.角色 = statData.角色 || {};
                             statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
-                        statData.角色.权限凭证 = statData.角色.权限凭证 || {};
-                        shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
+                            statData.角色.权限凭证 = statData.角色.权限凭证 || {};
+                            shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
                             if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                                 var _rlib0 = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
                                 if (_rlib0) _rlib0.血统列表 = bloodFusionSnap.preBloodLib.slice();

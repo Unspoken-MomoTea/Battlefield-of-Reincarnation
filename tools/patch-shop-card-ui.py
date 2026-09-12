@@ -1,0 +1,101 @@
+from pathlib import Path
+import re
+
+path = Path('script/悬浮球状态栏.js')
+raw = path.read_bytes()
+newline = '\r\n' if b'\r\n' in raw else '\n'
+text = raw.decode('utf-8').replace('\r\n', '\n')
+
+old_effect = '''    // 对象展开成 detail 块(如 效果 {主动:'对单体造成3d6伤害'} → 效果: 主动=对单体造成3d6伤害)
+    function shopObjDetails(label, obj) {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return '';
+        var parts = [];
+        for (var k2 in obj) {
+            if (!obj.hasOwnProperty(k2)) continue;
+            var v2 = obj[k2];
+            if (v2 === undefined || v2 === null || v2 === '') continue;
+            parts.push(esc(k2)+'：'+esc(String(v2)));
+        }
+        if (!parts.length) return '';
+        return '<div class="sam-shop-item-detail"><b>'+esc(label)+':</b> '+parts.join('；')+'</div>';
+    }
+'''
+new_effect = '''    // 效果按独立卡片逐条展示；其他对象详情仍保留紧凑文本模式
+    function shopObjDetails(label, obj) {
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return '';
+        var parts = [];
+        for (var k2 in obj) {
+            if (!obj.hasOwnProperty(k2)) continue;
+            var v2 = obj[k2];
+            if (v2 === undefined || v2 === null || v2 === '') continue;
+            if (label === '效果') {
+                parts.push('<div class="sam-shop-effect-card"><div class="sam-shop-effect-card-name">'+esc(k2)+'</div><div class="sam-shop-effect-card-text">'+esc(String(v2))+'</div></div>');
+            } else {
+                parts.push(esc(k2)+'：'+esc(String(v2)));
+            }
+        }
+        if (!parts.length) return '';
+        if (label === '效果') {
+            return '<section class="sam-shop-section sam-shop-effects-block"><div class="sam-shop-section-title">效果</div><div class="sam-shop-effect-list">'+parts.join('')+'</div></section>';
+        }
+        return '<div class="sam-shop-item-detail"><b>'+esc(label)+':</b> '+parts.join('；')+'</div>';
+    }
+'''
+assert text.count(old_effect) == 1, 'shopObjDetails anchor mismatch'
+text = text.replace(old_effect, new_effect)
+
+old_detail = '''    function shopDetail(label, value) {
+        if (value === undefined || value === null || value === '') return '';
+        return '<div class="sam-shop-item-detail"><b>'+esc(label)+':</b> '+esc(String(value))+'</div>';
+    }
+'''
+new_detail = '''    function shopDetail(label, value) {
+        if (value === undefined || value === null || value === '') return '';
+        return '<div class="sam-shop-item-detail"><b>'+esc(label)+':</b> '+esc(String(value))+'</div>';
+    }
+    function shopAttrsBlock(attrs) {
+        if (!attrs) return '';
+        return '<section class="sam-shop-section sam-shop-basic-block"><div class="sam-shop-section-title">基础信息</div><div class="sam-shop-item-attrs">'+attrs+'</div></section>';
+    }
+    function shopDescription(value) {
+        if (value === undefined || value === null || value === '') return '';
+        return '<section class="sam-shop-section sam-shop-description-block"><div class="sam-shop-section-title">描述</div><div class="sam-shop-description-text">'+esc(String(value))+'</div></section>';
+    }
+'''
+assert text.count(old_detail) == 1, 'shopDetail anchor mismatch'
+text = text.replace(old_detail, new_detail)
+
+common = "var details = shopObjDetails('效果', item.effects) + shopDetail('描述', item.description);"
+assert text.count(common) == 5, f'expected 5 common description builders, found {text.count(common)}'
+text = text.replace(common, "var details = shopObjDetails('效果', item.effects) + shopDescription(item.description);")
+
+equip = "var details = shopObjDetails('效果', item.effects) + shopDetail('描述', item['描述']);"
+assert text.count(equip) == 1, 'equipment description builder mismatch'
+text = text.replace(equip, "var details = shopObjDetails('效果', item.effects) + shopDescription(item['描述']);")
+
+attrs = "'<div class=\"sam-shop-item-attrs\">'+attrs+'</div>'"
+assert text.count(attrs) == 6, f'expected 6 card attribute blocks, found {text.count(attrs)}'
+text = text.replace(attrs, 'shopAttrsBlock(attrs)')
+
+anchor = re.search(r'(?m)^[^\n]*\.sam-shop-price\s*\{[^\n]*\}\s*$', text)
+assert anchor, 'shop price CSS anchor not found'
+css = '''
+        /* 商城商品卡：结构化分区，效果逐条展示 */
+        #samsara-panel .sam-shop-item { display:flex; flex-direction:column; }
+        #samsara-panel .sam-shop-section { margin-top:8px; }
+        #samsara-panel .sam-shop-section-title { margin-bottom:5px; color:var(--sam-sub); font-size:10.5px; font-weight:700; letter-spacing:.04em; }
+        #samsara-panel .sam-shop-basic-block { padding-top:7px; border-top:1px solid color-mix(in srgb,var(--sam-border) 72%,transparent); }
+        #samsara-panel .sam-shop-item-attrs { display:flex; flex-wrap:wrap; gap:5px; margin-top:0; }
+        #samsara-panel .sam-shop-effect-list { display:grid; gap:6px; }
+        #samsara-panel .sam-shop-effect-card { padding:7px 8px; border:1px solid var(--sam-border); border-radius:7px; background:color-mix(in srgb,var(--sam-card) 78%,transparent); }
+        #samsara-panel .sam-shop-effect-card-name { margin-bottom:3px; color:var(--sam-text); font-size:11.5px; font-weight:700; line-height:1.35; }
+        #samsara-panel .sam-shop-effect-card-text { color:var(--sam-sub); font-size:11.5px; line-height:1.55; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+        #samsara-panel .sam-shop-description-block { padding:7px 8px; border-left:2px solid color-mix(in srgb,var(--sam-accent) 55%,var(--sam-border)); border-radius:0 6px 6px 0; background:color-mix(in srgb,var(--sam-card) 48%,transparent); }
+        #samsara-panel .sam-shop-description-block .sam-shop-section-title { margin-bottom:3px; }
+        #samsara-panel .sam-shop-description-text { color:var(--sam-sub); font-size:11.5px; line-height:1.5; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+        #samsara-panel .sam-shop-item-foot { margin-top:10px; padding-top:8px; border-top:1px solid var(--sam-border); flex-wrap:wrap; }
+'''
+text = text[:anchor.end()] + css + text[anchor.end():]
+
+out = text if newline == '\n' else text.replace('\n', '\r\n')
+path.write_bytes(out.encode('utf-8'))

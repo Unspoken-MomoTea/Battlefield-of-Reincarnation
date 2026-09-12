@@ -19,13 +19,16 @@ jobs:
           python-version: '3.12'
       - name: Apply shop card UI patch
         run: python tools/patch-shop-card-ui.py
-      - name: Syntax and shop regressions
-        run: |
-          node --check script/悬浮球状态栏.js
-          node tests/shop-permission-guard.cjs
-          node tests/credential-ledger-integration.cjs
-          node tests/shop-credential-spend.cjs
-          git diff --check
+      - name: Syntax check
+        run: node --check script/悬浮球状态栏.js
+      - name: Shop permission regression
+        run: node tests/shop-permission-guard.cjs
+      - name: Credential ledger regression
+        run: node tests/credential-ledger-integration.cjs
+      - name: Shop credential spend regression
+        run: node tests/shop-credential-spend.cjs
+      - name: Diff whitespace check
+        run: git diff --check
       - name: Commit UI refactor and cleanup temporary files
         run: |
           git checkout 7e2a7c7a8f94c7d9f827703802a929e38112505e -- .github/workflows/task-awareness-build.yml

@@ -16,6 +16,8 @@ jobs:
           python-version: '3.12'
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
+      - name: Chronology guard regression
+        run: node tests/world-engine-chronology-guard.cjs
       - name: NPC audit regression
         run: node tests/world-engine-npc-audit-toggle.cjs
       - name: Module synchronization

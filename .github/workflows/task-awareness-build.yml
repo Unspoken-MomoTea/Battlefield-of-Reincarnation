@@ -24,6 +24,8 @@ jobs:
         run: node tests/world-engine-superstable-prompt.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
+      - name: Chronology guard regression
+        run: node tests/world-engine-chronology-guard.cjs
       - name: NPC audit regression
         run: node tests/world-engine-npc-audit-toggle.cjs
       - name: Module synchronization
@@ -34,5 +36,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add script/世界推进系统.js
-          git commit -m "build: sync task awareness delivery [task-awareness-built]"
+          git commit -m "build: sync chronology guard delivery [task-awareness-built]"
           git push

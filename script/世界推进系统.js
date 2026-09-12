@@ -1234,9 +1234,9 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
             资产:{type:'array',maxItems:20,items:ASSET_RESULT_SCHEMA},
             异端:{type:'array',maxItems:15,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['活跃','死亡']}}}},
             传闻:{type:'object',additionalProperties:false,properties:{
-                街头巷议:{type:'array',maxItems:3,items:STREET_RUMOR_RESULT_SCHEMA},
-                情报交易:{type:'array',maxItems:3,items:INTEL_TRADE_RESULT_SCHEMA},
-                布告与檄文:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.布告与檄文,['更新','移除','撤销本轮'],['发布者','内容','张贴位置'])}
+                街头巷议:{type:'array',maxItems:6,items:STREET_RUMOR_RESULT_SCHEMA},
+                情报交易:{type:'array',maxItems:6,items:INTEL_TRADE_RESULT_SCHEMA},
+                布告与檄文:{type:'array',maxItems:6,items:namedEntitySchema(EXISTING.布告与檄文,['更新','移除','撤销本轮'],['发布者','内容','张贴位置'])}
             }},
             关系:{type:'array',maxItems:25,items:{type:'object',additionalProperties:false,required:['名称'],properties:{
                 名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},
@@ -1469,10 +1469,9 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
                 const seen=new Set(),deduped=[];
                 for(const item of list){
                     const signature=String(item.内容||'').replace(/\s+/g,' ').trim();
-                    if(signature&&seen.has(signature))continue;
-                    if(signature)seen.add(signature);
+                    if(item.操作==='更新'&&signature&&seen.has(signature))continue;
+                    if(item.操作==='更新'&&signature)seen.add(signature);
                     deduped.push(item);
-                    if(deduped.length>=3)break;
                 }
                 list=deduped;
             }
@@ -1523,7 +1522,8 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         if(Object.hasOwn(result.因果||{},'当前阶段'))push('因果/当前阶段',{因果:{当前阶段:result.因果.当前阶段}});
         if(Array.isArray(result.因果?.宏观顺序)&&result.因果.宏观顺序.length)push('因果/宏观顺序',{因果:{宏观顺序:copy(result.因果.宏观顺序)}});
         for(const item of result.因果?.偏移记录||[])push('因果/偏移记录/'+item.名称,{因果:{偏移记录:[copy(item)]}});
-        for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻?.[key]||[])push('传闻/'+key+'/'+item.名称,{传闻:{[key]:[copy(item)]}});
+        // 容量约束针对最终分类；新增与移除必须一起验收，不能拆散换新操作。
+        for(const key of WORLD_RESULT_RUMORS)if(result.传闻?.[key]?.length)push('传闻/'+key,{传闻:{[key]:copy(result.传闻[key])}});
         for(const item of result.关系||[])push('关系/'+item.名称,{关系:[copy(item)]});
         return {摘要:result.摘要,fragments};
     }
@@ -1968,7 +1968,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         for (const item of Object.values((stat.任务 || {}).副本成就 || {})) if (!['未达成','已达成'].includes(item.状态)) throw new Error('成就状态无效');
         for (const category of ['街头巷议','情报交易','布告与檄文']) {
             const items = Object.values((stat.传闻 || {})[category] || {});
-            if (items.length > 3) throw new Error('每类当前传闻最多3条');
+            if (items.length > 3) throw new Error('每类当前传闻最多3条：'+category+'合并后有'+items.length+'条；请在同一分类提交操作=移除，移除至少'+(items.length-3)+'条被替代的旧传闻；当前名称：'+Object.keys(stat.传闻[category]).join('、'));
             if (category === '街头巷议' && items.some(i => !['酒话','可疑','或许可信'].includes(i.可信度))) throw new Error('传闻可信度无效');
         }
         const visiting = new Set(), visited = new Set();
@@ -2477,7 +2477,7 @@ ${schemaText}`;
             this.config = {
                 enabled:false,
                 preset:DEFAULT_PRESET,
-                retryAttempts:3,
+                retryAttempts:5,
                 requireMacroBackbone:true,
                 presetEditorVersion:0,
                 promptDocuments:[],
@@ -2534,7 +2534,12 @@ ${schemaText}`;
             }
             {
                 const retryLimit=Number(this.config.retryAttempts);
-                this.config.retryAttempts=Math.max(1,Math.min(5,Number.isFinite(retryLimit)?retryLimit:3));
+                this.config.retryAttempts=Math.max(1,Math.min(5,Number.isFinite(retryLimit)?retryLimit:5));
+                if(!this.config.retryDefaultFiveMigrated){
+                    if(this.config.retryAttempts===3)this.config.retryAttempts=5;
+                    this.config.retryDefaultFiveMigrated=true;
+                    this.saveConfig();
+                }
             }
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
             if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
@@ -3055,7 +3060,7 @@ ${schemaText}`;
                 const request=await this.buildRequest(base);
                 if(token!==this.generation)throw new Error('请求已取消');
 
-                const configuredAttempts=Number(this.config.retryAttempts),maxAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:3));
+                const configuredAttempts=Number(this.config.retryAttempts),maxAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:5));
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];
 
                 while(attempt<maxAttempts){
@@ -4210,8 +4215,8 @@ ${schemaText}`;
                 html+='<div class="we-dashboard"><div class="we-command-main">'
                     +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>事件时间线</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+'<div class="we-tools"><span>'+text(this.calendarMode==='undated'?'未定日 / 作品内时间':this.selectedDate||'全部日期')+'</span><button data-action="today">回到今天</button><button data-action="clear-date">全部日期</button><button data-action="undated">未定日事件</button></div>'+'<div class="we-timeline">'+(timelineCards(shown.slice(0,this.eventLimit||12))||empty('没有符合条件的事件'))+'</div>'+(shown.length>(this.eventLimit||12)?'<button class="we-btn" data-action="more-events">显示更多（共 '+shown.length+' 项）</button>':'')+'</div></div></section>'
                     +'</div><aside class="we-command-side">'
-                    +section('货币与经济',exists(w.货币)?fields({货币体系:w.货币?.体系,购买力基准:w.货币?.购买力基准,经济波动:w.货币?.经济波动}):empty('尚无货币资料','世界推进会在设定或经济局势明确时维护。'),'世界推进维护')
                     +section('因果状态',causalHtml,'稳定与轨道偏移')
+                    +section('货币与经济',exists(w.货币)?fields({货币体系:w.货币?.体系,购买力基准:w.货币?.购买力基准,经济波动:w.货币?.经济波动}):empty('尚无货币资料','世界推进会在设定或经济局势明确时维护。'),'世界推进维护')
                     +(exists(w.法则)?section('世界法则',prose(w.法则),'当前生效规则 · '+(Array.isArray(w.法则)?w.法则.length:1)+' 条'):'')
                     +section('人物动向',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'重点 NPC')
                     +'</aside></div>';
@@ -4444,7 +4449,7 @@ ${schemaText}`;
                     return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p>'+details+guidance+'</div></div>';
                 }).join('');
                 const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
-                html+=section('失败自动重试','<div class="we-config-row"><label>最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(this.config.retryAttempts??3)+'"> 次</label><span class="we-muted">包含首次请求。1 = 只请求一次；5 = 最多总共尝试 5 次。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次；每次模型业务拒绝都会在下方完整保留，包括最后一次失败。</p>':'')+(retryLog||''));
+                html+=section('失败自动重试','<div class="we-config-row"><label>最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(this.config.retryAttempts??5)+'"> 次</label><span class="we-muted">包含首次请求。1 = 只请求一次；5 = 最多总共尝试 5 次。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次；每次模型业务拒绝都会在下方完整保留，包括最后一次失败。</p>':'')+(retryLog||''));
                 html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                 for(const [label,r] of [['最近实际发送',this.lastRequest],['下一次请求预览',this.previewRequest]]){
                     if(!r){html+=section(label,empty('暂无'+label));continue;}
@@ -4679,6 +4684,7 @@ ${schemaText}`;
     const RUMOR_STALE_HOURS=72;
     const RUMOR_LIVELINESS_RULES=`【传闻与传播 · 常驻活跃层】
 1. 街头巷议、情报交易、布告与檄文各自最多3条；某类为空时本轮补2条。单条约60字，除非影响重大，不围绕<user>。
+   上限计算为旧条目与本轮更新合并、移除后的最终数量，不是本轮操作数。新名称会新增，不会自动替换旧名称；分类已满时，必须同轮按旧名称提交「操作:移除」再补新条，允许同类提交超过3项增删操作，最终保留不超过3条。沿用原名称则更新原条目，未提及的旧条目继续保留。
 2. 街头巷议随当前地区、说书人/目击者和局势替换1~2条，远离后移除失去本地价值的旧条；情报交易有卖家时更新1~2条，购买、付款与消费性删除由MVU按正文结果处理；布告与檄文随当前地区与发布势力替换。
 3. 后台传播是人物知情与公开传闻的因果链。新可传播事实建立或推进传播；关联事件变化、传播陈旧或到期时复核范围、受众、内容与引发行动，结束/过期传播不复活。
 4. 优先话题：${RUMOR_LIVELINESS_TOPICS.join(' / ')}。`;

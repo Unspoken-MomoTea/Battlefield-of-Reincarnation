@@ -140,9 +140,9 @@
             资产:{type:'array',maxItems:20,items:ASSET_RESULT_SCHEMA},
             异端:{type:'array',maxItems:15,items:{type:'object',additionalProperties:false,required:['名称','状态'],properties:{名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},状态:{type:'string',enum:['活跃','死亡']}}}},
             传闻:{type:'object',additionalProperties:false,properties:{
-                街头巷议:{type:'array',maxItems:3,items:STREET_RUMOR_RESULT_SCHEMA},
-                情报交易:{type:'array',maxItems:3,items:INTEL_TRADE_RESULT_SCHEMA},
-                布告与檄文:{type:'array',maxItems:3,items:namedEntitySchema(EXISTING.布告与檄文,['更新','移除','撤销本轮'],['发布者','内容','张贴位置'])}
+                街头巷议:{type:'array',maxItems:6,items:STREET_RUMOR_RESULT_SCHEMA},
+                情报交易:{type:'array',maxItems:6,items:INTEL_TRADE_RESULT_SCHEMA},
+                布告与檄文:{type:'array',maxItems:6,items:namedEntitySchema(EXISTING.布告与檄文,['更新','移除','撤销本轮'],['发布者','内容','张贴位置'])}
             }},
             关系:{type:'array',maxItems:25,items:{type:'object',additionalProperties:false,required:['名称'],properties:{
                 名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},
@@ -375,10 +375,9 @@
                 const seen=new Set(),deduped=[];
                 for(const item of list){
                     const signature=String(item.内容||'').replace(/\s+/g,' ').trim();
-                    if(signature&&seen.has(signature))continue;
-                    if(signature)seen.add(signature);
+                    if(item.操作==='更新'&&signature&&seen.has(signature))continue;
+                    if(item.操作==='更新'&&signature)seen.add(signature);
                     deduped.push(item);
-                    if(deduped.length>=3)break;
                 }
                 list=deduped;
             }
@@ -429,7 +428,8 @@
         if(Object.hasOwn(result.因果||{},'当前阶段'))push('因果/当前阶段',{因果:{当前阶段:result.因果.当前阶段}});
         if(Array.isArray(result.因果?.宏观顺序)&&result.因果.宏观顺序.length)push('因果/宏观顺序',{因果:{宏观顺序:copy(result.因果.宏观顺序)}});
         for(const item of result.因果?.偏移记录||[])push('因果/偏移记录/'+item.名称,{因果:{偏移记录:[copy(item)]}});
-        for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻?.[key]||[])push('传闻/'+key+'/'+item.名称,{传闻:{[key]:[copy(item)]}});
+        // 容量约束针对最终分类；新增与移除必须一起验收，不能拆散换新操作。
+        for(const key of WORLD_RESULT_RUMORS)if(result.传闻?.[key]?.length)push('传闻/'+key,{传闻:{[key]:copy(result.传闻[key])}});
         for(const item of result.关系||[])push('关系/'+item.名称,{关系:[copy(item)]});
         return {摘要:result.摘要,fragments};
     }
@@ -874,7 +874,7 @@
         for (const item of Object.values((stat.任务 || {}).副本成就 || {})) if (!['未达成','已达成'].includes(item.状态)) throw new Error('成就状态无效');
         for (const category of ['街头巷议','情报交易','布告与檄文']) {
             const items = Object.values((stat.传闻 || {})[category] || {});
-            if (items.length > 3) throw new Error('每类当前传闻最多3条');
+            if (items.length > 3) throw new Error('每类当前传闻最多3条：'+category+'合并后有'+items.length+'条；请在同一分类提交操作=移除，移除至少'+(items.length-3)+'条被替代的旧传闻；当前名称：'+Object.keys(stat.传闻[category]).join('、'));
             if (category === '街头巷议' && items.some(i => !['酒话','可疑','或许可信'].includes(i.可信度))) throw new Error('传闻可信度无效');
         }
         const visiting = new Set(), visited = new Set();

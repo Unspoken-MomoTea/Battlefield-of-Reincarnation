@@ -8081,7 +8081,7 @@ function shopCredentialRefund(credentials, requirements) {
             + '<input type="number" class="sam-shop-qty-inp" min="0" value="'+curQty+'" data-name="'+esc(item.name)+'">'
             + '<button type="button" class="sam-shop-qty-btn" data-shop-qty-btn="plus" data-name="'+esc(item.name)+'">+</button></div>' : '';
         var priceText = item.price ? item.price.toLocaleString() : '0';
-        var costHtml = '<div style="display:flex;flex-direction:column;gap:2px;min-width:0">'
+        var costHtml = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0">'
             + '<div class="sam-shop-price">所需空间币：'+priceText+'</div>'
             + shopCredentialCostHtml(item)
             + '</div>';

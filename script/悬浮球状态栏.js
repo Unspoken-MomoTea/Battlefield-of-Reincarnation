@@ -2166,19 +2166,28 @@
             var preSd = getStatData();
             var preCoin = preSd && preSd.角色 ? safeNum(preSd.角色.空间币, 0) : 0;
             if (preCoin < prePrice) { samToast('warning', '空间币不足，无法购买此血统进行融合'); return; }
-            // ★ 多角色: 货币仍从 角色.空间币 扣除; 血统商品从 当次融合目标角色 的 商城库 删除
+            // ★ 多角色: 货币/凭证仍从 角色 账户扣除; 血统商品从 当次融合目标角色 的 商城库 删除
             var preActor = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
+            var preActorCtx = shopResolveCharacter(preSd, preActor);
+            var preCredentialRequirements = {};
+            var preCredentialRequirement = shopCredentialRequirement(preActorCtx.character || {}, bloodFusionShopItem);
+            if (preCredentialRequirement.required) preCredentialRequirements[preCredentialRequirement.grade] = 1;
+            var preCredentialShortages = shopCredentialShortages(preSd && preSd.角色 && preSd.角色.权限凭证, preCredentialRequirements);
+            if (preCredentialShortages.length) { samToast('warning', '权限凭证不足：'+shopCredentialShortageText(preCredentialShortages)); return; }
             var preActorLib = shopGetActorLibRaw(preSd && preSd.商城, preActor);
             var preBloodArr = (preActorLib && Array.isArray(preActorLib.血统列表)) ? preActorLib.血统列表.slice() : null;
-            // 备份扣币前/删除前的快照, 供失败/停止回滚
+            // 备份扣币/扣凭证/删除商品前的快照, 供失败/停止回滚
             bloodFusionSnap = {
                 price: prePrice,
                 preCoin: preCoin,
                 preActor: preActor,
-                preBloodLib: preBloodArr
+                preBloodLib: preBloodArr,
+                credentialRequirements: preCredentialRequirements
             };
             var preOk = writeBackMvu(function(statData) {
                 statData.角色 = statData.角色 || {};
+                statData.角色.权限凭证 = statData.角色.权限凭证 || {};
+                if (!shopCredentialConsume(statData.角色.权限凭证, preCredentialRequirements)) throw new Error('权限凭证扣除失败');
                 statData.角色.空间币 = Math.max(0, safeNum(statData.角色.空间币, 0) - prePrice);
                 var _lib = shopGetActorLibRaw(statData.商城, preActor);
                 if (_lib && Array.isArray(_lib.血统列表)) {
@@ -2250,6 +2259,8 @@
                         writeBackMvu(function(statData) {
                             statData.角色 = statData.角色 || {};
                             statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
+                        statData.角色.权限凭证 = statData.角色.权限凭证 || {};
+                        shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
                             if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                                 var _rlib0 = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
                                 if (_rlib0) _rlib0.血统列表 = bloodFusionSnap.preBloodLib.slice();
@@ -2588,6 +2599,8 @@
                     writeBackMvu(function(statData) {
                         statData.角色 = statData.角色 || {};
                         statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
+                        statData.角色.权限凭证 = statData.角色.权限凭证 || {};
+                        shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
                         if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                             var _rlibF = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
                             if (_rlibF) _rlibF.血统列表 = bloodFusionSnap.preBloodLib.slice();
@@ -2608,6 +2621,11 @@
         var dpCh = dpCtx.character;
         if (!dpCh) { samToast('error', '目标角色数据不存在, 无法购买'); return; }
         if (safeNum(sd.角色.空间币, 0) < safeNum(item.price, 0)) { samToast('warning', '空间币不足，无法购买'); return; }
+        var dpCredentialRequirements = {};
+        var dpCredentialRequirement = shopCredentialRequirement(dpCh, item);
+        if (dpCredentialRequirement.required) dpCredentialRequirements[dpCredentialRequirement.grade] = 1;
+        var dpCredentialShortages = shopCredentialShortages(sd.角色.权限凭证, dpCredentialRequirements);
+        if (dpCredentialShortages.length) { samToast('warning', '权限凭证不足：'+shopCredentialShortageText(dpCredentialShortages)); return; }
         // 血统已满时前端已改走"融合/替换"双选项, 此处仅作兜底静默拦截, 不弹窗
         var cap = BLOODLINE_CAP, count = Object.keys(dpCh.血统 || {}).length;
         if (count >= cap) return;
@@ -2616,6 +2634,8 @@
             var _dctx = shopResolveCharacter(statData, dpActor);
             var _dch = _dctx.character || {};
             _dch.血统 = _dch.血统 || {}; _dch.血统[item.name] = blood;
+            statData.角色.权限凭证 = statData.角色.权限凭证 || {};
+            if (!shopCredentialConsume(statData.角色.权限凭证, dpCredentialRequirements)) throw new Error('权限凭证扣除失败');
             statData.角色.空间币 = Math.max(0, safeNum(statData.角色.空间币, 0) - safeNum(item.price, 0));
             var _dlib = shopGetActorLibRaw(statData.商城, dpActor);
             if (_dlib && Array.isArray(_dlib.血统列表)) _dlib.血统列表 = _dlib.血统列表.filter(function(x){ return safeStr(x.名称) !== item.name; });
@@ -2658,11 +2678,18 @@
         if (!rpCh) { samToast('error', '目标角色数据不存在, 无法购买'); return; }
         if (!(rpCh.血统 && rpCh.血统[targetName])) { samToast('error', '未找到待替换的血统'); return; }
         if (safeNum(sd.角色.空间币, 0) < safeNum(item.price, 0)) { samToast('warning', '空间币不足，无法购买'); return; }
+        var rpCredentialRequirements = {};
+        var rpCredentialRequirement = shopCredentialRequirement(rpCh, item);
+        if (rpCredentialRequirement.required) rpCredentialRequirements[rpCredentialRequirement.grade] = 1;
+        var rpCredentialShortages = shopCredentialShortages(sd.角色.权限凭证, rpCredentialRequirements);
+        if (rpCredentialShortages.length) { samToast('warning', '权限凭证不足：'+shopCredentialShortageText(rpCredentialShortages)); return; }
         var blood = shopToBloodlineVar(item);
         var ok = writeBackMvu(function(statData) {
             var _rctx = shopResolveCharacter(statData, rpActor);
             var _rch = _rctx.character || {};
             _rch.血统 = _rch.血统 || {};
+            statData.角色.权限凭证 = statData.角色.权限凭证 || {};
+            if (!shopCredentialConsume(statData.角色.权限凭证, rpCredentialRequirements)) throw new Error('权限凭证扣除失败');
             delete _rch.血统[targetName];              // 移除被替换的旧血统
             _rch.血统[item.name] = blood;              // 写入商店购入的新血统
             statData.角色.空间币 = Math.max(0, safeNum(statData.角色.空间币, 0) - safeNum(item.price, 0));
@@ -6244,7 +6271,7 @@
         var ruleHtml = '<div class="sam-row"><span class="k">交易货币</span><span class="v">空间币(主神空间专用)</span></div>'
             + '<div class="sam-row"><span class="k">商品类别</span><span class="v">装备 / 道具 / 技能 / 血统 / 升级服务</span></div>'
             + '<div class="sam-row"><span class="k">物价区间</span><span class="v">F(10-99) · E(100-999) · D(1k-4.9k) · C(5k-2w) · B(2w-8w) · A(8w-32w) · S(32w-127w) · SS(128w-511w) · SSS(512w+)</span></div>'
-            + '<div class="sam-row"><span class="k">权限锁</span><span class="v">跨越自身大段位的高阶商品需权限凭证</span></div>'
+            + '<div class="sam-row"><span class="k">权限锁</span><span class="v">C级起，购买/升级高于购买对象当前层级的商品额外消耗同品质权限凭证×1；同级及以下不消耗，血统融合结果不消耗</span></div>'
             + '<div class="sam-row"><span class="k">双轨隔离</span><span class="v">任务世界内强制使用本地货币, 空间币不可流通</span></div>';
         html += secBlock('📜 交易规则', ruleHtml, false);
         // 商城入口(含商品市场): 需求输入框(左) + 刷新商品按钮(右) + Tab条 + 列表 + 购物车条
@@ -7695,6 +7722,7 @@
 // SHOP_PERMISSION_GUARD_START
 var SHOP_PERMISSION_QUALITY_ORDER = ['F','E','D','C','B','A','S','SS','SSS'];
 var SHOP_PERMISSION_TIER_ORDER = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
+var SHOP_CREDENTIAL_SPEND_MIN_RANK = 3; // C级起才执行越阶购买/升级凭证消耗
 function shopPermissionRank(value) {
     var raw = String(value == null ? '' : value).trim().toUpperCase().replace(/\s+/g, '').replace(/级$/, '');
     var qualityIndex = SHOP_PERMISSION_QUALITY_ORDER.indexOf(raw);
@@ -7725,7 +7753,8 @@ function shopPermissionCapRank(character, credentials) {
     var baseRank = Math.min(SHOP_PERMISSION_QUALITY_ORDER.length - 1, tierRank + 1);
     var credentialRank = shopPermissionCredentialRank(credentials || {});
     return Math.max(baseRank, credentialRank);
-}function shopPermissionItemRank(item) {
+}
+function shopPermissionItemRank(item) {
     if (!item || typeof item !== 'object') return -1;
     var tierRank = shopPermissionRank(item.tier);
     if (tierRank >= 0) return tierRank;
@@ -7746,6 +7775,91 @@ function shopPermissionMessage(decision, item) {
     var name = item && item.name ? item.name : '该商品';
     if (!decision || decision.requiredRank < 0) return '商城权限校验失败: ' + name + ' 的品质/层级无效';
     return '权限不足: 当前商城上限为' + decision.capGrade + '级，' + name + '为' + decision.requiredGrade + '级';
+}
+/*
+ * 商城凭证消耗：只负责“实际购买/升级”的资源成本，不改变既有商城可见权限。
+ * - F~D级：永不因本规则消耗凭证。
+ * - C级及以上：目标品质高于购买对象当前生命层级对应品质时，消耗目标品质凭证×1。
+ * - 跨多级也只看最终目标品质；血统融合结果本身不经过此函数。
+ */
+function shopCredentialRequirement(character, item) {
+    var actorRank = shopPermissionRank(character && character.层级);
+    if (actorRank < 0) actorRank = 0;
+    var targetRank = shopPermissionItemRank(item);
+    var required = targetRank >= SHOP_CREDENTIAL_SPEND_MIN_RANK && targetRank > actorRank;
+    return {
+        required: required,
+        actorRank: actorRank,
+        targetRank: targetRank,
+        grade: required ? shopPermissionGrade(targetRank) : '',
+        quantity: required ? 1 : 0
+    };
+}
+function shopCredentialQty(credentials, grade) {
+    var ledger = credentials && typeof credentials === 'object' ? credentials : {};
+    return Math.max(0, Math.floor(Number(ledger[grade] || 0) || 0));
+}
+function shopCredentialUnits(item) {
+    if (!item || item._cat !== '道具区') return 1;
+    return Math.max(1, Math.floor(Number(item.quantity || 1) || 1));
+}
+function shopCredentialCartRequirements(character, cart) {
+    var result = {};
+    var list = Array.isArray(cart) ? cart : [];
+    for (var i = 0; i < list.length; i++) {
+        var item = list[i] || {};
+        var req = shopCredentialRequirement(character || {}, item);
+        if (!req.required) continue;
+        var units = shopCredentialUnits(item);
+        result[req.grade] = (result[req.grade] || 0) + units;
+    }
+    return result;
+}
+function shopCredentialShortages(credentials, requirements) {
+    var missing = [];
+    var reqs = requirements && typeof requirements === 'object' ? requirements : {};
+    for (var i = 0; i < SHOP_PERMISSION_QUALITY_ORDER.length; i++) {
+        var grade = SHOP_PERMISSION_QUALITY_ORDER[i];
+        var need = Math.max(0, Math.floor(Number(reqs[grade] || 0) || 0));
+        if (!need) continue;
+        var have = shopCredentialQty(credentials, grade);
+        if (have < need) missing.push({ grade: grade, need: need, have: have });
+    }
+    return missing;
+}
+function shopCredentialRequirementText(requirements) {
+    var parts = [];
+    var reqs = requirements && typeof requirements === 'object' ? requirements : {};
+    for (var i = 0; i < SHOP_PERMISSION_QUALITY_ORDER.length; i++) {
+        var grade = SHOP_PERMISSION_QUALITY_ORDER[i];
+        var need = Math.max(0, Math.floor(Number(reqs[grade] || 0) || 0));
+        if (need > 0) parts.push(grade + '×' + need);
+    }
+    return parts.join(' / ');
+}
+function shopCredentialShortageText(shortages) {
+    var list = Array.isArray(shortages) ? shortages : [];
+    return list.map(function(x) { return x.grade + '级×' + x.need + '（持有' + x.have + '）'; }).join(' / ');
+}
+function shopCredentialConsume(credentials, requirements) {
+    if (!credentials || typeof credentials !== 'object') return Object.keys(requirements || {}).length === 0;
+    if (shopCredentialShortages(credentials, requirements).length) return false;
+    var reqs = requirements && typeof requirements === 'object' ? requirements : {};
+    for (var i = 0; i < SHOP_PERMISSION_QUALITY_ORDER.length; i++) {
+        var grade = SHOP_PERMISSION_QUALITY_ORDER[i];
+        var need = Math.max(0, Math.floor(Number(reqs[grade] || 0) || 0));
+        if (need > 0) credentials[grade] = shopCredentialQty(credentials, grade) - need;
+    }
+    return true;
+}
+function shopCredentialRefund(credentials, requirements) {
+    if (!credentials || typeof credentials !== 'object') return;
+    var reqs = requirements && typeof requirements === 'object' ? requirements : {};
+    for (var i = 0; i < SHOP_PERMISSION_QUALITY_ORDER.length; i++) {
+        var grade = SHOP_PERMISSION_QUALITY_ORDER[i];
+        var qty = Math.max(0, Math.floor(Number(reqs[grade] || 0) || 0));
+        if (qty > 0) credentials[grade] = shopCredentialQty(credentials, grade) + qty;
+    }
 }
 // SHOP_PERMISSION_GUARD_END
     // 校正 shopCurrentActor: 若当前选中的NPC不在候选列表里(已离场/非队友), 退回角色
@@ -7953,13 +8067,25 @@ function shopPermissionMessage(decision, item) {
         return '<div class="sam-shop-item-head"><div class="sam-shop-item-name">'+esc(item.name)+'</div>'
             + '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">'+tierBadge+metaHtml+'</div></div>';
     }
+    function shopCredentialCostHtml(item) {
+        var sd = getStatData() || {};
+        var ctx = shopResolveCharacter(sd, shopCurrentActor);
+        var req = shopCredentialRequirement(ctx.character || {}, item);
+        if (!req.required) return '';
+        return '<div class="sam-shop-credential-cost" style="font-size:11px;line-height:1.35;color:var(--sam-warning);font-weight:700">所需凭证：'+esc(req.grade)+'级权限凭证 ×1</div>';
+    }
     function shopCardFoot(item, isConsume) {
         var curQty = isConsume ? shopGetQty(item.name, '道具区') : 0;
         var qtyHtml = isConsume ? '<div class="sam-shop-qty">'
             + '<button type="button" class="sam-shop-qty-btn" data-shop-qty-btn="minus" data-name="'+esc(item.name)+'">−</button>'
             + '<input type="number" class="sam-shop-qty-inp" min="0" value="'+curQty+'" data-name="'+esc(item.name)+'">'
             + '<button type="button" class="sam-shop-qty-btn" data-shop-qty-btn="plus" data-name="'+esc(item.name)+'">+</button></div>' : '';
-        return '<div class="sam-shop-item-foot"><div class="sam-shop-price">'+(item.price ? item.price.toLocaleString() : '0')+'</div>'+qtyHtml+'</div>';
+        var priceText = item.price ? item.price.toLocaleString() : '0';
+        var costHtml = '<div style="display:flex;flex-direction:column;gap:2px;min-width:0">'
+            + '<div class="sam-shop-price">所需空间币：'+priceText+'</div>'
+            + shopCredentialCostHtml(item)
+            + '</div>';
+        return '<div class="sam-shop-item-foot">'+costHtml+qtyHtml+'</div>';
     }
     // attrs: 仅保留 原始属性/消耗(技能)/标签; 类型与效果已在上方Tab条和details区展示, 不重复
     function shopBuildSkillCard(item) {
@@ -8156,16 +8282,27 @@ function shopPermissionMessage(decision, item) {
         var cost = shopCartCost();
         var remain = coin - cost;
         var insufficient = (remain < 0);
+        var sd = getStatData() || {};
+        var actorCtx = shopResolveCharacter(sd, shopCurrentActor);
+        var credentialRequirements = shopCredentialCartRequirements(actorCtx.character || {}, shopCart);
+        var credentialShortages = shopCredentialShortages(sd.角色 && sd.角色.权限凭证, credentialRequirements);
+        var credentialInsufficient = credentialShortages.length > 0;
+        var credentialText = shopCredentialRequirementText(credentialRequirements);
         var remainCls = insufficient ? ' insufficient' : '';
         var infoHtml = '';
         if (!cartCount) {
             infoHtml = '已选 <b>0</b> 项 · 合计 <b>0</b> · 剩余 <b>'+(coin ? coin.toLocaleString() : '0')+'</b>';
-        } else if (insufficient) {
-            infoHtml = '<span class="sam-shop-foot-warn">⚠️ 空间币不足! 已选 '+cartCount+' 项 · 合计 '+cost.toLocaleString()+' · 剩余 <span class="sam-shop-foot-remain insufficient">'+remain.toLocaleString()+'</span></span>';
+        } else if (insufficient || credentialInsufficient) {
+            var warnings = [];
+            if (insufficient) warnings.push('空间币不足');
+            if (credentialInsufficient) warnings.push('权限凭证不足：'+shopCredentialShortageText(credentialShortages));
+            infoHtml = '<span class="sam-shop-foot-warn">⚠️ '+warnings.join(' · ')+' · 已选 '+cartCount+' 项 · 合计 '+cost.toLocaleString()+' · 剩余 <span class="sam-shop-foot-remain'+remainCls+'">'+remain.toLocaleString()+'</span>'
+                + (credentialText ? ' · 所需凭证 '+esc(credentialText) : '') + '</span>';
         } else {
-            infoHtml = '已选 <b>'+cartCount+'</b> 项 · 合计 <b>'+cost.toLocaleString()+'</b> · 剩余 <span class="sam-shop-foot-remain'+remainCls+'"><b>'+remain.toLocaleString()+'</b></span>';
+            infoHtml = '已选 <b>'+cartCount+'</b> 项 · 合计 <b>'+cost.toLocaleString()+'</b> · 剩余 <span class="sam-shop-foot-remain'+remainCls+'"><b>'+remain.toLocaleString()+'</b></span>'
+                + (credentialText ? ' · 所需凭证 <b>'+esc(credentialText)+'</b>' : '');
         }
-        var disabled = (!cartCount || insufficient) ? ' disabled' : '';
+        var disabled = (!cartCount || insufficient || credentialInsufficient) ? ' disabled' : '';
         var btnText = cartCount ? '授权执行交易' : '请先选择商品';
         return '<div class="sam-shop-foot"><div class="sam-shop-foot-info">'+infoHtml+'</div>'
             + '<button type="button" class="sam-shop-exec-btn" data-shop-exec'+disabled+'>'+btnText+'</button></div>';
@@ -8271,9 +8408,14 @@ function shopPermissionMessage(decision, item) {
             var gate = shopPermissionDecision(character, gateItem, coinOwner.权限凭证);
             if (!gate.allowed) throw new Error(shopPermissionMessage(gate, gateItem));
         }
+        var credentialRequirements = shopCredentialCartRequirements(character, shopCart);
+        var credentialShortages = shopCredentialShortages(coinOwner.权限凭证, credentialRequirements);
+        if (credentialShortages.length) throw new Error('权限凭证不足：' + shopCredentialShortageText(credentialShortages));
         var total = shopCartCost();
         var startCoin = Number(coinOwner.空间币 || 0);
         if (startCoin < total) throw new Error('角色空间币不足');
+        coinOwner.权限凭证 = coinOwner.权限凭证 || {};
+        if (!shopCredentialConsume(coinOwner.权限凭证, credentialRequirements)) throw new Error('权限凭证扣除失败');
         coinOwner.空间币 = startCoin - total;
         if (!character.装备) character.装备 = {};
         if (!character.技能) character.技能 = {};
@@ -9208,6 +9350,8 @@ if (hasReq) {
                 writeBackMvu(function(statData) {
                     statData.角色 = statData.角色 || {};
                     statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
+                    statData.角色.权限凭证 = statData.角色.权限凭证 || {};
+                    shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
                     if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                         var _rlibS = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
                         if (_rlibS) _rlibS.血统列表 = bloodFusionSnap.preBloodLib.slice();

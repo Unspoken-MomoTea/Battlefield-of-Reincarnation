@@ -4,6 +4,7 @@ const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
 const {SamsaraWorldEngine:Engine}=require('../script/世界推进系统.js');
 
+// interval=2 means progression on reply rounds 1,3,5...; repeated MVU updates on one reply never count as extra rounds.
 function makeEngine(saved={}){
   let stored=null;
   const host={

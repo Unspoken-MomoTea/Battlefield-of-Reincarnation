@@ -136,6 +136,7 @@
        replaceMvuData 异步触发的二次 VARIABLE_UPDATE_ENDED 中的层级变化,
        否则异步事件落在 __samsaraUIMutation 窗口期之外, 会被变量守卫当 AI 篡改回滚 → 普升"闪一下又降回" */
     function writeBackMvu(mutator, opts) {
+        var tierPermitInstalled = false;
         try {
             var win = getMvuGlobal();
             if (!win || !win.Mvu || typeof win.Mvu.getMvuData !== 'function' || typeof win.Mvu.replaceMvuData !== 'function') {
@@ -151,6 +152,30 @@
             var cloned = (_ && _.cloneDeep) ? _.cloneDeep(mvuData) : JSON.parse(JSON.stringify(mvuData));
             // 应用修改器(在克隆的新数据上原地改)
             if (typeof mutator === 'function') mutator(cloned.stat_data);
+            // 写入前设置晋升通行证，覆盖 replaceMvuData 同步/异步触发的守卫。
+            //   replaceMvuData 是异步的, 它自己会再触发一次 VARIABLE_UPDATE_ENDED(不经过本函数),
+            //   那次事件里 __samsaraUIMutation 已复位 → 守卫会回滚层级; 通行证覆盖该异步事件
+            if (opts && opts.tierPermit) {
+                try {
+                    var permitObj = (win && typeof win === 'object') ? win : window;
+                    permitObj.__samsaraTierPermit = opts.tierPermit;
+                    if (GS_PARENT !== permitObj) GS_PARENT.__samsaraTierPermit = opts.tierPermit;
+                    try { window.__samsaraTierPermit = opts.tierPermit; } catch(eT1) {}
+                    tierPermitInstalled = true;
+                } catch(eT2) {}
+                // 兜底清除: 20s 后无论消费与否都过期(防止持久残留把守卫豁免变成摆设)
+                setTimeout(function() {
+                    try {
+                        if (win && win.__samsaraTierPermit === opts.tierPermit) win.__samsaraTierPermit = null;
+                        if (GS_PARENT.__samsaraTierPermit === opts.tierPermit) GS_PARENT.__samsaraTierPermit = null;
+                        if (window.__samsaraTierPermit === opts.tierPermit) window.__samsaraTierPermit = null;
+                    } catch(eT3) {}
+                }, 20000);
+            }
+            try {
+                GS_PARENT.__samsaraUIMutation = true;
+                if (win !== GS_PARENT) win.__samsaraUIMutation = true;
+            } catch(e4) { try { window.__samsaraUIMutation = true; } catch(e5){} }
             // 写回 message 通道
             win.Mvu.replaceMvuData(cloned, { type: 'message', message_id: 'latest' });
             // 同步 chat 通道
@@ -161,10 +186,6 @@
             // ★ 标记本次更新来源为"UI操作", 供辅助计算脚本跳过战斗轮次推进/冷却递减
             //   辅助计算脚本运行在iframe, 它通过 GS_PARENT(主窗口) 读此标志, 故必须写在 GS_PARENT 上
             //   同时双写到 win(若不同), 保险起见
-            try {
-                GS_PARENT.__samsaraUIMutation = true;
-                if (win !== GS_PARENT) win.__samsaraUIMutation = true;
-            } catch(e4) { try { window.__samsaraUIMutation = true; } catch(e5){} }
             try {
                 var evtName = win.Mvu.events && win.Mvu.events.VARIABLE_UPDATE_ENDED;
                 if (evtName && typeof win.eventEmit === 'function') {
@@ -178,28 +199,18 @@
                 GS_PARENT.__samsaraUIMutation = false;
                 if (win !== GS_PARENT) win.__samsaraUIMutation = false;
             } catch(e6) { try { window.__samsaraUIMutation = false; } catch(e7){} }
-            // ★ 角色层级普升通行证: 写在 win(事件广播方) 与 GS_PARENT 上, 多窗口都读得到
-            //   replaceMvuData 是异步的, 它自己会再触发一次 VARIABLE_UPDATE_ENDED(不经过本函数),
-            //   那次事件里 __samsaraUIMutation 已复位 → 守卫会回滚层级; 通行证覆盖该异步事件
-            if (opts && opts.tierPermit) {
-                try {
-                    var permitObj = (win && typeof win === 'object') ? win : window;
-                    permitObj.__samsaraTierPermit = opts.tierPermit;
-                    if (GS_PARENT !== permitObj) GS_PARENT.__samsaraTierPermit = opts.tierPermit;
-                    try { window.__samsaraTierPermit = opts.tierPermit; } catch(eT1) {}
-                } catch(eT2) {}
-                // 兜底清除: 20s 后无论消费与否都过期(防止持久残留把守卫豁免变成摆设)
-                setTimeout(function() {
-                    try {
-                        if (win && win.__samsaraTierPermit === opts.tierPermit) win.__samsaraTierPermit = null;
-                        if (GS_PARENT.__samsaraTierPermit === opts.tierPermit) GS_PARENT.__samsaraTierPermit = null;
-                        if (window.__samsaraTierPermit === opts.tierPermit) window.__samsaraTierPermit = null;
-                    } catch(eT3) {}
-                }, 20000);
-            }
             try { console.log('%c[主神终端] ✅ 数据已写回MVU并广播更新事件', 'color:#86efac'); } catch(e){}
             return true;
         } catch (e) {
+            try {
+                GS_PARENT.__samsaraUIMutation = false;
+                if (win) win.__samsaraUIMutation = false;
+                if (tierPermitInstalled && opts && opts.tierPermit) {
+                    if (win && win.__samsaraTierPermit === opts.tierPermit) win.__samsaraTierPermit = null;
+                    if (GS_PARENT.__samsaraTierPermit === opts.tierPermit) GS_PARENT.__samsaraTierPermit = null;
+                    if (window.__samsaraTierPermit === opts.tierPermit) window.__samsaraTierPermit = null;
+                }
+            } catch (_) {}
             console.error('[主神终端] 写回MVU失败:', e);
             return false;
         }
@@ -3379,6 +3390,7 @@
                 return;
             }
             if (act === 'apply') {
+                if (sys.是否可试炼 !== true || sys.试炼已完成 === true) { samToast('warning', '晋升条件已变化，请刷新后重试'); renderAll(); return; }
                 // 申请进阶: 写入一句话到输入框(同情报交易可购买按钮, 不自动发送)
                 var text = '当前进阶条件已满足，申请【晋升试炼任务】';
                 var ok = sendToInputBox(text, false);
@@ -3386,10 +3398,14 @@
                 else samToast('warning', '未找到输入框, 已复制到剪贴板');
             } else if (act === 'start') {
                 // 开始进阶: 直接提升角色层级到下一级(F→E→...→SSS), 进阶试炼完成后执行
-                if (!nextTier) { samToast('error', '未知目标层级'); return; }
+                var advance = validateTrialAdvancement(sd, nextTier);
+                if (advance.error) { samToast('warning', advance.error); renderAll(); return; }
+                nextTier = advance.nextTier;
                 // ★ 传入层级通行证: replaceMvuData 异步触发的二次 VARIABLE_UPDATE_ENDED
                 //   不在 __samsaraUIMutation 窗口期内, 需凭通行证放行层级变化(否则被守卫回滚)
                 var ok2 = writeBackMvu(function(statData) {
+                    var latestAdvance = validateTrialAdvancement(statData, nextTier);
+                    if (latestAdvance.error) throw new Error(latestAdvance.error);
                     if (statData.角色) {
                         var oldTier = normalizeLifeTier(statData.角色.层级);
                         statData.角色.层级 = nextTier;
@@ -4960,6 +4976,18 @@
     }
 
     /* 层级进度条: 普升只读取角色自身层级；段位累计≥24后可走试炼或源力灌注两条路径。 */
+    function validateTrialAdvancement(sd, expectedNext) {
+        if (!sd || !sd.角色) return {error:'角色数据未就绪'};
+        var sys = sd.系统状态 || {};
+        if (sys.是否战斗中 === true) return {error:'战斗中不能晋升'};
+        if (sys.试炼已完成 !== true) return {error:'试炼尚未结算完成，或本次晋升资格已经使用'};
+        var current = normalizeLifeTier(sd.角色.层级);
+        var index = TIER_ROMAN.indexOf(current);
+        if (index < 0 || index >= TIER_ROMAN.length - 1) return {error:'当前层级无法继续晋升'};
+        var next = TIER_ROMAN[index + 1];
+        if (expectedNext && expectedNext !== next) return {error:'层级已变化，请刷新后重试'};
+        return {currentTier:current,nextTier:next};
+    }
     function renderTierProgressBar(p, fa, sys) {
         var lifeTier = normalizeLifeTier(p && p.层级);
         var curTier = tierQOfClass(lifeTier);
@@ -4973,7 +5001,7 @@
         var st = sys || {};
         var canTrial = (st.是否可试炼 === true);
         var trialDone = (st.试炼已完成 === true);
-        if (!isMax && canTrial && trialDone) {
+        if (!isMax && trialDone) {
             advBtnHtml = '<button type="button" class="sam-tier-adv-btn start" data-tier-act="start" data-tier-next="'+esc(TIER_ROMAN[idx+1])+'">✦ 开始进阶</button>';
         } else if (!isMax && canTrial) {
             advBtnHtml = '<div class="sam-tier-actions">'

@@ -746,9 +746,8 @@
           }
 
 
-          function readTrialTasks() {
-            const ctx = getMvuContext();
-            const stat = ctx && ctx.stat ? ctx.stat : {};
+          function extractTrialTasks(data) {
+            const stat = data && (data.stat_data || data) || {};
             const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
             return Object.keys(list).filter(function(key) {
               const task = list[key];
@@ -761,6 +760,10 @@
                 status: String(task.状态 || '').trim()
               };
             });
+          }
+          function readTrialTasks() {
+            const ctx = getMvuContext();
+            return extractTrialTasks(ctx && ctx.stat);
           }
 
           let achievementBaselineData = null;
@@ -980,6 +983,7 @@
           let trialTasks = readTrialTasks();
           let bestTrialScore = trialScore(trialTasks);
           let settlementWriteBusy = false;
+          let settlementWritePending = false;
           const achievementTasks = readAchievementTasks();
           function readSettlementTaskKeys(data) {
             const stat = data && (data.stat_data || data);
@@ -991,6 +995,11 @@
           }
 
           const settlementBaselineData = readSettlementBaselineData();
+          // 当正文变量已经清掉任务，仍从结算前快照核验；不以正文“已晋升”代替完成状态。
+          if (!trialTasks.length) {
+            trialTasks = extractTrialTasks(settlementBaselineData);
+            bestTrialScore = trialScore(trialTasks);
+          }
           const settlementTaskKeys = readSettlementTaskKeys(settlementBaselineData);
           const spaceCoinSettlement = calculateSpaceCoinSettlement(settlementBaselineData);
           // 固定结算前的角色层级，防止旧结算面板为已经普升的层级重复授予资格。
@@ -1047,7 +1056,7 @@
               html += '<div class="st-trial-row"><div class="st-trial-name">' + escapeHtml(task.name) + '</div><div class="st-trial-state ' + cls + '">' + escapeHtml(label) + '</div></div>';
             });
             html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%"></div></div>';
-            html += '<div class="st-trial-result"><div class="st-trial-stamp ' + (displayPassed ? 'pass' : 'fail') + '">' + (displayPassed ? '普升通过' : '晋升失败') + '</div></div>';
+            html += '<div class="st-trial-result"><div class="st-trial-stamp ' + (passed ? 'pass' : 'fail') + '">' + (passed ? '试炼已完成 · 请在状态栏点击开始进阶' : !live ? '正文结果待变量核验' : displayTasks.some(function(task){return task.status === '失败';}) ? '试炼未通过' : '等待试炼任务结算') + '</div></div>';
             html += '</div>';
             return html;
           }
@@ -1535,13 +1544,15 @@
             // 层级已经变化表示本次资格已用于普升；旧结算面板不得再次补写。
             if (hasHeader && trialPassed && !reincarnatorTierChanged) {
               const currentSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
-              if ((fullSettlement || currentSys.是否可试炼 === true) && currentSys.试炼已完成 !== true) {
+              if (currentSys.试炼已完成 !== true) {
                 const sys = ensureObject(stat, '系统状态');
                 setValue(sys, '试炼已完成', true);
               }
             }
 
             if (!fullSettlement) return changed;
+            // 等待任务变量落到可结算/失败，避免先清空后再也无法核验晋升资格。
+            if (trialTasks.some(function(task){return task.status !== '可结算' && task.status !== '失败';})) return changed;
 
             const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
             const tasks = ensureObject(stat, '任务');
@@ -1588,8 +1599,8 @@
             return changed;
           }
 
-          function writeSettlementToMvu(d, worldName) {
-            if (settlementWriteBusy) return;
+          async function writeSettlementToMvu(d, worldName) {
+            if (settlementWriteBusy) { settlementWritePending = true; return; }
             settlementWriteBusy = true;
             try {
               const win = window.parent || window;
@@ -1601,6 +1612,7 @@
               if (!c) return;
               const settlementStat = c.stat_data || c;
               const isSingleWorldSettlement = !!(settlementStat.设置 && settlementStat.设置.单一世界 === true);
+              if (isLatestPanel && isFullSettlement(rawText) && trialTasks.some(function(task){return task.status !== '可结算' && task.status !== '失败';})) return;
 
               let changed = false;
               if (isLatestPanel && isFullSettlement(rawText) && settlementStat.角色 && Number.isFinite(spaceCoinSettlement.balanceAfter)) {
@@ -1746,14 +1758,15 @@
               if (applySettlementFinalization(c, isLatestPanel)) changed = true;
 
               if (!changed) return;
-              win.Mvu.replaceMvuData(c, { type: 'message', message_id: targetMessageId });
+              await win.Mvu.replaceMvuData(c, { type: 'message', message_id: targetMessageId });
 
               if (isLatestPanel) {
-                try { win.Mvu.replaceMvuData(c, { type: 'chat' }); } catch (e3) {}
+                try { await win.Mvu.replaceMvuData(c, { type: 'chat' }); } catch (e3) {}
               }
             } catch (e) { console.warn('结算任务写入数据库失败:', e); }
             finally {
-              setTimeout(function() { settlementWriteBusy = false; }, 0);
+              settlementWriteBusy = false;
+              if (settlementWritePending) { settlementWritePending = false; setTimeout(refreshTrialPanel, 0); }
             }
           }
 
@@ -1783,9 +1796,12 @@
           function refreshTrialPanel() {
             const latest = readTrialTasks();
             if (latest.length) {
-              const score = trialScore(latest);
+              // 不因AI漏写一项就缩小“全部试炼完成”的判定集合。
+              const byKey = new Map(latest.map(function(task){return [task.key, task];}));
+              const merged = trialTasks.map(function(task){const next=byKey.get(task.key);byKey.delete(task.key);return next || task;}).concat(Array.from(byKey.values()));
+              const score = trialScore(merged);
               if (score >= bestTrialScore) {
-                trialTasks = latest;
+                trialTasks = merged;
                 bestTrialScore = score;
               }
             }

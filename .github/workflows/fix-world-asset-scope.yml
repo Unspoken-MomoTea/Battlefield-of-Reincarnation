@@ -34,11 +34,7 @@ jobs:
               p.write_text(text.replace(old, new, 1), encoding='utf-8')
 
           foundation = 'script/world-engine-src/00-foundation-prompt.part.js'
-          replace_one(
-              foundation,
-              "        version:16,\n        builtin:true,\n        name:'默认设置',",
-              "        version:17,\n        builtin:true,\n        name:'默认设置',",
-          )
+          replace_one(foundation, "        version:16,\n        builtin:true,\n        name:'默认设置',", "        version:17,\n        builtin:true,\n        name:'默认设置',")
           replace_one(
               foundation,
               "5. 资产：顶层资产是唯一资产账簿；所属对象为数组，多主体可共管，空数组表示无主，含<user>表示玩家拥有/共管。可按已确认场外事实新增、更新、转移或移除资产；删除保护中的同名资产不得自动重建。正文/MVU已结算的当前场景变化只同步，不重复结算。",
@@ -94,22 +90,12 @@ jobs:
           text = text.replace(before, before + "assert.match(assetRules, /普通道具、药剂、材料、消耗品/, '资产规则必须明确禁止普通物品入账');\nassert.match(mvuRules, /资产仅限固定地产、大型载具或要塞/, '普通变量 AI 也必须遵守资产边界');\n", 1)
           test.write_text(text, encoding='utf-8')
 
-          # 同步其它旧版本断言，避免完整测试套件继续锁死旧的 v13。
           for name in ['tests/world-engine-scene-context.cjs','tests/world-engine-prompt-pipeline.cjs','tests/world-engine-asset-multi-owner.cjs']:
               p=Path(name)
               s=p.read_text(encoding='utf-8')
               s=s.replace('version:13,\\n        builtin:true,\\n        name:\'默认设置\'', 'version:17,\\n        builtin:true,\\n        name:\'默认设置\'')
               s=s.replace('v13', 'v17')
               p.write_text(s, encoding='utf-8')
-
-          for workflow in ['.github/workflows/task-awareness-build.yml','.github/workflows/task-awareness-check.yml']:
-              p=Path(workflow)
-              s=p.read_text(encoding='utf-8')
-              if 'world-engine-asset-writeback.cjs' not in s:
-                  marker='      - name: NPC audit regression\n        run: node tests/world-engine-npc-audit-toggle.cjs\n'
-                  assert marker in s, workflow
-                  s=s.replace(marker, marker + '      - name: Asset scope regression\n        run: node tests/world-engine-asset-writeback.cjs\n', 1)
-                  p.write_text(s, encoding='utf-8')
           PY
       - name: Build delivery
         run: python tools/build-world-engine.py
@@ -130,8 +116,6 @@ jobs:
                   tests/world-engine-asset-writeback.cjs \
                   tests/world-engine-scene-context.cjs \
                   tests/world-engine-prompt-pipeline.cjs \
-                  tests/world-engine-asset-multi-owner.cjs \
-                  .github/workflows/task-awareness-build.yml \
-                  .github/workflows/task-awareness-check.yml
+                  tests/world-engine-asset-multi-owner.cjs
           git commit -m "fix: keep items out of world assets"
           git push

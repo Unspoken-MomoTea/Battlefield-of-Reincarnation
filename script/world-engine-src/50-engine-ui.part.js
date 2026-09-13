@@ -176,11 +176,6 @@
                 #sam-world-engine .we-dashboard{grid-template-columns:minmax(0,1fr) minmax(285px,325px)}
                 #sam-world-engine .we-dashboard .we-section{border-color:#d2dcdd;background:#fff}
                 #sam-world-engine .we-timeline-board{box-shadow:none}
-                #sam-world-engine .we-ledger-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 12px}
-                #sam-world-engine .we-ledger-stat{min-width:0;padding:11px 13px;border:1px solid #d8e0e1;border-radius:11px;background:#fff}
-                #sam-world-engine .we-ledger-stat small{display:block;color:#8a929c;font-size:9px;letter-spacing:.8px}
-                #sam-world-engine .we-ledger-stat strong{display:block;margin:2px 0;font:600 21px/1.15 Georgia,serif;color:#30455d}
-                #sam-world-engine .we-ledger-stat span{display:block;color:#7b8490;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
                 #sam-world-engine .we-explore-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,330px);gap:12px;align-items:start}
                 #sam-world-engine .we-explore-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
                 #sam-world-engine .we-explore-card{display:block;width:100%;min-width:0;padding:13px;border:1px solid #d6dfe0;border-radius:12px;background:#fff;text-align:left;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
@@ -291,7 +286,6 @@
                 #sam-world-engine[data-tone] .we-card,
                 #sam-world-engine[data-tone] .we-kpi,
                 #sam-world-engine[data-tone] .we-kpi-compact .we-kpi,
-                #sam-world-engine[data-tone] .we-ledger-stat,
                 #sam-world-engine[data-tone] .we-explore-card,
                 #sam-world-engine[data-tone] .we-faction-card,
                 #sam-world-engine[data-tone] .we-doc-row,
@@ -309,13 +303,10 @@
                 #sam-world-engine[data-tone] .we-next-node p,
                 #sam-world-engine[data-tone] .we-explore-card p{color:var(--we-sub)!important}
                 #sam-world-engine[data-tone] .we-kpi strong,
-                #sam-world-engine[data-tone] .we-ledger-stat strong,
                 #sam-world-engine[data-tone] .we-explore-score strong,
                 #sam-world-engine[data-tone] .we-area-progress>strong{color:var(--we-ink)!important}
                 #sam-world-engine[data-tone] .we-kpi small,
                 #sam-world-engine[data-tone] .we-kpi span,
-                #sam-world-engine[data-tone] .we-ledger-stat small,
-                #sam-world-engine[data-tone] .we-ledger-stat span,
                 #sam-world-engine[data-tone] .we-explore-head small,
                 #sam-world-engine[data-tone] .we-explore-meta,
                 #sam-world-engine[data-tone] .we-area-hero small{color:var(--we-sub)!important}
@@ -419,8 +410,6 @@
                 #sam-world-engine[data-tone] .we-person-copy small,
                 #sam-world-engine[data-tone] .we-person-copy em,
                 #sam-world-engine[data-tone] .we-link-btn,
-                #sam-world-engine[data-tone] .we-ledger-stat small,
-                #sam-world-engine[data-tone] .we-ledger-stat span,
                 #sam-world-engine[data-tone] .we-explore-head small,
                 #sam-world-engine[data-tone] .we-risk-badge,
                 #sam-world-engine[data-tone] .we-explore-score strong small,
@@ -436,7 +425,6 @@
                 #sam-world-engine[data-tone] .we-api-grid label,
                 #sam-world-engine[data-tone] .we-source-badge{font-size:var(--we-fs-tiny)!important;line-height:1.55!important}
                 #sam-world-engine[data-tone] .we-kpi strong,
-                #sam-world-engine[data-tone] .we-ledger-stat strong,
                 #sam-world-engine[data-tone] .we-explore-score strong{font-size:var(--we-fs-metric)!important}
                 #sam-world-engine[data-tone] .we-area-progress>strong{font-size:var(--we-fs-hero)!important}
                 #sam-world-engine[data-tone] textarea.we-raw{font-size:var(--we-fs-small)!important}
@@ -492,7 +480,6 @@
                     #sam-world-engine h1{font-size:21px}
                     #sam-world-engine .we-hero .we-date{min-width:105px;font-size:11px}
                     #sam-world-engine .we-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-                    #sam-world-engine .we-ledger-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
                     #sam-world-engine .we-explore-grid,#sam-world-engine .we-faction-grid{grid-template-columns:1fr}
                     #sam-world-engine .we-preset-toolbar{align-items:flex-start}
                     #sam-world-engine .we-doc-create{grid-template-columns:1fr 1fr}
@@ -1019,27 +1006,13 @@
                     if(n<10000)return '崇敬';
                     return '崇拜';
                 };
-                const riskRank=value=>Math.max(0,['F','E','D','C','B','A','S','SS','SSS'].indexOf(String(value||'F')));
-                const totalProgress=exploration.reduce((sum,[,r])=>sum+(Number(r.探索度)||0),0);
-                const deepCount=exploration.filter(([,r])=>(Number(r.探索度)||0)>=60).length;
-                const highRiskCount=exploration.filter(([,r])=>riskRank(r.风险)>=4).length;
-                const contestedCount=exploration.filter(([,r])=>Array.isArray(r.争夺方)?r.争夺方.length>0:!!r.争夺方).length;
                 const chosenArea=exploration.find(([n])=>n===this.selectedArea)||exploration[0];
                 const chosenFaction=factionList.find(([n])=>n===this.selectedFaction)||factionList[0];
-                const factionWeight=factionList.reduce((sum,[,r])=>sum+Math.max(0,Number(r.声望)||0)/100,0);
-                const friendlyCount=factionList.filter(([,r])=>(Number(r.声望)||0)>=2000).length;
-                const hostileCount=factionList.filter(([,r])=>(Number(r.声望)||0)<=-1000).length;
 
                 html+='<div class="we-notice">这里显示的是结算台账，不是地图数据库：只有 <b>世界.探索</b> 中的整体地标才计探索收益；后台尚未投影的地区不会出现在探索名录中。势力声望同样只记录势力对玩家的真实关系结算。</div>';
                 html+='<div class="we-tools">'+['探索','热点','势力'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+t+'</button>').join('')+'</div>';
 
                 if(dir==='探索'){
-                    html+='<div class="we-ledger-strip">'
-                        +'<div class="we-ledger-stat"><small>已记录地标</small><strong>'+exploration.length+'</strong><span>仅玩家已获得的探索台账</span></div>'
-                        +'<div class="we-ledger-stat"><small>探索结算权重</small><strong>'+totalProgress+'%</strong><span>最终结算最多计入 300%</span></div>'
-                        +'<div class="we-ledger-stat"><small>深入以上</small><strong>'+deepCount+'</strong><span>探索度 ≥ 60</span></div>'
-                        +'<div class="we-ledger-stat"><small>高风险 / 争夺</small><strong>'+highRiskCount+' / '+contestedCount+'</strong><span>B级以上风险 · 存在争夺方</span></div>'
-                        +'</div>';
                     const cards=exploration.map(([n,r])=>{
                         const progress=Math.max(0,Math.min(100,Number(r.探索度)||0));
                         const control=r.控制方||'控制权未明';
@@ -1067,20 +1040,8 @@
                     }
                 }else if(dir==='热点'){
                     const hotspots=events.filter(([,e])=>e.状态==='进行中');
-                    html+='<div class="we-ledger-strip">'
-                        +'<div class="we-ledger-stat"><small>进行中热点</small><strong>'+hotspots.length+'</strong><span>当前世界正在发生</span></div>'
-                        +'<div class="we-ledger-stat"><small>涉及已探索地标</small><strong>'+hotspots.filter(([,e])=>exploration.some(([n])=>String(e.地点||'').includes(n))).length+'</strong><span>可直接关联探索台账</span></div>'
-                        +'<div class="we-ledger-stat"><small>近期桥接</small><strong>'+events.filter(([,e])=>e.分类==='近期节点'&&e.状态==='待发生').length+'</strong><span>当前到下一宏观节点</span></div>'
-                        +'<div class="we-ledger-stat"><small>宏观节点</small><strong>'+events.filter(([,e])=>e.分类==='宏观节点'&&e.状态==='待发生').length+'</strong><span>未来边界</span></div>'
-                        +'</div>';
                     html+=section('当前热点',hotspots.map(([n,e])=>eventCard(n,e)).join('')||empty('暂无进行中的热点','世界当前没有进行中的事件。'));
                 }else{
-                    html+='<div class="we-ledger-strip">'
-                        +'<div class="we-ledger-stat"><small>已知势力</small><strong>'+factionList.length+'</strong><span>进入声望结算台账</span></div>'
-                        +'<div class="we-ledger-stat"><small>声望结算权重</small><strong>'+Math.min(3,factionWeight).toFixed(1)+'×</strong><span>仅正声望 ÷ 100 汇总 · 上限 300%</span></div>'
-                        +'<div class="we-ledger-stat"><small>友好以上</small><strong>'+friendlyCount+'</strong><span>声望 ≥ 2000</span></div>'
-                        +'<div class="we-ledger-stat"><small>仇视以上</small><strong>'+hostileCount+'</strong><span>声望 ≤ -1000</span></div>'
-                        +'</div>';
                     const factionCards=factionList.map(([n,r])=>{
                         const rep=Number(r.声望)||0,stage=repStage(rep),width=Math.min(100,Math.max(0,rep)/100);
                         return '<button class="we-faction-card '+(chosenFaction?.[0]===n?'active':'')+'" data-faction="'+text(n)+'"><div class="we-card-top"><h3>'+text(n)+'</h3><span class="we-risk-badge">实力 '+text(r.实力||'F')+'</span></div>'

@@ -44,6 +44,13 @@ assert.doesNotMatch(texts['40-engine-runtime.part.js'], /        createPanel\(\)
 assert.match(texts['50-engine-ui.part.js'], /^        createPanel\(\) \{/);
 assert.match(texts['50-engine-ui.part.js'], /        render\(force\) \{/);
 assert.match(texts['50-engine-ui.part.js'], /        dispose\(\) \{/);
+assert.doesNotMatch(texts['50-engine-ui.part.js'], /we-ledger-strip|we-ledger-stat/, '探索/热点/势力页不应恢复四格汇总统计条');
+const settlementHtml = fs.readFileSync(path.join(root, 'Regular', '结算任务美化.html'), 'utf8');
+assert.match(settlementHtml, /if \(!isSingleWorld\) \{[\s\S]{0,180}setValue\(world, '探索', \{\}\)/, '普通副本结算仍需清空探索台账');
+assert.match(settlementHtml, /单一世界继续使用同一世界[\s\S]{0,700}探索结算基线/, '单一世界结算必须保留探索档案并刷新结算基线');
+const settlementPrompt = fs.readFileSync(path.join(root, 'World Book', '【结算任务】[mvu_plot].txt'), 'utf8');
+assert.match(settlementPrompt, /世界\.后台\.探索结算基线/);
+assert.match(settlementPrompt, /只计算自上次阶段结算后新增的探索度/);
 assert.match(texts['55-policy-compat.part.js'], /^    \/\/ 可选策略层/);
 assert.match(texts['55-policy-compat.part.js'], /npcBuildAuditEnabled/);
 assert.match(texts['55-policy-compat.part.js'], /事件前因不存在/);

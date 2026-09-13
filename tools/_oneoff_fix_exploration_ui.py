@@ -161,6 +161,7 @@ for start_marker, end_marker in [
     if end < 0:
         raise SystemExit('ledger strip end not found')
     text = text[:start] + text[end + len(end_marker):]
+text = '\n'.join(line for line in text.splitlines() if 'we-ledger-strip' not in line and 'we-ledger-stat' not in line) + '\n'
 if 'we-ledger-strip' in text or 'we-ledger-stat' in text:
     raise SystemExit('ledger strip leftovers remain in UI source')
 write(path, text)
@@ -179,7 +180,7 @@ path = 'tests/world-engine-modules.cjs'
 text = read(path)
 anchor = "assert.match(texts['50-engine-ui.part.js'], /        dispose\\(\\) \\{/);\n"
 extra = """assert.match(texts['50-engine-ui.part.js'], /        dispose\\(\\) \\{/);
-assert.doesNotMatch(texts['50-engine-ui.part.js'], /we-ledger-strip|we-ledger-stat|已记录地标|探索结算权重|进行中热点|已知势力/, '探索/热点/势力页不应恢复四格汇总统计条');
+assert.doesNotMatch(texts['50-engine-ui.part.js'], /we-ledger-strip|we-ledger-stat/, '探索/热点/势力页不应恢复四格汇总统计条');
 const settlementHtml = fs.readFileSync(path.join(root, 'Regular', '结算任务美化.html'), 'utf8');
 assert.match(settlementHtml, /if \\(!isSingleWorld\\) \\{[\\s\\S]{0,180}setValue\\(world, '探索', \\{\\}\\)/, '普通副本结算仍需清空探索台账');
 assert.match(settlementHtml, /单一世界继续使用同一世界[\\s\\S]{0,700}探索结算基线/, '单一世界结算必须保留探索档案并刷新结算基线');

@@ -206,8 +206,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.getByText(/结算台账，不是地图数据库/).count(),1,'探索页必须明确区分结算台账与后台地图');
  assert.equal(await page.locator('[data-tab="势力与地区"]').count(),0,'旧页签名称应移除');
  assert.equal(await page.getByRole('heading',{name:'探索结算名录',exact:true}).count(),1,'探索默认使用结算名录仪表盘');
- assert.equal(await page.locator('.we-ledger-strip .we-ledger-stat').count(),4,'探索首屏要有四项一眼可读指标');
- assert.equal(await page.getByText('115%',{exact:true}).count()>=1,true,'探索总权重直接展示');
+ assert.equal(await page.locator('.we-ledger-strip,.we-ledger-stat').count(),0,'探索页不再显示容易误导的四格汇总统计');
  assert.equal(await page.locator('.we-explore-card').count(),3,'只把世界.探索中的地标做成探索卡片');
  assert.equal(await page.locator('.we-explore-card[data-area="北门地区"]').count(),0,'后台未投影地区不能混入探索奖励名册');
  assert.equal(await page.getByText(/1 个世界地区尚未计入玩家探索奖励/).count(),1,'后台地区单独折叠提示');

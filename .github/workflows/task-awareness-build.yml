@@ -20,8 +20,8 @@ jobs:
         run: python tools/build-world-engine.py
       - name: Syntax check
         run: node --check script/世界推进系统.js
-      - name: Task performance settlement regression
-        run: node tests/task-performance-settlement.cjs
+      - name: Simplified task settlement regression
+        run: node tests/task-settlement-simplified.cjs
       - name: Super-stable prompt regression
         run: node tests/world-engine-superstable-prompt.cjs
       - name: Task awareness regression

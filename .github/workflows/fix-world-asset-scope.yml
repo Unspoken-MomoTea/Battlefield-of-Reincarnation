@@ -1,0 +1,137 @@
+name: Fix world asset scope
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-world-asset-scope.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch asset scope rules
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_one(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              assert count == 1, f'{path}: expected 1 match, got {count}: {old[:80]!r}'
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          foundation = 'script/world-engine-src/00-foundation-prompt.part.js'
+          replace_one(
+              foundation,
+              "        version:16,\n        builtin:true,\n        name:'默认设置',",
+              "        version:17,\n        builtin:true,\n        name:'默认设置',",
+          )
+          replace_one(
+              foundation,
+              "5. 资产：顶层资产是唯一资产账簿；所属对象为数组，多主体可共管，空数组表示无主，含<user>表示玩家拥有/共管。可按已确认场外事实新增、更新、转移或移除资产；删除保护中的同名资产不得自动重建。正文/MVU已结算的当前场景变化只同步，不重复结算。",
+              "5. 资产：仅限固定地产、大型载具或要塞；药剂、材料、消耗品、钥匙、剧情物品、单兵装备/形态不得写入资产。顶层资产是唯一资产账簿；所属对象为数组，可按已确认场外事实新增、更新、转移或移除；删除保护中的同名资产不得重建，正文/MVU已结算变化不重复结算。",
+          )
+
+          result = 'script/world-engine-src/20-world-result.part.js'
+          replace_one(
+              result,
+              "    const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);",
+              "    const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);\n    const WORLD_ASSET_TYPES=['固定地产','大型载具','要塞'];\n    const WORLD_ASSET_TYPE_SET=new Set(WORLD_ASSET_TYPES);\n    const ITEMLIKE_ASSET_NAME=/(?:纹章|免疫|抗性|初解|技能|能力|药剂?|药水|圣水|解药|血清|试剂|瓶|钥匙|摇把|手柄|材料|矿石|零件|部件|残骸|卷轴|食物|口粮|弹药|消耗品|道具|护符|符文|芯片|样本)$/i;",
+          )
+          replace_one(
+              result,
+              "            所属对象:{type:'array',items:{type:'string',minLength:1},maxItems:12},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},",
+              "            所属对象:{type:'array',items:{type:'string',minLength:1},maxItems:12},类型:{type:'string',enum:copy(WORLD_ASSET_TYPES)},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},",
+          )
+          replace_one(
+              result,
+              "    function materializeAssetRecord(oldValue,item,isNew=false) {",
+              "    function assertWorldAssetScope(item,isNew=false) {\n        if(!isNew)return;\n        const type=String(item?.类型||'').trim(),name=String(item?.名称||'').trim();\n        if(!WORLD_ASSET_TYPE_SET.has(type))throw new Error('新资产类型非法：'+(name||'未命名')+'；资产只允许固定地产、大型载具或要塞，普通道具/材料/消耗品不得进入资产账簿');\n        if(ITEMLIKE_ASSET_NAME.test(name))throw new Error('疑似道具被误写为资产：'+name+'；请写入角色道具/装备/形态等对应字段，不得写入资产');\n    }\n    function materializeAssetRecord(oldValue,item,isNew=false) {",
+          )
+          replace_one(
+              result,
+              "            const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;\n            const tombstoneName=stableNameIn(stat?.世界?.[PATH]?.资产墓碑||{},item.名称);",
+              "            const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;\n            if(!target&&item.操作!=='移除')assertWorldAssetScope(item,true);\n            const tombstoneName=stableNameIn(stat?.世界?.[PATH]?.资产墓碑||{},item.名称);",
+          )
+
+          replace_one(
+              'World Book/⚙️资产与载具规则.txt',
+              "    限制: 仅限战略级载具,单兵穿戴机甲归类为<装备/形态>,不在此列",
+              "    限制: 仅限战略级载具,单兵穿戴机甲归类为<装备/形态>,不在此列\n  禁止入账: 普通道具、药剂、材料、消耗品、钥匙、剧情物品、单兵装备/形态一律不属于资产",
+          )
+          replace_one(
+              'World Book/[mvu_update]变量更新规则.txt',
+              "      - 遵照<资产与载具规则>；仅在新增、失去、归属、战损、消耗或经营结果实际变化时更新",
+              "      - 遵照<资产与载具规则>；仅在新增、失去、归属、战损、消耗或经营结果实际变化时更新\n      - 资产仅限固定地产、大型载具或要塞；道具、材料、消耗品、单兵装备/形态不得写入",
+          )
+
+          test = Path('tests/world-engine-asset-writeback.cjs')
+          text = test.read_text(encoding='utf-8')
+          anchor = "assert.deepEqual(assetSchema.items.properties.操作.enum, ['更新', '移除', '撤销本轮']);\n"
+          assert anchor in text
+          text = text.replace(anchor, anchor + "assert.deepEqual(assetSchema.items.properties.类型.enum, ['固定地产', '大型载具', '要塞'], '新资产类型必须收敛到正式资产分类');\n", 1)
+          anchor2 = "assert.throws(() => compileWorldResult(next, {\n  摘要: '错误的新资产。',\n  资产: [{ 名称: '无主仓库', 类型: '固定地产' }],\n}), /所属对象/, '新资产必须明确归属，禁止默认把世界资产送给玩家');\n"
+          assert anchor2 in text
+          addition = """assert.throws(() => compileWorldResult(next, {\n  摘要: '错误地把药剂登记成资产。',\n  资产: [{ 名称: '便携圣水破魔瓶', 类型: '固定地产', 所属对象: ['<user>'] }],\n}), /疑似道具被误写为资产/, '即使模型伪造固定地产类型，明显道具名也必须被程序拦截');\nassert.throws(() => compileWorldResult(next, {\n  摘要: '错误地把消耗品登记成资产。',\n  资产: [{ 名称: '测试消耗品', 类型: '消耗品', 所属对象: ['<user>'] }],\n}), /新资产类型非法/, '新资产不得使用消耗品等非法类型');\n\n"""
+          text = text.replace(anchor2, anchor2 + '\n' + addition, 1)
+          text = text.replace("/version:13,\\n        builtin:true,\\n        name:'默认设置'/", "/version:17,\\n        builtin:true,\\n        name:'默认设置'/", 1)
+          text = text.replace("'资产写回语义变更应升级内置默认提示词到 v13'", "'资产边界收紧应升级内置默认提示词到 v17'", 1)
+          before = "assert.match(assetRules, /所属对象[\\s\\S]{0,320}字符串数组[\\s\\S]{0,320}(?:多方共管|空数组|无主)/, '资产规则必须定义数组、多主体与无主归属');\n"
+          assert before in text
+          text = text.replace(before, before + "assert.match(assetRules, /普通道具、药剂、材料、消耗品/, '资产规则必须明确禁止普通物品入账');\nassert.match(mvuRules, /资产仅限固定地产、大型载具或要塞/, '普通变量 AI 也必须遵守资产边界');\n", 1)
+          test.write_text(text, encoding='utf-8')
+
+          # 同步其它旧版本断言，避免完整测试套件继续锁死旧的 v13。
+          for name in ['tests/world-engine-scene-context.cjs','tests/world-engine-prompt-pipeline.cjs','tests/world-engine-asset-multi-owner.cjs']:
+              p=Path(name)
+              s=p.read_text(encoding='utf-8')
+              s=s.replace('version:13,\\n        builtin:true,\\n        name:\'默认设置\'', 'version:17,\\n        builtin:true,\\n        name:\'默认设置\'')
+              s=s.replace('v13', 'v17')
+              p.write_text(s, encoding='utf-8')
+
+          for workflow in ['.github/workflows/task-awareness-build.yml','.github/workflows/task-awareness-check.yml']:
+              p=Path(workflow)
+              s=p.read_text(encoding='utf-8')
+              if 'world-engine-asset-writeback.cjs' not in s:
+                  marker='      - name: NPC audit regression\n        run: node tests/world-engine-npc-audit-toggle.cjs\n'
+                  assert marker in s, workflow
+                  s=s.replace(marker, marker + '      - name: Asset scope regression\n        run: node tests/world-engine-asset-writeback.cjs\n', 1)
+                  p.write_text(s, encoding='utf-8')
+          PY
+      - name: Build delivery
+        run: python tools/build-world-engine.py
+      - name: Syntax check
+        run: node --check script/世界推进系统.js
+      - name: Asset scope regression
+        run: node tests/world-engine-asset-writeback.cjs
+      - name: Commit asset scope guard
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-world-asset-scope.yml
+          git add script/world-engine-src/00-foundation-prompt.part.js \
+                  script/world-engine-src/20-world-result.part.js \
+                  script/世界推进系统.js \
+                  'World Book/⚙️资产与载具规则.txt' \
+                  'World Book/[mvu_update]变量更新规则.txt' \
+                  tests/world-engine-asset-writeback.cjs \
+                  tests/world-engine-scene-context.cjs \
+                  tests/world-engine-prompt-pipeline.cjs \
+                  tests/world-engine-asset-multi-owner.cjs \
+                  .github/workflows/task-awareness-build.yml \
+                  .github/workflows/task-awareness-check.yml
+          git commit -m "fix: keep items out of world assets"
+          git push

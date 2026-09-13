@@ -16,6 +16,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Harden migration matcher
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/migrate-task-performance-settlement.py')
+          text = p.read_text(encoding='utf-8')
+          old = 'think_pattern = r"  调取字典与公式算账 \\(严格执行上述读取协议\\)：\\n.*?(?=    - 惩罚核查:)"'
+          new = 'think_pattern = r"  调取字典与公式算账[^\\n]*：\\n.*?(?=    - 惩罚核查:)"'
+          if old not in text:
+              raise SystemExit('migration matcher anchor not found')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
+          PY
       - name: Apply task performance migration
         run: python tools/migrate-task-performance-settlement.py
       - name: Build delivery

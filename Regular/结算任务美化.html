@@ -655,12 +655,12 @@
                 const entry = exploration[name] || {};
                 const progress = Math.max(0, Math.min(100, Number(entry.探索度) || 0));
                 if (!progress) return;
-                const subtotal = base * progress / 100;
+                const subtotal = base * progress / 1000;
                 explorationRaw += subtotal;
                 explorationDetails.push({ name:name, progress:progress, subtotal:subtotal });
               });
             }
-            const explorationCap = base * 3;
+            const explorationCap = base;
             const explorationReward = isSingleWorld ? 0 : Math.min(explorationRaw, explorationCap);
 
             const reputationDetails = [];
@@ -671,12 +671,12 @@
                 const entry = factions[name] || {};
                 const reputation = Number(entry.声望) || 0;
                 if (reputation <= 0) return;
-                const subtotal = base * reputation / 100;
+                const subtotal = base * reputation / 10000;
                 reputationRaw += subtotal;
                 reputationDetails.push({ name:name, reputation:reputation, subtotal:subtotal });
               });
             }
-            const reputationCap = base * 3;
+            const reputationCap = base;
             const reputationReward = isSingleWorld ? 0 : Math.min(reputationRaw, reputationCap);
 
             const totalReward = taskReward + killReward + explorationReward + reputationReward - penalty;
@@ -850,6 +850,7 @@
             return String(stat && stat.角色 && stat.角色.层级 || '').trim();
           }
 
+          // SETTLEMENT_CREDENTIAL_CORE_START
           function resolveCredentialGrant(data) {
             const stat = data && (data.stat_data || data);
             if (!stat || !stat.角色) return null;
@@ -860,29 +861,23 @@
             if (reincarnatorIndex < 0) reincarnatorIndex = 0;
             if (reincarnatorIndex >= GRADES.length - 1) return null;
 
-            let baseGrade = '';
-            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
-            if (isSingleWorld) {
-              const list = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-              let bestIndex = -1;
-              Object.keys(list).forEach(function(key) {
-                const task = list[key] || {};
-                if (String(task.委托方 || '').trim() !== '主神任务') return;
-                if (String(task.状态 || '').trim() !== '可结算') return;
-                const idx = GRADES.indexOf(gradeTier(task.难度 || ''));
-                if (idx > bestIndex) bestIndex = idx;
-              });
-              if (bestIndex >= 0) baseGrade = GRADES[bestIndex];
-            } else {
-              baseGrade = gradeFloor(stat.世界 && stat.世界.难度);
-            }
+            const list = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            let bestIndex = -1;
+            Object.keys(list).forEach(function(key) {
+              const task = list[key] || {};
+              if (String(task.委托方 || '').trim() !== '主神任务') return;
+              if (String(task.状态 || '').trim() !== '可结算') return;
+              const idx = GRADES.indexOf(gradeTier(task.难度 || ''));
+              if (idx > bestIndex) bestIndex = idx;
+            });
+            if (bestIndex < 0) return null;
 
-            const gradeIndex = GRADES.indexOf(baseGrade);
             const targetIndex = reincarnatorIndex + 1;
-            if (gradeIndex < targetIndex) return null;
-            const grantGrade = baseGrade;
-            return { grade:grantGrade, name:grantGrade + '级权限凭证', reincarnatorTier:tierRaw, sourceGrade:baseGrade };
+            if (bestIndex < targetIndex) return null;
+            const grantGrade = GRADES[bestIndex];
+            return { grade:grantGrade, name:grantGrade + '级权限凭证', reincarnatorTier:tierRaw, sourceGrade:grantGrade };
           }
+          // SETTLEMENT_CREDENTIAL_CORE_END
 
           function renderCredentialPanel(grant) {
             if (!grant) return '';
@@ -1182,7 +1177,7 @@
               sub('世界探索附加收益明细');
               if (result.explorationDetails.length) {
                 result.explorationDetails.forEach(function(x) {
-                  items.push({ kind:'calc', sub:'世界探索附加收益明细', src:x.name, formula:fmtNum(result.base) + ' × ' + x.progress + '%', result:fmtNum(x.subtotal) + ' 空间币' });
+                  items.push({ kind:'calc', sub:'世界探索附加收益明细', src:x.name, formula:fmtNum(result.base) + ' × (' + x.progress + ' ÷ 1000)', result:fmtNum(x.subtotal) + ' 空间币' });
                 });
               } else {
                 items.push({ kind:'empty', sub:'世界探索附加收益明细', text:'本次无探索收益' });
@@ -1194,7 +1189,7 @@
               sub('势力羁绊附加收益明细');
               if (result.reputationDetails.length) {
                 result.reputationDetails.forEach(function(x) {
-                  items.push({ kind:'calc', sub:'势力羁绊附加收益明细', src:x.name, formula:fmtNum(result.base) + ' × (' + x.reputation + ' ÷ 100)', result:fmtNum(x.subtotal) + ' 空间币' });
+                  items.push({ kind:'calc', sub:'势力羁绊附加收益明细', src:x.name, formula:fmtNum(result.base) + ' × (' + x.reputation + ' ÷ 10000)', result:fmtNum(x.subtotal) + ' 空间币' });
                 });
               } else {
                 items.push({ kind:'empty', sub:'势力羁绊附加收益明细', text:'本次无正声望收益' });

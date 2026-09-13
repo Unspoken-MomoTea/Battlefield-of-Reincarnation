@@ -31,8 +31,9 @@ assert.match(settleUi, /SETTLEMENT_COIN_CORE_START/);
 assert.match(settleUi, /function calculateSpaceCoinSettlement\s*\(/);
 assert.match(settleUi, /function injectProgrammaticIncomeStage\s*\(/);
 assert.match(settleUi, /killCap\s*=\s*base\s*\*\s*10/);
-assert.match(settleUi, /explorationCap\s*=\s*base\s*\*\s*3/);
-assert.match(settleUi, /reputationCap\s*=\s*base\s*\*\s*3/);
+assert.match(settleUi, /explorationCap\s*=\s*base\s*;/);
+assert.match(settleUi, /reputationCap\s*=\s*base\s*;/);
+assert.match(settleUi, /SETTLEMENT_CREDENTIAL_CORE_START/);
 assert.match(settleUi, /settlementStat\.角色\.空间币\s*=\s*spaceCoinSettlement\.balanceAfter/);
 assert.doesNotMatch(settleUi, /function taskSucceeded\(task\)|function taskCompletion\(task\)|taskAssess|\.st-task-assess/);
 assert.match(settleUi, /settlementTaskKeys\.forEach/);
@@ -62,9 +63,9 @@ const baseline = {
     任务: {
       击杀: { Ⅰ: 0, Ⅱ: 0, Ⅲ: 0, Ⅳ: 200, Ⅴ: 0, Ⅵ: 0, Ⅶ: 0, Ⅷ: 0, Ⅸ: 0 },
       列表: {
-        主线: { 委托方: '主神任务', 状态: '可结算', 奖励: '5000空间币；A级治疗凭证×1', 惩罚: '' },
-        试炼: { 委托方: '晋升试炼', 状态: '失败', 奖励: '99999空间币', 惩罚: '扣除2000空间币；深渊标记' },
-        本土: { 委托方: '世界委托', 状态: '可结算', 奖励: '88888空间币', 惩罚: '' },
+        主线: { 委托方: '主神任务', 状态: '可结算', 难度: 'C', 奖励: '5000空间币；A级治疗凭证×1', 惩罚: '' },
+        试炼: { 委托方: '晋升试炼', 状态: '失败', 难度: 'C', 奖励: '99999空间币', 惩罚: '扣除2000空间币；深渊标记' },
+        本土: { 委托方: '世界委托', 状态: '可结算', 难度: 'C', 奖励: '88888空间币', 惩罚: '' },
       },
     },
   },
@@ -76,18 +77,36 @@ assert.equal(ordinary.taskReward, 5000, 'only successful main/trial task coin re
 assert.equal(ordinary.killRaw, 240000);
 assert.equal(ordinary.killCap, 120000);
 assert.equal(ordinary.killReward, 120000, 'kill reward must respect x10 cap');
-assert.equal(ordinary.explorationRaw, 48000);
-assert.equal(ordinary.explorationCap, 36000);
-assert.equal(ordinary.explorationReward, 36000, 'exploration reward must respect x3 cap');
-assert.equal(ordinary.reputationRaw, 48000);
-assert.equal(ordinary.reputationCap, 36000);
-assert.equal(ordinary.reputationReward, 36000, 'positive reputation only and x3 cap');
+assert.equal(ordinary.explorationRaw, 4800);
+assert.equal(ordinary.explorationCap, 12000);
+assert.equal(ordinary.explorationReward, 4800, 'a fully explored region should be worth 10% of base; exploration is globally capped at x1');
+assert.equal(ordinary.reputationRaw, 480);
+assert.equal(ordinary.reputationCap, 12000);
+assert.equal(ordinary.reputationReward, 480, 'positive reputation should normalize against the 10000-point scale and cap at x1');
 assert.equal(ordinary.penalty, 2000);
-assert.equal(ordinary.totalReward, 195000);
+assert.equal(ordinary.totalReward, 128280);
 assert.equal(ordinary.balanceBefore, 1000);
-assert.equal(ordinary.balanceAfter, 196000);
+assert.equal(ordinary.balanceAfter, 129280);
 assert.equal(core.stripSpaceCoinText('5000空间币；A级治疗凭证×1'), 'A级治疗凭证×1');
 assert.equal(core.stripSpaceCoinText('大量空间币；深渊标记'), '深渊标记');
+
+const smallExploration = {
+  stat_data: {
+    设置: { 单一世界: false },
+    角色: { 空间币: 0 },
+    世界: {
+      难度: 'D',
+      探索: { '帝都·贫民窟外围': { 探索度: 10 } },
+      势力: { 帝都守备队: { 声望: 300 } },
+    },
+    任务: { 击杀: {}, 列表: {} },
+  },
+};
+const small = core.calculateSpaceCoinSettlement(smallExploration);
+assert.equal(small.base, 2500);
+assert.equal(small.explorationReward, 25, '10% exploration of one region should only be 1% of base reward');
+assert.equal(small.reputationReward, 75, '300 positive reputation should be 3% of base reward');
+assert.equal(small.totalReward, 100);
 
 const singleData = JSON.parse(JSON.stringify(baseline));
 singleData.stat_data.设置.单一世界 = true;
@@ -98,6 +117,52 @@ assert.equal(single.explorationReward, 0, 'single-world settlement must not cash
 assert.equal(single.reputationReward, 0, 'single-world settlement must not cash faction reputation');
 assert.equal(single.totalReward, 123000);
 assert.equal(single.balanceAfter, 124000);
+
+const credentialMatch = settleUi.match(/\/\/ SETTLEMENT_CREDENTIAL_CORE_START([\s\S]*?)\/\/ SETTLEMENT_CREDENTIAL_CORE_END/);
+assert(credentialMatch, 'credential core should be extractable for deterministic regression');
+const resolveCredentialGrant = new Function(`
+  const GRADES = ['F','E','D','C','B','A','S','SS','SSS'];
+  function gradeTier(d) {
+    const m = String(d || '').toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)/);
+    return m ? m[1] : 'F';
+  }
+  function gradeFloor(v) {
+    const s = String(v || '').toUpperCase();
+    const all = s.match(/(SSS|SS|S|A|B|C|D|E|F)/g) || [];
+    if (!all.length) return '';
+    let best = all[0];
+    for (const g of all) if (GRADES.indexOf(g) < GRADES.indexOf(best)) best = g;
+    return best;
+  }
+  ${credentialMatch[1]}
+  return resolveCredentialGrant;
+`)();
+
+const failedCredential = resolveCredentialGrant({
+  stat_data: {
+    设置: { 单一世界: false },
+    角色: { 层级: 'Ⅰ' },
+    世界: { 难度: 'D~A' },
+    任务: { 列表: {
+      任务一: { 委托方: '主神任务', 状态: '失败', 难度: 'D' },
+      任务二: { 委托方: '主神任务', 状态: '进行中', 难度: 'A' },
+    } },
+  },
+});
+assert.equal(failedCredential, null, 'no successful main task means no permission credential');
+
+const successfulCredential = resolveCredentialGrant({
+  stat_data: {
+    设置: { 单一世界: false },
+    角色: { 层级: 'Ⅰ' },
+    世界: { 难度: 'F~SSS' },
+    任务: { 列表: {
+      任务一: { 委托方: '主神任务', 状态: '可结算', 难度: 'D' },
+      任务二: { 委托方: '主神任务', 状态: '失败', 难度: 'A' },
+    } },
+  },
+});
+assert.equal(successfulCredential && successfulCredential.grade, 'D', 'credential grade should come from the highest successful main-task difficulty, not world difficulty or failed tasks');
 
 for (const [name, html] of [['主神任务美化', mainUi], ['试炼任务美化', trialUi], ['结算任务美化', settleUi]]) {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);

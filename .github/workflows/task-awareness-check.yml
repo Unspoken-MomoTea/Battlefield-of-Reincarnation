@@ -14,8 +14,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Apply settlement status aliases
-        run: python tools/_oneoff_settlement_status_aliases.py
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Exploration pruning regression

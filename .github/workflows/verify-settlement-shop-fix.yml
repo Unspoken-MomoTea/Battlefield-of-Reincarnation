@@ -1,0 +1,27 @@
+name: verify-settlement-shop-fix
+on:
+  push:
+    branches: [fix/settlement-shop-coin-refund]
+jobs:
+  verify:
+    if: ${{ !contains(github.event.head_commit.message, '[verify-cleanup]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: ZOD syntax
+        run: node --check script/ZOD脚本.js
+      - name: Settlement shop coin persistence regression
+        run: node tests/settlement-shop-coin-persistence.cjs
+      - name: Simplified task settlement regression
+        run: node tests/task-settlement-simplified.cjs
+      - name: Settlement status alias regression
+        run: node tests/settlement-status-aliases.cjs
+      - name: Shop permission regression
+        run: node tests/shop-permission-guard.cjs
+      - name: Shop credential spend regression
+        run: node tests/shop-credential-spend.cjs
+      - name: Credential ledger integration
+        run: node tests/credential-ledger-integration.cjs

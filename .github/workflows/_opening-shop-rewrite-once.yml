@@ -1,0 +1,32 @@
+name: Opening Shop Rewrite Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/_opening-shop-rewrite-once.yml'
+      - 'tools/_rewrite_opening_shop_once.py'
+
+permissions:
+  contents: write
+
+jobs:
+  rewrite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rewrite all opening shop effects
+        run: python tools/_rewrite_opening_shop_once.py
+      - name: Run opening catalog regression
+        run: node tests/opening-catalog.cjs
+      - name: Commit rewrite and remove one-shot tooling
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm tools/_rewrite_opening_shop_once.py .github/workflows/_opening-shop-rewrite-once.yml
+          git add -A
+          git commit -m "fix: rebuild opening shop effects"
+          git push

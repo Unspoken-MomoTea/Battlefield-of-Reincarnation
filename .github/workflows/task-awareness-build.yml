@@ -56,9 +56,17 @@ jobs:
           extra = "assert.doesNotMatch(prompt, /任务完成率与世界稳定值核算|奖励基准评级对应基础奖励|单一世界不结算/);\nassert.match(prompt, /任务专属奖励 = 仅提取本次成功任务/);\nassert.match(prompt, /世界难度最低评级基础奖励/);\n"
           if extra not in test:
               if anchor not in test:
-                  raise SystemExit('test polish anchor missing')
+                  raise SystemExit('task performance test anchor missing')
               test = test.replace(anchor, anchor + extra, 1)
               t.write_text(test, encoding='utf-8', newline='\n')
+
+          m = Path('tests/world-engine-modules.cjs')
+          modules = m.read_text(encoding='utf-8')
+          old = "assert.match(settlementPrompt, /单一世界不结算世界探索与势力羁绊附加收益/, '单一世界探索与势力都不应奖励空间币');"
+          new = "assert.match(settlementPrompt, /当前清算不结算世界探索与势力羁绊附加收益/, '当前清算分支中探索与势力都不应奖励空间币');"
+          if old not in modules:
+              raise SystemExit('world-engine module test anchor missing')
+          m.write_text(modules.replace(old, new, 1), encoding='utf-8', newline='\n')
           PY
       - name: Task performance settlement regression
         run: node tests/task-performance-settlement.cjs
@@ -71,9 +79,9 @@ jobs:
           node tests/world-engine-modules.cjs
       - name: Commit prompt polish
         run: |
-          if git diff --quiet -- "World Book/【结算任务】[mvu_plot].txt" tests/task-performance-settlement.cjs; then exit 0; fi
+          if git diff --quiet -- "World Book/【结算任务】[mvu_plot].txt" tests/task-performance-settlement.cjs tests/world-engine-modules.cjs; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "World Book/【结算任务】[mvu_plot].txt" tests/task-performance-settlement.cjs
+          git add "World Book/【结算任务】[mvu_plot].txt" tests/task-performance-settlement.cjs tests/world-engine-modules.cjs
           git commit -m "refactor: align task settlement wording [task-awareness-built]"
           git push

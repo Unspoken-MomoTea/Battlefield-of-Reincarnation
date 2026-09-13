@@ -16,28 +16,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Repair exploration directory render
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          ui = Path('script/world-engine-src/50-engine-ui.part.js')
-          text = ui.read_text(encoding='utf-8')
-          old = "+'</div>','总权重 '+totalProgress+'% · 结算上限 300%');"
-          new = "+'</div>');"
-          if text.count(old) != 1:
-              raise SystemExit(f'expected one stale totalProgress render reference, got {text.count(old)}')
-          ui.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
-
-          test = Path('tests/world-engine-modules.cjs')
-          text = test.read_text(encoding='utf-8')
-          anchor = "assert.doesNotMatch(texts['50-engine-ui.part.js'], /we-ledger-strip|we-ledger-stat/, '探索/热点/势力页不应恢复四格汇总统计条');\n"
-          extra = "assert.doesNotMatch(texts['50-engine-ui.part.js'], /\\btotalProgress\\b/, '探索页不得引用已经删除的总权重统计变量');\n"
-          if extra not in text:
-              if text.count(anchor) != 1:
-                  raise SystemExit('module test anchor mismatch')
-              text = text.replace(anchor, anchor + extra, 1)
-              test.write_text(text, encoding='utf-8', newline='\n')
-          PY
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax check
@@ -54,9 +32,9 @@ jobs:
         run: node tests/world-engine-modules.cjs
       - name: Commit generated delivery
         run: |
-          if git diff --quiet -- script/世界推进系统.js script/world-engine-src/50-engine-ui.part.js tests/world-engine-modules.cjs; then exit 0; fi
+          if git diff --quiet -- script/世界推进系统.js; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add script/世界推进系统.js script/world-engine-src/50-engine-ui.part.js tests/world-engine-modules.cjs
-          git commit -m "fix: restore exploration directory rendering [task-awareness-built]"
+          git add script/世界推进系统.js
+          git commit -m "build: sync chronology guard delivery [task-awareness-built]"
           git push

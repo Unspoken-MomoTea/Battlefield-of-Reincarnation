@@ -23,7 +23,7 @@ PARTS = (
 )
 
 TEMP_PATCH = ROOT / 'tools' / 'patch-credential-explanation.py'
-TEMP_SOURCE = SOURCE_DIR / '60-bootstrap.part.js'
+TEMP_SOURCE = SOURCE_DIR / '58-chronology-guard.part.js'
 TEMP_MARKER = '// TEMP_CREDENTIAL_EXPLANATION_DELIVERY\n'
 
 
@@ -50,13 +50,16 @@ def prepare_credential_explanation_delivery() -> None:
 
     source = TEMP_SOURCE.read_text(encoding='utf-8')
     if TEMP_MARKER not in source:
-        TEMP_SOURCE.write_text(TEMP_MARKER + source, encoding='utf-8')
+        if source and not source.endswith('\n'):
+            source += '\n'
+        source += TEMP_MARKER
+        TEMP_SOURCE.write_text(source, encoding='utf-8')
 
     subprocess.run([
         'git', 'add',
         'Regular/结算任务美化.html',
         'tests/task-settlement-simplified.cjs',
-        'script/world-engine-src/60-bootstrap.part.js',
+        'script/world-engine-src/58-chronology-guard.part.js',
     ], cwd=ROOT, check=True)
 
 

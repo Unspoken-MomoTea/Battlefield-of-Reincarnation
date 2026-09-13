@@ -2,11 +2,18 @@
     const CHRONOLOGY_GUARD_RULES=`【原著/数据库时间轴硬约束】
 1. 宏观节点的日期与跨度必须先服从当前已确认事实和明确世界书/数据库中的原著时间资料，再使用模型已有原著知识补足；不得为了推动剧情、制造冲突、维持紧张感或让<user>尽快参与而主动提前关键事件。
 2. 世界书/数据库已给出某宏观事件的明确日期时，必须沿用该日期/时段；只有已确认剧情造成足以改线的因果偏移，且同轮因果.偏移记录明确关联该节点并说明提前/延后原因时，才允许改期。
-3. 原著只给事件顺序或大致间隔时，按原著节奏保守估计；不确定跨度就使用可理解的相对/因果时间并只推进一步，禁止把数日、数周或更长的原著发展压成“今天准备、明天决战”。
-4. 先确定“当前世界时间 → 下一宏观节点”的合理时间边界，再在该区间内生成当前事件与近期节点；不能先决定下一章要发生什么，再倒推一个过近日期。`;
+3. 原著只给月份、时段、事件顺序或大致间隔时，沿用同级时间精度并按原著节奏保守留白；不确定跨度就使用可理解的相对/因果时间，只推进必要一步，不得擅自补成过近的具体日期。
+4. 先确定“当前世界时间 → 下一宏观节点”的合理时间边界，再在该区间内生成当前事件与近期节点；不能先决定下一章要发生什么，再倒推一个过近日期。
+5. 3~5个宏观节点只是滚动规划窗口，不代表必须覆盖完整原著篇章。一个宏观节点只表达一个阶段转折；不得为了凑节点数量，把远行、集结、连续战役或多个独立剧情阶段合并成一个节点。
+6. 排期相邻宏观节点前，先检查两者之间现实上需要经历的旅行、准备、组织动员、战役推进与因果发展；若中间包含多个独立阶段，就拆分节点或拉开跨度。`;
     const CHRONOLOGY_PRESET_STEP_OLD='Step 2 · 定边界：确认当前阶段与下一宏观节点；只有篇章、地区、战争、势力或关键人物命运发生阶段变化时才调整宏观骨架。';
-    const CHRONOLOGY_PRESET_STEP_NEW='Step 2 · 定边界与日期：以当前世界时间为起点，先按明确世界书/数据库时间资料与原著节奏确定下一宏观节点及合理跨度；只有已确认因果偏移才能改期，再决定是否调整宏观骨架。';
-    const upgradeChronologyPreset=value=>String(value||'').includes(CHRONOLOGY_PRESET_STEP_OLD)?String(value).replace(CHRONOLOGY_PRESET_STEP_OLD,CHRONOLOGY_PRESET_STEP_NEW):String(value||'');
+    const CHRONOLOGY_PRESET_STEP_V1='Step 2 · 定边界与日期：以当前世界时间为起点，先按明确世界书/数据库时间资料与原著节奏确定下一宏观节点及合理跨度；只有已确认因果偏移才能改期，再决定是否调整宏观骨架。';
+    const CHRONOLOGY_PRESET_STEP_V2='Step 2 · 定边界与日期：以当前世界时间为起点，按明确资料与原著节奏规划接下来3~5个滚动宏观节点；每个节点只表达一个阶段转折，并为相邻节点间的旅行、准备与因果发展留足时间；只有已确认因果偏移才能改期。';
+    const upgradeChronologyPreset=value=>{
+        const text=String(value||'');
+        for(const previous of [CHRONOLOGY_PRESET_STEP_OLD,CHRONOLOGY_PRESET_STEP_V1])if(text.includes(previous))return text.replace(previous,CHRONOLOGY_PRESET_STEP_V2);
+        return text;
+    };
     if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=upgradeChronologyPreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
 
     let ACTIVE_CHRONOLOGY_GUARD=null;
@@ -16,6 +23,8 @@
     }
     function chronologyEvidenceForEvent(eventName,texts) {
         const name=String(eventName||'').trim();if(!name)return null;
+        // 只把“明确到日”的资料作为硬校验锚点。月份、上中下旬、先后顺序属于软规划证据，
+        // 交给模型保守排期，避免合理估计差异造成无休止的拒绝/重试。
         const datePattern=/(\d{1,4}\s*年\s*-?\s*\d{1,2}\s*月\s*-?\s*\d{1,2}\s*日|\d{4}[-\/.]\d{1,2}[-\/.]\d{1,2})/g;
         let best=null;
         for(const rawText of texts||[]){
@@ -75,7 +84,7 @@
     retryPlanForFailure=function(error,rejected=[]) {
         const plan=retryPlanBeforeChronologyGuard(error,rejected).map(String);
         const messages=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
-        if(/宏观节点日期(?:未服从|与).*原著\/数据库时间锚点/.test(messages))plan.unshift('宏观时间轴：重新读取已提供的原著/数据库时间资料；明确日期必须原样服从。只有已确认剧情确实改变该节点时，才可改期，并在同轮因果.偏移记录中明确关联该节点与提前/延后原因。');
+        if(/宏观节点日期(?:未服从|与).*原著\/数据库时间锚点/.test(messages))plan.unshift('宏观时间轴：只纠正已明确到日的原著/数据库日期冲突；重新沿用该日期。不要顺带把仅有月份、时段或先后顺序的节点强行精确到日，后者按原著节奏保守留白即可。');
         return Array.from(new Set(plan));
     };
 
@@ -102,7 +111,13 @@
                 当前世界时间:String(state?.世界?.时间||''),
                 下一宏观节点:next?{名称:String(next.名称||''),当前排期:String(next.时间||'')}:null,
                 原著时间资料:chronologyOnly.length?'已读取 '+chronologyOnly.length+' 条明确时间线/年表资料':'未命中明确时间线条目；使用模型已有原著知识保守估计，不得为推进剧情压缩跨度',
-                要求:'宏观节点先定原著/数据库日期与合理跨度，再展开当前→下一节点区间。明确日期必须服从；只有已确认因果偏移并记录原因时才允许提前或延后。'
+                规划原则:{
+                    滚动窗口:'3~5个宏观节点只是当前规划视野，不要求覆盖完整篇章；宁可规划得近，也不要把远期大事件打包。',
+                    节点粒度:'一个宏观节点只表达一个阶段转折；远行、集结、连续战役或多个独立剧情阶段应拆分或拉开跨度。',
+                    间隔自检:'排期前先判断从上一节点到本节点现实上必须经历什么，为旅行、准备、组织动员与因果发展留足时间。',
+                    时间精度:'资料只到月份/时段/顺序时保持同级精度并保守留白，不为方便排序强造日级日期。'
+                },
+                要求:'宏观节点先定原著/数据库日期、节点粒度与合理跨度，再展开当前→下一节点区间。明确到日的日期必须服从；仅有月份、时段或顺序时按软约束保守规划，不因估计差异反复改期。'
             };
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'')+'\n\n'+CHRONOLOGY_GUARD_RULES;
@@ -116,7 +131,13 @@
             }
             manifest.世界书条目=rows;
             if(plain(manifest.世界书读取))manifest.世界书读取.实际读取=merged.length;
-            manifest.原著时间轴={强制校准:true,当前世界时间:String(state?.世界?.时间||''),时间线资料:chronologyOnly.map(book=>String(book?.名称||'')).filter(Boolean),下一宏观节点:next?String(next.名称||''):''};
+            manifest.原著时间轴={
+                强制校准:true,
+                校验模式:'明确到日的资料硬校验；月份、时段、顺序与节点粒度软引导',
+                当前世界时间:String(state?.世界?.时间||''),
+                时间线资料:chronologyOnly.map(book=>String(book?.名称||'')).filter(Boolean),
+                下一宏观节点:next?String(next.名称||''):''
+            };
             manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
             return request;

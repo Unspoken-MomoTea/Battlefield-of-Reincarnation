@@ -81,3 +81,10 @@
         }
         return compiled;
     };
+
+    const buildRequestBeforeExplorationProjection=SamsaraWorldEngine.prototype.buildRequest;
+    SamsaraWorldEngine.prototype.buildRequest=async function(base) {
+        const request=await buildRequestBeforeExplorationProjection.call(this,base);
+        request.system=String(request.system||'')+'\n\n'+EXPLORATION_PROJECTION_RULES;
+        return request;
+    };

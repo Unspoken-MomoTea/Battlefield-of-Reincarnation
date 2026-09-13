@@ -20,6 +20,8 @@ jobs:
         run: node tests/task-settlement-simplified.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
+      - name: Soft maintenance regression
+        run: node tests/world-engine-soft-maintenance.cjs
       - name: Auto progress regression
         run: node tests/world-engine-auto-progress.cjs
       - name: Chronology guard regression

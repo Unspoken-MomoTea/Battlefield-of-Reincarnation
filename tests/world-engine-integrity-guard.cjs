@@ -31,9 +31,20 @@ function fresh(){
     assert.throws(
       ()=>applyPatches(stat,[add('/世界/后台/人物/测试者',{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'等待',行动:'等待',更新时间:'2008年07月17日-07:50'})]),
       /时间事实超过当前世界时间/,
-      'HH:mm must participate in future-time validation instead of collapsing to midnight'
+      'precise person clocks must still reject future writes when both sides provide HH:mm'
     );
     assert.doesNotThrow(()=>applyPatches(stat,[add('/世界/后台/人物/测试者',{...RECORDS.人物,所属世界:'测试世界',地点:'测试地点',目标:'等待',行动:'等待',更新时间:'2008年07月17日-07:00'})]));
+  }
+
+  {
+    const stat=fresh();
+    stat.世界.时间='1349年-06月-28日-上午';
+    assert.doesNotThrow(()=>applyPatches(stat,[add('/世界/后台/事件/同日午后事件',{
+      ...RECORDS.事件,描述:'同一天稍晚发生的宏观活动',分类:'当前事件',状态:'进行中',时间:'1349年-06月-28日-下午',更新时间:'1349年-06月-28日-下午'
+    })]),'macro facts on the same calendar day must not be rejected only because their coarse daypart is later');
+    assert.throws(()=>applyPatches(stat,[add('/世界/后台/事件/次日事件',{
+      ...RECORDS.事件,描述:'真正跨日的未来事实',分类:'当前事件',状态:'进行中',时间:'1349年-06月-29日-上午',更新时间:'1349年-06月-29日-上午'
+    })]),/时间事实超过当前世界时间/,'macro facts on a later calendar day must still be rejected');
   }
 
   {
@@ -74,7 +85,7 @@ function fresh(){
     assert.match(request.system,/【因果偏移与时间硬约束】/,'mandatory request must carry the causal/time invariant block');
     assert.match(request.system,/同一.*根因.*只记一条/,'prompt must prohibit chain-splitting the same root cause');
     assert.match(request.system,/预测|风险|可能/,'prompt must forbid charging stability for speculative consequences');
-    assert.match(request.system,/更新时间.*当前世界时间/,'current-state timestamps must inherit the current world time instead of inventing a later clock');
+    assert.match(request.system,/同一自然日|跨日/,'time prompt must describe the day-granular macro chronology rule');
   }
 
   console.log('world-engine integrity guard regression tests passed');

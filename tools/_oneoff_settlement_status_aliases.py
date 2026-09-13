@@ -71,6 +71,31 @@ if text.count("trialTasks.some(function(task){return !isSettlementTaskTerminal(t
 
 text = text.replace('只要数据库中的晋升试炼全部可结算就记为完成。', '只要数据库中的晋升试炼全部处于认可完成态就记为完成。')
 text = text.replace('等待任务变量落到可结算/失败，避免先清空后再也无法核验晋升资格。', '等待任务变量落到认可完成态/失败，避免先清空后再也无法核验晋升资格。')
-
 PATH.write_text(text, encoding='utf-8', newline='\n')
+
+# 旧的确定性结算测试会单独抽取 coin/credential core；把新状态 helper 一起注入测试沙箱。
+TEST_PATH = ROOT / 'tests' / 'task-settlement-simplified.cjs'
+test_text = TEST_PATH.read_text(encoding='utf-8')
+
+def replace_test_once(old: str, new: str, label: str) -> None:
+    global test_text
+    count = test_text.count(old)
+    if count != 1:
+        raise SystemExit(f'{label}: expected 1 test match, got {count}')
+    test_text = test_text.replace(old, new, 1)
+
+replace_test_once(
+    "const core = new Function(coreMatch[1] + '\\nreturn { calculateSpaceCoinSettlement, stripSpaceCoinText };')();",
+    "const statusHelperMatch = settleUi.match(/const SETTLEMENT_SUCCESS_STATUSES[\\s\\S]*?function isSettlementTaskTerminal\\(value\\) \\{[^\\n]+\\}/);\n"
+    "assert(statusHelperMatch, 'settlement task status helpers should be extractable');\n"
+    "const statusHelper = statusHelperMatch[0];\n"
+    "const core = new Function(statusHelper + '\\n' + coreMatch[1] + '\\nreturn { calculateSpaceCoinSettlement, stripSpaceCoinText };')();",
+    'coin regression helper injection'
+)
+replace_test_once(
+    "  ${credentialMatch[1]}\n  return { resolveCredentialGrant, resolveCredentialDecision };",
+    "  ${statusHelper}\n  ${credentialMatch[1]}\n  return { resolveCredentialGrant, resolveCredentialDecision };",
+    'credential regression helper injection'
+)
+TEST_PATH.write_text(test_text, encoding='utf-8', newline='\n')
 print('settlement status alias patch applied')

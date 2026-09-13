@@ -17,6 +17,7 @@ PARTS = (
     '56-rumor-liveliness.part.js',
     '57-task-awareness.part.js',
     '58-chronology-guard.part.js',
+    '59-auto-progress.part.js',
     '60-bootstrap.part.js',
 )
 

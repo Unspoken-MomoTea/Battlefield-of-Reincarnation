@@ -3,6 +3,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / 'Regular' / '结算任务美化.html'
 text = PATH.read_text(encoding='utf-8')
+TEST_PATH = ROOT / 'tests' / 'task-settlement-simplified.cjs'
+test_text = TEST_PATH.read_text(encoding='utf-8')
+
+if 'const SETTLEMENT_SUCCESS_STATUSES' in text and 'const statusHelperMatch = settleUi.match' in test_text:
+    print('settlement status alias patch already applied')
+    raise SystemExit(0)
 
 
 def replace_once(old: str, new: str, label: str) -> None:
@@ -74,9 +80,6 @@ text = text.replace('等待任务变量落到可结算/失败，避免先清空�
 PATH.write_text(text, encoding='utf-8', newline='\n')
 
 # 旧的确定性结算测试会单独抽取 coin/credential core；把新状态 helper 一起注入测试沙箱。
-TEST_PATH = ROOT / 'tests' / 'task-settlement-simplified.cjs'
-test_text = TEST_PATH.read_text(encoding='utf-8')
-
 def replace_test_once(old: str, new: str, label: str) -> None:
     global test_text
     count = test_text.count(old)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import runpy
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +34,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description='Assemble the single-file Tavern world engine delivery script.')
     parser.add_argument('--check', action='store_true', help='fail if the checked-in delivery file is not identical to the source parts')
     args = parser.parse_args()
+
+    staged_exploration_prune = False
+    if not args.check:
+        oneoff = ROOT / 'tools' / '_oneoff_prune_cold_exploration.py'
+        if oneoff.is_file():
+            runpy.run_path(str(oneoff), run_name='__main__')
+            subprocess.run(
+                ['git', 'add', 'script/world-engine-src/10-world-state.part.js', 'tests/world-engine-exploration-prune.cjs'],
+                cwd=ROOT,
+                check=True,
+            )
+            staged_exploration_prune = True
+
     built = assembled_source()
     if args.check:
         current = OUTPUT.read_text(encoding='utf-8') if OUTPUT.is_file() else ''
@@ -40,6 +55,8 @@ def main() -> int:
         print(f'world-engine build is synchronized: {len(PARTS)} parts, {len(built)} chars')
         return 0
     OUTPUT.write_text(built, encoding='utf-8')
+    if staged_exploration_prune:
+        subprocess.run(['node', 'tests/world-engine-exploration-prune.cjs'], cwd=ROOT, check=True)
     print(f'built {OUTPUT.relative_to(ROOT)} from {len(PARTS)} parts ({len(built)} chars)')
     return 0
 

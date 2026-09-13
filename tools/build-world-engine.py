@@ -50,10 +50,7 @@ def prepare_credential_explanation_delivery() -> None:
 
     source = TEMP_SOURCE.read_text(encoding='utf-8')
     if TEMP_MARKER not in source:
-        if source and not source.endswith('\n'):
-            source += '\n'
-        source += TEMP_MARKER
-        TEMP_SOURCE.write_text(source, encoding='utf-8')
+        TEMP_SOURCE.write_text(TEMP_MARKER + source, encoding='utf-8')
 
     subprocess.run([
         'git', 'add',

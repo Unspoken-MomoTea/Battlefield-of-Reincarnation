@@ -77,7 +77,7 @@ assert.equal(combatCounter.autoProgressLastSeenFingerprint,'','combat replies mu
 assert.equal(combatCounter.timer,undefined,'combat should not arm an auto-progress timer');
 
 assert.match(source,/data-auto-progress-toggle-top/,'top header must expose the auto progress toggle');
-assert.match(source,/run\.insertAdjacentElement\('afterend',button\)/,'auto progress toggle should sit directly beside the manual progress button');
+assert.match(source,/run\.insertAdjacentElement\('beforebegin',button\)/,'auto progress toggle should sit immediately before the manual progress button');
 assert.doesNotMatch(source,/mountAutoProgressSetting\(\)/,'auto progress toggle must no longer be mounted as a settings-page card');
 assert.match(source,/data-auto-progress-interval/,'request inspection must expose the auto progress interval');
 assert.match(source,/2 = 第1、3、5…次正文后推进/,'interval=2 semantics must be explicit in the UI');

@@ -846,23 +846,35 @@
             return extractAchievementTasks(ctx && ctx.data);
           }
 
+          const SETTLEMENT_BASELINE_LOOKBACK = 8;
+          function settlementSnapshotTaskCount(data) {
+            const stat = data && (data.stat_data || data);
+            const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            return Object.keys(list).filter(function(key) {
+              const commissioner = String(list[key] && list[key].委托方 || '').trim();
+              return commissioner === '主神任务' || commissioner === '晋升试炼';
+            }).length;
+          }
+
           function readSettlementBaselineData() {
             const ctx = getMvuContext();
             const win = ctx && ctx.win;
             const mvu = win && win.Mvu;
             const currentId = getPanelMessageId(win);
+            let fallback = null;
             if (mvu && typeof mvu.getMvuData === 'function' && currentId !== null) {
-              for (let step = 1; step <= 3; step++) {
+              for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
                 const id = currentId - step;
                 if (id < 0) break;
                 try {
                   const data = mvu.getMvuData({ type: 'message', message_id: id });
                   const stat = data && (data.stat_data || data);
-                  if (stat && stat.角色) return data;
+                  if (!fallback && stat && stat.角色) fallback = data;
+                  if (settlementSnapshotTaskCount(data) > 0) return data;
                 } catch (e) {}
               }
             }
-            return ctx && ctx.data;
+            return fallback || (ctx && ctx.data);
           }
 
           function readReincarnatorTier(data) {

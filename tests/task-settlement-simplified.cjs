@@ -19,7 +19,8 @@ assert.match(taskRules, /任意状态[\s\S]*角色输入【结算任务】[\s\S]
 assert.doesNotMatch(mainUi, /\.表现\.完成度|\.表现\.记录/);
 assert.doesNotMatch(trialUi, /concat\('表现'|表现\.完成度|表现\.记录/);
 
-assert.match(prompt, /success: status === '可结算'/);
+assert.match(prompt, /success: SETTLEMENT_SUCCESS_STATUSES\.has\(status\)/);
+assert.match(prompt, /failed: SETTLEMENT_FAILURE_STATUSES\.has\(status\)/);
 assert.match(prompt, /空间币[^\n]*结算程序|结算程序[^\n]*空间币/);
 assert.match(prompt, /非空间币奖励|非空间币部分/);
 assert.match(prompt, /禁止[^\n]*计算[^\n]*空间币/);

@@ -32,6 +32,8 @@
     .filter(x => x && !x.includes('空间币'))
     .join('；');
 
+  const SETTLEMENT_SUCCESS_STATUSES = new Set(['可结算','可交付','待结算','结算','已结算','完成','已完成','结算完成']);
+  const SETTLEMENT_FAILURE_STATUSES = new Set(['失败','已失败','任务失败']);
   const settlementTaskList = _.get(rule_data, '任务.列表', {}) || {};
   const settlementTasks = Object.entries(settlementTaskList)
     .filter(([,task]) => ['主神任务','晋升试炼'].includes(String(task?.委托方 || '').trim()))
@@ -41,13 +43,14 @@
         name,
         task,
         status,
-        success: status === '可结算',
+        success: SETTLEMENT_SUCCESS_STATUSES.has(status),
+        failed: SETTLEMENT_FAILURE_STATUSES.has(status),
         nonCoinReward: stripSpaceCoinText(task?.奖励),
         nonCoinPenalty: stripSpaceCoinText(task?.惩罚),
       };
     });
   const settlementSuccessfulTasks = settlementTasks.filter(item => item.success);
-  const settlementUnsuccessfulTasks = settlementTasks.filter(item => !item.success);
+  const settlementFailedTasks = settlementTasks.filter(item => item.failed);
 _%>
 <System_Rules>
 触发条件:
@@ -59,9 +62,9 @@ _%>
 <%_ } _%>
 
 结算职责:
-  - 任务对象: 本次所有【主神任务/晋升试炼】；仅`状态=可结算`视为成功，其余按失败或未完成处理。
+  - 任务对象: 本次所有【主神任务/晋升试炼】；状态属于【可结算/可交付/待结算/结算/已结算/完成/已完成/结算完成】均视为成功；仅【失败/已失败/任务失败】视为明确失败，其余状态仅视为未完成，不得自动判失败。
   - 空间币由结算程序统一统计、封顶、发放与扣除；禁止AI计算、输出金额、修改`角色.空间币`或通过<UpdateVariable>结算空间币。
-  - 成功任务仅处理预设奖励中的非空间币部分；失败/未完成任务仅处理惩罚中的非空间币部分。所有含“空间币”的片段忽略。
+  - 成功任务仅处理预设奖励中的非空间币部分；只有明确失败任务处理惩罚中的非空间币部分，未完成/未知状态不得执行失败惩罚。所有含“空间币”的片段忽略。
   - 晋升资格由结算美化器核验，AI禁止写入资格标记。
 <%_ if (!isSingleWorld) { _%>
   - 跨界战利品若等级高于<user>当前层级，基础数值压缩为【当前层级+1阶】；只按物品原始等级判定一次。
@@ -71,7 +74,7 @@ _%>
   - 高光、传闻与世界后续必须来自已发生事实，禁止补写不存在的剧情。
 
 <dm_think>
-  - 核对任务状态，只执行非空间币奖励与非空间币惩罚；不进行任何空间币运算。
+  - 核对任务状态，只执行成功任务的非空间币奖励与明确失败任务的非空间币惩罚；未完成/未知状态不执行失败惩罚；不进行任何空间币运算。
   - 提炼3-5个真实高光、2-3个世界影响与原住民传闻。
 <%_ if (!isSingleWorld) { _%>
   - 核对跨阶战利品与世界遗物。
@@ -91,7 +94,7 @@ _%>
 * **任务结算结果**:
 <%_ if (settlementTasks.length) { _%>
 <%_ settlementTasks.forEach(item => { _%>
-    * [<%- item.name %>]: <%- item.success ? '完成' : (item.status === '失败' ? '失败' : '未完成') %>
+    * [<%- item.name %>]: <%- item.success ? '完成' : (item.failed ? '失败' : '未完成') %>
 <%_ }); _%>
 <%_ } else { _%>
     * 本次无主神/晋升试炼任务
@@ -144,13 +147,13 @@ _%>
 <%_ } else { _%>
     * 本次无成功任务专属奖励
 <%_ } _%>
-* **失败/未完成惩罚**:
-<%_ if (settlementUnsuccessfulTasks.length) { _%>
-<%_ settlementUnsuccessfulTasks.forEach(item => { _%>
+* **明确失败惩罚**:
+<%_ if (settlementFailedTasks.length) { _%>
+<%_ settlementFailedTasks.forEach(item => { _%>
     * [<%- item.name %>]: <%- item.nonCoinPenalty ? ('强制执行惩罚 -> ' + item.nonCoinPenalty) : '无额外非空间币惩罚' %>
 <%_ }); _%>
 <%_ } else { _%>
-    * 本次无失败或未完成任务
+    * 本次无明确失败任务
 <%_ } _%>
 * 注：空间币明细、封顶、总收益与余额由结算程序根据结算前数据库自动生成，本段禁止AI补写金额。
 

@@ -17,6 +17,7 @@ const parts = [
   '56-rumor-liveliness.part.js',
   '57-task-awareness.part.js',
   '58-chronology-guard.part.js',
+  '59-auto-progress.part.js',
   '60-bootstrap.part.js',
 ];
 
@@ -66,6 +67,9 @@ assert.match(texts['57-task-awareness.part.js'], /projectTaskListForWorld/);
 assert.match(texts['58-chronology-guard.part.js'], /^    \/\/ 原著\/数据库时间轴保护层/);
 assert.match(texts['58-chronology-guard.part.js'], /CHRONOLOGY_GUARD_RULES/);
 assert.match(texts['58-chronology-guard.part.js'], /validateChronologyResult/);
+assert.match(texts['59-auto-progress.part.js'], /^    \/\/ 自动推进策略/);
+assert.match(texts['59-auto-progress.part.js'], /autoProgress/);
+assert.match(texts['59-auto-progress.part.js'], /是否战斗中/);
 assert.match(texts['60-bootstrap.part.js'], /^    \/\/ CommonJS 入口仅供离线测试/);
 assert.match(texts['60-bootstrap.part.js'], /module\.exports/);
 assert.match(texts['60-bootstrap.part.js'], /\}\)\(typeof window !== 'undefined' \? window : globalThis\);\s*$/);

@@ -263,7 +263,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:16,
+        version:17,
         builtin:true,
         name:'默认设置',
         exportedAt:'2026-09-11T12:30:00.000Z',
@@ -283,7 +283,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
 2. 宏观与时间：只用世界.时间计算本世界进展；宏观顺序保持3~5个阶段级节点，细节只推进到下一宏观边界。待发生/进行中事件必须有可排序时间或明确因果时间；无法确认跨度时只推进一步。
 3. 现场与认知：现场群体与环境事实属于势力地区，同一现场事实不得复制进人物。先更新地区现场再决定人物行动；人物只能依据在场、既有认知或传播链行动，不得全知反应。
 4. 人物边界：活跃异端每轮复核，死亡不可恢复；普通人物只保留真正热记录。不得替<user>建立后台行动。主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界局部结算不重置世界。
-5. 资产：顶层资产是唯一资产账簿；所属对象为数组，多主体可共管，空数组表示无主，含<user>表示玩家拥有/共管。可按已确认场外事实新增、更新、转移或移除资产；删除保护中的同名资产不得自动重建。正文/MVU已结算的当前场景变化只同步，不重复结算。
+5. 资产：仅限固定地产、大型载具或要塞；药剂、材料、消耗品、钥匙、剧情物品、单兵装备/形态不得写入资产。顶层资产是唯一资产账簿；所属对象为数组，可按已确认场外事实新增、更新、转移或移除；删除保护中的同名资产不得重建，正文/MVU已结算变化不重复结算。
 6. 玩家台账：探索只结算<user>实际到达、调查或可靠获知的整体区域；探索度以0/10/30/60/90/100为阶段锚点且无因不回退。势力声望只因<user>真实关系结果变化，同一结果只结算一次，单轮绝对变化≤1000，超过500仅限重大事件。
 7. 因果：只在关键人物命运、重大事件结果、势力格局或主线可行性实质改变时记偏移；负值=因果破坏，正值=修复/强化。世界超稳不新增偏移；旧轨道失效时同轮重构宏观顺序。
 8. 公开与基础：当前事件公开字段只写已成为现实且可合理感知的信息。货币只随真实流通体系变化，任务世界不用空间币作本地货币；历法只在可靠设定明确时维护。`;
@@ -1167,6 +1167,9 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
     const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'];
     const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
     const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
+    const WORLD_ASSET_TYPES=['固定地产','大型载具','要塞'];
+    const WORLD_ASSET_TYPE_SET=new Set(WORLD_ASSET_TYPES);
+    const ITEMLIKE_ASSET_NAME=/(?:纹章|免疫|抗性|初解|技能|能力|药剂?|药水|圣水|解药|血清|试剂|瓶|钥匙|摇把|手柄|材料|矿石|零件|部件|残骸|卷轴|食物|口粮|弹药|消耗品|道具|护符|符文|芯片|样本)$/i;
     function schemaFromSample(sample) {
         if(Array.isArray(sample))return {type:'array',items:sample.length?schemaFromSample(sample[0]):{type:'string'}};
         if(plain(sample)){
@@ -1234,7 +1237,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
     const ASSET_RESULT_SCHEMA={
         type:'object',additionalProperties:false,required:['名称'],properties:{
             名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','移除','撤销本轮']},
-            所属对象:{type:'array',items:{type:'string',minLength:1},maxItems:12},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
+            所属对象:{type:'array',items:{type:'string',minLength:1},maxItems:12},类型:{type:'string',enum:copy(WORLD_ASSET_TYPES)},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
             能源:{anyOf:[{type:'object',additionalProperties:false,properties:{类型:{type:'string'},当前:{type:'number'},上限:{type:'number'},描述:{type:'string'}}},{type:'null'}]},
             消耗单元:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{余量:{type:'number'},上限:{type:'number'},加成:{type:'array',items:{type:'string'}}}},{type:'null'}]}},
             建设序列:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{阶段:{type:'string',enum:['基础','进阶','专业','顶尖','禁忌']},功能:{type:'string'},加成:{type:'array',items:{type:'string'}},产出:{type:'string'}}},{type:'null'}]}},
@@ -1804,6 +1807,12 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
     const ASSET_ENERGY_DEFAULTS={类型:'',当前:0,上限:0,描述:''};
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
+    function assertWorldAssetScope(item,isNew=false) {
+        if(!isNew)return;
+        const type=String(item?.类型||'').trim(),name=String(item?.名称||'').trim();
+        if(!WORLD_ASSET_TYPE_SET.has(type))throw new Error('新资产类型非法：'+(name||'未命名')+'；资产只允许固定地产、大型载具或要塞，普通道具/材料/消耗品不得进入资产账簿');
+        if(ITEMLIKE_ASSET_NAME.test(name))throw new Error('疑似道具被误写为资产：'+name+'；请写入角色道具/装备/形态等对应字段，不得写入资产');
+    }
     function materializeAssetRecord(oldValue,item,isNew=false) {
         const oldAsset=plain(oldValue)?copy(oldValue):{},asset=Object.assign(copy(ASSET_DEFAULTS),oldAsset);
         const normalizeOwners=value=>{const source=Array.isArray(value)?value:(value===undefined?[]:[value]),out=[];for(const raw of source){const owner=String(raw??'').trim();if(!owner||owner==='无主'||out.includes(owner))continue;out.push(owner);}return out.slice(0,12);};
@@ -1916,6 +1925,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         for(const item of result.资产||[]){
             if(item.操作==='撤销本轮')continue;
             const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;
+            if(!target&&item.操作!=='移除')assertWorldAssetScope(item,true);
             const tombstoneName=stableNameIn(stat?.世界?.[PATH]?.资产墓碑||{},item.名称);
             if(!target&&item.操作!=='移除'&&tombstoneName)throw new Error('资产已被用户或MVU删除，受删除保护，世界引擎不得重建：'+item.名称);
             if(item.操作==='移除'){
@@ -5324,6 +5334,132 @@ ${schemaText}`;
             request.manifest=Object.assign({},request.manifest,{验收策略:{模式:'分级验收',事件因果锚点可接受:true,传闻补齐:'软维护'}});
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
+            return request;
+        }
+    };
+
+    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
+    const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
+    function explorationLocationContainsArea(location,areaName) {
+        const locationKey=nameKey(location),areaKey=nameKey(areaName);
+        return !!locationKey&&!!areaKey&&(locationKey===areaKey||locationKey.includes(areaKey));
+    }
+    function ensureCurrentExplorationProjection(stat,result) {
+        if(stat?.系统状态?.是否在主神空间)return;
+        const location=String(stat?.世界?.地点||'').trim();if(!location)return;
+        const areas=new Map(Object.entries(stat?.世界?.[PATH]?.势力地区||{}).map(([name,record])=>[nameKey(name),{名称:name,记录:record}]));
+        for(const item of result?.势力地区||[]){
+            if(!plain(item)||item.操作==='撤销本轮')continue;
+            const id=nameKey(item.名称),old=areas.get(id);
+            areas.set(id,{名称:old?.名称||item.名称,记录:Object.assign({},old?.记录||{},item)});
+        }
+        const current=Array.from(areas.values()).filter(item=>plain(item.记录)&&String(item.记录.类型||'地区')!=='势力'&&explorationLocationContainsArea(location,item.名称)).sort((a,b)=>nameKey(b.名称).length-nameKey(a.名称).length)[0];
+        if(!current||explorationGranularity(current.名称).invalid)return;
+        const bucket=stat?.世界?.探索||{},existingName=stableNameIn(bucket,current.名称),existing=existingName?bucket[existingName]:null;
+        const list=Array.isArray(result.探索)?result.探索:(result.探索=[]);
+        const index=list.findIndex(item=>plain(item)&&nameKey(item.名称)===nameKey(current.名称));
+        const explicit=index>=0?list[index]:null,progress=Math.max(10,Number(existing?.探索度)||0,Number(explicit?.探索度)||0);
+        if(existing&&progress===Number(existing.探索度||0)&&!explicit)return;
+        const item={名称:current.名称,操作:'更新',风险:String(explicit?.风险||existing?.风险||'F'),探索度:Math.min(100,progress),描述:String(explicit?.描述||existing?.描述||current.记录.描述||current.记录.公开动态||current.记录.进展||('已实际到达'+current.名称+'。')),隐藏真相:String(explicit?.隐藏真相||existing?.隐藏真相||'')};
+        if(index>=0)list.splice(index,1,item);else list.push(item);
+    }
+    pruneColdExploration=function(){return [];};
+    const compileWorldResultBeforeExplorationProjection=compileWorldResult;
+    compileWorldResult=function(stat,value) {
+        const result=normalizeWorldResult(value);
+        ensureCurrentExplorationProjection(stat,result);
+        return compileWorldResultBeforeExplorationProjection(stat,result);
+    };
+    const SamsaraWorldEngineBeforeExplorationProjection=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeExplorationProjection {
+        async buildRequest(base) {
+            const request=await super.buildRequest(base);
+            request.system=String(request.system||'')+'\n\n'+EXPLORATION_PROJECTION_RULES;
+            return request;
+        }
+    };
+    // 世界完整性保护：统一精确时钟，并把因果偏移阈值落实到请求与编译器。
+    const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间硬约束】
+1. 当前状态的更新时间直接复用当前世界时间（世界.时间）原文，不自行改写成更晚的 HH:mm；已发生事实不得晚于世界.时间。
+2. 偏移只记录已经发生、已确认、不可逆且足以改变关键人物命运、重大事件结果、关键势力格局或主线可行性的结果；日常、交易、普通战斗、普通NPC伤亡、无关主线支线和单纯偏离原著不记录。
+3. 同一已确认根因及其连锁后果只记一条，按最严重的已实现结果结算；禁止把一条因果链拆成多条累计影响。
+4. 预测、风险、可能、潜在或未来尚未发生的后果不产生偏移；稳定下降及其后续世界响应不能反过来成为新的负偏移。
+5. 负值锚点：关键人物命运不可逆改写 -3~-12；重大事件结果不可逆改变 -3~-10；关键势力格局或主线可行性实质破坏 -2~-8；异常污染持续扩大 -1~-10。普通变化不记录。
+6. 正值只来自真实修复：关键人物/重大事件修复 +3~+10；异常清除 +1~+15；势力格局或主线结构修复 +2~+8。高于100不能来自普通善行、胜利或奖励。
+7. 单条总范围仅 -12~-1 或 +1~+15，0 不建记录；同一引发者同轮负向累计不得低于 -12，正向累计不得高于 +15。提交前确认“已发生、命中重大条件、不是已有/本轮同根记录”。
+8. 稳定值由后台汇总，模型不得直接修改。`;
+
+    const worldDateKeyBeforeIntegrityGuard=worldDateKey;
+    worldDateKey=function(value) {
+        const source=String(value||''),base=worldDateKeyBeforeIntegrityGuard(source);
+        if(base===null)return null;
+        const clock=source.match(/(?:^|[日T\s_-])(\d{1,2}):([0-5]\d)(?::([0-5]\d))?/);
+        if(!clock)return base;
+        const hour=Number(clock[1]),minute=Number(clock[2]),second=Number(clock[3]||0);
+        if(!Number.isInteger(hour)||hour<0||hour>23)return null;
+        return Math.floor(base/24)*24+hour+minute/60+second/3600;
+    };
+
+    OFFSET_RESULT_SCHEMA.properties.影响程度.minimum=-12;
+    OFFSET_RESULT_SCHEMA.properties.影响程度.maximum=15;
+
+    const CAUSAL_CHAIN_HINT=/(?:余波|后续|进一步|继续|继而|因此|由此|连锁|衍生|扩散|扩大|反应|吸引力|同一(?:契约|事件|行为|根因))/;
+    const CAUSAL_SPECULATION_HINT=/(?:可能|或许|预计|预期|将会|或将|未来(?:会|可能|将)|潜在|恐怕|有望)/;
+    const CAUSAL_RESPONSE_HINT=/(?:稳定值(?:持续)?下降|世界排异(?:反应|升级|增强)?|排异强度)/;
+    function validateCausalOffsets(stat,result) {
+        const items=Array.isArray(result?.因果?.偏移记录)?result.因果.偏移记录:[];
+        if(!items.length)return;
+        const existing=stat?.世界?.因果轨道?.偏移记录||{},groups=new Map();
+        for(const item of items){
+            if(!plain(item)||item.操作==='撤销本轮')continue;
+            const isNew=!stableNameIn(existing,item.名称),hasImpact=Object.hasOwn(item,'影响程度');
+            if(isNew&&!hasImpact)throw new Error('新增因果偏移必须给出非零影响程度，且单条仅允许 -12~-1 或 +1~+15：'+String(item.名称||''));
+            if(!hasImpact)continue;
+            const impact=Number(item.影响程度);
+            if(!Number.isFinite(impact)||impact<-12||impact>15)throw new Error('因果偏移影响程度超出协议：'+String(item.名称||'')+'='+String(item.影响程度)+'；单条只允许 -12~-1 或 +1~+15');
+            if(isNew&&impact===0)throw new Error('零影响不建立因果偏移记录：'+String(item.名称||''));
+            if(!isNew||impact===0)continue;
+            const text=[item.名称,item.描述].filter(Boolean).join(' ');
+            if(CAUSAL_SPECULATION_HINT.test(text))throw new Error('因果偏移不能按预测或风险提前结算：'+String(item.名称||''));
+            if(impact<0&&CAUSAL_RESPONSE_HINT.test(text))throw new Error('稳定下降或世界响应不能作为新的负偏移继续累计：'+String(item.名称||''));
+            const actor=String(item.引发者||'').trim();
+            if(!actor)continue;
+            const key=actor.toLowerCase(),group=groups.get(key)||[];
+            group.push({impact,text});groups.set(key,group);
+        }
+        for(const [actor,group] of groups){
+            const negative=group.filter(entry=>entry.impact<0),positive=group.filter(entry=>entry.impact>0);
+            const negativeTotal=negative.reduce((sum,entry)=>sum+entry.impact,0),positiveTotal=positive.reduce((sum,entry)=>sum+entry.impact,0);
+            if(negativeTotal<-12)throw new Error('同一引发者同轮负向因果偏移累计超过 -12：'+actor+'='+negativeTotal+'；同一根因及其连锁后果必须合并');
+            if(positiveTotal>15)throw new Error('同一引发者同轮正向因果偏移累计超过 +15：'+actor+'=+'+positiveTotal+'；同一根因及其连锁结果必须合并');
+            if(group.length>1&&group.some(entry=>CAUSAL_CHAIN_HINT.test(entry.text)))throw new Error('同一根因的连锁后果必须合并为一条因果偏移：'+actor);
+        }
+    }
+
+    const compileWorldResultBeforeIntegrityGuard=compileWorldResult;
+    compileWorldResult=function(stat,value) {
+        const result=normalizeWorldResult(value);
+        validateCausalOffsets(stat,result);
+        return compileWorldResultBeforeIntegrityGuard(stat,result);
+    };
+
+    const retryPlanBeforeIntegrityGuard=retryPlanForFailure;
+    retryPlanForFailure=function(error,rejected=[]) {
+        const plan=retryPlanBeforeIntegrityGuard(error,rejected).slice();
+        const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
+        if(/因果偏移|同一根因/.test(message))plan.unshift('因果偏移：只提交已经发生的重大不可逆结果；同一根因与连锁后果合并成一条，预测不提前结算，单条仅 -12~-1 或 +1~+15。');
+        if(/时间事实超过当前世界时间/.test(message))plan.unshift('当前事实时间：人物/地区/传播的更新时间直接复用请求中的当前世界时间原文；未来计划放预计结束、下次检查或待发生事件。');
+        return Array.from(new Set(plan.filter(Boolean)));
+    };
+
+    const SamsaraWorldEngineBeforeIntegrityGuard=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeIntegrityGuard {
+        async buildRequest(base) {
+            const request=await super.buildRequest(base);
+            request.system=String(request.system||'')+'\n\n'+WORLD_INTEGRITY_GUARD_RULES;
+            request.manifest=request.manifest||{};
+            request.manifest.因果与时间硬约束={启用:true,单条影响范围:'-12~-1 / +1~+15',当前事实时间:'复用世界.时间原文'};
+            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
             return request;
         }
     };

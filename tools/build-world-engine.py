@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,10 +20,6 @@ PARTS = (
     '60-bootstrap.part.js',
 )
 
-TEMP_PATCH = ROOT / 'tools' / 'patch-credential-explanation.py'
-TEMP_SOURCE = SOURCE_DIR / '58-chronology-guard.part.js'
-TEMP_MARKER = '// TEMP_CREDENTIAL_EXPLANATION_DELIVERY\n'
-
 
 def assembled_source() -> str:
     missing = [name for name in PARTS if not (SOURCE_DIR / name).is_file()]
@@ -34,43 +28,10 @@ def assembled_source() -> str:
     return ''.join((SOURCE_DIR / name).read_text(encoding='utf-8') for name in PARTS)
 
 
-def prepare_credential_explanation_delivery() -> None:
-    if not TEMP_PATCH.is_file():
-        return
-
-    subprocess.run([sys.executable, str(TEMP_PATCH), 'test'], cwd=ROOT, check=True)
-    red = subprocess.run(['node', 'tests/task-settlement-simplified.cjs'], cwd=ROOT)
-    if red.returncode == 0:
-        raise SystemExit('credential explanation regression unexpectedly passed before implementation')
-    print('credential explanation regression is red as expected')
-
-    subprocess.run([sys.executable, str(TEMP_PATCH), 'impl'], cwd=ROOT, check=True)
-    subprocess.run(['node', 'tests/task-settlement-simplified.cjs'], cwd=ROOT, check=True)
-    subprocess.run(['node', 'tests/credential-ledger-integration.cjs'], cwd=ROOT, check=True)
-
-    source = TEMP_SOURCE.read_text(encoding='utf-8')
-    if TEMP_MARKER not in source:
-        if source and not source.endswith('\n'):
-            source += '\n'
-        source += TEMP_MARKER
-        TEMP_SOURCE.write_text(source, encoding='utf-8')
-
-    subprocess.run([
-        'git', 'add',
-        'Regular/结算任务美化.html',
-        'tests/task-settlement-simplified.cjs',
-        'script/world-engine-src/58-chronology-guard.part.js',
-    ], cwd=ROOT, check=True)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description='Assemble the single-file Tavern world engine delivery script.')
     parser.add_argument('--check', action='store_true', help='fail if the checked-in delivery file is not identical to the source parts')
     args = parser.parse_args()
-
-    if not args.check:
-        prepare_credential_explanation_delivery()
-
     built = assembled_source()
     if args.check:
         current = OUTPUT.read_text(encoding='utf-8') if OUTPUT.is_file() else ''

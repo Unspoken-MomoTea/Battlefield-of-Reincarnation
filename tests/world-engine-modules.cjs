@@ -52,7 +52,7 @@ assert.match(settlementHtml, /单一世界继续使用同一世界：探索档�
 assert.doesNotMatch(settlementHtml, /探索结算基线/, '单一世界不再维护探索结算基线');
 const settlementPrompt = fs.readFileSync(path.join(root, 'World Book', '【结算任务】[mvu_plot].txt'), 'utf8');
 assert.doesNotMatch(settlementPrompt, /探索结算基线|只计算自上次阶段结算后新增的探索度/);
-assert.match(settlementPrompt, /单一世界不结算世界探索与势力羁绊附加收益/, '单一世界探索与势力都不应奖励空间币');
+assert.match(settlementPrompt, /当前清算不结算世界探索与势力羁绊附加收益/, '当前清算分支中探索与势力都不应奖励空间币');
 assert.match(texts['55-policy-compat.part.js'], /^    \/\/ 可选策略层/);
 assert.match(texts['55-policy-compat.part.js'], /npcBuildAuditEnabled/);
 assert.match(texts['55-policy-compat.part.js'], /事件前因不存在/);

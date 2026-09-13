@@ -28,6 +28,9 @@ assert.match(prompt, /任务｜<%- item\.name %>/);
 assert.match(prompt, /任务基础收益合计 = Σ/);
 assert.match(prompt, /settlementTaskBaseTotal \* 10/);
 assert.match(prompt, /失败\/未完成惩罚/);
+assert.doesNotMatch(prompt, /任务完成率与世界稳定值核算|奖励基准评级对应基础奖励|单一世界不结算/);
+assert.match(prompt, /任务专属奖励 = 仅提取本次成功任务/);
+assert.match(prompt, /世界难度最低评级基础奖励/);
 
 assert.match(settleUi, /function taskSucceeded\(task\)/);
 assert.match(settleUi, /const settlementTaskKeys = readSettlementTaskKeys/);

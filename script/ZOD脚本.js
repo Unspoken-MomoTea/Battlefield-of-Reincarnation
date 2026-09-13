@@ -594,6 +594,8 @@ export const Schema = z.object({
         试炼已完成: boolPreprocess(false),
         是否在主神空间: boolPreprocess(false),
         待播报记录: safeStr(''),
+        // 最近一次已经执行空间币结算的结算消息楼层ID；程序自管，AI不可见。
+        结算空间币记录: safeStr(''),
         // 真实游玩天数: 世界.时间 的日期(年月日)每变动一次自动+1, 单调递增, 免疫副本时间跳跃(脚本自动维护)
         游玩天数: safeNum(0),
         // 日期变动检测锚点: 上次解析到的 世界.时间 日期(脚本自动维护)

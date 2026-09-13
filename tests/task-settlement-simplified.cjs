@@ -38,7 +38,8 @@ assert.match(settleUi, /SETTLEMENT_CREDENTIAL_CORE_START/);
 assert.match(settleUi, /function resolveCredentialDecision\s*\(/);
 assert.match(settleUi, /const credentialDecision = resolveCredentialDecision\(settlementBaselineData\)/);
 assert.match(settleUi, /renderCredentialPanel\(credentialDecision\)/);
-assert.match(settleUi, /settlementStat\.角色\.空间币\s*=\s*spaceCoinSettlement\.balanceAfter/);
+assert.match(settleUi, /settlementCoinWriteTarget\(currentCoin, spaceCoinSettlement\)/);
+assert.doesNotMatch(settleUi, /settlementStat\.角色\.空间币\s*=\s*spaceCoinSettlement\.balanceAfter/);
 assert.doesNotMatch(settleUi, /function taskSucceeded\(task\)|function taskCompletion\(task\)|taskAssess|\.st-task-assess/);
 assert.match(settleUi, /settlementTaskKeys\.forEach/);
 

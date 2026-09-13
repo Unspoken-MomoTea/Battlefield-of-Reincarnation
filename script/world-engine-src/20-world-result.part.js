@@ -34,6 +34,9 @@
     const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'];
     const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
     const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
+    const WORLD_ASSET_TYPES=['固定地产','大型载具','要塞'];
+    const WORLD_ASSET_TYPE_SET=new Set(WORLD_ASSET_TYPES);
+    const ITEMLIKE_ASSET_NAME=/(?:纹章|免疫|抗性|初解|技能|能力|药剂?|药水|圣水|解药|血清|试剂|瓶|钥匙|摇把|手柄|材料|矿石|零件|部件|残骸|卷轴|食物|口粮|弹药|消耗品|道具|护符|符文|芯片|样本)$/i;
     function schemaFromSample(sample) {
         if(Array.isArray(sample))return {type:'array',items:sample.length?schemaFromSample(sample[0]):{type:'string'}};
         if(plain(sample)){
@@ -101,7 +104,7 @@
     const ASSET_RESULT_SCHEMA={
         type:'object',additionalProperties:false,required:['名称'],properties:{
             名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','移除','撤销本轮']},
-            所属对象:{type:'array',items:{type:'string',minLength:1},maxItems:12},类型:{type:'string'},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
+            所属对象:{type:'array',items:{type:'string',minLength:1},maxItems:12},类型:{type:'string',enum:copy(WORLD_ASSET_TYPES)},主体规模:{type:'number',minimum:1,maximum:10},完整度:{type:'number',minimum:0,maximum:100},状态:{type:'string'},
             能源:{anyOf:[{type:'object',additionalProperties:false,properties:{类型:{type:'string'},当前:{type:'number'},上限:{type:'number'},描述:{type:'string'}}},{type:'null'}]},
             消耗单元:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{余量:{type:'number'},上限:{type:'number'},加成:{type:'array',items:{type:'string'}}}},{type:'null'}]}},
             建设序列:{type:'object',additionalProperties:{anyOf:[{type:'object',additionalProperties:false,properties:{阶段:{type:'string',enum:['基础','进阶','专业','顶尖','禁忌']},功能:{type:'string'},加成:{type:'array',items:{type:'string'}},产出:{type:'string'}}},{type:'null'}]}},
@@ -671,6 +674,12 @@
     const ASSET_ENERGY_DEFAULTS={类型:'',当前:0,上限:0,描述:''};
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
+    function assertWorldAssetScope(item,isNew=false) {
+        if(!isNew)return;
+        const type=String(item?.类型||'').trim(),name=String(item?.名称||'').trim();
+        if(!WORLD_ASSET_TYPE_SET.has(type))throw new Error('新资产类型非法：'+(name||'未命名')+'；资产只允许固定地产、大型载具或要塞，普通道具/材料/消耗品不得进入资产账簿');
+        if(ITEMLIKE_ASSET_NAME.test(name))throw new Error('疑似道具被误写为资产：'+name+'；请写入角色道具/装备/形态等对应字段，不得写入资产');
+    }
     function materializeAssetRecord(oldValue,item,isNew=false) {
         const oldAsset=plain(oldValue)?copy(oldValue):{},asset=Object.assign(copy(ASSET_DEFAULTS),oldAsset);
         const normalizeOwners=value=>{const source=Array.isArray(value)?value:(value===undefined?[]:[value]),out=[];for(const raw of source){const owner=String(raw??'').trim();if(!owner||owner==='无主'||out.includes(owner))continue;out.push(owner);}return out.slice(0,12);};
@@ -783,6 +792,7 @@
         for(const item of result.资产||[]){
             if(item.操作==='撤销本轮')continue;
             const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;
+            if(!target&&item.操作!=='移除')assertWorldAssetScope(item,true);
             const tombstoneName=stableNameIn(stat?.世界?.[PATH]?.资产墓碑||{},item.名称);
             if(!target&&item.操作!=='移除'&&tombstoneName)throw new Error('资产已被用户或MVU删除，受删除保护，世界引擎不得重建：'+item.名称);
             if(item.操作==='移除'){

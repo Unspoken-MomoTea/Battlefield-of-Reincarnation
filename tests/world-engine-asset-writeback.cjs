@@ -11,6 +11,7 @@ const {
 const assetSchema = WORLD_RESULT_SCHEMA.properties.资产;
 assert.ok(assetSchema, 'WorldResult 必须开放资产业务字段');
 assert.deepEqual(assetSchema.items.properties.操作.enum, ['更新', '移除', '撤销本轮']);
+assert.deepEqual(assetSchema.items.properties.类型.enum, ['固定地产', '大型载具', '要塞'], '新资产类型必须收敛到正式资产分类');
 assert.ok(assetSchema.items.properties.所属对象, '资产结果必须支持所属对象');
 assert.ok(assetSchema.items.properties.能源, '资产结果必须支持能源变化');
 assert.ok(assetSchema.items.properties.消耗单元, '资产结果必须支持消耗单元变化');
@@ -132,6 +133,16 @@ assert.throws(() => compileWorldResult(next, {
   资产: [{ 名称: '无主仓库', 类型: '固定地产' }],
 }), /所属对象/, '新资产必须明确归属，禁止默认把世界资产送给玩家');
 
+assert.throws(() => compileWorldResult(next, {
+  摘要: '错误地把药剂登记成资产。',
+  资产: [{ 名称: '便携圣水破魔瓶', 类型: '固定地产', 所属对象: ['<user>'] }],
+}), /疑似道具被误写为资产/, '即使模型伪造固定地产类型，明显道具名也必须被程序拦截');
+assert.throws(() => compileWorldResult(next, {
+  摘要: '错误地把消耗品登记成资产。',
+  资产: [{ 名称: '测试消耗品', 类型: '消耗品', 所属对象: ['<user>'] }],
+}), /新资产类型非法/, '新资产不得使用消耗品等非法类型');
+
+
 const projected = projectWorldContext(next);
 assert.deepEqual(projected.资产.远征堡.所属对象, ['白银之手'], '世界引擎上下文必须看到势力资产与归属');
 assert.ok(projected.资产.南门前线要塞, '世界引擎必须读取非玩家资产');
@@ -155,9 +166,11 @@ assert.match(zod, /const assetOwners[\s\S]{0,220}z\.array\(z\.string\(\)\)/, '�
 assert.match(zod, /所属对象:\s*assetOwners/, '资产 Schema 应使用所属对象数组规范器');
 assert.match(mvuRules, /所属对象:[\s\S]{0,260}string\[\][\s\S]{0,260}(?:多个对象|共同持有|共管|空数组)/, '变量规则必须定义多主体/无主资产归属');
 assert.match(assetRules, /所属对象[\s\S]{0,320}字符串数组[\s\S]{0,320}(?:多方共管|空数组|无主)/, '资产规则必须定义数组、多主体与无主归属');
+assert.match(assetRules, /普通道具、药剂、材料、消耗品/, '资产规则必须明确禁止普通物品入账');
+assert.match(mvuRules, /资产仅限固定地产、大型载具或要塞/, '普通变量 AI 也必须遵守资产边界');
 assert.match(source, /WorldResult\.资产|资产账簿/, '世界引擎提示词必须明确资产写入职责');
 assert.match(source, /场外[^\n]{0,160}资产[^\n]{0,160}(?:新增|更新|移除|转移)|资产[^\n]{0,160}(?:新增|更新|移除|转移)/, 'Prompt 应允许世界引擎维护资产变化');
-assert.match(source, /version:13,\n        builtin:true,\n        name:'默认设置'/, '资产写回语义变更应升级内置默认提示词到 v13');
+assert.match(source, /version:17,\n        builtin:true,\n        name:'默认设置'/, '资产边界收紧应升级内置默认提示词到 v17');
 assert.match(variables, /isPlayerOwnedAsset/, '正文变量投影必须区分玩家资产与世界资产');
 assert.match(helper, /isPlayerOwnedAsset/, '自动收菜必须区分玩家资产与世界资产');
 assert.match(checks, /所属对象[^\n]*(?:执行者|角色)/, '资产检定加值必须受所属对象约束');

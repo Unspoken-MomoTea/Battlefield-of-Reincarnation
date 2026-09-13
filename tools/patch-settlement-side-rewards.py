@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# one-off renderer migration; removed after CI applies and verifies it
 path = Path('Regular/结算任务美化.html')
 text = path.read_text(encoding='utf-8')
 

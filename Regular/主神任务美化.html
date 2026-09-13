@@ -1293,6 +1293,8 @@
                 win._.set(c, key + '.交付', '结算副本时统一发放');
                 win._.set(c, key + '.状态', '进行中');
                 win._.set(c, key + '.惩罚', t.punish || '');
+                win._.set(c, key + '.表现.完成度', 0);
+                win._.set(c, key + '.表现.记录', {});
                 changed = true;
               });
 

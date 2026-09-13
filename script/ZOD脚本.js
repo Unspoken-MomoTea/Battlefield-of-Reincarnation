@@ -504,7 +504,13 @@ export const Schema = z.object({
             奖励: safeStr(''),
             交付: safeStr(''),
             状态: z.enum(['进行中', '可交付', '可结算', '失败']).prefault('进行中'), // 【修复】收束任务状态
-            惩罚: safeStr('')
+            惩罚: safeStr(''),
+            表现: z.object({
+                完成度: clampNum(0, 0, 100),
+                记录: z.record(z.string(), clampNum(0, -2, 2)).prefault({}).transform(items =>
+                    Object.fromEntries(Object.entries(items).filter(([, v]) => [-2, -1, 1, 2].includes(v)))
+                )
+            }).prefault({})
         }))).prefault({}),
         // 副本成就: 首次从未达成变为已达成时，由结算美化脚本发放奖励
         副本成就: z.record(z.string(), strictItem(z.object({

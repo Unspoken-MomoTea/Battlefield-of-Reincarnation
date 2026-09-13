@@ -602,6 +602,8 @@
             set(c,taskPath.concat('交付'),'全部试炼主任务完成后统一结算');
             set(c,taskPath.concat('状态'),'进行中');
             set(c,taskPath.concat('惩罚'),task.punish || '本次晋升试炼失败');
+            set(c,taskPath.concat('表现','完成度'),0);
+            set(c,taskPath.concat('表现','记录'),{});
           });
 
           if (!expectedSingle) {

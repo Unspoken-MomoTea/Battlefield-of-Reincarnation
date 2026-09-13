@@ -21,12 +21,28 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           p = Path('tools/migrate-task-performance-settlement.py')
-          text = p.read_text(encoding='utf-8')
-          old = 'think_pattern = r"  调取字典与公式算账 \\(严格执行上述读取协议\\)：\\n.*?(?=    - 惩罚核查:)"'
-          new = 'think_pattern = r"  调取字典与公式算账[^\\n]*：\\n.*?(?=    - 惩罚核查:)"'
-          if old not in text:
-              raise SystemExit('migration matcher anchor not found')
-          p.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
+          lines = p.read_text(encoding='utf-8').splitlines()
+          start = next(i for i, line in enumerate(lines) if line.startswith('think_pattern ='))
+          end = next(i for i in range(start, len(lines)) if "settlement prompt: dm_think replacement mismatch" in lines[i])
+          replacement = '''think_old = """  调取字典与公式算账 (严格执行上述读取协议)：
+          <%_ if (!isSingleWorld) { _%>
+              - 确定读取：提取当前世界难度的最低评级，锁定【奖励基准评级】与对应的【基础奖励】常数
+          <%_ } else { _%>
+              - 确定读取：提取本次结算已完成主神任务中的最高评级，锁定【奖励基准评级】与对应的【基础奖励】常数
+          <%_ } _%>
+              - 评级打分：根据完成度得出 S-F，锁定【任务表现评级乘数】
+          """
+          think_new = """  调取字典与公式算账：
+              - 逐任务采用模板锁定的表现评级与基础收益，禁止重新打分
+          """
+          if think_new not in text:
+              if think_old not in text:
+                  raise SystemExit('settlement prompt: dm_think block mismatch')
+              text = text.replace(think_old, think_new, 1)'''.splitlines()
+          # remove indentation introduced solely for this workflow heredoc
+          replacement = [line[10:] if line.startswith('          ') else line for line in replacement]
+          lines[start:end + 1] = replacement
+          p.write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
           PY
       - name: Apply task performance migration
         run: python tools/migrate-task-performance-settlement.py

@@ -45,3 +45,38 @@
         });
         return candidates[0];
     }
+    function ensureCurrentExplorationProjection(stat,result) {
+        const region=currentExplorationProjectionRegion(stat,result);if(!region)return null;
+        const name=String(region.名称||'').trim();if(!name||explorationGranularity(name).invalid)return null;
+        const bucket=stat?.世界?.探索||{},storedEntries=Object.entries(bucket);
+        let storedName=Object.hasOwn(bucket,name)?name:stableNameIn(bucket,name);
+        if(!storedName){
+            const matches=storedEntries.filter(([candidate])=>explorationProjectionEquivalent(candidate,name));
+            if(matches.length===1)storedName=matches[0][0];
+        }
+        const resultList=Array.isArray(result.探索)?result.探索:(result.探索=[]);
+        const resultIndex=resultList.findIndex(item=>plain(item)&&item.操作!=='撤销本轮'&&explorationProjectionEquivalent(item.名称,name));
+        const explicit=resultIndex>=0?resultList[resultIndex]:null;
+        const stored=storedName&&plain(bucket[storedName])?bucket[storedName]:null;
+        const currentProgress=Math.max(Number(stored?.探索度)||0,Number(explicit?.探索度)||0,10);
+        const description=String(explicit?.描述||stored?.描述||region.记录?.描述||region.记录?.公开动态||region.记录?.进展||('已实际到达'+name+'。'));
+        const record={名称:name,操作:'更新',风险:String(explicit?.风险||stored?.风险||'F'),探索度:Math.min(100,currentProgress),描述:description,隐藏真相:String(explicit?.隐藏真相||stored?.隐藏真相||'')};
+        if(explicit)resultList.splice(resultIndex,1,record);
+        else if(!stored||Number(stored.探索度)<10||storedName!==name)resultList.push(record);
+        return {名称:name,旧名称:storedName&&storedName!==name?storedName:''};
+    }
+
+    pruneColdExploration=function(){return [];};
+
+    const compileWorldResultBeforeExplorationProjection=compileWorldResult;
+    compileWorldResult=function(stat,value) {
+        const result=normalizeWorldResult(value);
+        const projection=ensureCurrentExplorationProjection(stat,result);
+        const compiled=compileWorldResultBeforeExplorationProjection(stat,result);
+        if(projection?.旧名称){
+            const removePath=pointer(['世界','探索',projection.旧名称]);
+            if(!compiled.patches.some(patch=>patch.op==='remove'&&patch.path===removePath))compiled.patches.push({op:'remove',path:removePath});
+            compiled.warnings.push('探索名称规范化：'+projection.旧名称+' → '+projection.名称);
+        }
+        return compiled;
+    };

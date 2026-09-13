@@ -31,8 +31,8 @@ assert.match(settleUi, /SETTLEMENT_COIN_CORE_START/);
 assert.match(settleUi, /function calculateSpaceCoinSettlement\s*\(/);
 assert.match(settleUi, /function injectProgrammaticIncomeStage\s*\(/);
 assert.match(settleUi, /killCap\s*=\s*base\s*\*\s*10/);
-assert.match(settleUi, /explorationCap\s*=\s*base\s*;/);
-assert.match(settleUi, /reputationCap\s*=\s*base\s*;/);
+assert.match(settleUi, /explorationCap\s*=\s*base\s*\*\s*3/);
+assert.match(settleUi, /reputationCap\s*=\s*base\s*\*\s*3/);
 assert.match(settleUi, /SETTLEMENT_CREDENTIAL_CORE_START/);
 assert.match(settleUi, /settlementStat\.角色\.空间币\s*=\s*spaceCoinSettlement\.balanceAfter/);
 assert.doesNotMatch(settleUi, /function taskSucceeded\(task\)|function taskCompletion\(task\)|taskAssess|\.st-task-assess/);
@@ -77,36 +77,51 @@ assert.equal(ordinary.taskReward, 5000, 'only successful main/trial task coin re
 assert.equal(ordinary.killRaw, 240000);
 assert.equal(ordinary.killCap, 120000);
 assert.equal(ordinary.killReward, 120000, 'kill reward must respect x10 cap');
-assert.equal(ordinary.explorationRaw, 4800);
-assert.equal(ordinary.explorationCap, 12000);
-assert.equal(ordinary.explorationReward, 4800, 'a fully explored region should be worth 10% of base; exploration is globally capped at x1');
-assert.equal(ordinary.reputationRaw, 480);
-assert.equal(ordinary.reputationCap, 12000);
-assert.equal(ordinary.reputationReward, 480, 'positive reputation should normalize against the 10000-point scale and cap at x1');
+assert.equal(ordinary.explorationRaw, 24000);
+assert.equal(ordinary.explorationCap, 36000);
+assert.equal(ordinary.explorationReward, 24000, 'each 100% exploration target is worth 50% of base and exploration is globally capped at x3');
+assert.equal(ordinary.reputationRaw, 48000);
+assert.equal(ordinary.reputationCap, 36000);
+assert.equal(ordinary.reputationReward, 36000, 'positive reputation keeps the original formula and x3 cap');
 assert.equal(ordinary.penalty, 2000);
-assert.equal(ordinary.totalReward, 128280);
+assert.equal(ordinary.totalReward, 183000);
 assert.equal(ordinary.balanceBefore, 1000);
-assert.equal(ordinary.balanceAfter, 129280);
+assert.equal(ordinary.balanceAfter, 184000);
 assert.equal(core.stripSpaceCoinText('5000空间币；A级治疗凭证×1'), 'A级治疗凭证×1');
 assert.equal(core.stripSpaceCoinText('大量空间币；深渊标记'), '深渊标记');
 
-const smallExploration = {
+const incompleteExploration = {
   stat_data: {
     设置: { 单一世界: false },
     角色: { 空间币: 0 },
     世界: {
       难度: 'D',
-      探索: { '帝都·贫民窟外围': { 探索度: 10 } },
+      探索: {
+        '帝都·贫民窟外围': { 探索度: 10 },
+        '帝都·下水道': { 探索度: 90 },
+        '帝都·钟楼': { 探索度: 100 },
+      },
       势力: { 帝都守备队: { 声望: 300 } },
     },
     任务: { 击杀: {}, 列表: {} },
   },
 };
-const small = core.calculateSpaceCoinSettlement(smallExploration);
-assert.equal(small.base, 2500);
-assert.equal(small.explorationReward, 25, '10% exploration of one region should only be 1% of base reward');
-assert.equal(small.reputationReward, 75, '300 positive reputation should be 3% of base reward');
-assert.equal(small.totalReward, 100);
+const incomplete = core.calculateSpaceCoinSettlement(incompleteExploration);
+assert.equal(incomplete.base, 2500);
+assert.equal(incomplete.explorationDetails.length, 1, 'only 100% exploration targets may enter settlement');
+assert.equal(incomplete.explorationReward, 1250, 'one completed exploration target is worth 50% of base');
+assert.equal(incomplete.reputationReward, 7500, '300 positive reputation reaches the original x3 cap at D base');
+assert.equal(incomplete.totalReward, 8750);
+
+const explorationCapData = JSON.parse(JSON.stringify(incompleteExploration));
+explorationCapData.stat_data.世界.探索 = {
+  A:{探索度:100}, B:{探索度:100}, C:{探索度:100}, D:{探索度:100}, E:{探索度:100}, F:{探索度:100}, G:{探索度:100}
+};
+explorationCapData.stat_data.世界.势力 = {};
+const cappedExploration = core.calculateSpaceCoinSettlement(explorationCapData);
+assert.equal(cappedExploration.explorationRaw, 8750);
+assert.equal(cappedExploration.explorationCap, 7500);
+assert.equal(cappedExploration.explorationReward, 7500, 'exploration reward must stop at x3 base');
 
 const singleData = JSON.parse(JSON.stringify(baseline));
 singleData.stat_data.设置.单一世界 = true;
@@ -151,18 +166,32 @@ const failedCredential = resolveCredentialGrant({
 });
 assert.equal(failedCredential, null, 'no successful main task means no permission credential');
 
-const successfulCredential = resolveCredentialGrant({
+const ordinaryCredential = resolveCredentialGrant({
   stat_data: {
     设置: { 单一世界: false },
     角色: { 层级: 'Ⅰ' },
-    世界: { 难度: 'F~SSS' },
+    世界: { 难度: 'D~A' },
     任务: { 列表: {
-      任务一: { 委托方: '主神任务', 状态: '可结算', 难度: 'D' },
-      任务二: { 委托方: '主神任务', 状态: '失败', 难度: 'A' },
+      任务一: { 委托方: '主神任务', 状态: '可结算', 难度: 'A' },
+      任务二: { 委托方: '主神任务', 状态: '失败', 难度: 'SSS' },
     } },
   },
 });
-assert.equal(successfulCredential && successfulCredential.grade, 'D', 'credential grade should come from the highest successful main-task difficulty, not world difficulty or failed tasks');
+assert.equal(ordinaryCredential && ordinaryCredential.grade, 'D', 'ordinary reincarnation worlds grant by world minimum difficulty once any main task succeeds');
+
+const singleWorldCredential = resolveCredentialGrant({
+  stat_data: {
+    设置: { 单一世界: true },
+    角色: { 层级: 'Ⅰ' },
+    世界: { 难度: 'D~A' },
+    任务: { 列表: {
+      任务一: { 委托方: '主神任务', 状态: '可结算', 难度: 'C' },
+      任务二: { 委托方: '主神任务', 状态: '可结算', 难度: 'B' },
+      任务三: { 委托方: '主神任务', 状态: '失败', 难度: 'SSS' },
+    } },
+  },
+});
+assert.equal(singleWorldCredential && singleWorldCredential.grade, 'B', 'single-world credential grade comes from the highest successful main-task difficulty');
 
 for (const [name, html] of [['主神任务美化', mainUi], ['试炼任务美化', trialUi], ['结算任务美化', settleUi]]) {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);

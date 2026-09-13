@@ -19,6 +19,7 @@ PARTS = (
     '58-chronology-guard.part.js',
     '59-auto-progress.part.js',
     '59-soft-maintenance.part.js',
+    '59-world-integrity-guard.part.js',
     '60-bootstrap.part.js',
 )
 

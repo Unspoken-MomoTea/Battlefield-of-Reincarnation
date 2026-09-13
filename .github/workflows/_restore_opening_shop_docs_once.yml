@@ -1,0 +1,36 @@
+name: Restore Opening Shop Docs Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/_restore_opening_shop_docs_once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore untouched rule documents
+        shell: bash
+        run: |
+          git checkout ed886587a398eb87ede27392d248adf209fca399 -- "World Book/⚙️品质效果数值规则.txt" "World Book/⚙️实体生成规则.txt"
+      - name: Verify only intended documents changed
+        shell: bash
+        run: |
+          git diff --exit-code -- . ':!.github/workflows/_restore_opening_shop_docs_once.yml' ':!World Book/⚙️品质效果数值规则.txt' ':!World Book/⚙️实体生成规则.txt'
+          git diff --check -- "World Book/⚙️品质效果数值规则.txt" "World Book/⚙️实体生成规则.txt"
+      - name: Commit restore and remove one-shot workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/_restore_opening_shop_docs_once.yml
+          git add "World Book/⚙️品质效果数值规则.txt" "World Book/⚙️实体生成规则.txt"
+          git commit -m "revert: restore generation rule documents"
+          git push

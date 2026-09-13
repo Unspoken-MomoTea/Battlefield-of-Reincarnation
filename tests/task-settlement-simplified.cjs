@@ -43,7 +43,10 @@ assert.match(settleUi, /settlementTaskKeys\.forEach/);
 
 const coreMatch = settleUi.match(/\/\/ SETTLEMENT_COIN_CORE_START([\s\S]*?)\/\/ SETTLEMENT_COIN_CORE_END/);
 assert(coreMatch, 'settlement coin core should be extractable for deterministic regression');
-const core = new Function(coreMatch[1] + '\nreturn { calculateSpaceCoinSettlement, stripSpaceCoinText };')();
+const statusHelperMatch = settleUi.match(/const SETTLEMENT_SUCCESS_STATUSES[\s\S]*?function isSettlementTaskTerminal\(value\) \{[^\n]+\}/);
+assert(statusHelperMatch, 'settlement task status helpers should be extractable');
+const statusHelper = statusHelperMatch[0];
+const core = new Function(statusHelper + '\n' + coreMatch[1] + '\nreturn { calculateSpaceCoinSettlement, stripSpaceCoinText };')();
 
 const baseline = {
   stat_data: {
@@ -152,6 +155,7 @@ const credentialResolvers = new Function(`
     for (const g of all) if (GRADES.indexOf(g) < GRADES.indexOf(best)) best = g;
     return best;
   }
+  ${statusHelper}
   ${credentialMatch[1]}
   return { resolveCredentialGrant, resolveCredentialDecision };
 `)();

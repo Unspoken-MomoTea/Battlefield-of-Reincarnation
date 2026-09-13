@@ -552,6 +552,14 @@
 
           const GRADES = ['F','E','D','C','B','A','S','SS','SSS'];
 
+          // 结算容错：主神任务/晋升试炼的完成态允许常见同义写法，避免AI偶发措辞漂移被误判失败。
+          const SETTLEMENT_SUCCESS_STATUSES = new Set(['可结算','可交付','待结算','结算','已结算','完成','已完成','结算完成']);
+          const SETTLEMENT_FAILURE_STATUSES = new Set(['失败','已失败','任务失败']);
+          function settlementTaskStatus(value) { return String(value || '').trim(); }
+          function isSettlementTaskSuccessful(value) { return SETTLEMENT_SUCCESS_STATUSES.has(settlementTaskStatus(value)); }
+          function isSettlementTaskFailed(value) { return SETTLEMENT_FAILURE_STATUSES.has(settlementTaskStatus(value)); }
+          function isSettlementTaskTerminal(value) { return isSettlementTaskSuccessful(value) || isSettlementTaskFailed(value); }
+
           function gradeTier(d) {
             const m = String(d || '').toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)/);
             return m ? m[1] : 'F';
@@ -629,11 +637,11 @@
               const task = taskList[name] || {};
               const commissioner = String(task.委托方 || '').trim();
               if (commissioner !== '主神任务' && commissioner !== '晋升试炼') return;
-              const success = String(task.状态 || '').trim() === '可结算';
+              const success = isSettlementTaskSuccessful(task.状态);
               if (success) {
                 const amount = parseSpaceCoinTotal(task.奖励, false);
                 if (amount > 0) taskRewardDetails.push({ name:name, amount:amount });
-              } else {
+              } else if (isSettlementTaskFailed(task.状态)) {
                 const amount = parseSpaceCoinTotal(task.惩罚, true);
                 if (amount > 0) penaltyDetails.push({ name:name, amount:amount });
               }
@@ -887,7 +895,7 @@
             Object.keys(list).forEach(function(key) {
               const task = list[key] || {};
               if (String(task.委托方 || '').trim() !== '主神任务') return;
-              if (String(task.状态 || '').trim() !== '可结算') return;
+              if (!isSettlementTaskSuccessful(task.状态)) return;
               successfulTaskCount += 1;
               if (!isSingleWorld) return;
               const idx = GRADES.indexOf(gradeTier(task.难度 || ''));
@@ -973,8 +981,7 @@
 
           function trialScore(tasks) {
             return (tasks || []).reduce(function(sum, task) {
-              if (task.status === '可结算' || task.status === '失败') return sum + 3;
-              if (task.status === '可交付') return sum + 2;
+              if (isSettlementTaskTerminal(task.status)) return sum + 3;
               if (task.status === '进行中') return sum + 1;
               return sum;
             }, 0);
@@ -1008,7 +1015,7 @@
           const credentialGrant = credentialDecision && credentialDecision.granted ? credentialDecision : null;
 
           function isTrialPassed(tasks) {
-            return tasks.length > 0 && tasks.every(function(task) { return task.status === '可结算'; });
+            return tasks.length > 0 && tasks.every(function(task) { return isSettlementTaskSuccessful(task.status); });
           }
 
           function inferTrialTasksFromSettlement(text) {
@@ -1040,8 +1047,8 @@
             const live = trialTasks.length > 0;
             const displayTasks = live ? trialTasks : inferTrialTasksFromSettlement(rawText);
             if (!displayTasks.length) return '';
-            const done = displayTasks.filter(function(task) { return task.status === '可结算'; }).length;
-            const displayPassed = displayTasks.every(function(task) { return task.status === '可结算'; });
+            const done = displayTasks.filter(function(task) { return isSettlementTaskSuccessful(task.status); }).length;
+            const displayPassed = displayTasks.every(function(task) { return isSettlementTaskSuccessful(task.status); });
             const passed = live && isTrialPassed(trialTasks);
             const pct = Math.round(done / displayTasks.length * 100);
             let html = '<div class="st-trial-check' + (displayPassed ? '' : ' pending') + '">';
@@ -1049,9 +1056,8 @@
             displayTasks.forEach(function(task) {
               let cls = 'wait';
               let label = task.status || '未标记';
-              if (task.status === '可结算') { cls = 'ok'; label = '已完成'; }
-              else if (task.status === '失败') { cls = 'bad'; label = '失败'; }
-              else if (task.status === '可交付') { label = '待结算'; }
+              if (isSettlementTaskSuccessful(task.status)) { cls = 'ok'; label = '已完成'; }
+              else if (isSettlementTaskFailed(task.status)) { cls = 'bad'; label = '失败'; }
               else if (task.status === '进行中') { label = '未完成'; }
               html += '<div class="st-trial-row"><div class="st-trial-name">' + escapeHtml(task.name) + '</div><div class="st-trial-state ' + cls + '">' + escapeHtml(label) + '</div></div>';
             });
@@ -1540,7 +1546,7 @@
             }
 
             // 对齐原 onShouldIAdvance：仅出现清算协议标题时，也可补写晋升完成标记；
-            // 完整清算则沿用原 onClearCache 语义，只要数据库中的晋升试炼全部可结算就记为完成。
+            // 完整清算则沿用原 onClearCache 语义，只要数据库中的晋升试炼全部处于认可完成态就记为完成。
             // 层级已经变化表示本次资格已用于普升；旧结算面板不得再次补写。
             if (hasHeader && trialPassed && !reincarnatorTierChanged) {
               const currentSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
@@ -1551,8 +1557,8 @@
             }
 
             if (!fullSettlement) return changed;
-            // 等待任务变量落到可结算/失败，避免先清空后再也无法核验晋升资格。
-            if (trialTasks.some(function(task){return task.status !== '可结算' && task.status !== '失败';})) return changed;
+            // 等待任务变量落到认可完成态/失败，避免先清空后再也无法核验晋升资格。
+            if (trialTasks.some(function(task){return !isSettlementTaskTerminal(task.status);})) return changed;
 
             const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
             const tasks = ensureObject(stat, '任务');
@@ -1626,7 +1632,7 @@
               if (!c) return;
               const settlementStat = c.stat_data || c;
               const isSingleWorldSettlement = !!(settlementStat.设置 && settlementStat.设置.单一世界 === true);
-              if (isLatestPanel && isFullSettlement(rawText) && trialTasks.some(function(task){return task.status !== '可结算' && task.status !== '失败';})) return;
+              if (isLatestPanel && isFullSettlement(rawText) && trialTasks.some(function(task){return !isSettlementTaskTerminal(task.status);})) return;
 
               let changed = false;
               if (isLatestPanel && isFullSettlement(rawText) && settlementStat.角色 && Number.isFinite(spaceCoinSettlement.balanceAfter)) {

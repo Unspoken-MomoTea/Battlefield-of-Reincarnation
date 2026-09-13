@@ -16,12 +16,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Apply settlement status aliases
+        run: python tools/_oneoff_settlement_status_aliases.py
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax check
         run: node --check script/世界推进系统.js
       - name: Simplified task settlement regression
         run: node tests/task-settlement-simplified.cjs
+      - name: Settlement status alias regression
+        run: node tests/settlement-status-aliases.cjs
       - name: Super-stable prompt regression
         run: node tests/world-engine-superstable-prompt.cjs
       - name: Task awareness regression
@@ -44,9 +48,9 @@ jobs:
         run: node tests/world-engine-modules.cjs
       - name: Commit generated delivery
         run: |
-          if git diff --quiet -- script/世界推进系统.js; then exit 0; fi
+          if git diff --quiet -- script/世界推进系统.js Regular/结算任务美化.html; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add script/世界推进系统.js
-          git commit -m "build: sync world engine delivery [task-awareness-built]"
+          git add script/世界推进系统.js Regular/结算任务美化.html
+          git commit -m "build: sync settlement status aliases [task-awareness-built]"
           git push

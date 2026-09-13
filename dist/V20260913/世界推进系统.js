@@ -4681,11 +4681,12 @@ ${schemaText}`;
     // 传闻是常驻活跃层：公开传闻保证世界始终有可见动向，后台传播负责其因果来源与人物知情链。
     const RUMOR_LIVELINESS_TOPICS=['悬赏线索','商路动向','势力情报','遗迹坐标','人物行踪','黑市消息','宝物传闻','怪物异动','深渊异变','种族摩擦','物价波动'];
     const RUMOR_PUBLIC_CATEGORIES=['街头巷议','情报交易','布告与檄文'];
+    const RUMOR_VISIBLE_LIMIT=3;
     const RUMOR_STALE_HOURS=72;
     const RUMOR_LIVELINESS_RULES=`【传闻与传播 · 常驻活跃层】
-1. 街头巷议、情报交易、布告与檄文各自最多3条；某类为空时本轮补2条。单条约60字，除非影响重大，不围绕<user>。
-   上限计算为旧条目与本轮更新合并、移除后的最终数量，不是本轮操作数。新名称会新增，不会自动替换旧名称；分类已满时，必须同轮按旧名称提交「操作:移除」再补新条，允许同类提交超过3项增删操作，最终保留不超过3条。沿用原名称则更新原条目，未提及的旧条目继续保留。
-2. 街头巷议随当前地区、说书人/目击者和局势替换1~2条，远离后移除失去本地价值的旧条；情报交易有卖家时更新1~2条，购买、付款与消费性删除由MVU按正文结果处理；布告与檄文随当前地区与发布势力替换。
+1. 街头巷议、情报交易、布告与檄文各自展示最近3条；某类为空时本轮补2条。单条约60字，除非影响重大，不围绕<user>。
+   可直接追加新名称，程序会在合并后自动滚动淘汰最旧条目，不需要为容量主动提交「操作:移除」。沿用原名称视为刷新该条传闻，并优先保留；仅在传闻本身已失效、撤销或需要明确删除时使用「操作:移除」。
+2. 街头巷议随当前地区、说书人/目击者和局势替换1~2条；情报交易有卖家时更新1~2条，购买、付款与消费性删除由MVU按正文结果处理；布告与檄文随当前地区与发布势力替换。
 3. 后台传播是人物知情与公开传闻的因果链。新可传播事实建立或推进传播；关联事件变化、传播陈旧或到期时复核范围、受众、内容与引发行动，结束/过期传播不复活。
 4. 优先话题：${RUMOR_LIVELINESS_TOPICS.join(' / ')}。`;
     const RUMOR_PRESET_STEP_OLD='Step 6 · 更新传播：只维护本轮真实变化的传播、货币与历法；结束/过期传播不复活。';
@@ -4693,6 +4694,50 @@ ${schemaText}`;
     const upgradeRumorPreset=value=>String(value||'').includes(RUMOR_PRESET_STEP_OLD)?String(value).replace(RUMOR_PRESET_STEP_OLD,RUMOR_PRESET_STEP_NEW):String(value||'');
     if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=upgradeRumorPreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
     let ACTIVE_RUMOR_MAINTENANCE=null;
+
+    // “最多3条”是展示窗口，不是模型输出校验。所有写入先正常合并，再按对象顺序滚动保留最近3条。
+    // replace 不会改变 JS 对象键顺序，因此把本轮更新过的同名条目重新插到末尾，使其真正视为“最新”。
+    function trimRumorCapacity(stat) {
+        const removed=[];
+        for(const category of RUMOR_PUBLIC_CATEGORIES){
+            const bucket=stat?.传闻?.[category];
+            if(!plain(bucket))continue;
+            const overflow=Math.max(0,Object.keys(bucket).length-RUMOR_VISIBLE_LIMIT);
+            for(const name of Object.keys(bucket).slice(0,overflow)){
+                delete bucket[name];
+                removed.push(category+'/'+name);
+            }
+        }
+        return removed;
+    }
+    function refreshTouchedRumorOrder(stat,patches=[]) {
+        for(const patch of patches||[]){
+            if(!plain(patch)||patch.op==='remove')continue;
+            const parts=tokens(patch.path);
+            if(parts.length!==3||parts[0]!=='传闻'||!RUMOR_PUBLIC_CATEGORIES.includes(parts[1]))continue;
+            const bucket=stat?.传闻?.[parts[1]];
+            if(!plain(bucket))continue;
+            const name=stableNameIn(bucket,parts[2])||parts[2];
+            if(!Object.hasOwn(bucket,name))continue;
+            const value=bucket[name];
+            delete bucket[name];
+            bucket[name]=value;
+        }
+    }
+    const validateStateBeforeRumorRolling=validateState;
+    validateState=function(stat) {
+        // 兼容核心层旧的“>3即报错”校验：在影子状态中裁成展示窗口后继续执行其余完整校验。
+        const shadow=copy(stat);
+        trimRumorCapacity(shadow);
+        return validateStateBeforeRumorRolling(shadow);
+    };
+    const applyPatchesBeforeRumorRolling=applyPatches;
+    applyPatches=function(stat,patches) {
+        const next=applyPatchesBeforeRumorRolling(stat,patches);
+        refreshTouchedRumorOrder(next,patches);
+        trimRumorCapacity(next);
+        return next;
+    };
 
     function rumorEventTouchedKey(event) {
         return worldDateKey(event?.更新时间||event?.预计结束||event?.开始时间||event?.时间);
@@ -4752,7 +4797,7 @@ ${schemaText}`;
             if(count===0)shortages.push(category+'仍为空');
             else if(initial===0&&count<2)shortages.push(category+'仅'+count+'条');
         }
-        if(shortages.length)throw new Error('传闻为空未补足：'+shortages.join('、')+'；空分类本轮必须补2条，三类各自最多3条');
+        if(shortages.length)throw new Error('传闻为空未补足：'+shortages.join('、')+'；空分类本轮必须补2条，三类各自展示最近3条');
         const unresolved=[];
         for(const item of required.本轮必须复核的传播链||[]){
             const record=next?.世界?.[PATH]?.传播?.[item.名称];
@@ -4777,7 +4822,7 @@ ${schemaText}`;
         const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
         const plan=retryPlanBeforeRumorLiveliness(error,rejected).slice();
         let match;
-        if((match=message.match(/传闻为空未补足：([^；\n]+)/)))plan.push('传闻维护：'+match[1]+'。空分类本轮补2条真实世界信息；三类各自最多3条，约60字/条，不要无依据围绕<user>。');
+        if((match=message.match(/传闻为空未补足：([^；\n]+)/)))plan.push('传闻维护：'+match[1]+'。空分类本轮补2条真实世界信息；三类各自展示最近3条，约60字/条，不要无依据围绕<user>。');
         if((match=message.match(/传播链仍未复核：([^；\n]+)/)))plan.push('传播维护：'+match[1]+'。逐条更新到当前世界时间，并推进范围/受众/内容/引发行动；若传播已结束则结束或移除，不要原样重交。');
         return Array.from(new Set(plan.filter(Boolean)));
     };
@@ -5038,6 +5083,54 @@ ${schemaText}`;
             manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
             return request;
+        }
+    };
+    // 自动推进策略：自动调度可独立关闭；战斗中暂停一切世界推进。
+    const SamsaraWorldEngineBeforeAutoProgress=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeAutoProgress {
+        constructor(host,env) {
+            super(host,env);
+            if(!Object.hasOwn(this.config,'autoProgress')){
+                this.config.autoProgress=true;
+                this.saveConfig();
+            }else this.config.autoProgress=this.config.autoProgress!==false;
+        }
+        blocked(snapshot) {
+            if(snapshot?.stat?.系统状态?.是否战斗中===true)return '战斗中，世界推进暂停';
+            return super.blocked(snapshot);
+        }
+        schedule() {
+            if(this.config.autoProgress!==true){
+                if(this.timer){clearTimeout(this.timer);this.timer=null;}
+                return;
+            }
+            return super.schedule();
+        }
+        mountAutoProgressSetting() {
+            if(this.tab!=='设置'||!this.panel)return;
+            const main=this.panel.querySelector('main');
+            if(!main||main.querySelector('[data-auto-progress-setting]'))return;
+            const section=this.host.document.createElement('section');
+            section.className='we-section';
+            section.dataset.autoProgressSetting='';
+            section.innerHTML='<div class="we-section-head"><h2>推进方式</h2><small>自动调度</small></div>'+
+                '<div class="we-setting-row"><div class="we-setting-copy"><b>自动推进</b><small>开启后，每个正文楼层的 MVU 更新完成时自动推进一次；关闭后仅保留手动推进。战斗中无论此开关状态如何都暂停推进。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(this.config.autoProgress?'on':'')+'" data-auto-progress-toggle><span>'+(this.config.autoProgress?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>';
+            const first=main.querySelector('.we-section');
+            if(first)main.insertBefore(section,first);else main.appendChild(section);
+            section.querySelector('[data-auto-progress-toggle]')?.addEventListener('click',()=>{
+                this.config.autoProgress=!this.config.autoProgress;
+                this.saveConfig();
+                if(!this.config.autoProgress){
+                    if(this.timer){clearTimeout(this.timer);this.timer=null;}
+                    this.status='自动推进已关闭 · 可手动推进';
+                }else this.status='自动推进已开启';
+                this.render(true);
+            });
+        }
+        render(force=false) {
+            const result=super.render(force);
+            this.mountAutoProgressSetting();
+            return result;
         }
     };
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。

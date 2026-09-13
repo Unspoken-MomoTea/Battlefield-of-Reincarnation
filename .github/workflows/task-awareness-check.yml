@@ -16,6 +16,8 @@ jobs:
           python-version: '3.12'
       - name: Exploration pruning regression
         run: node tests/world-engine-exploration-prune.cjs
+      - name: Task performance settlement regression
+        run: node tests/task-performance-settlement.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
       - name: Chronology guard regression

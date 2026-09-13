@@ -1,4 +1,5 @@
     // 玩家探索投影保护层。
+    const EXPLORATION_PROJECTION_RULES=`【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；离开区域后仍保留探索台账。`;
     const EXPLORATION_PROJECTION_SUFFIX=/(?:地区|区域|校区|城区|街区|片区)$/;
     function explorationProjectionBaseKey(value) {
         const key=nameKey(value);

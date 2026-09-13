@@ -1,13 +1,14 @@
     // 世界完整性保护：统一精确时钟，并把因果偏移阈值落实到请求与编译器。
     const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间硬约束】
-1. 当前状态的更新时间直接复用当前世界时间（世界.时间）原文，不自行改写成更晚的 HH:mm；已发生事实不得晚于世界.时间。
-2. 偏移只记录已经发生、已确认、不可逆且足以改变关键人物命运、重大事件结果、关键势力格局或主线可行性的结果；日常、交易、普通战斗、普通NPC伤亡、无关主线支线和单纯偏离原著不记录。
-3. 同一已确认根因及其连锁后果只记一条，按最严重的已实现结果结算；禁止把一条因果链拆成多条累计影响。
-4. 预测、风险、可能、潜在或未来尚未发生的后果不产生偏移；稳定下降及其后续世界响应不能反过来成为新的负偏移。
-5. 负值锚点：关键人物命运不可逆改写 -3~-12；重大事件结果不可逆改变 -3~-10；关键势力格局或主线可行性实质破坏 -2~-8；异常污染持续扩大 -1~-10。普通变化不记录。
-6. 正值只来自真实修复：关键人物/重大事件修复 +3~+10；异常清除 +1~+15；势力格局或主线结构修复 +2~+8。高于100不能来自普通善行、胜利或奖励。
-7. 单条总范围仅 -12~-1 或 +1~+15，0 不建记录；同一引发者同轮负向累计不得低于 -12，正向累计不得高于 +15。提交前确认“已发生、命中重大条件、不是已有/本轮同根记录”。
-8. 稳定值由后台汇总，模型不得直接修改。`;
+1. 时间校验按字段粒度处理：事件、地区、历史、传播等宏观事实只按“自然日”硬校验；同一自然日内的上午/下午/HH:mm差异不算未来越界，只有跨日未来事实才拒绝。
+2. 人物当前动态仅在“当前世界时间”和“人物更新时间”双方都明确到 HH:mm 时做分钟级先后校验；任一侧只有清晨/上午/下午等粗粒度时，同日视为合法。当前状态仍优先复用世界.时间原文，未来计划放预计结束、下次检查或待发生事件。
+3. 偏移只记录已经发生、已确认、不可逆且足以改变关键人物命运、重大事件结果、关键势力格局或主线可行性的结果；日常、交易、普通战斗、普通NPC伤亡、无关主线支线和单纯偏离原著不记录。
+4. 同一已确认根因及其连锁后果只记一条，按最严重的已实现结果结算；禁止把一条因果链拆成多条累计影响。
+5. 预测、风险、可能、潜在或未来尚未发生的后果不产生偏移；稳定下降及其后续世界响应不能反过来成为新的负偏移。
+6. 负值锚点：关键人物命运不可逆改写 -3~-12；重大事件结果不可逆改变 -3~-10；关键势力格局或主线可行性实质破坏 -2~-8；异常污染持续扩大 -1~-10。普通变化不记录。
+7. 正值只来自真实修复：关键人物/重大事件修复 +3~+10；异常清除 +1~+15；势力格局或主线结构修复 +2~+8。高于100不能来自普通善行、胜利或奖励。
+8. 单条总范围仅 -12~-1 或 +1~+15，0 不建记录；同一引发者同轮负向累计不得低于 -12，正向累计不得高于 +15。提交前确认“已发生、命中重大条件、不是已有/本轮同根记录”。
+9. 稳定值由后台汇总，模型不得直接修改。`;
 
     const worldDateKeyBeforeIntegrityGuard=worldDateKey;
     worldDateKey=function(value) {
@@ -18,6 +19,35 @@
         const hour=Number(clock[1]),minute=Number(clock[2]),second=Number(clock[3]||0);
         if(!Number.isInteger(hour)||hour<0||hour>23)return null;
         return Math.floor(base/24)*24+hour+minute/60+second/3600;
+    };
+
+    // 完整性校验与排序/调度使用不同精度：世界事件等宏观事实以“日”为硬边界，
+    // 避免把“上午/下午”这种粗粒度标签伪装成精确小时后误杀同日推进。
+    // 人物只有在两侧都给出 HH:mm 时才保留分钟级保护，防止真实的精确时钟倒流。
+    const temporalAnomaliesBeforeIntegrityGuard=temporalAnomalies;
+    function integrityWorldDayKey(value) {
+        const key=worldDateKey(value);
+        return key===null?null:Math.floor(key/24);
+    }
+    function integrityHasExactClock(value) {
+        return /(?:^|[日T\s_-])(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?/.test(String(value||''));
+    }
+    temporalAnomalies=function(stat) {
+        const anomalies=temporalAnomaliesBeforeIntegrityGuard(stat);
+        if(!anomalies.length)return anomalies;
+        const nowRaw=String(stat?.世界?.时间||''),nowDay=integrityWorldDayKey(nowRaw),nowKey=worldDateKey(nowRaw);
+        if(nowDay===null)return anomalies;
+        const nowExact=integrityHasExactClock(nowRaw);
+        return anomalies.filter(item=>{
+            const valueRaw=String(item?.值||''),valueDay=integrityWorldDayKey(valueRaw);
+            if(valueDay===null)return true;
+            if(valueDay>nowDay)return true;
+            if(valueDay<nowDay)return false;
+            if(item?.类型!=='人物')return false;
+            if(!nowExact||!integrityHasExactClock(valueRaw))return false;
+            const valueKey=worldDateKey(valueRaw);
+            return nowKey!==null&&valueKey!==null&&valueKey>nowKey;
+        });
     };
 
     OFFSET_RESULT_SCHEMA.properties.影响程度.minimum=-12;
@@ -68,7 +98,7 @@
         const plan=retryPlanBeforeIntegrityGuard(error,rejected).slice();
         const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
         if(/因果偏移|同一根因/.test(message))plan.unshift('因果偏移：只提交已经发生的重大不可逆结果；同一根因与连锁后果合并成一条，预测不提前结算，单条仅 -12~-1 或 +1~+15。');
-        if(/时间事实超过当前世界时间/.test(message))plan.unshift('当前事实时间：人物/地区/传播的更新时间直接复用请求中的当前世界时间原文；未来计划放预计结束、下次检查或待发生事件。');
+        if(/时间事实超过当前世界时间|时间越界记录仍未修复/.test(message))plan.unshift('时间一致性：事件/地区/历史/传播只把“跨到未来自然日”视为硬越界，同日不同上午/下午/HH:mm无需回写；人物只有双方均明确 HH:mm 时才做分钟级校验。未来计划放预计结束、下次检查或待发生事件。');
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
@@ -78,7 +108,7 @@
             const request=await super.buildRequest(base);
             request.system=String(request.system||'')+'\n\n'+WORLD_INTEGRITY_GUARD_RULES;
             request.manifest=request.manifest||{};
-            request.manifest.因果与时间硬约束={启用:true,单条影响范围:'-12~-1 / +1~+15',当前事实时间:'复用世界.时间原文'};
+            request.manifest.因果与时间硬约束={启用:true,单条影响范围:'-12~-1 / +1~+15',宏观事实时间:'同一自然日允许；跨日未来拒绝',人物精确时间:'仅双方均为 HH:mm 时精确比较'};
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
             return request;
         }

@@ -1,0 +1,125 @@
+name: temp-settlement-asset-cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/zz-temp-settlement-asset-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Patch settlement cleanup and regression
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          html_path = Path('Regular/结算任务美化.html')
+          html = html_path.read_text(encoding='utf-8')
+          old = """              setValue(tasks, '列表', {});
+              setValue(tasks, '副本成就', {});
+
+              const rumors = ensureObject(stat, '传闻');
+"""
+          new = """              setValue(tasks, '列表', {});
+              setValue(tasks, '副本成就', {});
+
+              // 普通副本结束时只保留玩家拥有/共管的长期资产；纯NPC、势力或无主资产随副本清理。
+              const assets = ensureObject(stat, '资产');
+              Object.keys(assets).forEach(function(assetName) {
+                const asset = assets[assetName];
+                const rawOwners = asset && typeof asset === 'object' ? asset.所属对象 : null;
+                // 兼容旧存档：历史资产缺少所属对象时仍按既有规则视为玩家资产，避免误删。
+                const owners = Array.isArray(rawOwners)
+                  ? rawOwners
+                  : (rawOwners == null ? ['<user>'] : [String(rawOwners)]);
+                if (owners.indexOf('<user>') >= 0) return;
+                delete assets[assetName];
+                changed = true;
+              });
+
+              const rumors = ensureObject(stat, '传闻');
+"""
+          if old not in html:
+              raise SystemExit('settlement cleanup anchor not found')
+          html = html.replace(old, new, 1)
+          html_path.write_text(html, encoding='utf-8')
+
+          test_path = Path('tests/task-settlement-simplified.cjs')
+          test = test_path.read_text(encoding='utf-8')
+          anchor = """for (const [name, html] of [['主神任务美化', mainUi], ['试炼任务美化', trialUi], ['结算任务美化', settleUi]]) {
+"""
+          block = r"""const finalizationMatch = settleUi.match(/          function applySettlementFinalization\(c, isLatestPanel\) \{([\s\S]*?)\n          \}\n\n          async function writeSettlementToMvu/);
+assert(finalizationMatch, 'settlement finalization should be extractable');
+const applySettlementFinalization = new Function(
+  'rawText', 'hasSettlementHeader', 'isFullSettlement', 'isTrialPassed', 'trialTasks', 'readReincarnatorTier', 'settlementBaselineTier', 'settlementTaskKeys',
+  `return function applySettlementFinalization(c, isLatestPanel) {${finalizationMatch[1]}\n  };`
+)(
+  '轮回清算协议',
+  () => true,
+  () => true,
+  () => false,
+  [],
+  () => 'Ⅰ',
+  'Ⅰ',
+  []
+);
+function makeSettlementFinalizeData(singleWorld) {
+  return {
+    stat_data: {
+      设置: { 单一世界: singleWorld },
+      角色: { 层级: 'Ⅰ' },
+      世界: { 名称: '测试副本', 后台: {}, 异端雷达: {} },
+      系统状态: { 是否在主神空间: false },
+      任务: { 击杀: {}, 列表: {}, 副本成就: {} },
+      传闻: { 街头巷议: {}, 情报交易: {}, 布告与檄文: {} },
+      资产: {
+        玩家庄园: { 所属对象: ['<user>'], 类型: '固定地产' },
+        共管基地: { 所属对象: ['盟友', '<user>'], 类型: '要塞' },
+        敌军据点: { 所属对象: ['敌军'], 类型: '要塞' },
+        无主遗迹: { 所属对象: [], 类型: '固定地产' },
+        旧版玩家资产: { 类型: '固定地产' },
+      },
+    },
+  };
+}
+const ordinaryFinalize = makeSettlementFinalizeData(false);
+assert.equal(applySettlementFinalization(ordinaryFinalize, true), true);
+assert.deepEqual(
+  Object.keys(ordinaryFinalize.stat_data.资产).sort(),
+  ['玩家庄园', '共管基地', '旧版玩家资产'].sort(),
+  'ordinary dungeon settlement must remove assets whose owners do not include <user>'
+);
+assert.equal(ordinaryFinalize.stat_data.系统状态.是否在主神空间, true);
+const singleFinalize = makeSettlementFinalizeData(true);
+applySettlementFinalization(singleFinalize, true);
+assert.ok(singleFinalize.stat_data.资产.敌军据点, 'single-world stage settlement must not clear world assets');
+assert.ok(singleFinalize.stat_data.资产.无主遗迹, 'single-world stage settlement must keep unowned world assets');
+
+"""
+          if anchor not in test:
+              raise SystemExit('task settlement test anchor not found')
+          test = test.replace(anchor, block + anchor, 1)
+          test_path.write_text(test, encoding='utf-8')
+          PY
+
+          node tests/task-settlement-simplified.cjs
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/zz-temp-settlement-asset-cleanup.yml
+          git add 'Regular/结算任务美化.html' tests/task-settlement-simplified.cjs
+          git commit -m 'fix: clean non-player assets after dungeon settlement'
+          git push origin HEAD:main

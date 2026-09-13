@@ -45,6 +45,7 @@ assert.match(texts['50-engine-ui.part.js'], /^        createPanel\(\) \{/);
 assert.match(texts['50-engine-ui.part.js'], /        render\(force\) \{/);
 assert.match(texts['50-engine-ui.part.js'], /        dispose\(\) \{/);
 assert.doesNotMatch(texts['50-engine-ui.part.js'], /we-ledger-strip|we-ledger-stat/, '探索/热点/势力页不应恢复四格汇总统计条');
+assert.doesNotMatch(texts['50-engine-ui.part.js'], /\btotalProgress\b/, '探索页不得引用已经删除的总权重统计变量');
 const settlementHtml = fs.readFileSync(path.join(root, 'Regular', '结算任务美化.html'), 'utf8');
 assert.match(settlementHtml, /if \(!isSingleWorld\) \{[\s\S]{0,180}setValue\(world, '探索', \{\}\)/, '普通副本结算仍需清空探索台账');
 assert.match(settlementHtml, /单一世界继续使用同一世界：探索档案长期保留，但不参与空间币结算/, '单一世界结算必须保留探索档案');

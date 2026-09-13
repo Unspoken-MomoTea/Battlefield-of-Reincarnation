@@ -22,6 +22,10 @@ assert.equal(role.权限凭证.C, 1);
 
 assert(settlement.includes("const key = 'stat_data.角色.权限凭证.' + credentialGrant.grade;"));
 assert(!settlement.includes("const key = 'stat_data.角色.道具.' + credentialGrant.name;"));
+assert(settlement.includes('function resolveCredentialDecision(data)'));
+assert(settlement.includes('本次未获得权限凭证'));
+assert(settlement.includes('凭证必须高于当前层级'));
+assert(settlement.includes("renderCredentialPanel(credentialDecision)"));
 assert(currentVars.includes('current.角色.空间币 = data.角色.空间币;'));
 assert(currentVars.includes('current.角色.权限凭证 = credentialLedger;'));
 assert(currentVars.includes('if (!isCombat) {'));

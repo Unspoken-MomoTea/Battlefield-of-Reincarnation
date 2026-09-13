@@ -26,7 +26,13 @@ jobs:
           new = "text = '\\n'.join(line for line in text.splitlines() if 'we-ledger-strip' not in line and 'we-ledger-stat' not in line) + '\\n'\nif 'we-ledger-strip' in text or 'we-ledger-stat' in text:\n    raise SystemExit('ledger strip leftovers remain in UI source')"
           if old not in text:
               raise SystemExit('one-off fixer guard anchor not found')
-          p.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
+          text = text.replace(old, new, 1)
+          text = text.replace(
+              "assert.doesNotMatch(texts['50-engine-ui.part.js'], /we-ledger-strip|we-ledger-stat|已记录地标|探索结算权重|进行中热点|已知势力/, '探索/热点/势力页不应恢复四格汇总统计条');",
+              "assert.doesNotMatch(texts['50-engine-ui.part.js'], /we-ledger-strip|we-ledger-stat/, '探索/热点/势力页不应恢复四格汇总统计条');",
+              1,
+          )
+          p.write_text(text, encoding='utf-8', newline='\n')
           PY
       - name: Apply exploration ledger maintenance
         run: python tools/_oneoff_fix_exploration_ui.py

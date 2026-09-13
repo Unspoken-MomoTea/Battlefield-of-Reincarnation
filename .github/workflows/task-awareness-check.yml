@@ -26,6 +26,8 @@ jobs:
         run: node tests/world-engine-auto-progress.cjs
       - name: Chronology guard regression
         run: node tests/world-engine-chronology-guard.cjs
+      - name: World integrity regression
+        run: node tests/world-engine-integrity-guard.cjs
       - name: NPC audit regression
         run: node tests/world-engine-npc-audit-toggle.cjs
       - name: Asset scope regression

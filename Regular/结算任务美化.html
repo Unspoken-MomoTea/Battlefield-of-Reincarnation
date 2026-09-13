@@ -725,6 +725,19 @@
           }
           // SETTLEMENT_COIN_CORE_END
 
+          // SETTLEMENT_COIN_WRITE_GUARD_START
+          function settlementCoinWriteTarget(currentCoin, settlement) {
+            const current = Number(currentCoin);
+            const before = Number(settlement && settlement.balanceBefore);
+            const after = Number(settlement && settlement.balanceAfter);
+            if (!Number.isFinite(current) || !Number.isFinite(before) || !Number.isFinite(after)) return null;
+            // 结算币只允许从“结算前余额”推进到“结算后余额”。
+            // 已结算余额以及商城消费后的任意余额都属于后续真实状态，禁止旧结算面板回写覆盖。
+            if (current !== before || current === after) return null;
+            return after;
+          }
+          // SETTLEMENT_COIN_WRITE_GUARD_END
+
           function clonePlain(value) {
             try {
               if (typeof _ !== 'undefined' && _ && _.cloneDeep) return _.cloneDeep(value);
@@ -1003,6 +1016,7 @@
           let bestTrialScore = trialScore(trialTasks);
           let settlementWriteBusy = false;
           let settlementWritePending = false;
+          let settlementCoinWriteDone = false;
           const achievementTasks = readAchievementTasks();
           function readSettlementTaskKeys(data) {
             const stat = data && (data.stat_data || data);
@@ -1511,7 +1525,7 @@
           }
 
           function isLatestPanelMessage(win, targetMessageId) {
-            if (targetMessageId === 'latest') return true;
+            if (targetMessageId === null || targetMessageId === undefined) return false;
             try {
               const getMsgs = (typeof getChatMessages === 'function')
                 ? getChatMessages
@@ -1638,7 +1652,9 @@
               const win = window.parent || window;
               if (!win.Mvu || !win._ || !win._.set) return;
               const panelMessageId = getPanelMessageId(win);
-              const targetMessageId = panelMessageId === null ? 'latest' : panelMessageId;
+              // 无法确认面板所属楼层时只展示，不允许把历史结算误写到 latest。
+              if (panelMessageId === null) return;
+              const targetMessageId = panelMessageId;
               const isLatestPanel = isLatestPanelMessage(win, targetMessageId);
               const c = win.Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
               if (!c) return;
@@ -1647,10 +1663,20 @@
               if (isLatestPanel && isFullSettlement(rawText) && trialTasks.some(function(task){return !isSettlementTaskTerminal(task.status);})) return;
 
               let changed = false;
-              if (isLatestPanel && isFullSettlement(rawText) && settlementStat.角色 && Number.isFinite(spaceCoinSettlement.balanceAfter)) {
-                const currentCoin = Number(settlementStat.角色.空间币) || 0;
-                if (currentCoin !== spaceCoinSettlement.balanceAfter) {
-                  settlementStat.角色.空间币 = spaceCoinSettlement.balanceAfter;
+              if (!settlementCoinWriteDone && isLatestPanel && isFullSettlement(rawText) && settlementStat.角色) {
+                const sys = settlementStat.系统状态 && typeof settlementStat.系统状态 === 'object'
+                  ? settlementStat.系统状态
+                  : (settlementStat.系统状态 = {});
+                const settlementMarker = String(panelMessageId);
+                const recordedMarker = String(sys.结算空间币记录 || '');
+                settlementCoinWriteDone = true;
+                if (recordedMarker !== settlementMarker) {
+                  const currentCoin = Number(settlementStat.角色.空间币);
+                  const nextCoin = settlementCoinWriteTarget(currentCoin, spaceCoinSettlement);
+                  if (nextCoin !== null) settlementStat.角色.空间币 = nextCoin;
+                  // 无论首次执行时余额是结算前值、已结算值还是已经发生商城消费，
+                  // 都记录该结算楼层已处理。这样旧档升级后也不会因刷新再次退款。
+                  sys.结算空间币记录 = settlementMarker;
                   changed = true;
                 }
               }

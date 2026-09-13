@@ -96,6 +96,12 @@ afterManualDelete.资产.旧塔 = {所属对象:[],类型:'固定地产'};
 syncRemovedAssets(afterManualDelete, beforeRebuild);
 assert.equal(afterManualDelete.世界.后台.资产墓碑.旧塔, undefined, '明确重建同名资产后必须解除删除保护');
 
+// 普通副本结算返回主神空间时的批量资产清理不应生成跨世界删除墓碑。
+const beforeSettlementCleanup = {世界:{时间:'副本终局',后台:{}},系统状态:{是否在主神空间:false},资产:{敌军据点:{所属对象:['敌军'],类型:'要塞'}}};
+const afterSettlementCleanup = {世界:{时间:'主神空间',后台:{}},系统状态:{是否在主神空间:true},资产:{}};
+assert.deepEqual(syncRemovedAssets(afterSettlementCleanup, beforeSettlementCleanup), []);
+assert.deepEqual(afterSettlementCleanup.世界.后台, {}, '副本结算清理资产不得重新生成资产墓碑');
+
 assert.match(zod, /const assetOwners[\s\S]{0,220}z\.array\(z\.string\(\)\)/, 'ZOD 必须定义所属对象字符串数组规范器');
 assert.match(zod, /所属对象:\s*assetOwners/, '资产字段必须使用统一 owner 数组规范器');
 assert.match(zod, /资产墓碑/, '后台 Schema 必须允许程序保存资产删除墓碑');

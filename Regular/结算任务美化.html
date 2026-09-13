@@ -1574,6 +1574,20 @@
               setValue(tasks, '列表', {});
               setValue(tasks, '副本成就', {});
 
+              // 普通副本结束时只保留玩家拥有/共管的资产；纯NPC、势力或无主资产随副本清理。
+              const assets = ensureObject(stat, '资产');
+              Object.keys(assets).forEach(function(assetName) {
+                const asset = assets[assetName];
+                const rawOwners = asset && typeof asset === 'object' ? asset.所属对象 : null;
+                // 兼容旧存档：缺失所属对象的历史资产仍按既有迁移语义视为玩家资产，避免误删。
+                const owners = Array.isArray(rawOwners)
+                  ? rawOwners
+                  : (rawOwners == null ? ['<user>'] : [String(rawOwners)]);
+                if (owners.indexOf('<user>') >= 0) return;
+                delete assets[assetName];
+                changed = true;
+              });
+
               const rumors = ensureObject(stat, '传闻');
               setValue(rumors, '街头巷议', {});
               setValue(rumors, '情报交易', {});

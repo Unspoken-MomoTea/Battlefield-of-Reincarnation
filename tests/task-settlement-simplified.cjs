@@ -261,6 +261,53 @@ assert.match(grantedPanelHtml, /本次获得【D级权限凭证】×1/);
 assert.match(grantedPanelHtml, /世界最低难度 D/);
 assert.match(grantedPanelHtml, /当前先驱层级Ⅰ/);
 
+const finalizationMatch = settleUi.match(/          function applySettlementFinalization\(c, isLatestPanel\) \{([\s\S]*?)\n          \}\n\n          async function writeSettlementToMvu/);
+assert(finalizationMatch, 'settlement finalization should be extractable');
+const applySettlementFinalization = new Function(
+  'rawText', 'hasSettlementHeader', 'isFullSettlement', 'isTrialPassed', 'trialTasks', 'readReincarnatorTier', 'settlementBaselineTier', 'settlementTaskKeys',
+  `return function applySettlementFinalization(c, isLatestPanel) {${finalizationMatch[1]}\n  };`
+)(
+  '轮回清算协议',
+  () => true,
+  () => true,
+  () => false,
+  [],
+  () => 'Ⅰ',
+  'Ⅰ',
+  []
+);
+function makeSettlementFinalizeData(singleWorld) {
+  return {
+    stat_data: {
+      设置: { 单一世界: singleWorld },
+      角色: { 层级: 'Ⅰ' },
+      世界: { 名称: '测试副本', 后台: {}, 异端雷达: {} },
+      系统状态: { 是否在主神空间: false },
+      任务: { 击杀: {}, 列表: {}, 副本成就: {} },
+      传闻: { 街头巷议: {}, 情报交易: {}, 布告与檄文: {} },
+      资产: {
+        玩家庄园: { 所属对象: ['<user>'], 类型: '固定地产' },
+        共管基地: { 所属对象: ['盟友', '<user>'], 类型: '要塞' },
+        敌军据点: { 所属对象: ['敌军'], 类型: '要塞' },
+        无主遗迹: { 所属对象: [], 类型: '固定地产' },
+        旧版玩家资产: { 类型: '固定地产' },
+      },
+    },
+  };
+}
+const ordinaryFinalize = makeSettlementFinalizeData(false);
+assert.equal(applySettlementFinalization(ordinaryFinalize, true), true);
+assert.deepEqual(
+  Object.keys(ordinaryFinalize.stat_data.资产).sort(),
+  ['玩家庄园', '共管基地', '旧版玩家资产'].sort(),
+  'ordinary dungeon settlement must remove assets whose owners do not include <user>'
+);
+assert.equal(ordinaryFinalize.stat_data.系统状态.是否在主神空间, true);
+const singleFinalize = makeSettlementFinalizeData(true);
+applySettlementFinalization(singleFinalize, true);
+assert.ok(singleFinalize.stat_data.资产.敌军据点, 'single-world stage settlement must not clear world assets');
+assert.ok(singleFinalize.stat_data.资产.无主遗迹, 'single-world stage settlement must keep unowned world assets');
+
 for (const [name, html] of [['主神任务美化', mainUi], ['试炼任务美化', trialUi], ['结算任务美化', settleUi]]) {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
   assert(scripts.length > 0, name + ' should contain inline script');

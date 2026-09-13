@@ -1481,6 +1481,8 @@
     /** 记录资产显式删除，防止世界引擎根据旧剧情记忆把同名资产重新创建。 */
     function syncRemovedAssets(statData, statDataBefore) {
         if (!statData || !statDataBefore) return [];
+        // 普通副本结算回主神空间时，批量移除的是世界生命周期清理，不应写成跨世界资产墓碑。
+        if (statData?.系统状态?.是否在主神空间 === true && statDataBefore?.系统状态?.是否在主神空间 !== true) return [];
         const beforeAssets = statDataBefore.资产 && typeof statDataBefore.资产 === 'object' ? statDataBefore.资产 : {};
         const currentAssets = statData.资产 && typeof statData.资产 === 'object' ? statData.资产 : {};
         statData.世界 = statData.世界 || {};

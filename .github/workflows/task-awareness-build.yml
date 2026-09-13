@@ -20,122 +20,31 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
+          import base64
+          dec = lambda s: base64.b64decode(s).decode('utf-8')
           html_path = Path('Regular/结算任务美化.html')
           html = html_path.read_text(encoding='utf-8')
-          old = """              setValue(tasks, '列表', {});
-              setValue(tasks, '副本成就', {});
-
-              const rumors = ensureObject(stat, '传闻');
-"""
-          new = """              setValue(tasks, '列表', {});
-              setValue(tasks, '副本成就', {});
-
-              // 普通副本结束时只保留玩家拥有/共管的资产；纯NPC、势力或无主资产随副本清理。
-              const assets = ensureObject(stat, '资产');
-              Object.keys(assets).forEach(function(assetName) {
-                const asset = assets[assetName];
-                const rawOwners = asset && typeof asset === 'object' ? asset.所属对象 : null;
-                // 兼容旧存档：缺失所属对象的历史资产仍按既有迁移语义视为玩家资产，避免误删。
-                const owners = Array.isArray(rawOwners)
-                  ? rawOwners
-                  : (rawOwners == null ? ['<user>'] : [String(rawOwners)]);
-                if (owners.indexOf('<user>') >= 0) return;
-                delete assets[assetName];
-                changed = true;
-              });
-
-              const rumors = ensureObject(stat, '传闻');
-"""
-          if old not in html:
-              raise SystemExit('settlement cleanup anchor not found')
+          old = dec('ICAgICAgICAgICAgICBzZXRWYWx1ZSh0YXNrcywgJ+WIl+ihqCcsIHt9KTsKICAgICAgICAgICAgICBzZXRWYWx1ZSh0YXNrcywgJ+WJr+acrOaIkOWwsScsIHt9KTsKCiAgICAgICAgICAgICAgY29uc3QgcnVtb3JzID0gZW5zdXJlT2JqZWN0KHN0YXQsICfkvKDpl7snKTsK')
+          new = dec('ICAgICAgICAgICAgICBzZXRWYWx1ZSh0YXNrcywgJ+WIl+ihqCcsIHt9KTsKICAgICAgICAgICAgICBzZXRWYWx1ZSh0YXNrcywgJ+WJr+acrOaIkOWwsScsIHt9KTsKCiAgICAgICAgICAgICAgLy8g5pmu6YCa5Ymv5pys57uT5p2f5pe25Y+q5L+d55WZ546p5a625oul5pyJL+WFseeuoeeahOi1hOS6p++8m+e6r05QQ+OAgeWKv+WKm+aIluaXoOS4u+i1hOS6p+maj+WJr+acrOa4heeQhuOAggogICAgICAgICAgICAgIGNvbnN0IGFzc2V0cyA9IGVuc3VyZU9iamVjdChzdGF0LCAn6LWE5LqnJyk7CiAgICAgICAgICAgICAgT2JqZWN0LmtleXMoYXNzZXRzKS5mb3JFYWNoKGZ1bmN0aW9uKGFzc2V0TmFtZSkgewogICAgICAgICAgICAgICAgY29uc3QgYXNzZXQgPSBhc3NldHNbYXNzZXROYW1lXTsKICAgICAgICAgICAgICAgIGNvbnN0IHJhd093bmVycyA9IGFzc2V0ICYmIHR5cGVvZiBhc3NldCA9PT0gJ29iamVjdCcgPyBhc3NldC7miYDlsZ7lr7nosaEgOiBudWxsOwogICAgICAgICAgICAgICAgLy8g5YW85a655pen5a2Y5qGj77ya57y65aSx5omA5bGe5a+56LGh55qE5Y6G5Y+y6LWE5Lqn5LuN5oyJ5pei5pyJ6L+B56e76K+t5LmJ6KeG5Li6546p5a626LWE5Lqn77yM6YG/5YWN6K+v5Yig44CCCiAgICAgICAgICAgICAgICBjb25zdCBvd25lcnMgPSBBcnJheS5pc0FycmF5KHJhd093bmVycykKICAgICAgICAgICAgICAgICAgPyByYXdPd25lcnMKICAgICAgICAgICAgICAgICAgOiAocmF3T3duZXJzID09IG51bGwgPyBbJzx1c2VyPiddIDogW1N0cmluZyhyYXdPd25lcnMpXSk7CiAgICAgICAgICAgICAgICBpZiAob3duZXJzLmluZGV4T2YoJzx1c2VyPicpID49IDApIHJldHVybjsKICAgICAgICAgICAgICAgIGRlbGV0ZSBhc3NldHNbYXNzZXROYW1lXTsKICAgICAgICAgICAgICAgIGNoYW5nZWQgPSB0cnVlOwogICAgICAgICAgICAgIH0pOwoKICAgICAgICAgICAgICBjb25zdCBydW1vcnMgPSBlbnN1cmVPYmplY3Qoc3RhdCwgJ+S8oOmXuycpOwo=')
+          if old not in html: raise SystemExit('settlement cleanup anchor not found')
           html_path.write_text(html.replace(old, new, 1), encoding='utf-8')
-
           helper_path = Path('script/辅助计算脚本.js')
           helper = helper_path.read_text(encoding='utf-8')
-          old = """    function syncRemovedAssets(statData, statDataBefore) {
-        if (!statData || !statDataBefore) return [];
-        const beforeAssets = statDataBefore.资产 && typeof statDataBefore.资产 === 'object' ? statDataBefore.资产 : {};
-"""
-          new = """    function syncRemovedAssets(statData, statDataBefore) {
-        if (!statData || !statDataBefore) return [];
-        // 普通副本结算回主神空间时，批量移除的是世界生命周期清理，不应写成跨世界资产墓碑。
-        if (statData?.系统状态?.是否在主神空间 === true && statDataBefore?.系统状态?.是否在主神空间 !== true) return [];
-        const beforeAssets = statDataBefore.资产 && typeof statDataBefore.资产 === 'object' ? statDataBefore.资产 : {};
-"""
-          if old not in helper:
-              raise SystemExit('asset tombstone guard anchor not found')
+          old = dec('ICAgIGZ1bmN0aW9uIHN5bmNSZW1vdmVkQXNzZXRzKHN0YXREYXRhLCBzdGF0RGF0YUJlZm9yZSkgewogICAgICAgIGlmICghc3RhdERhdGEgfHwgIXN0YXREYXRhQmVmb3JlKSByZXR1cm4gW107CiAgICAgICAgY29uc3QgYmVmb3JlQXNzZXRzID0gc3RhdERhdGFCZWZvcmUu6LWE5LqnICYmIHR5cGVvZiBzdGF0RGF0YUJlZm9yZS7otYTkuqcgPT09ICdvYmplY3QnID8gc3RhdERhdGFCZWZvcmUu6LWE5LqnIDoge307Cg==')
+          new = dec('ICAgIGZ1bmN0aW9uIHN5bmNSZW1vdmVkQXNzZXRzKHN0YXREYXRhLCBzdGF0RGF0YUJlZm9yZSkgewogICAgICAgIGlmICghc3RhdERhdGEgfHwgIXN0YXREYXRhQmVmb3JlKSByZXR1cm4gW107CiAgICAgICAgLy8g5pmu6YCa5Ymv5pys57uT566X5Zue5Li756We56m66Ze05pe277yM5om56YeP56e76Zmk55qE5piv5LiW55WM55Sf5ZG95ZGo5pyf5riF55CG77yM5LiN5bqU5YaZ5oiQ6Leo5LiW55WM6LWE5Lqn5aKT56KR44CCCiAgICAgICAgaWYgKHN0YXREYXRhPy7ns7vnu5/nirbmgIE/LuaYr+WQpuWcqOS4u+elnuepuumXtCA9PT0gdHJ1ZSAmJiBzdGF0RGF0YUJlZm9yZT8u57O757uf54q25oCBPy7mmK/lkKblnKjkuLvnpZ7nqbrpl7QgIT09IHRydWUpIHJldHVybiBbXTsKICAgICAgICBjb25zdCBiZWZvcmVBc3NldHMgPSBzdGF0RGF0YUJlZm9yZS7otYTkuqcgJiYgdHlwZW9mIHN0YXREYXRhQmVmb3JlLui1hOS6pyA9PT0gJ29iamVjdCcgPyBzdGF0RGF0YUJlZm9yZS7otYTkuqcgOiB7fTsK')
+          if old not in helper: raise SystemExit('asset tombstone guard anchor not found')
           helper_path.write_text(helper.replace(old, new, 1), encoding='utf-8')
-
           test_path = Path('tests/task-settlement-simplified.cjs')
           test = test_path.read_text(encoding='utf-8')
-          anchor = """for (const [name, html] of [['主神任务美化', mainUi], ['试炼任务美化', trialUi], ['结算任务美化', settleUi]]) {
-"""
-          block = r"""const finalizationMatch = settleUi.match(/          function applySettlementFinalization\(c, isLatestPanel\) \{([\s\S]*?)\n          \}\n\n          async function writeSettlementToMvu/);
-assert(finalizationMatch, 'settlement finalization should be extractable');
-const applySettlementFinalization = new Function(
-  'rawText', 'hasSettlementHeader', 'isFullSettlement', 'isTrialPassed', 'trialTasks', 'readReincarnatorTier', 'settlementBaselineTier', 'settlementTaskKeys',
-  `return function applySettlementFinalization(c, isLatestPanel) {${finalizationMatch[1]}\n  };`
-)(
-  '轮回清算协议',
-  () => true,
-  () => true,
-  () => false,
-  [],
-  () => 'Ⅰ',
-  'Ⅰ',
-  []
-);
-function makeSettlementFinalizeData(singleWorld) {
-  return {
-    stat_data: {
-      设置: { 单一世界: singleWorld },
-      角色: { 层级: 'Ⅰ' },
-      世界: { 名称: '测试副本', 后台: {}, 异端雷达: {} },
-      系统状态: { 是否在主神空间: false },
-      任务: { 击杀: {}, 列表: {}, 副本成就: {} },
-      传闻: { 街头巷议: {}, 情报交易: {}, 布告与檄文: {} },
-      资产: {
-        玩家庄园: { 所属对象: ['<user>'], 类型: '固定地产' },
-        共管基地: { 所属对象: ['盟友', '<user>'], 类型: '要塞' },
-        敌军据点: { 所属对象: ['敌军'], 类型: '要塞' },
-        无主遗迹: { 所属对象: [], 类型: '固定地产' },
-        旧版玩家资产: { 类型: '固定地产' },
-      },
-    },
-  };
-}
-const ordinaryFinalize = makeSettlementFinalizeData(false);
-assert.equal(applySettlementFinalization(ordinaryFinalize, true), true);
-assert.deepEqual(
-  Object.keys(ordinaryFinalize.stat_data.资产).sort(),
-  ['玩家庄园', '共管基地', '旧版玩家资产'].sort(),
-  'ordinary dungeon settlement must remove assets whose owners do not include <user>'
-);
-assert.equal(ordinaryFinalize.stat_data.系统状态.是否在主神空间, true);
-const singleFinalize = makeSettlementFinalizeData(true);
-applySettlementFinalization(singleFinalize, true);
-assert.ok(singleFinalize.stat_data.资产.敌军据点, 'single-world stage settlement must not clear world assets');
-assert.ok(singleFinalize.stat_data.资产.无主遗迹, 'single-world stage settlement must keep unowned world assets');
-
-"""
-          if anchor not in test:
-              raise SystemExit('task settlement test anchor not found')
+          anchor = dec('Zm9yIChjb25zdCBbbmFtZSwgaHRtbF0gb2YgW1sn5Li756We5Lu75Yqh576O5YyWJywgbWFpblVpXSwgWyfor5Xngrzku7vliqHnvo7ljJYnLCB0cmlhbFVpXSwgWyfnu5Pnrpfku7vliqHnvo7ljJYnLCBzZXR0bGVVaV1dKSB7Cg==')
+          block = dec('Y29uc3QgZmluYWxpemF0aW9uTWF0Y2ggPSBzZXR0bGVVaS5tYXRjaCgvICAgICAgICAgIGZ1bmN0aW9uIGFwcGx5U2V0dGxlbWVudEZpbmFsaXphdGlvblwoYywgaXNMYXRlc3RQYW5lbFwpIFx7KFtcc1xTXSo/KVxuICAgICAgICAgIFx9XG5cbiAgICAgICAgICBhc3luYyBmdW5jdGlvbiB3cml0ZVNldHRsZW1lbnRUb012dS8pOwphc3NlcnQoZmluYWxpemF0aW9uTWF0Y2gsICdzZXR0bGVtZW50IGZpbmFsaXphdGlvbiBzaG91bGQgYmUgZXh0cmFjdGFibGUnKTsKY29uc3QgYXBwbHlTZXR0bGVtZW50RmluYWxpemF0aW9uID0gbmV3IEZ1bmN0aW9uKAogICdyYXdUZXh0JywgJ2hhc1NldHRsZW1lbnRIZWFkZXInLCAnaXNGdWxsU2V0dGxlbWVudCcsICdpc1RyaWFsUGFzc2VkJywgJ3RyaWFsVGFza3MnLCAncmVhZFJlaW5jYXJuYXRvclRpZXInLCAnc2V0dGxlbWVudEJhc2VsaW5lVGllcicsICdzZXR0bGVtZW50VGFza0tleXMnLAogIGByZXR1cm4gZnVuY3Rpb24gYXBwbHlTZXR0bGVtZW50RmluYWxpemF0aW9uKGMsIGlzTGF0ZXN0UGFuZWwpIHske2ZpbmFsaXphdGlvbk1hdGNoWzFdfVxuICB9O2AKKSgKICAn6L2u5Zue5riF566X5Y2P6K6uJywKICAoKSA9PiB0cnVlLAogICgpID0+IHRydWUsCiAgKCkgPT4gZmFsc2UsCiAgW10sCiAgKCkgPT4gJ+KFoCcsCiAgJ+KFoCcsCiAgW10KKTsKZnVuY3Rpb24gbWFrZVNldHRsZW1lbnRGaW5hbGl6ZURhdGEoc2luZ2xlV29ybGQpIHsKICByZXR1cm4gewogICAgc3RhdF9kYXRhOiB7CiAgICAgIOiuvue9rjogeyDljZXkuIDkuJbnlYw6IHNpbmdsZVdvcmxkIH0sCiAgICAgIOinkuiJsjogeyDlsYLnuqc6ICfihaAnIH0sCiAgICAgIOS4lueVjDogeyDlkI3np7A6ICfmtYvor5Xlia/mnKwnLCDlkI7lj7A6IHt9LCDlvILnq6/pm7fovr46IHt9IH0sCiAgICAgIOezu+e7n+eKtuaAgTogeyDmmK/lkKblnKjkuLvnpZ7nqbrpl7Q6IGZhbHNlIH0sCiAgICAgIOS7u+WKoTogeyDlh7vmnYA6IHt9LCDliJfooag6IHt9LCDlia/mnKzmiJDlsLE6IHt9IH0sCiAgICAgIOS8oOmXuzogeyDooZflpLTlt7forq46IHt9LCDmg4XmiqXkuqTmmJM6IHt9LCDluIPlkYrkuI7mqoTmloc6IHt9IH0sCiAgICAgIOi1hOS6pzogewogICAgICAgIOeOqeWutuW6hOWbrTogeyDmiYDlsZ7lr7nosaE6IFsnPHVzZXI+J10sIOexu+WeizogJ+WbuuWumuWcsOS6pycgfSwKICAgICAgICDlhbHnrqHln7rlnLA6IHsg5omA5bGe5a+56LGhOiBbJ+ebn+WPiycsICc8dXNlcj4nXSwg57G75Z6LOiAn6KaB5aGeJyB9LAogICAgICAgIOaVjOWGm+aNrueCuTogeyDmiYDlsZ7lr7nosaE6IFsn5pWM5YabJ10sIOexu+WeizogJ+imgeWhnicgfSwKICAgICAgICDml6DkuLvpgZfov7k6IHsg5omA5bGe5a+56LGhOiBbXSwg57G75Z6LOiAn5Zu65a6a5Zyw5LqnJyB9LAogICAgICAgIOaXp+eJiOeOqeWutui1hOS6pzogeyDnsbvlnos6ICflm7rlrprlnLDkuqcnIH0sCiAgICAgIH0sCiAgICB9LAogIH07Cn0KY29uc3Qgb3JkaW5hcnlGaW5hbGl6ZSA9IG1ha2VTZXR0bGVtZW50RmluYWxpemVEYXRhKGZhbHNlKTsKYXNzZXJ0LmVxdWFsKGFwcGx5U2V0dGxlbWVudEZpbmFsaXphdGlvbihvcmRpbmFyeUZpbmFsaXplLCB0cnVlKSwgdHJ1ZSk7CmFzc2VydC5kZWVwRXF1YWwoCiAgT2JqZWN0LmtleXMob3JkaW5hcnlGaW5hbGl6ZS5zdGF0X2RhdGEu6LWE5LqnKS5zb3J0KCksCiAgWyfnjqnlrrbluoTlm60nLCAn5YWx566h5Z+65ZywJywgJ+aXp+eJiOeOqeWutui1hOS6pyddLnNvcnQoKSwKICAnb3JkaW5hcnkgZHVuZ2VvbiBzZXR0bGVtZW50IG11c3QgcmVtb3ZlIGFzc2V0cyB3aG9zZSBvd25lcnMgZG8gbm90IGluY2x1ZGUgPHVzZXI+JwopOwphc3NlcnQuZXF1YWwob3JkaW5hcnlGaW5hbGl6ZS5zdGF0X2RhdGEu57O757uf54q25oCBLuaYr+WQpuWcqOS4u+elnuepuumXtCwgdHJ1ZSk7CmNvbnN0IHNpbmdsZUZpbmFsaXplID0gbWFrZVNldHRsZW1lbnRGaW5hbGl6ZURhdGEodHJ1ZSk7CmFwcGx5U2V0dGxlbWVudEZpbmFsaXphdGlvbihzaW5nbGVGaW5hbGl6ZSwgdHJ1ZSk7CmFzc2VydC5vayhzaW5nbGVGaW5hbGl6ZS5zdGF0X2RhdGEu6LWE5LqnLuaVjOWGm+aNrueCuSwgJ3NpbmdsZS13b3JsZCBzdGFnZSBzZXR0bGVtZW50IG11c3Qgbm90IGNsZWFyIHdvcmxkIGFzc2V0cycpOwphc3NlcnQub2soc2luZ2xlRmluYWxpemUuc3RhdF9kYXRhLui1hOS6py7ml6DkuLvpgZfov7ksICdzaW5nbGUtd29ybGQgc3RhZ2Ugc2V0dGxlbWVudCBtdXN0IGtlZXAgdW5vd25lZCB3b3JsZCBhc3NldHMnKTsKCg==')
+          if anchor not in test: raise SystemExit('task settlement test anchor not found')
           test_path.write_text(test.replace(anchor, block + anchor, 1), encoding='utf-8')
-
           asset_test_path = Path('tests/world-engine-asset-multi-owner.cjs')
           asset_test = asset_test_path.read_text(encoding='utf-8')
-          anchor = """assert.equal(afterManualDelete.世界.后台.资产墓碑.旧塔, undefined, '明确重建同名资产后必须解除删除保护');
-"""
-          block = """
-// 普通副本结算返回主神空间时的批量资产清理不应生成跨世界删除墓碑。
-const beforeSettlementCleanup = {世界:{时间:'副本终局',后台:{}},系统状态:{是否在主神空间:false},资产:{敌军据点:{所属对象:['敌军'],类型:'要塞'}}};
-const afterSettlementCleanup = {世界:{时间:'主神空间',后台:{}},系统状态:{是否在主神空间:true},资产:{}};
-assert.deepEqual(syncRemovedAssets(afterSettlementCleanup, beforeSettlementCleanup), []);
-assert.deepEqual(afterSettlementCleanup.世界.后台, {}, '副本结算清理资产不得重新生成资产墓碑');
-"""
-          if anchor not in asset_test:
-              raise SystemExit('asset lifecycle test anchor not found')
+          anchor = dec('YXNzZXJ0LmVxdWFsKGFmdGVyTWFudWFsRGVsZXRlLuS4lueVjC7lkI7lj7Au6LWE5Lqn5aKT56KRLuaXp+WhlCwgdW5kZWZpbmVkLCAn5piO56Gu6YeN5bu65ZCM5ZCN6LWE5Lqn5ZCO5b+F6aG76Kej6Zmk5Yig6Zmk5L+d5oqkJyk7Cg==')
+          block = dec('Ci8vIOaZrumAmuWJr+acrOe7k+eul+i/lOWbnuS4u+elnuepuumXtOaXtueahOaJuemHj+i1hOS6p+a4heeQhuS4jeW6lOeUn+aIkOi3qOS4lueVjOWIoOmZpOWik+eikeOAggpjb25zdCBiZWZvcmVTZXR0bGVtZW50Q2xlYW51cCA9IHvkuJbnlYw6e+aXtumXtDon5Ymv5pys57uI5bGAJyzlkI7lj7A6e319LOezu+e7n+eKtuaAgTp75piv5ZCm5Zyo5Li756We56m66Ze0OmZhbHNlfSzotYTkuqc6e+aVjOWGm+aNrueCuTp75omA5bGe5a+56LGhOlsn5pWM5YabJ10s57G75Z6LOifopoHloZ4nfX19Owpjb25zdCBhZnRlclNldHRsZW1lbnRDbGVhbnVwID0ge+S4lueVjDp75pe26Ze0OifkuLvnpZ7nqbrpl7QnLOWQjuWPsDp7fX0s57O757uf54q25oCBOnvmmK/lkKblnKjkuLvnpZ7nqbrpl7Q6dHJ1ZX0s6LWE5LqnOnt9fTsKYXNzZXJ0LmRlZXBFcXVhbChzeW5jUmVtb3ZlZEFzc2V0cyhhZnRlclNldHRsZW1lbnRDbGVhbnVwLCBiZWZvcmVTZXR0bGVtZW50Q2xlYW51cCksIFtdKTsKYXNzZXJ0LmRlZXBFcXVhbChhZnRlclNldHRsZW1lbnRDbGVhbnVwLuS4lueVjC7lkI7lj7AsIHt9LCAn5Ymv5pys57uT566X5riF55CG6LWE5Lqn5LiN5b6X6YeN5paw55Sf5oiQ6LWE5Lqn5aKT56KRJyk7Cg==')
+          if anchor not in asset_test: raise SystemExit('asset lifecycle test anchor not found')
           asset_test_path.write_text(asset_test.replace(anchor, anchor + block, 1), encoding='utf-8')
           PY
       - name: Build delivery

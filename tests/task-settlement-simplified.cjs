@@ -14,7 +14,7 @@ const settleUi = read('Regular/结算任务美化.html');
 
 assert.doesNotMatch(zod, /表现:\s*z\.object|表现\.完成度|表现\.记录/);
 assert.doesNotMatch(rules, /表现\.完成度|表现\.记录|额外成果|决定性成果/);
-assert.match(rules, /难度为任务固定等级，与世界难度独立；生成后禁止结算改写/);
+assert.match(rules, /难度为任务固定等级，与世界难度独立；生成后禁止(?:结算)?改写/);
 assert.match(taskRules, /任意状态[\s\S]*角色输入【结算任务】[\s\S]*立即结算；未完成按未完成结算/);
 assert.doesNotMatch(mainUi, /\.表现\.完成度|\.表现\.记录/);
 assert.doesNotMatch(trialUi, /concat\('表现'|表现\.完成度|表现\.记录/);

@@ -14,20 +14,6 @@
   const reputationCap = reputationBase * 3;
   const reputationReward = Math.min(reputationTotal,reputationCap);
 
-  // 探索是当前世界的长期档案。普通副本离场时一次性结算全部；单一世界只结算上次阶段结算后的新增进度。
-  const explorationLedger = _.get(rule_data, '世界.探索', {}) || {};
-  const explorationBaseline = _.get(rule_data, '世界.后台.探索结算基线', {}) || {};
-  const explorationSettlementRows = Object.entries(explorationLedger).map(([name, area]) => {
-    const current = Math.max(0, Math.min(100, Number(area && area.探索度) || 0));
-    const settled = isSingleWorld ? Math.max(0, Math.min(current, Number(explorationBaseline[name]) || 0)) : 0;
-    return { name, current, settled, delta: isSingleWorld ? Math.max(0, current - settled) : current };
-  }).filter(row => row.delta > 0);
-  const explorationSettlementWeight = explorationSettlementRows.reduce((sum, row) => sum + row.delta, 0);
-  const explorationSettlementSummary = explorationSettlementRows.length
-    ? explorationSettlementRows.map(row => `${row.name}: ${isSingleWorld ? '新增' : ''}${row.delta}%`).join('；')
-    : (isSingleWorld ? '本阶段无新增探索进度' : '无可结算探索进度');
-
-
   // 仓库物品不在 stat_data.仓库 下；真实路径是 角色.装备/道具 中 状态===2
   // [variables]当前变量.txt 会全局屏蔽状态2以省Token，结算任务必须从原始 rule_data 自行提取
   const warehouseEquip = _.pickBy(_.get(rule_data, '角色.装备', {}) || {}, (item) => Number(item && item.状态) === 2);
@@ -98,13 +84,11 @@ _%>
   【收益结算公式】:
     - 任务综合基础收益 = 【奖励基准评级对应基础奖励】 × 【任务表现评级乘数】
     - 击杀目标附加收益 = Σ(各目标自身评级对应单价 × 击杀数量)。总额上限: 任务综合基础收益 × 10
-<%_ if (isSingleWorld) { _%>
-    - 世界探索附加收益只计算自上次阶段结算后新增的探索度；当前新增探索权重已由程序锁定为 <%= explorationSettlementWeight %>%（<%= explorationSettlementSummary %>）。总额上限: 【奖励基准评级对应基础奖励】 × 300%。禁止把已结算探索度再次计奖。
-<%_ } else { _%>
-    - 世界探索附加收益 = 【奖励基准评级对应基础奖励】 × 【总探索度%】。当前可结算探索权重为 <%= explorationSettlementWeight %>%（<%= explorationSettlementSummary %>）。总额上限: 【奖励基准评级对应基础奖励】 × 300%。
-<%_ } _%>
 <%_ if (!isSingleWorld) { _%>
+    - 世界探索附加收益 = 【奖励基准评级对应基础奖励】 × 【总探索度%】。总额上限: 【奖励基准评级对应基础奖励】 × 300%。
     - 势力羁绊附加收益只计声望>0的势力，声望≤0一律为0，禁止取绝对值。程序已按当前世界难度最低评级算出：基础奖励 <%= reputationBase %>，正声望总权重 <%= reputationWeight %>，封顶后实际收益 <%= reputationReward %> 空间币。面板、个人最终总收益和空间币变量增量必须使用此金额，不得由AI重算或追加负声望奖励。
+<%_ } else { _%>
+    - 单一世界不结算世界探索与势力羁绊附加收益；两者只作为当前世界的长期资料继续保留。
 <%_ } _%>
     - 任务专属奖励 = 提取【可结算】主神任务中尚未发放的专属奖励，逐项单独核算，不重复计入其他收益
     - 失败任务惩罚扣除 = 提取【失败】主神任务中明确注明的空间币惩罚数值
@@ -202,19 +186,12 @@ AI推演与计算层 (仅在 <dm_think> 中执行，不在正文显示):
     * **击杀奖励合计**: **{所有实际击杀总额}** 空间币
     * **击杀奖励上限**: **{任务综合基础收益 × 10}** 空间币
     * **击杀实际计入收益**: **{取上述二者中的较小值}** 空间币
-* **世界探索附加收益明细**:
-<%_ if (explorationSettlementRows.length) { _%>
-<%_ explorationSettlementRows.forEach(row => { _%>
-    * {基础奖励数值} × [<%= row.name %>] (<%= isSingleWorld ? '本阶段新增 ' : '' %><%= row.delta %>%) = {总额}
-<%_ }); _%>
-<%_ } else { _%>
-    * <%= isSingleWorld ? '本阶段没有新增探索进度，探索收益为 0。' : '当前没有可结算探索进度，探索收益为 0。' %>
-<%_ } _%>
-    * **探索结算权重**: **<%= explorationSettlementWeight %>%**
-    * **探索奖励合计**: **{按上述明细求和}** 空间币
-    * **探索奖励上限**: **{基础奖励数值 × 300%}** 空间币
-    * **探索实际计入收益**: **{取奖励合计与奖励上限中的较小值}** 空间币
 <%_ if (!isSingleWorld) { _%>
+* **世界探索附加收益明细**:
+    $(若 stat_data.世界.探索.地点名.探索度 > 0 则输出: * {基础奖励数值} × [地点名] ({{get_message_variable::stat_data.世界.探索.地点名.探索度}}%) = {总额})
+    * **探索奖励合计**: **{所有探索总额}** 空间币
+    * **探索奖励上限**: **{基础奖励数值 × 300%}** 空间币
+    * **探索实际计入收益**: **{取上述二者中的较小值}** 空间币
 * **势力羁绊附加收益明细**:
 <%_ for (const [name, faction] of positiveFactions) { _%>
     * <%= reputationBase %> × [<%= name %>] (<%= Number(faction.声望) %> ÷ 100) = <%= reputationBase * Number(faction.声望) / 100 %>

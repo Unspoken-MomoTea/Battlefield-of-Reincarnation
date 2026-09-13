@@ -1268,15 +1268,7 @@
               const sys = ensureObject(stat, '系统状态');
               setValue(sys, '是否在主神空间', true);
             } else {
-              // 单一世界继续使用同一世界：探索档案必须持久保留；只记录本次已结算到的探索进度作为下次增量基线。
-              const backend = ensureObject(world, '后台');
-              const exploration = ensureObject(world, '探索');
-              const explorationBaseline = {};
-              Object.keys(exploration).forEach(function(areaName) {
-                const progress = Math.max(0, Math.min(100, Number(exploration[areaName] && exploration[areaName].探索度) || 0));
-                if (progress > 0) explorationBaseline[areaName] = progress;
-              });
-              setValue(backend, '探索结算基线', explorationBaseline);
+              // 单一世界继续使用同一世界：探索档案长期保留，但不参与空间币结算。
               // 单一世界没有副本成就；结算时同步清理旧副本/旧版本残留，但不影响当前世界与未结算任务。
               setValue(tasks, '副本成就', {});
               const taskList = ensureObject(tasks, '列表');

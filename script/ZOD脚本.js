@@ -429,9 +429,7 @@ export const Schema = z.object({
             运行记录: z.array(z.any()).prefault([]),
             最近变化: z.array(z.any()).prefault([]),
             // 程序生命周期墓碑：只记用户/MVU明确删除的资产名，防止世界引擎因旧剧情记忆重新创建。
-            资产墓碑: z.record(z.string(), safeStr('')).prefault({}),
-            // 单一世界阶段结算的探索奖励基线；只供程序防重复结算，不发送给正文/世界模型。
-            探索结算基线: z.record(z.string(), clampNum(0, 0, 100)).prefault({})
+            资产墓碑: z.record(z.string(), safeStr('')).prefault({})
         }).prefault({}),
         位格: E_rank.prefault('Ⅸ'),
         难度: safeStr('F~SSS'),

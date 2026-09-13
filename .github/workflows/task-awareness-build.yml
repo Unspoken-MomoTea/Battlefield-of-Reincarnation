@@ -16,12 +16,136 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Apply dungeon asset cleanup patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          html_path = Path('Regular/结算任务美化.html')
+          html = html_path.read_text(encoding='utf-8')
+          old = """              setValue(tasks, '列表', {});
+              setValue(tasks, '副本成就', {});
+
+              const rumors = ensureObject(stat, '传闻');
+"""
+          new = """              setValue(tasks, '列表', {});
+              setValue(tasks, '副本成就', {});
+
+              // 普通副本结束时只保留玩家拥有/共管的资产；纯NPC、势力或无主资产随副本清理。
+              const assets = ensureObject(stat, '资产');
+              Object.keys(assets).forEach(function(assetName) {
+                const asset = assets[assetName];
+                const rawOwners = asset && typeof asset === 'object' ? asset.所属对象 : null;
+                // 兼容旧存档：缺失所属对象的历史资产仍按既有迁移语义视为玩家资产，避免误删。
+                const owners = Array.isArray(rawOwners)
+                  ? rawOwners
+                  : (rawOwners == null ? ['<user>'] : [String(rawOwners)]);
+                if (owners.indexOf('<user>') >= 0) return;
+                delete assets[assetName];
+                changed = true;
+              });
+
+              const rumors = ensureObject(stat, '传闻');
+"""
+          if old not in html:
+              raise SystemExit('settlement cleanup anchor not found')
+          html_path.write_text(html.replace(old, new, 1), encoding='utf-8')
+
+          helper_path = Path('script/辅助计算脚本.js')
+          helper = helper_path.read_text(encoding='utf-8')
+          old = """    function syncRemovedAssets(statData, statDataBefore) {
+        if (!statData || !statDataBefore) return [];
+        const beforeAssets = statDataBefore.资产 && typeof statDataBefore.资产 === 'object' ? statDataBefore.资产 : {};
+"""
+          new = """    function syncRemovedAssets(statData, statDataBefore) {
+        if (!statData || !statDataBefore) return [];
+        // 普通副本结算回主神空间时，批量移除的是世界生命周期清理，不应写成跨世界资产墓碑。
+        if (statData?.系统状态?.是否在主神空间 === true && statDataBefore?.系统状态?.是否在主神空间 !== true) return [];
+        const beforeAssets = statDataBefore.资产 && typeof statDataBefore.资产 === 'object' ? statDataBefore.资产 : {};
+"""
+          if old not in helper:
+              raise SystemExit('asset tombstone guard anchor not found')
+          helper_path.write_text(helper.replace(old, new, 1), encoding='utf-8')
+
+          test_path = Path('tests/task-settlement-simplified.cjs')
+          test = test_path.read_text(encoding='utf-8')
+          anchor = """for (const [name, html] of [['主神任务美化', mainUi], ['试炼任务美化', trialUi], ['结算任务美化', settleUi]]) {
+"""
+          block = r"""const finalizationMatch = settleUi.match(/          function applySettlementFinalization\(c, isLatestPanel\) \{([\s\S]*?)\n          \}\n\n          async function writeSettlementToMvu/);
+assert(finalizationMatch, 'settlement finalization should be extractable');
+const applySettlementFinalization = new Function(
+  'rawText', 'hasSettlementHeader', 'isFullSettlement', 'isTrialPassed', 'trialTasks', 'readReincarnatorTier', 'settlementBaselineTier', 'settlementTaskKeys',
+  `return function applySettlementFinalization(c, isLatestPanel) {${finalizationMatch[1]}\n  };`
+)(
+  '轮回清算协议',
+  () => true,
+  () => true,
+  () => false,
+  [],
+  () => 'Ⅰ',
+  'Ⅰ',
+  []
+);
+function makeSettlementFinalizeData(singleWorld) {
+  return {
+    stat_data: {
+      设置: { 单一世界: singleWorld },
+      角色: { 层级: 'Ⅰ' },
+      世界: { 名称: '测试副本', 后台: {}, 异端雷达: {} },
+      系统状态: { 是否在主神空间: false },
+      任务: { 击杀: {}, 列表: {}, 副本成就: {} },
+      传闻: { 街头巷议: {}, 情报交易: {}, 布告与檄文: {} },
+      资产: {
+        玩家庄园: { 所属对象: ['<user>'], 类型: '固定地产' },
+        共管基地: { 所属对象: ['盟友', '<user>'], 类型: '要塞' },
+        敌军据点: { 所属对象: ['敌军'], 类型: '要塞' },
+        无主遗迹: { 所属对象: [], 类型: '固定地产' },
+        旧版玩家资产: { 类型: '固定地产' },
+      },
+    },
+  };
+}
+const ordinaryFinalize = makeSettlementFinalizeData(false);
+assert.equal(applySettlementFinalization(ordinaryFinalize, true), true);
+assert.deepEqual(
+  Object.keys(ordinaryFinalize.stat_data.资产).sort(),
+  ['玩家庄园', '共管基地', '旧版玩家资产'].sort(),
+  'ordinary dungeon settlement must remove assets whose owners do not include <user>'
+);
+assert.equal(ordinaryFinalize.stat_data.系统状态.是否在主神空间, true);
+const singleFinalize = makeSettlementFinalizeData(true);
+applySettlementFinalization(singleFinalize, true);
+assert.ok(singleFinalize.stat_data.资产.敌军据点, 'single-world stage settlement must not clear world assets');
+assert.ok(singleFinalize.stat_data.资产.无主遗迹, 'single-world stage settlement must keep unowned world assets');
+
+"""
+          if anchor not in test:
+              raise SystemExit('task settlement test anchor not found')
+          test_path.write_text(test.replace(anchor, block + anchor, 1), encoding='utf-8')
+
+          asset_test_path = Path('tests/world-engine-asset-multi-owner.cjs')
+          asset_test = asset_test_path.read_text(encoding='utf-8')
+          anchor = """assert.equal(afterManualDelete.世界.后台.资产墓碑.旧塔, undefined, '明确重建同名资产后必须解除删除保护');
+"""
+          block = """
+// 普通副本结算返回主神空间时的批量资产清理不应生成跨世界删除墓碑。
+const beforeSettlementCleanup = {世界:{时间:'副本终局',后台:{}},系统状态:{是否在主神空间:false},资产:{敌军据点:{所属对象:['敌军'],类型:'要塞'}}};
+const afterSettlementCleanup = {世界:{时间:'主神空间',后台:{}},系统状态:{是否在主神空间:true},资产:{}};
+assert.deepEqual(syncRemovedAssets(afterSettlementCleanup, beforeSettlementCleanup), []);
+assert.deepEqual(afterSettlementCleanup.世界.后台, {}, '副本结算清理资产不得重新生成资产墓碑');
+"""
+          if anchor not in asset_test:
+              raise SystemExit('asset lifecycle test anchor not found')
+          asset_test_path.write_text(asset_test.replace(anchor, anchor + block, 1), encoding='utf-8')
+          PY
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax check
         run: node --check script/世界推进系统.js
       - name: Simplified task settlement regression
         run: node tests/task-settlement-simplified.cjs
+      - name: Asset lifecycle regression
+        run: node tests/world-engine-asset-multi-owner.cjs
       - name: Super-stable prompt regression
         run: node tests/world-engine-superstable-prompt.cjs
       - name: Task awareness regression
@@ -40,6 +164,14 @@ jobs:
         run: node tests/world-engine-asset-writeback.cjs
       - name: Module synchronization
         run: node tests/world-engine-modules.cjs
+      - name: Commit settlement cleanup and restore workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git show HEAD^:.github/workflows/task-awareness-build.yml > .github/workflows/task-awareness-build.yml
+          git add 'Regular/结算任务美化.html' 'script/辅助计算脚本.js' tests/task-settlement-simplified.cjs tests/world-engine-asset-multi-owner.cjs .github/workflows/task-awareness-build.yml
+          git commit -m "fix: clean non-player assets after dungeon settlement"
+          git push origin HEAD:main
       - name: Commit generated delivery
         run: |
           if git diff --quiet -- script/世界推进系统.js; then exit 0; fi

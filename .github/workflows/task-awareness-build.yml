@@ -26,6 +26,8 @@ jobs:
         run: node tests/world-engine-superstable-prompt.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
+      - name: Rumor rolling regression
+        run: node tests/world-engine-rumor-capacity.cjs
       - name: Chronology guard regression
         run: node tests/world-engine-chronology-guard.cjs
       - name: NPC audit regression

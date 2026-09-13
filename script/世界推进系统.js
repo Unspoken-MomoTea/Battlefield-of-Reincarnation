@@ -5193,7 +5193,7 @@ ${schemaText}`;
             if(!button){
                 button=this.host.document.createElement('button');
                 button.type='button';button.className='we-btn we-switch';button.dataset.autoProgressToggleTop='';
-                run.insertAdjacentElement('afterend',button);
+                run.insertAdjacentElement('beforebegin',button);
                 button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();this.toggleAutoProgress();});
             }
             button.classList.toggle('on',this.config.autoProgress===true);

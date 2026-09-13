@@ -19,6 +19,7 @@ const parts = [
   '58-chronology-guard.part.js',
   '59-auto-progress.part.js',
   '59-soft-maintenance.part.js',
+  '59-world-integrity-guard.part.js',
   '60-bootstrap.part.js',
 ];
 
@@ -75,6 +76,9 @@ assert.match(texts['59-soft-maintenance.part.js'], /^    \/\/ 容错验收策略
 assert.match(texts['59-soft-maintenance.part.js'], /SOFT_MAINTENANCE_RULES/);
 assert.match(texts['59-soft-maintenance.part.js'], /eventHasUsableSchedule/);
 assert.match(texts['59-soft-maintenance.part.js'], /ensureRumorLiveliness=function/);
+assert.match(texts['59-world-integrity-guard.part.js'], /^    \/\/ 世界完整性保护/);
+assert.match(texts['59-world-integrity-guard.part.js'], /WORLD_INTEGRITY_GUARD_RULES/);
+assert.match(texts['59-world-integrity-guard.part.js'], /validateCausalOffsets/);
 assert.match(texts['60-bootstrap.part.js'], /^    \/\/ CommonJS 入口仅供离线测试/);
 assert.match(texts['60-bootstrap.part.js'], /module\.exports/);
 assert.match(texts['60-bootstrap.part.js'], /\}\)\(typeof window !== 'undefined' \? window : globalThis\);\s*$/);

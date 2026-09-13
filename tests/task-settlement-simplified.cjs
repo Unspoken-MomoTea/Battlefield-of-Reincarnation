@@ -34,6 +34,9 @@ assert.match(settleUi, /killCap\s*=\s*base\s*\*\s*10/);
 assert.match(settleUi, /explorationCap\s*=\s*base\s*\*\s*3/);
 assert.match(settleUi, /reputationCap\s*=\s*base\s*\*\s*3/);
 assert.match(settleUi, /SETTLEMENT_CREDENTIAL_CORE_START/);
+assert.match(settleUi, /function resolveCredentialDecision\s*\(/);
+assert.match(settleUi, /const credentialDecision = resolveCredentialDecision\(settlementBaselineData\)/);
+assert.match(settleUi, /renderCredentialPanel\(credentialDecision\)/);
 assert.match(settleUi, /settlementStat\.角色\.空间币\s*=\s*spaceCoinSettlement\.balanceAfter/);
 assert.doesNotMatch(settleUi, /function taskSucceeded\(task\)|function taskCompletion\(task\)|taskAssess|\.st-task-assess/);
 assert.match(settleUi, /settlementTaskKeys\.forEach/);
@@ -135,7 +138,7 @@ assert.equal(single.balanceAfter, 124000);
 
 const credentialMatch = settleUi.match(/\/\/ SETTLEMENT_CREDENTIAL_CORE_START([\s\S]*?)\/\/ SETTLEMENT_CREDENTIAL_CORE_END/);
 assert(credentialMatch, 'credential core should be extractable for deterministic regression');
-const resolveCredentialGrant = new Function(`
+const credentialResolvers = new Function(`
   const GRADES = ['F','E','D','C','B','A','S','SS','SSS'];
   function gradeTier(d) {
     const m = String(d || '').toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)/);
@@ -150,8 +153,9 @@ const resolveCredentialGrant = new Function(`
     return best;
   }
   ${credentialMatch[1]}
-  return resolveCredentialGrant;
+  return { resolveCredentialGrant, resolveCredentialDecision };
 `)();
+const { resolveCredentialGrant, resolveCredentialDecision } = credentialResolvers;
 
 const failedCredential = resolveCredentialGrant({
   stat_data: {
@@ -166,6 +170,20 @@ const failedCredential = resolveCredentialGrant({
 });
 assert.equal(failedCredential, null, 'no successful main task means no permission credential');
 
+const failedDecision = resolveCredentialDecision({
+  stat_data: {
+    设置: { 单一世界: false },
+    角色: { 层级: 'Ⅰ' },
+    世界: { 难度: 'D~A' },
+    任务: { 列表: {
+      任务一: { 委托方: '主神任务', 状态: '失败', 难度: 'D' },
+      任务二: { 委托方: '主神任务', 状态: '进行中', 难度: 'A' },
+    } },
+  },
+});
+assert.equal(failedDecision.granted, false);
+assert.equal(failedDecision.reasonCode, 'no_success_task');
+
 const ordinaryCredential = resolveCredentialGrant({
   stat_data: {
     设置: { 单一世界: false },
@@ -178,6 +196,9 @@ const ordinaryCredential = resolveCredentialGrant({
   },
 });
 assert.equal(ordinaryCredential && ordinaryCredential.grade, 'D', 'ordinary reincarnation worlds grant by world minimum difficulty once any main task succeeds');
+assert.equal(ordinaryCredential && ordinaryCredential.basis, '世界最低难度');
+assert.equal(ordinaryCredential && ordinaryCredential.playerGrade, 'F');
+assert.equal(ordinaryCredential && ordinaryCredential.requiredGrade, 'E');
 
 const singleWorldCredential = resolveCredentialGrant({
   stat_data: {
@@ -192,6 +213,53 @@ const singleWorldCredential = resolveCredentialGrant({
   },
 });
 assert.equal(singleWorldCredential && singleWorldCredential.grade, 'B', 'single-world credential grade comes from the highest successful main-task difficulty');
+assert.equal(singleWorldCredential && singleWorldCredential.basis, '成功主神任务最高难度');
+
+const sameGradeDecision = resolveCredentialDecision({
+  stat_data: {
+    设置: { 单一世界: false },
+    角色: { 层级: 'Ⅲ' },
+    世界: { 难度: 'D~A' },
+    任务: { 列表: {
+      任务一: { 委托方: '主神任务', 状态: '可结算', 难度: 'A' },
+    } },
+  },
+});
+assert.equal(sameGradeDecision.granted, false);
+assert.equal(sameGradeDecision.reasonCode, 'grade_not_high_enough');
+assert.equal(sameGradeDecision.sourceGrade, 'D');
+assert.equal(sameGradeDecision.playerGrade, 'D');
+assert.equal(sameGradeDecision.requiredGrade, 'C');
+
+const maxTierDecision = resolveCredentialDecision({
+  stat_data: {
+    设置: { 单一世界: false },
+    角色: { 层级: 'Ⅸ' },
+    世界: { 难度: 'SSS' },
+    任务: { 列表: {
+      任务一: { 委托方: '主神任务', 状态: '可结算', 难度: 'SSS' },
+    } },
+  },
+});
+assert.equal(maxTierDecision.granted, false);
+assert.equal(maxTierDecision.reasonCode, 'max_tier');
+
+const credentialPanelMatch = settleUi.match(/          function renderCredentialPanel\(decision\) \{([\s\S]*?)\n          \}\n\n          function trialScore/);
+assert(credentialPanelMatch, 'credential explanation panel should be extractable');
+const renderCredentialPanel = new Function('escapeHtml', 'gradeBadge', `
+  return function renderCredentialPanel(decision) {${credentialPanelMatch[1]}
+  };
+`)(value => String(value == null ? '' : value), grade => '<span>' + grade + '</span>');
+const failedPanelHtml = renderCredentialPanel(failedDecision);
+assert.match(failedPanelHtml, /本次未获得权限凭证/);
+assert.match(failedPanelHtml, /没有已完成主神任务/);
+const sameGradePanelHtml = renderCredentialPanel(sameGradeDecision);
+assert.match(sameGradePanelHtml, /最低需C级/);
+assert.match(sameGradePanelHtml, /D级未达到门槛/);
+const grantedPanelHtml = renderCredentialPanel(ordinaryCredential);
+assert.match(grantedPanelHtml, /本次获得【D级权限凭证】×1/);
+assert.match(grantedPanelHtml, /世界最低难度 D/);
+assert.match(grantedPanelHtml, /当前先驱层级Ⅰ/);
 
 for (const [name, html] of [['主神任务美化', mainUi], ['试炼任务美化', trialUi], ['结算任务美化', settleUi]]) {
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);

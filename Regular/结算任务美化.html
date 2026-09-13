@@ -371,6 +371,14 @@
       .st-cert { margin: 10px 0; padding: 14px 16px; border: 1px solid rgba(245,215,110,0.4); border-radius: 8px; background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.03)); }
       .st-cert-title { display: flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: 2px; color: var(--st-gold); font-size: 0.92em; margin-bottom: 8px; text-shadow: 0 0 10px rgba(245,215,110,0.35); }
       .st-cert-desc { font-size: 0.8em; color: #d6c791; line-height: 1.7; padding: 2px 0; }
+      .st-cert.no-grant { border-color: rgba(148,163,184,0.28); background: linear-gradient(135deg, rgba(148,163,184,0.07), rgba(148,163,184,0.02)); }
+      .st-cert.no-grant .st-cert-title { color: #cbd5e1; text-shadow: none; }
+      .st-cert-status { font-size: 0.84em; font-weight: 700; color: #cbd5e1; padding: 2px 0 5px; }
+      .st-cert-reasons { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(245,215,110,0.18); }
+      .st-cert.no-grant .st-cert-reasons { border-top-color: rgba(148,163,184,0.16); }
+      .st-cert-reason { position: relative; padding: 2px 0 2px 14px; font-size: 0.78em; line-height: 1.65; color: #c9bd95; }
+      .st-cert.no-grant .st-cert-reason { color: #aeb8c6; }
+      .st-cert-reason::before { content: '•'; position: absolute; left: 2px; color: currentColor; opacity: 0.72; }
 
       .st-trial-check { margin: 10px 0; padding: 14px 16px; border: 1px solid rgba(134,239,172,0.4); border-radius: 8px; background: linear-gradient(135deg, rgba(134,239,172,0.09), rgba(134,239,172,0.02)); }
       .st-trial-check.pending { border-color: rgba(251,146,60,0.42); background: linear-gradient(135deg, rgba(251,146,60,0.08), rgba(251,146,60,0.02)); }
@@ -852,53 +860,111 @@
           }
 
           // SETTLEMENT_CREDENTIAL_CORE_START
-          function resolveCredentialGrant(data) {
+          function resolveCredentialDecision(data) {
             const stat = data && (data.stat_data || data);
-            if (!stat || !stat.角色) return null;
+            if (!stat || !stat.角色) {
+              return { granted:false, reasonCode:'missing_data', grade:'', name:'', playerTier:'', playerGrade:'', requiredGrade:'', sourceGrade:'', basis:'', successfulTaskCount:0 };
+            }
             const LIFE_TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
             const tierRaw = String(stat.角色.层级 || 'Ⅰ').trim();
             let reincarnatorIndex = LIFE_TIERS.indexOf(tierRaw);
             if (reincarnatorIndex < 0) reincarnatorIndex = GRADES.indexOf(gradeTier(tierRaw));
             if (reincarnatorIndex < 0) reincarnatorIndex = 0;
-            if (reincarnatorIndex >= GRADES.length - 1) return null;
+            const playerGrade = GRADES[reincarnatorIndex] || GRADES[0];
+            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
+            const basis = isSingleWorld ? '成功主神任务最高难度' : '世界最低难度';
+
+            if (reincarnatorIndex >= GRADES.length - 1) {
+              return { granted:false, reasonCode:'max_tier', grade:'', name:'', playerTier:tierRaw, playerGrade:playerGrade, requiredGrade:'', sourceGrade:'', basis:basis, successfulTaskCount:0 };
+            }
 
             const list = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
-            let hasSuccess = false;
+            let successfulTaskCount = 0;
             let bestIndex = -1;
             Object.keys(list).forEach(function(key) {
               const task = list[key] || {};
               if (String(task.委托方 || '').trim() !== '主神任务') return;
               if (String(task.状态 || '').trim() !== '可结算') return;
-              hasSuccess = true;
+              successfulTaskCount += 1;
               if (!isSingleWorld) return;
               const idx = GRADES.indexOf(gradeTier(task.难度 || ''));
               if (idx > bestIndex) bestIndex = idx;
             });
-            if (!hasSuccess) return null;
+
+            if (!successfulTaskCount) {
+              return { granted:false, reasonCode:'no_success_task', grade:'', name:'', playerTier:tierRaw, playerGrade:playerGrade, requiredGrade:GRADES[reincarnatorIndex + 1] || '', sourceGrade:'', basis:basis, successfulTaskCount:0 };
+            }
 
             let baseGrade = '';
             if (isSingleWorld) {
-              if (bestIndex < 0) return null;
-              baseGrade = GRADES[bestIndex];
+              if (bestIndex >= 0) baseGrade = GRADES[bestIndex];
             } else {
               baseGrade = gradeFloor(stat.世界 && stat.世界.难度);
             }
 
             const gradeIndex = GRADES.indexOf(baseGrade);
             const targetIndex = reincarnatorIndex + 1;
-            if (gradeIndex < targetIndex) return null;
-            const grantGrade = baseGrade;
-            return { grade:grantGrade, name:grantGrade + '级权限凭证', reincarnatorTier:tierRaw, sourceGrade:baseGrade };
+            const requiredGrade = GRADES[targetIndex] || '';
+            if (gradeIndex < 0) {
+              return { granted:false, reasonCode:'invalid_source_grade', grade:'', name:'', playerTier:tierRaw, playerGrade:playerGrade, requiredGrade:requiredGrade, sourceGrade:'', basis:basis, successfulTaskCount:successfulTaskCount };
+            }
+            if (gradeIndex < targetIndex) {
+              return { granted:false, reasonCode:'grade_not_high_enough', grade:'', name:'', playerTier:tierRaw, playerGrade:playerGrade, requiredGrade:requiredGrade, sourceGrade:baseGrade, basis:basis, successfulTaskCount:successfulTaskCount };
+            }
+
+            return {
+              granted:true,
+              reasonCode:'granted',
+              grade:baseGrade,
+              name:baseGrade + '级权限凭证',
+              playerTier:tierRaw,
+              playerGrade:playerGrade,
+              requiredGrade:requiredGrade,
+              sourceGrade:baseGrade,
+              basis:basis,
+              successfulTaskCount:successfulTaskCount
+            };
+          }
+
+          function resolveCredentialGrant(data) {
+            const decision = resolveCredentialDecision(data);
+            return decision && decision.granted ? decision : null;
           }
           // SETTLEMENT_CREDENTIAL_CORE_END
 
-          function renderCredentialPanel(grant) {
-            if (!grant) return '';
-            return '<div class="st-cert">' +
+          function renderCredentialPanel(decision) {
+            decision = decision || { granted:false, reasonCode:'missing_data' };
+            const reasons = [];
+            if (decision.granted) {
+              reasons.push('判定依据：' + decision.basis + ' ' + decision.sourceGrade + '；本次检测到' + decision.successfulTaskCount + '个已完成主神任务。');
+              reasons.push('层级门槛：当前先驱层级' + decision.playerTier + '（同阶' + decision.playerGrade + '），凭证必须高于当前层级，最低需' + decision.requiredGrade + '级。');
+              reasons.push(decision.sourceGrade + '级达到门槛，因此发放' + decision.grade + '级权限凭证。');
+            } else if (decision.reasonCode === 'no_success_task') {
+              reasons.push('本次没有已完成主神任务，未触发权限凭证发放。');
+            } else if (decision.reasonCode === 'grade_not_high_enough') {
+              reasons.push('判定依据：' + decision.basis + ' ' + decision.sourceGrade + '。');
+              reasons.push('层级门槛：当前先驱层级' + decision.playerTier + '（同阶' + decision.playerGrade + '），凭证必须高于当前层级，最低需' + decision.requiredGrade + '级；' + decision.sourceGrade + '级未达到门槛。');
+            } else if (decision.reasonCode === 'max_tier') {
+              reasons.push('当前先驱层级已达Ⅸ，已无更高等级权限凭证可发放。');
+            } else if (decision.reasonCode === 'invalid_source_grade') {
+              reasons.push('未取得有效的凭证判定难度，无法发放权限凭证。');
+            } else {
+              reasons.push('结算数据不完整，无法进行权限凭证判定。');
+            }
+
+            const reasonHtml = reasons.map(function(reason) {
+              return '<div class="st-cert-reason">' + escapeHtml(reason) + '</div>';
+            }).join('');
+            const gradeHtml = decision.granted
+              ? '<div class="st-kv"><span class="k">凭证等级</span><span class="v">' + gradeBadge(decision.grade, false) + '</span></div>'
+              : '<div class="st-cert-status">本次未获得权限凭证</div>';
+            const resultHtml = decision.granted
+              ? '<div class="st-cert-desc">系统核录完毕，本次获得【' + escapeHtml(decision.name) + '】×1。凭证可累计持有，源力灌注普升时每次消耗1枚。</div>'
+              : '';
+            return '<div class="st-cert' + (decision.granted ? '' : ' no-grant') + '">' +
               '<div class="st-cert-title">◆ 主神权限凭证</div>' +
-              '<div class="st-kv"><span class="k">凭证等级</span><span class="v">' + gradeBadge(grant.grade, false) + '</span></div>' +
-              '<div class="st-cert-desc">系统核录完毕，本次获得【' + escapeHtml(grant.name) + '】×1。凭证可累计持有，源力灌注普升时每次消耗1枚。</div>' +
+              gradeHtml + resultHtml +
+              '<div class="st-cert-reasons">' + reasonHtml + '</div>' +
               '</div>';
           }
 
@@ -929,7 +995,8 @@
           const spaceCoinSettlement = calculateSpaceCoinSettlement(settlementBaselineData);
           // 固定结算前的角色层级，防止旧结算面板为已经普升的层级重复授予资格。
           const settlementBaselineTier = readReincarnatorTier(settlementBaselineData);
-          const credentialGrant = resolveCredentialGrant(settlementBaselineData);
+          const credentialDecision = resolveCredentialDecision(settlementBaselineData);
+          const credentialGrant = credentialDecision && credentialDecision.granted ? credentialDecision : null;
 
           function isTrialPassed(tasks) {
             return tasks.length > 0 && tasks.every(function(task) { return task.status === '可结算'; });
@@ -1389,8 +1456,8 @@
                 achievementInserted = true;
               }
 
-              if (!credentialInserted && !hasLegacyCredentialPanel && st.type === 'income' && credentialGrant) {
-                inner += '<div class="st-cert-host">' + renderCredentialPanel(credentialGrant) + '</div>';
+              if (!credentialInserted && !hasLegacyCredentialPanel && st.type === 'income') {
+                inner += '<div class="st-cert-host">' + renderCredentialPanel(credentialDecision) + '</div>';
                 credentialInserted = true;
               }
 

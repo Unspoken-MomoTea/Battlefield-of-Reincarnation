@@ -16,66 +16,64 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Harden migration matcher
+      - name: Polish settlement prompt
         run: |
           python - <<'PY'
           from pathlib import Path
-          p = Path('tools/migrate-task-performance-settlement.py')
-          lines = p.read_text(encoding='utf-8').splitlines()
-          start = next(i for i, line in enumerate(lines) if line.startswith('think_pattern ='))
-          end = next(i for i in range(start, len(lines)) if "settlement prompt: dm_think replacement mismatch" in lines[i])
-          replacement = '''think_old = """  调取字典与公式算账 (严格执行上述读取协议)：
-          <%_ if (!isSingleWorld) { _%>
-              - 确定读取：提取当前世界难度的最低评级，锁定【奖励基准评级】与对应的【基础奖励】常数
-          <%_ } else { _%>
-              - 确定读取：提取本次结算已完成主神任务中的最高评级，锁定【奖励基准评级】与对应的【基础奖励】常数
-          <%_ } _%>
-              - 评级打分：根据完成度得出 S-F，锁定【任务表现评级乘数】
-          """
-          think_new = """  调取字典与公式算账：
-              - 逐任务采用模板锁定的表现评级与基础收益，禁止重新打分
-          """
-          if think_new not in text:
-              if think_old not in text:
-                  raise SystemExit('settlement prompt: dm_think block mismatch')
-              text = text.replace(think_old, think_new, 1)'''.splitlines()
-          # remove indentation introduced solely for this workflow heredoc
-          replacement = [line[10:] if line.startswith('          ') else line for line in replacement]
-          lines[start:end + 1] = replacement
-          p.write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+          p = Path('World Book/【结算任务】[mvu_plot].txt')
+          text = p.read_text(encoding='utf-8')
+          replacements = {
+            '    - 失败惩罚执行铁律: 若参与结算的主神任务中存在【状态: 失败】或未完成任务，必须强制读取该任务的【惩罚】字段。若惩罚为扣除空间币，必须提取数值并在最终总收益中做减法（允许结算总收益为负数负债）；若为属性扣除或抹杀等非货币惩罚，必须在面板中显式宣告执行':
+            '    - 失败惩罚: 本次失败或未完成任务必须执行【惩罚】；空间币惩罚计入扣除，其他惩罚在面板宣告',
+            '    - 世界探索附加收益 = 【奖励基准评级对应基础奖励】 × 【总探索度%】。总额上限: 【奖励基准评级对应基础奖励】 × 300%。':
+            '    - 世界探索附加收益 = 【世界难度最低评级基础奖励】 × 【总探索度%】，上限300%。',
+            '    - 单一世界不结算世界探索与势力羁绊附加收益；两者只作为当前世界的长期资料继续保留。':
+            '    - 当前清算不结算世界探索与势力羁绊附加收益；两者仅作为长期资料保留。',
+            '    - 任务专属奖励 = 提取【可结算】主神任务中尚未发放的专属奖励，逐项单独核算，不重复计入其他收益':
+            '    - 任务专属奖励 = 仅提取本次成功任务中尚未发放的专属奖励',
+            '    - 失败任务惩罚扣除 = 提取【失败】主神任务中明确注明的空间币惩罚数值':
+            '    - 失败/未完成惩罚 = 执行对应任务惩罚；空间币惩罚计入扣除',
+            '    - 惩罚核查：扫描是否存在【状态: 失败】的主神任务，量化需要扣除的空间币数值，提取需要执行的恶性惩罚（如属性品质下降）':
+            '    - 惩罚核查：读取失败/未完成任务的惩罚，计算空间币扣除并提取其他惩罚',
+            '* **系统评述**: {简评<user>本次结算周期内对世界线的影响，说明打分理由}':
+            '* **系统评述**: {简评本次任务成果与世界影响}',
+            '    $(若 stat_data.世界.探索.地点名.探索度 > 0 则输出: * {基础奖励数值} × [地点名] ({{get_message_variable::stat_data.世界.探索.地点名.探索度}}%) = {总额})':
+            '    $(若 stat_data.世界.探索.地点名.探索度 > 0 则输出: * <%= reputationBase %> × [地点名] ({{get_message_variable::stat_data.世界.探索.地点名.探索度}}%) = {总额})',
+            '    * **探索奖励上限**: **{基础奖励数值 × 300%}** 空间币':
+            '    * **探索奖励上限**: **<%= reputationBase * 3 %>** 空间币',
+            '* **个人最终总收益**: **【 {以上各项收益相加总和 - 失败任务扣除数值 的精确结果} 空间币 】** 已清算完毕。$(若为负数，加注：余额不足，账户进入负债状态，脱离主神空间前需强制偿还)':
+            '* **个人最终总收益**: **【 {以上各项收益相加总和 - 失败/未完成任务扣除数值 的精确结果} 空间币 】** 已清算完毕。$(若为负数，加注：余额不足，账户进入负债状态，脱离主神空间前需强制偿还)'
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit('prompt polish anchor missing: ' + old[:80])
+              text = text.replace(old, new, 1)
+          p.write_text(text, encoding='utf-8', newline='\n')
+
+          t = Path('tests/task-performance-settlement.cjs')
+          test = t.read_text(encoding='utf-8')
+          anchor = "assert.match(prompt, /失败\\/未完成惩罚/);\n"
+          extra = "assert.doesNotMatch(prompt, /任务完成率与世界稳定值核算|奖励基准评级对应基础奖励|单一世界不结算/);\nassert.match(prompt, /任务专属奖励 = 仅提取本次成功任务/);\nassert.match(prompt, /世界难度最低评级基础奖励/);\n"
+          if extra not in test:
+              if anchor not in test:
+                  raise SystemExit('test polish anchor missing')
+              test = test.replace(anchor, anchor + extra, 1)
+              t.write_text(test, encoding='utf-8', newline='\n')
           PY
-      - name: Apply task performance migration
-        run: python tools/migrate-task-performance-settlement.py
-      - name: Build delivery
-        run: python tools/build-world-engine.py
-      - name: Syntax check
-        run: node --check script/世界推进系统.js
       - name: Task performance settlement regression
         run: node tests/task-performance-settlement.cjs
-      - name: Super-stable prompt regression
-        run: node tests/world-engine-superstable-prompt.cjs
-      - name: Task awareness regression
-        run: node tests/world-engine-task-awareness.cjs
-      - name: Chronology guard regression
-        run: node tests/world-engine-chronology-guard.cjs
-      - name: NPC audit regression
-        run: node tests/world-engine-npc-audit-toggle.cjs
-      - name: Module synchronization
-        run: node tests/world-engine-modules.cjs
-      - name: Commit migrated files
+      - name: Existing world-engine regressions
         run: |
-          if git diff --quiet; then exit 0; fi
+          node tests/world-engine-superstable-prompt.cjs
+          node tests/world-engine-task-awareness.cjs
+          node tests/world-engine-chronology-guard.cjs
+          node tests/world-engine-npc-audit-toggle.cjs
+          node tests/world-engine-modules.cjs
+      - name: Commit prompt polish
+        run: |
+          if git diff --quiet -- "World Book/【结算任务】[mvu_plot].txt" tests/task-performance-settlement.cjs; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            "script/ZOD脚本.js" \
-            "World Book/[mvu_update]变量更新规则.txt" \
-            "World Book/⚙️任务与委托系统.txt" \
-            "World Book/【结算任务】[mvu_plot].txt" \
-            "Regular/主神任务美化.html" \
-            "Regular/试炼任务美化.html" \
-            "Regular/结算任务美化.html" \
-            "tests/task-performance-settlement.cjs" \
-            "script/世界推进系统.js"
-          git commit -m "feat: add per-task performance settlement [task-awareness-built]"
+          git add "World Book/【结算任务】[mvu_plot].txt" tests/task-performance-settlement.cjs
+          git commit -m "refactor: align task settlement wording [task-awareness-built]"
           git push

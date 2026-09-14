@@ -170,7 +170,7 @@ assert.match(assetRules, /普通道具、药剂、材料、消耗品/, '资产�
 assert.match(mvuRules, /资产仅限固定地产、大型载具或要塞/, '普通变量 AI 也必须遵守资产边界');
 assert.match(source, /WorldResult\.资产|资产账簿/, '世界引擎提示词必须明确资产写入职责');
 assert.match(source, /场外[^\n]{0,160}资产[^\n]{0,160}(?:新增|更新|移除|转移)|资产[^\n]{0,160}(?:新增|更新|移除|转移)/, 'Prompt 应允许世界引擎维护资产变化');
-assert.match(source, /version:17,\n        builtin:true,\n        name:'默认设置'/, '资产边界收紧应升级内置默认提示词到 v17');
+assert.match(source, /version:18,\n        builtin:true,\n        name:'默认设置'/, '资产边界收紧应升级内置默认提示词到 v18');
 assert.match(variables, /isPlayerOwnedAsset/, '正文变量投影必须区分玩家资产与世界资产');
 assert.match(helper, /isPlayerOwnedAsset/, '自动收菜必须区分玩家资产与世界资产');
 assert.match(checks, /所属对象[^\n]*(?:执行者|角色)/, '资产检定加值必须受所属对象约束');

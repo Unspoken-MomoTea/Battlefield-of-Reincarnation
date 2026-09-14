@@ -49,25 +49,32 @@ function fresh(){
 
   {
     const impact=WORLD_RESULT_SCHEMA.properties.因果.properties.偏移记录.items.properties.影响程度;
-    assert.equal(impact.minimum,-12,'single negative causal offset must follow the protocol floor');
-    assert.equal(impact.maximum,15,'single positive causal offset must follow the protocol ceiling');
+    assert.equal(Object.hasOwn(impact,'minimum'),false,'causal impact magnitude must not be rejected by JSON Schema');
+    assert.equal(Object.hasOwn(impact,'maximum'),false,'causal impact magnitude must be soft-normalized instead of rejected by JSON Schema');
 
     const stat=fresh();
-    assert.throws(
-      ()=>compileWorldResult(stat,{摘要:'过量扣减',因果:{偏移记录:[{名称:'主线断裂',描述:'关键人物命运被不可逆改写',引发者:'测试者',影响程度:-13}]}}),
-      /单条.*-12.*\+15|影响程度.*-12.*15/,
-      'compiler must reject values beyond the causal protocol even if the model proposes them'
-    );
-    assert.throws(
-      ()=>compileWorldResult(stat,{摘要:'拆分同一根因',因果:{偏移记录:[
-        {名称:'生命共生的契约',描述:'同一契约改变魔力来源并形成连锁影响',引发者:'珊瑚',影响程度:-8},
-        {名称:'召唤仪式的频率干扰',描述:'同一契约造成召唤余波与灵基变化',引发者:'珊瑚',影响程度:-4},
-        {名称:'异质召唤的余波',描述:'同一契约的后续影响继续扩散',引发者:'珊瑚',影响程度:-2}
-      ]}}),
-      /同一引发者.*累计|同一根因.*合并|连锁后果.*合并/,
-      'one confirmed root cause must not be split into stacked negative stability charges'
-    );
-    assert.doesNotThrow(()=>compileWorldResult(stat,{摘要:'真实重大偏移',因果:{偏移记录:[{名称:'关键人物命运改写',描述:'关键人物已经发生不可逆命运变化，原主线无法按原方式收束',引发者:'测试者',影响程度:-8}]}}));
+    const over=compileWorldResult(stat,{摘要:'过量扣减',因果:{偏移记录:[{名称:'主线断裂',描述:'关键人物命运已经发生不可逆改写，原主线无法按原方式收束',引发者:'测试者',影响程度:-13}]}});
+    const afterOver=applyPatches(stat,over.patches);
+    assert.equal(afterOver.世界.因果轨道.偏移记录['主线断裂'].影响程度,-12,'out-of-range causal impact must be clamped without rejecting the world update');
+
+    const splitStat=fresh();
+    const split=compileWorldResult(splitStat,{摘要:'拆分同一根因',因果:{偏移记录:[
+      {名称:'生命共生的契约',描述:'同一契约已经改变魔力来源并形成连锁影响',引发者:'珊瑚',影响程度:-8},
+      {名称:'召唤仪式的频率干扰',描述:'同一契约造成召唤余波与灵基变化',引发者:'珊瑚',影响程度:-4},
+      {名称:'异质召唤的余波',描述:'同一契约的后续影响继续扩散',引发者:'珊瑚',影响程度:-2}
+    ]}});
+    const afterSplit=applyPatches(splitStat,split.patches);
+    assert.deepEqual(Object.keys(afterSplit.世界.因果轨道.偏移记录),['生命共生的契约'],'same-root chain fragments must be softly coalesced instead of rejected or stacked');
+    assert.equal(afterSplit.世界.因果轨道.偏移记录['生命共生的契约'].影响程度,-8);
+
+    const idleBombStat=fresh();
+    const idleBomb=compileWorldResult(idleBombStat,{摘要:'只有危险物品，没有现实改变',因果:{偏移记录:[{
+      名称:'高危装置携带',描述:'只是持有极端高危装置，尚未使用，也未造成任何关键人物、事件、势力或主线结果变化',引发者:'测试者',影响程度:-12
+    }]}});
+    const afterIdleBomb=applyPatches(idleBombStat,idleBomb.patches);
+    assert.equal(Object.keys(afterIdleBomb.世界.因果轨道.偏移记录).length,0,'mere capability, intent or possession without a realized plot consequence must not create a causal offset');
+
+    assert.doesNotThrow(()=>compileWorldResult(fresh(),{摘要:'真实重大偏移',因果:{偏移记录:[{名称:'关键人物命运改写',描述:'关键人物已经发生不可逆命运变化，原主线无法按原方式收束',引发者:'测试者',影响程度:-8}]}}));
   }
 
   {
@@ -82,9 +89,12 @@ function fresh(){
     };
     const engine=new Engine(host);engine.config.contextTurns=1;engine.config.enabled=true;engine.worldbook=async()=>[];
     const request=await engine.buildRequest(engine.snapshot());
-    assert.match(request.system,/【因果偏移与时间硬约束】/,'mandatory request must carry the causal/time invariant block');
+    assert.match(request.system,/【因果偏移与时间(?:硬)?约束】/,'mandatory request must carry the causal/time invariant block');
+    assert.match(request.system,/偏移记录不是.*剧情(?:日志|总结|小结)/,'prompt must explicitly prevent using causal offsets as mini plot summaries');
+    assert.match(request.system,/持有.*高危装置.*(?:尚未|未).*不产生偏移/,'prompt must explain that unrealized catastrophic capability creates no causal offset');
     assert.match(request.system,/同一.*根因.*只记一条/,'prompt must prohibit chain-splitting the same root cause');
     assert.match(request.system,/预测|风险|可能/,'prompt must forbid charging stability for speculative consequences');
+    assert.match(request.system,/软(?:归一化|处理)|不触发重试/,'causal offset cleanup must be described as soft processing rather than a retry trigger');
     assert.match(request.system,/同一自然日|跨日/,'time prompt must describe the day-granular macro chronology rule');
   }
 

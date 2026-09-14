@@ -34,6 +34,8 @@ jobs:
         run: node tests/world-engine-rumor-capacity.cjs
       - name: World-driven rumor source regression
         run: node tests/world-engine-rumor-world-source.cjs
+      - name: Offstage knowledge boundary regression
+        run: node tests/offstage-knowledge-boundary.cjs
       - name: Causal overview regression
         run: node tests/world-engine-causal-summary.cjs
       - name: Soft maintenance regression

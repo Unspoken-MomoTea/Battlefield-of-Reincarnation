@@ -75,9 +75,9 @@ function freshState(){
   const request=await engine.buildRequest(engine.snapshot()),payload=JSON.parse(request.input);
   assert.deepEqual(payload.当前变量.任务,ctx.任务,'实际请求应携带精简任务列表');
   assert.match(request.system,/【任务感知 · 只读】/,'系统提示应声明任务只读边界');
-  assert.match(request.system,/任务列表是世界因果来源之一/,'任务列表必须作为只读世界因果来源');
-  assert.match(request.system,/事件可用“关联任务”引用当前任务\.列表中已存在的任务名/,'事件应允许关联已有任务');
-  assert.match(request.system,/购买、付款与消费性删除由MVU按正文结果处理/,'世界引擎不得抢情报购买结算职责');
+  assert.match(request.system,/任务\.列表只作世界因果输入/,'任务列表必须作为只读世界因果输入');
+  assert.match(request.system,/事件可用“关联任务”引用已存在任务/,'事件应允许关联已有任务');
+  assert.match(request.system,/情报购买与扣款由MVU处理/,'世界引擎不得抢情报购买结算职责');
   assert.doesNotMatch(request.system,/情报交易有卖家时更新1~2条，购买后移除/,'旧的世界引擎购买后删除指令必须消失');
 
   console.log('world-engine task awareness regression tests passed');

@@ -6408,6 +6408,92 @@ ${schemaText}`;
             return result;
         }
     };
+    const RUMOR_WORLD_SOURCE_RULES=`【信息传播 · 世界侧事实】
+1. 传闻与传播描述世界里正在流通的信息；正文只用于确认事实与时间，不是直接传播源。禁止把正文中的个人行动、战斗细节、私密对话、能力或收益直接改写成传闻。
+2. 直接取材仅限“传闻维护.世界侧可传播事实”、已有传播链与既有公开传闻。私密事实只有形成目击、公开后果、调查发现、公告或主动泄露等现实渠道后才能传播。
+3. 公开内容不得超过来源与受众当时可知范围；后台真相不进入公开内容。传播必须有时间与空间路径，不能无因瞬间扩散到全世界。
+4. 公开传闻默认保持不变；仅在空分类、传播链需复核或出现新的世界侧公开事实时按需更新，每个触发每类最多1条。
+5. 普通行动、普通战斗、轻微状态或数值变化本身不触发传闻；只有其公开后果已经进入世界侧事实池时才可传播。
+6. 传闻/传播属于软维护，单个片段失败不得让整轮世界推进重跑。情报交易的购买、付款与消费性删除由MVU按正文结果处理；世界引擎只维护世界侧信息来源。`;
+    const RUMOR_WORLD_SOURCE_PRESET_STEP='Step 6 · 信息传播：以世界侧公开事实和已有传播链为来源；正文不是直接传播源。私密事实必须先形成现实传播渠道，传播范围按时间与空间路径扩张。';
+    function rumorWorldSameTime(value,current){
+        const a=String(value||'').trim(),b=String(current||'').trim();
+        return !!a&&!!b&&(typeof sameWorldTimeAnchor==='function'?sameWorldTimeAnchor(a,b):a===b);
+    }
+    function worldPublicRumorFacts(stat){
+        const backend=stat?.世界?.[PATH]||{},now=String(stat?.世界?.时间||'').trim(),facts=[];
+        const add=item=>{if(plain(item)&&String(item.公开内容||'').trim())facts.push(item);};
+        for(const [名称,event] of Object.entries(backend.事件||{})){
+            if(!plain(event)||!['进行中','已完成'].includes(String(event.状态||'')))continue;
+            const visible=[String(event.公开征兆||'').trim(),...(Array.isArray(event.可见影响)?event.可见影响.map(x=>String(x?.影响||'').trim()):[])].filter(Boolean);
+            if(!visible.length)continue;
+            const time=String(event.更新时间||event.时间||'').trim();
+            add({类型:'公开事件',名称,地点:String(event.地点||''),时间:time,公开内容:visible.join('；'),关联事件:[名称],新近:rumorWorldSameTime(time,now)});
+        }
+        for(const [名称,person] of Object.entries(backend.人物||{})){
+            const text=String(person?.公开动态||'').trim();if(!text)continue;
+            const time=String(person?.更新时间||'').trim();
+            add({类型:'人物公开动态',名称,时间:time,公开内容:text,关联事件:copy(Array.isArray(person?.关联事件)?person.关联事件:[]),新近:rumorWorldSameTime(time,now)});
+        }
+        for(const [名称,area] of Object.entries(backend.势力地区||{})){
+            const text=String(area?.公开动态||'').trim();if(!text)continue;
+            const time=String(area?.更新时间||'').trim();
+            add({类型:'地区公开动态',名称,时间:time,公开内容:text,新近:rumorWorldSameTime(time,now)});
+        }
+        for(const [名称,faction] of Object.entries(stat?.世界?.势力||{})){
+            const text=[faction?.领地,faction?.描述].map(x=>String(x||'').trim()).filter(Boolean).join('；');
+            add({类型:'势力公开背景',名称,公开内容:text,新近:false});
+        }
+        for(const [名称,place] of Object.entries(stat?.世界?.探索||{}))add({类型:'探索公开背景',名称,风险:String(place?.风险||''),公开内容:String(place?.描述||''),新近:false});
+        const economy=String(stat?.世界?.货币?.经济波动||'').trim();
+        if(economy)add({类型:'经济公开背景',名称:'经济波动',公开内容:economy,新近:false});
+        return facts.slice(-24);
+    }
+
+    const rumorMaintenanceRequirementsBeforeWorldSource=rumorMaintenanceRequirements;
+    rumorMaintenanceRequirements=function(stat){
+        const required=rumorMaintenanceRequirementsBeforeWorldSource(stat),facts=worldPublicRumorFacts(stat),fresh=facts.filter(item=>item.新近).slice(-6);
+        const empty=RUMOR_PUBLIC_CATEGORIES.filter(category=>Number(required?.公开传闻?.[category]?.当前数量||0)===0),review=required?.本轮必须复核的传播链||[],reasons=[];
+        if(empty.length)reasons.push('空分类：'+empty.join('、'));
+        if(review.length)reasons.push('传播复核：'+review.map(item=>item.名称).join('、'));
+        if(fresh.length)reasons.push('新世界公开事实：'+fresh.map(item=>item.名称).join('、'));
+        required.世界侧可传播事实=facts;required.本轮新公开事实=fresh;required.刷新原因=reasons;required.本轮公开传闻动作=reasons.length?'按需更新；每个触发每类最多1条':'保持不变';
+        delete required.当前地点;
+        return required;
+    };
+    const SamsaraWorldEngineBeforeRumorWorldSource=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorWorldSource{
+        async buildRequest(base){
+            const request=await super.buildRequest(base);
+            const maintenance=rumorMaintenanceRequirements(base?.stat||{});
+            const payload=JSON.parse(request.input);
+            payload.传闻维护=Object.assign({},payload.传闻维护||{}, {
+                取材边界:'只使用世界侧可传播事实、已有传播链与既有公开传闻；正文不是直接传播源',
+                本轮公开传闻动作:maintenance.本轮公开传闻动作,
+                刷新原因:copy(maintenance.刷新原因||[]),
+                世界侧可传播事实:copy(maintenance.世界侧可传播事实||[]),
+                本轮新公开事实:copy(maintenance.本轮新公开事实||[])
+            });
+            delete payload.传闻维护.当前地点;
+            delete payload.传闻维护.可传播候选事件;
+            request.input=JSON.stringify(payload,null,2);
+            request.rumorMaintenance=copy(maintenance);
+            request.manifest=request.manifest||{};
+            request.manifest.传闻节流={模式:'世界侧事实驱动',本轮动作:maintenance.本轮公开传闻动作,刷新原因:copy(maintenance.刷新原因||[]),正文直接取材:false,软失败不重试:true};
+            return request;
+        }
+    };
+    const SamsaraWorldEngineBeforeRumorWorldSystem=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorWorldSystem{
+        async buildRequest(base){
+            const request=await super.buildRequest(base);
+            let text=String(request.system||'');
+            if(typeof RUMOR_LIVELINESS_RULES==='string')text=text.replace(RUMOR_LIVELINESS_RULES,'');
+            if(typeof RUMOR_THROTTLE_RULES==='string')text=text.replace(RUMOR_THROTTLE_RULES,'');
+            request.system=text.trim()+'\n\n'+RUMOR_WORLD_SOURCE_RULES;
+            return request;
+        }
+    };
     // 主面板只保留最新因果摘要；完整偏移、故事线、干涉模式、法则与经济资料进入独立“因果档案”页。
     // 资产与传闻仍由世界引擎维护数据，但玩家侧由状态栏承载，因此不在世界推进面板重复展示。
     const CAUSAL_OVERVIEW_LIMIT=3;

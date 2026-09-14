@@ -29,11 +29,11 @@ function freshState(){
   engine.worldbook=async()=>chronology;
 
   const request=await engine.buildRequest(engine.snapshot()),payload=JSON.parse(request.input);
-  assert.match(request.system,/【原著\/数据库时间轴硬约束】/,'固定系统约束必须明确原著/数据库时间轴优先');
-  assert.match(request.system,/不得为了推动剧情.*主动提前关键事件/,'必须明确禁止为推进剧情提前宏观事件');
-  assert.match(request.system,/3~5个宏观节点只是滚动规划窗口/,'宏观节点数量必须是滚动窗口而不是整段剧情压缩目标');
-  assert.match(request.system,/一个宏观节点只表达一个阶段转折/,'必须禁止把多个独立阶段打包成单一宏观节点');
-  assert.match(engine.config.preset,/3~5个滚动宏观节点/,'内置默认 Step 2 应使用滚动宏观窗口并保留真实时间跨度');
+  assert.match(request.system,/【原著\/数据库时间轴硬约束】/,'系统约束必须明确原著/数据库时间轴优先');
+  assert.match(request.system,/明确日期必须沿用；只有已确认且记录的因果偏移可改期/,'明确日期不得因推进欲望被擅自提前或延后');
+  assert.match(request.system,/3~5个节点只是滚动窗口/,'宏观节点数量必须是滚动窗口而不是整段剧情压缩目标');
+  assert.match(request.system,/不合并独立阶段/,'必须禁止把多个独立阶段打包成单一宏观节点');
+  assert.match(engine.config.macroPrompt,/3~5个滚动阶段节点/,'内置宏观提示应使用滚动宏观窗口并保留真实时间跨度');
   assert.equal(payload.时间线基准.当前世界时间,'2022年11月6日上午');
   assert.match(payload.时间线基准.要求,/明确到日的日期必须服从/);
   assert.match(payload.时间线基准.规划原则.滚动窗口,/不要求覆盖完整篇章/);

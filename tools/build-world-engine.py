@@ -26,6 +26,10 @@ PARTS = (
     '59-reprocess-immediate-retry.part.js',
     '59-alien-activity-normalization.part.js',
     '59-rumor-throttle.part.js',
+    '59-rumor-world-source.part.js',
+    '59-rumor-world-facts.part.js',
+    '59-rumor-world-request.part.js',
+    '59-rumor-world-system.part.js',
     '59-causal-overview-ui.part.js',
     '60-bootstrap.part.js',
 )

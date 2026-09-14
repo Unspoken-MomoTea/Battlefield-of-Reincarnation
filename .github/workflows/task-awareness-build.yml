@@ -18,14 +18,8 @@ jobs:
           python-version: '3.12'
       - name: Sync variable prompt world time ownership
         run: python tools/patch-world-time-ownership.py
-      - name: Restore original offstage prose projection
-        run: python tools/patch-character-knowledge-boundary.py
       - name: Sync settlement character lifecycle
         run: python tools/patch-settlement-character-lifecycle.py
-      - name: Sync offstage NPC knowledge provenance
-        run: python tools/patch-offstage-npc-knowledge.py
-      - name: Sync prompt v18 test assertions
-        run: python tools/patch-world-prompt-v18-tests.py
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax check

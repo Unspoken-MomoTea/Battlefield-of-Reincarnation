@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const {SamsaraWorldEngine:Engine,emptyState,compileWorldResult,applyPatches,activeAlienActivityRequirements}=require('../script/世界推进系统.js');
+const {SamsaraWorldEngine:Engine,emptyState,compileWorldResult,applyPatches,activeAlienActivityRequirements,WORLD_RESULT_SCHEMA}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 
 const stat={
@@ -39,6 +39,7 @@ const result={
   ]
 };
 
+assert.ok(WORLD_RESULT_SCHEMA.properties.时间,'WorldResult schema must expose top-level world time');
 const compiled=compileWorldResult(stat,result);
 const next=applyPatches(stat,compiled.patches);
 for(const name of ['塞琉·尤比基塔斯·伪','兰·伪']){
@@ -51,12 +52,13 @@ for(const name of ['塞琉·尤比基塔斯·伪','兰·伪']){
 const requirements=activeAlienActivityRequirements(stat);
 assert.equal(requirements.length,2);
 for(const item of requirements){
-  assert.match(item.要求,/更新时间由程序统一记录为当前世界时间/);
+  assert.match(item.要求,/更新时间无需抄写/);
   assert.doesNotMatch(item.要求,/更新时间精确写为当前世界时间/);
 }
 
 (async()=>{
-  // 真实开局数据里世界.时间可能仍为空。此时不能因为没有可用时间戳而把已经提交完整活动的异端反复拒绝。
+  // 复现实际开局：世界.时间为空，但后台回复里的两名活跃异端给出了同一个当前时间锚点。
+  // 世界引擎应直接接管该时钟并一次成功，不再把异端活动打回。
   let current=clone(stat);
   current.世界.时间='';
   current.世界.地点='';
@@ -93,14 +95,22 @@ for(const item of requirements){
   assert.equal(await engine.run(),true,'empty world time must not reject complete active-alien activity');
   assert.equal(calls,1,'valid activity should be accepted on the first request');
   assert.equal(writes,1,'accepted activity should be committed once');
+  assert.equal(current.世界.时间,'帝国历1024年秋','world engine should promote the common current-activity time anchor into 世界.时间');
   for(const name of ['塞琉·尤比基塔斯·伪','兰·伪']){
     const person=current.世界.后台.人物[name];
     assert.ok(person?.地点&&person?.目标&&person?.行动,'complete activity must be committed for '+name);
-    assert.equal(person.更新时间,'','AI-invented timestamp must not become canonical while 世界.时间 is empty');
+    assert.equal(person.更新时间,current.世界.时间,'active alien timestamp must use the final world-engine clock');
   }
 
+  // 世界推进开启时，变量 AI 即使尝试改世界.时间，也要在 VARIABLE_UPDATE_ENDED 前置处理里被恢复。
+  const before={stat_data:clone(current)},variables={stat_data:clone(current)};
+  variables.stat_data.世界.时间='变量AI擅自推进的时间';
+  engine.handleWorldReplayVariableEvent(variables,before);
+  assert.equal(variables.stat_data.世界.时间,current.世界.时间,'variable-AI world-time writes must be ignored while world engine is enabled');
+
   const source=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
-  assert.match(source,/ensureActiveAlienActivity=function\(/,'delivery must replace the brittle alien activity validator');
-  assert.match(source,/sameWorldTimeAnchor\(person\?\.更新时间,worldTime\)/,'validator should use semantic world-time matching when a canonical time exists');
-  console.log('PASS active alien activity accepts complete facts even when 世界.时间 is empty');
+  assert.match(source,/【世界时间所有权】/,'delivery must inject world-time ownership rules');
+  assert.match(source,/WORLD_RESULT_SCHEMA\.properties\.时间/,'delivery must expose WorldResult.时间');
+  assert.match(source,/canonicalTime=String\(next\?\.世界\?\.时间/,'alien validator must read the final world-engine clock');
+  console.log('PASS world engine owns 世界.时间 and active-alien timestamps follow that clock');
 })().catch(error=>{console.error(error);process.exitCode=1;});

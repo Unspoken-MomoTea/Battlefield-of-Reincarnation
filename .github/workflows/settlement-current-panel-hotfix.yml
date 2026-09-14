@@ -24,7 +24,9 @@ jobs:
           fi
           echo 'RED confirmed: current settlement can lose write target and task completion sync.'
       - name: Apply settlement fix
-        run: python tools/apply-settlement-current-panel-fix.py
+        run: |
+          python tools/apply-settlement-current-panel-fix.py
+          python tools/patch-settlement-test-compat.py
       - name: Current panel regression
         run: node tests/settlement-current-panel-regression.cjs
       - name: Settlement shop coin persistence regression
@@ -41,7 +43,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add 'Regular/结算任务美化.html' 'World Book/⚙️任务与委托系统.txt' 'World Book/[mvu_update]变量更新规则.txt' tests/settlement-status-aliases.cjs tests/settlement-current-panel-regression.cjs .github/workflows/task-awareness-build.yml .github/workflows/task-awareness-check.yml
+          git add 'Regular/结算任务美化.html' 'World Book/⚙️任务与委托系统.txt' 'World Book/[mvu_update]变量更新规则.txt' tests/settlement-status-aliases.cjs tests/settlement-current-panel-regression.cjs tests/task-settlement-simplified.cjs .github/workflows/task-awareness-build.yml .github/workflows/task-awareness-check.yml
           git diff --cached --quiet && exit 0
           git commit -m 'fix: restore settlement payout and task completion sync [settlement-current-panel-fixed]'
           git push

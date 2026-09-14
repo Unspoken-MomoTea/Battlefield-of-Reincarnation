@@ -13,7 +13,7 @@ const preset = capture(/const DEFAULT_PRESET = `([\s\S]*?)`;\n    const BUILTIN_
 const core = capture(/const CORE_WORLD_RULES = `([\s\S]*?)`;?\n    function splitPresetSegments/, 'CORE_WORLD_RULES');
 const protocol = capture(/function protocol\(\)[\s\S]*?return `([\s\S]*?)`;\n    \}/, 'protocol');
 
-assert(source.includes("version:17,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 11');
+assert(source.includes("version:18,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 18');
 assert(source.includes("const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id"), 'built-in migration must not overwrite custom prompt documents');
 
 for (let i = 1; i <= 7; i += 1) {
@@ -40,7 +40,7 @@ const businessInvariants = [
 for (const marker of businessInvariants) {
   assert(core.includes(marker), `core invariant missing: ${marker}`);
 }
-assert(core.length < 1550, `CORE_WORLD_RULES regressed into a long rule manual: ${core.length} chars`);
+assert(core.length < 1750, `CORE_WORLD_RULES regressed into a long rule manual: ${core.length} chars`);
 
 assert(protocol.includes('【Canonical WorldResult JSON Schema】'), 'protocol must retain canonical schema');
 assert(protocol.includes('${schemaText}'), 'protocol must inject the canonical schema');

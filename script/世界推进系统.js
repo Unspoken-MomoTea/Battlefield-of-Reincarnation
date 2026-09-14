@@ -1089,11 +1089,13 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
     }
     function retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]) {
         let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
-        const plan=Array.isArray(retryPlan)?retryPlan.filter(Boolean).map(String):[];
+        const feedback=retryFeedback(error,error?.rejectedSlices,Array.isArray(retryPlan)?retryPlan:[]);
+        const plan=feedback.actions;
         payload.纠错重试={
             当前尝试:attempt+1,
             最大尝试次数:maxAttempts,
-            上次拒绝原因:String(error?.message||error||''),
+            上次拒绝原因:feedback.summary,
+            具体问题:feedback.issues.length?feedback.issues:undefined,
             上次模型回复:String(lastReply||'').slice(-12000),
             已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
             补充清单:plan.length?copy(plan):undefined,
@@ -1629,15 +1631,24 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
             rejected:pending.map(unit=>({片段:unit.label,原因:String(unit.error?.message||unit.error||'业务片段未通过校验')}))
         };
     }
+    // 首次请求与纠错共用同一份交付标准，避免模型失败后才知道宏观骨架的硬要求。
+    function macroBackbonePlan(current,active,future) {
+        const missing=Math.max(0,3-current);
+        return [
+            '宏观骨架：当前可推进宏观节点'+current+'个（进行中'+active+'、待发生'+future+'），还需补充至少'+missing+'个真正的宏观节点；已确认正在发生的阶段转折可记进行中，其余新增节点记待发生。会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。',
+            '事件交付：在 WorldResult.事件 中实际建立节点，分类=宏观节点；描述说明篇章、地区整体局势、战争、势力格局或关键人物命运的一个阶段转折，不能只在摘要或因果轨道里列名字。已有合格节点沿用原名，只提交缺失或变化字段。',
+            '宏观排期：每个新增节点必须给出明确时间锚点；沿用明确资料的日期或时间精度，精确日期未知时使用可理解的相对/因果时间，不写近期/稍后/未来/待定/未知。条件按需填写。前因只能引用已存在，或本轮同时提交且成功建立的事件名称；无明确前因使用 []，不得用当前阶段或自然语言原因代替事件名。',
+            '因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序；只使用最终3~5个仍可推进且 分类=宏观节点 的不同事件名称，不要写当前阶段、当前事件或近期节点。'
+        ];
+    }
     function retryPlanForFailure(error,rejected=[]) {
         const plan=[];
         for(const item of rejected||[])plan.push(item.片段+'：'+item.原因);
         const message=String(error?.message||error||'');
         let match=message.match(/宏观事件不足：需要至少3个可推进宏观节点（进行中\+待发生），当前仅(\d+)个（进行中(\d+)个，待发生(\d+)个）/);
         if(match){
-            const current=Math.max(0,Number(match[1])||0),active=Math.max(0,Number(match[2])||0),future=Math.max(0,Number(match[3])||0),missing=Math.max(0,3-current);
-            plan.push('宏观骨架：当前可推进宏观节点'+current+'个（进行中'+active+'、待发生'+future+'），还需补充至少'+missing+'个真正的待发生宏观节点；会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。新增宏观事件必须给出可执行的时间/条件/前因。');
-            plan.push('因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序，使用最终3~5个仍可推进的宏观节点名称形成顺序。');
+            const current=Math.max(0,Number(match[1])||0),active=Math.max(0,Number(match[2])||0),future=Math.max(0,Number(match[3])||0);
+            plan.push(...macroBackbonePlan(current,active,future));
         }else if(/因果轨道未形成有效宏观投影/.test(message)){
             plan.push('因果轨道：不要重写已接受事件，只补写 因果.宏观顺序；长度必须3~5，且每个名称都必须对应已建立且未取消的宏观节点。');
         }else if((match=message.match(/到期事件未处理：([^。]+)/))){
@@ -1659,9 +1670,26 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         }
         return Array.from(new Set(plan.filter(Boolean)));
     }
+    // UI 和模型请求共用去重视图；原始分片仍保留在日志，未知错误不截断。
+    function retryFeedback(error,rejected=[],plans=[]) {
+        const message=String(error?.message||error||'');
+        const summary=rejected?.length?message.split('\n\n具体原因\n')[0]:message;
+        const compactReason=value=>{
+            const reason=String(value||'');
+            return /^事件前因(?:不存在|非法自引用)：/.test(reason)?reason.split('；')[0]:reason;
+        };
+        const rawIssues=(rejected||[]).map(item=>String(item.片段||'')+'：'+String(item.原因||''));
+        const issues=Array.from(new Set((rejected||[]).map(item=>{
+            const reason=compactReason(item.原因);
+            return /^事件前因(?:不存在|非法自引用)：/.test(reason)?reason:String(item.片段||'')+'：'+reason;
+        })));
+        const redundant=new Set([...rawIssues,...issues,summary,'整体校验：'+summary,'整体校验：'+message]);
+        const actions=Array.from(new Set((plans||[]).filter(Boolean).map(String))).filter(line=>!redundant.has(line));
+        return {summary,issues,actions};
+    }
     function makeRetryFailure(rejected,globalError) {
         const reasons=[];
-        if(rejected?.length)reasons.push('部分业务片段未通过：'+rejected.map(x=>x.片段).join('、'));
+        if(rejected?.length)reasons.push('部分业务片段未通过（'+rejected.length+'项）');
         if(globalError)reasons.push(String(globalError.message||globalError));
         const error=new Error(reasons.join('；')||'WorldResult 未通过业务校验');
         error.retryPlan=retryPlanForFailure(globalError,rejected);
@@ -3023,6 +3051,15 @@ ${schemaText}`;
             if(!floors.length)throw new Error('未读到可用AI正文：楼层为空或仅含思考、变量更新与面板，请检查聊天内容');
             const timeline=timelineState(state);
             const needBackbone=timeline.需要初始化||timeline.需要补充远期;
+            const openMacro=Object.entries(state.世界[PATH].事件).filter(([,event])=>event.分类==='宏观节点'&&['进行中','待发生'].includes(event.状态));
+            const activeMacroCount=openMacro.filter(([,event])=>event.状态==='进行中').length;
+            const macroRequirement=this.config.requireMacroBackbone!==false&&timeline.需要补充远期?{
+                已有可推进宏观节点:openMacro.map(([名称,event])=>({名称,状态:event.状态})),
+                至少补充节点数:Math.max(0,3-openMacro.length),
+                交付要求:macroBackbonePlan(openMacro.length,activeMacroCount,openMacro.length-activeMacroCount),
+                规划与发生:'本轮必须补齐骨架，不能以时间未推进、正文没有宏观变化或无业务变化为由省略。建立待发生节点属于未来规划，可排在下一宏观边界之后，不表示事件现在发生；近期细节与已发生事实仍受本轮时间容量和下一宏观边界限制。不得为凑数提前原著日期，或预先结算未来事件的结果；更新时间使用当前世界时间。',
+                验收:'按已有状态与本轮结果合并后计数；若本轮结束或取消已有宏观节点，须补足被移出窗口的数量。重试时以已接受业务结果和最新补充清单为准，不重复创建已接受节点。'
+            }:undefined;
             const proseScan=floors.map(f=>f.正文).join('\n');
             const chronologyScan=needBackbone?[state.世界.名称,'原著','时间线','时间轴','年表','大事记','大事件','剧情大纲','剧情章节','章节','未来','后续'].filter(Boolean).join(' '):'';
             const books=await this.worldbook([proseScan,chronologyScan].filter(Boolean).join('\n'),{timelineBackbone:needBackbone});
@@ -3043,6 +3080,7 @@ ${schemaText}`;
                     WorldResult:'唯一业务交付物；不包含 JSON Pointer、add/replace 路径或程序日志。',
                     角色管理:'若提供NPC构筑审计，只处理列出的既有NPC缺口；完整构筑资料只在审计对象中提供，避免全量NPC重复占用上下文。'
                 },
+                本轮必须完成的宏观骨架:macroRequirement,
                 世界书:books.map(b=>String(b.内容||'')).filter(Boolean),
                 当前变量:projectWorldContext(state),
                 角色管理:npcAudit.length?{NPC构筑审计:npcAudit}:undefined,
@@ -3066,7 +3104,8 @@ ${schemaText}`;
                 说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
             },null,2);
             const stabilityPrompt=worldStabilityPrompt(state);
-            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+(stabilityPrompt?'\n\n'+stabilityPrompt:'')+(npcAudit.length?'\n\n'+(this.config.npcAuditPrompt??NPC_BUILD_AUDIT_RULES):'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2));
+            const macroPrompt=macroRequirement?'\n\n【本轮宏观骨架交付】\n先完成输入“本轮必须完成的宏观骨架”，再推演近期细节。至少3个可推进宏观节点是合并后的交付底线，进行中+待发生合计。未来规划可以跨越下一宏观边界，实际发生与细节推进不能越界；只输出差分不意味着可以省略尚未建立的骨架。提交前检查事件实体、分类、状态、时间、前因与因果.宏观顺序相互对应。':'';
+            const system=this.config.preset+'\n\n'+CORE_WORLD_RULES+macroPrompt+(stabilityPrompt?'\n\n'+stabilityPrompt:'')+(npcAudit.length?'\n\n'+(this.config.npcAuditPrompt??NPC_BUILD_AUDIT_RULES):'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2));
             if(system.length+input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(system)+estimateTokens(input),true)+'），请减少所选条目或正文层数');
             return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
         }
@@ -3239,7 +3278,7 @@ ${schemaText}`;
                         }
                         lastError=error;
                         lastRejectedReply=received||this.lastReply||'';
-                        lastRetryPlan=Array.isArray(error?.retryPlan)&&error.retryPlan.length?copy(error.retryPlan):retryPlanForFailure(error,[]);
+                        lastRetryPlan=Array.isArray(error?.retryPlan)?copy(error.retryPlan):retryPlanForFailure(error,[]);
                         const rejectedByModel=!!received&&retryableModelFailure(error);
                         if(rejectedByModel)this.lastRetryLog.push({尝试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
                         const canRetry=rejectedByModel&&attempt+1<maxAttempts;
@@ -4453,10 +4492,10 @@ ${schemaText}`;
                 const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
                 const readable=(name,v)=>Array.isArray(v)?v.map((item,i)=>fold((item.名称||item.楼层!==undefined&&(item.角色+' · 第 '+item.楼层+' 层')||name+' '+(i+1)),fields(item))).join(''):fields(plain(v)?v:{内容:v});
                 const retryLog=(this.lastRetryLog||[]).map(item=>{
-                    const slices=Array.isArray(item.片段)?item.片段:[],plans=Array.isArray(item.补充清单)?item.补充清单:[];
-                    const details=slices.length?'<p><b>具体原因</b><br>'+slices.map(x=>text(x.片段)+'：'+text(x.原因)).join('<br>')+'</p>':'';
-                    const guidance=plans.length?'<p><b>下一次纠错要求</b><br>'+plans.map(text).join('<br>')+'</p>':'';
-                    return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>模型回复被拒绝</b><p>'+text(item.错误)+'</p>'+details+guidance+'</div></div>';
+                    const feedback=retryFeedback(item.错误,Array.isArray(item.片段)?item.片段:[],Array.isArray(item.补充清单)?item.补充清单:[]);
+                    const details=feedback.issues.length?'<p><b>具体问题</b><br>'+feedback.issues.map(text).join('<br>')+'</p>':'';
+                    const guidance=feedback.actions.length?'<p><b>修复要求</b><br>'+feedback.actions.map(text).join('<br>')+'</p>':'';
+                    return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>模型回复被拒绝</b><p>'+text(feedback.summary)+'</p>'+details+guidance+'</div></div>';
                 }).join('');
                 const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
                 html+=section('失败自动重试','<div class="we-config-row"><label>最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(this.config.retryAttempts??5)+'"> 次</label><span class="we-muted">包含首次请求。1 = 只请求一次；5 = 最多总共尝试 5 次。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(this.lastAttemptCount)+' 次；每次模型业务拒绝都会在下方完整保留，包括最后一次失败。</p>':'')+(retryLog||''));
@@ -4529,10 +4568,8 @@ ${schemaText}`;
     retryPlanForFailure=function(error,rejected=[]) {
         const messages=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
         const plan=retryPlanBeforeActionableEventRefs(error,rejected).map(line=>String(line)
-            .replace('新增宏观事件必须给出可执行的时间/条件/前因。','新增宏观事件必须给出明确时间锚点；条件按需填写。前因只能引用已存在，或本轮同时提交且成功建立的事件名称；无明确前因使用 []，不得用当前阶段或自然语言原因代替事件名。')
-            .replace('因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序，使用最终3~5个仍可推进的宏观节点名称形成顺序。','因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序；只使用最终3~5个仍可推进且 分类=宏观节点 的事件名称，不要写当前阶段、当前事件或近期节点。')
             .replace('且每个名称都必须对应已建立且未取消的宏观节点。','且每个名称都必须对应已建立且未取消的宏观节点；不要写当前阶段、当前事件或近期节点。'));
-        if(/事件前因(?:不存在|非法自引用)/.test(messages))plan.push('事件前因：按报错中的“事件 <- 非法前因”定点修正；前因数组只放事件名称，同轮链式节点必须先建立前置节点，无明确前因写 []。');
+        if(/事件前因(?:不存在|非法自引用)/.test(messages))plan.push('事件前因：先修复链首缺失或自引用，再重新提交受影响的后继节点。前因数组只放事件名称，且须已存在或同轮成功建立；当前阶段/自然语言原因不算事件，无明确前因写 []。不得为消除报错凭空补造事件。');
         if(/字段未通过完整 Schema 校验/.test(messages))plan.push('Schema纠错：只修报错路径中的业务字段；真属性/最终属性/强化属于后台派生缓存，模型不得补写，这类派生差异由程序吸收。');
         return Array.from(new Set(plan.filter(Boolean)));
     };
@@ -4540,11 +4577,9 @@ ${schemaText}`;
     const makeRetryFailureBeforeConcreteReasons=makeRetryFailure;
     makeRetryFailure=function(rejected,globalError) {
         const error=makeRetryFailureBeforeConcreteReasons(rejected,globalError);
-        const details=(rejected||[]).map(item=>item?.片段&&item?.原因?item.片段+'：'+item.原因:'').filter(Boolean);
-        if(details.length){
-            const summary=String(error.message||'WorldResult 未通过业务校验').split('\n\n具体原因\n')[0];
-            error.message=summary+'\n\n具体原因\n'+details.join('\n');
-        }
+        const feedback=retryFeedback(error,rejected,error.retryPlan);
+        error.retryPlan=feedback.actions;
+        if(feedback.issues.length)error.message=feedback.summary+'\n\n具体原因\n'+feedback.issues.join('\n');
         return error;
     };
 

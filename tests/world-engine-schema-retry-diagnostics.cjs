@@ -31,7 +31,7 @@ function setup(responses, validate){
   assert.deepEqual(eventSchema.状态.enum,['待发生','进行中','已完成','已取消'],'事件状态应由 Canonical Schema 直接约束');
   assert.deepEqual(eventSchema.分类.enum,['当前事件','近期节点','宏观节点'],'事件分类应由 Canonical Schema 直接约束');
   const offsetSchema=WORLD_RESULT_SCHEMA.properties.因果.properties.偏移记录.items.properties.影响程度;
-  assert.equal(offsetSchema.minimum,-100);assert.equal(offsetSchema.maximum,120);
+  assert.equal(offsetSchema.minimum,undefined);assert.equal(offsetSchema.maximum,undefined,'因果影响已由完整性保护层软归一化，不再依赖旧的Schema硬边界');
   const streetSchema=WORLD_RESULT_SCHEMA.properties.传闻.properties.街头巷议.items.properties.可信度;
   assert.deepEqual(streetSchema.enum,['酒话','可疑','或许可信'],'WorldResult Schema 应直接暴露街头巷议合法三档');
   const intelSchema=WORLD_RESULT_SCHEMA.properties.传闻.properties.情报交易.items.properties.情报评级;
@@ -67,6 +67,10 @@ function setup(responses, validate){
   assert.match(b.engine.lastRetryLog[0].片段[0].原因,/含糊行动/);
   assert.match(b.engine.lastRetryLog[0].片段[0].原因,/规范行动/);
   const retry=JSON.parse(b.inputs[1]).纠错重试;
+  assert.equal(retry.具体问题.length,1);
+  assert.match(retry.具体问题[0],/\/世界\/后台\/人物\/卫兵\/行动.*含糊行动.*规范行动/,'精简纠错仍应保留字段位置与校验前后值');
+  assert.doesNotMatch(retry.上次拒绝原因,/含糊行动/,'摘要不重复具体字段问题');
+  assert.ok(retry.补充清单.every(line=>!line.includes('含糊行动')),'修复要求不重复具体字段问题');
   assert.equal(retry.当前尝试,2);
   assert.equal(retry.最大尝试次数,2);
   for(const key of ['当前总尝试','最大总尝试','当前额外重试','额外重试上限'])assert.equal(retry[key],undefined);

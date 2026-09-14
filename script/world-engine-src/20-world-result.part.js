@@ -496,15 +496,24 @@
             rejected:pending.map(unit=>({片段:unit.label,原因:String(unit.error?.message||unit.error||'业务片段未通过校验')}))
         };
     }
+    // 首次请求与纠错共用同一份交付标准，避免模型失败后才知道宏观骨架的硬要求。
+    function macroBackbonePlan(current,active,future) {
+        const missing=Math.max(0,3-current);
+        return [
+            '宏观骨架：当前可推进宏观节点'+current+'个（进行中'+active+'、待发生'+future+'），还需补充至少'+missing+'个真正的宏观节点；已确认正在发生的阶段转折可记进行中，其余新增节点记待发生。会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。',
+            '事件交付：在 WorldResult.事件 中实际建立节点，分类=宏观节点；描述说明篇章、地区整体局势、战争、势力格局或关键人物命运的一个阶段转折，不能只在摘要或因果轨道里列名字。已有合格节点沿用原名，只提交缺失或变化字段。',
+            '宏观排期：每个新增节点必须给出明确时间锚点；沿用明确资料的日期或时间精度，精确日期未知时使用可理解的相对/因果时间，不写近期/稍后/未来/待定/未知。条件按需填写。前因只能引用已存在，或本轮同时提交且成功建立的事件名称；无明确前因使用 []，不得用当前阶段或自然语言原因代替事件名。',
+            '因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序；只使用最终3~5个仍可推进且 分类=宏观节点 的不同事件名称，不要写当前阶段、当前事件或近期节点。'
+        ];
+    }
     function retryPlanForFailure(error,rejected=[]) {
         const plan=[];
         for(const item of rejected||[])plan.push(item.片段+'：'+item.原因);
         const message=String(error?.message||error||'');
         let match=message.match(/宏观事件不足：需要至少3个可推进宏观节点（进行中\+待发生），当前仅(\d+)个（进行中(\d+)个，待发生(\d+)个）/);
         if(match){
-            const current=Math.max(0,Number(match[1])||0),active=Math.max(0,Number(match[2])||0),future=Math.max(0,Number(match[3])||0),missing=Math.max(0,3-current);
-            plan.push('宏观骨架：当前可推进宏观节点'+current+'个（进行中'+active+'、待发生'+future+'），还需补充至少'+missing+'个真正的待发生宏观节点；会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。新增宏观事件必须给出可执行的时间/条件/前因。');
-            plan.push('因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序，使用最终3~5个仍可推进的宏观节点名称形成顺序。');
+            const current=Math.max(0,Number(match[1])||0),active=Math.max(0,Number(match[2])||0),future=Math.max(0,Number(match[3])||0);
+            plan.push(...macroBackbonePlan(current,active,future));
         }else if(/因果轨道未形成有效宏观投影/.test(message)){
             plan.push('因果轨道：不要重写已接受事件，只补写 因果.宏观顺序；长度必须3~5，且每个名称都必须对应已建立且未取消的宏观节点。');
         }else if((match=message.match(/到期事件未处理：([^。]+)/))){
@@ -526,9 +535,26 @@
         }
         return Array.from(new Set(plan.filter(Boolean)));
     }
+    // UI 和模型请求共用去重视图；原始分片仍保留在日志，未知错误不截断。
+    function retryFeedback(error,rejected=[],plans=[]) {
+        const message=String(error?.message||error||'');
+        const summary=rejected?.length?message.split('\n\n具体原因\n')[0]:message;
+        const compactReason=value=>{
+            const reason=String(value||'');
+            return /^事件前因(?:不存在|非法自引用)：/.test(reason)?reason.split('；')[0]:reason;
+        };
+        const rawIssues=(rejected||[]).map(item=>String(item.片段||'')+'：'+String(item.原因||''));
+        const issues=Array.from(new Set((rejected||[]).map(item=>{
+            const reason=compactReason(item.原因);
+            return /^事件前因(?:不存在|非法自引用)：/.test(reason)?reason:String(item.片段||'')+'：'+reason;
+        })));
+        const redundant=new Set([...rawIssues,...issues,summary,'整体校验：'+summary,'整体校验：'+message]);
+        const actions=Array.from(new Set((plans||[]).filter(Boolean).map(String))).filter(line=>!redundant.has(line));
+        return {summary,issues,actions};
+    }
     function makeRetryFailure(rejected,globalError) {
         const reasons=[];
-        if(rejected?.length)reasons.push('部分业务片段未通过：'+rejected.map(x=>x.片段).join('、'));
+        if(rejected?.length)reasons.push('部分业务片段未通过（'+rejected.length+'项）');
         if(globalError)reasons.push(String(globalError.message||globalError));
         const error=new Error(reasons.join('；')||'WorldResult 未通过业务校验');
         error.retryPlan=retryPlanForFailure(globalError,rejected);

@@ -730,11 +730,13 @@
     }
     function retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]) {
         let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
-        const plan=Array.isArray(retryPlan)?retryPlan.filter(Boolean).map(String):[];
+        const feedback=retryFeedback(error,error?.rejectedSlices,Array.isArray(retryPlan)?retryPlan:[]);
+        const plan=feedback.actions;
         payload.纠错重试={
             当前尝试:attempt+1,
             最大尝试次数:maxAttempts,
-            上次拒绝原因:String(error?.message||error||''),
+            上次拒绝原因:feedback.summary,
+            具体问题:feedback.issues.length?feedback.issues:undefined,
             上次模型回复:String(lastReply||'').slice(-12000),
             已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
             补充清单:plan.length?copy(plan):undefined,

@@ -5,7 +5,7 @@
     'use strict';
 
     // 需要修改追加内容时，只改这一行。
-    const SUFFIX = '<tmd_nan>\n（当前用户输入的只是一个可能的发展方向，实际发展需根据当前真实情况或骰子判定为准。）\n</tmd_nan>';
+    const SUFFIX = '<tmd_nan>\n（当前内容只是一个可能的发展方向，实际发展需根据当前真实情况或骰子判定为准。）\n</tmd_nan>';
 
     const host = typeof GS_PARENT !== 'undefined' ? GS_PARENT : window.parent;
     const doc = host.document;

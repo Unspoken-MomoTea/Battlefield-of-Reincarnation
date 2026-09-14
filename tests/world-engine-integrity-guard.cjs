@@ -5,7 +5,7 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 function loadAssembledEngine(){
   const builder=fs.readFileSync(path.join(root,'tools','build-world-engine.py'),'utf8');
-  const tuple=(builder.match(/PARTS = \(([\s\S]*?)\)\n\n/)||[])[1]||'';
+  const tuple=(builder.match(/PARTS = \(([\s\S]*?)\)\r?\n\r?\n/)||[])[1]||'';
   const parts=[...tuple.matchAll(/'([^']+\.part\.js)'/g)].map(match=>match[1]);
   assert.ok(parts.length>=13,'builder must expose world-engine parts');
   const source=parts.map(name=>fs.readFileSync(path.join(root,'script','world-engine-src',name),'utf8')).join('');

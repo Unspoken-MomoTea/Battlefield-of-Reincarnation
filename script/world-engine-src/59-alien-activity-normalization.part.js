@@ -1,8 +1,8 @@
-    // 活跃异端活动时间戳：模型提交活动事实，程序统一写入当前世界时间，避免等价时间字符串触发误拒绝。
+    // 活跃异端活动时间戳：模型提交活动事实；世界时间由 WorldResult.时间 维护，人物时间戳由程序统一盖章。
     const activeAlienActivityRequirementsBeforeTimestampNormalization=activeAlienActivityRequirements;
     activeAlienActivityRequirements=function(stat) {
         return activeAlienActivityRequirementsBeforeTimestampNormalization(stat).map(item=>Object.assign({},item,{
-            要求:'本轮必须在 WorldResult.人物 中提交该活跃异端的活动复核；至少给出非空地点、目标、行动。更新时间由程序统一记录为当前世界时间；若本轮已确认其死亡，则只把异端状态更新为死亡，不再提交人物活动。'
+            要求:'本轮必须在 WorldResult.人物 中提交该活跃异端的活动复核；至少给出非空地点、目标、行动。人物更新时间无需抄写，由程序使用本轮最终世界时间统一记录；若本轮已确认其死亡，则只把异端状态更新为死亡，不再提交人物活动。'
         }));
     };
 
@@ -13,14 +13,17 @@
         const plannedDead=new Set((result.异端||[])
             .filter(item=>item?.操作!=='撤销本轮'&&item?.状态==='死亡')
             .map(item=>nameKey(item.名称)));
-        const worldTime=String(stat?.世界?.时间||'').trim();
-        if(worldTime&&Array.isArray(result.人物)){
+        const proposedTime=typeof resolveWorldTimeProposal==='function'?resolveWorldTimeProposal(stat,result):'';
+        const worldTime=String(proposedTime||stat?.世界?.时间||'').trim();
+        if(Array.isArray(result.人物)){
             for(const item of result.人物){
                 if(!plain(item)||item.操作==='撤销本轮')continue;
                 const rosterName=stableNameIn(roster,item.名称),alien=rosterName?roster[rosterName]:null;
                 if(!alien||alien.状态==='死亡'||plannedDead.has(nameKey(rosterName||item.名称)))continue;
                 const submitted=String(item.地点||'').trim()&&String(item.目标||'').trim()&&String(item.行动||'').trim();
-                if(submitted)item.更新时间=worldTime;
+                if(!submitted)continue;
+                if(worldTime)item.更新时间=worldTime;
+                else delete item.更新时间;
             }
         }
         return compileWorldResultBeforeAlienActivityNormalization(stat,result);
@@ -28,22 +31,24 @@
 
     ensureActiveAlienActivity=function(next,required,acceptedResult,worldTime) {
         const roster=next?.世界?.异端雷达?.名单||{},people=next?.世界?.[PATH]?.人物||{},proposals=acceptedResult?.人物||[],missing=[];
+        const canonicalTime=String(next?.世界?.时间||worldTime||'').trim();
         for(const item of required||[]){
             const rosterName=stableNameIn(roster,item.雷达名称||item.名称),alien=rosterName?roster[rosterName]:null;
             if(!alien||alien.状态==='死亡')continue;
             const personName=stableNameIn(people,item.名称)||stableNameIn(people,rosterName),person=personName?people[personName]:null;
             const proposal=proposals.find(p=>nameKey(p.名称)===nameKey(item.名称)||nameKey(p.名称)===nameKey(rosterName));
             const submitted=proposal&&String(proposal.地点||'').trim()&&String(proposal.目标||'').trim()&&String(proposal.行动||'').trim();
-            const complete=person&&String(person.地点||'').trim()&&String(person.目标||'').trim()&&String(person.行动||'').trim()&&sameWorldTimeAnchor(person?.更新时间,worldTime);
-            if(!submitted||!complete)missing.push(rosterName||item.名称);
+            const factsComplete=person&&String(person.地点||'').trim()&&String(person.目标||'').trim()&&String(person.行动||'').trim();
+            const timeComplete=!canonicalTime||sameWorldTimeAnchor(person?.更新时间,canonicalTime);
+            if(!submitted||!factsComplete||!timeComplete)missing.push(rosterName||item.名称);
         }
-        if(missing.length)throw new Error('异端活动未复核：'+missing.join('、')+'；活跃异端每轮都必须提交人物活动并写明地点、目标、行动；更新时间由程序统一记录为当前世界时间；若已死亡则更新异端状态为死亡');
+        if(missing.length)throw new Error('异端活动未复核：'+missing.join('、')+'；活跃异端每轮都必须提交人物活动并写明地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若已死亡则更新异端状态为死亡');
     };
 
     const retryPlanForFailureBeforeAlienActivityNormalization=retryPlanForFailure;
     retryPlanForFailure=function(error,rejected=[]) {
-        return retryPlanForFailureBeforeAlienActivityNormalization(error,rejected).map(item=>String(item).replace(
-            '在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动，并把更新时间精确写为当前世界时间；若本轮已确认死亡',
-            '在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动；更新时间由程序统一记录为当前世界时间；若本轮已确认死亡'
-        ));
+        return retryPlanForFailureBeforeAlienActivityNormalization(error,rejected).map(item=>String(item)
+            .replace('在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动，并把更新时间精确写为当前世界时间；若本轮已确认死亡','在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡')
+            .replace('在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动；更新时间由程序统一记录为当前世界时间；若本轮已确认死亡','在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡')
+        );
     };

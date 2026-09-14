@@ -90,11 +90,13 @@ function fresh(){
     const engine=new Engine(host);engine.config.contextTurns=1;engine.config.enabled=true;engine.worldbook=async()=>[];
     const request=await engine.buildRequest(engine.snapshot());
     assert.match(request.system,/【因果偏移与时间约束】/,'request must carry the concise causal/time decision block');
-    assert.match(request.system,/因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化/,'prompt must restrict offsets to realized world-scale changes');
+    assert.match(request.system,/因果偏移不是每轮必填/,'prompt must make the causal ledger event-driven rather than a per-turn chore');
+    assert.match(request.system,/本轮没有这种重大变化时，省略“因果\.偏移记录”/,'prompt must explicitly omit causal offsets when no major world change happened');
     assert.match(request.system,/位置暴露、敌人警觉、受伤、逃脱、行动\/生存难度变化等局部后果不记/,'prompt must explicitly exclude tactical player adversity from world stability');
     assert.match(request.system,/计划、风险、能力上限不记/,'prompt must reject speculative or unrealized causal offsets');
     assert.match(request.system,/同根因优先更新同一条/,'prompt must prevent splitting one root cause into mini summaries');
     assert.match(request.system,/当前事实不得落在世界时间之后/,'prompt must keep current facts behind the world clock; detailed precision remains program-enforced');
+    assert.match(request.system,/模型不得直接修改/,'world stability must remain program-derived rather than model-written');
   }
 
   console.log('world-engine integrity guard regression tests passed');

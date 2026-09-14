@@ -9,10 +9,10 @@ NEW = """    if (hotScenes.length) {
     }"""
 
 text = TARGET.read_text(encoding='utf-8')
-if NEW in text:
-    print('offstage anti-omniscience boundary already synchronized')
-elif OLD in text:
-    TARGET.write_text(text.replace(OLD, NEW, 1), encoding='utf-8')
-    print('patched visible offstage anti-omniscience boundary')
+if OLD in text and NEW not in text:
+    print('original offstage prose projection already restored')
+elif NEW in text:
+    TARGET.write_text(text.replace(NEW, OLD, 1), encoding='utf-8')
+    print('restored original offstage prose projection')
 else:
     raise SystemExit('offstage scene projection anchor not found')

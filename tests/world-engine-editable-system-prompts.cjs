@@ -9,9 +9,9 @@ const {SamsaraWorldEngine: Engine, emptyState} = require(delivery);
 const clone = value => JSON.parse(JSON.stringify(value));
 
 assert.match(foundation, /version:19,\n\s*builtin:true/, 'editable system prompt migration should bump built-in prompt document to v19');
-assert.match(foundation, /corePrompt:\s*CORE_WORLD_RULES/, 'built-in prompt document must carry the core prompt');
-assert.match(foundation, /macroPrompt:\s*DEFAULT_MACRO_PROMPT/, 'built-in prompt document must carry the macro prompt');
-assert.match(foundation, /stabilityPromptTemplate:\s*DEFAULT_STABILITY_PROMPT_TEMPLATE/, 'built-in prompt document must carry the stability template');
+assert.match(foundation, /corePrompt:\s*defaultCoreWorldRules\(\)/, 'built-in prompt document must carry the core prompt');
+assert.match(foundation, /macroPrompt:\s*defaultMacroPrompt\(\)/, 'built-in prompt document must carry the macro prompt');
+assert.match(foundation, /stabilityPromptTemplate:\s*defaultStabilityPromptTemplate\(\)/, 'built-in prompt document must carry the stability template');
 
 for (const marker of ['data-core-prompt', 'data-macro-prompt', 'data-stability-prompt', 'data-npc-audit-prompt', 'data-structure-prompt']) {
   assert.ok(ui.includes(marker), `prompt workspace must expose editable field: ${marker}`);

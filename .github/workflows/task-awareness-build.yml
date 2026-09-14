@@ -42,6 +42,8 @@ jobs:
         run: node tests/world-engine-task-awareness.cjs
       - name: Rumor rolling regression
         run: node tests/world-engine-rumor-capacity.cjs
+      - name: Editable system prompts regression
+        run: node tests/world-engine-editable-system-prompts.cjs
       - name: Offstage NPC knowledge boundary regression
         run: node tests/offstage-knowledge-boundary.cjs
       - name: Causal overview regression

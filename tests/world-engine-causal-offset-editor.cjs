@@ -12,6 +12,7 @@ assert.match(layer,/data-offset-field="impact"/,'causal offset editor must rende
 assert.match(layer,/data-action="causal-offset-save"/,'inline editor must provide one save action');
 assert.match(layer,/data-action="causal-offset-cancel"/,'inline editor must provide cancel without closing the whole panel');
 assert.match(layer,/causal-offset-delete-confirm/,'delete must use in-panel confirmation instead of a browser confirm dialog');
+assert.match(layer,/\.we-offset-edit-field textarea\{height:92px!important;min-height:80px!important;max-height:180px!important/,'offset description editor must stay compact instead of inheriting a document-sized textarea');
 assert.doesNotMatch(layer,/globalThis\.prompt|host\?\.prompt|causalOffsetPromptFunction/,'editing must not use browser prompt dialogs');
 assert.doesNotMatch(layer,/globalThis\.confirm|host\?\.confirm|causalOffsetConfirmFunction/,'deleting must not use browser confirm dialogs');
 
@@ -60,5 +61,5 @@ assert.doesNotMatch(layer,/globalThis\.confirm|host\?\.confirm|causalOffsetConfi
   assert.ok(current.__samsaraWorldReplay.operations.some(op=>op.op==='set'&&op.path.join('/')==='世界/因果轨道/偏移记录/关键人物命运修正'&&op.value.影响程度===-5),'replay 必须同步编辑后的偏移');
 
   await assert.rejects(()=>engine.setCausalOffsetRecord('关键人物命运修正','关键人物命运修正',{描述:'无效',引发者:'测试者',影响程度:0}),/影响程度必须/,'0 影响应通过删除记录处理，不允许保留无意义偏移');
-  console.log('PASS causal offset inline edit/delete controls persist data, recalculate stability and keep replay consistent');
+  console.log('PASS causal offset inline edit/delete controls persist data, stay compact, recalculate stability and keep replay consistent');
 })().catch(error=>{console.error(error);process.exitCode=1;});

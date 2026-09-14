@@ -48,20 +48,21 @@ function setup(autoProgress){
   raw={__samsaraWorldCommit:fingerprint};
   return {
     engine,fresh,fingerprint,timers,calls:()=>calls,
-    async reprocess(){
+    async beginReprocess(){
       assert.equal(typeof firstMvuHandler,'function','replay first-listener must be bound');
       const variables=fresh();
       await firstMvuHandler(variables,{});
-      raw=Object.assign({},clone(raw),clone(variables));
       return variables;
+    },
+    persistReprocess(variables){raw=Object.assign({},clone(raw),clone(variables));},
+    async tick(){
+      const pending=[...timers.values()];timers.clear();
+      for(const item of pending)item.fn();
+      await new Promise(resolve=>setImmediate(resolve));
     },
     async flush(){
       let guard=0;
-      while(timers.size&&guard++<10){
-        const pending=[...timers.values()];timers.clear();
-        for(const item of pending)item.fn();
-        await new Promise(resolve=>setImmediate(resolve));
-      }
+      while(timers.size&&guard++<20)await this.tick();
       await new Promise(resolve=>setImmediate(resolve));
     },
     read:()=>clone(raw)
@@ -71,20 +72,31 @@ function setup(autoProgress){
 (async()=>{
   {
     const x=setup(true);
-    await x.reprocess();
+    const variables=await x.beginReprocess();
     assert.match(x.engine.status,/正在自动重新推进本楼/,'自动推进开启时，缺快照判定应直接进入自动补跑状态');
     assert.doesNotMatch(x.engine.status,/旧楼缺少恢复快照/,'自动推进开启时不应向玩家弹出缺快照停滞提示');
     assert.ok(x.timers.size>0,'缺快照分支必须主动安排自动推进，不能依赖别的 VARIABLE_UPDATE_ENDED 监听兜底');
+
+    // 真实 MVU 的 VARIABLE_UPDATE_ENDED 早于本楼最终写回。第一次补跑检查时如果 stat_data 还没落盘，
+    // 任务必须继续等待，不能只留下“正在自动重新推进本楼”的提示后悄悄丢失。
+    await x.tick();
+    assert.equal(x.calls(),0,'MVU 尚未写回时不得提前请求世界 AI');
+    assert.ok(x.timers.size>0,'MVU 尚未写回时缺快照补跑必须继续重试等待');
+    assert.equal(x.engine.worldReplayRecoveryPending,true,'等待 MVU 写回期间必须保留明确的补跑排队状态');
+
+    x.persistReprocess(variables);
     await x.flush();
-    assert.equal(x.calls(),1,'同一已处理楼缺快照时应自动重跑一次世界 AI');
+    assert.equal(x.calls(),1,'MVU 写回后，同一已处理楼缺快照应自动重跑一次世界 AI');
     assert.equal(x.read().stat_data.世界.因果轨道.当前阶段,'自动补跑结果#1');
     assert.equal(x.read().__samsaraWorldReplay?.fingerprint,x.fingerprint,'自动补跑成功后必须重新建立 replay');
+    assert.equal(x.engine.worldReplayRecoveryPending,false,'真正进入补跑后必须清除等待状态');
     x.engine.dispose();
   }
 
   {
     const x=setup(false);
-    await x.reprocess();
+    const variables=await x.beginReprocess();
+    x.persistReprocess(variables);
     assert.equal(x.calls(),0);
     assert.equal(x.timers.size,0,'自动推进关闭时不得安排补跑');
     assert.match(x.engine.status,/旧楼缺少恢复快照/,'只有自动推进关闭时才提示缺少恢复快照');
@@ -94,5 +106,9 @@ function setup(autoProgress){
     x.engine.dispose();
   }
 
-  console.log('PASS missing replay immediately auto-retries when auto progress is enabled, and only prompts when disabled');
+  // UI 必须区分“已经排队但尚未进入请求”和普通待命，避免只显示状态文字而按钮毫无变化。
+  assert.match(source,/worldReplayRecoveryPending/,'delivery must expose the missing-replay recovery pending state');
+  assert.match(source,/等待推进…/,'run button must visibly show the queued recovery state before busy=true');
+
+  console.log('PASS missing replay waits through delayed MVU writeback, visibly queues, then auto-retries when enabled');
 })().catch(error=>{console.error(error);process.exitCode=1;});

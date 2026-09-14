@@ -5562,6 +5562,22 @@ ${schemaText}`;
         });
     };
 
+    // 情报交易的“真实内幕”是后台主持人信息：数据继续保留给AI/变量系统，玩家传闻面板不渲染该详情入口。
+    function hideRumorTradeHostOnlyDetails(root) {
+        const sections=Array.from(root?.querySelectorAll?.('.we-section')||[]);
+        const trade=sections.find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()==='情报交易');
+        if(!trade)return 0;
+        let removed=0;
+        for(const detail of trade.querySelectorAll('details')){
+            const summary=detail.querySelector('summary')?.textContent?.trim();
+            if(summary==='主持人档案'){
+                detail.remove();
+                removed++;
+            }
+        }
+        return removed;
+    }
+
     const SamsaraWorldEngineBeforeRumorThrottle=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorThrottle {
         constructor(host,env) {
@@ -5591,6 +5607,11 @@ ${schemaText}`;
             };
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
             return request;
+        }
+        render(force) {
+            const result=super.render(force);
+            if(this.tab==='传闻')hideRumorTradeHostOnlyDetails(this.panel?.querySelector?.('main'));
+            return result;
         }
     };
     // 主面板只保留最新因果摘要；完整偏移、故事线、干涉模式、法则与经济资料进入独立“因果档案”页。

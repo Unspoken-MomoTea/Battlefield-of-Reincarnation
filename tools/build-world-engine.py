@@ -33,6 +33,7 @@ PARTS = (
     '59-rumor-world-system.part.js',
     '59-editable-module-prompts.part.js',
     '59-causal-overview-ui.part.js',
+    '59-causal-offset-editor.part.js',
     '60-bootstrap.part.js',
 )
 

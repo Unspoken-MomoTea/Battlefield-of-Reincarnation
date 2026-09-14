@@ -10,17 +10,17 @@
             const visible=[String(event.公开征兆||'').trim(),...(Array.isArray(event.可见影响)?event.可见影响.map(x=>String(x?.影响||'').trim()):[])].filter(Boolean);
             if(!visible.length)continue;
             const time=String(event.更新时间||event.时间||'').trim();
-            add({类型:'公开事件',名称,地点:String(event.地点||''),时间,公开内容:visible.join('；'),关联事件:[名称],新近:rumorWorldSameTime(time,now)});
+            add({类型:'公开事件',名称,地点:String(event.地点||''),时间:time,公开内容:visible.join('；'),关联事件:[名称],新近:rumorWorldSameTime(time,now)});
         }
         for(const [名称,person] of Object.entries(backend.人物||{})){
             const text=String(person?.公开动态||'').trim();if(!text)continue;
             const time=String(person?.更新时间||'').trim();
-            add({类型:'人物公开动态',名称,时间,公开内容:text,关联事件:copy(Array.isArray(person?.关联事件)?person.关联事件:[]),新近:rumorWorldSameTime(time,now)});
+            add({类型:'人物公开动态',名称,时间:time,公开内容:text,关联事件:copy(Array.isArray(person?.关联事件)?person.关联事件:[]),新近:rumorWorldSameTime(time,now)});
         }
         for(const [名称,area] of Object.entries(backend.势力地区||{})){
             const text=String(area?.公开动态||'').trim();if(!text)continue;
             const time=String(area?.更新时间||'').trim();
-            add({类型:'地区公开动态',名称,时间,公开内容:text,新近:rumorWorldSameTime(time,now)});
+            add({类型:'地区公开动态',名称,时间:time,公开内容:text,新近:rumorWorldSameTime(time,now)});
         }
         for(const [名称,faction] of Object.entries(stat?.世界?.势力||{})){
             const text=[faction?.领地,faction?.描述].map(x=>String(x||'').trim()).filter(Boolean).join('；');

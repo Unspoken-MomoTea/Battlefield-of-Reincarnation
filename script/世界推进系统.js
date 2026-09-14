@@ -6135,6 +6135,7 @@ ${schemaText}`;
         get tavern_events() { return typeof tavern_events !== 'undefined' ? tavern_events : root.tavern_events || host.tavern_events; }
     };
     if (typeof eventOn === 'function') runtime.eventOn = (...args) => eventOn(...args);
+    if (typeof eventMakeFirst === 'function') runtime.eventMakeFirst = (...args) => eventMakeFirst(...args);
     if (typeof getChatMessages === 'function') runtime.getChatMessages = (...args) => getChatMessages(...args);
     if (typeof getCurrentChatId === 'function') runtime.getCurrentChatId = (...args) => getCurrentChatId(...args);
     if (typeof getCharWorldbookNames === 'function') runtime.getCharWorldbookNames = (...args) => getCharWorldbookNames(...args);

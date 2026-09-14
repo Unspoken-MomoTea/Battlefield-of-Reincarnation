@@ -33,6 +33,7 @@ const parts = [
   '59-rumor-world-system.part.js',
   '59-editable-module-prompts.part.js',
   '59-causal-overview-ui.part.js',
+  '59-causal-offset-editor.part.js',
   '60-bootstrap.part.js',
 ];
 
@@ -94,7 +95,7 @@ assert.match(texts['59-soft-maintenance.part.js'], /eventHasUsableSchedule/);
 assert.match(texts['59-soft-maintenance.part.js'], /ensureRumorLiveliness=function/);
 assert.match(texts['59-world-integrity-guard.part.js'], /^    \/\/ 世界完整性保护/);
 assert.match(texts['59-world-integrity-guard.part.js'], /WORLD_INTEGRITY_GUARD_RULES/);
-assert.match(texts['59-world-integrity-guard.part.js'], /validateCausalOffsets/);
+assert.match(texts['59-world-integrity-guard.part.js'], /softNormalizeCausalOffsets/);
 assert.match(texts['59-causal-stability-gate.part.js'], /^    \/\/ 稳定度因果闸门/);
 assert.match(texts['59-causal-stability-gate.part.js'], /causalOffsetHasWorldScaleEvidence/);
 assert.match(texts['59-causal-stability-gate.part.js'], /清理局部稳定偏移/);
@@ -115,6 +116,10 @@ assert.match(texts['59-editable-module-prompts.part.js'], /WORLD_PROMPT_MODULE_D
 assert.match(texts['59-editable-module-prompts.part.js'], /stripLegacyWorldModulePrompts/);
 assert.match(texts['59-editable-module-prompts.part.js'], /data-module-prompt/);
 assert.match(texts['59-causal-overview-ui.part.js'], /因果/);
+assert.match(texts['59-causal-offset-editor.part.js'], /^    \/\/ 因果偏移手动维护/);
+assert.match(texts['59-causal-offset-editor.part.js'], /setCausalOffsetRecord/);
+assert.match(texts['59-causal-offset-editor.part.js'], /removeCausalOffsetRecord/);
+assert.match(texts['59-causal-offset-editor.part.js'], /causal-offset-edit/);
 assert.match(texts['60-bootstrap.part.js'], /^    \/\/ CommonJS 入口仅供离线测试/);
 assert.match(texts['60-bootstrap.part.js'], /module\.exports/);
 assert.match(texts['60-bootstrap.part.js'], /\}\)\(typeof window !== 'undefined' \? window : globalThis\);\s*$/);

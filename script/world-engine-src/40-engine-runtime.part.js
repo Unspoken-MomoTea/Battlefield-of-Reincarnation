@@ -784,8 +784,16 @@
             const mvu = this.env.Mvu || this.host.Mvu;
             if (!on || !mvu || !mvu.events) { this.initTimer = setTimeout(() => { if (!this.disposed) this.init(); },500); return; }
             const bind = (event,callback) => { if (event) { const off = on(event,callback); if (typeof off === 'function') this.unsub.push(off); else if (off && off.stop) this.unsub.push(() => off.stop()); } };
-            bind(mvu.events.VARIABLE_UPDATE_ENDED, () => {
-                try { if (this.blocked(this.snapshot())) this.cancel(); } catch (_) { this.cancel(); }
+            bind(mvu.events.VARIABLE_UPDATE_ENDED, (variables,before) => {
+                // 自身提交和装备等 UI 写回不代表正文完成，避免误触发补跑。
+                if(this.committing||this.host.__samsaraUIMutation||this.env.__samsaraUIMutation||this.host.parent?.__samsaraUIMutation)return;
+                const commit=variables?.__samsaraWorldCommit;
+                if(commit&&before&&commit!==before.__samsaraWorldCommit&&commit===variables?.stat_data?.世界?.[PATH]?.已处理楼层)return;
+                try {
+                    const snapshot=this.snapshot();
+                    if(plain(variables?.stat_data))snapshot.stat=variables.stat_data;
+                    if(this.blocked(snapshot))this.cancel();
+                } catch (_) { /* MVU 可能尚未写回；由延迟调度读取最终状态。 */ }
                 this.render(); this.schedule();
             });
             const events = this.env.tavern_events || this.host.tavern_events || {};

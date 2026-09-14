@@ -12,6 +12,7 @@
             if(!hadInterval)dirty=true;
             this.autoProgressCycleKey='';
             this.autoProgressLastSeenFingerprint='';
+            this.autoProgressDueFingerprint='';
             this.autoProgressRoundsSinceRun=0;
             this.autoProgressHasRun=false;
             if(dirty)this.saveConfig();
@@ -43,25 +44,37 @@
             const sameContext=!!handled&&(!currentChat||!handledChat||currentChat===handledChat);
             this.autoProgressHasRun=sameContext;
             this.autoProgressLastSeenFingerprint=sameContext?handled:'';
+            this.autoProgressDueFingerprint=sameContext?handled:'';
         }
         autoProgressShouldSchedule(snapshot) {
             this.initializeAutoProgressCycle(snapshot);
             const fingerprint=String(snapshot?.fingerprint||'');
-            if(!fingerprint||this.autoProgressLastSeenFingerprint===fingerprint)return false;
+            if(!fingerprint)return false;
+            const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
+            // 重新处理变量会重建本楼层 MVU，但正文指纹不变。已到期楼层的提交标记
+            // 被回滚时允许补跑；重复通知与间隔内跳过的楼层都不能额外计轮。
+            if(this.autoProgressLastSeenFingerprint===fingerprint){
+                return this.autoProgressDueFingerprint===fingerprint&&handled!==fingerprint;
+            }
             this.autoProgressLastSeenFingerprint=fingerprint;
-            if(!this.autoProgressHasRun)return true;
-            this.autoProgressRoundsSinceRun++;
-            return this.autoProgressRoundsSinceRun>=this.autoProgressIntervalValue();
+            if(this.autoProgressHasRun)this.autoProgressRoundsSinceRun++;
+            const due=!this.autoProgressHasRun||this.autoProgressRoundsSinceRun>=this.autoProgressIntervalValue();
+            if(due)this.autoProgressDueFingerprint=fingerprint;
+            return due;
         }
         markAutoProgressRun(snapshot) {
             if(snapshot)this.initializeAutoProgressCycle(snapshot);
             this.autoProgressHasRun=true;
             this.autoProgressRoundsSinceRun=0;
-            if(snapshot?.fingerprint)this.autoProgressLastSeenFingerprint=String(snapshot.fingerprint);
+            if(snapshot?.fingerprint){
+                this.autoProgressLastSeenFingerprint=String(snapshot.fingerprint);
+                this.autoProgressDueFingerprint=String(snapshot.fingerprint);
+            }
         }
         resetAutoProgressCycle() {
             this.autoProgressCycleKey='';
             this.autoProgressLastSeenFingerprint='';
+            this.autoProgressDueFingerprint='';
             this.autoProgressRoundsSinceRun=0;
             this.autoProgressHasRun=false;
         }
@@ -72,11 +85,20 @@
             }
             if(this.disposed||this.committing||!this.isEnabled())return;
             if(this.busy){this.pending=true;return;}
-            let snapshot;
-            try{snapshot=this.snapshot();}catch(_){return;}
-            if(this.blocked(snapshot))return;
-            if(!this.autoProgressShouldSchedule(snapshot))return;
-            return super.schedule();
+            // VARIABLE_UPDATE_ENDED 在 MVU 写回楼层前发出；去抖后才读取存档并计轮，
+            // 否则首次更新可能读不到 stat_data，重处理则可能读到旧的已处理标记。
+            clearTimeout(this.timer);
+            this.timer=setTimeout(()=>{
+                this.timer=null;
+                if(this.config.autoProgress!==true||this.disposed||this.committing||!this.isEnabled())return;
+                if(this.busy){this.pending=true;return;}
+                let snapshot;
+                try{snapshot=this.snapshot();}catch(_){return;}
+                const reason=this.blocked(snapshot);
+                if(reason){this.status=reason;this.render();return;}
+                if(!this.autoProgressShouldSchedule(snapshot))return;
+                this.run().catch(()=>{});
+            },900);
         }
         async run() {
             let snapshot=null;

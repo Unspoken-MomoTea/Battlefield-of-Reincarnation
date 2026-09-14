@@ -27,7 +27,7 @@ assert.equal(timers.size,0,'initialization must finish instead of retrying forev
 assert.equal(engine.fn('getCurrentChatId')(),'sandbox');
 engine.config.enabled = true;
 engine.render = () => {};
-engine.snapshot = () => ({stat:{世界:{名称:'测试世界'},系统状态:{是否在主神空间:false}},message:{role:'assistant'},text:'正文'});
+engine.snapshot = () => ({fingerprint:'["sandbox",1,0,"prose"]',stat:{世界:{名称:'测试世界'},系统状态:{是否在主神空间:false}},message:{role:'assistant'},text:'正文'});
 engine.run = async () => {runs++;};
 function flush() {const callbacks=[...timers.values()];timers.clear();callbacks.forEach(fn=>fn());}
 handlers.get('mvu')();

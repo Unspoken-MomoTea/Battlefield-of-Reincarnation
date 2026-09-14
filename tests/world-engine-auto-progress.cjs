@@ -50,6 +50,7 @@ const cycle=makeEngine({autoProgress:true,autoProgressInterval:2}).engine;
 const first=snapshot('chat',1);
 assert.equal(cycle.autoProgressShouldSchedule(first),true,'first eligible reply should progress immediately');
 cycle.markAutoProgressRun(first);
+first.stat.世界.后台.已处理楼层=first.fingerprint;
 assert.equal(cycle.autoProgressShouldSchedule(first),false,'repeated MVU updates on the same reply must not count twice');
 assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',2,{handled:first.fingerprint})),false,'interval=2 should skip the second reply');
 assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',2,{handled:first.fingerprint})),false,'same skipped reply must still count only once');
@@ -74,7 +75,8 @@ combatCounter.isEnabled=()=>true;
 combatCounter.snapshot=()=>snapshot('combat-chat',1,{combat:true});
 combatCounter.schedule();
 assert.equal(combatCounter.autoProgressLastSeenFingerprint,'','combat replies must not consume the auto-progress interval');
-assert.equal(combatCounter.timer,undefined,'combat should not arm an auto-progress timer');
+assert.ok(combatCounter.timer,'MVU completion must defer reading the final persisted combat state');
+combatCounter.cancel();
 
 assert.match(source,/data-auto-progress-toggle-top/,'top header must expose the auto progress toggle');
 assert.match(source,/run\.insertAdjacentElement\('beforebegin',button\)/,'auto progress toggle should sit immediately before the manual progress button');
@@ -82,5 +84,5 @@ assert.doesNotMatch(source,/mountAutoProgressSetting\(\)/,'auto progress toggle 
 assert.match(source,/data-auto-progress-interval/,'request inspection must expose the auto progress interval');
 assert.match(source,/2 = 第1、3、5…次正文后推进/,'interval=2 semantics must be explicit in the UI');
 assert.match(source,/自动推进已关闭，此设置不参与调度/,'interval UI must be screened off when auto progress is disabled');
-assert.match(source,/if\(this\.blocked\(snapshot\)\)return;\s*if\(!this\.autoProgressShouldSchedule\(snapshot\)\)return;/,'combat/block checks must happen before interval accounting');
+assert.match(source,/const reason=this\.blocked\(snapshot\);\s*if\(reason\)\{this\.status=reason;this\.render\(\);return;\}\s*if\(!this\.autoProgressShouldSchedule\(snapshot\)\)return;/,'combat/block checks must happen before interval accounting');
 console.log('PASS top auto-progress toggle, interval cadence, dedupe and combat pause');

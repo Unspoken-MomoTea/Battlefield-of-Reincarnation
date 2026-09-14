@@ -18,6 +18,7 @@ PARTS = (
     '57-task-awareness.part.js',
     '58-chronology-guard.part.js',
     '59-auto-progress.part.js',
+    '59-auto-trigger-rebuild.part.js',
     '59-soft-maintenance.part.js',
     '59-world-integrity-guard.part.js',
     '59-rumor-throttle.part.js',

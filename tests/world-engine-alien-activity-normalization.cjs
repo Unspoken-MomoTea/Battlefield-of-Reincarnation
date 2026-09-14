@@ -108,9 +108,8 @@ for(const item of requirements){
   engine.handleWorldReplayVariableEvent(variables,before);
   assert.equal(variables.stat_data.世界.时间,current.世界.时间,'variable-AI world-time writes must be ignored while world engine is enabled');
 
-  // 精确到“某月某日”的世界时间必须同时可被日历解析。
-  // 复现真实返回：模型写“枯叶之月，第12日”虽然人能读懂，但程序没有月份名称映射，不能生成日历。
-  // 引擎应拒绝这种精确但不可机器解析的写法，并在重试后接受数字月日的统一格式。
+  // 精确到“某月某日”的顶层时间和事件时间都必须可被日历解析。
+  // 复现真实返回：顶层已经用数字月日，但事件仍写“枯叶之月，第15日”时也必须打回，不能留下不可排序节点。
   let timeState=clone(stat);
   timeState.设置={单一世界:true};
   timeState.世界.时间='';
@@ -118,8 +117,14 @@ for(const item of requirements){
   timeState.世界.异端雷达={名单:{}};
   timeState.世界.历法={名称:'帝国历',月份天数:[30,28,31,30,31,30,31,31,30,31,30,31],闰年规则:'每四年一闰'};
   const timeReplies=[
-    {摘要:'建立时间锚点。',时间:'帝历1024年，枯叶之月（秋），第12日'},
-    {摘要:'建立时间锚点。',时间:'帝历1024年-09月-12日-下午'}
+    {
+      摘要:'建立时间锚点。',时间:'帝历1024年-09月-12日-下午',
+      事件:[{名称:'狩人集结',操作:'更新',描述:'狩人部队开始集结。',时间:'帝历1024年，枯叶之月，第15日',状态:'待发生',地点:'帝都',分类:'宏观节点'}]
+    },
+    {
+      摘要:'建立时间锚点。',时间:'帝历1024年-09月-12日-下午',
+      事件:[{名称:'狩人集结',操作:'更新',描述:'狩人部队开始集结。',时间:'帝历1024年-09月-15日-上午',状态:'待发生',地点:'帝都',分类:'宏观节点'}]
+    }
   ];
   let timeCalls=0;
   const timeHost={
@@ -134,10 +139,12 @@ for(const item of requirements){
   timeEngine.config.requireMacroBackbone=false;
   timeEngine.config.retryAttempts=2;
   timeEngine.worldbook=async()=>[];
-  assert.equal(await timeEngine.run(),true,'calendar-incompatible precise world time should be retried instead of committed');
-  assert.equal(timeCalls,2,'named-month precise date must be rejected once and retried with machine-readable month/day');
+  assert.equal(await timeEngine.run(),true,'calendar-incompatible precise event time should be retried instead of committed');
+  assert.equal(timeCalls,2,'named-month event date must be rejected once and retried with machine-readable month/day');
   assert.equal(timeState.世界.时间,'帝历1024年-09月-12日-下午');
   assert.ok(calendarDate(timeState.世界.时间,timeState.世界.历法),'committed world time must be convertible into the calendar panel');
+  assert.equal(timeState.世界.后台.事件['狩人集结'].时间,'帝历1024年-09月-15日-上午');
+  assert.ok(calendarDate(timeState.世界.后台.事件['狩人集结'].时间,timeState.世界.历法),'committed event time must also be calendar/sort compatible');
 
   const source=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
   assert.match(source,/【世界时间所有权】/,'delivery must inject world-time ownership rules');

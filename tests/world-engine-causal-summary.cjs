@@ -3,8 +3,8 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync(require.resolve('../script/世界推进系统.js'),'utf8');
 const context={module:{exports:{}},console,setTimeout,clearTimeout,AbortController};
-vm.runInNewContext(source.replace('module.exports = {','module.exports = {causalOffsetEntries,latestCausalOffsets,CAUSAL_OVERVIEW_LIMIT,causalInterferenceMode,causalArchiveHtml,'),context);
-const {causalOffsetEntries,latestCausalOffsets,CAUSAL_OVERVIEW_LIMIT,causalInterferenceMode,causalArchiveHtml}=context.module.exports;
+vm.runInNewContext(source.replace('module.exports = {','module.exports = {causalOffsetEntries,latestCausalOffsets,CAUSAL_OVERVIEW_LIMIT,causalInterferenceMode,causalArchiveHtml,WORLD_ENGINE_HIDDEN_PLAYER_TABS,isWorldEnginePlayerTabHidden,'),context);
+const {causalOffsetEntries,latestCausalOffsets,CAUSAL_OVERVIEW_LIMIT,causalInterferenceMode,causalArchiveHtml,WORLD_ENGINE_HIDDEN_PLAYER_TABS,isWorldEnginePlayerTabHidden}=context.module.exports;
 
 const offset=(影响程度)=>({描述:'测试偏移',引发者:'测试者',影响程度});
 const stat={世界:{稳定:96,因果轨道:{当前阶段:'局势已发生改变',故事线:'旧秩序 → 新秩序',下一节点:'关键决战',偏移记录:{
@@ -26,7 +26,14 @@ assert.match(archive,/多方势力围绕圣杯展开隐蔽博弈/,'因果档案�
 const noMode=JSON.parse(JSON.stringify(stat));
 noMode.世界.异端雷达.当前模式='';
 assert.doesNotMatch(causalArchiveHtml(noMode),/<h2>干涉模式<\/h2>/,'没有干涉模式时因果档案必须隐藏该区块');
+assert.equal(WORLD_ENGINE_HIDDEN_PLAYER_TABS.has('资产'),true,'世界推进玩家面板必须隐藏资产模块');
+assert.equal(WORLD_ENGINE_HIDDEN_PLAYER_TABS.has('传闻'),true,'世界推进玩家面板必须隐藏传闻模块');
+assert.equal(isWorldEnginePlayerTabHidden('资产'),true);
+assert.equal(isWorldEnginePlayerTabHidden('传闻'),true);
+assert.equal(isWorldEnginePlayerTabHidden('角色管理'),false,'角色管理等核心页仍应保留');
 const causalSource=fs.readFileSync(require.resolve('../script/world-engine-src/59-causal-overview-ui.part.js'),'utf8');
 assert.match(causalSource,/querySelector\('\.we-kpi-grid\.we-kpi-compact'\)\?\.remove\(\)/,'主面板应删除低价值KPI数据栏');
 assert.match(causalSource,/removeRunRecordInterference[\s\S]*causalSectionByTitle\(main,'干涉模式'\)\?\.remove\(\)/,'运行记录应移除干涉模式区块');
-console.log('PASS causal overview keeps full history, moves interference mode into the causal archive, and removes the main KPI strip');
+assert.match(causalSource,/hideRedundantPlayerModules[\s\S]*WORLD_ENGINE_HIDDEN_PLAYER_TABS[\s\S]*\?\.remove\(\)/,'资产与传闻导航应从世界推进玩家UI移除');
+assert.match(causalSource,/if\(isWorldEnginePlayerTabHidden\(this\.tab\)\)this\.tab='世界推进'/,'隐藏页被旧状态或程序指定时应自动回到世界推进');
+console.log('PASS causal overview keeps full history, moves interference mode into the causal archive, removes the KPI strip, and hides redundant asset/rumor player tabs');

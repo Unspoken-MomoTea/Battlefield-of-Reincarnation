@@ -53,6 +53,15 @@ function setup(){
 }
 
 (async()=>{
+  // 酒馆开局常见形态：第二楼已经是第一篇正文，但变量里可能继承同聊天旧处理标记；后台本身仍为空。
+  // 这时不能把“有已处理楼层”误当成“本轮周期已经推进过”，否则 interval=2 会直接吞掉开局正文。
+  const opening=setup();
+  const openingState=opening.fresh();
+  openingState.stat_data.世界.后台.已处理楼层=JSON.stringify(['auto-reprocess',0,0,'opening-bootstrap']);
+  opening.write(openingState);opening.emit(openingState);await opening.flush();
+  assert.equal(opening.calls(),1,'第二楼开局：后台为空时，即使继承同聊天旧处理标记也必须立即自动推进');
+  opening.engine.dispose();
+
   const x=setup();
   const original=x.fresh();
   // MVU 发出完成事件时，本楼层 stat_data 尚未写回。
@@ -107,5 +116,5 @@ function setup(){
   x.next();x.emit(x.read());x.switchChat();await x.flush();
   assert.equal(x.calls(),6,'聊天切换取消待执行的旧聊天任务');
   x.engine.dispose();assert.equal(x.timers.size,0);
-  console.log('PASS automatic progression after MVU reprocessing, persistence timing, cadence and loop guards');
+  console.log('PASS opening bootstrap, automatic progression after MVU reprocessing, persistence timing, cadence and loop guards');
 })().catch(error=>{console.error(error);process.exitCode=1;});

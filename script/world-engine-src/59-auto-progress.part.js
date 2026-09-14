@@ -33,6 +33,13 @@
         autoProgressFingerprintChat(fingerprint) {
             try{return String(JSON.parse(String(fingerprint||''))?.[0]??'');}catch(_){return '';}
         }
+        autoProgressBackendHasContent(snapshot) {
+            const backend=snapshot?.stat?.世界?.[PATH];
+            if(!plain(backend))return false;
+            const maps=['事件','人物','势力地区','历史','传播'];
+            if(maps.some(key=>plain(backend[key])&&Object.keys(backend[key]).length>0))return true;
+            return ['最近变化','运行记录'].some(key=>Array.isArray(backend[key])&&backend[key].length>0);
+        }
         initializeAutoProgressCycle(snapshot) {
             const key=this.autoProgressContextKey(snapshot);
             if(this.autoProgressCycleKey===key)return;
@@ -42,9 +49,12 @@
             const currentChat=this.autoProgressFingerprintChat(snapshot?.fingerprint);
             const handledChat=this.autoProgressFingerprintChat(handled);
             const sameContext=!!handled&&(!currentChat||!handledChat||currentChat===handledChat);
-            this.autoProgressHasRun=sameContext;
-            this.autoProgressLastSeenFingerprint=sameContext?handled:'';
-            this.autoProgressDueFingerprint=sameContext?handled:'';
+            // 只有“处理标记 + 实际后台内容”同时存在，才说明这个聊天确实已经跑过世界推进。
+            // 开局/重新处理变量可能只继承旧的已处理楼层；后台仍为空时必须把当前正文当作首次有效正文立即推进。
+            const restoredRun=sameContext&&this.autoProgressBackendHasContent(snapshot);
+            this.autoProgressHasRun=restoredRun;
+            this.autoProgressLastSeenFingerprint=restoredRun?handled:'';
+            this.autoProgressDueFingerprint=restoredRun?handled:'';
         }
         autoProgressShouldSchedule(snapshot) {
             this.initializeAutoProgressCycle(snapshot);
@@ -148,7 +158,7 @@
             const enabled=this.config.autoProgress===true,interval=this.autoProgressIntervalValue();
             section.innerHTML='<div class="we-section-head"><h2>自动推进频率</h2><small>正文轮次</small></div>'+
                 '<div class="we-config-row"><label>推进间隔 <input data-auto-progress-interval type="number" min="1" max="20" value="'+interval+'" '+(enabled?'':'disabled')+'> 轮</label><span class="we-muted">'+
-                (enabled?'首次符合条件的正文立即推进；之后按正文回复轮次触发。2 = 第1、3、5…次正文后推进；1 = 每轮推进。战斗中不计轮数。':'自动推进已关闭，此设置不参与调度。')+
+                (enabled?'首次符合条件、或检测到世界后台尚未建立时立即推进；之后按正文回复轮次触发。2 = 第1、3、5…次正文后推进；1 = 每轮推进。战斗中不计轮数。':'自动推进已关闭，此设置不参与调度。')+
                 '</span></div>';
             const input=section.querySelector('[data-auto-progress-interval]');
             input?.addEventListener('change',()=>{

@@ -18,10 +18,11 @@ function makeEngine(saved={}){
 }
 
 function fingerprint(chat,id){return JSON.stringify([chat,id,0,'digest-'+id]);}
-function snapshot(chat,id,{handled='',combat=false,world='测试世界'}={}){
+function snapshot(chat,id,{handled='',combat=false,world='测试世界',populated=!!handled}={}){
+  const backend={已处理楼层:handled,事件:populated?{'已建立世界状态':{状态:'进行中'}}:{},人物:{},势力地区:{},历史:{},传播:{},最近变化:[],运行记录:[]};
   return {
     fingerprint:fingerprint(chat,id),
-    stat:{系统状态:{是否战斗中:combat},世界:{名称:world,后台:{已处理楼层:handled}}},
+    stat:{系统状态:{是否战斗中:combat},世界:{名称:world,后台:backend}},
     text:combat?'战斗正文':'普通正文',
     message:{role:'assistant'}
   };
@@ -61,10 +62,17 @@ assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',5,{handled:fingerp
 
 const restored=makeEngine({autoProgress:true,autoProgressInterval:2}).engine;
 const handled=fingerprint('chat',7);
-assert.equal(restored.autoProgressShouldSchedule(snapshot('chat',7,{handled})),false,'reload on an already processed reply must not repeat progression');
+assert.equal(restored.autoProgressShouldSchedule(snapshot('chat',7,{handled})),false,'reload on an already processed reply with real backend data must not repeat progression');
 assert.equal(restored.autoProgressShouldSchedule(snapshot('chat',8,{handled})),false,'first new reply after a persisted progression is one interval round');
 assert.equal(restored.autoProgressShouldSchedule(snapshot('chat',9,{handled})),true,'second new reply after persisted progression becomes due');
 assert.equal(restored.autoProgressShouldSchedule(snapshot('other-chat',1,{handled})),true,'a different chat must start its own cycle instead of inheriting the previous chat counter');
+
+const opening=makeEngine({autoProgress:true,autoProgressInterval:2}).engine;
+const staleOpeningHandled=fingerprint('opening',0);
+const openingFirst=snapshot('opening',1,{handled:staleOpeningHandled,populated:false});
+assert.equal(opening.autoProgressShouldSchedule(openingFirst),true,'empty world backend must make the opening assistant reply progress immediately even when a stale handled marker exists');
+opening.markAutoProgressRun(openingFirst);
+assert.equal(opening.autoProgressShouldSchedule(snapshot('opening',2,{handled:openingFirst.fingerprint,populated:false})),false,'after a real run, the same in-memory cycle must resume interval counting even if that run produced no persistent event');
 
 const every=makeEngine({autoProgress:true,autoProgressInterval:1}).engine;
 const everyFirst=snapshot('each',1);assert.equal(every.autoProgressShouldSchedule(everyFirst),true);every.markAutoProgressRun(everyFirst);
@@ -83,6 +91,7 @@ assert.match(source,/run\.insertAdjacentElement\('beforebegin',button\)/,'auto p
 assert.doesNotMatch(source,/mountAutoProgressSetting\(\)/,'auto progress toggle must no longer be mounted as a settings-page card');
 assert.match(source,/data-auto-progress-interval/,'request inspection must expose the auto progress interval');
 assert.match(source,/2 = 第1、3、5…次正文后推进/,'interval=2 semantics must be explicit in the UI');
+assert.match(source,/世界后台尚未建立时立即推进/,'interval UI must explain opening/bootstrap progression');
 assert.match(source,/自动推进已关闭，此设置不参与调度/,'interval UI must be screened off when auto progress is disabled');
 assert.match(source,/const reason=this\.blocked\(snapshot\);\s*if\(reason\)\{this\.status=reason;this\.render\(\);return;\}\s*if\(!this\.autoProgressShouldSchedule\(snapshot\)\)return;/,'combat/block checks must happen before interval accounting');
-console.log('PASS top auto-progress toggle, interval cadence, dedupe and combat pause');
+console.log('PASS top auto-progress toggle, interval cadence, opening bootstrap, dedupe and combat pause');

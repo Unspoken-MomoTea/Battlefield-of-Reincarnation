@@ -3,141 +3,153 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
-const clone=value=>JSON.parse(JSON.stringify(value));
+const clone=value=>value===undefined?undefined:JSON.parse(JSON.stringify(value));
 
 function setup(){
   const timers=new Map(),handlers=new Map(),runs=[];
   let timerId=0,raw={},id=1,chat='auto-reprocess',calls=0,writes=0,fail=false;
+  const addHandler=(event,fn,first=false)=>{
+    const list=handlers.get(event)||[];
+    if(first)list.unshift(fn);else list.push(fn);
+    handlers.set(event,list);
+    return()=>{const current=handlers.get(event)||[],next=current.filter(item=>item!==fn);if(next.length)handlers.set(event,next);else handlers.delete(event);};
+  };
+  const emitEvent=async(event,...args)=>{
+    for(const fn of [...(handlers.get(event)||[])])await fn(...args);
+  };
   const sandbox={module:{exports:{}},console,AbortController,
     setTimeout:(fn,delay)=>{timers.set(++timerId,{fn,delay});return timerId;},
     clearTimeout:key=>timers.delete(key)};
   vm.runInNewContext(source,sandbox);
   const {SamsaraWorldEngine:Engine,emptyState}=sandbox.module.exports;
   const fresh=()=>({stat_data:{
-    世界:{名称:'测试世界',时间:'2026年9月14日',地点:'城镇',后台:emptyState(),势力:{},探索:{},
+    世界:{名称:'测试世界',时间:'2026年9月14日',地点:'城镇',稳定:100,后台:emptyState(),势力:{},探索:{},
       因果轨道:{当前阶段:'城镇生活',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}}},
-    系统状态:{是否在主神空间:false,是否战斗中:false},设置:{},关系列表:{},传闻:{},资产:{}
+    系统状态:{是否在主神空间:false,是否战斗中:false},设置:{},关系列表:{},传闻:{街头巷议:{},情报交易:{},布告与檄文:{}},资产:{}
   }});
   const host={localStorage:{getItem:()=>null,setItem:()=>{}},
     document:{addEventListener:()=>{},removeEventListener:()=>{}},
-    eventOn:(event,fn)=>{handlers.set(event,fn);return()=>handlers.delete(event);},
+    eventOn:(event,fn)=>addHandler(event,fn,false),
+    eventMakeFirst:(event,fn)=>addHandler(event,fn,true),
     tavern_events:{CHAT_CHANGED:'chat',MESSAGE_SWIPED:'swipe',MESSAGE_DELETED:'delete'},
     getCurrentChatId:()=>chat,
-    getChatMessages:()=>[{message_id:id,role:'assistant',message:'第'+id+'轮正文。'}],
+    getChatMessages:()=>[{message_id:id,role:'assistant',message:'第'+id+'轮正文。',swipe_id:0}],
     toastr:{error:()=>{}},
     Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request:async()=>{
       calls++;if(fail)throw new Error('模拟接口暂时失败');
-      return JSON.stringify({摘要:'本轮世界状态已复核。'});
+      return JSON.stringify({摘要:'本轮世界状态已复核。',因果:{当前阶段:'推进结果#'+calls}});
     }}},
     Mvu:{events:{VARIABLE_UPDATE_ENDED:'mvu'},getMvuData:()=>clone(raw),replaceMvuData:async value=>{
-      const before=raw;raw=clone(value);writes++;
-      handlers.get('mvu')?.(clone(raw),clone(before));
+      const before=clone(raw),next=clone(value);writes++;
+      await emitEvent('mvu',next,before);
+      raw=clone(next);
     }}
   };
   const engine=new Engine(host);
   engine.config.enabled=true;engine.config.autoProgress=true;engine.config.autoProgressInterval=2;
   engine.config.requireMacroBackbone=false;engine.config.retryAttempts=1;engine.worldbook=async()=>[];
   const run=engine.run.bind(engine);
-  engine.run=()=>{const promise=run();runs.push(promise);return promise;};
+  engine.run=(...args)=>{const promise=run(...args);runs.push(promise);return promise;};
   engine.init();
-  const emit=(after,before=raw)=>handlers.get('mvu')(clone(after),clone(before));
-  return {engine,host,timers,fresh,emit,
+  return {engine,host,timers,fresh,
     read:()=>clone(raw),write:value=>{raw=clone(value);},next:()=>{id++;},calls:()=>calls,writes:()=>writes,
-    fail:value=>{fail=value;},switchChat:()=>{chat='other';handlers.get('chat')();},
+    fail:value=>{fail=value;},
+    async emit(after,before=raw){const next=clone(after);await emitEvent('mvu',next,clone(before));return next;},
+    persistReprocess:variables=>{raw=Object.assign({},clone(raw),clone(variables));},
+    async switchChat(){chat='other';await emitEvent('chat');},
     async flush(){
-      const pending=[...timers].filter(([,item])=>item.delay===900);
-      for(const [key,item] of pending){timers.delete(key);item.fn();}
+      let guard=0;
+      while(timers.size&&guard++<20){
+        const pending=[...timers];timers.clear();
+        for(const [,item] of pending)item.fn();
+        await Promise.allSettled(runs.splice(0));
+      }
       await Promise.allSettled(runs.splice(0));
     }
   };
 }
 
 (async()=>{
-  // 酒馆开局常见形态：第二楼已经是第一篇正文，但变量里可能继承同聊天旧处理标记；后台本身仍为空。
-  // 这时不能把“有已处理楼层”误当成“本轮周期已经推进过”，否则 interval=2 会直接吞掉开局正文。
-  const opening=setup();
-  const openingState=opening.fresh();
-  openingState.stat_data.世界.后台.已处理楼层=JSON.stringify(['auto-reprocess',0,0,'opening-bootstrap']);
-  opening.write(openingState);opening.emit(openingState);await opening.flush();
-  assert.equal(opening.calls(),1,'第二楼开局：后台为空时，即使继承同聊天旧处理标记也必须立即自动推进');
-  opening.engine.dispose();
-
-  // 真实 MVU“重新处理变量”顺序：先清掉当前楼层 stat_data/schema，但保留未知 root 字段；
-  // 然后 VARIABLE_UPDATE_ENDED 在最终变量写回当前楼层之前触发。若世界引擎刚加载、没有内存轮次，
-  // 最终回退到上一楼层的已处理标记和已有后台内容，旧逻辑会误判 interval=2 的当前楼层应跳过。
-  const actual=setup();
-  const currentBase=actual.fresh();
-  actual.write(currentBase);
-  const currentFingerprint=actual.engine.snapshot().fingerprint;
-  const processed=actual.fresh();
-  processed.stat_data.世界.后台.事件={'当前楼已推进':{状态:'进行中'}};
-  processed.stat_data.世界.后台.已处理楼层=currentFingerprint;
-  processed.__samsaraWorldCommit=currentFingerprint;
-  actual.write(processed);
-  const rebuilt=actual.fresh();
-  rebuilt.stat_data.世界.后台.事件={'上一楼遗留事件':{状态:'进行中'}};
-  rebuilt.stat_data.世界.后台.已处理楼层=JSON.stringify(['auto-reprocess',0,0,'previous-floor']);
-  rebuilt.__samsaraWorldCommit=currentFingerprint;
-  actual.write({__samsaraWorldCommit:currentFingerprint});
-  actual.emit(rebuilt,processed);
-  actual.write(rebuilt);
-  await actual.flush();
-  assert.equal(actual.calls(),1,'真实重新处理变量：当前楼层先被清空再重建时，必须根据保留的世界提交标记强制重修当前楼层');
-  actual.engine.dispose();
-
   const x=setup();
   const original=x.fresh();
-  // MVU 发出完成事件时，本楼层 stat_data 尚未写回。
-  x.emit(original);x.emit(original);
-  assert.equal(x.calls(),0);
-  assert.equal(x.timers.size,1,'重复完成事件合并为一个延迟任务');
-  x.write(original);await x.flush();
-  assert.equal(x.calls(),1,'首次变量稍后写入也必须自动推进');
-  assert.equal(x.writes(),1);
-  assert.equal(x.timers.size,0,'世界引擎自身写回不能触发下一次自动推进');
-  const firstHandled=x.read().stat_data.世界.后台.已处理楼层;
-  x.emit(x.read());await x.flush();
-  assert.equal(x.calls(),1,'普通重复通知不重算已完成楼层');
 
-  // 点击重新处理：正文不变，后台标记回到上一次变量状态；root 提交标记可能残留。
-  const reset={...original,__samsaraWorldCommit:firstHandled};
-  x.write({});x.emit(reset,original);x.write(reset);await x.flush();
-  assert.equal(x.calls(),2,'同一到期楼层重建变量后自动补跑');
-  assert.equal(x.read().stat_data.世界.后台.已处理楼层,firstHandled);
-  assert.equal(x.engine.autoProgressRoundsSinceRun,0,'重处理不额外消耗正文轮数');
-  x.emit(x.read());await x.flush();
-  assert.equal(x.calls(),2);
+  // 首次正文：VARIABLE_UPDATE_ENDED 仍发生在当前楼层最终 MVU 写回之前。
+  const initialEvent=await x.emit(original,{});
+  x.write(initialEvent);
+  await x.flush();
+  assert.equal(x.calls(),1,'首个应推进正文必须调用一次世界 AI');
+  const first=x.read();
+  const firstFingerprint=x.engine.snapshot().fingerprint;
+  assert.equal(first.stat_data.世界.因果轨道.当前阶段,'推进结果#1');
+  assert.equal(first.stat_data.世界.后台.已处理楼层,firstFingerprint);
+  assert.equal(first.__samsaraWorldCommit,firstFingerprint);
+  assert.equal(first.__samsaraWorldReplay?.fingerprint,firstFingerprint,'成功推进必须保存当前正文的恢复包');
+  assert.ok(Array.isArray(first.__samsaraWorldReplay?.operations)&&first.__samsaraWorldReplay.operations.length>0,'恢复包必须保存实际成功提交的数据差异');
+  assert.match(JSON.stringify(first.__samsaraWorldReplay),/推进结果#1/,'恢复包必须包含世界推进真正写入的业务数据，而不只是处理标记');
 
-  x.next();const skipped=x.read();x.emit(skipped);x.write(skipped);await x.flush();
-  assert.equal(x.calls(),2,'间隔2的第二轮仍跳过');
+  // 真实“重新处理变量”：按钮先清空当前消息 stat_data/schema，但未知 root 字段保留；
+  // MVU 再从上一有效变量解析同一正文。这里必须重放成功结果，绝不能再次调用世界 AI。
+  x.write({__samsaraWorldCommit:firstFingerprint,__samsaraWorldReplay:clone(first.__samsaraWorldReplay)});
+  const rebuilt=x.fresh();
+  const replayed=await x.emit(rebuilt,first);
+  assert.equal(x.calls(),1,'重新处理变量的事件阶段不得调用世界 AI');
+  assert.equal(replayed.stat_data.世界.因果轨道.当前阶段,'推进结果#1','同一正文应直接恢复上一次已确认的世界推进结果');
+  assert.equal(replayed.stat_data.世界.后台.已处理楼层,firstFingerprint,'恢复时必须一并恢复本楼已处理标记');
+  x.persistReprocess(replayed);
+  await x.flush();
+  assert.equal(x.calls(),1,'重新处理变量落库以后也不得异步补跑世界 AI');
+  assert.equal(x.read().stat_data.世界.因果轨道.当前阶段,'推进结果#1');
+  assert.equal(x.engine.autoProgressRoundsSinceRun,0,'恢复旧结果不消耗新的正文轮次');
+
+  // interval=2 的第二个正文是跳过楼。它继承上一楼 root 恢复包也不能误用，因为正文指纹不同。
+  x.next();
+  const second=x.read();
+  const secondEvent=await x.emit(second,x.read());x.write(secondEvent);await x.flush();
+  assert.equal(x.calls(),1,'间隔2的第二轮必须跳过');
   assert.equal(x.engine.autoProgressRoundsSinceRun,1);
-  x.write({});x.emit(skipped);x.write(skipped);await x.flush();
-  assert.equal(x.calls(),2,'跳过轮重新处理不提前触发');
+  const inheritedReplay=clone(x.read().__samsaraWorldReplay);
+  x.write({__samsaraWorldCommit:x.read().__samsaraWorldCommit,__samsaraWorldReplay:inheritedReplay});
+  const secondRebuilt=x.fresh();
+  secondRebuilt.stat_data.世界.因果轨道.当前阶段='第二轮变量重处理结果';
+  const skippedReplay=await x.emit(secondRebuilt,second);
+  assert.equal(skippedReplay.stat_data.世界.因果轨道.当前阶段,'第二轮变量重处理结果','跳过楼不得套用上一楼的恢复包');
+  x.persistReprocess(skippedReplay);await x.flush();
+  assert.equal(x.calls(),1,'跳过楼重新处理变量不得提前触发世界推进');
   assert.equal(x.engine.autoProgressRoundsSinceRun,1);
 
-  x.next();const third=x.read();x.emit(third);x.write(third);await x.flush();
-  assert.equal(x.calls(),3,'第三轮按原间隔推进');
-  x.engine.config.autoProgress=false;
-  x.write(third);x.emit(third);await x.flush();
-  assert.equal(x.calls(),3,'自动开关关闭时不补跑');
-  x.engine.config.autoProgress=true;
-  x.host.__samsaraUIMutation=true;x.emit(third);x.host.__samsaraUIMutation=false;
-  assert.equal(x.timers.size,0,'装备等UI写回不能误触发重处理');
-  x.emit(third);await x.flush();assert.equal(x.calls(),4,'重新开启后到期楼层仍可补跑');
+  // 第三个正文再次到期，成功后生成属于第三楼的新恢复包。
+  x.next();
+  const third=x.read();
+  const thirdEvent=await x.emit(third,x.read());x.write(thirdEvent);await x.flush();
+  assert.equal(x.calls(),2,'第三轮按间隔正常推进');
+  const thirdSaved=x.read(),thirdFingerprint=x.engine.snapshot().fingerprint;
+  assert.equal(thirdSaved.stat_data.世界.因果轨道.当前阶段,'推进结果#2');
+  assert.equal(thirdSaved.__samsaraWorldReplay?.fingerprint,thirdFingerprint);
+  assert.notEqual(thirdSaved.__samsaraWorldReplay?.fingerprint,firstFingerprint);
 
-  x.next();const combat=x.read();combat.stat_data.系统状态.是否战斗中=true;
-  x.emit(combat);x.write(combat);await x.flush();
-  assert.equal(x.calls(),4);assert.equal(x.engine.autoProgressRoundsSinceRun,0,'战斗轮次不计入间隔');
-  x.next();const peaceful=x.read();peaceful.stat_data.系统状态.是否战斗中=false;
-  x.emit(peaceful);x.write(peaceful);await x.flush();
-  assert.equal(x.calls(),4);assert.equal(x.engine.autoProgressRoundsSinceRun,1);
-  x.next();x.fail(true);x.emit(x.read());await x.flush();
-  assert.equal(x.calls(),5);
-  x.fail(false);x.emit(x.read());await x.flush();
-  assert.equal(x.calls(),6,'到期轮失败后，同楼重新处理可以再次尝试');
+  // 手动“推进世界”是唯一允许同正文真正重新推演的入口；旧数据必须保留到新请求成功。
+  const beforeManual=clone(x.read());
+  x.fail(true);
+  await assert.rejects(()=>x.engine.run(),/模拟接口暂时失败/);
+  assert.equal(x.calls(),3);
+  assert.deepEqual(x.read(),beforeManual,'手动重推失败时不能先清空已确认的世界数据与恢复包');
+  x.fail(false);
+  assert.equal(await x.engine.run(),true,'手动按钮必须允许同一已处理正文强制重推');
+  assert.equal(x.calls(),4);
+  assert.equal(x.read().stat_data.世界.因果轨道.当前阶段,'推进结果#4');
+  assert.equal(x.read().__samsaraWorldReplay?.fingerprint,thirdFingerprint,'手动重推成功后仍绑定同一正文指纹');
+  assert.match(JSON.stringify(x.read().__samsaraWorldReplay),/推进结果#4/,'手动重推成功必须覆盖旧恢复结果');
+  assert.doesNotMatch(JSON.stringify(x.read().__samsaraWorldReplay),/推进结果#2/,'旧恢复结果不能继续残留为当前权威数据');
 
-  x.next();x.emit(x.read());x.switchChat();await x.flush();
-  assert.equal(x.calls(),6,'聊天切换取消待执行的旧聊天任务');
+  // 普通变量通知、UI 写回、聊天切换仍不能误触发。
+  const callsBefore=x.calls();
+  await x.emit(x.read());await x.flush();
+  assert.equal(x.calls(),callsBefore,'普通重复变量通知不重复推进');
+  x.host.__samsaraUIMutation=true;await x.emit(x.read());x.host.__samsaraUIMutation=false;await x.flush();
+  assert.equal(x.calls(),callsBefore,'UI 写回不触发世界推进');
+  x.next();await x.emit(x.read());await x.switchChat();await x.flush();
+  assert.equal(x.calls(),callsBefore,'聊天切换取消旧聊天待执行任务');
+
   x.engine.dispose();assert.equal(x.timers.size,0);
-  console.log('PASS opening bootstrap, real MVU reprocess timing, automatic progression after MVU reprocessing, persistence timing, cadence and loop guards');
+  console.log('PASS successful world replay on MVU reprocess, skipped-floor isolation, manual force-rerun and rollback safety');
 })().catch(error=>{console.error(error);process.exitCode=1;});

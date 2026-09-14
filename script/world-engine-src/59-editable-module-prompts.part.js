@@ -121,6 +121,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.saveConfig();
             return result;
         }
+        savePromptDocument(name,settings,activate=true){
+            const next=Object.assign({},settings||{});
+            next.modulePrompts=normalizeWorldModulePrompts(next.modulePrompts??this.config.modulePrompts);
+            return super.savePromptDocument(name,next,activate);
+        }
         importPromptDocument(raw){
             let parsed=null;try{parsed=JSON.parse(String(raw||''));}catch(_){}
             const settings=plain(parsed?.settings)?parsed.settings:parsed;
@@ -159,11 +164,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             section.innerHTML='<div class="we-section-head"><h2>运行模块提示词</h2><small>实际 system 注入 · 可编辑</small></div>'+
                 '<div class="we-notice">这里只显示最终会发给世界 AI 的模块规则。旧传闻活跃/节流/世界侧三层已在发送前合并为一个“传闻与传播”模块；留空某块即可停止额外注入该文字规则。程序 Schema 与写入校验不受这里修改。</div>'+rows;
         }
-        syncExtendedPromptEditorReadonly(){
-            if(!this.panel)return;
-            const editable=!!this.promptEditing;
-            this.panel.querySelectorAll('[data-core-prompt],[data-macro-prompt],[data-stability-prompt],[data-module-prompt]').forEach(field=>{field.readOnly=!editable;});
-        }
         createPanel(){
             super.createPanel();
             if(!this.panel||this.panel.__worldModulePromptEditBound)return;
@@ -171,14 +171,13 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.panel.addEventListener('click',event=>{
                 const button=event.target?.closest?.('[data-action="prompt-edit"]');
                 if(!button||!this.panel.contains(button))return;
-                // 基础监听先切换 promptEditing；这里把后续新增的核心/模块编辑框同步解除或恢复只读。
-                this.syncExtendedPromptEditorReadonly();
+                const editable=button.getAttribute('aria-pressed')==='true';
+                this.panel.querySelectorAll('[data-core-prompt],[data-macro-prompt],[data-stability-prompt],[data-module-prompt]').forEach(field=>field.readOnly=!editable);
             });
         }
         render(force=false){
             const result=super.render(force);
             this.mountEditableModulePrompts();
-            this.syncExtendedPromptEditorReadonly();
             return result;
         }
     };

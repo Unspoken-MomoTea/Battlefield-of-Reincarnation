@@ -87,6 +87,19 @@ function setup(){
   assert.ok(Array.isArray(first.__samsaraWorldReplay?.operations)&&first.__samsaraWorldReplay.operations.length>0,'恢复包必须保存实际成功提交的数据差异');
   assert.match(JSON.stringify(first.__samsaraWorldReplay),/推进结果#1/,'恢复包必须包含世界推进真正写入的业务数据，而不只是处理标记');
 
+  // 兼容已经出现过的旧楼：commit 标记还在，但当时因为真实 MVU 事件时序没有把 replay 根字段写进去。
+  // 重新处理变量时 before 仍携带旧楼已确认状态，必须现场重建恢复包，而不是卡死在“没有快照”。
+  x.write({__samsaraWorldCommit:firstFingerprint});
+  const legacyRebuilt=x.fresh();
+  const legacyReplay=await x.emit(legacyRebuilt,first);
+  assert.equal(x.calls(),1,'可从 before 恢复的旧楼不得再次调用世界 AI');
+  assert.equal(legacyReplay.stat_data.世界.因果轨道.当前阶段,'推进结果#1','缺失 replay 根字段时应从旧楼 before 状态恢复世界结果');
+  assert.equal(legacyReplay.stat_data.世界.后台.已处理楼层,firstFingerprint);
+  assert.equal(legacyReplay.__samsaraWorldReplay?.fingerprint,firstFingerprint,'现场重建后必须补回可持久化恢复包');
+  x.persistReprocess(legacyReplay);
+  await x.flush();
+  assert.equal(x.calls(),1,'现场恢复后不得再异步补跑世界 AI');
+
   // 真实“重新处理变量”：按钮先清空当前消息 stat_data/schema，但未知 root 字段保留；
   // MVU 再从上一有效变量解析同一正文。这里必须重放成功结果，绝不能再次调用世界 AI。
   x.write({__samsaraWorldCommit:firstFingerprint,__samsaraWorldReplay:clone(first.__samsaraWorldReplay)});
@@ -151,5 +164,23 @@ function setup(){
   assert.equal(x.calls(),callsBefore,'聊天切换取消旧聊天待执行任务');
 
   x.engine.dispose();assert.equal(x.timers.size,0);
-  console.log('PASS successful world replay on MVU reprocess, skipped-floor isolation, manual force-rerun and rollback safety');
+
+  // 如果旧楼既没有 replay 根字段，事件 before 也拿不到旧 stat_data，就不能再把重处理事件标成内部事件后永久吞掉。
+  // 此时应放行正常自动推进，让当前正文重新生成一份可恢复世界结果。
+  const y=setup();
+  const yOriginal=y.fresh();
+  const yInitial=await y.emit(yOriginal,{});y.write(yInitial);await y.flush();
+  assert.equal(y.calls(),1);
+  const yFingerprint=y.engine.snapshot().fingerprint;
+  y.write({__samsaraWorldCommit:yFingerprint});
+  const yRebuilt=y.fresh();
+  const yEvent=await y.emit(yRebuilt,{});
+  y.persistReprocess(yEvent);
+  await y.flush();
+  assert.equal(y.calls(),2,'无任何可恢复旧状态时，重新处理变量必须回退到自动推进，而不是卡死');
+  assert.equal(y.read().stat_data.世界.因果轨道.当前阶段,'推进结果#2');
+  assert.equal(y.read().__samsaraWorldReplay?.fingerprint,yFingerprint,'自动补跑成功后必须重新建立本楼恢复包');
+  y.engine.dispose();
+
+  console.log('PASS successful world replay on MVU reprocess, missing-snapshot recovery, skipped-floor isolation, manual force-rerun and rollback safety');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -9,9 +9,9 @@ const {SamsaraWorldEngine: Engine, emptyState} = require(delivery);
 const clone = value => JSON.parse(JSON.stringify(value));
 
 assert.match(foundation, /version:19,\n\s*builtin:true/, 'editable system prompt migration should bump built-in prompt document to v19');
-assert.match(foundation, /corePrompt:\s*defaultCoreWorldRules\(\)/, 'built-in prompt document must carry the core prompt');
-assert.match(foundation, /macroPrompt:\s*defaultMacroPrompt\(\)/, 'built-in prompt document must carry the macro prompt');
-assert.match(foundation, /stabilityPromptTemplate:\s*defaultStabilityPromptTemplate\(\)/, 'built-in prompt document must carry the stability template');
+assert.match(foundation, /corePrompt:\s*CORE_WORLD_RULES/, 'built-in prompt document must carry the same core prompt used at runtime');
+assert.match(foundation, /macroPrompt:\s*DEFAULT_MACRO_PROMPT/, 'built-in prompt document must carry the same macro prompt used at runtime');
+assert.match(foundation, /stabilityPromptTemplate:\s*DEFAULT_STABILITY_PROMPT_TEMPLATE/, 'built-in prompt document must carry the same stability template used at runtime');
 
 for (const marker of ['data-core-prompt', 'data-macro-prompt', 'data-stability-prompt', 'data-npc-audit-prompt', 'data-structure-prompt']) {
   assert.ok(ui.includes(marker), `prompt workspace must expose editable field: ${marker}`);
@@ -45,6 +45,7 @@ assert.match(runtime, /worldStabilityPrompt\(state,\s*this\.config\.stabilityPro
   host.Mvu={getMvuData:()=>({stat_data:clone(stat)}),replaceMvuData:async data=>{stat=clone(data.stat_data);}};
   const engine=new Engine(host);
   engine.config.enabled=true;
+  engine.config.requireMacroBackbone=true;
   engine.applyPromptSettings({
     preset:'【执行流程】\n测试工作层',
     corePrompt:'【自定义核心】\n核心规则由用户控制',

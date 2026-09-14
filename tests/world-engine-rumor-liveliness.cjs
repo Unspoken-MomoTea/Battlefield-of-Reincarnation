@@ -1,7 +1,14 @@
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
 const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 const NOW='2010年-04月-13日-上午';
+
+const rumorUiSource=fs.readFileSync(require.resolve('../script/world-engine-src/59-rumor-throttle.part.js'),'utf8');
+assert.match(rumorUiSource,/function hideRumorTradeHostOnlyDetails\(/,'传闻UI必须有情报交易后台信息隐藏保护');
+assert.match(rumorUiSource,/===['"]情报交易['"]/,'隐私保护必须只定位情报交易区块');
+assert.match(rumorUiSource,/summary===['"]主持人档案['"]/,'主持人档案详情必须从玩家面板移除');
+assert.match(rumorUiSource,/this\.tab===['"]传闻['"][\s\S]{0,120}hideRumorTradeHostOnlyDetails/,'传闻页每次渲染都必须执行隐私保护');
 
 function filledRumors(){
   return {

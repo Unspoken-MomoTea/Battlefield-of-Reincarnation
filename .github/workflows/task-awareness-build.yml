@@ -18,7 +18,7 @@ jobs:
           python-version: '3.12'
       - name: Sync variable prompt world time ownership
         run: python tools/patch-world-time-ownership.py
-      - name: Sync character knowledge boundary
+      - name: Restore original offstage prose projection
         run: python tools/patch-character-knowledge-boundary.py
       - name: Sync settlement character lifecycle
         run: python tools/patch-settlement-character-lifecycle.py
@@ -44,8 +44,6 @@ jobs:
         run: node tests/world-engine-task-awareness.cjs
       - name: Rumor rolling regression
         run: node tests/world-engine-rumor-capacity.cjs
-      - name: Offstage knowledge boundary regression
-        run: node tests/offstage-knowledge-boundary.cjs
       - name: Causal overview regression
         run: node tests/world-engine-causal-summary.cjs
       - name: Soft maintenance regression

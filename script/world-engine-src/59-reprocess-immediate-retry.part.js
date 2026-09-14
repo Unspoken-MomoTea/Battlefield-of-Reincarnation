@@ -23,7 +23,13 @@
             delete seed.__samsaraWorldCommit;
             delete seed.__samsaraWorldReplay;
             this.worldReplayMarkEventInternal();
-            await context.mvu.replaceMvuData(seed,{type:'message',message_id:context.current.id});
+            const previousRetrying=this.worldReplayImmediateRetrying===true;
+            this.worldReplayImmediateRetrying=true;
+            try{
+                await context.mvu.replaceMvuData(seed,{type:'message',message_id:context.current.id});
+            }finally{
+                this.worldReplayImmediateRetrying=previousRetrying;
+            }
 
             const result=await this.run({automatic:true});
             if(result!==true)return false;
@@ -36,6 +42,7 @@
             return true;
         }
         async handleWorldReplayVariableEvent(variables,before) {
+            if(this.worldReplayImmediateRetrying===true)return false;
             const context=this.worldReplayReprocessContext?.(variables,before);
             if(context){
                 const storedReplay=context.raw.__samsaraWorldReplay;

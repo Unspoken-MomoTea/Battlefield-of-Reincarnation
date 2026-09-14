@@ -22,8 +22,15 @@ const parts = [
   '59-soft-maintenance.part.js',
   '59-world-integrity-guard.part.js',
   '59-world-time-ownership.part.js',
+  '59-world-replay-persistence.part.js',
+  '59-reprocess-immediate-retry.part.js',
   '59-alien-activity-normalization.part.js',
   '59-rumor-throttle.part.js',
+  '59-rumor-world-source.part.js',
+  '59-rumor-world-facts.part.js',
+  '59-rumor-world-request.part.js',
+  '59-rumor-world-system.part.js',
+  '59-editable-module-prompts.part.js',
   '59-causal-overview-ui.part.js',
   '60-bootstrap.part.js',
 ];
@@ -90,10 +97,19 @@ assert.match(texts['59-world-integrity-guard.part.js'], /validateCausalOffsets/)
 assert.match(texts['59-world-time-ownership.part.js'], /^    \/\/ 世界时间单一所有权/);
 assert.match(texts['59-world-time-ownership.part.js'], /WORLD_RESULT_SCHEMA\.properties\.时间/);
 assert.match(texts['59-world-time-ownership.part.js'], /变量 AI 的写入在事件层被回滚/);
+assert.match(texts['59-world-replay-persistence.part.js'], /worldReplayPersistConfirmed/);
+assert.match(texts['59-reprocess-immediate-retry.part.js'], /worldReplayImmediateRetry/);
 assert.match(texts['59-alien-activity-normalization.part.js'], /^    \/\/ 活跃异端活动时间戳/);
 assert.match(texts['59-alien-activity-normalization.part.js'], /更新时间无需抄写/);
 assert.match(texts['59-alien-activity-normalization.part.js'], /sameWorldTimeAnchor/);
-assert.match(texts['59-rumor-throttle.part.js'], /传闻/);
+assert.match(texts['59-rumor-throttle.part.js'], /RUMOR_THROTTLE_RULES/);
+assert.match(texts['59-rumor-world-source.part.js'], /RUMOR_WORLD_SOURCE_RULES/);
+assert.match(texts['59-rumor-world-facts.part.js'], /世界侧可传播事实/);
+assert.match(texts['59-rumor-world-request.part.js'], /传闻维护/);
+assert.match(texts['59-rumor-world-system.part.js'], /RUMOR_WORLD_SOURCE_RULES/);
+assert.match(texts['59-editable-module-prompts.part.js'], /WORLD_PROMPT_MODULE_DEFS/);
+assert.match(texts['59-editable-module-prompts.part.js'], /stripLegacyWorldModulePrompts/);
+assert.match(texts['59-editable-module-prompts.part.js'], /data-module-prompt/);
 assert.match(texts['59-causal-overview-ui.part.js'], /因果/);
 assert.match(texts['60-bootstrap.part.js'], /^    \/\/ CommonJS 入口仅供离线测试/);
 assert.match(texts['60-bootstrap.part.js'], /module\.exports/);

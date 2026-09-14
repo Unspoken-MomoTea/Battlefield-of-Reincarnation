@@ -2,10 +2,15 @@
     const WORLD_TIME_RULES=`【世界时间所有权】
 1. 世界.时间由世界推进独占维护。WorldResult 顶层“时间”用于初始化或推进当前世界时间；不要通过人物更新时间、事件未来时间或其他字段间接代替世界时钟。
 2. 当前世界时间为空或“待初始化”时，本轮必须根据最新正文与明确时间资料建立一个可理解的当前时间锚点。能确定具体日期/时段就写具体值；只能确定季节、阶段或时段时保留该精度，禁止为了格式完整凭空编造更精确日期。
-3. 当前世界时间已有值时，只有正文明确发生了时间流逝才提交“时间”；没有实际经过时间就省略该字段并保持原值。禁止倒退时钟，禁止把待发生事件的计划时间提前写成当前时间。
-4. 人物/地区等“更新时间”属于派生时间戳。模型负责事实内容，程序会用本轮最终世界时间统一盖章；无需反复抄写世界时间。`;
+3. 只要“时间”已经精确到某月某日，就必须使用可被程序解析的数字月日格式：如“帝历1024年-09月-12日-下午”。纪年名称可保留，但月份必须写数字；禁止只写“枯叶之月/寒风之月/第12日”这类人类可读、程序不可定位月份的精确日期。若只能确定“1024年秋”这类粗粒度时间，则保留粗粒度，不要编造月日。
+4. 当前世界时间已有值时，只有正文明确发生了时间流逝才提交“时间”；没有实际经过时间就省略该字段并保持原值。禁止倒退时钟，禁止把待发生事件的计划时间提前写成当前时间。
+5. 人物/地区等“更新时间”属于派生时间戳。模型负责事实内容，程序会用本轮最终世界时间统一盖章；无需反复抄写世界时间。`;
 
-    WORLD_RESULT_SCHEMA.properties.时间={type:'string',minLength:1};
+    WORLD_RESULT_SCHEMA.properties.时间={
+        type:'string',
+        minLength:1,
+        description:'当前世界时间。精确到月日时必须使用数字月日，如“帝历1024年-09月-12日-下午”；仅能确定季节/阶段时可保留粗粒度。'
+    };
 
     function worldTimeUnset(value) {
         const raw=String(value??'').trim();
@@ -13,6 +18,16 @@
     }
     function worldTimeIdentity(value) {
         return String(value??'').trim().replace(/[\s·・_—–-]+/g,'');
+    }
+    function worldTimeClaimsMonthDay(value) {
+        const source=String(value??'').trim();
+        return !!source&&/月/.test(source)&&/(?:第\s*)?\d{1,2}\s*日/.test(source);
+    }
+    function assertCalendarCompatibleWorldTime(stat,result,nextTime) {
+        if(!worldTimeClaimsMonthDay(nextTime))return;
+        const calendar=plain(result?.历法)?result.历法:(plain(stat?.世界?.历法)?stat.世界.历法:{});
+        if(calendarDate(nextTime,calendar))return;
+        throw new Error('世界时间格式无法用于日历：'+nextTime+'。精确到月日时请使用数字月份，例如“帝历1024年-09月-12日-下午”；不要用月份名称替代数字月。');
     }
     function inferWorldTimeFromCurrentActivities(result) {
         const candidates=new Map();
@@ -74,6 +89,7 @@
     compileWorldResult=function(stat,value) {
         const result=normalizeWorldResult(value),proposal=resolveWorldTimeProposal(stat,result);
         if(proposal){
+            assertCalendarCompatibleWorldTime(stat,result,proposal);
             assertWorldTimeNotBackwards(stat,proposal);
             result.时间=proposal;
         }
@@ -98,7 +114,8 @@
                 payload.世界时间维护={
                     当前时间:String(base?.stat?.世界?.时间||''),
                     是否需要初始化:worldTimeUnset(base?.stat?.世界?.时间),
-                    所有权:'世界推进独占写入；变量 AI 只读'
+                    所有权:'世界推进独占写入；变量 AI 只读',
+                    精确日期格式:'纪年名称可保留；月日必须数字化，例如“帝历1024年-09月-12日-下午”。禁止用“枯叶之月/寒风之月”等月份名称替代数字月。'
                 };
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}

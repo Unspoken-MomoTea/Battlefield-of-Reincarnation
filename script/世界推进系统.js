@@ -5615,7 +5615,12 @@ ${schemaText}`;
         }
     };
     // 主面板只保留最新因果摘要；完整偏移、故事线、干涉模式、法则与经济资料进入独立“因果档案”页。
+    // 资产与传闻仍由世界引擎维护数据，但玩家侧由状态栏承载，因此不在世界推进面板重复展示。
     const CAUSAL_OVERVIEW_LIMIT=3;
+    const WORLD_ENGINE_HIDDEN_PLAYER_TABS=new Set(['资产','传闻']);
+    function isWorldEnginePlayerTabHidden(tab) {
+        return WORLD_ENGINE_HIDDEN_PLAYER_TABS.has(String(tab||''));
+    }
     function causalOffsetEntries(stat) {
         const bucket=stat?.世界?.因果轨道?.偏移记录;
         return Object.entries(plain(bucket)?bucket:{}).slice().reverse();
@@ -5679,6 +5684,10 @@ ${schemaText}`;
             }
             for(const item of nav.querySelectorAll('[data-tab]'))item.setAttribute('aria-selected',String(item.dataset.tab===this.tab));
         }
+        hideRedundantPlayerModules() {
+            const nav=this.panel?.querySelector?.('nav');if(!nav)return;
+            for(const tab of WORLD_ENGINE_HIDDEN_PLAYER_TABS)nav.querySelector('[data-tab="'+tab+'"]')?.remove();
+        }
         compactWorldOverview() {
             const main=this.panel?.querySelector?.('main');if(!main)return;
             const stat=this.snapshot().stat,causal=causalSectionByTitle(main,'因果状态');
@@ -5700,10 +5709,12 @@ ${schemaText}`;
             main.insertAdjacentHTML('beforeend',causalArchiveHtml(this.snapshot().stat));
         }
         render(force) {
+            if(isWorldEnginePlayerTabHidden(this.tab))this.tab='世界推进';
             const result=super.render(force);
             if(!this.panel)return result;
             this.ensureCausalOverviewStyles();
             this.ensureCausalArchiveTab();
+            this.hideRedundantPlayerModules();
             if(this.tab==='世界推进')this.compactWorldOverview();
             else if(this.tab==='因果档案')this.renderCausalArchive();
             else if(this.tab==='运行记录')this.removeRunRecordInterference();

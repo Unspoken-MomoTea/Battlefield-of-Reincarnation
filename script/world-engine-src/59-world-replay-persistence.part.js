@@ -1,5 +1,5 @@
     // 恢复包可靠性：世界推进成功后主动持久化 replay，不再依赖 replaceMvuData 是否触发可用的 VARIABLE_UPDATE_ENDED。
-    // 对旧楼若已有 commit 但缺 replay，优先从本次重处理事件的 before 恢复；实在无旧状态时才回退为当前正文重新自动推进一次。
+    // 对旧楼若已有 commit 但缺 replay，优先从本次重处理事件的 before 恢复；实在无旧状态时按自动推进开关决定是否立即重建。
     const SamsaraWorldEngineBeforeReplayPersistence=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeReplayPersistence {
         worldReplayReprocessContext(variables,before) {
@@ -56,15 +56,23 @@
                     return true;
                 }
 
-                // 旧版本可能只留下 commit，根本没有 replay；如果事件 before 也拿不到旧世界状态，就不存在可“还原”的来源。
-                // 此时绝不能把事件标记为内部事件后吞掉。移除本楼处理标记，让同一个 VARIABLE_UPDATE_ENDED 的普通自动调度重新跑一次当前正文。
+                // commit 与当前正文指纹一致，已经证明这一楼过去确实成功推进过；缺 replay 时不需要重新计算推进间隔。
+                // 清掉失效处理标记，并把这一楼重新标记为 due。自动推进开启时由本分支主动安排补跑，不依赖基础 VARIABLE_UPDATE_ENDED 监听兜底。
                 this.worldReplayClearHandledForRetry(variables.stat_data,context.current.fingerprint);
                 delete variables.__samsaraWorldCommit;
                 delete variables.__samsaraWorldReplay;
-                this.autoProgressLastSeenFingerprint=context.current.fingerprint;
-                this.autoProgressDueFingerprint=context.current.fingerprint;
-                this.status='变量已重处理 · 旧楼缺少恢复快照，将按当前正文自动重新推进一次';
-                this.render();
+                this.worldReplaySetCycleRecovered(context.current.fingerprint,variables.stat_data);
+                if(this.config.autoProgress===true&&this.isEnabled()){
+                    this.status='变量已重处理 · 正在自动重新推进本楼';
+                    this.render();
+                    this.schedule('variable-update',0);
+                }else if(this.config.autoProgress!==true){
+                    this.status='变量已重处理 · 旧楼缺少恢复快照；自动推进已关闭，请手动推进';
+                    this.render();
+                }else{
+                    this.status='变量已重处理 · 世界推进已关闭，未自动重建';
+                    this.render();
+                }
                 return false;
             }
             return super.handleWorldReplayVariableEvent(variables,before);

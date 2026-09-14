@@ -20,6 +20,8 @@ jobs:
         run: python tools/patch-world-time-ownership.py
       - name: Sync character knowledge boundary
         run: python tools/patch-character-knowledge-boundary.py
+      - name: Sync settlement character lifecycle
+        run: python tools/patch-settlement-character-lifecycle.py
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax check
@@ -34,6 +36,8 @@ jobs:
         run: node tests/settlement-current-panel-regression.cjs
       - name: Settlement status alias regression
         run: node tests/settlement-status-aliases.cjs
+      - name: Settlement character lifecycle regression
+        run: node tests/settlement-character-lifecycle.cjs
       - name: Super-stable prompt regression
         run: node tests/world-engine-superstable-prompt.cjs
       - name: Task awareness regression
@@ -60,10 +64,10 @@ jobs:
         run: node tests/world-engine-integrity-guard.cjs
       - name: Commit generated delivery
         run: |
-          if git diff --quiet -- script/世界推进系统.js "World Book/[mvu_update]变量更新规则.txt" "World Book/[variables]当前变量.txt"; then exit 0; fi
+          if git diff --quiet -- script/世界推进系统.js "World Book/[mvu_update]变量更新规则.txt" "World Book/[variables]当前变量.txt" "Regular/结算任务美化.html" tests/world-engine.cjs; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add script/世界推进系统.js "World Book/[mvu_update]变量更新规则.txt" "World Book/[variables]当前变量.txt"
+          git add script/世界推进系统.js "World Book/[mvu_update]变量更新规则.txt" "World Book/[variables]当前变量.txt" "Regular/结算任务美化.html" tests/world-engine.cjs
           git commit -m "build: sync world engine delivery [task-awareness-built]"
           git push
       - name: NPC audit regression

@@ -400,7 +400,7 @@ variables_update_rules:
     "[资产名称]":
       所属对象:
         type: string[]
-        check: 多主体可共管；含<user>表示玩家拥有/共管；[]表示无主；旧资产缺失时迁移为[<user>]
+        check: 可多人共属，无主为[]，随剧情更新
       类型: string
       主体规模:
         type: number

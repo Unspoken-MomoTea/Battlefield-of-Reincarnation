@@ -34,6 +34,7 @@ PARTS = (
     '59-editable-module-prompts.part.js',
     '59-causal-overview-ui.part.js',
     '59-causal-offset-editor.part.js',
+    '59-api-preset-selection.part.js',
     '60-bootstrap.part.js',
 )
 

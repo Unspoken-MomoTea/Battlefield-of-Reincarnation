@@ -56,9 +56,9 @@ assert.equal(malformedRumor.rejected.length,0,'单个传闻片段失败属于软
 assert.equal(malformedRumor.softRejected?.length,1,'被丢弃的传闻片段仍应保留诊断信息');
 assert.match(malformedRumor.softRejected[0].片段,/^传闻\//);
 
-const hardFailure=stageWorldResult(stat,null,{因果:{偏移记录:[{名称:'越界偏移',操作:'更新',描述:'已发生的重大不可逆后果',引发者:'测试者',影响程度:-99}]}},validateState);
-assert.equal(hardFailure.rejected.length,1,'硬错误仍必须保留为重试对象');
-assert.match(hardFailure.rejected[0].片段,/^因果\/偏移记录\//);
+const hardFailure=stageWorldResult(stat,null,{事件:[{名称:'缺失时间事件',操作:'更新',描述:'测试硬错误',状态:'进行中',分类:'当前事件'}]},validateState);
+assert.equal(hardFailure.rejected.length,1,'真正的结构/业务硬错误仍必须保留为重试对象');
+assert.match(hardFailure.rejected[0].片段,/^事件\//);
 assert.match(RUMOR_THROTTLE_RULES,/公开传闻默认保持不变/);
 assert.match(RUMOR_THROTTLE_RULES,/不得仅为传闻\/传播重新调用整轮世界推进/);
 

@@ -1,14 +1,15 @@
-    // 世界完整性保护：统一精确时钟，并把因果偏移阈值落实到请求与编译器。
-    const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间硬约束】
+    // 世界完整性保护：统一精确时钟；因果偏移采用软归一化，不因语义或幅度问题拖死整轮推进。
+    const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间约束】
 1. 时间校验按字段粒度处理：事件、地区、历史、传播等宏观事实只按“自然日”硬校验；同一自然日内的上午/下午/HH:mm差异不算未来越界，只有跨日未来事实才拒绝。
 2. 人物当前动态仅在“当前世界时间”和“人物更新时间”双方都明确到 HH:mm 时做分钟级先后校验；任一侧只有清晨/上午/下午等粗粒度时，同日视为合法。当前状态仍优先复用世界.时间原文，未来计划放预计结束、下次检查或待发生事件。
-3. 偏移只记录已经发生、已确认、不可逆且足以改变关键人物命运、重大事件结果、关键势力格局或主线可行性的结果；日常、交易、普通战斗、普通NPC伤亡、无关主线支线和单纯偏离原著不记录。
-4. 同一已确认根因及其连锁后果只记一条，按最严重的已实现结果结算；禁止把一条因果链拆成多条累计影响。
-5. 预测、风险、可能、潜在或未来尚未发生的后果不产生偏移；稳定下降及其后续世界响应不能反过来成为新的负偏移。
-6. 负值锚点：关键人物命运不可逆改写 -3~-12；重大事件结果不可逆改变 -3~-10；关键势力格局或主线可行性实质破坏 -2~-8；异常污染持续扩大 -1~-10。普通变化不记录。
-7. 正值只来自真实修复：关键人物/重大事件修复 +3~+10；异常清除 +1~+15；势力格局或主线结构修复 +2~+8。高于100不能来自普通善行、胜利或奖励。
-8. 单条总范围仅 -12~-1 或 +1~+15，0 不建记录；同一引发者同轮负向累计不得低于 -12，正向累计不得高于 +15。提交前确认“已发生、命中重大条件、不是已有/本轮同根记录”。
-9. 稳定值由后台汇总，模型不得直接修改。`;
+3. 偏移记录不是剧情日志、剧情总结或章节小结。只记录已经发生、已经确认，并且现实结果已经改变关键人物命运、重大事件结果、关键势力格局或主线可行性的偏移；“做了什么”但没有改变这些结果时不记录。
+4. 判定依据是已经实现的结果，不是危险程度、能力强弱、计划、意图或潜在上限。即使持有足以影响整个世界的高危装置，只要尚未使用且尚未造成现实结果，就不产生偏移。
+5. 同一已确认根因及其连锁后果只记一条，优先更新已有偏移；只有形成新的、独立的长期偏移方向才新增。禁止把同一条因果链拆成剧情小总结连续累计。
+6. 预测、风险、可能、潜在或未来尚未发生的后果不产生偏移；稳定下降及其后续世界响应不能反过来成为新的负偏移。
+7. 负值锚点：关键人物命运不可逆改写 -3~-12；重大事件结果不可逆改变 -3~-10；关键势力格局或主线可行性实质破坏 -2~-8；异常污染持续扩大 -1~-10。普通变化不记录。
+8. 正值只来自真实修复：关键人物/重大事件修复 +3~+10；异常清除 +1~+15；势力格局或主线结构修复 +2~+8。高于100不能来自普通善行、胜利或奖励。
+9. 单条建议范围 -12~-1 或 +1~+15，0 不建新记录；同一引发者同轮负向总量最多 -12、正向总量最多 +15。程序对越界、同根拆分或尚未产生现实结果的偏移执行软归一化/忽略，不触发重试，也不驳回本轮其它世界推进结果。
+10. 稳定值由后台汇总，模型不得直接修改。`;
 
     const worldDateKeyBeforeIntegrityGuard=worldDateKey;
     worldDateKey=function(value) {
@@ -50,46 +51,89 @@
         });
     };
 
-    OFFSET_RESULT_SCHEMA.properties.影响程度.minimum=-12;
-    OFFSET_RESULT_SCHEMA.properties.影响程度.maximum=15;
+    // 因果影响幅度是语义层规则，不交给 JSON Schema 拒绝；编译阶段统一软归一化。
+    delete OFFSET_RESULT_SCHEMA.properties.影响程度.minimum;
+    delete OFFSET_RESULT_SCHEMA.properties.影响程度.maximum;
 
     const CAUSAL_CHAIN_HINT=/(?:余波|后续|进一步|继续|继而|因此|由此|连锁|衍生|扩散|扩大|反应|吸引力|同一(?:契约|事件|行为|根因))/;
-    const CAUSAL_SPECULATION_HINT=/(?:可能|或许|预计|预期|将会|或将|未来(?:会|可能|将)|潜在|恐怕|有望)/;
+    const CAUSAL_SPECULATION_HINT=/(?:可能|或许|预计|预期|将会|或将|未来(?:会|可能|将)|潜在|恐怕|有望|计划|打算|准备)/;
+    const CAUSAL_NO_EFFECT_HINT=/(?:尚未|还未|并未|未曾|没有|仅仅|只是).{0,18}(?:发生|执行|实施|使用|启动|造成|导致|改变|影响|生效)|(?:尚未|还未|并未|未曾|没有).{0,18}(?:结果|变化|后果)/;
+    const CAUSAL_REALIZED_HINT=/(?:已经|已然|已被|已使|已让|导致|造成|致使|使得|迫使|结果|改写|改变|破坏|摧毁|死亡|失去|退出|完成|失败|成功|被捕|被杀|被夺|被毁|封锁|崩溃|断裂|清除|修复)/;
     const CAUSAL_RESPONSE_HINT=/(?:稳定值(?:持续)?下降|世界排异(?:反应|升级|增强)?|排异强度)/;
-    function validateCausalOffsets(stat,result) {
-        const items=Array.isArray(result?.因果?.偏移记录)?result.因果.偏移记录:[];
-        if(!items.length)return;
-        const existing=stat?.世界?.因果轨道?.偏移记录||{},groups=new Map();
-        for(const item of items){
-            if(!plain(item)||item.操作==='撤销本轮')continue;
-            const isNew=!stableNameIn(existing,item.名称),hasImpact=Object.hasOwn(item,'影响程度');
-            if(isNew&&!hasImpact)throw new Error('新增因果偏移必须给出非零影响程度，且单条仅允许 -12~-1 或 +1~+15：'+String(item.名称||''));
-            if(!hasImpact)continue;
+    function clampCausalImpact(value) {
+        const impact=Number(value);
+        if(!Number.isFinite(impact))return null;
+        if(impact===0)return 0;
+        return impact<0?Math.max(-12,impact):Math.min(15,impact);
+    }
+    function causalOffsetText(item) {
+        return [item?.名称,item?.描述].filter(Boolean).join(' ');
+    }
+    function softNormalizeCausalOffsets(stat,result) {
+        const items=Array.isArray(result?.因果?.偏移记录)?result.因果.偏移记录:null;
+        if(!items||!items.length)return;
+        const existing=stat?.世界?.因果轨道?.偏移记录||{},prepared=[];
+        for(const raw of items){
+            if(!plain(raw))continue;
+            const item=copy(raw);
+            if(item.操作==='撤销本轮'){prepared.push(item);continue;}
+            const existingName=stableNameIn(existing,item.名称),isNew=!existingName;
+            if(Object.hasOwn(item,'影响程度')){
+                const impact=clampCausalImpact(item.影响程度);
+                if(impact===null){
+                    if(isNew)continue;
+                    delete item.影响程度;
+                }else if(isNew&&impact===0)continue;
+                else item.影响程度=impact;
+            }else if(isNew)continue;
+            const text=causalOffsetText(item);
+            if(isNew&&CAUSAL_NO_EFFECT_HINT.test(text))continue;
+            if(isNew&&CAUSAL_SPECULATION_HINT.test(text)&&!CAUSAL_REALIZED_HINT.test(text))continue;
+            if(isNew&&Number(item.影响程度)<0&&CAUSAL_RESPONSE_HINT.test(text))continue;
+            prepared.push(item);
+        }
+
+        // 明确写成“同一根因/后续/余波”等的同一引发者同向碎片，保留影响绝对值最大的代表项。
+        const removed=new Set(),groups=new Map();
+        for(let i=0;i<prepared.length;i++){
+            const item=prepared[i];
+            if(!plain(item)||item.操作==='撤销本轮'||!Object.hasOwn(item,'影响程度'))continue;
+            const actor=String(item.引发者||'').trim().toLowerCase();
             const impact=Number(item.影响程度);
-            if(!Number.isFinite(impact)||impact<-12||impact>15)throw new Error('因果偏移影响程度超出协议：'+String(item.名称||'')+'='+String(item.影响程度)+'；单条只允许 -12~-1 或 +1~+15');
-            if(isNew&&impact===0)throw new Error('零影响不建立因果偏移记录：'+String(item.名称||''));
-            if(!isNew||impact===0)continue;
-            const text=[item.名称,item.描述].filter(Boolean).join(' ');
-            if(CAUSAL_SPECULATION_HINT.test(text))throw new Error('因果偏移不能按预测或风险提前结算：'+String(item.名称||''));
-            if(impact<0&&CAUSAL_RESPONSE_HINT.test(text))throw new Error('稳定下降或世界响应不能作为新的负偏移继续累计：'+String(item.名称||''));
-            const actor=String(item.引发者||'').trim();
-            if(!actor)continue;
-            const key=actor.toLowerCase(),group=groups.get(key)||[];
-            group.push({impact,text});groups.set(key,group);
+            if(!actor||!Number.isFinite(impact)||impact===0)continue;
+            const key=actor+'|'+(impact<0?'negative':'positive'),group=groups.get(key)||[];
+            group.push({index:i,item,text:causalOffsetText(item),impact});groups.set(key,group);
         }
-        for(const [actor,group] of groups){
-            const negative=group.filter(entry=>entry.impact<0),positive=group.filter(entry=>entry.impact>0);
-            const negativeTotal=negative.reduce((sum,entry)=>sum+entry.impact,0),positiveTotal=positive.reduce((sum,entry)=>sum+entry.impact,0);
-            if(negativeTotal<-12)throw new Error('同一引发者同轮负向因果偏移累计超过 -12：'+actor+'='+negativeTotal+'；同一根因及其连锁后果必须合并');
-            if(positiveTotal>15)throw new Error('同一引发者同轮正向因果偏移累计超过 +15：'+actor+'=+'+positiveTotal+'；同一根因及其连锁结果必须合并');
-            if(group.length>1&&group.some(entry=>CAUSAL_CHAIN_HINT.test(entry.text)))throw new Error('同一根因的连锁后果必须合并为一条因果偏移：'+actor);
+        for(const group of groups.values()){
+            const chained=group.filter(entry=>CAUSAL_CHAIN_HINT.test(entry.text));
+            if(chained.length<2)continue;
+            let winner=chained[0];
+            for(const entry of chained.slice(1))if(Math.abs(entry.impact)>Math.abs(winner.impact))winner=entry;
+            for(const entry of chained)if(entry.index!==winner.index)removed.add(entry.index);
         }
+        let normalized=prepared.filter((_,index)=>!removed.has(index));
+
+        // 同一引发者同轮总影响做软封顶；不重试、不抛错，只缩减后续条目的剩余额度。
+        const budgets=new Map();
+        normalized=normalized.filter(item=>{
+            if(!plain(item)||item.操作==='撤销本轮'||!Object.hasOwn(item,'影响程度'))return true;
+            const actor=String(item.引发者||'').trim().toLowerCase(),impact=Number(item.影响程度);
+            if(!actor||!Number.isFinite(impact)||impact===0)return true;
+            const sign=impact<0?'negative':'positive',key=actor+'|'+sign;
+            let remaining=budgets.has(key)?budgets.get(key):(impact<0?12:15);
+            const magnitude=Math.min(Math.abs(impact),remaining);
+            remaining=Math.max(0,remaining-magnitude);budgets.set(key,remaining);
+            if(magnitude<=0)return false;
+            item.影响程度=impact<0?-magnitude:magnitude;
+            return true;
+        });
+        result.因果.偏移记录=normalized;
     }
 
     const compileWorldResultBeforeIntegrityGuard=compileWorldResult;
     compileWorldResult=function(stat,value) {
         const result=normalizeWorldResult(value);
-        validateCausalOffsets(stat,result);
+        softNormalizeCausalOffsets(stat,result);
         return compileWorldResultBeforeIntegrityGuard(stat,result);
     };
 
@@ -97,7 +141,6 @@
     retryPlanForFailure=function(error,rejected=[]) {
         const plan=retryPlanBeforeIntegrityGuard(error,rejected).slice();
         const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
-        if(/因果偏移|同一根因/.test(message))plan.unshift('因果偏移：只提交已经发生的重大不可逆结果；同一根因与连锁后果合并成一条，预测不提前结算，单条仅 -12~-1 或 +1~+15。');
         if(/时间事实超过当前世界时间|时间越界记录仍未修复/.test(message))plan.unshift('时间一致性：事件/地区/历史/传播只把“跨到未来自然日”视为硬越界，同日不同上午/下午/HH:mm无需回写；人物只有双方均明确 HH:mm 时才做分钟级校验。未来计划放预计结束、下次检查或待发生事件。');
         return Array.from(new Set(plan.filter(Boolean)));
     };
@@ -108,7 +151,7 @@
             const request=await super.buildRequest(base);
             request.system=String(request.system||'')+'\n\n'+WORLD_INTEGRITY_GUARD_RULES;
             request.manifest=request.manifest||{};
-            request.manifest.因果与时间硬约束={启用:true,单条影响范围:'-12~-1 / +1~+15',宏观事实时间:'同一自然日允许；跨日未来拒绝',人物精确时间:'仅双方均为 HH:mm 时精确比较'};
+            request.manifest.因果与时间约束={启用:true,因果偏移处理:'软归一化；不触发重试',单条建议范围:'-12~-1 / +1~+15',宏观事实时间:'同一自然日允许；跨日未来拒绝',人物精确时间:'仅双方均为 HH:mm 时精确比较'};
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
             return request;
         }

@@ -959,26 +959,33 @@
     function applyNewNpcDifficulty(statData, statDataBefore) {
         if (!statDataBefore) return;
         const mode = statData.设置?.难度 || '体验';
-        if (!['正常', '困难', '挑战'].includes(mode)) return;
+        if (!['体验', '正常', '困难', '挑战'].includes(mode)) return;
         const before = statDataBefore.关系列表 || {};
-        const steps = mode === '挑战' ? 4 : mode === '困难' ? 2 : 0;
+        const steps = { '体验': 0, '正常': 2, '困难': 4, '挑战': 6 }[mode];
         for (const [name, npc] of Object.entries(statData.关系列表 || {})) {
             if (!npc || typeof npc !== 'object' || Object.hasOwn(before, name)) continue;
             if (npc.是否队友 === true || !(Number(npc.好感度) < 0)) continue;
             const life = LIFE_TIER_ORDER.indexOf(normalizeLifeTier(npc.层级));
             function upgrade(item, kind) {
                 if (!item || typeof item !== 'object') return;
-                const floor = Math.min(8, life + (mode === '挑战' && ['装备', '状态', '形态库'].includes(kind) ? 1 : 0));
+                const aboveLife = (mode === '困难' || mode === '挑战') && ['装备', '状态', '形态库'].includes(kind)
+                    || mode === '挑战' && kind === '血统';
+                const floor = Math.min(8, life + (aboveLife ? 1 : 0));
                 const rank = Math.max(floor, tierRank(item.层级 ?? item.品质));
                 if (kind === '形态库' || item.层级 != null) item.层级 = LIFE_TIER_ORDER[rank];
                 else item.品质 = TIER_ORDER[rank];
                 const raw = item.原始属性;
                 if (raw && typeof raw === 'object') {
+                    const constitutionFloor = mode === '挑战' ? 'SSS' : mode === '困难' ? 'S' : null;
+                    const fixedConstitution = constitutionFloor && (kind === '血统' || kind === '形态库' || Object.hasOwn(raw, '体质'));
+                    const originalConstitution = raw.体质;
                     for (const key of Object.keys(raw)) {
+                        if (key === '体质' && fixedConstitution) continue;
                         // 数字型临时加减值及 0 不属于品质阶位，保持其语义。
                         if (isQualityString(raw[key])) raw[key] = TIER_ORDER[Math.min(8, tierRank(raw[key]) + steps)];
                     }
-                    if (mode === '挑战' && (kind === '血统' || kind === '形态库' || Object.hasOwn(raw, '体质'))) raw.体质 = 'SSS';
+                    // 固定体质档位只补足下限，原本高于标准的体质不降级。
+                    if (fixedConstitution) raw.体质 = TIER_ORDER[Math.max(tierRank(constitutionFloor), isQualityString(originalConstitution) ? tierRank(originalConstitution) : 0)];
                     item.真属性 = {};
                 }
                 for (const skill of Object.values(item.技能 || {})) upgrade(skill, '技能');

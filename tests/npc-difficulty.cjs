@@ -28,14 +28,13 @@ const run = mode => {
     apply(stat,{关系列表:{}});
     return stat;
 };
-assert.deepEqual(run('体验').关系列表.新,make());
-const normal=run('正常').关系列表.新;
+const normal=run('体验').关系列表.新;
 assert.equal(normal.血统.血.品质,'C');
 assert.equal(normal.技能.术.品质,'C');
 assert.equal(normal.形态库.变身.层级,'Ⅳ');
 assert.equal(normal.形态库.变身.技能.招式.品质,'C');
 assert.equal(normal.血统.血.原始属性.力量,'C');
-const hard=run('困难');
+const hard=run('正常');
 assert.equal(hard.关系列表.新.血统.血.原始属性.力量,'A');
 assert.equal(hard.关系列表.新.血统.血.原始属性.敏捷,'B');
 assert.equal(hard.关系列表.新.装备.剑.原始属性.ATK,'A');
@@ -43,12 +42,42 @@ assert.equal(hard.关系列表.新.状态.临时.原始属性.敏捷,-5);
 const snapshot=JSON.stringify(hard);
 apply(hard,{关系列表:{新:JSON.parse(snapshot).关系列表.新}});
 assert.equal(JSON.stringify(hard),snapshot);
-const challenge=run('挑战').关系列表.新;
+const challenge=run('困难').关系列表.新;
 assert.equal(challenge.血统.血.原始属性.力量,'SS');
-assert.equal(challenge.血统.血.原始属性.体质,'SSS');
+assert.equal(challenge.血统.血.原始属性.体质,'S');
+assert.equal(challenge.血统.血.品质,'C');
 assert.equal(challenge.装备.剑.品质,'B');
 assert.equal(challenge.状态.功法.品质,'B');
 assert.equal(challenge.形态库.变身.层级,'Ⅴ');
+const extreme=run('挑战').关系列表.新;
+assert.equal(extreme.血统.血.品质,'B');
+assert.equal(extreme.技能.术.品质,'C');
+assert.equal(extreme.血统.血.原始属性.力量,'SSS');
+assert.equal(extreme.血统.血.原始属性.体质,'SSS');
+assert.equal(extreme.装备.剑.品质,'B');
+assert.equal(extreme.形态库.变身.层级,'Ⅴ');
+for (const [mode,steps] of [['体验',0],['正常',2],['困难',4],['挑战',6]]) {
+    const npc=make();
+    npc.血统.血.品质='SS';
+    npc.血统.血.原始属性={力量:'F',体质:'SS'};
+    npc.装备.剑.品质='SSS';
+    npc.装备.剑.原始属性.ATK='F';
+    npc.形态库.变身.层级='Ⅷ';
+    npc.形态库.变身.技能.招式.原始属性={力量:'F'};
+    const stat={设置:{难度:mode},关系列表:{新:npc}};
+    apply(stat,{关系列表:{}});
+    const expected=['F','E','D','C','B','A','S'][steps];
+    assert.equal(npc.血统.血.品质,'SS',mode);
+    assert.equal(npc.装备.剑.品质,'SSS',mode);
+    assert.equal(npc.形态库.变身.层级,'Ⅷ',mode);
+    assert.equal(npc.血统.血.原始属性.力量,expected,mode);
+    assert.equal(npc.装备.剑.原始属性.ATK,expected,mode);
+    assert.equal(npc.形态库.变身.技能.招式.原始属性.力量,expected,mode);
+    assert.equal(npc.血统.血.原始属性.体质,mode==='体验'||mode==='困难'?'SS':'SSS',mode);
+    const before=JSON.parse(JSON.stringify(stat));
+    apply(stat,before);
+    assert.equal(JSON.stringify(stat),JSON.stringify(before),mode+' must not upgrade an existing NPC twice');
+}
 for (const before of [undefined,{关系列表:{新:make()}}]) {
     const stat={设置:{难度:'挑战'},关系列表:{新:make()}};
     apply(stat,before);
@@ -61,6 +90,17 @@ apply(top,{关系列表:{}});
 assert.equal(top.关系列表.新.装备.剑.品质,'SSS');
 assert.equal(top.关系列表.新.装备.剑.原始属性.ATK,'SSS');
 assert.equal(top.关系列表.新.形态库.变身.层级,'Ⅸ');
+for (const npc of [{...make(),好感度:0},{...make(),好感度:50},{...make(),是否队友:true}]) {
+    const stat={设置:{难度:'挑战'},关系列表:{新:npc}};
+    const original=JSON.stringify(stat);
+    apply(stat,{关系列表:{}});
+    assert.equal(JSON.stringify(stat),original);
+}
+assert.ok(!source.includes('难度已应用'));
+console.log('PASS: difficulty tiers, higher existing qualities, independent attributes, old NPCs, replay, nested skills and caps');
+
+// 可单独运行难度回归；默认仍执行历史声望/结算检查。
+if (!process.argv.includes('--difficulty-only')) {
 const world=fs.readFileSync('script/世界推进系统.js','utf8');
 const expression=world.match(/const factionWeight=(.*);/)[1];
 const weight=new Function('factionList','return '+expression);
@@ -70,14 +110,6 @@ const settlement=fs.readFileSync('World Book/【结算任务】[mvu_plot].txt','
 assert.ok(settlement.includes('Number(f?.声望)>0'));
 assert.ok(settlement.includes('<%= reputationReward %>'));
 assert.ok(!settlement.includes('声望绝对值'));
-for (const npc of [{...make(),好感度:0},{...make(),好感度:50},{...make(),是否队友:true}]) {
-    const stat={设置:{难度:'挑战'},关系列表:{新:npc}};
-    const original=JSON.stringify(stat);
-    apply(stat,{关系列表:{}});
-    assert.equal(JSON.stringify(stat),original);
-}
-assert.ok(!source.includes('难度已应用'));
-console.log('PASS: difficulty tiers, old NPCs, replay, nested skills, caps and positive-only reputation');
 
 const settlementCalc=settlement.slice(settlement.indexOf('  const reputationGrades'),settlement.indexOf('  // 仓库物品'));
 function settlementReward(factions,difficulty='C-B') {
@@ -89,3 +121,4 @@ assert.equal(settlementReward({敌:{声望:-5000},冷:{声望:0}}).reputationRew
 assert.equal(settlementReward({敌:{声望:-5000},友:{声望:100}}).reputationReward,12000);
 assert.equal(settlementReward({友:{声望:500}}).reputationReward,36000);
 console.log('PASS: settlement template computes positive-only coin amounts and cap');
+}

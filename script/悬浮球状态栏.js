@@ -4158,14 +4158,14 @@
 
         var difficulty = ['体验', '正常', '困难', '挑战'].indexOf(cfg.难度) >= 0 ? cfg.难度 : '体验';
         var difficultyNotes = {
-            '体验': '保持现有规则，不额外强化。',
-            '正常': '新敌对 NPC 的血统、技能、装备、状态和形态至少与自身生命层级齐平。',
-            '困难': '正常基础上，原始属性品质提升 2 阶。',
-            '挑战': '原始属性品质提升 4 阶，体质 SSS；装备、状态、形态至少高于生命层级 1 阶。'
+            '体验': '血统、技能、装备、状态和形态至少与人物生命层级齐平，原始属性不额外提升。',
+            '正常': '体验基础上，原始属性品质提升 2 阶。',
+            '困难': '原始属性品质提升 4 阶，体质保底 S；血统、技能至少与人物生命层级齐平，装备、状态、形态至少高于人物生命层级 1 阶。',
+            '挑战': '原始属性品质提升 6 阶，体质 SSS；血统、装备、状态、形态至少高于人物生命层级 1 阶，技能至少与人物生命层级齐平。'
         };
         html += secBlock('⚔️ 难度 (实验功能)', '<div id="sam-difficulty-note" aria-live="polite" style="margin-bottom:10px;min-height:3em;font-size:12px;line-height:1.5;color:var(--sam-sub);">'+difficultyNotes[difficulty]+'</div><div role="group" aria-label="难度选择" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;">' + ['体验', '正常', '困难', '挑战'].map(function(mode) {
             return '<button type="button" class="sam-varmode-btn '+(difficulty===mode?'active':'')+'" data-difficulty="'+mode+'" aria-pressed="'+(difficulty===mode?'true':'false')+'" style="text-align:center;padding:9px 4px;">'+mode+'</button>';
-        }).join('') + '</div><div style="margin-top:8px;color:var(--sam-sub);font-size:11px;">仅影响后续新建且好感度为负的非队友 NPC；品质最高 SSS，生命层级最高 Ⅸ。</div>');
+        }).join('') + '</div><div style="margin-top:8px;color:var(--sam-sub);font-size:11px;">仅影响后续新建且好感度为负的非队友 NPC。各组件仅补足所选标准，已有更高品质不降低；原始属性仍独立提升，困难/挑战的体质按固定档位补足。品质最高 SSS，生命层级最高 Ⅸ。</div>');
         var variableMode = getVariableApiMode();
         var variableModeHtml = '<div class="sam-varmode-grid">'
   + '<button type="button" class="sam-varmode-btn '+(variableMode==='额外API'?'active':'')+'" data-variable-api-mode="额外API">'

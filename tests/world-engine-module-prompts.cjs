@@ -38,7 +38,7 @@ function hostFor(statRef){
   const statRef={value:fresh()};
   const engine=new Engine(hostFor(statRef));
   engine.config.enabled=true;
-  assert.equal(engine.config.worldModulePromptVersion,1);
+  assert.equal(engine.config.worldModulePromptVersion,2);
   assert.match(engine.config.preset,/只提交已经发生或需要规划的世界变化/,'built-in preset should migrate to concise pipeline');
   assert.match(engine.config.corePrompt,/模型知道≠场外人物知道/,'compact core must preserve anti-omniscience boundary');
   assert.ok(engine.config.modulePrompts&&typeof engine.config.modulePrompts.worldTime==='string');

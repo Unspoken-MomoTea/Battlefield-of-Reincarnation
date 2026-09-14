@@ -28,7 +28,7 @@ assert.match(html,/const success = isSettlementTaskSuccessful\(task\.状态\)/,'
 assert.match(html,/else if \(isSettlementTaskFailed\(task\.状态\)\)/,'只有明确失败态才能扣任务惩罚');
 assert.match(html,/if \(!isSettlementTaskSuccessful\(task\.状态\)\) return;/,'权限凭证必须复用主神任务完成态判定');
 assert.match(html,/tasks\.every\(function\(task\) \{ return isSettlementTaskSuccessful\(task\.status\); \}\)/,'晋升试炼通过必须复用完成态判定');
-assert.equal((html.match(/trialTasks\.some\(function\(task\)\{return !isSettlementTaskTerminal\(task\.status\);\}\)/g)||[]).length,2,'清理与写回都应等待试炼进入认可终态');
+assert.equal((html.match(/trialTasks\.some\(function\(task\)\{return !isSettlementTaskTerminal\(task\.status\);\}\)/g)||[]).length,1,'只有晋升资格与最终清理需要等待试炼进入认可终态，空间币写回不得被阻断');
 
 console.log('settlement status alias regression passed');
 

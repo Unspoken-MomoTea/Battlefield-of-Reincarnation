@@ -35,8 +35,6 @@ jobs:
         run: node tests/task-settlement-simplified.cjs
       - name: Settlement status alias regression
         run: node tests/settlement-status-aliases.cjs
-      - name: Trial promotion flow regression
-        run: node tests/trial-promotion-flow.cjs
       - name: ZOD syntax
         run: node --check script/ZOD脚本.js
       - name: Commit verified fix

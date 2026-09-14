@@ -21,6 +21,7 @@ const parts = [
   '59-auto-trigger-rebuild.part.js',
   '59-soft-maintenance.part.js',
   '59-world-integrity-guard.part.js',
+  '59-causal-stability-gate.part.js',
   '59-world-time-ownership.part.js',
   '59-world-replay-persistence.part.js',
   '59-reprocess-immediate-retry.part.js',
@@ -94,6 +95,9 @@ assert.match(texts['59-soft-maintenance.part.js'], /ensureRumorLiveliness=functi
 assert.match(texts['59-world-integrity-guard.part.js'], /^    \/\/ 世界完整性保护/);
 assert.match(texts['59-world-integrity-guard.part.js'], /WORLD_INTEGRITY_GUARD_RULES/);
 assert.match(texts['59-world-integrity-guard.part.js'], /validateCausalOffsets/);
+assert.match(texts['59-causal-stability-gate.part.js'], /^    \/\/ 稳定度因果闸门/);
+assert.match(texts['59-causal-stability-gate.part.js'], /causalOffsetHasWorldScaleEvidence/);
+assert.match(texts['59-causal-stability-gate.part.js'], /清理局部稳定偏移/);
 assert.match(texts['59-world-time-ownership.part.js'], /^    \/\/ 世界时间单一所有权/);
 assert.match(texts['59-world-time-ownership.part.js'], /WORLD_RESULT_SCHEMA\.properties\.时间/);
 assert.match(texts['59-world-time-ownership.part.js'], /变量 AI 的写入在事件层被回滚/);

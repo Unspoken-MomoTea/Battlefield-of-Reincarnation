@@ -1,5 +1,5 @@
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=1;
+    const WORLD_MODULE_PROMPT_VERSION=2;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
 【执行流程】
 1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
@@ -31,7 +31,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         Object.freeze({key:'exploration',title:'探索台账',source:'EXPLORATION_PROJECTION_RULES',legacy:()=>[EXPLORATION_PROJECTION_RULES],fallback:`【玩家探索投影硬约束】
 <user>实际到达整体区域时探索度至少10%；远方后台地区不自动记入；离开后保留已有探索。`}),
         Object.freeze({key:'integrity',title:'因果与事实时间',source:'WORLD_INTEGRITY_GUARD_RULES',legacy:()=>[WORLD_INTEGRITY_GUARD_RULES],fallback:`【因果偏移与时间约束】
-当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局或主线可行性的长期变化；计划、风险、能力上限不记。同根因优先更新同一条，普通变化不记；稳定值由程序汇总。`}),
+当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化；位置暴露、敌人警觉、受伤、逃脱、行动/生存难度变化等局部后果不记。计划、风险、能力上限不记；同根因优先更新同一条，稳定值由程序汇总。`}),
         Object.freeze({key:'worldTime',title:'世界时间',source:'WORLD_TIME_RULES',legacy:()=>[WORLD_TIME_RULES],fallback:`【世界时间所有权】
 世界.时间由世界推进维护：为空时据已确认资料初始化；正文没有实际时间流逝就不改。精确到月日必须用数字月日（如“帝历1024年-09月-12日-下午”）；不确定则保留粗粒度，不编造。不得回退，也不得把未来事件时间当当前时间。人物/地区更新时间由程序统一盖章。`}),
         Object.freeze({key:'rumor',title:'传闻与传播',source:'RUMOR_THROTTLE_RULES / RUMOR_WORLD_SOURCE_RULES',legacy:()=>[RUMOR_LIVELINESS_RULES,RUMOR_THROTTLE_RULES,RUMOR_WORLD_SOURCE_RULES],fallback:`【信息传播 · 世界侧事实】

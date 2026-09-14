@@ -5345,6 +5345,7 @@ ${schemaText}`;
             super(host,env);
             this.autoProgressTriggerEventsBound=false;
             this.autoProgressWaitingForVariable=false;
+            this.autoProgressReprocessCommit='';
         }
         init() {
             const result=super.init();
@@ -5381,6 +5382,30 @@ ${schemaText}`;
             const mvu=this.env.Mvu||this.host.Mvu;
             try{return mvu?.isDuringExtraAnalysis?.()===true;}catch(_){return false;}
         }
+        captureAutoProgressReprocessCommit() {
+            const mvu=this.env.Mvu||this.host.Mvu;
+            const getMessages=this.fn('getChatMessages');
+            if(!mvu||!getMessages)return false;
+            let message;
+            try{message=getMessages(-1)?.[0];}catch(_){return false;}
+            if(!message)return false;
+            const id=Number(message.message_id!=null?message.message_id:message.id);
+            if(!Number.isInteger(id))return false;
+            let raw;
+            try{raw=mvu.getMvuData({type:'message',message_id:id});}catch(_){return false;}
+            // MVU“重新处理变量”会先删除当前楼层 stat_data/schema，但未知 root 字段会保留。
+            // 世界引擎提交标记正好因此成为可靠的一次性恢复凭证；普通新楼层不会携带当前楼层自己的提交标记。
+            if(plain(raw?.stat_data))return false;
+            const commit=String(raw?.__samsaraWorldCommit||'');
+            if(!commit)return false;
+            const parts=this.autoProgressFingerprintParts(commit);
+            const chatFn=this.fn('getCurrentChatId');
+            let chat='';try{chat=String(chatFn?chatFn():(this.host.SillyTavern?.getContext?.()?.chatId??''));}catch(_){}
+            if(!Number.isFinite(parts.id)||parts.id!==id)return false;
+            if(chat&&parts.chat&&parts.chat!==chat)return false;
+            this.autoProgressReprocessCommit=commit;
+            return true;
+        }
         autoProgressShouldSchedule(snapshot) {
             this.initializeAutoProgressCycle(snapshot);
             const fingerprint=String(snapshot?.fingerprint||'');
@@ -5404,9 +5429,17 @@ ${schemaText}`;
             if(due)this.autoProgressDueFingerprint=fingerprint;
             return due;
         }
+        markAutoProgressRun(snapshot) {
+            super.markAutoProgressRun(snapshot);
+            const fingerprint=String(snapshot?.fingerprint||'');
+            if(fingerprint&&this.autoProgressReprocessCommit&&this.autoProgressSameFloor(this.autoProgressReprocessCommit,fingerprint)){
+                this.autoProgressReprocessCommit='';
+            }
+        }
         resetAutoProgressCycle() {
             super.resetAutoProgressCycle();
             this.autoProgressWaitingForVariable=false;
+            this.autoProgressReprocessCommit='';
         }
         schedule(source='variable-update',attempt=0) {
             if(this.config.autoProgress!==true){
@@ -5418,6 +5451,9 @@ ${schemaText}`;
             const trigger=String(source||'variable-update');
             const proseTrigger=trigger==='generation-ended'||trigger==='message-received';
             const tries=Math.max(0,Number(attempt)||0);
+            // VARIABLE_UPDATE_ENDED 发生在 MVU 把重建变量写回当前楼层之前。
+            // 因此要在这里、而不是 900ms 后，捕获“当前楼层已被清空但世界提交标记仍在”的真实重处理信号。
+            if(trigger==='variable-update')this.captureAutoProgressReprocessCommit();
             // 主正文结束后若变量 AI 正在解析，先等变量；变量事件丢失时仍会复查，不让自动推进永久失活。
             if(proseTrigger&&this.autoProgressDuringExtraAnalysis()){
                 this.autoProgressWaitingForVariable=true;
@@ -5447,6 +5483,22 @@ ${schemaText}`;
                 this.autoProgressWaitingForVariable=false;
                 const reason=this.blocked(snapshot);
                 if(reason){this.status=reason;this.render();return;}
+                const fingerprint=String(snapshot.fingerprint||'');
+                const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
+                const forceReprocess=this.autoProgressReprocessCommit&&this.autoProgressSameFloor(this.autoProgressReprocessCommit,fingerprint);
+                if(this.autoProgressReprocessCommit&&!forceReprocess)this.autoProgressReprocessCommit='';
+                if(forceReprocess){
+                    if(handled===fingerprint){
+                        this.autoProgressReprocessCommit='';
+                        return;
+                    }
+                    // 显式重处理的是“曾经真正完成过世界推进”的当前楼层。
+                    // 不再让 interval=2、页面重载后的内存计数或上一楼层已有后台内容阻止重建。
+                    this.autoProgressLastSeenFingerprint=fingerprint;
+                    this.autoProgressDueFingerprint=fingerprint;
+                    this.run().catch(()=>{});
+                    return;
+                }
                 if(!this.autoProgressShouldSchedule(snapshot))return;
                 this.run().catch(()=>{});
             },delay);

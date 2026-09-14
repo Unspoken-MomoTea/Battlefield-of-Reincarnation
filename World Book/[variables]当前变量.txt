@@ -353,7 +353,10 @@ if (current.世界) {
           人物: scene.人物
         });
       });
-    if (hotScenes.length) readonly.世界.场外场景 = hotScenes;
+    if (hotScenes.length) {
+      readonly.世界.场外场景使用规则 = '场外场景仅供叙事规划，不等于<user>或任何NPC已经知情；角色只能依据在场观察、既有认知、可靠传播或明确调查获得的信息行动，不得因这里的地点、目标或行动产生全知反应。';
+      readonly.世界.场外场景 = hotScenes;
+    }
   }
 }
 

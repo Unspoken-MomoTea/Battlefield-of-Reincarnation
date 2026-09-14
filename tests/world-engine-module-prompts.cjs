@@ -13,8 +13,13 @@ for(const source of ['TASK_AWARENESS_RULES','CHRONOLOGY_GUARD_RULES','SOFT_MAINT
   assert.ok(layer.includes(source),`prompt workspace must expose actual module source: ${source}`);
 }
 assert.match(layer,/data-module-prompt=/,'module prompt editors must be rendered');
+assert.match(layer,/\[data-core-prompt\],\[data-macro-prompt\],\[data-stability-prompt\],\[data-module-prompt\]/,'new prompt blocks must follow the same edit-mode toggle as the original prompt workspace');
+assert.match(layer,/savePromptDocument\(name,settings,activate=true\)/,'saved preset documents must explicitly persist module prompts');
 assert.match(layer,/if\(!this\.isNpcBuildAuditEnabled\(\)\)audit\?\.closest\('details'\)\?\.remove\(\)/,'NPC audit prompt must be hidden while audit is disabled');
 assert.doesNotMatch(layer,/空分类本轮必须补2条/,'new final prompt layer must not revive obsolete rumor quota wording');
+assert.match(layer,/本轮没有这种重大变化时，省略“因果\.偏移记录”/,'causal offsets must be explicitly optional instead of treated as per-turn maintenance');
+assert.match(layer,/\{yyy\}年-\{mm\}月-\{dd\}日-\{时间段\}/,'world-time prompt must use the neutral machine-readable template');
+assert.doesNotMatch(layer,/帝历1024年-09月-12日-下午/,'runtime module defaults must not hard-code a world-specific date example');
 
 function fresh(){
   return {
@@ -28,7 +33,14 @@ function hostFor(statRef){
     SillyTavern:{name1:'测试玩家'},
     Samsara:{terminal:{apiReady:()=>true,request:async()=>''}},
     getCurrentChatId:()=> 'module-prompts',
-    getChatMessages:()=>[{message_id:1,role:'assistant',message:'灰港钟声响过，街面仍很安静。'}]
+    getChatMessages:()=>[{message_id:1,role:'assistant',message:'灰港钟声响过，街面仍很安静。'}],
+    document:{
+      addEventListener:()=>{},removeEventListener:()=>{},
+      createElement:()=>({style:{},click(){host.__exportClicked=true;},remove(){}}),
+      body:{appendChild:()=>{}}
+    },
+    Blob:globalThis.Blob,
+    URL:{createObjectURL(blob){host.__exportedBlob=blob;return 'blob:module-prompts-test';},revokeObjectURL:()=>{}}
   };
   host.Mvu={getMvuData:()=>({stat_data:clone(statRef.value)}),replaceMvuData:async data=>{statRef.value=clone(data.stat_data);}};
   return host;
@@ -36,11 +48,13 @@ function hostFor(statRef){
 
 (async()=>{
   const statRef={value:fresh()};
-  const engine=new Engine(hostFor(statRef));
+  const host=hostFor(statRef);
+  const engine=new Engine(host);
   engine.config.enabled=true;
-  assert.equal(engine.config.worldModulePromptVersion,2);
+  assert.equal(engine.config.worldModulePromptVersion,3);
   assert.match(engine.config.preset,/只提交已经发生或需要规划的世界变化/,'built-in preset should migrate to concise pipeline');
   assert.match(engine.config.corePrompt,/模型知道≠场外人物知道/,'compact core must preserve anti-omniscience boundary');
+  assert.match(engine.config.corePrompt,/没有重大世界偏移就完全不写偏移记录/,'compact core must not pressure the model to touch stability every round');
   assert.ok(engine.config.modulePrompts&&typeof engine.config.modulePrompts.worldTime==='string');
 
   const defaults=clone(engine.config.modulePrompts);
@@ -62,5 +76,30 @@ function hostFor(statRef){
   assert.doesNotMatch(request.system,/【传闻与传播 · 常驻活跃层】|【传闻刷新节流|【信息传播 · 世界侧事实】/,'legacy rumor prompt stack must collapse before final request');
   assert.equal((request.system.match(/【自定义传播】/g)||[]).length,1,'custom rumor module must appear exactly once');
   assert.ok(Array.isArray(request.manifest?.提示词模块)&&request.manifest.提示词模块.length>=7,'request manifest must expose final module prompt list');
-  console.log('PASS concise editable module prompts replace legacy hidden prompt stack');
+
+  const saved=engine.savePromptDocument('模块导出测试',{
+    preset:engine.config.preset,
+    corePrompt:engine.config.corePrompt,
+    macroPrompt:engine.config.macroPrompt,
+    stabilityPromptTemplate:engine.config.stabilityPromptTemplate,
+    npcAuditPrompt:engine.config.npcAuditPrompt,
+    structurePrompt:engine.config.structurePrompt,
+    contextTurns:1,activationMode:'respect_activation',selectedEntries:[]
+  },false);
+  assert.equal(saved.settings.modulePrompts.worldTime,'【自定义世界时间】\n只按我的时间规则。','saving a new preset must capture current runtime module prompts even if the caller omits modulePrompts');
+  assert.equal(saved.settings.modulePrompts.rumor,'【自定义传播】\n只按我的传播规则。');
+
+  engine.exportPromptDocument(saved.id);
+  assert.equal(host.__exportClicked,true,'preset export must trigger a download');
+  assert.ok(host.__exportedBlob,'preset export must create a JSON blob');
+  const exported=JSON.parse(await host.__exportedBlob.text());
+  assert.equal(exported.settings.modulePrompts.worldTime,'【自定义世界时间】\n只按我的时间规则。','exported preset JSON must contain customized runtime module prompts');
+  assert.equal(exported.settings.modulePrompts.rumor,'【自定义传播】\n只按我的传播规则。');
+
+  const importedEngine=new Engine(hostFor({value:fresh()}));
+  const imported=importedEngine.importPromptDocument(JSON.stringify(exported));
+  assert.equal(imported.settings.modulePrompts.worldTime,'【自定义世界时间】\n只按我的时间规则。','import must restore exported runtime module prompts');
+  assert.equal(imported.settings.modulePrompts.rumor,'【自定义传播】\n只按我的传播规则。');
+
+  console.log('PASS concise editable module prompts persist through save, export and import');
 })().catch(error=>{console.error(error);process.exitCode=1;});

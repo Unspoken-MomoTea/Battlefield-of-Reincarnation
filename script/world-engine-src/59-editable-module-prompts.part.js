@@ -1,19 +1,19 @@
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=2;
+    const WORLD_MODULE_PROMPT_VERSION=3;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
 【执行流程】
 1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
 2. 定边界：确认当前阶段、世界时间与下一宏观节点。
 3. 推世界：按可用时间推进事件、地区、人物与势力；世界不会因<user>停下而暂停。
 4. 结算影响：记录<user>已经造成的客观后果，但不替<user>行动。
-5. 做维护：只处理本轮需要的传播、经济、历法与台账。
+5. 做维护：只处理本轮确有变化的传播、经济、历法；因果偏移仅在出现重大世界级长期改变时维护。
 6. 输出差分：只写新增/变化的 WorldResult；无业务变化只写摘要。`;
     const COMPACT_CORE_WORLD_RULES=`【核心边界】
 - 事实优先级：当前变量/已确认剧情 > 明确世界书 > 常识；计划不是事实。
 - 模型知道≠场外人物知道。人物只能依据在场观察、既有认知或可信传播行动；因<user>新行为改策必须有认知来源。
 - 时间与路程必须可实现；同一人物同一时段只在一处；不替<user>行动，不复述已演出琐事。
 - 资产只记录固定地产、大型载具或要塞；单兵物品不写资产。探索只记录<user>实际到达、调查或可靠获知的区域。
-- 因果偏移只记已实现的主线级长期变化；当前事件公开字段只写现实中可感知的信息。
+- 因果偏移只记已实现的主线级长期变化；没有重大世界偏移就完全不写偏移记录。当前事件公开字段只写现实中可感知的信息。
 - 任务结算、奖励、成就、击杀等由对应系统负责。`;
     const COMPACT_MACRO_PROMPT=`【宏观骨架】
 需要补骨架时保持3~5个滚动阶段节点；先定顺序与时间边界，再填近期细节。未来规划可跨边界，实际推进不可越过下一节点；不要把多个独立阶段硬并成一个节点。`;
@@ -31,9 +31,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         Object.freeze({key:'exploration',title:'探索台账',source:'EXPLORATION_PROJECTION_RULES',legacy:()=>[EXPLORATION_PROJECTION_RULES],fallback:`【玩家探索投影硬约束】
 <user>实际到达整体区域时探索度至少10%；远方后台地区不自动记入；离开后保留已有探索。`}),
         Object.freeze({key:'integrity',title:'因果与事实时间',source:'WORLD_INTEGRITY_GUARD_RULES',legacy:()=>[WORLD_INTEGRITY_GUARD_RULES],fallback:`【因果偏移与时间约束】
-当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化；位置暴露、敌人警觉、受伤、逃脱、行动/生存难度变化等局部后果不记。计划、风险、能力上限不记；同根因优先更新同一条，稳定值由程序汇总。`}),
+当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移不是每轮必填，只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化；本轮没有这种重大变化时，省略“因果.偏移记录”，不得为了让稳定值变化而硬造记录。位置暴露、敌人警觉、受伤、逃脱、行动/生存难度变化等局部后果不记。计划、风险、能力上限不记；同根因优先更新同一条。稳定值由程序根据有效偏移汇总，模型不得直接修改。`}),
         Object.freeze({key:'worldTime',title:'世界时间',source:'WORLD_TIME_RULES',legacy:()=>[WORLD_TIME_RULES],fallback:`【世界时间所有权】
-世界.时间由世界推进维护：为空时据已确认资料初始化；正文没有实际时间流逝就不改。精确到月日必须用数字月日（如“帝历1024年-09月-12日-下午”）；不确定则保留粗粒度，不编造。不得回退，也不得把未来事件时间当当前时间。人物/地区更新时间由程序统一盖章。`}),
+世界.时间由世界推进维护：为空时据已确认资料初始化；正文没有实际时间流逝就不改。精确到月日使用 {yyy}年-{mm}月-{dd}日-{时间段}；不确定则保留粗粒度，不编造。不得回退，也不得把未来事件时间当当前时间。人物/地区更新时间由程序统一盖章。`}),
         Object.freeze({key:'rumor',title:'传闻与传播',source:'RUMOR_THROTTLE_RULES / RUMOR_WORLD_SOURCE_RULES',legacy:()=>[RUMOR_LIVELINESS_RULES,RUMOR_THROTTLE_RULES,RUMOR_WORLD_SOURCE_RULES],fallback:`【信息传播 · 世界侧事实】
 传闻只来自“世界侧可传播事实”、已有传播链和既有公开传闻；正文不是直接传播源。私密事实必须先形成目击、公开后果、调查、公告或泄露。公开内容不得超过来源/受众认知，传播按时间与空间扩散。无触发保持原样；空分类、传播复核或新公开事实时按需更新，每个触发每类最多1条。普通行动/战斗本身不触发；传闻失败不重跑整轮。购买、扣款与消费性删除由MVU处理。`})
     ]);
@@ -121,6 +121,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.saveConfig();
             return result;
         }
+        savePromptDocument(name,settings,activate=true){
+            const next=Object.assign({},settings||{});
+            next.modulePrompts=normalizeWorldModulePrompts(next.modulePrompts??this.config.modulePrompts);
+            return super.savePromptDocument(name,next,activate);
+        }
         importPromptDocument(raw){
             let parsed=null;try{parsed=JSON.parse(String(raw||''));}catch(_){}
             const settings=plain(parsed?.settings)?parsed.settings:parsed;
@@ -158,6 +163,17 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }).join('');
             section.innerHTML='<div class="we-section-head"><h2>运行模块提示词</h2><small>实际 system 注入 · 可编辑</small></div>'+
                 '<div class="we-notice">这里只显示最终会发给世界 AI 的模块规则。旧传闻活跃/节流/世界侧三层已在发送前合并为一个“传闻与传播”模块；留空某块即可停止额外注入该文字规则。程序 Schema 与写入校验不受这里修改。</div>'+rows;
+        }
+        createPanel(){
+            super.createPanel();
+            if(!this.panel||this.panel.__worldModulePromptEditBound)return;
+            Object.defineProperty(this.panel,'__worldModulePromptEditBound',{value:true,configurable:true});
+            this.panel.addEventListener('click',event=>{
+                const button=event.target?.closest?.('[data-action="prompt-edit"]');
+                if(!button||!this.panel.contains(button))return;
+                const editable=button.getAttribute('aria-pressed')==='true';
+                this.panel.querySelectorAll('[data-core-prompt],[data-macro-prompt],[data-stability-prompt],[data-module-prompt]').forEach(field=>field.readOnly=!editable);
+            });
         }
         render(force=false){
             const result=super.render(force);

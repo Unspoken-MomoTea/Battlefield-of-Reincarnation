@@ -76,33 +76,63 @@
                 return {oldName:name,newName:name,record:null,deleted:true};
             },'已删除因果偏移 · 稳定值已重算');
         }
-        causalOffsetPromptFunction() {
-            const candidates=[this.host?.prompt,this.env?.prompt,typeof globalThis!=='undefined'?globalThis.prompt:null];
-            const fn=candidates.find(item=>typeof item==='function');
-            return fn?fn.bind(this.host):null;
+        causalOffsetRecord(name) {
+            return this.snapshot().stat?.世界?.因果轨道?.偏移记录?.[name]||null;
         }
-        causalOffsetConfirmFunction() {
-            const candidates=[this.host?.confirm,this.env?.confirm,typeof globalThis!=='undefined'?globalThis.confirm:null];
-            const fn=candidates.find(item=>typeof item==='function');
-            return fn?fn.bind(this.host):null;
+        causalOffsetInlineEditorHtml(name,record) {
+            const impact=Number(record?.影响程度);
+            return '<div class="we-offset-inline-editor" data-offset-editor data-offset-original-name="'+causalOverviewEscape(name)+'">'
+                +'<div class="we-offset-edit-grid">'
+                +'<label class="we-offset-edit-field"><span>偏移名称</span><input type="text" data-offset-field="name" value="'+causalOverviewEscape(name)+'"></label>'
+                +'<label class="we-offset-edit-field"><span>影响程度</span><input type="number" min="-12" max="15" step="1" data-offset-field="impact" value="'+causalOverviewEscape(Number.isFinite(impact)?impact:'')+'"><small>-12~-1 或 +1~+15</small></label>'
+                +'<label class="we-offset-edit-field we-offset-edit-wide"><span>偏移描述</span><textarea rows="4" data-offset-field="description" placeholder="只写已经实现的世界级长期改变">'+causalOverviewEscape(record?.描述||'')+'</textarea></label>'
+                +'<label class="we-offset-edit-field we-offset-edit-wide"><span>引发者</span><input type="text" data-offset-field="actor" value="'+causalOverviewEscape(record?.引发者||'')+'"></label>'
+                +'</div><div class="we-offset-actions we-offset-edit-actions">'
+                +'<button type="button" class="we-offset-save" data-action="causal-offset-save" data-offset-name="'+causalOverviewEscape(name)+'">保存</button>'
+                +'<button type="button" data-action="causal-offset-cancel">取消</button>'
+                +'</div></div>';
         }
-        async editCausalOffsetFromUI(name) {
-            const ask=this.causalOffsetPromptFunction();if(!ask)throw new Error('当前环境不支持编辑对话框');
-            const record=this.snapshot().stat?.世界?.因果轨道?.偏移记录?.[name];if(!plain(record))return false;
-            const nextName=ask('偏移名称',name);if(nextName===null)return false;
-            const description=ask('偏移描述（只写已经实现的世界尺度长期改变）',String(record.描述||''));if(description===null)return false;
-            const actor=ask('引发者',String(record.引发者||''));if(actor===null)return false;
-            const impactRaw=ask('影响程度（-12~-1 或 +1~+15；0 请直接删除记录）',String(record.影响程度??''));if(impactRaw===null)return false;
-            return this.setCausalOffsetRecord(name,nextName,{描述:description,引发者:actor,影响程度:Number(impactRaw)});
+        beginCausalOffsetInlineEdit(name,card) {
+            const record=this.causalOffsetRecord(name);if(!plain(record)||!card)return false;
+            card.innerHTML=this.causalOffsetInlineEditorHtml(name,record);
+            card.classList.add('we-offset-editing');
+            const first=card.querySelector('[data-offset-field="name"]');
+            try{first?.focus?.();first?.select?.();}catch(_){}
+            return true;
         }
-        async deleteCausalOffsetFromUI(name) {
-            const confirmDelete=this.causalOffsetConfirmFunction();
-            if(confirmDelete&&!confirmDelete('删除因果偏移「'+name+'」？\n删除后世界稳定值会立即按剩余偏移重新计算。'))return false;
-            return this.removeCausalOffsetRecord(name);
+        async saveCausalOffsetInlineEdit(card,oldName) {
+            if(!card)return false;
+            const value=key=>card.querySelector('[data-offset-field="'+key+'"]')?.value;
+            return this.setCausalOffsetRecord(oldName,String(value('name')||'').trim(),{
+                描述:String(value('description')||'').trim(),
+                引发者:String(value('actor')||'').trim(),
+                影响程度:Number(value('impact'))
+            });
+        }
+        armCausalOffsetDelete(button,name) {
+            if(!button)return false;
+            const actions=button.closest('.we-offset-actions');if(!actions)return false;
+            button.dataset.action='causal-offset-delete-confirm';
+            button.textContent='确认删除';
+            button.classList.add('we-offset-delete-confirm');
+            if(!actions.querySelector('[data-action="causal-offset-delete-cancel"]')){
+                const cancel=this.host.document.createElement('button');
+                cancel.type='button';cancel.dataset.action='causal-offset-delete-cancel';cancel.textContent='取消';
+                cancel.dataset.offsetName=String(name||'');
+                actions.appendChild(cancel);
+            }
+            return true;
+        }
+        cancelCausalOffsetDelete(button) {
+            const actions=button?.closest?.('.we-offset-actions');if(!actions)return false;
+            const confirm=actions.querySelector('[data-action="causal-offset-delete-confirm"]');
+            if(confirm){confirm.dataset.action='causal-offset-delete';confirm.textContent='删除';confirm.classList.remove('we-offset-delete-confirm');}
+            actions.querySelector('[data-action="causal-offset-delete-cancel"]')?.remove();
+            return true;
         }
         ensureCausalOffsetEditorStyles() {
             if(!this.style||this.style.textContent.includes('.we-offset-actions{'))return;
-            this.style.textContent+='\n#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:9px}#sam-world-engine .we-offset-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:4px 9px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-offset-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-offset-actions [data-action="causal-offset-delete"]:hover{color:#ff8c8c;border-color:#b85c5c}';
+            this.style.textContent+='\n#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:9px;flex-wrap:wrap}#sam-world-engine .we-offset-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-offset-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-offset-actions [data-action="causal-offset-delete"]:hover,#sam-world-engine .we-offset-delete-confirm{color:#ff8c8c!important;border-color:#b85c5c!important}#sam-world-engine .we-offset-save{color:var(--we-accent,var(--gold))!important;border-color:color-mix(in srgb,var(--we-accent,var(--gold)) 45%,transparent)!important}#sam-world-engine .we-offset-editing{overflow:visible}#sam-world-engine .we-offset-inline-editor{display:grid;gap:8px}#sam-world-engine .we-offset-edit-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(140px,.6fr);gap:8px 12px;align-items:start}#sam-world-engine .we-offset-edit-field{display:grid;gap:4px;align-content:start}#sam-world-engine .we-offset-edit-field>span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-offset-edit-field>small{color:var(--we-sub,var(--sub));font-size:10px}#sam-world-engine .we-offset-edit-field input,#sam-world-engine .we-offset-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}#sam-world-engine .we-offset-edit-field textarea{height:92px!important;min-height:80px!important;max-height:180px!important;resize:vertical;line-height:1.55}#sam-world-engine .we-offset-edit-field input:focus,#sam-world-engine .we-offset-edit-field textarea:focus{outline:1px solid var(--we-accent,var(--gold));border-color:var(--we-accent,var(--gold))}#sam-world-engine .we-offset-edit-wide{grid-column:1/-1}#sam-world-engine .we-offset-edit-actions{margin-top:2px}@media(max-width:680px){#sam-world-engine .we-offset-edit-grid{grid-template-columns:1fr}}';
         }
         mountCausalOffsetEditorControls() {
             if(this.tab!=='因果档案'||!this.panel)return;
@@ -110,6 +140,7 @@
             const entries=causalOffsetEntries(this.snapshot().stat);
             cards.forEach((card,index)=>{
                 const name=entries[index]?.[0];if(!name||card.querySelector('.we-offset-actions'))return;
+                card.dataset.offsetName=name;
                 const actions=this.host.document.createElement('div');actions.className='we-offset-actions';
                 actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+causalOverviewEscape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+causalOverviewEscape(name)+'">删除</button>';
                 card.appendChild(actions);
@@ -120,12 +151,21 @@
             if(!this.panel||this.panel.__causalOffsetEditorBound)return;
             Object.defineProperty(this.panel,'__causalOffsetEditorBound',{value:true,configurable:true});
             this.panel.addEventListener('click',event=>{
-                const button=event.target?.closest?.('[data-action="causal-offset-edit"],[data-action="causal-offset-delete"]');
+                const button=event.target?.closest?.('[data-action^="causal-offset-"]');
                 if(!button||!this.panel.contains(button))return;
+                const action=String(button.dataset.action||'');
+                if(!['causal-offset-edit','causal-offset-save','causal-offset-cancel','causal-offset-delete','causal-offset-delete-confirm','causal-offset-delete-cancel'].includes(action))return;
                 event.preventDefault();event.stopPropagation();
-                const name=String(button.dataset.offsetName||'');
-                const task=button.dataset.action==='causal-offset-delete'?this.deleteCausalOffsetFromUI(name):this.editCausalOffsetFromUI(name);
-                Promise.resolve(task).catch(error=>{
+                const card=button.closest('.we-offset');
+                const name=String(button.dataset.offsetName||card?.dataset?.offsetName||card?.querySelector?.('[data-offset-editor]')?.dataset?.offsetOriginalName||'');
+                let task=null;
+                if(action==='causal-offset-edit')this.beginCausalOffsetInlineEdit(name,card);
+                else if(action==='causal-offset-save')task=this.saveCausalOffsetInlineEdit(card,name);
+                else if(action==='causal-offset-cancel')this.render(true);
+                else if(action==='causal-offset-delete')this.armCausalOffsetDelete(button,name);
+                else if(action==='causal-offset-delete-confirm')task=this.removeCausalOffsetRecord(name);
+                else if(action==='causal-offset-delete-cancel')this.cancelCausalOffsetDelete(button);
+                if(task)Promise.resolve(task).catch(error=>{
                     const message=String(error?.message||error||'因果偏移操作失败');
                     const toast=this.host?.toastr||this.env?.toastr;
                     if(toast?.error)toast.error(message,'因果偏移');else try{console.error('[因果偏移]',error);}catch(_){}

@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {compileWorldResult,applyPatches,emptyState}=require('../script/世界推进系统.js');
+const {compileWorldResult,applyPatches,emptyState,WORLD_RESULT_SCHEMA}=require('../script/世界推进系统.js');
 
 function fresh(){
   return {
@@ -11,6 +11,16 @@ function fresh(){
     设置:{单一世界:false},系统状态:{是否在主神空间:false},资产:{},角色:{},关系列表:{},任务:{列表:{}},
     传闻:{街头巷议:{},情报交易:{},布告与檄文:{}}
   };
+}
+
+assert.ok(!Array.isArray(WORLD_RESULT_SCHEMA.properties.因果.required)||!WORLD_RESULT_SCHEMA.properties.因果.required.includes('偏移记录'),'因果.偏移记录必须是可省略字段，不能成为每轮必填项');
+
+{
+  const stat=fresh();
+  const compiled=compileWorldResult(stat,{摘要:'普通推进，本轮没有重大世界偏移'});
+  const next=applyPatches(stat,compiled.patches);
+  assert.deepEqual(next.世界.因果轨道.偏移记录,{},'没有重大世界偏移时不得为了更新稳定值硬造记录');
+  assert.equal(next.世界.稳定,100,'没有有效偏移时稳定值必须保持原值');
 }
 
 {
@@ -69,4 +79,4 @@ function fresh(){
   assert.ok(compiled.warnings.some(line=>/清理局部稳定偏移/.test(line)),'清理旧错误偏移时应留下可诊断警告');
 }
 
-console.log('PASS world stability only accepts realized world-scale causal offsets');
+console.log('PASS world stability only accepts realized world-scale causal offsets and stays unchanged otherwise');

@@ -5803,14 +5803,14 @@ ${schemaText}`;
     const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间约束】
 1. 时间校验按字段粒度处理：事件、地区、历史、传播等宏观事实只按“自然日”硬校验；同一自然日内的上午/下午/HH:mm差异不算未来越界，只有跨日未来事实才拒绝。
 2. 人物当前动态仅在“当前世界时间”和“人物更新时间”双方都明确到 HH:mm 时做分钟级先后校验；任一侧只有清晨/上午/下午等粗粒度时，同日视为合法。当前状态仍优先复用世界.时间原文，未来计划放预计结束、下次检查或待发生事件。
-3. 偏移记录不是剧情日志、剧情总结或章节小结。只记录已经发生、已经确认，并且现实结果已经改变关键人物命运、重大事件结果、关键势力格局或主线可行性的偏移；“做了什么”但没有改变这些结果时不记录。
+3. 偏移记录不是每轮必填，也不是剧情日志、剧情总结或章节小结。只记录已经发生、已经确认，并且现实结果已经改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期偏移；本轮没有这种重大世界级变化时，省略“因果.偏移记录”，不得为了让稳定值变化而硬造记录。
 4. 判定依据是已经实现的结果，不是危险程度、能力强弱、计划、意图或潜在上限。即使持有足以影响整个世界的高危装置，只要尚未使用且尚未造成现实结果，就不产生偏移。
 5. 同一已确认根因及其连锁后果只记一条，优先更新已有偏移；只有形成新的、独立的长期偏移方向才新增。禁止把同一条因果链拆成剧情小总结连续累计。
-6. 预测、风险、可能、潜在或未来尚未发生的后果不产生偏移；稳定下降及其后续世界响应不能反过来成为新的负偏移。
+6. 预测、风险、可能、潜在或未来尚未发生的后果不产生偏移；位置暴露、敌人警觉、受伤、逃脱、生存/行动难度变化等局部战术后果不产生偏移；稳定下降及其后续世界响应也不能反过来成为新的负偏移。
 7. 负值锚点：关键人物命运不可逆改写 -3~-12；重大事件结果不可逆改变 -3~-10；关键势力格局或主线可行性实质破坏 -2~-8；异常污染持续扩大 -1~-10。普通变化不记录。
 8. 正值只来自真实修复：关键人物/重大事件修复 +3~+10；异常清除 +1~+15；势力格局或主线结构修复 +2~+8。高于100不能来自普通善行、胜利或奖励。
-9. 单条建议范围 -12~-1 或 +1~+15，0 不建新记录；同一引发者同轮负向总量最多 -12、正向总量最多 +15。程序对越界、同根拆分或尚未产生现实结果的偏移执行软归一化/忽略，不触发重试，也不驳回本轮其它世界推进结果。
-10. 稳定值由后台汇总，模型不得直接修改。`;
+9. 单条建议范围 -12~-1 或 +1~+15，0 不建新记录；同一引发者同轮负向总量最多 -12、正向总量最多 +15。程序对越界、同根拆分、局部后果或尚未产生现实结果的偏移执行软归一化/忽略，不触发重试，也不驳回本轮其它世界推进结果。
+10. 世界.稳定是偏移台账的派生值，由程序汇总；模型不得直接修改，也不需要每轮“更新稳定值”。`;
 
     const worldDateKeyBeforeIntegrityGuard=worldDateKey;
     worldDateKey=function(value) {
@@ -5952,7 +5952,7 @@ ${schemaText}`;
             const request=await super.buildRequest(base);
             request.system=String(request.system||'')+'\n\n'+WORLD_INTEGRITY_GUARD_RULES;
             request.manifest=request.manifest||{};
-            request.manifest.因果与时间约束={启用:true,因果偏移处理:'软归一化；不触发重试',单条建议范围:'-12~-1 / +1~+15',宏观事实时间:'同一自然日允许；跨日未来拒绝',人物精确时间:'仅双方均为 HH:mm 时精确比较'};
+            request.manifest.因果与时间约束={启用:true,因果偏移处理:'仅重大世界级变化时维护；无变化则省略',单条建议范围:'-12~-1 / +1~+15',宏观事实时间:'同一自然日允许；跨日未来拒绝',人物精确时间:'仅双方均为 HH:mm 时精确比较'};
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
             return request;
         }
@@ -6037,11 +6037,11 @@ ${schemaText}`;
     const WORLD_TIME_RULES=`【世界时间所有权】
 1. 世界.时间由世界推进独占维护。WorldResult 顶层“时间”用于初始化或推进当前世界时间；不要通过人物更新时间、事件未来时间或其他字段间接代替世界时钟。
 2. 当前世界时间为空或“待初始化”时，本轮必须根据最新正文与明确时间资料建立一个可理解的当前时间锚点。能确定具体日期/时段就写具体值；只能确定季节、阶段或时段时保留该精度，禁止为了格式完整凭空编造更精确日期。
-3. 任何字段只要已经精确到某月某日，都必须使用程序可解析的数字月日格式，例如“帝历1024年-09月-12日-下午”。纪年名称可保留，但月份必须写数字；禁止“枯叶之月/寒风之月/第12日”这类人类可读却无法定位数字月份的日期。此规则同时适用于顶层“时间”、事件时间、历史时间、传播时间、地区近期变化等。若只能确定“1024年秋”这类粗粒度时间，则保留粗粒度，不要编造月日。
+3. 任何字段只要已经精确到某月某日，都必须使用程序可解析的数字月日格式：{yyy}年-{mm}月-{dd}日-{时间段}。纪年名称可保留在年份前，但月份必须写数字；禁止用自定义月份名称或“第12日”替代数字月日。此规则同时适用于顶层“时间”、事件时间、历史时间、传播时间、地区近期变化等。只能确定季节/阶段时就保留粗粒度，不要编造月日。
 4. 当前世界时间已有值时，只有正文明确发生了时间流逝才提交“时间”；没有实际经过时间就省略该字段并保持原值。禁止倒退时钟，禁止把待发生事件的计划时间提前写成当前时间。
 5. 人物/地区等“更新时间”属于派生时间戳。模型负责事实内容，程序会用本轮最终世界时间统一盖章；无需反复抄写世界时间。`;
 
-    const MACHINE_TIME_DESCRIPTION='精确到月日时必须使用数字月日，例如“帝历1024年-09月-12日-下午”；只能确定季节/阶段时可保留粗粒度。';
+    const MACHINE_TIME_DESCRIPTION='精确到月日时使用 {yyy}年-{mm}月-{dd}日-{时间段}；只能确定季节/阶段时可保留粗粒度。';
     WORLD_RESULT_SCHEMA.properties.时间={type:'string',minLength:1,description:'当前世界时间。'+MACHINE_TIME_DESCRIPTION};
     if(EVENT_RESULT_SCHEMA?.properties){
         for(const key of ['时间','开始时间','预计结束','更新时间','下次检查'])if(EVENT_RESULT_SCHEMA.properties[key])EVENT_RESULT_SCHEMA.properties[key].description=MACHINE_TIME_DESCRIPTION;
@@ -6065,7 +6065,7 @@ ${schemaText}`;
         const raw=String(value??'').trim();
         if(!worldTimeClaimsMonthDay(raw))return;
         if(calendarDate(raw,worldTimeCalendarFor(stat,result)))return;
-        throw new Error(label+'格式无法用于日历：'+raw+'。精确到月日时请使用数字月份，例如“帝历1024年-09月-12日-下午”；不要用月份名称替代数字月。');
+        throw new Error(label+'格式无法用于日历：'+raw+'。精确到月日时请使用 {yyy}年-{mm}月-{dd}日-{时间段}；不要用月份名称替代数字月。');
     }
     function assertCalendarCompatibleWorldResultTimes(stat,result) {
         const temporalKeys=new Set(['时间','开始时间','预计结束','更新时间','到期时间','下次检查','开始','结束','期限','获知时间']);
@@ -6164,7 +6164,7 @@ ${schemaText}`;
                     当前时间:String(base?.stat?.世界?.时间||''),
                     是否需要初始化:worldTimeUnset(base?.stat?.世界?.时间),
                     所有权:'世界推进独占写入；变量 AI 只读',
-                    精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就必须数字化，例如“帝历1024年-09月-12日-下午”。禁止用“枯叶之月/寒风之月”等月份名称替代数字月。'
+                    精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须是数字；不要用自定义月份名称替代数字月。'
                 };
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}
@@ -6610,21 +6610,21 @@ ${schemaText}`;
         }
     };
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=2;
+    const WORLD_MODULE_PROMPT_VERSION=3;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
 【执行流程】
 1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
 2. 定边界：确认当前阶段、世界时间与下一宏观节点。
 3. 推世界：按可用时间推进事件、地区、人物与势力；世界不会因<user>停下而暂停。
 4. 结算影响：记录<user>已经造成的客观后果，但不替<user>行动。
-5. 做维护：只处理本轮需要的传播、经济、历法与台账。
+5. 做维护：只处理本轮确有变化的传播、经济、历法；因果偏移仅在出现重大世界级长期改变时维护。
 6. 输出差分：只写新增/变化的 WorldResult；无业务变化只写摘要。`;
     const COMPACT_CORE_WORLD_RULES=`【核心边界】
 - 事实优先级：当前变量/已确认剧情 > 明确世界书 > 常识；计划不是事实。
 - 模型知道≠场外人物知道。人物只能依据在场观察、既有认知或可信传播行动；因<user>新行为改策必须有认知来源。
 - 时间与路程必须可实现；同一人物同一时段只在一处；不替<user>行动，不复述已演出琐事。
 - 资产只记录固定地产、大型载具或要塞；单兵物品不写资产。探索只记录<user>实际到达、调查或可靠获知的区域。
-- 因果偏移只记已实现的主线级长期变化；当前事件公开字段只写现实中可感知的信息。
+- 因果偏移只记已实现的主线级长期变化；没有重大世界偏移就完全不写偏移记录。当前事件公开字段只写现实中可感知的信息。
 - 任务结算、奖励、成就、击杀等由对应系统负责。`;
     const COMPACT_MACRO_PROMPT=`【宏观骨架】
 需要补骨架时保持3~5个滚动阶段节点；先定顺序与时间边界，再填近期细节。未来规划可跨边界，实际推进不可越过下一节点；不要把多个独立阶段硬并成一个节点。`;
@@ -6642,9 +6642,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         Object.freeze({key:'exploration',title:'探索台账',source:'EXPLORATION_PROJECTION_RULES',legacy:()=>[EXPLORATION_PROJECTION_RULES],fallback:`【玩家探索投影硬约束】
 <user>实际到达整体区域时探索度至少10%；远方后台地区不自动记入；离开后保留已有探索。`}),
         Object.freeze({key:'integrity',title:'因果与事实时间',source:'WORLD_INTEGRITY_GUARD_RULES',legacy:()=>[WORLD_INTEGRITY_GUARD_RULES],fallback:`【因果偏移与时间约束】
-当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化；位置暴露、敌人警觉、受伤、逃脱、行动/生存难度变化等局部后果不记。计划、风险、能力上限不记；同根因优先更新同一条，稳定值由程序汇总。`}),
+当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移不是每轮必填，只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化；本轮没有这种重大变化时，省略“因果.偏移记录”，不得为了让稳定值变化而硬造记录。位置暴露、敌人警觉、受伤、逃脱、行动/生存难度变化等局部后果不记。计划、风险、能力上限不记；同根因优先更新同一条。稳定值由程序根据有效偏移汇总，模型不得直接修改。`}),
         Object.freeze({key:'worldTime',title:'世界时间',source:'WORLD_TIME_RULES',legacy:()=>[WORLD_TIME_RULES],fallback:`【世界时间所有权】
-世界.时间由世界推进维护：为空时据已确认资料初始化；正文没有实际时间流逝就不改。精确到月日必须用数字月日（如“帝历1024年-09月-12日-下午”）；不确定则保留粗粒度，不编造。不得回退，也不得把未来事件时间当当前时间。人物/地区更新时间由程序统一盖章。`}),
+世界.时间由世界推进维护：为空时据已确认资料初始化；正文没有实际时间流逝就不改。精确到月日使用 {yyy}年-{mm}月-{dd}日-{时间段}；不确定则保留粗粒度，不编造。不得回退，也不得把未来事件时间当当前时间。人物/地区更新时间由程序统一盖章。`}),
         Object.freeze({key:'rumor',title:'传闻与传播',source:'RUMOR_THROTTLE_RULES / RUMOR_WORLD_SOURCE_RULES',legacy:()=>[RUMOR_LIVELINESS_RULES,RUMOR_THROTTLE_RULES,RUMOR_WORLD_SOURCE_RULES],fallback:`【信息传播 · 世界侧事实】
 传闻只来自“世界侧可传播事实”、已有传播链和既有公开传闻；正文不是直接传播源。私密事实必须先形成目击、公开后果、调查、公告或泄露。公开内容不得超过来源/受众认知，传播按时间与空间扩散。无触发保持原样；空分类、传播复核或新公开事实时按需更新，每个触发每类最多1条。普通行动/战斗本身不触发；传闻失败不重跑整轮。购买、扣款与消费性删除由MVU处理。`})
     ]);
@@ -6732,6 +6732,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.saveConfig();
             return result;
         }
+        savePromptDocument(name,settings,activate=true){
+            const next=Object.assign({},settings||{});
+            next.modulePrompts=normalizeWorldModulePrompts(next.modulePrompts??this.config.modulePrompts);
+            return super.savePromptDocument(name,next,activate);
+        }
         importPromptDocument(raw){
             let parsed=null;try{parsed=JSON.parse(String(raw||''));}catch(_){}
             const settings=plain(parsed?.settings)?parsed.settings:parsed;
@@ -6769,6 +6774,17 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }).join('');
             section.innerHTML='<div class="we-section-head"><h2>运行模块提示词</h2><small>实际 system 注入 · 可编辑</small></div>'+
                 '<div class="we-notice">这里只显示最终会发给世界 AI 的模块规则。旧传闻活跃/节流/世界侧三层已在发送前合并为一个“传闻与传播”模块；留空某块即可停止额外注入该文字规则。程序 Schema 与写入校验不受这里修改。</div>'+rows;
+        }
+        createPanel(){
+            super.createPanel();
+            if(!this.panel||this.panel.__worldModulePromptEditBound)return;
+            Object.defineProperty(this.panel,'__worldModulePromptEditBound',{value:true,configurable:true});
+            this.panel.addEventListener('click',event=>{
+                const button=event.target?.closest?.('[data-action="prompt-edit"]');
+                if(!button||!this.panel.contains(button))return;
+                const editable=button.getAttribute('aria-pressed')==='true';
+                this.panel.querySelectorAll('[data-core-prompt],[data-macro-prompt],[data-stability-prompt],[data-module-prompt]').forEach(field=>field.readOnly=!editable);
+            });
         }
         render(force=false){
             const result=super.render(force);
@@ -6961,33 +6977,63 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 return {oldName:name,newName:name,record:null,deleted:true};
             },'已删除因果偏移 · 稳定值已重算');
         }
-        causalOffsetPromptFunction() {
-            const candidates=[this.host?.prompt,this.env?.prompt,typeof globalThis!=='undefined'?globalThis.prompt:null];
-            const fn=candidates.find(item=>typeof item==='function');
-            return fn?fn.bind(this.host):null;
+        causalOffsetRecord(name) {
+            return this.snapshot().stat?.世界?.因果轨道?.偏移记录?.[name]||null;
         }
-        causalOffsetConfirmFunction() {
-            const candidates=[this.host?.confirm,this.env?.confirm,typeof globalThis!=='undefined'?globalThis.confirm:null];
-            const fn=candidates.find(item=>typeof item==='function');
-            return fn?fn.bind(this.host):null;
+        causalOffsetInlineEditorHtml(name,record) {
+            const impact=Number(record?.影响程度);
+            return '<div class="we-offset-inline-editor" data-offset-editor data-offset-original-name="'+causalOverviewEscape(name)+'">'
+                +'<div class="we-offset-edit-grid">'
+                +'<label class="we-offset-edit-field"><span>偏移名称</span><input type="text" data-offset-field="name" value="'+causalOverviewEscape(name)+'"></label>'
+                +'<label class="we-offset-edit-field"><span>影响程度</span><input type="number" min="-12" max="15" step="1" data-offset-field="impact" value="'+causalOverviewEscape(Number.isFinite(impact)?impact:'')+'"><small>-12~-1 或 +1~+15</small></label>'
+                +'<label class="we-offset-edit-field we-offset-edit-wide"><span>偏移描述</span><textarea rows="4" data-offset-field="description" placeholder="只写已经实现的世界级长期改变">'+causalOverviewEscape(record?.描述||'')+'</textarea></label>'
+                +'<label class="we-offset-edit-field we-offset-edit-wide"><span>引发者</span><input type="text" data-offset-field="actor" value="'+causalOverviewEscape(record?.引发者||'')+'"></label>'
+                +'</div><div class="we-offset-actions we-offset-edit-actions">'
+                +'<button type="button" class="we-offset-save" data-action="causal-offset-save" data-offset-name="'+causalOverviewEscape(name)+'">保存</button>'
+                +'<button type="button" data-action="causal-offset-cancel">取消</button>'
+                +'</div></div>';
         }
-        async editCausalOffsetFromUI(name) {
-            const ask=this.causalOffsetPromptFunction();if(!ask)throw new Error('当前环境不支持编辑对话框');
-            const record=this.snapshot().stat?.世界?.因果轨道?.偏移记录?.[name];if(!plain(record))return false;
-            const nextName=ask('偏移名称',name);if(nextName===null)return false;
-            const description=ask('偏移描述（只写已经实现的世界尺度长期改变）',String(record.描述||''));if(description===null)return false;
-            const actor=ask('引发者',String(record.引发者||''));if(actor===null)return false;
-            const impactRaw=ask('影响程度（-12~-1 或 +1~+15；0 请直接删除记录）',String(record.影响程度??''));if(impactRaw===null)return false;
-            return this.setCausalOffsetRecord(name,nextName,{描述:description,引发者:actor,影响程度:Number(impactRaw)});
+        beginCausalOffsetInlineEdit(name,card) {
+            const record=this.causalOffsetRecord(name);if(!plain(record)||!card)return false;
+            card.innerHTML=this.causalOffsetInlineEditorHtml(name,record);
+            card.classList.add('we-offset-editing');
+            const first=card.querySelector('[data-offset-field="name"]');
+            try{first?.focus?.();first?.select?.();}catch(_){}
+            return true;
         }
-        async deleteCausalOffsetFromUI(name) {
-            const confirmDelete=this.causalOffsetConfirmFunction();
-            if(confirmDelete&&!confirmDelete('删除因果偏移「'+name+'」？\n删除后世界稳定值会立即按剩余偏移重新计算。'))return false;
-            return this.removeCausalOffsetRecord(name);
+        async saveCausalOffsetInlineEdit(card,oldName) {
+            if(!card)return false;
+            const value=key=>card.querySelector('[data-offset-field="'+key+'"]')?.value;
+            return this.setCausalOffsetRecord(oldName,String(value('name')||'').trim(),{
+                描述:String(value('description')||'').trim(),
+                引发者:String(value('actor')||'').trim(),
+                影响程度:Number(value('impact'))
+            });
+        }
+        armCausalOffsetDelete(button,name) {
+            if(!button)return false;
+            const actions=button.closest('.we-offset-actions');if(!actions)return false;
+            button.dataset.action='causal-offset-delete-confirm';
+            button.textContent='确认删除';
+            button.classList.add('we-offset-delete-confirm');
+            if(!actions.querySelector('[data-action="causal-offset-delete-cancel"]')){
+                const cancel=this.host.document.createElement('button');
+                cancel.type='button';cancel.dataset.action='causal-offset-delete-cancel';cancel.textContent='取消';
+                cancel.dataset.offsetName=String(name||'');
+                actions.appendChild(cancel);
+            }
+            return true;
+        }
+        cancelCausalOffsetDelete(button) {
+            const actions=button?.closest?.('.we-offset-actions');if(!actions)return false;
+            const confirm=actions.querySelector('[data-action="causal-offset-delete-confirm"]');
+            if(confirm){confirm.dataset.action='causal-offset-delete';confirm.textContent='删除';confirm.classList.remove('we-offset-delete-confirm');}
+            actions.querySelector('[data-action="causal-offset-delete-cancel"]')?.remove();
+            return true;
         }
         ensureCausalOffsetEditorStyles() {
             if(!this.style||this.style.textContent.includes('.we-offset-actions{'))return;
-            this.style.textContent+='\n#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:9px}#sam-world-engine .we-offset-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:4px 9px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-offset-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-offset-actions [data-action="causal-offset-delete"]:hover{color:#ff8c8c;border-color:#b85c5c}';
+            this.style.textContent+='\n#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:9px;flex-wrap:wrap}#sam-world-engine .we-offset-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-offset-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-offset-actions [data-action="causal-offset-delete"]:hover,#sam-world-engine .we-offset-delete-confirm{color:#ff8c8c!important;border-color:#b85c5c!important}#sam-world-engine .we-offset-save{color:var(--we-accent,var(--gold))!important;border-color:color-mix(in srgb,var(--we-accent,var(--gold)) 45%,transparent)!important}#sam-world-engine .we-offset-editing{overflow:visible}#sam-world-engine .we-offset-inline-editor{display:grid;gap:8px}#sam-world-engine .we-offset-edit-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(140px,.6fr);gap:8px 12px;align-items:start}#sam-world-engine .we-offset-edit-field{display:grid;gap:4px;align-content:start}#sam-world-engine .we-offset-edit-field>span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-offset-edit-field>small{color:var(--we-sub,var(--sub));font-size:10px}#sam-world-engine .we-offset-edit-field input,#sam-world-engine .we-offset-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}#sam-world-engine .we-offset-edit-field textarea{height:92px!important;min-height:80px!important;max-height:180px!important;resize:vertical;line-height:1.55}#sam-world-engine .we-offset-edit-field input:focus,#sam-world-engine .we-offset-edit-field textarea:focus{outline:1px solid var(--we-accent,var(--gold));border-color:var(--we-accent,var(--gold))}#sam-world-engine .we-offset-edit-wide{grid-column:1/-1}#sam-world-engine .we-offset-edit-actions{margin-top:2px}@media(max-width:680px){#sam-world-engine .we-offset-edit-grid{grid-template-columns:1fr}}';
         }
         mountCausalOffsetEditorControls() {
             if(this.tab!=='因果档案'||!this.panel)return;
@@ -6995,6 +7041,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const entries=causalOffsetEntries(this.snapshot().stat);
             cards.forEach((card,index)=>{
                 const name=entries[index]?.[0];if(!name||card.querySelector('.we-offset-actions'))return;
+                card.dataset.offsetName=name;
                 const actions=this.host.document.createElement('div');actions.className='we-offset-actions';
                 actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+causalOverviewEscape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+causalOverviewEscape(name)+'">删除</button>';
                 card.appendChild(actions);
@@ -7005,12 +7052,21 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(!this.panel||this.panel.__causalOffsetEditorBound)return;
             Object.defineProperty(this.panel,'__causalOffsetEditorBound',{value:true,configurable:true});
             this.panel.addEventListener('click',event=>{
-                const button=event.target?.closest?.('[data-action="causal-offset-edit"],[data-action="causal-offset-delete"]');
+                const button=event.target?.closest?.('[data-action^="causal-offset-"]');
                 if(!button||!this.panel.contains(button))return;
+                const action=String(button.dataset.action||'');
+                if(!['causal-offset-edit','causal-offset-save','causal-offset-cancel','causal-offset-delete','causal-offset-delete-confirm','causal-offset-delete-cancel'].includes(action))return;
                 event.preventDefault();event.stopPropagation();
-                const name=String(button.dataset.offsetName||'');
-                const task=button.dataset.action==='causal-offset-delete'?this.deleteCausalOffsetFromUI(name):this.editCausalOffsetFromUI(name);
-                Promise.resolve(task).catch(error=>{
+                const card=button.closest('.we-offset');
+                const name=String(button.dataset.offsetName||card?.dataset?.offsetName||card?.querySelector?.('[data-offset-editor]')?.dataset?.offsetOriginalName||'');
+                let task=null;
+                if(action==='causal-offset-edit')this.beginCausalOffsetInlineEdit(name,card);
+                else if(action==='causal-offset-save')task=this.saveCausalOffsetInlineEdit(card,name);
+                else if(action==='causal-offset-cancel')this.render(true);
+                else if(action==='causal-offset-delete')this.armCausalOffsetDelete(button,name);
+                else if(action==='causal-offset-delete-confirm')task=this.removeCausalOffsetRecord(name);
+                else if(action==='causal-offset-delete-cancel')this.cancelCausalOffsetDelete(button);
+                if(task)Promise.resolve(task).catch(error=>{
                     const message=String(error?.message||error||'因果偏移操作失败');
                     const toast=this.host?.toastr||this.env?.toastr;
                     if(toast?.error)toast.error(message,'因果偏移');else try{console.error('[因果偏移]',error);}catch(_){}

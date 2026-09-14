@@ -20,10 +20,6 @@ jobs:
         run: python tools/patch-world-time-ownership.py
       - name: Sync settlement character lifecycle
         run: python tools/patch-settlement-character-lifecycle.py
-      - name: Sync editable world system prompts
-        run: python tools/patch-editable-world-system-prompts.py
-      - name: Sync editable prompt apply path
-        run: python tools/fix-editable-prompt-apply.py
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax check

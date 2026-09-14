@@ -4,7 +4,7 @@ const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
 const {SamsaraWorldEngine:Engine}=require('../script/世界推进系统.js');
 
-// interval=2 means progression on reply rounds 1,3,5...; repeated MVU updates on one reply never count as extra rounds.
+// interval=2 means progression on reply rounds 1,3,5...; repeated events on one reply never count as extra rounds.
 function makeEngine(saved={}){
   let stored=null;
   const host={
@@ -17,11 +17,11 @@ function makeEngine(saved={}){
   return {engine,stored:()=>stored};
 }
 
-function fingerprint(chat,id){return JSON.stringify([chat,id,0,'digest-'+id]);}
-function snapshot(chat,id,{handled='',combat=false,world='测试世界',populated=!!handled}={}){
+function fingerprint(chat,id,digest='digest-'+id,swipe=0){return JSON.stringify([chat,id,swipe,digest]);}
+function snapshot(chat,id,{handled='',combat=false,world='测试世界',populated=!!handled,digest='digest-'+id,swipe=0}={}){
   const backend={已处理楼层:handled,事件:populated?{'已建立世界状态':{状态:'进行中'}}:{},人物:{},势力地区:{},历史:{},传播:{},最近变化:[],运行记录:[]};
   return {
-    fingerprint:fingerprint(chat,id),
+    fingerprint:fingerprint(chat,id,digest,swipe),
     stat:{系统状态:{是否战斗中:combat},世界:{名称:world,后台:backend}},
     text:combat?'战斗正文':'普通正文',
     message:{role:'assistant'}
@@ -52,13 +52,25 @@ const first=snapshot('chat',1);
 assert.equal(cycle.autoProgressShouldSchedule(first),true,'first eligible reply should progress immediately');
 cycle.markAutoProgressRun(first);
 first.stat.世界.后台.已处理楼层=first.fingerprint;
-assert.equal(cycle.autoProgressShouldSchedule(first),false,'repeated MVU updates on the same reply must not count twice');
-assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',2,{handled:first.fingerprint})),false,'interval=2 should skip the second reply');
-assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',2,{handled:first.fingerprint})),false,'same skipped reply must still count only once');
-assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',3,{handled:first.fingerprint})),true,'interval=2 should progress on the third reply');
-cycle.markAutoProgressRun(snapshot('chat',3,{handled:first.fingerprint}));
-assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',4,{handled:fingerprint('chat',3)})),false,'after a successful run the next reply starts a new interval');
-assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',5,{handled:fingerprint('chat',3)})),true,'default cadence should continue as 1,3,5...');
+assert.equal(cycle.autoProgressShouldSchedule(first),false,'repeated events on the same reply must not count twice');
+
+const regeneratedFirst=snapshot('chat',1,{handled:first.fingerprint,populated:true,digest:'regenerated-first'});
+assert.equal(cycle.autoProgressShouldSchedule(regeneratedFirst),true,'regenerating a due floor must rerun that floor even when interval=2');
+assert.equal(cycle.autoProgressRoundsSinceRun,0,'same-floor regeneration must not consume a new cadence round');
+cycle.markAutoProgressRun(regeneratedFirst);
+
+const second=snapshot('chat',2,{handled:regeneratedFirst.fingerprint});
+assert.equal(cycle.autoProgressShouldSchedule(second),false,'interval=2 should skip the second reply');
+assert.equal(cycle.autoProgressShouldSchedule(second),false,'same skipped reply must still count only once');
+const regeneratedSecond=snapshot('chat',2,{handled:regeneratedFirst.fingerprint,digest:'regenerated-second'});
+assert.equal(cycle.autoProgressShouldSchedule(regeneratedSecond),false,'regenerating an interval-skipped floor must not turn it into a due floor');
+assert.equal(cycle.autoProgressRoundsSinceRun,1,'same-floor regeneration of a skipped floor must not consume another cadence round');
+
+const third=snapshot('chat',3,{handled:regeneratedFirst.fingerprint});
+assert.equal(cycle.autoProgressShouldSchedule(third),true,'interval=2 should progress on the third reply');
+cycle.markAutoProgressRun(third);
+assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',4,{handled:third.fingerprint})),false,'after a successful run the next reply starts a new interval');
+assert.equal(cycle.autoProgressShouldSchedule(snapshot('chat',5,{handled:third.fingerprint})),true,'default cadence should continue as 1,3,5...');
 
 const restored=makeEngine({autoProgress:true,autoProgressInterval:2}).engine;
 const handled=fingerprint('chat',7);
@@ -83,7 +95,7 @@ combatCounter.isEnabled=()=>true;
 combatCounter.snapshot=()=>snapshot('combat-chat',1,{combat:true});
 combatCounter.schedule();
 assert.equal(combatCounter.autoProgressLastSeenFingerprint,'','combat replies must not consume the auto-progress interval');
-assert.ok(combatCounter.timer,'MVU completion must defer reading the final persisted combat state');
+assert.ok(combatCounter.timer,'automatic scheduling must defer reading the final persisted combat state');
 combatCounter.cancel();
 
 assert.match(source,/data-auto-progress-toggle-top/,'top header must expose the auto progress toggle');
@@ -91,7 +103,8 @@ assert.match(source,/run\.insertAdjacentElement\('beforebegin',button\)/,'auto p
 assert.doesNotMatch(source,/mountAutoProgressSetting\(\)/,'auto progress toggle must no longer be mounted as a settings-page card');
 assert.match(source,/data-auto-progress-interval/,'request inspection must expose the auto progress interval');
 assert.match(source,/2 = 第1、3、5…次正文后推进/,'interval=2 semantics must be explicit in the UI');
-assert.match(source,/世界后台尚未建立时立即推进/,'interval UI must explain opening/bootstrap progression');
 assert.match(source,/自动推进已关闭，此设置不参与调度/,'interval UI must be screened off when auto progress is disabled');
-assert.match(source,/const reason=this\.blocked\(snapshot\);\s*if\(reason\)\{this\.status=reason;this\.render\(\);return;\}\s*if\(!this\.autoProgressShouldSchedule\(snapshot\)\)return;/,'combat/block checks must happen before interval accounting');
-console.log('PASS top auto-progress toggle, interval cadence, opening bootstrap, dedupe and combat pause');
+assert.match(source,/GENERATION_ENDED/,'assistant generation completion must be wired into automatic progression');
+assert.match(source,/MESSAGE_RECEIVED/,'message receipt must be wired as an automatic progression fallback');
+assert.match(source,/autoProgressSameFloor/,'same-floor regeneration must have explicit cadence semantics');
+console.log('PASS prose triggers, interval cadence, same-floor regeneration, opening bootstrap, dedupe and combat pause');

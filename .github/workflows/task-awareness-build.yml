@@ -24,6 +24,8 @@ jobs:
         run: node tests/task-settlement-simplified.cjs
       - name: Settlement shop coin persistence regression
         run: node tests/settlement-shop-coin-persistence.cjs
+      - name: Settlement message marker regression
+        run: node tests/settlement-message-marker.cjs
       - name: Settlement current panel regression
         run: node tests/settlement-current-panel-regression.cjs
       - name: Settlement status alias regression

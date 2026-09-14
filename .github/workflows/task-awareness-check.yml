@@ -16,6 +16,8 @@ jobs:
           python-version: '3.12'
       - name: Build delivery
         run: python tools/build-world-engine.py
+      - name: Dedicated API preset selection regression
+        run: node tests/world-engine-api-preset-selection.cjs
       - name: Exploration pruning regression
         run: node tests/world-engine-exploration-prune.cjs
       - name: Simplified task settlement regression

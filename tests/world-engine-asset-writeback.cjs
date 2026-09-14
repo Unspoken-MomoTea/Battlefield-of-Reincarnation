@@ -142,7 +142,6 @@ assert.throws(() => compileWorldResult(next, {
   资产: [{ 名称: '测试消耗品', 类型: '消耗品', 所属对象: ['<user>'] }],
 }), /新资产类型非法/, '新资产不得使用消耗品等非法类型');
 
-
 const projected = projectWorldContext(next);
 assert.deepEqual(projected.资产.远征堡.所属对象, ['白银之手'], '世界引擎上下文必须看到势力资产与归属');
 assert.ok(projected.资产.南门前线要塞, '世界引擎必须读取非玩家资产');
@@ -164,10 +163,13 @@ const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
 
 assert.match(zod, /const assetOwners[\s\S]{0,220}z\.array\(z\.string\(\)\)/, '旧资产所属对象应兼容迁移为数组');
 assert.match(zod, /所属对象:\s*assetOwners/, '资产 Schema 应使用所属对象数组规范器');
-assert.match(mvuRules, /所属对象:[\s\S]{0,260}string\[\][\s\S]{0,260}(?:多个对象|共同持有|共管|空数组)/, '变量规则必须定义多主体/无主资产归属');
+const ownerRuleMatch = mvuRules.match(/所属对象:\s*\n\s*type:\s*string\[\]\s*\n\s*check:\s*([^\n]+)/);
+assert.ok(ownerRuleMatch, '变量规则必须把所属对象定义为 string[]');
+assert.match(ownerRuleMatch[1], /(?:多人|多主体|多个对象|共同持有|共属|共管)/, '变量规则必须支持多主体资产归属');
+assert.match(ownerRuleMatch[1], /(?:无主[^\n]*(?:\[\]|空数组)|(?:\[\]|空数组)[^\n]*无主)/, '变量规则必须定义 [] 为无主资产');
 assert.match(assetRules, /所属对象[\s\S]{0,320}字符串数组[\s\S]{0,320}(?:多方共管|空数组|无主)/, '资产规则必须定义数组、多主体与无主归属');
-assert.match(assetRules, /普通道具、药剂、材料、消耗品/, '资产规则必须明确禁止普通物品入账');
-assert.match(mvuRules, /资产仅限固定地产、大型载具或要塞/, '普通变量 AI 也必须遵守资产边界');
+assert.match(assetRules, /资产类型协议:[\s\S]{0,260}固定地产:[\s\S]{0,260}大型载具或要塞:/, '资产规则必须把资产范围收敛到固定地产与大型载具/要塞');
+assert.match(mvuRules, /遵照<资产与载具规则>/, '普通变量 AI 必须复用资产边界');
 assert.match(source, /WorldResult\.资产|资产账簿/, '世界引擎提示词必须明确资产写入职责');
 assert.match(source, /场外[^\n]{0,160}资产[^\n]{0,160}(?:新增|更新|移除|转移)|资产[^\n]{0,160}(?:新增|更新|移除|转移)/, 'Prompt 应允许世界引擎维护资产变化');
 assert.match(source, /version:19,\n        builtin:true,\n        name:'默认设置'/, '资产边界收紧应升级内置默认提示词到 v19');

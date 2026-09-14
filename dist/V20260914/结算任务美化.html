@@ -738,6 +738,65 @@
           }
           // SETTLEMENT_COIN_WRITE_GUARD_END
 
+          // SETTLEMENT_COIN_MESSAGE_MARKER_START
+          const SETTLEMENT_COIN_MESSAGE_MARKER_KEY = '__samsara_settlement_coin_applied';
+
+          function settlementMessageVarHost(win) {
+            const candidates = [];
+            if (win) candidates.push(win);
+            try { if (typeof window !== 'undefined' && window && !candidates.includes(window)) candidates.push(window); } catch (e) {}
+            try {
+              if (typeof window !== 'undefined' && window && window.parent && !candidates.includes(window.parent)) {
+                candidates.push(window.parent);
+              }
+            } catch (e) {}
+            for (const candidate of candidates) {
+              if (candidate && typeof candidate.getMessageVar === 'function' && typeof candidate.setMessageVar === 'function') {
+                return candidate;
+              }
+            }
+            return null;
+          }
+
+          function settlementMessageVarOptions(messageId, defaults) {
+            const numericId = Number(messageId);
+            const withMsg = Number.isInteger(numericId) && numericId >= 0
+              ? { id: numericId }
+              : { role: 'assistant' };
+            const options = { withMsg: withMsg, noCache: true };
+            if (arguments.length > 1) options.defaults = defaults;
+            return options;
+          }
+
+          function readSettlementCoinMessageMarker(win, messageId) {
+            const host = settlementMessageVarHost(win);
+            if (!host) return '';
+            try {
+              return String(host.getMessageVar(
+                SETTLEMENT_COIN_MESSAGE_MARKER_KEY,
+                settlementMessageVarOptions(messageId, '')
+              ) || '');
+            } catch (e) {
+              return '';
+            }
+          }
+
+          function writeSettlementCoinMessageMarker(win, messageId, marker) {
+            const host = settlementMessageVarHost(win);
+            if (!host) return false;
+            try {
+              host.setMessageVar(
+                SETTLEMENT_COIN_MESSAGE_MARKER_KEY,
+                String(marker || ''),
+                settlementMessageVarOptions(messageId)
+              );
+              return true;
+            } catch (e) {
+              return false;
+            }
+          }
+          // SETTLEMENT_COIN_MESSAGE_MARKER_END
+
           function clonePlain(value) {
             try {
               if (typeof _ !== 'undefined' && _ && _.cloneDeep) return _.cloneDeep(value);
@@ -790,6 +849,35 @@
           let achievementBaselineData = null;
           let achievementUsedFallback = false;
 
+          // SETTLEMENT_PANEL_TARGET_START
+          function normalizeSettlementComparableText(value) {
+            return String(value || '').replace(/\r/g, '').replace(/\s+/g, ' ').trim();
+          }
+
+          function latestChatMessage(win) {
+            try {
+              const getMsgs = (typeof getChatMessages === 'function')
+                ? getChatMessages
+                : (win && typeof win.getChatMessages === 'function' ? win.getChatMessages.bind(win) : null);
+              const list = getMsgs ? getMsgs(-1) : null;
+              return list && list[0] ? list[0] : null;
+            } catch (e) {}
+            return null;
+          }
+
+          function latestChatMessageId(message) {
+            const raw = message && (message.message_id != null ? message.message_id : message.id);
+            const id = Number(raw);
+            return Number.isInteger(id) && id >= 0 ? id : null;
+          }
+
+          function panelTextBelongsToMessage(panelText, message) {
+            const panel = normalizeSettlementComparableText(panelText);
+            const body = normalizeSettlementComparableText(message && (message.message != null ? message.message : (message.mes != null ? message.mes : message.content)));
+            return !!panel && !!body && body.indexOf(panel) >= 0;
+          }
+          // SETTLEMENT_PANEL_TARGET_END
+
           function getPanelMessageId(win) {
             const getters = [];
             try { if (typeof getCurrentMessageId === 'function') getters.push(function() { return getCurrentMessageId(); }); } catch (e) {}
@@ -805,6 +893,14 @@
                 if (Number.isInteger(id) && id >= 0) return id;
               } catch (e) {}
             }
+
+            // 酒馆正则 iframe 中 getCurrentMessageId 可能不可用；只有当前面板原文确实属于 latest 消息时才安全回落。
+            try {
+              const raw = wrapper && wrapper.querySelector ? wrapper.querySelector('.st-raw') : null;
+              const panelText = raw ? raw.textContent : '';
+              const latest = latestChatMessage(win);
+              if (panelTextBelongsToMessage(panelText, latest)) return latestChatMessageId(latest);
+            } catch (e) {}
             return null;
           }
 
@@ -1012,7 +1108,10 @@
             }, 0);
           }
 
-          let trialTasks = readTrialTasks();
+          const settlementBaselineData = readSettlementBaselineData();
+          // 结算核验优先使用结算前任务快照，避免当前结算楼层的 MVU 快照与 EJS 已生成结果不同步。
+          let trialTasks = extractTrialTasks(settlementBaselineData);
+          if (!trialTasks.length) trialTasks = readTrialTasks();
           let bestTrialScore = trialScore(trialTasks);
           let settlementWriteBusy = false;
           let settlementWritePending = false;
@@ -1027,12 +1126,7 @@
             });
           }
 
-          const settlementBaselineData = readSettlementBaselineData();
           // 当正文变量已经清掉任务，仍从结算前快照核验；不以正文“已晋升”代替完成状态。
-          if (!trialTasks.length) {
-            trialTasks = extractTrialTasks(settlementBaselineData);
-            bestTrialScore = trialScore(trialTasks);
-          }
           const settlementTaskKeys = readSettlementTaskKeys(settlementBaselineData);
           const spaceCoinSettlement = calculateSpaceCoinSettlement(settlementBaselineData);
           // 固定结算前的角色层级，防止旧结算面板为已经普升的层级重复授予资格。
@@ -1527,14 +1621,41 @@
           function isLatestPanelMessage(win, targetMessageId) {
             if (targetMessageId === null || targetMessageId === undefined) return false;
             try {
-              const getMsgs = (typeof getChatMessages === 'function')
-                ? getChatMessages
-                : (win && typeof win.getChatMessages === 'function' ? win.getChatMessages.bind(win) : null);
-              const latest = getMsgs ? getMsgs(-1)[0] : null;
-              const latestId = latest && (latest.message_id != null ? latest.message_id : latest.id);
+              const latestId = latestChatMessageId(latestChatMessage(win));
               return latestId != null && Number(latestId) === Number(targetMessageId);
             } catch (e) {}
             return false;
+          }
+
+          function settlementTextFingerprint(value) {
+            const source = normalizeSettlementComparableText(value);
+            let hash = 2166136261;
+            for (let i = 0; i < source.length; i++) {
+              hash ^= source.charCodeAt(i);
+              hash = Math.imul(hash, 16777619);
+            }
+            return (hash >>> 0).toString(36);
+          }
+
+          function resolveSettlementMessageTarget(win, panelText) {
+            const panelMessageId = getPanelMessageId(win);
+            if (panelMessageId !== null) {
+              return {
+                targetMessageId: panelMessageId,
+                marker: String(panelMessageId),
+                isLatestPanel: isLatestPanelMessage(win, panelMessageId)
+              };
+            }
+
+            // 极少数环境连 latest 的数字ID都不给：仅当 latest 原文完整包含当前面板结算文本时允许写 latest。
+            const latest = latestChatMessage(win);
+            if (!panelTextBelongsToMessage(panelText, latest)) return null;
+            const latestId = latestChatMessageId(latest);
+            return {
+              targetMessageId: 'latest',
+              marker: latestId !== null ? String(latestId) : ('text:' + settlementTextFingerprint(panelText)),
+              isLatestPanel: true
+            };
           }
 
           function applySettlementFinalization(c, isLatestPanel) {
@@ -1595,6 +1716,15 @@
               setValue(world, '探索', {});
               // 与副本缓存同生命周期，避免后台事件跨副本继承。
               setValue(world, '后台', {});
+
+              // 普通副本离开当前世界时，关系人物也必须遵循世界生命周期。
+              // 只有明确建立组队关系的正式队友可跨世界保留；高好感、仍在场或普通关系都不是保留条件。
+              const relations = ensureObject(stat, '关系列表');
+              Object.keys(relations).forEach(function(name) {
+                const npc = relations[name];
+                if (!npc || npc.是否队友 !== true) delete relations[name];
+              });
+
               setValue(world, '势力', {});
               setValue(world, '稳定', 100);
               const radar = ensureObject(world, '异端雷达');
@@ -1651,33 +1781,32 @@
             try {
               const win = window.parent || window;
               if (!win.Mvu || !win._ || !win._.set) return;
-              const panelMessageId = getPanelMessageId(win);
-              // 无法确认面板所属楼层时只展示，不允许把历史结算误写到 latest。
-              if (panelMessageId === null) return;
-              const targetMessageId = panelMessageId;
-              const isLatestPanel = isLatestPanelMessage(win, targetMessageId);
+              const settlementTarget = resolveSettlementMessageTarget(win, rawText);
+              if (!settlementTarget) return;
+              const targetMessageId = settlementTarget.targetMessageId;
+              const isLatestPanel = settlementTarget.isLatestPanel;
               const c = win.Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
               if (!c) return;
               const settlementStat = c.stat_data || c;
               const isSingleWorldSettlement = !!(settlementStat.设置 && settlementStat.设置.单一世界 === true);
-              if (isLatestPanel && isFullSettlement(rawText) && trialTasks.some(function(task){return !isSettlementTaskTerminal(task.status);})) return;
 
+              // 未完成的晋升试炼只阻止晋升资格与最终清理；已完成主神任务的空间币/凭证/战利品仍正常结算。
               let changed = false;
+              let settlementCoinMarkerPending = null;
               if (!settlementCoinWriteDone && isLatestPanel && isFullSettlement(rawText) && settlementStat.角色) {
-                const sys = settlementStat.系统状态 && typeof settlementStat.系统状态 === 'object'
-                  ? settlementStat.系统状态
-                  : (settlementStat.系统状态 = {});
-                const settlementMarker = String(panelMessageId);
-                const recordedMarker = String(sys.结算空间币记录 || '');
+                const settlementMarker = String(settlementTarget.marker || targetMessageId);
+                const recordedMarker = readSettlementCoinMessageMarker(win, targetMessageId);
                 settlementCoinWriteDone = true;
                 if (recordedMarker !== settlementMarker) {
                   const currentCoin = Number(settlementStat.角色.空间币);
                   const nextCoin = settlementCoinWriteTarget(currentCoin, spaceCoinSettlement);
-                  if (nextCoin !== null) settlementStat.角色.空间币 = nextCoin;
-                  // 无论首次执行时余额是结算前值、已结算值还是已经发生商城消费，
-                  // 都记录该结算楼层已处理。这样旧档升级后也不会因刷新再次退款。
-                  sys.结算空间币记录 = settlementMarker;
-                  changed = true;
+                  if (nextCoin !== null) {
+                    settlementStat.角色.空间币 = nextCoin;
+                    changed = true;
+                  }
+                  // 标记保存在当前结算消息自己的 message variable 中，不进入 stat_data。
+                  // 即使旧档已经结算或已经商城消费，也补记该消息，避免极端余额碰撞导致二次结算。
+                  settlementCoinMarkerPending = settlementMarker;
                 }
               }
               function exists(path) {
@@ -1815,11 +1944,19 @@
               }
               if (applySettlementFinalization(c, isLatestPanel)) changed = true;
 
-              if (!changed) return;
+              if (!changed) {
+                if (settlementCoinMarkerPending !== null) {
+                  writeSettlementCoinMessageMarker(win, targetMessageId, settlementCoinMarkerPending);
+                }
+                return;
+              }
               await win.Mvu.replaceMvuData(c, { type: 'message', message_id: targetMessageId });
 
               if (isLatestPanel) {
                 try { await win.Mvu.replaceMvuData(c, { type: 'chat' }); } catch (e3) {}
+              }
+              if (settlementCoinMarkerPending !== null) {
+                writeSettlementCoinMessageMarker(win, targetMessageId, settlementCoinMarkerPending);
               }
             } catch (e) { console.warn('结算任务写入数据库失败:', e); }
             finally {

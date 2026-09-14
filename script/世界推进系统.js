@@ -6037,11 +6037,11 @@ ${schemaText}`;
     const WORLD_TIME_RULES=`【世界时间所有权】
 1. 世界.时间由世界推进独占维护。WorldResult 顶层“时间”用于初始化或推进当前世界时间；不要通过人物更新时间、事件未来时间或其他字段间接代替世界时钟。
 2. 当前世界时间为空或“待初始化”时，本轮必须根据最新正文与明确时间资料建立一个可理解的当前时间锚点。能确定具体日期/时段就写具体值；只能确定季节、阶段或时段时保留该精度，禁止为了格式完整凭空编造更精确日期。
-3. 任何字段只要已经精确到某月某日，都必须使用程序可解析的数字月日格式，例如“帝历1024年-09月-12日-下午”。纪年名称可保留，但月份必须写数字；禁止“枯叶之月/寒风之月/第12日”这类人类可读却无法定位数字月份的日期。此规则同时适用于顶层“时间”、事件时间、历史时间、传播时间、地区近期变化等。若只能确定“1024年秋”这类粗粒度时间，则保留粗粒度，不要编造月日。
+3. 任何字段只要已经精确到某月某日，都必须使用程序可解析的数字月日格式：{yyy}年-{mm}月-{dd}日-{时间段}。纪年名称可保留在年份前，但月份必须写数字；禁止用自定义月份名称或“第12日”替代数字月日。此规则同时适用于顶层“时间”、事件时间、历史时间、传播时间、地区近期变化等。只能确定季节/阶段时就保留粗粒度，不要编造月日。
 4. 当前世界时间已有值时，只有正文明确发生了时间流逝才提交“时间”；没有实际经过时间就省略该字段并保持原值。禁止倒退时钟，禁止把待发生事件的计划时间提前写成当前时间。
 5. 人物/地区等“更新时间”属于派生时间戳。模型负责事实内容，程序会用本轮最终世界时间统一盖章；无需反复抄写世界时间。`;
 
-    const MACHINE_TIME_DESCRIPTION='精确到月日时必须使用数字月日，例如“帝历1024年-09月-12日-下午”；只能确定季节/阶段时可保留粗粒度。';
+    const MACHINE_TIME_DESCRIPTION='精确到月日时使用 {yyy}年-{mm}月-{dd}日-{时间段}；只能确定季节/阶段时可保留粗粒度。';
     WORLD_RESULT_SCHEMA.properties.时间={type:'string',minLength:1,description:'当前世界时间。'+MACHINE_TIME_DESCRIPTION};
     if(EVENT_RESULT_SCHEMA?.properties){
         for(const key of ['时间','开始时间','预计结束','更新时间','下次检查'])if(EVENT_RESULT_SCHEMA.properties[key])EVENT_RESULT_SCHEMA.properties[key].description=MACHINE_TIME_DESCRIPTION;
@@ -6065,7 +6065,7 @@ ${schemaText}`;
         const raw=String(value??'').trim();
         if(!worldTimeClaimsMonthDay(raw))return;
         if(calendarDate(raw,worldTimeCalendarFor(stat,result)))return;
-        throw new Error(label+'格式无法用于日历：'+raw+'。精确到月日时请使用数字月份，例如“帝历1024年-09月-12日-下午”；不要用月份名称替代数字月。');
+        throw new Error(label+'格式无法用于日历：'+raw+'。精确到月日时请使用 {yyy}年-{mm}月-{dd}日-{时间段}；不要用月份名称替代数字月。');
     }
     function assertCalendarCompatibleWorldResultTimes(stat,result) {
         const temporalKeys=new Set(['时间','开始时间','预计结束','更新时间','到期时间','下次检查','开始','结束','期限','获知时间']);
@@ -6164,7 +6164,7 @@ ${schemaText}`;
                     当前时间:String(base?.stat?.世界?.时间||''),
                     是否需要初始化:worldTimeUnset(base?.stat?.世界?.时间),
                     所有权:'世界推进独占写入；变量 AI 只读',
-                    精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就必须数字化，例如“帝历1024年-09月-12日-下午”。禁止用“枯叶之月/寒风之月”等月份名称替代数字月。'
+                    精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须是数字；不要用自定义月份名称替代数字月。'
                 };
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}

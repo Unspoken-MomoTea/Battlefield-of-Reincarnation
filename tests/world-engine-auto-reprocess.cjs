@@ -62,6 +62,29 @@ function setup(){
   assert.equal(opening.calls(),1,'第二楼开局：后台为空时，即使继承同聊天旧处理标记也必须立即自动推进');
   opening.engine.dispose();
 
+  // 真实 MVU“重新处理变量”顺序：先清掉当前楼层 stat_data/schema，但保留未知 root 字段；
+  // 然后 VARIABLE_UPDATE_ENDED 在最终变量写回当前楼层之前触发。若世界引擎刚加载、没有内存轮次，
+  // 最终回退到上一楼层的已处理标记和已有后台内容，旧逻辑会误判 interval=2 的当前楼层应跳过。
+  const actual=setup();
+  const currentBase=actual.fresh();
+  actual.write(currentBase);
+  const currentFingerprint=actual.engine.snapshot().fingerprint;
+  const processed=actual.fresh();
+  processed.stat_data.世界.后台.事件={'当前楼已推进':{状态:'进行中'}};
+  processed.stat_data.世界.后台.已处理楼层=currentFingerprint;
+  processed.__samsaraWorldCommit=currentFingerprint;
+  actual.write(processed);
+  const rebuilt=actual.fresh();
+  rebuilt.stat_data.世界.后台.事件={'上一楼遗留事件':{状态:'进行中'}};
+  rebuilt.stat_data.世界.后台.已处理楼层=JSON.stringify(['auto-reprocess',0,0,'previous-floor']);
+  rebuilt.__samsaraWorldCommit=currentFingerprint;
+  actual.write({__samsaraWorldCommit:currentFingerprint});
+  actual.emit(rebuilt,processed);
+  actual.write(rebuilt);
+  await actual.flush();
+  assert.equal(actual.calls(),1,'真实重新处理变量：当前楼层先被清空再重建时，必须根据保留的世界提交标记强制重修当前楼层');
+  actual.engine.dispose();
+
   const x=setup();
   const original=x.fresh();
   // MVU 发出完成事件时，本楼层 stat_data 尚未写回。
@@ -116,5 +139,5 @@ function setup(){
   x.next();x.emit(x.read());x.switchChat();await x.flush();
   assert.equal(x.calls(),6,'聊天切换取消待执行的旧聊天任务');
   x.engine.dispose();assert.equal(x.timers.size,0);
-  console.log('PASS opening bootstrap, automatic progression after MVU reprocessing, persistence timing, cadence and loop guards');
+  console.log('PASS opening bootstrap, real MVU reprocess timing, automatic progression after MVU reprocessing, persistence timing, cadence and loop guards');
 })().catch(error=>{console.error(error);process.exitCode=1;});

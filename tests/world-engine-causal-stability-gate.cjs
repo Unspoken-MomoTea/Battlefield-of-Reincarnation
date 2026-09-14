@@ -21,7 +21,7 @@ function fresh(){
     引发者:'袜柱',影响程度:-1
   }]}});
   const next=applyPatches(stat,compiled.patches);
-  assert.deepEqual(next.世界.因果轨道.偏移记录,{},'位置暴露、敌人提前感知、初期生存难度等局部后果不得进入世界稳定台账');
+  assert.deepEqual(next.世界.因果轨道.偏移记录,{},'异端知道玩家位置、敌人提前感知、生存难度变化都只是战术后果，不得进入世界稳定台账');
 }
 
 {
@@ -44,6 +44,17 @@ function fresh(){
   }]}});
   const next=applyPatches(stat,compiled.patches);
   assert.equal(next.世界.因果轨道.偏移记录['跨世界污染扩散'].影响程度,-1,'-1 只应在真实异常污染等世界尺度锚点下成立');
+}
+
+{
+  const stat=fresh();
+  const compiled=compileWorldResult(stat,{摘要:'异端清除形成真实修复',因果:{偏移记录:[{
+    名称:'跨世界干涉源清除',
+    描述:'主要异端已经全部清除，跨世界干涉因此消失，世界主线恢复原有可行性。',
+    引发者:'轮回者团队',影响程度:5
+  }]}});
+  const next=applyPatches(stat,compiled.patches);
+  assert.equal(next.世界.因果轨道.偏移记录['跨世界干涉源清除'].影响程度,5,'异端死亡本身不自动加分，但若确实清除了跨世界干涉并修复世界结构，可以形成正向稳定偏移');
 }
 
 {

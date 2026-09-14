@@ -5957,6 +5957,82 @@ ${schemaText}`;
             return request;
         }
     };
+    // 稳定度因果闸门：只有已实现的“世界本身长期变化”才允许进入稳定台账；玩家战术处境、异端获知情报等局部后果直接忽略。
+    const CAUSAL_WORLD_SCALE_HINTS=[
+        /(?:关键人物|核心人物|重要人物|关键角色|核心角色).{0,28}(?:命运|死亡|阵亡|被杀|永久|不可逆|退场|失去|背叛|被捕|失踪|改写|改变|修复)/,
+        /(?:死亡|阵亡|被杀|永久|不可逆|退场|被捕|失踪|改写|改变|修复).{0,28}(?:关键人物|核心人物|重要人物|关键角色|核心角色)/,
+        /(?:重大|关键|宏观|主线).{0,8}(?:事件|节点|战役|战争|仪式|计划|灾难).{0,32}(?:改变|改写|失败|成功|取消|终止|提前|延后|崩溃|完成|毁灭|修复|失效)/,
+        /(?:势力|阵营|政权|国家|帝国|王国|组织|军团|城市|地区).{0,32}(?:格局|覆灭|崩溃|瓦解|分裂|易主|政变|失守|沦陷|吞并|解体|重组|修复)/,
+        /(?:主线|故事线|世界格局|下一节点|原定(?:走向|结局)).{0,32}(?:改变|改写|断裂|失效|无法|偏离|重构|修复|恢复)/,
+        /(?:异常污染|跨世界污染|污染|世界裂隙|跨世界异常|异常侵蚀|世界侵蚀).{0,32}(?:扩大|扩散|蔓延|加剧|持续|清除|消除|修复|收束|封闭)/,
+        /(?:异端|入侵者).{0,28}(?:全部|彻底|主要|核心).{0,16}(?:清除|消灭|死亡|覆灭).{0,36}(?:跨世界干涉|异常污染|世界裂隙|世界结构|主线|世界格局).{0,24}(?:消失|解除|恢复|修复|收束|封闭)/,
+        /(?:跨世界干涉|异常污染|世界裂隙|世界结构|主线|世界格局).{0,24}(?:因|由于).{0,20}(?:异端|入侵者).{0,24}(?:清除|消灭|死亡|覆灭).{0,20}(?:消失|解除|恢复|修复|收束|封闭)/,
+        /(?:不可逆|永久).{0,20}(?:命运|主线|重大事件|关键事件|势力格局|世界格局)/
+    ];
+    const CAUSAL_CLEAR_LOCAL_HINT=/(?:位置(?:暴露|泄露|被发现|被感知)|被(?:敌人|异端|对手).{0,16}(?:发现|察觉|感知|盯上|追踪|锁定)|异端.{0,16}(?:知道|获知|发现|察觉|感知).{0,16}(?:玩家|轮回者|位置|行踪|能力|身份)|提前感知|引起警觉|提高.{0,10}难度|增加.{0,10}难度|生存难度|行动难度|追杀压力|短期.{0,8}(?:困难|不利)|局部战斗|普通战斗|受伤|轻伤|逃脱|脱险|暂时受阻|临时受阻)/;
+    function causalOffsetHasWorldScaleEvidence(item) {
+        const text=causalOffsetText(item);
+        return !!text&&CAUSAL_WORLD_SCALE_HINTS.some(rule=>rule.test(text));
+    }
+    function filterNewCausalOffsetsByWorldScale(stat,result) {
+        const items=result?.因果?.偏移记录;
+        if(!Array.isArray(items)||!items.length)return [];
+        const existing=stat?.世界?.因果轨道?.偏移记录||{},dropped=[];
+        result.因果.偏移记录=items.filter(item=>{
+            if(!plain(item)||item.操作==='撤销本轮')return true;
+            if(stableNameIn(existing,item.名称))return true;
+            if(causalOffsetHasWorldScaleEvidence(item))return true;
+            dropped.push(item.名称);
+            return false;
+        });
+        return dropped;
+    }
+    function staleLocalCausalOffsetRepairs(stat,result) {
+        const bucket=stat?.世界?.因果轨道?.偏移记录||{},protectedNames=new Set();
+        for(const item of result?.因果?.偏移记录||[]){
+            if(plain(item)&&causalOffsetHasWorldScaleEvidence(item))protectedNames.add(nameKey(item.名称));
+        }
+        const patches=[],names=[];
+        for(const [name,record] of Object.entries(bucket)){
+            const impact=Number(record?.影响程度)||0;
+            if(!impact||protectedNames.has(nameKey(name)))continue;
+            const text=causalOffsetText(Object.assign({名称:name},record));
+            if(!CAUSAL_CLEAR_LOCAL_HINT.test(text)||CAUSAL_WORLD_SCALE_HINTS.some(rule=>rule.test(text)))continue;
+            patches.push({op:'remove',path:pointer(['世界','因果轨道','偏移记录',name])});
+            names.push(name);
+        }
+        return {patches,names};
+    }
+
+    const compileWorldResultBeforeCausalStabilityGate=compileWorldResult;
+    compileWorldResult=function(stat,value) {
+        const result=normalizeWorldResult(value);
+        const dropped=filterNewCausalOffsetsByWorldScale(stat,result);
+        const compiled=compileWorldResultBeforeCausalStabilityGate(stat,result);
+        const repairs=staleLocalCausalOffsetRepairs(stat,result);
+        const occupied=new Set(compiled.patches.map(patch=>patch.path));
+        for(const patch of repairs.patches)if(!occupied.has(patch.path))compiled.patches.push(patch);
+        if(dropped.length)compiled.warnings.push('忽略非世界尺度因果偏移：'+dropped.join('、'));
+        if(repairs.names.length)compiled.warnings.push('清理局部稳定偏移：'+repairs.names.join('、'));
+        return compiled;
+    };
+
+    // 基础补丁层只允许删除传播/传闻/资产；因果闸门需要能清理历史脏偏移。
+    // 只对“世界.因果轨道.偏移记录.<名称>”这一条精确路径做受控预删除，其余 remove 仍走原安全规则。
+    const applyPatchesBeforeCausalStabilityGate=applyPatches;
+    applyPatches=function(stat,patches) {
+        if(!Array.isArray(patches)||!patches.some(patch=>patch?.op==='remove'&&(()=>{try{const p=tokens(patch.path);return p[0]==='世界'&&p[1]==='因果轨道'&&p[2]==='偏移记录'&&p.length===4;}catch(_){return false;}})()))return applyPatchesBeforeCausalStabilityGate(stat,patches);
+        const seeded=copy(stat),rest=[];
+        for(const patch of patches){
+            let p=null;try{p=tokens(patch.path);}catch(_){}
+            if(patch?.op==='remove'&&p&&p[0]==='世界'&&p[1]==='因果轨道'&&p[2]==='偏移记录'&&p.length===4){
+                if(plain(seeded?.世界?.因果轨道?.偏移记录))delete seeded.世界.因果轨道.偏移记录[p[3]];
+                continue;
+            }
+            rest.push(patch);
+        }
+        return applyPatchesBeforeCausalStabilityGate(seeded,rest);
+    };
     // 世界时间单一所有权：世界推进 AI 负责初始化/推进世界.时间；变量 AI 的写入在事件层被回滚。
     const WORLD_TIME_RULES=`【世界时间所有权】
 1. 世界.时间由世界推进独占维护。WorldResult 顶层“时间”用于初始化或推进当前世界时间；不要通过人物更新时间、事件未来时间或其他字段间接代替世界时钟。
@@ -6534,7 +6610,7 @@ ${schemaText}`;
         }
     };
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=1;
+    const WORLD_MODULE_PROMPT_VERSION=2;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
 【执行流程】
 1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
@@ -6566,7 +6642,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         Object.freeze({key:'exploration',title:'探索台账',source:'EXPLORATION_PROJECTION_RULES',legacy:()=>[EXPLORATION_PROJECTION_RULES],fallback:`【玩家探索投影硬约束】
 <user>实际到达整体区域时探索度至少10%；远方后台地区不自动记入；离开后保留已有探索。`}),
         Object.freeze({key:'integrity',title:'因果与事实时间',source:'WORLD_INTEGRITY_GUARD_RULES',legacy:()=>[WORLD_INTEGRITY_GUARD_RULES],fallback:`【因果偏移与时间约束】
-当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局或主线可行性的长期变化；计划、风险、能力上限不记。同根因优先更新同一条，普通变化不记；稳定值由程序汇总。`}),
+当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化；位置暴露、敌人警觉、受伤、逃脱、行动/生存难度变化等局部后果不记。计划、风险、能力上限不记；同根因优先更新同一条，稳定值由程序汇总。`}),
         Object.freeze({key:'worldTime',title:'世界时间',source:'WORLD_TIME_RULES',legacy:()=>[WORLD_TIME_RULES],fallback:`【世界时间所有权】
 世界.时间由世界推进维护：为空时据已确认资料初始化；正文没有实际时间流逝就不改。精确到月日必须用数字月日（如“帝历1024年-09月-12日-下午”）；不确定则保留粗粒度，不编造。不得回退，也不得把未来事件时间当当前时间。人物/地区更新时间由程序统一盖章。`}),
         Object.freeze({key:'rumor',title:'传闻与传播',source:'RUMOR_THROTTLE_RULES / RUMOR_WORLD_SOURCE_RULES',legacy:()=>[RUMOR_LIVELINESS_RULES,RUMOR_THROTTLE_RULES,RUMOR_WORLD_SOURCE_RULES],fallback:`【信息传播 · 世界侧事实】
@@ -6804,6 +6880,147 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(this.tab==='世界推进')this.compactWorldOverview();
             else if(this.tab==='因果档案')this.renderCausalArchive();
             else if(this.tab==='运行记录')this.removeRunRecordInterference();
+            return result;
+        }
+    };
+    // 因果偏移手动维护：玩家可直接修正/删除偏移；写回后立即重算稳定值并同步同楼 replay。
+    function causalOffsetRecalculateStability(stat) {
+        if(!plain(stat?.世界))return null;
+        if(stat.设置?.世界超稳===true){stat.世界.稳定=100;return 100;}
+        const bucket=stat.世界?.因果轨道?.偏移记录||{};
+        const total=Object.values(plain(bucket)?bucket:{}).reduce((sum,item)=>sum+(Number(item?.影响程度)||0),0);
+        const stable=Math.max(0,Math.min(120,100+total));
+        stat.世界.稳定=stable;
+        return stable;
+    }
+    function causalOffsetReplaySamePath(left,right) {
+        return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((item,index)=>String(item)===String(right[index]));
+    }
+    function causalOffsetSyncReplay(raw,fingerprint,oldName,newName,record,deleted,stable) {
+        const replay=raw?.__samsaraWorldReplay;
+        if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return;
+        const oldPath=['世界','因果轨道','偏移记录',String(oldName||'')];
+        const newPath=['世界','因果轨道','偏移记录',String(newName||'')];
+        const stabilityPath=['世界','稳定'];
+        replay.operations=replay.operations.filter(operation=>{
+            const path=operation?.path;
+            return !causalOffsetReplaySamePath(path,oldPath)&&!causalOffsetReplaySamePath(path,newPath)&&!causalOffsetReplaySamePath(path,stabilityPath);
+        });
+        if(deleted){
+            replay.operations.push({op:'remove',path:oldPath});
+        }else{
+            if(String(oldName)!==String(newName))replay.operations.push({op:'remove',path:oldPath});
+            replay.operations.push({op:'set',path:newPath,value:copy(record)});
+        }
+        replay.operations.push({op:'set',path:stabilityPath,value:stable});
+    }
+
+    const SamsaraWorldEngineBeforeCausalOffsetEditor=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeCausalOffsetEditor {
+        async persistCausalOffsetMutation(mutator,status) {
+            const snapshot=this.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
+            if(!plain(stat?.世界?.因果轨道))stat.世界.因果轨道={};
+            if(!plain(stat.世界.因果轨道.偏移记录))stat.世界.因果轨道.偏移记录={};
+            const outcome=mutator(stat.世界.因果轨道.偏移记录);
+            if(!outcome)return false;
+            const stable=causalOffsetRecalculateStability(stat);
+            causalOffsetSyncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
+            const target=this.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
+            if(target)target.__samsaraUIMutation=true;
+            try{
+                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
+            }finally{
+                if(target){
+                    if(had)target.__samsaraUIMutation=previous;
+                    else delete target.__samsaraUIMutation;
+                }
+            }
+            this.status=status||'因果偏移已更新';
+            this.render(true);
+            return true;
+        }
+        async setCausalOffsetRecord(oldName,newName,record) {
+            oldName=String(oldName||'').trim();newName=String(newName||'').trim();
+            if(!oldName||!newName||!plain(record))throw new Error('偏移名称和记录不能为空');
+            const impact=Number(record.影响程度);
+            if(!Number.isFinite(impact)||impact===0||impact<-12||impact>15)throw new Error('影响程度必须为 -12~-1 或 +1~+15');
+            return this.persistCausalOffsetMutation(bucket=>{
+                if(!Object.hasOwn(bucket,oldName))throw new Error('偏移记录不存在：'+oldName);
+                if(newName!==oldName&&Object.hasOwn(bucket,newName))throw new Error('偏移名称已存在：'+newName);
+                const next={描述:String(record.描述||'').trim(),引发者:String(record.引发者||'').trim(),影响程度:impact};
+                if(newName!==oldName)delete bucket[oldName];
+                bucket[newName]=next;
+                return {oldName,newName,record:next,deleted:false};
+            },'已编辑因果偏移 · 稳定值已重算');
+        }
+        async removeCausalOffsetRecord(name) {
+            name=String(name||'').trim();if(!name)return false;
+            return this.persistCausalOffsetMutation(bucket=>{
+                if(!Object.hasOwn(bucket,name))return null;
+                delete bucket[name];
+                return {oldName:name,newName:name,record:null,deleted:true};
+            },'已删除因果偏移 · 稳定值已重算');
+        }
+        causalOffsetPromptFunction() {
+            const candidates=[this.host?.prompt,this.env?.prompt,typeof globalThis!=='undefined'?globalThis.prompt:null];
+            const fn=candidates.find(item=>typeof item==='function');
+            return fn?fn.bind(this.host):null;
+        }
+        causalOffsetConfirmFunction() {
+            const candidates=[this.host?.confirm,this.env?.confirm,typeof globalThis!=='undefined'?globalThis.confirm:null];
+            const fn=candidates.find(item=>typeof item==='function');
+            return fn?fn.bind(this.host):null;
+        }
+        async editCausalOffsetFromUI(name) {
+            const ask=this.causalOffsetPromptFunction();if(!ask)throw new Error('当前环境不支持编辑对话框');
+            const record=this.snapshot().stat?.世界?.因果轨道?.偏移记录?.[name];if(!plain(record))return false;
+            const nextName=ask('偏移名称',name);if(nextName===null)return false;
+            const description=ask('偏移描述（只写已经实现的世界尺度长期改变）',String(record.描述||''));if(description===null)return false;
+            const actor=ask('引发者',String(record.引发者||''));if(actor===null)return false;
+            const impactRaw=ask('影响程度（-12~-1 或 +1~+15；0 请直接删除记录）',String(record.影响程度??''));if(impactRaw===null)return false;
+            return this.setCausalOffsetRecord(name,nextName,{描述:description,引发者:actor,影响程度:Number(impactRaw)});
+        }
+        async deleteCausalOffsetFromUI(name) {
+            const confirmDelete=this.causalOffsetConfirmFunction();
+            if(confirmDelete&&!confirmDelete('删除因果偏移「'+name+'」？\n删除后世界稳定值会立即按剩余偏移重新计算。'))return false;
+            return this.removeCausalOffsetRecord(name);
+        }
+        ensureCausalOffsetEditorStyles() {
+            if(!this.style||this.style.textContent.includes('.we-offset-actions{'))return;
+            this.style.textContent+='\n#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:9px}#sam-world-engine .we-offset-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:4px 9px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-offset-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-offset-actions [data-action="causal-offset-delete"]:hover{color:#ff8c8c;border-color:#b85c5c}';
+        }
+        mountCausalOffsetEditorControls() {
+            if(this.tab!=='因果档案'||!this.panel)return;
+            const cards=Array.from(this.panel.querySelectorAll('.we-offset'));
+            const entries=causalOffsetEntries(this.snapshot().stat);
+            cards.forEach((card,index)=>{
+                const name=entries[index]?.[0];if(!name||card.querySelector('.we-offset-actions'))return;
+                const actions=this.host.document.createElement('div');actions.className='we-offset-actions';
+                actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+causalOverviewEscape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+causalOverviewEscape(name)+'">删除</button>';
+                card.appendChild(actions);
+            });
+        }
+        createPanel() {
+            super.createPanel();
+            if(!this.panel||this.panel.__causalOffsetEditorBound)return;
+            Object.defineProperty(this.panel,'__causalOffsetEditorBound',{value:true,configurable:true});
+            this.panel.addEventListener('click',event=>{
+                const button=event.target?.closest?.('[data-action="causal-offset-edit"],[data-action="causal-offset-delete"]');
+                if(!button||!this.panel.contains(button))return;
+                event.preventDefault();event.stopPropagation();
+                const name=String(button.dataset.offsetName||'');
+                const task=button.dataset.action==='causal-offset-delete'?this.deleteCausalOffsetFromUI(name):this.editCausalOffsetFromUI(name);
+                Promise.resolve(task).catch(error=>{
+                    const message=String(error?.message||error||'因果偏移操作失败');
+                    const toast=this.host?.toastr||this.env?.toastr;
+                    if(toast?.error)toast.error(message,'因果偏移');else try{console.error('[因果偏移]',error);}catch(_){}
+                });
+            });
+        }
+        render(force) {
+            const result=super.render(force);
+            this.ensureCausalOffsetEditorStyles();
+            this.mountCausalOffsetEditorControls();
             return result;
         }
     };

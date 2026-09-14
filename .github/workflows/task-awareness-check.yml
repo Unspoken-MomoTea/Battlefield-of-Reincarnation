@@ -36,6 +36,8 @@ jobs:
         run: node tests/world-engine-causal-summary.cjs
       - name: Soft maintenance regression
         run: node tests/world-engine-soft-maintenance.cjs
+      - name: Active alien activity normalization
+        run: node tests/world-engine-alien-activity-normalization.cjs
       - name: Auto progress regression
         run: node tests/world-engine-auto-progress.cjs
       - name: Auto progress after variable reprocessing

@@ -21,6 +21,7 @@ const parts = [
   '59-auto-trigger-rebuild.part.js',
   '59-soft-maintenance.part.js',
   '59-world-integrity-guard.part.js',
+  '59-world-time-ownership.part.js',
   '59-alien-activity-normalization.part.js',
   '59-rumor-throttle.part.js',
   '59-causal-overview-ui.part.js',
@@ -86,8 +87,11 @@ assert.match(texts['59-soft-maintenance.part.js'], /ensureRumorLiveliness=functi
 assert.match(texts['59-world-integrity-guard.part.js'], /^    \/\/ 世界完整性保护/);
 assert.match(texts['59-world-integrity-guard.part.js'], /WORLD_INTEGRITY_GUARD_RULES/);
 assert.match(texts['59-world-integrity-guard.part.js'], /validateCausalOffsets/);
+assert.match(texts['59-world-time-ownership.part.js'], /^    \/\/ 世界时间单一所有权/);
+assert.match(texts['59-world-time-ownership.part.js'], /WORLD_RESULT_SCHEMA\.properties\.时间/);
+assert.match(texts['59-world-time-ownership.part.js'], /变量 AI 的写入在事件层被回滚/);
 assert.match(texts['59-alien-activity-normalization.part.js'], /^    \/\/ 活跃异端活动时间戳/);
-assert.match(texts['59-alien-activity-normalization.part.js'], /更新时间由程序统一记录为当前世界时间/);
+assert.match(texts['59-alien-activity-normalization.part.js'], /更新时间无需抄写/);
 assert.match(texts['59-alien-activity-normalization.part.js'], /sameWorldTimeAnchor/);
 assert.match(texts['59-rumor-throttle.part.js'], /传闻/);
 assert.match(texts['59-causal-overview-ui.part.js'], /因果/);

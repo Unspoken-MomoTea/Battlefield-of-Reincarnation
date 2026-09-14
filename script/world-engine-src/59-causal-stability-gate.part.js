@@ -57,3 +57,20 @@
         if(repairs.names.length)compiled.warnings.push('清理局部稳定偏移：'+repairs.names.join('、'));
         return compiled;
     };
+
+    // 基础补丁层只允许删除传播/传闻/资产；因果闸门需要能清理历史脏偏移。
+    // 只对“世界.因果轨道.偏移记录.<名称>”这一条精确路径做受控预删除，其余 remove 仍走原安全规则。
+    const applyPatchesBeforeCausalStabilityGate=applyPatches;
+    applyPatches=function(stat,patches) {
+        if(!Array.isArray(patches)||!patches.some(patch=>patch?.op==='remove'&&(()=>{try{const p=tokens(patch.path);return p[0]==='世界'&&p[1]==='因果轨道'&&p[2]==='偏移记录'&&p.length===4;}catch(_){return false;}})()))return applyPatchesBeforeCausalStabilityGate(stat,patches);
+        const seeded=copy(stat),rest=[];
+        for(const patch of patches){
+            let p=null;try{p=tokens(patch.path);}catch(_){}
+            if(patch?.op==='remove'&&p&&p[0]==='世界'&&p[1]==='因果轨道'&&p[2]==='偏移记录'&&p.length===4){
+                if(plain(seeded?.世界?.因果轨道?.偏移记录))delete seeded.世界.因果轨道.偏移记录[p[3]];
+                continue;
+            }
+            rest.push(patch);
+        }
+        return applyPatchesBeforeCausalStabilityGate(seeded,rest);
+    };

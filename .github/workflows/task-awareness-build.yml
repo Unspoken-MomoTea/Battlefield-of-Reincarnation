@@ -36,6 +36,8 @@ jobs:
         run: node tests/world-engine-task-awareness.cjs
       - name: Rumor rolling regression
         run: node tests/world-engine-rumor-capacity.cjs
+      - name: Causal overview regression
+        run: node tests/world-engine-causal-summary.cjs
       - name: Soft maintenance regression
         run: node tests/world-engine-soft-maintenance.cjs
       - name: Auto progress regression

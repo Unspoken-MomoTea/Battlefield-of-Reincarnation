@@ -3,8 +3,8 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync(require.resolve('../script/世界推进系统.js'),'utf8');
 const context={module:{exports:{}},console,setTimeout,clearTimeout,AbortController};
-vm.runInNewContext(source.replace('module.exports = {','module.exports = {stageWorldResult,'),context);
-const {stageWorldResult,emptyState,normalizeWorldResult,compileWorldResult,applyPatches,SamsaraWorldEngine:Engine}=context.module.exports;
+vm.runInNewContext(source.replace('module.exports = {','module.exports = {stageWorldResult,validateState,rumorMaintenanceRequirements,RUMOR_THROTTLE_RULES,'),context);
+const {stageWorldResult,validateState,rumorMaintenanceRequirements,RUMOR_THROTTLE_RULES,emptyState,normalizeWorldResult,compileWorldResult,applyPatches,SamsaraWorldEngine:Engine}=context.module.exports;
 for(const schema of Object.values(context.module.exports.WORLD_RESULT_SCHEMA.properties.传闻.properties))assert.ok(schema.maxItems>=6,'structured output must allow multi-rumor updates in one round');
 const clone=x=>JSON.parse(JSON.stringify(x));
 const categories=['街头巷议','情报交易','布告与檄文'];
@@ -43,9 +43,28 @@ assert.equal(burst.rejected.length,0,JSON.stringify(burst.rejected));
 const burstNext=applyPatches(emptyStat,compileWorldResult(emptyStat,burst.accepted).patches);
 assert.deepEqual(Object.keys(burstNext.传闻.街头巷议),['突发2','突发3','突发4'],'a burst over capacity keeps the latest three without retry');
 
+const quietMaintenance=rumorMaintenanceRequirements(stat);
+assert.equal(quietMaintenance.本轮公开传闻动作,'保持不变','已有传闻且没有新的公开事实时不得每轮主动刷新');
+assert.deepEqual(JSON.parse(JSON.stringify(quietMaintenance.刷新原因)),[],'无触发时不应制造传闻刷新原因');
+const emptyMaintenance=rumorMaintenanceRequirements(emptyStat);
+assert.match(emptyMaintenance.本轮公开传闻动作,/按需更新/,'空分类才进入按需刷新');
+assert.equal(emptyMaintenance.公开传闻.街头巷议.为空补足,1,'空分类只补1条，避免为了凑满反复调用');
+assert.ok(emptyMaintenance.刷新原因.some(reason=>reason.includes('街头巷议')),'刷新原因应明确指出空分类');
+
+const malformedRumor=stageWorldResult(stat,null,{传闻:{街头巷议:[{名称:'格式错误的传闻',操作:'更新',来源:'居民',内容:'一条格式错误的测试传闻',可信度:'完全可信'}]}},validateState);
+assert.equal(malformedRumor.rejected.length,0,'单个传闻片段失败属于软失败，不得触发整轮重试');
+assert.equal(malformedRumor.softRejected?.length,1,'被丢弃的传闻片段仍应保留诊断信息');
+assert.match(malformedRumor.softRejected[0].片段,/^传闻\//);
+
+const hardFailure=stageWorldResult(stat,null,{因果:{偏移记录:[{名称:'越界偏移',操作:'更新',描述:'已发生的重大不可逆后果',引发者:'测试者',影响程度:-99}]}},validateState);
+assert.equal(hardFailure.rejected.length,1,'硬错误仍必须保留为重试对象');
+assert.match(hardFailure.rejected[0].片段,/^因果\/偏移记录\//);
+assert.match(RUMOR_THROTTLE_RULES,/公开传闻默认保持不变/);
+assert.match(RUMOR_THROTTLE_RULES,/不得仅为传闻\/传播重新调用整轮世界推进/);
+
 function engine(config){let saved;const host={localStorage:{getItem:()=>JSON.stringify(config),setItem:(_,value)=>{saved=JSON.parse(value);}}};return {value:new Engine(host),saved:()=>saved};}
 assert.equal(engine({}).value.config.retryAttempts,5);
 const migrated=engine({retryAttempts:3});assert.equal(migrated.value.config.retryAttempts,5);assert.equal(migrated.saved().retryDefaultFiveMigrated,true);
 assert.equal(engine({retryAttempts:2}).value.config.retryAttempts,2);
 assert.equal(engine({retryAttempts:3,retryDefaultFiveMigrated:true}).value.config.retryAttempts,3);
-console.log('PASS rumor rolling capacity, explicit removals, recency refresh, burst handling and default retry migration');
+console.log('PASS rumor rolling, on-demand refresh throttling, soft rumor failures, hard-error retries and default retry migration');

@@ -20,6 +20,8 @@ PARTS = (
     '59-auto-progress.part.js',
     '59-soft-maintenance.part.js',
     '59-world-integrity-guard.part.js',
+    '59-rumor-throttle.part.js',
+    '59-causal-overview-ui.part.js',
     '60-bootstrap.part.js',
 )
 

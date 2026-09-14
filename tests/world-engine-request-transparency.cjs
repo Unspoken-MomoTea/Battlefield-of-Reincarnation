@@ -47,12 +47,12 @@ const fresh = () => ({
   assert.equal(request.manifest.世界书条目[0].名称,'世界规则');
   assert.ok(request.manifest.读取判定.some(item=>item.名称==='未选择资料'&&item.读取===false),'internal activation report may retain rejected candidates');
 
-  assert.match(request.system,/【世界引擎核心约束】/,'core constraints remain mandatory');
+  assert.match(request.system,/【世界引擎核心约束】/,'built-in defaults still send core constraints until the user edits them');
   assert.doesNotMatch(request.system,/【本轮执行顺序】/,'editable execution pipeline must not be duplicated by a fixed second pipeline');
   assert.match(runtimeSource,/世界书:books\.map\(b=>String\(b\.内容\|\|''\)\)\.filter\(Boolean\)/,'runtime sends content-only worldbook payload');
 
-  assert.match(uiSource,/固定系统注入/,'prompt workspace must expose mandatory injected blocks');
-  assert.match(uiSource,/CORE_WORLD_RULES/,'prompt workspace shows core constraints from the real source constant');
+  assert.match(uiSource,/系统提示词/,'prompt workspace must expose actual system prompt blocks');
+  assert.match(uiSource,/data-core-prompt/,'prompt workspace must allow editing core constraints');
   assert.match(uiSource,/NPC_BUILD_AUDIT_RULES/,'prompt workspace shows conditional NPC audit rules');
   assert.match(uiSource,/const readChecks=\(m\.读取判定\|\|\[\]\)\.filter\(item=>item\.读取===true\)/,'request inspection only presents actually read worldbook decisions');
   assert.doesNotMatch(uiSource,/资料清单与命中判定（点击展开）/,'ambiguous all-candidate inspection label must be removed');

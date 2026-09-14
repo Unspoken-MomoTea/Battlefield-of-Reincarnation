@@ -114,7 +114,7 @@ assert.match(status, /无主/, '空所属对象在 UI 中必须显示“无主�
 assert.match(status, /var assets = sd\.资产 \|\| \{\}/, '状态栏经营页仍应读取并显示全部资产，而不是只过滤玩家资产');
 assert.match(vars, /Array\.isArray\(asset\?\.所属对象\)[\s\S]{0,260}=== '<user>'/, '正文玩家资产投影必须支持所属对象数组并只认 <user>');
 assert.match(rules, /空数组[^\n]*无主|\[\][^\n]*无主/, '资产规则必须明确空数组表示无主');
-assert.match(source, /version:18,\n        builtin:true,\n        name:'默认设置'/, '多主体归属语义应升级内置 Prompt 到 v18');
+assert.match(source, /version:19,\n        builtin:true,\n        name:'默认设置'/, '多主体归属语义应升级内置 Prompt 到 v19');
 assert.match(source, /资产墓碑|删除保护/, '世界引擎必须明确处理手动删除资产的防诈尸语义');
 
 console.log('world-engine multi-owner asset lifecycle acceptance passed');

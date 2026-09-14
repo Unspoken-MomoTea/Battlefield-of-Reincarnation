@@ -260,24 +260,6 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         ];
     const BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS = new Set(['任务与委托系统']);
     const USER_DEFAULT_PROMPT_DOCUMENT_ID='user-default';
-    const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
-        id:'builtin-default',
-        type:'samsara-world-prompt-document',
-        version:18,
-        builtin:true,
-        name:'默认设置',
-        exportedAt:'2026-09-14T12:30:00.000Z',
-        createdAt:'2026-09-08T13:09:45.350Z',
-        updatedAt:'2026-09-14T12:30:00.000Z',
-        settings:{
-            // 直接引用当前 DEFAULT_PRESET，避免以后修改默认提示词却忘记同步“默认设置”文档。
-            preset:normalizeEditablePreset(DEFAULT_PRESET),
-            contextTurns:3,
-            activationMode:'respect_activation',
-            selectedEntries:copy(BUILTIN_DEFAULT_SELECTED_ENTRIES)
-        }
-    };
-    const BUILTIN_DEFAULT_PROMPT_VERSION = BUILTIN_DEFAULT_PROMPT_DOCUMENT.version;
     const CORE_WORLD_RULES = `【世界引擎核心约束】
 1. 事实：当前变量与已确认剧情 > 明确世界书 > 模型常识；计划不是事实，已确认差异不得被原著常识覆盖。
 2. 宏观与时间：只用世界.时间计算本世界进展；宏观顺序保持3~5个阶段级节点，细节只推进到下一宏观边界。待发生/进行中事件必须有可排序时间或明确因果时间；无法确认跨度时只推进一步。
@@ -287,6 +269,31 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
 6. 玩家台账：探索只结算<user>实际到达、调查或可靠获知的整体区域；探索度以0/10/30/60/90/100为阶段锚点且无因不回退。势力声望只因<user>真实关系结果变化，同一结果只结算一次，单轮绝对变化≤1000，超过500仅限重大事件。
 7. 因果：只在关键人物命运、重大事件结果、势力格局或主线可行性实质改变时记偏移；负值=因果破坏，正值=修复/强化。世界超稳不新增偏移；旧轨道失效时同轮重构宏观顺序。
 8. 公开与基础：当前事件公开字段只写已成为现实且可合理感知的信息。货币只随真实流通体系变化，任务世界不用空间币作本地货币；历法只在可靠设定明确时维护。`;
+    const DEFAULT_MACRO_PROMPT = `【本轮宏观骨架交付】
+先完成输入“本轮必须完成的宏观骨架”，再推演近期细节。至少3个可推进宏观节点是合并后的交付底线，进行中+待发生合计。未来规划可以跨越下一宏观边界，实际发生与细节推进不能越界；只输出差分不意味着可以省略尚未建立的骨架。提交前检查事件实体、分类、状态、时间、前因与因果.宏观顺序相互对应。`;
+    const DEFAULT_STABILITY_PROMPT_TEMPLATE = `【世界自救 · {{阶段}}】
+当前稳定值：{{稳定值}}。{{规则}}
+排异必须借世界观内合理载体发生，优先针对造成异常的轮回者及其据点、关系网、资源与行动路径；NPC仍只能依据自身认知和传播链行动，不得凭空全知。法则越破不代表主动排异越弱。`;
+    const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
+        id:'builtin-default',
+        type:'samsara-world-prompt-document',
+        version:19,
+        builtin:true,
+        name:'默认设置',
+        exportedAt:'2026-09-14T13:00:00.000Z',
+        createdAt:'2026-09-08T13:09:45.350Z',
+        updatedAt:'2026-09-14T13:00:00.000Z',
+        settings:{
+            corePrompt:CORE_WORLD_RULES,
+            macroPrompt:DEFAULT_MACRO_PROMPT,
+            stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,
+            preset:normalizeEditablePreset(DEFAULT_PRESET),
+            contextTurns:3,
+            activationMode:'respect_activation',
+            selectedEntries:copy(BUILTIN_DEFAULT_SELECTED_ENTRIES)
+        }
+    };
+    const BUILTIN_DEFAULT_PROMPT_VERSION = BUILTIN_DEFAULT_PROMPT_DOCUMENT.version;
     const WORLD_STABILITY_DEFENSE_STAGES = [
         {min:90,title:'因果警觉',rule:'异常线索、调查、误会与既有敌意开始沿合理因果链向轮回者及其直接关系网汇聚；仍以自然事件表现，不形成公开围剿。'},
         {min:80,title:'定向排异',rule:'藏身处、计划、联系人、资源链与行动路径持续受压；压力优先集中到轮回者本人及其直接关系网。'},
@@ -299,12 +306,14 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         {min:1,title:'同归于尽',rule:'世界放弃自保，主动牺牲法则、时间线与现实结构清除轮回者。'},
         {min:0,title:'世界毁灭',rule:'因果链、世界法则、时间线与现实结构均已终止，不再生成常规世界推进。'}
     ];
-    function worldStabilityPrompt(stat) {
+    function worldStabilityPrompt(stat, template=DEFAULT_STABILITY_PROMPT_TEMPLATE) {
         if(stat?.设置?.世界超稳===true)return '';
         const raw=Number(stat?.世界?.稳定),stable=Number.isFinite(raw)?Math.max(0,Math.min(120,raw)):100;
         if(stable>=100)return '';
         const stage=WORLD_STABILITY_DEFENSE_STAGES.find(item=>stable>=item.min)||WORLD_STABILITY_DEFENSE_STAGES.at(-1);
-        return `【世界自救 · ${stage.title}】\n当前稳定值：${stable}。${stage.rule}\n排异必须借世界观内合理载体发生，优先针对造成异常的轮回者及其据点、关系网、资源与行动路径；NPC仍只能依据自身认知和传播链行动，不得凭空全知。法则越破不代表主动排异越弱。`;
+        const source=String(template??DEFAULT_STABILITY_PROMPT_TEMPLATE);
+        if(!source.trim())return '';
+        return source.split('{{阶段}}').join(stage.title).split('{{稳定值}}').join(String(stable)).split('{{规则}}').join(stage.rule);
     }
     function splitPresetSegments(value) {
         return String(value||'').split(/\n(?=【)/).filter(Boolean).map(part=>{

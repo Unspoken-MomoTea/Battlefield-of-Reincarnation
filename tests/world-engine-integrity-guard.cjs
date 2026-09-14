@@ -59,12 +59,12 @@ function fresh(){
 
     const splitStat=fresh();
     const split=compileWorldResult(splitStat,{摘要:'拆分同一根因',因果:{偏移记录:[
-      {名称:'生命共生的契约',描述:'同一契约已经改变魔力来源并形成连锁影响',引发者:'珊瑚',影响程度:-8},
-      {名称:'召唤仪式的频率干扰',描述:'同一契约造成召唤余波与灵基变化',引发者:'珊瑚',影响程度:-4},
-      {名称:'异质召唤的余波',描述:'同一契约的后续影响继续扩散',引发者:'珊瑚',影响程度:-2}
+      {名称:'生命共生的契约',描述:'同一契约已经使关键人物命运不可逆改写，原主线无法按原方式收束，并形成连锁影响',引发者:'珊瑚',影响程度:-8},
+      {名称:'召唤仪式的频率干扰',描述:'同一契约造成关键人物命运不可逆变化，进一步破坏主线可行性',引发者:'珊瑚',影响程度:-4},
+      {名称:'异质召唤的余波',描述:'同一契约的后续影响继续扩散，主线结构已经发生不可逆改变',引发者:'珊瑚',影响程度:-2}
     ]}});
     const afterSplit=applyPatches(splitStat,split.patches);
-    assert.deepEqual(Object.keys(afterSplit.世界.因果轨道.偏移记录),['生命共生的契约'],'same-root chain fragments must be softly coalesced instead of rejected or stacked');
+    assert.deepEqual(Object.keys(afterSplit.世界.因果轨道.偏移记录),['生命共生的契约'],'same-root world-scale chain fragments must be softly coalesced instead of stacked');
     assert.equal(afterSplit.世界.因果轨道.偏移记录['生命共生的契约'].影响程度,-8);
 
     const idleBombStat=fresh();
@@ -90,7 +90,8 @@ function fresh(){
     const engine=new Engine(host);engine.config.contextTurns=1;engine.config.enabled=true;engine.worldbook=async()=>[];
     const request=await engine.buildRequest(engine.snapshot());
     assert.match(request.system,/【因果偏移与时间约束】/,'request must carry the concise causal/time decision block');
-    assert.match(request.system,/因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局或主线可行性的长期变化/,'prompt must restrict offsets to realized long-term plot changes');
+    assert.match(request.system,/因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化/,'prompt must restrict offsets to realized world-scale changes');
+    assert.match(request.system,/位置暴露、敌人警觉、受伤、逃脱、行动\/生存难度变化等局部后果不记/,'prompt must explicitly exclude tactical player adversity from world stability');
     assert.match(request.system,/计划、风险、能力上限不记/,'prompt must reject speculative or unrealized causal offsets');
     assert.match(request.system,/同根因优先更新同一条/,'prompt must prevent splitting one root cause into mini summaries');
     assert.match(request.system,/当前事实不得落在世界时间之后/,'prompt must keep current facts behind the world clock; detailed precision remains program-enforced');

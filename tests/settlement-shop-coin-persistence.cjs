@@ -25,9 +25,12 @@ assert.match(source, /panelTextBelongsToMessage\(panelText, latest\)/, 'latest f
 assert.doesNotMatch(source, /if \(panelMessageId === null\) return;/, 'missing getCurrentMessageId must not abort a genuine current settlement');
 assert.doesNotMatch(source, /panelMessageId === null\s*\?\s*['"]latest['"]/, 'unknown settlement panels must never blindly fall back to mutating the latest message');
 assert.match(source, /settlementCoinWriteTarget\(currentCoin, spaceCoinSettlement\)/, 'MVU write path must use the guarded settlement target');
-assert.match(source, /recordedMarker !== settlementMarker[\s\S]*sys\.结算空间币记录 = settlementMarker/, 'settlement writes must persist a per-message one-shot marker');
-assert.match(zod, /结算空间币记录:\s*safeStr\(''\)/, 'persistent settlement marker must survive schema parsing');
-assert.match(init, /结算空间币记录:\s*''/, 'new saves must initialize the settlement marker');
-assert.match(vars, /_.omit\(data\.系统状态 \|\| \{}, \[[^\]]*'结算空间币记录'[^\]]*\]\)/, 'settlement marker must stay hidden from variable AI');
+assert.match(source, /SETTLEMENT_COIN_MESSAGE_MARKER_START/, 'settlement writes must use a message-scoped one-shot marker');
+assert.match(source, /readSettlementCoinMessageMarker\(win, targetMessageId\)/, 'settlement must read its message-scoped marker');
+assert.match(source, /writeSettlementCoinMessageMarker\(win, targetMessageId, settlementCoinMarkerPending\)/, 'settlement must persist its marker outside stat_data');
+assert.doesNotMatch(source, /sys\.结算空间币记录|系统状态\.结算空间币记录/, 'program marker must not live in game variables');
+assert.doesNotMatch(zod, /结算空间币记录/, 'schema must not contain program-only settlement state');
+assert.doesNotMatch(init, /结算空间币记录/, 'new saves must not initialize program-only settlement state');
+assert.doesNotMatch(vars, /结算空间币记录/, 'AI projection must not know about program-only settlement state');
 
 console.log('settlement shop coin persistence regression: OK');

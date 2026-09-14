@@ -1,0 +1,47 @@
+name: settlement-current-panel-hotfix
+on:
+  push:
+    branches: [fix/settlement-current-panel-regression]
+permissions:
+  contents: write
+jobs:
+  red-green:
+    if: ${{ !contains(github.event.head_commit.message, '[settlement-current-panel-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Confirm regression is red
+        run: |
+          if node tests/settlement-current-panel-regression.cjs; then
+            echo 'Regression unexpectedly passed before implementation.'
+            exit 1
+          fi
+          echo 'RED confirmed: current settlement can lose write target and task completion sync.'
+      - name: Apply settlement fix
+        run: python tools/apply-settlement-current-panel-fix.py
+      - name: Current panel regression
+        run: node tests/settlement-current-panel-regression.cjs
+      - name: Settlement shop coin persistence regression
+        run: node tests/settlement-shop-coin-persistence.cjs
+      - name: Simplified task settlement regression
+        run: node tests/task-settlement-simplified.cjs
+      - name: Settlement status alias regression
+        run: node tests/settlement-status-aliases.cjs
+      - name: Trial promotion flow regression
+        run: node tests/trial-promotion-flow.cjs
+      - name: ZOD syntax
+        run: node --check script/ZOD脚本.js
+      - name: Commit verified fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'Regular/结算任务美化.html' 'World Book/⚙️任务与委托系统.txt' 'World Book/[mvu_update]变量更新规则.txt' tests/settlement-status-aliases.cjs tests/settlement-current-panel-regression.cjs .github/workflows/task-awareness-build.yml .github/workflows/task-awareness-check.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: restore settlement payout and task completion sync [settlement-current-panel-fixed]'
+          git push

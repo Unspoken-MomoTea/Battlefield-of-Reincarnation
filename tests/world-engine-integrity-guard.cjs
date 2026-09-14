@@ -89,13 +89,11 @@ function fresh(){
     };
     const engine=new Engine(host);engine.config.contextTurns=1;engine.config.enabled=true;engine.worldbook=async()=>[];
     const request=await engine.buildRequest(engine.snapshot());
-    assert.match(request.system,/【因果偏移与时间(?:硬)?约束】/,'mandatory request must carry the causal/time invariant block');
-    assert.match(request.system,/偏移记录不是.*剧情(?:日志|总结|小结)/,'prompt must explicitly prevent using causal offsets as mini plot summaries');
-    assert.match(request.system,/持有.*高危装置.*(?:尚未|未).*不产生偏移/,'prompt must explain that unrealized catastrophic capability creates no causal offset');
-    assert.match(request.system,/同一.*根因.*只记一条/,'prompt must prohibit chain-splitting the same root cause');
-    assert.match(request.system,/预测|风险|可能/,'prompt must forbid charging stability for speculative consequences');
-    assert.match(request.system,/软(?:归一化|处理)|不触发重试/,'causal offset cleanup must be described as soft processing rather than a retry trigger');
-    assert.match(request.system,/同一自然日|跨日/,'time prompt must describe the day-granular macro chronology rule');
+    assert.match(request.system,/【因果偏移与时间约束】/,'request must carry the concise causal/time decision block');
+    assert.match(request.system,/因果偏移只记录已实现且改变关键人物命运、重大事件结果、关键势力格局或主线可行性的长期变化/,'prompt must restrict offsets to realized long-term plot changes');
+    assert.match(request.system,/计划、风险、能力上限不记/,'prompt must reject speculative or unrealized causal offsets');
+    assert.match(request.system,/同根因优先更新同一条/,'prompt must prevent splitting one root cause into mini summaries');
+    assert.match(request.system,/当前事实不得落在世界时间之后/,'prompt must keep current facts behind the world clock; detailed precision remains program-enforced');
   }
 
   console.log('world-engine integrity guard regression tests passed');

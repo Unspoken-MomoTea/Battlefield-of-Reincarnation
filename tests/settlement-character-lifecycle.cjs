@@ -16,6 +16,7 @@ const finalize = new Function(`
   const trialTasks=[];
   const readReincarnatorTier=()=> 'Ⅰ';
   const settlementBaselineTier='Ⅰ';
+  const settlementTaskKeys=['结束'];
   ${snippet};
   return applySettlementFinalization;
 `)();

@@ -18,8 +18,12 @@ const parts = [
   '57-task-awareness.part.js',
   '58-chronology-guard.part.js',
   '59-auto-progress.part.js',
+  '59-auto-trigger-rebuild.part.js',
   '59-soft-maintenance.part.js',
   '59-world-integrity-guard.part.js',
+  '59-alien-activity-normalization.part.js',
+  '59-rumor-throttle.part.js',
+  '59-causal-overview-ui.part.js',
   '60-bootstrap.part.js',
 ];
 
@@ -72,6 +76,9 @@ assert.match(texts['58-chronology-guard.part.js'], /validateChronologyResult/);
 assert.match(texts['59-auto-progress.part.js'], /^    \/\/ 自动推进策略/);
 assert.match(texts['59-auto-progress.part.js'], /autoProgress/);
 assert.match(texts['59-auto-progress.part.js'], /战斗中，世界推进暂停/);
+assert.match(texts['59-auto-trigger-rebuild.part.js'], /^    \/\/ 自动推进触发重构/);
+assert.match(texts['59-auto-trigger-rebuild.part.js'], /GENERATION_ENDED/);
+assert.match(texts['59-auto-trigger-rebuild.part.js'], /WORLD_REPLAY_VERSION/);
 assert.match(texts['59-soft-maintenance.part.js'], /^    \/\/ 容错验收策略/);
 assert.match(texts['59-soft-maintenance.part.js'], /SOFT_MAINTENANCE_RULES/);
 assert.match(texts['59-soft-maintenance.part.js'], /eventHasUsableSchedule/);
@@ -79,6 +86,11 @@ assert.match(texts['59-soft-maintenance.part.js'], /ensureRumorLiveliness=functi
 assert.match(texts['59-world-integrity-guard.part.js'], /^    \/\/ 世界完整性保护/);
 assert.match(texts['59-world-integrity-guard.part.js'], /WORLD_INTEGRITY_GUARD_RULES/);
 assert.match(texts['59-world-integrity-guard.part.js'], /validateCausalOffsets/);
+assert.match(texts['59-alien-activity-normalization.part.js'], /^    \/\/ 活跃异端活动时间戳/);
+assert.match(texts['59-alien-activity-normalization.part.js'], /更新时间由程序统一记录为当前世界时间/);
+assert.match(texts['59-alien-activity-normalization.part.js'], /sameWorldTimeAnchor/);
+assert.match(texts['59-rumor-throttle.part.js'], /传闻/);
+assert.match(texts['59-causal-overview-ui.part.js'], /因果/);
 assert.match(texts['60-bootstrap.part.js'], /^    \/\/ CommonJS 入口仅供离线测试/);
 assert.match(texts['60-bootstrap.part.js'], /module\.exports/);
 assert.match(texts['60-bootstrap.part.js'], /\}\)\(typeof window !== 'undefined' \? window : globalThis\);\s*$/);

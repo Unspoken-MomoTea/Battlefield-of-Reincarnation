@@ -20,8 +20,10 @@ assert.equal(guard.settlementCoinWriteTarget(260, settlement), null, 'post-settl
 assert.equal(guard.settlementCoinWriteTarget(5260, settlement), null, 'partial shop spending must never be refunded by settlement rerender');
 
 assert.match(source, /let settlementCoinWriteDone = false;/, 'one panel lifecycle must settle coins at most once');
-assert.match(source, /if \(panelMessageId === null\) return;/, 'a panel without its own message id must be display-only');
-assert.doesNotMatch(source, /panelMessageId === null\s*\?\s*['"]latest['"]/, 'unknown settlement panels must never fall back to mutating the latest message');
+assert.match(source, /resolveSettlementMessageTarget\(win, rawText\)/, 'MVU write path must resolve the current settlement target safely');
+assert.match(source, /panelTextBelongsToMessage\(panelText, latest\)/, 'latest fallback must verify that this panel belongs to the latest chat message');
+assert.doesNotMatch(source, /if \(panelMessageId === null\) return;/, 'missing getCurrentMessageId must not abort a genuine current settlement');
+assert.doesNotMatch(source, /panelMessageId === null\s*\?\s*['"]latest['"]/, 'unknown settlement panels must never blindly fall back to mutating the latest message');
 assert.match(source, /settlementCoinWriteTarget\(currentCoin, spaceCoinSettlement\)/, 'MVU write path must use the guarded settlement target');
 assert.match(source, /recordedMarker !== settlementMarker[\s\S]*sys\.结算空间币记录 = settlementMarker/, 'settlement writes must persist a per-message one-shot marker');
 assert.match(zod, /结算空间币记录:\s*safeStr\(''\)/, 'persistent settlement marker must survive schema parsing');

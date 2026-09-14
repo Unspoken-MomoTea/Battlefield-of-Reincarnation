@@ -41,7 +41,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add 'Regular/结算任务美化.html' 'World Book/⚙️任务与委托系统.txt' 'World Book/[mvu_update]变量更新规则.txt' tests/settlement-status-aliases.cjs tests/settlement-current-panel-regression.cjs tests/task-settlement-simplified.cjs .github/workflows/task-awareness-build.yml .github/workflows/task-awareness-check.yml
+          git add 'Regular/结算任务美化.html' 'World Book/⚙️任务与委托系统.txt' 'World Book/[mvu_update]变量更新规则.txt' tests/settlement-status-aliases.cjs tests/settlement-current-panel-regression.cjs tests/task-settlement-simplified.cjs
           git diff --cached --quiet && exit 0
           git commit -m 'fix: restore settlement payout and task completion sync [settlement-current-panel-fixed]'
           git push

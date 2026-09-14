@@ -28,6 +28,8 @@ jobs:
         run: node tests/settlement-current-panel-regression.cjs
       - name: Settlement status alias regression
         run: node tests/settlement-status-aliases.cjs
+      - name: Settlement character lifecycle regression
+        run: node tests/settlement-character-lifecycle.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
       - name: Rumor rolling regression

@@ -21,6 +21,7 @@ PARTS = (
     '59-auto-trigger-rebuild.part.js',
     '59-soft-maintenance.part.js',
     '59-world-integrity-guard.part.js',
+    '59-alien-activity-normalization.part.js',
     '59-rumor-throttle.part.js',
     '59-causal-overview-ui.part.js',
     '60-bootstrap.part.js',

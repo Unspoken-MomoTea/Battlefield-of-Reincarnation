@@ -1716,6 +1716,15 @@
               setValue(world, '探索', {});
               // 与副本缓存同生命周期，避免后台事件跨副本继承。
               setValue(world, '后台', {});
+
+              // 普通副本离开当前世界时，关系人物也必须遵循世界生命周期。
+              // 只有明确建立组队关系的正式队友可跨世界保留；高好感、仍在场或普通关系都不是保留条件。
+              const relations = ensureObject(stat, '关系列表');
+              Object.keys(relations).forEach(function(name) {
+                const npc = relations[name];
+                if (!npc || npc.是否队友 !== true) delete relations[name];
+              });
+
               setValue(world, '势力', {});
               setValue(world, '稳定', 100);
               const radar = ensureObject(world, '异端雷达');

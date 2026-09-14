@@ -1725,19 +1725,19 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(aux,/singleWorldAchievementClear/);
         assert.match(aux,/expectedAchievements = singleWorld \? \{\} : \(lock\.achievements \|\| \{\}\)/);
     });
-    await test('actual settlement function clears ordinary world only, keeps relationships and both clocks', () => {
+    await test('actual settlement clears old-world non-team characters while preserving formal teammates and single-world relationships', () => {
         const html=fs.readFileSync(path.join(__dirname,'../Regular/结算任务美化.html'),'utf8');
         const snippet=html.slice(html.indexOf('function applySettlementFinalization('),html.indexOf('function writeSettlementToMvu('));
         const finalize = new Function(`const rawText='轮回清算协议'; const hasSettlementHeader=()=>true; const isFullSettlement=()=>true; const isTrialPassed=()=>false; const trialTasks=[]; const readReincarnatorTier=()=> 'Ⅰ'; const settlementBaselineTier='Ⅰ'; ${snippet}; return applySettlementFinalization;`)();
         for (const single of [false,true]) {
             const stat=fresh(); stat.设置.单一世界=single; stat.系统状态.游玩天数=12;
-            stat.关系列表.旅伴={好感度:10}; stat.世界.因果轨道.当前阶段='当前世界仍在持续推进。';
+            stat.关系列表.旅伴={好感度:10,是否队友:false}; stat.关系列表.正式队友={好感度:50,是否队友:true}; stat.世界.因果轨道.当前阶段='当前世界仍在持续推进。';
             stat.任务.列表.结束={状态:'可结算'};
             stat.任务.副本成就={旧成就:{状态:'已达成',奖励:'F级盲盒·测试世界'}};
             const time=stat.世界.时间;
             finalize({stat_data:stat},true);
             assert.equal(stat.世界.时间,time); assert.equal(stat.系统状态.游玩天数,12);
-            assert.equal(stat.关系列表.旅伴.好感度,10);
+            assert.equal(stat.关系列表.正式队友.好感度,50); if(single) assert.equal(stat.关系列表.旅伴.好感度,10); else assert.equal(stat.关系列表.旅伴,undefined);
             assert.equal(stat.任务.列表.结束,undefined);
             if (single) {assert.equal(stat.世界.因果轨道.当前阶段,'当前世界仍在持续推进。'); assert.ok(stat.任务.列表.调查); assert.deepEqual(stat.任务.副本成就,{}); assert.equal(stat.系统状态.是否在主神空间,false);}
             else {assert.deepEqual(stat.世界.后台,{});assert.deepEqual(stat.任务.副本成就,{});assert.equal(stat.系统状态.是否在主神空间,true);}

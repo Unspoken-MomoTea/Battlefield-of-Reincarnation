@@ -62,6 +62,8 @@ jobs:
         run: node tests/world-engine-event-bootstrap.cjs
       - name: Chronology guard regression
         run: node tests/world-engine-chronology-guard.cjs
+      - name: Causal stability gate regression
+        run: node tests/world-engine-causal-stability-gate.cjs
       - name: World integrity regression
         run: node tests/world-engine-integrity-guard.cjs
       - name: Commit generated delivery

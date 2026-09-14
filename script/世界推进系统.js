@@ -5922,10 +5922,15 @@ ${schemaText}`;
     const WORLD_TIME_RULES=`【世界时间所有权】
 1. 世界.时间由世界推进独占维护。WorldResult 顶层“时间”用于初始化或推进当前世界时间；不要通过人物更新时间、事件未来时间或其他字段间接代替世界时钟。
 2. 当前世界时间为空或“待初始化”时，本轮必须根据最新正文与明确时间资料建立一个可理解的当前时间锚点。能确定具体日期/时段就写具体值；只能确定季节、阶段或时段时保留该精度，禁止为了格式完整凭空编造更精确日期。
-3. 当前世界时间已有值时，只有正文明确发生了时间流逝才提交“时间”；没有实际经过时间就省略该字段并保持原值。禁止倒退时钟，禁止把待发生事件的计划时间提前写成当前时间。
-4. 人物/地区等“更新时间”属于派生时间戳。模型负责事实内容，程序会用本轮最终世界时间统一盖章；无需反复抄写世界时间。`;
+3. 只要“时间”已经精确到某月某日，就必须使用可被程序解析的数字月日格式：如“帝历1024年-09月-12日-下午”。纪年名称可保留，但月份必须写数字；禁止只写“枯叶之月/寒风之月/第12日”这类人类可读、程序不可定位月份的精确日期。若只能确定“1024年秋”这类粗粒度时间，则保留粗粒度，不要编造月日。
+4. 当前世界时间已有值时，只有正文明确发生了时间流逝才提交“时间”；没有实际经过时间就省略该字段并保持原值。禁止倒退时钟，禁止把待发生事件的计划时间提前写成当前时间。
+5. 人物/地区等“更新时间”属于派生时间戳。模型负责事实内容，程序会用本轮最终世界时间统一盖章；无需反复抄写世界时间。`;
 
-    WORLD_RESULT_SCHEMA.properties.时间={type:'string',minLength:1};
+    WORLD_RESULT_SCHEMA.properties.时间={
+        type:'string',
+        minLength:1,
+        description:'当前世界时间。精确到月日时必须使用数字月日，如“帝历1024年-09月-12日-下午”；仅能确定季节/阶段时可保留粗粒度。'
+    };
 
     function worldTimeUnset(value) {
         const raw=String(value??'').trim();
@@ -5933,6 +5938,16 @@ ${schemaText}`;
     }
     function worldTimeIdentity(value) {
         return String(value??'').trim().replace(/[\s·・_—–-]+/g,'');
+    }
+    function worldTimeClaimsMonthDay(value) {
+        const source=String(value??'').trim();
+        return !!source&&/月/.test(source)&&/(?:第\s*)?\d{1,2}\s*日/.test(source);
+    }
+    function assertCalendarCompatibleWorldTime(stat,result,nextTime) {
+        if(!worldTimeClaimsMonthDay(nextTime))return;
+        const calendar=plain(result?.历法)?result.历法:(plain(stat?.世界?.历法)?stat.世界.历法:{});
+        if(calendarDate(nextTime,calendar))return;
+        throw new Error('世界时间格式无法用于日历：'+nextTime+'。精确到月日时请使用数字月份，例如“帝历1024年-09月-12日-下午”；不要用月份名称替代数字月。');
     }
     function inferWorldTimeFromCurrentActivities(result) {
         const candidates=new Map();
@@ -5994,6 +6009,7 @@ ${schemaText}`;
     compileWorldResult=function(stat,value) {
         const result=normalizeWorldResult(value),proposal=resolveWorldTimeProposal(stat,result);
         if(proposal){
+            assertCalendarCompatibleWorldTime(stat,result,proposal);
             assertWorldTimeNotBackwards(stat,proposal);
             result.时间=proposal;
         }
@@ -6018,7 +6034,8 @@ ${schemaText}`;
                 payload.世界时间维护={
                     当前时间:String(base?.stat?.世界?.时间||''),
                     是否需要初始化:worldTimeUnset(base?.stat?.世界?.时间),
-                    所有权:'世界推进独占写入；变量 AI 只读'
+                    所有权:'世界推进独占写入；变量 AI 只读',
+                    精确日期格式:'纪年名称可保留；月日必须数字化，例如“帝历1024年-09月-12日-下午”。禁止用“枯叶之月/寒风之月”等月份名称替代数字月。'
                 };
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}
@@ -6035,6 +6052,115 @@ ${schemaText}`;
             if(!plain(variables.stat_data.世界))variables.stat_data.世界={};
             variables.stat_data.世界.时间=previous;
             return true;
+        }
+    };
+    // 恢复包可靠性：世界推进成功后主动持久化 replay，不再依赖 replaceMvuData 是否触发可用的 VARIABLE_UPDATE_ENDED。
+    // 对旧楼若已有 commit 但缺 replay，优先从本次重处理事件的 before 恢复；实在无旧状态时才回退为当前正文重新自动推进一次。
+    const SamsaraWorldEngineBeforeReplayPersistence=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeReplayPersistence {
+        worldReplayReprocessContext(variables,before) {
+            if(!plain(variables?.stat_data))return null;
+            const current=this.worldReplayCurrentMessage?.();
+            if(!current)return null;
+            const mvu=this.env.Mvu||this.host.Mvu;
+            let raw;
+            try{raw=mvu?.getMvuData?.({type:'message',message_id:current.id});}catch(_){return null;}
+            // 真正的“重新处理变量”期间，当前楼持久化数据已经被 MVU 清掉 stat_data，但未知 root 元数据仍在。
+            if(!plain(raw)||plain(raw.stat_data))return null;
+            const commit=String(raw.__samsaraWorldCommit||'');
+            if(!commit||commit!==current.fingerprint)return null;
+            return {current,raw,mvu,beforeStat:plain(before?.stat_data)?before.stat_data:null};
+        }
+        worldReplaySetCycleRecovered(fingerprint,stat) {
+            this.autoProgressCycleKey=this.autoProgressContextKey({fingerprint,stat});
+            this.autoProgressHasRun=true;
+            this.autoProgressRoundsSinceRun=0;
+            this.autoProgressLastSeenFingerprint=fingerprint;
+            this.autoProgressDueFingerprint=fingerprint;
+        }
+        worldReplayClearHandledForRetry(stat,fingerprint) {
+            const state=stat?.世界?.[PATH];
+            if(!plain(state))return;
+            if(!fingerprint||String(state.已处理楼层||'')===String(fingerprint)){
+                state.已处理楼层='';
+                state.已处理时间='';
+            }
+        }
+        worldReplayLegacyPackage(context,variables) {
+            const beforeStat=context?.beforeStat;
+            if(!plain(beforeStat)||!plain(variables?.stat_data))return null;
+            if(String(beforeStat?.世界?.[PATH]?.已处理楼层||'')!==context.current.fingerprint)return null;
+            return this.buildWorldReplayPackage(variables.stat_data,beforeStat,context.current.fingerprint);
+        }
+        handleWorldReplayVariableEvent(variables,before) {
+            const context=this.worldReplayReprocessContext(variables,before);
+            if(context){
+                let replay=plain(context.raw.__samsaraWorldReplay)&&String(context.raw.__samsaraWorldReplay.fingerprint||'')===context.current.fingerprint
+                    ?context.raw.__samsaraWorldReplay:null;
+                let legacyRecovered=false;
+                if(!replay){
+                    replay=this.worldReplayLegacyPackage(context,variables);
+                    legacyRecovered=!!replay;
+                }
+                if(replay&&this.applyWorldReplayPackage(variables.stat_data,replay)){
+                    this.worldReplayMarkEventInternal();
+                    variables.__samsaraWorldCommit=context.current.fingerprint;
+                    variables.__samsaraWorldReplay=copy(replay);
+                    this.worldReplaySetCycleRecovered(context.current.fingerprint,variables.stat_data);
+                    this.status=legacyRecovered?'已从旧楼状态重建并恢复世界推进结果 · 未重新调用 AI':'已恢复本楼世界推进结果 · 未重新调用 AI';
+                    this.render();
+                    return true;
+                }
+
+                // 旧版本可能只留下 commit，根本没有 replay；如果事件 before 也拿不到旧世界状态，就不存在可“还原”的来源。
+                // 此时绝不能把事件标记为内部事件后吞掉。移除本楼处理标记，让同一个 VARIABLE_UPDATE_ENDED 的普通自动调度重新跑一次当前正文。
+                this.worldReplayClearHandledForRetry(variables.stat_data,context.current.fingerprint);
+                delete variables.__samsaraWorldCommit;
+                delete variables.__samsaraWorldReplay;
+                this.autoProgressLastSeenFingerprint=context.current.fingerprint;
+                this.autoProgressDueFingerprint=context.current.fingerprint;
+                this.status='变量已重处理 · 旧楼缺少恢复快照，将按当前正文自动重新推进一次';
+                this.render();
+                return false;
+            }
+            return super.handleWorldReplayVariableEvent(variables,before);
+        }
+        async worldReplayPersistAfterSuccess(beforeSnapshot) {
+            const fingerprint=String(beforeSnapshot?.fingerprint||'');
+            if(!fingerprint||!Number.isInteger(Number(beforeSnapshot?.id)))return false;
+            const mvu=this.env.Mvu||this.host.Mvu;
+            if(!mvu?.getMvuData||!mvu?.replaceMvuData)return false;
+            let raw;
+            try{raw=mvu.getMvuData({type:'message',message_id:Number(beforeSnapshot.id)});}catch(_){return false;}
+            if(!plain(raw)||!plain(raw.stat_data))return false;
+            if(String(raw.__samsaraWorldCommit||'')!==fingerprint)return false;
+            const existing=raw.__samsaraWorldReplay;
+            if(plain(existing)&&String(existing.fingerprint||'')===fingerprint&&Array.isArray(existing.operations)&&existing.operations.length)return false;
+            const replay=this.buildWorldReplayPackage(beforeSnapshot.stat,raw.stat_data,fingerprint);
+            if(!replay)return false;
+            const next=copy(raw);next.__samsaraWorldReplay=replay;
+            const target=this.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
+            if(target)target.__samsaraUIMutation=true;
+            try{
+                await mvu.replaceMvuData(next,{type:'message',message_id:Number(beforeSnapshot.id)});
+                return true;
+            }finally{
+                if(target){
+                    if(had)target.__samsaraUIMutation=previous;
+                    else delete target.__samsaraUIMutation;
+                }
+            }
+        }
+        async run(options={}) {
+            let before=null;
+            try{before=this.snapshot();}catch(_){}
+            const result=await super.run(options);
+            if(result===true&&before){
+                try{await this.worldReplayPersistAfterSuccess(before);}catch(error){
+                    try{console.warn('[世界推进] 恢复包持久化失败',error);}catch(_){}
+                }
+            }
+            return result;
         }
     };
     // 活跃异端活动时间戳：模型提交活动事实；世界时间由 WorldResult.时间 维护，人物时间戳由程序统一盖章。

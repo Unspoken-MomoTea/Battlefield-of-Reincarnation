@@ -148,6 +148,8 @@ for(const item of requirements){
 
   const source=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
   assert.match(source,/【世界时间所有权】/,'delivery must inject world-time ownership rules');
+  assert.match(source,/\{yyy\}年-\{mm\}月-\{dd\}日-\{时间段\}/,'delivery prompt must use the neutral world-time format template');
+  assert.doesNotMatch(source,/例如“帝历1024年-09月-12日-下午”/,'delivery prompt must not teach a specific world calendar as the generic format');
   assert.match(source,/WORLD_RESULT_SCHEMA\.properties\.时间/,'delivery must expose WorldResult.时间');
   assert.match(source,/canonicalTime=String\(next\?\.世界\?\.时间/,'alien validator must read the final world-engine clock');
   console.log('PASS world engine owns 世界.时间, enforces calendar-compatible precise dates, and active-alien timestamps follow that clock');

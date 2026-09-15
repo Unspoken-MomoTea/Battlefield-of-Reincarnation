@@ -990,6 +990,9 @@ ${worldDescriptionSend}
                     const c = win.Mvu.getMvuData({type:'message', message_id:'latest'});
                     const _set = win._.set;
                     _set(c, 'stat_data.系统状态.是否在主神空间', false);
+                    // 每个副本拥有独立世界时钟；进入新世界时必须先清空，让世界推进重新建立时间锚点。
+                    _set(c, 'stat_data.世界.时间', '');
+                    _set(c, 'stat_data.世界.历法', {});
                     _set(c, 'stat_data.世界.名称', worldTitle);
                     // 世界位格(罗马数字 Ⅰ~Ⅸ): 优先取括号行 (世界位格: ...); 兼容字段行 [世界位格]/[位格]
                     let rankVal = parsed.rank || '';

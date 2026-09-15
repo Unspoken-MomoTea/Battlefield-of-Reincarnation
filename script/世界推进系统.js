@@ -6126,7 +6126,8 @@ ${schemaText}`;
 2. 当前时间为空/待初始化时，按最新正文与明确资料建立时间锚点；资料只能确定季节、阶段或时段时保持该精度，不为格式完整编造月日。
 3. 精确到月日时统一写 {yyy}年-{mm}月-{dd}日-{时间段}；月份必须为数字。时间段只能选：凌晨 / 黎明 / 清晨 / 早晨 / 上午 / 中午 / 午后 / 下午 / 傍晚 / 入夜 / 晚上 / 深夜。不要输出“夜晚/黄昏/早上”等其它同义词。
 4. 时间段是粗粒度时间锚点，不是每轮计数器。没有足够时间流逝跨过当前时段时，省略“时间”并保持原值；只有正文或明确时间资料表明确实经过了合理时长，才推进到后续时段或日期。禁止仅因本轮执行了世界推进就机械跳时段。
-5. 世界时间不得回退，也不得把待发生事件的计划时间提前写成当前时间。人物/地区等“更新时间”由程序按本轮最终世界时间统一盖章。`;
+5. 世界时间不得回退，也不得把待发生事件的计划时间提前写成当前时间。人物/地区等“更新时间”由程序按本轮最终世界时间统一盖章。
+6. 从主神空间进入新副本时，程序会先清空世界.时间与旧历法；必须把这视为全新世界的时间初始化，严禁继承上一副本或主神空间“轮回历”的日期。`;
 
     const MACHINE_TIME_DESCRIPTION='精确到月日时使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段仅限：凌晨/黎明/清晨/早晨/上午/中午/午后/下午/傍晚/入夜/晚上/深夜；只能确定季节/阶段时可保留粗粒度。';
     WORLD_RESULT_SCHEMA.properties.时间={type:'string',minLength:1,description:'当前世界时间。'+MACHINE_TIME_DESCRIPTION};
@@ -6267,12 +6268,24 @@ ${schemaText}`;
             const previous=String(before?.stat_data?.世界?.时间??'');
             const incoming=String(variables?.stat_data?.世界?.时间??'');
             if(previous===incoming)return handled;
+
+            // 世界切换是唯一允许程序层改写世界.时间的边界：
+            // 主神空间 -> 副本只能清空/待初始化；副本 -> 主神空间只能写轮回历。
+            // 其它变量更新仍一律回滚，继续保证世界推进的单一所有权。
+            const wasSpace=before?.stat_data?.系统状态?.是否在主神空间===true;
+            const isSpace=variables?.stat_data?.系统状态?.是否在主神空间===true;
+            if(wasSpace!==isSpace){
+                const enteringWorld=wasSpace&&!isSpace;
+                const returningToSpace=!wasSpace&&isSpace;
+                const mainSpaceTime=/^轮回历\d+年-\d{2}月-\d{2}日-(?:凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜)$/.test(incoming);
+                if((enteringWorld&&worldTimeUnset(incoming))||(returningToSpace&&mainSpaceTime))return handled;
+            }
+
             if(!plain(variables.stat_data.世界))variables.stat_data.世界={};
             variables.stat_data.世界.时间=previous;
             return true;
         }
-    };
-    // 恢复包可靠性：世界推进成功后主动持久化 replay，不再依赖 replaceMvuData 是否触发可用的 VARIABLE_UPDATE_ENDED。
+    };    // 恢复包可靠性：世界推进成功后主动持久化 replay，不再依赖 replaceMvuData 是否触发可用的 VARIABLE_UPDATE_ENDED。
     // 对旧楼若已有 commit 但缺 replay，优先从本次重处理事件的 before 恢复；实在无旧状态时按自动推进开关决定是否立即重建。
     const SamsaraWorldEngineBeforeReplayPersistence=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeReplayPersistence {

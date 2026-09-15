@@ -12,13 +12,15 @@ const isCombat = _.get(data, '系统状态.是否战斗中', false) === true;
 const isFormActive = _.get(data, '角色.当前形态.激活', false) === true;
 const isOneWorld = _.get(data, '设置.单一世界', false) === true;
 const isStable = _.get(data, '设置.世界超稳', false) === true;
-const isWorldEngineEnabled = (() => {
+const worldEngine = (() => {
   try {
     const host = (typeof window !== 'undefined' && window.parent && window.parent !== window) ? window.parent : (typeof window !== 'undefined' ? window : null);
-    const engine = host?.Samsara?.worldEngine;
-    return typeof engine?.isEnabled === 'function' ? engine.isEnabled() : engine?.config?.enabled === true;
-  } catch (_) { return false; }
+    return host?.Samsara?.worldEngine || null;
+  } catch (_) { return null; }
 })();
+const isWorldEngineEnabled = typeof worldEngine?.isEnabled === 'function'
+  ? worldEngine.isEnabled()
+  : worldEngine?.config?.enabled === true;
 
 // 生命层级(Ⅰ~Ⅸ)序列, 用于序位比较
 const LIFE_TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
@@ -64,6 +66,15 @@ const deadAlienNameKeys = new Set(
 readonly.世界 = {
   稳定: _.get(data, '世界.稳定', 100)
 };
+// 长期历史只通过世界推进程序生成的根节点投影进入正文；完整后台与原始历史树仍保持隐藏。
+if (isWorldEngineEnabled && worldEngine?.config?.sendHistoryToProse === true && !_.get(data, '系统状态.是否在主神空间', false)) {
+  try {
+    const historyMemory = typeof worldEngine?.proseHistoryMemory === 'function' ? worldEngine.proseHistoryMemory(data) : null;
+    if (historyMemory && (Number(_.get(historyMemory, '统计.原始锚点总数', 0)) > 0 || Number(_.get(historyMemory, '统计.总结节点总数', 0)) > 0)) {
+      readonly.世界.历史记忆 = _.cloneDeep(historyMemory);
+    }
+  } catch (_) { /* 世界推进脚本尚未完成初始化时静默跳过，不暴露后台。 */ }
+}
 
 // 2. 角色只读信息
 readonly.角色 = {

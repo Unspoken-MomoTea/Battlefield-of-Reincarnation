@@ -91,7 +91,6 @@
     };
     const PATH = '后台';
     const EVENT_TARGET = 180;
-    const HISTORY_TARGET = 200;
     const RECENT_FINISHED_EVENT_TARGET = 8;
     const FINISHED_EVENT_GRACE_HOURS = 24;
     const HOT_HISTORY_TARGET = 24;

@@ -36,7 +36,7 @@
         autoProgressBackendHasContent(snapshot) {
             const backend=snapshot?.stat?.世界?.[PATH];
             if(!plain(backend))return false;
-            const maps=['事件','人物','势力地区','历史','传播'];
+            const maps=['事件','人物','势力地区','历史','历史总结','传播'];
             if(maps.some(key=>plain(backend[key])&&Object.keys(backend[key]).length>0))return true;
             return ['最近变化','运行记录'].some(key=>Array.isArray(backend[key])&&backend[key].length>0);
         }

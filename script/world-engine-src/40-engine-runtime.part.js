@@ -15,6 +15,8 @@
                 presetEditorVersion:0,
                 promptDocuments:[],
                 fontScale:'standard',
+                // 仅控制是否把压缩后的长期历史发送给正文AI；世界推进自身始终读取。
+                sendHistoryToProse:false,
                 dedicatedApi:{enabled:false,apiUrl:'',apiKey:'',model:'',apiPresets:[],fetchedModels:[]}
             };
             try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
@@ -88,6 +90,7 @@
             }
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
             if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
+            this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
             this.apiModeCache={};
             if(hadLegacyTone)this.saveConfig();
@@ -552,7 +555,7 @@
             const input=JSON.stringify({
                 输入语义:{
                     世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
-                    当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史与近期因果偏移。资产通过WorldResult.资产与同一顶层账簿双向同步；旧历史/旧偏移仍可留在MVU冷存档但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',
+                    当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；未提供的任务/商城/纯结算数据不属于本引擎职责。',
                     正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
                     程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
                     时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',

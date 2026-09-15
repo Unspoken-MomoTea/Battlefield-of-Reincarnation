@@ -91,7 +91,6 @@
     };
     const PATH = '后台';
     const EVENT_TARGET = 180;
-    const HISTORY_TARGET = 200;
     const RECENT_FINISHED_EVENT_TARGET = 8;
     const FINISHED_EVENT_GRACE_HOURS = 24;
     const HOT_HISTORY_TARGET = 24;
@@ -523,8 +522,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
             if(!candidate)break;
             archiveFinishedEvent(stat,state,candidate[0],candidate[1],archived);
         }
-        const historyKeys=Object.keys(state.历史||{});
-        if(historyKeys.length>HISTORY_TARGET)for(const key of historyKeys.slice(0,historyKeys.length-HISTORY_TARGET))delete state.历史[key];
+        // 历史锚点是永久已确认事实，不再按固定数量删除；旧事实由分层历史总结退出热上下文。
         return archived;
     }
     function explorationLocationRefs(record,kind) {
@@ -743,7 +741,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         };
     }
     function emptyState() {
-        return { 版本:4, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
+        return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
     }
     // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
     function importStory(stat) {
@@ -971,7 +969,9 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         }
         delete state.公开摘要;
         delete state.正文承接;
-        state.版本=Math.max(4,Number(state.版本)||0);
+        state.版本=Math.max(5,Number(state.版本)||0);
+        // v5：程序托管的可逆历史总结树；不属于模型可写 RECORDS。
+        if(!plain(state.历史总结))state.历史总结={};
         for(const category of Object.keys(RECORDS)){
             if(!plain(state[category]))state[category]={};
             for(const [name,value] of Object.entries(state[category])){
@@ -2571,6 +2571,8 @@ ${schemaText}`;
                 presetEditorVersion:0,
                 promptDocuments:[],
                 fontScale:'standard',
+                // 仅控制是否把压缩后的长期历史发送给正文AI；世界推进自身始终读取。
+                sendHistoryToProse:false,
                 dedicatedApi:{enabled:false,apiUrl:'',apiKey:'',model:'',apiPresets:[],fetchedModels:[]}
             };
             try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
@@ -2644,6 +2646,7 @@ ${schemaText}`;
             }
             if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
             if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
+            this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
             this.apiModeCache={};
             if(hadLegacyTone)this.saveConfig();
@@ -3108,7 +3111,7 @@ ${schemaText}`;
             const input=JSON.stringify({
                 输入语义:{
                     世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
-                    当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史与近期因果偏移。资产通过WorldResult.资产与同一顶层账簿双向同步；旧历史/旧偏移仍可留在MVU冷存档但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',
+                    当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；未提供的任务/商城/纯结算数据不属于本引擎职责。',
                     正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
                     程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
                     时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
@@ -4484,7 +4487,9 @@ ${schemaText}`;
                 if(showRadar&&exists(radar.当前模式))html+=section('干涉模式','<article class="we-card"><p>'+text(radar.当前模式)+'</p></article>');
 
                 html+=section('推演记录',(state.运行记录||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.时间)+'</h3>'+pill(r.补丁数+' 项变化','dim')+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚未执行推演'));
-                html+=section('历史锚点',entries(state.历史).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无已确认的历史锚点'));
+                const historyMemory=projectWorldHistoryMemory(state);
+                html+=section('长期历史总结',(historyMemory.长期总结||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.名称)+'</h3>'+pill('L'+text(r.层级),'dim')+'</div><div class="we-meta">'+text([r.起始时间,r.结束时间].filter(Boolean).join(' → '))+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚无长期历史总结','历史锚点积累后会自动分层压缩；底层事实仍保留在MVU。'),(historyMemory.统计?.总结节点总数||0)+' 个总结节点 · 原始历史不删除');
+                html+=section('近期历史锚点',entries(historyMemory.近期锚点).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无未收纳的近期历史锚点'),(historyMemory.统计?.原始锚点总数||0)+' 条原始历史 · 仅展示当前热根节点');
             }else if(this.tab==='设置'){
                 const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
                 const fontButtons=Object.entries(WORLD_FONT_SCALES).map(([key,item])=>'<button class="we-setting-btn '+(this.config.fontScale===key?'active':'')+'" data-font-option="'+key+'">'+text(item.name)+' · '+text(item.size)+'</button>').join('');
@@ -4495,6 +4500,8 @@ ${schemaText}`;
                     ?(this.dedicatedApiReady()?'专属 API 已就绪':'专属 API 已接管，但配置尚不完整')
                     :(terminalReady?'使用主神终端额外模型':'主神终端额外模型尚未准备好');
                 html+=section('界面字号','<div class="we-setting-row"><div class="we-setting-copy"><b>界面字号</b><small>色调跟随主神终端；这里仅调整世界推进自己的文字大小。</small></div><div class="we-setting-actions">'+fontButtons+'</div></div>','色调跟随主神终端 · 默认标准 16px');
+                const historyToProse=this.config.sendHistoryToProse===true;
+                html+=section('历史记忆','<div class="we-setting-row"><div class="we-setting-copy"><b>向正文提供历史记忆</b><small>开启后，正文AI额外读取“近期原始锚点 + 更早长期总结”；关闭只影响正文，世界推进自身仍始终使用完整的分层历史脉络。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(historyToProse?'on':'')+'" data-action="history-prose-toggle"><span>'+text(historyToProse?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>','默认关闭 · 原始历史事实不会因关闭而删除');
                 html+=section('模型接口',
                     '<div class="we-setting-row"><div class="we-setting-copy"><b>当前调用来源</b><small>'+text(sourceState)+'</small></div><div class="we-setting-actions"><span class="we-source-badge">'+text(this.apiSourceLabel())+'</span></div></div>'
                     +'<div class="we-setting-row"><div class="we-setting-copy"><b>世界推进专属 API</b><small>开启后世界推进只走这里，不再调用状态栏 / 主神终端的 API；即使配置不完整也不会偷偷回退。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(api.enabled?'on':'')+'" data-action="dedicated-toggle"><span>'+text(api.enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>'
@@ -5236,7 +5243,7 @@ ${schemaText}`;
         autoProgressBackendHasContent(snapshot) {
             const backend=snapshot?.stat?.世界?.[PATH];
             if(!plain(backend))return false;
-            const maps=['事件','人物','势力地区','历史','传播'];
+            const maps=['事件','人物','势力地区','历史','历史总结','传播'];
             if(maps.some(key=>plain(backend[key])&&Object.keys(backend[key]).length>0))return true;
             return ['最近变化','运行记录'].some(key=>Array.isArray(backend[key])&&backend[key].length>0);
         }
@@ -7155,6 +7162,253 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         render(force){
             const result=super.render(force);
             this.syncDedicatedApiPresetSelection();
+            return result;
+        }
+    };
+    // 世界长期历史记忆：借鉴“摘要森林”的根节点压缩思想。
+    // 原始历史锚点永不因数量阈值删除；只把尚未被上层节点收纳的旧根节点继续压缩。
+    // L0 达到 18 条时压最旧 12 条并保留最近 6 条原始细节；L1 每 6 条压一层；L2+ 每 3 条继续向上。
+    const HISTORY_MEMORY_L0_BATCH=12;
+    const HISTORY_MEMORY_L0_KEEP=6;
+    const HISTORY_MEMORY_L1_BATCH=6;
+    const HISTORY_MEMORY_HIGHER_BATCH=3;
+    const HISTORY_MEMORY_LEGACY_RAW_CONTEXT=24;
+    const HISTORY_MEMORY_SCHEMA={
+        type:'object',additionalProperties:false,required:['摘要'],
+        properties:{摘要:{type:'string',minLength:1}}
+    };
+    const HISTORY_MEMORY_SYSTEM=`【世界长期历史压缩】
+只总结已确认历史事实。你收到的是按真实先后顺序排列的既有历史节点；任务是把它们融合成一条更高层的世界史记忆，不是续写剧情。
+必须保留：时间顺序、主要参与者、原因、关键转折、最终结果，以及仍会影响后续局势的长期后果与重要因果偏移。
+可以删除：重复描述、已经失去后续意义的过程细节、UI/运行记录信息。
+禁止：补写未发生剧情、猜测隐藏真相、修改既有结局、制造输入中不存在的日期/人物/关系、把历史事实写成未来计划。
+如果输入时间粒度不完整，就保持原有粒度，不自行补全。
+只输出 JSON：{"摘要":"..."}`;
+
+    function historyMemoryCollectedIds(backend) {
+        const collected=new Set();
+        for(const item of Object.values(backend?.历史总结||{})){
+            if(!plain(item)||!Array.isArray(item.子项))continue;
+            for(const id of item.子项){const key=String(id||'').trim();if(key)collected.add(key);}
+        }
+        return collected;
+    }
+    function historyMemorySummaryOrder(item,fallback=0) {
+        const n=Number(item?.起始序位);
+        return Number.isFinite(n)&&n>0?n:fallback;
+    }
+    function historyMemoryRootsAtLevel(backend,level) {
+        const source=plain(backend)?backend:{},collected=historyMemoryCollectedIds(source);
+        if(level===0){
+            return Object.entries(source.历史||{}).map(([name,item],index)=>({
+                id:'历史:'+name,name,level:0,text:String(item?.事实||'').trim(),
+                timeStart:String(item?.时间||'').trim(),timeEnd:String(item?.时间||'').trim(),
+                lo:index+1,hi:index+1
+            })).filter(node=>node.text&&!collected.has(node.id));
+        }
+        return Object.entries(source.历史总结||{}).filter(([,item])=>plain(item)&&Number(item.层级)===level)
+            .map(([name,item],index)=>({
+                id:'总结:'+name,name,level,text:String(item.摘要||'').trim(),
+                timeStart:String(item.起始时间||'').trim(),timeEnd:String(item.结束时间||'').trim(),
+                lo:historyMemorySummaryOrder(item,index+1),
+                hi:Number.isFinite(Number(item.结束序位))?Number(item.结束序位):historyMemorySummaryOrder(item,index+1)
+            })).filter(node=>node.text&&!collected.has(node.id))
+            .sort((a,b)=>a.lo-b.lo||a.hi-b.hi||a.name.localeCompare(b.name,'zh-CN'));
+    }
+    function historyMemoryBatchForLevel(backend,level) {
+        const roots=historyMemoryRootsAtLevel(backend,level);
+        if(level===0){
+            if(roots.length<HISTORY_MEMORY_L0_BATCH+HISTORY_MEMORY_L0_KEEP)return [];
+            return roots.slice(0,HISTORY_MEMORY_L0_BATCH);
+        }
+        const threshold=level===1?HISTORY_MEMORY_L1_BATCH:HISTORY_MEMORY_HIGHER_BATCH;
+        if(roots.length<threshold)return [];
+        return roots.slice(0,threshold);
+    }
+    function historyMemoryNextKey(backend,level) {
+        const prefix='H'+level+'-',used=new Set(Object.keys(backend?.历史总结||{}));
+        let max=0;
+        for(const name of used){
+            if(!String(name).startsWith(prefix))continue;
+            const n=Number(String(name).slice(prefix.length));if(Number.isFinite(n))max=Math.max(max,n);
+        }
+        let seq=max+1,key='';
+        do{key=prefix+String(seq++).padStart(6,'0');}while(used.has(key));
+        return key;
+    }
+    function historyMemoryParseReply(raw) {
+        let source=String(raw||'').trim();
+        const fenced=source.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);if(fenced)source=fenced[1].trim();
+        let value=null;
+        try{value=JSON.parse(source);}catch(_){
+            const start=source.indexOf('{'),end=source.lastIndexOf('}');
+            if(start>=0&&end>start){try{value=JSON.parse(source.slice(start,end+1));}catch(__){}}
+        }
+        const summary=String(value?.摘要||value?.summary||'').trim();
+        if(!summary)throw new Error(source?'历史总结失败：返回缺少摘要 JSON':'历史总结失败：模型空回');
+        return summary;
+    }
+    function historyMemoryPrompt(world,batch,outputLevel) {
+        const nodes=batch.map((node,index)=>({
+            序号:index+1,
+            时间:node.timeStart&&node.timeEnd&&node.timeStart!==node.timeEnd?node.timeStart+' → '+node.timeEnd:(node.timeStart||node.timeEnd||''),
+            事实:node.text
+        }));
+        return JSON.stringify({
+            世界:String(world?.名称||''),
+            输出层级:'L'+outputLevel,
+            说明:'按给定顺序压缩；时间字段是权威锚点，不得改写或补造。',
+            历史节点:nodes
+        },null,2);
+    }
+    function projectWorldHistoryMemory(backend) {
+        const state=plain(backend)?backend:{},raw=state.历史||{},summaries=state.历史总结||{};
+        const collected=historyMemoryCollectedIds(state);
+        const rawRoots=historyMemoryRootsAtLevel(state,0);
+        const recent=rawRoots.slice(-HISTORY_MEMORY_LEGACY_RAW_CONTEXT);
+        const recentMap=Object.fromEntries(recent.map(node=>{
+            const key=node.id.slice(3),record=raw[key]||{};
+            return [key,{时间:String(record.时间||''),事实:String(record.事实||''),关联事件:Array.isArray(record.关联事件)?copy(record.关联事件):[]}];
+        }));
+        const rootSummaries=Object.entries(summaries).filter(([name,item])=>plain(item)&&!collected.has('总结:'+name))
+            .map(([name,item],index)=>({
+                名称:name,层级:Math.max(1,Number(item.层级)||1),
+                起始时间:String(item.起始时间||''),结束时间:String(item.结束时间||''),摘要:String(item.摘要||''),
+                __order:historyMemorySummaryOrder(item,index+1)
+            })).filter(item=>item.摘要)
+            .sort((a,b)=>a.__order-b.__order||a.层级-b.层级||a.名称.localeCompare(b.名称,'zh-CN'))
+            .map(item=>{const out={...item};delete out.__order;return out;});
+        return {
+            说明:'世界长期叙事与因果记忆；用于保持跨章连续性，不自动等于任何角色已经获知的情报。',
+            近期锚点:recentMap,
+            长期总结:rootSummaries,
+            统计:{
+                原始锚点总数:Object.keys(raw).length,
+                总结节点总数:Object.keys(summaries).length,
+                未收纳锚点数:rawRoots.length,
+                隐藏未压缩锚点数:Math.max(0,rawRoots.length-recent.length)
+            }
+        };
+    }
+    function historyMemoryDigest(backend) {
+        try{return JSON.stringify([backend?.历史||{},backend?.历史总结||{}]);}catch(_){return '';}
+    }
+
+    // 世界推进自身始终读“近期根锚点 + 更早根总结”；正文是否读取由独立设置控制。
+    const projectWorldContextBeforeHistoryMemory=projectWorldContext;
+    projectWorldContext=function(stat) {
+        const out=projectWorldContextBeforeHistoryMemory(stat);
+        const backend=stat?.世界?.[PATH]||{},projected=out?.世界?.[PATH];
+        if(projected){
+            delete projected.历史;
+            projected.历史记忆=projectWorldHistoryMemory(backend);
+        }
+        return out;
+    };
+
+    const SamsaraWorldEngineBeforeHistoryMemory=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeHistoryMemory {
+        constructor(host,env) {
+            super(host,env);
+            let dirty=false;
+            if(!Object.hasOwn(this.config,'sendHistoryToProse')){this.config.sendHistoryToProse=false;dirty=true;}
+            else this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;
+            this.historyMaintenanceBusy=false;
+            this.lastHistoryMaintenance='';
+            if(dirty)this.saveConfig();
+        }
+        setSendHistoryToProse(value) {
+            this.config.sendHistoryToProse=value===true;
+            this.saveConfig();
+            this.render();
+            return this.config.sendHistoryToProse;
+        }
+        proseHistoryMemory(stat) {
+            return projectWorldHistoryMemory(stat?.世界?.[PATH]||{});
+        }
+        createPanel() {
+            super.createPanel();
+            if(!this.panel||this.panel.__historyMemoryToggleBound)return;
+            Object.defineProperty(this.panel,'__historyMemoryToggleBound',{value:true,configurable:true});
+            this.panel.addEventListener('click',event=>{
+                const button=event.target?.closest?.('[data-action="history-prose-toggle"]');
+                if(!button||!this.panel.contains(button))return;
+                event.preventDefault();
+                this.setSendHistoryToProse(this.config.sendHistoryToProse!==true);
+            });
+        }
+        async requestHistoryMemorySummary(world,batch,outputLevel) {
+            const savedTransport=this.lastTransportInfo;
+            try{
+                const raw=await this.requestAI(
+                    HISTORY_MEMORY_SYSTEM,
+                    historyMemoryPrompt(world,batch,outputLevel),
+                    {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
+                );
+                return historyMemoryParseReply(raw);
+            } finally {
+                this.lastTransportInfo=savedTransport;
+            }
+        }
+        async maintainHistoryMemory() {
+            if(this.historyMaintenanceBusy)return 0;
+            this.historyMaintenanceBusy=true;
+            const previousStatus=this.status;
+            let made=0,failed='';
+            try{
+                const snapshot=this.snapshot(),stat=copy(snapshot.stat),backend=stat?.世界?.[PATH];
+                if(!plain(backend))return 0;
+                if(!plain(backend.历史总结))backend.历史总结={};
+                const startDigest=historyMemoryDigest(backend);
+                // 只在当前层生成一个父节点，然后继续检查更高层；同一层的大量旧数据分摊到后续世界推进，避免一次爆发过多副请求。
+                for(let level=0;level<32;level++){
+                    const batch=historyMemoryBatchForLevel(backend,level);
+                    if(!batch.length)continue;
+                    const outputLevel=level+1;
+                    this.status='整理长期历史记忆 · L'+outputLevel;this.render();
+                    let summary='';
+                    try{summary=await this.requestHistoryMemorySummary(stat.世界,batch,outputLevel);}
+                    catch(error){failed=String(error?.message||error);break;}
+                    const key=historyMemoryNextKey(backend,outputLevel);
+                    backend.历史总结[key]={
+                        层级:outputLevel,摘要:summary,子项:batch.map(node=>node.id),
+                        起始时间:String(batch.find(node=>node.timeStart)?.timeStart||''),
+                        结束时间:String([...batch].reverse().find(node=>node.timeEnd)?.timeEnd||''),
+                        起始序位:Math.min(...batch.map(node=>Number(node.lo)||0).filter(n=>n>0)),
+                        结束序位:Math.max(...batch.map(node=>Number(node.hi)||0).filter(n=>n>0)),
+                        创建时间:String(stat.世界?.时间||'')
+                    };
+                    made++;
+                }
+                if(!made)return 0;
+                const current=this.snapshot(),currentBackend=current.stat?.世界?.[PATH];
+                if(historyMemoryDigest(currentBackend)!==startDigest){
+                    this.lastHistoryMaintenance='历史在总结期间已变化，本次总结结果丢弃，下轮重试';
+                    return 0;
+                }
+                const validate=this.host.Samsara&&this.host.Samsara.validateWorldState;
+                const next=validate?validate(stat):stat;
+                const result=current.raw;result.stat_data=next;
+                this.committing=true;
+                await current.mvu.replaceMvuData(result,{type:'message',message_id:current.id});
+                this.lastHistoryMaintenance='新增 '+made+' 个历史总结节点';
+                return made;
+            } finally {
+                this.committing=false;
+                if(failed)this.lastHistoryMaintenance='历史总结稍后重试：'+failed;
+                this.status=previousStatus+(made?' · 历史总结+'+made:(failed?' · 历史总结待重试':''));
+                this.render();
+                this.historyMaintenanceBusy=false;
+            }
+        }
+        async run() {
+            const result=await super.run();
+            if(result===true){
+                try{await this.maintainHistoryMemory();}catch(error){
+                    this.lastHistoryMaintenance='历史总结稍后重试：'+String(error?.message||error);
+                    try{console.warn('[世界推进] '+this.lastHistoryMaintenance);}catch(_){}
+                }
+            }
             return result;
         }
     };

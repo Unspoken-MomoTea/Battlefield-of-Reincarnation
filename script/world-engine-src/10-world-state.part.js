@@ -155,8 +155,7 @@
             if(!candidate)break;
             archiveFinishedEvent(stat,state,candidate[0],candidate[1],archived);
         }
-        const historyKeys=Object.keys(state.历史||{});
-        if(historyKeys.length>HISTORY_TARGET)for(const key of historyKeys.slice(0,historyKeys.length-HISTORY_TARGET))delete state.历史[key];
+        // 历史锚点是永久已确认事实，不再按固定数量删除；旧事实由分层历史总结退出热上下文。
         return archived;
     }
     function explorationLocationRefs(record,kind) {
@@ -375,7 +374,7 @@
         };
     }
     function emptyState() {
-        return { 版本:4, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
+        return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
     }
     // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
     function importStory(stat) {
@@ -603,7 +602,9 @@
         }
         delete state.公开摘要;
         delete state.正文承接;
-        state.版本=Math.max(4,Number(state.版本)||0);
+        state.版本=Math.max(5,Number(state.版本)||0);
+        // v5：程序托管的可逆历史总结树；不属于模型可写 RECORDS。
+        if(!plain(state.历史总结))state.历史总结={};
         for(const category of Object.keys(RECORDS)){
             if(!plain(state[category]))state[category]={};
             for(const [name,value] of Object.entries(state[category])){

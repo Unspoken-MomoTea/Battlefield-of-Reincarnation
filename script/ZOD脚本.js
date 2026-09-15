@@ -417,7 +417,7 @@ export const Schema = z.object({
         名称: safeStr('待初始化'),
         // 世界引擎的完整后台状态；正文只通过当前变量读取当前阶段与安全过滤后的当前事件。
         后台: z.object({
-            版本: safeNum(4), 已处理楼层: safeStr(''), 已处理时间: safeStr(''),
+            版本: safeNum(5), 已处理楼层: safeStr(''), 已处理时间: safeStr(''),
             // 仅用于 v3→v4 旧存档迁移；world transform 会马上转入 因果轨道.当前阶段 并删除。
             公开摘要: safeStr('').optional(),
             正文承接: z.any().optional(),
@@ -425,6 +425,8 @@ export const Schema = z.object({
             人物: z.record(z.string(), z.any()).prefault({}),
             势力地区: z.record(z.string(), z.any()).prefault({}),
             历史: z.record(z.string(), z.any()).prefault({}),
+            // 程序托管的可逆历史总结树；正文只读取经过开关控制的根节点投影。
+            历史总结: z.record(z.string(), z.any()).prefault({}),
             传播: z.record(z.string(), z.any()).prefault({}),
             运行记录: z.array(z.any()).prefault([]),
             最近变化: z.array(z.any()).prefault([]),

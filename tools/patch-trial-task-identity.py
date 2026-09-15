@@ -190,6 +190,7 @@ replace_once(
 )
 
 # Corrupted trial commissioners must still receive their locked task coin reward/penalty.
+# Keep this block self-contained because the coin regression extracts it independently.
 replace_once(
     'Regular/结算任务美化.html',
     """            const taskRewardDetails = [];
@@ -202,7 +203,34 @@ replace_once(
     """            const taskRewardDetails = [];
             const penaltyDetails = [];
             const taskList = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            const recognizedTaskKeys = new Set(settlementTaskKeysForData(data));
+            const recognizedTaskKeys = new Set(Object.keys(taskList).filter(function(name) {
+              const commissioner = String(taskList[name] && taskList[name].委托方 || '').trim();
+              return commissioner === '主神任务' || commissioner === '晋升试炼';
+            }));
+            const trialSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
+            if (trialSys.是否试炼任务 === true) {
+              const exactNames = Array.isArray(trialSys.试炼任务名单)
+                ? trialSys.试炼任务名单.map(function(name) { return String(name || '').trim(); }).filter(Boolean)
+                : [];
+              let exactMatched = 0;
+              exactNames.forEach(function(name) {
+                if (!taskList[name]) return;
+                recognizedTaskKeys.add(name);
+                exactMatched += 1;
+              });
+              const missing = exactNames.length ? Math.max(0, exactNames.length - exactMatched) : Number.POSITIVE_INFINITY;
+              if (!exactNames.length || missing > 0) {
+                let added = 0;
+                Object.keys(taskList).forEach(function(name) {
+                  if (exactNames.length && added >= missing) return;
+                  if (recognizedTaskKeys.has(name)) return;
+                  const commissioner = String(taskList[name] && taskList[name].委托方 || '').trim();
+                  if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return;
+                  recognizedTaskKeys.add(name);
+                  added += 1;
+                });
+              }
+            }
             Object.keys(taskList).forEach(function(name) {
               const task = taskList[name] || {};
               if (!recognizedTaskKeys.has(name)) return;""",

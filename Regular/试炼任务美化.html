@@ -577,7 +577,7 @@
           const tasks = taskBaseline ? (taskBaseline.taskList || {}) : (get(c,'stat_data.任务.列表',{}) || {});
           const hasActive = sys.是否试炼任务 === true || Object.keys(tasks).some(function(name){
             const t = tasks[name] || {};
-            return ['晋升试炼','普升试炼'].includes(String(t.委托方 || '').trim()) && ['进行中','可交付','可结算','失败'].includes(String(t.状态 || '').trim()); // TRIAL_COMMISSIONER_ALIAS_V2
+            return String(t.委托方 || '').trim() === '晋升试炼' && ['进行中','可交付','可结算','失败'].includes(String(t.状态 || '').trim());
           });
           if (hasActive) return fail('已有尚未结算的晋升试炼。');
 

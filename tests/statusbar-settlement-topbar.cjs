@@ -5,7 +5,7 @@ const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'..','script','悬浮球状态栏.js'),'utf8');
 
 assert.match(source,/function isSettlementReadyTask\(task\)/,'statusbar must expose settlement-ready task policy');
-assert.match(source,/issuer === '主神任务' \|\| issuer === '晋升试炼' \|\| issuer === '试炼任务'/,'both main-god and trial tasks must qualify');
+assert.match(source,/issuer === '主神任务' \|\| issuer === '晋升试炼' \|\| issuer === '普升试炼' \|\| issuer === '试炼任务'/,'main-god and both exact trial commissioner aliases must qualify');
 assert.match(source,/status === '可结算' \|\| status === '可交付' \|\| status === '已完成' \|\| status === '完成'/,'settlement entry must tolerate current and legacy completion aliases');
 assert.match(source,/sys\.是否在主神空间 !== false \|\| sys\.是否战斗中 === true/,'entry must only appear outside the main-god space and outside combat');
 assert.doesNotMatch(source,/shouldShowSettlementButton[\s\S]{0,500}单一世界/,'single-world mode must not suppress the settlement entry');

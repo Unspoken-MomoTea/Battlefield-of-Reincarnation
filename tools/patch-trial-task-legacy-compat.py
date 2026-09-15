@@ -18,32 +18,42 @@ def replace_once(relative, old, new):
 
 # Active hidden identity is authoritative when starting a trial too. This prevents
 # duplicate trial generation if a later AI update corrupts all commissioners.
-replace_once(
-    'Regular/试炼任务美化.html',
-    """          const hasActive = Object.keys(tasks).some(function(name){
+trial_ui_path = ROOT / 'Regular/试炼任务美化.html'
+trial_ui_text = trial_ui_path.read_text(encoding='utf-8')
+if 'sys.是否试炼任务 === true' in trial_ui_text and 'TRIAL_COMMISSIONER_ALIAS_V2' in trial_ui_text:
+    print('[trial-legacy] trial UI already contains hidden identity + upgraded commissioner aliases')
+else:
+    replace_once(
+        'Regular/试炼任务美化.html',
+        """          const hasActive = Object.keys(tasks).some(function(name){
             const t = tasks[name] || {};
             return String(t.委托方 || '').trim() === '晋升试炼' && ['进行中','可交付','可结算','失败'].includes(String(t.状态 || '').trim());
           });""",
-    """          const hasActive = sys.是否试炼任务 === true || Object.keys(tasks).some(function(name){
+        """          const hasActive = sys.是否试炼任务 === true || Object.keys(tasks).some(function(name){
             const t = tasks[name] || {};
             return String(t.委托方 || '').trim() === '晋升试炼' && ['进行中','可交付','可结算','失败'].includes(String(t.状态 || '').trim());
           });""",
-)
+    )
 
 
 # Saves that entered a trial before the hidden marker existed need one narrow rescue path.
 # Commissioner keywords alone are never enough: require the exact program-written delivery
 # signature or the old 【晋升试炼·N】 database-key format.
-replace_once(
-    'Regular/结算任务美化.html',
-    """            } else {
+settlement_path = ROOT / 'Regular/结算任务美化.html'
+settlement_text = settlement_path.read_text(encoding='utf-8')
+if 'TRIAL_COMMISSIONER_ALIAS_V2' in settlement_text and '若委托方已被AI改坏，只在同时命中程序级试炼签名时救援' in settlement_text:
+    print('[trial-legacy] settlement already contains legacy rescue + upgraded commissioner aliases')
+else:
+    replace_once(
+        'Regular/结算任务美化.html',
+        """            } else {
               // 旧存档没有隐藏标记时只接受原标准值，避免普通任务被关键词误判。
               keys = Object.keys(list).filter(function(key) {
                 const task = list[key];
                 return task && String(task.委托方 || '').trim() === '晋升试炼';
               });
             }""",
-    """            } else {
+        """            } else {
               // 旧存档优先沿用标准值；若委托方已被AI改坏，只在同时命中程序级试炼签名时救援。
               const canonical = Object.keys(list).filter(function(key) {
                 const task = list[key];
@@ -63,12 +73,11 @@ replace_once(
                 });
               }
             }""",
-)
+    )
 
 
 # Older builds also mirrored trial identity rescue into the coin core. New builds deliberately
 # decouple coin accounting from task identity: successful/failed explicit amounts are data facts.
-settlement_path = ROOT / 'Regular/结算任务美化.html'
 settlement_text = settlement_path.read_text(encoding='utf-8')
 if 'SETTLEMENT_COIN_TASK_INDEPENDENCE' in settlement_text:
     print('[trial-legacy] coin core uses task-independent accounting; legacy identity coin patch skipped')

@@ -31,6 +31,7 @@ const sandbox = {
   clearTimeout,
   waitGlobalInitialized: async () => {},
   eventOn: () => {},
+  $: (fn) => { if (typeof fn === 'function') fn(); },
   Mvu: { events: { VARIABLE_UPDATE_ENDED: 'VARIABLE_UPDATE_ENDED' } },
   toastr: { success: () => {} },
   GS_PARENT: {},

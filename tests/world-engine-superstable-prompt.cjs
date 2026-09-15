@@ -10,7 +10,7 @@ const aux=fs.readFileSync(path.join(root,'script/辅助计算脚本.js'),'utf8')
 
 assert(!prompt.includes('结算玩家影响与世界自救'),'default preset must not always inject world self-defense');
 assert(!prompt.includes('稳定<100时按90警觉/80定向排异'),'core rules must not expose every defense stage');
-assert(prompt.includes("version:19,"),'built-in default prompt should be version 19');
+assert(prompt.includes("version:20,"),'built-in default prompt should be version 20');
 assert(runtime.includes("if(state.设置?.世界超稳===true)state.世界.稳定=100;"),'request copy must normalize super-stable world stability to 100');
 assert(runtime.includes("const stabilityPrompt=worldStabilityPrompt(state,this.config.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE);"),'runtime must build stability prompt from the editable template');
 assert(runtime.includes("(stabilityPrompt?'\\n\\n'+stabilityPrompt:'')"),'stability prompt must be conditionally injected');

@@ -129,28 +129,21 @@ regex_once(
 # without reopening broad keyword-based trial detection for arbitrary ordinary tasks.
 replace_once(
     settlement,
-    """          function extractTrialTasks(data) {
-            const stat = data && (data.stat_data || data) || {};""",
-    """          // TRIAL_COMMISSIONER_ALIAS_V2
-          function isTrialCommissionerAlias(value) {
-            const commissioner = String(value || '').trim();
-            return commissioner === '晋升试炼' || commissioner === '普升试炼';
-          }
-
-          function extractTrialTasks(data) {
-            const stat = data && (data.stat_data || data) || {};""",
-    'trial commissioner alias helper',
-)
-replace_once(
-    settlement,
-    """                return task && String(task.委托方 || '').trim() === '晋升试炼';""",
-    """                return task && isTrialCommissionerAlias(task.委托方);""",
+    """              const canonical = Object.keys(list).filter(function(key) {
+                const task = list[key];
+                return task && String(task.委托方 || '').trim() === '晋升试炼';
+              });""",
+    """              // TRIAL_COMMISSIONER_ALIAS_V2：旧档精确兼容“普升试炼”，不扩大到普通“主神空间”任务。
+              const canonical = Object.keys(list).filter(function(key) {
+                const task = list[key];
+                return task && ['晋升试炼','普升试炼'].includes(String(task.委托方 || '').trim());
+              });""",
     'unmarked legacy trial exact alias',
 )
 replace_once(
     settlement,
     """              return commissioner === '主神任务' || commissioner === '晋升试炼';""",
-    """              return commissioner === '主神任务' || isTrialCommissionerAlias(commissioner);""",
+    """              return commissioner === '主神任务' || commissioner === '晋升试炼' || commissioner === '普升试炼';""",
     'settlement task keys trial alias',
 )
 

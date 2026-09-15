@@ -1,0 +1,14 @@
+name: settlement-coin-baseline-fix
+on:
+  push:
+    branches: [fix/settlement-coin-baseline]
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Settlement coin persistence regression
+        run: node tests/settlement-shop-coin-persistence.cjs

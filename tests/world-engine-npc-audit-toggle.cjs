@@ -1,4 +1,6 @@
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 
@@ -117,6 +119,31 @@ function setup({reply='',validate,storedConfig}={}){
 
   {
     const reply=JSON.stringify({
+      摘要:'玛雅更加信任同行者。',
+      关系:[{名称:'玛雅',操作:'更新',态度:'更加信任'}]
+    });
+    const x=setup({reply});
+    x.engine.config.enabled=true;
+    x.engine.setNpcBuildAuditEnabled(true);
+    let failure='';
+    try{await x.engine.run();}catch(error){failure=String(error.message||error);}
+    assert.match(failure,/NPC构筑审计未推进/,'未补构筑时仍应明确驳回');
+    assert.match(failure,/玛雅：/,'错误必须按NPC列出具体审计结果');
+    assert.match(failure,/资料缺失\/职业/,'错误必须指出缺的是职业而不是只报“审计未推进”');
+    assert.match(failure,/血统不足 0\/1/,'错误必须指出血统数量缺口');
+    assert.match(failure,/装备不足 0\/1/,'错误必须指出装备数量缺口');
+  }
+
+  {
+    const source=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
+    assert.match(source,/compactFooterChrome\(/,'世界推进面板应有独立 footer 收口逻辑');
+    assert.match(source,/\.we-footer-status\{[^}]*min-width:0[^}]*text-overflow:ellipsis/s,'左侧运行状态必须可收缩并省略，不能挤压右侧');
+    assert.match(source,/\.we-footer-meta\{[^}]*flex:0 0 auto[^}]*white-space:nowrap/s,'右侧版本信息必须保持紧凑单行，不得竖向堆字');
+    assert.match(source,/title=rawMeta|\.title=rawMeta/,'被收起的 footer 详细说明仍应通过 title 保留');
+  }
+
+  {
+    const reply=JSON.stringify({
       摘要:'建立后续宏观节点。',
       事件:[{
         名称:'床主市大逃杀',操作:'更新',描述:'幸存者进入市区后，各方势力围绕资源与安全区全面冲突。',
@@ -134,5 +161,5 @@ function setup({reply='',validate,storedConfig}={}){
     assert.match(correction,/当前阶段|自然语言原因/,'纠错提示必须明确当前阶段不是事件前因');
   }
 
-  console.log('world-engine NPC audit toggle and validation regression tests passed');
+  console.log('world-engine NPC audit toggle, feedback and footer UI regression tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

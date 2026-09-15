@@ -86,7 +86,6 @@
             )+'\n\n'+TASK_AWARENESS_RULES;
             request.manifest=Object.assign({},request.manifest,{任务感知:{任务数量:Object.keys(payload?.当前变量?.任务?.列表||{}).length,只读:true,副本成就:false}});
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
             return request;
         }
     };

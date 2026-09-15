@@ -139,7 +139,6 @@
                 下一宏观节点:next?String(next.名称||''):''
             };
             manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
             return request;
         }
     };

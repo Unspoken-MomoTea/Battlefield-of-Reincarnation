@@ -39,7 +39,8 @@ assert.match(
 );
 
 const coinCore=part(settlement,'          // SETTLEMENT_COIN_CORE_START','          // SETTLEMENT_COIN_CORE_END');
-assert.match(coinCore,/全部试炼主任务完成后统一结算/,'legacy trial signature must also participate in coin settlement recognition');
-assert.match(coinCore,/晋升试炼\[·\.\]/,'legacy trial database-key format must also participate in coin settlement recognition');
+assert.match(coinCore,/SETTLEMENT_COIN_TASK_INDEPENDENCE/,'coin settlement must explicitly use task-independent accounting');
+assert.doesNotMatch(coinCore,/recognizedTaskKeys/,'trial identity recognition must not gate explicit task coin amounts');
+assert.doesNotMatch(coinCore,/全部试炼主任务完成后统一结算/,'legacy trial signatures belong to trial identity recovery, not coin accounting');
 
 console.log('PASS legacy corrupted trial identity recovery');

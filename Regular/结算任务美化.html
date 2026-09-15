@@ -879,7 +879,8 @@
 
           function resolveSettlementRawText(value, win) {
             const raw = String(value || '');
-            if (raw.trim() && raw.trim() !== '$1') return raw;
+            const captureToken = '\u0024' + '1';
+            if (raw.trim() && raw.trim() !== captureToken) return raw;
 
             let directId = null;
             const getters = [];

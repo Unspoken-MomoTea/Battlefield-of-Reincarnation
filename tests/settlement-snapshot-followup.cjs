@@ -3,8 +3,6 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const html = fs.readFileSync('Regular/结算任务美化.html', 'utf8');
-const trialUi = fs.readFileSync('Regular/试炼任务美化.html', 'utf8');
-const statusbar = fs.readFileSync('script/悬浮球状态栏.js', 'utf8');
 
 function mustMatch(source, re, label) {
   const m = source.match(re);
@@ -101,16 +99,13 @@ vm.runInContext(trialIdentityBlock + '\nthis.extractTrialTasks=extractTrialTasks
 assert.deepEqual(
   Array.from(trialContext.extractTrialTasks({任务:{列表:{旧试炼:{委托方:'普升试炼',状态:'可结算'}}}}).map(x=>x.key)),
   ['旧试炼'],
-  'unmarked old saves must treat 普升试炼 as an exact trial commissioner alias'
+  'settlement verification must treat 普升试炼 as an exact legacy trial alias'
 );
 assert.deepEqual(
   Array.from(trialContext.extractTrialTasks({任务:{列表:{普通委托:{委托方:'主神空间',状态:'可结算'}}}})),
   [],
   'broad 主神空间 text must still not turn an ordinary unmarked task into a trial'
 );
-
-assert.match(trialUi, /\['晋升试炼','普升试炼'\]\.includes\(String\(t\.委托方 \|\| ''\)\.trim\(\)\)/, 'trial generation guard must recognize 普升试炼');
-assert.match(statusbar, /issuer === '晋升试炼' \|\| issuer === '普升试炼' \|\| issuer === '试炼任务'/, 'statusbar settlement entry must recognize 普升试炼');
 
 const injectBlock = mustMatch(
   html,

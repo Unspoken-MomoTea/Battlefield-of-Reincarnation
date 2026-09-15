@@ -228,7 +228,7 @@ Step 3 · 推区间：严格按本轮时间容量，先处理到期/进行中事
 Step 4 · 现场到人物：先更新当前区间内确实变化的地区现场，再决定人物行动。人物受地点、路程、能力、认知、职责、资产与地区条件约束。模型看到正文楼层/当前变量不等于人物知情；场外人物若因<user>新行为改变目标或行动，必须已有相应认知，或本轮经观察、目击、通讯、传播获得并同步人物.认知/认知来源；没有来源则维持原目标/行动，只推进其自身事务。同场正文未决时停在交互前。活跃异端每轮复核。
 Step 5 · 结算玩家影响：只按<user>已确认行为结算探索、势力与重大因果偏移；这是客观世界结算，不得据此让未获知情报的场外人物自动追踪、伏击或改策。必要时重构宏观骨架。
 Step 6 · 更新传播：只维护本轮真实变化的传播、货币与历法；结束/过期传播不复活。
-Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业务变化只写摘要。
+Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出本轮新增或变化的 WorldResult；无业务变化也要客观说明本轮没有新增世界事实。
 【执行检查】
 时间/路程可实现；人物知识有来源；同一人物同一时段只在一处；不替<user>行动；不复述已演出琐事；世界不会因<user>停下而暂停。`;
     const BUILTIN_DEFAULT_SELECTED_ENTRIES = [
@@ -267,7 +267,8 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
 5. 资产：仅限固定地产、大型载具或要塞；药剂、材料、消耗品、钥匙、剧情物品、单兵装备/形态不得写入资产。顶层资产是唯一资产账簿；所属对象为数组，可按已确认场外事实新增、更新、转移或移除；删除保护中的同名资产不得重建，正文/MVU已结算变化不重复结算。
 6. 玩家台账：探索只结算<user>实际到达、调查或可靠获知的整体区域；探索度以0/10/30/60/90/100为阶段锚点且无因不回退。势力声望只因<user>真实关系结果变化，同一结果只结算一次，单轮绝对变化≤1000，超过500仅限重大事件。
 7. 因果：只在关键人物命运、重大事件结果、势力格局或主线可行性实质改变时记偏移；负值=因果破坏，正值=修复/强化。世界超稳不新增偏移；旧轨道失效时同轮重构宏观顺序。
-8. 公开与基础：当前事件公开字段只写已成为现实且可合理感知的信息。货币只随真实流通体系变化，任务世界不用空间币作本地货币；历法只在可靠设定明确时维护。`;
+8. 公开与基础：当前事件公开字段只写已成为现实且可合理感知的信息。货币只随真实流通体系变化，任务世界不用空间币作本地货币；历法只在可靠设定明确时维护。
+9. 历史摘要：摘要只写本轮已确认的主体、动作、结果、关键状态变化与持续影响；区分计划、进行与完成，禁止“已建立骨架”“已完成推演”“局势暗涌”等运行话术或空泛概括。`;
     const DEFAULT_MACRO_PROMPT = `【本轮宏观骨架交付】
 先完成输入“本轮必须完成的宏观骨架”，再推演近期细节。至少3个可推进宏观节点是合并后的交付底线，进行中+待发生合计。未来规划可以跨越下一宏观边界，实际发生与细节推进不能越界；只输出差分不意味着可以省略尚未建立的骨架。提交前检查事件实体、分类、状态、时间、前因与因果.宏观顺序相互对应。`;
     const DEFAULT_STABILITY_PROMPT_TEMPLATE = `【世界自救 · {{阶段}}】
@@ -276,7 +277,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:19,
+        version:20,
         builtin:true,
         name:'默认设置',
         exportedAt:'2026-09-14T13:00:00.000Z',
@@ -741,7 +742,7 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         };
     }
     function emptyState() {
-        return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };
+        return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 资产墓碑:{} };
     }
     // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
     function importStory(stat) {
@@ -969,6 +970,8 @@ Step 7 · 输出差分：只输出本轮新增或变化的 WorldResult；无业�
         }
         delete state.公开摘要;
         delete state.正文承接;
+        // 旧存档兼容：推演记录已由每轮 L0 历史锚点完全取代。
+        delete state.运行记录;
         state.版本=Math.max(5,Number(state.版本)||0);
         // v5：程序托管的可逆历史总结树；不属于模型可写 RECORDS。
         if(!plain(state.历史总结))state.历史总结={};
@@ -3145,7 +3148,6 @@ ${schemaText}`;
             const macroPrompt=macroRequirement?(this.config.macroPrompt??DEFAULT_MACRO_PROMPT):'';
             const corePrompt=this.config.corePrompt??CORE_WORLD_RULES;
             const system=this.config.preset+(corePrompt?'\n\n'+corePrompt:'')+(macroPrompt?'\n\n'+macroPrompt:'')+(stabilityPrompt?'\n\n'+stabilityPrompt:'')+(npcAudit.length?'\n\n'+(this.config.npcAuditPrompt??NPC_BUILD_AUDIT_RULES):'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2));
-            if(system.length+input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(system)+estimateTokens(input),true)+'），请减少所选条目或正文层数');
             return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
         }
         schedule() {
@@ -3296,8 +3298,7 @@ ${schemaText}`;
                             return {时间:base.stat.世界.时间,类别:asset?'资产':back?parts[2]:parts[1],名称:asset?parts[1]:back?parts[3]:parts[2],字段:asset?'资产':parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.状态||p.value.内容||'记录已更新'):''};
                         });
                         next.世界[PATH].最近变化=changes.slice(-100);
-                        const sourceOld=Object.assign(emptyState(),sourceStat.世界[PATH]||{});
-                        next.世界[PATH].运行记录=sourceOld.运行记录.concat([{时间:base.stat.世界.时间,摘要:reply.summary,补丁数:committedPatches.length,尝试次数:attempt+1}]).slice(-20);
+                        // 推演记录已由历史锚点取代，不再持久化。
                         // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。
                         if(typeof this.beforeWorldCommit==='function')this.beforeWorldCommit(next,{
                             messageId:base.id,fingerprint:base.fingerprint,worldResult:acceptedWorldResult,reply:copy(reply),baseStat:base.stat
@@ -4150,8 +4151,8 @@ ${schemaText}`;
             runButton.textContent=this.busy?(this.committing?'保存中…':stopping?'停止中…':'停止推进'):'推进世界';
             runButton.setAttribute('aria-label',runButton.textContent);
 
-            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['资产','▣'],['传闻','◎'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋'],['设置','⚙']];
-            this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span class="we-tab-icon" aria-hidden="true">'+i+'</span>'+t+'</button>').join('');
+            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['资产','▣'],['传闻','◎'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋','历史记忆'],['设置','⚙']];
+            this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i,label])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span class="we-tab-icon" aria-hidden="true">'+i+'</span>'+(label||t)+'</button>').join('');
             if(this.tab==='提示词预设'&&main.querySelector('textarea')&&!force)return;
             const text=v=>escape(v==null?'':v);
             const exists=v=>v!==''&&v!=null&&(!Array.isArray(v)||v.length)&&(!plain(v)||Object.keys(v).length);
@@ -4490,9 +4491,8 @@ ${schemaText}`;
             }else if(this.tab==='运行记录'){
                 if(showRadar&&exists(radar.当前模式))html+=section('干涉模式','<article class="we-card"><p>'+text(radar.当前模式)+'</p></article>');
 
-                html+=section('推演记录',(state.运行记录||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.时间)+'</h3>'+pill(r.补丁数+' 项变化','dim')+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚未执行推演'));
                 const historyMemory=projectWorldHistoryMemory(state);
-                html+=section('近期历史锚点',entries(historyMemory.近期锚点).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无未收纳的近期历史锚点'),(historyMemory.统计?.原始锚点总数||0)+' 条原始历史 · 仅展示当前热根节点');
+                html+=section('近期历史锚点',entries(historyMemory.近期锚点).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无未收纳的近期历史锚点'),(historyMemory.统计?.原始锚点总数||0)+' 条原始历史 · 仅展示当前热根节点');
                 html+=section('长期历史总结',(historyMemory.长期总结||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.名称)+'</h3>'+pill('L'+text(r.层级),'dim')+'</div><div class="we-meta">'+text([r.起始时间,r.结束时间].filter(Boolean).join(' → '))+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚无长期历史总结','历史锚点积累后会自动分层压缩；底层事实仍保留在MVU。'),(historyMemory.统计?.总结节点总数||0)+' 个总结节点 · 原始历史不删除');
             }else if(this.tab==='设置'){
                 const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
@@ -5018,7 +5018,6 @@ ${schemaText}`;
             request.rumorMaintenance=copy(rumorMaintenance);
             request.manifest=Object.assign({},request.manifest,{传闻维护:{空分类:RUMOR_PUBLIC_CATEGORIES.filter(category=>rumorMaintenance.公开传闻[category].当前数量===0),待复核传播:rumorMaintenance.本轮必须复核的传播链.map(item=>item.名称),可传播候选:rumorMaintenance.可传播候选事件.map(item=>item.名称)}});
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
             return request;
         }
         async run() {
@@ -5120,7 +5119,6 @@ ${schemaText}`;
             )+'\n\n'+TASK_AWARENESS_RULES;
             request.manifest=Object.assign({},request.manifest,{任务感知:{任务数量:Object.keys(payload?.当前变量?.任务?.列表||{}).length,只读:true,副本成就:false}});
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
             return request;
         }
     };
@@ -5265,7 +5263,6 @@ ${schemaText}`;
                 下一宏观节点:next?String(next.名称||''):''
             };
             manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
             return request;
         }
     };
@@ -5309,7 +5306,7 @@ ${schemaText}`;
             if(!plain(backend))return false;
             const maps=['事件','人物','势力地区','历史','历史总结','传播'];
             if(maps.some(key=>plain(backend[key])&&Object.keys(backend[key]).length>0))return true;
-            return ['最近变化','运行记录'].some(key=>Array.isArray(backend[key])&&backend[key].length>0);
+            return Array.isArray(backend.最近变化)&&backend.最近变化.length>0;
         }
         initializeAutoProgressCycle(snapshot) {
             const key=this.autoProgressContextKey(snapshot);
@@ -5825,7 +5822,6 @@ ${schemaText}`;
             request.system=String(request.system||'')+'\n\n'+SOFT_MAINTENANCE_RULES;
             request.manifest=Object.assign({},request.manifest,{验收策略:{模式:'分级验收',事件因果锚点可接受:true,传闻补齐:'软维护'}});
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            if(request.system.length+request.input.length>240000)throw new Error('请求超过内部安全上限（'+formatTokenCount(estimateTokens(request.system)+estimateTokens(request.input),true)+'），请减少所选条目或正文层数');
             return request;
         }
     };
@@ -7259,7 +7255,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     const HISTORY_MEMORY_SYSTEM=`【世界长期历史压缩】
 只总结已确认历史事实。你收到的是按真实先后顺序排列的既有历史节点；任务是把它们融合成一条更高层的世界史记忆，不是续写剧情。
 必须保留：时间顺序、主要参与者、原因、关键转折、最终结果，以及仍会影响后续局势的长期后果与重要因果偏移。
-可以删除：重复描述、已经失去后续意义的过程细节、UI/运行记录信息。
+可以删除：重复描述、已经失去后续意义的过程细节、UI/调试信息。
 禁止：补写未发生剧情、猜测隐藏真相、修改既有结局、制造输入中不存在的日期/人物/关系、把历史事实写成未来计划。
 如果输入时间粒度不完整，就保持原有粒度，不自行补全。
 只输出 JSON：{"摘要":"..."}`;

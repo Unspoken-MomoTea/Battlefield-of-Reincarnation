@@ -1,7 +1,7 @@
 name: task-awareness-check
 on:
   push:
-    branches: [main, fix/npc-audit-feedback-footer-ui]
+    branches: [main]
   workflow_dispatch:
 jobs:
   task-awareness:
@@ -24,8 +24,6 @@ jobs:
         run: node --check script/世界推进系统.js
       - name: Statusbar syntax check
         run: node --check script/悬浮球状态栏.js
-      - name: NPC audit regression
-        run: node tests/world-engine-npc-audit-toggle.cjs
       - name: Dedicated API preset selection regression
         run: node tests/world-engine-api-preset-selection.cjs
       - name: Exploration pruning regression
@@ -74,6 +72,8 @@ jobs:
         run: node tests/world-engine-chronology-guard.cjs
       - name: World integrity regression
         run: node tests/world-engine-integrity-guard.cjs
+      - name: NPC audit regression
+        run: node tests/world-engine-npc-audit-toggle.cjs
       - name: Asset scope regression
         run: node tests/world-engine-asset-writeback.cjs
       - name: Module synchronization

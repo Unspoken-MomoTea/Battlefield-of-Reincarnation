@@ -5,8 +5,7 @@ on:
 permissions:
   contents: write
 jobs:
-  green:
-    if: ${{ !contains(github.event.head_commit.message, 'feat: edit recent and long-term history memory') }}
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,11 +31,11 @@ jobs:
         run: node tests/world-engine-causal-offset-editor.cjs
       - name: Module synchronization
         run: node tests/world-engine-modules.cjs
-      - name: Commit validated editor and remove one-shot tooling
+      - name: Commit validated editor
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .github/workflows/history-memory-editor-red.yml .github/workflows/history-memory-editor-green.yml tools/patch-history-memory-editor-integration.py
           git add .github/workflows/task-awareness-build.yml .github/workflows/task-awareness-check.yml tools/build-world-engine.py script/world-engine-src/59-history-memory-editor.part.js script/世界推进系统.js tests/world-engine-history-memory-editor.cjs tests/world-engine-modules.cjs
-          git commit -m "feat: edit recent and long-term history memory"
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: edit recent and long-term history memory [history-editor-built]"
           git push

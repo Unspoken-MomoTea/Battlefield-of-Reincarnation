@@ -31,8 +31,8 @@ const panelMessageBlock = mustMatch(
   'missing srcdoc host message id fallback'
 );
 
-// about:srcdoc often cannot see getCurrentMessageId directly. The panel must recover
-// its concrete chat message id from the hosting iframe/ancestor DOM instead of treating null as 0.
+// about:srcdoc can expose a misleading getCurrentMessageId()=0 while the hosting chat message
+// has the real mesid. The concrete host DOM id must win over that placeholder getter value.
 const hostMessage = {
   dataset: {},
   getAttribute(name) { return name === 'mesid' ? '10' : null; },
@@ -45,12 +45,13 @@ const frameElement = {
 };
 const panelContext = {
   Number,
+  getCurrentMessageId() { return 0; },
   window: { frameElement, parent: null },
   wrapper: null,
 };
 vm.createContext(panelContext);
 vm.runInContext(panelMessageBlock + '\nthis.getPanelMessageId=getPanelMessageId;', panelContext);
-assert.equal(panelContext.getPanelMessageId({}), 10, 'srcdoc panel must resolve its host mesid even when getCurrentMessageId is unavailable');
+assert.equal(panelContext.getPanelMessageId({}), 10, 'srcdoc host mesid must outrank a placeholder getCurrentMessageId()=0');
 assert.doesNotMatch(snapshotBlock, /const currentId\s*=\s*Number\(getPanelMessageId\(win\)\)/, 'unresolved panel id must never become message 0 through Number(null)');
 assert.match(snapshotBlock, /const panelMessageId\s*=\s*getPanelMessageId\(win\);[\s\S]*const currentId\s*=\s*panelMessageId === null \? null : Number\(panelMessageId\)/, 'space-coin snapshot scan must preserve a null panel id');
 assert.match(html, /const numericId\s*=\s*currentId === null \? null : Number\(currentId\)/, 'space-coin balance baseline must preserve a null panel id');

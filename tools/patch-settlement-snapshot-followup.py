@@ -28,7 +28,9 @@ def replace_once(path: Path, old: str, new: str, label: str) -> bool:
 
 def regex_once(path: Path, pattern: str, replacement: str, label: str) -> bool:
     text = read_exact(path)
-    if replacement in text:
+    # The replacement may have received later null-safety edits after the original patch.
+    # Use the stable marker as the idempotency signal so CI does not try to re-match legacy anchors.
+    if replacement in text or (label == 'complete space-coin snapshot selection' and '// SETTLEMENT_COIN_SNAPSHOT_V2' in text):
         print(f'[settlement-followup] already patched: {label}')
         return False
     text2, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)

@@ -60,7 +60,8 @@ assert.equal(arbitrary.taskReward, 70, 'successful explicit coin rewards are dat
 assert.equal(arbitrary.penalty, 20, 'explicit failed-task coin penalties are also commissioner-independent');
 assert.equal(arbitrary.totalReward, 50);
 
-assert.match(html, /function readSpaceCoinBaselineData\s*\(/, 'coin settlement needs its own pre-settlement data source');
-assert.match(html, /calculateSpaceCoinSettlement\(spaceCoinBaselineData\)/, 'coin calculation must not reuse the task-identity settlement baseline');
+assert.match(html, /function refreshSpaceCoinBaselineData\s*\(/, 'coin settlement needs its own latest-MVU snapshot cache');
+assert.match(html, /spaceCoinBaselineData\s*=\s*refreshSpaceCoinBaselineData\(spaceCoinBaselineData\)/, 'coin refresh must preserve the best latest-MVU snapshot instead of reusing task identity');
+assert.match(html, /calculateSpaceCoinSettlement\(spaceCoinBaselineData\)/, 'coin calculation must stay on the coin-only snapshot cache');
 
 console.log('PASS settlement coin rewards are independent from task identity and task-baseline recognition');

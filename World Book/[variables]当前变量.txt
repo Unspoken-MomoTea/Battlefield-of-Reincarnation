@@ -48,10 +48,10 @@ const safeStringify = (obj) => {
   return JSON.stringify(obj, null, 2);
 };
 const projectionNameKey = value => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
-const isPlayerOwnedHolding = holding => {
-  const owners = Array.isArray(holding?.所属对象)
-    ? holding.所属对象
-    : (typeof holding?.所属对象 === 'string' ? [holding.所属对象] : []);
+const isPlayerOwnedAsset = asset => {
+  const owners = Array.isArray(asset?.所属对象)
+    ? asset.所属对象
+    : (typeof asset?.所属对象 === 'string' ? [asset.所属对象] : []);
   return owners.some(owner => String(owner || '').trim() === '<user>');
 };
 const deadAlienNameKeys = new Set(
@@ -598,12 +598,12 @@ current.关系列表 = _.pickBy(_.mapValues(关系, (person, name) => {
 // 6. 资产 (战斗中开启“战术降级”模式，防噪音)
 // 下次产出日期/下次产出游天 为后台收菜调度字段(由脚本基于隐藏的真实游玩天数轴自动维护), 对AI不可见
 const stripHarvestFields = (seq) => _.omit(seq, ['下次产出日期', '下次产出游天']);
-const playerHoldings = _.pickBy(data.资产 || {}, holding => isPlayerOwnedHolding(holding));
-if (!_.isEmpty(playerHoldings)) {
+const playerAssets = _.pickBy(data.资产 || {}, asset => isPlayerOwnedAsset(asset));
+if (!_.isEmpty(playerAssets)) {
   if (!isCombat) {
     // 非战斗状态：全量展示(剔除系统托管的收菜调度字段)，处理待办事件和周产收益
-    current.资产 = _.mapValues(playerHoldings, (holding, name) => {
-      const copy = _.cloneDeep(holding);
+    current.资产 = _.mapValues(playerAssets, (asset, name) => {
+      const copy = _.cloneDeep(asset);
       if (!_.isEmpty(copy.建设序列)) {
         copy.建设序列 = _.mapValues(copy.建设序列, stripHarvestFields);
       }
@@ -611,21 +611,21 @@ if (!_.isEmpty(playerHoldings)) {
     });
   } else {
     // 战斗状态：保留资产实体，但剔除所有经营管理噪音
-    current.资产 = _.transform(playerHoldings, (result, holding, name) => {
-      const tacticalHolding = _.cloneDeep(holding);
+    current.资产 = _.transform(playerAssets, (result, asset, name) => {
+      const tacticalAsset = _.cloneDeep(asset);
       
       // 绝对屏蔽 待办事件 (战斗时不需要看收件箱和抱怨)
-      delete tacticalHolding.驻扎人员;
-      delete tacticalHolding.待办事件;
+      delete tacticalAsset.驻扎人员;
+      delete tacticalAsset.待办事件;
       
       // 剔除建设序列里的“产出”与收菜调度字段 (战斗时只看“功能”和“加成”)
-      if (tacticalHolding.建设序列) {
-        tacticalHolding.建设序列 = _.mapValues(tacticalHolding.建设序列, seq => {
+      if (tacticalAsset.建设序列) {
+        tacticalAsset.建设序列 = _.mapValues(tacticalAsset.建设序列, seq => {
           return stripHarvestFields(_.omit(seq, ['产出']));
         });
       }
       
-      result[name] = tacticalHolding;
+      result[name] = tacticalAsset;
     }, {});
   }
 }

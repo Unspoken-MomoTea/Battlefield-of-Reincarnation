@@ -59,23 +59,28 @@ replace_once(
                   if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return false;
                   const delivery = String(task.交付 || '').trim();
                   const legacyKey = String(key || '').trim();
-                  return delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\s*\d+/.test(legacyKey);
+                  return delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\\s*\\d+/.test(legacyKey);
                 });
               }
             }""",
 )
 
 
-# Keep space-coin settlement aligned with the same legacy rescue rule. The coin core is
-# intentionally self-contained because its regression test extracts it in isolation.
-replace_once(
-    'Regular/结算任务美化.html',
-    """            const recognizedTaskKeys = new Set(Object.keys(taskList).filter(function(name) {
+# Older builds also mirrored trial identity rescue into the coin core. New builds deliberately
+# decouple coin accounting from task identity: successful/failed explicit amounts are data facts.
+settlement_path = ROOT / 'Regular/结算任务美化.html'
+settlement_text = settlement_path.read_text(encoding='utf-8')
+if 'SETTLEMENT_COIN_TASK_INDEPENDENCE' in settlement_text:
+    print('[trial-legacy] coin core uses task-independent accounting; legacy identity coin patch skipped')
+else:
+    replace_once(
+        'Regular/结算任务美化.html',
+        """            const recognizedTaskKeys = new Set(Object.keys(taskList).filter(function(name) {
               const commissioner = String(taskList[name] && taskList[name].委托方 || '').trim();
               return commissioner === '主神任务' || commissioner === '晋升试炼';
             }));
             const trialSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};""",
-    """            const recognizedTaskKeys = new Set(Object.keys(taskList).filter(function(name) {
+        """            const recognizedTaskKeys = new Set(Object.keys(taskList).filter(function(name) {
               const commissioner = String(taskList[name] && taskList[name].委托方 || '').trim();
               return commissioner === '主神任务' || commissioner === '晋升试炼';
             }));
@@ -84,11 +89,11 @@ replace_once(
               const commissioner = String(task.委托方 || '').trim();
               if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return;
               const delivery = String(task.交付 || '').trim();
-              if (delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\s*\d+/.test(String(name || '').trim())) {
+              if (delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\\s*\\d+/.test(String(name || '').trim())) {
                 recognizedTaskKeys.add(name);
               }
             });
             const trialSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};""",
-)
+    )
 
 print('[trial-legacy] done')

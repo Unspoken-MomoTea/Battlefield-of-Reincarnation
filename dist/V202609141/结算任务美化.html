@@ -871,6 +871,40 @@
             return Number.isInteger(id) && id >= 0 ? id : null;
           }
 
+          function extractSettlementBlock(value) {
+            const source = String(value || '');
+            const match = source.match(/<settlement tasks>([\s\S]*?)<\/settlement tasks>/i);
+            return match ? String(match[1] || '').trim() : '';
+          }
+
+          function resolveSettlementRawText(value, win) {
+            const raw = String(value || '');
+            const captureToken = '\u0024' + '1';
+            if (raw.trim() && raw.trim() !== captureToken) return raw;
+
+            let directId = null;
+            const getters = [];
+            try { if (typeof getCurrentMessageId === 'function') getters.push(function() { return getCurrentMessageId(); }); } catch (e) {}
+            try { if (win && typeof win.getCurrentMessageId === 'function') getters.push(function() { return win.getCurrentMessageId(); }); } catch (e) {}
+            try {
+              if (typeof window !== 'undefined' && window.parent && window.parent !== window && typeof window.parent.getCurrentMessageId === 'function') {
+                getters.push(function() { return window.parent.getCurrentMessageId(); });
+              }
+            } catch (e) {}
+            for (const getter of getters) {
+              try {
+                const id = Number(getter());
+                if (Number.isInteger(id) && id >= 0) { directId = id; break; }
+              } catch (e) {}
+            }
+
+            const latest = latestChatMessage(win);
+            const latestId = latestChatMessageId(latest);
+            if (directId !== null && latestId !== null && directId !== latestId) return raw;
+            const body = latest && (latest.message != null ? latest.message : (latest.mes != null ? latest.mes : latest.content));
+            return extractSettlementBlock(body) || raw;
+          }
+
           function panelTextBelongsToMessage(panelText, message) {
             const panel = normalizeSettlementComparableText(panelText);
             const body = normalizeSettlementComparableText(message && (message.message != null ? message.message : (message.mes != null ? message.mes : message.content)));
@@ -897,12 +931,14 @@
             // 酒馆正则 iframe 中 getCurrentMessageId 可能不可用；只有当前面板原文确实属于 latest 消息时才安全回落。
             try {
               const raw = wrapper && wrapper.querySelector ? wrapper.querySelector('.st-raw') : null;
-              const panelText = raw ? raw.textContent : '';
+              const panelText = resolveSettlementRawText(raw ? raw.textContent : '', win);
               const latest = latestChatMessage(win);
               if (panelTextBelongsToMessage(panelText, latest)) return latestChatMessageId(latest);
             } catch (e) {}
             return null;
           }
+
+          const ACHIEVEMENT_LOOKBACK = 8;
 
           function extractAchievementTasks(data) {
             const stat = data && (data.stat_data || data);
@@ -913,8 +949,26 @@
             });
           }
 
+          function achievementTaskSignature(tasks) {
+            return (tasks || []).map(function(x) { return String(x && x.name || ''); }).filter(Boolean).sort().join('|');
+          }
+
+          function achievementTaskScore(tasks) {
+            const list = Array.isArray(tasks) ? tasks : [];
+            const achieved = list.filter(function(x) { return String(x && x.status || '').trim() === '已达成'; }).length;
+            return achieved * 1000 + list.length;
+          }
+
+          function preferAchievementTasks(current, candidate) {
+            const a = Array.isArray(current) ? current : [];
+            const b = Array.isArray(candidate) ? candidate : [];
+            if (!b.length) return a;
+            if (!a.length) return b;
+            if (achievementTaskSignature(a) !== achievementTaskSignature(b)) return a;
+            return achievementTaskScore(b) > achievementTaskScore(a) ? b : a;
+          }
+
           function readAchievementTasks() {
-            achievementBaselineData = null;
             achievementUsedFallback = false;
             if (isSingleWorldMode()) return [];
 
@@ -922,37 +976,48 @@
             const win = ctx && ctx.win;
             const mvu = win && win.Mvu;
             const currentId = getPanelMessageId(win);
+            let chosen = [];
+            let signature = '';
+            let firstPreviousData = null;
 
-            if (mvu && typeof mvu.getMvuData === 'function' && currentId !== null) {
-              let currentTasks = [];
-              try {
-                currentTasks = extractAchievementTasks(mvu.getMvuData({ type: 'message', message_id: currentId }));
-              } catch (e) {}
-
-              // 无论当前楼层是否仍有成就，都记录结算前最近一份快照，作为首次发奖数量基线。
-              let previousHit = null;
-              for (let step = 1; step <= 3; step++) {
-                const id = currentId - step;
-                if (id < 0) break;
-                try {
-                  const data = mvu.getMvuData({ type: 'message', message_id: id });
-                  const tasks = extractAchievementTasks(data);
-                  if (tasks.length) {
-                    previousHit = { data:data, tasks:tasks };
-                    break;
-                  }
-                } catch (e) {}
-              }
-              if (previousHit) achievementBaselineData = previousHit.data;
-
-              if (currentTasks.length) return currentTasks;
-              if (previousHit) {
-                achievementUsedFallback = true;
-                return previousHit.tasks;
+            function consider(data, fallback) {
+              const tasks = extractAchievementTasks(data);
+              if (!tasks.length) return;
+              const sig = achievementTaskSignature(tasks);
+              if (!signature) signature = sig;
+              if (sig !== signature) return;
+              const preferred = preferAchievementTasks(chosen, tasks);
+              if (preferred !== chosen) {
+                chosen = preferred;
+                achievementUsedFallback = !!fallback;
               }
             }
 
-            return extractAchievementTasks(ctx && ctx.data);
+            if (mvu && typeof mvu.getMvuData === 'function' && currentId !== null) {
+              try { consider(mvu.getMvuData({ type:'message', message_id:currentId }), false); } catch (e) {}
+              const currentIsLatest = typeof isLatestPanelMessage === 'function' && isLatestPanelMessage(win, currentId);
+              if (currentIsLatest) consider(ctx && ctx.data, false);
+
+              for (let step=1; step<=ACHIEVEMENT_LOOKBACK; step++) {
+                const id=currentId-step;
+                if (id<0) break;
+                try {
+                  const data=mvu.getMvuData({type:'message',message_id:id});
+                  const tasks=extractAchievementTasks(data);
+                  if (!tasks.length) continue;
+                  const sig=achievementTaskSignature(tasks);
+                  if (!signature) signature=sig;
+                  if (sig!==signature) continue;
+                  if (!firstPreviousData) firstPreviousData=data;
+                  consider(data,true);
+                } catch (e) {}
+              }
+            } else {
+              consider(ctx && ctx.data,false);
+            }
+
+            if (!achievementBaselineData && firstPreviousData) achievementBaselineData=firstPreviousData;
+            return chosen;
           }
 
           const SETTLEMENT_BASELINE_LOOKBACK = 8;
@@ -965,25 +1030,68 @@
             }).length;
           }
 
+          function settlementSnapshotTaskScore(data) {
+            const stat=data && (data.stat_data || data);
+            const list=stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            let count=0, score=0;
+            Object.keys(list).forEach(function(key) {
+              const task=list[key] || {};
+              const commissioner=String(task.委托方 || '').trim();
+              if (commissioner!=='主神任务' && commissioner!=='晋升试炼') return;
+              count++;
+              const status=String(task.状态 || '').trim();
+              const terminal=(typeof isSettlementTaskTerminal === 'function')
+                ? isSettlementTaskTerminal(status)
+                : ['可结算','可交付','待结算','结算','已结算','完成','已完成','结算完成','失败','已失败','任务失败'].indexOf(status)>=0;
+              if (terminal) score+=100;
+              else if (status) score+=10;
+            });
+            return {count:count,score:score+count};
+          }
+
+          function settlementSnapshotWorld(data) {
+            const stat=data && (data.stat_data || data);
+            return String(stat && stat.世界 && stat.世界.名称 || '').trim();
+          }
+
+          function preferSettlementSnapshot(current,candidate) {
+            if (!candidate) return current;
+            const next=settlementSnapshotTaskScore(candidate);
+            if (!next.count) return current;
+            if (!current) return candidate;
+            const prev=settlementSnapshotTaskScore(current);
+            if (!prev.count) return candidate;
+            const a=settlementSnapshotWorld(current), b=settlementSnapshotWorld(candidate);
+            if (a && b && a!==b) return current;
+            return next.score>prev.score ? candidate : current;
+          }
+
           function readSettlementBaselineData() {
-            const ctx = getMvuContext();
-            const win = ctx && ctx.win;
-            const mvu = win && win.Mvu;
-            const currentId = getPanelMessageId(win);
-            let fallback = null;
-            if (mvu && typeof mvu.getMvuData === 'function' && currentId !== null) {
-              for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
-                const id = currentId - step;
-                if (id < 0) break;
-                try {
-                  const data = mvu.getMvuData({ type: 'message', message_id: id });
-                  const stat = data && (data.stat_data || data);
-                  if (!fallback && stat && stat.角色) fallback = data;
-                  if (settlementSnapshotTaskCount(data) > 0) return data;
-                } catch (e) {}
-              }
+            const ctx=getMvuContext();
+            const win=ctx && ctx.win;
+            const mvu=win && win.Mvu;
+            const currentId=getPanelMessageId(win);
+            let chosen=null;
+            let fallback=null;
+
+            function consider(data) {
+              if (!data) return;
+              if (!fallback) fallback=data;
+              chosen=preferSettlementSnapshot(chosen,data);
             }
-            return fallback || (ctx && ctx.data);
+
+            if (mvu && typeof mvu.getMvuData === 'function' && currentId !== null) {
+              try { consider(mvu.getMvuData({type:'message',message_id:currentId})); } catch (e) {}
+              const currentIsLatest = typeof isLatestPanelMessage === 'function' && isLatestPanelMessage(win,currentId);
+              if (currentIsLatest) consider(ctx && ctx.data);
+              for (let step=1; step<=SETTLEMENT_BASELINE_LOOKBACK; step++) {
+                const id=currentId-step;
+                if (id<0) break;
+                try { consider(mvu.getMvuData({type:'message',message_id:id})); } catch (e) {}
+              }
+            } else consider(ctx && ctx.data);
+
+            return chosen || fallback || (ctx && ctx.data);
           }
 
           function readReincarnatorTier(data) {
@@ -1108,7 +1216,7 @@
             }, 0);
           }
 
-          const settlementBaselineData = readSettlementBaselineData();
+          let settlementBaselineData = readSettlementBaselineData();
           // 结算核验优先使用结算前任务快照，避免当前结算楼层的 MVU 快照与 EJS 已生成结果不同步。
           let trialTasks = extractTrialTasks(settlementBaselineData);
           if (!trialTasks.length) trialTasks = readTrialTasks();
@@ -1116,7 +1224,8 @@
           let settlementWriteBusy = false;
           let settlementWritePending = false;
           let settlementCoinWriteDone = false;
-          const achievementTasks = readAchievementTasks();
+          let achievementTasks = readAchievementTasks();
+          let bestAchievementScore = achievementTaskScore(achievementTasks);
           function readSettlementTaskKeys(data) {
             const stat = data && (data.stat_data || data);
             const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
@@ -1127,12 +1236,26 @@
           }
 
           // 当正文变量已经清掉任务，仍从结算前快照核验；不以正文“已晋升”代替完成状态。
-          const settlementTaskKeys = readSettlementTaskKeys(settlementBaselineData);
-          const spaceCoinSettlement = calculateSpaceCoinSettlement(settlementBaselineData);
+          let settlementTaskKeys = readSettlementTaskKeys(settlementBaselineData);
+          let spaceCoinSettlement = calculateSpaceCoinSettlement(settlementBaselineData);
           // 固定结算前的角色层级，防止旧结算面板为已经普升的层级重复授予资格。
-          const settlementBaselineTier = readReincarnatorTier(settlementBaselineData);
+          let settlementBaselineTier = readReincarnatorTier(settlementBaselineData);
           const credentialDecision = resolveCredentialDecision(settlementBaselineData);
           const credentialGrant = credentialDecision && credentialDecision.granted ? credentialDecision : null;
+
+          function refreshSettlementBaseline() {
+            const candidate=readSettlementBaselineData();
+            const preferred=preferSettlementSnapshot(settlementBaselineData,candidate);
+            if (preferred) settlementBaselineData=preferred;
+            settlementTaskKeys=readSettlementTaskKeys(settlementBaselineData);
+            spaceCoinSettlement=calculateSpaceCoinSettlement(settlementBaselineData);
+            settlementBaselineTier=readReincarnatorTier(settlementBaselineData);
+            const nextTrials=extractTrialTasks(settlementBaselineData);
+            if (nextTrials.length) {
+              const score=trialScore(nextTrials);
+              if (score>=bestTrialScore) { trialTasks=nextTrials; bestTrialScore=score; }
+            }
+          }
 
           function isTrialPassed(tasks) {
             return tasks.length > 0 && tasks.every(function(task) { return isSettlementTaskSuccessful(task.status); });
@@ -1203,6 +1326,19 @@
             html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#f97316,#f5d76e)"></div></div>';
             html += '<div class="st-note" style="text-align:center">' + (done ? ('已达成 ' + done + ' 项，成就盲盒将在本次结算统一发放。') : '本次无成就盲盒发放。') + '</div></div>';
             return html;
+          }
+
+          function refreshAchievementTasks() {
+            const latest=readAchievementTasks();
+            const preferred=preferAchievementTasks(achievementTasks,latest);
+            const score=achievementTaskScore(preferred);
+            if (score>=bestAchievementScore) {
+              achievementTasks=preferred;
+              bestAchievementScore=score;
+            }
+            panelDiv.querySelectorAll('.st-achievement-host').forEach(function(host) {
+              host.innerHTML=renderAchievementPanel();
+            });
           }
 
           function parseAchievementReward(reward, fallbackWorld) {
@@ -1971,7 +2107,7 @@
           const panelDiv = wrapper.querySelector('.st-panel');
           if (!btn || !rawDiv || !labelSpan || !panelDiv) return;
 
-          const rawText = rawDiv.textContent;
+          const rawText = resolveSettlementRawText(rawDiv.textContent, window.parent || window);
           const d = parseSettlement(rawText);
           injectProgrammaticIncomeStage(d, spaceCoinSettlement);
 
@@ -1986,9 +2122,13 @@
               });
           panelDiv.innerHTML = hasStruct ? renderSettlement(d) : renderPlain(rawText);
 
-          if (hasStruct) writeSettlementToMvu(d, worldName);
+          // 首次渲染只展示；待本楼 MVU 状态稳定后再执行程序结算与清理。
 
           function refreshTrialPanel() {
+            refreshSettlementBaseline();
+            refreshAchievementTasks();
+            injectProgrammaticIncomeStage(d, spaceCoinSettlement);
+            panelDiv.innerHTML = hasStruct ? renderSettlement(d) : renderPlain(rawText);
             const latest = readTrialTasks();
             if (latest.length) {
               // 不因AI漏写一项就缩小“全部试炼完成”的判定集合。
@@ -2016,8 +2156,8 @@
               onFn(mvu.events.VARIABLE_UPDATE_ENDED, function() { setTimeout(refreshTrialPanel, 0); });
             }
           } catch (e) {}
-          setTimeout(refreshTrialPanel, 60);
-          setTimeout(refreshTrialPanel, 180);
+          setTimeout(refreshTrialPanel, 250);
+          setTimeout(refreshTrialPanel, 600);
 
           setTimeout(function() {
             panelDiv.querySelectorAll('.st-stab-fill').forEach(function(el) {

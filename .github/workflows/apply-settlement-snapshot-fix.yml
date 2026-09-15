@@ -23,7 +23,19 @@ jobs:
         with:
           python-version: '3.12'
       - name: Apply settlement snapshot patch
-        run: python tools/patch-settlement-snapshot-consistency-v2.py
+        run: |
+          python tools/patch-settlement-snapshot-consistency-v2.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('Regular/结算任务美化.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace(
+              "          let credentialDecision = resolveCredentialDecision(settlementBaselineData);\n          let credentialGrant = credentialDecision && credentialDecision.granted ? credentialDecision : null;\n",
+              "          const credentialDecision = resolveCredentialDecision(settlementBaselineData);\n          const credentialGrant = credentialDecision && credentialDecision.granted ? credentialDecision : null;\n"
+          )
+          s=s.replace("            credentialDecision=resolveCredentialDecision(settlementBaselineData);\n            credentialGrant=credentialDecision && credentialDecision.granted ? credentialDecision : null;\n","")
+          p.write_text(s,encoding='utf-8')
+          PY
       - name: Check settlement script syntax
         run: |
           python - <<'PY'

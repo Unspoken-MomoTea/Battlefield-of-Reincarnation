@@ -5,8 +5,12 @@ ROOT = Path(__file__).resolve().parents[1]
 def patch(rel, old, new, label):
     path = ROOT / rel
     text = path.read_text(encoding='utf-8')
-    if new in text:
-        print('[history-core] already', label)
+    if new:
+        if new in text:
+            print('[history-core] already', label)
+            return
+    elif old not in text:
+        print('[history-core] already removed', label)
         return
     if text.count(old) != 1:
         raise RuntimeError(f'{label}: expected 1 anchor, got {text.count(old)}')

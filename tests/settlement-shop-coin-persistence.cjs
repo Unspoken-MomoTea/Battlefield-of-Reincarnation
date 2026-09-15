@@ -35,7 +35,7 @@ assert.equal(guard.settlementCoinLegacyRepairTarget(930, staleTaskPlan, rebased)
 assert.equal(guard.settlementCoinLegacyRepairTarget(190, { balanceBefore:190, balanceAfter:930, totalReward:740 }, rebased), null, 'legacy repair must only target the old stale-baseline mismatch bug');
 
 assert.match(source, /function readSettlementCoinBalanceBefore\(/, 'settlement must read a dedicated pre-settlement coin baseline');
-assert.match(source, /rebaseSettlementCoinBalance\(spaceCoinSettlement, settlementCoinBalanceBefore\)/, 'display/write plan must rebase onto the authoritative coin baseline');
+assert.match(source, /rebaseSettlementCoinBalance\(rawSpaceCoinSettlement, settlementCoinBalanceBefore\)/, 'display/write plan must rebase onto the authoritative coin baseline');
 assert.match(source, /let settlementCoinWriteDone = false;/, 'one panel lifecycle must settle coins at most once');
 assert.match(source, /resolveSettlementMessageTarget\(win, rawText\)/, 'MVU write path must resolve the current settlement target safely');
 assert.match(source, /panelTextBelongsToMessage\(panelText, latest\)/, 'latest fallback must verify that this panel belongs to the latest chat message');

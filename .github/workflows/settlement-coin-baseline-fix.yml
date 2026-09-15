@@ -15,5 +15,19 @@ jobs:
           python-version: '3.12'
       - name: Sync settlement coin balance baseline
         run: python tools/patch-settlement-coin-baseline.py
+      - name: Simplified task settlement regression
+        run: node tests/task-settlement-simplified.cjs
+      - name: Trial promotion regression
+        run: node tests/trial-promotion-flow.cjs
+      - name: Legacy trial identity regression
+        run: node tests/trial-legacy-identity.cjs
       - name: Settlement coin persistence regression
         run: node tests/settlement-shop-coin-persistence.cjs
+      - name: Settlement message marker regression
+        run: node tests/settlement-message-marker.cjs
+      - name: Settlement current panel regression
+        run: node tests/settlement-current-panel-regression.cjs
+      - name: Settlement status alias regression
+        run: node tests/settlement-status-aliases.cjs
+      - name: Settlement character lifecycle regression
+        run: node tests/settlement-character-lifecycle.cjs

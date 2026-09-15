@@ -16,8 +16,12 @@ jobs:
           python-version: '3.12'
       - name: Sync settlement coin balance baseline
         run: python tools/patch-settlement-coin-baseline.py
+      - name: Sync hierarchical world history memory
+        run: python tools/patch-world-history-memory.py
       - name: Build delivery
         run: python tools/build-world-engine.py
+      - name: World engine syntax check
+        run: node --check script/世界推进系统.js
       - name: Statusbar syntax check
         run: node --check script/悬浮球状态栏.js
       - name: Dedicated API preset selection regression
@@ -40,6 +44,10 @@ jobs:
         run: node tests/statusbar-settlement-topbar.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
+      - name: History memory regression
+        run: node tests/world-engine-history-memory.cjs
+      - name: History memory safety regression
+        run: node tests/world-engine-history-memory-safety.cjs
       - name: Rumor rolling regression
         run: node tests/world-engine-rumor-capacity.cjs
       - name: World-driven rumor source regression

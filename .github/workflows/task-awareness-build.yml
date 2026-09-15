@@ -34,6 +34,8 @@ jobs:
         run: python tools/patch-trial-task-legacy-compat.py
       - name: Sync settlement coin balance baseline
         run: python tools/patch-settlement-coin-baseline.py
+      - name: Sync task-independent settlement coin accounting
+        run: python tools/patch-settlement-coin-task-independence.py
       - name: Sync hierarchical world history memory
         run: python tools/patch-world-history-memory.py
       - name: Build delivery
@@ -46,6 +48,8 @@ jobs:
         run: node tests/world-engine-api-preset-selection.cjs
       - name: Simplified task settlement regression
         run: node tests/task-settlement-simplified.cjs
+      - name: Settlement coin task-independence regression
+        run: node tests/settlement-coin-task-independence.cjs
       - name: Trial promotion identity regression
         run: node tests/trial-promotion-flow.cjs
       - name: Legacy trial identity regression

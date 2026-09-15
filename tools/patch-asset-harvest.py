@@ -25,74 +25,114 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
-def regex_once(text: str, pattern: str, replacement: str, label: str, new_marker: str) -> str:
-    if new_marker in text:
-        print(f'[asset-harvest] already patched: {label}')
-        return text
-    text2, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
-    if count != 1:
-        raise RuntimeError(f'[asset-harvest] anchor not found or ambiguous: {label} ({count})')
-    print(f'[asset-harvest] patched: {label}')
-    return text2
-
-
 aux = read(AUX)
 
-# 1) 世界推进自己的时间提交就是程序时钟的权威来源：同一提交内先推进游玩天数，再执行收菜。
-aux = replace_once(
-    aux,
-    """                guardTaskGenerationLock(statData);\n                calcWorldStability(statData);\n                return;""",
-    """                guardTaskGenerationLock(statData);\n                // 世界推进提交若推进了日期，程序时钟与资产收菜必须在同一提交内结算；\n                // 这里只维护时间/待办，不消耗战斗状态或冷却。\n                updatePlayDays(statData);\n                autoHarvestAssets(statData, statDataBefore);\n                calcWorldStability(statData);\n                return;""",
-    'world commit advances play-day harvest clock',
-)
+# 世界推进提交若改变了世界日期，同一提交内推进一次隐藏游玩日并刷新收菜。
+old_world_commit = """                guardTaskGenerationLock(statData);\n                calcWorldStability(statData);\n                return;"""
+new_world_commit = """                guardTaskGenerationLock(statData);\n                // 世界推进提交若推进了日期，只刷新程序时钟/收菜，不消耗战斗状态或冷却。\n                updatePlayDays(statData);\n                autoHarvestAssets(statData, statDataBefore);\n                calcWorldStability(statData);\n                return;"""
+if 'autoHarvestAssets(statData, statDataBefore);' not in aux.split('// ★ 任务生成当层整块锁', 1)[0]:
+    aux = replace_once(aux, old_world_commit, new_world_commit, 'world commit harvest refresh')
+else:
+    print('[asset-harvest] already patched: world commit harvest refresh')
 
-# 2) 游玩天数只要求“纪年 + 月 + 日”可识别；纪年允许大业十三、斗罗历2643、轮回历1等任意文本。
-aux = replace_once(
-    aux,
-    """        const DATE_RE = /(\\d+)\\s*年\\s*-?\\s*(\\d+)\\s*月\\s*-?\\s*(\\d+)\\s*日/;\n        const m = String(worldTime).match(DATE_RE);\n        if (!m) return;\n\n        // 规范化日期锚点: 仅取年月日(忽略\"清晨/傍晚\"等时辰, 同一游戏日内多次更新不重复计数)\n        const dateKey = `${+m[1]}-${+m[2]}-${+m[3]}`;""",
-    """        // 纪年不要求阿拉伯数字；只要“年/月/日”结构成立，就能推进隐藏的游玩天数轴。\n        const DATE_RE = /([^年月日]+?)\\s*年\\s*-?\\s*(\\d+)\\s*月\\s*-?\\s*(\\d+)\\s*日/;\n        const m = String(worldTime).match(DATE_RE);\n        if (!m) return;\n\n        // 规范化日期锚点: 仅取纪年/月/日(忽略\"清晨/傍晚\"等时辰, 同一游戏日内多次更新不重复计数)\n        const dateKey = `${String(m[1] || '').trim()}-${+m[2]}-${+m[3]}`;""",
-    'custom-era play-day date identity',
-)
+# 游玩日是“日期发生变化次数”，不是世界实际经过天数；纪年文本允许古代/异世界格式。
+old_clock = """        const DATE_RE = /(\\d+)\\s*年\\s*-?\\s*(\\d+)\\s*月\\s*-?\\s*(\\d+)\\s*日/;\n        const m = String(worldTime).match(DATE_RE);\n        if (!m) return;\n\n        // 规范化日期锚点: 仅取年月日(忽略\"清晨/傍晚\"等时辰, 同一游戏日内多次更新不重复计数)\n        const dateKey = `${+m[1]}-${+m[2]}-${+m[3]}`;"""
+new_clock = """        // 只判断“日期是否变了”，不按实际跨越天数累计；纪年允许古代/异世界文本。\n        const DATE_RE = /([^年月日]+?)\\s*年\\s*-?\\s*(\\d+)\\s*月\\s*-?\\s*(\\d+)\\s*日/;\n        const m = String(worldTime).match(DATE_RE);\n        if (!m) return;\n\n        // 仅取纪年/月/日；同一日期内改变时辰不重复计数。\n        const dateKey = `${String(m[1] || '').trim()}-${+m[2]}-${+m[3]}`;"""
+if '不按实际跨越天数累计' not in aux:
+    if '纪年不要求阿拉伯数字；只要“年/月/日”结构成立' in aux:
+        aux = aux.replace(
+            """        // 纪年不要求阿拉伯数字；只要“年/月/日”结构成立，就能推进隐藏的游玩天数轴。\n        const DATE_RE = /([^年月日]+?)\\s*年\\s*-?\\s*(\\d+)\\s*月\\s*-?\\s*(\\d+)\\s*日/;\n        const m = String(worldTime).match(DATE_RE);\n        if (!m) return;\n\n        // 规范化日期锚点: 仅取纪年/月/日(忽略\"清晨/傍晚\"等时辰, 同一游戏日内多次更新不重复计数)\n        const dateKey = `${String(m[1] || '').trim()}-${+m[2]}-${+m[3]}`;""",
+            new_clock,
+            1,
+        )
+        print('[asset-harvest] patched: play-day semantics comment')
+    else:
+        aux = replace_once(aux, old_clock, new_clock, 'custom-era play-day identity')
+else:
+    print('[asset-harvest] already patched: play-day semantics comment')
 
-# 3) 收菜触发只依赖系统状态.游玩天数。世界日期仅负责可选的展示换算，解析失败绝不能阻断调度。
-aux = replace_once(
-    aux,
-    """        if (!assets || typeof assets !== 'object' || !worldTime || !sys) return;""",
-    """        if (!assets || typeof assets !== 'object' || !sys) return;""",
-    'harvest no longer requires parseable world time',
-)
+# 收菜调度完全与世界历法解耦；下次产出日期仅作为“还有多少游玩日”的展示字段。
+new_harvest = r'''    /** 资产自动收菜：只按系统状态.游玩天数调度；到期只生成待办。 */
+    function autoHarvestAssets(statData, statDataBefore) {
+        const assets = statData?.资产;
+        const sys = statData?.系统状态;
+        if (!assets || typeof assets !== 'object' || !sys) return;
 
-aux = replace_once(
-    aux,
-    """        // 解析世界时间: \"2026年-06月-23日-清晨\"\n        const timeMatch = String(worldTime).match(DATE_RE);\n        if (!timeMatch) return;\n        const currentDays = toDays(+timeMatch[1], +timeMatch[2], +timeMatch[3]);\n\n        // 展示换算: 游玩天数轴第 n 天 → 以当前世界日期为基准的历法日期(仅供查看)\n        const fmtByPlay = (n) => fmtDate(currentDays + (n - playDays));""",
-    """        // 世界日期只用于展示换算；自定义纪年无法数值换算时，回退显示“第N游玩日”。\n        const timeMatch = String(worldTime || '').match(DATE_RE);\n        const currentDays = timeMatch ? toDays(+timeMatch[1], +timeMatch[2], +timeMatch[3]) : null;\n        const parseScheduledPlayDay = (value) => {\n            const raw = String(value || '').trim();\n            const playMatch = raw.match(/^第?\\s*(\\d+)\\s*游玩日$/);\n            if (playMatch) return +playMatch[1];\n            if (!Number.isFinite(currentDays)) return null;\n            const dateMatch = raw.match(DATE_RE);\n            if (!dateMatch) return null;\n            return playDays + (toDays(+dateMatch[1], +dateMatch[2], +dateMatch[3]) - currentDays);\n        };\n\n        // 展示字段不是调度依据；无法换算世界历法时仍给玩家明确的游玩日锚点。\n        const fmtByPlay = (n) => Number.isFinite(currentDays)\n            ? fmtDate(currentDays + (n - playDays))\n            : `第${n}游玩日`;""",
-    'harvest display date becomes optional',
-)
+        const playDays = Number(sys.游玩天数 || 0);
+        if (!(playDays > 0)) return;
+        const cycle = 7;
+        const formatRemaining = (nextPlay) => `${Math.max(0, Math.ceil(nextPlay - playDays))}天后`;
 
-aux = regex_once(
-    aux,
-    r"""                let nextPlay = Number\(seq\.下次产出游天\);\n                if \(!Number\.isFinite\(nextPlay\) \|\| nextPlay <= 0\) \{\n                    // 首次初始化/旧数据迁移: 有旧日期 → 按剩余天数平移到游天轴\(负值=已欠收, 保留份额\); 无旧值 → 7天后产出\n                    const nextMatch = String\(seq\.下次产出日期 \|\| ''\)\.match\(DATE_RE\);\n                    nextPlay = nextMatch\n                        \? playDays \+ \(toDays\(\+nextMatch\[1\], \+nextMatch\[2\], \+nextMatch\[3\]\) - currentDays\)\n                        : playDays \+ 7;\n                \} else if \(extEdited\) \{\n                    // 新日期合法 → 平移锚点; 非法\(被清空\) → 重置为7天后\n                    const reMatch = String\(seq\.下次产出日期 \|\| ''\)\.match\(DATE_RE\);\n                    nextPlay = reMatch\n                        \? playDays \+ \(toDays\(\+reMatch\[1\], \+reMatch\[2\], \+reMatch\[3\]\) - currentDays\)\n                        : playDays \+ 7;\n                \}""",
-    """                let nextPlay = Number(seq.下次产出游天);\n                if (!Number.isFinite(nextPlay) || nextPlay <= 0) {\n                    // 首次初始化/旧数据迁移：展示日期能换算就沿用；否则统一从当前游玩日+7起算。\n                    const migratedPlay = parseScheduledPlayDay(seq.下次产出日期);\n                    nextPlay = Number.isFinite(migratedPlay) ? migratedPlay : playDays + 7;\n                } else if (extEdited) {\n                    // 手动改写展示日期时尽量重锚；无法换算或被清空则重置为7个游玩日后。\n                    const editedPlay = parseScheduledPlayDay(seq.下次产出日期);\n                    nextPlay = Number.isFinite(editedPlay) ? editedPlay : playDays + 7;\n                }""",
-    'harvest schedule migrates without world-calendar dependency',
-    'const migratedPlay = parseScheduledPlayDay(seq.下次产出日期);',
-)
+        Object.entries(assets).forEach(([assetName, asset]) => {
+            if (!asset || typeof asset !== 'object' || !isPlayerOwnedAsset(asset)) return;
+            const seqs = asset.建设序列;
+            if (!seqs || typeof seqs !== 'object') return;
+            if (!Array.isArray(asset.待办事件)) asset.待办事件 = [];
 
-aux = replace_once(
-    aux,
-    """                    const todoMsg = `【自动收菜】${assetName}-${seqName} 经过了${daysPassed}天，产出了：${seq.产出} (共${harvestCount}份，请查收并清空此条待办)`;""",
-    """                    // 硬核规则：自动收菜只形成待办，绝不直接写入背包、货币或库存。\n                    const todoMsg = `【自动收菜】${assetName}-${seqName} 已累计产出：${seq.产出}（共${harvestCount}份）。请由玩家主动办理领取；未办理前不得自动写入背包、货币或库存。`;""",
-    'harvest is inbox-only and player-claimed',
-)
+            Object.entries(seqs).forEach(([seqName, seq]) => {
+                if (!seq || typeof seq !== 'object') return;
+                const output = String(seq.产出 || '').trim();
+                if (!output || output === '无' || output === '待定') {
+                    seq.下次产出日期 = '';
+                    seq.下次产出游天 = 0;
+                    return;
+                }
+
+                let nextPlay = Number(seq.下次产出游天);
+                if (!Number.isFinite(nextPlay) || nextPlay <= 0) {
+                    // 兼容旧的相对/游玩日展示；旧世界绝对日期不再参与调度。
+                    const shown = String(seq.下次产出日期 || '').trim();
+                    const remainingMatch = shown.match(/^(\d+)\s*天后$/);
+                    const legacyPlayMatch = shown.match(/^第?\s*(\d+)\s*游玩日$/);
+                    if (remainingMatch) nextPlay = playDays + Number(remainingMatch[1]);
+                    else if (legacyPlayMatch) nextPlay = Number(legacyPlayMatch[1]);
+                    else nextPlay = playDays + cycle;
+                }
+
+                seq.下次产出游天 = nextPlay;
+
+                if (playDays >= nextPlay) {
+                    const harvestCount = Math.floor((playDays - nextPlay) / cycle) + 1;
+                    const prefix = `【自动收菜】${assetName}-${seqName}`;
+                    const pendingIndex = asset.待办事件.findIndex(item => String(item || '').startsWith(prefix));
+                    let totalCount = harvestCount;
+                    if (pendingIndex >= 0) {
+                        const oldCount = String(asset.待办事件[pendingIndex] || '').match(/共\s*(\d+)\s*份/);
+                        if (oldCount) totalCount += Number(oldCount[1]);
+                    }
+                    const todoMsg = `${prefix}：${output}（共${totalCount}份，待玩家领取）`;
+                    if (pendingIndex >= 0) asset.待办事件[pendingIndex] = todoMsg;
+                    else asset.待办事件.push(todoMsg);
+
+                    nextPlay += harvestCount * cycle;
+                    seq.下次产出游天 = nextPlay;
+                }
+
+                seq.下次产出日期 = formatRemaining(nextPlay);
+            });
+        });
+    };
+
+'''
+if 'const formatRemaining = (nextPlay) =>' not in aux:
+    pattern = r"    /\*\* 资产全自动收菜系统[\s\S]*?(?=    /\*\* 传入防御总值与角色当前层级 \*/)"
+    aux2, count = re.subn(pattern, new_harvest, aux, count=1)
+    if count != 1:
+        raise RuntimeError(f'[asset-harvest] harvest function anchor not found or ambiguous ({count})')
+    aux = aux2
+    print('[asset-harvest] patched: relative harvest countdown')
+else:
+    print('[asset-harvest] already patched: relative harvest countdown')
 
 write(AUX, aux)
 
 rules = read(RULES)
-rules = replace_once(
-    rules,
-    """待办事件（收件箱机制）:\n  - 触发条件:当角色在外且经过合理时间跨度后触发\n  - 生成与积压:每周一生成1~2条红点事件积压至待办事件列表\n  - 结算机制:事件解决后清空对应记录,并发放金币、道具或应用BUFF\n\n产出记录: 写明本地货币或物资的名称、数量与周期；无产出填“无”。主神空间资产按空间经济结算，任务世界不得产出空间币。""",
-    """待办事件（收件箱机制）:\n  - 触发条件:当角色在外且经过合理时间跨度后触发\n  - 生成与积压:普通经营事件每周可生成1~2条红点并积压；自动收菜到期只新增【自动收菜】待办\n  - 玩家主权:【自动收菜】绝不直接写入背包、货币或库存；只有<user>明确办理/领取对应待办时才结算产物并清除该条，AI不得代替玩家自动办理\n  - 结算机制:其他事件仅在实际解决后清空对应记录，并按结果发放金币、道具或应用BUFF\n\n产出记录: 产出周期统一由程序按每7个【系统状态.游玩天数】形成1份；产出字段只写每份的本地货币或物资“名称×数量”，不写周期；无产出填“无”。到期只进入待办，不自动入账。主神空间资产按空间经济结算，任务世界不得产出空间币。""",
-    'prompt fixes seven-play-day cycle and player-claimed harvest',
-)
+verbose_rules = """待办事件（收件箱机制）:\n  - 触发条件:当角色在外且经过合理时间跨度后触发\n  - 生成与积压:普通经营事件每周可生成1~2条红点并积压；自动收菜到期只新增【自动收菜】待办\n  - 玩家主权:【自动收菜】绝不直接写入背包、货币或库存；只有<user>明确办理/领取对应待办时才结算产物并清除该条，AI不得代替玩家自动办理\n  - 结算机制:其他事件仅在实际解决后清空对应记录，并按结果发放金币、道具或应用BUFF\n\n产出记录: 产出周期统一由程序按每7个【系统状态.游玩天数】形成1份；产出字段只写每份的本地货币或物资“名称×数量”，不写周期；无产出填“无”。到期只进入待办，不自动入账。主神空间资产按空间经济结算，任务世界不得产出空间币。"""
+concise_rules = """待办事件（收件箱机制）:\n  - 角色在外经过合理时间后，可生成1~2条经营事件并积压；办理后清除。\n\n产出记录: 只写“名称×数量”；无产出填“无”。自动收菜由程序处理；任务世界不得产出空间币。"""
+if concise_rules not in rules:
+    rules = replace_once(rules, verbose_rules, concise_rules, 'concise asset prompt')
+else:
+    print('[asset-harvest] already patched: concise asset prompt')
 write(RULES, rules)
 
 print('[asset-harvest] done')

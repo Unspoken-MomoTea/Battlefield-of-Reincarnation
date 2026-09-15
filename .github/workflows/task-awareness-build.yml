@@ -1,7 +1,7 @@
 name: task-awareness-build
 on:
   push:
-    branches: [main]
+    branches: [main, fix/trial-task-identity]
 permissions:
   contents: write
 jobs:

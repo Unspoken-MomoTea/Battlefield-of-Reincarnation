@@ -16,6 +16,8 @@ jobs:
           python-version: '3.12'
       - name: Build delivery
         run: python tools/build-world-engine.py
+      - name: Statusbar syntax check
+        run: node --check script/悬浮球状态栏.js
       - name: Dedicated API preset selection regression
         run: node tests/world-engine-api-preset-selection.cjs
       - name: Exploration pruning regression
@@ -32,6 +34,8 @@ jobs:
         run: node tests/settlement-status-aliases.cjs
       - name: Settlement character lifecycle regression
         run: node tests/settlement-character-lifecycle.cjs
+      - name: Statusbar settlement topbar regression
+        run: node tests/statusbar-settlement-topbar.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
       - name: Rumor rolling regression

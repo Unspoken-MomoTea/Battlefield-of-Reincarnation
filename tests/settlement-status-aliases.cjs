@@ -12,7 +12,7 @@ vm.createContext(context);
 vm.runInContext(helperBlock[0]+'\nthis.ok=isSettlementTaskSuccessful;this.fail=isSettlementTaskFailed;this.terminal=isSettlementTaskTerminal;',context);
 
 for(const status of ['可结算','可交付','待结算','结算','已结算','完成','已完成','结算完成']){
-  assert.equal(context.ok(status),true,`${status} 应视为主神/试炼任务完成态`);
+  assert.equal(context.ok(status),true,`${status} 应视为任务完成态`);
   assert.equal(context.terminal(status),true,`${status} 应视为可结算终态`);
 }
 for(const status of ['失败','已失败','任务失败']){
@@ -24,7 +24,7 @@ for(const status of ['进行中','未知','不可结算','']){
   assert.equal(context.fail(status),false,`${status||'空值'} 不得误判为失败`);
 }
 
-assert.match(html,/const success = isSettlementTaskSuccessful\(task\.状态\)/,'空间币结算必须复用完成态判定');
+assert.match(html,/if \(isSettlementTaskSuccessful\(task\.状态\)\)/,'空间币结算必须复用统一完成态判定，且不得要求任务身份');
 assert.match(html,/else if \(isSettlementTaskFailed\(task\.状态\)\)/,'只有明确失败态才能扣任务惩罚');
 assert.match(html,/if \(!isSettlementTaskSuccessful\(task\.状态\)\) return;/,'权限凭证必须复用主神任务完成态判定');
 assert.match(html,/tasks\.every\(function\(task\) \{ return isSettlementTaskSuccessful\(task\.status\); \}\)/,'晋升试炼通过必须复用完成态判定');
@@ -41,8 +41,8 @@ assert.doesNotMatch(worldBook,/仅`状态=可结算`视为成功/,'结算世界�
 
 const trialIdentityBlock=html.match(/function extractTrialTasks\(data\) \{[\s\S]*?function settlementTaskKeysForData\(data\) \{[\s\S]*?\n          \}(?=\n\n          let achievementBaselineData)/);
 assert.ok(trialIdentityBlock,'凭证基线回归必须加载隐藏试炼身份识别器');
-const baselineBlock=html.match(/const SETTLEMENT_BASELINE_LOOKBACK\s*=\s*\d+;[\s\S]*?function readSettlementBaselineData\(\) \{[\s\S]*?\n          \}(?=\n\n          function readReincarnatorTier)/);
-assert.ok(baselineBlock,'结算美化必须包含按任务快照择优的 baseline 读取器');
+const baselineBlock=html.match(/const SETTLEMENT_BASELINE_LOOKBACK\s*=\s*\d+;[\s\S]*?function readSettlementBaselineData\(\) \{[\s\S]*?\n          \}(?=\n\n          function settlementCoinBaselineHasIncomeData)/);
+assert.ok(baselineBlock,'任务/凭证基线必须保持按任务快照择优，并与空间币独立基线分离');
 const snapshots={
   9:{stat_data:{角色:{层级:'Ⅰ'},任务:{列表:{}}}},
   8:{stat_data:{角色:{层级:'Ⅰ'},任务:{列表:{主线:{委托方:'主神任务',状态:'可交付',难度:'D'}}}}},

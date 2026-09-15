@@ -1,0 +1,53 @@
+name: Apply achievement reward safe key fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-achievement-reward-safe-key.yml'
+      - 'tools/patch-achievement-reward-safe-key.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply safe achievement reward key patch
+        run: python tools/patch-achievement-reward-safe-key.py
+      - name: Check settlement script syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('Regular/结算任务美化.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>([\s\S]*?)</script>',html)
+          if len(scripts)!=1:
+              raise SystemExit(f'expected one script, got {len(scripts)}')
+          Path('/tmp/settlement.js').write_text(scripts[0],encoding='utf-8')
+          PY
+          node --check /tmp/settlement.js
+      - name: Settlement achievement reward key regression
+        run: node tests/settlement-current-panel-regression.cjs
+      - name: Existing settlement regressions
+        run: |
+          node tests/task-settlement-simplified.cjs
+          node tests/settlement-shop-coin-persistence.cjs
+          node tests/settlement-message-marker.cjs
+          node tests/settlement-status-aliases.cjs
+          node tests/settlement-character-lifecycle.cjs
+      - name: Commit fix and remove one-shot tooling
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/apply-achievement-reward-safe-key.yml tools/patch-achievement-reward-safe-key.py
+          git add 'Regular/结算任务美化.html' tests/settlement-current-panel-regression.cjs
+          git commit -m 'fix: sanitize achievement reward inventory keys'
+          git push origin HEAD:main

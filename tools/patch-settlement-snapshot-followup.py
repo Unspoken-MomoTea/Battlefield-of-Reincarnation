@@ -133,6 +133,85 @@ regex_once(
     'complete space-coin snapshot selection',
 )
 
+# 1b) SillyTavern regex panels run in about:srcdoc. getCurrentMessageId may be unavailable there,
+# so recover the hosting chat message id from the iframe DOM before falling back to latest text matching.
+replace_once(
+    settlement,
+    """          function getPanelMessageId(win) {""",
+    """          // SETTLEMENT_SRCDOC_MESSAGE_ID_V3
+          function settlementFrameHostMessageId() {
+            try {
+              let node = (typeof window !== 'undefined') ? window.frameElement : null;
+              let depth = 0;
+              while (node && depth < 12) {
+                let raw = null;
+                try {
+                  if (typeof node.getAttribute === 'function') {
+                    raw = node.getAttribute('mesid');
+                    if (raw == null || raw === '') raw = node.getAttribute('data-message-id');
+                    if (raw == null || raw === '') raw = node.getAttribute('message_id');
+                  }
+                } catch (e) {}
+                try {
+                  if ((raw == null || raw === '') && node.dataset) {
+                    if (node.dataset.messageId != null) raw = node.dataset.messageId;
+                    else if (node.dataset.mesid != null) raw = node.dataset.mesid;
+                  }
+                } catch (e) {}
+                const id = Number(raw);
+                if (raw !== null && raw !== '' && Number.isInteger(id) && id >= 0) return id;
+                node = node.parentElement;
+                depth += 1;
+              }
+            } catch (e) {}
+            return null;
+          }
+
+          function getPanelMessageId(win) {""",
+    'srcdoc host message id helper',
+)
+
+replace_once(
+    settlement,
+    """            for (const getter of getters) {
+              try {
+                const id = Number(getter());
+                if (Number.isInteger(id) && id >= 0) return id;
+              } catch (e) {}
+            }
+
+            // 酒馆正则 iframe 中 getCurrentMessageId 可能不可用；只有当前面板原文确实属于 latest 消息时才安全回落。""",
+    """            for (const getter of getters) {
+              try {
+                const id = Number(getter());
+                if (Number.isInteger(id) && id >= 0) return id;
+              } catch (e) {}
+            }
+
+            const hostMessageId = settlementFrameHostMessageId();
+            if (hostMessageId !== null) return hostMessageId;
+
+            // 酒馆正则 iframe 中 getCurrentMessageId 可能不可用；只有当前面板原文确实属于 latest 消息时才安全回落。""",
+    'srcdoc host message id fallback',
+)
+
+# Number(null) is 0 in JavaScript. Never let an unresolved panel id silently become message 0.
+replace_once(
+    settlement,
+    """            const currentId = Number(getPanelMessageId(win));""",
+    """            const panelMessageId = getPanelMessageId(win);
+            const currentId = panelMessageId === null ? null : Number(panelMessageId);""",
+    'null-safe settlement coin panel id',
+)
+replace_once(
+    settlement,
+    """            const currentId = getPanelMessageId(win);
+            const numericId = Number(currentId);""",
+    """            const currentId = getPanelMessageId(win);
+            const numericId = currentId === null ? null : Number(currentId);""",
+    'null-safe settlement balance panel id',
+)
+
 # 2) Old saves may use “普升试炼” as commissioner. Treat it as an exact trial alias
 # only inside settlement identity handling; do not spread this compatibility into other modules.
 replace_once(

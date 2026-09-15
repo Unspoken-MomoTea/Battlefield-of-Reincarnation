@@ -1,12 +1,11 @@
 name: task-awareness-build
 on:
   push:
-    branches: [main, fix/trial-task-identity]
+    branches: [main]
 permissions:
   contents: write
 jobs:
   build-test-commit:
-    # Temporary branch validation uses the same production pipeline before fast-forwarding main.
     if: ${{ !contains(github.event.head_commit.message, '[task-awareness-built]') }}
     runs-on: ubuntu-latest
     steps:

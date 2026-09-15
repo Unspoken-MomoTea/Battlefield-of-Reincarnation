@@ -41,8 +41,7 @@ def regex_once(path: Path, pattern: str, replacement: str, label: str) -> bool:
 
 settlement = ROOT / 'Regular/结算任务美化.html'
 
-# 1) Space-coin accounting must not stop at the nearest partial/cleaned MVU snapshot.
-# Scan the whole settlement window and prefer the most complete same-world snapshot.
+# 1) Earlier migration: scan the whole settlement window instead of stopping at the first partial snapshot.
 regex_once(
     settlement,
     r"""          function settlementCoinBaselineHasIncomeData\(data, expectedWorld\) \{[\s\S]*?          function settlementCoinValue\(data\) \{""",
@@ -85,7 +84,6 @@ regex_once(
             const sourceCount = taskCount + positiveKills + trackedExploration + trackedFactions;
             if (!sourceCount) return -1;
 
-            // 先保证任务终态/金额完整，再用世界收益字段完整度打破同分；绝不以委托方作为评分依据。
             return explicitCoinTasks * 100000
               + terminalTasks * 10000
               + taskCount * 1000
@@ -115,7 +113,6 @@ regex_once(
               chosen = preferSpaceCoinSnapshot(chosen, candidate, expectedWorld);
             }
 
-            // 金额核算扫描结算消息之前整个回溯窗口，避免命中“任务已清空”或“势力数据缺失”的半残快照。
             if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(currentId) && currentId >= 0) {
               for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
                 const id = currentId - step;
@@ -133,8 +130,7 @@ regex_once(
     'complete space-coin snapshot selection',
 )
 
-# 1b) SillyTavern regex panels run in about:srcdoc. getCurrentMessageId may be unavailable there,
-# so recover the hosting chat message id from the iframe DOM before falling back to latest text matching.
+# 1b) SillyTavern regex panels run in about:srcdoc. Recover the hosting chat message id from the iframe DOM.
 replace_once(
     settlement,
     """          function getPanelMessageId(win) {""",
@@ -195,7 +191,6 @@ replace_once(
     'srcdoc host message id fallback',
 )
 
-# Number(null) is 0 in JavaScript. Never let an unresolved panel id silently become message 0.
 replace_once(
     settlement,
     """            const currentId = Number(getPanelMessageId(win));""",
@@ -212,8 +207,7 @@ replace_once(
     'null-safe settlement balance panel id',
 )
 
-# 2) Old saves may use “普升试炼” as commissioner. Treat it as an exact trial alias
-# only inside settlement identity handling; do not spread this compatibility into other modules.
+# 2) Old saves may use “普升试炼” as commissioner. This stays only in trial verification.
 replace_once(
     settlement,
     """              const canonical = Object.keys(list).filter(function(key) {
@@ -234,8 +228,7 @@ replace_once(
     'settlement task keys trial alias',
 )
 
-# 3) Programmatic settlement already renders kill/exploration/reputation details before the total.
-# Drop the old AI-parsed remnants so the empty headings cannot appear again after the total.
+# 3) Remove duplicate legacy AI-rendered income sections.
 replace_once(
     settlement,
     """            const aiNonCoinItems = (stage.items || []).filter(function(item) {
@@ -254,6 +247,124 @@ replace_once(
               return true;
             });""",
     'remove duplicated legacy income sections',
+)
+
+# 4) Final architecture: space-coin settlement has its own data source and never depends on
+# trial/task identity selection. Only task terminal state + explicit coin amounts are relevant.
+regex_once(
+    settlement,
+    r"""          // SETTLEMENT_COIN_SNAPSHOT_V2[\s\S]*?          function settlementCoinValue\(data\) \{""",
+    """          // SETTLEMENT_COIN_STANDALONE_V3
+          function settlementCoinDataScore(data, expectedWorld) {
+            const stat = data && (data.stat_data || data);
+            if (!stat || typeof stat !== 'object') return -1;
+            const worldName = String(stat.世界 && stat.世界.名称 || '').trim();
+            if (expectedWorld && worldName && worldName !== expectedWorld) return -1;
+
+            const tasks = stat.任务 && typeof stat.任务 === 'object' ? stat.任务 : {};
+            const world = stat.世界 && typeof stat.世界 === 'object' ? stat.世界 : {};
+            const taskList = tasks.列表 && typeof tasks.列表 === 'object' ? tasks.列表 : {};
+            const kills = tasks.击杀 && typeof tasks.击杀 === 'object' ? tasks.击杀 : {};
+            const exploration = world.探索 && typeof world.探索 === 'object' ? world.探索 : {};
+            const factions = world.势力 && typeof world.势力 === 'object' ? world.势力 : {};
+
+            let terminalTasks = 0;
+            let explicitCoinTasks = 0;
+            Object.keys(taskList).forEach(function(name) {
+              const task = taskList[name] || {};
+              if (isSettlementTaskTerminal(task.状态)) terminalTasks += 1;
+              if (isSettlementTaskSuccessful(task.状态) && parseSpaceCoinTotal(task.奖励, false) > 0) explicitCoinTasks += 1;
+              else if (isSettlementTaskFailed(task.状态) && parseSpaceCoinTotal(task.惩罚, true) > 0) explicitCoinTasks += 1;
+            });
+
+            const positiveKills = SETTLEMENT_KILL_TIERS.reduce(function(count, tier) {
+              return count + ((Number(kills[tier]) || 0) > 0 ? 1 : 0);
+            }, 0);
+            const trackedExploration = Object.keys(exploration).filter(function(name) {
+              return Number((exploration[name] || {}).探索度) > 0;
+            }).length;
+            const trackedFactions = Object.keys(factions).filter(function(name) {
+              return Number.isFinite(Number((factions[name] || {}).声望));
+            }).length;
+            const taskCount = Object.keys(taskList).length;
+            if (!(taskCount + positiveKills + trackedExploration + trackedFactions)) return -1;
+
+            return explicitCoinTasks * 100000
+              + terminalTasks * 10000
+              + taskCount * 1000
+              + trackedFactions * 100
+              + trackedExploration * 10
+              + positiveKills;
+          }
+
+          function preferSpaceCoinData(current, candidate, expectedWorld) {
+            if (!candidate) return current;
+            const nextScore = settlementCoinDataScore(candidate, expectedWorld);
+            if (nextScore < 0) return current;
+            if (!current) return candidate;
+            return nextScore > settlementCoinDataScore(current, expectedWorld) ? candidate : current;
+          }
+
+          function spaceCoinPanelMessageId(win) {
+            let hostId = null;
+            try {
+              if (typeof settlementFrameHostMessageId === 'function') hostId = settlementFrameHostMessageId();
+            } catch (e) {}
+            if (hostId !== null) return hostId;
+            return getPanelMessageId(win);
+          }
+
+          function readSpaceCoinSettlementData() {
+            const ctx = getMvuContext();
+            const win = ctx && ctx.win;
+            const mvu = win && win.Mvu;
+            const currentStat = ctx && ctx.data && (ctx.data.stat_data || ctx.data);
+            const expectedWorld = String(currentStat && currentStat.世界 && currentStat.世界.名称 || '').trim();
+            const rawId = spaceCoinPanelMessageId(win);
+            const currentId = rawId === null ? null : Number(rawId);
+            let chosen = null;
+
+            function consider(candidate) {
+              chosen = preferSpaceCoinData(chosen, candidate, expectedWorld);
+            }
+
+            if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(currentId) && currentId >= 0) {
+              for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
+                const id = currentId - step;
+                if (id < 0) break;
+                try { consider(mvu.getMvuData({ type:'message', message_id:id })); } catch (e) {}
+              }
+            }
+
+            // 当前楼层只作为最后兜底；正式金额绝不借用任务/试炼基线。
+            consider(ctx && ctx.data);
+            return chosen || (ctx && ctx.data);
+          }
+
+          function settlementCoinValue(data) {""",
+    'standalone space-coin settlement data source',
+)
+
+# Route the live amount calculation through the standalone reader. Keep the historical stale-marker
+# repair probe separate; it cannot affect the displayed/current settlement amount.
+text = read_exact(settlement)
+if 'readSpaceCoinBaselineData()' in text:
+    text = text.replace('readSpaceCoinBaselineData()', 'readSpaceCoinSettlementData()')
+    text = text.replace('spaceCoinBaselineData', 'spaceCoinSettlementData')
+    write_exact(settlement, text)
+    print('[settlement-followup] patched: standalone live coin calls')
+else:
+    print('[settlement-followup] already patched: standalone live coin calls')
+
+# The authoritative pre-settlement balance must resolve the same concrete panel message id,
+# independently of task/trial identity.
+replace_once(
+    settlement,
+    """            const currentId = getPanelMessageId(win);
+            const numericId = currentId === null ? null : Number(currentId);""",
+    """            const currentId = spaceCoinPanelMessageId(win);
+            const numericId = currentId === null ? null : Number(currentId);""",
+    'standalone settlement balance message id',
 )
 
 print('[settlement-followup] done')

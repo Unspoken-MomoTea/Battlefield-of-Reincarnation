@@ -60,7 +60,10 @@ assert.equal(arbitrary.taskReward, 70, 'successful explicit coin rewards are dat
 assert.equal(arbitrary.penalty, 20, 'explicit failed-task coin penalties are also commissioner-independent');
 assert.equal(arbitrary.totalReward, 50);
 
-assert.match(html, /function readSpaceCoinBaselineData\s*\(/, 'coin settlement needs its own pre-settlement data source');
-assert.match(html, /calculateSpaceCoinSettlement\(spaceCoinBaselineData\)/, 'coin calculation must not reuse the task-identity settlement baseline');
+assert.match(html, /function readSpaceCoinSettlementData\s*\(/, 'coin settlement needs one standalone pre-settlement data source');
+assert.match(html, /calculateSpaceCoinSettlement\(spaceCoinSettlementData\)/, 'live coin calculation must consume only the standalone coin data source');
+const standaloneMatch = html.match(/\/\/ SETTLEMENT_COIN_STANDALONE_V3([\s\S]*?)function settlementCoinValue\(data\)/);
+assert(standaloneMatch, 'standalone coin data block should be extractable');
+assert.doesNotMatch(standaloneMatch[1], /settlementBaselineData|extractTrialTasks|settlementTaskKeysForData|委托方/, 'standalone coin source must not depend on trial/task identity');
 
 console.log('PASS settlement coin rewards are independent from task identity and task-baseline recognition');

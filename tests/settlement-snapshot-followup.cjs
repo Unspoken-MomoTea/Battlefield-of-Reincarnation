@@ -25,6 +25,35 @@ const snapshotBlock = mustMatch(
   /\/\/ SETTLEMENT_COIN_SNAPSHOT_V2[\s\S]*?(?=\n          function settlementCoinValue\(data\))/, 
   'missing complete settlement coin snapshot selector'
 );
+const panelMessageBlock = mustMatch(
+  html,
+  /\/\/ SETTLEMENT_SRCDOC_MESSAGE_ID_V3[\s\S]*?(?=\n          const ACHIEVEMENT_LOOKBACK)/,
+  'missing srcdoc host message id fallback'
+);
+
+// about:srcdoc often cannot see getCurrentMessageId directly. The panel must recover
+// its concrete chat message id from the hosting iframe/ancestor DOM instead of treating null as 0.
+const hostMessage = {
+  dataset: {},
+  getAttribute(name) { return name === 'mesid' ? '10' : null; },
+  parentElement: null,
+};
+const frameElement = {
+  dataset: {},
+  getAttribute() { return null; },
+  parentElement: hostMessage,
+};
+const panelContext = {
+  Number,
+  window: { frameElement, parent: null },
+  wrapper: null,
+};
+vm.createContext(panelContext);
+vm.runInContext(panelMessageBlock + '\nthis.getPanelMessageId=getPanelMessageId;', panelContext);
+assert.equal(panelContext.getPanelMessageId({}), 10, 'srcdoc panel must resolve its host mesid even when getCurrentMessageId is unavailable');
+assert.doesNotMatch(snapshotBlock, /const currentId\s*=\s*Number\(getPanelMessageId\(win\)\)/, 'unresolved panel id must never become message 0 through Number(null)');
+assert.match(snapshotBlock, /const panelMessageId\s*=\s*getPanelMessageId\(win\);[\s\S]*const currentId\s*=\s*panelMessageId === null \? null : Number\(panelMessageId\)/, 'space-coin snapshot scan must preserve a null panel id');
+assert.match(html, /const numericId\s*=\s*currentId === null \? null : Number\(currentId\)/, 'space-coin balance baseline must preserve a null panel id');
 
 const snapshots = {
   9: { stat_data: { 世界:{名称:'测试世界',难度:'E'}, 任务:{列表:{},击杀:{}}, 角色:{空间币:0}, 设置:{单一世界:false} } },
@@ -66,7 +95,7 @@ const coinContext = {
     const stat = data && (data.stat_data || data);
     return String(stat && stat.世界 && stat.世界.名称 || '').trim();
   },
-  getPanelMessageId() { return 10; },
+  getPanelMessageId() { return panelContext.getPanelMessageId({}); },
   getMvuContext() {
     return {
       data: snapshots[9],
@@ -86,7 +115,7 @@ const result = coinContext.calcCoin(picked);
 assert.equal(result.taskReward, 500, 'task reward should stay commissioner-independent');
 assert.equal(result.killReward, 40, 'kill reward should survive snapshot selection');
 assert.equal(result.reputationReward, 1500, 'faction reputation must not disappear because a nearer partial snapshot matched first');
-assert.equal(result.totalReward, 2040, 'old-save sample should settle to 2040 space coins');
+assert.equal(result.totalReward, 2040, 'old-save sample with 主神空间 commissioner should settle to 2040 space coins');
 
 const trialIdentityBlock = mustMatch(
   html,

@@ -13,6 +13,14 @@ assert.match(html,/panelTextBelongsToMessage\(/,'必须校验当前结算文本�
 assert.match(html,/resolveSettlementMessageTarget\(/,'结算写回必须通过统一目标解析器');
 assert.doesNotMatch(html,/if \(panelMessageId === null\) return;/,'拿不到楼层号时不得直接放弃当前结算');
 
+// 结算 HTML 本身就是酒馆正则 replacement template。整个替换模板里只能保留一个裸 $1：
+// .st-raw 的捕获占位符。任何 JS 字符串/注释里的第二个 $1 都会在酒馆替换时被正文展开，直接造成 srcdoc SyntaxError。
+const replacementTemplate=html.match(/<!-- 替换模板开始 -->([\s\S]*?)<!-- 替换模板结束 -->/);
+assert.ok(replacementTemplate,'必须能提取酒馆结算 replacement template');
+const captureTokens=replacementTemplate[1].match(/\$1/g)||[];
+assert.equal(captureTokens.length,1,'结算 replacement template 中裸 $1 必须且只能出现一次');
+assert.match(replacementTemplate[1],/<div class="st-raw"[^>]*>\$1<\/div>/,'唯一 $1 必须位于 st-raw 捕获容器');
+
 // 正则替换偶发未展开 $1 时，美化器必须能从当前消息原文恢复 <settlement tasks>，
 // 否则整个 AI 结算正文会只剩字面量 "$1"，界面只能显示程序后插入的收益区块。
 assert.match(html,/function extractSettlementBlock\(/,'必须能从消息原文提取 settlement tasks');

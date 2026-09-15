@@ -13,10 +13,10 @@ function filledRumors(){
 }
 function historyAnchors(count){
   const out={};
-  for(let i=1;i<=count;i++)out['历史'+String(i).padStart(3,'0')]={时间:'第'+i+'日',事实:'第'+i+'件已经确认的世界历史事实。',关联事件:[]};
+  for(let i=1;i<=count;i++)out['推进·'+i]={时间:'第'+i+'日',事实:'第'+i+'次世界推进已经确认的历史摘要。',关联事件:[]};
   return out;
 }
-function freshState(count=18){
+function freshState(count=17){
   const backend=emptyState();
   backend.历史=historyAnchors(count);
   return {
@@ -24,7 +24,7 @@ function freshState(count=18){
     设置:{单一世界:true},系统状态:{是否在主神空间:false},资产:{},关系列表:{},传闻:filledRumors()
   };
 }
-function setup(state=freshState(18),historyReplies=[]){
+function setup(state=freshState(17),historyReplies=[]){
   let current=clone(state),calls=[];
   const message={message_id:80,role:'assistant',message:'王都今日没有新的公开骚乱，旧有局势仍在延续。'};
   const host={
@@ -45,7 +45,12 @@ function setup(state=freshState(18),historyReplies=[]){
   engine.config.requireMacroBackbone=false;
   engine.config.retryAttempts=1;
   engine.config.enabled=true;
-  return {engine,getState:()=>clone(current),getCalls:()=>clone(calls)};
+  return {
+    engine,
+    getState:()=>clone(current),
+    getCalls:()=>clone(calls),
+    change:fn=>{const next=clone(current);fn(next);current=next;}
+  };
 }
 function summary(level,seq,children,lo,hi){
   return {层级:level,摘要:`L${level}-${seq} 已确认历史概括`,子项:children,起始时间:`第${lo}日`,结束时间:`第${hi}日`,起始序位:lo,结束序位:hi,创建时间:`第${hi}日`};
@@ -59,41 +64,81 @@ function summary(level,seq,children,lo,hi){
     assert.equal(Object.keys(state.世界.后台.历史).length,240,'历史锚点不得再按200条业务上限删除');
   }
 
-  // 达到阈值后，世界推进成功运行应额外生成一级历史总结；原始锚点保留且只收纳最旧一批。
+  // 每次成功世界推进都必须立即把本轮 WorldResult.摘要写成一条 L0 近期叶子，不等待事件结束/归档。
   {
-    const x=setup(freshState(18),['早期十二件历史事实构成了这一阶段的长期背景，并共同塑造了当前局势。']);
+    const x=setup(freshState(0));
+    assert.equal(await x.engine.run(),true);
+    const backend=x.getState().世界.后台;
+    assert.equal(backend.历史['推进·80']?.事实,'本轮没有需要改变的世界事实。','首次推进就必须产生近期历史叶子');
+    const projected=projectWorldContext(x.getState()).世界.后台.历史记忆;
+    assert.equal(Object.keys(projected.近期锚点||{}).length,1,'首次推进后运行记录中的近期历史不得继续显示0');
+    assert.equal(projected.统计.原始锚点总数,1);
+  }
+
+  // 事件生命周期冷归档不是摘要森林叶子，不能冒充每轮近期记忆。
+  {
+    const state=freshState(0);
+    state.世界.后台.历史['归档·旧战役']={时间:'第1日',事实:'旧战役已经结束。',关联事件:[]};
+    const x=setup(state);
+    assert.equal(await x.engine.run(),true);
+    const memory=projectWorldContext(x.getState()).世界.后台.历史记忆;
+    assert.equal(Object.keys(memory.近期锚点||{}).length,1,'近期历史只应展示世界推进叶子');
+    assert.equal(memory.统计.原始锚点总数,1);
+    assert.equal(memory.统计.冷归档事实数,1);
+  }
+
+  // 同一楼层重推/重roll必须覆盖该楼叶子，并递归失效依赖旧叶子的长期总结。
+  {
+    const x=setup(freshState(0));
+    assert.equal(await x.engine.run(),true);
+    x.change(state=>{
+      state.世界.后台.历史总结={
+        'H1-000001':summary(1,1,['历史:推进·80'],80,80),
+        'H2-000001':summary(2,1,['总结:H1-000001'],80,80)
+      };
+    });
+    x.engine.lastWorldResult={摘要:'同一楼层重推后的新世界摘要。'};
+    assert.equal(await x.engine.recordCurrentHistoryLeaf(),true);
+    const backend=x.getState().世界.后台;
+    assert.equal(backend.历史['推进·80'].事实,'同一楼层重推后的新世界摘要。');
+    assert.deepEqual(backend.历史总结,{},'重推叶子后所有依赖旧叶子的祖先总结都必须失效');
+  }
+
+  // 第18次推进完成后应额外生成一级历史总结；原始推进叶子保留且只收纳最旧一批。
+  {
+    const x=setup(freshState(17),['早期十二次推进构成了这一阶段的长期背景，并共同塑造了当前局势。']);
     assert.equal(await x.engine.run(),true);
     const calls=x.getCalls();
-    assert.equal(calls.length,2,'18个未收纳历史锚点应触发一次独立历史总结请求');
+    assert.equal(calls.length,2,'第18个未收纳推进叶子应触发一次独立历史总结请求');
     assert.match(calls[1].system,/只总结已确认历史事实/,'历史总结必须使用专用事实压缩约束');
     assert.match(calls[1].input,/第1日/,'总结请求必须把真实时间锚点连同事实发送，避免编造日期');
     const state=x.getState(),backend=state.世界.后台;
-    assert.equal(Object.keys(backend.历史).length,18,'生成总结不得删除原始历史锚点');
+    assert.equal(Object.keys(backend.历史).length,18,'生成总结不得删除原始推进叶子');
     const summaries=Object.values(backend.历史总结||{});
     assert.equal(summaries.length,1,'应生成一个一级历史总结');
     assert.equal(summaries[0].层级,1);
-    assert.equal((summaries[0].子项||[]).length,12,'一级总结应收纳最旧12个未收纳锚点');
+    assert.equal((summaries[0].子项||[]).length,12,'一级总结应收纳最旧12个未收纳推进叶子');
     const projected=projectWorldContext(state).世界.后台;
     assert.ok(projected.历史记忆,'世界推进上下文必须读取分层历史记忆');
     assert.equal(projected.历史,undefined,'世界推进不应再同时重复发送旧的历史热尾巴');
-    assert.equal(Object.keys(projected.历史记忆.近期锚点||{}).length,6,'总结后只应把未收纳的近期原始锚点作为热细节发送');
+    assert.equal(Object.keys(projected.历史记忆.近期锚点||{}).length,6,'总结后只应把未收纳的近期推进叶子作为热细节发送');
     assert.equal((projected.历史记忆.长期总结||[]).length,1,'被压缩的远期历史应以总结节点发送');
   }
 
-  // 已经被一级总结收纳的锚点不能在下一轮被重复总结。
+  // 已经被一级总结收纳的推进叶子不能在下一轮被重复总结。
   {
     const state=freshState(18),keys=Object.keys(state.世界.后台.历史).slice(0,12);
     state.世界.后台.历史总结={'H1-000001':summary(1,1,keys.map(key=>'历史:'+key),1,12)};
     const x=setup(state);
     assert.equal(await x.engine.run(),true);
-    assert.equal(x.getCalls().length,1,'仅剩6个未收纳锚点时不得重复总结已收纳的12个锚点');
+    assert.equal(x.getCalls().length,1,'旧12叶已收纳后，加上本轮也只有7个未收纳叶子，不得重复总结');
     assert.equal(Object.keys(x.getState().世界.后台.历史总结).length,1);
   }
 
   // 六个未收纳 L1 应继续压成 L2；已有子节点保留，不破坏可追溯树。
   {
     const state=freshState(6);state.世界.后台.历史总结={};
-    for(let i=1;i<=6;i++)state.世界.后台.历史总结['H1-'+String(i).padStart(6,'0')]=summary(1,i,['历史:历史'+String(i).padStart(3,'0')],i,i);
+    for(let i=1;i<=6;i++)state.世界.后台.历史总结['H1-'+String(i).padStart(6,'0')]=summary(1,i,['历史:推进·'+i],i,i);
     const x=setup(state,['六个一级历史总结进一步压缩成长期篇章。']);
     assert.equal(await x.engine.run(),true);
     assert.equal(x.getCalls().length,2,'六个L1根节点应触发一次L2总结');
@@ -106,7 +151,7 @@ function summary(level,seq,children,lo,hi){
   // 三个未收纳 L2 应继续压成更高层，证明单一世界可以持续递归而不是停在二级。
   {
     const state=freshState(3);state.世界.后台.历史总结={};
-    for(let i=1;i<=3;i++)state.世界.后台.历史总结['H2-'+String(i).padStart(6,'0')]=summary(2,i,['历史:历史'+String(i).padStart(3,'0')],i,i);
+    for(let i=1;i<=3;i++)state.世界.后台.历史总结['H2-'+String(i).padStart(6,'0')]=summary(2,i,['历史:推进·'+i],i,i);
     const x=setup(state,['三个二级历史总结压缩成更长期的世界史。']);
     assert.equal(await x.engine.run(),true);
     const l3=Object.values(x.getState().世界.后台.历史总结).find(item=>item.层级===3);

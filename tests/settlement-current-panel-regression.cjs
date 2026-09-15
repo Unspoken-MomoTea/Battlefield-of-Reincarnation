@@ -82,18 +82,18 @@ assert.equal(achievementContext.prefer(staleAchievements,completedAchievements),
 assert.equal(achievementContext.prefer(completedAchievements,staleAchievements),completedAchievements,'成就面板取得 6/6 后不得被清理前后的旧状态降回 0/6');
 
 // 成就盲盒最终会作为“角色.道具.<名称>”写入 MVU，名称里的点号/斜杠会被路径解析器拆成层级。
-// 发放前必须规范化成安全的单一键名，显示名与数据库键名保持一致。
-const achievementRewardBlock=html.match(/function parseAchievementReward\(reward, fallbackWorld\) \{[\s\S]*?\n          \}(?=\n\n          function parseSettlement)/);
-assert.ok(achievementRewardBlock,'应可提取成就奖励解析器做行为回归');
+// 发放前必须规范化成安全的单一键名；来源世界文本仍保留原作品名。
+const achievementRewardBlock=html.match(/function sanitizeMvuObjectKey\(value\) \{[\s\S]*?function parseAchievementReward\(reward, fallbackWorld\) \{[\s\S]*?\n          \}(?=\n\n          function parseSettlement)/);
+assert.ok(achievementRewardBlock,'应可提取成就奖励键名规范化与解析器做行为回归');
 const rewardContext={String};
 rewardContext.gradeTier=value=>String(value||'').toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/)?.[0]||'F';
 vm.createContext(rewardContext);
 vm.runInContext(achievementRewardBlock[0]+'\nthis.parseReward=parseAchievementReward;',rewardContext);
 const unsafeReward=rewardContext.parseReward('D级盲盒·Fate/stay night','');
-assert.equal(unsafeReward.world,'Fate·stay night','世界名中的 / 必须替换为安全分隔符');
+assert.equal(unsafeReward.world,'Fate/stay night','奖励来源世界应保留原始作品名');
 assert.equal(unsafeReward.name,'D级盲盒·Fate·stay night','成就盲盒数据库键名不得保留 /');
 const dottedReward=rewardContext.parseReward('E级盲盒·Steins.Gate/Zero','');
-assert.equal(dottedReward.world,'Steins·Gate·Zero','世界名中的 . 与 / 必须统一替换为安全分隔符');
+assert.equal(dottedReward.world,'Steins.Gate/Zero','奖励来源世界应保留原始作品名');
 assert.equal(dottedReward.name,'E级盲盒·Steins·Gate·Zero','成就盲盒名称必须可安全作为 MVU 对象键');
 
 // 任务状态必须随已确认剧情同步；“状态变化≠流程执行”不能被写成“AI不得更新状态”。

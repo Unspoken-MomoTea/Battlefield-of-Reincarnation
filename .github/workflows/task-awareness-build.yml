@@ -22,6 +22,8 @@ jobs:
         run: python tools/patch-settlement-character-lifecycle.py
       - name: Sync hidden trial task identity
         run: python tools/patch-trial-task-identity.py
+      - name: Sync legacy trial task identity
+        run: python tools/patch-trial-task-legacy-compat.py
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax check
@@ -34,6 +36,8 @@ jobs:
         run: node tests/task-settlement-simplified.cjs
       - name: Trial promotion identity regression
         run: node tests/trial-promotion-flow.cjs
+      - name: Legacy trial identity regression
+        run: node tests/trial-legacy-identity.cjs
       - name: Settlement shop coin persistence regression
         run: node tests/settlement-shop-coin-persistence.cjs
       - name: Settlement message marker regression

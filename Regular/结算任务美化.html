@@ -1869,7 +1869,7 @@
               }
               case 'reasonHead': return '<div class="st-reason-head">' + escapeHtml(it.text) + '</div>';
               case 'reason': return '<div class="st-reason">' + escapeHtml(it.text) + '</div>';
-              case 'stab': return '<div class="st-stab"><div class="st-stab-label"><span>世界稳定值变动</span><span><b>100%</b> → <b>' + it.to + '%</b></span></div><div class="st-stab-bar"><div class="st-stab-fill" data-w="' + Math.max(0, Math.min(100, it.to)) + '"></div></div></div>';
+              case 'stab': { const width = Math.max(0, Math.min(100, Number(it.to) || 0)); return '<div class="st-stab"><div class="st-stab-label"><span>世界稳定值变动</span><span><b>100%</b> → <b>' + it.to + '%</b></span></div><div class="st-stab-bar"><div class="st-stab-fill" data-w="' + width + '" style="width:' + width + '%"></div></div></div>'; }
               case 'brand': return '<div class="st-brand"><div class="st-brand-label">副 本 烙 印</div><div class="st-brand-name">' + escapeHtml(it.name) + '</div></div>';
               case 'hl': return '<div class="st-tl-item"><span class="t">' + escapeHtml(it.t) + '</span>' + (it.d ? '<span class="d">：' + escapeHtml(it.d) + '</span>' : '') + '</div>';
               case 'calc': {

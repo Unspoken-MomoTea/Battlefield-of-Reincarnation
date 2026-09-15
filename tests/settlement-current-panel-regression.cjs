@@ -81,6 +81,21 @@ assert.equal(achievementContext.score(completedAchievements),6006,'6/6 快照必
 assert.equal(achievementContext.prefer(staleAchievements,completedAchievements),completedAchievements,'6 条已达成必须覆盖同一批 6 条未达成旧快照');
 assert.equal(achievementContext.prefer(completedAchievements,staleAchievements),completedAchievements,'成就面板取得 6/6 后不得被清理前后的旧状态降回 0/6');
 
+// 成就盲盒最终会作为“角色.道具.<名称>”写入 MVU，名称里的点号/斜杠会被路径解析器拆成层级。
+// 发放前必须规范化成安全的单一键名，显示名与数据库键名保持一致。
+const achievementRewardBlock=html.match(/function parseAchievementReward\(reward, fallbackWorld\) \{[\s\S]*?\n          \}(?=\n\n          function parseSettlement)/);
+assert.ok(achievementRewardBlock,'应可提取成就奖励解析器做行为回归');
+const rewardContext={String};
+rewardContext.gradeTier=value=>String(value||'').toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/)?.[0]||'F';
+vm.createContext(rewardContext);
+vm.runInContext(achievementRewardBlock[0]+'\nthis.parseReward=parseAchievementReward;',rewardContext);
+const unsafeReward=rewardContext.parseReward('D级盲盒·Fate/stay night','');
+assert.equal(unsafeReward.world,'Fate·stay night','世界名中的 / 必须替换为安全分隔符');
+assert.equal(unsafeReward.name,'D级盲盒·Fate·stay night','成就盲盒数据库键名不得保留 /');
+const dottedReward=rewardContext.parseReward('E级盲盒·Steins.Gate/Zero','');
+assert.equal(dottedReward.world,'Steins·Gate·Zero','世界名中的 . 与 / 必须统一替换为安全分隔符');
+assert.equal(dottedReward.name,'E级盲盒·Steins·Gate·Zero','成就盲盒名称必须可安全作为 MVU 对象键');
+
 // 任务状态必须随已确认剧情同步；“状态变化≠流程执行”不能被写成“AI不得更新状态”。
 assert.match(taskRules,/目标已明确完成[^\n]*可结算/,'主神/试炼任务目标完成后必须明确同步为可结算');
 assert.doesNotMatch(taskRules,/AI不得自动推进状态机/,'不得用笼统禁令阻止变量AI同步任务状态');

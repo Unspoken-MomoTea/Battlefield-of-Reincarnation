@@ -122,6 +122,9 @@ function summary(level,seq,children,lo,hi){
     assert.match(vars,/sendHistoryToProse/,'正文变量投影必须读取世界推进的历史开关');
     assert.match(vars,/历史记忆/,'开启后必须向正文投影历史记忆');
     assert.match(ui,/向正文提供历史记忆/,'设置页必须提供明确的历史记忆开关');
+    const recentIndex=ui.indexOf("section('近期历史锚点'");
+    const longIndex=ui.indexOf("section('长期历史总结'");
+    assert.ok(recentIndex>=0&&longIndex>=0&&recentIndex<longIndex,'运行记录应先展示近期历史锚点，再展示长期历史总结');
   }
 
   console.log('world-engine history memory regression tests passed');

@@ -4546,7 +4546,7 @@
         var editMode = isEditMode();
         var html = '';
         // 顶栏
-        html += renderTopbar(world, sys, editMode, sd);
+        html += renderTopbar(world, sys, editMode, statData);
         // 中部角色条
         html += renderReincarnatorBar(p, sys, editMode);
         // 底部状态图标条

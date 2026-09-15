@@ -41,17 +41,16 @@ def regex_once(path: Path, pattern: str, replacement: str, label: str) -> bool:
 
 settlement = ROOT / 'Regular/结算任务美化.html'
 
-# 1) Space-coin accounting must not stop at the nearest partial/cleaned MVU snapshot.
-# Scan the whole settlement window and prefer the most complete same-world snapshot.
-regex_once(
-    settlement,
-    r"""          function settlementCoinBaselineHasIncomeData\(data, expectedWorld\) \{[\s\S]*?          function settlementCoinValue\(data\) \{""",
-    """          // SETTLEMENT_COIN_SNAPSHOT_V2
-          function settlementCoinSnapshotScore(data, expectedWorld) {
+# Space-coin reward data follows the actual SillyTavern/MVU lifecycle:
+# read only message_id:'latest', cache the most complete snapshot seen for this settlement,
+# and never let later settlement cleanup downgrade an already captured reward snapshot.
+text = read_exact(settlement)
+if 'SETTLEMENT_COIN_LATEST_FREEZE_V3' not in text:
+    pattern = r"""          (?:// SETTLEMENT_COIN_SNAPSHOT_V2\n          function settlementCoinSnapshotScore\(data, expectedWorld\) \{|function settlementCoinBaselineHasIncomeData\(data, expectedWorld\) \{)[\s\S]*?          function settlementCoinValue\(data\) \{"""
+    replacement = """          // SETTLEMENT_COIN_LATEST_FREEZE_V3
+          function settlementCoinSnapshotScore(data) {
             const stat = data && (data.stat_data || data);
             if (!stat || typeof stat !== 'object') return -1;
-            const worldName = String(stat.世界 && stat.世界.名称 || '').trim();
-            if (expectedWorld && worldName && worldName !== expectedWorld) return -1;
 
             const tasks = stat.任务 && typeof stat.任务 === 'object' ? stat.任务 : {};
             const world = stat.世界 && typeof stat.世界 === 'object' ? stat.世界 : {};
@@ -73,19 +72,14 @@ regex_once(
               return count + ((Number(kills[tier]) || 0) > 0 ? 1 : 0);
             }, 0);
             const trackedExploration = Object.keys(exploration).filter(function(name) {
-              const entry = exploration[name] || {};
-              return Number(entry.探索度) > 0;
+              return Number((exploration[name] || {}).探索度) > 0;
             }).length;
             const trackedFactions = Object.keys(factions).filter(function(name) {
-              const entry = factions[name] || {};
-              return Number.isFinite(Number(entry.声望));
+              return Number.isFinite(Number((factions[name] || {}).声望));
             }).length;
-
             const taskCount = Object.keys(taskList).length;
-            const sourceCount = taskCount + positiveKills + trackedExploration + trackedFactions;
-            if (!sourceCount) return -1;
+            if (!(taskCount + positiveKills + trackedExploration + trackedFactions)) return -1;
 
-            // 先保证任务终态/金额完整，再用世界收益字段完整度打破同分；绝不以委托方作为评分依据。
             return explicitCoinTasks * 100000
               + terminalTasks * 10000
               + taskCount * 1000
@@ -94,47 +88,47 @@ regex_once(
               + positiveKills;
           }
 
-          function preferSpaceCoinSnapshot(current, candidate, expectedWorld) {
+          function preferSpaceCoinSnapshot(current, candidate) {
             if (!candidate) return current;
-            const nextScore = settlementCoinSnapshotScore(candidate, expectedWorld);
+            const nextScore = settlementCoinSnapshotScore(candidate);
             if (nextScore < 0) return current;
             if (!current) return candidate;
-            const currentScore = settlementCoinSnapshotScore(current, expectedWorld);
-            return nextScore > currentScore ? candidate : current;
+            return nextScore > settlementCoinSnapshotScore(current) ? candidate : current;
           }
 
-          function readSpaceCoinBaselineData() {
+          function readLatestSpaceCoinData() {
             const ctx = getMvuContext();
-            const win = ctx && ctx.win;
-            const mvu = win && win.Mvu;
-            const currentId = Number(getPanelMessageId(win));
-            const expectedWorld = settlementSnapshotWorld(settlementBaselineData) || settlementSnapshotWorld(ctx && ctx.data);
-            let chosen = null;
-
-            function consider(candidate) {
-              chosen = preferSpaceCoinSnapshot(chosen, candidate, expectedWorld);
-            }
-
-            // 金额核算扫描结算消息之前整个回溯窗口，避免命中“任务已清空”或“势力数据缺失”的半残快照。
-            if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(currentId) && currentId >= 0) {
-              for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
-                const id = currentId - step;
-                if (id < 0) break;
-                try { consider(mvu.getMvuData({ type:'message', message_id:id })); } catch (e) {}
-              }
-            }
-
-            consider(settlementBaselineData);
-            consider(ctx && ctx.data);
-            return chosen || settlementBaselineData || (ctx && ctx.data);
+            return ctx && ctx.data;
           }
 
-          function settlementCoinValue(data) {""",
-    'complete space-coin snapshot selection',
+          function refreshSpaceCoinBaselineData(current) {
+            return preferSpaceCoinSnapshot(current, readLatestSpaceCoinData());
+          }
+
+          function settlementCoinValue(data) {"""
+    text2, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+    if count != 1:
+        raise RuntimeError(f'[settlement-followup] anchor not found or ambiguous: latest MVU coin freeze ({count})')
+    write_exact(settlement, text2)
+    print('[settlement-followup] patched: latest MVU coin freeze')
+else:
+    print('[settlement-followup] already patched: latest MVU coin freeze')
+
+replace_once(
+    settlement,
+    """          let spaceCoinBaselineData = readSpaceCoinBaselineData();""",
+    """          let spaceCoinBaselineData = refreshSpaceCoinBaselineData(null);""",
+    'initial latest MVU coin snapshot',
+)
+replace_once(
+    settlement,
+    """            spaceCoinBaselineData=readSpaceCoinBaselineData();""",
+    """            spaceCoinBaselineData=refreshSpaceCoinBaselineData(spaceCoinBaselineData);""",
+    'monotonic latest MVU coin refresh',
 )
 
-# 1b) SillyTavern regex panels run in about:srcdoc. getCurrentMessageId may be unavailable there,
-# so recover the hosting chat message id from the iframe DOM before falling back to latest text matching.
+# about:srcdoc message-id recovery is still needed by message markers and other settlement behavior,
+# but reward calculation above deliberately does not depend on it.
 replace_once(
     settlement,
     """          function getPanelMessageId(win) {""",
@@ -195,14 +189,6 @@ replace_once(
     'srcdoc host message id fallback',
 )
 
-# Number(null) is 0 in JavaScript. Never let an unresolved panel id silently become message 0.
-replace_once(
-    settlement,
-    """            const currentId = Number(getPanelMessageId(win));""",
-    """            const panelMessageId = getPanelMessageId(win);
-            const currentId = panelMessageId === null ? null : Number(panelMessageId);""",
-    'null-safe settlement coin panel id',
-)
 replace_once(
     settlement,
     """            const currentId = getPanelMessageId(win);
@@ -212,8 +198,7 @@ replace_once(
     'null-safe settlement balance panel id',
 )
 
-# 2) Old saves may use “普升试炼” as commissioner. Treat it as an exact trial alias
-# only inside settlement identity handling; do not spread this compatibility into other modules.
+# Old saves may use “普升试炼” as commissioner. Exact alias only inside settlement identity handling.
 replace_once(
     settlement,
     """              const canonical = Object.keys(list).filter(function(key) {
@@ -234,8 +219,7 @@ replace_once(
     'settlement task keys trial alias',
 )
 
-# 3) Programmatic settlement already renders kill/exploration/reputation details before the total.
-# Drop the old AI-parsed remnants so the empty headings cannot appear again after the total.
+# Programmatic settlement already renders these details; remove old AI-parsed duplicate sections.
 replace_once(
     settlement,
     """            const aiNonCoinItems = (stage.items || []).filter(function(item) {

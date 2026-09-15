@@ -1010,6 +1010,35 @@
           }
           // SETTLEMENT_PANEL_TARGET_END
 
+          // SETTLEMENT_SRCDOC_MESSAGE_ID_V3
+          function settlementFrameHostMessageId() {
+            try {
+              let node = (typeof window !== 'undefined') ? window.frameElement : null;
+              let depth = 0;
+              while (node && depth < 12) {
+                let raw = null;
+                try {
+                  if (typeof node.getAttribute === 'function') {
+                    raw = node.getAttribute('mesid');
+                    if (raw == null || raw === '') raw = node.getAttribute('data-message-id');
+                    if (raw == null || raw === '') raw = node.getAttribute('message_id');
+                  }
+                } catch (e) {}
+                try {
+                  if ((raw == null || raw === '') && node.dataset) {
+                    if (node.dataset.messageId != null) raw = node.dataset.messageId;
+                    else if (node.dataset.mesid != null) raw = node.dataset.mesid;
+                  }
+                } catch (e) {}
+                const id = Number(raw);
+                if (raw !== null && raw !== '' && Number.isInteger(id) && id >= 0) return id;
+                node = node.parentElement;
+                depth += 1;
+              }
+            } catch (e) {}
+            return null;
+          }
+
           function getPanelMessageId(win) {
             const getters = [];
             try { if (typeof getCurrentMessageId === 'function') getters.push(function() { return getCurrentMessageId(); }); } catch (e) {}
@@ -1025,6 +1054,9 @@
                 if (Number.isInteger(id) && id >= 0) return id;
               } catch (e) {}
             }
+
+            const hostMessageId = settlementFrameHostMessageId();
+            if (hostMessageId !== null) return hostMessageId;
 
             // 酒馆正则 iframe 中 getCurrentMessageId 可能不可用；只有当前面板原文确实属于 latest 消息时才安全回落。
             try {
@@ -1248,7 +1280,8 @@
             const ctx = getMvuContext();
             const win = ctx && ctx.win;
             const mvu = win && win.Mvu;
-            const currentId = Number(getPanelMessageId(win));
+            const panelMessageId = getPanelMessageId(win);
+            const currentId = panelMessageId === null ? null : Number(panelMessageId);
             const expectedWorld = settlementSnapshotWorld(settlementBaselineData) || settlementSnapshotWorld(ctx && ctx.data);
             let chosen = null;
 
@@ -1281,7 +1314,7 @@
             const win = ctx && ctx.win;
             const mvu = win && win.Mvu;
             const currentId = getPanelMessageId(win);
-            const numericId = Number(currentId);
+            const numericId = currentId === null ? null : Number(currentId);
 
             // 空间币不是任务快照的一部分：优先读取结算消息之前最近的真实账户余额。
             if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(numericId) && numericId >= 0) {

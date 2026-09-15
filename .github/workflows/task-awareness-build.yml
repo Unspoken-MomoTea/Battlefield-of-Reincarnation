@@ -1,7 +1,7 @@
 name: task-awareness-build
 on:
   push:
-    branches: [main]
+    branches: [main, fix/world-history-memory-tree-red]
 permissions:
   contents: write
 jobs:
@@ -64,6 +64,8 @@ jobs:
         run: node tests/world-engine-superstable-prompt.cjs
       - name: Task awareness regression
         run: node tests/world-engine-task-awareness.cjs
+      - name: History memory regression
+        run: node tests/world-engine-history-memory.cjs
       - name: Rumor rolling regression
         run: node tests/world-engine-rumor-capacity.cjs
       - name: Editable system prompts regression

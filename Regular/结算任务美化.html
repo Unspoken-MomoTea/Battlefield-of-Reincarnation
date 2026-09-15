@@ -637,6 +637,15 @@
               const commissioner = String(taskList[name] && taskList[name].委托方 || '').trim();
               return commissioner === '主神任务' || commissioner === '晋升试炼';
             }));
+            Object.keys(taskList).forEach(function(name) {
+              const task = taskList[name] || {};
+              const commissioner = String(task.委托方 || '').trim();
+              if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return;
+              const delivery = String(task.交付 || '').trim();
+              if (delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\s*\d+/.test(String(name || '').trim())) {
+                recognizedTaskKeys.add(name);
+              }
+            });
             const trialSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
             if (trialSys.是否试炼任务 === true) {
               const exactNames = Array.isArray(trialSys.试炼任务名单)
@@ -883,11 +892,24 @@
                 return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.委托方 || '').trim());
               });
             } else {
-              // 旧存档没有隐藏标记时只接受原标准值，避免普通任务被关键词误判。
-              keys = Object.keys(list).filter(function(key) {
+              // 旧存档优先沿用标准值；若委托方已被AI改坏，只在同时命中程序级试炼签名时救援。
+              const canonical = Object.keys(list).filter(function(key) {
                 const task = list[key];
                 return task && String(task.委托方 || '').trim() === '晋升试炼';
               });
+              if (canonical.length) {
+                keys = canonical;
+              } else {
+                keys = Object.keys(list).filter(function(key) {
+                  const task = list[key];
+                  if (!task || typeof task !== 'object') return false;
+                  const commissioner = String(task.委托方 || '').trim();
+                  if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return false;
+                  const delivery = String(task.交付 || '').trim();
+                  const legacyKey = String(key || '').trim();
+                  return delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\s*\d+/.test(legacyKey);
+                });
+              }
             }
 
             return keys.map(function(key, index) {

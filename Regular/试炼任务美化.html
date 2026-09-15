@@ -575,7 +575,7 @@
           if (liveTier !== q.current) return fail('当前层级与试炼申请时不一致。');
           const taskBaseline = readPreviousTaskSnapshot(win, getTaskLockMessageId(win));
           const tasks = taskBaseline ? (taskBaseline.taskList || {}) : (get(c,'stat_data.任务.列表',{}) || {});
-          const hasActive = Object.keys(tasks).some(function(name){
+          const hasActive = sys.是否试炼任务 === true || Object.keys(tasks).some(function(name){
             const t = tasks[name] || {};
             return String(t.委托方 || '').trim() === '晋升试炼' && ['进行中','可交付','可结算','失败'].includes(String(t.状态 || '').trim());
           });

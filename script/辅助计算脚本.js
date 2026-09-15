@@ -1464,12 +1464,12 @@
         const sys = statData?.系统状态;
         if (!sys || !worldTime) return;
 
-        // 纪年不要求阿拉伯数字；只要“年/月/日”结构成立，就能推进隐藏的游玩天数轴。
+        // 只判断“日期是否变了”，不按实际跨越天数累计；纪年允许古代/异世界文本。
         const DATE_RE = /([^年月日]+?)\s*年\s*-?\s*(\d+)\s*月\s*-?\s*(\d+)\s*日/;
         const m = String(worldTime).match(DATE_RE);
         if (!m) return;
 
-        // 规范化日期锚点: 仅取纪年/月/日(忽略"清晨/傍晚"等时辰, 同一游戏日内多次更新不重复计数)
+        // 仅取纪年/月/日；同一日期内改变时辰不重复计数。
         const dateKey = `${String(m[1] || '').trim()}-${+m[2]}-${+m[3]}`;
         const lastDate = String(sys.上次世界日期 || '');
 
@@ -1511,125 +1511,65 @@
         return removed;
     }
 
-    /** 资产全自动收菜系统 (改由 系统状态.游玩天数 轴驱动, 免疫副本时间跳跃) */
+    /** 资产自动收菜：只按系统状态.游玩天数调度；到期只生成待办。 */
     function autoHarvestAssets(statData, statDataBefore) {
         const assets = statData?.资产;
-        const worldTime = statData?.世界?.时间;
         const sys = statData?.系统状态;
         if (!assets || typeof assets !== 'object' || !sys) return;
 
         const playDays = Number(sys.游玩天数 || 0);
-        if (!(playDays > 0)) return; // 游玩天数未初始化(需先经 updatePlayDays 推进)
-
-        // 简化历法: 每年365天, 每月30天; 天数与日期互转 (仅用于"下次产出日期"展示换算)
-        const DAY_OF_YEAR = 365, DAY_OF_MONTH = 30;
-        const toDays = (y, m, d) => y * DAY_OF_YEAR + (m - 1) * DAY_OF_MONTH + (d - 1);
-        const fromDays = (n) => ({
-            y: Math.floor(n / DAY_OF_YEAR),
-            m: Math.floor((n % DAY_OF_YEAR) / DAY_OF_MONTH) + 1,
-            d: (n % DAY_OF_YEAR) % DAY_OF_MONTH + 1,
-        });
-        const pad2 = (v) => (v < 10 ? '0' + v : String(v));
-        const fmtDate = (n) => { const t = fromDays(n); return `${t.y}年${pad2(t.m)}月${pad2(t.d)}日`; };
-        const DATE_RE = /(\d+)\s*年\s*-?\s*(\d+)\s*月\s*-?\s*(\d+)\s*日/;
-
-        // 世界日期只用于展示换算；自定义纪年无法数值换算时，回退显示“第N游玩日”。
-        const timeMatch = String(worldTime || '').match(DATE_RE);
-        const currentDays = timeMatch ? toDays(+timeMatch[1], +timeMatch[2], +timeMatch[3]) : null;
-        const parseScheduledPlayDay = (value) => {
-            const raw = String(value || '').trim();
-            const playMatch = raw.match(/^第?\s*(\d+)\s*游玩日$/);
-            if (playMatch) return +playMatch[1];
-            if (!Number.isFinite(currentDays)) return null;
-            const dateMatch = raw.match(DATE_RE);
-            if (!dateMatch) return null;
-            return playDays + (toDays(+dateMatch[1], +dateMatch[2], +dateMatch[3]) - currentDays);
-        };
-
-        // 展示字段不是调度依据；无法换算世界历法时仍给玩家明确的游玩日锚点。
-        const fmtByPlay = (n) => Number.isFinite(currentDays)
-            ? fmtDate(currentDays + (n - playDays))
-            : `第${n}游玩日`;
+        if (!(playDays > 0)) return;
+        const cycle = 7;
+        const formatRemaining = (nextPlay) => `${Math.max(0, Math.ceil(nextPlay - playDays))}天后`;
 
         Object.entries(assets).forEach(([assetName, asset]) => {
-            if (!isPlayerOwnedAsset(asset)) return;
-            if (!asset || !asset.建设序列) return;
+            if (!asset || typeof asset !== 'object' || !isPlayerOwnedAsset(asset)) return;
+            const seqs = asset.建设序列;
+            if (!seqs || typeof seqs !== 'object') return;
             if (!Array.isArray(asset.待办事件)) asset.待办事件 = [];
 
-            Object.entries(asset.建设序列).forEach(([seqName, seq]) => {
-                if (!seq) return;
-
-                // 旧字段迁移①: 上次产出天数(旧式天数 = y*365+m*30+d, 与新式差31) → 下次产出日期(旧值+7天周期)
-                if (seq.下次产出日期 === undefined && seq.上次产出天数 !== undefined) {
-                    const legacy = Number(seq.上次产出天数);
-                    if (Number.isFinite(legacy) && legacy > 0) {
-                        seq.下次产出日期 = fmtDate(legacy - 31 + 7);
-                    }
-                    delete seq.上次产出天数;
+            Object.entries(seqs).forEach(([seqName, seq]) => {
+                if (!seq || typeof seq !== 'object') return;
+                const output = String(seq.产出 || '').trim();
+                if (!output || output === '无' || output === '待定') {
+                    seq.下次产出日期 = '';
+                    seq.下次产出游天 = 0;
+                    return;
                 }
 
-                if (!seq.产出 || seq.产出 === '无' || seq.产出 === '待定') return;
-
-                // 锚点维护: 下次产出游天 = 游玩天数轴上的产出日 (脚本自动维护, 对AI不可见)
-                const seqBefore = statDataBefore?.资产?.[assetName]?.建设序列?.[seqName];
-                // 外部编辑检测: AI结算刷新/悬浮球手动改写了"下次产出日期" → 以新日期重新锚定游天轴
-                const extEdited = seqBefore
-                    && String(seqBefore.下次产出日期 || '') !== String(seq.下次产出日期 || '');
                 let nextPlay = Number(seq.下次产出游天);
                 if (!Number.isFinite(nextPlay) || nextPlay <= 0) {
-                    // 首次初始化/旧数据迁移：展示日期能换算就沿用；否则统一从当前游玩日+7起算。
-                    const migratedPlay = parseScheduledPlayDay(seq.下次产出日期);
-                    nextPlay = Number.isFinite(migratedPlay) ? migratedPlay : playDays + 7;
-                } else if (extEdited) {
-                    // 手动改写展示日期时尽量重锚；无法换算或被清空则重置为7个游玩日后。
-                    const editedPlay = parseScheduledPlayDay(seq.下次产出日期);
-                    nextPlay = Number.isFinite(editedPlay) ? editedPlay : playDays + 7;
+                    // 兼容旧的相对/游玩日展示；旧世界绝对日期不再参与调度。
+                    const shown = String(seq.下次产出日期 || '').trim();
+                    const remainingMatch = shown.match(/^(\d+)\s*天后$/);
+                    const legacyPlayMatch = shown.match(/^第?\s*(\d+)\s*游玩日$/);
+                    if (remainingMatch) nextPlay = playDays + Number(remainingMatch[1]);
+                    else if (legacyPlayMatch) nextPlay = Number(legacyPlayMatch[1]);
+                    else nextPlay = playDays + cycle;
                 }
+
                 seq.下次产出游天 = nextPlay;
 
-                const cycle = 7; // 默认7天一收菜
-
                 if (playDays >= nextPlay) {
-                    const daysPassed = playDays - nextPlay;
-                    const harvestCount = Math.floor(daysPassed / cycle) + 1;
-                    // 硬核规则：自动收菜只形成待办，绝不直接写入背包、货币或库存。
-                    const todoMsg = `【自动收菜】${assetName}-${seqName} 已累计产出：${seq.产出}（共${harvestCount}份）。请由玩家主动办理领取；未办理前不得自动写入背包、货币或库存。`;
-
-                    // 避免重复推送
-                    if (!asset.待办事件.includes(todoMsg)) {
-                        asset.待办事件.push(todoMsg);
-                        // console.log(`[资产收菜] 触发：${todoMsg}`);
+                    const harvestCount = Math.floor((playDays - nextPlay) / cycle) + 1;
+                    const prefix = `【自动收菜】${assetName}-${seqName}`;
+                    const pendingIndex = asset.待办事件.findIndex(item => String(item || '').startsWith(prefix));
+                    let totalCount = harvestCount;
+                    if (pendingIndex >= 0) {
+                        const oldCount = String(asset.待办事件[pendingIndex] || '').match(/共\s*(\d+)\s*份/);
+                        if (oldCount) totalCount += Number(oldCount[1]);
                     }
+                    const todoMsg = `${prefix}：${output}（共${totalCount}份，待玩家领取）`;
+                    if (pendingIndex >= 0) asset.待办事件[pendingIndex] = todoMsg;
+                    else asset.待办事件.push(todoMsg);
 
-                    // 刷新下次产出游天(按周期滚动, 必然晚于今天)
-                    seq.下次产出游天 = nextPlay + harvestCount * cycle;
+                    nextPlay += harvestCount * cycle;
+                    seq.下次产出游天 = nextPlay;
                 }
 
-                // 同步展示字段"下次产出日期"(以当前世界日期为基准换算)
-                seq.下次产出日期 = fmtByPlay(seq.下次产出游天);
+                seq.下次产出日期 = formatRemaining(nextPlay);
             });
         });
-    }
-
-    // ===== 模块 2：护甲收益递减 (对数防御曲线 - 动态层级适配版) =====
-    const REDUCTION_CAP = 75; // 最高减伤 75%
-    const ALPHA = 16;
-    const LOG_DEN = Math.log(1 + ALPHA); // ln(17)
-
-    /**
-     * 【核心修复】：各阶位对应的理论满防值（防具上限 + 体质换算上限）
-     * 来源依据：对照你的《品质效果数值规则》各阶位五维总和与防御阈值推算
-    */ 
-    const TIER_DEF_SCALE = {
-        'Ⅰ': 70,       // F级萌新满防基准
-        'Ⅱ': 200,       // E级满防基准
-        'Ⅲ': 480,      // D级
-        'Ⅳ': 1280,      // C级
-        'Ⅴ': 3300,     // B级
-        'Ⅵ': 9200,     // A级
-        'Ⅶ': 24000,    // S级
-        'Ⅷ': 70000,   // SS级
-        'Ⅸ': 150000  // SSS级半神满防基准
     };
 
     /** 传入防御总值与角色当前层级 */

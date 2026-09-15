@@ -118,7 +118,7 @@ assert.match(source,/status === '可结算' \|\| status === '可交付' \|\| sta
 assert.match(source,/sys\.是否在主神空间 !== false \|\| sys\.是否战斗中 === true/,'entry must only appear outside the main-god space and outside combat');
 assert.doesNotMatch(source,/shouldShowSettlementButton[\s\S]{0,500}单一世界/,'single-world mode must not suppress the settlement entry');
 assert.match(source,/renderTopbar\(world, sys, editMode, sd\)/,'topbar must receive full state for settlement policy');
-assert.match(source,/class=\\"sam-icon-btn choose-world mission-settle\\"[^>]*data-mission-settle>📋结算任务/,'settlement entry must reuse the choose-world topbar button shape');
+assert.match(source,/class="sam-icon-btn choose-world mission-settle"[^>]*data-mission-settle>📋结算任务/,'settlement entry must reuse the choose-world topbar button shape');
 assert.doesNotMatch(source,/sam-mission-settle-wrap|sam-mission-settle-btn|sam-mission-settle-hint/,'old task-tab settlement UI must be removed');
 
 console.log('PASS statusbar surfaces settlement in the topbar for main/trial completion, including single-world mode');

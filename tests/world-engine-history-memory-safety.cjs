@@ -30,7 +30,7 @@ function stateWithHistory(count=17){
     const engine=new Engine(host);engine.worldbook=async()=>[];engine.config.enabled=true;engine.config.requireMacroBackbone=false;engine.config.retryAttempts=1;engine.config.contextTurns=1;
     assert.equal(await engine.run(),true,'主世界推进成功时，附加历史总结失败不得把run改成失败');
     assert.equal(calls,2,'本轮写入第18个推进叶子后应尝试一次历史总结');
-    assert.equal((current.世界.后台.运行记录||[]).length,1,'主世界推进结果必须已经提交');
+    assert.equal(Object.hasOwn(current.世界.后台,'运行记录'),false,'主推进不应再重复持久化推演记录');
     assert.equal(current.世界.后台.历史['推进·80']?.事实,'本轮世界正常推进。','长期总结失败也不得丢失本轮近期历史叶子');
     assert.equal(Object.keys(current.世界.后台.历史总结||{}).length,0,'失败的总结不得写入半成品节点');
     assert.match(engine.lastHistoryMaintenance,/稍后重试/,'失败应留下可重试状态，而不是破坏主推进');

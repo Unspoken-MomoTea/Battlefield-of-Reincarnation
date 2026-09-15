@@ -1,0 +1,42 @@
+name: history-memory-editor-green
+on:
+  push:
+    branches: [fix/history-memory-editor]
+permissions:
+  contents: write
+jobs:
+  green:
+    if: ${{ !contains(github.event.head_commit.message, 'feat: edit recent and long-term history memory') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Integrate editor layer
+        run: python tools/patch-history-memory-editor-integration.py
+      - name: Build world engine
+        run: python tools/build-world-engine.py
+      - name: Syntax check
+        run: node --check script/世界推进系统.js
+      - name: History memory editor regression
+        run: node tests/world-engine-history-memory-editor.cjs
+      - name: History memory regression
+        run: node tests/world-engine-history-memory.cjs
+      - name: History memory safety regression
+        run: node tests/world-engine-history-memory-safety.cjs
+      - name: Causal offset editor regression
+        run: node tests/world-engine-causal-offset-editor.cjs
+      - name: Module synchronization
+        run: node tests/world-engine-modules.cjs
+      - name: Commit validated editor and remove one-shot tooling
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/history-memory-editor-red.yml .github/workflows/history-memory-editor-green.yml tools/patch-history-memory-editor-integration.py
+          git add .github/workflows/task-awareness-build.yml .github/workflows/task-awareness-check.yml tools/build-world-engine.py script/world-engine-src/59-history-memory-editor.part.js script/世界推进系统.js tests/world-engine-history-memory-editor.cjs tests/world-engine-modules.cjs
+          git commit -m "feat: edit recent and long-term history memory"
+          git push

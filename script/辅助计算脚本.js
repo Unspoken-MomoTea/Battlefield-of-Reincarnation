@@ -103,6 +103,10 @@
             if (worldCommit && worldCommit === statData.世界?.后台?.已处理楼层
                 && rawVariablesBefore && worldCommit !== rawVariablesBefore.__samsaraWorldCommit) {
                 guardTaskGenerationLock(statData);
+                // 世界推进提交若推进了日期，程序时钟与资产收菜必须在同一提交内结算；
+                // 这里只维护时间/待办，不消耗战斗状态或冷却。
+                updatePlayDays(statData);
+                autoHarvestAssets(statData, statDataBefore);
                 calcWorldStability(statData);
                 return;
             }
@@ -1460,12 +1464,13 @@
         const sys = statData?.系统状态;
         if (!sys || !worldTime) return;
 
-        const DATE_RE = /(\d+)\s*年\s*-?\s*(\d+)\s*月\s*-?\s*(\d+)\s*日/;
+        // 纪年不要求阿拉伯数字；只要“年/月/日”结构成立，就能推进隐藏的游玩天数轴。
+        const DATE_RE = /([^年月日]+?)\s*年\s*-?\s*(\d+)\s*月\s*-?\s*(\d+)\s*日/;
         const m = String(worldTime).match(DATE_RE);
         if (!m) return;
 
-        // 规范化日期锚点: 仅取年月日(忽略"清晨/傍晚"等时辰, 同一游戏日内多次更新不重复计数)
-        const dateKey = `${+m[1]}-${+m[2]}-${+m[3]}`;
+        // 规范化日期锚点: 仅取纪年/月/日(忽略"清晨/傍晚"等时辰, 同一游戏日内多次更新不重复计数)
+        const dateKey = `${String(m[1] || '').trim()}-${+m[2]}-${+m[3]}`;
         const lastDate = String(sys.上次世界日期 || '');
 
         if (!lastDate) {
@@ -1511,7 +1516,7 @@
         const assets = statData?.资产;
         const worldTime = statData?.世界?.时间;
         const sys = statData?.系统状态;
-        if (!assets || typeof assets !== 'object' || !worldTime || !sys) return;
+        if (!assets || typeof assets !== 'object' || !sys) return;
 
         const playDays = Number(sys.游玩天数 || 0);
         if (!(playDays > 0)) return; // 游玩天数未初始化(需先经 updatePlayDays 推进)
@@ -1528,13 +1533,23 @@
         const fmtDate = (n) => { const t = fromDays(n); return `${t.y}年${pad2(t.m)}月${pad2(t.d)}日`; };
         const DATE_RE = /(\d+)\s*年\s*-?\s*(\d+)\s*月\s*-?\s*(\d+)\s*日/;
 
-        // 解析世界时间: "2026年-06月-23日-清晨"
-        const timeMatch = String(worldTime).match(DATE_RE);
-        if (!timeMatch) return;
-        const currentDays = toDays(+timeMatch[1], +timeMatch[2], +timeMatch[3]);
+        // 世界日期只用于展示换算；自定义纪年无法数值换算时，回退显示“第N游玩日”。
+        const timeMatch = String(worldTime || '').match(DATE_RE);
+        const currentDays = timeMatch ? toDays(+timeMatch[1], +timeMatch[2], +timeMatch[3]) : null;
+        const parseScheduledPlayDay = (value) => {
+            const raw = String(value || '').trim();
+            const playMatch = raw.match(/^第?\s*(\d+)\s*游玩日$/);
+            if (playMatch) return +playMatch[1];
+            if (!Number.isFinite(currentDays)) return null;
+            const dateMatch = raw.match(DATE_RE);
+            if (!dateMatch) return null;
+            return playDays + (toDays(+dateMatch[1], +dateMatch[2], +dateMatch[3]) - currentDays);
+        };
 
-        // 展示换算: 游玩天数轴第 n 天 → 以当前世界日期为基准的历法日期(仅供查看)
-        const fmtByPlay = (n) => fmtDate(currentDays + (n - playDays));
+        // 展示字段不是调度依据；无法换算世界历法时仍给玩家明确的游玩日锚点。
+        const fmtByPlay = (n) => Number.isFinite(currentDays)
+            ? fmtDate(currentDays + (n - playDays))
+            : `第${n}游玩日`;
 
         Object.entries(assets).forEach(([assetName, asset]) => {
             if (!isPlayerOwnedAsset(asset)) return;
@@ -1562,17 +1577,13 @@
                     && String(seqBefore.下次产出日期 || '') !== String(seq.下次产出日期 || '');
                 let nextPlay = Number(seq.下次产出游天);
                 if (!Number.isFinite(nextPlay) || nextPlay <= 0) {
-                    // 首次初始化/旧数据迁移: 有旧日期 → 按剩余天数平移到游天轴(负值=已欠收, 保留份额); 无旧值 → 7天后产出
-                    const nextMatch = String(seq.下次产出日期 || '').match(DATE_RE);
-                    nextPlay = nextMatch
-                        ? playDays + (toDays(+nextMatch[1], +nextMatch[2], +nextMatch[3]) - currentDays)
-                        : playDays + 7;
+                    // 首次初始化/旧数据迁移：展示日期能换算就沿用；否则统一从当前游玩日+7起算。
+                    const migratedPlay = parseScheduledPlayDay(seq.下次产出日期);
+                    nextPlay = Number.isFinite(migratedPlay) ? migratedPlay : playDays + 7;
                 } else if (extEdited) {
-                    // 新日期合法 → 平移锚点; 非法(被清空) → 重置为7天后
-                    const reMatch = String(seq.下次产出日期 || '').match(DATE_RE);
-                    nextPlay = reMatch
-                        ? playDays + (toDays(+reMatch[1], +reMatch[2], +reMatch[3]) - currentDays)
-                        : playDays + 7;
+                    // 手动改写展示日期时尽量重锚；无法换算或被清空则重置为7个游玩日后。
+                    const editedPlay = parseScheduledPlayDay(seq.下次产出日期);
+                    nextPlay = Number.isFinite(editedPlay) ? editedPlay : playDays + 7;
                 }
                 seq.下次产出游天 = nextPlay;
 
@@ -1581,7 +1592,8 @@
                 if (playDays >= nextPlay) {
                     const daysPassed = playDays - nextPlay;
                     const harvestCount = Math.floor(daysPassed / cycle) + 1;
-                    const todoMsg = `【自动收菜】${assetName}-${seqName} 经过了${daysPassed}天，产出了：${seq.产出} (共${harvestCount}份，请查收并清空此条待办)`;
+                    // 硬核规则：自动收菜只形成待办，绝不直接写入背包、货币或库存。
+                    const todoMsg = `【自动收菜】${assetName}-${seqName} 已累计产出：${seq.产出}（共${harvestCount}份）。请由玩家主动办理领取；未办理前不得自动写入背包、货币或库存。`;
 
                     // 避免重复推送
                     if (!asset.待办事件.includes(todoMsg)) {

@@ -1,3 +1,4 @@
+# one-shot patch: move settlement entry from mission tab to the statusbar topbar
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +29,6 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 text, nl = read_preserve(STATUSBAR)
 
-# 1) Remove the obsolete task-tab settlement button styles.
 old_css = block("""        /* 结算任务按钮区: 任务面板所有栏目下方, 与上方栏目分隔; 按钮居中, 提示在下 */
         .sam-mission-settle-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--sam-border); }
         /* 按钮使用主题无关的稳重配色(深绿), 与整体UI协调且在任意主题清晰可见 */
@@ -40,7 +40,6 @@ old_css = block("""        /* 结算任务按钮区: 任务面板所有栏目下
 """, nl)
 text = replace_once(text, old_css, '', 'old settlement task-tab css')
 
-# 2) Add pure policy helpers immediately before the topbar renderer.
 anchor = block("""    /* ===== 18. 顶栏 ===== */
     function renderTopbar(world, sys, editMode) {
 """, nl)
@@ -64,7 +63,6 @@ replacement = block("""    function isSettlementReadyTask(task) {
 """, nl)
 text = replace_once(text, anchor, replacement, 'topbar helper insertion')
 
-# 3) Surface settlement next to choose-world; both occupy the first topbar action slot in their own contexts.
 old_world = block("""        // 选择世界按钮: 仅当在主神空间且非战斗时显示(编辑模式下也保持可点以便快速测试)
         var worldBtn = '';
         if (sys && sys.是否在主神空间 === true && sys.是否战斗中 !== true) {
@@ -91,10 +89,8 @@ text = replace_once(text, block("""            + worldBtn
             + '<div class=\"sam-icon-btn refresh\" title=\"刷新\">🔄</div>'
 """, nl), 'topbar settlement button slot')
 
-# 4) Pass the full state to the topbar policy.
 text = replace_once(text, 'renderTopbar(world, sys, editMode)', 'renderTopbar(world, sys, editMode, sd)', 'renderTopbar call')
 
-# 5) Remove the old task-tab entry completely.
 old_task_block = block("""        // 结算任务: 置于任务面板所有栏目下方; 仅对主神任务起效(提示说明), 点击发送【结算任务】到输入框
         if (sd.系统状态.是否在主神空间 == false && sd.系统状态.是否战斗中 == false) {
             html += '<div class=\"sam-mission-settle-wrap\">'
@@ -105,7 +101,6 @@ old_task_block = block("""        // 结算任务: 置于任务面板所有栏�
 """, nl)
 text = replace_once(text, old_task_block, '', 'old task-tab settlement entry')
 
-# 6) Keep the delegated click handler, but describe its new location/scope correctly.
 text = text.replace(
     '// ★ 结算任务按钮: 任务面板所有栏目下方, 点击发送【结算任务】到输入框(仅对主神任务起效, 由提示文案说明)',
     '// ★ 结算任务按钮: 顶栏入口；主神任务或晋升试炼达到可结算状态时显示，点击发送【结算任务】到输入框',
@@ -114,7 +109,6 @@ text = text.replace(
 
 STATUSBAR.write_bytes(text.encode('utf-8'))
 
-# Persistent regression: lock the behavior and the absence of the old task-tab entry.
 TEST.write_text("""const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
@@ -133,7 +127,7 @@ assert.doesNotMatch(source,/sam-mission-settle-wrap|sam-mission-settle-btn|sam-m
 console.log('PASS statusbar surfaces settlement in the topbar for main/trial completion, including single-world mode');
 """, encoding='utf-8')
 
-# Run this regression on both persistent workflows.
+
 def ensure_workflow_test(path: Path):
     text = path.read_text(encoding='utf-8')
     marker = "      - name: Settlement character lifecycle regression\n        run: node tests/settlement-character-lifecycle.cjs\n"

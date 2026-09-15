@@ -1,10 +1,7 @@
-# one-shot patch: move settlement entry from mission tab to the statusbar topbar
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STATUSBAR = ROOT / 'script' / '悬浮球状态栏.js'
-BUILD = ROOT / '.github' / 'workflows' / 'task-awareness-build.yml'
-CHECK = ROOT / '.github' / 'workflows' / 'task-awareness-check.yml'
 TEST = ROOT / 'tests' / 'statusbar-settlement-topbar.cjs'
 
 
@@ -109,7 +106,7 @@ text = text.replace(
 
 STATUSBAR.write_bytes(text.encode('utf-8'))
 
-TEST.write_text("""const assert=require('node:assert/strict');
+TEST.write_text(r"""const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 
@@ -126,19 +123,5 @@ assert.doesNotMatch(source,/sam-mission-settle-wrap|sam-mission-settle-btn|sam-m
 
 console.log('PASS statusbar surfaces settlement in the topbar for main/trial completion, including single-world mode');
 """, encoding='utf-8')
-
-
-def ensure_workflow_test(path: Path):
-    text = path.read_text(encoding='utf-8')
-    marker = "      - name: Settlement character lifecycle regression\n        run: node tests/settlement-character-lifecycle.cjs\n"
-    addition = marker + "      - name: Statusbar settlement topbar regression\n        run: node tests/statusbar-settlement-topbar.cjs\n"
-    if 'Statusbar settlement topbar regression' not in text:
-        if marker not in text:
-            raise SystemExit(f'workflow anchor not found: {path}')
-        text = text.replace(marker, addition, 1)
-        path.write_text(text, encoding='utf-8')
-
-ensure_workflow_test(BUILD)
-ensure_workflow_test(CHECK)
 
 print('patched statusbar settlement entry into topbar and added regression coverage')

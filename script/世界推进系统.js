@@ -7172,7 +7172,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     const HISTORY_MEMORY_L0_KEEP=6;
     const HISTORY_MEMORY_L1_BATCH=6;
     const HISTORY_MEMORY_HIGHER_BATCH=3;
-    const HISTORY_MEMORY_LEGACY_RAW_CONTEXT=24;
     const HISTORY_MEMORY_SCHEMA={
         type:'object',additionalProperties:false,required:['摘要'],
         properties:{摘要:{type:'string',minLength:1}}
@@ -7265,8 +7264,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         const state=plain(backend)?backend:{},raw=state.历史||{},summaries=state.历史总结||{};
         const collected=historyMemoryCollectedIds(state);
         const rawRoots=historyMemoryRootsAtLevel(state,0);
-        const recent=rawRoots.slice(-HISTORY_MEMORY_LEGACY_RAW_CONTEXT);
-        const recentMap=Object.fromEntries(recent.map(node=>{
+        // 任何尚未被上层总结覆盖的原始锚点都必须送入历史根视图，不能为了固定热尾巴制造历史断层。
+        // 正常运行时压缩阈值会把它稳定控制在少量；旧档/总结失败时允许暂时变长，以完整性优先。
+        const recentMap=Object.fromEntries(rawRoots.map(node=>{
             const key=node.id.slice(3),record=raw[key]||{};
             return [key,{时间:String(record.时间||''),事实:String(record.事实||''),关联事件:Array.isArray(record.关联事件)?copy(record.关联事件):[]}];
         }));
@@ -7285,8 +7285,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             统计:{
                 原始锚点总数:Object.keys(raw).length,
                 总结节点总数:Object.keys(summaries).length,
-                未收纳锚点数:rawRoots.length,
-                隐藏未压缩锚点数:Math.max(0,rawRoots.length-recent.length)
+                未收纳锚点数:rawRoots.length
             }
         };
     }
@@ -7294,7 +7293,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         try{return JSON.stringify([backend?.历史||{},backend?.历史总结||{}]);}catch(_){return '';}
     }
 
-    // 世界推进自身始终读“近期根锚点 + 更早根总结”；正文是否读取由独立设置控制。
+    // 世界推进自身始终读“全部未收纳根锚点 + 更早根总结”；正文是否读取由独立设置控制。
     const projectWorldContextBeforeHistoryMemory=projectWorldContext;
     projectWorldContext=function(stat) {
         const out=projectWorldContextBeforeHistoryMemory(stat);
@@ -7411,8 +7410,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }
             return result;
         }
-    };
-    // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
+    };    // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
     if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople,extractWorldProse,derivePersonWorldContext,projectHotWorldPeople,WORLD_UI_THEMES,WORLD_FONT_SCALES,estimateTokens,formatTokenCount,normalizeTokenUsage,requestTokenTelemetry}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。

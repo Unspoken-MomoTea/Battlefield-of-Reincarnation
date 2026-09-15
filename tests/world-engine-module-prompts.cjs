@@ -20,6 +20,9 @@ assert.doesNotMatch(layer,/空分类本轮必须补2条/,'new final prompt layer
 assert.match(layer,/本轮没有这种重大变化时，省略“因果\.偏移记录”/,'causal offsets must be explicitly optional instead of treated as per-turn maintenance');
 assert.match(layer,/\{yyy\}年-\{mm\}月-\{dd\}日-\{时间段\}/,'world-time prompt must use the neutral machine-readable template');
 assert.doesNotMatch(layer,/帝历1024年-09月-12日-下午/,'runtime module defaults must not hard-code a world-specific date example');
+assert.match(layer,/凌晨 \/ 黎明 \/ 清晨 \/ 早晨 \/ 上午 \/ 中午 \/ 午后 \/ 下午 \/ 傍晚 \/ 入夜 \/ 晚上 \/ 深夜/,'world-time prompt must restrict AI output to the canonical 12 dayparts');
+assert.match(layer,/没有足够时间流逝跨过当前时段就保持原值/,'world-time prompt must not force a daypart change every world-engine run');
+
 
 function fresh(){
   return {
@@ -51,7 +54,7 @@ function hostFor(statRef){
   const host=hostFor(statRef);
   const engine=new Engine(host);
   engine.config.enabled=true;
-  assert.equal(engine.config.worldModulePromptVersion,3);
+  assert.equal(engine.config.worldModulePromptVersion,4);
   assert.match(engine.config.preset,/只提交已经发生或需要规划的世界变化/,'built-in preset should migrate to concise pipeline');
   assert.match(engine.config.corePrompt,/模型知道≠场外人物知道/,'compact core must preserve anti-omniscience boundary');
   assert.match(engine.config.corePrompt,/没有重大世界偏移就完全不写偏移记录/,'compact core must not pressure the model to touch stability every round');

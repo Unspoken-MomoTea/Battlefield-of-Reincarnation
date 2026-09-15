@@ -1,5 +1,6 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const vm=require('node:vm');
 
 const html=fs.readFileSync('Regular/结算任务美化.html','utf8');
 const taskRules=fs.readFileSync('World Book/⚙️任务与委托系统.txt','utf8');
@@ -18,6 +19,16 @@ assert.match(html,/function extractSettlementBlock\(/,'必须能从消息原文�
 assert.match(html,/function resolveSettlementRawText\(/,'必须提供 $1 捕获失败的运行时恢复');
 assert.match(html,/const rawText = resolveSettlementRawText\(/,'实际解析必须使用恢复后的结算正文');
 
+const rawRecoveryBlock=html.match(/function extractSettlementBlock\(value\) \{[\s\S]*?function resolveSettlementRawText\(value, win\) \{[\s\S]*?\n          \}(?=\n\n          function panelTextBelongsToMessage)/);
+assert.ok(rawRecoveryBlock,'应可提取结算正文恢复器做行为回归');
+const rawContext={String,Number,window:{parent:null}};
+rawContext.latestChatMessage=()=>({id:42,message:'前文<settlement tasks>### 【主神空间 - 轮回清算协议】\n* [主线]: 完成</settlement tasks>后文'});
+rawContext.latestChatMessageId=m=>Number(m&&m.id);
+vm.createContext(rawContext);
+vm.runInContext(rawRecoveryBlock[0]+'\nthis.resolveRaw=resolveSettlementRawText;',rawContext);
+assert.match(rawContext.resolveRaw('$1',{}),/轮回清算协议/,'$1 未展开时必须从当前消息恢复真实 settlement tasks 内容');
+assert.doesNotMatch(rawContext.resolveRaw('$1',{}),/^\$1$/,'恢复后不得继续把 $1 当正文显示');
+
 // 未完成的晋升试炼只应阻止晋升资格/清理，不应阻止已完成主神任务的空间币结算。
 const terminalGateCount=(html.match(/trialTasks\.some\(function\(task\)\{return !isSettlementTaskTerminal\(task\.status\);\}\)/g)||[]).length;
 assert.equal(terminalGateCount,1,'试炼未终态只允许在最终清理处拦截，不能拦截整次结算写回');
@@ -28,14 +39,39 @@ assert.match(html,/function settlementSnapshotTaskScore\(/,'缺少任务快照�
 assert.match(html,/function preferSettlementSnapshot\(/,'缺少任务快照择优逻辑');
 assert.match(html,/let settlementBaselineData = readSettlementBaselineData\(\);/,'结算基线必须允许在变量更新完成后升级');
 
+const taskPreferenceBlock=html.match(/function settlementSnapshotTaskScore\(data\) \{[\s\S]*?function preferSettlementSnapshot\(current,candidate\) \{[\s\S]*?\n          \}(?=\n\n          function readSettlementBaselineData)/);
+assert.ok(taskPreferenceBlock,'应可提取任务快照择优器做行为回归');
+const taskContext={Object,String};
+vm.createContext(taskContext);
+vm.runInContext(taskPreferenceBlock[0]+'\nthis.prefer=preferSettlementSnapshot;',taskContext);
+const staleTaskSnapshot={stat_data:{世界:{名称:'Fate/stay night'},任务:{列表:{A:{委托方:'主神任务',状态:'进行中'},B:{委托方:'主神任务',状态:'进行中'}}}}};
+const matureTaskSnapshot={stat_data:{世界:{名称:'Fate/stay night'},任务:{列表:{A:{委托方:'主神任务',状态:'可交付'},B:{委托方:'主神任务',状态:'可结算'}}}}};
+assert.equal(taskContext.prefer(staleTaskSnapshot,matureTaskSnapshot),matureTaskSnapshot,'同世界任务应优先选择完成态更成熟的快照');
+assert.equal(taskContext.prefer(matureTaskSnapshot,staleTaskSnapshot),matureTaskSnapshot,'已取得成熟任务快照后不得被旧进行中状态降级');
+const otherWorldSnapshot={stat_data:{世界:{名称:'下一个世界'},任务:{列表:{A:{委托方:'主神任务',状态:'可结算'},B:{委托方:'主神任务',状态:'可结算'}}}}};
+assert.equal(taskContext.prefer(staleTaskSnapshot,otherWorldSnapshot),staleTaskSnapshot,'不同世界的任务快照不得串入当前结算');
+
 // 成就同样必须择优而不是“当前楼有 6 条就立即返回”。典型回归：当前楼 6 条未达成，
-// latest 已经 6 条已达成；UI 必须显示 6/6，且随后清空数据库不能把面板降回 0/6。
+// 更成熟快照已经 6 条已达成；UI 必须显示 6/6，且随后清空数据库不能把面板降回 0/6。
 assert.match(html,/function achievementTaskScore\(/,'缺少成就快照完成度评分');
 assert.match(html,/function preferAchievementTasks\(/,'缺少成就快照择优逻辑');
 assert.match(html,/let achievementTasks = readAchievementTasks\(\);/,'成就面板必须允许刷新到更成熟快照');
 assert.doesNotMatch(html,/const achievementTasks = readAchievementTasks\(\);/,'成就状态不能在初次渲染时永久冻结');
 assert.match(html,/function refreshAchievementTasks\(/,'VARIABLE_UPDATE_ENDED 后必须刷新成就快照');
 assert.match(html,/\.st-achievement-host/,'刷新后必须重绘成就面板');
+
+const achievementPreferenceBlock=html.match(/function achievementTaskSignature\(tasks\) \{[\s\S]*?function preferAchievementTasks\(current, candidate\) \{[\s\S]*?\n          \}(?=\n\n          function readAchievementTasks)/);
+assert.ok(achievementPreferenceBlock,'应可提取成就快照择优器做行为回归');
+const achievementContext={Array,String};
+vm.createContext(achievementContext);
+vm.runInContext(achievementPreferenceBlock[0]+'\nthis.score=achievementTaskScore;this.prefer=preferAchievementTasks;',achievementContext);
+const names=['观察者','初入战局','违规猎手','补魔大师','圣杯干预','规则终结者'];
+const staleAchievements=names.map(name=>({name,status:'未达成'}));
+const completedAchievements=names.map(name=>({name,status:'已达成'}));
+assert.equal(achievementContext.score(staleAchievements),6,'0/6 快照只能获得基础列表分');
+assert.equal(achievementContext.score(completedAchievements),6006,'6/6 快照必须明显高于旧未达成快照');
+assert.equal(achievementContext.prefer(staleAchievements,completedAchievements),completedAchievements,'6 条已达成必须覆盖同一批 6 条未达成旧快照');
+assert.equal(achievementContext.prefer(completedAchievements,staleAchievements),completedAchievements,'成就面板取得 6/6 后不得被清理前后的旧状态降回 0/6');
 
 // 任务状态必须随已确认剧情同步；“状态变化≠流程执行”不能被写成“AI不得更新状态”。
 assert.match(taskRules,/目标已明确完成[^\n]*可结算/,'主神/试炼任务目标完成后必须明确同步为可结算');

@@ -129,10 +129,12 @@ write(AUX, aux)
 rules = read(RULES)
 verbose_rules = """待办事件（收件箱机制）:\n  - 触发条件:当角色在外且经过合理时间跨度后触发\n  - 生成与积压:普通经营事件每周可生成1~2条红点并积压；自动收菜到期只新增【自动收菜】待办\n  - 玩家主权:【自动收菜】绝不直接写入背包、货币或库存；只有<user>明确办理/领取对应待办时才结算产物并清除该条，AI不得代替玩家自动办理\n  - 结算机制:其他事件仅在实际解决后清空对应记录，并按结果发放金币、道具或应用BUFF\n\n产出记录: 产出周期统一由程序按每7个【系统状态.游玩天数】形成1份；产出字段只写每份的本地货币或物资“名称×数量”，不写周期；无产出填“无”。到期只进入待办，不自动入账。主神空间资产按空间经济结算，任务世界不得产出空间币。"""
 concise_rules = """待办事件（收件箱机制）:\n  - 角色在外经过合理时间后，可生成1~2条经营事件并积压；办理后清除。\n\n产出记录: 只写“名称×数量”；无产出填“无”。自动收菜由程序处理；任务世界不得产出空间币。"""
-if concise_rules not in rules:
-    rules = replace_once(rules, verbose_rules, concise_rules, 'concise asset prompt')
-else:
+# 用户可自行采用更自然的同义提示词；只要明确“收获日期由程序计算 / AI无需处理”，就视为已完成该迁移，禁止 CI 回写覆盖。
+user_owned_prompt = '收获日期由程序计算' in rules and 'AI无需处理' in rules
+if concise_rules in rules or user_owned_prompt:
     print('[asset-harvest] already patched: concise asset prompt')
+else:
+    rules = replace_once(rules, verbose_rules, concise_rules, 'concise asset prompt')
 write(RULES, rules)
 
 print('[asset-harvest] done')

@@ -19,12 +19,21 @@ def replace_once(relative, old, new, marker=None):
     return True
 
 
+def remove_once(relative, old):
+    path = ROOT / relative
+    text = path.read_text(encoding='utf-8')
+    if old not in text:
+        print(f'[history-memory] already removed: {relative}')
+        return False
+    path.write_text(text.replace(old, '', 1), encoding='utf-8')
+    print(f'[history-memory] removed legacy anchor: {relative}')
+    return True
+
+
 # 1) History anchors are permanent facts. Remove the old normal 200-item deletion cap.
-replace_once(
+remove_once(
     'script/world-engine-src/00-foundation-prompt.part.js',
     '    const HISTORY_TARGET = 200;\n',
-    '',
-    marker='const HISTORY_MEMORY_L0_BATCH='
 )
 
 replace_once(

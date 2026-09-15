@@ -16,6 +16,8 @@ jobs:
           python-version: '3.12'
       - name: Sync settlement coin balance baseline
         run: python tools/patch-settlement-coin-baseline.py
+      - name: Sync task-independent settlement coin accounting
+        run: python tools/patch-settlement-coin-task-independence.py
       - name: Sync hierarchical world history memory
         run: python tools/patch-world-history-memory.py
       - name: Build delivery
@@ -30,6 +32,8 @@ jobs:
         run: node tests/world-engine-exploration-prune.cjs
       - name: Simplified task settlement regression
         run: node tests/task-settlement-simplified.cjs
+      - name: Settlement coin task-independence regression
+        run: node tests/settlement-coin-task-independence.cjs
       - name: Settlement shop coin persistence regression
         run: node tests/settlement-shop-coin-persistence.cjs
       - name: Settlement message marker regression

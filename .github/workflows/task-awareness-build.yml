@@ -21,7 +21,15 @@ jobs:
       - name: Sync settlement character lifecycle
         run: python tools/patch-settlement-character-lifecycle.py
       - name: Sync hidden trial task identity
-        run: python tools/patch-trial-task-identity.py
+        run: |
+          if grep -q "试炼任务名单: safeTags" script/ZOD脚本.js \
+            && grep -q "试炼任务名单',trialTaskNames" "Regular/试炼任务美化.html" \
+            && grep -q "function settlementTaskKeysForData(data)" "Regular/结算任务美化.html" \
+            && grep -q "setValue(sys, '试炼任务名单', \[\])" "Regular/结算任务美化.html"; then
+            echo "hidden trial task identity already synchronized"
+          else
+            python tools/patch-trial-task-identity.py
+          fi
       - name: Sync legacy trial task identity
         run: python tools/patch-trial-task-legacy-compat.py
       - name: Sync settlement coin balance baseline

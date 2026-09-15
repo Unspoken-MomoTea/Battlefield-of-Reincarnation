@@ -34,6 +34,14 @@ jobs:
               "          const credentialDecision = resolveCredentialDecision(settlementBaselineData);\n          const credentialGrant = credentialDecision && credentialDecision.granted ? credentialDecision : null;\n"
           )
           s=s.replace("            credentialDecision=resolveCredentialDecision(settlementBaselineData);\n            credentialGrant=credentialDecision && credentialDecision.granted ? credentialDecision : null;\n","")
+          s=s.replace(
+              "              if (isLatestPanelMessage(win, currentId)) consider(ctx && ctx.data, false);",
+              "              const currentIsLatest = typeof isLatestPanelMessage === 'function' && isLatestPanelMessage(win, currentId);\n              if (currentIsLatest) consider(ctx && ctx.data, false);"
+          )
+          s=s.replace(
+              "              if (isLatestPanelMessage(win,currentId)) consider(ctx && ctx.data);",
+              "              const currentIsLatest = typeof isLatestPanelMessage === 'function' && isLatestPanelMessage(win,currentId);\n              if (currentIsLatest) consider(ctx && ctx.data);"
+          )
           p.write_text(s,encoding='utf-8')
           PY
       - name: Check settlement script syntax

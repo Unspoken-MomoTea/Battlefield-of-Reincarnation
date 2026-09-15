@@ -7,8 +7,8 @@ const rulesPath = 'World Book/⚙️资产与载具规则.txt';
 const source = fs.readFileSync(auxPath, 'utf8');
 const rules = fs.readFileSync(rulesPath, 'utf8');
 
-// 提示词只保留 AI 真正需要知道的内容，不暴露程序内部调度细节。
-assert.match(rules, /产出记录: 只写“名称×数量”；无产出填“无”。自动收菜由程序处理；任务世界不得产出空间币。/);
+// 提示词只保留 AI 真正需要知道的内容，不暴露程序内部调度细节；用户措辞由世界书自身维护。
+assert.match(rules, /产出记录: 写明本地货币或物资的名称、数量；无产出填“无”。主神空间资产按空间经济结算，任务世界不得产出空间币。收获日期由程序计算，AI无需处理/);
 assert.doesNotMatch(rules, /每7个【系统状态\.游玩天数】形成1份/);
 assert.doesNotMatch(rules, /AI不得代替玩家自动办理/);
 assert.doesNotMatch(rules, /绝不直接写入背包、货币或库存/);

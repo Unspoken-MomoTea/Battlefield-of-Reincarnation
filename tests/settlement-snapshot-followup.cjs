@@ -22,8 +22,8 @@ const coinCore = mustMatch(
 );
 const snapshotBlock = mustMatch(
   html,
-  /\/\/ SETTLEMENT_COIN_LATEST_FREEZE_V3[\s\S]*?(?=\n          function settlementCoinValue\(data\))/, 
-  'missing latest-only settlement coin snapshot cache'
+  /\/\/ SETTLEMENT_COIN_SNAPSHOT_V2[\s\S]*?(?=\n          function settlementCoinValue\(data\))/, 
+  'missing complete settlement coin snapshot selector'
 );
 const panelMessageBlock = mustMatch(
   html,
@@ -31,8 +31,8 @@ const panelMessageBlock = mustMatch(
   'missing srcdoc host message id fallback'
 );
 
-// about:srcdoc message-id recovery remains useful for message markers and other settlement logic,
-// but space-coin reward data itself must not depend on message ids or historical lookback.
+// about:srcdoc often cannot see getCurrentMessageId directly. The panel must recover
+// its concrete chat message id from the hosting iframe/ancestor DOM instead of treating null as 0.
 const hostMessage = {
   dataset: {},
   getAttribute(name) { return name === 'mesid' ? '10' : null; },
@@ -50,73 +50,72 @@ const panelContext = {
 };
 vm.createContext(panelContext);
 vm.runInContext(panelMessageBlock + '\nthis.getPanelMessageId=getPanelMessageId;', panelContext);
-assert.equal(panelContext.getPanelMessageId({}), 10, 'srcdoc panel must still resolve its host mesid');
+assert.equal(panelContext.getPanelMessageId({}), 10, 'srcdoc panel must resolve its host mesid even when getCurrentMessageId is unavailable');
+assert.doesNotMatch(snapshotBlock, /const currentId\s*=\s*Number\(getPanelMessageId\(win\)\)/, 'unresolved panel id must never become message 0 through Number(null)');
+assert.match(snapshotBlock, /const panelMessageId\s*=\s*getPanelMessageId\(win\);[\s\S]*const currentId\s*=\s*panelMessageId === null \? null : Number\(panelMessageId\)/, 'space-coin snapshot scan must preserve a null panel id');
+assert.match(html, /const numericId\s*=\s*currentId === null \? null : Number\(currentId\)/, 'space-coin balance baseline must preserve a null panel id');
 
-const full = { stat_data: {
-  世界:{名称:'《X特遣队：全员集结》',难度:'E~C',探索:{},势力:{ARGUS:{声望:500}}},
-  任务:{
-    击杀:{Ⅰ:4},
-    列表:{
-      撕裂雨林封锁线:{委托方:'主神空间',状态:'可结算',奖励:'40空间币'},
-      约顿海姆暗室破拆:{委托方:'主神空间',状态:'可结算',奖励:'90空间币'},
-      阻断异端收割链:{委托方:'主神空间',状态:'可结算',奖励:'90空间币'},
-      巨物足肢断裂战:{委托方:'主神空间',状态:'可结算',奖励:'130空间币'},
-      征服者之瞳穿刺:{委托方:'主神空间',状态:'可结算',奖励:'150空间币'},
-    }
-  },
-  角色:{空间币:0}, 设置:{单一世界:false}
-} };
-const partial = { stat_data: {
-  世界:{名称:'《X特遣队：全员集结》',难度:'E~C',探索:{},势力:{}},
-  任务:{击杀:{Ⅰ:4},列表:{
-    撕裂雨林封锁线:{委托方:'主神空间',状态:'可结算',奖励:'40空间币'},
-    约顿海姆暗室破拆:{委托方:'主神空间',状态:'可结算',奖励:'90空间币'},
-  }},
-  角色:{空间币:0}, 设置:{单一世界:false}
-} };
-const cleaned = { stat_data: {
-  世界:{名称:'主神空间',难度:'',探索:{},势力:{}},
-  任务:{击杀:{},列表:{}},
-  角色:{空间币:0}, 设置:{单一世界:false}
-} };
+const snapshots = {
+  9: { stat_data: { 世界:{名称:'测试世界',难度:'E'}, 任务:{列表:{},击杀:{}}, 角色:{空间币:0}, 设置:{单一世界:false} } },
+  8: { stat_data: {
+    世界:{名称:'测试世界',难度:'E',探索:{},势力:{}},
+    任务:{
+      击杀:{Ⅰ:4},
+      列表:{
+        一:{委托方:'主神空间',状态:'可结算',奖励:'40空间币'},
+        二:{委托方:'主神空间',状态:'可结算',奖励:'90空间币'},
+        三:{委托方:'主神空间',状态:'可结算',奖励:'90空间币'},
+        四:{委托方:'主神空间',状态:'可结算',奖励:'130空间币'},
+        五:{委托方:'主神空间',状态:'可结算',奖励:'150空间币'},
+      }
+    },
+    角色:{空间币:0}, 设置:{单一世界:false}
+  } },
+  7: { stat_data: {
+    世界:{名称:'测试世界',难度:'E',探索:{},势力:{ARGUS:{声望:500}}},
+    任务:{
+      击杀:{Ⅰ:4},
+      列表:{
+        一:{委托方:'主神空间',状态:'可结算',奖励:'40空间币'},
+        二:{委托方:'主神空间',状态:'可结算',奖励:'90空间币'},
+        三:{委托方:'主神空间',状态:'可结算',奖励:'90空间币'},
+        四:{委托方:'主神空间',状态:'可结算',奖励:'130空间币'},
+        五:{委托方:'主神空间',状态:'可结算',奖励:'150空间币'},
+      }
+    },
+    角色:{空间币:0}, 设置:{单一世界:false}
+  } },
+};
 
-let latest = full;
 const coinContext = {
   Set, String, Number, Object, Array, Math,
-  getMvuContext() { return { data: latest, stat: latest.stat_data, win:{} }; },
+  SETTLEMENT_BASELINE_LOOKBACK: 8,
+  settlementBaselineData: snapshots[8],
+  settlementSnapshotWorld(data) {
+    const stat = data && (data.stat_data || data);
+    return String(stat && stat.世界 && stat.世界.名称 || '').trim();
+  },
+  getPanelMessageId() { return panelContext.getPanelMessageId({}); },
+  getMvuContext() {
+    return {
+      data: snapshots[9],
+      win: { Mvu: { getMvuData: ({message_id}) => snapshots[message_id] || null } }
+    };
+  },
 };
 vm.createContext(coinContext);
 vm.runInContext(
   statusHelpers + '\n' + coinCore + '\n' + snapshotBlock +
-  '\nthis.refreshCoinData=refreshSpaceCoinBaselineData;this.calcCoin=calculateSpaceCoinSettlement;',
+  '\nthis.pickCoinBaseline=readSpaceCoinBaselineData;this.calcCoin=calculateSpaceCoinSettlement;',
   coinContext
 );
-
-// Real failure mode: full latest is seen first, then settlement finalization clears latest.
-// A later 250/600ms refresh must never downgrade the already captured income snapshot to zero.
-let cached = coinContext.refreshCoinData(null);
-let result = coinContext.calcCoin(cached);
-assert.equal(result.taskReward, 500, 'explicit task rewards must ignore commissioner identity');
-assert.equal(result.killReward, 40, 'kill reward must come from the captured latest MVU');
-assert.equal(result.reputationReward, 1500, 'reputation reward must come from the captured latest MVU');
-assert.equal(result.totalReward, 2040, 'full latest MVU must settle to 2040 space coins');
-
-latest = cleaned;
-cached = coinContext.refreshCoinData(cached);
-result = coinContext.calcCoin(cached);
-assert.equal(result.totalReward, 2040, 'cleanup refresh must not overwrite a complete coin snapshot with cleaned latest MVU');
-
-// The opposite direction is allowed: if variables finish later, a more complete latest MVU must upgrade the cache.
-latest = partial;
-let upgrading = coinContext.refreshCoinData(null);
-assert.equal(coinContext.calcCoin(upgrading).totalReward, 170, 'partial latest should be usable temporarily');
-latest = full;
-upgrading = coinContext.refreshCoinData(upgrading);
-assert.equal(coinContext.calcCoin(upgrading).totalReward, 2040, 'later complete latest MVU must upgrade the cached coin snapshot');
-
-// Money data must be latest-only and completely independent from task/trial identity and historical-floor selection.
-assert.doesNotMatch(snapshotBlock, /settlementBaselineData|extractTrialTasks|settlementTaskKeysForData|委托方|getPanelMessageId|SETTLEMENT_BASELINE_LOOKBACK|message_id\s*:/, 'space-coin data cache must not depend on trial identity or historical MVU floors');
-assert.match(snapshotBlock, /getMvuContext\(\)/, 'space-coin data cache must read the current latest MVU context');
+const picked = coinContext.pickCoinBaseline();
+assert.equal(picked.stat_data.世界.势力.ARGUS.声望, 500, 'must skip cleaned/partial snapshots and keep scanning for the most complete same-world income snapshot');
+const result = coinContext.calcCoin(picked);
+assert.equal(result.taskReward, 500, 'task reward should stay commissioner-independent');
+assert.equal(result.killReward, 40, 'kill reward should survive snapshot selection');
+assert.equal(result.reputationReward, 1500, 'faction reputation must not disappear because a nearer partial snapshot matched first');
+assert.equal(result.totalReward, 2040, 'old-save sample with 主神空间 commissioner should settle to 2040 space coins');
 
 const trialIdentityBlock = mustMatch(
   html,
@@ -163,4 +162,4 @@ assert.equal(items.filter(x => /击杀目标附加收益明细|世界探索附�
 assert.ok(items.some(x => x.kind === 'program'), 'programmatic income items must remain');
 assert.ok(items.some(x => x.text === '应保留的普通结算文本'), 'unrelated AI settlement text must remain');
 
-console.log('PASS settlement latest-MVU coin freeze regressions');
+console.log('PASS settlement snapshot follow-up regressions');

@@ -1,1 +1,2 @@
-轮回战场资料卡
+# Battlefield-of-Reincarnation
+这是酒馆的轮回战场资料卡

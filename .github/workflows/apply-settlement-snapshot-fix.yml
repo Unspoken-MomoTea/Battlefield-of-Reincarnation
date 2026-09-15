@@ -23,7 +23,18 @@ jobs:
         with:
           python-version: '3.12'
       - name: Apply settlement snapshot patch
-        run: python tools/patch-settlement-snapshot-consistency.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/patch-settlement-snapshot-consistency.py')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace(
+              "out, count = re.subn(pattern, replacement, text, count=1, flags=re.S)",
+              "out, count = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)"
+          )
+          p.write_text(s,encoding='utf-8')
+          PY
+          python tools/patch-settlement-snapshot-consistency.py
       - name: Check settlement script syntax
         run: |
           python - <<'PY'

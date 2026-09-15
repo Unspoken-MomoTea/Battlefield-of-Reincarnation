@@ -1251,7 +1251,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         let calls = 0;
         const x = setup(async () => {calls++;return '{"summary":"无变化","patches":[]}';});
         assert.equal(await x.engine.run(),true); assert.equal(await x.engine.run(),false);
-        assert.equal(calls,1); assert.equal(x.writes(),1); assert.equal(x.get().世界.后台.运行记录.length,1);
+        assert.equal(calls,1); assert.equal(x.writes(),1); assert.equal(Object.hasOwn(x.get().世界.后台,'运行记录'),false);
     });
     await test('legacy patch protocol can still update causal current stage but cannot restore removed public summary', async () => {
         const x=setup(async()=>JSON.stringify({summary:'守卫开始巡逻',patches:[add('/世界/因果轨道/当前阶段','守卫开始逐步封锁城门，城内通行明显收紧。')]}));

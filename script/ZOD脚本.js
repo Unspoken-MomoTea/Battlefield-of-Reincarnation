@@ -428,7 +428,6 @@ export const Schema = z.object({
             // 程序托管的可逆历史总结树；正文只读取经过开关控制的根节点投影。
             历史总结: z.record(z.string(), z.any()).prefault({}),
             传播: z.record(z.string(), z.any()).prefault({}),
-            运行记录: z.array(z.any()).prefault([]),
             最近变化: z.array(z.any()).prefault([]),
             // 程序生命周期墓碑：只记用户/MVU明确删除的资产名，防止世界引擎因旧剧情记忆重新创建。
             资产墓碑: z.record(z.string(), safeStr('')).prefault({})

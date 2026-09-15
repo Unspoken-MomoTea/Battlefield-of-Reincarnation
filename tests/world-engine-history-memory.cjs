@@ -71,8 +71,9 @@ function summary(level,seq,children,lo,hi){
     const backend=x.getState().世界.后台;
     assert.equal(backend.历史['推进·80']?.事实,'本轮没有需要改变的世界事实。','首次推进就必须产生近期历史叶子');
     const projected=projectWorldContext(x.getState()).世界.后台.历史记忆;
-    assert.equal(Object.keys(projected.近期锚点||{}).length,1,'首次推进后运行记录中的近期历史不得继续显示0');
+    assert.equal(Object.keys(projected.近期锚点||{}).length,1,'首次推进后近期历史不得继续显示0');
     assert.equal(projected.统计.原始锚点总数,1);
+    assert.equal(Object.hasOwn(backend,'运行记录'),false,'每轮摘要只应保留为 L0 历史，不再重复持久化推演记录');
   }
 
   // 事件生命周期冷归档不是摘要森林叶子，不能冒充每轮近期记忆。
@@ -163,13 +164,19 @@ function summary(level,seq,children,lo,hi){
     const vars=fs.readFileSync(path.join(__dirname,'../World Book/[variables]当前变量.txt'),'utf8');
     const ui=fs.readFileSync(path.join(__dirname,'../script/world-engine-src/50-engine-ui.part.js'),'utf8');
     const runtime=fs.readFileSync(path.join(__dirname,'../script/world-engine-src/40-engine-runtime.part.js'),'utf8');
+    const zod=fs.readFileSync(path.join(__dirname,'../script/ZOD脚本.js'),'utf8');
+    assert.doesNotMatch(zod,/运行记录\s*:/,'MVU schema must not keep the removed duplicate run-record field');
     assert.match(runtime,/sendHistoryToProse\s*:\s*false|sendHistoryToProse[^\n]{0,80}=\s*false/,'正文历史开关必须默认关闭');
     assert.match(vars,/sendHistoryToProse/,'正文变量投影必须读取世界推进的历史开关');
     assert.match(vars,/历史记忆/,'开启后必须向正文投影历史记忆');
     assert.match(ui,/向正文提供历史记忆/,'设置页必须提供明确的历史记忆开关');
+    assert.doesNotMatch(ui,/section\('推演记录'/,'历史记忆页不得再重复展示推演摘要');
+    assert.match(ui,/\['运行记录','≋','历史记忆'\]/,'玩家侧导航应显示为历史记忆');
+    const recentLine=ui.split('\n').find(line=>line.includes("section('近期历史锚点'"))||'';
+    assert.doesNotMatch(recentLine,/<h3>'\+text\(n\)/,'近期历史不得暴露推进·楼层这类内部索引');
     const recentIndex=ui.indexOf("section('近期历史锚点'");
     const longIndex=ui.indexOf("section('长期历史总结'");
-    assert.ok(recentIndex>=0&&longIndex>=0&&recentIndex<longIndex,'运行记录应先展示近期历史锚点，再展示长期历史总结');
+    assert.ok(recentIndex>=0&&longIndex>=0&&recentIndex<longIndex,'历史记忆页应先展示近期历史锚点，再展示长期历史总结');
   }
 
   console.log('world-engine history memory regression tests passed');

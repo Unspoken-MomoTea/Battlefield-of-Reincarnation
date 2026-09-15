@@ -40,8 +40,6 @@ def regex_once(path: Path, pattern: str, replacement: str, label: str) -> bool:
 
 
 settlement = ROOT / 'Regular/结算任务美化.html'
-trial_ui = ROOT / 'Regular/试炼任务美化.html'
-statusbar = ROOT / 'script/悬浮球状态栏.js'
 
 # 1) Space-coin accounting must not stop at the nearest partial/cleaned MVU snapshot.
 # Scan the whole settlement window and prefer the most complete same-world snapshot.
@@ -135,8 +133,8 @@ regex_once(
     'complete space-coin snapshot selection',
 )
 
-# 2) Old saves may use “普升试炼” as commissioner. Treat it as an exact trial alias,
-# without reopening broad keyword-based trial detection for arbitrary ordinary tasks.
+# 2) Old saves may use “普升试炼” as commissioner. Treat it as an exact trial alias
+# only inside settlement identity handling; do not spread this compatibility into other modules.
 replace_once(
     settlement,
     """              const canonical = Object.keys(list).filter(function(key) {
@@ -155,20 +153,6 @@ replace_once(
     """              return commissioner === '主神任务' || commissioner === '晋升试炼';""",
     """              return commissioner === '主神任务' || commissioner === '晋升试炼' || commissioner === '普升试炼';""",
     'settlement task keys trial alias',
-)
-
-replace_once(
-    trial_ui,
-    """            return String(t.委托方 || '').trim() === '晋升试炼' && ['进行中','可交付','可结算','失败'].includes(String(t.状态 || '').trim());""",
-    """            return ['晋升试炼','普升试炼'].includes(String(t.委托方 || '').trim()) && ['进行中','可交付','可结算','失败'].includes(String(t.状态 || '').trim()); // TRIAL_COMMISSIONER_ALIAS_V2""",
-    'trial generator active alias guard',
-)
-
-replace_once(
-    statusbar,
-    """issuer === '主神任务' || issuer === '晋升试炼' || issuer === '试炼任务'""",
-    """issuer === '主神任务' || issuer === '晋升试炼' || issuer === '普升试炼' || issuer === '试炼任务'""",
-    'statusbar settlement trial alias',
 )
 
 # 3) Programmatic settlement already renders kill/exploration/reputation details before the total.

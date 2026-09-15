@@ -42,6 +42,10 @@ jobs:
               "              if (isLatestPanelMessage(win,currentId)) consider(ctx && ctx.data);",
               "              const currentIsLatest = typeof isLatestPanelMessage === 'function' && isLatestPanelMessage(win,currentId);\n              if (currentIsLatest) consider(ctx && ctx.data);"
           )
+          s=s.replace(
+              "              if (isSettlementTaskTerminal(task.状态)) score+=100;\n              else if (settlementTaskStatus(task.状态)) score+=10;",
+              "              const status=String(task.状态 || '').trim();\n              const terminal=(typeof isSettlementTaskTerminal === 'function')\n                ? isSettlementTaskTerminal(status)\n                : ['可结算','可交付','待结算','结算','已结算','完成','已完成','结算完成','失败','已失败','任务失败'].indexOf(status)>=0;\n              if (terminal) score+=100;\n              else if (status) score+=10;"
+          )
           p.write_text(s,encoding='utf-8')
           PY
       - name: Check settlement script syntax

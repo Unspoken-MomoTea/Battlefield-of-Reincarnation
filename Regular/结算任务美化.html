@@ -1219,8 +1219,8 @@
             return chosen || fallback || (ctx && ctx.data);
           }
 
-          // SETTLEMENT_COIN_STANDALONE_V3
-          function settlementCoinDataScore(data, expectedWorld) {
+          // SETTLEMENT_COIN_SNAPSHOT_V2
+          function settlementCoinSnapshotScore(data, expectedWorld) {
             const stat = data && (data.stat_data || data);
             if (!stat || typeof stat !== 'object') return -1;
             const worldName = String(stat.世界 && stat.世界.名称 || '').trim();
@@ -1246,14 +1246,19 @@
               return count + ((Number(kills[tier]) || 0) > 0 ? 1 : 0);
             }, 0);
             const trackedExploration = Object.keys(exploration).filter(function(name) {
-              return Number((exploration[name] || {}).探索度) > 0;
+              const entry = exploration[name] || {};
+              return Number(entry.探索度) > 0;
             }).length;
             const trackedFactions = Object.keys(factions).filter(function(name) {
-              return Number.isFinite(Number((factions[name] || {}).声望));
+              const entry = factions[name] || {};
+              return Number.isFinite(Number(entry.声望));
             }).length;
-            const taskCount = Object.keys(taskList).length;
-            if (!(taskCount + positiveKills + trackedExploration + trackedFactions)) return -1;
 
+            const taskCount = Object.keys(taskList).length;
+            const sourceCount = taskCount + positiveKills + trackedExploration + trackedFactions;
+            if (!sourceCount) return -1;
+
+            // 先保证任务终态/金额完整，再用世界收益字段完整度打破同分；绝不以委托方作为评分依据。
             return explicitCoinTasks * 100000
               + terminalTasks * 10000
               + taskCount * 1000
@@ -1262,37 +1267,29 @@
               + positiveKills;
           }
 
-          function preferSpaceCoinData(current, candidate, expectedWorld) {
+          function preferSpaceCoinSnapshot(current, candidate, expectedWorld) {
             if (!candidate) return current;
-            const nextScore = settlementCoinDataScore(candidate, expectedWorld);
+            const nextScore = settlementCoinSnapshotScore(candidate, expectedWorld);
             if (nextScore < 0) return current;
             if (!current) return candidate;
-            return nextScore > settlementCoinDataScore(current, expectedWorld) ? candidate : current;
+            const currentScore = settlementCoinSnapshotScore(current, expectedWorld);
+            return nextScore > currentScore ? candidate : current;
           }
 
-          function spaceCoinPanelMessageId(win) {
-            let hostId = null;
-            try {
-              if (typeof settlementFrameHostMessageId === 'function') hostId = settlementFrameHostMessageId();
-            } catch (e) {}
-            if (hostId !== null) return hostId;
-            return getPanelMessageId(win);
-          }
-
-          function readSpaceCoinSettlementData() {
+          function readSpaceCoinBaselineData() {
             const ctx = getMvuContext();
             const win = ctx && ctx.win;
             const mvu = win && win.Mvu;
-            const currentStat = ctx && ctx.data && (ctx.data.stat_data || ctx.data);
-            const expectedWorld = String(currentStat && currentStat.世界 && currentStat.世界.名称 || '').trim();
-            const rawId = spaceCoinPanelMessageId(win);
-            const currentId = rawId === null ? null : Number(rawId);
+            const panelMessageId = getPanelMessageId(win);
+            const currentId = panelMessageId === null ? null : Number(panelMessageId);
+            const expectedWorld = settlementSnapshotWorld(settlementBaselineData) || settlementSnapshotWorld(ctx && ctx.data);
             let chosen = null;
 
             function consider(candidate) {
-              chosen = preferSpaceCoinData(chosen, candidate, expectedWorld);
+              chosen = preferSpaceCoinSnapshot(chosen, candidate, expectedWorld);
             }
 
+            // 金额核算扫描结算消息之前整个回溯窗口，避免命中“任务已清空”或“势力数据缺失”的半残快照。
             if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(currentId) && currentId >= 0) {
               for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
                 const id = currentId - step;
@@ -1301,9 +1298,9 @@
               }
             }
 
-            // Current MVU is fallback only. No task/trial baseline is consulted here.
+            consider(settlementBaselineData);
             consider(ctx && ctx.data);
-            return chosen || (ctx && ctx.data);
+            return chosen || settlementBaselineData || (ctx && ctx.data);
           }
 
           function settlementCoinValue(data) {
@@ -1316,7 +1313,7 @@
             const ctx = getMvuContext();
             const win = ctx && ctx.win;
             const mvu = win && win.Mvu;
-            const currentId = spaceCoinPanelMessageId(win);
+            const currentId = getPanelMessageId(win);
             const numericId = currentId === null ? null : Number(currentId);
 
             // 空间币不是任务快照的一部分：优先读取结算消息之前最近的真实账户余额。
@@ -1475,8 +1472,8 @@
           let settlementTaskKeys = readSettlementTaskKeys(settlementBaselineData);
           // 仅保留旧任务快照结果用于安全修复历史漏发标记；正式金额不再使用它。
           let legacyRawSpaceCoinSettlement = calculateSpaceCoinSettlement(settlementBaselineData);
-          let spaceCoinSettlementData = readSpaceCoinSettlementData();
-          let rawSpaceCoinSettlement = calculateSpaceCoinSettlement(spaceCoinSettlementData);
+          let spaceCoinBaselineData = readSpaceCoinBaselineData();
+          let rawSpaceCoinSettlement = calculateSpaceCoinSettlement(spaceCoinBaselineData);
           let settlementCoinBalanceBefore = readSettlementCoinBalanceBefore();
           let spaceCoinSettlement = rebaseSettlementCoinBalance(rawSpaceCoinSettlement, settlementCoinBalanceBefore);
           // 固定结算前的角色层级，防止旧结算面板为已经普升的层级重复授予资格。
@@ -1490,8 +1487,8 @@
             if (preferred) settlementBaselineData=preferred;
             settlementTaskKeys=readSettlementTaskKeys(settlementBaselineData);
             legacyRawSpaceCoinSettlement=calculateSpaceCoinSettlement(settlementBaselineData);
-            spaceCoinSettlementData=readSpaceCoinSettlementData();
-            rawSpaceCoinSettlement=calculateSpaceCoinSettlement(spaceCoinSettlementData);
+            spaceCoinBaselineData=readSpaceCoinBaselineData();
+            rawSpaceCoinSettlement=calculateSpaceCoinSettlement(spaceCoinBaselineData);
             if (settlementCoinBalanceBefore === null) settlementCoinBalanceBefore=readSettlementCoinBalanceBefore();
             spaceCoinSettlement=rebaseSettlementCoinBalance(rawSpaceCoinSettlement, settlementCoinBalanceBefore);
             settlementBaselineTier=readReincarnatorTier(settlementBaselineData);

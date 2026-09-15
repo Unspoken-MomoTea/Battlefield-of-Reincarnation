@@ -20,10 +20,10 @@ const coinCore = mustMatch(
   /\/\/ SETTLEMENT_COIN_CORE_START[\s\S]*?\/\/ SETTLEMENT_COIN_CORE_END/,
   'missing settlement coin core'
 );
-const coinDataBlock = mustMatch(
+const snapshotBlock = mustMatch(
   html,
-  /\/\/ SETTLEMENT_COIN_STANDALONE_V3[\s\S]*?(?=\n          function settlementCoinValue\(data\))/, 
-  'missing standalone settlement coin data source'
+  /\/\/ SETTLEMENT_COIN_SNAPSHOT_V2[\s\S]*?(?=\n          function settlementCoinValue\(data\))/, 
+  'missing complete settlement coin snapshot selector'
 );
 const panelMessageBlock = mustMatch(
   html,
@@ -31,14 +31,8 @@ const panelMessageBlock = mustMatch(
   'missing srcdoc host message id fallback'
 );
 
-// Hard architecture boundary: money settlement may use task state and explicit amounts,
-// but must never depend on task/trial identity selection or commissioner text.
-assert.doesNotMatch(coinDataBlock, /settlementBaselineData|extractTrialTasks|settlementTaskKeysForData|委托方/, 'space-coin data source must not depend on task/trial identity');
-assert.match(coinDataBlock, /function readSpaceCoinSettlementData\(/, 'space-coin data source must be a dedicated function');
-assert.match(html, /spaceCoinSettlementData\s*=\s*readSpaceCoinSettlementData\(\)/, 'live settlement must use the standalone coin data reader');
-assert.doesNotMatch(html, /spaceCoinBaselineData\s*=\s*readSpaceCoinBaselineData\(\)/, 'live settlement must not use the old coupled coin baseline');
-
-// about:srcdoc must recover its host message id.
+// about:srcdoc often cannot see getCurrentMessageId directly. The panel must recover
+// its concrete chat message id from the hosting iframe/ancestor DOM instead of treating null as 0.
 const hostMessage = {
   dataset: {},
   getAttribute(name) { return name === 'mesid' ? '10' : null; },
@@ -55,8 +49,11 @@ const panelContext = {
   wrapper: null,
 };
 vm.createContext(panelContext);
-vm.runInContext(panelMessageBlock + '\nthis.hostId=settlementFrameHostMessageId;', panelContext);
-assert.equal(panelContext.hostId(), 10, 'srcdoc panel must resolve its host mesid');
+vm.runInContext(panelMessageBlock + '\nthis.getPanelMessageId=getPanelMessageId;', panelContext);
+assert.equal(panelContext.getPanelMessageId({}), 10, 'srcdoc panel must resolve its host mesid even when getCurrentMessageId is unavailable');
+assert.doesNotMatch(snapshotBlock, /const currentId\s*=\s*Number\(getPanelMessageId\(win\)\)/, 'unresolved panel id must never become message 0 through Number(null)');
+assert.match(snapshotBlock, /const panelMessageId\s*=\s*getPanelMessageId\(win\);[\s\S]*const currentId\s*=\s*panelMessageId === null \? null : Number\(panelMessageId\)/, 'space-coin snapshot scan must preserve a null panel id');
+assert.match(html, /const numericId\s*=\s*currentId === null \? null : Number\(currentId\)/, 'space-coin balance baseline must preserve a null panel id');
 
 const snapshots = {
   9: { stat_data: { 世界:{名称:'测试世界',难度:'E'}, 任务:{列表:{},击杀:{}}, 角色:{空间币:0}, 设置:{单一世界:false} } },
@@ -93,9 +90,12 @@ const snapshots = {
 const coinContext = {
   Set, String, Number, Object, Array, Math,
   SETTLEMENT_BASELINE_LOOKBACK: 8,
-  // Simulate the real failure mode: generic getter lies with 0, host DOM has the real message 10.
-  settlementFrameHostMessageId() { return 10; },
-  getPanelMessageId() { return 0; },
+  settlementBaselineData: snapshots[8],
+  settlementSnapshotWorld(data) {
+    const stat = data && (data.stat_data || data);
+    return String(stat && stat.世界 && stat.世界.名称 || '').trim();
+  },
+  getPanelMessageId() { return panelContext.getPanelMessageId({}); },
   getMvuContext() {
     return {
       data: snapshots[9],
@@ -105,17 +105,17 @@ const coinContext = {
 };
 vm.createContext(coinContext);
 vm.runInContext(
-  statusHelpers + '\n' + coinCore + '\n' + coinDataBlock +
-  '\nthis.pickCoinData=readSpaceCoinSettlementData;this.calcCoin=calculateSpaceCoinSettlement;',
+  statusHelpers + '\n' + coinCore + '\n' + snapshotBlock +
+  '\nthis.pickCoinBaseline=readSpaceCoinBaselineData;this.calcCoin=calculateSpaceCoinSettlement;',
   coinContext
 );
-const picked = coinContext.pickCoinData();
-assert.equal(picked.stat_data.世界.势力.ARGUS.声望, 500, 'standalone reader must scan from the real host message id and choose the complete pre-settlement data');
+const picked = coinContext.pickCoinBaseline();
+assert.equal(picked.stat_data.世界.势力.ARGUS.声望, 500, 'must skip cleaned/partial snapshots and keep scanning for the most complete same-world income snapshot');
 const result = coinContext.calcCoin(picked);
-assert.equal(result.taskReward, 500, 'explicit task coin rewards must ignore commissioner identity');
-assert.equal(result.killReward, 40, 'kill reward must be independent');
-assert.equal(result.reputationReward, 1500, 'reputation reward must be independent');
-assert.equal(result.totalReward, 2040, 'old-save sample with 主神空间 commissioner must settle to 2040 space coins');
+assert.equal(result.taskReward, 500, 'task reward should stay commissioner-independent');
+assert.equal(result.killReward, 40, 'kill reward should survive snapshot selection');
+assert.equal(result.reputationReward, 1500, 'faction reputation must not disappear because a nearer partial snapshot matched first');
+assert.equal(result.totalReward, 2040, 'old-save sample with 主神空间 commissioner should settle to 2040 space coins');
 
 const trialIdentityBlock = mustMatch(
   html,
@@ -162,4 +162,4 @@ assert.equal(items.filter(x => /击杀目标附加收益明细|世界探索附�
 assert.ok(items.some(x => x.kind === 'program'), 'programmatic income items must remain');
 assert.ok(items.some(x => x.text === '应保留的普通结算文本'), 'unrelated AI settlement text must remain');
 
-console.log('PASS settlement standalone coin regressions');
+console.log('PASS settlement snapshot follow-up regressions');

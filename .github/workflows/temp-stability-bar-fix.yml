@@ -1,0 +1,37 @@
+name: Temporary stability bar fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/temp-stability-bar-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch stability fill width
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('Regular/结算任务美化.html')
+          s=p.read_text(encoding='utf-8')
+          old='''case 'stab': return '<div class="st-stab"><div class="st-stab-label"><span>世界稳定值变动</span><span><b>100%</b> → <b>' + it.to + '%</b></span></div><div class="st-stab-bar"><div class="st-stab-fill" data-w="' + Math.max(0, Math.min(100, it.to)) + '"></div></div></div>';'''
+          new='''case 'stab': { const width = Math.max(0, Math.min(100, Number(it.to) || 0)); return '<div class="st-stab"><div class="st-stab-label"><span>世界稳定值变动</span><span><b>100%</b> → <b>' + it.to + '%</b></span></div><div class="st-stab-bar"><div class="st-stab-fill" data-w="' + width + '" style="width:' + width + '%"></div></div></div>'; }'''
+          if old not in s: raise SystemExit('target stability renderer not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+      - name: Verify
+        run: grep -F 'style="width:' 'Regular/结算任务美化.html'
+      - name: Commit patch and cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/temp-stability-bar-fix.yml
+          git add 'Regular/结算任务美化.html'
+          git commit -m 'fix: render settlement stability progress fill immediately'
+          git push

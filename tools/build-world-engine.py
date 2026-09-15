@@ -37,6 +37,7 @@ PARTS = (
     '59-causal-offset-editor.part.js',
     '59-api-preset-selection.part.js',
     '59-history-memory.part.js',
+    '59-history-memory-editor.part.js',
     '60-bootstrap.part.js',
 )
 

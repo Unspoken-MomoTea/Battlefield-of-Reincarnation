@@ -1,7 +1,7 @@
 name: task-awareness-check
 on:
   push:
-    branches: [main]
+    branches: [main, fix/npc-audit-feedback-footer-ui]
   workflow_dispatch:
 jobs:
   task-awareness:

@@ -1,7 +1,7 @@
 name: task-awareness-build
 on:
   push:
-    branches: [main]
+    branches: [main, fix/settlement-snapshot-trial-alias]
 permissions:
   contents: write
 jobs:
@@ -36,6 +36,8 @@ jobs:
         run: python tools/patch-settlement-coin-baseline.py
       - name: Sync task-independent settlement coin accounting
         run: python tools/patch-settlement-coin-task-independence.py
+      - name: Sync settlement snapshot follow-up
+        run: python tools/patch-settlement-snapshot-followup.py
       - name: Sync hierarchical world history memory
         run: python tools/patch-world-history-memory.py
       - name: Build delivery
@@ -50,6 +52,8 @@ jobs:
         run: node tests/task-settlement-simplified.cjs
       - name: Settlement coin task-independence regression
         run: node tests/settlement-coin-task-independence.cjs
+      - name: Settlement snapshot follow-up regression
+        run: node tests/settlement-snapshot-followup.cjs
       - name: Trial promotion identity regression
         run: node tests/trial-promotion-flow.cjs
       - name: Legacy trial identity regression
@@ -108,7 +112,7 @@ jobs:
         run: |
           if git diff --quiet -- script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/10-world-state.part.js script/world-engine-src/40-engine-runtime.part.js script/world-engine-src/50-engine-ui.part.js script/world-engine-src/59-auto-progress.part.js script/世界推进系统.js script/悬浮球状态栏.js script/ZOD脚本.js "World Book/[mvu_update]变量更新规则.txt" "World Book/[variables]当前变量.txt" "World Book/[InitVar]世界初始设定.yaml" "Regular/结算任务美化.html" "Regular/试炼任务美化.html" "script/世界引擎接入说明.md" tests/statusbar-settlement-topbar.cjs tests/world-engine.cjs tests/world-engine-superstable-prompt.cjs tests/world-engine-prompt-pipeline.cjs tests/world-engine-scene-context.cjs tests/world-engine-asset-multi-owner.cjs tests/world-engine-asset-writeback.cjs tests/world-engine-request-transparency.cjs; then exit 0; fi
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "4189822+github-actions[bot]@users.noreply.github.com"
           git add script/world-engine-src/00-foundation-prompt.part.js script/world-engine-src/10-world-state.part.js script/world-engine-src/40-engine-runtime.part.js script/world-engine-src/50-engine-ui.part.js script/world-engine-src/59-auto-progress.part.js script/世界推进系统.js script/悬浮球状态栏.js script/ZOD脚本.js "World Book/[mvu_update]变量更新规则.txt" "World Book/[variables]当前变量.txt" "World Book/[InitVar]世界初始设定.yaml" "Regular/结算任务美化.html" "Regular/试炼任务美化.html" "script/世界引擎接入说明.md" tests/statusbar-settlement-topbar.cjs tests/world-engine.cjs tests/world-engine-superstable-prompt.cjs tests/world-engine-prompt-pipeline.cjs tests/world-engine-scene-context.cjs tests/world-engine-asset-multi-owner.cjs tests/world-engine-asset-writeback.cjs tests/world-engine-request-transparency.cjs
           git commit -m "build: sync world engine delivery [task-awareness-built]"
           git push

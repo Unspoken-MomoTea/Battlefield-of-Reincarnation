@@ -690,14 +690,6 @@
         .sam-tier-prog.npc { margin:7px 0 3px; padding:6px 8px; }
         .sam-tier-prog.npc .sam-tier-side { font-size:15px; min-width:28px; }
         .sam-tier-prog.npc .sam-tier-bar { height:11px; }
-        /* 结算任务按钮区: 任务面板所有栏目下方, 与上方栏目分隔; 按钮居中, 提示在下 */
-        .sam-mission-settle-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--sam-border); }
-        /* 按钮使用主题无关的稳重配色(深绿), 与整体UI协调且在任意主题清晰可见 */
-        .sam-mission-settle-btn { margin-top:4px; padding:7px 26px; font-size:12px; font-weight:900; letter-spacing:1px; cursor:pointer; border-radius:6px; transition:all 0.18s;
-            color:#fff; background:#2e9e6b; border:1px solid #2e9e6b; box-shadow:0 0 8px rgba(46,158,107,0.4); }
-        .sam-mission-settle-btn:hover { background:#36b67c; border-color:#36b67c; box-shadow:0 0 12px rgba(46,158,107,0.65); }
-        .sam-mission-settle-btn:active { transform:translateY(1px); }
-        .sam-mission-settle-hint { font-size:11px; color:var(--sam-sub); line-height:1.2; text-align:center; }
         /* 副本成就: 已达成卡片金色描边高亮 + 头部达成徽章 */
         .sam-ach-item.done .sam-full-card { border-left-color:#d4af37; box-shadow:0 0 8px rgba(212,175,55,0.25); }
         .sam-ach-item.done .sam-fc-title { color:var(--sam-thp, #e5c166); }
@@ -3422,7 +3414,7 @@
                 }
             }
         });
-        // ★ 结算任务按钮: 任务面板所有栏目下方, 点击发送【结算任务】到输入框(仅对主神任务起效, 由提示文案说明)
+        // ★ 结算任务按钮: 顶栏入口；主神任务或晋升试炼达到可结算状态时显示，点击发送【结算任务】到输入框
         $panel.off('click.samMissionSettle').on('click.samMissionSettle', '[data-mission-settle]', function(e) {
             e.stopPropagation();
             var text = '【结算任务】';
@@ -4554,7 +4546,7 @@
         var editMode = isEditMode();
         var html = '';
         // 顶栏
-        html += renderTopbar(world, sys, editMode);
+        html += renderTopbar(world, sys, editMode, sd);
         // 中部角色条
         html += renderReincarnatorBar(p, sys, editMode);
         // 底部状态图标条
@@ -4587,23 +4579,43 @@
         }
     }
 
+    function isSettlementReadyTask(task) {
+        if (!task || typeof task !== 'object') return false;
+        var issuer = String(task.委托方 || '').replace(/\s+/g, '');
+        var status = String(task.状态 || '').replace(/\s+/g, '');
+        var isSettlementQuest = issuer === '主神任务' || issuer === '晋升试炼' || issuer === '试炼任务';
+        var isReady = status === '可结算' || status === '可交付' || status === '已完成' || status === '完成';
+        return isSettlementQuest && isReady;
+    }
+    function shouldShowSettlementButton(sd) {
+        var sys = (sd && sd.系统状态) || {};
+        if (sys.是否在主神空间 !== false || sys.是否战斗中 === true) return false;
+        var list = (sd && sd.任务 && sd.任务.列表) || {};
+        return Object.keys(list).some(function(key) { return isSettlementReadyTask(list[key]); });
+    }
+
     /* ===== 18. 顶栏 ===== */
-    function renderTopbar(world, sys, editMode) {
+    function renderTopbar(world, sys, editMode, sd) {
         var time = safeStr(world.时间, '未知时间');
         var place = safeStr(world.地点, '未知地点');
         if (editMode) {
             time = editInput('世界.时间', time, 'text');
             place = editInput('世界.地点', place, 'text');
         }
-        // 选择世界按钮: 仅当在主神空间且非战斗时显示(编辑模式下也保持可点以便快速测试)
+        // 主神空间显示“选择世界”；副本/单一世界出现可结算的主神任务或试炼任务时，同一位置显示“结算任务”。
         var worldBtn = '';
         if (sys && sys.是否在主神空间 === true && sys.是否战斗中 !== true) {
             worldBtn = '<div class="sam-icon-btn choose-world" title="选择世界" data-choose-world>🌐选择世界</div>';
+        }
+        var settlementBtn = '';
+        if (shouldShowSettlementButton(sd)) {
+            settlementBtn = '<div class="sam-icon-btn choose-world mission-settle" title="结算任务" data-mission-settle>📋结算任务</div>';
         }
         return '<div class="sam-topbar">'
             + '<div class="tl-info"><div class="tl-time">🕒 '+time+'</div><div class="tl-place">📍 '+place+'</div></div>'
             + '<div class="tl-actions">'
             + worldBtn
+            + settlementBtn
             + '<div class="sam-icon-btn refresh" title="刷新">🔄</div>'
             + '<div class="sam-icon-btn settings '+(editMode?'edit-on':'')+'" title="设置">⚙️</div>'
             + '<div class="sam-icon-btn close" title="关闭">✕</div>'
@@ -4965,13 +4977,6 @@
             + (!isSingleWorld ? '<div style="margin-top:3px;">跨世界额外收益：<b style="color:var(--sam-text);">世界探索</b>(上限×300%) 与 <b style="color:var(--sam-text);">势力羁绊</b>(上限×300%) 附加收益通常高于击杀奖励</div>' : '')
             + '</div>';
         html += secBlock('⚔️ 击杀统计', kHtml);
-        // 结算任务: 置于任务面板所有栏目下方; 仅对主神任务起效(提示说明), 点击发送【结算任务】到输入框
-        if (sd.系统状态.是否在主神空间 == false && sd.系统状态.是否战斗中 == false) {
-            html += '<div class="sam-mission-settle-wrap">'
-                + '<button type="button" class="sam-mission-settle-btn" data-mission-settle>📋 结算任务</button>'
-                + '<div class="sam-mission-settle-hint">⚠️ 仅对主神任务起效, 一旦确认不可重ROLL ❗</div>'
-                + '</div>';
-        }
         return html;
     }
 

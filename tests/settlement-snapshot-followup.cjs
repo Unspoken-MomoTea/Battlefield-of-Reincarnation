@@ -130,12 +130,12 @@ const parsed = {stages:[{type:'income',items:[
   {kind:'empty',text:'本次无探索收益',sub:'世界探索附加收益明细'},
   {kind:'sub',name:'势力羁绊附加收益明细',sub:''},
   {kind:'empty',text:'本次无正声望收益',sub:'势力羁绊附加收益明细'},
-  {kind:'para',text:'应保留的非空间币结算文本',sub:'其它'},
+  {kind:'para',text:'应保留的普通结算文本',sub:'其它'},
 ]}]};
 injectContext.inject(parsed, {});
 const items = parsed.stages[0].items;
 assert.equal(items.filter(x => /击杀目标附加收益明细|世界探索附加收益明细|势力羁绊附加收益明细/.test(String(x.name||x.sub||''))).length, 0, 'legacy duplicate income sections must be removed after the programmatic settlement total');
 assert.ok(items.some(x => x.kind === 'program'), 'programmatic income items must remain');
-assert.ok(items.some(x => x.text === '应保留的非空间币结算文本'), 'unrelated AI settlement text must remain');
+assert.ok(items.some(x => x.text === '应保留的普通结算文本'), 'unrelated AI settlement text must remain');
 
 console.log('PASS settlement snapshot follow-up regressions');

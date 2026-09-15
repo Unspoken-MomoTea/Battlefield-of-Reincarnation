@@ -1,0 +1,38 @@
+name: ejs-preset-compat
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/patch-ejs-preset-asset-compat.py'
+      - 'tests/ejs-preset-compat.cjs'
+      - '.github/workflows/ejs-preset-compat.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply EJS preset compatibility patch
+        run: python tools/patch-ejs-preset-asset-compat.py
+      - name: EJS preset compatibility regression
+        run: node tests/ejs-preset-compat.cjs
+      - name: Commit fix and remove one-shot tooling
+        run: |
+          rm tools/patch-ejs-preset-asset-compat.py .github/workflows/ejs-preset-compat.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: avoid preset zero-width mutation in variable EJS'
+          git push

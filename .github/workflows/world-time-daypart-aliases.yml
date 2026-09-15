@@ -1,0 +1,42 @@
+name: world-time-daypart-aliases
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'script/world-engine-src/59-world-time-daypart-aliases.part.js'
+      - 'tools/patch-world-time-daypart-aliases.py'
+      - '.github/workflows/world-time-daypart-aliases.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply world time daypart alias patch
+        run: python tools/patch-world-time-daypart-aliases.py
+      - name: Build world engine delivery
+        run: python tools/build-world-engine.py
+      - name: World time alias regression
+        run: node tests/world-engine-integrity-guard.cjs
+      - name: Module synchronization
+        run: node tests/world-engine-modules.cjs
+      - name: Commit fix and remove one-shot tooling
+        run: |
+          rm tools/patch-world-time-daypart-aliases.py .github/workflows/world-time-daypart-aliases.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: accept world time daypart aliases'
+          git push

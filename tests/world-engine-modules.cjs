@@ -37,6 +37,7 @@ const parts = [
   '59-causal-offset-editor.part.js',
   '59-api-preset-selection.part.js',
   '59-history-memory.part.js',
+  '59-history-memory-editor.part.js',
   '60-bootstrap.part.js',
 ];
 
@@ -131,6 +132,9 @@ assert.match(texts['59-api-preset-selection.part.js'], /dedicated-preset-delete/
 assert.match(texts['59-history-memory.part.js'], /^    \/\/ 世界长期历史记忆/);
 assert.match(texts['59-history-memory.part.js'], /HISTORY_MEMORY_L0_BATCH/);
 assert.match(texts['59-history-memory.part.js'], /projectWorldHistoryMemory/);
+assert.match(texts['59-history-memory-editor.part.js'], /^    \/\/ 历史记忆手动维护/);
+assert.match(texts['59-history-memory-editor.part.js'], /setHistoryAnchorRecord/);
+assert.match(texts['59-history-memory-editor.part.js'], /setHistorySummaryRecord/);
 assert.match(texts['60-bootstrap.part.js'], /^    \/\/ CommonJS 入口仅供离线测试/);
 assert.match(texts['60-bootstrap.part.js'], /module\.exports/);
 assert.match(texts['60-bootstrap.part.js'], /\}\)\(typeof window !== 'undefined' \? window : globalThis\);\s*$/);

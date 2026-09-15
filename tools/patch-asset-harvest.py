@@ -116,7 +116,7 @@ new_harvest = r'''    /** 资产自动收菜：只按系统状态.游玩天数�
 '''
 if 'const formatRemaining = (nextPlay) =>' not in aux:
     pattern = r"    /\*\* 资产全自动收菜系统[\s\S]*?(?=    /\*\* 传入防御总值与角色当前层级 \*/)"
-    aux2, count = re.subn(pattern, new_harvest, aux, count=1)
+    aux2, count = re.subn(pattern, lambda _match: new_harvest, aux, count=1)
     if count != 1:
         raise RuntimeError(f'[asset-harvest] harvest function anchor not found or ambiguous ({count})')
     aux = aux2

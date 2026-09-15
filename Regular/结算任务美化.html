@@ -633,10 +633,37 @@
             const taskRewardDetails = [];
             const penaltyDetails = [];
             const taskList = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            const recognizedTaskKeys = new Set(Object.keys(taskList).filter(function(name) {
+              const commissioner = String(taskList[name] && taskList[name].委托方 || '').trim();
+              return commissioner === '主神任务' || commissioner === '晋升试炼';
+            }));
+            const trialSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
+            if (trialSys.是否试炼任务 === true) {
+              const exactNames = Array.isArray(trialSys.试炼任务名单)
+                ? trialSys.试炼任务名单.map(function(name) { return String(name || '').trim(); }).filter(Boolean)
+                : [];
+              let exactMatched = 0;
+              exactNames.forEach(function(name) {
+                if (!taskList[name]) return;
+                recognizedTaskKeys.add(name);
+                exactMatched += 1;
+              });
+              const missing = exactNames.length ? Math.max(0, exactNames.length - exactMatched) : Number.POSITIVE_INFINITY;
+              if (!exactNames.length || missing > 0) {
+                let added = 0;
+                Object.keys(taskList).forEach(function(name) {
+                  if (exactNames.length && added >= missing) return;
+                  if (recognizedTaskKeys.has(name)) return;
+                  const commissioner = String(taskList[name] && taskList[name].委托方 || '').trim();
+                  if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return;
+                  recognizedTaskKeys.add(name);
+                  added += 1;
+                });
+              }
+            }
             Object.keys(taskList).forEach(function(name) {
               const task = taskList[name] || {};
-              const commissioner = String(task.委托方 || '').trim();
-              if (commissioner !== '主神任务' && commissioner !== '晋升试炼') return;
+              if (!recognizedTaskKeys.has(name)) return;
               const success = isSettlementTaskSuccessful(task.状态);
               if (success) {
                 const amount = parseSpaceCoinTotal(task.奖励, false);
@@ -829,10 +856,41 @@
           function extractTrialTasks(data) {
             const stat = data && (data.stat_data || data) || {};
             const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            return Object.keys(list).filter(function(key) {
-              const task = list[key];
-              return task && String(task.委托方 || '').trim() === '晋升试炼';
-            }).map(function(key, index) {
+            const sys = stat && stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
+            const marked = sys.是否试炼任务 === true;
+            const exactNames = Array.isArray(sys.试炼任务名单)
+              ? sys.试炼任务名单.map(function(name) { return String(name || '').trim(); }).filter(Boolean)
+              : [];
+            let keys = [];
+
+            // 新版：隐藏名单是权威身份，不再依赖AI可改写的委托方。
+            if (marked && exactNames.length) {
+              keys = exactNames.filter(function(key) { return list[key] && typeof list[key] === 'object'; });
+              // 极端旧档若任务被改名，只用委托方关键词补足缺失数量；不得额外扩大试炼集合。
+              const missing = Math.max(0, exactNames.length - keys.length);
+              if (missing > 0) {
+                const fallback = Object.keys(list).filter(function(key) {
+                  if (keys.indexOf(key) >= 0) return false;
+                  const task = list[key];
+                  return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.委托方 || '').trim());
+                });
+                keys = keys.concat(fallback.slice(0, missing));
+              }
+            } else if (marked) {
+              // 兼容已经带试炼标记、但尚无任务名单的过渡存档。
+              keys = Object.keys(list).filter(function(key) {
+                const task = list[key];
+                return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.委托方 || '').trim());
+              });
+            } else {
+              // 旧存档没有隐藏标记时只接受原标准值，避免普通任务被关键词误判。
+              keys = Object.keys(list).filter(function(key) {
+                const task = list[key];
+                return task && String(task.委托方 || '').trim() === '晋升试炼';
+              });
+            }
+
+            return keys.map(function(key, index) {
               const task = list[key] || {};
               return {
                 key: key,
@@ -844,6 +902,19 @@
           function readTrialTasks() {
             const ctx = getMvuContext();
             return extractTrialTasks(ctx && ctx.stat);
+          }
+
+          function settlementTaskKeysForData(data) {
+            const stat = data && (data.stat_data || data) || {};
+            const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            const keys = Object.keys(list).filter(function(key) {
+              const commissioner = String(list[key] && list[key].委托方 || '').trim();
+              return commissioner === '主神任务' || commissioner === '晋升试炼';
+            });
+            extractTrialTasks(data).forEach(function(task) {
+              if (task && task.key && keys.indexOf(task.key) < 0) keys.push(task.key);
+            });
+            return keys;
           }
 
           let achievementBaselineData = null;
@@ -1022,22 +1093,16 @@
 
           const SETTLEMENT_BASELINE_LOOKBACK = 8;
           function settlementSnapshotTaskCount(data) {
-            const stat = data && (data.stat_data || data);
-            const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            return Object.keys(list).filter(function(key) {
-              const commissioner = String(list[key] && list[key].委托方 || '').trim();
-              return commissioner === '主神任务' || commissioner === '晋升试炼';
-            }).length;
+            return settlementTaskKeysForData(data).length;
           }
 
           function settlementSnapshotTaskScore(data) {
             const stat=data && (data.stat_data || data);
             const list=stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            const marked=!!(stat && stat.系统状态 && stat.系统状态.是否试炼任务 === true);
             let count=0, score=0;
-            Object.keys(list).forEach(function(key) {
+            settlementTaskKeysForData(data).forEach(function(key) {
               const task=list[key] || {};
-              const commissioner=String(task.委托方 || '').trim();
-              if (commissioner!=='主神任务' && commissioner!=='晋升试炼') return;
               count++;
               const status=String(task.状态 || '').trim();
               const terminal=(typeof isSettlementTaskTerminal === 'function')
@@ -1046,7 +1111,8 @@
               if (terminal) score+=100;
               else if (status) score+=10;
             });
-            return {count:count,score:score+count};
+            // 活跃试炼标记是程序身份，必须压过历史普通副本快照。
+            return {count:count,score:score+count+(marked?10000:0)};
           }
 
           function settlementSnapshotWorld(data) {
@@ -1227,12 +1293,7 @@
           let achievementTasks = readAchievementTasks();
           let bestAchievementScore = achievementTaskScore(achievementTasks);
           function readSettlementTaskKeys(data) {
-            const stat = data && (data.stat_data || data);
-            const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            return Object.keys(list).filter(function(key) {
-              const commissioner = String(list[key] && list[key].委托方 || '').trim();
-              return commissioner === '主神任务' || commissioner === '晋升试炼';
-            });
+            return settlementTaskKeysForData(data);
           }
 
           // 当正文变量已经清掉任务，仍从结算前快照核验；不以正文“已晋升”代替完成状态。
@@ -1851,6 +1912,14 @@
             if (!fullSettlement) return changed;
             // 等待任务变量落到认可完成态/失败，避免先清空后再也无法核验晋升资格。
             if (trialTasks.some(function(task){return !isSettlementTaskTerminal(task.status);})) return changed;
+
+            // 成功/失败都表示本轮试炼生命周期结束；身份标记只消费一次，历史面板不能复活它。
+            const activeTrialSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : null;
+            if (activeTrialSys && activeTrialSys.是否试炼任务 === true) {
+              const sys = ensureObject(stat, '系统状态');
+              setValue(sys, '是否试炼任务', false);
+              setValue(sys, '试炼任务名单', []);
+            }
 
             const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
             const tasks = ensureObject(stat, '任务');

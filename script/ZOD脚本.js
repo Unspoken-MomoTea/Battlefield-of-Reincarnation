@@ -592,6 +592,9 @@ export const Schema = z.object({
         当前轮次: safeNum(0),
         是否可试炼: boolPreprocess(false),
         试炼已完成: boolPreprocess(false),
+        // 程序托管的晋升试炼身份；正文/变量AI投影会剔除，仅试炼美化与结算读取。
+        是否试炼任务: boolPreprocess(false),
+        试炼任务名单: safeTags([]),
         是否在主神空间: boolPreprocess(false),
         待播报记录: safeStr(''),
         // 真实游玩天数: 世界.时间 的日期(年月日)每变动一次自动+1, 单调递增, 免疫副本时间跳跃(脚本自动维护)

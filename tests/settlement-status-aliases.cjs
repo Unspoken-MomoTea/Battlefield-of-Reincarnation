@@ -41,7 +41,7 @@ assert.doesNotMatch(worldBook,/仅`状态=可结算`视为成功/,'结算世界�
 
 const trialIdentityBlock=html.match(/function extractTrialTasks\(data\) \{[\s\S]*?function settlementTaskKeysForData\(data\) \{[\s\S]*?\n          \}(?=\n\n          let achievementBaselineData)/);
 assert.ok(trialIdentityBlock,'凭证基线回归必须加载隐藏试炼身份识别器');
-const baselineBlock=html.match(/const SETTLEMENT_BASELINE_LOOKBACK\s*=\s*\d+;[\s\S]*?function readSettlementBaselineData\(\) \{[\s\S]*?\n          \}(?=\n\n          function settlementCoinBaselineHasIncomeData)/);
+const baselineBlock=html.match(/const SETTLEMENT_BASELINE_LOOKBACK\s*=\s*\d+;[\s\S]*?function readSettlementBaselineData\(\) \{[\s\S]*?\n          \}(?=\n\n          \/\/ SETTLEMENT_COIN_SNAPSHOT_V2)/);
 assert.ok(baselineBlock,'任务/凭证基线必须保持按任务快照择优，并与空间币独立基线分离');
 const snapshots={
   9:{stat_data:{角色:{层级:'Ⅰ'},任务:{列表:{}}}},

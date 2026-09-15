@@ -4,27 +4,37 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def read_exact(path: Path) -> str:
+    with path.open('r', encoding='utf-8', newline='') as handle:
+        return handle.read()
+
+
+def write_exact(path: Path, text: str) -> None:
+    with path.open('w', encoding='utf-8', newline='') as handle:
+        handle.write(text)
+
+
 def replace_once(path: Path, old: str, new: str, label: str) -> bool:
-    text = path.read_text(encoding='utf-8')
+    text = read_exact(path)
     if new in text:
         print(f'[settlement-followup] already patched: {label}')
         return False
     if old not in text:
         raise RuntimeError(f'[settlement-followup] anchor not found: {label}')
-    path.write_text(text.replace(old, new, 1), encoding='utf-8')
+    write_exact(path, text.replace(old, new, 1))
     print(f'[settlement-followup] patched: {label}')
     return True
 
 
 def regex_once(path: Path, pattern: str, replacement: str, label: str) -> bool:
-    text = path.read_text(encoding='utf-8')
+    text = read_exact(path)
     if replacement in text:
         print(f'[settlement-followup] already patched: {label}')
         return False
     text2, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
     if count != 1:
         raise RuntimeError(f'[settlement-followup] anchor not found or ambiguous: {label} ({count})')
-    path.write_text(text2, encoding='utf-8')
+    write_exact(path, text2)
     print(f'[settlement-followup] patched: {label}')
     return True
 

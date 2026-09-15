@@ -630,51 +630,14 @@
             if (!Number.isFinite(gradeIndex) || gradeIndex < 0) gradeIndex = 0;
             const base = SETTLEMENT_COIN_BASES[gradeIndex] || 0;
 
+            // SETTLEMENT_COIN_TASK_INDEPENDENCE
+            // 空间币金额是任务数据事实：只看任务终态与明确金额，不以委托方/任务身份作为发放权限。
             const taskRewardDetails = [];
             const penaltyDetails = [];
             const taskList = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            const recognizedTaskKeys = new Set(Object.keys(taskList).filter(function(name) {
-              const commissioner = String(taskList[name] && taskList[name].委托方 || '').trim();
-              return commissioner === '主神任务' || commissioner === '晋升试炼';
-            }));
             Object.keys(taskList).forEach(function(name) {
               const task = taskList[name] || {};
-              const commissioner = String(task.委托方 || '').trim();
-              if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return;
-              const delivery = String(task.交付 || '').trim();
-              if (delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\s*\d+/.test(String(name || '').trim())) {
-                recognizedTaskKeys.add(name);
-              }
-            });
-            const trialSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
-            if (trialSys.是否试炼任务 === true) {
-              const exactNames = Array.isArray(trialSys.试炼任务名单)
-                ? trialSys.试炼任务名单.map(function(name) { return String(name || '').trim(); }).filter(Boolean)
-                : [];
-              let exactMatched = 0;
-              exactNames.forEach(function(name) {
-                if (!taskList[name]) return;
-                recognizedTaskKeys.add(name);
-                exactMatched += 1;
-              });
-              const missing = exactNames.length ? Math.max(0, exactNames.length - exactMatched) : Number.POSITIVE_INFINITY;
-              if (!exactNames.length || missing > 0) {
-                let added = 0;
-                Object.keys(taskList).forEach(function(name) {
-                  if (exactNames.length && added >= missing) return;
-                  if (recognizedTaskKeys.has(name)) return;
-                  const commissioner = String(taskList[name] && taskList[name].委托方 || '').trim();
-                  if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return;
-                  recognizedTaskKeys.add(name);
-                  added += 1;
-                });
-              }
-            }
-            Object.keys(taskList).forEach(function(name) {
-              const task = taskList[name] || {};
-              if (!recognizedTaskKeys.has(name)) return;
-              const success = isSettlementTaskSuccessful(task.状态);
-              if (success) {
+              if (isSettlementTaskSuccessful(task.状态)) {
                 const amount = parseSpaceCoinTotal(task.奖励, false);
                 if (amount > 0) taskRewardDetails.push({ name:name, amount:amount });
               } else if (isSettlementTaskFailed(task.状态)) {
@@ -934,9 +897,10 @@
               });
             } else {
               // 旧存档优先沿用标准值；若委托方已被AI改坏，只在同时命中程序级试炼签名时救援。
+              // TRIAL_COMMISSIONER_ALIAS_V2：旧档精确兼容“普升试炼”，不扩大到普通“主神空间”任务。
               const canonical = Object.keys(list).filter(function(key) {
                 const task = list[key];
-                return task && String(task.委托方 || '').trim() === '晋升试炼';
+                return task && ['晋升试炼','普升试炼'].includes(String(task.委托方 || '').trim());
               });
               if (canonical.length) {
                 keys = canonical;
@@ -972,7 +936,7 @@
             const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
             const keys = Object.keys(list).filter(function(key) {
               const commissioner = String(list[key] && list[key].委托方 || '').trim();
-              return commissioner === '主神任务' || commissioner === '晋升试炼';
+              return commissioner === '主神任务' || commissioner === '晋升试炼' || commissioner === '普升试炼';
             });
             extractTrialTasks(data).forEach(function(task) {
               if (task && task.key && keys.indexOf(task.key) < 0) keys.push(task.key);
@@ -1046,6 +1010,35 @@
           }
           // SETTLEMENT_PANEL_TARGET_END
 
+          // SETTLEMENT_SRCDOC_MESSAGE_ID_V3
+          function settlementFrameHostMessageId() {
+            try {
+              let node = (typeof window !== 'undefined') ? window.frameElement : null;
+              let depth = 0;
+              while (node && depth < 12) {
+                let raw = null;
+                try {
+                  if (typeof node.getAttribute === 'function') {
+                    raw = node.getAttribute('mesid');
+                    if (raw == null || raw === '') raw = node.getAttribute('data-message-id');
+                    if (raw == null || raw === '') raw = node.getAttribute('message_id');
+                  }
+                } catch (e) {}
+                try {
+                  if ((raw == null || raw === '') && node.dataset) {
+                    if (node.dataset.messageId != null) raw = node.dataset.messageId;
+                    else if (node.dataset.mesid != null) raw = node.dataset.mesid;
+                  }
+                } catch (e) {}
+                const id = Number(raw);
+                if (raw !== null && raw !== '' && Number.isInteger(id) && id >= 0) return id;
+                node = node.parentElement;
+                depth += 1;
+              }
+            } catch (e) {}
+            return null;
+          }
+
           function getPanelMessageId(win) {
             const getters = [];
             try { if (typeof getCurrentMessageId === 'function') getters.push(function() { return getCurrentMessageId(); }); } catch (e) {}
@@ -1061,6 +1054,9 @@
                 if (Number.isInteger(id) && id >= 0) return id;
               } catch (e) {}
             }
+
+            const hostMessageId = settlementFrameHostMessageId();
+            if (hostMessageId !== null) return hostMessageId;
 
             // 酒馆正则 iframe 中 getCurrentMessageId 可能不可用；只有当前面板原文确实属于 latest 消息时才安全回落。
             try {
@@ -1223,6 +1219,90 @@
             return chosen || fallback || (ctx && ctx.data);
           }
 
+          // SETTLEMENT_COIN_SNAPSHOT_V2
+          function settlementCoinSnapshotScore(data, expectedWorld) {
+            const stat = data && (data.stat_data || data);
+            if (!stat || typeof stat !== 'object') return -1;
+            const worldName = String(stat.世界 && stat.世界.名称 || '').trim();
+            if (expectedWorld && worldName && worldName !== expectedWorld) return -1;
+
+            const tasks = stat.任务 && typeof stat.任务 === 'object' ? stat.任务 : {};
+            const world = stat.世界 && typeof stat.世界 === 'object' ? stat.世界 : {};
+            const taskList = tasks.列表 && typeof tasks.列表 === 'object' ? tasks.列表 : {};
+            const kills = tasks.击杀 && typeof tasks.击杀 === 'object' ? tasks.击杀 : {};
+            const exploration = world.探索 && typeof world.探索 === 'object' ? world.探索 : {};
+            const factions = world.势力 && typeof world.势力 === 'object' ? world.势力 : {};
+
+            let terminalTasks = 0;
+            let explicitCoinTasks = 0;
+            Object.keys(taskList).forEach(function(name) {
+              const task = taskList[name] || {};
+              if (isSettlementTaskTerminal(task.状态)) terminalTasks += 1;
+              if (isSettlementTaskSuccessful(task.状态) && parseSpaceCoinTotal(task.奖励, false) > 0) explicitCoinTasks += 1;
+              else if (isSettlementTaskFailed(task.状态) && parseSpaceCoinTotal(task.惩罚, true) > 0) explicitCoinTasks += 1;
+            });
+
+            const positiveKills = SETTLEMENT_KILL_TIERS.reduce(function(count, tier) {
+              return count + ((Number(kills[tier]) || 0) > 0 ? 1 : 0);
+            }, 0);
+            const trackedExploration = Object.keys(exploration).filter(function(name) {
+              const entry = exploration[name] || {};
+              return Number(entry.探索度) > 0;
+            }).length;
+            const trackedFactions = Object.keys(factions).filter(function(name) {
+              const entry = factions[name] || {};
+              return Number.isFinite(Number(entry.声望));
+            }).length;
+
+            const taskCount = Object.keys(taskList).length;
+            const sourceCount = taskCount + positiveKills + trackedExploration + trackedFactions;
+            if (!sourceCount) return -1;
+
+            // 先保证任务终态/金额完整，再用世界收益字段完整度打破同分；绝不以委托方作为评分依据。
+            return explicitCoinTasks * 100000
+              + terminalTasks * 10000
+              + taskCount * 1000
+              + trackedFactions * 100
+              + trackedExploration * 10
+              + positiveKills;
+          }
+
+          function preferSpaceCoinSnapshot(current, candidate, expectedWorld) {
+            if (!candidate) return current;
+            const nextScore = settlementCoinSnapshotScore(candidate, expectedWorld);
+            if (nextScore < 0) return current;
+            if (!current) return candidate;
+            const currentScore = settlementCoinSnapshotScore(current, expectedWorld);
+            return nextScore > currentScore ? candidate : current;
+          }
+
+          function readSpaceCoinBaselineData() {
+            const ctx = getMvuContext();
+            const win = ctx && ctx.win;
+            const mvu = win && win.Mvu;
+            const panelMessageId = getPanelMessageId(win);
+            const currentId = panelMessageId === null ? null : Number(panelMessageId);
+            const expectedWorld = settlementSnapshotWorld(settlementBaselineData) || settlementSnapshotWorld(ctx && ctx.data);
+            let chosen = null;
+
+            function consider(candidate) {
+              chosen = preferSpaceCoinSnapshot(chosen, candidate, expectedWorld);
+            }
+
+            // 金额核算扫描结算消息之前整个回溯窗口，避免命中“任务已清空”或“势力数据缺失”的半残快照。
+            if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(currentId) && currentId >= 0) {
+              for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
+                const id = currentId - step;
+                if (id < 0) break;
+                try { consider(mvu.getMvuData({ type:'message', message_id:id })); } catch (e) {}
+              }
+            }
+
+            consider(settlementBaselineData);
+            consider(ctx && ctx.data);
+            return chosen || settlementBaselineData || (ctx && ctx.data);
+          }
+
           function settlementCoinValue(data) {
             const stat = data && (data.stat_data || data);
             const raw = stat && stat.角色 ? Number(stat.角色.空间币) : NaN;
@@ -1234,7 +1314,7 @@
             const win = ctx && ctx.win;
             const mvu = win && win.Mvu;
             const currentId = getPanelMessageId(win);
-            const numericId = Number(currentId);
+            const numericId = currentId === null ? null : Number(currentId);
 
             // 空间币不是任务快照的一部分：优先读取结算消息之前最近的真实账户余额。
             if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(numericId) && numericId >= 0) {
@@ -1390,7 +1470,10 @@
 
           // 当正文变量已经清掉任务，仍从结算前快照核验；不以正文“已晋升”代替完成状态。
           let settlementTaskKeys = readSettlementTaskKeys(settlementBaselineData);
-          let rawSpaceCoinSettlement = calculateSpaceCoinSettlement(settlementBaselineData);
+          // 仅保留旧任务快照结果用于安全修复历史漏发标记；正式金额不再使用它。
+          let legacyRawSpaceCoinSettlement = calculateSpaceCoinSettlement(settlementBaselineData);
+          let spaceCoinBaselineData = readSpaceCoinBaselineData();
+          let rawSpaceCoinSettlement = calculateSpaceCoinSettlement(spaceCoinBaselineData);
           let settlementCoinBalanceBefore = readSettlementCoinBalanceBefore();
           let spaceCoinSettlement = rebaseSettlementCoinBalance(rawSpaceCoinSettlement, settlementCoinBalanceBefore);
           // 固定结算前的角色层级，防止旧结算面板为已经普升的层级重复授予资格。
@@ -1403,7 +1486,9 @@
             const preferred=preferSettlementSnapshot(settlementBaselineData,candidate);
             if (preferred) settlementBaselineData=preferred;
             settlementTaskKeys=readSettlementTaskKeys(settlementBaselineData);
-            rawSpaceCoinSettlement=calculateSpaceCoinSettlement(settlementBaselineData);
+            legacyRawSpaceCoinSettlement=calculateSpaceCoinSettlement(settlementBaselineData);
+            spaceCoinBaselineData=readSpaceCoinBaselineData();
+            rawSpaceCoinSettlement=calculateSpaceCoinSettlement(spaceCoinBaselineData);
             if (settlementCoinBalanceBefore === null) settlementCoinBalanceBefore=readSettlementCoinBalanceBefore();
             spaceCoinSettlement=rebaseSettlementCoinBalance(rawSpaceCoinSettlement, settlementCoinBalanceBefore);
             settlementBaselineTier=readReincarnatorTier(settlementBaselineData);
@@ -1738,8 +1823,13 @@
               if (epilogueIndex >= 0) d.stages.splice(epilogueIndex, 0, stage);
               else d.stages.push(stage);
             }
+            // SETTLEMENT_LEGACY_INCOME_CLEANUP
+            const legacyIncomeSubs = new Set(['击杀目标附加收益明细','世界探索附加收益明细','势力羁绊附加收益明细']);
             const aiNonCoinItems = (stage.items || []).filter(function(item) {
               if (item.kind === 'calc' || item.kind === 'sum' || item.kind === 'total') return false;
+              const legacySub = String(item && item.sub || '').trim();
+              const legacyName = String(item && item.name || '').trim();
+              if (legacyIncomeSubs.has(legacySub) || legacyIncomeSubs.has(legacyName)) return false;
               try { if (/空间币/.test(JSON.stringify(item))) return false; } catch (e) {}
               return true;
             });
@@ -1779,7 +1869,7 @@
               }
               case 'reasonHead': return '<div class="st-reason-head">' + escapeHtml(it.text) + '</div>';
               case 'reason': return '<div class="st-reason">' + escapeHtml(it.text) + '</div>';
-              case 'stab': return '<div class="st-stab"><div class="st-stab-label"><span>世界稳定值变动</span><span><b>100%</b> → <b>' + it.to + '%</b></span></div><div class="st-stab-bar"><div class="st-stab-fill" data-w="' + Math.max(0, Math.min(100, it.to)) + '"></div></div></div>';
+              case 'stab': { const width = Math.max(0, Math.min(100, Number(it.to) || 0)); return '<div class="st-stab"><div class="st-stab-label"><span>世界稳定值变动</span><span><b>100%</b> → <b>' + it.to + '%</b></span></div><div class="st-stab-bar"><div class="st-stab-fill" data-w="' + width + '" style="width:' + width + '%"></div></div></div>'; }
               case 'brand': return '<div class="st-brand"><div class="st-brand-label">副 本 烙 印</div><div class="st-brand-name">' + escapeHtml(it.name) + '</div></div>';
               case 'hl': return '<div class="st-tl-item"><span class="t">' + escapeHtml(it.t) + '</span>' + (it.d ? '<span class="d">：' + escapeHtml(it.d) + '</span>' : '') + '</div>';
               case 'calc': {
@@ -2113,7 +2203,7 @@
 
                 if (markerState === 'legacy') {
                   // 旧版可能已写“一次性标记”却因历史任务快照余额过旧而漏发空间币。
-                  nextCoin = settlementCoinLegacyRepairTarget(currentCoin, rawSpaceCoinSettlement, spaceCoinSettlement);
+                  nextCoin = settlementCoinLegacyRepairTarget(currentCoin, legacyRawSpaceCoinSettlement, spaceCoinSettlement);
                   settlementCoinMarkerPending = settlementCoinReceiptMarker(settlementMarker, spaceCoinSettlement);
                 } else if (markerState !== 'applied') {
                   nextCoin = settlementCoinWriteTarget(currentCoin, spaceCoinSettlement);

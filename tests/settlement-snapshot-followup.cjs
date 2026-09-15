@@ -92,8 +92,8 @@ assert.equal(result.totalReward, 2040, 'old-save sample should settle to 2040 sp
 
 const trialIdentityBlock = mustMatch(
   html,
-  /function isTrialCommissionerAlias\(value\) \{[\s\S]*?function extractTrialTasks\(data\) \{[\s\S]*?(?=\n          function readTrialTasks\(\))/, 
-  'missing trial commissioner alias extraction block'
+  /function extractTrialTasks\(data\) \{[\s\S]*?(?=\n          function readTrialTasks\(\))/, 
+  'missing self-contained trial task extractor'
 );
 const trialContext = { String, Object, Array, Math };
 vm.createContext(trialContext);

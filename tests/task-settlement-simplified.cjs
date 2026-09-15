@@ -83,7 +83,7 @@ const baseline = {
 
 const ordinary = core.calculateSpaceCoinSettlement(baseline);
 assert.equal(ordinary.base, 12000);
-assert.equal(ordinary.taskReward, 5000, 'only successful main/trial task coin rewards count');
+assert.equal(ordinary.taskReward, 93888, 'all successful tasks with explicit coin rewards count regardless of commissioner identity');
 assert.equal(ordinary.killRaw, 240000);
 assert.equal(ordinary.killCap, 120000);
 assert.equal(ordinary.killReward, 120000, 'kill reward must respect x10 cap');
@@ -94,9 +94,9 @@ assert.equal(ordinary.reputationRaw, 48000);
 assert.equal(ordinary.reputationCap, 36000);
 assert.equal(ordinary.reputationReward, 36000, 'positive reputation keeps the original formula and x3 cap');
 assert.equal(ordinary.penalty, 2000);
-assert.equal(ordinary.totalReward, 183000);
+assert.equal(ordinary.totalReward, 271888);
 assert.equal(ordinary.balanceBefore, 1000);
-assert.equal(ordinary.balanceAfter, 184000);
+assert.equal(ordinary.balanceAfter, 272888);
 assert.equal(core.stripSpaceCoinText('5000空间币；A级治疗凭证×1'), 'A级治疗凭证×1');
 assert.equal(core.stripSpaceCoinText('大量空间币；深渊标记'), '深渊标记');
 
@@ -136,12 +136,12 @@ assert.equal(cappedExploration.explorationReward, 7500, 'exploration reward must
 const singleData = JSON.parse(JSON.stringify(baseline));
 singleData.stat_data.设置.单一世界 = true;
 const single = core.calculateSpaceCoinSettlement(singleData);
-assert.equal(single.taskReward, 5000);
+assert.equal(single.taskReward, 93888);
 assert.equal(single.killReward, 120000);
 assert.equal(single.explorationReward, 0, 'single-world settlement must not cash exploration');
 assert.equal(single.reputationReward, 0, 'single-world settlement must not cash faction reputation');
-assert.equal(single.totalReward, 123000);
-assert.equal(single.balanceAfter, 124000);
+assert.equal(single.totalReward, 211888);
+assert.equal(single.balanceAfter, 212888);
 
 const credentialMatch = settleUi.match(/\/\/ SETTLEMENT_CREDENTIAL_CORE_START([\s\S]*?)\/\/ SETTLEMENT_CREDENTIAL_CORE_END/);
 assert(credentialMatch, 'credential core should be extractable for deterministic regression');

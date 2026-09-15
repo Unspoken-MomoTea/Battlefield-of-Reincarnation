@@ -42,7 +42,7 @@ assert.match(source, /panelTextBelongsToMessage\(panelText, latest\)/, 'latest f
 assert.doesNotMatch(source, /if \(panelMessageId === null\) return;/, 'missing getCurrentMessageId must not abort a genuine current settlement');
 assert.doesNotMatch(source, /panelMessageId === null\s*\?\s*['"]latest['"]/, 'unknown settlement panels must never blindly fall back to mutating the latest message');
 assert.match(source, /settlementCoinWriteTarget\(currentCoin, spaceCoinSettlement\)/, 'MVU write path must use the guarded settlement target');
-assert.match(source, /settlementCoinLegacyRepairTarget\(currentCoin, rawSpaceCoinSettlement, spaceCoinSettlement\)/, 'legacy stale-balance marker path must be repairable without broad re-crediting');
+assert.match(source, /settlementCoinLegacyRepairTarget\(currentCoin, legacyRawSpaceCoinSettlement, spaceCoinSettlement\)/, 'legacy stale-balance marker path must use the preserved old task-baseline probe without broad re-crediting');
 assert.match(source, /SETTLEMENT_COIN_MESSAGE_MARKER_START/, 'settlement writes must use a message-scoped one-shot marker');
 assert.match(source, /readSettlementCoinMessageMarker\(win, targetMessageId\)/, 'settlement must read its message-scoped marker');
 assert.match(source, /writeSettlementCoinMessageMarker\(win, targetMessageId, settlementCoinMarkerPending\)/, 'settlement must persist its marker outside stat_data');

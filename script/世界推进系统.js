@@ -4637,6 +4637,36 @@ ${schemaText}`;
         return error;
     };
 
+    // NPC 构筑审计本身已经计算了精确缺口；这里仅增强失败反馈，不改变原有通过/驳回判定。
+    const ensureNpcBuildAuditProgressBeforeConcreteFeedback=ensureNpcBuildAuditProgress;
+    ensureNpcBuildAuditProgress=function(next,required=[],acceptedResult) {
+        try{return ensureNpcBuildAuditProgressBeforeConcreteFeedback(next,required,acceptedResult);}
+        catch(error){
+            if(!/NPC构筑审计未推进/.test(String(error?.message||error||'')))throw error;
+            const proposals=Array.isArray(acceptedResult?.关系)?acceptedResult.关系:[];
+            const details=[];
+            for(const before of required||[]){
+                const target=stableNameIn(next?.关系列表||{},before.名称);
+                if(!target)continue;
+                const after=npcBuildAssessment(next,target,next.关系列表[target]);
+                if(!after)continue;
+                const proposal=proposals.find(item=>nameKey(item?.名称)===nameKey(before.名称));
+                const touched=proposal&&(before.建议字段||[]).some(field=>Object.hasOwn(proposal,field));
+                if(touched&&after.缺口.length<before.缺口.length)continue;
+                const submitted=proposal?Object.keys(proposal).filter(field=>!['名称','操作'].includes(field)):[];
+                const unresolved=(after.缺口||[]).length?after.缺口:before.缺口||[];
+                const suggested=(after.建议字段||before.建议字段||[]).filter(Boolean);
+                details.push(
+                    before.名称+'：未解决缺口：'+(unresolved.length?unresolved.join('、'):'未识别')
+                    +'；建议修复字段：'+(suggested.length?suggested.join('、'):'无')
+                    +'；本轮实际提交：'+(submitted.length?submitted.join('、'):'无')
+                );
+            }
+            if(!details.length)throw error;
+            throw new Error('NPC构筑审计未推进：\n'+details.map(item=>' - '+item).join('\n')+'\n修复要求：每个列出的审计对象本轮至少补齐一个真实缺口；禁止只改好感、HP或无关字段。');
+        }
+    };
+
     const WORLD_STATE_DERIVED_SCHEMA_KEYS=new Set(['真属性','最终属性','强化']);
     function syncWorldStateDerivedSchemaFields(target,checked) {
         if(Array.isArray(target)&&Array.isArray(checked)){
@@ -4741,8 +4771,37 @@ ${schemaText}`;
             try{return await super.run();}
             finally{if(samsara.validateWorldState===wrapped)samsara.validateWorldState=validate;}
         }
+        compactFooterChrome() {
+            if(!this.panel)return;
+            const footer=this.panel.querySelector('footer');
+            if(!footer)return;
+            if(this.style&&!this.style.textContent.includes('.we-footer-status{')){
+                this.style.textContent+='\n#sam-world-engine footer{align-items:center;min-width:0;overflow:hidden}\n'
+                    +'#sam-world-engine footer .we-footer-status{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n'
+                    +'#sam-world-engine footer .we-footer-meta{flex:0 0 auto;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}\n'
+                    +'@media(max-width:760px){#sam-world-engine footer .we-footer-meta{max-width:42%}}\n';
+            }
+            let status=footer.querySelector('.we-footer-status'),meta=footer.querySelector('.we-footer-meta');
+            if(!status){
+                const legacyStatus=footer.querySelector('span'),legacyMeta=footer.querySelector('small');
+                const rawStatus=String(legacyStatus?.textContent||this.status||'').trim();
+                const rawMeta=String(legacyMeta?.textContent||'').trim();
+                status=this.host.document.createElement('span');
+                status.className='we-footer-status';status.textContent=rawStatus;status.title=rawStatus;
+                meta=this.host.document.createElement('span');
+                meta.className='we-footer-meta';
+                const version=rawMeta.match(/build\s*v?[\d.]+/i)||rawMeta.match(/\bv?\d+(?:\.\d+){1,3}\b/i);
+                meta.textContent=version?version[0]:'世界推进';
+                meta.title=rawMeta;
+                footer.replaceChildren(status,meta);
+            }else{
+                status.title=String(status.textContent||this.status||'').trim();
+                if(meta&&!meta.title)meta.title=String(meta.textContent||'').trim();
+            }
+        }
         createPanel() {
             super.createPanel();
+            this.compactFooterChrome();
             if(!this.panel||this.panel.__npcAuditToggleBound)return;
             Object.defineProperty(this.panel,'__npcAuditToggleBound',{value:true,configurable:true});
             this.panel.addEventListener('click',event=>{
@@ -4754,6 +4813,7 @@ ${schemaText}`;
         render(force) {
             const result=super.render(force);
             this.renderNpcBuildAuditSetting();
+            this.compactFooterChrome();
             return result;
         }
         renderNpcBuildAuditSetting() {

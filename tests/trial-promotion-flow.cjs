@@ -66,13 +66,13 @@ for(const single of [false,true]){
     x.context.trialTasks=[{key:'试炼一',status:'可结算'}];
     x.apply();assert.equal(x.data.系统状态.试炼已完成,true);
     assert.equal(x.data.系统状态.是否试炼任务,false,'terminal settlement must consume active-trial marker');
-    assert.deepEqual(x.data.系统状态.试炼任务名单,[],'terminal settlement must clear hidden trial task keys');
+    assert.equal(Array.from(x.data.系统状态.试炼任务名单||[]).length,0,'terminal settlement must clear hidden trial task keys');
     assert.equal(Object.keys(x.data.任务.列表).length,0);
     assert.equal(x.data.角色.层级,'Ⅰ','settlement grants eligibility, not a level');
     x.data.角色.层级='Ⅱ';x.data.系统状态.试炼已完成=false;
     x.apply();assert.equal(x.data.系统状态.试炼已完成,false,'replayed settlement cannot regrant spent promotion');
 }
-const failed=finalizeHarness([{key:'试炼一',status:'失败'}]);failed.apply();assert.equal(failed.data.系统状态.试炼已完成,false);assert.equal(failed.data.系统状态.是否试炼任务,false,'failed terminal trial must also consume active marker');assert.deepEqual(failed.data.系统状态.试炼任务名单,[]);
+const failed=finalizeHarness([{key:'试炼一',status:'失败'}]);failed.apply();assert.equal(failed.data.系统状态.试炼已完成,false);assert.equal(failed.data.系统状态.是否试炼任务,false,'failed terminal trial must also consume active marker');assert.equal(Array.from(failed.data.系统状态.试炼任务名单||[]).length,0);
 const partial=finalizeHarness([{key:'试炼一',status:'可交付'}]);partial.apply();assert.ok(partial.data.任务.列表.试炼一);assert.equal(partial.data.系统状态.试炼已完成,false);assert.equal(partial.data.系统状态.是否试炼任务,true);
 
 let current={stat_data:clone(completed)},writes=0;

@@ -742,6 +742,10 @@
                         next.世界[PATH].最近变化=changes.slice(-100);
                         const sourceOld=Object.assign(emptyState(),sourceStat.世界[PATH]||{});
                         next.世界[PATH].运行记录=sourceOld.运行记录.concat([{时间:base.stat.世界.时间,摘要:reply.summary,补丁数:committedPatches.length,尝试次数:attempt+1}]).slice(-20);
+                        // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。
+                        if(typeof this.beforeWorldCommit==='function')this.beforeWorldCommit(next,{
+                            messageId:base.id,fingerprint:base.fingerprint,worldResult:acceptedWorldResult,reply:copy(reply),baseStat:base.stat
+                        });
 
                         const checked=validate(next);
                         for(const patch of committedPatches){

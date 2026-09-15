@@ -217,15 +217,15 @@
                 this.lastTransportInfo=savedTransport;
             }
         }
-        async recordCurrentHistoryLeaf() {
-            const summary=String(this.lastWorldResult?.摘要||'').trim();
-            if(!summary)return false;
-            const current=this.snapshot(),stat=copy(current.stat),backend=stat?.世界?.[PATH];
-            if(!plain(backend))return false;
+        beforeWorldCommit(next, context={}) {
+            const summary=String(context.worldResult?.摘要||context.reply?.summary||this.lastWorldResult?.摘要||'').trim();
+            const messageId=Number(context.messageId);
+            const backend=next?.世界?.[PATH];
+            if(!summary||!Number.isInteger(messageId)||!plain(backend))return false;
             if(!plain(backend.历史))backend.历史={};
             if(!plain(backend.历史总结))backend.历史总结={};
-            const key=historyMemoryLeafKey(current.id),record={
-                时间:String(stat.世界?.时间||backend.已处理时间||''),
+            const key=historyMemoryLeafKey(messageId),record={
+                时间:String(next.世界?.时间||backend.已处理时间||context.baseStat?.世界?.时间||''),
                 事实:summary,
                 关联事件:[]
             };
@@ -233,17 +233,6 @@
             if(plain(previous)&&String(previous.时间||'')===record.时间&&String(previous.事实||'')===record.事实)return false;
             backend.历史[key]=record;
             const invalidated=historyMemoryInvalidateAncestors(backend,'历史:'+key);
-            const latest=this.snapshot();
-            if(latest.fingerprint!==current.fingerprint){
-                this.lastHistoryMaintenance='近期历史写入时上下文已变化，本轮叶子丢弃';
-                return false;
-            }
-            const validate=this.host.Samsara&&this.host.Samsara.validateWorldState;
-            const next=validate?validate(stat):stat;
-            const result=latest.raw;result.stat_data=next;
-            this.committing=true;
-            try{await latest.mvu.replaceMvuData(result,{type:'message',message_id:latest.id});}
-            finally{this.committing=false;}
             this.lastHistoryMaintenance='近期历史已更新'+(invalidated.length?' · 旧总结失效 '+invalidated.length+' 个':'');
             return true;
         }
@@ -301,10 +290,6 @@
         async run() {
             const result=await super.run();
             if(result===true){
-                try{await this.recordCurrentHistoryLeaf();}catch(error){
-                    this.lastHistoryMaintenance='近期历史写入稍后重试：'+String(error?.message||error);
-                    try{console.warn('[世界推进] '+this.lastHistoryMaintenance);}catch(_){}
-                }
                 try{await this.maintainHistoryMemory();}catch(error){
                     this.lastHistoryMaintenance='历史总结稍后重试：'+String(error?.message||error);
                     try{console.warn('[世界推进] '+this.lastHistoryMaintenance);}catch(_){}

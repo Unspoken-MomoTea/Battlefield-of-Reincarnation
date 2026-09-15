@@ -97,9 +97,9 @@ function summary(level,seq,children,lo,hi){
         'H2-000001':summary(2,1,['总结:H1-000001'],80,80)
       };
     });
-    x.engine.lastWorldResult={摘要:'同一楼层重推后的新世界摘要。'};
-    assert.equal(await x.engine.recordCurrentHistoryLeaf(),true);
-    const backend=x.getState().世界.后台;
+    const rerun=x.getState();
+    assert.equal(x.engine.beforeWorldCommit(rerun,{messageId:80,worldResult:{摘要:'同一楼层重推后的新世界摘要。'},baseStat:rerun}),true);
+    const backend=rerun.世界.后台;
     assert.equal(backend.历史['推进·80'].事实,'同一楼层重推后的新世界摘要。');
     assert.deepEqual(backend.历史总结,{},'重推叶子后所有依赖旧叶子的祖先总结都必须失效');
   }

@@ -24,6 +24,8 @@ jobs:
         run: python tools/patch-trial-task-identity.py
       - name: Sync legacy trial task identity
         run: python tools/patch-trial-task-legacy-compat.py
+      - name: Sync settlement coin balance baseline
+        run: python tools/patch-settlement-coin-baseline.py
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax check

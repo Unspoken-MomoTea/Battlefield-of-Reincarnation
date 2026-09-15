@@ -52,11 +52,13 @@ function summary(level,seq,children,lo,hi){
 }
 
 (async()=>{
-  // 正常运行不再因旧 200 条上限丢失历史事实。
+  // 正常运行不再因旧 200 条上限丢失历史事实；旧档迁移时未压缩根节点也不能被固定热尾巴截断。
   {
     const state=freshState(240);
     compactWorldLifecycle(state);
     assert.equal(Object.keys(state.世界.后台.历史).length,240,'历史锚点不得再按200条业务上限删除');
+    const memory=projectWorldContext(state).世界.后台.历史记忆;
+    assert.equal(Object.keys(memory.近期锚点||{}).length,240,'尚未被上层总结收纳的旧档历史必须全部进入根视图，不能出现迁移期历史断层');
   }
 
   // 达到阈值后，世界推进成功运行应额外生成一级历史总结；原始锚点保留且只收纳最旧一批。

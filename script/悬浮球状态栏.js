@@ -4583,7 +4583,7 @@
         if (!task || typeof task !== 'object') return false;
         var issuer = String(task.委托方 || '').replace(/\s+/g, '');
         var status = String(task.状态 || '').replace(/\s+/g, '');
-        var isSettlementQuest = issuer === '主神任务' || issuer === '晋升试炼' || issuer === '试炼任务';
+        var isSettlementQuest = issuer === '主神任务' || issuer === '晋升试炼' || issuer === '普升试炼' || issuer === '试炼任务';
         var isReady = status === '可结算' || status === '可交付' || status === '已完成' || status === '完成';
         return isSettlementQuest && isReady;
     }

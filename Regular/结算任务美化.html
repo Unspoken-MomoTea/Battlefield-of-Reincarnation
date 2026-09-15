@@ -897,9 +897,10 @@
               });
             } else {
               // 旧存档优先沿用标准值；若委托方已被AI改坏，只在同时命中程序级试炼签名时救援。
+              // TRIAL_COMMISSIONER_ALIAS_V2：旧档精确兼容“普升试炼”，不扩大到普通“主神空间”任务。
               const canonical = Object.keys(list).filter(function(key) {
                 const task = list[key];
-                return task && String(task.委托方 || '').trim() === '晋升试炼';
+                return task && ['晋升试炼','普升试炼'].includes(String(task.委托方 || '').trim());
               });
               if (canonical.length) {
                 keys = canonical;
@@ -935,7 +936,7 @@
             const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
             const keys = Object.keys(list).filter(function(key) {
               const commissioner = String(list[key] && list[key].委托方 || '').trim();
-              return commissioner === '主神任务' || commissioner === '晋升试炼';
+              return commissioner === '主神任务' || commissioner === '晋升试炼' || commissioner === '普升试炼';
             });
             extractTrialTasks(data).forEach(function(task) {
               if (task && task.key && keys.indexOf(task.key) < 0) keys.push(task.key);
@@ -1186,22 +1187,61 @@
             return chosen || fallback || (ctx && ctx.data);
           }
 
-          function settlementCoinBaselineHasIncomeData(data, expectedWorld) {
+          // SETTLEMENT_COIN_SNAPSHOT_V2
+          function settlementCoinSnapshotScore(data, expectedWorld) {
             const stat = data && (data.stat_data || data);
-            if (!stat || typeof stat !== 'object') return false;
+            if (!stat || typeof stat !== 'object') return -1;
             const worldName = String(stat.世界 && stat.世界.名称 || '').trim();
-            if (expectedWorld && worldName && worldName !== expectedWorld) return false;
+            if (expectedWorld && worldName && worldName !== expectedWorld) return -1;
+
             const tasks = stat.任务 && typeof stat.任务 === 'object' ? stat.任务 : {};
             const world = stat.世界 && typeof stat.世界 === 'object' ? stat.世界 : {};
             const taskList = tasks.列表 && typeof tasks.列表 === 'object' ? tasks.列表 : {};
             const kills = tasks.击杀 && typeof tasks.击杀 === 'object' ? tasks.击杀 : {};
             const exploration = world.探索 && typeof world.探索 === 'object' ? world.探索 : {};
             const factions = world.势力 && typeof world.势力 === 'object' ? world.势力 : {};
-            return Object.keys(taskList).length > 0
-              || Object.keys(kills).length > 0
-              || Object.keys(exploration).length > 0
-              || Object.keys(factions).length > 0
-              || !!String(world.难度 || '').trim();
+
+            let terminalTasks = 0;
+            let explicitCoinTasks = 0;
+            Object.keys(taskList).forEach(function(name) {
+              const task = taskList[name] || {};
+              if (isSettlementTaskTerminal(task.状态)) terminalTasks += 1;
+              if (isSettlementTaskSuccessful(task.状态) && parseSpaceCoinTotal(task.奖励, false) > 0) explicitCoinTasks += 1;
+              else if (isSettlementTaskFailed(task.状态) && parseSpaceCoinTotal(task.惩罚, true) > 0) explicitCoinTasks += 1;
+            });
+
+            const positiveKills = SETTLEMENT_KILL_TIERS.reduce(function(count, tier) {
+              return count + ((Number(kills[tier]) || 0) > 0 ? 1 : 0);
+            }, 0);
+            const trackedExploration = Object.keys(exploration).filter(function(name) {
+              const entry = exploration[name] || {};
+              return Number(entry.探索度) > 0;
+            }).length;
+            const trackedFactions = Object.keys(factions).filter(function(name) {
+              const entry = factions[name] || {};
+              return Number.isFinite(Number(entry.声望));
+            }).length;
+
+            const taskCount = Object.keys(taskList).length;
+            const sourceCount = taskCount + positiveKills + trackedExploration + trackedFactions;
+            if (!sourceCount) return -1;
+
+            // 先保证任务终态/金额完整，再用世界收益字段完整度打破同分；绝不以委托方作为评分依据。
+            return explicitCoinTasks * 100000
+              + terminalTasks * 10000
+              + taskCount * 1000
+              + trackedFactions * 100
+              + trackedExploration * 10
+              + positiveKills;
+          }
+
+          function preferSpaceCoinSnapshot(current, candidate, expectedWorld) {
+            if (!candidate) return current;
+            const nextScore = settlementCoinSnapshotScore(candidate, expectedWorld);
+            if (nextScore < 0) return current;
+            if (!current) return candidate;
+            const currentScore = settlementCoinSnapshotScore(current, expectedWorld);
+            return nextScore > currentScore ? candidate : current;
           }
 
           function readSpaceCoinBaselineData() {
@@ -1210,22 +1250,24 @@
             const mvu = win && win.Mvu;
             const currentId = Number(getPanelMessageId(win));
             const expectedWorld = settlementSnapshotWorld(settlementBaselineData) || settlementSnapshotWorld(ctx && ctx.data);
+            let chosen = null;
 
-            // 金额核算读取结算消息之前最近的完整世界数据；不得用任务身份/完成度给候选快照打分。
+            function consider(candidate) {
+              chosen = preferSpaceCoinSnapshot(chosen, candidate, expectedWorld);
+            }
+
+            // 金额核算扫描结算消息之前整个回溯窗口，避免命中“任务已清空”或“势力数据缺失”的半残快照。
             if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(currentId) && currentId >= 0) {
               for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
                 const id = currentId - step;
                 if (id < 0) break;
-                try {
-                  const candidate = mvu.getMvuData({ type:'message', message_id:id });
-                  if (settlementCoinBaselineHasIncomeData(candidate, expectedWorld)) return candidate;
-                } catch (e) {}
+                try { consider(mvu.getMvuData({ type:'message', message_id:id })); } catch (e) {}
               }
             }
 
-            if (settlementCoinBaselineHasIncomeData(settlementBaselineData, expectedWorld)) return settlementBaselineData;
-            if (settlementCoinBaselineHasIncomeData(ctx && ctx.data, expectedWorld)) return ctx && ctx.data;
-            return settlementBaselineData || (ctx && ctx.data);
+            consider(settlementBaselineData);
+            consider(ctx && ctx.data);
+            return chosen || settlementBaselineData || (ctx && ctx.data);
           }
 
           function settlementCoinValue(data) {
@@ -1748,8 +1790,13 @@
               if (epilogueIndex >= 0) d.stages.splice(epilogueIndex, 0, stage);
               else d.stages.push(stage);
             }
+            // SETTLEMENT_LEGACY_INCOME_CLEANUP
+            const legacyIncomeSubs = new Set(['击杀目标附加收益明细','世界探索附加收益明细','势力羁绊附加收益明细']);
             const aiNonCoinItems = (stage.items || []).filter(function(item) {
               if (item.kind === 'calc' || item.kind === 'sum' || item.kind === 'total') return false;
+              const legacySub = String(item && item.sub || '').trim();
+              const legacyName = String(item && item.name || '').trim();
+              if (legacyIncomeSubs.has(legacySub) || legacyIncomeSubs.has(legacyName)) return false;
               try { if (/空间币/.test(JSON.stringify(item))) return false; } catch (e) {}
               return true;
             });

@@ -31,11 +31,11 @@ jobs:
         run: node tests/world-engine-causal-offset-editor.cjs
       - name: Module synchronization
         run: node tests/world-engine-modules.cjs
-      - name: Commit validated editor
+      - name: Commit generated delivery only
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/task-awareness-build.yml .github/workflows/task-awareness-check.yml tools/build-world-engine.py script/world-engine-src/59-history-memory-editor.part.js script/世界推进系统.js tests/world-engine-history-memory-editor.cjs tests/world-engine-modules.cjs
+          git add script/世界推进系统.js tests/world-engine-modules.cjs
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "feat: edit recent and long-term history memory [history-editor-built]"
+          git commit -m "build: sync history memory editor [history-editor-built]"
           git push

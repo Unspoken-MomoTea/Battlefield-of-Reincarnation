@@ -48,6 +48,23 @@ function fresh(){
   }
 
   {
+    const stat=fresh();
+    stat.世界.时间='2004年1月30日-下午';
+    assert.doesNotThrow(
+      ()=>compileWorldResult(stat,{摘要:'同日时段前进',时间:'2004年-01月-30日-夜晚'}),
+      '同一天的“下午 -> 夜晚”必须识别为时间前进，而不是回退'
+    );
+
+    const reverse=fresh();
+    reverse.世界.时间='2004年-01月-30日-夜晚';
+    assert.throws(
+      ()=>compileWorldResult(reverse,{摘要:'同日时段回退',时间:'2004年1月30日-下午'}),
+      /世界时间不可回退/,
+      '同一天的“夜晚 -> 下午”仍必须被判为真实回退'
+    );
+  }
+
+  {
     const impact=WORLD_RESULT_SCHEMA.properties.因果.properties.偏移记录.items.properties.影响程度;
     assert.equal(Object.hasOwn(impact,'minimum'),false,'causal impact magnitude must not be rejected by JSON Schema');
     assert.equal(Object.hasOwn(impact,'maximum'),false,'causal impact magnitude must be soft-normalized instead of rejected by JSON Schema');

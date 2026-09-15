@@ -5957,6 +5957,26 @@ ${schemaText}`;
             return request;
         }
     };
+    // 世界时间段别名兼容：自然语言同义词先归一化，再交给统一时间比较器。
+    // 只处理明确属于同一日内时段的别名；“午夜”等跨日语义不在这里猜测。
+    const WORLD_DAYPART_ALIASES=Object.freeze({
+        '清早':'清晨',
+        '早上':'早晨',
+        '黄昏':'傍晚',
+        '夜晚':'晚上',
+        '夜间':'晚上',
+        '夜里':'晚上',
+        '晚间':'晚上'
+    });
+    function normalizeWorldDaypartAlias(value) {
+        let source=String(value||'');
+        for(const [alias,canonical] of Object.entries(WORLD_DAYPART_ALIASES))source=source.replaceAll(alias,canonical);
+        return source;
+    }
+    const worldDateKeyBeforeDaypartAliases=worldDateKey;
+    worldDateKey=function(value) {
+        return worldDateKeyBeforeDaypartAliases(normalizeWorldDaypartAlias(value));
+    };
     // 稳定度因果闸门：只有已实现的“世界本身长期变化”才允许进入稳定台账；玩家战术处境、异端获知情报等局部后果直接忽略。
     const CAUSAL_WORLD_SCALE_HINTS=[
         /(?:关键人物|核心人物|重要人物|关键角色|核心角色).{0,28}(?:命运|死亡|阵亡|被杀|永久|不可逆|退场|失去|背叛|被捕|失踪|改写|改变|修复)/,

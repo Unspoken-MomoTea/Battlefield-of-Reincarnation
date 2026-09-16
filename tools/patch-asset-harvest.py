@@ -27,10 +27,16 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 aux = read(AUX)
 
-# 世界推进提交若改变了世界日期，同一提交内推进一次隐藏游玩日并刷新收菜。
+# 旧架构曾在 worldCommit 分支中提前 return，因此必须单独补时钟/收菜。
+# 新架构已经取消提前 return：worldCommit 会继续进入统一辅助计算链路，后面的
+# updatePlayDays + autoHarvestAssets 自然执行，因此这里绝不能再恢复旧的特殊分支。
 old_world_commit = """                guardTaskGenerationLock(statData);\n                calcWorldStability(statData);\n                return;"""
 new_world_commit = """                guardTaskGenerationLock(statData);\n                // 世界推进提交若推进了日期，只刷新程序时钟/收菜，不消耗战斗状态或冷却。\n                updatePlayDays(statData);\n                autoHarvestAssets(statData, statDataBefore);\n                calcWorldStability(statData);\n                return;"""
-if 'autoHarvestAssets(statData, statDataBefore);' not in aux.split('// ★ 任务生成当层整块锁', 1)[0]:
+if 'const isWorldCommit = !!(' in aux and '世界引擎独立提交仍必须执行全部数据一致性与派生计算' in aux:
+    if 'updatePlayDays(statData);' not in aux or 'autoHarvestAssets(statData, statDataBefore);' not in aux:
+        raise RuntimeError('[asset-harvest] unified world commit flow is missing time/harvest calculation')
+    print('[asset-harvest] already patched: unified world commit flow handles harvest refresh')
+elif 'autoHarvestAssets(statData, statDataBefore);' not in aux.split('// ★ 任务生成当层整块锁', 1)[0]:
     aux = replace_once(aux, old_world_commit, new_world_commit, 'world commit harvest refresh')
 else:
     print('[asset-harvest] already patched: world commit harvest refresh')

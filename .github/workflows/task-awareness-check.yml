@@ -24,17 +24,6 @@ jobs:
         run: python tools/patch-world-history-memory.py
       - name: Sync player-claimed asset harvest
         run: python tools/patch-asset-harvest.py
-      - name: Deduplicate consuming turns by assistant message
-        run: |
-          legacy="__samsara""WorldCommit"
-          if grep -q "let lastTurnMessageKey = ''" script/辅助计算脚本.js \
-            && ! grep -R "$legacy" script tests --exclude-dir=.git; then
-            echo "message-level turn deduplication already synchronized"
-          else
-            python tools/patch-aux-turn-message-dedup.py
-          fi
-      - name: Remove obsolete helper UI turn guard
-        run: python tools/patch-aux-ui-mutation-cleanup.py
       - name: Persist replay with primary world write
         run: python tools/patch-world-replay-single-write.py
       - name: Build delivery
@@ -50,6 +39,8 @@ jobs:
         run: node --check script/世界推进系统.js
       - name: Statusbar syntax check
         run: node --check script/悬浮球状态栏.js
+      - name: Auxiliary syntax check
+        run: node --check script/辅助计算脚本.js
       - name: Dedicated API preset selection regression
         run: node tests/world-engine-api-preset-selection.cjs
       - name: Exploration pruning regression

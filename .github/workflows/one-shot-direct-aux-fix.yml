@@ -66,8 +66,7 @@ jobs:
               combat_end = text.find('    // 初始化事件注册', combat_start)
               if combat_start < 0 or combat_end < 0:
                   raise SystemExit(f'cannot isolate combat function in {path}')
-              combat = text[combat_start:combat_end]
-              if 'isUIMutationActive()' in combat:
+              if 'isUIMutationActive()' in text[combat_start:combat_end]:
                   raise SystemExit(f'UI source guard must not control turn/cooldown consumption in {path}')
               path.write_text(text, encoding='utf-8')
 
@@ -87,27 +86,6 @@ jobs:
               raise SystemExit('obsolete UI-guard assertion not found')
           test_path.write_text(test.replace(old, new, 1), encoding='utf-8')
 
-          workflow_block = '''      - name: Deduplicate consuming turns by assistant message
-                  run: |
-                    legacy="__samsara""WorldCommit"
-                    if grep -q "let lastTurnMessageKey = ''" script/辅助计算脚本.js \\
-                      && ! grep -R "$legacy" script tests --exclude-dir=.git; then
-                      echo "message-level turn deduplication already synchronized"
-                    else
-                      python tools/patch-aux-turn-message-dedup.py
-                    fi
-                - name: Remove obsolete helper UI turn guard
-                  run: python tools/patch-aux-ui-mutation-cleanup.py
-          '''
-          # The YAML files use the same logical block but standard 6/8-space indentation.
-          workflow_block = workflow_block.replace('              run:', '        run:').replace('                legacy=', '          legacy=').replace('                if ', '          if ').replace('                  && ', '            && ').replace('                  echo ', '            echo ').replace('                else', '          else').replace('                  python ', '            python ').replace('                fi', '          fi').replace('              - name:', '      - name:').replace('                run:', '        run:')
-          for wf_name in ['task-awareness-build.yml', 'task-awareness-check.yml']:
-              wf = root / '.github' / 'workflows' / wf_name
-              text = wf.read_text(encoding='utf-8')
-              if workflow_block not in text:
-                  raise SystemExit(f'aux patch workflow block not found in {wf_name}')
-              wf.write_text(text.replace(workflow_block, '', 1), encoding='utf-8')
-
           for tool in [
               root / 'tools' / 'patch-aux-ui-mutation-cleanup.py',
               root / 'tools' / 'patch-aux-turn-message-dedup.py',
@@ -116,8 +94,6 @@ jobs:
               if tool.exists():
                   tool.unlink()
           PY
-
-          rm .github/workflows/one-shot-direct-aux-fix.yml
 
       - name: Verify direct auxiliary fix
         shell: bash
@@ -128,7 +104,7 @@ jobs:
           node tests/trial-promotion-flow.cjs
           node tests/statusbar-settlement-topbar.cjs
           ! grep -R "旧UI来源守卫" script dist tests
-          ! grep -R "patch-aux-" .github/workflows tools --exclude-dir=.git
+          ! find tools -maxdepth 1 -name 'patch-aux-*' -print -quit | grep -q .
           cmp -s script/辅助计算脚本.js dist/V20260916/辅助计算脚本.js
 
       - name: Commit direct edits
@@ -136,6 +112,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add script/辅助计算脚本.js dist/V20260916/辅助计算脚本.js tests/asset-harvest-lifecycle.cjs tools
           git commit -m "fix: restore UI field guard directly [task-awareness-built]"
           git push

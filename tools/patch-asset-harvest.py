@@ -27,6 +27,30 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 aux = read(AUX)
 
+# 护甲递减是独立模块，绝不能被收菜函数替换范围吞掉。
+# 2026-09-16 的旧正则曾从“资产全自动收菜系统”一路匹配到 calcReduction 注释，
+# 误删 REDUCTION_CAP / ALPHA / LOG_DEN / TIER_DEF_SCALE，只留下 calcReduction 调用。
+defense_tokens = [
+    'const REDUCTION_CAP = 75;',
+    'const ALPHA = 16;',
+    'const LOG_DEN = Math.log(1 + ALPHA);',
+    'const TIER_DEF_SCALE = {',
+]
+defense_present = [token in aux for token in defense_tokens]
+defense_block = """    // ===== 模块 2：护甲收益递减 (对数防御曲线 - 动态层级适配版) =====\n    const REDUCTION_CAP = 75; // 最高减伤 75%\n    const ALPHA = 16;\n    const LOG_DEN = Math.log(1 + ALPHA); // ln(17)\n\n    /**\n     * 【核心修复】：各阶位对应的理论满防值（防具上限 + 体质换算上限）\n     * 来源依据：对照你的《品质效果数值规则》各阶位五维总和与防御阈值推算\n    */ \n    const TIER_DEF_SCALE = {\n        'Ⅰ': 70,       // F级萌新满防基准\n        'Ⅱ': 200,      // E级满防基准\n        'Ⅲ': 480,      // D级\n        'Ⅳ': 1280,     // C级\n        'Ⅴ': 3300,     // B级\n        'Ⅵ': 9200,     // A级\n        'Ⅶ': 24000,    // S级\n        'Ⅷ': 70000,    // SS级\n        'Ⅸ': 150000    // SSS级半神满防基准\n    };\n\n"""
+if not all(defense_present):
+    if any(defense_present):
+        missing = [token for token, present in zip(defense_tokens, defense_present) if not present]
+        raise RuntimeError(f'[asset-harvest] defense module is partially corrupted; missing: {missing}')
+    marker = '    /** 传入防御总值与角色当前层级 */'
+    count = aux.count(marker)
+    if count != 1:
+        raise RuntimeError(f'[asset-harvest] defense restore anchor not found or ambiguous ({count})')
+    aux = aux.replace(marker, defense_block + marker, 1)
+    print('[asset-harvest] restored: defense reduction module')
+else:
+    print('[asset-harvest] defense reduction module intact')
+
 # 收菜已经位于统一辅助计算链路中；只要标准调用仍存在，就不再关心本次变量更新来自正文、UI 还是世界推进。
 # 旧版本若仍缺少这两个调用，才兼容补一次历史 special branch。
 old_world_commit = """                guardTaskGenerationLock(statData);\n                calcWorldStability(statData);\n                return;"""
@@ -116,7 +140,8 @@ new_harvest = r'''    /** 资产自动收菜：只按系统状态.游玩天数�
 
 '''
 if 'const formatRemaining = (nextPlay) =>' not in aux:
-    pattern = r"    /\*\* 资产全自动收菜系统[\s\S]*?(?=    /\*\* 传入防御总值与角色当前层级 \*/)"
+    # 只替换收菜模块本身，明确止于下一个独立模块的标题；禁止再跨过护甲模块去找 calcReduction。
+    pattern = r"    /\*\* 资产全自动收菜系统[\s\S]*?(?=    // ===== 模块 2：护甲收益递减)"
     aux2, count = re.subn(pattern, lambda _match: new_harvest, aux, count=1)
     if count != 1:
         raise RuntimeError(f'[asset-harvest] harvest function anchor not found or ambiguous ({count})')
@@ -124,6 +149,11 @@ if 'const formatRemaining = (nextPlay) =>' not in aux:
     print('[asset-harvest] patched: relative harvest countdown')
 else:
     print('[asset-harvest] already patched: relative harvest countdown')
+
+# 最终不变量：收菜补丁执行后，减伤函数的四项依赖必须全部仍在。
+missing_after = [token for token in defense_tokens if token not in aux]
+if missing_after:
+    raise RuntimeError(f'[asset-harvest] defense module lost after harvest patch: {missing_after}')
 
 write(AUX, aux)
 

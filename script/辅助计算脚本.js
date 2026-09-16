@@ -1443,26 +1443,6 @@
         }
     }
 
-
-    /**
-     * 脚本加载时校准一次程序派生资格。
-     * VARIABLE_UPDATE_ENDED 只覆盖“之后发生的更新”；已有存档若带着旧的 false，
-     * 单纯重载状态栏不会再次触发计算，所以这里通过正式 MVU 写回纠正陈旧值。
-     */
-    function reconcileTrialEligibilityState() {
-        const statData = getStatData();
-        if (!statData || !statData.角色 || !statData.系统状态) return false;
-        const probe = { 是否可试炼: statData.系统状态.是否可试炼 };
-        checkTrialEligibility(statData.角色, probe);
-        const expected = probe.是否可试炼 === true;
-        if (statData.系统状态.是否可试炼 === expected) return false;
-        return writeBackMvu(function(latest) {
-            if (!latest || !latest.角色) return;
-            if (!latest.系统状态 || typeof latest.系统状态 !== 'object') latest.系统状态 = {};
-            checkTrialEligibility(latest.角色, latest.系统状态);
-        });
-    }
-
     /** 遍历角色 + 全部NPC，逐个重算（后台全量计算，与是否在场无关） */
     function recalcAllCharacters(statData, statDataBefore) {
         if (!statData) return;
@@ -1973,8 +1953,6 @@
     const init = async () => {
         await waitGlobalInitialized('Mvu');
         eventOn(Mvu.events.VARIABLE_UPDATE_ENDED, onUpdateData);
-        // 修复“属性已达标但旧存档的 是否可试炼 仍为 false”的加载态，不等下一次正文变量更新。
-        reconcileTrialEligibilityState();
         try { (window.parent || window).__辅助计算脚本_loaded__ = true; } catch(e) { window.__辅助计算脚本_loaded__ = true; }
         // console.log('[辅助计算脚本] 脚本已加载 ');
         toastr.success('[辅助计算脚本] 脚本已加载 ');

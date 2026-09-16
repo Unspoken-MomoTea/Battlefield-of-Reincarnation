@@ -40,21 +40,21 @@ const renderTier=new Function(
   String
 );
 const stale=renderTier({层级:'Ⅰ',最终属性:{}},{},{是否可试炼:false,试炼已完成:false});
-assert.doesNotMatch(stale,/data-tier-act="apply"|sam-tier-infuse-btn/,'stale false remains authoritative until helper repairs it');
+assert.doesNotMatch(stale,/data-tier-act="apply"|sam-tier-infuse-btn/,'canonical false stays authoritative until the next variable refresh');
 const eligible=renderTier({层级:'Ⅰ',最终属性:{}},{},{是否可试炼:true,试炼已完成:false});
 assert.match(eligible,/data-tier-act="apply"/);
 assert.match(eligible,/sam-tier-infuse-btn/);
 assert.match(source,/if \(sys\.是否可试炼 !== true \|\| sys\.试炼已完成 === true\)/,'apply click must honor canonical flag');
 assert.doesNotMatch(source,/liveScore < TRIAL_SCORE_THRESHOLD/,'statusbar must not duplicate helper eligibility calculation');
 
-// 程序状态 seam：辅助脚本统一在变量更新路径维护资格，并在加载时修复旧存档陈旧值。
+// 程序状态 seam：资格只在统一变量更新链路中维护；不允许再建立加载态旁路。
 assert.match(auxiliary,/recalcAllCharacters\(statData, statDataBefore\);[\s\S]{0,420}checkTrialEligibility\(statData\.角色, statData\.系统状态\);/);
-assert.match(auxiliary,/function reconcileTrialEligibilityState\(\)/);
-assert.match(auxiliary,/eventOn\(Mvu\.events\.VARIABLE_UPDATE_ENDED, onUpdateData\);[\s\S]{0,240}reconcileTrialEligibilityState\(\);/);
-assert.match(auxiliary,/return writeBackMvu\(function\(latest\)/,'load reconciliation must persist through MVU');
+assert.match(auxiliary,/eventOn\(Mvu\.events\.VARIABLE_UPDATE_ENDED, onUpdateData\);/);
+assert.doesNotMatch(auxiliary,/function reconcileTrialEligibilityState\(/);
+assert.doesNotMatch(auxiliary,/reconcileTrialEligibilityState\(\);/);
 
 // 所有权 seam：普通变量 AI 不再看到、也就不能覆盖程序派生的 是否可试炼。
 const systemProjection=part(variables,'current.系统状态 = _.omit(data.系统状态 || {}, [',']);');
 assert.match(systemProjection,/'是否可试炼'/);
 
-console.log('PASS helper owns trial eligibility; statusbar consumes the flag; dungeon settlement remains task-independent');
+console.log('PASS helper owns trial eligibility through the unified variable-update path; dungeon settlement remains task-independent');

@@ -48,6 +48,8 @@ jobs:
         run: python tools/patch-world-replay-single-write.py
       - name: Build delivery
         run: python tools/build-world-engine.py
+      - name: Sync auxiliary delivery
+        run: cp script/辅助计算脚本.js "dist/V20260916/辅助计算脚本.js"
       - name: Legacy world commit marker removed
         run: |
           legacy="__samsara""WorldCommit"
@@ -119,6 +121,8 @@ jobs:
         run: node tests/world-engine-reprocess-missing-snapshot-policy.cjs
       - name: World engine event bootstrap
         run: node tests/world-engine-event-bootstrap.cjs
+      - name: Due event relaxation regression
+        run: node tests/world-engine-due-event-relaxation.cjs
       - name: Chronology guard regression
         run: node tests/world-engine-chronology-guard.cjs
       - name: World time lifecycle regression

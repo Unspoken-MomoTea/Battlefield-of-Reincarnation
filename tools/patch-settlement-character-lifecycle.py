@@ -58,6 +58,5 @@ if changed:
 else:
     print('legacy settlement relationship regression already synchronized')
 
-# 同步资产归属身份语义：先归一旧投影代码，再由正式 patch 统一结算/收菜/正文投影/回归测试。
-runpy.run_path(str(ROOT / 'tools' / 'patch-player-asset-owner-projection-compat.py'), run_name='__main__')
+# 同步资产归属身份语义：程序读取 Tavern 当前 Persona 名，<user> 仅作为旧存档兼容。
 runpy.run_path(str(ROOT / 'tools' / 'patch-player-asset-owner.py'), run_name='__main__')

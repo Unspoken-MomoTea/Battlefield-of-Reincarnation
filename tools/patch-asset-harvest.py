@@ -27,19 +27,14 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 aux = read(AUX)
 
-# 旧架构曾在 worldCommit 分支中提前 return，因此必须单独补时钟/收菜。
-# 新架构已经取消提前 return：worldCommit 会继续进入统一辅助计算链路，后面的
-# updatePlayDays + autoHarvestAssets 自然执行，因此这里绝不能再恢复旧的特殊分支。
+# 收菜已经位于统一辅助计算链路中；只要标准调用仍存在，就不再关心本次变量更新来自正文、UI 还是世界推进。
+# 旧版本若仍缺少这两个调用，才兼容补一次历史 special branch。
 old_world_commit = """                guardTaskGenerationLock(statData);\n                calcWorldStability(statData);\n                return;"""
 new_world_commit = """                guardTaskGenerationLock(statData);\n                // 世界推进提交若推进了日期，只刷新程序时钟/收菜，不消耗战斗状态或冷却。\n                updatePlayDays(statData);\n                autoHarvestAssets(statData, statDataBefore);\n                calcWorldStability(statData);\n                return;"""
-if 'const isWorldCommit = !!(' in aux and '世界引擎独立提交仍必须执行全部数据一致性与派生计算' in aux:
-    if 'updatePlayDays(statData);' not in aux or 'autoHarvestAssets(statData, statDataBefore);' not in aux:
-        raise RuntimeError('[asset-harvest] unified world commit flow is missing time/harvest calculation')
-    print('[asset-harvest] already patched: unified world commit flow handles harvest refresh')
-elif 'autoHarvestAssets(statData, statDataBefore);' not in aux.split('// ★ 任务生成当层整块锁', 1)[0]:
-    aux = replace_once(aux, old_world_commit, new_world_commit, 'world commit harvest refresh')
+if 'updatePlayDays(statData);' in aux and 'autoHarvestAssets(statData, statDataBefore);' in aux:
+    print('[asset-harvest] already patched: unified calculation flow handles harvest refresh')
 else:
-    print('[asset-harvest] already patched: world commit harvest refresh')
+    aux = replace_once(aux, old_world_commit, new_world_commit, 'legacy harvest refresh')
 
 # 游玩日是“日期发生变化次数”，不是世界实际经过天数；纪年文本允许古代/异世界格式。
 old_clock = """        const DATE_RE = /(\\d+)\\s*年\\s*-?\\s*(\\d+)\\s*月\\s*-?\\s*(\\d+)\\s*日/;\n        const m = String(worldTime).match(DATE_RE);\n        if (!m) return;\n\n        // 规范化日期锚点: 仅取年月日(忽略\"清晨/傍晚\"等时辰, 同一游戏日内多次更新不重复计数)\n        const dateKey = `${+m[1]}-${+m[2]}-${+m[3]}`;"""

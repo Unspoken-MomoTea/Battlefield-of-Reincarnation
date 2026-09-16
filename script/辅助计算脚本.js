@@ -528,21 +528,21 @@
     }
 
     /**
- * 是否处于“悬浮球UI操作”窗口期。
- * 这里只用于识别合法 UI 字段修改（例如角色进阶），不再承担状态/冷却的回合防重。
- */
-function isUIMutationActive() {
-    try {
-        let flagWin = null;
-        try { if (typeof GS_PARENT !== 'undefined' && GS_PARENT) flagWin = GS_PARENT; } catch(e){}
-        if (!flagWin) { try { if (window.parent && window.parent !== window) flagWin = window.parent; } catch(e){} }
-        if (!flagWin) { try { if (window.top && window.top !== window) flagWin = window.top; } catch(e){} }
-        if (!flagWin) flagWin = window;
-        return !!(flagWin && flagWin.__samsaraUIMutation === true);
-    } catch (e) {
-        return false;
+     * 是否处于“悬浮球UI操作”窗口期。
+     * 这里只用于识别合法 UI 字段修改（例如角色进阶），不再承担状态/冷却的回合防重。
+     */
+    function isUIMutationActive() {
+        try {
+            let flagWin = null;
+            try { if (typeof GS_PARENT !== 'undefined' && GS_PARENT) flagWin = GS_PARENT; } catch(e){}
+            if (!flagWin) { try { if (window.parent && window.parent !== window) flagWin = window.parent; } catch(e){} }
+            if (!flagWin) { try { if (window.top && window.top !== window) flagWin = window.top; } catch(e){} }
+            if (!flagWin) flagWin = window;
+            return !!(flagWin && flagWin.__samsaraUIMutation === true);
+        } catch (e) {
+            return false;
+        }
     }
-}
 
     /**
      * 角色层级"普升通行证"校验

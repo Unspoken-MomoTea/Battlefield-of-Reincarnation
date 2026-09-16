@@ -1,5 +1,4 @@
 from pathlib import Path
-import runpy
 
 ROOT = Path(__file__).resolve().parents[1]
 SETTLEMENT = ROOT / 'Regular' / '结算任务美化.html'
@@ -57,6 +56,3 @@ if changed:
     print('migrated legacy settlement relationship regression')
 else:
     print('legacy settlement relationship regression already synchronized')
-
-# 同步资产归属身份语义：程序读取 Tavern 当前 Persona 名，<user> 仅作为旧存档兼容。
-runpy.run_path(str(ROOT / 'tools' / 'patch-player-asset-owner.py'), run_name='__main__')

@@ -48,6 +48,8 @@ jobs:
         run: python tools/patch-world-replay-single-write.py
       - name: Build delivery
         run: python tools/build-world-engine.py
+      - name: Sync auxiliary delivery
+        run: cp script/辅助计算脚本.js "dist/V20260916/辅助计算脚本.js"
       - name: Legacy world commit marker removed
         run: |
           legacy="__samsara""WorldCommit"

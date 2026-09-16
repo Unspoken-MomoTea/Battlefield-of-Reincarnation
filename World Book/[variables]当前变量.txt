@@ -49,12 +49,23 @@ const safeStringify = (obj) => {
   }
   return JSON.stringify(obj, null, 2);
 };
-const projectionNameKey = value => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
+const projectionNameKey = value => String(value || '').toLowerCase().replace(/[\/／·・._\-\s]+/g, '');
+const tavernPlayerName = (() => {
+  try {
+    const host = (typeof window !== 'undefined' && window.parent && window.parent !== window)
+      ? window.parent
+      : (typeof window !== 'undefined' ? window : null);
+    const tavern = host?.SillyTavern || (typeof SillyTavern !== 'undefined' ? SillyTavern : null);
+    return String(tavern?.name1 || tavern?.getContext?.()?.name1 || host?.name1 || '').trim();
+  } catch (_) { return ''; }
+})();
+const legacyTemplateUser = '{{' + 'user}}';
+const playerIdentityKeys = new Set([tavernPlayerName, '<user>', legacyTemplateUser, '玩家'].filter(Boolean).map(projectionNameKey));
 const isPlayerOwnedAsset = asset => {
   const owners = Array.isArray(asset?.所属对象)
     ? asset.所属对象
     : (typeof asset?.所属对象 === 'string' ? [asset.所属对象] : []);
-  return owners.some(owner => String(owner || '').trim() === '<user>');
+  return owners.some(owner => playerIdentityKeys.has(projectionNameKey(owner)));
 };
 const deadAlienNameKeys = new Set(
   Object.entries(_.get(data, '世界.异端雷达.名单', {}) || {})
@@ -199,15 +210,7 @@ if (current.世界) {
     const personNameKey = value => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
     const alienByKey = new Map(Object.entries(alienRoster).map(([name, alien]) => [personNameKey(name), { name, alien }]));
     const relationByKey = new Map(Object.entries(relationRoster).map(([name, person]) => [personNameKey(name), { name, person }]));
-    const playerName = (() => {
-      const dataName = String(_.get(data, '角色.名称', '') || '').trim();
-      if (dataName) return dataName;
-      try {
-        const host = (typeof window !== 'undefined' && window.parent && window.parent !== window) ? window.parent : (typeof window !== 'undefined' ? window : null);
-        return String(host?.SillyTavern?.name1 || host?.SillyTavern?.getContext?.()?.name1 || host?.name1 || '').trim();
-      } catch (_) { return ''; }
-    })();
-    const playerKeys = new Set([playerName, '{{user}}', '<user>', '玩家'].filter(Boolean).map(personNameKey));
+    const playerKeys = playerIdentityKeys;
     const activeCurrentEventNames = new Set(
       Object.entries(rawEvents)
         .filter(([, event]) => event && event.分类 === '当前事件' && event.状态 === '进行中')

@@ -160,6 +160,7 @@ const variables = fs.readFileSync('World Book/[variables]当前变量.txt', 'utf
 const helper = fs.readFileSync('script/辅助计算脚本.js', 'utf8');
 const checks = fs.readFileSync('World Book/⚙️行为判定[mvu_plot].txt', 'utf8');
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
+const settlementUi = fs.readFileSync('Regular/结算任务美化.html', 'utf8');
 
 assert.match(zod, /const assetOwners[\s\S]{0,220}z\.array\(z\.string\(\)\)/, '旧资产所属对象应兼容迁移为数组');
 assert.match(zod, /所属对象:\s*assetOwners/, '资产 Schema 应使用所属对象数组规范器');
@@ -173,8 +174,69 @@ assert.match(mvuRules, /遵照<资产与载具规则>/, '普通变量 AI 必须�
 assert.match(source, /WorldResult\.资产|资产账簿/, '世界引擎提示词必须明确资产写入职责');
 assert.match(source, /场外[^\n]{0,160}资产[^\n]{0,160}(?:新增|更新|移除|转移)|资产[^\n]{0,160}(?:新增|更新|移除|转移)/, 'Prompt 应允许世界引擎维护资产变化');
 assert.match(source, /version:20,\n        builtin:true,\n        name:'默认设置'/, '内置默认提示词应包含当前历史摘要规则版本 v20');
-assert.match(variables, /isPlayerOwnedAsset/, '正文变量投影必须区分玩家资产与世界资产');
-assert.match(helper, /isPlayerOwnedAsset/, '自动收菜必须区分玩家资产与世界资产');
+assert.match(variables, /tavernPlayerName[\s\S]{0,1800}playerIdentityKeys/, '正文玩家资产投影必须读取 Tavern Persona 身份');
+assert.match(helper, /function isPlayerOwnedAsset[\s\S]{0,2200}SillyTavern[\s\S]{0,2200}playerOwnerKeys/, '自动收菜必须读取 Tavern Persona 身份');
+assert.match(settlementUi, /playerOwnerName[\s\S]{0,2400}SillyTavern[\s\S]{0,2400}playerOwnerKeys/, '结算清理必须读取 Tavern Persona 身份');
 assert.match(checks, /所属对象[^\n]*(?:执行者|角色)/, '资产检定加值必须受所属对象约束');
+
+// Tavern 运行时 Persona 名才是程序身份来源；<user>/{{user}}/玩家仅用于旧存档兼容。
+const helperOwnerStart = helper.indexOf('function isPlayerOwnedAsset(');
+const helperOwnerEnd = helper.indexOf('/** 记录资产显式删除', helperOwnerStart);
+assert.ok(helperOwnerStart >= 0 && helperOwnerEnd > helperOwnerStart, '必须能提取自动收菜资产归属判定');
+const runtimePlayerOwnsAsset = new Function(helper.slice(helperOwnerStart, helperOwnerEnd) + ';return isPlayerOwnedAsset;')();
+const previousOwnerWindow = global.window;
+global.window = { parent: { SillyTavern: { name1: '测试玩家' } } };
+assert.equal(runtimePlayerOwnsAsset({所属对象:['测试玩家']}), true, '自动收菜必须识别 Tavern 当前 Persona 名');
+assert.equal(runtimePlayerOwnsAsset({所属对象:['盟友', '测试玩家']}), true, '共管资产包含当前 Persona 时仍属于玩家资产');
+assert.equal(runtimePlayerOwnsAsset({所属对象:['<user>']}), true, '旧 <user> 标记仍需兼容');
+assert.equal(runtimePlayerOwnsAsset({所属对象:['{{user}}']}), true, '旧 {{user}} 标记仍需兼容');
+assert.equal(runtimePlayerOwnsAsset({所属对象:['敌军']}), false);
+if (previousOwnerWindow === undefined) delete global.window;
+else global.window = previousOwnerWindow;
+
+const finalizationMatch = settlementUi.match(/          function applySettlementFinalization\(c, isLatestPanel\) \{([\s\S]*?)\n          \}\n\n          async function writeSettlementToMvu/);
+assert.ok(finalizationMatch, '必须能提取普通副本结算最终清理函数');
+const applySettlementFinalization = new Function(
+  'rawText', 'hasSettlementHeader', 'isFullSettlement', 'isTrialPassed', 'trialTasks', 'readReincarnatorTier', 'settlementBaselineTier', 'settlementTaskKeys',
+  `return function applySettlementFinalization(c, isLatestPanel) {${finalizationMatch[1]}\n  };`
+)(
+  '轮回清算协议',
+  () => true,
+  () => true,
+  () => false,
+  [],
+  () => 'Ⅰ',
+  'Ⅰ',
+  []
+);
+const settlementFixture = {
+  stat_data: {
+    设置: { 单一世界: false },
+    角色: { 层级: 'Ⅰ' },
+    世界: { 名称: '测试副本', 后台: {}, 异端雷达: {} },
+    系统状态: { 是否在主神空间: false, 游玩天数: 1 },
+    任务: { 击杀: {}, 列表: {}, 副本成就: {} },
+    传闻: { 街头巷议: {}, 情报交易: {}, 布告与檄文: {} },
+    关系列表: {},
+    资产: {
+      玩家庄园: { 所属对象: ['测试玩家'], 类型: '固定地产' },
+      共管基地: { 所属对象: ['盟友', '测试玩家'], 类型: '要塞' },
+      旧宏资产: { 所属对象: ['<user>'], 类型: '固定地产' },
+      旧版缺失归属: { 类型: '固定地产' },
+      敌军据点: { 所属对象: ['敌军'], 类型: '要塞' },
+      无主遗迹: { 所属对象: [], 类型: '固定地产' },
+    },
+  },
+};
+const previousSettlementWindow = global.window;
+global.window = { parent: { SillyTavern: { name1: '测试玩家' } } };
+assert.equal(applySettlementFinalization(settlementFixture, true), true);
+assert.deepEqual(
+  Object.keys(settlementFixture.stat_data.资产).sort(),
+  ['玩家庄园', '共管基地', '旧宏资产', '旧版缺失归属'].sort(),
+  '普通副本结算必须保留 Tavern 当前 Persona 拥有/共管资产，并清理纯 NPC/无主资产'
+);
+if (previousSettlementWindow === undefined) delete global.window;
+else global.window = previousSettlementWindow;
 
 console.log('world-engine asset ownership/writeback acceptance passed');

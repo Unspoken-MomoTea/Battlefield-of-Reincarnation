@@ -1512,7 +1512,24 @@
         const owners = Array.isArray(asset?.所属对象)
             ? asset.所属对象
             : (typeof asset?.所属对象 === 'string' ? [asset.所属对象] : []);
-        return owners.some(owner => String(owner || '').trim() === '<user>');
+        if (!owners.length) return false;
+
+        let playerName = '';
+        try {
+            let host = null;
+            try { if (typeof GS_PARENT !== 'undefined' && GS_PARENT) host = GS_PARENT; } catch (e) {}
+            if (!host && typeof window !== 'undefined') {
+                try { if (window.parent && window.parent !== window) host = window.parent; } catch (e) {}
+                if (!host) host = window;
+            }
+            const tavern = host?.SillyTavern || (typeof SillyTavern !== 'undefined' ? SillyTavern : null);
+            playerName = String(tavern?.name1 || tavern?.getContext?.()?.name1 || host?.name1 || '').trim();
+        } catch (e) {}
+
+        const ownerKey = value => String(value || '').toLowerCase().replace(/[\/／·・._\-\s]+/g, '');
+        const legacyTemplateUser = '{{' + 'user}}';
+        const playerOwnerKeys = new Set([playerName, '<user>', legacyTemplateUser, '玩家'].filter(Boolean).map(ownerKey));
+        return owners.some(owner => playerOwnerKeys.has(ownerKey(owner)));
     }
 
     /** 记录资产显式删除，防止世界引擎根据旧剧情记忆把同名资产重新创建。 */

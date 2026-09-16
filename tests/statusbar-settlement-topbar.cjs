@@ -47,11 +47,10 @@ assert.match(eligible,/sam-tier-infuse-btn/);
 assert.match(source,/if \(sys\.是否可试炼 !== true \|\| sys\.试炼已完成 === true\)/,'apply click must honor canonical flag');
 assert.doesNotMatch(source,/liveScore < TRIAL_SCORE_THRESHOLD/,'statusbar must not duplicate helper eligibility calculation');
 
-// 程序状态 seam：辅助脚本在常规更新、世界独立提交和脚本加载时都维护资格。
-assert.match(auxiliary,/checkTrialEligibility\(statData\.角色, statData\.系统状态\);/);
+// 程序状态 seam：辅助脚本统一在变量更新路径维护资格，并在加载时修复旧存档陈旧值。
+assert.match(auxiliary,/recalcAllCharacters\(statData, statDataBefore\);[\s\S]{0,420}checkTrialEligibility\(statData\.角色, statData\.系统状态\);/);
 assert.match(auxiliary,/function reconcileTrialEligibilityState\(\)/);
 assert.match(auxiliary,/eventOn\(Mvu\.events\.VARIABLE_UPDATE_ENDED, onUpdateData\);[\s\S]{0,240}reconcileTrialEligibilityState\(\);/);
-assert.match(auxiliary,/世界独立提交也必须保持它与当前最终属性一致/);
 assert.match(auxiliary,/return writeBackMvu\(function\(latest\)/,'load reconciliation must persist through MVU');
 
 // 所有权 seam：普通变量 AI 不再看到、也就不能覆盖程序派生的 是否可试炼。

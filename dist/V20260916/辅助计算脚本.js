@@ -97,23 +97,16 @@
             // ★ 异端生命周期独立于普通关系列表：死亡不可逆；死亡后同时退休关系实体和后台人物活动，雷达保留死亡记录。
             syncAlienLifecycle(statData, statDataBefore);
 
-            // 世界引擎的独立提交仅更新叙事数据，不能当成又一轮正文消耗状态/冷却。
-            // 标记随本楼层保存；后续正文继承同一标记时 before/after 相等，照常计算。
+            // 世界引擎独立提交仍必须执行全部数据一致性与派生计算。
+            // 它唯一不能被当成“正文又过了一回合”：只跳过状态时长、战斗轮次与冷却消耗。
+            // 标记随本楼层保存；后续正文继承同一标记时 before/after 相等，届时按普通正文更新处理。
             const worldCommit = rawVariables?.__samsaraWorldCommit;
-            if (worldCommit && worldCommit === statData.世界?.后台?.已处理楼层
-                && rawVariablesBefore && worldCommit !== rawVariablesBefore.__samsaraWorldCommit) {
-                guardTaskGenerationLock(statData);
-                // 世界推进提交若推进了日期，程序时钟与资产收菜必须在同一提交内结算；
-                // 这里只维护时间/待办，不消耗战斗状态或冷却。
-                updatePlayDays(statData);
-                autoHarvestAssets(statData, statDataBefore);
-                calcWorldStability(statData);
-                // 是否可试炼是程序派生状态；世界独立提交也必须保持它与当前最终属性一致。
-                if (statData.角色 && statData.系统状态) {
-                    checkTrialEligibility(statData.角色, statData.系统状态);
-                }
-                return;
-            }
+            const isWorldCommit = !!(
+                worldCommit
+                && worldCommit === statData.世界?.后台?.已处理楼层
+                && rawVariablesBefore
+                && worldCommit !== rawVariablesBefore.__samsaraWorldCommit
+            );
 
             // ★ 任务生成当层整块锁：任何后续计算前先恢复美化器权威快照。
             //   只影响 任务.列表 / 任务.副本成就，不影响 任务.击杀 与其他变量。
@@ -165,7 +158,9 @@
             // 1. 清理角色的道具和状态
             if (statData.角色) {
                 cleanupZeroQuantityItems(statData.角色);
-                processStatusDuration(statData.角色, isCombat);
+                if (!isWorldCommit) {
+                    processStatusDuration(statData.角色, isCombat);
+                }
             }
             
             // 2. 清理 NPC 的道具和状态
@@ -173,7 +168,9 @@
                 Object.values(statData.关系列表).forEach(npc => {
                     if (!npc) return;
                     cleanupZeroQuantityItems(npc);
-                    processStatusDuration(npc, isCombat);
+                    if (!isWorldCommit) {
+                        processStatusDuration(npc, isCombat);
+                    }
                 });
                 
                 // 3. 清理已死亡的 NPC
@@ -184,7 +181,10 @@
             calcWorldStability(statData);
 
             // 5. 战斗轮次与形态冷却全自动管理 (模块10)
-            processCombatAndCooldowns(statData, statDataBefore);
+            // 世界推进写回不是额外正文回合，只屏蔽这一类消耗型推进；其余辅助计算全部照常执行。
+            if (!isWorldCommit) {
+                processCombatAndCooldowns(statData, statDataBefore);
+            }
 
         } finally {
             isProcessing = false;

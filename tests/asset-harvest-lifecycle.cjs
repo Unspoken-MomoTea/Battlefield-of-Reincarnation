@@ -15,8 +15,28 @@ assert.doesNotMatch(rules, /绝不直接写入背包、货币或库存/);
 
 assert.match(
   source,
-  /worldCommit[\s\S]*?guardTaskGenerationLock\(statData\);[\s\S]*?updatePlayDays\(statData\);[\s\S]*?autoHarvestAssets\(statData, statDataBefore\);[\s\S]*?calcWorldStability\(statData\);[\s\S]*?return;/,
-  '世界推进提交必须同步推进隐藏游玩日并执行资产收菜调度',
+  /const isWorldCommit = !!\([\s\S]*?worldCommit !== rawVariablesBefore\.__samsaraWorldCommit[\s\S]*?\);/,
+  '必须只用 worldCommit 标记区分世界推进提交，不能提前结束整个辅助计算',
+);
+assert.doesNotMatch(
+  source,
+  /if \(worldCommit[\s\S]{0,1800}?return;/,
+  '世界推进提交不得再通过 early return 截断后续辅助计算',
+);
+assert.match(
+  source,
+  /updatePlayDays\(statData\);[\s\S]*?autoHarvestAssets\(statData, statDataBefore\);[\s\S]*?calcWorldStability\(statData\);/,
+  '世界推进提交走统一流程时仍必须维护游玩天数、资产收菜与稳定值',
+);
+assert.match(
+  source,
+  /if \(!isWorldCommit\) \{[\s\S]*?processStatusDuration\(statData\.角色, isCombat\);[\s\S]*?\}/,
+  '世界推进提交只应跳过状态时长消耗',
+);
+assert.match(
+  source,
+  /if \(!isWorldCommit\) \{[\s\S]*?processCombatAndCooldowns\(statData, statDataBefore\);[\s\S]*?\}/,
+  '世界推进提交只应跳过战斗轮次与冷却消耗',
 );
 
 const harvestStart = source.indexOf('function autoHarvestAssets');

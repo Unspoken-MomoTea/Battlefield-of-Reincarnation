@@ -3,6 +3,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 AUX = ROOT / 'script/辅助计算脚本.js'
+DIST_AUX = ROOT / 'dist' / 'V20260916' / '辅助计算脚本.js'
 RULES = ROOT / 'World Book/⚙️资产与载具规则.txt'
 
 
@@ -156,6 +157,8 @@ if missing_after:
     raise RuntimeError(f'[asset-harvest] defense module lost after harvest patch: {missing_after}')
 
 write(AUX, aux)
+# dist/V20260916 是当前辅助脚本的实际交付镜像，必须与源码同一份内容，避免“源码已修、发行版仍坏”。
+write(DIST_AUX, aux)
 
 rules = read(RULES)
 verbose_rules = """待办事件（收件箱机制）:\n  - 触发条件:当角色在外且经过合理时间跨度后触发\n  - 生成与积压:普通经营事件每周可生成1~2条红点并积压；自动收菜到期只新增【自动收菜】待办\n  - 玩家主权:【自动收菜】绝不直接写入背包、货币或库存；只有<user>明确办理/领取对应待办时才结算产物并清除该条，AI不得代替玩家自动办理\n  - 结算机制:其他事件仅在实际解决后清空对应记录，并按结果发放金币、道具或应用BUFF\n\n产出记录: 产出周期统一由程序按每7个【系统状态.游玩天数】形成1份；产出字段只写每份的本地货币或物资“名称×数量”，不写周期；无产出填“无”。到期只进入待办，不自动入账。主神空间资产按空间经济结算，任务世界不得产出空间币。"""

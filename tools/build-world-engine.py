@@ -38,6 +38,7 @@ PARTS = (
     '59-api-preset-selection.part.js',
     '59-history-memory.part.js',
     '59-history-memory-editor.part.js',
+    '59-due-event-relaxation.part.js',
     '60-bootstrap.part.js',
 )
 

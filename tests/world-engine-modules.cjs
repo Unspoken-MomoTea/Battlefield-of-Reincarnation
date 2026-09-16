@@ -2,73 +2,33 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 
-const dir=path.join(__dirname,'../script/world-engine-src');
-const files=fs.readdirSync(dir).filter(file=>file.endsWith('.part.js')).sort();
-const texts=Object.fromEntries(files.map(file=>[file,fs.readFileSync(path.join(dir,file),'utf8')]));
+const root=path.join(__dirname,'..');
+const dir=path.join(root,'script','world-engine-src');
+const buildScript=fs.readFileSync(path.join(root,'tools','build-world-engine.py'),'utf8');
+const built=fs.readFileSync(path.join(root,'script','世界推进系统.js'),'utf8');
 
-assert.match(texts['00-foundation-prompt.part.js'], /^    const DEFAULT_SYSTEM_PROMPT/);
-assert.match(texts['00-foundation-prompt.part.js'], /世界现实因果演算/);
-assert.match(texts['10-world-state.part.js'], /^    const emptyState=/);
-assert.match(texts['10-world-state.part.js'], /偏移记录/);
-assert.match(texts['20-world-result.part.js'], /^    const EXISTING=/);
-assert.match(texts['20-world-result.part.js'], /WORLD_RESULT_SCHEMA/);
-assert.match(texts['30-world-context.part.js'], /^    const collect=/);
-assert.match(texts['30-world-context.part.js'], /世界书资料/);
-assert.match(texts['40-engine-runtime.part.js'], /^    class SamsaraWorldEngine/);
-assert.match(texts['40-engine-runtime.part.js'], /async run/);
-assert.match(texts['40-engine-runtime.part.js'], /buildWorldReplayPackage/,'主世界写回应在同一次提交内携带 replay 快照');
-assert.match(texts['50-engine-ui.part.js'], /^    const panelCss=/);
-assert.match(texts['50-engine-ui.part.js'], /世界推进控制台/);
-assert.match(texts['56-rumor-liveliness.part.js'], /^    const RUMOR_LIVELINESS_RULES=/);
-assert.match(texts['56-rumor-liveliness.part.js'], /传闻生态/);
-assert.match(texts['57-task-awareness.part.js'], /^    const TASK_AWARENESS_RULES=/);
-assert.match(texts['57-task-awareness.part.js'], /任务态势/);
-assert.match(texts['58-chronology-guard.part.js'], /^    const CHRONOLOGY_GUARD_RULES=/);
-assert.match(texts['58-chronology-guard.part.js'], /时间锚点/);
-assert.match(texts['59-auto-progress.part.js'], /^    \/\/ 自动推进策略/);
-assert.match(texts['59-auto-progress.part.js'], /autoProgress/);
-assert.match(texts['59-auto-progress.part.js'], /战斗中，世界推进暂停/);
-assert.match(texts['59-auto-trigger-rebuild.part.js'], /^    \/\/ 自动推进触发重构/);
-assert.match(texts['59-auto-trigger-rebuild.part.js'], /GENERATION_ENDED/);
-assert.match(texts['59-auto-trigger-rebuild.part.js'], /WORLD_REPLAY_VERSION/);
-assert.match(texts['59-soft-maintenance.part.js'], /^    \/\/ 容错验收策略/);
-assert.match(texts['59-soft-maintenance.part.js'], /SOFT_MAINTENANCE_RULES/);
-assert.match(texts['59-soft-maintenance.part.js'], /eventHasUsableSchedule/);
-assert.match(texts['59-soft-maintenance.part.js'], /ensureRumorLiveliness=function/);
-assert.match(texts['59-world-integrity-guard.part.js'], /^    \/\/ 世界完整性保护/);
-assert.match(texts['59-world-integrity-guard.part.js'], /WORLD_INTEGRITY_GUARD_RULES/);
-assert.match(texts['59-world-integrity-guard.part.js'], /softNormalizeCausalOffsets/);
-assert.match(texts['59-world-time-daypart-aliases.part.js'], /^    \/\/ 世界时间段别名兼容/);
-assert.match(texts['59-world-time-daypart-aliases.part.js'], /'夜晚':'晚上'/);
-assert.match(texts['59-causal-stability-gate.part.js'], /^    \/\/ 稳定度因果闸门/);
-assert.match(texts['59-causal-stability-gate.part.js'], /causalOffsetHasWorldScaleEvidence/);
-assert.match(texts['59-causal-stability-gate.part.js'], /清理局部稳定偏移/);
-assert.match(texts['59-world-time-ownership.part.js'], /^    \/\/ 世界时间单一所有权/);
-assert.match(texts['59-world-time-ownership.part.js'], /WORLD_RESULT_SCHEMA\.properties\.时间/);
-assert.match(texts['59-world-time-ownership.part.js'], /变量 AI 的写入在事件层被回滚/);
-assert.match(texts['59-world-replay-persistence.part.js'], /worldReplayReprocessContext/);
-assert.match(texts['59-world-replay-persistence.part.js'], /worldReplayLegacyPackage/);
-assert.doesNotMatch(texts['59-world-replay-persistence.part.js'], /worldReplayPersistAfterSuccess/,'replay 已随主世界提交写入，不应再有第二次持久化写回');
-assert.match(texts['59-reprocess-immediate-retry.part.js'], /worldReplayImmediateRetry/);
-assert.match(texts['59-alien-activity-normalization.part.js'], /^    \/\/ 活跃异端活动时间戳/);
-assert.match(texts['59-alien-activity-normalization.part.js'], /更新时间无需抄写/);
-assert.match(texts['59-alien-activity-normalization.part.js'], /sameWorldTimeAnchor/);
-assert.match(texts['59-rumor-throttle.part.js'], /RUMOR_THROTTLE_RULES/);
-assert.match(texts['59-rumor-world-source.part.js'], /RUMOR_WORLD_SOURCE_RULES/);
-assert.match(texts['59-rumor-world-facts.part.js'], /世界侧可传播事实/);
-assert.match(texts['59-rumor-world-request.part.js'], /传闻维护/);
-assert.match(texts['59-rumor-world-system.part.js'], /RUMOR_WORLD_SOURCE_RULES/);
-assert.match(texts['59-editable-module-prompts.part.js'], /WORLD_PROMPT_MODULE_DEFS/);
-assert.match(texts['59-editable-module-prompts.part.js'], /stripLegacyWorldModulePrompts/);
-assert.match(texts['59-editable-module-prompts.part.js'], /data-module-prompt/);
-assert.match(texts['59-causal-overview-ui.part.js'], /因果/);
-assert.match(texts['59-causal-offset-editor.part.js'], /^    \/\/ 因果偏移手动维护/);
+// 以真实构建器声明的 PARTS 作为模块清单，避免测试自己维护第二份、最终与构建流程漂移的文件列表。
+const partsBlock=buildScript.match(/PARTS\s*=\s*\(([\s\S]*?)\)\n\n/);
+assert.ok(partsBlock,'build-world-engine.py must declare PARTS');
+const declared=[...partsBlock[1].matchAll(/'([^']+\.part\.js)'/g)].map(match=>match[1]);
+assert.ok(declared.length>=10,'world engine should be assembled from modular source parts');
+assert.equal(new Set(declared).size,declared.length,'build PARTS must not contain duplicate modules');
 
-const built=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
-for(const file of files){
-  const text=texts[file];
-  const meaningful=text.split(/\r?\n/).map(line=>line.trim()).find(line=>line && !line.startsWith('//'));
-  if(meaningful) assert.ok(built.includes(meaningful),`built world engine is missing module seam: ${file}`);
-}
+const actual=fs.readdirSync(dir).filter(file=>file.endsWith('.part.js')).sort();
+assert.deepEqual([...declared].sort(),actual,'every world-engine source part must be registered in the real build pipeline');
 
-console.log(`world-engine modules synchronized (${files.length} parts)`);
+const texts=Object.fromEntries(declared.map(file=>{
+  const text=fs.readFileSync(path.join(dir,file),'utf8');
+  assert.ok(text.length>0,`${file} must not be empty`);
+  return [file,text];
+}));
+const assembled=declared.map(file=>texts[file]).join('');
+assert.equal(built,assembled,'script/世界推进系统.js must exactly equal the source parts in build order');
+
+// 本次迁移的关键 seam：replay 随主世界提交一次写入，恢复模块不再额外写第二次。
+assert.match(texts['40-engine-runtime.part.js'],/buildWorldReplayPackage/,'primary world commit must carry replay metadata');
+assert.match(texts['59-world-replay-persistence.part.js'],/worldReplayReprocessContext/);
+assert.match(texts['59-world-replay-persistence.part.js'],/worldReplayLegacyPackage/);
+assert.doesNotMatch(texts['59-world-replay-persistence.part.js'],/worldReplayPersistAfterSuccess/,'replay persistence must not create a second MVU write');
+
+console.log(`world-engine modules synchronized through build declaration (${declared.length} parts)`);

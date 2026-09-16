@@ -50,6 +50,10 @@ jobs:
         run: python tools/patch-asset-harvest.py
       - name: Deduplicate consuming turns by assistant message
         run: python tools/patch-aux-turn-message-dedup.py
+      - name: Remove obsolete helper UI turn guard
+        run: python tools/patch-aux-ui-mutation-cleanup.py
+      - name: Persist replay with primary world write
+        run: python tools/patch-world-replay-single-write.py
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Legacy world commit marker removed

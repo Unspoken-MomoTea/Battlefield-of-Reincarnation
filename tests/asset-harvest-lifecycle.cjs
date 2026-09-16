@@ -3,9 +3,14 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const auxPath = 'script/辅助计算脚本.js';
+const distAuxPath = 'dist/V20260916/辅助计算脚本.js';
 const rulesPath = 'World Book/⚙️资产与载具规则.txt';
 const source = fs.readFileSync(auxPath, 'utf8');
+const distSource = fs.readFileSync(distAuxPath, 'utf8');
 const rules = fs.readFileSync(rulesPath, 'utf8');
+
+// 发行版辅助脚本就是源码的交付镜像；任何程序修复都必须同步到 dist，不能只修开发文件。
+assert.equal(distSource, source, '发行版辅助计算脚本必须与源码逐字同步');
 
 // 提示词只保留 AI 真正需要知道的内容，不暴露程序内部调度细节；用户措辞由世界书自身维护。
 assert.match(rules, /产出记录: 写明本地货币或物资的名称、数量；无产出填“无”。主神空间资产按空间经济结算，任务世界不得产出空间币。收获日期由程序计算，AI无需处理/);

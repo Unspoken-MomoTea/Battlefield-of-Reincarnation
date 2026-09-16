@@ -678,7 +678,7 @@
         .sam-tier-sum .v { color:var(--sam-text); }
         .sam-tier-bar { width:100%; height:14px; background:var(--sam-dark); border-radius:7px; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.1); }
         .sam-tier-bar .bar-fill { background:linear-gradient(90deg, var(--sam-accent), var(--sam-hp)); box-shadow:0 0 8px var(--sam-accent); }
-        /* 进阶按钮: 段位累计达标后显示；源力灌注与申请进阶并列。 */
+        /* 进阶按钮: 由辅助计算脚本维护的“是否可试炼”控制；源力灌注与申请进阶并列。 */
         .sam-tier-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:4px; }
         .sam-tier-adv-btn, .sam-tier-infuse-btn { padding:5px 14px; font-size:12px; font-weight:900; border:1px solid; border-radius:6px; cursor:pointer; transition:all 0.18s; letter-spacing:1px; }
         .sam-tier-adv-btn.apply { border-color:#7a1f1f; color:#e04848; background:rgba(122,31,31,0.18); text-shadow:0 0 4px rgba(224,72,72,0.5); }
@@ -3414,7 +3414,7 @@
                 }
             }
         });
-        // ★ 结算任务按钮: 顶栏入口；主神任务或晋升试炼达到可结算状态时显示，点击发送【结算任务】到输入框
+        // ★ 结算任务按钮: 顶栏入口；副本内非战斗时常驻显示，点击发送【结算任务】到输入框
         $panel.off('click.samMissionSettle').on('click.samMissionSettle', '[data-mission-settle]', function(e) {
             e.stopPropagation();
             var text = '【结算任务】';
@@ -4579,19 +4579,9 @@
         }
     }
 
-    function isSettlementReadyTask(task) {
-        if (!task || typeof task !== 'object') return false;
-        var issuer = String(task.委托方 || '').replace(/\s+/g, '');
-        var status = String(task.状态 || '').replace(/\s+/g, '');
-        var isSettlementQuest = issuer === '主神任务' || issuer === '晋升试炼' || issuer === '试炼任务';
-        var isReady = status === '可结算' || status === '可交付' || status === '已完成' || status === '完成';
-        return isSettlementQuest && isReady;
-    }
     function shouldShowSettlementButton(sd) {
         var sys = (sd && sd.系统状态) || {};
-        if (sys.是否在主神空间 !== false || sys.是否战斗中 === true) return false;
-        var list = (sd && sd.任务 && sd.任务.列表) || {};
-        return Object.keys(list).some(function(key) { return isSettlementReadyTask(list[key]); });
+        return sys.是否在主神空间 === false && sys.是否战斗中 !== true;
     }
 
     /* ===== 18. 顶栏 ===== */
@@ -4602,7 +4592,7 @@
             time = editInput('世界.时间', time, 'text');
             place = editInput('世界.地点', place, 'text');
         }
-        // 主神空间显示“选择世界”；副本/单一世界出现可结算的主神任务或试炼任务时，同一位置显示“结算任务”。
+        // 主神空间显示“选择世界”；副本内非战斗时常驻显示“结算任务”，不判断任务是否完成。
         var worldBtn = '';
         if (sys && sys.是否在主神空间 === true && sys.是否战斗中 !== true) {
             worldBtn = '<div class="sam-icon-btn choose-world" title="选择世界" data-choose-world>🌐选择世界</div>';

@@ -528,6 +528,23 @@
     }
 
     /**
+ * 是否处于“悬浮球UI操作”窗口期。
+ * 这里只用于识别合法 UI 字段修改（例如角色进阶），不再承担状态/冷却的回合防重。
+ */
+function isUIMutationActive() {
+    try {
+        let flagWin = null;
+        try { if (typeof GS_PARENT !== 'undefined' && GS_PARENT) flagWin = GS_PARENT; } catch(e){}
+        if (!flagWin) { try { if (window.parent && window.parent !== window) flagWin = window.parent; } catch(e){} }
+        if (!flagWin) { try { if (window.top && window.top !== window) flagWin = window.top; } catch(e){} }
+        if (!flagWin) flagWin = window;
+        return !!(flagWin && flagWin.__samsaraUIMutation === true);
+    } catch (e) {
+        return false;
+    }
+}
+
+    /**
      * 角色层级"普升通行证"校验
      *   "开始进阶"按钮 writeBackMvu 时会携带 opts.tierPermit=目标层级(如 'Ⅱ'), 写入
      *   win/GS_PARENT/window 的 __samsaraTierPermit。原因: Mvu.replaceMvuData 是异步的,
@@ -611,7 +628,7 @@
             //   ★ 普升通行证: replaceMvuData 异步触发的二次 VARIABLE_UPDATE_ENDED 不在
             //     __samsaraUIMutation 窗口期内(标志已复位), 凭 __samsaraTierPermit
             //     (=目标层级, 由"开始进阶"按钮写入, 20s 兜底过期)放行, 覆盖"闪升又降回"缺陷
-            const extraReincarnatorPaths = 旧UI来源守卫
+            const extraReincarnatorPaths = isUIMutationActive()
                 ? []
                 : (tierPermitAllows(user.层级) ? [] : REINCARNATOR_ONLY_PROTECTED_PATHS);
             rollbackProtectedFields(user, userBefore, '角色', extraReincarnatorPaths);

@@ -24,7 +24,15 @@ assert.match(source,/let lastTurnMessageKey = '';/,'回合防重必须只保存�
 assert.match(source,/const turnMessageKey = currentAssistantTurnKey\(\);[\s\S]*?shouldAdvanceTurn = turnMessageKey !== lastTurnMessageKey/);
 assert.match(source,/if \(shouldAdvanceTurn\) \{[\s\S]*?processStatusDuration\(statData\.角色, isCombat\);/);
 assert.match(source,/if \(shouldAdvanceTurn\) \{[\s\S]*?processCombatAndCooldowns\(statData, statDataBefore\);[\s\S]*?lastTurnMessageKey = turnMessageKey;/);
-assert.doesNotMatch(source,/isUIMutationActive\(\)/,'UI 来源判断不再承担回合防重职责');
+assert.match(source,/function isUIMutationActive\(\)/,'UI 来源识别仍用于合法字段修改守卫');
+const protectedStart=source.indexOf('    function guardProtectedFields');
+const protectedEnd=source.indexOf('    // ===== 属性全量重算',protectedStart);
+const protectedSource=source.slice(protectedStart,protectedEnd);
+assert.match(protectedSource,/const extraReincarnatorPaths = isUIMutationActive\(\)/,'UI 来源守卫只用于角色层级保护');
+const combatStart=source.indexOf('    function processCombatAndCooldowns');
+const combatEnd=source.indexOf('    // 初始化事件注册',combatStart);
+const combatSource=source.slice(combatStart,combatEnd);
+assert.doesNotMatch(combatSource,/isUIMutationActive\(\)/,'状态/冷却防重只由正文楼层负责');
 
 // 行为 seam：同一 AI 正文楼层重复 VARIABLE_UPDATE_ENDED 只做一致性计算；新正文楼层才消费一次状态/冷却。
 const turnStart=source.indexOf('    let lastTurnMessageKey =');

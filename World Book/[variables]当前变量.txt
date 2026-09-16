@@ -607,14 +607,16 @@ current.关系列表 = _.pickBy(_.mapValues(关系, (person, name) => {
   }
 }));
 
-// 6. 资产 (战斗中开启“战术降级”模式，防噪音)
+// 6. 资产：世界推进开启时，正文只读取玩家拥有/共管资产；关闭时由正文接管并读取整个顶层资产账簿。
+// 战斗中仍开启“战术降级”模式，避免经营字段干扰即时行动。
 // 下次产出日期/下次产出游天 为后台收菜调度字段(由脚本基于隐藏的真实游玩天数轴自动维护), 对AI不可见
 const stripHarvestFields = (seq) => _.omit(seq, ['下次产出日期', '下次产出游天']);
 const playerAssets = _.pickBy(data.资产 || {}, asset => isPlayerOwnedAsset(asset));
-if (!_.isEmpty(playerAssets)) {
+const proseAssets = isWorldEngineEnabled ? playerAssets : _.cloneDeep(data.资产 || {});
+if (!_.isEmpty(proseAssets)) {
   if (!isCombat) {
     // 非战斗状态：全量展示(剔除系统托管的收菜调度字段)，处理待办事件和周产收益
-    current.资产 = _.mapValues(playerAssets, (asset, name) => {
+    current.资产 = _.mapValues(proseAssets, (asset, name) => {
       const copy = _.cloneDeep(asset);
       if (!_.isEmpty(copy.建设序列)) {
         copy.建设序列 = _.mapValues(copy.建设序列, stripHarvestFields);
@@ -623,7 +625,7 @@ if (!_.isEmpty(playerAssets)) {
     });
   } else {
     // 战斗状态：保留资产实体，但剔除所有经营管理噪音
-    current.资产 = _.transform(playerAssets, (result, asset, name) => {
+    current.资产 = _.transform(proseAssets, (result, asset, name) => {
       const tacticalAsset = _.cloneDeep(asset);
       
       // 绝对屏蔽 待办事件 (战斗时不需要看收件箱和抱怨)

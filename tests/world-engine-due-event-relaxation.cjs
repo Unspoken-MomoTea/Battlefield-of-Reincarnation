@@ -24,20 +24,24 @@ function setup(request){
   return {engine,get:()=>stat,writes:()=>writes,change:fn=>fn(stat),text:value=>{text=value;}};
 }
 
+function addDueEvent(state){
+  state.世界.后台.事件.军械库整备与资源清点={
+    ...RECORDS.事件,
+    描述:'清点军械库库存并完成整备',
+    时间:'2026年9月7日上午',
+    状态:'待发生',
+    条件:''
+  };
+}
+
 (async()=>{
   {
     const x=setup(async()=>JSON.stringify({摘要:'无变化'}));
-    x.change(state=>{
-      state.世界.后台.事件.军械库整备与资源清点={
-        ...RECORDS.事件,
-        描述:'清点军械库库存并完成整备',
-        时间:'2026年9月7日上午',
-        状态:'待发生'
-      };
-    });
+    x.change(addDueEvent);
     const first=await x.engine.buildRequest(x.engine.snapshot()),payload=JSON.parse(first.input);
     assert.deepEqual(payload.本轮必须复核的到期事件.map(item=>item.名称),['军械库整备与资源清点']);
-    assert.match(payload.本轮必须复核的到期事件[0].说明,/优先填写新的“下次检查”/);
+    assert.match(payload.本轮必须复核的到期事件[0].说明,/软提醒/);
+    assert.match(payload.本轮必须复核的到期事件[0].说明,/未处理不会导致本轮世界推进被驳回/);
     assert.doesNotMatch(payload.本轮必须复核的到期事件[0].说明,/阻碍条件/);
 
     x.change(state=>{state.世界.后台.事件.军械库整备与资源清点.下次检查='2026年9月7日下午';});
@@ -46,30 +50,28 @@ function setup(request){
   }
 
   {
-    let calls=0,inputs=[];
-    const x=setup(async (_system,input)=>{
-      calls++;inputs.push(JSON.parse(input));
-      if(calls===1)return JSON.stringify({摘要:'本轮没有新的世界事实'});
-      return JSON.stringify({摘要:'军械库继续等待',事件:[{名称:'军械库整备与资源清点',下次检查:'2026年9月7日下午'}]});
-    });
-    x.change(state=>{
-      state.世界.后台.事件.军械库整备与资源清点={
-        ...RECORDS.事件,
-        描述:'清点军械库库存并完成整备',
-        时间:'2026年9月7日上午',
-        状态:'待发生',
-        条件:''
-      };
-    });
+    let calls=0;
+    const x=setup(async()=>{calls++;return JSON.stringify({摘要:'本轮没有新的世界事实'});});
+    x.change(addDueEvent);
     assert.equal(await x.engine.run(),true);
-    assert.equal(calls,2,'完全无视到期事件时只需纠正一次，不应被三字段硬校验连续卡死');
+    assert.equal(calls,1,'AI 暂时未处理到期事件也不得因此触发纠错重试');
     assert.equal(x.writes(),1);
     const event=x.get().世界.后台.事件.军械库整备与资源清点;
     assert.equal(event.状态,'待发生');
-    assert.equal(event.条件,'','延期不得强迫模型把触发条件改写成阻碍原因');
+    assert.equal(event.条件,'','不得强迫模型把触发条件改写成阻碍原因');
+    assert.equal(event.下次检查,'');
+    assert.equal(x.engine.lastRetryLog.length,0,'到期事件软提醒不得制造失败记录');
+  }
+
+  {
+    const x=setup(async()=>JSON.stringify({摘要:'军械库继续等待',事件:[{名称:'军械库整备与资源清点',下次检查:'2026年9月7日下午'}]}));
+    x.change(addDueEvent);
+    assert.equal(await x.engine.run(),true);
+    const event=x.get().世界.后台.事件.军械库整备与资源清点;
+    assert.equal(event.条件,'');
     assert.equal(event.下次检查,'2026年9月7日下午');
-    assert.match(JSON.stringify(inputs[1].纠错重试),/优先填写新的“下次检查”/);
-    assert.doesNotMatch(JSON.stringify(inputs[1].纠错重试),/复核日期、阻碍条件与下次检查/);
+    const after=JSON.parse((await x.engine.buildRequest(x.engine.snapshot())).input);
+    assert.deepEqual(after.本轮必须复核的到期事件,[],'延期后在下次检查到来前保持安静');
   }
 
   console.log('world-engine due event relaxation passed');

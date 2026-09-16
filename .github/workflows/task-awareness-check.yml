@@ -24,8 +24,17 @@ jobs:
         run: python tools/patch-world-history-memory.py
       - name: Sync player-claimed asset harvest
         run: python tools/patch-asset-harvest.py
+      - name: Deduplicate consuming turns by assistant message
+        run: python tools/patch-aux-turn-message-dedup.py
       - name: Build delivery
         run: python tools/build-world-engine.py
+      - name: Legacy world commit marker removed
+        run: |
+          legacy="__samsara""WorldCommit"
+          if grep -R "$legacy" script tests tools --exclude-dir=.git; then
+            echo "legacy world commit marker still exists"
+            exit 1
+          fi
       - name: World engine syntax check
         run: node --check script/世界推进系统.js
       - name: Statusbar syntax check

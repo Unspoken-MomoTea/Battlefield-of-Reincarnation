@@ -65,7 +65,7 @@ const injectMarker = '    // 初始化事件注册';
 assert.ok(source.includes(injectMarker), '找不到辅助脚本测试注入点');
 const testable = source.replace(
   injectMarker,
-  "    globalThis.__assetHarvestTest = { updatePlayDays, autoHarvestAssets };\n\n" + injectMarker,
+  "    globalThis.__assetHarvestTest = { updatePlayDays, autoHarvestAssets, calcReduction };\n\n" + injectMarker,
 );
 
 const sandbox = {
@@ -84,9 +84,15 @@ sandbox.window.window = sandbox.window;
 sandbox.globalThis = sandbox;
 vm.runInNewContext(testable, sandbox, { filename: auxPath });
 
-const { updatePlayDays, autoHarvestAssets } = sandbox.__assetHarvestTest || {};
+const { updatePlayDays, autoHarvestAssets, calcReduction } = sandbox.__assetHarvestTest || {};
 assert.equal(typeof updatePlayDays, 'function');
 assert.equal(typeof autoHarvestAssets, 'function');
+assert.equal(typeof calcReduction, 'function');
+
+// 减伤 seam：收菜补丁不得跨模块删除护甲递减配置。达到当前层级满防基准时应命中 75% 上限。
+assert.equal(calcReduction(0, 'Ⅰ'), 0);
+assert.equal(calcReduction(70, 'Ⅰ'), 75);
+assert.equal(calcReduction(200, 'Ⅱ'), 75);
 
 // 游玩天数只统计“日期变化次数”：即使世界时间一跳几十年，也只 +1。
 const clock = {

@@ -48,7 +48,6 @@ assert.doesNotMatch(layer,/data-history-field="level"|data-history-field="childr
   assert.equal(typeof engine.setHistorySummaryRecord,'function','engine must provide a long-term summary edit API');
 
   const fingerprint=engine.snapshot().fingerprint;
-  current.__samsaraWorldCommit=fingerprint;
   current.__samsaraWorldReplay={version:1,fingerprint,operations:[]};
 
   await engine.setHistoryAnchorRecord('异端降临与法则畸变',{

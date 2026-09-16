@@ -20,7 +20,6 @@
 
             const seed=Object.assign({},copy(context.raw),copy(variables));
             this.worldReplayClearHandledForRetry(seed.stat_data,context.current.fingerprint);
-            delete seed.__samsaraWorldCommit;
             delete seed.__samsaraWorldReplay;
             this.worldReplayMarkEventInternal();
             const previousRetrying=this.worldReplayImmediateRetrying===true;
@@ -37,7 +36,6 @@
             let finalRaw;
             try{finalRaw=context.mvu.getMvuData({type:'message',message_id:context.current.id});}catch(_){finalRaw=null;}
             if(plain(finalRaw?.stat_data))variables.stat_data=copy(finalRaw.stat_data);
-            if(finalRaw&&Object.prototype.hasOwnProperty.call(finalRaw,'__samsaraWorldCommit'))variables.__samsaraWorldCommit=finalRaw.__samsaraWorldCommit;
             if(finalRaw&&Object.prototype.hasOwnProperty.call(finalRaw,'__samsaraWorldReplay'))variables.__samsaraWorldReplay=copy(finalRaw.__samsaraWorldReplay);
             return true;
         }
@@ -50,7 +48,6 @@
                 const legacy=!validStored?this.worldReplayLegacyPackage?.(context,variables):null;
                 if(!validStored&&!legacy){
                     this.worldReplayClearHandledForRetry(variables.stat_data,context.current.fingerprint);
-                    delete variables.__samsaraWorldCommit;
                     delete variables.__samsaraWorldReplay;
                     if(this.config.autoProgress===true&&this.isEnabled()){
                         this.status='变量已重处理 · 正在重新推进本楼';

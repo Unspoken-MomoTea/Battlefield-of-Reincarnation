@@ -70,6 +70,31 @@
      */
     let isProcessing = false;
     /**
+     * 正文楼层级回合防重，仅保存在脚本内存，不写入 MVU。
+     * 同一 AI 正文楼层产生的世界推进、UI、schema 等额外变量写回，都不能重复消耗状态或冷却。
+     */
+    let lastTurnMessageKey = '';
+
+    function currentAssistantTurnKey() {
+        try {
+            const context = SillyTavern.getContext();
+            const chat = Array.isArray(context?.chat) ? context.chat : [];
+            const chatId = String(context?.chatId ?? '');
+            for (let i = chat.length - 1; i >= 0; i--) {
+                const msg = chat[i];
+                if (!msg) continue;
+                const role = String(msg.role || '').toLowerCase();
+                if (msg.is_user === true || msg.is_system === true || role === 'user' || role === 'system') continue;
+                return `${chatId}:${i}`;
+            }
+        } catch (_) {}
+        return '';
+    }
+
+    function initializeTurnMessageBaseline() {
+        lastTurnMessageKey = currentAssistantTurnKey();
+    }
+    /**
      * 核心函数：在 stat_data 更新完成后执行，进行数值计算和属性更新
      * @param {*} rawVariables 原始变量
      * @param {*} rawVariablesBefore 之前的原始变量
@@ -97,17 +122,6 @@
             // ★ 异端生命周期独立于普通关系列表：死亡不可逆；死亡后同时退休关系实体和后台人物活动，雷达保留死亡记录。
             syncAlienLifecycle(statData, statDataBefore);
 
-            // 世界引擎独立提交仍必须执行全部数据一致性与派生计算。
-            // 它唯一不能被当成“正文又过了一回合”：只跳过状态时长、战斗轮次与冷却消耗。
-            // 标记随本楼层保存；后续正文继承同一标记时 before/after 相等，届时按普通正文更新处理。
-            const worldCommit = rawVariables?.__samsaraWorldCommit;
-            const isWorldCommit = !!(
-                worldCommit
-                && worldCommit === statData.世界?.后台?.已处理楼层
-                && rawVariablesBefore
-                && worldCommit !== rawVariablesBefore.__samsaraWorldCommit
-            );
-
             // ★ 任务生成当层整块锁：任何后续计算前先恢复美化器权威快照。
             //   只影响 任务.列表 / 任务.副本成就，不影响 任务.击杀 与其他变量。
             guardTaskGenerationLock(statData);
@@ -117,6 +131,15 @@
 
             const users = statData.角色;
             if (!users) return;
+
+            // 状态时长、战斗轮次与冷却只按“新 AI 正文楼层”推进一次。
+            // 世界推进、UI 操作、schema reconciliation 等同楼层二次写回只做数据一致性计算，不再消耗回合。
+            const turnMessageKey = currentAssistantTurnKey();
+            let shouldAdvanceTurn = false;
+            if (turnMessageKey) {
+                if (!lastTurnMessageKey) lastTurnMessageKey = turnMessageKey;
+                else shouldAdvanceTurn = turnMessageKey !== lastTurnMessageKey;
+            }
 
             // ★ 先回滚受保护字段，再执行后续计算
             guardProtectedFields(statData, statDataBefore);
@@ -158,7 +181,7 @@
             // 1. 清理角色的道具和状态
             if (statData.角色) {
                 cleanupZeroQuantityItems(statData.角色);
-                if (!isWorldCommit) {
+                if (shouldAdvanceTurn) {
                     processStatusDuration(statData.角色, isCombat);
                 }
             }
@@ -168,7 +191,7 @@
                 Object.values(statData.关系列表).forEach(npc => {
                     if (!npc) return;
                     cleanupZeroQuantityItems(npc);
-                    if (!isWorldCommit) {
+                    if (shouldAdvanceTurn) {
                         processStatusDuration(npc, isCombat);
                     }
                 });
@@ -181,9 +204,10 @@
             calcWorldStability(statData);
 
             // 5. 战斗轮次与形态冷却全自动管理 (模块10)
-            // 世界推进写回不是额外正文回合，只屏蔽这一类消耗型推进；其余辅助计算全部照常执行。
-            if (!isWorldCommit) {
+            if (shouldAdvanceTurn) {
                 processCombatAndCooldowns(statData, statDataBefore);
+                // 只有消费型回合逻辑完整执行后才记住本楼，异常时允许同楼重试。
+                lastTurnMessageKey = turnMessageKey;
             }
 
         } finally {
@@ -504,26 +528,6 @@
     }
 
     /**
-     * 是否处于"悬浮球UI操作"窗口期
-     *   悬浮球 writeBackMvu 落库前会置 __samsaraUIMutation=true, 广播事件后立刻复位
-     *   本函数在 VARIABLE_UPDATE_ENDED 回调内读取该标志, 判断本次更新来源是否为 UI 操作
-     *   (主窗口 → GS_PARENT → window.parent → window.top → window 多级 fallback 读取)
-     * @returns {boolean}
-     */
-    function isUIMutationActive() {
-        try {
-            let flagWin = null;
-            try { if (typeof GS_PARENT !== 'undefined' && GS_PARENT) flagWin = GS_PARENT; } catch(e){}
-            if (!flagWin) { try { if (window.parent && window.parent !== window) flagWin = window.parent; } catch(e){} }
-            if (!flagWin) { try { if (window.top && window.top !== window) flagWin = window.top; } catch(e){} }
-            if (!flagWin) flagWin = window;
-            return !!(flagWin && flagWin.__samsaraUIMutation === true);
-        } catch (e) {
-            return false;
-        }
-    }
-
-    /**
      * 角色层级"普升通行证"校验
      *   "开始进阶"按钮 writeBackMvu 时会携带 opts.tierPermit=目标层级(如 'Ⅱ'), 写入
      *   win/GS_PARENT/window 的 __samsaraTierPermit。原因: Mvu.replaceMvuData 是异步的,
@@ -607,7 +611,7 @@
             //   ★ 普升通行证: replaceMvuData 异步触发的二次 VARIABLE_UPDATE_ENDED 不在
             //     __samsaraUIMutation 窗口期内(标志已复位), 凭 __samsaraTierPermit
             //     (=目标层级, 由"开始进阶"按钮写入, 20s 兜底过期)放行, 覆盖"闪升又降回"缺陷
-            const extraReincarnatorPaths = isUIMutationActive()
+            const extraReincarnatorPaths = 旧UI来源守卫
                 ? []
                 : (tierPermitAllows(user.层级) ? [] : REINCARNATOR_ONLY_PROTECTED_PATHS);
             rollbackProtectedFields(user, userBefore, '角色', extraReincarnatorPaths);
@@ -1784,13 +1788,6 @@
 
     /** 战斗轮次与技能冷却全自动管理 */
     function processCombatAndCooldowns(statData, statDataBefore) {
-        // ★ UI 来源守卫: 若本次 VARIABLE_UPDATE_ENDED 由悬浮球UI操作(穿脱装备/道具/激活形态/进阶)触发, 跳过轮次推进+冷却递减
-        //   避免反复穿脱导致战斗轮次+1 / 形态冷却-1 / 回合制状态-1; 属性重算等其他模块不受影响, 照常执行
-        //   标志读取逻辑已提取为公共函数 isUIMutationActive()(主窗口多级 fallback)
-        if (isUIMutationActive()) {
-            // console.log('[战斗系统] 检测到本次更新来自UI操作(__samsaraUIMutation), 跳过轮次推进与冷却递减');
-            return;
-        }
         const combat = statData?.系统状态;
         const combatBefore = statDataBefore?.系统状态;
         if (!combat) return;
@@ -1952,6 +1949,8 @@
     // 初始化事件注册
     const init = async () => {
         await waitGlobalInitialized('Mvu');
+        // 当前已有正文只作为基线；脚本重载/页面刷新不能凭空消耗一轮状态或冷却。
+        initializeTurnMessageBaseline();
         eventOn(Mvu.events.VARIABLE_UPDATE_ENDED, onUpdateData);
         try { (window.parent || window).__辅助计算脚本_loaded__ = true; } catch(e) { window.__辅助计算脚本_loaded__ = true; }
         // console.log('[辅助计算脚本] 脚本已加载 ');

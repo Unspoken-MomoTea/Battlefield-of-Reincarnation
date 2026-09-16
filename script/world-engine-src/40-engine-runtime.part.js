@@ -778,7 +778,9 @@
                 this.committing=true;
                 const result=prepared.current.raw;
                 result.stat_data=prepared.next;
-                result.__samsaraWorldCommit=base.fingerprint;
+                const replay=typeof this.buildWorldReplayPackage==='function'
+                    ?this.buildWorldReplayPackage(base.stat,prepared.next,base.fingerprint):null;
+                if(replay)result.__samsaraWorldReplay=replay;
                 await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
                 this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 前序失败'+this.lastRetryLog.length+'次':'');
                 return true;
@@ -819,8 +821,6 @@
             bind(mvu.events.VARIABLE_UPDATE_ENDED, (variables,before) => {
                 // 自身提交和装备等 UI 写回不代表正文完成，避免误触发补跑。
                 if(this.committing||this.host.__samsaraUIMutation||this.env.__samsaraUIMutation||this.host.parent?.__samsaraUIMutation)return;
-                const commit=variables?.__samsaraWorldCommit;
-                if(commit&&before&&commit!==before.__samsaraWorldCommit&&commit===variables?.stat_data?.世界?.[PATH]?.已处理楼层)return;
                 try {
                     const snapshot=this.snapshot();
                     if(plain(variables?.stat_data))snapshot.stat=variables.stat_data;

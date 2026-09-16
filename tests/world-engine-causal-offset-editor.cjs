@@ -41,7 +41,6 @@ assert.doesNotMatch(layer,/globalThis\.confirm|host\?\.confirm|causalOffsetConfi
   };
   const engine=new Engine(host);engine.render=()=>{};
   const fingerprint=engine.snapshot().fingerprint;
-  current.__samsaraWorldCommit=fingerprint;
   current.__samsaraWorldReplay={version:1,fingerprint,operations:[
     {op:'set',path:['世界','因果轨道','偏移记录','觉醒波动的泄露'],value:clone(current.stat_data.世界.因果轨道.偏移记录['觉醒波动的泄露'])},
     {op:'set',path:['世界','因果轨道','偏移记录','关键人物命运改写'],value:clone(current.stat_data.世界.因果轨道.偏移记录['关键人物命运改写'])},

@@ -13,31 +13,46 @@ assert.doesNotMatch(rules, /每7个【系统状态\.游玩天数】形成1份/);
 assert.doesNotMatch(rules, /AI不得代替玩家自动办理/);
 assert.doesNotMatch(rules, /绝不直接写入背包、货币或库存/);
 
-assert.match(
-  source,
-  /const isWorldCommit = !!\([\s\S]*?worldCommit !== rawVariablesBefore\.__samsaraWorldCommit[\s\S]*?\);/,
-  '必须只用 worldCommit 标记区分世界推进提交，不能提前结束整个辅助计算',
-);
-assert.doesNotMatch(
-  source,
-  /if \(worldCommit[\s\S]{0,1800}?return;/,
-  '世界推进提交不得再通过 early return 截断后续辅助计算',
-);
-assert.match(
-  source,
-  /updatePlayDays\(statData\);[\s\S]*?autoHarvestAssets\(statData, statDataBefore\);[\s\S]*?calcWorldStability\(statData\);/,
-  '世界推进提交走统一流程时仍必须维护游玩天数、资产收菜与稳定值',
-);
-assert.match(
-  source,
-  /if \(!isWorldCommit\) \{[\s\S]*?processStatusDuration\(statData\.角色, isCombat\);[\s\S]*?\}/,
-  '世界推进提交只应跳过状态时长消耗',
-);
-assert.match(
-  source,
-  /if \(!isWorldCommit\) \{[\s\S]*?processCombatAndCooldowns\(statData, statDataBefore\);[\s\S]*?\}/,
-  '世界推进提交只应跳过战斗轮次与冷却消耗',
-);
+const removedWorldCommitKey='__samsara'+'WorldCommit';
+assert.equal(source.includes(removedWorldCommitKey),false,'辅助脚本不得再依赖世界推进提交根标记');
+assert.match(source,/let lastTurnMessageKey = '';/,'回合防重必须只保存在脚本内存');
+assert.match(source,/const turnMessageKey = currentAssistantTurnKey\(\);[\s\S]*?shouldAdvanceTurn = turnMessageKey !== lastTurnMessageKey/);
+assert.match(source,/if \(shouldAdvanceTurn\) \{[\s\S]*?processStatusDuration\(statData\.角色, isCombat\);/);
+assert.match(source,/if \(shouldAdvanceTurn\) \{[\s\S]*?processCombatAndCooldowns\(statData, statDataBefore\);[\s\S]*?lastTurnMessageKey = turnMessageKey;/);
+assert.doesNotMatch(source,/isUIMutationActive\(\)/,'UI 来源判断不再承担回合防重职责');
+
+// 行为 seam：同一 AI 正文楼层重复 VARIABLE_UPDATE_ENDED 只做一致性计算；新正文楼层才消费一次状态/冷却。
+const turnStart=source.indexOf('    let lastTurnMessageKey =');
+const turnEnd=source.indexOf('    // ===== 轻量路径工具',turnStart);
+assert.ok(turnStart>=0&&turnEnd>turnStart,'找不到正文楼层防重核心');
+const turnSnippet=source.slice(turnStart,turnEnd);
+const turnNames=['syncRemovedRelationshipPeople','syncRemovedAssets','syncAlienLifecycle','guardTaskGenerationLock','guardPersistedSystemTaskOwner','guardProtectedFields','clampNativeNpcToWorldTier','applyNewNpcDifficulty','recalcAllCharacters','checkTrialEligibility','updatePlayDays','autoHarvestAssets','cleanupZeroQuantityItems','processStatusDuration','cleanupDeadNPCs','calcWorldStability','processCombatAndCooldowns'];
+const turnCalls={};
+const turnStubs=Object.fromEntries(turnNames.map(name=>[name,()=>{turnCalls[name]=(turnCalls[name]||0)+1;} ]));
+const turnContext={chatId:'turn-test',chat:[{is_user:true,mes:'玩家输入'},{role:'assistant',mes:'已有正文'}]};
+const turnApi=new Function('stubs','SillyTavern',`let isProcessing=false,isInitLog=false;const {${turnNames.join(',')}}=stubs;${turnSnippet};return {onUpdateData,initializeTurnMessageBaseline};`)(turnStubs,{getContext:()=>turnContext});
+turnApi.initializeTurnMessageBaseline();
+const turnStat={角色:{},系统状态:{是否战斗中:false},关系列表:{},世界:{后台:{}},资产:{}};
+const fireTurn=()=>turnApi.onUpdateData({stat_data:turnStat},{stat_data:JSON.parse(JSON.stringify(turnStat))});
+fireTurn();
+assert.equal(turnCalls.processStatusDuration,undefined,'脚本加载后的当前旧楼不得凭空消耗状态');
+assert.equal(turnCalls.processCombatAndCooldowns,undefined,'脚本加载后的当前旧楼不得凭空推进冷却');
+assert.equal(turnCalls.recalcAllCharacters,1,'同楼变量更新仍必须执行派生属性等一致性计算');
+turnContext.chat.push({role:'assistant',mes:'新正文A'});
+fireTurn();
+assert.equal(turnCalls.processStatusDuration,1,'新正文楼层应消费一次状态');
+assert.equal(turnCalls.processCombatAndCooldowns,1,'新正文楼层应推进一次冷却');
+fireTurn();fireTurn();
+assert.equal(turnCalls.processStatusDuration,1,'同楼世界推进/UI/schema 写回不得重复消耗状态');
+assert.equal(turnCalls.processCombatAndCooldowns,1,'同楼世界推进/UI/schema 写回不得重复推进冷却');
+assert.equal(turnCalls.recalcAllCharacters,4,'防重复不得挡住普通辅助计算');
+turnContext.chat.push({is_user:true,mes:'下一次玩家输入'});
+fireTurn();
+assert.equal(turnCalls.processCombatAndCooldowns,1,'只有用户消息变化不算新 AI 正文楼层');
+turnContext.chat.push({role:'assistant',mes:'新正文B'});
+fireTurn();
+assert.equal(turnCalls.processStatusDuration,2);
+assert.equal(turnCalls.processCombatAndCooldowns,2,'下一条 AI 正文才再次推进一轮');
 
 const harvestStart = source.indexOf('function autoHarvestAssets');
 const harvestEnd = source.indexOf('/** 传入防御总值与角色当前层级 */', harvestStart);

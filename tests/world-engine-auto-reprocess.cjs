@@ -82,14 +82,13 @@ function setup(){
   const firstFingerprint=x.engine.snapshot().fingerprint;
   assert.equal(first.stat_data.世界.因果轨道.当前阶段,'推进结果#1');
   assert.equal(first.stat_data.世界.后台.已处理楼层,firstFingerprint);
-  assert.equal(first.__samsaraWorldCommit,firstFingerprint);
   assert.equal(first.__samsaraWorldReplay?.fingerprint,firstFingerprint,'成功推进必须保存当前正文的恢复包');
   assert.ok(Array.isArray(first.__samsaraWorldReplay?.operations)&&first.__samsaraWorldReplay.operations.length>0,'恢复包必须保存实际成功提交的数据差异');
   assert.match(JSON.stringify(first.__samsaraWorldReplay),/推进结果#1/,'恢复包必须包含世界推进真正写入的业务数据，而不只是处理标记');
 
-  // 兼容已经出现过的旧楼：commit 标记还在，但当时因为真实 MVU 事件时序没有把 replay 根字段写进去。
+  // 兼容旧楼：replay 根字段缺失时，before 中的已处理楼层仍能证明这一楼过去成功推进过。
   // 重新处理变量时 before 仍携带旧楼已确认状态，必须现场重建恢复包，而不是卡死在“没有快照”。
-  x.write({__samsaraWorldCommit:firstFingerprint});
+  x.write({});
   const legacyRebuilt=x.fresh();
   const legacyReplay=await x.emit(legacyRebuilt,first);
   assert.equal(x.calls(),1,'可从 before 恢复的旧楼不得再次调用世界 AI');
@@ -102,7 +101,7 @@ function setup(){
 
   // 真实“重新处理变量”：按钮先清空当前消息 stat_data/schema，但未知 root 字段保留；
   // MVU 再从上一有效变量解析同一正文。这里必须重放成功结果，绝不能再次调用世界 AI。
-  x.write({__samsaraWorldCommit:firstFingerprint,__samsaraWorldReplay:clone(first.__samsaraWorldReplay)});
+  x.write({__samsaraWorldReplay:clone(first.__samsaraWorldReplay)});
   const rebuilt=x.fresh();
   const replayed=await x.emit(rebuilt,first);
   assert.equal(x.calls(),1,'重新处理变量的事件阶段不得调用世界 AI');
@@ -121,7 +120,7 @@ function setup(){
   assert.equal(x.calls(),1,'间隔2的第二轮必须跳过');
   assert.equal(x.engine.autoProgressRoundsSinceRun,1);
   const inheritedReplay=clone(x.read().__samsaraWorldReplay);
-  x.write({__samsaraWorldCommit:x.read().__samsaraWorldCommit,__samsaraWorldReplay:inheritedReplay});
+  x.write({__samsaraWorldReplay:inheritedReplay});
   const secondRebuilt=x.fresh();
   secondRebuilt.stat_data.世界.因果轨道.当前阶段='第二轮变量重处理结果';
   const skippedReplay=await x.emit(secondRebuilt,second);
@@ -172,7 +171,7 @@ function setup(){
   const yInitial=await y.emit(yOriginal,{});y.write(yInitial);await y.flush();
   assert.equal(y.calls(),1);
   const yFingerprint=y.engine.snapshot().fingerprint;
-  y.write({__samsaraWorldCommit:yFingerprint});
+  y.write({});
   const yRebuilt=y.fresh();
   const yEvent=await y.emit(yRebuilt,{});
   y.persistReprocess(yEvent);

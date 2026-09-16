@@ -144,10 +144,9 @@
         handleWorldReplayVariableEvent(variables,before) {
             if(!plain(variables))return false;
             const pending=String(this.worldReplayPendingFingerprint||'');
-            const commit=String(variables.__samsaraWorldCommit||'');
             const handled=String(variables?.stat_data?.世界?.[PATH]?.已处理楼层||'');
             // 世界推进成功提交：在 MVU 真正落库前，把本次“实际变更”压缩成同楼恢复包一并保存。
-            if(pending&&commit===pending&&handled===pending&&plain(before?.stat_data)&&plain(variables.stat_data)){
+            if(pending&&handled===pending&&plain(before?.stat_data)&&plain(variables.stat_data)){
                 const replay=this.buildWorldReplayPackage(before.stat_data,variables.stat_data,pending);
                 if(replay)variables.__samsaraWorldReplay=replay;
                 if(this.worldReplayManualForce)this.worldReplayMarkEventInternal();
@@ -155,18 +154,20 @@
             }
 
             // MVU“重新处理变量”会先清空当前消息 stat_data/schema，但保留未知 root 字段。
-            // 只有当前消息自己的成功提交标记仍与正文指纹完全一致，才认定为同正文重处理。
+            // 只有当前消息自己的 replay 指纹或 before 中已处理楼层能证明旧结果，才认定为同正文重处理。
             const current=this.worldReplayCurrentMessage();
             if(!current||!plain(variables.stat_data))return false;
             const mvu=this.env.Mvu||this.host.Mvu;
             let raw;try{raw=mvu?.getMvuData?.({type:'message',message_id:current.id});}catch(_){return false;}
             if(!raw||plain(raw.stat_data))return false;
-            const storedCommit=String(raw.__samsaraWorldCommit||'');
-            if(!storedCommit||storedCommit!==current.fingerprint)return false;
+            const storedReplay=raw.__samsaraWorldReplay;
+            const beforeHandled=String(before?.stat_data?.世界?.[PATH]?.已处理楼层||'');
+            const replayMatches=plain(storedReplay)&&String(storedReplay.fingerprint||'')===current.fingerprint;
+            if(!replayMatches&&beforeHandled!==current.fingerprint)return false;
 
-            // 重处理本身不是新的游戏轮次，也绝不能触发世界 AI；让基础监听与辅助脚本都把本事件视为内部恢复。
+            // 重处理本身不是新的游戏轮次，也绝不能触发世界 AI；让世界引擎把本事件视为内部恢复。
             this.worldReplayMarkEventInternal();
-            const replay=raw.__samsaraWorldReplay;
+            const replay=storedReplay;
             if(!plain(replay)||String(replay.fingerprint||'')!==current.fingerprint){
                 this.status='变量已重处理 · 本楼没有可恢复的世界推进快照';
                 this.render();
@@ -177,7 +178,6 @@
                 this.render();
                 return false;
             }
-            variables.__samsaraWorldCommit=current.fingerprint;
             variables.__samsaraWorldReplay=copy(replay);
             this.autoProgressCycleKey=this.autoProgressContextKey({fingerprint:current.fingerprint,stat:variables.stat_data});
             this.autoProgressHasRun=true;

@@ -3337,7 +3337,9 @@ ${schemaText}`;
                 this.committing=true;
                 const result=prepared.current.raw;
                 result.stat_data=prepared.next;
-                result.__samsaraWorldCommit=base.fingerprint;
+                const replay=typeof this.buildWorldReplayPackage==='function'
+                    ?this.buildWorldReplayPackage(base.stat,prepared.next,base.fingerprint):null;
+                if(replay)result.__samsaraWorldReplay=replay;
                 await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
                 this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 前序失败'+this.lastRetryLog.length+'次':'');
                 return true;
@@ -3378,8 +3380,6 @@ ${schemaText}`;
             bind(mvu.events.VARIABLE_UPDATE_ENDED, (variables,before) => {
                 // 自身提交和装备等 UI 写回不代表正文完成，避免误触发补跑。
                 if(this.committing||this.host.__samsaraUIMutation||this.env.__samsaraUIMutation||this.host.parent?.__samsaraUIMutation)return;
-                const commit=variables?.__samsaraWorldCommit;
-                if(commit&&before&&commit!==before.__samsaraWorldCommit&&commit===variables?.stat_data?.世界?.[PATH]?.已处理楼层)return;
                 try {
                     const snapshot=this.snapshot();
                     if(plain(variables?.stat_data))snapshot.stat=variables.stat_data;
@@ -5591,10 +5591,9 @@ ${schemaText}`;
         handleWorldReplayVariableEvent(variables,before) {
             if(!plain(variables))return false;
             const pending=String(this.worldReplayPendingFingerprint||'');
-            const commit=String(variables.__samsaraWorldCommit||'');
             const handled=String(variables?.stat_data?.世界?.[PATH]?.已处理楼层||'');
             // 世界推进成功提交：在 MVU 真正落库前，把本次“实际变更”压缩成同楼恢复包一并保存。
-            if(pending&&commit===pending&&handled===pending&&plain(before?.stat_data)&&plain(variables.stat_data)){
+            if(pending&&handled===pending&&plain(before?.stat_data)&&plain(variables.stat_data)){
                 const replay=this.buildWorldReplayPackage(before.stat_data,variables.stat_data,pending);
                 if(replay)variables.__samsaraWorldReplay=replay;
                 if(this.worldReplayManualForce)this.worldReplayMarkEventInternal();
@@ -5602,18 +5601,20 @@ ${schemaText}`;
             }
 
             // MVU“重新处理变量”会先清空当前消息 stat_data/schema，但保留未知 root 字段。
-            // 只有当前消息自己的成功提交标记仍与正文指纹完全一致，才认定为同正文重处理。
+            // 只有当前消息自己的 replay 指纹或 before 中已处理楼层能证明旧结果，才认定为同正文重处理。
             const current=this.worldReplayCurrentMessage();
             if(!current||!plain(variables.stat_data))return false;
             const mvu=this.env.Mvu||this.host.Mvu;
             let raw;try{raw=mvu?.getMvuData?.({type:'message',message_id:current.id});}catch(_){return false;}
             if(!raw||plain(raw.stat_data))return false;
-            const storedCommit=String(raw.__samsaraWorldCommit||'');
-            if(!storedCommit||storedCommit!==current.fingerprint)return false;
+            const storedReplay=raw.__samsaraWorldReplay;
+            const beforeHandled=String(before?.stat_data?.世界?.[PATH]?.已处理楼层||'');
+            const replayMatches=plain(storedReplay)&&String(storedReplay.fingerprint||'')===current.fingerprint;
+            if(!replayMatches&&beforeHandled!==current.fingerprint)return false;
 
-            // 重处理本身不是新的游戏轮次，也绝不能触发世界 AI；让基础监听与辅助脚本都把本事件视为内部恢复。
+            // 重处理本身不是新的游戏轮次，也绝不能触发世界 AI；让世界引擎把本事件视为内部恢复。
             this.worldReplayMarkEventInternal();
-            const replay=raw.__samsaraWorldReplay;
+            const replay=storedReplay;
             if(!plain(replay)||String(replay.fingerprint||'')!==current.fingerprint){
                 this.status='变量已重处理 · 本楼没有可恢复的世界推进快照';
                 this.render();
@@ -5624,7 +5625,6 @@ ${schemaText}`;
                 this.render();
                 return false;
             }
-            variables.__samsaraWorldCommit=current.fingerprint;
             variables.__samsaraWorldReplay=copy(replay);
             this.autoProgressCycleKey=this.autoProgressContextKey({fingerprint:current.fingerprint,stat:variables.stat_data});
             this.autoProgressHasRun=true;
@@ -6286,7 +6286,7 @@ ${schemaText}`;
             return true;
         }
     };    // 恢复包可靠性：世界推进成功后主动持久化 replay，不再依赖 replaceMvuData 是否触发可用的 VARIABLE_UPDATE_ENDED。
-    // 对旧楼若已有 commit 但缺 replay，优先从本次重处理事件的 before 恢复；实在无旧状态时按自动推进开关决定是否立即重建。
+    // 对旧楼若 replay 缺失，优先用本次重处理事件的 before/已处理楼层恢复；实在无旧状态时按自动推进开关决定是否立即重建。
     const SamsaraWorldEngineBeforeReplayPersistence=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeReplayPersistence {
         worldReplayReprocessContext(variables,before) {
@@ -6296,11 +6296,14 @@ ${schemaText}`;
             const mvu=this.env.Mvu||this.host.Mvu;
             let raw;
             try{raw=mvu?.getMvuData?.({type:'message',message_id:current.id});}catch(_){return null;}
-            // 真正的“重新处理变量”期间，当前楼持久化数据已经被 MVU 清掉 stat_data，但未知 root 元数据仍在。
+            // “重新处理变量”会清掉当前楼 stat_data，但 replay 根字段仍可保留；before 也可证明旧楼已成功处理。
             if(!plain(raw)||plain(raw.stat_data))return null;
-            const commit=String(raw.__samsaraWorldCommit||'');
-            if(!commit||commit!==current.fingerprint)return null;
-            return {current,raw,mvu,beforeStat:plain(before?.stat_data)?before.stat_data:null};
+            const beforeStat=plain(before?.stat_data)?before.stat_data:null;
+            const replay=raw.__samsaraWorldReplay;
+            const replayMatches=plain(replay)&&String(replay.fingerprint||'')===current.fingerprint;
+            const beforeHandled=String(beforeStat?.世界?.[PATH]?.已处理楼层||'');
+            if(!replayMatches&&beforeHandled!==current.fingerprint)return null;
+            return {current,raw,mvu,beforeStat};
         }
         worldReplaySetCycleRecovered(fingerprint,stat) {
             this.autoProgressCycleKey=this.autoProgressContextKey({fingerprint,stat});
@@ -6335,7 +6338,6 @@ ${schemaText}`;
                 }
                 if(replay&&this.applyWorldReplayPackage(variables.stat_data,replay)){
                     this.worldReplayMarkEventInternal();
-                    variables.__samsaraWorldCommit=context.current.fingerprint;
                     variables.__samsaraWorldReplay=copy(replay);
                     this.worldReplaySetCycleRecovered(context.current.fingerprint,variables.stat_data);
                     this.status=legacyRecovered?'已从旧楼状态重建并恢复世界推进结果 · 未重新调用 AI':'已恢复本楼世界推进结果 · 未重新调用 AI';
@@ -6343,10 +6345,9 @@ ${schemaText}`;
                     return true;
                 }
 
-                // commit 与当前正文指纹一致，已经证明这一楼过去确实成功推进过；缺 replay 时不需要重新计算推进间隔。
+                // before/已处理楼层已经证明这一楼过去确实成功推进过；缺 replay 时不需要重新计算推进间隔。
                 // 清掉失效处理标记，并把这一楼重新标记为 due。自动推进开启时由本分支主动安排补跑，不依赖基础 VARIABLE_UPDATE_ENDED 监听兜底。
                 this.worldReplayClearHandledForRetry(variables.stat_data,context.current.fingerprint);
-                delete variables.__samsaraWorldCommit;
                 delete variables.__samsaraWorldReplay;
                 this.worldReplaySetCycleRecovered(context.current.fingerprint,variables.stat_data);
                 if(this.config.autoProgress===true&&this.isEnabled()){
@@ -6363,43 +6364,6 @@ ${schemaText}`;
                 return false;
             }
             return super.handleWorldReplayVariableEvent(variables,before);
-        }
-        async worldReplayPersistAfterSuccess(beforeSnapshot) {
-            const fingerprint=String(beforeSnapshot?.fingerprint||'');
-            if(!fingerprint||!Number.isInteger(Number(beforeSnapshot?.id)))return false;
-            const mvu=this.env.Mvu||this.host.Mvu;
-            if(!mvu?.getMvuData||!mvu?.replaceMvuData)return false;
-            let raw;
-            try{raw=mvu.getMvuData({type:'message',message_id:Number(beforeSnapshot.id)});}catch(_){return false;}
-            if(!plain(raw)||!plain(raw.stat_data))return false;
-            if(String(raw.__samsaraWorldCommit||'')!==fingerprint)return false;
-            const existing=raw.__samsaraWorldReplay;
-            if(plain(existing)&&String(existing.fingerprint||'')===fingerprint&&Array.isArray(existing.operations)&&existing.operations.length)return false;
-            const replay=this.buildWorldReplayPackage(beforeSnapshot.stat,raw.stat_data,fingerprint);
-            if(!replay)return false;
-            const next=copy(raw);next.__samsaraWorldReplay=replay;
-            const target=this.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
-            if(target)target.__samsaraUIMutation=true;
-            try{
-                await mvu.replaceMvuData(next,{type:'message',message_id:Number(beforeSnapshot.id)});
-                return true;
-            }finally{
-                if(target){
-                    if(had)target.__samsaraUIMutation=previous;
-                    else delete target.__samsaraUIMutation;
-                }
-            }
-        }
-        async run(options={}) {
-            let before=null;
-            try{before=this.snapshot();}catch(_){}
-            const result=await super.run(options);
-            if(result===true&&before){
-                try{await this.worldReplayPersistAfterSuccess(before);}catch(error){
-                    try{console.warn('[世界推进] 恢复包持久化失败',error);}catch(_){}
-                }
-            }
-            return result;
         }
     };
     // 变量重处理缺少 replay 时，直接使用 VARIABLE_UPDATE_ENDED 传入的 variables 重新推进；不等待 MVU 二次落盘。
@@ -6424,7 +6388,6 @@ ${schemaText}`;
 
             const seed=Object.assign({},copy(context.raw),copy(variables));
             this.worldReplayClearHandledForRetry(seed.stat_data,context.current.fingerprint);
-            delete seed.__samsaraWorldCommit;
             delete seed.__samsaraWorldReplay;
             this.worldReplayMarkEventInternal();
             const previousRetrying=this.worldReplayImmediateRetrying===true;
@@ -6441,7 +6404,6 @@ ${schemaText}`;
             let finalRaw;
             try{finalRaw=context.mvu.getMvuData({type:'message',message_id:context.current.id});}catch(_){finalRaw=null;}
             if(plain(finalRaw?.stat_data))variables.stat_data=copy(finalRaw.stat_data);
-            if(finalRaw&&Object.prototype.hasOwnProperty.call(finalRaw,'__samsaraWorldCommit'))variables.__samsaraWorldCommit=finalRaw.__samsaraWorldCommit;
             if(finalRaw&&Object.prototype.hasOwnProperty.call(finalRaw,'__samsaraWorldReplay'))variables.__samsaraWorldReplay=copy(finalRaw.__samsaraWorldReplay);
             return true;
         }
@@ -6454,7 +6416,6 @@ ${schemaText}`;
                 const legacy=!validStored?this.worldReplayLegacyPackage?.(context,variables):null;
                 if(!validStored&&!legacy){
                     this.worldReplayClearHandledForRetry(variables.stat_data,context.current.fingerprint);
-                    delete variables.__samsaraWorldCommit;
                     delete variables.__samsaraWorldReplay;
                     if(this.config.autoProgress===true&&this.isEnabled()){
                         this.status='变量已重处理 · 正在重新推进本楼';

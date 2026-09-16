@@ -1,0 +1,187 @@
+name: one-shot-statusbar-player-name
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-statusbar-player-name.yml'
+permissions:
+  contents: write
+jobs:
+  direct-edit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Edit statusbar source directly
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('script/悬浮球状态栏.js')
+          text = path.read_bytes().decode('utf-8')
+          nl = '\r\n' if '\r\n' in text else '\n'
+
+          def n(s):
+              return s.replace('\n', nl)
+
+          def replace_once(old, new, label):
+              global text
+              old, new = n(old), n(new)
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly 1 match, got {count}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              "    var _ = (GS_PARENT._ || window._);\n",
+              """    var _ = (GS_PARENT._ || window._);
+
+    /* 当前酒馆 Persona：状态栏内部与其他 Samsara 模块共用同一份玩家身份。 */
+    var PLAYER_NAME = '';
+    function refreshPlayerName() {
+        try {
+            var tavern = GS_PARENT && GS_PARENT.SillyTavern;
+            var context = tavern && typeof tavern.getContext === 'function' ? tavern.getContext() : null;
+            PLAYER_NAME = String((context && context.name1) || (tavern && tavern.name1) || '').trim();
+        } catch (e) {
+            PLAYER_NAME = '';
+        }
+        try {
+            GS_PARENT.Samsara = GS_PARENT.Samsara || {};
+            GS_PARENT.Samsara.playerName = PLAYER_NAME;
+            GS_PARENT.Samsara.getPlayerName = getPlayerName;
+            GS_PARENT.Samsara.refreshPlayerName = refreshPlayerName;
+        } catch (e2) {}
+        return PLAYER_NAME;
+    }
+    function getPlayerName() {
+        return PLAYER_NAME || refreshPlayerName();
+    }
+    function isPlayerIdentity(value) {
+        var text = String(value == null ? '' : value).trim();
+        if (!text) return false;
+        var playerName = getPlayerName();
+        return (!!playerName && text === playerName)
+            || text === '<user>'
+            || text === '{{user}}'
+            || text === '玩家';
+    }
+    function canonicalPlayerIdentity(value) {
+        var text = String(value == null ? '' : value).trim();
+        return isPlayerIdentity(text) ? (getPlayerName() || text) : text;
+    }
+    function displayPlayerIdentity(value) {
+        var text = String(value == null ? '' : value).trim();
+        return isPlayerIdentity(text) ? (getPlayerName() || '玩家') : text;
+    }
+    refreshPlayerName();
+""",
+              'player identity helper insertion'
+          )
+
+          replace_once(
+              "            +   '<div class=\"ae-desc\">这里显示数据库中的全部资产，包括玩家、NPC、势力共同资产与无主遗迹；只有所属对象包含<user>的资产才启用玩家自动收菜。</div>'\n",
+              "            +   '<div class=\"ae-desc\">这里显示数据库中的全部资产，包括玩家、NPC、势力共同资产与无主遗迹；只有所属对象包含当前玩家的资产才启用玩家自动收菜。</div>'\n",
+              'asset empty-state copy'
+          )
+
+          replace_once(
+              """    function normalizeAssetOwnersUi(value) {
+        var source = Array.isArray(value) ? value : (value == null ? ['<user>'] : [value]);
+        var out = [];
+        source.forEach(function(raw) {
+            var owner = safeStr(raw).trim();
+            if (!owner || owner === '无主' || out.indexOf(owner) >= 0) return;
+            out.push(owner);
+        });
+        return out;
+    }
+    function assetOwnerChips(owners) {
+        if (!owners.length) return '<span class=\"sam-asset-owner-chip unowned\">无主</span>';
+        return '<span class=\"sam-asset-owner-list\">' + owners.map(function(owner) {
+            return '<span class=\"sam-asset-owner-chip'+(owner === '<user>' ? ' player' : '')+'\">'+esc(owner === '<user>' ? '<user> · 玩家' : owner)+'</span>';
+        }).join('') + '</span>';
+    }
+""",
+              """    function normalizeAssetOwnersUi(value) {
+        var fallbackPlayer = getPlayerName() || '<user>';
+        var source = Array.isArray(value) ? value : (value == null ? [fallbackPlayer] : [value]);
+        var out = [];
+        source.forEach(function(raw) {
+            var owner = canonicalPlayerIdentity(raw);
+            if (!owner || owner === '无主' || out.indexOf(owner) >= 0) return;
+            out.push(owner);
+        });
+        return out;
+    }
+    function assetOwnerChips(owners) {
+        if (!owners.length) return '<span class=\"sam-asset-owner-chip unowned\">无主</span>';
+        return '<span class=\"sam-asset-owner-list\">' + owners.map(function(owner) {
+            var player = isPlayerIdentity(owner);
+            var label = displayPlayerIdentity(owner);
+            return '<span class=\"sam-asset-owner-chip'+(player ? ' player' : '')+'\">'+esc(label)+'</span>';
+        }).join('') + '</span>';
+    }
+""",
+              'asset owner normalization and chips'
+          )
+
+          replace_once(
+              "        var ownerHead = owners.length === 0 ? '无主' : (owners.length === 1 ? (owners[0] === '<user>' ? '玩家' : owners[0]) : '共管 ' + owners.length);\n",
+              "        var ownerHead = owners.length === 0 ? '无主' : (owners.length === 1 ? displayPlayerIdentity(owners[0]) : '共管 ' + owners.length);\n",
+              'asset owner heading'
+          )
+
+          replace_once(
+              "    function renderAll() {\n        // 重建前失焦面板内输入框, 防止ST AutoComplete绑定已移除的输入框报错(getBoundingClientRect on null)\n",
+              "    function renderAll() {\n        refreshPlayerName();\n        // 重建前失焦面板内输入框, 防止ST AutoComplete绑定已移除的输入框报错(getBoundingClientRect on null)\n",
+              'render-time player refresh'
+          )
+
+          path.write_bytes(text.encode('utf-8'))
+          PY
+      - name: Statusbar syntax check
+        run: node --check script/悬浮球状态栏.js
+      - name: Player identity behavior check
+        run: |
+          node - <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const source = fs.readFileSync('script/悬浮球状态栏.js', 'utf8');
+          assert.match(source, /var PLAYER_NAME = '';/);
+          assert.match(source, /function refreshPlayerName\(\)/);
+          assert.match(source, /GS_PARENT\.Samsara\.playerName = PLAYER_NAME;/);
+          assert.match(source, /function isPlayerIdentity\(value\)/);
+          assert.match(source, /refreshPlayerName\(\);\s*\/\/ 重建前失焦面板内输入框/);
+          const a = source.indexOf('    function normalizeAssetOwnersUi(value) {');
+          const b = source.indexOf('    // 资产类型 → 图标', a);
+          assert.ok(a >= 0 && b > a);
+          const block = source.slice(a, b);
+          const getPlayerName = () => '测试玩家';
+          const isPlayerIdentity = value => {
+            const text = String(value ?? '').trim();
+            return text === '测试玩家' || text === '<user>' || text === '{{user}}' || text === '玩家';
+          };
+          const canonicalPlayerIdentity = value => isPlayerIdentity(value) ? getPlayerName() : String(value ?? '').trim();
+          const displayPlayerIdentity = value => isPlayerIdentity(value) ? getPlayerName() : String(value ?? '').trim();
+          const fns = new Function('safeStr','esc','getPlayerName','isPlayerIdentity','canonicalPlayerIdentity','displayPlayerIdentity', block + ';return {normalizeAssetOwnersUi,assetOwnerChips};')(
+            v => String(v ?? ''), String, getPlayerName, isPlayerIdentity, canonicalPlayerIdentity, displayPlayerIdentity
+          );
+          assert.deepEqual(fns.normalizeAssetOwnersUi(undefined), ['测试玩家']);
+          assert.deepEqual(fns.normalizeAssetOwnersUi(['<user>','{{user}}','玩家','测试玩家','盟友']), ['测试玩家','盟友']);
+          const chip = fns.assetOwnerChips(['测试玩家']);
+          assert.match(chip, /player/);
+          assert.match(chip, /测试玩家/);
+          assert.doesNotMatch(chip, /<user>/);
+          NODE
+      - name: Commit direct source edit and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/one-shot-statusbar-player-name.yml
+          git add script/悬浮球状态栏.js
+          git commit -m "fix: share Tavern player name in statusbar [task-awareness-built]"
+          git push

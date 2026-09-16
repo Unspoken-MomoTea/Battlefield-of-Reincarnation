@@ -58,8 +58,8 @@ function addDueEvent(state){
     assert.equal(x.writes(),1);
     const event=x.get().世界.后台.事件.军械库整备与资源清点;
     assert.equal(event.状态,'待发生');
-    assert.equal(event.条件,'','不得强迫模型把触发条件改写成阻碍原因');
-    assert.equal(event.下次检查,'');
+    assert.ok(!event.条件,'不得强迫模型把触发条件改写成阻碍原因');
+    assert.ok(!event.下次检查,'未处理时保持待复核即可');
     assert.equal(x.engine.lastRetryLog.length,0,'到期事件软提醒不得制造失败记录');
   }
 
@@ -68,7 +68,7 @@ function addDueEvent(state){
     x.change(addDueEvent);
     assert.equal(await x.engine.run(),true);
     const event=x.get().世界.后台.事件.军械库整备与资源清点;
-    assert.equal(event.条件,'');
+    assert.ok(!event.条件,'延期不得篡改事件触发条件');
     assert.equal(event.下次检查,'2026年9月7日下午');
     const after=JSON.parse((await x.engine.buildRequest(x.engine.snapshot())).input);
     assert.deepEqual(after.本轮必须复核的到期事件,[],'延期后在下次检查到来前保持安静');

@@ -174,25 +174,28 @@ assert.match(mvuRules, /遵照<资产与载具规则>/, '普通变量 AI 必须�
 assert.match(source, /WorldResult\.资产|资产账簿/, '世界引擎提示词必须明确资产写入职责');
 assert.match(source, /场外[^\n]{0,160}资产[^\n]{0,160}(?:新增|更新|移除|转移)|资产[^\n]{0,160}(?:新增|更新|移除|转移)/, 'Prompt 应允许世界引擎维护资产变化');
 assert.match(source, /version:20,\n        builtin:true,\n        name:'默认设置'/, '内置默认提示词应包含当前历史摘要规则版本 v20');
-assert.match(variables, /tavernPlayerName[\s\S]{0,1800}playerIdentityKeys/, '正文玩家资产投影必须读取 Tavern Persona 身份');
-assert.match(helper, /function isPlayerOwnedAsset[\s\S]{0,2200}SillyTavern[\s\S]{0,2200}playerOwnerKeys/, '自动收菜必须读取 Tavern Persona 身份');
-assert.match(settlementUi, /playerOwnerName[\s\S]{0,2400}SillyTavern[\s\S]{0,2400}playerOwnerKeys/, '结算清理必须读取 Tavern Persona 身份');
+assert.match(variables, /tavernPlayerName[\s\S]{0,1200}playerIdentityNames/, '正文玩家资产投影必须读取 Tavern Persona 身份');
+assert.match(helper, /function getPlayerName[\s\S]{0,1200}function isPlayerOwnedAsset/, '自动收菜必须直接读取 Tavern Persona 身份');
+assert.match(settlementUi, /playerOwnerName[\s\S]{0,1800}isPlayerAssetOwner/, '结算清理必须读取 Tavern Persona 身份');
 assert.match(checks, /所属对象[^\n]*(?:执行者|角色)/, '资产检定加值必须受所属对象约束');
 
 // Tavern 运行时 Persona 名才是程序身份来源；<user>/{{user}}/玩家仅用于旧存档兼容。
-const helperOwnerStart = helper.indexOf('function isPlayerOwnedAsset(');
+const helperOwnerStart = helper.indexOf('function getPlayerName(');
 const helperOwnerEnd = helper.indexOf('/** 记录资产显式删除', helperOwnerStart);
 assert.ok(helperOwnerStart >= 0 && helperOwnerEnd > helperOwnerStart, '必须能提取自动收菜资产归属判定');
 const runtimePlayerOwnsAsset = new Function(helper.slice(helperOwnerStart, helperOwnerEnd) + ';return isPlayerOwnedAsset;')();
-const previousOwnerWindow = global.window;
-global.window = { parent: { SillyTavern: { name1: '测试玩家' } } };
+const previousSillyTavern = global.SillyTavern;
+global.SillyTavern = { getContext: () => ({ name1: '测试玩家' }) };
 assert.equal(runtimePlayerOwnsAsset({所属对象:['测试玩家']}), true, '自动收菜必须识别 Tavern 当前 Persona 名');
 assert.equal(runtimePlayerOwnsAsset({所属对象:['盟友', '测试玩家']}), true, '共管资产包含当前 Persona 时仍属于玩家资产');
 assert.equal(runtimePlayerOwnsAsset({所属对象:['<user>']}), true, '旧 <user> 标记仍需兼容');
 assert.equal(runtimePlayerOwnsAsset({所属对象:['{{user}}']}), true, '旧 {{user}} 标记仍需兼容');
-assert.equal(runtimePlayerOwnsAsset({所属对象:['敌军']}), false);
-if (previousOwnerWindow === undefined) delete global.window;
-else global.window = previousOwnerWindow;
+assert.equal(runtimePlayerOwnsAsset({所属对象:['玩家']}), true, '旧 玩家 标记仍需兼容');
+assert.equal(runtimePlayerOwnsAsset({所属对象:['测试 玩家']}), false, '玩家名必须精确匹配，不能删除空格后误认');
+global.SillyTavern = { getContext: () => ({ name1: 'AB' }) };
+assert.equal(runtimePlayerOwnsAsset({所属对象:['A-B']}), false, '玩家名必须精确匹配，不能删除符号后误认');
+if (previousSillyTavern === undefined) delete global.SillyTavern;
+else global.SillyTavern = previousSillyTavern;
 
 const finalizationMatch = settlementUi.match(/          function applySettlementFinalization\(c, isLatestPanel\) \{([\s\S]*?)\n          \}\n\n          async function writeSettlementToMvu/);
 assert.ok(finalizationMatch, '必须能提取普通副本结算最终清理函数');
@@ -225,11 +228,12 @@ const settlementFixture = {
       旧版缺失归属: { 类型: '固定地产' },
       敌军据点: { 所属对象: ['敌军'], 类型: '要塞' },
       无主遗迹: { 所属对象: [], 类型: '固定地产' },
+      相似名资产: { 所属对象: ['测试 玩家'], 类型: '固定地产' },
     },
   },
 };
 const previousSettlementWindow = global.window;
-global.window = { parent: { SillyTavern: { name1: '测试玩家' } } };
+global.window = { parent: { SillyTavern: { getContext: () => ({ name1: '测试玩家' }) } } };
 assert.equal(applySettlementFinalization(settlementFixture, true), true);
 assert.deepEqual(
   Object.keys(settlementFixture.stat_data.资产).sort(),

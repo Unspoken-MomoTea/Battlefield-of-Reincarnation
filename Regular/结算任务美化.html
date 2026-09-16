@@ -2137,29 +2137,30 @@
               setValue(tasks, '副本成就', {});
 
               // 普通副本结束时只保留玩家拥有/共管的资产；纯NPC、势力或无主资产随副本清理。
-              // <user> 是提示词宏，进入数据库后可能已展开为真实 Persona 名；程序侧以 Tavern 运行时 name1 为准。
+              // <user> 是提示词宏；程序侧以 Tavern 当前 Persona 名为正式玩家身份，旧标记只做兼容。
               const assets = ensureObject(stat, '资产');
               const playerOwnerName = (() => {
                 try {
-                  const ctx = typeof getMvuContext === 'function' ? getMvuContext() : null;
-                  const win = ctx && ctx.win ? ctx.win : null;
-                  const host = win || ((typeof window !== 'undefined' && window.parent && window.parent !== window)
-                    ? window.parent
-                    : (typeof window !== 'undefined' ? window : null));
-                  const tavern = host?.SillyTavern || (typeof SillyTavern !== 'undefined' ? SillyTavern : null);
-                  return String(tavern?.name1 || tavern?.getContext?.()?.name1 || host?.name1 || '').trim();
+                  const host = (window.parent && window.parent !== window) ? window.parent : window;
+                  const tavern = host?.SillyTavern;
+                  return String(tavern?.getContext?.()?.name1 || tavern?.name1 || '').trim();
                 } catch (e) { return ''; }
               })();
-              const ownerKey = value => String(value || '').toLowerCase().replace(/[\/／·・._\-\s]+/g, '');
-              const legacyTemplateUser = '{{' + 'user}}';
-              const playerOwnerKeys = new Set([playerOwnerName, '<user>', legacyTemplateUser, '玩家'].filter(Boolean).map(ownerKey));
+              const isPlayerAssetOwner = owner => {
+                const value = String(owner || '').trim();
+                if (!value) return false;
+                return (!!playerOwnerName && value === playerOwnerName)
+                  || value === '<user>'
+                  || value === '{{user}}'
+                  || value === '玩家';
+              };
               Object.keys(assets).forEach(function(assetName) {
                 const asset = assets[assetName];
                 const rawOwners = asset && typeof asset === 'object' ? asset.所属对象 : null;
                 // 旧存档缺失所属对象时沿用既有迁移语义：视为玩家资产，避免误删。
                 if (rawOwners == null) return;
                 const owners = Array.isArray(rawOwners) ? rawOwners : [rawOwners];
-                if (owners.some(owner => playerOwnerKeys.has(ownerKey(owner)))) return;
+                if (owners.some(isPlayerAssetOwner)) return;
                 delete assets[assetName];
                 changed = true;
               });

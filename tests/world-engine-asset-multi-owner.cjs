@@ -72,16 +72,22 @@ const vars = fs.readFileSync('World Book/[variables]当前变量.txt','utf8');
 const rules = fs.readFileSync('World Book/⚙️资产与载具规则.txt','utf8');
 const source = fs.readFileSync('script/世界推进系统.js','utf8');
 
-// 直接执行辅助脚本中的两个纯函数，锁定“只有字面 <user> 才收菜”与删除墓碑行为。
-const ownerStart = helper.indexOf('function isPlayerOwnedAsset(');
+// 直接执行辅助脚本中的资产归属函数：当前 Tavern Persona 是正式身份，旧标记只作兼容。
+const ownerStart = helper.indexOf('function getPlayerName(');
 const ownerEnd = helper.indexOf('/** 记录资产显式删除', ownerStart);
 assert.ok(ownerStart >= 0 && ownerEnd > ownerStart, '必须能提取资产归属判定函数');
 const isPlayerOwnedAsset = new Function(helper.slice(ownerStart, ownerEnd) + ';return isPlayerOwnedAsset;')();
+const previousSillyTavern = global.SillyTavern;
+global.SillyTavern = { getContext: () => ({ name1: '测试玩家' }) };
+assert.equal(isPlayerOwnedAsset({所属对象:['测试玩家','白银之手']}), true);
 assert.equal(isPlayerOwnedAsset({所属对象:['<user>','白银之手']}), true);
-assert.equal(isPlayerOwnedAsset({所属对象:['玩家']}), false);
-assert.equal(isPlayerOwnedAsset({所属对象:['{{user}}']}), false);
+assert.equal(isPlayerOwnedAsset({所属对象:['玩家']}), true);
+assert.equal(isPlayerOwnedAsset({所属对象:['{{user}}']}), true);
+assert.equal(isPlayerOwnedAsset({所属对象:['测试 玩家']}), false, '玩家名必须精确匹配');
 assert.equal(isPlayerOwnedAsset({所属对象:[]}), false);
-assert.equal(isPlayerOwnedAsset({}), false, '新语义下缺失归属不能直接触发自动收菜；旧数据由 ZOD 迁移为 [<user>]');
+assert.equal(isPlayerOwnedAsset({}), false, '缺失归属不能触发自动收菜');
+if (previousSillyTavern === undefined) delete global.SillyTavern;
+else global.SillyTavern = previousSillyTavern;
 
 const syncStart = helper.indexOf('function syncRemovedAssets(');
 const syncEnd = helper.indexOf('/** 资产全自动收菜系统', syncStart);
@@ -105,14 +111,14 @@ assert.deepEqual(afterSettlementCleanup.世界.后台, {}, '副本结算清理�
 assert.match(zod, /const assetOwners[\s\S]{0,220}z\.array\(z\.string\(\)\)/, 'ZOD 必须定义所属对象字符串数组规范器');
 assert.match(zod, /所属对象:\s*assetOwners/, '资产字段必须使用统一 owner 数组规范器');
 assert.match(zod, /资产墓碑/, '后台 Schema 必须允许程序保存资产删除墓碑');
-assert.match(helper, /function isPlayerOwnedAsset[\s\S]{0,420}Array\.isArray\(asset\?\.所属对象\)[\s\S]{0,420}=== '<user>'/, '自动收菜必须只认所属对象数组里的 <user>');
-const harvestHelper = helper.slice(helper.indexOf('function isPlayerOwnedAsset'), helper.indexOf('/** 资产全自动收菜系统'));
-assert.doesNotMatch(harvestHelper, /playerName|SillyTavern|\{\{user\}\}|玩家/, '自动收菜不得再把玩家名或别名当成收菜权限');
+assert.match(helper, /function getPlayerName[\s\S]{0,1200}function isPlayerOwnedAsset/, '自动收菜必须读取 Tavern Persona 身份');
+const harvestHelper = helper.slice(helper.indexOf('function getPlayerName'), helper.indexOf('/** 资产全自动收菜系统'));
+assert.match(harvestHelper, /SillyTavern/, '自动收菜必须直接读取运行时玩家身份');
 assert.match(status, /assetOwnerChips|sam-asset-owner/, '状态栏资产卡必须展示所属对象');
 assert.match(status, /所属对象/, '状态栏经营页必须有所属对象字段');
 assert.match(status, /无主/, '空所属对象在 UI 中必须显示“无主”');
 assert.match(status, /var assets = sd\.资产 \|\| \{\}/, '状态栏经营页仍应读取并显示全部资产，而不是只过滤玩家资产');
-assert.match(vars, /Array\.isArray\(asset\?\.所属对象\)[\s\S]{0,260}=== '<user>'/, '正文玩家资产投影必须支持所属对象数组并只认 <user>');
+assert.match(vars, /playerIdentityNames[\s\S]{0,900}isPlayerOwnedAsset/, '正文玩家资产投影必须使用 Tavern Persona 与旧标记兼容');
 assert.match(rules, /空数组[^\n]*无主|\[\][^\n]*无主/, '资产规则必须明确空数组表示无主');
 assert.match(source, /version:19,\n        builtin:true,\n        name:'默认设置'/, '多主体归属语义应升级内置 Prompt 到 v19');
 assert.match(source, /资产墓碑|删除保护/, '世界引擎必须明确处理手动删除资产的防诈尸语义');

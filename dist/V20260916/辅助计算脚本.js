@@ -1508,28 +1508,30 @@
         sys.上次世界日期 = dateKey;
     }
 
+    function getPlayerName() {
+        try {
+            if (typeof SillyTavern === 'undefined') return '';
+            return String(SillyTavern.getContext?.()?.name1 || SillyTavern.name1 || '').trim();
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function isPlayerOwner(owner, playerName = getPlayerName()) {
+        const value = String(owner || '').trim();
+        if (!value) return false;
+        return (!!playerName && value === playerName)
+            || value === '<user>'
+            || value === '{{user}}'
+            || value === '玩家';
+    }
+
     function isPlayerOwnedAsset(asset) {
         const owners = Array.isArray(asset?.所属对象)
             ? asset.所属对象
             : (typeof asset?.所属对象 === 'string' ? [asset.所属对象] : []);
-        if (!owners.length) return false;
-
-        let playerName = '';
-        try {
-            let host = null;
-            try { if (typeof GS_PARENT !== 'undefined' && GS_PARENT) host = GS_PARENT; } catch (e) {}
-            if (!host && typeof window !== 'undefined') {
-                try { if (window.parent && window.parent !== window) host = window.parent; } catch (e) {}
-                if (!host) host = window;
-            }
-            const tavern = host?.SillyTavern || (typeof SillyTavern !== 'undefined' ? SillyTavern : null);
-            playerName = String(tavern?.name1 || tavern?.getContext?.()?.name1 || host?.name1 || '').trim();
-        } catch (e) {}
-
-        const ownerKey = value => String(value || '').toLowerCase().replace(/[\/／·・._\-\s]+/g, '');
-        const legacyTemplateUser = '{{' + 'user}}';
-        const playerOwnerKeys = new Set([playerName, '<user>', legacyTemplateUser, '玩家'].filter(Boolean).map(ownerKey));
-        return owners.some(owner => playerOwnerKeys.has(ownerKey(owner)));
+        const playerName = getPlayerName();
+        return owners.some(owner => isPlayerOwner(owner, playerName));
     }
 
     /** 记录资产显式删除，防止世界引擎根据旧剧情记忆把同名资产重新创建。 */

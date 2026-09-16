@@ -22,8 +22,6 @@ jobs:
         run: python tools/patch-world-request-size-cap.py
       - name: Sync settlement character lifecycle
         run: python tools/patch-settlement-character-lifecycle.py
-      - name: Sync statusbar action visibility
-        run: python tools/patch-statusbar-action-visibility.py
       - name: Sync hidden trial task identity
         run: |
           if grep -q "试炼任务名单: safeTags" script/ZOD脚本.js \
@@ -46,8 +44,6 @@ jobs:
         run: python tools/patch-world-history-memory.py
       - name: Fold history leaves into world commit
         run: python tools/patch-history-per-advance-commit.py
-      - name: Sync player-claimed asset harvest
-        run: python tools/patch-asset-harvest.py
       - name: Persist replay with primary world write
         run: python tools/patch-world-replay-single-write.py
       - name: Build delivery

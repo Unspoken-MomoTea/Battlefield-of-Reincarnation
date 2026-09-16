@@ -23,6 +23,46 @@
     var document = GS_PARENT.document;
     var _ = (GS_PARENT._ || window._);
 
+    /* 当前酒馆 Persona：状态栏内部与其他 Samsara 模块共用同一份玩家身份。 */
+    var PLAYER_NAME = '';
+    function refreshPlayerName() {
+        try {
+            var tavern = GS_PARENT && GS_PARENT.SillyTavern;
+            var context = tavern && typeof tavern.getContext === 'function' ? tavern.getContext() : null;
+            PLAYER_NAME = String((context && context.name1) || (tavern && tavern.name1) || '').trim();
+        } catch (e) {
+            PLAYER_NAME = '';
+        }
+        try {
+            GS_PARENT.Samsara = GS_PARENT.Samsara || {};
+            GS_PARENT.Samsara.playerName = PLAYER_NAME;
+            GS_PARENT.Samsara.getPlayerName = getPlayerName;
+            GS_PARENT.Samsara.refreshPlayerName = refreshPlayerName;
+        } catch (e2) {}
+        return PLAYER_NAME;
+    }
+    function getPlayerName() {
+        return PLAYER_NAME || refreshPlayerName();
+    }
+    function isPlayerIdentity(value) {
+        var text = String(value == null ? '' : value).trim();
+        if (!text) return false;
+        var playerName = getPlayerName();
+        return (!!playerName && text === playerName)
+            || text === '<user>'
+            || text === '{{user}}'
+            || text === '玩家';
+    }
+    function canonicalPlayerIdentity(value) {
+        var text = String(value == null ? '' : value).trim();
+        return isPlayerIdentity(text) ? (getPlayerName() || text) : text;
+    }
+    function displayPlayerIdentity(value) {
+        var text = String(value == null ? '' : value).trim();
+        return isPlayerIdentity(text) ? (getPlayerName() || '玩家') : text;
+    }
+    refreshPlayerName();
+
     /* ===== 2. 状态存储配置 ===== */
     var SAM_CONFIG = {
         pos: 'samsara_ball_pos_v2',
@@ -4500,6 +4540,7 @@
 
     /* ===== 17. 主渲染入口 ===== */
     function renderAll() {
+        refreshPlayerName();
         // 重建前失焦面板内输入框, 防止ST AutoComplete绑定已移除的输入框报错(getBoundingClientRect on null)
         try {
             var _ae = document.activeElement;
@@ -5776,7 +5817,7 @@
         if (keys.length === 0) return ''
             + '<div class="sam-asset-empty">'
             +   '<div class="ae-title">🏗️ 经营资产</div>'
-            +   '<div class="ae-desc">这里显示数据库中的全部资产，包括玩家、NPC、势力共同资产与无主遗迹；只有所属对象包含<user>的资产才启用玩家自动收菜。</div>'
+            +   '<div class="ae-desc">这里显示数据库中的全部资产，包括玩家、NPC、势力共同资产与无主遗迹；只有所属对象包含当前玩家的资产才启用玩家自动收菜。</div>'
             +   '<div class="ae-section"><div class="ae-h">可经营类型</div>'
             +     '<ul>'
             +       '<li><b>固定地产</b>：领地 / 庄园 / 店铺 / 秘密据点，含建设序列、驻扎人员、待办事件</li>'
@@ -5795,10 +5836,11 @@
         return html;
     }
     function normalizeAssetOwnersUi(value) {
-        var source = Array.isArray(value) ? value : (value == null ? ['<user>'] : [value]);
+        var fallbackPlayer = getPlayerName() || '<user>';
+        var source = Array.isArray(value) ? value : (value == null ? [fallbackPlayer] : [value]);
         var out = [];
         source.forEach(function(raw) {
-            var owner = safeStr(raw).trim();
+            var owner = canonicalPlayerIdentity(raw);
             if (!owner || owner === '无主' || out.indexOf(owner) >= 0) return;
             out.push(owner);
         });
@@ -5807,7 +5849,9 @@
     function assetOwnerChips(owners) {
         if (!owners.length) return '<span class="sam-asset-owner-chip unowned">无主</span>';
         return '<span class="sam-asset-owner-list">' + owners.map(function(owner) {
-            return '<span class="sam-asset-owner-chip'+(owner === '<user>' ? ' player' : '')+'">'+esc(owner === '<user>' ? '<user> · 玩家' : owner)+'</span>';
+            var player = isPlayerIdentity(owner);
+            var label = displayPlayerIdentity(owner);
+            return '<span class="sam-asset-owner-chip'+(player ? ' player' : '')+'">'+esc(label)+'</span>';
         }).join('') + '</span>';
     }
 
@@ -5860,7 +5904,7 @@
         var integCls = assetIntegClass(integ);
         var integW = Math.max(0, Math.min(100, integ));
         var owners = normalizeAssetOwnersUi(a.所属对象);
-        var ownerHead = owners.length === 0 ? '无主' : (owners.length === 1 ? (owners[0] === '<user>' ? '玩家' : owners[0]) : '共管 ' + owners.length);
+        var ownerHead = owners.length === 0 ? '无主' : (owners.length === 1 ? displayPlayerIdentity(owners[0]) : '共管 ' + owners.length);
 
         // 头部: 图标 + 名字 + 类型徽章 + 完整度 + (编辑模式)删除按钮
         var assetDelBtn = editMode ? '<button type="button" class="sam-fc-del-btn sam-asset-del" data-asset-del="' + esc(path) + '" title="删除该资产">✕</button>' : '';

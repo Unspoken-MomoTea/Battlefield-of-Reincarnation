@@ -22,8 +22,6 @@ jobs:
         run: python tools/patch-settlement-snapshot-followup.py
       - name: Sync hierarchical world history memory
         run: python tools/patch-world-history-memory.py
-      - name: Sync player-claimed asset harvest
-        run: python tools/patch-asset-harvest.py
       - name: Persist replay with primary world write
         run: python tools/patch-world-replay-single-write.py
       - name: Build delivery

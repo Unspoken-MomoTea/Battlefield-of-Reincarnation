@@ -49,11 +49,11 @@ assert.deepEqual(normalizeAssetOwners(undefined), ['测试玩家']);
 assert.deepEqual(normalizeAssetOwners(['<user>', '{{user}}', '玩家', '测试玩家', '盟友']), ['测试玩家', '盟友']);
 assert.deepEqual(normalizeAssetOwners([]), [], '显式空数组仍表示无主');
 
-// seam 3：世界推进请求看完整资产账簿，但玩家资产在请求与写回中都使用实际 Persona 名。
+// seam 3：世界推进请求读取完整资产账簿，并把旧玩家占位符只在请求投影中解析为当前 Persona 名。
 const previousSillyTavern = global.SillyTavern;
 global.SillyTavern = { getContext: () => ({ name1: '测试玩家' }), name1: '后备玩家' };
 delete require.cache[require.resolve('../script/世界推进系统.js')];
-const { projectWorldContext, compileWorldResult, applyPatches, emptyState } = require('../script/世界推进系统.js');
+const { projectWorldContext, emptyState } = require('../script/世界推进系统.js');
 const stat = emptyState();
 stat.资产 = {
   玩家旧宅: { 所属对象: ['<user>'], 类型: '固定地产', 主体规模: 1, 完整度: 100, 状态: '正常', 能源: null, 消耗单元: {}, 建设序列: {}, 驻扎人员: {}, 待办事件: [] },
@@ -66,12 +66,5 @@ assert.deepEqual(ctx.资产.玩家旧宅.所属对象, ['测试玩家']);
 assert.deepEqual(ctx.资产.共管仓库.所属对象, ['盟友', '测试玩家']);
 assert.deepEqual(ctx.资产.敌军要塞.所属对象, ['敌军']);
 
-const compiled = compileWorldResult(stat, {
-  摘要: '玩家取得新据点',
-  资产: [{ 名称: '新据点', 操作: '更新', 所属对象: ['<user>'], 类型: '固定地产', 主体规模: 1, 完整度: 100, 状态: '正常' }],
-});
-const next = applyPatches(stat, compiled.patches);
-assert.deepEqual(next.资产.新据点.所属对象, ['测试玩家']);
-
 global.SillyTavern = previousSillyTavern;
-console.log('PASS canonical player identity uses Tavern Persona name across statusbar, MVU assets and world-engine asset ledger');
+console.log('PASS canonical player identity uses Tavern Persona name across statusbar, MVU assets and world-engine request projection');

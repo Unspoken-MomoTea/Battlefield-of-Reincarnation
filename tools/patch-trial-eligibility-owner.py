@@ -62,23 +62,10 @@ text = text.replace(
 STATUSBAR.write_bytes(text.encode('utf-8'))
 
 
-# 2) 辅助计算脚本成为资格唯一写入者：正常更新、世界独立提交、脚本加载三条路径都同步。
+# 2) 辅助计算脚本成为资格唯一写入者。
+# worldCommit 不再拥有一条“提前 return 的资格补丁路径”；它会进入统一辅助计算流程，
+# 在 recalcAllCharacters 之后自然执行 checkTrialEligibility。
 aux, anl = read_preserve(AUXILIARY)
-old_world_return = block("""                updatePlayDays(statData);
-                autoHarvestAssets(statData, statDataBefore);
-                calcWorldStability(statData);
-                return;
-""", anl)
-new_world_return = block("""                updatePlayDays(statData);
-                autoHarvestAssets(statData, statDataBefore);
-                calcWorldStability(statData);
-                // 是否可试炼是程序派生状态；世界独立提交也必须保持它与当前最终属性一致。
-                if (statData.角色 && statData.系统状态) {
-                    checkTrialEligibility(statData.角色, statData.系统状态);
-                }
-                return;
-""", anl)
-aux = replace_once_or_accept(aux, old_world_return, new_world_return, 'world commit trial eligibility')
 
 eligibility_fn = block("""    function checkTrialEligibility(reincarnator, sys) {
         if (!reincarnator || !sys) return;
@@ -150,7 +137,8 @@ vars_text = replace_once_or_accept(vars_text, old_omit, new_omit, 'hide program-
 VARIABLES.write_bytes(vars_text.encode('utf-8'))
 
 
-# 4) 回归：结算入口仍只看副本/战斗；晋升入口只看程序资格；辅助脚本会修复加载态陈旧值。
+# 4) 回归：结算入口仍只看副本/战斗；晋升入口只看程序资格。
+# worldCommit 是否跳过其他辅助计算由专门的 world-commit / asset regression 负责，避免跨模块测试绑死实现细节。
 TEST.write_text("""const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
@@ -200,11 +188,10 @@ assert.match(eligible,/sam-tier-infuse-btn/);
 assert.match(source,/if \\(sys\\.是否可试炼 !== true \\|\\| sys\\.试炼已完成 === true\\)/,'apply click must honor canonical flag');
 assert.doesNotMatch(source,/liveScore < TRIAL_SCORE_THRESHOLD/,'statusbar must not duplicate helper eligibility calculation');
 
-// 程序状态 seam：辅助脚本在常规更新、世界独立提交和脚本加载时都维护资格。
-assert.match(auxiliary,/checkTrialEligibility\\(statData\\.角色, statData\\.系统状态\\);/);
+// 程序状态 seam：辅助脚本统一在变量更新路径维护资格，并在加载时修复旧存档陈旧值。
+assert.match(auxiliary,/recalcAllCharacters\\(statData, statDataBefore\\);[\\s\\S]{0,420}checkTrialEligibility\\(statData\\.角色, statData\\.系统状态\\);/);
 assert.match(auxiliary,/function reconcileTrialEligibilityState\\(\\)/);
 assert.match(auxiliary,/eventOn\\(Mvu\\.events\\.VARIABLE_UPDATE_ENDED, onUpdateData\\);[\\s\\S]{0,240}reconcileTrialEligibilityState\\(\\);/);
-assert.match(auxiliary,/世界独立提交也必须保持它与当前最终属性一致/);
 assert.match(auxiliary,/return writeBackMvu\\(function\\(latest\\)/,'load reconciliation must persist through MVU');
 
 // 所有权 seam：普通变量 AI 不再看到、也就不能覆盖程序派生的 是否可试炼。

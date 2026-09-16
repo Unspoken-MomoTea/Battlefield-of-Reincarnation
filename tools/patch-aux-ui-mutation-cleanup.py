@@ -36,6 +36,10 @@ for path in PATHS:
     if 'function isUIMutationActive()' in text or 'if (isUIMutationActive())' in text:
         raise RuntimeError(f'[ui-turn-cleanup] obsolete helper UI turn guard still present in {path}')
 
+    # 旧注释可能仍提到函数名；函数/调用已删除后这些说明也一并清掉，避免误导后续维护。
+    text = text.replace('isUIMutationActive()(主窗口多级 fallback)', '旧UI来源守卫')
+    text = text.replace('isUIMutationActive()', '旧UI来源守卫')
+
     path.write_text(text, encoding='utf-8')
 
 print('removed obsolete helper UI mutation turn guard')

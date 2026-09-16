@@ -22,6 +22,8 @@ jobs:
         run: python tools/patch-world-request-size-cap.py
       - name: Sync settlement character lifecycle
         run: python tools/patch-settlement-character-lifecycle.py
+      - name: Sync statusbar action visibility
+        run: python tools/patch-statusbar-action-visibility.py
       - name: Sync hidden trial task identity
         run: |
           if grep -q "试炼任务名单: safeTags" script/ZOD脚本.js \

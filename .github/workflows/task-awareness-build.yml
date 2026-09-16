@@ -49,7 +49,14 @@ jobs:
       - name: Sync player-claimed asset harvest
         run: python tools/patch-asset-harvest.py
       - name: Deduplicate consuming turns by assistant message
-        run: python tools/patch-aux-turn-message-dedup.py
+        run: |
+          legacy="__samsara""WorldCommit"
+          if grep -q "let lastTurnMessageKey = ''" script/辅助计算脚本.js \
+            && ! grep -R "$legacy" script tests --exclude-dir=.git; then
+            echo "message-level turn deduplication already synchronized"
+          else
+            python tools/patch-aux-turn-message-dedup.py
+          fi
       - name: Remove obsolete helper UI turn guard
         run: python tools/patch-aux-ui-mutation-cleanup.py
       - name: Persist replay with primary world write

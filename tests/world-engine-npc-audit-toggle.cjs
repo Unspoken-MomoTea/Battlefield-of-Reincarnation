@@ -62,7 +62,10 @@ function setup({reply='',validate,storedConfig}={}){
   engine.config.contextTurns=1;
   engine.config.requireMacroBackbone=false;
   engine.config.retryAttempts=1;
-  return {engine,host,getState:()=>clone(state),getStored:()=>stored};
+  return {
+    engine,host,getState:()=>clone(state),getStored:()=>stored,
+    change:mutator=>{const next=clone(state);mutator(next);state=next;}
+  };
 }
 
 (async()=>{
@@ -76,7 +79,12 @@ function setup({reply='',validate,storedConfig}={}){
     assert.equal(x.engine.setNpcBuildAuditEnabled(true),true);
     const on=await x.engine.buildRequest(x.engine.snapshot()),onPayload=JSON.parse(on.input);
     assert.equal(onPayload.角色管理.NPC构筑审计[0].名称,'玛雅','开启后热NPC才进入构筑审计');
+    assert.equal(onPayload.角色管理.NPC构筑审计[0].审计级别,'杂兵级','Ⅰ阶不应因层级之外的推断自动升级份量');
+    assert.ok(onPayload.角色管理.NPC构筑审计[0].缺口.some(x=>/装备不足 0\/2/.test(x)),'杂兵装备最低应为2');
+    assert.ok(onPayload.角色管理.NPC构筑审计[0].缺口.some(x=>/技能不足 0\/1/.test(x)),'杂兵技能最低应为1');
     assert.match(on.system,/【角色管理 · NPC构筑审计】/);
+    assert.match(on.system,/杂兵=血统1\/装备2\/技能1/);
+    assert.match(on.system,/与人物层级独立/);
     assert.equal(JSON.parse(x.getStored()).npcBuildAuditEnabled,true,'开关必须持久化到世界推进配置');
 
     x.engine.config.npcAuditPrompt='自定义审计规则标记';
@@ -87,6 +95,29 @@ function setup({reply='',validate,storedConfig}={}){
     const disabledCustom=await x.engine.buildRequest(x.engine.snapshot());
     assert.doesNotMatch(disabledCustom.system,/自定义审计规则标记/);
     assert.equal(JSON.parse(x.getStored()).npcBuildAuditEnabled,false);
+  }
+
+  {
+    const x=setup();
+    x.change(s=>{
+      const base={
+        在场:true,种族:'人类',职业:{守卫:{类型:'战斗',特性:['近战'],来源:'测试'}},HP_MAX:100,HP:100,THP:0,EP_MAX:50,EP:50,
+        状态:{},血统:{},装备:{},技能:{},形态库:{},当前形态:{激活:false,名称:''},性格:'谨慎',喜爱:'秩序',外貌:'普通',着装:'制服',
+        是否队友:false,好感度:-10,态度:'警戒',背景故事:'负责当前区域警戒。'
+      };
+      s.关系列表.高阶普通守卫={...clone(base),身份:['普通守卫'],层级:'Ⅷ'};
+      s.关系列表.低阶隐藏首领={...clone(base),身份:['隐藏Boss'],层级:'Ⅰ',背景故事:'表面普通，实际是本次遭遇的隐藏Boss。'};
+    });
+    x.engine.setNpcBuildAuditEnabled(true);
+    const request=await x.engine.buildRequest(x.engine.snapshot()),audit=JSON.parse(request.input).角色管理.NPC构筑审计;
+    const high=audit.find(item=>item.名称==='高阶普通守卫');
+    const boss=audit.find(item=>item.名称==='低阶隐藏首领');
+    assert.equal(high?.审计级别,'杂兵级','高层级不得自动升级为精英或Boss');
+    assert.ok(high?.缺口.some(x=>/装备不足 0\/2/.test(x)));
+    assert.ok(high?.缺口.some(x=>/技能不足 0\/1/.test(x)));
+    assert.equal(boss?.审计级别,'首领/Boss级','低层级角色应能按剧情身份成为Boss');
+    assert.ok(boss?.缺口.some(x=>/装备不足 0\/6/.test(x)));
+    assert.ok(boss?.缺口.some(x=>/技能不足 0\/4/.test(x)));
   }
 
   {
@@ -131,7 +162,8 @@ function setup({reply='',validate,storedConfig}={}){
     assert.match(failure,/玛雅：/,'错误必须按NPC列出具体审计结果');
     assert.match(failure,/资料缺失\/职业/,'错误必须指出缺的是职业而不是只报“审计未推进”');
     assert.match(failure,/血统不足 0\/1/,'错误必须指出血统数量缺口');
-    assert.match(failure,/装备不足 0\/1/,'错误必须指出装备数量缺口');
+    assert.match(failure,/装备不足 0\/2/,'错误必须指出装备数量缺口');
+    assert.match(failure,/技能不足 0\/1/,'错误必须指出技能数量缺口');
   }
 
   {
@@ -161,5 +193,5 @@ function setup({reply='',validate,storedConfig}={}){
     assert.match(correction,/当前阶段|自然语言原因/,'纠错提示必须明确当前阶段不是事件前因');
   }
 
-  console.log('world-engine NPC audit toggle, feedback and footer UI regression tests passed');
+  console.log('world-engine NPC audit toggle, narrative weight, feedback and footer UI regression tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

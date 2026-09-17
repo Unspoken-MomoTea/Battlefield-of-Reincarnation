@@ -38,18 +38,24 @@ assert.notDeepEqual(experience.技能,base.技能,'体验 must align skills with
 assert.deepEqual(experience.装备,base.装备,'体验 must not mutate equipment');
 assert.notDeepEqual(experience.状态.功法,base.状态.功法,'体验 must align existing statuses with the NPC life tier');
 assert.notDeepEqual(experience.形态库,base.形态库,'体验 must align forms with the NPC life tier');
-for (const [mode,expected] of [['正常','A'],['困难','SS'],['挑战','SSS']]) {
+const extraExpectations = {
+    正常: { quality: 'C', attrs: ['ATK','DEF','MATK','MDEF','AP'], attrTier: 'E' },
+    困难: { quality: 'C', attrs: ['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'], attrTier: 'C' },
+    挑战: { quality: 'B', attrs: ['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'], attrTier: 'B' }
+};
+for (const mode of ['正常','困难','挑战']) {
     const stat=run(mode);
     const npc=stat.关系列表.新;
     const boost=npc.状态.额外强化;
-    assert.equal(boost.品质,mode === '正常' ? 'C' : 'B',mode+' uses the expected entity quality');
+    const extra=extraExpectations[mode];
+    assert.equal(boost.品质,extra.quality,mode+' uses the expected extra status quality');
     assert.equal(boost.类型,'增益',mode);
     assert.equal(boost.持续,'持续',mode);
     assert.equal(boost.来源,'难度机制',mode);
     assert.equal(boost.效果,'全属性强化',mode);
-    assert.deepEqual(Object.keys(boost.原始属性),['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'],mode);
+    assert.deepEqual(Object.keys(boost.原始属性),extra.attrs,mode+' uses the expected extra status attributes');
     for (const [attr,value] of Object.entries(boost.原始属性)) {
-        assert.equal(value,mode === '困难' && attr === '体质' ? 'S' : expected,mode+' '+attr);
+        assert.equal(value,extra.attrTier,mode+' '+attr);
     }
     assert.notDeepEqual(npc.血统,base.血统,mode+' must upgrade bloodlines');
     assert.notDeepEqual(npc.技能,base.技能,mode+' must upgrade skills');
@@ -70,7 +76,7 @@ const top={设置:{难度:'挑战'},关系列表:{新:make()}};
 top.关系列表.新.层级='Ⅸ';
 apply(top,{关系列表:{}});
 assert.equal(top.关系列表.新.状态.额外强化.品质,'SSS');
-for (const value of Object.values(top.关系列表.新.状态.额外强化.原始属性)) assert.equal(value,'SSS');
+for (const value of Object.values(top.关系列表.新.状态.额外强化.原始属性)) assert.equal(value,'B');
 for (const npc of [{...make(),好感度:0},{...make(),好感度:50},{...make(),是否队友:true}]) {
     const stat={设置:{难度:'挑战'},关系列表:{新:npc}};
     const original=JSON.stringify(stat);
@@ -78,7 +84,7 @@ for (const npc of [{...make(),好感度:0},{...make(),好感度:50},{...make(),�
     assert.equal(JSON.stringify(stat),original);
 }
 assert.ok(!source.includes('难度已应用'));
-console.log('PASS: difficulty status injection, full attributes, enemy filtering, replay and caps');
+console.log('PASS: difficulty extra status rules, enemy filtering, replay and caps');
 
 function extractConst(name) {
     const start=source.indexOf('const '+name+' =');

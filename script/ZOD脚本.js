@@ -354,6 +354,18 @@ const E_occupationType = z.preprocess(v => {
     const s = String(v ?? '').trim();
     return ['战斗', '生活', '辅助'].includes(s) ? s : '辅助';
 }, z.enum(['战斗', '生活', '辅助']));
+const NPC_AUDIT_LEVELS = ['杂兵级', '精英级', '首领/Boss级'];
+function inferNpcAuditLevel(npc) {
+    const explicit = String(npc?.审计级别 ?? '').trim();
+    if (NPC_AUDIT_LEVELS.includes(explicit)) return explicit;
+    const profileText = [
+        ...(Array.isArray(npc?.身份) ? npc.身份 : []),
+        ...Object.keys(npc?.职业 || {}), npc?.背景故事, npc?.态度
+    ].filter(Boolean).join(' ');
+    if (/(?:boss|首领|领主|头目|魔王|王者|宗主|掌门|教皇|最终敌人|最终对手)/i.test(profileText)) return '首领/Boss级';
+    if (/(?:精英|精锐|王牌|核心战力|强敌)/i.test(profileText)) return '精英级';
+    return '杂兵级';
+}
 // 职业记录项（以「职业名」为键）：类型 / 特性 / 来源 —— 对应 MVU 变量更新规则中的 &occupation
 const occupation_item = strictItem(z.object({
     类型: E_occupationType.prefault('辅助'),
@@ -367,6 +379,7 @@ const npc_schema = strictItem(z.object({
     身份: safeTags([]),
     职业: z.record(z.string(), occupation_item).prefault({}),
     层级: E_rank.prefault('Ⅰ'),
+    审计级别: z.enum(NPC_AUDIT_LEVELS).optional(),
     HP_MAX: clampNum(0, 0, 99999999),
     HP: clampNum(0, 0, 99999999),
     THP: clampNum(0, 0, 99999999),
@@ -390,6 +403,7 @@ const npc_schema = strictItem(z.object({
     背景故事: safeStr(''),
     数量: clampNum(1, 1, 99999999)
 })).transform(char => {
+    char.审计级别 = inferNpcAuditLevel(char);
     // 跨节点幽灵机甲清理
     if (char.当前形态?.激活 && char.当前形态?.名称) {
         if (!char.形态库 || !char.形态库[char.当前形态.名称]) {

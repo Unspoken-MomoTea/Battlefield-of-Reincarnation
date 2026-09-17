@@ -17,6 +17,8 @@ function extract(name) {
 const context = vm.createContext({});
 vm.runInContext(`const TIER_ORDER=['F','E','D','C','B','A','S','SS','SSS'];
 const LIFE_TIER_ORDER=['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
+const ATTR_NAMES=['力量','敏捷','体质','精神','魅力'];
+const DERIVED_ATTRS=['ATK','DEF','MATK','MDEF','AP'];
 const ROMAN_TO_QUALITY=Object.fromEntries(LIFE_TIER_ORDER.map((r,i)=>[r,TIER_ORDER[i]]));
 const QUALITY_STRING_SET=Object.fromEntries(TIER_ORDER.map(q=>[q,1]));
 const QUALITY_TIER_SET=QUALITY_STRING_SET;
@@ -28,55 +30,28 @@ const run = mode => {
     apply(stat,{关系列表:{}});
     return stat;
 };
-const normal=run('体验').关系列表.新;
-assert.equal(normal.血统.血.品质,'C');
-assert.equal(normal.技能.术.品质,'C');
-assert.equal(normal.形态库.变身.层级,'Ⅳ');
-assert.equal(normal.形态库.变身.技能.招式.品质,'C');
-assert.equal(normal.血统.血.原始属性.力量,'C');
-const hard=run('正常');
-assert.equal(hard.关系列表.新.血统.血.原始属性.力量,'A');
-assert.equal(hard.关系列表.新.血统.血.原始属性.敏捷,'B');
-assert.equal(hard.关系列表.新.装备.剑.原始属性.ATK,'A');
-assert.equal(hard.关系列表.新.状态.临时.原始属性.敏捷,-5);
-const snapshot=JSON.stringify(hard);
-apply(hard,{关系列表:{新:JSON.parse(snapshot).关系列表.新}});
-assert.equal(JSON.stringify(hard),snapshot);
-const challenge=run('困难').关系列表.新;
-assert.equal(challenge.血统.血.原始属性.力量,'SS');
-assert.equal(challenge.血统.血.原始属性.体质,'S');
-assert.equal(challenge.血统.血.品质,'C');
-assert.equal(challenge.装备.剑.品质,'B');
-assert.equal(challenge.状态.功法.品质,'B');
-assert.equal(challenge.形态库.变身.层级,'Ⅴ');
-const extreme=run('挑战').关系列表.新;
-assert.equal(extreme.血统.血.品质,'B');
-assert.equal(extreme.技能.术.品质,'C');
-assert.equal(extreme.血统.血.原始属性.力量,'SSS');
-assert.equal(extreme.血统.血.原始属性.体质,'SSS');
-assert.equal(extreme.装备.剑.品质,'B');
-assert.equal(extreme.形态库.变身.层级,'Ⅴ');
-for (const [mode,steps] of [['体验',0],['正常',2],['困难',4],['挑战',6]]) {
-    const npc=make();
-    npc.血统.血.品质='SS';
-    npc.血统.血.原始属性={力量:'F',体质:'SS'};
-    npc.装备.剑.品质='SSS';
-    npc.装备.剑.原始属性.ATK='F';
-    npc.形态库.变身.层级='Ⅷ';
-    npc.形态库.变身.技能.招式.原始属性={力量:'F'};
-    const stat={设置:{难度:mode},关系列表:{新:npc}};
+const base=make();
+assert.equal(run('体验').关系列表.新.状态.额外强化,undefined);
+for (const [mode,expected] of [['正常','A'],['困难','SS'],['挑战','SSS']]) {
+    const stat=run(mode);
+    const npc=stat.关系列表.新;
+    const boost=npc.状态.额外强化;
+    assert.equal(boost.品质,'C',mode+' uses the NPC life tier as its entity quality');
+    assert.equal(boost.类型,'增益',mode);
+    assert.equal(boost.持续,'持续',mode);
+    assert.equal(boost.来源,'难度机制',mode);
+    assert.equal(boost.效果,'全属性强化',mode);
+    assert.deepEqual(Object.keys(boost.原始属性),['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'],mode);
+    for (const value of Object.values(boost.原始属性)) assert.equal(value,expected,mode);
+    assert.deepEqual(npc.血统,base.血统,mode+' must not mutate bloodlines');
+    assert.deepEqual(npc.技能,base.技能,mode+' must not mutate skills');
+    assert.deepEqual(npc.装备,base.装备,mode+' must not mutate equipment');
+    assert.deepEqual(npc.形态库,base.形态库,mode+' must not mutate forms');
+    assert.deepEqual(npc.状态.功法,base.状态.功法,mode+' must not mutate existing statuses');
+    assert.deepEqual(npc.状态.临时,base.状态.临时,mode+' must preserve numeric temporary modifiers');
+    const snapshot=JSON.stringify(stat);
     apply(stat,{关系列表:{}});
-    const expected=['F','E','D','C','B','A','S'][steps];
-    assert.equal(npc.血统.血.品质,'SS',mode);
-    assert.equal(npc.装备.剑.品质,'SSS',mode);
-    assert.equal(npc.形态库.变身.层级,'Ⅷ',mode);
-    assert.equal(npc.血统.血.原始属性.力量,expected,mode);
-    assert.equal(npc.装备.剑.原始属性.ATK,expected,mode);
-    assert.equal(npc.形态库.变身.技能.招式.原始属性.力量,expected,mode);
-    assert.equal(npc.血统.血.原始属性.体质,mode==='体验'||mode==='困难'?'SS':'SSS',mode);
-    const before=JSON.parse(JSON.stringify(stat));
-    apply(stat,before);
-    assert.equal(JSON.stringify(stat),JSON.stringify(before),mode+' must not upgrade an existing NPC twice');
+    assert.equal(JSON.stringify(stat),snapshot,mode+' must not inject the fixed status twice');
 }
 for (const before of [undefined,{关系列表:{新:make()}}]) {
     const stat={设置:{难度:'挑战'},关系列表:{新:make()}};
@@ -85,11 +60,9 @@ for (const before of [undefined,{关系列表:{新:make()}}]) {
 }
 const top={设置:{难度:'挑战'},关系列表:{新:make()}};
 top.关系列表.新.层级='Ⅸ';
-top.关系列表.新.装备.剑.原始属性.ATK='SSS';
 apply(top,{关系列表:{}});
-assert.equal(top.关系列表.新.装备.剑.品质,'SSS');
-assert.equal(top.关系列表.新.装备.剑.原始属性.ATK,'SSS');
-assert.equal(top.关系列表.新.形态库.变身.层级,'Ⅸ');
+assert.equal(top.关系列表.新.状态.额外强化.品质,'SSS');
+for (const value of Object.values(top.关系列表.新.状态.额外强化.原始属性)) assert.equal(value,'SSS');
 for (const npc of [{...make(),好感度:0},{...make(),好感度:50},{...make(),是否队友:true}]) {
     const stat={设置:{难度:'挑战'},关系列表:{新:npc}};
     const original=JSON.stringify(stat);
@@ -97,7 +70,58 @@ for (const npc of [{...make(),好感度:0},{...make(),好感度:50},{...make(),�
     assert.equal(JSON.stringify(stat),original);
 }
 assert.ok(!source.includes('难度已应用'));
-console.log('PASS: difficulty tiers, higher existing qualities, independent attributes, old NPCs, replay, nested skills and caps');
+console.log('PASS: difficulty status injection, full attributes, enemy filtering, replay and caps');
+
+function extractConst(name) {
+    const start=source.indexOf('const '+name+' =');
+    assert.ok(start >= 0,name);
+    const end=source.indexOf(';',start);
+    assert.ok(end >= 0,name);
+    return source.slice(start,end+1);
+}
+const attrContext=vm.createContext({console});
+const attrConstants=[
+    'ATTR_NAMES','DERIVED_ATTRS','CHECK_ATTRS','BONUS_KEYS','TIER_MODIFIER_CAPS','TIER_ORDER',
+    'attr5_keys_const','LIFE_TIER_ORDER','ROMAN_TO_QUALITY','QUALITY_TIER_SET','LIFE_TIER_RANGE',
+    'QUALITY_STRING_SET','GROW_QUALITY_RANGE','EQUIP_QUALITY_RANGE',
+    'REDUCTION_CAP','ALPHA','LOG_DEN','TIER_DEF_SCALE'
+].map(extractConst).join('\n');
+const attrFunctions=[
+    'isQualityString','qualitySegValue','attrSegRange','qualityToValue','resolveRealAttr','safeNum',
+    'normalizeTier','normalizeLifeTier','tierRank','calcModifier','getActiveForm','getEffectiveLifeTier','syncNpcGroupThp',
+    'recalcCharacter','calcReduction'
+].map(extract).join('\n');
+vm.runInContext(`${attrConstants}\n${attrFunctions}\nMath.random=()=>0;`,attrContext);
+const recalc=attrContext.recalcCharacter;
+const character = ({charTier='Ⅲ',formTier=null}={}) => ({
+    层级:charTier,HP:1,EP:1,最终属性:{},
+    当前形态:{激活:!!formTier,名称:formTier?'形态':''},
+    血统:{高阶血统:{品质:'S',原始属性:{力量:'F',ATK:'F'}}},
+    装备:{高阶装备:{品质:'S',类型:1,状态:1,原始属性:{敏捷:'F',DEF:'F'}}},
+    状态:{高阶状态:{品质:'S',类型:'增益',原始属性:{体质:'F',MATK:'F'}}},
+    形态库:formTier?{形态:{层级:formTier,原始属性:{精神:'F',MDEF:'F'}}}:{}
+});
+
+const capped=character();
+recalc(capped,'角色',null);
+assert.equal(capped.血统.高阶血统.真属性.力量,13,'bloodline five-stat uses the character D-tier range');
+assert.equal(capped.装备.高阶装备.真属性.敏捷,11,'equipment five-stat uses the character D-tier range');
+assert.equal(capped.状态.高阶状态.真属性.体质,13,'status five-stat uses the character D-tier range');
+assert.equal(capped.血统.高阶血统.真属性.ATK,1001,'bloodline derived stat keeps the component S-tier range');
+assert.equal(capped.装备.高阶装备.真属性.DEF,551,'equipment derived stat keeps the component S-tier range');
+assert.equal(capped.状态.高阶状态.真属性.MATK,1001,'status derived stat keeps the component S-tier range');
+
+const lowerForm=character({charTier:'Ⅱ',formTier:'Ⅰ'});
+recalc(lowerForm,'角色',null);
+assert.equal(lowerForm.血统.高阶血统.真属性.力量,6,'effective tier remains the higher character tier');
+assert.equal(lowerForm.形态库.形态.真属性.精神,2,'form five-stat always uses its own lower form tier');
+assert.equal(lowerForm.形态库.形态.真属性.MDEF,2,'form derived stat also uses its own form tier');
+
+const higherForm=character({charTier:'Ⅰ',formTier:'Ⅲ'});
+recalc(higherForm,'角色',null);
+assert.equal(higherForm.血统.高阶血统.真属性.力量,13,'a higher active form raises the effective character tier');
+assert.equal(higherForm.形态库.形态.真属性.精神,13,'form five-stat follows the form tier without downgrade');
+console.log('PASS: effective character tier caps component five-stats while forms and derived stats keep their own tiers');
 
 // 可单独运行难度回归；默认仍执行历史声望/结算检查。
 if (!process.argv.includes('--difficulty-only')) {

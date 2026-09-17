@@ -41,7 +41,7 @@ jobs:
       - name: NPC audit regression
         run: node tests/world-engine-npc-audit-toggle.cjs
       - name: World integrity regression
-        run: node tests/world-engine.cjs
+        run: node tests/world-engine-integrity-guard.cjs
       - name: Commit migration
         shell: bash
         run: |

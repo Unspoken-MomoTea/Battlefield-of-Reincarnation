@@ -18,7 +18,6 @@ variables_update_rules:
   _复用:
     生命层级: &E_life_level Ⅰ|Ⅱ|Ⅲ|Ⅳ|Ⅴ|Ⅵ|Ⅶ|Ⅷ|Ⅸ
     位格品质: &E_quality F|E|D|C|B|A|S|SS|SSS
-    审计级别: &E_npc_audit 杂兵级|精英级|首领/Boss级
     五维: &E_attr5 [力量, 敏捷, 体质, 精神, 魅力]
 
 
@@ -440,7 +439,7 @@ variables_update_rules:
     type: Map<string, NPC面板>
     check: 
        - 按<user>主观意图更新
-       - insert必须一次性包含全字段(种族/身份/审计级别/外貌/着装/血统/装备/技能)
+       - insert必须一次性包含全字段(种族/身份/外貌/着装/血统/装备/技能)
        - 未组队、不在场且<user>不再留恋时直接删除
     "[角色名]":
       在场:
@@ -451,12 +450,6 @@ variables_update_rules:
       身份: *identity
       职业: *occupation
       层级: *E_life_level
-      审计级别:
-        type: *E_npc_audit
-        check:
-          - 表示当前剧情中的战斗构筑定位，与生命层级独立；创建NPC时按剧情身份、叙事地位、实际能力与遭遇需求明确填写
-          - 获得/失去关键力量、战斗职责或剧情地位发生实质变化时重新评估并更新；普通受伤、单次胜负或短期状态不改变
-          - 若旧档或漏填，程序会按身份、职业、背景故事、态度兜底推断；已有合法值时程序不得覆盖AI判断
       ${资源值}: *resource
       THP: *thp
       状态: *buff

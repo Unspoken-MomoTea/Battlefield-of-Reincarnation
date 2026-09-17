@@ -73,7 +73,7 @@
     }
     function projectCharacterForAudit(value) {
         const source=plain(value)?value:{},out={};
-        for(const key of ['在场','种族','身份','职业','层级','审计级别','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事']){
+        for(const key of ['在场','种族','身份','职业','层级','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事']){
             if(Object.hasOwn(source,key))out[key]=copy(source[key]);
         }
         const 状态=projectAuditComponentMap(source.状态),血统=projectAuditComponentMap(source.血统),技能=projectAuditComponentMap(source.技能);
@@ -173,7 +173,7 @@
 
     function projectCharacterForWorld(value) {
         const source=plain(value)?value:{},out={};
-        for(const key of ['在场','种族','身份','职业','层级','审计级别','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事','数量']){
+        for(const key of ['在场','种族','身份','职业','层级','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事','数量']){
             if(Object.hasOwn(source,key))out[key]=copy(source[key]);
         }
         const 状态=projectAbilityMap(source.状态),血统=projectAbilityMap(source.血统),技能=projectAbilityMap(source.技能);

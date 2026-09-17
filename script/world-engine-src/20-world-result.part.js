@@ -20,7 +20,7 @@
     const RELATION_RANKS=['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
     const RELATION_QUALITIES=['F','E','D','C','B','A','S','SS','SSS'];
     const RELATION_SYNC_FIELDS={
-        在场:false,种族:'',身份:[],职业:{},层级:'Ⅰ',审计级别:'杂兵级',HP:0,THP:0,EP:0,
+        在场:false,种族:'',身份:[],职业:{},层级:'Ⅰ',HP:0,THP:0,EP:0,
         状态:{},血统:{},装备:{},技能:{},形态库:{},当前形态:{},
         性格:'',喜爱:'',外貌:'',着装:'',是否队友:false,好感度:0,态度:'',背景故事:''
     };
@@ -151,7 +151,7 @@
                 名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},
                 在场:{type:'boolean'},种族:{type:'string'},身份:relationTagsSchema(),
                 职业:{type:'object',additionalProperties:copy(RELATION_OCCUPATION_SCHEMA),maxProperties:12},
-                层级:{type:'string',enum:copy(RELATION_RANKS)},审计级别:{type:'string',enum:['杂兵级','精英级','首领/Boss级']},HP:{type:'number',minimum:0,maximum:99999999},
+                层级:{type:'string',enum:copy(RELATION_RANKS)},HP:{type:'number',minimum:0,maximum:99999999},
                 THP:{type:'number',minimum:0,maximum:99999999},EP:{type:'number',minimum:0,maximum:99999999},
                 状态:{type:'object',additionalProperties:copy(RELATION_STATUS_SCHEMA),maxProperties:12},
                 血统:{type:'object',additionalProperties:copy(RELATION_BLOODLINE_SCHEMA),maxProperties:2},

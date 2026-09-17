@@ -85,7 +85,6 @@ function setup({reply='',validate,storedConfig}={}){
     assert.match(on.system,/【角色管理 · NPC构筑审计】/);
     assert.match(on.system,/杂兵=血统1\/装备2\/技能1/);
     assert.match(on.system,/与人物层级独立/);
-    assert.match(on.system,/优先读取NPC已有审计级别/);
     assert.equal(JSON.parse(x.getStored()).npcBuildAuditEnabled,true,'开关必须持久化到世界推进配置');
 
     x.engine.config.npcAuditPrompt='自定义审计规则标记';
@@ -108,20 +107,17 @@ function setup({reply='',validate,storedConfig}={}){
       };
       s.关系列表.高阶普通守卫={...clone(base),身份:['普通守卫'],层级:'Ⅷ'};
       s.关系列表.低阶隐藏首领={...clone(base),身份:['隐藏Boss'],层级:'Ⅰ',背景故事:'表面普通，实际是本次遭遇的隐藏Boss。'};
-      s.关系列表.显式降级首领={...clone(base),身份:['首领'],层级:'Ⅷ',审计级别:'杂兵级',背景故事:'曾经是首领，但当前只是普通守门人。'};
     });
     x.engine.setNpcBuildAuditEnabled(true);
     const request=await x.engine.buildRequest(x.engine.snapshot()),audit=JSON.parse(request.input).角色管理.NPC构筑审计;
     const high=audit.find(item=>item.名称==='高阶普通守卫');
     const boss=audit.find(item=>item.名称==='低阶隐藏首领');
-    const explicit=audit.find(item=>item.名称==='显式降级首领');
     assert.equal(high?.审计级别,'杂兵级','高层级不得自动升级为精英或Boss');
     assert.ok(high?.缺口.some(x=>/装备不足 0\/2/.test(x)));
     assert.ok(high?.缺口.some(x=>/技能不足 0\/1/.test(x)));
     assert.equal(boss?.审计级别,'首领/Boss级','低层级角色应能按剧情身份成为Boss');
     assert.ok(boss?.缺口.some(x=>/装备不足 0\/6/.test(x)));
     assert.ok(boss?.缺口.some(x=>/技能不足 0\/4/.test(x)));
-    assert.equal(explicit?.审计级别,'杂兵级','已有合法审计级别必须优先于关键词推断');
   }
 
   {

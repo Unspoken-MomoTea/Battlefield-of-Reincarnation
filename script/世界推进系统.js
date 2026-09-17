@@ -1167,7 +1167,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const RELATION_RANKS=['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
     const RELATION_QUALITIES=['F','E','D','C','B','A','S','SS','SSS'];
     const RELATION_SYNC_FIELDS={
-        在场:false,种族:'',身份:[],职业:{},层级:'Ⅰ',审计级别:'杂兵级',HP:0,THP:0,EP:0,
+        在场:false,种族:'',身份:[],职业:{},层级:'Ⅰ',HP:0,THP:0,EP:0,
         状态:{},血统:{},装备:{},技能:{},形态库:{},当前形态:{},
         性格:'',喜爱:'',外貌:'',着装:'',是否队友:false,好感度:0,态度:'',背景故事:''
     };
@@ -1298,7 +1298,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 名称:{type:'string',minLength:1},操作:{type:'string',enum:['更新','撤销本轮']},
                 在场:{type:'boolean'},种族:{type:'string'},身份:relationTagsSchema(),
                 职业:{type:'object',additionalProperties:copy(RELATION_OCCUPATION_SCHEMA),maxProperties:12},
-                层级:{type:'string',enum:copy(RELATION_RANKS)},审计级别:{type:'string',enum:['杂兵级','精英级','首领/Boss级']},HP:{type:'number',minimum:0,maximum:99999999},
+                层级:{type:'string',enum:copy(RELATION_RANKS)},HP:{type:'number',minimum:0,maximum:99999999},
                 THP:{type:'number',minimum:0,maximum:99999999},EP:{type:'number',minimum:0,maximum:99999999},
                 状态:{type:'object',additionalProperties:copy(RELATION_STATUS_SCHEMA),maxProperties:12},
                 血统:{type:'object',additionalProperties:copy(RELATION_BLOODLINE_SCHEMA),maxProperties:2},
@@ -2336,7 +2336,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     }
     function projectCharacterForAudit(value) {
         const source=plain(value)?value:{},out={};
-        for(const key of ['在场','种族','身份','职业','层级','审计级别','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事']){
+        for(const key of ['在场','种族','身份','职业','层级','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事']){
             if(Object.hasOwn(source,key))out[key]=copy(source[key]);
         }
         const 状态=projectAuditComponentMap(source.状态),血统=projectAuditComponentMap(source.血统),技能=projectAuditComponentMap(source.技能);
@@ -2436,7 +2436,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     function projectCharacterForWorld(value) {
         const source=plain(value)?value:{},out={};
-        for(const key of ['在场','种族','身份','职业','层级','审计级别','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事','数量']){
+        for(const key of ['在场','种族','身份','职业','层级','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事','数量']){
             if(Object.hasOwn(source,key))out[key]=copy(source[key]);
         }
         const 状态=projectAbilityMap(source.状态),血统=projectAbilityMap(source.血统),技能=projectAbilityMap(source.技能);
@@ -4844,7 +4844,7 @@ ${schemaText}`;
     // NPC 构筑份量与生命层级解耦：份量由人物资料中的剧情定位决定，层级只描述本体强度。
     const NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT=`【角色管理 · NPC构筑审计】
 只处理“角色管理.NPC构筑审计”列出的既有 NPC；目标是补真实缺口，不是提难度、改层级或重做角色。
-1. 优先读取NPC已有审计级别（杂兵级/精英级/首领/Boss级），它与人物层级独立；只有缺失或非法时才由程序按身份、职业、背景故事、态度兜底推断。若本轮剧情中获得/失去关键力量、战斗职责或剧情地位已实质变化，可通过WorldResult.关系同步更新审计级别与必要构筑；不得因普通受伤、单次胜负或层级高低机械改级。
+1. 审计级别只依据既有身份、职业、背景故事、态度体现的剧情份量判断，与人物层级独立；低阶可以是精英/Boss，高阶也不会自动升级。不得为了通过审计临时改写人物份量。
 2. 最低构筑：杂兵=血统1/装备2/技能1；精英=血统1/装备4/技能2；Boss=血统1/装备6/技能4。血统默认1项；只有明确多重血统设定才增加。装备与技能可按真实设定超过最低数，但不得拆分、复制或堆同义能力凑数。最低装备数只统计状态=1的已装备项；状态0/2不计入构筑数量。
 3. 审计新增装备统一写状态=1并视为已装备；状态0仅用于剧情明确的随身未装备物，状态2仅用于仓库物，不得用0/2凑最低装备数。
 4. 精英需有杀伤、生存、机动/控制手段；Boss另有阶段、形态、状态切换或等价战斗机制。
@@ -4853,8 +4853,6 @@ ${schemaText}`;
 7. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、剧情定位、层级和已演出能力一致的缺口，资料不足时做最小补全。`;
 
     function npcNarrativeAuditLevel(npc) {
-        const explicit=String(npc?.审计级别||'').trim();
-        if(['杂兵级','精英级','首领/Boss级'].includes(explicit))return explicit;
         const profileText=[...(Array.isArray(npc?.身份)?npc.身份:[]),...Object.keys(npc?.职业||{}),npc?.背景故事,npc?.态度].filter(Boolean).join(' ');
         const bossHint=/(?:boss|首领|领主|头目|魔王|王者|宗主|掌门|教皇|最终敌人|最终对手)/i.test(profileText);
         if(bossHint)return '首领/Boss级';
@@ -4915,7 +4913,7 @@ ${schemaText}`;
             const currentPrompt=String(this.config.npcAuditPrompt||'');
             const previousNarrativeDefault=currentPrompt.includes('审计级别只依据既有身份、职业、背景故事、态度体现的剧情份量判断')
                 &&currentPrompt.includes('最低构筑：杂兵=血统1/装备2/技能1')
-                &&!currentPrompt.includes('优先读取NPC已有审计级别');
+                &&!currentPrompt.includes('审计新增装备统一写状态=1');
             if(!currentPrompt.trim()||currentPrompt===NPC_BUILD_AUDIT_RULES||previousNarrativeDefault){
                 this.config.npcAuditPrompt=NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT;
             }

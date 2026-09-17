@@ -20,6 +20,18 @@ jobs:
           python-version: '3.12'
       - name: Apply migration
         run: python tools/migrate-private-npc-audit.py
+      - name: Preserve tier independence wording
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('script/world-engine-src/55-npc-narrative-audit.part.js')
+          text=p.read_text(encoding='utf-8')
+          old='1. 审计级别是世界推进私有信息'
+          new='1. 审计级别与人物层级独立，是世界推进私有信息'
+          assert old in text
+          p.write_text(text.replace(old,new,1),encoding='utf-8',newline='\n')
+          PY
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax checks

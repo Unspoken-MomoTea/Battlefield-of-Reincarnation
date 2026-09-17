@@ -111,24 +111,27 @@
     ? `${grades[targetIndex]}~${grades[singleUpperIndex]}`
     : (trialData ? trialData.difficulty : `${targetGrade}~${targetGrade}`);
   const playerRewardBases = [100, 500, 2500, 12000, 50000, 200000, 800000, 3200000, 12800000];
-  // 晋升试炼直接使用目标层级的基础奖励，不再按当前层级倍率换算。
-  const trialRewardPool = playerRewardBases[targetIndex];
+  // 晋升试炼与主神任务共用独立任务奖励规则：玩家当前层级基数 × 单项任务难度倍率。
+  const taskRewardBase = playerRewardBases[currentIndex];
+  const rewardMultiplierForGradeIndex = gradeIndex => {
+    const delta = gradeIndex - currentIndex;
+    return delta < 0 ? 0.5 : Math.min(3, 1 + delta * 0.5);
+  };
+  const rewardForGradeIndex = gradeIndex => Math.max(
+    10,
+    Math.floor(taskRewardBase * rewardMultiplierForGradeIndex(gradeIndex) / 10) * 10
+  );
   const taskLabels = ['任务一', '任务二', '任务三', '任务四', '任务五'];
   const taskCount = isSingleWorld ? 1 : (trialData ? trialData.taskCount : 1);
   const taskGradeIndexes = Array.from({ length: taskCount }, (_, idx) => {
     if (taskCount === 1) return trialUpperIndex;
     return Math.round(targetIndex + (trialUpperIndex - targetIndex) * idx / (taskCount - 1));
   });
-  const taskWeights = taskGradeIndexes.map(index => Math.max(1, index - targetIndex + 1));
-  const taskWeightSum = taskWeights.reduce((sum, value) => sum + value, 0);
-  let allocatedReward = 0;
-  const taskPlans = taskGradeIndexes.map((gradeIndex, idx) => {
-    const reward = idx === taskGradeIndexes.length - 1
-      ? Math.max(10, trialRewardPool - allocatedReward)
-      : Math.max(10, Math.floor(trialRewardPool * taskWeights[idx] / taskWeightSum / 10) * 10);
-    allocatedReward += reward;
-    return { label: taskLabels[idx], difficulty: grades[gradeIndex], reward };
-  });
+  const taskPlans = taskGradeIndexes.map((gradeIndex, idx) => ({
+    label: taskLabels[idx],
+    difficulty: grades[gradeIndex],
+    reward: rewardForGradeIndex(gradeIndex),
+  }));
   // 试炼成就比普通副本额外提高一级上限；六档仍由程序固定，AI只写名称和条件。
   const achievementCapIndex = Math.min(8, currentIndex + 3, trialUpperIndex + 2);
   const fiveStarIndex = Math.max(0, achievementCapIndex - 1);
@@ -174,9 +177,10 @@ _%>
   - 目标品质: <%- targetGrade %>
   - 试炼难度区间: <%- lockedDifficulty %>
   - 任务数量: <%- taskCount %>
-  - 试炼任务总奖励池: <%- trialRewardPool %>空间币（直接读取目标层级基础奖励）
+  - 空间币基数: <%- taskRewardBase %>空间币（玩家当前层级基础奖励；每项任务独立计算，不共享总奖励池）
 
 任务内容强度锁:
+  - 每项任务独立按“玩家当前层级基数 × 该任务难度倍率”计算空间币；低于玩家×0.5、同级×1、高1级×1.5、高2级×2、高3级×2.5、高4级及以上×3封顶
   - 任务难度与空间币必须严格复制下方锁定方案，禁止重算、调换、增减或追加奖励
   - 锁定方案: <%- taskPlans.map(task => `${task.label}【难度:${task.difficulty}｜奖励:${task.reward}空间币】`).join('；') %>
   - 若任务内容与评级不符，必须重写目标、阻力、限制或失败代价，禁止修改锁定评级
@@ -291,7 +295,7 @@ _%>
   - 试炼表现为当前世界局势中自然出现的局部突破契机；不得宣称主神改写世界底层法则
   - 试炼任务只允许新增1项【委托方=晋升试炼】的任务
   - 不得生成副本成就、成就盲盒、试炼成就列表或任何等价成就奖励；任务.副本成就必须保持为空
-  - 单项试炼任务同样发放锁定的高额空间币；全部完成并结算后额外取得晋升资格
+  - 单项试炼任务同样发放锁定的空间币；全部完成并结算后额外取得晋升资格
   - 不得承诺离开当前世界、世界清空、跨界结算或回归主神空间
 
 当前世界内容锁:

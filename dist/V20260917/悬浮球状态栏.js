@@ -4190,14 +4190,14 @@
 
         var difficulty = ['体验', '正常', '困难', '挑战'].indexOf(cfg.难度) >= 0 ? cfg.难度 : '体验';
         var difficultyNotes = {
-            '体验': '血统、技能、装备、状态和形态至少与人物生命层级齐平，原始属性不额外提升。',
-            '正常': '体验基础上，原始属性品质提升 2 阶。',
-            '困难': '原始属性品质提升 4 阶，体质保底 S；血统、技能至少与人物生命层级齐平，装备、状态、形态至少高于人物生命层级 1 阶。',
-            '挑战': '原始属性品质提升 6 阶，体质 SSS；血统、装备、状态、形态至少高于人物生命层级 1 阶，技能至少与人物生命层级齐平。'
+            '体验': '血统、技能、装备、状态和形态至少与人物生命层级齐平，原始属性不额外提升；不生成“额外强化”状态。',
+            '正常': '体验基础上，原始属性品质提升 2 阶；额外获得与人物生命层级同级品质的“额外强化”，仅衍生属性（ATK/DEF/MATK/MDEF/AP）为 E。',
+            '困难': '原始属性品质提升 4 阶，体质保底 S；血统、技能至少与人物生命层级齐平，装备、状态、形态至少高于人物生命层级 1 阶；“额外强化”状态品质与人物生命层级同级，五维与衍生属性均为 C。',
+            '挑战': '原始属性品质提升 6 阶，体质 SSS；血统、装备、状态、形态至少高于人物生命层级 1 阶，技能至少与人物生命层级齐平；“额外强化”状态品质比人物生命层级高 1 阶，五维与衍生属性均为 B。'
         };
         html += secBlock('⚔️ 难度 (实验功能)', '<div id="sam-difficulty-note" aria-live="polite" style="margin-bottom:10px;min-height:3em;font-size:12px;line-height:1.5;color:var(--sam-sub);">'+difficultyNotes[difficulty]+'</div><div role="group" aria-label="难度选择" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;">' + ['体验', '正常', '困难', '挑战'].map(function(mode) {
             return '<button type="button" class="sam-varmode-btn '+(difficulty===mode?'active':'')+'" data-difficulty="'+mode+'" aria-pressed="'+(difficulty===mode?'true':'false')+'" style="text-align:center;padding:9px 4px;">'+mode+'</button>';
-        }).join('') + '</div><div style="margin-top:8px;color:var(--sam-sub);font-size:11px;">仅影响后续新建且好感度为负的非队友 NPC。各组件仅补足所选标准，已有更高品质不降低；原始属性仍独立提升，困难/挑战的体质按固定档位补足。品质最高 SSS，生命层级最高 Ⅸ。</div>');
+        }).join('') + '</div><div style="margin-top:8px;color:var(--sam-sub);font-size:11px;">仅影响后续新建且好感度为负的非队友 NPC。各组件仅补足所选标准，已有更高品质不降低；原始属性仍独立提升，困难/挑战的体质按固定档位补足。“额外强化”仅在正常/困难/挑战生成，状态品质最高 SSS；生命层级最高 Ⅸ。</div>');
         var variableMode = getVariableApiMode();
         var variableModeHtml = '<div class="sam-varmode-grid">'
   + '<button type="button" class="sam-varmode-btn '+(variableMode==='额外API'?'active':'')+'" data-variable-api-mode="额外API">'

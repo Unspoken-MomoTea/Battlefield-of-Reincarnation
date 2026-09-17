@@ -840,10 +840,12 @@
      *   - 状态：基础/衍生属性均支持字母→数值，数字则原样保留
      * @param {object} item 实体（血统/装备/状态/形态）
      * @param {'blood'|'equip'|'form'|'status'} kind 来源类型
-     * @param {object} [itemBefore] 保留参数(已不依赖；区间校验取代 before 对比)
+     * @param {object} [itemBefore] 上一帧实体（检测实体品质变化）
+     * @param {string} [effectiveTier] 有效角色层级对应品质；仅限制非形态来源的五维主区间
+     * @param {string} [effectiveTierBefore] 上一帧有效角色层级对应品质
      * @returns {object} 真属性对象（数值）
      */
-    function resolveRealAttr(item, kind, itemBefore) {
+    function resolveRealAttr(item, kind, itemBefore, effectiveTier, effectiveTierBefore) {
         if (!item || typeof item !== 'object') return {};
         const raw = item.原始属性;
         if (!raw || typeof raw !== 'object') return item.真属性 || {};
@@ -851,14 +853,22 @@
         const real = item.真属性;
         // 形态字段已由"品质"改为"层级"(Ⅰ~Ⅸ); normalizeTier 兼容罗马数字自动归正为品质字母; 旧存档 品质 字段兜底
         const it = normalizeTier(item.层级 != null ? item.层级 : item.品质);
+        const capFiveTier = (itemTier, capTier) => {
+            if (kind === 'form' || capTier == null) return itemTier;
+            return TIER_ORDER[Math.min(tierRank(itemTier), tierRank(capTier))];
+        };
+        const fiveTier = capFiveTier(it, effectiveTier);
         // ★ Bug 修复: 实体整体层级变化(Ⅰ→Ⅱ…)时强制重算所有品质型属性, 不依赖"区间校验"碰运气
         //   原因: 区间校验(seg range)在 item.层级 改变时会整体位移, 旧真属性可能恰好落在新区间内
         //         → inSeg 命中 → 不重算 → 真属性停留在旧层级档位; 故此处显式比对 itemBefore 的层级变化。
         let tierChanged = false;
+        let fiveTierChanged = false;
         if (itemBefore && typeof itemBefore === 'object') {
             const beforeTierRaw = itemBefore.层级 != null ? itemBefore.层级 : itemBefore.品质;
             const beforeIt = normalizeTier(beforeTierRaw);
             if (beforeIt !== it) tierChanged = true;
+            const beforeFiveTier = capFiveTier(beforeIt, effectiveTierBefore != null ? effectiveTierBefore : effectiveTier);
+            if (beforeFiveTier !== fiveTier) fiveTierChanged = true;
         }
         for (const k of Object.keys(raw)) {
             const v = raw[k];
@@ -867,6 +877,9 @@
             //   ★ 区间校验独立于 before：旧真属性落在当前档位区间内 → 保留；否则重随机
             const tier = isQ ? normalizeTier(v) : null;
             if (isQ) {
+                // 血统/装备/状态的五维主区间不得高于有效角色层级；
+                // 形态五维及所有衍生属性仍使用组件自身品质/层级。
+                const itemTier = attr5_keys_const.includes(k) && kind !== 'form' ? fiveTier : it;
                 // 区间校验(独立于 before): 旧真属性若落在当前品质算出的档位区间
                 //   [segBase+1, segBase+w] 内 → 品质未变 → 保留旧随机数(穿脱装备不跳变);
                 //   落在区间外(单项品质字母变 / 实体整体品质变) → 品质变化 → 重随机。
@@ -876,10 +889,11 @@
                 //     (层级字段属于只读保护字段, clone before 保留用户编辑前的层级), 故显式判定 tierChanged
                 //     时强制重算, 覆盖区间校验可能漏判的情况。
                 const old = real[k];
-                const [segLo, segHi] = attrSegRange(k, tier, it, kind);
+                const [segLo, segHi] = attrSegRange(k, tier, itemTier, kind);
                 const inSeg = typeof old === 'number' && isFinite(old) && old >= segLo && old <= segHi;
-                if (!inSeg || tierChanged) {
-                    real[k] = qualityToValue(k, tier, it, kind);
+                const effectiveTierChanged = attr5_keys_const.includes(k) && kind !== 'form' && fiveTierChanged;
+                if (!inSeg || tierChanged || effectiveTierChanged) {
+                    real[k] = qualityToValue(k, tier, itemTier, kind);
                 }
                 // inSeg 且 !tierChanged 时保留 real[k]（旧随机数）不重随机
             } else {
@@ -991,37 +1005,24 @@
         if (!['体验', '正常', '困难', '挑战'].includes(mode)) return;
         const before = statDataBefore.关系列表 || {};
         const steps = { '体验': 0, '正常': 2, '困难': 4, '挑战': 6 }[mode];
+        if (steps === 0) return;
+        const boostedAttrs = [...ATTR_NAMES, ...DERIVED_ATTRS];
         for (const [name, npc] of Object.entries(statData.关系列表 || {})) {
             if (!npc || typeof npc !== 'object' || Object.hasOwn(before, name)) continue;
             if (npc.是否队友 === true || !(Number(npc.好感度) < 0)) continue;
             const life = LIFE_TIER_ORDER.indexOf(normalizeLifeTier(npc.层级));
-            function upgrade(item, kind) {
-                if (!item || typeof item !== 'object') return;
-                const aboveLife = (mode === '困难' || mode === '挑战') && ['装备', '状态', '形态库'].includes(kind)
-                    || mode === '挑战' && kind === '血统';
-                const floor = Math.min(8, life + (aboveLife ? 1 : 0));
-                const rank = Math.max(floor, tierRank(item.层级 ?? item.品质));
-                if (kind === '形态库' || item.层级 != null) item.层级 = LIFE_TIER_ORDER[rank];
-                else item.品质 = TIER_ORDER[rank];
-                const raw = item.原始属性;
-                if (raw && typeof raw === 'object') {
-                    const constitutionFloor = mode === '挑战' ? 'SSS' : mode === '困难' ? 'S' : null;
-                    const fixedConstitution = constitutionFloor && (kind === '血统' || kind === '形态库' || Object.hasOwn(raw, '体质'));
-                    const originalConstitution = raw.体质;
-                    for (const key of Object.keys(raw)) {
-                        if (key === '体质' && fixedConstitution) continue;
-                        // 数字型临时加减值及 0 不属于品质阶位，保持其语义。
-                        if (isQualityString(raw[key])) raw[key] = TIER_ORDER[Math.min(8, tierRank(raw[key]) + steps)];
-                    }
-                    // 固定体质档位只补足下限，原本高于标准的体质不降级。
-                    if (fixedConstitution) raw.体质 = TIER_ORDER[Math.max(tierRank(constitutionFloor), isQualityString(originalConstitution) ? tierRank(originalConstitution) : 0)];
-                    item.真属性 = {};
-                }
-                for (const skill of Object.values(item.技能 || {})) upgrade(skill, '技能');
-            }
-            for (const kind of ['血统', '技能', '装备', '状态', '形态库']) {
-                for (const item of Object.values(npc[kind] || {})) upgrade(item, kind);
-            }
+            const baseRank = life >= 0 ? life : 0;
+            if (!npc.状态 || typeof npc.状态 !== 'object') npc.状态 = {};
+            if (npc.状态.额外强化) continue;
+            const attrTier = TIER_ORDER[Math.min(8, baseRank + steps)];
+            npc.状态.额外强化 = {
+                类型: '增益',
+                品质: TIER_ORDER[baseRank],
+                持续: '持续',
+                来源: '难度机制',
+                原始属性: Object.fromEntries(boostedAttrs.map(attr => [attr, attrTier])),
+                效果: '全属性强化'
+            };
         }
     }
 
@@ -1077,6 +1078,15 @@
         const entry = char.形态库 && char.形态库[name];
         if (!entry || typeof entry !== 'object') return null;
         return entry;
+    }
+
+    /** 有效角色层级 = 角色自身层级与当前激活形态层级中的较高者。 */
+    function getEffectiveLifeTier(char, activeForm) {
+        const charTier = normalizeLifeTier(char && char.层级);
+        const formTierRaw = activeForm && (activeForm.层级 != null ? activeForm.层级 : activeForm.品质);
+        const formTier = formTierRaw != null ? normalizeLifeTier(formTierRaw) : null;
+        if (formTier && LIFE_TIER_ORDER.indexOf(formTier) > LIFE_TIER_ORDER.indexOf(charTier)) return formTier;
+        return charTier;
     }
 
     /**
@@ -1194,6 +1204,10 @@
         const activeForm = getActiveForm(char);
         const formActive = activeForm !== null;
         const activeFormBefore = charBefore ? getActiveForm(charBefore) : null;
+        const effectiveLifeTier = getEffectiveLifeTier(char, activeForm);
+        const effectiveTier = ROMAN_TO_QUALITY[effectiveLifeTier] || 'F';
+        const effectiveLifeTierBefore = charBefore ? getEffectiveLifeTier(charBefore, activeFormBefore) : effectiveLifeTier;
+        const effectiveTierBefore = ROMAN_TO_QUALITY[effectiveLifeTierBefore] || 'F';
         // 形态激活：形态真属性直接累加到血统之上，不再二选一替代血统
         // ★ 新机制：原始属性是品质字母，需 resolveRealAttr 转成 真属性(数值) 再累加
         //   传入 before：品质未变复用上一轮随机数，品质变化才重随机（避免穿脱装备跳变）
@@ -1215,7 +1229,7 @@
         Object.entries(状态).forEach(([sname, s]) => {
             if (s && typeof s === 'object' && s.原始属性) {
                 const sb = 状态Before[sname];
-                const rs = resolveRealAttr(s, 'status', sb);
+                const rs = resolveRealAttr(s, 'status', sb, effectiveTier, effectiveTierBefore);
                 // ★ 减益状态: 原始属性为字母品质时, 该项真属性以负数计入最终五维
                 //   (真属性本身保持正值不变, 以维持 resolveRealAttr 的档位区间缓存稳定;
                 //    数值型原始属性按原逻辑正负原样累加, 不做处理)
@@ -1237,7 +1251,7 @@
             if (!e || typeof e !== 'object' || e.状态 !== 1) return;
             if (!e.原始属性 || typeof e.原始属性 !== 'object') return;
             const eb = 装备Before[ename];
-            const re = resolveRealAttr(e, 'equip', eb);
+            const re = resolveRealAttr(e, 'equip', eb, effectiveTier, effectiveTierBefore);
             ATTR_NAMES.forEach(a => { equipSix[a] += safeNum(re[a]); });
         });
 
@@ -1247,7 +1261,7 @@
         Object.entries(血统).forEach(([bname, b]) => {
             if (b && typeof b === 'object' && b.原始属性) {
                 const bb = 血统Before[bname];
-                const rb = resolveRealAttr(b, 'blood', bb);
+                const rb = resolveRealAttr(b, 'blood', bb, effectiveTier, effectiveTierBefore);
                 ATTR_NAMES.forEach(a => { bloodSix[a] += safeNum(rb[a]); });
             }
         });
@@ -1266,17 +1280,7 @@
         //   例：层级Ⅰ→单维上限29+1=30；超过30则截断到30
         // ★ 形态激活时，上限层级取"形态层级 vs 角色自身层级"中较高者：
         //   形态层级更高 → 以形态层级为截断上限；否则仍以角色自身层级截断
-        let lt = normalizeLifeTier(char.层级);
-        if (formActive && activeForm) {
-            // 形态.层级为生命层级(Ⅰ~Ⅸ)；旧存档可能用品质字段兜底
-            const formTierRaw = activeForm.层级 != null ? activeForm.层级 : activeForm.品质;
-            const formLt = normalizeLifeTier(formTierRaw);
-            const charIdx = LIFE_TIER_ORDER.indexOf(lt);
-            const formIdx = LIFE_TIER_ORDER.indexOf(formLt);
-            if (formIdx > charIdx) {
-                lt = formLt; // 形态层级更高，以形态层级作为单维上限
-            }
-        }
+        const lt = effectiveLifeTier;
         const lifeCap = LIFE_TIER_RANGE[lt] ? (LIFE_TIER_RANGE[lt][1] + 1) : Infinity;
         ATTR_NAMES.forEach(a => {
             finalBase[a] = Math.min(finalBase[a], lifeCap);
@@ -1308,7 +1312,7 @@
             if (!e || typeof e !== 'object' || e.状态 !== 1) return;
             if (!e.原始属性) return;
             const eb = 装备Before[wname];
-            const re = resolveRealAttr(e, 'equip', eb);
+            const re = resolveRealAttr(e, 'equip', eb, effectiveTier, effectiveTierBefore);
             if (safeNum(e.类型, 0) === 0) {
                 // 武器: ATK/MATK单独记录, 其他属性(DEF/MDEF/AP/检定)仍计入bonus
                 weapons.push({ name: wname, atk: safeNum(re.ATK), matk: safeNum(re.MATK) });
@@ -1326,7 +1330,7 @@
         Object.entries(状态).forEach(([sname, s]) => {
             if (s && typeof s === 'object' && s.原始属性) {
                 const sb = 状态Before[sname];
-                const rs = resolveRealAttr(s, 'status', sb);
+                const rs = resolveRealAttr(s, 'status', sb, effectiveTier, effectiveTierBefore);
                 const isDebuff = String(s.类型).trim() === '减益';
                 BONUS_KEYS.forEach(k => {
                     const v = safeNum(rs[k]);

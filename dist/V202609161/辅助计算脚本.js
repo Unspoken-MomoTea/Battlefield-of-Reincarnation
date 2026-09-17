@@ -999,13 +999,13 @@
     }
 
     // 只在存在更新前快照时识别新角色；加载旧存档不追溯强化。
+    // 保留血统、技能、状态与形态的原难度强化；装备及其附带内容完全不改写，避免战利品继承难度加成。
     function applyNewNpcDifficulty(statData, statDataBefore) {
         if (!statDataBefore) return;
         const mode = statData.设置?.难度 || '体验';
         if (!['体验', '正常', '困难', '挑战'].includes(mode)) return;
         const before = statDataBefore.关系列表 || {};
         const steps = { '体验': 0, '正常': 2, '困难': 4, '挑战': 6 }[mode];
-        if (steps === 0) return;
         const boostedAttrs = [...ATTR_NAMES, ...DERIVED_ATTRS];
         for (const [name, npc] of Object.entries(statData.关系列表 || {})) {
             if (!npc || typeof npc !== 'object' || Object.hasOwn(before, name)) continue;
@@ -1013,16 +1013,46 @@
             const life = LIFE_TIER_ORDER.indexOf(normalizeLifeTier(npc.层级));
             const baseRank = life >= 0 ? life : 0;
             if (!npc.状态 || typeof npc.状态 !== 'object') npc.状态 = {};
-            if (npc.状态.额外强化) continue;
-            const attrTier = TIER_ORDER[Math.min(8, baseRank + steps)];
-            npc.状态.额外强化 = {
-                类型: '增益',
-                品质: TIER_ORDER[baseRank],
-                持续: '持续',
-                来源: '难度机制',
-                原始属性: Object.fromEntries(boostedAttrs.map(attr => [attr, attrTier])),
-                效果: '全属性强化'
-            };
+            if (steps > 0) {
+                // 额外强化同时作为难度处理标记，避免同一新增敌人在重复写回时被连续升阶。
+                if (npc.状态.额外强化) continue;
+                npc.状态.额外强化 = {
+                    类型: '增益',
+                    品质: TIER_ORDER[baseRank],
+                    持续: '持续',
+                    来源: '难度机制',
+                    原始属性: Object.fromEntries(boostedAttrs.map(attr => [attr, TIER_ORDER[baseRank]])),
+                    效果: '全属性强化'
+                };
+            }
+            function upgrade(item, kind) {
+                if (!item || typeof item !== 'object') return;
+                const aboveLife = (mode === '困难' || mode === '挑战') && ['状态', '形态库'].includes(kind)
+                    || mode === '挑战' && kind === '血统';
+                const floor = Math.min(8, baseRank + (aboveLife ? 1 : 0));
+                const rank = Math.max(floor, tierRank(item.层级 ?? item.品质));
+                if (kind === '形态库' || item.层级 != null) item.层级 = LIFE_TIER_ORDER[rank];
+                else item.品质 = TIER_ORDER[rank];
+                const raw = item.原始属性;
+                if (raw && typeof raw === 'object') {
+                    const constitutionFloor = mode === '挑战' ? 'SSS' : mode === '困难' ? 'S' : null;
+                    const fixedConstitution = constitutionFloor && (kind === '血统' || kind === '形态库' || Object.hasOwn(raw, '体质'));
+                    const originalConstitution = raw.体质;
+                    for (const key of Object.keys(raw)) {
+                        if (key === '体质' && fixedConstitution) continue;
+                        // 数字型临时加减值及 0 不属于品质阶位，保持其语义。
+                        if (isQualityString(raw[key])) raw[key] = TIER_ORDER[Math.min(8, tierRank(raw[key]) + steps)];
+                    }
+                    // 固定体质档位只补足下限，原本高于标准的体质不降级。
+                    if (fixedConstitution) raw.体质 = TIER_ORDER[Math.max(tierRank(constitutionFloor), isQualityString(originalConstitution) ? tierRank(originalConstitution) : 0)];
+                    item.真属性 = {};
+                }
+                for (const skill of Object.values(item.技能 || {})) upgrade(skill, '技能');
+            }
+            // 装备刻意不进入难度强化流程；品质、原始属性及附带技能均保持生成时的原值。
+            for (const kind of ['血统', '技能', '状态', '形态库']) {
+                for (const item of Object.values(npc[kind] || {})) upgrade(item, kind);
+            }
         }
     }
 

@@ -30,7 +30,7 @@ function freshState(){
       玛雅:{
         在场:true,种族:'森精灵',身份:['从者'],职业:{},层级:'Ⅰ',HP_MAX:10,HP:10,THP:0,EP_MAX:10,EP:10,
         状态:{},血统:{},装备:{},技能:{},形态库:{},当前形态:{激活:false,名称:''},性格:'冷静',喜爱:'森林',外貌:'银发少女',
-        着装:'轻便旅行装',是否队友:true,好感度:20,态度:'信任',背景故事:'来自异世界的森精灵。'
+        着装:'轻便旅行装',是否队友:false,好感度:20,态度:'信任',背景故事:'来自异世界的森精灵。'
       }
     }
   };
@@ -118,6 +118,32 @@ function setup({reply='',validate,storedConfig}={}){
     assert.equal(boss?.审计级别,'首领/Boss级','低层级角色应能按剧情身份成为Boss');
     assert.ok(boss?.缺口.some(x=>/装备不足 0\/6/.test(x)));
     assert.ok(boss?.缺口.some(x=>/技能不足 0\/4/.test(x)));
+  }
+
+  {
+    const x=setup();
+    x.change(s=>{
+      s.设置.单一世界=false;
+      const base={
+        在场:true,种族:'人类',身份:['普通战士'],职业:{战士:{类型:'战斗',特性:['近战'],来源:'测试'}},层级:'Ⅰ',HP_MAX:100,HP:100,THP:0,EP_MAX:50,EP:50,
+        状态:{},血统:{},装备:{},技能:{},形态库:{},当前形态:{激活:false,名称:''},性格:'谨慎',喜爱:'秩序',外貌:'普通',着装:'制服',
+        是否队友:false,好感度:0,态度:'警戒',背景故事:'负责当前区域警戒。'
+      };
+      s.关系列表.后台精英={...clone(base)};
+      s.世界.后台.人物.后台精英={...clone(RECORDS.人物),所属世界:'学园默示录',审计级别:'精英级',地点:s.世界.地点,目标:'守住入口',行动:'警戒',更新时间:s.世界.时间};
+      s.关系列表.新异端={...clone(base),身份:['轮回异端']};
+      s.世界.异端雷达.名单.新异端={来源:'测试',经历:'刚进入世界',阵营:'敌对',职业:'战士',层级:'Ⅰ',状态:'活跃'};
+      s.关系列表.同行队友={...clone(base),是否队友:true,身份:['同行者']};
+    });
+    x.engine.setNpcBuildAuditEnabled(true);
+    const request=await x.engine.buildRequest(x.engine.snapshot()),payload=JSON.parse(request.input),audit=payload.角色管理.NPC构筑审计;
+    assert.equal(audit.find(item=>item.名称==='后台精英')?.审计级别,'精英级','世界后台已有私有审计级别时必须优先沿用');
+    assert.equal(audit.find(item=>item.名称==='新异端')?.审计级别,'首领/Boss级','新建活跃异端缺少私有定级时必须默认Boss级');
+    assert.equal(audit.some(item=>item.名称==='同行队友'),false,'队友不参与NPC构筑审计');
+    assert.equal(Object.hasOwn(audit.find(item=>item.名称==='后台精英')?.当前构筑||{},'审计级别'),false,'私有审计级别不得写回NPC公开面板投影');
+    assert.match(request.system,/世界\.后台\.人物\.审计级别/,'系统提示必须明确审计级别只存世界后台');
+    assert.match(request.system,/活跃异端首次建档默认首领\/Boss级/,'系统提示必须明确新异端默认Boss');
+    assert.match(request.system,/队友不定级、不参与NPC构筑审计/,'系统提示必须明确队友跳过');
   }
 
   {

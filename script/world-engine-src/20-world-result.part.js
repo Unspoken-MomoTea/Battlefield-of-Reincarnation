@@ -61,6 +61,8 @@
     const EVENT_RESULT_SCHEMA=namedEntitySchema({...RECORDS.事件,...MODEL_DETAILS.事件});
     EVENT_RESULT_SCHEMA.properties.状态={type:'string',enum:['待发生','进行中','已完成','已取消']};
     EVENT_RESULT_SCHEMA.properties.分类={type:'string',enum:Array.from(EVENT_CATEGORIES)};
+    const PERSON_RESULT_SCHEMA=namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物});
+    PERSON_RESULT_SCHEMA.properties.审计级别={type:'string',enum:copy(NPC_AUDIT_LEVELS)};
     const OFFSET_RESULT_SCHEMA=namedEntitySchema(EXISTING.偏移记录);
     OFFSET_RESULT_SCHEMA.properties.影响程度={type:'number',minimum:-100,maximum:120};
     const STREET_RUMOR_RESULT_SCHEMA=namedEntitySchema(EXISTING.街头巷议,['更新','移除','撤销本轮'],['来源','内容','可信度']);
@@ -129,7 +131,7 @@
                 闰年规则:{type:'string'}
             }},
             事件:{type:'array',maxItems:30,items:EVENT_RESULT_SCHEMA},
-            人物:{type:'array',maxItems:25,items:namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物})},
+            人物:{type:'array',maxItems:25,items:PERSON_RESULT_SCHEMA},
             势力地区:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.势力地区,...MODEL_DETAILS.势力地区})},
             历史:{type:'array',maxItems:12,items:namedEntitySchema(RECORDS.历史,['更新','撤销本轮'])},
             传播:{type:'array',maxItems:20,items:namedEntitySchema({...RECORDS.传播,...MODEL_DETAILS.传播},['更新','移除','撤销本轮'])},

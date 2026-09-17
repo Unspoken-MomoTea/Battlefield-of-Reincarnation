@@ -31,24 +31,32 @@ const run = mode => {
     return stat;
 };
 const base=make();
-assert.equal(run('体验').关系列表.新.状态.额外强化,undefined);
+const experience=run('体验').关系列表.新;
+assert.equal(experience.状态.额外强化,undefined);
+assert.notDeepEqual(experience.血统,base.血统,'体验 must align bloodlines with the NPC life tier');
+assert.notDeepEqual(experience.技能,base.技能,'体验 must align skills with the NPC life tier');
+assert.deepEqual(experience.装备,base.装备,'体验 must not mutate equipment');
+assert.notDeepEqual(experience.状态.功法,base.状态.功法,'体验 must align existing statuses with the NPC life tier');
+assert.notDeepEqual(experience.形态库,base.形态库,'体验 must align forms with the NPC life tier');
 for (const [mode,expected] of [['正常','A'],['困难','SS'],['挑战','SSS']]) {
     const stat=run(mode);
     const npc=stat.关系列表.新;
     const boost=npc.状态.额外强化;
-    assert.equal(boost.品质,'C',mode+' uses the NPC life tier as its entity quality');
+    assert.equal(boost.品质,mode === '正常' ? 'C' : 'B',mode+' uses the expected entity quality');
     assert.equal(boost.类型,'增益',mode);
     assert.equal(boost.持续,'持续',mode);
     assert.equal(boost.来源,'难度机制',mode);
     assert.equal(boost.效果,'全属性强化',mode);
     assert.deepEqual(Object.keys(boost.原始属性),['力量','敏捷','体质','精神','魅力','ATK','DEF','MATK','MDEF','AP'],mode);
-    for (const value of Object.values(boost.原始属性)) assert.equal(value,expected,mode);
-    assert.deepEqual(npc.血统,base.血统,mode+' must not mutate bloodlines');
-    assert.deepEqual(npc.技能,base.技能,mode+' must not mutate skills');
+    for (const [attr,value] of Object.entries(boost.原始属性)) {
+        assert.equal(value,mode === '困难' && attr === '体质' ? 'S' : expected,mode+' '+attr);
+    }
+    assert.notDeepEqual(npc.血统,base.血统,mode+' must upgrade bloodlines');
+    assert.notDeepEqual(npc.技能,base.技能,mode+' must upgrade skills');
     assert.deepEqual(npc.装备,base.装备,mode+' must not mutate equipment');
-    assert.deepEqual(npc.形态库,base.形态库,mode+' must not mutate forms');
-    assert.deepEqual(npc.状态.功法,base.状态.功法,mode+' must not mutate existing statuses');
-    assert.deepEqual(npc.状态.临时,base.状态.临时,mode+' must preserve numeric temporary modifiers');
+    assert.notDeepEqual(npc.形态库,base.形态库,mode+' must upgrade forms');
+    assert.notDeepEqual(npc.状态.功法,base.状态.功法,mode+' must upgrade existing statuses');
+    assert.equal(npc.状态.临时.原始属性.敏捷,-5,mode+' must preserve numeric temporary modifiers');
     const snapshot=JSON.stringify(stat);
     apply(stat,{关系列表:{}});
     assert.equal(JSON.stringify(stat),snapshot,mode+' must not inject the fixed status twice');

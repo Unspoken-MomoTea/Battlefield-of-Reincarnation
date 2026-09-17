@@ -1,7 +1,8 @@
 name: private-npc-audit-level
 on:
   push:
-    branches: [codex/private-npc-audit-level]
+    branches:
+      - codex/private-npc-audit-level
 permissions:
   contents: write
 jobs:
@@ -17,128 +18,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Apply private NPC audit level model
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          def patch(path, old, new):
-              p=Path(path); text=p.read_text(encoding='utf-8')
-              assert old in text, f'missing pattern in {path}: {old[:120]!r}'
-              p.write_text(text.replace(old,new,1),encoding='utf-8',newline='\n')
-
-          patch('script/world-engine-src/10-world-state.part.js',
-          "    const RECORDS = {\n        事件: { 描述:'', 时间:'', 条件:'', 前因:[], 状态:'待发生', 默认走向:'', 结果:'', 公开征兆:'', 地点:'' },\n        人物: { 所属世界:'', 地点:'', 目标:'', 行动:'', 认知:[], 下次检查:'', 关联事件:[], 公开动态:'' },",
-          "    const NPC_AUDIT_LEVELS=['杂兵级','精英级','首领/Boss级'];\n    const RECORDS = {\n        事件: { 描述:'', 时间:'', 条件:'', 前因:[], 状态:'待发生', 默认走向:'', 结果:'', 公开征兆:'', 地点:'' },\n        人物: { 所属世界:'', 审计级别:'', 地点:'', 目标:'', 行动:'', 认知:[], 下次检查:'', 关联事件:[], 公开动态:'' },")
-
-          patch('script/world-engine-src/20-world-result.part.js',
-          "    const EVENT_RESULT_SCHEMA=namedEntitySchema({...RECORDS.事件,...MODEL_DETAILS.事件});\n    EVENT_RESULT_SCHEMA.properties.状态={type:'string',enum:['待发生','进行中','已完成','已取消']};\n    EVENT_RESULT_SCHEMA.properties.分类={type:'string',enum:Array.from(EVENT_CATEGORIES)};",
-          "    const EVENT_RESULT_SCHEMA=namedEntitySchema({...RECORDS.事件,...MODEL_DETAILS.事件});\n    EVENT_RESULT_SCHEMA.properties.状态={type:'string',enum:['待发生','进行中','已完成','已取消']};\n    EVENT_RESULT_SCHEMA.properties.分类={type:'string',enum:Array.from(EVENT_CATEGORIES)};\n    const PERSON_RESULT_SCHEMA=namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物});\n    PERSON_RESULT_SCHEMA.properties.审计级别={type:'string',enum:copy(NPC_AUDIT_LEVELS)};")
-          patch('script/world-engine-src/20-world-result.part.js',
-          "            人物:{type:'array',maxItems:25,items:namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物})},",
-          "            人物:{type:'array',maxItems:25,items:PERSON_RESULT_SCHEMA},")
-
-          p=Path('script/world-engine-src/55-npc-narrative-audit.part.js')
-          text=p.read_text(encoding='utf-8')
-          start=text.index("    const NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT=`")
-          end=text.index("`;\n\n    function npcNarrativeAuditLevel",start)+2
-          prompt="""    const NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT=`【角色管理 · NPC构筑审计】
-只处理“角色管理.NPC构筑审计”列出的既有 NPC；目标是补真实缺口，不是提难度、改层级或重做角色。
-1. 审计级别是世界推进私有信息，只允许保存在“世界.后台.人物.审计级别”，禁止写入关系列表/NPC公开面板。新建的非队友NPC首次进入后台人物时，由你按剧情身份、叙事地位、已演出能力与遭遇需求填写杂兵级/精英级/首领/Boss级；活跃异端首次建档默认首领/Boss级；队友不定级、不参与NPC构筑审计。
-2. 已有合法私有审计级别时优先沿用。只有角色获得/失去关键力量、战斗职责或剧情地位发生实质变化时，才通过 WorldResult.人物 更新审计级别；普通受伤、单次胜负、临时状态或单纯层级高低不得改级。旧档或漏填时由程序按异端身份及既有身份/职业/背景故事/态度兜底推断。
-3. 最低构筑：杂兵=血统1/装备2/技能1；精英=血统1/装备4/技能2；Boss=血统1/装备6/技能4。血统默认1项；只有明确多重血统设定才增加。装备与技能可按真实设定超过最低数，但不得拆分、复制或堆同义能力凑数。最低装备数只统计状态=1的已装备项；状态0/2不计入构筑数量。
-4. 审计新增装备统一写状态=1并视为已装备；状态0仅用于剧情明确的随身未装备物，状态2仅用于仓库物，不得用0/2凑最低装备数。
-5. 精英需有杀伤、生存、机动/控制手段；Boss另有阶段、形态、状态切换或等价战斗机制。
-6. 能力只归一个主要组件：血统=本体条件，装备=实体，技能=执行方式，状态=当前结果，形态=独立战斗模式。
-7. 构筑补全只用 WorldResult.关系 更新既有 NPC；审计级别只用 WorldResult.人物 写入世界后台。只提交新增/修正项，不得输出真属性、最终属性或强化缓存；血统/形态五维必须齐全，技能不写基础/衍生属性。
-8. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、剧情定位、层级和已演出能力一致的缺口，资料不足时做最小补全。`;"""
-          text=text[:start]+prompt+text[end:]
-
-          old_func="""    function npcNarrativeAuditLevel(npc) {
-        const profileText=[...(Array.isArray(npc?.身份)?npc.身份:[]),...Object.keys(npc?.职业||{}),npc?.背景故事,npc?.态度].filter(Boolean).join(' ');
-        const bossHint=/(?:boss|首领|领主|头目|魔王|王者|宗主|掌门|教皇|最终敌人|最终对手)/i.test(profileText);
-        if(bossHint)return '首领/Boss级';
-        const eliteHint=/(?:精英|精锐|王牌|核心战力|强敌)/i.test(profileText);
-        return eliteHint?'精英级':'杂兵级';
-    }
-
-    npcBuildAssessment=function(stat,name,npc) {
-        if(!plain(npc)||Number(npc.HP)<=0)return null;
-        const level=npcNarrativeAuditLevel(npc);"""
-          new_func="""    function inferNpcNarrativeAuditLevel(npc) {
-        const profileText=[...(Array.isArray(npc?.身份)?npc.身份:[]),...Object.keys(npc?.职业||{}),npc?.背景故事,npc?.态度].filter(Boolean).join(' ');
-        const bossHint=/(?:boss|首领|领主|头目|魔王|王者|宗主|掌门|教皇|最终敌人|最终对手)/i.test(profileText);
-        if(bossHint)return '首领/Boss级';
-        const eliteHint=/(?:精英|精锐|王牌|核心战力|强敌)/i.test(profileText);
-        return eliteHint?'精英级':'杂兵级';
-    }
-
-    function npcNarrativeAuditLevel(stat,name,npc) {
-        const backend=stat?.世界?.[PATH]||{},people=backend.人物||{};
-        const backendName=stableNameIn(people,name),person=backendName?people[backendName]:null;
-        const explicit=String(person?.审计级别||'').trim();
-        if(NPC_AUDIT_LEVELS.includes(explicit))return explicit;
-        const roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
-        const alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
-        if(alien&&alien.状态!=='死亡')return '首领/Boss级';
-        return inferNpcNarrativeAuditLevel(npc);
-    }
-
-    npcBuildAssessment=function(stat,name,npc) {
-        if(!plain(npc)||Number(npc.HP)<=0||npc.是否队友===true)return null;
-        const level=npcNarrativeAuditLevel(stat,name,npc);"""
-          assert old_func in text
-          text=text.replace(old_func,new_func,1)
-
-          old_migration="""            const previousNarrativeDefault=currentPrompt.includes('审计级别只依据既有身份、职业、背景故事、态度体现的剧情份量判断')
-                &&currentPrompt.includes('最低构筑：杂兵=血统1/装备2/技能1')
-                &&!currentPrompt.includes('审计新增装备统一写状态=1');"""
-          new_migration="""            const previousNarrativeDefault=currentPrompt.includes('【角色管理 · NPC构筑审计】')
-                &&currentPrompt.includes('最低构筑：杂兵=血统1/装备2/技能1')
-                &&(currentPrompt.includes('审计级别只依据既有身份、职业、背景故事、态度体现的剧情份量判断')
-                    ||currentPrompt.includes('审计新增装备统一写状态=1'));"""
-          assert old_migration in text
-          text=text.replace(old_migration,new_migration,1)
-          p.write_text(text,encoding='utf-8',newline='\n')
-
-          p=Path('tests/world-engine-npc-audit-toggle.cjs')
-          text=p.read_text(encoding='utf-8')
-          text=text.replace("着装:'轻便旅行装',是否队友:true,好感度:20", "着装:'轻便旅行装',是否队友:false,好感度:20",1)
-          marker="""  {
-    const reply=JSON.stringify({
-      摘要:'补全玛雅的既有森精灵血统构筑。',"""
-          addition="""  {
-    const x=setup();
-    x.change(s=>{
-      s.设置.单一世界=false;
-      const base={
-        在场:true,种族:'人类',身份:['普通战士'],职业:{战士:{类型:'战斗',特性:['近战'],来源:'测试'}},层级:'Ⅰ',HP_MAX:100,HP:100,THP:0,EP_MAX:50,EP:50,
-        状态:{},血统:{},装备:{},技能:{},形态库:{},当前形态:{激活:false,名称:''},性格:'谨慎',喜爱:'秩序',外貌:'普通',着装:'制服',
-        是否队友:false,好感度:0,态度:'警戒',背景故事:'负责当前区域警戒。'
-      };
-      s.关系列表.后台精英={...clone(base)};
-      s.世界.后台.人物.后台精英={...clone(RECORDS.人物),所属世界:'学园默示录',审计级别:'精英级',地点:s.世界.地点,目标:'守住入口',行动:'警戒',更新时间:s.世界.时间};
-      s.关系列表.新异端={...clone(base),身份:['轮回异端']};
-      s.世界.异端雷达.名单.新异端={来源:'测试',经历:'刚进入世界',阵营:'敌对',职业:'战士',层级:'Ⅰ',状态:'活跃'};
-      s.关系列表.同行队友={...clone(base),是否队友:true,身份:['同行者']};
-    });
-    x.engine.setNpcBuildAuditEnabled(true);
-    const request=await x.engine.buildRequest(x.engine.snapshot()),payload=JSON.parse(request.input),audit=payload.角色管理.NPC构筑审计;
-    assert.equal(audit.find(item=>item.名称==='后台精英')?.审计级别,'精英级','世界后台已有私有审计级别时必须优先沿用');
-    assert.equal(audit.find(item=>item.名称==='新异端')?.审计级别,'首领/Boss级','新建活跃异端缺少私有定级时必须默认Boss级');
-    assert.equal(audit.some(item=>item.名称==='同行队友'),false,'队友不参与NPC构筑审计');
-    assert.equal(Object.hasOwn(audit.find(item=>item.名称==='后台精英')?.当前构筑||{},'审计级别'),false,'私有审计级别不得写回NPC公开面板投影');
-    assert.match(request.system,/世界\.后台\.人物\.审计级别/,'系统提示必须明确审计级别只存世界后台');
-    assert.match(request.system,/活跃异端首次建档默认首领\/Boss级/,'系统提示必须明确新异端默认Boss');
-    assert.match(request.system,/队友不定级、不参与NPC构筑审计/,'系统提示必须明确队友跳过');
-  }
-
-"""
-          assert marker in text
-          text=text.replace(marker,addition+marker,1)
-          p.write_text(text,encoding='utf-8',newline='\n')
-          PY
+      - name: Apply migration
+        run: python tools/migrate-private-npc-audit.py
       - name: Build delivery
         run: python tools/build-world-engine.py
       - name: Syntax checks
@@ -147,14 +28,15 @@ jobs:
           node --check script/ZOD脚本.js
       - name: NPC audit regression
         run: node tests/world-engine-npc-audit-toggle.cjs
-      - name: Full world integrity regression
+      - name: World integrity regression
         run: node tests/world-engine.cjs
-      - name: Remove one-shot workflow and commit
+      - name: Commit migration
         shell: bash
         run: |
+          rm tools/migrate-private-npc-audit.py
           rm .github/workflows/private-npc-audit-level.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add script/world-engine-src/10-world-state.part.js script/world-engine-src/20-world-result.part.js script/world-engine-src/55-npc-narrative-audit.part.js script/世界推进系统.js tests/world-engine-npc-audit-toggle.cjs .github/workflows/private-npc-audit-level.yml
+          git add -A
           git commit -m "feat: keep NPC audit levels private to world engine"
           git push origin HEAD:codex/private-npc-audit-level

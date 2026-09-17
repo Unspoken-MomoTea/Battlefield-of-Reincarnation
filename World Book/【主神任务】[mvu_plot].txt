@@ -22,17 +22,15 @@
     return Math.max(max, idx >= 0 ? idx : 0);
   }, 0);
 
-  // 主神任务锁定：每项任务独立按“玩家层级基数 × 任务难度倍率”计算空间币。
+  // 主神任务锁定：按任务数量生成单级难度，并从固定总池中分配空间币
   const playerRewardBases = [100, 500, 2500, 12000, 50000, 200000, 800000, 3200000, 12800000];
-  const taskRewardBase = playerRewardBases[playerIndex];
-  const rewardMultiplierForGradeIndex = gradeIndex => {
-    const delta = gradeIndex - playerIndex;
-    return delta < 0 ? 0.5 : Math.min(3, 1 + delta * 0.5);
-  };
-  const rewardForGradeIndex = gradeIndex => Math.max(
-    10,
-    Math.floor(taskRewardBase * rewardMultiplierForGradeIndex(gradeIndex) / 10) * 10
-  );
+  const difficultyDelta = difficultyUpperIndex - playerIndex;
+  const taskRewardPoolMultiplier = difficultyDelta < 0
+    ? 0.5
+    : Math.min(3, 1 + difficultyDelta * 0.5);
+  const taskRewardPool = Math.floor(
+    playerRewardBases[playerIndex] * taskRewardPoolMultiplier / 10
+  ) * 10;
   const taskLabels = ['任务一', '任务二', '任务三', '任务四', '任务五'];
   const taskPlans = {};
   [2, 3, 4, 5].forEach(count => {
@@ -42,10 +40,12 @@
         difficultyLowerIndex + (difficultyUpperIndex - difficultyLowerIndex) * idx / (count - 1)
       );
     });
+    const weights = gradeIndexes.map(idx => Math.max(1, idx - difficultyLowerIndex + 1));
+    const weightSum = weights.reduce((sum, value) => sum + value, 0);
     taskPlans[count] = gradeIndexes.map((gradeIndex, idx) => ({
       label: taskLabels[idx],
       difficulty: achievementGrades[gradeIndex],
-      reward: rewardForGradeIndex(gradeIndex),
+      reward: Math.max(10, Math.floor(taskRewardPool * weights[idx] / weightSum / 10) * 10),
     }));
   });
   // 最终上限 = min(世界/角色取低后+2, 副本上限+2, SSS)
@@ -91,8 +91,6 @@ _%>
 
 ## 任务难度与空间币锁定方案（强制照抄）
 - 当前副本任务等级范围：<%- achievementGrades[difficultyLowerIndex] %>~<%- achievementGrades[difficultyUpperIndex] %>
-- 每项任务独立计算空间币，不共享总奖励池；奖励基数固定为玩家当前生命层级对应基础奖励
-- 任务难度低于玩家层级时×0.5；同级×1；高1级×1.5；高2级×2；高3级×2.5；高4级及以上×3封顶
 - 先根据世界内容确定本次任务数量，再选择下方对应数量的方案；任务难度与奖励必须逐字复制，禁止重算、调换或修改
 <%_ [2, 3, 4, 5].forEach(count => { _%>
 - <%- count %>项方案：<%- taskPlans[count].map(task => `${task.label}【难度:${task.difficulty}｜奖励:${task.reward}空间币】`).join('；') %>
@@ -148,7 +146,7 @@ _%>
 
 ## 三、 奖励生成与量化红线 (对接<任务与委托系统>)
 - **空间币奖励 (主神任务专产)**:
-  - 每项任务的空间币已经按玩家层级基数与该任务难度独立计算，并写入对应锁定方案
+  - 每项任务的空间币已经写入对应锁定方案
   - AI必须原样复制具体数值，禁止计算、增减、互换或追加其他空间币奖励
 
 <%_ if (!isSingleWorld) { _%>

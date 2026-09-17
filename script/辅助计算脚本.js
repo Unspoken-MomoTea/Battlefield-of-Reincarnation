@@ -1016,12 +1016,17 @@
             if (steps > 0) {
                 // 额外强化同时作为难度处理标记，避免同一新增敌人在重复写回时被连续升阶。
                 if (npc.状态.额外强化) continue;
+                const extraRule = {
+                    正常: { qualityOffset: 0, attrTier: 'E', attrs: DERIVED_ATTRS },
+                    困难: { qualityOffset: 0, attrTier: 'C', attrs: boostedAttrs },
+                    挑战: { qualityOffset: 1, attrTier: 'B', attrs: boostedAttrs }
+                }[mode];
                 npc.状态.额外强化 = {
                     类型: '增益',
-                    品质: TIER_ORDER[baseRank],
+                    品质: TIER_ORDER[Math.min(8, baseRank + extraRule.qualityOffset)],
                     持续: '持续',
                     来源: '难度机制',
-                    原始属性: Object.fromEntries(boostedAttrs.map(attr => [attr, TIER_ORDER[baseRank]])),
+                    原始属性: Object.fromEntries(extraRule.attrs.map(attr => [attr, extraRule.attrTier])),
                     效果: '全属性强化'
                 };
             }
@@ -1051,7 +1056,11 @@
             }
             // 装备刻意不进入难度强化流程；品质、原始属性及附带技能均保持生成时的原值。
             for (const kind of ['血统', '技能', '状态', '形态库']) {
-                for (const item of Object.values(npc[kind] || {})) upgrade(item, kind);
+                for (const item of Object.values(npc[kind] || {})) {
+                    // 额外强化使用难度专属固定值，不再进入通用 +2/+4/+6 强化。
+                    if (kind === '状态' && item === npc.状态.额外强化) continue;
+                    upgrade(item, kind);
+                }
             }
         }
     }

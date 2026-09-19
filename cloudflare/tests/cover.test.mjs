@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
-import { uploadProjectCover, getPublicProjectCover } from '../src/projects/cover.js';
+import { getAdminProjectCover, uploadProjectCover, getPublicProjectCover } from '../src/projects/cover.js';
 import {
   createProject,
   reviewProject,
@@ -158,5 +158,35 @@ test('cover upload rejects files whose bytes do not match the declared image typ
       project.id,
     ),
     error => error?.status === 400 && error?.code === 'invalid_cover',
+  );
+});
+
+
+test('admin can inspect the latest submitted cover while normal users cannot', async () => {
+  const { env, author, admin, project } = await setup();
+  const cover = png(9);
+  await uploadProjectCover(
+    request(`/api/projects/${project.id}/cover`, 'PUT', cover, { 'Content-Type': 'image/png' }),
+    env,
+    author,
+    project.id,
+  );
+  await uploadProjectVersion(
+    jsonRequest(`/api/projects/${project.id}/versions`, {
+      changelog: 'pending',
+      bundle: worldbook('pending'),
+    }),
+    env,
+    author,
+    project.id,
+  );
+  await submitProjectForReview(env, author, project.id);
+
+  const response = await getAdminProjectCover(env, admin, project.id);
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), cover);
+
+  await assert.rejects(
+    () => getAdminProjectCover(env, author, project.id),
+    error => error?.status === 403 && error?.code === 'admin_required',
   );
 });

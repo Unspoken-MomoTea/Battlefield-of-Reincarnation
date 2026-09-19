@@ -49,6 +49,7 @@ export function createWorkshopShell(doc, version) {
           <div class="rw-toolbar">
             <input class="rw-input grow" data-field="search" placeholder="搜索作品名称或简介">
             <select class="rw-select" data-field="category"><option value="">全部类型</option><option value="worldbook">世界书</option><option value="regex">正则</option><option value="preset">预设</option><option value="data">数据包</option><option value="mixed">混合包</option></select>
+            <input class="rw-input" data-field="tag" maxlength="24" placeholder="标签">
             <button class="rw-button" data-action="search" type="button">搜索</button>
           </div>
           <div class="rw-grid" data-role="discover-list"></div>
@@ -69,6 +70,7 @@ export function createWorkshopShell(doc, version) {
             <h3>创建作品</h3>
             <div class="rw-row"><input class="rw-input grow" name="name" required maxlength="80" placeholder="作品名称"><select class="rw-select" name="category"><option value="worldbook">世界书</option><option value="regex">正则</option><option value="preset">预设</option><option value="data">数据包</option><option value="mixed">混合包</option></select></div>
             <textarea class="rw-textarea" name="summary" maxlength="2000" placeholder="作品简介"></textarea>
+            <input class="rw-input" name="tags" maxlength="300" placeholder="标签：剧情, boss, 原创（逗号分隔）">
             <div><button class="rw-button primary" type="submit">创建草稿</button></div>
           </form>
           <div class="rw-grid" data-role="my-list"></div>
@@ -108,6 +110,7 @@ export function createWorkshopShell(doc, version) {
     adminTab: overlay.querySelector('[data-tab="admin"]'),
     search: overlay.querySelector('[data-field="search"]'),
     category: overlay.querySelector('[data-field="category"]'),
+    tag: overlay.querySelector('[data-field="tag"]'),
     discoverList: overlay.querySelector('[data-role="discover-list"]'),
     installedList: overlay.querySelector('[data-role="installed-list"]'),
     offlineInput: overlay.querySelector('[data-action="import-offline"]'),

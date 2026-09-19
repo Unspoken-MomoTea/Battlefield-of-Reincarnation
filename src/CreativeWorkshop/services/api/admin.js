@@ -1,4 +1,4 @@
-export function createAdminApi(request) {
+export function createAdminApi(request, requestRaw) {
   return {
     listAdminProjects({ query = '', category = '', reviewStatus = '', offset = 0 } = {}) {
       const params = new URLSearchParams({ limit: '48', offset: String(offset) });
@@ -14,6 +14,15 @@ export function createAdminApi(request) {
 
     getPendingReview(projectId) {
       return request(`/api/admin/projects/${encodeURIComponent(projectId)}/review`, {}, true);
+    },
+
+    async getAdminProjectCover(projectId) {
+      const response = await requestRaw(
+        `/api/admin/projects/${encodeURIComponent(projectId)}/cover`,
+        {},
+        true,
+      );
+      return response.blob();
     },
 
     reviewProject(projectId, decision, note = '') {

@@ -18,6 +18,13 @@ export function createProjectApi(request) {
       return request(`/api/projects/${encodeURIComponent(projectId)}/version`);
     },
 
+    getProjectVersions(ids) {
+      return request('/api/projects/versions/batch', {
+        method: 'POST',
+        body: JSON.stringify({ ids }),
+      });
+    },
+
     downloadProject(projectId) {
       return request(`/api/projects/${encodeURIComponent(projectId)}/download`);
     },

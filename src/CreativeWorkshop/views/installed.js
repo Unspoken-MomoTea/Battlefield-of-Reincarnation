@@ -10,6 +10,44 @@ export function createInstalledView({
   doc,
   categoryLabels,
 }) {
+  function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${(value / 1024 / 1024).toFixed(2)} MB`;
+  }
+
+  async function manageStorage() {
+    const estimate = await projectService.storageEstimate();
+    const origin = estimate.originQuota > 0
+      ? `浏览器站点存储：${formatBytes(estimate.originUsage)} / ${formatBytes(estimate.originQuota)}\n`
+      : '';
+    const summary =
+      `工坊本地记录：${estimate.projectCount} 个\n` +
+      `已安装：${estimate.appliedCount} 个\n` +
+      `仅缓存：${estimate.cacheOnlyCount} 个\n` +
+      `工坊记录逻辑大小：${formatBytes(estimate.logicalBytes)}\n` +
+      `可清理缓存约：${formatBytes(estimate.cacheOnlyBytes)}\n` +
+      origin;
+
+    if (!estimate.cacheOnlyCount) {
+      try { host.toastr?.info?.(summary, '创意工坊 · 存储管理'); } catch {}
+      return estimate;
+    }
+
+    const confirmed = host.confirm?.(
+      `${summary}\n是否删除全部“仅缓存”作品？\n\n已安装到酒馆的作品不会被删除。`,
+    );
+    if (!confirmed) return estimate;
+
+    const result = await projectService.cleanupCacheOnly();
+    try {
+      host.toastr?.success?.(`已清理 ${result.removedCount} 个仅缓存作品`, '创意工坊 · 存储管理');
+    } catch {}
+    await refreshInstalled();
+    return result;
+  }
+
   async function checkAllUpdates(force = false) {
     const result = await projectService.checkAllUpdates(force);
     const updates = result.items.filter(item => item.updateAvailable);
@@ -155,5 +193,5 @@ export function createInstalledView({
     });
     nodes.installedList.replaceChildren(...cards);
   }
-  return { refresh: refreshInstalled, checkAllUpdates };
+  return { refresh: refreshInstalled, checkAllUpdates, manageStorage };
 }

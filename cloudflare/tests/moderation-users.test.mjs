@@ -15,7 +15,7 @@ class Statement {
     return { success: true, meta: { changes: Number(r.changes) } };
   }
 }
-class DB {
+class TestDB {
   constructor() {
     this.db = new DatabaseSync(':memory:');
     this.db.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
@@ -28,7 +28,7 @@ function request(body) {
   });
 }
 function setup() {
-  const DB = new DB();
+  const DB = new TestDB();
   DB.db.prepare("INSERT INTO users (discord_id, username, display_name, is_admin, created_at, updated_at) VALUES ('100','author','Author',0,1,1)").run();
   DB.db.prepare("INSERT INTO users (discord_id, username, display_name, is_admin, created_at, updated_at) VALUES ('200','admin','Admin',1,1,1)").run();
   return {

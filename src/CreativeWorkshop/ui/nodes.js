@@ -1,0 +1,26 @@
+export function collectWorkshopNodes(overlay) {
+  const query = selector => overlay.querySelector(selector);
+  return {
+    health: query('[data-role="health"]'),
+    account: query('[data-role="account"]'),
+    login: query('[data-action="login"]'),
+    logout: query('[data-action="logout"]'),
+    adminTab: query('[data-tab="admin"]'),
+    search: query('[data-field="search"]'),
+    category: query('[data-field="category"]'),
+    tag: query('[data-field="tag"]'),
+    discoverList: query('[data-role="discover-list"]'),
+    installedList: query('[data-role="installed-list"]'),
+    offlineInput: query('[data-action="import-offline"]'),
+    myList: query('[data-role="my-list"]'),
+    pendingList: query('[data-role="pending-list"]'),
+    adminSearch: query('[data-field="admin-search"]'),
+    adminStatus: query('[data-field="admin-status"]'),
+    adminCategory: query('[data-field="admin-category"]'),
+    detailCard: query('[data-role="detail-card"]'),
+    detailTitle: query('[data-role="detail-title"]'),
+    detailSummary: query('[data-role="detail-summary"]'),
+    detailManifest: query('[data-role="detail-manifest"]'),
+    createForm: query('[data-form="create-project"]'),
+  };
+}

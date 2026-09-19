@@ -21,33 +21,8 @@ jobs:
         working-directory: cloudflare
         run: npm test
       - name: Worker syntax
-        run: |
-          node --check cloudflare/src/index.js
-          node --check cloudflare/src/auth.js
-          node --check cloudflare/src/http.js
-          node --check cloudflare/src/security.js
-          node --check cloudflare/src/engagement.js
-          node --check cloudflare/src/projects/cover.js
-          node --check cloudflare/src/projects.js
+        run: find cloudflare/src -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
       - name: Client contract tests
         run: node --test src/CreativeWorkshop/tests/*.test.mjs
       - name: Client syntax
-        run: |
-          node --check src/CreativeWorkshop/index.js
-          node --check src/CreativeWorkshop/config.js
-          node --check src/CreativeWorkshop/services/api.js
-          node --check src/CreativeWorkshop/services/storage.js
-          node --check src/CreativeWorkshop/services/project-service.js
-          node --check src/CreativeWorkshop/views/installed.js
-          node --check src/CreativeWorkshop/views/admin.js
-          node --check src/CreativeWorkshop/views/author.js
-          node --check src/CreativeWorkshop/views/discover.js
-          node --check src/CreativeWorkshop/ui/shell.js
-          node --check src/CreativeWorkshop/services/api/admin.js
-          node --check src/CreativeWorkshop/services/api/projects.js
-          node --check src/CreativeWorkshop/services/api/auth.js
-          node --check src/CreativeWorkshop/services/api/transport.js
-          node --check src/CreativeWorkshop/services/tavern-adapter.js
-          node --check src/CreativeWorkshop/services/installer.js
-          node --check src/CreativeWorkshop/services/upload.js
-          node --check src/CreativeWorkshop/services/project-service.js
+        run: find src/CreativeWorkshop -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check

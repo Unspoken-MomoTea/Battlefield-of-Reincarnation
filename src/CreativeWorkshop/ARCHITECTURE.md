@@ -5,23 +5,43 @@
 ## 当前目标架构
 
 ```text
-SillyTavern
-└─ src/CreativeWorkshop
-   ├─ UI / 全局 Workshop API
-   ├─ API Client
-   ├─ IndexedDB 本地状态
-   ├─ bundle 校验 / 离线包
-   └─ Installer
-      └─ Tavern Adapter
+src/CreativeWorkshop/
+├─ index.js                  # 仅启动
+├─ app/                      # 生命周期、事件、全局 Bridge
+├─ ui/                       # 样式、模板、DOM 节点、通用 UI helper
+├─ views/                    # 发现 / 本地 / 作者 / 管理员
+└─ services/
+   ├─ api/                   # auth / projects / admin / transport
+   ├─ projects/              # 完整性、离线包、缓存、批量更新
+   └─ installer/
+      ├─ normalize/          # 世界书 / 正则 / 预设适配
+      ├─ plan.js
+      ├─ snapshot.js
+      ├─ apply.js
+      └─ uninstall.js
              │
              │ HTTPS
              ▼
-Cloudflare Worker
-├─ Auth
-├─ Project / Review / Admin API
-├─ D1 metadata
-├─ KV session
-└─ R2 immutable version payload
+cloudflare/src/
+├─ index.js                  # 只保留错误边界 / CORS
+├─ router.js
+├─ routes/                   # system / auth / projects / admin
+├─ auth/                     # Discord / Session / User
+├─ projects/
+│  ├─ author/                # 作者列表 / 元数据 / 版本
+│  ├─ admin/                 # 列表 / 详情 / 审核 / 下架 / 审计
+│  ├─ artifacts.js
+│  ├─ manifest.js
+│  ├─ cover.js
+│  ├─ diff.js
+│  └─ versions.js
+├─ engagement.js
+└─ middleware/
+   └─ request-guard.js
+
+D1 → 元数据 / 审核 / 互动统计
+KV → OAuth / Session
+R2 → bundle / manifest / 封面
 ```
 
 核心原则：
@@ -57,14 +77,15 @@ Cloudflare Worker
 
 高优先级：
 
-- 封面上传与展示。
-- 标签 / 分类筛选增强。
-- 下载量、点赞、收藏/订阅。
-- 批量获取已安装项目摘要，降低逐项目更新检查请求。
-- 更新审核 diff：对比“当前公开版本”和“待审核版本”的世界书/正则差异。
-- 安装冲突检查与 repair/repair registry。
-- 项目兼容信息：面向哪一版基础角色卡/基础世界书制作。
-- 原版内容冲突声明及安装时临时关闭/恢复。
+- 已完成：封面上传与展示。
+- 已完成：标签 / 分类筛选增强。
+- 已完成：下载量、点赞、收藏。
+- 已完成：批量版本查询 + IndexedDB 更新检查冷却。
+- 已完成：审核 diff，对比公开版本与待审核版本。
+- 已完成：请求体大小保护与统一 middleware 入口。
+- 待实现：安装冲突检查与 repair/repair registry。
+- 待实现：项目兼容信息：面向哪一版基础角色卡/基础世界书制作。
+- 待实现：原版内容冲突声明及安装时临时关闭/恢复。
 
 中优先级：
 
@@ -99,9 +120,9 @@ Cloudflare Worker
 
 高优先级：
 
-- 批量自动检查更新，并设置检查冷却时间。
-- 更完整的 IndexedDB 多标签页升级协调与 blocked timeout。
-- 本地存储占用统计与清理工具。
+- 已完成：批量自动检查更新，并设置持久化检查冷却时间。
+- 待实现：更完整的 IndexedDB 多标签页升级协调与 blocked timeout。
+- 待实现：本地存储占用统计与清理工具。
 
 按业务决定：
 
@@ -123,22 +144,14 @@ Cloudflare Worker
 
 ### 当前仍需改善
 
-后端 `cloudflare/src/projects.js` 已开始变大。继续扩展封面、点赞、订阅、兼容性之后，应在文件失控前拆分为：
+后端大文件拆分已经完成第一阶段：入口、路由、Auth、作者区、管理员区、项目校验均按目录拆开；原路径保留 barrel 兼容出口。
 
-```text
-cloudflare/src/
-├─ routes/
-│  ├─ projects.js
-│  ├─ admin.js
-│  └─ engagement.js
-├─ services/
-│  ├─ project-service.js
-│  ├─ review-service.js
-│  └─ moderation-service.js
-└─ repositories/
-   ├─ project-repository.js
-   └─ audit-repository.js
-```
+继续扩展时遵守：
+
+- route 只负责 URL / method / auth context 分发。
+- 业务规则放在对应领域目录，不回填到 `index.js`。
+- 数据库重复查询明显增多时，再引入 repository 层；目前不为了“层数好看”提前制造空壳抽象。
+- 单文件明显超过约 300～400 行时优先检查是否存在第二个职责。
 
 Go 服务器里的常驻内存用户缓存、Redis TCP 连接、Ticker、mqant 不适合 Cloudflare Worker，不搬。
 
@@ -168,12 +181,21 @@ Cron 只在真正需要排行榜快照、垃圾 R2 清理等后台维护任务�
 
 ### P0：上线前
 
+已完成：
+
 1. 封面与标签。
-2. 下载量、点赞、收藏/订阅。
+2. 下载量、点赞、收藏。
 3. 更新审核 diff。
 4. 批量版本查询 / 自动更新冷却。
-5. Worker API 的简单滥用保护与请求体限制检查。
-6. 后端 projects 模块拆分，避免继续膨胀。
+5. Worker API 请求体保护。
+6. Worker / Client 大文件第一阶段模块化拆分。
+
+仍建议在正式公开前补：
+
+1. 更完整的安装冲突 / repair。
+2. 基础包兼容版本声明。
+3. IndexedDB 多标签页升级协调。
+4. 真实 staging 部署后的端到端测试。
 
 ### P1：内容生态扩大后
 

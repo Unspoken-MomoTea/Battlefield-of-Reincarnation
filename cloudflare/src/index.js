@@ -14,6 +14,7 @@ import {
   getPublicProject,
   getPublicProjectVersion,
   getPendingProjectReview,
+  getPublicProjectCover,
   listAdminAuditLogs,
   listAdminProjects,
   listOwnProjects,
@@ -23,10 +24,11 @@ import {
   setAdminProjectState,
   submitProjectForReview,
   updateProject,
+  uploadProjectCover,
   uploadProjectVersion,
 } from './projects.js';
 
-export const SERVICE_VERSION = '0.6.0';
+export const SERVICE_VERSION = '0.7.0';
 
 function projectIdFrom(pathname, suffix = '') {
   const escapedSuffix = suffix.replace(/[.*+?^$()|[\]\\]/gu, '\\$&');
@@ -84,6 +86,7 @@ export async function handleRequest(request, env) {
       const versionProjectId = projectIdFrom(pathname, '/version');
       const downloadProjectId = projectIdFrom(pathname, '/download');
       const versionsProjectId = projectIdFrom(pathname, '/versions');
+      const coverProjectId = projectIdFrom(pathname, '/cover');
       const submitProjectId = projectIdFrom(pathname, '/submit');
       const engagementProjectId = projectIdFrom(pathname, '/engagement');
       const reviewProjectId = adminProjectIdFrom(pathname, 'review');
@@ -94,6 +97,10 @@ export async function handleRequest(request, env) {
         response = await getPublicProjectVersion(versionProjectId, env);
       } else if (request.method === 'GET' && downloadProjectId) {
         response = await downloadPublicProject(downloadProjectId, env);
+      } else if (request.method === 'GET' && coverProjectId) {
+        response = await getPublicProjectCover(env, coverProjectId);
+      } else if (request.method === 'PUT' && coverProjectId) {
+        response = await uploadProjectCover(request, env, await authenticatedUser(request, env), coverProjectId);
       } else if (request.method === 'POST' && versionsProjectId) {
         response = await uploadProjectVersion(request, env, await authenticatedUser(request, env), versionsProjectId);
       } else if (request.method === 'POST' && submitProjectId) {

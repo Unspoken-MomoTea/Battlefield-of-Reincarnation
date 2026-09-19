@@ -85,5 +85,13 @@ export function createProjectApi(request) {
         true,
       );
     },
+
+    reportProject(projectId, reason, details = '') {
+      return request(
+        `/api/projects/${encodeURIComponent(projectId)}/report`,
+        { method: 'POST', body: JSON.stringify({ reason, details }) },
+        true,
+      );
+    },
   };
 }

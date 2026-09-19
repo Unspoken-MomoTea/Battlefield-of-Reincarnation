@@ -17,6 +17,7 @@ import {
   reviewProject,
   setAdminProjectState,
   submitProjectForReview,
+  updateProject,
   uploadProjectVersion,
   validateBundle,
 } from '../src/projects.js';

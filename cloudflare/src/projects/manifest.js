@@ -1,3 +1,4 @@
+import { parseDependencies } from './dependencies.js';
 import { sha256Hex } from '../security.js';
 
 function artifactContentText(artifact) {
@@ -18,7 +19,14 @@ export async function buildManifest(project, version, bundle) {
   }
   return {
     schema_version: 1,
-    project: { id: project.id, slug: project.slug, name: project.name, category: project.category, version },
+    project: {
+      id: project.id,
+      slug: project.slug,
+      name: project.name,
+      category: project.category,
+      version,
+      dependencies: parseDependencies(project.dependencies),
+    },
     artifact_count: artifacts.length, total_bytes: totalBytes, artifacts,
   };
 }

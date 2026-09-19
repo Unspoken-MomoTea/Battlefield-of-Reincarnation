@@ -13,6 +13,7 @@ import {
   downloadPublicProject,
   getPublicProject,
   getPublicProjectVersion,
+  getAdminProjectCover,
   getPendingProjectReview,
   getPublicProjectCover,
   listAdminAuditLogs,
@@ -89,6 +90,7 @@ export async function handleRequest(request, env) {
       const coverProjectId = projectIdFrom(pathname, '/cover');
       const submitProjectId = projectIdFrom(pathname, '/submit');
       const engagementProjectId = projectIdFrom(pathname, '/engagement');
+      const adminCoverProjectId = adminProjectIdFrom(pathname, 'cover');
       const reviewProjectId = adminProjectIdFrom(pathname, 'review');
       const stateProjectId = adminProjectIdFrom(pathname, 'state');
       const plainProjectId = projectIdFrom(pathname);
@@ -109,6 +111,8 @@ export async function handleRequest(request, env) {
         response = await getProjectEngagementResponse(env, await authenticatedUser(request, env), engagementProjectId);
       } else if (request.method === 'POST' && engagementProjectId) {
         response = await setProjectEngagementFromRequest(request, env, await authenticatedUser(request, env), engagementProjectId);
+      } else if (request.method === 'GET' && adminCoverProjectId) {
+        response = await getAdminProjectCover(env, await authenticatedUser(request, env), adminCoverProjectId);
       } else if (request.method === 'GET' && reviewProjectId) {
         response = await getPendingProjectReview(env, await authenticatedUser(request, env), reviewProjectId);
       } else if (request.method === 'POST' && reviewProjectId) {

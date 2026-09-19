@@ -441,3 +441,68 @@ test('author can assign normalized tags and public catalog can filter by tag', a
   );
   assert.equal(missing.items.length, 0);
 });
+
+
+test('published metadata remains frozen until a new version is approved', async () => {
+  const { env, author, admin } = setup();
+  const created = await responseJson(
+    await createProject(
+      request('/api/projects', 'POST', {
+        name: '公开名称 v1',
+        summary: '公开简介 v1',
+        category: 'worldbook',
+        tags: ['v1'],
+      }),
+      env,
+      author,
+    ),
+  );
+  const project = created.project;
+  await publishVersion(env, author, admin, project.id, bundle('v1'));
+
+  await updateProject(
+    request(`/api/projects/${project.id}`, 'PATCH', {
+      name: '草稿名称 v2',
+      summary: '草稿简介 v2',
+      tags: ['v2'],
+    }),
+    env,
+    author,
+    project.id,
+  );
+
+  let detail = await responseJson(await getPublicProject(project.id, env));
+  assert.equal(detail.project.name, '公开名称 v1');
+  assert.equal(detail.project.summary, '公开简介 v1');
+  assert.deepEqual(detail.project.tags, ['v1']);
+
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', {
+      changelog: 'metadata v2',
+      bundle: bundle('v2'),
+    }),
+    env,
+    author,
+    project.id,
+  );
+  await submitProjectForReview(env, author, project.id);
+
+  detail = await responseJson(await getPublicProject(project.id, env));
+  assert.equal(detail.project.name, '公开名称 v1');
+  assert.deepEqual(detail.project.tags, ['v1']);
+
+  await reviewProject(
+    request(`/api/admin/projects/${project.id}/review`, 'POST', {
+      decision: 'approved',
+      note: '元数据与内容一起通过',
+    }),
+    env,
+    admin,
+    project.id,
+  );
+
+  detail = await responseJson(await getPublicProject(project.id, env));
+  assert.equal(detail.project.name, '草稿名称 v2');
+  assert.equal(detail.project.summary, '草稿简介 v2');
+  assert.deepEqual(detail.project.tags, ['v2']);
+});

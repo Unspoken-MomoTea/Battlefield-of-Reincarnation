@@ -1,3 +1,5 @@
+import { getApiBase } from '../../config.js';
+
 export function createProjectApi(request) {
   return {
     listProjects(query = '', category = '', offset = 0, tag = '') {
@@ -46,6 +48,23 @@ export function createProjectApi(request) {
 
     submitProject(projectId) {
       return request(`/api/projects/${encodeURIComponent(projectId)}/submit`, { method: 'POST' }, true);
+    },
+
+    uploadProjectCover(projectId, file) {
+      if (!file?.type) throw new Error('请选择有效的封面图片');
+      return request(
+        `/api/projects/${encodeURIComponent(projectId)}/cover`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type },
+          body: file,
+        },
+        true,
+      );
+    },
+
+    getProjectCoverUrl(projectId) {
+      return `${getApiBase()}/api/projects/${encodeURIComponent(projectId)}/cover`;
     },
 
     getProjectEngagement(projectId) {

@@ -1,0 +1,103 @@
+import { SHARED_WORLDBOOK_NAME } from './constants.js';
+import { isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
+import { buildArtifactPlan } from './plan.js';
+import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
+import { clone, maybe, record } from './utils.js';
+
+export async function applyProject({ adapter, storage }, projectId) {
+  const installed = await storage.getInstalledProject(projectId);
+  if (!installed) throw new Error('本地没有这个作品，请先下载');
+  const plan = buildArtifactPlan(installed);
+  if (!plan.worldbook.length && !plan.regexes.length && !plan.presets.length) {
+    throw new Error('这个作品目前只有 data artifact，没有可直接安装到酒馆的内容');
+  }
+
+  const oldTargets = installed.installTargets ?? {};
+  const characterNeeded = Boolean(plan.worldbook.length || plan.regexes.length || oldTargets.worldbook || oldTargets.regexIds?.length);
+  const currentCharacter = characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null;
+  if (characterNeeded && !currentCharacter) throw new Error('请先在酒馆中打开一个角色卡，再安装世界书或正则');
+  if (installed.applied && installed.targetCharacterName && installed.targetCharacterName !== currentCharacter) {
+    throw new Error(`该作品当前安装在角色“${installed.targetCharacterName}”，请切回该角色后再更新或卸载`);
+  }
+
+  const state = await createInstallSnapshot(adapter, installed, plan, characterNeeded);
+  try {
+    if (state.worldbook) {
+      const previous = state.worldbook.entries.filter(entry => !isProjectWorldbookEntry(entry, installed.id));
+      const nextEntries = [...previous, ...plan.worldbook];
+      if (nextEntries.length) {
+        await maybe(adapter.createOrReplaceWorldbook(SHARED_WORLDBOOK_NAME, nextEntries));
+        if (plan.worldbook.length) {
+          const binding = await maybe(adapter.getCharWorldbookNames());
+          if (!binding.additional.includes(SHARED_WORLDBOOK_NAME)) {
+            await maybe(adapter.rebindCharWorldbooks({
+              primary: binding.primary,
+              additional: [...new Set([...binding.additional, SHARED_WORLDBOOK_NAME])],
+            }));
+          }
+        } else if (oldTargets.worldbookBound && !previous.some(entry => record(provenance(entry))?.sourceId)) {
+          const binding = await maybe(adapter.getCharWorldbookNames());
+          await maybe(adapter.rebindCharWorldbooks({
+            primary: binding.primary,
+            additional: binding.additional.filter(name => name !== SHARED_WORLDBOOK_NAME),
+          }));
+        }
+      } else {
+        await maybe(adapter.deleteWorldbook(SHARED_WORLDBOOK_NAME));
+        const binding = await maybe(adapter.getCharWorldbookNames());
+        await maybe(adapter.rebindCharWorldbooks({
+          primary: binding.primary,
+          additional: binding.additional.filter(name => name !== SHARED_WORLDBOOK_NAME),
+        }));
+      }
+    }
+
+    if (state.regexes) {
+      const previous = state.regexes.filter(regex => !String(regex.id || '').startsWith(regexPrefix(installed.id)));
+      await maybe(adapter.replaceCharacterRegexes([...previous, ...plan.regexes]));
+    }
+
+    const newPresetNames = new Set(plan.presets.map(item => item.name));
+    const previousPresetBackups = oldTargets.presetBackups ?? {};
+    for (const oldName of oldTargets.presets ?? []) {
+      if (newPresetNames.has(oldName)) continue;
+      const backup = previousPresetBackups[oldName];
+      if (backup?.existed) await maybe(adapter.createOrReplacePreset(oldName, backup.content));
+      else await maybe(adapter.deletePreset(oldName));
+    }
+    for (const preset of plan.presets) await maybe(adapter.createOrReplacePreset(preset.name, preset.content));
+
+    const presetBackups = {};
+    for (const preset of plan.presets) {
+      presetBackups[preset.name] = previousPresetBackups[preset.name] ?? (() => {
+        const previous = state.presets.get(preset.name);
+        return previous ? { existed: previous.existed, content: clone(previous.content) } : { existed: false, content: null };
+      })();
+    }
+    const worldbookWasBound = Boolean(state.binding?.additional?.includes(SHARED_WORLDBOOK_NAME));
+    const next = {
+      ...installed,
+      applied: true, appliedVersion: installed.version, appliedAt: Date.now(),
+      targetCharacterName: characterNeeded ? currentCharacter : null,
+      installTargets: {
+        worldbook: plan.worldbook.length ? SHARED_WORLDBOOK_NAME : null,
+        worldbookCreated: plan.worldbook.length > 0 ? Boolean(oldTargets.worldbookCreated || !state.worldbook?.existed) : false,
+        worldbookBound: plan.worldbook.length > 0 ? Boolean(oldTargets.worldbookBound || !worldbookWasBound) : false,
+        regexIds: plan.regexes.map(regex => regex.id),
+        presets: plan.presets.map(item => item.name),
+        presetBackups,
+      },
+      applyError: '',
+    };
+    await storage.putInstalledProject(next);
+    return next;
+  } catch (error) {
+    const rollbackErrors = await restoreInstallSnapshot(adapter, state);
+    const baseMessage = error instanceof Error ? error.message : String(error);
+    const rollbackMessage = rollbackErrors.length ? `；另有 ${rollbackErrors.length} 个回滚步骤失败，请检查酒馆资源` : '';
+    await storage.putInstalledProject({
+      ...installed, applyError: `${baseMessage}${rollbackMessage}`, updatedAt: Date.now(),
+    });
+    throw error;
+  }
+}

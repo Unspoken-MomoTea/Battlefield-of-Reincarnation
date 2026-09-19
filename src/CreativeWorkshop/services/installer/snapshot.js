@@ -1,0 +1,56 @@
+import { SHARED_WORLDBOOK_NAME } from './constants.js';
+import { clone, maybe } from './utils.js';
+
+export async function createInstallSnapshot(adapter, installed, plan, characterNeeded) {
+  const oldTargets = installed.installTargets ?? {};
+  const worldbookAffected = Boolean(oldTargets.worldbook || plan.worldbook.length);
+  const regexAffected = Boolean((oldTargets.regexIds?.length ?? 0) || plan.regexes.length);
+  const presetNames = [...new Set([...(oldTargets.presets ?? []), ...plan.presets.map(item => item.name)])];
+
+  const state = {
+    characterName: characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null,
+    worldbook: null, binding: null, regexes: null, presets: new Map(),
+  };
+  if (worldbookAffected) {
+    const names = await maybe(adapter.getWorldbookNames());
+    const existed = names.includes(SHARED_WORLDBOOK_NAME);
+    state.worldbook = {
+      existed,
+      entries: existed ? clone(await maybe(adapter.getWorldbook(SHARED_WORLDBOOK_NAME))) : [],
+    };
+    state.binding = clone(await maybe(adapter.getCharWorldbookNames()));
+  }
+  if (regexAffected) state.regexes = clone(await maybe(adapter.getCharacterRegexes()));
+
+  const existing = new Set(await maybe(adapter.getPresetNames()));
+  for (const name of presetNames) {
+    state.presets.set(name, {
+      existed: existing.has(name),
+      content: existing.has(name) ? clone(await maybe(adapter.getPreset(name))) : null,
+    });
+  }
+  return state;
+}
+
+export async function restoreInstallSnapshot(adapter, state) {
+  const errors = [];
+  const attempt = async operation => {
+    try { await operation(); } catch (error) { errors.push(error); }
+  };
+
+  for (const [name, previous] of [...state.presets.entries()].reverse()) {
+    await attempt(async () => {
+      if (previous.existed) await maybe(adapter.createOrReplacePreset(name, previous.content));
+      else await maybe(adapter.deletePreset(name));
+    });
+  }
+  if (state.regexes) await attempt(() => maybe(adapter.replaceCharacterRegexes(state.regexes)));
+  if (state.worldbook) {
+    await attempt(async () => {
+      if (state.worldbook.existed) await maybe(adapter.createOrReplaceWorldbook(SHARED_WORLDBOOK_NAME, state.worldbook.entries));
+      else await maybe(adapter.deleteWorldbook(SHARED_WORLDBOOK_NAME));
+    });
+    if (state.binding) await attempt(() => maybe(adapter.rebindCharWorldbooks(state.binding)));
+  }
+  return errors;
+}

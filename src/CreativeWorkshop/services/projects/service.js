@@ -1,5 +1,6 @@
 import { workshopApi } from '../api.js';
 import { workshopInstaller } from '../installer.js';
+import { storageManager } from '../storage/manager.js';
 import { updateChecker } from './update-check.js';
 import {
   cacheRemoteProject, checkCachedProjectUpdate, exportCachedProject,
@@ -23,6 +24,8 @@ export class ProjectService {
   repair(projectId) { return workshopInstaller.repair(projectId); }
   uninstall(projectId) { return workshopInstaller.uninstall(projectId); }
   removeCached(projectId) { return removeCachedProject(projectId); }
+  storageEstimate() { return storageManager.estimate(); }
+  cleanupCacheOnly() { return storageManager.cleanupCacheOnly(); }
 }
 
 export const projectService = new ProjectService();

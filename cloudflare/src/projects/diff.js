@@ -1,5 +1,5 @@
 import { HttpError } from '../http.js';
-import { assertAdmin, parseTags } from './core.js';
+import { assertAdmin, parseDependencies, parseTags } from './core.js';
 
 function artifactKey(artifact) {
   return `${artifact.kind}:${artifact.name}`;
@@ -70,6 +70,10 @@ function metadataDiff(base, target) {
     name: changedValue(base?.name ?? null, target.name),
     summary: changedValue(base?.summary ?? null, target.summary),
     tags: changedValue(base ? parseTags(base.tags) : [], parseTags(target.tags)),
+    dependencies: changedValue(
+      base ? parseDependencies(base.dependencies) : [],
+      parseDependencies(target.dependencies),
+    ),
     category: changedValue(base?.category ?? null, target.category),
     cover: changedValue(Boolean(base?.cover_key), Boolean(target.cover_key)),
   };
@@ -88,7 +92,7 @@ export async function getAdminProjectDiff(env, user, projectId) {
   }
 
   const target = await env.DB.prepare(
-    `SELECT version, name, summary, tags, category, cover_key, manifest_key, review_status
+    `SELECT version, name, summary, tags, dependencies, category, cover_key, manifest_key, review_status
        FROM project_versions
       WHERE project_id = ? AND version = ?`,
   )
@@ -99,7 +103,7 @@ export async function getAdminProjectDiff(env, user, projectId) {
   let base = null;
   if (Number(project.published_version) > 0) {
     base = await env.DB.prepare(
-      `SELECT version, name, summary, tags, category, cover_key, manifest_key, review_status
+      `SELECT version, name, summary, tags, dependencies, category, cover_key, manifest_key, review_status
          FROM project_versions
         WHERE project_id = ? AND version = ?`,
     )

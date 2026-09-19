@@ -17,7 +17,13 @@ export async function createOfflinePackage(installed) {
   await verifyBundleAgainstManifest(installed.bundle, installed.manifest, { id: installed.id, version: installed.version });
   const payload = {
     format: OFFLINE_FORMAT, version: OFFLINE_VERSION, exported_at: Date.now(),
-    project: { id: installed.id, name: installed.name, category: installed.category, version: installed.version },
+    project: {
+      id: installed.id,
+      name: installed.name,
+      category: installed.category,
+      version: installed.version,
+      dependencies: Array.isArray(installed.dependencies) ? structuredClone(installed.dependencies) : [],
+    },
     manifest: installed.manifest, bundle: installed.bundle,
   };
   const text = JSON.stringify(payload);
@@ -37,6 +43,23 @@ export async function parseOfflinePackageText(text) {
   if (!project || typeof project.id !== 'string' || !project.id || typeof project.name !== 'string' ||
       !isAllowedOfflineCategory(project.category) || !Number.isInteger(Number(project.version)) || Number(project.version) < 1) {
     throw new Error('离线包项目资料无效');
+  }
+  if (project.dependencies !== undefined) {
+    if (!Array.isArray(project.dependencies) || project.dependencies.length > 12) {
+      throw new Error('离线包依赖资料无效');
+    }
+    for (const dependency of project.dependencies) {
+      if (
+        !dependency ||
+        typeof dependency !== 'object' ||
+        typeof dependency.project_id !== 'string' ||
+        !dependency.project_id ||
+        !Number.isInteger(Number(dependency.min_version)) ||
+        Number(dependency.min_version) < 1
+      ) {
+        throw new Error('离线包依赖资料无效');
+      }
+    }
   }
   await verifyBundleAgainstManifest(parsed.bundle, parsed.manifest, project);
   return parsed;

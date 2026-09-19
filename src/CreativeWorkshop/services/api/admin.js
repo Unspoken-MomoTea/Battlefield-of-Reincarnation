@@ -46,5 +46,34 @@ export function createAdminApi(request, requestRaw) {
       if (projectId) params.set('project_id', projectId);
       return request(`/api/admin/logs?${params}`, {}, true);
     },
+
+    listAdminUsers({ query = '', banned = '', offset = 0 } = {}) {
+      const params = new URLSearchParams({ limit: '50', offset: String(offset) });
+      if (query.trim()) params.set('query', query.trim());
+      if (banned !== '') params.set('banned', String(banned));
+      return request(`/api/admin/users?${params}`, {}, true);
+    },
+
+    setUserBan(userId, banned, reason = '') {
+      return request(
+        `/api/admin/users/${encodeURIComponent(userId)}/state`,
+        { method: 'POST', body: JSON.stringify({ banned, reason }) },
+        true,
+      );
+    },
+
+    listAdminReports({ status = 'open', offset = 0 } = {}) {
+      const params = new URLSearchParams({ limit: '50', offset: String(offset) });
+      if (status) params.set('status', status);
+      return request(`/api/admin/reports?${params}`, {}, true);
+    },
+
+    resolveProjectReport(reportId, status, note = '') {
+      return request(
+        `/api/admin/reports/${encodeURIComponent(reportId)}`,
+        { method: 'POST', body: JSON.stringify({ status, note }) },
+        true,
+      );
+    },
   };
 }

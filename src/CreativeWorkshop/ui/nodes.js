@@ -1,5 +1,6 @@
 export function collectWorkshopNodes(overlay) {
   const query = selector => overlay.querySelector(selector);
+  const queryAll = selector => [...overlay.querySelectorAll(selector)];
   return {
     health: query('[data-role="health"]'),
     account: query('[data-role="account"]'),
@@ -18,6 +19,13 @@ export function collectWorkshopNodes(overlay) {
     adminSearch: query('[data-field="admin-search"]'),
     adminStatus: query('[data-field="admin-status"]'),
     adminCategory: query('[data-field="admin-category"]'),
+    adminViewButtons: queryAll('[data-admin-view]'),
+    adminSections: queryAll('[data-admin-section]'),
+    reportStatus: query('[data-field="admin-report-status"]'),
+    reportList: query('[data-role="report-list"]'),
+    userSearch: query('[data-field="admin-user-search"]'),
+    userBanned: query('[data-field="admin-user-banned"]'),
+    userList: query('[data-role="user-list"]'),
     detailCard: query('[data-role="detail-card"]'),
     detailTitle: query('[data-role="detail-title"]'),
     detailSummary: query('[data-role="detail-summary"]'),

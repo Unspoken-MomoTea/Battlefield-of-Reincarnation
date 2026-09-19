@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS project_versions (
   version INTEGER NOT NULL,
   manifest_key TEXT NOT NULL,
   content_key TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '[]',
+  category TEXT NOT NULL DEFAULT 'data',
+  cover_key TEXT,
   changelog TEXT NOT NULL DEFAULT '',
   review_status TEXT NOT NULL DEFAULT 'draft'
     CHECK (review_status IN ('draft', 'pending', 'approved', 'rejected')),

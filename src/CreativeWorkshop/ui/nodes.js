@@ -12,6 +12,7 @@ export function collectWorkshopNodes(overlay) {
     discoverList: query('[data-role="discover-list"]'),
     installedList: query('[data-role="installed-list"]'),
     offlineInput: query('[data-action="import-offline"]'),
+    checkAllUpdates: query('[data-action="check-all-updates"]'),
     myList: query('[data-role="my-list"]'),
     pendingList: query('[data-role="pending-list"]'),
     adminSearch: query('[data-field="admin-search"]'),

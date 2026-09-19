@@ -3,7 +3,7 @@ import {
 } from '../engagement.js';
 import {
   createProject, downloadPublicProject, getPublicProject, getPublicProjectCover,
-  getPublicProjectVersion, listOwnProjects, listPublicProjects, submitProjectForReview,
+  getPublicProjectVersion, getPublicProjectVersionsBatch, listOwnProjects, listPublicProjects, submitProjectForReview,
   updateProject, uploadProjectCover, uploadProjectVersion,
 } from '../projects.js';
 import { authenticatedUser } from './context.js';
@@ -18,6 +18,9 @@ export async function routeProjects(request, env, pathname) {
   }
   if (request.method === 'GET' && pathname === '/api/my/projects') {
     return listOwnProjects(env, await authenticatedUser(request, env));
+  }
+  if (request.method === 'POST' && pathname === '/api/projects/versions/batch') {
+    return getPublicProjectVersionsBatch(request, env);
   }
 
   const versionId = projectIdFrom(pathname, '/version');

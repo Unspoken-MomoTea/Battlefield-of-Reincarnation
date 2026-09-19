@@ -1,6 +1,7 @@
 export { ARTIFACT_KINDS, PROJECT_CATEGORIES } from './constants.js';
 export { assertAdmin, getOwnedProject, writeAdminAudit } from './access.js';
 export { validateBundle } from './artifacts.js';
+export { parseDependencies, validateDependencies } from './dependencies.js';
 export {
   adminPageParams, categoryField, nowSeconds, optionalText, pageParams,
   parseTags, slugField, tagsField, textField,

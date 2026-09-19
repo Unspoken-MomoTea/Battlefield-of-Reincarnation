@@ -142,6 +142,49 @@ test('completed login can be exchanged once for a session and queried through /m
   assert.equal(me.user.display_name, 'Tester');
 });
 
+test('an existing session is rejected immediately after the user is banned', async () => {
+  const user = {
+    id: 8,
+    discord_id: '888',
+    username: 'banned-user',
+    display_name: 'Banned User',
+    avatar: null,
+    is_admin: 0,
+    is_banned: 0,
+    ban_reason: '',
+    banned_at: null,
+    created_at: 1,
+    updated_at: 1,
+  };
+  const testEnv = env({ DB: new UserDb(user) });
+  const loginId = 'c'.repeat(64);
+  await testEnv.SESSION_KV.put(`login_result:${loginId}`, JSON.stringify({ userId: 8 }));
+
+  const exchangeResponse = await handleRequest(
+    new Request('https://workshop.example/api/auth/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login_id: loginId }),
+    }),
+    testEnv,
+  );
+  const exchange = await exchangeResponse.json();
+
+  user.is_banned = 1;
+  user.ban_reason = '恶意上传';
+
+  const meResponse = await handleRequest(
+    new Request('https://workshop.example/api/auth/me', {
+      headers: { Authorization: `Bearer ${exchange.token}` },
+    }),
+    testEnv,
+  );
+  assert.equal(meResponse.status, 403);
+  const body = await meResponse.json();
+  assert.equal(body.code, 'user_banned');
+  assert.equal(body.error, '恶意上传');
+});
+
 test('unsupported routes return a stable 404 contract', async () => {
   const response = await handleRequest(new Request('https://workshop.example/api/nope'), env());
   assert.equal(response.status, 404);

@@ -132,7 +132,7 @@ test('apply rolls back all prior mutations if a later preset write fails', async
   const adapter = fakeAdapter();
   adapter.state.worldbooks.set(SHARED_WORLDBOOK_NAME, [{ name: '原条目' }]);
   adapter.state.binding.additional = [SHARED_WORLDBOOK_NAME];
-  const targetPreset = '[创意工坊] 测试作品 · 预设.json · project--1';
+  const targetPreset = '[创意工坊] 测试作品 · 预设.json · project--2';
   adapter.state.presets.set(targetPreset, { original: true });
   adapter.state.failPreset = targetPreset;
 

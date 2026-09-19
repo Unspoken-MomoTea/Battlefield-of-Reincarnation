@@ -16,6 +16,8 @@ export function bindWorkshopEvents({
   nodes.adminStatus.addEventListener('change', () => void views.admin.refresh());
   nodes.adminCategory.addEventListener('change', () => void views.admin.refresh());
 
+  nodes.checkAllUpdates.addEventListener('click', () => void views.installed.checkAllUpdates(true));
+
   nodes.offlineInput.addEventListener('change', async () => {
     const selected = nodes.offlineInput.files?.[0];
     nodes.offlineInput.value = '';

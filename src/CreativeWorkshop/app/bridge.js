@@ -15,5 +15,7 @@ export function createWorkshopBridge({ version, open, close, refresh, workshopAp
     uninstallProject: projectId => projectService.uninstall(projectId),
     exportProject: projectId => projectService.exportCached(projectId),
     importProject: file => projectService.importOffline(file),
+    getStorageEstimate: () => projectService.storageEstimate(),
+    cleanupCachedProjects: () => projectService.cleanupCacheOnly(),
   };
 }

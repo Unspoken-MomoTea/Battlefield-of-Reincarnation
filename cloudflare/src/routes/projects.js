@@ -1,3 +1,4 @@
+import { createProjectReport } from '../moderation/reports.js';
 import {
   getProjectEngagementResponse, setProjectEngagementFromRequest,
 } from '../engagement.js';
@@ -43,6 +44,11 @@ export async function routeProjects(request, env, pathname) {
   const submitId = projectIdFrom(pathname, '/submit');
   if (request.method === 'POST' && submitId) {
     return submitProjectForReview(env, await authenticatedUser(request, env), submitId);
+  }
+
+  const reportId = projectIdFrom(pathname, '/report');
+  if (request.method === 'POST' && reportId) {
+    return createProjectReport(request, env, await authenticatedUser(request, env), reportId);
   }
 
   const engagementId = projectIdFrom(pathname, '/engagement');

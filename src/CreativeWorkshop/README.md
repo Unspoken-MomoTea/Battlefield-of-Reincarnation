@@ -18,7 +18,9 @@
 - 世界书安装到共享世界书“轮回战场·创意工坊”，条目写入来源标记，卸载只删除对应作品条目。
 - 正则安装为当前角色卡局部正则，并使用项目命名空间 ID，卸载不会删除玩家自己的正则。
 - 预设名称会附带项目 ID 与 artifact 序号命名空间，避免两个同名作品互相覆盖。
+- 安装前会检查同名世界书条目、残留正则 ID、同名预设与角色目标冲突；非致命冲突由玩家确认后再继续。
 - 安装过程带快照；任一步骤失败会回滚已经发生的世界书、正则、预设修改。
+- 已安装作品可执行“检查安装”；缺失或被修改的工坊资源可一键 Repair，修复只触碰该项目拥有的资源。
 - 世界书/正则记录安装目标角色，切换到其他角色时会阻止误更新、误卸载。
 - Discord 登录后可创建作品、上传新版本并提交审核。
 - 混合包作者可直接上传一个完整的 `bundle v1` JSON，一次携带世界书、正则、预设和数据 artifact。
@@ -49,7 +51,10 @@ await ReincarnationWorkshop.getSession();
 await ReincarnationWorkshop.listInstalled();
 await ReincarnationWorkshop.cacheProject(projectId);
 await ReincarnationWorkshop.checkProjectUpdate(projectId);
+await ReincarnationWorkshop.preflightProject(projectId);
 await ReincarnationWorkshop.applyProject(projectId);
+await ReincarnationWorkshop.inspectProjectInstallation(projectId);
+await ReincarnationWorkshop.repairProjectInstallation(projectId);
 await ReincarnationWorkshop.uninstallProject(projectId);
 const exported = await ReincarnationWorkshop.exportProject(projectId);
 await ReincarnationWorkshop.importProject(file);

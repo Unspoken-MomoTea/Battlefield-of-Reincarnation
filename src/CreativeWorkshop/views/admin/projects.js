@@ -33,6 +33,7 @@ export function createAdminProjectsView({
         meta.append(element('span', 'rw-pill', categoryLabels[item.category] || item.category));
         meta.append(element('span', 'rw-pill', reviewStatusLabel(item.review_status)));
         if (item.project_status === 'archived') meta.append(element('span', 'rw-pill', '已下架'));
+        if (item.owner_is_banned) meta.append(element('span', 'rw-pill', '作者已封禁'));
         if (item.has_cover) meta.append(element('span', 'rw-pill', '含封面'));
         meta.append(element('span', 'rw-pill', `公开 v${item.published_version}`));
         card.appendChild(meta);

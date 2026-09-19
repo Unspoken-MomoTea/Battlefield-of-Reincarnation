@@ -7,7 +7,7 @@ export async function listPublicProjects(request, env) {
   const like = `%${query}%`;
   const result = await env.DB.prepare(
     `SELECT p.id, p.slug,
-            v.name, v.summary, v.tags, v.category, v.cover_key,
+            v.name, v.summary, v.tags, v.dependencies, v.category, v.cover_key,
             p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, COALESCE(v.reviewed_at, v.created_at) AS updated_at,
@@ -38,7 +38,7 @@ export async function listPublicProjects(request, env) {
 export async function getPublicProject(projectId, env) {
   const row = await env.DB.prepare(
     `SELECT p.id, p.slug,
-            v.name, v.summary, v.tags, v.category, v.cover_key,
+            v.name, v.summary, v.tags, v.dependencies, v.category, v.cover_key,
             p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, COALESCE(v.reviewed_at, v.created_at) AS updated_at,

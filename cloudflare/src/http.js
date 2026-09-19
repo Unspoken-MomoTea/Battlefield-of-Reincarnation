@@ -41,9 +41,13 @@ export function withCors(response, request) {
   });
 }
 
-export async function readJson(request) {
+export async function readJson(request, { maxBytes = 5 * 1024 * 1024 } = {}) {
+  const text = await request.text();
+  if (new TextEncoder().encode(text).byteLength > maxBytes) {
+    throw new HttpError(413, 'request_too_large', '请求体过大');
+  }
   try {
-    return await request.json();
+    return JSON.parse(text);
   } catch {
     throw new HttpError(400, 'invalid_json', '请求体必须是有效 JSON');
   }

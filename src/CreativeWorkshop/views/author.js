@@ -1,3 +1,5 @@
+import { formatDependencyText, parseDependencyText } from '../services/projects/dependency-input.js';
+
 export function createAuthorView({
   nodes,
   element,
@@ -20,6 +22,7 @@ export function createAuthorView({
     meta.append(element('span', 'rw-pill', `最新 v${project.latest_version}`));
     meta.append(element('span', 'rw-pill', `公开 v${project.published_version}`));
     if (project.has_cover) meta.append(element('span', 'rw-pill', '已有封面'));
+    if (project.dependencies?.length) meta.append(element('span', 'rw-pill', `依赖 ${project.dependencies.length}`));
     for (const tag of project.tags || []) meta.append(element('span', 'rw-pill', `#${tag}`));
     card.appendChild(meta);
     card.appendChild(element('div', 'rw-muted', project.summary || '暂无简介'));
@@ -66,7 +69,13 @@ export function createAuthorView({
         .split(/[,，\n]/u)
         .map(value => value.trim())
         .filter(Boolean);
-      await workshopApi.updateProject(project.id, { name, summary, tags });
+      const dependenciesText = host.prompt?.(
+        '依赖项目（项目ID@最低版本，逗号分隔；留空表示无依赖）',
+        formatDependencyText(project.dependencies),
+      );
+      if (dependenciesText === null || dependenciesText === undefined) return;
+      const dependencies = parseDependencyText(dependenciesText);
+      await workshopApi.updateProject(project.id, { name, summary, tags, dependencies });
       await refreshMine();
     }));
     actions.appendChild(button('上传新版本', 'primary', async () => {

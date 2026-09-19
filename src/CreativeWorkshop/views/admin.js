@@ -33,6 +33,7 @@ export function createAdminView({
         meta.append(element('span', 'rw-pill', categoryLabels[item.category] || item.category));
         meta.append(element('span', 'rw-pill', reviewStatusLabel(item.review_status)));
         if (item.project_status === 'archived') meta.append(element('span', 'rw-pill', '已下架'));
+        if (item.has_cover) meta.append(element('span', 'rw-pill', '含封面'));
         meta.append(element('span', 'rw-pill', `公开 v${item.published_version}`));
         card.appendChild(meta);
         card.appendChild(
@@ -49,15 +50,26 @@ export function createAdminView({
           card.appendChild(element('div', item.review_decision === 'approved' ? 'rw-status ok' : 'rw-status bad', reviewText));
         }
 
+        const coverPreview = element('img', 'rw-cover');
+        coverPreview.alt = `${item.name} 待审封面`;
+        coverPreview.hidden = true;
         const preview = element('pre', 'rw-detail');
         preview.hidden = true;
         const actions = element('div', 'rw-row');
         actions.appendChild(button('查看内容与审核记录', '', async () => {
           if (!preview.hidden) {
             preview.hidden = true;
+            coverPreview.hidden = true;
             return;
           }
           const detail = await workshopApi.getPendingReview(item.id);
+          if (detail.project.has_cover) {
+            const blob = await workshopApi.getAdminProjectCover(item.id);
+            const url = host.URL.createObjectURL(blob);
+            coverPreview.src = url;
+            coverPreview.hidden = false;
+            coverPreview.onload = () => host.URL.revokeObjectURL(url);
+          }
           const artifactPreviews = detail.bundle.artifacts.map(artifact => {
             const raw = typeof artifact.content === 'string' ? artifact.content : JSON.stringify(artifact.content, null, 2);
             return {
@@ -107,7 +119,7 @@ export function createAdminView({
             await refreshAdmin();
           }));
         }
-        card.append(actions, preview);
+        card.append(coverPreview, actions, preview);
         return card;
       });
       nodes.pendingList.replaceChildren(...cards);

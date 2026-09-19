@@ -1,7 +1,8 @@
 const DB_NAME = 'reincarnation-workshop';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const AUTH_STORE = 'auth';
 const INSTALLED_STORE = 'installed_projects';
+const META_STORE = 'meta';
 
 let dbPromise;
 
@@ -36,6 +37,7 @@ function openDb() {
       const db = request.result;
       if (!db.objectStoreNames.contains(AUTH_STORE)) db.createObjectStore(AUTH_STORE, { keyPath: 'key' });
       if (!db.objectStoreNames.contains(INSTALLED_STORE)) db.createObjectStore(INSTALLED_STORE, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(META_STORE)) db.createObjectStore(META_STORE, { keyPath: 'key' });
     };
     request.onsuccess = () => {
       const db = request.result;
@@ -86,3 +88,8 @@ export const getInstalledProject = id => getRecord(INSTALLED_STORE, id);
 export const getInstalledProjects = () => getAllRecords(INSTALLED_STORE);
 export const putInstalledProject = project => putRecord(INSTALLED_STORE, project);
 export const deleteInstalledProject = id => deleteRecord(INSTALLED_STORE, id);
+
+
+export const getMetaRecord = key => getRecord(META_STORE, key);
+export const putMetaRecord = value => putRecord(META_STORE, value);
+export const deleteMetaRecord = key => deleteRecord(META_STORE, key);

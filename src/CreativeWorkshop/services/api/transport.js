@@ -23,9 +23,23 @@ async function readError(response) {
   }
 }
 
-export async function request(path, init = {}, authenticated = false) {
+function isBinaryBody(body) {
+  return (
+    body instanceof Blob ||
+    body instanceof ArrayBuffer ||
+    ArrayBuffer.isView(body) ||
+    body instanceof URLSearchParams
+  );
+}
+
+async function buildHeaders(init, authenticated) {
   const headers = new Headers(init.headers);
-  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
+  if (
+    init.body &&
+    !(init.body instanceof FormData) &&
+    !isBinaryBody(init.body) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -37,12 +51,21 @@ export async function request(path, init = {}, authenticated = false) {
     }
     headers.set('Authorization', `Bearer ${auth.token}`);
   }
+  return headers;
+}
 
+export async function requestRaw(path, init = {}, authenticated = false) {
+  const headers = await buildHeaders(init, authenticated);
   const response = await fetch(`${getApiBase()}${path}`, { ...init, headers });
   if (!response.ok) {
     if (response.status === 401) await clearAuthRecord();
     throw await readError(response);
   }
+  return response;
+}
+
+export async function request(path, init = {}, authenticated = false) {
+  const response = await requestRaw(path, init, authenticated);
   if (response.status === 204) return undefined;
   return response.json();
 }

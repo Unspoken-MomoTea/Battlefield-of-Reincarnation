@@ -29,7 +29,7 @@ export function projectAdmin(row) {
     tags: parseTags(row.tags), category: row.category, has_cover: Boolean(row.cover_key),
     project_status: row.status, latest_version: Number(row.latest_version),
     published_version: Number(row.published_version || 0), owner_name: row.owner_name,
-    owner_discord_id: row.owner_discord_id, review_status: row.review_status,
+    owner_discord_id: row.owner_discord_id, owner_is_banned: Number(row.owner_is_banned || 0), review_status: row.review_status,
     changelog: row.changelog || '', version_created_at: Number(row.version_created_at || 0),
     submitted_at: Number(row.submitted_at || 0), reviewed_at: Number(row.reviewed_at || 0),
     review_decision: row.review_decision || '', review_note: row.review_note || '',

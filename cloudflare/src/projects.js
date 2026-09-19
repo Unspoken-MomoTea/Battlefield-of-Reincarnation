@@ -20,4 +20,4 @@ export {
   reviewProject,
   setAdminProjectState,
 } from './projects/admin.js';
-export { getPublicProjectCover, uploadProjectCover } from './projects/cover.js';
+export { getAdminProjectCover, getPublicProjectCover, uploadProjectCover } from './projects/cover.js';

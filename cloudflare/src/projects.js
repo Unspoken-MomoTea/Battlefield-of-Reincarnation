@@ -26,6 +26,33 @@ function optionalText(value, name, max) {
   return textField(value, name, { max });
 }
 
+function tagsField(value) {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new HttpError(400, 'invalid_tags', 'tags 必须是字符串数组');
+  const normalized = [];
+  const seen = new Set();
+  for (const raw of value) {
+    if (typeof raw !== 'string') throw new HttpError(400, 'invalid_tags', 'tag 必须是字符串');
+    const tag = raw.normalize('NFKC').trim().toLocaleLowerCase();
+    if (!tag) continue;
+    if (tag.length > 24) throw new HttpError(400, 'invalid_tags', '单个 tag 不能超过 24 个字符');
+    if (seen.has(tag)) continue;
+    seen.add(tag);
+    normalized.push(tag);
+  }
+  if (normalized.length > 12) throw new HttpError(400, 'invalid_tags', '最多允许 12 个 tag');
+  return normalized;
+}
+
+function parseTags(value) {
+  try {
+    const parsed = JSON.parse(value || '[]');
+    return Array.isArray(parsed) ? parsed.filter(tag => typeof tag === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 function categoryField(value) {
   if (typeof value !== 'string' || !CATEGORY_SET.has(value)) {
     throw new HttpError(400, 'invalid_category', `作品类型必须是：${PROJECT_CATEGORIES.join(', ')}`);
@@ -45,10 +72,11 @@ function pageParams(request) {
   const url = new URL(request.url);
   const query = (url.searchParams.get('query') || '').trim().slice(0, 100);
   const category = (url.searchParams.get('category') || '').trim();
+  const tag = (url.searchParams.get('tag') || '').normalize('NFKC').trim().toLocaleLowerCase().slice(0, 24);
   if (category && !CATEGORY_SET.has(category)) throw new HttpError(400, 'invalid_category', '作品类型无效');
   const limit = Math.max(1, Math.min(48, Number.parseInt(url.searchParams.get('limit') || '24', 10) || 24));
   const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') || '0', 10) || 0);
-  return { query, category, limit, offset };
+  return { query, category, tag, limit, offset };
 }
 
 function adminPageParams(request) {
@@ -67,6 +95,7 @@ function projectPublic(row) {
     slug: row.slug,
     name: row.name,
     summary: row.summary,
+    tags: parseTags(row.tags),
     category: row.category,
     status: 'published',
     version: Number(row.published_version),
@@ -82,6 +111,7 @@ function projectOwn(row) {
     slug: row.slug,
     name: row.name,
     summary: row.summary,
+    tags: parseTags(row.tags),
     category: row.category,
     status: row.status,
     latest_version: Number(row.latest_version),
@@ -98,6 +128,7 @@ function projectAdmin(row) {
     slug: row.slug,
     name: row.name,
     summary: row.summary,
+    tags: parseTags(row.tags),
     category: row.category,
     project_status: row.status,
     latest_version: Number(row.latest_version),
@@ -119,7 +150,7 @@ function projectAdmin(row) {
 
 async function getOwnedProject(env, projectId, user) {
   const project = await env.DB.prepare(
-    `SELECT id, owner_user_id, slug, name, summary, category, status,
+    `SELECT id, owner_user_id, slug, name, summary, tags, category, status,
             latest_version, published_version, cover_key, created_at, updated_at
        FROM projects WHERE id = ?`,
   )
@@ -305,10 +336,10 @@ async function buildManifest(project, version, bundle) {
 }
 
 export async function listPublicProjects(request, env) {
-  const { query, category, limit, offset } = pageParams(request);
+  const { query, category, tag, limit, offset } = pageParams(request);
   const like = `%${query}%`;
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.published_version,
+    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.published_version,
             p.created_at, p.updated_at, u.display_name AS owner_name
        FROM projects p
        JOIN users u ON u.id = p.owner_user_id
@@ -316,10 +347,13 @@ export async function listPublicProjects(request, env) {
         AND p.status <> 'archived'
         AND (? = '' OR p.name LIKE ? OR p.summary LIKE ?)
         AND (? = '' OR p.category = ?)
+        AND (? = '' OR EXISTS (
+          SELECT 1 FROM json_each(p.tags) tag_value WHERE tag_value.value = ?
+        ))
       ORDER BY p.updated_at DESC
       LIMIT ? OFFSET ?`,
   )
-    .bind(query, like, like, category, category, limit + 1, offset)
+    .bind(query, like, like, category, category, tag, tag, limit + 1, offset)
     .all();
   const rows = result.results || [];
   const hasMore = rows.length > limit;
@@ -331,7 +365,7 @@ export async function listPublicProjects(request, env) {
 
 export async function getPublicProject(projectId, env) {
   const row = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.published_version,
+    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.published_version,
             p.created_at, p.updated_at, u.display_name AS owner_name,
             v.changelog, v.manifest_key
        FROM projects p
@@ -383,7 +417,7 @@ export async function downloadPublicProject(projectId, env) {
 
 export async function listOwnProjects(env, user) {
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.status, p.latest_version, p.published_version,
+    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.status, p.latest_version, p.published_version,
             p.created_at, p.updated_at,
             COALESCE((
               SELECT rr.note
@@ -406,6 +440,7 @@ export async function createProject(request, env, user) {
   const name = textField(body?.name, 'name', { min: 1, max: 80 });
   const summary = textField(body?.summary ?? '', 'summary', { max: 2000 });
   const category = categoryField(body?.category);
+  const tags = tagsField(body?.tags) ?? [];
   const id = crypto.randomUUID();
   const slug = slugField(body?.slug) || `workshop-${id.split('-')[0]}`;
   const existing = await env.DB.prepare('SELECT id FROM projects WHERE slug = ?').bind(slug).first();
@@ -413,13 +448,13 @@ export async function createProject(request, env, user) {
   const now = nowSeconds();
   await env.DB.prepare(
     `INSERT INTO projects
-      (id, owner_user_id, slug, name, summary, category, status, latest_version, published_version, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'draft', 0, 0, ?, ?)`,
+      (id, owner_user_id, slug, name, summary, tags, category, status, latest_version, published_version, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', 0, 0, ?, ?)`,
   )
-    .bind(id, user.id, slug, name, summary, category, now, now)
+    .bind(id, user.id, slug, name, summary, JSON.stringify(tags), category, now, now)
     .run();
   return json({
-    project: { id, slug, name, summary, category, status: 'draft', latest_version: 0, published_version: 0, created_at: now, updated_at: now },
+    project: { id, slug, name, summary, tags, category, status: 'draft', latest_version: 0, published_version: 0, created_at: now, updated_at: now },
   }, 201);
 }
 
@@ -430,20 +465,22 @@ export async function updateProject(request, env, user, projectId) {
   const name = optionalText(body?.name, 'name', 80);
   const summary = optionalText(body?.summary, 'summary', 2000);
   const category = body?.category === undefined ? undefined : categoryField(body.category);
+  const tags = tagsField(body?.tags);
   if (category && category !== project.category && Number(project.published_version) > 0) {
     throw new HttpError(409, 'category_locked', '作品首次发布后不能修改类型');
   }
-  if (name === undefined && summary === undefined && category === undefined) {
+  if (name === undefined && summary === undefined && category === undefined && tags === undefined) {
     throw new HttpError(400, 'empty_patch', '没有可修改的字段');
   }
   const next = {
     name: name ?? project.name,
     summary: summary ?? project.summary,
     category: category ?? project.category,
+    tags: tags ?? parseTags(project.tags),
   };
   const now = nowSeconds();
-  await env.DB.prepare('UPDATE projects SET name = ?, summary = ?, category = ?, updated_at = ? WHERE id = ?')
-    .bind(next.name, next.summary, next.category, now, projectId)
+  await env.DB.prepare('UPDATE projects SET name = ?, summary = ?, tags = ?, category = ?, updated_at = ? WHERE id = ?')
+    .bind(next.name, next.summary, JSON.stringify(next.tags), next.category, now, projectId)
     .run();
   return json({ ok: true });
 }
@@ -518,7 +555,7 @@ export async function listAdminProjects(request, env, user) {
   const { query, category, limit, offset, reviewStatus } = adminPageParams(request);
   const like = `%${query}%`;
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.status, p.latest_version, p.published_version,
+    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.status, p.latest_version, p.published_version,
             p.created_at, p.updated_at,
             owner.display_name AS owner_name, owner.discord_id AS owner_discord_id,
             v.review_status, v.changelog, v.created_at AS version_created_at, v.submitted_at, v.reviewed_at,
@@ -573,7 +610,7 @@ export async function listAdminProjects(request, env, user) {
 export async function listPendingProjects(env, user) {
   assertAdmin(user);
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.status, p.latest_version, p.published_version,
+    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.status, p.latest_version, p.published_version,
             p.created_at, p.updated_at, u.display_name AS owner_name, v.changelog, v.submitted_at
        FROM projects p
        JOIN users u ON u.id = p.owner_user_id
@@ -587,7 +624,7 @@ export async function listPendingProjects(env, user) {
 export async function getPendingProjectReview(env, user, projectId) {
   assertAdmin(user);
   const row = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.status, p.latest_version, p.published_version,
+    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.status, p.latest_version, p.published_version,
             p.created_at, p.updated_at,
             owner.display_name AS owner_name, owner.discord_id AS owner_discord_id,
             v.version, v.changelog, v.created_at AS version_created_at, v.submitted_at,

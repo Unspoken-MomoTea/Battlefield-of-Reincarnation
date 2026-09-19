@@ -1,3 +1,5 @@
+import { createDatabaseCoordinator } from './storage/lifecycle.js';
+
 const DB_NAME = 'reincarnation-workshop';
 const DB_VERSION = 3;
 const AUTH_STORE = 'auth';
@@ -5,12 +7,45 @@ const INSTALLED_STORE = 'installed_projects';
 const META_STORE = 'meta';
 
 let dbPromise;
+let activeDatabase = null;
+let coordinator = null;
+let pagehideBound = false;
+
+const DATABASE_BLOCK_TIMEOUT_MS = 15_000;
+
+function hostWindow() {
+  try {
+    return window.parent ?? window;
+  } catch {
+    return globalThis;
+  }
+}
 
 function idbFactory() {
   try {
     return window.parent?.indexedDB ?? indexedDB;
   } catch {
     return indexedDB;
+  }
+}
+
+function closeActiveDatabase() {
+  if (!activeDatabase) return;
+  try { activeDatabase.close(); } catch {}
+  activeDatabase = null;
+  dbPromise = undefined;
+}
+
+function ensureDatabaseLifecycle() {
+  if (!coordinator) {
+    coordinator = createDatabaseCoordinator({
+      host: hostWindow(),
+      onClose: closeActiveDatabase,
+    });
+  }
+  if (!pagehideBound && typeof globalThis.addEventListener === 'function') {
+    pagehideBound = true;
+    globalThis.addEventListener('pagehide', closeActiveDatabase);
   }
 }
 
@@ -31,8 +66,24 @@ function transactionDone(transaction) {
 
 function openDb() {
   if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
+  ensureDatabaseLifecycle();
+
+  const opening = new Promise((resolve, reject) => {
     const request = idbFactory().open(DB_NAME, DB_VERSION);
+    let settled = false;
+    let blockedTimer;
+
+    const clearBlockedTimer = () => {
+      if (blockedTimer !== undefined) globalThis.clearTimeout?.(blockedTimer);
+      blockedTimer = undefined;
+    };
+    const fail = error => {
+      if (settled) return;
+      settled = true;
+      clearBlockedTimer();
+      reject(error);
+    };
+
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(AUTH_STORE)) db.createObjectStore(AUTH_STORE, { keyPath: 'key' });
@@ -40,20 +91,33 @@ function openDb() {
       if (!db.objectStoreNames.contains(META_STORE)) db.createObjectStore(META_STORE, { keyPath: 'key' });
     };
     request.onsuccess = () => {
-      const db = request.result;
-      db.onversionchange = () => {
-        db.close();
-        dbPromise = undefined;
-      };
-      resolve(db);
+      clearBlockedTimer();
+      if (settled) {
+        request.result.close();
+        return;
+      }
+      settled = true;
+      activeDatabase = request.result;
+      activeDatabase.onversionchange = closeActiveDatabase;
+      resolve(activeDatabase);
     };
-    request.onerror = () => reject(request.error ?? new Error('无法打开创意工坊本地数据库'));
-    request.onblocked = () => reject(new Error('创意工坊本地数据库升级被其他页面阻塞，请刷新页面后重试'));
+    request.onerror = () => fail(request.error ?? new Error('无法打开创意工坊本地数据库'));
+    request.onblocked = () => {
+      coordinator?.requestCloseForUpgrade(DB_VERSION);
+      if (blockedTimer === undefined) {
+        blockedTimer = globalThis.setTimeout?.(
+          () => fail(new Error('创意工坊本地数据库升级超时；请关闭其他酒馆标签页，并刷新当前页面后重试')),
+          DATABASE_BLOCK_TIMEOUT_MS,
+        );
+      }
+    };
   });
-  void dbPromise.catch(() => {
-    dbPromise = undefined;
+
+  dbPromise = opening;
+  void opening.catch(() => {
+    if (dbPromise === opening) dbPromise = undefined;
   });
-  return dbPromise;
+  return opening;
 }
 
 async function getRecord(storeName, key) {

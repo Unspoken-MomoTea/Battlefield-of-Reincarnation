@@ -11,6 +11,13 @@ export function createDiscoverView({
 }) {
   function projectCard(project) {
     const card = element('article', 'rw-card');
+    if (project.has_cover) {
+      const cover = element('img', 'rw-cover');
+      cover.src = workshopApi.getProjectCoverUrl(project.id);
+      cover.alt = `${project.name} 封面`;
+      cover.loading = 'lazy';
+      card.appendChild(cover);
+    }
     card.appendChild(element('h3', '', project.name));
     const meta = element('div', 'rw-meta');
     meta.append(element('span', 'rw-pill', categoryLabels[project.category] || project.category));

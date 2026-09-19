@@ -1,4 +1,5 @@
 import { workshopApi } from './api.js';
+import { workshopInstaller } from './installer.js';
 import { deleteInstalledProject, getInstalledProject, getInstalledProjects, putInstalledProject } from './storage.js';
 
 const ALLOWED_KINDS = new Set(['worldbook', 'regex', 'preset', 'data']);
@@ -54,7 +55,12 @@ export class ProjectService {
       bundle,
       installedAt: previous?.installedAt ?? now,
       updatedAt: now,
-      applied: false,
+      applied: previous?.applied ?? false,
+      appliedVersion: previous?.appliedVersion ?? null,
+      appliedAt: previous?.appliedAt ?? null,
+      targetCharacterName: previous?.targetCharacterName ?? null,
+      installTargets: previous?.installTargets ?? null,
+      applyError: previous?.applyError ?? '',
     };
     await putInstalledProject(record);
     return record;
@@ -67,6 +73,7 @@ export class ProjectService {
     return {
       installed: true,
       localVersion: installed.version,
+      appliedVersion: installed.appliedVersion ?? null,
       remoteVersion: remote.version,
       updateAvailable: remote.version > installed.version,
     };
@@ -76,8 +83,18 @@ export class ProjectService {
     return getInstalledProjects();
   }
 
-  removeCached(projectId) {
-    return deleteInstalledProject(projectId);
+  apply(projectId) {
+    return workshopInstaller.apply(projectId);
+  }
+
+  uninstall(projectId) {
+    return workshopInstaller.uninstall(projectId);
+  }
+
+  async removeCached(projectId) {
+    const installed = await getInstalledProject(projectId);
+    if (installed?.applied) throw new Error('请先卸载这个作品，再删除本地缓存');
+    await deleteInstalledProject(projectId);
   }
 }
 

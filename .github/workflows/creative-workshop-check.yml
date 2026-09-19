@@ -36,3 +36,5 @@ jobs:
           node --check src/CreativeWorkshop/services/api.js
           node --check src/CreativeWorkshop/services/storage.js
           node --check src/CreativeWorkshop/services/project-service.js
+          node --check src/CreativeWorkshop/services/tavern-adapter.js
+          node --check src/CreativeWorkshop/services/installer.js

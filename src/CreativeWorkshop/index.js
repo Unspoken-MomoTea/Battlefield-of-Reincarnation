@@ -3,7 +3,7 @@ import { workshopApi } from './services/api.js';
 import { projectService } from './services/project-service.js';
 
 const GLOBAL_NAME = 'ReincarnationWorkshop';
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const CATEGORY_LABELS = {
   worldbook: '世界书',
   regex: '正则',
@@ -85,7 +85,7 @@ function boot() {
           <div class="rw-card" data-role="detail-card" hidden><h3 data-role="detail-title"></h3><div class="rw-muted" data-role="detail-summary"></div><pre class="rw-detail" data-role="detail-manifest"></pre></div>
         </section>
         <section class="rw-section" data-section="installed" hidden>
-          <div class="rw-muted">这里记录已经下载到浏览器 IndexedDB 的作品包。当前阶段只缓存并做版本跟踪，不会把远程内容当作任意 JavaScript 执行。</div>
+          <div class="rw-muted">这里记录下载到 IndexedDB 的作品包。世界书、角色局部正则和预设会通过受控安装器写入酒馆；远程内容不会获得任意 JavaScript 执行权限。</div>
           <div class="rw-grid" data-role="installed-list"></div>
         </section>
         <section class="rw-section" data-section="mine" hidden>
@@ -252,19 +252,50 @@ function boot() {
       card.appendChild(element('h3', '', item.name));
       const meta = element('div', 'rw-meta');
       meta.append(element('span', 'rw-pill', CATEGORY_LABELS[item.category] || item.category));
-      meta.append(element('span', 'rw-pill', `本地 v${item.version}`));
-      meta.append(element('span', 'rw-pill', item.applied ? '已应用' : '仅缓存'));
+      meta.append(element('span', 'rw-pill', `缓存 v${item.version}`));
+      if (item.applied) {
+        meta.append(
+          element(
+            'span',
+            'rw-pill',
+            item.appliedVersion === item.version ? `已应用 v${item.appliedVersion}` : `已应用 v${item.appliedVersion} · 待升级`,
+          ),
+        );
+        if (item.targetCharacterName) meta.append(element('span', 'rw-pill', `角色：${item.targetCharacterName}`));
+      } else {
+        meta.append(element('span', 'rw-pill', '仅缓存'));
+      }
       card.appendChild(meta);
+      if (item.applyError) card.appendChild(element('div', 'rw-status bad', `上次安装失败：${item.applyError}`));
+
       const actions = element('div', 'rw-row');
+      actions.appendChild(
+        button(item.applied ? (item.appliedVersion === item.version ? '重新应用' : '应用新版') : '安装到酒馆', 'primary', async () => {
+          const result = await projectService.apply(item.id);
+          try { host.toastr?.success?.(`已应用 ${result.name} v${result.appliedVersion}`, '创意工坊'); } catch {}
+          await refreshInstalled();
+        }),
+      );
+      if (item.applied) {
+        actions.appendChild(
+          button('卸载', 'danger', async () => {
+            await projectService.uninstall(item.id);
+            try { host.toastr?.success?.(`已卸载 ${item.name}`, '创意工坊'); } catch {}
+            await refreshInstalled();
+          }),
+        );
+      }
       actions.appendChild(button('检查更新', '', async () => {
         const result = await projectService.checkUpdate(item.id);
-        const message = result.updateAvailable ? `有新版本：v${result.remoteVersion}` : '已经是最新版本';
+        const message = result.updateAvailable ? `服务器有新版本：v${result.remoteVersion}，请回“发现”页重新下载` : '本地缓存已经是服务器最新版本';
         try { host.toastr?.info?.(message, item.name); } catch {}
       }));
-      actions.appendChild(button('删除本地缓存', 'danger', async () => {
-        await projectService.removeCached(item.id);
-        await refreshInstalled();
-      }));
+      if (!item.applied) {
+        actions.appendChild(button('删除本地缓存', 'danger', async () => {
+          await projectService.removeCached(item.id);
+          await refreshInstalled();
+        }));
+      }
       card.appendChild(actions);
       return card;
     });
@@ -443,6 +474,8 @@ function boot() {
     listInstalled: () => projectService.installed(),
     cacheProject: projectId => projectService.cache(projectId),
     checkProjectUpdate: projectId => projectService.checkUpdate(projectId),
+    applyProject: projectId => projectService.apply(projectId),
+    uninstallProject: projectId => projectService.uninstall(projectId),
   };
 
   host[GLOBAL_NAME] = bridge;

@@ -78,7 +78,7 @@ export function bootWorkshop() {
   launcher.addEventListener('click', open);
 
   bindWorkshopEvents({
-    host, doc, launcher, overlay, nodes, views, workshopApi, projectService,
+    host, doc, overlay, nodes, views, workshopApi, projectService,
     notifyError: ui.notifyError, showTab, getActiveTab: () => activeTab, setAuth, close,
   });
 

@@ -1,5 +1,5 @@
 import { HttpError, json } from '../http.js';
-import { getOwnedProject } from './core.js';
+import { assertAdmin, getOwnedProject } from './core.js';
 
 const MAX_COVER_BYTES = 3 * 1024 * 1024;
 const COVER_TYPES = new Map([
@@ -135,6 +135,31 @@ export async function getPublicProjectCover(env, projectId) {
     headers: {
       'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
       'Cache-Control': object.httpMetadata?.cacheControl || 'public, max-age=31536000, immutable',
+    },
+  });
+}
+
+
+export async function getAdminProjectCover(env, user, projectId) {
+  assertAdmin(user);
+  const row = await env.DB.prepare(
+    `SELECT v.cover_key
+       FROM projects p
+       JOIN project_versions v ON v.project_id = p.id AND v.version = p.latest_version
+      WHERE p.id = ? AND p.latest_version > 0`,
+  )
+    .bind(projectId)
+    .first();
+
+  if (!row?.cover_key) throw new HttpError(404, 'cover_not_found', '当前审核版本没有封面');
+  const object = await env.PROJECTS.get(row.cover_key);
+  if (!object) throw new HttpError(404, 'cover_missing', '作品封面文件不存在');
+
+  return new Response(object.body, {
+    status: 200,
+    headers: {
+      'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
+      'Cache-Control': 'private, no-store',
     },
   });
 }

@@ -11,6 +11,7 @@ export function bindWorkshopEvents({
   nodes.tag.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
 
   nodes.checkAllUpdates.addEventListener('click', () => void views.installed.checkAllUpdates(true));
+  nodes.storageManager.addEventListener('click', () => void views.installed.manageStorage());
 
   nodes.offlineInput.addEventListener('change', async () => {
     const selected = nodes.offlineInput.files?.[0];

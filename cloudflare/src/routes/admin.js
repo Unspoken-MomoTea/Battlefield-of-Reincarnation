@@ -1,11 +1,13 @@
 import { json } from '../http.js';
+import { listAdminReports, resolveProjectReport } from '../moderation/reports.js';
+import { listAdminUsers, setUserBan } from '../moderation/users.js';
 import {
   getAdminProjectCover, getAdminProjectDiff, getPendingProjectReview,
   listAdminAuditLogs, listAdminProjects, listPendingProjects, reviewProject,
   setAdminProjectState,
 } from '../projects.js';
 import { authenticatedUser } from './context.js';
-import { adminProjectIdFrom } from './match.js';
+import { adminEntityIdFrom, adminProjectIdFrom } from './match.js';
 
 export async function routeAdmin(request, env, pathname) {
   if (request.method === 'GET' && pathname === '/api/admin/projects') {
@@ -16,6 +18,22 @@ export async function routeAdmin(request, env, pathname) {
   }
   if (request.method === 'GET' && pathname === '/api/admin/logs') {
     return listAdminAuditLogs(request, env, await authenticatedUser(request, env));
+  }
+  if (request.method === 'GET' && pathname === '/api/admin/users') {
+    return listAdminUsers(request, env, await authenticatedUser(request, env));
+  }
+  if (request.method === 'GET' && pathname === '/api/admin/reports') {
+    return listAdminReports(request, env, await authenticatedUser(request, env));
+  }
+
+  const userStateId = adminEntityIdFrom(pathname, 'users', 'state');
+  if (request.method === 'POST' && userStateId) {
+    return setUserBan(request, env, await authenticatedUser(request, env), userStateId);
+  }
+
+  const reportId = adminEntityIdFrom(pathname, 'reports');
+  if (request.method === 'POST' && reportId) {
+    return resolveProjectReport(request, env, await authenticatedUser(request, env), reportId);
   }
 
   const coverId = adminProjectIdFrom(pathname, 'cover');

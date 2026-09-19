@@ -1,3 +1,5 @@
+import { parseDependencyText } from '../services/projects/dependency-input.js';
+
 export function bindWorkshopEvents({
   host, doc, overlay, nodes, views, workshopApi, projectService,
   notifyError, showTab, getActiveTab, setAuth, close,
@@ -57,6 +59,7 @@ export function bindWorkshopEvents({
         summary: String(form.get('summary') || ''),
         category: String(form.get('category') || 'data'),
         tags: String(form.get('tags') || '').split(/[,，\n]/u).map(value => value.trim()).filter(Boolean),
+        dependencies: parseDependencyText(form.get('dependencies')),
       });
       nodes.createForm.reset();
       await views.author.refresh();

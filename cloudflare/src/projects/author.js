@@ -59,6 +59,7 @@ export async function createProject(request, env, user) {
 export async function updateProject(request, env, user, projectId) {
   const project = await getOwnedProject(env, projectId, user);
   if (project.status === 'archived') throw new HttpError(409, 'project_archived', '已归档作品不能修改');
+  if (project.status === 'pending') throw new HttpError(409, 'review_pending', '作品正在审核，审核结束前不能修改元数据');
   const body = await readJson(request);
   const name = optionalText(body?.name, 'name', 80);
   const summary = optionalText(body?.summary, 'summary', 2000);
@@ -80,6 +81,21 @@ export async function updateProject(request, env, user, projectId) {
   await env.DB.prepare('UPDATE projects SET name = ?, summary = ?, tags = ?, category = ?, updated_at = ? WHERE id = ?')
     .bind(next.name, next.summary, JSON.stringify(next.tags), next.category, now, projectId)
     .run();
+
+  if (Number(project.latest_version) > 0) {
+    const latest = await env.DB.prepare(
+      'SELECT review_status FROM project_versions WHERE project_id = ? AND version = ?',
+    )
+      .bind(projectId, project.latest_version)
+      .first();
+    if (latest && ['draft', 'rejected'].includes(latest.review_status)) {
+      await env.DB.prepare(
+        'UPDATE project_versions SET name = ?, summary = ?, tags = ?, category = ? WHERE project_id = ? AND version = ?',
+      )
+        .bind(next.name, next.summary, JSON.stringify(next.tags), next.category, projectId, project.latest_version)
+        .run();
+    }
+  }
   return json({ ok: true });
 }
 
@@ -108,10 +124,22 @@ export async function uploadProjectVersion(request, env, user, projectId) {
   try {
     await env.DB.prepare(
       `INSERT INTO project_versions
-        (project_id, version, manifest_key, content_key, changelog, review_status, created_at)
-       VALUES (?, ?, ?, ?, ?, 'draft', ?)`,
+        (project_id, version, manifest_key, content_key, name, summary, tags, category, cover_key, changelog, review_status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
     )
-      .bind(project.id, version, manifestKey, contentKey, changelog, now)
+      .bind(
+        project.id,
+        version,
+        manifestKey,
+        contentKey,
+        project.name,
+        project.summary,
+        project.tags || '[]',
+        project.category,
+        project.cover_key || null,
+        changelog,
+        now,
+      )
       .run();
     await env.DB.prepare("UPDATE projects SET latest_version = ?, status = 'draft', updated_at = ? WHERE id = ?")
       .bind(version, now, project.id)

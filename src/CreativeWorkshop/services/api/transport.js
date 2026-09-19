@@ -58,8 +58,9 @@ export async function requestRaw(path, init = {}, authenticated = false) {
   const headers = await buildHeaders(init, authenticated);
   const response = await fetch(`${getApiBase()}${path}`, { ...init, headers });
   if (!response.ok) {
-    if (response.status === 401) await clearAuthRecord();
-    throw await readError(response);
+    const error = await readError(response);
+    if (response.status === 401 || error.code === 'user_banned') await clearAuthRecord();
+    throw error;
   }
   return response;
 }

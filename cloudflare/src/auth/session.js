@@ -43,6 +43,9 @@ export async function requireUser(request, env) {
 
   const user = await getUserById(env, session.userId);
   if (!user) throw new HttpError(401, 'user_not_found', '登录用户不存在');
+  if (Number(user.is_banned)) {
+    throw new HttpError(403, 'user_banned', user.ban_reason || '该账号已被创意工坊管理员封禁');
+  }
   return { user, tokenHash };
 }
 

@@ -1,4 +1,5 @@
 import { HttpError, json, withCors } from './http.js';
+import { guardRequest } from './middleware/request-guard.js';
 import { routeRequest } from './router.js';
 
 export const SERVICE_VERSION = '0.8.0';
@@ -9,6 +10,7 @@ export async function handleRequest(request, env) {
   }
 
   try {
+    guardRequest(request);
     return withCors(await routeRequest(request, env, SERVICE_VERSION), request);
   } catch (error) {
     if (error instanceof HttpError) {

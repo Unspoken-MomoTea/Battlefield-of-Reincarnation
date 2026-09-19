@@ -3,3 +3,5 @@ export { normalizeRegexArtifact } from './installer/normalize/regex.js';
 export { safePresetName } from './installer/normalize/preset.js';
 export { normalizeWorldbookArtifact } from './installer/normalize/worldbook.js';
 export { createWorkshopInstaller, workshopInstaller } from './installer/runtime.js';
+export { analyzeInstallConflicts } from './installer/conflicts.js';
+export { inspectInstalledProject, repairInstalledProject } from './installer/repair.js';

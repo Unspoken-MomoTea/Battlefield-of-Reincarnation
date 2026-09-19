@@ -10,11 +10,6 @@ export function bindWorkshopEvents({
   nodes.search.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
   nodes.tag.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
 
-  overlay.querySelector('[data-action="admin-search"]').addEventListener('click', () => void views.admin.refresh());
-  nodes.adminSearch.addEventListener('keydown', event => { if (event.key === 'Enter') void views.admin.refresh(); });
-  nodes.adminStatus.addEventListener('change', () => void views.admin.refresh());
-  nodes.adminCategory.addEventListener('change', () => void views.admin.refresh());
-
   nodes.checkAllUpdates.addEventListener('click', () => void views.installed.checkAllUpdates(true));
 
   nodes.offlineInput.addEventListener('change', async () => {

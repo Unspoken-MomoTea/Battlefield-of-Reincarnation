@@ -1,0 +1,169 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
+import test from 'node:test';
+
+import {
+  createProject,
+  downloadPublicProject,
+  getPublicProject,
+  getPublicProjectVersion,
+  listPendingProjects,
+  listPublicProjects,
+  reviewProject,
+  submitProjectForReview,
+  uploadProjectVersion,
+  validateBundle,
+} from '../src/projects.js';
+
+class D1Statement {
+  constructor(db, sql, args = []) {
+    this.db = db;
+    this.sql = sql;
+    this.args = args;
+  }
+  bind(...args) { return new D1Statement(this.db, this.sql, args); }
+  async first() { return this.db.prepare(this.sql).get(...this.args) ?? null; }
+  async all() { return { results: this.db.prepare(this.sql).all(...this.args) }; }
+  async run() {
+    const result = this.db.prepare(this.sql).run(...this.args);
+    return { success: true, meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid || 0) } };
+  }
+}
+
+class D1Database {
+  constructor() {
+    this.db = new DatabaseSync(':memory:');
+    this.db.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
+  }
+  prepare(sql) { return new D1Statement(this.db, sql); }
+}
+
+class MemoryR2 {
+  constructor() { this.objects = new Map(); }
+  async put(key, value, options = {}) { this.objects.set(key, { value: String(value), httpMetadata: options.httpMetadata }); }
+  async get(key) {
+    const item = this.objects.get(key);
+    return item ? { body: item.value, httpMetadata: item.httpMetadata } : null;
+  }
+  async delete(key) { this.objects.delete(key); }
+}
+
+function request(path, method = 'GET', body) {
+  return new Request(`https://workshop.example${path}`, {
+    method,
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+function bundle(label) {
+  return {
+    schema_version: 1,
+    artifacts: [{ kind: 'worldbook', name: label, format: 'json', content: { entries: { 0: { comment: label, content: 'hello' } } } }],
+  };
+}
+
+async function responseJson(response) {
+  return JSON.parse(await response.text());
+}
+
+function setup() {
+  const DB = new D1Database();
+  const PROJECTS = new MemoryR2();
+  const now = 1;
+  DB.db.prepare(`INSERT INTO users (discord_id, username, display_name, is_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run('100', 'author', 'Author', 0, now, now);
+  DB.db.prepare(`INSERT INTO users (discord_id, username, display_name, is_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run('200', 'admin', 'Admin', 1, now, now);
+  DB.db.prepare(`INSERT INTO users (discord_id, username, display_name, is_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run('300', 'other', 'Other', 0, now, now);
+  return {
+    env: { DB, PROJECTS },
+    author: DB.db.prepare('SELECT * FROM users WHERE discord_id = ?').get('100'),
+    admin: DB.db.prepare('SELECT * FROM users WHERE discord_id = ?').get('200'),
+    other: DB.db.prepare('SELECT * FROM users WHERE discord_id = ?').get('300'),
+  };
+}
+
+async function createWorldbookProject(env, author) {
+  const response = await createProject(request('/api/projects', 'POST', { name: '测试世界书', summary: '说明', category: 'worldbook' }), env, author);
+  return (await responseJson(response)).project;
+}
+
+async function publishVersion(env, author, admin, projectId, versionBundle, note = '') {
+  await uploadProjectVersion(request(`/api/projects/${projectId}/versions`, 'POST', { changelog: 'first', bundle: versionBundle }), env, author, projectId);
+  await submitProjectForReview(env, author, projectId);
+  await reviewProject(request(`/api/admin/projects/${projectId}/review`, 'POST', { decision: 'approved', note }), env, admin, projectId);
+}
+
+test('published project appears in public catalog and can be downloaded', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'));
+
+  const list = await responseJson(await listPublicProjects(request('/api/projects'), env));
+  assert.equal(list.items.length, 1);
+  assert.equal(list.items[0].id, project.id);
+  assert.equal(list.items[0].version, 1);
+
+  const detail = await responseJson(await getPublicProject(project.id, env));
+  assert.equal(detail.project.version, 1);
+  assert.equal(detail.manifest.artifacts[0].name, 'v1');
+
+  const download = await responseJson(await downloadPublicProject(project.id, env));
+  assert.equal(download.artifacts[0].content.entries['0'].comment, 'v1');
+});
+
+test('new draft version does not replace the last approved public version', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'));
+  await uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'v2', bundle: bundle('v2') }), env, author, project.id);
+
+  const version = await responseJson(await getPublicProjectVersion(project.id, env));
+  assert.equal(version.version, 1);
+  const download = await responseJson(await downloadPublicProject(project.id, env));
+  assert.equal(download.artifacts[0].name, 'v1');
+});
+
+test('rejected update keeps the previously approved version public', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'));
+  await uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'v2', bundle: bundle('v2') }), env, author, project.id);
+  await submitProjectForReview(env, author, project.id);
+  await reviewProject(request(`/api/admin/projects/${project.id}/review`, 'POST', { decision: 'rejected', note: '格式需要修改' }), env, admin, project.id);
+
+  const version = await responseJson(await getPublicProjectVersion(project.id, env));
+  assert.equal(version.version, 1);
+  const projectRow = env.DB.db.prepare('SELECT status, latest_version, published_version FROM projects WHERE id = ?').get(project.id);
+  assert.equal(projectRow.status, 'rejected');
+  assert.equal(Number(projectRow.latest_version), 2);
+  assert.equal(Number(projectRow.published_version), 1);
+});
+
+test('only owner or admin can upload project versions', async () => {
+  const { env, author, other } = setup();
+  const project = await createWorldbookProject(env, author);
+  await assert.rejects(
+    () => uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: '', bundle: bundle('x') }), env, other, project.id),
+    error => error?.status === 403 && error?.code === 'forbidden',
+  );
+});
+
+test('bundle validator rejects executable script artifacts', () => {
+  assert.throws(
+    () => validateBundle({ schema_version: 1, artifacts: [{ kind: 'script', name: 'evil', format: 'text', content: 'alert(1)' }] }, 'mixed'),
+    error => error?.status === 400 && error?.code === 'invalid_artifact_kind',
+  );
+});
+
+test('admin pending queue contains submitted versions', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: '', bundle: bundle('pending') }), env, author, project.id);
+  await submitProjectForReview(env, author, project.id);
+
+  const pending = await responseJson(await listPendingProjects(env, admin));
+  assert.equal(pending.items.length, 1);
+  assert.equal(pending.items[0].id, project.id);
+  assert.equal(Number(pending.items[0].latest_version), 1);
+});

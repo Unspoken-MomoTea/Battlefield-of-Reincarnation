@@ -71,3 +71,41 @@ npx wrangler dev
 - OAuth state 单次使用并在 10 分钟后过期。
 - OAuth 登录结果只保留 2 分钟并且只能交换一次。
 - 远程项目内容后续只作为数据包安装，不赋予任意 JavaScript 执行权限。
+
+## 作品生命周期
+
+第一版项目 API 已完成从草稿到审核发布的完整链路：
+
+- `GET /api/projects`：公开作品列表，仅返回已有已审核版本的作品。
+- `GET /api/projects/:id`：公开作品详情与 manifest。
+- `GET /api/projects/:id/version`：查询当前公开版本。
+- `GET /api/projects/:id/download`：从 R2 下载当前公开 bundle。
+- `GET /api/my/projects`：作者自己的全部作品。
+- `POST /api/projects`：创建草稿作品。
+- `PATCH /api/projects/:id`：修改作品元数据。
+- `POST /api/projects/:id/versions`：上传新版本到 R2。
+- `POST /api/projects/:id/submit`：提交最新版本审核。
+- `GET /api/admin/pending`：管理员待审核队列。
+- `POST /api/admin/projects/:id/review`：批准或驳回最新版本。
+
+已发布作品上传新版本后，旧的已审核版本仍保持公开，直到新版本审核通过才切换公开版本。
+
+### bundle v1
+
+服务器只接受数据型 artifact，不接受任意脚本：
+
+```json
+{
+  "schema_version": 1,
+  "artifacts": [
+    {
+      "kind": "worldbook",
+      "name": "示例世界书",
+      "format": "json",
+      "content": { "entries": {} }
+    }
+  ]
+}
+```
+
+允许的 `kind`：`worldbook`、`regex`、`preset`、`data`。`mixed` 是作品分类，不是 artifact 类型。单个 bundle 当前限制为 4 MB、最多 32 个 artifact。

@@ -26,6 +26,7 @@ jobs:
           node --check cloudflare/src/auth.js
           node --check cloudflare/src/http.js
           node --check cloudflare/src/security.js
+          node --check cloudflare/src/projects.js
       - name: Client syntax
         run: |
           node --check src/CreativeWorkshop/index.js

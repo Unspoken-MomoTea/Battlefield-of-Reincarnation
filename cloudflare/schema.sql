@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS projects (
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   summary TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '[]',
   category TEXT NOT NULL DEFAULT 'data'
     CHECK (category IN ('worldbook', 'regex', 'preset', 'data', 'mixed')),
   status TEXT NOT NULL DEFAULT 'draft'

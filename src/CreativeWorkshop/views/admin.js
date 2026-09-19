@@ -37,17 +37,17 @@ export function createAdminView(context) {
     if (active === 'users') void views.users.refresh();
   };
 
-  context.overlay?.querySelector('[data-action="admin-search"]')?.addEventListener('click', refreshProjectsIfActive);
+  nodes.adminSearchButton.addEventListener('click', refreshProjectsIfActive);
   nodes.adminSearch.addEventListener('keydown', event => {
     if (event.key === 'Enter') refreshProjectsIfActive();
   });
   nodes.adminStatus.addEventListener('change', refreshProjectsIfActive);
   nodes.adminCategory.addEventListener('change', refreshProjectsIfActive);
 
-  context.overlay?.querySelector('[data-action="admin-report-refresh"]')?.addEventListener('click', refreshReportsIfActive);
+  nodes.adminReportRefreshButton.addEventListener('click', refreshReportsIfActive);
   nodes.reportStatus.addEventListener('change', refreshReportsIfActive);
 
-  context.overlay?.querySelector('[data-action="admin-user-search"]')?.addEventListener('click', refreshUsersIfActive);
+  nodes.adminUserSearchButton.addEventListener('click', refreshUsersIfActive);
   nodes.userSearch.addEventListener('keydown', event => {
     if (event.key === 'Enter') refreshUsersIfActive();
   });

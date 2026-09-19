@@ -3,7 +3,7 @@ import { nowSeconds } from './fields.js';
 
 export async function getOwnedProject(env, projectId, user) {
   const project = await env.DB.prepare(
-    `SELECT id, owner_user_id, slug, name, summary, tags, category, status,
+    `SELECT id, owner_user_id, slug, name, summary, tags, dependencies, category, status,
             latest_version, published_version, cover_key, created_at, updated_at
        FROM projects WHERE id = ?`,
   ).bind(projectId).first();

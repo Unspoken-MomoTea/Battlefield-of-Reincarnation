@@ -1,9 +1,10 @@
 import { resolveHostWindow } from './config.js';
 import { workshopApi } from './services/api.js';
 import { projectService } from './services/project-service.js';
+import { buildUploadBundle } from './services/upload.js';
 
 const GLOBAL_NAME = 'ReincarnationWorkshop';
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 const CATEGORY_LABELS = {
   worldbook: '世界书',
   regex: '正则',
@@ -287,8 +288,24 @@ function boot() {
       }
       actions.appendChild(button('检查更新', '', async () => {
         const result = await projectService.checkUpdate(item.id);
-        const message = result.updateAvailable ? `服务器有新版本：v${result.remoteVersion}，请回“发现”页重新下载` : '本地缓存已经是服务器最新版本';
-        try { host.toastr?.info?.(message, item.name); } catch {}
+        if (!result.updateAvailable) {
+          try { host.toastr?.info?.('本地缓存已经是服务器最新版本', item.name); } catch {}
+          return;
+        }
+        const shouldSync = host.confirm?.(
+          `服务器已有 v${result.remoteVersion}。是否立即下载最新版${item.applied ? '并重新应用到酒馆' : ''}？`,
+        );
+        if (!shouldSync) return;
+        const wasApplied = item.applied;
+        const cached = await projectService.cache(item.id);
+        if (wasApplied) await projectService.apply(item.id);
+        try {
+          host.toastr?.success?.(
+            wasApplied ? `已升级并应用到 v${cached.version}` : `已同步缓存到 v${cached.version}`,
+            item.name,
+          );
+        } catch {}
+        await refreshInstalled();
       }));
       if (!item.applied) {
         actions.appendChild(button('删除本地缓存', 'danger', async () => {
@@ -338,18 +355,10 @@ function boot() {
       const selected = file.files?.[0];
       if (!selected) throw new Error('请先选择 .json 或 .txt 文件');
       const raw = await selected.text();
-      const isJson = selected.name.toLowerCase().endsWith('.json');
-      let content = raw;
-      if (isJson) {
-        try { content = JSON.parse(raw); } catch { throw new Error('选择的 JSON 文件无法解析'); }
-      }
-      const artifactKind = project.category === 'mixed' ? kind.value : project.category;
+      const bundle = buildUploadBundle(project, selected.name, raw, kind.value);
       await workshopApi.uploadProjectVersion(project.id, {
         changelog: changelog.value,
-        bundle: {
-          schema_version: 1,
-          artifacts: [{ kind: artifactKind, name: selected.name, format: isJson ? 'json' : 'text', content }],
-        },
+        bundle,
       });
       await refreshMine();
     }));

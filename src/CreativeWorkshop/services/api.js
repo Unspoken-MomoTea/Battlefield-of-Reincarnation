@@ -114,6 +114,14 @@ export class WorkshopApi {
     return this.request(`/api/projects/${encodeURIComponent(projectId)}/submit`, { method: 'POST' }, true);
   }
 
+  listAdminProjects({ query = '', category = '', reviewStatus = '', offset = 0 } = {}) {
+    const params = new URLSearchParams({ limit: '48', offset: String(offset) });
+    if (query.trim()) params.set('query', query.trim());
+    if (category) params.set('category', category);
+    if (reviewStatus) params.set('review_status', reviewStatus);
+    return this.request(`/api/admin/projects?${params}`, {}, true);
+  }
+
   listPendingProjects() {
     return this.request('/api/admin/pending', {}, true);
   }

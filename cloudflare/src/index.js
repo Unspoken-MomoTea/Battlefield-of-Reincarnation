@@ -13,6 +13,7 @@ import {
   getPublicProject,
   getPublicProjectVersion,
   getPendingProjectReview,
+  listAdminProjects,
   listOwnProjects,
   listPendingProjects,
   listPublicProjects,
@@ -22,7 +23,7 @@ import {
   uploadProjectVersion,
 } from './projects.js';
 
-export const SERVICE_VERSION = '0.3.0';
+export const SERVICE_VERSION = '0.4.0';
 
 function projectIdFrom(pathname, suffix = '') {
   const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
@@ -69,6 +70,8 @@ export async function handleRequest(request, env) {
       response = await createProject(request, env, await authenticatedUser(request, env));
     } else if (request.method === 'GET' && pathname === '/api/my/projects') {
       response = await listOwnProjects(env, await authenticatedUser(request, env));
+    } else if (request.method === 'GET' && pathname === '/api/admin/projects') {
+      response = await listAdminProjects(request, env, await authenticatedUser(request, env));
     } else if (request.method === 'GET' && pathname === '/api/admin/pending') {
       response = await listPendingProjects(env, await authenticatedUser(request, env));
     } else {

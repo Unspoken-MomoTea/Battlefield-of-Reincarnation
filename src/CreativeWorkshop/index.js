@@ -4,7 +4,7 @@ import { projectService } from './services/project-service.js';
 import { buildUploadBundle } from './services/upload.js';
 
 const GLOBAL_NAME = 'ReincarnationWorkshop';
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 const CATEGORY_LABELS = {
   worldbook: '世界书',
   regex: '正则',
@@ -99,6 +99,25 @@ function boot() {
           <div class="rw-grid" data-role="my-list"></div>
         </section>
         <section class="rw-section" data-section="admin" hidden>
+          <div class="rw-toolbar">
+            <input class="rw-input grow" data-field="admin-search" placeholder="搜索作品或作者">
+            <select class="rw-select" data-field="admin-status">
+              <option value="">全部审核状态</option>
+              <option value="pending">审核中</option>
+              <option value="approved">已通过</option>
+              <option value="rejected">已拒绝</option>
+              <option value="draft">未提交审核</option>
+            </select>
+            <select class="rw-select" data-field="admin-category">
+              <option value="">全部类型</option>
+              <option value="worldbook">世界书</option>
+              <option value="regex">正则</option>
+              <option value="preset">预设</option>
+              <option value="data">数据包</option>
+              <option value="mixed">混合包</option>
+            </select>
+            <button class="rw-button" data-action="admin-search" type="button">筛选</button>
+          </div>
           <div class="rw-grid" data-role="pending-list"></div>
         </section>
       </main>
@@ -118,6 +137,9 @@ function boot() {
     installedList: overlay.querySelector('[data-role="installed-list"]'),
     myList: overlay.querySelector('[data-role="my-list"]'),
     pendingList: overlay.querySelector('[data-role="pending-list"]'),
+    adminSearch: overlay.querySelector('[data-field="admin-search"]'),
+    adminStatus: overlay.querySelector('[data-field="admin-status"]'),
+    adminCategory: overlay.querySelector('[data-field="admin-category"]'),
     detailCard: overlay.querySelector('[data-role="detail-card"]'),
     detailTitle: overlay.querySelector('[data-role="detail-title"]'),
     detailSummary: overlay.querySelector('[data-role="detail-summary"]'),
@@ -381,19 +403,50 @@ function boot() {
     }
   }
 
+  function reviewStatusLabel(status) {
+    return ({ draft: '未提交审核', pending: '审核中', approved: '已通过', rejected: '已拒绝' })[status] || status;
+  }
+
+  function formatTime(seconds) {
+    if (!seconds) return '—';
+    return new Date(Number(seconds) * 1000).toLocaleString();
+  }
+
   async function refreshAdmin() {
     if (!Number(auth?.user?.is_admin)) return empty(nodes.pendingList, '需要管理员权限');
     try {
-      const result = await workshopApi.listPendingProjects();
-      if (!result.items.length) return empty(nodes.pendingList, '当前没有待审核作品');
+      const result = await workshopApi.listAdminProjects({
+        query: nodes.adminSearch.value,
+        category: nodes.adminCategory.value,
+        reviewStatus: nodes.adminStatus.value,
+      });
+      if (!result.items.length) return empty(nodes.pendingList, '没有符合条件的上传作品');
       const cards = result.items.map(item => {
         const card = element('article', 'rw-card');
         card.appendChild(element('h3', '', `${item.name} · v${item.latest_version}`));
-        card.appendChild(element('div', 'rw-muted', `作者：${item.owner_name}\n${item.summary || ''}\n更新说明：${item.changelog || '无'}`));
+        const meta = element('div', 'rw-meta');
+        meta.append(element('span', 'rw-pill', CATEGORY_LABELS[item.category] || item.category));
+        meta.append(element('span', 'rw-pill', reviewStatusLabel(item.review_status)));
+        meta.append(element('span', 'rw-pill', `公开 v${item.published_version}`));
+        card.appendChild(meta);
+        card.appendChild(
+          element(
+            'div',
+            'rw-muted',
+            `作者：${item.owner_name}（Discord: ${item.owner_discord_id}）\n` +
+              `更新说明：${item.changelog || '无'}\n` +
+              `上传：${formatTime(item.version_created_at)} · 提交：${formatTime(item.submitted_at)} · 审核：${formatTime(item.reviewed_at)}`,
+          ),
+        );
+        if (item.review_decision) {
+          const reviewText = `${item.review_decision === 'approved' ? '通过' : '拒绝'} · 审核人：${item.reviewer_name || '未知'}${item.review_note ? ` · ${item.review_note}` : ''}`;
+          card.appendChild(element('div', item.review_decision === 'approved' ? 'rw-status ok' : 'rw-status bad', reviewText));
+        }
+
         const preview = element('pre', 'rw-detail');
         preview.hidden = true;
         const actions = element('div', 'rw-row');
-        actions.appendChild(button('查看待审核内容', '', async () => {
+        actions.appendChild(button('查看内容与审核记录', '', async () => {
           if (!preview.hidden) {
             preview.hidden = true;
             return;
@@ -405,26 +458,34 @@ function boot() {
               kind: artifact.kind,
               name: artifact.name,
               format: artifact.format,
-              preview: raw.length > 6000 ? `${raw.slice(0, 6000)}\n…（内容过长，界面仅预览前 6000 字符）` : raw,
+              preview: raw.length > 6000 ? `${raw.slice(0, 6000)}\n…（界面仅预览前 6000 字符）` : raw,
             };
           });
           preview.textContent = JSON.stringify(
-            { project: detail.project, manifest: detail.manifest, artifacts: artifactPreviews },
+            {
+              project: detail.project,
+              versions: detail.versions,
+              reviews: detail.reviews,
+              manifest: detail.manifest,
+              artifacts: artifactPreviews,
+            },
             null,
             2,
           );
           preview.hidden = false;
         }));
-        actions.appendChild(button('批准', 'good', async () => {
-          const note = host.prompt?.('审核备注（可留空）', '') ?? '';
-          await workshopApi.reviewProject(item.id, 'approved', note);
-          await refreshAdmin();
-        }));
-        actions.appendChild(button('驳回', 'danger', async () => {
-          const note = host.prompt?.('请输入驳回原因', '') ?? '';
-          await workshopApi.reviewProject(item.id, 'rejected', note);
-          await refreshAdmin();
-        }));
+        if (item.review_status === 'pending') {
+          actions.appendChild(button('批准', 'good', async () => {
+            const note = host.prompt?.('审核备注（可留空）', '') ?? '';
+            await workshopApi.reviewProject(item.id, 'approved', note);
+            await refreshAdmin();
+          }));
+          actions.appendChild(button('驳回', 'danger', async () => {
+            const note = host.prompt?.('请输入驳回原因', '') ?? '';
+            await workshopApi.reviewProject(item.id, 'rejected', note);
+            await refreshAdmin();
+          }));
+        }
         card.append(actions, preview);
         return card;
       });
@@ -447,6 +508,10 @@ function boot() {
   overlay.querySelectorAll('.rw-tab').forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
   overlay.querySelector('[data-action="search"]').addEventListener('click', () => void refreshDiscover());
   nodes.search.addEventListener('keydown', event => { if (event.key === 'Enter') void refreshDiscover(); });
+  overlay.querySelector('[data-action="admin-search"]').addEventListener('click', () => void refreshAdmin());
+  nodes.adminSearch.addEventListener('keydown', event => { if (event.key === 'Enter') void refreshAdmin(); });
+  nodes.adminStatus.addEventListener('change', () => void refreshAdmin());
+  nodes.adminCategory.addEventListener('change', () => void refreshAdmin());
 
   nodes.login.addEventListener('click', async () => {
     nodes.login.disabled = true;

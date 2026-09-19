@@ -9,6 +9,7 @@ import {
   getPublicProject,
   getPublicProjectVersion,
   getPendingProjectReview,
+  listAdminProjects,
   listOwnProjects,
   listPendingProjects,
   listPublicProjects,
@@ -269,4 +270,66 @@ test('concurrent version uploads never delete the winning R2 objects', async () 
   assert.ok(row);
   assert.ok(env.PROJECTS.objects.has(row.manifest_key));
   assert.ok(env.PROJECTS.objects.has(row.content_key));
+});
+
+
+test('admin management lists uploaded projects across approved and rejected states', async () => {
+  const { env, author, admin } = setup();
+
+  const approved = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, approved.id, bundle('approved'), '可以发布');
+
+  const rejectedResponse = await createProject(
+    request('/api/projects', 'POST', { name: '被拒绝作品', summary: '说明', category: 'worldbook' }),
+    env,
+    author,
+  );
+  const rejected = (await responseJson(rejectedResponse)).project;
+  await uploadProjectVersion(
+    request(`/api/projects/${rejected.id}/versions`, 'POST', { changelog: 'bad', bundle: bundle('rejected') }),
+    env,
+    author,
+    rejected.id,
+  );
+  await submitProjectForReview(env, author, rejected.id);
+  await reviewProject(
+    request(`/api/admin/projects/${rejected.id}/review`, 'POST', { decision: 'rejected', note: '需要修改' }),
+    env,
+    admin,
+    rejected.id,
+  );
+
+  const all = await responseJson(await listAdminProjects(request('/api/admin/projects'), env, admin));
+  assert.equal(all.items.length, 2);
+  assert.ok(all.items.some(item => item.id === approved.id && item.review_status === 'approved'));
+  assert.ok(all.items.some(item => item.id === rejected.id && item.review_status === 'rejected' && item.review_note === '需要修改'));
+
+  const rejectedOnly = await responseJson(
+    await listAdminProjects(request('/api/admin/projects?review_status=rejected'), env, admin),
+  );
+  assert.equal(rejectedOnly.items.length, 1);
+  assert.equal(rejectedOnly.items[0].id, rejected.id);
+});
+
+test('admin can inspect approved or rejected uploads and their review history', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'), '首版通过');
+
+  const detail = await responseJson(await getPendingProjectReview(env, admin, project.id));
+  assert.equal(detail.project.review_status, 'approved');
+  assert.equal(detail.project.published_version, 1);
+  assert.equal(detail.versions[0].review_status, 'approved');
+  assert.equal(detail.reviews[0].decision, 'approved');
+  assert.equal(detail.reviews[0].note, '首版通过');
+  assert.equal(detail.reviews[0].reviewer_name, 'Admin');
+  assert.equal(detail.bundle.artifacts[0].name, 'v1');
+});
+
+test('non-admin cannot use management listing', async () => {
+  const { env, other } = setup();
+  await assert.rejects(
+    () => listAdminProjects(request('/api/admin/projects'), env, other),
+    error => error?.status === 403 && error?.code === 'admin_required',
+  );
 });

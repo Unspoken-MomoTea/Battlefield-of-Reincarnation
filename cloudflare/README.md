@@ -85,7 +85,8 @@ npx wrangler dev
 - `PATCH /api/projects/:id`：修改作品元数据。
 - `POST /api/projects/:id/versions`：上传新版本到 R2。
 - `POST /api/projects/:id/submit`：提交最新版本审核。
-- `GET /api/admin/pending`：管理员待审核队列。
+- `GET /api/admin/projects`：管理员作品管理列表，可按审核状态、类型和关键词筛选全部已上传作品。
+- `GET /api/admin/pending`：兼容旧版的待审核队列。
 - `POST /api/admin/projects/:id/review`：批准或驳回最新版本。
 
 已发布作品上传新版本后，旧的已审核版本仍保持公开，直到新版本审核通过才切换公开版本。
@@ -114,7 +115,7 @@ npx wrangler dev
 
 管理员可以在批准/驳回前读取待审核最新版本的 manifest 与 bundle：
 
-- `GET /api/admin/projects/:id/review`：读取待审核内容。
+- `GET /api/admin/projects/:id/review`：读取作品最新上传内容、版本历史与审核历史；已通过/已拒绝作品也可查看。
 - `POST /api/admin/projects/:id/review`：提交 `approved` / `rejected` 决定。
 
 作者自己的作品列表会返回最新审核意见 `review_note`，用于显示驳回原因。

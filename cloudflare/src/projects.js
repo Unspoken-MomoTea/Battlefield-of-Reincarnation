@@ -51,6 +51,16 @@ function pageParams(request) {
   return { query, category, limit, offset };
 }
 
+function adminPageParams(request) {
+  const base = pageParams(request);
+  const url = new URL(request.url);
+  const reviewStatus = (url.searchParams.get('review_status') || '').trim();
+  if (reviewStatus && !['draft', 'pending', 'approved', 'rejected'].includes(reviewStatus)) {
+    throw new HttpError(400, 'invalid_review_status', '审核状态无效');
+  }
+  return { ...base, reviewStatus };
+}
+
 function projectPublic(row) {
   return {
     id: row.id,
@@ -79,6 +89,31 @@ function projectOwn(row) {
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
     review_note: row.review_note || '',
+  };
+}
+
+function projectAdmin(row) {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    summary: row.summary,
+    category: row.category,
+    project_status: row.status,
+    latest_version: Number(row.latest_version),
+    published_version: Number(row.published_version || 0),
+    owner_name: row.owner_name,
+    owner_discord_id: row.owner_discord_id,
+    review_status: row.review_status,
+    changelog: row.changelog || '',
+    version_created_at: Number(row.version_created_at || 0),
+    submitted_at: Number(row.submitted_at || 0),
+    reviewed_at: Number(row.reviewed_at || 0),
+    review_decision: row.review_decision || '',
+    review_note: row.review_note || '',
+    reviewer_name: row.reviewer_name || '',
+    created_at: Number(row.created_at),
+    updated_at: Number(row.updated_at),
   };
 }
 
@@ -468,6 +503,63 @@ export async function submitProjectForReview(env, user, projectId) {
   return json({ ok: true, version: Number(project.latest_version) });
 }
 
+export async function listAdminProjects(request, env, user) {
+  assertAdmin(user);
+  const { query, category, limit, offset, reviewStatus } = adminPageParams(request);
+  const like = `%${query}%`;
+  const result = await env.DB.prepare(
+    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.status, p.latest_version, p.published_version,
+            p.created_at, p.updated_at,
+            owner.display_name AS owner_name, owner.discord_id AS owner_discord_id,
+            v.review_status, v.changelog, v.created_at AS version_created_at, v.submitted_at, v.reviewed_at,
+            rr.decision AS review_decision, rr.note AS review_note,
+            reviewer.display_name AS reviewer_name
+       FROM projects p
+       JOIN users owner ON owner.id = p.owner_user_id
+       JOIN project_versions v ON v.project_id = p.id AND v.version = p.latest_version
+       LEFT JOIN review_records rr ON rr.id = (
+         SELECT MAX(rr2.id)
+           FROM review_records rr2
+          WHERE rr2.project_id = p.id AND rr2.version = v.version
+       )
+       LEFT JOIN users reviewer ON reviewer.id = rr.reviewer_user_id
+      WHERE p.latest_version > 0
+        AND (? = '' OR v.review_status = ?)
+        AND (? = '' OR p.name LIKE ? OR p.summary LIKE ? OR owner.display_name LIKE ?)
+        AND (? = '' OR p.category = ?)
+      ORDER BY
+        CASE v.review_status
+          WHEN 'pending' THEN 0
+          WHEN 'rejected' THEN 1
+          WHEN 'draft' THEN 2
+          WHEN 'approved' THEN 3
+          ELSE 4
+        END,
+        COALESCE(v.submitted_at, v.reviewed_at, v.created_at) DESC,
+        p.updated_at DESC
+      LIMIT ? OFFSET ?`,
+  )
+    .bind(
+      reviewStatus,
+      reviewStatus,
+      query,
+      like,
+      like,
+      like,
+      category,
+      category,
+      limit + 1,
+      offset,
+    )
+    .all();
+  const rows = result.results || [];
+  const hasMore = rows.length > limit;
+  return json({
+    items: rows.slice(0, limit).map(projectAdmin),
+    next_offset: hasMore ? offset + limit : null,
+  });
+}
+
 export async function listPendingProjects(env, user) {
   assertAdmin(user);
   const result = await env.DB.prepare(
@@ -485,27 +577,44 @@ export async function listPendingProjects(env, user) {
 export async function getPendingProjectReview(env, user, projectId) {
   assertAdmin(user);
   const row = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.latest_version, p.published_version,
-            p.created_at, p.updated_at, u.display_name AS owner_name,
-            v.changelog, v.submitted_at, v.manifest_key, v.content_key, v.review_status
+    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.status, p.latest_version, p.published_version,
+            p.created_at, p.updated_at,
+            owner.display_name AS owner_name, owner.discord_id AS owner_discord_id,
+            v.version, v.changelog, v.created_at AS version_created_at, v.submitted_at,
+            v.reviewed_at, v.manifest_key, v.content_key, v.review_status
        FROM projects p
-       JOIN users u ON u.id = p.owner_user_id
+       JOIN users owner ON owner.id = p.owner_user_id
        JOIN project_versions v ON v.project_id = p.id AND v.version = p.latest_version
       WHERE p.id = ?`,
   )
     .bind(projectId)
     .first();
-  if (!row) throw new HttpError(404, 'project_not_found', '作品不存在');
-  if (row.review_status !== 'pending') {
-    throw new HttpError(409, 'review_not_pending', '当前最新版本不在待审核状态');
-  }
+  if (!row) throw new HttpError(404, 'project_not_found', '作品不存在或尚未上传版本');
 
-  const [manifestObject, bundleObject] = await Promise.all([
+  const [manifestObject, bundleObject, versionsResult, reviewsResult] = await Promise.all([
     env.PROJECTS.get(row.manifest_key),
     env.PROJECTS.get(row.content_key),
+    env.DB.prepare(
+      `SELECT version, changelog, review_status, created_at, submitted_at, reviewed_at
+         FROM project_versions
+        WHERE project_id = ?
+        ORDER BY version DESC`,
+    )
+      .bind(projectId)
+      .all(),
+    env.DB.prepare(
+      `SELECT rr.version, rr.decision, rr.note, rr.created_at,
+              reviewer.display_name AS reviewer_name
+         FROM review_records rr
+         JOIN users reviewer ON reviewer.id = rr.reviewer_user_id
+        WHERE rr.project_id = ?
+        ORDER BY rr.id DESC`,
+    )
+      .bind(projectId)
+      .all(),
   ]);
-  if (!manifestObject) throw new HttpError(500, 'manifest_missing', '待审核作品的 manifest 缺失');
-  if (!bundleObject) throw new HttpError(500, 'bundle_missing', '待审核作品的 bundle 缺失');
+  if (!manifestObject) throw new HttpError(500, 'manifest_missing', '作品最新版本的 manifest 缺失');
+  if (!bundleObject) throw new HttpError(500, 'bundle_missing', '作品最新版本的 bundle 缺失');
 
   const [manifestText, bundleText] = await Promise.all([
     new Response(manifestObject.body).text(),
@@ -519,16 +628,36 @@ export async function getPendingProjectReview(env, user, projectId) {
       name: row.name,
       summary: row.summary,
       category: row.category,
+      project_status: row.status,
       owner_name: row.owner_name,
+      owner_discord_id: row.owner_discord_id,
       latest_version: Number(row.latest_version),
       published_version: Number(row.published_version || 0),
+      review_status: row.review_status,
       changelog: row.changelog || '',
+      version_created_at: Number(row.version_created_at || 0),
       submitted_at: Number(row.submitted_at || 0),
+      reviewed_at: Number(row.reviewed_at || 0),
       created_at: Number(row.created_at),
       updated_at: Number(row.updated_at),
     },
     manifest: JSON.parse(manifestText),
     bundle: JSON.parse(bundleText),
+    versions: (versionsResult.results || []).map(version => ({
+      version: Number(version.version),
+      changelog: version.changelog || '',
+      review_status: version.review_status,
+      created_at: Number(version.created_at || 0),
+      submitted_at: Number(version.submitted_at || 0),
+      reviewed_at: Number(version.reviewed_at || 0),
+    })),
+    reviews: (reviewsResult.results || []).map(review => ({
+      version: Number(review.version),
+      decision: review.decision,
+      note: review.note || '',
+      reviewer_name: review.reviewer_name || '',
+      created_at: Number(review.created_at || 0),
+    })),
   });
 }
 export async function reviewProject(request, env, user, projectId) {

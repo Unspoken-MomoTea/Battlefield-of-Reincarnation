@@ -41,6 +41,50 @@ function normalizeDependencyList(value) {
     .sort((a, b) => a.project_id.localeCompare(b.project_id));
 }
 
+
+async function readPublishedDependencies(env, projectId, cache) {
+  if (cache.has(projectId)) return cache.get(projectId);
+
+  const row = await env.DB.prepare(
+    `SELECT v.dependencies
+       FROM projects p
+       JOIN project_versions v
+         ON v.project_id = p.id AND v.version = p.published_version
+      WHERE p.id = ?
+        AND p.published_version > 0
+        AND p.status <> 'archived'`,
+  ).bind(projectId).first();
+
+  const dependencies = row ? parseDependencies(row.dependencies) : [];
+  cache.set(projectId, dependencies);
+  return dependencies;
+}
+
+async function dependencyPathReaches(env, startId, targetId, cache, visited = new Set(), depth = 0) {
+  if (startId === targetId) return true;
+  if (depth > 64) {
+    throw new HttpError(409, 'dependency_graph_too_deep', '依赖关系层级过深，请简化依赖结构');
+  }
+  if (visited.has(startId)) return false;
+  visited.add(startId);
+
+  for (const dependency of await readPublishedDependencies(env, startId, cache)) {
+    if (
+      await dependencyPathReaches(
+        env,
+        dependency.project_id,
+        targetId,
+        cache,
+        visited,
+        depth + 1,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function validateDependencies(env, projectId, value) {
   const normalized = normalizeDependencyList(value);
   if (normalized === undefined) return undefined;
@@ -70,6 +114,24 @@ export async function validateDependencies(env, projectId, value) {
         409,
         'dependency_unavailable',
         `依赖作品 ${dependency.project_id} 当前没有可用的 v${dependency.min_version} 或更高版本`,
+      );
+    }
+  }
+
+  const graphCache = new Map();
+  for (const dependency of normalized) {
+    if (
+      await dependencyPathReaches(
+        env,
+        dependency.project_id,
+        projectId,
+        graphCache,
+      )
+    ) {
+      throw new HttpError(
+        409,
+        'dependency_cycle',
+        `依赖作品 ${dependency.project_id} 会形成循环依赖`,
       );
     }
   }

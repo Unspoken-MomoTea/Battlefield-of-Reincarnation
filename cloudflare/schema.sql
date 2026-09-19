@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   avatar TEXT,
   is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+  is_banned INTEGER NOT NULL DEFAULT 0 CHECK (is_banned IN (0, 1)),
+  ban_reason TEXT NOT NULL DEFAULT '',
+  banned_at INTEGER,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
@@ -80,11 +83,13 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
   actor_user_id INTEGER NOT NULL,
   project_id TEXT,
   project_version INTEGER,
+  target_user_id INTEGER,
   action TEXT NOT NULL,
   note TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL,
   FOREIGN KEY (actor_user_id) REFERENCES users(id),
-  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+  FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_admin_audit_created
@@ -117,3 +122,30 @@ CREATE INDEX IF NOT EXISTS idx_project_likes_user
 
 CREATE INDEX IF NOT EXISTS idx_project_favorites_user
   ON project_favorites(user_id, created_at DESC);
+
+
+CREATE TABLE IF NOT EXISTS project_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id TEXT NOT NULL,
+  project_version INTEGER NOT NULL,
+  reporter_user_id INTEGER NOT NULL,
+  reason TEXT NOT NULL
+    CHECK (reason IN ('malicious', 'broken', 'inappropriate', 'stolen', 'other')),
+  details TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open', 'resolved', 'dismissed')),
+  resolution_note TEXT NOT NULL DEFAULT '',
+  resolved_by_user_id INTEGER,
+  created_at INTEGER NOT NULL,
+  resolved_at INTEGER,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (reporter_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (resolved_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_project_reports_open_unique
+  ON project_reports(project_id, reporter_user_id)
+  WHERE status = 'open';
+
+CREATE INDEX IF NOT EXISTS idx_project_reports_status
+  ON project_reports(status, created_at DESC);

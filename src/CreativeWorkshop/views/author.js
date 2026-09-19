@@ -6,6 +6,7 @@ export function createAuthorView({
   workshopApi,
   buildUploadBundle,
   doc,
+  host,
   categoryLabels,
   statusLabels,
   getAuth,
@@ -18,6 +19,7 @@ export function createAuthorView({
     meta.append(element('span', 'rw-pill', statusLabels[project.status] || project.status));
     meta.append(element('span', 'rw-pill', `最新 v${project.latest_version}`));
     meta.append(element('span', 'rw-pill', `公开 v${project.published_version}`));
+    for (const tag of project.tags || []) meta.append(element('span', 'rw-pill', `#${tag}`));
     card.appendChild(meta);
     card.appendChild(element('div', 'rw-muted', project.summary || '暂无简介'));
     if (project.status === 'rejected' && project.review_note) {
@@ -42,6 +44,20 @@ export function createAuthorView({
     card.append(file, changelog, kind);
 
     const actions = element('div', 'rw-row');
+    actions.appendChild(button('编辑资料', '', async () => {
+      const name = host.prompt?.('作品名称', project.name);
+      if (name === null || name === undefined) return;
+      const summary = host.prompt?.('作品简介', project.summary || '');
+      if (summary === null || summary === undefined) return;
+      const tagsText = host.prompt?.('标签（逗号分隔）', (project.tags || []).join(', '));
+      if (tagsText === null || tagsText === undefined) return;
+      const tags = String(tagsText)
+        .split(/[,，\n]/u)
+        .map(value => value.trim())
+        .filter(Boolean);
+      await workshopApi.updateProject(project.id, { name, summary, tags });
+      await refreshMine();
+    }));
     actions.appendChild(button('上传新版本', 'primary', async () => {
       const selected = file.files?.[0];
       if (!selected) throw new Error('请先选择 .json 或 .txt 文件');

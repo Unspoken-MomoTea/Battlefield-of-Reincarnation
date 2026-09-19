@@ -87,3 +87,51 @@ test('dependency metadata rejects self, unpublished and unavailable versions', a
     error => error?.status === 409 && error?.code === 'dependency_unavailable',
   );
 });
+
+
+test('dependency metadata rejects cycles through published dependency graph', async () => {
+  const { env, author, admin } = setup();
+
+  const a = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, a.id, bundle('A'));
+
+  const bCreated = await responseJson(
+    await createProject(
+      request('/api/projects', 'POST', {
+        name: 'B',
+        summary: '',
+        category: 'worldbook',
+        dependencies: [{ project_id: a.id, min_version: 1 }],
+      }),
+      env,
+      author,
+    ),
+  );
+  const b = bCreated.project;
+  await uploadProjectVersion(
+    request(`/api/projects/${b.id}/versions`, 'POST', { changelog: '', bundle: bundle('B') }),
+    env,
+    author,
+    b.id,
+  );
+  await submitProjectForReview(env, author, b.id);
+  await reviewProject(
+    request(`/api/admin/projects/${b.id}/review`, 'POST', { decision: 'approved', note: '' }),
+    env,
+    admin,
+    b.id,
+  );
+
+  await assert.rejects(
+    () =>
+      updateProject(
+        request(`/api/projects/${a.id}`, 'PATCH', {
+          dependencies: [{ project_id: b.id, min_version: 1 }],
+        }),
+        env,
+        author,
+        a.id,
+      ),
+    error => error?.status === 409 && error?.code === 'dependency_cycle',
+  );
+});

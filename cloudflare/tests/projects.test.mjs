@@ -410,3 +410,34 @@ test('rejection requires an explicit reason', async () => {
     error => error?.status === 400 && error?.code === 'rejection_note_required',
   );
 });
+
+
+test('author can assign normalized tags and public catalog can filter by tag', async () => {
+  const { env, author, admin } = setup();
+  const created = await responseJson(
+    await createProject(
+      request('/api/projects', 'POST', {
+        name: '标签测试',
+        summary: '测试标签筛选',
+        category: 'worldbook',
+        tags: [' 剧情 ', 'BOSS', '剧情'],
+      }),
+      env,
+      author,
+    ),
+  );
+  assert.deepEqual(created.project.tags, ['剧情', 'boss']);
+
+  await publishVersion(env, author, admin, created.project.id, bundle('tagged'));
+
+  const matching = await responseJson(
+    await listPublicProjects(request('/api/projects?tag=boss'), env),
+  );
+  assert.equal(matching.items.length, 1);
+  assert.deepEqual(matching.items[0].tags, ['剧情', 'boss']);
+
+  const missing = await responseJson(
+    await listPublicProjects(request('/api/projects?tag=不存在'), env),
+  );
+  assert.equal(missing.items.length, 0);
+});

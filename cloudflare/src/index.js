@@ -14,6 +14,7 @@ import {
   getPublicProject,
   getPublicProjectVersion,
   getAdminProjectCover,
+  getAdminProjectDiff,
   getPendingProjectReview,
   getPublicProjectCover,
   listAdminAuditLogs,
@@ -29,7 +30,7 @@ import {
   uploadProjectVersion,
 } from './projects.js';
 
-export const SERVICE_VERSION = '0.7.0';
+export const SERVICE_VERSION = '0.8.0';
 
 function projectIdFrom(pathname, suffix = '') {
   const escapedSuffix = suffix.replace(/[.*+?^$()|[\]\\]/gu, '\\$&');
@@ -91,6 +92,7 @@ export async function handleRequest(request, env) {
       const submitProjectId = projectIdFrom(pathname, '/submit');
       const engagementProjectId = projectIdFrom(pathname, '/engagement');
       const adminCoverProjectId = adminProjectIdFrom(pathname, 'cover');
+      const diffProjectId = adminProjectIdFrom(pathname, 'diff');
       const reviewProjectId = adminProjectIdFrom(pathname, 'review');
       const stateProjectId = adminProjectIdFrom(pathname, 'state');
       const plainProjectId = projectIdFrom(pathname);
@@ -113,6 +115,8 @@ export async function handleRequest(request, env) {
         response = await setProjectEngagementFromRequest(request, env, await authenticatedUser(request, env), engagementProjectId);
       } else if (request.method === 'GET' && adminCoverProjectId) {
         response = await getAdminProjectCover(env, await authenticatedUser(request, env), adminCoverProjectId);
+      } else if (request.method === 'GET' && diffProjectId) {
+        response = json(await getAdminProjectDiff(env, await authenticatedUser(request, env), diffProjectId));
       } else if (request.method === 'GET' && reviewProjectId) {
         response = await getPendingProjectReview(env, await authenticatedUser(request, env), reviewProjectId);
       } else if (request.method === 'POST' && reviewProjectId) {

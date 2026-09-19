@@ -8,6 +8,22 @@ export function createInstalledView({
   doc,
   categoryLabels,
 }) {
+  async function checkAllUpdates(force = false) {
+    const result = await projectService.checkAllUpdates(force);
+    const updates = result.items.filter(item => item.updateAvailable);
+    const unavailable = result.items.filter(item => item.unavailable);
+    const message = updates.length
+      ? `${updates.length} 个作品有更新：${updates.map(item => `${item.name} → v${item.remoteVersion}`).join('、')}`
+      : '所有可查询作品均已是最新版本';
+    try {
+      host.toastr?.info?.(
+        unavailable.length ? `${message}；另有 ${unavailable.length} 个作品当前不可用` : message,
+        result.fromCache ? '创意工坊 · 缓存检查结果' : '创意工坊 · 更新检查',
+      );
+    } catch {}
+    return result;
+  }
+
   async function refreshInstalled() {
     const installed = (await projectService.installed()).sort((a, b) => b.updatedAt - a.updatedAt);
     if (!installed.length) return empty(nodes.installedList, '还没有下载任何作品');
@@ -95,5 +111,5 @@ export function createInstalledView({
     });
     nodes.installedList.replaceChildren(...cards);
   }
-  return { refresh: refreshInstalled };
+  return { refresh: refreshInstalled, checkAllUpdates };
 }

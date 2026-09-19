@@ -1,8 +1,7 @@
 export function bindWorkshopEvents({
-  host, doc, launcher, overlay, nodes, views, workshopApi, projectService,
+  host, doc, overlay, nodes, views, workshopApi, projectService,
   notifyError, showTab, getActiveTab, setAuth, close,
 }) {
-  launcher.addEventListener('click', () => overlay.classList.add('is-open'));
   overlay.querySelector('[data-action="close"]').addEventListener('click', close);
   overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
   overlay.querySelectorAll('.rw-tab').forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));

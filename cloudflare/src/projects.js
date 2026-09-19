@@ -21,3 +21,4 @@ export {
   setAdminProjectState,
 } from './projects/admin.js';
 export { getAdminProjectCover, getPublicProjectCover, uploadProjectCover } from './projects/cover.js';
+export { getAdminProjectDiff } from './projects/diff.js';

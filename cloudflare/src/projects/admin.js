@@ -13,7 +13,10 @@ export async function listAdminProjects(request, env, user) {
   const { query, category, limit, offset, reviewStatus } = adminPageParams(request);
   const like = `%${query}%`;
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.status, p.latest_version, p.published_version,
+    `SELECT p.id, p.slug,
+            v.name, v.summary, v.tags, v.category,
+            p.status, p.latest_version, p.published_version,
+            p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, p.updated_at,
             owner.display_name AS owner_name, owner.discord_id AS owner_discord_id,
             v.review_status, v.changelog, v.created_at AS version_created_at, v.submitted_at, v.reviewed_at,
@@ -30,8 +33,8 @@ export async function listAdminProjects(request, env, user) {
        LEFT JOIN users reviewer ON reviewer.id = rr.reviewer_user_id
       WHERE p.latest_version > 0
         AND (? = '' OR v.review_status = ?)
-        AND (? = '' OR p.name LIKE ? OR p.summary LIKE ? OR owner.display_name LIKE ?)
-        AND (? = '' OR p.category = ?)
+        AND (? = '' OR v.name LIKE ? OR v.summary LIKE ? OR owner.display_name LIKE ?)
+        AND (? = '' OR v.category = ?)
       ORDER BY
         CASE v.review_status
           WHEN 'pending' THEN 0
@@ -68,7 +71,9 @@ export async function listAdminProjects(request, env, user) {
 export async function listPendingProjects(env, user) {
   assertAdmin(user);
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.status, p.latest_version, p.published_version,
+    `SELECT p.id, p.slug,
+            v.name, v.summary, v.tags, v.category,
+            p.status, p.latest_version, p.published_version,
             p.created_at, p.updated_at, u.display_name AS owner_name, v.changelog, v.submitted_at
        FROM projects p
        JOIN users u ON u.id = p.owner_user_id
@@ -82,7 +87,10 @@ export async function listPendingProjects(env, user) {
 export async function getPendingProjectReview(env, user, projectId) {
   assertAdmin(user);
   const row = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.status, p.latest_version, p.published_version,
+    `SELECT p.id, p.slug,
+            v.name, v.summary, v.tags, v.category, v.cover_key,
+            p.status, p.latest_version, p.published_version,
+            p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, p.updated_at,
             owner.display_name AS owner_name, owner.discord_id AS owner_discord_id,
             v.version, v.changelog, v.created_at AS version_created_at, v.submitted_at,
@@ -100,7 +108,8 @@ export async function getPendingProjectReview(env, user, projectId) {
     env.PROJECTS.get(row.manifest_key),
     env.PROJECTS.get(row.content_key),
     env.DB.prepare(
-      `SELECT version, changelog, review_status, created_at, submitted_at, reviewed_at
+      `SELECT version, name, summary, tags, category, cover_key,
+              changelog, review_status, created_at, submitted_at, reviewed_at
          FROM project_versions
         WHERE project_id = ?
         ORDER BY version DESC`,
@@ -143,7 +152,9 @@ export async function getPendingProjectReview(env, user, projectId) {
       slug: row.slug,
       name: row.name,
       summary: row.summary,
+      tags: (() => { try { return JSON.parse(row.tags || '[]'); } catch { return []; } })(),
       category: row.category,
+      cover_key: row.cover_key || null,
       project_status: row.status,
       owner_name: row.owner_name,
       owner_discord_id: row.owner_discord_id,
@@ -156,14 +167,19 @@ export async function getPendingProjectReview(env, user, projectId) {
       reviewed_at: Number(row.reviewed_at || 0),
       created_at: Number(row.created_at),
       downloads_count: Number(row.downloads_count || 0),
-    likes_count: Number(row.likes_count || 0),
-    favorites_count: Number(row.favorites_count || 0),
-    updated_at: Number(row.updated_at),
+      likes_count: Number(row.likes_count || 0),
+      favorites_count: Number(row.favorites_count || 0),
+      updated_at: Number(row.updated_at),
     },
     manifest: JSON.parse(manifestText),
     bundle: JSON.parse(bundleText),
     versions: (versionsResult.results || []).map(version => ({
       version: Number(version.version),
+      name: version.name || '',
+      summary: version.summary || '',
+      tags: (() => { try { return JSON.parse(version.tags || '[]'); } catch { return []; } })(),
+      category: version.category || '',
+      cover_key: version.cover_key || null,
       changelog: version.changelog || '',
       review_status: version.review_status,
       created_at: Number(version.created_at || 0),

@@ -6,6 +6,7 @@ import {
   createWorkshopInstaller,
   normalizeRegexArtifact,
   normalizeWorldbookArtifact,
+  safePresetName,
 } from '../services/installer.js';
 
 function memoryStorage(project) {
@@ -131,7 +132,7 @@ test('apply rolls back all prior mutations if a later preset write fails', async
   const adapter = fakeAdapter();
   adapter.state.worldbooks.set(SHARED_WORLDBOOK_NAME, [{ name: '原条目' }]);
   adapter.state.binding.additional = [SHARED_WORLDBOOK_NAME];
-  const targetPreset = '[创意工坊] 测试作品 · 预设.json';
+  const targetPreset = '[创意工坊] 测试作品 · 预设.json · project--1';
   adapter.state.presets.set(targetPreset, { original: true });
   adapter.state.failPreset = targetPreset;
 
@@ -168,7 +169,7 @@ test('an applied project cannot be uninstalled from a different character', asyn
 
 test('uninstall restores a preset that existed before workshop installation', async () => {
   const adapter = fakeAdapter();
-  const targetPreset = '[创意工坊] 测试作品 · 预设.json';
+  const targetPreset = '[创意工坊] 测试作品 · 预设.json · project--1';
   adapter.state.presets.set(targetPreset, { original: true });
   const storage = memoryStorage(project([
     { kind: 'preset', name: '预设.json', format: 'json', content: { settings: { temperature: 0.8 } } },
@@ -179,4 +180,15 @@ test('uninstall restores a preset that existed before workshop installation', as
   assert.deepEqual(adapter.state.presets.get(targetPreset), { settings: { temperature: 0.8 } });
   await installer.uninstall('project-1');
   assert.deepEqual(adapter.state.presets.get(targetPreset), { original: true });
+});
+
+
+test('preset names are namespaced by project id and artifact index', () => {
+  const first = safePresetName({ id: 'aaaaaaaa-1111', name: '同名作品' }, '同名预设.json', 0);
+  const second = safePresetName({ id: 'bbbbbbbb-2222', name: '同名作品' }, '同名预设.json', 0);
+  const third = safePresetName({ id: 'aaaaaaaa-1111', name: '同名作品' }, '同名预设.json', 1);
+  assert.notEqual(first, second);
+  assert.notEqual(first, third);
+  assert.match(first, /aaaaaaaa-1$/u);
+  assert.ok(first.length <= 120);
 });

@@ -412,7 +412,10 @@ export async function uploadProjectVersion(request, env, user, projectId) {
   const bundle = validateBundle(body?.bundle, project.category);
   const version = Number(project.latest_version) + 1;
   const manifest = await buildManifest(project, version, bundle);
-  const baseKey = `projects/${project.id}/versions/${version}`;
+  // 同一作品允许两个上传请求同时到达。R2 key 加入 nonce，避免失败请求清理时
+  // 误删另一个已经成功写入同版本号的对象。
+  const uploadNonce = crypto.randomUUID();
+  const baseKey = `projects/${project.id}/versions/${version}-${uploadNonce}`;
   const manifestKey = `${baseKey}/manifest.json`;
   const contentKey = `${baseKey}/bundle.json`;
   const manifestJson = JSON.stringify(manifest);

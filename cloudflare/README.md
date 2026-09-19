@@ -18,7 +18,7 @@
 - `SESSION_KV`：OAuth state、一次性登录结果、会话
 - `PROJECTS`：R2，下一阶段用于项目包、世界书、正则和封面
 
-`wrangler.jsonc` 中的 D1/KV ID 目前是占位值，等实际创建资源后替换。
+`wrangler.jsonc` 中的 D1/KV ID 目前是占位值，等实际创建资源后替换。配置已经预留 production 与 `staging` 两套完全独立的 D1 / KV / R2。
 
 ## Discord
 
@@ -118,3 +118,25 @@ npx wrangler dev
 - `POST /api/admin/projects/:id/review`：提交 `approved` / `rejected` 决定。
 
 作者自己的作品列表会返回最新审核意见 `review_note`，用于显示驳回原因。
+
+
+## Staging
+
+测试环境已经预留为：
+
+```text
+Worker: reincarnation-workshop-staging
+Base URL: https://workshop-test.6661816.xyz
+D1: reincarnation_workshop_staging
+R2: reincarnation-workshop-projects-staging
+```
+
+实际创建资源并替换占位 ID 后：
+
+```bash
+npx wrangler secret put DISCORD_CLIENT_SECRET --env staging
+npx wrangler d1 execute reincarnation_workshop_staging --env staging --remote --file=schema.sql
+npx wrangler deploy --env staging
+```
+
+生产环境仍使用不带 `--env` 的命令。Discord Developer Portal 需要同时登记 production 和 staging 两个 callback URL。

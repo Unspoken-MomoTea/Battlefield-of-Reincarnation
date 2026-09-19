@@ -225,8 +225,11 @@ function presetContent(content) {
   return structuredClone(parsed);
 }
 
-function safePresetName(projectName, artifactName) {
-  return `[创意工坊] ${projectName} · ${artifactName}`.slice(0, 120);
+export function safePresetName(project, artifactName, artifactIndex = 0) {
+  const suffix = `${String(project.id).slice(0, 8)}-${artifactIndex + 1}`;
+  const prefix = `[创意工坊] ${project.name} · `;
+  const room = Math.max(1, 120 - prefix.length - suffix.length - 3);
+  return `${prefix}${String(artifactName).slice(0, room)} · ${suffix}`;
 }
 
 function provenance(entry) {
@@ -275,7 +278,7 @@ function artifactPlan(installed) {
       return;
     }
     if (artifact.kind === 'preset') {
-      plan.presets.push({ name: safePresetName(installed.name, artifact.name), content: presetContent(artifact.content) });
+      plan.presets.push({ name: safePresetName(installed, artifact.name, index), content: presetContent(artifact.content) });
       return;
     }
     if (artifact.kind === 'data') {

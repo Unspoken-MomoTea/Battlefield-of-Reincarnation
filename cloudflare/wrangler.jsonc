@@ -32,5 +32,35 @@
       "binding": "PROJECTS",
       "bucket_name": "reincarnation-workshop-projects"
     }
-  ]
+  ],
+  "env": {
+    "staging": {
+      "name": "reincarnation-workshop-staging",
+      "vars": {
+        "PUBLIC_BASE_URL": "https://workshop-test.6661816.xyz",
+        "DISCORD_CLIENT_ID": "REPLACE_ME",
+        "SESSION_TTL_SECONDS": "2592000",
+        "ADMIN_DISCORD_IDS": ""
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "reincarnation_workshop_staging",
+          "database_id": "00000000-0000-0000-0000-000000000000"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "SESSION_KV",
+          "id": "00000000000000000000000000000000"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "PROJECTS",
+          "bucket_name": "reincarnation-workshop-projects-staging"
+        }
+      ]
+    }
+  }
 }

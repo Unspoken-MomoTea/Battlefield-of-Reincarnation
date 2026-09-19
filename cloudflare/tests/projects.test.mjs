@@ -241,3 +241,32 @@ test('structured text artifacts are accepted when they contain valid JSON', () =
   }, 'regex');
   assert.equal(result.artifacts[0].format, 'text');
 });
+
+test('concurrent version uploads never delete the winning R2 objects', async () => {
+  const { env, author } = setup();
+  const project = await createWorldbookProject(env, author);
+
+  const first = uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'A', bundle: bundle('A') }),
+    env,
+    author,
+    project.id,
+  );
+  const second = uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'B', bundle: bundle('B') }),
+    env,
+    author,
+    project.id,
+  );
+
+  const results = await Promise.allSettled([first, second]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal(results.filter(result => result.status === 'rejected').length, 1);
+
+  const row = env.DB.db.prepare(
+    'SELECT manifest_key, content_key FROM project_versions WHERE project_id = ? AND version = 1',
+  ).get(project.id);
+  assert.ok(row);
+  assert.ok(env.PROJECTS.objects.has(row.manifest_key));
+  assert.ok(env.PROJECTS.objects.has(row.content_key));
+});

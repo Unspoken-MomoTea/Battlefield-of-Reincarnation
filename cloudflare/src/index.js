@@ -28,49 +28,15 @@ import {
 export const SERVICE_VERSION = '0.5.0';
 
 function projectIdFrom(pathname, suffix = '') {
-  const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  const match = new RegExp(`^/api/projects/([^/]+)${escapedSuffix}$`, 'u').exec(pathname);
+  const escapedSuffix = suffix.replace(/[.*+?^$()|[\]\\]/gu, '\\$&');
+  const match = new RegExp('^/api/projects/([^/]+)' + escapedSuffix + '$', 'u').exec(pathname);
   return match ? decodeURIComponent(match[1]) : null;
 }
 
 function adminProjectIdFrom(pathname, suffix = 'review') {
-  const match = new RegExp(`^/api/admin/projects/([^/]+)/${suffix}import {
-  exchangeLogin,
-  finishDiscordLogin,
-  getMe,
-  logout,
-  requireUser,
-  startDiscordLogin,
-} from './auth.js';
-import { HttpError, json, withCors } from './http.js';
-import {
-  createProject,
-  downloadPublicProject,
-  getPublicProject,
-  getPublicProjectVersion,
-  getPendingProjectReview,
-  listAdminAuditLogs,
-  listAdminProjects,
-  listOwnProjects,
-  listPendingProjects,
-  listPublicProjects,
-  reviewProject,
-  setAdminProjectState,
-  submitProjectForReview,
-  updateProject,
-  uploadProjectVersion,
-} from './projects.js';
-
-export const SERVICE_VERSION = '0.5.0';
-
-function projectIdFrom(pathname, suffix = '') {
-  const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  const match = new RegExp(`^/api/projects/([^/]+)${escapedSuffix}$`, 'u').exec(pathname);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-, 'u').exec(pathname);
-  return match ? decodeURIComponent(match[1]) : null;
+  const match = /^\/api\/admin\/projects\/([^/]+)\/([^/]+)$/u.exec(pathname);
+  if (!match || match[2] !== suffix) return null;
+  return decodeURIComponent(match[1]);
 }
 
 async function authenticatedUser(request, env) {

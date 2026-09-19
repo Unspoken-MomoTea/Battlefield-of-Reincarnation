@@ -1,3 +1,5 @@
+import { formatInstallConflicts, formatInstallHealth } from '../ui/install-messages.js';
+
 export function createInstalledView({
   nodes,
   element,
@@ -47,16 +49,58 @@ export function createInstalledView({
       }
       card.appendChild(meta);
       if (item.applyError) card.appendChild(element('div', 'rw-status bad', `上次安装失败：${item.applyError}`));
+      if (item.repairState?.lastCheckedAt) {
+        meta.append(
+          element(
+            'span',
+            'rw-pill',
+            item.repairState.healthy ? '安装正常' : `发现 ${item.repairState.issues?.length || 0} 项异常`,
+          ),
+        );
+      }
 
       const actions = element('div', 'rw-row');
       actions.appendChild(
         button(item.applied ? (item.appliedVersion === item.version ? '重新应用' : '应用新版') : '安装到酒馆', 'primary', async () => {
+          const preflight = await projectService.preflight(item.id);
+          if (preflight.blocking.length) {
+            throw new Error(`当前无法安装：\n${formatInstallConflicts(preflight.blocking)}`);
+          }
+          if (preflight.warnings.length) {
+            const confirmed = host.confirm?.(
+              `安装前发现以下冲突：\n\n${formatInstallConflicts(preflight.warnings)}\n\n是否继续？`,
+            );
+            if (!confirmed) return;
+          }
           const result = await projectService.apply(item.id);
           try { host.toastr?.success?.(`已应用 ${result.name} v${result.appliedVersion}`, '创意工坊'); } catch {}
           await refreshInstalled();
         }),
       );
       if (item.applied) {
+        actions.appendChild(
+          button('检查安装', '', async () => {
+            const result = await projectService.inspectInstallation(item.id);
+            if (result.health.healthy) {
+              try { host.toastr?.success?.('安装状态正常', item.name); } catch {}
+              await refreshInstalled();
+              return;
+            }
+            const summary = formatInstallHealth(result.health);
+            if (!result.health.repairable) {
+              try { host.toastr?.error?.(summary, `${item.name} · 无法自动修复`); } catch {}
+              await refreshInstalled();
+              return;
+            }
+            const confirmed = host.confirm?.(`发现以下安装异常：\n\n${summary}\n\n是否立即修复？`);
+            if (confirmed) {
+              const repaired = await projectService.repair(item.id);
+              if (!repaired.health.healthy) throw new Error(`修复后仍有异常：\n${formatInstallHealth(repaired.health)}`);
+              try { host.toastr?.success?.('安装资源已经修复', item.name); } catch {}
+            }
+            await refreshInstalled();
+          }),
+        );
         actions.appendChild(
           button('卸载', 'danger', async () => {
             await projectService.uninstall(item.id);

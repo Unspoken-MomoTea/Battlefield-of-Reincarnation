@@ -1,4 +1,7 @@
 const CONFLICT_LABELS = {
+  dependency_missing: issue => `缺少依赖项目 ${issue.project_id}（要求至少 v${issue.min_version}）`,
+  dependency_not_applied: issue => `依赖“${issue.name || issue.project_id}”只有本地缓存，尚未安装到酒馆`,
+  dependency_version_too_low: issue => `依赖“${issue.name || issue.project_id}”当前应用 v${issue.applied_version}，要求至少 v${issue.min_version}`,
   character_mismatch: issue => `当前角色不是安装目标角色“${issue.expected}”`,
   worldbook_name_collision: issue => `共享世界书已有同名条目“${issue.name}”`,
   regex_id_collision: issue => `发现残留的同项目正则“${issue.name || issue.id}”`,

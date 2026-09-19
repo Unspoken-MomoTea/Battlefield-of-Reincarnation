@@ -1,0 +1,140 @@
+{
+  "Master": {
+    "Enable": false,
+    "MasterType": "Master",
+    "WebRoot": "/sgserver/bin/console",
+    "WebHost": "0.0.0.0:8787",
+    "SSH": [],
+    "Process": []
+  },
+  "Log": {
+    "multifile": {
+      "prefix": "sgserver_"
+    }
+  },
+  "BI": {
+    "multifile": {
+      "prefix": "sgserver_bi_"
+    }
+  },
+  "redis": {
+    "host": ":6380",
+    "database": "0",
+    "password": "1234",
+    "maxIdle": "64",
+    "maxActive": "128",
+    "idleTimeout": "180"
+  },
+  "Console": true,
+  "GameId": 8,
+  "Module": {
+    "Gate": [
+      {
+        "Id": "Gate001",
+        "ProcessID": "development",
+        "Settings": {
+          //"WSAddr": ":3088",
+          "MaxMsgLen": 4096,
+          "HTTPTimeout": 10,
+          "MaxConnNum": 20000,
+          "Tls": false,
+          "CertFile": "/sslkey/h5link.pem",
+          "KeyFile": "/sslkey/h5link.key",
+          "MinHBStorage": 60
+        }
+      }
+    ],
+    "Master": [
+      {
+        "Id": "Master001",
+        "ProcessID": "development"
+      }
+    ],
+    "GameModule": [
+      {
+        "Id": "Login001",
+        "ProcessID": "development",
+        "Settings": {
+          "LocalPath": "",
+          "StaticPath": "/console",
+          "Host": ":7001",
+          //米大师id
+          "MiOfferId": "1450021450",
+          //正式
+          //"SigKey": "MUExAOcBYjTb6SH8eNqDwpALNIRPISYX",
+          //测试
+          "SigKey": "2rK22qPkc2BmiPp61ftNo9AmokbVdYqt",
+          //微信小游戏
+          "WeiXinAppID": "wx172a3a62f2b89032",
+          "WeiXinSecretKey": "0a2972723176993151deddb541e8014f",
+          //微信登陆地址
+          "WeiXinLoginHost": "https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+          //获取小游戏全局唯一后台接口调用凭据
+          "WAccessTokenHost": "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
+          //正式 获取签名地址
+          //"WeiXinSigHost": "%s&org_loc=/cgi-bin/midas/%s&method=POST&secret=%s",
+          //测试 获取签名地址
+          "WeiXinSigHost": "%s&org_loc=/cgi-bin/midas/sandbox/%s&method=POST&secret=%s",
+          //正式 获取签名地址
+          //"WeiXinMpSigHost": "%s&org_loc=/cgi-bin/midas/%s&method=POST&session_key=%s",
+          //测试 获取签名地址
+          "WeiXinMpSigHost": "%s&org_loc=/cgi-bin/midas/sandbox/%s&method=POST&session_key=%s",
+          //正式 获取签名地址
+          //"WeiXinReportHost": "https://api.weixin.qq.com/cgi-bin/midas/%s?access_token=%s",
+          //测试 获取签名地址
+          "WeiXinReportHost": "https://api.weixin.qq.com/cgi-bin/midas/sandbox/%s?access_token=%s",
+          //校验服务器所保存的登录态 session_key 是否合法
+          "WeiXinCheckSessionHost": "https://api.weixin.qq.com/wxa/checksession?access_token=%s&signature=%s&openid=%s&sig_method=hmac_sha256",
+          //qq小游戏
+          "QQAppID": "1109878207",
+          "QQSecretKey": "9v1UTwvTXtcnNiSW",
+          //微信登陆地址
+          "QQLoginHost": "https://api.q.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
+          //获取小游戏全局唯一后台接口调用凭据
+          "QQAccessTokenHost": "https://api.q.qq.com/api/getToken?grant_type=client_credential&appid=%s&secret=%s",
+          //正式 获取签名地址
+          "QQSigHost": "%s&org_loc=/cgi-bin/midas/%s&method=POST&secret=%s",
+          //测试 获取签名地址
+          //          "QQSigHost": "%s&org_loc=/cgi-bin/midas/sandbox/%s&method=POST&secret=%s",
+
+          //正式 获取签名地址
+          "QQMpSigHost": "%s&org_loc=/cgi-bin/midas/%s&method=POST&session_key=%s",
+          //测试 获取签名地址
+          //          "QQMpSigHost": "%s&org_loc=/cgi-bin/midas/sandbox/%s&method=POST&session_key=%s",
+
+          //正式 获取签名地址
+          "QQReportHost": "https://api.q.qq.com/cgi-bin/midas/%s?access_token=%s",
+          //测试 获取签名地址
+          //          "QQReportHost": "https://api.q.qq.com/cgi-bin/midas/sandbox/%s?access_token=%s",
+          //玩家购买道具前，开发者需要通过后台接口进行预下单
+          "QQPayHost": "https://api.q.qq.com/api/json/openApiPay/GamePrePay?access_token=%s"
+
+          //          "WeiXin": "console"
+        }
+      }
+    ],
+    "Logger": [
+      {
+        "Id": "Logger001",
+        "ProcessID": "development",
+        "Settings": {
+          "UserName": "root",
+          "PassWord": "123",
+          "HostUrl": ":3306",
+          "DatabaseName": "sgserver"
+        }
+      }
+    ]
+  },
+  "Mqtt": {
+    "WirteLoopChanNum": 32,
+    "ReadPackLoop": 32,
+    "ReadTimeout": 60,
+    "WriteTimeout": 60
+  },
+  "Rpc": {
+    "MaxCoroutine": 10240,
+    "RpcExpired": 30,
+    "LogSuccess": true
+  }
+}

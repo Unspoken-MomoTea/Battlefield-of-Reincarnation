@@ -1,0 +1,73 @@
+{
+  "Master": {
+    "Enable": false,
+    "MasterType": "Master",
+    "WebRoot": "/work/go/mqantserver/bin/console",
+    "WebHost": "0.0.0.0:8686",
+    "SSH": [],
+    "Process": []
+  },
+  "redis": {"host": "127.0.0.1:38789", "dbIndex": "3", "password": "@988wan" },
+  "Module": {
+    "Gate": [{
+        "Id": "Gate001",
+        "ProcessID": "development1",
+        "Settings": {
+          "WSAddr": ":3088",
+          "TCPAddr": ":3077",
+          "MaxMsgLen": 4096,
+          "HTTPTimeout": 10,
+          "MaxConnNum": 20000,
+          "Tls": false,
+          "CertFile": "/sslkey/h5link.pem",
+          "KeyFile": "/sslkey/h5link.key",
+          //Session持久化心跳包 单位/秒
+          "MinHBStorage": 60
+        },
+        "Redis": { "Uri" :"redis://:@988wan@127.0.0.1:38789/10", "Queue" :"Gate001" }
+      },
+      {
+        "Id": "Gate002",
+        "ProcessID": "development2",
+        "Settings": {
+          "WSAddr": ":3089",
+          "TCPAddr": ":3066",
+          "MaxMsgLen": 4096,
+          "HTTPTimeout": 10,
+          "MaxConnNum": 20000,
+          "Tls": false,
+          "CertFile": "/sslkey/h5link.pem",
+          "KeyFile": "/sslkey/h5link.key",
+          //Session持久化心跳包 单位/秒
+          "MinHBStorage": 60
+        },
+        "Redis": { "Uri" :"redis://:@988wan@127.0.0.1:38789/10", "Queue" :"Gate002" }
+      }
+    ],
+    "Master": [{ "Id": "Master001", "ProcessID": "development" }],
+    "Login": [{ "Id": "Login001", "ProcessID": "development", 
+      "Redis": { "Uri" :"redis://:@988wan@127.0.0.1:38789/10", "Queue" :"User001" }
+    }],
+    "User": [{ "Id": "User001", "ProcessID": "development" }],
+    "Match": [{ "Id": "Match001", "ProcessID": "development" }],
+    "Fight": [{ "Id": "Fight001", "ProcessID": "development" }],
+    "Card": [{ "Id": "Card001", "ProcessID": "development" }]
+  },
+  "Mqtt": {
+    // 最大写入包队列缓存
+    "WirteLoopChanNum": 10,
+    // 最大读取包队列缓存
+    "ReadPackLoop": 1,
+    // 读取超时
+    "ReadTimeout": 600,
+    // 写入超时
+    "WriteTimeout": 300
+  },
+  "Rpc": {
+    "MaxCoroutine": 100,
+    // 远程访问最后期限值 单位秒 这个值指定了在客户端可以等待服务端多长时间来应答
+    "RpcExpired": 3,
+    //默认是 false 不打印
+    "LogSuccess": true
+  }
+}

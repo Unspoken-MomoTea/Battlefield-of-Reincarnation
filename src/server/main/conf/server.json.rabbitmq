@@ -1,0 +1,71 @@
+{
+  "Master": {
+    "Enable": false,
+    "MasterType": "Master",
+    "WebRoot": "F:/sgserver/bin/console",
+    "WebHost": "0.0.0.0:8686",
+    "SSH": [],
+    "Process": []
+  },
+  "redis": {
+    "host": "127.0.0.1:38789",
+    "dbIndex": "3",
+    "password": "@988wan"
+  },
+  "Module": {
+    "Gate": [{
+      "Id": "Gate001",
+      "ProcessID": "development",
+      "Settings": {
+        "WSAddr": ":3088",
+        "MaxMsgLen": 4096,
+        "HTTPTimeout": 10,
+        "MaxConnNum": 20000,
+        "MinHBStorage": 60,
+        "Tls": false,
+        "CertFile": "/sslkey/h5link.pem",
+        "KeyFile": "/sslkey/h5link.key"
+      },
+      "Rabbitmq":{
+        "Uri"           :"amqp://mqant:988wan@192.168.0.219:5672/",
+        "Exchange"      :"mqant",
+        "ExchangeType"  :"direct",
+        "Queue"         :"Gate001",
+        "BindingKey"    :"Gate001",
+        "ConsumerTag"   :"Gate001"
+        }
+    }],
+    "Master": [{"Id": "Master001", "ProcessID": "development"}],
+    "Match": [{"Id": "Match001", "ProcessID": "development"}],
+    "Login": [{"Id": "Login001", "ProcessID": "development" }],
+    "Hall": [{"Id": "Hall001", "ProcessID": "development" }],
+    "Fight": [{"Id": "Fight001", "ProcessID": "development"}],
+    "Card": [{"Id": "Card001", "ProcessID": "development"}],
+    "Webapp": [{
+      "Id": "Webapp001",
+      "ProcessID": "development",
+      "Settings": {"StaticPath": "F:/sgserver/bin/" }
+    }],
+    "Tracing": [{
+      "Id": "Tracing001",
+      "ProcessID": "development",
+      "Settings": {
+        "StoreFile": "/tmp/appdash.gob",
+        "URL": "http://localhost:7700",
+        "CollectorAddr": ":7701",
+        "HTTPAddr": ":7700"
+      }
+    }]
+  },
+  "Mqtt": {
+    "WirteLoopChanNum": 10,
+    "ReadPackLoop": 1,
+    "ReadTimeout": 600,
+    "WriteTimeout": 300
+  },
+  "Rpc": {
+    "MaxCoroutine": 100,
+    "RpcExpired": 3,
+    "LogSuccess": true
+  }
+}

@@ -17,7 +17,10 @@ export class ProjectService {
   checkUpdate(projectId) { return checkCachedProjectUpdate(workshopApi, projectId); }
   checkAllUpdates(force = false) { return updateChecker.checkAll(force); }
   installed() { return listCachedProjects(); }
+  preflight(projectId) { return workshopInstaller.preflight(projectId); }
   apply(projectId) { return workshopInstaller.apply(projectId); }
+  inspectInstallation(projectId) { return workshopInstaller.inspect(projectId); }
+  repair(projectId) { return workshopInstaller.repair(projectId); }
   uninstall(projectId) { return workshopInstaller.uninstall(projectId); }
   removeCached(projectId) { return removeCachedProject(projectId); }
 }

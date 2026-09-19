@@ -23,11 +23,11 @@ export async function uploadProjectVersion(request, env, user, projectId) {
   try {
     await env.DB.prepare(
       `INSERT INTO project_versions
-        (project_id, version, manifest_key, content_key, name, summary, tags, category, cover_key, changelog, review_status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
+        (project_id, version, manifest_key, content_key, name, summary, tags, dependencies, category, cover_key, changelog, review_status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
     ).bind(
       project.id, version, manifestKey, contentKey, project.name, project.summary,
-      project.tags || '[]', project.category, project.cover_key || null, changelog, now,
+      project.tags || '[]', project.dependencies || '[]', project.category, project.cover_key || null, changelog, now,
     ).run();
     await env.DB.prepare("UPDATE projects SET latest_version = ?, status = 'draft', updated_at = ? WHERE id = ?")
       .bind(version, now, project.id).run();

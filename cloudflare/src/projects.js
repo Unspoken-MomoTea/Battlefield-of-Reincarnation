@@ -63,7 +63,6 @@ function projectPublic(row) {
     owner_name: row.owner_name,
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
-    review_note: row.review_note || '',
   };
 }
 
@@ -79,6 +78,7 @@ function projectOwn(row) {
     published_version: Number(row.published_version || 0),
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
+    review_note: row.review_note || '',
   };
 }
 

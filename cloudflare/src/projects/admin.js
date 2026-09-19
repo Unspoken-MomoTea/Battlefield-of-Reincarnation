@@ -14,7 +14,7 @@ export async function listAdminProjects(request, env, user) {
   const like = `%${query}%`;
   const result = await env.DB.prepare(
     `SELECT p.id, p.slug,
-            v.name, v.summary, v.tags, v.category,
+            v.name, v.summary, v.tags, v.category, v.cover_key,
             p.status, p.latest_version, p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, p.updated_at,
@@ -72,7 +72,7 @@ export async function listPendingProjects(env, user) {
   assertAdmin(user);
   const result = await env.DB.prepare(
     `SELECT p.id, p.slug,
-            v.name, v.summary, v.tags, v.category,
+            v.name, v.summary, v.tags, v.category, v.cover_key,
             p.status, p.latest_version, p.published_version,
             p.created_at, p.updated_at, u.display_name AS owner_name, v.changelog, v.submitted_at
        FROM projects p

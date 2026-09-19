@@ -6,6 +6,7 @@ import {
   requireUser,
   startDiscordLogin,
 } from './auth.js';
+import { getProjectEngagementResponse, setProjectEngagementFromRequest } from './engagement.js';
 import { HttpError, json, withCors } from './http.js';
 import {
   createProject,
@@ -25,7 +26,7 @@ import {
   uploadProjectVersion,
 } from './projects.js';
 
-export const SERVICE_VERSION = '0.5.0';
+export const SERVICE_VERSION = '0.6.0';
 
 function projectIdFrom(pathname, suffix = '') {
   const escapedSuffix = suffix.replace(/[.*+?^$()|[\]\\]/gu, '\\$&');
@@ -84,6 +85,7 @@ export async function handleRequest(request, env) {
       const downloadProjectId = projectIdFrom(pathname, '/download');
       const versionsProjectId = projectIdFrom(pathname, '/versions');
       const submitProjectId = projectIdFrom(pathname, '/submit');
+      const engagementProjectId = projectIdFrom(pathname, '/engagement');
       const reviewProjectId = adminProjectIdFrom(pathname, 'review');
       const stateProjectId = adminProjectIdFrom(pathname, 'state');
       const plainProjectId = projectIdFrom(pathname);
@@ -96,6 +98,10 @@ export async function handleRequest(request, env) {
         response = await uploadProjectVersion(request, env, await authenticatedUser(request, env), versionsProjectId);
       } else if (request.method === 'POST' && submitProjectId) {
         response = await submitProjectForReview(env, await authenticatedUser(request, env), submitProjectId);
+      } else if (request.method === 'GET' && engagementProjectId) {
+        response = await getProjectEngagementResponse(env, await authenticatedUser(request, env), engagementProjectId);
+      } else if (request.method === 'POST' && engagementProjectId) {
+        response = await setProjectEngagementFromRequest(request, env, await authenticatedUser(request, env), engagementProjectId);
       } else if (request.method === 'GET' && reviewProjectId) {
         response = await getPendingProjectReview(env, await authenticatedUser(request, env), reviewProjectId);
       } else if (request.method === 'POST' && reviewProjectId) {

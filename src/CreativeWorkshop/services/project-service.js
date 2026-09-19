@@ -158,8 +158,8 @@ export async function parseOfflinePackageText(text) {
 }
 
 export class ProjectService {
-  list(query = '', category = '', offset = 0) {
-    return workshopApi.listProjects(query, category, offset);
+  list(query = '', category = '', offset = 0, tag = '') {
+    return workshopApi.listProjects(query, category, offset, tag);
   }
 
   detail(projectId) {

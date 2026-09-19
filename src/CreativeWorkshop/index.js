@@ -11,7 +11,7 @@ import { createDiscoverView } from './views/discover.js';
 import { createInstalledView } from './views/installed.js';
 
 const GLOBAL_NAME = 'ReincarnationWorkshop';
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 let booted = false;
 
 boot();

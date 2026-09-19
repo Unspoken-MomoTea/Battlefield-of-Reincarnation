@@ -30,6 +30,7 @@ export function workshopTemplate(version) {
       <section class="rw-section" data-section="installed" hidden>
         <div class="rw-toolbar">
           <div class="rw-muted grow">这里记录下载到 IndexedDB 的作品包。下载时会按 manifest 校验大小与 SHA-256；远程内容不会获得任意 JavaScript 执行权限。</div>
+          <button class="rw-button" data-action="check-all-updates" type="button">检查全部更新</button>
           <label class="rw-button" style="display:inline-flex;align-items:center">导入离线包<input data-action="import-offline" type="file" accept=".rwpack,application/json" hidden></label>
         </div>
         <div class="rw-grid" data-role="installed-list"></div>

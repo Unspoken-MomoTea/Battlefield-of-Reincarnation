@@ -136,6 +136,16 @@ function assertAdmin(user) {
   if (!Number(user?.is_admin)) throw new HttpError(403, 'admin_required', '需要管理员权限');
 }
 
+async function writeAdminAudit(env, user, { projectId = null, projectVersion = null, action, note = '' }) {
+  await env.DB.prepare(
+    `INSERT INTO admin_audit_logs
+      (actor_user_id, project_id, project_version, action, note, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(user.id, projectId, projectVersion, action, note, nowSeconds())
+    .run();
+}
+
 function bundleBytes(bundle) {
   return new TextEncoder().encode(JSON.stringify(bundle)).byteLength;
 }
@@ -591,7 +601,7 @@ export async function getPendingProjectReview(env, user, projectId) {
     .first();
   if (!row) throw new HttpError(404, 'project_not_found', '作品不存在或尚未上传版本');
 
-  const [manifestObject, bundleObject, versionsResult, reviewsResult] = await Promise.all([
+  const [manifestObject, bundleObject, versionsResult, reviewsResult, auditResult] = await Promise.all([
     env.PROJECTS.get(row.manifest_key),
     env.PROJECTS.get(row.content_key),
     env.DB.prepare(
@@ -609,6 +619,17 @@ export async function getPendingProjectReview(env, user, projectId) {
          JOIN users reviewer ON reviewer.id = rr.reviewer_user_id
         WHERE rr.project_id = ?
         ORDER BY rr.id DESC`,
+    )
+      .bind(projectId)
+      .all(),
+    env.DB.prepare(
+      `SELECT log.project_version, log.action, log.note, log.created_at,
+              actor.display_name AS actor_name
+         FROM admin_audit_logs log
+         JOIN users actor ON actor.id = log.actor_user_id
+        WHERE log.project_id = ?
+        ORDER BY log.id DESC
+        LIMIT 100`,
     )
       .bind(projectId)
       .all(),
@@ -658,6 +679,13 @@ export async function getPendingProjectReview(env, user, projectId) {
       reviewer_name: review.reviewer_name || '',
       created_at: Number(review.created_at || 0),
     })),
+    admin_audit: (auditResult.results || []).map(log => ({
+      project_version: Number(log.project_version || 0),
+      action: log.action,
+      note: log.note || '',
+      actor_name: log.actor_name || '',
+      created_at: Number(log.created_at || 0),
+    })),
   });
 }
 export async function reviewProject(request, env, user, projectId) {
@@ -668,6 +696,9 @@ export async function reviewProject(request, env, user, projectId) {
     throw new HttpError(400, 'invalid_decision', 'decision 必须是 approved 或 rejected');
   }
   const note = textField(body?.note ?? '', 'note', { max: 1000 });
+  if (decision === 'rejected' && !note) {
+    throw new HttpError(400, 'rejection_note_required', '驳回时必须填写原因');
+  }
   const project = await env.DB.prepare(
     `SELECT id, latest_version, published_version, status FROM projects WHERE id = ?`,
   )
@@ -703,5 +734,91 @@ export async function reviewProject(request, env, user, projectId) {
       .bind(now, projectId)
       .run();
   }
+  await writeAdminAudit(env, user, {
+    projectId,
+    projectVersion: Number(project.latest_version),
+    action: decision === 'approved' ? 'review_approved' : 'review_rejected',
+    note,
+  });
   return json({ ok: true, decision, version: Number(project.latest_version) });
+}
+
+
+export async function setAdminProjectState(request, env, user, projectId) {
+  assertAdmin(user);
+  const body = await readJson(request);
+  const action = body?.action;
+  if (!['archive', 'restore'].includes(action)) {
+    throw new HttpError(400, 'invalid_admin_action', 'action 必须是 archive 或 restore');
+  }
+  const note = textField(body?.note ?? '', 'note', { max: 1000 });
+  const project = await env.DB.prepare(
+    'SELECT id, status, latest_version, published_version FROM projects WHERE id = ?',
+  )
+    .bind(projectId)
+    .first();
+  if (!project) throw new HttpError(404, 'project_not_found', '作品不存在');
+
+  const latest = Number(project.latest_version) > 0
+    ? await env.DB.prepare(
+        'SELECT review_status FROM project_versions WHERE project_id = ? AND version = ?',
+      )
+        .bind(projectId, project.latest_version)
+        .first()
+    : null;
+
+  let nextStatus;
+  if (action === 'archive') {
+    if (project.status === 'archived') throw new HttpError(409, 'already_archived', '作品已经下架');
+    nextStatus = 'archived';
+  } else {
+    if (project.status !== 'archived') throw new HttpError(409, 'not_archived', '作品当前没有下架');
+    if (latest?.review_status === 'pending') nextStatus = 'pending';
+    else if (latest?.review_status === 'rejected') nextStatus = 'rejected';
+    else if (latest?.review_status === 'approved' && Number(project.published_version) > 0) nextStatus = 'published';
+    else nextStatus = 'draft';
+  }
+
+  const now = nowSeconds();
+  await env.DB.prepare('UPDATE projects SET status = ?, updated_at = ? WHERE id = ?')
+    .bind(nextStatus, now, projectId)
+    .run();
+  await writeAdminAudit(env, user, {
+    projectId,
+    projectVersion: Number(project.latest_version || 0),
+    action: action === 'archive' ? 'project_archived' : 'project_restored',
+    note,
+  });
+  return json({ ok: true, status: nextStatus });
+}
+
+export async function listAdminAuditLogs(request, env, user) {
+  assertAdmin(user);
+  const url = new URL(request.url);
+  const projectId = (url.searchParams.get('project_id') || '').trim();
+  const action = (url.searchParams.get('action') || '').trim();
+  const limit = Math.max(1, Math.min(100, Number.parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+  const result = await env.DB.prepare(
+    `SELECT log.id, log.project_id, log.project_version, log.action, log.note, log.created_at,
+            actor.display_name AS actor_name
+       FROM admin_audit_logs log
+       JOIN users actor ON actor.id = log.actor_user_id
+      WHERE (? = '' OR log.project_id = ?)
+        AND (? = '' OR log.action = ?)
+      ORDER BY log.id DESC
+      LIMIT ?`,
+  )
+    .bind(projectId, projectId, action, action, limit)
+    .all();
+  return json({
+    items: (result.results || []).map(log => ({
+      id: Number(log.id),
+      project_id: log.project_id,
+      project_version: Number(log.project_version || 0),
+      action: log.action,
+      note: log.note || '',
+      actor_name: log.actor_name || '',
+      created_at: Number(log.created_at || 0),
+    })),
+  });
 }

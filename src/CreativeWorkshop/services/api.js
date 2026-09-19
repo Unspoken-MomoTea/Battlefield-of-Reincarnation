@@ -138,6 +138,20 @@ export class WorkshopApi {
     );
   }
 
+  setAdminProjectState(projectId, action, note = '') {
+    return this.request(
+      `/api/admin/projects/${encodeURIComponent(projectId)}/state`,
+      { method: 'POST', body: JSON.stringify({ action, note }) },
+      true,
+    );
+  }
+
+  listAdminLogs(projectId = '') {
+    const params = new URLSearchParams({ limit: '100' });
+    if (projectId) params.set('project_id', projectId);
+    return this.request(`/api/admin/logs?${params}`, {}, true);
+  }
+
   async login() {
     const base = getApiBase();
     const host = resolveHostWindow();

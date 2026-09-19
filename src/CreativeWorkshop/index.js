@@ -4,7 +4,7 @@ import { projectService } from './services/project-service.js';
 import { buildUploadBundle } from './services/upload.js';
 
 const GLOBAL_NAME = 'ReincarnationWorkshop';
-const VERSION = '0.7.0';
+const VERSION = '0.8.0';
 const CATEGORY_LABELS = {
   worldbook: '世界书',
   regex: '正则',
@@ -448,6 +448,7 @@ function boot() {
         const meta = element('div', 'rw-meta');
         meta.append(element('span', 'rw-pill', CATEGORY_LABELS[item.category] || item.category));
         meta.append(element('span', 'rw-pill', reviewStatusLabel(item.review_status)));
+        if (item.project_status === 'archived') meta.append(element('span', 'rw-pill', '已下架'));
         meta.append(element('span', 'rw-pill', `公开 v${item.published_version}`));
         card.appendChild(meta);
         card.appendChild(
@@ -487,6 +488,7 @@ function boot() {
               project: detail.project,
               versions: detail.versions,
               reviews: detail.reviews,
+              admin_audit: detail.admin_audit,
               manifest: detail.manifest,
               artifacts: artifactPreviews,
             },
@@ -495,15 +497,29 @@ function boot() {
           );
           preview.hidden = false;
         }));
-        if (item.review_status === 'pending') {
+        if (item.review_status === 'pending' && item.project_status !== 'archived') {
           actions.appendChild(button('批准', 'good', async () => {
             const note = host.prompt?.('审核备注（可留空）', '') ?? '';
             await workshopApi.reviewProject(item.id, 'approved', note);
             await refreshAdmin();
           }));
           actions.appendChild(button('驳回', 'danger', async () => {
-            const note = host.prompt?.('请输入驳回原因', '') ?? '';
+            const note = host.prompt?.('请输入驳回原因（必填）', '') ?? '';
+            if (!note.trim()) throw new Error('驳回时必须填写原因');
             await workshopApi.reviewProject(item.id, 'rejected', note);
+            await refreshAdmin();
+          }));
+        }
+        if (item.project_status === 'archived') {
+          actions.appendChild(button('恢复作品', 'good', async () => {
+            const note = host.prompt?.('恢复备注（可留空）', '') ?? '';
+            await workshopApi.setAdminProjectState(item.id, 'restore', note);
+            await refreshAdmin();
+          }));
+        } else {
+          actions.appendChild(button('下架作品', 'danger', async () => {
+            const note = host.prompt?.('下架原因（建议填写）', '') ?? '';
+            await workshopApi.setAdminProjectState(item.id, 'archive', note);
             await refreshAdmin();
           }));
         }

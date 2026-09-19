@@ -13,17 +13,19 @@ import {
   getPublicProject,
   getPublicProjectVersion,
   getPendingProjectReview,
+  listAdminAuditLogs,
   listAdminProjects,
   listOwnProjects,
   listPendingProjects,
   listPublicProjects,
   reviewProject,
+  setAdminProjectState,
   submitProjectForReview,
   updateProject,
   uploadProjectVersion,
 } from './projects.js';
 
-export const SERVICE_VERSION = '0.4.0';
+export const SERVICE_VERSION = '0.5.0';
 
 function projectIdFrom(pathname, suffix = '') {
   const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
@@ -31,8 +33,43 @@ function projectIdFrom(pathname, suffix = '') {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-function adminProjectIdFrom(pathname) {
-  const match = /^\/api\/admin\/projects\/([^/]+)\/review$/u.exec(pathname);
+function adminProjectIdFrom(pathname, suffix = 'review') {
+  const match = new RegExp(`^/api/admin/projects/([^/]+)/${suffix}import {
+  exchangeLogin,
+  finishDiscordLogin,
+  getMe,
+  logout,
+  requireUser,
+  startDiscordLogin,
+} from './auth.js';
+import { HttpError, json, withCors } from './http.js';
+import {
+  createProject,
+  downloadPublicProject,
+  getPublicProject,
+  getPublicProjectVersion,
+  getPendingProjectReview,
+  listAdminAuditLogs,
+  listAdminProjects,
+  listOwnProjects,
+  listPendingProjects,
+  listPublicProjects,
+  reviewProject,
+  setAdminProjectState,
+  submitProjectForReview,
+  updateProject,
+  uploadProjectVersion,
+} from './projects.js';
+
+export const SERVICE_VERSION = '0.5.0';
+
+function projectIdFrom(pathname, suffix = '') {
+  const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  const match = new RegExp(`^/api/projects/([^/]+)${escapedSuffix}$`, 'u').exec(pathname);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+, 'u').exec(pathname);
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -74,12 +111,15 @@ export async function handleRequest(request, env) {
       response = await listAdminProjects(request, env, await authenticatedUser(request, env));
     } else if (request.method === 'GET' && pathname === '/api/admin/pending') {
       response = await listPendingProjects(env, await authenticatedUser(request, env));
+    } else if (request.method === 'GET' && pathname === '/api/admin/logs') {
+      response = await listAdminAuditLogs(request, env, await authenticatedUser(request, env));
     } else {
       const versionProjectId = projectIdFrom(pathname, '/version');
       const downloadProjectId = projectIdFrom(pathname, '/download');
       const versionsProjectId = projectIdFrom(pathname, '/versions');
       const submitProjectId = projectIdFrom(pathname, '/submit');
-      const reviewProjectId = adminProjectIdFrom(pathname);
+      const reviewProjectId = adminProjectIdFrom(pathname, 'review');
+      const stateProjectId = adminProjectIdFrom(pathname, 'state');
       const plainProjectId = projectIdFrom(pathname);
 
       if (request.method === 'GET' && versionProjectId) {
@@ -94,6 +134,8 @@ export async function handleRequest(request, env) {
         response = await getPendingProjectReview(env, await authenticatedUser(request, env), reviewProjectId);
       } else if (request.method === 'POST' && reviewProjectId) {
         response = await reviewProject(request, env, await authenticatedUser(request, env), reviewProjectId);
+      } else if (request.method === 'POST' && stateProjectId) {
+        response = await setAdminProjectState(request, env, await authenticatedUser(request, env), stateProjectId);
       } else if (request.method === 'GET' && plainProjectId) {
         response = await getPublicProject(plainProjectId, env);
       } else if (request.method === 'PATCH' && plainProjectId) {

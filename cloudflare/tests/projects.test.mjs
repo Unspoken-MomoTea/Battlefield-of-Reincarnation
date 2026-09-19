@@ -9,11 +9,13 @@ import {
   getPublicProject,
   getPublicProjectVersion,
   getPendingProjectReview,
+  listAdminAuditLogs,
   listAdminProjects,
   listOwnProjects,
   listPendingProjects,
   listPublicProjects,
   reviewProject,
+  setAdminProjectState,
   submitProjectForReview,
   uploadProjectVersion,
   validateBundle,
@@ -331,5 +333,80 @@ test('non-admin cannot use management listing', async () => {
   await assert.rejects(
     () => listAdminProjects(request('/api/admin/projects'), env, other),
     error => error?.status === 403 && error?.code === 'admin_required',
+  );
+});
+
+
+test('admin can archive and restore an approved project without losing its published version', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'), '通过');
+
+  const archived = await responseJson(
+    await setAdminProjectState(
+      request(`/api/admin/projects/${project.id}/state`, 'POST', { action: 'archive', note: '临时下架' }),
+      env,
+      admin,
+      project.id,
+    ),
+  );
+  assert.equal(archived.status, 'archived');
+
+  const publicList = await responseJson(await listPublicProjects(request('/api/projects'), env));
+  assert.equal(publicList.items.length, 0);
+
+  const restored = await responseJson(
+    await setAdminProjectState(
+      request(`/api/admin/projects/${project.id}/state`, 'POST', { action: 'restore', note: '恢复展示' }),
+      env,
+      admin,
+      project.id,
+    ),
+  );
+  assert.equal(restored.status, 'published');
+
+  const row = env.DB.db.prepare('SELECT status, published_version FROM projects WHERE id = ?').get(project.id);
+  assert.equal(row.status, 'published');
+  assert.equal(Number(row.published_version), 1);
+});
+
+test('admin audit log records review and archive lifecycle actions', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'), '首版通过');
+  await setAdminProjectState(
+    request(`/api/admin/projects/${project.id}/state`, 'POST', { action: 'archive', note: '维护' }),
+    env,
+    admin,
+    project.id,
+  );
+
+  const logs = await responseJson(
+    await listAdminAuditLogs(request(`/api/admin/logs?project_id=${project.id}`), env, admin),
+  );
+  assert.equal(logs.items[0].action, 'project_archived');
+  assert.equal(logs.items[0].note, '维护');
+  assert.ok(logs.items.some(item => item.action === 'review_approved'));
+});
+
+test('rejection requires an explicit reason', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', { changelog: '', bundle: bundle('v1') }),
+    env,
+    author,
+    project.id,
+  );
+  await submitProjectForReview(env, author, project.id);
+  await assert.rejects(
+    () =>
+      reviewProject(
+        request(`/api/admin/projects/${project.id}/review`, 'POST', { decision: 'rejected', note: '' }),
+        env,
+        admin,
+        project.id,
+      ),
+    error => error?.status === 400 && error?.code === 'rejection_note_required',
   );
 });

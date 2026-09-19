@@ -48,6 +48,25 @@ npx wrangler secret put DISCORD_CLIENT_SECRET
 DISCORD_CLIENT_SECRET=你的密钥
 ```
 
+## D1 migration
+
+从现在开始数据库结构使用 `cloudflare/migrations/` 作为正式升级历史，`schema.sql` 只保留“当前完整基线”用于阅读和全新环境核对。不要在已经有数据的 production 上反复执行完整 schema 来代替 migration。
+
+当前 migration：
+
+```text
+0001_initial.sql
+0002_admin_audit.sql
+```
+
+执行：
+
+```bash
+npm run db:migrate:local
+npm run db:migrate:staging
+npm run db:migrate:remote
+```
+
 ## 初始化 D1
 
 创建数据库后，将真实 ID 写入 `wrangler.jsonc`，然后执行：
@@ -141,3 +160,15 @@ npx wrangler deploy --env staging
 ```
 
 生产环境仍使用不带 `--env` 的命令。Discord Developer Portal 需要同时登记 production 和 staging 两个 callback URL。
+
+
+## 管理员发布后管理
+
+管理员除了审核之外，还可以：
+
+- `POST /api/admin/projects/:id/state`：`archive` 下架或 `restore` 恢复。
+- `GET /api/admin/logs`：读取统一管理员操作日志。
+- 审核通过、审核拒绝、下架、恢复都会写入 `admin_audit_logs`。
+- 驳回审核必须填写原因。
+
+下架不会删除 R2 文件或审核记录；恢复时根据最新版本审核状态恢复到 `published / pending / rejected / draft`。

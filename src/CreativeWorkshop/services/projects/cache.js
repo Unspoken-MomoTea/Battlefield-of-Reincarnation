@@ -8,6 +8,11 @@ function baseRecord(project, manifest, bundle, previous, source) {
   const now = Date.now();
   return {
     id: project.id, name: project.name, category: project.category, version: Number(project.version),
+    dependencies: Array.isArray(project.dependencies)
+      ? structuredClone(project.dependencies)
+      : Array.isArray(manifest?.project?.dependencies)
+        ? structuredClone(manifest.project.dependencies)
+        : [],
     manifest, bundle, source, installedAt: previous?.installedAt ?? now, updatedAt: now,
     applied: previous?.applied ?? false, appliedVersion: previous?.appliedVersion ?? null,
     appliedAt: previous?.appliedAt ?? null, targetCharacterName: previous?.targetCharacterName ?? null,

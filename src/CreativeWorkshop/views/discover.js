@@ -1,3 +1,5 @@
+import { promptProjectReport } from './discover/report.js';
+
 export function createDiscoverView({
   nodes,
   element,
@@ -46,6 +48,12 @@ export function createDiscoverView({
         const state = await workshopApi.getProjectEngagement(project.id);
         await workshopApi.setProjectEngagement(project.id, 'favorite', !state.user_favorited);
         await refreshDiscover();
+      }));
+      actions.appendChild(button('举报', '', async () => {
+        const report = promptProjectReport(host);
+        if (!report) return;
+        await workshopApi.reportProject(project.id, report.reason, report.details);
+        try { host.toastr?.success?.('举报已提交，管理员会进行人工处理', '创意工坊'); } catch {}
       }));
     }
     card.appendChild(actions);

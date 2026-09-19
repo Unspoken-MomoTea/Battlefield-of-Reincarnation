@@ -12,6 +12,7 @@ import {
   downloadPublicProject,
   getPublicProject,
   getPublicProjectVersion,
+  getPendingProjectReview,
   listOwnProjects,
   listPendingProjects,
   listPublicProjects,
@@ -21,7 +22,7 @@ import {
   uploadProjectVersion,
 } from './projects.js';
 
-export const SERVICE_VERSION = '0.2.0';
+export const SERVICE_VERSION = '0.3.0';
 
 function projectIdFrom(pathname, suffix = '') {
   const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
@@ -86,6 +87,8 @@ export async function handleRequest(request, env) {
         response = await uploadProjectVersion(request, env, await authenticatedUser(request, env), versionsProjectId);
       } else if (request.method === 'POST' && submitProjectId) {
         response = await submitProjectForReview(env, await authenticatedUser(request, env), submitProjectId);
+      } else if (request.method === 'GET' && reviewProjectId) {
+        response = await getPendingProjectReview(env, await authenticatedUser(request, env), reviewProjectId);
       } else if (request.method === 'POST' && reviewProjectId) {
         response = await reviewProject(request, env, await authenticatedUser(request, env), reviewProjectId);
       } else if (request.method === 'GET' && plainProjectId) {

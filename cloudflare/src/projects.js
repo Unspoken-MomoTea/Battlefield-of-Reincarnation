@@ -63,6 +63,7 @@ function projectPublic(row) {
     owner_name: row.owner_name,
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
+    review_note: row.review_note || '',
   };
 }
 
@@ -267,9 +268,18 @@ export async function downloadPublicProject(projectId, env) {
 
 export async function listOwnProjects(env, user) {
   const result = await env.DB.prepare(
-    `SELECT id, slug, name, summary, category, status, latest_version, published_version, created_at, updated_at
-       FROM projects WHERE owner_user_id = ?
-      ORDER BY updated_at DESC`,
+    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.status, p.latest_version, p.published_version,
+            p.created_at, p.updated_at,
+            COALESCE((
+              SELECT rr.note
+                FROM review_records rr
+               WHERE rr.project_id = p.id AND rr.version = p.latest_version
+               ORDER BY rr.id DESC
+               LIMIT 1
+            ), '') AS review_note
+       FROM projects p
+      WHERE p.owner_user_id = ?
+      ORDER BY p.updated_at DESC`,
   )
     .bind(user.id)
     .all();
@@ -399,6 +409,55 @@ export async function listPendingProjects(env, user) {
   return json({ items: result.results || [] });
 }
 
+export async function getPendingProjectReview(env, user, projectId) {
+  assertAdmin(user);
+  const row = await env.DB.prepare(
+    `SELECT p.id, p.slug, p.name, p.summary, p.category, p.latest_version, p.published_version,
+            p.created_at, p.updated_at, u.display_name AS owner_name,
+            v.changelog, v.submitted_at, v.manifest_key, v.content_key, v.review_status
+       FROM projects p
+       JOIN users u ON u.id = p.owner_user_id
+       JOIN project_versions v ON v.project_id = p.id AND v.version = p.latest_version
+      WHERE p.id = ?`,
+  )
+    .bind(projectId)
+    .first();
+  if (!row) throw new HttpError(404, 'project_not_found', '作品不存在');
+  if (row.review_status !== 'pending') {
+    throw new HttpError(409, 'review_not_pending', '当前最新版本不在待审核状态');
+  }
+
+  const [manifestObject, bundleObject] = await Promise.all([
+    env.PROJECTS.get(row.manifest_key),
+    env.PROJECTS.get(row.content_key),
+  ]);
+  if (!manifestObject) throw new HttpError(500, 'manifest_missing', '待审核作品的 manifest 缺失');
+  if (!bundleObject) throw new HttpError(500, 'bundle_missing', '待审核作品的 bundle 缺失');
+
+  const [manifestText, bundleText] = await Promise.all([
+    new Response(manifestObject.body).text(),
+    new Response(bundleObject.body).text(),
+  ]);
+
+  return json({
+    project: {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      summary: row.summary,
+      category: row.category,
+      owner_name: row.owner_name,
+      latest_version: Number(row.latest_version),
+      published_version: Number(row.published_version || 0),
+      changelog: row.changelog || '',
+      submitted_at: Number(row.submitted_at || 0),
+      created_at: Number(row.created_at),
+      updated_at: Number(row.updated_at),
+    },
+    manifest: JSON.parse(manifestText),
+    bundle: JSON.parse(bundleText),
+  });
+}
 export async function reviewProject(request, env, user, projectId) {
   assertAdmin(user);
   const body = await readJson(request);

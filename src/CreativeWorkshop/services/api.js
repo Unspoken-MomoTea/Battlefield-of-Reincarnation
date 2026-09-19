@@ -118,6 +118,10 @@ export class WorkshopApi {
     return this.request('/api/admin/pending', {}, true);
   }
 
+  getPendingReview(projectId) {
+    return this.request(`/api/admin/projects/${encodeURIComponent(projectId)}/review`, {}, true);
+  }
+
   reviewProject(projectId, decision, note = '') {
     return this.request(
       `/api/admin/projects/${encodeURIComponent(projectId)}/review`,

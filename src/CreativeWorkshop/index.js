@@ -3,7 +3,7 @@ import { workshopApi } from './services/api.js';
 import { projectService } from './services/project-service.js';
 
 const GLOBAL_NAME = 'ReincarnationWorkshop';
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 const CATEGORY_LABELS = {
   worldbook: '世界书',
   regex: '正则',
@@ -312,6 +312,9 @@ function boot() {
     meta.append(element('span', 'rw-pill', `公开 v${project.published_version}`));
     card.appendChild(meta);
     card.appendChild(element('div', 'rw-muted', project.summary || '暂无简介'));
+    if (project.status === 'rejected' && project.review_note) {
+      card.appendChild(element('div', 'rw-status bad', `审核意见：${project.review_note}`));
+    }
 
     const file = element('input', 'rw-input');
     file.type = 'file';
@@ -378,7 +381,31 @@ function boot() {
         const card = element('article', 'rw-card');
         card.appendChild(element('h3', '', `${item.name} · v${item.latest_version}`));
         card.appendChild(element('div', 'rw-muted', `作者：${item.owner_name}\n${item.summary || ''}\n更新说明：${item.changelog || '无'}`));
+        const preview = element('pre', 'rw-detail');
+        preview.hidden = true;
         const actions = element('div', 'rw-row');
+        actions.appendChild(button('查看待审核内容', '', async () => {
+          if (!preview.hidden) {
+            preview.hidden = true;
+            return;
+          }
+          const detail = await workshopApi.getPendingReview(item.id);
+          const artifactPreviews = detail.bundle.artifacts.map(artifact => {
+            const raw = typeof artifact.content === 'string' ? artifact.content : JSON.stringify(artifact.content, null, 2);
+            return {
+              kind: artifact.kind,
+              name: artifact.name,
+              format: artifact.format,
+              preview: raw.length > 6000 ? `${raw.slice(0, 6000)}\n…（内容过长，界面仅预览前 6000 字符）` : raw,
+            };
+          });
+          preview.textContent = JSON.stringify(
+            { project: detail.project, manifest: detail.manifest, artifacts: artifactPreviews },
+            null,
+            2,
+          );
+          preview.hidden = false;
+        }));
         actions.appendChild(button('批准', 'good', async () => {
           const note = host.prompt?.('审核备注（可留空）', '') ?? '';
           await workshopApi.reviewProject(item.id, 'approved', note);
@@ -389,7 +416,7 @@ function boot() {
           await workshopApi.reviewProject(item.id, 'rejected', note);
           await refreshAdmin();
         }));
-        card.appendChild(actions);
+        card.append(actions, preview);
         return card;
       });
       nodes.pendingList.replaceChildren(...cards);

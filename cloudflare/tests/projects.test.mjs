@@ -8,6 +8,8 @@ import {
   downloadPublicProject,
   getPublicProject,
   getPublicProjectVersion,
+  getPendingProjectReview,
+  listOwnProjects,
   listPendingProjects,
   listPublicProjects,
   reviewProject,
@@ -166,4 +168,49 @@ test('admin pending queue contains submitted versions', async () => {
   assert.equal(pending.items.length, 1);
   assert.equal(pending.items[0].id, project.id);
   assert.equal(Number(pending.items[0].latest_version), 1);
+});
+
+test('admin can inspect the exact pending manifest and bundle before approval', async () => {
+  const { env, author, admin, other } = setup();
+  const project = await createWorldbookProject(env, author);
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', { changelog: '待审版本', bundle: bundle('review-me') }),
+    env,
+    author,
+    project.id,
+  );
+  await submitProjectForReview(env, author, project.id);
+
+  const detail = await responseJson(await getPendingProjectReview(env, admin, project.id));
+  assert.equal(detail.project.id, project.id);
+  assert.equal(detail.project.changelog, '待审版本');
+  assert.equal(detail.manifest.artifacts[0].name, 'review-me');
+  assert.equal(detail.bundle.artifacts[0].content.entries['0'].comment, 'review-me');
+
+  await assert.rejects(
+    () => getPendingProjectReview(env, other, project.id),
+    error => error?.status === 403 && error?.code === 'admin_required',
+  );
+});
+
+test('author sees the latest rejection note on their project', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'v1', bundle: bundle('rejected') }),
+    env,
+    author,
+    project.id,
+  );
+  await submitProjectForReview(env, author, project.id);
+  await reviewProject(
+    request(`/api/admin/projects/${project.id}/review`, 'POST', { decision: 'rejected', note: '请补充说明' }),
+    env,
+    admin,
+    project.id,
+  );
+
+  const own = await responseJson(await listOwnProjects(env, author));
+  assert.equal(own.items[0].status, 'rejected');
+  assert.equal(own.items[0].review_note, '请补充说明');
 });

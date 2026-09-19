@@ -109,3 +109,12 @@ npx wrangler dev
 ```
 
 允许的 `kind`：`worldbook`、`regex`、`preset`、`data`。`mixed` 是作品分类，不是 artifact 类型。单个 bundle 当前限制为 4 MB、最多 32 个 artifact。
+
+## 审核预览
+
+管理员可以在批准/驳回前读取待审核最新版本的 manifest 与 bundle：
+
+- `GET /api/admin/projects/:id/review`：读取待审核内容。
+- `POST /api/admin/projects/:id/review`：提交 `approved` / `rejected` 决定。
+
+作者自己的作品列表会返回最新审核意见 `review_note`，用于显示驳回原因。

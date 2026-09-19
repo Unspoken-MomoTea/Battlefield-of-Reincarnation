@@ -25,6 +25,7 @@ export function createDiscoverView({
     meta.append(element('span', 'rw-pill', categoryLabels[project.category] || project.category));
     meta.append(element('span', 'rw-pill', `v${project.version}`));
     if (project.owner_name) meta.append(element('span', 'rw-pill', `作者：${project.owner_name}`));
+    if (project.dependencies?.length) meta.append(element('span', 'rw-pill', `依赖 ${project.dependencies.length}`));
     for (const tag of project.tags || []) meta.append(element('span', 'rw-pill', `#${tag}`));
     meta.append(element('span', 'rw-pill', `↓ ${project.downloads_count || 0}`));
     meta.append(element('span', 'rw-pill', `♥ ${project.likes_count || 0}`));
@@ -75,9 +76,13 @@ export function createDiscoverView({
     const detail = await projectService.detail(projectId);
     nodes.detailTitle.textContent = `${detail.project.name} · v${detail.project.version}`;
     const tags = (detail.project.tags || []).map(tag => `#${tag}`).join(' ');
+    const dependencies = (detail.project.dependencies || [])
+      .map(item => `${item.project_id}@${item.min_version}`)
+      .join('、');
     nodes.detailSummary.textContent =
       `${detail.project.summary || '暂无简介'}\n` +
       `${tags ? `标签：${tags}\n` : ''}` +
+      `${dependencies ? `依赖：${dependencies}\n` : ''}` +
       `下载 ${detail.project.downloads_count || 0} · 点赞 ${detail.project.likes_count || 0} · 收藏 ${detail.project.favorites_count || 0}\n` +
       `更新说明：${detail.changelog || '无'}`;
     nodes.detailManifest.textContent = JSON.stringify(detail.manifest, null, 2);

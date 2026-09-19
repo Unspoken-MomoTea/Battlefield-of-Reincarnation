@@ -1,5 +1,6 @@
 import { workshopApi } from '../api.js';
 import { workshopInstaller } from '../installer.js';
+import { updateChecker } from './update-check.js';
 import {
   cacheRemoteProject, checkCachedProjectUpdate, exportCachedProject,
   importOfflineProject, listCachedProjects, removeCachedProject,
@@ -14,6 +15,7 @@ export class ProjectService {
   importOffline(file) { return importOfflineProject(file); }
   exportCached(projectId) { return exportCachedProject(projectId); }
   checkUpdate(projectId) { return checkCachedProjectUpdate(workshopApi, projectId); }
+  checkAllUpdates(force = false) { return updateChecker.checkAll(force); }
   installed() { return listCachedProjects(); }
   apply(projectId) { return workshopInstaller.apply(projectId); }
   uninstall(projectId) { return workshopInstaller.uninstall(projectId); }

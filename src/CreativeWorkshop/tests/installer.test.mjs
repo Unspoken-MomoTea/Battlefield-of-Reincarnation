@@ -165,3 +165,18 @@ test('an applied project cannot be uninstalled from a different character', asyn
   const installer = createWorkshopInstaller({ adapter, storage });
   await assert.rejects(() => installer.uninstall('project-1'), /角色A/u);
 });
+
+test('uninstall restores a preset that existed before workshop installation', async () => {
+  const adapter = fakeAdapter();
+  const targetPreset = '[创意工坊] 测试作品 · 预设.json';
+  adapter.state.presets.set(targetPreset, { original: true });
+  const storage = memoryStorage(project([
+    { kind: 'preset', name: '预设.json', format: 'json', content: { settings: { temperature: 0.8 } } },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await installer.apply('project-1');
+  assert.deepEqual(adapter.state.presets.get(targetPreset), { settings: { temperature: 0.8 } });
+  await installer.uninstall('project-1');
+  assert.deepEqual(adapter.state.presets.get(targetPreset), { original: true });
+});

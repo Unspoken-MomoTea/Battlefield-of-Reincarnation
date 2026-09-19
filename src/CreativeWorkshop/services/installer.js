@@ -325,19 +325,37 @@ export function createWorkshopInstaller({ adapter = createTavernAdapter(), stora
   }
 
   async function restore(state) {
-    for (const [name, previous] of [...state.presets.entries()].reverse()) {
-      if (previous.existed) await maybe(adapter.createOrReplacePreset(name, previous.content));
-      else await maybe(adapter.deletePreset(name));
-    }
-    if (state.regexes) await maybe(adapter.replaceCharacterRegexes(state.regexes));
-    if (state.worldbook) {
-      if (state.worldbook.existed) {
-        await maybe(adapter.createOrReplaceWorldbook(SHARED_WORLDBOOK_NAME, state.worldbook.entries));
-      } else {
-        try { await maybe(adapter.deleteWorldbook(SHARED_WORLDBOOK_NAME)); } catch {}
+    const errors = [];
+    const attempt = async operation => {
+      try {
+        await operation();
+      } catch (error) {
+        errors.push(error);
       }
-      if (state.binding) await maybe(adapter.rebindCharWorldbooks(state.binding));
+    };
+
+    for (const [name, previous] of [...state.presets.entries()].reverse()) {
+      await attempt(async () => {
+        if (previous.existed) await maybe(adapter.createOrReplacePreset(name, previous.content));
+        else await maybe(adapter.deletePreset(name));
+      });
     }
+    if (state.regexes) {
+      await attempt(() => maybe(adapter.replaceCharacterRegexes(state.regexes)));
+    }
+    if (state.worldbook) {
+      await attempt(async () => {
+        if (state.worldbook.existed) {
+          await maybe(adapter.createOrReplaceWorldbook(SHARED_WORLDBOOK_NAME, state.worldbook.entries));
+        } else {
+          await maybe(adapter.deleteWorldbook(SHARED_WORLDBOOK_NAME));
+        }
+      });
+      if (state.binding) {
+        await attempt(() => maybe(adapter.rebindCharWorldbooks(state.binding)));
+      }
+    }
+    return errors;
   }
 
   async function apply(projectId) {
@@ -373,7 +391,7 @@ export function createWorkshopInstaller({ adapter = createTavernAdapter(), stora
                 }),
               );
             }
-          } else if (!previous.some(entry => provenance(entry))) {
+          } else if (oldTargets.worldbookBound && !previous.some(entry => record(provenance(entry))?.sourceId)) {
             const binding = await maybe(adapter.getCharWorldbookNames());
             await maybe(
               adapter.rebindCharWorldbooks({
@@ -401,13 +419,27 @@ export function createWorkshopInstaller({ adapter = createTavernAdapter(), stora
       }
 
       const newPresetNames = new Set(plan.presets.map(item => item.name));
+      const previousPresetBackups = oldTargets.presetBackups ?? {};
       for (const oldName of oldTargets.presets ?? []) {
-        if (!newPresetNames.has(oldName)) await maybe(adapter.deletePreset(oldName));
+        if (newPresetNames.has(oldName)) continue;
+        const backup = previousPresetBackups[oldName];
+        if (backup?.existed) await maybe(adapter.createOrReplacePreset(oldName, backup.content));
+        else await maybe(adapter.deletePreset(oldName));
       }
       for (const preset of plan.presets) {
         await maybe(adapter.createOrReplacePreset(preset.name, preset.content));
       }
 
+      const presetBackups = {};
+      for (const preset of plan.presets) {
+        presetBackups[preset.name] =
+          previousPresetBackups[preset.name] ??
+          (() => {
+            const previous = state.presets.get(preset.name);
+            return previous ? { existed: previous.existed, content: clone(previous.content) } : { existed: false, content: null };
+          })();
+      }
+      const worldbookWasBound = Boolean(state.binding?.additional?.includes(SHARED_WORLDBOOK_NAME));
       const next = {
         ...installed,
         applied: true,
@@ -416,18 +448,31 @@ export function createWorkshopInstaller({ adapter = createTavernAdapter(), stora
         targetCharacterName: characterNeeded ? currentCharacter : null,
         installTargets: {
           worldbook: plan.worldbook.length ? SHARED_WORLDBOOK_NAME : null,
+          worldbookCreated:
+            plan.worldbook.length > 0
+              ? Boolean(oldTargets.worldbookCreated || !state.worldbook?.existed)
+              : false,
+          worldbookBound:
+            plan.worldbook.length > 0
+              ? Boolean(oldTargets.worldbookBound || !worldbookWasBound)
+              : false,
           regexIds: plan.regexes.map(regex => regex.id),
           presets: plan.presets.map(item => item.name),
+          presetBackups,
         },
         applyError: '',
       };
       await storage.putInstalledProject(next);
       return next;
     } catch (error) {
-      await restore(state);
+      const rollbackErrors = await restore(state);
+      const baseMessage = error instanceof Error ? error.message : String(error);
+      const rollbackMessage = rollbackErrors.length
+        ? `；另有 ${rollbackErrors.length} 个回滚步骤失败，请检查酒馆资源`
+        : '';
       const failed = {
         ...installed,
-        applyError: error instanceof Error ? error.message : String(error),
+        applyError: `${baseMessage}${rollbackMessage}`,
         updatedAt: Date.now(),
       };
       await storage.putInstalledProject(failed);
@@ -451,10 +496,15 @@ export function createWorkshopInstaller({ adapter = createTavernAdapter(), stora
     try {
       if (targets.worldbook && state.worldbook) {
         const remaining = state.worldbook.entries.filter(entry => !isProjectWorldbookEntry(entry, installed.id));
-        if (remaining.length) {
+        const otherWorkshopEntries = remaining.some(entry => record(provenance(entry))?.sourceId);
+
+        if (remaining.length || !targets.worldbookCreated) {
           await maybe(adapter.createOrReplaceWorldbook(SHARED_WORLDBOOK_NAME, remaining));
         } else {
           await maybe(adapter.deleteWorldbook(SHARED_WORLDBOOK_NAME));
+        }
+
+        if (targets.worldbookBound && !otherWorkshopEntries) {
           const binding = await maybe(adapter.getCharWorldbookNames());
           await maybe(
             adapter.rebindCharWorldbooks({
@@ -469,7 +519,11 @@ export function createWorkshopInstaller({ adapter = createTavernAdapter(), stora
         const prefix = regexPrefix(installed.id);
         await maybe(adapter.replaceCharacterRegexes(state.regexes.filter(regex => !String(regex.id || '').startsWith(prefix))));
       }
-      for (const presetName of targets.presets ?? []) await maybe(adapter.deletePreset(presetName));
+      for (const presetName of targets.presets ?? []) {
+        const backup = targets.presetBackups?.[presetName];
+        if (backup?.existed) await maybe(adapter.createOrReplacePreset(presetName, backup.content));
+        else await maybe(adapter.deletePreset(presetName));
+      }
 
       const next = {
         ...installed,

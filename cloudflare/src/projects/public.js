@@ -6,19 +6,23 @@ export async function listPublicProjects(request, env) {
   const { query, category, tag, limit, offset } = pageParams(request);
   const like = `%${query}%`;
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.published_version,
+    `SELECT p.id, p.slug,
+            v.name, v.summary, v.tags, v.category,
+            p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
-            p.created_at, p.updated_at, u.display_name AS owner_name
+            p.created_at, COALESCE(v.reviewed_at, v.created_at) AS updated_at,
+            u.display_name AS owner_name
        FROM projects p
        JOIN users u ON u.id = p.owner_user_id
+       JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
       WHERE p.published_version > 0
         AND p.status <> 'archived'
-        AND (? = '' OR p.name LIKE ? OR p.summary LIKE ?)
-        AND (? = '' OR p.category = ?)
+        AND (? = '' OR v.name LIKE ? OR v.summary LIKE ?)
+        AND (? = '' OR v.category = ?)
         AND (? = '' OR EXISTS (
-          SELECT 1 FROM json_each(p.tags) tag_value WHERE tag_value.value = ?
+          SELECT 1 FROM json_each(v.tags) tag_value WHERE tag_value.value = ?
         ))
-      ORDER BY p.updated_at DESC
+      ORDER BY COALESCE(v.reviewed_at, v.created_at) DESC
       LIMIT ? OFFSET ?`,
   )
     .bind(query, like, like, category, category, tag, tag, limit + 1, offset)
@@ -33,9 +37,12 @@ export async function listPublicProjects(request, env) {
 
 export async function getPublicProject(projectId, env) {
   const row = await env.DB.prepare(
-    `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.published_version,
+    `SELECT p.id, p.slug,
+            v.name, v.summary, v.tags, v.category,
+            p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
-            p.created_at, p.updated_at, u.display_name AS owner_name,
+            p.created_at, COALESCE(v.reviewed_at, v.created_at) AS updated_at,
+            u.display_name AS owner_name,
             v.changelog, v.manifest_key
        FROM projects p
        JOIN users u ON u.id = p.owner_user_id
@@ -53,14 +60,20 @@ export async function getPublicProject(projectId, env) {
 
 export async function getPublicProjectVersion(projectId, env) {
   const row = await env.DB.prepare(
-    `SELECT id, published_version, updated_at
-       FROM projects
-      WHERE id = ? AND published_version > 0 AND status <> 'archived'`,
+    `SELECT p.id, p.published_version, COALESCE(v.reviewed_at, v.created_at) AS updated_at
+       FROM projects p
+       JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
+      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'`,
   )
     .bind(projectId)
     .first();
   if (!row) throw new HttpError(404, 'project_not_found', '已发布作品不存在');
-  return json({ id: row.id, version: Number(row.published_version), status: 'published', updated_at: Number(row.updated_at) });
+  return json({
+    id: row.id,
+    version: Number(row.published_version),
+    status: 'published',
+    updated_at: Number(row.updated_at),
+  });
 }
 
 export async function downloadPublicProject(projectId, env) {

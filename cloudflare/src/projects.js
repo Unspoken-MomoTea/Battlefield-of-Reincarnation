@@ -110,6 +110,74 @@ function artifactContentText(artifact) {
   return JSON.stringify(artifact.content);
 }
 
+
+function structuredArtifactContent(artifact, name) {
+  if (artifact.format === 'json') return artifact.content;
+  try {
+    return JSON.parse(artifact.content);
+  } catch {
+    throw new HttpError(400, 'invalid_artifact_content', `${name} 必须包含有效 JSON`);
+  }
+}
+
+function validateWorldbookContent(artifact, name) {
+  const parsed = structuredArtifactContent(artifact, name);
+  const entries = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed.entries
+      : null;
+  const values = Array.isArray(entries)
+    ? entries
+    : entries && typeof entries === 'object' && !Array.isArray(entries)
+      ? Object.values(entries)
+      : [];
+  if (!values.length) throw new HttpError(400, 'invalid_worldbook', `${name} 不包含世界书条目`);
+  if (values.length > 500) throw new HttpError(400, 'worldbook_too_large', `${name} 超过 500 个世界书条目`);
+  for (const [index, entry] of values.entries()) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new HttpError(400, 'invalid_worldbook', `${name} 的第 ${index + 1} 个条目结构无效`);
+    }
+    const entryName = String(entry.name ?? entry.comment ?? '').trim();
+    if (!entryName) throw new HttpError(400, 'invalid_worldbook', `${name} 的第 ${index + 1} 个条目缺少名称`);
+  }
+}
+
+function regexEntries(parsed) {
+  if (Array.isArray(parsed)) return parsed;
+  if (!parsed || typeof parsed !== 'object') return [];
+  if (Array.isArray(parsed.regexes)) return parsed.regexes;
+  if (Array.isArray(parsed.extensions?.regex_scripts)) return parsed.extensions.regex_scripts;
+  if (parsed.find_regex !== undefined || parsed.findRegex !== undefined) return [parsed];
+  return [];
+}
+
+function validateRegexContent(artifact, name) {
+  const values = regexEntries(structuredArtifactContent(artifact, name));
+  if (!values.length) throw new HttpError(400, 'invalid_regex', `${name} 不包含可识别的正则`);
+  if (values.length > 200) throw new HttpError(400, 'regex_too_large', `${name} 超过 200 条正则`);
+  for (const [index, regex] of values.entries()) {
+    if (!regex || typeof regex !== 'object' || Array.isArray(regex)) {
+      throw new HttpError(400, 'invalid_regex', `${name} 的第 ${index + 1} 条正则结构无效`);
+    }
+    if (typeof (regex.find_regex ?? regex.findRegex) !== 'string') {
+      throw new HttpError(400, 'invalid_regex', `${name} 的第 ${index + 1} 条正则缺少 findRegex`);
+    }
+  }
+}
+
+function validatePresetContent(artifact, name) {
+  const parsed = structuredArtifactContent(artifact, name);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new HttpError(400, 'invalid_preset', `${name} 的预设根结构必须是对象`);
+  }
+}
+
+function validateArtifactShape(artifact, name) {
+  if (artifact.kind === 'worldbook') validateWorldbookContent(artifact, name);
+  if (artifact.kind === 'regex') validateRegexContent(artifact, name);
+  if (artifact.kind === 'preset') validatePresetContent(artifact, name);
+}
 export function validateBundle(bundle, projectCategory) {
   if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) {
     throw new HttpError(400, 'invalid_bundle', 'bundle 必须是对象');
@@ -149,7 +217,9 @@ export function validateBundle(bundle, projectCategory) {
         throw new HttpError(400, 'invalid_artifact_content', `${name} 不是可序列化 JSON`);
       }
     }
-    return { kind, format, name, content: normalizedContent };
+    const normalizedArtifact = { kind, format, name, content: normalizedContent };
+    validateArtifactShape(normalizedArtifact, name);
+    return normalizedArtifact;
   });
 
   const normalized = { schema_version: 1, artifacts };

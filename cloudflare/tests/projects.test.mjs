@@ -214,3 +214,30 @@ test('author sees the latest rejection note on their project', async () => {
   assert.equal(own.items[0].status, 'rejected');
   assert.equal(own.items[0].review_note, '请补充说明');
 });
+test('bundle validator rejects malformed worldbook, regex, and preset artifacts', () => {
+  assert.throws(
+    () => validateBundle({ schema_version: 1, artifacts: [{ kind: 'worldbook', name: 'bad-worldbook', format: 'json', content: { entries: {} } }] }, 'worldbook'),
+    error => error?.status === 400 && error?.code === 'invalid_worldbook',
+  );
+  assert.throws(
+    () => validateBundle({ schema_version: 1, artifacts: [{ kind: 'regex', name: 'bad-regex', format: 'json', content: [{ scriptName: 'missing find' }] }] }, 'regex'),
+    error => error?.status === 400 && error?.code === 'invalid_regex',
+  );
+  assert.throws(
+    () => validateBundle({ schema_version: 1, artifacts: [{ kind: 'preset', name: 'bad-preset', format: 'text', content: 'not json' }] }, 'preset'),
+    error => error?.status === 400 && error?.code === 'invalid_artifact_content',
+  );
+});
+
+test('structured text artifacts are accepted when they contain valid JSON', () => {
+  const result = validateBundle({
+    schema_version: 1,
+    artifacts: [{
+      kind: 'regex',
+      name: 'regex.txt',
+      format: 'text',
+      content: JSON.stringify([{ scriptName: 'ok', findRegex: 'foo', replaceString: 'bar' }]),
+    }],
+  }, 'regex');
+  assert.equal(result.artifacts[0].format, 'text');
+});

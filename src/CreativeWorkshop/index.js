@@ -4,7 +4,7 @@ import { projectService } from './services/project-service.js';
 import { buildUploadBundle } from './services/upload.js';
 
 const GLOBAL_NAME = 'ReincarnationWorkshop';
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 const CATEGORY_LABELS = {
   worldbook: '世界书',
   regex: '正则',
@@ -86,7 +86,13 @@ function boot() {
           <div class="rw-card" data-role="detail-card" hidden><h3 data-role="detail-title"></h3><div class="rw-muted" data-role="detail-summary"></div><pre class="rw-detail" data-role="detail-manifest"></pre></div>
         </section>
         <section class="rw-section" data-section="installed" hidden>
-          <div class="rw-muted">这里记录下载到 IndexedDB 的作品包。世界书、角色局部正则和预设会通过受控安装器写入酒馆；远程内容不会获得任意 JavaScript 执行权限。</div>
+          <div class="rw-toolbar">
+            <div class="rw-muted grow">这里记录下载到 IndexedDB 的作品包。下载时会按 manifest 校验大小与 SHA-256；远程内容不会获得任意 JavaScript 执行权限。</div>
+            <label class="rw-button" style="display:inline-flex;align-items:center">
+              导入离线包
+              <input data-action="import-offline" type="file" accept=".rwpack,application/json" hidden>
+            </label>
+          </div>
           <div class="rw-grid" data-role="installed-list"></div>
         </section>
         <section class="rw-section" data-section="mine" hidden>
@@ -135,6 +141,7 @@ function boot() {
     category: overlay.querySelector('[data-field="category"]'),
     discoverList: overlay.querySelector('[data-role="discover-list"]'),
     installedList: overlay.querySelector('[data-role="installed-list"]'),
+    offlineInput: overlay.querySelector('[data-action="import-offline"]'),
     myList: overlay.querySelector('[data-role="my-list"]'),
     pendingList: overlay.querySelector('[data-role="pending-list"]'),
     adminSearch: overlay.querySelector('[data-field="admin-search"]'),
@@ -329,6 +336,20 @@ function boot() {
         } catch {}
         await refreshInstalled();
       }));
+      actions.appendChild(button('导出离线包', '', async () => {
+        const exported = await projectService.exportCached(item.id);
+        const url = host.URL.createObjectURL(exported.blob);
+        try {
+          const anchor = doc.createElement('a');
+          anchor.href = url;
+          anchor.download = exported.filename;
+          doc.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+        } finally {
+          host.setTimeout(() => host.URL.revokeObjectURL(url), 1000);
+        }
+      }));
       if (!item.applied) {
         actions.appendChild(button('删除本地缓存', 'danger', async () => {
           await projectService.removeCached(item.id);
@@ -512,6 +533,18 @@ function boot() {
   nodes.adminSearch.addEventListener('keydown', event => { if (event.key === 'Enter') void refreshAdmin(); });
   nodes.adminStatus.addEventListener('change', () => void refreshAdmin());
   nodes.adminCategory.addEventListener('change', () => void refreshAdmin());
+  nodes.offlineInput.addEventListener('change', async () => {
+    const selected = nodes.offlineInput.files?.[0];
+    nodes.offlineInput.value = '';
+    if (!selected) return;
+    try {
+      const imported = await projectService.importOffline(selected);
+      try { host.toastr?.success?.(`已导入 ${imported.name} v${imported.version}`, '创意工坊'); } catch {}
+      await refreshInstalled();
+    } catch (error) {
+      notifyError(error);
+    }
+  });
 
   nodes.login.addEventListener('click', async () => {
     nodes.login.disabled = true;
@@ -577,6 +610,8 @@ function boot() {
     checkProjectUpdate: projectId => projectService.checkUpdate(projectId),
     applyProject: projectId => projectService.apply(projectId),
     uninstallProject: projectId => projectService.uninstall(projectId),
+    exportProject: projectId => projectService.exportCached(projectId),
+    importProject: file => projectService.importOffline(file),
   };
 
   host[GLOBAL_NAME] = bridge;

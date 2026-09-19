@@ -13,6 +13,8 @@
 - 不向创意工坊内容开放任意 JavaScript 执行权限。
 - “发现”页可浏览、搜索并查看服务端已审核作品。
 - “本地”页使用 IndexedDB 保存下载的 bundle、缓存版本和已应用版本。
+- 每次下载都会按服务端 manifest 校验 artifact 数量、字节数与 SHA-256，校验失败不会进入本地缓存。
+- 本地作品可导出为 `.rwpack`，另一台设备可离线导入；导入时会再次执行完整哈希校验。
 - 世界书安装到共享世界书“轮回战场·创意工坊”，条目写入来源标记，卸载只删除对应作品条目。
 - 正则安装为当前角色卡局部正则，并使用项目命名空间 ID，卸载不会删除玩家自己的正则。
 - 预设名称会附带项目 ID 与 artifact 序号命名空间，避免两个同名作品互相覆盖。
@@ -47,6 +49,8 @@ await ReincarnationWorkshop.cacheProject(projectId);
 await ReincarnationWorkshop.checkProjectUpdate(projectId);
 await ReincarnationWorkshop.applyProject(projectId);
 await ReincarnationWorkshop.uninstallProject(projectId);
+const exported = await ReincarnationWorkshop.exportProject(projectId);
+await ReincarnationWorkshop.importProject(file);
 ```
 
 “下载到本地”和“安装到酒馆”仍然是两个动作：前者只更新 IndexedDB 缓存，后者才通过 Tavern Helper API 修改酒馆资源。`data` artifact 目前只允许缓存，不会直接写入酒馆。

@@ -39,3 +39,4 @@ jobs:
           node --check src/CreativeWorkshop/services/tavern-adapter.js
           node --check src/CreativeWorkshop/services/installer.js
           node --check src/CreativeWorkshop/services/upload.js
+          node --check src/CreativeWorkshop/services/project-service.js

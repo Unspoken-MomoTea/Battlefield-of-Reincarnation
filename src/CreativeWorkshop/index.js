@@ -11,7 +11,7 @@ import { createDiscoverView } from './views/discover.js';
 import { createInstalledView } from './views/installed.js';
 
 const GLOBAL_NAME = 'ReincarnationWorkshop';
-const VERSION = '0.9.0';
+const VERSION = '1.0.0';
 let booted = false;
 
 boot();
@@ -36,8 +36,10 @@ function boot() {
     button,
     empty,
     projectService,
+    workshopApi,
     host,
     categoryLabels: CATEGORY_LABELS,
+    getAuth: () => auth,
   });
   const installedView = createInstalledView({
     nodes,
@@ -57,6 +59,7 @@ function boot() {
     workshopApi,
     buildUploadBundle,
     doc,
+    host,
     categoryLabels: CATEGORY_LABELS,
     statusLabels: STATUS_LABELS,
     getAuth: () => auth,
@@ -137,6 +140,9 @@ function boot() {
   nodes.search.addEventListener('keydown', event => {
     if (event.key === 'Enter') void discoverView.refresh();
   });
+  nodes.tag.addEventListener('keydown', event => {
+    if (event.key === 'Enter') void discoverView.refresh();
+  });
 
   overlay.querySelector('[data-action="admin-search"]').addEventListener('click', () => void adminView.refresh());
   nodes.adminSearch.addEventListener('keydown', event => {
@@ -194,6 +200,10 @@ function boot() {
         name: String(form.get('name') || ''),
         summary: String(form.get('summary') || ''),
         category: String(form.get('category') || 'data'),
+        tags: String(form.get('tags') || '')
+          .split(/[,，\n]/u)
+          .map(value => value.trim())
+          .filter(Boolean),
       });
       nodes.createForm.reset();
       await authorView.refresh();

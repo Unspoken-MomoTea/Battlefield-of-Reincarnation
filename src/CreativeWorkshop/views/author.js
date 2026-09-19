@@ -19,6 +19,7 @@ export function createAuthorView({
     meta.append(element('span', 'rw-pill', statusLabels[project.status] || project.status));
     meta.append(element('span', 'rw-pill', `最新 v${project.latest_version}`));
     meta.append(element('span', 'rw-pill', `公开 v${project.published_version}`));
+    if (project.has_cover) meta.append(element('span', 'rw-pill', '已有封面'));
     for (const tag of project.tags || []) meta.append(element('span', 'rw-pill', `#${tag}`));
     card.appendChild(meta);
     card.appendChild(element('div', 'rw-muted', project.summary || '暂无简介'));
@@ -26,6 +27,9 @@ export function createAuthorView({
       card.appendChild(element('div', 'rw-status bad', `审核意见：${project.review_note}`));
     }
 
+    const coverFile = element('input', 'rw-input');
+    coverFile.type = 'file';
+    coverFile.accept = 'image/png,image/jpeg,image/webp';
     const file = element('input', 'rw-input');
     file.type = 'file';
     file.accept = '.json,.txt,application/json,text/plain';
@@ -41,9 +45,16 @@ export function createAuthorView({
       kind.appendChild(option);
     }
     kind.hidden = project.category !== 'mixed';
-    card.append(file, changelog, kind);
+    card.append(coverFile, file, changelog, kind);
 
     const actions = element('div', 'rw-row');
+    actions.appendChild(button('上传封面', '', async () => {
+      const selected = coverFile.files?.[0];
+      if (!selected) throw new Error('请先选择 PNG、JPEG 或 WebP 封面');
+      await workshopApi.uploadProjectCover(project.id, selected);
+      coverFile.value = '';
+      await refreshMine();
+    }));
     actions.appendChild(button('编辑资料', '', async () => {
       const name = host.prompt?.('作品名称', project.name);
       if (name === null || name === undefined) return;

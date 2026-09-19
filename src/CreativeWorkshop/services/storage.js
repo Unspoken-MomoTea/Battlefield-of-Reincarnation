@@ -1,6 +1,7 @@
 const DB_NAME = 'reincarnation-workshop';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const AUTH_STORE = 'auth';
+const INSTALLED_STORE = 'installed_projects';
 
 let dbPromise;
 
@@ -33,31 +34,55 @@ function openDb() {
     const request = idbFactory().open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(AUTH_STORE)) {
-        db.createObjectStore(AUTH_STORE, { keyPath: 'key' });
-      }
+      if (!db.objectStoreNames.contains(AUTH_STORE)) db.createObjectStore(AUTH_STORE, { keyPath: 'key' });
+      if (!db.objectStoreNames.contains(INSTALLED_STORE)) db.createObjectStore(INSTALLED_STORE, { keyPath: 'id' });
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = undefined;
+      };
+      resolve(db);
+    };
     request.onerror = () => reject(request.error ?? new Error('无法打开创意工坊本地数据库'));
+    request.onblocked = () => reject(new Error('创意工坊本地数据库升级被其他页面阻塞，请刷新页面后重试'));
+  });
+  void dbPromise.catch(() => {
+    dbPromise = undefined;
   });
   return dbPromise;
 }
 
-export async function getAuthRecord() {
+async function getRecord(storeName, key) {
   const db = await openDb();
-  return requestResult(db.transaction(AUTH_STORE, 'readonly').objectStore(AUTH_STORE).get('session'));
+  return requestResult(db.transaction(storeName, 'readonly').objectStore(storeName).get(key));
 }
 
-export async function putAuthRecord(auth) {
+async function getAllRecords(storeName) {
   const db = await openDb();
-  const transaction = db.transaction(AUTH_STORE, 'readwrite');
-  transaction.objectStore(AUTH_STORE).put({ ...auth, key: 'session' });
+  return requestResult(db.transaction(storeName, 'readonly').objectStore(storeName).getAll());
+}
+
+async function putRecord(storeName, value) {
+  const db = await openDb();
+  const transaction = db.transaction(storeName, 'readwrite');
+  transaction.objectStore(storeName).put(value);
   await transactionDone(transaction);
 }
 
-export async function clearAuthRecord() {
+async function deleteRecord(storeName, key) {
   const db = await openDb();
-  const transaction = db.transaction(AUTH_STORE, 'readwrite');
-  transaction.objectStore(AUTH_STORE).delete('session');
+  const transaction = db.transaction(storeName, 'readwrite');
+  transaction.objectStore(storeName).delete(key);
   await transactionDone(transaction);
 }
+
+export const getAuthRecord = () => getRecord(AUTH_STORE, 'session');
+export const putAuthRecord = auth => putRecord(AUTH_STORE, { ...auth, key: 'session' });
+export const clearAuthRecord = () => deleteRecord(AUTH_STORE, 'session');
+
+export const getInstalledProject = id => getRecord(INSTALLED_STORE, id);
+export const getInstalledProjects = () => getAllRecords(INSTALLED_STORE);
+export const putInstalledProject = project => putRecord(INSTALLED_STORE, project);
+export const deleteInstalledProject = id => deleteRecord(INSTALLED_STORE, id);

@@ -27,9 +27,12 @@ jobs:
           node --check cloudflare/src/http.js
           node --check cloudflare/src/security.js
           node --check cloudflare/src/projects.js
+      - name: Client contract tests
+        run: node --test src/CreativeWorkshop/tests/*.test.mjs
       - name: Client syntax
         run: |
           node --check src/CreativeWorkshop/index.js
           node --check src/CreativeWorkshop/config.js
           node --check src/CreativeWorkshop/services/api.js
           node --check src/CreativeWorkshop/services/storage.js
+          node --check src/CreativeWorkshop/services/project-service.js

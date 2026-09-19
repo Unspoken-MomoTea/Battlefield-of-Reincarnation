@@ -31,7 +31,7 @@ export class WorkshopApi {
       headers.set('Content-Type', 'application/json');
     }
 
-    if (authenticated) {
+    if (authenticated && !headers.has('Authorization')) {
       const auth = await getAuthRecord();
       if (!auth || auth.expiresAt <= Math.floor(Date.now() / 1000)) {
         await clearAuthRecord();
@@ -49,11 +49,11 @@ export class WorkshopApi {
     return response.json();
   }
 
-  async health() {
+  health() {
     return this.request('/api/health');
   }
 
-  async me() {
+  me() {
     return this.request('/api/auth/me', {}, true);
   }
 
@@ -65,6 +65,65 @@ export class WorkshopApi {
       return null;
     }
     return auth;
+  }
+
+  listProjects(query = '', category = '', offset = 0) {
+    const params = new URLSearchParams({ limit: '24', offset: String(offset) });
+    if (query.trim()) params.set('query', query.trim());
+    if (category) params.set('category', category);
+    return this.request(`/api/projects?${params}`);
+  }
+
+  getProject(projectId) {
+    return this.request(`/api/projects/${encodeURIComponent(projectId)}`);
+  }
+
+  getProjectVersion(projectId) {
+    return this.request(`/api/projects/${encodeURIComponent(projectId)}/version`);
+  }
+
+  downloadProject(projectId) {
+    return this.request(`/api/projects/${encodeURIComponent(projectId)}/download`);
+  }
+
+  listOwnProjects() {
+    return this.request('/api/my/projects', {}, true);
+  }
+
+  createProject(input) {
+    return this.request('/api/projects', { method: 'POST', body: JSON.stringify(input) }, true);
+  }
+
+  updateProject(projectId, input) {
+    return this.request(
+      `/api/projects/${encodeURIComponent(projectId)}`,
+      { method: 'PATCH', body: JSON.stringify(input) },
+      true,
+    );
+  }
+
+  uploadProjectVersion(projectId, input) {
+    return this.request(
+      `/api/projects/${encodeURIComponent(projectId)}/versions`,
+      { method: 'POST', body: JSON.stringify(input) },
+      true,
+    );
+  }
+
+  submitProject(projectId) {
+    return this.request(`/api/projects/${encodeURIComponent(projectId)}/submit`, { method: 'POST' }, true);
+  }
+
+  listPendingProjects() {
+    return this.request('/api/admin/pending', {}, true);
+  }
+
+  reviewProject(projectId, decision, note = '') {
+    return this.request(
+      `/api/admin/projects/${encodeURIComponent(projectId)}/review`,
+      { method: 'POST', body: JSON.stringify({ decision, note }) },
+      true,
+    );
   }
 
   async login() {
@@ -155,7 +214,6 @@ export class WorkshopApi {
           finish(() => reject(new WorkshopApiError('Discord 登录等待超时，请重新登录', 408, 'login_timeout')));
           return;
         }
-
         try {
           if (popup.closed) {
             closedAt ??= Date.now();
@@ -166,10 +224,7 @@ export class WorkshopApi {
           } else {
             closedAt = null;
           }
-        } catch {
-          // 跨域授权期间无法读取 popup 状态时，继续依赖登录交换轮询。
-        }
-
+        } catch {}
         void exchange();
       };
 

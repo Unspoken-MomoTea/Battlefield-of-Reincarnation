@@ -13,7 +13,7 @@ export function workshopTemplate(version) {
       <button class="rw-tab is-active" data-tab="discover" type="button">发现</button>
       <button class="rw-tab" data-tab="installed" type="button">本地</button>
       <button class="rw-tab" data-tab="mine" type="button">我的作品</button>
-      <button class="rw-tab" data-tab="admin" type="button" hidden>审核</button>
+      <button class="rw-tab" data-tab="admin" type="button" hidden>管理</button>
     </nav>
     <main class="rw-body">
       <section class="rw-card"><div class="rw-row"><strong>服务状态</strong><span class="rw-status" data-role="health">尚未检查</span></div></section>
@@ -46,13 +46,47 @@ export function workshopTemplate(version) {
         <div class="rw-grid" data-role="my-list"></div>
       </section>
       <section class="rw-section" data-section="admin" hidden>
-        <div class="rw-toolbar">
-          <input class="rw-input grow" data-field="admin-search" placeholder="搜索作品或作者">
-          <select class="rw-select" data-field="admin-status"><option value="">全部审核状态</option><option value="pending">审核中</option><option value="approved">已通过</option><option value="rejected">已拒绝</option><option value="draft">未提交审核</option></select>
-          <select class="rw-select" data-field="admin-category"><option value="">全部类型</option><option value="worldbook">世界书</option><option value="regex">正则</option><option value="preset">预设</option><option value="data">数据包</option><option value="mixed">混合包</option></select>
-          <button class="rw-button" data-action="admin-search" type="button">筛选</button>
+        <div class="rw-tabs">
+          <button class="rw-tab is-active" data-admin-view="projects" type="button">作品</button>
+          <button class="rw-tab" data-admin-view="reports" type="button">举报</button>
+          <button class="rw-tab" data-admin-view="users" type="button">用户</button>
         </div>
-        <div class="rw-grid" data-role="pending-list"></div>
+
+        <div data-admin-section="projects">
+          <div class="rw-toolbar">
+            <input class="rw-input grow" data-field="admin-search" placeholder="搜索作品或作者">
+            <select class="rw-select" data-field="admin-status"><option value="">全部审核状态</option><option value="pending">审核中</option><option value="approved">已通过</option><option value="rejected">已拒绝</option><option value="draft">未提交审核</option></select>
+            <select class="rw-select" data-field="admin-category"><option value="">全部类型</option><option value="worldbook">世界书</option><option value="regex">正则</option><option value="preset">预设</option><option value="data">数据包</option><option value="mixed">混合包</option></select>
+            <button class="rw-button" data-action="admin-search" type="button">筛选</button>
+          </div>
+          <div class="rw-grid" data-role="pending-list"></div>
+        </div>
+
+        <div data-admin-section="reports" hidden>
+          <div class="rw-toolbar">
+            <select class="rw-select" data-field="admin-report-status">
+              <option value="open">待处理</option>
+              <option value="">全部</option>
+              <option value="resolved">已处理</option>
+              <option value="dismissed">已忽略</option>
+            </select>
+            <button class="rw-button" data-action="admin-report-refresh" type="button">刷新举报</button>
+          </div>
+          <div class="rw-grid" data-role="report-list"></div>
+        </div>
+
+        <div data-admin-section="users" hidden>
+          <div class="rw-toolbar">
+            <input class="rw-input grow" data-field="admin-user-search" placeholder="搜索昵称、用户名或 Discord ID">
+            <select class="rw-select" data-field="admin-user-banned">
+              <option value="">全部用户</option>
+              <option value="1">已封禁</option>
+              <option value="0">未封禁</option>
+            </select>
+            <button class="rw-button" data-action="admin-user-search" type="button">搜索用户</button>
+          </div>
+          <div class="rw-grid" data-role="user-list"></div>
+        </div>
       </section>
     </main>
   </section>`;

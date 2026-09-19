@@ -58,3 +58,8 @@ await ReincarnationWorkshop.importProject(file);
 “下载到本地”和“安装到酒馆”仍然是两个动作：前者只更新 IndexedDB 缓存，后者才通过 Tavern Helper API 修改酒馆资源。`data` artifact 目前只允许缓存，不会直接写入酒馆。
 
 UI 组件不得绕过 service/installer 层直接修改酒馆数据。
+
+
+## 架构回审
+
+三个参考对象的吸收情况、明确不照搬的部分和后续优先级记录在 [ARCHITECTURE.md](./ARCHITECTURE.md)。

@@ -1,3 +1,4 @@
+import { recordProjectDownload } from './engagement.js';
 import { HttpError, json, readJson } from './http.js';
 import { sha256Hex } from './security.js';
 
@@ -101,6 +102,9 @@ function projectPublic(row) {
     version: Number(row.published_version),
     owner_name: row.owner_name,
     created_at: Number(row.created_at),
+    downloads_count: Number(row.downloads_count || 0),
+    likes_count: Number(row.likes_count || 0),
+    favorites_count: Number(row.favorites_count || 0),
     updated_at: Number(row.updated_at),
   };
 }
@@ -117,6 +121,9 @@ function projectOwn(row) {
     latest_version: Number(row.latest_version),
     published_version: Number(row.published_version || 0),
     created_at: Number(row.created_at),
+    downloads_count: Number(row.downloads_count || 0),
+    likes_count: Number(row.likes_count || 0),
+    favorites_count: Number(row.favorites_count || 0),
     updated_at: Number(row.updated_at),
     review_note: row.review_note || '',
   };
@@ -144,6 +151,9 @@ function projectAdmin(row) {
     review_note: row.review_note || '',
     reviewer_name: row.reviewer_name || '',
     created_at: Number(row.created_at),
+    downloads_count: Number(row.downloads_count || 0),
+    likes_count: Number(row.likes_count || 0),
+    favorites_count: Number(row.favorites_count || 0),
     updated_at: Number(row.updated_at),
   };
 }
@@ -340,6 +350,7 @@ export async function listPublicProjects(request, env) {
   const like = `%${query}%`;
   const result = await env.DB.prepare(
     `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.published_version,
+            p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, p.updated_at, u.display_name AS owner_name
        FROM projects p
        JOIN users u ON u.id = p.owner_user_id
@@ -366,6 +377,7 @@ export async function listPublicProjects(request, env) {
 export async function getPublicProject(projectId, env) {
   const row = await env.DB.prepare(
     `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.category, p.published_version,
+            p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, p.updated_at, u.display_name AS owner_name,
             v.changelog, v.manifest_key
        FROM projects p
@@ -406,6 +418,7 @@ export async function downloadPublicProject(projectId, env) {
   if (!row) throw new HttpError(404, 'project_not_found', '已发布作品不存在');
   const object = await env.PROJECTS.get(row.content_key);
   if (!object) throw new HttpError(500, 'bundle_missing', '作品包文件缺失');
+  await recordProjectDownload(env, projectId);
   return new Response(object.body, {
     status: 200,
     headers: {
@@ -697,7 +710,10 @@ export async function getPendingProjectReview(env, user, projectId) {
       submitted_at: Number(row.submitted_at || 0),
       reviewed_at: Number(row.reviewed_at || 0),
       created_at: Number(row.created_at),
-      updated_at: Number(row.updated_at),
+      downloads_count: Number(row.downloads_count || 0),
+    likes_count: Number(row.likes_count || 0),
+    favorites_count: Number(row.favorites_count || 0),
+    updated_at: Number(row.updated_at),
     },
     manifest: JSON.parse(manifestText),
     bundle: JSON.parse(bundleText),

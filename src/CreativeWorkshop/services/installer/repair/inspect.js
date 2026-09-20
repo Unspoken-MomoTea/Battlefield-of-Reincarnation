@@ -1,7 +1,7 @@
 import { SHARED_WORLDBOOK_NAME } from '../constants.js';
 import { deepSubsetEqual } from '../compare.js';
 import { buildArtifactPlan } from '../plan.js';
-import { isProjectWorldbookEntry, regexPrefix } from '../ownership.js';
+import { isProjectScriptTree, isProjectWorldbookEntry, regexPrefix } from '../ownership.js';
 import { maybe } from '../utils.js';
 
 function issue(type, extra = {}) {
@@ -18,8 +18,10 @@ export async function inspectInstalledProject(adapter, installed) {
   const characterScoped = Boolean(
     plan.worldbook.length ||
     plan.regexes.length ||
+    plan.scripts?.character?.length ||
     targets.worldbook ||
-    targets.regexIds?.length,
+    targets.regexIds?.length ||
+    targets.scripts?.character?.length,
   );
   if (characterScoped && installed.targetCharacterName) {
     const current = await maybe(adapter.getCurrentCharacterName());
@@ -91,6 +93,30 @@ export async function inspectInstalledProject(adapter, installed) {
       const id = String(regex.id || '');
       if (id.startsWith(regexPrefix(installed.id)) && !expectedById.has(id)) {
         issues.push(issue('regex_stale', { id, name: regex.script_name || '' }));
+      }
+    }
+  }
+
+  for (const scope of ['character', 'preset', 'global']) {
+    const expectedScripts = plan.scripts?.[scope] ?? [];
+    const targetIds = targets.scripts?.[scope] ?? [];
+    if (!expectedScripts.length && !targetIds.length) continue;
+
+    const current = await maybe(adapter.getScriptTrees(scope));
+    const currentById = new Map(current.map(tree => [String(tree.id || ''), tree]));
+    const expectedById = new Map(expectedScripts.map(tree => [tree.id, tree]));
+
+    for (const [id, expected] of expectedById) {
+      const actual = currentById.get(id);
+      if (!actual) issues.push(issue('script_missing', { scope, id, name: expected.name || '' }));
+      else if (!deepSubsetEqual(expected, actual)) {
+        issues.push(issue('script_modified', { scope, id, name: expected.name || '' }));
+      }
+    }
+    for (const tree of current) {
+      const id = String(tree.id || '');
+      if (isProjectScriptTree(tree, installed.id) && !expectedById.has(id)) {
+        issues.push(issue('script_stale', { scope, id, name: tree.name || '' }));
       }
     }
   }

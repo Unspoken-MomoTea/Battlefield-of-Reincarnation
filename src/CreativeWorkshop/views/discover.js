@@ -10,54 +10,66 @@ export function createDiscoverView({
   host,
   categoryLabels,
   getAuth,
+  openModal,
+  notifyError,
 }) {
   function projectCard(project) {
-    const card = element('article', 'rw-card');
+    const card = element('article', 'rw-card rw-project-card');
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `查看作品：${project.name}`);
+
     if (project.has_cover) {
       const cover = element('img', 'rw-cover');
       cover.src = workshopApi.getProjectCoverUrl(project.id);
       cover.alt = `${project.name} 封面`;
       cover.loading = 'lazy';
       card.appendChild(cover);
+    } else {
+      const placeholder = element('div', 'rw-cover rw-cover-placeholder');
+      placeholder.textContent = categoryLabels[project.category] || '创意工坊';
+      card.appendChild(placeholder);
     }
-    card.appendChild(element('h3', '', project.name));
+
+    const top = element('div', 'rw-project-card-top');
+    top.appendChild(element('h3', '', project.name));
+    if (project.owner_name) top.appendChild(element('div', 'rw-project-author', project.owner_name));
+    card.appendChild(top);
+
     const meta = element('div', 'rw-meta');
     meta.append(element('span', 'rw-pill', categoryLabels[project.category] || project.category));
     meta.append(element('span', 'rw-pill', `v${project.version}`));
-    if (project.owner_name) meta.append(element('span', 'rw-pill', `作者：${project.owner_name}`));
-    if (project.dependencies?.length) meta.append(element('span', 'rw-pill', `依赖 ${project.dependencies.length}`));
-    for (const tag of project.tags || []) meta.append(element('span', 'rw-pill', `#${tag}`));
-    meta.append(element('span', 'rw-pill', `↓ ${project.downloads_count || 0}`));
-    meta.append(element('span', 'rw-pill', `♥ ${project.likes_count || 0}`));
-    meta.append(element('span', 'rw-pill', `★ ${project.favorites_count || 0}`));
+    for (const tag of (project.tags || []).slice(0, 3)) meta.append(element('span', 'rw-pill', `#${tag}`));
     card.appendChild(meta);
-    card.appendChild(element('div', 'rw-muted', project.summary || '暂无简介'));
-    const actions = element('div', 'rw-row');
-    actions.appendChild(button('详情', '', () => showDetail(project.id)));
-    actions.appendChild(button('下载到本地', 'primary', async () => {
+
+    const summary = element('div', 'rw-muted rw-project-summary', project.summary || '暂无简介');
+    card.appendChild(summary);
+
+    const footer = element('div', 'rw-project-footer');
+    const stats = element('div', 'rw-project-stats');
+    stats.append(
+      element('span', '', `↓ ${project.downloads_count || 0}`),
+      element('span', '', `♥ ${project.likes_count || 0}`),
+      element('span', '', `★ ${project.favorites_count || 0}`),
+    );
+    footer.appendChild(stats);
+    footer.appendChild(button('下载', 'primary', async () => {
       const cached = await projectService.cache(project.id);
       try { host.toastr?.success?.(`已缓存 ${cached.name} v${cached.version}`, '创意工坊'); } catch {}
-      await refreshDiscover();
     }));
-    if (getAuth()?.user) {
-      actions.appendChild(button('点赞', '', async () => {
-        const state = await workshopApi.getProjectEngagement(project.id);
-        await workshopApi.setProjectEngagement(project.id, 'like', !state.user_liked);
-        await refreshDiscover();
-      }));
-      actions.appendChild(button('收藏', '', async () => {
-        const state = await workshopApi.getProjectEngagement(project.id);
-        await workshopApi.setProjectEngagement(project.id, 'favorite', !state.user_favorited);
-        await refreshDiscover();
-      }));
-      actions.appendChild(button('举报', '', async () => {
-        const report = promptProjectReport(host);
-        if (!report) return;
-        await workshopApi.reportProject(project.id, report.reason, report.details);
-        try { host.toastr?.success?.('举报已提交，管理员会进行人工处理', '创意工坊'); } catch {}
-      }));
-    }
-    card.appendChild(actions);
+    card.appendChild(footer);
+
+    const open = () => void showDetail(project.id);
+    card.addEventListener('click', event => {
+      if (event.target.closest('button,input,select,textarea,a')) return;
+      open();
+    });
+    card.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        open();
+      }
+    });
     return card;
   }
 
@@ -73,22 +85,98 @@ export function createDiscoverView({
   }
 
   async function showDetail(projectId) {
-    const detail = await projectService.detail(projectId);
-    nodes.detailTitle.textContent = `${detail.project.name} · v${detail.project.version}`;
-    const tags = (detail.project.tags || []).map(tag => `#${tag}`).join(' ');
-    const dependencies = (detail.project.dependencies || [])
-      .map(item => `${item.project_id}@${item.min_version}`)
-      .join('、');
-    nodes.detailSummary.textContent =
-      `${detail.project.summary || '暂无简介'}\n` +
-      `${tags ? `标签：${tags}\n` : ''}` +
-      `${dependencies ? `依赖：${dependencies}\n` : ''}` +
-      `下载 ${detail.project.downloads_count || 0} · 点赞 ${detail.project.likes_count || 0} · 收藏 ${detail.project.favorites_count || 0}\n` +
-      `更新说明：${detail.changelog || '无'}`;
-    nodes.detailManifest.textContent = JSON.stringify(detail.manifest, null, 2);
-    nodes.detailCard.hidden = false;
-    nodes.detailCard.scrollIntoView({ block: 'nearest' });
+    const modal = openModal('作品详情', { wide: true });
+    empty(modal.body, '正在加载作品详情...');
+
+    try {
+      const detail = await projectService.detail(projectId);
+      const project = detail.project;
+      modal.body.replaceChildren();
+
+      if (project.has_cover) {
+        const cover = element('img', 'rw-detail-cover');
+        cover.src = workshopApi.getProjectCoverUrl(project.id);
+        cover.alt = `${project.name} 封面`;
+        modal.body.appendChild(cover);
+      }
+
+      const heading = element('div', 'rw-detail-heading');
+      heading.append(
+        element('h3', '', project.name),
+        element('div', 'rw-project-author', project.owner_name ? `作者 · ${project.owner_name}` : ''),
+      );
+      modal.body.appendChild(heading);
+
+      const meta = element('div', 'rw-meta');
+      meta.append(element('span', 'rw-pill', categoryLabels[project.category] || project.category));
+      meta.append(element('span', 'rw-pill', `v${project.version}`));
+      for (const tag of project.tags || []) meta.append(element('span', 'rw-pill', `#${tag}`));
+      modal.body.appendChild(meta);
+      modal.body.appendChild(element('div', 'rw-detail-description', project.summary || '暂无简介'));
+
+      if (detail.changelog) {
+        const changelog = element('section', 'rw-detail-section');
+        changelog.append(element('strong', '', '版本说明'), element('div', 'rw-muted', detail.changelog));
+        modal.body.appendChild(changelog);
+      }
+
+      if (project.dependencies?.length) {
+        const dependencies = element('section', 'rw-detail-section');
+        dependencies.appendChild(element('strong', '', '依赖'));
+        const list = element(
+          'div',
+          'rw-muted',
+          project.dependencies.map(item => `${item.project_id}@${item.min_version}`).join('、'),
+        );
+        dependencies.appendChild(list);
+        modal.body.appendChild(dependencies);
+      }
+
+      const actions = element('div', 'rw-row rw-detail-actions');
+      actions.appendChild(button('下载到本地', 'primary', async () => {
+        const cached = await projectService.cache(project.id);
+        try { host.toastr?.success?.(`已缓存 ${cached.name} v${cached.version}`, '创意工坊'); } catch {}
+      }));
+
+      if (getAuth()?.user) {
+        actions.appendChild(button('点赞', '', async () => {
+          const state = await workshopApi.getProjectEngagement(project.id);
+          await workshopApi.setProjectEngagement(project.id, 'like', !state.user_liked);
+          try { host.toastr?.success?.(state.user_liked ? '已取消点赞' : '已点赞', '创意工坊'); } catch {}
+          await refreshDiscover();
+        }));
+        actions.appendChild(button('收藏', '', async () => {
+          const state = await workshopApi.getProjectEngagement(project.id);
+          await workshopApi.setProjectEngagement(project.id, 'favorite', !state.user_favorited);
+          try { host.toastr?.success?.(state.user_favorited ? '已取消收藏' : '已收藏', '创意工坊'); } catch {}
+          await refreshDiscover();
+        }));
+        actions.appendChild(button('举报', '', async () => {
+          const report = promptProjectReport(host);
+          if (!report) return;
+          await workshopApi.reportProject(project.id, report.reason, report.details);
+          try { host.toastr?.success?.('举报已提交，管理员会进行人工处理', '创意工坊'); } catch {}
+        }));
+      }
+      modal.body.appendChild(actions);
+
+      const technical = docDetails(detail.manifest);
+      modal.body.appendChild(technical);
+    } catch (error) {
+      empty(modal.body, `加载失败：${error.message}`);
+      notifyError(error);
+    }
   }
+
+  function docDetails(manifest) {
+    const details = element('details', 'rw-technical-details');
+    const summary = element('summary', '', '查看技术清单');
+    const pre = element('pre', 'rw-detail');
+    pre.textContent = JSON.stringify(manifest, null, 2);
+    details.append(summary, pre);
+    return details;
+  }
+
   return {
     refresh: refreshDiscover,
     showDetail,

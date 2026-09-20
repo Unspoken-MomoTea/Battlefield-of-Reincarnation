@@ -1,4 +1,5 @@
 import { formatDependencyText, parseDependencyText } from '../services/projects/dependency-input.js';
+import { parseOriginalConflictText } from '../services/projects/original-conflict-input.js';
 
 export function createAuthorView({
   nodes,
@@ -147,10 +148,22 @@ export function createAuthorView({
       scriptScope.appendChild(option);
     }
     scriptScope.hidden = true;
-    kind.addEventListener('change', () => {
+    const originalConflicts = element('textarea', 'rw-textarea');
+    originalConflicts.placeholder = '原版条目关闭声明：每行“世界书名 | UID | 条目名”，UID 可留空';
+    originalConflicts.hidden = false;
+    const originalConflictsHint = element(
+      'div',
+      'rw-muted',
+      '仅对单个世界书文件生效；完整 bundle JSON 请在 artifact.original_conflicts 中声明。',
+    );
+    const syncArtifactOptions = () => {
       scriptScope.hidden = kind.value !== 'script';
-    });
-    uploadBox.append(changelog, kind, scriptScope);
+      originalConflicts.hidden = kind.value !== 'worldbook';
+      originalConflictsHint.hidden = kind.value !== 'worldbook';
+    };
+    kind.addEventListener('change', syncArtifactOptions);
+    syncArtifactOptions();
+    uploadBox.append(changelog, kind, scriptScope, originalConflicts, originalConflictsHint);
 
     const coverFile = element('input', '');
     coverFile.type = 'file';
@@ -199,12 +212,18 @@ export function createAuthorView({
       versionState.textContent = `正在上传：${selected.name}`;
       try {
         const raw = await selected.text();
+        const conflictDeclarations = kind.value === 'worldbook'
+          ? parseOriginalConflictText(originalConflicts.value)
+          : [];
         const bundle = buildUploadBundle(
           project,
           selected.name,
           raw,
           kind.value,
-          { scriptScope: scriptScope.value },
+          {
+            scriptScope: scriptScope.value,
+            originalConflicts: conflictDeclarations,
+          },
         );
         await workshopApi.uploadProjectVersion(project.id, {
           changelog: changelog.value,

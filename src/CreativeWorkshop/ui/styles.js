@@ -241,6 +241,12 @@ export const WORKSHOP_CSS = `
   }
   .rw-modal-body{min-height:0;overflow:auto;padding:14px;display:grid;gap:12px}
   .rw-modal-body>.rw-editor,.rw-modal-body>.rw-upload-box,.rw-modal-body>.rw-danger-zone{background:#151619}
+  .rw-publish-review{display:grid;gap:12px}
+  .rw-publish-review h3{margin:0;color:var(--rw-text);font-size:18px}
+  .rw-publish-review-facts{
+    display:grid;gap:6px;padding:11px;border:1px solid var(--rw-line);border-radius:10px;background:#141518;
+    color:#aaa8a3;font-size:12px;line-height:1.45
+  }
 
   @media(max-width:760px){
     .rw-overlay{padding:0;align-items:stretch}

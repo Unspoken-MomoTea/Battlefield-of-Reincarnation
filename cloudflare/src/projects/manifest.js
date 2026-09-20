@@ -14,6 +14,7 @@ export async function buildManifest(project, version, bundle) {
     totalBytes += byteSize;
     artifacts.push({
       kind: artifact.kind, format: artifact.format, name: artifact.name,
+      ...(artifact.kind === 'script' ? { scope: artifact.scope || 'character' } : {}),
       byte_size: byteSize, sha256: await sha256Hex(content),
     });
   }

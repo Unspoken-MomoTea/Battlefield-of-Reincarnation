@@ -37,13 +37,20 @@ export function workshopTemplate(version) {
         <div class="rw-grid" data-role="installed-list"></div>
       </section>
       <section class="rw-section" data-section="mine" hidden>
-        <form class="rw-card" data-form="create-project">
+        <div class="rw-page-head">
+          <div class="rw-page-head-copy"><small>CREATOR</small><h2>我的作品</h2><p>创建、更新并跟踪你的发布内容。</p></div>
+          <button class="rw-button primary" type="button" data-action="create-project-open">发布作品</button>
+        </div>
+        <form class="rw-card rw-create-form" data-form="create-project" hidden>
           <h3>创建作品</h3>
           <div class="rw-row"><input class="rw-input grow" name="name" required maxlength="80" placeholder="作品名称"><select class="rw-select" name="category"><option value="worldbook">世界书</option><option value="regex">正则</option><option value="preset">预设</option><option value="data">数据包</option><option value="mixed">混合包</option></select></div>
           <textarea class="rw-textarea" name="summary" maxlength="2000" placeholder="作品简介"></textarea>
           <input class="rw-input" name="tags" maxlength="300" placeholder="标签：剧情, boss, 原创（逗号分隔）">
           <input class="rw-input" name="dependencies" maxlength="1200" placeholder="依赖：项目ID@最低版本，多个用逗号分隔">
-          <div><button class="rw-button primary" type="submit">创建草稿</button></div>
+          <div class="rw-row">
+            <button class="rw-button primary" type="submit">创建草稿</button>
+            <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
+          </div>
         </form>
         <div class="rw-grid" data-role="my-list"></div>
       </section>

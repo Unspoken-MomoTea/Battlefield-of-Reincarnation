@@ -45,6 +45,8 @@ export function createTavernAdapter() {
     rebindCharWorldbooks: binding => call('rebindCharWorldbooks', 'current', binding),
     getCharacterRegexes: () => call('getTavernRegexes', { type: 'character', name: 'current' }),
     replaceCharacterRegexes: regexes => call('replaceTavernRegexes', regexes, { type: 'character', name: 'current' }),
+    getScriptTrees: scope => call('getScriptTrees', { type: scope }),
+    replaceScriptTrees: (trees, scope) => call('replaceScriptTrees', trees, { type: scope }),
     getPresetNames: () => call('getPresetNames'),
     getPreset: name => call('getPreset', name),
     createOrReplacePreset: (name, preset) => call('createOrReplacePreset', name, preset, { render: 'none' }),

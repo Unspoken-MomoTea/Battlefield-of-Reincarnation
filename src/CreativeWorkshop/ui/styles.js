@@ -131,6 +131,14 @@ export const WORKSHOP_CSS = \`
     width:calc(100% + 26px);margin:-13px -13px 1px;aspect-ratio:16/9;display:block;object-fit:cover;
     border:0;border-bottom:1px solid var(--rw-line);border-radius:12px 12px 0 0;background:#111216
   }
+  .rw-cover-placeholder{
+    box-sizing:border-box;place-items:center;padding:18px;text-align:center;color:#686761;
+    background:
+      radial-gradient(circle at 75% 20%,rgba(162,139,107,.10),transparent 34%),
+      linear-gradient(145deg,#17181b,#111216);
+    font-size:11px;font-weight:700;letter-spacing:.03em
+  }
+  .rw-field-title{color:var(--rw-accent-text);font-size:12px;font-weight:800}
   .rw-muted{color:var(--rw-muted);font-size:12px;line-height:1.55;white-space:pre-line}
   .rw-meta{display:flex;gap:5px;flex-wrap:wrap;color:#9d9b95;font-size:10px}
   .rw-pill{padding:3px 7px;border:1px solid var(--rw-line);border-radius:999px;background:rgba(255,255,255,.02)}

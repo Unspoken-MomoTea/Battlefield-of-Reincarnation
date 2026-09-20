@@ -2,10 +2,29 @@ import { SHARED_WORLDBOOK_NAME } from '../constants.js';
 import { deepSubsetEqual } from '../compare.js';
 import { buildArtifactPlan } from '../plan.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, regexPrefix } from '../ownership.js';
+import { isOriginalConflictEntryDisabled } from '../original-conflicts.js';
 import { maybe } from '../utils.js';
 
 function issue(type, extra = {}) {
   return { type, ...extra };
+}
+
+function entryUid(entry) {
+  const value = entry?.uid;
+  return value === undefined || value === null || value === '' ? '' : String(value);
+}
+
+function entryName(entry) {
+  return String(entry?.comment ?? entry?.name ?? '').trim();
+}
+
+function matchesIdentity(entry, identity) {
+  if (identity?.uid) return entryUid(entry) === String(identity.uid);
+  return entryName(entry) === String(identity?.name || '').trim();
+}
+
+function fingerprint(value) {
+  try { return JSON.stringify(value); } catch { return ''; }
 }
 
 export async function inspectInstalledProject(adapter, installed) {
@@ -21,7 +40,8 @@ export async function inspectInstalledProject(adapter, installed) {
     plan.scripts?.character?.length ||
     targets.worldbook ||
     targets.regexIds?.length ||
-    targets.scripts?.character?.length,
+    targets.scripts?.character?.length ||
+    targets.originalWorldbookChanges?.length,
   );
   if (characterScoped && installed.targetCharacterName) {
     const current = await maybe(adapter.getCurrentCharacterName());
@@ -118,6 +138,40 @@ export async function inspectInstalledProject(adapter, installed) {
       if (isProjectScriptTree(tree, installed.id) && !expectedById.has(id)) {
         issues.push(issue('script_stale', { scope, id, name: tree.name || '' }));
       }
+    }
+  }
+
+  for (const change of targets.originalWorldbookChanges ?? []) {
+    const names = await maybe(adapter.getWorldbookNames());
+    if (!names.includes(change.worldbookName)) {
+      issues.push(issue('original_worldbook_missing', {
+        worldbookName: change.worldbookName,
+        name: change.identity?.name || change.identity?.uid || '',
+      }));
+      continue;
+    }
+
+    const entries = await maybe(adapter.getWorldbook(change.worldbookName));
+    const actual = entries.find(entry => matchesIdentity(entry, change.identity));
+    if (!actual) {
+      issues.push(issue('original_conflict_entry_missing', {
+        worldbookName: change.worldbookName,
+        name: change.identity?.name || change.identity?.uid || '',
+      }));
+      continue;
+    }
+    if (!isOriginalConflictEntryDisabled(actual)) {
+      issues.push(issue('original_conflict_reenabled', {
+        worldbookName: change.worldbookName,
+        name: change.identity?.name || change.identity?.uid || '',
+      }));
+      continue;
+    }
+    if (change.afterFingerprint && fingerprint(actual) !== change.afterFingerprint) {
+      issues.push(issue('original_conflict_modified', {
+        worldbookName: change.worldbookName,
+        name: change.identity?.name || change.identity?.uid || '',
+      }));
     }
   }
 

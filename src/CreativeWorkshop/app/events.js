@@ -1,5 +1,6 @@
 import { parseDependencyText } from '../services/projects/dependency-input.js';
 import { parseOriginalConflictText } from '../services/projects/original-conflict-input.js';
+import { parseOriginalScriptConflictText } from '../services/projects/script-conflict-input.js';
 import { createArtifactQueue as createArtifactQueueFactory } from '../ui/artifact-queue.js';
 
 export function bindWorkshopEvents({
@@ -79,6 +80,7 @@ export function bindWorkshopEvents({
   const syncCreateArtifactOptions = () => {
     nodes.createScriptScope.hidden = createArtifactSelect.value !== 'script';
     nodes.createOriginalConflicts.hidden = createArtifactSelect.value !== 'worldbook';
+    nodes.createScriptConflicts.hidden = createArtifactSelect.value !== 'script';
   };
 
   const resetCreateDraft = () => {
@@ -92,6 +94,7 @@ export function bindWorkshopEvents({
   syncCreateArtifactOptions();
 
   const createOriginalConflictInput = nodes.createOriginalConflicts.querySelector('[name="original_conflicts"]');
+  const createScriptConflictInput = nodes.createScriptConflicts.querySelector('[name="script_conflicts"]');
   const createScriptScopeInput = nodes.createScriptScope.querySelector('[name="script_scope"]');
   const createProjectTypeInput = nodes.createForm.querySelector('[name="category"]');
 
@@ -105,7 +108,9 @@ export function bindWorkshopEvents({
       scriptScope: createScriptScopeInput.value || 'character',
       originalConflicts: createArtifactSelect.value === 'worldbook'
         ? parseOriginalConflictText(createOriginalConflictInput.value)
-        : [],
+        : createArtifactSelect.value === 'script'
+          ? parseOriginalScriptConflictText(createScriptConflictInput.value)
+          : [],
     }),
     onChange: queue => {
       nodes.createVersionState.textContent = queue.count

@@ -52,6 +52,7 @@ export function bindWorkshopEvents({
 
   const createOpen = overlay.querySelector('[data-action="create-project-open"]');
   const createCancel = overlay.querySelector('[data-action="create-project-cancel"]');
+  const createArtifactSelect = nodes.createArtifactKind.querySelector('[name="artifact_kind"]');
   let createDirty = false;
   let publishConfirmModal = null;
 
@@ -62,11 +63,19 @@ export function bindWorkshopEvents({
     nodes.createCoverState.textContent = '未选择封面。';
   };
 
+  const syncCreateArtifactOptions = () => {
+    nodes.createScriptScope.hidden = createArtifactSelect.value !== 'script';
+  };
+
   const resetCreateDraft = () => {
     nodes.createForm.reset();
     resetCreateFiles();
     createDirty = false;
+    syncCreateArtifactOptions();
   };
+
+  createArtifactSelect.addEventListener('change', syncCreateArtifactOptions);
+  syncCreateArtifactOptions();
 
   nodes.createForm.addEventListener('input', () => { createDirty = true; });
   nodes.createForm.addEventListener('change', () => { createDirty = true; });
@@ -149,6 +158,7 @@ export function bindWorkshopEvents({
     const selectedVersion = nodes.createVersion.files?.[0] || null;
     const selectedCover = nodes.createCover.files?.[0] || null;
     const artifactKind = String(form.get('artifact_kind') || 'data');
+    const scriptScope = String(form.get('script_scope') || 'character');
 
     if (!name) {
       notifyError(new Error('请先填写作品名称'));
@@ -167,6 +177,7 @@ export function bindWorkshopEvents({
         selectedVersion.name,
         raw,
         artifactKind,
+        { scriptScope },
       );
     } catch (error) {
       notifyError(error);
@@ -191,6 +202,9 @@ export function bindWorkshopEvents({
     const factValues = [
       `类型：${category === 'character' ? '角色' : '扩展'}`,
       `内容：${ARTIFACT_LABELS[artifactKind] || artifactKind}`,
+      ...(artifactKind === 'script'
+        ? [`脚本作用域：${({ character: '当前角色', preset: '当前预设', global: '全局' })[scriptScope] || scriptScope}`]
+        : []),
       `版本文件：${selectedVersion.name}`,
       selectedCover ? `封面：${selectedCover.name}` : '封面：未选择',
       tags.length ? `标签：${tags.join('、')}` : '标签：无',

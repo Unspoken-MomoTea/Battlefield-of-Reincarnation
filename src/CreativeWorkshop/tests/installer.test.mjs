@@ -347,12 +347,12 @@ test('uninstall never overwrites an original worldbook entry edited by the playe
   ]);
 
   const removed = await installer.uninstall('project-1');
-  assert.equal(
-    adapter.state.worldbooks.get('角色原世界书')[0].content,
-    'player edited while dlc installed',
+  assert.deepEqual(
+    adapter.state.worldbooks.get('角色原世界书')[0],
+    { uid: 8, name: '原版规则', enabled: true, content: 'player edited while dlc installed' },
   );
-  assert.equal(removed.unrestoredOriginals.length, 1);
-  assert.match(removed.restoreWarnings[0], /用户修改/u);
+  assert.equal(removed.unrestoredOriginals.length, 0);
+  assert.match(removed.restoreWarnings[0], /仅恢复原启用状态/u);
 });
 
 test('updating a project can remove an old original conflict and restore the original entry', async () => {
@@ -402,4 +402,39 @@ test('updating a project can remove an old original conflict and restore the ori
     { uid: 9, name: '原版规则', enabled: true, content: 'original' },
   ]);
   assert.equal(storage.current().installTargets.originalWorldbookChanges.length, 0);
+});
+
+
+test('original conflict uninstall restores a previously disabled entry to disabled', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('角色原世界书', [
+    { uid: 10, name: '原版已关闭规则', enabled: false, content: 'original' },
+  ]);
+  adapter.state.binding.primary = '角色原世界书';
+
+  const storage = memoryStorage(project([
+    {
+      kind: 'worldbook',
+      name: 'DLC世界书.json',
+      format: 'json',
+      original_conflicts: [{
+        action: 'disable',
+        target: { worldbook: '角色原世界书', uid: '10' },
+      }],
+      content: {
+        entries: { 0: { comment: 'DLC规则', content: 'addon', constant: true } },
+      },
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await installer.apply('project-1');
+  adapter.state.worldbooks.set('角色原世界书', [
+    { uid: 10, name: '原版已关闭规则', enabled: false, content: 'player edit' },
+  ]);
+
+  await installer.uninstall('project-1');
+  assert.deepEqual(adapter.state.worldbooks.get('角色原世界书'), [
+    { uid: 10, name: '原版已关闭规则', enabled: false, content: 'player edit' },
+  ]);
 });

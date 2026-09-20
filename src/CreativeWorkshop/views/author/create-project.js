@@ -142,15 +142,16 @@ export function bindCreateProjectFlow({
 
   async function openRules(draft) {
     rulesModal?.close({ force: true });
-    rulesModal = openModal('发布项目 · 检查与安装规则', {
+    const modal = openModal('发布项目 · 检查与安装规则', {
       wide: true,
-      onClose: () => { rulesModal = null; },
+      onClose: () => { if (rulesModal === modal) rulesModal = null; },
     });
+    rulesModal = modal;
 
     const loading = doc.createElement('div');
     loading.className = 'rw-empty';
     loading.textContent = '正在检查上传文件与当前酒馆资源…';
-    rulesModal.body.appendChild(loading);
+    modal.body.appendChild(loading);
 
     let resources = null;
     const needsScan = draft.artifacts.some(item => item.kind === 'worldbook' || item.kind === 'script');
@@ -168,9 +169,10 @@ export function bindCreateProjectFlow({
       }
     }
 
-    rulesModal.body.replaceChildren();
+    if (rulesModal !== modal || !modal.body.isConnected) return;
+    modal.body.replaceChildren();
     const rules = createInstallRulePicker({ doc, artifacts: draft.artifacts, resources });
-    rulesModal.body.appendChild(rules.node);
+    modal.body.appendChild(rules.node);
 
     const note = doc.createElement('div');
     note.className = 'rw-maintenance-protection';
@@ -180,7 +182,7 @@ export function bindCreateProjectFlow({
         textContent: '勾选的世界书条目或脚本只会在作品启用期间临时关闭。停用/卸载时按安装前快照恢复；玩家期间的修改不会被强制覆盖。',
       }),
     );
-    rulesModal.body.appendChild(note);
+    modal.body.appendChild(note);
 
     const actions = doc.createElement('div');
     actions.className = 'rw-row rw-publish-final-actions';
@@ -193,7 +195,7 @@ export function bindCreateProjectFlow({
     confirm.className = 'rw-button good';
     confirm.textContent = '提交审核';
     actions.append(back, confirm);
-    rulesModal.body.appendChild(actions);
+    modal.body.appendChild(actions);
 
     back.addEventListener('click', () => rulesModal?.close({ force: true }));
     confirm.addEventListener('click', async () => {

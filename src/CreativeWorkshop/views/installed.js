@@ -5,6 +5,7 @@ export function createInstalledView({
   element,
   button,
   empty,
+  confirmDialog,
   projectService,
   workshopApi,
   host,
@@ -63,9 +64,13 @@ export function createInstalledView({
       return estimate;
     }
 
-    const confirmed = host.confirm?.(
-      `${summary}\n是否删除全部“仅缓存”作品？\n\n已安装到酒馆的作品不会被删除。`,
-    );
+    const confirmed = await confirmDialog({
+      title: '清理本地缓存？',
+      message: `${summary}\n只会删除“仅缓存”作品，已安装到酒馆的项目不会被删除。`,
+      confirmText: '清理缓存',
+      cancelText: '取消',
+      danger: true,
+    });
     if (!confirmed) return estimate;
 
     const result = await projectService.cleanupCacheOnly();
@@ -98,9 +103,12 @@ export function createInstalledView({
       throw new Error(`当前无法安装：\n${formatInstallConflicts(preflight.blocking)}`);
     }
     if (preflight.warnings.length) {
-      const confirmed = host.confirm?.(
-        `安装前发现以下冲突：\n\n${formatInstallConflicts(preflight.warnings)}\n\n是否继续？`,
-      );
+      const confirmed = await confirmDialog({
+        title: '安装前发现冲突',
+        message: formatInstallConflicts(preflight.warnings),
+        confirmText: '继续安装',
+        cancelText: '取消',
+      });
       if (!confirmed) return null;
     }
     const result = await projectService.apply(item.id);
@@ -123,7 +131,12 @@ export function createInstalledView({
       await refreshInstalled();
       return result;
     }
-    const confirmed = host.confirm?.(`发现以下安装异常：\n\n${summary}\n\n是否立即修复？`);
+    const confirmed = await confirmDialog({
+      title: '发现安装异常',
+      message: summary,
+      confirmText: '立即修复',
+      cancelText: '稍后处理',
+    });
     if (confirmed) {
       const repaired = await projectService.repair(item.id);
       if (!repaired.health.healthy) {
@@ -141,9 +154,12 @@ export function createInstalledView({
       try { host.toastr?.info?.('本地缓存已经是服务器最新版本', item.name); } catch {}
       return result;
     }
-    const shouldSync = host.confirm?.(
-      `服务器已有 v${result.remoteVersion}。是否立即下载最新版${item.applied ? '并重新应用到酒馆' : ''}？`,
-    );
+    const shouldSync = await confirmDialog({
+      title: '发现新版本',
+      message: `服务器已有 v${result.remoteVersion}。是否立即下载最新版${item.applied ? '并重新应用到酒馆' : ''}？`,
+      confirmText: item.applied ? '下载并升级' : '下载新版',
+      cancelText: '取消',
+    });
     if (!shouldSync) return result;
     const updated = await projectService.updateLatest(item.id);
     try {
@@ -271,7 +287,13 @@ export function createInstalledView({
     if (item.applied) {
       menuDropdown.appendChild(button('停用并还原原版', 'danger', async () => {
         closeMenu();
-        const confirmed = host.confirm?.(`确定停用“${item.name}”吗？工坊会移除该项目拥有的资源，并恢复它临时屏蔽/替换的原版世界书和脚本。`);
+        const confirmed = await confirmDialog({
+          title: `停用“${item.name}”？`,
+          message: '工坊会移除该项目拥有的资源，并恢复它临时屏蔽/替换的原版世界书和酒馆助手脚本。',
+          confirmText: '停用并还原',
+          cancelText: '取消',
+          danger: true,
+        });
         if (!confirmed) return;
         const result = await projectService.uninstall(item.id);
         try { host.toastr?.success?.(`已停用 ${item.name}，原版内容已按恢复记录处理`, '创意工坊'); } catch {}
@@ -281,7 +303,13 @@ export function createInstalledView({
     } else {
       menuDropdown.appendChild(button('删除本地缓存', 'danger', async () => {
         closeMenu();
-        const confirmed = host.confirm?.(`确定删除“${item.name}”的本地缓存吗？`);
+        const confirmed = await confirmDialog({
+          title: `删除“${item.name}”的缓存？`,
+          message: '只会删除本地下载缓存，不会影响服务器上的作品。',
+          confirmText: '删除缓存',
+          cancelText: '取消',
+          danger: true,
+        });
         if (!confirmed) return;
         await projectService.removeCached(item.id);
         await refreshInstalled();

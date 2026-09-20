@@ -1,4 +1,4 @@
-const ALLOWED_KINDS = new Set(['worldbook', 'regex', 'preset', 'data']);
+const ALLOWED_KINDS = new Set(['worldbook', 'regex', 'preset', 'script', 'data']);
 const ALLOWED_FORMATS = new Set(['json', 'text']);
 
 function artifactContentText(artifact) {
@@ -30,6 +30,12 @@ export function validateDownloadedBundle(bundle) {
     if (artifact.format === 'json' && artifact.content === undefined) {
       throw new Error(`artifact“${artifact.name}”JSON 内容缺失`);
     }
+    if (artifact.kind === 'script') {
+      const scope = String(artifact.scope || 'character');
+      if (!['character', 'preset', 'global'].includes(scope)) {
+        throw new Error(`artifact“${artifact.name}”脚本作用域无效`);
+      }
+    }
   }
   return bundle;
 }
@@ -49,6 +55,9 @@ export async function verifyBundleAgainstManifest(bundle, manifest, expectedProj
     const declared = manifest.artifacts[index];
     if (!declared || declared.kind !== artifact.kind || declared.format !== artifact.format || declared.name !== artifact.name) {
       throw new Error(`artifact“${artifact.name}”与 manifest 描述不一致`);
+    }
+    if (artifact.kind === 'script' && String(declared.scope || 'character') !== String(artifact.scope || 'character')) {
+      throw new Error(`artifact“${artifact.name}”脚本作用域与 manifest 不一致`);
     }
     const contentText = artifactContentText(artifact);
     const byteSize = new TextEncoder().encode(contentText).byteLength;

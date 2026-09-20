@@ -2,20 +2,43 @@ export function workshopTemplate(version) {
   return `
   <section class="rw-panel" role="dialog" aria-modal="true" aria-label="轮回战场创意工坊">
     <header class="rw-head">
-      <div class="rw-title">轮回战场 · 创意工坊</div>
-      <div class="rw-account" data-role="account">未登录</div>
+      <div class="rw-title">创意工坊</div>
+      <div class="rw-head-discover-tools" data-role="discover-head-tools">
+        <input class="rw-input grow" data-field="search" placeholder="搜索项目、作者或简介">
+        <select class="rw-select" data-field="sort" aria-label="作品排序">
+          <option value="latest">最新</option>
+          <option value="popular">热门</option>
+          <option value="downloads">下载最多</option>
+          <option value="favorites">收藏最多</option>
+          <option value="likes">点赞最多</option>
+        </select>
+        <button class="rw-button" data-action="search" type="button">搜索</button>
+      </div>
+      <button class="rw-button rw-maintenance-trigger" type="button" data-action="maintenance">DLC 修复</button>
       <span class="rw-health-chip" data-role="health" title="工坊服务状态">连接中</span>
       <div class="rw-version">v${version}</div>
-      <button class="rw-button" type="button" data-action="maintenance">DLC 修复 / 更新</button>
+      <div class="rw-account-wrap" data-role="account-wrap">
+        <button class="rw-account" data-role="account" data-action="account-menu-toggle" type="button" hidden>账户</button>
+        <div class="rw-account-dropdown" data-role="account-menu" hidden>
+          <button type="button" data-action="mine-menu">我的项目</button>
+          <button type="button" data-action="upload-menu">上传 / 发布</button>
+          <button type="button" data-action="admin-menu" hidden>管理</button>
+          <button type="button" class="danger" data-action="logout" hidden>登出</button>
+        </div>
+      </div>
       <button class="rw-button primary" type="button" data-action="login">Discord 登录</button>
-      <button class="rw-button danger" type="button" data-action="logout" hidden>退出</button>
       <button class="rw-close" type="button" data-action="close">关闭</button>
     </header>
     <nav class="rw-tabs">
+      <div class="rw-nav-label">浏览</div>
       <button class="rw-tab is-active" data-tab="discover" type="button">发现</button>
-      <button class="rw-tab" data-tab="installed" type="button">本地</button>
-      <button class="rw-tab" data-tab="mine" type="button">我的作品</button>
-      <button class="rw-tab" data-tab="admin" type="button" hidden>管理</button>
+      <div class="rw-nav-divider"></div>
+      <button class="rw-tab rw-nav-filter is-filter-active" data-category-filter="" type="button">全部项目</button>
+      <button class="rw-tab rw-nav-filter" data-category-filter="extension" type="button">扩展</button>
+      <button class="rw-tab rw-nav-filter" data-category-filter="character" type="button">角色</button>
+      <div class="rw-nav-divider"></div>
+      <button class="rw-tab" data-tab="installed" type="button">已安装</button>
+      <div class="rw-nav-connection">● 已连接 SillyTavern</div>
     </nav>
     <main class="rw-body">
       <section class="rw-section" data-section="discover">
@@ -24,22 +47,9 @@ export function workshopTemplate(version) {
           <div class="rw-page-head-meta" data-role="discover-count">正在载入</div>
         </div>
         <input type="hidden" data-field="category" value="">
-        <div class="rw-category-switch" role="tablist" aria-label="作品分类">
-          <button class="rw-category-choice is-active" type="button" data-category-filter="">全部</button>
-          <button class="rw-category-choice" type="button" data-category-filter="character"><strong>角色</strong><span>角色卡与配套内容</span></button>
-          <button class="rw-category-choice" type="button" data-category-filter="extension"><strong>扩展</strong><span>世界书、脚本与功能包</span></button>
-        </div>
-        <div class="rw-toolbar rw-discover-toolbar">
-          <input class="rw-input grow" data-field="search" placeholder="搜索作品名称或简介">
-          <input class="rw-input rw-tag-input" data-field="tag" maxlength="24" placeholder="标签">
-          <select class="rw-select" data-field="sort" aria-label="作品排序">
-            <option value="latest">最新发布</option>
-            <option value="popular">热门</option>
-            <option value="downloads">下载最多</option>
-            <option value="favorites">收藏最多</option>
-            <option value="likes">点赞最多</option>
-          </select>
-          <button class="rw-button primary" data-action="search" type="button">搜索</button>
+        <div class="rw-discover-subtools">
+          <input class="rw-input rw-tag-input" data-field="tag" maxlength="24" placeholder="精确标签（可选）">
+          <span class="rw-muted">分类从左侧切换；搜索与排序在顶部。</span>
         </div>
         <div class="rw-grid rw-project-grid" data-role="discover-list"></div>
         <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>

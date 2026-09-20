@@ -131,9 +131,13 @@ export async function syncOriginalScriptConflicts({ adapter, storage }, installe
     return { changes: [], warnings: [], unrestored: [] };
   }
 
-  const working = new Map(
-    [...state.scripts.entries()].map(([scope, trees]) => [scope, clone(trees)]),
-  );
+  const working = new Map();
+  const baseline = new Map();
+  for (const scope of state.scripts.keys()) {
+    const trees = clone(await maybe(adapter.getScriptTrees(scope)));
+    working.set(scope, trees);
+    baseline.set(scope, clone(trees));
+  }
   const previousByKey = new Map(previous.map(change => [identityKey(change.scope, change.identity), change]));
   const claims = otherClaims(await installedProjects(storage), installed.id);
   const desiredKeys = new Set();
@@ -200,8 +204,7 @@ export async function syncOriginalScriptConflicts({ adapter, storage }, installe
   }
 
   for (const [scope, trees] of working) {
-    const original = state.scripts.get(scope);
-    if (fingerprint(original) !== fingerprint(trees)) {
+    if (fingerprint(baseline.get(scope)) !== fingerprint(trees)) {
       await maybe(adapter.replaceScriptTrees(trees, scope));
     }
   }
@@ -214,9 +217,13 @@ export async function restoreOriginalScriptConflicts({ adapter, storage }, insta
   if (!previous.length) return { warnings: [], unrestored: [] };
 
   const claims = otherClaims(await installedProjects(storage), installed.id);
-  const working = new Map(
-    [...state.scripts.entries()].map(([scope, trees]) => [scope, clone(trees)]),
-  );
+  const working = new Map();
+  const baseline = new Map();
+  for (const scope of state.scripts.keys()) {
+    const trees = clone(await maybe(adapter.getScriptTrees(scope)));
+    working.set(scope, trees);
+    baseline.set(scope, clone(trees));
+  }
   const warnings = [];
   const unrestored = [];
 
@@ -245,8 +252,7 @@ export async function restoreOriginalScriptConflicts({ adapter, storage }, insta
   }
 
   for (const [scope, trees] of working) {
-    const original = state.scripts.get(scope);
-    if (fingerprint(original) !== fingerprint(trees)) {
+    if (fingerprint(baseline.get(scope)) !== fingerprint(trees)) {
       await maybe(adapter.replaceScriptTrees(trees, scope));
     }
   }

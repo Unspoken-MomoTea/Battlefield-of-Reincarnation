@@ -74,6 +74,14 @@ export function workshopTemplate(version) {
                 <option value="data">数据</option>
               </select>
             </label>
+            <label class="rw-field" data-role="create-script-scope" hidden>
+              <span>脚本作用域</span>
+              <select class="rw-select" name="script_scope">
+                <option value="character">当前角色</option>
+                <option value="preset">当前预设</option>
+                <option value="global">全局</option>
+              </select>
+            </label>
           </div>
           <div class="rw-row">
             <button class="rw-button primary" type="submit">下一步</button>

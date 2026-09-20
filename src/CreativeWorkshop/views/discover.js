@@ -13,6 +13,7 @@ export function createDiscoverView({
   artifactLabels,
   getAuth,
   openModal,
+  confirmDialog,
   notifyError,
 }) {
   let nextOffset = null;
@@ -212,9 +213,12 @@ export function createDiscoverView({
       throw new Error(`当前无法安装：\n${formatInstallConflicts(preflight.blocking)}`);
     }
     if (preflight.warnings.length) {
-      const confirmed = host.confirm?.(
-        `安装前发现以下冲突：\n\n${formatInstallConflicts(preflight.warnings)}\n\n是否继续？`,
-      );
+      const confirmed = await confirmDialog({
+        title: '安装前发现冲突',
+        message: formatInstallConflicts(preflight.warnings),
+        confirmText: '继续安装',
+        cancelText: '取消',
+      });
       if (!confirmed) return local;
     }
     const result = await projectService.apply(project.id);

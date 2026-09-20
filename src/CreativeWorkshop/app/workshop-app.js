@@ -9,7 +9,7 @@ import { bindWorkshopEvents } from './events.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '1.5.1';
+export const WORKSHOP_VERSION = '1.5.2';
 
 let booted = false;
 
@@ -86,7 +86,8 @@ export function bootWorkshop() {
 
   bindWorkshopEvents({
     host, doc, overlay, nodes, views, workshopApi, projectService,
-    notifyError: ui.notifyError, openModal: ui.openModal, showTab, getActiveTab: () => activeTab, setAuth, close,
+    notifyError: ui.notifyError, confirmDialog: ui.confirmDialog, openModal: ui.openModal,
+    showTab, getActiveTab: () => activeTab, setAuth, close,
   });
 
   const refresh = async () => {

@@ -22,9 +22,12 @@
 - 服务器拒绝循环依赖，避免出现 A 依赖 B、B 又依赖 A 的不可安装关系。
 - 世界书安装到共享世界书“轮回战场·创意工坊”，条目写入来源标记，卸载只删除对应作品条目。
 - 正则安装为当前角色卡局部正则，并使用项目命名空间 ID，卸载不会删除玩家自己的正则。
-- 酒馆助手脚本通过 ScriptTree API 安装，使用项目命名空间 ID；更新时原位替换工坊脚本，卸载不会删除玩家自己的脚本。
+- 酒馆助手脚本通过 ScriptTree API 安装，使用项目命名空间 ID；更新时原位替换工坊脚本，停用作品时只清理该项目拥有的脚本。
+- script artifact 也可以声明需要临时屏蔽/替换的原酒馆助手脚本（character / preset / global）；安装前记录原脚本和启用状态，停用时自动还原。若玩家在作品启用期间修改过原脚本，则保留玩家修改，只恢复安装前启用状态。
 - 预设名称会附带项目 ID 与 artifact 序号命名空间，避免两个同名作品互相覆盖。
-- 世界书 artifact 可声明需要关闭/替换的原版条目；安装前记录原值。卸载时若玩家修改过原条目，会保留玩家修改，只恢复安装前的启用/关闭状态。
+- 世界书 artifact 可声明需要关闭/替换的原版条目；安装前记录原值。停用时若玩家修改过原条目，会保留玩家修改，只恢复安装前的启用/关闭状态。
+- “DLC 修复 / 更新”会扫描已安装作品的世界书、正则、脚本、预设及原版恢复点；可对异常作品执行 Repair。
+- “DLC 修复 / 更新”还能定位加载当前工坊的酒馆助手脚本，查询 main 最新 commit，并直接把脚本中的 jsDelivr 固定 commit 链接改为最新 SHA；以后更新工坊本体不需要再手动复制新链接。客户端优先通过 Workshop Worker 的 `/api/client/latest` 获取最新提交（KV 缓存），失败时再回退 GitHub API。
 - 安装前会检查同名世界书条目、残留正则/脚本 ID、同名预设与角色目标冲突；非致命冲突由玩家确认后再继续。
 - 安装过程带快照；任一步骤失败会回滚已经发生的世界书、原版世界书、正则、脚本和预设修改。
 - 已安装作品可执行“检查安装”；缺失或被修改的工坊资源可一键 Repair，修复只触碰该项目拥有的资源。
@@ -67,6 +70,8 @@ await ReincarnationWorkshop.repairProjectInstallation(projectId);
 await ReincarnationWorkshop.uninstallProject(projectId);
 const exported = await ReincarnationWorkshop.exportProject(projectId);
 await ReincarnationWorkshop.importProject(file);
+await ReincarnationWorkshop.checkWorkshopUpdate();
+await ReincarnationWorkshop.updateWorkshopLoaderLink();
 ```
 
 “下载到本地”和“安装到酒馆”仍然是两个动作：前者只更新 IndexedDB 缓存，不执行脚本；后者才通过 Tavern Helper API 修改酒馆资源并启用属于该作品的脚本。`data` artifact 目前只允许缓存，不会直接写入酒馆。

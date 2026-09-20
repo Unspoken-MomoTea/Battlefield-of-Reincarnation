@@ -36,8 +36,8 @@ function setup() {
   const user = DB.db.prepare('SELECT * FROM users WHERE discord_id = ?').get('100');
   DB.db.prepare(
     `INSERT INTO projects
-      (id, owner_user_id, slug, name, summary, category, status, latest_version, published_version, created_at, updated_at)
-     VALUES ('p1', ?, 'p1', '测试作品', '', 'worldbook', 'published', 1, 1, 1, 1)`,
+      (id, owner_user_id, slug, name, summary, project_type, status, latest_version, published_version, created_at, updated_at)
+     VALUES ('p1', ?, 'p1', '测试作品', '', 'extension', 'published', 1, 1, 1, 1)`,
   ).run(user.id);
   return { env: { DB }, user };
 }

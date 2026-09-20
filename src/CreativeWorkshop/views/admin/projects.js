@@ -9,6 +9,7 @@ export function createAdminProjectsView({
   artifactLabels,
   getAuth,
   openModal,
+  confirmDialog,
 }) {
   function reviewStatusLabel(status) {
     return ({ draft: '未提交审核', pending: '审核中', approved: '已通过', rejected: '已拒绝' })[status] || status;
@@ -82,7 +83,13 @@ export function createAdminProjectsView({
       : (host.prompt?.('请输入驳回原因（必填）', '') ?? '');
     if (decision === 'rejected' && !note.trim()) throw new Error('驳回时必须填写原因');
     const label = decision === 'approved' ? '批准' : '驳回';
-    const confirmed = host.confirm?.(`确认${label}“${item.name}”最新版本 v${item.latest_version}？`);
+    const confirmed = await confirmDialog({
+      title: `${label}“${item.name}”？`,
+      message: `目标版本：v${item.latest_version}${note.trim() ? `\n审核备注：${note.trim()}` : ''}`,
+      confirmText: label,
+      cancelText: '取消',
+      danger: decision === 'rejected',
+    });
     if (!confirmed) return;
     await workshopApi.reviewProject(item.id, decision, note);
     modal?.close();
@@ -92,11 +99,15 @@ export function createAdminProjectsView({
   async function stateAction(item, action, modal) {
     const isArchive = action === 'archive';
     const note = host.prompt?.(isArchive ? '下架原因（建议填写）' : '恢复备注（可留空）', '') ?? '';
-    const confirmed = host.confirm?.(
-      isArchive
-        ? '下架只影响公开展示，不会删除作品文件和审核记录。确认下架？'
-        : '确认恢复这个作品的公开状态？',
-    );
+    const confirmed = await confirmDialog({
+      title: isArchive ? `下架“${item.name}”？` : `恢复“${item.name}”？`,
+      message: isArchive
+        ? '下架只影响公开展示，不会删除作品文件和审核记录。'
+        : '作品会恢复到可公开展示的状态。',
+      confirmText: isArchive ? '确认下架' : '确认恢复',
+      cancelText: '取消',
+      danger: isArchive,
+    });
     if (!confirmed) return;
     await workshopApi.setAdminProjectState(item.id, action, note);
     modal?.close();

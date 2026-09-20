@@ -161,8 +161,10 @@ export function createSmartArtifactQueue({
       let result;
       if (forcedKind) {
         const detected = detectUploadKind(file.name, rawText);
+        if (detected.kind === 'bundle') {
+          throw new Error(`${file.name} 是完整工坊 bundle，请使用“其他文件 / 预设 / 完整 bundle”入口`);
+        }
         if (
-          detected.kind !== 'bundle' &&
           detected.kind !== forcedKind &&
           detected.confidence === 'certain'
         ) {

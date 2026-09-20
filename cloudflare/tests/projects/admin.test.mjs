@@ -70,7 +70,7 @@ test('admin management lists uploaded projects across approved and rejected stat
   await publishVersion(env, author, admin, approved.id, bundle('approved'), '可以发布');
 
   const rejectedResponse = await createProject(
-    request('/api/projects', 'POST', { name: '被拒绝作品', summary: '说明', category: 'worldbook' }),
+    request('/api/projects', 'POST', { name: '被拒绝作品', summary: '说明', category: 'extension' }),
     env,
     author,
   );

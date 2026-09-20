@@ -45,6 +45,14 @@ export function createProjectApi(request) {
       );
     },
 
+    deleteProject(projectId) {
+      return request(
+        `/api/projects/${encodeURIComponent(projectId)}`,
+        { method: 'DELETE' },
+        true,
+      );
+    },
+
     uploadProjectVersion(projectId, input) {
       return request(
         `/api/projects/${encodeURIComponent(projectId)}/versions`,

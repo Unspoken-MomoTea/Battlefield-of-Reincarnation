@@ -48,6 +48,23 @@ export function validateDownloadedBundle(bundle) {
       if (!['character', 'preset', 'global'].includes(scope)) {
         throw new Error(`artifact“${artifact.name}”脚本作用域无效`);
       }
+      if (artifact.original_conflicts !== undefined) {
+        if (!Array.isArray(artifact.original_conflicts)) {
+          throw new Error(`artifact“${artifact.name}”原脚本冲突声明无效`);
+        }
+        for (const conflict of artifact.original_conflicts) {
+          const target = conflict?.target;
+          if (!conflict || !['disable', 'replace'].includes(conflict.action) || !target) {
+            throw new Error(`artifact“${artifact.name}”原脚本冲突声明无效`);
+          }
+          if (!['character', 'preset', 'global'].includes(String(target.scope || ''))) {
+            throw new Error(`artifact“${artifact.name}”原脚本冲突作用域无效`);
+          }
+          if (!String(target.id || '').trim() && !String(target.name || '').trim()) {
+            throw new Error(`artifact“${artifact.name}”原脚本冲突目标无效`);
+          }
+        }
+      }
     }
   }
   return bundle;
@@ -72,7 +89,7 @@ export async function verifyBundleAgainstManifest(bundle, manifest, expectedProj
     if (artifact.kind === 'script' && String(declared.scope || 'character') !== String(artifact.scope || 'character')) {
       throw new Error(`artifact“${artifact.name}”脚本作用域与 manifest 不一致`);
     }
-    if (artifact.kind === 'worldbook') {
+    if (['worldbook', 'script'].includes(artifact.kind)) {
       const declaredConflicts = JSON.stringify(declared.original_conflicts || []);
       const actualConflicts = JSON.stringify(artifact.original_conflicts || []);
       if (declaredConflicts !== actualConflicts) {

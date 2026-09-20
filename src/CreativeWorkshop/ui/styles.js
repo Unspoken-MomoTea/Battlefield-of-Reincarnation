@@ -180,6 +180,13 @@ export const WORKSHOP_CSS = `
   }
   .rw-create-form[hidden]{display:none!important}
   .rw-create-form h3{font-size:17px;margin-bottom:4px}
+  .rw-create-assets{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:2px}
+  .rw-create-assets>.rw-field[data-role="create-artifact-kind"]{grid-column:1/-1}
+  .rw-review-toggle{
+    grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--rw-line);
+    border-radius:9px;background:#151619;color:#aaa8a3;font-size:12px;cursor:pointer
+  }
+  .rw-review-toggle input{accent-color:var(--rw-accent)}
   .rw-upload-actions{align-items:stretch}
   .rw-file-drop-button{
     flex:1;min-width:220px;min-height:76px;padding:12px 14px!important;
@@ -261,6 +268,8 @@ export const WORKSHOP_CSS = `
     .rw-grid{grid-template-columns:1fr}
     .rw-page-head{align-items:flex-start}
     .rw-create-form{width:calc(100vw - 20px);max-height:calc(100dvh - 28px);padding:14px}
+    .rw-create-assets{grid-template-columns:1fr}
+    .rw-create-assets>.rw-field[data-role="create-artifact-kind"],.rw-review-toggle{grid-column:1}
     .rw-file-drop-button{min-width:100%}
     .rw-modal-backdrop{padding:0;align-items:stretch}
     .rw-modal,.rw-modal--wide{width:100%;max-height:none;height:100%;border:0;border-radius:0}

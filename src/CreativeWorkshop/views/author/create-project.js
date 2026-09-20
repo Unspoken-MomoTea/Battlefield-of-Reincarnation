@@ -69,6 +69,7 @@ export function bindCreateProjectFlow({
     list: nodes.createArtifactList,
     getProject: () => ({ category: projectType.value || 'extension' }),
     onChange: current => {
+      submitAttempt = null;
       nodes.createVersionState.textContent = current.count
         ? `已识别 ${current.count} 项：${current.summary()}`
         : '选择上面的对应入口；其他文件会自动识别。';
@@ -153,8 +154,14 @@ export function bindCreateProjectFlow({
     }
   });
 
-  nodes.createForm.addEventListener('input', () => { dirty = true; });
-  nodes.createForm.addEventListener('change', () => { dirty = true; });
+  nodes.createForm.addEventListener('input', () => {
+    dirty = true;
+    submitAttempt = null;
+  });
+  nodes.createForm.addEventListener('change', () => {
+    dirty = true;
+    submitAttempt = null;
+  });
 
   openButton?.addEventListener('click', () => {
     nodes.createForm.hidden = false;

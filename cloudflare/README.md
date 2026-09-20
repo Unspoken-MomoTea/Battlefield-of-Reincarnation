@@ -57,6 +57,8 @@ DISCORD_CLIENT_SECRET=你的密钥
 ```text
 0001_initial.sql
 0002_admin_audit.sql
+...
+0008_project_type.sql
 ```
 
 执行：
@@ -89,7 +91,7 @@ npx wrangler dev
 - Discord Client Secret 仅存在 Worker Secret。
 - OAuth state 单次使用并在 10 分钟后过期。
 - OAuth 登录结果只保留 2 分钟并且只能交换一次。
-- 远程项目内容后续只作为数据包安装，不赋予任意 JavaScript 执行权限。
+- 远程项目内容在浏览、下载和审核阶段只作为数据处理；Worker 不执行上传的 JavaScript。
 
 ## 作品生命周期
 
@@ -105,14 +107,13 @@ npx wrangler dev
 - `POST /api/projects/:id/versions`：上传新版本到 R2。
 - `POST /api/projects/:id/submit`：提交最新版本审核。
 - `GET /api/admin/projects`：管理员作品管理列表，可按审核状态、类型和关键词筛选全部已上传作品。
-- `GET /api/admin/pending`：兼容旧版的待审核队列。
 - `POST /api/admin/projects/:id/review`：批准或驳回最新版本。
 
 已发布作品上传新版本后，旧的已审核版本仍保持公开，直到新版本审核通过才切换公开版本。
 
 ### bundle v1
 
-服务器只接受数据型 artifact，不接受任意脚本：
+服务器对 artifact 做结构校验；脚本在服务端只作为文本/JSON 数据保存与审核，不会在 Worker 中执行：
 
 ```json
 {
@@ -128,7 +129,7 @@ npx wrangler dev
 }
 ```
 
-允许的 `kind`：`worldbook`、`regex`、`preset`、`data`。`mixed` 是作品分类，不是 artifact 类型。单个 bundle 当前限制为 4 MB、最多 32 个 artifact。
+允许的 `kind`：`worldbook`、`regex`、`script`、`preset`、`data`。顶层作品类型只有 `character` 与 `extension`，与 artifact 类型彼此独立。单个 bundle 当前限制为 4 MB、最多 32 个 artifact。
 
 ## 审核预览
 

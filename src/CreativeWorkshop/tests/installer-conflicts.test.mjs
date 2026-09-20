@@ -50,3 +50,60 @@ test('preflight blocks applying an already installed project from another charac
   const result = await analyzeInstallConflicts(adapter, installed, { worldbook: [], regexes: [], presets: [], data: [] });
   assert.deepEqual(result.blocking.map(item => item.type), ['character_mismatch']);
 });
+
+
+test('preflight blocks missing and ambiguous original worldbook conflict targets before install', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('原世界书A', [
+    { uid: 1, name: '重复条目', enabled: true, content: 'A' },
+  ]);
+  adapter.state.worldbooks.set('原世界书B', [
+    { uid: 2, name: '重复条目', enabled: true, content: 'B' },
+  ]);
+  adapter.state.binding.primary = '原世界书A';
+  adapter.state.binding.additional = ['原世界书B'];
+
+  const ambiguous = project([
+    {
+      kind: 'worldbook',
+      name: '扩展世界书.json',
+      format: 'json',
+      original_conflicts: [{
+        action: 'disable',
+        target: { name: '重复条目' },
+      }],
+      content: { entries: { 0: { comment: '扩展规则', content: 'x', constant: true } } },
+    },
+  ]);
+  const ambiguousResult = await analyzeInstallConflicts(
+    adapter,
+    ambiguous,
+    buildArtifactPlan(ambiguous),
+  );
+  assert.deepEqual(
+    ambiguousResult.blocking.map(item => item.type),
+    ['original_conflict_target_ambiguous'],
+  );
+
+  const missing = project([
+    {
+      kind: 'worldbook',
+      name: '扩展世界书.json',
+      format: 'json',
+      original_conflicts: [{
+        action: 'disable',
+        target: { worldbook: '原世界书A', uid: '999' },
+      }],
+      content: { entries: { 0: { comment: '扩展规则', content: 'x', constant: true } } },
+    },
+  ]);
+  const missingResult = await analyzeInstallConflicts(
+    adapter,
+    missing,
+    buildArtifactPlan(missing),
+  );
+  assert.deepEqual(
+    missingResult.blocking.map(item => item.type),
+    ['original_conflict_target_missing'],
+  );
+});

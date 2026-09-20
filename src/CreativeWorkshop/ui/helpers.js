@@ -1,4 +1,4 @@
-export function createUiHelpers(doc, host) {
+export function createUiHelpers(doc, host, mount = doc.body) {
   function element(tag, className, text) {
     const value = doc.createElement(tag);
     if (className) value.className = className;
@@ -33,5 +33,41 @@ export function createUiHelpers(doc, host) {
   function empty(container, text) {
     container.replaceChildren(element('div', 'rw-empty', text));
   }
-  return { element, button, notifyError, empty };
+
+  function openModal(title, { wide = false, onClose = null } = {}) {
+    const backdrop = element('div', 'rw-modal-backdrop');
+    const panel = element('section', `rw-modal${wide ? ' rw-modal--wide' : ''}`);
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+
+    const head = element('header', 'rw-modal-head');
+    const heading = element('h2', '', title);
+    const closeButton = button('×', 'rw-modal-close', () => close());
+    closeButton.setAttribute('aria-label', '关闭');
+    head.append(heading, closeButton);
+
+    const body = element('div', 'rw-modal-body');
+    panel.append(head, body);
+    backdrop.appendChild(panel);
+
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      host.removeEventListener?.('keydown', onKeyDown);
+      backdrop.remove();
+      try { onClose?.(); } catch {}
+    };
+    const onKeyDown = event => {
+      if (event.key === 'Escape') close();
+    };
+    backdrop.addEventListener('click', event => {
+      if (event.target === backdrop) close();
+    });
+    host.addEventListener?.('keydown', onKeyDown);
+    mount.appendChild(backdrop);
+    return { root: backdrop, panel, body, close };
+  }
+
+  return { element, button, notifyError, empty, openModal };
 }

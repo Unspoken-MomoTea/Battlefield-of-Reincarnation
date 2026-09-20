@@ -35,9 +35,9 @@ function makeCheckbox(doc, checked = false) {
   return input;
 }
 
-function resourceOption(doc, { title, meta, checked, onChange }) {
+function resourceOption(doc, { title, meta, checked, disabled = false, onChange }) {
   const label = doc.createElement('label');
-  label.className = 'rw-resource-option';
+  label.className = disabled ? 'rw-resource-option is-disabled' : 'rw-resource-option';
   const checkbox = makeCheckbox(doc, checked);
   checkbox.addEventListener('change', () => onChange(checkbox.checked));
   const copy = doc.createElement('span');
@@ -119,8 +119,11 @@ export function createInstallRulePicker({ doc, artifacts, resources }) {
           const key = worldbookConflictKey(conflict);
           options.appendChild(resourceOption(doc, {
             title: entry.name,
-            meta: `${entry.uid ? `UID ${entry.uid} · ` : ''}${entry.enabled ? '当前启用' : '当前已关闭'}`,
+            meta: entry.selectable === false
+              ? '同名且无 UID · 无法安全自动替换'
+              : `${entry.uid ? `UID ${entry.uid} · ` : ''}${entry.enabled ? '当前启用' : '当前已关闭'}`,
             checked: selectedWorldbooks.has(key),
+            disabled: entry.selectable === false,
             onChange: checked => {
               if (checked) selectedWorldbooks.set(key, conflict);
               else selectedWorldbooks.delete(key);
@@ -173,8 +176,11 @@ export function createInstallRulePicker({ doc, artifacts, resources }) {
           const key = scriptConflictKey(conflict);
           options.appendChild(resourceOption(doc, {
             title: script.folder ? `${script.folder} / ${script.name}` : script.name,
-            meta: `${scopeLabels[scope]} · ${script.enabled ? '当前启用' : '当前已关闭'}`,
+            meta: script.selectable === false
+              ? `${scopeLabels[scope]} · 同名且无 ID，无法安全自动替换`
+              : `${scopeLabels[scope]} · ${script.enabled ? '当前启用' : '当前已关闭'}`,
             checked: selectedScripts.has(key),
+            disabled: script.selectable === false,
             onChange: checked => {
               if (checked) selectedScripts.set(key, conflict);
               else selectedScripts.delete(key);

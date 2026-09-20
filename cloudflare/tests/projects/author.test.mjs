@@ -11,7 +11,6 @@ import {
   listAdminAuditLogs,
   listAdminProjects,
   listOwnProjects,
-  listPendingProjects,
   listPublicProjects,
   reviewProject,
   setAdminProjectState,

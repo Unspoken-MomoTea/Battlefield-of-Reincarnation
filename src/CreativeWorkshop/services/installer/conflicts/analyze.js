@@ -14,8 +14,10 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
   const characterScoped = Boolean(
     plan.worldbook.length ||
     plan.regexes.length ||
+    plan.scripts?.character?.length ||
     oldTargets.worldbook ||
-    oldTargets.regexIds?.length,
+    oldTargets.regexIds?.length ||
+    oldTargets.scripts?.character?.length,
   );
 
   if (installed.applied && installed.targetCharacterName && characterScoped) {
@@ -53,6 +55,19 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
     for (const regex of plan.regexes) {
       if (existingIds.has(regex.id) && !knownOwnIds.has(regex.id)) {
         warnings.push(issue('regex_id_collision', { id: regex.id, name: regex.script_name }));
+      }
+    }
+  }
+
+  for (const scope of ['character', 'preset', 'global']) {
+    const scripts = plan.scripts?.[scope] ?? [];
+    if (!scripts.length) continue;
+    const current = await maybe(adapter.getScriptTrees(scope));
+    const existingIds = new Set(current.map(tree => String(tree.id || '')).filter(Boolean));
+    const knownOwnIds = new Set(oldTargets.scripts?.[scope] ?? []);
+    for (const tree of scripts) {
+      if (existingIds.has(tree.id) && !knownOwnIds.has(tree.id)) {
+        warnings.push(issue('script_id_collision', { scope, id: tree.id, name: tree.name || '' }));
       }
     }
   }

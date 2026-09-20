@@ -91,5 +91,5 @@ export async function verifyBundleAgainstManifest(bundle, manifest, expectedProj
 }
 
 export function isAllowedOfflineCategory(category) {
-  return ALLOWED_KINDS.has(category) || category === 'mixed';
+  return category === 'character' || category === 'extension';
 }

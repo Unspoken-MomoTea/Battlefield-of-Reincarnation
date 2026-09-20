@@ -76,7 +76,7 @@ export function setup() {
 }
 
 export async function createWorldbookProject(env, author) {
-  const response = await createProject(request('/api/projects', 'POST', { name: '测试世界书', summary: '说明', category: 'worldbook' }), env, author);
+  const response = await createProject(request('/api/projects', 'POST', { name: '测试世界书', summary: '说明', category: 'extension' }), env, author);
   return (await responseJson(response)).project;
 }
 

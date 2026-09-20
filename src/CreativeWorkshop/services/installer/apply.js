@@ -1,6 +1,7 @@
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { buildArtifactPlan } from './plan.js';
+import { syncOriginalWorldbookConflicts } from './original-conflicts.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
 import { clone, maybe, record } from './utils.js';
 
@@ -20,7 +21,9 @@ export async function applyProject({ adapter, storage }, projectId) {
     plan.scripts?.character?.length ||
     oldTargets.worldbook ||
     oldTargets.regexIds?.length ||
-    oldTargets.scripts?.character?.length
+    oldTargets.scripts?.character?.length ||
+    plan.originalConflicts?.length ||
+    oldTargets.originalWorldbookChanges?.length
   );
   const currentCharacter = characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null;
   if (characterNeeded && !currentCharacter) throw new Error('请先在酒馆中打开一个角色卡，再安装世界书或正则');
@@ -80,6 +83,13 @@ export async function applyProject({ adapter, storage }, projectId) {
     }
     for (const preset of plan.presets) await maybe(adapter.createOrReplacePreset(preset.name, preset.content));
 
+    const originalConflictResult = await syncOriginalWorldbookConflicts(
+      { adapter, storage },
+      installed,
+      plan,
+      state,
+    );
+
     const presetBackups = {};
     for (const preset of plan.presets) {
       presetBackups[preset.name] = previousPresetBackups[preset.name] ?? (() => {
@@ -105,7 +115,10 @@ export async function applyProject({ adapter, storage }, projectId) {
         ),
         presets: plan.presets.map(item => item.name),
         presetBackups,
+        originalWorldbookChanges: originalConflictResult.changes,
       },
+      restoreWarnings: originalConflictResult.warnings,
+      unrestoredOriginals: originalConflictResult.unrestored,
       applyError: '',
     };
     await storage.putInstalledProject(next);

@@ -90,7 +90,15 @@ export function bootWorkshop() {
     await Promise.allSettled([refreshHealth(), refreshAuth()]);
     showTab(activeTab);
   };
-  const bridge = createWorkshopBridge({ version: WORKSHOP_VERSION, open, close, refresh, workshopApi, projectService });
+  const bridge = createWorkshopBridge({
+    version: WORKSHOP_VERSION,
+    open,
+    close,
+    refresh,
+    workshopApi,
+    projectService,
+    selfUpdater: workshopSelfUpdater,
+  });
   host[GLOBAL_NAME] = bridge;
   host.dispatchEvent(new CustomEvent('reincarnation-workshop-ready', { detail: { version: WORKSHOP_VERSION } }));
   void views.discover.refresh();

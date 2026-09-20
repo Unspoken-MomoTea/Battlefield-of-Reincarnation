@@ -26,6 +26,7 @@ export function createWorkshopViews(context) {
     installed: createInstalledView({
       ...common,
       projectService: context.projectService,
+      workshopApi: context.workshopApi,
       doc: context.doc,
       categoryLabels: CATEGORY_LABELS,
     }),

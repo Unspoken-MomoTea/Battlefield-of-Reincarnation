@@ -357,6 +357,9 @@ export const WORKSHOP_CSS = `
 
   .rw-detail-titlebox{min-width:0;display:grid;gap:4px}
   .rw-detail-stats{display:flex;align-items:center;gap:10px;color:#85837d;font-size:10px;white-space:nowrap}
+  .rw-install-cta.is-installed{
+    border-color:rgba(111,168,132,.28);background:rgba(111,168,132,.09);color:#a4cfb1
+  }
   .rw-engagement-button.is-active{
     border-color:rgba(162,139,107,.40);background:rgba(162,139,107,.14);color:var(--rw-accent-text)
   }
@@ -368,6 +371,7 @@ export const WORKSHOP_CSS = `
   }
   .rw-local-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
   .rw-local-card{overflow:visible;gap:11px}
+  .rw-local-cover{height:92px;aspect-ratio:auto;object-fit:cover}
   .rw-local-visual{
     height:78px;margin:-13px -13px 0;padding:15px 14px;display:grid;align-content:end;gap:3px;
     border-bottom:1px solid var(--rw-line);border-radius:12px 12px 0 0;

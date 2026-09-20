@@ -66,6 +66,21 @@ export async function checkCachedProjectUpdate(workshopApi, projectId) {
 
 export const listCachedProjects = () => getInstalledProjects();
 
+export async function updateRemoteProject(workshopApi, installer, projectId) {
+  const previous = await getInstalledProject(projectId);
+  if (!previous) throw new Error('本地没有这个作品，请先下载');
+
+  try {
+    const cached = await cacheRemoteProject(workshopApi, projectId);
+    if (!previous.applied) return cached;
+    await installer.apply(projectId);
+    return getInstalledProject(projectId);
+  } catch (error) {
+    await putInstalledProject(previous);
+    throw error;
+  }
+}
+
 export async function removeCachedProject(projectId) {
   const installed = await getInstalledProject(projectId);
   if (installed?.applied) throw new Error('请先卸载这个作品，再删除本地缓存');

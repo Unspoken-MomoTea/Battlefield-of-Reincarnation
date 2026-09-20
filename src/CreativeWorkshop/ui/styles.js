@@ -27,6 +27,9 @@ export const WORKSHOP_CSS = `
   }
   .rw-launcher:hover{transform:translateY(-2px);background:#202126;border-color:rgba(162,139,107,.45)}
   .rw-overlay{
+    --rw-layer-create:120;
+    --rw-layer-modal:220;
+    --rw-layer-confirm:320;
     position:fixed;inset:0;z-index:2147483390;display:none;align-items:center;justify-content:center;
     padding:16px;background:rgba(5,6,8,.74);backdrop-filter:blur(8px);
     font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--rw-text);
@@ -217,7 +220,7 @@ export const WORKSHOP_CSS = `
   .rw-artifact-remove{min-height:30px!important;padding:0 8px!important;font-size:10px!important}
 
   .rw-create-form{
-    position:fixed;left:50%;top:50%;z-index:2147483500;transform:translate(-50%,-50%);
+    position:fixed;left:50%;top:50%;z-index:var(--rw-layer-create);transform:translate(-50%,-50%);
     width:min(720px,calc(100vw - 36px));max-height:min(760px,90vh);overflow:auto;
     margin:0;padding:18px;border-color:rgba(162,139,107,.22);background:#1a1b1f;
     box-shadow:0 0 0 100vmax rgba(5,6,8,.72),0 24px 70px rgba(0,0,0,.55)
@@ -249,7 +252,7 @@ export const WORKSHOP_CSS = `
   }
 
   .rw-create-form{
-    position:fixed;left:50%;top:50%;z-index:2147483500;transform:translate(-50%,-50%);
+    position:fixed;left:50%;top:50%;z-index:var(--rw-layer-create);transform:translate(-50%,-50%);
     width:min(1180px,calc(100vw - 28px));max-height:min(900px,94vh);overflow:hidden;
     margin:0;padding:0;border:1px solid var(--rw-line-strong);border-radius:14px;background:#18191d;
     box-shadow:0 0 0 100vmax rgba(5,6,8,.76),0 28px 80px rgba(0,0,0,.58)
@@ -394,7 +397,7 @@ export const WORKSHOP_CSS = `
   .rw-card-menu-dropdown .rw-button{justify-content:flex-start;width:100%;text-align:left;background:transparent;border-color:transparent}
 
   .rw-confirm-backdrop{
-    position:fixed;inset:0;z-index:2147483646;display:grid;place-items:center;padding:18px;
+    position:fixed;inset:0;z-index:var(--rw-layer-confirm);display:grid;place-items:center;padding:18px;
     background:rgba(5,6,8,.78);backdrop-filter:blur(8px)
   }
   .rw-confirm-dialog{
@@ -420,7 +423,7 @@ export const WORKSHOP_CSS = `
   }
 
   .rw-modal-backdrop{
-    position:absolute;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
+    position:fixed;inset:0;z-index:var(--rw-layer-modal);display:flex;align-items:center;justify-content:center;
     padding:18px;background:rgba(5,6,8,.74);backdrop-filter:blur(8px);box-sizing:border-box
   }
   .rw-modal{
@@ -436,7 +439,18 @@ export const WORKSHOP_CSS = `
   .rw-modal-head h2{min-width:0;flex:1;margin:0;color:var(--rw-text);font-size:16px;font-weight:800}
   .rw-modal-close{
     width:36px!important;min-width:36px!important;height:36px!important;min-height:36px!important;padding:0!important;
-    display:grid!important;place-items:center;font-size:22px!important;line-height:1!important
+    display:grid!important;place-items:center!important;
+    border:1px solid var(--rw-line)!important;border-radius:9px!important;
+    background:#141518!important;color:#8f8d87!important;
+    box-shadow:none!important;appearance:none!important;-webkit-appearance:none!important;
+    cursor:pointer!important;font:500 22px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif!important;
+    transition:background .14s ease,border-color .14s ease,color .14s ease!important
+  }
+  .rw-modal-close:hover{
+    border-color:var(--rw-line-strong)!important;background:#202126!important;color:#ddd9d1!important
+  }
+  .rw-modal-close:focus-visible{
+    outline:2px solid rgba(162,139,107,.48)!important;outline-offset:2px!important
   }
   .rw-modal-body{min-height:0;overflow:auto;padding:14px;display:grid;gap:12px}
   .rw-modal-body>.rw-editor,.rw-modal-body>.rw-upload-box,.rw-modal-body>.rw-danger-zone{background:#151619}

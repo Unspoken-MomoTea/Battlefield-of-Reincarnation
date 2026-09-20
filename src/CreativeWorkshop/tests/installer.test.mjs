@@ -277,3 +277,129 @@ test('script tree mutations roll back when a later install step fails', async ()
   await assert.rejects(() => installer.apply('project-1'), /preset write failed/u);
   assert.deepEqual(adapter.state.scripts.character, originalScripts);
 });
+
+
+test('worldbook original conflicts are recorded and restored on uninstall', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('角色原世界书', [
+    { uid: 7, name: '原版规则', enabled: true, content: 'original' },
+  ]);
+  adapter.state.binding.primary = '角色原世界书';
+
+  const storage = memoryStorage(project([
+    {
+      kind: 'worldbook',
+      name: 'DLC世界书.json',
+      format: 'json',
+      original_conflicts: [{
+        action: 'replace',
+        target: { worldbook: '角色原世界书', uid: '7', name: '原版规则' },
+      }],
+      content: {
+        entries: {
+          0: { comment: 'DLC替代规则', content: 'replacement', constant: true },
+        },
+      },
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  const applied = await installer.apply('project-1');
+  const disabled = adapter.state.worldbooks.get('角色原世界书')[0];
+  assert.equal(disabled.enabled, false);
+  assert.equal(applied.installTargets.originalWorldbookChanges.length, 1);
+  assert.equal(applied.installTargets.originalWorldbookChanges[0].beforeEntry.enabled, true);
+
+  await installer.uninstall('project-1');
+  assert.deepEqual(adapter.state.worldbooks.get('角色原世界书'), [
+    { uid: 7, name: '原版规则', enabled: true, content: 'original' },
+  ]);
+});
+
+test('uninstall never overwrites an original worldbook entry edited by the player after install', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('角色原世界书', [
+    { uid: 8, name: '原版规则', enabled: true, content: 'original' },
+  ]);
+  adapter.state.binding.primary = '角色原世界书';
+
+  const storage = memoryStorage(project([
+    {
+      kind: 'worldbook',
+      name: 'DLC世界书.json',
+      format: 'json',
+      original_conflicts: [{
+        action: 'disable',
+        target: { worldbook: '角色原世界书', uid: '8' },
+      }],
+      content: {
+        entries: {
+          0: { comment: '补充规则', content: 'addon', constant: true },
+        },
+      },
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await installer.apply('project-1');
+  adapter.state.worldbooks.set('角色原世界书', [
+    { uid: 8, name: '原版规则', enabled: false, content: 'player edited while dlc installed' },
+  ]);
+
+  const removed = await installer.uninstall('project-1');
+  assert.equal(
+    adapter.state.worldbooks.get('角色原世界书')[0].content,
+    'player edited while dlc installed',
+  );
+  assert.equal(removed.unrestoredOriginals.length, 1);
+  assert.match(removed.restoreWarnings[0], /用户修改/u);
+});
+
+test('updating a project can remove an old original conflict and restore the original entry', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('角色原世界书', [
+    { uid: 9, name: '原版规则', enabled: true, content: 'original' },
+  ]);
+  adapter.state.binding.primary = '角色原世界书';
+
+  const storage = memoryStorage(project([
+    {
+      kind: 'worldbook',
+      name: 'DLC世界书.json',
+      format: 'json',
+      original_conflicts: [{
+        action: 'disable',
+        target: { worldbook: '角色原世界书', uid: '9' },
+      }],
+      content: {
+        entries: { 0: { comment: 'DLC规则', content: 'v1', constant: true } },
+      },
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await installer.apply('project-1');
+  assert.equal(adapter.state.worldbooks.get('角色原世界书')[0].enabled, false);
+
+  await storage.putInstalledProject({
+    ...storage.current(),
+    version: 3,
+    bundle: {
+      schema_version: 1,
+      artifacts: [{
+        kind: 'worldbook',
+        name: 'DLC世界书.json',
+        format: 'json',
+        content: {
+          entries: { 0: { comment: 'DLC规则', content: 'v2', constant: true } },
+        },
+      }],
+    },
+  });
+
+  await installer.apply('project-1');
+  assert.deepEqual(adapter.state.worldbooks.get('角色原世界书'), [
+    { uid: 9, name: '原版规则', enabled: true, content: 'original' },
+  ]);
+  assert.equal(storage.current().installTargets.originalWorldbookChanges.length, 0);
+});

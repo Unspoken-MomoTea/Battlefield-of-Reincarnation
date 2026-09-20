@@ -42,9 +42,14 @@ export function createAdminProjectsView({
     summary.appendChild(title);
 
     const flags = element('span', 'rw-admin-artifact-flags');
-    if (artifact.kind === 'script') flags.appendChild(element('span', 'rw-pill', `作用域：${artifact.scope || 'character'}`));
+    if (artifact.kind === 'script') {
+      flags.appendChild(element('span', 'rw-pill', `作用域：${artifact.scope || 'character'}`));
+      if (artifact.original_conflicts?.length) {
+        flags.appendChild(element('span', 'rw-pill', `屏蔽/替换原脚本 ${artifact.original_conflicts.length}`));
+      }
+    }
     if (artifact.kind === 'worldbook' && artifact.original_conflicts?.length) {
-      flags.appendChild(element('span', 'rw-pill', `关闭原版条目 ${artifact.original_conflicts.length}`));
+      flags.appendChild(element('span', 'rw-pill', `屏蔽/替换原版条目 ${artifact.original_conflicts.length}`));
     }
     if (artifact.format) flags.appendChild(element('span', 'rw-pill', artifact.format));
     summary.appendChild(flags);

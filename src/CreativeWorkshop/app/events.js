@@ -1,5 +1,6 @@
 import { ARTIFACT_LABELS } from '../ui/constants.js';
 import { parseDependencyText } from '../services/projects/dependency-input.js';
+import { parseOriginalConflictText } from '../services/projects/original-conflict-input.js';
 import { buildUploadBundle } from '../services/upload.js';
 
 export function bindWorkshopEvents({
@@ -65,6 +66,7 @@ export function bindWorkshopEvents({
 
   const syncCreateArtifactOptions = () => {
     nodes.createScriptScope.hidden = createArtifactSelect.value !== 'script';
+    nodes.createOriginalConflicts.hidden = createArtifactSelect.value !== 'worldbook';
   };
 
   const resetCreateDraft = () => {
@@ -159,6 +161,15 @@ export function bindWorkshopEvents({
     const selectedCover = nodes.createCover.files?.[0] || null;
     const artifactKind = String(form.get('artifact_kind') || 'data');
     const scriptScope = String(form.get('script_scope') || 'character');
+    let originalConflicts = [];
+    try {
+      originalConflicts = artifactKind === 'worldbook'
+        ? parseOriginalConflictText(form.get('original_conflicts'))
+        : [];
+    } catch (error) {
+      notifyError(error);
+      return;
+    }
 
     if (!name) {
       notifyError(new Error('请先填写作品名称'));
@@ -177,7 +188,7 @@ export function bindWorkshopEvents({
         selectedVersion.name,
         raw,
         artifactKind,
-        { scriptScope },
+        { scriptScope, originalConflicts },
       );
     } catch (error) {
       notifyError(error);
@@ -205,6 +216,7 @@ export function bindWorkshopEvents({
       ...(artifactKind === 'script'
         ? [`脚本作用域：${({ character: '当前角色', preset: '当前预设', global: '全局' })[scriptScope] || scriptScope}`]
         : []),
+      ...(originalConflicts.length ? [`原版条目关闭声明：${originalConflicts.length} 条`] : []),
       `版本文件：${selectedVersion.name}`,
       selectedCover ? `封面：${selectedCover.name}` : '封面：未选择',
       tags.length ? `标签：${tags.join('、')}` : '标签：无',

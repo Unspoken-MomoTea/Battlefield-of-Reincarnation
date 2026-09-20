@@ -1,6 +1,7 @@
 import { SHARED_WORLDBOOK_NAME } from '../constants.js';
 import { normalizedName } from '../compare.js';
-import { isProjectWorldbookEntry } from '../ownership.js';
+import { isProjectWorldbookEntry, scriptPrefix } from '../ownership.js';
+import { findOriginalScriptTargets } from '../original-scripts.js';
 import { maybe } from '../utils.js';
 
 function issue(type, extra = {}) {
@@ -19,7 +20,9 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
     oldTargets.regexIds?.length ||
     oldTargets.scripts?.character?.length ||
     plan.originalConflicts?.length ||
-    oldTargets.originalWorldbookChanges?.length,
+    oldTargets.originalWorldbookChanges?.length ||
+    plan.originalScriptConflicts?.some(item => item.target?.scope === 'character') ||
+    oldTargets.originalScriptChanges?.some(item => item.scope === 'character'),
   );
 
   if (installed.applied && installed.targetCharacterName && characterScoped) {
@@ -79,6 +82,43 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
         blocking.push(issue('original_conflict_target_ambiguous', {
           name: target.name || target.uid || '',
           count: matches.length,
+        }));
+      }
+    }
+  }
+
+  if (plan.originalScriptConflicts?.length) {
+    const cache = new Map();
+    const readScripts = async scope => {
+      if (!cache.has(scope)) cache.set(scope, await maybe(adapter.getScriptTrees(scope)));
+      return cache.get(scope);
+    };
+
+    for (const directive of plan.originalScriptConflicts) {
+      const target = directive.target || {};
+      const scope = String(target.scope || '');
+      const trees = await readScripts(scope);
+      const matches = findOriginalScriptTargets(trees, target);
+
+      if (!matches.length) {
+        blocking.push(issue('original_script_target_missing', {
+          scope,
+          name: target.name || target.id || '',
+        }));
+        continue;
+      }
+      if (matches.length > 1) {
+        blocking.push(issue('original_script_target_ambiguous', {
+          scope,
+          name: target.name || target.id || '',
+          count: matches.length,
+        }));
+        continue;
+      }
+      if (String(matches[0].script?.id || '').startsWith(scriptPrefix(installed.id))) {
+        blocking.push(issue('original_script_target_invalid', {
+          scope,
+          name: target.name || target.id || '',
         }));
       }
     }

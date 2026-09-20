@@ -73,13 +73,9 @@ export function workshopTemplate(version) {
                 <option value="preset">预设</option>
               </select>
             </label>
-            <label class="rw-review-toggle">
-              <input type="checkbox" name="submit_review" checked>
-              <span>上传版本后直接提交审核</span>
-            </label>
           </div>
           <div class="rw-row">
-            <button class="rw-button primary" type="submit">创建作品</button>
+            <button class="rw-button primary" type="submit">下一步</button>
             <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
           </div>
         </form>

@@ -293,10 +293,12 @@ export function createDiscoverView({
         contents.appendChild(pills);
 
         const scriptCount = artifacts.filter(artifact => artifact.kind === 'script').length;
-        const conflictCount = artifacts.reduce(
-          (sum, artifact) => sum + (Array.isArray(artifact.original_conflicts) ? artifact.original_conflicts.length : 0),
-          0,
-        );
+        const worldbookConflictCount = artifacts
+          .filter(artifact => artifact.kind === 'worldbook')
+          .reduce((sum, artifact) => sum + (artifact.original_conflicts?.length || 0), 0);
+        const scriptConflictCount = artifacts
+          .filter(artifact => artifact.kind === 'script')
+          .reduce((sum, artifact) => sum + (artifact.original_conflicts?.length || 0), 0);
         if (scriptCount) {
           contents.appendChild(element(
             'div',
@@ -304,11 +306,14 @@ export function createDiscoverView({
             `包含 ${scriptCount} 项酒馆助手脚本：下载与查看不会执行，只有主动安装后才会写入并启用。`,
           ));
         }
-        if (conflictCount) {
+        if (worldbookConflictCount || scriptConflictCount) {
+          const protectedParts = [];
+          if (worldbookConflictCount) protectedParts.push(`${worldbookConflictCount} 个原版世界书条目`);
+          if (scriptConflictCount) protectedParts.push(`${scriptConflictCount} 个原酒馆助手脚本`);
           contents.appendChild(element(
             'div',
             'rw-status',
-            `安装时会按作者声明临时关闭 ${conflictCount} 个原版世界书条目；卸载时按安全恢复规则处理。`,
+            `安装时会临时屏蔽/替换 ${protectedParts.join('、')}；关闭或卸载这个创意时按快照安全恢复。`,
           ));
         }
         modal.body.appendChild(contents);

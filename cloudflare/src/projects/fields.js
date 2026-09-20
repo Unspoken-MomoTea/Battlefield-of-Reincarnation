@@ -1,7 +1,7 @@
 import { HttpError } from '../http.js';
-import { PROJECT_CATEGORIES } from './constants.js';
+import { PROJECT_TYPES } from './constants.js';
 
-const CATEGORY_SET = new Set(PROJECT_CATEGORIES);
+const PROJECT_TYPE_SET = new Set(PROJECT_TYPES);
 
 export function nowSeconds() {
   return Math.floor(Date.now() / 1000);
@@ -47,9 +47,9 @@ export function parseTags(value) {
   }
 }
 
-export function categoryField(value) {
-  if (typeof value !== 'string' || !CATEGORY_SET.has(value)) {
-    throw new HttpError(400, 'invalid_category', `作品类型必须是：${PROJECT_CATEGORIES.join(', ')}`);
+export function projectTypeField(value) {
+  if (typeof value !== 'string' || !PROJECT_TYPE_SET.has(value)) {
+    throw new HttpError(400, 'invalid_project_type', `作品类型必须是：${PROJECT_TYPES.join(', ')}`);
   }
   return value;
 }
@@ -67,7 +67,7 @@ export function pageParams(request) {
   const query = (url.searchParams.get('query') || '').trim().slice(0, 100);
   const category = (url.searchParams.get('category') || '').trim();
   const tag = (url.searchParams.get('tag') || '').normalize('NFKC').trim().toLocaleLowerCase().slice(0, 24);
-  if (category && !CATEGORY_SET.has(category)) throw new HttpError(400, 'invalid_category', '作品类型无效');
+  if (category && !PROJECT_TYPE_SET.has(category)) throw new HttpError(400, 'invalid_project_type', '作品类型无效');
   const limit = Math.max(1, Math.min(48, Number.parseInt(url.searchParams.get('limit') || '24', 10) || 24));
   const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') || '0', 10) || 0);
   return { query, category, tag, limit, offset };

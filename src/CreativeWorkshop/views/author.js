@@ -117,14 +117,19 @@ export function createAuthorView({
     changelog.placeholder = '版本更新说明（上传新版本前可填写）';
     changelog.maxLength = 2000;
     const kind = element('select', 'rw-select');
-    for (const value of ['worldbook', 'regex', 'preset', 'data']) {
+    const artifactLabels = {
+      worldbook: '世界书',
+      regex: '正则',
+      script: '酒馆助手脚本',
+      preset: '预设',
+      data: '数据',
+    };
+    for (const value of ['worldbook', 'regex', 'script', 'preset', 'data']) {
       const option = doc.createElement('option');
       option.value = value;
-      option.textContent = categoryLabels[value];
-      if (value === project.category) option.selected = true;
+      option.textContent = artifactLabels[value];
       kind.appendChild(option);
     }
-    kind.hidden = project.category !== 'mixed';
     uploadBox.append(changelog, kind);
 
     const coverFile = element('input', '');
@@ -133,10 +138,10 @@ export function createAuthorView({
     coverFile.hidden = true;
     const versionFile = element('input', '');
     versionFile.type = 'file';
-    versionFile.accept = '.json,.txt,application/json,text/plain';
+    versionFile.accept = '.json,.txt,.js,application/json,text/plain,text/javascript,application/javascript';
     versionFile.hidden = true;
     const coverState = element('div', 'rw-file-state', '封面：点击“选择并上传封面”选择 PNG / JPEG / WebP');
-    const versionState = element('div', 'rw-file-state', '版本：点击“选择文件并上传版本”选择 .json / .txt');
+    const versionState = element('div', 'rw-file-state', '版本：选择 JSON / TXT / JS；完整 bundle JSON 可同时包含多种内容');
     uploadBox.append(coverFile, coverState, versionFile, versionState);
 
     let coverButton;
@@ -163,7 +168,7 @@ export function createAuthorView({
     });
 
     let versionButton;
-    versionButton = button('选择或拖入版本文件 · JSON / TXT', 'primary', () => {
+    versionButton = button('选择或拖入版本文件 · JSON / TXT / JS', 'primary', () => {
       versionFile.value = '';
       versionFile.click();
     });

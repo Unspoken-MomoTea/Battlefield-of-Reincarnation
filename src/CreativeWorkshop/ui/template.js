@@ -103,9 +103,14 @@ export function workshopTemplate(version) {
               </select>
             </label>
             <label class="rw-field" data-role="create-original-conflicts">
-              <span>需要临时关闭的原版世界书条目（可选）</span>
+              <span>需要临时屏蔽/替换的原版世界书条目（可选）</span>
               <textarea class="rw-textarea" name="original_conflicts" placeholder="每行一条：世界书名 | UID | 条目名&#10;UID 可留空，例如：角色原世界书 | | 原版规则"></textarea>
-              <small class="rw-muted">仅对单个世界书文件生效。安装前会确认目标唯一存在；卸载时若玩家修改过原条目，不会强行覆盖。</small>
+              <small class="rw-muted">安装时只临时关闭目标；关闭/卸载创意时恢复原状态。若玩家期间修改过原条目，只恢复启用状态，不覆盖玩家修改。</small>
+            </label>
+            <label class="rw-field" data-role="create-script-conflicts" hidden>
+              <span>需要临时屏蔽/替换的酒馆助手脚本（可选）</span>
+              <textarea class="rw-textarea" name="script_conflicts" placeholder="每行一条：作用域 | ID | 脚本名 | 文件夹名&#10;例如：character | old-script-id | 原状态栏 |"></textarea>
+              <small class="rw-muted">作用域为 character / preset / global。安装时记录原脚本并关闭；卸载时安全还原，期间玩家修改不会被覆盖。</small>
             </label>
           </div>
           <div class="rw-row">

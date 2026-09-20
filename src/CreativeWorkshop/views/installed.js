@@ -6,6 +6,7 @@ export function createInstalledView({
   button,
   empty,
   projectService,
+  workshopApi,
   host,
   doc,
   categoryLabels,
@@ -174,12 +175,20 @@ export function createInstalledView({
   function localCard(item) {
     const card = element('article', 'rw-card rw-local-card');
 
-    const visual = element('div', `rw-local-visual rw-local-visual--${item.category}`);
-    visual.append(
-      element('strong', '', categoryLabels[item.category] || item.category),
-      element('span', '', `${artifactCount(item)} 项内容`),
-    );
-    card.appendChild(visual);
+    if (item.source === 'remote' && item.hasCover) {
+      const cover = element('img', 'rw-cover rw-local-cover');
+      cover.src = workshopApi.getProjectCoverUrl(item.id);
+      cover.alt = `${item.name} 封面`;
+      cover.loading = 'lazy';
+      card.appendChild(cover);
+    } else {
+      const visual = element('div', `rw-local-visual rw-local-visual--${item.category}`);
+      visual.append(
+        element('strong', '', categoryLabels[item.category] || item.category),
+        element('span', '', `${artifactCount(item)} 项内容`),
+      );
+      card.appendChild(visual);
+    }
 
     const head = element('div', 'rw-local-card-head');
     const titleBox = element('div', 'rw-local-titlebox');
@@ -201,6 +210,8 @@ export function createInstalledView({
     if (item.targetCharacterName) meta.append(element('span', 'rw-pill', `角色：${item.targetCharacterName}`));
     if (item.dependencies?.length) meta.append(element('span', 'rw-pill', `依赖 ${item.dependencies.length}`));
     card.appendChild(meta);
+
+    if (item.summary) card.appendChild(element('div', 'rw-muted rw-project-summary', item.summary));
 
     if (item.applyError) {
       card.appendChild(element('div', 'rw-status bad', `上次安装失败：${item.applyError}`));

@@ -5,6 +5,7 @@ export function createAdminUsersView({
   empty,
   workshopApi,
   host,
+  confirmDialog,
 }) {
   function formatTime(seconds) {
     if (!seconds) return '—';
@@ -44,7 +45,12 @@ export function createAdminUsersView({
         if (!item.is_admin) {
           if (item.is_banned) {
             actions.appendChild(button('解除封禁', 'good', async () => {
-              const confirmed = host.confirm?.(`确认解除 ${item.display_name || item.username} 的封禁？`);
+              const confirmed = await confirmDialog({
+                title: '解除用户封禁？',
+                message: `用户：${item.display_name || item.username}`,
+                confirmText: '解除封禁',
+                cancelText: '取消',
+              });
               if (!confirmed) return;
               await workshopApi.setUserBan(item.id, false, '');
               await refreshUsers();
@@ -53,7 +59,13 @@ export function createAdminUsersView({
             actions.appendChild(button('封禁用户', 'danger', async () => {
               const reason = host.prompt?.('请输入封禁原因（必填）', '') ?? '';
               if (!reason.trim()) throw new Error('封禁用户必须填写原因');
-              const confirmed = host.confirm?.('封禁不会删除该用户历史作品，但会阻止其继续使用登录态功能。确认封禁？');
+              const confirmed = await confirmDialog({
+                title: `封禁 ${item.display_name || item.username}？`,
+                message: '封禁不会删除历史作品，但会阻止该用户继续使用登录态功能。',
+                confirmText: '确认封禁',
+                cancelText: '取消',
+                danger: true,
+              });
               if (!confirmed) return;
               await workshopApi.setUserBan(item.id, true, reason);
               await refreshUsers();

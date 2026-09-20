@@ -28,7 +28,7 @@ test('published project freezes explicit dependencies into version metadata', as
       request('/api/projects', 'POST', {
         name: '依赖作品',
         summary: '',
-        category: 'worldbook',
+        category: 'extension',
         dependencies: [{ project_id: base.id, min_version: 1 }],
       }),
       env,
@@ -78,7 +78,7 @@ test('dependency metadata rejects self, unpublished and unavailable versions', a
         request('/api/projects', 'POST', {
           name: '错误依赖',
           summary: '',
-          category: 'worldbook',
+          category: 'extension',
           dependencies: [{ project_id: target.id, min_version: 1 }],
         }),
         env,
@@ -100,7 +100,7 @@ test('dependency metadata rejects cycles through published dependency graph', as
       request('/api/projects', 'POST', {
         name: 'B',
         summary: '',
-        category: 'worldbook',
+        category: 'extension',
         dependencies: [{ project_id: a.id, min_version: 1 }],
       }),
       env,

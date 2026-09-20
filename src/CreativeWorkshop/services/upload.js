@@ -1,4 +1,5 @@
 const ALLOWED_KINDS = new Set(['worldbook', 'regex', 'preset', 'script', 'data']);
+const MAX_BUNDLE_BYTES = 4_000_000;
 
 export function buildUploadBundle(project, fileName, rawText, selectedKind = 'data', options = {}) {
   const name = String(fileName || '').trim();
@@ -67,5 +68,8 @@ export function combineUploadBundles(bundles) {
   }
   if (!artifacts.length) throw new Error('请至少添加一个内容文件');
   if (artifacts.length > 32) throw new Error('单个版本最多允许 32 个 artifact');
-  return { schema_version: 1, artifacts };
+  const combined = { schema_version: 1, artifacts };
+  const byteSize = new TextEncoder().encode(JSON.stringify(combined)).byteLength;
+  if (byteSize > MAX_BUNDLE_BYTES) throw new Error('单个版本超过 4 MB 限制');
+  return combined;
 }

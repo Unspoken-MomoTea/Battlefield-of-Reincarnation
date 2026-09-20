@@ -7,7 +7,7 @@ import { routeSystem } from './routes/system.js';
 export async function routeRequest(request, env, serviceVersion) {
   const pathname = new URL(request.url).pathname;
   return (
-    routeSystem(request, pathname, serviceVersion) ??
+    (await routeSystem(request, env, pathname, serviceVersion)) ??
     (await routeAuth(request, env, pathname)) ??
     (await routeProjects(request, env, pathname)) ??
     (await routeAdmin(request, env, pathname)) ??

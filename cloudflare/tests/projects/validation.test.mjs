@@ -40,6 +40,25 @@ test('bundle validator accepts Tavern Helper script artifacts and validates scop
   }, 'mixed');
   assert.equal(textScript.artifacts[0].scope, 'character');
 
+  const replacementScript = validateBundle({
+    schema_version: 1,
+    artifacts: [{
+      kind: 'script',
+      name: '替代状态栏.js',
+      format: 'text',
+      scope: 'character',
+      original_conflicts: [{
+        action: 'replace',
+        target: { scope: 'character', id: 'old-script', name: '旧状态栏' },
+      }],
+      content: "console.log('replacement')",
+    }],
+  });
+  assert.deepEqual(replacementScript.artifacts[0].original_conflicts, [{
+    action: 'replace',
+    target: { scope: 'character', id: 'old-script', name: '旧状态栏' },
+  }]);
+
   const exportedScript = validateBundle({
     schema_version: 1,
     artifacts: [{
@@ -64,6 +83,23 @@ test('bundle validator accepts Tavern Helper script artifacts and validates scop
       artifacts: [{ kind: 'script', name: 'bad.js', format: 'text', scope: 'unknown', content: 'x' }],
     }, 'mixed'),
     error => error?.status === 400 && error?.code === 'invalid_script_scope',
+  );
+  assert.throws(
+    () => validateBundle({
+      schema_version: 1,
+      artifacts: [{
+        kind: 'script',
+        name: 'bad-conflict.js',
+        format: 'text',
+        scope: 'character',
+        original_conflicts: [{
+          action: 'disable',
+          target: { scope: 'unknown', name: '旧脚本' },
+        }],
+        content: 'x',
+      }],
+    }),
+    error => error?.status === 400 && error?.code === 'invalid_original_script_conflict_scope',
   );
   assert.throws(
     () => validateBundle({

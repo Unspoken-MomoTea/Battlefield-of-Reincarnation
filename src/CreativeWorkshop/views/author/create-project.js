@@ -10,6 +10,7 @@ export function bindCreateProjectFlow({
   nodes,
   workshopApi,
   notifyError,
+  confirmDialog,
   openModal,
   refreshMine,
 }) {
@@ -158,11 +159,15 @@ export function bindCreateProjectFlow({
     nodes.createForm.querySelector('[name="name"]')?.focus();
   });
 
-  const closeCreate = () => {
+  const closeCreate = async () => {
     if (dirty) {
-      const confirmed = typeof host.confirm === 'function'
-        ? host.confirm('有尚未提交的作品资料或文件，确定放弃吗？')
-        : true;
+      const confirmed = await confirmDialog({
+        title: '放弃这次编辑？',
+        message: '作品资料、已选择的文件和封面都还没有提交。关闭后会清空当前草稿。',
+        confirmText: '放弃编辑',
+        cancelText: '继续编辑',
+        danger: true,
+      });
       if (!confirmed) return;
     }
     rulesModal?.close({ force: true });
@@ -170,7 +175,7 @@ export function bindCreateProjectFlow({
     reset();
     nodes.createForm.hidden = true;
   };
-  cancelButtons.forEach(button => button.addEventListener('click', closeCreate));
+  cancelButtons.forEach(button => button.addEventListener('click', () => void closeCreate()));
 
   async function openRules(draft) {
     rulesModal?.close({ force: true });

@@ -64,3 +64,31 @@ test('script uploads preserve the selected Tavern Helper scope', () => {
     /脚本作用域/u,
   );
 });
+
+
+test('worldbook uploads can carry author-declared original conflicts', () => {
+  const conflicts = [{
+    action: 'disable',
+    target: { worldbook: '角色原世界书', uid: '77', name: '原版规则' },
+  }];
+  const result = buildUploadBundle(
+    { category: 'extension' },
+    'book.json',
+    JSON.stringify({ entries: { 0: { comment: 'DLC规则', content: 'new' } } }),
+    'worldbook',
+    { originalConflicts: conflicts },
+  );
+  assert.deepEqual(result.artifacts[0].original_conflicts, conflicts);
+  assert.notEqual(result.artifacts[0].original_conflicts, conflicts);
+
+  assert.throws(
+    () => buildUploadBundle(
+      { category: 'extension' },
+      'helper.js',
+      "console.log('x')",
+      'script',
+      { originalConflicts: conflicts },
+    ),
+    /只有世界书 artifact/u,
+  );
+});

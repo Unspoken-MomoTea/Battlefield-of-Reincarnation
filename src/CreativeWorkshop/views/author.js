@@ -1,7 +1,7 @@
 import { formatDependencyText, parseDependencyText } from '../services/projects/dependency-input.js';
-import { parseOriginalConflictText } from '../services/projects/original-conflict-input.js';
-import { parseOriginalScriptConflictText } from '../services/projects/script-conflict-input.js';
-import { createArtifactQueue } from '../ui/artifact-queue.js';
+import { scanPublishResources } from '../services/publish-resources.js';
+import { createInstallRulePicker } from '../ui/install-rule-picker.js';
+import { createSmartArtifactQueue } from '../ui/smart-artifact-queue.js';
 
 export function createAuthorView({
   nodes,
@@ -130,56 +130,15 @@ export function createAuthorView({
     const changelog = element('input', 'rw-input');
     changelog.placeholder = '版本更新说明（上传新版本前可填写）';
     changelog.maxLength = 2000;
-    const kind = element('select', 'rw-select');
-    for (const value of ['worldbook', 'regex', 'script', 'preset', 'data']) {
-      const option = doc.createElement('option');
-      option.value = value;
-      option.textContent = artifactLabels[value];
-      kind.appendChild(option);
-    }
-    const scriptScope = element('select', 'rw-select');
-    for (const [value, label] of [
-      ['character', '脚本作用域：当前角色'],
-      ['preset', '脚本作用域：当前预设'],
-      ['global', '脚本作用域：全局'],
-    ]) {
-      const option = doc.createElement('option');
-      option.value = value;
-      option.textContent = label;
-      scriptScope.appendChild(option);
-    }
-    scriptScope.hidden = true;
-    const originalConflicts = element('textarea', 'rw-textarea');
-    originalConflicts.placeholder = '原版世界书屏蔽/替换：每行“世界书名 | UID | 条目名”，UID 可留空';
-    originalConflicts.hidden = false;
-    const originalConflictsHint = element(
+    const autoDetectHint = element(
       'div',
-      'rw-muted',
-      '安装时临时关闭目标世界书条目；卸载时恢复。完整 bundle JSON 请在 artifact.original_conflicts 中声明。',
+      'rw-maintenance-protection',
     );
-    const scriptConflicts = element('textarea', 'rw-textarea');
-    scriptConflicts.placeholder = '原脚本屏蔽/替换：每行“作用域 | ID | 脚本名 | 文件夹名”';
-    scriptConflicts.hidden = true;
-    const scriptConflictsHint = element(
-      'div',
-      'rw-muted',
-      '作用域为 character / preset / global。安装时保存原脚本并关闭，卸载时安全恢复。',
+    autoDetectHint.append(
+      element('strong', '', '直接上传文件即可'),
+      element('div', '', '世界书、正则、酒馆助手脚本和预设会自动识别；识别不确定时，可在文件列表中单独修正类型。原版替换目标会在上传前通过勾选选择。'),
     );
-    scriptConflictsHint.hidden = true;
-    const syncArtifactOptions = () => {
-      scriptScope.hidden = kind.value !== 'script';
-      originalConflicts.hidden = kind.value !== 'worldbook';
-      originalConflictsHint.hidden = kind.value !== 'worldbook';
-      scriptConflicts.hidden = kind.value !== 'script';
-      scriptConflictsHint.hidden = kind.value !== 'script';
-    };
-    kind.addEventListener('change', syncArtifactOptions);
-    syncArtifactOptions();
-    uploadBox.append(
-      changelog, kind, scriptScope,
-      originalConflicts, originalConflictsHint,
-      scriptConflicts, scriptConflictsHint,
-    );
+    uploadBox.append(changelog, autoDetectHint);
 
     const coverFile = element('input', '');
     coverFile.type = 'file';
@@ -188,10 +147,10 @@ export function createAuthorView({
     const versionFile = element('input', '');
     versionFile.type = 'file';
     versionFile.multiple = true;
-    versionFile.accept = '.json,.txt,.js,application/json,text/plain,text/javascript,application/javascript';
+    versionFile.accept = '.json,.txt,.js,.mjs,application/json,text/plain,text/javascript,application/javascript';
     versionFile.hidden = true;
     const coverState = element('div', 'rw-file-state', '封面：点击“选择并上传封面”选择 PNG / JPEG / WebP');
-    const versionState = element('div', 'rw-file-state', '版本：先选择内容类型，再分批添加文件；完整 bundle JSON 也可直接加入');
+    const versionState = element('div', 'rw-file-state', '直接添加文件，系统会自动识别；完整 bundle JSON 也可直接加入');
     const artifactList = element('div', 'rw-artifact-list');
     artifactList.hidden = true;
     uploadBox.append(coverFile, coverState, versionFile, versionState, artifactList);
@@ -221,29 +180,20 @@ export function createAuthorView({
 
     let versionButton;
     let uploadVersionButton;
-    versionButton = button('添加内容文件 · JSON / TXT / JS', 'primary', () => {
+    versionButton = button('添加内容文件 · 自动识别', 'primary', () => {
       versionFile.value = '';
       versionFile.click();
     });
 
-    const versionQueue = createArtifactQueue({
+    const versionQueue = createSmartArtifactQueue({
       doc,
       input: versionFile,
       list: artifactList,
       getProject: () => project,
-      getKind: () => kind.value,
-      getOptions: () => ({
-        scriptScope: scriptScope.value,
-        originalConflicts: kind.value === 'worldbook'
-          ? parseOriginalConflictText(originalConflicts.value)
-          : kind.value === 'script'
-            ? parseOriginalScriptConflictText(scriptConflicts.value)
-            : [],
-      }),
       onChange: queue => {
         versionState.textContent = queue.count
-          ? `已加入 ${queue.count} 个 artifact：${queue.summary()}`
-          : '版本：先选择内容类型，再分批添加文件；完整 bundle JSON 也可直接加入';
+          ? `已识别 ${queue.count} 项：${queue.summary()}`
+          : '直接添加文件，系统会自动识别；完整 bundle JSON 也可直接加入';
         if (uploadVersionButton) uploadVersionButton.disabled = queue.count === 0;
       },
     });
@@ -261,25 +211,64 @@ export function createAuthorView({
       }
     });
 
-    uploadVersionButton = button('上传这个版本', 'good', async () => {
+    uploadVersionButton = button('检查并上传版本', 'good', async () => {
       if (!versionQueue.count) throw new Error('请先添加至少一个版本内容文件');
-      uploadVersionButton.disabled = true;
-      versionButton.disabled = true;
-      try {
-        await workshopApi.uploadProjectVersion(project.id, {
-          changelog: changelog.value,
-          bundle: versionQueue.bundle(),
-        });
-        versionQueue.clear();
-        changelog.value = '';
-        try { host.toastr?.success?.('新版本上传成功', '创意工坊'); } catch {}
-        await refreshMine();
-      } catch (error) {
-        notifyError(error);
-      } finally {
-        if (uploadVersionButton.isConnected) uploadVersionButton.disabled = versionQueue.count === 0;
-        if (versionButton.isConnected) versionButton.disabled = false;
+
+      const artifacts = versionQueue.artifacts();
+      let resources = { worldbooks: [], scripts: [] };
+      if (artifacts.some(item => item.kind === 'worldbook' || item.kind === 'script')) {
+        try {
+          resources = await scanPublishResources();
+        } catch (error) {
+          try {
+            host.toastr?.warning?.(
+              `无法扫描当前酒馆原版资源：${error.message}。仍可上传，但不能通过界面新增替换目标。`,
+              '创意工坊',
+            );
+          } catch {}
+        }
       }
+
+      let rulesModal = null;
+      rulesModal = openModal('新版本 · 检查与安装规则 · ' + project.name, {
+        wide: true,
+        onClose: () => { rulesModal = null; },
+      });
+      const rules = createInstallRulePicker({ doc, artifacts, resources });
+      rulesModal.body.appendChild(rules.node);
+
+      const note = element('div', 'rw-maintenance-protection');
+      note.append(
+        element('strong', '', '原版内容不会被删除'),
+        element('div', '', '勾选的世界书条目或脚本只会在作品启用期间临时关闭；停用后按快照恢复。'),
+      );
+      const actions = element('div', 'rw-row rw-publish-final-actions');
+      const cancel = button('返回修改', '', () => rulesModal?.close({ force: true }));
+      const confirm = button('上传这个版本', 'good', async () => {
+        confirm.disabled = true;
+        cancel.disabled = true;
+        versionButton.disabled = true;
+        try {
+          await workshopApi.uploadProjectVersion(project.id, {
+            changelog: changelog.value,
+            bundle: versionQueue.bundle(rules.buildArtifacts()),
+          });
+          versionQueue.clear();
+          changelog.value = '';
+          rulesModal?.close({ force: true });
+          try { host.toastr?.success?.('新版本上传成功', '创意工坊'); } catch {}
+          await refreshMine();
+        } catch (error) {
+          notifyError(error);
+        } finally {
+          if (confirm.isConnected) confirm.disabled = false;
+          if (cancel.isConnected) cancel.disabled = false;
+          if (versionButton.isConnected) versionButton.disabled = false;
+          if (uploadVersionButton.isConnected) uploadVersionButton.disabled = versionQueue.count === 0;
+        }
+      });
+      actions.append(cancel, confirm);
+      rulesModal.body.append(note, actions);
     });
     uploadVersionButton.disabled = true;
 

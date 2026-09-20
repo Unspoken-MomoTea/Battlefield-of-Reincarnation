@@ -135,7 +135,22 @@ export function createAuthorView({
       option.textContent = artifactLabels[value];
       kind.appendChild(option);
     }
-    uploadBox.append(changelog, kind);
+    const scriptScope = element('select', 'rw-select');
+    for (const [value, label] of [
+      ['character', '脚本作用域：当前角色'],
+      ['preset', '脚本作用域：当前预设'],
+      ['global', '脚本作用域：全局'],
+    ]) {
+      const option = doc.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      scriptScope.appendChild(option);
+    }
+    scriptScope.hidden = true;
+    kind.addEventListener('change', () => {
+      scriptScope.hidden = kind.value !== 'script';
+    });
+    uploadBox.append(changelog, kind, scriptScope);
 
     const coverFile = element('input', '');
     coverFile.type = 'file';
@@ -184,7 +199,13 @@ export function createAuthorView({
       versionState.textContent = `正在上传：${selected.name}`;
       try {
         const raw = await selected.text();
-        const bundle = buildUploadBundle(project, selected.name, raw, kind.value);
+        const bundle = buildUploadBundle(
+          project,
+          selected.name,
+          raw,
+          kind.value,
+          { scriptScope: scriptScope.value },
+        );
         await workshopApi.uploadProjectVersion(project.id, {
           changelog: changelog.value,
           bundle,

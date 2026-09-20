@@ -171,6 +171,16 @@ export const WORKSHOP_CSS = `
   .rw-editor[hidden],.rw-upload-box[hidden],.rw-danger-zone[hidden]{display:none!important}
   .rw-field{display:grid;gap:5px}.rw-field>span{color:var(--rw-muted);font-size:11px;font-weight:650}
   .rw-file-state{min-height:18px;color:var(--rw-muted);font-size:11px}
+  .rw-artifact-list{display:grid;gap:6px;margin-top:7px}
+  .rw-artifact-list[hidden]{display:none!important}
+  .rw-artifact-row{
+    display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--rw-line);
+    border-radius:9px;background:#111216
+  }
+  .rw-artifact-row-copy{min-width:0;flex:1;display:grid;gap:2px}
+  .rw-artifact-row-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cac8c2;font-size:11px}
+  .rw-artifact-row-copy span{color:var(--rw-muted);font-size:10px}
+  .rw-artifact-remove{min-height:30px!important;padding:0 8px!important;font-size:10px!important}
 
   .rw-create-form{
     position:fixed;left:50%;top:50%;z-index:2147483500;transform:translate(-50%,-50%);
@@ -181,7 +191,8 @@ export const WORKSHOP_CSS = `
   .rw-create-form[hidden]{display:none!important}
   .rw-create-form h3{font-size:17px;margin-bottom:4px}
   .rw-create-assets{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:2px}
-  .rw-create-assets>.rw-field[data-role="create-artifact-kind"]{grid-column:1/-1}
+  .rw-create-assets>.rw-field[data-role="create-artifact-kind"],
+  .rw-create-assets>.rw-field[data-role="create-original-conflicts"]{grid-column:1/-1}
   .rw-review-toggle{
     grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--rw-line);
     border-radius:9px;background:#151619;color:#aaa8a3;font-size:12px;cursor:pointer
@@ -275,7 +286,8 @@ export const WORKSHOP_CSS = `
     .rw-page-head{align-items:flex-start}
     .rw-create-form{width:calc(100vw - 20px);max-height:calc(100dvh - 28px);padding:14px}
     .rw-create-assets{grid-template-columns:1fr}
-    .rw-create-assets>.rw-field[data-role="create-artifact-kind"],.rw-review-toggle{grid-column:1}
+    .rw-create-assets>.rw-field[data-role="create-artifact-kind"],
+    .rw-create-assets>.rw-field[data-role="create-original-conflicts"],.rw-review-toggle{grid-column:1}
     .rw-file-drop-button{min-width:100%}
     .rw-modal-backdrop{padding:0;align-items:stretch}
     .rw-modal,.rw-modal--wide{width:100%;max-height:none;height:100%;border:0;border-radius:0}

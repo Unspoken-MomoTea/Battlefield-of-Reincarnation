@@ -1,9 +1,14 @@
 export const CATEGORY_LABELS = {
+  character: '角色',
+  extension: '扩展',
+};
+
+export const ARTIFACT_LABELS = {
   worldbook: '世界书',
   regex: '正则',
+  script: '酒馆助手脚本',
   preset: '预设',
-  data: '数据包',
-  mixed: '混合包',
+  data: '数据',
 };
 
 export const STATUS_LABELS = {

@@ -6,10 +6,13 @@ export async function createInstallSnapshot(adapter, installed, plan, characterN
   const worldbookAffected = Boolean(oldTargets.worldbook || plan.worldbook.length);
   const regexAffected = Boolean((oldTargets.regexIds?.length ?? 0) || plan.regexes.length);
   const presetNames = [...new Set([...(oldTargets.presets ?? []), ...plan.presets.map(item => item.name)])];
+  const scriptScopes = ['character', 'preset', 'global'].filter(scope =>
+    Boolean((oldTargets.scripts?.[scope]?.length ?? 0) || (plan.scripts?.[scope]?.length ?? 0)),
+  );
 
   const state = {
     characterName: characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null,
-    worldbook: null, binding: null, regexes: null, presets: new Map(),
+    worldbook: null, binding: null, regexes: null, presets: new Map(), scripts: new Map(),
   };
   if (worldbookAffected) {
     const names = await maybe(adapter.getWorldbookNames());
@@ -21,6 +24,9 @@ export async function createInstallSnapshot(adapter, installed, plan, characterN
     state.binding = clone(await maybe(adapter.getCharWorldbookNames()));
   }
   if (regexAffected) state.regexes = clone(await maybe(adapter.getCharacterRegexes()));
+  for (const scope of scriptScopes) {
+    state.scripts.set(scope, clone(await maybe(adapter.getScriptTrees(scope))));
+  }
 
   const existing = new Set(await maybe(adapter.getPresetNames()));
   for (const name of presetNames) {
@@ -43,6 +49,9 @@ export async function restoreInstallSnapshot(adapter, state) {
       if (previous.existed) await maybe(adapter.createOrReplacePreset(name, previous.content));
       else await maybe(adapter.deletePreset(name));
     });
+  }
+  for (const [scope, trees] of [...state.scripts.entries()].reverse()) {
+    await attempt(() => maybe(adapter.replaceScriptTrees(trees, scope)));
   }
   if (state.regexes) await attempt(() => maybe(adapter.replaceCharacterRegexes(state.regexes)));
   if (state.worldbook) {

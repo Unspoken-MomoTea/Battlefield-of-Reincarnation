@@ -3,7 +3,7 @@ import {
   getProjectEngagementResponse, setProjectEngagementFromRequest,
 } from '../engagement.js';
 import {
-  createProject, downloadPublicProject, getPublicProject, getPublicProjectCover,
+  createProject, deleteProject, downloadPublicProject, getPublicProject, getPublicProjectCover,
   getPublicProjectVersion, getPublicProjectVersionsBatch, listOwnProjects, listPublicProjects, submitProjectForReview,
   updateProject, uploadProjectCover, uploadProjectVersion,
 } from '../projects.js';
@@ -63,6 +63,9 @@ export async function routeProjects(request, env, pathname) {
   if (request.method === 'GET' && projectId) return getPublicProject(projectId, env);
   if (request.method === 'PATCH' && projectId) {
     return updateProject(request, env, await authenticatedUser(request, env), projectId);
+  }
+  if (request.method === 'DELETE' && projectId) {
+    return deleteProject(env, await authenticatedUser(request, env), projectId);
   }
   return null;
 }

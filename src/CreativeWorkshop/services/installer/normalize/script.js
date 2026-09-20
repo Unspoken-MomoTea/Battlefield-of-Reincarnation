@@ -1,3 +1,4 @@
+import { scriptPrefix } from '../ownership.js';
 import { clone, record } from '../utils.js';
 
 export const SCRIPT_SCOPES = ['character', 'preset', 'global'];

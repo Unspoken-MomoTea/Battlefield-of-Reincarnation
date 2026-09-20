@@ -7,6 +7,7 @@ export {
 } from './projects/public.js';
 export {
   createProject,
+  deleteProject,
   listOwnProjects,
   submitProjectForReview,
   updateProject,

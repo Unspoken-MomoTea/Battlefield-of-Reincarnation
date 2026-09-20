@@ -438,3 +438,69 @@ test('original conflict uninstall restores a previously disabled entry to disabl
     { uid: 10, name: '原版已关闭规则', enabled: false, content: 'player edit' },
   ]);
 });
+
+
+test('script replacement declarations disable originals and restore them on uninstall', async () => {
+  const adapter = fakeAdapter();
+  const storage = memoryStorage(project([
+    {
+      kind: 'script',
+      name: '替代状态栏.js',
+      format: 'text',
+      scope: 'character',
+      original_conflicts: [{
+        action: 'replace',
+        target: { scope: 'character', id: 'manual-script', name: '玩家脚本' },
+      }],
+      content: "console.log('replacement')",
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  const applied = await installer.apply('project-1');
+  const original = adapter.state.scripts.character.find(item => item.id === 'manual-script');
+  assert.equal(original.enabled, false);
+  assert.equal(original.content, 'manual');
+  assert.equal(applied.installTargets.originalScriptChanges.length, 1);
+  assert.ok(adapter.state.scripts.character.some(item => String(item.id).startsWith('rw:project-1:script:')));
+
+  await installer.uninstall('project-1');
+  assert.deepEqual(adapter.state.scripts.character, [
+    { type: 'script', id: 'manual-script', name: '玩家脚本', enabled: true, content: 'manual' },
+  ]);
+});
+
+test('uninstall preserves player edits to a replaced script and only restores enabled state', async () => {
+  const adapter = fakeAdapter();
+  const storage = memoryStorage(project([
+    {
+      kind: 'script',
+      name: '替代状态栏.js',
+      format: 'text',
+      scope: 'character',
+      original_conflicts: [{
+        action: 'disable',
+        target: { scope: 'character', id: 'manual-script' },
+      }],
+      content: "console.log('replacement')",
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await installer.apply('project-1');
+  const original = adapter.state.scripts.character.find(item => item.id === 'manual-script');
+  original.content = 'player edited while extension active';
+  original.enabled = false;
+
+  const removed = await installer.uninstall('project-1');
+  assert.deepEqual(adapter.state.scripts.character, [
+    {
+      type: 'script',
+      id: 'manual-script',
+      name: '玩家脚本',
+      enabled: true,
+      content: 'player edited while extension active',
+    },
+  ]);
+  assert.match(removed.restoreWarnings.join('\n'), /仅恢复原启用状态/u);
+});

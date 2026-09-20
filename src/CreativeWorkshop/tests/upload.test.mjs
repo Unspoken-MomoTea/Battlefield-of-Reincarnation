@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildUploadBundle } from '../services/upload.js';
+import { buildUploadBundle, combineUploadBundles } from '../services/upload.js';
 
 test('project type is independent from the selected artifact kind', () => {
   const bundle = buildUploadBundle(
@@ -91,4 +91,40 @@ test('worldbook uploads can carry author-declared original conflicts', () => {
     ),
     /只有世界书 artifact/u,
   );
+});
+
+
+test('staged artifact bundles combine into one version without mutating inputs', () => {
+  const first = buildUploadBundle(
+    { category: 'extension' },
+    'book.json',
+    JSON.stringify({ entries: { 0: { comment: 'A', content: 'B' } } }),
+    'worldbook',
+  );
+  const second = buildUploadBundle(
+    { category: 'extension' },
+    'helper.js',
+    "console.log('x')",
+    'script',
+    { scriptScope: 'character' },
+  );
+  const combined = combineUploadBundles([first, second]);
+
+  assert.equal(combined.artifacts.length, 2);
+  assert.deepEqual(combined.artifacts.map(item => item.kind), ['worldbook', 'script']);
+  combined.artifacts[0].name = 'changed';
+  assert.equal(first.artifacts[0].name, 'book.json');
+});
+
+test('staged artifact bundle enforces the 32 artifact version limit', () => {
+  const bundle = {
+    schema_version: 1,
+    artifacts: Array.from({ length: 33 }, (_, index) => ({
+      kind: 'data',
+      name: `data-${index}.txt`,
+      format: 'text',
+      content: 'x',
+    })),
+  };
+  assert.throws(() => combineUploadBundles([bundle]), /32/u);
 });

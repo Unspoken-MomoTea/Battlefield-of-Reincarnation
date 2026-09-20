@@ -8,6 +8,9 @@ function baseRecord(project, manifest, bundle, previous, source) {
   const now = Date.now();
   return {
     id: project.id, name: project.name, category: project.category, version: Number(project.version),
+    summary: typeof project.summary === 'string' ? project.summary : (previous?.summary || ''),
+    ownerName: typeof project.owner_name === 'string' ? project.owner_name : (previous?.ownerName || ''),
+    hasCover: project.has_cover === undefined ? Boolean(previous?.hasCover) : Boolean(project.has_cover),
     dependencies: Array.isArray(project.dependencies)
       ? structuredClone(project.dependencies)
       : Array.isArray(manifest?.project?.dependencies)

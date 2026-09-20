@@ -17,7 +17,7 @@ export function createInstalledView({
     try {
       host.toastr?.warning?.(
         warnings.join('\n'),
-        `${name} · 原版条目保留提示`,
+        `${name} · 原版内容恢复提示`,
       );
     } catch {}
   }

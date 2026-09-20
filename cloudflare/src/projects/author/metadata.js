@@ -1,6 +1,6 @@
 import { HttpError, json, readJson } from '../../http.js';
 import {
-  categoryField, getOwnedProject, nowSeconds, optionalText, parseDependencies, parseTags,
+  getOwnedProject, nowSeconds, optionalText, parseDependencies, parseTags, projectTypeField,
   slugField, tagsField, textField, validateDependencies,
 } from '../core.js';
 
@@ -8,7 +8,7 @@ export async function createProject(request, env, user) {
   const body = await readJson(request);
   const name = textField(body?.name, 'name', { min: 1, max: 80 });
   const summary = textField(body?.summary ?? '', 'summary', { max: 2000 });
-  const category = categoryField(body?.category);
+  const category = projectTypeField(body?.category);
   const tags = tagsField(body?.tags) ?? [];
   const id = crypto.randomUUID();
   const dependencies = await validateDependencies(env, id, body?.dependencies ?? []);
@@ -19,8 +19,8 @@ export async function createProject(request, env, user) {
   const now = nowSeconds();
   await env.DB.prepare(
     `INSERT INTO projects
-      (id, owner_user_id, slug, name, summary, tags, dependencies, category, status, latest_version, published_version, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', 0, 0, ?, ?)`,
+      (id, owner_user_id, slug, name, summary, tags, dependencies, category, project_type, status, latest_version, published_version, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'mixed', ?, 'draft', 0, 0, ?, ?)`,
   ).bind(id, user.id, slug, name, summary, JSON.stringify(tags), JSON.stringify(dependencies), category, now, now).run();
   return json({ project: { id, slug, name, summary, tags, dependencies, category, status: 'draft', latest_version: 0, published_version: 0, created_at: now, updated_at: now } }, 201);
 }
@@ -32,7 +32,7 @@ export async function updateProject(request, env, user, projectId) {
   const body = await readJson(request);
   const name = optionalText(body?.name, 'name', 80);
   const summary = optionalText(body?.summary, 'summary', 2000);
-  const category = body?.category === undefined ? undefined : categoryField(body.category);
+  const category = body?.category === undefined ? undefined : projectTypeField(body.category);
   const tags = tagsField(body?.tags);
   const dependencies = body?.dependencies === undefined
     ? undefined
@@ -50,14 +50,14 @@ export async function updateProject(request, env, user, projectId) {
     dependencies: dependencies ?? parseDependencies(project.dependencies),
   };
   const now = nowSeconds();
-  await env.DB.prepare('UPDATE projects SET name = ?, summary = ?, tags = ?, dependencies = ?, category = ?, updated_at = ? WHERE id = ?')
+  await env.DB.prepare('UPDATE projects SET name = ?, summary = ?, tags = ?, dependencies = ?, project_type = ?, updated_at = ? WHERE id = ?')
     .bind(next.name, next.summary, JSON.stringify(next.tags), JSON.stringify(next.dependencies), next.category, now, projectId).run();
 
   if (Number(project.latest_version) > 0) {
     const latest = await env.DB.prepare('SELECT review_status FROM project_versions WHERE project_id = ? AND version = ?')
       .bind(projectId, project.latest_version).first();
     if (latest && ['draft', 'rejected'].includes(latest.review_status)) {
-      await env.DB.prepare('UPDATE project_versions SET name = ?, summary = ?, tags = ?, dependencies = ?, category = ? WHERE project_id = ? AND version = ?')
+      await env.DB.prepare('UPDATE project_versions SET name = ?, summary = ?, tags = ?, dependencies = ?, project_type = ? WHERE project_id = ? AND version = ?')
         .bind(next.name, next.summary, JSON.stringify(next.tags), JSON.stringify(next.dependencies), next.category, projectId, project.latest_version).run();
     }
   }

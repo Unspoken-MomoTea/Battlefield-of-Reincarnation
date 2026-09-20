@@ -1,5 +1,5 @@
 import { buildUploadBundle } from '../services/upload.js';
-import { CATEGORY_LABELS, STATUS_LABELS } from '../ui/constants.js';
+import { ARTIFACT_LABELS, CATEGORY_LABELS, STATUS_LABELS } from '../ui/constants.js';
 import { createAdminView } from '../views/admin.js';
 import { createAuthorView } from '../views/author.js';
 import { createDiscoverView } from '../views/discover.js';
@@ -35,6 +35,7 @@ export function createWorkshopViews(context) {
       buildUploadBundle,
       doc: context.doc,
       categoryLabels: CATEGORY_LABELS,
+      artifactLabels: ARTIFACT_LABELS,
       statusLabels: STATUS_LABELS,
       getAuth: context.getAuth,
     }),

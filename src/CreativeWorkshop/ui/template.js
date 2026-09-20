@@ -82,6 +82,11 @@ export function workshopTemplate(version) {
                 <option value="global">全局</option>
               </select>
             </label>
+            <label class="rw-field" data-role="create-original-conflicts">
+              <span>需要临时关闭的原版世界书条目（可选）</span>
+              <textarea class="rw-textarea" name="original_conflicts" placeholder="每行一条：世界书名 | UID | 条目名&#10;UID 可留空，例如：角色原世界书 | | 原版规则"></textarea>
+              <small class="rw-muted">仅对单个世界书文件生效。安装前会确认目标唯一存在；卸载时若玩家修改过原条目，不会强行覆盖。</small>
+            </label>
           </div>
           <div class="rw-row">
             <button class="rw-button primary" type="submit">下一步</button>

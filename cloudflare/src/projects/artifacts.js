@@ -94,7 +94,12 @@ function validateScriptTree(value, name, path = '脚本') {
       throw new HttpError(400, 'invalid_script', `${name} 的脚本文件夹结构无效`);
     }
     if (value.scripts.length > 100) throw new HttpError(400, 'script_too_large', `${name} 的脚本文件夹超过 100 个脚本`);
-    value.scripts.forEach((script, index) => validateScriptTree(script, name, `脚本文件夹第 ${index + 1} 项`));
+    value.scripts.forEach((script, index) => {
+      if (script?.type === 'folder') {
+        throw new HttpError(400, 'invalid_script', `${name} 的脚本文件夹不支持嵌套文件夹`);
+      }
+      validateScriptTree(script, name, `脚本文件夹第 ${index + 1} 项`);
+    });
     return;
   }
   if (value.type !== 'script') throw new HttpError(400, 'invalid_script', `${name} 的脚本 type 必须为 script 或 folder`);

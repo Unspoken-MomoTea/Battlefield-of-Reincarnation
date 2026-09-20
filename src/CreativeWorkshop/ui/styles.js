@@ -192,6 +192,28 @@ export const WORKSHOP_CSS = `
   .rw-card-menu-dropdown[hidden]{display:none!important}
   .rw-card-menu-dropdown .rw-button{justify-content:flex-start;width:100%;text-align:left;background:transparent;border-color:transparent}
 
+  .rw-modal-backdrop{
+    position:absolute;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
+    padding:18px;background:rgba(5,6,8,.74);backdrop-filter:blur(8px);box-sizing:border-box
+  }
+  .rw-modal{
+    width:min(620px,96%);max-height:min(760px,92%);display:flex;flex-direction:column;overflow:hidden;
+    border:1px solid var(--rw-line-strong);border-radius:14px;background:#1a1b1f;
+    box-shadow:0 24px 70px rgba(0,0,0,.55)
+  }
+  .rw-modal--wide{width:min(920px,96%)}
+  .rw-modal-head{
+    flex:none;display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--rw-line);
+    background:#1d1e22
+  }
+  .rw-modal-head h2{min-width:0;flex:1;margin:0;color:var(--rw-text);font-size:16px;font-weight:800}
+  .rw-modal-close{
+    width:36px!important;min-width:36px!important;height:36px!important;min-height:36px!important;padding:0!important;
+    display:grid!important;place-items:center;font-size:22px!important;line-height:1!important
+  }
+  .rw-modal-body{min-height:0;overflow:auto;padding:14px;display:grid;gap:12px}
+  .rw-modal-body>.rw-editor,.rw-modal-body>.rw-upload-box,.rw-modal-body>.rw-danger-zone{background:#151619}
+
   @media(max-width:760px){
     .rw-overlay{padding:0;align-items:stretch}
     .rw-panel{
@@ -219,6 +241,9 @@ export const WORKSHOP_CSS = `
     .rw-page-head{align-items:flex-start}
     .rw-create-form{width:calc(100vw - 20px);max-height:calc(100dvh - 28px);padding:14px}
     .rw-file-drop-button{min-width:100%}
+    .rw-modal-backdrop{padding:0;align-items:stretch}
+    .rw-modal,.rw-modal--wide{width:100%;max-height:none;height:100%;border:0;border-radius:0}
+    .rw-modal-body{padding:12px 12px calc(18px + env(safe-area-inset-bottom))}
   }
 
   @media(max-width:420px){

@@ -90,7 +90,7 @@ async function setup() {
     new Request('https://workshop.example/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: '封面测试', summary: '', category: 'worldbook' }),
+      body: JSON.stringify({ name: '封面测试', summary: '', category: 'extension' }),
     }),
     env,
     author,

@@ -9,7 +9,14 @@ export function buildArtifactPlan(installed) {
   if (!bundle || bundle.schema_version !== 1 || !Array.isArray(bundle.artifacts)) {
     throw new Error('本地作品包无效，请重新下载');
   }
-  const plan = { worldbook: [], regexes: [], presets: [], scripts: { character: [], preset: [], global: [] }, data: [] };
+  const plan = {
+    worldbook: [],
+    regexes: [],
+    presets: [],
+    scripts: { character: [], preset: [], global: [] },
+    data: [],
+    originalConflicts: [],
+  };
   bundle.artifacts.forEach((artifact, index) => {
     if (artifact.kind === 'worldbook') {
       plan.worldbook.push(...normalizeWorldbookArtifact(artifact.content).map(entry => ({
@@ -23,6 +30,13 @@ export function buildArtifactPlan(installed) {
           },
         },
       })));
+      for (const conflict of artifact.original_conflicts || []) {
+        plan.originalConflicts.push({
+          ...clone(conflict),
+          artifactIndex: index,
+          artifactName: artifact.name,
+        });
+      }
       return;
     }
     if (artifact.kind === 'regex') {

@@ -25,6 +25,11 @@ function fakeAdapter() {
     binding: { primary: null, additional: [] },
     regexes: [{ id: 'manual', script_name: '玩家正则' }],
     presets: new Map(),
+    scripts: {
+      character: [{ type: 'script', id: 'manual-script', name: '玩家脚本', enabled: true, content: 'manual' }],
+      preset: [],
+      global: [],
+    },
     failPreset: '',
   };
   return {
@@ -38,6 +43,8 @@ function fakeAdapter() {
     rebindCharWorldbooks: binding => { state.binding = structuredClone(binding); },
     getCharacterRegexes: () => structuredClone(state.regexes),
     replaceCharacterRegexes: regexes => { state.regexes = structuredClone(regexes); },
+    getScriptTrees: scope => structuredClone(state.scripts[scope] ?? []),
+    replaceScriptTrees: (trees, scope) => { state.scripts[scope] = structuredClone(trees); },
     getPresetNames: () => [...state.presets.keys()],
     getPreset: name => structuredClone(state.presets.get(name)),
     createOrReplacePreset: (name, preset) => {
@@ -191,4 +198,82 @@ test('preset names are namespaced by project id and artifact index', () => {
   assert.notEqual(first, third);
   assert.match(first, /aaaaaaaa-1$/u);
   assert.ok(first.length <= 120);
+});
+
+
+test('Tavern Helper script artifacts install enabled, update in place, and uninstall without touching user scripts', async () => {
+  const adapter = fakeAdapter();
+  const storage = memoryStorage(project([
+    {
+      kind: 'script',
+      name: '状态栏.js',
+      format: 'text',
+      scope: 'character',
+      content: "console.log('v1')",
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  const first = await installer.apply('project-1');
+  assert.equal(first.applied, true);
+  assert.equal(first.installTargets.scripts.character.length, 1);
+  assert.equal(adapter.state.scripts.character.length, 2);
+  const installedScript = adapter.state.scripts.character.find(item => item.id !== 'manual-script');
+  assert.ok(installedScript);
+  assert.equal(installedScript.enabled, true);
+  assert.equal(installedScript.content, "console.log('v1')");
+  assert.equal(installedScript.data.reincarnationWorkshop.projectId, 'project-1');
+
+  await storage.putInstalledProject({
+    ...storage.current(),
+    version: 3,
+    bundle: {
+      schema_version: 1,
+      artifacts: [{
+        kind: 'script',
+        name: '状态栏.js',
+        format: 'text',
+        scope: 'character',
+        content: "console.log('v2')",
+      }],
+    },
+  });
+  await installer.apply('project-1');
+
+  const updatedOwned = adapter.state.scripts.character.filter(item => item.id !== 'manual-script');
+  assert.equal(updatedOwned.length, 1);
+  assert.equal(updatedOwned[0].content, "console.log('v2')");
+  assert.equal(updatedOwned[0].data.reincarnationWorkshop.projectVersion, 3);
+  assert.ok(adapter.state.scripts.character.some(item => item.id === 'manual-script'));
+
+  await installer.uninstall('project-1');
+  assert.deepEqual(adapter.state.scripts.character, [
+    { type: 'script', id: 'manual-script', name: '玩家脚本', enabled: true, content: 'manual' },
+  ]);
+});
+
+test('script tree mutations roll back when a later install step fails', async () => {
+  const adapter = fakeAdapter();
+  const targetPreset = '[创意工坊] 测试作品 · 预设.json · project--1';
+  adapter.state.failPreset = targetPreset;
+  const originalScripts = structuredClone(adapter.state.scripts.character);
+  const storage = memoryStorage(project([
+    {
+      kind: 'script',
+      name: '状态栏.js',
+      format: 'text',
+      scope: 'character',
+      content: "console.log('new')",
+    },
+    {
+      kind: 'preset',
+      name: '预设.json',
+      format: 'json',
+      content: { settings: { temperature: 0.8 } },
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await assert.rejects(() => installer.apply('project-1'), /preset write failed/u);
+  assert.deepEqual(adapter.state.scripts.character, originalScripts);
 });

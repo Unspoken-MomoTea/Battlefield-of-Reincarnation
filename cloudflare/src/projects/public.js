@@ -2,9 +2,18 @@ import { recordProjectDownload } from '../engagement.js';
 import { HttpError, json } from '../http.js';
 import { pageParams, projectPublic } from './core.js';
 
+const PUBLIC_SORT_SQL = {
+  latest: 'COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
+  popular: '(p.likes_count * 3 + p.favorites_count * 4 + p.downloads_count) DESC, COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
+  downloads: 'p.downloads_count DESC, COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
+  likes: 'p.likes_count DESC, COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
+  favorites: 'p.favorites_count DESC, COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
+};
+
 export async function listPublicProjects(request, env) {
-  const { query, category, tag, limit, offset } = pageParams(request);
+  const { query, category, tag, sort, limit, offset } = pageParams(request);
   const like = `%${query}%`;
+  const orderBy = PUBLIC_SORT_SQL[sort];
   const result = await env.DB.prepare(
     `SELECT p.id, p.slug,
             v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
@@ -22,7 +31,7 @@ export async function listPublicProjects(request, env) {
         AND (? = '' OR EXISTS (
           SELECT 1 FROM json_each(v.tags) tag_value WHERE tag_value.value = ?
         ))
-      ORDER BY COALESCE(v.reviewed_at, v.created_at) DESC
+      ORDER BY ${orderBy}
       LIMIT ? OFFSET ?`,
   )
     .bind(query, like, like, category, category, tag, tag, limit + 1, offset)

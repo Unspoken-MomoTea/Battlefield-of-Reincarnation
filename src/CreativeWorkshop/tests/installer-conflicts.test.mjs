@@ -107,3 +107,63 @@ test('preflight blocks missing and ambiguous original worldbook conflict targets
     ['original_conflict_target_missing'],
   );
 });
+
+
+test('preflight validates original Tavern Helper script replacement targets', async () => {
+  const adapter = fakeAdapter();
+
+  const valid = project([
+    {
+      kind: 'script',
+      name: '替代脚本.js',
+      format: 'text',
+      scope: 'character',
+      original_conflicts: [{
+        action: 'replace',
+        target: { scope: 'character', id: 'manual-script' },
+      }],
+      content: "console.log('replacement')",
+    },
+  ]);
+  const validResult = await analyzeInstallConflicts(adapter, valid, buildArtifactPlan(valid));
+  assert.equal(validResult.blocking.length, 0);
+
+  const missing = project([
+    {
+      kind: 'script',
+      name: '替代脚本.js',
+      format: 'text',
+      scope: 'character',
+      original_conflicts: [{
+        action: 'disable',
+        target: { scope: 'character', id: 'missing-script' },
+      }],
+      content: "console.log('replacement')",
+    },
+  ]);
+  const missingResult = await analyzeInstallConflicts(adapter, missing, buildArtifactPlan(missing));
+  assert.deepEqual(missingResult.blocking.map(item => item.type), ['original_script_target_missing']);
+
+  adapter.state.scripts.character.push({
+    type: 'script',
+    id: 'another-script',
+    name: '玩家脚本',
+    enabled: true,
+    content: 'another',
+  });
+  const ambiguous = project([
+    {
+      kind: 'script',
+      name: '替代脚本.js',
+      format: 'text',
+      scope: 'character',
+      original_conflicts: [{
+        action: 'disable',
+        target: { scope: 'character', name: '玩家脚本' },
+      }],
+      content: "console.log('replacement')",
+    },
+  ]);
+  const ambiguousResult = await analyzeInstallConflicts(adapter, ambiguous, buildArtifactPlan(ambiguous));
+  assert.deepEqual(ambiguousResult.blocking.map(item => item.type), ['original_script_target_ambiguous']);
+});

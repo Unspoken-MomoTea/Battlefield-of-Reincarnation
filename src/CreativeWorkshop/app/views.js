@@ -21,6 +21,7 @@ export function createWorkshopViews(context) {
       projectService: context.projectService,
       workshopApi: context.workshopApi,
       categoryLabels: CATEGORY_LABELS,
+      artifactLabels: ARTIFACT_LABELS,
       getAuth: context.getAuth,
     }),
     installed: createInstalledView({
@@ -43,6 +44,7 @@ export function createWorkshopViews(context) {
       ...common,
       workshopApi: context.workshopApi,
       categoryLabels: CATEGORY_LABELS,
+      artifactLabels: ARTIFACT_LABELS,
       getAuth: context.getAuth,
     }),
   };

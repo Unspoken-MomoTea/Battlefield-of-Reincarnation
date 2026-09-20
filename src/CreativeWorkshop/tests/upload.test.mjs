@@ -81,15 +81,28 @@ test('worldbook uploads can carry author-declared original conflicts', () => {
   assert.deepEqual(result.artifacts[0].original_conflicts, conflicts);
   assert.notEqual(result.artifacts[0].original_conflicts, conflicts);
 
+  const scriptConflicts = [{
+    action: 'replace',
+    target: { scope: 'character', id: 'old-script', name: '旧脚本' },
+  }];
+  const scriptResult = buildUploadBundle(
+    { category: 'extension' },
+    'helper.js',
+    "console.log('x')",
+    'script',
+    { scriptScope: 'character', originalConflicts: scriptConflicts },
+  );
+  assert.deepEqual(scriptResult.artifacts[0].original_conflicts, scriptConflicts);
+
   assert.throws(
     () => buildUploadBundle(
       { category: 'extension' },
-      'helper.js',
-      "console.log('x')",
-      'script',
+      'notes.txt',
+      'x',
+      'data',
       { originalConflicts: conflicts },
     ),
-    /只有世界书 artifact/u,
+    /只有世界书或脚本 artifact/u,
   );
 });
 

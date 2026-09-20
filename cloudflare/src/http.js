@@ -32,7 +32,7 @@ export function withCors(response, request) {
   const headers = new Headers(response.headers);
   headers.set('Access-Control-Allow-Origin', request.headers.get('Origin') || '*');
   headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-  headers.set('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   headers.set('Vary', 'Origin');
   return new Response(response.body, {
     status: response.status,

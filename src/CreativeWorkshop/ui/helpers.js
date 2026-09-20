@@ -34,7 +34,7 @@ export function createUiHelpers(doc, host, mount = doc.body) {
     container.replaceChildren(element('div', 'rw-empty', text));
   }
 
-  function openModal(title, { wide = false, onClose = null } = {}) {
+  function openModal(title, { wide = false, onClose = null, confirmDiscard = false } = {}) {
     const backdrop = element('div', 'rw-modal-backdrop');
     const panel = element('section', `rw-modal${wide ? ' rw-modal--wide' : ''}`);
     panel.setAttribute('role', 'dialog');
@@ -51,8 +51,13 @@ export function createUiHelpers(doc, host, mount = doc.body) {
     backdrop.appendChild(panel);
 
     let closed = false;
-    const close = () => {
+    let dirty = false;
+    const close = ({ force = false } = {}) => {
       if (closed) return;
+      if (!force && confirmDiscard && dirty) {
+        const confirmed = host.confirm?.('有未提交的修改，确定放弃吗？');
+        if (!confirmed) return;
+      }
       closed = true;
       host.removeEventListener?.('keydown', onKeyDown);
       backdrop.remove();
@@ -64,9 +69,25 @@ export function createUiHelpers(doc, host, mount = doc.body) {
     backdrop.addEventListener('click', event => {
       if (event.target === backdrop) close();
     });
+    if (confirmDiscard) {
+      panel.addEventListener('input', event => {
+        if (event.target.closest('form,input,textarea,select')) dirty = true;
+      });
+      panel.addEventListener('change', event => {
+        if (event.target.closest('form,input,textarea,select')) dirty = true;
+      });
+    }
     host.addEventListener?.('keydown', onKeyDown);
     mount.appendChild(backdrop);
-    return { root: backdrop, panel, body, close };
+    return {
+      root: backdrop,
+      panel,
+      body,
+      close,
+      markDirty() { dirty = true; },
+      markClean() { dirty = false; },
+      isDirty() { return dirty; },
+    };
   }
 
   return { element, button, notifyError, empty, openModal };

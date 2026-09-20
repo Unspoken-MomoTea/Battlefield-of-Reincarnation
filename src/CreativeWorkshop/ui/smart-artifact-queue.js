@@ -1,6 +1,6 @@
 import { ARTIFACT_LABELS } from './constants.js';
 import { buildUploadBundle, combineUploadBundles } from '../services/upload.js';
-import { buildDetectedUploadBundle } from '../services/upload-detect.js';
+import { buildDetectedUploadBundle, detectUploadKind } from '../services/upload-detect.js';
 
 const KINDS = ['worldbook', 'regex', 'script', 'preset', 'data'];
 const SCRIPT_SCOPE_LABELS = {
@@ -144,18 +144,43 @@ export function createSmartArtifactQueue({
     list.hidden = false;
   }
 
-  async function addFiles(files) {
+  async function addFilesInternal(files, forcedKind = '') {
     const selected = Array.from(files || []);
     if (!selected.length) return;
 
     const pending = [];
     for (const file of selected) {
       const rawText = await file.text();
-      const { bundle, detected } = buildDetectedUploadBundle(
-        getProject(),
-        file.name,
-        rawText,
-      );
+      let result;
+      if (forcedKind) {
+        const detected = detectUploadKind(file.name, rawText);
+        if (
+          detected.kind !== 'bundle' &&
+          detected.kind !== forcedKind &&
+          detected.confidence === 'certain'
+        ) {
+          throw new Error(`${file.name} 看起来是“${ARTIFACT_LABELS[detected.kind] || detected.kind}”，不是“${ARTIFACT_LABELS[forcedKind] || forcedKind}”`);
+        }
+        const bundle = buildUploadBundle(
+          getProject(),
+          file.name,
+          rawText,
+          forcedKind,
+          { scriptScope: 'character' },
+        );
+        result = {
+          bundle,
+          detected: {
+            kind: forcedKind,
+            confidence: detected.kind === forcedKind ? detected.confidence : 'chosen',
+            reason: detected.kind === forcedKind ? detected.reason : '由上传入口指定',
+          },
+        };
+      } else {
+        result = buildDetectedUploadBundle(getProject(), file.name, rawText);
+      }
+
+      const { bundle, detected } = result;
       const isBundle = detected.kind === 'bundle';
       for (const artifact of bundle.artifacts) {
         pending.push({
@@ -174,9 +199,18 @@ export function createSmartArtifactQueue({
       throw new Error('单个版本最多允许 32 个 artifact');
     }
     items.push(...pending);
-    input.value = '';
+    if (input) input.value = '';
     render();
     emit();
+  }
+
+  async function addFiles(files) {
+    return addFilesInternal(files, '');
+  }
+
+  async function addFilesAs(files, kind) {
+    if (!KINDS.includes(kind)) throw new Error(`不支持的内容类型：${kind}`);
+    return addFilesInternal(files, kind);
   }
 
   function clear() {
@@ -216,6 +250,7 @@ export function createSmartArtifactQueue({
 
   const api = {
     addFiles,
+    addFilesAs,
     clear,
     artifacts,
     setArtifacts,

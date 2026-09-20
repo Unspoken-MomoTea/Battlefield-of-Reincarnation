@@ -168,3 +168,48 @@ test('published metadata remains frozen until a new version is approved', async 
   assert.equal(detail.project.summary, '草稿简介 v2');
   assert.deepEqual(detail.project.tags, ['v2']);
 });
+
+
+test('project type filters character and extension independently from artifact kinds', async () => {
+  const { env, author, admin } = setup();
+
+  const extension = await responseJson(
+    await createProject(
+      request('/api/projects', 'POST', {
+        name: '扩展作品',
+        summary: '',
+        category: 'extension',
+      }),
+      env,
+      author,
+    ),
+  );
+  await publishVersion(env, author, admin, extension.project.id, bundle('extension-book'));
+
+  const character = await responseJson(
+    await createProject(
+      request('/api/projects', 'POST', {
+        name: '角色作品',
+        summary: '',
+        category: 'character',
+      }),
+      env,
+      author,
+    ),
+  );
+  await publishVersion(env, author, admin, character.project.id, bundle('character-book'));
+
+  const characterList = await responseJson(
+    await listPublicProjects(request('/api/projects?category=character'), env),
+  );
+  assert.equal(characterList.items.length, 1);
+  assert.equal(characterList.items[0].id, character.project.id);
+  assert.equal(characterList.items[0].category, 'character');
+
+  const extensionList = await responseJson(
+    await listPublicProjects(request('/api/projects?category=extension'), env),
+  );
+  assert.equal(extensionList.items.length, 1);
+  assert.equal(extensionList.items[0].id, extension.project.id);
+  assert.equal(extensionList.items[0].category, 'extension');
+});

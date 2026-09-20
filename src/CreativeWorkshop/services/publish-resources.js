@@ -50,8 +50,10 @@ function flattenScripts(trees, scope) {
 
 export async function scanPublishResources(adapter = createTavernAdapter()) {
   const [names, binding] = await Promise.all([
-    adapter.getWorldbookNames(),
-    adapter.getCharWorldbookNames().catch(() => ({ primary: null, additional: [] })),
+    Promise.resolve(adapter.getWorldbookNames()),
+    Promise.resolve()
+      .then(() => adapter.getCharWorldbookNames())
+      .catch(() => ({ primary: null, additional: [] })),
   ]);
   const bound = new Set([
     binding?.primary,
@@ -83,7 +85,9 @@ export async function scanPublishResources(adapter = createTavernAdapter()) {
   }
 
   return {
-    characterName: await adapter.getCurrentCharacterName().catch(() => ''),
+    characterName: await Promise.resolve()
+      .then(() => adapter.getCurrentCharacterName())
+      .catch(() => ''),
     worldbooks,
     scripts,
   };

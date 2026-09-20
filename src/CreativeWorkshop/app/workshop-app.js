@@ -79,7 +79,7 @@ export function bootWorkshop() {
 
   bindWorkshopEvents({
     host, doc, overlay, nodes, views, workshopApi, projectService,
-    notifyError: ui.notifyError, showTab, getActiveTab: () => activeTab, setAuth, close,
+    notifyError: ui.notifyError, openModal: ui.openModal, showTab, getActiveTab: () => activeTab, setAuth, close,
   });
 
   const refresh = async () => {

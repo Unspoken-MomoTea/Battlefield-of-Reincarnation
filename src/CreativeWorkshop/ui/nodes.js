@@ -41,5 +41,6 @@ export function collectWorkshopNodes(overlay) {
     createCoverState: query('[data-role="create-cover-state"]'),
     createArtifactKind: query('[data-role="create-artifact-kind"]'),
     createScriptScope: query('[data-role="create-script-scope"]'),
+    createOriginalConflicts: query('[data-role="create-original-conflicts"]'),
   };
 }

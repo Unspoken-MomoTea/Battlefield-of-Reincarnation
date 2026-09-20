@@ -10,6 +10,17 @@ export function createInstalledView({
   doc,
   categoryLabels,
 }) {
+  function showRestoreWarnings(result, name) {
+    const warnings = Array.isArray(result?.restoreWarnings) ? result.restoreWarnings : [];
+    if (!warnings.length) return;
+    try {
+      host.toastr?.warning?.(
+        warnings.join('\n'),
+        `${name} · 原版条目保留提示`,
+      );
+    } catch {}
+  }
+
   function formatBytes(bytes) {
     const value = Number(bytes || 0);
     if (value < 1024) return `${value} B`;
@@ -112,6 +123,7 @@ export function createInstalledView({
           }
           const result = await projectService.apply(item.id);
           try { host.toastr?.success?.(`已应用 ${result.name} v${result.appliedVersion}`, '创意工坊'); } catch {}
+          showRestoreWarnings(result, item.name);
           await refreshInstalled();
         }),
       );
@@ -141,8 +153,9 @@ export function createInstalledView({
         );
         actions.appendChild(
           button('卸载', 'danger', async () => {
-            await projectService.uninstall(item.id);
+            const result = await projectService.uninstall(item.id);
             try { host.toastr?.success?.(`已卸载 ${item.name}`, '创意工坊'); } catch {}
+            showRestoreWarnings(result, item.name);
             await refreshInstalled();
           }),
         );
@@ -164,6 +177,7 @@ export function createInstalledView({
             item.name,
           );
         } catch {}
+        showRestoreWarnings(updated, item.name);
         await refreshInstalled();
       }));
       actions.appendChild(button('导出离线包', '', async () => {

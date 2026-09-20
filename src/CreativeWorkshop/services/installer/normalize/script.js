@@ -3,10 +3,6 @@ import { clone, record } from '../utils.js';
 
 export const SCRIPT_SCOPES = ['character', 'preset', 'global'];
 
-export function scriptPrefix(projectId) {
-  return `rw:${projectId}:script:`;
-}
-
 function baseOwnership(installed, artifactIndex, artifactName, sourceId = '') {
   return {
     projectId: installed.id,

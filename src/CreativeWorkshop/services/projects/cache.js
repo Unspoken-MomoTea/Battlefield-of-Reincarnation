@@ -17,6 +17,9 @@ function baseRecord(project, manifest, bundle, previous, source) {
     applied: previous?.applied ?? false, appliedVersion: previous?.appliedVersion ?? null,
     appliedAt: previous?.appliedAt ?? null, targetCharacterName: previous?.targetCharacterName ?? null,
     installTargets: previous?.installTargets ?? null, applyError: previous?.applyError ?? '',
+    restoreWarnings: previous?.restoreWarnings ?? [],
+    unrestoredOriginals: previous?.unrestoredOriginals ?? [],
+    repairState: previous?.repairState ?? null,
   };
 }
 

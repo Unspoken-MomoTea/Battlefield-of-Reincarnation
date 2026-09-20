@@ -351,6 +351,8 @@ export const WORKSHOP_CSS = `
   }
   .rw-resource-option:last-child{border-bottom:0}
   .rw-resource-option:hover{background:rgba(255,255,255,.025)}
+  .rw-resource-option.is-disabled{opacity:.48;cursor:not-allowed}
+  .rw-resource-option.is-disabled:hover{background:transparent}
   .rw-resource-option input{accent-color:var(--rw-accent)}
   .rw-resource-option>span{min-width:0;display:grid;gap:2px}
   .rw-resource-option strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c8c5be;font-size:10px}

@@ -8,10 +8,6 @@ export function createAdminApi(request, requestRaw) {
       return request(`/api/admin/projects?${params}`, {}, true);
     },
 
-    listPendingProjects() {
-      return request('/api/admin/pending', {}, true);
-    },
-
     getPendingReview(projectId) {
       return request(`/api/admin/projects/${encodeURIComponent(projectId)}/review`, {}, true);
     },

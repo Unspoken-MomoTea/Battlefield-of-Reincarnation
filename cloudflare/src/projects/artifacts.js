@@ -11,6 +11,44 @@ function structuredArtifactContent(artifact, name) {
   catch { throw new HttpError(400, 'invalid_artifact_content', `${name} 必须包含有效 JSON`); }
 }
 
+function normalizeOriginalConflicts(value, artifactName) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new HttpError(400, 'invalid_original_conflicts', `${artifactName} 的 original_conflicts 必须是数组`);
+  }
+  if (value.length > 100) {
+    throw new HttpError(400, 'original_conflicts_too_large', `${artifactName} 的原版冲突声明超过 100 条`);
+  }
+
+  return value.map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new HttpError(400, 'invalid_original_conflicts', `${artifactName} 的第 ${index + 1} 条原版冲突无效`);
+    }
+    const action = String(item.action || '');
+    if (!['disable', 'replace'].includes(action)) {
+      throw new HttpError(400, 'invalid_original_conflict_action', `${artifactName} 的第 ${index + 1} 条原版冲突动作无效`);
+    }
+    const target = item.target;
+    if (!target || typeof target !== 'object' || Array.isArray(target)) {
+      throw new HttpError(400, 'invalid_original_conflict_target', `${artifactName} 的第 ${index + 1} 条原版冲突缺少 target`);
+    }
+    const worldbook = String(target.worldbook || '').trim();
+    const uid = String(target.uid ?? '').trim();
+    const name = String(target.name || '').trim();
+    if (!uid && !name) {
+      throw new HttpError(400, 'invalid_original_conflict_target', `${artifactName} 的第 ${index + 1} 条原版冲突至少需要 uid 或 name`);
+    }
+    return {
+      action,
+      target: {
+        ...(worldbook ? { worldbook } : {}),
+        ...(uid ? { uid } : {}),
+        ...(name ? { name } : {}),
+      },
+    };
+  });
+}
+
 function validateWorldbookContent(artifact, name) {
   const parsed = structuredArtifactContent(artifact, name);
   const entries = Array.isArray(parsed) ? parsed : parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed.entries : null;
@@ -107,6 +145,10 @@ export function validateBundle(bundle, projectCategory) {
       catch { throw new HttpError(400, 'invalid_artifact_content', `${name} 不是可序列化 JSON`); }
     }
     const normalizedArtifact = { kind, format, name, content: normalizedContent };
+    if (kind === 'worldbook') {
+      const originalConflicts = normalizeOriginalConflicts(value.original_conflicts, name);
+      if (originalConflicts.length) normalizedArtifact.original_conflicts = originalConflicts;
+    }
     if (kind === 'script') {
       const scope = String(value.scope || 'character');
       if (!['character', 'preset', 'global'].includes(scope)) {

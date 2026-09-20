@@ -83,23 +83,35 @@ export function createSmartArtifactQueue({
       const controls = doc.createElement('div');
       controls.className = 'rw-smart-artifact-controls';
 
-      if (!item.locked) {
-        const kind = doc.createElement('select');
-        kind.className = 'rw-select rw-smart-kind';
-        for (const value of KINDS) {
-          const option = doc.createElement('option');
-          option.value = value;
-          option.textContent = ARTIFACT_LABELS[value] || value;
-          option.selected = value === item.artifact.kind;
-          kind.appendChild(option);
+      if (item.locked) {
+        const locked = doc.createElement('span');
+        locked.className = 'rw-pill';
+        locked.textContent = '完整 bundle';
+        controls.appendChild(locked);
+      } else {
+        if (item.typeLocked) {
+          const type = doc.createElement('span');
+          type.className = 'rw-pill rw-smart-kind-pill';
+          type.textContent = ARTIFACT_LABELS[item.artifact.kind] || item.artifact.kind;
+          controls.appendChild(type);
+        } else {
+          const kind = doc.createElement('select');
+          kind.className = 'rw-select rw-smart-kind';
+          for (const value of KINDS) {
+            const option = doc.createElement('option');
+            option.value = value;
+            option.textContent = ARTIFACT_LABELS[value] || value;
+            option.selected = value === item.artifact.kind;
+            kind.appendChild(option);
+          }
+          kind.title = '自动识别有误时可手动修改';
+          kind.addEventListener('change', () => {
+            rebuildItem(item, kind.value);
+            render();
+            emit();
+          });
+          controls.appendChild(kind);
         }
-        kind.title = '自动识别有误时可手动修改';
-        kind.addEventListener('change', () => {
-          rebuildItem(item, kind.value);
-          render();
-          emit();
-        });
-        controls.appendChild(kind);
 
         if (item.artifact.kind === 'script') {
           const scope = doc.createElement('select');
@@ -118,11 +130,6 @@ export function createSmartArtifactQueue({
           });
           controls.appendChild(scope);
         }
-      } else {
-        const locked = doc.createElement('span');
-        locked.className = 'rw-pill';
-        locked.textContent = '完整 bundle';
-        controls.appendChild(locked);
       }
 
       const remove = doc.createElement('button');
@@ -191,6 +198,7 @@ export function createSmartArtifactQueue({
             ? { kind: artifact.kind, confidence: 'certain', reason: '来自完整 bundle' }
             : clone(detected),
           locked: isBundle,
+          typeLocked: Boolean(forcedKind),
         });
       }
     }

@@ -31,7 +31,7 @@ export function bootWorkshop() {
   function showTab(name) {
     if (name === 'admin' && !Number(auth?.user?.is_admin)) return;
     activeTab = name;
-    overlay.querySelectorAll('.rw-tab').forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === name));
+    overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === name));
     overlay.querySelectorAll('.rw-section').forEach(section => { section.hidden = section.dataset.section !== name; });
     const view = { discover: views.discover, installed: views.installed, mine: views.author, admin: views.admin }[name];
     if (view) void view.refresh();

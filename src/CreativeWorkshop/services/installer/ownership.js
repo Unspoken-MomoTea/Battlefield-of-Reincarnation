@@ -11,3 +11,12 @@ export function isProjectWorldbookEntry(entry, projectId) {
 export function regexPrefix(projectId) {
   return `rw:${projectId}:`;
 }
+
+
+export function scriptPrefix(projectId) {
+  return `rw:${projectId}:script:`;
+}
+
+export function isProjectScriptTree(tree, projectId) {
+  return String(tree?.id || '').startsWith(scriptPrefix(projectId));
+}

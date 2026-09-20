@@ -11,6 +11,49 @@ function structuredArtifactContent(artifact, name) {
   catch { throw new HttpError(400, 'invalid_artifact_content', `${name} 必须包含有效 JSON`); }
 }
 
+function normalizeOriginalScriptConflicts(value, artifactName) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new HttpError(400, 'invalid_original_script_conflicts', `${artifactName} 的 original_conflicts 必须是数组`);
+  }
+  if (value.length > 100) {
+    throw new HttpError(400, 'original_script_conflicts_too_large', `${artifactName} 的原脚本冲突声明超过 100 条`);
+  }
+
+  return value.map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new HttpError(400, 'invalid_original_script_conflicts', `${artifactName} 的第 ${index + 1} 条原脚本冲突无效`);
+    }
+    const action = String(item.action || '');
+    if (!['disable', 'replace'].includes(action)) {
+      throw new HttpError(400, 'invalid_original_script_conflict_action', `${artifactName} 的第 ${index + 1} 条原脚本冲突动作无效`);
+    }
+    const target = item.target;
+    if (!target || typeof target !== 'object' || Array.isArray(target)) {
+      throw new HttpError(400, 'invalid_original_script_conflict_target', `${artifactName} 的第 ${index + 1} 条原脚本冲突缺少 target`);
+    }
+    const scope = String(target.scope || '').trim();
+    const id = String(target.id || '').trim();
+    const name = String(target.name || '').trim();
+    const folder = String(target.folder || '').trim();
+    if (!['character', 'preset', 'global'].includes(scope)) {
+      throw new HttpError(400, 'invalid_original_script_conflict_scope', `${artifactName} 的第 ${index + 1} 条原脚本作用域无效`);
+    }
+    if (!id && !name) {
+      throw new HttpError(400, 'invalid_original_script_conflict_target', `${artifactName} 的第 ${index + 1} 条原脚本冲突至少需要 id 或 name`);
+    }
+    return {
+      action,
+      target: {
+        scope,
+        ...(id ? { id } : {}),
+        ...(name ? { name } : {}),
+        ...(folder ? { folder } : {}),
+      },
+    };
+  });
+}
+
 function normalizeOriginalConflicts(value, artifactName) {
   if (value === undefined || value === null) return [];
   if (!Array.isArray(value)) {
@@ -159,6 +202,8 @@ export function validateBundle(bundle) {
         throw new HttpError(400, 'invalid_script_scope', `${name} 的脚本作用域无效`);
       }
       normalizedArtifact.scope = scope;
+      const originalConflicts = normalizeOriginalScriptConflicts(value.original_conflicts, name);
+      if (originalConflicts.length) normalizedArtifact.original_conflicts = originalConflicts;
     }
     validateArtifactShape(normalizedArtifact, name);
     return normalizedArtifact;

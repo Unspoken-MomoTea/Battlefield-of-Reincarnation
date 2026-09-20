@@ -1,4 +1,4 @@
-export const WORKSHOP_CSS = \`
+export const WORKSHOP_CSS = `
   :root{
     --rw-bg:#0f1012;
     --rw-surface:#18191c;
@@ -228,4 +228,4 @@ export const WORKSHOP_CSS = \`
     .rw-card{padding:12px}
     .rw-cover{width:calc(100% + 24px);margin:-12px -12px 1px}
   }
-\`;
+`;

@@ -606,11 +606,6 @@ export const WORKSHOP_CSS = `
     .rw-tag-input{max-width:none;flex:1}
     .rw-detail-heading{align-items:flex-start;flex-direction:column}
     .rw-local-grid{grid-template-columns:1fr}
-    .rw-create-form{width:calc(100vw - 20px);max-height:calc(100dvh - 28px);padding:14px}
-    .rw-create-assets{grid-template-columns:1fr}
-    .rw-create-assets>.rw-field[data-role="create-artifact-kind"],
-    .rw-create-assets>.rw-field[data-role="create-original-conflicts"],.rw-review-toggle{grid-column:1}
-    .rw-file-drop-button{min-width:100%}
     .rw-modal-backdrop{padding:0;align-items:stretch}
     .rw-modal,.rw-modal--wide{width:100%;max-height:none;height:100%;border:0;border-radius:0}
     .rw-modal-body{padding:12px 12px calc(18px + env(safe-area-inset-bottom))}

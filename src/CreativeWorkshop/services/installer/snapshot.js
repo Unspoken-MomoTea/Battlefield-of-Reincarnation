@@ -9,8 +9,16 @@ export async function createInstallSnapshot(adapter, installed, plan, characterN
     (oldTargets.originalWorldbookChanges?.length ?? 0) || (plan.originalConflicts?.length ?? 0),
   );
   const presetNames = [...new Set([...(oldTargets.presets ?? []), ...plan.presets.map(item => item.name)])];
+  const originalScriptScopes = new Set([
+    ...(oldTargets.originalScriptChanges ?? []).map(item => item.scope),
+    ...(plan.originalScriptConflicts ?? []).map(item => item.target?.scope),
+  ].filter(Boolean));
   const scriptScopes = ['character', 'preset', 'global'].filter(scope =>
-    Boolean((oldTargets.scripts?.[scope]?.length ?? 0) || (plan.scripts?.[scope]?.length ?? 0)),
+    Boolean(
+      (oldTargets.scripts?.[scope]?.length ?? 0) ||
+      (plan.scripts?.[scope]?.length ?? 0) ||
+      originalScriptScopes.has(scope)
+    ),
   );
 
   const state = {

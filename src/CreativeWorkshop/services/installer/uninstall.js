@@ -1,5 +1,5 @@
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
-import { isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
+import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
 import { maybe, record } from './utils.js';
 
@@ -8,13 +8,18 @@ export async function uninstallProject({ adapter, storage }, projectId) {
   if (!installed) return null;
   if (!installed.applied) return installed;
   const targets = installed.installTargets ?? {};
-  const characterNeeded = Boolean(targets.worldbook || targets.regexIds?.length);
+  const characterNeeded = Boolean(targets.worldbook || targets.regexIds?.length || targets.scripts?.character?.length);
   const currentCharacter = characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null;
   if (installed.targetCharacterName && installed.targetCharacterName !== currentCharacter) {
     throw new Error(`该作品安装在角色“${installed.targetCharacterName}”，请切回该角色后再卸载`);
   }
 
-  const state = await createInstallSnapshot(adapter, installed, { worldbook: [], regexes: [], presets: [], data: [] }, characterNeeded);
+  const state = await createInstallSnapshot(
+    adapter,
+    installed,
+    { worldbook: [], regexes: [], presets: [], scripts: { character: [], preset: [], global: [] }, data: [] },
+    characterNeeded,
+  );
   try {
     if (targets.worldbook && state.worldbook) {
       const remaining = state.worldbook.entries.filter(entry => !isProjectWorldbookEntry(entry, installed.id));
@@ -34,6 +39,12 @@ export async function uninstallProject({ adapter, storage }, projectId) {
     if (targets.regexIds?.length && state.regexes) {
       await maybe(adapter.replaceCharacterRegexes(
         state.regexes.filter(regex => !String(regex.id || '').startsWith(regexPrefix(installed.id))),
+      ));
+    }
+    for (const [scope, trees] of state.scripts.entries()) {
+      await maybe(adapter.replaceScriptTrees(
+        trees.filter(tree => !isProjectScriptTree(tree, installed.id)),
+        scope,
       ));
     }
     for (const presetName of targets.presets ?? []) {

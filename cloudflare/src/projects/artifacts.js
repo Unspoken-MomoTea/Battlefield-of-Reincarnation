@@ -122,7 +122,7 @@ function validateArtifactShape(artifact, name) {
   if (artifact.kind === 'script') validateScriptContent(artifact, name);
 }
 
-export function validateBundle(bundle, projectCategory) {
+export function validateBundle(bundle) {
   if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) throw new HttpError(400, 'invalid_bundle', 'bundle 必须是对象');
   if (bundle.schema_version !== 1) throw new HttpError(400, 'invalid_bundle_version', '目前只支持 schema_version = 1');
   if (!Array.isArray(bundle.artifacts) || bundle.artifacts.length < 1 || bundle.artifacts.length > MAX_ARTIFACTS) {
@@ -133,7 +133,6 @@ export function validateBundle(bundle, projectCategory) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new HttpError(400, 'invalid_artifact', `第 ${index + 1} 个 artifact 无效`);
     const kind = String(value.kind || '');
     if (!ARTIFACT_KIND_SET.has(kind)) throw new HttpError(400, 'invalid_artifact_kind', `不支持的 artifact 类型：${kind || '(空)'}`);
-    if (projectCategory !== 'mixed' && kind !== projectCategory) throw new HttpError(400, 'artifact_category_mismatch', `作品类型 ${projectCategory} 不能包含 ${kind}`);
     const format = String(value.format || '');
     if (!FORMAT_SET.has(format)) throw new HttpError(400, 'invalid_artifact_format', 'artifact format 仅支持 json/text');
     const name = textField(value.name, 'artifact.name', { min: 1, max: 100 });

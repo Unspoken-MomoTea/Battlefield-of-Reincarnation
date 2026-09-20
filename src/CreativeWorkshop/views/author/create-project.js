@@ -48,8 +48,11 @@ export function bindCreateProjectFlow({
     nodes.createForm.reset();
     queue?.clear();
     nodes.createVersion.value = '';
+    nodes.createWorldbook.value = '';
+    nodes.createRegex.value = '';
+    nodes.createScript.value = '';
     nodes.createCover.value = '';
-    nodes.createVersionState.textContent = '拖入文件即可，系统会自动识别世界书、正则、脚本和预设。';
+    nodes.createVersionState.textContent = '选择上面的对应入口；其他文件会自动识别。';
     revokeCoverPreview();
     nodes.createCoverPreview.hidden = true;
     nodes.createCoverPreview.removeAttribute('src');
@@ -65,7 +68,7 @@ export function bindCreateProjectFlow({
     onChange: current => {
       nodes.createVersionState.textContent = current.count
         ? `已识别 ${current.count} 项：${current.summary()}`
-        : '拖入文件即可，系统会自动识别世界书、正则、脚本和预设。';
+        : '选择上面的对应入口；其他文件会自动识别。';
       if (current.count) dirty = true;
     },
   });
@@ -79,21 +82,50 @@ export function bindCreateProjectFlow({
     }
   }
 
-  nodes.createVersion.addEventListener('change', () => {
-    if (nodes.createVersion.files?.length) void addFiles(nodes.createVersion.files);
-  });
+  const bindArtifactInput = (input, dropTarget, forcedKind = '') => {
+    input.addEventListener('change', () => {
+      const files = input.files;
+      if (!files?.length) return;
+      void (forcedKind ? queue.addFilesAs(files, forcedKind) : addFiles(files))
+        .catch(error => notifyError(error))
+        .finally(() => { input.value = ''; });
+    });
 
-  const versionDrop = overlay.querySelector('[data-drop-target="create-version"]');
-  versionDrop.addEventListener('dragover', event => {
-    event.preventDefault();
-    versionDrop.classList.add('is-dragover');
-  });
-  versionDrop.addEventListener('dragleave', () => versionDrop.classList.remove('is-dragover'));
-  versionDrop.addEventListener('drop', event => {
-    event.preventDefault();
-    versionDrop.classList.remove('is-dragover');
-    void addFiles(event.dataTransfer?.files);
-  });
+    dropTarget.addEventListener('dragover', event => {
+      event.preventDefault();
+      dropTarget.classList.add('is-dragover');
+    });
+    dropTarget.addEventListener('dragleave', () => dropTarget.classList.remove('is-dragover'));
+    dropTarget.addEventListener('drop', event => {
+      event.preventDefault();
+      dropTarget.classList.remove('is-dragover');
+      const files = event.dataTransfer?.files;
+      if (!files?.length) return;
+      void (forcedKind ? queue.addFilesAs(files, forcedKind) : addFiles(files))
+        .catch(error => notifyError(error));
+    });
+  };
+
+  bindArtifactInput(
+    nodes.createWorldbook,
+    overlay.querySelector('[data-drop-target="create-worldbook"]'),
+    'worldbook',
+  );
+  bindArtifactInput(
+    nodes.createRegex,
+    overlay.querySelector('[data-drop-target="create-regex"]'),
+    'regex',
+  );
+  bindArtifactInput(
+    nodes.createScript,
+    overlay.querySelector('[data-drop-target="create-script"]'),
+    'script',
+  );
+  bindArtifactInput(
+    nodes.createVersion,
+    overlay.querySelector('[data-drop-target="create-version"]'),
+    '',
+  );
 
   nodes.createCover.addEventListener('change', renderCover);
   const coverDrop = overlay.querySelector('[data-drop-target="create-cover"]');

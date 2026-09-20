@@ -47,8 +47,39 @@ export function workshopTemplate(version) {
           <textarea class="rw-textarea" name="summary" maxlength="2000" placeholder="作品简介"></textarea>
           <input class="rw-input" name="tags" maxlength="300" placeholder="标签：剧情, boss, 原创（逗号分隔）">
           <input class="rw-input" name="dependencies" maxlength="1200" placeholder="依赖：项目ID@最低版本，多个用逗号分隔">
+          <div class="rw-create-assets">
+            <div class="rw-field">
+              <span>作品内容</span>
+              <label class="rw-button rw-file-drop-button" data-drop-target="create-version">
+                选择或拖入版本文件 · JSON / TXT
+                <input data-field="create-version" type="file" accept=".json,.txt,application/json,text/plain" hidden>
+              </label>
+              <div class="rw-file-state" data-role="create-version-state">未选择版本文件；不选择则只创建草稿。</div>
+            </div>
+            <div class="rw-field">
+              <span>封面（可选）</span>
+              <label class="rw-button rw-file-drop-button" data-drop-target="create-cover">
+                选择或拖入封面 · PNG / JPEG / WebP
+                <input data-field="create-cover" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+              </label>
+              <div class="rw-file-state" data-role="create-cover-state">未选择封面。</div>
+            </div>
+            <label class="rw-field" data-role="create-artifact-kind" hidden>
+              <span>混合包单文件类型</span>
+              <select class="rw-select" name="artifact_kind">
+                <option value="data">数据</option>
+                <option value="worldbook">世界书</option>
+                <option value="regex">正则</option>
+                <option value="preset">预设</option>
+              </select>
+            </label>
+            <label class="rw-review-toggle">
+              <input type="checkbox" name="submit_review" checked>
+              <span>上传版本后直接提交审核</span>
+            </label>
+          </div>
           <div class="rw-row">
-            <button class="rw-button primary" type="submit">创建草稿</button>
+            <button class="rw-button primary" type="submit">创建作品</button>
             <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
           </div>
         </form>

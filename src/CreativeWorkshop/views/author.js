@@ -13,6 +13,7 @@ export function createAuthorView({
   statusLabels,
   getAuth,
   notifyError,
+  openModal,
 }) {
   function ownProjectCard(project) {
     const card = element('article', 'rw-card');
@@ -41,6 +42,28 @@ export function createAuthorView({
     if (project.status === 'rejected' && project.review_note) {
       card.appendChild(element('div', 'rw-status bad', `审核意见：${project.review_note}`));
     }
+
+    let editorModal = null;
+    let uploadModal = null;
+    let deleteModal = null;
+
+    const mountPanelInModal = (title, panel, { wide = true, onClosed = null } = {}) => {
+      const parent = panel.parentNode;
+      const marker = doc.createComment('rw-modal-panel');
+      if (parent) parent.insertBefore(marker, panel);
+      panel.hidden = false;
+      let modal;
+      modal = openModal(title, {
+        wide,
+        onClose: () => {
+          if (marker.parentNode) marker.replaceWith(panel);
+          panel.hidden = true;
+          try { onClosed?.(modal); } catch {}
+        },
+      });
+      modal.body.appendChild(panel);
+      return modal;
+    };
 
     const editor = element('div', 'rw-editor');
     editor.hidden = true;
@@ -81,9 +104,10 @@ export function createAuthorView({
         dependencies,
       });
       try { host.toastr?.success?.('作品资料已保存', '创意工坊'); } catch {}
+      editorModal?.close();
       await refreshMine();
     }));
-    editorActions.appendChild(button('取消', '', () => { editor.hidden = true; }));
+    editorActions.appendChild(button('取消', '', () => editorModal?.close()));
     editor.appendChild(editorActions);
 
     const uploadBox = element('div', 'rw-upload-box');
@@ -202,8 +226,10 @@ export function createAuthorView({
 
     const actions = element('div', 'rw-row');
     actions.appendChild(button('管理内容', 'primary', () => {
-      uploadBox.hidden = !uploadBox.hidden;
-      editor.hidden = true;
+      uploadModal?.close();
+      uploadModal = mountPanelInModal('版本与封面 · ' + project.name, uploadBox, {
+        onClosed: modal => { if (uploadModal === modal) uploadModal = null; },
+      });
     }));
     if (Number(project.latest_version) > 0 && ['draft', 'rejected'].includes(project.status)) {
       actions.appendChild(button(project.status === 'rejected' ? '重新提交审核' : '提交审核', 'good', async () => {
@@ -222,9 +248,10 @@ export function createAuthorView({
       deleteActions.appendChild(button('确认永久删除', 'danger', async () => {
         await workshopApi.deleteProject(project.id);
         try { host.toastr?.success?.('作品已删除', '创意工坊'); } catch {}
+        deleteModal?.close();
         await refreshMine();
       }));
-      deleteActions.appendChild(button('取消', '', () => { deleteZone.hidden = true; }));
+      deleteActions.appendChild(button('取消', '', () => deleteModal?.close()));
       deleteZone.append(deleteText, deleteActions);
     }
 
@@ -237,21 +264,26 @@ export function createAuthorView({
     menuDropdown.hidden = true;
     menuDropdown.appendChild(button('修改资料', '', () => {
       menuDropdown.hidden = true;
-      uploadBox.hidden = true;
-      editor.hidden = false;
-      editor.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      editorModal?.close();
+      editorModal = mountPanelInModal('修改项目 · ' + project.name, editor, {
+        onClosed: modal => { if (editorModal === modal) editorModal = null; },
+      });
     }));
     menuDropdown.appendChild(button('版本与封面', '', () => {
       menuDropdown.hidden = true;
-      editor.hidden = true;
-      uploadBox.hidden = false;
-      uploadBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      uploadModal?.close();
+      uploadModal = mountPanelInModal('版本与封面 · ' + project.name, uploadBox, {
+        onClosed: modal => { if (uploadModal === modal) uploadModal = null; },
+      });
     }));
     if (Number(project.published_version) === 0 && project.status !== 'pending') {
       menuDropdown.appendChild(button('删除作品', 'danger', () => {
         menuDropdown.hidden = true;
-        deleteZone.hidden = false;
-        deleteZone.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        deleteModal?.close();
+        deleteModal = mountPanelInModal('删除作品 · ' + project.name, deleteZone, {
+          wide: false,
+          onClosed: modal => { if (deleteModal === modal) deleteModal = null; },
+        });
       }));
     }
     menu.append(menuTrigger, menuDropdown);

@@ -11,6 +11,7 @@ export function createWorkshopViews(context) {
     element: context.ui.element,
     button: context.ui.button,
     empty: context.ui.empty,
+    notifyError: context.ui.notifyError,
     host: context.host,
   };
   return {

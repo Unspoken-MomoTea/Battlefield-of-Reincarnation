@@ -4,9 +4,12 @@ export function collectWorkshopNodes(overlay) {
   return {
     health: query('[data-role="health"]'),
     account: query('[data-role="account"]'),
+    accountWrap: query('[data-role="account-wrap"]'),
+    accountMenu: query('[data-role="account-menu"]'),
     login: query('[data-action="login"]'),
     logout: query('[data-action="logout"]'),
-    adminTab: query('[data-tab="admin"]'),
+    adminTab: query('[data-action="admin-menu"]'),
+    discoverHeadTools: query('[data-role="discover-head-tools"]'),
     search: query('[data-field="search"]'),
     category: query('[data-field="category"]'),
     tag: query('[data-field="tag"]'),

@@ -35,5 +35,10 @@ export function collectWorkshopNodes(overlay) {
     detailSummary: query('[data-role="detail-summary"]'),
     detailManifest: query('[data-role="detail-manifest"]'),
     createForm: query('[data-form="create-project"]'),
+    createVersion: query('[data-field="create-version"]'),
+    createCover: query('[data-field="create-cover"]'),
+    createVersionState: query('[data-role="create-version-state"]'),
+    createCoverState: query('[data-role="create-cover-state"]'),
+    createArtifactKind: query('[data-role="create-artifact-kind"]'),
   };
 }

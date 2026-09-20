@@ -12,7 +12,7 @@ function artifactLabel(artifact) {
   const conflicts = Array.isArray(artifact.original_conflicts)
     ? artifact.original_conflicts.length
     : 0;
-  if (conflicts) label += ` · 关闭原版 ${conflicts} 项`;
+  if (conflicts) label += ` · 屏蔽/替换原版 ${conflicts} 项`;
   return label;
 }
 

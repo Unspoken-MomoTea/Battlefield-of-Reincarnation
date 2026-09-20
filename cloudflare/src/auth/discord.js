@@ -48,7 +48,14 @@ async function fetchDiscordUser(env, code) {
     }),
   });
   if (!tokenResponse.ok) {
-    console.error('[workshop] Discord token exchange failed:', tokenResponse.status);
+    let discordErrorCode = 'unknown';
+    try {
+      const discordError = await tokenResponse.clone().json();
+      discordErrorCode = String(discordError?.error || 'unknown');
+    } catch {
+      // Keep diagnostics free of response bodies, credentials, and authorization codes.
+    }
+    console.error('[workshop] Discord token exchange failed:', tokenResponse.status, discordErrorCode);
     throw new HttpError(502, 'discord_token_failed', 'Discord 授权交换失败');
   }
   const discordToken = await tokenResponse.json();

@@ -36,23 +36,29 @@
   "env": {
     "staging": {
       "name": "reincarnation-workshop-staging",
+      "routes": [
+        {
+          "pattern": "workshop-test.6661816.xyz",
+          "custom_domain": true
+        }
+      ],
       "vars": {
         "PUBLIC_BASE_URL": "https://workshop-test.6661816.xyz",
-        "DISCORD_CLIENT_ID": "REPLACE_ME",
+        "DISCORD_CLIENT_ID": "1551049511915491348",
         "SESSION_TTL_SECONDS": "2592000",
-        "ADMIN_DISCORD_IDS": ""
+        "ADMIN_DISCORD_IDS": "1292524256764231700"
       },
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "reincarnation_workshop_staging",
-          "database_id": "00000000-0000-0000-0000-000000000000"
+          "database_id": "d3061236-6338-456d-abed-736d638e0fbd"
         }
       ],
       "kv_namespaces": [
         {
           "binding": "SESSION_KV",
-          "id": "00000000000000000000000000000000"
+          "id": "7f1a9aea395d46748b58ff368386e1a8"
         }
       ],
       "r2_buckets": [

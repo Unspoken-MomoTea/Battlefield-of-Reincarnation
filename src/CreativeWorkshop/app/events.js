@@ -1,3 +1,4 @@
+import { ARTIFACT_LABELS } from '../ui/constants.js';
 import { parseDependencyText } from '../services/projects/dependency-input.js';
 import { buildUploadBundle } from '../services/upload.js';
 
@@ -189,7 +190,7 @@ export function bindWorkshopEvents({
     facts.className = 'rw-publish-review-facts';
     const factValues = [
       `类型：${category === 'character' ? '角色' : '扩展'}`,
-      `内容：${artifactKind}`,
+      `内容：${ARTIFACT_LABELS[artifactKind] || artifactKind}`,
       `版本文件：${selectedVersion.name}`,
       selectedCover ? `封面：${selectedCover.name}` : '封面：未选择',
       tags.length ? `标签：${tags.join('、')}` : '标签：无',

@@ -35,8 +35,8 @@ export function buildUploadBundle(project, fileName, rawText, selectedKind = 'da
   const originalConflicts = Array.isArray(options.originalConflicts)
     ? structuredClone(options.originalConflicts)
     : [];
-  if (kind !== 'worldbook' && originalConflicts.length) {
-    throw new Error('只有世界书 artifact 可以声明原版世界书冲突');
+  if (!['worldbook', 'script'].includes(kind) && originalConflicts.length) {
+    throw new Error('只有世界书或脚本 artifact 可以声明需要临时屏蔽的原版内容');
   }
 
   return {
@@ -46,7 +46,7 @@ export function buildUploadBundle(project, fileName, rawText, selectedKind = 'da
         kind,
         name,
         ...(kind === 'script' ? { scope: scriptScope } : {}),
-        ...(kind === 'worldbook' && originalConflicts.length
+        ...(['worldbook', 'script'].includes(kind) && originalConflicts.length
           ? { original_conflicts: originalConflicts }
           : {}),
         format: isJson ? 'json' : 'text',

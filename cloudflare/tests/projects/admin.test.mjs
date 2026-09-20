@@ -10,7 +10,6 @@ import {
   listAdminAuditLogs,
   listAdminProjects,
   listOwnProjects,
-  listPendingProjects,
   listPublicProjects,
   reviewProject,
   setAdminProjectState,
@@ -34,7 +33,9 @@ test('admin pending queue contains submitted versions', async () => {
   await uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: '', bundle: bundle('pending') }), env, author, project.id);
   await submitProjectForReview(env, author, project.id);
 
-  const pending = await responseJson(await listPendingProjects(env, admin));
+  const pending = await responseJson(
+    await listAdminProjects(request('/api/admin/projects?review_status=pending'), env, admin),
+  );
   assert.equal(pending.items.length, 1);
   assert.equal(pending.items[0].id, project.id);
   assert.equal(Number(pending.items[0].latest_version), 1);

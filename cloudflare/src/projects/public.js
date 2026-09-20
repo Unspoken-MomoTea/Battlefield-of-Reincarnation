@@ -7,7 +7,7 @@ export async function listPublicProjects(request, env) {
   const like = `%${query}%`;
   const result = await env.DB.prepare(
     `SELECT p.id, p.slug,
-            v.name, v.summary, v.tags, v.dependencies, v.category, v.cover_key,
+            v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
             p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, COALESCE(v.reviewed_at, v.created_at) AS updated_at,
@@ -18,7 +18,7 @@ export async function listPublicProjects(request, env) {
       WHERE p.published_version > 0
         AND p.status <> 'archived'
         AND (? = '' OR v.name LIKE ? OR v.summary LIKE ?)
-        AND (? = '' OR v.category = ?)
+        AND (? = '' OR v.project_type = ?)
         AND (? = '' OR EXISTS (
           SELECT 1 FROM json_each(v.tags) tag_value WHERE tag_value.value = ?
         ))
@@ -38,7 +38,7 @@ export async function listPublicProjects(request, env) {
 export async function getPublicProject(projectId, env) {
   const row = await env.DB.prepare(
     `SELECT p.id, p.slug,
-            v.name, v.summary, v.tags, v.dependencies, v.category, v.cover_key,
+            v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
             p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, COALESCE(v.reviewed_at, v.created_at) AS updated_at,

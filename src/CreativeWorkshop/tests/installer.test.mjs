@@ -504,3 +504,50 @@ test('uninstall preserves player edits to a replaced script and only restores en
   ]);
   assert.match(removed.restoreWarnings.join('\n'), /仅恢复原启用状态/u);
 });
+
+
+test('updating a project can remove a script replacement and restore the original script', async () => {
+  const adapter = fakeAdapter();
+  const storage = memoryStorage(project([
+    {
+      kind: 'script',
+      name: '替代状态栏.js',
+      format: 'text',
+      scope: 'character',
+      original_conflicts: [{
+        action: 'replace',
+        target: { scope: 'character', id: 'manual-script' },
+      }],
+      content: "console.log('v1')",
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await installer.apply('project-1');
+  assert.equal(
+    adapter.state.scripts.character.find(item => item.id === 'manual-script').enabled,
+    false,
+  );
+
+  await storage.putInstalledProject({
+    ...storage.current(),
+    version: 3,
+    bundle: {
+      schema_version: 1,
+      artifacts: [{
+        kind: 'script',
+        name: '替代状态栏.js',
+        format: 'text',
+        scope: 'character',
+        content: "console.log('v2')",
+      }],
+    },
+  });
+  await installer.apply('project-1');
+
+  assert.equal(
+    adapter.state.scripts.character.find(item => item.id === 'manual-script').enabled,
+    true,
+  );
+  assert.equal(storage.current().installTargets.originalScriptChanges.length, 0);
+});

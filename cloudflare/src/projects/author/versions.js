@@ -9,7 +9,7 @@ export async function uploadProjectVersion(request, env, user, projectId) {
   if (project.status === 'pending') throw new HttpError(409, 'review_pending', '当前版本正在审核，请等待审核结束');
   const body = await readJson(request);
   const changelog = textField(body?.changelog ?? '', 'changelog', { max: 2000 });
-  const bundle = validateBundle(body?.bundle, project.category);
+  const bundle = validateBundle(body?.bundle);
   const version = Number(project.latest_version) + 1;
   const manifest = await buildManifest(project, version, bundle);
   const uploadNonce = crypto.randomUUID();
@@ -23,8 +23,8 @@ export async function uploadProjectVersion(request, env, user, projectId) {
   try {
     await env.DB.prepare(
       `INSERT INTO project_versions
-        (project_id, version, manifest_key, content_key, name, summary, tags, dependencies, category, cover_key, changelog, review_status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
+        (project_id, version, manifest_key, content_key, name, summary, tags, dependencies, category, project_type, cover_key, changelog, review_status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'mixed', ?, ?, ?, 'draft', ?)`,
     ).bind(
       project.id, version, manifestKey, contentKey, project.name, project.summary,
       project.tags || '[]', project.dependencies || '[]', project.category, project.cover_key || null, changelog, now,

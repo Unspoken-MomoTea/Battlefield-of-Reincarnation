@@ -22,8 +22,6 @@ CREATE TABLE IF NOT EXISTS projects (
   summary TEXT NOT NULL DEFAULT '',
   tags TEXT NOT NULL DEFAULT '[]',
   dependencies TEXT NOT NULL DEFAULT '[]',
-  category TEXT NOT NULL DEFAULT 'mixed'
-    CHECK (category IN ('worldbook', 'regex', 'preset', 'data', 'mixed')),
   project_type TEXT NOT NULL DEFAULT 'extension'
     CHECK (project_type IN ('character', 'extension')),
   status TEXT NOT NULL DEFAULT 'draft'
@@ -56,7 +54,6 @@ CREATE TABLE IF NOT EXISTS project_versions (
   summary TEXT NOT NULL DEFAULT '',
   tags TEXT NOT NULL DEFAULT '[]',
   dependencies TEXT NOT NULL DEFAULT '[]',
-  category TEXT NOT NULL DEFAULT 'mixed',
   project_type TEXT NOT NULL DEFAULT 'extension'
     CHECK (project_type IN ('character', 'extension')),
   cover_key TEXT,

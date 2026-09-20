@@ -259,6 +259,25 @@ export const WORKSHOP_CSS = `
     color:#aaa8a3;font-size:12px;line-height:1.45
   }
 
+  .rw-maintenance-protection{
+    display:grid;gap:5px;padding:13px 14px;border:1px solid rgba(111,168,132,.25);border-radius:11px;
+    background:rgba(111,168,132,.07);color:#a9d4b8
+  }
+  .rw-maintenance-protection strong{font-size:12px}
+  .rw-maintenance-protection div{color:#8eab97;font-size:11px;line-height:1.55}
+  .rw-maintenance-section{
+    display:grid;gap:10px;padding:12px;border:1px solid var(--rw-line);border-radius:11px;background:#151619
+  }
+  .rw-maintenance-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .rw-maintenance-section-head>div{display:grid;gap:3px}
+  .rw-maintenance-section-head strong{color:#c9c7c0;font-size:12px}
+  .rw-maintenance-list{display:grid;gap:8px}
+  .rw-maintenance-item{
+    display:grid;gap:8px;padding:10px;border:1px solid var(--rw-line);border-radius:9px;background:#121316
+  }
+  .rw-maintenance-item-title{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .rw-maintenance-item-title strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c8c6bf;font-size:11px}
+
   .rw-admin-tabs{
     display:flex;align-items:center;gap:6px;margin:0 0 12px;padding:5px;
     border:1px solid var(--rw-line);border-radius:11px;background:var(--rw-surface)
@@ -427,6 +446,7 @@ export const WORKSHOP_CSS = `
     .rw-grid{grid-template-columns:1fr}
     .rw-page-head{align-items:flex-start;flex-wrap:wrap}
     .rw-page-actions{width:100%;justify-content:flex-start}
+    .rw-maintenance-section-head{align-items:flex-start;flex-direction:column}
     .rw-admin-tabs{overflow-x:auto}
     .rw-admin-tabs .rw-tab{flex:1;min-width:90px}
     .rw-admin-facts{grid-template-columns:1fr}

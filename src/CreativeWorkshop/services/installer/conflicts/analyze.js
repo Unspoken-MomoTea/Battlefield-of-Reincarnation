@@ -17,7 +17,9 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
     plan.scripts?.character?.length ||
     oldTargets.worldbook ||
     oldTargets.regexIds?.length ||
-    oldTargets.scripts?.character?.length,
+    oldTargets.scripts?.character?.length ||
+    plan.originalConflicts?.length ||
+    oldTargets.originalWorldbookChanges?.length,
   );
 
   if (installed.applied && installed.targetCharacterName && characterScoped) {
@@ -28,6 +30,57 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
         actual: current || '',
       }));
       return { blocking, warnings };
+    }
+  }
+
+  if (plan.originalConflicts?.length) {
+    const names = new Set(await maybe(adapter.getWorldbookNames()));
+    const binding = await maybe(adapter.getCharWorldbookNames());
+    const cache = new Map();
+
+    const readBook = async name => {
+      if (!name || name === SHARED_WORLDBOOK_NAME || !names.has(name)) return [];
+      if (!cache.has(name)) cache.set(name, await maybe(adapter.getWorldbook(name)));
+      return cache.get(name);
+    };
+
+    for (const directive of plan.originalConflicts) {
+      const target = directive.target || {};
+      if (target.worldbook === SHARED_WORLDBOOK_NAME) {
+        blocking.push(issue('original_conflict_target_invalid', {
+          name: target.name || target.uid || '',
+          worldbookName: target.worldbook,
+        }));
+        continue;
+      }
+
+      const bookNames = target.worldbook
+        ? [target.worldbook]
+        : [binding.primary, ...(binding.additional ?? [])]
+          .filter(name => name && name !== SHARED_WORLDBOOK_NAME);
+
+      const matches = [];
+      for (const worldbookName of [...new Set(bookNames)]) {
+        const entries = await readBook(worldbookName);
+        for (const entry of entries) {
+          const matched = target.uid
+            ? String(entry?.uid ?? '') === String(target.uid)
+            : String(entry?.comment ?? entry?.name ?? '').trim() === String(target.name || '').trim();
+          if (matched) matches.push({ worldbookName, entry });
+        }
+      }
+
+      if (!matches.length) {
+        blocking.push(issue('original_conflict_target_missing', {
+          name: target.name || target.uid || '',
+          worldbookName: target.worldbook || '',
+        }));
+      } else if (matches.length > 1) {
+        blocking.push(issue('original_conflict_target_ambiguous', {
+          name: target.name || target.uid || '',
+          count: matches.length,
+        }));
+      }
     }
   }
 

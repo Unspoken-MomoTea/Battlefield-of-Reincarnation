@@ -157,12 +157,10 @@ export function createInstalledView({
           `服务器已有 v${result.remoteVersion}。是否立即下载最新版${item.applied ? '并重新应用到酒馆' : ''}？`,
         );
         if (!shouldSync) return;
-        const wasApplied = item.applied;
-        const cached = await projectService.cache(item.id);
-        if (wasApplied) await projectService.apply(item.id);
+        const updated = await projectService.updateLatest(item.id);
         try {
           host.toastr?.success?.(
-            wasApplied ? `已升级并应用到 v${cached.version}` : `已同步缓存到 v${cached.version}`,
+            item.applied ? `已一键升级并应用到 v${updated.version}` : `已同步缓存到 v${updated.version}`,
             item.name,
           );
         } catch {}

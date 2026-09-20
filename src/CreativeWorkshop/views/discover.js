@@ -9,6 +9,7 @@ export function createDiscoverView({
   workshopApi,
   host,
   categoryLabels,
+  artifactLabels,
   getAuth,
   openModal,
   notifyError,
@@ -118,6 +119,43 @@ export function createDiscoverView({
         const changelog = element('section', 'rw-detail-section');
         changelog.append(element('strong', '', '版本说明'), element('div', 'rw-muted', detail.changelog));
         modal.body.appendChild(changelog);
+      }
+
+      const artifacts = Array.isArray(detail.manifest?.artifacts) ? detail.manifest.artifacts : [];
+      if (artifacts.length) {
+        const contents = element('section', 'rw-detail-section');
+        contents.appendChild(element('strong', '', '包含内容'));
+        const pills = element('div', 'rw-meta');
+        for (const artifact of artifacts) {
+          let label = artifactLabels[artifact.kind] || artifact.kind;
+          if (artifact.kind === 'script') {
+            const scope = ({ character: '角色', preset: '预设', global: '全局' })[artifact.scope || 'character'];
+            label += ` · ${scope}`;
+          }
+          pills.appendChild(element('span', 'rw-pill', label));
+        }
+        contents.appendChild(pills);
+
+        const scriptCount = artifacts.filter(artifact => artifact.kind === 'script').length;
+        const conflictCount = artifacts.reduce(
+          (sum, artifact) => sum + (Array.isArray(artifact.original_conflicts) ? artifact.original_conflicts.length : 0),
+          0,
+        );
+        if (scriptCount) {
+          contents.appendChild(element(
+            'div',
+            'rw-status',
+            `包含 ${scriptCount} 项酒馆助手脚本：下载与查看不会执行，只有主动安装后才会写入并启用。`,
+          ));
+        }
+        if (conflictCount) {
+          contents.appendChild(element(
+            'div',
+            'rw-status',
+            `安装时会按作者声明临时关闭 ${conflictCount} 个原版世界书条目；卸载时按安全恢复规则处理。`,
+          ));
+        }
+        modal.body.appendChild(contents);
       }
 
       if (project.dependencies?.length) {

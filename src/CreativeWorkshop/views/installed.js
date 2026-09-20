@@ -269,12 +269,12 @@ export function createInstalledView({
     }));
 
     if (item.applied) {
-      menuDropdown.appendChild(button('卸载', 'danger', async () => {
+      menuDropdown.appendChild(button('停用并还原原版', 'danger', async () => {
         closeMenu();
-        const confirmed = host.confirm?.(`确定卸载“${item.name}”吗？工坊会只清理该项目拥有的资源。`);
+        const confirmed = host.confirm?.(`确定停用“${item.name}”吗？工坊会移除该项目拥有的资源，并恢复它临时屏蔽/替换的原版世界书和脚本。`);
         if (!confirmed) return;
         const result = await projectService.uninstall(item.id);
-        try { host.toastr?.success?.(`已卸载 ${item.name}`, '创意工坊'); } catch {}
+        try { host.toastr?.success?.(`已停用 ${item.name}，原版内容已按恢复记录处理`, '创意工坊'); } catch {}
         showRestoreWarnings(result, item.name);
         await refreshInstalled();
       }));

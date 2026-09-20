@@ -69,7 +69,28 @@ test('bundle validator accepts Tavern Helper script artifacts and validates scop
     () => validateBundle({
       schema_version: 1,
       artifacts: [{ kind: 'script', name: 'bad.json', format: 'json', content: { type: 'script', name: 'bad' } }],
-    }, 'mixed'),
+    }),
+    error => error?.status === 400 && error?.code === 'invalid_script',
+  );
+
+  assert.throws(
+    () => validateBundle({
+      schema_version: 1,
+      artifacts: [{
+        kind: 'script',
+        name: 'nested.json',
+        format: 'json',
+        content: {
+          type: 'folder',
+          name: 'outer',
+          scripts: [{
+            type: 'folder',
+            name: 'inner',
+            scripts: [],
+          }],
+        },
+      }],
+    }),
     error => error?.status === 400 && error?.code === 'invalid_script',
   );
 });

@@ -254,7 +254,7 @@ test('Tavern Helper script artifacts install enabled, update in place, and unins
 
 test('script tree mutations roll back when a later install step fails', async () => {
   const adapter = fakeAdapter();
-  const targetPreset = '[创意工坊] 测试作品 · 预设.json · project--1';
+  const targetPreset = '[创意工坊] 测试作品 · 预设.json · project--2';
   adapter.state.failPreset = targetPreset;
   const originalScripts = structuredClone(adapter.state.scripts.character);
   const storage = memoryStorage(project([

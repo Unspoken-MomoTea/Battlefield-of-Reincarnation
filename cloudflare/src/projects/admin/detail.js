@@ -4,7 +4,7 @@ import { assertAdmin, parseDependencies, parseTags } from '../core.js';
 export async function getPendingProjectReview(env, user, projectId) {
   assertAdmin(user);
   const row = await env.DB.prepare(
-    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.category, v.cover_key,
+    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
             p.status, p.latest_version, p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count, p.created_at, p.updated_at,
             owner.display_name AS owner_name, owner.discord_id AS owner_discord_id,
@@ -20,7 +20,7 @@ export async function getPendingProjectReview(env, user, projectId) {
   const [manifestObject, bundleObject, versionsResult, reviewsResult, auditResult] = await Promise.all([
     env.PROJECTS.get(row.manifest_key),
     env.PROJECTS.get(row.content_key),
-    env.DB.prepare(`SELECT version, name, summary, tags, dependencies, category, cover_key, changelog, review_status, created_at, submitted_at, reviewed_at FROM project_versions WHERE project_id = ? ORDER BY version DESC`).bind(projectId).all(),
+    env.DB.prepare(`SELECT version, name, summary, tags, dependencies, project_type AS category, cover_key, changelog, review_status, created_at, submitted_at, reviewed_at FROM project_versions WHERE project_id = ? ORDER BY version DESC`).bind(projectId).all(),
     env.DB.prepare(`SELECT rr.version, rr.decision, rr.note, rr.created_at, reviewer.display_name AS reviewer_name FROM review_records rr JOIN users reviewer ON reviewer.id = rr.reviewer_user_id WHERE rr.project_id = ? ORDER BY rr.id DESC`).bind(projectId).all(),
     env.DB.prepare(`SELECT log.project_version, log.action, log.note, log.created_at, actor.display_name AS actor_name FROM admin_audit_logs log JOIN users actor ON actor.id = log.actor_user_id WHERE log.project_id = ? ORDER BY log.id DESC LIMIT 100`).bind(projectId).all(),
   ]);

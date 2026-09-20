@@ -22,6 +22,7 @@ export function bindCreateProjectFlow({
   let rulesModal = null;
   let coverUrl = '';
   let queue = null;
+  let submitAttempt = null;
 
   const revokeCoverPreview = () => {
     if (!coverUrl) return;
@@ -58,6 +59,7 @@ export function bindCreateProjectFlow({
     nodes.createCoverPreview.hidden = true;
     nodes.createCoverPreview.removeAttribute('src');
     nodes.createCoverState.textContent = '可选。建议 16:9，选择后会立即预览。';
+    submitAttempt = null;
     dirty = false;
   };
 
@@ -177,6 +179,22 @@ export function bindCreateProjectFlow({
   };
   cancelButtons.forEach(button => button.addEventListener('click', () => void closeCreate()));
 
+  function errorDescription(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const status = Number(error?.status || 0);
+    const code = String(error?.code || '').trim();
+    const details = [];
+    if (status) details.push(`HTTP ${status}`);
+    if (code && code !== 'request_failed') details.push(code);
+    return details.length ? `${message}（${details.join(' · ')}）` : message;
+  }
+
+  function setSubmitStatus(node, state, text) {
+    node.className = `rw-submit-progress rw-submit-progress--${state}`;
+    node.textContent = text;
+    node.hidden = false;
+  }
+
   async function openRules(draft) {
     rulesModal?.close({ force: true });
     const modal = openModal('发布项目 · 检查与安装规则', {
@@ -221,6 +239,11 @@ export function bindCreateProjectFlow({
     );
     modal.body.appendChild(note);
 
+    const progress = doc.createElement('div');
+    progress.className = 'rw-submit-progress';
+    progress.hidden = true;
+    modal.body.appendChild(progress);
+
     const actions = doc.createElement('div');
     actions.className = 'rw-row rw-publish-final-actions';
     const back = doc.createElement('button');
@@ -238,54 +261,111 @@ export function bindCreateProjectFlow({
     confirm.addEventListener('click', async () => {
       confirm.disabled = true;
       back.disabled = true;
-      let createdProjectId = null;
+
+      const finalArtifacts = rules.buildArtifacts();
+      const bundle = queue.bundle(finalArtifacts);
+      const attemptKey = JSON.stringify({
+        name: draft.name,
+        category: draft.category,
+        tags: draft.tags,
+        dependencies: draft.dependencies,
+        artifactCount: finalArtifacts.length,
+      });
+
+      if (!submitAttempt || submitAttempt.key !== attemptKey) {
+        submitAttempt = {
+          key: attemptKey,
+          projectId: null,
+          versionUploaded: false,
+          coverUploaded: !draft.cover,
+          submitted: false,
+        };
+      }
+
       try {
-        const finalArtifacts = rules.buildArtifacts();
-        const bundle = queue.bundle(finalArtifacts);
+        if (!submitAttempt.projectId) {
+          confirm.textContent = '正在创建作品…';
+          setSubmitStatus(progress, 'working', '步骤 1/4 · 正在创建作品草稿…');
+          const created = await workshopApi.createProject({
+            name: draft.name,
+            summary: draft.summary,
+            category: draft.category,
+            tags: draft.tags,
+            dependencies: draft.dependencies,
+          });
+          if (!created?.project?.id) {
+            throw new Error('服务器没有返回作品 ID，无法继续上传');
+          }
+          submitAttempt.projectId = created.project.id;
+          setSubmitStatus(progress, 'working', `步骤 1/4 · 草稿已创建 · ${submitAttempt.projectId}`);
+        }
 
-        confirm.textContent = '正在创建作品…';
-        const created = await workshopApi.createProject({
-          name: draft.name,
-          summary: draft.summary,
-          category: draft.category,
-          tags: draft.tags,
-          dependencies: draft.dependencies,
-        });
-        createdProjectId = created.project.id;
+        if (!submitAttempt.versionUploaded) {
+          confirm.textContent = '正在上传内容…';
+          setSubmitStatus(progress, 'working', '步骤 2/4 · 正在上传作品内容…');
+          await workshopApi.uploadProjectVersion(
+            submitAttempt.projectId,
+            { changelog: '', bundle },
+          );
+          submitAttempt.versionUploaded = true;
+        }
 
-        confirm.textContent = '正在上传内容…';
-        await workshopApi.uploadProjectVersion(createdProjectId, { changelog: '', bundle });
-
-        if (draft.cover) {
+        if (draft.cover && !submitAttempt.coverUploaded) {
           confirm.textContent = '正在上传封面…';
-          await workshopApi.uploadProjectCover(createdProjectId, draft.cover);
+          setSubmitStatus(progress, 'working', '步骤 3/4 · 正在上传封面…');
+          await workshopApi.uploadProjectCover(submitAttempt.projectId, draft.cover);
+          submitAttempt.coverUploaded = true;
+        } else if (!draft.cover) {
+          submitAttempt.coverUploaded = true;
         }
 
-        confirm.textContent = '正在提交审核…';
-        await workshopApi.submitProject(createdProjectId);
+        if (!submitAttempt.submitted) {
+          confirm.textContent = '正在提交审核…';
+          setSubmitStatus(progress, 'working', '步骤 4/4 · 正在提交审核…');
+          await workshopApi.submitProject(submitAttempt.projectId);
+          submitAttempt.submitted = true;
+        }
 
+        setSubmitStatus(progress, 'success', '提交成功 · 作品已经进入审核队列。');
         dirty = false;
-        rulesModal?.close({ force: true });
-        rulesModal = null;
-        reset();
-        nodes.createForm.hidden = true;
         try { host.toastr?.success?.('作品已提交审核', '创意工坊'); } catch {}
-        await refreshMine();
-      } catch (error) {
-        notifyError(error);
-        if (createdProjectId) {
-          try {
-            host.toastr?.warning?.(
-              '提交过程中断，服务器可能保留了一个未发布草稿，可在“我的项目”中继续处理。',
-              '创意工坊',
-            );
-          } catch {}
+
+        // 先刷新列表；即使刷新失败，也不能把已经成功提交的作品说成失败。
+        try { await refreshMine(); } catch (refreshError) {
+          console.warn('[轮回战场创意工坊] 提交成功，但刷新我的作品失败', refreshError);
         }
+
+        host.setTimeout?.(() => {
+          if (rulesModal === modal) modal.close({ force: true });
+          rulesModal = null;
+          reset();
+          nodes.createForm.hidden = true;
+        }, 650);
+      } catch (error) {
+        const failedAt = !submitAttempt?.projectId
+          ? '创建作品'
+          : !submitAttempt.versionUploaded
+            ? '上传作品内容'
+            : !submitAttempt.coverUploaded
+              ? '上传封面'
+              : '提交审核';
+        const description = errorDescription(error);
+        setSubmitStatus(
+          progress,
+          'error',
+          `${failedAt}失败：${description}${submitAttempt?.projectId ? '\n草稿已经保留，再次点击会从失败步骤继续，不会重复创建作品。' : ''}`,
+        );
+        console.error('[轮回战场创意工坊] 发布失败', {
+          step: failedAt,
+          projectId: submitAttempt?.projectId || null,
+          error,
+        });
+        notifyError(error);
       } finally {
         if (confirm.isConnected) {
           confirm.disabled = false;
           back.disabled = false;
-          confirm.textContent = '提交审核';
+          confirm.textContent = submitAttempt?.submitted ? '已提交审核' : '重试提交';
         }
       }
     });

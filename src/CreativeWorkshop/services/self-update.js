@@ -1,3 +1,4 @@
+import { getApiBase } from '../config.js';
 import { createTavernAdapter } from './tavern-adapter.js';
 
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
@@ -50,6 +51,18 @@ function rewriteLoaderContent(content, sha) {
 }
 
 async function latestMainSha(fetchImpl) {
+  try {
+    const response = await fetchImpl(`${getApiBase()}/api/client/latest`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const sha = String(data?.sha || '').trim();
+      if (/^[0-9a-f]{40}$/iu.test(sha)) return sha;
+    }
+  } catch {}
+
   const response = await fetchImpl(GITHUB_MAIN_COMMIT, {
     headers: { Accept: 'application/vnd.github+json' },
     cache: 'no-store',

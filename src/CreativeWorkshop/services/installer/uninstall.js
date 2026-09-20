@@ -1,6 +1,7 @@
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { restoreOriginalWorldbookConflicts } from './original-conflicts.js';
+import { restoreOriginalScriptConflicts } from './original-scripts.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
 import { maybe, record } from './utils.js';
 
@@ -13,7 +14,8 @@ export async function uninstallProject({ adapter, storage }, projectId) {
     targets.worldbook ||
     targets.regexIds?.length ||
     targets.scripts?.character?.length ||
-    targets.originalWorldbookChanges?.length
+    targets.originalWorldbookChanges?.length ||
+    targets.originalScriptChanges?.some(item => item.scope === 'character')
   );
   const currentCharacter = characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null;
   if (installed.targetCharacterName && installed.targetCharacterName !== currentCharacter) {
@@ -30,6 +32,7 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       scripts: { character: [], preset: [], global: [] },
       data: [],
       originalConflicts: [],
+      originalScriptConflicts: [],
     },
     characterNeeded,
   );
@@ -60,6 +63,13 @@ export async function uninstallProject({ adapter, storage }, projectId) {
         scope,
       ));
     }
+
+    const scriptRestoreResult = await restoreOriginalScriptConflicts(
+      { adapter, storage },
+      installed,
+      state,
+    );
+
     for (const presetName of targets.presets ?? []) {
       const backup = targets.presetBackups?.[presetName];
       if (backup?.existed) await maybe(adapter.createOrReplacePreset(presetName, backup.content));
@@ -79,8 +89,8 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       appliedAt: null,
       targetCharacterName: null,
       installTargets: null,
-      restoreWarnings: restoreResult.warnings,
-      unrestoredOriginals: restoreResult.unrestored,
+      restoreWarnings: [...restoreResult.warnings, ...scriptRestoreResult.warnings],
+      unrestoredOriginals: [...restoreResult.unrestored, ...scriptRestoreResult.unrestored],
       applyError: '',
       updatedAt: Date.now(),
     };

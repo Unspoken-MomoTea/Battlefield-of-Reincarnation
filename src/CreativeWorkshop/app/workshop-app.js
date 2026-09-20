@@ -8,7 +8,7 @@ import { bindWorkshopEvents } from './events.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '1.2.0';
+export const WORKSHOP_VERSION = '1.3.0';
 
 let booted = false;
 
@@ -53,10 +53,10 @@ export function bootWorkshop() {
     try {
       const result = await workshopApi.health();
       nodes.health.textContent = `在线 · ${result.version}`;
-      nodes.health.className = 'rw-status ok';
+      nodes.health.className = 'rw-health-chip ok';
     } catch (error) {
       nodes.health.textContent = `未连接 · ${error.message}`;
-      nodes.health.className = 'rw-status bad';
+      nodes.health.className = 'rw-health-chip bad';
     }
   }
 

@@ -149,33 +149,66 @@ export function createAuthorView({
     versionFile.multiple = true;
     versionFile.accept = '.json,.txt,.js,.mjs,application/json,text/plain,text/javascript,application/javascript';
     versionFile.hidden = true;
-    const coverState = element('div', 'rw-file-state', '封面：点击“选择并上传封面”选择 PNG / JPEG / WebP');
+    const coverState = element('div', 'rw-file-state', '封面：选择后先预览，再确认上传');
+    const coverPreview = element('img', 'rw-author-cover-preview');
+    coverPreview.hidden = true;
     const versionState = element('div', 'rw-file-state', '直接添加文件，系统会自动识别；完整 bundle JSON 也可直接加入');
     const artifactList = element('div', 'rw-artifact-list');
     artifactList.hidden = true;
-    uploadBox.append(coverFile, coverState, versionFile, versionState, artifactList);
+    uploadBox.append(coverFile, coverPreview, coverState, versionFile, versionState, artifactList);
+
+    let coverPreviewUrl = '';
+    const clearCoverPreview = () => {
+      if (coverPreviewUrl) {
+        try { host.URL.revokeObjectURL(coverPreviewUrl); } catch {}
+        coverPreviewUrl = '';
+      }
+      coverPreview.hidden = true;
+      coverPreview.removeAttribute('src');
+    };
 
     let coverButton;
+    let uploadCoverButton;
     coverButton = button('选择或拖入封面 · PNG / JPEG / WebP', '', () => {
       coverFile.value = '';
       coverFile.click();
     });
-    coverFile.addEventListener('change', async () => {
+    uploadCoverButton = button('上传封面', 'good', async () => {
       const selected = coverFile.files?.[0];
-      if (!selected) return;
+      if (!selected) throw new Error('请先选择封面');
+      uploadCoverButton.disabled = true;
       coverButton.disabled = true;
       coverState.textContent = `正在上传：${selected.name}`;
       try {
         await workshopApi.uploadProjectCover(project.id, selected);
         try { host.toastr?.success?.('封面上传成功', '创意工坊'); } catch {}
+        coverFile.value = '';
+        clearCoverPreview();
+        coverState.textContent = '封面已上传';
         await refreshMine();
       } catch (error) {
         coverState.textContent = `封面上传失败：${selected.name}`;
         notifyError(error);
       } finally {
-        coverButton.disabled = false;
-        coverFile.value = '';
+        if (uploadCoverButton.isConnected) uploadCoverButton.disabled = !coverFile.files?.length;
+        if (coverButton.isConnected) coverButton.disabled = false;
       }
+    });
+    uploadCoverButton.disabled = true;
+
+    coverFile.addEventListener('change', () => {
+      clearCoverPreview();
+      const selected = coverFile.files?.[0];
+      if (!selected) {
+        coverState.textContent = '封面：选择后先预览，再确认上传';
+        uploadCoverButton.disabled = true;
+        return;
+      }
+      coverPreviewUrl = host.URL.createObjectURL(selected);
+      coverPreview.src = coverPreviewUrl;
+      coverPreview.hidden = false;
+      coverState.textContent = `已选择：${selected.name} · 尚未上传`;
+      uploadCoverButton.disabled = false;
     });
 
     let versionButton;
@@ -314,7 +347,7 @@ export function createAuthorView({
     });
 
     const uploadActions = element('div', 'rw-row rw-upload-actions');
-    uploadActions.append(coverButton, versionButton, uploadVersionButton);
+    uploadActions.append(coverButton, uploadCoverButton, versionButton, uploadVersionButton);
     uploadBox.appendChild(uploadActions);
     if (Number(project.published_version) > 0) {
       uploadBox.appendChild(element('div', 'rw-muted', '已发布版本保持在线；新版本只有审核通过后才会替换公开内容。'));

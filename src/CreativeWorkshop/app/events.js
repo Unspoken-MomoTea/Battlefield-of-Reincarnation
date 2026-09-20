@@ -2,7 +2,7 @@ import { bindCreateProjectFlow } from '../views/author/create-project.js';
 
 export function bindWorkshopEvents({
   host, doc, overlay, nodes, views, workshopApi, projectService,
-  notifyError, openModal, showTab, getActiveTab, setAuth, close,
+  notifyError, confirmDialog, openModal, showTab, getActiveTab, setAuth, close,
 }) {
   overlay.querySelector('[data-action="close"]').addEventListener('click', close);
   overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
@@ -91,6 +91,7 @@ export function bindWorkshopEvents({
     nodes,
     workshopApi,
     notifyError,
+    confirmDialog,
     openModal,
     refreshMine: () => views.author.refresh(),
   });

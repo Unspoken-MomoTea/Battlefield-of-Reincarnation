@@ -3,6 +3,7 @@ import { createAdminView } from '../views/admin.js';
 import { createAuthorView } from '../views/author.js';
 import { createDiscoverView } from '../views/discover.js';
 import { createInstalledView } from '../views/installed.js';
+import { createMaintenanceView } from '../views/maintenance.js';
 
 export function createWorkshopViews(context) {
   const common = {
@@ -38,6 +39,12 @@ export function createWorkshopViews(context) {
       artifactLabels: ARTIFACT_LABELS,
       statusLabels: STATUS_LABELS,
       getAuth: context.getAuth,
+    }),
+    maintenance: createMaintenanceView({
+      ...common,
+      projectService: context.projectService,
+      selfUpdater: context.selfUpdater,
+      version: context.version,
     }),
     admin: createAdminView({
       ...common,

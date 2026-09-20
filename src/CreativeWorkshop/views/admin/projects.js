@@ -6,6 +6,7 @@ export function createAdminProjectsView({
   workshopApi,
   host,
   categoryLabels,
+  artifactLabels,
   getAuth,
 }) {
   function reviewStatusLabel(status) {
@@ -75,8 +76,13 @@ export function createAdminProjectsView({
             const raw = typeof artifact.content === 'string' ? artifact.content : JSON.stringify(artifact.content, null, 2);
             return {
               kind: artifact.kind,
+              kind_label: artifactLabels[artifact.kind] || artifact.kind,
               name: artifact.name,
               format: artifact.format,
+              ...(artifact.kind === 'script' ? { scope: artifact.scope || 'character' } : {}),
+              ...(artifact.kind === 'worldbook' && artifact.original_conflicts?.length
+                ? { original_conflicts: artifact.original_conflicts }
+                : {}),
               preview: raw.length > 6000 ? `${raw.slice(0, 6000)}\n…（界面仅预览前 6000 字符）` : raw,
             };
           });

@@ -14,6 +14,11 @@ export function fakeAdapter() {
     binding: { primary: null, additional: [] },
     regexes: [{ id: 'manual', script_name: '玩家正则' }],
     presets: new Map(),
+    scripts: {
+      character: [{ type: 'script', id: 'manual-script', name: '玩家脚本', enabled: true, content: 'manual' }],
+      preset: [],
+      global: [],
+    },
     failPreset: '',
   };
   return {
@@ -27,6 +32,8 @@ export function fakeAdapter() {
     rebindCharWorldbooks: binding => { state.binding = structuredClone(binding); },
     getCharacterRegexes: () => structuredClone(state.regexes),
     replaceCharacterRegexes: regexes => { state.regexes = structuredClone(regexes); },
+    getScriptTrees: scope => structuredClone(state.scripts[scope] ?? []),
+    replaceScriptTrees: (trees, scope) => { state.scripts[scope] = structuredClone(trees); },
     getPresetNames: () => [...state.presets.keys()],
     getPreset: name => structuredClone(state.presets.get(name)),
     createOrReplacePreset: (name, preset) => {

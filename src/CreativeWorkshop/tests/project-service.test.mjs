@@ -102,7 +102,7 @@ test('offline package round trip preserves verified bundle and project identity'
   const exported = await createOfflinePackage({
     id: 'p1',
     name: '离线测试',
-    category: 'worldbook',
+    category: 'extension',
     version: 2,
     manifest,
     bundle,
@@ -121,7 +121,7 @@ test('offline package rejects modified artifact content', async () => {
     format: 'reincarnation-workshop-project',
     version: 1,
     exported_at: Date.now(),
-    project: { id: 'p1', name: '离线测试', category: 'worldbook', version: 2 },
+    project: { id: 'p1', name: '离线测试', category: 'extension', version: 2 },
     manifest,
     bundle: structuredClone(bundle),
   };

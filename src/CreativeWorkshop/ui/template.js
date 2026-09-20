@@ -71,63 +71,105 @@ export function workshopTemplate(version) {
           <div class="rw-page-head-copy"><small>CREATOR</small><h2>我的作品</h2><p>创建、更新并跟踪你的发布内容。</p></div>
           <button class="rw-button primary" type="button" data-action="create-project-open">发布作品</button>
         </div>
-        <form class="rw-card rw-create-form" data-form="create-project" hidden>
-          <h3>创建作品</h3>
-          <div class="rw-row"><input class="rw-input grow" name="name" required maxlength="80" placeholder="作品名称"><select class="rw-select" name="category"><option value="extension">扩展</option><option value="character">角色</option></select></div>
-          <textarea class="rw-textarea" name="summary" maxlength="2000" placeholder="作品简介"></textarea>
-          <input class="rw-input" name="tags" maxlength="300" placeholder="标签：剧情, boss, 原创（逗号分隔）">
-          <input class="rw-input" name="dependencies" maxlength="1200" placeholder="依赖：项目ID@最低版本，多个用逗号分隔">
-          <div class="rw-create-assets">
-            <div class="rw-field">
-              <span>作品内容</span>
-              <label class="rw-button rw-file-drop-button" data-drop-target="create-version">
-                添加内容文件 · JSON / TXT / JS
-                <input data-field="create-version" type="file" multiple accept=".json,.txt,.js,application/json,text/plain,text/javascript,application/javascript" hidden>
-              </label>
-              <div class="rw-file-state" data-role="create-version-state">先选择内容类型，再分批添加文件；一个版本最多 32 个 artifact。</div>
-              <div class="rw-artifact-list" data-role="create-artifact-list" hidden></div>
+        <form class="rw-create-form" data-form="create-project" hidden>
+          <div class="rw-publish-form-head">
+            <div class="rw-publish-form-title">
+              <span>☁</span>
+              <div><strong>发布项目</strong><small>上传文件，剩下的交给工坊识别。</small></div>
             </div>
-            <div class="rw-field">
-              <span>封面（可选）</span>
-              <label class="rw-button rw-file-drop-button" data-drop-target="create-cover">
-                选择或拖入封面 · PNG / JPEG / WebP
-                <input data-field="create-cover" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+            <button class="rw-modal-close" type="button" data-action="create-project-cancel" aria-label="关闭">×</button>
+          </div>
+
+          <div class="rw-publish-grid">
+            <section class="rw-publish-column">
+              <div class="rw-publish-step-title">
+                <span>01</span>
+                <div><strong>基本资料</strong><small>先告诉大家这是什么。</small></div>
+              </div>
+
+              <label class="rw-field">
+                <span>作品名称 *</span>
+                <input class="rw-input" name="name" required maxlength="80" placeholder="例如：命定之诗与黄昏之歌">
               </label>
-              <div class="rw-file-state" data-role="create-cover-state">未选择封面。</div>
+
+              <label class="rw-field">
+                <span>作品简介</span>
+                <textarea class="rw-textarea rw-publish-summary" name="summary" maxlength="2000" placeholder="简单介绍作品内容、适用场景和主要功能。"></textarea>
+              </label>
+
+              <div class="rw-publish-divider"></div>
+
+              <div class="rw-publish-step-title">
+                <span>02</span>
+                <div><strong>分类与标签</strong><small>作品顶层只分为角色和扩展。</small></div>
+              </div>
+
+              <label class="rw-field">
+                <span>分类 *</span>
+                <select class="rw-select" name="category">
+                  <option value="extension">扩展</option>
+                  <option value="character">角色</option>
+                </select>
+              </label>
+
+              <label class="rw-field">
+                <span>标签（可选）</span>
+                <input class="rw-input" name="tags" maxlength="300" placeholder="例如：剧情, boss, 原创">
+              </label>
+
+              <details class="rw-publish-advanced">
+                <summary>高级：项目依赖（可选）</summary>
+                <label class="rw-field">
+                  <span>依赖项目</span>
+                  <input class="rw-input" name="dependencies" maxlength="1200" placeholder="项目ID@最低版本，多个用逗号分隔">
+                </label>
+                <small class="rw-muted">普通作品一般不需要填写；仅在必须先安装其他工坊项目时使用。</small>
+              </details>
+            </section>
+
+            <section class="rw-publish-column rw-publish-upload-column">
+              <div class="rw-publish-step-title">
+                <span>03</span>
+                <div><strong>上传内容</strong><small>直接拖入文件，系统会自动判断它们是什么。</small></div>
+              </div>
+
+              <div class="rw-publish-upload-block">
+                <span class="rw-field-label">作品文件 *</span>
+                <label class="rw-smart-dropzone" data-drop-target="create-version">
+                  <span class="rw-smart-dropzone-icon">↥</span>
+                  <strong>拖入或选择文件</strong>
+                  <small>支持世界书 JSON、正则 JSON、酒馆助手脚本 JS / JSON、预设 JSON 和完整 bundle</small>
+                  <input data-field="create-version" type="file" multiple accept=".json,.txt,.js,.mjs,application/json,text/plain,text/javascript,application/javascript" hidden>
+                </label>
+                <div class="rw-file-state" data-role="create-version-state">拖入文件即可，系统会自动识别世界书、正则、脚本和预设。</div>
+                <div class="rw-artifact-list rw-smart-artifact-list" data-role="create-artifact-list" hidden></div>
+              </div>
+
+              <div class="rw-publish-divider"></div>
+
+              <div class="rw-publish-upload-block">
+                <span class="rw-field-label">封面图（可选）</span>
+                <label class="rw-cover-dropzone" data-drop-target="create-cover">
+                  <img data-role="create-cover-preview" alt="封面预览" hidden>
+                  <div class="rw-cover-dropzone-empty">
+                    <span>▧</span>
+                    <strong>拖入或选择封面</strong>
+                    <small>PNG / JPEG / WebP · 建议 16:9</small>
+                  </div>
+                  <input data-field="create-cover" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                </label>
+                <div class="rw-file-state" data-role="create-cover-state">可选。建议 16:9，选择后会立即预览。</div>
+              </div>
+            </section>
+          </div>
+
+          <footer class="rw-publish-footer">
+            <div class="rw-publish-footer-note">● 系统会先检查文件，然后再让你选择是否需要屏蔽/替换原版世界书或脚本。</div>
+            <div class="rw-row">
+              <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
+              <button class="rw-button primary" type="submit">下一步</button>
             </div>
-            <label class="rw-field" data-role="create-artifact-kind">
-              <span>上传内容类型</span>
-              <select class="rw-select" name="artifact_kind">
-                <option value="worldbook">世界书</option>
-                <option value="regex">正则</option>
-                <option value="script">酒馆助手脚本</option>
-                <option value="preset">预设</option>
-                <option value="data">数据</option>
-              </select>
-            </label>
-            <label class="rw-field" data-role="create-script-scope" hidden>
-              <span>脚本作用域</span>
-              <select class="rw-select" name="script_scope">
-                <option value="character">当前角色</option>
-                <option value="preset">当前预设</option>
-                <option value="global">全局</option>
-              </select>
-            </label>
-            <label class="rw-field" data-role="create-original-conflicts">
-              <span>需要临时屏蔽/替换的原版世界书条目（可选）</span>
-              <textarea class="rw-textarea" name="original_conflicts" placeholder="每行一条：世界书名 | UID | 条目名&#10;UID 可留空，例如：角色原世界书 | | 原版规则"></textarea>
-              <small class="rw-muted">安装时只临时关闭目标；关闭/卸载创意时恢复原状态。若玩家期间修改过原条目，只恢复启用状态，不覆盖玩家修改。</small>
-            </label>
-            <label class="rw-field" data-role="create-script-conflicts" hidden>
-              <span>需要临时屏蔽/替换的酒馆助手脚本（可选）</span>
-              <textarea class="rw-textarea" name="script_conflicts" placeholder="每行一条：作用域 | ID | 脚本名 | 文件夹名&#10;例如：character | old-script-id | 原状态栏 |"></textarea>
-              <small class="rw-muted">作用域为 character / preset / global。安装时记录原脚本并关闭；卸载时安全还原，期间玩家修改不会被覆盖。</small>
-            </label>
-          </div>
-          <div class="rw-row">
-            <button class="rw-button primary" type="submit">下一步</button>
-            <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
-          </div>
+          </footer>
         </form>
         <div class="rw-grid" data-role="my-list"></div>
       </section>

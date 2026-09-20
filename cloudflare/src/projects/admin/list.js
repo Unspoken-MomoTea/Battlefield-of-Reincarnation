@@ -6,7 +6,7 @@ export async function listAdminProjects(request, env, user) {
   const { query, category, limit, offset, reviewStatus } = adminPageParams(request);
   const like = `%${query}%`;
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.category, v.cover_key,
+    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
             p.status, p.latest_version, p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count, p.created_at, p.updated_at,
             owner.display_name AS owner_name, owner.discord_id AS owner_discord_id, owner.is_banned AS owner_is_banned,
@@ -22,7 +22,7 @@ export async function listAdminProjects(request, env, user) {
       WHERE p.latest_version > 0
         AND (? = '' OR v.review_status = ?)
         AND (? = '' OR v.name LIKE ? OR v.summary LIKE ? OR owner.display_name LIKE ?)
-        AND (? = '' OR v.category = ?)
+        AND (? = '' OR v.project_type = ?)
       ORDER BY CASE v.review_status WHEN 'pending' THEN 0 WHEN 'rejected' THEN 1 WHEN 'draft' THEN 2 WHEN 'approved' THEN 3 ELSE 4 END,
         COALESCE(v.submitted_at, v.reviewed_at, v.created_at) DESC, p.updated_at DESC
       LIMIT ? OFFSET ?`,
@@ -34,7 +34,7 @@ export async function listAdminProjects(request, env, user) {
 export async function listPendingProjects(env, user) {
   assertAdmin(user);
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.category, v.cover_key,
+    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
             p.status, p.latest_version, p.published_version, p.created_at, p.updated_at,
             u.display_name AS owner_name, v.changelog, v.submitted_at
        FROM projects p

@@ -1,5 +1,6 @@
 import { formatDependencyText, parseDependencyText } from '../services/projects/dependency-input.js';
 import { parseOriginalConflictText } from '../services/projects/original-conflict-input.js';
+import { parseOriginalScriptConflictText } from '../services/projects/script-conflict-input.js';
 import { createArtifactQueue } from '../ui/artifact-queue.js';
 
 export function createAuthorView({
@@ -149,21 +150,36 @@ export function createAuthorView({
     }
     scriptScope.hidden = true;
     const originalConflicts = element('textarea', 'rw-textarea');
-    originalConflicts.placeholder = '原版条目关闭声明：每行“世界书名 | UID | 条目名”，UID 可留空';
+    originalConflicts.placeholder = '原版世界书屏蔽/替换：每行“世界书名 | UID | 条目名”，UID 可留空';
     originalConflicts.hidden = false;
     const originalConflictsHint = element(
       'div',
       'rw-muted',
-      '仅对单个世界书文件生效；完整 bundle JSON 请在 artifact.original_conflicts 中声明。',
+      '安装时临时关闭目标世界书条目；卸载时恢复。完整 bundle JSON 请在 artifact.original_conflicts 中声明。',
     );
+    const scriptConflicts = element('textarea', 'rw-textarea');
+    scriptConflicts.placeholder = '原脚本屏蔽/替换：每行“作用域 | ID | 脚本名 | 文件夹名”';
+    scriptConflicts.hidden = true;
+    const scriptConflictsHint = element(
+      'div',
+      'rw-muted',
+      '作用域为 character / preset / global。安装时保存原脚本并关闭，卸载时安全恢复。',
+    );
+    scriptConflictsHint.hidden = true;
     const syncArtifactOptions = () => {
       scriptScope.hidden = kind.value !== 'script';
       originalConflicts.hidden = kind.value !== 'worldbook';
       originalConflictsHint.hidden = kind.value !== 'worldbook';
+      scriptConflicts.hidden = kind.value !== 'script';
+      scriptConflictsHint.hidden = kind.value !== 'script';
     };
     kind.addEventListener('change', syncArtifactOptions);
     syncArtifactOptions();
-    uploadBox.append(changelog, kind, scriptScope, originalConflicts, originalConflictsHint);
+    uploadBox.append(
+      changelog, kind, scriptScope,
+      originalConflicts, originalConflictsHint,
+      scriptConflicts, scriptConflictsHint,
+    );
 
     const coverFile = element('input', '');
     coverFile.type = 'file';
@@ -220,7 +236,9 @@ export function createAuthorView({
         scriptScope: scriptScope.value,
         originalConflicts: kind.value === 'worldbook'
           ? parseOriginalConflictText(originalConflicts.value)
-          : [],
+          : kind.value === 'script'
+            ? parseOriginalScriptConflictText(scriptConflicts.value)
+            : [],
       }),
       onChange: queue => {
         versionState.textContent = queue.count

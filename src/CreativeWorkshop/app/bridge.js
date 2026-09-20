@@ -1,4 +1,4 @@
-export function createWorkshopBridge({ version, open, close, refresh, workshopApi, projectService }) {
+export function createWorkshopBridge({ version, open, close, refresh, workshopApi, projectService, selfUpdater }) {
   return {
     version, open, close, refresh,
     login: () => workshopApi.login(),
@@ -17,5 +17,7 @@ export function createWorkshopBridge({ version, open, close, refresh, workshopAp
     importProject: file => projectService.importOffline(file),
     getStorageEstimate: () => projectService.storageEstimate(),
     cleanupCachedProjects: () => projectService.cleanupCacheOnly(),
+    checkWorkshopUpdate: () => selfUpdater.check(),
+    updateWorkshopLoaderLink: () => selfUpdater.updateLoaderLink(),
   };
 }

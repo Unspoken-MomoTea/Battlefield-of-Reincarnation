@@ -152,10 +152,23 @@ export const WORKSHOP_CSS = \`
   .rw-file-state{min-height:18px;color:var(--rw-muted);font-size:11px}
 
   .rw-create-form{
-    margin-bottom:12px;border-color:rgba(162,139,107,.18);background:rgba(162,139,107,.045)
+    position:fixed;left:50%;top:50%;z-index:2147483500;transform:translate(-50%,-50%);
+    width:min(720px,calc(100vw - 36px));max-height:min(760px,90vh);overflow:auto;
+    margin:0;padding:18px;border-color:rgba(162,139,107,.22);background:#1a1b1f;
+    box-shadow:0 0 0 100vmax rgba(5,6,8,.72),0 24px 70px rgba(0,0,0,.55)
   }
   .rw-create-form[hidden]{display:none!important}
-  .rw-create-form h3{font-size:16px}
+  .rw-create-form h3{font-size:17px;margin-bottom:4px}
+  .rw-upload-actions{align-items:stretch}
+  .rw-file-drop-button{
+    flex:1;min-width:220px;min-height:76px;padding:12px 14px!important;
+    border-style:dashed!important;border-color:rgba(162,139,107,.24)!important;
+    background:rgba(162,139,107,.045)!important;color:#bdb0a0!important;
+    white-space:normal;line-height:1.45!important;text-align:center
+  }
+  .rw-file-drop-button:hover,.rw-file-drop-button.is-dragover{
+    border-color:rgba(162,139,107,.55)!important;background:rgba(162,139,107,.11)!important;color:var(--rw-accent-text)!important
+  }
 
   .rw-empty{
     padding:42px 18px;text-align:center;color:var(--rw-muted);border:1px dashed var(--rw-line-strong);
@@ -204,6 +217,8 @@ export const WORKSHOP_CSS = \`
     .rw-input.grow{min-width:100%;flex-basis:100%}
     .rw-grid{grid-template-columns:1fr}
     .rw-page-head{align-items:flex-start}
+    .rw-create-form{width:calc(100vw - 20px);max-height:calc(100dvh - 28px);padding:14px}
+    .rw-file-drop-button{min-width:100%}
   }
 
   @media(max-width:420px){

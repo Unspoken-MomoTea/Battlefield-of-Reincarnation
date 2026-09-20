@@ -15,7 +15,7 @@ export async function buildManifest(project, version, bundle) {
     artifacts.push({
       kind: artifact.kind, format: artifact.format, name: artifact.name,
       ...(artifact.kind === 'script' ? { scope: artifact.scope || 'character' } : {}),
-      ...(artifact.kind === 'worldbook' && artifact.original_conflicts?.length
+      ...(['worldbook', 'script'].includes(artifact.kind) && artifact.original_conflicts?.length
         ? { original_conflicts: artifact.original_conflicts }
         : {}),
       byte_size: byteSize, sha256: await sha256Hex(content),

@@ -2,6 +2,7 @@ import { HttpError } from '../http.js';
 import { PROJECT_TYPES } from './constants.js';
 
 const PROJECT_TYPE_SET = new Set(PROJECT_TYPES);
+const PUBLIC_SORT_SET = new Set(['latest', 'popular', 'downloads', 'likes', 'favorites']);
 
 export function nowSeconds() {
   return Math.floor(Date.now() / 1000);
@@ -67,10 +68,12 @@ export function pageParams(request) {
   const query = (url.searchParams.get('query') || '').trim().slice(0, 100);
   const category = (url.searchParams.get('category') || '').trim();
   const tag = (url.searchParams.get('tag') || '').normalize('NFKC').trim().toLocaleLowerCase().slice(0, 24);
+  const sort = (url.searchParams.get('sort') || 'latest').trim().toLocaleLowerCase();
   if (category && !PROJECT_TYPE_SET.has(category)) throw new HttpError(400, 'invalid_project_type', '作品类型无效');
+  if (!PUBLIC_SORT_SET.has(sort)) throw new HttpError(400, 'invalid_project_sort', '作品排序方式无效');
   const limit = Math.max(1, Math.min(48, Number.parseInt(url.searchParams.get('limit') || '24', 10) || 24));
   const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') || '0', 10) || 0);
-  return { query, category, tag, limit, offset };
+  return { query, category, tag, sort, limit, offset };
 }
 
 export function adminPageParams(request) {

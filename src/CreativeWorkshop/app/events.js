@@ -13,6 +13,17 @@ export function bindWorkshopEvents({
   overlay.querySelector('[data-action="search"]').addEventListener('click', () => void views.discover.refresh());
   nodes.search.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
   nodes.tag.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
+  nodes.sort.addEventListener('change', () => void views.discover.refresh());
+  nodes.discoverCategories.forEach(categoryButton => {
+    categoryButton.addEventListener('click', () => {
+      nodes.category.value = categoryButton.dataset.categoryFilter || '';
+      nodes.discoverCategories.forEach(buttonNode => {
+        buttonNode.classList.toggle('is-active', buttonNode === categoryButton);
+      });
+      void views.discover.refresh();
+    });
+  });
+  nodes.discoverMore.addEventListener('click', () => void views.discover.loadMore());
 
   nodes.checkAllUpdates.addEventListener('click', () => void views.installed.checkAllUpdates(true));
   nodes.storageManager.addEventListener('click', () => void views.installed.manageStorage());

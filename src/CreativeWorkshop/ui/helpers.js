@@ -34,6 +34,62 @@ export function createUiHelpers(doc, host, mount = doc.body) {
     container.replaceChildren(element('div', 'rw-empty', text));
   }
 
+  function confirmDialog({
+    title = '确认操作',
+    message = '',
+    confirmText = '确定',
+    cancelText = '取消',
+    danger = false,
+  } = {}) {
+    return new Promise(resolve => {
+      const backdrop = element('div', 'rw-confirm-backdrop');
+      const panel = element('section', 'rw-confirm-dialog');
+      panel.setAttribute('role', 'alertdialog');
+      panel.setAttribute('aria-modal', 'true');
+
+      const head = element('div', 'rw-confirm-head');
+      const icon = element('span', danger ? 'rw-confirm-icon danger' : 'rw-confirm-icon', danger ? '!' : '?');
+      const copy = element('div', 'rw-confirm-copy');
+      copy.append(
+        element('strong', '', title),
+        element('div', 'rw-confirm-message', message),
+      );
+      head.append(icon, copy);
+
+      const actions = element('div', 'rw-confirm-actions');
+      const cancel = element('button', 'rw-button', cancelText);
+      cancel.type = 'button';
+      const confirm = element('button', `rw-button ${danger ? 'danger' : 'primary'}`, confirmText);
+      confirm.type = 'button';
+      actions.append(cancel, confirm);
+      panel.append(head, actions);
+      backdrop.appendChild(panel);
+
+      let settled = false;
+      const finish = value => {
+        if (settled) return;
+        settled = true;
+        host.removeEventListener?.('keydown', onKeyDown);
+        backdrop.remove();
+        resolve(Boolean(value));
+      };
+      const onKeyDown = event => {
+        if (event.key === 'Escape') finish(false);
+        if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) finish(true);
+      };
+
+      cancel.addEventListener('click', () => finish(false));
+      confirm.addEventListener('click', () => finish(true));
+      backdrop.addEventListener('click', event => {
+        if (event.target === backdrop) finish(false);
+      });
+
+      host.addEventListener?.('keydown', onKeyDown);
+      mount.appendChild(backdrop);
+      host.setTimeout?.(() => cancel.focus(), 0);
+    });
+  }
+
   function openModal(title, { wide = false, onClose = null, confirmDiscard = false } = {}) {
     const backdrop = element('div', 'rw-modal-backdrop');
     const panel = element('section', `rw-modal${wide ? ' rw-modal--wide' : ''}`);
@@ -92,5 +148,5 @@ export function createUiHelpers(doc, host, mount = doc.body) {
     };
   }
 
-  return { element, button, notifyError, empty, openModal };
+  return { element, button, notifyError, empty, confirmDialog, openModal };
 }

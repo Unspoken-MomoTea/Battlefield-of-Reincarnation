@@ -48,6 +48,18 @@ export function bindWorkshopEvents({
     finally { nodes.logout.disabled = false; }
   });
 
+  const createOpen = overlay.querySelector('[data-action="create-project-open"]');
+  const createCancel = overlay.querySelector('[data-action="create-project-cancel"]');
+  createOpen?.addEventListener('click', () => {
+    nodes.createForm.hidden = false;
+    nodes.createForm.querySelector('[name="name"]')?.focus();
+    nodes.createForm.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+  createCancel?.addEventListener('click', () => {
+    nodes.createForm.reset();
+    nodes.createForm.hidden = true;
+  });
+
   nodes.createForm.addEventListener('submit', async event => {
     event.preventDefault();
     const submit = nodes.createForm.querySelector('button[type="submit"]');
@@ -62,6 +74,8 @@ export function bindWorkshopEvents({
         dependencies: parseDependencyText(form.get('dependencies')),
       });
       nodes.createForm.reset();
+      nodes.createForm.hidden = true;
+      try { host.toastr?.success?.('草稿已创建，可以继续上传版本与封面', '创意工坊'); } catch {}
       await views.author.refresh();
     } catch (error) { notifyError(error); }
     finally { submit.disabled = false; }

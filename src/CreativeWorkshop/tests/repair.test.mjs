@@ -83,3 +83,43 @@ test('health inspection refuses a character scoped repair on the wrong character
   assert.deepEqual(result.issues.map(item => item.type), ['character_mismatch']);
   assert.equal(result.repairable, false);
 });
+
+
+test('health inspection detects edited original conflict entries and repair preserves the edit while disabling it again', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('角色原世界书', [
+    { uid: 77, name: '原版规则', enabled: true, content: 'original' },
+  ]);
+  adapter.state.binding.primary = '角色原世界书';
+
+  const storage = memoryStorage(project([
+    {
+      kind: 'worldbook',
+      name: 'DLC世界书.json',
+      format: 'json',
+      original_conflicts: [{
+        action: 'disable',
+        target: { worldbook: '角色原世界书', uid: '77', name: '原版规则' },
+      }],
+      content: {
+        entries: { 0: { comment: 'DLC规则', content: 'replacement', constant: true } },
+      },
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await installer.apply('project-1');
+  adapter.state.worldbooks.set('角色原世界书', [
+    { uid: 77, name: '原版规则', enabled: false, content: 'player edit' },
+  ]);
+
+  const before = await inspectInstalledProject(adapter, storage.current());
+  assert.ok(before.issues.some(item => item.type === 'original_conflict_modified'));
+
+  const repaired = await repairInstalledProject({ adapter, storage }, 'project-1');
+  assert.equal(repaired.health.healthy, true);
+  assert.deepEqual(adapter.state.worldbooks.get('角色原世界书'), [
+    { uid: 77, name: '原版规则', enabled: false, content: 'player edit' },
+  ]);
+  assert.equal(storage.current().installTargets.originalWorldbookChanges[0].userModified, true);
+});

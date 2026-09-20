@@ -6,6 +6,7 @@ export function workshopTemplate(version) {
       <div class="rw-account" data-role="account">未登录</div>
       <span class="rw-health-chip" data-role="health" title="工坊服务状态">连接中</span>
       <div class="rw-version">v${version}</div>
+      <button class="rw-button" type="button" data-action="maintenance">DLC 修复 / 更新</button>
       <button class="rw-button primary" type="button" data-action="login">Discord 登录</button>
       <button class="rw-button danger" type="button" data-action="logout" hidden>退出</button>
       <button class="rw-close" type="button" data-action="close">关闭</button>

@@ -65,13 +65,21 @@ export async function scanPublishResources(adapter = createTavernAdapter()) {
     if (!name || name === SHARED_WORLDBOOK_NAME) continue;
     try {
       const entries = clone(await adapter.getWorldbook(name));
+      const normalized = (entries || []).map((entry, index) => ({
+        uid: entry?.uid === undefined || entry?.uid === null ? '' : String(entry.uid),
+        name: entryName(entry) || `条目 ${index + 1}`,
+        enabled: entryEnabled(entry),
+      }));
+      const nameCounts = new Map();
+      for (const entry of normalized) {
+        if (!entry.uid) nameCounts.set(entry.name, (nameCounts.get(entry.name) || 0) + 1);
+      }
       worldbooks.push({
         name,
         bound: bound.has(name),
-        entries: (entries || []).map((entry, index) => ({
-          uid: entry?.uid === undefined || entry?.uid === null ? '' : String(entry.uid),
-          name: entryName(entry) || `条目 ${index + 1}`,
-          enabled: entryEnabled(entry),
+        entries: normalized.map(entry => ({
+          ...entry,
+          selectable: Boolean(entry.uid) || (nameCounts.get(entry.name) || 0) === 1,
         })),
       });
     } catch {}
@@ -82,6 +90,16 @@ export async function scanPublishResources(adapter = createTavernAdapter()) {
     try {
       scripts.push(...flattenScripts(await adapter.getScriptTrees(scope), scope));
     } catch {}
+  }
+  const scriptNameCounts = new Map();
+  for (const script of scripts) {
+    if (script.id) continue;
+    const key = `${script.scope}\u0000${script.folder}\u0000${script.name}`;
+    scriptNameCounts.set(key, (scriptNameCounts.get(key) || 0) + 1);
+  }
+  for (const script of scripts) {
+    const key = `${script.scope}\u0000${script.folder}\u0000${script.name}`;
+    script.selectable = Boolean(script.id) || (scriptNameCounts.get(key) || 0) === 1;
   }
 
   return {

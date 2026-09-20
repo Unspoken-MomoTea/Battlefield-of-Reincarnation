@@ -16,6 +16,7 @@ export function buildArtifactPlan(installed) {
     scripts: { character: [], preset: [], global: [] },
     data: [],
     originalConflicts: [],
+    originalScriptConflicts: [],
   };
   bundle.artifacts.forEach((artifact, index) => {
     if (artifact.kind === 'worldbook') {
@@ -53,6 +54,13 @@ export function buildArtifactPlan(installed) {
     if (artifact.kind === 'script') {
       const normalized = normalizeScriptArtifact(artifact, installed, index);
       plan.scripts[normalized.scope].push(...normalized.trees);
+      for (const conflict of artifact.original_conflicts || []) {
+        plan.originalScriptConflicts.push({
+          ...clone(conflict),
+          artifactIndex: index,
+          artifactName: artifact.name,
+        });
+      }
       return;
     }
     if (artifact.kind === 'data') {

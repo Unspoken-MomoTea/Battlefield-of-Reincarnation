@@ -1,4 +1,5 @@
 import { parseDependencyText } from '../services/projects/dependency-input.js';
+import { buildUploadBundle } from '../services/upload.js';
 
 export function bindWorkshopEvents({
   host, doc, overlay, nodes, views, workshopApi, projectService,
@@ -50,13 +51,71 @@ export function bindWorkshopEvents({
 
   const createOpen = overlay.querySelector('[data-action="create-project-open"]');
   const createCancel = overlay.querySelector('[data-action="create-project-cancel"]');
+  const createCategory = nodes.createForm.querySelector('[name="category"]');
+
+  const resetCreateFiles = () => {
+    nodes.createVersion.value = '';
+    nodes.createCover.value = '';
+    nodes.createVersionState.textContent = '未选择版本文件；不选择则只创建草稿。';
+    nodes.createCoverState.textContent = '未选择封面。';
+  };
+
+  const syncCreateCategory = () => {
+    nodes.createArtifactKind.hidden = createCategory.value !== 'mixed';
+  };
+  createCategory.addEventListener('change', syncCreateCategory);
+  syncCreateCategory();
+
+  const bindCreateFile = (target, input, stateNode, emptyText) => {
+    const render = () => {
+      const selected = input.files?.[0];
+      stateNode.textContent = selected ? `已选择：${selected.name}` : emptyText;
+    };
+    input.addEventListener('change', render);
+    target.addEventListener('dragover', event => {
+      event.preventDefault();
+      target.classList.add('is-dragover');
+    });
+    target.addEventListener('dragleave', () => target.classList.remove('is-dragover'));
+    target.addEventListener('drop', event => {
+      event.preventDefault();
+      target.classList.remove('is-dragover');
+      const selected = event.dataTransfer?.files?.[0];
+      if (!selected) return;
+      try {
+        const Transfer = host.DataTransfer || DataTransfer;
+        const transfer = new Transfer();
+        transfer.items.add(selected);
+        input.files = transfer.files;
+        input.dispatchEvent(new Event('change'));
+      } catch {
+        input.click();
+      }
+    });
+  };
+
+  bindCreateFile(
+    overlay.querySelector('[data-drop-target="create-version"]'),
+    nodes.createVersion,
+    nodes.createVersionState,
+    '未选择版本文件；不选择则只创建草稿。',
+  );
+  bindCreateFile(
+    overlay.querySelector('[data-drop-target="create-cover"]'),
+    nodes.createCover,
+    nodes.createCoverState,
+    '未选择封面。',
+  );
+
   createOpen?.addEventListener('click', () => {
     nodes.createForm.hidden = false;
+    syncCreateCategory();
     nodes.createForm.querySelector('[name="name"]')?.focus();
-    nodes.createForm.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
   createCancel?.addEventListener('click', () => {
     nodes.createForm.reset();
+    resetCreateFiles();
+    syncCreateCategory();
     nodes.createForm.hidden = true;
   });
 
@@ -64,21 +123,62 @@ export function bindWorkshopEvents({
     event.preventDefault();
     const submit = nodes.createForm.querySelector('button[type="submit"]');
     submit.disabled = true;
+    submit.textContent = '正在创建...';
     try {
       const form = new FormData(nodes.createForm);
-      await workshopApi.createProject({
+      const category = String(form.get('category') || 'data');
+      const selectedVersion = nodes.createVersion.files?.[0] || null;
+      const selectedCover = nodes.createCover.files?.[0] || null;
+      const created = await workshopApi.createProject({
         name: String(form.get('name') || ''),
         summary: String(form.get('summary') || ''),
-        category: String(form.get('category') || 'data'),
+        category,
         tags: String(form.get('tags') || '').split(/[,，\n]/u).map(value => value.trim()).filter(Boolean),
         dependencies: parseDependencyText(form.get('dependencies')),
       });
+      const project = created.project;
+
+      if (selectedVersion) {
+        submit.textContent = '正在上传版本...';
+        const raw = await selectedVersion.text();
+        const bundle = buildUploadBundle(
+          project,
+          selectedVersion.name,
+          raw,
+          String(form.get('artifact_kind') || 'data'),
+        );
+        await workshopApi.uploadProjectVersion(project.id, { changelog: '', bundle });
+      }
+
+      if (selectedCover) {
+        submit.textContent = '正在上传封面...';
+        await workshopApi.uploadProjectCover(project.id, selectedCover);
+      }
+
+      const submitReview = Boolean(selectedVersion && form.get('submit_review'));
+      if (submitReview) {
+        submit.textContent = '正在提交审核...';
+        await workshopApi.submitProject(project.id);
+      }
+
       nodes.createForm.reset();
+      resetCreateFiles();
+      syncCreateCategory();
       nodes.createForm.hidden = true;
-      try { host.toastr?.success?.('草稿已创建，可以继续上传版本与封面', '创意工坊'); } catch {}
+      try {
+        host.toastr?.success?.(
+          submitReview ? '作品已创建并提交审核' : selectedVersion ? '作品与版本已创建' : '草稿已创建',
+          '创意工坊',
+        );
+      } catch {}
       await views.author.refresh();
-    } catch (error) { notifyError(error); }
-    finally { submit.disabled = false; }
+    } catch (error) {
+      notifyError(error);
+      await views.author.refresh();
+    } finally {
+      submit.disabled = false;
+      submit.textContent = '创建作品';
+    }
   });
 
   return () => {};

@@ -1,4 +1,4 @@
-const ALLOWED_KINDS = new Set(['worldbook', 'regex', 'preset', 'data']);
+const ALLOWED_KINDS = new Set(['worldbook', 'regex', 'preset', 'script', 'data']);
 
 export function buildUploadBundle(project, fileName, rawText, selectedKind = 'data') {
   const name = String(fileName || '').trim();
@@ -35,6 +35,7 @@ export function buildUploadBundle(project, fileName, rawText, selectedKind = 'da
       {
         kind,
         name,
+        ...(kind === 'script' ? { scope: 'character' } : {}),
         format: isJson ? 'json' : 'text',
         content: parsed,
       },

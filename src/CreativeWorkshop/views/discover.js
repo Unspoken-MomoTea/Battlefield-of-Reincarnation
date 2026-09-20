@@ -1,3 +1,4 @@
+import { formatInstallConflicts } from '../ui/install-messages.js';
 import { promptProjectReport } from './discover/report.js';
 
 export function createDiscoverView({
@@ -14,8 +15,56 @@ export function createDiscoverView({
   openModal,
   notifyError,
 }) {
+  let nextOffset = null;
+  let loadedCount = 0;
+  let requestSerial = 0;
+  let localProjects = new Map();
+
+  function localProject(projectId) {
+    return localProjects.get(projectId) || null;
+  }
+
+  async function syncLocalProjects() {
+    const installed = await projectService.installed();
+    localProjects = new Map(installed.map(item => [item.id, item]));
+    return localProjects;
+  }
+
+  function cardFor(projectId) {
+    return [...nodes.discoverList.querySelectorAll('.rw-project-card')]
+      .find(card => card.dataset.projectId === String(projectId)) || null;
+  }
+
+  function localActionLabel(project, local) {
+    if (!local) return '下载';
+    if (Number(local.version) < Number(project.version)) return '有更新';
+    if (local.applied && Number(local.appliedVersion || 0) >= Number(local.version)) return '已安装';
+    return '已下载';
+  }
+
+  function updateCardLocalState(project) {
+    const card = cardFor(project.id);
+    const action = card?.querySelector('.rw-card-primary');
+    if (!action) return;
+    const local = localProject(project.id);
+    action.textContent = localActionLabel(project, local);
+    action.classList.toggle('is-installed', Boolean(local?.applied));
+    action.classList.toggle('is-cached', Boolean(local && !local.applied));
+    action.classList.toggle('has-update', Boolean(local && Number(local.version) < Number(project.version)));
+  }
+
+  function updateCardEngagement(projectId, state) {
+    const card = cardFor(projectId);
+    if (!card) return;
+    const likes = card.querySelector('[data-stat="likes"]');
+    const favorites = card.querySelector('[data-stat="favorites"]');
+    if (likes) likes.textContent = `♥ ${state.likes_count || 0}`;
+    if (favorites) favorites.textContent = `★ ${state.favorites_count || 0}`;
+  }
+
   function projectCard(project) {
     const card = element('article', 'rw-card rw-project-card');
+    card.dataset.projectId = project.id;
     card.tabIndex = 0;
     card.setAttribute('role', 'button');
     card.setAttribute('aria-label', `查看作品：${project.name}`);
@@ -32,32 +81,50 @@ export function createDiscoverView({
       card.appendChild(placeholder);
     }
 
+    const typeBadge = element(
+      'span',
+      `rw-cover-badge rw-cover-badge--${project.category}`,
+      categoryLabels[project.category] || project.category,
+    );
+    card.appendChild(typeBadge);
+
     const top = element('div', 'rw-project-card-top');
     top.appendChild(element('h3', '', project.name));
     if (project.owner_name) top.appendChild(element('div', 'rw-project-author', project.owner_name));
     card.appendChild(top);
 
     const meta = element('div', 'rw-meta');
-    meta.append(element('span', 'rw-pill', categoryLabels[project.category] || project.category));
     meta.append(element('span', 'rw-pill', `v${project.version}`));
     for (const tag of (project.tags || []).slice(0, 3)) meta.append(element('span', 'rw-pill', `#${tag}`));
     card.appendChild(meta);
 
-    const summary = element('div', 'rw-muted rw-project-summary', project.summary || '暂无简介');
-    card.appendChild(summary);
+    card.appendChild(element('div', 'rw-muted rw-project-summary', project.summary || '暂无简介'));
 
     const footer = element('div', 'rw-project-footer');
     const stats = element('div', 'rw-project-stats');
-    stats.append(
-      element('span', '', `↓ ${project.downloads_count || 0}`),
-      element('span', '', `♥ ${project.likes_count || 0}`),
-      element('span', '', `★ ${project.favorites_count || 0}`),
-    );
+    const downloads = element('span', '', `↓ ${project.downloads_count || 0}`);
+    const likes = element('span', '', `♥ ${project.likes_count || 0}`);
+    const favorites = element('span', '', `★ ${project.favorites_count || 0}`);
+    downloads.dataset.stat = 'downloads';
+    likes.dataset.stat = 'likes';
+    favorites.dataset.stat = 'favorites';
+    stats.append(downloads, likes, favorites);
     footer.appendChild(stats);
-    footer.appendChild(button('下载', 'primary', async () => {
+
+    let quickAction = null;
+    quickAction = button('', 'primary rw-card-primary', async () => {
+      const local = localProject(project.id);
+      if (local) {
+        await showDetail(project.id);
+        return;
+      }
       const cached = await projectService.cache(project.id);
-      try { host.toastr?.success?.(`已缓存 ${cached.name} v${cached.version}`, '创意工坊'); } catch {}
-    }));
+      localProjects.set(project.id, cached);
+      quickAction.textContent = localActionLabel(project, cached);
+      try { host.toastr?.success?.(`已下载 ${cached.name} v${cached.version}，可继续安装到酒馆`, '创意工坊'); } catch {}
+    });
+    quickAction.textContent = localActionLabel(project, localProject(project.id));
+    footer.appendChild(quickAction);
     card.appendChild(footer);
 
     const open = () => void showDetail(project.id);
@@ -74,15 +141,81 @@ export function createDiscoverView({
     return card;
   }
 
-  async function refreshDiscover() {
-    empty(nodes.discoverList, '正在加载作品...');
-    try {
-      const result = await projectService.list(nodes.search.value, nodes.category.value, 0, nodes.tag.value);
-      if (!result.items.length) return empty(nodes.discoverList, '暂时没有符合条件的已发布作品');
-      nodes.discoverList.replaceChildren(...result.items.map(projectCard));
-    } catch (error) {
-      empty(nodes.discoverList, `加载失败：${error.message}`);
+  async function loadPage({ append = false } = {}) {
+    const serial = ++requestSerial;
+    const offset = append ? nextOffset : 0;
+    if (append && offset === null) return;
+
+    if (!append) {
+      nextOffset = null;
+      loadedCount = 0;
+      nodes.discoverMore.hidden = true;
+      empty(nodes.discoverList, '正在加载作品...');
+      nodes.discoverCount.textContent = '正在载入';
+      await syncLocalProjects();
+    } else {
+      nodes.discoverMore.disabled = true;
+      nodes.discoverMore.textContent = '加载中...';
     }
+
+    try {
+      const result = await projectService.list(
+        nodes.search.value,
+        nodes.category.value,
+        offset || 0,
+        nodes.tag.value,
+        nodes.sort.value,
+      );
+      if (serial !== requestSerial) return;
+
+      const items = Array.isArray(result.items) ? result.items : [];
+      if (!append && !items.length) {
+        empty(nodes.discoverList, '暂时没有符合条件的已发布作品');
+        nodes.discoverCount.textContent = '0 个作品';
+        nodes.discoverMore.hidden = true;
+        return;
+      }
+
+      const cards = items.map(projectCard);
+      if (append) nodes.discoverList.append(...cards);
+      else nodes.discoverList.replaceChildren(...cards);
+
+      loadedCount += items.length;
+      nextOffset = result.next_offset ?? null;
+      nodes.discoverCount.textContent = nextOffset === null
+        ? `已显示 ${loadedCount} 个作品`
+        : `已加载 ${loadedCount} 个 · 还有更多`;
+      nodes.discoverMore.hidden = nextOffset === null;
+    } catch (error) {
+      if (append) notifyError(error);
+      else {
+        empty(nodes.discoverList, `加载失败：${error.message}`);
+        nodes.discoverCount.textContent = '加载失败';
+      }
+    } finally {
+      nodes.discoverMore.disabled = false;
+      nodes.discoverMore.textContent = '加载更多';
+    }
+  }
+
+  async function applyCachedProject(project, local, onChanged) {
+    const preflight = await projectService.preflight(project.id);
+    if (preflight.blocking.length) {
+      throw new Error(`当前无法安装：\n${formatInstallConflicts(preflight.blocking)}`);
+    }
+    if (preflight.warnings.length) {
+      const confirmed = host.confirm?.(
+        `安装前发现以下冲突：\n\n${formatInstallConflicts(preflight.warnings)}\n\n是否继续？`,
+      );
+      if (!confirmed) return local;
+    }
+    const result = await projectService.apply(project.id);
+    const installed = (await projectService.installed()).find(item => item.id === project.id) || local;
+    localProjects.set(project.id, installed);
+    try { host.toastr?.success?.(`已安装 ${result.name} v${result.appliedVersion}`, '创意工坊'); } catch {}
+    updateCardLocalState(project);
+    onChanged?.(installed);
+    return installed;
   }
 
   async function showDetail(projectId) {
@@ -90,8 +223,16 @@ export function createDiscoverView({
     empty(modal.body, '正在加载作品详情...');
 
     try {
-      const detail = await projectService.detail(projectId);
+      const [detail] = await Promise.all([
+        projectService.detail(projectId),
+        syncLocalProjects(),
+      ]);
       const project = detail.project;
+      let engagement = null;
+      if (getAuth()?.user) {
+        try { engagement = await workshopApi.getProjectEngagement(project.id); } catch {}
+      }
+
       modal.body.replaceChildren();
 
       if (project.has_cover) {
@@ -102,10 +243,17 @@ export function createDiscoverView({
       }
 
       const heading = element('div', 'rw-detail-heading');
-      heading.append(
+      const titleBox = element('div', 'rw-detail-titlebox');
+      titleBox.append(
         element('h3', '', project.name),
         element('div', 'rw-project-author', project.owner_name ? `作者 · ${project.owner_name}` : ''),
       );
+      const stats = element('div', 'rw-detail-stats');
+      const downloadsStat = element('span', '', `↓ ${project.downloads_count || 0}`);
+      const likesStat = element('span', '', `♥ ${engagement?.likes_count ?? project.likes_count ?? 0}`);
+      const favoritesStat = element('span', '', `★ ${engagement?.favorites_count ?? project.favorites_count ?? 0}`);
+      stats.append(downloadsStat, likesStat, favoritesStat);
+      heading.append(titleBox, stats);
       modal.body.appendChild(heading);
 
       const meta = element('div', 'rw-meta');
@@ -161,35 +309,103 @@ export function createDiscoverView({
       if (project.dependencies?.length) {
         const dependencies = element('section', 'rw-detail-section');
         dependencies.appendChild(element('strong', '', '依赖'));
-        const list = element(
+        dependencies.appendChild(element(
           'div',
           'rw-muted',
           project.dependencies.map(item => `${item.project_id}@${item.min_version}`).join('、'),
-        );
-        dependencies.appendChild(list);
+        ));
         modal.body.appendChild(dependencies);
       }
 
       const actions = element('div', 'rw-row rw-detail-actions');
-      actions.appendChild(button('下载到本地', 'primary', async () => {
-        const cached = await projectService.cache(project.id);
-        try { host.toastr?.success?.(`已缓存 ${cached.name} v${cached.version}`, '创意工坊'); } catch {}
-      }));
+      let local = localProject(project.id);
+      let installButton = null;
 
-      if (getAuth()?.user) {
-        actions.appendChild(button('点赞', '', async () => {
-          const state = await workshopApi.getProjectEngagement(project.id);
-          await workshopApi.setProjectEngagement(project.id, 'like', !state.user_liked);
-          try { host.toastr?.success?.(state.user_liked ? '已取消点赞' : '已点赞', '创意工坊'); } catch {}
-          await refreshDiscover();
-        }));
-        actions.appendChild(button('收藏', '', async () => {
-          const state = await workshopApi.getProjectEngagement(project.id);
-          await workshopApi.setProjectEngagement(project.id, 'favorite', !state.user_favorited);
-          try { host.toastr?.success?.(state.user_favorited ? '已取消收藏' : '已收藏', '创意工坊'); } catch {}
-          await refreshDiscover();
-        }));
-        actions.appendChild(button('举报', '', async () => {
+      const renderInstallButton = () => {
+        if (!installButton) return;
+        local = localProject(project.id);
+        installButton.disabled = false;
+        if (!local) {
+          installButton.textContent = '下载到本地';
+        } else if (Number(local.version) < Number(project.version)) {
+          installButton.textContent = local.applied ? `一键升级到 v${project.version}` : `下载新版 v${project.version}`;
+        } else if (!local.applied) {
+          installButton.textContent = `安装本地 v${local.version}`;
+        } else if (Number(local.appliedVersion || 0) < Number(local.version)) {
+          installButton.textContent = `应用本地 v${local.version}`;
+        } else {
+          installButton.textContent = `已安装 v${local.appliedVersion}`;
+          installButton.disabled = true;
+        }
+      };
+
+      installButton = button('', 'primary rw-install-cta', async () => {
+        local = localProject(project.id);
+        if (!local) {
+          const cached = await projectService.cache(project.id);
+          localProjects.set(project.id, cached);
+          try { host.toastr?.success?.(`已下载 ${cached.name} v${cached.version}，可继续安装`, '创意工坊'); } catch {}
+          updateCardLocalState(project);
+          renderInstallButton();
+          return;
+        }
+        if (Number(local.version) < Number(project.version)) {
+          if (local.applied) {
+            const updated = await projectService.updateLatest(project.id);
+            localProjects.set(project.id, updated);
+            try { host.toastr?.success?.(`已一键升级并应用到 v${updated.version}`, project.name); } catch {}
+          } else {
+            const cached = await projectService.cache(project.id);
+            localProjects.set(project.id, cached);
+            try { host.toastr?.success?.(`已下载新版 v${cached.version}`, project.name); } catch {}
+          }
+          updateCardLocalState(project);
+          renderInstallButton();
+          return;
+        }
+        await applyCachedProject(project, local, next => { local = next; renderInstallButton(); });
+      });
+      renderInstallButton();
+      actions.appendChild(installButton);
+
+      if (getAuth()?.user && engagement) {
+        let engagementState = engagement;
+        let likeButton = null;
+        let favoriteButton = null;
+
+        const renderEngagement = () => {
+          likeButton.textContent = engagementState.user_liked
+            ? `♥ 已赞 ${engagementState.likes_count}`
+            : `♥ 点赞 ${engagementState.likes_count}`;
+          favoriteButton.textContent = engagementState.user_favorited
+            ? `★ 已收藏 ${engagementState.favorites_count}`
+            : `★ 收藏 ${engagementState.favorites_count}`;
+          likeButton.classList.toggle('is-active', engagementState.user_liked);
+          favoriteButton.classList.toggle('is-active', engagementState.user_favorited);
+          likesStat.textContent = `♥ ${engagementState.likes_count}`;
+          favoritesStat.textContent = `★ ${engagementState.favorites_count}`;
+          updateCardEngagement(project.id, engagementState);
+        };
+
+        likeButton = button('', 'rw-engagement-button', async () => {
+          engagementState = await workshopApi.setProjectEngagement(
+            project.id,
+            'like',
+            !engagementState.user_liked,
+          );
+          renderEngagement();
+        });
+        favoriteButton = button('', 'rw-engagement-button', async () => {
+          engagementState = await workshopApi.setProjectEngagement(
+            project.id,
+            'favorite',
+            !engagementState.user_favorited,
+          );
+          renderEngagement();
+        });
+        renderEngagement();
+        actions.append(likeButton, favoriteButton);
+        actions.appendChild(button('举报', 'rw-secondary-action', async () => {
           const report = promptProjectReport(host);
           if (!report) return;
           await workshopApi.reportProject(project.id, report.reason, report.details);
@@ -197,9 +413,7 @@ export function createDiscoverView({
         }));
       }
       modal.body.appendChild(actions);
-
-      const technical = docDetails(detail.manifest);
-      modal.body.appendChild(technical);
+      modal.body.appendChild(docDetails(detail.manifest));
     } catch (error) {
       empty(modal.body, `加载失败：${error.message}`);
       notifyError(error);
@@ -216,7 +430,8 @@ export function createDiscoverView({
   }
 
   return {
-    refresh: refreshDiscover,
+    refresh: () => loadPage({ append: false }),
+    loadMore: () => loadPage({ append: true }),
     showDetail,
   };
 }

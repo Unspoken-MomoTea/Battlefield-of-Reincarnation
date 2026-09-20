@@ -5,6 +5,7 @@ const CONFLICT_LABELS = {
   character_mismatch: issue => `当前角色不是安装目标角色“${issue.expected}”`,
   worldbook_name_collision: issue => `共享世界书已有同名条目“${issue.name}”`,
   regex_id_collision: issue => `发现残留的同项目正则“${issue.name || issue.id}”`,
+  script_id_collision: issue => `发现脚本 ID 冲突“${issue.name || issue.id}”（${issue.scope}）`,
   preset_name_collision: issue => `已有同名预设“${issue.name}”，安装时会先备份后替换`,
 };
 
@@ -19,6 +20,9 @@ const HEALTH_LABELS = {
   regex_missing: issue => `缺少正则“${issue.name || issue.id}”`,
   regex_modified: issue => `正则“${issue.name || issue.id}”已被修改`,
   regex_stale: issue => `存在旧的工坊正则“${issue.name || issue.id}”`,
+  script_missing: issue => `缺少酒馆助手脚本“${issue.name || issue.id}”（${issue.scope}）`,
+  script_modified: issue => `酒馆助手脚本“${issue.name || issue.id}”已被修改（${issue.scope}）`,
+  script_stale: issue => `存在旧的工坊脚本“${issue.name || issue.id}”（${issue.scope}）`,
   preset_missing: issue => `缺少预设“${issue.name}”`,
   preset_modified: issue => `预设“${issue.name}”已被修改`,
   preset_stale: issue => `存在旧的工坊预设“${issue.name}”`,

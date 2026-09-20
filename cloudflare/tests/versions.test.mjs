@@ -29,12 +29,12 @@ function setup() {
   db.db.prepare("INSERT INTO users (discord_id, username, display_name, is_admin, created_at, updated_at) VALUES ('1','u','U',0,1,1)").run();
   const owner = db.db.prepare("SELECT id FROM users WHERE discord_id='1'").get();
   for (const [id, status, published, latest] of [['a','published',2,2],['b','archived',1,1],['c','draft',0,1]]) {
-    db.db.prepare(`INSERT INTO projects (id, owner_user_id, slug, name, summary, category, status, latest_version, published_version, created_at, updated_at)
-      VALUES (?, ?, ?, ?, '', 'worldbook', ?, ?, ?, 1, ?)`).run(id, owner.id, id, id, status, latest, published, 100 + published);
+    db.db.prepare(`INSERT INTO projects (id, owner_user_id, slug, name, summary, project_type, status, latest_version, published_version, created_at, updated_at)
+      VALUES (?, ?, ?, ?, '', 'extension', ?, ?, ?, 1, ?)`).run(id, owner.id, id, id, status, latest, published, 100 + published);
     if (published > 0) {
       db.db.prepare(`INSERT INTO project_versions
-        (project_id, version, manifest_key, content_key, name, summary, tags, category, changelog, review_status, created_at, reviewed_at)
-        VALUES (?, ?, 'm', 'c', ?, '', '[]', 'worldbook', '', 'approved', 1, ?)`).run(id, published, id, 200 + published);
+        (project_id, version, manifest_key, content_key, name, summary, tags, project_type, changelog, review_status, created_at, reviewed_at)
+        VALUES (?, ?, 'm', 'c', ?, '', '[]', 'extension', '', 'approved', 1, ?)`).run(id, published, id, 200 + published);
     }
   }
   return { DB: db };

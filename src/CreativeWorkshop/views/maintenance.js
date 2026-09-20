@@ -69,7 +69,7 @@ export function createMaintenanceView({
           await renderClientSection(container);
         },
       ));
-      actions.appendChild(button('刷新酒馆', '', () => {
+      actions.appendChild(button('刷新酒馆', '', async () => {
         const confirmed = await confirmDialog({
           title: '刷新酒馆？',
           message: '刷新后会加载新的工坊脚本；酒馆里尚未保存的输入内容可能丢失。',

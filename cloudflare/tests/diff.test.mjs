@@ -85,7 +85,7 @@ async function setup() {
     post('/api/projects', {
       name: '名称 v1',
       summary: '简介 v1',
-      category: 'worldbook',
+      category: 'extension',
       tags: ['old'],
     }),
     env,

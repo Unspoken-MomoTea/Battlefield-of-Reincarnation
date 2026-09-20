@@ -54,3 +54,18 @@ export function buildUploadBundle(project, fileName, rawText, selectedKind = 'da
     ],
   };
 }
+
+
+export function combineUploadBundles(bundles) {
+  if (!Array.isArray(bundles)) throw new Error('版本内容队列无效');
+  const artifacts = [];
+  for (const bundle of bundles) {
+    if (!bundle || bundle.schema_version !== 1 || !Array.isArray(bundle.artifacts)) {
+      throw new Error('待上传内容不是有效的 bundle v1');
+    }
+    artifacts.push(...bundle.artifacts.map(artifact => structuredClone(artifact)));
+  }
+  if (!artifacts.length) throw new Error('请至少添加一个内容文件');
+  if (artifacts.length > 32) throw new Error('单个版本最多允许 32 个 artifact');
+  return { schema_version: 1, artifacts };
+}

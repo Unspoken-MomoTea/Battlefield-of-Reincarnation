@@ -259,6 +259,97 @@ export const WORKSHOP_CSS = `
     color:#aaa8a3;font-size:12px;line-height:1.45
   }
 
+  .rw-health-chip{
+    flex:none;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    padding:5px 8px;border:1px solid var(--rw-line);border-radius:999px;background:rgba(255,255,255,.025);
+    color:var(--rw-faint);font-size:10px;font-weight:700
+  }
+  .rw-health-chip.ok{border-color:rgba(111,168,132,.18);color:#89bc9a;background:rgba(111,168,132,.07)}
+  .rw-health-chip.bad{border-color:rgba(216,123,120,.20);color:#dc9390;background:rgba(216,123,120,.07)}
+
+  .rw-page-head-meta{
+    flex:none;padding:6px 9px;border:1px solid var(--rw-line);border-radius:999px;
+    color:var(--rw-muted);background:rgba(255,255,255,.02);font-size:10px;font-weight:700
+  }
+  .rw-page-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+  .rw-inline-file{display:inline-flex!important;align-items:center!important}
+
+  .rw-category-switch{
+    display:grid;grid-template-columns:minmax(90px,.72fr) repeat(2,minmax(170px,1fr));gap:9px;margin-bottom:10px
+  }
+  .rw-category-choice{
+    min-height:62px;display:grid;align-content:center;gap:3px;padding:10px 13px;text-align:left;
+    border:1px solid var(--rw-line);border-radius:11px;background:var(--rw-surface);color:var(--rw-muted);
+    cursor:pointer;font-family:inherit;transition:border-color .14s ease,background .14s ease,color .14s ease,transform .14s ease
+  }
+  .rw-category-choice:hover{border-color:var(--rw-line-strong);background:#1c1d21;color:#d3d1ca;transform:translateY(-1px)}
+  .rw-category-choice strong{color:inherit;font-size:13px}
+  .rw-category-choice span{color:var(--rw-faint);font-size:10px;line-height:1.35}
+  .rw-category-choice.is-active{
+    border-color:rgba(162,139,107,.34);background:linear-gradient(145deg,rgba(162,139,107,.14),rgba(162,139,107,.055));
+    color:var(--rw-accent-text);box-shadow:inset 0 0 0 1px rgba(162,139,107,.05)
+  }
+  .rw-discover-toolbar{position:sticky;top:-16px;z-index:9;backdrop-filter:blur(15px);background:rgba(24,25,28,.92)}
+  .rw-tag-input{max-width:170px}
+  .rw-project-grid{grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+  .rw-load-more-wrap{display:flex;justify-content:center;padding:14px 0 4px}
+  .rw-load-more-wrap .rw-button{min-width:150px}
+
+  .rw-project-card{overflow:hidden}
+  .rw-project-card:focus-visible{outline:2px solid rgba(162,139,107,.55);outline-offset:2px}
+  .rw-cover-badge{
+    position:absolute;left:10px;top:10px;z-index:2;padding:5px 8px;border:1px solid rgba(255,255,255,.12);
+    border-radius:999px;background:rgba(14,15,17,.78);backdrop-filter:blur(10px);color:#d8d6d0;
+    font-size:9px;font-weight:800;letter-spacing:.04em;box-shadow:0 5px 16px rgba(0,0,0,.22)
+  }
+  .rw-cover-badge--character{color:#dac7e8}
+  .rw-cover-badge--extension{color:#d8c5a9}
+  .rw-card-primary{min-width:72px}
+  .rw-card-primary.is-installed{border-color:rgba(111,168,132,.22);background:rgba(111,168,132,.08);color:#9bcaaa}
+  .rw-card-primary.is-cached{background:rgba(255,255,255,.035);color:#aaa8a3}
+  .rw-card-primary.has-update{border-color:rgba(214,173,104,.26);background:rgba(214,173,104,.10);color:#e0bd82}
+
+  .rw-detail-titlebox{min-width:0;display:grid;gap:4px}
+  .rw-detail-stats{display:flex;align-items:center;gap:10px;color:#85837d;font-size:10px;white-space:nowrap}
+  .rw-engagement-button.is-active{
+    border-color:rgba(162,139,107,.40);background:rgba(162,139,107,.14);color:var(--rw-accent-text)
+  }
+  .rw-secondary-action{color:#8d8b85}
+
+  .rw-local-note{
+    margin:-3px 0 12px;padding:9px 11px;border:1px solid var(--rw-line);border-radius:10px;
+    background:rgba(255,255,255,.018);color:var(--rw-muted);font-size:11px;line-height:1.55
+  }
+  .rw-local-grid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  .rw-local-card{overflow:visible;gap:11px}
+  .rw-local-visual{
+    height:78px;margin:-13px -13px 0;padding:15px 14px;display:grid;align-content:end;gap:3px;
+    border-bottom:1px solid var(--rw-line);border-radius:12px 12px 0 0;
+    background:
+      radial-gradient(circle at 82% 20%,rgba(162,139,107,.13),transparent 32%),
+      linear-gradient(145deg,#1b1c20,#121316);
+  }
+  .rw-local-visual--character{background:
+    radial-gradient(circle at 82% 20%,rgba(139,111,162,.14),transparent 32%),
+    linear-gradient(145deg,#1b1b20,#121316)}
+  .rw-local-visual strong{color:#c9c6bf;font-size:13px}
+  .rw-local-visual span{color:#6f6d68;font-size:10px}
+  .rw-local-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .rw-local-titlebox{min-width:0;display:grid;gap:3px}
+  .rw-local-titlebox h3{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rw-local-state{
+    flex:none;padding:4px 7px;border:1px solid var(--rw-line);border-radius:999px;
+    color:var(--rw-muted);background:rgba(255,255,255,.02);font-size:9px;font-weight:800
+  }
+  .rw-local-state--installed{border-color:rgba(111,168,132,.22);color:#9bcaaa;background:rgba(111,168,132,.07)}
+  .rw-local-state--cached{color:#aaa8a3}
+  .rw-local-state--update{border-color:rgba(214,173,104,.24);color:#dfbb7f;background:rgba(214,173,104,.07)}
+  .rw-local-state--bad{border-color:rgba(216,123,120,.25);color:#e59a96;background:rgba(216,123,120,.07)}
+  .rw-local-actions{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:9px;border-top:1px solid var(--rw-line)}
+  .rw-local-primary{flex:1}
+  .rw-local-menu{position:relative;margin-left:auto;right:auto;top:auto}
+  .rw-local-menu .rw-card-menu-dropdown{right:0;top:40px;z-index:25}
+
   @media(max-width:760px){
     .rw-overlay{padding:0;align-items:stretch}
     .rw-panel{
@@ -269,6 +360,7 @@ export const WORKSHOP_CSS = `
     .rw-title{font-size:14px}
     .rw-version{display:none}
     .rw-account{max-width:120px}
+    .rw-health-chip{display:none}
     .rw-head .rw-button[data-action="login"],.rw-head .rw-button[data-action="logout"]{min-height:36px;padding:0 9px}
     .rw-close{min-height:36px;padding:0 9px}
     .rw-tabs{
@@ -283,7 +375,14 @@ export const WORKSHOP_CSS = `
     .rw-toolbar{padding:8px}
     .rw-input.grow{min-width:100%;flex-basis:100%}
     .rw-grid{grid-template-columns:1fr}
-    .rw-page-head{align-items:flex-start}
+    .rw-page-head{align-items:flex-start;flex-wrap:wrap}
+    .rw-page-actions{width:100%;justify-content:flex-start}
+    .rw-category-switch{grid-template-columns:1fr 1fr}
+    .rw-category-choice:first-child{grid-column:1/-1;min-height:42px}
+    .rw-discover-toolbar{top:-12px}
+    .rw-tag-input{max-width:none;flex:1}
+    .rw-detail-heading{align-items:flex-start;flex-direction:column}
+    .rw-local-grid{grid-template-columns:1fr}
     .rw-create-form{width:calc(100vw - 20px);max-height:calc(100dvh - 28px);padding:14px}
     .rw-create-assets{grid-template-columns:1fr}
     .rw-create-assets>.rw-field[data-role="create-artifact-kind"],

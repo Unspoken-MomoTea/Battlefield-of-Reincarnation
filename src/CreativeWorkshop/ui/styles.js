@@ -140,6 +140,27 @@ export const WORKSHOP_CSS = `
   }
   .rw-field-title{color:var(--rw-accent-text);font-size:12px;font-weight:800}
   .rw-muted{color:var(--rw-muted);font-size:12px;line-height:1.55;white-space:pre-line}
+  .rw-project-card{cursor:pointer}
+  .rw-project-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .rw-project-card-top h3{min-width:0;flex:1}
+  .rw-project-author{color:var(--rw-faint);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rw-project-summary{
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:55px
+  }
+  .rw-project-footer{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px;padding-top:9px;border-top:1px solid var(--rw-line)
+  }
+  .rw-project-stats{display:flex;gap:10px;color:#777671;font-size:10px}
+  .rw-detail-cover{width:100%;max-height:360px;object-fit:cover;border:1px solid var(--rw-line);border-radius:11px;background:#111216}
+  .rw-detail-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+  .rw-detail-heading h3{margin:0;color:var(--rw-text);font-size:21px}
+  .rw-detail-description{color:#c1c0bb;font-size:13px;line-height:1.75;white-space:pre-wrap}
+  .rw-detail-section{display:grid;gap:5px;padding:11px 0;border-top:1px solid var(--rw-line)}
+  .rw-detail-section strong{font-size:12px;color:#c8c7c2}
+  .rw-detail-actions{padding-top:4px}
+  .rw-technical-details{border-top:1px solid var(--rw-line);padding-top:10px}
+  .rw-technical-details summary{cursor:pointer;color:var(--rw-muted);font-size:11px}
+  .rw-technical-details[open] summary{margin-bottom:8px}
   .rw-meta{display:flex;gap:5px;flex-wrap:wrap;color:#9d9b95;font-size:10px}
   .rw-pill{padding:3px 7px;border:1px solid var(--rw-line);border-radius:999px;background:rgba(255,255,255,.02)}
   .rw-status{font-size:12px}.rw-status.ok{color:#9dccae}.rw-status.bad{color:#e59a96}

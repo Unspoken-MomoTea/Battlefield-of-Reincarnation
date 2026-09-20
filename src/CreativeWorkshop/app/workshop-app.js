@@ -20,7 +20,7 @@ export function bootWorkshop() {
 
   const doc = host.document;
   const { style, launcher, overlay, nodes } = createWorkshopShell(doc, WORKSHOP_VERSION);
-  const ui = createUiHelpers(doc, host);
+  const ui = createUiHelpers(doc, host, overlay);
   let auth = null;
   let activeTab = 'discover';
 

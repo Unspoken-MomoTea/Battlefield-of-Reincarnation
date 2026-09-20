@@ -1,7 +1,6 @@
-import { ARTIFACT_LABELS } from '../ui/constants.js';
 import { parseDependencyText } from '../services/projects/dependency-input.js';
 import { parseOriginalConflictText } from '../services/projects/original-conflict-input.js';
-import { buildUploadBundle } from '../services/upload.js';
+import { createArtifactQueue as createArtifactQueueFactory } from '../ui/artifact-queue.js';
 
 export function bindWorkshopEvents({
   host, doc, overlay, nodes, views, workshopApi, projectService,
@@ -56,11 +55,13 @@ export function bindWorkshopEvents({
   const createArtifactSelect = nodes.createArtifactKind.querySelector('[name="artifact_kind"]');
   let createDirty = false;
   let publishConfirmModal = null;
+  let createArtifactQueue = null;
 
   const resetCreateFiles = () => {
+    createArtifactQueue?.clear();
     nodes.createVersion.value = '';
     nodes.createCover.value = '';
-    nodes.createVersionState.textContent = '未选择版本文件；不选择则只保存在当前本地表单中。';
+    nodes.createVersionState.textContent = '先选择内容类型，再分批添加文件；一个版本最多 32 个 artifact。';
     nodes.createCoverState.textContent = '未选择封面。';
   };
 
@@ -78,6 +79,57 @@ export function bindWorkshopEvents({
 
   createArtifactSelect.addEventListener('change', syncCreateArtifactOptions);
   syncCreateArtifactOptions();
+
+  const createOriginalConflictInput = nodes.createOriginalConflicts.querySelector('[name="original_conflicts"]');
+  const createScriptScopeInput = nodes.createScriptScope.querySelector('[name="script_scope"]');
+  const createProjectTypeInput = nodes.createForm.querySelector('[name="category"]');
+
+  createArtifactQueue = createArtifactQueueFactory({
+    doc,
+    input: nodes.createVersion,
+    list: nodes.createArtifactList,
+    getProject: () => ({ category: createProjectTypeInput.value || 'extension' }),
+    getKind: () => createArtifactSelect.value || 'data',
+    getOptions: () => ({
+      scriptScope: createScriptScopeInput.value || 'character',
+      originalConflicts: createArtifactSelect.value === 'worldbook'
+        ? parseOriginalConflictText(createOriginalConflictInput.value)
+        : [],
+    }),
+    onChange: queue => {
+      nodes.createVersionState.textContent = queue.count
+        ? `已加入 ${queue.count} 个 artifact：${queue.summary()}`
+        : '先选择内容类型，再分批添加文件；一个版本最多 32 个 artifact。';
+      createDirty = true;
+    },
+  });
+
+  nodes.createVersion.addEventListener('change', async () => {
+    const files = nodes.createVersion.files;
+    if (!files?.length) return;
+    try {
+      await createArtifactQueue.addFiles(files);
+    } catch (error) {
+      nodes.createVersion.value = '';
+      notifyError(error);
+    }
+  });
+
+  const createVersionDrop = overlay.querySelector('[data-drop-target="create-version"]');
+  createVersionDrop.addEventListener('dragover', event => {
+    event.preventDefault();
+    createVersionDrop.classList.add('is-dragover');
+  });
+  createVersionDrop.addEventListener('dragleave', () => createVersionDrop.classList.remove('is-dragover'));
+  createVersionDrop.addEventListener('drop', async event => {
+    event.preventDefault();
+    createVersionDrop.classList.remove('is-dragover');
+    try {
+      await createArtifactQueue.addFiles(event.dataTransfer?.files);
+    } catch (error) {
+      notifyError(error);
+    }
+  });
 
   nodes.createForm.addEventListener('input', () => { createDirty = true; });
   nodes.createForm.addEventListener('change', () => { createDirty = true; });
@@ -111,12 +163,6 @@ export function bindWorkshopEvents({
     });
   };
 
-  bindCreateFile(
-    overlay.querySelector('[data-drop-target="create-version"]'),
-    nodes.createVersion,
-    nodes.createVersionState,
-    '未选择版本文件；不选择则只保存在当前本地表单中。',
-  );
   bindCreateFile(
     overlay.querySelector('[data-drop-target="create-cover"]'),
     nodes.createCover,
@@ -157,39 +203,20 @@ export function bindWorkshopEvents({
       notifyError(error);
       return;
     }
-    const selectedVersion = nodes.createVersion.files?.[0] || null;
     const selectedCover = nodes.createCover.files?.[0] || null;
-    const artifactKind = String(form.get('artifact_kind') || 'data');
-    const scriptScope = String(form.get('script_scope') || 'character');
-    let originalConflicts = [];
-    try {
-      originalConflicts = artifactKind === 'worldbook'
-        ? parseOriginalConflictText(form.get('original_conflicts'))
-        : [];
-    } catch (error) {
-      notifyError(error);
-      return;
-    }
 
     if (!name) {
       notifyError(new Error('请先填写作品名称'));
       return;
     }
-    if (!selectedVersion) {
-      notifyError(new Error('请先选择要发布的版本文件'));
+    if (!createArtifactQueue.count) {
+      notifyError(new Error('请先添加至少一个版本内容文件'));
       return;
     }
 
     let bundle;
     try {
-      const raw = await selectedVersion.text();
-      bundle = buildUploadBundle(
-        { category },
-        selectedVersion.name,
-        raw,
-        artifactKind,
-        { scriptScope, originalConflicts },
-      );
+      bundle = createArtifactQueue.bundle();
     } catch (error) {
       notifyError(error);
       return;
@@ -212,12 +239,8 @@ export function bindWorkshopEvents({
     facts.className = 'rw-publish-review-facts';
     const factValues = [
       `类型：${category === 'character' ? '角色' : '扩展'}`,
-      `内容：${ARTIFACT_LABELS[artifactKind] || artifactKind}`,
-      ...(artifactKind === 'script'
-        ? [`脚本作用域：${({ character: '当前角色', preset: '当前预设', global: '全局' })[scriptScope] || scriptScope}`]
-        : []),
-      ...(originalConflicts.length ? [`原版条目关闭声明：${originalConflicts.length} 条`] : []),
-      `版本文件：${selectedVersion.name}`,
+      `版本内容：${createArtifactQueue.count} 项`,
+      `内容清单：${createArtifactQueue.summary()}`,
       selectedCover ? `封面：${selectedCover.name}` : '封面：未选择',
       tags.length ? `标签：${tags.join('、')}` : '标签：无',
       dependencies.length ? `依赖：${dependencies.length} 项` : '依赖：无',

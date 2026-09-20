@@ -1,6 +1,7 @@
 import { normalizeRegexArtifact } from './normalize/regex.js';
 import { parsePresetContent, safePresetName } from './normalize/preset.js';
 import { normalizeWorldbookArtifact } from './normalize/worldbook.js';
+import { normalizeScriptArtifact } from './normalize/script.js';
 import { clone } from './utils.js';
 
 export function buildArtifactPlan(installed) {
@@ -8,7 +9,7 @@ export function buildArtifactPlan(installed) {
   if (!bundle || bundle.schema_version !== 1 || !Array.isArray(bundle.artifacts)) {
     throw new Error('本地作品包无效，请重新下载');
   }
-  const plan = { worldbook: [], regexes: [], presets: [], data: [] };
+  const plan = { worldbook: [], regexes: [], presets: [], scripts: { character: [], preset: [], global: [] }, data: [] };
   bundle.artifacts.forEach((artifact, index) => {
     if (artifact.kind === 'worldbook') {
       plan.worldbook.push(...normalizeWorldbookArtifact(artifact.content).map(entry => ({
@@ -33,6 +34,11 @@ export function buildArtifactPlan(installed) {
         name: safePresetName(installed, artifact.name, index),
         content: parsePresetContent(artifact.content),
       });
+      return;
+    }
+    if (artifact.kind === 'script') {
+      const normalized = normalizeScriptArtifact(artifact, installed, index);
+      plan.scripts[normalized.scope].push(...normalized.trees);
       return;
     }
     if (artifact.kind === 'data') {

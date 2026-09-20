@@ -135,13 +135,31 @@ export function workshopTemplate(version) {
 
               <div class="rw-publish-upload-block">
                 <span class="rw-field-label">作品文件 *</span>
-                <label class="rw-smart-dropzone" data-drop-target="create-version">
-                  <span class="rw-smart-dropzone-icon">↥</span>
-                  <strong>拖入或选择文件</strong>
-                  <small>支持世界书 JSON、正则 JSON、酒馆助手脚本 JS / JSON、预设 JSON 和完整 bundle</small>
+                <div class="rw-publish-upload-slots">
+                  <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-worldbook">
+                    <span class="rw-smart-dropzone-icon">书</span>
+                    <strong>世界书</strong>
+                    <small>选择世界书 JSON</small>
+                    <input data-field="create-worldbook" type="file" multiple accept=".json,application/json" hidden>
+                  </label>
+                  <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-regex">
+                    <span class="rw-smart-dropzone-icon">正</span>
+                    <strong>正则</strong>
+                    <small>选择 SillyTavern 正则 JSON</small>
+                    <input data-field="create-regex" type="file" multiple accept=".json,application/json" hidden>
+                  </label>
+                  <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-script">
+                    <span class="rw-smart-dropzone-icon">JS</span>
+                    <strong>酒馆助手脚本</strong>
+                    <small>选择 JS 或 ScriptTree JSON</small>
+                    <input data-field="create-script" type="file" multiple accept=".js,.mjs,.json,application/json,text/javascript,application/javascript" hidden>
+                  </label>
+                </div>
+                <label class="rw-smart-add-more" data-drop-target="create-version">
+                  ＋ 其他文件 / 预设 / 完整 bundle
                   <input data-field="create-version" type="file" multiple accept=".json,.txt,.js,.mjs,application/json,text/plain,text/javascript,application/javascript" hidden>
                 </label>
-                <div class="rw-file-state" data-role="create-version-state">拖入文件即可，系统会自动识别世界书、正则、脚本和预设。</div>
+                <div class="rw-file-state" data-role="create-version-state">选择上面的对应入口；其他文件会自动识别。</div>
                 <div class="rw-artifact-list rw-smart-artifact-list" data-role="create-artifact-list" hidden></div>
               </div>
 

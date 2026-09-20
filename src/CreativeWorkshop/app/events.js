@@ -21,12 +21,34 @@ export function bindWorkshopEvents({
     categoryButton.addEventListener('click', () => {
       nodes.category.value = categoryButton.dataset.categoryFilter || '';
       nodes.discoverCategories.forEach(buttonNode => {
-        buttonNode.classList.toggle('is-active', buttonNode === categoryButton);
+        buttonNode.classList.toggle('is-filter-active', buttonNode === categoryButton);
       });
-      void views.discover.refresh();
+      showTab('discover');
     });
   });
   nodes.discoverMore.addEventListener('click', () => void views.discover.loadMore());
+
+  const closeAccountMenu = () => { nodes.accountMenu.hidden = true; };
+  nodes.account.addEventListener('click', event => {
+    event.stopPropagation();
+    nodes.accountMenu.hidden = !nodes.accountMenu.hidden;
+  });
+  nodes.accountMenu.addEventListener('click', event => event.stopPropagation());
+  overlay.addEventListener('click', closeAccountMenu);
+
+  overlay.querySelector('[data-action="mine-menu"]').addEventListener('click', () => {
+    closeAccountMenu();
+    showTab('mine');
+  });
+  nodes.adminTab.addEventListener('click', () => {
+    closeAccountMenu();
+    showTab('admin');
+  });
+  overlay.querySelector('[data-action="upload-menu"]').addEventListener('click', () => {
+    closeAccountMenu();
+    showTab('mine');
+    overlay.querySelector('[data-action="create-project-open"]')?.click();
+  });
 
   nodes.checkAllUpdates.addEventListener('click', () => void views.installed.checkAllUpdates(true));
   nodes.storageManager.addEventListener('click', () => void views.installed.manageStorage());
@@ -56,6 +78,7 @@ export function bindWorkshopEvents({
   });
 
   nodes.logout.addEventListener('click', async () => {
+    closeAccountMenu();
     nodes.logout.disabled = true;
     try {
       await workshopApi.logout();

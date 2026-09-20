@@ -51,7 +51,6 @@ export function bindWorkshopEvents({
 
   const createOpen = overlay.querySelector('[data-action="create-project-open"]');
   const createCancel = overlay.querySelector('[data-action="create-project-cancel"]');
-  const createCategory = nodes.createForm.querySelector('[name="category"]');
   let createDirty = false;
   let publishConfirmModal = null;
 
@@ -66,14 +65,7 @@ export function bindWorkshopEvents({
     nodes.createForm.reset();
     resetCreateFiles();
     createDirty = false;
-    syncCreateCategory();
   };
-
-  const syncCreateCategory = () => {
-    nodes.createArtifactKind.hidden = createCategory.value !== 'mixed';
-  };
-  createCategory.addEventListener('change', syncCreateCategory);
-  syncCreateCategory();
 
   nodes.createForm.addEventListener('input', () => { createDirty = true; });
   nodes.createForm.addEventListener('change', () => { createDirty = true; });
@@ -122,7 +114,6 @@ export function bindWorkshopEvents({
 
   createOpen?.addEventListener('click', () => {
     nodes.createForm.hidden = false;
-    syncCreateCategory();
     nodes.createForm.querySelector('[name="name"]')?.focus();
   });
 
@@ -145,7 +136,7 @@ export function bindWorkshopEvents({
     const form = new FormData(nodes.createForm);
     const name = String(form.get('name') || '').trim();
     const summary = String(form.get('summary') || '');
-    const category = String(form.get('category') || 'data');
+    const category = String(form.get('category') || 'extension');
     const tags = String(form.get('tags') || '').split(/[,，\n]/u).map(value => value.trim()).filter(Boolean);
     let dependencies;
     try {
@@ -197,7 +188,8 @@ export function bindWorkshopEvents({
     const facts = doc.createElement('div');
     facts.className = 'rw-publish-review-facts';
     const factValues = [
-      `类型：${category}`,
+      `类型：${category === 'character' ? '角色' : '扩展'}`,
+      `内容：${artifactKind}`,
       `版本文件：${selectedVersion.name}`,
       selectedCover ? `封面：${selectedCover.name}` : '封面：未选择',
       tags.length ? `标签：${tags.join('、')}` : '标签：无',

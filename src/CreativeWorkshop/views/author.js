@@ -1,5 +1,6 @@
 import { formatDependencyText, parseDependencyText } from '../services/projects/dependency-input.js';
 import { parseOriginalConflictText } from '../services/projects/original-conflict-input.js';
+import { createArtifactQueue } from '../ui/artifact-queue.js';
 
 export function createAuthorView({
   nodes,
@@ -7,7 +8,6 @@ export function createAuthorView({
   button,
   empty,
   workshopApi,
-  buildUploadBundle,
   doc,
   host,
   categoryLabels,
@@ -171,11 +171,14 @@ export function createAuthorView({
     coverFile.hidden = true;
     const versionFile = element('input', '');
     versionFile.type = 'file';
+    versionFile.multiple = true;
     versionFile.accept = '.json,.txt,.js,application/json,text/plain,text/javascript,application/javascript';
     versionFile.hidden = true;
     const coverState = element('div', 'rw-file-state', '封面：点击“选择并上传封面”选择 PNG / JPEG / WebP');
-    const versionState = element('div', 'rw-file-state', '版本：选择 JSON / TXT / JS；完整 bundle JSON 可同时包含多种内容');
-    uploadBox.append(coverFile, coverState, versionFile, versionState);
+    const versionState = element('div', 'rw-file-state', '版本：先选择内容类型，再分批添加文件；完整 bundle JSON 也可直接加入');
+    const artifactList = element('div', 'rw-artifact-list');
+    artifactList.hidden = true;
+    uploadBox.append(coverFile, coverState, versionFile, versionState, artifactList);
 
     let coverButton;
     coverButton = button('选择或拖入封面 · PNG / JPEG / WebP', '', () => {
@@ -201,44 +204,66 @@ export function createAuthorView({
     });
 
     let versionButton;
-    versionButton = button('选择或拖入版本文件 · JSON / TXT / JS', 'primary', () => {
+    let uploadVersionButton;
+    versionButton = button('添加内容文件 · JSON / TXT / JS', 'primary', () => {
       versionFile.value = '';
       versionFile.click();
     });
-    versionFile.addEventListener('change', async () => {
-      const selected = versionFile.files?.[0];
-      if (!selected) return;
-      versionButton.disabled = true;
-      versionState.textContent = `正在上传：${selected.name}`;
-      try {
-        const raw = await selected.text();
-        const conflictDeclarations = kind.value === 'worldbook'
+
+    const versionQueue = createArtifactQueue({
+      doc,
+      input: versionFile,
+      list: artifactList,
+      getProject: () => project,
+      getKind: () => kind.value,
+      getOptions: () => ({
+        scriptScope: scriptScope.value,
+        originalConflicts: kind.value === 'worldbook'
           ? parseOriginalConflictText(originalConflicts.value)
-          : [];
-        const bundle = buildUploadBundle(
-          project,
-          selected.name,
-          raw,
-          kind.value,
-          {
-            scriptScope: scriptScope.value,
-            originalConflicts: conflictDeclarations,
-          },
-        );
-        await workshopApi.uploadProjectVersion(project.id, {
-          changelog: changelog.value,
-          bundle,
-        });
-        try { host.toastr?.success?.('新版本上传成功', '创意工坊'); } catch {}
-        await refreshMine();
+          : [],
+      }),
+      onChange: queue => {
+        versionState.textContent = queue.count
+          ? `已加入 ${queue.count} 个 artifact：${queue.summary()}`
+          : '版本：先选择内容类型，再分批添加文件；完整 bundle JSON 也可直接加入';
+        if (uploadVersionButton) uploadVersionButton.disabled = queue.count === 0;
+      },
+    });
+
+    versionFile.addEventListener('change', async () => {
+      if (!versionFile.files?.length) return;
+      versionButton.disabled = true;
+      try {
+        await versionQueue.addFiles(versionFile.files);
       } catch (error) {
-        versionState.textContent = `版本上传失败：${selected.name}`;
+        versionFile.value = '';
         notifyError(error);
       } finally {
         versionButton.disabled = false;
-        versionFile.value = '';
       }
     });
+
+    uploadVersionButton = button('上传这个版本', 'good', async () => {
+      if (!versionQueue.count) throw new Error('请先添加至少一个版本内容文件');
+      uploadVersionButton.disabled = true;
+      versionButton.disabled = true;
+      try {
+        await workshopApi.uploadProjectVersion(project.id, {
+          changelog: changelog.value,
+          bundle: versionQueue.bundle(),
+        });
+        versionQueue.clear();
+        changelog.value = '';
+        try { host.toastr?.success?.('新版本上传成功', '创意工坊'); } catch {}
+        await refreshMine();
+      } catch (error) {
+        notifyError(error);
+      } finally {
+        if (uploadVersionButton.isConnected) uploadVersionButton.disabled = versionQueue.count === 0;
+        if (versionButton.isConnected) versionButton.disabled = false;
+      }
+    });
+    uploadVersionButton.disabled = true;
 
     coverButton.classList.add('rw-file-drop-button');
     versionButton.classList.add('rw-file-drop-button');
@@ -265,10 +290,24 @@ export function createAuthorView({
       });
     };
     bindDrop(coverButton, coverFile);
-    bindDrop(versionButton, versionFile);
+
+    versionButton.addEventListener('dragover', event => {
+      event.preventDefault();
+      versionButton.classList.add('is-dragover');
+    });
+    versionButton.addEventListener('dragleave', () => versionButton.classList.remove('is-dragover'));
+    versionButton.addEventListener('drop', async event => {
+      event.preventDefault();
+      versionButton.classList.remove('is-dragover');
+      try {
+        await versionQueue.addFiles(event.dataTransfer?.files);
+      } catch (error) {
+        notifyError(error);
+      }
+    });
 
     const uploadActions = element('div', 'rw-row rw-upload-actions');
-    uploadActions.append(coverButton, versionButton);
+    uploadActions.append(coverButton, versionButton, uploadVersionButton);
     uploadBox.appendChild(uploadActions);
     if (Number(project.published_version) > 0) {
       uploadBox.appendChild(element('div', 'rw-muted', '已发布版本保持在线；新版本只有审核通过后才会替换公开内容。'));

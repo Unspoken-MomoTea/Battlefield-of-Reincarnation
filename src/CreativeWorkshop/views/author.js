@@ -16,6 +16,17 @@ export function createAuthorView({
 }) {
   function ownProjectCard(project) {
     const card = element('article', 'rw-card');
+    if (project.has_cover && Number(project.published_version) > 0) {
+      const cover = element('img', 'rw-cover');
+      cover.src = workshopApi.getProjectCoverUrl(project.id);
+      cover.alt = project.name + ' 封面';
+      cover.loading = 'lazy';
+      card.appendChild(cover);
+    } else {
+      const placeholder = element('div', 'rw-cover rw-cover-placeholder');
+      placeholder.textContent = project.has_cover ? '封面将在版本发布后公开显示' : (categoryLabels[project.category] || '创意工坊');
+      card.appendChild(placeholder);
+    }
     card.appendChild(element('h3', '', project.name));
     const meta = element('div', 'rw-meta');
     meta.append(element('span', 'rw-pill', categoryLabels[project.category] || project.category));
@@ -76,6 +87,8 @@ export function createAuthorView({
     editor.appendChild(editorActions);
 
     const uploadBox = element('div', 'rw-upload-box');
+    uploadBox.hidden = true;
+    uploadBox.appendChild(element('div', 'rw-field-title', '内容与版本'));
     const changelog = element('input', 'rw-input');
     changelog.placeholder = '版本更新说明（上传新版本前可填写）';
     changelog.maxLength = 2000;
@@ -153,33 +166,70 @@ export function createAuthorView({
       }
     });
 
+    const uploadActions = element('div', 'rw-row');
+    uploadActions.append(coverButton, versionButton);
+    uploadBox.appendChild(uploadActions);
+    if (Number(project.published_version) > 0) {
+      uploadBox.appendChild(element('div', 'rw-muted', '已发布版本保持在线；新版本只有审核通过后才会替换公开内容。'));
+    }
+
     const actions = element('div', 'rw-row');
-    actions.appendChild(button('编辑资料', '', () => { editor.hidden = !editor.hidden; }));
-    actions.appendChild(coverButton);
-    actions.appendChild(versionButton);
-    actions.appendChild(button('提交审核', 'good', async () => {
-      await workshopApi.submitProject(project.id);
-      await refreshMine();
+    actions.appendChild(button('管理内容', 'primary', () => {
+      uploadBox.hidden = !uploadBox.hidden;
+      editor.hidden = true;
     }));
+    if (Number(project.latest_version) > 0 && ['draft', 'rejected'].includes(project.status)) {
+      actions.appendChild(button(project.status === 'rejected' ? '重新提交审核' : '提交审核', 'good', async () => {
+        await workshopApi.submitProject(project.id);
+        await refreshMine();
+      }));
+    } else if (project.status === 'pending') {
+      actions.appendChild(element('span', 'rw-status', '正在等待审核'));
+    }
 
     const deleteZone = element('div', 'rw-danger-zone');
     deleteZone.hidden = true;
     if (Number(project.published_version) === 0 && project.status !== 'pending') {
-      const deleteText = element('div', 'rw-status bad', '确定删除这个未发布作品？版本文件与封面也会一并删除，此操作不可恢复。');
+      const deleteText = element('div', 'rw-status bad', '删除后会同时清理这个草稿的版本文件与封面，且无法恢复。');
       const deleteActions = element('div', 'rw-row');
-      deleteActions.appendChild(button('确认删除', 'danger', async () => {
+      deleteActions.appendChild(button('确认永久删除', 'danger', async () => {
         await workshopApi.deleteProject(project.id);
         try { host.toastr?.success?.('作品已删除', '创意工坊'); } catch {}
         await refreshMine();
       }));
       deleteActions.appendChild(button('取消', '', () => { deleteZone.hidden = true; }));
       deleteZone.append(deleteText, deleteActions);
-      actions.appendChild(button('删除作品', 'danger', () => { deleteZone.hidden = false; }));
-    } else if (Number(project.published_version) > 0) {
-      uploadBox.appendChild(element('div', 'rw-muted', '已发布作品不会在作者页直接永久删除；需要下架时请使用管理页。'));
     }
 
-    card.append(uploadBox, actions, editor, deleteZone);
+    const menu = element('div', 'rw-card-menu');
+    const menuTrigger = button('⋯', 'rw-card-menu-trigger', () => {
+      menuDropdown.hidden = !menuDropdown.hidden;
+    });
+    menuTrigger.setAttribute('aria-label', '作品管理');
+    const menuDropdown = element('div', 'rw-card-menu-dropdown');
+    menuDropdown.hidden = true;
+    menuDropdown.appendChild(button('修改资料', '', () => {
+      menuDropdown.hidden = true;
+      uploadBox.hidden = true;
+      editor.hidden = false;
+      editor.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }));
+    menuDropdown.appendChild(button('版本与封面', '', () => {
+      menuDropdown.hidden = true;
+      editor.hidden = true;
+      uploadBox.hidden = false;
+      uploadBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }));
+    if (Number(project.published_version) === 0 && project.status !== 'pending') {
+      menuDropdown.appendChild(button('删除作品', 'danger', () => {
+        menuDropdown.hidden = true;
+        deleteZone.hidden = false;
+        deleteZone.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }));
+    }
+    menu.append(menuTrigger, menuDropdown);
+
+    card.append(menu, actions, uploadBox, editor, deleteZone);
     return card;
   }
 

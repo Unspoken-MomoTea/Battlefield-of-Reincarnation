@@ -1,6 +1,7 @@
 import { resolveHostWindow } from '../config.js';
 import { workshopApi } from '../services/api.js';
 import { projectService } from '../services/project-service.js';
+import { workshopSelfUpdater } from '../services/self-update.js';
 import { createUiHelpers } from '../ui/helpers.js';
 import { createWorkshopShell } from '../ui/shell.js';
 import { createWorkshopBridge } from './bridge.js';
@@ -8,7 +9,7 @@ import { bindWorkshopEvents } from './events.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '1.3.0';
+export const WORKSHOP_VERSION = '1.4.0';
 
 let booted = false;
 
@@ -25,7 +26,10 @@ export function bootWorkshop() {
   let activeTab = 'discover';
 
   const views = createWorkshopViews({
-    host, doc, nodes, ui, workshopApi, projectService, getAuth: () => auth,
+    host, doc, nodes, ui, workshopApi, projectService,
+    selfUpdater: workshopSelfUpdater,
+    version: WORKSHOP_VERSION,
+    getAuth: () => auth,
   });
 
   function showTab(name) {

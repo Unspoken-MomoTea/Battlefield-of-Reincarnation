@@ -50,14 +50,31 @@ test('bundle validator accepts data-only worldbook artifacts', () => {
   assert.equal(validateDownloadedBundle(bundle), bundle);
 });
 
-test('bundle validator rejects executable script artifacts', () => {
+test('bundle validator accepts script artifacts and rejects invalid scope', () => {
+  const bundle = validateDownloadedBundle({
+    schema_version: 1,
+    artifacts: [{
+      kind: 'script',
+      name: '状态栏.js',
+      format: 'text',
+      scope: 'character',
+      content: "console.log('ok')",
+    }],
+  });
+  assert.equal(bundle.artifacts[0].scope, 'character');
+
   assert.throws(
-    () =>
-      validateDownloadedBundle({
-        schema_version: 1,
-        artifacts: [{ kind: 'script', name: '危险脚本', format: 'text', content: 'alert(1)' }],
-      }),
-    /类型不受支持/u,
+    () => validateDownloadedBundle({
+      schema_version: 1,
+      artifacts: [{
+        kind: 'script',
+        name: '状态栏.js',
+        format: 'text',
+        scope: 'unknown',
+        content: "console.log('ok')",
+      }],
+    }),
+    /作用域无效/u,
   );
 });
 

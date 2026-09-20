@@ -2,6 +2,7 @@ import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { buildArtifactPlan } from './plan.js';
 import { syncOriginalWorldbookConflicts } from './original-conflicts.js';
+import { syncOriginalScriptConflicts } from './original-scripts.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
 import { clone, maybe, record } from './utils.js';
 
@@ -23,7 +24,9 @@ export async function applyProject({ adapter, storage }, projectId) {
     oldTargets.regexIds?.length ||
     oldTargets.scripts?.character?.length ||
     plan.originalConflicts?.length ||
-    oldTargets.originalWorldbookChanges?.length
+    oldTargets.originalWorldbookChanges?.length ||
+    plan.originalScriptConflicts?.some(item => item.target?.scope === 'character') ||
+    oldTargets.originalScriptChanges?.some(item => item.scope === 'character')
   );
   const currentCharacter = characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null;
   if (characterNeeded && !currentCharacter) throw new Error('请先在酒馆中打开一个角色卡，再安装世界书或正则');
@@ -73,6 +76,13 @@ export async function applyProject({ adapter, storage }, projectId) {
       await maybe(adapter.replaceScriptTrees([...previous, ...(plan.scripts?.[scope] ?? [])], scope));
     }
 
+    const originalScriptResult = await syncOriginalScriptConflicts(
+      { adapter, storage },
+      installed,
+      plan,
+      state,
+    );
+
     const newPresetNames = new Set(plan.presets.map(item => item.name));
     const previousPresetBackups = oldTargets.presetBackups ?? {};
     for (const oldName of oldTargets.presets ?? []) {
@@ -116,9 +126,10 @@ export async function applyProject({ adapter, storage }, projectId) {
         presets: plan.presets.map(item => item.name),
         presetBackups,
         originalWorldbookChanges: originalConflictResult.changes,
+        originalScriptChanges: originalScriptResult.changes,
       },
-      restoreWarnings: originalConflictResult.warnings,
-      unrestoredOriginals: originalConflictResult.unrestored,
+      restoreWarnings: [...originalConflictResult.warnings, ...originalScriptResult.warnings],
+      unrestoredOriginals: [...originalConflictResult.unrestored, ...originalScriptResult.unrestored],
       applyError: '',
     };
     await storage.putInstalledProject(next);

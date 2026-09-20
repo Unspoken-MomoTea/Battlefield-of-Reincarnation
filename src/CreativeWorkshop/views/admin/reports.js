@@ -5,6 +5,7 @@ export function createAdminReportsView({
   empty,
   workshopApi,
   host,
+  confirmDialog,
 }) {
   const reasonLabels = {
     malicious: '恶意内容',
@@ -71,7 +72,13 @@ export function createAdminReportsView({
         if (item.project_status !== 'archived') {
           actions.appendChild(button('下架作品', 'danger', async () => {
             const note = host.prompt?.('下架原因（建议填写）', item.details || '') ?? '';
-            const confirmed = host.confirm?.('下架只影响公开展示，不会删除作品文件和审核记录。确认下架？');
+            const confirmed = await confirmDialog({
+              title: '下架被举报作品？',
+              message: '下架只影响公开展示，不会删除作品文件和审核记录。',
+              confirmText: '确认下架',
+              cancelText: '取消',
+              danger: true,
+            });
             if (!confirmed) return;
             await workshopApi.setAdminProjectState(item.project_id, 'archive', note);
             await refreshReports();

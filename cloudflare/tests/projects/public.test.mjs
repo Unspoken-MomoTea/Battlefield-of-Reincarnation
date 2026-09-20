@@ -82,7 +82,7 @@ test('author can assign normalized tags and public catalog can filter by tag', a
       request('/api/projects', 'POST', {
         name: '标签测试',
         summary: '测试标签筛选',
-        category: 'worldbook',
+        category: 'extension',
         tags: [' 剧情 ', 'BOSS', '剧情'],
       }),
       env,
@@ -112,7 +112,7 @@ test('published metadata remains frozen until a new version is approved', async 
       request('/api/projects', 'POST', {
         name: '公开名称 v1',
         summary: '公开简介 v1',
-        category: 'worldbook',
+        category: 'extension',
         tags: ['v1'],
       }),
       env,

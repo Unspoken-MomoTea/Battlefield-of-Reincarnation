@@ -212,3 +212,39 @@ test('project type filters character and extension independently from artifact k
   assert.equal(extensionList.items[0].id, extension.project.id);
   assert.equal(extensionList.items[0].category, 'extension');
 });
+
+
+test('public catalog supports server-side sorting by engagement counters', async () => {
+  const { env, author, admin } = setup();
+
+  const first = await createWorldbookProject(env, author, { name: '较早作品' });
+  await publishVersion(env, author, admin, first.id, bundle('first'));
+
+  const second = await createWorldbookProject(env, author, { name: '热门作品' });
+  await publishVersion(env, author, admin, second.id, bundle('second'));
+
+  env.DB.db.prepare(
+    'UPDATE projects SET downloads_count = 3, likes_count = 1, favorites_count = 0 WHERE id = ?',
+  ).run(first.id);
+  env.DB.db.prepare(
+    'UPDATE projects SET downloads_count = 12, likes_count = 5, favorites_count = 4 WHERE id = ?',
+  ).run(second.id);
+
+  const downloads = await responseJson(
+    await listPublicProjects(request('/api/projects?sort=downloads'), env),
+  );
+  assert.equal(downloads.items[0].id, second.id);
+
+  const popular = await responseJson(
+    await listPublicProjects(request('/api/projects?sort=popular'), env),
+  );
+  assert.equal(popular.items[0].id, second.id);
+});
+
+test('public catalog rejects unknown sort modes', async () => {
+  const { env } = setup();
+  await assert.rejects(
+    () => listPublicProjects(request('/api/projects?sort=drop-table'), env),
+    error => error?.status === 400 && error?.code === 'invalid_project_sort',
+  );
+});

@@ -55,7 +55,9 @@ export function createUiHelpers(doc, host, mount = doc.body) {
     const close = ({ force = false } = {}) => {
       if (closed) return;
       if (!force && confirmDiscard && dirty) {
-        const confirmed = host.confirm?.('有未提交的修改，确定放弃吗？');
+        const confirmed = typeof host.confirm === 'function'
+          ? host.confirm('有未提交的修改，确定放弃吗？')
+          : true;
         if (!confirmed) return;
       }
       closed = true;

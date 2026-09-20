@@ -6,6 +6,7 @@ export function createInstalledView({
   button,
   empty,
   confirmDialog,
+  openModal,
   projectService,
   workshopApi,
   host,
@@ -44,6 +45,110 @@ export function createInstalledView({
       return { label: '安装异常', className: 'bad' };
     }
     return { label: `已安装 v${item.appliedVersion}`, className: 'installed' };
+  }
+
+  function protectionChanges(item) {
+    const targets = item.installTargets || {};
+    return {
+      worldbooks: Array.isArray(targets.originalWorldbookChanges) ? targets.originalWorldbookChanges : [],
+      scripts: Array.isArray(targets.originalScriptChanges) ? targets.originalScriptChanges : [],
+    };
+  }
+
+  function beforeWorldbookEnabled(change) {
+    const entry = change?.beforeEntry;
+    if (typeof entry?.enabled === 'boolean') return entry.enabled;
+    if (typeof entry?.disable === 'boolean') return !entry.disable;
+    return true;
+  }
+
+  function beforeScriptEnabled(change) {
+    return change?.beforeScript?.enabled !== false;
+  }
+
+  function protectionRow(kind, title, meta) {
+    const row = element('div', 'rw-protection-row');
+    const icon = element('span', `rw-protection-icon rw-protection-icon--${kind}`, kind === 'worldbook' ? '书' : 'JS');
+    const copy = element('div', 'rw-protection-copy');
+    copy.append(element('strong', '', title), element('span', '', meta));
+    row.append(icon, copy);
+    return row;
+  }
+
+  function showProtectedOriginals(item) {
+    const changes = protectionChanges(item);
+    const modal = openModal(`原版保护记录 · ${item.name}`, { wide: true });
+
+    const intro = element('div', 'rw-maintenance-protection');
+    intro.append(
+      element('strong', '', '这些原版内容只是临时关闭，不是删除'),
+      element(
+        'div',
+        '',
+        '当这个创意处于启用状态时，下列世界书条目或酒馆助手脚本由工坊暂时屏蔽。停用作品时会按安装前快照恢复；如果你期间修改过原内容，只恢复必要的启用状态，不覆盖你的修改。',
+      ),
+    );
+    modal.body.appendChild(intro);
+
+    if (!changes.worldbooks.length && !changes.scripts.length) {
+      modal.body.appendChild(element('div', 'rw-empty', '这个作品没有屏蔽或替换任何原版世界书/脚本。'));
+      return;
+    }
+
+    if (changes.worldbooks.length) {
+      const section = element('section', 'rw-protection-section');
+      const heading = element('div', 'rw-protection-heading');
+      heading.append(
+        element('strong', '', `世界书条目 · ${changes.worldbooks.length}`),
+        element('span', '', '当前由工坊临时关闭'),
+      );
+      const list = element('div', 'rw-protection-list');
+      for (const change of changes.worldbooks) {
+        const identity = change.identity || {};
+        const name = identity.name || (identity.uid ? `UID ${identity.uid}` : '未命名条目');
+        const meta = [
+          `世界书：${change.worldbookName || '未知'}`,
+          identity.uid ? `UID：${identity.uid}` : '',
+          `安装前：${beforeWorldbookEnabled(change) ? '启用' : '已关闭'}`,
+          change.artifactName ? `由：${change.artifactName}` : '',
+          change.userModified ? '玩家修改过，恢复时会保留修改' : '',
+        ].filter(Boolean).join(' · ');
+        list.appendChild(protectionRow('worldbook', name, meta));
+      }
+      section.append(heading, list);
+      modal.body.appendChild(section);
+    }
+
+    if (changes.scripts.length) {
+      const section = element('section', 'rw-protection-section');
+      const heading = element('div', 'rw-protection-heading');
+      heading.append(
+        element('strong', '', `酒馆助手脚本 · ${changes.scripts.length}`),
+        element('span', '', '当前由工坊临时关闭'),
+      );
+      const list = element('div', 'rw-protection-list');
+      const scopeLabels = { character: '当前角色', preset: '当前预设', global: '全局' };
+      for (const change of changes.scripts) {
+        const identity = change.identity || {};
+        const name = identity.name || identity.id || '未命名脚本';
+        const meta = [
+          scopeLabels[change.scope] || change.scope || '未知作用域',
+          identity.folder ? `文件夹：${identity.folder}` : '',
+          identity.id ? `ID：${identity.id}` : '',
+          `安装前：${beforeScriptEnabled(change) ? '启用' : '已关闭'}`,
+          change.artifactName ? `由：${change.artifactName}` : '',
+          change.userModified ? '玩家修改过，恢复时会保留修改' : '',
+        ].filter(Boolean).join(' · ');
+        list.appendChild(protectionRow('script', name, meta));
+      }
+      section.append(heading, list);
+      modal.body.appendChild(section);
+    }
+
+    if (item.restoreWarnings?.length) {
+      const warning = element('div', 'rw-status bad', item.restoreWarnings.join('\n'));
+      modal.body.appendChild(warning);
+    }
   }
 
   async function manageStorage() {
@@ -225,6 +330,13 @@ export function createInstalledView({
     );
     if (item.targetCharacterName) meta.append(element('span', 'rw-pill', `角色：${item.targetCharacterName}`));
     if (item.dependencies?.length) meta.append(element('span', 'rw-pill', `依赖 ${item.dependencies.length}`));
+    const protections = protectionChanges(item);
+    const protectionCount = protections.worldbooks.length + protections.scripts.length;
+    if (item.applied && protectionCount) {
+      const protectedButton = button(`原版保护 ${protectionCount}`, 'rw-protection-pill', () => showProtectedOriginals(item));
+      protectedButton.title = '查看当前被这个作品临时关闭的世界书条目和脚本';
+      meta.appendChild(protectedButton);
+    }
     card.appendChild(meta);
 
     if (item.summary) card.appendChild(element('div', 'rw-muted rw-project-summary', item.summary));
@@ -264,6 +376,13 @@ export function createInstalledView({
     menuTrigger.setAttribute('aria-label', `${item.name} 更多操作`);
 
     if (item.applied) {
+      const protections = protectionChanges(item);
+      if (protections.worldbooks.length || protections.scripts.length) {
+        menuDropdown.appendChild(button('查看原版保护记录', '', () => {
+          closeMenu();
+          showProtectedOriginals(item);
+        }));
+      }
       menuDropdown.appendChild(button('重新应用', '', async () => {
         closeMenu();
         await applyItem(item);

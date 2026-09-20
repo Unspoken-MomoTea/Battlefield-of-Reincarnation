@@ -15,7 +15,6 @@ export function buildUploadBundle(project, fileName, rawText, selectedKind = 'da
   }
 
   if (
-    project.category === 'mixed' &&
     isJson &&
     parsed &&
     typeof parsed === 'object' &&
@@ -26,7 +25,7 @@ export function buildUploadBundle(project, fileName, rawText, selectedKind = 'da
     return parsed;
   }
 
-  const kind = project.category === 'mixed' ? selectedKind : project.category;
+  const kind = selectedKind;
   if (!ALLOWED_KINDS.has(kind)) throw new Error(`不支持的 artifact 类型：${kind}`);
 
   return {

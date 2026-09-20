@@ -116,10 +116,13 @@ export function workshopTemplate(version) {
         <div class="rw-grid" data-role="my-list"></div>
       </section>
       <section class="rw-section" data-section="admin" hidden>
-        <div class="rw-tabs">
-          <button class="rw-tab is-active" data-admin-view="projects" type="button">作品</button>
-          <button class="rw-tab" data-admin-view="reports" type="button">举报</button>
-          <button class="rw-tab" data-admin-view="users" type="button">用户</button>
+        <div class="rw-page-head">
+          <div class="rw-page-head-copy"><small>ADMIN</small><h2>工坊管理</h2><p>审核作品、处理举报，并管理作者账号状态。</p></div>
+        </div>
+        <div class="rw-admin-tabs">
+          <button class="rw-tab is-active" data-admin-view="projects" type="button">作品审核</button>
+          <button class="rw-tab" data-admin-view="reports" type="button">举报处理</button>
+          <button class="rw-tab" data-admin-view="users" type="button">用户管理</button>
         </div>
 
         <div data-admin-section="projects">

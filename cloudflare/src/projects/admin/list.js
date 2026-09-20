@@ -30,18 +30,3 @@ export async function listAdminProjects(request, env, user) {
   const rows = result.results || [];
   return json({ items: rows.slice(0, limit).map(projectAdmin), next_offset: rows.length > limit ? offset + limit : null });
 }
-
-export async function listPendingProjects(env, user) {
-  assertAdmin(user);
-  const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
-            p.status, p.latest_version, p.published_version, p.created_at, p.updated_at,
-            u.display_name AS owner_name, v.changelog, v.submitted_at
-       FROM projects p
-       JOIN users u ON u.id = p.owner_user_id
-       JOIN project_versions v ON v.project_id = p.id AND v.version = p.latest_version
-      WHERE v.review_status = 'pending'
-      ORDER BY v.submitted_at ASC`,
-  ).all();
-  return json({ items: result.results || [] });
-}

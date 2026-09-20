@@ -1,5 +1,6 @@
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
+import { restoreOriginalWorldbookConflicts } from './original-conflicts.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
 import { maybe, record } from './utils.js';
 
@@ -8,7 +9,12 @@ export async function uninstallProject({ adapter, storage }, projectId) {
   if (!installed) return null;
   if (!installed.applied) return installed;
   const targets = installed.installTargets ?? {};
-  const characterNeeded = Boolean(targets.worldbook || targets.regexIds?.length || targets.scripts?.character?.length);
+  const characterNeeded = Boolean(
+    targets.worldbook ||
+    targets.regexIds?.length ||
+    targets.scripts?.character?.length ||
+    targets.originalWorldbookChanges?.length
+  );
   const currentCharacter = characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null;
   if (installed.targetCharacterName && installed.targetCharacterName !== currentCharacter) {
     throw new Error(`该作品安装在角色“${installed.targetCharacterName}”，请切回该角色后再卸载`);
@@ -17,7 +23,14 @@ export async function uninstallProject({ adapter, storage }, projectId) {
   const state = await createInstallSnapshot(
     adapter,
     installed,
-    { worldbook: [], regexes: [], presets: [], scripts: { character: [], preset: [], global: [] }, data: [] },
+    {
+      worldbook: [],
+      regexes: [],
+      presets: [],
+      scripts: { character: [], preset: [], global: [] },
+      data: [],
+      originalConflicts: [],
+    },
     characterNeeded,
   );
   try {
@@ -53,9 +66,23 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       else await maybe(adapter.deletePreset(presetName));
     }
 
+    const restoreResult = await restoreOriginalWorldbookConflicts(
+      { adapter, storage },
+      installed,
+      state,
+    );
+
     const next = {
-      ...installed, applied: false, appliedVersion: null, appliedAt: null,
-      targetCharacterName: null, installTargets: null, applyError: '', updatedAt: Date.now(),
+      ...installed,
+      applied: false,
+      appliedVersion: null,
+      appliedAt: null,
+      targetCharacterName: null,
+      installTargets: null,
+      restoreWarnings: restoreResult.warnings,
+      unrestoredOriginals: restoreResult.unrestored,
+      applyError: '',
+      updatedAt: Date.now(),
     };
     await storage.putInstalledProject(next);
     return next;

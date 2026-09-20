@@ -10,6 +10,7 @@ export function createAuthorView({
   doc,
   host,
   categoryLabels,
+  artifactLabels,
   statusLabels,
   getAuth,
   notifyError,
@@ -79,6 +80,15 @@ export function createAuthorView({
     const editDependencies = element('input', 'rw-input');
     editDependencies.value = formatDependencyText(project.dependencies);
     editDependencies.maxLength = 1200;
+    const editType = element('select', 'rw-select');
+    for (const value of ['extension', 'character']) {
+      const option = doc.createElement('option');
+      option.value = value;
+      option.textContent = categoryLabels[value] || value;
+      option.selected = value === project.category;
+      editType.appendChild(option);
+    }
+    editType.disabled = Number(project.published_version) > 0;
 
     const addField = (label, control) => {
       const field = element('label', 'rw-field');
@@ -86,6 +96,7 @@ export function createAuthorView({
       editor.appendChild(field);
     };
     addField('作品名称', editName);
+    addField('作品类型', editType);
     addField('作品简介', editSummary);
     addField('标签（逗号分隔）', editTags);
     addField('依赖（项目ID@最低版本，多个用逗号分隔）', editDependencies);
@@ -99,6 +110,7 @@ export function createAuthorView({
       const dependencies = parseDependencyText(editDependencies.value);
       await workshopApi.updateProject(project.id, {
         name: editName.value,
+        category: editType.value,
         summary: editSummary.value,
         tags,
         dependencies,
@@ -117,13 +129,6 @@ export function createAuthorView({
     changelog.placeholder = '版本更新说明（上传新版本前可填写）';
     changelog.maxLength = 2000;
     const kind = element('select', 'rw-select');
-    const artifactLabels = {
-      worldbook: '世界书',
-      regex: '正则',
-      script: '酒馆助手脚本',
-      preset: '预设',
-      data: '数据',
-    };
     for (const value of ['worldbook', 'regex', 'script', 'preset', 'data']) {
       const option = doc.createElement('option');
       option.value = value;

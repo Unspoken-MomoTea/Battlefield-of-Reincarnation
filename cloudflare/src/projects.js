@@ -1,4 +1,4 @@
-export { ARTIFACT_KINDS, PROJECT_CATEGORIES, validateBundle } from './projects/core.js';
+export { ARTIFACT_KINDS, PROJECT_TYPES, validateBundle } from './projects/core.js';
 export {
   downloadPublicProject,
   getPublicProject,

@@ -3,6 +3,7 @@ import { deepSubsetEqual } from '../compare.js';
 import { buildArtifactPlan } from '../plan.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, regexPrefix } from '../ownership.js';
 import { isOriginalConflictEntryDisabled } from '../original-conflicts.js';
+import { findOriginalScriptTargets, isOriginalScriptDisabled } from '../original-scripts.js';
 import { maybe } from '../utils.js';
 
 function issue(type, extra = {}) {
@@ -41,7 +42,8 @@ export async function inspectInstalledProject(adapter, installed) {
     targets.worldbook ||
     targets.regexIds?.length ||
     targets.scripts?.character?.length ||
-    targets.originalWorldbookChanges?.length,
+    targets.originalWorldbookChanges?.length ||
+    targets.originalScriptChanges?.some(item => item.scope === 'character'),
   );
   if (characterScoped && installed.targetCharacterName) {
     const current = await maybe(adapter.getCurrentCharacterName());
@@ -172,6 +174,31 @@ export async function inspectInstalledProject(adapter, installed) {
         worldbookName: change.worldbookName,
         name: change.identity?.name || change.identity?.uid || '',
       }));
+    }
+  }
+
+  const originalScriptCache = new Map();
+  for (const change of targets.originalScriptChanges ?? []) {
+    if (!originalScriptCache.has(change.scope)) {
+      originalScriptCache.set(change.scope, await maybe(adapter.getScriptTrees(change.scope)));
+    }
+    const trees = originalScriptCache.get(change.scope);
+    const matches = findOriginalScriptTargets(trees, {
+      scope: change.scope,
+      ...(change.identity || {}),
+    });
+    const name = change.identity?.name || change.identity?.id || '';
+    if (matches.length !== 1) {
+      issues.push(issue('original_script_missing', { scope: change.scope, name }));
+      continue;
+    }
+    const actual = matches[0].script;
+    if (!isOriginalScriptDisabled(actual)) {
+      issues.push(issue('original_script_reenabled', { scope: change.scope, name }));
+      continue;
+    }
+    if (change.afterFingerprint && fingerprint(actual) !== change.afterFingerprint) {
+      issues.push(issue('original_script_modified', { scope: change.scope, name }));
     }
   }
 

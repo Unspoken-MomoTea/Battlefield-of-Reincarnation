@@ -112,6 +112,14 @@ export function createDiscoverView({
     footer.appendChild(stats);
 
     let quickAction = null;
+    const renderQuickAction = () => {
+      if (!quickAction) return;
+      const local = localProject(project.id);
+      quickAction.textContent = localActionLabel(project, local);
+      quickAction.classList.toggle('is-installed', Boolean(local?.applied));
+      quickAction.classList.toggle('is-cached', Boolean(local && !local.applied));
+      quickAction.classList.toggle('has-update', Boolean(local && Number(local.version) < Number(project.version)));
+    };
     quickAction = button('', 'primary rw-card-primary', async () => {
       const local = localProject(project.id);
       if (local) {
@@ -120,10 +128,10 @@ export function createDiscoverView({
       }
       const cached = await projectService.cache(project.id);
       localProjects.set(project.id, cached);
-      quickAction.textContent = localActionLabel(project, cached);
+      renderQuickAction();
       try { host.toastr?.success?.(`已下载 ${cached.name} v${cached.version}，可继续安装到酒馆`, '创意工坊'); } catch {}
     });
-    quickAction.textContent = localActionLabel(project, localProject(project.id));
+    renderQuickAction();
     footer.appendChild(quickAction);
     card.appendChild(footer);
 
@@ -324,7 +332,7 @@ export function createDiscoverView({
       const renderInstallButton = () => {
         if (!installButton) return;
         local = localProject(project.id);
-        installButton.disabled = false;
+        installButton.classList.remove('is-installed');
         if (!local) {
           installButton.textContent = '下载到本地';
         } else if (Number(local.version) < Number(project.version)) {
@@ -335,7 +343,7 @@ export function createDiscoverView({
           installButton.textContent = `应用本地 v${local.version}`;
         } else {
           installButton.textContent = `已安装 v${local.appliedVersion}`;
-          installButton.disabled = true;
+          installButton.classList.add('is-installed');
         }
       };
 
@@ -361,6 +369,10 @@ export function createDiscoverView({
           }
           updateCardLocalState(project);
           renderInstallButton();
+          return;
+        }
+        if (local.applied && Number(local.appliedVersion || 0) >= Number(local.version)) {
+          try { host.toastr?.info?.(`已安装 v${local.appliedVersion}`, project.name); } catch {}
           return;
         }
         await applyCachedProject(project, local, next => { local = next; renderInstallButton(); });

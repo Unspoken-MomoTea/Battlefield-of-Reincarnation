@@ -5,6 +5,7 @@ export function createMaintenanceView({
   button,
   empty,
   openModal,
+  confirmDialog,
   notifyError,
   host,
   projectService,
@@ -69,7 +70,12 @@ export function createMaintenanceView({
         },
       ));
       actions.appendChild(button('刷新酒馆', '', () => {
-        const confirmed = host.confirm?.('刷新酒馆页面以加载新的工坊脚本？未保存的输入内容可能丢失。');
+        const confirmed = await confirmDialog({
+          title: '刷新酒馆？',
+          message: '刷新后会加载新的工坊脚本；酒馆里尚未保存的输入内容可能丢失。',
+          confirmText: '刷新页面',
+          cancelText: '稍后',
+        });
         if (confirmed) host.location?.reload?.();
       }));
       container.appendChild(actions);

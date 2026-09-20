@@ -19,8 +19,8 @@ export async function createProject(request, env, user) {
   const now = nowSeconds();
   await env.DB.prepare(
     `INSERT INTO projects
-      (id, owner_user_id, slug, name, summary, tags, dependencies, category, project_type, status, latest_version, published_version, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'mixed', ?, 'draft', 0, 0, ?, ?)`,
+      (id, owner_user_id, slug, name, summary, tags, dependencies, project_type, status, latest_version, published_version, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', 0, 0, ?, ?)`,
   ).bind(id, user.id, slug, name, summary, JSON.stringify(tags), JSON.stringify(dependencies), category, now, now).run();
   return json({ project: { id, slug, name, summary, tags, dependencies, category, status: 'draft', latest_version: 0, published_version: 0, created_at: now, updated_at: now } }, 201);
 }

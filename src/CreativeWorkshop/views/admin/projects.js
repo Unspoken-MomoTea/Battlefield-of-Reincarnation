@@ -54,12 +54,25 @@ export function createAdminProjectsView({
     if (artifact.format) flags.appendChild(element('span', 'rw-pill', artifact.format));
     summary.appendChild(flags);
 
+    if (artifact.original_conflicts?.length) {
+      const protectedTargets = element('div', 'rw-admin-protected-targets');
+      protectedTargets.appendChild(element('strong', '', '安装时会临时屏蔽/替换：'));
+      for (const conflict of artifact.original_conflicts) {
+        const target = conflict.target || {};
+        const label = artifact.kind === 'script'
+          ? `${target.scope || 'character'} · ${target.folder ? `${target.folder} / ` : ''}${target.name || target.id || '未知脚本'}`
+          : `${target.worldbook || '当前角色世界书'} · ${target.name || target.uid || '未知条目'}`;
+        protectedTargets.appendChild(element('div', 'rw-muted', label));
+      }
+      row.appendChild(protectedTargets);
+    }
+
     const raw = typeof artifact.content === 'string'
       ? artifact.content
       : JSON.stringify(artifact.content, null, 2);
     const pre = element('pre', 'rw-detail');
     pre.textContent = raw.length > 6000 ? `${raw.slice(0, 6000)}\n…（界面仅预览前 6000 字符）` : raw;
-    row.append(summary, pre);
+    row.appendChild(pre);
     return row;
   }
 

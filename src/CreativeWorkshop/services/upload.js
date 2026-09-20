@@ -31,6 +31,12 @@ export function buildUploadBundle(project, fileName, rawText, selectedKind = 'da
   if (kind === 'script' && !['character', 'preset', 'global'].includes(scriptScope)) {
     throw new Error(`不支持的脚本作用域：${scriptScope}`);
   }
+  const originalConflicts = Array.isArray(options.originalConflicts)
+    ? structuredClone(options.originalConflicts)
+    : [];
+  if (kind !== 'worldbook' && originalConflicts.length) {
+    throw new Error('只有世界书 artifact 可以声明原版世界书冲突');
+  }
 
   return {
     schema_version: 1,
@@ -39,6 +45,9 @@ export function buildUploadBundle(project, fileName, rawText, selectedKind = 'da
         kind,
         name,
         ...(kind === 'script' ? { scope: scriptScope } : {}),
+        ...(kind === 'worldbook' && originalConflicts.length
+          ? { original_conflicts: originalConflicts }
+          : {}),
         format: isJson ? 'json' : 'text',
         content: parsed,
       },

@@ -20,7 +20,7 @@ export function workshopTemplate(version) {
       <section class="rw-section" data-section="discover">
         <div class="rw-toolbar">
           <input class="rw-input grow" data-field="search" placeholder="搜索作品名称或简介">
-          <select class="rw-select" data-field="category"><option value="">全部类型</option><option value="worldbook">世界书</option><option value="regex">正则</option><option value="preset">预设</option><option value="data">数据包</option><option value="mixed">混合包</option></select>
+          <select class="rw-select" data-field="category"><option value="">全部类型</option><option value="extension">扩展</option><option value="character">角色</option></select>
           <input class="rw-input" data-field="tag" maxlength="24" placeholder="标签">
           <button class="rw-button" data-action="search" type="button">搜索</button>
         </div>
@@ -29,7 +29,7 @@ export function workshopTemplate(version) {
       </section>
       <section class="rw-section" data-section="installed" hidden>
         <div class="rw-toolbar">
-          <div class="rw-muted grow">这里记录下载到 IndexedDB 的作品包。下载时会按 manifest 校验大小与 SHA-256；远程内容不会获得任意 JavaScript 执行权限。</div>
+          <div class="rw-muted grow">这里记录已下载的作品包。安装前会校验 manifest、大小与 SHA-256；包含酒馆助手脚本的作品只有在你点击安装后才会写入并启用脚本。</div>
           <button class="rw-button" data-action="check-all-updates" type="button">检查全部更新</button>
           <button class="rw-button" data-action="storage-manager" type="button">存储管理</button>
           <label class="rw-button" style="display:inline-flex;align-items:center">导入离线包<input data-action="import-offline" type="file" accept=".rwpack,application/json" hidden></label>
@@ -43,7 +43,7 @@ export function workshopTemplate(version) {
         </div>
         <form class="rw-card rw-create-form" data-form="create-project" hidden>
           <h3>创建作品</h3>
-          <div class="rw-row"><input class="rw-input grow" name="name" required maxlength="80" placeholder="作品名称"><select class="rw-select" name="category"><option value="worldbook">世界书</option><option value="regex">正则</option><option value="preset">预设</option><option value="data">数据包</option><option value="mixed">混合包</option></select></div>
+          <div class="rw-row"><input class="rw-input grow" name="name" required maxlength="80" placeholder="作品名称"><select class="rw-select" name="category"><option value="extension">扩展</option><option value="character">角色</option></select></div>
           <textarea class="rw-textarea" name="summary" maxlength="2000" placeholder="作品简介"></textarea>
           <input class="rw-input" name="tags" maxlength="300" placeholder="标签：剧情, boss, 原创（逗号分隔）">
           <input class="rw-input" name="dependencies" maxlength="1200" placeholder="依赖：项目ID@最低版本，多个用逗号分隔">
@@ -52,7 +52,7 @@ export function workshopTemplate(version) {
               <span>作品内容</span>
               <label class="rw-button rw-file-drop-button" data-drop-target="create-version">
                 选择或拖入版本文件 · JSON / TXT
-                <input data-field="create-version" type="file" accept=".json,.txt,application/json,text/plain" hidden>
+                <input data-field="create-version" type="file" accept=".json,.txt,.js,application/json,text/plain,text/javascript,application/javascript" hidden>
               </label>
               <div class="rw-file-state" data-role="create-version-state">未选择版本文件；不选择则只创建草稿。</div>
             </div>
@@ -64,13 +64,14 @@ export function workshopTemplate(version) {
               </label>
               <div class="rw-file-state" data-role="create-cover-state">未选择封面。</div>
             </div>
-            <label class="rw-field" data-role="create-artifact-kind" hidden>
-              <span>混合包单文件类型</span>
+            <label class="rw-field" data-role="create-artifact-kind">
+              <span>上传内容类型</span>
               <select class="rw-select" name="artifact_kind">
-                <option value="data">数据</option>
                 <option value="worldbook">世界书</option>
                 <option value="regex">正则</option>
+                <option value="script">酒馆助手脚本</option>
                 <option value="preset">预设</option>
+                <option value="data">数据</option>
               </select>
             </label>
           </div>
@@ -92,7 +93,7 @@ export function workshopTemplate(version) {
           <div class="rw-toolbar">
             <input class="rw-input grow" data-field="admin-search" placeholder="搜索作品或作者">
             <select class="rw-select" data-field="admin-status"><option value="">全部审核状态</option><option value="pending">审核中</option><option value="approved">已通过</option><option value="rejected">已拒绝</option><option value="draft">未提交审核</option></select>
-            <select class="rw-select" data-field="admin-category"><option value="">全部类型</option><option value="worldbook">世界书</option><option value="regex">正则</option><option value="preset">预设</option><option value="data">数据包</option><option value="mixed">混合包</option></select>
+            <select class="rw-select" data-field="admin-category"><option value="">全部类型</option><option value="extension">扩展</option><option value="character">角色</option></select>
             <button class="rw-button" data-action="admin-search" type="button">筛选</button>
           </div>
           <div class="rw-grid" data-role="pending-list"></div>

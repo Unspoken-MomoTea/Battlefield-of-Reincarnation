@@ -232,6 +232,11 @@ export const WORKSHOP_CSS = `
     border-radius:9px;background:#151619;color:#aaa8a3;font-size:12px;cursor:pointer
   }
   .rw-review-toggle input{accent-color:var(--rw-accent)}
+  .rw-author-cover-preview{
+    width:100%;max-height:240px;display:block;object-fit:cover;border:1px solid var(--rw-line);
+    border-radius:9px;background:#111216
+  }
+  .rw-author-cover-preview[hidden]{display:none!important}
   .rw-upload-actions{align-items:stretch}
   .rw-file-drop-button{
     flex:1;min-width:220px;min-height:76px;padding:12px 14px!important;

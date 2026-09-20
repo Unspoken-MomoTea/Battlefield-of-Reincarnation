@@ -40,3 +40,27 @@ test('invalid json is rejected before upload', () => {
     /无法解析/u,
   );
 });
+
+
+test('script uploads preserve the selected Tavern Helper scope', () => {
+  const result = buildUploadBundle(
+    { category: 'extension' },
+    'helper.js',
+    "console.log('scope')",
+    'script',
+    { scriptScope: 'global' },
+  );
+  assert.equal(result.artifacts[0].kind, 'script');
+  assert.equal(result.artifacts[0].scope, 'global');
+
+  assert.throws(
+    () => buildUploadBundle(
+      { category: 'extension' },
+      'helper.js',
+      "console.log('bad')",
+      'script',
+      { scriptScope: 'unknown' },
+    ),
+    /脚本作用域/u,
+  );
+});

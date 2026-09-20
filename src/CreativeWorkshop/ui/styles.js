@@ -372,6 +372,20 @@ export const WORKSHOP_CSS = `
   .rw-resource-option>span{min-width:0;display:grid;gap:2px}
   .rw-resource-option strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c8c5be;font-size:10px}
   .rw-resource-option small{color:var(--rw-faint);font-size:9px}
+  .rw-submit-progress{
+    white-space:pre-line;padding:10px 11px;border:1px solid var(--rw-line);border-radius:9px;
+    background:#141518;color:#aaa8a2;font-size:10px;line-height:1.6
+  }
+  .rw-submit-progress[hidden]{display:none!important}
+  .rw-submit-progress--working{
+    border-color:rgba(214,173,104,.22);background:rgba(214,173,104,.055);color:#c9ab78
+  }
+  .rw-submit-progress--success{
+    border-color:rgba(111,168,132,.26);background:rgba(111,168,132,.07);color:#9bcaaa
+  }
+  .rw-submit-progress--error{
+    border-color:rgba(216,123,120,.30);background:rgba(216,123,120,.075);color:#e4a09c
+  }
   .rw-publish-final-actions{position:sticky;bottom:-14px;padding:10px 0 0;background:#1a1b1f}
 
   .rw-empty{

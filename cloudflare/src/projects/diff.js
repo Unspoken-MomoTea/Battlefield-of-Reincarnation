@@ -17,6 +17,10 @@ function artifactSummary(artifact) {
     kind: artifact.kind,
     name: artifact.name,
     format: artifact.format,
+    ...(artifact.kind === 'script' ? { scope: artifact.scope || 'character' } : {}),
+    ...(artifact.kind === 'worldbook'
+      ? { original_conflicts: artifact.original_conflicts || [] }
+      : {}),
     byte_size: Number(artifact.byte_size || 0),
     sha256: artifact.sha256 || '',
   };
@@ -41,7 +45,9 @@ function compareArtifacts(baseManifest, targetManifest) {
     if (
       beforeSummary.sha256 !== afterSummary.sha256 ||
       beforeSummary.byte_size !== afterSummary.byte_size ||
-      beforeSummary.format !== afterSummary.format
+      beforeSummary.format !== afterSummary.format ||
+      beforeSummary.scope !== afterSummary.scope ||
+      JSON.stringify(beforeSummary.original_conflicts || []) !== JSON.stringify(afterSummary.original_conflicts || [])
     ) {
       changed.push({
         kind: artifact.kind,
@@ -92,7 +98,7 @@ export async function getAdminProjectDiff(env, user, projectId) {
   }
 
   const target = await env.DB.prepare(
-    `SELECT version, name, summary, tags, dependencies, category, cover_key, manifest_key, review_status
+    `SELECT version, name, summary, tags, dependencies, project_type AS category, cover_key, manifest_key, review_status
        FROM project_versions
       WHERE project_id = ? AND version = ?`,
   )
@@ -103,7 +109,7 @@ export async function getAdminProjectDiff(env, user, projectId) {
   let base = null;
   if (Number(project.published_version) > 0) {
     base = await env.DB.prepare(
-      `SELECT version, name, summary, tags, dependencies, category, cover_key, manifest_key, review_status
+      `SELECT version, name, summary, tags, dependencies, project_type AS category, cover_key, manifest_key, review_status
          FROM project_versions
         WHERE project_id = ? AND version = ?`,
     )

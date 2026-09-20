@@ -116,7 +116,7 @@ export function createAuthorView({
     uploadBox.append(coverFile, coverState, versionFile, versionState);
 
     let coverButton;
-    coverButton = button('选择并上传封面', '', () => {
+    coverButton = button('选择或拖入封面 · PNG / JPEG / WebP', '', () => {
       coverFile.value = '';
       coverFile.click();
     });
@@ -139,7 +139,7 @@ export function createAuthorView({
     });
 
     let versionButton;
-    versionButton = button('选择文件并上传版本', 'primary', () => {
+    versionButton = button('选择或拖入版本文件 · JSON / TXT', 'primary', () => {
       versionFile.value = '';
       versionFile.click();
     });
@@ -166,7 +166,34 @@ export function createAuthorView({
       }
     });
 
-    const uploadActions = element('div', 'rw-row');
+    coverButton.classList.add('rw-file-drop-button');
+    versionButton.classList.add('rw-file-drop-button');
+
+    const bindDrop = (target, input) => {
+      target.addEventListener('dragover', event => {
+        event.preventDefault();
+        target.classList.add('is-dragover');
+      });
+      target.addEventListener('dragleave', () => target.classList.remove('is-dragover'));
+      target.addEventListener('drop', event => {
+        event.preventDefault();
+        target.classList.remove('is-dragover');
+        const selected = event.dataTransfer?.files?.[0];
+        if (!selected) return;
+        try {
+          const transfer = new DataTransfer();
+          transfer.items.add(selected);
+          input.files = transfer.files;
+          input.dispatchEvent(new Event('change'));
+        } catch {
+          target.click();
+        }
+      });
+    };
+    bindDrop(coverButton, coverFile);
+    bindDrop(versionButton, versionFile);
+
+    const uploadActions = element('div', 'rw-row rw-upload-actions');
     uploadActions.append(coverButton, versionButton);
     uploadBox.appendChild(uploadActions);
     if (Number(project.published_version) > 0) {

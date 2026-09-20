@@ -47,10 +47,41 @@ function validatePresetContent(artifact, name) {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new HttpError(400, 'invalid_preset', `${name} 的预设根结构必须是对象`);
 }
 
+function validateScriptTree(value, name, path = '脚本') {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new HttpError(400, 'invalid_script', `${name} 的${path}结构无效`);
+  }
+  if (value.type === 'folder') {
+    if (!String(value.name || '').trim() || !Array.isArray(value.scripts)) {
+      throw new HttpError(400, 'invalid_script', `${name} 的脚本文件夹结构无效`);
+    }
+    if (value.scripts.length > 100) throw new HttpError(400, 'script_too_large', `${name} 的脚本文件夹超过 100 个脚本`);
+    value.scripts.forEach((script, index) => validateScriptTree(script, name, `脚本文件夹第 ${index + 1} 项`));
+    return;
+  }
+  if (value.type !== 'script') throw new HttpError(400, 'invalid_script', `${name} 的脚本 type 必须为 script 或 folder`);
+  if (!String(value.name || '').trim()) throw new HttpError(400, 'invalid_script', `${name} 的脚本缺少名称`);
+  if (typeof value.content !== 'string' || !value.content.trim()) {
+    throw new HttpError(400, 'invalid_script', `${name} 的脚本内容不能为空`);
+  }
+}
+
+function validateScriptContent(artifact, name) {
+  if (artifact.format === 'text') {
+    if (!artifact.content.trim()) throw new HttpError(400, 'invalid_script', `${name} 的脚本内容不能为空`);
+    return;
+  }
+  const parsed = structuredArtifactContent(artifact, name);
+  const trees = Array.isArray(parsed) ? parsed : [parsed];
+  if (!trees.length || trees.length > 100) throw new HttpError(400, 'invalid_script', `${name} 的脚本数量无效`);
+  trees.forEach((tree, index) => validateScriptTree(tree, name, `第 ${index + 1} 项`));
+}
+
 function validateArtifactShape(artifact, name) {
   if (artifact.kind === 'worldbook') validateWorldbookContent(artifact, name);
   if (artifact.kind === 'regex') validateRegexContent(artifact, name);
   if (artifact.kind === 'preset') validatePresetContent(artifact, name);
+  if (artifact.kind === 'script') validateScriptContent(artifact, name);
 }
 
 export function validateBundle(bundle, projectCategory) {
@@ -76,6 +107,13 @@ export function validateBundle(bundle, projectCategory) {
       catch { throw new HttpError(400, 'invalid_artifact_content', `${name} 不是可序列化 JSON`); }
     }
     const normalizedArtifact = { kind, format, name, content: normalizedContent };
+    if (kind === 'script') {
+      const scope = String(value.scope || 'character');
+      if (!['character', 'preset', 'global'].includes(scope)) {
+        throw new HttpError(400, 'invalid_script_scope', `${name} 的脚本作用域无效`);
+      }
+      normalizedArtifact.scope = scope;
+    }
     validateArtifactShape(normalizedArtifact, name);
     return normalizedArtifact;
   });

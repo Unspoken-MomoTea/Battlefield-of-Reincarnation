@@ -71,9 +71,23 @@ function locateInBooks(books, target) {
   return matches[0];
 }
 
+function entryEnabled(entry) {
+  if (typeof entry?.enabled === 'boolean') return entry.enabled;
+  if (typeof entry?.disable === 'boolean') return !entry.disable;
+  return true;
+}
+
 function disabledEntry(entry) {
   const next = { ...clone(entry), enabled: false };
   if ('disable' in next) next.disable = true;
+  return next;
+}
+
+function restoreEnabledState(entry, beforeEntry) {
+  const next = clone(entry);
+  const enabled = entryEnabled(beforeEntry);
+  next.enabled = enabled;
+  if ('disable' in next || 'disable' in (beforeEntry || {})) next.disable = !enabled;
   return next;
 }
 
@@ -159,8 +173,8 @@ export async function syncOriginalWorldbookConflicts({ adapter, storage }, insta
       continue;
     }
     if (change.userModified || fingerprint(located.entry) !== change.afterFingerprint) {
-      warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”安装后被用户修改，未自动覆盖`);
-      unrestored.push(change);
+      warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”安装后被用户修改，已保留修改并仅恢复原启用状态`);
+      entries[located.index] = restoreEnabledState(located.entry, change.beforeEntry);
       continue;
     }
     entries[located.index] = clone(change.beforeEntry);
@@ -204,8 +218,8 @@ export async function restoreOriginalWorldbookConflicts({ adapter, storage }, in
       continue;
     }
     if (change.userModified || fingerprint(located.entry) !== change.afterFingerprint) {
-      warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”安装后被用户修改，保留当前内容`);
-      unrestored.push(change);
+      warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”安装后被用户修改，已保留修改并仅恢复原启用状态`);
+      entries[located.index] = restoreEnabledState(located.entry, change.beforeEntry);
       continue;
     }
     entries[located.index] = clone(change.beforeEntry);

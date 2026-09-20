@@ -11,6 +11,8 @@ export function bindWorkshopEvents({
   overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
   overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
 
+  overlay.querySelector('[data-action="maintenance"]').addEventListener('click', () => void views.maintenance.open());
+
   overlay.querySelector('[data-action="search"]').addEventListener('click', () => void views.discover.refresh());
   nodes.search.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
   nodes.tag.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });

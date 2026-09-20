@@ -12,6 +12,7 @@ export function createWorkshopViews(context) {
     button: context.ui.button,
     empty: context.ui.empty,
     notifyError: context.ui.notifyError,
+    confirmDialog: context.ui.confirmDialog,
     openModal: context.ui.openModal,
     host: context.host,
   };

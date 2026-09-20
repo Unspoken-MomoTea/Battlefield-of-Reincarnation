@@ -9,7 +9,7 @@ import { bindWorkshopEvents } from './events.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '1.5.2';
+export const WORKSHOP_VERSION = '1.5.3';
 
 let booted = false;
 

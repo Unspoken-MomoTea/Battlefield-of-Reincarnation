@@ -128,3 +128,17 @@ test('staged artifact bundle enforces the 32 artifact version limit', () => {
   };
   assert.throws(() => combineUploadBundles([bundle]), /32/u);
 });
+
+
+test('staged artifact bundle rejects versions larger than the server limit', () => {
+  const oversized = {
+    schema_version: 1,
+    artifacts: [{
+      kind: 'data',
+      name: 'large.txt',
+      format: 'text',
+      content: 'x'.repeat(4_000_000),
+    }],
+  };
+  assert.throws(() => combineUploadBundles([oversized]), /4 MB/u);
+});

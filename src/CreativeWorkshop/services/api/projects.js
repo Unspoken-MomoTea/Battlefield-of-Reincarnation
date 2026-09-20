@@ -2,8 +2,8 @@ import { getApiBase } from '../../config.js';
 
 export function createProjectApi(request) {
   return {
-    listProjects(query = '', category = '', offset = 0, tag = '') {
-      const params = new URLSearchParams({ limit: '24', offset: String(offset) });
+    listProjects(query = '', category = '', offset = 0, tag = '', sort = 'latest') {
+      const params = new URLSearchParams({ limit: '24', offset: String(offset), sort });
       if (query.trim()) params.set('query', query.trim());
       if (category) params.set('category', category);
       if (tag.trim()) params.set('tag', tag.trim());

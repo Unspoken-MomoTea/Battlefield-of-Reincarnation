@@ -51,10 +51,11 @@ export function workshopTemplate(version) {
             <div class="rw-field">
               <span>作品内容</span>
               <label class="rw-button rw-file-drop-button" data-drop-target="create-version">
-                选择或拖入版本文件 · JSON / TXT / JS
-                <input data-field="create-version" type="file" accept=".json,.txt,.js,application/json,text/plain,text/javascript,application/javascript" hidden>
+                添加内容文件 · JSON / TXT / JS
+                <input data-field="create-version" type="file" multiple accept=".json,.txt,.js,application/json,text/plain,text/javascript,application/javascript" hidden>
               </label>
-              <div class="rw-file-state" data-role="create-version-state">未选择版本文件；不选择则只创建草稿。</div>
+              <div class="rw-file-state" data-role="create-version-state">先选择内容类型，再分批添加文件；一个版本最多 32 个 artifact。</div>
+              <div class="rw-artifact-list" data-role="create-artifact-list" hidden></div>
             </div>
             <div class="rw-field">
               <span>封面（可选）</span>

@@ -4,6 +4,7 @@ export function workshopTemplate(version) {
     <header class="rw-head">
       <div class="rw-title">轮回战场 · 创意工坊</div>
       <div class="rw-account" data-role="account">未登录</div>
+      <span class="rw-health-chip" data-role="health" title="工坊服务状态">连接中</span>
       <div class="rw-version">v${version}</div>
       <button class="rw-button primary" type="button" data-action="login">Discord 登录</button>
       <button class="rw-button danger" type="button" data-action="logout" hidden>退出</button>
@@ -16,25 +17,43 @@ export function workshopTemplate(version) {
       <button class="rw-tab" data-tab="admin" type="button" hidden>管理</button>
     </nav>
     <main class="rw-body">
-      <section class="rw-card"><div class="rw-row"><strong>服务状态</strong><span class="rw-status" data-role="health">尚未检查</span></div></section>
       <section class="rw-section" data-section="discover">
-        <div class="rw-toolbar">
-          <input class="rw-input grow" data-field="search" placeholder="搜索作品名称或简介">
-          <select class="rw-select" data-field="category"><option value="">全部类型</option><option value="extension">扩展</option><option value="character">角色</option></select>
-          <input class="rw-input" data-field="tag" maxlength="24" placeholder="标签">
-          <button class="rw-button" data-action="search" type="button">搜索</button>
+        <div class="rw-page-head">
+          <div class="rw-page-head-copy"><small>DISCOVER</small><h2>发现作品</h2><p>浏览角色与扩展，下载后再由你决定是否安装到酒馆。</p></div>
+          <div class="rw-page-head-meta" data-role="discover-count">正在载入</div>
         </div>
-        <div class="rw-grid" data-role="discover-list"></div>
-        <div class="rw-card" data-role="detail-card" hidden><h3 data-role="detail-title"></h3><div class="rw-muted" data-role="detail-summary"></div><pre class="rw-detail" data-role="detail-manifest"></pre></div>
+        <input type="hidden" data-field="category" value="">
+        <div class="rw-category-switch" role="tablist" aria-label="作品分类">
+          <button class="rw-category-choice is-active" type="button" data-category-filter="">全部</button>
+          <button class="rw-category-choice" type="button" data-category-filter="character"><strong>角色</strong><span>角色卡与配套内容</span></button>
+          <button class="rw-category-choice" type="button" data-category-filter="extension"><strong>扩展</strong><span>世界书、脚本与功能包</span></button>
+        </div>
+        <div class="rw-toolbar rw-discover-toolbar">
+          <input class="rw-input grow" data-field="search" placeholder="搜索作品名称或简介">
+          <input class="rw-input rw-tag-input" data-field="tag" maxlength="24" placeholder="标签">
+          <select class="rw-select" data-field="sort" aria-label="作品排序">
+            <option value="latest">最新发布</option>
+            <option value="popular">热门</option>
+            <option value="downloads">下载最多</option>
+            <option value="favorites">收藏最多</option>
+            <option value="likes">点赞最多</option>
+          </select>
+          <button class="rw-button primary" data-action="search" type="button">搜索</button>
+        </div>
+        <div class="rw-grid rw-project-grid" data-role="discover-list"></div>
+        <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>
       </section>
       <section class="rw-section" data-section="installed" hidden>
-        <div class="rw-toolbar">
-          <div class="rw-muted grow">这里记录已下载的作品包。安装前会校验 manifest、大小与 SHA-256；包含酒馆助手脚本的作品只有在你点击安装后才会写入并启用脚本。</div>
-          <button class="rw-button" data-action="check-all-updates" type="button">检查全部更新</button>
-          <button class="rw-button" data-action="storage-manager" type="button">存储管理</button>
-          <label class="rw-button" style="display:inline-flex;align-items:center">导入离线包<input data-action="import-offline" type="file" accept=".rwpack,application/json" hidden></label>
+        <div class="rw-page-head">
+          <div class="rw-page-head-copy"><small>LIBRARY</small><h2>本地作品</h2><p>下载只是缓存；安装、升级和卸载仍由你明确触发。</p></div>
+          <div class="rw-page-actions">
+            <button class="rw-button" data-action="check-all-updates" type="button">检查全部更新</button>
+            <button class="rw-button" data-action="storage-manager" type="button">存储管理</button>
+            <label class="rw-button rw-inline-file">导入离线包<input data-action="import-offline" type="file" accept=".rwpack,application/json" hidden></label>
+          </div>
         </div>
-        <div class="rw-grid" data-role="installed-list"></div>
+        <div class="rw-local-note">工坊会在安装前校验 manifest、大小与 SHA-256；酒馆助手脚本只有在主动安装后才会写入并启用。</div>
+        <div class="rw-grid rw-local-grid" data-role="installed-list"></div>
       </section>
       <section class="rw-section" data-section="mine" hidden>
         <div class="rw-page-head">

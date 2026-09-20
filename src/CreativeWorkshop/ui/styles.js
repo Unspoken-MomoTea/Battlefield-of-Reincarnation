@@ -310,6 +310,10 @@ export const WORKSHOP_CSS = `
   .rw-admin-artifact>summary::-webkit-details-marker{display:none}
   .rw-admin-artifact[open]>summary{border-bottom:1px solid var(--rw-line);background:#151619}
   .rw-admin-artifact .rw-detail{max-height:360px;border:0;border-radius:0}
+  .rw-admin-protected-targets{
+    display:grid;gap:4px;padding:9px 10px;border-bottom:1px solid var(--rw-line);background:rgba(214,173,104,.045)
+  }
+  .rw-admin-protected-targets strong{color:#cbb48d;font-size:10px}
   .rw-admin-artifact-title{min-width:0;display:grid;gap:2px}
   .rw-admin-artifact-title strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c9c7c0;font-size:11px}
   .rw-admin-artifact-title small{color:var(--rw-faint);font-size:9px}
@@ -430,6 +434,7 @@ export const WORKSHOP_CSS = `
     .rw-version{display:none}
     .rw-account{max-width:120px}
     .rw-health-chip{display:none}
+    .rw-head .rw-button[data-action="maintenance"]{min-height:36px;padding:0 8px;font-size:10px}
     .rw-head .rw-button[data-action="login"],.rw-head .rw-button[data-action="logout"]{min-height:36px;padding:0 9px}
     .rw-close{min-height:36px;padding:0 9px}
     .rw-tabs{

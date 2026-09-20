@@ -127,7 +127,12 @@ export function bindWorkshopEvents({
   });
 
   createCancel?.addEventListener('click', () => {
-    if (createDirty && !host.confirm?.('有未提交的本地内容，确定放弃吗？')) return;
+    if (createDirty) {
+      const confirmed = typeof host.confirm === 'function'
+        ? host.confirm('有未提交的本地内容，确定放弃吗？')
+        : true;
+      if (!confirmed) return;
+    }
     publishConfirmModal?.close({ force: true });
     publishConfirmModal = null;
     resetCreateDraft();

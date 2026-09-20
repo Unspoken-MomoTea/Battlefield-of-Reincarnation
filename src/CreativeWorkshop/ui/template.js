@@ -51,7 +51,7 @@ export function workshopTemplate(version) {
             <div class="rw-field">
               <span>作品内容</span>
               <label class="rw-button rw-file-drop-button" data-drop-target="create-version">
-                选择或拖入版本文件 · JSON / TXT
+                选择或拖入版本文件 · JSON / TXT / JS
                 <input data-field="create-version" type="file" accept=".json,.txt,.js,application/json,text/plain,text/javascript,application/javascript" hidden>
               </label>
               <div class="rw-file-state" data-role="create-version-state">未选择版本文件；不选择则只创建草稿。</div>

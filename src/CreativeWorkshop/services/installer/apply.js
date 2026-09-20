@@ -1,5 +1,5 @@
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
-import { isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
+import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { buildArtifactPlan } from './plan.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
 import { clone, maybe, record } from './utils.js';
@@ -8,12 +8,20 @@ export async function applyProject({ adapter, storage }, projectId) {
   const installed = await storage.getInstalledProject(projectId);
   if (!installed) throw new Error('本地没有这个作品，请先下载');
   const plan = buildArtifactPlan(installed);
-  if (!plan.worldbook.length && !plan.regexes.length && !plan.presets.length) {
+  const scriptCount = Object.values(plan.scripts ?? {}).reduce((sum, trees) => sum + trees.length, 0);
+  if (!plan.worldbook.length && !plan.regexes.length && !plan.presets.length && !scriptCount) {
     throw new Error('这个作品目前只有 data artifact，没有可直接安装到酒馆的内容');
   }
 
   const oldTargets = installed.installTargets ?? {};
-  const characterNeeded = Boolean(plan.worldbook.length || plan.regexes.length || oldTargets.worldbook || oldTargets.regexIds?.length);
+  const characterNeeded = Boolean(
+    plan.worldbook.length ||
+    plan.regexes.length ||
+    plan.scripts?.character?.length ||
+    oldTargets.worldbook ||
+    oldTargets.regexIds?.length ||
+    oldTargets.scripts?.character?.length
+  );
   const currentCharacter = characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null;
   if (characterNeeded && !currentCharacter) throw new Error('请先在酒馆中打开一个角色卡，再安装世界书或正则');
   if (installed.applied && installed.targetCharacterName && installed.targetCharacterName !== currentCharacter) {
@@ -57,6 +65,11 @@ export async function applyProject({ adapter, storage }, projectId) {
       await maybe(adapter.replaceCharacterRegexes([...previous, ...plan.regexes]));
     }
 
+    for (const [scope, currentTrees] of state.scripts.entries()) {
+      const previous = currentTrees.filter(tree => !isProjectScriptTree(tree, installed.id));
+      await maybe(adapter.replaceScriptTrees([...previous, ...(plan.scripts?.[scope] ?? [])], scope));
+    }
+
     const newPresetNames = new Set(plan.presets.map(item => item.name));
     const previousPresetBackups = oldTargets.presetBackups ?? {};
     for (const oldName of oldTargets.presets ?? []) {
@@ -84,6 +97,12 @@ export async function applyProject({ adapter, storage }, projectId) {
         worldbookCreated: plan.worldbook.length > 0 ? Boolean(oldTargets.worldbookCreated || !state.worldbook?.existed) : false,
         worldbookBound: plan.worldbook.length > 0 ? Boolean(oldTargets.worldbookBound || !worldbookWasBound) : false,
         regexIds: plan.regexes.map(regex => regex.id),
+        scripts: Object.fromEntries(
+          ['character', 'preset', 'global'].map(scope => [
+            scope,
+            (plan.scripts?.[scope] ?? []).map(tree => tree.id),
+          ]),
+        ),
         presets: plan.presets.map(item => item.name),
         presetBackups,
       },

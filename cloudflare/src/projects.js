@@ -17,7 +17,6 @@ export {
   getPendingProjectReview,
   listAdminAuditLogs,
   listAdminProjects,
-  listPendingProjects,
   reviewProject,
   setAdminProjectState,
 } from './projects/admin.js';

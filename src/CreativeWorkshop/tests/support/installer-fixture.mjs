@@ -41,7 +41,7 @@ export function project(artifacts, overrides = {}) {
   return {
     id: 'project-1',
     name: '测试作品',
-    category: 'mixed',
+    category: 'extension',
     version: 2,
     bundle: { schema_version: 1, artifacts },
     applied: false,

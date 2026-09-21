@@ -741,6 +741,17 @@ export const WORKSHOP_CSS = `
     position:sticky;bottom:-14px;z-index:5;margin:2px -14px -14px;padding:10px 14px;
     border-top:1px solid var(--rw-line);background:rgba(26,27,31,.96);backdrop-filter:blur(12px)
   }
+  .rw-admin-review-shell .rw-workshop-reading{background:#111215}
+  .rw-admin-review-decision{
+    display:grid;gap:8px;padding:12px;border:1px solid rgba(214,173,104,.18);border-radius:10px;
+    background:linear-gradient(160deg,rgba(214,173,104,.065),#121316 55%)
+  }
+  .rw-admin-review-decision .rw-button{width:100%;min-height:38px}
+  .rw-admin-review-primary{min-height:44px!important}
+  .rw-admin-review-history .rw-admin-history-row{padding:10px 11px}
+  .rw-admin-review-history .rw-admin-history-row strong{font-size:11px}
+  .rw-admin-review-history .rw-admin-history-row span{font-size:10px}
+
 
   .rw-health-chip{
     flex:none;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -779,7 +790,10 @@ export const WORKSHOP_CSS = `
   .rw-card-primary.is-cached{background:rgba(255,255,255,.035);color:#aaa8a3}
   .rw-card-primary.has-update{border-color:rgba(214,173,104,.26);background:rgba(214,173,104,.10);color:#e0bd82}
 
-  .rw-workshop-detail-shell{min-height:0;background:#111215}
+  .rw-workshop-detail-shell{
+    min-height:0;background:#111215;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility
+  }
   .rw-workshop-detail-header{
     position:sticky;top:0;z-index:8;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
     padding:16px 18px;border-bottom:1px solid var(--rw-line);background:rgba(24,25,28,.97);backdrop-filter:blur(14px)
@@ -788,10 +802,10 @@ export const WORKSHOP_CSS = `
   .rw-workshop-detail-title h2{
     margin:0;overflow:hidden;text-overflow:ellipsis;color:#ece9e2;font-size:20px;line-height:1.25;font-weight:850
   }
-  .rw-workshop-detail-identity{color:#85827b;font-size:10px}
+  .rw-workshop-detail-identity{color:#9a968f;font-size:12px;line-height:1.45}
   .rw-workshop-detail-header>.rw-meta{justify-content:flex-end;max-width:46%}
   .rw-workshop-detail-grid{
-    display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:start;min-height:0
+    display:grid;grid-template-columns:minmax(0,1fr) 330px;align-items:start;min-height:0
   }
   .rw-workshop-reading{
     min-width:0;display:grid;align-content:start;gap:14px;padding:16px 18px 30px;border-right:1px solid var(--rw-line)
@@ -832,17 +846,17 @@ export const WORKSHOP_CSS = `
   .rw-workshop-interaction--stat{cursor:default!important}
   .rw-workshop-report{width:100%;min-height:32px!important;font-size:9px!important}
   .rw-workshop-rail-label{
-    color:#6f6c66;font-size:8px;font-weight:850;letter-spacing:.10em;text-transform:uppercase
+    color:#8a867f;font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase
   }
   .rw-workshop-facts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .rw-workshop-fact{
     min-width:0;display:grid;gap:2px;padding:7px 8px;border:1px solid rgba(255,255,255,.045);
     border-radius:8px;background:#0f1012
   }
-  .rw-workshop-fact span{color:#65635e;font-size:8px}
-  .rw-workshop-fact strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#bcb9b2;font-size:10px}
+  .rw-workshop-fact span{color:#7b7872;font-size:10px}
+  .rw-workshop-fact strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d1cdc5;font-size:12px}
   .rw-workshop-protected{gap:7px}
-  .rw-workshop-protected-note{color:#8b8172;font-size:9px;line-height:1.5}
+  .rw-workshop-protected-note{color:#9f9688;font-size:11px;line-height:1.55}
   .rw-workshop-protected-row{
     display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;gap:7px;padding:7px;
     border:1px solid rgba(214,173,104,.10);border-radius:8px;background:rgba(214,173,104,.035)
@@ -853,11 +867,11 @@ export const WORKSHOP_CSS = `
   }
   .rw-workshop-protected-icon.script{border-color:rgba(185,172,215,.18);color:#b9acd7}
   .rw-workshop-protected-copy{min-width:0;display:grid;gap:2px}
-  .rw-workshop-protected-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#bbb8b1;font-size:9px}
-  .rw-workshop-protected-copy small{color:#66645f;font-size:8px;line-height:1.4}
+  .rw-workshop-protected-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d0ccc4;font-size:11px}
+  .rw-workshop-protected-copy small{color:#85827b;font-size:10px;line-height:1.45}
   .rw-workshop-dependency-list{display:grid;gap:5px}
   .rw-workshop-dependency{
-    padding:7px 8px;border:1px solid var(--rw-line);border-radius:7px;background:#0f1012;color:#99968f;font-size:9px
+    padding:8px 9px;border:1px solid var(--rw-line);border-radius:7px;background:#0f1012;color:#b2aea6;font-size:11px
   }
   .rw-workshop-overview{background:#141518}
   .rw-detail-content-section{
@@ -865,11 +879,11 @@ export const WORKSHOP_CSS = `
   }
   .rw-detail-content-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
   .rw-detail-content-heading>div{min-width:0;display:grid;gap:3px}
-  .rw-detail-content-heading strong{color:#d0cdc6;font-size:13px}
-  .rw-detail-content-heading span{color:#706e68;font-size:9px}
+  .rw-detail-content-heading strong{color:#e2ded7;font-size:16px}
+  .rw-detail-content-heading span{color:#8d8982;font-size:11px;line-height:1.45}
   .rw-content-chip{
-    display:inline-flex;align-items:center;min-height:21px;padding:2px 6px;border:1px solid var(--rw-line);
-    border-radius:999px;background:#101114;color:#898780;font-size:8px;line-height:1.25
+    display:inline-flex;align-items:center;min-height:24px;padding:3px 7px;border:1px solid var(--rw-line);
+    border-radius:999px;background:#101114;color:#a29f98;font-size:10px;line-height:1.25
   }
   .rw-content-chip.good{border-color:rgba(111,168,132,.20);background:rgba(111,168,132,.055);color:#8dbb9c}
   .rw-content-chip.warning{border-color:rgba(214,173,104,.22);background:rgba(214,173,104,.06);color:#c7a66f}
@@ -877,9 +891,29 @@ export const WORKSHOP_CSS = `
   .rw-content-chip.added{border-color:rgba(111,168,132,.22);color:#9dccae}
   .rw-content-chip.modified{border-color:rgba(214,173,104,.24);color:#d6b473}
   .rw-content-chip.removed{border-color:rgba(216,123,120,.22);color:#df9490}
-  .rw-content-chip-list{display:flex;gap:4px;flex-wrap:wrap}
+  .rw-content-chip-list{display:flex;gap:5px;flex-wrap:wrap}
+  .rw-content-reader-states{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+  .rw-strategy-chip{
+    display:inline-flex;align-items:center;min-height:26px;padding:3px 8px;border:1px solid var(--rw-line);
+    border-radius:999px;background:#111216;font-size:10px;font-weight:800;white-space:nowrap
+  }
+  .rw-strategy-chip--constant{
+    border-color:rgba(92,155,255,.36);background:rgba(92,155,255,.10);color:#9cc4ff
+  }
+  .rw-strategy-chip--selective{
+    border-color:rgba(82,188,120,.34);background:rgba(82,188,120,.09);color:#9dd9b1
+  }
+  .rw-strategy-chip--vectorized{
+    border-color:rgba(176,143,224,.34);background:rgba(176,143,224,.09);color:#c7afea
+  }
+  .rw-strategy-chip.is-compact{
+    min-height:20px;padding:1px 5px;font-size:9px
+  }
+  .rw-content-nav-title-row{min-width:0;display:flex;align-items:center;gap:6px}
+  .rw-content-nav-title-row strong{min-width:0;flex:1}
+
   .rw-content-workspace{
-    min-height:290px;display:grid;grid-template-columns:220px minmax(0,1fr);
+    min-height:320px;display:grid;grid-template-columns:250px minmax(0,1fr);
     border:1px solid var(--rw-line);border-radius:9px;overflow:hidden;background:#101114
   }
   .rw-content-nav{
@@ -892,22 +926,22 @@ export const WORKSHOP_CSS = `
   }
   .rw-content-nav-item:hover{background:rgba(255,255,255,.035);color:#c7c4bd}
   .rw-content-nav-item.is-active{background:rgba(162,139,107,.10);color:#d4c0a1}
-  .rw-content-nav-item strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px}
-  .rw-content-nav-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#5e5c57;font-size:7px}
-  .rw-content-reader{min-width:0;min-height:290px;max-height:560px;overflow:auto;background:#0f1012}
-  .rw-content-reader-panel{display:grid;gap:11px;padding:14px}
+  .rw-content-nav-item strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:1.35}
+  .rw-content-nav-item>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#7d7a74;font-size:9px}
+  .rw-content-reader{min-width:0;min-height:320px;max-height:640px;overflow:auto;background:#0f1012}
+  .rw-content-reader-panel{display:grid;gap:14px;padding:18px}
   .rw-content-reader-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
   .rw-content-reader-title{min-width:0;display:grid;gap:3px}
-  .rw-content-reader-title h3{margin:0;color:#dedbd4;font-size:13px;line-height:1.4}
-  .rw-content-reader-title span{color:#66645f;font-size:8px}
+  .rw-content-reader-title h3{margin:0;color:#f0ece4;font-size:17px;line-height:1.4}
+  .rw-content-reader-title>span{color:#89867f;font-size:10px}
   .rw-content-entry-meta{display:flex;gap:5px;flex-wrap:wrap}
   .rw-content-keywords{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .rw-content-keywords>div{display:grid;gap:5px}
-  .rw-content-keywords strong,.rw-regex-fields strong{color:#77746e;font-size:8px;letter-spacing:.03em}
+  .rw-content-keywords strong,.rw-regex-fields strong{color:#96928b;font-size:11px;letter-spacing:.02em}
   .rw-content-source{
     margin:0;max-height:420px;overflow:auto;white-space:pre-wrap;word-break:break-word;
-    padding:11px;border:1px solid var(--rw-line);border-radius:8px;background:#0b0c0e;color:#b9b7b2;
-    font:10px/1.65 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace
+    padding:15px;border:1px solid var(--rw-line);border-radius:8px;background:#0b0c0e;color:#d4d0c8;
+    font:12.5px/1.72 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace
   }
   .rw-content-source--worldbook{min-height:130px}
   .rw-content-source--script{color:#aaa6bd}
@@ -915,25 +949,25 @@ export const WORKSHOP_CSS = `
   .rw-regex-fields{display:grid;gap:10px}
   .rw-regex-fields>div{display:grid;gap:5px}
   .rw-content-empty{
-    padding:20px;border:1px dashed var(--rw-line);border-radius:8px;color:#6d6b66;text-align:center;font-size:9px
+    padding:20px;border:1px dashed var(--rw-line);border-radius:8px;color:#8b8881;text-align:center;font-size:11px
   }
   .rw-change-note{
     white-space:pre-wrap;padding:9px 10px;border-left:2px solid rgba(162,139,107,.45);
-    background:rgba(162,139,107,.045);color:#aba79f;font-size:10px;line-height:1.6
+    background:rgba(162,139,107,.045);color:#c1bdb5;font-size:12px;line-height:1.65
   }
   .rw-change-summary{display:flex;gap:5px;flex-wrap:wrap}
   .rw-change-group{display:grid;gap:5px}
-  .rw-change-group>strong{color:#85827c;font-size:9px}
+  .rw-change-group>strong{color:#a5a098;font-size:11px}
   .rw-change-row{
     display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:7px;padding:6px 7px;
     border:1px solid rgba(255,255,255,.045);border-radius:7px;background:#101114
   }
-  .rw-change-row-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#aaa7a0;font-size:9px}
-  .rw-change-row small{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#66645f;font-size:8px}
+  .rw-change-row-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c5c1b9;font-size:11px}
+  .rw-change-row small{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#88857f;font-size:10px}
   .rw-version-history{
     border:1px solid var(--rw-line);border-radius:10px;background:#131417;overflow:hidden
   }
-  .rw-version-history>summary{padding:10px 12px;cursor:pointer;color:#aaa79f;font-size:10px;font-weight:750}
+  .rw-version-history>summary{padding:11px 12px;cursor:pointer;color:#c0bcb4;font-size:12px;font-weight:750}
   .rw-version-history[open]>summary{border-bottom:1px solid var(--rw-line)}
   .rw-version-history-list{display:grid}
   .rw-version-history-row{
@@ -941,9 +975,9 @@ export const WORKSHOP_CSS = `
     border-bottom:1px solid rgba(255,255,255,.04)
   }
   .rw-version-history-row:last-child{border-bottom:0}
-  .rw-version-history-row strong{color:#c7b18e;font-size:9px}
-  .rw-version-history-row span{color:#5f5d58;font-size:8px}
-  .rw-version-history-row div{color:#8e8b84;font-size:9px;white-space:pre-wrap}
+  .rw-version-history-row strong{color:#d8bd91;font-size:11px}
+  .rw-version-history-row span{color:#7c7973;font-size:10px}
+  .rw-version-history-row div{color:#aaa69e;font-size:11px;white-space:pre-wrap;line-height:1.5}
   .rw-extra-artifact{border:1px solid var(--rw-line);border-radius:8px;overflow:hidden;background:#101114}
   .rw-extra-artifact>summary{padding:8px 9px;cursor:pointer;color:#96938d;font-size:9px}
   .rw-extra-artifact[open]>summary{border-bottom:1px solid var(--rw-line)}

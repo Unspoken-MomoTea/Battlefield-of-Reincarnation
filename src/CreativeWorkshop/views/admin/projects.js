@@ -284,7 +284,8 @@ export function createAdminProjectsView({
           reviewStatusLabel(project.review_status),
         ),
       );
-      if (project.project_status === 'archived') headerMeta.appendChild(element('span', 'rw-pill', '已下架'));
+      if (project.project_status === 'archived') headerMeta.appendChild(element('span', 'rw-pill', '管理员已下架'));
+      if (project.owner_hidden) headerMeta.appendChild(element('span', 'rw-pill rw-pill--warning', '作者已下架'));
       for (const tag of project.tags || []) headerMeta.appendChild(element('span', 'rw-pill', `#${tag}`));
       header.append(headerCopy, headerMeta);
       shell.appendChild(header);
@@ -386,7 +387,8 @@ export function createAdminProjectsView({
       element('span', 'rw-pill', categoryLabels[item.category] || item.category),
       element('span', 'rw-pill', `公开 v${item.published_version}`),
     );
-    if (item.project_status === 'archived') meta.append(element('span', 'rw-pill', '已下架'));
+    if (item.project_status === 'archived') meta.append(element('span', 'rw-pill', '管理员已下架'));
+    if (item.owner_hidden) meta.append(element('span', 'rw-pill rw-pill--warning', '作者已下架'));
     if (item.owner_is_banned) meta.append(element('span', 'rw-pill', '作者已封禁'));
     if (item.has_cover) meta.append(element('span', 'rw-pill', '含封面'));
     card.appendChild(meta);

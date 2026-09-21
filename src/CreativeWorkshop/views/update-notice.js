@@ -5,6 +5,7 @@ export function createWorkshopUpdateNotice({
   host,
   selfUpdater,
   currentVersion,
+  currentSha = '',
   onHotReload,
 }) {
   let activeModal = null;
@@ -113,9 +114,10 @@ export function createWorkshopUpdateNotice({
     if (checking) return checking;
     checking = (async () => {
       const result = await selfUpdater.check();
+      const runtimeOutdated = Boolean(currentSha && currentSha !== result.latestSha);
       if (
         result.loaderFound &&
-        result.updateAvailable &&
+        (result.updateAvailable || runtimeOutdated) &&
         (force || (result.latestSha !== promptedSha && result.latestSha !== dismissedSha))
       ) {
         openUpdateModal(result);

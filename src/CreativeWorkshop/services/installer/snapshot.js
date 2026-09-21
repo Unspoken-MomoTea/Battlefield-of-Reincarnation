@@ -4,7 +4,12 @@ import { clone, maybe } from './utils.js';
 export async function createInstallSnapshot(adapter, installed, plan, characterNeeded) {
   const oldTargets = installed.installTargets ?? {};
   const worldbookAffected = Boolean(oldTargets.worldbook || plan.worldbook.length);
-  const regexAffected = Boolean((oldTargets.regexIds?.length ?? 0) || plan.regexes.length);
+  const regexAffected = Boolean(
+    (oldTargets.regexIds?.length ?? 0) ||
+    plan.regexes.length ||
+    (oldTargets.originalRegexChanges?.length ?? 0) ||
+    (plan.originalRegexConflicts?.length ?? 0)
+  );
   const conflictAffected = Boolean(
     (oldTargets.originalWorldbookChanges?.length ?? 0) || (plan.originalConflicts?.length ?? 0),
   );

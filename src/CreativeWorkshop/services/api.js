@@ -9,6 +9,6 @@ export const workshopApi = {
   request,
   health: () => request('/api/health'),
   ...createAuthApi(request),
-  ...createProjectApi(request),
+  ...createProjectApi(request, requestRaw),
   ...createAdminApi(request, requestRaw),
 };

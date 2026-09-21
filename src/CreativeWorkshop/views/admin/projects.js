@@ -1,3 +1,9 @@
+import {
+  renderChangePreview,
+  renderContentPreview,
+  renderVersionHistory,
+} from '../discover/content-preview.js';
+
 export function createAdminProjectsView({
   nodes,
   element,
@@ -5,8 +11,8 @@ export function createAdminProjectsView({
   empty,
   workshopApi,
   host,
+  doc,
   categoryLabels,
-  artifactLabels,
   getAuth,
   openModal,
   confirmDialog,
@@ -33,49 +39,108 @@ export function createAdminProjectsView({
     return row;
   }
 
-  function artifactPreview(artifact) {
-    const row = element('details', 'rw-admin-artifact');
-    const summary = element('summary', '');
-    const title = element('span', 'rw-admin-artifact-title');
-    title.append(
-      element('strong', '', artifact.name || '未命名内容'),
-      element('small', '', artifactLabels[artifact.kind] || artifact.kind),
-    );
-    summary.appendChild(title);
-
-    const flags = element('span', 'rw-admin-artifact-flags');
-    if (artifact.kind === 'script') {
-      flags.appendChild(element('span', 'rw-pill', `作用域：${artifact.scope || 'character'}`));
-      if (artifact.original_conflicts?.length) {
-        flags.appendChild(element('span', 'rw-pill', `屏蔽/替换原脚本 ${artifact.original_conflicts.length}`));
-      }
-    }
-    if (artifact.kind === 'worldbook' && artifact.original_conflicts?.length) {
-      flags.appendChild(element('span', 'rw-pill', `屏蔽/替换原版条目 ${artifact.original_conflicts.length}`));
-    }
-    if (artifact.format) flags.appendChild(element('span', 'rw-pill', artifact.format));
-    summary.appendChild(flags);
-
-    if (artifact.original_conflicts?.length) {
-      const protectedTargets = element('div', 'rw-admin-protected-targets');
-      protectedTargets.appendChild(element('strong', '', '安装时会临时屏蔽/替换：'));
-      for (const conflict of artifact.original_conflicts) {
+  function projectProtectedTargets(artifacts) {
+    const rows = [];
+    for (const artifact of artifacts || []) {
+      for (const conflict of artifact.original_conflicts || []) {
         const target = conflict.target || {};
-        const label = artifact.kind === 'script'
-          ? `${target.scope || 'character'} · ${target.folder ? `${target.folder} / ` : ''}${target.name || target.id || '未知脚本'}`
-          : `${target.worldbook || '当前角色世界书'} · ${target.name || target.uid || '未知条目'}`;
-        protectedTargets.appendChild(element('div', 'rw-muted', label));
+        if (artifact.kind === 'worldbook') {
+          rows.push({
+            kind: 'worldbook',
+            title: target.name || (target.uid ? `UID ${target.uid}` : '未命名条目'),
+            meta: [
+              target.worldbook ? `世界书：${target.worldbook}` : '',
+              target.uid ? `UID：${target.uid}` : '',
+              artifact.name ? `由：${artifact.name}` : '',
+            ].filter(Boolean).join(' · '),
+          });
+        }
+        if (artifact.kind === 'script') {
+          rows.push({
+            kind: 'script',
+            title: target.folder
+              ? `${target.folder} / ${target.name || target.id || '未命名脚本'}`
+              : (target.name || target.id || '未命名脚本'),
+            meta: [
+              ({ character: '当前角色', preset: '当前预设', global: '全局' })[target.scope] || target.scope || '',
+              target.id ? `ID：${target.id}` : '',
+              artifact.name ? `由：${artifact.name}` : '',
+            ].filter(Boolean).join(' · '),
+          });
+        }
       }
-      row.appendChild(protectedTargets);
+    }
+    return rows;
+  }
+
+  function renderProtectedTargets(artifacts) {
+    const targets = projectProtectedTargets(artifacts);
+    if (!targets.length) return null;
+
+    const section = element('section', 'rw-workshop-rail-section rw-workshop-protected');
+    section.append(
+      element('div', 'rw-workshop-rail-label', '安装时替换 / 屏蔽'),
+      element('div', 'rw-workshop-protected-note', '审核时请确认这些目标确实应该被临时关闭；停用作品后会按安装前状态恢复。'),
+    );
+
+    for (const target of targets) {
+      const row = element('div', 'rw-workshop-protected-row');
+      row.append(
+        element(
+          'span',
+          `rw-workshop-protected-icon${target.kind === 'script' ? ' script' : ''}`,
+          target.kind === 'script' ? 'JS' : '书',
+        ),
+        element('div', 'rw-workshop-protected-copy'),
+      );
+      row.lastElementChild.append(
+        element('strong', '', target.title),
+        element('small', '', target.meta),
+      );
+      section.appendChild(row);
+    }
+    return section;
+  }
+
+  function renderReviewHistory(detail) {
+    const section = element('section', 'rw-detail-content-section rw-admin-review-history');
+    const heading = element('div', 'rw-detail-content-heading');
+    const copy = element('div', '');
+    copy.append(
+      element('strong', '', '审核记录'),
+      element('span', '', '版本审核与管理员操作记录'),
+    );
+    heading.appendChild(copy);
+    section.appendChild(heading);
+
+    const list = element('div', 'rw-admin-history');
+    for (const review of detail.reviews || []) {
+      const row = element('div', `rw-admin-history-row rw-status ${statusClass(review.decision)}`);
+      row.append(
+        element(
+          'strong',
+          '',
+          `v${review.version} · ${review.decision === 'approved' ? '通过' : '拒绝'} · ${review.reviewer_name || '管理员'}`,
+        ),
+        element('span', '', `${review.note || '无备注'} · ${formatTime(review.created_at)}`),
+      );
+      list.appendChild(row);
     }
 
-    const raw = typeof artifact.content === 'string'
-      ? artifact.content
-      : JSON.stringify(artifact.content, null, 2);
-    const pre = element('pre', 'rw-detail');
-    pre.textContent = raw.length > 6000 ? `${raw.slice(0, 6000)}\n…（界面仅预览前 6000 字符）` : raw;
-    row.appendChild(pre);
-    return row;
+    for (const log of detail.admin_audit || []) {
+      const row = element('div', 'rw-admin-history-row');
+      row.append(
+        element('strong', '', `v${log.project_version || '—'} · ${log.action} · ${log.actor_name || '管理员'}`),
+        element('span', '', `${log.note || '无备注'} · ${formatTime(log.created_at)}`),
+      );
+      list.appendChild(row);
+    }
+
+    if (!list.childElementCount) {
+      list.appendChild(element('div', 'rw-content-empty', '暂无审核或管理员操作记录。'));
+    }
+    section.appendChild(list);
+    return section;
   }
 
   async function reviewAction(item, decision, modal) {
@@ -83,6 +148,7 @@ export function createAdminProjectsView({
       ? (host.prompt?.('审核备注（可留空）', '') ?? '')
       : (host.prompt?.('请输入驳回原因（必填）', '') ?? '');
     if (decision === 'rejected' && !note.trim()) throw new Error('驳回时必须填写原因');
+
     const label = decision === 'approved' ? '批准' : '驳回';
     const confirmed = await confirmDialog({
       title: `${label}“${item.name}”？`,
@@ -92,9 +158,14 @@ export function createAdminProjectsView({
       danger: decision === 'rejected',
     });
     if (!confirmed) return;
-    await workshopApi.reviewProject(item.id, decision, note);
-    modal?.close();
-    await refreshProjects();
+
+    try {
+      await workshopApi.reviewProject(item.id, decision, note);
+      modal?.close({ force: true });
+      await refreshProjects();
+    } catch (error) {
+      notifyError(error);
+    }
   }
 
   async function stateAction(item, action, modal) {
@@ -110,9 +181,14 @@ export function createAdminProjectsView({
       danger: isArchive,
     });
     if (!confirmed) return;
-    await workshopApi.setAdminProjectState(item.id, action, note);
-    modal?.close();
-    await refreshProjects();
+
+    try {
+      await workshopApi.setAdminProjectState(item.id, action, note);
+      modal?.close({ force: true });
+      await refreshProjects();
+    } catch (error) {
+      notifyError(error);
+    }
   }
 
   function adminDeleteErrorMessage(error) {
@@ -158,8 +234,28 @@ export function createAdminProjectsView({
     }
   }
 
+  function reviewActions(item, project, modal) {
+    const section = element('section', 'rw-admin-review-decision');
+    section.appendChild(element('div', 'rw-workshop-rail-label', '审核操作'));
+
+    if (project.review_status === 'pending' && project.project_status !== 'archived') {
+      section.append(
+        button('批准这个版本', 'good rw-admin-review-primary', () => reviewAction(item, 'approved', modal)),
+        button('驳回这个版本', 'danger', () => reviewAction(item, 'rejected', modal)),
+      );
+    }
+
+    if (project.project_status === 'archived') {
+      section.appendChild(button('恢复作品', 'good', () => stateAction(item, 'restore', modal)));
+    } else {
+      section.appendChild(button('下架作品', 'danger', () => stateAction(item, 'archive', modal)));
+    }
+    section.appendChild(button('删除作品', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
+    return section;
+  }
+
   async function showReview(item) {
-    const modal = openModal(`审核详情 · ${item.name}`, { wide: true });
+    const modal = openModal(`审核详情 · ${item.name}`, { extraWide: true });
     empty(modal.body, '正在加载审核资料...');
 
     try {
@@ -167,130 +263,105 @@ export function createAdminProjectsView({
       const project = detail.project;
       modal.body.replaceChildren();
 
+      const shell = element('div', 'rw-workshop-detail-shell rw-admin-review-shell');
+      const header = element('header', 'rw-workshop-detail-header');
+      const headerCopy = element('div', 'rw-workshop-detail-title');
+      headerCopy.append(
+        element('h2', '', `${project.name} · v${project.latest_version}`),
+        element(
+          'div',
+          'rw-workshop-detail-identity',
+          `作者 · ${project.owner_name} · Discord ${project.owner_discord_id}`,
+        ),
+      );
+
+      const headerMeta = element('div', 'rw-meta');
+      headerMeta.append(
+        element('span', 'rw-pill', categoryLabels[project.category] || project.category),
+        element(
+          'span',
+          `rw-local-state rw-local-state--${project.review_status === 'approved' ? 'installed' : project.review_status === 'rejected' ? 'bad' : 'update'}`,
+          reviewStatusLabel(project.review_status),
+        ),
+      );
+      if (project.project_status === 'archived') headerMeta.appendChild(element('span', 'rw-pill', '已下架'));
+      for (const tag of project.tags || []) headerMeta.appendChild(element('span', 'rw-pill', `#${tag}`));
+      header.append(headerCopy, headerMeta);
+      shell.appendChild(header);
+
+      const grid = element('div', 'rw-workshop-detail-grid');
+      const reading = element('main', 'rw-workshop-reading');
+      const rail = element('aside', 'rw-workshop-rail');
+
       if (project.has_cover) {
         const blob = await workshopApi.getAdminProjectCover(item.id);
         const url = host.URL.createObjectURL(blob);
-        const cover = element('img', 'rw-detail-cover rw-admin-detail-cover');
+        const cover = element('img', 'rw-workshop-hero');
         cover.src = url;
         cover.alt = `${project.name} 待审封面`;
         cover.onload = () => host.URL.revokeObjectURL(url);
-        modal.body.appendChild(cover);
+        reading.appendChild(cover);
       }
 
-      const heading = element('div', 'rw-detail-heading');
-      const title = element('div', 'rw-detail-titlebox');
-      title.append(
-        element('h3', '', `${project.name} · v${project.latest_version}`),
-        element('div', 'rw-project-author', `作者 · ${project.owner_name} · Discord ${project.owner_discord_id}`),
+      const overview = element('section', 'rw-detail-content-section rw-workshop-overview');
+      const overviewHeading = element('div', 'rw-detail-content-heading');
+      const overviewCopy = element('div', '');
+      overviewCopy.append(
+        element('strong', '', '作品简介'),
+        element('span', '', '审核前先确认作者描述与实际内容是否一致'),
       );
-      const state = element(
-        'span',
-        `rw-local-state rw-local-state--${project.review_status === 'approved' ? 'installed' : project.review_status === 'rejected' ? 'bad' : 'update'}`,
-        reviewStatusLabel(project.review_status),
+      overviewHeading.appendChild(overviewCopy);
+      overview.append(
+        overviewHeading,
+        element('div', 'rw-detail-description', project.summary || '作者没有填写简介。'),
       );
-      heading.append(title, state);
-      modal.body.appendChild(heading);
+      reading.appendChild(overview);
 
-      const meta = element('div', 'rw-meta');
-      meta.append(
-        element('span', 'rw-pill', categoryLabels[project.category] || project.category),
-        element('span', 'rw-pill', `公开 v${project.published_version}`),
-        element('span', 'rw-pill', `下载 ${project.downloads_count || 0}`),
-        element('span', 'rw-pill', `点赞 ${project.likes_count || 0}`),
-        element('span', 'rw-pill', `收藏 ${project.favorites_count || 0}`),
-      );
-      if (project.project_status === 'archived') meta.appendChild(element('span', 'rw-pill', '已下架'));
-      for (const tag of project.tags || []) meta.appendChild(element('span', 'rw-pill', `#${tag}`));
-      modal.body.appendChild(meta);
-      modal.body.appendChild(element('div', 'rw-detail-description', project.summary || '暂无简介'));
+      reading.appendChild(renderChangePreview(doc, detail.change_preview, project.changelog || ''));
+      reading.appendChild(renderVersionHistory(doc, detail.versions || []));
+      reading.appendChild(renderContentPreview(doc, detail));
+      reading.appendChild(renderReviewHistory(detail));
 
-      const facts = element('section', 'rw-admin-facts');
+      const reviewSummary = element('section', 'rw-workshop-rail-section rw-admin-review-summary');
+      reviewSummary.appendChild(element('div', 'rw-workshop-rail-label', '审核资料'));
+      const facts = element('div', 'rw-workshop-facts');
       facts.append(
-        detailRow('版本更新说明', project.changelog || '无'),
-        detailRow('上传时间', formatTime(project.version_created_at)),
+        detailRow('当前版本', `v${project.latest_version}`),
+        detailRow('公开版本', `v${project.published_version}`),
         detailRow('提交审核', formatTime(project.submitted_at)),
         detailRow('最近审核', formatTime(project.reviewed_at)),
+        detailRow('下载', String(project.downloads_count || 0)),
+        detailRow('点赞 / 收藏', `${project.likes_count || 0} / ${project.favorites_count || 0}`),
       );
-      modal.body.appendChild(facts);
-
-      if (project.dependencies?.length) {
-        const dependencies = element('section', 'rw-detail-section');
-        dependencies.append(
-          element('strong', '', '项目依赖'),
-          element('div', 'rw-muted', project.dependencies.map(dep => `${dep.project_id}@${dep.min_version}`).join('、')),
-        );
-        modal.body.appendChild(dependencies);
-      }
+      reviewSummary.appendChild(facts);
+      rail.appendChild(reviewActions(item, project, modal));
+      rail.appendChild(reviewSummary);
 
       const artifacts = Array.isArray(detail.bundle?.artifacts) ? detail.bundle.artifacts : [];
-      const artifactSection = element('section', 'rw-admin-section-block');
-      artifactSection.appendChild(element('div', 'rw-admin-section-title', `版本内容 · ${artifacts.length} 项`));
-      const artifactList = element('div', 'rw-admin-artifact-list');
-      if (artifacts.length) artifactList.append(...artifacts.map(artifactPreview));
-      else artifactList.appendChild(element('div', 'rw-muted', '这个版本没有可预览内容'));
-      artifactSection.appendChild(artifactList);
-      modal.body.appendChild(artifactSection);
+      const protectedSection = renderProtectedTargets(artifacts);
+      if (protectedSection) rail.appendChild(protectedSection);
 
-      const historySection = element('section', 'rw-admin-section-block');
-      historySection.appendChild(element('div', 'rw-admin-section-title', '版本与审核历史'));
-      const history = element('div', 'rw-admin-history');
-      for (const version of detail.versions || []) {
-        const versionRow = element('div', 'rw-admin-history-row');
-        versionRow.append(
-          element('strong', '', `v${version.version} · ${reviewStatusLabel(version.review_status)}`),
-          element('span', '', `${version.changelog || '无更新说明'} · ${formatTime(version.created_at)}`),
-        );
-        history.appendChild(versionRow);
+      if (project.dependencies?.length) {
+        const dependencies = element('section', 'rw-workshop-rail-section');
+        dependencies.appendChild(element('div', 'rw-workshop-rail-label', '依赖项目'));
+        const list = element('div', 'rw-workshop-dependency-list');
+        for (const dependency of project.dependencies) {
+          list.appendChild(element(
+            'div',
+            'rw-workshop-dependency',
+            `${dependency.project_id} · 最低 v${dependency.min_version}`,
+          ));
+        }
+        dependencies.appendChild(list);
+        rail.appendChild(dependencies);
       }
-      for (const review of detail.reviews || []) {
-        const reviewRow = element('div', `rw-admin-history-row rw-status ${statusClass(review.decision)}`);
-        reviewRow.append(
-          element('strong', '', `v${review.version} · ${review.decision === 'approved' ? '通过' : '拒绝'} · ${review.reviewer_name || '管理员'}`),
-          element('span', '', `${review.note || '无备注'} · ${formatTime(review.created_at)}`),
-        );
-        history.appendChild(reviewRow);
-      }
-      historySection.appendChild(history);
-      modal.body.appendChild(historySection);
 
-      const auditDetails = element('details', 'rw-technical-details');
-      auditDetails.appendChild(element('summary', '', `管理员审计日志 · ${detail.admin_audit?.length || 0} 条`));
-      const auditList = element('div', 'rw-admin-history');
-      for (const log of detail.admin_audit || []) {
-        const auditRow = element('div', 'rw-admin-history-row');
-        auditRow.append(
-          element('strong', '', `v${log.project_version || '—'} · ${log.action} · ${log.actor_name || '管理员'}`),
-          element('span', '', `${log.note || '无备注'} · ${formatTime(log.created_at)}`),
-        );
-        auditList.appendChild(auditRow);
-      }
-      if (!detail.admin_audit?.length) auditList.appendChild(element('div', 'rw-muted', '暂无管理员操作记录'));
-      auditDetails.appendChild(auditList);
-      modal.body.appendChild(auditDetails);
-
-      const manifestDetails = element('details', 'rw-technical-details');
-      manifestDetails.appendChild(element('summary', '', '查看 Manifest 技术清单'));
-      const manifestPre = element('pre', 'rw-detail');
-      manifestPre.textContent = JSON.stringify(detail.manifest, null, 2);
-      manifestDetails.appendChild(manifestPre);
-      modal.body.appendChild(manifestDetails);
-
-      const actions = element('div', 'rw-row rw-admin-review-actions');
-      if (project.review_status === 'pending' && project.project_status !== 'archived') {
-        actions.append(
-          button('批准版本', 'good', () => reviewAction(item, 'approved', modal)),
-          button('驳回版本', 'danger', () => reviewAction(item, 'rejected', modal)),
-        );
-      }
-      if (project.project_status === 'archived') {
-        actions.appendChild(button('恢复作品', 'good', () => stateAction(item, 'restore', modal)));
-      } else {
-        actions.appendChild(button('下架作品', 'danger', () => stateAction(item, 'archive', modal)));
-      }
-      actions.appendChild(button('删除作品', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
-      modal.body.appendChild(actions);
+      grid.append(reading, rail);
+      shell.appendChild(grid);
+      modal.body.appendChild(shell);
     } catch (error) {
       empty(modal.body, `加载失败：${error.message}`);
+      notifyError(error);
     }
   }
 

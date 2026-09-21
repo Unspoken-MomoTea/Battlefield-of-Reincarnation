@@ -45,6 +45,18 @@ export function createAuthorView({
     if (project.status === 'rejected' && project.review_note) {
       card.appendChild(element('div', 'rw-status bad', `审核意见：${project.review_note}`));
     }
+    if (project.status === 'archived') {
+      const archivedAt = Number(project.archived_at || 0)
+        ? new Date(Number(project.archived_at) * 1000).toLocaleString()
+        : '';
+      const archiveText = [
+        '管理员已下架此作品',
+        project.archive_note ? `原因：${project.archive_note}` : '未填写下架原因',
+        archivedAt ? `时间：${archivedAt}` : '',
+        '下架后不会出现在公开工坊；如需重新公开，请由管理员恢复。',
+      ].filter(Boolean).join('\n');
+      card.appendChild(element('div', 'rw-status bad rw-author-archive-status', archiveText));
+    }
 
     let editorModal = null;
     let uploadModal = null;
@@ -371,8 +383,16 @@ export function createAuthorView({
 
     const deleteZone = element('div', 'rw-danger-zone');
     deleteZone.hidden = true;
-    if (Number(project.published_version) === 0 && project.status !== 'pending') {
-      const deleteText = element('div', 'rw-status bad', '删除后会同时清理这个草稿的版本文件与封面，且无法恢复。');
+    const canPermanentlyDelete = project.status !== 'pending' &&
+      (Number(project.published_version) === 0 || project.status === 'archived');
+    if (canPermanentlyDelete) {
+      const deleteText = element(
+        'div',
+        'rw-status bad',
+        Number(project.published_version) > 0
+          ? '永久删除会清理此作品的全部版本、Manifest、封面、互动记录与服务器文件，且无法恢复。'
+          : '删除后会同时清理这个草稿的版本文件与封面，且无法恢复。',
+      );
       const deleteActions = element('div', 'rw-row');
       deleteActions.appendChild(button('确认永久删除', 'danger', async () => {
         await workshopApi.deleteProject(project.id);
@@ -405,8 +425,8 @@ export function createAuthorView({
         onClosed: modal => { if (uploadModal === modal) uploadModal = null; },
       });
     }));
-    if (Number(project.published_version) === 0 && project.status !== 'pending') {
-      menuDropdown.appendChild(button('删除作品', 'danger', () => {
+    if (canPermanentlyDelete) {
+      menuDropdown.appendChild(button(project.status === 'archived' ? '永久删除已下架作品' : '删除作品', 'danger', () => {
         menuDropdown.hidden = true;
         deleteModal?.close();
         deleteModal = mountPanelInModal('删除作品 · ' + project.name, deleteZone, {

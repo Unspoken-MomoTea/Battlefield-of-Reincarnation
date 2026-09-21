@@ -272,6 +272,7 @@ test('public detail exposes readable worldbook regex and script previews', async
               comment: '战斗规则',
               content: '完整世界书正文',
               strategy: {
+                type: 'constant',
                 keys: ['战斗'],
                 keys_secondary: { keys: ['受伤'] },
               },
@@ -307,6 +308,7 @@ test('public detail exposes readable worldbook regex and script previews', async
   assert.equal(detail.content_preview.counts.regex_entries, 1);
   assert.equal(detail.content_preview.counts.scripts, 1);
   assert.deepEqual(detail.content_preview.worldbook_entries[0].primary_keys, ['战斗']);
+  assert.equal(detail.content_preview.worldbook_entries[0].strategy_type, 'constant');
   assert.equal(detail.content_preview.regex_entries[0].name, '隐藏思考');
   assert.match(detail.content_preview.scripts[0].content, /helper/u);
 });

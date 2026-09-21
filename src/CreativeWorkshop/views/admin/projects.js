@@ -10,6 +10,7 @@ export function createAdminProjectsView({
   getAuth,
   openModal,
   confirmDialog,
+  notifyError,
 }) {
   function reviewStatusLabel(status) {
     return ({ draft: '未提交审核', pending: '审核中', approved: '已通过', rejected: '已拒绝' })[status] || status;
@@ -114,26 +115,47 @@ export function createAdminProjectsView({
     await refreshProjects();
   }
 
+  function adminDeleteErrorMessage(error) {
+    if (error?.status === 404 || error?.status === 405) {
+      return '服务器仍是旧版，尚未部署管理员删除接口。请重新部署 staging Worker（服务端需要 0.9.0+）后再试。';
+    }
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  function showAdminDeleteFailure(item, error) {
+    const failure = openModal('删除失败', { wide: false });
+    const box = element('div', 'rw-delete-error');
+    box.append(
+      element('strong', '', `“${item.name}”没有被删除`),
+      element('div', '', adminDeleteErrorMessage(error)),
+    );
+    const actions = element('div', 'rw-row');
+    actions.appendChild(button('知道了', 'primary', () => failure.close({ force: true })));
+    failure.body.append(box, actions);
+    try { notifyError?.(error); } catch {}
+  }
+
   async function deleteAction(item, modal) {
     const confirmed = await confirmDialog({
-      title: `永久删除“${item.name}”？`,
+      title: `删除“${item.name}”？`,
       message: [
-        '这不是“下架”。删除后无法恢复。',
-        `将清理全部版本（最新 v${item.latest_version}）、Manifest、bundle、封面、点赞/收藏、举报等关联数据和 R2 文件。`,
-        item.project_status === 'archived'
-          ? '该作品当前已下架，可以直接永久清理。'
-          : '该作品当前仍存在于管理流程中；删除后会立即从服务器消失。',
+        '删除后无法恢复。',
+        `将清理全部版本（最新 v${item.latest_version}）、Manifest、bundle、封面、点赞/收藏、举报等关联数据和服务器文件。`,
       ].join('\n'),
-      confirmText: '永久删除',
+      confirmText: '删除作品',
       cancelText: '取消',
       danger: true,
     });
     if (!confirmed) return;
 
-    await workshopApi.deleteAdminProject(item.id);
-    try { host.toastr?.success?.('作品及服务器文件已永久删除', '创意工坊管理'); } catch {}
-    modal?.close({ force: true });
-    await refreshProjects();
+    try {
+      await workshopApi.deleteAdminProject(item.id);
+      try { host.toastr?.success?.('作品及服务器文件已删除', '创意工坊管理'); } catch {}
+      modal?.close({ force: true });
+      await refreshProjects();
+    } catch (error) {
+      showAdminDeleteFailure(item, error);
+    }
   }
 
   async function showReview(item) {
@@ -265,7 +287,7 @@ export function createAdminProjectsView({
       } else {
         actions.appendChild(button('下架作品', 'danger', () => stateAction(item, 'archive', modal)));
       }
-      actions.appendChild(button('永久删除', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
+      actions.appendChild(button('删除作品', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
       modal.body.appendChild(actions);
     } catch (error) {
       empty(modal.body, `加载失败：${error.message}`);
@@ -312,7 +334,7 @@ export function createAdminProjectsView({
     const actions = element('div', 'rw-local-actions');
     actions.appendChild(button('查看内容与审核', 'primary rw-local-primary', () => showReview(item)));
     if (item.project_status === 'archived') {
-      actions.appendChild(button('永久删除', 'danger', () => deleteAction(item, null)));
+      actions.appendChild(button('删除作品', 'danger', () => deleteAction(item, null)));
     }
     card.appendChild(actions);
     return card;

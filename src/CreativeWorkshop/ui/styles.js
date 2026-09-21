@@ -450,6 +450,111 @@ export const WORKSHOP_CSS = `
   .rw-resource-option>span{min-width:0;display:grid;gap:2px}
   .rw-resource-option strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c8c5be;font-size:10px}
   .rw-resource-option small{color:var(--rw-faint);font-size:9px}
+
+  .rw-resource-state-editor{
+    display:grid;gap:9px;border:1px solid var(--rw-line);border-radius:10px;background:#121316;overflow:hidden
+  }
+  .rw-resource-state-head{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:11px 12px 0
+  }
+  .rw-resource-state-head-copy{min-width:0;display:grid;gap:3px}
+  .rw-resource-state-head-copy strong{color:#ddd9d1;font-size:12px}
+  .rw-resource-state-head-copy small{color:#7f7c75;font-size:9.5px;line-height:1.5}
+  .rw-resource-state-refresh{flex:none;min-height:30px!important;padding:0 9px!important;font-size:9.5px!important}
+  .rw-resource-state-tabs{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:0 12px
+  }
+  .rw-resource-state-tab{
+    min-height:34px;border:1px solid var(--rw-line);border-radius:8px;background:#0f1012;color:#8e8b84;
+    cursor:pointer;font:750 10px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif
+  }
+  .rw-resource-state-tab:hover{background:#17181b;color:#c8c4bd}
+  .rw-resource-state-tab.is-active{
+    border-color:rgba(162,139,107,.36);background:rgba(162,139,107,.10);color:#d6c2a4
+  }
+  .rw-resource-state-toolbar{
+    display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:0 12px
+  }
+  .rw-resource-state-toolbar .rw-input{min-height:34px}
+  .rw-resource-state-count{color:#85827b;font-size:9.5px;white-space:nowrap}
+  .rw-resource-state-status{
+    padding:0 12px;color:#77746e;font-size:9px;line-height:1.45
+  }
+  .rw-resource-state-body{
+    display:grid;gap:7px;max-height:410px;overflow:auto;padding:0 8px 10px
+  }
+  .rw-resource-state-group{
+    display:grid;border:1px solid var(--rw-line);border-radius:8px;background:#0f1012;overflow:hidden
+  }
+  .rw-resource-state-group.is-saved-only{border-color:rgba(214,173,104,.20)}
+  .rw-resource-state-group-head{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 9px;
+    border-bottom:1px solid var(--rw-line);background:#151619
+  }
+  .rw-resource-state-group-head strong{
+    min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#bcb8b0;font-size:10px
+  }
+  .rw-resource-state-group-head span{flex:none;color:#706d67;font-size:8.5px}
+  .rw-resource-state-row{
+    display:grid;gap:5px;padding:8px 9px;border-bottom:1px solid rgba(255,255,255,.04)
+  }
+  .rw-resource-state-row:last-child{border-bottom:0}
+  .rw-resource-state-row:hover{background:rgba(255,255,255,.018)}
+  .rw-resource-state-row.is-missing{background:rgba(214,173,104,.025)}
+  .rw-resource-state-row-main{
+    min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px
+  }
+  .rw-resource-state-copy{min-width:0;display:grid;gap:3px}
+  .rw-resource-state-title{min-width:0;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .rw-resource-state-title strong{
+    min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cecac2;font-size:10.5px
+  }
+  .rw-resource-state-copy>small{
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#77746e;font-size:8.8px
+  }
+  .rw-resource-current{
+    flex:none;display:inline-flex;align-items:center;min-height:19px;padding:1px 5px;border:1px solid var(--rw-line);
+    border-radius:999px;font-size:8px;font-weight:750
+  }
+  .rw-resource-current.is-enabled{
+    border-color:rgba(111,168,132,.28);background:rgba(111,168,132,.07);color:#8fc29f
+  }
+  .rw-resource-current.is-disabled{color:#77746e;background:#121316}
+  .rw-resource-current.is-missing{
+    border-color:rgba(214,173,104,.22);background:rgba(214,173,104,.055);color:#bd9b67
+  }
+  .rw-resource-state-choices{
+    display:grid;grid-template-columns:repeat(3,48px);gap:3px;padding:3px;border:1px solid var(--rw-line);
+    border-radius:8px;background:#0b0c0e
+  }
+  .rw-resource-state-choice{
+    min-height:27px;padding:0 5px;border:0;border-radius:6px;background:transparent;color:#75726c;
+    cursor:pointer;font:750 9px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif
+  }
+  .rw-resource-state-choice:hover{background:#191a1e;color:#bbb7af}
+  .rw-resource-state-choice.is-selected{background:#24252a;color:#ddd9d1}
+  .rw-resource-state-choice--enabled.is-selected{
+    background:rgba(111,168,132,.13);color:#a4d0b1
+  }
+  .rw-resource-state-choice--disabled.is-selected{
+    background:rgba(216,123,120,.12);color:#dfa09c
+  }
+  .rw-resource-state-choice:disabled{opacity:.32;cursor:not-allowed}
+  .rw-resource-state-preview{padding-left:2px}
+  .rw-resource-state-preview>summary{
+    width:max-content;cursor:pointer;color:#8b887f;font-size:8.8px;font-weight:700;list-style:none
+  }
+  .rw-resource-state-preview>summary::-webkit-details-marker{display:none}
+  .rw-resource-state-preview>summary::before{content:"›";display:inline-block;margin-right:5px;color:#a28b6b}
+  .rw-resource-state-preview[open]>summary::before{transform:rotate(90deg)}
+  .rw-resource-state-preview pre{
+    margin:6px 0 0;max-height:210px;overflow:auto;white-space:pre-wrap;word-break:break-word;
+    padding:9px;border:1px solid var(--rw-line);border-radius:7px;background:#090a0c;color:#bbb8b1;
+    font:10px/1.65 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace
+  }
+  .rw-resource-state-warning{
+    color:#b79262;font-size:8.5px;line-height:1.45
+  }
   .rw-submit-progress{
     white-space:pre-line;padding:10px 11px;border:1px solid var(--rw-line);border-radius:9px;
     background:#141518;color:#aaa8a2;font-size:10px;line-height:1.6
@@ -1117,6 +1222,10 @@ export const WORKSHOP_CSS = `
   .rw-local-menu .rw-card-menu-dropdown{right:0;top:40px;z-index:25}
 
   @media(max-width:760px){
+    .rw-resource-state-row-main{grid-template-columns:1fr}
+    .rw-resource-state-choices{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .rw-resource-state-toolbar{grid-template-columns:1fr}
+    .rw-resource-state-count{white-space:normal}
     .rw-overlay{padding:0;align-items:stretch}
     .rw-panel{
       width:100vw;height:100dvh;border:0;border-radius:0;

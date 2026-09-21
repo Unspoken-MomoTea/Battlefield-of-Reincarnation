@@ -478,41 +478,120 @@ export const WORKSHOP_CSS = `
     color:#aaa8a3;font-size:12px;line-height:1.45
   }
 
-  .rw-hot-update{display:grid;gap:13px}
-  .rw-hot-update-hero{
-    display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:11px;padding:12px;
-    border:1px solid rgba(200,171,125,.20);border-radius:11px;
-    background:linear-gradient(145deg,rgba(200,171,125,.09),rgba(200,171,125,.025))
+  .rw-hot-update{
+    display:grid;gap:12px;padding:2px 0 0;
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif
   }
-  .rw-hot-update-icon{
-    width:40px;height:40px;display:grid;place-items:center;border:1px solid rgba(200,171,125,.28);
-    border-radius:11px;background:rgba(200,171,125,.08);color:#d0b488;font-size:21px;font-weight:800
+  .rw-hot-update-card{
+    display:grid;gap:18px;padding:20px;border:1px solid rgba(200,171,125,.24);border-radius:14px;
+    background:
+      radial-gradient(circle at 85% 0%,rgba(214,173,104,.11),transparent 34%),
+      linear-gradient(145deg,#1c1b1a,#17181b 62%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.025)
   }
-  .rw-hot-update-copy{min-width:0;display:grid;gap:4px}
-  .rw-hot-update-copy strong{color:#e3dfd7;font-size:14px}
-  .rw-hot-update-copy div{color:#8b8881;font-size:10px}
-  .rw-hot-update-info{
-    display:grid;gap:7px;padding:11px;border:1px solid var(--rw-line);border-radius:10px;
-    background:#141518;color:#9b9891;font-size:10px;line-height:1.6
+  .rw-hot-update-heading{
+    display:grid;grid-template-columns:46px minmax(0,1fr);align-items:center;gap:13px
   }
-  .rw-hot-update-loader{
-    padding-top:7px;border-top:1px solid rgba(255,255,255,.045);color:#77746e;word-break:break-word
+  .rw-hot-update-mark{
+    width:44px;height:44px;display:grid;place-items:center;border:1px solid rgba(214,173,104,.32);
+    border-radius:12px;background:rgba(214,173,104,.10);color:#e0bd83;
+    font-size:24px;font-weight:700;line-height:1
   }
-  .rw-hot-update-status{
-    white-space:pre-line;padding:9px 10px;border:1px solid var(--rw-line);border-radius:9px;
-    background:#111216;color:#77746f;font-size:10px;line-height:1.55
+  .rw-hot-update-title-copy{min-width:0;display:grid;gap:5px}
+  .rw-hot-update-badge{
+    width:max-content;padding:3px 7px;border-radius:999px;background:rgba(214,173,104,.12);
+    color:#d9b77e;font-size:10px;font-weight:800;letter-spacing:.04em
   }
-  .rw-hot-update-status.is-working{
-    border-color:rgba(214,173,104,.22);background:rgba(214,173,104,.055);color:#c9aa76
+  .rw-hot-update-title-copy>strong{
+    color:#f0ece4;font-size:19px;font-weight:850;line-height:1.2;letter-spacing:.01em
   }
-  .rw-hot-update-status.is-success{
-    border-color:rgba(111,168,132,.24);background:rgba(111,168,132,.065);color:#9bcaaa
+  .rw-hot-update-title-copy>p{
+    margin:0;color:#99958d;font-size:12px;line-height:1.55
   }
-  .rw-hot-update-status.is-error{
-    border-color:rgba(216,123,120,.26);background:rgba(216,123,120,.07);color:#e0a09c
+  .rw-hot-update-version{
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:13px 15px;
+    border:1px solid rgba(255,255,255,.055);border-radius:11px;background:rgba(10,11,13,.42)
   }
-  .rw-hot-update-actions{display:flex;justify-content:flex-end;gap:8px}
-  .rw-hot-update-primary{min-width:120px}
+  .rw-hot-update-version-item{display:grid;gap:3px}
+  .rw-hot-update-version-item>span{color:#74716b;font-size:10px}
+  .rw-hot-update-version-item>strong{color:#c9c5bd;font-size:16px;line-height:1.2}
+  .rw-hot-update-version-item--next{text-align:right}
+  .rw-hot-update-version-item--next>strong{color:#e2c18b}
+  .rw-hot-update-version-arrow{color:#9e8259;font-size:18px}
+  .rw-hot-update-promises{
+    display:flex;gap:8px;flex-wrap:wrap;color:#8eaa96;font-size:10px;line-height:1.35
+  }
+  .rw-hot-update-promises>span{
+    padding:5px 8px;border:1px solid rgba(111,168,132,.14);border-radius:999px;
+    background:rgba(111,168,132,.045)
+  }
+  .rw-hot-update-progress{
+    display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:10px;padding:11px 12px;
+    border:1px solid var(--rw-line);border-radius:10px;background:#121316
+  }
+  .rw-hot-update-progress[hidden]{display:none!important}
+  .rw-hot-update-progress-icon{
+    width:32px;height:32px;display:grid;place-items:center;border:1px solid rgba(214,173,104,.20);
+    border-radius:9px;background:rgba(214,173,104,.055);color:#cdaa72;font-size:15px;font-weight:800
+  }
+  .rw-hot-update-progress-copy{min-width:0;display:grid;gap:3px}
+  .rw-hot-update-progress-copy>strong{color:#c7c3bb;font-size:12px}
+  .rw-hot-update-progress-copy>span{
+    white-space:pre-line;color:#7d7a74;font-size:10px;line-height:1.5
+  }
+  .rw-hot-update-progress--working{
+    border-color:rgba(214,173,104,.20);background:rgba(214,173,104,.045)
+  }
+  .rw-hot-update-progress--working .rw-hot-update-progress-icon{
+    animation:rw-hot-update-spin 1.1s linear infinite
+  }
+  .rw-hot-update-progress--success{
+    border-color:rgba(111,168,132,.23);background:rgba(111,168,132,.055)
+  }
+  .rw-hot-update-progress--success .rw-hot-update-progress-icon{
+    border-color:rgba(111,168,132,.24);background:rgba(111,168,132,.08);color:#9ecbad
+  }
+  .rw-hot-update-progress--error{
+    border-color:rgba(216,123,120,.25);background:rgba(216,123,120,.06)
+  }
+  .rw-hot-update-progress--error .rw-hot-update-progress-icon{
+    border-color:rgba(216,123,120,.28);background:rgba(216,123,120,.08);color:#e2a09c
+  }
+  @keyframes rw-hot-update-spin{to{transform:rotate(360deg)}}
+  .rw-hot-update-details{
+    border-top:1px solid rgba(255,255,255,.055);padding-top:9px
+  }
+  .rw-hot-update-details>summary{
+    width:max-content;list-style:none;cursor:pointer;color:#7c7972;font-size:10px;font-weight:700
+  }
+  .rw-hot-update-details>summary::-webkit-details-marker{display:none}
+  .rw-hot-update-details>summary::before{
+    content:"›";display:inline-block;margin-right:6px;color:#9e8259;transition:transform .14s ease
+  }
+  .rw-hot-update-details[open]>summary::before{transform:rotate(90deg)}
+  .rw-hot-update-details-body{
+    display:grid;gap:5px;margin-top:8px;padding:10px 11px;border:1px solid rgba(255,255,255,.045);
+    border-radius:9px;background:#111215;color:#77746e;font-size:10px;line-height:1.55;word-break:break-word
+  }
+  .rw-hot-update-actions{
+    display:grid;grid-template-columns:auto minmax(230px,1fr);align-items:center;gap:9px;padding-top:2px
+  }
+  .rw-hot-update-later{
+    min-width:84px!important;min-height:44px!important;border-color:var(--rw-line)!important;
+    background:#141518!important;color:#918e87!important;font-size:11px!important
+  }
+  .rw-hot-update-primary{
+    min-height:48px!important;border-color:rgba(214,173,104,.48)!important;border-radius:10px!important;
+    background:linear-gradient(180deg,#d1b17d,#b9925c)!important;color:#17130e!important;
+    box-shadow:0 9px 24px rgba(185,146,88,.18)!important;font-size:13px!important;font-weight:900!important
+  }
+  .rw-hot-update-primary:hover:not(:disabled){
+    background:linear-gradient(180deg,#dfc08c,#c29a61)!important;
+    box-shadow:0 11px 30px rgba(185,146,88,.24)!important;transform:translateY(-1px)
+  }
+  .rw-hot-update-primary:disabled{
+    opacity:.7!important;cursor:wait!important;transform:none!important
+  }
 
   .rw-maintenance-protection{
     display:grid;gap:5px;padding:13px 14px;border:1px solid rgba(111,168,132,.25);border-radius:11px;
@@ -972,7 +1051,17 @@ export const WORKSHOP_CSS = `
     .rw-smart-kind,.rw-smart-scope{flex:1}
     .rw-discover-subtools{justify-content:flex-start;flex-wrap:wrap}
     .rw-tag-input{max-width:none;flex:1}
-    .rw-modal--xl{width:100%;max-height:none;height:100%}
+    .rw-hot-update-card{padding:16px;gap:15px}
+    .rw-hot-update-heading{grid-template-columns:40px minmax(0,1fr);gap:10px}
+    .rw-hot-update-mark{width:38px;height:38px;font-size:20px}
+    .rw-hot-update-title-copy>strong{font-size:16px}
+    .rw-hot-update-version{padding:11px 12px;gap:8px}
+    .rw-hot-update-version-item>strong{font-size:14px}
+    .rw-hot-update-promises{display:grid;grid-template-columns:1fr}
+    .rw-hot-update-actions{grid-template-columns:1fr}
+    .rw-hot-update-primary{grid-row:1}
+    .rw-hot-update-later{grid-row:2}
+        .rw-modal--xl{width:100%;max-height:none;height:100%}
     .rw-workshop-detail-header{position:relative;padding:12px;flex-direction:column}
     .rw-workshop-detail-header>.rw-meta{max-width:none;justify-content:flex-start}
     .rw-workshop-detail-grid{grid-template-columns:1fr}

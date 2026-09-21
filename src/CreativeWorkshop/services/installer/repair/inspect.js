@@ -2,8 +2,9 @@ import { SHARED_WORLDBOOK_NAME } from '../constants.js';
 import { deepSubsetEqual } from '../compare.js';
 import { buildArtifactPlan } from '../plan.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, regexPrefix } from '../ownership.js';
-import { isOriginalConflictEntryDisabled } from '../original-conflicts.js';
-import { findOriginalScriptTargets, isOriginalScriptDisabled } from '../original-scripts.js';
+import { isOriginalConflictEntryInState } from '../original-conflicts.js';
+import { findOriginalRegexTargets, isOriginalRegexInState } from '../original-regexes.js';
+import { findOriginalScriptTargets, isOriginalScriptInState } from '../original-scripts.js';
 import { maybe } from '../utils.js';
 
 function issue(type, extra = {}) {
@@ -41,6 +42,7 @@ export async function inspectInstalledProject(adapter, installed) {
     plan.scripts?.character?.length ||
     targets.worldbook ||
     targets.regexIds?.length ||
+    targets.originalRegexChanges?.length ||
     targets.scripts?.character?.length ||
     targets.originalWorldbookChanges?.length ||
     targets.originalScriptChanges?.some(item => item.scope === 'character'),
@@ -162,10 +164,12 @@ export async function inspectInstalledProject(adapter, installed) {
       }));
       continue;
     }
-    if (!isOriginalConflictEntryDisabled(actual)) {
-      issues.push(issue('original_conflict_reenabled', {
+    const desiredState = change.desiredState || (change.action === 'enable' ? 'enabled' : 'disabled');
+    if (!isOriginalConflictEntryInState(actual, desiredState)) {
+      issues.push(issue('original_conflict_state_mismatch', {
         worldbookName: change.worldbookName,
         name: change.identity?.name || change.identity?.uid || '',
+        expectedState: desiredState,
       }));
       continue;
     }
@@ -174,6 +178,28 @@ export async function inspectInstalledProject(adapter, installed) {
         worldbookName: change.worldbookName,
         name: change.identity?.name || change.identity?.uid || '',
       }));
+    }
+  }
+
+  const originalRegexChanges = targets.originalRegexChanges ?? [];
+  if (originalRegexChanges.length) {
+    const currentRegexes = await maybe(adapter.getCharacterRegexes());
+    for (const change of originalRegexChanges) {
+      const matches = findOriginalRegexTargets(currentRegexes, change.identity || {});
+      const name = change.identity?.name || change.identity?.id || '';
+      if (matches.length !== 1) {
+        issues.push(issue('original_regex_missing', { name }));
+        continue;
+      }
+      const actual = matches[0].regex;
+      const desiredState = change.desiredState || (change.action === 'enable' ? 'enabled' : 'disabled');
+      if (!isOriginalRegexInState(actual, desiredState)) {
+        issues.push(issue('original_regex_state_mismatch', { name, expectedState: desiredState }));
+        continue;
+      }
+      if (change.afterFingerprint && fingerprint(actual) !== change.afterFingerprint) {
+        issues.push(issue('original_regex_modified', { name }));
+      }
     }
   }
 
@@ -193,8 +219,13 @@ export async function inspectInstalledProject(adapter, installed) {
       continue;
     }
     const actual = matches[0].script;
-    if (!isOriginalScriptDisabled(actual)) {
-      issues.push(issue('original_script_reenabled', { scope: change.scope, name }));
+    const desiredState = change.desiredState || (change.action === 'enable' ? 'enabled' : 'disabled');
+    if (!isOriginalScriptInState(actual, desiredState)) {
+      issues.push(issue('original_script_state_mismatch', {
+        scope: change.scope,
+        name,
+        expectedState: desiredState,
+      }));
       continue;
     }
     if (change.afterFingerprint && fingerprint(actual) !== change.afterFingerprint) {

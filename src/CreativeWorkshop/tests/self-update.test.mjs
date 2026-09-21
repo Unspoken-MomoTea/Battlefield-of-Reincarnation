@@ -89,3 +89,36 @@ import('https://example.com/another-plugin.js');`;
   assert.match(content, /https:\/\/example\.com\/another-plugin\.js/u);
   assert.match(content, new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
+
+
+test('stale worker metadata cannot downgrade a loader that already points at current GitHub main', async () => {
+  const adapter = adapterFixture();
+  const current = 'fedcbafedcbafedcbafedcbafedcbafedcbafedc';
+  const stale = '1111111111111111111111111111111111111111';
+  adapter.state.character[0].content = adapter.state.character[0].content.replace(
+    /@[0-9a-f]{40}\/src\/CreativeWorkshop\/index\.js/u,
+    `@${current}/src/CreativeWorkshop/index.js`,
+  );
+
+  const fetchImpl = async url => {
+    const value = String(url);
+    const sha = value.includes('/api/client/latest') ? stale : current;
+    return new Response(JSON.stringify({ sha }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  const updater = createWorkshopSelfUpdater({ adapter, fetchImpl });
+
+  const check = await updater.check();
+  assert.equal(check.latestSha, current);
+  assert.equal(check.updateAvailable, false);
+
+  const result = await updater.updateLoaderLink();
+  assert.equal(result.latestSha, current);
+  assert.equal(result.updated, false);
+  assert.match(
+    adapter.state.character[0].content,
+    new RegExp(`@${current}/src/CreativeWorkshop/index\\.js`, 'u'),
+  );
+});

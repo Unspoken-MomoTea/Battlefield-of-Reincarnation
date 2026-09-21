@@ -116,6 +116,23 @@ export async function uploadProjectCover(request, env, user, projectId) {
   return json({ ok: true, has_cover: true });
 }
 
+export async function getOwnedProjectCover(env, user, projectId) {
+  const project = await getOwnedProject(env, projectId, user);
+  if (!project.cover_key) throw new HttpError(404, 'cover_not_found', '作品还没有封面');
+
+  const object = await env.PROJECTS.get(project.cover_key);
+  if (!object) throw new HttpError(404, 'cover_missing', '作品封面文件不存在');
+
+  return new Response(object.body, {
+    status: 200,
+    headers: {
+      'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
+      'Cache-Control': 'private, no-store',
+    },
+  });
+}
+
+
 export async function getPublicProjectCover(env, projectId) {
   const row = await env.DB.prepare(
     `SELECT v.cover_key

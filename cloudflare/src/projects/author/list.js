@@ -11,7 +11,17 @@ export async function listOwnProjects(env, user) {
               SELECT rr.note FROM review_records rr
                WHERE rr.project_id = p.id AND rr.version = p.latest_version
                ORDER BY rr.id DESC LIMIT 1
-            ), '') AS review_note
+            ), '') AS review_note,
+            COALESCE((
+              SELECT log.note FROM admin_audit_logs log
+               WHERE log.project_id = p.id AND log.action = 'project_archived'
+               ORDER BY log.id DESC LIMIT 1
+            ), '') AS archive_note,
+            COALESCE((
+              SELECT log.created_at FROM admin_audit_logs log
+               WHERE log.project_id = p.id AND log.action = 'project_archived'
+               ORDER BY log.id DESC LIMIT 1
+            ), 0) AS archived_at
        FROM projects p
       WHERE p.owner_user_id = ?
       ORDER BY p.updated_at DESC`,

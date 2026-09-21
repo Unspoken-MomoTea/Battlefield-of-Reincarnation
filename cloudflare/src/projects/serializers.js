@@ -21,6 +21,8 @@ export function projectOwn(row) {
     downloads_count: Number(row.downloads_count || 0), likes_count: Number(row.likes_count || 0),
     favorites_count: Number(row.favorites_count || 0), updated_at: Number(row.updated_at),
     review_note: row.review_note || '',
+    archive_note: row.archive_note || '',
+    archived_at: Number(row.archived_at || 0),
   };
 }
 

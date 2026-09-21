@@ -27,6 +27,7 @@ export async function listPublicProjects(request, env) {
        JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
       WHERE p.published_version > 0
         AND p.status <> 'archived'
+        AND p.owner_hidden = 0
         AND (? = '' OR v.name LIKE ? OR v.summary LIKE ?)
         AND (? = '' OR v.project_type = ?)
         AND (? = '' OR EXISTS (
@@ -57,7 +58,8 @@ export async function getPublicProject(projectId, env) {
        FROM projects p
        JOIN users u ON u.id = p.owner_user_id
        JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
-      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'`,
+      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'
+        AND p.owner_hidden = 0`,
   )
     .bind(projectId)
     .first();
@@ -120,7 +122,8 @@ export async function getPublicProjectVersion(projectId, env) {
     `SELECT p.id, p.published_version, COALESCE(v.reviewed_at, v.created_at) AS updated_at
        FROM projects p
        JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
-      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'`,
+      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'
+        AND p.owner_hidden = 0`,
   )
     .bind(projectId)
     .first();
@@ -138,7 +141,8 @@ export async function downloadPublicProject(projectId, env) {
     `SELECT v.content_key
        FROM projects p
        JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
-      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'`,
+      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'
+        AND p.owner_hidden = 0`,
   )
     .bind(projectId)
     .first();

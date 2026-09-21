@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS projects (
     CHECK (project_type IN ('character', 'extension')),
   status TEXT NOT NULL DEFAULT 'draft'
     CHECK (status IN ('draft', 'pending', 'published', 'rejected', 'archived')),
+  owner_hidden INTEGER NOT NULL DEFAULT 0 CHECK (owner_hidden IN (0, 1)),
   latest_version INTEGER NOT NULL DEFAULT 0,
   published_version INTEGER NOT NULL DEFAULT 0,
   cover_key TEXT,
@@ -41,6 +42,8 @@ CREATE INDEX IF NOT EXISTS idx_projects_public
   ON projects(published_version, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_projects_owner
   ON projects(owner_user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_projects_owner_visibility
+  ON projects(owner_hidden, published_version, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_projects_type_public
   ON projects(project_type, published_version, status, updated_at DESC);
 

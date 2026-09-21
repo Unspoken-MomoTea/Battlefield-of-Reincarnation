@@ -24,6 +24,7 @@ export function createWorkshopViews(context) {
       categoryLabels: CATEGORY_LABELS,
       artifactLabels: ARTIFACT_LABELS,
       getAuth: context.getAuth,
+      doc: context.doc,
     }),
     installed: createInstalledView({
       ...common,

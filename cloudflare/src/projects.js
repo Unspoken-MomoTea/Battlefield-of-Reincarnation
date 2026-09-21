@@ -8,7 +8,9 @@ export {
 export {
   createProject,
   deleteProject,
+  getOwnedProjectEditor,
   listOwnProjects,
+  setOwnerProjectVisibility,
   submitProjectForReview,
   updateProject,
   uploadProjectVersion,
@@ -21,7 +23,7 @@ export {
   reviewProject,
   setAdminProjectState,
 } from './projects/admin.js';
-export { getAdminProjectCover, getPublicProjectCover, uploadProjectCover } from './projects/cover.js';
+export { getAdminProjectCover, getOwnedProjectCover, getPublicProjectCover, uploadProjectCover } from './projects/cover.js';
 export { getAdminProjectDiff } from './projects/diff.js';
 
 export { getPublicProjectVersionsBatch } from './projects/versions.js';

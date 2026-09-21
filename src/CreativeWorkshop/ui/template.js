@@ -14,20 +14,22 @@ export function workshopTemplate(version) {
         </select>
         <button class="rw-button" data-action="search" type="button">搜索</button>
       </div>
-      <button class="rw-button rw-maintenance-trigger" type="button" data-action="maintenance">DLC 修复</button>
-      <span class="rw-health-chip" data-role="health" title="工坊服务状态">连接中</span>
-      <div class="rw-version">v${version}</div>
-      <div class="rw-account-wrap" data-role="account-wrap">
-        <button class="rw-account" data-role="account" data-action="account-menu-toggle" type="button" hidden>账户</button>
-        <div class="rw-account-dropdown" data-role="account-menu" hidden>
-          <button type="button" data-action="mine-menu">我的项目</button>
-          <button type="button" data-action="upload-menu">上传 / 发布</button>
-          <button type="button" data-action="admin-menu" hidden>管理</button>
-          <button type="button" class="danger" data-action="logout" hidden>登出</button>
+      <div class="rw-head-actions">
+        <button class="rw-button rw-maintenance-trigger" type="button" data-action="maintenance">DLC 修复</button>
+        <span class="rw-health-chip" data-role="health" title="工坊服务状态">连接中</span>
+        <div class="rw-version">v${version}</div>
+        <div class="rw-account-wrap" data-role="account-wrap">
+          <button class="rw-account" data-role="account" data-action="account-menu-toggle" type="button" hidden>账户</button>
+          <div class="rw-account-dropdown" data-role="account-menu" hidden>
+            <button type="button" data-action="mine-menu">我的项目</button>
+            <button type="button" data-action="upload-menu">上传 / 发布</button>
+            <button type="button" data-action="admin-menu" hidden>管理</button>
+            <button type="button" class="danger" data-action="logout" hidden>登出</button>
+          </div>
         </div>
+        <button class="rw-button primary" type="button" data-action="login">Discord 登录</button>
+        <button class="rw-close" type="button" data-action="close">关闭</button>
       </div>
-      <button class="rw-button primary" type="button" data-action="login">Discord 登录</button>
-      <button class="rw-close" type="button" data-action="close">关闭</button>
     </header>
     <nav class="rw-tabs">
       <div class="rw-nav-label">浏览</div>

@@ -2,6 +2,7 @@ import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { restoreOriginalWorldbookConflicts } from './original-conflicts.js';
 import { restoreOriginalScriptConflicts } from './original-scripts.js';
+import { restoreOriginalRegexConflicts } from './original-regexes.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
 import { maybe, record } from './utils.js';
 
@@ -13,6 +14,7 @@ export async function uninstallProject({ adapter, storage }, projectId) {
   const characterNeeded = Boolean(
     targets.worldbook ||
     targets.regexIds?.length ||
+    targets.originalRegexChanges?.length ||
     targets.scripts?.character?.length ||
     targets.originalWorldbookChanges?.length ||
     targets.originalScriptChanges?.some(item => item.scope === 'character')
@@ -32,6 +34,7 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       scripts: { character: [], preset: [], global: [] },
       data: [],
       originalConflicts: [],
+      originalRegexConflicts: [],
       originalScriptConflicts: [],
     },
     characterNeeded,
@@ -57,6 +60,12 @@ export async function uninstallProject({ adapter, storage }, projectId) {
         state.regexes.filter(regex => !String(regex.id || '').startsWith(regexPrefix(installed.id))),
       ));
     }
+
+    const regexRestoreResult = await restoreOriginalRegexConflicts(
+      { adapter, storage },
+      installed,
+    );
+
     for (const [scope, trees] of state.scripts.entries()) {
       await maybe(adapter.replaceScriptTrees(
         trees.filter(tree => !isProjectScriptTree(tree, installed.id)),
@@ -89,8 +98,16 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       appliedAt: null,
       targetCharacterName: null,
       installTargets: null,
-      restoreWarnings: [...restoreResult.warnings, ...scriptRestoreResult.warnings],
-      unrestoredOriginals: [...restoreResult.unrestored, ...scriptRestoreResult.unrestored],
+      restoreWarnings: [
+        ...restoreResult.warnings,
+        ...regexRestoreResult.warnings,
+        ...scriptRestoreResult.warnings,
+      ],
+      unrestoredOriginals: [
+        ...restoreResult.unrestored,
+        ...regexRestoreResult.unrestored,
+        ...scriptRestoreResult.unrestored,
+      ],
       applyError: '',
       updatedAt: Date.now(),
     };

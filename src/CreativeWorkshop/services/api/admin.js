@@ -29,6 +29,14 @@ export function createAdminApi(request, requestRaw) {
       );
     },
 
+    deleteAdminProject(projectId) {
+      return request(
+        `/api/admin/projects/${encodeURIComponent(projectId)}`,
+        { method: 'DELETE' },
+        true,
+      );
+    },
+
     setAdminProjectState(projectId, action, note = '') {
       return request(
         `/api/admin/projects/${encodeURIComponent(projectId)}/state`,

@@ -1,6 +1,15 @@
-export function createWorkshopBridge({ version, open, close, refresh, workshopApi, projectService, selfUpdater }) {
+export function createWorkshopBridge({
+  version,
+  open,
+  close,
+  refresh,
+  destroy,
+  workshopApi,
+  projectService,
+  selfUpdater,
+}) {
   return {
-    version, open, close, refresh,
+    version, open, close, refresh, destroy,
     login: () => workshopApi.login(),
     logout: () => workshopApi.logout(),
     getSession: () => workshopApi.getStoredAuth(),

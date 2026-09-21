@@ -93,6 +93,14 @@ export function createWorkshopUpdateNotice({
           );
         } catch {}
 
+        if (currentSha && updated.latestSha === currentSha) {
+          status.className = 'rw-hot-update-status is-success';
+          status.textContent = '载入脚本已更新，当前运行的就是最新版。';
+          updating = false;
+          later.disabled = false;
+          return;
+        }
+
         await onHotReload(updated);
         status.className = 'rw-hot-update-status is-success';
         status.textContent = '新版已热载入。';

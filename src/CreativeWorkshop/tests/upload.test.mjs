@@ -155,3 +155,24 @@ test('staged artifact bundle rejects versions larger than the server limit', () 
   };
   assert.throws(() => combineUploadBundles([oversized]), /4 MB/u);
 });
+
+
+test('staged artifact bundles carry original resource state overrides at bundle level', () => {
+  const first = buildUploadBundle(
+    { category: 'extension' },
+    'book.json',
+    JSON.stringify({ entries: { 0: { comment: 'A', content: 'B' } } }),
+    'worldbook',
+  );
+  const rules = [{
+    kind: 'regex',
+    state: 'disabled',
+    target: { scope: 'character', id: 'old-regex', name: '旧正则' },
+  }];
+
+  const combined = combineUploadBundles([first], rules);
+  assert.deepEqual(combined.resource_overrides, rules);
+  assert.notEqual(combined.resource_overrides, rules);
+  combined.resource_overrides[0].state = 'enabled';
+  assert.equal(rules[0].state, 'disabled');
+});

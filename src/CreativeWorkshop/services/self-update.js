@@ -5,6 +5,7 @@ const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const ENTRY_PATH = '/src/CreativeWorkshop/index.js';
 const SCOPES = ['character', 'preset', 'global'];
 const GITHUB_MAIN_COMMIT = `https://api.github.com/repos/${REPOSITORY}/commits/main`;
+const HOT_IMPORT_BASE = `https://testingcf.jsdelivr.net/gh/${REPOSITORY}@`;
 const JSDELIVR_PATTERN = new RegExp(
   `(https:\\/\\/(?:testingcf\\.)?jsdelivr\\.net\\/gh\\/Unspoken-MomoTea\\/Battlefield-of-Reincarnation@)([^/'"\\s]+)(\\/src\\/CreativeWorkshop\\/index\\.js)`,
   'gu',
@@ -12,6 +13,10 @@ const JSDELIVR_PATTERN = new RegExp(
 
 function clone(value) {
   return structuredClone(value);
+}
+
+function importUrlForSha(sha) {
+  return `${HOT_IMPORT_BASE}${sha}${ENTRY_PATH}`;
 }
 
 function scriptsInTrees(trees) {
@@ -115,6 +120,7 @@ export function createWorkshopSelfUpdater({
         entryPath: ENTRY_PATH,
         latestSha,
         latestShortSha: latestSha.slice(0, 8),
+        latestImportUrl: importUrlForSha(latestSha),
         loaders: scan.loaders,
         refs,
         loaderFound: scan.loaders.length > 0,
@@ -130,6 +136,7 @@ export function createWorkshopSelfUpdater({
           updated: false,
           latestSha,
           latestShortSha: latestSha.slice(0, 8),
+          latestImportUrl: importUrlForSha(latestSha),
           loaderFound: false,
           changedScripts: 0,
           changedScopes: [],
@@ -155,6 +162,7 @@ export function createWorkshopSelfUpdater({
           updated: false,
           latestSha,
           latestShortSha: latestSha.slice(0, 8),
+          latestImportUrl: importUrlForSha(latestSha),
           loaderFound: true,
           changedScripts: 0,
           changedScopes: [],
@@ -180,6 +188,7 @@ export function createWorkshopSelfUpdater({
         updated: true,
         latestSha,
         latestShortSha: latestSha.slice(0, 8),
+        latestImportUrl: importUrlForSha(latestSha),
         loaderFound: true,
         changedScripts,
         changedScopes: [...changedScopes],

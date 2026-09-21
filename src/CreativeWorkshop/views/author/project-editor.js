@@ -43,10 +43,6 @@ export function createAuthorProjectEditor({
       if (!files?.length) return;
       void handler(files);
     });
-    target.addEventListener('click', event => {
-      if (event.target?.closest?.('input')) return;
-      input.click();
-    });
   }
 
   async function open(project) {

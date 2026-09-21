@@ -58,6 +58,10 @@ test('admin can inspect the exact pending manifest and bundle before approval', 
   assert.equal(detail.project.changelog, '待审版本');
   assert.equal(detail.manifest.artifacts[0].name, 'review-me');
   assert.equal(detail.bundle.artifacts[0].content.entries['0'].comment, 'review-me');
+  assert.equal(detail.content_preview.worldbook_entries.length, 1);
+  assert.equal(detail.content_preview.worldbook_entries[0].name, 'review-me');
+  assert.equal(detail.content_preview.worldbook_entries[0].content, 'hello');
+  assert.equal(detail.change_preview, null);
 
   await assert.rejects(
     () => getPendingProjectReview(env, other, project.id),
@@ -229,4 +233,44 @@ test('non-admin cannot permanently delete projects', async () => {
     () => deleteAdminProject(env, other, project.id),
     error => error?.status === 403 && error?.code === 'admin_required',
   );
+});
+
+
+test('admin review compares a pending version with the previous approved release', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'), '首版');
+
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', {
+      changelog: '修改内容',
+      bundle: {
+        schema_version: 1,
+        artifacts: [{
+          kind: 'worldbook',
+          name: 'v2',
+          format: 'json',
+          content: {
+            entries: {
+              0: { comment: 'v1', content: 'changed', constant: true },
+              1: { comment: '新增', content: 'new' },
+            },
+          },
+        }],
+      },
+    }),
+    env,
+    author,
+    project.id,
+  );
+  await submitProjectForReview(env, author, project.id);
+
+  const detail = await responseJson(await getPendingProjectReview(env, admin, project.id));
+  assert.equal(detail.project.review_status, 'pending');
+  assert.equal(detail.content_preview.worldbook_entries.length, 2);
+  assert.equal(detail.content_preview.worldbook_entries[0].strategy_type, 'constant');
+  assert.equal(detail.change_preview.from_version, 1);
+  assert.equal(detail.change_preview.to_version, 2);
+  assert.ok(detail.change_preview.summary.added >= 1);
+  assert.ok(detail.change_preview.summary.modified >= 1);
 });

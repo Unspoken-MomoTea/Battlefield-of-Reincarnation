@@ -565,10 +565,6 @@ export function createDiscoverView({
         rail.appendChild(dependencies);
       }
 
-      const technical = docDetails(detail.manifest);
-      technical.classList.add('rw-workshop-rail-section');
-      rail.appendChild(technical);
-
       grid.append(reading, rail);
       shell.appendChild(grid);
       modal.body.appendChild(shell);
@@ -578,14 +574,6 @@ export function createDiscoverView({
     }
   }
 
-  function docDetails(manifest) {
-    const details = element('details', 'rw-technical-details');
-    const summary = element('summary', '', '查看技术清单');
-    const pre = element('pre', 'rw-detail');
-    pre.textContent = JSON.stringify(manifest, null, 2);
-    details.append(summary, pre);
-    return details;
-  }
 
   return {
     refresh: () => loadPage({ append: false }),

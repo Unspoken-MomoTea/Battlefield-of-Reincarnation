@@ -523,6 +523,66 @@ export const WORKSHOP_CSS = `
   .rw-maintenance-section{
     display:grid;gap:10px;padding:12px;border:1px solid var(--rw-line);border-radius:11px;background:#151619
   }
+  .rw-maintenance-client{
+    position:relative;overflow:hidden;transition:border-color .16s ease,background .16s ease,box-shadow .16s ease
+  }
+  .rw-maintenance-client--update{
+    border-color:rgba(214,173,104,.42);
+    background:linear-gradient(145deg,rgba(214,173,104,.11),rgba(21,22,25,.98) 58%);
+    box-shadow:0 0 0 1px rgba(214,173,104,.05),0 16px 38px rgba(0,0,0,.18)
+  }
+  .rw-maintenance-client--update::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#caa96f
+  }
+  .rw-maintenance-client--latest{
+    border-color:rgba(111,168,132,.16);background:linear-gradient(145deg,rgba(111,168,132,.045),#151619 52%)
+  }
+  .rw-maintenance-client--problem{border-color:rgba(216,123,120,.22)}
+  .rw-update-state{display:grid;gap:5px}
+  .rw-update-state>strong{font-size:12px}
+  .rw-update-state>span{color:#7a7771;font-size:10px;line-height:1.45}
+  .rw-update-state--available{gap:8px;padding:3px 0 2px}
+  .rw-update-badge{
+    width:max-content;padding:4px 8px;border:1px solid rgba(214,173,104,.34);border-radius:999px;
+    background:rgba(214,173,104,.11);color:#dfbf87;font-size:9px;font-weight:850;letter-spacing:.04em
+  }
+  .rw-update-version-line{display:flex;align-items:center;gap:9px;color:#8a877f}
+  .rw-update-version-line strong{color:#eee7da;font-size:18px;line-height:1.1}
+  .rw-update-version-line span{color:#a88957;font-size:14px}
+  .rw-update-summary{color:#a39e94;font-size:10px}
+  .rw-update-state--latest{
+    grid-template-columns:auto 1fr;align-items:center;gap:9px;padding:9px 10px;
+    border:1px solid rgba(111,168,132,.13);border-radius:9px;background:rgba(111,168,132,.045)
+  }
+  .rw-update-state--latest strong{color:#9bcaaa}
+  .rw-update-state--latest span{justify-self:end}
+  .rw-update-state--problem{
+    padding:9px 10px;border:1px solid rgba(216,123,120,.18);border-radius:9px;background:rgba(216,123,120,.05)
+  }
+  .rw-update-state--problem strong{color:#e1a19d}
+  .rw-maintenance-update-cta{
+    width:100%;min-height:48px!important;border-color:rgba(214,173,104,.48)!important;
+    background:linear-gradient(180deg,#d0af78,#b99258)!important;color:#17130e!important;
+    box-shadow:0 8px 22px rgba(185,146,88,.18)!important;font-size:12px!important;font-weight:900!important
+  }
+  .rw-maintenance-update-cta:hover{
+    background:linear-gradient(180deg,#ddbd87,#c49d61)!important;
+    box-shadow:0 10px 28px rgba(185,146,88,.24)!important;transform:translateY(-1px)
+  }
+  .rw-update-details{
+    border-top:1px solid rgba(255,255,255,.045);padding-top:7px;color:#716e68
+  }
+  .rw-update-details>summary{
+    width:max-content;cursor:pointer;list-style:none;color:#77746e;font-size:9px;font-weight:700
+  }
+  .rw-update-details>summary::-webkit-details-marker{display:none}
+  .rw-update-details>summary::before{content:"›";display:inline-block;margin-right:5px;transition:transform .14s ease}
+  .rw-update-details[open]>summary::before{transform:rotate(90deg)}
+  .rw-update-details-body{display:grid;gap:6px;padding:8px 0 0;color:#66635d;font-size:9px;line-height:1.45}
+  .rw-update-details-body .rw-button{width:max-content;min-height:30px;font-size:9px}
+  .rw-maintenance-client-actions{align-items:center}
+  .rw-maintenance-client-actions>.rw-update-details{margin-left:auto;border-top:0;padding-top:0}
+
   .rw-maintenance-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .rw-maintenance-section-head>div{display:grid;gap:3px}
   .rw-maintenance-section-head strong{color:#c9c7c0;font-size:12px}

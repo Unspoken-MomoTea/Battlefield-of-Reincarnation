@@ -20,68 +20,122 @@ export function createMaintenanceView({
 
   async function renderClientSection(container) {
     container.replaceChildren();
+    container.className = 'rw-maintenance-section rw-maintenance-client';
+
     const head = element('div', 'rw-maintenance-section-head');
     const copy = element('div', '');
     copy.append(
-      element('strong', '', '创意工坊客户端'),
-      element('div', 'rw-muted', `当前运行版本 v${version} · 自动检查酒馆助手中的工坊载入脚本`),
+      element('strong', '', '创意工坊更新'),
+      element('div', 'rw-muted', `当前版本 v${version}`),
     );
     head.appendChild(copy);
     container.appendChild(head);
 
-    const state = statusBox('正在检查最新提交与载入链接…');
+    const state = statusBox('正在检查更新…');
     container.appendChild(state);
 
     try {
       const result = await selfUpdater.check();
-      state.className = 'rw-status';
+      state.remove();
+
       if (!result.loaderFound) {
-        state.className = 'rw-status bad';
-        state.textContent = `未找到工坊载入脚本。最新提交 ${result.latestShortSha}；当前可能不是通过酒馆助手脚本树加载。`;
+        container.classList.add('rw-maintenance-client--problem');
+        const problem = element('div', 'rw-update-state rw-update-state--problem');
+        problem.append(
+          element('strong', '', '未找到创意工坊载入脚本'),
+          element('span', '', '无法自动更新。请确认工坊是通过 Tavern Helper 脚本加载。'),
+        );
+        container.appendChild(problem);
         return;
       }
 
       const loaderNames = result.loaders
         .map(item => item.folder ? `${item.folder} / ${item.name || item.id}` : (item.name || item.id || '未命名脚本'))
         .join('、');
-      state.className = result.updateAvailable ? 'rw-status' : 'rw-status ok';
-      state.textContent = result.updateAvailable
-        ? `检测到新的 main 提交 ${result.latestShortSha}。载入脚本：${loaderNames}`
-        : `载入链接已指向最新提交 ${result.latestShortSha}。载入脚本：${loaderNames}`;
 
-      const actions = element('div', 'rw-row');
-      actions.appendChild(button(
-        result.updateAvailable ? '一键更新载入链接' : '重新写入最新固定链接',
-        result.updateAvailable ? 'primary' : '',
-        async () => {
+      if (result.updateAvailable) {
+        container.classList.add('rw-maintenance-client--update');
+
+        const updateState = element('div', 'rw-update-state rw-update-state--available');
+        const badge = element('span', 'rw-update-badge', '发现新版本');
+        const versions = element('div', 'rw-update-version-line');
+        versions.append(
+          element('strong', '', `v${version}`),
+          element('span', '', '→'),
+          element('strong', '', result.latestShortSha),
+        );
+        updateState.append(
+          badge,
+          versions,
+          element('div', 'rw-update-summary', '点击下面的按钮即可自动更新创意工坊。'),
+        );
+        container.appendChild(updateState);
+
+        const updateButton = button('立即更新创意工坊', 'primary rw-maintenance-update-cta', async () => {
+          updateButton.textContent = '正在更新…';
           const updated = await selfUpdater.updateLoaderLink();
-          if (!updated.loaderFound) throw new Error('没有找到可自动更新的工坊载入脚本');
+          if (!updated.loaderFound) throw new Error('没有找到可自动更新的创意工坊载入脚本');
+
           if (updated.updated) {
             try {
               host.toastr?.success?.(
-                `已自动更新 ${updated.changedScripts} 个载入脚本到 ${updated.latestShortSha}，刷新酒馆后生效`,
+                `已更新到 ${updated.latestShortSha}。当前热更基座会在下一次连接检查时自动接管；如界面未变化，刷新酒馆即可。`,
                 '创意工坊',
               );
             } catch {}
           } else {
-            try { host.toastr?.info?.('载入链接已经是最新固定提交', '创意工坊'); } catch {}
+            try { host.toastr?.info?.('创意工坊已经是最新版本', '创意工坊'); } catch {}
           }
           await renderClientSection(container);
-        },
-      ));
-      actions.appendChild(button('刷新酒馆', '', async () => {
-        const confirmed = await confirmDialog({
-          title: '刷新酒馆？',
-          message: '刷新后会加载新的工坊脚本；酒馆里尚未保存的输入内容可能丢失。',
-          confirmText: '刷新页面',
-          cancelText: '稍后',
         });
-        if (confirmed) host.location?.reload?.();
-      }));
+        container.appendChild(updateButton);
+
+        const details = element('details', 'rw-update-details');
+        const summary = element('summary', '', '查看载入信息');
+        const detailBody = element('div', 'rw-update-details-body');
+        detailBody.append(
+          element('div', '', `目标提交：${result.latestShortSha}`),
+          element('div', '', `载入脚本：${loaderNames}`),
+        );
+        details.append(summary, detailBody);
+        container.appendChild(details);
+        return;
+      }
+
+      container.classList.add('rw-maintenance-client--latest');
+      const latest = element('div', 'rw-update-state rw-update-state--latest');
+      latest.append(
+        element('strong', '', '✓ 已是最新版本'),
+        element('span', '', `当前载入提交 ${result.latestShortSha}`),
+      );
+      container.appendChild(latest);
+
+      const actions = element('div', 'rw-row rw-maintenance-client-actions');
+      actions.appendChild(button('重新检查', '', () => renderClientSection(container)));
+
+      const details = element('details', 'rw-update-details');
+      const summary = element('summary', '', '高级');
+      const detailBody = element('div', 'rw-update-details-body');
+      detailBody.append(
+        element('div', '', `载入脚本：${loaderNames}`),
+        button('重新写入最新固定链接', '', async () => {
+          const updated = await selfUpdater.updateLoaderLink();
+          if (!updated.loaderFound) throw new Error('没有找到可自动更新的创意工坊载入脚本');
+          try { host.toastr?.info?.('已重新写入最新固定链接', '创意工坊'); } catch {}
+          await renderClientSection(container);
+        }),
+      );
+      details.append(summary, detailBody);
+      actions.appendChild(details);
       container.appendChild(actions);
     } catch (error) {
-      state.className = 'rw-status bad';
-      state.textContent = `检查失败：${error.message}`;
+      container.classList.add('rw-maintenance-client--problem');
+      const failed = element('div', 'rw-update-state rw-update-state--problem');
+      failed.append(
+        element('strong', '', '检查更新失败'),
+        element('span', '', error.message),
+      );
+      container.appendChild(failed);
     }
   }
 

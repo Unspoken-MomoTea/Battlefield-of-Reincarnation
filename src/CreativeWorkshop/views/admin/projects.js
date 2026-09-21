@@ -114,6 +114,28 @@ export function createAdminProjectsView({
     await refreshProjects();
   }
 
+  async function deleteAction(item, modal) {
+    const confirmed = await confirmDialog({
+      title: `永久删除“${item.name}”？`,
+      message: [
+        '这不是“下架”。删除后无法恢复。',
+        `将清理全部版本（最新 v${item.latest_version}）、Manifest、bundle、封面、点赞/收藏、举报等关联数据和 R2 文件。`,
+        item.project_status === 'archived'
+          ? '该作品当前已下架，可以直接永久清理。'
+          : '该作品当前仍存在于管理流程中；删除后会立即从服务器消失。',
+      ].join('\n'),
+      confirmText: '永久删除',
+      cancelText: '取消',
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    await workshopApi.deleteAdminProject(item.id);
+    try { host.toastr?.success?.('作品及服务器文件已永久删除', '创意工坊管理'); } catch {}
+    modal?.close({ force: true });
+    await refreshProjects();
+  }
+
   async function showReview(item) {
     const modal = openModal(`审核详情 · ${item.name}`, { wide: true });
     empty(modal.body, '正在加载审核资料...');
@@ -243,6 +265,7 @@ export function createAdminProjectsView({
       } else {
         actions.appendChild(button('下架作品', 'danger', () => stateAction(item, 'archive', modal)));
       }
+      actions.appendChild(button('永久删除', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
       modal.body.appendChild(actions);
     } catch (error) {
       empty(modal.body, `加载失败：${error.message}`);
@@ -288,6 +311,9 @@ export function createAdminProjectsView({
 
     const actions = element('div', 'rw-local-actions');
     actions.appendChild(button('查看内容与审核', 'primary rw-local-primary', () => showReview(item)));
+    if (item.project_status === 'archived') {
+      actions.appendChild(button('永久删除', 'danger', () => deleteAction(item, null)));
+    }
     card.appendChild(actions);
     return card;
   }

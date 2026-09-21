@@ -52,7 +52,8 @@ async function readPublishedDependencies(env, projectId, cache) {
          ON v.project_id = p.id AND v.version = p.published_version
       WHERE p.id = ?
         AND p.published_version > 0
-        AND p.status <> 'archived'`,
+        AND p.status <> 'archived'
+        AND p.owner_hidden = 0`,
   ).bind(projectId).first();
 
   const dependencies = row ? parseDependencies(row.dependencies) : [];
@@ -97,7 +98,7 @@ export async function validateDependencies(env, projectId, value) {
   const ids = normalized.map(item => item.project_id);
   const placeholders = ids.map(() => '?').join(',');
   const result = await env.DB.prepare(
-    `SELECT id, published_version, status
+    `SELECT id, published_version, status, owner_hidden
        FROM projects
       WHERE id IN (${placeholders})`,
   ).bind(...ids).all();
@@ -108,6 +109,7 @@ export async function validateDependencies(env, projectId, value) {
     if (
       !row ||
       row.status === 'archived' ||
+      Number(row.owner_hidden || 0) === 1 ||
       Number(row.published_version || 0) < dependency.min_version
     ) {
       throw new HttpError(

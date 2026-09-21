@@ -54,6 +54,96 @@ function normalizeOriginalScriptConflicts(value, artifactName) {
   });
 }
 
+function normalizeResourceOverrides(value) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    throw new HttpError(400, 'invalid_resource_overrides', 'resource_overrides 必须是数组');
+  }
+  if (value.length > 300) {
+    throw new HttpError(400, 'resource_overrides_too_large', '原版资源状态规则超过 300 条');
+  }
+
+  const seen = new Set();
+  const output = [];
+  for (const [index, item] of value.entries()) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new HttpError(400, 'invalid_resource_override', `第 ${index + 1} 条原版资源状态规则无效`);
+    }
+    const kind = String(item.kind || '').trim();
+    const state = String(item.state || '').trim();
+    if (!['worldbook', 'regex', 'script'].includes(kind)) {
+      throw new HttpError(400, 'invalid_resource_override_kind', `第 ${index + 1} 条原版资源类型无效`);
+    }
+    if (!['enabled', 'disabled'].includes(state)) {
+      throw new HttpError(400, 'invalid_resource_override_state', `第 ${index + 1} 条原版资源目标状态无效`);
+    }
+    const target = item.target;
+    if (!target || typeof target !== 'object' || Array.isArray(target)) {
+      throw new HttpError(400, 'invalid_resource_override_target', `第 ${index + 1} 条原版资源状态规则缺少 target`);
+    }
+
+    let normalizedTarget;
+    let key;
+    if (kind === 'worldbook') {
+      const worldbook = String(target.worldbook || '').trim();
+      const uid = String(target.uid ?? '').trim();
+      const name = String(target.name || '').trim();
+      if (!worldbook || (!uid && !name)) {
+        throw new HttpError(400, 'invalid_resource_override_target', `第 ${index + 1} 条世界书状态规则缺少世界书名或条目标识`);
+      }
+      normalizedTarget = {
+        worldbook,
+        ...(uid ? { uid } : {}),
+        ...(name ? { name } : {}),
+      };
+      key = `worldbook\u0000${worldbook}\u0000${uid ? `uid:${uid}` : `name:${name}`}`;
+    } else if (kind === 'regex') {
+      const scope = String(target.scope || 'character').trim();
+      const id = String(target.id || '').trim();
+      const name = String(target.name || '').trim();
+      const findRegex = String(target.find_regex ?? target.findRegex ?? '').trim();
+      if (scope !== 'character') {
+        throw new HttpError(400, 'invalid_resource_override_scope', `第 ${index + 1} 条正则状态规则目前只支持当前角色`);
+      }
+      if (!id && !name) {
+        throw new HttpError(400, 'invalid_resource_override_target', `第 ${index + 1} 条正则状态规则至少需要 id 或名称`);
+      }
+      normalizedTarget = {
+        scope,
+        ...(id ? { id } : {}),
+        ...(name ? { name } : {}),
+        ...(findRegex ? { find_regex: findRegex } : {}),
+      };
+      key = `regex\u0000${scope}\u0000${id ? `id:${id}` : `name:${name}\u0000find:${findRegex}`}`;
+    } else {
+      const scope = String(target.scope || '').trim();
+      const id = String(target.id || '').trim();
+      const name = String(target.name || '').trim();
+      const folder = String(target.folder || '').trim();
+      if (!['character', 'preset', 'global'].includes(scope)) {
+        throw new HttpError(400, 'invalid_resource_override_scope', `第 ${index + 1} 条脚本状态规则作用域无效`);
+      }
+      if (!id && !name) {
+        throw new HttpError(400, 'invalid_resource_override_target', `第 ${index + 1} 条脚本状态规则至少需要 id 或名称`);
+      }
+      normalizedTarget = {
+        scope,
+        ...(id ? { id } : {}),
+        ...(name ? { name } : {}),
+        ...(folder ? { folder } : {}),
+      };
+      key = `script\u0000${scope}\u0000${id ? `id:${id}` : `folder:${folder}\u0000name:${name}`}`;
+    }
+
+    if (seen.has(key)) {
+      throw new HttpError(400, 'duplicate_resource_override', `第 ${index + 1} 条原版资源状态规则与前面的规则重复`);
+    }
+    seen.add(key);
+    output.push({ kind, state, target: normalizedTarget });
+  }
+  return output;
+}
+
 function normalizeOriginalConflicts(value, artifactName) {
   if (value === undefined || value === null) return [];
   if (!Array.isArray(value)) {
@@ -209,6 +299,8 @@ export function validateBundle(bundle) {
     return normalizedArtifact;
   });
   const normalized = { schema_version: 1, artifacts };
+  const resourceOverrides = normalizeResourceOverrides(bundle.resource_overrides);
+  if (resourceOverrides.length) normalized.resource_overrides = resourceOverrides;
   if (new TextEncoder().encode(JSON.stringify(normalized)).byteLength > MAX_BUNDLE_BYTES) throw new HttpError(413, 'bundle_too_large', '作品包超过 4 MB 的第一版限制');
   return normalized;
 }

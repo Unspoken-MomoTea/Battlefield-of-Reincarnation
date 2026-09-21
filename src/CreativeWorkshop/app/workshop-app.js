@@ -134,6 +134,7 @@ export function bootWorkshop() {
     disposed = true;
 
     try { updateNotice?.destroy?.(); } catch {}
+    try { views.author?.destroy?.(); } catch {}
     try { cleanupEvents?.(); } catch {}
     launcher.removeEventListener('click', open);
     window.removeEventListener('pagehide', onPageHide);

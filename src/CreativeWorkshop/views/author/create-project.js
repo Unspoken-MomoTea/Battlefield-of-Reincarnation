@@ -1,7 +1,6 @@
-import { scanPublishResources } from '../../services/publish-resources.js';
 import { createDependencyPicker } from '../../ui/dependency-picker.js';
+import { createResourceStateEditor } from '../../ui/resource-state-editor.js';
 import { createSmartArtifactQueue } from '../../ui/smart-artifact-queue.js';
-import { createInstallRulePicker } from '../../ui/install-rule-picker.js';
 
 export function bindCreateProjectFlow({
   host,
@@ -17,9 +16,9 @@ export function bindCreateProjectFlow({
   const openButton = overlay.querySelector('[data-action="create-project-open"]');
   const cancelButtons = [...overlay.querySelectorAll('[data-action="create-project-cancel"]')];
   const projectType = nodes.createForm.querySelector('[name="category"]');
+  const submitButton = nodes.createForm.querySelector('button[type="submit"]');
 
   let dirty = false;
-  let rulesModal = null;
   let coverUrl = '';
   let queue = null;
   let submitAttempt = null;
@@ -38,6 +37,21 @@ export function bindCreateProjectFlow({
     },
   });
   nodes.createDependencies.replaceChildren(dependencyPicker.node);
+
+  const resourceEditor = createResourceStateEditor({
+    doc,
+    notifyError,
+    onChange: () => {
+      dirty = true;
+      submitAttempt = null;
+    },
+  });
+  nodes.createResourceStates.replaceChildren(resourceEditor.node);
+
+  const progress = doc.createElement('div');
+  progress.className = 'rw-submit-progress';
+  progress.hidden = true;
+  nodes.createForm.querySelector('.rw-publish-grid')?.after(progress);
 
   const revokeCoverPreview = () => {
     if (!coverUrl) return;
@@ -59,6 +73,7 @@ export function bindCreateProjectFlow({
     nodes.createCoverPreview.hidden = false;
     nodes.createCoverState.textContent = `已选择：${selected.name} · 尚未上传`;
     dirty = true;
+    submitAttempt = null;
   };
 
   const reset = () => {
@@ -71,12 +86,17 @@ export function bindCreateProjectFlow({
     nodes.createCover.value = '';
     nodes.createVersionState.textContent = '选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。';
     dependencyPicker.clear();
+    resourceEditor.clear();
     revokeCoverPreview();
     nodes.createCoverPreview.hidden = true;
     nodes.createCoverPreview.removeAttribute('src');
     nodes.createCoverState.textContent = '可选。建议 16:9，选择后会立即预览。';
+    progress.hidden = true;
+    progress.textContent = '';
     submitAttempt = null;
     dirty = false;
+    submitButton.disabled = false;
+    submitButton.textContent = '提交审核';
   };
 
   queue = createSmartArtifactQueue({
@@ -93,22 +113,19 @@ export function bindCreateProjectFlow({
     },
   });
 
-  async function addFiles(files) {
+  const addFiles = async (files, forcedKind) => {
     try {
-      await queue.addFiles(files);
+      await queue.addFilesAs(files, forcedKind);
     } catch (error) {
-      nodes.createVersion.value = '';
       notifyError(error);
     }
-  }
+  };
 
-  const bindArtifactInput = (input, dropTarget, forcedKind = '') => {
+  const bindArtifactInput = (input, dropTarget, forcedKind) => {
     input.addEventListener('change', () => {
       const files = input.files;
       if (!files?.length) return;
-      void (forcedKind ? queue.addFilesAs(files, forcedKind) : addFiles(files))
-        .catch(error => notifyError(error))
-        .finally(() => { input.value = ''; });
+      void addFiles(files, forcedKind).finally(() => { input.value = ''; });
     });
 
     dropTarget.addEventListener('dragover', event => {
@@ -121,8 +138,7 @@ export function bindCreateProjectFlow({
       dropTarget.classList.remove('is-dragover');
       const files = event.dataTransfer?.files;
       if (!files?.length) return;
-      void (forcedKind ? queue.addFilesAs(files, forcedKind) : addFiles(files))
-        .catch(error => notifyError(error));
+      void addFiles(files, forcedKind);
     });
   };
 
@@ -141,6 +157,7 @@ export function bindCreateProjectFlow({
     overlay.querySelector('[data-drop-target="create-script"]'),
     'script',
   );
+
   nodes.createCover.addEventListener('change', renderCover);
   const coverDrop = overlay.querySelector('[data-drop-target="create-cover"]');
   coverDrop.addEventListener('dragover', event => {
@@ -164,11 +181,13 @@ export function bindCreateProjectFlow({
     }
   });
 
-  nodes.createForm.addEventListener('input', () => {
+  nodes.createForm.addEventListener('input', event => {
+    if (event.target?.closest?.('.rw-resource-state-editor')) return;
     dirty = true;
     submitAttempt = null;
   });
-  nodes.createForm.addEventListener('change', () => {
+  nodes.createForm.addEventListener('change', event => {
+    if (event.target?.closest?.('.rw-resource-state-editor')) return;
     dirty = true;
     submitAttempt = null;
   });
@@ -176,21 +195,20 @@ export function bindCreateProjectFlow({
   openButton?.addEventListener('click', () => {
     nodes.createForm.hidden = false;
     nodes.createForm.querySelector('[name="name"]')?.focus();
+    void resourceEditor.refresh();
   });
 
   const closeCreate = async () => {
     if (dirty) {
       const confirmed = await confirmDialog({
         title: '放弃这次编辑？',
-        message: '作品资料、已选择的文件和封面都还没有提交。关闭后会清空当前草稿。',
+        message: '作品资料、已选择的文件、原版资源状态和封面都还没有提交。关闭后会清空当前草稿。',
         confirmText: '放弃编辑',
         cancelText: '继续编辑',
         danger: true,
       });
       if (!confirmed) return;
     }
-    rulesModal?.close({ force: true });
-    rulesModal = null;
     reset();
     nodes.createForm.hidden = true;
   };
@@ -206,120 +224,74 @@ export function bindCreateProjectFlow({
     return details.length ? `${message}（${details.join(' · ')}）` : message;
   }
 
-  function setSubmitStatus(node, state, text) {
-    node.className = `rw-submit-progress rw-submit-progress--${state}`;
-    node.textContent = text;
-    node.hidden = false;
+  function setSubmitStatus(state, text) {
+    progress.className = `rw-submit-progress rw-submit-progress--${state}`;
+    progress.textContent = text;
+    progress.hidden = false;
   }
 
-  async function openRules(draft) {
-    rulesModal?.close({ force: true });
-    const modal = openModal('发布项目 · 检查与安装规则', {
-      wide: true,
-      onClose: () => { if (rulesModal === modal) rulesModal = null; },
+  nodes.createForm.addEventListener('submit', event => {
+    event.preventDefault();
+    if (submitButton.disabled) return;
+
+    const form = new FormData(nodes.createForm);
+    const name = String(form.get('name') || '').trim();
+    const summary = String(form.get('summary') || '');
+    const category = String(form.get('category') || 'extension');
+    const tags = String(form.get('tags') || '')
+      .split(/[,，\n]/u)
+      .map(value => value.trim())
+      .filter(Boolean);
+    const dependencies = dependencyPicker.values();
+    const resourceOverrides = resourceEditor.values();
+
+    if (!name) return notifyError(new Error('请先填写作品名称'));
+    if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
+
+    const bundle = queue.bundle(null, resourceOverrides);
+    const cover = nodes.createCover.files?.[0] || null;
+    const attemptKey = JSON.stringify({
+      name,
+      summary,
+      category,
+      tags,
+      dependencies,
+      resourceOverrides,
+      artifactNames: queue.artifacts().map(item => [item.kind, item.name, item.scope || '']),
+      coverName: cover?.name || '',
+      coverSize: Number(cover?.size || 0),
     });
-    rulesModal = modal;
 
-    const loading = doc.createElement('div');
-    loading.className = 'rw-empty';
-    loading.textContent = '正在检查上传文件与当前酒馆资源…';
-    modal.body.appendChild(loading);
-
-    let resources = null;
-    const needsScan = draft.artifacts.some(item => item.kind === 'worldbook' || item.kind === 'script');
-    if (needsScan) {
-      try {
-        resources = await scanPublishResources();
-      } catch (error) {
-        resources = { worldbooks: [], scripts: [] };
-        try {
-          host.toastr?.warning?.(
-            `无法扫描当前酒馆原版资源：${error.message}。仍可发布，但本次不能通过界面选择替换目标。`,
-            '创意工坊',
-          );
-        } catch {}
-      }
+    if (!submitAttempt || submitAttempt.key !== attemptKey) {
+      submitAttempt = {
+        key: attemptKey,
+        projectId: null,
+        versionUploaded: false,
+        coverUploaded: !cover,
+        submitted: false,
+      };
     }
 
-    if (rulesModal !== modal || !modal.body.isConnected) return;
-    modal.body.replaceChildren();
-    const rules = createInstallRulePicker({ doc, artifacts: draft.artifacts, resources });
-    modal.body.appendChild(rules.node);
-
-    const note = doc.createElement('div');
-    note.className = 'rw-maintenance-protection';
-    note.append(
-      Object.assign(doc.createElement('strong'), { textContent: '原版内容不会被删除' }),
-      Object.assign(doc.createElement('div'), {
-        textContent: '勾选的世界书条目或脚本只会在作品启用期间临时关闭。停用/卸载时按安装前快照恢复；玩家期间的修改不会被强制覆盖。',
-      }),
-    );
-    modal.body.appendChild(note);
-
-    const progress = doc.createElement('div');
-    progress.className = 'rw-submit-progress';
-    progress.hidden = true;
-    modal.body.appendChild(progress);
-
-    const actions = doc.createElement('div');
-    actions.className = 'rw-row rw-publish-final-actions';
-    const back = doc.createElement('button');
-    back.type = 'button';
-    back.className = 'rw-button';
-    back.textContent = '← 返回修改';
-    const confirm = doc.createElement('button');
-    confirm.type = 'button';
-    confirm.className = 'rw-button good';
-    confirm.textContent = '提交审核';
-    actions.append(back, confirm);
-    modal.body.appendChild(actions);
-
-    back.addEventListener('click', () => rulesModal?.close({ force: true }));
-    confirm.addEventListener('click', async () => {
-      confirm.disabled = true;
-      back.disabled = true;
-
-      const finalArtifacts = rules.buildArtifacts();
-      const bundle = queue.bundle(finalArtifacts);
-      const attemptKey = JSON.stringify({
-        name: draft.name,
-        category: draft.category,
-        tags: draft.tags,
-        dependencies: draft.dependencies,
-        artifactCount: finalArtifacts.length,
-      });
-
-      if (!submitAttempt || submitAttempt.key !== attemptKey) {
-        submitAttempt = {
-          key: attemptKey,
-          projectId: null,
-          versionUploaded: false,
-          coverUploaded: !draft.cover,
-          submitted: false,
-        };
-      }
-
+    void (async () => {
+      submitButton.disabled = true;
       try {
         if (!submitAttempt.projectId) {
-          confirm.textContent = '正在创建作品…';
-          setSubmitStatus(progress, 'working', '步骤 1/4 · 正在创建作品草稿…');
+          submitButton.textContent = '正在创建作品…';
+          setSubmitStatus('working', '步骤 1/4 · 正在创建作品草稿…');
           const created = await workshopApi.createProject({
-            name: draft.name,
-            summary: draft.summary,
-            category: draft.category,
-            tags: draft.tags,
-            dependencies: draft.dependencies,
+            name,
+            summary,
+            category,
+            tags,
+            dependencies,
           });
-          if (!created?.project?.id) {
-            throw new Error('服务器没有返回作品 ID，无法继续上传');
-          }
+          if (!created?.project?.id) throw new Error('服务器没有返回作品 ID，无法继续上传');
           submitAttempt.projectId = created.project.id;
-          setSubmitStatus(progress, 'working', `步骤 1/4 · 草稿已创建 · ${submitAttempt.projectId}`);
         }
 
         if (!submitAttempt.versionUploaded) {
-          confirm.textContent = '正在上传内容…';
-          setSubmitStatus(progress, 'working', '步骤 2/4 · 正在上传作品内容…');
+          submitButton.textContent = '正在上传内容…';
+          setSubmitStatus('working', '步骤 2/4 · 正在上传作品内容与原版资源状态…');
           await workshopApi.uploadProjectVersion(
             submitAttempt.projectId,
             { changelog: '', bundle },
@@ -327,34 +299,28 @@ export function bindCreateProjectFlow({
           submitAttempt.versionUploaded = true;
         }
 
-        if (draft.cover && !submitAttempt.coverUploaded) {
-          confirm.textContent = '正在上传封面…';
-          setSubmitStatus(progress, 'working', '步骤 3/4 · 正在上传封面…');
-          await workshopApi.uploadProjectCover(submitAttempt.projectId, draft.cover);
-          submitAttempt.coverUploaded = true;
-        } else if (!draft.cover) {
+        if (cover && !submitAttempt.coverUploaded) {
+          submitButton.textContent = '正在上传封面…';
+          setSubmitStatus('working', '步骤 3/4 · 正在上传封面…');
+          await workshopApi.uploadProjectCover(submitAttempt.projectId, cover);
           submitAttempt.coverUploaded = true;
         }
 
         if (!submitAttempt.submitted) {
-          confirm.textContent = '正在提交审核…';
-          setSubmitStatus(progress, 'working', '步骤 4/4 · 正在提交审核…');
+          submitButton.textContent = '正在提交审核…';
+          setSubmitStatus('working', '步骤 4/4 · 正在提交审核…');
           await workshopApi.submitProject(submitAttempt.projectId);
           submitAttempt.submitted = true;
         }
 
-        setSubmitStatus(progress, 'success', '提交成功 · 作品已经进入审核队列。');
+        setSubmitStatus('success', '提交成功 · 作品已经进入审核队列。');
         dirty = false;
         try { host.toastr?.success?.('作品已提交审核', '创意工坊'); } catch {}
-
-        // 先刷新列表；即使刷新失败，也不能把已经成功提交的作品说成失败。
         try { await refreshMine(); } catch (refreshError) {
           console.warn('[轮回战场创意工坊] 提交成功，但刷新我的作品失败', refreshError);
         }
 
         host.setTimeout?.(() => {
-          if (rulesModal === modal) modal.close({ force: true });
-          rulesModal = null;
           reset();
           nodes.createForm.hidden = true;
         }, 650);
@@ -366,60 +332,24 @@ export function bindCreateProjectFlow({
             : !submitAttempt.coverUploaded
               ? '上传封面'
               : '提交审核';
-        const description = errorDescription(error);
         setSubmitStatus(
-          progress,
           'error',
-          `${failedAt}失败：${description}${submitAttempt?.projectId ? '\n草稿已经保留，再次点击会从失败步骤继续，不会重复创建作品。' : ''}`,
+          `${failedAt}失败：${errorDescription(error)}${submitAttempt?.projectId ? '\n再次点击会从失败步骤继续，不会重复创建作品。' : ''}`,
         );
-        console.error('[轮回战场创意工坊] 发布失败', {
-          step: failedAt,
-          projectId: submitAttempt?.projectId || null,
-          error,
-        });
         notifyError(error);
       } finally {
-        if (confirm.isConnected) {
-          confirm.disabled = false;
-          back.disabled = false;
-          confirm.textContent = submitAttempt?.submitted ? '已提交审核' : '重试提交';
+        if (submitButton.isConnected) {
+          submitButton.disabled = false;
+          submitButton.textContent = submitAttempt?.submitted ? '已提交审核' : '重试提交';
         }
       }
-    });
-  }
-
-  nodes.createForm.addEventListener('submit', event => {
-    event.preventDefault();
-    const form = new FormData(nodes.createForm);
-    const name = String(form.get('name') || '').trim();
-    const summary = String(form.get('summary') || '');
-    const category = String(form.get('category') || 'extension');
-    const tags = String(form.get('tags') || '')
-      .split(/[,，\n]/u)
-      .map(value => value.trim())
-      .filter(Boolean);
-
-    if (!name) return notifyError(new Error('请先填写作品名称'));
-    if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
-
-    const dependencies = dependencyPicker.values();
-
-    void openRules({
-      name,
-      summary,
-      category,
-      tags,
-      dependencies,
-      cover: nodes.createCover.files?.[0] || null,
-      artifacts: queue.artifacts(),
-    });
+    })();
   });
 
   return {
     reset,
     destroy() {
       revokeCoverPreview();
-      rulesModal?.close({ force: true });
     },
   };
 }

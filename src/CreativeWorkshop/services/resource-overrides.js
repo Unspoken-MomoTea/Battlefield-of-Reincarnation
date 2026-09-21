@@ -100,11 +100,19 @@ export function resourceOverridesFromBundle(bundle) {
   for (const artifact of bundle?.artifacts || []) {
     if (!['worldbook', 'script'].includes(artifact?.kind)) continue;
     for (const conflict of artifact.original_conflicts || []) {
-      const rule = normalizeResourceOverride({
-        kind: artifact.kind,
-        state: 'disabled',
-        target: conflict?.target,
-      });
+      const target = normalizeTarget(artifact.kind, conflict?.target || {});
+      let rule = null;
+      if (artifact.kind === 'worldbook') {
+        if (!target.uid && !target.name) continue;
+        // 旧版声明允许省略 worldbook，由安装预检在当前绑定世界书中做唯一匹配。
+        rule = { kind: 'worldbook', state: 'disabled', target };
+      } else {
+        rule = normalizeResourceOverride({
+          kind: 'script',
+          state: 'disabled',
+          target,
+        });
+      }
       if (!rule) continue;
       const key = resourceOverrideKey(rule);
       if (!byKey.has(key)) byKey.set(key, rule);

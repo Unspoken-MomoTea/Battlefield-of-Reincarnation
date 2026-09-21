@@ -38,7 +38,10 @@ function worldbookEntriesFromArtifact(artifact) {
       content: String(entry.content ?? ''),
       primary_keys: Array.isArray(strategy.keys) ? strategy.keys : Array.isArray(entry.key) ? entry.key : [],
       secondary_keys: Array.isArray(secondary.keys) ? secondary.keys : Array.isArray(entry.keysecondary) ? entry.keysecondary : [],
-      strategy_type: String(strategy.type ?? (entry.constant ? 'constant' : entry.selective ? 'selective' : '')),
+      strategy_type: String(
+        strategy.type ??
+        (entry.constant === true ? 'constant' : entry.vectorized === true ? 'vectorized' : 'selective'),
+      ),
       position_type: String(position.type ?? entry.position ?? ''),
       depth: Number.isFinite(Number(position.depth ?? entry.depth)) ? Number(position.depth ?? entry.depth) : null,
       order: Number.isFinite(Number(position.order ?? entry.order)) ? Number(position.order ?? entry.order) : null,

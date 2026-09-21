@@ -551,3 +551,101 @@ test('updating a project can remove a script replacement and restore the origina
   );
   assert.equal(storage.current().installTargets.originalScriptChanges.length, 0);
 });
+
+
+test('unified resource state overrides can enable or disable original worldbooks regexes and scripts and restore them', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('角色原世界书', [
+    { uid: 88, name: '默认关闭规则', enabled: false, content: 'original' },
+  ]);
+  adapter.state.binding.primary = '角色原世界书';
+  adapter.state.regexes = [
+    { id: 'manual', script_name: '玩家正则', enabled: true, find_regex: 'foo', replace_string: 'bar' },
+  ];
+  adapter.state.scripts.character = [
+    { type: 'script', id: 'manual-script', name: '玩家脚本', enabled: true, content: 'manual' },
+  ];
+
+  const storage = memoryStorage(project([
+    { kind: 'data', name: 'state-only.txt', format: 'text', content: 'state rules' },
+  ]));
+  await storage.putInstalledProject({
+    ...storage.current(),
+    bundle: {
+      schema_version: 1,
+      artifacts: [{ kind: 'data', name: 'state-only.txt', format: 'text', content: 'state rules' }],
+      resource_overrides: [
+        {
+          kind: 'worldbook',
+          state: 'enabled',
+          target: { worldbook: '角色原世界书', uid: '88', name: '默认关闭规则' },
+        },
+        {
+          kind: 'regex',
+          state: 'disabled',
+          target: { scope: 'character', id: 'manual', name: '玩家正则', find_regex: 'foo' },
+        },
+        {
+          kind: 'script',
+          state: 'disabled',
+          target: { scope: 'character', id: 'manual-script', name: '玩家脚本' },
+        },
+      ],
+    },
+  });
+
+  const installer = createWorkshopInstaller({ adapter, storage });
+  const applied = await installer.apply('project-1');
+
+  assert.equal(adapter.state.worldbooks.get('角色原世界书')[0].enabled, true);
+  assert.equal(adapter.state.regexes[0].enabled, false);
+  assert.equal(adapter.state.scripts.character[0].enabled, false);
+  assert.equal(applied.installTargets.originalWorldbookChanges[0].desiredState, 'enabled');
+  assert.equal(applied.installTargets.originalRegexChanges[0].desiredState, 'disabled');
+  assert.equal(applied.installTargets.originalScriptChanges[0].desiredState, 'disabled');
+
+  await installer.uninstall('project-1');
+
+  assert.equal(adapter.state.worldbooks.get('角色原世界书')[0].enabled, false);
+  assert.equal(adapter.state.regexes[0].enabled, true);
+  assert.equal(adapter.state.scripts.character[0].enabled, true);
+});
+
+test('removing a saved resource state override on update restores the original state', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.regexes = [
+    { id: 'manual', script_name: '玩家正则', enabled: true, find_regex: 'foo', replace_string: 'bar' },
+  ];
+  const storage = memoryStorage(project([
+    { kind: 'data', name: 'state-only.txt', format: 'text', content: 'v1' },
+  ]));
+  await storage.putInstalledProject({
+    ...storage.current(),
+    bundle: {
+      schema_version: 1,
+      artifacts: [{ kind: 'data', name: 'state-only.txt', format: 'text', content: 'v1' }],
+      resource_overrides: [{
+        kind: 'regex',
+        state: 'disabled',
+        target: { scope: 'character', id: 'manual', name: '玩家正则', find_regex: 'foo' },
+      }],
+    },
+  });
+
+  const installer = createWorkshopInstaller({ adapter, storage });
+  await installer.apply('project-1');
+  assert.equal(adapter.state.regexes[0].enabled, false);
+
+  await storage.putInstalledProject({
+    ...storage.current(),
+    version: 3,
+    bundle: {
+      schema_version: 1,
+      artifacts: [{ kind: 'data', name: 'state-only.txt', format: 'text', content: 'v2' }],
+    },
+  });
+
+  await installer.apply('project-1');
+  assert.equal(adapter.state.regexes[0].enabled, true);
+  assert.equal(storage.current().installTargets.originalRegexChanges.length, 0);
+});

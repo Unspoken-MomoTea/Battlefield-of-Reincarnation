@@ -173,6 +173,16 @@ export function createResourceStateEditor({
   status.className = 'rw-resource-state-status';
   status.textContent = '打开发布或更新界面后会读取当前酒馆资源。';
 
+  body.addEventListener('wheel', event => {
+    if (body.scrollHeight <= body.clientHeight) return;
+    const before = body.scrollTop;
+    body.scrollTop += event.deltaY;
+    if (body.scrollTop !== before) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, { passive: false });
+
   root.append(heading, tabs, toolbar, status, body);
 
   let activeKind = 'worldbook';

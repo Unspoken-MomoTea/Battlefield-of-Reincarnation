@@ -42,6 +42,8 @@ export function createTavernAdapter() {
       call('createOrReplaceWorldbook', name, entries, { render: 'immediate' }),
     deleteWorldbook: name => call('deleteWorldbook', name),
     getCharWorldbookNames: () => call('getCharWorldbookNames', 'current'),
+    getChatWorldbookName: () => call('getChatWorldbookName', 'current'),
+    getGlobalWorldbookNames: () => call('getGlobalWorldbookNames'),
     rebindCharWorldbooks: binding => call('rebindCharWorldbooks', 'current', binding),
     getCharacterRegexes: () => call('getTavernRegexes', { type: 'character', name: 'current' }),
     replaceCharacterRegexes: regexes => call('replaceTavernRegexes', regexes, { type: 'character', name: 'current' }),

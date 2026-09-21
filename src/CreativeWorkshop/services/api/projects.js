@@ -1,6 +1,6 @@
 import { getApiBase } from '../../config.js';
 
-export function createProjectApi(request) {
+export function createProjectApi(request, requestRaw) {
   return {
     listProjects(query = '', category = '', offset = 0, tag = '', sort = 'latest') {
       const params = new URLSearchParams({ limit: '24', offset: String(offset), sort });
@@ -35,6 +35,31 @@ export function createProjectApi(request) {
 
     createProject(input) {
       return request('/api/projects', { method: 'POST', body: JSON.stringify(input) }, true);
+    },
+
+    getOwnProjectEditor(projectId) {
+      return request(
+        `/api/projects/${encodeURIComponent(projectId)}/edit`,
+        {},
+        true,
+      );
+    },
+
+    async getOwnProjectCover(projectId) {
+      const response = await requestRaw(
+        `/api/projects/${encodeURIComponent(projectId)}/edit-cover`,
+        {},
+        true,
+      );
+      return response.blob();
+    },
+
+    setProjectVisibility(projectId, hidden) {
+      return request(
+        `/api/projects/${encodeURIComponent(projectId)}/visibility`,
+        { method: 'POST', body: JSON.stringify({ hidden: Boolean(hidden) }) },
+        true,
+      );
     },
 
     updateProject(projectId, input) {

@@ -481,10 +481,22 @@ export const WORKSHOP_CSS = `
     padding:0 12px;color:#77746e;font-size:9px;line-height:1.45
   }
   .rw-resource-state-body{
-    min-height:180px;height:min(44vh,410px);display:grid;align-content:start;gap:7px;
-    overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;
+    box-sizing:border-box;min-height:360px;height:360px;max-height:360px;display:block;
+    overflow-x:hidden!important;overflow-y:scroll!important;overscroll-behavior:contain;
+    scrollbar-gutter:stable both-edges;scrollbar-width:thin;scrollbar-color:#4a4b52 #101114;
     -webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 8px 10px
   }
+  .rw-resource-state-body::-webkit-scrollbar{width:10px!important;height:10px!important}
+  .rw-resource-state-body::-webkit-scrollbar-track{
+    background:#101114!important;border-left:1px solid rgba(255,255,255,.035)!important
+  }
+  .rw-resource-state-body::-webkit-scrollbar-thumb{
+    min-height:42px!important;border:2px solid #101114!important;border-radius:999px!important;
+    background:#4a4b52!important;background-clip:padding-box!important
+  }
+  .rw-resource-state-body::-webkit-scrollbar-thumb:hover{background:#62636b!important}
+  .rw-resource-state-body>.rw-resource-state-group{margin-bottom:7px}
+  .rw-resource-state-body>.rw-resource-state-group:last-child{margin-bottom:0}
   .rw-resource-state-group{
     display:grid;border:1px solid var(--rw-line);border-radius:8px;background:#0f1012;overflow:hidden
   }
@@ -1228,6 +1240,7 @@ export const WORKSHOP_CSS = `
     .rw-resource-state-choices{grid-template-columns:repeat(3,minmax(0,1fr))}
     .rw-resource-state-toolbar{grid-template-columns:1fr}
     .rw-resource-state-count{white-space:normal}
+    .rw-resource-state-body{min-height:300px;height:300px;max-height:300px}
     .rw-overlay{padding:0;align-items:stretch}
     .rw-panel{
       width:100vw;height:100dvh;border:0;border-radius:0;

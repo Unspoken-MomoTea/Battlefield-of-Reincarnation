@@ -1,16 +1,15 @@
 import { getApiBase } from '../config.js';
 import { createTavernAdapter } from './tavern-adapter.js';
+import {
+  rewriteWorkshopLoaderContent,
+  workshopLoaderRefs,
+} from './workshop-loader.js';
 
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const ENTRY_PATH = '/src/CreativeWorkshop/index.js';
 const SCOPES = ['character', 'preset', 'global'];
 const GITHUB_MAIN_COMMIT = `https://api.github.com/repos/${REPOSITORY}/commits/main`;
 const HOT_IMPORT_BASE = `https://testingcf.jsdelivr.net/gh/${REPOSITORY}@`;
-const JSDELIVR_PATTERN = new RegExp(
-  `(https:\\/\\/(?:testingcf\\.)?jsdelivr\\.net\\/gh\\/Unspoken-MomoTea\\/Battlefield-of-Reincarnation@)([^/'"\\s]+)(\\/src\\/CreativeWorkshop\\/index\\.js)`,
-  'gu',
-);
-
 function clone(value) {
   return structuredClone(value);
 }
@@ -35,24 +34,6 @@ function scriptsInTrees(trees) {
     }
   });
   return values;
-}
-
-function loaderRefs(content) {
-  const refs = [];
-  JSDELIVR_PATTERN.lastIndex = 0;
-  let match;
-  while ((match = JSDELIVR_PATTERN.exec(String(content || '')))) {
-    refs.push(match[2]);
-  }
-  JSDELIVR_PATTERN.lastIndex = 0;
-  return refs;
-}
-
-function rewriteLoaderContent(content, sha) {
-  JSDELIVR_PATTERN.lastIndex = 0;
-  const next = String(content || '').replace(JSDELIVR_PATTERN, `$1${sha}$3`);
-  JSDELIVR_PATTERN.lastIndex = 0;
-  return next;
 }
 
 async function githubMainSha(fetchImpl) {
@@ -100,7 +81,7 @@ async function scanLoaders(adapter) {
     const trees = clone(await adapter.getScriptTrees(scope));
     treesByScope.set(scope, trees);
     for (const location of scriptsInTrees(trees)) {
-      const refs = loaderRefs(location.script.content);
+      const refs = workshopLoaderRefs(location.script.content);
       if (!refs.length) continue;
       loaders.push({
         scope,
@@ -163,7 +144,7 @@ export function createWorkshopSelfUpdater({
         const tree = trees[loader.treeIndex];
         const script = loader.scriptIndex === null ? tree : tree?.scripts?.[loader.scriptIndex];
         if (!script || typeof script.content !== 'string') continue;
-        const nextContent = rewriteLoaderContent(script.content, latestSha);
+        const nextContent = rewriteWorkshopLoaderContent(script.content, latestSha);
         if (nextContent === script.content) continue;
         script.content = nextContent;
         changedScopes.add(loader.scope);

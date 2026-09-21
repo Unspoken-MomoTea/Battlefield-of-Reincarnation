@@ -5,6 +5,7 @@ import {
   createProject,
   deleteProject,
   downloadPublicProject,
+  getOwnedProjectEditor,
   getPublicProject,
   getPublicProjectVersion,
   getPendingProjectReview,
@@ -14,6 +15,7 @@ import {
   listPublicProjects,
   reviewProject,
   setAdminProjectState,
+  setOwnerProjectVisibility,
   submitProjectForReview,
   uploadProjectVersion,
   validateBundle,
@@ -153,4 +155,101 @@ test('author sees archive reason and can permanently delete an archived publishe
   assert.equal(env.DB.db.prepare('SELECT id FROM projects WHERE id = ?').get(project.id), undefined);
   assert.equal(env.PROJECTS.objects.has(stored.manifest_key), false);
   assert.equal(env.PROJECTS.objects.has(stored.content_key), false);
+});
+
+
+test('author can unpublish and republish an approved project without changing review status', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('published'));
+
+  const hidden = await responseJson(
+    await setOwnerProjectVisibility(
+      request(`/api/projects/${project.id}/visibility`, 'POST', { hidden: true }),
+      env,
+      author,
+      project.id,
+    ),
+  );
+  assert.equal(hidden.owner_hidden, true);
+
+  let publicList = await responseJson(await listPublicProjects(request('/api/projects'), env));
+  assert.equal(publicList.items.length, 0);
+
+  let own = await responseJson(await listOwnProjects(env, author));
+  assert.equal(own.items[0].owner_hidden, true);
+  assert.equal(own.items[0].status, 'published');
+
+  const shown = await responseJson(
+    await setOwnerProjectVisibility(
+      request(`/api/projects/${project.id}/visibility`, 'POST', { hidden: false }),
+      env,
+      author,
+      project.id,
+    ),
+  );
+  assert.equal(shown.owner_hidden, false);
+
+  publicList = await responseJson(await listPublicProjects(request('/api/projects'), env));
+  assert.equal(publicList.items.length, 1);
+});
+
+test('admin takedown still prevents an author from republishing', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('published'));
+
+  await setOwnerProjectVisibility(
+    request(`/api/projects/${project.id}/visibility`, 'POST', { hidden: true }),
+    env,
+    author,
+    project.id,
+  );
+  await setAdminProjectState(
+    request(`/api/admin/projects/${project.id}/state`, 'POST', { action: 'archive', note: '违规内容' }),
+    env,
+    admin,
+    project.id,
+  );
+
+  await assert.rejects(
+    () => setOwnerProjectVisibility(
+      request(`/api/projects/${project.id}/visibility`, 'POST', { hidden: false }),
+      env,
+      author,
+      project.id,
+    ),
+    error => error?.status === 409 && error?.code === 'admin_archived',
+  );
+});
+
+test('author editor returns current metadata and latest bundle as the update baseline', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('baseline'));
+
+  const detail = await responseJson(await getOwnedProjectEditor(env, author, project.id));
+  assert.equal(detail.project.name, '测试世界书');
+  assert.equal(detail.project.latest_version, 1);
+  assert.equal(detail.latest.version, 1);
+  assert.equal(detail.latest.review_status, 'approved');
+  assert.equal(detail.latest.bundle.artifacts[0].name, 'baseline');
+  assert.equal(detail.latest.bundle.artifacts[0].content.entries['0'].content, 'hello');
+});
+
+test('author can permanently delete a self-unpublished published project', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('published'));
+
+  await setOwnerProjectVisibility(
+    request(`/api/projects/${project.id}/visibility`, 'POST', { hidden: true }),
+    env,
+    author,
+    project.id,
+  );
+
+  const deleted = await responseJson(await deleteProject(env, author, project.id));
+  assert.equal(deleted.ok, true);
+  assert.equal(env.DB.db.prepare('SELECT id FROM projects WHERE id = ?').get(project.id), undefined);
 });

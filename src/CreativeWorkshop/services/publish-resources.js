@@ -33,6 +33,48 @@ function entryKeys(entry) {
   return String(keys).split(',').map(value => value.trim()).filter(Boolean);
 }
 
+function regexName(regex, index) {
+  return String(regex?.script_name ?? regex?.scriptName ?? regex?.name ?? regex?.id ?? '').trim() || `正则 ${index + 1}`;
+}
+
+function regexEnabled(regex) {
+  if (typeof regex?.enabled === 'boolean') return regex.enabled;
+  if (typeof regex?.disabled === 'boolean') return !regex.disabled;
+  return true;
+}
+
+function normalizeRegexes(values) {
+  const regexes = [];
+  const nameCounts = new Map();
+
+  for (const [index, raw] of (values || []).entries()) {
+    if (!raw || typeof raw !== 'object') continue;
+    const id = String(raw.id || '').trim();
+    if (id.startsWith('rw:')) continue;
+    const name = regexName(raw, index);
+    const findRegex = String(raw.find_regex ?? raw.findRegex ?? '');
+    const item = {
+      scope: 'character',
+      id,
+      name,
+      enabled: regexEnabled(raw),
+      find_regex: findRegex,
+      replace_string: String(raw.replace_string ?? raw.replaceString ?? ''),
+      run_on_edit: Boolean(raw.run_on_edit ?? raw.runOnEdit),
+    };
+    regexes.push(item);
+    if (!id) {
+      const key = `${name}\u0000${findRegex}`;
+      nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
+    }
+  }
+
+  return regexes.map(item => ({
+    ...item,
+    selectable: Boolean(item.id) || (nameCounts.get(`${item.name}\u0000${item.find_regex}`) || 0) === 1,
+  }));
+}
+
 function flattenScripts(trees, scope) {
   const scripts = [];
   for (const tree of trees || []) {
@@ -42,25 +84,27 @@ function flattenScripts(trees, scope) {
       for (const script of tree.scripts || []) {
         if (!script || typeof script !== 'object' || script.type === 'folder') continue;
         const id = String(script.id || '').trim();
-        if (id.startsWith('rw:') || script.enabled === false) continue;
+        if (id.startsWith('rw:')) continue;
         scripts.push({
           scope,
           folder,
           id,
           name: String(script.name || '').trim() || id || '未命名脚本',
-          enabled: true,
+          enabled: script.enabled !== false,
+          content: String(script.content || ''),
         });
       }
       continue;
     }
     const id = String(tree.id || '').trim();
-    if (id.startsWith('rw:') || tree.enabled === false) continue;
+    if (id.startsWith('rw:')) continue;
     scripts.push({
       scope,
       folder: '',
       id,
       name: String(tree.name || '').trim() || id || '未命名脚本',
-      enabled: true,
+      enabled: tree.enabled !== false,
+      content: String(tree.content || ''),
     });
   }
   return scripts;
@@ -95,21 +139,19 @@ export async function scanPublishResources(adapter = createTavernAdapter()) {
   for (const [name, sourceLabels] of sources) {
     try {
       const rawEntries = clone(await adapter.getWorldbook(name));
-      const normalized = (rawEntries || [])
-        .filter(entryEnabled)
-        .map((entry, index) => {
-          const strategy = entryStrategy(entry);
-          return {
-            uid: entry?.uid === undefined || entry?.uid === null ? '' : String(entry.uid),
-            name: entryName(entry) || `条目 ${index + 1}`,
-            enabled: true,
-            strategy_type: strategy.type,
-            strategy_symbol: strategy.symbol,
-            strategy_label: strategy.label,
-            keys: entryKeys(entry),
-            content: String(entry?.content || ''),
-          };
-        });
+      const normalized = (rawEntries || []).map((entry, index) => {
+        const strategy = entryStrategy(entry);
+        return {
+          uid: entry?.uid === undefined || entry?.uid === null ? '' : String(entry.uid),
+          name: entryName(entry) || `条目 ${index + 1}`,
+          enabled: entryEnabled(entry),
+          strategy_type: strategy.type,
+          strategy_symbol: strategy.symbol,
+          strategy_label: strategy.label,
+          keys: entryKeys(entry),
+          content: String(entry?.content || ''),
+        };
+      });
 
       if (!normalized.length) continue;
 
@@ -131,13 +173,17 @@ export async function scanPublishResources(adapter = createTavernAdapter()) {
     } catch {}
   }
 
+  let regexes = [];
+  try {
+    regexes = normalizeRegexes(await Promise.resolve(adapter.getCharacterRegexes()));
+  } catch {}
+
   const scripts = [];
   for (const scope of ['character', 'preset', 'global']) {
     try {
       scripts.push(...flattenScripts(await adapter.getScriptTrees(scope), scope));
     } catch {}
   }
-
   const scriptNameCounts = new Map();
   for (const script of scripts) {
     if (script.id) continue;
@@ -154,6 +200,7 @@ export async function scanPublishResources(adapter = createTavernAdapter()) {
       .then(() => adapter.getCurrentCharacterName())
       .catch(() => ''),
     worldbooks,
+    regexes,
     scripts,
   };
 }

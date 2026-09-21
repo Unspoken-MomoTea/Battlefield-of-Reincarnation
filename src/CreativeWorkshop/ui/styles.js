@@ -478,6 +478,42 @@ export const WORKSHOP_CSS = `
     color:#aaa8a3;font-size:12px;line-height:1.45
   }
 
+  .rw-hot-update{display:grid;gap:13px}
+  .rw-hot-update-hero{
+    display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:11px;padding:12px;
+    border:1px solid rgba(200,171,125,.20);border-radius:11px;
+    background:linear-gradient(145deg,rgba(200,171,125,.09),rgba(200,171,125,.025))
+  }
+  .rw-hot-update-icon{
+    width:40px;height:40px;display:grid;place-items:center;border:1px solid rgba(200,171,125,.28);
+    border-radius:11px;background:rgba(200,171,125,.08);color:#d0b488;font-size:21px;font-weight:800
+  }
+  .rw-hot-update-copy{min-width:0;display:grid;gap:4px}
+  .rw-hot-update-copy strong{color:#e3dfd7;font-size:14px}
+  .rw-hot-update-copy div{color:#8b8881;font-size:10px}
+  .rw-hot-update-info{
+    display:grid;gap:7px;padding:11px;border:1px solid var(--rw-line);border-radius:10px;
+    background:#141518;color:#9b9891;font-size:10px;line-height:1.6
+  }
+  .rw-hot-update-loader{
+    padding-top:7px;border-top:1px solid rgba(255,255,255,.045);color:#77746e;word-break:break-word
+  }
+  .rw-hot-update-status{
+    white-space:pre-line;padding:9px 10px;border:1px solid var(--rw-line);border-radius:9px;
+    background:#111216;color:#77746f;font-size:10px;line-height:1.55
+  }
+  .rw-hot-update-status.is-working{
+    border-color:rgba(214,173,104,.22);background:rgba(214,173,104,.055);color:#c9aa76
+  }
+  .rw-hot-update-status.is-success{
+    border-color:rgba(111,168,132,.24);background:rgba(111,168,132,.065);color:#9bcaaa
+  }
+  .rw-hot-update-status.is-error{
+    border-color:rgba(216,123,120,.26);background:rgba(216,123,120,.07);color:#e0a09c
+  }
+  .rw-hot-update-actions{display:flex;justify-content:flex-end;gap:8px}
+  .rw-hot-update-primary{min-width:120px}
+
   .rw-maintenance-protection{
     display:grid;gap:5px;padding:13px 14px;border:1px solid rgba(111,168,132,.25);border-radius:11px;
     background:rgba(111,168,132,.07);color:#a9d4b8

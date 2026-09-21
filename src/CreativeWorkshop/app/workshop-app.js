@@ -157,6 +157,7 @@ export function bootWorkshop() {
     if (!nextBridge || nextBridge === previousBridge) {
       throw new Error('新版脚本已经下载，但没有完成客户端接管；请刷新一次酒馆');
     }
+    nextBridge.open?.();
   }
 
   updateNotice = createWorkshopUpdateNotice({

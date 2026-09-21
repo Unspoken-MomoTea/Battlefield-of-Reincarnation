@@ -226,6 +226,14 @@ export function createAuthorView({
       ));
     }
 
+    if (Number(project.published_version) > 0 && project.status !== 'archived') {
+      actions.appendChild(button(
+        project.owner_hidden ? '重新上架' : '下架',
+        '',
+        () => void toggleVisibility(project, !project.owner_hidden),
+      ));
+    }
+
     if (Number(project.latest_version) > 0 && ['draft', 'rejected'].includes(project.status)) {
       actions.appendChild(button(
         project.status === 'rejected' ? '重新提交审核' : '提交审核',

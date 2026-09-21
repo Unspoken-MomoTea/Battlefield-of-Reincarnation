@@ -122,3 +122,35 @@ test('published projects cannot be permanently deleted by the author', async () 
     error => error?.status === 409 && error?.code === 'published_project_delete_forbidden',
   );
 });
+
+
+test('author sees archive reason and can permanently delete an archived published project', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('published'));
+
+  const stored = env.DB.db.prepare(
+    'SELECT manifest_key, content_key FROM project_versions WHERE project_id = ? AND version = 1',
+  ).get(project.id);
+  assert.ok(env.PROJECTS.objects.has(stored.manifest_key));
+  assert.ok(env.PROJECTS.objects.has(stored.content_key));
+
+  await setAdminProjectState(
+    request(`/api/admin/projects/${project.id}/state`, 'POST', { action: 'archive', note: '内容已过期' }),
+    env,
+    admin,
+    project.id,
+  );
+
+  const own = await responseJson(await listOwnProjects(env, author));
+  assert.equal(own.items[0].status, 'archived');
+  assert.equal(own.items[0].archive_note, '内容已过期');
+  assert.ok(own.items[0].archived_at > 0);
+
+  const deleted = await responseJson(await deleteProject(env, author, project.id));
+  assert.equal(deleted.ok, true);
+  assert.equal(deleted.deleted_objects, 2);
+  assert.equal(env.DB.db.prepare('SELECT id FROM projects WHERE id = ?').get(project.id), undefined);
+  assert.equal(env.PROJECTS.objects.has(stored.manifest_key), false);
+  assert.equal(env.PROJECTS.objects.has(stored.content_key), false);
+});

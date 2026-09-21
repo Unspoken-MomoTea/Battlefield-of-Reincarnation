@@ -208,6 +208,12 @@ export const WORKSHOP_CSS = `
     white-space:pre-line;padding:9px 10px;border:1px solid rgba(216,123,120,.18);border-radius:8px;
     background:rgba(216,123,120,.045);line-height:1.55
   }
+  .rw-delete-error{
+    display:grid;gap:7px;padding:11px 12px;border:1px solid rgba(216,123,120,.22);border-radius:10px;
+    background:rgba(216,123,120,.055);color:#aaa6a0
+  }
+  .rw-delete-error strong{color:#e4a09c;font-size:13px}
+  .rw-delete-error div{white-space:pre-line;font-size:11px;line-height:1.6}
   .rw-admin-delete-project{margin-left:auto}
 
   .rw-editor,.rw-upload-box,.rw-danger-zone{

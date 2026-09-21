@@ -11,6 +11,8 @@ export function createMaintenanceView({
   projectService,
   selfUpdater,
   version,
+  currentSha = '',
+  hotUpdateClient,
 }) {
   let activeModal = null;
 
@@ -52,8 +54,10 @@ export function createMaintenanceView({
       const loaderNames = result.loaders
         .map(item => item.folder ? `${item.folder} / ${item.name || item.id}` : (item.name || item.id || '未命名脚本'))
         .join('、');
+      const runtimeOutdated = Boolean(currentSha && currentSha !== result.latestSha);
+      const hasUpdate = result.updateAvailable || runtimeOutdated;
 
-      if (result.updateAvailable) {
+      if (hasUpdate) {
         container.classList.add('rw-maintenance-client--update');
 
         const updateState = element('div', 'rw-update-state rw-update-state--available');
@@ -62,7 +66,7 @@ export function createMaintenanceView({
         versions.append(
           element('strong', '', `v${version}`),
           element('span', '', '→'),
-          element('strong', '', result.latestShortSha),
+          element('strong', '', '最新版'),
         );
         updateState.append(
           badge,
@@ -73,19 +77,19 @@ export function createMaintenanceView({
 
         const updateButton = button('立即更新创意工坊', 'primary rw-maintenance-update-cta', async () => {
           updateButton.textContent = '正在更新…';
-          const updated = await selfUpdater.updateLoaderLink();
+          const updated = typeof hotUpdateClient === 'function'
+            ? await hotUpdateClient()
+            : await selfUpdater.updateLoaderLink();
           if (!updated.loaderFound) throw new Error('没有找到可自动更新的创意工坊载入脚本');
 
-          if (updated.updated) {
-            try {
-              host.toastr?.success?.(
-                `已更新到 ${updated.latestShortSha}。当前热更基座会在下一次连接检查时自动接管；如界面未变化，刷新酒馆即可。`,
-                '创意工坊',
-              );
-            } catch {}
-          } else {
-            try { host.toastr?.info?.('创意工坊已经是最新版本', '创意工坊'); } catch {}
-          }
+          if (updated.hotReloaded) return;
+
+          try {
+            host.toastr?.success?.(
+              updated.updated ? `载入脚本已更新到 ${updated.latestShortSha}` : '创意工坊已经是最新版本',
+              '创意工坊',
+            );
+          } catch {}
           await renderClientSection(container);
         });
         container.appendChild(updateButton);
@@ -95,6 +99,7 @@ export function createMaintenanceView({
         const detailBody = element('div', 'rw-update-details-body');
         detailBody.append(
           element('div', '', `目标提交：${result.latestShortSha}`),
+          currentSha ? element('div', '', `当前运行：${currentSha.slice(0, 8)}`) : null,
           element('div', '', `载入脚本：${loaderNames}`),
         );
         details.append(summary, detailBody);
@@ -106,7 +111,7 @@ export function createMaintenanceView({
       const latest = element('div', 'rw-update-state rw-update-state--latest');
       latest.append(
         element('strong', '', '✓ 已是最新版本'),
-        element('span', '', `当前载入提交 ${result.latestShortSha}`),
+        element('span', '', `v${version}`),
       );
       container.appendChild(latest);
 

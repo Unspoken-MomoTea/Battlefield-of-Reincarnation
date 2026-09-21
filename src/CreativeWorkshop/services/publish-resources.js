@@ -1,5 +1,6 @@
 import { createTavernAdapter } from './tavern-adapter.js';
 import { SHARED_WORLDBOOK_NAME } from './installer/constants.js';
+import { isWorkshopLoaderScript } from './workshop-loader.js';
 
 function clone(value) {
   return structuredClone(value);
@@ -84,7 +85,7 @@ function flattenScripts(trees, scope) {
       for (const script of tree.scripts || []) {
         if (!script || typeof script !== 'object' || script.type === 'folder') continue;
         const id = String(script.id || '').trim();
-        if (id.startsWith('rw:')) continue;
+        if (id.startsWith('rw:') || isWorkshopLoaderScript(script)) continue;
         scripts.push({
           scope,
           folder,
@@ -97,7 +98,7 @@ function flattenScripts(trees, scope) {
       continue;
     }
     const id = String(tree.id || '').trim();
-    if (id.startsWith('rw:')) continue;
+    if (id.startsWith('rw:') || isWorkshopLoaderScript(tree)) continue;
     scripts.push({
       scope,
       folder: '',
@@ -179,11 +180,9 @@ export async function scanPublishResources(adapter = createTavernAdapter()) {
   } catch {}
 
   const scripts = [];
-  for (const scope of ['character', 'preset', 'global']) {
-    try {
-      scripts.push(...flattenScripts(await adapter.getScriptTrees(scope), scope));
-    } catch {}
-  }
+  try {
+    scripts.push(...flattenScripts(await adapter.getScriptTrees('character'), 'character'));
+  } catch {}
   const scriptNameCounts = new Map();
   for (const script of scripts) {
     if (script.id) continue;

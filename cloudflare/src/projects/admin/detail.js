@@ -6,7 +6,7 @@ export async function getPendingProjectReview(env, user, projectId) {
   assertAdmin(user);
   const row = await env.DB.prepare(
     `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
-            p.status, p.latest_version, p.published_version,
+            p.status, p.owner_hidden, p.latest_version, p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count, p.created_at, p.updated_at,
             owner.display_name AS owner_name, owner.discord_id AS owner_discord_id,
             v.version, v.changelog, v.created_at AS version_created_at, v.submitted_at,
@@ -61,6 +61,7 @@ export async function getPendingProjectReview(env, user, projectId) {
     project: {
       id: row.id, slug: row.slug, name: row.name, summary: row.summary, tags: parseTags(row.tags), dependencies: parseDependencies(row.dependencies),
       category: row.category, has_cover: Boolean(row.cover_key), project_status: row.status,
+      owner_hidden: Boolean(Number(row.owner_hidden || 0)),
       owner_name: row.owner_name, owner_discord_id: row.owner_discord_id,
       latest_version: Number(row.latest_version), published_version: Number(row.published_version || 0),
       review_status: row.review_status, changelog: row.changelog || '',

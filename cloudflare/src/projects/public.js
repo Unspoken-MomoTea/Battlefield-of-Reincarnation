@@ -1,6 +1,7 @@
 import { recordProjectDownload } from '../engagement.js';
 import { HttpError, json } from '../http.js';
 import { pageParams, projectPublic } from './core.js';
+import { buildPublicChangePreview, buildPublicContentPreview } from './public-preview.js';
 
 const PUBLIC_SORT_SQL = {
   latest: 'COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
@@ -52,7 +53,7 @@ export async function getPublicProject(projectId, env) {
             p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, COALESCE(v.reviewed_at, v.created_at) AS updated_at,
             u.display_name AS owner_name,
-            v.changelog, v.manifest_key
+            v.changelog, v.manifest_key, v.content_key
        FROM projects p
        JOIN users u ON u.id = p.owner_user_id
        JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
@@ -61,10 +62,57 @@ export async function getPublicProject(projectId, env) {
     .bind(projectId)
     .first();
   if (!row) throw new HttpError(404, 'project_not_found', '已发布作品不存在');
-  const manifestObject = await env.PROJECTS.get(row.manifest_key);
+  const [manifestObject, contentObject, historyResult] = await Promise.all([
+    env.PROJECTS.get(row.manifest_key),
+    env.PROJECTS.get(row.content_key),
+    env.DB.prepare(
+      `SELECT version, changelog, content_key, created_at, reviewed_at
+         FROM project_versions
+        WHERE project_id = ?
+          AND review_status = 'approved'
+          AND version <= ?
+        ORDER BY version DESC
+        LIMIT 20`,
+    )
+      .bind(projectId, Number(row.published_version))
+      .all(),
+  ]);
   if (!manifestObject) throw new HttpError(500, 'manifest_missing', '作品清单文件缺失');
+  if (!contentObject) throw new HttpError(500, 'bundle_missing', '作品包文件缺失');
+
   const manifest = JSON.parse(await new Response(manifestObject.body).text());
-  return json({ project: projectPublic(row), changelog: row.changelog || '', manifest });
+  const bundle = JSON.parse(await new Response(contentObject.body).text());
+  const contentPreview = buildPublicContentPreview(bundle);
+  const historyRows = historyResult.results || [];
+
+  let changePreview = null;
+  const previous = historyRows[1] || null;
+  if (previous?.content_key) {
+    const previousObject = await env.PROJECTS.get(previous.content_key);
+    if (previousObject) {
+      const previousBundle = JSON.parse(await new Response(previousObject.body).text());
+      changePreview = buildPublicChangePreview(
+        buildPublicContentPreview(previousBundle),
+        contentPreview,
+        previous.version,
+        row.published_version,
+      );
+    }
+  }
+
+  return json({
+    project: projectPublic(row),
+    changelog: row.changelog || '',
+    manifest,
+    content_preview: contentPreview,
+    change_preview: changePreview,
+    version_history: historyRows.map(item => ({
+      version: Number(item.version),
+      changelog: item.changelog || '',
+      created_at: Number(item.created_at || 0),
+      reviewed_at: Number(item.reviewed_at || 0),
+    })),
+  });
 }
 
 export async function getPublicProjectVersion(projectId, env) {

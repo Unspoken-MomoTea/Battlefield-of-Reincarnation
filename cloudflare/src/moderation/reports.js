@@ -46,9 +46,14 @@ async function getReport(env, reportId) {
 
 export async function createProjectReport(request, env, user, projectId) {
   const project = await env.DB.prepare(
-    'SELECT id, owner_user_id, published_version, status FROM projects WHERE id = ?',
+    'SELECT id, owner_user_id, published_version, status, owner_hidden FROM projects WHERE id = ?',
   ).bind(projectId).first();
-  if (!project || Number(project.published_version) < 1 || project.status === 'archived') {
+  if (
+    !project ||
+    Number(project.published_version) < 1 ||
+    project.status === 'archived' ||
+    Number(project.owner_hidden || 0) === 1
+  ) {
     throw new HttpError(404, 'project_not_found', '已发布作品不存在');
   }
   if (Number(project.owner_user_id) === Number(user.id)) {

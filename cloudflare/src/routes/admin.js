@@ -2,7 +2,7 @@ import { json } from '../http.js';
 import { listAdminReports, resolveProjectReport } from '../moderation/reports.js';
 import { listAdminUsers, setUserBan } from '../moderation/users.js';
 import {
-  getAdminProjectCover, getAdminProjectDiff, getPendingProjectReview,
+  deleteAdminProject, getAdminProjectCover, getAdminProjectDiff, getPendingProjectReview,
   listAdminAuditLogs, listAdminProjects, reviewProject,
   setAdminProjectState,
 } from '../projects.js';
@@ -31,6 +31,11 @@ export async function routeAdmin(request, env, pathname) {
   const reportId = adminEntityIdFrom(pathname, 'reports');
   if (request.method === 'POST' && reportId) {
     return resolveProjectReport(request, env, await authenticatedUser(request, env), reportId);
+  }
+
+  const deleteId = adminProjectIdFrom(pathname);
+  if (request.method === 'DELETE' && deleteId) {
+    return deleteAdminProject(env, await authenticatedUser(request, env), deleteId);
   }
 
   const coverId = adminProjectIdFrom(pathname, 'cover');

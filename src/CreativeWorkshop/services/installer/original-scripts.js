@@ -8,14 +8,17 @@ function scriptEnabled(script) {
   return script?.enabled !== false;
 }
 
-function disabledScript(script) {
-  return { ...clone(script), enabled: false };
+function setScriptEnabled(script, enabled) {
+  return { ...clone(script), enabled: Boolean(enabled) };
 }
 
 function restoreEnabledState(script, beforeScript) {
-  const next = clone(script);
-  next.enabled = scriptEnabled(beforeScript);
-  return next;
+  return setScriptEnabled(script, scriptEnabled(beforeScript));
+}
+
+function desiredState(value) {
+  if (value?.desiredState === 'enabled' || value?.state === 'enabled' || value?.action === 'enable') return 'enabled';
+  return 'disabled';
 }
 
 function scriptIdentity(script, folderName = '') {
@@ -92,10 +95,10 @@ export function findOriginalScriptTargets(trees, target) {
 function locateScript(working, target) {
   const scope = String(target?.scope || '').trim();
   const trees = working.get(scope);
-  if (!trees) throw new Error(`找不到需要关闭的原脚本作用域“${scope || '未知'}”`);
+  if (!trees) throw new Error(`找不到需要控制状态的原脚本作用域“${scope || '未知'}”`);
   const matches = findOriginalScriptTargets(trees, target);
   const label = target?.name || target?.id || '未知脚本';
-  if (!matches.length) throw new Error(`找不到需要关闭的原脚本“${label}”`);
+  if (!matches.length) throw new Error(`找不到需要控制状态的原脚本“${label}”`);
   if (matches.length > 1) throw new Error(`原脚本“${label}”存在多个匹配项，请由作者指定脚本 ID 或文件夹名`);
   return { scope, ...matches[0] };
 }
@@ -106,7 +109,9 @@ function otherClaims(projects, projectId) {
     if (!project?.applied || project.id === projectId) continue;
     for (const change of project.installTargets?.originalScriptChanges || []) {
       if (!change?.scope || !change?.identity) continue;
-      claims.set(identityKey(change.scope, change.identity), change);
+      const key = identityKey(change.scope, change.identity);
+      if (!claims.has(key)) claims.set(key, []);
+      claims.get(key).push(change);
     }
   }
   return claims;
@@ -122,6 +127,15 @@ function findRecordedScript(trees, change) {
     matchesIdentity(location.script, location.folderName, change.identity),
   );
   return matches.length === 1 ? matches[0] : null;
+}
+
+function inheritedClaim(claims, key, ownState) {
+  const values = claims.get(key) || [];
+  const opposite = values.find(change => desiredState(change) !== ownState);
+  if (opposite) {
+    throw new Error('另一个已安装工坊作品对同一原脚本要求了相反的启用状态，请先停用其中一个作品');
+  }
+  return values[0] || null;
 }
 
 export async function syncOriginalScriptConflicts({ adapter, storage }, installed, plan, state) {
@@ -151,8 +165,9 @@ export async function syncOriginalScriptConflicts({ adapter, storage }, installe
     const key = identityKey(located.scope, identity);
     desiredKeys.add(key);
 
+    const targetState = desiredState(directive);
     const previousChange = previousByKey.get(key);
-    const inherited = claims.get(key);
+    const inherited = inheritedClaim(claims, key, targetState);
     const currentFingerprint = fingerprint(located.script);
     const wasModified =
       Boolean(previousChange?.userModified) ||
@@ -164,11 +179,12 @@ export async function syncOriginalScriptConflicts({ adapter, storage }, installe
       inherited?.beforeScript ??
       located.script,
     );
-    const after = disabledScript(located.script);
+    const after = setScriptEnabled(located.script, targetState === 'enabled');
     located.set(after);
 
     nextChanges.push({
-      action: directive.action,
+      action: targetState === 'enabled' ? 'enable' : 'disable',
+      desiredState: targetState,
       scope: located.scope,
       identity,
       beforeScript,
@@ -181,7 +197,7 @@ export async function syncOriginalScriptConflicts({ adapter, storage }, installe
 
   for (const change of previous) {
     const key = identityKey(change.scope, change.identity);
-    if (desiredKeys.has(key) || claims.has(key)) continue;
+    if (desiredKeys.has(key)) continue;
 
     const trees = working.get(change.scope);
     if (!trees) {
@@ -195,6 +211,13 @@ export async function syncOriginalScriptConflicts({ adapter, storage }, installe
       unrestored.push(change);
       continue;
     }
+
+    const inherited = (claims.get(key) || [])[0] || null;
+    if (inherited) {
+      located.set(setScriptEnabled(located.script, desiredState(inherited) === 'enabled'));
+      continue;
+    }
+
     if (change.userModified || fingerprint(located.script) !== change.afterFingerprint) {
       warnings.push(`原脚本“${change.identity?.name || change.identity?.id || ''}”安装后被用户修改，已保留修改并仅恢复原启用状态`);
       located.set(restoreEnabledState(located.script, change.beforeScript));
@@ -229,7 +252,6 @@ export async function restoreOriginalScriptConflicts({ adapter, storage }, insta
 
   for (const change of previous) {
     const key = identityKey(change.scope, change.identity);
-    if (claims.has(key)) continue;
 
     const trees = working.get(change.scope);
     if (!trees) {
@@ -243,6 +265,13 @@ export async function restoreOriginalScriptConflicts({ adapter, storage }, insta
       unrestored.push(change);
       continue;
     }
+
+    const inherited = (claims.get(key) || [])[0] || null;
+    if (inherited) {
+      located.set(setScriptEnabled(located.script, desiredState(inherited) === 'enabled'));
+      continue;
+    }
+
     if (change.userModified || fingerprint(located.script) !== change.afterFingerprint) {
       warnings.push(`原脚本“${change.identity?.name || change.identity?.id || ''}”安装后被用户修改，已保留修改并仅恢复原启用状态`);
       located.set(restoreEnabledState(located.script, change.beforeScript));
@@ -262,7 +291,12 @@ export async function restoreOriginalScriptConflicts({ adapter, storage }, insta
 
 export function isOriginalScriptDisabled(script) {
   const raw = record(script);
-  return Boolean(raw) && raw.enabled === false;
+  return Boolean(raw) && !scriptEnabled(raw);
+}
+
+export function isOriginalScriptInState(script, state) {
+  const raw = record(script);
+  return Boolean(raw) && scriptEnabled(raw) === (state === 'enabled');
 }
 
 export function originalScriptTargetKey(scope, identity) {

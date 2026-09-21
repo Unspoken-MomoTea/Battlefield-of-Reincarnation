@@ -160,6 +160,14 @@ export function workshopTemplate(version) {
 
               <div class="rw-publish-divider"></div>
 
+              <div class="rw-publish-step-title">
+                <span>04</span>
+                <div><strong>原版资源</strong><small>直接记录作品启用期间要保持、启用或停用的原世界书 / 正则 / 脚本。</small></div>
+              </div>
+              <div data-role="create-resource-states"></div>
+
+              <div class="rw-publish-divider"></div>
+
               <div class="rw-publish-upload-block">
                 <span class="rw-field-label">封面图（可选）</span>
                 <label class="rw-cover-dropzone" data-drop-target="create-cover">
@@ -177,10 +185,10 @@ export function workshopTemplate(version) {
           </div>
 
           <footer class="rw-publish-footer">
-            <div class="rw-publish-footer-note">● 下一步会读取当前酒馆已启用的世界书/脚本，让你选择需要临时关闭的原版内容。</div>
+            <div class="rw-publish-footer-note">● 原版资源状态会随作品保存；停用/卸载作品时恢复安装前状态。</div>
             <div class="rw-row">
               <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
-              <button class="rw-button primary" type="submit">下一步</button>
+              <button class="rw-button primary" type="submit">提交审核</button>
             </div>
           </footer>
         </form>

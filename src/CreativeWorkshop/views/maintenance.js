@@ -97,11 +97,11 @@ export function createMaintenanceView({
         const details = element('details', 'rw-update-details');
         const summary = element('summary', '', '查看载入信息');
         const detailBody = element('div', 'rw-update-details-body');
-        detailBody.append(
-          element('div', '', `目标提交：${result.latestShortSha}`),
-          currentSha ? element('div', '', `当前运行：${currentSha.slice(0, 8)}`) : null,
-          element('div', '', `载入脚本：${loaderNames}`),
-        );
+        detailBody.appendChild(element('div', '', `目标提交：${result.latestShortSha}`));
+        if (currentSha) {
+          detailBody.appendChild(element('div', '', `当前运行：${currentSha.slice(0, 8)}`));
+        }
+        detailBody.appendChild(element('div', '', `载入脚本：${loaderNames}`));
         details.append(summary, detailBody);
         container.appendChild(details);
         return;

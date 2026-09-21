@@ -12,7 +12,11 @@ export async function applyProject({ adapter, storage }, projectId) {
   if (!installed) throw new Error('本地没有这个作品，请先下载');
   const plan = buildArtifactPlan(installed);
   const scriptCount = Object.values(plan.scripts ?? {}).reduce((sum, trees) => sum + trees.length, 0);
-  if (!plan.worldbook.length && !plan.regexes.length && !plan.presets.length && !scriptCount) {
+  const stateOverrideCount =
+    (plan.originalConflicts?.length ?? 0) +
+    (plan.originalRegexConflicts?.length ?? 0) +
+    (plan.originalScriptConflicts?.length ?? 0);
+  if (!plan.worldbook.length && !plan.regexes.length && !plan.presets.length && !scriptCount && !stateOverrideCount) {
     throw new Error('这个作品目前只有 data artifact，没有可直接安装到酒馆的内容');
   }
 

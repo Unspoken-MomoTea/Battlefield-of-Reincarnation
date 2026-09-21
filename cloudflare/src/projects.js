@@ -14,6 +14,7 @@ export {
   uploadProjectVersion,
 } from './projects/author.js';
 export {
+  deleteAdminProject,
   getPendingProjectReview,
   listAdminAuditLogs,
   listAdminProjects,

@@ -278,9 +278,12 @@ export function createSmartArtifactQueue({
     emit();
   }
 
-  function bundle(overrideArtifacts = null) {
+  function bundle(overrideArtifacts = null, resourceOverrides = []) {
     const artifactsToUse = overrideArtifacts ? clone(overrideArtifacts) : artifacts();
-    return combineUploadBundles([{ schema_version: 1, artifacts: artifactsToUse }]);
+    return combineUploadBundles(
+      [{ schema_version: 1, artifacts: artifactsToUse }],
+      resourceOverrides,
+    );
   }
 
   function summary() {

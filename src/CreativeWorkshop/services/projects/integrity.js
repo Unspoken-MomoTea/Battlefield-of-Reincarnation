@@ -17,6 +17,33 @@ export function validateDownloadedBundle(bundle) {
   if (!Array.isArray(bundle.artifacts) || !bundle.artifacts.length || bundle.artifacts.length > 32) {
     throw new Error('下载的作品包 artifact 数量无效');
   }
+  if (bundle.resource_overrides !== undefined) {
+    if (!Array.isArray(bundle.resource_overrides) || bundle.resource_overrides.length > 300) {
+      throw new Error('下载的作品包原版资源状态规则无效');
+    }
+    for (const rule of bundle.resource_overrides) {
+      if (!rule || !['worldbook', 'regex', 'script'].includes(rule.kind) || !['enabled', 'disabled'].includes(rule.state) || !rule.target) {
+        throw new Error('下载的作品包原版资源状态规则无效');
+      }
+      if (rule.kind === 'worldbook') {
+        if (!String(rule.target.worldbook || '').trim() || (!String(rule.target.uid ?? '').trim() && !String(rule.target.name || '').trim())) {
+          throw new Error('下载的作品包世界书状态规则目标无效');
+        }
+      }
+      if (rule.kind === 'regex') {
+        if (String(rule.target.scope || 'character') !== 'character' || (!String(rule.target.id || '').trim() && !String(rule.target.name || '').trim())) {
+          throw new Error('下载的作品包正则状态规则目标无效');
+        }
+      }
+      if (rule.kind === 'script') {
+        if (!['character', 'preset', 'global'].includes(String(rule.target.scope || '')) ||
+            (!String(rule.target.id || '').trim() && !String(rule.target.name || '').trim())) {
+          throw new Error('下载的作品包脚本状态规则目标无效');
+        }
+      }
+    }
+  }
+
   for (const [index, artifact] of bundle.artifacts.entries()) {
     if (!artifact || typeof artifact !== 'object' || !ALLOWED_KINDS.has(artifact.kind)) {
       throw new Error(`第 ${index + 1} 个 artifact 类型不受支持`);
@@ -77,6 +104,12 @@ export async function verifyBundleAgainstManifest(bundle, manifest, expectedProj
   if (Number(manifest.artifact_count) !== bundle.artifacts.length) throw new Error('作品 manifest 的 artifact_count 不一致');
   if (expectedProject && (manifest.project?.id !== expectedProject.id || Number(manifest.project?.version) !== Number(expectedProject.version))) {
     throw new Error('作品 manifest 与项目版本不一致');
+  }
+
+  const declaredOverrides = JSON.stringify(manifest.resource_overrides || []);
+  const actualOverrides = JSON.stringify(bundle.resource_overrides || []);
+  if (declaredOverrides !== actualOverrides) {
+    throw new Error('作品原版资源状态规则与 manifest 不一致');
   }
 
   let totalBytes = 0;

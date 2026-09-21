@@ -3,6 +3,7 @@ import { parsePresetContent, safePresetName } from './normalize/preset.js';
 import { normalizeWorldbookArtifact } from './normalize/worldbook.js';
 import { normalizeScriptArtifact } from './normalize/script.js';
 import { clone } from './utils.js';
+import { resourceOverridesFromBundle } from '../resource-overrides.js';
 
 export function buildArtifactPlan(installed) {
   const bundle = installed.bundle;
@@ -16,6 +17,7 @@ export function buildArtifactPlan(installed) {
     scripts: { character: [], preset: [], global: [] },
     data: [],
     originalConflicts: [],
+    originalRegexConflicts: [],
     originalScriptConflicts: [],
   };
   bundle.artifacts.forEach((artifact, index) => {
@@ -31,13 +33,6 @@ export function buildArtifactPlan(installed) {
           },
         },
       })));
-      for (const conflict of artifact.original_conflicts || []) {
-        plan.originalConflicts.push({
-          ...clone(conflict),
-          artifactIndex: index,
-          artifactName: artifact.name,
-        });
-      }
       return;
     }
     if (artifact.kind === 'regex') {
@@ -54,13 +49,6 @@ export function buildArtifactPlan(installed) {
     if (artifact.kind === 'script') {
       const normalized = normalizeScriptArtifact(artifact, installed, index);
       plan.scripts[normalized.scope].push(...normalized.trees);
-      for (const conflict of artifact.original_conflicts || []) {
-        plan.originalScriptConflicts.push({
-          ...clone(conflict),
-          artifactIndex: index,
-          artifactName: artifact.name,
-        });
-      }
       return;
     }
     if (artifact.kind === 'data') {
@@ -69,5 +57,17 @@ export function buildArtifactPlan(installed) {
     }
     throw new Error(`不支持的 artifact 类型：${artifact.kind}`);
   });
+
+  for (const rule of resourceOverridesFromBundle(bundle)) {
+    const directive = {
+      state: rule.state,
+      action: rule.state === 'enabled' ? 'enable' : 'disable',
+      target: clone(rule.target),
+    };
+    if (rule.kind === 'worldbook') plan.originalConflicts.push(directive);
+    if (rule.kind === 'regex') plan.originalRegexConflicts.push(directive);
+    if (rule.kind === 'script') plan.originalScriptConflicts.push(directive);
+  }
+
   return plan;
 }

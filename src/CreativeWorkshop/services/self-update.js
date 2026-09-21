@@ -55,6 +55,18 @@ function rewriteLoaderContent(content, sha) {
   return next;
 }
 
+async function githubMainSha(fetchImpl) {
+  const response = await fetchImpl(GITHUB_MAIN_COMMIT, {
+    headers: { Accept: 'application/vnd.github+json' },
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error(`无法查询工坊最新版本：GitHub HTTP ${response.status}`);
+  const data = await response.json();
+  const sha = String(data?.sha || '').trim();
+  if (!/^[0-9a-f]{40}$/iu.test(sha)) throw new Error('GitHub 返回的最新提交无效');
+  return sha;
+}
+
 async function latestMainSha(fetchImpl) {
   try {
     const response = await fetchImpl(`${getApiBase()}/api/client/latest`, {
@@ -68,15 +80,17 @@ async function latestMainSha(fetchImpl) {
     }
   } catch {}
 
-  const response = await fetchImpl(GITHUB_MAIN_COMMIT, {
-    headers: { Accept: 'application/vnd.github+json' },
-    cache: 'no-store',
-  });
-  if (!response.ok) throw new Error(`无法查询工坊最新版本：GitHub HTTP ${response.status}`);
-  const data = await response.json();
-  const sha = String(data?.sha || '').trim();
-  if (!/^[0-9a-f]{40}$/iu.test(sha)) throw new Error('GitHub 返回的最新提交无效');
-  return sha;
+  return githubMainSha(fetchImpl);
+}
+
+async function resolveLatestShaForRefs(fetchImpl, refs) {
+  let latestSha = await latestMainSha(fetchImpl);
+  if ((refs || []).some(ref => ref !== latestSha)) {
+    try {
+      latestSha = await githubMainSha(fetchImpl);
+    } catch {}
+  }
+  return latestSha;
 }
 
 async function scanLoaders(adapter) {
@@ -110,11 +124,9 @@ export function createWorkshopSelfUpdater({
 
   return {
     async check() {
-      const [latestSha, scan] = await Promise.all([
-        latestMainSha(fetchImpl),
-        scanLoaders(adapter),
-      ]);
+      const scan = await scanLoaders(adapter);
       const refs = [...new Set(scan.loaders.flatMap(item => item.refs))];
+      const latestSha = await resolveLatestShaForRefs(fetchImpl, refs);
       return {
         repository: REPOSITORY,
         entryPath: ENTRY_PATH,
@@ -129,8 +141,9 @@ export function createWorkshopSelfUpdater({
     },
 
     async updateLoaderLink() {
-      const latestSha = await latestMainSha(fetchImpl);
       const { loaders, treesByScope } = await scanLoaders(adapter);
+      const refs = [...new Set(loaders.flatMap(item => item.refs))];
+      const latestSha = await resolveLatestShaForRefs(fetchImpl, refs);
       if (!loaders.length) {
         return {
           updated: false,

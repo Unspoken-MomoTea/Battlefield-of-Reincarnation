@@ -1,5 +1,6 @@
 import { HttpError, json } from '../../http.js';
 import { assertAdmin, parseDependencies, parseTags } from '../core.js';
+import { buildPublicChangePreview, buildPublicContentPreview } from '../public-preview.js';
 
 export async function getPendingProjectReview(env, user, projectId) {
   assertAdmin(user);
@@ -29,6 +30,32 @@ export async function getPendingProjectReview(env, user, projectId) {
   const [manifestText, bundleText] = await Promise.all([
     new Response(manifestObject.body).text(), new Response(bundleObject.body).text(),
   ]);
+  const bundle = JSON.parse(bundleText);
+  const contentPreview = buildPublicContentPreview(bundle);
+
+  const previousVersion = await env.DB.prepare(
+    `SELECT version, content_key
+       FROM project_versions
+      WHERE project_id = ?
+        AND version < ?
+        AND review_status = 'approved'
+      ORDER BY version DESC
+      LIMIT 1`,
+  ).bind(projectId, Number(row.version)).first();
+
+  let changePreview = null;
+  if (previousVersion?.content_key) {
+    const previousObject = await env.PROJECTS.get(previousVersion.content_key);
+    if (previousObject) {
+      const previousBundle = JSON.parse(await new Response(previousObject.body).text());
+      changePreview = buildPublicChangePreview(
+        buildPublicContentPreview(previousBundle),
+        contentPreview,
+        previousVersion.version,
+        row.version,
+      );
+    }
+  }
 
   return json({
     project: {
@@ -42,7 +69,9 @@ export async function getPendingProjectReview(env, user, projectId) {
       downloads_count: Number(row.downloads_count || 0), likes_count: Number(row.likes_count || 0),
       favorites_count: Number(row.favorites_count || 0), updated_at: Number(row.updated_at),
     },
-    manifest: JSON.parse(manifestText), bundle: JSON.parse(bundleText),
+    manifest: JSON.parse(manifestText), bundle,
+    content_preview: contentPreview,
+    change_preview: changePreview,
     versions: (versionsResult.results || []).map(version => ({
       version: Number(version.version), name: version.name || '', summary: version.summary || '',
       tags: parseTags(version.tags), dependencies: parseDependencies(version.dependencies), category: version.category || '', has_cover: Boolean(version.cover_key),

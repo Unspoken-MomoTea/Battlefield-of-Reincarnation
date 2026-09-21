@@ -121,11 +121,7 @@ export function workshopTemplate(version) {
 
               <details class="rw-publish-advanced">
                 <summary>高级：项目依赖（可选）</summary>
-                <label class="rw-field">
-                  <span>依赖项目</span>
-                  <input class="rw-input" name="dependencies" maxlength="1200" placeholder="项目ID@最低版本，多个用逗号分隔">
-                </label>
-                <small class="rw-muted">普通作品一般不需要填写；仅在必须先安装其他工坊项目时使用。</small>
+                <div data-role="create-dependencies"></div>
               </details>
             </section>
 
@@ -157,11 +153,8 @@ export function workshopTemplate(version) {
                     <input data-field="create-script" type="file" multiple accept=".js,.mjs,.json,application/json,text/javascript,application/javascript" hidden>
                   </label>
                 </div>
-                <label class="rw-smart-add-more" data-drop-target="create-version">
-                  ＋ 其他文件 / 预设 / 完整 bundle
-                  <input data-field="create-version" type="file" multiple accept=".json,.txt,.js,.mjs,application/json,text/plain,text/javascript,application/javascript" hidden>
-                </label>
-                <div class="rw-file-state" data-role="create-version-state">选择上面的对应入口；其他文件会自动识别。</div>
+                <input data-field="create-version" type="file" multiple hidden>
+                <div class="rw-file-state" data-role="create-version-state">选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。</div>
                 <div class="rw-artifact-list rw-smart-artifact-list" data-role="create-artifact-list" hidden></div>
               </div>
 
@@ -184,7 +177,7 @@ export function workshopTemplate(version) {
           </div>
 
           <footer class="rw-publish-footer">
-            <div class="rw-publish-footer-note">● 系统会先检查文件，然后再让你选择是否需要屏蔽/替换原版世界书或脚本。</div>
+            <div class="rw-publish-footer-note">● 下一步会读取当前酒馆已启用的世界书/脚本，让你选择需要临时关闭的原版内容。</div>
             <div class="rw-row">
               <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
               <button class="rw-button primary" type="submit">下一步</button>

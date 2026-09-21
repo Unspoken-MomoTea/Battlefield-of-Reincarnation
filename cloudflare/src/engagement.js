@@ -6,7 +6,7 @@ async function requirePublishedProject(env, projectId) {
   const project = await env.DB.prepare(
     `SELECT id, downloads_count, likes_count, favorites_count
        FROM projects
-      WHERE id = ? AND published_version > 0 AND status <> 'archived'`,
+      WHERE id = ? AND published_version > 0 AND status <> 'archived' AND owner_hidden = 0`,
   )
     .bind(projectId)
     .first();

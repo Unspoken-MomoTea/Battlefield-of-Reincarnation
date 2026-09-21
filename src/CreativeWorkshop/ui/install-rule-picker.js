@@ -35,10 +35,14 @@ function makeCheckbox(doc, checked = false) {
   return input;
 }
 
-function resourceOption(doc, { title, meta, checked, disabled = false, onChange }) {
+function resourceOption(doc, { title, meta, checked, disabled = false, preview = '', onChange }) {
+  const wrap = doc.createElement('div');
+  wrap.className = 'rw-resource-option-wrap';
+
   const label = doc.createElement('label');
   label.className = disabled ? 'rw-resource-option is-disabled' : 'rw-resource-option';
   const checkbox = makeCheckbox(doc, checked);
+  checkbox.disabled = disabled;
   checkbox.addEventListener('change', () => onChange(checkbox.checked));
   const copy = doc.createElement('span');
   const strong = doc.createElement('strong');
@@ -47,7 +51,19 @@ function resourceOption(doc, { title, meta, checked, disabled = false, onChange 
   small.textContent = meta;
   copy.append(strong, small);
   label.append(checkbox, copy);
-  return label;
+  wrap.appendChild(label);
+
+  if (preview) {
+    const details = doc.createElement('details');
+    details.className = 'rw-resource-preview';
+    const summary = doc.createElement('summary');
+    summary.textContent = '查看内容';
+    const pre = doc.createElement('pre');
+    pre.textContent = preview;
+    details.append(summary, pre);
+    wrap.appendChild(details);
+  }
+  return wrap;
 }
 
 export function createInstallRulePicker({ doc, artifacts, resources }) {
@@ -87,7 +103,7 @@ export function createInstallRulePicker({ doc, artifacts, resources }) {
   if (artifacts.some(item => item.kind === 'worldbook')) {
     const section = doc.createElement('section');
     section.className = 'rw-rule-section';
-    section.innerHTML = '<div class="rw-rule-section-title"><span>02</span><div><strong>原版世界书处理</strong><small>只有这个作品确实要覆盖的条目才需要勾选。安装时临时关闭，停用作品时恢复。</small></div></div>';
+    section.innerHTML = '<div class="rw-rule-section-title"><span>02</span><div><strong>关闭原世界书（可选）</strong><small>这里只显示当前角色、聊天或全局正在启用的世界书条目。勾选后安装时临时关闭，停用作品时恢复。</small></div></div>';
 
     const books = doc.createElement('div');
     books.className = 'rw-resource-groups';
@@ -102,7 +118,7 @@ export function createInstallRulePicker({ doc, artifacts, resources }) {
         details.className = 'rw-resource-group';
         details.open = Boolean(book.bound);
         const summary = doc.createElement('summary');
-        summary.textContent = `${book.bound ? '当前角色 · ' : ''}${book.name} · ${book.entries.length} 条`;
+        summary.textContent = `${book.name} · ${book.entries.length} 条 · ${(book.sources || []).join(' / ')}`;
         details.appendChild(summary);
 
         const options = doc.createElement('div');
@@ -121,7 +137,12 @@ export function createInstallRulePicker({ doc, artifacts, resources }) {
             title: entry.name,
             meta: entry.selectable === false
               ? '同名且无 UID · 无法安全自动替换'
-              : `${entry.uid ? `UID ${entry.uid} · ` : ''}${entry.enabled ? '当前启用' : '当前已关闭'}`,
+              : [
+                  `${entry.strategy_symbol || '🟢'} ${entry.strategy_label || '关键词'}`,
+                  entry.uid ? `UID ${entry.uid}` : '',
+                  entry.keys?.length ? `关键词：${entry.keys.slice(0, 4).join('、')}` : '',
+                ].filter(Boolean).join(' · '),
+            preview: entry.content || '',
             checked: selectedWorldbooks.has(key),
             disabled: entry.selectable === false,
             onChange: checked => {
@@ -141,7 +162,7 @@ export function createInstallRulePicker({ doc, artifacts, resources }) {
   if (artifacts.some(item => item.kind === 'script')) {
     const section = doc.createElement('section');
     section.className = 'rw-rule-section';
-    section.innerHTML = '<div class="rw-rule-section-title"><span>03</span><div><strong>酒馆助手脚本处理</strong><small>勾选被新脚本替代的旧脚本。系统会记录原脚本，停用作品时安全恢复。</small></div></div>';
+    section.innerHTML = '<div class="rw-rule-section-title"><span>03</span><div><strong>关闭原酒馆助手脚本（可选）</strong><small>这里只列出当前启用的脚本。勾选被新脚本替代的旧脚本，停用作品时安全恢复。</small></div></div>';
 
     const scripts = doc.createElement('div');
     scripts.className = 'rw-resource-groups';

@@ -16,8 +16,31 @@ export function createAuthorView({
   statusLabels,
   getAuth,
   notifyError,
+  confirmDialog,
   openModal,
 }) {
+  function deleteErrorMessage(error, project) {
+    if (
+      project.status === 'archived' &&
+      (error?.code === 'published_project_delete_forbidden' || error?.status === 404 || error?.status === 405)
+    ) {
+      return '服务器仍是旧版，尚未启用“下架后删除”能力。请先重新部署 staging Worker（服务端需要 0.9.0+），再重试。';
+    }
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  function showDeleteFailure(project, error) {
+    const modal = openModal('删除失败', { wide: false });
+    const box = element('div', 'rw-delete-error');
+    box.append(
+      element('strong', '', `“${project.name}”没有被删除`),
+      element('div', '', deleteErrorMessage(error, project)),
+    );
+    const actions = element('div', 'rw-row');
+    actions.appendChild(button('知道了', 'primary', () => modal.close({ force: true })));
+    modal.body.append(box, actions);
+  }
+
   function ownProjectCard(project) {
     const card = element('article', 'rw-card');
     if (project.has_cover && Number(project.published_version) > 0) {
@@ -60,7 +83,6 @@ export function createAuthorView({
 
     let editorModal = null;
     let uploadModal = null;
-    let deleteModal = null;
 
     const mountPanelInModal = (title, panel, { wide = true, onClosed = null } = {}) => {
       const parent = panel.parentNode;
@@ -381,28 +403,29 @@ export function createAuthorView({
       actions.appendChild(element('span', 'rw-status', '正在等待审核'));
     }
 
-    const deleteZone = element('div', 'rw-danger-zone');
-    deleteZone.hidden = true;
     const canPermanentlyDelete = project.status !== 'pending' &&
       (Number(project.published_version) === 0 || project.status === 'archived');
-    if (canPermanentlyDelete) {
-      const deleteText = element(
-        'div',
-        'rw-status bad',
-        Number(project.published_version) > 0
-          ? '永久删除会清理此作品的全部版本、Manifest、封面、互动记录与服务器文件，且无法恢复。'
-          : '删除后会同时清理这个草稿的版本文件与封面，且无法恢复。',
-      );
-      const deleteActions = element('div', 'rw-row');
-      deleteActions.appendChild(button('确认永久删除', 'danger', async () => {
+
+    const deleteProjectAction = async () => {
+      const confirmed = await confirmDialog({
+        title: `删除“${project.name}”？`,
+        message: Number(project.published_version) > 0
+          ? '删除后会清理这个作品的全部版本、Manifest、封面、互动记录和服务器文件，且无法恢复。'
+          : '删除后会清理这个草稿的版本文件和封面，且无法恢复。',
+        confirmText: '删除作品',
+        cancelText: '取消',
+        danger: true,
+      });
+      if (!confirmed) return;
+
+      try {
         await workshopApi.deleteProject(project.id);
         try { host.toastr?.success?.('作品已删除', '创意工坊'); } catch {}
-        deleteModal?.close();
         await refreshMine();
-      }));
-      deleteActions.appendChild(button('取消', '', () => deleteModal?.close()));
-      deleteZone.append(deleteText, deleteActions);
-    }
+      } catch (error) {
+        showDeleteFailure(project, error);
+      }
+    };
 
     const menu = element('div', 'rw-card-menu');
     const menuTrigger = button('⋯', 'rw-card-menu-trigger', () => {
@@ -426,18 +449,14 @@ export function createAuthorView({
       });
     }));
     if (canPermanentlyDelete) {
-      menuDropdown.appendChild(button(project.status === 'archived' ? '永久删除已下架作品' : '删除作品', 'danger', () => {
+      menuDropdown.appendChild(button('删除作品', 'danger', () => {
         menuDropdown.hidden = true;
-        deleteModal?.close();
-        deleteModal = mountPanelInModal('删除作品 · ' + project.name, deleteZone, {
-          wide: false,
-          onClosed: modal => { if (deleteModal === modal) deleteModal = null; },
-        });
+        void deleteProjectAction();
       }));
     }
     menu.append(menuTrigger, menuDropdown);
 
-    card.append(menu, actions, uploadBox, editor, deleteZone);
+    card.append(menu, actions, uploadBox, editor);
     return card;
   }
 

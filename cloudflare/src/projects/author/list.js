@@ -4,7 +4,7 @@ import { projectOwn } from '../core.js';
 export async function listOwnProjects(env, user) {
   const result = await env.DB.prepare(
     `SELECT p.id, p.slug, p.name, p.summary, p.tags, p.dependencies, p.project_type AS category, p.cover_key,
-            p.status, p.latest_version, p.published_version,
+            p.status, p.owner_hidden, p.latest_version, p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, p.updated_at,
             COALESCE((

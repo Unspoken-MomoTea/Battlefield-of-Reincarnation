@@ -39,63 +39,48 @@ export function createAdminProjectsView({
     return row;
   }
 
-  function projectProtectedTargets(artifacts) {
-    const rows = [];
-    for (const artifact of artifacts || []) {
-      for (const conflict of artifact.original_conflicts || []) {
-        const target = conflict.target || {};
-        if (artifact.kind === 'worldbook') {
-          rows.push({
-            kind: 'worldbook',
-            title: target.name || (target.uid ? `UID ${target.uid}` : '未命名条目'),
-            meta: [
-              target.worldbook ? `世界书：${target.worldbook}` : '',
-              target.uid ? `UID：${target.uid}` : '',
-              artifact.name ? `由：${artifact.name}` : '',
-            ].filter(Boolean).join(' · '),
-          });
-        }
-        if (artifact.kind === 'script') {
-          rows.push({
-            kind: 'script',
-            title: target.folder
-              ? `${target.folder} / ${target.name || target.id || '未命名脚本'}`
-              : (target.name || target.id || '未命名脚本'),
-            meta: [
-              ({ character: '当前角色', preset: '当前预设', global: '全局' })[target.scope] || target.scope || '',
-              target.id ? `ID：${target.id}` : '',
-              artifact.name ? `由：${artifact.name}` : '',
-            ].filter(Boolean).join(' · '),
-          });
-        }
-      }
-    }
-    return rows;
-  }
-
-  function renderProtectedTargets(artifacts) {
-    const targets = projectProtectedTargets(artifacts);
-    if (!targets.length) return null;
+  function renderProtectedTargets(rules) {
+    const values = Array.isArray(rules) ? rules : [];
+    if (!values.length) return null;
 
     const section = element('section', 'rw-workshop-rail-section rw-workshop-protected');
     section.append(
-      element('div', 'rw-workshop-rail-label', '安装时替换 / 屏蔽'),
-      element('div', 'rw-workshop-protected-note', '审核时请确认这些目标确实应该被临时关闭；停用作品后会按安装前状态恢复。'),
+      element('div', 'rw-workshop-rail-label', '原版资源状态'),
+      element('div', 'rw-workshop-protected-note', '审核时请确认这些“启用 / 停用”规则是否合理；停用作品后会恢复安装前状态。'),
     );
 
-    for (const target of targets) {
+    const scopeLabel = { character: '当前角色', preset: '当前预设', global: '全局' };
+    const iconLabel = { worldbook: '书', regex: '正', script: 'JS' };
+    for (const rule of values) {
+      const target = rule.target || {};
+      const kind = rule.kind || '';
+      const title = kind === 'worldbook'
+        ? (target.name || target.uid || '未命名条目')
+        : kind === 'regex'
+          ? (target.name || target.id || '未命名正则')
+          : (target.folder
+              ? `${target.folder} / ${target.name || target.id || '未命名脚本'}`
+              : (target.name || target.id || '未命名脚本'));
+      const meta = [
+        rule.state === 'enabled' ? '作者要求启用' : '作者要求停用',
+        kind === 'worldbook' && target.worldbook ? `世界书：${target.worldbook}` : '',
+        kind !== 'worldbook' ? (scopeLabel[target.scope] || target.scope || '') : '',
+        target.uid ? `UID：${target.uid}` : '',
+        target.id ? `ID：${target.id}` : '',
+      ].filter(Boolean).join(' · ');
+
       const row = element('div', 'rw-workshop-protected-row');
       row.append(
         element(
           'span',
-          `rw-workshop-protected-icon${target.kind === 'script' ? ' script' : ''}`,
-          target.kind === 'script' ? 'JS' : '书',
+          `rw-workshop-protected-icon${kind === 'script' ? ' script' : ''}`,
+          iconLabel[kind] || '项',
         ),
         element('div', 'rw-workshop-protected-copy'),
       );
       row.lastElementChild.append(
-        element('strong', '', target.title),
-        element('small', '', target.meta),
+        element('strong', '', title),
+        element('small', '', meta),
       );
       section.appendChild(row);
     }
@@ -338,8 +323,7 @@ export function createAdminProjectsView({
       rail.appendChild(reviewActions(item, project, modal));
       rail.appendChild(reviewSummary);
 
-      const artifacts = Array.isArray(detail.bundle?.artifacts) ? detail.bundle.artifacts : [];
-      const protectedSection = renderProtectedTargets(artifacts);
+      const protectedSection = renderProtectedTargets(detail.content_preview?.resource_overrides || []);
       if (protectedSection) rail.appendChild(protectedSection);
 
       if (project.dependencies?.length) {

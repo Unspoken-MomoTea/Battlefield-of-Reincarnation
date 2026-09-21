@@ -57,7 +57,7 @@ export function buildUploadBundle(project, fileName, rawText, selectedKind = 'da
 }
 
 
-export function combineUploadBundles(bundles) {
+export function combineUploadBundles(bundles, resourceOverrides = []) {
   if (!Array.isArray(bundles)) throw new Error('版本内容队列无效');
   const artifacts = [];
   for (const bundle of bundles) {
@@ -69,6 +69,9 @@ export function combineUploadBundles(bundles) {
   if (!artifacts.length) throw new Error('请至少添加一个内容文件');
   if (artifacts.length > 32) throw new Error('单个版本最多允许 32 个 artifact');
   const combined = { schema_version: 1, artifacts };
+  if (Array.isArray(resourceOverrides) && resourceOverrides.length) {
+    combined.resource_overrides = structuredClone(resourceOverrides);
+  }
   const byteSize = new TextEncoder().encode(JSON.stringify(combined)).byteLength;
   if (byteSize > MAX_BUNDLE_BYTES) throw new Error('单个版本超过 4 MB 限制');
   return combined;

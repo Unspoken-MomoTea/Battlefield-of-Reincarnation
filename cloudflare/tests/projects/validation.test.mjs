@@ -158,3 +158,116 @@ test('structured text artifacts are accepted when they contain valid JSON', () =
   }, 'regex');
   assert.equal(result.artifacts[0].format, 'text');
 });
+
+
+test('bundle validator accepts unified original resource state overrides', () => {
+  const result = validateBundle({
+    schema_version: 1,
+    artifacts: [{
+      kind: 'worldbook',
+      name: 'book.json',
+      format: 'json',
+      content: { entries: { 0: { comment: 'DLC', content: 'x' } } },
+    }],
+    resource_overrides: [
+      {
+        kind: 'worldbook',
+        state: 'enabled',
+        target: { worldbook: '原世界书', uid: '10', name: '原规则' },
+      },
+      {
+        kind: 'regex',
+        state: 'disabled',
+        target: {
+          scope: 'character',
+          id: 'old-regex',
+          name: '旧正则',
+          find_regex: 'foo',
+        },
+      },
+      {
+        kind: 'script',
+        state: 'enabled',
+        target: { scope: 'global', id: 'old-script', name: '旧脚本' },
+      },
+    ],
+  });
+
+  assert.deepEqual(result.resource_overrides, [
+    {
+      kind: 'worldbook',
+      state: 'enabled',
+      target: { worldbook: '原世界书', uid: '10', name: '原规则' },
+    },
+    {
+      kind: 'regex',
+      state: 'disabled',
+      target: {
+        scope: 'character',
+        id: 'old-regex',
+        name: '旧正则',
+        find_regex: 'foo',
+      },
+    },
+    {
+      kind: 'script',
+      state: 'enabled',
+      target: { scope: 'global', id: 'old-script', name: '旧脚本' },
+    },
+  ]);
+});
+
+test('bundle validator rejects unsafe or duplicate original resource state overrides', () => {
+  const base = {
+    schema_version: 1,
+    artifacts: [{
+      kind: 'worldbook',
+      name: 'book.json',
+      format: 'json',
+      content: { entries: { 0: { comment: 'DLC', content: 'x' } } },
+    }],
+  };
+
+  assert.throws(
+    () => validateBundle({
+      ...base,
+      resource_overrides: [{
+        kind: 'worldbook',
+        state: 'disabled',
+        target: { uid: '10', name: '缺少世界书名' },
+      }],
+    }),
+    error => error?.status === 400 && error?.code === 'invalid_resource_override_target',
+  );
+
+  assert.throws(
+    () => validateBundle({
+      ...base,
+      resource_overrides: [{
+        kind: 'regex',
+        state: 'enabled',
+        target: { scope: 'global', id: 'regex-1' },
+      }],
+    }),
+    error => error?.status === 400 && error?.code === 'invalid_resource_override_scope',
+  );
+
+  assert.throws(
+    () => validateBundle({
+      ...base,
+      resource_overrides: [
+        {
+          kind: 'script',
+          state: 'disabled',
+          target: { scope: 'character', id: 'script-1' },
+        },
+        {
+          kind: 'script',
+          state: 'enabled',
+          target: { scope: 'character', id: 'script-1' },
+        },
+      ],
+    }),
+    error => error?.status === 400 && error?.code === 'duplicate_resource_override',
+  );
+});

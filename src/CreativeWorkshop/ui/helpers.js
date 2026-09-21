@@ -92,7 +92,10 @@ export function createUiHelpers(doc, host, mount = doc.body) {
 
   function openModal(title, { wide = false, extraWide = false, onClose = null, confirmDiscard = false } = {}) {
     const backdrop = element('div', 'rw-modal-backdrop');
-    const panel = element('section', `rw-modal${wide ? ' rw-modal--wide' : ''}`);
+    const panel = element(
+      'section',
+      `rw-modal${extraWide ? ' rw-modal--xl' : wide ? ' rw-modal--wide' : ''}`,
+    );
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
 

@@ -47,6 +47,8 @@ export function createWorkshopViews(context) {
       projectService: context.projectService,
       selfUpdater: context.selfUpdater,
       version: context.version,
+      currentSha: context.currentSha,
+      hotUpdateClient: context.hotUpdateClient,
     }),
     admin: createAdminView({
       ...common,

@@ -1,6 +1,7 @@
 import { SHARED_WORLDBOOK_NAME } from '../constants.js';
 import { normalizedName } from '../compare.js';
-import { isProjectWorldbookEntry, scriptPrefix } from '../ownership.js';
+import { isProjectWorldbookEntry, regexPrefix, scriptPrefix } from '../ownership.js';
+import { findOriginalRegexTargets } from '../original-regexes.js';
 import { findOriginalScriptTargets } from '../original-scripts.js';
 import { maybe } from '../utils.js';
 
@@ -18,6 +19,8 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
     plan.scripts?.character?.length ||
     oldTargets.worldbook ||
     oldTargets.regexIds?.length ||
+    plan.originalRegexConflicts?.length ||
+    oldTargets.originalRegexChanges?.length ||
     oldTargets.scripts?.character?.length ||
     plan.originalConflicts?.length ||
     oldTargets.originalWorldbookChanges?.length ||
@@ -82,6 +85,32 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
         blocking.push(issue('original_conflict_target_ambiguous', {
           name: target.name || target.uid || '',
           count: matches.length,
+        }));
+      }
+    }
+  }
+
+  if (plan.originalRegexConflicts?.length) {
+    const regexes = await maybe(adapter.getCharacterRegexes());
+    for (const directive of plan.originalRegexConflicts) {
+      const target = directive.target || {};
+      const matches = findOriginalRegexTargets(regexes, target);
+      if (!matches.length) {
+        blocking.push(issue('original_regex_target_missing', {
+          name: target.name || target.id || '',
+        }));
+        continue;
+      }
+      if (matches.length > 1) {
+        blocking.push(issue('original_regex_target_ambiguous', {
+          name: target.name || target.id || '',
+          count: matches.length,
+        }));
+        continue;
+      }
+      if (String(matches[0].regex?.id || '').startsWith(regexPrefix(installed.id))) {
+        blocking.push(issue('original_regex_target_invalid', {
+          name: target.name || target.id || '',
         }));
       }
     }

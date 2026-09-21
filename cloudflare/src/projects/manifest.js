@@ -23,6 +23,7 @@ export async function buildManifest(project, version, bundle) {
   }
   return {
     schema_version: 1,
+    resource_overrides: Array.isArray(bundle.resource_overrides) ? bundle.resource_overrides : [],
     project: {
       id: project.id,
       slug: project.slug,

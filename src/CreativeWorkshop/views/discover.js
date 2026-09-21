@@ -250,70 +250,50 @@ export function createDiscoverView({
     return value ? new Date(value * 1000).toLocaleString() : '—';
   }
 
-  function protectedTargets(artifacts) {
-    const worldbooks = [];
-    const scripts = [];
-    for (const artifact of artifacts || []) {
-      for (const conflict of artifact.original_conflicts || []) {
-        const target = conflict.target || {};
-        if (artifact.kind === 'worldbook') {
-          worldbooks.push({
-            name: target.name || (target.uid ? `UID ${target.uid}` : '未命名条目'),
-            meta: [
-              target.worldbook ? `世界书：${target.worldbook}` : '',
-              target.uid ? `UID：${target.uid}` : '',
-              artifact.name ? `由：${artifact.name}` : '',
-            ].filter(Boolean).join(' · '),
-          });
-        }
-        if (artifact.kind === 'script') {
-          scripts.push({
-            name: target.folder ? `${target.folder} / ${target.name || target.id || '未命名脚本'}` : (target.name || target.id || '未命名脚本'),
-            meta: [
-              ({ character: '当前角色', preset: '当前预设', global: '全局' })[target.scope] || target.scope || '',
-              target.id ? `ID：${target.id}` : '',
-              artifact.name ? `由：${artifact.name}` : '',
-            ].filter(Boolean).join(' · '),
-          });
-        }
-      }
-    }
-    return { worldbooks, scripts };
-  }
-
-  function renderProtectedTargets(artifacts) {
-    const targets = protectedTargets(artifacts);
-    if (!targets.worldbooks.length && !targets.scripts.length) return null;
+  function renderProtectedTargets(rules) {
+    const values = Array.isArray(rules) ? rules : [];
+    if (!values.length) return null;
 
     const section = element('section', 'rw-workshop-rail-section rw-workshop-protected');
-    section.appendChild(element('div', 'rw-workshop-rail-label', '原版替换 / 屏蔽'));
+    section.appendChild(element('div', 'rw-workshop-rail-label', '原版资源状态'));
     section.appendChild(element(
       'div',
       'rw-workshop-protected-note',
-      '安装后这些原版内容会临时关闭；停用作品时按安装前状态恢复。',
+      '作品启用期间会按作者规则切换这些原资源的启用状态；停用作品时恢复安装前状态。',
     ));
 
-    for (const item of targets.worldbooks) {
+    const scopeLabel = { character: '当前角色', preset: '当前预设', global: '全局' };
+    const iconLabel = { worldbook: '书', regex: '正', script: 'JS' };
+    for (const rule of values) {
+      const target = rule.target || {};
+      const kind = rule.kind || '';
+      const title = kind === 'worldbook'
+        ? (target.name || (target.uid ? `UID ${target.uid}` : '未命名条目'))
+        : kind === 'regex'
+          ? (target.name || target.id || '未命名正则')
+          : (target.folder
+              ? `${target.folder} / ${target.name || target.id || '未命名脚本'}`
+              : (target.name || target.id || '未命名脚本'));
+      const meta = [
+        rule.state === 'enabled' ? '启用' : '停用',
+        kind === 'worldbook' && target.worldbook ? `世界书：${target.worldbook}` : '',
+        kind !== 'worldbook' ? (scopeLabel[target.scope] || target.scope || '') : '',
+        target.uid ? `UID：${target.uid}` : '',
+        target.id ? `ID：${target.id}` : '',
+      ].filter(Boolean).join(' · ');
+
       const row = element('div', 'rw-workshop-protected-row');
       row.append(
-        element('span', 'rw-workshop-protected-icon', '书'),
+        element(
+          'span',
+          `rw-workshop-protected-icon${kind === 'script' ? ' script' : ''}`,
+          iconLabel[kind] || '项',
+        ),
         element('div', 'rw-workshop-protected-copy'),
       );
       row.lastElementChild.append(
-        element('strong', '', item.name),
-        element('small', '', item.meta),
-      );
-      section.appendChild(row);
-    }
-    for (const item of targets.scripts) {
-      const row = element('div', 'rw-workshop-protected-row');
-      row.append(
-        element('span', 'rw-workshop-protected-icon script', 'JS'),
-        element('div', 'rw-workshop-protected-copy'),
-      );
-      row.lastElementChild.append(
-        element('strong', '', item.name),
-        element('small', '', item.meta),
+        element('strong', '', title),
+        element('small', '', meta),
       );
       section.appendChild(row);
     }
@@ -546,8 +526,7 @@ export function createDiscoverView({
 
       rail.append(actionPanel, facts);
 
-      const artifacts = Array.isArray(detail.manifest?.artifacts) ? detail.manifest.artifacts : [];
-      const protection = renderProtectedTargets(artifacts);
+      const protection = renderProtectedTargets(detail.content_preview?.resource_overrides || []);
       if (protection) rail.appendChild(protection);
 
       if (project.dependencies?.length) {

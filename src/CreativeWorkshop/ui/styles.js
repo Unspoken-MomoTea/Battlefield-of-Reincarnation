@@ -452,7 +452,7 @@ export const WORKSHOP_CSS = `
   .rw-resource-option small{color:var(--rw-faint);font-size:9px}
 
   .rw-resource-state-editor{
-    display:grid;gap:9px;border:1px solid var(--rw-line);border-radius:10px;background:#121316;overflow:hidden
+    min-height:0;display:grid;gap:9px;border:1px solid var(--rw-line);border-radius:10px;background:#121316;overflow:hidden
   }
   .rw-resource-state-head{
     display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:11px 12px 0
@@ -481,7 +481,9 @@ export const WORKSHOP_CSS = `
     padding:0 12px;color:#77746e;font-size:9px;line-height:1.45
   }
   .rw-resource-state-body{
-    display:grid;gap:7px;max-height:410px;overflow:auto;padding:0 8px 10px
+    min-height:180px;height:min(44vh,410px);display:grid;align-content:start;gap:7px;
+    overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;
+    -webkit-overflow-scrolling:touch;touch-action:pan-y;padding:0 8px 10px
   }
   .rw-resource-state-group{
     display:grid;border:1px solid var(--rw-line);border-radius:8px;background:#0f1012;overflow:hidden

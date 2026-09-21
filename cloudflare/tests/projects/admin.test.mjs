@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   createProject,
+  deleteAdminProject,
   downloadPublicProject,
   getPublicProject,
   getPublicProjectVersion,
@@ -196,5 +197,36 @@ test('rejection requires an explicit reason', async () => {
         project.id,
       ),
     error => error?.status === 400 && error?.code === 'rejection_note_required',
+  );
+});
+
+
+test('admin can permanently delete a project and all R2 version objects', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'), '通过');
+
+  const stored = env.DB.db.prepare(
+    'SELECT manifest_key, content_key FROM project_versions WHERE project_id = ? AND version = 1',
+  ).get(project.id);
+  assert.ok(env.PROJECTS.objects.has(stored.manifest_key));
+  assert.ok(env.PROJECTS.objects.has(stored.content_key));
+
+  const deleted = await responseJson(await deleteAdminProject(env, admin, project.id));
+  assert.equal(deleted.ok, true);
+  assert.equal(deleted.deleted_project_id, project.id);
+  assert.equal(deleted.deleted_objects, 2);
+  assert.equal(env.DB.db.prepare('SELECT id FROM projects WHERE id = ?').get(project.id), undefined);
+  assert.equal(env.DB.db.prepare('SELECT id FROM project_versions WHERE project_id = ?').get(project.id), undefined);
+  assert.equal(env.PROJECTS.objects.has(stored.manifest_key), false);
+  assert.equal(env.PROJECTS.objects.has(stored.content_key), false);
+});
+
+test('non-admin cannot permanently delete projects', async () => {
+  const { env, author, other } = setup();
+  const project = await createWorldbookProject(env, author);
+  await assert.rejects(
+    () => deleteAdminProject(env, other, project.id),
+    error => error?.status === 403 && error?.code === 'admin_required',
   );
 });

@@ -1,7 +1,10 @@
-import { scanPublishResources } from '../../services/publish-resources.js';
 import { createDependencyPicker } from '../../ui/dependency-picker.js';
-import { createInstallRulePicker } from '../../ui/install-rule-picker.js';
+import { createResourceStateEditor } from '../../ui/resource-state-editor.js';
 import { createSmartArtifactQueue } from '../../ui/smart-artifact-queue.js';
+import {
+  artifactsWithoutLegacyConflicts,
+  resourceOverridesFromBundle,
+} from '../../services/resource-overrides.js';
 
 function tagsFromInput(value) {
   return String(value || '')
@@ -81,13 +84,18 @@ export function createAuthorProjectEditor({
     if (activeModal !== modal) return;
 
     const current = detail.project;
-    const latest = detail.latest || { bundle: { artifacts: [] } };
-    const artifacts = Array.isArray(latest.bundle?.artifacts) ? latest.bundle.artifacts : [];
+    const latest = detail.latest || { bundle: { schema_version: 1, artifacts: [] } };
+    const baselineBundle = latest.bundle || { schema_version: 1, artifacts: [] };
+    const artifacts = artifactsWithoutLegacyConflicts(baselineBundle.artifacts);
+    const initialResourceRules = resourceOverridesFromBundle(baselineBundle);
 
     const form = element('form', 'rw-update-form');
     const grid = element('div', 'rw-publish-grid rw-update-grid');
     const left = element('section', 'rw-publish-column');
     const right = element('section', 'rw-publish-column rw-publish-upload-column');
+    let attempt = null;
+
+    const resetAttempt = () => { attempt = null; };
 
     const step1 = element('div', 'rw-publish-step-title');
     step1.innerHTML = '<span>01</span><div><strong>基本资料</strong><small>直接在上一版资料上修改，不需要重新填写。</small></div>';
@@ -201,6 +209,7 @@ export function createAuthorProjectEditor({
         queueState.textContent = value.count
           ? `当前版本共 ${value.count} 项：${value.summary()}。上传同名文件会替换对应旧项。`
           : '当前版本没有作品内容，请至少添加一项。';
+        resetAttempt();
       },
     });
     queue.loadArtifacts(artifacts, `当前 v${latest.version || current.latest_version || 0}`);
@@ -222,6 +231,21 @@ export function createAuthorProjectEditor({
     }
     uploadBlock.append(queueState, queueList);
     right.appendChild(uploadBlock);
+
+    right.appendChild(element('div', 'rw-publish-divider'));
+
+    const step4 = element('div', 'rw-publish-step-title');
+    step4.innerHTML = '<span>04</span><div><strong>原版资源</strong><small>上一版作者选择会自动带入；世界书默认打开，同时可管理正则和酒馆助手脚本。</small></div>';
+    right.appendChild(step4);
+
+    const resourceEditor = createResourceStateEditor({
+      doc,
+      initialRules: initialResourceRules,
+      notifyError,
+      onChange: resetAttempt,
+    });
+    right.appendChild(resourceEditor.node);
+    void resourceEditor.refresh();
 
     right.appendChild(element('div', 'rw-publish-divider'));
 
@@ -269,6 +293,7 @@ export function createAuthorProjectEditor({
       if (!selected) return;
       showCoverBlob(selected);
       coverState.textContent = `将替换为：${selected.name}`;
+      resetAttempt();
     };
     coverInput.addEventListener('change', renderSelectedCover);
     dropBinding(coverZone, coverInput, files => {
@@ -288,129 +313,115 @@ export function createAuthorProjectEditor({
     grid.append(left, right);
     form.appendChild(grid);
 
+    const progress = element('div', 'rw-submit-progress');
+    progress.hidden = true;
+    form.appendChild(progress);
+
     const footer = element('footer', 'rw-publish-footer rw-update-footer');
     footer.append(
-      element('div', 'rw-publish-footer-note', '● 下一步只会显示当前酒馆正在启用的世界书/脚本，供你选择需要临时关闭的原版内容。'),
+      element('div', 'rw-publish-footer-note', '● 原版资源状态会随新版本保存；停用/卸载作品时恢复安装前状态。'),
     );
     const footerActions = element('div', 'rw-row');
     const cancel = button('取消', '', () => modal.close());
-    const next = button('下一步', 'primary', () => void openRules());
-    footerActions.append(cancel, next);
+    const submit = button('提交新版本审核', 'good', async () => {
+      const nextName = name.value.trim();
+      if (!nextName) throw new Error('请填写作品名称');
+      if (!queue.count) throw new Error('作品内容不能为空');
+
+      const selectedCover = coverInput.files?.[0] || null;
+      const resourceOverrides = resourceEditor.values();
+      const signature = JSON.stringify({
+        name: nextName,
+        summary: summary.value,
+        category: category.value || current.category,
+        tags: tagsFromInput(tags.value),
+        dependencies: dependencies.values(),
+        resourceOverrides,
+        changelog: changelog.value,
+        artifactNames: queue.artifacts().map(item => [item.kind, item.name, item.scope || '']),
+        coverName: selectedCover?.name || '',
+        coverSize: Number(selectedCover?.size || 0),
+      });
+      if (!attempt || attempt.signature !== signature) {
+        attempt = {
+          signature,
+          metadataSaved: false,
+          coverUploaded: !selectedCover,
+          versionUploaded: false,
+          submitted: false,
+        };
+      }
+
+      progress.hidden = false;
+      progress.className = 'rw-submit-progress rw-submit-progress--working';
+      progress.textContent = '正在保存作品资料…';
+
+      try {
+        if (!attempt.metadataSaved) {
+          await workshopApi.updateProject(current.id, {
+            name: nextName,
+            summary: summary.value,
+            category: category.value || current.category,
+            tags: tagsFromInput(tags.value),
+            dependencies: dependencies.values(),
+          });
+          attempt.metadataSaved = true;
+        }
+
+        if (selectedCover && !attempt.coverUploaded) {
+          progress.textContent = '正在更新封面…';
+          await workshopApi.uploadProjectCover(current.id, selectedCover);
+          attempt.coverUploaded = true;
+        }
+
+        if (!attempt.versionUploaded) {
+          progress.textContent = '正在上传新版本与原版资源状态…';
+          await workshopApi.uploadProjectVersion(current.id, {
+            changelog: changelog.value,
+            bundle: queue.bundle(null, resourceOverrides),
+          });
+          attempt.versionUploaded = true;
+        }
+
+        if (!attempt.submitted) {
+          progress.textContent = '正在提交审核…';
+          await workshopApi.submitProject(current.id);
+          attempt.submitted = true;
+        }
+
+        progress.className = 'rw-submit-progress rw-submit-progress--success';
+        progress.textContent = '新版本已提交审核。旧的已发布版本会保持在线，直到新版本审核通过。';
+        try { host.toastr?.success?.('新版本已提交审核', '创意工坊'); } catch {}
+        try { await refreshMine(); } catch {}
+        host.setTimeout?.(() => modal.close({ force: true }), 650);
+      } catch (error) {
+        const failedAt = !attempt.metadataSaved
+          ? '保存资料'
+          : !attempt.coverUploaded
+            ? '上传封面'
+            : !attempt.versionUploaded
+              ? '上传新版本'
+              : '提交审核';
+        progress.className = 'rw-submit-progress rw-submit-progress--error';
+        progress.textContent = `${failedAt}失败：${error instanceof Error ? error.message : String(error)}\n再次点击会从失败步骤继续，不会重复上传已经成功的版本。`;
+        notifyError(error);
+        throw error;
+      }
+    });
+    footerActions.append(cancel, submit);
     footer.appendChild(footerActions);
     form.appendChild(footer);
 
+    form.addEventListener('input', event => {
+      if (event.target?.closest?.('.rw-resource-state-editor')) return;
+      resetAttempt();
+    });
+    form.addEventListener('change', event => {
+      if (event.target?.closest?.('.rw-resource-state-editor')) return;
+      resetAttempt();
+    });
+
     modal.body.replaceChildren(form);
-
-    async function openRules() {
-      const nextName = name.value.trim();
-      if (!nextName) return notifyError(new Error('请填写作品名称'));
-      if (!queue.count) return notifyError(new Error('作品内容不能为空'));
-
-      next.disabled = true;
-      let resources = { worldbooks: [], scripts: [] };
-      try {
-        if (queue.artifacts().some(item => item.kind === 'worldbook' || item.kind === 'script')) {
-          resources = await scanPublishResources();
-        }
-      } catch (error) {
-        try { host.toastr?.warning?.(`读取当前酒馆资源失败：${error.message}`, '创意工坊'); } catch {}
-      } finally {
-        next.disabled = false;
-      }
-
-      const rulesView = element('div', 'rw-update-rules-view');
-      const rules = createInstallRulePicker({
-        doc,
-        artifacts: queue.artifacts(),
-        resources,
-      });
-      rulesView.appendChild(rules.node);
-
-      const note = element('div', 'rw-maintenance-protection');
-      note.append(
-        element('strong', '', '原版内容只会临时关闭'),
-        element('div', '', '勾选的世界书条目或脚本会在作品启用期间关闭；停用/卸载时按安装前状态恢复。'),
-      );
-      rulesView.appendChild(note);
-
-      const progress = element('div', 'rw-submit-progress');
-      progress.hidden = true;
-      rulesView.appendChild(progress);
-
-      const actions = element('div', 'rw-row rw-publish-final-actions');
-      const back = button('← 返回修改', '', () => modal.body.replaceChildren(form));
-      const selectedCover = coverInput.files?.[0] || null;
-      const attempt = {
-        metadataSaved: false,
-        coverUploaded: !selectedCover,
-        versionUploaded: false,
-        submitted: false,
-      };
-      const submit = button('提交新版本审核', 'good', async () => {
-        submit.disabled = true;
-        back.disabled = true;
-        progress.hidden = false;
-        progress.className = 'rw-submit-progress rw-submit-progress--working';
-        progress.textContent = '正在保存作品资料…';
-
-        try {
-          if (!attempt.metadataSaved) {
-            await workshopApi.updateProject(current.id, {
-              name: nextName,
-              summary: summary.value,
-              category: category.value || current.category,
-              tags: tagsFromInput(tags.value),
-              dependencies: dependencies.values(),
-            });
-            attempt.metadataSaved = true;
-          }
-
-          if (selectedCover && !attempt.coverUploaded) {
-            progress.textContent = '正在更新封面…';
-            await workshopApi.uploadProjectCover(current.id, selectedCover);
-            attempt.coverUploaded = true;
-          }
-
-          if (!attempt.versionUploaded) {
-            progress.textContent = '正在上传新版本…';
-            await workshopApi.uploadProjectVersion(current.id, {
-              changelog: changelog.value,
-              bundle: queue.bundle(rules.buildArtifacts()),
-            });
-            attempt.versionUploaded = true;
-          }
-
-          if (!attempt.submitted) {
-            progress.textContent = '正在提交审核…';
-            await workshopApi.submitProject(current.id);
-            attempt.submitted = true;
-          }
-
-          progress.className = 'rw-submit-progress rw-submit-progress--success';
-          progress.textContent = '新版本已提交审核。旧的已发布版本会保持在线，直到新版本审核通过。';
-          try { host.toastr?.success?.('新版本已提交审核', '创意工坊'); } catch {}
-          try { await refreshMine(); } catch {}
-
-          host.setTimeout?.(() => modal.close({ force: true }), 650);
-        } catch (error) {
-          progress.className = 'rw-submit-progress rw-submit-progress--error';
-          const failedAt = !attempt.metadataSaved
-            ? '保存资料'
-            : !attempt.coverUploaded
-              ? '上传封面'
-              : !attempt.versionUploaded
-                ? '上传新版本'
-                : '提交审核';
-          progress.textContent = `${failedAt}失败：${error instanceof Error ? error.message : String(error)}\n再次点击会从失败步骤继续，不会重复上传已经成功的版本。`;
-          notifyError(error);
-          submit.disabled = false;
-          back.disabled = false;
-        }
-      });
-      actions.append(back, submit);
-      rulesView.appendChild(actions);
-      modal.body.replaceChildren(rulesView);
-    }
   }
 
   return {

@@ -132,7 +132,7 @@ export function createResourceStateEditor({
   const title = doc.createElement('strong');
   title.textContent = '原版资源状态（可选）';
   const subtitle = doc.createElement('small');
-  subtitle.textContent = '作品启用期间可让原世界书、正则或酒馆助手脚本保持原状态、强制启用或强制停用；停用作品后恢复安装前状态。';
+  subtitle.textContent = '世界书按当前角色/聊天/全局使用来源读取；正则与酒馆助手脚本只扫描当前角色卡。可保持、启用或停用，停用作品后恢复安装前状态。';
   headingCopy.append(title, subtitle);
 
   const refreshButton = doc.createElement('button');
@@ -228,7 +228,7 @@ export function createResourceStateEditor({
         resource.find_regex ? `匹配：${resource.find_regex}` : '',
       ].filter(Boolean).join(' · ');
     }
-    const scope = ({ character: '当前角色', preset: '当前预设', global: '全局' })[resource.scope] || resource.scope;
+    const scope = resource.scope === 'character' ? '当前角色卡脚本' : (resource.scope || '');
     return [
       scope,
       resource.folder ? `文件夹：${resource.folder}` : '',

@@ -16,5 +16,5 @@ export const STATUS_LABELS = {
   pending: '审核中',
   published: '已发布',
   rejected: '已驳回',
-  archived: '已归档',
+  archived: '已下架',
 };

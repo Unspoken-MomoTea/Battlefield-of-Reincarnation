@@ -33,13 +33,25 @@ test('publish resource scan exposes all active and inactive entries from active 
       { id: 'disabled-regex', script_name: '关闭正则', enabled: false, find_regex: 'x', replace_string: 'y' },
       { id: 'rw:other:0:0', script_name: '其他工坊正则', enabled: true, find_regex: 'skip' },
     ],
-    getScriptTrees: async scope => scope === 'character'
-      ? [
+    getScriptTrees: async scope => {
+      if (scope === 'character') {
+        return [
           { id: 'enabled-script', name: '启用脚本', enabled: true, content: 'on' },
           { id: 'disabled-script', name: '关闭脚本', enabled: false, content: 'off' },
           { id: 'rw:other:script:0', name: '其他工坊脚本', enabled: true, content: 'skip' },
-        ]
-      : [],
+          {
+            id: 'workshop-loader',
+            name: '创意工坊',
+            enabled: true,
+            content: "import 'https://testingcf.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@1234567890123456789012345678901234567890/src/CreativeWorkshop/index.js'",
+          },
+        ];
+      }
+      if (scope === 'global') {
+        return [{ id: 'global-script', name: '全局脚本', enabled: true, content: 'global' }];
+      }
+      return [];
+    },
     getCurrentCharacterName: async () => '测试角色',
   };
 
@@ -64,4 +76,6 @@ test('publish resource scan exposes all active and inactive entries from active 
     ['enabled-script', true],
     ['disabled-script', false],
   ]);
+  assert.equal(result.scripts.some(item => item.id === 'global-script'), false);
+  assert.equal(result.scripts.some(item => item.id === 'workshop-loader'), false);
 });

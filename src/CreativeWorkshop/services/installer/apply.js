@@ -3,6 +3,7 @@ import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix }
 import { buildArtifactPlan } from './plan.js';
 import { syncOriginalWorldbookConflicts } from './original-conflicts.js';
 import { syncOriginalScriptConflicts } from './original-scripts.js';
+import { syncOriginalRegexConflicts } from './original-regexes.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
 import { clone, maybe, record } from './utils.js';
 
@@ -22,6 +23,8 @@ export async function applyProject({ adapter, storage }, projectId) {
     plan.scripts?.character?.length ||
     oldTargets.worldbook ||
     oldTargets.regexIds?.length ||
+    plan.originalRegexConflicts?.length ||
+    oldTargets.originalRegexChanges?.length ||
     oldTargets.scripts?.character?.length ||
     plan.originalConflicts?.length ||
     oldTargets.originalWorldbookChanges?.length ||
@@ -70,6 +73,12 @@ export async function applyProject({ adapter, storage }, projectId) {
       const previous = state.regexes.filter(regex => !String(regex.id || '').startsWith(regexPrefix(installed.id)));
       await maybe(adapter.replaceCharacterRegexes([...previous, ...plan.regexes]));
     }
+
+    const originalRegexResult = await syncOriginalRegexConflicts(
+      { adapter, storage },
+      installed,
+      plan,
+    );
 
     for (const [scope, currentTrees] of state.scripts.entries()) {
       const previous = currentTrees.filter(tree => !isProjectScriptTree(tree, installed.id));
@@ -126,10 +135,19 @@ export async function applyProject({ adapter, storage }, projectId) {
         presets: plan.presets.map(item => item.name),
         presetBackups,
         originalWorldbookChanges: originalConflictResult.changes,
+        originalRegexChanges: originalRegexResult.changes,
         originalScriptChanges: originalScriptResult.changes,
       },
-      restoreWarnings: [...originalConflictResult.warnings, ...originalScriptResult.warnings],
-      unrestoredOriginals: [...originalConflictResult.unrestored, ...originalScriptResult.unrestored],
+      restoreWarnings: [
+        ...originalConflictResult.warnings,
+        ...originalRegexResult.warnings,
+        ...originalScriptResult.warnings,
+      ],
+      unrestoredOriginals: [
+        ...originalConflictResult.unrestored,
+        ...originalRegexResult.unrestored,
+        ...originalScriptResult.unrestored,
+      ],
       applyError: '',
     };
     await storage.putInstalledProject(next);

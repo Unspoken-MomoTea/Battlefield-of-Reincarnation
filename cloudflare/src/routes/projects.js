@@ -3,8 +3,9 @@ import {
   getProjectEngagementResponse, setProjectEngagementFromRequest,
 } from '../engagement.js';
 import {
-  createProject, deleteProject, downloadPublicProject, getPublicProject, getPublicProjectCover,
-  getPublicProjectVersion, getPublicProjectVersionsBatch, listOwnProjects, listPublicProjects, submitProjectForReview,
+  createProject, deleteProject, downloadPublicProject, getOwnedProjectCover, getOwnedProjectEditor,
+  getPublicProject, getPublicProjectCover, getPublicProjectVersion, getPublicProjectVersionsBatch,
+  listOwnProjects, listPublicProjects, setOwnerProjectVisibility, submitProjectForReview,
   updateProject, uploadProjectCover, uploadProjectVersion,
 } from '../projects.js';
 import { authenticatedUser } from './context.js';
@@ -22,6 +23,21 @@ export async function routeProjects(request, env, pathname) {
   }
   if (request.method === 'POST' && pathname === '/api/projects/versions/batch') {
     return getPublicProjectVersionsBatch(request, env);
+  }
+
+  const editId = projectIdFrom(pathname, '/edit');
+  if (request.method === 'GET' && editId) {
+    return getOwnedProjectEditor(env, await authenticatedUser(request, env), editId);
+  }
+
+  const editCoverId = projectIdFrom(pathname, '/edit-cover');
+  if (request.method === 'GET' && editCoverId) {
+    return getOwnedProjectCover(env, await authenticatedUser(request, env), editCoverId);
+  }
+
+  const visibilityId = projectIdFrom(pathname, '/visibility');
+  if (request.method === 'POST' && visibilityId) {
+    return setOwnerProjectVisibility(request, env, await authenticatedUser(request, env), visibilityId);
   }
 
   const versionId = projectIdFrom(pathname, '/version');

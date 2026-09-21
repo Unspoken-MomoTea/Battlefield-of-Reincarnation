@@ -41,6 +41,11 @@ test('published project appears in public catalog and can be downloaded', async 
   const detail = await responseJson(await getPublicProject(project.id, env));
   assert.equal(detail.project.version, 1);
   assert.equal(detail.manifest.artifacts[0].name, 'v1');
+  assert.equal(detail.content_preview.worldbook_entries.length, 1);
+  assert.equal(detail.content_preview.worldbook_entries[0].name, 'v1');
+  assert.equal(detail.content_preview.worldbook_entries[0].content, 'hello');
+  assert.equal(detail.version_history.length, 1);
+  assert.equal(detail.change_preview, null);
 
   const download = await responseJson(await downloadPublicProject(project.id, env));
   assert.equal(download.artifacts[0].content.entries['0'].comment, 'v1');
@@ -247,4 +252,109 @@ test('public catalog rejects unknown sort modes', async () => {
     () => listPublicProjects(request('/api/projects?sort=drop-table'), env),
     error => error?.status === 400 && error?.code === 'invalid_project_sort',
   );
+});
+
+
+test('public detail exposes readable worldbook regex and script previews', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  const richBundle = {
+    schema_version: 1,
+    artifacts: [
+      {
+        kind: 'worldbook',
+        name: '规则世界书.json',
+        format: 'json',
+        content: {
+          entries: {
+            0: {
+              uid: 7,
+              comment: '战斗规则',
+              content: '完整世界书正文',
+              strategy: {
+                keys: ['战斗'],
+                keys_secondary: { keys: ['受伤'] },
+              },
+              position: { type: 'at_depth', depth: 4, order: 120, role: 'system' },
+            },
+          },
+        },
+      },
+      {
+        kind: 'regex',
+        name: '清理正则.json',
+        format: 'json',
+        content: [{
+          id: 'rx-1',
+          scriptName: '隐藏思考',
+          findRegex: '<think>[\\s\\S]*?</think>',
+          replaceString: '',
+        }],
+      },
+      {
+        kind: 'script',
+        name: 'helper.js',
+        format: 'text',
+        scope: 'character',
+        content: "console.log('helper')",
+      },
+    ],
+  };
+  await publishVersion(env, author, admin, project.id, richBundle);
+
+  const detail = await responseJson(await getPublicProject(project.id, env));
+  assert.equal(detail.content_preview.counts.worldbook_entries, 1);
+  assert.equal(detail.content_preview.counts.regex_entries, 1);
+  assert.equal(detail.content_preview.counts.scripts, 1);
+  assert.deepEqual(detail.content_preview.worldbook_entries[0].primary_keys, ['战斗']);
+  assert.equal(detail.content_preview.regex_entries[0].name, '隐藏思考');
+  assert.match(detail.content_preview.scripts[0].content, /helper/u);
+});
+
+test('public detail summarizes changes against the previous approved version', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'));
+
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', {
+      changelog: '修改世界书正文',
+      bundle: {
+        schema_version: 1,
+        artifacts: [{
+          kind: 'worldbook',
+          name: 'v2',
+          format: 'json',
+          content: {
+            entries: {
+              0: { comment: 'v1', content: 'changed' },
+              1: { comment: '新增条目', content: 'new' },
+            },
+          },
+        }],
+      },
+    }),
+    env,
+    author,
+    project.id,
+  );
+  await submitProjectForReview(env, author, project.id);
+  await reviewProject(
+    request(`/api/admin/projects/${project.id}/review`, 'POST', {
+      decision: 'approved',
+      note: '通过',
+    }),
+    env,
+    admin,
+    project.id,
+  );
+
+  const detail = await responseJson(await getPublicProject(project.id, env));
+  assert.equal(detail.version_history.length, 2);
+  assert.equal(detail.version_history[0].version, 2);
+  assert.equal(detail.version_history[0].changelog, '修改世界书正文');
+  assert.equal(detail.change_preview.from_version, 1);
+  assert.equal(detail.change_preview.to_version, 2);
+  assert.ok(detail.change_preview.summary.added >= 1);
+  assert.ok(detail.change_preview.summary.modified >= 1);
 });

@@ -201,6 +201,11 @@ export const WORKSHOP_CSS = `
   .rw-meta{display:flex;gap:5px;flex-wrap:wrap;color:#9d9b95;font-size:10px}
   .rw-pill{padding:3px 7px;border:1px solid var(--rw-line);border-radius:999px;background:rgba(255,255,255,.02)}
   .rw-status{font-size:12px}.rw-status.ok{color:#9dccae}.rw-status.bad{color:#e59a96}
+  .rw-author-archive-status{
+    white-space:pre-line;padding:9px 10px;border:1px solid rgba(216,123,120,.18);border-radius:8px;
+    background:rgba(216,123,120,.045);line-height:1.55
+  }
+  .rw-admin-delete-project{margin-left:auto}
 
   .rw-editor,.rw-upload-box,.rw-danger-zone{
     display:grid;gap:9px;padding:11px;border:1px solid var(--rw-line);border-radius:10px;background:#141518

@@ -1,5 +1,5 @@
-import { parseDependencyText } from '../../services/projects/dependency-input.js';
 import { scanPublishResources } from '../../services/publish-resources.js';
+import { createDependencyPicker } from '../../ui/dependency-picker.js';
 import { createSmartArtifactQueue } from '../../ui/smart-artifact-queue.js';
 import { createInstallRulePicker } from '../../ui/install-rule-picker.js';
 
@@ -23,6 +23,21 @@ export function bindCreateProjectFlow({
   let coverUrl = '';
   let queue = null;
   let submitAttempt = null;
+
+  const dependencyPicker = createDependencyPicker({
+    doc,
+    workshopApi,
+    openModal,
+    button: (label, className, onClick) => {
+      const node = doc.createElement('button');
+      node.type = 'button';
+      node.className = `rw-button ${className || ''}`.trim();
+      node.textContent = label;
+      if (onClick) node.addEventListener('click', onClick);
+      return node;
+    },
+  });
+  nodes.createDependencies.replaceChildren(dependencyPicker.node);
 
   const revokeCoverPreview = () => {
     if (!coverUrl) return;
@@ -54,7 +69,8 @@ export function bindCreateProjectFlow({
     nodes.createRegex.value = '';
     nodes.createScript.value = '';
     nodes.createCover.value = '';
-    nodes.createVersionState.textContent = '选择上面的对应入口；其他文件会自动识别。';
+    nodes.createVersionState.textContent = '选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。';
+    dependencyPicker.clear();
     revokeCoverPreview();
     nodes.createCoverPreview.hidden = true;
     nodes.createCoverPreview.removeAttribute('src');
@@ -72,7 +88,7 @@ export function bindCreateProjectFlow({
       submitAttempt = null;
       nodes.createVersionState.textContent = current.count
         ? `已识别 ${current.count} 项：${current.summary()}`
-        : '选择上面的对应入口；其他文件会自动识别。';
+        : '选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。';
       if (current.count) dirty = true;
     },
   });
@@ -125,12 +141,6 @@ export function bindCreateProjectFlow({
     overlay.querySelector('[data-drop-target="create-script"]'),
     'script',
   );
-  bindArtifactInput(
-    nodes.createVersion,
-    overlay.querySelector('[data-drop-target="create-version"]'),
-    '',
-  );
-
   nodes.createCover.addEventListener('change', renderCover);
   const coverDrop = overlay.querySelector('[data-drop-target="create-cover"]');
   coverDrop.addEventListener('dragover', event => {
@@ -392,13 +402,7 @@ export function bindCreateProjectFlow({
     if (!name) return notifyError(new Error('请先填写作品名称'));
     if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
 
-    let dependencies;
-    try {
-      dependencies = parseDependencyText(form.get('dependencies'));
-    } catch (error) {
-      notifyError(error);
-      return;
-    }
+    const dependencies = dependencyPicker.values();
 
     void openRules({
       name,

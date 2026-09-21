@@ -124,7 +124,11 @@ export function createSmartArtifactQueue({
             scope.appendChild(option);
           }
           scope.addEventListener('change', () => {
-            rebuildItem(item, 'script', scope.value);
+            if (item.rawText) {
+              rebuildItem(item, 'script', scope.value);
+            } else {
+              item.artifact = { ...item.artifact, scope: scope.value };
+            }
             render();
             emit();
           });
@@ -162,7 +166,7 @@ export function createSmartArtifactQueue({
       if (forcedKind) {
         const detected = detectUploadKind(file.name, rawText);
         if (detected.kind === 'bundle') {
-          throw new Error(`${file.name} 是完整工坊 bundle，请使用“其他文件 / 预设 / 完整 bundle”入口`);
+          throw new Error(`${file.name} 是完整工坊 bundle。当前发布界面请分别上传世界书、正则或酒馆助手脚本。`);
         }
         if (
           detected.kind !== forcedKind &&
@@ -205,10 +209,21 @@ export function createSmartArtifactQueue({
       }
     }
 
-    if (items.length + pending.length > 32) {
+    const nextItems = [...items];
+    for (const next of pending) {
+      const replaceIndex = nextItems.findIndex(item =>
+        item.seeded &&
+        item.artifact.kind === next.artifact.kind &&
+        String(item.artifact.name || '') === String(next.artifact.name || '')
+      );
+      if (replaceIndex >= 0) nextItems.splice(replaceIndex, 1, next);
+      else nextItems.push(next);
+    }
+
+    if (nextItems.length > 32) {
       throw new Error('单个版本最多允许 32 个 artifact');
     }
-    items.push(...pending);
+    items = nextItems;
     if (input) input.value = '';
     render();
     emit();
@@ -221,6 +236,27 @@ export function createSmartArtifactQueue({
   async function addFilesAs(files, kind) {
     if (!KINDS.includes(kind)) throw new Error(`不支持的内容类型：${kind}`);
     return addFilesInternal(files, kind);
+  }
+
+  function loadArtifacts(nextArtifacts, sourceLabel = '当前版本') {
+    const values = clone(Array.isArray(nextArtifacts) ? nextArtifacts : []);
+    if (values.length > 32) throw new Error('单个版本最多允许 32 个 artifact');
+    items = values.map(artifact => ({
+      sourceFile: sourceLabel,
+      rawText: '',
+      artifact,
+      detected: {
+        kind: artifact.kind,
+        confidence: 'certain',
+        reason: sourceLabel,
+      },
+      locked: false,
+      typeLocked: true,
+      seeded: true,
+    }));
+    if (input) input.value = '';
+    render();
+    emit();
   }
 
   function clear() {
@@ -261,6 +297,7 @@ export function createSmartArtifactQueue({
   const api = {
     addFiles,
     addFilesAs,
+    loadArtifacts,
     clear,
     artifacts,
     setArtifacts,

@@ -32,13 +32,20 @@ function matchesIdentity(entry, identity) {
   return entryName(entry) === String(identity?.name || '').trim();
 }
 
+function desiredState(value) {
+  if (value?.desiredState === 'enabled' || value?.state === 'enabled' || value?.action === 'enable') return 'enabled';
+  return 'disabled';
+}
+
 function otherClaims(projects, projectId) {
   const claims = new Map();
   for (const project of projects || []) {
     if (!project?.applied || project.id === projectId) continue;
     for (const change of project.installTargets?.originalWorldbookChanges || []) {
       if (!change?.worldbookName || !change?.identity) continue;
-      claims.set(conflictKey(change.worldbookName, change.identity), change);
+      const key = conflictKey(change.worldbookName, change.identity);
+      if (!claims.has(key)) claims.set(key, []);
+      claims.get(key).push(change);
     }
   }
   return claims;
@@ -62,7 +69,7 @@ function locateInBooks(books, target) {
 
   if (!matches.length) {
     const label = target?.name || target?.uid || '未知条目';
-    throw new Error(`找不到需要关闭的原版世界书条目“${label}”`);
+    throw new Error(`找不到需要控制状态的原版世界书条目“${label}”`);
   }
   if (matches.length > 1) {
     const label = target?.name || target?.uid || '未知条目';
@@ -74,21 +81,19 @@ function locateInBooks(books, target) {
 function entryEnabled(entry) {
   if (typeof entry?.enabled === 'boolean') return entry.enabled;
   if (typeof entry?.disable === 'boolean') return !entry.disable;
+  if (typeof entry?.disabled === 'boolean') return !entry.disabled;
   return true;
 }
 
-function disabledEntry(entry) {
-  const next = { ...clone(entry), enabled: false };
-  if ('disable' in next) next.disable = true;
+function setEntryEnabled(entry, enabled) {
+  const next = { ...clone(entry), enabled: Boolean(enabled) };
+  if ('disable' in next) next.disable = !enabled;
+  if ('disabled' in next) next.disabled = !enabled;
   return next;
 }
 
 function restoreEnabledState(entry, beforeEntry) {
-  const next = clone(entry);
-  const enabled = entryEnabled(beforeEntry);
-  next.enabled = enabled;
-  if ('disable' in next || 'disable' in (beforeEntry || {})) next.disable = !enabled;
-  return next;
+  return setEntryEnabled(entry, entryEnabled(beforeEntry));
 }
 
 function findRecordedEntry(entries, change) {
@@ -99,6 +104,15 @@ function findRecordedEntry(entries, change) {
 async function installedProjects(storage) {
   if (typeof storage.getInstalledProjects !== 'function') return [];
   return maybe(storage.getInstalledProjects());
+}
+
+function inheritedClaim(claims, key, ownState) {
+  const values = claims.get(key) || [];
+  const opposite = values.find(change => desiredState(change) !== ownState);
+  if (opposite) {
+    throw new Error('另一个已安装工坊作品对同一原世界书条目要求了相反的启用状态，请先停用其中一个作品');
+  }
+  return values[0] || null;
 }
 
 export async function syncOriginalWorldbookConflicts({ adapter, storage }, installed, plan, state) {
@@ -121,15 +135,16 @@ export async function syncOriginalWorldbookConflicts({ adapter, storage }, insta
   for (const directive of desired) {
     const located = locateInBooks(working, directive.target || {});
     if (located.worldbookName === SHARED_WORLDBOOK_NAME) {
-      throw new Error('原版冲突不能指向创意工坊共享世界书');
+      throw new Error('原版资源状态规则不能指向创意工坊共享世界书');
     }
 
     const identity = identityForEntry(located.entry);
     const key = conflictKey(located.worldbookName, identity);
     desiredKeys.add(key);
 
+    const targetState = desiredState(directive);
     const previousChange = previousByKey.get(key);
-    const inherited = claims.get(key);
+    const inherited = inheritedClaim(claims, key, targetState);
     const currentFingerprint = fingerprint(located.entry);
     const wasModified =
       Boolean(previousChange?.userModified) ||
@@ -141,11 +156,12 @@ export async function syncOriginalWorldbookConflicts({ adapter, storage }, insta
       inherited?.beforeEntry ??
       located.entry
     );
-    const after = disabledEntry(located.entry);
+    const after = setEntryEnabled(located.entry, targetState === 'enabled');
     working.get(located.worldbookName)[located.index] = after;
 
     nextChanges.push({
-      action: directive.action,
+      action: targetState === 'enabled' ? 'enable' : 'disable',
+      desiredState: targetState,
       worldbookName: located.worldbookName,
       identity,
       beforeEntry,
@@ -158,7 +174,7 @@ export async function syncOriginalWorldbookConflicts({ adapter, storage }, insta
 
   for (const change of previous) {
     const key = conflictKey(change.worldbookName, change.identity);
-    if (desiredKeys.has(key) || claims.has(key)) continue;
+    if (desiredKeys.has(key)) continue;
 
     const entries = working.get(change.worldbookName);
     if (!entries) {
@@ -172,6 +188,13 @@ export async function syncOriginalWorldbookConflicts({ adapter, storage }, insta
       unrestored.push(change);
       continue;
     }
+
+    const inherited = (claims.get(key) || [])[0] || null;
+    if (inherited) {
+      entries[located.index] = setEntryEnabled(located.entry, desiredState(inherited) === 'enabled');
+      continue;
+    }
+
     if (change.userModified || fingerprint(located.entry) !== change.afterFingerprint) {
       warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”安装后被用户修改，已保留修改并仅恢复原启用状态`);
       entries[located.index] = restoreEnabledState(located.entry, change.beforeEntry);
@@ -203,7 +226,6 @@ export async function restoreOriginalWorldbookConflicts({ adapter, storage }, in
 
   for (const change of previous) {
     const key = conflictKey(change.worldbookName, change.identity);
-    if (claims.has(key)) continue;
 
     const entries = working.get(change.worldbookName);
     if (!entries) {
@@ -217,6 +239,13 @@ export async function restoreOriginalWorldbookConflicts({ adapter, storage }, in
       unrestored.push(change);
       continue;
     }
+
+    const inherited = (claims.get(key) || [])[0] || null;
+    if (inherited) {
+      entries[located.index] = setEntryEnabled(located.entry, desiredState(inherited) === 'enabled');
+      continue;
+    }
+
     if (change.userModified || fingerprint(located.entry) !== change.afterFingerprint) {
       warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”安装后被用户修改，已保留修改并仅恢复原启用状态`);
       entries[located.index] = restoreEnabledState(located.entry, change.beforeEntry);
@@ -242,7 +271,9 @@ export function originalConflictTargetKey(worldbookName, identity) {
 export function isOriginalConflictEntryDisabled(entry) {
   const raw = record(entry);
   if (!raw) return false;
-  if (typeof raw.enabled === 'boolean') return raw.enabled === false;
-  if (typeof raw.disable === 'boolean') return raw.disable === true;
-  return false;
+  return !entryEnabled(raw);
+}
+
+export function isOriginalConflictEntryInState(entry, state) {
+  return entryEnabled(entry) === (state === 'enabled');
 }

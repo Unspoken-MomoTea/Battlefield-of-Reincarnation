@@ -124,6 +124,47 @@ function scriptsFromArtifact(artifact) {
   return output;
 }
 
+function resourceOverrideKey(rule) {
+  const target = rule?.target || {};
+  if (rule?.kind === 'worldbook') {
+    return `worldbook:${target.worldbook || ''}:${target.uid ? `uid:${target.uid}` : `name:${target.name || ''}`}`;
+  }
+  if (rule?.kind === 'regex') {
+    return `regex:${target.scope || 'character'}:${target.id ? `id:${target.id}` : `name:${target.name || ''}:find:${target.find_regex || ''}`}`;
+  }
+  return `script:${target.scope || ''}:${target.id ? `id:${target.id}` : `folder:${target.folder || ''}:name:${target.name || ''}`}`;
+}
+
+function bundleResourceOverrides(bundle) {
+  const byKey = new Map();
+  for (const raw of bundle?.resource_overrides || []) {
+    if (!raw || !['worldbook', 'regex', 'script'].includes(raw.kind) || !['enabled', 'disabled'].includes(raw.state)) continue;
+    const item = {
+      key: resourceOverrideKey(raw),
+      kind: raw.kind,
+      state: raw.state,
+      target: raw.target || {},
+    };
+    byKey.set(item.key, item);
+  }
+
+  for (const artifact of bundle?.artifacts || []) {
+    if (!['worldbook', 'script'].includes(artifact?.kind)) continue;
+    for (const conflict of artifact.original_conflicts || []) {
+      const raw = {
+        kind: artifact.kind,
+        state: 'disabled',
+        target: conflict?.target || {},
+      };
+      const key = resourceOverrideKey(raw);
+      if (!byKey.has(key)) {
+        byKey.set(key, { key, ...raw });
+      }
+    }
+  }
+  return [...byKey.values()];
+}
+
 function textPreview(value) {
   const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   return String(text ?? '');
@@ -136,6 +177,7 @@ export function buildPublicContentPreview(bundle) {
   const scripts = [];
   let presetCount = 0;
   let dataCount = 0;
+  const resourceOverrides = bundleResourceOverrides(bundle);
 
   for (const [index, artifact] of (bundle?.artifacts || []).entries()) {
     const base = {
@@ -180,6 +222,7 @@ export function buildPublicContentPreview(bundle) {
     worldbook_entries: worldbookEntries,
     regex_entries: regexEntries,
     scripts,
+    resource_overrides: resourceOverrides,
     counts: {
       artifacts: artifacts.length,
       worldbook_entries: worldbookEntries.length,
@@ -187,6 +230,7 @@ export function buildPublicContentPreview(bundle) {
       scripts: scripts.length,
       presets: presetCount,
       data: dataCount,
+      resource_overrides: resourceOverrides.length,
     },
   };
 }
@@ -225,7 +269,12 @@ export function buildPublicChangePreview(previousPreview, currentPreview, previo
   const worldbook = diffCollection(previousPreview.worldbook_entries, currentPreview.worldbook_entries);
   const regex = diffCollection(previousPreview.regex_entries, currentPreview.regex_entries);
   const scripts = diffCollection(previousPreview.scripts, currentPreview.scripts);
-  const all = [...worldbook, ...regex, ...scripts];
+  const resourceOverrides = diffCollection(
+    previousPreview.resource_overrides,
+    currentPreview.resource_overrides,
+    'key',
+  );
+  const all = [...worldbook, ...regex, ...scripts, ...resourceOverrides];
   return {
     from_version: Number(previousVersion),
     to_version: Number(currentVersion),
@@ -237,5 +286,6 @@ export function buildPublicChangePreview(previousPreview, currentPreview, previo
     worldbook,
     regex,
     scripts,
+    resource_overrides: resourceOverrides,
   };
 }

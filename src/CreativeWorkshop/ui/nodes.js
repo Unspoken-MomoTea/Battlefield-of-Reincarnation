@@ -47,5 +47,6 @@ export function collectWorkshopNodes(overlay) {
     createArtifactList: query('[data-role="create-artifact-list"]'),
     createCoverState: query('[data-role="create-cover-state"]'),
     createCoverPreview: query('[data-role="create-cover-preview"]'),
+    createDependencies: query('[data-role="create-dependencies"]'),
   };
 }

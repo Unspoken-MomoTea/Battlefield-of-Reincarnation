@@ -339,6 +339,13 @@ export function createAuthorProjectEditor({
 
       const actions = element('div', 'rw-row rw-publish-final-actions');
       const back = button('← 返回修改', '', () => modal.body.replaceChildren(form));
+      const selectedCover = coverInput.files?.[0] || null;
+      const attempt = {
+        metadataSaved: false,
+        coverUploaded: !selectedCover,
+        versionUploaded: false,
+        submitted: false,
+      };
       const submit = button('提交新版本审核', 'good', async () => {
         submit.disabled = true;
         back.disabled = true;
@@ -347,28 +354,37 @@ export function createAuthorProjectEditor({
         progress.textContent = '正在保存作品资料…';
 
         try {
-          await workshopApi.updateProject(current.id, {
-            name: nextName,
-            summary: summary.value,
-            category: category.value || current.category,
-            tags: tagsFromInput(tags.value),
-            dependencies: dependencies.values(),
-          });
-
-          const selectedCover = coverInput.files?.[0] || null;
-          if (selectedCover) {
-            progress.textContent = '正在更新封面…';
-            await workshopApi.uploadProjectCover(current.id, selectedCover);
+          if (!attempt.metadataSaved) {
+            await workshopApi.updateProject(current.id, {
+              name: nextName,
+              summary: summary.value,
+              category: category.value || current.category,
+              tags: tagsFromInput(tags.value),
+              dependencies: dependencies.values(),
+            });
+            attempt.metadataSaved = true;
           }
 
-          progress.textContent = '正在上传新版本…';
-          await workshopApi.uploadProjectVersion(current.id, {
-            changelog: changelog.value,
-            bundle: queue.bundle(rules.buildArtifacts()),
-          });
+          if (selectedCover && !attempt.coverUploaded) {
+            progress.textContent = '正在更新封面…';
+            await workshopApi.uploadProjectCover(current.id, selectedCover);
+            attempt.coverUploaded = true;
+          }
 
-          progress.textContent = '正在提交审核…';
-          await workshopApi.submitProject(current.id);
+          if (!attempt.versionUploaded) {
+            progress.textContent = '正在上传新版本…';
+            await workshopApi.uploadProjectVersion(current.id, {
+              changelog: changelog.value,
+              bundle: queue.bundle(rules.buildArtifacts()),
+            });
+            attempt.versionUploaded = true;
+          }
+
+          if (!attempt.submitted) {
+            progress.textContent = '正在提交审核…';
+            await workshopApi.submitProject(current.id);
+            attempt.submitted = true;
+          }
 
           progress.className = 'rw-submit-progress rw-submit-progress--success';
           progress.textContent = '新版本已提交审核。旧的已发布版本会保持在线，直到新版本审核通过。';
@@ -378,7 +394,14 @@ export function createAuthorProjectEditor({
           host.setTimeout?.(() => modal.close({ force: true }), 650);
         } catch (error) {
           progress.className = 'rw-submit-progress rw-submit-progress--error';
-          progress.textContent = `提交失败：${error instanceof Error ? error.message : String(error)}`;
+          const failedAt = !attempt.metadataSaved
+            ? '保存资料'
+            : !attempt.coverUploaded
+              ? '上传封面'
+              : !attempt.versionUploaded
+                ? '上传新版本'
+                : '提交审核';
+          progress.textContent = `${failedAt}失败：${error instanceof Error ? error.message : String(error)}\n再次点击会从失败步骤继续，不会重复上传已经成功的版本。`;
           notifyError(error);
           submit.disabled = false;
           back.disabled = false;

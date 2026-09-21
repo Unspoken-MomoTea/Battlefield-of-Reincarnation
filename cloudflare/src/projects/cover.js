@@ -121,7 +121,7 @@ export async function getPublicProjectCover(env, projectId) {
     `SELECT v.cover_key
        FROM projects p
        JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
-      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'`,
+      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived' AND p.owner_hidden = 0`,
   )
     .bind(projectId)
     .first();

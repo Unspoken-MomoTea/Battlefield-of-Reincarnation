@@ -120,6 +120,7 @@ export function createResourceStateEditor({
   initialRules = [],
   notifyError = null,
   scan = scanPublishResources,
+  onChange = null,
 }) {
   const root = doc.createElement('section');
   root.className = 'rw-resource-state-editor';
@@ -194,6 +195,7 @@ export function createResourceStateEditor({
     if (state === 'keep') selected.delete(key);
     else selected.set(key, { ...base, state });
     render();
+    try { onChange?.(normalizeResourceOverrides([...selected.values()])); } catch {}
   }
 
   function stateButton(resource, value, currentRule) {

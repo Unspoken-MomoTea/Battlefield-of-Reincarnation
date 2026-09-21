@@ -24,6 +24,26 @@ function makeChip(doc, text, className = '') {
   return chip;
 }
 
+function strategyMeta(entry) {
+  const type = String(entry?.strategy_type || 'selective');
+  if (type === 'constant') return { symbol: '🔵', label: '常驻', className: 'constant' };
+  if (type === 'vectorized') return { symbol: '🔗', label: '向量化', className: 'vectorized' };
+  return { symbol: '🟢', label: '关键词', className: 'selective' };
+}
+
+function makeStrategyChip(doc, entry, compact = false) {
+  const strategy = strategyMeta(entry);
+  const chip = doc.createElement('span');
+  chip.className = `rw-strategy-chip rw-strategy-chip--${strategy.className}${compact ? ' is-compact' : ''}`;
+  chip.textContent = `${strategy.symbol} ${strategy.label}`;
+  chip.title = strategy.label === '常驻'
+    ? '蓝灯：常驻条目，不依赖关键词触发'
+    : strategy.label === '关键词'
+      ? '绿灯：关键词触发条目'
+      : '向量化触发条目';
+  return chip;
+}
+
 function renderWorldbookEntry(doc, entry) {
   const panel = doc.createElement('article');
   panel.className = 'rw-content-reader-panel';
@@ -37,8 +57,13 @@ function renderWorldbookEntry(doc, entry) {
   const source = doc.createElement('span');
   source.textContent = entry.artifact_name ? `来自 ${entry.artifact_name}` : '世界书条目';
   title.append(h3, source);
-  const state = makeChip(doc, entry.enabled === false ? '原文件中关闭' : '原文件中启用', entry.enabled === false ? 'muted' : 'good');
-  head.append(title, state);
+  const stateWrap = doc.createElement('div');
+  stateWrap.className = 'rw-content-reader-states';
+  stateWrap.append(
+    makeStrategyChip(doc, entry),
+    makeChip(doc, entry.enabled === false ? '已关闭' : '已启用', entry.enabled === false ? 'muted' : 'good'),
+  );
+  head.append(title, stateWrap);
   panel.appendChild(head);
 
   const meta = doc.createElement('div');
@@ -188,11 +213,15 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
     const item = doc.createElement('button');
     item.type = 'button';
     item.className = 'rw-content-nav-item';
+    const titleRow = doc.createElement('span');
+    titleRow.className = 'rw-content-nav-title-row';
+    if (title === '世界书内容') titleRow.appendChild(makeStrategyChip(doc, entry, true));
     const name = doc.createElement('strong');
     name.textContent = entry.name || `项目 ${index + 1}`;
+    titleRow.appendChild(name);
     const meta = doc.createElement('span');
     meta.textContent = entry.artifact_name || '';
-    item.append(name, meta);
+    item.append(titleRow, meta);
     item.addEventListener('click', () => renderIndex(index));
     nav.appendChild(item);
   });

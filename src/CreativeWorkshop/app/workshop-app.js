@@ -10,7 +10,14 @@ import { bindWorkshopEvents } from './events.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '1.7.0';
+export const WORKSHOP_VERSION = '1.7.1';
+
+const CURRENT_SHA = (() => {
+  const match = String(import.meta.url).match(
+    /@([0-9a-f]{40})\/src\/CreativeWorkshop\/app\/workshop-app\.js/iu,
+  );
+  return match?.[1] || '';
+})();
 
 let booted = false;
 
@@ -53,6 +60,8 @@ export function bootWorkshop() {
     host, doc, nodes, ui, workshopApi, projectService,
     selfUpdater: workshopSelfUpdater,
     version: WORKSHOP_VERSION,
+    currentSha: CURRENT_SHA,
+    hotUpdateClient: updateAndHotReload,
     getAuth: () => auth,
   });
 
@@ -139,6 +148,20 @@ export function bootWorkshop() {
     booted = false;
   }
 
+  async function updateAndHotReload() {
+    const updated = await workshopSelfUpdater.updateLoaderLink();
+    if (!updated.loaderFound) {
+      throw new Error('没有找到可自动更新的创意工坊载入脚本');
+    }
+
+    if (CURRENT_SHA && updated.latestSha === CURRENT_SHA) {
+      return { ...updated, hotReloaded: false, alreadyRunningLatest: true };
+    }
+
+    await hotReload(updated);
+    return { ...updated, hotReloaded: true, alreadyRunningLatest: false };
+  }
+
   async function hotReload(updated) {
     const url = String(updated?.latestImportUrl || '').trim();
     if (!/^https:\/\/(?:testingcf\.)?jsdelivr\.net\/gh\/Unspoken-MomoTea\/Battlefield-of-Reincarnation@[0-9a-f]{40}\/src\/CreativeWorkshop\/index\.js$/iu.test(url)) {
@@ -167,6 +190,7 @@ export function bootWorkshop() {
     host,
     selfUpdater: workshopSelfUpdater,
     currentVersion: WORKSHOP_VERSION,
+    currentSha: CURRENT_SHA,
     onHotReload: hotReload,
   });
 
@@ -193,6 +217,7 @@ export function bootWorkshop() {
     close,
     refresh,
     destroy,
+    hotUpdate: updateAndHotReload,
     workshopApi,
     projectService,
     selfUpdater: workshopSelfUpdater,

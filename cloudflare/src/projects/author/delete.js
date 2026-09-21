@@ -7,11 +7,15 @@ export async function deleteProject(env, user, projectId) {
   if (project.status === 'pending') {
     throw new HttpError(409, 'review_pending', '作品正在审核，不能删除');
   }
-  if (Number(project.published_version) > 0 && project.status !== 'archived') {
+  if (
+    Number(project.published_version) > 0 &&
+    project.status !== 'archived' &&
+    !Number(project.owner_hidden || 0)
+  ) {
     throw new HttpError(
       409,
       'published_project_delete_forbidden',
-      '已发布作品需要先由管理员下架，之后作者才能永久删除',
+      '已发布作品需要先下架，之后作者才能永久删除',
     );
   }
 

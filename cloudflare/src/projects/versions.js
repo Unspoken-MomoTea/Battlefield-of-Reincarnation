@@ -17,7 +17,8 @@ export async function getPublicProjectVersionsBatch(request, env) {
        JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
       WHERE p.id IN (${placeholders})
         AND p.published_version > 0
-        AND p.status <> 'archived'`,
+        AND p.status <> 'archived'
+        AND p.owner_hidden = 0`,
   ).bind(...ids).all();
 
   const items = (result.results || []).map(row => ({

@@ -53,6 +53,9 @@ export const WORKSHOP_CSS = `
   }
   .rw-head-discover-tools{min-width:260px;flex:1;display:flex;align-items:center;gap:7px}
   .rw-head-discover-tools[hidden]{display:none!important}
+  .rw-head-actions{
+    margin-left:auto;flex:none;display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap
+  }
   .rw-head-discover-tools .rw-input{min-width:180px}
   .rw-head-discover-tools .rw-select{min-width:96px;max-width:128px}
   .rw-account-wrap{position:relative;flex:none}
@@ -405,7 +408,13 @@ export const WORKSHOP_CSS = `
   .rw-card-menu{position:absolute;right:10px;top:10px;z-index:5}
   .rw-card-menu-trigger{
     width:34px;min-width:34px;height:34px;min-height:34px;padding:0!important;display:grid!important;place-items:center;
-    border-radius:9px!important;font-size:20px!important;line-height:1!important
+    border:1px solid rgba(255,255,255,.14)!important;border-radius:9px!important;
+    background:rgba(17,18,21,.86)!important;color:#d4d1ca!important;
+    box-shadow:0 2px 10px rgba(0,0,0,.28)!important;opacity:1!important;
+    font-size:20px!important;font-weight:800!important;line-height:1!important
+  }
+  .rw-card-menu-trigger:hover{
+    border-color:rgba(200,171,125,.38)!important;background:#202126!important;color:#f2ede4!important
   }
   .rw-card-menu-dropdown{
     position:absolute;right:0;top:40px;width:170px;display:grid;gap:4px;padding:6px;
@@ -1011,6 +1020,7 @@ export const WORKSHOP_CSS = `
     }
     .rw-head{grid-column:1;grid-row:1;padding:8px 10px;background:rgba(20,21,24,.96)}
     .rw-title{display:none}
+    .rw-head-actions{margin-left:auto;gap:6px;flex:none}
     .rw-version{display:none}
     .rw-health-chip{display:none}
     .rw-head-discover-tools{min-width:0;flex:1}

@@ -94,7 +94,8 @@ function renderWorldbookEntry(doc, entry) {
   meta.className = 'rw-content-entry-meta';
   meta.append(
     makeChip(doc, positionLabel(entry)),
-    makeChip(doc, `顺序 ${textValue(entry.order)}`),
+    makeChip(doc, `列表顺序 ${textValue(entry.display_index)}`),
+    makeChip(doc, `插入顺序 ${textValue(entry.order)}`),
   );
   if (String(entry?.position_type || '') === 'at_depth' && entry.role) {
     const roleLabel = ({ system: 'System', user: 'User', assistant: 'Assistant' })[entry.role] || entry.role;
@@ -246,7 +247,7 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
     titleRow.appendChild(name);
     const meta = doc.createElement('span');
     meta.textContent = title === '世界书内容'
-      ? `顺序 ${textValue(entry.order)}`
+      ? `列表 ${textValue(entry.display_index)} · 插入 ${textValue(entry.order)}`
       : (entry.artifact_name || '');
     item.append(titleRow, meta);
     item.addEventListener('click', () => renderIndex(index));
@@ -265,9 +266,9 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
       .map(([label, items]) => ({
         label,
         items: items.sort((a, b) => {
-          const aOrder = Number.isFinite(Number(a.entry.order)) ? Number(a.entry.order) : a.index;
-          const bOrder = Number.isFinite(Number(b.entry.order)) ? Number(b.entry.order) : b.index;
-          return aOrder - bOrder || a.index - b.index;
+          const aDisplay = Number.isFinite(Number(a.entry.display_index)) ? Number(a.entry.display_index) : a.index;
+          const bDisplay = Number.isFinite(Number(b.entry.display_index)) ? Number(b.entry.display_index) : b.index;
+          return aDisplay - bDisplay || a.index - b.index;
         }),
       }))
       .sort((a, b) => positionGroupRank(a.label) - positionGroupRank(b.label));
@@ -309,7 +310,8 @@ function fieldLabel(field) {
     enabled: '启用状态',
     position_type: '位置',
     depth: '深度',
-    order: '顺序',
+    order: '插入顺序',
+    display_index: '列表顺序',
     probability: '概率',
     find_regex: '匹配表达式',
     replace_string: '替换内容',

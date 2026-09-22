@@ -68,7 +68,10 @@ export const WORKSHOP_CSS = `
   .rw-showcase-cover--empty{display:flex;align-items:center;justify-content:center;color:var(--rw-faint);font-size:12px}
   .rw-showcase-copy{display:flex;flex-direction:column;gap:3px;padding:8px 2px 0;min-width:0}
   .rw-showcase-copy strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#d9d8d4;font-size:11px;line-height:1.45;min-height:32px}
-  .rw-showcase-copy span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--rw-faint);font-size:10px}
+  .rw-showcase-copy>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--rw-faint);font-size:10px}
+  .rw-showcase-meta{display:flex;align-items:center;gap:7px;min-width:0}
+  .rw-showcase-meta>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rw-showcase-type{flex:none;padding:2px 5px;border-radius:4px;background:rgba(162,139,107,.10);color:#aa9270;font-size:9px;font-weight:750}
   .rw-catalog{min-width:0}
 
   .rw-head-actions{

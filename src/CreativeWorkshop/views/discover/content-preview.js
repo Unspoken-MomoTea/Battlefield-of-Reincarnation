@@ -15,12 +15,12 @@ function positionLabel(entry) {
     ? legacy[numeric]
     : raw;
   const labels = {
-    before_character_definition: '角色定义前',
-    after_character_definition: '角色定义后',
-    before_example_messages: '示例消息前',
-    after_example_messages: '示例消息后',
-    before_author_note: '作者注释前',
-    after_author_note: '作者注释后',
+    before_character_definition: '角色定义之前',
+    after_character_definition: '角色定义之后',
+    before_example_messages: '示例消息之前',
+    after_example_messages: '示例消息之后',
+    before_author_note: '作者注释之前',
+    after_author_note: '作者注释之后',
   };
   if (type === 'at_depth') return '在深度';
   if (type === 'outlet') return '出口';
@@ -87,10 +87,6 @@ function renderWorldbookEntry(doc, entry) {
     makeChip(doc, `深度 ${String(entry?.position_type || '') === 'at_depth' ? textValue(entry.depth) : '—'}`),
     makeChip(doc, `顺序 ${textValue(entry.order)}`),
   );
-  if (String(entry?.position_type || '') === 'at_depth' && entry.role) {
-    const roleLabel = ({ system: 'System', user: 'User', assistant: 'Assistant' })[entry.role] || entry.role;
-    meta.appendChild(makeChip(doc, roleLabel));
-  }
   panel.appendChild(meta);
 
   const keywords = doc.createElement('div');

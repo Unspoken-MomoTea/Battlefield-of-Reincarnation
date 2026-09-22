@@ -23,6 +23,34 @@ function run(command, args, cwd = root, capture = false, unattended = false) {
   return String(result.stdout ?? '').trim();
 }
 function node(args, cwd, unattended = false) { return run(process.execPath, args, cwd, false, unattended); }
+function localReleaseSha(environment) {
+  const ref = RELEASE_TARGETS[environment]?.ref;
+  if (!ref) throw new Error(`未知发布环境：${environment}`);
+
+  const candidates = [
+    `refs/remotes/origin/${ref}`,
+    `refs/heads/${ref}`,
+  ];
+
+  for (const candidate of candidates) {
+    const result = spawnSync(git, ['rev-parse', `${candidate}^{commit}`], {
+      cwd: root,
+      encoding: 'utf8',
+      shell: false,
+      stdio: 'pipe',
+    });
+    if (result.status === 0) {
+      return {
+        sha: String(result.stdout || '').trim(),
+        sourceRef: candidate,
+      };
+    }
+  }
+
+  throw new Error(
+    `本地没有可用的 ${ref} 引用。请先在仓库执行 git pull / 更新本地，再运行发布工具。`,
+  );
+}
 function configAt(directory) { return JSON.parse(fs.readFileSync(path.join(directory, 'cloudflare/wrangler.jsonc'), 'utf8')); }
 function files(directory, suffix) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -46,7 +74,7 @@ function npmCli() {
 
 async function main() {
   if (args.includes('--help')) {
-    console.log('node cloudflare/scripts/update-servers.mjs [staging|production|both] [--dry-run]\n不传环境时打开选择菜单。仅更新已推送的提交，不自动发布本地修改或推进 stable。');
+    console.log('node cloudflare/scripts/update-servers.mjs [staging|production|both] [--dry-run]\n不传环境时打开选择菜单。不会主动 git fetch；请先自行更新本地仓库。');
     return;
   }
   if (args.length > 1 || argv.some(arg => arg.startsWith('--') && arg !== '--dry-run')) throw new Error('参数无效，请使用 --help');
@@ -58,11 +86,12 @@ async function main() {
     target = ({ 1: 'staging', 2: 'production', 3: 'both' })[choice];
   }
   const targets = releasePlan(target);
-  console.log('流程：读取远端固定提交 → 临时检出 → 安装依赖 → 测试 → 数据库迁移 → 部署 → 健康检查');
-  console.log('工作区分支和未提交修改保留。正式版仅使用已发布的 workshop-stable。');
+  console.log('流程：读取本地已同步提交 → 临时检出 → 安装依赖 → 测试 → 数据库迁移 → 部署 → 健康检查');
+  console.log('不会主动连接 GitHub 做 fetch；请先自行 git pull。工作区分支和未提交修改保留。');
   if (preview) {
     for (const environment of targets) {
-      console.log(`\n[预演] ${RELEASE_TARGETS[environment].label}: origin/${RELEASE_TARGETS[environment].ref}`);
+      const local = localReleaseSha(environment);
+      console.log(`\n[预演] ${RELEASE_TARGETS[environment].label}: ${local.sourceRef} @ ${local.sha.slice(0, 12)}`);
       try { validateReleaseConfig(configAt(root), environment); console.log('当前本地配置检查通过；实际运行仍会检查目标提交配置。'); }
       catch (error) { console.log(`配置待处理：${error.message}`); }
     }
@@ -78,8 +107,15 @@ async function main() {
       console.log('已取消'); return;
     }
   }
-  run(git, ['fetch', 'origin', ...targets.map(env => `+refs/heads/${RELEASE_TARGETS[env].ref}:refs/remotes/origin/${RELEASE_TARGETS[env].ref}`)]);
-  const releases = targets.map(environment => ({ environment, sha: run(git, ['rev-parse', `origin/${RELEASE_TARGETS[environment].ref}^{commit}`], root, true) }));
+  const releases = targets.map(environment => ({
+    environment,
+    ...localReleaseSha(environment),
+  }));
+  for (const release of releases) {
+    console.log(
+      `使用本地引用：${RELEASE_TARGETS[release.environment].label} / ${release.sourceRef} / ${release.sha}`,
+    );
+  }
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-server-update-'));
   const checkouts = [];
   const completed = [];

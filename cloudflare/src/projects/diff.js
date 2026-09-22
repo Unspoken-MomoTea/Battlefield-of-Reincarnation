@@ -108,13 +108,39 @@ export async function getAdminProjectDiff(env, user, projectId) {
 
   let base = null;
   if (Number(project.published_version) > 0) {
-    base = await env.DB.prepare(
-      `SELECT version, name, summary, tags, dependencies, project_type AS category, cover_key, manifest_key, review_status
-         FROM project_versions
-        WHERE project_id = ? AND version = ?`,
-    )
-      .bind(projectId, project.published_version)
-      .first();
+    const approvedReview = target.review_status === 'approved'
+      ? await env.DB.prepare(
+        `SELECT 1 AS found
+           FROM review_records
+          WHERE project_id = ? AND version = ? AND decision = 'approved'
+          LIMIT 1`,
+      ).bind(projectId, target.version).first()
+      : null;
+    const authorPublishedLatest = (
+      target.review_status === 'approved'
+      && Number(project.latest_version) === Number(project.published_version)
+      && !approvedReview
+    );
+
+    if (authorPublishedLatest) {
+      base = await env.DB.prepare(
+        `SELECT version, name, summary, tags, dependencies, project_type AS category, cover_key, manifest_key, review_status
+           FROM project_versions
+          WHERE project_id = ? AND version < ? AND review_status = 'approved'
+          ORDER BY version DESC
+          LIMIT 1`,
+      )
+        .bind(projectId, target.version)
+        .first();
+    } else {
+      base = await env.DB.prepare(
+        `SELECT version, name, summary, tags, dependencies, project_type AS category, cover_key, manifest_key, review_status
+           FROM project_versions
+          WHERE project_id = ? AND version = ?`,
+      )
+        .bind(projectId, project.published_version)
+        .first();
+    }
   }
 
   const [baseManifest, targetManifest] = await Promise.all([

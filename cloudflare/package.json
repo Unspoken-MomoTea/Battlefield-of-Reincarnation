@@ -7,7 +7,7 @@
     "dev": "npx wrangler dev",
     "deploy": "npm run deploy:staging",
     "db:migrate:local": "npx wrangler d1 migrations apply DB --local",
-    "db:migrate:remote": "npx wrangler d1 migrations apply DB --remote",
+    "db:migrate:remote": "node -e \"console.error('请选择 db:migrate:staging 或 db:migrate:production，拒绝使用含糊的 remote 环境。'); process.exit(1)\"",
     "db:migrate:staging": "npx wrangler d1 migrations apply DB --env staging --remote",
     "deploy:staging": "npx wrangler deploy --env staging",
     "deploy:production": "node scripts/production-command.mjs deploy",

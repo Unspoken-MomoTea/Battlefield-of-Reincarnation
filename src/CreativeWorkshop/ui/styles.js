@@ -20,12 +20,14 @@ export const WORKSHOP_CSS = `
   .rw-launcher{
     position:fixed;right:22px;bottom:88px;z-index:2147483400;
     width:50px;height:50px;border:1px solid rgba(162,139,107,.28);border-radius:14px;
-    background:rgba(24,25,28,.94);color:var(--rw-accent-text);cursor:pointer;
+    background:rgba(24,25,28,.94);color:var(--rw-accent-text);cursor:grab;
     box-shadow:0 12px 34px rgba(0,0,0,.30);backdrop-filter:blur(16px);
+    touch-action:none;user-select:none;-webkit-user-select:none;
     font:800 18px/1 "LXGW WenKai Lite","Microsoft YaHei",sans-serif;
     transition:transform .15s ease,background .15s ease,border-color .15s ease;
   }
   .rw-launcher:hover{transform:translateY(-2px);background:#202126;border-color:rgba(162,139,107,.45)}
+  .rw-launcher.is-dragging,.rw-launcher.is-dragging:hover{cursor:grabbing;transform:none;transition:none}
   .rw-overlay{
     --rw-layer-create:120;
     --rw-layer-modal:220;

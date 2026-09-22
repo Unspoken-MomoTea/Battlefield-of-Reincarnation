@@ -15,7 +15,7 @@ export function workshopTemplate(version) {
         <button class="rw-button" data-action="search" type="button">搜索</button>
       </div>
       <div class="rw-head-actions">
-        <button class="rw-button rw-maintenance-trigger" type="button" data-action="maintenance">DLC 修复</button>
+        <button class="rw-button rw-maintenance-trigger" type="button" data-action="maintenance">修复</button>
         <span class="rw-health-chip" data-role="health" title="工坊服务状态">连接中</span>
         <div class="rw-version">v${version}</div>
         <div class="rw-account-wrap" data-role="account-wrap">
@@ -107,7 +107,7 @@ export function workshopTemplate(version) {
 
               <label class="rw-field">
                 <span>作品名称 *</span>
-                <input class="rw-input" name="name" required maxlength="80" placeholder="例如：命定之诗与黄昏之歌">
+                <input class="rw-input" name="name" required maxlength="80" placeholder="请输入作品名称">
               </label>
 
               <label class="rw-field">

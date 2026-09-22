@@ -103,29 +103,31 @@ export function createDiscoverView({
     card.setAttribute('role', 'button');
     card.setAttribute('aria-label', `查看作品：${project.name}`);
 
+    const author = element('div', 'rw-project-author-head', project.owner_name || '匿名作者');
+    card.appendChild(author);
+
+    const title = element('div', 'rw-project-title-row');
+    const titleBadge = element(
+      'span',
+      `rw-title-type rw-title-type--${project.category}`,
+      categoryLabels[project.category] || project.category,
+    );
+    title.append(titleBadge, element('h3', 'rw-project-title-text', project.name));
+    card.appendChild(title);
+
+    const media = element('div', 'rw-project-media');
     if (project.has_cover) {
       const cover = element('img', 'rw-cover');
       cover.src = workshopApi.getProjectCoverUrl(project.id);
       cover.alt = `${project.name} 封面`;
       cover.loading = 'lazy';
-      card.appendChild(cover);
+      media.appendChild(cover);
     } else {
       const placeholder = element('div', 'rw-cover rw-cover-placeholder');
       placeholder.textContent = categoryLabels[project.category] || '创意工坊';
-      card.appendChild(placeholder);
+      media.appendChild(placeholder);
     }
-
-    const typeBadge = element(
-      'span',
-      `rw-cover-badge rw-cover-badge--${project.category}`,
-      categoryLabels[project.category] || project.category,
-    );
-    card.appendChild(typeBadge);
-
-    const top = element('div', 'rw-project-card-top');
-    top.appendChild(element('h3', '', project.name));
-    if (project.owner_name) top.appendChild(element('div', 'rw-project-author', project.owner_name));
-    card.appendChild(top);
+    card.appendChild(media);
 
     const meta = element('div', 'rw-meta');
     meta.append(element('span', 'rw-pill', `v${project.version}`));

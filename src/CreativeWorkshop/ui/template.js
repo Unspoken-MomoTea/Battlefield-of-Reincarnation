@@ -35,7 +35,7 @@ export function workshopTemplate(version) {
       <div class="rw-nav-label">浏览</div>
       <button class="rw-tab is-active" data-tab="discover" type="button">发现</button>
       <div class="rw-nav-divider"></div>
-      <button class="rw-tab rw-nav-filter is-filter-active" data-category-filter="" type="button">全部项目</button>
+      <button class="rw-tab rw-nav-filter" data-category-filter="" type="button">全部项目</button>
       <button class="rw-tab rw-nav-filter" data-category-filter="extension" type="button">扩展</button>
       <button class="rw-tab rw-nav-filter" data-category-filter="character" type="button">角色</button>
       <div class="rw-nav-divider"></div>
@@ -46,19 +46,19 @@ export function workshopTemplate(version) {
       <section class="rw-section" data-section="discover">
         <div class="rw-discover-home" data-role="discover-home">
           <section class="rw-showcase">
-            <div class="rw-showcase-head"><div><small>FOR YOU</small><h2>发现推荐</h2></div><button class="rw-showcase-more" data-discover-more-sort="popular" type="button">更多推荐 →</button></div>
+            <div class="rw-showcase-head"><div><small>FOR YOU</small><h2>发现推荐</h2></div></div>
             <div class="rw-showcase-row" data-role="discover-featured"></div>
           </section>
           <section class="rw-showcase">
-            <div class="rw-showcase-head"><div><small>LATEST</small><h2>最新发布</h2></div><button class="rw-showcase-more" data-discover-more-sort="latest" type="button">更多最新 →</button></div>
+            <div class="rw-showcase-head"><div><small>LATEST</small><h2>最新发布</h2></div></div>
             <div class="rw-showcase-row" data-role="discover-latest"></div>
           </section>
           <section class="rw-showcase">
-            <div class="rw-showcase-head"><div><small>PLAYER PICKS</small><h2>玩家好评</h2></div><button class="rw-showcase-more" data-discover-more-sort="likes" type="button">更多好评 →</button></div>
+            <div class="rw-showcase-head"><div><small>PLAYER PICKS</small><h2>玩家好评</h2></div></div>
             <div class="rw-showcase-row" data-role="discover-liked"></div>
           </section>
           <section class="rw-showcase">
-            <div class="rw-showcase-head"><div><small>MOST DOWNLOADED</small><h2>下载最多</h2></div><button class="rw-showcase-more" data-discover-more-sort="downloads" type="button">更多下载 →</button></div>
+            <div class="rw-showcase-head"><div><small>MOST DOWNLOADED</small><h2>下载最多</h2></div></div>
             <div class="rw-showcase-row" data-role="discover-downloaded"></div>
           </section>
         </div>

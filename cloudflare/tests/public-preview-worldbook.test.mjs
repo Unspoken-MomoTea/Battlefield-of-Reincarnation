@@ -24,12 +24,14 @@ test('legacy worldbook at-depth position becomes D-layer metadata', () => {
     depth: 0,
     order: -1,
     role: 2,
+    extensions: { display_index: 17 },
     constant: true,
   });
 
   assert.equal(entry.position_type, 'at_depth');
   assert.equal(entry.depth, 0);
   assert.equal(entry.order, -1);
+  assert.equal(entry.display_index, 17);
   assert.equal(entry.role, 'assistant');
 });
 
@@ -44,4 +46,26 @@ test('legacy numeric worldbook positions are normalized instead of exposed raw',
   assert.equal(entry.position_type, 'before_character_definition');
   assert.equal(entry.order, 12);
   assert.equal(entry.role, 'system');
+});
+
+
+test('worldbook display order falls back like SillyTavern when custom index is missing', () => {
+  const withUid = previewOf({
+    uid: 23,
+    comment: 'UID fallback',
+    content: '正文',
+    position: 4,
+    depth: 2,
+    order: 80,
+  });
+  assert.equal(withUid.display_index, 23);
+
+  const withoutUid = previewOf({
+    comment: 'array fallback',
+    content: '正文',
+    position: 4,
+    depth: 2,
+    order: 80,
+  });
+  assert.equal(withoutUid.display_index, 0);
 });

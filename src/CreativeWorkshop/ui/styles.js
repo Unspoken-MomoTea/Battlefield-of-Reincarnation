@@ -38,6 +38,7 @@ export const WORKSHOP_CSS = `
     box-sizing:border-box;
   }
   .rw-overlay.is-open{display:flex}
+  #toast-container{z-index:2147483647!important}
   .rw-panel{
     width:min(1540px,98vw);height:min(940px,96vh);overflow:hidden;
     display:grid;grid-template-columns:190px minmax(0,1fr);grid-template-rows:58px minmax(0,1fr);

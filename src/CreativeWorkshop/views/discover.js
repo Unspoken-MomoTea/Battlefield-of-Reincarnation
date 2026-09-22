@@ -26,6 +26,33 @@ export function createDiscoverView({
   let loadedCount = 0;
   let requestSerial = 0;
   let localProjects = new Map();
+  const pageCache = new Map();
+
+  function queryState(category = nodes.category.value) {
+    const rawSearch = nodes.search.value.trim();
+    const tagMatch = rawSearch.match(/(?:^|\s)#([^\s#]+)/u);
+    return {
+      rawSearch,
+      tag: tagMatch?.[1] || '',
+      query: rawSearch.replace(/(?:^|\s)#[^\s#]+/gu, ' ').trim(),
+      category: category || '',
+      sort: nodes.sort.value,
+    };
+  }
+
+  function cacheKey(state, offset = 0) {
+    return JSON.stringify([state.query, state.category, state.tag, state.sort, Number(offset || 0)]);
+  }
+
+  function compatibleAllKey(state, offset = 0) {
+    return cacheKey({ ...state, category: '' }, offset);
+  }
+
+  function filterCachedAll(result, category) {
+    if (!category || !result || result.next_offset !== null) return null;
+    const items = (result.items || []).filter(item => item.category === category);
+    return { ...result, items, next_offset: null };
+  }
 
   function localProject(projectId) {
     return localProjects.get(projectId) || null;
@@ -167,24 +194,28 @@ export function createDiscoverView({
       nodes.discoverMore.hidden = true;
       empty(nodes.discoverList, '正在加载作品...');
       nodes.discoverCount.textContent = '正在载入';
-      await syncLocalProjects();
+      void syncLocalProjects().catch(() => {});
     } else {
       nodes.discoverMore.disabled = true;
       nodes.discoverMore.textContent = '加载中...';
     }
 
     try {
-      const rawSearch = nodes.search.value.trim();
-      const tagMatch = rawSearch.match(/(?:^|\s)#([^\s#]+)/u);
-      const tag = tagMatch?.[1] || '';
-      const query = rawSearch.replace(/(?:^|\s)#[^\s#]+/gu, ' ').trim();
-      const result = await projectService.list(
-        query,
-        nodes.category.value,
-        offset || 0,
-        tag,
-        nodes.sort.value,
-      );
+      const state = queryState();
+      const key = cacheKey(state, offset || 0);
+      const allKey = compatibleAllKey(state, offset || 0);
+      let result = pageCache.get(key);
+      if (!result && state.category) result = filterCachedAll(pageCache.get(allKey), state.category);
+      if (!result) {
+        result = await projectService.list(
+          state.query,
+          state.category,
+          offset || 0,
+          state.tag,
+          state.sort,
+        );
+        pageCache.set(key, result);
+      }
       if (serial !== requestSerial) return;
 
       const items = Array.isArray(result.items) ? result.items : [];
@@ -559,8 +590,12 @@ export function createDiscoverView({
 
 
   return {
-    refresh: () => loadPage({ append: false }),
+    refresh: ({ force = false } = {}) => {
+      if (force) pageCache.clear();
+      return loadPage({ append: false });
+    },
     loadMore: () => loadPage({ append: true }),
     showDetail,
+    invalidate: () => pageCache.clear(),
   };
 }

@@ -55,6 +55,8 @@ export function bootWorkshop() {
   let bridge = null;
   let updateNotice = null;
   let cleanupEvents = () => {};
+  let authRefreshPromise = null;
+  let lastAuthRefreshAt = 0;
 
   const views = createWorkshopViews({
     host, doc, nodes, ui, workshopApi, projectService,
@@ -114,22 +116,48 @@ export function bootWorkshop() {
     }
   }
 
-  async function refreshAuth() {
-    try {
-      const stored = await workshopApi.getStoredAuth();
-      if (!stored) return setAuth(null);
-      const current = await workshopApi.me();
-      setAuth({ ...stored, user: current.user });
-    } catch {
-      setAuth(null);
-    }
+  async function refreshAuth({ force = false } = {}) {
+    const now = Date.now();
+    if (!force && now - lastAuthRefreshAt < 3000) return auth;
+    if (authRefreshPromise) return authRefreshPromise;
+    authRefreshPromise = (async () => {
+      try {
+        const stored = await workshopApi.getStoredAuth();
+        if (!stored) {
+          setAuth(null);
+          return null;
+        }
+        const current = await workshopApi.me();
+        const next = { ...stored, user: current.user };
+        setAuth(next);
+        return next;
+      } catch {
+        setAuth(null);
+        return null;
+      } finally {
+        lastAuthRefreshAt = Date.now();
+        authRefreshPromise = null;
+      }
+    })();
+    return authRefreshPromise;
   }
 
   const close = () => overlay.classList.remove('is-open');
   const open = () => {
+    const wasOpen = overlay.classList.contains('is-open');
     overlay.classList.add('is-open');
     void refreshHealth();
-    void refreshAuth().then(() => showTab(activeTab));
+    void refreshAuth({ force: true });
+    if (!wasOpen) showTab(activeTab);
+  };
+
+  const syncAuthOnResume = () => {
+    if (!overlay.classList.contains('is-open')) return;
+    void refreshAuth();
+  };
+
+  const onVisibilityChange = () => {
+    if (!doc.hidden) syncAuthOnResume();
   };
 
   function destroy() {
@@ -141,6 +169,8 @@ export function bootWorkshop() {
     try { cleanupEvents?.(); } catch {}
     launcher.removeEventListener('click', open);
     window.removeEventListener('pagehide', onPageHide);
+    host.removeEventListener?.('focus', syncAuthOnResume);
+    doc.removeEventListener?.('visibilitychange', onVisibilityChange);
 
     try {
       if (host[GLOBAL_NAME] === bridge) delete host[GLOBAL_NAME];
@@ -235,5 +265,7 @@ export function bootWorkshop() {
   function onPageHide() {
     destroy();
   }
+  host.addEventListener?.('focus', syncAuthOnResume);
+  doc.addEventListener?.('visibilitychange', onVisibilityChange);
   window.addEventListener('pagehide', onPageHide, { once: true });
 }

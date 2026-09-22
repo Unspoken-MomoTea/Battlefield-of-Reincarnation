@@ -1,6 +1,15 @@
 name: creative-workshop-check
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/CreativeWorkshop/**'
+      - 'cloudflare/**'
+      - '.github/workflows/creative-workshop-check.yml'
+      - '.github/workflows/creative-workshop-promote-stable.yml'
+      - '.github/workflows/deploy-workshop-staging.yml'
+      - '创意工坊更新工具.bat'
   push:
     branches: [main]
     paths:

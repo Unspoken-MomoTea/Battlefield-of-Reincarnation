@@ -1367,7 +1367,7 @@ export const WORKSHOP_CSS = `
     .rw-card{padding:12px}
     .rw-cover{width:calc(100% + 24px);margin:-12px -12px 1px}
   }
-`;
 
   @media(max-width:1180px){.rw-showcase-row{grid-template-columns:repeat(4,minmax(0,1fr))}.rw-showcase-card:nth-child(n+5){display:none}}
   @media(max-width:760px){.rw-showcase-row{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px}.rw-showcase-card{flex:0 0 46%;scroll-snap-align:start}.rw-showcase-card:nth-child(n){display:block}.rw-discover-home{gap:26px}}
+`;

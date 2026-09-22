@@ -5,10 +5,13 @@
   "scripts": {
     "test": "node --test",
     "dev": "npx wrangler dev",
-    "deploy": "npx wrangler deploy",
+    "deploy": "npm run deploy:staging",
     "db:migrate:local": "npx wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "npx wrangler d1 migrations apply DB --remote",
-    "db:migrate:staging": "npx wrangler d1 migrations apply DB --env staging --remote"
+    "db:migrate:staging": "npx wrangler d1 migrations apply DB --env staging --remote",
+    "deploy:staging": "npx wrangler deploy --env staging",
+    "deploy:production": "node scripts/production-command.mjs deploy",
+    "db:migrate:production": "node scripts/production-command.mjs migrate"
   },
   "devDependencies": {
     "wrangler": "^4.131.1"

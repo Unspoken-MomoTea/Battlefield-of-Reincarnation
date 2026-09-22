@@ -9,6 +9,9 @@ export function bindWorkshopEvents({
   overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.addEventListener('click', () => {
     if (tab.dataset.tab === 'discover') {
       nodes.discoverHeadTools.hidden = true;
+      nodes.discoverCatalog.hidden = true;
+      nodes.discoverHome.hidden = false;
+      nodes.discoverCategories.forEach(buttonNode => buttonNode.classList.remove('is-filter-active'));
       showTab('discover');
       return;
     }
@@ -27,6 +30,7 @@ export function bindWorkshopEvents({
         buttonNode.classList.toggle('is-filter-active', buttonNode === categoryButton);
       });
       showTab('discover');
+      overlay.querySelector('.rw-tab[data-tab="discover"]')?.classList.remove('is-active');
       nodes.discoverHeadTools.hidden = false;
       void views.discover.catalog({ category: nodes.category.value });
     });

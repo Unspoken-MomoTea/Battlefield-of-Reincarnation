@@ -100,22 +100,24 @@ async function setup() {
 }
 
 async function publish(env, author, admin, projectId, label) {
-  await uploadProjectVersion(
+  const uploaded = await bodyJson(await uploadProjectVersion(
     jsonRequest(`/api/projects/${projectId}/versions`, { changelog: label, bundle: worldbook(label) }),
     env,
     author,
     projectId,
-  );
-  await submitProjectForReview(env, author, projectId);
-  await reviewProject(
-    jsonRequest(`/api/admin/projects/${projectId}/review`, { decision: 'approved', note: '' }),
-    env,
-    admin,
-    projectId,
-  );
+  ));
+  if (!uploaded.auto_published) {
+    await submitProjectForReview(env, author, projectId);
+    await reviewProject(
+      jsonRequest(`/api/admin/projects/${projectId}/review`, { decision: 'approved', note: '' }),
+      env,
+      admin,
+      projectId,
+    );
+  }
 }
 
-test('published cover is frozen until a later version carrying the new cover is approved', async () => {
+test('published cover stays frozen until the author publishes a later version carrying the new cover', async () => {
   const { env, author, admin, project } = await setup();
 
   const first = png(1);

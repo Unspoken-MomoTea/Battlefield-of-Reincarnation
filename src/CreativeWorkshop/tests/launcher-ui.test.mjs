@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { bindWorkshopLauncher } from '../app/launcher.js';
+import { WORKSHOP_CSS } from '../ui/styles.js';
 import { workshopTemplate } from '../ui/template.js';
 
 function target() {
@@ -112,4 +115,15 @@ test('workshop copy uses the simplified repair label and neutral project placeho
   assert.match(html, /placeholder="请输入作品名称"/u);
   assert.doesNotMatch(html, /DLC 修复/u);
   assert.doesNotMatch(html, /命定之诗与黄昏之歌/u);
+});
+
+
+test('resource tabs use plain labels and host toasts stay above the workshop', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../ui/resource-state-editor.js', import.meta.url)),
+    'utf8',
+  );
+  assert.match(source, /button\.textContent = meta\.label;/u);
+  assert.doesNotMatch(source, /icon:\s*['"]/u);
+  assert.match(WORKSHOP_CSS, /#toast-container\{z-index:2147483647!important\}/u);
 });

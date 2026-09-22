@@ -66,7 +66,7 @@ export function bootWorkshop() {
   });
 
   function showTab(name) {
-    if (name === 'admin' && !Number(auth?.user?.is_admin)) return;
+    if (name === 'admin' && !Number(auth?.user?.is_admin) && !Number(auth?.user?.is_moderator)) return;
     activeTab = name;
     overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === name));
     overlay.querySelectorAll('.rw-section').forEach(section => { section.hidden = section.dataset.section !== name; });
@@ -79,13 +79,13 @@ export function bootWorkshop() {
     auth = next;
     const user = auth?.user;
     nodes.account.textContent = user
-      ? `${user.display_name || user.username}${Number(user.is_admin) ? ' · 管理员' : ''} ▾`
+      ? `${user.display_name || user.username}${Number(user.is_admin) ? ' · 主管理员' : Number(user.is_moderator) ? ' · 审核员' : ''} ▾`
       : '账户';
     nodes.account.hidden = !user;
     nodes.accountMenu.hidden = true;
     nodes.login.hidden = Boolean(user);
     nodes.logout.hidden = !user;
-    nodes.adminTab.hidden = !Number(user?.is_admin);
+    nodes.adminTab.hidden = !Number(user?.is_admin) && !Number(user?.is_moderator);
     if (!user && (activeTab === 'mine' || activeTab === 'admin')) showTab('discover');
   }
 

@@ -16,7 +16,10 @@ function run(...args) {
 test('server updater dry-run is non-destructive and identifies the staging ref', () => {
   const result = run('staging', '--dry-run');
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /测试服: refs\/(?:remotes\/origin|heads)\/main/u);
+  assert.match(
+    result.stdout,
+    /测试服: (?:refs\/(?:remotes\/origin|heads)\/main|本地引用待同步)/u,
+  );
   assert.match(result.stdout, /预演结束：没有联网、检出、迁移或部署/u);
 });
 

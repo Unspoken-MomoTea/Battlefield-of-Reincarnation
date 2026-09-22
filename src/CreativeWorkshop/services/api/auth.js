@@ -7,6 +7,38 @@ function createLoginId() {
   return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
 }
 
+export function httpOpenerOrigin(host) {
+  const raw = String(host?.location?.origin || '').trim();
+  if (!raw || raw === 'null') return '';
+  try {
+    const url = new URL(raw);
+    return ['http:', 'https:'].includes(url.protocol) ? url.origin : '';
+  } catch {
+    return '';
+  }
+}
+
+export function createDiscordLoginRequest({
+  base = getApiBase(),
+  host = resolveHostWindow(),
+  loginId = createLoginId(),
+} = {}) {
+  const url = new URL('/api/auth/discord/start', base);
+  url.searchParams.set('login_id', loginId);
+
+  // TT / native WebView may run under file:// or another non-HTTP origin.
+  // OAuth polling does not require opener_origin, so only send it when postMessage is actually usable.
+  const openerOrigin = httpOpenerOrigin(host);
+  if (openerOrigin) url.searchParams.set('opener_origin', openerOrigin);
+
+  return {
+    loginId,
+    url: url.toString(),
+    openerOrigin,
+    expectedOrigin: new URL(base).origin,
+  };
+}
+
 export function createAuthApi(request) {
   const getStoredAuth = async () => {
     const auth = await getAuthRecord();
@@ -20,7 +52,7 @@ export function createAuthApi(request) {
 
   const me = () => request('/api/auth/me', {}, true);
 
-  const waitForExchange = (popup, expectedOrigin, loginId) => {
+  const waitForExchange = (popup, expectedOrigin, loginId, signal) => {
     const host = resolveHostWindow();
     return new Promise((resolve, reject) => {
       const startedAt = Date.now();
@@ -32,8 +64,17 @@ export function createAuthApi(request) {
         if (settled) return;
         settled = true;
         host.clearInterval(timer);
-        host.removeEventListener('message', onMessage);
+        host.removeEventListener?.('message', onMessage);
+        signal?.removeEventListener?.('abort', onAbort);
         callback();
+      };
+
+      const onAbort = () => {
+        finish(() => reject(new WorkshopApiError(
+          'Discord 登录已取消',
+          499,
+          'login_cancelled',
+        )));
       };
 
       const exchange = async () => {
@@ -59,7 +100,7 @@ export function createAuthApi(request) {
       };
 
       const onMessage = event => {
-        if (event.origin !== expectedOrigin) return;
+        if (!expectedOrigin || event.origin !== expectedOrigin) return;
         if (event.data?.type !== 'reincarnation-workshop-oauth') return;
         if (event.data?.loginId !== loginId) return;
         void exchange();
@@ -70,41 +111,39 @@ export function createAuthApi(request) {
           finish(() => reject(new WorkshopApiError('Discord 登录等待超时，请重新登录', 408, 'login_timeout')));
           return;
         }
-        try {
-          if (popup.closed) {
-            closedAt ??= Date.now();
-            if (Date.now() - closedAt > 12_000) {
-              finish(() => reject(new WorkshopApiError('Discord 登录窗口已关闭', 499, 'login_cancelled')));
-              return;
+
+        // Native clients can authorize in the system browser and have no usable popup handle.
+        // Only apply popup-close cancellation when a real popup object exists.
+        if (popup) {
+          try {
+            if (popup.closed) {
+              closedAt ??= Date.now();
+              if (Date.now() - closedAt > 12_000) {
+                finish(() => reject(new WorkshopApiError('Discord 登录窗口已关闭', 499, 'login_cancelled')));
+                return;
+              }
+            } else {
+              closedAt = null;
             }
-          } else {
-            closedAt = null;
-          }
-        } catch {}
+          } catch {}
+        }
+
         void exchange();
       };
 
-      host.addEventListener('message', onMessage);
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+
+      host.addEventListener?.('message', onMessage);
+      signal?.addEventListener?.('abort', onAbort, { once: true });
       const timer = host.setInterval(tick, 1000);
       tick();
     });
   };
 
-  const login = async () => {
-    const base = getApiBase();
-    const host = resolveHostWindow();
-    const loginId = createLoginId();
-    const openerOrigin = host.location.origin;
-    const url = new URL('/api/auth/discord/start', base);
-    url.searchParams.set('login_id', loginId);
-    url.searchParams.set('opener_origin', openerOrigin);
-
-    const popup = host.open(url.toString(), 'reincarnation-workshop-oauth', 'popup,width=560,height=760');
-    if (!popup) {
-      throw new WorkshopApiError('浏览器阻止了 Discord 登录弹窗，请允许弹窗后重试', 0, 'popup_blocked');
-    }
-
-    const exchange = await waitForExchange(popup, new URL(base).origin, loginId);
+  const storeExchange = async exchange => {
     const current = await request(
       '/api/auth/me',
       { headers: { Authorization: `Bearer ${exchange.token}` } },
@@ -120,6 +159,41 @@ export function createAuthApi(request) {
     return auth;
   };
 
+  const beginLogin = () => createDiscordLoginRequest();
+
+  const waitForLogin = async (pending, { popup = null, signal } = {}) => {
+    if (!pending?.loginId || !pending?.expectedOrigin) {
+      throw new WorkshopApiError('Discord 登录请求无效，请重新登录', 0, 'login_request_invalid');
+    }
+    const exchange = await waitForExchange(
+      popup,
+      pending.expectedOrigin,
+      pending.loginId,
+      signal,
+    );
+    return storeExchange(exchange);
+  };
+
+  const login = async () => {
+    const pending = beginLogin();
+    const host = resolveHostWindow();
+    const popup = host.open?.(
+      pending.url,
+      'reincarnation-workshop-oauth',
+      'popup,width=560,height=760',
+    );
+    if (!popup) {
+      const error = new WorkshopApiError(
+        '当前客户端无法直接打开 Discord 登录窗口，请使用兼容登录界面的“打开授权页”或“复制授权链接”',
+        0,
+        'popup_blocked',
+      );
+      error.login = pending;
+      throw error;
+    }
+    return waitForLogin(pending, { popup });
+  };
+
   const logout = async () => {
     try {
       await request('/api/auth/logout', { method: 'POST' }, true);
@@ -128,5 +202,5 @@ export function createAuthApi(request) {
     }
   };
 
-  return { getStoredAuth, me, login, logout };
+  return { getStoredAuth, me, beginLogin, waitForLogin, login, logout };
 }

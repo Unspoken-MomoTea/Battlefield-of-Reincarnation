@@ -8,6 +8,7 @@ export function bindCreateProjectFlow({
   overlay,
   nodes,
   workshopApi,
+  projectService,
   notifyError,
   confirmDialog,
   openModal,
@@ -17,11 +18,19 @@ export function bindCreateProjectFlow({
   const cancelButtons = [...overlay.querySelectorAll('[data-action="create-project-cancel"]')];
   const projectType = nodes.createForm.querySelector('[name="category"]');
   const submitButton = nodes.createForm.querySelector('button[type="submit"]');
+  const localTestButton = nodes.createForm.querySelector('[data-action="create-project-local-test"]');
 
   let dirty = false;
   let coverUrl = '';
   let queue = null;
   let submitAttempt = null;
+
+  const createLocalDraftId = () => {
+    const randomId = host.crypto?.randomUUID?.()
+      || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return `draft:${randomId}`;
+  };
+  let localDraftId = createLocalDraftId();
 
   const dependencyPicker = createDependencyPicker({
     doc,
@@ -94,9 +103,14 @@ export function bindCreateProjectFlow({
     progress.hidden = true;
     progress.textContent = '';
     submitAttempt = null;
+    localDraftId = createLocalDraftId();
     dirty = false;
     submitButton.disabled = false;
     submitButton.textContent = '提交审核';
+    if (localTestButton) {
+      localTestButton.disabled = false;
+      localTestButton.textContent = '保存到本地测试';
+    }
   };
 
   queue = createSmartArtifactQueue({
@@ -229,6 +243,55 @@ export function bindCreateProjectFlow({
     progress.textContent = text;
     progress.hidden = false;
   }
+
+  localTestButton?.addEventListener('click', () => {
+    if (localTestButton.disabled) return;
+
+    const form = new FormData(nodes.createForm);
+    const name = String(form.get('name') || '').trim();
+    const summary = String(form.get('summary') || '');
+    const category = String(form.get('category') || 'extension');
+    const dependencies = dependencyPicker.values();
+    const resourceOverrides = resourceEditor.values();
+
+    if (!name) return notifyError(new Error('请先填写作品名称'));
+    if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
+
+    const bundle = queue.bundle(null, resourceOverrides);
+    void (async () => {
+      localTestButton.disabled = true;
+      localTestButton.textContent = '正在保存本地测试…';
+      setSubmitStatus('working', '正在保存本地测试版本；不会上传服务器或提交审核…');
+      try {
+        await projectService.saveLocalTest({
+          id: localDraftId,
+          name,
+          summary,
+          category,
+          dependencies,
+          version: 1,
+          bundle,
+        });
+        dirty = false;
+        setSubmitStatus(
+          'success',
+          '已保存到本地测试。不会上传服务器，也不会进入审核队列；可到“已安装”中安装测试。',
+        );
+        try { host.toastr?.success?.('本地测试版本已保存', '创意工坊'); } catch {}
+      } catch (error) {
+        setSubmitStatus(
+          'error',
+          `保存本地测试失败：${error instanceof Error ? error.message : String(error)}`,
+        );
+        notifyError(error);
+      } finally {
+        if (localTestButton.isConnected) {
+          localTestButton.disabled = false;
+          localTestButton.textContent = '保存到本地测试';
+        }
+      }
+    })();
+  });
 
   nodes.createForm.addEventListener('submit', event => {
     event.preventDefault();

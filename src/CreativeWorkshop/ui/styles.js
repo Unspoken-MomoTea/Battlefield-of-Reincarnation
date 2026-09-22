@@ -53,6 +53,24 @@ export const WORKSHOP_CSS = `
   }
   .rw-head-discover-tools{min-width:260px;flex:1;display:flex;align-items:center;gap:7px}
   .rw-head-discover-tools[hidden]{display:none!important}
+  .rw-discover-home{display:flex;flex-direction:column;gap:34px;padding:4px 0 24px}
+  .rw-discover-home[hidden],.rw-catalog[hidden]{display:none!important}
+  .rw-showcase{min-width:0}
+  .rw-showcase-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 12px}
+  .rw-showcase-head small{display:block;margin-bottom:4px;color:var(--rw-faint);font-size:9px;font-weight:800;letter-spacing:.16em}
+  .rw-showcase-head h2{margin:0;font-size:18px;line-height:1.2;color:#e8e7e3}
+  .rw-showcase-more{border:0;background:transparent;color:var(--rw-accent-text);cursor:pointer;font:700 11px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  .rw-showcase-more:hover{color:#fff}
+  .rw-showcase-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;min-height:168px}
+  .rw-showcase-card{min-width:0;cursor:pointer;outline:none}
+  .rw-showcase-cover{display:block;width:100%;aspect-ratio:1.18/1;object-fit:cover;border:1px solid var(--rw-line);border-radius:10px;background:#17181b;transition:transform .16s ease,border-color .16s ease,filter .16s ease}
+  .rw-showcase-card:hover .rw-showcase-cover,.rw-showcase-card:focus-visible .rw-showcase-cover{transform:translateY(-2px);border-color:rgba(162,139,107,.38);filter:brightness(1.05)}
+  .rw-showcase-cover--empty{display:flex;align-items:center;justify-content:center;color:var(--rw-faint);font-size:12px}
+  .rw-showcase-copy{display:flex;flex-direction:column;gap:3px;padding:8px 2px 0;min-width:0}
+  .rw-showcase-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d9d8d4;font-size:12px}
+  .rw-showcase-copy span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--rw-faint);font-size:10px}
+  .rw-catalog{min-width:0}
+
   .rw-head-actions{
     margin-left:auto;flex:none;display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap
   }
@@ -1350,3 +1368,6 @@ export const WORKSHOP_CSS = `
     .rw-cover{width:calc(100% + 24px);margin:-12px -12px 1px}
   }
 `;
+
+  @media(max-width:1180px){.rw-showcase-row{grid-template-columns:repeat(4,minmax(0,1fr))}.rw-showcase-card:nth-child(n+5){display:none}}
+  @media(max-width:760px){.rw-showcase-row{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px}.rw-showcase-card{flex:0 0 46%;scroll-snap-align:start}.rw-showcase-card:nth-child(n){display:block}.rw-discover-home{gap:26px}}

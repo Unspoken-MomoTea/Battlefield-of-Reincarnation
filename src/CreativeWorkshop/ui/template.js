@@ -44,13 +44,29 @@ export function workshopTemplate(version) {
     </nav>
     <main class="rw-body">
       <section class="rw-section" data-section="discover">
-        <div class="rw-page-head">
-          <div class="rw-page-head-copy"><small>DISCOVER</small><h2>发现作品</h2><p>浏览角色与扩展，下载后再由你决定是否安装到酒馆。</p></div>
-          <div class="rw-page-head-meta" data-role="discover-count">正在载入</div>
+        <div class="rw-discover-home" data-role="discover-home">
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>FOR YOU</small><h2>发现推荐</h2></div><button class="rw-showcase-more" data-discover-more-sort="popular" type="button">更多推荐 →</button></div>
+            <div class="rw-showcase-row" data-role="discover-featured"></div>
+          </section>
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>LATEST</small><h2>最新发布</h2></div><button class="rw-showcase-more" data-discover-more-sort="latest" type="button">更多最新 →</button></div>
+            <div class="rw-showcase-row" data-role="discover-latest"></div>
+          </section>
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>PLAYER PICKS</small><h2>玩家好评</h2></div><button class="rw-showcase-more" data-discover-more-sort="likes" type="button">更多好评 →</button></div>
+            <div class="rw-showcase-row" data-role="discover-liked"></div>
+          </section>
         </div>
-        <input type="hidden" data-field="category" value="">
-        <div class="rw-grid rw-project-grid" data-role="discover-list"></div>
-        <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>
+        <div class="rw-catalog" data-role="discover-catalog" hidden>
+          <div class="rw-page-head">
+            <div class="rw-page-head-copy"><small>CATALOG</small><h2 data-role="catalog-title">全部项目</h2><p>浏览角色与扩展，按排序和关键词查找作品。</p></div>
+            <div class="rw-page-head-meta" data-role="discover-count">正在载入</div>
+          </div>
+          <input type="hidden" data-field="category" value="">
+          <div class="rw-grid rw-project-grid" data-role="discover-list"></div>
+          <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>
+        </div>
       </section>
       <section class="rw-section" data-section="installed" hidden>
         <div class="rw-page-head">

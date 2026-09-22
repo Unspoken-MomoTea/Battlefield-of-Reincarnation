@@ -6,7 +6,14 @@ export function bindWorkshopEvents({
 }) {
   overlay.querySelector('[data-action="close"]').addEventListener('click', close);
   overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
-  overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
+  overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.addEventListener('click', () => {
+    if (tab.dataset.tab === 'discover') {
+      nodes.discoverHeadTools.hidden = true;
+      showTab('discover');
+      return;
+    }
+    showTab(tab.dataset.tab);
+  }));
 
   overlay.querySelector('[data-action="maintenance"]').addEventListener('click', () => void views.maintenance.open());
 
@@ -20,6 +27,15 @@ export function bindWorkshopEvents({
         buttonNode.classList.toggle('is-filter-active', buttonNode === categoryButton);
       });
       showTab('discover');
+      nodes.discoverHeadTools.hidden = false;
+      void views.discover.catalog({ category: nodes.category.value });
+    });
+  });
+  nodes.discoverShowcaseMore.forEach(moreButton => {
+    moreButton.addEventListener('click', () => {
+      nodes.discoverHeadTools.hidden = false;
+      nodes.category.value = '';
+      void views.discover.catalog({ category: '', sort: moreButton.dataset.discoverMoreSort || 'latest' });
     });
   });
   nodes.discoverMore.addEventListener('click', () => void views.discover.loadMore());

@@ -3,7 +3,7 @@ import { listAdminReports, resolveProjectReport } from '../moderation/reports.js
 import { listAdminUsers, setUserBan } from '../moderation/users.js';
 import {
   deleteAdminProject, getAdminProjectCover, getAdminProjectDiff, getPendingProjectReview,
-  listAdminAuditLogs, listAdminProjects, reviewProject,
+  listAdminAuditLogs, listAdminProjectUpdates, listAdminProjects, reviewProject,
   setAdminProjectState,
 } from '../projects.js';
 import { authenticatedUser } from './context.js';
@@ -12,6 +12,9 @@ import { adminEntityIdFrom, adminProjectIdFrom } from './match.js';
 export async function routeAdmin(request, env, pathname) {
   if (request.method === 'GET' && pathname === '/api/admin/projects') {
     return listAdminProjects(request, env, await authenticatedUser(request, env));
+  }
+  if (request.method === 'GET' && pathname === '/api/admin/updates') {
+    return listAdminProjectUpdates(request, env, await authenticatedUser(request, env));
   }
   if (request.method === 'GET' && pathname === '/api/admin/logs') {
     return listAdminAuditLogs(request, env, await authenticatedUser(request, env));

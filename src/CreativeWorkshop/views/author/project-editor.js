@@ -84,6 +84,7 @@ export function createAuthorProjectEditor({
     if (activeModal !== modal) return;
 
     const current = detail.project;
+    const autoPublish = Number(current.published_version || 0) > 0;
     const latest = detail.latest || { bundle: { schema_version: 1, artifacts: [] } };
     const baselineBundle = latest.bundle || { schema_version: 1, artifacts: [] };
     const artifacts = artifactsWithoutLegacyConflicts(baselineBundle.artifacts);
@@ -162,7 +163,7 @@ export function createAuthorProjectEditor({
 
     const changelog = element('textarea', 'rw-textarea rw-update-changelog');
     changelog.maxLength = 2000;
-    changelog.placeholder = '这次更新了什么？建议让玩家和审核员一眼看懂。';
+    changelog.placeholder = '这次更新了什么？建议让玩家和管理员一眼看懂。';
     if (current.status === 'rejected') changelog.value = latest.changelog || '';
     right.appendChild(field('版本更新说明', changelog));
 
@@ -319,11 +320,17 @@ export function createAuthorProjectEditor({
 
     const footer = element('footer', 'rw-publish-footer rw-update-footer');
     footer.append(
-      element('div', 'rw-publish-footer-note', '● 原版资源状态会随新版本保存；停用/卸载作品时恢复安装前状态。'),
+      element(
+        'div',
+        'rw-publish-footer-note',
+        autoPublish
+          ? '● 此作品已通过首次审核；新版本会直接发布并进入管理员“更新动态”。原版资源状态仍随版本保存。'
+          : '● 原版资源状态会随新版本保存；停用/卸载作品时恢复安装前状态。',
+      ),
     );
     const footerActions = element('div', 'rw-row');
     const cancel = button('取消', '', () => modal.close());
-    const submit = button('提交新版本审核', 'good', async () => {
+    const submit = button(autoPublish ? '发布新版本' : '提交新版本审核', 'good', async () => {
       const nextName = name.value.trim();
       if (!nextName) throw new Error('请填写作品名称');
       if (!queue.count) throw new Error('作品内容不能为空');
@@ -375,12 +382,13 @@ export function createAuthorProjectEditor({
         }
 
         if (!attempt.versionUploaded) {
-          progress.textContent = '正在上传新版本与原版资源状态…';
+          progress.textContent = autoPublish ? '正在发布新版本与原版资源状态…' : '正在上传新版本与原版资源状态…';
           await workshopApi.uploadProjectVersion(current.id, {
             changelog: changelog.value,
             bundle: queue.bundle(null, resourceOverrides),
           });
           attempt.versionUploaded = true;
+          if (autoPublish) attempt.submitted = true;
         }
 
         if (!attempt.submitted) {
@@ -390,8 +398,12 @@ export function createAuthorProjectEditor({
         }
 
         progress.className = 'rw-submit-progress rw-submit-progress--success';
-        progress.textContent = '新版本已提交审核。旧的已发布版本会保持在线，直到新版本审核通过。';
-        try { host.toastr?.success?.('新版本已提交审核', '创意工坊'); } catch {}
+        progress.textContent = autoPublish
+          ? '新版本已直接发布，并已进入管理员更新动态。'
+          : '新版本已提交审核。首次审核通过后，后续版本可由作者直接发布。';
+        try {
+          host.toastr?.success?.(autoPublish ? '新版本已发布' : '新版本已提交审核', '创意工坊');
+        } catch {}
         try { await refreshMine(); } catch {}
         host.setTimeout?.(() => modal.close({ force: true }), 650);
       } catch (error) {
@@ -401,7 +413,7 @@ export function createAuthorProjectEditor({
             ? '上传封面'
             : !attempt.versionUploaded
               ? '上传新版本'
-              : '提交审核';
+              : (autoPublish ? '发布新版本' : '提交审核');
         progress.className = 'rw-submit-progress rw-submit-progress--error';
         progress.textContent = `${failedAt}失败：${error instanceof Error ? error.message : String(error)}\n再次点击会从失败步骤继续，不会重复上传已经成功的版本。`;
         notifyError(error);

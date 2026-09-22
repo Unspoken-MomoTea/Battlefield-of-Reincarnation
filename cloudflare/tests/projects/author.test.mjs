@@ -253,3 +253,46 @@ test('author can permanently delete a self-unpublished published project', async
   assert.equal(deleted.ok, true);
   assert.equal(env.DB.db.prepare('SELECT id FROM projects WHERE id = ?').get(project.id), undefined);
 });
+
+
+test('approved project updates publish immediately without another admin review', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'), '首版通过');
+
+  const uploaded = await responseJson(
+    await uploadProjectVersion(
+      request(`/api/projects/${project.id}/versions`, 'POST', {
+        changelog: '直接发布 v2',
+        bundle: bundle('v2'),
+      }),
+      env,
+      author,
+      project.id,
+    ),
+  );
+  assert.equal(uploaded.auto_published, true);
+
+  const row = env.DB.db.prepare(
+    'SELECT status, latest_version, published_version FROM projects WHERE id = ?',
+  ).get(project.id);
+  assert.equal(row.status, 'published');
+  assert.equal(Number(row.latest_version), 2);
+  assert.equal(Number(row.published_version), 2);
+
+  const version = env.DB.db.prepare(
+    'SELECT review_status, submitted_at, reviewed_at FROM project_versions WHERE project_id = ? AND version = 2',
+  ).get(project.id);
+  assert.equal(version.review_status, 'approved');
+  assert.equal(version.submitted_at, null);
+  assert.equal(version.reviewed_at, null);
+
+  const legacySubmit = await responseJson(await submitProjectForReview(env, author, project.id));
+  assert.equal(legacySubmit.auto_published, true);
+  assert.equal(legacySubmit.version, 2);
+
+  const reviews = env.DB.db.prepare(
+    'SELECT COUNT(*) AS count FROM review_records WHERE project_id = ?',
+  ).get(project.id);
+  assert.equal(Number(reviews.count), 1);
+});

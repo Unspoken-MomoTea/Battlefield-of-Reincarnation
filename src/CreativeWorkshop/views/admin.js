@@ -1,11 +1,14 @@
 import { createAdminProjectsView } from './admin/projects.js';
 import { createAdminReportsView } from './admin/reports.js';
+import { createAdminUpdatesView } from './admin/updates.js';
 import { createAdminUsersView } from './admin/users.js';
 
 export function createAdminView(context) {
   const { nodes, empty, getAuth } = context;
+  const projects = createAdminProjectsView(context);
   const views = {
-    projects: createAdminProjectsView(context),
+    projects,
+    updates: createAdminUpdatesView({ ...context, showProject: projects.showReview }),
     reports: createAdminReportsView(context),
     users: createAdminUsersView(context),
   };
@@ -30,6 +33,9 @@ export function createAdminView(context) {
   const refreshProjectsIfActive = () => {
     if (active === 'projects') void views.projects.refresh();
   };
+  const refreshUpdatesIfActive = () => {
+    if (active === 'updates') void views.updates.refresh();
+  };
   const refreshReportsIfActive = () => {
     if (active === 'reports') void views.reports.refresh();
   };
@@ -44,6 +50,7 @@ export function createAdminView(context) {
   nodes.adminStatus.addEventListener('change', refreshProjectsIfActive);
   nodes.adminCategory.addEventListener('change', refreshProjectsIfActive);
 
+  nodes.adminUpdateRefreshButton.addEventListener('click', refreshUpdatesIfActive);
   nodes.adminReportRefreshButton.addEventListener('click', refreshReportsIfActive);
   nodes.reportStatus.addEventListener('change', refreshReportsIfActive);
 

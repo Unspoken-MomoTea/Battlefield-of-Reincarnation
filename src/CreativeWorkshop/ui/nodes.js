@@ -22,6 +22,7 @@ export function collectWorkshopNodes(overlay) {
     discoverFeatured: query('[data-role="discover-featured"]'),
     discoverLatest: query('[data-role="discover-latest"]'),
     discoverLiked: query('[data-role="discover-liked"]'),
+    discoverDownloaded: query('[data-role="discover-downloaded"]'),
     discoverShowcaseMore: queryAll('[data-discover-more-sort]'),
     discoverList: query('[data-role="discover-list"]'),
     installedList: query('[data-role="installed-list"]'),

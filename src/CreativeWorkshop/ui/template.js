@@ -57,6 +57,10 @@ export function workshopTemplate(version) {
             <div class="rw-showcase-head"><div><small>PLAYER PICKS</small><h2>玩家好评</h2></div><button class="rw-showcase-more" data-discover-more-sort="likes" type="button">更多好评 →</button></div>
             <div class="rw-showcase-row" data-role="discover-liked"></div>
           </section>
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>MOST DOWNLOADED</small><h2>下载最多</h2></div><button class="rw-showcase-more" data-discover-more-sort="downloads" type="button">更多下载 →</button></div>
+            <div class="rw-showcase-row" data-role="discover-downloaded"></div>
+          </section>
         </div>
         <div class="rw-catalog" data-role="discover-catalog" hidden>
           <div class="rw-page-head">

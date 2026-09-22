@@ -248,12 +248,19 @@ test('admin can permanently delete a project and all R2 version objects', async 
   assert.equal(env.PROJECTS.objects.has(stored.content_key), false);
 });
 
-test('non-admin cannot permanently delete projects', async () => {
+test('only primary admin can permanently delete projects', async () => {
   const { env, author, other } = setup();
   const project = await createWorldbookProject(env, author);
   await assert.rejects(
     () => deleteAdminProject(env, other, project.id),
-    error => error?.status === 403 && error?.code === 'moderator_required',
+    error => error?.status === 403 && error?.code === 'admin_required',
+  );
+
+  env.DB.db.prepare('UPDATE users SET is_moderator = 1 WHERE id = ?').run(other.id);
+  const reviewer = env.DB.db.prepare('SELECT * FROM users WHERE id = ?').get(other.id);
+  await assert.rejects(
+    () => deleteAdminProject(env, reviewer, project.id),
+    error => error?.status === 403 && error?.code === 'admin_required',
   );
 });
 

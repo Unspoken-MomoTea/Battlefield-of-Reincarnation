@@ -19,6 +19,7 @@ export {
   deleteAdminProject,
   getPendingProjectReview,
   listAdminAuditLogs,
+  listAdminProjectUpdates,
   listAdminProjects,
   reviewProject,
   setAdminProjectState,

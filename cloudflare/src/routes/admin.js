@@ -1,6 +1,6 @@
 import { json } from '../http.js';
 import { listAdminReports, resolveProjectReport } from '../moderation/reports.js';
-import { listAdminUsers, setUserBan } from '../moderation/users.js';
+import { listAdminUsers, setUserBan, setUserModerator } from '../moderation/users.js';
 import {
   deleteAdminProject, getAdminProjectCover, getAdminProjectDiff, getPendingProjectReview,
   listAdminAuditLogs, listAdminProjectUpdates, listAdminProjects, reviewProject,
@@ -24,6 +24,11 @@ export async function routeAdmin(request, env, pathname) {
   }
   if (request.method === 'GET' && pathname === '/api/admin/reports') {
     return listAdminReports(request, env, await authenticatedUser(request, env));
+  }
+
+  const userRoleId = adminEntityIdFrom(pathname, 'users', 'role');
+  if (request.method === 'POST' && userRoleId) {
+    return setUserModerator(request, env, await authenticatedUser(request, env), userRoleId);
   }
 
   const userStateId = adminEntityIdFrom(pathname, 'users', 'state');

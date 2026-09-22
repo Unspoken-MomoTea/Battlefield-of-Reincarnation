@@ -1374,7 +1374,7 @@ export const WORKSHOP_CSS = `
 
   @media(max-width:1180px){.rw-showcase-row{grid-template-columns:repeat(4,minmax(0,1fr))}.rw-showcase-card:nth-child(n+5){display:none}}
   @media(max-width:760px){.rw-showcase-row{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px}.rw-showcase-card{flex:0 0 46%;scroll-snap-align:start}.rw-showcase-card:nth-child(n){display:block}.rw-discover-home{gap:26px}}
-`;
+
 
   /* Reference-aligned browse hierarchy: creator, two-line title, media, metadata. */
   .rw-project-card{padding:0!important;gap:0!important;overflow:hidden}
@@ -1391,3 +1391,4 @@ export const WORKSHOP_CSS = `
   .rw-project-card>.rw-project-footer{margin-bottom:9px}
   .rw-showcase-more-card{-webkit-appearance:none!important;appearance:none!important;width:auto!important;height:auto!important;padding:0!important;border:1px dashed rgba(162,139,107,.22)!important;border-radius:9px!important;background:#141518!important;color:#9d8b70!important;box-shadow:none!important}
   .rw-showcase-more-card:hover{background:rgba(162,139,107,.045)!important;color:#d3b98f!important}
+`;

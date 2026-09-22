@@ -6,7 +6,6 @@ export function createWorkshopUpdateNotice({
   selfUpdater,
   currentVersion,
   currentSha = '',
-  onHotReload,
 }) {
   let activeModal = null;
   let checking = null;
@@ -82,7 +81,7 @@ export function createWorkshopUpdateNotice({
     promises.append(
       element('span', '', '✓ 自动更新载入脚本'),
       element('span', '', '✓ 保留现有配置'),
-      element('span', '', '✓ 自动热载入新版'),
+      element('span', '', '✓ 下次载入自动使用新版'),
     );
 
     hero.append(heading, versionLine, promises);
@@ -109,7 +108,7 @@ export function createWorkshopUpdateNotice({
       currentSha ? element('div', '', `当前运行：${currentSha.slice(0, 8)}`) : element('div', '', `当前运行：v${currentVersion}`),
       element('div', '', `载入脚本：${result.loaders.map(loaderName).join('、')}`),
       element('div', '', '只会替换创意工坊的固定提交链接，apiBase 与脚本里的其他配置会保留。'),
-      element('div', '', '如果浏览器阻止热载入，刷新一次酒馆即可使用已经写入的新版本。'),
+      element('div', '', '更新完成后会直接保存新的固定提交链接；重新载入酒馆后使用新版。'),
     );
     details.append(detailsSummary, detailsBody);
 
@@ -144,41 +143,25 @@ export function createWorkshopUpdateNotice({
           return;
         }
 
+        updating = false;
+        later.disabled = false;
+        if (closeButton) closeButton.disabled = false;
+        update.disabled = true;
+        update.textContent = '更新完成';
+        later.textContent = '关闭';
         setProgress(
           progress,
-          'working',
+          'success',
           '载入脚本已更新',
-          `正在切换到新版 ${updated.latestShortSha}…`,
+          `新版 ${updated.latestShortSha} 已写入 Tavern Helper。重新载入酒馆后自动使用新版。`,
         );
 
         try {
-          host.toastr?.success?.('载入脚本已更新，正在切换新版', '创意工坊');
-        } catch {}
-
-        try {
-          await onHotReload(updated);
-        } catch (hotReloadError) {
-          updating = false;
-          later.disabled = false;
-          if (closeButton) closeButton.disabled = false;
-          update.disabled = true;
-          update.textContent = '刷新后生效';
-          later.textContent = '关闭';
-          setProgress(
-            progress,
-            'success',
-            '载入脚本已更新',
-            `新版 ${updated.latestShortSha} 已写入 Tavern Helper。当前页面热载入失败，请刷新一次酒馆后生效。`,
+          host.toastr?.success?.(
+            `载入脚本已更新到 ${updated.latestShortSha}；重新载入酒馆后生效。`,
+            '创意工坊',
           );
-          try {
-            host.toastr?.warning?.(
-              `新版载入脚本已保存；当前页面无法热切换。刷新酒馆即可使用 ${updated.latestShortSha}。`,
-              '创意工坊',
-            );
-          } catch {}
-          console.warn('[轮回战场创意工坊] loader 已更新，但热载入失败', hotReloadError);
-          return;
-        }
+        } catch {}
       } catch (error) {
         updating = false;
         update.disabled = false;
@@ -190,7 +173,7 @@ export function createWorkshopUpdateNotice({
           progress,
           'error',
           '更新没有完成',
-          `${error instanceof Error ? error.message : String(error)}\n如果载入链接已经写入成功，刷新一次酒馆即可。`,
+          `${error instanceof Error ? error.message : String(error)}\n未能完成载入脚本写入。`,
         );
       }
     });

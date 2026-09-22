@@ -66,7 +66,7 @@ test('admin can inspect the exact pending manifest and bundle before approval', 
 
   await assert.rejects(
     () => getPendingProjectReview(env, other, project.id),
-    error => error?.status === 403 && error?.code === 'admin_required',
+    error => error?.status === 403 && error?.code === 'moderator_required',
   );
 });
 
@@ -127,7 +127,7 @@ test('non-admin cannot use management listing', async () => {
   const { env, other } = setup();
   await assert.rejects(
     () => listAdminProjects(request('/api/admin/projects'), env, other),
-    error => error?.status === 403 && error?.code === 'admin_required',
+    error => error?.status === 403 && error?.code === 'moderator_required',
   );
 });
 
@@ -232,7 +232,7 @@ test('non-admin cannot permanently delete projects', async () => {
   const project = await createWorldbookProject(env, author);
   await assert.rejects(
     () => deleteAdminProject(env, other, project.id),
-    error => error?.status === 403 && error?.code === 'admin_required',
+    error => error?.status === 403 && error?.code === 'moderator_required',
   );
 });
 

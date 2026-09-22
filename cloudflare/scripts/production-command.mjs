@@ -16,13 +16,18 @@ const cloudflareDir = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(cloudflareDir, '..');
 const configPath = path.join(cloudflareDir, 'wrangler.jsonc');
 const configText = fs.readFileSync(configPath, 'utf8');
-
-const productionBlock = configText.match(/"production"\s*:\s*\{[\s\S]*?\n\s*\}\n\s*\}/u)?.[0] || '';
+const config = JSON.parse(configText);
+const production = config.env?.production;
+if (!production) {
+  console.error('拒绝执行正式环境操作：wrangler.jsonc 缺少 env.production。');
+  process.exit(1);
+}
+const productionText = JSON.stringify(production);
 const placeholders = [
   'REPLACE_ME',
   '00000000-0000-0000-0000-000000000000',
   '00000000000000000000000000000000',
-].filter(value => productionBlock.includes(value));
+].filter(value => productionText.includes(value));
 
 if (placeholders.length) {
   console.error(

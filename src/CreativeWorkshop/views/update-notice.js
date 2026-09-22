@@ -81,7 +81,7 @@ export function createWorkshopUpdateNotice({
     promises.append(
       element('span', '', '✓ 自动更新载入脚本'),
       element('span', '', '✓ 保留现有配置'),
-      element('span', '', '✓ 下次载入自动使用新版'),
+      element('span', '', '✓ 更新后自动重新载入'),
     );
 
     hero.append(heading, versionLine, promises);
@@ -108,7 +108,7 @@ export function createWorkshopUpdateNotice({
       currentSha ? element('div', '', `当前运行：${currentSha.slice(0, 8)}`) : element('div', '', `当前运行：v${currentVersion}`),
       element('div', '', `载入脚本：${result.loaders.map(loaderName).join('、')}`),
       element('div', '', '只会替换创意工坊的固定提交链接，apiBase 与脚本里的其他配置会保留。'),
-      element('div', '', '更新完成后会直接保存新的固定提交链接；重新载入酒馆后使用新版。'),
+      element('div', '', '更新会先直接保存新的固定提交链接，再自动重新载入酒馆并使用新版。'),
     );
     details.append(detailsSummary, detailsBody);
 
@@ -117,7 +117,7 @@ export function createWorkshopUpdateNotice({
       dismissedSha = result.latestSha;
       modal.close({ force: true });
     });
-    const update = button('立即更新创意工坊', 'primary rw-hot-update-primary', async () => {
+    const update = button('立即更新并重新载入', 'primary rw-hot-update-primary', async () => {
       if (updating) return;
 
       updating = true;
@@ -143,25 +143,25 @@ export function createWorkshopUpdateNotice({
           return;
         }
 
-        updating = false;
-        later.disabled = false;
-        if (closeButton) closeButton.disabled = false;
         update.disabled = true;
-        update.textContent = '更新完成';
-        later.textContent = '关闭';
+        update.textContent = '正在重新载入…';
         setProgress(
           progress,
           'success',
           '载入脚本已更新',
-          `新版 ${updated.latestShortSha} 已写入 Tavern Helper。重新载入酒馆后自动使用新版。`,
+          `新版 ${updated.latestShortSha} 已写入 Tavern Helper。正在重新载入酒馆…`,
         );
 
         try {
           host.toastr?.success?.(
-            `载入脚本已更新到 ${updated.latestShortSha}；重新载入酒馆后生效。`,
+            `载入脚本已更新到 ${updated.latestShortSha}，正在重新载入。`,
             '创意工坊',
           );
         } catch {}
+
+        const reload = () => host.location?.reload?.();
+        if (typeof host.setTimeout === 'function') host.setTimeout(reload, 350);
+        else reload();
       } catch (error) {
         updating = false;
         update.disabled = false;

@@ -69,7 +69,7 @@ cd cloudflare
 npm run update:staging
 ```
 
-`update:staging` 会固定读取远端 `origin/main`，在临时 worktree 中执行：
+`update:staging` 不会再主动 `git fetch`。它直接读取本地已经同步好的 `origin/main`（若没有则回退本地 `main`），再在临时 worktree 中执行：
 
 ```text
 校验 staging 配置
@@ -83,7 +83,7 @@ npm run update:staging
 → /api/health 检查 testing / main
 ```
 
-它不会自动提交本地修改，也不会推进 `workshop-stable`。
+它不会自动提交本地修改，也不会推进 `workshop-stable`。因此推荐先在仓库里正常 `git pull`，确认本地已经是你要部署的版本，再双击 BAT。即使随后 GitHub 临时不可达，只要本地引用已经同步且 Cloudflare / npm 网络可用，服务器更新本身仍可继续。
 
 原来的低级命令仍然可以单独使用：
 
@@ -95,6 +95,8 @@ npm run deploy:staging
 其中 `npm run deploy` 仍等价于 `npm run deploy:staging`，默认不会碰正式服。
 
 ## 一键更新入口
+
+服务器更新菜单不会主动访问 GitHub 做 `fetch`。它假定你已经先完成本地 `git pull`。注意：正式客户端发布（推进 `workshop-stable` + 创建 Tag）本身必须向 GitHub `push`，因此该步骤仍然需要 GitHub 可访问。
 
 直接运行：
 
@@ -249,7 +251,7 @@ https://workshop.6661816.xyz
 4. 在 GitHub Actions 执行 `creative-workshop-promote-stable`，输入与 `WORKSHOP_VERSION` 相同的正式版本号。
 5. 确认产生新的 `workshop-vX.Y.Z` Tag，且 `workshop-stable` 已推进。
 6. 执行 `npm run update:production`。
-7. 脚本会从远端 `workshop-stable` 建立临时 worktree，再跑测试、正式 D1 migration、正式 Worker deploy 和 health check。
+7. 脚本会从本地已同步的 `origin/workshop-stable`（或本地 `workshop-stable`）建立临时 worktree，再跑测试、正式 D1 migration、正式 Worker deploy 和 health check；服务器更新阶段不会再次访问 GitHub 做 fetch。
 8. 正式客户端随后只会看到该 stable 提交。
 
 如果只改客户端、不需要 Worker / D1 变化：

@@ -61,7 +61,7 @@ async function importOfflineProjectUnlocked(file) {
 
 
 export const saveLocalTestProject = project => withWorkshopMutation(async () => {
-  if (!project?.id || !project?.name || !project?.category || !project?.bundle || !project?.manifest) {
+  if (!project?.id || !project?.name || !project?.category || !project?.bundle) {
     throw new Error('本地测试作品资料不完整');
   }
   const localId = `local-test:${project.id}`;
@@ -69,19 +69,43 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
   if (previous?.applied) {
     throw new Error('本地测试版正在酒馆中启用，请先停用后再覆盖测试内容');
   }
-  await verifyBundleAgainstManifest(project.bundle, project.manifest, {
-    id: localId,
-    version: Number(project.version || 1),
-  });
+  const version = Number(project.version || 1);
+  const bundle = structuredClone(project.bundle);
+  const manifest = {
+    schema_version: 1,
+    project: {
+      id: localId,
+      name: project.name,
+      category: project.category,
+      version,
+      dependencies: Array.isArray(project.dependencies) ? structuredClone(project.dependencies) : [],
+    },
+    artifact_count: bundle.artifacts.length,
+    artifacts: await Promise.all(bundle.artifacts.map(async artifact => {
+      const text = JSON.stringify(artifact.content ?? '');
+      const bytes = new TextEncoder().encode(text);
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return {
+        kind: artifact.kind,
+        name: artifact.name,
+        format: artifact.format,
+        ...(artifact.scope ? { scope: artifact.scope } : {}),
+        ...(artifact.original_conflicts ? { original_conflicts: artifact.original_conflicts } : {}),
+        byte_size: bytes.byteLength,
+        sha256: Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(''),
+      };
+    })),
+  };
+  await verifyBundleAgainstManifest(bundle, manifest, { id: localId, version });
   const record = baseRecord({
     id: localId,
     name: `${project.name}（本地测试）`,
     category: project.category,
-    version: Number(project.version || 1),
+    version,
     summary: project.summary || '',
     dependencies: project.dependencies || [],
     has_cover: false,
-  }, project.manifest, project.bundle, previous, 'local-test');
+  }, manifest, bundle, previous, 'local-test');
   await putInstalledProject({
     ...record,
     remoteProjectId: project.id,

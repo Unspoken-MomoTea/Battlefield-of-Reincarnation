@@ -36,7 +36,7 @@
 - “DLC 修复 / 更新”会扫描已安装作品的世界书、正则、脚本、预设，以及原世界书/原正则/原脚本状态恢复点；可对异常作品执行 Repair。
 - “DLC 修复 / 更新”还能定位加载当前工坊的酒馆助手脚本，并按当前环境的更新通道改写 jsDelivr 固定 commit：测试环境跟踪 `main`，正式环境只跟踪 `workshop-stable`。客户端优先通过 Workshop Worker 的 `/api/client/latest` 获取本通道最新提交（KV 缓存），失败时也只回退查询同一 GitHub ref。
 - v1.7.0 起，工坊在服务连接成功后会自动检查自身更新；若 Tavern Helper 中的工坊 loader 仍指向旧提交，会直接提示更新。确认后只重写该 loader 中本仓库的 jsDelivr commit SHA，保留 `apiBase` 与脚本内其他用户配置。
-- loader 写入成功后会自动重新载入 SillyTavern，由新的固定 SHA 正常启动新版客户端；不再依赖运行时动态 import 热接管。
+- loader 更新只负责直接覆盖 Tavern Helper 中的固定 SHA，并在写入后重新读取脚本树确认已经持久化；不会为了工坊更新刷新整个 SillyTavern。
 - 为避免 Worker 的 latest KV 短暂缓存造成错误降级，只要发现“loader SHA 与服务端 latest 不一致”，客户端会额外即时核对当前通道自己的 GitHub ref。测试版只核对 `main`，正式版只核对 `workshop-stable`，正式版不会因为 main 上的测试提交出现更新提示。
 - 安装前会检查同名世界书条目、残留正则/脚本 ID、同名预设与角色目标冲突；非致命冲突由玩家确认后再继续。
 - 安装过程带快照；任一步骤失败会回滚已经发生的工坊世界书/正则/脚本/预设写入，以及原世界书/原正则/原脚本状态修改。

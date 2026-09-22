@@ -148,6 +148,24 @@ test('Discord login start rejects caller supplied non-random login ids', async (
   assert.equal((await response.json()).code, 'invalid_login_id');
 });
 
+test('Discord login start also supports polling-only native clients without opener origin', async () => {
+  const testEnv = env();
+  const loginId = 'd'.repeat(64);
+  const response = await handleRequest(
+    new Request(
+      `https://workshop.example/api/auth/discord/start?login_id=${loginId}`,
+    ),
+    testEnv,
+  );
+
+  assert.equal(response.status, 302);
+  const location = new URL(response.headers.get('location'));
+  const state = location.searchParams.get('state');
+  const pending = JSON.parse(await testEnv.SESSION_KV.get(`oauth:${state}`));
+  assert.equal(pending.loginId, loginId);
+  assert.equal(pending.openerOrigin, null);
+});
+
 test('Discord login start binds state to the login id and opener origin', async () => {
   const testEnv = env();
   const loginId = 'a'.repeat(64);

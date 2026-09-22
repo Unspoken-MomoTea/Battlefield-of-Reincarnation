@@ -12,7 +12,6 @@ export function bindWorkshopEvents({
 
   overlay.querySelector('[data-action="search"]').addEventListener('click', () => void views.discover.refresh());
   nodes.search.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
-  nodes.tag.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
   nodes.sort.addEventListener('change', () => void views.discover.refresh());
   nodes.discoverCategories.forEach(categoryButton => {
     categoryButton.addEventListener('click', () => {

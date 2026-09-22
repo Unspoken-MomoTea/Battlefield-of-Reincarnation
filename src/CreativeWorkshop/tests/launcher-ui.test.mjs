@@ -127,3 +127,20 @@ test('resource tabs use plain labels and host toasts stay above the workshop', (
   assert.doesNotMatch(source, /icon:\s*['"]/u);
   assert.match(WORKSHOP_CSS, /#toast-container\{z-index:2147483647!important\}/u);
 });
+
+
+test('workshop self update never reloads the whole tavern and does not loop on runtime sha', () => {
+  const updateNotice = fs.readFileSync(
+    fileURLToPath(new URL('../views/update-notice.js', import.meta.url)),
+    'utf8',
+  );
+  const maintenance = fs.readFileSync(
+    fileURLToPath(new URL('../views/maintenance.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.doesNotMatch(updateNotice, /location\?\.reload|location\.reload/u);
+  assert.doesNotMatch(maintenance, /location\?\.reload|location\.reload/u);
+  assert.doesNotMatch(updateNotice, /runtimeOutdated/u);
+  assert.doesNotMatch(maintenance, /runtimeOutdated/u);
+});

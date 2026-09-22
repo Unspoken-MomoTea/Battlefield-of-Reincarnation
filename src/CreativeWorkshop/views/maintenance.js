@@ -55,8 +55,7 @@ export function createMaintenanceView({
         .map(item => item.folder ? `${item.folder} / ${item.name || item.id}` : (item.name || item.id || '未命名脚本'))
         .join('、');
       const channelLabel = result.channel === 'testing' ? '测试版' : '正式版';
-      const runtimeOutdated = Boolean(currentSha && currentSha !== result.latestSha);
-      const hasUpdate = result.updateAvailable || runtimeOutdated;
+      const hasUpdate = result.updateAvailable;
 
       if (hasUpdate) {
         container.classList.add('rw-maintenance-client--update');
@@ -76,7 +75,7 @@ export function createMaintenanceView({
         );
         container.appendChild(updateState);
 
-        const updateButton = button('立即更新并重新载入', 'primary rw-maintenance-update-cta', async () => {
+        const updateButton = button('立即更新创意工坊', 'primary rw-maintenance-update-cta', async () => {
           updateButton.textContent = '正在更新…';
           const updated = typeof hotUpdateClient === 'function'
             ? await hotUpdateClient()
@@ -90,23 +89,19 @@ export function createMaintenanceView({
           }
 
           updateButton.disabled = true;
-          updateButton.textContent = '正在重新载入…';
+          updateButton.textContent = '更新完成';
           const done = statusBox(
-            `载入脚本已写入 ${updated.latestShortSha}。正在重新载入酒馆…`,
+            `Tavern Helper 已保存最新固定提交 ${updated.latestShortSha}。`,
             'ok',
           );
           updateButton.insertAdjacentElement('afterend', done);
 
           try {
             host.toastr?.success?.(
-              `载入脚本已更新到 ${updated.latestShortSha}，正在重新载入。`,
+              `创意工坊载入脚本已更新到 ${updated.latestShortSha}`,
               '创意工坊',
             );
           } catch {}
-
-          const reload = () => host.location?.reload?.();
-          if (typeof host.setTimeout === 'function') host.setTimeout(reload, 350);
-          else reload();
         });
         container.appendChild(updateButton);
 

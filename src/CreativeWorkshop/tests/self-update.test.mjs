@@ -60,7 +60,7 @@ test('testing channel follows main and preserves the staging apiBase', async () 
   assert.equal(before.ref, 'main');
   assert.equal(
     before.latestImportUrl,
-    `https://testingcf.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${latest}/src/CreativeWorkshop/index.js`,
+    `https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${latest}/src/CreativeWorkshop/index.js`,
   );
   assert.ok(urls.some(url => url.includes('/commits/main')));
 

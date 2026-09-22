@@ -72,8 +72,13 @@ export function bootWorkshop() {
     activeTab = name;
     overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === name));
     overlay.querySelectorAll('.rw-section').forEach(section => { section.hidden = section.dataset.section !== name; });
-    nodes.discoverHeadTools.hidden = name !== 'discover';
-    const view = { discover: views.discover, installed: views.installed, mine: views.author, admin: views.admin }[name];
+    nodes.discoverHeadTools.hidden = name !== 'discover' || !nodes.discoverCatalog || nodes.discoverCatalog.hidden;
+    if (name === 'discover') {
+      if (!nodes.discoverCatalog || nodes.discoverCatalog.hidden) void views.discover.home();
+      else void views.discover.refresh();
+      return;
+    }
+    const view = { installed: views.installed, mine: views.author, admin: views.admin }[name];
     if (view) void view.refresh();
   }
 
@@ -260,7 +265,7 @@ export function bootWorkshop() {
   host.dispatchEvent(new CustomEvent('reincarnation-workshop-ready', {
     detail: { version: WORKSHOP_VERSION },
   }));
-  void views.discover.refresh();
+  void views.discover.home();
 
   function onPageHide() {
     destroy();

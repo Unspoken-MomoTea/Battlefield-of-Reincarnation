@@ -164,9 +164,9 @@ test('worldbook detail uses native position depth order labels without redundant
     fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),
     'utf8',
   );
-  assert.match(source, /`位置 \${positionLabel\(entry\)\}`/u);
-  assert.match(source, /`深度 \${/u);
-  assert.match(source, /`顺序 \${textValue\(entry\.order\)\}`/u);
+  assert.equal(source.includes('`位置 ${positionLabel(entry)}`'), true);
+  assert.equal(source.includes('`深度 ${'), true);
+  assert.equal(source.includes('`顺序 ${textValue(entry.order)}`'), true);
   assert.doesNotMatch(source, /rw-content-nav-group/u);
   assert.doesNotMatch(source, /positionGroupRank/u);
   assert.doesNotMatch(source, /列表顺序/u);

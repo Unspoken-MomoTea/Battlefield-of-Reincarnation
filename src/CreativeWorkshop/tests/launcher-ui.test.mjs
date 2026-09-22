@@ -159,16 +159,18 @@ test('first project creation exposes a local-only test path', () => {
 });
 
 
-test('worldbook detail uses native position depth order labels without redundant groups', () => {
+test('worldbook detail mirrors reference D-depth metadata without redundant groups', () => {
   const source = fs.readFileSync(
     fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),
     'utf8',
   );
-  assert.equal(source.includes('`位置 ${positionLabel(entry)}`'), true);
-  assert.equal(source.includes('`深度 ${'), true);
+  assert.equal(source.includes('return `D${Number.isFinite(Number(entry?.depth)) ? Number(entry.depth) : 4}`;'), true);
   assert.equal(source.includes('`顺序 ${textValue(entry.order)}`'), true);
+  assert.match(source, /\['system', 'user', 'assistant'\]/u);
   assert.doesNotMatch(source, /rw-content-nav-group/u);
   assert.doesNotMatch(source, /positionGroupRank/u);
+  assert.doesNotMatch(source, /位置 在深度/u);
+  assert.doesNotMatch(source, /makeChip\(doc, `深度 /u);
   assert.doesNotMatch(source, /列表顺序/u);
   assert.doesNotMatch(source, /插入顺序/u);
   assert.doesNotMatch(source, /makeChip\(doc, `UID /u);

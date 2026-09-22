@@ -108,7 +108,7 @@ async function main() {
   }
 
   console.log('\n读取正式发布目标…');
-  run(git, ['fetch', 'origin', 'main', 'workshop-stable', '--tags']);
+  run(git, ['fetch', '--tags', 'origin', 'main', 'workshop-stable']);
 
   const targetSha = run(git, ['rev-parse', 'origin/main^{commit}'], root, true);
   const stableSha = run(git, ['rev-parse', 'origin/workshop-stable^{commit}'], root, true);
@@ -166,6 +166,7 @@ async function main() {
   const checkout = path.join(tempRoot, 'release');
   let worktreeAdded = false;
   let tagCreated = false;
+  let published = false;
 
   try {
     console.log('\n建立临时正式发布检出…');
@@ -195,7 +196,7 @@ async function main() {
     }
 
     console.log('\n重新确认远端状态…');
-    run(git, ['fetch', 'origin', 'main', 'workshop-stable', '--tags']);
+    run(git, ['fetch', '--tags', 'origin', 'main', 'workshop-stable']);
     const latestMain = run(git, ['rev-parse', 'origin/main^{commit}'], root, true);
     const latestStable = run(git, ['rev-parse', 'origin/workshop-stable^{commit}'], root, true);
     if (latestMain !== targetSha) {
@@ -220,9 +221,11 @@ async function main() {
     console.log('\n原子推进 workshop-stable + 正式 Tag…');
     run(git, [
       'push', '--atomic', 'origin',
-      `${targetSha}:refs/heads/workshop-stable`,
+      'refs/remotes/origin/main:refs/heads/workshop-stable',
       `refs/tags/${release.tag}:refs/tags/${release.tag}`,
     ]);
+
+    published = true;
 
     console.log('\n============================================================');
     console.log('正式客户端发布成功');
@@ -232,7 +235,7 @@ async function main() {
     console.log('下一步如需更新正式 Worker / D1，请回到 BAT 主菜单选择“更新正式服”。');
     console.log('============================================================');
   } catch (error) {
-    if (tagCreated && !remoteTagExists(release.tag)) {
+    if (tagCreated && !published) {
       try { run(git, ['tag', '-d', release.tag]); } catch {}
     }
     throw error;

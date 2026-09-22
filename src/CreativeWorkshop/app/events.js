@@ -10,7 +10,6 @@ export function bindWorkshopEvents({
     if (tab.dataset.tab === 'discover') {
       nodes.discoverHeadTools.hidden = true;
       showTab('discover');
-      void views.discover.home();
       return;
     }
     showTab(tab.dataset.tab);
@@ -27,8 +26,8 @@ export function bindWorkshopEvents({
       nodes.discoverCategories.forEach(buttonNode => {
         buttonNode.classList.toggle('is-filter-active', buttonNode === categoryButton);
       });
-      nodes.discoverHeadTools.hidden = false;
       showTab('discover');
+      nodes.discoverHeadTools.hidden = false;
       void views.discover.catalog({ category: nodes.category.value });
     });
   });

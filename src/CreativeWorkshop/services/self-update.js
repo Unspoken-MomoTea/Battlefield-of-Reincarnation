@@ -202,6 +202,12 @@ export function createWorkshopSelfUpdater({
       }
 
       if (!changedScopes.size) {
+        const staleOrUnknown = scan.loaders.some(item =>
+          !item.refs.length || item.refs.some(currentRef => currentRef !== latestSha)
+        );
+        if (staleOrUnknown) {
+          throw new Error('找到了创意工坊载入脚本，但没有识别到可自动改写的固定提交链接');
+        }
         return {
           updated: false,
           channel: latest.channel,
@@ -222,6 +228,15 @@ export function createWorkshopSelfUpdater({
           originals.set(scope, clone(await adapter.getScriptTrees(scope)));
           await adapter.replaceScriptTrees(scan.treesByScope.get(scope), scope);
           written.push(scope);
+        }
+
+        const verified = await scanLoaders(adapter);
+        const writtenLoaders = verified.loaders.filter(item => changedScopes.has(item.scope));
+        const stale = writtenLoaders.filter(item =>
+          !item.refs.length || item.refs.some(currentRef => currentRef !== latestSha)
+        );
+        if (!writtenLoaders.length || stale.length) {
+          throw new Error('创意工坊载入脚本写入后校验失败：Tavern Helper 未保存新的固定提交链接');
         }
       } catch (error) {
         for (const scope of written.reverse()) {

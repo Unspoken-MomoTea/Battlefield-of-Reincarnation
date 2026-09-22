@@ -12,7 +12,6 @@ export function collectWorkshopNodes(overlay) {
     discoverHeadTools: query('[data-role="discover-head-tools"]'),
     search: query('[data-field="search"]'),
     category: query('[data-field="category"]'),
-    tag: query('[data-field="tag"]'),
     sort: query('[data-field="sort"]'),
     discoverCategories: queryAll('[data-category-filter]'),
     discoverMore: query('[data-action="discover-more"]'),

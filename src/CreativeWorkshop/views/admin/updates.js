@@ -50,7 +50,7 @@ export function createAdminUpdatesView({
   }
 
   async function refreshUpdates() {
-    if (!Number(getAuth()?.user?.is_admin)) return empty(nodes.updateList, '需要管理员权限');
+    if (!Number(getAuth()?.user?.is_admin) && !Number(getAuth()?.user?.is_moderator)) return empty(nodes.updateList, '需要审核员权限');
     try {
       const result = await workshopApi.listAdminUpdates();
       if (!result.items.length) {

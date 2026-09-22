@@ -7,6 +7,7 @@ on:
       - 'src/CreativeWorkshop/**'
       - 'cloudflare/**'
       - '.github/workflows/creative-workshop-check.yml'
+      - '.github/workflows/creative-workshop-promote-stable.yml'
   workflow_dispatch:
 
 jobs:

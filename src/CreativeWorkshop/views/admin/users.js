@@ -27,7 +27,8 @@ export function createAdminUsersView({
         const meta = element('div', 'rw-meta');
         meta.append(element('span', 'rw-pill', `Discord: ${item.discord_id}`));
         meta.append(element('span', 'rw-pill', `作品 ${item.project_count || 0}`));
-        if (item.is_admin) meta.append(element('span', 'rw-pill', '管理员'));
+        if (item.is_admin) meta.append(element('span', 'rw-pill', '主管理员'));
+        else if (item.is_moderator) meta.append(element('span', 'rw-pill', '审核员'));
         if (item.is_banned) meta.append(element('span', 'rw-pill', '已封禁'));
         card.appendChild(meta);
 
@@ -43,6 +44,20 @@ export function createAdminUsersView({
 
         const actions = element('div', 'rw-row');
         if (!item.is_admin) {
+          actions.appendChild(button(item.is_moderator ? '取消审核员' : '设为审核员', item.is_moderator ? '' : 'good', async () => {
+            const next = !item.is_moderator;
+            const confirmed = await confirmDialog({
+              title: next ? '设为审核员？' : '取消审核员？',
+              message: next
+                ? '审核员可以审核作品、查看作者更新和处理举报，但不能管理用户、审核员或审计日志。'
+                : '取消后该用户将失去工坊管理后台权限。',
+              confirmText: next ? '设为审核员' : '取消审核员',
+              cancelText: '取消',
+            });
+            if (!confirmed) return;
+            await workshopApi.setUserModerator(item.id, next);
+            await refreshUsers();
+          }));
           if (item.is_banned) {
             actions.appendChild(button('解除封禁', 'good', async () => {
               const confirmed = await confirmDialog({

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
-import { listAdminUsers, setUserBan } from '../src/moderation/users.js';
+import { listAdminUsers, setUserBan, setUserModerator } from '../src/moderation/users.js';
 
 class Statement {
   constructor(db, sql, args = []) { this.db = db; this.sql = sql; this.args = args; }
@@ -70,5 +70,34 @@ test('admin cannot ban themselves', async () => {
   await assert.rejects(
     () => setUserBan(request({ banned: true, reason: 'x' }), env, admin, admin.id),
     error => error?.status === 409 && error?.code === 'cannot_ban_self',
+  );
+});
+
+
+test('primary admin can grant and revoke reviewer role', async () => {
+  const { env, author, admin } = setup();
+  const granted = await setUserModerator(request({ moderator: true }), env, admin, author.id);
+  assert.equal((await granted.json()).user.is_moderator, 1);
+  let row = env.DB.db.prepare('SELECT is_moderator FROM users WHERE id = ?').get(author.id);
+  assert.equal(Number(row.is_moderator), 1);
+
+  const revoked = await setUserModerator(request({ moderator: false }), env, admin, author.id);
+  assert.equal((await revoked.json()).user.is_moderator, 0);
+  row = env.DB.db.prepare('SELECT is_moderator FROM users WHERE id = ?').get(author.id);
+  assert.equal(Number(row.is_moderator), 0);
+});
+
+test('reviewer cannot manage users or reviewer roles', async () => {
+  const { env, author, admin } = setup();
+  await setUserModerator(request({ moderator: true }), env, admin, author.id);
+  const reviewer = env.DB.db.prepare('SELECT * FROM users WHERE id = ?').get(author.id);
+
+  await assert.rejects(
+    () => listAdminUsers(new Request('https://workshop.example/api/admin/users'), env, reviewer),
+    error => error?.status === 403 && error?.code === 'admin_required',
+  );
+  await assert.rejects(
+    () => setUserModerator(request({ moderator: false }), env, reviewer, reviewer.id),
+    error => error?.status === 403 && error?.code === 'admin_required',
   );
 });

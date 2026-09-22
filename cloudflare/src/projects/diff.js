@@ -1,5 +1,5 @@
 import { HttpError } from '../http.js';
-import { assertAdmin, parseDependencies, parseTags } from './core.js';
+import { assertReviewer, parseDependencies, parseTags } from './core.js';
 
 function artifactKey(artifact) {
   return `${artifact.kind}:${artifact.name}`;
@@ -87,7 +87,7 @@ function metadataDiff(base, target) {
 }
 
 export async function getAdminProjectDiff(env, user, projectId) {
-  assertAdmin(user);
+  assertReviewer(user);
   const project = await env.DB.prepare(
     'SELECT id, latest_version, published_version FROM projects WHERE id = ?',
   )

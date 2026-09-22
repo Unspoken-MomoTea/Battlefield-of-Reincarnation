@@ -59,6 +59,69 @@ async function importOfflineProjectUnlocked(file) {
   return record;
 }
 
+
+export const saveLocalTestProject = project => withWorkshopMutation(async () => {
+  if (!project?.id || !project?.name || !project?.category || !project?.bundle) {
+    throw new Error('本地测试作品资料不完整');
+  }
+  const localId = `local-test:${project.id}`;
+  const previous = await getInstalledProject(localId);
+  if (previous?.applied) {
+    throw new Error('本地测试版正在酒馆中启用，请先停用后再覆盖测试内容');
+  }
+  const version = Number(project.version || 1);
+  const bundle = structuredClone(project.bundle);
+  const manifestArtifacts = await Promise.all(bundle.artifacts.map(async artifact => {
+    const text = artifact.format === 'text' ? artifact.content : JSON.stringify(artifact.content);
+    const bytes = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return {
+      kind: artifact.kind,
+      name: artifact.name,
+      format: artifact.format,
+      ...(artifact.scope ? { scope: artifact.scope } : {}),
+      ...(artifact.original_conflicts ? { original_conflicts: artifact.original_conflicts } : {}),
+      byte_size: bytes.byteLength,
+      sha256: Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(''),
+    };
+  }));
+  const manifest = {
+    schema_version: 1,
+    project: {
+      id: localId,
+      name: project.name,
+      category: project.category,
+      version,
+      dependencies: Array.isArray(project.dependencies) ? structuredClone(project.dependencies) : [],
+    },
+    artifact_count: bundle.artifacts.length,
+    total_bytes: manifestArtifacts.reduce((sum, artifact) => sum + artifact.byte_size, 0),
+    artifacts: manifestArtifacts,
+    resource_overrides: structuredClone(bundle.resource_overrides || []),
+  };
+  await verifyBundleAgainstManifest(bundle, manifest, { id: localId, version });
+  const record = baseRecord({
+    id: localId,
+    name: `${project.name}（本地测试）`,
+    category: project.category,
+    version,
+    summary: project.summary || '',
+    dependencies: project.dependencies || [],
+    has_cover: false,
+  }, manifest, bundle, previous, 'local-test');
+  await putInstalledProject({
+    ...record,
+    remoteProjectId: project.id,
+    applied: false,
+    appliedVersion: null,
+    appliedAt: null,
+    targetCharacterName: null,
+    installTargets: null,
+    applyError: '',
+  });
+  return record;
+});
+
 export async function exportCachedProject(projectId) {
   const installed = await getInstalledProject(projectId);
   if (!installed) throw new Error('本地没有这个作品');

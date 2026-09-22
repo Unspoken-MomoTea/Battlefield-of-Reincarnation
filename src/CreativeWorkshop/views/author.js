@@ -41,6 +41,7 @@ export function createAuthorView({
     host,
     doc,
     workshopApi,
+    projectService,
     openModal,
     button,
     element,

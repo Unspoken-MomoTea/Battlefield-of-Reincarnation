@@ -36,6 +36,7 @@ export function createWorkshopViews(context) {
     author: createAuthorView({
       ...common,
       workshopApi: context.workshopApi,
+      projectService: context.projectService,
       doc: context.doc,
       categoryLabels: CATEGORY_LABELS,
       artifactLabels: ARTIFACT_LABELS,

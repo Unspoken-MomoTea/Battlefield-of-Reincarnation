@@ -235,7 +235,7 @@ export function createAdminProjectsView({
     } else {
       section.appendChild(button('下架作品', 'danger', () => stateAction(item, 'archive', modal)));
     }
-    section.appendChild(button('删除作品', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
+    if (Number(getAuth()?.user?.is_admin)) section.appendChild(button('删除作品', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
     return section;
   }
 
@@ -398,7 +398,7 @@ export function createAdminProjectsView({
 
     const actions = element('div', 'rw-local-actions');
     actions.appendChild(button('查看内容与审核', 'primary rw-local-primary', () => showReview(item)));
-    if (item.project_status === 'archived') {
+    if (item.project_status === 'archived' && Number(getAuth()?.user?.is_admin)) {
       actions.appendChild(button('删除作品', 'danger', () => deleteAction(item, null)));
     }
     card.appendChild(actions);
@@ -406,7 +406,7 @@ export function createAdminProjectsView({
   }
 
   async function refreshProjects() {
-    if (!Number(getAuth()?.user?.is_admin)) return empty(nodes.pendingList, '需要管理员权限');
+    if (!Number(getAuth()?.user?.is_admin) && !Number(getAuth()?.user?.is_moderator)) return empty(nodes.pendingList, '需要审核员权限');
     try {
       const result = await workshopApi.listAdminProjects({
         query: nodes.adminSearch.value,

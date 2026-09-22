@@ -33,7 +33,7 @@ export async function upsertDiscordUser(env, discordUser) {
     .run();
 
   const user = await env.DB.prepare(
-    'SELECT id, discord_id, username, display_name, avatar, is_admin, is_banned, ban_reason, banned_at, created_at, updated_at FROM users WHERE discord_id = ?',
+    'SELECT id, discord_id, username, display_name, avatar, is_admin, is_moderator, is_banned, ban_reason, banned_at, created_at, updated_at FROM users WHERE discord_id = ?',
   )
     .bind(String(discordUser.id))
     .first();
@@ -43,7 +43,7 @@ export async function upsertDiscordUser(env, discordUser) {
 
 export async function getUserById(env, userId) {
   return env.DB.prepare(
-    'SELECT id, discord_id, username, display_name, avatar, is_admin, is_banned, ban_reason, banned_at, created_at, updated_at FROM users WHERE id = ?',
+    'SELECT id, discord_id, username, display_name, avatar, is_admin, is_moderator, is_banned, ban_reason, banned_at, created_at, updated_at FROM users WHERE id = ?',
   )
     .bind(userId)
     .first();

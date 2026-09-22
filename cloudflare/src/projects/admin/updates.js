@@ -1,8 +1,8 @@
 import { json } from '../../http.js';
-import { assertAdmin } from '../core.js';
+import { assertReviewer } from '../core.js';
 
 export async function listAdminProjectUpdates(request, env, user) {
-  assertAdmin(user);
+  assertReviewer(user);
   const url = new URL(request.url);
   const limit = Math.max(1, Math.min(100, Number.parseInt(url.searchParams.get('limit') || '50', 10) || 50));
   const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') || '0', 10) || 0);

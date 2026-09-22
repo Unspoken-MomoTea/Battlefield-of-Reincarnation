@@ -4,7 +4,7 @@ import { storageManager } from '../storage/manager.js';
 import { updateChecker } from './update-check.js';
 import {
   cacheRemoteProject, checkCachedProjectUpdate, exportCachedProject,
-  importOfflineProject, listCachedProjects, removeCachedProject, updateRemoteProject,
+  importOfflineProject, listCachedProjects, removeCachedProject, saveLocalTestProject, updateRemoteProject,
 } from './cache.js';
 
 export class ProjectService {
@@ -15,6 +15,7 @@ export class ProjectService {
   cache(projectId) { return cacheRemoteProject(workshopApi, projectId); }
   importOffline(file) { return importOfflineProject(file); }
   exportCached(projectId) { return exportCachedProject(projectId); }
+  saveLocalTest(project) { return saveLocalTestProject(project); }
   checkUpdate(projectId) { return checkCachedProjectUpdate(workshopApi, projectId); }
   updateLatest(projectId) { return updateRemoteProject(workshopApi, workshopInstaller, projectId); }
   checkAllUpdates(force = false) { return updateChecker.checkAll(force); }

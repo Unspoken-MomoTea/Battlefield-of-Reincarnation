@@ -1,8 +1,8 @@
 import { json } from '../../http.js';
-import { adminPageParams, assertAdmin, projectAdmin } from '../core.js';
+import { adminPageParams, assertReviewer, projectAdmin } from '../core.js';
 
 export async function listAdminProjects(request, env, user) {
-  assertAdmin(user);
+  assertReviewer(user);
   const { query, category, limit, offset, reviewStatus } = adminPageParams(request);
   const like = `%${query}%`;
   const result = await env.DB.prepare(

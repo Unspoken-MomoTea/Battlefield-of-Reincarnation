@@ -17,6 +17,7 @@ export function createAuthorProjectEditor({
   host,
   doc,
   workshopApi,
+  projectService,
   openModal,
   button,
   element,
@@ -330,6 +331,36 @@ export function createAuthorProjectEditor({
     );
     const footerActions = element('div', 'rw-row');
     const cancel = button('取消', '', () => modal.close());
+    const localTest = button('保存到本地测试', '', async () => {
+      const nextName = name.value.trim();
+      if (!nextName) throw new Error('请填写作品名称');
+      if (!queue.count) throw new Error('作品内容不能为空');
+      const resourceOverrides = resourceEditor.values();
+      const bundle = queue.bundle(null, resourceOverrides);
+      const version = Math.max(1, Number(current.latest_version || 0) + 1);
+      progress.hidden = false;
+      progress.className = 'rw-submit-progress rw-submit-progress--working';
+      progress.textContent = '正在保存本地测试版本…';
+      try {
+        await projectService.saveLocalTest({
+          id: current.id,
+          name: nextName,
+          summary: summary.value,
+          category: category.value || current.category,
+          dependencies: dependencies.values(),
+          version,
+          bundle,
+        });
+        progress.className = 'rw-submit-progress rw-submit-progress--success';
+        progress.textContent = '已保存到本地测试。不会上传服务器，也不会提交审核；可到“已安装”中安装测试。';
+        try { host.toastr?.success?.('本地测试版本已保存', '创意工坊'); } catch {}
+      } catch (error) {
+        progress.className = 'rw-submit-progress rw-submit-progress--error';
+        progress.textContent = `保存本地测试失败：${error instanceof Error ? error.message : String(error)}`;
+        notifyError(error);
+        throw error;
+      }
+    });
     const submit = button(autoPublish ? '发布新版本' : '提交新版本审核', 'good', async () => {
       const nextName = name.value.trim();
       if (!nextName) throw new Error('请填写作品名称');
@@ -420,7 +451,7 @@ export function createAuthorProjectEditor({
         throw error;
       }
     });
-    footerActions.append(cancel, submit);
+    footerActions.append(cancel, localTest, submit);
     footer.appendChild(footerActions);
     form.appendChild(footer);
 

@@ -1375,3 +1375,19 @@ export const WORKSHOP_CSS = `
   @media(max-width:1180px){.rw-showcase-row{grid-template-columns:repeat(4,minmax(0,1fr))}.rw-showcase-card:nth-child(n+5){display:none}}
   @media(max-width:760px){.rw-showcase-row{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px}.rw-showcase-card{flex:0 0 46%;scroll-snap-align:start}.rw-showcase-card:nth-child(n){display:block}.rw-discover-home{gap:26px}}
 `;
+
+  /* Reference-aligned browse hierarchy: creator, two-line title, media, metadata. */
+  .rw-project-card{padding:0!important;gap:0!important;overflow:hidden}
+  .rw-project-author-head{height:32px;display:flex;align-items:center;padding:0 10px;border-bottom:1px solid var(--rw-line);color:#9a9892;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rw-project-title-row{min-height:54px;display:flex;align-items:flex-start;gap:6px;padding:9px 10px 8px;border-bottom:1px solid var(--rw-line);background:#1b1c1f}
+  .rw-title-type{flex:none;margin-top:2px;padding:3px 5px;border:1px solid rgba(212,173,104,.26);border-radius:5px;background:rgba(180,132,58,.11);color:#d7b26f;font-size:8px;font-weight:820;line-height:1}
+  .rw-title-type--character{border-color:rgba(198,160,217,.26);background:rgba(151,100,174,.11);color:#d1a9df}
+  .rw-project-title-text{min-width:0;margin:0!important;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;word-break:break-word;overflow-wrap:anywhere;color:#e0ddd6;font-size:12px!important;line-height:1.45}
+  .rw-project-media{position:relative;overflow:hidden;background:#111216;border-bottom:1px solid var(--rw-line)}
+  .rw-project-media .rw-cover{width:100%;aspect-ratio:1.22/1;display:block;object-fit:cover;border:0!important;border-radius:0!important}
+  .rw-project-card>.rw-meta,.rw-project-card>.rw-project-summary,.rw-project-card>.rw-project-footer{margin-left:10px;margin-right:10px}
+  .rw-project-card>.rw-meta{margin-top:9px}
+  .rw-project-card>.rw-project-summary{margin-top:7px}
+  .rw-project-card>.rw-project-footer{margin-bottom:9px}
+  .rw-showcase-more-card{-webkit-appearance:none!important;appearance:none!important;width:auto!important;height:auto!important;padding:0!important;border:1px dashed rgba(162,139,107,.22)!important;border-radius:9px!important;background:#141518!important;color:#9d8b70!important;box-shadow:none!important}
+  .rw-showcase-more-card:hover{background:rgba(162,139,107,.045)!important;color:#d3b98f!important}

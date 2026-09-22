@@ -338,30 +338,6 @@ export function createAuthorProjectEditor({
       const resourceOverrides = resourceEditor.values();
       const bundle = queue.bundle(null, resourceOverrides);
       const version = Math.max(1, Number(current.latest_version || 0) + 1);
-      const manifest = {
-        schema_version: 1,
-        project: {
-          id: `local-test:${current.id}`,
-          name: nextName,
-          category: category.value || current.category,
-          version,
-          dependencies: dependencies.values(),
-        },
-        artifact_count: bundle.artifacts.length,
-        artifacts: await Promise.all(bundle.artifacts.map(async artifact => {
-          const bytes = new TextEncoder().encode(JSON.stringify(artifact.content ?? ''));
-          const digest = await crypto.subtle.digest('SHA-256', bytes);
-          return {
-            kind: artifact.kind,
-            name: artifact.name,
-            format: artifact.format,
-            ...(artifact.scope ? { scope: artifact.scope } : {}),
-            ...(artifact.original_conflicts ? { original_conflicts: artifact.original_conflicts } : {}),
-            byte_size: bytes.byteLength,
-            sha256: Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(''),
-          };
-        })),
-      };
       progress.hidden = false;
       progress.className = 'rw-submit-progress rw-submit-progress--working';
       progress.textContent = '正在保存本地测试版本…';
@@ -373,7 +349,6 @@ export function createAuthorProjectEditor({
           category: category.value || current.category,
           dependencies: dependencies.values(),
           version,
-          manifest,
           bundle,
         });
         progress.className = 'rw-submit-progress rw-submit-progress--success';

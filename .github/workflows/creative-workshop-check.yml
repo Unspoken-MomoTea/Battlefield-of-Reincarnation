@@ -21,7 +21,9 @@ jobs:
         working-directory: cloudflare
         run: npm test
       - name: Worker syntax
-        run: find cloudflare/src -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+        run: |
+          find cloudflare/src -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+          find cloudflare/scripts -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | sort -z | xargs -0 -n1 node --check
       - name: Client contract tests
         run: node --test src/CreativeWorkshop/tests/*.test.mjs
       - name: Client syntax

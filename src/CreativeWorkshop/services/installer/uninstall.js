@@ -10,6 +10,12 @@ export async function uninstallProject({ adapter, storage }, projectId) {
   const installed = await storage.getInstalledProject(projectId);
   if (!installed) return null;
   if (!installed.applied) return installed;
+  const projects = typeof storage.getInstalledProjects === 'function' ? await storage.getInstalledProjects() : [];
+  const dependents = projects.filter(project => project.applied && project.id !== projectId &&
+    (project.appliedDependencies ?? project.dependencies ?? []).some(dependency => dependency.project_id === projectId));
+  if (dependents.length) {
+    throw new Error(`请先卸载依赖此作品的 Mod：${dependents.map(project => project.name || project.id).join('、')}`);
+  }
   const targets = installed.installTargets ?? {};
   const characterNeeded = Boolean(
     targets.worldbook ||
@@ -95,6 +101,7 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       ...installed,
       applied: false,
       appliedVersion: null,
+      appliedDependencies: null,
       appliedAt: null,
       targetCharacterName: null,
       installTargets: null,

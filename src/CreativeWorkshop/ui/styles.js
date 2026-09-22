@@ -1244,20 +1244,23 @@ export const WORKSHOP_CSS = `
     .rw-overlay{padding:0;align-items:stretch}
     .rw-panel{
       width:100vw;height:100dvh;border:0;border-radius:0;
-      grid-template-columns:1fr;grid-template-rows:58px minmax(0,1fr) 64px
+      grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto
     }
-    .rw-head{grid-column:1;grid-row:1;padding:8px 10px;background:rgba(20,21,24,.96)}
-    .rw-title{display:none}
+    .rw-head{grid-column:1;grid-row:1;display:grid;grid-template-columns:minmax(0,1fr) auto;
+      padding:calc(8px + env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) 8px max(10px,env(safe-area-inset-left));background:rgba(20,21,24,.96)}
+    .rw-title{min-width:0;font-size:12px}
+    .rw-head-actions{grid-column:2;grid-row:1}
     .rw-head-actions{margin-left:auto;gap:6px;flex:none}
     .rw-version{display:none}
     .rw-health-chip{display:none}
-    .rw-head-discover-tools{min-width:0;flex:1}
-    .rw-head-discover-tools .rw-input{min-width:0;width:100%;font-size:11px}
-    .rw-head-discover-tools .rw-select,.rw-head-discover-tools .rw-button{display:none}
+    .rw-head-discover-tools{min-width:0;grid-column:1/-1;grid-row:2;display:flex;flex-wrap:wrap}
+    .rw-head-discover-tools .rw-input.grow{min-width:0;width:0;flex:1 1 110px}
+    .rw-head-discover-tools .rw-select{display:block;min-width:90px;max-width:110px}
+    .rw-head-discover-tools .rw-button{display:inline-flex}
     .rw-account{max-width:88px;min-height:36px;padding:0 7px}
     .rw-account-dropdown{right:0;top:40px}
     .rw-head .rw-button[data-action="maintenance"]{
-      width:42px;min-height:36px;overflow:hidden;padding:0;font-size:0
+      width:44px;min-height:44px;overflow:hidden;padding:0;font-size:0
     }
     .rw-head .rw-button[data-action="maintenance"]::before{content:"修复";font-size:10px}
     .rw-head .rw-button[data-action="login"]{min-height:36px;padding:0 8px;font-size:10px}
@@ -1268,7 +1271,7 @@ export const WORKSHOP_CSS = `
       border:0;border-top:1px solid var(--rw-line);background:rgba(20,21,24,.97);overflow-x:auto
     }
     .rw-tabs::before,.rw-tabs::after,.rw-nav-label,.rw-nav-divider,.rw-nav-connection{display:none}
-    .rw-tab{min-width:76px;min-height:46px;justify-content:center;padding:0 8px;border-radius:9px;text-align:center;font-size:11px}
+    .rw-tab{min-width:0;min-height:46px;justify-content:center;padding:0 4px;border-radius:9px;text-align:center;font-size:11px}
     .rw-nav-filter.is-filter-active::after{margin-left:5px}
     .rw-tab.is-active::before{display:none}
     .rw-body{grid-column:1;grid-row:2;padding:12px 12px 20px}
@@ -1281,8 +1284,10 @@ export const WORKSHOP_CSS = `
     .rw-admin-tabs{overflow-x:auto}
     .rw-admin-tabs .rw-tab{flex:1;min-width:90px}
     .rw-admin-facts{grid-template-columns:1fr}
-    .rw-create-form{width:100vw;max-height:100dvh;height:100dvh;border:0;border-radius:0}
-    .rw-publish-grid{grid-template-columns:1fr;max-height:calc(100dvh - 126px)}
+    .rw-create-form{box-sizing:border-box;width:100%;max-height:100dvh;height:100dvh;border:0;border-radius:0;
+      display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+    .rw-publish-form-head,.rw-publish-footer{flex-shrink:0}
+    .rw-publish-grid{grid-template-columns:minmax(0,1fr);max-height:none;flex:1;overscroll-behavior:contain}
     .rw-publish-column{padding:18px 14px}
     .rw-publish-column+.rw-publish-column{border-left:0;border-top:1px solid var(--rw-line)}
     .rw-publish-footer{align-items:flex-start;flex-direction:column}
@@ -1328,10 +1333,17 @@ export const WORKSHOP_CSS = `
     .rw-modal-backdrop{padding:0;align-items:stretch}
     .rw-modal,.rw-modal--wide{width:100%;max-height:none;height:100%;border:0;border-radius:0}
     .rw-modal-body{padding:12px 12px calc(18px + env(safe-area-inset-bottom))}
+    .rw-modal-head{padding-top:calc(12px + env(safe-area-inset-top))}
+    .rw-publish-footer{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+    .rw-panel,.rw-create-form,.rw-modal{overflow-wrap:anywhere}
+    .rw-overlay input,.rw-overlay select,.rw-overlay textarea{font-size:16px;box-sizing:border-box;max-width:100%}
+    .rw-overlay .rw-button,.rw-overlay .rw-close,.rw-overlay .rw-account,
+    .rw-overlay .rw-resource-state-choice,.rw-overlay .rw-account-dropdown button{min-height:44px}
+    .rw-overlay .rw-modal-close{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important}
+    .rw-launcher{right:max(12px,env(safe-area-inset-right));bottom:calc(80px + env(safe-area-inset-bottom))}
   }
 
   @media(max-width:420px){
-    .rw-account{display:none}
     .rw-title{font-size:13px}
     .rw-body{padding:10px}
     .rw-card{padding:12px}

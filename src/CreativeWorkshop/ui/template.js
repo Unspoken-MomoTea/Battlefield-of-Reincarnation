@@ -51,7 +51,7 @@ export function workshopTemplate(version) {
         <input type="hidden" data-field="category" value="">
         <div class="rw-discover-subtools">
           <input class="rw-input rw-tag-input" data-field="tag" maxlength="24" placeholder="精确标签（可选）">
-          <span class="rw-muted">分类从左侧切换；搜索与排序在顶部。</span>
+          <span class="rw-muted">通过导航切换分类；搜索与排序在顶部。</span>
         </div>
         <div class="rw-grid rw-project-grid" data-role="discover-list"></div>
         <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>

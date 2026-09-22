@@ -3,6 +3,7 @@ import {
 } from '../storage.js';
 import { verifyBundleAgainstManifest } from './integrity.js';
 import { createOfflinePackage, MAX_OFFLINE_BYTES, parseOfflinePackageText } from './offline.js';
+import { withWorkshopMutation } from '../installer/mutation-lock.js';
 
 function baseRecord(project, manifest, bundle, previous, source) {
   const now = Date.now();
@@ -19,6 +20,7 @@ function baseRecord(project, manifest, bundle, previous, source) {
     manifest, bundle, source, installedAt: previous?.installedAt ?? now, updatedAt: now,
     applied: previous?.applied ?? false, appliedVersion: previous?.appliedVersion ?? null,
     appliedAt: previous?.appliedAt ?? null, targetCharacterName: previous?.targetCharacterName ?? null,
+    appliedDependencies: previous?.appliedDependencies ?? (previous?.applied ? structuredClone(previous.dependencies ?? []) : null),
     installTargets: previous?.installTargets ?? null, applyError: previous?.applyError ?? '',
     restoreWarnings: previous?.restoreWarnings ?? [],
     unrestoredOriginals: previous?.unrestoredOriginals ?? [],
@@ -26,7 +28,9 @@ function baseRecord(project, manifest, bundle, previous, source) {
   };
 }
 
-export async function cacheRemoteProject(workshopApi, projectId) {
+export const cacheRemoteProject = (workshopApi, projectId) => withWorkshopMutation(() => cacheRemoteProjectUnlocked(workshopApi, projectId));
+
+async function cacheRemoteProjectUnlocked(workshopApi, projectId) {
   const [detail, bundle] = await Promise.all([workshopApi.getProject(projectId), workshopApi.downloadProject(projectId)]);
   await verifyBundleAgainstManifest(bundle, detail.manifest, detail.project);
   const previous = await getInstalledProject(projectId);
@@ -35,7 +39,9 @@ export async function cacheRemoteProject(workshopApi, projectId) {
   return record;
 }
 
-export async function importOfflineProject(file) {
+export const importOfflineProject = file => withWorkshopMutation(() => importOfflineProjectUnlocked(file));
+
+async function importOfflineProjectUnlocked(file) {
   if (!file || typeof file.text !== 'function') throw new Error('请选择有效的 .rwpack 文件');
   if (Number(file.size || 0) > MAX_OFFLINE_BYTES) throw new Error('离线包超过 6 MB 限制');
   const parsed = await parseOfflinePackageText(await file.text());
@@ -72,14 +78,16 @@ export async function checkCachedProjectUpdate(workshopApi, projectId) {
 
 export const listCachedProjects = () => getInstalledProjects();
 
-export async function updateRemoteProject(workshopApi, installer, projectId) {
+export const updateRemoteProject = (workshopApi, installer, projectId) => withWorkshopMutation(token => updateRemoteProjectUnlocked(workshopApi, installer, projectId, token));
+
+async function updateRemoteProjectUnlocked(workshopApi, installer, projectId, token) {
   const previous = await getInstalledProject(projectId);
   if (!previous) throw new Error('本地没有这个作品，请先下载');
 
   try {
-    const cached = await cacheRemoteProject(workshopApi, projectId);
+    const cached = await cacheRemoteProjectUnlocked(workshopApi, projectId);
     if (!previous.applied) return cached;
-    await installer.apply(projectId);
+    await installer.apply(projectId, token);
     return getInstalledProject(projectId);
   } catch (error) {
     await putInstalledProject(previous);
@@ -87,7 +95,9 @@ export async function updateRemoteProject(workshopApi, installer, projectId) {
   }
 }
 
-export async function removeCachedProject(projectId) {
+export const removeCachedProject = projectId => withWorkshopMutation(() => removeCachedProjectUnlocked(projectId));
+
+async function removeCachedProjectUnlocked(projectId) {
   const installed = await getInstalledProject(projectId);
   if (installed?.applied) throw new Error('请先卸载这个作品，再删除本地缓存');
   await deleteInstalledProject(projectId);

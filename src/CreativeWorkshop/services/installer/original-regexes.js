@@ -81,10 +81,11 @@ function locateRegex(regexes, target) {
   return matches[0];
 }
 
-function otherClaims(projects, projectId) {
+function otherClaims(projects, projectId, characterName) {
   const claims = new Map();
   for (const project of projects || []) {
     if (!project?.applied || project.id === projectId) continue;
+    if (project.targetCharacterName && project.targetCharacterName !== characterName) continue;
     for (const change of project.installTargets?.originalRegexChanges || []) {
       if (!change?.identity) continue;
       const key = identityKey(change.identity);
@@ -119,7 +120,7 @@ export async function syncOriginalRegexConflicts({ adapter, storage }, installed
   const working = clone(await maybe(adapter.getCharacterRegexes()));
   const baseline = clone(working);
   const previousByKey = new Map(previous.map(change => [identityKey(change.identity), change]));
-  const claims = otherClaims(await installedProjects(storage), installed.id);
+  const claims = otherClaims(await installedProjects(storage), installed.id, await maybe(adapter.getCurrentCharacterName()));
   const desiredKeys = new Set();
   const changes = [];
   const warnings = [];
@@ -196,7 +197,7 @@ export async function restoreOriginalRegexConflicts({ adapter, storage }, instal
   const previous = installed.installTargets?.originalRegexChanges || [];
   if (!previous.length) return { warnings: [], unrestored: [] };
 
-  const claims = otherClaims(await installedProjects(storage), installed.id);
+  const claims = otherClaims(await installedProjects(storage), installed.id, await maybe(adapter.getCurrentCharacterName()));
   const working = clone(await maybe(adapter.getCharacterRegexes()));
   const baseline = clone(working);
   const warnings = [];

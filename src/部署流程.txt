@@ -1,0 +1,130 @@
+对，你说的应该是 **Git Tag 版本**。正式版最好同时维护两层：
+
+* `workshop-stable`：决定正式用户现在更新到哪个提交。
+* `workshop-v1.12.0` 这样的 Tag：记录“这个提交就是正式发布的 v1.12.0”，以后可以准确回溯。
+
+所以正式发布流程应该和测试版不一样。
+
+测试版继续保持你现在这套：
+
+```powershell
+cd C:\Users\MLT\Desktop\新版\角色卡\轮回战场
+git pull
+
+cd cloudflare
+npm run deploy:staging
+```
+
+它对应：
+
+```text
+main
+↓
+测试客户端
+↓
+workshop-test.6661816.xyz
+↓
+staging D1 / KV / R2
+```
+
+而**正式版**应该先在 GitHub Actions 运行：
+
+```text
+creative-workshop-promote-stable
+```
+
+把你已经测试好的 `main` 提交提升成：
+
+```text
+workshop-stable
+```
+
+然后本地正式部署：
+
+```powershell
+cd C:\Users\MLT\Desktop\新版\角色卡\轮回战场
+
+git fetch origin
+git switch workshop-stable
+git pull --ff-only origin workshop-stable
+
+cd cloudflare
+
+# 只有本次有数据库 migration 才执行
+npm run db:migrate:production
+
+# 部署正式 Worker
+npm run deploy:production
+```
+
+部署完再切回日常开发：
+
+```powershell
+cd ..
+git switch main
+git pull --ff-only origin main
+```
+
+不过**现在还不能真的部署正式服**，因为我故意让 `env.production` 的正式 D1、KV、Discord Client ID 保持占位状态。正式上线前我们还要创建并填入真正的：
+
+```text
+production D1
+production KV
+production R2
+正式 Discord OAuth 配置
+workshop.6661816.xyz
+```
+
+没有填完的话，`npm run deploy:production` 会主动拒绝执行，这正是防止误发布的保护。
+
+至于 Tag，你这个想法是对的。正式发布 v1.12.0 后应该形成这种关系：
+
+```text
+main
+  └─ 后续继续开发 v1.12.1 / v1.13.0 ...
+
+workshop-stable
+  └─ d40d9b34...   ← 正式用户当前版本
+
+workshop-v1.12.0
+  └─ d40d9b34...   ← 永久版本标记
+```
+
+手工打 Tag 的话是：
+
+```powershell
+git tag -a workshop-v1.12.0 -m "Creative Workshop v1.12.0"
+git push origin workshop-v1.12.0
+```
+
+但我不建议以后靠你手工输。
+
+更合适的是把现在的 `creative-workshop-promote-stable` 再改一下：运行时让你填写：
+
+```text
+正式版本：1.12.0
+目标 SHA：可选
+```
+
+然后工作流自动完成：
+
+```text
+检查 main
+→ 跑全部测试
+→ 推进 workshop-stable
+→ 创建 workshop-v1.12.0 Tag
+→ 防止重复 Tag
+→ 输出正式发布结果
+```
+
+这样以后正式发布就只需要在 GitHub 点一次，而不是自己记住一堆 Git 命令。
+
+而且可以顺便规定：
+
+```text
+客户端 WORKSHOP_VERSION = 1.12.0
+Git Tag                 = workshop-v1.12.0
+workshop-stable         = 同一个 SHA
+```
+
+三者必须一致，不一致就禁止正式发布。这个比现在单纯推进 `workshop-stable` 更完整。

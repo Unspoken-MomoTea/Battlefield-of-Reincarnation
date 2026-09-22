@@ -139,6 +139,7 @@ export async function applyProject({ adapter, storage }, projectId) {
     const next = {
       ...installed,
       applied: true, appliedVersion: installed.version, appliedAt: Date.now(),
+      appliedDependencies: clone(installed.dependencies ?? []),
       targetCharacterName: characterNeeded ? currentCharacter : null,
       installTargets: {
         worldbook: plan.worldbook.length ? SHARED_WORLDBOOK_NAME : null,

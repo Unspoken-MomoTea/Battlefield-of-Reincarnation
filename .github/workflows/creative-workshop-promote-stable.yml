@@ -1,0 +1,77 @@
+name: creative-workshop-promote-stable
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: '要发布到正式通道的 main 提交 SHA；留空则使用触发工作流时的提交'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Resolve release target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main workshop-stable
+          TARGET_SHA="${{ inputs.target_sha }}"
+          if [ -z "$TARGET_SHA" ]; then
+            TARGET_SHA="$GITHUB_SHA"
+          fi
+          TARGET_SHA="$(git rev-parse "$TARGET_SHA^{commit}")"
+
+          if ! git merge-base --is-ancestor "$TARGET_SHA" origin/main; then
+            echo "Refusing release: $TARGET_SHA is not on main."
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor origin/workshop-stable "$TARGET_SHA"; then
+            echo "Refusing non-fast-forward release from workshop-stable to $TARGET_SHA."
+            exit 1
+          fi
+
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release target
+        shell: bash
+        run: git checkout --detach "${{ steps.target.outputs.sha }}"
+
+      - name: Worker contract tests
+        working-directory: cloudflare
+        run: npm test
+
+      - name: Worker syntax
+        run: find cloudflare/src -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+
+      - name: Client contract tests
+        run: node --test src/CreativeWorkshop/tests/*.test.mjs
+
+      - name: Client syntax
+        run: find src/CreativeWorkshop -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+
+      - name: Promote stable ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin "${{ steps.target.outputs.sha }}:refs/heads/workshop-stable"
+          echo "### Creative Workshop stable promoted" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: `${{ steps.target.outputs.sha }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Testing ref remains: `main`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Stable ref: `workshop-stable`" >> "$GITHUB_STEP_SUMMARY"

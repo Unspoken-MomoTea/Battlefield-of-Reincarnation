@@ -9,7 +9,7 @@ export function releasePlan(target) {
   throw new Error('请选择 staging、production 或 both');
 }
 
-const STABLE_VERSION_PATTERN = /^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$/u;
+const STABLE_VERSION_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 
 export function workshopReleaseTag(version) {
   const value = String(version || '').trim();
@@ -21,7 +21,7 @@ export function workshopReleaseTag(version) {
 
 export function workshopVersionFromSource(source) {
   const match = String(source || '').match(
-    /export\\s+const\\s+WORKSHOP_VERSION\\s*=\\s*['"]([^'"]+)['"]/u,
+    /export\s+const\s+WORKSHOP_VERSION\s*=\s*['"]([^'"]+)['"]/u,
   );
   if (!match) throw new Error('找不到 WORKSHOP_VERSION');
   return match[1].trim();

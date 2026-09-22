@@ -61,7 +61,7 @@ export const WORKSHOP_CSS = `
   .rw-showcase-head h2{margin:0;font-size:17px;line-height:1.2;color:#e8e7e3;font-weight:780}
   .rw-showcase-more{border:0;background:transparent;color:var(--rw-accent-text);cursor:pointer;font:700 11px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
   .rw-showcase-more:hover{color:#fff}
-  .rw-showcase-row{display:grid;grid-template-columns:repeat(5,minmax(0,212px));gap:10px;min-height:190px;align-items:start}
+  .rw-showcase-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;min-height:190px;align-items:start}
   .rw-showcase-card{min-width:0;cursor:pointer;outline:none}
   .rw-showcase-cover{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid rgba(255,255,255,.055);border-radius:9px;background:#17181b;box-shadow:0 10px 28px rgba(0,0,0,.18);transition:transform .16s ease,border-color .16s ease,filter .16s ease}
   .rw-showcase-card:hover .rw-showcase-cover,.rw-showcase-card:focus-visible .rw-showcase-cover{transform:translateY(-2px);border-color:rgba(162,139,107,.38);filter:brightness(1.05)}

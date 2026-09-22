@@ -31,10 +31,12 @@ jobs:
       - name: Resolve release target
         id: target
         shell: bash
+        env:
+          TARGET_SHA_INPUT: ${{ inputs.target_sha }}
         run: |
           set -euo pipefail
           git fetch origin main workshop-stable --tags
-          TARGET_SHA="${{ inputs.target_sha }}"
+          TARGET_SHA="$TARGET_SHA_INPUT"
           if [ -z "$TARGET_SHA" ]; then
             TARGET_SHA="$GITHUB_SHA"
           fi
@@ -59,7 +61,9 @@ jobs:
       - name: Validate release version
         id: release
         shell: bash
-        run: node cloudflare/scripts/validate-release-version.mjs "${{ inputs.release_version }}"
+        env:
+          RELEASE_VERSION_INPUT: ${{ inputs.release_version }}
+        run: node cloudflare/scripts/validate-release-version.mjs "$RELEASE_VERSION_INPUT"
 
       - name: Reject an existing immutable tag
         shell: bash

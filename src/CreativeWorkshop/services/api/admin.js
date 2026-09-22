@@ -8,6 +8,11 @@ export function createAdminApi(request, requestRaw) {
       return request(`/api/admin/projects?${params}`, {}, true);
     },
 
+    listAdminUpdates({ offset = 0 } = {}) {
+      const params = new URLSearchParams({ limit: '50', offset: String(offset) });
+      return request(`/api/admin/updates?${params}`, {}, true);
+    },
+
     getPendingReview(projectId) {
       return request(`/api/admin/projects/${encodeURIComponent(projectId)}/review`, {}, true);
     },

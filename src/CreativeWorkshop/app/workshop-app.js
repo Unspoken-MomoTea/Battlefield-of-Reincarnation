@@ -197,8 +197,20 @@ export function bootWorkshop() {
       return { ...updated, hotReloaded: false, alreadyRunningLatest: true };
     }
 
-    await hotReload(updated);
-    return { ...updated, hotReloaded: true, alreadyRunningLatest: false };
+    try {
+      await hotReload(updated);
+      return { ...updated, loaderUpdated: Boolean(updated.updated), hotReloaded: true, alreadyRunningLatest: false };
+    } catch (hotReloadError) {
+      console.warn('[轮回战场创意工坊] loader 已更新，但当前页面热载入失败', hotReloadError);
+      return {
+        ...updated,
+        loaderUpdated: Boolean(updated.updated),
+        hotReloaded: false,
+        alreadyRunningLatest: false,
+        reloadRequired: true,
+        hotReloadError: hotReloadError instanceof Error ? hotReloadError.message : String(hotReloadError),
+      };
+    }
   }
 
   async function hotReload(updated) {

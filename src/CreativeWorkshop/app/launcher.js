@@ -118,10 +118,12 @@ export function bindWorkshopLauncher({ launcher, overlay, host, open, close }) {
     applyPosition(rect.left, rect.top, { persist: true });
   };
 
+  const onPointerCancel = event => finishDrag(event, { cancelled: true });
+
   launcher.addEventListener('pointerdown', onPointerDown);
   launcher.addEventListener('pointermove', onPointerMove);
   launcher.addEventListener('pointerup', finishDrag);
-  launcher.addEventListener('pointercancel', event => finishDrag(event, { cancelled: true }));
+  launcher.addEventListener('pointercancel', onPointerCancel);
   launcher.addEventListener('click', onClick);
   host.addEventListener?.('resize', onResize);
 
@@ -132,7 +134,7 @@ export function bindWorkshopLauncher({ launcher, overlay, host, open, close }) {
     launcher.removeEventListener('pointerdown', onPointerDown);
     launcher.removeEventListener('pointermove', onPointerMove);
     launcher.removeEventListener('pointerup', finishDrag);
-    launcher.removeEventListener('pointercancel', finishDrag);
+    launcher.removeEventListener('pointercancel', onPointerCancel);
     launcher.removeEventListener('click', onClick);
     host.removeEventListener?.('resize', onResize);
   };

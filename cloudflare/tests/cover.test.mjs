@@ -189,6 +189,6 @@ test('admin can inspect the latest submitted cover while normal users cannot', a
 
   await assert.rejects(
     () => getAdminProjectCover(env, author, project.id),
-    error => error?.status === 403 && error?.code === 'admin_required',
+    error => error?.status === 403 && error?.code === 'moderator_required',
   );
 });

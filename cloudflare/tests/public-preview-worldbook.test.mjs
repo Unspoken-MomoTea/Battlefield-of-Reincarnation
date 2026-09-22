@@ -69,3 +69,25 @@ test('worldbook display order falls back like SillyTavern when custom index is m
   });
   assert.equal(withoutUid.display_index, 0);
 });
+
+
+test('common SillyTavern export fields preserve depth order role and display order', () => {
+  const entry = previewOf({
+    uid: 41,
+    comment: '酒馆原始格式',
+    content: '正文',
+    insertion_order: 4,
+    extensions: {
+      position: 4,
+      depth: 4,
+      role: 0,
+      display_index: 9,
+    },
+  });
+
+  assert.equal(entry.position_type, 'at_depth');
+  assert.equal(entry.depth, 4);
+  assert.equal(entry.order, 4);
+  assert.equal(entry.role, 'system');
+  assert.equal(entry.display_index, 9);
+});

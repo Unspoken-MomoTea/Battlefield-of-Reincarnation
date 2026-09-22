@@ -9,6 +9,7 @@ import {
   getPublicProjectVersion,
   getPendingProjectReview,
   listAdminAuditLogs,
+  listAdminProjectUpdates,
   listAdminProjects,
   listOwnProjects,
   listPublicProjects,
@@ -273,4 +274,30 @@ test('admin review compares a pending version with the previous approved release
   assert.equal(detail.change_preview.to_version, 2);
   assert.ok(detail.change_preview.summary.added >= 1);
   assert.ok(detail.change_preview.summary.modified >= 1);
+});
+
+
+test('admin update feed shows author-published updates after the first approval', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'), '首版通过');
+
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', {
+      changelog: '作者直接更新',
+      bundle: bundle('v2'),
+    }),
+    env,
+    author,
+    project.id,
+  );
+
+  const updates = await responseJson(
+    await listAdminProjectUpdates(request('/api/admin/updates'), env, admin),
+  );
+  assert.equal(updates.items.length, 1);
+  assert.equal(updates.items[0].id, project.id);
+  assert.equal(updates.items[0].version, 2);
+  assert.equal(updates.items[0].changelog, '作者直接更新');
+  assert.equal(updates.items[0].owner_name, 'Author');
 });

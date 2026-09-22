@@ -49,7 +49,7 @@ export function createDiscoverView({
   }
 
   function filterCachedAll(result, category) {
-    if (!category || !result) return result;
+    if (!category || !result || result.next_offset !== null) return null;
     const items = (result.items || []).filter(item => item.category === category);
     return { ...result, items, next_offset: null };
   }

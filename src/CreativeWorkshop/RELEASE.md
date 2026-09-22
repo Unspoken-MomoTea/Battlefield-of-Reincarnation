@@ -13,10 +13,10 @@
 workshop-vX.Y.Z
 ```
 
-例如客户端 `WORKSHOP_VERSION = 1.12.1` 的正式发布 Tag 必须是：
+例如客户端 `WORKSHOP_VERSION = 1.12.2` 的正式发布 Tag 必须是：
 
 ```text
-workshop-v1.12.1
+workshop-v1.12.2
 ```
 
 ## Windows 双击发布工具
@@ -44,11 +44,11 @@ Windows 用户首选仓库根目录：
 0. 退出
 ```
 
-正式客户端发布会自动读取远端 `origin/main` 中的 `WORKSHOP_VERSION`，自动决定 Tag 名，不要求手工填写版本号。例如当前版本为 `1.12.1` 时，工具会准备：
+正式客户端发布会自动读取远端 `origin/main` 中的 `WORKSHOP_VERSION`，自动决定 Tag 名，不要求手工填写版本号。例如当前版本为 `1.12.2` 时，工具会准备：
 
 ```text
 workshop-stable
-workshop-v1.12.1
+workshop-v1.12.2
 ```
 
 确认发布后，它会在临时 worktree 重新运行 Worker tests、Client tests 和 JS/MJS syntax，再使用原子 push 同时推进 stable 与 Tag。
@@ -157,7 +157,7 @@ release_version
 例如：
 
 ```text
-1.12.1
+1.12.2
 ```
 
 可选填写：

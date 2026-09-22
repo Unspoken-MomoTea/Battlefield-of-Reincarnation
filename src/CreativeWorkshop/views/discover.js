@@ -195,9 +195,14 @@ export function createDiscoverView({
       card.appendChild(element('div', 'rw-showcase-cover rw-showcase-cover--empty', categoryLabels[project.category] || '作品'));
     }
     const copy = element('div', 'rw-showcase-copy');
+    const meta = element('span', 'rw-showcase-meta');
+    meta.append(
+      element('span', 'rw-showcase-type', categoryLabels[project.category] || '作品'),
+      element('span', '', project.owner_name || '匿名作者'),
+    );
     copy.append(
       element('strong', '', project.name),
-      element('span', '', project.owner_name || '匿名作者'),
+      meta,
     );
     card.appendChild(copy);
     const open = () => void showDetail(project.id);
@@ -219,7 +224,16 @@ export function createDiscoverView({
     for (const [target] of targets) empty(target, '正在加载…');
     void syncLocalProjects().catch(() => {});
     try {
-      const results = await Promise.all(targets.map(([, sort]) => projectService.list('', '', 0, '', sort)));
+      const results = await Promise.all(targets.map(([, sort]) => {
+        const state = { query: '', category: '', tag: '', sort };
+        const key = cacheKey(state, 0);
+        const cached = pageCache.get(key);
+        if (cached) return cached;
+        return projectService.list('', '', 0, '', sort).then(result => {
+          pageCache.set(key, result);
+          return result;
+        });
+      }));
       targets.forEach(([target], index) => {
         const items = (results[index]?.items || []).slice(0, 6);
         if (!items.length) empty(target, '暂时没有作品');

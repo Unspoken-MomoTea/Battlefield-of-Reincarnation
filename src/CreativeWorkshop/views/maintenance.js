@@ -219,7 +219,7 @@ export function createMaintenanceView({
     const intro = element('div', 'rw-maintenance-protection');
     intro.append(
       element('strong', '', '已自动保护原版内容'),
-      element('div', '', '工坊项目只拥有自己创建的资源；作者声明需要替换的世界书条目或酒馆助手脚本会先记录原状态，再临时关闭。关闭/卸载该创意时自动恢复。'),
+      element('div', '', '工坊项目只拥有自己创建的资源；作者声明要控制的原世界书、正则或酒馆助手脚本会先记录安装前状态，再按规则启用/停用。关闭或卸载作品时自动恢复。'),
     );
     modal.body.appendChild(intro);
 

@@ -4,7 +4,7 @@ export function workshopTemplate(version) {
     <header class="rw-head">
       <div class="rw-title">创意工坊</div>
       <div class="rw-head-discover-tools" data-role="discover-head-tools">
-        <input class="rw-input grow" data-field="search" placeholder="搜索项目、作者或简介">
+        <input class="rw-input grow" data-field="search" placeholder="搜索项目、作者、简介或 #标签">
         <select class="rw-select" data-field="sort" aria-label="作品排序">
           <option value="latest">最新</option>
           <option value="popular">热门</option>
@@ -49,10 +49,6 @@ export function workshopTemplate(version) {
           <div class="rw-page-head-meta" data-role="discover-count">正在载入</div>
         </div>
         <input type="hidden" data-field="category" value="">
-        <div class="rw-discover-subtools">
-          <input class="rw-input rw-tag-input" data-field="tag" maxlength="24" placeholder="精确标签（可选）">
-          <span class="rw-muted">通过导航切换分类；搜索与排序在顶部。</span>
-        </div>
         <div class="rw-grid rw-project-grid" data-role="discover-list"></div>
         <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>
       </section>

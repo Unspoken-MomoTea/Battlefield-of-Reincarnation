@@ -174,11 +174,15 @@ export function createDiscoverView({
     }
 
     try {
+      const rawSearch = nodes.search.value.trim();
+      const tagMatch = rawSearch.match(/(?:^|\s)#([^\s#]+)/u);
+      const tag = tagMatch?.[1] || '';
+      const query = rawSearch.replace(/(?:^|\s)#[^\s#]+/gu, ' ').trim();
       const result = await projectService.list(
-        nodes.search.value,
+        query,
         nodes.category.value,
         offset || 0,
-        nodes.tag.value,
+        tag,
         nodes.sort.value,
       );
       if (serial !== requestSerial) return;

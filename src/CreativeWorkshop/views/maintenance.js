@@ -220,7 +220,7 @@ export function createMaintenanceView({
 
   async function open() {
     activeModal?.close();
-    const modal = openModal('工坊维护与 DLC 修复', {
+    const modal = openModal('修复', {
       wide: true,
       onClose: () => { if (activeModal === modal) activeModal = null; },
     });

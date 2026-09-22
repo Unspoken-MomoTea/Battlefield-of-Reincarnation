@@ -1,4 +1,4 @@
-import { resolveHostWindow } from '../config.js';
+import { getUpdateChannel, resolveHostWindow } from '../config.js';
 import { workshopApi } from '../services/api.js';
 import { projectService } from '../services/project-service.js';
 import { workshopSelfUpdater } from '../services/self-update.js';
@@ -100,8 +100,11 @@ export function bootWorkshop() {
   async function refreshHealth({ checkUpdate = true } = {}) {
     try {
       const result = await workshopApi.health();
-      nodes.health.textContent = `在线 · ${result.version}`;
-      nodes.health.className = 'rw-health-chip ok';
+      const channel = result.update_channel || getUpdateChannel();
+      const channelLabel = channel === 'testing' ? '测试' : '正式';
+      nodes.health.textContent = `${channelLabel} · 在线 · ${result.version}`;
+      nodes.health.title = `工坊服务状态 · ${channelLabel}通道 · ${result.update_ref || ''}`.trim();
+      nodes.health.className = `rw-health-chip ok rw-health-chip--${channel}`;
       if (checkUpdate) void checkWorkshopUpdateAfterConnection();
       return true;
     } catch (error) {

@@ -144,3 +144,16 @@ test('workshop self update never reloads the whole tavern and does not loop on r
   assert.doesNotMatch(updateNotice, /runtimeOutdated/u);
   assert.doesNotMatch(maintenance, /runtimeOutdated/u);
 });
+
+
+test('first project creation exposes a local-only test path', () => {
+  const html = workshopTemplate('test');
+  assert.match(html, /data-action="create-project-local-test">保存到本地测试<\/button>/u);
+
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/create-project.js', import.meta.url)),
+    'utf8',
+  );
+  assert.match(source, /projectService\.saveLocalTest\(/u);
+  assert.match(source, /不会上传服务器，也不会进入审核队列/u);
+});

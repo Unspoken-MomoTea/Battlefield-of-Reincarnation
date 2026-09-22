@@ -9,7 +9,9 @@
     "PUBLIC_BASE_URL": "https://workshop.6661816.xyz",
     "DISCORD_CLIENT_ID": "REPLACE_ME",
     "SESSION_TTL_SECONDS": "2592000",
-    "ADMIN_DISCORD_IDS": ""
+    "ADMIN_DISCORD_IDS": "",
+    "CLIENT_UPDATE_CHANNEL": "stable",
+    "CLIENT_UPDATE_REF": "workshop-stable"
   },
 
   "d1_databases": [
@@ -46,7 +48,9 @@
         "PUBLIC_BASE_URL": "https://workshop-test.6661816.xyz",
         "DISCORD_CLIENT_ID": "1551049511915491348",
         "SESSION_TTL_SECONDS": "2592000",
-        "ADMIN_DISCORD_IDS": "1292524256764231700"
+        "ADMIN_DISCORD_IDS": "1292524256764231700",
+        "CLIENT_UPDATE_CHANNEL": "testing",
+        "CLIENT_UPDATE_REF": "main"
       },
       "d1_databases": [
         {
@@ -65,6 +69,42 @@
         {
           "binding": "PROJECTS",
           "bucket_name": "reincarnation-workshop-projects-staging"
+        }
+      ]
+    },
+    "production": {
+      "name": "reincarnation-workshop-production",
+      "routes": [
+        {
+          "pattern": "workshop.6661816.xyz",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "PUBLIC_BASE_URL": "https://workshop.6661816.xyz",
+        "DISCORD_CLIENT_ID": "REPLACE_ME",
+        "SESSION_TTL_SECONDS": "2592000",
+        "ADMIN_DISCORD_IDS": "",
+        "CLIENT_UPDATE_CHANNEL": "stable",
+        "CLIENT_UPDATE_REF": "workshop-stable"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "reincarnation_workshop",
+          "database_id": "00000000-0000-0000-0000-000000000000"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "SESSION_KV",
+          "id": "00000000000000000000000000000000"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "PROJECTS",
+          "bucket_name": "reincarnation-workshop-projects"
         }
       ]
     }

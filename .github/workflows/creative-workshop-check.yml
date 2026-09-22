@@ -8,6 +8,7 @@ on:
       - 'cloudflare/**'
       - '.github/workflows/creative-workshop-check.yml'
       - '.github/workflows/creative-workshop-promote-stable.yml'
+      - '创意工坊更新工具.bat'
   workflow_dispatch:
 
 jobs:

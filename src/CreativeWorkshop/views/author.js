@@ -6,6 +6,7 @@ export function createAuthorView({
   button,
   empty,
   workshopApi,
+  projectService,
   doc,
   host,
   categoryLabels,

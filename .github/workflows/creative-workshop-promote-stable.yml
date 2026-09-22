@@ -35,7 +35,7 @@ jobs:
           TARGET_SHA_INPUT: ${{ inputs.target_sha }}
         run: |
           set -euo pipefail
-          git fetch origin main workshop-stable --tags
+          git fetch --tags origin main workshop-stable
           TARGET_SHA="$TARGET_SHA_INPUT"
           if [ -z "$TARGET_SHA" ]; then
             TARGET_SHA="$GITHUB_SHA"

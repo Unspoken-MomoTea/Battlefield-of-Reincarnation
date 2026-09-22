@@ -185,3 +185,16 @@ test('worldbook navigation orders entries by SillyTavern display index internall
   assert.match(source, /entry\.display_index/u);
   assert.match(source, /Number\(a\.entry\.uid\)/u);
 });
+
+
+test('worldbook keyword details follow activation strategy', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(source, /const isConstant = String\(entry\?\.strategy_type \|\| ''\) === 'constant'/u);
+  assert.match(source, /if \(!isConstant\)/u);
+  assert.match(source, /secondaryKeys\.length \? '主要关键词' : '关键词'/u);
+  assert.match(source, /if \(secondaryKeys\.length\)/u);
+});

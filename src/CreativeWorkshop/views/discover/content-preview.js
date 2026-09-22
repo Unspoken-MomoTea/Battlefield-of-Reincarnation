@@ -96,29 +96,37 @@ function renderWorldbookEntry(doc, entry) {
   }
   panel.appendChild(meta);
 
-  const keywords = doc.createElement('div');
-  keywords.className = 'rw-content-keywords';
-  const primary = doc.createElement('div');
-  const primaryTitle = doc.createElement('strong');
-  primaryTitle.textContent = '主要关键词';
-  const primaryValues = doc.createElement('div');
-  primaryValues.className = 'rw-content-chip-list';
   const primaryKeys = Array.isArray(entry.primary_keys) ? entry.primary_keys : [];
-  if (primaryKeys.length) primaryValues.append(...primaryKeys.map(value => makeChip(doc, String(value))));
-  else primaryValues.appendChild(makeChip(doc, '无', 'muted'));
-  primary.append(primaryTitle, primaryValues);
-
-  const secondary = doc.createElement('div');
-  const secondaryTitle = doc.createElement('strong');
-  secondaryTitle.textContent = '次要关键词';
-  const secondaryValues = doc.createElement('div');
-  secondaryValues.className = 'rw-content-chip-list';
   const secondaryKeys = Array.isArray(entry.secondary_keys) ? entry.secondary_keys : [];
-  if (secondaryKeys.length) secondaryValues.append(...secondaryKeys.map(value => makeChip(doc, String(value))));
-  else secondaryValues.appendChild(makeChip(doc, '无', 'muted'));
-  secondary.append(secondaryTitle, secondaryValues);
-  keywords.append(primary, secondary);
-  panel.appendChild(keywords);
+  const isConstant = String(entry?.strategy_type || '') === 'constant';
+
+  if (!isConstant) {
+    const keywords = doc.createElement('div');
+    keywords.className = 'rw-content-keywords';
+
+    const primary = doc.createElement('div');
+    const primaryTitle = doc.createElement('strong');
+    primaryTitle.textContent = secondaryKeys.length ? '主要关键词' : '关键词';
+    const primaryValues = doc.createElement('div');
+    primaryValues.className = 'rw-content-chip-list';
+    if (primaryKeys.length) primaryValues.append(...primaryKeys.map(value => makeChip(doc, String(value))));
+    else primaryValues.appendChild(makeChip(doc, '无', 'muted'));
+    primary.append(primaryTitle, primaryValues);
+    keywords.appendChild(primary);
+
+    if (secondaryKeys.length) {
+      const secondary = doc.createElement('div');
+      const secondaryTitle = doc.createElement('strong');
+      secondaryTitle.textContent = '次要关键词';
+      const secondaryValues = doc.createElement('div');
+      secondaryValues.className = 'rw-content-chip-list';
+      secondaryValues.append(...secondaryKeys.map(value => makeChip(doc, String(value))));
+      secondary.append(secondaryTitle, secondaryValues);
+      keywords.appendChild(secondary);
+    }
+
+    panel.appendChild(keywords);
+  }
 
   const content = doc.createElement('pre');
   content.className = 'rw-content-source rw-content-source--worldbook';

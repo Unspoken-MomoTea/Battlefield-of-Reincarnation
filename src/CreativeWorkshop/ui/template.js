@@ -200,6 +200,7 @@ export function workshopTemplate(version) {
         </div>
         <div class="rw-admin-tabs">
           <button class="rw-tab is-active" data-admin-view="projects" type="button">作品审核</button>
+          <button class="rw-tab" data-admin-view="updates" type="button">更新动态</button>
           <button class="rw-tab" data-admin-view="reports" type="button">举报处理</button>
           <button class="rw-tab" data-admin-view="users" type="button">用户管理</button>
         </div>
@@ -212,6 +213,14 @@ export function workshopTemplate(version) {
             <button class="rw-button" data-action="admin-search" type="button">筛选</button>
           </div>
           <div class="rw-grid" data-role="pending-list"></div>
+        </div>
+
+        <div data-admin-section="updates" hidden>
+          <div class="rw-toolbar">
+            <div class="rw-muted grow">已通过首次审核的作品后续由作者直接发布；这里显示当前最新的作者自助更新。</div>
+            <button class="rw-button" data-action="admin-update-refresh" type="button">刷新更新</button>
+          </div>
+          <div class="rw-grid" data-role="update-list"></div>
         </div>
 
         <div data-admin-section="reports" hidden>

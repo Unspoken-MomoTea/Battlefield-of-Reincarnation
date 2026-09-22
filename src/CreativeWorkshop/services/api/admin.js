@@ -63,6 +63,14 @@ export function createAdminApi(request, requestRaw) {
       return request(`/api/admin/users?${params}`, {}, true);
     },
 
+    setUserModerator(userId, moderator) {
+      return request(
+        `/api/admin/users/${encodeURIComponent(userId)}/role`,
+        { method: 'POST', body: JSON.stringify({ moderator }) },
+        true,
+      );
+    },
+
     setUserBan(userId, banned, reason = '') {
       return request(
         `/api/admin/users/${encodeURIComponent(userId)}/state`,

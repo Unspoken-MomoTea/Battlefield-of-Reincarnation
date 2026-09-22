@@ -43,6 +43,8 @@ function env(extra = {}) {
     DISCORD_CLIENT_ID: '1234567890',
     PUBLIC_BASE_URL: 'https://workshop.6661816.xyz',
     SESSION_TTL_SECONDS: '3600',
+    CLIENT_UPDATE_CHANNEL: 'stable',
+    CLIENT_UPDATE_REF: 'workshop-stable',
     SESSION_KV: new MemoryKV(),
     ...extra,
   };
@@ -54,8 +56,87 @@ test('health endpoint exposes the service contract', async () => {
   assert.deepEqual(await response.json(), {
     ok: true,
     service: 'reincarnation-workshop',
-    version: '0.12.0',
+    version: '0.13.0',
+    update_channel: 'stable',
+    update_ref: 'workshop-stable',
   });
+});
+
+test('stable latest endpoint resolves workshop-stable instead of main', async () => {
+  const originalFetch = globalThis.fetch;
+  const urls = [];
+  const stableSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  globalThis.fetch = async url => {
+    urls.push(String(url));
+    return new Response(JSON.stringify({ sha: stableSha }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/client/latest'),
+      env(),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.channel, 'stable');
+    assert.equal(body.ref, 'workshop-stable');
+    assert.equal(body.sha, stableSha);
+    assert.equal(body.short_sha, stableSha.slice(0, 8));
+    assert.equal(body.repository, 'Unspoken-MomoTea/Battlefield-of-Reincarnation');
+    assert.equal(body.entry_path, '/src/CreativeWorkshop/index.js');
+    assert.ok(body.checked_at > 0);
+    assert.equal(body.cached, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(urls.some(url => url.includes('/commits/main')), false);
+  assert.equal(urls.some(url => url.includes('/commits/workshop-stable')), true);
+});
+
+test('testing latest endpoint resolves main and uses a separate cache key', async () => {
+  const originalFetch = globalThis.fetch;
+  const urls = [];
+  const mainSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  globalThis.fetch = async url => {
+    urls.push(String(url));
+    return new Response(JSON.stringify({ sha: mainSha }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  const testEnv = env({
+    CLIENT_UPDATE_CHANNEL: 'testing',
+    CLIENT_UPDATE_REF: 'main',
+    SESSION_KV: new MemoryKV(),
+  });
+
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/client/latest'),
+      testEnv,
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.channel, 'testing');
+    assert.equal(body.ref, 'main');
+    assert.equal(body.sha, mainSha);
+    assert.equal(body.short_sha, mainSha.slice(0, 8));
+    assert.ok(body.checked_at > 0);
+    assert.equal(body.cached, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(urls.some(url => url.includes('/commits/main')), true);
+  assert.equal(
+    await testEnv.SESSION_KV.get('public:workshop-client:testing:main') !== null,
+    true,
+  );
 });
 
 test('Discord login start rejects caller supplied non-random login ids', async () => {

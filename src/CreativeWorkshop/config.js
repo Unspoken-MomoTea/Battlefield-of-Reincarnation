@@ -1,8 +1,11 @@
 const DEFAULT_API_BASE = 'https://workshop.6661816.xyz';
 
 export function resolveHostWindow() {
-  let host = window;
-  let candidate = window;
+  const currentWindow = globalThis.window;
+  if (!currentWindow) return globalThis;
+
+  let host = currentWindow;
+  let candidate = currentWindow;
   while (candidate.parent && candidate.parent !== candidate) {
     try {
       const parent = candidate.parent;
@@ -20,7 +23,7 @@ export function getApiBase() {
   const host = resolveHostWindow();
   const configured =
     host.ReincarnationWorkshopConfig?.apiBase ??
-    window.ReincarnationWorkshopConfig?.apiBase ??
+    globalThis.window?.ReincarnationWorkshopConfig?.apiBase ??
     DEFAULT_API_BASE;
   return String(configured).replace(/\/$/u, '');
 }
@@ -36,7 +39,7 @@ export function getUpdateChannel() {
   const host = resolveHostWindow();
   const configured = String(
     host.ReincarnationWorkshopConfig?.updateChannel ??
-    window.ReincarnationWorkshopConfig?.updateChannel ??
+    globalThis.window?.ReincarnationWorkshopConfig?.updateChannel ??
     '',
   ).trim().toLowerCase();
   if (UPDATE_CHANNELS.has(configured)) return configured;
@@ -53,7 +56,7 @@ export function getUpdateRef() {
   const host = resolveHostWindow();
   const configured = String(
     host.ReincarnationWorkshopConfig?.updateRef ??
-    window.ReincarnationWorkshopConfig?.updateRef ??
+    globalThis.window?.ReincarnationWorkshopConfig?.updateRef ??
     '',
   ).trim();
   if (configured) return configured;

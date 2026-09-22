@@ -54,6 +54,7 @@ export function createMaintenanceView({
       const loaderNames = result.loaders
         .map(item => item.folder ? `${item.folder} / ${item.name || item.id}` : (item.name || item.id || '未命名脚本'))
         .join('、');
+      const channelLabel = result.channel === 'testing' ? '测试版' : '正式版';
       const runtimeOutdated = Boolean(currentSha && currentSha !== result.latestSha);
       const hasUpdate = result.updateAvailable || runtimeOutdated;
 
@@ -97,6 +98,7 @@ export function createMaintenanceView({
         const details = element('details', 'rw-update-details');
         const summary = element('summary', '', '查看载入信息');
         const detailBody = element('div', 'rw-update-details-body');
+        detailBody.appendChild(element('div', '', `更新通道：${channelLabel} · ${result.ref || '未知引用'}`));
         detailBody.appendChild(element('div', '', `目标提交：${result.latestShortSha}`));
         if (currentSha) {
           detailBody.appendChild(element('div', '', `当前运行：${currentSha.slice(0, 8)}`));
@@ -122,6 +124,7 @@ export function createMaintenanceView({
       const summary = element('summary', '', '高级');
       const detailBody = element('div', 'rw-update-details-body');
       detailBody.append(
+        element('div', '', `更新通道：${channelLabel} · ${result.ref || '未知引用'}`),
         element('div', '', `载入脚本：${loaderNames}`),
         button('重新写入最新固定链接', '', async () => {
           const updated = await selfUpdater.updateLoaderLink();

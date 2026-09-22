@@ -19,6 +19,42 @@ workshop-vX.Y.Z
 workshop-v1.12.1
 ```
 
+## Windows 双击发布工具
+
+Windows 用户首选仓库根目录：
+
+```text
+创意工坊更新工具.bat
+```
+
+直接双击，不需要先打开 PowerShell，也不需要输入 `cd` 或 `npm run ...`。
+
+菜单提供：
+
+```text
+1. 更新测试服
+2. 发布正式客户端（自动推进 workshop-stable + 创建 workshop-vX.Y.Z）
+3. 更新正式服务器
+4. 依次更新测试服 + 正式服务器
+5. 只检查测试服
+6. 只检查正式服务器
+7. 两个服务器环境都只检查
+8. 预演正式客户端发布
+9. 查看 main / workshop-stable / 正式 Tag
+0. 退出
+```
+
+正式客户端发布会自动读取远端 `origin/main` 中的 `WORKSHOP_VERSION`，自动决定 Tag 名，不要求手工填写版本号。例如当前版本为 `1.12.1` 时，工具会准备：
+
+```text
+workshop-stable
+workshop-v1.12.1
+```
+
+确认发布后，它会在临时 worktree 重新运行 Worker tests、Client tests 和 JS/MJS syntax，再使用原子 push 同时推进 stable 与 Tag。
+
+GitHub Actions 的 `creative-workshop-promote-stable` 仍保留，作为网页端的第二条正式发布入口。
+
 ## 日常开发与测试服
 
 普通开发只提交到 `main`。测试客户端只跟踪 `main`，因此 main 上的新提交不会直接进入正式客户端。
@@ -104,7 +140,7 @@ node scripts/update-servers.mjs both --dry-run
 
 正式客户端从不跟踪 `main`，只跟踪 `workshop-stable`。
 
-在 GitHub Actions 中手动运行：
+Windows 本地首选直接双击根目录 `创意工坊更新工具.bat` 并选择“发布正式客户端”。如果希望从网页发布，也可以在 GitHub Actions 中手动运行：
 
 ```text
 creative-workshop-promote-stable

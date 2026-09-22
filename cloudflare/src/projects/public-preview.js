@@ -75,8 +75,15 @@ function worldbookEntriesFromArtifact(artifact) {
     const strategy = objectValue(entry.strategy) || {};
     const secondary = objectValue(strategy.keys_secondary) || {};
     const position = objectValue(entry.position) || {};
+    const extensions = objectValue(entry.extensions) || {};
     const uid = entry.uid === undefined || entry.uid === null ? '' : String(entry.uid);
     const name = String(entry.comment ?? entry.name ?? '').trim() || `条目 ${index + 1}`;
+    const rawDisplayIndex = entry.displayIndex ?? entry.display_index ?? extensions.display_index;
+    const displayIndex = Number.isFinite(Number(rawDisplayIndex))
+      ? Number(rawDisplayIndex)
+      : Number.isFinite(Number(entry.uid))
+        ? Number(entry.uid)
+        : index;
     const enabled = typeof entry.enabled === 'boolean'
       ? entry.enabled
       : typeof entry.disable === 'boolean'
@@ -101,6 +108,7 @@ function worldbookEntriesFromArtifact(artifact) {
       order: Number.isFinite(Number(position.order ?? entry.order))
         ? Number(position.order ?? entry.order)
         : index,
+      display_index: displayIndex,
       role: normalizeWorldbookRole(entry),
       probability: Number.isFinite(Number(entry.probability)) ? Number(entry.probability) : null,
     };

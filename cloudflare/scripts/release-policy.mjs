@@ -9,6 +9,34 @@ export function releasePlan(target) {
   throw new Error('请选择 staging、production 或 both');
 }
 
+const STABLE_VERSION_PATTERN = /^(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)$/u;
+
+export function workshopReleaseTag(version) {
+  const value = String(version || '').trim();
+  if (!STABLE_VERSION_PATTERN.test(value)) {
+    throw new Error('正式版本号必须是 X.Y.Z，例如 1.12.1');
+  }
+  return `workshop-v${value}`;
+}
+
+export function workshopVersionFromSource(source) {
+  const match = String(source || '').match(
+    /export\\s+const\\s+WORKSHOP_VERSION\\s*=\\s*['"]([^'"]+)['"]/u,
+  );
+  if (!match) throw new Error('找不到 WORKSHOP_VERSION');
+  return match[1].trim();
+}
+
+export function validateWorkshopRelease(source, requestedVersion) {
+  const version = String(requestedVersion || '').trim();
+  const tag = workshopReleaseTag(version);
+  const actual = workshopVersionFromSource(source);
+  if (actual !== version) {
+    throw new Error(`正式版本 ${version} 与 WORKSHOP_VERSION ${actual} 不一致`);
+  }
+  return { version, tag };
+}
+
 export function validateReleaseConfig(config, target) {
   const expected = RELEASE_TARGETS[target];
   if (!expected) throw new Error('未知环境');

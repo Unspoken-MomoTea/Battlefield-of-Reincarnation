@@ -88,7 +88,7 @@ export function bindWorkshopEvents({
       : '当前客户端没有可用的登录弹窗。TT 等酒馆客户端可使用下面的授权页或复制链接到系统浏览器，授权后再返回这里。';
 
     const status = doc.createElement('div');
-    status.className = 'rw-callout';
+    status.className = 'rw-rule-section';
     status.textContent = '等待 Discord 授权…';
 
     const direct = doc.createElement('a');
@@ -127,7 +127,7 @@ export function bindWorkshopEvents({
     });
 
     const actions = doc.createElement('div');
-    actions.className = 'rw-inline-actions';
+    actions.className = 'rw-page-actions';
     actions.append(direct, copy);
 
     const note = doc.createElement('p');

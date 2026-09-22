@@ -15,14 +15,16 @@ function positionLabel(entry) {
     ? legacy[numeric]
     : raw;
   const labels = {
-    before_character_definition: '角色定义之前',
-    after_character_definition: '角色定义之后',
-    before_example_messages: '示例消息之前',
-    after_example_messages: '示例消息之后',
-    before_author_note: '作者注释之前',
-    after_author_note: '作者注释之后',
+    before_character_definition: '角色定义前',
+    after_character_definition: '角色定义后',
+    before_example_messages: '示例消息前',
+    after_example_messages: '示例消息后',
+    before_author_note: '作者注释前',
+    after_author_note: '作者注释后',
   };
-  if (type === 'at_depth') return '在深度';
+  if (type === 'at_depth') {
+    return `D${Number.isFinite(Number(entry?.depth)) ? Number(entry.depth) : 4}`;
+  }
   if (type === 'outlet') return '出口';
   return labels[type] || type || '默认位置';
 }
@@ -83,10 +85,15 @@ function renderWorldbookEntry(doc, entry) {
   const meta = doc.createElement('div');
   meta.className = 'rw-content-entry-meta';
   meta.append(
-    makeChip(doc, `位置 ${positionLabel(entry)}`),
-    makeChip(doc, `深度 ${String(entry?.position_type || '') === 'at_depth' ? textValue(entry.depth) : '—'}`),
+    makeChip(doc, positionLabel(entry)),
     makeChip(doc, `顺序 ${textValue(entry.order)}`),
   );
+  if (String(entry?.position_type || '') === 'at_depth') {
+    const role = ['system', 'user', 'assistant'].includes(String(entry?.role))
+      ? String(entry.role)
+      : 'system';
+    meta.appendChild(makeChip(doc, role));
+  }
   panel.appendChild(meta);
 
   const keywords = doc.createElement('div');
@@ -233,7 +240,7 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
     titleRow.appendChild(name);
     const meta = doc.createElement('span');
     meta.textContent = title === '世界书内容'
-      ? `位置 ${positionLabel(entry)} · 深度 ${String(entry?.position_type || '') === 'at_depth' ? textValue(entry.depth) : '—'} · 顺序 ${textValue(entry.order)}`
+      ? `${positionLabel(entry)} · 顺序 ${textValue(entry.order)}`
       : (entry.artifact_name || '');
     item.append(titleRow, meta);
     item.addEventListener('click', () => renderIndex(index));

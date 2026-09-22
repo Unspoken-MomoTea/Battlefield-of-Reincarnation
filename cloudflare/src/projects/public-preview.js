@@ -17,8 +17,11 @@ function arrayValues(value) {
 
 function normalizeWorldbookPositionType(entry) {
   const position = objectValue(entry?.position);
+  const extensions = objectValue(entry?.extensions);
   const raw = position?.type
     ?? entry?.positionType
+    ?? entry?.position_type
+    ?? extensions?.position
     ?? (typeof entry?.position === 'number' ? entry.position : 'before_character_definition');
   const aliases = {
     before_char: 'before_character_definition',
@@ -61,7 +64,8 @@ function normalizeWorldbookPositionType(entry) {
 
 function normalizeWorldbookRole(entry) {
   const position = objectValue(entry?.position);
-  const raw = position?.role ?? entry?.role;
+  const extensions = objectValue(entry?.extensions);
+  const raw = position?.role ?? entry?.role ?? extensions?.role;
   if (raw === 1 || raw === 'user') return 'user';
   if (raw === 2 || raw === 'assistant') return 'assistant';
   return 'system';
@@ -102,11 +106,11 @@ function worldbookEntriesFromArtifact(artifact) {
         (entry.constant === true ? 'constant' : entry.vectorized === true ? 'vectorized' : 'selective'),
       ),
       position_type: normalizeWorldbookPositionType(entry),
-      depth: Number.isFinite(Number(position.depth ?? entry.depth))
-        ? Number(position.depth ?? entry.depth)
+      depth: Number.isFinite(Number(position.depth ?? entry.depth ?? extensions.depth))
+        ? Number(position.depth ?? entry.depth ?? extensions.depth)
         : 4,
-      order: Number.isFinite(Number(position.order ?? entry.order))
-        ? Number(position.order ?? entry.order)
+      order: Number.isFinite(Number(position.order ?? entry.order ?? entry.insertion_order))
+        ? Number(position.order ?? entry.order ?? entry.insertion_order)
         : index,
       display_index: displayIndex,
       role: normalizeWorldbookRole(entry),

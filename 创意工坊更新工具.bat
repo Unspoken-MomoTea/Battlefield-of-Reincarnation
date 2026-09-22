@@ -148,7 +148,7 @@ echo ============================================================
 echo                    当前发布状态
 echo ============================================================
 echo.
-git -C "%ROOT%" fetch origin main workshop-stable --tags --quiet
+git -C "%ROOT%" fetch --tags --quiet origin main workshop-stable
 if errorlevel 1 (
   echo [失败] 无法读取远端 Git 信息。
   goto :AFTER

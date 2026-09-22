@@ -29,6 +29,27 @@ import {
   setup,
 } from '../support/project-fixture.mjs';
 
+test('reviewer can inspect and review submitted projects', async () => {
+  const { env, author, other } = setup();
+  env.DB.db.prepare('UPDATE users SET is_moderator = 1 WHERE id = ?').run(other.id);
+  const reviewer = env.DB.db.prepare('SELECT * FROM users WHERE id = ?').get(other.id);
+  const project = await createWorldbookProject(env, author);
+  await uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: '', bundle: bundle('reviewer') }), env, author, project.id);
+  await submitProjectForReview(env, author, project.id);
+
+  const pending = await responseJson(await listAdminProjects(request('/api/admin/projects?review_status=pending'), env, reviewer));
+  assert.equal(pending.items.length, 1);
+  const detail = await responseJson(await getPendingProjectReview(env, reviewer, project.id));
+  assert.equal(detail.project.id, project.id);
+  const reviewed = await responseJson(await reviewProject(
+    request(`/api/admin/projects/${project.id}/review`, 'POST', { decision: 'approved', note: '' }),
+    env,
+    reviewer,
+    project.id,
+  ));
+  assert.equal(reviewed.decision, 'approved');
+});
+
 test('admin pending queue contains submitted versions', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);

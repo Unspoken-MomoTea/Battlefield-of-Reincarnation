@@ -150,6 +150,10 @@ echo ============================================================
 echo.
 echo 说明：这里只读取本地已经同步的 Git 引用，不会连接 GitHub。
 echo.
+set "MAIN_SHA="
+set "STABLE_SHA="
+set "MAIN_VERSION="
+set "STABLE_VERSION="
 for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 refs/remotes/origin/main 2^>nul') do set "MAIN_SHA=%%A"
 for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 refs/remotes/origin/workshop-stable 2^>nul') do set "STABLE_SHA=%%A"
 if not defined MAIN_SHA (
@@ -166,8 +170,6 @@ if not defined STABLE_SHA (
   echo [提示] 本地还没有 workshop-stable 引用。
   set "STABLE_SHA=未同步"
 )
-set "MAIN_VERSION="
-set "STABLE_VERSION="
 for /f "delims=" %%A in ('git -C "%ROOT%" show refs/remotes/origin/main:src/CreativeWorkshop/app/workshop-app.js 2^>nul ^| findstr /c:"WORKSHOP_VERSION ="') do set "MAIN_VERSION=%%A"
 if not defined MAIN_VERSION for /f "delims=" %%A in ('git -C "%ROOT%" show refs/heads/main:src/CreativeWorkshop/app/workshop-app.js 2^>nul ^| findstr /c:"WORKSHOP_VERSION ="') do set "MAIN_VERSION=%%A"
 for /f "delims=" %%A in ('git -C "%ROOT%" show refs/remotes/origin/workshop-stable:src/CreativeWorkshop/app/workshop-app.js 2^>nul ^| findstr /c:"WORKSHOP_VERSION ="') do set "STABLE_VERSION=%%A"

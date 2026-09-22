@@ -76,7 +76,7 @@ export function createMaintenanceView({
         );
         container.appendChild(updateState);
 
-        const updateButton = button('立即更新创意工坊', 'primary rw-maintenance-update-cta', async () => {
+        const updateButton = button('立即更新并重新载入', 'primary rw-maintenance-update-cta', async () => {
           updateButton.textContent = '正在更新…';
           const updated = typeof hotUpdateClient === 'function'
             ? await hotUpdateClient()
@@ -90,19 +90,23 @@ export function createMaintenanceView({
           }
 
           updateButton.disabled = true;
-          updateButton.textContent = '已更新 · 重新载入后生效';
+          updateButton.textContent = '正在重新载入…';
           const done = statusBox(
-            `载入脚本已写入 ${updated.latestShortSha}。重新载入酒馆后自动使用新版。`,
+            `载入脚本已写入 ${updated.latestShortSha}。正在重新载入酒馆…`,
             'ok',
           );
           updateButton.insertAdjacentElement('afterend', done);
 
           try {
             host.toastr?.success?.(
-              `载入脚本已更新到 ${updated.latestShortSha}；重新载入酒馆后生效。`,
+              `载入脚本已更新到 ${updated.latestShortSha}，正在重新载入。`,
               '创意工坊',
             );
           } catch {}
+
+          const reload = () => host.location?.reload?.();
+          if (typeof host.setTimeout === 'function') host.setTimeout(reload, 350);
+          else reload();
         });
         container.appendChild(updateButton);
 

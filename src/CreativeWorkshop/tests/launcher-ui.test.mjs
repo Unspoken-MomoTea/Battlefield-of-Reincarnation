@@ -169,3 +169,14 @@ test('worldbook detail UI groups by position and hides raw uid/probability chips
   assert.doesNotMatch(source, /makeChip\(doc, `UID /u);
   assert.doesNotMatch(source, /makeChip\(doc, `概率 /u);
 });
+
+
+test('worldbook detail distinguishes list order from insertion order', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),
+    'utf8',
+  );
+  assert.match(source, /列表顺序/u);
+  assert.match(source, /插入顺序/u);
+  assert.match(source, /entry\.display_index/u);
+});

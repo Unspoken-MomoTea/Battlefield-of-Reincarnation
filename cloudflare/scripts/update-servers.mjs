@@ -90,8 +90,12 @@ async function main() {
   console.log('不会主动连接 GitHub 做 fetch；请先自行 git pull。工作区分支和未提交修改保留。');
   if (preview) {
     for (const environment of targets) {
-      const local = localReleaseSha(environment);
-      console.log(`\n[预演] ${RELEASE_TARGETS[environment].label}: ${local.sourceRef} @ ${local.sha.slice(0, 12)}`);
+      try {
+        const local = localReleaseSha(environment);
+        console.log(`\n[预演] ${RELEASE_TARGETS[environment].label}: ${local.sourceRef} @ ${local.sha.slice(0, 12)}`);
+      } catch (error) {
+        console.log(`\n[预演] ${RELEASE_TARGETS[environment].label}: 本地引用待同步（${error.message}）`);
+      }
       try { validateReleaseConfig(configAt(root), environment); console.log('当前本地配置检查通过；实际运行仍会检查目标提交配置。'); }
       catch (error) { console.log(`配置待处理：${error.message}`); }
     }

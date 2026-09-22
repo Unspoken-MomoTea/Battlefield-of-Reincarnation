@@ -1,6 +1,7 @@
 import { getApiBase, getUpdateChannel, getUpdateRef } from '../config.js';
 import { createTavernAdapter } from './tavern-adapter.js';
 import {
+  isWorkshopLoaderScript,
   rewriteWorkshopLoaderContent,
   workshopLoaderRefs,
 } from './workshop-loader.js';
@@ -9,7 +10,7 @@ const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const ENTRY_PATH = '/src/CreativeWorkshop/index.js';
 const SCOPES = ['character', 'preset', 'global'];
 const GITHUB_COMMIT_BASE = `https://api.github.com/repos/${REPOSITORY}/commits/`;
-const HOT_IMPORT_BASE = `https://testingcf.jsdelivr.net/gh/${REPOSITORY}@`;
+const HOT_IMPORT_BASE = `https://cdn.jsdelivr.net/gh/${REPOSITORY}@`;
 
 function clone(value) {
   return structuredClone(value);
@@ -99,11 +100,17 @@ async function scanLoaders(adapter) {
   const loaders = [];
   const treesByScope = new Map();
   for (const scope of SCOPES) {
-    const trees = clone(await adapter.getScriptTrees(scope));
+    let trees;
+    try {
+      trees = clone(await adapter.getScriptTrees(scope));
+    } catch (error) {
+      console.warn(`[轮回战场创意工坊] 无法读取 ${scope} 脚本树，继续扫描其它作用域`, error);
+      continue;
+    }
     treesByScope.set(scope, trees);
     for (const location of scriptsInTrees(trees)) {
       const refs = workshopLoaderRefs(location.script.content);
-      if (!refs.length) continue;
+      if (!refs.length && !isWorkshopLoaderScript(location.script)) continue;
       loaders.push({
         scope,
         treeIndex: location.treeIndex,

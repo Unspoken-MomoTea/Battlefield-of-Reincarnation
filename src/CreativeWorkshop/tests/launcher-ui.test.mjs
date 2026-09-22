@@ -157,3 +157,15 @@ test('first project creation exposes a local-only test path', () => {
   assert.match(source, /projectService\.saveLocalTest\(/u);
   assert.match(source, /不会上传服务器，也不会进入审核队列/u);
 });
+
+
+test('worldbook detail UI groups by position and hides raw uid/probability chips', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),
+    'utf8',
+  );
+  assert.match(source, /rw-content-nav-group/u);
+  assert.match(source, /positionGroupRank/u);
+  assert.doesNotMatch(source, /makeChip\(doc, `UID /u);
+  assert.doesNotMatch(source, /makeChip\(doc, `概率 /u);
+});

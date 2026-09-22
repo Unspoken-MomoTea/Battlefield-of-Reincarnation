@@ -1,4 +1,4 @@
-import { getApiBase } from '../config.js';
+import { getApiBase, getUpdateChannel, getUpdateRef } from '../config.js';
 import { createTavernAdapter } from './tavern-adapter.js';
 import {
   rewriteWorkshopLoaderContent,
@@ -8,10 +8,15 @@ import {
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const ENTRY_PATH = '/src/CreativeWorkshop/index.js';
 const SCOPES = ['character', 'preset', 'global'];
-const GITHUB_MAIN_COMMIT = `https://api.github.com/repos/${REPOSITORY}/commits/main`;
+const GITHUB_COMMIT_BASE = `https://api.github.com/repos/${REPOSITORY}/commits/`;
 const HOT_IMPORT_BASE = `https://testingcf.jsdelivr.net/gh/${REPOSITORY}@`;
+
 function clone(value) {
   return structuredClone(value);
+}
+
+function validSha(value) {
+  return /^[0-9a-f]{40}$/iu.test(String(value || '').trim());
 }
 
 function importUrlForSha(sha) {
@@ -36,42 +41,58 @@ function scriptsInTrees(trees) {
   return values;
 }
 
-async function githubMainSha(fetchImpl) {
-  const response = await fetchImpl(GITHUB_MAIN_COMMIT, {
+async function githubRefSha(fetchImpl, ref) {
+  const response = await fetchImpl(`${GITHUB_COMMIT_BASE}${encodeURIComponent(ref)}`, {
     headers: { Accept: 'application/vnd.github+json' },
     cache: 'no-store',
   });
-  if (!response.ok) throw new Error(`无法查询工坊最新版本：GitHub HTTP ${response.status}`);
+  if (!response.ok) {
+    throw new Error(`无法查询工坊 ${ref} 更新：GitHub HTTP ${response.status}`);
+  }
   const data = await response.json();
   const sha = String(data?.sha || '').trim();
-  if (!/^[0-9a-f]{40}$/iu.test(sha)) throw new Error('GitHub 返回的最新提交无效');
+  if (!validSha(sha)) throw new Error(`GitHub 返回的 ${ref} 提交无效`);
   return sha;
 }
 
-async function latestMainSha(fetchImpl) {
-  try {
-    const response = await fetchImpl(`${getApiBase()}/api/client/latest`, {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const sha = String(data?.sha || '').trim();
-      if (/^[0-9a-f]{40}$/iu.test(sha)) return sha;
-    }
-  } catch {}
+async function serverLatest(fetchImpl, expectedChannel, expectedRef) {
+  const response = await fetchImpl(`${getApiBase()}/api/client/latest`, {
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error(`工坊更新服务 HTTP ${response.status}`);
 
-  return githubMainSha(fetchImpl);
+  const data = await response.json();
+  const sha = String(data?.sha || '').trim();
+  const channel = String(data?.channel || '').trim();
+  const ref = String(data?.ref || '').trim();
+  if (!validSha(sha)) throw new Error('工坊更新服务返回了无效提交');
+  if (channel && channel !== expectedChannel) {
+    throw new Error(`更新通道不匹配：客户端 ${expectedChannel}，服务器 ${channel}`);
+  }
+  if (ref && ref !== expectedRef) {
+    throw new Error(`更新引用不匹配：客户端 ${expectedRef}，服务器 ${ref}`);
+  }
+  return { sha, channel: channel || expectedChannel, ref: ref || expectedRef };
 }
 
-async function resolveLatestShaForRefs(fetchImpl, refs) {
-  let latestSha = await latestMainSha(fetchImpl);
-  if ((refs || []).some(ref => ref !== latestSha)) {
+async function resolveLatestShaForRefs(fetchImpl, refs, channel, ref) {
+  let latest;
+  try {
+    latest = await serverLatest(fetchImpl, channel, ref);
+  } catch {
+    latest = { sha: await githubRefSha(fetchImpl, ref), channel, ref };
+  }
+
+  // KV 允许短时缓存。如果当前 loader 与 Worker 返回值不同，再向“本通道自己的 ref”
+  // 核对一次，避免缓存把客户端降级。正式版绝不核对 main。
+  if ((refs || []).some(currentRef => currentRef !== latest.sha)) {
     try {
-      latestSha = await githubMainSha(fetchImpl);
+      latest = { sha: await githubRefSha(fetchImpl, ref), channel, ref };
     } catch {}
   }
-  return latestSha;
+
+  return latest;
 }
 
 async function scanLoaders(adapter) {
@@ -100,34 +121,56 @@ async function scanLoaders(adapter) {
 export function createWorkshopSelfUpdater({
   adapter = createTavernAdapter(),
   fetchImpl = globalThis.fetch?.bind(globalThis),
+  channel = getUpdateChannel(),
+  ref = getUpdateRef(),
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new Error('当前环境缺少 fetch，无法检查工坊更新');
+  if (!['testing', 'stable'].includes(channel)) throw new Error(`未知工坊更新通道：${channel}`);
+  if (!String(ref || '').trim()) throw new Error('工坊更新引用不能为空');
+
+  const updateChannel = String(channel);
+  const updateRef = String(ref);
+
+  async function resolve(scan) {
+    const refs = [...new Set(scan.loaders.flatMap(item => item.refs))];
+    const latest = await resolveLatestShaForRefs(
+      fetchImpl,
+      refs,
+      updateChannel,
+      updateRef,
+    );
+    return { refs, latest };
+  }
 
   return {
     async check() {
       const scan = await scanLoaders(adapter);
-      const refs = [...new Set(scan.loaders.flatMap(item => item.refs))];
-      const latestSha = await resolveLatestShaForRefs(fetchImpl, refs);
+      const { refs, latest } = await resolve(scan);
       return {
         repository: REPOSITORY,
         entryPath: ENTRY_PATH,
-        latestSha,
-        latestShortSha: latestSha.slice(0, 8),
-        latestImportUrl: importUrlForSha(latestSha),
+        channel: latest.channel,
+        ref: latest.ref,
+        latestSha: latest.sha,
+        latestShortSha: latest.sha.slice(0, 8),
+        latestImportUrl: importUrlForSha(latest.sha),
         loaders: scan.loaders,
         refs,
         loaderFound: scan.loaders.length > 0,
-        updateAvailable: scan.loaders.some(item => item.refs.some(ref => ref !== latestSha)),
+        updateAvailable: scan.loaders.some(item => item.refs.some(currentRef => currentRef !== latest.sha)),
       };
     },
 
     async updateLoaderLink() {
-      const { loaders, treesByScope } = await scanLoaders(adapter);
-      const refs = [...new Set(loaders.flatMap(item => item.refs))];
-      const latestSha = await resolveLatestShaForRefs(fetchImpl, refs);
-      if (!loaders.length) {
+      const scan = await scanLoaders(adapter);
+      const { refs, latest } = await resolve(scan);
+      const latestSha = latest.sha;
+
+      if (!scan.loaders.length) {
         return {
           updated: false,
+          channel: latest.channel,
+          ref: latest.ref,
           latestSha,
           latestShortSha: latestSha.slice(0, 8),
           latestImportUrl: importUrlForSha(latestSha),
@@ -139,8 +182,8 @@ export function createWorkshopSelfUpdater({
 
       const changedScopes = new Set();
       let changedScripts = 0;
-      for (const loader of loaders) {
-        const trees = treesByScope.get(loader.scope);
+      for (const loader of scan.loaders) {
+        const trees = scan.treesByScope.get(loader.scope);
         const tree = trees[loader.treeIndex];
         const script = loader.scriptIndex === null ? tree : tree?.scripts?.[loader.scriptIndex];
         if (!script || typeof script.content !== 'string') continue;
@@ -154,6 +197,8 @@ export function createWorkshopSelfUpdater({
       if (!changedScopes.size) {
         return {
           updated: false,
+          channel: latest.channel,
+          ref: latest.ref,
           latestSha,
           latestShortSha: latestSha.slice(0, 8),
           latestImportUrl: importUrlForSha(latestSha),
@@ -168,7 +213,7 @@ export function createWorkshopSelfUpdater({
       try {
         for (const scope of changedScopes) {
           originals.set(scope, clone(await adapter.getScriptTrees(scope)));
-          await adapter.replaceScriptTrees(treesByScope.get(scope), scope);
+          await adapter.replaceScriptTrees(scan.treesByScope.get(scope), scope);
           written.push(scope);
         }
       } catch (error) {
@@ -180,6 +225,8 @@ export function createWorkshopSelfUpdater({
 
       return {
         updated: true,
+        channel: latest.channel,
+        ref: latest.ref,
         latestSha,
         latestShortSha: latestSha.slice(0, 8),
         latestImportUrl: importUrlForSha(latestSha),

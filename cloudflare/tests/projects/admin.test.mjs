@@ -237,7 +237,7 @@ test('non-admin cannot permanently delete projects', async () => {
 });
 
 
-test('admin review compares a pending version with the previous approved release', async () => {
+test('admin detail compares an author-published update with the previous approved release', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);
   await publishVersion(env, author, admin, project.id, bundle('v1'), '首版');
@@ -264,10 +264,10 @@ test('admin review compares a pending version with the previous approved release
     author,
     project.id,
   );
-  await submitProjectForReview(env, author, project.id);
 
   const detail = await responseJson(await getPendingProjectReview(env, admin, project.id));
-  assert.equal(detail.project.review_status, 'pending');
+  assert.equal(detail.project.review_status, 'approved');
+  assert.equal(detail.project.reviewed_at, 0);
   assert.equal(detail.content_preview.worldbook_entries.length, 2);
   assert.equal(detail.content_preview.worldbook_entries[0].strategy_type, 'constant');
   assert.equal(detail.change_preview.from_version, 1);

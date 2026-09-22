@@ -213,6 +213,30 @@ export function createDiscoverView({
     return card;
   }
 
+  function showcaseMoreCard(sort) {
+    const labels = {
+      popular: ['MORE', '更多推荐'],
+      latest: ['MORE', '更多最新'],
+      likes: ['MORE', '更多好评'],
+      downloads: ['MORE', '更多下载'],
+    };
+    const [eyebrow, title] = labels[sort] || ['MORE', '查看更多'];
+    const card = element('button', 'rw-showcase-more-card');
+    card.type = 'button';
+    card.dataset.discoverMoreSort = sort;
+    card.append(
+      element('small', '', eyebrow),
+      element('strong', '', title),
+      element('span', '', '→'),
+    );
+    card.addEventListener('click', () => {
+      nodes.discoverHeadTools.hidden = false;
+      nodes.category.value = '';
+      void showCatalog({ category: '', sort });
+    });
+    return card;
+  }
+
   async function loadShowcase() {
     nodes.discoverHome.hidden = false;
     nodes.discoverCatalog.hidden = true;
@@ -238,7 +262,7 @@ export function createDiscoverView({
       targets.forEach(([target], index) => {
         const items = (results[index]?.items || []).slice(0, 6);
         if (!items.length) empty(target, '暂时没有作品');
-        else target.replaceChildren(...items.map(showcaseCard));
+        else target.replaceChildren(...items.slice(0, 5).map(showcaseCard), showcaseMoreCard(targets[index][1]));
       });
     } catch (error) {
       targets.forEach(([target]) => empty(target, `加载失败：${error.message}`));

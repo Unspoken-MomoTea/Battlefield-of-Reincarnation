@@ -1,60 +1,230 @@
-# 创意工坊发布通道
+# 创意工坊发布与服务器更新
 
-创意工坊使用两条完全独立的更新通道。
+创意工坊把“测试代码”“正式客户端版本”和“Cloudflare 数据/Worker”分成独立边界。
 
 | 环境 | API | Worker env | 客户端更新 ref | 数据资源 |
 | --- | --- | --- | --- | --- |
 | 测试 | `https://workshop-test.6661816.xyz` | `staging` | `main` | staging D1 / KV / R2 |
 | 正式 | `https://workshop.6661816.xyz` | `production` | `workshop-stable` | production D1 / KV / R2 |
 
-## 日常开发
-
-所有普通开发提交进入 `main`。
-
-测试版客户端会从 staging Worker 的 `/api/client/latest` 获取：
+正式版本还会创建不可覆盖的 Git Tag：
 
 ```text
-channel = testing
-ref = main
+workshop-vX.Y.Z
 ```
 
-因此 main 上的新提交只会向测试版提示更新，不会推动正式版。
+例如客户端 `WORKSHOP_VERSION = 1.12.1` 的正式发布 Tag 必须是：
 
-安全的默认部署命令也是 staging：
+```text
+workshop-v1.12.1
+```
+
+## 日常开发与测试服
+
+普通开发只提交到 `main`。测试客户端只跟踪 `main`，因此 main 上的新提交不会直接进入正式客户端。
+
+本地拉取代码后，可以使用：
 
 ```powershell
+cd C:\Users\MLT\Desktop\新版\角色卡\轮回战场
+git pull
+
 cd cloudflare
-npm run deploy
+npm run update:staging
 ```
 
-等价于：
+`update:staging` 会固定读取远端 `origin/main`，在临时 worktree 中执行：
+
+```text
+校验 staging 配置
+→ npm ci
+→ Worker tests
+→ Client tests
+→ JS/MJS syntax
+→ wrangler deploy --dry-run
+→ staging D1 migrations
+→ staging Worker deploy
+→ /api/health 检查 testing / main
+```
+
+它不会自动提交本地修改，也不会推进 `workshop-stable`。
+
+原来的低级命令仍然可以单独使用：
 
 ```powershell
+npm run db:migrate:staging
 npm run deploy:staging
 ```
 
-## 发布正式客户端
+其中 `npm run deploy` 仍等价于 `npm run deploy:staging`，默认不会碰正式服。
 
-正式客户端只跟踪 `workshop-stable`。不要直接让 production 跟踪 `main`。
+## 一键更新入口
 
-GitHub Actions 中运行：
+直接运行：
+
+```powershell
+cd cloudflare
+npm run update
+```
+
+会出现选择菜单：
+
+```text
+1. 更新测试服（main）
+2. 更新正式服（workshop-stable）
+3. 依次更新两服
+0. 退出
+```
+
+也可以直接指定：
+
+```powershell
+npm run update:staging
+npm run update:production
+npm run update:both
+```
+
+Windows 下还可以运行：
+
+```text
+src/CreativeWorkshop/update-servers.cmd
+```
+
+正式环境操作会要求输入完整的 `PRODUCTION`。
+
+只想检查而不联网、不迁移、不部署时：
+
+```powershell
+node scripts/update-servers.mjs staging --dry-run
+node scripts/update-servers.mjs production --dry-run
+node scripts/update-servers.mjs both --dry-run
+```
+
+## 发布正式客户端版本
+
+正式客户端从不跟踪 `main`，只跟踪 `workshop-stable`。
+
+在 GitHub Actions 中手动运行：
 
 ```text
 creative-workshop-promote-stable
 ```
 
-工作流默认发布触发时的 main 提交，也可以填写一个已经位于 main 上的目标 SHA。工作流会：
+必须填写：
 
-1. 确认目标提交属于 main。
-2. 确认相对当前 `workshop-stable` 只能 fast-forward，不允许倒退或改写正式历史。
-3. 重新运行 Worker contract tests、Worker syntax、Client contract tests、Client syntax。
-4. 全部通过后才把 `workshop-stable` 移到目标 SHA。
+```text
+release_version
+```
 
-只有这一步完成后，正式版客户端才会发现新版本。
+例如：
 
-## 发布正式 Worker / 数据库
+```text
+1.12.1
+```
 
-正式 Worker 和数据库命令有额外保护：
+可选填写：
+
+```text
+target_sha
+```
+
+留空时使用触发工作流时选中的提交。
+
+工作流会严格执行：
+
+1. 拉取 `main`、`workshop-stable` 与全部 tags。
+2. 确认目标 SHA 位于 `main` 历史中。
+3. 确认 `workshop-stable → target SHA` 只能 fast-forward。
+4. 检出目标 SHA。
+5. 读取该提交的 `src/CreativeWorkshop/app/workshop-app.js`。
+6. 要求输入版本与 `WORKSHOP_VERSION` 完全一致。
+7. 生成 Tag 名 `workshop-vX.Y.Z`。
+8. 如果该 Tag 已存在，直接拒绝，正式 Tag 不允许覆盖。
+9. 重新执行 Worker tests / syntax 与 Client tests / syntax。
+10. 创建 annotated Git Tag。
+11. 使用 `git push --atomic` 同时推进 `workshop-stable` 与 Tag。
+
+因此一次成功的正式发布必须满足：
+
+```text
+WORKSHOP_VERSION = X.Y.Z
+workshop-stable  = 正式目标提交
+workshop-vX.Y.Z  = 同一个正式目标提交
+```
+
+其中 Tag 是永久版本锚点，`workshop-stable` 是正式客户端当前更新指针。
+
+## 为什么正式版不会被测试提交影响
+
+测试 Worker 返回：
+
+```text
+channel = testing
+ref     = main
+```
+
+正式 Worker 返回：
+
+```text
+channel = stable
+ref     = workshop-stable
+```
+
+客户端即使遇到 Worker latest KV 的短时缓存，也只会核对自己通道对应的 Git ref：
+
+- 测试版只核对 `main`
+- 正式版只核对 `workshop-stable`
+
+正式版不会因为 main 上的新测试提交出现更新提示。
+
+## 正式 Cloudflare 环境
+
+正式环境必须使用独立资源：
+
+```text
+production Worker
+production D1
+production KV
+production R2
+正式 Discord OAuth
+https://workshop.6661816.xyz
+```
+
+`cloudflare/wrangler.jsonc` 中只要 production 仍存在 `REPLACE_ME` 或占位 D1/KV ID，正式更新会主动拒绝。
+
+发布策略还会检查：
+
+- staging / production Worker 名称不能相同
+- staging / production API 地址不能相同
+- D1 不能共用
+- KV 不能共用
+- R2 不能共用
+- staging 必须是 `testing / main`
+- production 必须是 `stable / workshop-stable`
+- API 必须使用 HTTPS
+
+## 推荐正式上线顺序
+
+如果本次版本同时包含客户端、Worker 和 migration：
+
+1. 将开发提交推到 `main`。
+2. 执行 `npm run update:staging`。
+3. 在测试版完整验证登录、上传、审核、下载、安装、更新、停用、卸载、原资源恢复和多 Mod 共存。
+4. 在 GitHub Actions 执行 `creative-workshop-promote-stable`，输入与 `WORKSHOP_VERSION` 相同的正式版本号。
+5. 确认产生新的 `workshop-vX.Y.Z` Tag，且 `workshop-stable` 已推进。
+6. 执行 `npm run update:production`。
+7. 脚本会从远端 `workshop-stable` 建立临时 worktree，再跑测试、正式 D1 migration、正式 Worker deploy 和 health check。
+8. 正式客户端随后只会看到该 stable 提交。
+
+如果只改客户端、不需要 Worker / D1 变化：
+
+1. staging 测试通过。
+2. Promote stable + Tag。
+3. 不需要重新部署 production Worker；正式客户端会通过 `workshop-stable` 获取新客户端提交。
+
+## 低级正式部署命令
+
+需要手工拆分正式数据库和 Worker 时仍可使用：
 
 ```powershell
 cd cloudflare
@@ -62,27 +232,14 @@ npm run db:migrate:production
 npm run deploy:production
 ```
 
-两条命令都会拒绝以下情况：
+这两个命令使用额外保护脚本，要求：
 
-- `env.production` 仍有 D1 / KV / Discord 占位配置。
-- 当前本地 HEAD 不等于远端 `workshop-stable`。
-- 非交互终端。
-- 操作者没有手动输入完整的 `PRODUCTION`。
+- production 配置不存在占位值
+- 当前本地 HEAD 精确等于远端 `workshop-stable`
+- 必须在交互终端运行
+- 必须输入完整的 `PRODUCTION`
 
-因此日常位于 main 时，即使误敲正式部署命令，也不会把测试代码部署到正式 Worker。
-
-## 推荐正式发布顺序
-
-当一次版本同时包含 Worker / migration / 客户端变更时：
-
-1. 在 staging 跑 migration（如有）并部署 staging Worker。
-2. 用测试版完整验证上传、审核、安装、更新、卸载与恢复。
-3. 运行 `creative-workshop-promote-stable`，把确认过的 SHA 提升为 stable。
-4. 本地切换到该 `workshop-stable` 提交。
-5. 对 production 先执行 migration（如有），再部署 production Worker。
-6. 正式客户端随后只会收到 stable SHA。
-
-若只改客户端 UI，可以省略 production Worker / D1 步骤，只提升 stable。
+日常开发建议优先使用 `npm run update:production`，因为它不要求切换当前工作分支，会从远端 stable 建临时 worktree。
 
 ## Loader 约定
 
@@ -94,7 +251,11 @@ window.ReincarnationWorkshopConfig = {
 };
 ```
 
-它会自动识别为 `testing / main`。
+自动识别为：
+
+```text
+testing / main
+```
 
 正式 Loader：
 
@@ -104,9 +265,13 @@ window.ReincarnationWorkshopConfig = {
 };
 ```
 
-它会自动识别为 `stable / workshop-stable`。
+自动识别为：
 
-也可以显式指定：
+```text
+stable / workshop-stable
+```
+
+测试时也可以显式指定：
 
 ```js
 window.ReincarnationWorkshopConfig = {

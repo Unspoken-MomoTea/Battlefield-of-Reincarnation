@@ -87,13 +87,13 @@ export function workshopTemplate(version) {
       <section class="rw-section" data-section="mine" hidden>
         <div class="rw-page-head">
           <div class="rw-page-head-copy"><small>CREATOR</small><h2>我的作品</h2><p>创建、更新并跟踪你的发布内容。</p></div>
-          <button class="rw-button primary" type="button" data-action="create-project-open">发布作品</button>
+          <button class="rw-button primary" type="button" data-action="create-project-open">创建作品</button>
         </div>
         <form class="rw-create-form" data-form="create-project" hidden>
           <div class="rw-publish-form-head">
             <div class="rw-publish-form-title">
               <span>☁</span>
-              <div><strong>发布项目</strong><small>上传文件，剩下的交给工坊识别。</small></div>
+              <div><strong>创建项目</strong><small>可先保存到本地测试，确认无误后再提交审核。</small></div>
             </div>
             <button class="rw-modal-close" type="button" data-action="create-project-cancel" aria-label="关闭">×</button>
           </div>
@@ -201,9 +201,10 @@ export function workshopTemplate(version) {
           </div>
 
           <footer class="rw-publish-footer">
-            <div class="rw-publish-footer-note">● 原版资源状态会随作品保存；停用/卸载作品时恢复安装前状态。</div>
+            <div class="rw-publish-footer-note">● 保存到本地测试不会上传服务器；只有提交审核才会创建线上项目。原版资源状态会随作品保存。</div>
             <div class="rw-row">
               <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
+              <button class="rw-button" type="button" data-action="create-project-local-test">保存到本地测试</button>
               <button class="rw-button primary" type="submit">提交审核</button>
             </div>
           </footer>

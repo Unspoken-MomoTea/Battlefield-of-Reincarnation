@@ -1,5 +1,19 @@
 function positionLabel(entry) {
-  const type = String(entry?.position_type || '');
+  const legacy = [
+    'before_character_definition',
+    'after_character_definition',
+    'before_author_note',
+    'after_author_note',
+    'at_depth',
+    'before_example_messages',
+    'after_example_messages',
+    'outlet',
+  ];
+  const raw = String(entry?.position_type || '');
+  const numeric = /^-?\d+$/u.test(raw) ? Number(raw) : null;
+  const type = Number.isInteger(numeric) && numeric >= 0 && numeric < legacy.length
+    ? legacy[numeric]
+    : raw;
   const labels = {
     before_character_definition: '角色定义前',
     after_character_definition: '角色定义后',
@@ -11,6 +25,16 @@ function positionLabel(entry) {
   if (type === 'at_depth') return entry?.depth === null ? '指定深度' : `D${entry.depth}`;
   if (type === 'outlet') return '出口';
   return labels[type] || type || '默认位置';
+}
+
+function positionGroupRank(label) {
+  const fixed = ['角色定义前', '角色定义后', '示例消息前', '示例消息后', '作者注释前', '作者注释后'];
+  const fixedIndex = fixed.indexOf(label);
+  if (fixedIndex >= 0) return fixedIndex;
+  if (/^D\d+$/u.test(label)) return 100 + Number(label.slice(1));
+  if (label.startsWith('出口')) return 200;
+  if (label.startsWith('未知位置')) return 900;
+  return 800;
 }
 
 function textValue(value) {
@@ -72,11 +96,10 @@ function renderWorldbookEntry(doc, entry) {
     makeChip(doc, positionLabel(entry)),
     makeChip(doc, `顺序 ${textValue(entry.order)}`),
   );
-  if (entry.role) meta.appendChild(makeChip(doc, entry.role));
-  if (entry.probability !== null && entry.probability !== undefined) {
-    meta.appendChild(makeChip(doc, `概率 ${entry.probability}%`));
+  if (String(entry?.position_type || '') === 'at_depth' && entry.role) {
+    const roleLabel = ({ system: 'System', user: 'User', assistant: 'Assistant' })[entry.role] || entry.role;
+    meta.appendChild(makeChip(doc, roleLabel));
   }
-  if (entry.uid) meta.appendChild(makeChip(doc, `UID ${entry.uid}`));
   panel.appendChild(meta);
 
   const keywords = doc.createElement('div');
@@ -202,17 +225,19 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
   reader.className = 'rw-content-reader';
 
   const renderIndex = index => {
-    [...nav.querySelectorAll('button')].forEach((button, itemIndex) => {
-      button.classList.toggle('is-active', itemIndex === index);
-      button.setAttribute('aria-selected', itemIndex === index ? 'true' : 'false');
+    [...nav.querySelectorAll('.rw-content-nav-item')].forEach(button => {
+      const active = Number(button.dataset.entryIndex) === index;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     reader.replaceChildren(renderer(doc, entries[index]));
   };
 
-  entries.forEach((entry, index) => {
+  const createNavItem = (entry, index) => {
     const item = doc.createElement('button');
     item.type = 'button';
     item.className = 'rw-content-nav-item';
+    item.dataset.entryIndex = String(index);
     const titleRow = doc.createElement('span');
     titleRow.className = 'rw-content-nav-title-row';
     if (title === '世界书内容') titleRow.appendChild(makeStrategyChip(doc, entry, true));
@@ -220,11 +245,49 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
     name.textContent = entry.name || `项目 ${index + 1}`;
     titleRow.appendChild(name);
     const meta = doc.createElement('span');
-    meta.textContent = entry.artifact_name || '';
+    meta.textContent = title === '世界书内容'
+      ? `顺序 ${textValue(entry.order)}`
+      : (entry.artifact_name || '');
     item.append(titleRow, meta);
     item.addEventListener('click', () => renderIndex(index));
-    nav.appendChild(item);
-  });
+    return item;
+  };
+
+  if (title === '世界书内容') {
+    const grouped = new Map();
+    entries.forEach((entry, index) => {
+      const label = positionLabel(entry);
+      if (!grouped.has(label)) grouped.set(label, []);
+      grouped.get(label).push({ entry, index });
+    });
+
+    const groups = [...grouped.entries()]
+      .map(([label, items]) => ({
+        label,
+        items: items.sort((a, b) => {
+          const aOrder = Number.isFinite(Number(a.entry.order)) ? Number(a.entry.order) : a.index;
+          const bOrder = Number.isFinite(Number(b.entry.order)) ? Number(b.entry.order) : b.index;
+          return aOrder - bOrder || a.index - b.index;
+        }),
+      }))
+      .sort((a, b) => positionGroupRank(a.label) - positionGroupRank(b.label));
+
+    for (const group of groups) {
+      const groupNode = doc.createElement('section');
+      groupNode.className = 'rw-content-nav-group';
+      const groupHead = doc.createElement('div');
+      groupHead.className = 'rw-content-nav-group-head';
+      groupHead.append(
+        Object.assign(doc.createElement('strong'), { textContent: group.label }),
+        Object.assign(doc.createElement('span'), { textContent: `${group.items.length} 条` }),
+      );
+      groupNode.appendChild(groupHead);
+      group.items.forEach(({ entry, index }) => groupNode.appendChild(createNavItem(entry, index)));
+      nav.appendChild(groupNode);
+    }
+  } else {
+    entries.forEach((entry, index) => nav.appendChild(createNavItem(entry, index)));
+  }
 
   workspace.append(nav, reader);
   section.appendChild(workspace);

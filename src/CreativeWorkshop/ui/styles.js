@@ -1128,6 +1128,11 @@ export const WORKSHOP_CSS = `
     min-height:0;max-height:560px;overflow:auto;display:grid;align-content:start;padding:5px;
     border-right:1px solid var(--rw-line);background:#111215
   }
+  .rw-content-nav-group{display:grid;gap:2px}
+  .rw-content-nav-group+.rw-content-nav-group{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.045)}
+  .rw-content-nav-group-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 8px;color:#858179}
+  .rw-content-nav-group-head strong{font-size:10px;color:#b8a17d;letter-spacing:.02em}
+  .rw-content-nav-group-head span{font-size:8px;color:#66635e}
   .rw-content-nav-item{
     min-width:0;display:grid;gap:3px;padding:8px 9px;border:0;border-radius:7px;background:transparent;color:#98958f;
     text-align:left;cursor:pointer;font-family:inherit

@@ -15,6 +15,58 @@ function arrayValues(value) {
   return source ? Object.values(source) : [];
 }
 
+function normalizeWorldbookPositionType(entry) {
+  const position = objectValue(entry?.position);
+  const raw = position?.type
+    ?? entry?.positionType
+    ?? (typeof entry?.position === 'number' ? entry.position : 'before_character_definition');
+  const aliases = {
+    before_char: 'before_character_definition',
+    after_char: 'after_character_definition',
+  };
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (/^-?\d+$/u.test(trimmed)) {
+      const numeric = Number(trimmed);
+      const legacy = [
+        'before_character_definition',
+        'after_character_definition',
+        'before_author_note',
+        'after_author_note',
+        'at_depth',
+        'before_example_messages',
+        'after_example_messages',
+        'outlet',
+      ];
+      return Number.isInteger(numeric) && numeric >= 0 && numeric < legacy.length
+        ? legacy[numeric]
+        : `unknown:${trimmed}`;
+    }
+    return aliases[trimmed] || trimmed || 'before_character_definition';
+  }
+  const legacy = [
+    'before_character_definition',
+    'after_character_definition',
+    'before_author_note',
+    'after_author_note',
+    'at_depth',
+    'before_example_messages',
+    'after_example_messages',
+    'outlet',
+  ];
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw < legacy.length
+    ? legacy[raw]
+    : `unknown:${String(raw)}`;
+}
+
+function normalizeWorldbookRole(entry) {
+  const position = objectValue(entry?.position);
+  const raw = position?.role ?? entry?.role;
+  if (raw === 1 || raw === 'user') return 'user';
+  if (raw === 2 || raw === 'assistant') return 'assistant';
+  return 'system';
+}
+
 function worldbookEntriesFromArtifact(artifact) {
   const parsed = parseArtifactContent(artifact);
   const root = Array.isArray(parsed) ? parsed : objectValue(parsed)?.entries;
@@ -42,10 +94,14 @@ function worldbookEntriesFromArtifact(artifact) {
         strategy.type ??
         (entry.constant === true ? 'constant' : entry.vectorized === true ? 'vectorized' : 'selective'),
       ),
-      position_type: String(position.type ?? entry.position ?? ''),
-      depth: Number.isFinite(Number(position.depth ?? entry.depth)) ? Number(position.depth ?? entry.depth) : null,
-      order: Number.isFinite(Number(position.order ?? entry.order)) ? Number(position.order ?? entry.order) : null,
-      role: String(position.role ?? entry.role ?? ''),
+      position_type: normalizeWorldbookPositionType(entry),
+      depth: Number.isFinite(Number(position.depth ?? entry.depth))
+        ? Number(position.depth ?? entry.depth)
+        : 4,
+      order: Number.isFinite(Number(position.order ?? entry.order))
+        ? Number(position.order ?? entry.order)
+        : index,
+      role: normalizeWorldbookRole(entry),
       probability: Number.isFinite(Number(entry.probability)) ? Number(entry.probability) : null,
     };
   });

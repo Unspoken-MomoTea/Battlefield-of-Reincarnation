@@ -155,7 +155,30 @@ export function createWorkshopUpdateNotice({
           host.toastr?.success?.('载入脚本已更新，正在切换新版', '创意工坊');
         } catch {}
 
-        await onHotReload(updated);
+        try {
+          await onHotReload(updated);
+        } catch (hotReloadError) {
+          updating = false;
+          later.disabled = false;
+          if (closeButton) closeButton.disabled = false;
+          update.disabled = true;
+          update.textContent = '刷新后生效';
+          later.textContent = '关闭';
+          setProgress(
+            progress,
+            'success',
+            '载入脚本已更新',
+            `新版 ${updated.latestShortSha} 已写入 Tavern Helper。当前页面热载入失败，请刷新一次酒馆后生效。`,
+          );
+          try {
+            host.toastr?.warning?.(
+              `新版载入脚本已保存；当前页面无法热切换。刷新酒馆即可使用 ${updated.latestShortSha}。`,
+              '创意工坊',
+            );
+          } catch {}
+          console.warn('[轮回战场创意工坊] loader 已更新，但热载入失败', hotReloadError);
+          return;
+        }
       } catch (error) {
         updating = false;
         update.disabled = false;

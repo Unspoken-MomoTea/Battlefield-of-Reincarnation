@@ -203,7 +203,7 @@ export function bootWorkshop() {
 
   async function hotReload(updated) {
     const url = String(updated?.latestImportUrl || '').trim();
-    if (!/^https:\/\/(?:testingcf\.)?jsdelivr\.net\/gh\/Unspoken-MomoTea\/Battlefield-of-Reincarnation@[0-9a-f]{40}\/src\/CreativeWorkshop\/index\.js$/iu.test(url)) {
+    if (!/^https:\/\/(?:(?:testingcf|cdn)\.)?jsdelivr\.net\/gh\/Unspoken-MomoTea\/Battlefield-of-Reincarnation@[0-9a-f]{40}\/src\/CreativeWorkshop\/index\.js$/iu.test(url)) {
       throw new Error('服务器返回的新版工坊地址无效');
     }
 

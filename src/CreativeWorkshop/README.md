@@ -4,6 +4,8 @@
 
 当前入口：`src/CreativeWorkshop/index.js`
 
+发布环境与 testing / stable 提升流程见 [RELEASE.md](./RELEASE.md)。
+
 加载后会：
 
 - 在最高可访问的 SillyTavern 页面挂载一个轻量工坊面板。
@@ -32,10 +34,10 @@
 - 多个已安装作品对同一原资源提出相同状态要求时可以共同持有；若一个要求启用、另一个要求停用，则安装前阻止冲突，避免互相抢状态。
 - 预设名称会附带项目 ID 与 artifact 序号命名空间，避免两个同名作品互相覆盖。
 - “DLC 修复 / 更新”会扫描已安装作品的世界书、正则、脚本、预设，以及原世界书/原正则/原脚本状态恢复点；可对异常作品执行 Repair。
-- “DLC 修复 / 更新”还能定位加载当前工坊的酒馆助手脚本，查询 main 最新 commit，并直接把脚本中的 jsDelivr 固定 commit 链接改为最新 SHA；以后更新工坊本体不需要再手动复制新链接。客户端优先通过 Workshop Worker 的 `/api/client/latest` 获取最新提交（KV 缓存），失败时再回退 GitHub API。
+- “DLC 修复 / 更新”还能定位加载当前工坊的酒馆助手脚本，并按当前环境的更新通道改写 jsDelivr 固定 commit：测试环境跟踪 `main`，正式环境只跟踪 `workshop-stable`。客户端优先通过 Workshop Worker 的 `/api/client/latest` 获取本通道最新提交（KV 缓存），失败时也只回退查询同一 GitHub ref。
 - v1.7.0 起，工坊在服务连接成功后会自动检查自身更新；若 Tavern Helper 中的工坊 loader 仍指向旧提交，会直接弹出“一键热更”。确认后只重写该 loader 中本仓库的 jsDelivr commit SHA，保留 `apiBase` 与脚本内其他用户配置。
 - loader 写入成功后会直接动态导入新的固定 SHA，并通过客户端 `destroy → handoff → reopen` 生命周期让新版接管当前界面；正常情况下不需要刷新整个 SillyTavern。若热载入失败，loader 已更新时刷新一次酒馆即可兜底。
-- 为避免 Worker 的 latest KV 短暂缓存造成错误降级，只要发现“loader SHA 与服务端 latest 不一致”，客户端会额外即时核对 GitHub main 后再决定目标 SHA；不会因为旧缓存把新 loader 写回旧提交。
+- 为避免 Worker 的 latest KV 短暂缓存造成错误降级，只要发现“loader SHA 与服务端 latest 不一致”，客户端会额外即时核对当前通道自己的 GitHub ref。测试版只核对 `main`，正式版只核对 `workshop-stable`，正式版不会因为 main 上的测试提交出现更新提示。
 - 安装前会检查同名世界书条目、残留正则/脚本 ID、同名预设与角色目标冲突；非致命冲突由玩家确认后再继续。
 - 安装过程带快照；任一步骤失败会回滚已经发生的工坊世界书/正则/脚本/预设写入，以及原世界书/原正则/原脚本状态修改。
 - 已安装作品可执行“检查安装”；缺失或被修改的工坊资源可一键 Repair，修复只触碰该项目拥有的资源。

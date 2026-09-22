@@ -71,6 +71,20 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
   }
   const version = Number(project.version || 1);
   const bundle = structuredClone(project.bundle);
+  const manifestArtifacts = await Promise.all(bundle.artifacts.map(async artifact => {
+    const text = artifact.format === 'text' ? artifact.content : JSON.stringify(artifact.content);
+    const bytes = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return {
+      kind: artifact.kind,
+      name: artifact.name,
+      format: artifact.format,
+      ...(artifact.scope ? { scope: artifact.scope } : {}),
+      ...(artifact.original_conflicts ? { original_conflicts: artifact.original_conflicts } : {}),
+      byte_size: bytes.byteLength,
+      sha256: Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(''),
+    };
+  }));
   const manifest = {
     schema_version: 1,
     project: {
@@ -81,20 +95,9 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
       dependencies: Array.isArray(project.dependencies) ? structuredClone(project.dependencies) : [],
     },
     artifact_count: bundle.artifacts.length,
-    artifacts: await Promise.all(bundle.artifacts.map(async artifact => {
-      const text = JSON.stringify(artifact.content ?? '');
-      const bytes = new TextEncoder().encode(text);
-      const digest = await crypto.subtle.digest('SHA-256', bytes);
-      return {
-        kind: artifact.kind,
-        name: artifact.name,
-        format: artifact.format,
-        ...(artifact.scope ? { scope: artifact.scope } : {}),
-        ...(artifact.original_conflicts ? { original_conflicts: artifact.original_conflicts } : {}),
-        byte_size: bytes.byteLength,
-        sha256: Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(''),
-      };
-    })),
+    total_bytes: manifestArtifacts.reduce((sum, artifact) => sum + artifact.byte_size, 0),
+    artifacts: manifestArtifacts,
+    resource_overrides: structuredClone(bundle.resource_overrides || []),
   };
   await verifyBundleAgainstManifest(bundle, manifest, { id: localId, version });
   const record = baseRecord({

@@ -15,26 +15,16 @@ function positionLabel(entry) {
     ? legacy[numeric]
     : raw;
   const labels = {
-    before_character_definition: '角色定义前',
-    after_character_definition: '角色定义后',
-    before_example_messages: '示例消息前',
-    after_example_messages: '示例消息后',
-    before_author_note: '作者注释前',
-    after_author_note: '作者注释后',
+    before_character_definition: '角色定义之前',
+    after_character_definition: '角色定义之后',
+    before_example_messages: '示例消息之前',
+    after_example_messages: '示例消息之后',
+    before_author_note: '作者注释之前',
+    after_author_note: '作者注释之后',
   };
-  if (type === 'at_depth') return entry?.depth === null ? '指定深度' : `D${entry.depth}`;
+  if (type === 'at_depth') return '在深度';
   if (type === 'outlet') return '出口';
   return labels[type] || type || '默认位置';
-}
-
-function positionGroupRank(label) {
-  const fixed = ['角色定义前', '角色定义后', '示例消息前', '示例消息后', '作者注释前', '作者注释后'];
-  const fixedIndex = fixed.indexOf(label);
-  if (fixedIndex >= 0) return fixedIndex;
-  if (/^D\d+$/u.test(label)) return 100 + Number(label.slice(1));
-  if (label.startsWith('出口')) return 200;
-  if (label.startsWith('未知位置')) return 900;
-  return 800;
 }
 
 function textValue(value) {
@@ -93,14 +83,10 @@ function renderWorldbookEntry(doc, entry) {
   const meta = doc.createElement('div');
   meta.className = 'rw-content-entry-meta';
   meta.append(
-    makeChip(doc, positionLabel(entry)),
-    makeChip(doc, `列表顺序 ${textValue(entry.display_index)}`),
-    makeChip(doc, `插入顺序 ${textValue(entry.order)}`),
+    makeChip(doc, `位置 ${positionLabel(entry)}`),
+    makeChip(doc, `深度 ${String(entry?.position_type || '') === 'at_depth' ? textValue(entry.depth) : '—'}`),
+    makeChip(doc, `顺序 ${textValue(entry.order)}`),
   );
-  if (String(entry?.position_type || '') === 'at_depth' && entry.role) {
-    const roleLabel = ({ system: 'System', user: 'User', assistant: 'Assistant' })[entry.role] || entry.role;
-    meta.appendChild(makeChip(doc, roleLabel));
-  }
   panel.appendChild(meta);
 
   const keywords = doc.createElement('div');
@@ -247,7 +233,7 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
     titleRow.appendChild(name);
     const meta = doc.createElement('span');
     meta.textContent = title === '世界书内容'
-      ? `列表 ${textValue(entry.display_index)} · 插入 ${textValue(entry.order)}`
+      ? `位置 ${positionLabel(entry)} · 深度 ${String(entry?.position_type || '') === 'at_depth' ? textValue(entry.depth) : '—'} · 顺序 ${textValue(entry.order)}`
       : (entry.artifact_name || '');
     item.append(titleRow, meta);
     item.addEventListener('click', () => renderIndex(index));
@@ -255,37 +241,22 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
   };
 
   if (title === '世界书内容') {
-    const grouped = new Map();
-    entries.forEach((entry, index) => {
-      const label = positionLabel(entry);
-      if (!grouped.has(label)) grouped.set(label, []);
-      grouped.get(label).push({ entry, index });
-    });
-
-    const groups = [...grouped.entries()]
-      .map(([label, items]) => ({
-        label,
-        items: items.sort((a, b) => {
-          const aDisplay = Number.isFinite(Number(a.entry.display_index)) ? Number(a.entry.display_index) : a.index;
-          const bDisplay = Number.isFinite(Number(b.entry.display_index)) ? Number(b.entry.display_index) : b.index;
-          return aDisplay - bDisplay || a.index - b.index;
-        }),
-      }))
-      .sort((a, b) => positionGroupRank(a.label) - positionGroupRank(b.label));
-
-    for (const group of groups) {
-      const groupNode = doc.createElement('section');
-      groupNode.className = 'rw-content-nav-group';
-      const groupHead = doc.createElement('div');
-      groupHead.className = 'rw-content-nav-group-head';
-      groupHead.append(
-        Object.assign(doc.createElement('strong'), { textContent: group.label }),
-        Object.assign(doc.createElement('span'), { textContent: `${group.items.length} 条` }),
-      );
-      groupNode.appendChild(groupHead);
-      group.items.forEach(({ entry, index }) => groupNode.appendChild(createNavItem(entry, index)));
-      nav.appendChild(groupNode);
-    }
+    entries
+      .map((entry, index) => ({ entry, index }))
+      .sort((a, b) => {
+        const aDisplay = Number.isFinite(Number(a.entry.display_index))
+          ? Number(a.entry.display_index)
+          : Number.isFinite(Number(a.entry.uid))
+            ? Number(a.entry.uid)
+            : a.index;
+        const bDisplay = Number.isFinite(Number(b.entry.display_index))
+          ? Number(b.entry.display_index)
+          : Number.isFinite(Number(b.entry.uid))
+            ? Number(b.entry.uid)
+            : b.index;
+        return aDisplay - bDisplay || a.index - b.index;
+      })
+      .forEach(({ entry, index }) => nav.appendChild(createNavItem(entry, index)));
   } else {
     entries.forEach((entry, index) => nav.appendChild(createNavItem(entry, index)));
   }
@@ -310,8 +281,8 @@ function fieldLabel(field) {
     enabled: '启用状态',
     position_type: '位置',
     depth: '深度',
-    order: '插入顺序',
-    display_index: '列表顺序',
+    order: '顺序',
+    display_index: '条目排序',
     probability: '概率',
     find_regex: '匹配表达式',
     replace_string: '替换内容',

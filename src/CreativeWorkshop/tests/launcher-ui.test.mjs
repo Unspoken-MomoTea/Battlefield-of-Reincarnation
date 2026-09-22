@@ -159,24 +159,27 @@ test('first project creation exposes a local-only test path', () => {
 });
 
 
-test('worldbook detail UI groups by position and hides raw uid/probability chips', () => {
+test('worldbook detail uses native position depth order labels without redundant groups', () => {
   const source = fs.readFileSync(
     fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),
     'utf8',
   );
-  assert.match(source, /rw-content-nav-group/u);
-  assert.match(source, /positionGroupRank/u);
+  assert.equal(source.includes('`位置 ${positionLabel(entry)}`'), true);
+  assert.equal(source.includes('`深度 ${'), true);
+  assert.equal(source.includes('`顺序 ${textValue(entry.order)}`'), true);
+  assert.doesNotMatch(source, /rw-content-nav-group/u);
+  assert.doesNotMatch(source, /positionGroupRank/u);
+  assert.doesNotMatch(source, /列表顺序/u);
+  assert.doesNotMatch(source, /插入顺序/u);
   assert.doesNotMatch(source, /makeChip\(doc, `UID /u);
   assert.doesNotMatch(source, /makeChip\(doc, `概率 /u);
 });
 
-
-test('worldbook detail distinguishes list order from insertion order', () => {
+test('worldbook navigation orders entries by SillyTavern display index internally', () => {
   const source = fs.readFileSync(
     fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),
     'utf8',
   );
-  assert.match(source, /列表顺序/u);
-  assert.match(source, /插入顺序/u);
   assert.match(source, /entry\.display_index/u);
+  assert.match(source, /Number\(a\.entry\.uid\)/u);
 });

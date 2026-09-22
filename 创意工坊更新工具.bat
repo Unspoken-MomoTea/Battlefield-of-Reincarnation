@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 chcp 65001 >nul
-title 轮回战场 - 创意工坊更新工具
+title 轮回战场 - 创意工坊发布工具
 
 set "ROOT=%~dp0"
 set "UPDATER=%ROOT%cloudflare\scripts\update-servers.mjs"
@@ -9,17 +9,18 @@ set "PUBLISHER=%ROOT%cloudflare\scripts\promote-stable.mjs"
 
 if not exist "%UPDATER%" (
   echo.
-  echo [错误] 找不到创意工坊服务器更新脚本：
+  echo [错误] 找不到服务器更新脚本：
   echo %UPDATER%
   echo.
-  echo 请把这个 BAT 放在“轮回战场”仓库根目录后再运行。
+  echo 请确认这个 BAT 位于“轮回战场”仓库根目录。
   echo.
   pause
   exit /b 1
 )
+
 if not exist "%PUBLISHER%" (
   echo.
-  echo [错误] 找不到创意工坊正式发布脚本：
+  echo [错误] 找不到正式客户端发布脚本：
   echo %PUBLISHER%
   echo.
   pause
@@ -83,30 +84,30 @@ echo   [7] 两个服务器环境都只检查
 echo.
 echo   [8] 预演正式客户端发布，不创建 Tag、不推 stable
 echo.
-echo   [9] 查看当前 main / workshop-stable 版本
+echo   [9] 查看当前 main / workshop-stable / 正式 Tag
 echo.
 echo   [0] 退出
 echo.
 echo ------------------------------------------------------------
-echo 推荐流程：
-echo   日常测试：1
-echo   正式上线：2 先发布正式客户端，再 3 更新正式服务器
+echo 推荐：
+echo   日常测试：选择 1
+echo   正式上线：先选择 2，再选择 3
 echo ------------------------------------------------------------
 echo.
 
 choice /c 1234567890 /n /m "请选择 [1-9,0]："
-set "CHOICE=%errorlevel%"
+set "MENU_CHOICE=%errorlevel%"
 
-if "%CHOICE%"=="10" goto :EOF
-if "%CHOICE%"=="9" goto :STATUS
-if "%CHOICE%"=="8" goto :PUBLISH_PREVIEW
-if "%CHOICE%"=="7" goto :CHECK_BOTH
-if "%CHOICE%"=="6" goto :CHECK_PRODUCTION
-if "%CHOICE%"=="5" goto :CHECK_STAGING
-if "%CHOICE%"=="4" goto :UPDATE_BOTH
-if "%CHOICE%"=="3" goto :UPDATE_PRODUCTION
-if "%CHOICE%"=="2" goto :PUBLISH_STABLE
-if "%CHOICE%"=="1" goto :UPDATE_STAGING
+if "%MENU_CHOICE%"=="10" goto :EOF
+if "%MENU_CHOICE%"=="9" goto :STATUS
+if "%MENU_CHOICE%"=="8" goto :PUBLISH_PREVIEW
+if "%MENU_CHOICE%"=="7" goto :CHECK_BOTH
+if "%MENU_CHOICE%"=="6" goto :CHECK_PRODUCTION
+if "%MENU_CHOICE%"=="5" goto :CHECK_STAGING
+if "%MENU_CHOICE%"=="4" goto :UPDATE_BOTH
+if "%MENU_CHOICE%"=="3" goto :UPDATE_PRODUCTION
+if "%MENU_CHOICE%"=="2" goto :PUBLISH_STABLE
+if "%MENU_CHOICE%"=="1" goto :UPDATE_STAGING
 goto :MENU
 
 :UPDATE_STAGING
@@ -144,7 +145,7 @@ goto :AFTER
 :STATUS
 cls
 echo ============================================================
-echo                    当前发布指针
+echo                    当前发布状态
 echo ============================================================
 echo.
 git -C "%ROOT%" fetch origin main workshop-stable --tags --quiet
@@ -152,10 +153,14 @@ if errorlevel 1 (
   echo [失败] 无法读取远端 Git 信息。
   goto :AFTER
 )
+
 for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 origin/main') do set "MAIN_SHA=%%A"
 for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 origin/workshop-stable') do set "STABLE_SHA=%%A"
+set "MAIN_VERSION="
+set "STABLE_VERSION="
 for /f "delims=" %%A in ('git -C "%ROOT%" show origin/main:src/CreativeWorkshop/app/workshop-app.js ^| findstr /c:"WORKSHOP_VERSION ="') do set "MAIN_VERSION=%%A"
 for /f "delims=" %%A in ('git -C "%ROOT%" show origin/workshop-stable:src/CreativeWorkshop/app/workshop-app.js ^| findstr /c:"WORKSHOP_VERSION ="') do set "STABLE_VERSION=%%A"
+
 echo 测试通道 main：
 echo   SHA     %MAIN_SHA%
 echo   %MAIN_VERSION%
@@ -165,7 +170,7 @@ echo   SHA     %STABLE_SHA%
 echo   %STABLE_VERSION%
 echo.
 echo 正式版本 Tags：
-git -C "%ROOT%" tag -l "workshop-v*" --sort=-version:refname | more +0
+git -C "%ROOT%" tag -l "workshop-v*" --sort=-version:refname
 echo.
 goto :AFTER
 
@@ -191,58 +196,9 @@ if "%RESULT%"=="0" (
 exit /b %RESULT%
 
 :RUN_SERVER
- staging
-goto :AFTER
-
-:UPDATE_PRODUCTION
-call :RUN production
-goto :AFTER
-
-:UPDATE_BOTH
-call :RUN both
-goto :AFTER
-
-:CHECK_STAGING
-call :RUN staging --dry-run
-goto :AFTER
-
-:CHECK_PRODUCTION
-call :RUN production --dry-run
-goto :AFTER
-
-:CHECK_BOTH
-call :RUN both --dry-run
-goto :AFTER
-
-:STATUS
 cls
 echo ============================================================
-echo                    当前发布指针
-echo ============================================================
-echo.
-git -C "%ROOT%" fetch origin main workshop-stable --quiet
-if errorlevel 1 (
-  echo [失败] 无法读取远端 Git 信息。
-  goto :AFTER
-)
-for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 origin/main') do set "MAIN_SHA=%%A"
-for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 origin/workshop-stable') do set "STABLE_SHA=%%A"
-for /f "delims=" %%A in ('git -C "%ROOT%" show origin/main:src/CreativeWorkshop/app/workshop-app.js ^| findstr /c:"WORKSHOP_VERSION ="') do set "MAIN_VERSION=%%A"
-for /f "delims=" %%A in ('git -C "%ROOT%" show origin/workshop-stable:src/CreativeWorkshop/app/workshop-app.js ^| findstr /c:"WORKSHOP_VERSION ="') do set "STABLE_VERSION=%%A"
-echo 测试通道 main：
-echo   SHA     %MAIN_SHA%
-echo   %MAIN_VERSION%
-echo.
-echo 正式通道 workshop-stable：
-echo   SHA     %STABLE_SHA%
-echo   %STABLE_VERSION%
-echo.
-goto :AFTER
-
-:RUN
-cls
-echo ============================================================
-echo                    正在执行，请稍候
+echo                    服务器更新
 echo ============================================================
 echo.
 node "%UPDATER%" %*
@@ -250,11 +206,11 @@ set "RESULT=%errorlevel%"
 echo.
 if "%RESULT%"=="0" (
   echo ============================================================
-  echo [完成] 操作已成功结束。
+  echo [完成] 服务器操作已成功结束。
   echo ============================================================
 ) else (
   echo ============================================================
-  echo [失败] 操作没有完成，错误码：%RESULT%
+  echo [失败] 服务器操作没有完成，错误码：%RESULT%
   echo 请查看上方最后一段错误信息。
   echo ============================================================
 )

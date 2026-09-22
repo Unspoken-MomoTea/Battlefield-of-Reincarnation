@@ -220,6 +220,7 @@ export function createDiscoverView({
       [nodes.discoverFeatured, 'popular'],
       [nodes.discoverLatest, 'latest'],
       [nodes.discoverLiked, 'likes'],
+      [nodes.discoverDownloaded, 'downloads'],
     ];
     for (const [target] of targets) empty(target, '正在加载…');
     void syncLocalProjects().catch(() => {});

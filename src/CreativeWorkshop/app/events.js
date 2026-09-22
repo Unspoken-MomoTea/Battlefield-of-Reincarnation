@@ -202,6 +202,7 @@ export function bindWorkshopEvents({
     overlay,
     nodes,
     workshopApi,
+    projectService,
     notifyError,
     confirmDialog,
     openModal,

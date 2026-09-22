@@ -170,6 +170,6 @@ test('non-admin cannot inspect review diffs', async () => {
   const { env, author, project } = await setup();
   await assert.rejects(
     () => getAdminProjectDiff(env, author, project.id),
-    error => error?.status === 403 && error?.code === 'admin_required',
+    error => error?.status === 403 && error?.code === 'moderator_required',
   );
 });

@@ -63,7 +63,7 @@ export function bootWorkshop() {
     selfUpdater: workshopSelfUpdater,
     version: WORKSHOP_VERSION,
     currentSha: CURRENT_SHA,
-    hotUpdateClient: updateAndHotReload,
+    hotUpdateClient: updateLoaderOnly,
     getAuth: () => auth,
   });
 
@@ -187,51 +187,20 @@ export function bootWorkshop() {
     booted = false;
   }
 
-  async function updateAndHotReload() {
+  async function updateLoaderOnly() {
     const updated = await workshopSelfUpdater.updateLoaderLink();
     if (!updated.loaderFound) {
       throw new Error('没有找到可自动更新的创意工坊载入脚本');
     }
 
-    if (CURRENT_SHA && updated.latestSha === CURRENT_SHA) {
-      return { ...updated, hotReloaded: false, alreadyRunningLatest: true };
-    }
-
-    try {
-      await hotReload(updated);
-      return { ...updated, loaderUpdated: Boolean(updated.updated), hotReloaded: true, alreadyRunningLatest: false };
-    } catch (hotReloadError) {
-      console.warn('[轮回战场创意工坊] loader 已更新，但当前页面热载入失败', hotReloadError);
-      return {
-        ...updated,
-        loaderUpdated: Boolean(updated.updated),
-        hotReloaded: false,
-        alreadyRunningLatest: false,
-        reloadRequired: true,
-        hotReloadError: hotReloadError instanceof Error ? hotReloadError.message : String(hotReloadError),
-      };
-    }
-  }
-
-  async function hotReload(updated) {
-    const url = String(updated?.latestImportUrl || '').trim();
-    if (!/^https:\/\/(?:(?:testingcf|cdn)\.)?jsdelivr\.net\/gh\/Unspoken-MomoTea\/Battlefield-of-Reincarnation@[0-9a-f]{40}\/src\/CreativeWorkshop\/index\.js$/iu.test(url)) {
-      throw new Error('服务器返回的新版工坊地址无效');
-    }
-
-    const previousBridge = bridge;
-    const hotUrl = `${url}?rw_hot=${Date.now()}`;
-    try {
-      await import(hotUrl);
-    } catch (error) {
-      throw new Error(`新版载入失败：${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    const nextBridge = host[GLOBAL_NAME];
-    if (!nextBridge || nextBridge === previousBridge) {
-      throw new Error('新版脚本已经下载，但没有完成客户端接管；请刷新一次酒馆');
-    }
-    nextBridge.open?.();
+    const alreadyRunningLatest = Boolean(CURRENT_SHA && updated.latestSha === CURRENT_SHA);
+    return {
+      ...updated,
+      loaderUpdated: Boolean(updated.updated),
+      alreadyRunningLatest,
+      reloadRequired: !alreadyRunningLatest,
+      hotReloaded: false,
+    };
   }
 
   updateNotice = createWorkshopUpdateNotice({
@@ -242,7 +211,6 @@ export function bootWorkshop() {
     selfUpdater: workshopSelfUpdater,
     currentVersion: WORKSHOP_VERSION,
     currentSha: CURRENT_SHA,
-    onHotReload: hotReload,
   });
 
   launcher.addEventListener('click', open);
@@ -268,7 +236,7 @@ export function bootWorkshop() {
     close,
     refresh,
     destroy,
-    hotUpdate: updateAndHotReload,
+    hotUpdate: updateLoaderOnly,
     workshopApi,
     projectService,
     selfUpdater: workshopSelfUpdater,

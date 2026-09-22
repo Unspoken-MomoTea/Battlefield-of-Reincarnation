@@ -83,15 +83,26 @@ export function createMaintenanceView({
             : await selfUpdater.updateLoaderLink();
           if (!updated.loaderFound) throw new Error('没有找到可自动更新的创意工坊载入脚本');
 
-          if (updated.hotReloaded) return;
+          if (updated.alreadyRunningLatest) {
+            try { host.toastr?.success?.('创意工坊已经是最新版本', '创意工坊'); } catch {}
+            await renderClientSection(container);
+            return;
+          }
+
+          updateButton.disabled = true;
+          updateButton.textContent = '已更新 · 重新载入后生效';
+          const done = statusBox(
+            `载入脚本已写入 ${updated.latestShortSha}。重新载入酒馆后自动使用新版。`,
+            'ok',
+          );
+          updateButton.insertAdjacentElement('afterend', done);
 
           try {
             host.toastr?.success?.(
-              updated.updated ? `载入脚本已更新到 ${updated.latestShortSha}` : '创意工坊已经是最新版本',
+              `载入脚本已更新到 ${updated.latestShortSha}；重新载入酒馆后生效。`,
               '创意工坊',
             );
           } catch {}
-          await renderClientSection(container);
         });
         container.appendChild(updateButton);
 

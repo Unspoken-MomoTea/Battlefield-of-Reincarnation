@@ -204,6 +204,7 @@ export function workshopTemplate(version) {
             <div class="rw-publish-footer-note">● 原版资源状态会随作品保存；停用/卸载作品时恢复安装前状态。</div>
             <div class="rw-row">
               <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
+              <button class="rw-button" type="button" data-action="create-project-local-test">保存到本地测试</button>
               <button class="rw-button primary" type="submit">提交审核</button>
             </div>
           </footer>

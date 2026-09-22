@@ -148,18 +148,30 @@ echo ============================================================
 echo                    当前发布状态
 echo ============================================================
 echo.
-git -C "%ROOT%" fetch --tags --quiet origin main workshop-stable
-if errorlevel 1 (
-  echo [失败] 无法读取远端 Git 信息。
+echo 说明：这里只读取本地已经同步的 Git 引用，不会连接 GitHub。
+echo.
+for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 refs/remotes/origin/main 2^>nul') do set "MAIN_SHA=%%A"
+for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 refs/remotes/origin/workshop-stable 2^>nul') do set "STABLE_SHA=%%A"
+if not defined MAIN_SHA (
+  for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 refs/heads/main 2^>nul') do set "MAIN_SHA=%%A"
+)
+if not defined STABLE_SHA (
+  for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 refs/heads/workshop-stable 2^>nul') do set "STABLE_SHA=%%A"
+)
+if not defined MAIN_SHA (
+  echo [失败] 本地没有 main 引用，请先更新本地仓库。
   goto :AFTER
 )
-
-for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 origin/main') do set "MAIN_SHA=%%A"
-for /f %%A in ('git -C "%ROOT%" rev-parse --short=12 origin/workshop-stable') do set "STABLE_SHA=%%A"
+if not defined STABLE_SHA (
+  echo [提示] 本地还没有 workshop-stable 引用。
+  set "STABLE_SHA=未同步"
+)
 set "MAIN_VERSION="
 set "STABLE_VERSION="
-for /f "delims=" %%A in ('git -C "%ROOT%" show origin/main:src/CreativeWorkshop/app/workshop-app.js ^| findstr /c:"WORKSHOP_VERSION ="') do set "MAIN_VERSION=%%A"
-for /f "delims=" %%A in ('git -C "%ROOT%" show origin/workshop-stable:src/CreativeWorkshop/app/workshop-app.js ^| findstr /c:"WORKSHOP_VERSION ="') do set "STABLE_VERSION=%%A"
+for /f "delims=" %%A in ('git -C "%ROOT%" show refs/remotes/origin/main:src/CreativeWorkshop/app/workshop-app.js 2^>nul ^| findstr /c:"WORKSHOP_VERSION ="') do set "MAIN_VERSION=%%A"
+if not defined MAIN_VERSION for /f "delims=" %%A in ('git -C "%ROOT%" show refs/heads/main:src/CreativeWorkshop/app/workshop-app.js 2^>nul ^| findstr /c:"WORKSHOP_VERSION ="') do set "MAIN_VERSION=%%A"
+for /f "delims=" %%A in ('git -C "%ROOT%" show refs/remotes/origin/workshop-stable:src/CreativeWorkshop/app/workshop-app.js 2^>nul ^| findstr /c:"WORKSHOP_VERSION ="') do set "STABLE_VERSION=%%A"
+if not defined STABLE_VERSION for /f "delims=" %%A in ('git -C "%ROOT%" show refs/heads/workshop-stable:src/CreativeWorkshop/app/workshop-app.js 2^>nul ^| findstr /c:"WORKSHOP_VERSION ="') do set "STABLE_VERSION=%%A"
 
 echo 测试通道 main：
 echo   SHA     %MAIN_SHA%
@@ -218,9 +230,6 @@ exit /b %RESULT%
 
 :AFTER
 echo.
-echo [R] 返回主菜单
-echo [0] 关闭工具
-echo.
-choice /c R0 /n /m "请选择："
+choice /c RQ /n /m "[R] 返回主菜单    [Q] 关闭工具："
 if errorlevel 2 goto :EOF
 goto :MENU

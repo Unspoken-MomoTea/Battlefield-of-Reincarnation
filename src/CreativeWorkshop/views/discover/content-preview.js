@@ -1,5 +1,19 @@
 function positionLabel(entry) {
-  const type = String(entry?.position_type || '');
+  const legacy = [
+    'before_character_definition',
+    'after_character_definition',
+    'before_author_note',
+    'after_author_note',
+    'at_depth',
+    'before_example_messages',
+    'after_example_messages',
+    'outlet',
+  ];
+  const raw = String(entry?.position_type || '');
+  const numeric = /^-?\d+$/u.test(raw) ? Number(raw) : null;
+  const type = Number.isInteger(numeric) && numeric >= 0 && numeric < legacy.length
+    ? legacy[numeric]
+    : raw;
   const labels = {
     before_character_definition: '角色定义前',
     after_character_definition: '角色定义后',
@@ -72,11 +86,10 @@ function renderWorldbookEntry(doc, entry) {
     makeChip(doc, positionLabel(entry)),
     makeChip(doc, `顺序 ${textValue(entry.order)}`),
   );
-  if (entry.role) meta.appendChild(makeChip(doc, entry.role));
-  if (entry.probability !== null && entry.probability !== undefined) {
-    meta.appendChild(makeChip(doc, `概率 ${entry.probability}%`));
+  if (String(entry?.position_type || '') === 'at_depth' && entry.role) {
+    const roleLabel = ({ system: 'System', user: 'User', assistant: 'Assistant' })[entry.role] || entry.role;
+    meta.appendChild(makeChip(doc, roleLabel));
   }
-  if (entry.uid) meta.appendChild(makeChip(doc, `UID ${entry.uid}`));
   panel.appendChild(meta);
 
   const keywords = doc.createElement('div');

@@ -59,6 +59,7 @@ export function createAuthApi(request) {
       let settled = false;
       let polling = false;
       let closedAt = null;
+      let timer;
 
       const finish = callback => {
         if (settled) return;
@@ -138,7 +139,7 @@ export function createAuthApi(request) {
 
       host.addEventListener?.('message', onMessage);
       signal?.addEventListener?.('abort', onAbort, { once: true });
-      const timer = host.setInterval(tick, 1000);
+      timer = host.setInterval(tick, 1000);
       tick();
     });
   };

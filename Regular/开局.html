@@ -1115,6 +1115,85 @@
     const $ = id => document.getElementById(id);
     const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&','<':'<','>':'>','"':'"'}[c]));
 
+    function openingDb() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('reincarnation_workshop', 6);
+            request.onupgradeneeded = () => {
+                const db = request.result;
+                if (!db.objectStoreNames.contains('opening_assets')) db.createObjectStore('opening_assets', { keyPath:'id' });
+                if (!db.objectStoreNames.contains('opening_store_catalogs')) db.createObjectStore('opening_store_catalogs', { keyPath:'id' });
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+    async function loadOpeningAssets() {
+        try {
+            const db = await openingDb();
+            openingAssets = await new Promise((resolve,reject) => {
+                const req = db.transaction('opening_assets','readonly').objectStore('opening_assets').getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+            db.close();
+        } catch(e) { openingAssets = []; }
+        renderOpeningCharacterLibrary();
+        renderOpeningPartnerLibrary();
+    }
+    function assetSummary(asset) {
+        const build = asset.build || asset.character || {};
+        return [build.种族, build.层级, ...(Array.isArray(build.身份)?build.身份.slice(0,2):[])].filter(Boolean);
+    }
+    function renderAssetCards(kind, selectedId, onClickName) {
+        const list = openingAssets.filter(a => a.kind === kind);
+        if (!list.length) return '<div class="asset-library-empty">◇ 暂无已安装档案<br><small>之后可从创意工坊安装到这里。</small></div>';
+        return list.map(asset => `<div class="asset-library-card ${selectedId===asset.id?'selected':''}" onclick="${onClickName}('${esc(asset.id)}')">
+            <span class="asset-library-source">${esc(asset.sourceProjectName || '本地档案')}</span>
+            <strong>${esc(asset.name || '未命名角色')}</strong>
+            <div class="asset-library-tags">${assetSummary(asset).map(v=>`<span>${esc(v)}</span>`).join('')}</div>
+        </div>`).join('');
+    }
+    function renderOpeningCharacterLibrary() {
+        const el=$('opening-character-library'); if(!el)return;
+        el.innerHTML='<div class="asset-library-head"><div><h3>开局角色档案</h3><small>选择后将直接采用其原始构筑，派生属性由当前版本重新计算。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_character',selectedOpeningCharacter?.id,'selectOpeningCharacter')+'</div>';
+    }
+    function renderOpeningPartnerLibrary() {
+        const el=$('opening-partner-library'); if(!el)return;
+        el.innerHTML='<div class="asset-library-head"><div><h3>开局伙伴档案</h3><small>完整伙伴无需 AI 再随机补全战术模块。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_partner',selectedOpeningPartner?.id,'selectOpeningPartner')+'</div>';
+    }
+    function setCharacterMode(mode) {
+        characterMode=mode==='library'?'library':'custom';
+        $('character-mode-custom')?.classList.toggle('active',characterMode==='custom');
+        $('character-mode-library')?.classList.toggle('active',characterMode==='library');
+        if($('opening-character-library')) $('opening-character-library').style.display=characterMode==='library'?'':'none';
+        if(characterMode==='custom') selectedOpeningCharacter=null;
+        renderOpeningCharacterLibrary();
+    }
+    function setPartnerMode(mode) {
+        partnerMode=mode==='custom'?'custom':'library';
+        $('partner-mode-custom')?.classList.toggle('active',partnerMode==='custom');
+        $('partner-mode-library')?.classList.toggle('active',partnerMode==='library');
+        if($('custom-partner-form')) $('custom-partner-form').style.display=partnerMode==='custom'?'':'none';
+        if($('opening-partner-library')) $('opening-partner-library').style.display=partnerMode==='library'?'':'none';
+        if(partnerMode==='library'){ useCustomPartnerFlag=false; selectedPartner=selectedOpeningPartner?'library':null; }
+        renderOpeningPartnerLibrary(); updateBgSummary();
+    }
+    function selectOpeningCharacter(id) {
+        const asset=openingAssets.find(a=>a.id===id&&a.kind==='opening_character'); if(!asset)return;
+        selectedOpeningCharacter=asset; characterMode='library';
+        const build=asset.build||asset.character||{};
+        if(asset.name) $('f-name').value=asset.name;
+        if(build.种族) $('f-race').value=build.种族;
+        renderOpeningCharacterLibrary(); showToast('已载入开局角色：'+(asset.name||'未命名'));
+    }
+    function selectOpeningPartner(id) {
+        const asset=openingAssets.find(a=>a.id===id&&a.kind==='opening_partner'); if(!asset)return;
+        selectedOpeningPartner=asset; selectedPartner='library'; useCustomPartnerFlag=false; partnerMode='library';
+        renderOpeningPartnerLibrary(); updateBgSummary(); showToast('已选择开局伙伴：'+(asset.name||'未命名'));
+    }
+
+    loadOpeningAssets();
+
     function getCurrentSource() {
         const cat = DB.itemCategories.find(c => c.key === activeItemTab);
         return { cat, list: DB[cat.source].concat(customItems.filter(i => i._cat === activeItemTab)) };

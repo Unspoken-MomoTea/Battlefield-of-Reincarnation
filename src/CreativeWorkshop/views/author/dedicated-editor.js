@@ -1,6 +1,8 @@
 const OPENING_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
 const WORLD_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ'];
 const STORE_QUALITIES = ['F', 'E', 'D'];
+const EQUIPMENT_ATTR_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A'];
+const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
 const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const ATTRIBUTES = ['力量', '敏捷', '体质', '精神', '魅力'];
 const STORE_ATTRIBUTES = ['力量', '敏捷', '体质', '精神', '魅力', 'ATK', 'DEF', 'MATK', 'MDEF', 'AP'];
@@ -94,7 +96,7 @@ function appendEffectEditor(doc, card, effects, emit, { max = 2 } = {}) {
   add.type = 'button';
   block.append(rows, add);
 
-  const state = effects?.length ? effects.slice(0, max) : [{ name: '', description: '' }];
+  const state = effects?.length ? effects.slice(0, max) : [];
 
   const render = () => {
     rows.replaceChildren();
@@ -115,7 +117,6 @@ function appendEffectEditor(doc, card, effects, emit, { max = 2 } = {}) {
       description.addEventListener('input', sync);
       remove.addEventListener('click', () => {
         state.splice(index, 1);
-        if (!state.length) state.push({ name: '', description: '' });
         render();
         emit();
       });
@@ -138,9 +139,8 @@ function appendEffectEditor(doc, card, effects, emit, { max = 2 } = {}) {
 function pointAllocator(doc, { budget, initial = {}, emit }) {
   const root = el(doc, 'div', 'rw-point-allocator');
   const header = el(doc, 'div', 'rw-point-head');
-  const title = el(doc, 'strong', '', `五维加点 · 总预算 ${budget}`);
   const remaining = el(doc, 'span', 'rw-point-remaining');
-  header.append(title, remaining);
+  header.append(remaining);
   const grid = el(doc, 'div', 'rw-point-grid');
   root.append(header, grid);
 
@@ -160,16 +160,15 @@ function pointAllocator(doc, { budget, initial = {}, emit }) {
   for (const attr of ATTRIBUTES) {
     const card = el(doc, 'div', 'rw-point-card');
     const label = el(doc, 'strong', '', attr);
-    const tier = el(doc, 'span', 'rw-point-tier');
     const row = el(doc, 'div', 'rw-point-controls');
     const minus = el(doc, 'button', 'rw-point-button', '−');
-    const count = el(doc, 'span', 'rw-point-value');
+    const tier = el(doc, 'span', 'rw-point-tier');
     const plus = el(doc, 'button', 'rw-point-button', '+');
     minus.type = plus.type = 'button';
-    row.append(minus, count, plus);
-    card.append(label, tier, row);
+    row.append(minus, tier, plus);
+    card.append(label, row);
     grid.appendChild(card);
-    controls.set(attr, { tier, count, minus, plus });
+    controls.set(attr, { tier, minus, plus });
 
     minus.addEventListener('click', () => {
       if (values[attr] <= 0) return;
@@ -191,7 +190,6 @@ function pointAllocator(doc, { budget, initial = {}, emit }) {
     remaining.textContent = `剩余 ${Math.max(0, budget - used)} 点`;
     for (const [attr, control] of controls) {
       const value = values[attr];
-      control.count.textContent = String(value);
       control.tier.textContent = POINT_QUALITIES[value] || 'SSS';
       control.minus.disabled = value <= 0;
       control.plus.disabled = value >= 8 || used >= budget;
@@ -254,10 +252,18 @@ function storeEditor(doc, initial, emit) {
       card.appendChild(cardHead);
 
       const common = el(doc, 'div', 'rw-special-grid');
+      const quality = makeSelect(doc, 'store_quality', STORE_QUALITIES, item.tier || 'F');
+      const initialQuality = quality.value || 'F';
+      const price = makeInput(
+        doc,
+        'store_cost',
+        Math.max(STORE_PRICE_FLOOR[initialQuality], Number(item.cost || 0)),
+        { type: 'number', min: STORE_PRICE_FLOOR[initialQuality], max: 1000, step: 1 },
+      );
       common.append(
         field(doc, '名称 *', makeInput(doc, 'store_name', item.name || '', { maxLength: 80 })),
-        field(doc, '品质', makeSelect(doc, 'store_quality', STORE_QUALITIES, item.tier || 'F')),
-        field(doc, '价格（0-1000）', makeInput(doc, 'store_cost', Number(item.cost || 0), { type: 'number', min: 0, max: 1000, step: 1 })),
+        field(doc, '品质', quality),
+        field(doc, '价格', price, 'F≥50 / E≥300 / D≥700；最高1000。'),
       );
       card.appendChild(common);
 
@@ -270,7 +276,7 @@ function storeEditor(doc, initial, emit) {
             attr,
             makeSelect(doc, `store_attr_${attr}`, [
               { value: '', label: '无' },
-              ...STORE_QUALITIES.map(value => ({ value, label: value })),
+              ...EQUIPMENT_ATTR_QUALITIES.map(value => ({ value, label: value })),
             ], item.attrs?.[attr] || ''),
           ));
         }
@@ -305,7 +311,10 @@ function storeEditor(doc, initial, emit) {
           id: previousId,
           name: getValue(card, 'store_name').trim(),
           tier: getValue(card, 'store_quality') || 'F',
-          cost: Math.max(0, Math.min(1000, Number(getValue(card, 'store_cost')) || 0)),
+          cost: Math.max(
+            STORE_PRICE_FLOOR[getValue(card, 'store_quality') || 'F'] || 50,
+            Math.min(1000, Number(getValue(card, 'store_cost')) || 0),
+          ),
           source: '创意工坊',
           tags: [],
           effects: effectsFromCard(card),
@@ -319,6 +328,12 @@ function storeEditor(doc, initial, emit) {
         emit();
       };
 
+      quality.addEventListener('change', () => {
+        const floor = STORE_PRICE_FLOOR[quality.value] || 50;
+        price.min = String(floor);
+        if ((Number(price.value) || 0) < floor) price.value = String(floor);
+        sync();
+      });
       kind.addEventListener('change', () => {
         sync();
         render();
@@ -349,7 +364,7 @@ function storeEditor(doc, initial, emit) {
         id: randomId('equipment', counter++),
         name: '',
         tier: 'F',
-        cost: 0,
+        cost: 50,
         type: 0,
         source: '创意工坊',
         tags: [],
@@ -463,7 +478,7 @@ function openingEquipmentEditor(doc, initial = [], emit) {
           attr,
           makeSelect(doc, `partner_equipment_attr_${attr}`, [
             { value: '', label: '无' },
-            ...STORE_QUALITIES.map(value => ({ value, label: value })),
+            ...EQUIPMENT_ATTR_QUALITIES.map(value => ({ value, label: value })),
           ], item.原始属性?.[attr] || ''),
         ));
       }
@@ -561,7 +576,7 @@ function openingEditor(doc, mode, initial, emit) {
     );
   }
 
-  root.appendChild(el(doc, 'div', 'rw-special-subtitle', `原始构筑 · 血统与五维（${budget}点）`));
+  root.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始构筑 · 血统与五维'));
   const allocator = pointAllocator(doc, {
     budget,
     initial: initial.opening_attributes || {},

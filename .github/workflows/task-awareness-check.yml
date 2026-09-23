@@ -103,5 +103,11 @@ jobs:
         run: node tests/world-engine-asset-writeback.cjs
       - name: Module synchronization
         run: node tests/world-engine-modules.cjs
+      - name: Opening catalog regression
+        run: node tests/opening-catalog.cjs
+      - name: Opening character asset regression
+        run: node tests/opening-character-assets.cjs
+      - name: Opening page compile regression
+        run: node tests/opening-page.cjs
       - name: Generated delivery synchronized
         run: python tools/build-world-engine.py --check

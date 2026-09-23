@@ -137,7 +137,7 @@ export function workshopTemplate(version) {
 
               <div class="rw-publish-step-title">
                 <span>02</span>
-                <div><strong>分类与标签</strong><small>作品顶层只分为角色和扩展。</small></div>
+                <div><strong>分类与标签</strong><small>统一选择扩展、角色或开局商店；角色再选择子类型。</small></div>
               </div>
 
               <label class="rw-field">

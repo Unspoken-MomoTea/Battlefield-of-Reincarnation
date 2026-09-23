@@ -38,6 +38,12 @@ assert.match(html,/samsara_reincarnator_portrait/,'opening writes the selected c
 assert.match(html,/samsara_npc_portrait_/,'opening writes the selected partner cover to the NPC portrait key');
 assert.match(html,/selectedOpeningCharacter\.avatarUrl/,'opening character portrait comes from the installed opening asset');
 assert.match(html,/selectedOpeningPartner\.avatarUrl/,'opening partner portrait comes from the installed opening asset');
-assert.match(html,/applyOpeningDefaultPortraits\(\);[\s\S]{0,1200}replaceMvuData/,'default portraits are seeded before the MVU refresh');
-assert.match(html,/replaceMvuData[\s\S]{0,500}applyOpeningDefaultPortraits\(\);/,'default portraits are restored after the MVU refresh if the statusbar clears a fresh-game portrait');
+const journeyStart=html.indexOf('async function executeJourney()');
+assert.ok(journeyStart>=0,'opening contains executeJourney');
+const journey=html.slice(journeyStart);
+const firstPortraitSeed=journey.indexOf('applyOpeningDefaultPortraits();');
+const mvuReplace=journey.indexOf('await win.Mvu.replaceMvuData');
+const secondPortraitSeed=journey.indexOf('applyOpeningDefaultPortraits();',mvuReplace);
+assert.ok(firstPortraitSeed>=0 && mvuReplace>firstPortraitSeed,'default portraits are seeded before the MVU refresh');
+assert.ok(secondPortraitSeed>mvuReplace,'default portraits are restored after the MVU refresh if the statusbar clears a fresh-game portrait');
 console.log('PASS opening page compile and integration seams');

@@ -230,6 +230,17 @@
         .collapsible-form .form-body { max-height:0; overflow:hidden; transition:max-height var(--tn); padding:0 16px; }
         .collapsible-form.expanded .form-body { max-height:1500px; padding:16px; }
         .collapsible-form .form-row { margin-bottom:12px; }
+        .custom-partner-direct {
+            background:var(--card-bg); border:2px solid var(--border); border-radius:var(--radius-lg); overflow:hidden;
+        }
+        .custom-partner-direct-head {
+            display:flex; flex-direction:column; gap:3px; padding:13px 16px;
+            background:linear-gradient(135deg,rgba(102,252,241,0.08),rgba(102,252,241,0.02));
+            border-bottom:2px solid var(--border);
+        }
+        .custom-partner-direct-head strong { color:#fff; font-size:0.98rem; }
+        .custom-partner-direct-head small { color:var(--text-sub); font-size:0.78rem; }
+        .custom-partner-direct .form-body { padding:16px; }
 
         /* 标签输入组 */
         .tag-input-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
@@ -629,10 +640,10 @@
                             <div id="opening-partner-library"></div>
                         </div>
                     </div>
-                    <div class="collapsible-form" id="custom-partner-form" style="display:none;">
-                        <div class="form-header" onclick="toggleCustomPartner()">
-                            <div><div class="form-title">+ 招募自定义伙伴</div><div class="form-desc">无预设匹配时自定义一位协同实体</div></div>
-                            <span class="toggle-icon">▼</span>
+                    <div class="custom-partner-direct" id="custom-partner-form" style="display:none;">
+                        <div class="custom-partner-direct-head">
+                            <strong>自定义伙伴</strong>
+                            <small>直接填写伙伴资料并确认建档，不再额外套一层折叠栏。</small>
                         </div>
                         <div class="form-body" id="custom-partner-body"></div>
                     </div>
@@ -1153,7 +1164,13 @@
                     if (!sourceId) continue;
                     const id = 'workshop:' + row.sourceProjectId + ':' + sourceId;
                     if (existing.has(id)) continue;
-                    target.push({...structuredClone(item), id, _sourceProjectId:row.sourceProjectId, _sourceProjectName:row.sourceProjectName || '创意工坊'});
+                    target.push({
+                        ...structuredClone(item),
+                        id,
+                        source: item.source || row.sourceProjectName || '创意工坊',
+                        _sourceProjectId:row.sourceProjectId,
+                        _sourceProjectName:row.sourceProjectName || '创意工坊'
+                    });
                     existing.add(id);
                 }
             }
@@ -1637,23 +1654,48 @@
     }
     function switchItemTab(key) { activeItemTab=key; activeSubCategory=null; activeRarity='all'; renderItemTabs(); renderSubCategories(); renderRarityFilter(); renderItems(); }
 
+    function currentSubTypes() {
+        const { cat, list } = getCurrentSource();
+        const types = [...cat.subTypes];
+        if (list.some(item => item._sourceProjectId)) {
+            types.push({ v:'__workshop__', label:'创意工坊' });
+        }
+        return types;
+    }
     function renderSubCategories() {
-        const { cat } = getCurrentSource();
-        const types = cat.subTypes;
-        if (!types.some(t => String(t.v) === String(activeSubCategory))) activeSubCategory = String(types[0].v);
+        const types = currentSubTypes();
+        if (!types.some(t => String(t.v) === String(activeSubCategory))) activeSubCategory = String(types[0]?.v ?? '');
         $('sub-category-list').innerHTML = types.map(t => `
             <button class="category-item ${String(t.v)===String(activeSubCategory)?'active':''}" onclick="switchSubCategory('${t.v}')">${t.label}</button>`).join('');
     }
-    function switchSubCategory(v) { activeSubCategory=v; renderSubCategories(); renderItems(); }
+    function switchSubCategory(v) {
+        activeSubCategory=v;
+        activeRarity='all';
+        renderSubCategories();
+        renderRarityFilter();
+        renderItems();
+    }
 
+    function availableRarities() {
+        const { list } = getCurrentSource();
+        const present = new Set(list.filter(matchType).map(item => item.tier).filter(Boolean));
+        return DB.rarityList.filter(r => present.has(r));
+    }
     function renderRarityFilter() {
-        let html = `<span class="filter-label">层级：</span><button class="filter-btn ${activeRarity==='all'?'active':''}" onclick="switchRarity('all')">全部</button>`;
-        html += DB.rarityList.map(r => `<button class="filter-btn ${activeRarity===r?'active':''}" onclick="switchRarity('${r}')">${r}</button>`).join('');
+        const rarities = availableRarities();
+        if (activeRarity !== 'all' && !rarities.includes(activeRarity)) activeRarity = 'all';
+        if (rarities.length === 1) activeRarity = rarities[0];
+        let html = '<span class="filter-label">层级：</span>';
+        if (rarities.length > 1) {
+            html += `<button class="filter-btn ${activeRarity==='all'?'active':''}" onclick="switchRarity('all')">全部</button>`;
+        }
+        html += rarities.map(r => `<button class="filter-btn ${activeRarity===r?'active':''}" onclick="switchRarity('${r}')">${r}</button>`).join('');
         $('rarity-filter').innerHTML = html;
     }
     function switchRarity(r) { activeRarity=r; renderRarityFilter(); renderItems(); }
 
     function matchType(item) {
+        if (activeSubCategory === '__workshop__') return Boolean(item._sourceProjectId);
         return String(item.type) === String(activeSubCategory);
     }
 
@@ -1840,7 +1882,6 @@
         if (selectedPartner) useCustomPartnerFlag = false;
         renderPartners(); updateBgSummary();
     }
-    function toggleCustomPartner() { $('custom-partner-form').classList.toggle('expanded'); updatePartnerBuildBtnState(); }
     // 伙伴建档按钮状态: 按所选层级费用与可用余额(含已扣可退回)判定, 不足时灰度禁用
     //   ★ 下方常驻费用提示 #cp-cost-tip：充足时显示消耗与余额，不足时变红加⚠️并改按钮文案
     const PARTNER_COST = { Ⅰ: 70, Ⅱ: 350, Ⅲ: 1000 };

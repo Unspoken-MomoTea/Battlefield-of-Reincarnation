@@ -2502,6 +2502,29 @@
             .slice(0, 10);
     }
 
+    function applyOpeningDefaultPortraits() {
+        try {
+            const win = window.parent || window;
+            const storage = win.localStorage || localStorage;
+            const playerAvatar = characterMode === 'library' && selectedOpeningCharacter
+                ? String(selectedOpeningCharacter.avatarUrl || '').trim()
+                : '';
+            if (playerAvatar) {
+                storage.setItem('samsara_reincarnator_portrait', playerAvatar);
+            }
+
+            if (selectedPartner === 'library' && selectedOpeningPartner) {
+                const partnerAvatar = String(selectedOpeningPartner.avatarUrl || '').trim();
+                const partnerName = String(selectedOpeningPartner.name || '').trim();
+                if (partnerAvatar && partnerName) {
+                    storage.setItem('samsara_npc_portrait_' + partnerName, partnerAvatar);
+                }
+            }
+        } catch (error) {
+            console.warn('[轮回战场开局] 默认头像写入失败', error);
+        }
+    }
+
     async function executeJourney() {
         const name = $('f-name').value.trim() || '';
         const gender = $('f-gender').value;
@@ -2575,6 +2598,10 @@
         }
 
         const wsLocked = (() => { const el=$('ws-lock'); return el ? el.checked : false; })();
+
+        // 工坊开局角色/伙伴的项目封面作为默认头像。
+        // 只在本次开局初始化时赋值；状态栏原有的点击头像上传/切换逻辑仍可随时覆盖。
+        applyOpeningDefaultPortraits();
 
         // -----------------------------------------------------
         // 1. 尝试将数据精准写入后台 MVU (使用 Lodash _.set 不覆盖原有骨架)
@@ -2655,6 +2682,8 @@
                 }
 
                 await win.Mvu.replaceMvuData(c, {type:'message', message_id:'latest'});
+                // replaceMvuData 可能同步触发状态栏刷新；再补写一次，保证新开局清理旧头像后仍得到本次默认头像。
+                applyOpeningDefaultPortraits();
                 console.log('✅ MVU 后台数据已隐蔽精准同步 (_.set 局部写入)');
             }
         } catch(e) { console.warn('非 SillyTavern 环境，跳过 MVU 写入'); }

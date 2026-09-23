@@ -85,9 +85,10 @@ async function resolveLatestShaForRefs(fetchImpl, refs, channel, ref) {
     latest = { sha: await githubRefSha(fetchImpl, ref), channel, ref };
   }
 
-  // KV 允许短时缓存。如果当前 loader 与 Worker 返回值不同，再向“本通道自己的 ref”
-  // 核对一次，避免缓存把客户端降级。正式版绝不核对 main。
-  if ((refs || []).some(currentRef => currentRef !== latest.sha)) {
+  // 测试通道必须即时跟踪 main：即使 Worker KV 恰好缓存成当前 loader 的旧 SHA，
+  // 也要直接核对 main，避免“等待缓存过期”才发现更新。
+  // 正式通道仍只核对 workshop-stable，绝不会跨到 main。
+  if (channel === 'testing' || (refs || []).some(currentRef => currentRef !== latest.sha)) {
     try {
       latest = { sha: await githubRefSha(fetchImpl, ref), channel, ref };
     } catch {}

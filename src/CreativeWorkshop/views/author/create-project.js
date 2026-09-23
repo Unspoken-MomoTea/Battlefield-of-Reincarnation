@@ -247,6 +247,30 @@ export function bindCreateProjectFlow({
     return details.length ? `${message}（${details.join(' · ')}）` : message;
   }
 
+  function withCharacterAsset(bundle, category, characterKind) {
+    if (category !== 'character') return bundle;
+    const kind = String(characterKind || 'world_character');
+    const hasDescriptor = bundle.artifacts.some(artifact =>
+      artifact.kind === 'data' &&
+      artifact.content &&
+      typeof artifact.content === 'object' &&
+      artifact.content.kind === kind
+    );
+    if (hasDescriptor) return bundle;
+    return {
+      ...bundle,
+      artifacts: [
+        ...bundle.artifacts,
+        {
+          kind: 'data',
+          name: '角色资产.json',
+          format: 'json',
+          content: { schema_version: 1, kind },
+        },
+      ],
+    };
+  }
+
   function setSubmitStatus(state, text) {
     progress.className = `rw-submit-progress rw-submit-progress--${state}`;
     progress.textContent = text;
@@ -269,7 +293,7 @@ export function bindCreateProjectFlow({
     if (!name) return notifyError(new Error('请先填写作品名称'));
     if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
 
-    const bundle = queue.bundle(null, resourceOverrides);
+    const bundle = withCharacterAsset(queue.bundle(null, resourceOverrides), category, character_kind);
     void (async () => {
       localTestButton.disabled = true;
       localTestButton.textContent = '正在保存本地测试…';
@@ -313,6 +337,9 @@ export function bindCreateProjectFlow({
     const name = String(form.get('name') || '').trim();
     const summary = String(form.get('summary') || '');
     const category = String(form.get('category') || 'extension');
+    const character_kind = category === 'character'
+      ? String(form.get('character_kind') || 'world_character')
+      : '';
     const tags = String(form.get('tags') || '')
       .split(/[,，\n]/u)
       .map(value => value.trim())
@@ -323,12 +350,13 @@ export function bindCreateProjectFlow({
     if (!name) return notifyError(new Error('请先填写作品名称'));
     if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
 
-    const bundle = queue.bundle(null, resourceOverrides);
+    const bundle = withCharacterAsset(queue.bundle(null, resourceOverrides), category, character_kind);
     const cover = nodes.createCover.files?.[0] || null;
     const attemptKey = JSON.stringify({
       name,
       summary,
       category,
+      character_kind,
       tags,
       dependencies,
       resourceOverrides,

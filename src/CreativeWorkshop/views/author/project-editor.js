@@ -10,6 +10,7 @@ import {
   dedicatedInitialValues,
   detectPublishMode,
 } from './publish-templates.js';
+import { createDedicatedPublishEditor } from './dedicated-editor.js';
 
 function tagsFromInput(value) {
   return String(value || '')
@@ -195,113 +196,7 @@ export function createAuthorProjectEditor({
     let queue = null;
     let resourceEditor = null;
 
-    const makeInput = (nameValue, value = '', { textarea = false, code = false, placeholder = '' } = {}) => {
-      const control = element(textarea ? 'textarea' : 'input', textarea
-        ? `rw-textarea${code ? ' rw-code-input' : ''}`
-        : 'rw-input');
-      control.name = nameValue;
-      control.value = value ?? '';
-      if (placeholder) control.placeholder = placeholder;
-      if (textarea && code) control.spellcheck = false;
-      return control;
-    };
-
-    const appendDedicatedEditor = () => {
-      const special = element('div', 'rw-special-editor');
-      const head = element('div', 'rw-special-editor-head');
-      head.append(
-        element('strong', '', stepCopy[0]),
-        element('small', '', publishMode === 'world_character'
-          ? '世界角色只维护人物世界书资料，不包含正则、脚本或原版资源规则。'
-          : publishMode === 'store_catalog'
-            ? '开局商店只维护商品目录，不包含世界书、正则、脚本或原版资源规则。'
-            : '开局角色/伙伴只维护 Opening Asset，不包含世界书、正则、脚本或原版资源规则。'),
-      );
-      special.appendChild(head);
-
-      if (publishMode === 'world_character') {
-        const gridNode = element('div', 'rw-special-grid');
-        const rank = element('select', 'rw-select');
-        rank.name = 'world_rank';
-        for (const value of ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ']) {
-          const option = doc.createElement('option');
-          option.value = value; option.textContent = value;
-          option.selected = value === (dedicatedValues.world_rank || 'Ⅰ');
-          rank.appendChild(option);
-        }
-        gridNode.append(
-          field('角色姓名 *', makeInput('world_name', dedicatedValues.world_name)),
-          field('关键词 / 别名', makeInput('world_keywords', dedicatedValues.world_keywords)),
-          field('种族', makeInput('world_race', dedicatedValues.world_race)),
-          field('身份', makeInput('world_identity', dedicatedValues.world_identity)),
-          field('职业', makeInput('world_occupation', dedicatedValues.world_occupation)),
-          field('层级', rank),
-        );
-        special.append(
-          gridNode,
-          field('性格', makeInput('world_personality', dedicatedValues.world_personality, { textarea: true })),
-          field('外貌', makeInput('world_appearance', dedicatedValues.world_appearance, { textarea: true })),
-          field('背景故事', makeInput('world_background', dedicatedValues.world_background, { textarea: true })),
-          field('补充设定', makeInput('world_notes', dedicatedValues.world_notes, { textarea: true })),
-        );
-      } else if (publishMode === 'opening_character' || publishMode === 'opening_partner') {
-        const gridNode = element('div', 'rw-special-grid');
-        const rank = element('select', 'rw-select');
-        rank.name = 'opening_rank';
-        for (const value of ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ']) {
-          const option = doc.createElement('option');
-          option.value = value; option.textContent = value;
-          option.selected = value === (dedicatedValues.opening_rank || 'Ⅰ');
-          rank.appendChild(option);
-        }
-        gridNode.append(
-          field('姓名 *', makeInput('opening_name', dedicatedValues.opening_name)),
-          field('种族', makeInput('opening_race', dedicatedValues.opening_race || '人类')),
-          field('身份', makeInput('opening_identity', dedicatedValues.opening_identity)),
-          field('职业名称', makeInput('opening_occupation_name', dedicatedValues.opening_occupation_name)),
-          field('职业类型', (() => {
-            const select = element('select', 'rw-select');
-            select.name = 'opening_occupation_type';
-            for (const value of ['战斗','生活','辅助']) {
-              const option = doc.createElement('option');
-              option.value = value; option.textContent = value;
-              option.selected = value === (dedicatedValues.opening_occupation_type || '辅助');
-              select.appendChild(option);
-            }
-            return select;
-          })()),
-          field('职业特性', makeInput('opening_occupation_traits', dedicatedValues.opening_occupation_traits)),
-          field('职业来源', makeInput('opening_occupation_source', dedicatedValues.opening_occupation_source)),
-          field('层级', rank),
-        );
-        special.appendChild(gridNode);
-        if (publishMode === 'opening_partner') {
-          special.append(
-            element('div', 'rw-special-subtitle', '伙伴人设'),
-            field('性格', makeInput('opening_personality', dedicatedValues.opening_personality, { textarea: true })),
-            field('喜爱', makeInput('opening_likes', dedicatedValues.opening_likes, { textarea: true })),
-            field('背景故事', makeInput('opening_background', dedicatedValues.opening_background, { textarea: true })),
-          );
-        }
-        const jsonGrid = element('div', 'rw-special-json-grid');
-        jsonGrid.append(
-          field('血统', makeInput('opening_bloodline', dedicatedValues.opening_bloodline || '{}', { textarea: true, code: true })),
-          field('技能', makeInput('opening_skills', dedicatedValues.opening_skills || '{}', { textarea: true, code: true })),
-          field('装备', makeInput('opening_equipment', dedicatedValues.opening_equipment || '{}', { textarea: true, code: true })),
-          field('状态', makeInput('opening_status', dedicatedValues.opening_status || '{}', { textarea: true, code: true })),
-          field('形态库', makeInput('opening_forms', dedicatedValues.opening_forms || '{}', { textarea: true, code: true })),
-          field('当前形态', makeInput('opening_current_form', dedicatedValues.opening_current_form || '{"激活":false,"名称":""}', { textarea: true, code: true })),
-        );
-        special.append(element('div', 'rw-special-subtitle', '原始构筑'), jsonGrid);
-      } else if (publishMode === 'store_catalog') {
-        special.append(
-          field('装备商品', makeInput('store_equipments', dedicatedValues.store_equipments || '[]', { textarea: true, code: true })),
-          field('道具商品', makeInput('store_items', dedicatedValues.store_items || '[]', { textarea: true, code: true })),
-          field('技能商品', makeInput('store_skills', dedicatedValues.store_skills || '[]', { textarea: true, code: true })),
-        );
-      }
-      right.appendChild(special);
-    };
+    let dedicatedEditor = null;
 
     if (publishMode === 'extension') {
       const uploadBlock = element('div', 'rw-publish-upload-block');
@@ -380,7 +275,13 @@ export function createAuthorProjectEditor({
       right.appendChild(resourceEditor.node);
       void resourceEditor.refresh();
     } else {
-      appendDedicatedEditor();
+      dedicatedEditor = createDedicatedPublishEditor({
+        doc,
+        mode: publishMode,
+        initial: dedicatedValues,
+        onChange: resetAttempt,
+      });
+      right.appendChild(dedicatedEditor.node);
     }
 
     const buildVersionBundle = nextName => {
@@ -390,7 +291,7 @@ export function createAuthorProjectEditor({
       }
       return {
         schema_version: 1,
-        artifacts: buildDedicatedArtifacts(new FormData(form), publishMode, nextName),
+        artifacts: buildDedicatedArtifacts(dedicatedEditor?.values() || {}, publishMode, nextName),
       };
     };
 

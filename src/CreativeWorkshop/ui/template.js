@@ -145,22 +145,15 @@ export function workshopTemplate(version) {
                 <select class="rw-select" name="category">
                   <option value="extension">扩展</option>
                   <option value="character">角色</option>
-                </select>
-              </label>
-
-              <label class="rw-field" data-role="extension-kind-field">
-                <span>扩展用途 *</span>
-                <select class="rw-select" name="extension_kind">
-                  <option value="extension">通用扩展</option>
                   <option value="store_catalog">开局商店</option>
                 </select>
-                <small>开局商店使用独立商品编辑面板，不上传世界书、正则或脚本。</small>
+                <small>分类统一在这里选择；只有“角色”会继续出现角色子类型。</small>
               </label>
 
               <label class="rw-field" data-role="character-kind-field" hidden>
                 <span>角色用途 *</span>
                 <select class="rw-select" name="character_kind">
-                  <option value="world_character">世界书人物</option>
+                  <option value="world_character">世界书角色</option>
                   <option value="opening_character">开局角色</option>
                   <option value="opening_partner">开局伙伴</option>
                 </select>
@@ -213,59 +206,7 @@ export function workshopTemplate(version) {
                 </div>
               </div>
 
-              <div class="rw-special-editor" data-publish-panel="world_character" hidden>
-                <div class="rw-special-editor-head"><strong>世界角色</strong><small>这里直接填写人物设定，发布时自动生成世界书人物条目。</small></div>
-                <div class="rw-special-grid">
-                  <label class="rw-field"><span>角色姓名 *</span><input class="rw-input" name="world_name" maxlength="80" placeholder="例如：亚丝娜"></label>
-                  <label class="rw-field"><span>关键词 / 别名</span><input class="rw-input" name="world_keywords" maxlength="300" placeholder="逗号分隔；姓名会自动作为关键词"></label>
-                  <label class="rw-field"><span>种族</span><input class="rw-input" name="world_race" maxlength="120" placeholder="例如：人类"></label>
-                  <label class="rw-field"><span>身份</span><input class="rw-input" name="world_identity" maxlength="300" placeholder="可填写多个，逗号分隔"></label>
-                  <label class="rw-field"><span>职业</span><input class="rw-input" name="world_occupation" maxlength="160" placeholder="例如：剑士"></label>
-                  <label class="rw-field"><span>层级</span><select class="rw-select" name="world_rank"><option>Ⅰ</option><option>Ⅱ</option><option>Ⅲ</option><option>Ⅳ</option><option>Ⅴ</option><option>Ⅵ</option><option>Ⅶ</option><option>Ⅷ</option><option>Ⅸ</option></select></label>
-                </div>
-                <label class="rw-field"><span>性格</span><textarea class="rw-textarea" name="world_personality" maxlength="1600" placeholder="稳定的人格与行为倾向。"></textarea></label>
-                <label class="rw-field"><span>外貌</span><textarea class="rw-textarea" name="world_appearance" maxlength="1600" placeholder="外貌、衣着与显著特征。"></textarea></label>
-                <label class="rw-field"><span>背景故事</span><textarea class="rw-textarea" name="world_background" maxlength="4000" placeholder="人物经历、关系和重要背景。"></textarea></label>
-                <label class="rw-field"><span>补充设定</span><textarea class="rw-textarea" name="world_notes" maxlength="4000" placeholder="能力、习惯、当前立场等其他需要写入世界书的内容。"></textarea></label>
-              </div>
-
-              <div class="rw-special-editor" data-publish-panel="opening_character" hidden>
-                <div class="rw-special-editor-head"><strong data-role="opening-editor-title">开局角色</strong><small>填写原始构筑；最终属性、真属性与 HP/EP 由当前版本重新计算。</small></div>
-                <div class="rw-special-grid">
-                  <label class="rw-field"><span>姓名 *</span><input class="rw-input" name="opening_name" maxlength="80" placeholder="角色或伙伴姓名"></label>
-                  <label class="rw-field"><span>种族</span><input class="rw-input" name="opening_race" maxlength="120" value="人类"></label>
-                  <label class="rw-field"><span>身份</span><input class="rw-input" name="opening_identity" maxlength="300" placeholder="多个身份用逗号分隔"></label>
-                  <label class="rw-field"><span>职业名称</span><input class="rw-input" name="opening_occupation_name" maxlength="160" placeholder="例如：剑士"></label>
-                  <label class="rw-field"><span>职业类型</span><select class="rw-select" name="opening_occupation_type"><option value="战斗">战斗</option><option value="生活">生活</option><option value="辅助" selected>辅助</option></select></label>
-                  <label class="rw-field"><span>职业特性</span><input class="rw-input" name="opening_occupation_traits" maxlength="300" placeholder="多个特性用逗号分隔"></label>
-                  <label class="rw-field"><span>职业来源</span><input class="rw-input" name="opening_occupation_source" maxlength="300" placeholder="例如：主神空间"></label>
-                  <label class="rw-field"><span>层级</span><select class="rw-select" name="opening_rank"><option>Ⅰ</option><option>Ⅱ</option><option>Ⅲ</option><option>Ⅳ</option><option>Ⅴ</option><option>Ⅵ</option><option>Ⅶ</option><option>Ⅷ</option><option>Ⅸ</option></select></label>
-                </div>
-                <div data-role="opening-partner-profile" hidden>
-                  <div class="rw-special-subtitle">伙伴人设</div>
-                  <label class="rw-field"><span>性格</span><textarea class="rw-textarea" name="opening_personality" maxlength="1600"></textarea></label>
-                  <label class="rw-field"><span>喜爱</span><textarea class="rw-textarea" name="opening_likes" maxlength="1000"></textarea></label>
-                  <label class="rw-field"><span>背景故事</span><textarea class="rw-textarea" name="opening_background" maxlength="4000"></textarea></label>
-                </div>
-                <div class="rw-special-subtitle">原始构筑</div>
-                <div class="rw-special-json-grid">
-                  <label class="rw-field"><span>血统</span><textarea class="rw-textarea rw-code-input" name="opening_bloodline" spellcheck="false" placeholder='{}'></textarea></label>
-                  <label class="rw-field"><span>技能</span><textarea class="rw-textarea rw-code-input" name="opening_skills" spellcheck="false" placeholder='{}'></textarea></label>
-                  <label class="rw-field"><span>装备</span><textarea class="rw-textarea rw-code-input" name="opening_equipment" spellcheck="false" placeholder='{}'></textarea></label>
-                  <label class="rw-field"><span>状态</span><textarea class="rw-textarea rw-code-input" name="opening_status" spellcheck="false" placeholder='{}'></textarea></label>
-                  <label class="rw-field"><span>形态库</span><textarea class="rw-textarea rw-code-input" name="opening_forms" spellcheck="false" placeholder='{}'></textarea></label>
-                  <label class="rw-field"><span>当前形态</span><textarea class="rw-textarea rw-code-input" name="opening_current_form" spellcheck="false" placeholder='{"激活":false,"名称":""}'></textarea></label>
-                </div>
-                <div class="rw-local-note">这些字段填写 MVU 原始数据对象；不包含道具、空间币、最终属性、真属性、HP/EP、任务或世界状态。</div>
-              </div>
-
-              <div class="rw-special-editor" data-publish-panel="store_catalog" hidden>
-                <div class="rw-special-editor-head"><strong>开局商店</strong><small>单独维护装备、道具、技能商品；发布后安装到开局商店目录。</small></div>
-                <label class="rw-field"><span>装备商品</span><textarea class="rw-textarea rw-code-input rw-store-input" name="store_equipments" spellcheck="false" placeholder='[{"id":"sword_1","name":"示例长剑","tier":"F","cost":100,"type":0,"tags":[],"attrs":{},"effects":{},"desc":""}]'></textarea></label>
-                <label class="rw-field"><span>道具商品</span><textarea class="rw-textarea rw-code-input rw-store-input" name="store_items" spellcheck="false" placeholder='[{"id":"item_1","name":"示例道具","tier":"F","cost":50,"type":"消耗","tags":[],"effects":{},"desc":""}]'></textarea></label>
-                <label class="rw-field"><span>技能商品</span><textarea class="rw-textarea rw-code-input rw-store-input" name="store_skills" spellcheck="false" placeholder='[{"id":"skill_1","name":"示例技能","tier":"F","cost":80,"type":0,"tags":[],"effects":{},"desc":"","consume":""}]'></textarea></label>
-                <div class="rw-local-note">每栏填写 JSON 数组；至少有一栏包含商品。这里不会生成或修改世界书、正则、脚本。</div>
-              </div>
+              <div data-role="dedicated-editor-host" hidden></div>
 
               <div data-role="publish-resource-section">
                 <div class="rw-publish-divider"></div>

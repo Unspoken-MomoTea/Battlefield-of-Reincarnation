@@ -3,7 +3,6 @@ import { createResourceStateEditor } from '../../ui/resource-state-editor.js';
 import { createSmartArtifactQueue } from '../../ui/smart-artifact-queue.js';
 import {
   buildDedicatedArtifacts,
-  isDedicatedPublishMode,
   resolvePublishMode,
 } from './publish-templates.js';
 

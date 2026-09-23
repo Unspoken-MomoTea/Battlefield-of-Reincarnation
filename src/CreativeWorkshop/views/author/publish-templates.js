@@ -133,20 +133,27 @@ function openingBuild(source, mode) {
     },
   };
 
+  const skillRows = Array.isArray(source?.opening_skills)
+    ? source.opening_skills.slice(0, 2)
+    : [1, 2].map(index => ({
+        name: read(source, `opening_skill_${index}_name`),
+        type: read(source, `opening_skill_${index}_type`),
+        consume: read(source, `opening_skill_${index}_consume`),
+        effectName: read(source, `opening_skill_${index}_effect_name`),
+        effectDesc: read(source, `opening_skill_${index}_effect_desc`),
+        desc: read(source, `opening_skill_${index}_desc`),
+      }));
   const skills = {};
-  for (let index = 1; index <= 2; index += 1) {
-    const name = read(source, `opening_skill_${index}_name`);
+  for (const row of skillRows) {
+    const name = String(row?.name || '').trim();
     if (!name) continue;
     skills[name] = {
       品质: autoQuality,
-      类型: Math.max(0, Math.min(2, Number(read(source, `opening_skill_${index}_type`)) || 0)),
+      类型: Math.max(0, Math.min(2, Number(row?.type) || 0)),
       标签: [],
-      效果: effect(
-        read(source, `opening_skill_${index}_effect_name`),
-        read(source, `opening_skill_${index}_effect_desc`),
-      ),
-      描述: read(source, `opening_skill_${index}_desc`),
-      消耗: read(source, `opening_skill_${index}_consume`),
+      效果: effect(row?.effectName, row?.effectDesc),
+      描述: String(row?.desc || '').trim(),
+      消耗: String(row?.consume || '').trim(),
     };
   }
 
@@ -379,16 +386,17 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
       ])),
     };
 
-    for (let index = 1; index <= 2; index += 1) {
-      const [name, skill = {}] = skills[index - 1] || ['', {}];
+    result.opening_skills = skills.map(([name, skill = {}]) => {
       const [effectName, effectDesc] = firstEffect(skill.效果);
-      result[`opening_skill_${index}_name`] = name;
-      result[`opening_skill_${index}_type`] = String(Math.max(0, Math.min(2, Number(skill.类型) || 0)));
-      result[`opening_skill_${index}_consume`] = skill.消耗 || '';
-      result[`opening_skill_${index}_effect_name`] = effectName;
-      result[`opening_skill_${index}_effect_desc`] = effectDesc;
-      result[`opening_skill_${index}_desc`] = skill.描述 || '';
-    }
+      return {
+        name,
+        type: String(Math.max(0, Math.min(2, Number(skill.类型) || 0))),
+        consume: skill.消耗 || '',
+        effectName,
+        effectDesc,
+        desc: skill.描述 || '',
+      };
+    });
 
     if (mode === 'opening_partner') {
       result.opening_partner_equipment = Object.entries(build.装备 || {}).map(([name, item]) => ({

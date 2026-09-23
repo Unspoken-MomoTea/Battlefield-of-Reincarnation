@@ -1225,6 +1225,24 @@ export const WORKSHOP_CSS = `
   .rw-protection-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c9c6bf;font-size:10px}
   .rw-protection-copy span{color:#77756f;font-size:9px;line-height:1.45}
 
+  .rw-special-editor{
+    display:grid;gap:14px;padding:14px;border:1px solid rgba(212,173,104,.16);border-radius:12px;
+    background:linear-gradient(180deg,rgba(212,173,104,.035),rgba(255,255,255,.012))
+  }
+  .rw-special-editor[hidden]{display:none!important}
+  .rw-special-editor-head{display:grid;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--rw-line)}
+  .rw-special-editor-head strong{color:#e4ded4;font-size:14px}
+  .rw-special-editor-head small{color:#77746e;font-size:10px;line-height:1.55}
+  .rw-special-grid,.rw-special-json-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+  .rw-special-subtitle{
+    margin-top:2px;padding-top:12px;border-top:1px solid var(--rw-line);
+    color:#caae7e;font-size:10px;font-weight:850;letter-spacing:.08em
+  }
+  .rw-code-input{
+    min-height:112px;font:11px/1.55 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+    tab-size:2;white-space:pre
+  }
+  .rw-store-input{min-height:145px}
   .rw-local-note{
     margin:-3px 0 12px;padding:9px 11px;border:1px solid var(--rw-line);border-radius:10px;
     background:rgba(255,255,255,.018);color:var(--rw-muted);font-size:11px;line-height:1.55
@@ -1318,6 +1336,8 @@ export const WORKSHOP_CSS = `
     .rw-publish-footer{align-items:flex-start;flex-direction:column}
     .rw-publish-footer .rw-row{width:100%;justify-content:flex-end}
     .rw-publish-upload-slots{grid-template-columns:1fr}
+    .rw-special-grid,.rw-special-json-grid{grid-template-columns:1fr}
+    .rw-special-editor{padding:12px}
     .rw-smart-dropzone--compact{min-height:82px}
     .rw-smart-artifact-row{grid-template-columns:30px minmax(0,1fr)}
     .rw-smart-artifact-controls{grid-column:1/-1;justify-content:flex-end;flex-wrap:wrap}

@@ -57,7 +57,22 @@ test('specialized editor source is form-driven and contains no JSON code textare
   assert.match(source, /删除/u);
   assert.match(source, /最多 2 项/u);
   assert.match(source, /OPENING_RANKS = \['Ⅰ', 'Ⅱ', 'Ⅲ'\]/u);
-  assert.match(source, /QUALITIES = \['F', 'E', 'D'\]/u);
+  assert.match(source, /STORE_QUALITIES = \['F', 'E', 'D'\]/u);
+  assert.match(source, /budget = partner \? 16 : 8/u);
+  assert.match(source, /\+ 添加效果/u);
+  assert.match(source, /if \(state\.length >= max\) return/u);
+  assert.match(source, /\+ 添加装备/u);
   assert.doesNotMatch(source, /JSON\.parse/u);
   assert.doesNotMatch(source, /rw-code-input/u);
+});
+
+
+test('creator styles hide the character subtype outside character category and keep compact grids inside bounds', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const source = fs.readFileSync(fileURLToPath(new URL('../ui/styles.js', import.meta.url)), 'utf8');
+  assert.match(source, /\.rw-field\[hidden\]\{display:none!important\}/u);
+  assert.match(source, /\.rw-field>\.rw-input,[\s\S]*max-width:100%/u);
+  assert.match(source, /\.rw-point-grid\{[\s\S]*repeat\(auto-fit,minmax\(82px,1fr\)\)/u);
+  assert.match(source, /\.rw-store-attr-grid,[\s\S]*repeat\(auto-fit,minmax\(78px,1fr\)\)/u);
 });

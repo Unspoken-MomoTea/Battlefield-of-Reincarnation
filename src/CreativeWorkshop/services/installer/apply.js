@@ -27,16 +27,27 @@ export async function applyProject({ adapter, storage }, projectId) {
     (oldTargets.originalWorldbookChanges?.length ?? 0) +
     (oldTargets.originalRegexChanges?.length ?? 0) +
     (oldTargets.originalScriptChanges?.length ?? 0);
+  const installableDataCount = plan.data.reduce((count, artifact) => {
+    const values = Array.isArray(artifact?.content) ? artifact.content : [artifact?.content];
+    return count + values.filter(value =>
+      value && typeof value === 'object' && (
+        (['opening_character','opening_partner'].includes(value.kind) && value.build && typeof value.build === 'object') ||
+        (value.kind === 'store_catalog' && value.catalog && typeof value.catalog === 'object')
+      )
+    ).length;
+  }, 0);
   if (
     !plan.worldbook.length &&
     !plan.regexes.length &&
     !plan.presets.length &&
     !scriptCount &&
-    !plan.data.length &&
+    !installableDataCount &&
     !stateOverrideCount &&
     !oldManagedCount
   ) {
-    throw new Error('这个作品目前只有 data artifact，没有可直接安装到酒馆的内容');
+    throw new Error(plan.data.length
+      ? '这个作品只有普通 data artifact，没有可安装的开局角色、伙伴或商店内容'
+      : '这个作品没有可直接安装到酒馆的内容');
   }
 
   const characterNeeded = Boolean(

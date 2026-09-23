@@ -258,7 +258,20 @@ export function createAuthorProjectEditor({
           field('姓名 *', makeInput('opening_name', dedicatedValues.opening_name)),
           field('种族', makeInput('opening_race', dedicatedValues.opening_race || '人类')),
           field('身份', makeInput('opening_identity', dedicatedValues.opening_identity)),
-          field('职业', makeInput('opening_occupation', dedicatedValues.opening_occupation)),
+          field('职业名称', makeInput('opening_occupation_name', dedicatedValues.opening_occupation_name)),
+          field('职业类型', (() => {
+            const select = element('select', 'rw-select');
+            select.name = 'opening_occupation_type';
+            for (const value of ['战斗','生活','辅助']) {
+              const option = doc.createElement('option');
+              option.value = value; option.textContent = value;
+              option.selected = value === (dedicatedValues.opening_occupation_type || '辅助');
+              select.appendChild(option);
+            }
+            return select;
+          })()),
+          field('职业特性', makeInput('opening_occupation_traits', dedicatedValues.opening_occupation_traits)),
+          field('职业来源', makeInput('opening_occupation_source', dedicatedValues.opening_occupation_source)),
           field('层级', rank),
         );
         special.appendChild(gridNode);

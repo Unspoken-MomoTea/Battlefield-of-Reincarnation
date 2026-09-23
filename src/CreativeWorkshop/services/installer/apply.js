@@ -31,7 +31,7 @@ export async function applyProject({ adapter, storage }, projectId) {
     const values = Array.isArray(artifact?.content) ? artifact.content : [artifact?.content];
     return count + values.filter(value =>
       value && typeof value === 'object' && (
-        (['opening_character','opening_partner'].includes(value.kind) && value.build && typeof value.build === 'object') ||
+        (['opening_character','opening_partner'].includes(value.kind) && (value.build || value.character) && typeof (value.build || value.character) === 'object') ||
         (value.kind === 'store_catalog' && value.catalog && typeof value.catalog === 'object')
       )
     ).length;

@@ -1199,12 +1199,23 @@
         renderOpeningCharacterLibrary();
     }
     function setPartnerMode(mode) {
-        partnerMode=mode==='custom'?'custom':'library';
+        const nextMode=mode==='custom'?'custom':'library';
+        if(nextMode!==partnerMode && partnerCostPaid>0){
+            currentCoins+=partnerCostPaid;
+            partnerCostPaid=0;
+            $('val-coins').innerText=currentCoins;
+            renderSelectedPanel();
+        }
+        if(nextMode!==partnerMode){
+            selectedPartner=null;
+            selectedOpeningPartner=null;
+            useCustomPartnerFlag=false;
+        }
+        partnerMode=nextMode;
         $('partner-mode-custom')?.classList.toggle('active',partnerMode==='custom');
         $('partner-mode-library')?.classList.toggle('active',partnerMode==='library');
         if($('custom-partner-form')) $('custom-partner-form').style.display=partnerMode==='custom'?'':'none';
         if($('opening-partner-library')) $('opening-partner-library').style.display=partnerMode==='library'?'':'none';
-        if(partnerMode==='library'){ useCustomPartnerFlag=false; selectedPartner=selectedOpeningPartner?'library':null; }
         renderOpeningPartnerLibrary(); updateBgSummary();
     }
     function selectOpeningCharacter(id) {

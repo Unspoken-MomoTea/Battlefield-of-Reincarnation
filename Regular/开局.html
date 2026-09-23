@@ -1783,7 +1783,9 @@
 
     // ===== 伙伴 =====
     function renderPartners() {
-        $('grid-partner').innerHTML = `<div class="empty-message" style="grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--text-sub);font-size:1rem;font-style:normal;">暂无可选对象</div>`;
+        // 旧版 grid-partner 已由“开局伙伴库 / 自定义伙伴”双模式替代。
+        // 保留兼容入口给初始化与预设恢复流程调用，避免访问已经删除的 DOM。
+        renderOpeningPartnerLibrary();
     }
     function selectPartner(id) {
         selectedPartner = (selectedPartner === id) ? null : id;

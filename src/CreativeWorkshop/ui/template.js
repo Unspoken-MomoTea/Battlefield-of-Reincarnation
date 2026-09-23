@@ -196,6 +196,12 @@ export function workshopTemplate(version) {
                     <small>选择 JS 或 ScriptTree JSON</small>
                     <input data-field="create-script" type="file" multiple accept=".js,.mjs,.json,application/json,text/javascript,application/javascript" hidden>
                   </label>
+                  <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-data">
+                    <span class="rw-smart-dropzone-icon">数</span>
+                    <strong>开局数据</strong>
+                    <small>角色资产 / 伙伴 / 商店 Catalog JSON</small>
+                    <input data-field="create-data" type="file" multiple accept=".json,application/json" hidden>
+                  </label>
                 </div>
                 <input data-field="create-version" type="file" multiple hidden>
                 <div class="rw-file-state" data-role="create-version-state">选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。</div>

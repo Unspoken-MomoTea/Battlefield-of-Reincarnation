@@ -1,3 +1,4 @@
+import { removeOpeningAssetsByProject } from '../../../opening/character-assets/registry.js';
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { restoreOriginalWorldbookConflicts } from './original-conflicts.js';
@@ -97,6 +98,8 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       state,
     );
 
+    await removeOpeningAssetsByProject(installed.id);
+
     const next = {
       ...installed,
       applied: false,
@@ -116,6 +119,7 @@ export async function uninstallProject({ adapter, storage }, projectId) {
         ...scriptRestoreResult.unrestored,
       ],
       applyError: '',
+      openingAssetCount: 0,
       updatedAt: Date.now(),
     };
     await storage.putInstalledProject(next);

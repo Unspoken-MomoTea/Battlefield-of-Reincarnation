@@ -340,6 +340,12 @@ function storeEditor(doc, initial, emit) {
         emit();
       };
 
+      price.addEventListener('change', () => {
+        const floor = STORE_PRICE_FLOOR[quality.value] || 50;
+        const next = Math.max(floor, Math.min(1000, Number(price.value) || 0));
+        price.value = String(next);
+        sync();
+      });
       quality.addEventListener('change', () => {
         const floor = STORE_PRICE_FLOOR[quality.value] || 50;
         price.min = String(floor);

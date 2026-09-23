@@ -47,3 +47,19 @@ const secondPortraitSeed=journey.indexOf('applyOpeningDefaultPortraits();',mvuRe
 assert.ok(firstPortraitSeed>=0 && mvuReplace>firstPortraitSeed,'default portraits are seeded before the MVU refresh');
 assert.ok(secondPortraitSeed>mvuReplace,'default portraits are restored after the MVU refresh if the statusbar clears a fresh-game portrait');
 console.log('PASS opening page compile and integration seams');
+
+
+assert.doesNotMatch(html,/\+ 招募自定义伙伴/,'custom partner mode no longer adds a redundant collapsible header');
+assert.doesNotMatch(html,/onclick="toggleCustomPartner\(\)"/,'custom partner mode has no obsolete accordion toggle');
+assert.match(html,/class="custom-partner-direct" id="custom-partner-form"/,'custom partner form renders directly when its mode is selected');
+assert.match(html,/if\(partnerMode==='custom'\) updatePartnerBuildBtnState\(\);/,'direct custom partner form initializes its price state');
+
+assert.match(html,/types\.push\(\{ v:'__workshop__', label:'创意工坊' \}\)/,'installed workshop store content gets an explicit sidebar entry');
+assert.match(html,/activeSubCategory === '__workshop__'/,'workshop sidebar entry shows installed workshop goods regardless of builtin subtype');
+assert.match(html,/function availableRarities\(\)/,'opening derives rarity tabs from actual visible merchandise');
+assert.match(html,/if \(rarities\.length === 1\) activeRarity = rarities\[0\];/,'single available rarity does not keep redundant all-level tabs');
+assert.match(html,/DB\.rarityList\.filter\(r => present\.has\(r\)\)/,'rarity buttons omit levels with no merchandise');
+assert.match(html,/opening_store_catalogs/,'opening loads installed workshop store catalogs');
+assert.match(html,/DB\.equipments\.some\(e=>e\.id===i\.id\)/,'selected workshop equipment is exported through the normal equipment path');
+assert.match(html,/DB\.items\.some\(e=>e\.id===i\.id\)/,'selected workshop items are exported through the normal item path');
+assert.match(html,/DB\.skills\.some\(e=>e\.id===i\.id\)/,'selected workshop skills are exported through the normal skill path');

@@ -1218,7 +1218,7 @@
         renderOpeningPartnerLibrary(); updateBgSummary(); showToast('已选择开局伙伴：'+(asset.name||'未命名'));
     }
 
-    Promise.all([loadOpeningAssets(), loadOpeningStoreCatalogs()]).then(() => {
+    const openingDataReady = Promise.all([loadOpeningAssets(), loadOpeningStoreCatalogs()]).then(() => {
         renderSubCategories(); renderRarityFilter(); renderItems();
     });
 
@@ -2535,10 +2535,15 @@
                 }
                 
                 _set(c, 'stat_data.角色.道具', itemObj);
-                if (!openingCharacterBuild) {
-                    _set(c, 'stat_data.角色.装备', equipObj);
-                    _set(c, 'stat_data.角色.技能', skillObj);
-                }
+                // 角色库提供基础构筑；本次开局商店购买的装备/技能继续叠加，不能被角色模板吞掉。
+                const mergedEquip = openingCharacterBuild
+                    ? { ...structuredClone(openingCharacterBuild.装备 || {}), ...equipObj }
+                    : equipObj;
+                const mergedSkills = openingCharacterBuild
+                    ? { ...structuredClone(openingCharacterBuild.技能 || {}), ...skillObj }
+                    : skillObj;
+                _set(c, 'stat_data.角色.装备', mergedEquip);
+                _set(c, 'stat_data.角色.技能', mergedSkills);
                 
                 // 自定义角色才创建初始血统；角色库资产保留其完整原始构筑
                 if (!openingCharacterBuild) _set(c, `stat_data.角色.血统.${bloodlineName}`, {
@@ -2694,7 +2699,11 @@ ${partnerNode && !partnerIsCompleteAsset ? `[协同实体补全指令]：角色�
         }
     }
 
-    init();
+    // 等工坊安装的角色/伙伴/商店 Catalog 读取完成后再初始化。
+    // 这样预设恢复不会在 openingAssets 尚未就绪时把已选资产 ID 丢掉。
+    openingDataReady.catch(error => {
+        console.warn('[轮回战场开局] 开局扩展资料初始化失败，将使用核心资料继续启动', error);
+    }).finally(() => init());
 </script>
 </body>
 </html>

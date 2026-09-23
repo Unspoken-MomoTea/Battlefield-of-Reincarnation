@@ -61,9 +61,10 @@ R2 → bundle / manifest / 封面
 7. 已公开版本不会因为新草稿或驳回而消失。
 8. 作者公开可见性（owner_hidden）与管理员审核状态分离：作者可自助下架/重新上架而不锁死更新；管理员 archived 仍可阻止重新公开。
 9. 作者更新以“上一版 bundle + 当前元数据”为基线，不要求重建完整包；新文件按同名 artifact 替换，未改内容与上一版 `resource_overrides` 自动继承。把规则切回“保持”就是显式取消。
-10. production / staging 不只从 D1 / KV / R2 隔离，客户端热更也必须隔离：staging 固定跟踪 `main`，production 固定跟踪 `workshop-stable`；任何正式客户端代码都只能通过显式 stable promotion 进入。
-11. production 部署默认拒绝 main：正式部署脚本要求本地 HEAD 精确等于远端 `workshop-stable`、正式 Cloudflare 资源已配置，并再次输入 `PRODUCTION` 确认。
-12. 数据库升级使用 migration，不靠重复执行完整 schema。
+10. production / staging 共用同一套 D1 / KV / R2，避免 Cloudflare 免费/低配额度被双份数据占用；两者只隔离 Worker 名称、API 域名和客户端更新通道：staging 固定跟踪 `main`，production 固定跟踪 `workshop-stable`。
+11. 因为两套 Worker 共用 D1，main 上的 migration 必须保持向后兼容：stable 跟进前只允许增表、增列、增索引等兼容变化，禁止提前删除/改名旧字段或改变旧字段语义。
+12. production 部署默认拒绝 main：正式部署脚本要求本地 HEAD 精确等于远端 `workshop-stable`，并再次输入 `PRODUCTION` 确认。
+13. 数据库升级使用 migration，不靠重复执行完整 schema。
 
 ---
 
@@ -73,7 +74,7 @@ R2 → bundle / manifest / 封面
 
 - Cloudflare Worker + D1 + KV + R2。
 - Discord OAuth。
-- production / staging 分离。
+- production / staging 的 Worker、域名与客户端更新通道分离；D1 / KV / R2 按本项目额度约束共用一套。
 - 项目创建、上传、审核、发布的完整生命周期。
 - 作者项目与管理员审核分离。
 - 审核详情可以查看实际 R2 内容。

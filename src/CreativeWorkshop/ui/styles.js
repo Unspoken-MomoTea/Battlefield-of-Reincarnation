@@ -1254,24 +1254,27 @@ export const WORKSHOP_CSS = `
   .rw-store-attr-grid .rw-field,.rw-opening-attr-grid .rw-field{gap:4px;min-width:0}
   .rw-store-attr-grid .rw-field>span,.rw-opening-attr-grid .rw-field>span{font-size:9px}
   .rw-point-allocator{min-width:0;display:grid;gap:9px}
-  .rw-point-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .rw-point-head strong{color:#cfcac1;font-size:10px}
+  .rw-point-head{display:flex;align-items:center;justify-content:flex-end;gap:10px}
   .rw-point-remaining{flex:none;color:#caae7e;font-size:10px;font-weight:800}
   .rw-point-grid{
-    min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(82px,1fr));gap:8px
+    min-width:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:8px
   }
   .rw-point-card{
-    min-width:0;display:grid;gap:6px;padding:8px;border:1px solid var(--rw-line);border-radius:9px;background:#111216
+    min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:9px 11px;border:1px solid var(--rw-line);border-left:3px solid rgba(212,173,104,.45);
+    border-radius:9px;background:#111216
   }
-  .rw-point-card>strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#aaa69e;font-size:9px}
-  .rw-point-tier{color:#d0b47f;font-size:11px;font-weight:850}
-  .rw-point-controls{min-width:0;display:grid;grid-template-columns:28px minmax(24px,1fr) 28px;align-items:center;gap:4px}
+  .rw-point-card>strong{flex:none;color:#aaa69e;font-size:10px}
+  .rw-point-controls{min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:7px}
+  .rw-point-tier{
+    min-width:42px;padding:4px 9px;border:1px solid rgba(212,173,104,.16);border-radius:7px;
+    background:rgba(212,173,104,.055);color:#d0b47f;text-align:center;font-size:11px;font-weight:850
+  }
   .rw-point-button{
-    width:28px;height:28px;padding:0;border:1px solid var(--rw-line);border-radius:7px;background:#18191d;color:#c8c4bc;
+    flex:none;width:28px;height:28px;padding:0;border:1px solid var(--rw-line);border-radius:7px;background:#18191d;color:#c8c4bc;
     cursor:pointer;font:800 15px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif
   }
   .rw-point-button:disabled{opacity:.32;cursor:not-allowed}
-  .rw-point-value{text-align:center;color:#e6e0d7;font-size:11px;font-weight:850}
   .rw-auto-quality{
     box-sizing:border-box;min-height:38px;display:flex;align-items:center;padding:0 10px;border:1px solid rgba(212,173,104,.18);
     border-radius:9px;background:rgba(212,173,104,.055);color:#d8b77e;font-size:11px;font-weight:800
@@ -1394,7 +1397,7 @@ export const WORKSHOP_CSS = `
     .rw-publish-upload-slots{grid-template-columns:1fr}
     .rw-special-grid,.rw-special-json-grid{grid-template-columns:1fr}
     .rw-store-attr-grid,.rw-opening-attr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .rw-point-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .rw-point-grid{grid-template-columns:1fr}
     .rw-effect-row{grid-template-columns:1fr}
     .rw-effect-remove{justify-self:start}
     .rw-store-entry-head{align-items:stretch}

@@ -51,6 +51,7 @@ export function collectWorkshopNodes(overlay) {
     createWorldbook: query('[data-field="create-worldbook"]'),
     createRegex: query('[data-field="create-regex"]'),
     createScript: query('[data-field="create-script"]'),
+    createData: query('[data-field="create-data"]'),
     createCover: query('[data-field="create-cover"]'),
     createVersionState: query('[data-role="create-version-state"]'),
     createArtifactList: query('[data-role="create-artifact-list"]'),

@@ -11,8 +11,8 @@ for(const [name,source] of Object.entries({storage,assets,catalogs,opening})){
  assert.match(source,/(DB_VERSION = 4|indexedDB\.open\('reincarnation-workshop', 4\))/,name+' database v4');
  for(const store of ['opening_assets','opening_store_catalogs']) assert.ok(source.includes(store),name+' knows '+store);
 }
-for(const source of [storage,assets,catalogs]){
- for(const store of ['auth','installed_projects','meta']) assert.ok(source.includes(store),'upgrade path preserves '+store);
+for(const [name,source] of Object.entries({storage,assets,catalogs,opening})){
+ for(const store of ['auth','installed_projects','meta']) assert.ok(source.includes(store),name+' upgrade path preserves '+store);
 }
 console.log('PASS opening/workshop IndexedDB v4 contract');
 // This contract intentionally runs on every main push.

@@ -35,8 +35,6 @@
       "bucket_name": "reincarnation-workshop-projects-staging"
     }
   ],
-  // Staging and production intentionally share DB/KV/R2.
-  // Only Worker/client code and update channels differ between environments.
   "env": {
     "staging": {
       "name": "reincarnation-workshop-staging",

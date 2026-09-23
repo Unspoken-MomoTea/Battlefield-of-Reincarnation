@@ -22,9 +22,10 @@
 
 ## Discord
 
-Discord Developer Portal 的 Redirect URL：
+Discord Developer Portal 需要同时登记两个 Redirect URL：
 
 ```text
+https://workshop-test.6661816.xyz/api/auth/discord/callback
 https://workshop.6661816.xyz/api/auth/discord/callback
 ```
 
@@ -66,21 +67,18 @@ DISCORD_CLIENT_SECRET=你的密钥
 ```bash
 npm run db:migrate:local
 npm run db:migrate:staging
-npm run db:migrate:remote
 ```
+
+远程只有这一份共享 D1；`db:migrate:staging` 会直接迁移测试服与正式服共同使用的数据。production Worker 部署时再次执行 migration 只会检查同一份迁移记录，通常为 no-op。
 
 ## 初始化 D1
 
-创建数据库后，将真实 ID 写入 `wrangler.jsonc`，然后执行：
-
-```bash
-npx wrangler d1 execute reincarnation_workshop --remote --file=schema.sql
-```
+当前远程共享数据库沿用早期测试环境名称 `reincarnation_workshop_staging`，不要再创建第二份 production 数据库。全新初始化时才执行完整 schema；已有数据只走 migration。
 
 本地：
 
 ```bash
-npx wrangler d1 execute reincarnation_workshop --local --file=schema.sql
+npx wrangler d1 execute reincarnation_workshop_staging --local --file=schema.sql
 npx wrangler dev
 ```
 

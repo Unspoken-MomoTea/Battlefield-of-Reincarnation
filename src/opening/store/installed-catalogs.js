@@ -1,6 +1,6 @@
-const DB_NAME = 'reincarnation_workshop';
+const DB_NAME = 'reincarnation-workshop';
 const STORE_NAME = 'opening_store_catalogs';
-const DB_VERSION = 6;
+const DB_VERSION = 4;
 
 function openDb() {
   return new Promise((resolve, reject) => {

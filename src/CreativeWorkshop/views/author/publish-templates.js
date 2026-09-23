@@ -3,6 +3,7 @@ const RANK_QUALITY = { 'Ⅰ': 'F', 'Ⅱ': 'E', 'Ⅲ': 'D' };
 const STORE_QUALITIES = new Set(['F', 'E', 'D']);
 const EQUIPMENT_ATTR_QUALITIES = new Set(['F', 'E', 'D', 'C', 'B', 'A']);
 const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
+const STORE_ITEM_TYPES = new Set(['消耗', '材料', '特殊']);
 const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const BLOOD_ATTRS = ['力量', '敏捷', '体质', '精神', '魅力'];
 
@@ -216,10 +217,29 @@ function validateStoreCatalog(catalog) {
       if (Object.keys(item.effects || {}).length > 2) {
         throw new Error(`${label}“${item.name}”最多只能填写 2 条效果`);
       }
+      const tags = Array.isArray(item.tags) ? item.tags : [];
+      if (!tags.every(tag => typeof tag === 'string' && tag.trim())) {
+        throw new Error(`${label}“${item.name}”标签格式无效`);
+      }
+      if (typeof item.consume !== 'string') {
+        throw new Error(`${label}“${item.name}”消耗必须是文本`);
+      }
       if (key === 'items') {
+        if (!STORE_ITEM_TYPES.has(String(item.type || ''))) {
+          throw new Error(`道具“${item.name}”类型必须是消耗、材料或特殊`);
+        }
         const quantity = Number(item.quantity);
         if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
           throw new Error(`道具“${item.name}”数量必须在 1-999 之间`);
+        }
+        if (typeof item.cd !== 'string') {
+          throw new Error(`道具“${item.name}”冷却必须是文本`);
+        }
+      }
+      if (key === 'skills') {
+        const skillType = Number(item.type);
+        if (!Number.isInteger(skillType) || skillType < 0 || skillType > 2) {
+          throw new Error(`技能“${item.name}”类型必须是主动、被动或特殊`);
         }
       }
     }

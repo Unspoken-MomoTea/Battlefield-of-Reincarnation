@@ -1,6 +1,11 @@
 import { createDependencyPicker } from '../../ui/dependency-picker.js';
 import { createResourceStateEditor } from '../../ui/resource-state-editor.js';
 import { createSmartArtifactQueue } from '../../ui/smart-artifact-queue.js';
+import {
+  buildDedicatedArtifacts,
+  isDedicatedPublishMode,
+  resolvePublishMode,
+} from './publish-templates.js';
 
 export function bindCreateProjectFlow({
   host,
@@ -19,10 +24,42 @@ export function bindCreateProjectFlow({
   const projectType = nodes.createForm.querySelector('[name="category"]');
   const characterKindField = nodes.createForm.querySelector('[data-role="character-kind-field"]');
   const characterKind = nodes.createForm.querySelector('[name="character_kind"]');
+  const extensionKindField = nodes.createForm.querySelector('[data-role="extension-kind-field"]');
+  const extensionKind = nodes.createForm.querySelector('[name="extension_kind"]');
+  const publishPanels = [...nodes.createForm.querySelectorAll('[data-publish-panel]')];
+  const resourceSection = nodes.createForm.querySelector('[data-role="publish-resource-section"]');
+  const contentTitle = nodes.createForm.querySelector('[data-role="publish-content-title"]');
+  const contentHelp = nodes.createForm.querySelector('[data-role="publish-content-help"]');
+  const openingPartnerProfile = nodes.createForm.querySelector('[data-role="opening-partner-profile"]');
+  const openingEditorTitle = nodes.createForm.querySelector('[data-role="opening-editor-title"]');
 
-  const syncCharacterTemplate = () => {
-    if (!characterKindField) return;
-    characterKindField.hidden = projectType.value !== 'character';
+  const currentMode = () => resolvePublishMode(
+    projectType.value,
+    characterKind?.value,
+    extensionKind?.value,
+  );
+
+  const syncPublishTemplate = () => {
+    const category = projectType.value;
+    const mode = currentMode();
+    if (characterKindField) characterKindField.hidden = category !== 'character';
+    if (extensionKindField) extensionKindField.hidden = category !== 'extension';
+    publishPanels.forEach(panel => {
+      const panelMode = mode === 'opening_partner' ? 'opening_character' : mode;
+      panel.hidden = panel.dataset.publishPanel !== panelMode;
+    });
+    if (resourceSection) resourceSection.hidden = mode !== 'extension';
+    if (openingPartnerProfile) openingPartnerProfile.hidden = mode !== 'opening_partner';
+    if (openingEditorTitle) openingEditorTitle.textContent = mode === 'opening_partner' ? '开局伙伴' : '开局角色';
+    const copy = {
+      extension: ['扩展文件', '通用扩展可上传世界书、正则与酒馆助手脚本。'],
+      world_character: ['世界角色设定', '填写人物资料，系统自动生成世界书角色条目。'],
+      opening_character: ['开局角色数据', '填写角色原始构筑，系统自动生成开局角色资产。'],
+      opening_partner: ['开局伙伴数据', '填写伙伴原始构筑与人设，系统自动生成开局伙伴资产。'],
+      store_catalog: ['开局商店内容', '填写装备、道具与技能目录，系统自动生成商店 Catalog。'],
+    }[mode] || ['作品内容', '填写当前作品内容。'];
+    if (contentTitle) contentTitle.textContent = copy[0];
+    if (contentHelp) contentHelp.textContent = copy[1];
   };
   const submitButton = nodes.createForm.querySelector('button[type="submit"]');
   const localTestButton = nodes.createForm.querySelector('[data-action="create-project-local-test"]');
@@ -119,6 +156,7 @@ export function bindCreateProjectFlow({
       localTestButton.disabled = false;
       localTestButton.textContent = '保存到本地测试';
     }
+    syncPublishTemplate();
   };
 
   queue = createSmartArtifactQueue({
@@ -187,8 +225,10 @@ export function bindCreateProjectFlow({
   );
 
   nodes.createCover.addEventListener('change', renderCover);
-  projectType.addEventListener('change', syncCharacterTemplate);
-  syncCharacterTemplate();
+  projectType.addEventListener('change', syncPublishTemplate);
+  characterKind?.addEventListener('change', syncPublishTemplate);
+  extensionKind?.addEventListener('change', syncPublishTemplate);
+  syncPublishTemplate();
   const coverDrop = overlay.querySelector('[data-drop-target="create-cover"]');
   coverDrop.addEventListener('dragover', event => {
     event.preventDefault();
@@ -225,14 +265,14 @@ export function bindCreateProjectFlow({
   openButton?.addEventListener('click', () => {
     nodes.createForm.hidden = false;
     nodes.createForm.querySelector('[name="name"]')?.focus();
-    void resourceEditor.refresh();
+    if (currentMode() === 'extension') void resourceEditor.refresh();
   });
 
   const closeCreate = async () => {
     if (dirty) {
       const confirmed = await confirmDialog({
         title: '放弃这次编辑？',
-        message: '作品资料、已选择的文件、原版资源状态和封面都还没有提交。关闭后会清空当前草稿。',
+        message: '作品资料、当前填写内容和封面都还没有提交。关闭后会清空当前草稿。',
         confirmText: '放弃编辑',
         cancelText: '继续编辑',
         danger: true,
@@ -254,40 +294,15 @@ export function bindCreateProjectFlow({
     return details.length ? `${message}（${details.join(' · ')}）` : message;
   }
 
-  function withCharacterAsset(bundle, category, characterKind) {
-    if (category !== 'character') return bundle;
-    const kind = String(characterKind || 'world_character');
-    const hasDescriptor = bundle.artifacts.some(artifact =>
-      artifact.kind === 'data' &&
-      artifact.content &&
-      typeof artifact.content === 'object' &&
-      artifact.content.kind === kind
-    );
-    if (hasDescriptor) return bundle;
-    return {
-      ...bundle,
-      artifacts: [
-        ...bundle.artifacts,
-        {
-          kind: 'data',
-          name: '角色资产.json',
-          format: 'json',
-          content: { schema_version: 1, kind },
-        },
-      ],
-    };
-  }
-
-  function validateOpeningCharacterAsset(bundle, category, characterKind) {
-    if (category !== 'character' || !['opening_character','opening_partner'].includes(characterKind)) return;
-    const valid = bundle.artifacts.some(artifact => {
-      const value = artifact.kind === 'data' ? artifact.content : null;
-      const candidates = Array.isArray(value) ? value : [value];
-      return candidates.some(asset => asset && asset.kind === characterKind && (asset.build || asset.character));
-    });
-    if (!valid) throw new Error(characterKind === 'opening_character'
-      ? '开局角色必须上传包含 build 的角色资产 JSON'
-      : '开局伙伴必须上传包含 build 的伙伴资产 JSON');
+  function buildPublishBundle(form, name) {
+    const mode = currentMode();
+    if (mode === 'extension') {
+      if (!queue.count) throw new Error('请至少拖入一个扩展内容文件');
+      return queue.bundle(null, resourceEditor.values());
+    }
+    const artifacts = buildDedicatedArtifacts(form, mode, name);
+    if (!artifacts.length) throw new Error('当前作品没有可发布内容');
+    return { schema_version: 1, artifacts };
   }
 
   function setSubmitStatus(state, text) {
@@ -307,13 +322,14 @@ export function bindCreateProjectFlow({
       ? String(form.get('character_kind') || 'world_character')
       : '';
     const dependencies = dependencyPicker.values();
-    const resourceOverrides = resourceEditor.values();
 
     if (!name) return notifyError(new Error('请先填写作品名称'));
-    if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
-
-    const bundle = withCharacterAsset(queue.bundle(null, resourceOverrides), category, character_kind);
-    try { validateOpeningCharacterAsset(bundle, category, character_kind); } catch (error) { return notifyError(error); }
+    let bundle;
+    try {
+      bundle = buildPublishBundle(form, name);
+    } catch (error) {
+      return notifyError(error);
+    }
     void (async () => {
       localTestButton.disabled = true;
       localTestButton.textContent = '正在保存本地测试…';
@@ -365,13 +381,14 @@ export function bindCreateProjectFlow({
       .map(value => value.trim())
       .filter(Boolean);
     const dependencies = dependencyPicker.values();
-    const resourceOverrides = resourceEditor.values();
 
     if (!name) return notifyError(new Error('请先填写作品名称'));
-    if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
-
-    const bundle = withCharacterAsset(queue.bundle(null, resourceOverrides), category, character_kind);
-    try { validateOpeningCharacterAsset(bundle, category, character_kind); } catch (error) { return notifyError(error); }
+    let bundle;
+    try {
+      bundle = buildPublishBundle(form, name);
+    } catch (error) {
+      return notifyError(error);
+    }
     const cover = nodes.createCover.files?.[0] || null;
     const attemptKey = JSON.stringify({
       name,
@@ -380,8 +397,8 @@ export function bindCreateProjectFlow({
       character_kind,
       tags,
       dependencies,
-      resourceOverrides,
-      artifactNames: queue.artifacts().map(item => [item.kind, item.name, item.scope || '']),
+      publishMode: currentMode(),
+      artifactNames: bundle.artifacts.map(item => [item.kind, item.name, item.scope || '']),
       coverName: cover?.name || '',
       coverSize: Number(cover?.size || 0),
     });
@@ -415,7 +432,9 @@ export function bindCreateProjectFlow({
 
         if (!submitAttempt.versionUploaded) {
           submitButton.textContent = '正在上传内容…';
-          setSubmitStatus('working', '步骤 2/4 · 正在上传作品内容与原版资源状态…');
+          setSubmitStatus('working', currentMode() === 'extension'
+            ? '步骤 2/4 · 正在上传扩展内容与原版资源状态…'
+            : '步骤 2/4 · 正在上传专用作品数据…');
           await workshopApi.uploadProjectVersion(
             submitAttempt.projectId,
             { changelog: '', bundle },

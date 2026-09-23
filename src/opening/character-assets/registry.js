@@ -73,6 +73,17 @@ export async function listOpeningAssets(kind = '') {
   }
 }
 
+export function createOpeningAssetRecord(project, asset, index = 0, itemIndex = 0) {
+  return {
+    ...structuredClone(asset),
+    id: `${project.id}:${index}:${itemIndex}`,
+    sourceProjectId: project.id,
+    sourceProjectName: project.name,
+    sourceVersion: project.version,
+    avatarUrl: String(asset?.avatarUrl || project?.coverUrl || '').trim(),
+  };
+}
+
 export async function replaceProjectOpeningAssets(project, dataArtifacts = []) {
   const supported = dataArtifacts.flatMap((artifact, index) => {
     const values = Array.isArray(artifact?.content) ? artifact.content : [artifact?.content];
@@ -90,14 +101,7 @@ export async function replaceProjectOpeningAssets(project, dataArtifacts = []) {
   await removeOpeningAssetsByProject(project.id);
   let count = 0;
   for (const { asset, index, itemIndex } of supported) {
-      await putOpeningAsset({
-        ...structuredClone(asset),
-        id: `${project.id}:${index}:${itemIndex}`,
-        sourceProjectId: project.id,
-        sourceProjectName: project.name,
-        sourceVersion: project.version,
-        avatarUrl: String(asset.avatarUrl || project.coverUrl || '').trim(),
-      });
+      await putOpeningAsset(createOpeningAssetRecord(project, asset, index, itemIndex));
       count += 1;
   }
   return count;

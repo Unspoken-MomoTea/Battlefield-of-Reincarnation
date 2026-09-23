@@ -6,6 +6,26 @@ const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
 const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const ATTRIBUTES = ['力量', '敏捷', '体质', '精神', '魅力'];
 const STORE_ATTRIBUTES = ['力量', '敏捷', '体质', '精神', '魅力', 'ATK', 'DEF', 'MATK', 'MDEF', 'AP'];
+const STORE_EQUIPMENT_TYPES = [
+  { value: '0', label: '刀剑类' },
+  { value: '1', label: '枪矛类' },
+  { value: '2', label: '棍棒类' },
+  { value: '3', label: '机械类' },
+  { value: '4', label: '弓弩类' },
+  { value: '5', label: '盾牌类' },
+  { value: '6', label: '匕首短刃' },
+  { value: '7', label: '法杖魔导书' },
+  { value: '8', label: '圣典权杖' },
+  { value: '9', label: '特殊武器' },
+  { value: '10', label: '手部' },
+  { value: '11', label: '头部' },
+  { value: '12', label: '胸部' },
+  { value: '13', label: '腿部' },
+  { value: '14', label: '鞋子' },
+  { value: '15', label: '披风' },
+  { value: '16', label: '饰品' },
+  { value: '17', label: '世界遗物' },
+];
 const EQUIPMENT_TYPES = [
   { value: '0', label: '手持' },
   { value: '1', label: '手部' },
@@ -279,6 +299,11 @@ function storeEditor(doc, initial, emit) {
       card.appendChild(common);
 
       if (entry.kind === 'equipment') {
+        card.appendChild(field(
+          doc,
+          '装备类型',
+          makeSelect(doc, 'store_equipment_type', STORE_EQUIPMENT_TYPES, String(item.type ?? 0)),
+        ));
         card.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始属性'));
         const attrs = el(doc, 'div', 'rw-store-attr-grid');
         for (const attr of STORE_ATTRIBUTES) {
@@ -332,7 +357,12 @@ function storeEditor(doc, initial, emit) {
           desc: getValue(card, 'store_desc').trim(),
         };
         entry.item = entry.kind === 'equipment'
-          ? { ...base, type: 0, attrs: attrsValue, consume: '无' }
+          ? {
+              ...base,
+              type: Math.max(0, Math.min(17, Number(getValue(card, 'store_equipment_type')) || 0)),
+              attrs: attrsValue,
+              consume: '无',
+            }
           : entry.kind === 'item'
             ? { ...base, type: '特殊', quantity: Math.max(1, Math.min(999, Number(getValue(card, 'store_quantity')) || 1)), consume: '无', cd: '0' }
             : { ...base, type: 0, consume: '无' };

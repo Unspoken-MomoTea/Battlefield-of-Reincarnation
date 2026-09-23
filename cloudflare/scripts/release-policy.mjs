@@ -45,14 +45,20 @@ export function validateReleaseConfig(config, target) {
   if (/REPLACE_ME|00000000-0000-0000-0000-000000000000|00000000000000000000000000000000/u.test(JSON.stringify(env))) {
     throw new Error(`${expected.label}仍有占位配置，请先配置 D1 / KV / Discord Client ID`);
   }
-  for (const [key, value] of Object.entries({ DB: env.d1_databases, SESSION_KV: env.kv_namespaces, PROJECTS: env.r2_buckets })) {
+  const other = config.env?.[target === 'staging' ? 'production' : 'staging'];
+  for (const [key, value, otherValue] of [
+    ['DB', env.d1_databases, other?.d1_databases],
+    ['SESSION_KV', env.kv_namespaces, other?.kv_namespaces],
+    ['PROJECTS', env.r2_buckets, other?.r2_buckets],
+  ]) {
     const binding = value?.find(item => item.binding === key);
     const id = binding?.database_id ?? binding?.id ?? binding?.bucket_name;
     if (!id) throw new Error(`${expected.label}缺少 ${key} 资源`);
-    const other = config.env?.[target === 'staging' ? 'production' : 'staging'];
-    const resources = [...(other?.d1_databases ?? []), ...(other?.kv_namespaces ?? []), ...(other?.r2_buckets ?? [])];
-    if (resources.some(item => (item.database_id ?? item.id ?? item.bucket_name) === id)) {
-      throw new Error(`${key} 被测试服和正式服共用，拒绝更新`);
+
+    const otherBinding = otherValue?.find(item => item.binding === key);
+    const otherId = otherBinding?.database_id ?? otherBinding?.id ?? otherBinding?.bucket_name;
+    if (!otherId || otherId !== id) {
+      throw new Error(`${key} 必须由测试服和正式服共用同一资源`);
     }
   }
   if (!env.vars?.DISCORD_CLIENT_ID || !env.vars?.PUBLIC_BASE_URL) throw new Error('缺少 Discord / API 配置');

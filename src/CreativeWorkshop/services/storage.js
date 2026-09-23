@@ -1,7 +1,7 @@
 import { createDatabaseCoordinator } from './storage/lifecycle.js';
 
 const DB_NAME = 'reincarnation-workshop';
-const DB_VERSION = 4;
+const DB_VERSION = 3;
 const AUTH_STORE = 'auth';
 const INSTALLED_STORE = 'installed_projects';
 const META_STORE = 'meta';
@@ -89,8 +89,6 @@ function openDb() {
       if (!db.objectStoreNames.contains(AUTH_STORE)) db.createObjectStore(AUTH_STORE, { keyPath: 'key' });
       if (!db.objectStoreNames.contains(INSTALLED_STORE)) db.createObjectStore(INSTALLED_STORE, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(META_STORE)) db.createObjectStore(META_STORE, { keyPath: 'key' });
-      if (!db.objectStoreNames.contains('opening_assets')) db.createObjectStore('opening_assets', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('opening_store_catalogs')) db.createObjectStore('opening_store_catalogs', { keyPath: 'id' });
     };
     request.onsuccess = () => {
       clearBlockedTimer();

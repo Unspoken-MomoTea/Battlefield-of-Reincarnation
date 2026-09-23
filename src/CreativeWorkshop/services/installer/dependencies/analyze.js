@@ -2,7 +2,7 @@ function issue(type, extra = {}) {
   return { type, ...extra };
 }
 
-export async function analyzeProjectDependencies(installed, listInstalled, currentCharacter) {
+export async function analyzeProjectDependencies(installed, listInstalled) {
   const dependencies = Array.isArray(installed?.dependencies) ? installed.dependencies : [];
   if (!dependencies.length) return { blocking: [], warnings: [] };
 
@@ -34,11 +34,6 @@ export async function analyzeProjectDependencies(installed, listInstalled, curre
     }
 
     const appliedVersion = Number(local.appliedVersion || 0);
-    if (currentCharacter !== undefined && local.targetCharacterName && local.targetCharacterName !== currentCharacter) {
-      blocking.push(issue('dependency_character_mismatch', {
-        project_id: requiredId, name: local.name || requiredId, expected: local.targetCharacterName,
-      }));
-    }
     if (appliedVersion < minVersion) {
       blocking.push(issue('dependency_version_too_low', {
         project_id: requiredId,

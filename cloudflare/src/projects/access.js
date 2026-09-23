@@ -16,13 +16,7 @@ export async function getOwnedProject(env, projectId, user) {
 }
 
 export function assertAdmin(user) {
-  if (!Number(user?.is_admin)) throw new HttpError(403, 'admin_required', '需要主管理员权限');
-}
-
-export function assertReviewer(user) {
-  if (!Number(user?.is_admin) && !Number(user?.is_moderator)) {
-    throw new HttpError(403, 'moderator_required', '需要审核员权限');
-  }
+  if (!Number(user?.is_admin)) throw new HttpError(403, 'admin_required', '需要管理员权限');
 }
 
 export async function writeAdminAudit(env, user, { projectId = null, projectVersion = null, action, note = '' }) {

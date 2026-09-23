@@ -111,7 +111,7 @@ async function approve(env, author, admin, projectId, bundle) {
   );
 }
 
-test('admin diff compares author-published update against the previous public version', async () => {
+test('admin diff compares pending version against the current published version', async () => {
   const { env, author, admin, project } = await setup();
   await approve(env, author, admin, project.id, worldbook('主世界书', 'old'));
 
@@ -134,10 +134,11 @@ test('admin diff compares author-published update against the previous public ve
     author,
     project.id,
   );
+  await submitProjectForReview(env, author, project.id);
+
   const diff = await getAdminProjectDiff(env, admin, project.id);
   assert.equal(diff.base_version, 1);
   assert.equal(diff.target_version, 2);
-  assert.equal(diff.target_review_status, 'approved');
   assert.deepEqual(diff.metadata.name, { before: '名称 v1', after: '名称 v2' });
   assert.deepEqual(diff.metadata.tags, { before: ['old'], after: ['new'] });
   assert.equal(diff.artifacts.changed.length, 1);
@@ -170,6 +171,6 @@ test('non-admin cannot inspect review diffs', async () => {
   const { env, author, project } = await setup();
   await assert.rejects(
     () => getAdminProjectDiff(env, author, project.id),
-    error => error?.status === 403 && error?.code === 'moderator_required',
+    error => error?.status === 403 && error?.code === 'admin_required',
   );
 });

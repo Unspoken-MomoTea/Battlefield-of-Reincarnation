@@ -51,57 +51,32 @@ test('published project appears in public catalog and can be downloaded', async 
   assert.equal(download.artifacts[0].content.entries['0'].comment, 'v1');
 });
 
-test('approved project updates become public immediately after upload', async () => {
+test('new draft version does not replace the last approved public version', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);
   await publishVersion(env, author, admin, project.id, bundle('v1'));
-
-  const uploaded = await responseJson(
-    await uploadProjectVersion(
-      request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'v2', bundle: bundle('v2') }),
-      env,
-      author,
-      project.id,
-    ),
-  );
-  assert.equal(uploaded.auto_published, true);
+  await uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'v2', bundle: bundle('v2') }), env, author, project.id);
 
   const version = await responseJson(await getPublicProjectVersion(project.id, env));
-  assert.equal(version.version, 2);
+  assert.equal(version.version, 1);
   const download = await responseJson(await downloadPublicProject(project.id, env));
-  assert.equal(download.artifacts[0].name, 'v2');
+  assert.equal(download.artifacts[0].name, 'v1');
 });
 
-test('rejected first release remains unavailable to the public', async () => {
+test('rejected update keeps the previously approved version public', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);
-  await uploadProjectVersion(
-    request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'v1', bundle: bundle('v1') }),
-    env,
-    author,
-    project.id,
-  );
+  await publishVersion(env, author, admin, project.id, bundle('v1'));
+  await uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'v2', bundle: bundle('v2') }), env, author, project.id);
   await submitProjectForReview(env, author, project.id);
-  await reviewProject(
-    request(`/api/admin/projects/${project.id}/review`, 'POST', {
-      decision: 'rejected',
-      note: '格式需要修改',
-    }),
-    env,
-    admin,
-    project.id,
-  );
+  await reviewProject(request(`/api/admin/projects/${project.id}/review`, 'POST', { decision: 'rejected', note: '格式需要修改' }), env, admin, project.id);
 
-  await assert.rejects(
-    () => getPublicProjectVersion(project.id, env),
-    error => error?.status === 404 && error?.code === 'project_not_found',
-  );
-  const projectRow = env.DB.db.prepare(
-    'SELECT status, latest_version, published_version FROM projects WHERE id = ?',
-  ).get(project.id);
+  const version = await responseJson(await getPublicProjectVersion(project.id, env));
+  assert.equal(version.version, 1);
+  const projectRow = env.DB.db.prepare('SELECT status, latest_version, published_version FROM projects WHERE id = ?').get(project.id);
   assert.equal(projectRow.status, 'rejected');
-  assert.equal(Number(projectRow.latest_version), 1);
-  assert.equal(Number(projectRow.published_version), 0);
+  assert.equal(Number(projectRow.latest_version), 2);
+  assert.equal(Number(projectRow.published_version), 1);
 });
 
 test('author can assign normalized tags and public catalog can filter by tag', async () => {
@@ -134,7 +109,7 @@ test('author can assign normalized tags and public catalog can filter by tag', a
   assert.equal(missing.items.length, 0);
 });
 
-test('published metadata stays frozen until the author publishes the next version', async () => {
+test('published metadata remains frozen until a new version is approved', async () => {
   const { env, author, admin } = setup();
   const created = await responseJson(
     await createProject(
@@ -167,24 +142,37 @@ test('published metadata stays frozen until the author publishes the next versio
   assert.equal(detail.project.summary, '公开简介 v1');
   assert.deepEqual(detail.project.tags, ['v1']);
 
-  const uploaded = await responseJson(
-    await uploadProjectVersion(
-      request(`/api/projects/${project.id}/versions`, 'POST', {
-        changelog: 'metadata v2',
-        bundle: bundle('v2'),
-      }),
-      env,
-      author,
-      project.id,
-    ),
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', {
+      changelog: 'metadata v2',
+      bundle: bundle('v2'),
+    }),
+    env,
+    author,
+    project.id,
   );
-  assert.equal(uploaded.auto_published, true);
+  await submitProjectForReview(env, author, project.id);
+
+  detail = await responseJson(await getPublicProject(project.id, env));
+  assert.equal(detail.project.name, '公开名称 v1');
+  assert.deepEqual(detail.project.tags, ['v1']);
+
+  await reviewProject(
+    request(`/api/admin/projects/${project.id}/review`, 'POST', {
+      decision: 'approved',
+      note: '元数据与内容一起通过',
+    }),
+    env,
+    admin,
+    project.id,
+  );
 
   detail = await responseJson(await getPublicProject(project.id, env));
   assert.equal(detail.project.name, '草稿名称 v2');
   assert.equal(detail.project.summary, '草稿简介 v2');
   assert.deepEqual(detail.project.tags, ['v2']);
 });
+
 
 test('project type filters character and extension independently from artifact kinds', async () => {
   const { env, author, admin } = setup();
@@ -325,36 +313,43 @@ test('public detail exposes readable worldbook regex and script previews', async
   assert.match(detail.content_preview.scripts[0].content, /helper/u);
 });
 
-test('public detail summarizes an author-published update against the previous approved version', async () => {
+test('public detail summarizes changes against the previous approved version', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);
   await publishVersion(env, author, admin, project.id, bundle('v1'));
 
-  const uploaded = await responseJson(
-    await uploadProjectVersion(
-      request(`/api/projects/${project.id}/versions`, 'POST', {
-        changelog: '修改世界书正文',
-        bundle: {
-          schema_version: 1,
-          artifacts: [{
-            kind: 'worldbook',
-            name: 'v2',
-            format: 'json',
-            content: {
-              entries: {
-                0: { comment: 'v1', content: 'changed' },
-                1: { comment: '新增条目', content: 'new' },
-              },
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', {
+      changelog: '修改世界书正文',
+      bundle: {
+        schema_version: 1,
+        artifacts: [{
+          kind: 'worldbook',
+          name: 'v2',
+          format: 'json',
+          content: {
+            entries: {
+              0: { comment: 'v1', content: 'changed' },
+              1: { comment: '新增条目', content: 'new' },
             },
-          }],
-        },
-      }),
-      env,
-      author,
-      project.id,
-    ),
+          },
+        }],
+      },
+    }),
+    env,
+    author,
+    project.id,
   );
-  assert.equal(uploaded.auto_published, true);
+  await submitProjectForReview(env, author, project.id);
+  await reviewProject(
+    request(`/api/admin/projects/${project.id}/review`, 'POST', {
+      decision: 'approved',
+      note: '通过',
+    }),
+    env,
+    admin,
+    project.id,
+  );
 
   const detail = await responseJson(await getPublicProject(project.id, env));
   assert.equal(detail.version_history.length, 2);
@@ -365,4 +360,3 @@ test('public detail summarizes an author-published update against the previous a
   assert.ok(detail.change_preview.summary.added >= 1);
   assert.ok(detail.change_preview.summary.modified >= 1);
 });
-

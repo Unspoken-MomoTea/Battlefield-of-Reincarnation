@@ -1,9 +1,9 @@
 import { HttpError, json } from '../../http.js';
-import { assertReviewer, parseDependencies, parseTags } from '../core.js';
+import { assertAdmin, parseDependencies, parseTags } from '../core.js';
 import { buildPublicChangePreview, buildPublicContentPreview } from '../public-preview.js';
 
 export async function getPendingProjectReview(env, user, projectId) {
-  assertReviewer(user);
+  assertAdmin(user);
   const row = await env.DB.prepare(
     `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
             p.status, p.owner_hidden, p.latest_version, p.published_version,

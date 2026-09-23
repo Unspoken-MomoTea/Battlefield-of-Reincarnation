@@ -1,19 +1,5 @@
 function positionLabel(entry) {
-  const legacy = [
-    'before_character_definition',
-    'after_character_definition',
-    'before_author_note',
-    'after_author_note',
-    'at_depth',
-    'before_example_messages',
-    'after_example_messages',
-    'outlet',
-  ];
-  const raw = String(entry?.position_type || '');
-  const numeric = /^-?\d+$/u.test(raw) ? Number(raw) : null;
-  const type = Number.isInteger(numeric) && numeric >= 0 && numeric < legacy.length
-    ? legacy[numeric]
-    : raw;
+  const type = String(entry?.position_type || '');
   const labels = {
     before_character_definition: '角色定义前',
     after_character_definition: '角色定义后',
@@ -22,9 +8,7 @@ function positionLabel(entry) {
     before_author_note: '作者注释前',
     after_author_note: '作者注释后',
   };
-  if (type === 'at_depth') {
-    return `D${Number.isFinite(Number(entry?.depth)) ? Number(entry.depth) : 4}`;
-  }
+  if (type === 'at_depth') return entry?.depth === null ? '指定深度' : `D${entry.depth}`;
   if (type === 'outlet') return '出口';
   return labels[type] || type || '默认位置';
 }
@@ -88,45 +72,36 @@ function renderWorldbookEntry(doc, entry) {
     makeChip(doc, positionLabel(entry)),
     makeChip(doc, `顺序 ${textValue(entry.order)}`),
   );
-  if (String(entry?.position_type || '') === 'at_depth') {
-    const role = ['system', 'user', 'assistant'].includes(String(entry?.role))
-      ? String(entry.role)
-      : 'system';
-    meta.appendChild(makeChip(doc, role));
+  if (entry.role) meta.appendChild(makeChip(doc, entry.role));
+  if (entry.probability !== null && entry.probability !== undefined) {
+    meta.appendChild(makeChip(doc, `概率 ${entry.probability}%`));
   }
+  if (entry.uid) meta.appendChild(makeChip(doc, `UID ${entry.uid}`));
   panel.appendChild(meta);
 
+  const keywords = doc.createElement('div');
+  keywords.className = 'rw-content-keywords';
+  const primary = doc.createElement('div');
+  const primaryTitle = doc.createElement('strong');
+  primaryTitle.textContent = '主要关键词';
+  const primaryValues = doc.createElement('div');
+  primaryValues.className = 'rw-content-chip-list';
   const primaryKeys = Array.isArray(entry.primary_keys) ? entry.primary_keys : [];
+  if (primaryKeys.length) primaryValues.append(...primaryKeys.map(value => makeChip(doc, String(value))));
+  else primaryValues.appendChild(makeChip(doc, '无', 'muted'));
+  primary.append(primaryTitle, primaryValues);
+
+  const secondary = doc.createElement('div');
+  const secondaryTitle = doc.createElement('strong');
+  secondaryTitle.textContent = '次要关键词';
+  const secondaryValues = doc.createElement('div');
+  secondaryValues.className = 'rw-content-chip-list';
   const secondaryKeys = Array.isArray(entry.secondary_keys) ? entry.secondary_keys : [];
-  const isConstant = String(entry?.strategy_type || '') === 'constant';
-
-  if (!isConstant) {
-    const keywords = doc.createElement('div');
-    keywords.className = 'rw-content-keywords';
-
-    const primary = doc.createElement('div');
-    const primaryTitle = doc.createElement('strong');
-    primaryTitle.textContent = secondaryKeys.length ? '主要关键词' : '关键词';
-    const primaryValues = doc.createElement('div');
-    primaryValues.className = 'rw-content-chip-list';
-    if (primaryKeys.length) primaryValues.append(...primaryKeys.map(value => makeChip(doc, String(value))));
-    else primaryValues.appendChild(makeChip(doc, '无', 'muted'));
-    primary.append(primaryTitle, primaryValues);
-    keywords.appendChild(primary);
-
-    if (secondaryKeys.length) {
-      const secondary = doc.createElement('div');
-      const secondaryTitle = doc.createElement('strong');
-      secondaryTitle.textContent = '次要关键词';
-      const secondaryValues = doc.createElement('div');
-      secondaryValues.className = 'rw-content-chip-list';
-      secondaryValues.append(...secondaryKeys.map(value => makeChip(doc, String(value))));
-      secondary.append(secondaryTitle, secondaryValues);
-      keywords.appendChild(secondary);
-    }
-
-    panel.appendChild(keywords);
-  }
+  if (secondaryKeys.length) secondaryValues.append(...secondaryKeys.map(value => makeChip(doc, String(value))));
+  else secondaryValues.appendChild(makeChip(doc, '无', 'muted'));
+  secondary.append(secondaryTitle, secondaryValues);
+  keywords.append(primary, secondary);
+  panel.appendChild(keywords);
 
   const content = doc.createElement('pre');
   content.className = 'rw-content-source rw-content-source--worldbook';
@@ -227,19 +202,17 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
   reader.className = 'rw-content-reader';
 
   const renderIndex = index => {
-    [...nav.querySelectorAll('.rw-content-nav-item')].forEach(button => {
-      const active = Number(button.dataset.entryIndex) === index;
-      button.classList.toggle('is-active', active);
-      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    [...nav.querySelectorAll('button')].forEach((button, itemIndex) => {
+      button.classList.toggle('is-active', itemIndex === index);
+      button.setAttribute('aria-selected', itemIndex === index ? 'true' : 'false');
     });
     reader.replaceChildren(renderer(doc, entries[index]));
   };
 
-  const createNavItem = (entry, index) => {
+  entries.forEach((entry, index) => {
     const item = doc.createElement('button');
     item.type = 'button';
     item.className = 'rw-content-nav-item';
-    item.dataset.entryIndex = String(index);
     const titleRow = doc.createElement('span');
     titleRow.className = 'rw-content-nav-title-row';
     if (title === '世界书内容') titleRow.appendChild(makeStrategyChip(doc, entry, true));
@@ -247,34 +220,11 @@ function createWorkspace(doc, title, subtitle, entries, renderer, emptyText) {
     name.textContent = entry.name || `项目 ${index + 1}`;
     titleRow.appendChild(name);
     const meta = doc.createElement('span');
-    meta.textContent = title === '世界书内容'
-      ? `${positionLabel(entry)} · 顺序 ${textValue(entry.order)}`
-      : (entry.artifact_name || '');
+    meta.textContent = entry.artifact_name || '';
     item.append(titleRow, meta);
     item.addEventListener('click', () => renderIndex(index));
-    return item;
-  };
-
-  if (title === '世界书内容') {
-    entries
-      .map((entry, index) => ({ entry, index }))
-      .sort((a, b) => {
-        const aDisplay = Number.isFinite(Number(a.entry.display_index))
-          ? Number(a.entry.display_index)
-          : Number.isFinite(Number(a.entry.uid))
-            ? Number(a.entry.uid)
-            : a.index;
-        const bDisplay = Number.isFinite(Number(b.entry.display_index))
-          ? Number(b.entry.display_index)
-          : Number.isFinite(Number(b.entry.uid))
-            ? Number(b.entry.uid)
-            : b.index;
-        return aDisplay - bDisplay || a.index - b.index;
-      })
-      .forEach(({ entry, index }) => nav.appendChild(createNavItem(entry, index)));
-  } else {
-    entries.forEach((entry, index) => nav.appendChild(createNavItem(entry, index)));
-  }
+    nav.appendChild(item);
+  });
 
   workspace.append(nav, reader);
   section.appendChild(workspace);
@@ -297,7 +247,6 @@ function fieldLabel(field) {
     position_type: '位置',
     depth: '深度',
     order: '顺序',
-    display_index: '条目排序',
     probability: '概率',
     find_regex: '匹配表达式',
     replace_string: '替换内容',

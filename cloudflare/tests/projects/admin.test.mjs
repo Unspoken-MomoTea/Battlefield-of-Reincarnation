@@ -9,7 +9,6 @@ import {
   getPublicProjectVersion,
   getPendingProjectReview,
   listAdminAuditLogs,
-  listAdminProjectUpdates,
   listAdminProjects,
   listOwnProjects,
   listPublicProjects,
@@ -28,27 +27,6 @@ import {
   responseJson,
   setup,
 } from '../support/project-fixture.mjs';
-
-test('reviewer can inspect and review submitted projects', async () => {
-  const { env, author, other } = setup();
-  env.DB.db.prepare('UPDATE users SET is_moderator = 1 WHERE id = ?').run(other.id);
-  const reviewer = env.DB.db.prepare('SELECT * FROM users WHERE id = ?').get(other.id);
-  const project = await createWorldbookProject(env, author);
-  await uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: '', bundle: bundle('reviewer') }), env, author, project.id);
-  await submitProjectForReview(env, author, project.id);
-
-  const pending = await responseJson(await listAdminProjects(request('/api/admin/projects?review_status=pending'), env, reviewer));
-  assert.equal(pending.items.length, 1);
-  const detail = await responseJson(await getPendingProjectReview(env, reviewer, project.id));
-  assert.equal(detail.project.id, project.id);
-  const reviewed = await responseJson(await reviewProject(
-    request(`/api/admin/projects/${project.id}/review`, 'POST', { decision: 'approved', note: '' }),
-    env,
-    reviewer,
-    project.id,
-  ));
-  assert.equal(reviewed.decision, 'approved');
-});
 
 test('admin pending queue contains submitted versions', async () => {
   const { env, author, admin } = setup();
@@ -87,7 +65,7 @@ test('admin can inspect the exact pending manifest and bundle before approval', 
 
   await assert.rejects(
     () => getPendingProjectReview(env, other, project.id),
-    error => error?.status === 403 && error?.code === 'moderator_required',
+    error => error?.status === 403 && error?.code === 'admin_required',
   );
 });
 
@@ -148,7 +126,7 @@ test('non-admin cannot use management listing', async () => {
   const { env, other } = setup();
   await assert.rejects(
     () => listAdminProjects(request('/api/admin/projects'), env, other),
-    error => error?.status === 403 && error?.code === 'moderator_required',
+    error => error?.status === 403 && error?.code === 'admin_required',
   );
 });
 
@@ -248,24 +226,17 @@ test('admin can permanently delete a project and all R2 version objects', async 
   assert.equal(env.PROJECTS.objects.has(stored.content_key), false);
 });
 
-test('only primary admin can permanently delete projects', async () => {
+test('non-admin cannot permanently delete projects', async () => {
   const { env, author, other } = setup();
   const project = await createWorldbookProject(env, author);
   await assert.rejects(
     () => deleteAdminProject(env, other, project.id),
     error => error?.status === 403 && error?.code === 'admin_required',
   );
-
-  env.DB.db.prepare('UPDATE users SET is_moderator = 1 WHERE id = ?').run(other.id);
-  const reviewer = env.DB.db.prepare('SELECT * FROM users WHERE id = ?').get(other.id);
-  await assert.rejects(
-    () => deleteAdminProject(env, reviewer, project.id),
-    error => error?.status === 403 && error?.code === 'admin_required',
-  );
 });
 
 
-test('admin detail compares an author-published update with the previous approved release', async () => {
+test('admin review compares a pending version with the previous approved release', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);
   await publishVersion(env, author, admin, project.id, bundle('v1'), '首版');
@@ -292,40 +263,14 @@ test('admin detail compares an author-published update with the previous approve
     author,
     project.id,
   );
+  await submitProjectForReview(env, author, project.id);
 
   const detail = await responseJson(await getPendingProjectReview(env, admin, project.id));
-  assert.equal(detail.project.review_status, 'approved');
-  assert.equal(detail.project.reviewed_at, 0);
+  assert.equal(detail.project.review_status, 'pending');
   assert.equal(detail.content_preview.worldbook_entries.length, 2);
   assert.equal(detail.content_preview.worldbook_entries[0].strategy_type, 'constant');
   assert.equal(detail.change_preview.from_version, 1);
   assert.equal(detail.change_preview.to_version, 2);
   assert.ok(detail.change_preview.summary.added >= 1);
   assert.ok(detail.change_preview.summary.modified >= 1);
-});
-
-
-test('admin update feed shows author-published updates after the first approval', async () => {
-  const { env, author, admin } = setup();
-  const project = await createWorldbookProject(env, author);
-  await publishVersion(env, author, admin, project.id, bundle('v1'), '首版通过');
-
-  await uploadProjectVersion(
-    request(`/api/projects/${project.id}/versions`, 'POST', {
-      changelog: '作者直接更新',
-      bundle: bundle('v2'),
-    }),
-    env,
-    author,
-    project.id,
-  );
-
-  const updates = await responseJson(
-    await listAdminProjectUpdates(request('/api/admin/updates'), env, admin),
-  );
-  assert.equal(updates.items.length, 1);
-  assert.equal(updates.items[0].id, project.id);
-  assert.equal(updates.items[0].version, 2);
-  assert.equal(updates.items[0].changelog, '作者直接更新');
-  assert.equal(updates.items[0].owner_name, 'Author');
 });

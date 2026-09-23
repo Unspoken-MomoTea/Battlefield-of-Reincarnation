@@ -18,14 +18,13 @@
 - `SESSION_KV`：OAuth state、一次性登录结果、会话
 - `PROJECTS`：R2，下一阶段用于项目包、世界书、正则和封面
 
-`wrangler.jsonc` 中 staging 与 production 故意绑定同一套 D1 / KV / R2，以节省 Cloudflare 容量。现有共享资源沿用早期 staging 名称；不要为了命名整洁再复制一套数据。Worker、域名与客户端更新通道仍保持独立。
+`wrangler.jsonc` 中的 D1/KV ID 目前是占位值，等实际创建资源后替换。配置已经预留 production 与 `staging` 两套完全独立的 D1 / KV / R2。
 
 ## Discord
 
-Discord Developer Portal 需要同时登记两个 Redirect URL：
+Discord Developer Portal 的 Redirect URL：
 
 ```text
-https://workshop-test.6661816.xyz/api/auth/discord/callback
 https://workshop.6661816.xyz/api/auth/discord/callback
 ```
 
@@ -67,18 +66,21 @@ DISCORD_CLIENT_SECRET=你的密钥
 ```bash
 npm run db:migrate:local
 npm run db:migrate:staging
+npm run db:migrate:remote
 ```
-
-远程只有这一份共享 D1；`db:migrate:staging` 会直接迁移测试服与正式服共同使用的数据。production Worker 部署时再次执行 migration 只会检查同一份迁移记录，通常为 no-op。
 
 ## 初始化 D1
 
-当前远程共享数据库沿用早期测试环境名称 `reincarnation_workshop_staging`，不要再创建第二份 production 数据库。全新初始化时才执行完整 schema；已有数据只走 migration。
+创建数据库后，将真实 ID 写入 `wrangler.jsonc`，然后执行：
+
+```bash
+npx wrangler d1 execute reincarnation_workshop --remote --file=schema.sql
+```
 
 本地：
 
 ```bash
-npx wrangler d1 execute reincarnation_workshop_staging --local --file=schema.sql
+npx wrangler d1 execute reincarnation_workshop --local --file=schema.sql
 npx wrangler dev
 ```
 
@@ -158,7 +160,7 @@ npx wrangler d1 execute reincarnation_workshop_staging --env staging --remote --
 npx wrangler deploy --env staging
 ```
 
-production 与 staging 共用上面的 D1 / KV / R2；Discord Developer Portal 仍需要同时登记 production 和 staging 两个 callback URL。因为 D1 共用，测试服 migration 必须保持对当前 stable Worker 的向后兼容。
+生产环境仍使用不带 `--env` 的命令。Discord Developer Portal 需要同时登记 production 和 staging 两个 callback URL。
 
 
 ## 管理员发布后管理

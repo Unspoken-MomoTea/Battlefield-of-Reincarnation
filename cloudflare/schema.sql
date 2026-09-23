@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   avatar TEXT,
   is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
-  is_moderator INTEGER NOT NULL DEFAULT 0 CHECK (is_moderator IN (0, 1)),
   is_banned INTEGER NOT NULL DEFAULT 0 CHECK (is_banned IN (0, 1)),
   ban_reason TEXT NOT NULL DEFAULT '',
   banned_at INTEGER,

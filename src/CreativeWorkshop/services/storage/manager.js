@@ -3,7 +3,6 @@ import {
   deleteMetaRecord,
   getInstalledProjects,
 } from '../storage.js';
-import { withWorkshopMutation } from '../installer/mutation-lock.js';
 
 const UPDATE_CHECK_META_KEY = 'project-update-check';
 
@@ -71,7 +70,7 @@ export function createStorageManager({
       };
     },
 
-    cleanupCacheOnly: () => withWorkshopMutation(async () => {
+    async cleanupCacheOnly() {
       const projects = await listProjects();
       const removable = projects.filter(project => !project?.applied);
       for (const project of removable) {
@@ -83,7 +82,7 @@ export function createStorageManager({
         removedIds: removable.map(project => project.id),
         remainingAppliedCount: projects.length - removable.length,
       };
-    }),
+    },
   };
 }
 

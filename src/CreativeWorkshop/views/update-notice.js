@@ -6,6 +6,7 @@ export function createWorkshopUpdateNotice({
   selfUpdater,
   currentVersion,
   currentSha = '',
+  onHotReload,
 }) {
   let activeModal = null;
   let checking = null;
@@ -81,7 +82,7 @@ export function createWorkshopUpdateNotice({
     promises.append(
       element('span', '', '✓ 自动更新载入脚本'),
       element('span', '', '✓ 保留现有配置'),
-      element('span', '', '✓ 直接覆盖载入脚本链接'),
+      element('span', '', '✓ 自动热载入新版'),
     );
 
     hero.append(heading, versionLine, promises);
@@ -108,7 +109,7 @@ export function createWorkshopUpdateNotice({
       currentSha ? element('div', '', `当前运行：${currentSha.slice(0, 8)}`) : element('div', '', `当前运行：v${currentVersion}`),
       element('div', '', `载入脚本：${result.loaders.map(loaderName).join('、')}`),
       element('div', '', '只会替换创意工坊的固定提交链接，apiBase 与脚本里的其他配置会保留。'),
-      element('div', '', '更新只会直接保存新的固定提交链接，不刷新整个酒馆。'),
+      element('div', '', '如果浏览器阻止热载入，刷新一次酒馆即可使用已经写入的新版本。'),
     );
     details.append(detailsSummary, detailsBody);
 
@@ -143,25 +144,18 @@ export function createWorkshopUpdateNotice({
           return;
         }
 
-        updating = false;
-        later.disabled = false;
-        if (closeButton) closeButton.disabled = false;
-        update.disabled = true;
-        update.textContent = '更新完成';
-        later.textContent = '关闭';
         setProgress(
           progress,
-          'success',
-          '载入脚本链接已覆盖',
-          `Tavern Helper 已保存最新固定提交 ${updated.latestShortSha}。`,
+          'working',
+          '载入脚本已更新',
+          `正在切换到新版 ${updated.latestShortSha}…`,
         );
 
         try {
-          host.toastr?.success?.(
-            `创意工坊载入脚本已更新到 ${updated.latestShortSha}`,
-            '创意工坊',
-          );
+          host.toastr?.success?.('载入脚本已更新，正在切换新版', '创意工坊');
         } catch {}
+
+        await onHotReload(updated);
       } catch (error) {
         updating = false;
         update.disabled = false;
@@ -173,7 +167,7 @@ export function createWorkshopUpdateNotice({
           progress,
           'error',
           '更新没有完成',
-          `${error instanceof Error ? error.message : String(error)}\n未能完成载入脚本写入。`,
+          `${error instanceof Error ? error.message : String(error)}\n如果载入链接已经写入成功，刷新一次酒馆即可。`,
         );
       }
     });
@@ -187,9 +181,10 @@ export function createWorkshopUpdateNotice({
     if (checking) return checking;
     checking = (async () => {
       const result = await selfUpdater.check();
+      const runtimeOutdated = Boolean(currentSha && currentSha !== result.latestSha);
       if (
         result.loaderFound &&
-        result.updateAvailable &&
+        (result.updateAvailable || runtimeOutdated) &&
         (force || (result.latestSha !== promptedSha && result.latestSha !== dismissedSha))
       ) {
         openUpdateModal(result);

@@ -1,5 +1,5 @@
 export { ARTIFACT_KINDS, PROJECT_TYPES } from './constants.js';
-export { assertAdmin, assertReviewer, getOwnedProject, writeAdminAudit } from './access.js';
+export { assertAdmin, getOwnedProject, writeAdminAudit } from './access.js';
 export { validateBundle } from './artifacts.js';
 export { parseDependencies, validateDependencies } from './dependencies.js';
 export {

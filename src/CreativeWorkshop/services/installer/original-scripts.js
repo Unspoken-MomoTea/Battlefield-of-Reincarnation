@@ -103,13 +103,12 @@ function locateScript(working, target) {
   return { scope, ...matches[0] };
 }
 
-function otherClaims(projects, projectId, characterName) {
+function otherClaims(projects, projectId) {
   const claims = new Map();
   for (const project of projects || []) {
     if (!project?.applied || project.id === projectId) continue;
     for (const change of project.installTargets?.originalScriptChanges || []) {
       if (!change?.scope || !change?.identity) continue;
-      if (change.scope === 'character' && project.targetCharacterName && project.targetCharacterName !== characterName) continue;
       const key = identityKey(change.scope, change.identity);
       if (!claims.has(key)) claims.set(key, []);
       claims.get(key).push(change);
@@ -154,7 +153,7 @@ export async function syncOriginalScriptConflicts({ adapter, storage }, installe
     baseline.set(scope, clone(trees));
   }
   const previousByKey = new Map(previous.map(change => [identityKey(change.scope, change.identity), change]));
-  const claims = otherClaims(await installedProjects(storage), installed.id, state.characterName);
+  const claims = otherClaims(await installedProjects(storage), installed.id);
   const desiredKeys = new Set();
   const nextChanges = [];
   const warnings = [];
@@ -240,7 +239,7 @@ export async function restoreOriginalScriptConflicts({ adapter, storage }, insta
   const previous = installed.installTargets?.originalScriptChanges || [];
   if (!previous.length) return { warnings: [], unrestored: [] };
 
-  const claims = otherClaims(await installedProjects(storage), installed.id, state.characterName);
+  const claims = otherClaims(await installedProjects(storage), installed.id);
   const working = new Map();
   const baseline = new Map();
   for (const scope of state.scripts.keys()) {

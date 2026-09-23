@@ -1127,6 +1127,32 @@
             request.onerror = () => reject(request.error);
         });
     }
+    async function loadOpeningStoreCatalogs() {
+        try {
+            const db = await openingDb();
+            const rows = await new Promise((resolve,reject) => {
+                const req = db.transaction('opening_store_catalogs','readonly').objectStore('opening_store_catalogs').getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+            db.close();
+            const groups = ['equipments','items','skills'];
+            for (const row of rows) for (const group of groups) {
+                const target = DB[group];
+                const existing = new Set(target.map(item => item.id));
+                for (const item of row.catalog?.[group] || []) {
+                    const sourceId = String(item.id || '').trim();
+                    if (!sourceId) continue;
+                    const id = 'workshop:' + row.sourceProjectId + ':' + sourceId;
+                    if (existing.has(id)) continue;
+                    target.push({...structuredClone(item), id, _sourceProjectId:row.sourceProjectId, _sourceProjectName:row.sourceProjectName || '创意工坊'});
+                    existing.add(id);
+                }
+            }
+        } catch(error) {
+            console.warn('[轮回战场开局] 读取工坊商店目录失败', error);
+        }
+    }
     async function loadOpeningAssets() {
         try {
             const db = await openingDb();
@@ -1192,7 +1218,9 @@
         renderOpeningPartnerLibrary(); updateBgSummary(); showToast('已选择开局伙伴：'+(asset.name||'未命名'));
     }
 
-    loadOpeningAssets();
+    Promise.all([loadOpeningAssets(), loadOpeningStoreCatalogs()]).then(() => {
+        renderSubCategories(); renderRarityFilter(); renderItems();
+    });
 
     function getCurrentSource() {
         const cat = DB.itemCategories.find(c => c.key === activeItemTab);

@@ -42,7 +42,10 @@ test('opening character form generates only opening data without worldbook regex
     opening_name: '开局角色',
     opening_race: '精灵',
     opening_identity: '轮回者',
-    opening_occupation: '法师',
+    opening_occupation_name: '法师',
+    opening_occupation_type: '战斗',
+    opening_occupation_traits: '施法,元素',
+    opening_occupation_source: '学院',
     opening_rank: 'Ⅱ',
     opening_skills: '{"火球":{"品质":"E"}}',
   }), 'opening_character', '作品');
@@ -50,6 +53,11 @@ test('opening character form generates only opening data without worldbook regex
   assert.equal(artifacts[0].kind, 'data');
   assert.equal(artifacts[0].content.kind, 'opening_character');
   assert.equal(artifacts[0].content.build.技能.火球.品质, 'E');
+  assert.deepEqual(artifacts[0].content.build.职业.法师, {
+    类型: '战斗',
+    特性: ['施法', '元素'],
+    来源: '学院',
+  });
 });
 
 test('opening partner form carries persona and build in one data artifact', () => {
@@ -75,4 +83,23 @@ test('store form generates store catalog data only', () => {
   assert.equal(artifacts[0].kind, 'data');
   assert.equal(artifacts[0].content.kind, 'store_catalog');
   assert.equal(artifacts[0].content.catalog.equipments[0].id, 'e1');
+});
+
+
+test('dedicated update values recover structured opening occupation fields', async () => {
+  const { dedicatedInitialValues } = await import('../views/author/publish-templates.js');
+  const values = dedicatedInitialValues([{
+    kind: 'data',
+    content: {
+      kind: 'opening_character',
+      name: '角色',
+      build: {
+        职业: { 剑士: { 类型: '战斗', 特性: ['近战'], 来源: '公会' } },
+      },
+    },
+  }], 'opening_character', '作品');
+  assert.equal(values.opening_occupation_name, '剑士');
+  assert.equal(values.opening_occupation_type, '战斗');
+  assert.equal(values.opening_occupation_traits, '近战');
+  assert.equal(values.opening_occupation_source, '公会');
 });

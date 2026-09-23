@@ -2499,7 +2499,7 @@
                 _set(c, 'stat_data.角色.空间币', currentCoins);
 
                 if (openingCharacterBuild) {
-                    ['种族','身份','职业','层级','血统','技能','装备','状态','形态库','当前形态'].forEach(key => {
+                    ['种族','职业','层级','血统','技能','装备','状态','形态库','当前形态'].forEach(key => {
                         if (openingCharacterBuild[key] !== undefined) _set(c, 'stat_data.角色.' + key, structuredClone(openingCharacterBuild[key]));
                     });
                 }

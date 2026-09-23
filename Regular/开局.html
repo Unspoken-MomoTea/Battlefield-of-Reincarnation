@@ -71,6 +71,10 @@
 
         /* ====== 重构的属性面板 ====== */
         .attributes-panel { margin-top:26px; background:var(--input-bg); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+        .attributes-lock-note { display:none; margin:0 18px 16px; padding:10px 12px; border:1px solid var(--accent-dark); border-radius:var(--radius-md); background:rgba(102,252,241,0.05); color:var(--text-sub); font-size:0.84rem; line-height:1.5; }
+        .attributes-panel.is-library-locked .attributes-lock-note { display:block; }
+        .attributes-panel.is-library-locked .attribute-editor,
+        .attributes-panel.is-library-locked .points-summary { opacity:0.32; filter:grayscale(.35); pointer-events:none; }
         .attributes-panel .panel-header { padding:14px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:rgba(0,0,0,0.2); }
         .attributes-panel .panel-header h3 { margin:0; color:#fff; font-size:1.05rem; font-weight:700; }
         .points-summary { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
@@ -575,7 +579,7 @@
                 <div class="form-group"><label>阵营身份 (限定五类)</label><select class="form-control" id="f-identity" onchange="updateFactionDesc()"><option>守护者</option><option>篡夺者</option><option>织梦者</option><option>残魂</option><option>穿越者</option></select></div>
                 <div class="faction-desc" id="faction-desc"></div>
 
-                <div class="attributes-panel">
+                <div class="attributes-panel" id="opening-attributes-panel">
                     <div class="panel-header">
                         <h3>血统属性分配（此处只针对血统，并不代表最终属性）</h3>
                         <div class="points-summary">
@@ -585,6 +589,7 @@
                     <div class="attribute-editor">
                         <div class="attribute-grid" id="attr-grid"></div>
                     </div>
+                    <div class="attributes-lock-note" id="opening-attributes-lock-note">已选择开局角色档案：血统五维由该角色构筑直接提供，此处无需再次加点。</div>
                 </div>
             </div>
 
@@ -1190,6 +1195,20 @@
         const el=$('opening-partner-library'); if(!el)return;
         el.innerHTML='<div class="asset-library-head"><div><h3>开局伙伴档案</h3><small>完整伙伴无需 AI 再随机补全战术模块；按层级支付空间币（Ⅰ=70 / Ⅱ=350 / Ⅲ=1000）。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_partner',selectedOpeningPartner?.id,'selectOpeningPartner')+'</div>';
     }
+    function openingAttributePanelLocked() {
+        return characterMode==='library' && !!selectedOpeningCharacter;
+    }
+    function syncOpeningAttributePanel() {
+        const panel=$('opening-attributes-panel');
+        if (!panel) return;
+        const locked=openingAttributePanelLocked();
+        panel.classList.toggle('is-library-locked', locked);
+        panel.setAttribute('aria-disabled', locked ? 'true' : 'false');
+        document.querySelectorAll('.attr-step').forEach(btn => {
+            if (locked) btn.disabled=true;
+        });
+        if (!locked) calcTier();
+    }
     function setCharacterMode(mode) {
         characterMode=mode==='library'?'library':'custom';
         $('character-mode-custom')?.classList.toggle('active',characterMode==='custom');
@@ -1197,6 +1216,7 @@
         if($('opening-character-library')) $('opening-character-library').style.display=characterMode==='library'?'':'none';
         if(characterMode==='custom') selectedOpeningCharacter=null;
         renderOpeningCharacterLibrary();
+        syncOpeningAttributePanel();
     }
     function setPartnerMode(mode) {
         const nextMode=mode==='custom'?'custom':'library';
@@ -1224,7 +1244,7 @@
         const build=asset.build||asset.character||{};
         if(asset.name) $('f-name').value=asset.name;
         if(build.种族) $('f-race').value=build.种族;
-        renderOpeningCharacterLibrary(); showToast('已载入开局角色：'+(asset.name||'未命名'));
+        renderOpeningCharacterLibrary(); syncOpeningAttributePanel(); showToast('已载入开局角色：'+(asset.name||'未命名'));
     }
     function selectOpeningPartner(id) {
         const asset=openingAssets.find(a=>a.id===id&&a.kind==='opening_partner'); if(!asset)return;
@@ -1539,9 +1559,11 @@
             </div>`).join('');
         $('attr-grid').innerHTML = html;
         calcTier();
+        syncOpeningAttributePanel();
     }
     
     function stepAttr(idx, dir) {
+        if (openingAttributePanelLocked()) return;
         const input = document.querySelector(`.attr-input[data-idx="${idx}"]`);
         if (!input) return;
         let v = parseInt(input.value || 0);
@@ -1584,8 +1606,9 @@
             const v = parseInt(input.value || 0);
             const btnMinus = $('btn-minus-' + idx);
             const btnPlus = $('btn-plus-' + idx);
-            if (btnMinus) btnMinus.disabled = (v <= DB.attrMin);
-            if (btnPlus) btnPlus.disabled = (v >= DB.attrSingleMax || remaining <= 0);
+            const locked = openingAttributePanelLocked();
+            if (btnMinus) btnMinus.disabled = locked || (v <= DB.attrMin);
+            if (btnPlus) btnPlus.disabled = locked || (v >= DB.attrSingleMax || remaining <= 0);
 
             const tier = calcSingleTier(v);
             const tierBadge = $('attr-tier-' + idx);

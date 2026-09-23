@@ -31,4 +31,6 @@ assert.match(html,/openingAttributePanelLocked\(\)/,'opening exposes installed-c
 assert.match(html,/characterMode==='library' && !!selectedOpeningCharacter/,'installed opening character locks manual attributes');
 assert.match(html,/if \(openingAttributePanelLocked\(\)\) return;/,'manual attribute stepping is blocked for installed characters');
 assert.match(html,/is-library-locked/,'opening shows locked attribute state when an installed character is selected');
+assert.match(html,/const openingSummaryBuild = characterMode === 'library'/,'opening summary reads the selected installed character build');
+assert.match(html,/openingBlood\.原始属性/,'opening summary uses installed bloodline attributes instead of locked manual points');
 console.log('PASS opening page compile and integration seams');

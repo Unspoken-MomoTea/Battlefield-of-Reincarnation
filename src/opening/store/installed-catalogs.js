@@ -41,3 +41,13 @@ export async function getInstalledStoreCatalog() {
   for(const row of await all()) for(const key of Object.keys(merged)) for(const item of row.catalog?.[key]||[]) merged[key].push({...structuredClone(item),sourceProjectId:row.sourceProjectId,sourceProjectName:row.sourceProjectName});
   return merged;
 }
+
+export async function listProjectStoreCatalogs(projectId) {
+  return (await all()).filter(row => row.sourceProjectId === projectId);
+}
+export async function restoreProjectStoreCatalogs(projectId, rows = []) {
+  await removeProjectStoreCatalogs(projectId);
+  if (!rows.length) return;
+  const db=await openDb();
+  try{await new Promise((resolve,reject)=>{const tx=db.transaction(STORE_NAME,'readwrite');rows.forEach(row=>tx.objectStore(STORE_NAME).put(structuredClone(row)));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+}

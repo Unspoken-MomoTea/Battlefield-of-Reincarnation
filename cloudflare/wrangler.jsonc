@@ -17,24 +17,26 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "reincarnation_workshop",
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_name": "reincarnation_workshop_staging",
+      "database_id": "d3061236-6338-456d-abed-736d638e0fbd"
     }
   ],
 
   "kv_namespaces": [
     {
       "binding": "SESSION_KV",
-      "id": "00000000000000000000000000000000"
+      "id": "7f1a9aea395d46748b58ff368386e1a8"
     }
   ],
 
   "r2_buckets": [
     {
       "binding": "PROJECTS",
-      "bucket_name": "reincarnation-workshop-projects"
+      "bucket_name": "reincarnation-workshop-projects-staging"
     }
   ],
+  // Staging and production intentionally share DB/KV/R2.
+  // Only Worker/client code and update channels differ between environments.
   "env": {
     "staging": {
       "name": "reincarnation-workshop-staging",
@@ -91,20 +93,20 @@
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "reincarnation_workshop",
-          "database_id": "00000000-0000-0000-0000-000000000000"
+          "database_name": "reincarnation_workshop_staging",
+          "database_id": "d3061236-6338-456d-abed-736d638e0fbd"
         }
       ],
       "kv_namespaces": [
         {
           "binding": "SESSION_KV",
-          "id": "00000000000000000000000000000000"
+          "id": "7f1a9aea395d46748b58ff368386e1a8"
         }
       ],
       "r2_buckets": [
         {
           "binding": "PROJECTS",
-          "bucket_name": "reincarnation-workshop-projects"
+          "bucket_name": "reincarnation-workshop-projects-staging"
         }
       ]
     }

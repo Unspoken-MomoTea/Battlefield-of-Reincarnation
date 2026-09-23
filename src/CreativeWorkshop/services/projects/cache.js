@@ -12,6 +12,9 @@ function baseRecord(project, manifest, bundle, previous, source) {
     summary: typeof project.summary === 'string' ? project.summary : (previous?.summary || ''),
     ownerName: typeof project.owner_name === 'string' ? project.owner_name : (previous?.ownerName || ''),
     hasCover: project.has_cover === undefined ? Boolean(previous?.hasCover) : Boolean(project.has_cover),
+    coverUrl: typeof project.cover_url === 'string'
+      ? project.cover_url
+      : (previous?.coverUrl || ''),
     dependencies: Array.isArray(project.dependencies)
       ? structuredClone(project.dependencies)
       : Array.isArray(manifest?.project?.dependencies)
@@ -35,6 +38,9 @@ async function cacheRemoteProjectUnlocked(workshopApi, projectId) {
   await verifyBundleAgainstManifest(bundle, detail.manifest, detail.project);
   const previous = await getInstalledProject(projectId);
   const record = baseRecord(detail.project, detail.manifest, bundle, previous, 'remote');
+  if (record.hasCover && typeof workshopApi.getProjectCoverUrl === 'function') {
+    record.coverUrl = workshopApi.getProjectCoverUrl(projectId);
+  }
   await putInstalledProject(record);
   return record;
 }
@@ -107,7 +113,8 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
     version,
     summary: project.summary || '',
     dependencies: project.dependencies || [],
-    has_cover: false,
+    has_cover: Boolean(project.coverDataUrl),
+    cover_url: project.coverDataUrl || '',
   }, manifest, bundle, previous, 'local-test');
   await putInstalledProject({
     ...record,

@@ -235,7 +235,10 @@ export function workshopTemplate(version) {
                   <label class="rw-field"><span>姓名 *</span><input class="rw-input" name="opening_name" maxlength="80" placeholder="角色或伙伴姓名"></label>
                   <label class="rw-field"><span>种族</span><input class="rw-input" name="opening_race" maxlength="120" value="人类"></label>
                   <label class="rw-field"><span>身份</span><input class="rw-input" name="opening_identity" maxlength="300" placeholder="多个身份用逗号分隔"></label>
-                  <label class="rw-field"><span>职业</span><input class="rw-input" name="opening_occupation" maxlength="160" placeholder="例如：剑士"></label>
+                  <label class="rw-field"><span>职业名称</span><input class="rw-input" name="opening_occupation_name" maxlength="160" placeholder="例如：剑士"></label>
+                  <label class="rw-field"><span>职业类型</span><select class="rw-select" name="opening_occupation_type"><option value="战斗">战斗</option><option value="生活">生活</option><option value="辅助" selected>辅助</option></select></label>
+                  <label class="rw-field"><span>职业特性</span><input class="rw-input" name="opening_occupation_traits" maxlength="300" placeholder="多个特性用逗号分隔"></label>
+                  <label class="rw-field"><span>职业来源</span><input class="rw-input" name="opening_occupation_source" maxlength="300" placeholder="例如：主神空间"></label>
                   <label class="rw-field"><span>层级</span><select class="rw-select" name="opening_rank"><option>Ⅰ</option><option>Ⅱ</option><option>Ⅲ</option><option>Ⅳ</option><option>Ⅴ</option><option>Ⅵ</option><option>Ⅶ</option><option>Ⅷ</option><option>Ⅸ</option></select></label>
                 </div>
                 <div data-role="opening-partner-profile" hidden>

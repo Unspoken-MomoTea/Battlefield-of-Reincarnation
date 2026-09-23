@@ -107,7 +107,7 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
       name: '伙伴长剑',
       品质: 'D',
       类型: 0,
-      原始属性: { ATK: 'D' },
+      原始属性: { ATK: 'A' },
       效果: { 护主: '保护队友。' },
       描述: '伙伴装备',
     }],
@@ -119,7 +119,7 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
   assert.equal(asset.build.血统.强化血统.品质, 'D');
   assert.equal(asset.build.技能.护卫.品质, 'D');
   assert.equal(asset.build.装备.伙伴长剑.品质, 'D');
-  assert.equal(asset.build.装备.伙伴长剑.原始属性.ATK, 'D');
+  assert.equal(asset.build.装备.伙伴长剑.原始属性.ATK, 'A');
 });
 
 test('opening partner rejects more than 16 allocation points', () => {
@@ -154,7 +154,7 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
       type: 0,
       source: '创意工坊',
       tags: [],
-      attrs: { ATK: 'D' },
+      attrs: { ATK: 'A' },
       effects: { 锋利: '更容易造成伤害。', 破甲: '削弱护甲。' },
       desc: '测试装备',
       consume: '无',
@@ -163,7 +163,7 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
       id: 'item-1',
       name: '测试药剂',
       tier: 'E',
-      cost: 200,
+      cost: 300,
       type: '特殊',
       quantity: 3,
       source: '创意工坊',
@@ -178,12 +178,13 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
   const artifact = buildDedicatedArtifacts({ store_catalog: store }, 'store_catalog', '商店')[0];
   assert.equal(artifact.content.catalog.items[0].quantity, 3);
   assert.equal(Object.keys(artifact.content.catalog.equipments[0].effects).length, 2);
+  assert.equal(artifact.content.catalog.equipments[0].attrs.ATK, 'A');
 
   assert.throws(
     () => buildDedicatedArtifacts({
       store_catalog: { equipments: [{ ...store.equipments[0], cost: 1001 }], items: [], skills: [] },
     }, 'store_catalog', '坏商店'),
-    /0-1000/u,
+    /不超过 1000/u,
   );
   assert.throws(
     () => buildDedicatedArtifacts({
@@ -191,6 +192,25 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
     }, 'store_catalog', '坏商店'),
     /F、E、D/u,
   );
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: { equipments: [{ ...store.equipments[0], tier: 'F', cost: 49 }], items: [], skills: [] },
+    }, 'store_catalog', '坏商店'),
+    /下限 50/u,
+  );
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: { equipments: [{ ...store.equipments[0], tier: 'E', cost: 299 }], items: [], skills: [] },
+    }, 'store_catalog', '坏商店'),
+    /下限 300/u,
+  );
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: { equipments: [{ ...store.equipments[0], tier: 'D', cost: 699 }], items: [], skills: [] },
+    }, 'store_catalog', '坏商店'),
+    /下限 700/u,
+  );
+
   assert.throws(
     () => buildDedicatedArtifacts({
       store_catalog: {

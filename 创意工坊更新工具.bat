@@ -64,14 +64,14 @@ echo              轮回战场 · 创意工坊发布工具
 echo ============================================================
 echo.
 echo   [1] 更新测试服
-echo       origin/main -^> staging D1 / KV / R2 / Worker
+echo       origin/main -^> staging Worker + 共享 D1 / KV / R2
 echo.
 echo   [2] 发布正式客户端
 echo       origin/main -^> workshop-stable + workshop-vX.Y.Z
 echo       自动读取 WORKSHOP_VERSION、跑测试、创建 Tag、原子推送
 echo.
 echo   [3] 更新正式服务器
-echo       origin/workshop-stable -^> production D1 / KV / R2 / Worker
+echo       origin/workshop-stable -^> production Worker + 共享 D1 / KV / R2
 echo       会要求再次输入 PRODUCTION 确认
 echo.
 echo   [4] 依次更新测试服 + 正式服务器

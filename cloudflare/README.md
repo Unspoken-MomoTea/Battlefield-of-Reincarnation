@@ -18,7 +18,7 @@
 - `SESSION_KV`：OAuth state、一次性登录结果、会话
 - `PROJECTS`：R2，下一阶段用于项目包、世界书、正则和封面
 
-`wrangler.jsonc` 中的 D1/KV ID 目前是占位值，等实际创建资源后替换。配置已经预留 production 与 `staging` 两套完全独立的 D1 / KV / R2。
+`wrangler.jsonc` 中 staging 与 production 故意绑定同一套 D1 / KV / R2，以节省 Cloudflare 容量。现有共享资源沿用早期 staging 名称；不要为了命名整洁再复制一套数据。Worker、域名与客户端更新通道仍保持独立。
 
 ## Discord
 
@@ -160,7 +160,7 @@ npx wrangler d1 execute reincarnation_workshop_staging --env staging --remote --
 npx wrangler deploy --env staging
 ```
 
-生产环境仍使用不带 `--env` 的命令。Discord Developer Portal 需要同时登记 production 和 staging 两个 callback URL。
+production 与 staging 共用上面的 D1 / KV / R2；Discord Developer Portal 仍需要同时登记 production 和 staging 两个 callback URL。因为 D1 共用，测试服 migration 必须保持对当前 stable Worker 的向后兼容。
 
 
 ## 管理员发布后管理

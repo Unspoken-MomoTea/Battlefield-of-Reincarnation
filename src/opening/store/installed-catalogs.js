@@ -8,6 +8,9 @@ function openDb() {
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('auth')) db.createObjectStore('auth', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('installed_projects')) db.createObjectStore('installed_projects', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
       if (!db.objectStoreNames.contains('opening_assets')) db.createObjectStore('opening_assets', { keyPath: 'id' });
     };
     request.onsuccess = () => resolve(request.result);

@@ -123,6 +123,21 @@ export function bindCreateProjectFlow({
   progress.hidden = true;
   nodes.createForm.querySelector('.rw-publish-grid')?.after(progress);
 
+  const readFileDataUrl = file => {
+    if (!file) return Promise.resolve('');
+    return new Promise((resolve, reject) => {
+      try {
+        const Reader = host.FileReader || FileReader;
+        const reader = new Reader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error || new Error('读取封面失败'));
+        reader.readAsDataURL(file);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  };
+
   const revokeCoverPreview = () => {
     if (!coverUrl) return;
     try { host.URL.revokeObjectURL(coverUrl); } catch {}
@@ -353,6 +368,8 @@ export function bindCreateProjectFlow({
       localTestButton.textContent = '正在保存本地测试…';
       setSubmitStatus('working', '正在保存本地测试版本；不会上传服务器或提交审核…');
       try {
+        const cover = nodes.createCover.files?.[0] || null;
+        const coverDataUrl = cover ? await readFileDataUrl(cover) : '';
         await projectService.saveLocalTest({
           id: localDraftId,
           name,
@@ -361,6 +378,7 @@ export function bindCreateProjectFlow({
           dependencies,
           version: 1,
           bundle,
+          coverDataUrl,
         });
         dirty = false;
         setSubmitStatus(

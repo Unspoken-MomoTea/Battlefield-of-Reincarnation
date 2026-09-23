@@ -160,7 +160,7 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
       name: '测试剑',
       tier: 'D',
       cost: 1000,
-      type: 0,
+      type: 17,
       source: '创意工坊',
       tags: [],
       attrs: { ATK: 'A' },
@@ -188,6 +188,7 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
   assert.equal(artifact.content.catalog.items[0].quantity, 3);
   assert.equal(Object.keys(artifact.content.catalog.equipments[0].effects).length, 2);
   assert.equal(artifact.content.catalog.equipments[0].attrs.ATK, 'A');
+  assert.equal(artifact.content.catalog.equipments[0].type, 17);
 
   assert.throws(
     () => buildDedicatedArtifacts({
@@ -201,6 +202,13 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
     }, 'store_catalog', '坏商店'),
     /F、E、D/u,
   );
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: { equipments: [{ ...store.equipments[0], type: 18 }], items: [], skills: [] },
+    }, 'store_catalog', '坏商店'),
+    /类型必须是开局装备分类 0-17/u,
+  );
+
   assert.throws(
     () => buildDedicatedArtifacts({
       store_catalog: { equipments: [{ ...store.equipments[0], tier: 'F', cost: 49 }], items: [], skills: [] },

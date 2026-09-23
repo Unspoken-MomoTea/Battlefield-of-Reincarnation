@@ -144,6 +144,7 @@ export function bindCreateProjectFlow({
   };
 
   const bindArtifactInput = (input, dropTarget, forcedKind) => {
+    if (!input || !dropTarget) return;
     input.addEventListener('change', () => {
       const files = input.files;
       if (!files?.length) return;

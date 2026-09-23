@@ -201,7 +201,9 @@ export const CORE_OPENING_CATALOG = {
             { id:'s3_3', name:'黑客潜入专精', tier:'D', cost:550, type:1, source:'主神空间', tags:["精神","辅助","自身","科技"], 
               effects:{"电子破解":"使用实际接入的计算机破解电子锁或安保系统时，专业检定修正+15。"}, desc:"针对电子安保的操作专精，需要实际工具与接入条件。", consume:"无" },
             { id:'s3_4', name:'危险感知', tier:'E', cost:350, type:1, source:'主神空间', tags:["精神","辅助","自身"], 
-              effects:{"伏击警觉":"对10米内具有声音或运动线索的伏击进行感知检定时修正+10。"};
+              effects:{"伏击警觉":"对10米内具有声音或运动线索的伏击进行感知检定时修正+10。"}, desc:"对近距离异常声响和运动线索保持警觉的训练。", consume:"无" }
+        ]
+};
 
 export function getCoreOpeningCatalog() {
   return structuredClone(CORE_OPENING_CATALOG);

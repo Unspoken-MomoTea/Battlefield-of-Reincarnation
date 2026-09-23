@@ -1,6 +1,6 @@
 # 创意工坊发布与服务器更新
 
-创意工坊把“测试代码”“正式客户端版本”和“Cloudflare 数据/Worker”分成独立边界。
+创意工坊把测试代码与正式代码通道分开，但 staging / production 共用同一套 Cloudflare 数据资源。
 
 | 环境 | API | Worker env | 客户端更新 ref | 数据资源 |
 | --- | --- | --- | --- | --- |
@@ -78,7 +78,7 @@ npm run update:staging
 → Client tests
 → JS/MJS syntax
 → wrangler deploy --dry-run
-→ staging D1 migrations
+→ shared D1 migrations（仅允许向后兼容）
 → staging Worker deploy
 → /api/health 检查 testing / main
 ```
@@ -252,7 +252,7 @@ shared PROJECTS R2
 4. 在 GitHub Actions 执行 `creative-workshop-promote-stable`，输入与 `WORKSHOP_VERSION` 相同的正式版本号。
 5. 确认产生新的 `workshop-vX.Y.Z` Tag，且 `workshop-stable` 已推进。
 6. 执行 `npm run update:production`。
-7. 脚本会从本地已同步的 `origin/workshop-stable`（或本地 `workshop-stable`）建立临时 worktree，再跑测试、正式 D1 migration、正式 Worker deploy 和 health check；服务器更新阶段不会再次访问 GitHub 做 fetch。
+7. 脚本会从本地已同步的 `origin/workshop-stable`（或本地 `workshop-stable`）建立临时 worktree，再跑测试、共享 D1 migration（通常已由 staging 应用）、正式 Worker deploy 和 health check；服务器更新阶段不会再次访问 GitHub 做 fetch。
 8. 正式客户端随后只会看到该 stable 提交。
 
 如果只改客户端、不需要 Worker / D1 变化：
@@ -263,7 +263,7 @@ shared PROJECTS R2
 
 ## 低级正式部署命令
 
-需要手工拆分正式数据库和 Worker 时仍可使用：
+需要手工执行共享数据库 migration 或正式 Worker 部署时仍可使用：
 
 ```powershell
 cd cloudflare

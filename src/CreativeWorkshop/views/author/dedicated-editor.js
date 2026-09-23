@@ -138,11 +138,9 @@ function appendEffectEditor(doc, card, effects, emit, { max = 2 } = {}) {
 
 function pointAllocator(doc, { budget, initial = {}, emit }) {
   const root = el(doc, 'div', 'rw-point-allocator');
-  const header = el(doc, 'div', 'rw-point-head');
   const remaining = el(doc, 'span', 'rw-point-remaining');
-  header.append(remaining);
   const grid = el(doc, 'div', 'rw-point-grid');
-  root.append(header, grid);
+  root.append(grid);
 
   const values = Object.fromEntries(ATTRIBUTES.map(attr => [
     attr,
@@ -199,6 +197,7 @@ function pointAllocator(doc, { budget, initial = {}, emit }) {
 
   return {
     node: root,
+    remaining,
     values: () => structuredClone(values),
   };
 }
@@ -565,6 +564,102 @@ function openingEquipmentEditor(doc, initial = [], emit) {
   };
 }
 
+function openingSkillEditor(doc, initial = [], getQuality, emit) {
+  const root = el(doc, 'div', 'rw-opening-skills-editor');
+  const list = el(doc, 'div', 'rw-opening-skills-list');
+  const add = el(doc, 'button', 'rw-button rw-opening-skill-add', '+ 添加技能');
+  add.type = 'button';
+  root.append(list, add);
+
+  const entries = (initial || []).slice(0, 2).map(item => ({
+    name: String(item?.name || ''),
+    type: String(item?.type ?? '0'),
+    consume: String(item?.consume || ''),
+    effectName: String(item?.effectName || ''),
+    effectDesc: String(item?.effectDesc || ''),
+    desc: String(item?.desc || ''),
+  }));
+  const qualityNodes = [];
+
+  const render = () => {
+    list.replaceChildren();
+    qualityNodes.length = 0;
+    if (!entries.length) {
+      list.appendChild(el(doc, 'div', 'rw-local-note', '还没有技能。点击“添加技能”创建，最多 2 项。'));
+    }
+    entries.forEach((item, index) => {
+      const card = el(doc, 'section', 'rw-opening-skill-card');
+      const cardHead = el(doc, 'div', 'rw-opening-skill-head');
+      const autoQuality = el(doc, 'span', 'rw-auto-quality rw-auto-quality--inline');
+      qualityNodes.push(autoQuality);
+      const remove = el(doc, 'button', 'rw-button danger rw-opening-skill-remove', '删除技能');
+      remove.type = 'button';
+      cardHead.append(el(doc, 'strong', '', `技能 ${index + 1}`), autoQuality, remove);
+      card.appendChild(cardHead);
+
+      const skillGrid = el(doc, 'div', 'rw-special-grid');
+      const name = makeInput(doc, 'opening_skill_name', item.name, { maxLength: 120 });
+      const type = makeSelect(doc, 'opening_skill_type', [
+        { value: '0', label: '主动' },
+        { value: '1', label: '被动' },
+        { value: '2', label: '特殊' },
+      ], item.type);
+      const consume = makeInput(doc, 'opening_skill_consume', item.consume, { maxLength: 300 });
+      const effectName = makeInput(doc, 'opening_skill_effect_name', item.effectName, { maxLength: 80 });
+      const effectDesc = makeInput(doc, 'opening_skill_effect_desc', item.effectDesc, { textarea: true, maxLength: 1600 });
+      const desc = makeInput(doc, 'opening_skill_desc', item.desc, { textarea: true, maxLength: 1600 });
+
+      skillGrid.append(
+        field(doc, '技能名称 *', name),
+        field(doc, '类型', type),
+        field(doc, '消耗', consume),
+        field(doc, '效果名称', effectName),
+        field(doc, '效果', effectDesc),
+      );
+      card.append(skillGrid, field(doc, '描述', desc));
+
+      const sync = () => {
+        item.name = name.value;
+        item.type = type.value;
+        item.consume = consume.value;
+        item.effectName = effectName.value;
+        item.effectDesc = effectDesc.value;
+        item.desc = desc.value;
+        emit();
+      };
+      card.addEventListener('input', sync);
+      card.addEventListener('change', sync);
+      remove.addEventListener('click', () => {
+        entries.splice(index, 1);
+        render();
+        emit();
+      });
+      list.appendChild(card);
+    });
+    const q = getQuality();
+    qualityNodes.forEach(node => { node.textContent = `品质 ${q} · 自动`; });
+    add.hidden = entries.length >= 2;
+    add.disabled = entries.length >= 2;
+  };
+
+  add.addEventListener('click', () => {
+    if (entries.length >= 2) return;
+    entries.push({ name: '', type: '0', consume: '', effectName: '', effectDesc: '', desc: '' });
+    render();
+    emit();
+  });
+  render();
+
+  return {
+    node: root,
+    values: () => entries.filter(item => item.name.trim()).map(item => structuredClone(item)),
+    syncQuality: () => {
+      const q = getQuality();
+      qualityNodes.forEach(node => { node.textContent = `品质 ${q} · 自动`; });
+    },
+  };
+}
+
 function openingEditor(doc, mode, initial, emit) {
   const root = el(doc, 'div', 'rw-special-editor');
   const partner = mode === 'opening_partner';
@@ -601,13 +696,17 @@ function openingEditor(doc, mode, initial, emit) {
     );
   }
 
-  root.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始构筑 · 血统与五维'));
   const allocator = pointAllocator(doc, {
     budget,
     initial: initial.opening_attributes || {},
     emit,
   });
-  root.appendChild(allocator.node);
+  const buildHead = el(doc, 'div', 'rw-special-subtitle-row');
+  buildHead.append(
+    el(doc, 'div', 'rw-special-subtitle', '原始构筑 · 血统与五维'),
+    allocator.remaining,
+  );
+  root.append(buildHead, allocator.node);
 
   const bloodGrid = el(doc, 'div', 'rw-special-grid');
   const bloodQuality = el(doc, 'div', 'rw-auto-quality');
@@ -622,33 +721,15 @@ function openingEditor(doc, mode, initial, emit) {
     field(doc, '血统描述', makeInput(doc, 'opening_bloodline_desc', initial.opening_bloodline_desc || '', { textarea: true, maxLength: 1600 })),
   );
 
-  root.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始构筑 · 技能（最多 2 项）'));
-  const skillQualityNodes = [];
-  for (let index = 1; index <= 2; index += 1) {
-    const card = el(doc, 'section', 'rw-opening-skill-card');
-    const cardHead = el(doc, 'div', 'rw-opening-skill-head');
-    const autoQuality = el(doc, 'span', 'rw-auto-quality rw-auto-quality--inline');
-    skillQualityNodes.push(autoQuality);
-    cardHead.append(el(doc, 'strong', '', `技能 ${index}`), autoQuality);
-    card.appendChild(cardHead);
-    const skillGrid = el(doc, 'div', 'rw-special-grid');
-    skillGrid.append(
-      field(doc, '技能名称', makeInput(doc, `opening_skill_${index}_name`, initial[`opening_skill_${index}_name`] || '', { maxLength: 120 }), '不填写名称则不生成该技能。'),
-      field(doc, '类型', makeSelect(doc, `opening_skill_${index}_type`, [
-        { value: '0', label: '主动' },
-        { value: '1', label: '被动' },
-        { value: '2', label: '特殊' },
-      ], initial[`opening_skill_${index}_type`] ?? '0')),
-      field(doc, '消耗', makeInput(doc, `opening_skill_${index}_consume`, initial[`opening_skill_${index}_consume`] || '', { maxLength: 300 })),
-      field(doc, '效果名称', makeInput(doc, `opening_skill_${index}_effect_name`, initial[`opening_skill_${index}_effect_name`] || '', { maxLength: 80 })),
-      field(doc, '效果', makeInput(doc, `opening_skill_${index}_effect_desc`, initial[`opening_skill_${index}_effect_desc`] || '', { textarea: true, maxLength: 1600 })),
-    );
-    card.append(
-      skillGrid,
-      field(doc, '描述', makeInput(doc, `opening_skill_${index}_desc`, initial[`opening_skill_${index}_desc`] || '', { textarea: true, maxLength: 1600 })),
-    );
-    root.appendChild(card);
-  }
+  root.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始构筑 · 技能'));
+  const skillEditor = openingSkillEditor(
+    doc,
+    initial.opening_skills || [],
+    () => rankQuality(rank.value),
+    emit,
+  );
+
+  root.appendChild(skillEditor.node);
 
   let equipmentEditor = null;
   if (partner) {
@@ -660,7 +741,7 @@ function openingEditor(doc, mode, initial, emit) {
   const syncAutoQuality = () => {
     const value = rankQuality(rank.value);
     bloodQuality.textContent = `${value}（随${rank.value}阶）`;
-    for (const node of skillQualityNodes) node.textContent = `品质 ${value} · 随${rank.value}阶`;
+    skillEditor.syncQuality();
   };
   rank.addEventListener('change', () => {
     syncAutoQuality();
@@ -677,11 +758,6 @@ function openingEditor(doc, mode, initial, emit) {
     'opening_rank', 'opening_personality', 'opening_likes', 'opening_background',
     'opening_bloodline_name', 'opening_bloodline_effect_name',
     'opening_bloodline_effect_desc', 'opening_bloodline_desc',
-    ...[1, 2].flatMap(index => [
-      `opening_skill_${index}_name`, `opening_skill_${index}_type`,
-      `opening_skill_${index}_consume`, `opening_skill_${index}_effect_name`,
-      `opening_skill_${index}_effect_desc`, `opening_skill_${index}_desc`,
-    ]),
   ];
 
   return {
@@ -690,6 +766,7 @@ function openingEditor(doc, mode, initial, emit) {
       return {
         ...valuesFromNames(root, names),
         opening_attributes: allocator.values(),
+        opening_skills: skillEditor.values(),
         ...(partner ? { opening_partner_equipment: equipmentEditor?.values() || [] } : {}),
       };
     },

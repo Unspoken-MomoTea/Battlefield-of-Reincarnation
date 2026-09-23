@@ -52,15 +52,24 @@ test('opening character uses 8 point startup budget and auto F-E-D quality from 
     opening_bloodline_effect_name: '元素亲和',
     opening_bloodline_effect_desc: '元素技能效果提升。',
     opening_bloodline_desc: '元素侧血统。',
-    opening_skill_1_name: '火球',
-    opening_skill_1_type: '0',
-    opening_skill_1_effect_name: '爆炎',
-    opening_skill_1_effect_desc: '造成火焰伤害。',
-    opening_skill_1_desc: '基础火系技能。',
-    opening_skill_1_consume: 'EP 10',
-    opening_skill_2_name: '元素感知',
-    opening_skill_2_type: '1',
-    opening_skill_2_effect_desc: '感知元素波动。',
+    opening_skills: [
+      {
+        name: '火球',
+        type: '0',
+        effectName: '爆炎',
+        effectDesc: '造成火焰伤害。',
+        desc: '基础火系技能。',
+        consume: 'EP 10',
+      },
+      {
+        name: '元素感知',
+        type: '1',
+        effectName: '',
+        effectDesc: '感知元素波动。',
+        desc: '',
+        consume: '',
+      },
+    ],
   }, 'opening_character', '作品')[0].content;
 
   assert.equal(asset.kind, 'opening_character');
@@ -102,7 +111,7 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
     opening_background: '旧友',
     opening_bloodline_name: '强化血统',
     opening_attributes: { 力量: 4, 敏捷: 4, 体质: 4, 精神: 2, 魅力: 2 },
-    opening_skill_1_name: '护卫',
+    opening_skills: [{ name: '护卫', type: '1', effectName: '', effectDesc: '', desc: '', consume: '' }],
     opening_partner_equipment: [{
       name: '伙伴长剑',
       品质: 'D',
@@ -256,8 +265,9 @@ test('dedicated update values recover point allocation, skills, partner equipmen
   assert.equal(values.opening_rank, 'Ⅲ');
   assert.equal(values.opening_bloodline_name, '人类强化');
   assert.equal(values.opening_attributes.力量, 4);
-  assert.equal(values.opening_skill_1_name, '技能一');
-  assert.equal(values.opening_skill_2_name, '技能二');
+  assert.equal(values.opening_skills.length, 2);
+  assert.equal(values.opening_skills[0].name, '技能一');
+  assert.equal(values.opening_skills[1].name, '技能二');
   assert.equal(values.opening_partner_equipment[0].name, '长剑');
 
   const storeValues = dedicatedInitialValues([{
@@ -265,4 +275,21 @@ test('dedicated update values recover point allocation, skills, partner equipmen
     content: { kind: 'store_catalog', catalog: { equipments: [], items: [{ id: 'x', name: '物品' }], skills: [] } },
   }], 'store_catalog', '商店');
   assert.equal(storeValues.store_catalog.items[0].name, '物品');
+});
+
+
+test('dynamic opening skills still serialize at most two entries', () => {
+  const asset = buildDedicatedArtifacts({
+    opening_name: '动态技能角色',
+    opening_rank: 'Ⅱ',
+    opening_bloodline_name: '测试血统',
+    opening_skills: [
+      { name: '一', type: '0', effectName: 'A', effectDesc: '1' },
+      { name: '二', type: '1', effectName: 'B', effectDesc: '2' },
+      { name: '三', type: '2', effectName: 'C', effectDesc: '3' },
+    ],
+  }, 'opening_character', '作品')[0].content;
+  assert.deepEqual(Object.keys(asset.build.技能), ['一', '二']);
+  assert.equal(asset.build.技能.一.品质, 'E');
+  assert.equal(asset.build.技能.二.品质, 'E');
 });

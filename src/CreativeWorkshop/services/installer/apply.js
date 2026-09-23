@@ -1,3 +1,4 @@
+import { replaceProjectStoreCatalogs } from '../../../opening/store/installed-catalogs.js';
 import { replaceProjectOpeningAssets } from '../../../opening/character-assets/registry.js';
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
@@ -139,11 +140,13 @@ export async function applyProject({ adapter, storage }, projectId) {
     }
     const worldbookWasBound = Boolean(state.binding?.additional?.includes(SHARED_WORLDBOOK_NAME));
     const openingAssetCount = await replaceProjectOpeningAssets(installed, plan.data);
+    const openingStoreCatalogCount = await replaceProjectStoreCatalogs(installed, plan.data);
 
     const next = {
       ...installed,
       applied: true, appliedVersion: installed.version, appliedAt: Date.now(),
       openingAssetCount,
+      openingStoreCatalogCount,
       appliedDependencies: clone(installed.dependencies ?? []),
       targetCharacterName: characterNeeded ? currentCharacter : null,
       installTargets: {

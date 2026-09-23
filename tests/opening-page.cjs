@@ -15,4 +15,7 @@ for(const id of ['character-mode-custom','character-mode-library','opening-chara
 assert.match(html,/indexedDB\.open\('reincarnation-workshop', 4\)/,'opening uses shared workshop database');
 assert.match(html,/openingCharacterBuild/,'opening consumes installed character build');
 assert.match(html,/partnerIsCompleteAsset/,'opening distinguishes complete installed partner');
+assert.match(html,/opening_store_catalogs/,'opening reads installed workshop store catalogs');
+assert.match(html,/workshop:' \+ row\.sourceProjectId \+ ':' \+ sourceId/,'workshop store ids are namespaced');
+assert.match(html,/Promise\.all\(\[loadOpeningAssets\(\), loadOpeningStoreCatalogs\(\)\]\)/,'opening loads assets and store catalogs together');
 console.log('PASS opening page compile and integration seams');

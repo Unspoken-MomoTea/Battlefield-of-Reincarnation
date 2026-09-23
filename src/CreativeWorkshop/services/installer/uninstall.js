@@ -1,3 +1,5 @@
+import { listProjectStoreCatalogs, removeProjectStoreCatalogs, restoreProjectStoreCatalogs } from '../../../opening/store/installed-catalogs.js';
+import { listOpeningAssetsByProject, removeOpeningAssetsByProject, restoreProjectOpeningAssets } from '../../../opening/character-assets/registry.js';
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { restoreOriginalWorldbookConflicts } from './original-conflicts.js';
@@ -30,6 +32,8 @@ export async function uninstallProject({ adapter, storage }, projectId) {
     throw new Error(`该作品安装在角色“${installed.targetCharacterName}”，请切回该角色后再卸载`);
   }
 
+  const openingAssetSnapshot = await listOpeningAssetsByProject(installed.id);
+  const openingStoreSnapshot = await listProjectStoreCatalogs(installed.id);
   const state = await createInstallSnapshot(
     adapter,
     installed,
@@ -97,6 +101,9 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       state,
     );
 
+    await removeOpeningAssetsByProject(installed.id);
+    await removeProjectStoreCatalogs(installed.id);
+
     const next = {
       ...installed,
       applied: false,
@@ -116,12 +123,16 @@ export async function uninstallProject({ adapter, storage }, projectId) {
         ...scriptRestoreResult.unrestored,
       ],
       applyError: '',
+      openingAssetCount: 0,
+      openingStoreCatalogCount: 0,
       updatedAt: Date.now(),
     };
     await storage.putInstalledProject(next);
     return next;
   } catch (error) {
     await restoreInstallSnapshot(adapter, state);
+    await restoreProjectOpeningAssets(installed.id, openingAssetSnapshot);
+    await restoreProjectStoreCatalogs(installed.id, openingStoreSnapshot);
     throw error;
   }
 }

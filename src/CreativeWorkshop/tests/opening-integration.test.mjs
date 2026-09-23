@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { collectWorkshopNodes } from '../ui/nodes.js';
+import { workshopTemplate } from '../ui/template.js';
 import {
   listOpeningAssetsByProject,
   replaceProjectOpeningAssets,
@@ -11,13 +11,13 @@ import {
   replaceProjectStoreCatalogs,
 } from '../../opening/store/installed-catalogs.js';
 
-test('publish shell collects the opening data upload input', () => {
-  const overlay = {
-    querySelector: selector => selector,
-    querySelectorAll: () => [],
-  };
-  const nodes = collectWorkshopNodes(overlay);
-  assert.equal(nodes.createData, '[data-field="create-data"]');
+test('publish shell uses dedicated opening and store editors instead of one generic opening-data upload', () => {
+  const html = workshopTemplate('test');
+  assert.match(html, /data-publish-panel="opening_character"/u);
+  assert.match(html, /data-publish-panel="store_catalog"/u);
+  assert.match(html, /name="extension_kind"/u);
+  assert.doesNotMatch(html, /data-field="create-data"/u);
+  assert.match(html, /data-role="publish-resource-section"/u);
 });
 
 test('installer snapshots remain usable in non-browser contract tests', async () => {

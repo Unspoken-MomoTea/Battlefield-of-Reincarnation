@@ -26,4 +26,9 @@ assert.match(html,/数量:\s*Math\.max\(1, Number\(i\.quantity \|\| 1\)\)/,'work
 assert.match(html,/const cost=PARTNER_COST\[rank\]\|\|0;/,'installed opening partners use rank-based partner cost');
 assert.match(html,/currentCoins=available-cost;/,'opening partner selection deducts the cost');
 assert.match(html,/currentCoins\+=partnerCostPaid;/,'switching partner source refunds the previous partner cost');
+assert.match(html,/id="opening-attributes-panel"/,'opening attribute panel can be locked for installed characters');
+assert.match(html,/openingAttributePanelLocked\(\)/,'opening exposes installed-character attribute lock state');
+assert.match(html,/characterMode==='library' && !!selectedOpeningCharacter/,'installed opening character locks manual attributes');
+assert.match(html,/if \(openingAttributePanelLocked\(\)\) return;/,'manual attribute stepping is blocked for installed characters');
+assert.match(html,/is-library-locked/,'opening shows locked attribute state when an installed character is selected');
 console.log('PASS opening page compile and integration seams');

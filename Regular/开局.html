@@ -2456,7 +2456,23 @@
             }
         });
 
+        const openingCharacterBuild = characterMode === 'library' && selectedOpeningCharacter ? (selectedOpeningCharacter.build || selectedOpeningCharacter.character || {}) : null;
         let partnerNode = null;
+        let partnerIsCompleteAsset = false;
+        if (selectedPartner === 'library' && selectedOpeningPartner) {
+            const pb = structuredClone(selectedOpeningPartner.build || selectedOpeningPartner.character || {});
+            const pp = selectedOpeningPartner.profile || {};
+            partnerNode = {
+                ...pb,
+                姓名: selectedOpeningPartner.name || '未命名伙伴',
+                在场: true,
+                是否队友: true,
+                性格: pp.性格 || pb.性格 || '',
+                喜爱: pp.喜爱 || pb.喜爱 || '',
+                背景故事: pp.背景故事 || pb.背景故事 || ''
+            };
+            partnerIsCompleteAsset = true;
+        }
         if (selectedPartner === 'custom' && useCustomPartnerFlag) {
             partnerNode = { 姓名:$('cp-name').value.trim(), 层级:$('cp-tier').value, 种族:$('cp-race').value.trim(), 身份:[$('f-identity').value, $('cp-gender').value], 在场:true, 是否队友:true, 喜爱:$('cp-like').value.trim(), 外貌:$('cp-app').value.trim(), 背景故事:$('cp-bg').value.trim() };
         }
@@ -2481,13 +2497,21 @@
                 _set(c, 'stat_data.角色.种族', race);
                 _set(c, 'stat_data.角色.身份', [identity, gender, age+'岁']);
                 _set(c, 'stat_data.角色.空间币', currentCoins);
+
+                if (openingCharacterBuild) {
+                    ['种族','身份','职业','层级','血统','技能','装备','状态','形态库','当前形态'].forEach(key => {
+                        if (openingCharacterBuild[key] !== undefined) _set(c, 'stat_data.角色.' + key, structuredClone(openingCharacterBuild[key]));
+                    });
+                }
                 
                 _set(c, 'stat_data.角色.道具', itemObj);
-                _set(c, 'stat_data.角色.装备', equipObj);
-                _set(c, 'stat_data.角色.技能', skillObj);
+                if (!openingCharacterBuild) {
+                    _set(c, 'stat_data.角色.装备', equipObj);
+                    _set(c, 'stat_data.角色.技能', skillObj);
+                }
                 
-                // 血统精准写入
-                _set(c, `stat_data.角色.血统.${bloodlineName}`, {
+                // 自定义角色才创建初始血统；角色库资产保留其完整原始构筑
+                if (!openingCharacterBuild) _set(c, `stat_data.角色.血统.${bloodlineName}`, {
                     品质: tier,
                     标签: ['初始血统', race],
                     原始属性: attrTierObj,
@@ -2613,7 +2637,7 @@ ${worldText}
 生成一个极具沉浸感的开局场景。
 首次降临时，请根据角色填写的【种族】特性，为「${bloodlineName}」设计 1~2 个符合【${tier}级】强度限制的专属血统效果，并在剧情中表现出觉醒的异象！
 ${envInstruction}
-${partnerNode ? `[协同实体补全指令]：角色身边存在专属伙伴「${partnerNode.姓名 || '未命名'}」。该实体当前仅具有基础概念（层级、阵营、背景故事、喜好），缺乏具体战斗数据。请你基于其资料与【${partnerNode.层级 || '未知'}级】的强度限制，**自动为其推演并补全空白的战术模块**：
+${partnerNode && !partnerIsCompleteAsset ? `[协同实体补全指令]：角色身边存在专属伙伴「${partnerNode.姓名 || '未命名'}」。该实体当前仅具有基础概念（层级、阵营、背景故事、喜好），缺乏具体战斗数据。请你基于其资料与【${partnerNode.层级 || '未知'}级】的强度限制，**自动为其推演并补全空白的战术模块**：
 1. 赋予契合人设并符合层级限制的【血统】与【技能】。
 2. 为其配备 1~2 件符合层级的【初始装备/武器】。
 【叙事要求】：在开局场景中，请按时间锚点合理编排伙伴与角色的切入关系。在登场时，必须通过外貌细节与动作描写，自然地展现出伙伴补全的外貌着装等，并清晰呈现其性格、当前对角色的信任状态及真实态度。` : ''}`;

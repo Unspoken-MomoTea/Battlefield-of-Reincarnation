@@ -2,7 +2,12 @@ const DB_NAME = 'reincarnation-workshop';
 const STORE_NAME = 'opening_assets';
 const DB_VERSION = 4;
 
+function hasIndexedDb() {
+  return typeof indexedDB !== 'undefined' && typeof indexedDB?.open === 'function';
+}
+
 function openDb() {
+  if (!hasIndexedDb()) return Promise.reject(new Error('当前环境不支持 IndexedDB，无法使用开局资产库'));
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
@@ -42,6 +47,7 @@ export async function putOpeningAsset(asset) {
 }
 
 export async function removeOpeningAssetsByProject(projectId) {
+  if (!hasIndexedDb()) return 0;
   const all = await listOpeningAssets();
   const targets = all.filter(asset => asset.sourceProjectId === projectId);
   if (!targets.length) return 0;
@@ -50,6 +56,7 @@ export async function removeOpeningAssetsByProject(projectId) {
 }
 
 export async function listOpeningAssets(kind = '') {
+  if (!hasIndexedDb()) return [];
   const db = await openDb();
   try {
     return await new Promise((resolve, reject) => {
@@ -67,16 +74,22 @@ export async function listOpeningAssets(kind = '') {
 }
 
 export async function replaceProjectOpeningAssets(project, dataArtifacts = []) {
+  const supported = dataArtifacts.flatMap((artifact, index) => {
+    const values = Array.isArray(artifact?.content) ? artifact.content : [artifact?.content];
+    return values.map((asset, itemIndex) => ({ asset, index, itemIndex })).filter(({ asset }) => {
+      if (!asset || typeof asset !== 'object') return false;
+      if (!['opening_character', 'opening_partner'].includes(asset.kind)) return false;
+      const build = asset.build || asset.character;
+      return Boolean(build && typeof build === 'object' && Object.keys(build).length);
+    });
+  });
+  if (!hasIndexedDb()) {
+    if (supported.length) throw new Error('当前环境不支持 IndexedDB，无法安装开局角色或伙伴');
+    return 0;
+  }
   await removeOpeningAssetsByProject(project.id);
   let count = 0;
-  for (const [index, artifact] of dataArtifacts.entries()) {
-    const content = artifact?.content;
-    const values = Array.isArray(content) ? content : [content];
-    for (const [itemIndex, asset] of values.entries()) {
-      if (!asset || typeof asset !== 'object') continue;
-      if (!['opening_character', 'opening_partner'].includes(asset.kind)) continue;
-      const build = asset.build || asset.character;
-      if (!build || typeof build !== 'object' || !Object.keys(build).length) continue;
+  for (const { asset, index, itemIndex } of supported) {
       await putOpeningAsset({
         ...structuredClone(asset),
         id: `${project.id}:${index}:${itemIndex}`,
@@ -85,7 +98,6 @@ export async function replaceProjectOpeningAssets(project, dataArtifacts = []) {
         sourceVersion: project.version,
       });
       count += 1;
-    }
   }
   return count;
 }
@@ -94,6 +106,10 @@ export async function listOpeningAssetsByProject(projectId) {
   return (await listOpeningAssets()).filter(asset => asset.sourceProjectId === projectId);
 }
 export async function restoreProjectOpeningAssets(projectId, assets = []) {
+  if (!hasIndexedDb()) {
+    if (assets.length) throw new Error('当前环境不支持 IndexedDB，无法恢复开局资产');
+    return;
+  }
   await removeOpeningAssetsByProject(projectId);
   for (const asset of assets) await putOpeningAsset(asset);
 }

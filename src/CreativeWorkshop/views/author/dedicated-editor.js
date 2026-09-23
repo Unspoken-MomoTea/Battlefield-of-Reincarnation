@@ -26,6 +26,12 @@ const STORE_EQUIPMENT_TYPES = [
   { value: '16', label: '饰品' },
   { value: '17', label: '世界遗物' },
 ];
+const STORE_ITEM_TYPES = ['消耗', '材料', '特殊'];
+const STORE_SKILL_TYPES = [
+  { value: '0', label: '主动' },
+  { value: '1', label: '被动' },
+  { value: '2', label: '特殊' },
+];
 const EQUIPMENT_TYPES = [
   { value: '0', label: '手持' },
   { value: '1', label: '手部' },
@@ -295,6 +301,12 @@ function storeEditor(doc, initial, emit) {
         field(doc, '名称 *', makeInput(doc, 'store_name', item.name || '', { maxLength: 80 })),
         field(doc, '品质', quality),
         field(doc, '价格', price, 'F≥50 / E≥300 / D≥700；最高1000。'),
+        field(
+          doc,
+          '标签',
+          makeInput(doc, 'store_tags', Array.isArray(item.tags) ? item.tags.join(', ') : '', { maxLength: 500 }),
+          '多个标签用逗号分隔，例如：物理、远程、辅助。',
+        ),
       );
       card.appendChild(common);
 
@@ -303,6 +315,12 @@ function storeEditor(doc, initial, emit) {
           doc,
           '装备类型',
           makeSelect(doc, 'store_equipment_type', STORE_EQUIPMENT_TYPES, String(item.type ?? 0)),
+        ));
+        card.appendChild(field(
+          doc,
+          '消耗',
+          makeInput(doc, 'store_consume', item.consume || '无', { maxLength: 300 }),
+          '例如：无 / 每次攻击消耗子弹1发 / EP 10。',
         ));
         card.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始属性'));
         const attrs = el(doc, 'div', 'rw-store-attr-grid');
@@ -318,12 +336,26 @@ function storeEditor(doc, initial, emit) {
         }
         card.appendChild(attrs);
       } else if (entry.kind === 'item') {
-        card.appendChild(field(
-          doc,
-          '数量',
-          makeInput(doc, 'store_quantity', Number(item.quantity || 1), { type: 'number', min: 1, max: 999, step: 1 }),
-          '购买一次写入背包的数量。',
-        ));
+        const itemGrid = el(doc, 'div', 'rw-special-grid');
+        itemGrid.append(
+          field(doc, '道具类型', makeSelect(doc, 'store_item_type', STORE_ITEM_TYPES, item.type || '消耗')),
+          field(
+            doc,
+            '数量',
+            makeInput(doc, 'store_quantity', Number(item.quantity || 1), { type: 'number', min: 1, max: 999, step: 1 }),
+            '购买一次写入背包的数量。',
+          ),
+          field(doc, '消耗', makeInput(doc, 'store_consume', item.consume || '无', { maxLength: 300 })),
+          field(doc, '冷却 / CD', makeInput(doc, 'store_cd', item.cd || '0', { maxLength: 120 }), '没有冷却填 0。'),
+        );
+        card.appendChild(itemGrid);
+      } else if (entry.kind === 'skill') {
+        const skillGrid = el(doc, 'div', 'rw-special-grid');
+        skillGrid.append(
+          field(doc, '技能类型', makeSelect(doc, 'store_skill_type', STORE_SKILL_TYPES, String(item.type ?? 0))),
+          field(doc, '消耗', makeInput(doc, 'store_consume', item.consume || '无', { maxLength: 300 })),
+        );
+        card.appendChild(skillGrid);
       }
 
       card.appendChild(el(doc, 'div', 'rw-special-subtitle', '效果与描述'));
@@ -352,7 +384,10 @@ function storeEditor(doc, initial, emit) {
             Math.min(1000, Number(getValue(card, 'store_cost')) || 0),
           ),
           source: '创意工坊',
-          tags: [],
+          tags: String(getValue(card, 'store_tags') || '')
+            .split(/[,，\n]/u)
+            .map(value => value.trim())
+            .filter(Boolean),
           effects: effectsFromCard(card),
           desc: getValue(card, 'store_desc').trim(),
         };
@@ -361,11 +396,23 @@ function storeEditor(doc, initial, emit) {
               ...base,
               type: Math.max(0, Math.min(17, Number(getValue(card, 'store_equipment_type')) || 0)),
               attrs: attrsValue,
-              consume: '无',
+              consume: getValue(card, 'store_consume').trim() || '无',
             }
           : entry.kind === 'item'
-            ? { ...base, type: '特殊', quantity: Math.max(1, Math.min(999, Number(getValue(card, 'store_quantity')) || 1)), consume: '无', cd: '0' }
-            : { ...base, type: 0, consume: '无' };
+            ? {
+                ...base,
+                type: STORE_ITEM_TYPES.includes(getValue(card, 'store_item_type'))
+                  ? getValue(card, 'store_item_type')
+                  : '消耗',
+                quantity: Math.max(1, Math.min(999, Number(getValue(card, 'store_quantity')) || 1)),
+                consume: getValue(card, 'store_consume').trim() || '无',
+                cd: getValue(card, 'store_cd').trim() || '0',
+              }
+            : {
+                ...base,
+                type: Math.max(0, Math.min(2, Number(getValue(card, 'store_skill_type')) || 0)),
+                consume: getValue(card, 'store_consume').trim() || '无',
+              };
         emit();
       };
 
@@ -419,6 +466,7 @@ function storeEditor(doc, initial, emit) {
         effects: {},
         desc: '',
         consume: '无',
+        cd: '0',
       },
     });
     render();

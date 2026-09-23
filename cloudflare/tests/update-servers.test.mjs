@@ -23,11 +23,12 @@ test('server updater dry-run is non-destructive and identifies the staging ref',
   assert.match(result.stdout, /预演结束：没有联网、检出、迁移或部署/u);
 });
 
-test('server updater dry-run reports incomplete production configuration without deploying', () => {
+test('server updater dry-run accepts shared production data configuration without deploying', () => {
   const result = run('production', '--dry-run');
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /正式服/u);
-  assert.match(result.stdout, /配置待处理/u);
+  assert.match(result.stdout, /当前本地配置检查通过/u);
+  assert.match(result.stdout, /测试服与正式服共用 D1\/KV\/R2/u);
   assert.match(result.stdout, /预演结束：没有联网、检出、迁移或部署/u);
 });
 

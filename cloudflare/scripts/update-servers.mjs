@@ -86,8 +86,8 @@ async function main() {
     target = ({ 1: 'staging', 2: 'production', 3: 'both' })[choice];
   }
   const targets = releasePlan(target);
-  console.log('流程：读取本地已同步提交 → 临时检出 → 安装依赖 → 测试 → 数据库迁移 → 部署 → 健康检查');
-  console.log('不会主动连接 GitHub 做 fetch；请先自行 git pull。工作区分支和未提交修改保留。');
+  console.log('流程：读取本地已同步提交 → 临时检出 → 安装依赖 → 测试 → 共享数据库迁移 → 部署 → 健康检查');
+  console.log('测试服与正式服共用 D1/KV/R2；migration 必须向后兼容。不会主动连接 GitHub 做 fetch；请先自行 git pull。工作区分支和未提交修改保留。');
   if (preview) {
     for (const environment of targets) {
       try {

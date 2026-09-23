@@ -20,9 +20,9 @@ function configFixture() {
           CLIENT_UPDATE_CHANNEL: 'testing',
           CLIENT_UPDATE_REF: 'main',
         },
-        d1_databases: [{ binding: 'DB', database_id: 'staging-db' }],
-        kv_namespaces: [{ binding: 'SESSION_KV', id: 'staging-kv' }],
-        r2_buckets: [{ binding: 'PROJECTS', bucket_name: 'staging-r2' }],
+        d1_databases: [{ binding: 'DB', database_id: 'shared-db' }],
+        kv_namespaces: [{ binding: 'SESSION_KV', id: 'shared-kv' }],
+        r2_buckets: [{ binding: 'PROJECTS', bucket_name: 'shared-r2' }],
       },
       production: {
         name: 'reincarnation-workshop-production',
@@ -32,9 +32,9 @@ function configFixture() {
           CLIENT_UPDATE_CHANNEL: 'stable',
           CLIENT_UPDATE_REF: 'workshop-stable',
         },
-        d1_databases: [{ binding: 'DB', database_id: 'production-db' }],
-        kv_namespaces: [{ binding: 'SESSION_KV', id: 'production-kv' }],
-        r2_buckets: [{ binding: 'PROJECTS', bucket_name: 'production-r2' }],
+        d1_databases: [{ binding: 'DB', database_id: 'shared-db' }],
+        kv_namespaces: [{ binding: 'SESSION_KV', id: 'shared-kv' }],
+        r2_buckets: [{ binding: 'PROJECTS', bucket_name: 'shared-r2' }],
       },
     },
   };
@@ -56,15 +56,15 @@ test('release plan keeps testing and production on separate refs', () => {
   assert.deepEqual(releasePlan('both'), ['staging', 'production']);
 });
 
-test('release config accepts isolated resources and rejects cross-environment sharing', () => {
+test('release config requires one shared data set across staging and production', () => {
   const config = configFixture();
   assert.equal(validateReleaseConfig(config, 'staging').name, 'reincarnation-workshop-staging');
   assert.equal(validateReleaseConfig(config, 'production').name, 'reincarnation-workshop-production');
 
-  config.env.production.kv_namespaces[0].id = 'staging-kv';
+  config.env.production.kv_namespaces[0].id = 'separate-kv';
   assert.throws(
     () => validateReleaseConfig(config, 'production'),
-    /SESSION_KV 被测试服和正式服共用/u,
+    /SESSION_KV 必须由测试服和正式服共用同一资源/u,
   );
 });
 

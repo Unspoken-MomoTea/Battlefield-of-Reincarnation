@@ -78,7 +78,7 @@ jobs:
         working-directory: cloudflare
         run: npx wrangler deploy --env staging --dry-run
 
-      - name: Apply staging D1 migrations
+      - name: Apply shared D1 migrations (backward-compatible only)
         working-directory: cloudflare
         run: npx wrangler d1 migrations apply DB --env staging --remote
 

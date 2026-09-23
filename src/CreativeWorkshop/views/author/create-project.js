@@ -30,6 +30,8 @@ export function bindCreateProjectFlow({
   const resourceSection = nodes.createForm.querySelector('[data-role="publish-resource-section"]');
   const contentTitle = nodes.createForm.querySelector('[data-role="publish-content-title"]');
   const contentHelp = nodes.createForm.querySelector('[data-role="publish-content-help"]');
+  const coverLabel = nodes.createForm.querySelector('[data-role="create-cover-label"]');
+  const coverHint = nodes.createForm.querySelector('[data-role="create-cover-hint"]');
 
   const currentMode = () => resolvePublishMode(projectType.value, characterKind?.value);
 
@@ -77,6 +79,16 @@ export function bindCreateProjectFlow({
     }[mode] || ['作品内容', '填写当前作品内容。'];
     if (contentTitle) contentTitle.textContent = copy[0];
     if (contentHelp) contentHelp.textContent = copy[1];
+    const openingAvatar = mode === 'opening_character' || mode === 'opening_partner';
+    if (coverLabel) coverLabel.textContent = openingAvatar ? '封面 / 默认头像（可选）' : '封面图（可选）';
+    if (coverHint) coverHint.textContent = openingAvatar
+      ? 'PNG / JPEG / WebP · 会同时作为状态栏默认头像，建议人物主体居中'
+      : 'PNG / JPEG / WebP · 建议 16:9';
+    if (!nodes.createCover.files?.length) {
+      nodes.createCoverState.textContent = openingAvatar
+        ? '可选。发布封面会同时作为开局后的默认头像，玩家之后仍可在状态栏自行更换。'
+        : '可选。建议 16:9，选择后会立即预览。';
+    }
   };
   const submitButton = nodes.createForm.querySelector('button[type="submit"]');
   const localTestButton = nodes.createForm.querySelector('[data-action="create-project-local-test"]');
@@ -148,7 +160,10 @@ export function bindCreateProjectFlow({
     revokeCoverPreview();
     const selected = nodes.createCover.files?.[0] || null;
     if (!selected) {
-      nodes.createCoverState.textContent = '可选。建议 16:9，选择后会立即预览。';
+      const mode = currentMode();
+      nodes.createCoverState.textContent = mode === 'opening_character' || mode === 'opening_partner'
+        ? '可选。发布封面会同时作为开局后的默认头像，玩家之后仍可在状态栏自行更换。'
+        : '可选。建议 16:9，选择后会立即预览。';
       nodes.createCoverPreview.hidden = true;
       nodes.createCoverPreview.removeAttribute('src');
       return;

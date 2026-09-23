@@ -456,9 +456,13 @@ export function createAuthorProjectEditor({
       element(
         'div',
         'rw-publish-footer-note',
-        autoPublish
-          ? '● 此作品已通过首次审核；新版本会直接发布并进入管理员“更新动态”。原版资源状态仍随版本保存。'
-          : '● 原版资源状态会随新版本保存；停用/卸载作品时恢复安装前状态。',
+        publishMode === 'extension'
+          ? (autoPublish
+            ? '● 此作品已通过首次审核；新版本会直接发布并进入管理员“更新动态”。原版资源状态仍随版本保存。'
+            : '● 原版资源状态会随新版本保存；停用/卸载作品时恢复安装前状态。')
+          : (autoPublish
+            ? '● 此作品已通过首次审核；新版本会直接发布并进入管理员“更新动态”。'
+            : '● 专用角色/商店模板只保存自身数据，不读写原版资源状态。'),
       ),
     );
     const footerActions = element('div', 'rw-row');
@@ -466,9 +470,7 @@ export function createAuthorProjectEditor({
     const localTest = button('保存到本地测试', '', async () => {
       const nextName = name.value.trim();
       if (!nextName) throw new Error('请填写作品名称');
-      if (!queue.count) throw new Error('作品内容不能为空');
-      const resourceOverrides = resourceEditor.values();
-      const bundle = queue.bundle(null, resourceOverrides);
+      const bundle = buildVersionBundle(nextName);
       const version = Math.max(1, Number(current.latest_version || 0) + 1);
       progress.hidden = false;
       progress.className = 'rw-submit-progress rw-submit-progress--working';
@@ -496,19 +498,18 @@ export function createAuthorProjectEditor({
     const submit = button(autoPublish ? '发布新版本' : '提交新版本审核', 'good', async () => {
       const nextName = name.value.trim();
       if (!nextName) throw new Error('请填写作品名称');
-      if (!queue.count) throw new Error('作品内容不能为空');
 
       const selectedCover = coverInput.files?.[0] || null;
-      const resourceOverrides = resourceEditor.values();
+      const bundle = buildVersionBundle(nextName);
       const signature = JSON.stringify({
         name: nextName,
         summary: summary.value,
         category: category.value || current.category,
         tags: tagsFromInput(tags.value),
         dependencies: dependencies.values(),
-        resourceOverrides,
+        publishMode,
         changelog: changelog.value,
-        artifactNames: queue.artifacts().map(item => [item.kind, item.name, item.scope || '']),
+        artifactNames: bundle.artifacts.map(item => [item.kind, item.name, item.scope || '']),
         coverName: selectedCover?.name || '',
         coverSize: Number(selectedCover?.size || 0),
       });
@@ -545,10 +546,12 @@ export function createAuthorProjectEditor({
         }
 
         if (!attempt.versionUploaded) {
-          progress.textContent = autoPublish ? '正在发布新版本与原版资源状态…' : '正在上传新版本与原版资源状态…';
+          progress.textContent = publishMode === 'extension'
+            ? (autoPublish ? '正在发布新版本与原版资源状态…' : '正在上传新版本与原版资源状态…')
+            : (autoPublish ? '正在发布专用作品数据…' : '正在上传专用作品数据…');
           await workshopApi.uploadProjectVersion(current.id, {
             changelog: changelog.value,
-            bundle: queue.bundle(null, resourceOverrides),
+            bundle,
           });
           attempt.versionUploaded = true;
           if (autoPublish) attempt.submitted = true;

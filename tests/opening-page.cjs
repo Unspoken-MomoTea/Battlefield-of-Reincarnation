@@ -33,4 +33,11 @@ assert.match(html,/if \(openingAttributePanelLocked\(\)\) return;/,'manual attri
 assert.match(html,/is-library-locked/,'opening shows locked attribute state when an installed character is selected');
 assert.match(html,/const openingSummaryBuild = characterMode === 'library'/,'opening summary reads the selected installed character build');
 assert.match(html,/openingBlood\.原始属性/,'opening summary uses installed bloodline attributes instead of locked manual points');
+assert.match(html,/function applyOpeningDefaultPortraits\(\)/,'opening can seed default statusbar portraits');
+assert.match(html,/samsara_reincarnator_portrait/,'opening writes the selected character cover to the player portrait key');
+assert.match(html,/samsara_npc_portrait_/,'opening writes the selected partner cover to the NPC portrait key');
+assert.match(html,/selectedOpeningCharacter\.avatarUrl/,'opening character portrait comes from the installed opening asset');
+assert.match(html,/selectedOpeningPartner\.avatarUrl/,'opening partner portrait comes from the installed opening asset');
+assert.match(html,/applyOpeningDefaultPortraits\(\);[\s\S]{0,1200}replaceMvuData/,'default portraits are seeded before the MVU refresh');
+assert.match(html,/replaceMvuData[\s\S]{0,500}applyOpeningDefaultPortraits\(\);/,'default portraits are restored after the MVU refresh if the statusbar clears a fresh-game portrait');
 console.log('PASS opening page compile and integration seams');

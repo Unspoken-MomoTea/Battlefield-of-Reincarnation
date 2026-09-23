@@ -1,5 +1,5 @@
-import { replaceProjectStoreCatalogs } from '../../../opening/store/installed-catalogs.js';
-import { replaceProjectOpeningAssets } from '../../../opening/character-assets/registry.js';
+import { listProjectStoreCatalogs, replaceProjectStoreCatalogs, restoreProjectStoreCatalogs } from '../../../opening/store/installed-catalogs.js';
+import { listOpeningAssetsByProject, replaceProjectOpeningAssets, restoreProjectOpeningAssets } from '../../../opening/character-assets/registry.js';
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { buildArtifactPlan } from './plan.js';
@@ -60,6 +60,8 @@ export async function applyProject({ adapter, storage }, projectId) {
   }
 
   const state = await createInstallSnapshot(adapter, installed, plan, characterNeeded);
+  const openingAssetSnapshot = await listOpeningAssetsByProject(installed.id);
+  const openingStoreSnapshot = await listProjectStoreCatalogs(installed.id);
   try {
     if (state.worldbook) {
       const previous = state.worldbook.entries.filter(entry => !isProjectWorldbookEntry(entry, installed.id));
@@ -182,6 +184,8 @@ export async function applyProject({ adapter, storage }, projectId) {
     return next;
   } catch (error) {
     const rollbackErrors = await restoreInstallSnapshot(adapter, state);
+    try { await restoreProjectOpeningAssets(installed.id, openingAssetSnapshot); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+    try { await restoreProjectStoreCatalogs(installed.id, openingStoreSnapshot); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
     const baseMessage = error instanceof Error ? error.message : String(error);
     const rollbackMessage = rollbackErrors.length ? `；另有 ${rollbackErrors.length} 个回滚步骤失败，请检查酒馆资源` : '';
     await storage.putInstalledProject({

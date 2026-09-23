@@ -1,6 +1,8 @@
 const OPENING_RANKS = new Set(['Ⅰ', 'Ⅱ', 'Ⅲ']);
 const RANK_QUALITY = { 'Ⅰ': 'F', 'Ⅱ': 'E', 'Ⅲ': 'D' };
 const STORE_QUALITIES = new Set(['F', 'E', 'D']);
+const EQUIPMENT_ATTR_QUALITIES = new Set(['F', 'E', 'D', 'C', 'B', 'A']);
+const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
 const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const BLOOD_ATTRS = ['力量', '敏捷', '体质', '精神', '魅力'];
 
@@ -89,6 +91,11 @@ function validatePartnerEquipment(source) {
     }
     if (Object.keys(item.效果 || {}).length > 2) {
       throw new Error(`伙伴装备“${name}”最多只能填写 2 条效果`);
+    }
+    for (const [attr, value] of Object.entries(item.原始属性 || {})) {
+      if (!EQUIPMENT_ATTR_QUALITIES.has(String(value || '').toUpperCase())) {
+        throw new Error(`伙伴装备“${name}”原始属性 ${attr} 只能是 F-A`);
+      }
     }
     result[name] = {
       品质: String(item.品质 || 'F').toUpperCase(),
@@ -182,9 +189,18 @@ function validateStoreCatalog(catalog) {
       if (!STORE_QUALITIES.has(String(item.tier || '').toUpperCase())) {
         throw new Error(`${label}“${item.name}”品质只能是 F、E、D`);
       }
+      const itemQuality = String(item.tier || '').toUpperCase();
       const cost = Number(item.cost);
-      if (!Number.isFinite(cost) || cost < 0 || cost > 1000) {
-        throw new Error(`${label}“${item.name}”价格必须在 0-1000 之间`);
+      const floor = STORE_PRICE_FLOOR[itemQuality] || 50;
+      if (!Number.isFinite(cost) || cost < floor || cost > 1000) {
+        throw new Error(`${label}“${item.name}”价格必须符合 ${itemQuality} 级下限 ${floor}，且不超过 1000`);
+      }
+      if (key === 'equipments') {
+        for (const [attr, value] of Object.entries(item.attrs || {})) {
+          if (!EQUIPMENT_ATTR_QUALITIES.has(String(value || '').toUpperCase())) {
+            throw new Error(`装备“${item.name}”原始属性 ${attr} 只能是 F-A`);
+          }
+        }
       }
       if (Object.keys(item.effects || {}).length > 2) {
         throw new Error(`${label}“${item.name}”最多只能填写 2 条效果`);

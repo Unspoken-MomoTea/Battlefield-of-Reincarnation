@@ -277,6 +277,18 @@ export function bindCreateProjectFlow({
     };
   }
 
+  function validateOpeningCharacterAsset(bundle, category, characterKind) {
+    if (category !== 'character' || !['opening_character','opening_partner'].includes(characterKind)) return;
+    const valid = bundle.artifacts.some(artifact => {
+      const value = artifact.kind === 'data' ? artifact.content : null;
+      const candidates = Array.isArray(value) ? value : [value];
+      return candidates.some(asset => asset && asset.kind === characterKind && (asset.build || asset.character));
+    });
+    if (!valid) throw new Error(characterKind === 'opening_character'
+      ? '开局角色必须上传包含 build 的角色资产 JSON'
+      : '开局伙伴必须上传包含 build 的伙伴资产 JSON');
+  }
+
   function setSubmitStatus(state, text) {
     progress.className = `rw-submit-progress rw-submit-progress--${state}`;
     progress.textContent = text;
@@ -300,6 +312,7 @@ export function bindCreateProjectFlow({
     if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
 
     const bundle = withCharacterAsset(queue.bundle(null, resourceOverrides), category, character_kind);
+    try { validateOpeningCharacterAsset(bundle, category, character_kind); } catch (error) { return notifyError(error); }
     void (async () => {
       localTestButton.disabled = true;
       localTestButton.textContent = '正在保存本地测试…';
@@ -357,6 +370,7 @@ export function bindCreateProjectFlow({
     if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
 
     const bundle = withCharacterAsset(queue.bundle(null, resourceOverrides), category, character_kind);
+    try { validateOpeningCharacterAsset(bundle, category, character_kind); } catch (error) { return notifyError(error); }
     const cover = nodes.createCover.files?.[0] || null;
     const attemptKey = JSON.stringify({
       name,

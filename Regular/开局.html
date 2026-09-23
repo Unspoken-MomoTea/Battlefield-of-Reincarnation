@@ -1188,7 +1188,7 @@
     }
     function renderOpeningPartnerLibrary() {
         const el=$('opening-partner-library'); if(!el)return;
-        el.innerHTML='<div class="asset-library-head"><div><h3>开局伙伴档案</h3><small>完整伙伴无需 AI 再随机补全战术模块。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_partner',selectedOpeningPartner?.id,'selectOpeningPartner')+'</div>';
+        el.innerHTML='<div class="asset-library-head"><div><h3>开局伙伴档案</h3><small>完整伙伴无需 AI 再随机补全战术模块；按层级支付空间币（Ⅰ=70 / Ⅱ=350 / Ⅲ=1000）。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_partner',selectedOpeningPartner?.id,'selectOpeningPartner')+'</div>';
     }
     function setCharacterMode(mode) {
         characterMode=mode==='library'?'library':'custom';
@@ -1217,8 +1217,19 @@
     }
     function selectOpeningPartner(id) {
         const asset=openingAssets.find(a=>a.id===id&&a.kind==='opening_partner'); if(!asset)return;
+        const rank=(asset.build||asset.character||{}).层级||'Ⅰ';
+        const cost=PARTNER_COST[rank]||0;
+        const available=currentCoins+partnerCostPaid;
+        if(available<cost){
+            showToast('空间币不足，'+rank+'级开局伙伴需 '+cost+'（当前可用 '+available+'）','error');
+            return;
+        }
+        currentCoins=available-cost;
+        partnerCostPaid=cost;
+        $('val-coins').innerText=currentCoins;
         selectedOpeningPartner=asset; selectedPartner='library'; useCustomPartnerFlag=false; partnerMode='library';
-        renderOpeningPartnerLibrary(); updateBgSummary(); showToast('已选择开局伙伴：'+(asset.name||'未命名'));
+        renderSelectedPanel(); renderOpeningPartnerLibrary(); updateBgSummary();
+        showToast('已选择开局伙伴：'+(asset.name||'未命名')+'（-'+cost+' 空间币）');
     }
 
     const openingDataReady = Promise.all([loadOpeningAssets(), loadOpeningStoreCatalogs()]).then(() => {
@@ -2476,7 +2487,7 @@
             }
             else if (i._cat==='item' || DB.items.some(e=>e.id===i.id)) {
                 itemObj[i.name] = { 
-                    品质: i.tier, 类型: i.type, 数量: 1, 标签: [...(i.tags||[]), ...(i.source?[i.source]:[])], 
+                    品质: i.tier, 类型: i.type, 数量: Math.max(1, Number(i.quantity || 1)), 标签: [...(i.tags||[]), ...(i.source?[i.source]:[])], 
                     效果: i.effects||{}, 描述: i.desc||'' 
                 };
             }

@@ -220,13 +220,13 @@ export function workshopTemplate(version) {
               <div class="rw-publish-divider"></div>
 
               <div class="rw-publish-upload-block">
-                <span class="rw-field-label">封面图（可选）</span>
+                <span class="rw-field-label" data-role="create-cover-label">封面图（可选）</span>
                 <label class="rw-cover-dropzone" data-drop-target="create-cover">
                   <img data-role="create-cover-preview" alt="封面预览" hidden>
                   <div class="rw-cover-dropzone-empty">
                     <span>▧</span>
                     <strong>拖入或选择封面</strong>
-                    <small>PNG / JPEG / WebP · 建议 16:9</small>
+                    <small data-role="create-cover-hint">PNG / JPEG / WebP · 建议 16:9</small>
                   </div>
                   <input data-field="create-cover" type="file" accept="image/png,image/jpeg,image/webp" hidden>
                 </label>

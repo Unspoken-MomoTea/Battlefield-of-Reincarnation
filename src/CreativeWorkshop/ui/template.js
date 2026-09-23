@@ -130,6 +130,16 @@ export function workshopTemplate(version) {
                 </select>
               </label>
 
+              <label class="rw-field" data-role="character-kind-field" hidden>
+                <span>角色用途 *</span>
+                <select class="rw-select" name="character_kind">
+                  <option value="world_character">世界书人物</option>
+                  <option value="opening_character">开局角色</option>
+                  <option value="opening_partner">开局伙伴</option>
+                </select>
+                <small>世界书人物用于剧情设定；开局角色与开局伙伴会进入新版开局对应选择库。</small>
+              </label>
+
               <label class="rw-field">
                 <span>标签（可选）</span>
                 <input class="rw-input" name="tags" maxlength="300" placeholder="例如：剧情, boss, 原创">

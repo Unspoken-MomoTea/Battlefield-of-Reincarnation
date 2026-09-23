@@ -197,26 +197,38 @@ export function bindWorkshopEvents({
     finally { nodes.logout.disabled = false; }
   });
 
-  const createProjectFlow = bindCreateProjectFlow({
-    host,
-    doc,
-    overlay,
-    nodes,
-    workshopApi,
-    projectService,
-    notifyError,
-    confirmDialog,
-    openModal,
-    refreshMine: () => views.author.refresh(),
-  });
+  let createProjectFlow = { destroy() {} };
+  try {
+    createProjectFlow = bindCreateProjectFlow({
+      host,
+      doc,
+      overlay,
+      nodes,
+      workshopApi,
+      projectService,
+      notifyError,
+      confirmDialog,
+      openModal,
+      refreshMine: () => views.author.refresh(),
+    });
+  } catch (error) {
+    console.error('[轮回战场创意工坊] 作品发布模块初始化失败；其余工坊功能继续运行', error);
+    notifyError(error);
+  }
 
-  const hereticPublishFlow = bindHereticPublishFlow({
-    host,
-    overlay,
-    workshopApi,
-    notifyError,
-    refreshMine: () => views.author.refresh(),
-  });
+  let hereticPublishFlow = { destroy() {} };
+  try {
+    hereticPublishFlow = bindHereticPublishFlow({
+      host,
+      overlay,
+      workshopApi,
+      notifyError,
+      refreshMine: () => views.author.refresh(),
+    });
+  } catch (error) {
+    console.error('[轮回战场创意工坊] 异端库发布模块初始化失败；其余工坊功能继续运行', error);
+    notifyError(error);
+  }
 
   return () => {
     createProjectFlow.destroy();

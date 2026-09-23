@@ -1,4 +1,5 @@
 import { bindCreateProjectFlow } from '../views/author/create-project.js';
+import { bindHereticPublishFlow } from '../views/author/create-heretic.js';
 
 export function bindWorkshopEvents({
   host, doc, overlay, nodes, views, workshopApi, projectService,
@@ -6,13 +7,22 @@ export function bindWorkshopEvents({
 }) {
   overlay.querySelector('[data-action="close"]').addEventListener('click', close);
   overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
-  overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.addEventListener('click', () => showTab(tab.dataset.tab)));
+  overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.addEventListener('click', () => {
+    if (tab.dataset.tab === 'discover') {
+      nodes.discoverHeadTools.hidden = true;
+      nodes.discoverCatalog.hidden = true;
+      nodes.discoverHome.hidden = false;
+      nodes.discoverCategories.forEach(buttonNode => buttonNode.classList.remove('is-filter-active'));
+      showTab('discover');
+      return;
+    }
+    showTab(tab.dataset.tab);
+  }));
 
   overlay.querySelector('[data-action="maintenance"]').addEventListener('click', () => void views.maintenance.open());
 
   overlay.querySelector('[data-action="search"]').addEventListener('click', () => void views.discover.refresh());
   nodes.search.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
-  nodes.tag.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
   nodes.sort.addEventListener('change', () => void views.discover.refresh());
   nodes.discoverCategories.forEach(categoryButton => {
     categoryButton.addEventListener('click', () => {
@@ -21,6 +31,16 @@ export function bindWorkshopEvents({
         buttonNode.classList.toggle('is-filter-active', buttonNode === categoryButton);
       });
       showTab('discover');
+      overlay.querySelector('.rw-tab[data-tab="discover"]')?.classList.remove('is-active');
+      nodes.discoverHeadTools.hidden = false;
+      void views.discover.catalog({ category: nodes.category.value });
+    });
+  });
+  nodes.discoverShowcaseMore.forEach(moreButton => {
+    moreButton.addEventListener('click', () => {
+      nodes.discoverHeadTools.hidden = false;
+      nodes.category.value = '';
+      void views.discover.catalog({ category: '', sort: moreButton.dataset.discoverMoreSort || 'latest' });
     });
   });
   nodes.discoverMore.addEventListener('click', () => void views.discover.loadMore());
@@ -61,11 +81,104 @@ export function bindWorkshopEvents({
     } catch (error) { notifyError(error); }
   });
 
+  async function loginWithDiscordCompat() {
+    const pending = workshopApi.beginLogin();
+    const controller = new AbortController();
+    let completed = false;
+
+    let popup = null;
+    try {
+      popup = host.open?.(
+        pending.url,
+        'reincarnation-workshop-oauth',
+        'popup,width=560,height=760',
+      ) || null;
+    } catch {}
+
+    const modal = openModal('Discord 登录', {
+      onClose: () => {
+        if (!completed) controller.abort();
+      },
+    });
+
+    const intro = doc.createElement('p');
+    intro.className = 'rw-muted';
+    intro.textContent = popup
+      ? 'Discord 授权页已尝试打开。完成授权后回到这里，创意工坊会自动完成登录。'
+      : '当前客户端没有可用的登录弹窗。TT 等酒馆客户端可使用下面的授权页或复制链接到系统浏览器，授权后再返回这里。';
+
+    const status = doc.createElement('div');
+    status.className = 'rw-rule-section';
+    status.textContent = '等待 Discord 授权…';
+
+    const direct = doc.createElement('a');
+    direct.className = 'rw-button primary';
+    direct.href = pending.url;
+    direct.target = '_blank';
+    direct.rel = 'noopener noreferrer';
+    direct.textContent = '打开 Discord 授权页';
+
+    const link = doc.createElement('input');
+    link.className = 'rw-input';
+    link.type = 'text';
+    link.readOnly = true;
+    link.value = pending.url;
+    link.setAttribute('aria-label', 'Discord 授权链接');
+
+    const copy = doc.createElement('button');
+    copy.className = 'rw-button';
+    copy.type = 'button';
+    copy.textContent = '复制授权链接';
+    copy.addEventListener('click', async () => {
+      try {
+        if (host.navigator?.clipboard?.writeText) {
+          await host.navigator.clipboard.writeText(pending.url);
+        } else {
+          link.focus();
+          link.select();
+          if (!doc.execCommand?.('copy')) throw new Error('copy unavailable');
+        }
+        status.textContent = '授权链接已复制。请在系统浏览器打开，完成 Discord 授权后返回 TT。';
+      } catch {
+        link.focus();
+        link.select();
+        status.textContent = '无法自动复制，已选中授权链接，请手动复制后在系统浏览器打开。';
+      }
+    });
+
+    const actions = doc.createElement('div');
+    actions.className = 'rw-page-actions';
+    actions.append(direct, copy);
+
+    const note = doc.createElement('p');
+    note.className = 'rw-muted';
+    note.textContent = '不需要把 Discord Token 粘贴回酒馆；授权结果会通过创意工坊服务器自动交换。等待时间最长 5 分钟。';
+
+    modal.body.append(intro, status, actions, link, note);
+
+    try {
+      const auth = await workshopApi.waitForLogin(pending, {
+        popup,
+        signal: controller.signal,
+      });
+      completed = true;
+      status.textContent = 'Discord 登录成功。';
+      modal.close({ force: true });
+      return auth;
+    } catch (error) {
+      if (controller.signal.aborted) return null;
+      status.textContent = error instanceof Error ? error.message : String(error);
+      throw error;
+    }
+  }
+
   nodes.login.addEventListener('click', async () => {
     nodes.login.disabled = true;
     nodes.login.textContent = '等待授权...';
     try {
-      setAuth(await workshopApi.login());
+      const auth = await loginWithDiscordCompat();
+      if (!auth) return;
+      setAuth(auth);
       showTab(getActiveTab());
     } catch (error) { notifyError(error); }
     finally {
@@ -90,11 +203,23 @@ export function bindWorkshopEvents({
     overlay,
     nodes,
     workshopApi,
+    projectService,
     notifyError,
     confirmDialog,
     openModal,
     refreshMine: () => views.author.refresh(),
   });
 
-  return () => createProjectFlow.destroy();
+  const hereticPublishFlow = bindHereticPublishFlow({
+    host,
+    overlay,
+    workshopApi,
+    notifyError,
+    refreshMine: () => views.author.refresh(),
+  });
+
+  return () => {
+    createProjectFlow.destroy();
+    hereticPublishFlow.destroy();
+  };
 }

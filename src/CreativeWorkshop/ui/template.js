@@ -4,7 +4,7 @@ export function workshopTemplate(version) {
     <header class="rw-head">
       <div class="rw-title">创意工坊</div>
       <div class="rw-head-discover-tools" data-role="discover-head-tools">
-        <input class="rw-input grow" data-field="search" placeholder="搜索项目、作者或简介">
+        <input class="rw-input grow" data-field="search" placeholder="搜索项目、作者、简介或 #标签">
         <select class="rw-select" data-field="sort" aria-label="作品排序">
           <option value="latest">最新</option>
           <option value="popular">热门</option>
@@ -15,7 +15,7 @@ export function workshopTemplate(version) {
         <button class="rw-button" data-action="search" type="button">搜索</button>
       </div>
       <div class="rw-head-actions">
-        <button class="rw-button rw-maintenance-trigger" type="button" data-action="maintenance">DLC 修复</button>
+        <button class="rw-button rw-maintenance-trigger" type="button" data-action="maintenance">修复</button>
         <span class="rw-health-chip" data-role="health" title="工坊服务状态">连接中</span>
         <div class="rw-version">v${version}</div>
         <div class="rw-account-wrap" data-role="account-wrap">
@@ -35,7 +35,7 @@ export function workshopTemplate(version) {
       <div class="rw-nav-label">浏览</div>
       <button class="rw-tab is-active" data-tab="discover" type="button">发现</button>
       <div class="rw-nav-divider"></div>
-      <button class="rw-tab rw-nav-filter is-filter-active" data-category-filter="" type="button">全部项目</button>
+      <button class="rw-tab rw-nav-filter" data-category-filter="" type="button">全部项目</button>
       <button class="rw-tab rw-nav-filter" data-category-filter="extension" type="button">扩展</button>
       <button class="rw-tab rw-nav-filter" data-category-filter="character" type="button">角色</button>
       <div class="rw-nav-divider"></div>
@@ -44,17 +44,33 @@ export function workshopTemplate(version) {
     </nav>
     <main class="rw-body">
       <section class="rw-section" data-section="discover">
-        <div class="rw-page-head">
-          <div class="rw-page-head-copy"><small>DISCOVER</small><h2>发现作品</h2><p>浏览角色与扩展，下载后再由你决定是否安装到酒馆。</p></div>
-          <div class="rw-page-head-meta" data-role="discover-count">正在载入</div>
+        <div class="rw-discover-home" data-role="discover-home">
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>FOR YOU</small><h2>发现推荐</h2></div></div>
+            <div class="rw-showcase-row" data-role="discover-featured"></div>
+          </section>
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>LATEST</small><h2>最新发布</h2></div></div>
+            <div class="rw-showcase-row" data-role="discover-latest"></div>
+          </section>
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>PLAYER PICKS</small><h2>玩家好评</h2></div></div>
+            <div class="rw-showcase-row" data-role="discover-liked"></div>
+          </section>
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>MOST DOWNLOADED</small><h2>下载最多</h2></div></div>
+            <div class="rw-showcase-row" data-role="discover-downloaded"></div>
+          </section>
         </div>
-        <input type="hidden" data-field="category" value="">
-        <div class="rw-discover-subtools">
-          <input class="rw-input rw-tag-input" data-field="tag" maxlength="24" placeholder="精确标签（可选）">
-          <span class="rw-muted">分类从左侧切换；搜索与排序在顶部。</span>
+        <div class="rw-catalog" data-role="discover-catalog" hidden>
+          <div class="rw-page-head">
+            <div class="rw-page-head-copy"><small>CATALOG</small><h2 data-role="catalog-title">全部项目</h2><p>浏览角色与扩展，按排序和关键词查找作品。</p></div>
+            <div class="rw-page-head-meta" data-role="discover-count">正在载入</div>
+          </div>
+          <input type="hidden" data-field="category" value="">
+          <div class="rw-grid rw-project-grid" data-role="discover-list"></div>
+          <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>
         </div>
-        <div class="rw-grid rw-project-grid" data-role="discover-list"></div>
-        <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>
       </section>
       <section class="rw-section" data-section="installed" hidden>
         <div class="rw-page-head">
@@ -71,13 +87,31 @@ export function workshopTemplate(version) {
       <section class="rw-section" data-section="mine" hidden>
         <div class="rw-page-head">
           <div class="rw-page-head-copy"><small>CREATOR</small><h2>我的作品</h2><p>创建、更新并跟踪你的发布内容。</p></div>
-          <button class="rw-button primary" type="button" data-action="create-project-open">发布作品</button>
+          <div class="rw-row"><button class="rw-button" type="button" data-action="create-heretic-open">上传当前角色到异端库</button><button class="rw-button primary" type="button" data-action="create-project-open">创建作品</button></div>
         </div>
+        <form class="rw-create-form" data-form="create-heretic" hidden>
+          <div class="rw-publish-form-head"><div class="rw-publish-form-title"><span>◈</span><div><strong>异端库 · 当前角色快照</strong><small>读取当前 MVU 角色的原始构筑；派生属性、道具、货币、任务等不会上传。</small></div></div><button class="rw-modal-close" type="button" data-action="create-heretic-cancel">×</button></div>
+          <div class="rw-publish-grid">
+            <section class="rw-publish-column">
+              <label class="rw-field"><span>作品名称 *</span><input class="rw-input" name="name" required maxlength="80" placeholder="默认使用当前角色姓名"></label>
+              <label class="rw-field"><span>简介</span><textarea class="rw-textarea" name="summary" maxlength="2000" placeholder="这个角色的特色与玩法。"></textarea></label>
+              <label class="rw-field"><span>性格 *</span><textarea class="rw-textarea" name="personality" required maxlength="1200" placeholder="发布前补充角色稳定的人格与行为倾向。"></textarea></label>
+              <label class="rw-field"><span>喜爱 *</span><textarea class="rw-textarea" name="likes" required maxlength="800" placeholder="偏好、兴趣、厌恶等。"></textarea></label>
+              <label class="rw-field"><span>背景故事 *</span><textarea class="rw-textarea" name="background" required maxlength="3000" placeholder="角色经历与关键背景。"></textarea></label>
+            </section>
+            <section class="rw-publish-column">
+              <div class="rw-publish-step-title"><span>LIVE</span><div><strong>当前构筑预览</strong><small>只显示会上传的字段。</small></div></div>
+              <div class="rw-local-note" data-role="heretic-build-preview">打开后读取当前 MVU。</div>
+              <label class="rw-field"><span>封面图（可选）</span><input class="rw-input" data-field="heretic-cover" type="file" accept="image/png,image/jpeg,image/webp"></label>
+            </section>
+          </div>
+          <footer class="rw-publish-footer"><div class="rw-publish-footer-note">异端仍复用角色项目的审核、版本、更新和举报系统，但不会出现在普通角色创建模板中。</div><div class="rw-row"><button class="rw-button" type="button" data-action="create-heretic-cancel">取消</button><button class="rw-button primary" type="submit">提交异端审核</button></div></footer>
+        </form>
         <form class="rw-create-form" data-form="create-project" hidden>
           <div class="rw-publish-form-head">
             <div class="rw-publish-form-title">
               <span>☁</span>
-              <div><strong>发布项目</strong><small>上传文件，剩下的交给工坊识别。</small></div>
+              <div><strong>创建项目</strong><small>可先保存到本地测试，确认无误后再提交审核。</small></div>
             </div>
             <button class="rw-modal-close" type="button" data-action="create-project-cancel" aria-label="关闭">×</button>
           </div>
@@ -91,7 +125,7 @@ export function workshopTemplate(version) {
 
               <label class="rw-field">
                 <span>作品名称 *</span>
-                <input class="rw-input" name="name" required maxlength="80" placeholder="例如：命定之诗与黄昏之歌">
+                <input class="rw-input" name="name" required maxlength="80" placeholder="请输入作品名称">
               </label>
 
               <label class="rw-field">
@@ -112,6 +146,16 @@ export function workshopTemplate(version) {
                   <option value="extension">扩展</option>
                   <option value="character">角色</option>
                 </select>
+              </label>
+
+              <label class="rw-field" data-role="character-kind-field" hidden>
+                <span>角色用途 *</span>
+                <select class="rw-select" name="character_kind">
+                  <option value="world_character">世界书人物</option>
+                  <option value="opening_character">开局角色</option>
+                  <option value="opening_partner">开局伙伴</option>
+                </select>
+                <small>世界书人物用于剧情设定；开局角色与开局伙伴会进入新版开局对应选择库。</small>
               </label>
 
               <label class="rw-field">
@@ -152,6 +196,12 @@ export function workshopTemplate(version) {
                     <small>选择 JS 或 ScriptTree JSON</small>
                     <input data-field="create-script" type="file" multiple accept=".js,.mjs,.json,application/json,text/javascript,application/javascript" hidden>
                   </label>
+                  <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-data">
+                    <span class="rw-smart-dropzone-icon">数</span>
+                    <strong>开局数据</strong>
+                    <small>角色资产 / 伙伴 / 商店 Catalog JSON</small>
+                    <input data-field="create-data" type="file" multiple accept=".json,application/json" hidden>
+                  </label>
                 </div>
                 <input data-field="create-version" type="file" multiple hidden>
                 <div class="rw-file-state" data-role="create-version-state">选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。</div>
@@ -185,9 +235,10 @@ export function workshopTemplate(version) {
           </div>
 
           <footer class="rw-publish-footer">
-            <div class="rw-publish-footer-note">● 原版资源状态会随作品保存；停用/卸载作品时恢复安装前状态。</div>
+            <div class="rw-publish-footer-note">● 保存到本地测试不会上传服务器；只有提交审核才会创建线上项目。原版资源状态会随作品保存。</div>
             <div class="rw-row">
               <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
+              <button class="rw-button" type="button" data-action="create-project-local-test">保存到本地测试</button>
               <button class="rw-button primary" type="submit">提交审核</button>
             </div>
           </footer>
@@ -200,6 +251,7 @@ export function workshopTemplate(version) {
         </div>
         <div class="rw-admin-tabs">
           <button class="rw-tab is-active" data-admin-view="projects" type="button">作品审核</button>
+          <button class="rw-tab" data-admin-view="updates" type="button">更新动态</button>
           <button class="rw-tab" data-admin-view="reports" type="button">举报处理</button>
           <button class="rw-tab" data-admin-view="users" type="button">用户管理</button>
         </div>
@@ -212,6 +264,14 @@ export function workshopTemplate(version) {
             <button class="rw-button" data-action="admin-search" type="button">筛选</button>
           </div>
           <div class="rw-grid" data-role="pending-list"></div>
+        </div>
+
+        <div data-admin-section="updates" hidden>
+          <div class="rw-toolbar">
+            <div class="rw-muted grow">已通过首次审核的作品后续由作者直接发布；这里显示当前最新的作者自助更新。</div>
+            <button class="rw-button" data-action="admin-update-refresh" type="button">刷新更新</button>
+          </div>
+          <div class="rw-grid" data-role="update-list"></div>
         </div>
 
         <div data-admin-section="reports" hidden>

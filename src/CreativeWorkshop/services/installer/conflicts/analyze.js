@@ -108,7 +108,7 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
         }));
         continue;
       }
-      if (String(matches[0].regex?.id || '').startsWith(regexPrefix(installed.id))) {
+      if (String(matches[0].regex?.id || '').startsWith('rw:')) {
         blocking.push(issue('original_regex_target_invalid', {
           name: target.name || target.id || '',
         }));
@@ -144,7 +144,7 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
         }));
         continue;
       }
-      if (String(matches[0].script?.id || '').startsWith(scriptPrefix(installed.id))) {
+      if (String(matches[0].script?.id || '').startsWith('rw:')) {
         blocking.push(issue('original_script_target_invalid', {
           scope,
           name: target.name || target.id || '',

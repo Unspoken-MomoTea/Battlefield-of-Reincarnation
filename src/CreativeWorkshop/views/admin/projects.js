@@ -221,7 +221,7 @@ export function createAdminProjectsView({
 
   function reviewActions(item, project, modal) {
     const section = element('section', 'rw-admin-review-decision');
-    section.appendChild(element('div', 'rw-workshop-rail-label', '审核操作'));
+    section.appendChild(element('div', 'rw-workshop-rail-label', project.review_status === 'pending' ? '审核操作' : '管理操作'));
 
     if (project.review_status === 'pending' && project.project_status !== 'archived') {
       section.append(
@@ -235,17 +235,20 @@ export function createAdminProjectsView({
     } else {
       section.appendChild(button('下架作品', 'danger', () => stateAction(item, 'archive', modal)));
     }
-    section.appendChild(button('删除作品', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
+    if (Number(getAuth()?.user?.is_admin)) section.appendChild(button('删除作品', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
     return section;
   }
 
   async function showReview(item) {
-    const modal = openModal(`审核详情 · ${item.name}`, { extraWide: true });
-    empty(modal.body, '正在加载审核资料...');
+    const modal = openModal(`作品详情 · ${item.name}`, { extraWide: true });
+    empty(modal.body, '正在加载作品资料...');
 
     try {
       const detail = await workshopApi.getPendingReview(item.id);
       const project = detail.project;
+      const autoPublished = project.review_status === 'approved'
+        && !project.reviewed_at
+        && Number(project.published_version) === Number(project.latest_version);
       modal.body.replaceChildren();
 
       const shell = element('div', 'rw-workshop-detail-shell rw-admin-review-shell');
@@ -265,8 +268,8 @@ export function createAdminProjectsView({
         element('span', 'rw-pill', categoryLabels[project.category] || project.category),
         element(
           'span',
-          `rw-local-state rw-local-state--${project.review_status === 'approved' ? 'installed' : project.review_status === 'rejected' ? 'bad' : 'update'}`,
-          reviewStatusLabel(project.review_status),
+          `rw-local-state rw-local-state--${autoPublished ? 'update' : project.review_status === 'approved' ? 'installed' : project.review_status === 'rejected' ? 'bad' : 'update'}`,
+          autoPublished ? '作者自助更新' : reviewStatusLabel(project.review_status),
         ),
       );
       if (project.project_status === 'archived') headerMeta.appendChild(element('span', 'rw-pill', '管理员已下架'));
@@ -284,7 +287,7 @@ export function createAdminProjectsView({
         const url = host.URL.createObjectURL(blob);
         const cover = element('img', 'rw-workshop-hero');
         cover.src = url;
-        cover.alt = `${project.name} 待审封面`;
+        cover.alt = `${project.name} 作品封面`;
         cover.onload = () => host.URL.revokeObjectURL(url);
         reading.appendChild(cover);
       }
@@ -294,7 +297,7 @@ export function createAdminProjectsView({
       const overviewCopy = element('div', '');
       overviewCopy.append(
         element('strong', '', '作品简介'),
-        element('span', '', '审核前先确认作者描述与实际内容是否一致'),
+        element('span', '', autoPublished ? '作者已直接发布本次更新，可在这里复查变化与实际内容' : '审核前先确认作者描述与实际内容是否一致'),
       );
       overviewHeading.appendChild(overviewCopy);
       overview.append(
@@ -309,13 +312,13 @@ export function createAdminProjectsView({
       reading.appendChild(renderReviewHistory(detail));
 
       const reviewSummary = element('section', 'rw-workshop-rail-section rw-admin-review-summary');
-      reviewSummary.appendChild(element('div', 'rw-workshop-rail-label', '审核资料'));
+      reviewSummary.appendChild(element('div', 'rw-workshop-rail-label', '版本资料'));
       const facts = element('div', 'rw-workshop-facts');
       facts.append(
         detailRow('当前版本', `v${project.latest_version}`),
         detailRow('公开版本', `v${project.published_version}`),
-        detailRow('提交审核', formatTime(project.submitted_at)),
-        detailRow('最近审核', formatTime(project.reviewed_at)),
+        detailRow(autoPublished ? '作者发布' : '提交审核', formatTime(autoPublished ? project.version_created_at : project.submitted_at)),
+        detailRow(autoPublished ? '发布方式' : '最近审核', autoPublished ? '首次审核通过后作者自助发布' : formatTime(project.reviewed_at)),
         detailRow('下载', String(project.downloads_count || 0)),
         detailRow('点赞 / 收藏', `${project.likes_count || 0} / ${project.favorites_count || 0}`),
       );
@@ -351,6 +354,9 @@ export function createAdminProjectsView({
   }
 
   function projectCard(item) {
+    const autoPublished = item.review_status === 'approved'
+      && !item.reviewed_at
+      && Number(item.published_version) === Number(item.latest_version);
     const card = element('article', 'rw-card rw-admin-project-card');
     const head = element('div', 'rw-local-card-head');
     const title = element('div', 'rw-local-titlebox');
@@ -360,8 +366,8 @@ export function createAdminProjectsView({
     );
     const reviewState = element(
       'span',
-      `rw-local-state rw-local-state--${item.review_status === 'approved' ? 'installed' : item.review_status === 'rejected' ? 'bad' : 'update'}`,
-      reviewStatusLabel(item.review_status),
+      `rw-local-state rw-local-state--${autoPublished ? 'update' : item.review_status === 'approved' ? 'installed' : item.review_status === 'rejected' ? 'bad' : 'update'}`,
+      autoPublished ? '作者自助更新' : reviewStatusLabel(item.review_status),
     );
     head.append(title, reviewState);
     card.appendChild(head);
@@ -380,7 +386,9 @@ export function createAdminProjectsView({
     card.appendChild(element(
       'div',
       'rw-muted',
-      `${item.changelog || '无版本说明'}\n提交：${formatTime(item.submitted_at)} · 审核：${formatTime(item.reviewed_at)}`,
+      autoPublished
+        ? `${item.changelog || '无版本说明'}\n作者发布：${formatTime(item.version_created_at)} · 首次审核后免重复审核`
+        : `${item.changelog || '无版本说明'}\n提交：${formatTime(item.submitted_at)} · 审核：${formatTime(item.reviewed_at)}`,
     ));
 
     if (item.review_decision) {
@@ -390,7 +398,7 @@ export function createAdminProjectsView({
 
     const actions = element('div', 'rw-local-actions');
     actions.appendChild(button('查看内容与审核', 'primary rw-local-primary', () => showReview(item)));
-    if (item.project_status === 'archived') {
+    if (item.project_status === 'archived' && Number(getAuth()?.user?.is_admin)) {
       actions.appendChild(button('删除作品', 'danger', () => deleteAction(item, null)));
     }
     card.appendChild(actions);
@@ -398,7 +406,7 @@ export function createAdminProjectsView({
   }
 
   async function refreshProjects() {
-    if (!Number(getAuth()?.user?.is_admin)) return empty(nodes.pendingList, '需要管理员权限');
+    if (!Number(getAuth()?.user?.is_admin) && !Number(getAuth()?.user?.is_moderator)) return empty(nodes.pendingList, '需要审核员权限');
     try {
       const result = await workshopApi.listAdminProjects({
         query: nodes.adminSearch.value,

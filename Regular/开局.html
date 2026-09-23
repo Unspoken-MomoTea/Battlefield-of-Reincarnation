@@ -512,6 +512,14 @@
         .p-item-info .val { color: var(--text); font-weight: 500; }
         .p-item-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
     </style>
+
+<style>
+.asset-library-shell{margin:0 0 20px;padding:16px;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border));border-radius:14px;background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(0,0,0,.14));box-shadow:0 14px 38px rgba(0,0,0,.14)}
+.asset-library-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.asset-library-head h3{margin:0;font-size:1rem}.asset-library-head small{color:var(--text-sub)}
+.asset-library-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.asset-library-card{position:relative;padding:14px;border:1px solid var(--border);border-radius:12px;background:rgba(0,0,0,.12);cursor:pointer;transition:.18s;overflow:hidden}.asset-library-card:hover{transform:translateY(-2px);border-color:var(--accent-dark)}.asset-library-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent)}.asset-library-card strong{display:block;margin:5px 0 8px}.asset-library-source{font-size:.7rem;color:var(--accent)}.asset-library-tags{display:flex;gap:5px;flex-wrap:wrap}.asset-library-tags span{font-size:.68rem;padding:2px 7px;border-radius:99px;background:rgba(255,255,255,.06);color:var(--text-sub)}.asset-library-empty{grid-column:1/-1;text-align:center;padding:22px;border:1px dashed var(--border);border-radius:10px;color:var(--text-sub)}
+.asset-mode-tabs{display:flex;gap:8px;margin-bottom:12px}.asset-mode-tabs button{flex:1;padding:9px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text-sub);cursor:pointer}.asset-mode-tabs button.active{color:var(--accent);border-color:var(--accent-dark);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+@media(max-width:620px){.asset-library-head{align-items:flex-start;flex-direction:column}.asset-library-grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
     <div class="wizard-layout">
@@ -552,7 +560,12 @@
           <div class="variable-api-mode-status" id="variable-api-mode-status"></div>
       </section>
 
-      <h2 class="section-title">基础信息录入</h2>
+      <h2 class="section-title">角色档案</h2>
+                <div class="asset-library-shell">
+                    <div class="asset-mode-tabs"><button type="button" id="character-mode-custom" class="active" onclick="setCharacterMode('custom')">自定义角色</button><button type="button" id="character-mode-library" onclick="setCharacterMode('library')">开局角色库</button></div>
+                    <div id="opening-character-library" style="display:none;"></div>
+                </div>
+                <h2 class="section-title">基础信息录入</h2>
                 <div class="grid-2">
                     <div class="form-group"><label>代号 / 姓名</label><input type="text" class="form-control" id="f-name" placeholder="输入角色姓名..."></div>
                     <div class="form-group"><label>性别</label><select class="form-control" id="f-gender"><option>男</option><option>女</option><option>扶她</option><option>男娘</option><option>药娘</option><option>太监</option><option>无性别</option></select></div>
@@ -604,11 +617,14 @@
 
             <div class="step-pane" id="pane-3">
                 <div class="background-page">
-                    <div style="display:none;" data-hidden="1">
+                    <div>
                         <h2 class="section-title">协同实体 (伙伴)</h2>
-                        <div class="destined-ones-content"><div class="destined-one-list" id="grid-partner"></div></div>
+                        <div class="asset-library-shell">
+                            <div class="asset-mode-tabs"><button type="button" id="partner-mode-library" class="active" onclick="setPartnerMode('library')">开局伙伴库</button><button type="button" id="partner-mode-custom" onclick="setPartnerMode('custom')">自定义伙伴</button></div>
+                            <div id="opening-partner-library"></div>
+                        </div>
                     </div>
-                    <div class="collapsible-form" id="custom-partner-form">
+                    <div class="collapsible-form" id="custom-partner-form" style="display:none;">
                         <div class="form-header" onclick="toggleCustomPartner()">
                             <div><div class="form-title">+ 招募自定义伙伴</div><div class="form-desc">无预设匹配时自定义一位协同实体</div></div>
                             <span class="toggle-icon">▼</span>
@@ -1075,6 +1091,11 @@
     let selectedItems = new Set();
     let selectedPlot = null;
     let selectedPartner = null;
+    let selectedOpeningCharacter = null;
+    let selectedOpeningPartner = null;
+    let characterMode = 'custom';
+    let partnerMode = 'library';
+    let openingAssets = [];
     let customItems = [];
     let activeItemTab = 'equipment';
     let activeSubCategory = null; 
@@ -1093,6 +1114,113 @@
     const tierColor = t => getComputedStyle(document.documentElement).getPropertyValue('--t-' + t).trim() || '#66fcf1';
     const $ = id => document.getElementById(id);
     const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&','<':'<','>':'>','"':'"'}[c]));
+
+    function openingDb() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('reincarnation-workshop', 4);
+            request.onupgradeneeded = () => {
+                const db = request.result;
+                if (!db.objectStoreNames.contains('opening_assets')) db.createObjectStore('opening_assets', { keyPath:'id' });
+                if (!db.objectStoreNames.contains('opening_store_catalogs')) db.createObjectStore('opening_store_catalogs', { keyPath:'id' });
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+    async function loadOpeningStoreCatalogs() {
+        try {
+            const db = await openingDb();
+            const rows = await new Promise((resolve,reject) => {
+                const req = db.transaction('opening_store_catalogs','readonly').objectStore('opening_store_catalogs').getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+            db.close();
+            const groups = ['equipments','items','skills'];
+            for (const row of rows) for (const group of groups) {
+                const target = DB[group];
+                const existing = new Set(target.map(item => item.id));
+                for (const item of row.catalog?.[group] || []) {
+                    const sourceId = String(item.id || '').trim();
+                    if (!sourceId) continue;
+                    const id = 'workshop:' + row.sourceProjectId + ':' + sourceId;
+                    if (existing.has(id)) continue;
+                    target.push({...structuredClone(item), id, _sourceProjectId:row.sourceProjectId, _sourceProjectName:row.sourceProjectName || '创意工坊'});
+                    existing.add(id);
+                }
+            }
+        } catch(error) {
+            console.warn('[轮回战场开局] 读取工坊商店目录失败', error);
+        }
+    }
+    async function loadOpeningAssets() {
+        try {
+            const db = await openingDb();
+            openingAssets = await new Promise((resolve,reject) => {
+                const req = db.transaction('opening_assets','readonly').objectStore('opening_assets').getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+            db.close();
+        } catch(e) { openingAssets = []; }
+        renderOpeningCharacterLibrary();
+        renderOpeningPartnerLibrary();
+    }
+    function assetSummary(asset) {
+        const build = asset.build || asset.character || {};
+        return [build.种族, build.层级, ...(Array.isArray(build.身份)?build.身份.slice(0,2):[])].filter(Boolean);
+    }
+    function renderAssetCards(kind, selectedId, onClickName) {
+        const list = openingAssets.filter(a => a.kind === kind);
+        if (!list.length) return '<div class="asset-library-empty">◇ 暂无已安装档案<br><small>之后可从创意工坊安装到这里。</small></div>';
+        return list.map(asset => `<div class="asset-library-card ${selectedId===asset.id?'selected':''}" onclick="${onClickName}('${esc(asset.id)}')">
+            <span class="asset-library-source">${esc(asset.sourceProjectName || '本地档案')}</span>
+            <strong>${esc(asset.name || '未命名角色')}</strong>
+            <div class="asset-library-tags">${assetSummary(asset).map(v=>`<span>${esc(v)}</span>`).join('')}</div>
+        </div>`).join('');
+    }
+    function renderOpeningCharacterLibrary() {
+        const el=$('opening-character-library'); if(!el)return;
+        el.innerHTML='<div class="asset-library-head"><div><h3>开局角色档案</h3><small>选择后将直接采用其原始构筑，派生属性由当前版本重新计算。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_character',selectedOpeningCharacter?.id,'selectOpeningCharacter')+'</div>';
+    }
+    function renderOpeningPartnerLibrary() {
+        const el=$('opening-partner-library'); if(!el)return;
+        el.innerHTML='<div class="asset-library-head"><div><h3>开局伙伴档案</h3><small>完整伙伴无需 AI 再随机补全战术模块。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_partner',selectedOpeningPartner?.id,'selectOpeningPartner')+'</div>';
+    }
+    function setCharacterMode(mode) {
+        characterMode=mode==='library'?'library':'custom';
+        $('character-mode-custom')?.classList.toggle('active',characterMode==='custom');
+        $('character-mode-library')?.classList.toggle('active',characterMode==='library');
+        if($('opening-character-library')) $('opening-character-library').style.display=characterMode==='library'?'':'none';
+        if(characterMode==='custom') selectedOpeningCharacter=null;
+        renderOpeningCharacterLibrary();
+    }
+    function setPartnerMode(mode) {
+        partnerMode=mode==='custom'?'custom':'library';
+        $('partner-mode-custom')?.classList.toggle('active',partnerMode==='custom');
+        $('partner-mode-library')?.classList.toggle('active',partnerMode==='library');
+        if($('custom-partner-form')) $('custom-partner-form').style.display=partnerMode==='custom'?'':'none';
+        if($('opening-partner-library')) $('opening-partner-library').style.display=partnerMode==='library'?'':'none';
+        if(partnerMode==='library'){ useCustomPartnerFlag=false; selectedPartner=selectedOpeningPartner?'library':null; }
+        renderOpeningPartnerLibrary(); updateBgSummary();
+    }
+    function selectOpeningCharacter(id) {
+        const asset=openingAssets.find(a=>a.id===id&&a.kind==='opening_character'); if(!asset)return;
+        selectedOpeningCharacter=asset; characterMode='library';
+        const build=asset.build||asset.character||{};
+        if(asset.name) $('f-name').value=asset.name;
+        if(build.种族) $('f-race').value=build.种族;
+        renderOpeningCharacterLibrary(); showToast('已载入开局角色：'+(asset.name||'未命名'));
+    }
+    function selectOpeningPartner(id) {
+        const asset=openingAssets.find(a=>a.id===id&&a.kind==='opening_partner'); if(!asset)return;
+        selectedOpeningPartner=asset; selectedPartner='library'; useCustomPartnerFlag=false; partnerMode='library';
+        renderOpeningPartnerLibrary(); updateBgSummary(); showToast('已选择开局伙伴：'+(asset.name||'未命名'));
+    }
+
+    Promise.all([loadOpeningAssets(), loadOpeningStoreCatalogs()]).then(() => {
+        renderSubCategories(); renderRarityFilter(); renderItems();
+    });
 
     function getCurrentSource() {
         const cat = DB.itemCategories.find(c => c.key === activeItemTab);
@@ -2139,11 +2267,11 @@
 
     function collectState() {
         const attrs = {}; document.querySelectorAll('.attr-input').forEach((input, idx) => { attrs[DB.attributes[idx]] = parseInt(input.value||0); });
-        return { name:$('f-name').value, gender:$('f-gender').value, age:$('f-age').value, race:$('f-race').value, identity:$('f-identity').value, attrs:attrs, coins:currentCoins, selectedItems:[...selectedItems], selectedPlot, selectedPartner, useCustomPartnerFlag, singleWorldEnabled, customItems, customPartner:{name:$('cp-name').value,tier:$('cp-tier').value,race:$('cp-race').value,gender:$('cp-gender').value,app:$('cp-app').value,like:$('cp-like').value,bg:$('cp-bg').value}, singleWorld:{name:$('sw-name').value,time:$('sw-time').value,identity:$('sw-identity').value,mainstate:$('sw-mainstate').value,goal:$('sw-goal').value}, stabilityLocked: $('ws-lock') ? $('ws-lock').checked : false, partnerCostPaid, activePlotCat, originalIdentity, singleWorldIdentityOverridden };
+        return { name:$('f-name').value, gender:$('f-gender').value, age:$('f-age').value, race:$('f-race').value, identity:$('f-identity').value, attrs:attrs, coins:currentCoins, selectedItems:[...selectedItems], selectedPlot, selectedPartner, useCustomPartnerFlag, selectedOpeningCharacterId:selectedOpeningCharacter?.id||'', selectedOpeningPartnerId:selectedOpeningPartner?.id||'', characterMode, partnerMode, singleWorldEnabled, customItems, customPartner:{name:$('cp-name').value,tier:$('cp-tier').value,race:$('cp-race').value,gender:$('cp-gender').value,app:$('cp-app').value,like:$('cp-like').value,bg:$('cp-bg').value}, singleWorld:{name:$('sw-name').value,time:$('sw-time').value,identity:$('sw-identity').value,mainstate:$('sw-mainstate').value,goal:$('sw-goal').value}, stabilityLocked: $('ws-lock') ? $('ws-lock').checked : false, partnerCostPaid, activePlotCat, originalIdentity, singleWorldIdentityOverridden };
     }
     
     function applyState(st) {
-        $('f-name').value = st.name||''; $('f-gender').value = st.gender||'男'; $('f-age').value = st.age||20; $('f-race').value = st.race||'人类'; $('f-identity').value = st.identity||'守护者'; currentCoins = st.coins ?? DB.initSpaceCoins; partnerCostPaid = st.partnerCostPaid || 0; $('val-coins').innerText = currentCoins; selectedItems = new Set(st.selectedItems||[]); selectedPlot = st.selectedPlot||null; selectedPartner = st.selectedPartner||null; useCustomPartnerFlag = !!st.useCustomPartnerFlag; singleWorldEnabled = !!st.singleWorldEnabled; customItems = st.customItems||[]; if (st.activePlotCat) activePlotCat = st.activePlotCat; else activePlotCat = 'multi'; originalIdentity = (st.originalIdentity !== undefined ? st.originalIdentity : null); singleWorldIdentityOverridden = !!st.singleWorldIdentityOverridden; document.querySelectorAll('.attr-input').forEach((input, idx) => { input.value = (st.attrs && st.attrs[DB.attributes[idx]]) ?? DB.attrMin; }); updateFactionDesc(); if (st.customPartner) { $('cp-name').value=st.customPartner.name||''; $('cp-tier').value=st.customPartner.tier||'F'; $('cp-race').value=st.customPartner.race||''; $('cp-gender').value=st.customPartner.gender||'男'; $('cp-app').value=st.customPartner.app||''; $('cp-like').value=st.customPartner.like||''; $('cp-bg').value=st.customPartner.bg||''; } if (st.singleWorld) { ['name','time','identity','mainstate','goal'].forEach(k => { const el=$('sw-'+k); if(el) el.value = st.singleWorld[k]||''; }); } const lockEl = $('ws-lock'); if (lockEl) lockEl.checked = !!st.stabilityLocked; const swForm = $('single-world-form'); if (swForm) { if (activePlotCat === 'single') { swForm.style.display=''; swForm.classList.add('expanded'); } else { swForm.classList.remove('expanded'); } } const idEl = $('f-identity'); if (idEl) { if (activePlotCat === 'single' || singleWorldIdentityOverridden) { if (!singleWorldIdentityOverridden) { originalIdentity = idEl.value; singleWorldIdentityOverridden = true; } idEl.value = IDENTITY_SINGLE_WORLD; idEl.disabled = true; singleWorldIdentityLocked = true; updateFactionDesc(); } else { idEl.disabled = false; singleWorldIdentityLocked = false; } } calcTier(); renderItems(); renderSelectedPanel(); renderPlotTabs(); renderPlots(); renderPartners(); updateBgSummary(); const cpClearBtn = $('cp-clear-btn'); if (cpClearBtn) cpClearBtn.style.display = (useCustomPartnerFlag && selectedPartner === 'custom') ? '' : 'none';
+        $('f-name').value = st.name||''; $('f-gender').value = st.gender||'男'; $('f-age').value = st.age||20; $('f-race').value = st.race||'人类'; $('f-identity').value = st.identity||'守护者'; currentCoins = st.coins ?? DB.initSpaceCoins; partnerCostPaid = st.partnerCostPaid || 0; $('val-coins').innerText = currentCoins; selectedItems = new Set(st.selectedItems||[]); selectedPlot = st.selectedPlot||null; selectedPartner = st.selectedPartner||null; useCustomPartnerFlag = !!st.useCustomPartnerFlag; characterMode=st.characterMode||'custom'; partnerMode=st.partnerMode||'library'; selectedOpeningCharacter=openingAssets.find(a=>a.id===st.selectedOpeningCharacterId)||null; selectedOpeningPartner=openingAssets.find(a=>a.id===st.selectedOpeningPartnerId)||null; singleWorldEnabled = !!st.singleWorldEnabled; customItems = st.customItems||[]; if (st.activePlotCat) activePlotCat = st.activePlotCat; else activePlotCat = 'multi'; originalIdentity = (st.originalIdentity !== undefined ? st.originalIdentity : null); singleWorldIdentityOverridden = !!st.singleWorldIdentityOverridden; document.querySelectorAll('.attr-input').forEach((input, idx) => { input.value = (st.attrs && st.attrs[DB.attributes[idx]]) ?? DB.attrMin; }); updateFactionDesc(); if (st.customPartner) { $('cp-name').value=st.customPartner.name||''; $('cp-tier').value=st.customPartner.tier||'F'; $('cp-race').value=st.customPartner.race||''; $('cp-gender').value=st.customPartner.gender||'男'; $('cp-app').value=st.customPartner.app||''; $('cp-like').value=st.customPartner.like||''; $('cp-bg').value=st.customPartner.bg||''; } if (st.singleWorld) { ['name','time','identity','mainstate','goal'].forEach(k => { const el=$('sw-'+k); if(el) el.value = st.singleWorld[k]||''; }); } const lockEl = $('ws-lock'); if (lockEl) lockEl.checked = !!st.stabilityLocked; const swForm = $('single-world-form'); if (swForm) { if (activePlotCat === 'single') { swForm.style.display=''; swForm.classList.add('expanded'); } else { swForm.classList.remove('expanded'); } } const idEl = $('f-identity'); if (idEl) { if (activePlotCat === 'single' || singleWorldIdentityOverridden) { if (!singleWorldIdentityOverridden) { originalIdentity = idEl.value; singleWorldIdentityOverridden = true; } idEl.value = IDENTITY_SINGLE_WORLD; idEl.disabled = true; singleWorldIdentityLocked = true; updateFactionDesc(); } else { idEl.disabled = false; singleWorldIdentityLocked = false; } } setCharacterMode(characterMode); setPartnerMode(partnerMode); renderOpeningCharacterLibrary(); renderOpeningPartnerLibrary(); calcTier(); renderItems(); renderSelectedPanel(); renderPlotTabs(); renderPlots(); renderPartners(); updateBgSummary(); const cpClearBtn = $('cp-clear-btn'); if (cpClearBtn) cpClearBtn.style.display = (useCustomPartnerFlag && selectedPartner === 'custom') ? '' : 'none';
     }
     
     function openPresetModal() { renderPresetList(); $('preset-modal').style.display = 'flex'; }
@@ -2356,7 +2484,23 @@
             }
         });
 
+        const openingCharacterBuild = characterMode === 'library' && selectedOpeningCharacter ? (selectedOpeningCharacter.build || selectedOpeningCharacter.character || {}) : null;
         let partnerNode = null;
+        let partnerIsCompleteAsset = false;
+        if (selectedPartner === 'library' && selectedOpeningPartner) {
+            const pb = structuredClone(selectedOpeningPartner.build || selectedOpeningPartner.character || {});
+            const pp = selectedOpeningPartner.profile || {};
+            partnerNode = {
+                ...pb,
+                姓名: selectedOpeningPartner.name || '未命名伙伴',
+                在场: true,
+                是否队友: true,
+                性格: pp.性格 || pb.性格 || '',
+                喜爱: pp.喜爱 || pb.喜爱 || '',
+                背景故事: pp.背景故事 || pb.背景故事 || ''
+            };
+            partnerIsCompleteAsset = true;
+        }
         if (selectedPartner === 'custom' && useCustomPartnerFlag) {
             partnerNode = { 姓名:$('cp-name').value.trim(), 层级:$('cp-tier').value, 种族:$('cp-race').value.trim(), 身份:[$('f-identity').value, $('cp-gender').value], 在场:true, 是否队友:true, 喜爱:$('cp-like').value.trim(), 外貌:$('cp-app').value.trim(), 背景故事:$('cp-bg').value.trim() };
         }
@@ -2381,13 +2525,21 @@
                 _set(c, 'stat_data.角色.种族', race);
                 _set(c, 'stat_data.角色.身份', [identity, gender, age+'岁']);
                 _set(c, 'stat_data.角色.空间币', currentCoins);
+
+                if (openingCharacterBuild) {
+                    ['种族','职业','层级','血统','技能','装备','状态','形态库','当前形态'].forEach(key => {
+                        if (openingCharacterBuild[key] !== undefined) _set(c, 'stat_data.角色.' + key, structuredClone(openingCharacterBuild[key]));
+                    });
+                }
                 
                 _set(c, 'stat_data.角色.道具', itemObj);
-                _set(c, 'stat_data.角色.装备', equipObj);
-                _set(c, 'stat_data.角色.技能', skillObj);
+                if (!openingCharacterBuild) {
+                    _set(c, 'stat_data.角色.装备', equipObj);
+                    _set(c, 'stat_data.角色.技能', skillObj);
+                }
                 
-                // 血统精准写入
-                _set(c, `stat_data.角色.血统.${bloodlineName}`, {
+                // 自定义角色才创建初始血统；角色库资产保留其完整原始构筑
+                if (!openingCharacterBuild) _set(c, `stat_data.角色.血统.${bloodlineName}`, {
                     品质: tier,
                     标签: ['初始血统', race],
                     原始属性: attrTierObj,
@@ -2513,7 +2665,7 @@ ${worldText}
 生成一个极具沉浸感的开局场景。
 首次降临时，请根据角色填写的【种族】特性，为「${bloodlineName}」设计 1~2 个符合【${tier}级】强度限制的专属血统效果，并在剧情中表现出觉醒的异象！
 ${envInstruction}
-${partnerNode ? `[协同实体补全指令]：角色身边存在专属伙伴「${partnerNode.姓名 || '未命名'}」。该实体当前仅具有基础概念（层级、阵营、背景故事、喜好），缺乏具体战斗数据。请你基于其资料与【${partnerNode.层级 || '未知'}级】的强度限制，**自动为其推演并补全空白的战术模块**：
+${partnerNode && !partnerIsCompleteAsset ? `[协同实体补全指令]：角色身边存在专属伙伴「${partnerNode.姓名 || '未命名'}」。该实体当前仅具有基础概念（层级、阵营、背景故事、喜好），缺乏具体战斗数据。请你基于其资料与【${partnerNode.层级 || '未知'}级】的强度限制，**自动为其推演并补全空白的战术模块**：
 1. 赋予契合人设并符合层级限制的【血统】与【技能】。
 2. 为其配备 1~2 件符合层级的【初始装备/武器】。
 【叙事要求】：在开局场景中，请按时间锚点合理编排伙伴与角色的切入关系。在登场时，必须通过外貌细节与动作描写，自然地展现出伙伴补全的外貌着装等，并清晰呈现其性格、当前对角色的信任状态及真实态度。` : ''}`;

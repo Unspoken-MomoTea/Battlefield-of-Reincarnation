@@ -26,6 +26,33 @@ export function createDiscoverView({
   let loadedCount = 0;
   let requestSerial = 0;
   let localProjects = new Map();
+  const pageCache = new Map();
+
+  function queryState(category = nodes.category.value) {
+    const rawSearch = nodes.search.value.trim();
+    const tagMatch = rawSearch.match(/(?:^|\s)#([^\s#]+)/u);
+    return {
+      rawSearch,
+      tag: tagMatch?.[1] || '',
+      query: rawSearch.replace(/(?:^|\s)#[^\s#]+/gu, ' ').trim(),
+      category: category || '',
+      sort: nodes.sort.value,
+    };
+  }
+
+  function cacheKey(state, offset = 0) {
+    return JSON.stringify([state.query, state.category, state.tag, state.sort, Number(offset || 0)]);
+  }
+
+  function compatibleAllKey(state, offset = 0) {
+    return cacheKey({ ...state, category: '' }, offset);
+  }
+
+  function filterCachedAll(result, category) {
+    if (!category || !result || result.next_offset !== null) return null;
+    const items = (result.items || []).filter(item => item.category === category);
+    return { ...result, items, next_offset: null };
+  }
 
   function localProject(projectId) {
     return localProjects.get(projectId) || null;
@@ -76,29 +103,31 @@ export function createDiscoverView({
     card.setAttribute('role', 'button');
     card.setAttribute('aria-label', `查看作品：${project.name}`);
 
+    const author = element('div', 'rw-project-author-head', project.owner_name || '匿名作者');
+    card.appendChild(author);
+
+    const title = element('div', 'rw-project-title-row');
+    const titleBadge = element(
+      'span',
+      `rw-title-type rw-title-type--${project.category}`,
+      categoryLabels[project.category] || project.category,
+    );
+    title.append(titleBadge, element('h3', 'rw-project-title-text', project.name));
+    card.appendChild(title);
+
+    const media = element('div', 'rw-project-media');
     if (project.has_cover) {
       const cover = element('img', 'rw-cover');
       cover.src = workshopApi.getProjectCoverUrl(project.id);
       cover.alt = `${project.name} 封面`;
       cover.loading = 'lazy';
-      card.appendChild(cover);
+      media.appendChild(cover);
     } else {
       const placeholder = element('div', 'rw-cover rw-cover-placeholder');
       placeholder.textContent = categoryLabels[project.category] || '创意工坊';
-      card.appendChild(placeholder);
+      media.appendChild(placeholder);
     }
-
-    const typeBadge = element(
-      'span',
-      `rw-cover-badge rw-cover-badge--${project.category}`,
-      categoryLabels[project.category] || project.category,
-    );
-    card.appendChild(typeBadge);
-
-    const top = element('div', 'rw-project-card-top');
-    top.appendChild(element('h3', '', project.name));
-    if (project.owner_name) top.appendChild(element('div', 'rw-project-author', project.owner_name));
-    card.appendChild(top);
+    card.appendChild(media);
 
     const meta = element('div', 'rw-meta');
     meta.append(element('span', 'rw-pill', `v${project.version}`));
@@ -156,6 +185,104 @@ export function createDiscoverView({
     return card;
   }
 
+  function showcaseCard(project) {
+    const card = element('article', 'rw-showcase-card');
+    card.tabIndex = 0;
+    if (project.has_cover) {
+      const cover = element('img', 'rw-showcase-cover');
+      cover.src = workshopApi.getProjectCoverUrl(project.id);
+      cover.alt = project.name;
+      card.appendChild(cover);
+    } else {
+      card.appendChild(element('div', 'rw-showcase-cover rw-showcase-cover--empty', categoryLabels[project.category] || '作品'));
+    }
+    const copy = element('div', 'rw-showcase-copy');
+    const meta = element('span', 'rw-showcase-meta');
+    meta.append(
+      element('span', 'rw-showcase-type', categoryLabels[project.category] || '作品'),
+      element('span', '', project.owner_name || '匿名作者'),
+    );
+    copy.append(
+      element('strong', '', project.name),
+      meta,
+    );
+    card.appendChild(copy);
+    const open = () => void showDetail(project.id);
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); }
+    });
+    return card;
+  }
+
+  function showcaseMoreCard(sort) {
+    const labels = {
+      popular: ['MORE', '更多推荐'],
+      latest: ['MORE', '更多最新'],
+      likes: ['MORE', '更多好评'],
+      downloads: ['MORE', '更多下载'],
+    };
+    const [eyebrow, title] = labels[sort] || ['MORE', '查看更多'];
+    const card = element('button', 'rw-showcase-more-card');
+    card.type = 'button';
+    card.dataset.discoverMoreSort = sort;
+    card.append(
+      element('small', '', eyebrow),
+      element('strong', '', title),
+      element('span', '', '→'),
+    );
+    card.addEventListener('click', () => {
+      nodes.discoverHeadTools.hidden = false;
+      nodes.category.value = '';
+      void showCatalog({ category: '', sort });
+    });
+    return card;
+  }
+
+  async function loadShowcase() {
+    nodes.discoverHome.hidden = false;
+    nodes.discoverCatalog.hidden = true;
+    const targets = [
+      [nodes.discoverFeatured, 'popular'],
+      [nodes.discoverLatest, 'latest'],
+      [nodes.discoverLiked, 'likes'],
+      [nodes.discoverDownloaded, 'downloads'],
+    ];
+    for (const [target] of targets) empty(target, '正在加载…');
+    void syncLocalProjects().catch(() => {});
+    try {
+      const results = await Promise.all(targets.map(([, sort]) => {
+        const state = { query: '', category: '', tag: '', sort };
+        const key = cacheKey(state, 0);
+        const cached = pageCache.get(key);
+        if (cached) return cached;
+        return projectService.list('', '', 0, '', sort).then(result => {
+          pageCache.set(key, result);
+          return result;
+        });
+      }));
+      targets.forEach(([target], index) => {
+        const items = (results[index]?.items || []).slice(0, 6);
+        if (!items.length) empty(target, '暂时没有作品');
+        else target.replaceChildren(...items.slice(0, 5).map(showcaseCard), showcaseMoreCard(targets[index][1]));
+      });
+    } catch (error) {
+      targets.forEach(([target]) => empty(target, `加载失败：${error.message}`));
+    }
+  }
+
+  function showCatalog({ category = '', sort = null } = {}) {
+    nodes.discoverHome.hidden = true;
+    nodes.discoverCatalog.hidden = false;
+    nodes.category.value = category;
+    if (sort) nodes.sort.value = sort;
+    nodes.catalogTitle.textContent = category ? (categoryLabels[category] || '项目') : '全部项目';
+    nodes.discoverCategories.forEach(buttonNode => {
+      buttonNode.classList.toggle('is-filter-active', (buttonNode.dataset.categoryFilter || '') === category);
+    });
+    return loadPage({ append: false });
+  }
+
   async function loadPage({ append = false } = {}) {
     const serial = ++requestSerial;
     const offset = append ? nextOffset : 0;
@@ -167,20 +294,28 @@ export function createDiscoverView({
       nodes.discoverMore.hidden = true;
       empty(nodes.discoverList, '正在加载作品...');
       nodes.discoverCount.textContent = '正在载入';
-      await syncLocalProjects();
+      void syncLocalProjects().catch(() => {});
     } else {
       nodes.discoverMore.disabled = true;
       nodes.discoverMore.textContent = '加载中...';
     }
 
     try {
-      const result = await projectService.list(
-        nodes.search.value,
-        nodes.category.value,
-        offset || 0,
-        nodes.tag.value,
-        nodes.sort.value,
-      );
+      const state = queryState();
+      const key = cacheKey(state, offset || 0);
+      const allKey = compatibleAllKey(state, offset || 0);
+      let result = pageCache.get(key);
+      if (!result && state.category) result = filterCachedAll(pageCache.get(allKey), state.category);
+      if (!result) {
+        result = await projectService.list(
+          state.query,
+          state.category,
+          offset || 0,
+          state.tag,
+          state.sort,
+        );
+        pageCache.set(key, result);
+      }
       if (serial !== requestSerial) return;
 
       const items = Array.isArray(result.items) ? result.items : [];
@@ -555,8 +690,14 @@ export function createDiscoverView({
 
 
   return {
-    refresh: () => loadPage({ append: false }),
+    home: loadShowcase,
+    catalog: showCatalog,
+    refresh: ({ force = false } = {}) => {
+      if (force) pageCache.clear();
+      return loadPage({ append: false });
+    },
     loadMore: () => loadPage({ append: true }),
     showDetail,
+    invalidate: () => pageCache.clear(),
   };
 }

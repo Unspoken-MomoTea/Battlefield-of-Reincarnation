@@ -15,7 +15,7 @@ function adapterFixture(apiBase = 'https://workshop-test.6661816.xyz') {
     apiBase: '${apiBase}',
   };
   await import(
-    'https://testingcf.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@593cf339818e5ed1c8e2ed363d28e34ff98fa835/src/CreativeWorkshop/index.js'
+    'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@593cf339818e5ed1c8e2ed363d28e34ff98fa835/src/CreativeWorkshop/index.js'
   );
 })();`,
     }],
@@ -60,7 +60,7 @@ test('testing channel follows main and preserves the staging apiBase', async () 
   assert.equal(before.ref, 'main');
   assert.equal(
     before.latestImportUrl,
-    `https://testingcf.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${latest}/src/CreativeWorkshop/index.js`,
+    `https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${latest}/src/CreativeWorkshop/index.js`,
   );
   assert.ok(urls.some(url => url.includes('/commits/main')));
 
@@ -166,4 +166,54 @@ test('mismatched worker metadata falls back to the client channel ref instead of
   assert.equal(check.channel, 'stable');
   assert.equal(check.ref, 'workshop-stable');
   assert.equal(urls.some(url => url.includes('/commits/main')), false);
+});
+
+
+test('cdn.jsdelivr loader is rewritten and persisted to the latest fixed commit', async () => {
+  const adapter = adapterFixture();
+  const latest = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const updater = createWorkshopSelfUpdater({
+    adapter,
+    channel: 'testing',
+    ref: 'main',
+    fetchImpl: async url => String(url).includes('/api/client/latest')
+      ? response(latest, { channel: 'testing', ref: 'main' })
+      : response(latest),
+  });
+
+  const result = await updater.updateLoaderLink();
+  assert.equal(result.updated, true);
+  assert.equal(result.changedScripts, 1);
+  assert.match(adapter.state.character[0].content, /https:\/\/cdn\.jsdelivr\.net\/gh\//u);
+  assert.match(
+    adapter.state.character[0].content,
+    new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'),
+  );
+
+  const after = await updater.check();
+  assert.equal(after.updateAvailable, false);
+  assert.deepEqual(after.refs, [latest]);
+});
+
+test('self update rejects a Tavern Helper write that does not persist', async () => {
+  const adapter = adapterFixture();
+  adapter.replaceScriptTrees = async () => {};
+  const latest = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const updater = createWorkshopSelfUpdater({
+    adapter,
+    channel: 'testing',
+    ref: 'main',
+    fetchImpl: async url => String(url).includes('/api/client/latest')
+      ? response(latest, { channel: 'testing', ref: 'main' })
+      : response(latest),
+  });
+
+  await assert.rejects(
+    () => updater.updateLoaderLink(),
+    /写入后校验失败/u,
+  );
+  assert.doesNotMatch(
+    adapter.state.character[0].content,
+    new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'),
+  );
 });

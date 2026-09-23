@@ -5,9 +5,9 @@ import {
 } from '../services/resource-overrides.js';
 
 const TAB_META = {
-  worldbook: { label: '世界书', icon: '书' },
-  regex: { label: '正则', icon: '正' },
-  script: { label: '酒馆助手脚本', icon: 'JS' },
+  worldbook: { label: '世界书' },
+  regex: { label: '正则' },
+  script: { label: '酒馆助手脚本' },
 };
 
 function text(value) {
@@ -150,7 +150,7 @@ export function createResourceStateEditor({
     button.type = 'button';
     button.className = 'rw-resource-state-tab';
     button.dataset.kind = kind;
-    button.textContent = `${meta.icon} ${meta.label}`;
+    button.textContent = meta.label;
     if (kind === 'worldbook') button.classList.add('is-active');
     tabs.appendChild(button);
     tabButtons.set(kind, button);

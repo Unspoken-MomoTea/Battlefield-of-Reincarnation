@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "update": "node scripts/update-servers.mjs",
+    "update:staging": "node scripts/update-servers.mjs staging",
+    "update:production": "node scripts/update-servers.mjs production",
+    "update:both": "node scripts/update-servers.mjs both",
     "test": "node --test",
     "dev": "npx wrangler dev",
     "deploy": "npm run deploy:staging",

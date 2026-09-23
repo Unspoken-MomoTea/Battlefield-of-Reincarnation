@@ -3,6 +3,10 @@ name: creative-workshop-promote-stable
 on:
   workflow_dispatch:
     inputs:
+      release_version:
+        description: '正式版本号，必须与 WORKSHOP_VERSION 完全一致，例如 1.12.1'
+        required: true
+        type: string
       target_sha:
         description: '要发布到正式通道的 main 提交 SHA；留空则使用触发工作流时的提交'
         required: false
@@ -27,10 +31,12 @@ jobs:
       - name: Resolve release target
         id: target
         shell: bash
+        env:
+          TARGET_SHA_INPUT: ${{ inputs.target_sha }}
         run: |
           set -euo pipefail
-          git fetch origin main workshop-stable
-          TARGET_SHA="${{ inputs.target_sha }}"
+          git fetch --tags origin main workshop-stable
+          TARGET_SHA="$TARGET_SHA_INPUT"
           if [ -z "$TARGET_SHA" ]; then
             TARGET_SHA="$GITHUB_SHA"
           fi
@@ -52,12 +58,31 @@ jobs:
         shell: bash
         run: git checkout --detach "${{ steps.target.outputs.sha }}"
 
+      - name: Validate release version
+        id: release
+        shell: bash
+        env:
+          RELEASE_VERSION_INPUT: ${{ inputs.release_version }}
+        run: node cloudflare/scripts/validate-release-version.mjs "$RELEASE_VERSION_INPUT"
+
+      - name: Reject an existing immutable tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.release.outputs.tag }}"
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            echo "Refusing release: tag $TAG already exists and is immutable."
+            exit 1
+          fi
+
       - name: Worker contract tests
         working-directory: cloudflare
         run: npm test
 
-      - name: Worker syntax
-        run: find cloudflare/src -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+      - name: Worker and release script syntax
+        run: |
+          find cloudflare/src -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+          find cloudflare/scripts -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | sort -z | xargs -0 -n1 node --check
 
       - name: Client contract tests
         run: node --test src/CreativeWorkshop/tests/*.test.mjs
@@ -65,13 +90,28 @@ jobs:
       - name: Client syntax
         run: find src/CreativeWorkshop -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
 
-      - name: Promote stable ref
+      - name: Create immutable release tag
         shell: bash
         run: |
           set -euo pipefail
-          git push origin "${{ steps.target.outputs.sha }}:refs/heads/workshop-stable"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.release.outputs.tag }}" "${{ steps.target.outputs.sha }}" \
+            -m "Creative Workshop v${{ steps.release.outputs.version }}"
+
+      - name: Promote stable and tag atomically
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.release.outputs.tag }}"
+          git push --atomic origin \
+            "HEAD:refs/heads/workshop-stable" \
+            "refs/tags/$TAG:refs/tags/$TAG"
+
           echo "### Creative Workshop stable promoted" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: `v${{ steps.release.outputs.version }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tag: `$TAG`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit: `${{ steps.target.outputs.sha }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Testing ref remains: `main`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Stable ref: `workshop-stable`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Testing ref remains: `main`" >> "$GITHUB_STEP_SUMMARY"

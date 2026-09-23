@@ -55,8 +55,7 @@ export function createMaintenanceView({
         .map(item => item.folder ? `${item.folder} / ${item.name || item.id}` : (item.name || item.id || '未命名脚本'))
         .join('、');
       const channelLabel = result.channel === 'testing' ? '测试版' : '正式版';
-      const runtimeOutdated = Boolean(currentSha && currentSha !== result.latestSha);
-      const hasUpdate = result.updateAvailable || runtimeOutdated;
+      const hasUpdate = result.updateAvailable;
 
       if (hasUpdate) {
         container.classList.add('rw-maintenance-client--update');
@@ -83,15 +82,26 @@ export function createMaintenanceView({
             : await selfUpdater.updateLoaderLink();
           if (!updated.loaderFound) throw new Error('没有找到可自动更新的创意工坊载入脚本');
 
-          if (updated.hotReloaded) return;
+          if (updated.alreadyRunningLatest) {
+            try { host.toastr?.success?.('创意工坊已经是最新版本', '创意工坊'); } catch {}
+            await renderClientSection(container);
+            return;
+          }
+
+          updateButton.disabled = true;
+          updateButton.textContent = '更新完成';
+          const done = statusBox(
+            `Tavern Helper 已保存最新固定提交 ${updated.latestShortSha}。`,
+            'ok',
+          );
+          updateButton.insertAdjacentElement('afterend', done);
 
           try {
             host.toastr?.success?.(
-              updated.updated ? `载入脚本已更新到 ${updated.latestShortSha}` : '创意工坊已经是最新版本',
+              `创意工坊载入脚本已更新到 ${updated.latestShortSha}`,
               '创意工坊',
             );
           } catch {}
-          await renderClientSection(container);
         });
         container.appendChild(updateButton);
 
@@ -209,7 +219,7 @@ export function createMaintenanceView({
 
   async function open() {
     activeModal?.close();
-    const modal = openModal('工坊维护与 DLC 修复', {
+    const modal = openModal('修复', {
       wide: true,
       onClose: () => { if (activeModal === modal) activeModal = null; },
     });

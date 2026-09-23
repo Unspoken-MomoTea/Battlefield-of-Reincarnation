@@ -7,10 +7,11 @@ import { createWorkshopShell } from '../ui/shell.js';
 import { createWorkshopUpdateNotice } from '../views/update-notice.js';
 import { createWorkshopBridge } from './bridge.js';
 import { bindWorkshopEvents } from './events.js';
+import { bindWorkshopLauncher } from './launcher.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '1.12.0';
+export const WORKSHOP_VERSION = '1.12.2';
 
 const CURRENT_SHA = (() => {
   const match = String(import.meta.url).match(
@@ -55,23 +56,31 @@ export function bootWorkshop() {
   let bridge = null;
   let updateNotice = null;
   let cleanupEvents = () => {};
+  let cleanupLauncher = () => {};
+  let authRefreshPromise = null;
+  let lastAuthRefreshAt = 0;
 
   const views = createWorkshopViews({
     host, doc, nodes, ui, workshopApi, projectService,
     selfUpdater: workshopSelfUpdater,
     version: WORKSHOP_VERSION,
     currentSha: CURRENT_SHA,
-    hotUpdateClient: updateAndHotReload,
+    hotUpdateClient: updateLoaderOnly,
     getAuth: () => auth,
   });
 
   function showTab(name) {
-    if (name === 'admin' && !Number(auth?.user?.is_admin)) return;
+    if (name === 'admin' && !Number(auth?.user?.is_admin) && !Number(auth?.user?.is_moderator)) return;
     activeTab = name;
     overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === name));
     overlay.querySelectorAll('.rw-section').forEach(section => { section.hidden = section.dataset.section !== name; });
-    nodes.discoverHeadTools.hidden = name !== 'discover';
-    const view = { discover: views.discover, installed: views.installed, mine: views.author, admin: views.admin }[name];
+    nodes.discoverHeadTools.hidden = name !== 'discover' || !nodes.discoverCatalog || nodes.discoverCatalog.hidden;
+    if (name === 'discover') {
+      if (!nodes.discoverCatalog || nodes.discoverCatalog.hidden) void views.discover.home();
+      else void views.discover.refresh();
+      return;
+    }
+    const view = { installed: views.installed, mine: views.author, admin: views.admin }[name];
     if (view) void view.refresh();
   }
 
@@ -79,13 +88,13 @@ export function bootWorkshop() {
     auth = next;
     const user = auth?.user;
     nodes.account.textContent = user
-      ? `${user.display_name || user.username}${Number(user.is_admin) ? ' · 管理员' : ''} ▾`
+      ? `${user.display_name || user.username}${Number(user.is_admin) ? ' · 主管理员' : Number(user.is_moderator) ? ' · 审核员' : ''} ▾`
       : '账户';
     nodes.account.hidden = !user;
     nodes.accountMenu.hidden = true;
     nodes.login.hidden = Boolean(user);
     nodes.logout.hidden = !user;
-    nodes.adminTab.hidden = !Number(user?.is_admin);
+    nodes.adminTab.hidden = !Number(user?.is_admin) && !Number(user?.is_moderator);
     if (!user && (activeTab === 'mine' || activeTab === 'admin')) showTab('discover');
   }
 
@@ -114,22 +123,48 @@ export function bootWorkshop() {
     }
   }
 
-  async function refreshAuth() {
-    try {
-      const stored = await workshopApi.getStoredAuth();
-      if (!stored) return setAuth(null);
-      const current = await workshopApi.me();
-      setAuth({ ...stored, user: current.user });
-    } catch {
-      setAuth(null);
-    }
+  async function refreshAuth({ force = false } = {}) {
+    const now = Date.now();
+    if (!force && now - lastAuthRefreshAt < 3000) return auth;
+    if (authRefreshPromise) return authRefreshPromise;
+    authRefreshPromise = (async () => {
+      try {
+        const stored = await workshopApi.getStoredAuth();
+        if (!stored) {
+          setAuth(null);
+          return null;
+        }
+        const current = await workshopApi.me();
+        const next = { ...stored, user: current.user };
+        setAuth(next);
+        return next;
+      } catch {
+        setAuth(null);
+        return null;
+      } finally {
+        lastAuthRefreshAt = Date.now();
+        authRefreshPromise = null;
+      }
+    })();
+    return authRefreshPromise;
   }
 
   const close = () => overlay.classList.remove('is-open');
   const open = () => {
+    const wasOpen = overlay.classList.contains('is-open');
     overlay.classList.add('is-open');
     void refreshHealth();
-    void refreshAuth().then(() => showTab(activeTab));
+    void refreshAuth({ force: true });
+    if (!wasOpen) showTab(activeTab);
+  };
+
+  const syncAuthOnResume = () => {
+    if (!overlay.classList.contains('is-open')) return;
+    void refreshAuth();
+  };
+
+  const onVisibilityChange = () => {
+    if (!doc.hidden) syncAuthOnResume();
   };
 
   function destroy() {
@@ -139,8 +174,10 @@ export function bootWorkshop() {
     try { updateNotice?.destroy?.(); } catch {}
     try { views.author?.destroy?.(); } catch {}
     try { cleanupEvents?.(); } catch {}
-    launcher.removeEventListener('click', open);
+    try { cleanupLauncher?.(); } catch {}
     window.removeEventListener('pagehide', onPageHide);
+    host.removeEventListener?.('focus', syncAuthOnResume);
+    doc.removeEventListener?.('visibilitychange', onVisibilityChange);
 
     try {
       if (host[GLOBAL_NAME] === bridge) delete host[GLOBAL_NAME];
@@ -152,39 +189,20 @@ export function bootWorkshop() {
     booted = false;
   }
 
-  async function updateAndHotReload() {
+  async function updateLoaderOnly() {
     const updated = await workshopSelfUpdater.updateLoaderLink();
     if (!updated.loaderFound) {
       throw new Error('没有找到可自动更新的创意工坊载入脚本');
     }
 
-    if (CURRENT_SHA && updated.latestSha === CURRENT_SHA) {
-      return { ...updated, hotReloaded: false, alreadyRunningLatest: true };
-    }
-
-    await hotReload(updated);
-    return { ...updated, hotReloaded: true, alreadyRunningLatest: false };
-  }
-
-  async function hotReload(updated) {
-    const url = String(updated?.latestImportUrl || '').trim();
-    if (!/^https:\/\/(?:testingcf\.)?jsdelivr\.net\/gh\/Unspoken-MomoTea\/Battlefield-of-Reincarnation@[0-9a-f]{40}\/src\/CreativeWorkshop\/index\.js$/iu.test(url)) {
-      throw new Error('服务器返回的新版工坊地址无效');
-    }
-
-    const previousBridge = bridge;
-    const hotUrl = `${url}?rw_hot=${Date.now()}`;
-    try {
-      await import(hotUrl);
-    } catch (error) {
-      throw new Error(`新版载入失败：${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    const nextBridge = host[GLOBAL_NAME];
-    if (!nextBridge || nextBridge === previousBridge) {
-      throw new Error('新版脚本已经下载，但没有完成客户端接管；请刷新一次酒馆');
-    }
-    nextBridge.open?.();
+    const alreadyRunningLatest = Boolean(CURRENT_SHA && updated.latestSha === CURRENT_SHA);
+    return {
+      ...updated,
+      loaderUpdated: Boolean(updated.updated),
+      alreadyRunningLatest,
+      reloadRequired: !alreadyRunningLatest,
+      hotReloaded: false,
+    };
   }
 
   updateNotice = createWorkshopUpdateNotice({
@@ -195,10 +213,9 @@ export function bootWorkshop() {
     selfUpdater: workshopSelfUpdater,
     currentVersion: WORKSHOP_VERSION,
     currentSha: CURRENT_SHA,
-    onHotReload: hotReload,
   });
 
-  launcher.addEventListener('click', open);
+  cleanupLauncher = bindWorkshopLauncher({ launcher, overlay, host, open, close });
 
   cleanupEvents = bindWorkshopEvents({
     host, doc, overlay, nodes, views, workshopApi, projectService,
@@ -221,7 +238,7 @@ export function bootWorkshop() {
     close,
     refresh,
     destroy,
-    hotUpdate: updateAndHotReload,
+    hotUpdate: updateLoaderOnly,
     workshopApi,
     projectService,
     selfUpdater: workshopSelfUpdater,
@@ -230,10 +247,12 @@ export function bootWorkshop() {
   host.dispatchEvent(new CustomEvent('reincarnation-workshop-ready', {
     detail: { version: WORKSHOP_VERSION },
   }));
-  void views.discover.refresh();
+  void views.discover.home();
 
   function onPageHide() {
     destroy();
   }
+  host.addEventListener?.('focus', syncAuthOnResume);
+  doc.addEventListener?.('visibilitychange', onVisibilityChange);
   window.addEventListener('pagehide', onPageHide, { once: true });
 }

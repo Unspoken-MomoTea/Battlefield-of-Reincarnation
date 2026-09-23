@@ -15,6 +15,62 @@ function arrayValues(value) {
   return source ? Object.values(source) : [];
 }
 
+function normalizeWorldbookPositionType(entry) {
+  const position = objectValue(entry?.position);
+  const extensions = objectValue(entry?.extensions);
+  const raw = position?.type
+    ?? entry?.positionType
+    ?? entry?.position_type
+    ?? extensions?.position
+    ?? (typeof entry?.position === 'number' ? entry.position : 'before_character_definition');
+  const aliases = {
+    before_char: 'before_character_definition',
+    after_char: 'after_character_definition',
+  };
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (/^-?\d+$/u.test(trimmed)) {
+      const numeric = Number(trimmed);
+      const legacy = [
+        'before_character_definition',
+        'after_character_definition',
+        'before_author_note',
+        'after_author_note',
+        'at_depth',
+        'before_example_messages',
+        'after_example_messages',
+        'outlet',
+      ];
+      return Number.isInteger(numeric) && numeric >= 0 && numeric < legacy.length
+        ? legacy[numeric]
+        : `unknown:${trimmed}`;
+    }
+    return aliases[trimmed] || trimmed || 'before_character_definition';
+  }
+  const legacy = [
+    'before_character_definition',
+    'after_character_definition',
+    'before_author_note',
+    'after_author_note',
+    'at_depth',
+    'before_example_messages',
+    'after_example_messages',
+    'outlet',
+  ];
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw < legacy.length
+    ? legacy[raw]
+    : `unknown:${String(raw)}`;
+}
+
+function normalizeWorldbookRole(entry) {
+  const position = objectValue(entry?.position);
+  const extensions = objectValue(entry?.extensions);
+  const raw = position?.role ?? entry?.role ?? extensions?.role;
+  if (raw === 1 || raw === 'user') return 'user';
+  if (raw === 2 || raw === 'assistant') return 'assistant';
+  return 'system';
+}
+
 function worldbookEntriesFromArtifact(artifact) {
   const parsed = parseArtifactContent(artifact);
   const root = Array.isArray(parsed) ? parsed : objectValue(parsed)?.entries;
@@ -23,8 +79,15 @@ function worldbookEntriesFromArtifact(artifact) {
     const strategy = objectValue(entry.strategy) || {};
     const secondary = objectValue(strategy.keys_secondary) || {};
     const position = objectValue(entry.position) || {};
+    const extensions = objectValue(entry.extensions) || {};
     const uid = entry.uid === undefined || entry.uid === null ? '' : String(entry.uid);
     const name = String(entry.comment ?? entry.name ?? '').trim() || `条目 ${index + 1}`;
+    const rawDisplayIndex = entry.displayIndex ?? entry.display_index ?? extensions.display_index;
+    const displayIndex = Number.isFinite(Number(rawDisplayIndex))
+      ? Number(rawDisplayIndex)
+      : Number.isFinite(Number(entry.uid))
+        ? Number(entry.uid)
+        : index;
     const enabled = typeof entry.enabled === 'boolean'
       ? entry.enabled
       : typeof entry.disable === 'boolean'
@@ -42,10 +105,15 @@ function worldbookEntriesFromArtifact(artifact) {
         strategy.type ??
         (entry.constant === true ? 'constant' : entry.vectorized === true ? 'vectorized' : 'selective'),
       ),
-      position_type: String(position.type ?? entry.position ?? ''),
-      depth: Number.isFinite(Number(position.depth ?? entry.depth)) ? Number(position.depth ?? entry.depth) : null,
-      order: Number.isFinite(Number(position.order ?? entry.order)) ? Number(position.order ?? entry.order) : null,
-      role: String(position.role ?? entry.role ?? ''),
+      position_type: normalizeWorldbookPositionType(entry),
+      depth: Number.isFinite(Number(position.depth ?? entry.depth ?? extensions.depth))
+        ? Number(position.depth ?? entry.depth ?? extensions.depth)
+        : 4,
+      order: Number.isFinite(Number(position.order ?? entry.order ?? entry.insertion_order))
+        ? Number(position.order ?? entry.order ?? entry.insertion_order)
+        : index,
+      display_index: displayIndex,
+      role: normalizeWorldbookRole(entry),
       probability: Number.isFinite(Number(entry.probability)) ? Number(entry.probability) : null,
     };
   });

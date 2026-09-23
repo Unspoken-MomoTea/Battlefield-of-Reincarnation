@@ -1,7 +1,7 @@
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 
 const JSDELIVR_PATTERN = new RegExp(
-  `(https:\\/\\/(?:testingcf\\.)?jsdelivr\\.net\\/gh\\/Unspoken-MomoTea\\/Battlefield-of-Reincarnation@)([^/'"\\s]+)(\\/src\\/CreativeWorkshop\\/index\\.js)`,
+  `(https:\\/\\/(?:(?:testingcf|cdn)\\.)?jsdelivr\\.net\\/gh\\/Unspoken-MomoTea\\/Battlefield-of-Reincarnation@)([^/'"\\s]+)(\\/src\\/CreativeWorkshop\\/index\\.js)`,
   'gu',
 );
 

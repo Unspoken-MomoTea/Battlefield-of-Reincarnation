@@ -1,8 +1,8 @@
 import { HttpError, json, readJson } from '../../http.js';
-import { assertAdmin, nowSeconds, textField, writeAdminAudit } from '../core.js';
+import { assertReviewer, nowSeconds, textField, writeAdminAudit } from '../core.js';
 
 export async function reviewProject(request, env, user, projectId) {
-  assertAdmin(user);
+  assertReviewer(user);
   const body = await readJson(request);
   const decision = body?.decision;
   if (!['approved', 'rejected'].includes(decision)) throw new HttpError(400, 'invalid_decision', 'decision 必须是 approved 或 rejected');

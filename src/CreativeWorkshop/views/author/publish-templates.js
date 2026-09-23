@@ -161,3 +161,73 @@ export function buildDedicatedArtifacts(form, mode, projectName) {
 
   return [];
 }
+
+
+function dataValues(artifacts = []) {
+  return artifacts.flatMap(artifact => {
+    if (artifact?.kind !== 'data') return [];
+    return Array.isArray(artifact.content) ? artifact.content : [artifact.content];
+  }).filter(value => value && typeof value === 'object');
+}
+
+export function detectPublishMode(category, artifacts = []) {
+  const kinds = new Set(dataValues(artifacts).map(value => value.kind));
+  if (category === 'character') {
+    if (kinds.has('opening_partner')) return 'opening_partner';
+    if (kinds.has('opening_character')) return 'opening_character';
+    return 'world_character';
+  }
+  return kinds.has('store_catalog') ? 'store_catalog' : 'extension';
+}
+
+export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
+  const values = dataValues(artifacts);
+  if (mode === 'world_character') {
+    const data = values.find(value => value.kind === 'world_character') || {};
+    const profile = data.profile || {};
+    return {
+      world_name: data.name || profile.name || projectName,
+      world_keywords: (profile.aliases || []).join(', '),
+      world_race: profile.race || '',
+      world_identity: (profile.identities || []).join(', '),
+      world_occupation: profile.occupation || '',
+      world_rank: profile.rank || 'Ⅰ',
+      world_personality: profile.personality || '',
+      world_appearance: profile.appearance || '',
+      world_background: profile.background || '',
+      world_notes: profile.notes || '',
+    };
+  }
+  if (mode === 'opening_character' || mode === 'opening_partner') {
+    const data = values.find(value => value.kind === mode) || {};
+    const build = data.build || data.character || {};
+    const profile = data.profile || {};
+    const json = value => JSON.stringify(value ?? {}, null, 2);
+    return {
+      opening_name: data.name || projectName,
+      opening_race: build.种族 || '人类',
+      opening_identity: Array.isArray(build.身份) ? build.身份.join(', ') : String(build.身份 || ''),
+      opening_occupation: typeof build.职业 === 'string' ? build.职业 : json(build.职业 || {}),
+      opening_rank: build.层级 || 'Ⅰ',
+      opening_personality: profile.性格 || '',
+      opening_likes: profile.喜爱 || '',
+      opening_background: profile.背景故事 || '',
+      opening_bloodline: json(build.血统 || {}),
+      opening_skills: json(build.技能 || {}),
+      opening_equipment: json(build.装备 || {}),
+      opening_status: json(build.状态 || {}),
+      opening_forms: json(build.形态库 || {}),
+      opening_current_form: json(build.当前形态 || { 激活: false, 名称: '' }),
+    };
+  }
+  if (mode === 'store_catalog') {
+    const data = values.find(value => value.kind === 'store_catalog') || {};
+    const catalog = data.catalog || {};
+    return {
+      store_equipments: JSON.stringify(catalog.equipments || [], null, 2),
+      store_items: JSON.stringify(catalog.items || [], null, 2),
+      store_skills: JSON.stringify(catalog.skills || [], null, 2),
+    };
+  }
+  return {};
+}

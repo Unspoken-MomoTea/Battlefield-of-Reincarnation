@@ -3,8 +3,10 @@ import { createResourceStateEditor } from '../../ui/resource-state-editor.js';
 import { createSmartArtifactQueue } from '../../ui/smart-artifact-queue.js';
 import {
   buildDedicatedArtifacts,
+  projectCategoryForSelection,
   resolvePublishMode,
 } from './publish-templates.js';
+import { createDedicatedPublishEditor } from './dedicated-editor.js';
 
 export function bindCreateProjectFlow({
   host,
@@ -23,39 +25,55 @@ export function bindCreateProjectFlow({
   const projectType = nodes.createForm.querySelector('[name="category"]');
   const characterKindField = nodes.createForm.querySelector('[data-role="character-kind-field"]');
   const characterKind = nodes.createForm.querySelector('[name="character_kind"]');
-  const extensionKindField = nodes.createForm.querySelector('[data-role="extension-kind-field"]');
-  const extensionKind = nodes.createForm.querySelector('[name="extension_kind"]');
-  const publishPanels = [...nodes.createForm.querySelectorAll('[data-publish-panel]')];
+  const extensionPanel = nodes.createForm.querySelector('[data-publish-panel="extension"]');
+  const dedicatedHost = nodes.createForm.querySelector('[data-role="dedicated-editor-host"]');
   const resourceSection = nodes.createForm.querySelector('[data-role="publish-resource-section"]');
   const contentTitle = nodes.createForm.querySelector('[data-role="publish-content-title"]');
   const contentHelp = nodes.createForm.querySelector('[data-role="publish-content-help"]');
-  const openingPartnerProfile = nodes.createForm.querySelector('[data-role="opening-partner-profile"]');
-  const openingEditorTitle = nodes.createForm.querySelector('[data-role="opening-editor-title"]');
 
-  const currentMode = () => resolvePublishMode(
-    projectType.value,
-    characterKind?.value,
-    extensionKind?.value,
-  );
+  const currentMode = () => resolvePublishMode(projectType.value, characterKind?.value);
+
+  let dedicatedEditor = null;
+  let dedicatedEditorMode = '';
+  const dedicatedDrafts = new Map();
 
   const syncPublishTemplate = () => {
-    const category = projectType.value;
+    const selection = projectType.value;
     const mode = currentMode();
-    if (characterKindField) characterKindField.hidden = category !== 'character';
-    if (extensionKindField) extensionKindField.hidden = category !== 'extension';
-    publishPanels.forEach(panel => {
-      const panelMode = mode === 'opening_partner' ? 'opening_character' : mode;
-      panel.hidden = panel.dataset.publishPanel !== panelMode;
-    });
+    if (characterKindField) characterKindField.hidden = selection !== 'character';
+    if (extensionPanel) extensionPanel.hidden = mode !== 'extension';
     if (resourceSection) resourceSection.hidden = mode !== 'extension';
-    if (openingPartnerProfile) openingPartnerProfile.hidden = mode !== 'opening_partner';
-    if (openingEditorTitle) openingEditorTitle.textContent = mode === 'opening_partner' ? '开局伙伴' : '开局角色';
+
+    if (mode === 'extension') {
+      if (dedicatedEditor && dedicatedEditorMode) dedicatedDrafts.set(dedicatedEditorMode, dedicatedEditor.values());
+      dedicatedEditor = null;
+      dedicatedEditorMode = '';
+      if (dedicatedHost) {
+        dedicatedHost.hidden = true;
+        dedicatedHost.replaceChildren();
+      }
+    } else if (dedicatedHost && dedicatedEditorMode !== mode) {
+      if (dedicatedEditor && dedicatedEditorMode) dedicatedDrafts.set(dedicatedEditorMode, dedicatedEditor.values());
+      dedicatedEditor = createDedicatedPublishEditor({
+        doc,
+        mode,
+        initial: dedicatedDrafts.get(mode) || {},
+        onChange: () => {
+          dirty = true;
+          submitAttempt = null;
+        },
+      });
+      dedicatedEditorMode = mode;
+      dedicatedHost.replaceChildren(dedicatedEditor.node);
+      dedicatedHost.hidden = false;
+    }
+
     const copy = {
       extension: ['扩展文件', '通用扩展可上传世界书、正则与酒馆助手脚本。'],
-      world_character: ['世界角色设定', '填写人物资料，系统自动生成世界书角色条目。'],
-      opening_character: ['开局角色数据', '填写角色原始构筑，系统自动生成开局角色资产。'],
-      opening_partner: ['开局伙伴数据', '填写伙伴原始构筑与人设，系统自动生成开局伙伴资产。'],
-      store_catalog: ['开局商店内容', '填写装备、道具与技能目录，系统自动生成商店 Catalog。'],
+      world_character: ['世界书角色', '填写人物资料，系统自动生成世界书角色条目。'],
+      opening_character: ['开局角色', '填写Ⅰ-Ⅲ阶角色资料、1项血统和最多2项技能。'],
+      opening_partner: ['开局伙伴', '填写Ⅰ-Ⅲ阶伙伴资料、1项血统和最多2项技能。'],
+      store_catalog: ['开局商店', '逐项添加装备、道具或技能；不需要填写 JSON。'],
     }[mode] || ['作品内容', '填写当前作品内容。'];
     if (contentTitle) contentTitle.textContent = copy[0];
     if (contentHelp) contentHelp.textContent = copy[1];
@@ -154,6 +172,13 @@ export function bindCreateProjectFlow({
       localTestButton.disabled = false;
       localTestButton.textContent = '保存到本地测试';
     }
+    dedicatedDrafts.clear();
+    dedicatedEditor = null;
+    dedicatedEditorMode = '';
+    if (dedicatedHost) {
+      dedicatedHost.hidden = true;
+      dedicatedHost.replaceChildren();
+    }
     syncPublishTemplate();
   };
 
@@ -161,7 +186,7 @@ export function bindCreateProjectFlow({
     doc,
     input: nodes.createVersion,
     list: nodes.createArtifactList,
-    getProject: () => ({ category: projectType.value || 'extension' }),
+    getProject: () => ({ category: projectCategoryForSelection(projectType.value || 'extension') }),
     onChange: current => {
       submitAttempt = null;
       nodes.createVersionState.textContent = current.count
@@ -220,7 +245,6 @@ export function bindCreateProjectFlow({
   nodes.createCover.addEventListener('change', renderCover);
   projectType.addEventListener('change', syncPublishTemplate);
   characterKind?.addEventListener('change', syncPublishTemplate);
-  extensionKind?.addEventListener('change', syncPublishTemplate);
   syncPublishTemplate();
   const coverDrop = overlay.querySelector('[data-drop-target="create-cover"]');
   coverDrop.addEventListener('dragover', event => {
@@ -293,7 +317,7 @@ export function bindCreateProjectFlow({
       if (!queue.count) throw new Error('请至少拖入一个扩展内容文件');
       return queue.bundle(null, resourceEditor.values());
     }
-    const artifacts = buildDedicatedArtifacts(form, mode, name);
+    const artifacts = buildDedicatedArtifacts(dedicatedEditor?.values() || {}, mode, name);
     if (!artifacts.length) throw new Error('当前作品没有可发布内容');
     return { schema_version: 1, artifacts };
   }
@@ -310,8 +334,9 @@ export function bindCreateProjectFlow({
     const form = new FormData(nodes.createForm);
     const name = String(form.get('name') || '').trim();
     const summary = String(form.get('summary') || '');
-    const category = String(form.get('category') || 'extension');
-    const character_kind = category === 'character'
+    const categorySelection = String(form.get('category') || 'extension');
+    const category = projectCategoryForSelection(categorySelection);
+    const character_kind = categorySelection === 'character'
       ? String(form.get('character_kind') || 'world_character')
       : '';
     const dependencies = dependencyPicker.values();
@@ -365,8 +390,9 @@ export function bindCreateProjectFlow({
     const form = new FormData(nodes.createForm);
     const name = String(form.get('name') || '').trim();
     const summary = String(form.get('summary') || '');
-    const category = String(form.get('category') || 'extension');
-    const character_kind = category === 'character'
+    const categorySelection = String(form.get('category') || 'extension');
+    const category = projectCategoryForSelection(categorySelection);
+    const character_kind = categorySelection === 'character'
       ? String(form.get('character_kind') || 'world_character')
       : '';
     const tags = String(form.get('tags') || '')
@@ -387,6 +413,7 @@ export function bindCreateProjectFlow({
       name,
       summary,
       category,
+      categorySelection,
       character_kind,
       tags,
       dependencies,
@@ -486,6 +513,8 @@ export function bindCreateProjectFlow({
     reset,
     destroy() {
       revokeCoverPreview();
+      dedicatedEditor = null;
+      dedicatedDrafts.clear();
     },
   };
 }

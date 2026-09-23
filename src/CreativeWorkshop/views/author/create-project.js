@@ -17,6 +17,13 @@ export function bindCreateProjectFlow({
   const openButton = overlay.querySelector('[data-action="create-project-open"]');
   const cancelButtons = [...overlay.querySelectorAll('[data-action="create-project-cancel"]')];
   const projectType = nodes.createForm.querySelector('[name="category"]');
+  const characterKindField = nodes.createForm.querySelector('[data-role="character-kind-field"]');
+  const characterKind = nodes.createForm.querySelector('[name="character_kind"]');
+
+  const syncCharacterTemplate = () => {
+    if (!characterKindField) return;
+    characterKindField.hidden = projectType.value !== 'character';
+  };
   const submitButton = nodes.createForm.querySelector('button[type="submit"]');
   const localTestButton = nodes.createForm.querySelector('[data-action="create-project-local-test"]');
 
@@ -173,6 +180,8 @@ export function bindCreateProjectFlow({
   );
 
   nodes.createCover.addEventListener('change', renderCover);
+  projectType.addEventListener('change', syncCharacterTemplate);
+  syncCharacterTemplate();
   const coverDrop = overlay.querySelector('[data-drop-target="create-cover"]');
   coverDrop.addEventListener('dragover', event => {
     event.preventDefault();
@@ -251,6 +260,9 @@ export function bindCreateProjectFlow({
     const name = String(form.get('name') || '').trim();
     const summary = String(form.get('summary') || '');
     const category = String(form.get('category') || 'extension');
+    const character_kind = category === 'character'
+      ? String(form.get('character_kind') || 'world_character')
+      : '';
     const dependencies = dependencyPicker.values();
     const resourceOverrides = resourceEditor.values();
 

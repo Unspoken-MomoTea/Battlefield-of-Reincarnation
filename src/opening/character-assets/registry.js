@@ -73,7 +73,9 @@ export async function replaceProjectOpeningAssets(project, dataArtifacts = []) {
     const values = Array.isArray(content) ? content : [content];
     for (const [itemIndex, asset] of values.entries()) {
       if (!asset || typeof asset !== 'object') continue;
-      if (!['world_character', 'opening_character', 'opening_partner'].includes(asset.kind)) continue;
+      if (!['opening_character', 'opening_partner'].includes(asset.kind)) continue;
+      const build = asset.build || asset.character;
+      if (!build || typeof build !== 'object' || !Object.keys(build).length) continue;
       await putOpeningAsset({
         ...structuredClone(asset),
         id: `${project.id}:${index}:${itemIndex}`,

@@ -1,3 +1,4 @@
+import { replaceProjectOpeningAssets } from '../../../opening/character-assets/registry.js';
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { buildArtifactPlan } from './plan.js';
@@ -30,6 +31,7 @@ export async function applyProject({ adapter, storage }, projectId) {
     !plan.regexes.length &&
     !plan.presets.length &&
     !scriptCount &&
+    !plan.data.length &&
     !stateOverrideCount &&
     !oldManagedCount
   ) {
@@ -136,9 +138,12 @@ export async function applyProject({ adapter, storage }, projectId) {
       })();
     }
     const worldbookWasBound = Boolean(state.binding?.additional?.includes(SHARED_WORLDBOOK_NAME));
+    const openingAssetCount = await replaceProjectOpeningAssets(installed, plan.data);
+
     const next = {
       ...installed,
       applied: true, appliedVersion: installed.version, appliedAt: Date.now(),
+      openingAssetCount,
       appliedDependencies: clone(installed.dependencies ?? []),
       targetCharacterName: characterNeeded ? currentCharacter : null,
       installTargets: {

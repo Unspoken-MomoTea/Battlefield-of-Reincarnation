@@ -1,8 +1,20 @@
 const OPENING_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
 const WORLD_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ'];
-const QUALITIES = ['F', 'E', 'D'];
+const STORE_QUALITIES = ['F', 'E', 'D'];
+const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const ATTRIBUTES = ['力量', '敏捷', '体质', '精神', '魅力'];
 const STORE_ATTRIBUTES = ['力量', '敏捷', '体质', '精神', '魅力', 'ATK', 'DEF', 'MATK', 'MDEF', 'AP'];
+const EQUIPMENT_TYPES = [
+  { value: '0', label: '手持' },
+  { value: '1', label: '手部' },
+  { value: '2', label: '头部' },
+  { value: '3', label: '胸部' },
+  { value: '4', label: '腿部' },
+  { value: '5', label: '鞋子' },
+  { value: '6', label: '披风' },
+  { value: '7', label: '饰品' },
+  { value: '8', label: '特殊' },
+];
 
 function el(doc, tag, className = '', text = '') {
   const node = doc.createElement(tag);
@@ -54,17 +66,143 @@ function valuesFromNames(root, names) {
   return Object.fromEntries(names.map(name => [name, getValue(root, name)]));
 }
 
-function effectObject(name, description) {
-  const title = String(name || '').trim();
-  const body = String(description || '').trim();
-  if (!body) return {};
-  return { [title || '效果']: body };
-}
-
 function randomId(kind, index) {
   const suffix = globalThis.crypto?.randomUUID?.()
     || `${Date.now().toString(36)}-${index.toString(36)}`;
   return `workshop-${kind}-${suffix}`;
+}
+
+function firstEffects(item = {}) {
+  return Object.entries(item.effects || {}).slice(0, 2).map(([name, description]) => ({ name, description }));
+}
+
+function effectsFromCard(card) {
+  const result = {};
+  for (const row of card.querySelectorAll('[data-effect-row]')) {
+    const name = getValue(row, 'effect_name').trim();
+    const description = getValue(row, 'effect_desc').trim();
+    if (!description) continue;
+    result[name || '效果'] = description;
+  }
+  return result;
+}
+
+function appendEffectEditor(doc, card, effects, emit, { max = 2 } = {}) {
+  const block = el(doc, 'div', 'rw-effect-editor');
+  const rows = el(doc, 'div', 'rw-effect-list');
+  const add = el(doc, 'button', 'rw-button rw-effect-add', '+ 添加效果');
+  add.type = 'button';
+  block.append(rows, add);
+
+  const state = effects?.length ? effects.slice(0, max) : [{ name: '', description: '' }];
+
+  const render = () => {
+    rows.replaceChildren();
+    state.forEach((entry, index) => {
+      const row = el(doc, 'div', 'rw-effect-row');
+      row.dataset.effectRow = String(index);
+      const name = makeInput(doc, 'effect_name', entry.name || '', { maxLength: 80, placeholder: '效果名称' });
+      const description = makeInput(doc, 'effect_desc', entry.description || '', { textarea: true, maxLength: 1600, placeholder: '填写效果内容' });
+      const remove = el(doc, 'button', 'rw-button danger rw-effect-remove', '删除');
+      remove.type = 'button';
+      row.append(field(doc, '效果名称', name), field(doc, '效果', description), remove);
+      const sync = () => {
+        entry.name = name.value;
+        entry.description = description.value;
+        emit();
+      };
+      name.addEventListener('input', sync);
+      description.addEventListener('input', sync);
+      remove.addEventListener('click', () => {
+        state.splice(index, 1);
+        if (!state.length) state.push({ name: '', description: '' });
+        render();
+        emit();
+      });
+      rows.appendChild(row);
+    });
+    add.disabled = state.length >= max;
+    add.hidden = state.length >= max;
+  };
+
+  add.addEventListener('click', () => {
+    if (state.length >= max) return;
+    state.push({ name: '', description: '' });
+    render();
+    emit();
+  });
+  render();
+  return { node: block, values: () => state.filter(item => item.description?.trim()).map(item => ({ ...item })) };
+}
+
+function pointAllocator(doc, { budget, initial = {}, emit }) {
+  const root = el(doc, 'div', 'rw-point-allocator');
+  const header = el(doc, 'div', 'rw-point-head');
+  const title = el(doc, 'strong', '', `五维加点 · 总预算 ${budget}`);
+  const remaining = el(doc, 'span', 'rw-point-remaining');
+  header.append(title, remaining);
+  const grid = el(doc, 'div', 'rw-point-grid');
+  root.append(header, grid);
+
+  const values = Object.fromEntries(ATTRIBUTES.map(attr => [
+    attr,
+    Math.max(0, Math.min(8, Number(initial?.[attr]) || 0)),
+  ]));
+  let total = Object.values(values).reduce((sum, value) => sum + value, 0);
+  while (total > budget) {
+    const attr = ATTRIBUTES.find(key => values[key] > 0);
+    if (!attr) break;
+    values[attr] -= 1;
+    total -= 1;
+  }
+
+  const controls = new Map();
+  for (const attr of ATTRIBUTES) {
+    const card = el(doc, 'div', 'rw-point-card');
+    const label = el(doc, 'strong', '', attr);
+    const tier = el(doc, 'span', 'rw-point-tier');
+    const row = el(doc, 'div', 'rw-point-controls');
+    const minus = el(doc, 'button', 'rw-point-button', '−');
+    const count = el(doc, 'span', 'rw-point-value');
+    const plus = el(doc, 'button', 'rw-point-button', '+');
+    minus.type = plus.type = 'button';
+    row.append(minus, count, plus);
+    card.append(label, tier, row);
+    grid.appendChild(card);
+    controls.set(attr, { tier, count, minus, plus });
+
+    minus.addEventListener('click', () => {
+      if (values[attr] <= 0) return;
+      values[attr] -= 1;
+      render();
+      emit();
+    });
+    plus.addEventListener('click', () => {
+      const used = Object.values(values).reduce((sum, value) => sum + value, 0);
+      if (values[attr] >= 8 || used >= budget) return;
+      values[attr] += 1;
+      render();
+      emit();
+    });
+  }
+
+  const render = () => {
+    const used = Object.values(values).reduce((sum, value) => sum + value, 0);
+    remaining.textContent = `剩余 ${Math.max(0, budget - used)} 点`;
+    for (const [attr, control] of controls) {
+      const value = values[attr];
+      control.count.textContent = String(value);
+      control.tier.textContent = POINT_QUALITIES[value] || 'SSS';
+      control.minus.disabled = value <= 0;
+      control.plus.disabled = value >= 8 || used >= budget;
+    }
+  };
+  render();
+
+  return {
+    node: root,
+    values: () => structuredClone(values),
+  };
 }
 
 function normalizeStoreEntries(initial = {}) {
@@ -75,17 +213,12 @@ function normalizeStoreEntries(initial = {}) {
   return rows;
 }
 
-function firstEffect(item = {}) {
-  const entry = Object.entries(item.effects || {})[0] || ['', ''];
-  return { name: entry[0], description: entry[1] };
-}
-
 function storeEditor(doc, initial, emit) {
   const root = el(doc, 'div', 'rw-special-editor');
   const head = el(doc, 'div', 'rw-special-editor-head');
   head.append(
     el(doc, 'strong', '', '开局商店'),
-    el(doc, 'small', '', '逐项添加商品，不需要填写 JSON。品质只允许 F / E / D，单件价格最高 1000。'),
+    el(doc, 'small', '', '逐项添加商品。品质只允许 F / E / D，单件价格最高 1000；每件商品最多 2 条效果。'),
   );
   root.appendChild(head);
 
@@ -106,7 +239,6 @@ function storeEditor(doc, initial, emit) {
 
     entries.forEach((entry, index) => {
       const item = entry.item || {};
-      const effect = firstEffect(item);
       const card = el(doc, 'section', 'rw-store-entry');
       card.dataset.storeIndex = String(index);
 
@@ -116,7 +248,7 @@ function storeEditor(doc, initial, emit) {
         { value: 'item', label: '道具' },
         { value: 'skill', label: '技能' },
       ], entry.kind);
-      const remove = el(doc, 'button', 'rw-button danger rw-store-remove', '删除');
+      const remove = el(doc, 'button', 'rw-button danger rw-store-remove', '删除商品');
       remove.type = 'button';
       cardHead.append(kind, remove);
       card.appendChild(cardHead);
@@ -124,41 +256,38 @@ function storeEditor(doc, initial, emit) {
       const common = el(doc, 'div', 'rw-special-grid');
       common.append(
         field(doc, '名称 *', makeInput(doc, 'store_name', item.name || '', { maxLength: 80 })),
-        field(doc, '品质', makeSelect(doc, 'store_quality', QUALITIES, item.tier || 'F')),
+        field(doc, '品质', makeSelect(doc, 'store_quality', STORE_QUALITIES, item.tier || 'F')),
         field(doc, '价格（0-1000）', makeInput(doc, 'store_cost', Number(item.cost || 0), { type: 'number', min: 0, max: 1000, step: 1 })),
       );
       card.appendChild(common);
 
-      const kindSpecific = el(doc, 'div', 'rw-store-kind-specific');
       if (entry.kind === 'equipment') {
-        kindSpecific.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始属性'));
+        card.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始属性'));
         const attrs = el(doc, 'div', 'rw-store-attr-grid');
         for (const attr of STORE_ATTRIBUTES) {
-          const select = makeSelect(doc, `store_attr_${attr}`, [
-            { value: '', label: '无' },
-            ...QUALITIES.map(value => ({ value, label: value })),
-          ], item.attrs?.[attr] || '');
-          attrs.appendChild(field(doc, attr, select));
+          attrs.appendChild(field(
+            doc,
+            attr,
+            makeSelect(doc, `store_attr_${attr}`, [
+              { value: '', label: '无' },
+              ...STORE_QUALITIES.map(value => ({ value, label: value })),
+            ], item.attrs?.[attr] || ''),
+          ));
         }
-        kindSpecific.appendChild(attrs);
+        card.appendChild(attrs);
       } else if (entry.kind === 'item') {
-        kindSpecific.appendChild(field(
+        card.appendChild(field(
           doc,
           '数量',
           makeInput(doc, 'store_quantity', Number(item.quantity || 1), { type: 'number', min: 1, max: 999, step: 1 }),
           '购买一次写入背包的数量。',
         ));
       }
-      card.appendChild(kindSpecific);
 
-      const effectGrid = el(doc, 'div', 'rw-special-grid');
-      effectGrid.append(
-        field(doc, '效果名称', makeInput(doc, 'store_effect_name', effect.name || '', { maxLength: 80 }), '不填名称时会自动使用“效果”。'),
-        field(doc, '效果', makeInput(doc, 'store_effect_desc', effect.description || '', { textarea: true, maxLength: 1600 })),
-      );
+      card.appendChild(el(doc, 'div', 'rw-special-subtitle', '效果与描述'));
+      const effectEditor = appendEffectEditor(doc, card, firstEffects(item), emit, { max: 2 });
       card.append(
-        el(doc, 'div', 'rw-special-subtitle', '效果与描述'),
-        effectGrid,
+        effectEditor.node,
         field(doc, '描述', makeInput(doc, 'store_desc', item.desc || '', { textarea: true, maxLength: 1600 })),
       );
 
@@ -172,7 +301,6 @@ function storeEditor(doc, initial, emit) {
             if (value) attrsValue[attr] = value;
           }
         }
-        const effectValue = effectObject(getValue(card, 'store_effect_name'), getValue(card, 'store_effect_desc'));
         const base = {
           id: previousId,
           name: getValue(card, 'store_name').trim(),
@@ -180,7 +308,7 @@ function storeEditor(doc, initial, emit) {
           cost: Math.max(0, Math.min(1000, Number(getValue(card, 'store_cost')) || 0)),
           source: '创意工坊',
           tags: [],
-          effects: effectValue,
+          effects: effectsFromCard(card),
           desc: getValue(card, 'store_desc').trim(),
         };
         entry.item = entry.kind === 'equipment'
@@ -195,10 +323,13 @@ function storeEditor(doc, initial, emit) {
         sync();
         render();
       });
-      card.addEventListener('input', sync);
+      card.addEventListener('input', event => {
+        if (!event.target.closest?.('[data-effect-row]')) sync();
+      });
       card.addEventListener('change', event => {
         if (event.target !== kind) sync();
       });
+      effectEditor.node.addEventListener('input', sync);
       remove.addEventListener('click', () => {
         entries.splice(index, 1);
         render();
@@ -228,7 +359,6 @@ function storeEditor(doc, initial, emit) {
     render();
     emit();
   });
-
   render();
 
   return {
@@ -281,17 +411,129 @@ function worldEditor(doc, initial, emit) {
   return { node: root, values: () => valuesFromNames(root, names) };
 }
 
+function rankQuality(rank) {
+  return ({ 'Ⅰ': 'F', 'Ⅱ': 'E', 'Ⅲ': 'D' })[rank] || 'F';
+}
+
+function openingEquipmentEditor(doc, initial = [], emit) {
+  const root = el(doc, 'div', 'rw-partner-equipment');
+  const list = el(doc, 'div', 'rw-partner-equipment-list');
+  const add = el(doc, 'button', 'rw-button', '+ 添加装备');
+  add.type = 'button';
+  root.append(list, add);
+  const entries = (initial || []).map(item => structuredClone(item));
+
+  const render = () => {
+    list.replaceChildren();
+    if (!entries.length) list.appendChild(el(doc, 'div', 'rw-local-note', '伙伴可以携带装备；不需要装备时保持为空即可。'));
+    entries.forEach((item, index) => {
+      const card = el(doc, 'section', 'rw-opening-equipment-card');
+      const head = el(doc, 'div', 'rw-store-entry-head');
+      head.append(
+        el(doc, 'strong', '', `装备 ${index + 1}`),
+        (() => {
+          const remove = el(doc, 'button', 'rw-button danger', '删除装备');
+          remove.type = 'button';
+          remove.addEventListener('click', () => {
+            entries.splice(index, 1);
+            render();
+            emit();
+          });
+          return remove;
+        })(),
+      );
+      card.appendChild(head);
+
+      const grid = el(doc, 'div', 'rw-special-grid');
+      grid.append(
+        field(doc, '装备名称 *', makeInput(doc, 'partner_equipment_name', item.name || '', { maxLength: 120 })),
+        field(doc, '品质', makeSelect(doc, 'partner_equipment_quality', STORE_QUALITIES, item.品质 || 'F')),
+        field(doc, '类型', makeSelect(doc, 'partner_equipment_type', EQUIPMENT_TYPES, String(item.类型 ?? 0))),
+      );
+      card.appendChild(grid);
+
+      card.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始属性'));
+      const attrs = el(doc, 'div', 'rw-store-attr-grid');
+      for (const attr of STORE_ATTRIBUTES) {
+        attrs.appendChild(field(
+          doc,
+          attr,
+          makeSelect(doc, `partner_equipment_attr_${attr}`, [
+            { value: '', label: '无' },
+            ...STORE_QUALITIES.map(value => ({ value, label: value })),
+          ], item.原始属性?.[attr] || ''),
+        ));
+      }
+      card.appendChild(attrs);
+
+      const effects = Object.entries(item.效果 || {}).slice(0, 2).map(([name, description]) => ({ name, description }));
+      card.appendChild(el(doc, 'div', 'rw-special-subtitle', '效果与描述'));
+      const effectEditor = appendEffectEditor(doc, card, effects, emit, { max: 2 });
+      card.append(effectEditor.node, field(doc, '描述', makeInput(doc, 'partner_equipment_desc', item.描述 || '', { textarea: true, maxLength: 1600 })));
+
+      const sync = () => {
+        const attrsValue = {};
+        for (const attr of STORE_ATTRIBUTES) {
+          const value = getValue(card, `partner_equipment_attr_${attr}`);
+          if (value) attrsValue[attr] = value;
+        }
+        entries[index] = {
+          name: getValue(card, 'partner_equipment_name').trim(),
+          品质: getValue(card, 'partner_equipment_quality') || 'F',
+          类型: Math.max(0, Math.min(8, Number(getValue(card, 'partner_equipment_type')) || 0)),
+          标签: [],
+          原始属性: attrsValue,
+          效果: effectsFromCard(card),
+          描述: getValue(card, 'partner_equipment_desc').trim(),
+          消耗: '无',
+          状态: 0,
+        };
+        emit();
+      };
+      card.addEventListener('input', sync);
+      card.addEventListener('change', sync);
+      list.appendChild(card);
+    });
+  };
+
+  add.addEventListener('click', () => {
+    entries.push({
+      name: '',
+      品质: 'F',
+      类型: 0,
+      标签: [],
+      原始属性: {},
+      效果: {},
+      描述: '',
+      消耗: '无',
+      状态: 0,
+    });
+    render();
+    emit();
+  });
+  render();
+
+  return {
+    node: root,
+    values: () => entries.filter(item => item.name?.trim()).map(item => structuredClone(item)),
+  };
+}
+
 function openingEditor(doc, mode, initial, emit) {
   const root = el(doc, 'div', 'rw-special-editor');
   const partner = mode === 'opening_partner';
+  const budget = partner ? 16 : 8;
   const head = el(doc, 'div', 'rw-special-editor-head');
   head.append(
     el(doc, 'strong', '', partner ? '开局伙伴' : '开局角色'),
-    el(doc, 'small', '', '层级只允许Ⅰ-Ⅲ。原始构筑只能填写 1 项血统和最多 2 项技能；不会填写装备、状态或形态 JSON。'),
+    el(doc, 'small', '', partner
+      ? '层级只允许Ⅰ-Ⅲ，五维总预算16点；血统和技能品质由层级自动决定，伙伴可额外携带装备。'
+      : '层级只允许Ⅰ-Ⅲ，五维总预算8点；血统和技能品质由层级自动决定。'),
   );
   root.appendChild(head);
 
   const grid = el(doc, 'div', 'rw-special-grid');
+  const rank = makeSelect(doc, 'opening_rank', OPENING_RANKS, OPENING_RANKS.includes(initial.opening_rank) ? initial.opening_rank : 'Ⅰ');
   grid.append(
     field(doc, '姓名 *', makeInput(doc, 'opening_name', initial.opening_name || '', { maxLength: 80 })),
     field(doc, '种族', makeInput(doc, 'opening_race', initial.opening_race || '人类', { maxLength: 120 })),
@@ -300,7 +542,7 @@ function openingEditor(doc, mode, initial, emit) {
     field(doc, '职业类型', makeSelect(doc, 'opening_occupation_type', ['战斗', '生活', '辅助'], initial.opening_occupation_type || '辅助')),
     field(doc, '职业特性', makeInput(doc, 'opening_occupation_traits', initial.opening_occupation_traits || '', { maxLength: 300 }), '多个特性用逗号分隔。'),
     field(doc, '职业来源', makeInput(doc, 'opening_occupation_source', initial.opening_occupation_source || '', { maxLength: 300 })),
-    field(doc, '层级', makeSelect(doc, 'opening_rank', OPENING_RANKS, OPENING_RANKS.includes(initial.opening_rank) ? initial.opening_rank : 'Ⅰ')),
+    field(doc, '层级', rank, 'Ⅰ→F，Ⅱ→E，Ⅲ→D；血统与技能品质会自动同步。'),
   );
   root.appendChild(grid);
 
@@ -313,39 +555,39 @@ function openingEditor(doc, mode, initial, emit) {
     );
   }
 
-  root.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始构筑 · 血统'));
+  root.appendChild(el(doc, 'div', 'rw-special-subtitle', `原始构筑 · 血统与五维（${budget}点）`));
+  const allocator = pointAllocator(doc, {
+    budget,
+    initial: initial.opening_attributes || {},
+    emit,
+  });
+  root.appendChild(allocator.node);
+
   const bloodGrid = el(doc, 'div', 'rw-special-grid');
+  const bloodQuality = el(doc, 'div', 'rw-auto-quality');
   bloodGrid.append(
-    field(doc, '血统名称', makeInput(doc, 'opening_bloodline_name', initial.opening_bloodline_name || '', { maxLength: 120 })),
-    field(doc, '品质', makeSelect(doc, 'opening_bloodline_quality', QUALITIES, initial.opening_bloodline_quality || 'F')),
+    field(doc, '血统名称 *', makeInput(doc, 'opening_bloodline_name', initial.opening_bloodline_name || '', { maxLength: 120 })),
+    field(doc, '血统品质（自动）', bloodQuality),
     field(doc, '效果名称', makeInput(doc, 'opening_bloodline_effect_name', initial.opening_bloodline_effect_name || '', { maxLength: 80 })),
     field(doc, '效果', makeInput(doc, 'opening_bloodline_effect_desc', initial.opening_bloodline_effect_desc || '', { textarea: true, maxLength: 1600 })),
   );
-  root.appendChild(bloodGrid);
-
-  const attrs = el(doc, 'div', 'rw-opening-attr-grid');
-  for (const attr of ATTRIBUTES) {
-    attrs.appendChild(field(
-      doc,
-      attr,
-      makeSelect(doc, `opening_bloodline_attr_${attr}`, QUALITIES, initial[`opening_bloodline_attr_${attr}`] || 'F'),
-    ));
-  }
   root.append(
-    attrs,
+    bloodGrid,
     field(doc, '血统描述', makeInput(doc, 'opening_bloodline_desc', initial.opening_bloodline_desc || '', { textarea: true, maxLength: 1600 })),
   );
 
   root.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始构筑 · 技能（最多 2 项）'));
+  const skillQualityNodes = [];
   for (let index = 1; index <= 2; index += 1) {
     const card = el(doc, 'section', 'rw-opening-skill-card');
     const cardHead = el(doc, 'div', 'rw-opening-skill-head');
-    cardHead.append(el(doc, 'strong', '', `技能 ${index}`), el(doc, 'small', '', '不填写名称则不生成该技能'));
+    const autoQuality = el(doc, 'span', 'rw-auto-quality rw-auto-quality--inline');
+    skillQualityNodes.push(autoQuality);
+    cardHead.append(el(doc, 'strong', '', `技能 ${index}`), autoQuality);
     card.appendChild(cardHead);
     const skillGrid = el(doc, 'div', 'rw-special-grid');
     skillGrid.append(
-      field(doc, '技能名称', makeInput(doc, `opening_skill_${index}_name`, initial[`opening_skill_${index}_name`] || '', { maxLength: 120 })),
-      field(doc, '品质', makeSelect(doc, `opening_skill_${index}_quality`, QUALITIES, initial[`opening_skill_${index}_quality`] || 'F')),
+      field(doc, '技能名称', makeInput(doc, `opening_skill_${index}_name`, initial[`opening_skill_${index}_name`] || '', { maxLength: 120 }), '不填写名称则不生成该技能。'),
       field(doc, '类型', makeSelect(doc, `opening_skill_${index}_type`, [
         { value: '0', label: '主动' },
         { value: '1', label: '被动' },
@@ -362,6 +604,24 @@ function openingEditor(doc, mode, initial, emit) {
     root.appendChild(card);
   }
 
+  let equipmentEditor = null;
+  if (partner) {
+    root.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始构筑 · 装备'));
+    equipmentEditor = openingEquipmentEditor(doc, initial.opening_partner_equipment || [], emit);
+    root.appendChild(equipmentEditor.node);
+  }
+
+  const syncAutoQuality = () => {
+    const value = rankQuality(rank.value);
+    bloodQuality.textContent = `${value}（随${rank.value}阶）`;
+    for (const node of skillQualityNodes) node.textContent = `品质 ${value} · 随${rank.value}阶`;
+  };
+  rank.addEventListener('change', () => {
+    syncAutoQuality();
+    emit();
+  });
+  syncAutoQuality();
+
   root.addEventListener('input', emit);
   root.addEventListener('change', emit);
 
@@ -369,17 +629,25 @@ function openingEditor(doc, mode, initial, emit) {
     'opening_name', 'opening_race', 'opening_identity', 'opening_occupation_name',
     'opening_occupation_type', 'opening_occupation_traits', 'opening_occupation_source',
     'opening_rank', 'opening_personality', 'opening_likes', 'opening_background',
-    'opening_bloodline_name', 'opening_bloodline_quality', 'opening_bloodline_effect_name',
+    'opening_bloodline_name', 'opening_bloodline_effect_name',
     'opening_bloodline_effect_desc', 'opening_bloodline_desc',
-    ...ATTRIBUTES.map(attr => `opening_bloodline_attr_${attr}`),
     ...[1, 2].flatMap(index => [
-      `opening_skill_${index}_name`, `opening_skill_${index}_quality`,
-      `opening_skill_${index}_type`, `opening_skill_${index}_consume`,
-      `opening_skill_${index}_effect_name`, `opening_skill_${index}_effect_desc`,
-      `opening_skill_${index}_desc`,
+      `opening_skill_${index}_name`, `opening_skill_${index}_type`,
+      `opening_skill_${index}_consume`, `opening_skill_${index}_effect_name`,
+      `opening_skill_${index}_effect_desc`, `opening_skill_${index}_desc`,
     ]),
   ];
-  return { node: root, values: () => valuesFromNames(root, names) };
+
+  return {
+    node: root,
+    values() {
+      return {
+        ...valuesFromNames(root, names),
+        opening_attributes: allocator.values(),
+        ...(partner ? { opening_partner_equipment: equipmentEditor?.values() || [] } : {}),
+      };
+    },
+  };
 }
 
 export function createDedicatedPublishEditor({

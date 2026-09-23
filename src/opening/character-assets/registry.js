@@ -96,6 +96,7 @@ export async function replaceProjectOpeningAssets(project, dataArtifacts = []) {
         sourceProjectId: project.id,
         sourceProjectName: project.name,
         sourceVersion: project.version,
+        avatarUrl: String(asset.avatarUrl || project.coverUrl || '').trim(),
       });
       count += 1;
   }

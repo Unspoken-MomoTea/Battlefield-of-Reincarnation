@@ -87,8 +87,26 @@ export function workshopTemplate(version) {
       <section class="rw-section" data-section="mine" hidden>
         <div class="rw-page-head">
           <div class="rw-page-head-copy"><small>CREATOR</small><h2>我的作品</h2><p>创建、更新并跟踪你的发布内容。</p></div>
-          <button class="rw-button primary" type="button" data-action="create-project-open">创建作品</button>
+          <div class="rw-row"><button class="rw-button" type="button" data-action="create-heretic-open">上传当前角色到异端库</button><button class="rw-button primary" type="button" data-action="create-project-open">创建作品</button></div>
         </div>
+        <form class="rw-create-form" data-form="create-heretic" hidden>
+          <div class="rw-publish-form-head"><div class="rw-publish-form-title"><span>◈</span><div><strong>异端库 · 当前角色快照</strong><small>读取当前 MVU 角色的原始构筑；派生属性、道具、货币、任务等不会上传。</small></div></div><button class="rw-modal-close" type="button" data-action="create-heretic-cancel">×</button></div>
+          <div class="rw-publish-grid">
+            <section class="rw-publish-column">
+              <label class="rw-field"><span>作品名称 *</span><input class="rw-input" name="name" required maxlength="80" placeholder="默认使用当前角色姓名"></label>
+              <label class="rw-field"><span>简介</span><textarea class="rw-textarea" name="summary" maxlength="2000" placeholder="这个角色的特色与玩法。"></textarea></label>
+              <label class="rw-field"><span>性格 *</span><textarea class="rw-textarea" name="personality" required maxlength="1200" placeholder="发布前补充角色稳定的人格与行为倾向。"></textarea></label>
+              <label class="rw-field"><span>喜爱 *</span><textarea class="rw-textarea" name="likes" required maxlength="800" placeholder="偏好、兴趣、厌恶等。"></textarea></label>
+              <label class="rw-field"><span>背景故事 *</span><textarea class="rw-textarea" name="background" required maxlength="3000" placeholder="角色经历与关键背景。"></textarea></label>
+            </section>
+            <section class="rw-publish-column">
+              <div class="rw-publish-step-title"><span>LIVE</span><div><strong>当前构筑预览</strong><small>只显示会上传的字段。</small></div></div>
+              <div class="rw-local-note" data-role="heretic-build-preview">打开后读取当前 MVU。</div>
+              <label class="rw-field"><span>封面图（可选）</span><input class="rw-input" data-field="heretic-cover" type="file" accept="image/png,image/jpeg,image/webp"></label>
+            </section>
+          </div>
+          <footer class="rw-publish-footer"><div class="rw-publish-footer-note">异端仍复用角色项目的审核、版本、更新和举报系统，但不会出现在普通角色创建模板中。</div><div class="rw-row"><button class="rw-button" type="button" data-action="create-heretic-cancel">取消</button><button class="rw-button primary" type="submit">提交异端审核</button></div></footer>
+        </form>
         <form class="rw-create-form" data-form="create-project" hidden>
           <div class="rw-publish-form-head">
             <div class="rw-publish-form-title">

@@ -59,9 +59,14 @@ test('specialized editor source is form-driven and contains no JSON code textare
   assert.match(source, /OPENING_RANKS = \['Ⅰ', 'Ⅱ', 'Ⅲ'\]/u);
   assert.match(source, /STORE_QUALITIES = \['F', 'E', 'D'\]/u);
   assert.match(source, /budget = partner \? 16 : 8/u);
+  assert.match(source, /STORE_PRICE_FLOOR = \{ F: 50, E: 300, D: 700 \}/u);
+  assert.match(source, /EQUIPMENT_ATTR_QUALITIES = \['F', 'E', 'D', 'C', 'B', 'A'\]/u);
   assert.match(source, /\+ 添加效果/u);
+  assert.match(source, /rw-effect-remove/u);
   assert.match(source, /if \(state\.length >= max\) return/u);
   assert.match(source, /\+ 添加装备/u);
+  assert.doesNotMatch(source, /五维加点 · 总预算/u);
+  assert.doesNotMatch(source, /血统与五维（/u);
   assert.doesNotMatch(source, /JSON\.parse/u);
   assert.doesNotMatch(source, /rw-code-input/u);
 });
@@ -73,6 +78,6 @@ test('creator styles hide the character subtype outside character category and k
   const source = fs.readFileSync(fileURLToPath(new URL('../ui/styles.js', import.meta.url)), 'utf8');
   assert.match(source, /\.rw-field\[hidden\]\{display:none!important\}/u);
   assert.match(source, /\.rw-field>\.rw-input,[\s\S]*max-width:100%/u);
-  assert.match(source, /\.rw-point-grid\{[\s\S]*repeat\(auto-fit,minmax\(82px,1fr\)\)/u);
+  assert.match(source, /\.rw-point-grid\{[\s\S]*repeat\(auto-fill,minmax\(min\(100%,220px\),1fr\)\)/u);
   assert.match(source, /\.rw-store-attr-grid,[\s\S]*repeat\(auto-fit,minmax\(78px,1fr\)\)/u);
 });

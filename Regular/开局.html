@@ -512,6 +512,14 @@
         .p-item-info .val { color: var(--text); font-weight: 500; }
         .p-item-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
     </style>
+
+<style>
+.asset-library-shell{margin:0 0 20px;padding:16px;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border));border-radius:14px;background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(0,0,0,.14));box-shadow:0 14px 38px rgba(0,0,0,.14)}
+.asset-library-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.asset-library-head h3{margin:0;font-size:1rem}.asset-library-head small{color:var(--text-sub)}
+.asset-library-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.asset-library-card{position:relative;padding:14px;border:1px solid var(--border);border-radius:12px;background:rgba(0,0,0,.12);cursor:pointer;transition:.18s;overflow:hidden}.asset-library-card:hover{transform:translateY(-2px);border-color:var(--accent-dark)}.asset-library-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent)}.asset-library-card strong{display:block;margin:5px 0 8px}.asset-library-source{font-size:.7rem;color:var(--accent)}.asset-library-tags{display:flex;gap:5px;flex-wrap:wrap}.asset-library-tags span{font-size:.68rem;padding:2px 7px;border-radius:99px;background:rgba(255,255,255,.06);color:var(--text-sub)}.asset-library-empty{grid-column:1/-1;text-align:center;padding:22px;border:1px dashed var(--border);border-radius:10px;color:var(--text-sub)}
+.asset-mode-tabs{display:flex;gap:8px;margin-bottom:12px}.asset-mode-tabs button{flex:1;padding:9px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text-sub);cursor:pointer}.asset-mode-tabs button.active{color:var(--accent);border-color:var(--accent-dark);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+@media(max-width:620px){.asset-library-head{align-items:flex-start;flex-direction:column}.asset-library-grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
     <div class="wizard-layout">
@@ -552,7 +560,12 @@
           <div class="variable-api-mode-status" id="variable-api-mode-status"></div>
       </section>
 
-      <h2 class="section-title">基础信息录入</h2>
+      <h2 class="section-title">角色档案</h2>
+                <div class="asset-library-shell">
+                    <div class="asset-mode-tabs"><button type="button" id="character-mode-custom" class="active" onclick="setCharacterMode('custom')">自定义角色</button><button type="button" id="character-mode-library" onclick="setCharacterMode('library')">开局角色库</button></div>
+                    <div id="opening-character-library" style="display:none;"></div>
+                </div>
+                <h2 class="section-title">基础信息录入</h2>
                 <div class="grid-2">
                     <div class="form-group"><label>代号 / 姓名</label><input type="text" class="form-control" id="f-name" placeholder="输入角色姓名..."></div>
                     <div class="form-group"><label>性别</label><select class="form-control" id="f-gender"><option>男</option><option>女</option><option>扶她</option><option>男娘</option><option>药娘</option><option>太监</option><option>无性别</option></select></div>
@@ -604,11 +617,14 @@
 
             <div class="step-pane" id="pane-3">
                 <div class="background-page">
-                    <div style="display:none;" data-hidden="1">
+                    <div>
                         <h2 class="section-title">协同实体 (伙伴)</h2>
-                        <div class="destined-ones-content"><div class="destined-one-list" id="grid-partner"></div></div>
+                        <div class="asset-library-shell">
+                            <div class="asset-mode-tabs"><button type="button" id="partner-mode-library" class="active" onclick="setPartnerMode('library')">开局伙伴库</button><button type="button" id="partner-mode-custom" onclick="setPartnerMode('custom')">自定义伙伴</button></div>
+                            <div id="opening-partner-library"></div>
+                        </div>
                     </div>
-                    <div class="collapsible-form" id="custom-partner-form">
+                    <div class="collapsible-form" id="custom-partner-form" style="display:none;">
                         <div class="form-header" onclick="toggleCustomPartner()">
                             <div><div class="form-title">+ 招募自定义伙伴</div><div class="form-desc">无预设匹配时自定义一位协同实体</div></div>
                             <span class="toggle-icon">▼</span>
@@ -1075,6 +1091,11 @@
     let selectedItems = new Set();
     let selectedPlot = null;
     let selectedPartner = null;
+    let selectedOpeningCharacter = null;
+    let selectedOpeningPartner = null;
+    let characterMode = 'custom';
+    let partnerMode = 'library';
+    let openingAssets = [];
     let customItems = [];
     let activeItemTab = 'equipment';
     let activeSubCategory = null; 

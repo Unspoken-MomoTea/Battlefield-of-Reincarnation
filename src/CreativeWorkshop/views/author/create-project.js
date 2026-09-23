@@ -135,7 +135,6 @@ export function bindCreateProjectFlow({
     nodes.createWorldbook.value = '';
     nodes.createRegex.value = '';
     nodes.createScript.value = '';
-    if (nodes.createData) nodes.createData.value = '';
     nodes.createCover.value = '';
     nodes.createVersionState.textContent = '选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。';
     dependencyPicker.clear();
@@ -216,11 +215,6 @@ export function bindCreateProjectFlow({
     nodes.createScript,
     overlay.querySelector('[data-drop-target="create-script"]'),
     'script',
-  );
-  bindArtifactInput(
-    nodes.createData,
-    overlay.querySelector('[data-drop-target="create-data"]'),
-    'data',
   );
 
   nodes.createCover.addEventListener('change', renderCover);

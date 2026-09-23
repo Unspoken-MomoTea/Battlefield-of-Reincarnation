@@ -1,5 +1,7 @@
-const OPENING_QUALITIES = new Set(['F', 'E', 'D']);
 const OPENING_RANKS = new Set(['Ⅰ', 'Ⅱ', 'Ⅲ']);
+const RANK_QUALITY = { 'Ⅰ': 'F', 'Ⅱ': 'E', 'Ⅲ': 'D' };
+const STORE_QUALITIES = new Set(['F', 'E', 'D']);
+const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const BLOOD_ATTRS = ['力量', '敏捷', '体质', '精神', '魅力'];
 
 function read(source, name) {
@@ -14,9 +16,16 @@ function csv(value) {
     .filter(Boolean);
 }
 
-function quality(value, fallback = 'F') {
-  const next = String(value || fallback).trim().toUpperCase();
-  return OPENING_QUALITIES.has(next) ? next : fallback;
+function clampPoint(value) {
+  return Math.max(0, Math.min(8, Math.trunc(Number(value) || 0)));
+}
+
+function pointTier(value) {
+  return POINT_QUALITIES[clampPoint(value)] || 'SSS';
+}
+
+function rankQuality(rank) {
+  return RANK_QUALITY[rank] || 'F';
 }
 
 function effect(name, description) {
@@ -58,33 +67,71 @@ export function isDedicatedPublishMode(mode) {
   return ['world_character', 'opening_character', 'opening_partner', 'store_catalog'].includes(mode);
 }
 
-function openingBuild(source) {
+function validatePointBudget(source, mode) {
+  const budget = mode === 'opening_partner' ? 16 : 8;
+  const raw = source?.opening_attributes || {};
+  const points = Object.fromEntries(BLOOD_ATTRS.map(attr => [attr, clampPoint(raw[attr])]));
+  const total = Object.values(points).reduce((sum, value) => sum + value, 0);
+  if (total > budget) throw new Error(`五维加点超过上限：当前 ${total} / ${budget}`);
+  return points;
+}
+
+function validatePartnerEquipment(source) {
+  const rows = Array.isArray(source?.opening_partner_equipment)
+    ? source.opening_partner_equipment
+    : [];
+  const result = {};
+  for (const [index, item] of rows.entries()) {
+    const name = String(item?.name || '').trim();
+    if (!name) continue;
+    if (!STORE_QUALITIES.has(String(item.品质 || '').toUpperCase())) {
+      throw new Error(`伙伴装备“${name}”品质只能是 F、E、D`);
+    }
+    if (Object.keys(item.效果 || {}).length > 2) {
+      throw new Error(`伙伴装备“${name}”最多只能填写 2 条效果`);
+    }
+    result[name] = {
+      品质: String(item.品质 || 'F').toUpperCase(),
+      类型: Math.max(0, Math.min(8, Number(item.类型) || 0)),
+      标签: Array.isArray(item.标签) ? item.标签 : [],
+      原始属性: item.原始属性 && typeof item.原始属性 === 'object' ? structuredClone(item.原始属性) : {},
+      效果: item.效果 && typeof item.效果 === 'object' ? structuredClone(item.效果) : {},
+      描述: String(item.描述 || ''),
+      消耗: String(item.消耗 || '无'),
+      状态: 0,
+    };
+    if (index > 50) break;
+  }
+  return result;
+}
+
+function openingBuild(source, mode) {
+  const rank = OPENING_RANKS.has(read(source, 'opening_rank')) ? read(source, 'opening_rank') : 'Ⅰ';
+  const autoQuality = rankQuality(rank);
   const occupationName = read(source, 'opening_occupation_name');
   const bloodlineName = read(source, 'opening_bloodline_name');
+  if (!bloodlineName) throw new Error('请填写血统名称');
 
-  const bloodline = {};
-  if (bloodlineName) {
-    bloodline[bloodlineName] = {
-      品质: quality(read(source, 'opening_bloodline_quality')),
+  const points = validatePointBudget(source, mode);
+  const bloodline = {
+    [bloodlineName]: {
+      品质: autoQuality,
       标签: [],
-      原始属性: Object.fromEntries(BLOOD_ATTRS.map(attr => [
-        attr,
-        quality(read(source, `opening_bloodline_attr_${attr}`)),
-      ])),
+      原始属性: Object.fromEntries(BLOOD_ATTRS.map(attr => [attr, pointTier(points[attr])])),
       效果: effect(
         read(source, 'opening_bloodline_effect_name'),
         read(source, 'opening_bloodline_effect_desc'),
       ),
       描述: read(source, 'opening_bloodline_desc'),
-    };
-  }
+    },
+  };
 
   const skills = {};
   for (let index = 1; index <= 2; index += 1) {
     const name = read(source, `opening_skill_${index}_name`);
     if (!name) continue;
     skills[name] = {
-      品质: quality(read(source, `opening_skill_${index}_quality`)),
+      品质: autoQuality,
       类型: Math.max(0, Math.min(2, Number(read(source, `opening_skill_${index}_type`)) || 0)),
       标签: [],
       效果: effect(
@@ -110,9 +157,10 @@ function openingBuild(source) {
           },
         }
       : {},
-    层级: OPENING_RANKS.has(read(source, 'opening_rank')) ? read(source, 'opening_rank') : 'Ⅰ',
+    层级: rank,
     血统: bloodline,
     技能: skills,
+    ...(mode === 'opening_partner' ? { 装备: validatePartnerEquipment(source) } : {}),
   };
 }
 
@@ -131,12 +179,15 @@ function validateStoreCatalog(catalog) {
         throw new Error(`${label}第 ${index + 1} 项无效`);
       }
       if (!String(item.name || '').trim()) throw new Error(`${label}第 ${index + 1} 项缺少名称`);
-      if (!OPENING_QUALITIES.has(String(item.tier || '').toUpperCase())) {
+      if (!STORE_QUALITIES.has(String(item.tier || '').toUpperCase())) {
         throw new Error(`${label}“${item.name}”品质只能是 F、E、D`);
       }
       const cost = Number(item.cost);
       if (!Number.isFinite(cost) || cost < 0 || cost > 1000) {
         throw new Error(`${label}“${item.name}”价格必须在 0-1000 之间`);
+      }
+      if (Object.keys(item.effects || {}).length > 2) {
+        throw new Error(`${label}“${item.name}”最多只能填写 2 条效果`);
       }
       if (key === 'items') {
         const quantity = Number(item.quantity);
@@ -201,7 +252,7 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
   if (mode === 'opening_character' || mode === 'opening_partner') {
     const name = read(source, 'opening_name') || projectName;
     if (!name) throw new Error(mode === 'opening_partner' ? '请填写开局伙伴姓名' : '请填写开局角色姓名');
-    const build = openingBuild(source);
+    const build = openingBuild(source, mode);
     const profile = {
       性格: read(source, 'opening_personality'),
       喜爱: read(source, 'opening_likes'),
@@ -303,24 +354,31 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
       opening_likes: profile.喜爱 || '',
       opening_background: profile.背景故事 || '',
       opening_bloodline_name: bloodlineName,
-      opening_bloodline_quality: quality(bloodline.品质),
       opening_bloodline_effect_name: bloodEffectName,
       opening_bloodline_effect_desc: bloodEffectDesc,
       opening_bloodline_desc: bloodline.描述 || '',
+      opening_attributes: Object.fromEntries(BLOOD_ATTRS.map(attr => [
+        attr,
+        Math.max(0, POINT_QUALITIES.indexOf(bloodline.原始属性?.[attr] || 'F')),
+      ])),
     };
-    for (const attr of BLOOD_ATTRS) {
-      result[`opening_bloodline_attr_${attr}`] = quality(bloodline.原始属性?.[attr]);
-    }
+
     for (let index = 1; index <= 2; index += 1) {
       const [name, skill = {}] = skills[index - 1] || ['', {}];
       const [effectName, effectDesc] = firstEffect(skill.效果);
       result[`opening_skill_${index}_name`] = name;
-      result[`opening_skill_${index}_quality`] = quality(skill.品质);
       result[`opening_skill_${index}_type`] = String(Math.max(0, Math.min(2, Number(skill.类型) || 0)));
       result[`opening_skill_${index}_consume`] = skill.消耗 || '';
       result[`opening_skill_${index}_effect_name`] = effectName;
       result[`opening_skill_${index}_effect_desc`] = effectDesc;
       result[`opening_skill_${index}_desc`] = skill.描述 || '';
+    }
+
+    if (mode === 'opening_partner') {
+      result.opening_partner_equipment = Object.entries(build.装备 || {}).map(([name, item]) => ({
+        name,
+        ...structuredClone(item),
+      }));
     }
     return result;
   }

@@ -1253,6 +1253,7 @@
         $('partner-mode-library')?.classList.toggle('active',partnerMode==='library');
         if($('custom-partner-form')) $('custom-partner-form').style.display=partnerMode==='custom'?'':'none';
         if($('opening-partner-library')) $('opening-partner-library').style.display=partnerMode==='library'?'':'none';
+        if(partnerMode==='custom') updatePartnerBuildBtnState();
         renderOpeningPartnerLibrary(); updateBgSummary();
     }
     function selectOpeningCharacter(id) {

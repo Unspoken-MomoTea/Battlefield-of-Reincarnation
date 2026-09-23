@@ -33,12 +33,30 @@ export function createAuthorProjectEditor({
 }) {
   let activeModal = null;
   let coverUrl = '';
+  let currentCoverBlob = null;
 
   function revokeCover() {
     if (!coverUrl) return;
     try { host.URL.revokeObjectURL(coverUrl); } catch {}
     coverUrl = '';
   }
+
+  function readFileDataUrl(file) {
+    if (!file) return Promise.resolve('');
+    return new Promise((resolve, reject) => {
+      try {
+        const Reader = host.FileReader || FileReader;
+        const reader = new Reader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error || new Error('读取封面失败'));
+        reader.readAsDataURL(file);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+
 
   function dropBinding(target, input, handler) {
     target.addEventListener('dragover', event => {
@@ -58,6 +76,7 @@ export function createAuthorProjectEditor({
   async function open(project) {
     activeModal?.close?.({ force: true });
     revokeCover();
+    currentCoverBlob = null;
 
     if (project.status === 'pending') {
       try { host.toastr?.info?.('这个版本正在审核，审核结束后才能继续修改', '创意工坊'); } catch {}
@@ -309,7 +328,12 @@ export function createAuthorProjectEditor({
     right.appendChild(element('div', 'rw-publish-divider'));
 
     const coverBlock = element('div', 'rw-publish-upload-block');
-    coverBlock.appendChild(element('span', 'rw-field-label', '封面图（可选）'));
+    const openingAvatarMode = publishMode === 'opening_character' || publishMode === 'opening_partner';
+    coverBlock.appendChild(element(
+      'span',
+      'rw-field-label',
+      openingAvatarMode ? '封面 / 默认头像（可选）' : '封面图（可选）',
+    ));
     const coverZone = element('label', 'rw-cover-dropzone rw-update-cover-zone');
     const coverPreview = doc.createElement('img');
     coverPreview.alt = '封面预览';
@@ -318,7 +342,13 @@ export function createAuthorProjectEditor({
     coverEmpty.append(
       element('span', '', '▧'),
       element('strong', '', current.has_cover ? '保留当前封面，或选择新封面' : '拖入或选择封面'),
-      element('small', '', 'PNG / JPEG / WebP · 建议 16:9'),
+      element(
+        'small',
+        '',
+        openingAvatarMode
+          ? 'PNG / JPEG / WebP · 会同时作为状态栏默认头像，建议人物主体居中'
+          : 'PNG / JPEG / WebP · 建议 16:9',
+      ),
     );
     const coverInput = doc.createElement('input');
     coverInput.type = 'file';
@@ -329,13 +359,20 @@ export function createAuthorProjectEditor({
     const coverState = element(
       'div',
       'rw-file-state',
-      current.has_cover ? '当前封面会继续保留；只有选择新图片才会替换。' : '尚未设置封面。',
+      current.has_cover
+        ? (openingAvatarMode
+          ? '当前封面会继续作为默认头像；只有选择新图片才会替换。'
+          : '当前封面会继续保留；只有选择新图片才会替换。')
+        : (openingAvatarMode
+          ? '尚未设置封面；设置后会作为开局角色/伙伴的默认头像。'
+          : '尚未设置封面。'),
     );
     coverBlock.append(coverZone, coverState);
     right.appendChild(coverBlock);
 
     const showCoverBlob = blob => {
       revokeCover();
+      currentCoverBlob = blob || currentCoverBlob;
       coverUrl = host.URL.createObjectURL(blob);
       coverPreview.src = coverUrl;
       coverPreview.hidden = false;
@@ -401,6 +438,8 @@ export function createAuthorProjectEditor({
       progress.className = 'rw-submit-progress rw-submit-progress--working';
       progress.textContent = '正在保存本地测试版本…';
       try {
+        const localCover = coverInput.files?.[0] || currentCoverBlob || null;
+        const coverDataUrl = localCover ? await readFileDataUrl(localCover) : '';
         await projectService.saveLocalTest({
           id: current.id,
           name: nextName,
@@ -409,6 +448,7 @@ export function createAuthorProjectEditor({
           dependencies: dependencies.values(),
           version,
           bundle,
+          coverDataUrl,
         });
         progress.className = 'rw-submit-progress rw-submit-progress--success';
         progress.textContent = '已保存到本地测试。不会上传服务器，也不会提交审核；可到“已安装”中安装测试。';

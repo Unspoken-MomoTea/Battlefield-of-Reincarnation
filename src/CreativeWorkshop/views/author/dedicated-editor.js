@@ -206,7 +206,19 @@ function pointAllocator(doc, { budget, initial = {}, emit }) {
 function normalizeStoreEntries(initial = {}) {
   const rows = [];
   for (const [kind, key] of [['equipment', 'equipments'], ['item', 'items'], ['skill', 'skills']]) {
-    for (const item of initial?.[key] || []) rows.push({ kind, item: structuredClone(item) });
+    for (const item of initial?.[key] || []) {
+      const normalized = structuredClone(item);
+      const tier = STORE_QUALITIES.includes(String(normalized.tier || '').toUpperCase())
+        ? String(normalized.tier).toUpperCase()
+        : 'F';
+      normalized.tier = tier;
+      normalized.cost = Math.max(
+        STORE_PRICE_FLOOR[tier],
+        Math.min(1000, Number(normalized.cost) || 0),
+      );
+      normalized.effects = Object.fromEntries(Object.entries(normalized.effects || {}).slice(0, 2));
+      rows.push({ kind, item: normalized });
+    }
   }
   return rows;
 }
@@ -439,7 +451,14 @@ function openingEquipmentEditor(doc, initial = [], emit) {
   const add = el(doc, 'button', 'rw-button', '+ 添加装备');
   add.type = 'button';
   root.append(list, add);
-  const entries = (initial || []).map(item => structuredClone(item));
+  const entries = (initial || []).map(item => {
+    const next = structuredClone(item);
+    next.品质 = STORE_QUALITIES.includes(String(next.品质 || '').toUpperCase())
+      ? String(next.品质).toUpperCase()
+      : 'F';
+    next.效果 = Object.fromEntries(Object.entries(next.效果 || {}).slice(0, 2));
+    return next;
+  });
 
   const render = () => {
     list.replaceChildren();

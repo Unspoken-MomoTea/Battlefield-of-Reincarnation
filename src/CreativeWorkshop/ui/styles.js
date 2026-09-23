@@ -1239,6 +1239,18 @@ export const WORKSHOP_CSS = `
     margin-top:2px;padding-top:12px;border-top:1px solid var(--rw-line);
     color:#caae7e;font-size:10px;font-weight:850;letter-spacing:.08em
   }
+  .rw-special-subtitle-row{
+    min-width:0;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin-top:2px;padding-top:12px;border-top:1px solid var(--rw-line)
+  }
+  .rw-special-subtitle-row .rw-special-subtitle{margin:0;padding:0;border:0}
+  .rw-special-subtitle-row .rw-point-remaining{margin-left:auto}
+  .rw-opening-skills-editor,.rw-opening-skills-list{display:grid;gap:10px}
+  .rw-opening-skill-add{justify-self:start}
+  .rw-opening-skill-head{gap:8px;flex-wrap:wrap}
+  .rw-opening-skill-head .rw-auto-quality--inline{margin-left:auto}
+  .rw-opening-skill-remove{flex:none}
+
   .rw-store-entry-list{display:grid;gap:10px}
   .rw-store-entry{
     display:grid;gap:12px;padding:12px;border:1px solid var(--rw-line);border-radius:10px;background:#111216

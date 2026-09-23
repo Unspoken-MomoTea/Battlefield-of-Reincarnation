@@ -1,3 +1,4 @@
+import { removeProjectStoreCatalogs } from '../../../opening/store/installed-catalogs.js';
 import { removeOpeningAssetsByProject } from '../../../opening/character-assets/registry.js';
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
@@ -99,6 +100,7 @@ export async function uninstallProject({ adapter, storage }, projectId) {
     );
 
     await removeOpeningAssetsByProject(installed.id);
+    await removeProjectStoreCatalogs(installed.id);
 
     const next = {
       ...installed,
@@ -120,6 +122,7 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       ],
       applyError: '',
       openingAssetCount: 0,
+      openingStoreCatalogCount: 0,
       updatedAt: Date.now(),
     };
     await storage.putInstalledProject(next);

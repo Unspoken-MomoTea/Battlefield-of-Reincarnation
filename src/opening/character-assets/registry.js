@@ -88,3 +88,11 @@ export async function replaceProjectOpeningAssets(project, dataArtifacts = []) {
   }
   return count;
 }
+
+export async function listOpeningAssetsByProject(projectId) {
+  return (await listOpeningAssets()).filter(asset => asset.sourceProjectId === projectId);
+}
+export async function restoreProjectOpeningAssets(projectId, assets = []) {
+  await removeOpeningAssetsByProject(projectId);
+  for (const asset of assets) await putOpeningAsset(asset);
+}

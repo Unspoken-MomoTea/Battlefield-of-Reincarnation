@@ -148,6 +148,15 @@ export function workshopTemplate(version) {
                 </select>
               </label>
 
+              <label class="rw-field" data-role="extension-kind-field">
+                <span>扩展用途 *</span>
+                <select class="rw-select" name="extension_kind">
+                  <option value="extension">通用扩展</option>
+                  <option value="store_catalog">开局商店</option>
+                </select>
+                <small>开局商店使用独立商品编辑面板，不上传世界书、正则或脚本。</small>
+              </label>
+
               <label class="rw-field" data-role="character-kind-field" hidden>
                 <span>角色用途 *</span>
                 <select class="rw-select" name="character_kind">
@@ -172,49 +181,97 @@ export function workshopTemplate(version) {
             <section class="rw-publish-column rw-publish-upload-column">
               <div class="rw-publish-step-title">
                 <span>03</span>
-                <div><strong>上传内容</strong><small>直接拖入文件，系统会自动判断它们是什么。</small></div>
+                <div><strong data-role="publish-content-title">作品内容</strong><small data-role="publish-content-help">根据作品用途填写对应内容。</small></div>
               </div>
 
-              <div class="rw-publish-upload-block">
-                <span class="rw-field-label">作品文件 *</span>
-                <div class="rw-publish-upload-slots">
-                  <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-worldbook">
-                    <span class="rw-smart-dropzone-icon">书</span>
-                    <strong>世界书</strong>
-                    <small>选择世界书 JSON</small>
-                    <input data-field="create-worldbook" type="file" multiple accept=".json,application/json" hidden>
-                  </label>
-                  <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-regex">
-                    <span class="rw-smart-dropzone-icon">正</span>
-                    <strong>正则</strong>
-                    <small>选择 SillyTavern 正则 JSON</small>
-                    <input data-field="create-regex" type="file" multiple accept=".json,application/json" hidden>
-                  </label>
-                  <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-script">
-                    <span class="rw-smart-dropzone-icon">JS</span>
-                    <strong>酒馆助手脚本</strong>
-                    <small>选择 JS 或 ScriptTree JSON</small>
-                    <input data-field="create-script" type="file" multiple accept=".js,.mjs,.json,application/json,text/javascript,application/javascript" hidden>
-                  </label>
-                  <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-data">
-                    <span class="rw-smart-dropzone-icon">数</span>
-                    <strong>开局数据</strong>
-                    <small>角色资产 / 伙伴 / 商店 Catalog JSON</small>
-                    <input data-field="create-data" type="file" multiple accept=".json,application/json" hidden>
-                  </label>
+              <div data-publish-panel="extension">
+                <div class="rw-publish-upload-block">
+                  <span class="rw-field-label">扩展文件 *</span>
+                  <div class="rw-publish-upload-slots">
+                    <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-worldbook">
+                      <span class="rw-smart-dropzone-icon">书</span>
+                      <strong>世界书</strong>
+                      <small>选择世界书 JSON</small>
+                      <input data-field="create-worldbook" type="file" multiple accept=".json,application/json" hidden>
+                    </label>
+                    <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-regex">
+                      <span class="rw-smart-dropzone-icon">正</span>
+                      <strong>正则</strong>
+                      <small>选择 SillyTavern 正则 JSON</small>
+                      <input data-field="create-regex" type="file" multiple accept=".json,application/json" hidden>
+                    </label>
+                    <label class="rw-smart-dropzone rw-smart-dropzone--compact" data-drop-target="create-script">
+                      <span class="rw-smart-dropzone-icon">JS</span>
+                      <strong>酒馆助手脚本</strong>
+                      <small>选择 JS 或 ScriptTree JSON</small>
+                      <input data-field="create-script" type="file" multiple accept=".js,.mjs,.json,application/json,text/javascript,application/javascript" hidden>
+                    </label>
+                  </div>
+                  <input data-field="create-version" type="file" multiple hidden>
+                  <div class="rw-file-state" data-role="create-version-state">选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。</div>
+                  <div class="rw-artifact-list rw-smart-artifact-list" data-role="create-artifact-list" hidden></div>
                 </div>
-                <input data-field="create-version" type="file" multiple hidden>
-                <div class="rw-file-state" data-role="create-version-state">选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。</div>
-                <div class="rw-artifact-list rw-smart-artifact-list" data-role="create-artifact-list" hidden></div>
               </div>
 
-              <div class="rw-publish-divider"></div>
-
-              <div class="rw-publish-step-title">
-                <span>04</span>
-                <div><strong>原版资源</strong><small>直接记录作品启用期间要保持、启用或停用的原世界书 / 正则 / 脚本。</small></div>
+              <div class="rw-special-editor" data-publish-panel="world_character" hidden>
+                <div class="rw-special-editor-head"><strong>世界角色</strong><small>这里直接填写人物设定，发布时自动生成世界书人物条目。</small></div>
+                <div class="rw-special-grid">
+                  <label class="rw-field"><span>角色姓名 *</span><input class="rw-input" name="world_name" maxlength="80" placeholder="例如：亚丝娜"></label>
+                  <label class="rw-field"><span>关键词 / 别名</span><input class="rw-input" name="world_keywords" maxlength="300" placeholder="逗号分隔；姓名会自动作为关键词"></label>
+                  <label class="rw-field"><span>种族</span><input class="rw-input" name="world_race" maxlength="120" placeholder="例如：人类"></label>
+                  <label class="rw-field"><span>身份</span><input class="rw-input" name="world_identity" maxlength="300" placeholder="可填写多个，逗号分隔"></label>
+                  <label class="rw-field"><span>职业</span><input class="rw-input" name="world_occupation" maxlength="160" placeholder="例如：剑士"></label>
+                  <label class="rw-field"><span>层级</span><select class="rw-select" name="world_rank"><option>Ⅰ</option><option>Ⅱ</option><option>Ⅲ</option><option>Ⅳ</option><option>Ⅴ</option><option>Ⅵ</option><option>Ⅶ</option><option>Ⅷ</option><option>Ⅸ</option></select></label>
+                </div>
+                <label class="rw-field"><span>性格</span><textarea class="rw-textarea" name="world_personality" maxlength="1600" placeholder="稳定的人格与行为倾向。"></textarea></label>
+                <label class="rw-field"><span>外貌</span><textarea class="rw-textarea" name="world_appearance" maxlength="1600" placeholder="外貌、衣着与显著特征。"></textarea></label>
+                <label class="rw-field"><span>背景故事</span><textarea class="rw-textarea" name="world_background" maxlength="4000" placeholder="人物经历、关系和重要背景。"></textarea></label>
+                <label class="rw-field"><span>补充设定</span><textarea class="rw-textarea" name="world_notes" maxlength="4000" placeholder="能力、习惯、当前立场等其他需要写入世界书的内容。"></textarea></label>
               </div>
-              <div data-role="create-resource-states"></div>
+
+              <div class="rw-special-editor" data-publish-panel="opening_character" hidden>
+                <div class="rw-special-editor-head"><strong data-role="opening-editor-title">开局角色</strong><small>填写原始构筑；最终属性、真属性与 HP/EP 由当前版本重新计算。</small></div>
+                <div class="rw-special-grid">
+                  <label class="rw-field"><span>姓名 *</span><input class="rw-input" name="opening_name" maxlength="80" placeholder="角色或伙伴姓名"></label>
+                  <label class="rw-field"><span>种族</span><input class="rw-input" name="opening_race" maxlength="120" value="人类"></label>
+                  <label class="rw-field"><span>身份</span><input class="rw-input" name="opening_identity" maxlength="300" placeholder="多个身份用逗号分隔"></label>
+                  <label class="rw-field"><span>职业</span><input class="rw-input" name="opening_occupation" maxlength="160" placeholder="例如：剑士"></label>
+                  <label class="rw-field"><span>层级</span><select class="rw-select" name="opening_rank"><option>Ⅰ</option><option>Ⅱ</option><option>Ⅲ</option><option>Ⅳ</option><option>Ⅴ</option><option>Ⅵ</option><option>Ⅶ</option><option>Ⅷ</option><option>Ⅸ</option></select></label>
+                </div>
+                <div data-role="opening-partner-profile" hidden>
+                  <div class="rw-special-subtitle">伙伴人设</div>
+                  <label class="rw-field"><span>性格</span><textarea class="rw-textarea" name="opening_personality" maxlength="1600"></textarea></label>
+                  <label class="rw-field"><span>喜爱</span><textarea class="rw-textarea" name="opening_likes" maxlength="1000"></textarea></label>
+                  <label class="rw-field"><span>背景故事</span><textarea class="rw-textarea" name="opening_background" maxlength="4000"></textarea></label>
+                </div>
+                <div class="rw-special-subtitle">原始构筑</div>
+                <div class="rw-special-json-grid">
+                  <label class="rw-field"><span>血统</span><textarea class="rw-textarea rw-code-input" name="opening_bloodline" spellcheck="false" placeholder='{}'></textarea></label>
+                  <label class="rw-field"><span>技能</span><textarea class="rw-textarea rw-code-input" name="opening_skills" spellcheck="false" placeholder='{}'></textarea></label>
+                  <label class="rw-field"><span>装备</span><textarea class="rw-textarea rw-code-input" name="opening_equipment" spellcheck="false" placeholder='{}'></textarea></label>
+                  <label class="rw-field"><span>状态</span><textarea class="rw-textarea rw-code-input" name="opening_status" spellcheck="false" placeholder='{}'></textarea></label>
+                  <label class="rw-field"><span>形态库</span><textarea class="rw-textarea rw-code-input" name="opening_forms" spellcheck="false" placeholder='{}'></textarea></label>
+                  <label class="rw-field"><span>当前形态</span><textarea class="rw-textarea rw-code-input" name="opening_current_form" spellcheck="false" placeholder='{"激活":false,"名称":""}'></textarea></label>
+                </div>
+                <div class="rw-local-note">这些字段填写 MVU 原始数据对象；不包含道具、空间币、最终属性、真属性、HP/EP、任务或世界状态。</div>
+              </div>
+
+              <div class="rw-special-editor" data-publish-panel="store_catalog" hidden>
+                <div class="rw-special-editor-head"><strong>开局商店</strong><small>单独维护装备、道具、技能商品；发布后安装到开局商店目录。</small></div>
+                <label class="rw-field"><span>装备商品</span><textarea class="rw-textarea rw-code-input rw-store-input" name="store_equipments" spellcheck="false" placeholder='[{"id":"sword_1","name":"示例长剑","tier":"F","cost":100,"type":0,"tags":[],"attrs":{},"effects":{},"desc":""}]'></textarea></label>
+                <label class="rw-field"><span>道具商品</span><textarea class="rw-textarea rw-code-input rw-store-input" name="store_items" spellcheck="false" placeholder='[{"id":"item_1","name":"示例道具","tier":"F","cost":50,"type":"消耗","tags":[],"effects":{},"desc":""}]'></textarea></label>
+                <label class="rw-field"><span>技能商品</span><textarea class="rw-textarea rw-code-input rw-store-input" name="store_skills" spellcheck="false" placeholder='[{"id":"skill_1","name":"示例技能","tier":"F","cost":80,"type":0,"tags":[],"effects":{},"desc":"","consume":""}]'></textarea></label>
+                <div class="rw-local-note">每栏填写 JSON 数组；至少有一栏包含商品。这里不会生成或修改世界书、正则、脚本。</div>
+              </div>
+
+              <div data-role="publish-resource-section">
+                <div class="rw-publish-divider"></div>
+                <div class="rw-publish-step-title">
+                  <span>04</span>
+                  <div><strong>原版资源</strong><small>仅通用扩展可设置原世界书 / 正则 / 脚本的启用状态。</small></div>
+                </div>
+                <div data-role="create-resource-states"></div>
+              </div>
 
               <div class="rw-publish-divider"></div>
 
@@ -235,7 +292,7 @@ export function workshopTemplate(version) {
           </div>
 
           <footer class="rw-publish-footer">
-            <div class="rw-publish-footer-note">● 保存到本地测试不会上传服务器；只有提交审核才会创建线上项目。原版资源状态会随作品保存。</div>
+            <div class="rw-publish-footer-note">● 保存到本地测试不会上传服务器；只有提交审核才会创建线上项目。专用角色/商店模板会直接生成对应数据。</div>
             <div class="rw-row">
               <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
               <button class="rw-button" type="button" data-action="create-project-local-test">保存到本地测试</button>

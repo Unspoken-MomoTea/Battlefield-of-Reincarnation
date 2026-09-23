@@ -203,6 +203,10 @@ function validateStoreCatalog(catalog) {
         throw new Error(`${label}“${item.name}”价格必须符合 ${itemQuality} 级下限 ${floor}，且不超过 1000`);
       }
       if (key === 'equipments') {
+        const equipmentType = Number(item.type);
+        if (!Number.isInteger(equipmentType) || equipmentType < 0 || equipmentType > 17) {
+          throw new Error(`装备“${item.name}”类型必须是开局装备分类 0-17`);
+        }
         for (const [attr, value] of Object.entries(item.attrs || {})) {
           if (!EQUIPMENT_ATTR_QUALITIES.has(String(value || '').toUpperCase())) {
             throw new Error(`装备“${item.name}”原始属性 ${attr} 只能是 F-A`);

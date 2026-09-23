@@ -1,5 +1,3 @@
-import { listProjectStoreCatalogs, removeProjectStoreCatalogs, restoreProjectStoreCatalogs } from '../../../opening/store/installed-catalogs.js';
-import { listOpeningAssetsByProject, removeOpeningAssetsByProject, restoreProjectOpeningAssets } from '../../../opening/character-assets/registry.js';
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { restoreOriginalWorldbookConflicts } from './original-conflicts.js';
@@ -12,12 +10,6 @@ export async function uninstallProject({ adapter, storage }, projectId) {
   const installed = await storage.getInstalledProject(projectId);
   if (!installed) return null;
   if (!installed.applied) return installed;
-  const projects = typeof storage.getInstalledProjects === 'function' ? await storage.getInstalledProjects() : [];
-  const dependents = projects.filter(project => project.applied && project.id !== projectId &&
-    (project.appliedDependencies ?? project.dependencies ?? []).some(dependency => dependency.project_id === projectId));
-  if (dependents.length) {
-    throw new Error(`请先卸载依赖此作品的 Mod：${dependents.map(project => project.name || project.id).join('、')}`);
-  }
   const targets = installed.installTargets ?? {};
   const characterNeeded = Boolean(
     targets.worldbook ||
@@ -32,8 +24,6 @@ export async function uninstallProject({ adapter, storage }, projectId) {
     throw new Error(`该作品安装在角色“${installed.targetCharacterName}”，请切回该角色后再卸载`);
   }
 
-  const openingAssetSnapshot = await listOpeningAssetsByProject(installed.id);
-  const openingStoreSnapshot = await listProjectStoreCatalogs(installed.id);
   const state = await createInstallSnapshot(
     adapter,
     installed,
@@ -101,14 +91,10 @@ export async function uninstallProject({ adapter, storage }, projectId) {
       state,
     );
 
-    await removeOpeningAssetsByProject(installed.id);
-    await removeProjectStoreCatalogs(installed.id);
-
     const next = {
       ...installed,
       applied: false,
       appliedVersion: null,
-      appliedDependencies: null,
       appliedAt: null,
       targetCharacterName: null,
       installTargets: null,
@@ -123,16 +109,12 @@ export async function uninstallProject({ adapter, storage }, projectId) {
         ...scriptRestoreResult.unrestored,
       ],
       applyError: '',
-      openingAssetCount: 0,
-      openingStoreCatalogCount: 0,
       updatedAt: Date.now(),
     };
     await storage.putInstalledProject(next);
     return next;
   } catch (error) {
     await restoreInstallSnapshot(adapter, state);
-    await restoreProjectOpeningAssets(installed.id, openingAssetSnapshot);
-    await restoreProjectStoreCatalogs(installed.id, openingStoreSnapshot);
     throw error;
   }
 }

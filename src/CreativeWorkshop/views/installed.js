@@ -315,7 +315,7 @@ export function createInstalledView({
     const titleBox = element('div', 'rw-local-titlebox');
     titleBox.append(
       element('h3', '', item.name),
-      element('div', 'rw-project-author', item.source === 'local-test' ? '本地测试 · 不会提交工坊' : item.source === 'offline' ? '离线包导入' : '来自创意工坊'),
+      element('div', 'rw-project-author', item.source === 'offline' ? '离线包导入' : '来自创意工坊'),
     );
 
     const state = installedState(item);
@@ -361,10 +361,8 @@ export function createInstalledView({
       );
     } else if (item.repairState?.lastCheckedAt && !item.repairState.healthy) {
       primary = button('检查并修复', 'primary rw-local-primary', () => inspectAndRepair(item));
-    } else if (item.source === 'remote') {
-      primary = button('检查更新', 'primary rw-local-primary', () => checkUpdate(item));
     } else {
-      primary = button('重新应用', 'primary rw-local-primary', () => applyItem(item));
+      primary = button('检查更新', 'primary rw-local-primary', () => checkUpdate(item));
     }
     actions.appendChild(primary);
 
@@ -394,7 +392,7 @@ export function createInstalledView({
         await inspectAndRepair(item);
       }));
     }
-    if (item.source === 'remote' && !(item.applied && Number(item.appliedVersion || 0) >= Number(item.version))) {
+    if (!(item.applied && Number(item.appliedVersion || 0) >= Number(item.version))) {
       menuDropdown.appendChild(button('检查更新', '', async () => {
         closeMenu();
         await checkUpdate(item);

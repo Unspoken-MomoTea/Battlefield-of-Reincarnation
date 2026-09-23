@@ -14,8 +14,7 @@ export async function startDiscordLogin(request, env) {
     throw new HttpError(400, 'invalid_login_id', 'login_id 必须是 64 位十六进制随机值');
   }
 
-  const openerOriginParam = url.searchParams.get('opener_origin');
-  const openerOrigin = openerOriginParam ? normalizeOpenerOrigin(openerOriginParam) : null;
+  const openerOrigin = normalizeOpenerOrigin(url.searchParams.get('opener_origin'));
   const state = randomToken(24);
   await env.SESSION_KV.put(
     `oauth:${state}`,
@@ -92,31 +91,19 @@ export async function finishDiscordLogin(request, env) {
     { expirationTtl: 120 },
   );
 
-  const targetOrigin = pending.openerOrigin
-    ? normalizeOpenerOrigin(pending.openerOrigin)
-    : null;
+  const targetOrigin = normalizeOpenerOrigin(pending.openerOrigin);
   const loginIdJson = JSON.stringify(pending.loginId);
   const originJson = JSON.stringify(targetOrigin);
-  const hasOpener = Boolean(targetOrigin);
   return html(`<!doctype html>
 <meta charset="utf-8">
 <title>轮回战场创意工坊</title>
-<style>
-body{font-family:system-ui;background:#151218;color:#eee;display:grid;place-items:center;min-height:100vh;margin:0}
-main{text-align:center;padding:24px;max-width:520px}
-p{line-height:1.65;color:#c9c9cf}
-</style>
-<main>
-  <h2>Discord 登录成功</h2>
-  <p>${hasOpener ? '正在返回创意工坊，此窗口会尝试自动关闭。' : '授权已经完成，请返回酒馆客户端。创意工坊会自动检测登录结果。'}</p>
-</main>
+<style>body{font-family:system-ui;background:#151218;color:#eee;display:grid;place-items:center;min-height:100vh;margin:0}main{text-align:center;padding:24px}</style>
+<main><h2>Discord 登录成功</h2><p>正在返回创意工坊，此窗口会自动关闭。</p></main>
 <script>
-const targetOrigin = ${originJson};
 try {
-  if (targetOrigin && window.opener) {
-    window.opener.postMessage({type:'reincarnation-workshop-oauth',loginId:${loginIdJson}}, targetOrigin);
-    setTimeout(() => window.close(), 250);
-  }
-} catch {}
+  if (window.opener) window.opener.postMessage({type:'reincarnation-workshop-oauth',loginId:${loginIdJson}}, ${originJson});
+} finally {
+  setTimeout(() => window.close(), 250);
+}
 </script>`);
 }

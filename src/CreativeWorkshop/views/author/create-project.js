@@ -8,7 +8,6 @@ export function bindCreateProjectFlow({
   overlay,
   nodes,
   workshopApi,
-  projectService,
   notifyError,
   confirmDialog,
   openModal,
@@ -17,27 +16,12 @@ export function bindCreateProjectFlow({
   const openButton = overlay.querySelector('[data-action="create-project-open"]');
   const cancelButtons = [...overlay.querySelectorAll('[data-action="create-project-cancel"]')];
   const projectType = nodes.createForm.querySelector('[name="category"]');
-  const characterKindField = nodes.createForm.querySelector('[data-role="character-kind-field"]');
-  const characterKind = nodes.createForm.querySelector('[name="character_kind"]');
-
-  const syncCharacterTemplate = () => {
-    if (!characterKindField) return;
-    characterKindField.hidden = projectType.value !== 'character';
-  };
   const submitButton = nodes.createForm.querySelector('button[type="submit"]');
-  const localTestButton = nodes.createForm.querySelector('[data-action="create-project-local-test"]');
 
   let dirty = false;
   let coverUrl = '';
   let queue = null;
   let submitAttempt = null;
-
-  const createLocalDraftId = () => {
-    const randomId = host.crypto?.randomUUID?.()
-      || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    return `draft:${randomId}`;
-  };
-  let localDraftId = createLocalDraftId();
 
   const dependencyPicker = createDependencyPicker({
     doc,
@@ -99,7 +83,6 @@ export function bindCreateProjectFlow({
     nodes.createWorldbook.value = '';
     nodes.createRegex.value = '';
     nodes.createScript.value = '';
-    if (nodes.createData) nodes.createData.value = '';
     nodes.createCover.value = '';
     nodes.createVersionState.textContent = '选择世界书、正则或酒馆助手脚本；已添加内容会显示在下方。';
     dependencyPicker.clear();
@@ -111,14 +94,9 @@ export function bindCreateProjectFlow({
     progress.hidden = true;
     progress.textContent = '';
     submitAttempt = null;
-    localDraftId = createLocalDraftId();
     dirty = false;
     submitButton.disabled = false;
     submitButton.textContent = '提交审核';
-    if (localTestButton) {
-      localTestButton.disabled = false;
-      localTestButton.textContent = '保存到本地测试';
-    }
   };
 
   queue = createSmartArtifactQueue({
@@ -179,15 +157,8 @@ export function bindCreateProjectFlow({
     overlay.querySelector('[data-drop-target="create-script"]'),
     'script',
   );
-  bindArtifactInput(
-    nodes.createData,
-    overlay.querySelector('[data-drop-target="create-data"]'),
-    'data',
-  );
 
   nodes.createCover.addEventListener('change', renderCover);
-  projectType.addEventListener('change', syncCharacterTemplate);
-  syncCharacterTemplate();
   const coverDrop = overlay.querySelector('[data-drop-target="create-cover"]');
   coverDrop.addEventListener('dragover', event => {
     event.preventDefault();
@@ -253,100 +224,11 @@ export function bindCreateProjectFlow({
     return details.length ? `${message}（${details.join(' · ')}）` : message;
   }
 
-  function withCharacterAsset(bundle, category, characterKind) {
-    if (category !== 'character') return bundle;
-    const kind = String(characterKind || 'world_character');
-    const hasDescriptor = bundle.artifacts.some(artifact =>
-      artifact.kind === 'data' &&
-      artifact.content &&
-      typeof artifact.content === 'object' &&
-      artifact.content.kind === kind
-    );
-    if (hasDescriptor) return bundle;
-    return {
-      ...bundle,
-      artifacts: [
-        ...bundle.artifacts,
-        {
-          kind: 'data',
-          name: '角色资产.json',
-          format: 'json',
-          content: { schema_version: 1, kind },
-        },
-      ],
-    };
-  }
-
-  function validateOpeningCharacterAsset(bundle, category, characterKind) {
-    if (category !== 'character' || !['opening_character','opening_partner'].includes(characterKind)) return;
-    const valid = bundle.artifacts.some(artifact => {
-      const value = artifact.kind === 'data' ? artifact.content : null;
-      const candidates = Array.isArray(value) ? value : [value];
-      return candidates.some(asset => asset && asset.kind === characterKind && (asset.build || asset.character));
-    });
-    if (!valid) throw new Error(characterKind === 'opening_character'
-      ? '开局角色必须上传包含 build 的角色资产 JSON'
-      : '开局伙伴必须上传包含 build 的伙伴资产 JSON');
-  }
-
   function setSubmitStatus(state, text) {
     progress.className = `rw-submit-progress rw-submit-progress--${state}`;
     progress.textContent = text;
     progress.hidden = false;
   }
-
-  localTestButton?.addEventListener('click', () => {
-    if (localTestButton.disabled) return;
-
-    const form = new FormData(nodes.createForm);
-    const name = String(form.get('name') || '').trim();
-    const summary = String(form.get('summary') || '');
-    const category = String(form.get('category') || 'extension');
-    const character_kind = category === 'character'
-      ? String(form.get('character_kind') || 'world_character')
-      : '';
-    const dependencies = dependencyPicker.values();
-    const resourceOverrides = resourceEditor.values();
-
-    if (!name) return notifyError(new Error('请先填写作品名称'));
-    if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
-
-    const bundle = withCharacterAsset(queue.bundle(null, resourceOverrides), category, character_kind);
-    try { validateOpeningCharacterAsset(bundle, category, character_kind); } catch (error) { return notifyError(error); }
-    void (async () => {
-      localTestButton.disabled = true;
-      localTestButton.textContent = '正在保存本地测试…';
-      setSubmitStatus('working', '正在保存本地测试版本；不会上传服务器或提交审核…');
-      try {
-        await projectService.saveLocalTest({
-          id: localDraftId,
-          name,
-          summary,
-          category,
-          dependencies,
-          version: 1,
-          bundle,
-        });
-        dirty = false;
-        setSubmitStatus(
-          'success',
-          '已保存到本地测试。不会上传服务器，也不会进入审核队列；可到“已安装”中安装测试。',
-        );
-        try { host.toastr?.success?.('本地测试版本已保存', '创意工坊'); } catch {}
-      } catch (error) {
-        setSubmitStatus(
-          'error',
-          `保存本地测试失败：${error instanceof Error ? error.message : String(error)}`,
-        );
-        notifyError(error);
-      } finally {
-        if (localTestButton.isConnected) {
-          localTestButton.disabled = false;
-          localTestButton.textContent = '保存到本地测试';
-        }
-      }
-    })();
-  });
 
   nodes.createForm.addEventListener('submit', event => {
     event.preventDefault();
@@ -356,9 +238,6 @@ export function bindCreateProjectFlow({
     const name = String(form.get('name') || '').trim();
     const summary = String(form.get('summary') || '');
     const category = String(form.get('category') || 'extension');
-    const character_kind = category === 'character'
-      ? String(form.get('character_kind') || 'world_character')
-      : '';
     const tags = String(form.get('tags') || '')
       .split(/[,，\n]/u)
       .map(value => value.trim())
@@ -369,14 +248,12 @@ export function bindCreateProjectFlow({
     if (!name) return notifyError(new Error('请先填写作品名称'));
     if (!queue.count) return notifyError(new Error('请至少拖入一个作品内容文件'));
 
-    const bundle = withCharacterAsset(queue.bundle(null, resourceOverrides), category, character_kind);
-    try { validateOpeningCharacterAsset(bundle, category, character_kind); } catch (error) { return notifyError(error); }
+    const bundle = queue.bundle(null, resourceOverrides);
     const cover = nodes.createCover.files?.[0] || null;
     const attemptKey = JSON.stringify({
       name,
       summary,
       category,
-      character_kind,
       tags,
       dependencies,
       resourceOverrides,

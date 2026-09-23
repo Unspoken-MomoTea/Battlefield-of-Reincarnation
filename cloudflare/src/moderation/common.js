@@ -1,7 +1,7 @@
 import { HttpError } from '../http.js';
 
 export function assertModerator(user) {
-  if (!Number(user?.is_admin) && !Number(user?.is_moderator)) throw new HttpError(403, 'moderator_required', '需要审核员权限');
+  if (!Number(user?.is_admin)) throw new HttpError(403, 'admin_required', '需要管理员权限');
 }
 
 export function nowSeconds() {

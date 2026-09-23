@@ -1,5 +1,5 @@
 import { HttpError, json } from '../http.js';
-import { assertReviewer, getOwnedProject } from './core.js';
+import { assertAdmin, getOwnedProject } from './core.js';
 
 const MAX_COVER_BYTES = 3 * 1024 * 1024;
 const COVER_TYPES = new Map([
@@ -158,7 +158,7 @@ export async function getPublicProjectCover(env, projectId) {
 
 
 export async function getAdminProjectCover(env, user, projectId) {
-  assertReviewer(user);
+  assertAdmin(user);
   const row = await env.DB.prepare(
     `SELECT v.cover_key
        FROM projects p

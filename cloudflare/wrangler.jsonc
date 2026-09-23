@@ -7,9 +7,9 @@
 
   "vars": {
     "PUBLIC_BASE_URL": "https://workshop.6661816.xyz",
-    "DISCORD_CLIENT_ID": "1551049511915491348",
+    "DISCORD_CLIENT_ID": "REPLACE_ME",
     "SESSION_TTL_SECONDS": "2592000",
-    "ADMIN_DISCORD_IDS": "1292524256764231700",
+    "ADMIN_DISCORD_IDS": "",
     "CLIENT_UPDATE_CHANNEL": "stable",
     "CLIENT_UPDATE_REF": "workshop-stable"
   },
@@ -17,22 +17,22 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "reincarnation_workshop_staging",
-      "database_id": "d3061236-6338-456d-abed-736d638e0fbd"
+      "database_name": "reincarnation_workshop",
+      "database_id": "00000000-0000-0000-0000-000000000000"
     }
   ],
 
   "kv_namespaces": [
     {
       "binding": "SESSION_KV",
-      "id": "7f1a9aea395d46748b58ff368386e1a8"
+      "id": "00000000000000000000000000000000"
     }
   ],
 
   "r2_buckets": [
     {
       "binding": "PROJECTS",
-      "bucket_name": "reincarnation-workshop-projects-staging"
+      "bucket_name": "reincarnation-workshop-projects"
     }
   ],
   "env": {
@@ -82,29 +82,29 @@
       ],
       "vars": {
         "PUBLIC_BASE_URL": "https://workshop.6661816.xyz",
-        "DISCORD_CLIENT_ID": "1551049511915491348",
+        "DISCORD_CLIENT_ID": "REPLACE_ME",
         "SESSION_TTL_SECONDS": "2592000",
-        "ADMIN_DISCORD_IDS": "1292524256764231700",
+        "ADMIN_DISCORD_IDS": "",
         "CLIENT_UPDATE_CHANNEL": "stable",
         "CLIENT_UPDATE_REF": "workshop-stable"
       },
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "reincarnation_workshop_staging",
-          "database_id": "d3061236-6338-456d-abed-736d638e0fbd"
+          "database_name": "reincarnation_workshop",
+          "database_id": "00000000-0000-0000-0000-000000000000"
         }
       ],
       "kv_namespaces": [
         {
           "binding": "SESSION_KV",
-          "id": "7f1a9aea395d46748b58ff368386e1a8"
+          "id": "00000000000000000000000000000000"
         }
       ],
       "r2_buckets": [
         {
           "binding": "PROJECTS",
-          "bucket_name": "reincarnation-workshop-projects-staging"
+          "bucket_name": "reincarnation-workshop-projects"
         }
       ]
     }

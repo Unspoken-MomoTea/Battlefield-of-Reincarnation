@@ -1,5 +1,3 @@
-import { listProjectStoreCatalogs, replaceProjectStoreCatalogs, restoreProjectStoreCatalogs } from '../../../opening/store/installed-catalogs.js';
-import { listOpeningAssetsByProject, replaceProjectOpeningAssets, restoreProjectOpeningAssets } from '../../../opening/character-assets/registry.js';
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { buildArtifactPlan } from './plan.js';
@@ -27,27 +25,15 @@ export async function applyProject({ adapter, storage }, projectId) {
     (oldTargets.originalWorldbookChanges?.length ?? 0) +
     (oldTargets.originalRegexChanges?.length ?? 0) +
     (oldTargets.originalScriptChanges?.length ?? 0);
-  const installableDataCount = plan.data.reduce((count, artifact) => {
-    const values = Array.isArray(artifact?.content) ? artifact.content : [artifact?.content];
-    return count + values.filter(value =>
-      value && typeof value === 'object' && (
-        (['opening_character','opening_partner'].includes(value.kind) && value.build && typeof value.build === 'object') ||
-        (value.kind === 'store_catalog' && value.catalog && typeof value.catalog === 'object')
-      )
-    ).length;
-  }, 0);
   if (
     !plan.worldbook.length &&
     !plan.regexes.length &&
     !plan.presets.length &&
     !scriptCount &&
-    !installableDataCount &&
     !stateOverrideCount &&
     !oldManagedCount
   ) {
-    throw new Error(plan.data.length
-      ? '这个作品只有普通 data artifact，没有可安装的开局角色、伙伴或商店内容'
-      : '这个作品没有可直接安装到酒馆的内容');
+    throw new Error('这个作品目前只有 data artifact，没有可直接安装到酒馆的内容');
   }
 
   const characterNeeded = Boolean(
@@ -71,8 +57,6 @@ export async function applyProject({ adapter, storage }, projectId) {
   }
 
   const state = await createInstallSnapshot(adapter, installed, plan, characterNeeded);
-  const openingAssetSnapshot = await listOpeningAssetsByProject(installed.id);
-  const openingStoreSnapshot = await listProjectStoreCatalogs(installed.id);
   try {
     if (state.worldbook) {
       const previous = state.worldbook.entries.filter(entry => !isProjectWorldbookEntry(entry, installed.id));
@@ -152,15 +136,9 @@ export async function applyProject({ adapter, storage }, projectId) {
       })();
     }
     const worldbookWasBound = Boolean(state.binding?.additional?.includes(SHARED_WORLDBOOK_NAME));
-    const openingAssetCount = await replaceProjectOpeningAssets(installed, plan.data);
-    const openingStoreCatalogCount = await replaceProjectStoreCatalogs(installed, plan.data);
-
     const next = {
       ...installed,
       applied: true, appliedVersion: installed.version, appliedAt: Date.now(),
-      openingAssetCount,
-      openingStoreCatalogCount,
-      appliedDependencies: clone(installed.dependencies ?? []),
       targetCharacterName: characterNeeded ? currentCharacter : null,
       installTargets: {
         worldbook: plan.worldbook.length ? SHARED_WORLDBOOK_NAME : null,
@@ -195,8 +173,6 @@ export async function applyProject({ adapter, storage }, projectId) {
     return next;
   } catch (error) {
     const rollbackErrors = await restoreInstallSnapshot(adapter, state);
-    try { await restoreProjectOpeningAssets(installed.id, openingAssetSnapshot); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
-    try { await restoreProjectStoreCatalogs(installed.id, openingStoreSnapshot); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
     const baseMessage = error instanceof Error ? error.message : String(error);
     const rollbackMessage = rollbackErrors.length ? `；另有 ${rollbackErrors.length} 个回滚步骤失败，请检查酒馆资源` : '';
     await storage.putInstalledProject({

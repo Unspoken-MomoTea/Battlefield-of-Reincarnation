@@ -1,7 +1,6 @@
 import { getApiBase, getUpdateChannel, getUpdateRef } from '../config.js';
 import { createTavernAdapter } from './tavern-adapter.js';
 import {
-  isWorkshopLoaderScript,
   rewriteWorkshopLoaderContent,
   workshopLoaderRefs,
 } from './workshop-loader.js';
@@ -10,7 +9,7 @@ const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const ENTRY_PATH = '/src/CreativeWorkshop/index.js';
 const SCOPES = ['character', 'preset', 'global'];
 const GITHUB_COMMIT_BASE = `https://api.github.com/repos/${REPOSITORY}/commits/`;
-const HOT_IMPORT_BASE = `https://cdn.jsdelivr.net/gh/${REPOSITORY}@`;
+const HOT_IMPORT_BASE = `https://testingcf.jsdelivr.net/gh/${REPOSITORY}@`;
 
 function clone(value) {
   return structuredClone(value);
@@ -100,17 +99,11 @@ async function scanLoaders(adapter) {
   const loaders = [];
   const treesByScope = new Map();
   for (const scope of SCOPES) {
-    let trees;
-    try {
-      trees = clone(await adapter.getScriptTrees(scope));
-    } catch (error) {
-      console.warn(`[轮回战场创意工坊] 无法读取 ${scope} 脚本树，继续扫描其它作用域`, error);
-      continue;
-    }
+    const trees = clone(await adapter.getScriptTrees(scope));
     treesByScope.set(scope, trees);
     for (const location of scriptsInTrees(trees)) {
       const refs = workshopLoaderRefs(location.script.content);
-      if (!refs.length && !isWorkshopLoaderScript(location.script)) continue;
+      if (!refs.length) continue;
       loaders.push({
         scope,
         treeIndex: location.treeIndex,
@@ -202,12 +195,6 @@ export function createWorkshopSelfUpdater({
       }
 
       if (!changedScopes.size) {
-        const staleOrUnknown = scan.loaders.some(item =>
-          !item.refs.length || item.refs.some(currentRef => currentRef !== latestSha)
-        );
-        if (staleOrUnknown) {
-          throw new Error('找到了创意工坊载入脚本，但没有识别到可自动改写的固定提交链接');
-        }
         return {
           updated: false,
           channel: latest.channel,
@@ -228,15 +215,6 @@ export function createWorkshopSelfUpdater({
           originals.set(scope, clone(await adapter.getScriptTrees(scope)));
           await adapter.replaceScriptTrees(scan.treesByScope.get(scope), scope);
           written.push(scope);
-        }
-
-        const verified = await scanLoaders(adapter);
-        const writtenLoaders = verified.loaders.filter(item => changedScopes.has(item.scope));
-        const stale = writtenLoaders.filter(item =>
-          !item.refs.length || item.refs.some(currentRef => currentRef !== latestSha)
-        );
-        if (!writtenLoaders.length || stale.length) {
-          throw new Error('创意工坊载入脚本写入后校验失败：Tavern Helper 未保存新的固定提交链接');
         }
       } catch (error) {
         for (const scope of written.reverse()) {

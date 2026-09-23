@@ -1,8 +1,8 @@
 import { HttpError, json, readJson } from '../../http.js';
-import { assertReviewer, nowSeconds, textField, writeAdminAudit } from '../core.js';
+import { assertAdmin, nowSeconds, textField, writeAdminAudit } from '../core.js';
 
 export async function setAdminProjectState(request, env, user, projectId) {
-  assertReviewer(user);
+  assertAdmin(user);
   const body = await readJson(request);
   const action = body?.action;
   if (!['archive', 'restore'].includes(action)) throw new HttpError(400, 'invalid_admin_action', 'action 必须是 archive 或 restore');

@@ -8,11 +8,6 @@ export function createAdminApi(request, requestRaw) {
       return request(`/api/admin/projects?${params}`, {}, true);
     },
 
-    listAdminUpdates({ offset = 0 } = {}) {
-      const params = new URLSearchParams({ limit: '50', offset: String(offset) });
-      return request(`/api/admin/updates?${params}`, {}, true);
-    },
-
     getPendingReview(projectId) {
       return request(`/api/admin/projects/${encodeURIComponent(projectId)}/review`, {}, true);
     },
@@ -61,14 +56,6 @@ export function createAdminApi(request, requestRaw) {
       if (query.trim()) params.set('query', query.trim());
       if (banned !== '') params.set('banned', String(banned));
       return request(`/api/admin/users?${params}`, {}, true);
-    },
-
-    setUserModerator(userId, moderator) {
-      return request(
-        `/api/admin/users/${encodeURIComponent(userId)}/role`,
-        { method: 'POST', body: JSON.stringify({ moderator }) },
-        true,
-      );
     },
 
     setUserBan(userId, banned, reason = '') {

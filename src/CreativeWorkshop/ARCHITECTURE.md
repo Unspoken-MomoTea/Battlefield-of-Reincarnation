@@ -61,10 +61,9 @@ R2 → bundle / manifest / 封面
 7. 已公开版本不会因为新草稿或驳回而消失。
 8. 作者公开可见性（owner_hidden）与管理员审核状态分离：作者可自助下架/重新上架而不锁死更新；管理员 archived 仍可阻止重新公开。
 9. 作者更新以“上一版 bundle + 当前元数据”为基线，不要求重建完整包；新文件按同名 artifact 替换，未改内容与上一版 `resource_overrides` 自动继承。把规则切回“保持”就是显式取消。
-10. production / staging 共用同一套 D1 / KV / R2，避免 Cloudflare 免费/低配额度被双份数据占用；两者只隔离 Worker 名称、API 域名和客户端更新通道：staging 固定跟踪 `main`，production 固定跟踪 `workshop-stable`。
-11. 因为两套 Worker 共用 D1，main 上的 migration 必须保持向后兼容：stable 跟进前只允许增表、增列、增索引等兼容变化，禁止提前删除/改名旧字段或改变旧字段语义。
-12. production 部署默认拒绝 main：正式部署脚本要求本地 HEAD 精确等于远端 `workshop-stable`，并再次输入 `PRODUCTION` 确认。
-13. 数据库升级使用 migration，不靠重复执行完整 schema。
+10. production / staging 不只从 D1 / KV / R2 隔离，客户端热更也必须隔离：staging 固定跟踪 `main`，production 固定跟踪 `workshop-stable`；任何正式客户端代码都只能通过显式 stable promotion 进入。
+11. production 部署默认拒绝 main：正式部署脚本要求本地 HEAD 精确等于远端 `workshop-stable`、正式 Cloudflare 资源已配置，并再次输入 `PRODUCTION` 确认。
+12. 数据库升级使用 migration，不靠重复执行完整 schema。
 
 ---
 
@@ -74,7 +73,7 @@ R2 → bundle / manifest / 封面
 
 - Cloudflare Worker + D1 + KV + R2。
 - Discord OAuth。
-- production / staging 的 Worker、域名与客户端更新通道分离；D1 / KV / R2 按本项目额度约束共用一套。
+- production / staging 分离。
 - 项目创建、上传、审核、发布的完整生命周期。
 - 作者项目与管理员审核分离。
 - 审核详情可以查看实际 R2 内容。
@@ -86,8 +85,8 @@ R2 → bundle / manifest / 封面
 - 世界书、正则、酒馆助手脚本安装具有来源命名空间，避免误删用户内容。
 - 已吸收对方“DLC 修复/更新”思路：独立维护中心负责安装健康检查、Repair、恢复点状态和工坊客户端更新。
 - 工坊本体更新不要求玩家手动替换 import：维护中心可扫描 ScriptTree 中的工坊 loader；测试版把固定 SHA 更新到 `main` 最新提交，正式版只更新到 `workshop-stable`。
-- 自 v1.7.0 起，自更新从“维护页工具”提升为客户端生命周期能力：服务健康检查成功后自动扫描 loader；发现旧 SHA 时弹出更新提示，用户确认后事务式重写 ScriptTree。
-- 自更新只负责持久化新的固定 SHA，并在写入后重新读取 ScriptTree 校验结果；不通过刷新整个 SillyTavern 或运行时动态 import 来伪装更新成功。
+- 自 v1.7.0 起，自更新从“维护页工具”提升为客户端生命周期能力：服务健康检查成功后自动扫描 loader；发现旧 SHA 时弹出更新提示，用户确认后事务式重写 ScriptTree，并动态导入不可变的新 SHA。
+- 新客户端启动时会调用旧 `window.ReincarnationWorkshop.destroy()` 完成 UI、事件和全局 Bridge 清理，再接管并重新打开面板；这样避免热更新后残留双份监听器。旧客户端没有 `destroy` 时仅作为一次性迁移场景执行已知 DOM 兜底清理。
 - latest 查询允许 Worker KV 缓存，但当目标 SHA 与本地 loader 不一致时客户端额外核对当前环境自己的 GitHub ref；正式通道永不回退查询 `main`。
 
 ### 尚未吸收，后续按需要实现

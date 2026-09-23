@@ -330,6 +330,9 @@ function storeEditor(doc, initial, emit) {
         if (event.target !== kind) sync();
       });
       effectEditor.node.addEventListener('input', sync);
+      effectEditor.node.addEventListener('click', event => {
+        if (event.target?.closest?.('.rw-effect-add,.rw-effect-remove')) sync();
+      });
       remove.addEventListener('click', () => {
         entries.splice(index, 1);
         render();
@@ -492,6 +495,9 @@ function openingEquipmentEditor(doc, initial = [], emit) {
       };
       card.addEventListener('input', sync);
       card.addEventListener('change', sync);
+      card.addEventListener('click', event => {
+        if (event.target?.closest?.('.rw-effect-add,.rw-effect-remove')) sync();
+      });
       list.appendChild(card);
     });
   };

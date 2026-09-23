@@ -7,9 +7,9 @@
 
   "vars": {
     "PUBLIC_BASE_URL": "https://workshop.6661816.xyz",
-    "DISCORD_CLIENT_ID": "REPLACE_ME",
+    "DISCORD_CLIENT_ID": "1551049511915491348",
     "SESSION_TTL_SECONDS": "2592000",
-    "ADMIN_DISCORD_IDS": "",
+    "ADMIN_DISCORD_IDS": "1292524256764231700",
     "CLIENT_UPDATE_CHANNEL": "stable",
     "CLIENT_UPDATE_REF": "workshop-stable"
   },
@@ -82,9 +82,9 @@
       ],
       "vars": {
         "PUBLIC_BASE_URL": "https://workshop.6661816.xyz",
-        "DISCORD_CLIENT_ID": "REPLACE_ME",
+        "DISCORD_CLIENT_ID": "1551049511915491348",
         "SESSION_TTL_SECONDS": "2592000",
-        "ADMIN_DISCORD_IDS": "",
+        "ADMIN_DISCORD_IDS": "1292524256764231700",
         "CLIENT_UPDATE_CHANNEL": "stable",
         "CLIENT_UPDATE_REF": "workshop-stable"
       },

@@ -11,12 +11,16 @@ import {
   replaceProjectStoreCatalogs,
 } from '../../opening/store/installed-catalogs.js';
 
-test('publish shell uses dedicated opening and store editors instead of one generic opening-data upload', () => {
+test('publish shell uses one category selector plus character subtype and dynamic dedicated editor host', () => {
   const html = workshopTemplate('test');
-  assert.match(html, /data-publish-panel="opening_character"/u);
-  assert.match(html, /data-publish-panel="store_catalog"/u);
-  assert.match(html, /name="extension_kind"/u);
+  assert.match(html, /<option value="store_catalog">开局商店<\/option>/u);
+  assert.match(html, /<option value="character">角色<\/option>/u);
+  assert.match(html, /name="character_kind"/u);
+  assert.match(html, /data-role="dedicated-editor-host"/u);
+  assert.doesNotMatch(html, /name="extension_kind"/u);
   assert.doesNotMatch(html, /data-field="create-data"/u);
+  assert.doesNotMatch(html, /opening_bloodline[^_]/u);
+  assert.doesNotMatch(html, /store_equipments/u);
   assert.match(html, /data-role="publish-resource-section"/u);
 });
 
@@ -42,4 +46,18 @@ test('browser-only opening payloads fail clearly when IndexedDB is unavailable',
     ),
     /IndexedDB/,
   );
+});
+
+
+test('specialized editor source is form-driven and contains no JSON code textarea contract', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const source = fs.readFileSync(fileURLToPath(new URL('../views/author/dedicated-editor.js', import.meta.url)), 'utf8');
+  assert.match(source, /\+ 添加商品/u);
+  assert.match(source, /删除/u);
+  assert.match(source, /最多 2 项/u);
+  assert.match(source, /OPENING_RANKS = \['Ⅰ', 'Ⅱ', 'Ⅲ'\]/u);
+  assert.match(source, /QUALITIES = \['F', 'E', 'D'\]/u);
+  assert.doesNotMatch(source, /JSON\.parse/u);
+  assert.doesNotMatch(source, /rw-code-input/u);
 });

@@ -162,7 +162,7 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
       cost: 1000,
       type: 17,
       source: '创意工坊',
-      tags: [],
+      tags: ['刀剑', '物理'],
       attrs: { ATK: 'A' },
       effects: { 锋利: '更容易造成伤害。', 破甲: '削弱护甲。' },
       desc: '测试装备',
@@ -176,19 +176,37 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
       type: '特殊',
       quantity: 3,
       source: '创意工坊',
-      tags: [],
+      tags: ['治疗', '消耗'],
       effects: {},
       desc: '测试道具',
-      consume: '无',
+      consume: '药剂1支',
       cd: '0',
     }],
-    skills: [],
+    skills: [{
+      id: 'skill-1',
+      name: '测试技能',
+      tier: 'F',
+      cost: 50,
+      type: 2,
+      source: '创意工坊',
+      tags: ['辅助', '特殊'],
+      effects: { 测试效果: '产生测试效果。' },
+      desc: '测试技能描述',
+      consume: 'EP 5',
+    }],
   };
   const artifact = buildDedicatedArtifacts({ store_catalog: store }, 'store_catalog', '商店')[0];
   assert.equal(artifact.content.catalog.items[0].quantity, 3);
   assert.equal(Object.keys(artifact.content.catalog.equipments[0].effects).length, 2);
   assert.equal(artifact.content.catalog.equipments[0].attrs.ATK, 'A');
   assert.equal(artifact.content.catalog.equipments[0].type, 17);
+  assert.deepEqual(artifact.content.catalog.equipments[0].tags, ['刀剑', '物理']);
+  assert.equal(artifact.content.catalog.items[0].type, '特殊');
+  assert.equal(artifact.content.catalog.items[0].consume, '药剂1支');
+  assert.equal(artifact.content.catalog.items[0].cd, '0');
+  assert.equal(artifact.content.catalog.skills[0].type, 2);
+  assert.deepEqual(artifact.content.catalog.skills[0].tags, ['辅助', '特殊']);
+  assert.equal(artifact.content.catalog.skills[0].consume, 'EP 5');
 
   assert.throws(
     () => buildDedicatedArtifacts({
@@ -207,6 +225,19 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
       store_catalog: { equipments: [{ ...store.equipments[0], type: 18 }], items: [], skills: [] },
     }, 'store_catalog', '坏商店'),
     /类型必须是开局装备分类 0-17/u,
+  );
+
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: { equipments: [], items: [{ ...store.items[0], type: '不存在' }], skills: [] },
+    }, 'store_catalog', '坏商店'),
+    /类型必须是消耗、材料或特殊/u,
+  );
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: { equipments: [], items: [], skills: [{ ...store.skills[0], type: 9 }] },
+    }, 'store_catalog', '坏商店'),
+    /类型必须是主动、被动或特殊/u,
   );
 
   assert.throws(

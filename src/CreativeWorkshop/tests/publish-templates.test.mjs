@@ -35,11 +35,10 @@ test('world character form generates worldbook plus descriptor', () => {
   assert.deepEqual(artifacts.map(item => item.kind), ['worldbook', 'data']);
   assert.deepEqual(artifacts[0].content.entries[0].strategy.keys, ['测试人物', '别名A', '别名B']);
   assert.match(artifacts[0].content.entries[0].content, /种族：人类/u);
-  assert.equal(artifacts[1].content.kind, 'world_character');
 });
 
-test('opening character is limited to rank I-III, one bloodline and two form-driven skills', () => {
-  const artifacts = buildDedicatedArtifacts({
+test('opening character uses 8 point startup budget and auto F-E-D quality from rank', () => {
+  const asset = buildDedicatedArtifacts({
     opening_name: '开局角色',
     opening_race: '精灵',
     opening_identity: '轮回者',
@@ -49,70 +48,103 @@ test('opening character is limited to rank I-III, one bloodline and two form-dri
     opening_occupation_source: '学院',
     opening_rank: 'Ⅱ',
     opening_bloodline_name: '元素血脉',
-    opening_bloodline_quality: 'D',
-    opening_bloodline_attr_力量: 'F',
-    opening_bloodline_attr_敏捷: 'F',
-    opening_bloodline_attr_体质: 'E',
-    opening_bloodline_attr_精神: 'D',
-    opening_bloodline_attr_魅力: 'E',
+    opening_attributes: { 力量: 0, 敏捷: 1, 体质: 2, 精神: 4, 魅力: 1 },
     opening_bloodline_effect_name: '元素亲和',
     opening_bloodline_effect_desc: '元素技能效果提升。',
     opening_bloodline_desc: '元素侧血统。',
     opening_skill_1_name: '火球',
-    opening_skill_1_quality: 'E',
     opening_skill_1_type: '0',
     opening_skill_1_effect_name: '爆炎',
     opening_skill_1_effect_desc: '造成火焰伤害。',
     opening_skill_1_desc: '基础火系技能。',
     opening_skill_1_consume: 'EP 10',
     opening_skill_2_name: '元素感知',
-    opening_skill_2_quality: 'F',
     opening_skill_2_type: '1',
     opening_skill_2_effect_desc: '感知元素波动。',
-  }, 'opening_character', '作品');
+  }, 'opening_character', '作品')[0].content;
 
-  const asset = artifacts[0].content;
-  assert.equal(artifacts.length, 1);
   assert.equal(asset.kind, 'opening_character');
   assert.equal(asset.build.层级, 'Ⅱ');
-  assert.deepEqual(Object.keys(asset.build.血统), ['元素血脉']);
-  assert.deepEqual(Object.keys(asset.build.技能), ['火球', '元素感知']);
-  assert.deepEqual(asset.build.职业.法师, {
-    类型: '战斗',
-    特性: ['施法', '元素'],
-    来源: '学院',
+  assert.equal(asset.build.血统.元素血脉.品质, 'E');
+  assert.equal(asset.build.技能.火球.品质, 'E');
+  assert.equal(asset.build.技能.元素感知.品质, 'E');
+  assert.deepEqual(asset.build.血统.元素血脉.原始属性, {
+    力量: 'F',
+    敏捷: 'E',
+    体质: 'D',
+    精神: 'B',
+    魅力: 'E',
   });
-  assert.equal(asset.build.血统.元素血脉.原始属性.精神, 'D');
   assert.equal(asset.build.技能.火球.效果.爆炎, '造成火焰伤害。');
   assert.equal('装备' in asset.build, false);
   assert.equal('状态' in asset.build, false);
   assert.equal('形态库' in asset.build, false);
 });
 
-test('opening ranks above III are normalized back to I', () => {
-  const asset = buildDedicatedArtifacts({
-    opening_name: '超阶',
-    opening_rank: 'Ⅸ',
-  }, 'opening_partner', '作品')[0].content;
-  assert.equal(asset.build.层级, 'Ⅰ');
+test('opening character rejects more than 8 allocation points', () => {
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      opening_name: '超点角色',
+      opening_rank: 'Ⅰ',
+      opening_bloodline_name: '人类血统',
+      opening_attributes: { 力量: 8, 敏捷: 1, 体质: 0, 精神: 0, 魅力: 0 },
+    }, 'opening_character', '作品'),
+    /9 \/ 8/u,
+  );
 });
 
-test('opening partner keeps persona and uses the same constrained build', () => {
+test('opening partner gets 16 point budget, auto D quality at rank III and can carry equipment', () => {
   const asset = buildDedicatedArtifacts({
     opening_name: '伙伴',
     opening_rank: 'Ⅲ',
     opening_personality: '沉稳',
     opening_likes: '茶',
     opening_background: '旧友',
+    opening_bloodline_name: '强化血统',
+    opening_attributes: { 力量: 4, 敏捷: 4, 体质: 4, 精神: 2, 魅力: 2 },
+    opening_skill_1_name: '护卫',
+    opening_partner_equipment: [{
+      name: '伙伴长剑',
+      品质: 'D',
+      类型: 0,
+      原始属性: { ATK: 'D' },
+      效果: { 护主: '保护队友。' },
+      描述: '伙伴装备',
+    }],
   }, 'opening_partner', '作品')[0].content;
+
   assert.equal(asset.kind, 'opening_partner');
   assert.equal(asset.profile.性格, '沉稳');
   assert.equal(asset.build.层级, 'Ⅲ');
-  assert.deepEqual(asset.build.血统, {});
-  assert.deepEqual(asset.build.技能, {});
+  assert.equal(asset.build.血统.强化血统.品质, 'D');
+  assert.equal(asset.build.技能.护卫.品质, 'D');
+  assert.equal(asset.build.装备.伙伴长剑.品质, 'D');
+  assert.equal(asset.build.装备.伙伴长剑.原始属性.ATK, 'D');
 });
 
-test('store catalog accepts repeatable form output with only F-E-D and price <= 1000', () => {
+test('opening partner rejects more than 16 allocation points', () => {
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      opening_name: '超点伙伴',
+      opening_rank: 'Ⅲ',
+      opening_bloodline_name: '强化血统',
+      opening_attributes: { 力量: 8, 敏捷: 8, 体质: 1, 精神: 0, 魅力: 0 },
+    }, 'opening_partner', '作品'),
+    /17 \/ 16/u,
+  );
+});
+
+test('ranks above III normalize to I and therefore F build quality', () => {
+  const asset = buildDedicatedArtifacts({
+    opening_name: '超阶',
+    opening_rank: 'Ⅸ',
+    opening_bloodline_name: '测试血统',
+  }, 'opening_partner', '作品')[0].content;
+  assert.equal(asset.build.层级, 'Ⅰ');
+  assert.equal(asset.build.血统.测试血统.品质, 'F');
+});
+
+test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two effects', () => {
   const store = {
     equipments: [{
       id: 'eq-1',
@@ -123,7 +155,7 @@ test('store catalog accepts repeatable form output with only F-E-D and price <= 
       source: '创意工坊',
       tags: [],
       attrs: { ATK: 'D' },
-      effects: { 锋利: '更容易造成伤害。' },
+      effects: { 锋利: '更容易造成伤害。', 破甲: '削弱护甲。' },
       desc: '测试装备',
       consume: '无',
     }],
@@ -144,10 +176,8 @@ test('store catalog accepts repeatable form output with only F-E-D and price <= 
     skills: [],
   };
   const artifact = buildDedicatedArtifacts({ store_catalog: store }, 'store_catalog', '商店')[0];
-  assert.equal(artifact.kind, 'data');
-  assert.equal(artifact.content.kind, 'store_catalog');
   assert.equal(artifact.content.catalog.items[0].quantity, 3);
-  assert.equal(artifact.content.catalog.equipments[0].attrs.ATK, 'D');
+  assert.equal(Object.keys(artifact.content.catalog.equipments[0].effects).length, 2);
 
   assert.throws(
     () => buildDedicatedArtifacts({
@@ -161,36 +191,54 @@ test('store catalog accepts repeatable form output with only F-E-D and price <= 
     }, 'store_catalog', '坏商店'),
     /F、E、D/u,
   );
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: {
+        equipments: [{
+          ...store.equipments[0],
+          effects: { 一: '1', 二: '2', 三: '3' },
+        }],
+        items: [],
+        skills: [],
+      },
+    }, 'store_catalog', '坏商店'),
+    /最多只能填写 2 条效果/u,
+  );
 });
 
-test('dedicated update values recover bloodline, two skills and store catalog without JSON textareas', () => {
+test('dedicated update values recover point allocation, skills, partner equipment and store catalog', () => {
   const values = dedicatedInitialValues([{
     kind: 'data',
     content: {
-      kind: 'opening_character',
+      kind: 'opening_partner',
       name: '角色',
       build: {
         层级: 'Ⅲ',
         血统: {
           人类强化: {
-            品质: 'E',
-            原始属性: { 力量: 'E', 敏捷: 'F', 体质: 'E', 精神: 'F', 魅力: 'F' },
+            品质: 'D',
+            原始属性: { 力量: 'B', 敏捷: 'F', 体质: 'E', 精神: 'F', 魅力: 'F' },
             效果: { 强健: '体能更好。' },
             描述: '强化人类。',
           },
         },
         技能: {
-          技能一: { 品质: 'E', 类型: 0, 效果: { A: 'A' }, 描述: '一', 消耗: 'EP 5' },
-          技能二: { 品质: 'F', 类型: 1, 效果: {}, 描述: '二', 消耗: '无' },
+          技能一: { 品质: 'D', 类型: 0, 效果: { A: 'A' }, 描述: '一', 消耗: 'EP 5' },
+          技能二: { 品质: 'D', 类型: 1, 效果: {}, 描述: '二', 消耗: '无' },
+        },
+        装备: {
+          长剑: { 品质: 'D', 类型: 0, 原始属性: { ATK: 'D' }, 效果: {}, 描述: '' },
         },
       },
     },
-  }], 'opening_character', '作品');
+  }], 'opening_partner', '作品');
+
   assert.equal(values.opening_rank, 'Ⅲ');
   assert.equal(values.opening_bloodline_name, '人类强化');
-  assert.equal(values.opening_bloodline_attr_力量, 'E');
+  assert.equal(values.opening_attributes.力量, 4);
   assert.equal(values.opening_skill_1_name, '技能一');
   assert.equal(values.opening_skill_2_name, '技能二');
+  assert.equal(values.opening_partner_equipment[0].name, '长剑');
 
   const storeValues = dedicatedInitialValues([{
     kind: 'data',

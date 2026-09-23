@@ -22,4 +22,8 @@ assert.match(html,/openingDataReady[\s\S]*finally\(\(\) => init\(\)\)/,'opening 
 assert.match(html,/structuredClone\(openingCharacterBuild\.装备 \|\| \{\}\)[\s\S]*\.\.\.equipObj/,'opening character keeps base equipment and merges store purchases');
 assert.match(html,/structuredClone\(openingCharacterBuild\.技能 \|\| \{\}\)[\s\S]*\.\.\.skillObj/,'opening character keeps base skills and merges store purchases');
 assert.doesNotMatch(html,/\$\('grid-partner'\)\.innerHTML/,'legacy partner grid is no longer accessed');
+assert.match(html,/数量:\s*Math\.max\(1, Number\(i\.quantity \|\| 1\)\)/,'workshop item quantity is written to the backpack');
+assert.match(html,/const cost=PARTNER_COST\[rank\]\|\|0;/,'installed opening partners use rank-based partner cost');
+assert.match(html,/currentCoins=available-cost;/,'opening partner selection deducts the cost');
+assert.match(html,/currentCoins\+=partnerCostPaid;/,'switching partner source refunds the previous partner cost');
 console.log('PASS opening page compile and integration seams');

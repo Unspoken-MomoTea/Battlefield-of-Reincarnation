@@ -79,6 +79,32 @@ test('testing channel follows main and preserves the staging apiBase', async () 
   assert.deepEqual(after.refs, [latest]);
 });
 
+test('testing channel does not wait for a stale Worker cache that matches the current loader', async () => {
+  const adapter = adapterFixture();
+  const current = '593cf339818e5ed1c8e2ed363d28e34ff98fa835';
+  const latest = '9999999999999999999999999999999999999999';
+  const urls = [];
+  const updater = createWorkshopSelfUpdater({
+    adapter,
+    channel: 'testing',
+    ref: 'main',
+    fetchImpl: async url => {
+      const value = String(url);
+      urls.push(value);
+      if (value.includes('/api/client/latest')) {
+        return response(current, { channel: 'testing', ref: 'main' });
+      }
+      if (value.includes('/commits/main')) return response(latest);
+      throw new Error(`unexpected request: ${value}`);
+    },
+  });
+
+  const check = await updater.check();
+  assert.equal(check.latestSha, latest);
+  assert.equal(check.updateAvailable, true);
+  assert.ok(urls.some(url => url.includes('/commits/main')));
+});
+
 test('stable channel follows workshop-stable and never checks main', async () => {
   const adapter = adapterFixture('https://workshop.6661816.xyz');
   const stable = 'abcdefabcdefabcdefabcdefabcdefabcdefabcd';

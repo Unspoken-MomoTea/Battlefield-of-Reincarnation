@@ -109,7 +109,17 @@ export function buildDedicatedArtifacts(form, mode, projectName) {
     const build = {
       种族: text(form, 'opening_race') || '人类',
       身份: csv(text(form, 'opening_identity')),
-      职业: text(form, 'opening_occupation'),
+      职业: (() => {
+        const name = text(form, 'opening_occupation_name');
+        if (!name) return {};
+        return {
+          [name]: {
+            类型: text(form, 'opening_occupation_type') || '辅助',
+            特性: csv(text(form, 'opening_occupation_traits')),
+            来源: text(form, 'opening_occupation_source'),
+          },
+        };
+      })(),
       层级: text(form, 'opening_rank') || 'Ⅰ',
       血统: parseJsonField(form, 'opening_bloodline', '血统', {}),
       技能: parseJsonField(form, 'opening_skills', '技能', {}),
@@ -207,7 +217,10 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
       opening_name: data.name || projectName,
       opening_race: build.种族 || '人类',
       opening_identity: Array.isArray(build.身份) ? build.身份.join(', ') : String(build.身份 || ''),
-      opening_occupation: typeof build.职业 === 'string' ? build.职业 : json(build.职业 || {}),
+      opening_occupation_name: Object.keys(build.职业 || {})[0] || '',
+      opening_occupation_type: Object.values(build.职业 || {})[0]?.类型 || '辅助',
+      opening_occupation_traits: (Object.values(build.职业 || {})[0]?.特性 || []).join(', '),
+      opening_occupation_source: Object.values(build.职业 || {})[0]?.来源 || '',
       opening_rank: build.层级 || 'Ⅰ',
       opening_personality: profile.性格 || '',
       opening_likes: profile.喜爱 || '',

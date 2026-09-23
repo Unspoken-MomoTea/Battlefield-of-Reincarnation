@@ -154,14 +154,25 @@ export function createAuthorProjectEditor({
     const modeLabels = {
       extension: '通用扩展',
       store_catalog: '开局商店',
-      world_character: '世界角色',
+      world_character: '世界书角色',
       opening_character: '开局角色',
       opening_partner: '开局伙伴',
     };
-    const modeDisplay = element('input', 'rw-input');
-    modeDisplay.value = modeLabels[publishMode] || publishMode;
-    modeDisplay.disabled = true;
-    left.append(step2, field('分类 *', category), field('作品用途', modeDisplay), field('标签（可选）', tags));
+    const categoryDisplay = element('input', 'rw-input');
+    categoryDisplay.value = publishMode === 'store_catalog'
+      ? '开局商店'
+      : publishMode === 'extension'
+        ? '扩展'
+        : '角色';
+    categoryDisplay.disabled = true;
+    const categoryFields = [field('分类 *', categoryDisplay)];
+    if (current.category === 'character') {
+      const modeDisplay = element('input', 'rw-input');
+      modeDisplay.value = modeLabels[publishMode] || publishMode;
+      modeDisplay.disabled = true;
+      categoryFields.push(field('角色用途', modeDisplay));
+    }
+    left.append(step2, ...categoryFields, field('标签（可选）', tags));
 
     const depDetails = element('details', 'rw-publish-advanced');
     depDetails.innerHTML = '<summary>高级：项目依赖（可选）</summary>';

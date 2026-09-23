@@ -1117,7 +1117,7 @@
 
     function openingDb() {
         return new Promise((resolve, reject) => {
-            const request = indexedDB.open('reincarnation_workshop', 6);
+            const request = indexedDB.open('reincarnation-workshop', 4);
             request.onupgradeneeded = () => {
                 const db = request.result;
                 if (!db.objectStoreNames.contains('opening_assets')) db.createObjectStore('opening_assets', { keyPath:'id' });

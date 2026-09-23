@@ -15,3 +15,4 @@ for(const source of [storage,assets,catalogs]){
  for(const store of ['auth','installed_projects','meta']) assert.ok(source.includes(store),'upgrade path preserves '+store);
 }
 console.log('PASS opening/workshop IndexedDB v4 contract');
+// This contract intentionally runs on every main push.

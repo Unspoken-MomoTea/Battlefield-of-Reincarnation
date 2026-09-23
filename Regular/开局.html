@@ -2109,14 +2109,35 @@
         const race = $('f-race').value.trim() || '人类';
         const gender = $('f-gender').value;
         const age = $('f-age').value;
-        const tier = 'Ⅰ 级'; // 初始生命层级固定为 Ⅰ，不随加点走
-        const bloodTier = 'F 级'; // 初始血统品质固定为 F，不随加点走
+        const openingSummaryBuild = characterMode === 'library' && selectedOpeningCharacter
+            ? (selectedOpeningCharacter.build || selectedOpeningCharacter.character || {})
+            : null;
+        const openingBloodName = openingSummaryBuild ? (Object.keys(openingSummaryBuild.血统 || {})[0] || '') : '';
+        const openingBlood = openingBloodName ? (openingSummaryBuild.血统?.[openingBloodName] || {}) : null;
+        const tierKey = openingSummaryBuild?.层级 || 'Ⅰ';
+        const tier = tierKey + ' 级';
+        const bloodTierKey = openingBlood?.品质 || 'F';
+        const bloodTier = bloodTierKey + ' 级';
         
         let attrHtml = '';
-        document.querySelectorAll('.attr-input').forEach((input, idx) => {
-            const tier = calcSingleTier(input.value);
-            attrHtml += `<div class="cf-attr-box"><strong>${DB.attributes[idx]}:</strong> <span>${tier}级</span></div>`;
-        });
+        if (openingBlood) {
+            DB.attributes.forEach(attr => {
+                const attrTier = openingBlood.原始属性?.[attr] || 'F';
+                attrHtml += `<div class="cf-attr-box"><strong>${esc(attr)}:</strong> <span>${esc(attrTier)}级</span></div>`;
+            });
+        } else {
+            document.querySelectorAll('.attr-input').forEach((input, idx) => {
+                const attrTier = calcSingleTier(input.value);
+                attrHtml += `<div class="cf-attr-box"><strong>${DB.attributes[idx]}:</strong> <span>${attrTier}级</span></div>`;
+            });
+        }
+        const bloodName = openingBloodName || (race + '血统');
+        const bloodDesc = openingBlood?.描述 || '最初的基础，却有无限可能';
+        const bloodTags = (openingBlood?.标签 || ['初始血统', race]).join('、');
+        const bloodEffects = Object.entries(openingBlood?.效果 || {});
+        const bloodEffectHtml = bloodEffects.length
+            ? bloodEffects.map(([effectName,effectText]) => `<p style="color:var(--accent); margin-top:6px;"><strong>${esc(effectName)}：</strong>${esc(effectText)}</p>`).join('')
+            : `<p style="color:var(--accent); margin-top:6px; font-weight:bold;"><i class="fa-solid fa-bolt"></i> 核心天赋效果暂缺，降临后将由主神 (AI) 根据种族特性当场演算并赋予。</p>`;
 
         const consumed = DB.initSpaceCoins - currentCoins;
         
@@ -2231,18 +2252,16 @@
                         <div class="cf-text"><strong>年龄:</strong> ${age} 岁</div>
                         <div class="cf-text"><strong>种族:</strong> ${race}</div>
                         <div class="cf-text" style="grid-column: 1 / -1;"><strong>身份:</strong> ${identity}</div>
-                        <div class="cf-text" style="grid-column: 1 / -1;"><strong>综合层级:</strong> <span class="tier-badge t-Ⅰ">${tier}</span></div>
+                        <div class="cf-text" style="grid-column: 1 / -1;"><strong>综合层级:</strong> <span class="tier-badge t-${tierKey}">${tier}</span></div>
                     </div>
                 </div>
 
                 <div class="cf-section">
-                    <h3 class="cf-title"><i class="fa-solid fa-dna"></i> 初始血统：${race}血统</h3>
+                    <h3 class="cf-title"><i class="fa-solid fa-dna"></i> 初始血统：${esc(bloodName)}</h3>
                     <div class="cf-item-props">
-                        <p><strong>品质层级:</strong> <span class="tier-badge t-${bloodTier.replace(' 级','')}">${bloodTier}</span> | <strong>体系标签:</strong> 初始血统、${race}</p>
-                        <p><strong>底层描述:</strong> 最初的基础，却有无限可能</p>
-                        <p style="color:var(--accent); margin-top:6px; font-weight:bold;">
-                            <i class="fa-solid fa-bolt"></i> 核心天赋效果暂缺，降临后将由主神 (AI) 根据种族特性当场演算并赋予。
-                        </p>
+                        <p><strong>品质层级:</strong> <span class="tier-badge t-${bloodTierKey}">${bloodTier}</span> | <strong>体系标签:</strong> ${esc(bloodTags)}</p>
+                        <p><strong>底层描述:</strong> ${esc(bloodDesc)}</p>
+                        ${bloodEffectHtml}
                     </div>
                     <div class="cf-attr-grid">${attrHtml}</div>
                 </div>

@@ -1,4 +1,5 @@
 import { bindCreateProjectFlow } from '../views/author/create-project.js';
+import { bindHereticPublishFlow } from '../views/author/create-heretic.js';
 
 export function bindWorkshopEvents({
   host, doc, overlay, nodes, views, workshopApi, projectService,
@@ -209,5 +210,16 @@ export function bindWorkshopEvents({
     refreshMine: () => views.author.refresh(),
   });
 
-  return () => createProjectFlow.destroy();
+  const hereticPublishFlow = bindHereticPublishFlow({
+    host,
+    overlay,
+    workshopApi,
+    notifyError,
+    refreshMine: () => views.author.refresh(),
+  });
+
+  return () => {
+    createProjectFlow.destroy();
+    hereticPublishFlow.destroy();
+  };
 }

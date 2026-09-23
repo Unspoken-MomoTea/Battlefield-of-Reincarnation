@@ -4,8 +4,8 @@
 
 | 环境 | API | Worker env | 客户端更新 ref | 数据资源 |
 | --- | --- | --- | --- | --- |
-| 测试 | `https://workshop-test.6661816.xyz` | `staging` | `main` | staging D1 / KV / R2 |
-| 正式 | `https://workshop.6661816.xyz` | `production` | `workshop-stable` | production D1 / KV / R2 |
+| 测试 | `https://workshop-test.6661816.xyz` | `staging` | `main` | 与正式服共用 D1 / KV / R2 |
+| 正式 | `https://workshop.6661816.xyz` | `production` | `workshop-stable` | 与测试服共用 D1 / KV / R2 |
 
 正式版本还会创建不可覆盖的 Git Tag：
 
@@ -215,31 +215,32 @@ ref     = workshop-stable
 
 正式版不会因为 main 上的新测试提交出现更新提示。
 
-## 正式 Cloudflare 环境
+## Cloudflare 共享数据环境
 
-正式环境必须使用独立资源：
+受 Cloudflare 容量约束，测试服与正式服故意共用同一套数据资源：
 
 ```text
-production Worker
-production D1
-production KV
-production R2
-正式 Discord OAuth
-https://workshop.6661816.xyz
+shared D1
+shared SESSION_KV
+shared PROJECTS R2
+├─ staging Worker   / workshop-test.6661816.xyz / testing / main
+└─ production Worker / workshop.6661816.xyz     / stable / workshop-stable
 ```
 
-`cloudflare/wrangler.jsonc` 中只要 production 仍存在 `REPLACE_ME` 或占位 D1/KV ID，正式更新会主动拒绝。
+现有共享资源沿用早期 staging 名称，不为了改名复制数据或新建第二套资源。
 
-发布策略还会检查：
+发布策略会检查：
 
-- staging / production Worker 名称不能相同
-- staging / production API 地址不能相同
-- D1 不能共用
-- KV 不能共用
-- R2 不能共用
+- staging / production Worker 名称必须不同
+- staging / production API 地址必须不同
+- D1 必须绑定同一个 database_id
+- KV 必须绑定同一个 namespace id
+- R2 必须绑定同一个 bucket
 - staging 必须是 `testing / main`
 - production 必须是 `stable / workshop-stable`
 - API 必须使用 HTTPS
+
+因为数据库共享，测试版 migration 会直接作用于正式数据。main 上的 migration 在 stable 跟进前必须保持向后兼容；禁止提前删除、重命名旧字段或做破坏性数据重写。
 
 ## 推荐正式上线顺序
 

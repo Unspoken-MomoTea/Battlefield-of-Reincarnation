@@ -1238,6 +1238,27 @@ export const WORKSHOP_CSS = `
     margin-top:2px;padding-top:12px;border-top:1px solid var(--rw-line);
     color:#caae7e;font-size:10px;font-weight:850;letter-spacing:.08em
   }
+  .rw-store-entry-list{display:grid;gap:10px}
+  .rw-store-entry{
+    display:grid;gap:12px;padding:12px;border:1px solid var(--rw-line);border-radius:10px;background:#111216
+  }
+  .rw-store-entry-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .rw-store-entry-head .rw-select{max-width:180px}
+  .rw-store-remove{flex:none}
+  .rw-store-add{justify-self:start}
+  .rw-store-kind-specific{display:grid;gap:10px}
+  .rw-store-attr-grid,.rw-opening-attr-grid{
+    display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px
+  }
+  .rw-store-attr-grid .rw-field,.rw-opening-attr-grid .rw-field{gap:4px}
+  .rw-store-attr-grid .rw-field>span,.rw-opening-attr-grid .rw-field>span{font-size:9px}
+  .rw-opening-skill-card{
+    display:grid;gap:10px;padding:11px;border:1px solid var(--rw-line);border-radius:10px;background:#111216
+  }
+  .rw-opening-skill-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .rw-opening-skill-head strong{color:#d5d1c9;font-size:11px}
+  .rw-opening-skill-head small{color:#706d67;font-size:9px}
+
   .rw-code-input{
     min-height:112px;font:11px/1.55 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
     tab-size:2;white-space:pre
@@ -1337,6 +1358,9 @@ export const WORKSHOP_CSS = `
     .rw-publish-footer .rw-row{width:100%;justify-content:flex-end}
     .rw-publish-upload-slots{grid-template-columns:1fr}
     .rw-special-grid,.rw-special-json-grid{grid-template-columns:1fr}
+    .rw-store-attr-grid,.rw-opening-attr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .rw-store-entry-head{align-items:stretch}
+    .rw-store-entry-head .rw-select{max-width:none;flex:1}
     .rw-special-editor{padding:12px}
     .rw-smart-dropzone--compact{min-height:82px}
     .rw-smart-artifact-row{grid-template-columns:30px minmax(0,1fr)}

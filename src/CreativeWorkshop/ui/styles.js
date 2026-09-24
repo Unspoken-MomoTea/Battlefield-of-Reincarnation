@@ -303,7 +303,8 @@ export const WORKSHOP_CSS = `
 
   .rw-create-form{
     position:fixed;left:50%;top:50%;z-index:var(--rw-layer-create);transform:translate(-50%,-50%);
-    width:min(1180px,calc(100vw - 28px));max-height:min(900px,94vh);overflow:hidden;
+    width:min(1180px,calc(100vw - 28px));height:min(900px,94vh);max-height:min(900px,94vh);overflow:hidden;
+    grid-template-rows:auto minmax(0,1fr) auto;gap:0;
     margin:0;padding:0;border:1px solid var(--rw-line-strong);border-radius:14px;background:#18191d;
     box-shadow:0 0 0 100vmax rgba(5,6,8,.76),0 28px 80px rgba(0,0,0,.58)
   }
@@ -318,7 +319,7 @@ export const WORKSHOP_CSS = `
   .rw-publish-form-title strong{color:#f0ede7;font-size:16px}
   .rw-publish-form-title small{color:var(--rw-faint);font-size:10px}
   .rw-publish-grid{
-    display:grid;grid-template-columns:1.08fr .92fr;min-height:0;max-height:calc(94vh - 126px);overflow:auto
+    display:grid;grid-template-columns:1.08fr .92fr;min-height:0;max-height:none;overflow:auto
   }
   .rw-publish-column{display:grid;align-content:start;gap:14px;padding:28px 30px 30px}
   .rw-publish-column+.rw-publish-column{border-left:1px solid var(--rw-line)}
@@ -418,9 +419,10 @@ export const WORKSHOP_CSS = `
   .rw-smart-kind{min-width:86px!important;min-height:30px!important;padding:0 7px!important;font-size:10px!important}
   .rw-smart-scope{min-width:82px!important;min-height:30px!important;padding:0 7px!important;font-size:10px!important}
   .rw-publish-footer{
-    display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;
-    border-top:1px solid var(--rw-line);background:#1b1c20
+    position:relative;z-index:6;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;
+    border-top:1px solid var(--rw-line);background:#1b1c20;box-shadow:0 -8px 22px rgba(0,0,0,.16)
   }
+  .rw-publish-footer>.rw-row{flex:none;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
   .rw-author-update-modal .rw-modal-body{padding:0!important;background:#18191d!important}
   .rw-update-form{display:grid;min-height:0;background:#18191d}
   .rw-update-grid{max-height:calc(95vh - 126px)}
@@ -1456,7 +1458,10 @@ export const WORKSHOP_CSS = `
     .rw-modal,.rw-modal--wide{width:100%;max-height:none;height:100%;border:0;border-radius:0}
     .rw-modal-body{padding:12px 12px calc(18px + env(safe-area-inset-bottom))}
     .rw-modal-head{padding-top:calc(12px + env(safe-area-inset-top))}
-    .rw-publish-footer{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+    .rw-create-form{height:100%;max-height:none;grid-template-rows:auto minmax(0,1fr) auto}
+    .rw-publish-footer{padding-bottom:calc(12px + env(safe-area-inset-bottom));align-items:flex-start;flex-direction:column}
+    .rw-publish-footer>.rw-row{width:100%;justify-content:stretch}
+    .rw-publish-footer>.rw-row .rw-button{flex:1}
     .rw-panel,.rw-create-form,.rw-modal{overflow-wrap:anywhere}
     .rw-overlay input,.rw-overlay select,.rw-overlay textarea{font-size:16px;box-sizing:border-box;max-width:100%}
     .rw-overlay .rw-button,.rw-overlay .rw-close,.rw-overlay .rw-account,

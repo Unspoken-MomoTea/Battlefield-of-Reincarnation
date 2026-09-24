@@ -236,11 +236,11 @@ export function workshopTemplate(version) {
           </div>
 
           <footer class="rw-publish-footer">
-            <div class="rw-publish-footer-note">● 保存到本地测试不会上传服务器；只有提交审核才会创建线上项目。专用角色/商店模板会直接生成对应数据。</div>
+            <div class="rw-publish-footer-note">● 本地测试只保存在当前浏览器，不上传、不计访问、不进审核；提交审核才会创建线上项目。</div>
             <div class="rw-row">
               <button class="rw-button" type="button" data-action="create-project-cancel">取消</button>
-              <button class="rw-button" type="button" data-action="create-project-local-test">保存到本地测试</button>
-              <button class="rw-button primary" type="submit">提交审核</button>
+              <button class="rw-button" type="button" data-action="create-project-local-test">保存本地测试（不上传）</button>
+              <button class="rw-button primary" type="submit">提交审核（上传）</button>
             </div>
           </footer>
         </form>

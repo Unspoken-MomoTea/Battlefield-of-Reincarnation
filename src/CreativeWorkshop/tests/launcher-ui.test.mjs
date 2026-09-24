@@ -202,8 +202,10 @@ test('worldbook keyword details follow activation strategy', () => {
 
 
 test('project creation keeps the action footer visible while only the middle content scrolls', () => {
-  assert.match(WORKSHOP_CSS, /\.rw-create-form\{[\s\S]*grid-template-rows:auto minmax\(0,1fr\) auto/u);
-  assert.match(WORKSHOP_CSS, /\.rw-create-form\{[\s\S]*height:min\(900px,94vh\)/u);
+  const createFormRule = WORKSHOP_CSS.match(/\.rw-create-form\{[^}]*width:min\(1180px,[^}]*\}/u)?.[0] || '';
+  assert.match(createFormRule, /display:grid/u);
+  assert.match(createFormRule, /grid-template-rows:auto minmax\(0,1fr\) auto/u);
+  assert.match(createFormRule, /height:min\(900px,94vh\)/u);
   assert.match(WORKSHOP_CSS, /\.rw-publish-grid\{[\s\S]*max-height:none;overflow:auto/u);
   assert.match(WORKSHOP_CSS, /\.rw-publish-footer\{[\s\S]*position:relative;z-index:6/u);
 });

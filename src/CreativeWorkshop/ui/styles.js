@@ -304,7 +304,7 @@ export const WORKSHOP_CSS = `
   .rw-create-form{
     position:fixed;left:50%;top:50%;z-index:var(--rw-layer-create);transform:translate(-50%,-50%);
     width:min(1180px,calc(100vw - 28px));height:min(900px,94vh);max-height:min(900px,94vh);overflow:hidden;
-    grid-template-rows:auto minmax(0,1fr) auto;gap:0;
+    display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:0;
     margin:0;padding:0;border:1px solid var(--rw-line-strong);border-radius:14px;background:#18191d;
     box-shadow:0 0 0 100vmax rgba(5,6,8,.76),0 28px 80px rgba(0,0,0,.58)
   }

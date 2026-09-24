@@ -76,6 +76,9 @@ test('specialized editor source is form-driven and contains no JSON code textare
   assert.match(source, /OPENING_RANKS = \['Ⅰ', 'Ⅱ', 'Ⅲ'\]/u);
   assert.match(source, /STORE_QUALITIES = \['F', 'E', 'D'\]/u);
   assert.match(source, /budget = partner \? 16 : 8/u);
+  assert.doesNotMatch(source, /opening_occupation_/u);
+  assert.doesNotMatch(source, /职业名称/u);
+  assert.doesNotMatch(source, /职业类型/u);
   assert.match(source, /STORE_PRICE_FLOOR = \{ F: 50, E: 300, D: 700 \}/u);
   assert.match(source, /EQUIPMENT_ATTR_QUALITIES = \['F', 'E', 'D', 'C', 'B', 'A'\]/u);
   assert.match(source, /\+ 添加效果/u);
@@ -101,6 +104,22 @@ test('creator styles hide the character subtype outside character category and k
   assert.match(source, /\.rw-store-attr-grid,[\s\S]*repeat\(auto-fit,minmax\(78px,1fr\)\)/u);
 });
 
+
+test('creator flows require a cover before local testing or publishing', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const template = workshopTemplate('test');
+  const create = fs.readFileSync(fileURLToPath(new URL('../views/author/create-project.js', import.meta.url)), 'utf8');
+  const editor = fs.readFileSync(fileURLToPath(new URL('../views/author/project-editor.js', import.meta.url)), 'utf8');
+  const heretic = fs.readFileSync(fileURLToPath(new URL('../views/author/create-heretic.js', import.meta.url)), 'utf8');
+  assert.doesNotMatch(template, /封面图（可选）/u);
+  assert.match(template, /封面图 \*/u);
+  assert.match(create, /发布作品必须提供图片/u);
+  assert.match(create, /const coverDataUrl = await readFileDataUrl\(cover\)/u);
+  assert.match(editor, /本地测试也必须带图片/u);
+  assert.match(editor, /发布作品必须提供图片/u);
+  assert.match(heretic, /发布异端也必须提供图片/u);
+});
 
 test('opening asset registry inherits the project cover as default avatar without changing the build', () => {
   const record = createOpeningAssetRecord(

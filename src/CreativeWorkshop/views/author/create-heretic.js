@@ -53,6 +53,8 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,ref
         const fd=new FormData(form);
         const name=String(fd.get('name')||'').trim();
         if(!name) throw new Error('请填写异端名称');
+        const cover=form.querySelector('[data-field="heretic-cover"]')?.files?.[0] || null;
+        if(!cover) throw new Error('请选择封面图片；发布异端也必须提供图片');
         const asset=createHereticAsset(snapshot,{
           name,
           personality:String(fd.get('personality')||''),
@@ -64,8 +66,7 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,ref
         const id=created?.project?.id;
         if(!id) throw new Error('服务器没有返回作品 ID');
         await workshopApi.uploadProjectVersion(id,{changelog:'',bundle:{schema_version:1,artifacts:[{kind:'data',name:'异端角色.json',format:'json',content:asset}]}});
-        const cover=form.querySelector('[data-field="heretic-cover"]')?.files?.[0];
-        if(cover) await workshopApi.uploadProjectCover(id,cover);
+        await workshopApi.uploadProjectCover(id,cover);
         await workshopApi.submitProject(id);
         try{host.toastr?.success?.('异端角色已提交审核','创意工坊');}catch{}
         close(); await refreshMine();

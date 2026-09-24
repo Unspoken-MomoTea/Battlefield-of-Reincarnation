@@ -34,6 +34,13 @@ test('world character form generates worldbook plus descriptor', () => {
   }, 'world_character', '作品');
   assert.deepEqual(artifacts.map(item => item.kind), ['worldbook', 'data']);
   assert.deepEqual(artifacts[0].content.entries[0].strategy.keys, ['测试人物', '别名A', '别名B']);
+  assert.deepEqual(artifacts[0].content.entries[0].position, {
+    type: 'after_character_definition',
+    role: 'system',
+    depth: 4,
+    order: 650,
+  });
+  assert.equal(artifacts[0].content.entries[0].probability, 100);
   assert.match(artifacts[0].content.entries[0].content, /种族：人类/u);
 });
 
@@ -42,10 +49,6 @@ test('opening character uses 8 point startup budget and auto F-E-D quality from 
     opening_name: '开局角色',
     opening_race: '精灵',
     opening_identity: '轮回者',
-    opening_occupation_name: '法师',
-    opening_occupation_type: '战斗',
-    opening_occupation_traits: '施法,元素',
-    opening_occupation_source: '学院',
     opening_rank: 'Ⅱ',
     opening_bloodline_name: '元素血脉',
     opening_attributes: { 力量: 0, 敏捷: 1, 体质: 2, 精神: 4, 魅力: 1 },
@@ -85,6 +88,7 @@ test('opening character uses 8 point startup budget and auto F-E-D quality from 
     魅力: 'E',
   });
   assert.equal(asset.build.技能.火球.效果.爆炎, '造成火焰伤害。');
+  assert.equal('职业' in asset.build, false);
   assert.equal('装备' in asset.build, false);
   assert.equal('状态' in asset.build, false);
   assert.equal('形态库' in asset.build, false);

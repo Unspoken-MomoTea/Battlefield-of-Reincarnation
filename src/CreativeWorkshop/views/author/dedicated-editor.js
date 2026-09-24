@@ -757,10 +757,6 @@ function openingEditor(doc, mode, initial, emit) {
     field(doc, '姓名 *', makeInput(doc, 'opening_name', initial.opening_name || '', { maxLength: 80 })),
     field(doc, '种族', makeInput(doc, 'opening_race', initial.opening_race || '人类', { maxLength: 120 })),
     field(doc, '身份', makeInput(doc, 'opening_identity', initial.opening_identity || '', { maxLength: 300 }), '多个身份用逗号分隔。'),
-    field(doc, '职业名称', makeInput(doc, 'opening_occupation_name', initial.opening_occupation_name || '', { maxLength: 160 })),
-    field(doc, '职业类型', makeSelect(doc, 'opening_occupation_type', ['战斗', '生活', '辅助'], initial.opening_occupation_type || '辅助')),
-    field(doc, '职业特性', makeInput(doc, 'opening_occupation_traits', initial.opening_occupation_traits || '', { maxLength: 300 }), '多个特性用逗号分隔。'),
-    field(doc, '职业来源', makeInput(doc, 'opening_occupation_source', initial.opening_occupation_source || '', { maxLength: 300 })),
     field(doc, '层级', rank, 'Ⅰ→F，Ⅱ→E，Ⅲ→D；血统与技能品质会自动同步。'),
   );
   root.appendChild(grid);
@@ -831,8 +827,7 @@ function openingEditor(doc, mode, initial, emit) {
   root.addEventListener('change', emit);
 
   const names = [
-    'opening_name', 'opening_race', 'opening_identity', 'opening_occupation_name',
-    'opening_occupation_type', 'opening_occupation_traits', 'opening_occupation_source',
+    'opening_name', 'opening_race', 'opening_identity',
     'opening_rank', 'opening_personality', 'opening_likes', 'opening_background',
     'opening_bloodline_name', 'opening_bloodline_effect_name',
     'opening_bloodline_effect_desc', 'opening_bloodline_desc',

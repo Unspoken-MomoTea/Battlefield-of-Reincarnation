@@ -19,6 +19,9 @@ assert.match(html,/opening_store_catalogs/,'opening reads installed workshop sto
 assert.match(html,/workshop:' \+ row\.sourceProjectId \+ ':' \+ sourceId/,'workshop store ids are namespaced');
 assert.match(html,/Promise\.all\(\[loadOpeningAssets\(\), loadOpeningStoreCatalogs\(\)\]\)/,'opening loads assets and store catalogs together');
 assert.match(html,/openingDataReady[\s\S]*finally\(\(\) => init\(\)\)/,'opening waits for installed assets before init');
+assert.match(html,/const libraryIdentities = openingCharacterBuild && Array\.isArray\(openingCharacterBuild\.身份\)/,'opening keeps identities published with installed characters');
+assert.match(html,/const resolvedIdentities = \[\.\.\.new Set\(/,'opening merges published identities with the current start identity, gender and age');
+assert.doesNotMatch(html,/\['种族','职业','层级','血统','技能','装备','状态','形态库','当前形态'\]/,'installed opening characters no longer apply workshop profession data');
 assert.match(html,/structuredClone\(openingCharacterBuild\.装备 \|\| \{\}\)[\s\S]*\.\.\.equipObj/,'opening character keeps base equipment and merges store purchases');
 assert.match(html,/structuredClone\(openingCharacterBuild\.技能 \|\| \{\}\)[\s\S]*\.\.\.skillObj/,'opening character keeps base skills and merges store purchases');
 assert.doesNotMatch(html,/\$\('grid-partner'\)\.innerHTML/,'legacy partner grid is no longer accessed');

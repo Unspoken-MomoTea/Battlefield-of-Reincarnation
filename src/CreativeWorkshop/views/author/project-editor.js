@@ -332,7 +332,7 @@ export function createAuthorProjectEditor({
     coverBlock.appendChild(element(
       'span',
       'rw-field-label',
-      openingAvatarMode ? '封面 / 默认头像（可选）' : '封面图（可选）',
+      openingAvatarMode ? '封面 / 默认头像 *' : '封面图 *',
     ));
     const coverZone = element('label', 'rw-cover-dropzone rw-update-cover-zone');
     const coverPreview = doc.createElement('img');
@@ -364,8 +364,8 @@ export function createAuthorProjectEditor({
           ? '当前封面会继续作为默认头像；只有选择新图片才会替换。'
           : '当前封面会继续保留；只有选择新图片才会替换。')
         : (openingAvatarMode
-          ? '尚未设置封面；设置后会作为开局角色/伙伴的默认头像。'
-          : '尚未设置封面。'),
+          ? '尚未设置封面；保存测试或发布前必须选择图片，并会作为开局角色/伙伴的默认头像。'
+          : '尚未设置封面；保存测试或发布前必须选择图片。'),
     );
     coverBlock.append(coverZone, coverState);
     right.appendChild(coverBlock);
@@ -439,7 +439,8 @@ export function createAuthorProjectEditor({
       progress.textContent = '正在保存本地测试版本…';
       try {
         const localCover = coverInput.files?.[0] || currentCoverBlob || null;
-        const coverDataUrl = localCover ? await readFileDataUrl(localCover) : '';
+        if (!localCover) throw new Error('请选择封面图片；本地测试也必须带图片');
+        const coverDataUrl = await readFileDataUrl(localCover);
         await projectService.saveLocalTest({
           id: current.id,
           name: nextName,
@@ -465,6 +466,9 @@ export function createAuthorProjectEditor({
       if (!nextName) throw new Error('请填写作品名称');
 
       const selectedCover = coverInput.files?.[0] || null;
+      if (!current.has_cover && !selectedCover) {
+        throw new Error('请选择封面图片；发布作品必须提供图片');
+      }
       const bundle = buildVersionBundle(nextName);
       const signature = JSON.stringify({
         name: nextName,

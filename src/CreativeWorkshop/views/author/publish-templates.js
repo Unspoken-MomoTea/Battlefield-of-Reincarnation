@@ -6,6 +6,7 @@ const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
 const STORE_ITEM_TYPES = new Set(['消耗', '材料', '特殊']);
 const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const BLOOD_ATTRS = ['力量', '敏捷', '体质', '精神', '魅力'];
+const WORLD_CHARACTER_ORDER = 650;
 
 function read(source, name) {
   if (source && typeof source.get === 'function') return String(source.get(name) || '').trim();
@@ -116,7 +117,6 @@ function validatePartnerEquipment(source) {
 function openingBuild(source, mode) {
   const rank = OPENING_RANKS.has(read(source, 'opening_rank')) ? read(source, 'opening_rank') : 'Ⅰ';
   const autoQuality = rankQuality(rank);
-  const occupationName = read(source, 'opening_occupation_name');
   const bloodlineName = read(source, 'opening_bloodline_name');
   if (!bloodlineName) throw new Error('请填写血统名称');
 
@@ -161,17 +161,6 @@ function openingBuild(source, mode) {
   return {
     种族: read(source, 'opening_race') || '人类',
     身份: csv(read(source, 'opening_identity')),
-    职业: occupationName
-      ? {
-          [occupationName]: {
-            类型: ['战斗', '生活', '辅助'].includes(read(source, 'opening_occupation_type'))
-              ? read(source, 'opening_occupation_type')
-              : '辅助',
-            特性: csv(read(source, 'opening_occupation_traits')),
-            来源: read(source, 'opening_occupation_source'),
-          },
-        }
-      : {},
     层级: rank,
     血统: bloodline,
     技能: skills,
@@ -281,7 +270,12 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
               keys_secondary: { logic: 'and_any', keys: [] },
               scan_depth: 'same_as_global',
             },
-            position: { type: 'at_depth', role: 'system', depth: 4, order: 100 },
+            position: {
+              type: 'after_character_definition',
+              role: 'system',
+              depth: 4,
+              order: WORLD_CHARACTER_ORDER,
+            },
             content: worldCharacterContent(profile),
             probability: 100,
           }],
@@ -381,8 +375,6 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
     const data = values.find(value => value.kind === mode) || {};
     const build = data.build || data.character || {};
     const profile = data.profile || {};
-    const occupationName = Object.keys(build.职业 || {})[0] || '';
-    const occupation = occupationName ? build.职业?.[occupationName] || {} : {};
     const bloodlineName = Object.keys(build.血统 || {})[0] || '';
     const bloodline = bloodlineName ? build.血统?.[bloodlineName] || {} : {};
     const [bloodEffectName, bloodEffectDesc] = firstEffect(bloodline.效果);
@@ -392,10 +384,6 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
       opening_name: data.name || projectName,
       opening_race: build.种族 || '人类',
       opening_identity: Array.isArray(build.身份) ? build.身份.join(', ') : String(build.身份 || ''),
-      opening_occupation_name: occupationName,
-      opening_occupation_type: occupation.类型 || '辅助',
-      opening_occupation_traits: (occupation.特性 || []).join(', '),
-      opening_occupation_source: occupation.来源 || '',
       opening_rank: OPENING_RANKS.has(build.层级) ? build.层级 : 'Ⅰ',
       opening_personality: profile.性格 || '',
       opening_likes: profile.喜爱 || '',

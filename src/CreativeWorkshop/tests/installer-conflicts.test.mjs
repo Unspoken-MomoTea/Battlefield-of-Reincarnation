@@ -19,6 +19,38 @@ test('preflight reports preset collisions without treating namespaced own resour
   assert.deepEqual(result.warnings.map(item => item.type), ['preset_name_collision']);
 });
 
+test('world-character bundles install between the character start and end markers', () => {
+  const installed = project([
+    {
+      kind: 'worldbook',
+      name: '角色.json',
+      format: 'json',
+      content: {
+        entries: [{
+          name: '[角色] 测试人物',
+          content: '人物设定',
+          strategy: { type: 'selective', keys: ['测试人物'] },
+          position: { type: 'at_depth', depth: 4, role: 'system', order: 100 },
+        }],
+      },
+    },
+    {
+      kind: 'data',
+      name: '角色.character.json',
+      format: 'json',
+      content: { schema_version: 1, kind: 'world_character', name: '测试人物' },
+    },
+  ]);
+  const plan = buildArtifactPlan(installed);
+  assert.equal(plan.worldbook.length, 1);
+  assert.deepEqual(plan.worldbook[0].position, {
+    type: 'after_character_definition',
+    depth: 4,
+    role: 'system',
+    order: 650,
+  });
+});
+
 test('preflight reports semantic worldbook name collisions from unrelated entries', async () => {
   const adapter = fakeAdapter();
   const installed = project([

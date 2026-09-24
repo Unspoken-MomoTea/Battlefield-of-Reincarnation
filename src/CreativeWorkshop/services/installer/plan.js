@@ -10,6 +10,13 @@ export function buildArtifactPlan(installed) {
   if (!bundle || bundle.schema_version !== 1 || !Array.isArray(bundle.artifacts)) {
     throw new Error('本地作品包无效，请重新下载');
   }
+  const dataKinds = new Set(bundle.artifacts.flatMap(artifact => {
+    if (artifact?.kind !== 'data') return [];
+    const values = Array.isArray(artifact.content) ? artifact.content : [artifact.content];
+    return values.map(value => String(value?.kind || '').trim()).filter(Boolean);
+  }));
+  const worldCharacterBundle = dataKinds.has('world_character');
+
   const plan = {
     worldbook: [],
     regexes: [],
@@ -24,6 +31,15 @@ export function buildArtifactPlan(installed) {
     if (artifact.kind === 'worldbook') {
       plan.worldbook.push(...normalizeWorldbookArtifact(artifact.content).map(entry => ({
         ...entry,
+        ...(worldCharacterBundle ? {
+          position: {
+            ...(entry.position || {}),
+            type: 'after_character_definition',
+            role: 'system',
+            depth: 4,
+            order: 650,
+          },
+        } : {}),
         extra: {
           ...(entry.extra ?? {}),
           reincarnationWorkshop: {

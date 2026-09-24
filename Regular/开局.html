@@ -2661,11 +2661,20 @@
 
                 // 角色资产与血统 (完美避开覆盖 HP/EP 等其他属性)
                 _set(c, 'stat_data.角色.种族', race);
-                _set(c, 'stat_data.角色.身份', [identity, gender, age+'岁']);
+                const libraryIdentities = openingCharacterBuild && Array.isArray(openingCharacterBuild.身份)
+                    ? openingCharacterBuild.身份
+                    : [];
+                const resolvedIdentities = [...new Set([
+                    ...libraryIdentities,
+                    identity,
+                    gender,
+                    age+'岁'
+                ].map(value => String(value || '').trim()).filter(Boolean))];
+                _set(c, 'stat_data.角色.身份', resolvedIdentities);
                 _set(c, 'stat_data.角色.空间币', currentCoins);
 
                 if (openingCharacterBuild) {
-                    ['种族','职业','层级','血统','技能','装备','状态','形态库','当前形态'].forEach(key => {
+                    ['种族','层级','血统','技能','装备','状态','形态库','当前形态'].forEach(key => {
                         if (openingCharacterBuild[key] !== undefined) _set(c, 'stat_data.角色.' + key, structuredClone(openingCharacterBuild[key]));
                     });
                 }

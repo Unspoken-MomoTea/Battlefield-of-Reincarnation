@@ -80,14 +80,14 @@ export function bindCreateProjectFlow({
     if (contentTitle) contentTitle.textContent = copy[0];
     if (contentHelp) contentHelp.textContent = copy[1];
     const openingAvatar = mode === 'opening_character' || mode === 'opening_partner';
-    if (coverLabel) coverLabel.textContent = openingAvatar ? '封面 / 默认头像（可选）' : '封面图（可选）';
+    if (coverLabel) coverLabel.textContent = openingAvatar ? '封面 / 默认头像 *' : '封面图 *';
     if (coverHint) coverHint.textContent = openingAvatar
       ? 'PNG / JPEG / WebP · 会同时作为状态栏默认头像，建议人物主体居中'
       : 'PNG / JPEG / WebP · 建议 16:9';
     if (!nodes.createCover.files?.length) {
       nodes.createCoverState.textContent = openingAvatar
-        ? '可选。发布封面会同时作为开局后的默认头像，玩家之后仍可在状态栏自行更换。'
-        : '可选。建议 16:9，选择后会立即预览。';
+        ? '必需。该图片会同时作为开局后的默认头像，玩家之后仍可在状态栏自行更换。'
+        : '必需。建议 16:9，选择后会立即预览。';
     }
   };
   const submitButton = nodes.createForm.querySelector('button[type="submit"]');
@@ -162,8 +162,8 @@ export function bindCreateProjectFlow({
     if (!selected) {
       const mode = currentMode();
       nodes.createCoverState.textContent = mode === 'opening_character' || mode === 'opening_partner'
-        ? '可选。发布封面会同时作为开局后的默认头像，玩家之后仍可在状态栏自行更换。'
-        : '可选。建议 16:9，选择后会立即预览。';
+        ? '必需。该图片会同时作为开局后的默认头像，玩家之后仍可在状态栏自行更换。'
+        : '必需。建议 16:9，选择后会立即预览。';
       nodes.createCoverPreview.hidden = true;
       nodes.createCoverPreview.removeAttribute('src');
       return;
@@ -190,7 +190,7 @@ export function bindCreateProjectFlow({
     revokeCoverPreview();
     nodes.createCoverPreview.hidden = true;
     nodes.createCoverPreview.removeAttribute('src');
-    nodes.createCoverState.textContent = '可选。建议 16:9，选择后会立即预览。';
+    nodes.createCoverState.textContent = '必需。建议 16:9，选择后会立即预览。';
     progress.hidden = true;
     progress.textContent = '';
     submitAttempt = null;
@@ -372,6 +372,8 @@ export function bindCreateProjectFlow({
     const dependencies = dependencyPicker.values();
 
     if (!name) return notifyError(new Error('请先填写作品名称'));
+    const cover = nodes.createCover.files?.[0] || null;
+    if (!cover) return notifyError(new Error('请选择封面图片；发布作品必须提供图片'));
     let bundle;
     try {
       bundle = buildPublishBundle(form, name);
@@ -383,8 +385,7 @@ export function bindCreateProjectFlow({
       localTestButton.textContent = '正在保存本地测试…';
       setSubmitStatus('working', '正在保存本地测试版本；不会上传服务器或提交审核…');
       try {
-        const cover = nodes.createCover.files?.[0] || null;
-        const coverDataUrl = cover ? await readFileDataUrl(cover) : '';
+        const coverDataUrl = await readFileDataUrl(cover);
         await projectService.saveLocalTest({
           id: localDraftId,
           name,
@@ -435,13 +436,14 @@ export function bindCreateProjectFlow({
     const dependencies = dependencyPicker.values();
 
     if (!name) return notifyError(new Error('请先填写作品名称'));
+    const cover = nodes.createCover.files?.[0] || null;
+    if (!cover) return notifyError(new Error('请选择封面图片；发布作品必须提供图片'));
     let bundle;
     try {
       bundle = buildPublishBundle(form, name);
     } catch (error) {
       return notifyError(error);
     }
-    const cover = nodes.createCover.files?.[0] || null;
     const attemptKey = JSON.stringify({
       name,
       summary,

@@ -51,31 +51,53 @@ function otherClaims(projects, projectId) {
   return claims;
 }
 
-function locateInBooks(books, target) {
-  const requestedName = String(target?.worldbook || '').trim();
-  const candidates = requestedName
-    ? [...books.entries()].filter(([name]) => name === requestedName)
-    : [...books.entries()];
-
+function collectEntryMatches(books, predicate) {
   const matches = [];
-  for (const [worldbookName, entries] of candidates) {
-    entries.forEach((entry, index) => {
-      const matched = target?.uid
-        ? entryUid(entry) === String(target.uid)
-        : entryName(entry) === String(target?.name || '').trim();
-      if (matched) matches.push({ worldbookName, index, entry });
+  for (const [worldbookName, entries] of books.entries()) {
+    if (!worldbookName || worldbookName === SHARED_WORLDBOOK_NAME) continue;
+    (entries || []).forEach((entry, index) => {
+      if (predicate(entry)) matches.push({ worldbookName, index, entry });
     });
   }
+  return matches;
+}
 
-  if (!matches.length) {
-    const label = target?.name || target?.uid || '未知条目';
-    throw new Error(`找不到需要控制状态的原版世界书条目“${label}”`);
+export function findOriginalWorldbookTargets(books, target) {
+  const requestedWorldbook = String(target?.worldbook || '').trim();
+  const requestedUid = String(target?.uid ?? '').trim();
+  const requestedEntryName = String(target?.name || '').trim();
+
+  if (requestedUid) {
+    const uidMatches = collectEntryMatches(books, entry => entryUid(entry) === requestedUid);
+    if (uidMatches.length) {
+      const inRequestedBook = requestedWorldbook
+        ? uidMatches.filter(match => match.worldbookName === requestedWorldbook)
+        : [];
+      if (inRequestedBook.length) return inRequestedBook;
+      if (uidMatches.length === 1) return uidMatches;
+      if (requestedEntryName) {
+        const namedUidMatches = uidMatches.filter(match => entryName(match.entry) === requestedEntryName);
+        if (namedUidMatches.length) return namedUidMatches;
+      }
+      return uidMatches;
+    }
   }
-  if (matches.length > 1) {
-    const label = target?.name || target?.uid || '未知条目';
-    throw new Error(`原版世界书条目“${label}”存在多个匹配项，请由作者指定世界书或 UID`);
-  }
-  return matches[0];
+
+  if (!requestedEntryName) return [];
+  const nameMatches = collectEntryMatches(
+    books,
+    entry => entryName(entry) === requestedEntryName,
+  );
+  if (!requestedWorldbook) return nameMatches;
+  const inRequestedBook = nameMatches.filter(match => match.worldbookName === requestedWorldbook);
+  return inRequestedBook.length ? inRequestedBook : nameMatches;
+}
+
+function locateInBooks(books, target) {
+  return {
+    label: target?.name || target?.uid || '未知条目',
+    matches: findOriginalWorldbookTargets(books, target),
+  };
 }
 
 function entryEnabled(entry) {
@@ -96,9 +118,26 @@ function restoreEnabledState(entry, beforeEntry) {
   return setEntryEnabled(entry, entryEnabled(beforeEntry));
 }
 
-function findRecordedEntry(entries, change) {
-  const index = entries.findIndex(entry => matchesIdentity(entry, change.identity));
-  return index < 0 ? null : { index, entry: entries[index] };
+function findRecordedEntry(books, change) {
+  const matches = findOriginalWorldbookTargets(books, {
+    worldbook: change.worldbookName,
+    ...(change.identity || {}),
+  });
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function sameIdentity(left, right) {
+  if (left?.uid || right?.uid) {
+    return Boolean(left?.uid && right?.uid) && String(left.uid) === String(right.uid);
+  }
+  return String(left?.name || '').trim() === String(right?.name || '').trim();
+}
+
+function findPreviousChange(previous, key, identity) {
+  const exact = previous.find(change => conflictKey(change.worldbookName, change.identity) === key);
+  if (exact) return exact;
+  const matches = previous.filter(change => sameIdentity(change.identity, identity));
+  return matches.length === 1 ? matches[0] : null;
 }
 
 async function installedProjects(storage) {
@@ -125,15 +164,25 @@ export async function syncOriginalWorldbookConflicts({ adapter, storage }, insta
   const working = new Map(
     [...state.originalWorldbooks.entries()].map(([name, entries]) => [name, clone(entries)]),
   );
-  const previousByKey = new Map(previous.map(change => [conflictKey(change.worldbookName, change.identity), change]));
   const claims = otherClaims(await installedProjects(storage), installed.id);
   const nextChanges = [];
   const desiredKeys = new Set();
+  const consumedPrevious = new Set();
   const warnings = [];
   const unrestored = [];
 
   for (const directive of desired) {
-    const located = locateInBooks(working, directive.target || {});
+    const { matches, label } = locateInBooks(working, directive.target || {});
+    if (!matches.length) {
+      warnings.push(`未找到原版世界书条目“${label}”，已跳过这条状态规则`);
+      continue;
+    }
+    if (matches.length > 1) {
+      warnings.push(`原版世界书条目“${label}”匹配到 ${matches.length} 项，已跳过这条状态规则`);
+      continue;
+    }
+
+    const located = matches[0];
     if (located.worldbookName === SHARED_WORLDBOOK_NAME) {
       throw new Error('原版资源状态规则不能指向创意工坊共享世界书');
     }
@@ -143,7 +192,8 @@ export async function syncOriginalWorldbookConflicts({ adapter, storage }, insta
     desiredKeys.add(key);
 
     const targetState = desiredState(directive);
-    const previousChange = previousByKey.get(key);
+    const previousChange = findPreviousChange(previous, key, identity);
+    if (previousChange) consumedPrevious.add(previousChange);
     const inherited = inheritedClaim(claims, key, targetState);
     const currentFingerprint = fingerprint(located.entry);
     const wasModified =
@@ -174,22 +224,18 @@ export async function syncOriginalWorldbookConflicts({ adapter, storage }, insta
 
   for (const change of previous) {
     const key = conflictKey(change.worldbookName, change.identity);
-    if (desiredKeys.has(key)) continue;
+    if (desiredKeys.has(key) || consumedPrevious.has(change)) continue;
 
-    const entries = working.get(change.worldbookName);
-    if (!entries) {
-      warnings.push(`原世界书“${change.worldbookName}”已不存在，无法自动恢复“${change.identity?.name || change.identity?.uid || ''}”`);
-      unrestored.push(change);
-      continue;
-    }
-    const located = findRecordedEntry(entries, change);
+    const located = findRecordedEntry(working, change);
     if (!located) {
-      warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”已不存在，跳过恢复`);
+      warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”已不存在或无法唯一匹配，跳过恢复`);
       unrestored.push(change);
       continue;
     }
+    const entries = working.get(located.worldbookName);
 
-    const inherited = (claims.get(key) || [])[0] || null;
+    const actualKey = conflictKey(located.worldbookName, change.identity);
+    const inherited = (claims.get(actualKey) || claims.get(key) || [])[0] || null;
     if (inherited) {
       entries[located.index] = setEntryEnabled(located.entry, desiredState(inherited) === 'enabled');
       continue;
@@ -226,21 +272,16 @@ export async function restoreOriginalWorldbookConflicts({ adapter, storage }, in
 
   for (const change of previous) {
     const key = conflictKey(change.worldbookName, change.identity);
-
-    const entries = working.get(change.worldbookName);
-    if (!entries) {
-      warnings.push(`原世界书“${change.worldbookName}”已不存在，无法自动恢复`);
-      unrestored.push(change);
-      continue;
-    }
-    const located = findRecordedEntry(entries, change);
+    const located = findRecordedEntry(working, change);
     if (!located) {
-      warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”已不存在，无法自动恢复`);
+      warnings.push(`原版条目“${change.identity?.name || change.identity?.uid || ''}”已不存在或无法唯一匹配，无法自动恢复`);
       unrestored.push(change);
       continue;
     }
+    const entries = working.get(located.worldbookName);
 
-    const inherited = (claims.get(key) || [])[0] || null;
+    const actualKey = conflictKey(located.worldbookName, change.identity);
+    const inherited = (claims.get(actualKey) || claims.get(key) || [])[0] || null;
     if (inherited) {
       entries[located.index] = setEntryEnabled(located.entry, desiredState(inherited) === 'enabled');
       continue;

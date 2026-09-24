@@ -26,7 +26,7 @@ export function validateDownloadedBundle(bundle) {
         throw new Error('下载的作品包原版资源状态规则无效');
       }
       if (rule.kind === 'worldbook') {
-        if (!String(rule.target.worldbook || '').trim() || (!String(rule.target.uid ?? '').trim() && !String(rule.target.name || '').trim())) {
+        if (!String(rule.target.uid ?? '').trim() && !String(rule.target.name || '').trim()) {
           throw new Error('下载的作品包世界书状态规则目标无效');
         }
       }

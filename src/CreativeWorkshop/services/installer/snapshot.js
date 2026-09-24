@@ -48,15 +48,8 @@ export async function createInstallSnapshot(adapter, installed, plan, characterN
   }
   if (conflictAffected) {
     const existingNames = new Set(await maybe(adapter.getWorldbookNames()));
-    const requestedNames = new Set([
-      state.binding?.primary,
-      ...(state.binding?.additional ?? []),
-      ...(plan.originalConflicts ?? []).map(item => item.target?.worldbook),
-      ...(oldTargets.originalWorldbookChanges ?? []).map(item => item.worldbookName),
-    ].filter(name => typeof name === 'string' && name && name !== SHARED_WORLDBOOK_NAME));
-
-    for (const name of requestedNames) {
-      if (!existingNames.has(name)) continue;
+    for (const name of existingNames) {
+      if (!name || name === SHARED_WORLDBOOK_NAME) continue;
       state.originalWorldbooks.set(name, clone(await maybe(adapter.getWorldbook(name))));
     }
   }

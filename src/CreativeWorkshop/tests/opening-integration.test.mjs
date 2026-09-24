@@ -31,6 +31,16 @@ test('publish shell uses one category selector plus character subtype and dynami
   assert.match(html, /data-role="character-partner"/u);
 });
 
+test('browse category switches avoid duplicate discover refreshes', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const events = fs.readFileSync(fileURLToPath(new URL('../app/events.js', import.meta.url)), 'utf8');
+  const app = fs.readFileSync(fileURLToPath(new URL('../app/workshop-app.js', import.meta.url)), 'utf8');
+  assert.match(app, /function showTab\(name, \{ refresh = true \} = \{\}\)/u);
+  assert.match(app, /if \(!refresh\) return;/u);
+  assert.match(events, /showTab\('discover', \{ refresh: false \}\)/u);
+});
+
 test('installer snapshots remain usable in non-browser contract tests', async () => {
   assert.deepEqual(await listOpeningAssetsByProject('project:test'), []);
   assert.deepEqual(await listProjectStoreCatalogs('project:test'), []);

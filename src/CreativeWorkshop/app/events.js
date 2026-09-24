@@ -34,7 +34,7 @@ export function bindWorkshopEvents({
         buttonNode.classList.toggle('is-filter-active', buttonNode === categoryButton);
       });
       nodes.characterHomeButton?.classList.remove('is-filter-active');
-      showTab('discover');
+      showTab('discover', { refresh: false });
       overlay.querySelector('.rw-tab[data-tab="discover"]')?.classList.remove('is-active');
       nodes.discoverHeadTools.hidden = false;
       void views.discover.catalog({
@@ -50,7 +50,7 @@ export function bindWorkshopEvents({
     if (nodes.characterHome) nodes.characterHome.hidden = false;
     nodes.discoverCategories.forEach(buttonNode => buttonNode.classList.remove('is-filter-active'));
     nodes.characterHomeButton.classList.add('is-filter-active');
-    showTab('discover');
+    showTab('discover', { refresh: false });
     overlay.querySelector('.rw-tab[data-tab="discover"]')?.classList.remove('is-active');
     void views.discover.characters();
   });

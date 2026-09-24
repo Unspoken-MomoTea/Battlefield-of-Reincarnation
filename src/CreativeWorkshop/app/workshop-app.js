@@ -69,13 +69,14 @@ export function bootWorkshop() {
     getAuth: () => auth,
   });
 
-  function showTab(name) {
+  function showTab(name, { refresh = true } = {}) {
     if (name === 'admin' && !Number(auth?.user?.is_admin) && !Number(auth?.user?.is_moderator)) return;
     activeTab = name;
     overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === name));
     overlay.querySelectorAll('.rw-section').forEach(section => { section.hidden = section.dataset.section !== name; });
     nodes.discoverHeadTools.hidden = name !== 'discover' || !nodes.discoverCatalog || nodes.discoverCatalog.hidden;
     if (name === 'discover') {
+      if (!refresh) return;
       if (nodes.characterHome && !nodes.characterHome.hidden) void views.discover.characters();
       else if (!nodes.discoverCatalog || nodes.discoverCatalog.hidden) void views.discover.home();
       else void views.discover.refresh();

@@ -119,6 +119,11 @@ test('creator flows require a cover before local testing or publishing', async (
   assert.match(editor, /本地测试也必须带图片/u);
   assert.match(editor, /发布作品必须提供图片/u);
   assert.match(heretic, /发布异端也必须提供图片/u);
+  assert.match(heretic, /let attempt=null/u);
+  assert.match(heretic, /if\(!attempt\.projectId\)/u);
+  assert.match(heretic, /if\(!attempt\.coverUploaded\)/u);
+  assert.match(heretic, /if\(!attempt\.versionUploaded\)/u);
+  assert.match(heretic, /if\(!attempt\.submitted\)/u);
 });
 
 test('opening asset registry inherits the project cover as default avatar without changing the build', () => {

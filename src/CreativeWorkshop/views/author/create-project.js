@@ -197,10 +197,10 @@ export function bindCreateProjectFlow({
     localDraftId = createLocalDraftId();
     dirty = false;
     submitButton.disabled = false;
-    submitButton.textContent = '提交审核';
+    submitButton.textContent = '提交审核（上传）';
     if (localTestButton) {
       localTestButton.disabled = false;
-      localTestButton.textContent = '保存到本地测试';
+      localTestButton.textContent = '保存本地测试（不上传）';
     }
     dedicatedDrafts.clear();
     dedicatedEditor = null;
@@ -410,7 +410,7 @@ export function bindCreateProjectFlow({
       } finally {
         if (localTestButton.isConnected) {
           localTestButton.disabled = false;
-          localTestButton.textContent = '保存到本地测试';
+          localTestButton.textContent = '保存本地测试（不上传）';
         }
       }
     })();
@@ -536,7 +536,7 @@ export function bindCreateProjectFlow({
       } finally {
         if (submitButton.isConnected) {
           submitButton.disabled = false;
-          submitButton.textContent = submitAttempt?.submitted ? '已提交审核' : '重试提交';
+          submitButton.textContent = submitAttempt?.submitted ? '已提交审核' : '重试提交审核（上传）';
         }
       }
     })();

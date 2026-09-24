@@ -148,7 +148,8 @@ test('workshop self update never reloads the whole tavern and does not loop on r
 
 test('first project creation exposes a local-only test path', () => {
   const html = workshopTemplate('test');
-  assert.match(html, /data-action="create-project-local-test">保存到本地测试<\/button>/u);
+  assert.match(html, /data-action="create-project-local-test">保存本地测试（不上传）<\/button>/u);
+  assert.match(html, /<button class="rw-button primary" type="submit">提交审核（上传）<\/button>/u);
 
   const source = fs.readFileSync(
     fileURLToPath(new URL('../views/author/create-project.js', import.meta.url)),
@@ -197,4 +198,12 @@ test('worldbook keyword details follow activation strategy', () => {
   assert.match(source, /if \(!isConstant\)/u);
   assert.match(source, /secondaryKeys\.length \? '主要关键词' : '关键词'/u);
   assert.match(source, /if \(secondaryKeys\.length\)/u);
+});
+
+
+test('project creation keeps the action footer visible while only the middle content scrolls', () => {
+  assert.match(WORKSHOP_CSS, /\.rw-create-form\{[\s\S]*grid-template-rows:auto minmax\(0,1fr\) auto/u);
+  assert.match(WORKSHOP_CSS, /\.rw-create-form\{[\s\S]*height:min\(900px,94vh\)/u);
+  assert.match(WORKSHOP_CSS, /\.rw-publish-grid\{[\s\S]*max-height:none;overflow:auto/u);
+  assert.match(WORKSHOP_CSS, /\.rw-publish-footer\{[\s\S]*position:relative;z-index:6/u);
 });

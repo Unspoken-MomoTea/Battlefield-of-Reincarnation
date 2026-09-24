@@ -281,11 +281,44 @@ test('public catalog can filter dedicated character and opening-store kinds', as
     }],
   });
 
+  const heretic = await responseJson(
+    await createProject(
+      request('/api/projects', 'POST', {
+        name: '异端作品',
+        summary: '',
+        category: 'character',
+        tags: ['异端库'],
+      }),
+      env,
+      author,
+    ),
+  );
+  await publishVersion(env, author, admin, heretic.project.id, {
+    schema_version: 1,
+    artifacts: [{
+      kind: 'data',
+      name: 'heretic.json',
+      format: 'json',
+      content: { schema_version: 1, kind: 'heretic', name: '异端' },
+    }],
+  });
+
   const partners = await responseJson(
     await listPublicProjects(request('/api/projects?category=character&kind=opening_partner'), env),
   );
   assert.deepEqual(partners.items.map(item => item.id), [partner.project.id]);
   assert.equal(partners.items[0].kind, 'opening_partner');
+
+  const heretics = await responseJson(
+    await listPublicProjects(request('/api/projects?category=character&kind=heretic'), env),
+  );
+  assert.deepEqual(heretics.items.map(item => item.id), [heretic.project.id]);
+  assert.equal(heretics.items[0].kind, 'heretic');
+
+  const worldCharacters = await responseJson(
+    await listPublicProjects(request('/api/projects?category=character&kind=world_character'), env),
+  );
+  assert.equal(worldCharacters.items.some(item => item.id === heretic.project.id), false);
 
   const stores = await responseJson(
     await listPublicProjects(request('/api/projects?category=extension&kind=store_catalog'), env),

@@ -11,6 +11,7 @@ const CHARACTER_CONTENT_KINDS = new Set([
   'world_character',
   'opening_character',
   'opening_partner',
+  'heretic',
 ]);
 
 function bundleDataKinds(bundle) {
@@ -53,6 +54,9 @@ export async function uploadProjectVersion(request, env, user, projectId) {
   const manifestKey = `${baseKey}/manifest.json`;
   const contentKey = `${baseKey}/bundle.json`;
   const autoPublish = hasApprovedRelease(project);
+  if (autoPublish && !project.cover_key) {
+    throw new HttpError(409, 'cover_required', '发布新版本前必须先上传封面图片');
+  }
   const reviewStatus = autoPublish ? 'approved' : 'draft';
 
   await env.PROJECTS.put(manifestKey, JSON.stringify(manifest), { httpMetadata: { contentType: 'application/json; charset=utf-8' } });

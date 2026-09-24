@@ -3,7 +3,7 @@ import { HttpError, json } from '../http.js';
 import { pageParams, projectPublic } from './core.js';
 import { buildPublicChangePreview, buildPublicContentPreview } from './public-preview.js';
 
-const PUBLIC_KIND_SQL = "COALESCE(NULLIF(v.content_kind, ''), CASE WHEN v.project_type = 'character' THEN 'world_character' ELSE 'extension' END)";
+const PUBLIC_KIND_SQL = "COALESCE(NULLIF(v.content_kind, ''), CASE WHEN v.project_type = 'character' AND EXISTS (SELECT 1 FROM json_each(v.tags) legacy_kind WHERE legacy_kind.value = '异端库') THEN 'heretic' WHEN v.project_type = 'character' THEN 'world_character' ELSE 'extension' END)";
 
 const PUBLIC_SORT_SQL = {
   latest: 'COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',

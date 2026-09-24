@@ -80,8 +80,23 @@ export async function createWorldbookProject(env, author) {
   return (await responseJson(response)).project;
 }
 
+export async function seedTestCover(env, projectId) {
+  const project = env.DB.db.prepare(
+    'SELECT latest_version FROM projects WHERE id = ?',
+  ).get(projectId);
+  const version = env.DB.db.prepare(
+    'SELECT manifest_key FROM project_versions WHERE project_id = ? AND version = ?',
+  ).get(projectId, Number(project?.latest_version || 0));
+  if (!version?.manifest_key) throw new Error('seedTestCover requires an uploaded version');
+  env.DB.db.prepare('UPDATE projects SET cover_key = ? WHERE id = ?')
+    .run(version.manifest_key, projectId);
+  env.DB.db.prepare('UPDATE project_versions SET cover_key = ? WHERE project_id = ? AND version = ?')
+    .run(version.manifest_key, projectId, Number(project.latest_version));
+}
+
 export async function publishVersion(env, author, admin, projectId, versionBundle, note = '') {
   await uploadProjectVersion(request(`/api/projects/${projectId}/versions`, 'POST', { changelog: 'first', bundle: versionBundle }), env, author, projectId);
+  await seedTestCover(env, projectId);
   await submitProjectForReview(env, author, projectId);
   await reviewProject(request(`/api/admin/projects/${projectId}/review`, 'POST', { decision: 'approved', note }), env, admin, projectId);
 }

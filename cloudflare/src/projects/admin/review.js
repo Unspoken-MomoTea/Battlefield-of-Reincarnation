@@ -10,8 +10,11 @@ export async function reviewProject(request, env, user, projectId) {
   if (decision === 'rejected' && !note) throw new HttpError(400, 'rejection_note_required', '驳回时必须填写原因');
   const project = await env.DB.prepare('SELECT id, latest_version, published_version, status FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) throw new HttpError(404, 'project_not_found', '作品不存在');
-  const version = await env.DB.prepare('SELECT version, review_status FROM project_versions WHERE project_id = ? AND version = ?').bind(projectId, project.latest_version).first();
+  const version = await env.DB.prepare('SELECT version, review_status, cover_key FROM project_versions WHERE project_id = ? AND version = ?').bind(projectId, project.latest_version).first();
   if (!version || version.review_status !== 'pending') throw new HttpError(409, 'review_not_pending', '当前最新版本不在待审核状态');
+  if (decision === 'approved' && !version.cover_key) {
+    throw new HttpError(409, 'cover_required', '作品必须有封面图片才能审核通过');
+  }
   const now = nowSeconds();
   await env.DB.prepare('INSERT INTO review_records (project_id, version, reviewer_user_id, decision, note, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(projectId, project.latest_version, user.id, decision, note, now).run();

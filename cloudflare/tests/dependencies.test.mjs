@@ -13,6 +13,7 @@ import {
   bundle,
   createWorldbookProject,
   publishVersion,
+  seedTestCover,
   request,
   responseJson,
   setup,
@@ -47,6 +48,7 @@ test('published project freezes explicit dependencies into version metadata', as
     created.project.id,
   );
   await submitProjectForReview(env, author, created.project.id);
+  await seedTestCover(env, created.project.id);
   await reviewProject(
     request(`/api/admin/projects/${created.project.id}/review`, 'POST', {
       decision: 'approved',
@@ -115,6 +117,7 @@ test('dependency metadata rejects cycles through published dependency graph', as
     b.id,
   );
   await submitProjectForReview(env, author, b.id);
+  await seedTestCover(env, b.id);
   await reviewProject(
     request(`/api/admin/projects/${b.id}/review`, 'POST', { decision: 'approved', note: '' }),
     env,

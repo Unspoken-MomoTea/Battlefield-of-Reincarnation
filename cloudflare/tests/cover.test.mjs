@@ -117,6 +117,55 @@ async function publish(env, author, admin, projectId, label) {
   }
 }
 
+test('coverless projects cannot be approved for public release', async () => {
+  const { env, author, admin, project } = await setup();
+  await uploadProjectVersion(
+    jsonRequest(`/api/projects/${project.id}/versions`, {
+      changelog: 'no-cover',
+      bundle: worldbook('no-cover'),
+    }),
+    env,
+    author,
+    project.id,
+  );
+  await submitProjectForReview(env, author, project.id);
+  await assert.rejects(
+    () => reviewProject(
+      jsonRequest(`/api/admin/projects/${project.id}/review`, { decision: 'approved', note: '' }),
+      env,
+      admin,
+      project.id,
+    ),
+    error => error?.status === 409 && error?.code === 'cover_required',
+  );
+});
+
+test('approved projects without a cover cannot auto-publish another version', async () => {
+  const { env, author, admin, project } = await setup();
+  const cover = png(7);
+  await uploadProjectCover(
+    request(`/api/projects/${project.id}/cover`, 'PUT', cover, { 'Content-Type': 'image/png' }),
+    env,
+    author,
+    project.id,
+  );
+  await publish(env, author, admin, project.id, 'v1');
+  env.DB.db.prepare('UPDATE projects SET cover_key = NULL WHERE id = ?').run(project.id);
+
+  await assert.rejects(
+    () => uploadProjectVersion(
+      jsonRequest(`/api/projects/${project.id}/versions`, {
+        changelog: 'v2',
+        bundle: worldbook('v2'),
+      }),
+      env,
+      author,
+      project.id,
+    ),
+    error => error?.status === 409 && error?.code === 'cover_required',
+  );
+});
+
 test('published cover stays frozen until the author publishes a later version carrying the new cover', async () => {
   const { env, author, admin, project } = await setup();
 

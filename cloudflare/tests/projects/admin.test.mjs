@@ -24,6 +24,7 @@ import {
   bundle,
   createWorldbookProject,
   publishVersion,
+  seedTestCover,
   request,
   responseJson,
   setup,
@@ -36,6 +37,7 @@ test('reviewer can inspect and review submitted projects', async () => {
   const project = await createWorldbookProject(env, author);
   await uploadProjectVersion(request(`/api/projects/${project.id}/versions`, 'POST', { changelog: '', bundle: bundle('reviewer') }), env, author, project.id);
   await submitProjectForReview(env, author, project.id);
+  await seedTestCover(env, project.id);
 
   const pending = await responseJson(await listAdminProjects(request('/api/admin/projects?review_status=pending'), env, reviewer));
   assert.equal(pending.items.length, 1);

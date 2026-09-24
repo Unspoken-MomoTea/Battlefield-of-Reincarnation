@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
 import { getAdminProjectDiff } from '../src/projects/diff.js';
+import { seedTestCover } from './support/project-fixture.mjs';
 import {
   createProject,
   reviewProject,
@@ -102,6 +103,7 @@ async function approve(env, author, admin, projectId, bundle) {
     author,
     projectId,
   );
+  await seedTestCover(env, projectId);
   await submitProjectForReview(env, author, projectId);
   await reviewProject(
     post(`/api/admin/projects/${projectId}/review`, { decision: 'approved', note: '' }),

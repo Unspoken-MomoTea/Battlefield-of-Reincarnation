@@ -9,6 +9,7 @@ const PUBLIC_KIND_SET = new Set([
   'world_character',
   'opening_character',
   'opening_partner',
+  'heretic',
 ]);
 
 export function nowSeconds() {

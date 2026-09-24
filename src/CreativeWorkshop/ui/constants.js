@@ -9,6 +9,7 @@ export const PROJECT_KIND_LABELS = {
   world_character: '世界书角色',
   opening_character: '开局角色',
   opening_partner: '开局伙伴',
+  heretic: '异端',
 };
 
 export const ARTIFACT_LABELS = {

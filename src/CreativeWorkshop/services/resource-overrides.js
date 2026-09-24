@@ -46,9 +46,9 @@ export function resourceOverrideKey(value) {
   const kind = text(value?.kind);
   const target = value?.target || {};
   if (kind === 'worldbook') {
-    return `worldbook\u0000${text(target.worldbook)}\u0000${
-      text(target.uid) ? `uid:${text(target.uid)}` : `name:${text(target.name)}`
-    }`;
+    const uid = text(target.uid);
+    if (uid) return `worldbook\u0000uid:${uid}`;
+    return `worldbook\u0000${text(target.worldbook)}\u0000name:${text(target.name)}`;
   }
   if (kind === 'regex') {
     return `regex\u0000${text(target.scope) || 'character'}\u0000${
@@ -73,7 +73,7 @@ export function normalizeResourceOverride(value) {
   if (!KINDS.has(kind) || !STATES.has(state)) return null;
   const target = normalizeTarget(kind, value.target);
 
-  if (kind === 'worldbook' && (!target.worldbook || (!target.uid && !target.name))) return null;
+  if (kind === 'worldbook' && !target.uid && !target.name) return null;
   if (kind === 'regex' && (!['character'].includes(target.scope) || (!target.id && !target.name))) return null;
   if (kind === 'script' && (!['character', 'preset', 'global'].includes(target.scope) || (!target.id && !target.name))) return null;
 

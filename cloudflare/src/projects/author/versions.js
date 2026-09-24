@@ -7,6 +7,37 @@ function hasApprovedRelease(project) {
   return Number(project?.published_version || 0) > 0;
 }
 
+const CHARACTER_CONTENT_KINDS = new Set([
+  'world_character',
+  'opening_character',
+  'opening_partner',
+]);
+
+function bundleDataKinds(bundle) {
+  const kinds = [];
+  for (const artifact of bundle?.artifacts || []) {
+    if (artifact?.kind !== 'data') continue;
+    const values = Array.isArray(artifact.content) ? artifact.content : [artifact.content];
+    for (const value of values) {
+      const kind = String(value?.kind || '').trim();
+      if (kind) kinds.push(kind);
+    }
+  }
+  return [...new Set(kinds)];
+}
+
+function projectContentKind(project, bundle) {
+  const kinds = bundleDataKinds(bundle);
+  if (project.category === 'character') {
+    const characterKinds = kinds.filter(kind => CHARACTER_CONTENT_KINDS.has(kind));
+    if (characterKinds.length > 1) {
+      throw new HttpError(400, 'mixed_character_kind', '一个角色作品不能同时包含多种角色用途');
+    }
+    return characterKinds[0] || 'world_character';
+  }
+  return kinds.includes('store_catalog') ? 'store_catalog' : 'extension';
+}
+
 export async function uploadProjectVersion(request, env, user, projectId) {
   const project = await getOwnedProject(env, projectId, user);
   if (project.status === 'archived') throw new HttpError(409, 'project_archived', '已归档作品不能上传');
@@ -14,8 +45,9 @@ export async function uploadProjectVersion(request, env, user, projectId) {
   const body = await readJson(request);
   const changelog = textField(body?.changelog ?? '', 'changelog', { max: 2000 });
   const bundle = validateBundle(body?.bundle);
+  const contentKind = projectContentKind(project, bundle);
   const version = Number(project.latest_version) + 1;
-  const manifest = await buildManifest(project, version, bundle);
+  const manifest = await buildManifest({ ...project, kind: contentKind }, version, bundle);
   const uploadNonce = crypto.randomUUID();
   const baseKey = `projects/${project.id}/versions/${version}-${uploadNonce}`;
   const manifestKey = `${baseKey}/manifest.json`;
@@ -30,11 +62,11 @@ export async function uploadProjectVersion(request, env, user, projectId) {
   try {
     await env.DB.prepare(
       `INSERT INTO project_versions
-        (project_id, version, manifest_key, content_key, name, summary, tags, dependencies, project_type, cover_key, changelog, review_status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (project_id, version, manifest_key, content_key, name, summary, tags, dependencies, project_type, content_kind, cover_key, changelog, review_status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       project.id, version, manifestKey, contentKey, project.name, project.summary,
-      project.tags || '[]', project.dependencies || '[]', project.category, project.cover_key || null,
+      project.tags || '[]', project.dependencies || '[]', project.category, contentKind, project.cover_key || null,
       changelog, reviewStatus, now,
     ).run();
 

@@ -76,7 +76,8 @@ export function bootWorkshop() {
     overlay.querySelectorAll('.rw-section').forEach(section => { section.hidden = section.dataset.section !== name; });
     nodes.discoverHeadTools.hidden = name !== 'discover' || !nodes.discoverCatalog || nodes.discoverCatalog.hidden;
     if (name === 'discover') {
-      if (!nodes.discoverCatalog || nodes.discoverCatalog.hidden) void views.discover.home();
+      if (nodes.characterHome && !nodes.characterHome.hidden) void views.discover.characters();
+      else if (!nodes.discoverCatalog || nodes.discoverCatalog.hidden) void views.discover.home();
       else void views.discover.refresh();
       return;
     }

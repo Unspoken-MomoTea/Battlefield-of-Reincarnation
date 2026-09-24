@@ -1,10 +1,17 @@
 import { parseDependencies } from './dependencies.js';
 import { parseTags } from './fields.js';
 
+function publicKind(row) {
+  const value = String(row?.kind || row?.content_kind || '').trim();
+  if (value) return value;
+  return row?.category === 'character' ? 'world_character' : 'extension';
+}
+
 export function projectPublic(row) {
   return {
     id: row.id, slug: row.slug, name: row.name, summary: row.summary,
-    tags: parseTags(row.tags), dependencies: parseDependencies(row.dependencies), category: row.category, has_cover: Boolean(row.cover_key),
+    tags: parseTags(row.tags), dependencies: parseDependencies(row.dependencies), category: row.category,
+    kind: publicKind(row), has_cover: Boolean(row.cover_key),
     status: 'published', version: Number(row.published_version), owner_name: row.owner_name,
     created_at: Number(row.created_at), downloads_count: Number(row.downloads_count || 0),
     likes_count: Number(row.likes_count || 0), favorites_count: Number(row.favorites_count || 0),

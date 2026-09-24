@@ -29,6 +29,7 @@ export async function buildManifest(project, version, bundle) {
       slug: project.slug,
       name: project.name,
       category: project.category,
+      ...(project.kind ? { kind: project.kind } : {}),
       version,
       dependencies: parseDependencies(project.dependencies),
     },

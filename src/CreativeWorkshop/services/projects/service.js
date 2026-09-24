@@ -8,8 +8,8 @@ import {
 } from './cache.js';
 
 export class ProjectService {
-  list(query = '', category = '', offset = 0, tag = '', sort = 'latest') {
-    return workshopApi.listProjects(query, category, offset, tag, sort);
+  list(query = '', category = '', offset = 0, tag = '', sort = 'latest', kind = '') {
+    return workshopApi.listProjects(query, category, offset, tag, sort, kind);
   }
   detail(projectId) { return workshopApi.getProject(projectId); }
   cache(projectId) { return cacheRemoteProject(workshopApi, projectId); }

@@ -35,9 +35,10 @@ export function workshopTemplate(version) {
       <div class="rw-nav-label">浏览</div>
       <button class="rw-tab is-active" data-tab="discover" type="button">发现</button>
       <div class="rw-nav-divider"></div>
-      <button class="rw-tab rw-nav-filter" data-category-filter="" type="button">全部项目</button>
-      <button class="rw-tab rw-nav-filter" data-category-filter="extension" type="button">扩展</button>
-      <button class="rw-tab rw-nav-filter" data-category-filter="character" type="button">角色</button>
+      <button class="rw-tab rw-nav-filter" data-category-filter="" data-kind-filter="" type="button">全部项目</button>
+      <button class="rw-tab rw-nav-filter" data-category-filter="extension" data-kind-filter="extension" type="button">扩展</button>
+      <button class="rw-tab rw-nav-filter" data-character-home type="button">角色</button>
+      <button class="rw-tab rw-nav-filter" data-category-filter="extension" data-kind-filter="store_catalog" type="button">开局商店</button>
       <div class="rw-nav-divider"></div>
       <button class="rw-tab" data-tab="installed" type="button">已安装</button>
       <div class="rw-nav-connection">● 已连接 SillyTavern</div>
@@ -62,12 +63,27 @@ export function workshopTemplate(version) {
             <div class="rw-showcase-row" data-role="discover-downloaded"></div>
           </section>
         </div>
+        <div class="rw-discover-home" data-role="character-home" hidden>
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>WORLD BOOK</small><h2>世界书角色</h2></div></div>
+            <div class="rw-showcase-row" data-role="character-world"></div>
+          </section>
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>OPENING</small><h2>开局角色</h2></div></div>
+            <div class="rw-showcase-row" data-role="character-opening"></div>
+          </section>
+          <section class="rw-showcase">
+            <div class="rw-showcase-head"><div><small>PARTNER</small><h2>开局伙伴</h2></div></div>
+            <div class="rw-showcase-row" data-role="character-partner"></div>
+          </section>
+        </div>
         <div class="rw-catalog" data-role="discover-catalog" hidden>
           <div class="rw-page-head">
             <div class="rw-page-head-copy"><small>CATALOG</small><h2 data-role="catalog-title">全部项目</h2><p>浏览角色与扩展，按排序和关键词查找作品。</p></div>
             <div class="rw-page-head-meta" data-role="discover-count">正在载入</div>
           </div>
           <input type="hidden" data-field="category" value="">
+          <input type="hidden" data-field="kind" value="">
           <div class="rw-grid rw-project-grid" data-role="discover-list"></div>
           <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>
         </div>

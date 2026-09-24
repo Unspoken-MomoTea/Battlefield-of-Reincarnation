@@ -2,10 +2,11 @@ import { getApiBase } from '../../config.js';
 
 export function createProjectApi(request, requestRaw) {
   return {
-    listProjects(query = '', category = '', offset = 0, tag = '', sort = 'latest') {
+    listProjects(query = '', category = '', offset = 0, tag = '', sort = 'latest', kind = '') {
       const params = new URLSearchParams({ limit: '24', offset: String(offset), sort });
       if (query.trim()) params.set('query', query.trim());
       if (category) params.set('category', category);
+      if (kind) params.set('kind', kind);
       if (tag.trim()) params.set('tag', tag.trim());
       return request(`/api/projects?${params}`);
     },

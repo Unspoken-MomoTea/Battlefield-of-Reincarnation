@@ -221,6 +221,7 @@ test('project type filters character and extension independently from artifact k
   assert.equal(characterList.items.length, 1);
   assert.equal(characterList.items[0].id, character.project.id);
   assert.equal(characterList.items[0].category, 'character');
+  assert.equal(characterList.items[0].kind, 'world_character');
 
   const extensionList = await responseJson(
     await listPublicProjects(request('/api/projects?category=extension'), env),
@@ -228,6 +229,74 @@ test('project type filters character and extension independently from artifact k
   assert.equal(extensionList.items.length, 1);
   assert.equal(extensionList.items[0].id, extension.project.id);
   assert.equal(extensionList.items[0].category, 'extension');
+});
+
+
+test('public catalog can filter dedicated character and opening-store kinds', async () => {
+  const { env, author, admin } = setup();
+
+  const partner = await responseJson(
+    await createProject(
+      request('/api/projects', 'POST', {
+        name: '开局伙伴作品',
+        summary: '',
+        category: 'character',
+      }),
+      env,
+      author,
+    ),
+  );
+  await publishVersion(env, author, admin, partner.project.id, {
+    schema_version: 1,
+    artifacts: [{
+      kind: 'data',
+      name: 'partner.json',
+      format: 'json',
+      content: { schema_version: 1, kind: 'opening_partner', name: '伙伴', build: {} },
+    }],
+  });
+
+  const store = await responseJson(
+    await createProject(
+      request('/api/projects', 'POST', {
+        name: '开局商店作品',
+        summary: '',
+        category: 'extension',
+      }),
+      env,
+      author,
+    ),
+  );
+  await publishVersion(env, author, admin, store.project.id, {
+    schema_version: 1,
+    artifacts: [{
+      kind: 'data',
+      name: 'store.json',
+      format: 'json',
+      content: {
+        schema_version: 1,
+        kind: 'store_catalog',
+        catalog: { equipments: [], items: [], skills: [] },
+      },
+    }],
+  });
+
+  const partners = await responseJson(
+    await listPublicProjects(request('/api/projects?category=character&kind=opening_partner'), env),
+  );
+  assert.deepEqual(partners.items.map(item => item.id), [partner.project.id]);
+  assert.equal(partners.items[0].kind, 'opening_partner');
+
+  const stores = await responseJson(
+    await listPublicProjects(request('/api/projects?category=extension&kind=store_catalog'), env),
+  );
+  assert.deepEqual(stores.items.map(item => item.id), [store.project.id]);
+  assert.equal(stores.items[0].kind, 'store_catalog');
+
+  const extensions = await responseJson(
+    await listPublicProjects(request('/api/projects?category=extension&kind=extension'), env),
+  );
+  assert.equal(extensions.items.some(item => item.id === store.project.id), false);
 });
 
 
@@ -258,11 +327,15 @@ test('public catalog supports server-side sorting by engagement counters', async
   assert.equal(popular.items[0].id, second.id);
 });
 
-test('public catalog rejects unknown sort modes', async () => {
+test('public catalog rejects unknown sort and kind modes', async () => {
   const { env } = setup();
   await assert.rejects(
     () => listPublicProjects(request('/api/projects?sort=drop-table'), env),
     error => error?.status === 400 && error?.code === 'invalid_project_sort',
+  );
+  await assert.rejects(
+    () => listPublicProjects(request('/api/projects?kind=unknown'), env),
+    error => error?.status === 400 && error?.code === 'invalid_project_kind',
   );
 });
 

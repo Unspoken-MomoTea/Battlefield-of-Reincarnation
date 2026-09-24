@@ -3,6 +3,14 @@ export const CATEGORY_LABELS = {
   extension: '扩展',
 };
 
+export const PROJECT_KIND_LABELS = {
+  extension: '扩展',
+  store_catalog: '开局商店',
+  world_character: '世界书角色',
+  opening_character: '开局角色',
+  opening_partner: '开局伙伴',
+};
+
 export const ARTIFACT_LABELS = {
   worldbook: '世界书',
   regex: '正则',

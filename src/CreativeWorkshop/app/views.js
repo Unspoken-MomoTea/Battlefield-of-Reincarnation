@@ -1,4 +1,4 @@
-import { ARTIFACT_LABELS, CATEGORY_LABELS, STATUS_LABELS } from '../ui/constants.js';
+import { ARTIFACT_LABELS, CATEGORY_LABELS, PROJECT_KIND_LABELS, STATUS_LABELS } from '../ui/constants.js';
 import { createAdminView } from '../views/admin.js';
 import { createAuthorView } from '../views/author.js';
 import { createDiscoverView } from '../views/discover.js';
@@ -22,6 +22,7 @@ export function createWorkshopViews(context) {
       projectService: context.projectService,
       workshopApi: context.workshopApi,
       categoryLabels: CATEGORY_LABELS,
+      kindLabels: PROJECT_KIND_LABELS,
       artifactLabels: ARTIFACT_LABELS,
       getAuth: context.getAuth,
       doc: context.doc,

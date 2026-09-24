@@ -12,7 +12,9 @@ export function bindWorkshopEvents({
       nodes.discoverHeadTools.hidden = true;
       nodes.discoverCatalog.hidden = true;
       nodes.discoverHome.hidden = false;
+      if (nodes.characterHome) nodes.characterHome.hidden = true;
       nodes.discoverCategories.forEach(buttonNode => buttonNode.classList.remove('is-filter-active'));
+      nodes.characterHomeButton?.classList.remove('is-filter-active');
       showTab('discover');
       return;
     }
@@ -27,15 +29,32 @@ export function bindWorkshopEvents({
   nodes.discoverCategories.forEach(categoryButton => {
     categoryButton.addEventListener('click', () => {
       nodes.category.value = categoryButton.dataset.categoryFilter || '';
+      if (nodes.kind) nodes.kind.value = categoryButton.dataset.kindFilter || '';
       nodes.discoverCategories.forEach(buttonNode => {
         buttonNode.classList.toggle('is-filter-active', buttonNode === categoryButton);
       });
+      nodes.characterHomeButton?.classList.remove('is-filter-active');
       showTab('discover');
       overlay.querySelector('.rw-tab[data-tab="discover"]')?.classList.remove('is-active');
       nodes.discoverHeadTools.hidden = false;
-      void views.discover.catalog({ category: nodes.category.value });
+      void views.discover.catalog({
+        category: nodes.category.value,
+        kind: nodes.kind?.value || '',
+      });
     });
   });
+  nodes.characterHomeButton?.addEventListener('click', () => {
+    nodes.discoverHeadTools.hidden = true;
+    nodes.discoverCatalog.hidden = true;
+    nodes.discoverHome.hidden = true;
+    if (nodes.characterHome) nodes.characterHome.hidden = false;
+    nodes.discoverCategories.forEach(buttonNode => buttonNode.classList.remove('is-filter-active'));
+    nodes.characterHomeButton.classList.add('is-filter-active');
+    showTab('discover');
+    overlay.querySelector('.rw-tab[data-tab="discover"]')?.classList.remove('is-active');
+    void views.discover.characters();
+  });
+
   nodes.discoverShowcaseMore.forEach(moreButton => {
     moreButton.addEventListener('click', () => {
       nodes.discoverHeadTools.hidden = false;

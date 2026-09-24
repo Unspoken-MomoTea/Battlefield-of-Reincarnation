@@ -3,6 +3,8 @@ import { HttpError, json } from '../http.js';
 import { pageParams, projectPublic } from './core.js';
 import { buildPublicChangePreview, buildPublicContentPreview } from './public-preview.js';
 
+const PUBLIC_KIND_SQL = "COALESCE(NULLIF(v.content_kind, ''), CASE WHEN v.project_type = 'character' THEN 'world_character' ELSE 'extension' END)";
+
 const PUBLIC_SORT_SQL = {
   latest: 'COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
   popular: '(p.likes_count * 3 + p.favorites_count * 4 + p.downloads_count) DESC, COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
@@ -12,12 +14,13 @@ const PUBLIC_SORT_SQL = {
 };
 
 export async function listPublicProjects(request, env) {
-  const { query, category, tag, sort, limit, offset } = pageParams(request);
+  const { query, category, tag, kind, sort, limit, offset } = pageParams(request);
   const like = `%${query}%`;
   const orderBy = PUBLIC_SORT_SQL[sort];
   const result = await env.DB.prepare(
     `SELECT p.id, p.slug,
-            v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
+            v.name, v.summary, v.tags, v.dependencies, v.project_type AS category,
+            ${PUBLIC_KIND_SQL} AS kind, v.cover_key,
             p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, COALESCE(v.reviewed_at, v.created_at) AS updated_at,
@@ -33,10 +36,11 @@ export async function listPublicProjects(request, env) {
         AND (? = '' OR EXISTS (
           SELECT 1 FROM json_each(v.tags) tag_value WHERE tag_value.value = ?
         ))
+        AND (? = '' OR ${PUBLIC_KIND_SQL} = ?)
       ORDER BY ${orderBy}
       LIMIT ? OFFSET ?`,
   )
-    .bind(query, like, like, category, category, tag, tag, limit + 1, offset)
+    .bind(query, like, like, category, category, tag, tag, kind, kind, limit + 1, offset)
     .all();
   const rows = result.results || [];
   const hasMore = rows.length > limit;
@@ -49,7 +53,8 @@ export async function listPublicProjects(request, env) {
 export async function getPublicProject(projectId, env) {
   const row = await env.DB.prepare(
     `SELECT p.id, p.slug,
-            v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
+            v.name, v.summary, v.tags, v.dependencies, v.project_type AS category,
+            ${PUBLIC_KIND_SQL} AS kind, v.cover_key,
             p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count,
             p.created_at, COALESCE(v.reviewed_at, v.created_at) AS updated_at,

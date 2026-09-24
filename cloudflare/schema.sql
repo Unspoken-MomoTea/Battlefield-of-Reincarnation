@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS project_versions (
   dependencies TEXT NOT NULL DEFAULT '[]',
   project_type TEXT NOT NULL DEFAULT 'extension'
     CHECK (project_type IN ('character', 'extension')),
+  content_kind TEXT NOT NULL DEFAULT '',
   cover_key TEXT,
   changelog TEXT NOT NULL DEFAULT '',
   review_status TEXT NOT NULL DEFAULT 'draft'
@@ -73,6 +74,8 @@ CREATE TABLE IF NOT EXISTS project_versions (
 
 CREATE INDEX IF NOT EXISTS idx_project_versions_review
   ON project_versions(review_status, submitted_at);
+CREATE INDEX IF NOT EXISTS idx_project_versions_content_kind
+  ON project_versions(content_kind, project_id, version);
 
 CREATE TABLE IF NOT EXISTS review_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -23,6 +23,12 @@ test('publish shell uses one category selector plus character subtype and dynami
   assert.doesNotMatch(html, /opening_bloodline[^_]/u);
   assert.doesNotMatch(html, /store_equipments/u);
   assert.match(html, /data-role="publish-resource-section"/u);
+  assert.match(html, /data-category-filter="extension" data-kind-filter="extension"[^>]*>扩展<\/button>/u);
+  assert.match(html, /data-character-home[^>]*>角色<\/button>/u);
+  assert.match(html, /data-kind-filter="store_catalog"[^>]*>开局商店<\/button>/u);
+  assert.match(html, /data-role="character-world"/u);
+  assert.match(html, /data-role="character-opening"/u);
+  assert.match(html, /data-role="character-partner"/u);
 });
 
 test('installer snapshots remain usable in non-browser contract tests', async () => {

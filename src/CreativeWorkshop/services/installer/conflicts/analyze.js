@@ -3,6 +3,7 @@ import { normalizedName } from '../compare.js';
 import { isProjectWorldbookEntry, regexPrefix, scriptPrefix } from '../ownership.js';
 import { findOriginalRegexTargets } from '../original-regexes.js';
 import { findOriginalScriptTargets } from '../original-scripts.js';
+import { findOriginalWorldbookTargets } from '../original-conflicts.js';
 import { maybe } from '../utils.js';
 
 function issue(type, extra = {}) {
@@ -41,14 +42,11 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
 
   if (plan.originalConflicts?.length) {
     const names = new Set(await maybe(adapter.getWorldbookNames()));
-    const binding = await maybe(adapter.getCharWorldbookNames());
-    const cache = new Map();
-
-    const readBook = async name => {
-      if (!name || name === SHARED_WORLDBOOK_NAME || !names.has(name)) return [];
-      if (!cache.has(name)) cache.set(name, await maybe(adapter.getWorldbook(name)));
-      return cache.get(name);
-    };
+    const books = new Map();
+    for (const worldbookName of names) {
+      if (!worldbookName || worldbookName === SHARED_WORLDBOOK_NAME) continue;
+      books.set(worldbookName, await maybe(adapter.getWorldbook(worldbookName)));
+    }
 
     for (const directive of plan.originalConflicts) {
       const target = directive.target || {};
@@ -60,29 +58,14 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
         continue;
       }
 
-      const bookNames = target.worldbook
-        ? [target.worldbook]
-        : [binding.primary, ...(binding.additional ?? [])]
-          .filter(name => name && name !== SHARED_WORLDBOOK_NAME);
-
-      const matches = [];
-      for (const worldbookName of [...new Set(bookNames)]) {
-        const entries = await readBook(worldbookName);
-        for (const entry of entries) {
-          const matched = target.uid
-            ? String(entry?.uid ?? '') === String(target.uid)
-            : String(entry?.comment ?? entry?.name ?? '').trim() === String(target.name || '').trim();
-          if (matched) matches.push({ worldbookName, entry });
-        }
-      }
-
+      const matches = findOriginalWorldbookTargets(books, target);
       if (!matches.length) {
-        blocking.push(issue('original_conflict_target_missing', {
+        warnings.push(issue('original_conflict_target_missing', {
           name: target.name || target.uid || '',
           worldbookName: target.worldbook || '',
         }));
       } else if (matches.length > 1) {
-        blocking.push(issue('original_conflict_target_ambiguous', {
+        warnings.push(issue('original_conflict_target_ambiguous', {
           name: target.name || target.uid || '',
           count: matches.length,
         }));

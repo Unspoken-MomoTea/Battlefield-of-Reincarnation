@@ -12,6 +12,8 @@ PARTS = (
     '20-world-result.part.js',
     '30-context-protocol.part.js',
     '40-engine-runtime.part.js',
+    'ui/10-world-tab.part.js',
+    'ui/20-people-tab.part.js',
     '50-engine-ui.part.js',
     '55-policy-compat.part.js',
     '55-npc-narrative-audit.part.js',

@@ -392,7 +392,7 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
       name: `${name}.opening.json`,
       format: 'json',
       content: {
-        schema_version: partnerWorldbook ? 2 : 1,
+        schema_version: 1,
         kind: mode,
         name,
         ...(mode === 'opening_partner' ? {

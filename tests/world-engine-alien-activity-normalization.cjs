@@ -186,6 +186,7 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   assert.equal(initializationPayload.世界时间维护.初始化锚定.任务世界,timeState.世界.名称);
   assert.match(initializationPayload.世界时间维护.初始化锚定.禁止,/下一宏观节点.*未来事件.*当前世界时间/);
   assert.match(initializationPayload.世界时间维护.正文时间职责,/必须输出顶层“时间”/);
+  assert.match(initializationRequest.system,/活跃异端只在活动缺失、复核到期、关联事件\/所在地区变化或长期未复核时更新/,'built-in prompt must no longer tell the model to rewrite every active alien each run');
   assert.equal(await timeEngine.run(),true,'calendar-incompatible precise event time should be retried instead of committed');
   assert.equal(timeCalls,2,'named-month event date must be rejected once and retried with machine-readable month/day');
   assert.equal(timeState.世界.时间,'帝历1024年-09月-12日-下午');

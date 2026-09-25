@@ -72,9 +72,9 @@ export function bindCreateProjectFlow({
 
     const copy = {
       extension: ['扩展文件', '通用扩展可上传世界书、正则与酒馆助手脚本。'],
-      world_character: ['世界书角色', '填写人物资料，系统自动生成世界书角色条目。'],
+      world_character: ['世界书角色', '填写姓名与关键词后，直接在预设格式中编辑世界书角色正文。'],
       opening_character: ['开局角色', '填写Ⅰ-Ⅲ阶角色资料、1项血统和最多2项技能。'],
-      opening_partner: ['开局伙伴', '填写Ⅰ-Ⅲ阶伙伴资料、1项血统和最多2项技能。'],
+      opening_partner: ['开局伙伴', '填写Ⅰ-Ⅲ阶伙伴资料、1项血统和最多2项技能；可选附带角色世界书。'],
       store_catalog: ['开局商店', '逐项添加装备、道具或技能；不需要填写 JSON。'],
     }[mode] || ['作品内容', '填写当前作品内容。'];
     if (contentTitle) contentTitle.textContent = copy[0];

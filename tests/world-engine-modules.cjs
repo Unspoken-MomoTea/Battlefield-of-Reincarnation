@@ -14,11 +14,20 @@ const declared=[...partsBlock[1].matchAll(/'([^']+\.part\.js)'/g)].map(match=>ma
 assert.ok(declared.length>=10,'world engine should be assembled from modular source parts');
 assert.equal(new Set(declared).size,declared.length,'build PARTS must not contain duplicate modules');
 
-const actual=fs.readdirSync(dir).filter(file=>file.endsWith('.part.js')).sort();
-assert.deepEqual([...declared].sort(),actual,'every world-engine source part must be registered in the real build pipeline');
+function sourcePartsUnder(base,relative=''){
+  const out=[];
+  for(const entry of fs.readdirSync(path.join(base,relative),{withFileTypes:true})){
+    const next=relative?path.join(relative,entry.name):entry.name;
+    if(entry.isDirectory())out.push(...sourcePartsUnder(base,next));
+    else if(entry.isFile()&&entry.name.endsWith('.part.js'))out.push(next.split(path.sep).join('/'));
+  }
+  return out;
+}
+const actual=sourcePartsUnder(dir).sort();
+assert.deepEqual([...declared].sort(),actual,'every world-engine source part, including nested domain modules, must be registered in the real build pipeline');
 
 const texts=Object.fromEntries(declared.map(file=>{
-  const text=fs.readFileSync(path.join(dir,file),'utf8');
+  const text=fs.readFileSync(path.join(dir,...file.split('/')),'utf8');
   assert.ok(text.length>0,`${file} must not be empty`);
   return [file,text];
 }));

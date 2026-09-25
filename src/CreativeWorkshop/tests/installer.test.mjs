@@ -316,6 +316,73 @@ test('worldbook original conflicts are recorded and restored on uninstall', asyn
   ]);
 });
 
+test('worldbook state override follows a stable UID when the card worldbook is renamed', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('轮回战场 3.7', [
+    { uid: 77, name: '[mvu_plot]', enabled: true, content: 'new card version' },
+  ]);
+  adapter.state.binding.primary = '轮回战场 3.7';
+
+  const value = project([
+    {
+      kind: 'worldbook',
+      name: 'DLC世界书.json',
+      format: 'json',
+      content: {
+        entries: { 0: { comment: 'DLC规则', content: 'addon', constant: true } },
+      },
+    },
+  ]);
+  value.bundle.resource_overrides = [{
+    kind: 'worldbook',
+    state: 'disabled',
+    target: { worldbook: '轮回战场 3.6.11', uid: '77', name: '[mvu_plot]' },
+  }];
+
+  const storage = memoryStorage(value);
+  const installer = createWorkshopInstaller({ adapter, storage });
+  const applied = await installer.apply('project-1');
+
+  assert.equal(adapter.state.worldbooks.get('轮回战场 3.7')[0].enabled, false);
+  assert.equal(applied.installTargets.originalWorldbookChanges[0].worldbookName, '轮回战场 3.7');
+
+  await installer.uninstall('project-1');
+  assert.equal(adapter.state.worldbooks.get('轮回战场 3.7')[0].enabled, true);
+});
+
+test('missing original worldbook override no longer blocks the mod installation', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('轮回战场 3.7', [
+    { uid: 77, name: '[mvu_plot]', enabled: true, content: 'current' },
+  ]);
+  adapter.state.binding.primary = '轮回战场 3.7';
+
+  const value = project([
+    {
+      kind: 'worldbook',
+      name: 'DLC世界书.json',
+      format: 'json',
+      content: {
+        entries: { 0: { comment: 'DLC规则', content: 'addon', constant: true } },
+      },
+    },
+  ]);
+  value.bundle.resource_overrides = [{
+    kind: 'worldbook',
+    state: 'disabled',
+    target: { worldbook: '已经不存在的世界书', uid: '999', name: '已经不存在的条目' },
+  }];
+
+  const storage = memoryStorage(value);
+  const installer = createWorkshopInstaller({ adapter, storage });
+  const applied = await installer.apply('project-1');
+
+  assert.equal(applied.applied, true);
+  assert.equal(applied.installTargets.originalWorldbookChanges.length, 0);
+  assert.match(applied.restoreWarnings.join('\n'), /跳过这条状态规则/u);
+  assert.equal(adapter.state.worldbooks.get('轮回战场 3.7')[0].enabled, true);
+});
+
 test('uninstall never overwrites an original worldbook entry edited by the player after install', async () => {
   const adapter = fakeAdapter();
   adapter.state.worldbooks.set('角色原世界书', [

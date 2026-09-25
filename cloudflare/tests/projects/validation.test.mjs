@@ -228,13 +228,27 @@ test('bundle validator rejects unsafe or duplicate original resource state overr
     }],
   };
 
+  const withoutFixedWorldbook = validateBundle({
+    ...base,
+    resource_overrides: [{
+      kind: 'worldbook',
+      state: 'disabled',
+      target: { uid: '10', name: '不固定世界书名' },
+    }],
+  });
+  assert.deepEqual(withoutFixedWorldbook.resource_overrides[0], {
+    kind: 'worldbook',
+    state: 'disabled',
+    target: { uid: '10', name: '不固定世界书名' },
+  });
+
   assert.throws(
     () => validateBundle({
       ...base,
       resource_overrides: [{
         kind: 'worldbook',
         state: 'disabled',
-        target: { uid: '10', name: '缺少世界书名' },
+        target: { worldbook: '原世界书' },
       }],
     }),
     error => error?.status === 400 && error?.code === 'invalid_resource_override_target',

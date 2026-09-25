@@ -84,18 +84,21 @@ function fresh(){
     assert.equal(next.世界.后台.事件['次日搜查开始']?.状态,'进行中','event at the proposed new world time must be accepted in the same WorldResult');
 
     assert.throws(
-      ()=>compileWorldResult(stat,{
-        摘要:'仍然越过本轮最终世界时间',
-        时间:'2022年-11月-07日-上午',
-        事件:[{
-          名称:'后日行动',
-          描述:'尚未到来的行动被错误写成已经开始。',
-          分类:'当前事件',
-          状态:'进行中',
-          时间:'2022年-11月-08日-上午',
-          更新时间:'2022年-11月-08日-上午'
-        }]
-      }),
+      ()=>{
+        const future=compileWorldResult(stat,{
+          摘要:'仍然越过本轮最终世界时间',
+          时间:'2022年-11月-07日-上午',
+          事件:[{
+            名称:'后日行动',
+            描述:'尚未到来的行动被错误写成已经开始。',
+            分类:'当前事件',
+            状态:'进行中',
+            时间:'2022年-11月-08日-上午',
+            更新时间:'2022年-11月-08日-上午'
+          }]
+        });
+        applyPatches(stat,future.patches);
+      },
       /时间事实超过当前世界时间/,
       'facts beyond the proposed final world time must still be rejected'
     );

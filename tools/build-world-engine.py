@@ -34,6 +34,7 @@ PARTS = (
     '59-rumor-world-request.part.js',
     '59-rumor-world-system.part.js',
     '59-editable-module-prompts.part.js',
+    '59-world-activity-delivery.part.js',
     '59-causal-overview-ui.part.js',
     '59-causal-offset-editor.part.js',
     '59-api-preset-selection.part.js',

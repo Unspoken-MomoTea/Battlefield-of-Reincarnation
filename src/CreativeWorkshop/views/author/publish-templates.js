@@ -124,49 +124,6 @@ function worldCharacterContent(profile) {
   return raw.replaceAll('{{角色姓名}}', profile?.name || '角色');
 }
 
-export function partnerWorldbookTemplate({
-  name = '{{角色姓名}}',
-  race = '',
-  identity = '',
-  rank = '',
-  personality = '',
-  likes = '',
-  background = '',
-  backgroundSetting = '',
-} = {}) {
-  const identities = Array.isArray(identity)
-    ? identity.join(' / ')
-    : csv(identity).join(' / ');
-  const extra = String(backgroundSetting || '').trim();
-  const lines = [
-    `${name}:`,
-    '  基本信息:',
-    `    种族: ${race}`,
-    `    身份: ${identities}`,
-    `    层级: ${rank}`,
-    `    性格: ${personality}`,
-    `    喜爱: ${likes}`,
-    `    背景故事: ${background}`,
-    '',
-    '  背景设定:',
-  ];
-  if (extra) lines.push(...extra.split('\n').map(line => `    ${line}`));
-  return lines.join('\n');
-}
-
-function partnerWorldbookFromBuild(name, build = {}, profile = {}, backgroundSetting = '') {
-  return partnerWorldbookTemplate({
-    name,
-    race: build.种族 || '',
-    identity: build.身份 || [],
-    rank: build.层级 || '',
-    personality: profile.性格 || '',
-    likes: profile.喜爱 || '',
-    background: profile.背景故事 || '',
-    backgroundSetting,
-  });
-}
-
 function worldbookArtifact(name, keys, content) {
   return {
     kind: 'worldbook',
@@ -407,9 +364,13 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
       喜爱: read(source, 'opening_likes'),
       背景故事: read(source, 'opening_background'),
     };
-    const partnerWorldbook = mode === 'opening_partner' && source?.opening_worldbook_enabled
+    const partnerWorldbookEnabled = mode === 'opening_partner' && source?.opening_worldbook_enabled;
+    const partnerWorldbook = partnerWorldbookEnabled
       ? read(source, 'opening_worldbook_content').trim()
       : '';
+    const partnerWorldbookAliases = partnerWorldbook
+      ? csv(read(source, 'opening_worldbook_keywords'))
+      : [];
     const dataArtifact = {
       kind: 'data',
       name: `${name}.opening.json`,
@@ -420,7 +381,13 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
         name,
         ...(mode === 'opening_partner' ? {
           profile,
-          ...(partnerWorldbook ? { worldbook: { content: partnerWorldbook, format: 'full' } } : {}),
+          ...(partnerWorldbook ? {
+            worldbook: {
+              content: partnerWorldbook,
+              aliases: partnerWorldbookAliases,
+              format: 'freeform',
+            },
+          } : {}),
         } : {}),
         build,
       },
@@ -428,7 +395,11 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
     if (!partnerWorldbook) return [dataArtifact];
     return [
       dataArtifact,
-      worldbookArtifact(name, [name], partnerWorldbook),
+      worldbookArtifact(
+        name,
+        [...new Set([name, ...partnerWorldbookAliases])],
+        worldCharacterContent({ name, content: partnerWorldbook }),
+      ),
     ];
   }
 
@@ -529,16 +500,10 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
         name,
         ...structuredClone(item),
       }));
-      const storedWorldbook = String(data.worldbook?.content || '');
-      const storedLooksFull = data.worldbook?.format === 'full'
-        || (/^\s*[^\n]+:\s*$/mu.test(storedWorldbook)
-          && storedWorldbook.includes('\n  基本信息:')
-          && storedWorldbook.includes('\n  背景设定:'));
-      result.opening_worldbook_content = storedWorldbook
-        ? (storedLooksFull
-            ? storedWorldbook
-            : partnerWorldbookFromBuild(data.name || projectName, build, profile, storedWorldbook))
+      result.opening_worldbook_keywords = Array.isArray(data.worldbook?.aliases)
+        ? data.worldbook.aliases.join(', ')
         : '';
+      result.opening_worldbook_content = String(data.worldbook?.content || '');
       result.opening_worldbook_enabled = Boolean(result.opening_worldbook_content.trim());
     }
     return result;

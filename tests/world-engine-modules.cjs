@@ -13,7 +13,7 @@ assert.ok(partsBlock,'build-world-engine.py must declare PARTS');
 const declared=[...partsBlock[1].matchAll(/'([^']+\.part\.js)'/g)].map(match=>match[1]);
 assert.ok(declared.length>=10,'world engine should be assembled from modular source parts');
 assert.equal(new Set(declared).size,declared.length,'build PARTS must not contain duplicate modules');
-for(const moduleName of ['ui/10-world-tab.part.js','ui/20-people-tab.part.js','ui/30-exploration-tab.part.js','ui/40-archive-tabs.part.js','editor/00-world-mutations.part.js','editor/10-event-editor.part.js','editor/20-person-editor.part.js']){
+for(const moduleName of ['ui/00-styles.part.js','ui/10-world-tab.part.js','ui/20-people-tab.part.js','ui/30-exploration-tab.part.js','ui/40-archive-tabs.part.js','editor/00-world-mutations.part.js','editor/10-event-editor.part.js','editor/20-person-editor.part.js']){
   assert.ok(declared.includes(moduleName),`domain module must be registered: ${moduleName}`);
 }
 
@@ -36,6 +36,9 @@ const texts=Object.fromEntries(declared.map(file=>{
 }));
 const assembled=declared.map(file=>texts[file]).join('');
 assert.equal(built,assembled,'script/世界推进系统.js must exactly equal the source parts in build order');
+assert.ok(texts['50-engine-ui.part.js'].length<80000,'main UI class should stay below 80 KB after domain/style extraction');
+assert.doesNotMatch(texts['50-engine-ui.part.js'],/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the main UI class');
+assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/,'base CSS should live in a dedicated UI resource module');
 
 // 本次迁移的关键 seam：replay 随主世界提交一次写入，恢复模块不再额外写第二次。
 assert.match(texts['40-engine-runtime.part.js'],/buildWorldReplayPackage/,'primary world commit must carry replay metadata');

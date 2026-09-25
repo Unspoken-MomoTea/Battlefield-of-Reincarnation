@@ -134,7 +134,9 @@ export function partnerWorldbookTemplate({
   background = '',
   backgroundSetting = '',
 } = {}) {
-  const identities = Array.isArray(identity) ? identity.join(' / ') : String(identity || '');
+  const identities = Array.isArray(identity)
+    ? identity.join(' / ')
+    : csv(identity).join(' / ');
   const extra = String(backgroundSetting || '').trim();
   const lines = [
     `${name}:`,

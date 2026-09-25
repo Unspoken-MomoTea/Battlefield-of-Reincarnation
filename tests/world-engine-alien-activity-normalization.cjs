@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const {SamsaraWorldEngine:Engine,emptyState,compileWorldResult,applyPatches,activeAlienActivityRequirements,WORLD_RESULT_SCHEMA,calendarDate}=require('../script/世界推进系统.js');
+const {SamsaraWorldEngine:Engine,emptyState,RECORDS,compileWorldResult,applyPatches,activeAlienActivityRequirements,WORLD_RESULT_SCHEMA,calendarDate}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 
 const stat={
@@ -60,6 +60,10 @@ for(const item of requirements){
 
 const settled=clone(stat);
 settled.世界.后台=emptyState();
+settled.世界.后台.事件['帝都封锁']={
+  ...RECORDS.事件,描述:'帝都封锁仍在持续。',分类:'当前事件',状态:'进行中',
+  时间:settled.世界.时间,更新时间:settled.世界.时间
+};
 settled.世界.后台.人物={
   '塞琉·尤比基塔斯·伪':{
     所属世界:settled.世界.名称,地点:'帝都贫民窟-第四封锁区',目标:'维持封锁',行动:'继续搜查既定区域。',

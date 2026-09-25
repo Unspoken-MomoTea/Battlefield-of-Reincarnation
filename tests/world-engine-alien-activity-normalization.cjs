@@ -91,6 +91,7 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
     {摘要:'没有新的世界侧事实。'},
     {
       摘要:'帝都封锁继续运作，警备力量正在调整街区控制。',
+      势力:[{名称:'帝都警备队',操作:'更新',实力:'C',领地:'帝都',描述:'负责帝都治安与封锁执行的武装组织。',声望:0}],
       势力地区:[
         {名称:'帝都北区',操作:'更新',类型:'地区',描述:'帝都北部住宅与贫民混合区。',目标:'维持封锁秩序',进展:'警备队把搜查重点转向北侧街巷。',关联事件:['帝都封锁'],公开动态:'北区路口增加临检。'},
         {名称:'帝都警备队',操作:'更新',类型:'势力',描述:'负责帝都治安与封锁执行的武装组织。',目标:'维持帝都封锁',进展:'重新分配巡逻队与检查站。',关联事件:['帝都封锁'],公开动态:'警备队公开加强北区检查。'}
@@ -113,12 +114,15 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   const quietPayload=JSON.parse(quietRequest.input);
   assert.equal(quietPayload.本轮世界活动交付.初始化缺口.地区,true);
   assert.equal(quietPayload.本轮世界活动交付.初始化缺口.势力,true);
+  assert.equal(quietPayload.本轮世界活动交付.当前数量.顶层势力数,0);
+  assert.equal(quietPayload.本轮世界活动交付.当前数量.动态势力数,0);
   assert.match(quietRequest.system,/世界推进不是“异端模拟器”/);
   assert.equal(await quietEngine.run(),true,'world activity must progress even when active aliens have no review trigger');
   assert.equal(quietCalls,2,'summary-only world result must be retried instead of allowing the non-alien world to freeze');
   assert.equal(quietWrites,1,'repaired world activity should commit once');
   assert.ok(quietState.世界.后台.势力地区['帝都北区']);
   assert.equal(quietState.世界.后台.势力地区['帝都警备队']?.类型,'势力');
+  assert.equal(quietState.世界.势力['帝都警备队']?.实力,'C','faction bootstrap must also populate the top-level faction ledger used by reputation/settlement');
 
   // 复现实际开局：世界.时间为空，但后台回复里的两名活跃异端给出了同一个当前时间锚点。
   // 世界引擎应直接接管该时钟并一次成功，不再把异端活动打回。
@@ -134,6 +138,7 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
     摘要:'帝都搜捕扩大，世界现场与异端活动同时建立。',
     时间:'帝国历1024年秋',
     事件:[{名称:'帝都搜捕扩大',操作:'更新',描述:'帝都警备力量扩大夜间搜捕。',分类:'当前事件',状态:'进行中',时间:'帝国历1024年秋',地点:'帝都'}],
+    势力:[{名称:'帝都警备队',操作:'更新',实力:'C',领地:'帝都',描述:'帝都治安武装。',声望:0}],
     势力地区:[
       {名称:'帝都',操作:'更新',类型:'地区',描述:'帝国首都。',目标:'维持城市运转',进展:'夜间搜捕扩大。',关联事件:['帝都搜捕扩大']},
       {名称:'帝都警备队',操作:'更新',类型:'势力',描述:'帝都治安武装。',目标:'扩大搜捕',进展:'调集巡逻与检查站。',关联事件:['帝都搜捕扩大']}
@@ -192,6 +197,7 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
         {名称:'帝都戒严',操作:'更新',描述:'帝都进入戒严状态。',时间:'帝历1024年-09月-12日-下午',状态:'进行中',地点:'帝都',分类:'当前事件'},
         {名称:'狩人集结',操作:'更新',描述:'狩人部队开始集结。',时间:'帝历1024年，枯叶之月，第15日',状态:'待发生',地点:'帝都',分类:'宏观节点'}
       ],
+      势力:[{名称:'帝都警备队',操作:'更新',实力:'C',领地:'帝都',描述:'帝都治安武装。',声望:0}],
       势力地区:[
         {名称:'帝都',操作:'更新',类型:'地区',描述:'帝国首都。',目标:'维持秩序',进展:'戒严措施正在执行。',关联事件:['帝都戒严']},
         {名称:'帝都警备队',操作:'更新',类型:'势力',描述:'帝都治安武装。',目标:'执行戒严',进展:'部署检查站。',关联事件:['帝都戒严']}

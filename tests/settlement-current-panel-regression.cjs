@@ -47,8 +47,8 @@ assert.match(html,/function settlementSnapshotTaskScore\(/,'缺少任务快照�
 assert.match(html,/function preferSettlementSnapshot\(/,'缺少任务快照择优逻辑');
 assert.match(html,/let settlementBaselineData = readSettlementBaselineData\(\);/,'结算基线必须允许在变量更新完成后升级');
 
-const trialIdentityBlock=html.match(/function extractTrialTasks\(data\) \{[\s\S]*?function settlementTaskKeysForData\(data\) \{[\s\S]*?\n          \}(?=\n\n          let achievementBaselineData)/);
-assert.ok(trialIdentityBlock,'快照回归必须加载隐藏试炼身份识别器');
+const trialIdentityBlock=html.match(/function isTrialTaskCommissioner\(value\) \{[\s\S]*?function settlementTaskKeysForData\(data\) \{[\s\S]*?\n          \}(?=\n\n          let achievementBaselineData)/);
+assert.ok(trialIdentityBlock,'快照回归必须加载委托方关键词试炼识别器');
 const taskPreferenceBlock=html.match(/function settlementSnapshotTaskScore\(data\) \{[\s\S]*?function preferSettlementSnapshot\(current,candidate\) \{[\s\S]*?\n          \}(?=\n\n          function readSettlementBaselineData)/);
 assert.ok(taskPreferenceBlock,'应可提取任务快照择优器做行为回归');
 const taskContext={Object,String,Array,Set,Math};
@@ -58,8 +58,8 @@ const staleTaskSnapshot={stat_data:{世界:{名称:'Fate/stay night'},任务:{�
 const matureTaskSnapshot={stat_data:{世界:{名称:'Fate/stay night'},任务:{列表:{A:{委托方:'主神任务',状态:'可交付'},B:{委托方:'主神任务',状态:'可结算'}}}}};
 assert.equal(taskContext.prefer(staleTaskSnapshot,matureTaskSnapshot),matureTaskSnapshot,'同世界任务应优先选择完成态更成熟的快照');
 assert.equal(taskContext.prefer(matureTaskSnapshot,staleTaskSnapshot),matureTaskSnapshot,'已取得成熟任务快照后不得被旧进行中状态降级');
-const corruptedTrialSnapshot={stat_data:{世界:{名称:'Fate/stay night'},系统状态:{是否试炼任务:true,试炼任务名单:['晋升关卡']},任务:{列表:{晋升关卡:{委托方:'主神空间',状态:'可结算'}}}}};
-assert.equal(taskContext.prefer(staleTaskSnapshot,corruptedTrialSnapshot),corruptedTrialSnapshot,'隐藏试炼身份必须让委托方损坏的晋升快照压过历史普通副本');
+const trialKeywordSnapshot={stat_data:{世界:{名称:'Fate/stay night'},系统状态:{是否试炼任务:true},任务:{列表:{晋升关卡:{委托方:'系统晋升试炼',状态:'可结算'}}}}};
+assert.equal(taskContext.prefer(staleTaskSnapshot,trialKeywordSnapshot),trialKeywordSnapshot,'带试炼委托方关键词且有活动试炼标记的快照必须压过历史普通副本');
 const otherWorldSnapshot={stat_data:{世界:{名称:'下一个世界'},任务:{列表:{A:{委托方:'主神任务',状态:'可结算'},B:{委托方:'主神任务',状态:'可结算'}}}}};
 assert.equal(taskContext.prefer(staleTaskSnapshot,otherWorldSnapshot),staleTaskSnapshot,'不同世界的任务快照不得串入当前结算');
 

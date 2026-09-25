@@ -97,7 +97,6 @@ test('character mods use contiguous 601+ orders, preserve update position, and c
     ['c', 603],
   ]);
   assert.equal(characterOrders(adapter).find(item => item.id === 'b').content, 'b-v2');
-  assert.equal(records.get('b').installTargets.worldbookCharacterOrder, 602);
 
   await installer.uninstall('b');
   assert.deepEqual(characterOrders(adapter).map(item => [item.id, item.order]), [

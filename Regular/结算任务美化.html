@@ -866,58 +866,17 @@
           }
 
 
+          function isTrialTaskCommissioner(value) {
+            return /试炼/.test(String(value || '').trim());
+          }
+
           function extractTrialTasks(data) {
             const stat = data && (data.stat_data || data) || {};
             const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            const sys = stat && stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
-            const marked = sys.是否试炼任务 === true;
-            const exactNames = Array.isArray(sys.试炼任务名单)
-              ? sys.试炼任务名单.map(function(name) { return String(name || '').trim(); }).filter(Boolean)
-              : [];
-            let keys = [];
-
-            // 新版：隐藏名单是权威身份，不再依赖AI可改写的委托方。
-            if (marked && exactNames.length) {
-              keys = exactNames.filter(function(key) { return list[key] && typeof list[key] === 'object'; });
-              // 极端旧档若任务被改名，只用委托方关键词补足缺失数量；不得额外扩大试炼集合。
-              const missing = Math.max(0, exactNames.length - keys.length);
-              if (missing > 0) {
-                const fallback = Object.keys(list).filter(function(key) {
-                  if (keys.indexOf(key) >= 0) return false;
-                  const task = list[key];
-                  return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.委托方 || '').trim());
-                });
-                keys = keys.concat(fallback.slice(0, missing));
-              }
-            } else if (marked) {
-              // 兼容已经带试炼标记、但尚无任务名单的过渡存档。
-              keys = Object.keys(list).filter(function(key) {
-                const task = list[key];
-                return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.委托方 || '').trim());
-              });
-            } else {
-              // 旧存档优先沿用标准值；若委托方已被AI改坏，只在同时命中程序级试炼签名时救援。
-              // TRIAL_COMMISSIONER_ALIAS_V2：旧档精确兼容“普升试炼”，不扩大到普通“主神空间”任务。
-              const canonical = Object.keys(list).filter(function(key) {
-                const task = list[key];
-                return task && ['晋升试炼','普升试炼'].includes(String(task.委托方 || '').trim());
-              });
-              if (canonical.length) {
-                keys = canonical;
-              } else {
-                keys = Object.keys(list).filter(function(key) {
-                  const task = list[key];
-                  if (!task || typeof task !== 'object') return false;
-                  const commissioner = String(task.委托方 || '').trim();
-                  if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return false;
-                  const delivery = String(task.交付 || '').trim();
-                  const legacyKey = String(key || '').trim();
-                  return delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\s*\d+/.test(legacyKey);
-                });
-              }
-            }
-
-            return keys.map(function(key, index) {
+            return Object.keys(list).filter(function(key) {
+              const task = list[key];
+              return task && isTrialTaskCommissioner(task.委托方);
+            }).map(function(key, index) {
               const task = list[key] || {};
               return {
                 key: key,
@@ -934,14 +893,10 @@
           function settlementTaskKeysForData(data) {
             const stat = data && (data.stat_data || data) || {};
             const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            const keys = Object.keys(list).filter(function(key) {
+            return Object.keys(list).filter(function(key) {
               const commissioner = String(list[key] && list[key].委托方 || '').trim();
-              return commissioner === '主神任务' || commissioner === '晋升试炼' || commissioner === '普升试炼';
+              return commissioner === '主神任务' || isTrialTaskCommissioner(commissioner);
             });
-            extractTrialTasks(data).forEach(function(task) {
-              if (task && task.key && keys.indexOf(task.key) < 0) keys.push(task.key);
-            });
-            return keys;
           }
 
           let achievementBaselineData = null;
@@ -2104,7 +2059,6 @@
             if (activeTrialSys && activeTrialSys.是否试炼任务 === true) {
               const sys = ensureObject(stat, '系统状态');
               setValue(sys, '是否试炼任务', false);
-              setValue(sys, '试炼任务名单', []);
             }
 
             const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);

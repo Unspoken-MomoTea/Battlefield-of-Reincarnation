@@ -17,7 +17,7 @@ patch('script/world-engine-src/00-foundation-prompt.part.js',
 def ensure_prompt_version_floor():
     p=ROOT/'script/world-engine-src/00-foundation-prompt.part.js'
     s=p.read_text(encoding='utf-8')
-    m=re.search(r"        version:(\\d+),\\n        builtin:true,",s)
+    m=re.search(r"        version:(\d+),\n        builtin:true,",s)
     if not m: raise RuntimeError('prompt version: anchor missing')
     version=int(m.group(1))
     if version>=20:

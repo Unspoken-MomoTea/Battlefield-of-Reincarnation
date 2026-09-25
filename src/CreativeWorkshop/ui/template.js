@@ -103,7 +103,7 @@ export function workshopTemplate(version) {
       <section class="rw-section" data-section="mine" hidden>
         <div class="rw-page-head">
           <div class="rw-page-head-copy"><small>CREATOR</small><h2>我的作品</h2><p>创建、更新并跟踪你的发布内容。</p></div>
-          <div class="rw-row"><button class="rw-button" type="button" data-action="create-heretic-open">上传当前角色到异端库</button><button class="rw-button primary" type="button" data-action="create-project-open">创建作品</button></div>
+          <div class="rw-row"><button class="rw-button" type="button" data-action="create-heretic-open" hidden>上传当前角色到异端库</button><button class="rw-button primary" type="button" data-action="create-project-open">创建作品</button></div>
         </div>
         <form class="rw-create-form" data-form="create-heretic" hidden>
           <div class="rw-publish-form-head"><div class="rw-publish-form-title"><span>◈</span><div><strong>异端库 · 当前角色快照</strong><small>读取当前 MVU 角色的原始构筑；派生属性、道具、货币、任务等不会上传。</small></div></div><button class="rw-modal-close" type="button" data-action="create-heretic-cancel">×</button></div>

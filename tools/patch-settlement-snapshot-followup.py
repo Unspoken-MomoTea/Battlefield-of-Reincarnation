@@ -214,28 +214,6 @@ replace_once(
     'null-safe settlement balance panel id',
 )
 
-# 2) Old saves may use “普升试炼” as commissioner. Treat it as an exact trial alias
-# only inside settlement identity handling; do not spread this compatibility into other modules.
-replace_once(
-    settlement,
-    """              const canonical = Object.keys(list).filter(function(key) {
-                const task = list[key];
-                return task && String(task.委托方 || '').trim() === '晋升试炼';
-              });""",
-    """              // TRIAL_COMMISSIONER_ALIAS_V2：旧档精确兼容“普升试炼”，不扩大到普通“主神空间”任务。
-              const canonical = Object.keys(list).filter(function(key) {
-                const task = list[key];
-                return task && ['晋升试炼','普升试炼'].includes(String(task.委托方 || '').trim());
-              });""",
-    'unmarked legacy trial exact alias',
-)
-replace_once(
-    settlement,
-    """              return commissioner === '主神任务' || commissioner === '晋升试炼';""",
-    """              return commissioner === '主神任务' || commissioner === '晋升试炼' || commissioner === '普升试炼';""",
-    'settlement task keys trial alias',
-)
-
 # 3) Programmatic settlement already renders kill/exploration/reputation details before the total.
 # Drop the old AI-parsed remnants so the empty headings cannot appear again after the total.
 replace_once(

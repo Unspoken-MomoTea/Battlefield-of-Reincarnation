@@ -19,18 +19,11 @@ test('unified category maps store to extension backend and character to subtypes
   assert.equal(projectCategoryForSelection('character'), 'character');
 });
 
-test('world character form generates worldbook plus descriptor', () => {
+test('world character uses one freeform template panel and no MVU-only fields', () => {
   const artifacts = buildDedicatedArtifacts({
     world_name: '测试人物',
     world_keywords: '别名A, 别名B',
-    world_race: '人类',
-    world_identity: '队长,调查员',
-    world_occupation: '剑士',
-    world_rank: 'Ⅲ',
-    world_personality: '冷静',
-    world_appearance: '黑发',
-    world_background: '背景',
-    world_notes: '补充',
+    world_content: '{{角色姓名}}:\n  基本信息:\n    种族: 人类\n\n  背景设定:\n    出身: 王都',
   }, 'world_character', '作品');
   assert.deepEqual(artifacts.map(item => item.kind), ['worldbook', 'data']);
   assert.deepEqual(artifacts[0].content.entries[0].strategy.keys, ['测试人物', '别名A', '别名B']);
@@ -41,7 +34,13 @@ test('world character form generates worldbook plus descriptor', () => {
     order: 650,
   });
   assert.equal(artifacts[0].content.entries[0].probability, 100);
-  assert.match(artifacts[0].content.entries[0].content, /种族：人类/u);
+  assert.match(artifacts[0].content.entries[0].content, /^测试人物:/u);
+  assert.match(artifacts[0].content.entries[0].content, /背景设定:/u);
+  assert.equal(artifacts[1].content.schema_version, 2);
+  assert.equal(artifacts[1].content.profile.content.includes('职业'), false);
+  assert.equal('occupation' in artifacts[1].content.profile, false);
+  assert.equal('identities' in artifacts[1].content.profile, false);
+  assert.equal('rank' in artifacts[1].content.profile, false);
 });
 
 test('opening character uses 8 point startup budget and auto F-E-D quality from rank', () => {
@@ -133,6 +132,49 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
   assert.equal(asset.build.技能.护卫.品质, 'D');
   assert.equal(asset.build.装备.伙伴长剑.品质, 'D');
   assert.equal(asset.build.装备.伙伴长剑.原始属性.ATK, 'A');
+});
+
+test('opening partner optionally emits a worldbook with basic profile prefix and background setting', () => {
+  const artifacts = buildDedicatedArtifacts({
+    opening_name: '伙伴',
+    opening_race: '精灵',
+    opening_identity: '同伴,向导',
+    opening_rank: 'Ⅱ',
+    opening_personality: '温和',
+    opening_likes: '茶',
+    opening_background: '与主角在旧城相识。',
+    opening_bloodline_name: '精灵血统',
+    opening_worldbook_enabled: true,
+    opening_worldbook_content: '关键关系:\n  与主角互相信任。\n秘密:\n  持有旧地图。',
+  }, 'opening_partner', '作品');
+
+  assert.deepEqual(artifacts.map(item => item.kind), ['data', 'worldbook']);
+  assert.equal(artifacts[0].content.worldbook.content.includes('旧地图'), true);
+  const entry = artifacts[1].content.entries[0];
+  assert.deepEqual(entry.strategy.keys, ['伙伴']);
+  assert.match(entry.content, /^伙伴:/u);
+  assert.match(entry.content, /种族: 精灵/u);
+  assert.match(entry.content, /身份: 同伴 \/ 向导/u);
+  assert.match(entry.content, /层级: Ⅱ/u);
+  assert.match(entry.content, /背景故事: 与主角在旧城相识。/u);
+  assert.match(entry.content, /背景设定:\n    关键关系:/u);
+  assert.match(entry.content, /旧地图/u);
+});
+
+test('opening partner does not emit worldbook when toggle is off or content is blank', () => {
+  const base = {
+    opening_name: '伙伴',
+    opening_rank: 'Ⅰ',
+    opening_bloodline_name: '人类血统',
+  };
+  assert.deepEqual(
+    buildDedicatedArtifacts({ ...base, opening_worldbook_enabled: false, opening_worldbook_content: '不会发布' }, 'opening_partner', '作品').map(item => item.kind),
+    ['data'],
+  );
+  assert.deepEqual(
+    buildDedicatedArtifacts({ ...base, opening_worldbook_enabled: true, opening_worldbook_content: '   ' }, 'opening_partner', '作品').map(item => item.kind),
+    ['data'],
+  );
 });
 
 test('opening partner rejects more than 16 allocation points', () => {
@@ -312,6 +354,21 @@ test('dedicated update values recover point allocation, skills, partner equipmen
   assert.equal(values.opening_skills[0].name, '技能一');
   assert.equal(values.opening_skills[1].name, '技能二');
   assert.equal(values.opening_partner_equipment[0].name, '长剑');
+  assert.equal(values.opening_worldbook_enabled, false);
+  assert.equal(values.opening_worldbook_content, '');
+
+  const worldbookValues = dedicatedInitialValues([{
+    kind: 'data',
+    content: {
+      kind: 'opening_partner',
+      name: '世界书伙伴',
+      profile: { 性格: '安静', 喜爱: '书', 背景故事: '旧友' },
+      worldbook: { content: '额外背景设定' },
+      build: { 层级: 'Ⅰ', 种族: '人类', 身份: ['同伴'], 血统: {}, 技能: {}, 装备: {} },
+    },
+  }], 'opening_partner', '作品');
+  assert.equal(worldbookValues.opening_worldbook_enabled, true);
+  assert.equal(worldbookValues.opening_worldbook_content, '额外背景设定');
 
   const storeValues = dedicatedInitialValues([{
     kind: 'data',

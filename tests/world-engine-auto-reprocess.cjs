@@ -22,11 +22,17 @@ function setup(){
     clearTimeout:key=>timers.delete(key)};
   vm.runInNewContext(source,sandbox);
   const {SamsaraWorldEngine:Engine,emptyState}=sandbox.module.exports;
-  const fresh=()=>({stat_data:{
-    世界:{名称:'测试世界',时间:'2026年9月14日',地点:'城镇',稳定:100,后台:emptyState(),势力:{},探索:{},
-      因果轨道:{当前阶段:'城镇生活',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}}},
-    系统状态:{是否在主神空间:false,是否战斗中:false},设置:{},关系列表:{},传闻:{街头巷议:{},情报交易:{},布告与檄文:{}},资产:{}
-  }});
+  const fresh=()=>{
+    const backend=emptyState();
+    backend.事件['城镇巡逻']={描述:'城镇卫队执行日常巡逻。',时间:'2026年9月14日',条件:'',前因:[],状态:'进行中',默认走向:'继续巡逻',结果:'',公开征兆:'卫兵在街口换岗。',地点:'城镇',分类:'当前事件',更新时间:'2026年9月14日'};
+    backend.势力地区['城镇中心']={类型:'地区',描述:'城镇主要街区。',目标:'维持秩序',进展:'巡逻持续。',下次检查:'',关联事件:['城镇巡逻'],公开动态:'街面秩序稳定。'};
+    backend.势力地区['城镇卫队']={类型:'势力',描述:'负责城镇治安。',目标:'维持秩序',进展:'维持常规轮值。',下次检查:'',关联事件:['城镇巡逻'],公开动态:'卫队正常执勤。'};
+    return {stat_data:{
+      世界:{名称:'测试世界',时间:'2026年9月14日',地点:'城镇',稳定:100,后台:backend,势力:{城镇卫队:{实力:'C',领地:'城镇',描述:'负责城镇治安。',声望:0}},探索:{},
+        因果轨道:{当前阶段:'城镇生活',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}}},
+      系统状态:{是否在主神空间:false,是否战斗中:false},设置:{},关系列表:{},传闻:{街头巷议:{},情报交易:{},布告与檄文:{}},资产:{}
+    }};
+  };
   const host={localStorage:{getItem:()=>null,setItem:()=>{}},
     document:{addEventListener:()=>{},removeEventListener:()=>{}},
     eventOn:(event,fn)=>addHandler(event,fn,false),
@@ -37,7 +43,11 @@ function setup(){
     toastr:{error:()=>{}},
     Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request:async()=>{
       calls++;if(fail)throw new Error('模拟接口暂时失败');
-      return JSON.stringify({摘要:'本轮世界状态已复核。',因果:{当前阶段:'推进结果#'+calls}});
+      return JSON.stringify({
+        摘要:'本轮世界状态已复核。',
+        因果:{当前阶段:'推进结果#'+calls},
+        势力地区:[{名称:'城镇中心',操作:'更新',类型:'地区',描述:'城镇主要街区。',目标:'维持秩序',进展:'巡逻推进#'+calls,关联事件:['城镇巡逻'],公开动态:'卫队完成第'+calls+'次本轮换岗。'}]
+      });
     }}},
     Mvu:{events:{VARIABLE_UPDATE_ENDED:'mvu'},getMvuData:()=>clone(raw),replaceMvuData:async value=>{
       const before=clone(raw),next=clone(value);writes++;

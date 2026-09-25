@@ -54,9 +54,10 @@ function hostFor(statRef){
   const host=hostFor(statRef);
   const engine=new Engine(host);
   engine.config.enabled=true;
-  assert.equal(engine.config.worldModulePromptVersion,4);
+  assert.equal(engine.config.worldModulePromptVersion,5);
   assert.match(engine.config.preset,/只提交已经发生或需要规划的世界变化/,'built-in preset should migrate to concise pipeline');
   assert.match(engine.config.corePrompt,/模型知道≠场外人物知道/,'compact core must preserve anti-omniscience boundary');
+  assert.match(engine.config.corePrompt,/活跃异端只在活动缺失、复核到期、关联事件\/所在地区变化或长期未复核时更新/,'compact core must keep active-alien review event-driven');
   assert.match(engine.config.corePrompt,/没有重大世界偏移就完全不写偏移记录/,'compact core must not pressure the model to touch stability every round');
   assert.ok(engine.config.modulePrompts&&typeof engine.config.modulePrompts.worldTime==='string');
 

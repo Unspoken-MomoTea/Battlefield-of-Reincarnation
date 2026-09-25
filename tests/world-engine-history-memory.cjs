@@ -19,8 +19,11 @@ function historyAnchors(count){
 function freshState(count=17){
   const backend=emptyState();
   backend.历史=historyAnchors(count);
+  backend.事件['王都例行管制']={描述:'王都维持日常巡逻与城门登记。',时间:'第200日',条件:'',前因:[],状态:'进行中',默认走向:'继续例行巡逻',结果:'',公开征兆:'巡逻队正常换岗。',地点:'王都',分类:'当前事件',更新时间:'第200日'};
+  backend.势力地区['王都中央区']={类型:'地区',描述:'王都核心城区。',目标:'维持日常秩序',进展:'例行巡逻持续。',下次检查:'',关联事件:['王都例行管制'],公开动态:'巡逻队按计划执勤。'};
+  backend.势力地区['王都卫队']={类型:'势力',描述:'负责王都日常治安的守备组织。',目标:'维持王都秩序',进展:'维持常规轮值。',下次检查:'',关联事件:['王都例行管制'],公开动态:'卫队正常换岗。'};
   return {
-    世界:{名称:'长线测试世界',时间:'第200日',地点:'王都',稳定:100,后台:backend,因果轨道:{当前阶段:'长期局势持续演化',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}},势力:{},探索:{},法则:[],货币:{},历法:{}},
+    世界:{名称:'长线测试世界',时间:'第200日',地点:'王都',稳定:100,后台:backend,因果轨道:{当前阶段:'长期局势持续演化',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}},势力:{王都卫队:{实力:'C',领地:'王都',描述:'负责王都日常治安的守备组织。',声望:0}},探索:{},法则:[],货币:{},历法:{}},
     设置:{单一世界:true},系统状态:{是否在主神空间:false},资产:{},关系列表:{},传闻:filledRumors()
   };
 }
@@ -33,7 +36,10 @@ function setup(state=freshState(17),historyReplies=[]){
     Mvu:{getMvuData:()=>({stat_data:clone(current)}),replaceMvuData:async raw=>{current=clone(raw.stat_data);}},
     Samsara:{terminal:{apiReady:()=>true,request:async(system,input)=>{
       calls.push({system:String(system||''),input:String(input||'')});
-      if(calls.length===1)return JSON.stringify({摘要:'本轮没有需要改变的世界事实。'});
+      if(calls.length===1)return JSON.stringify({
+        摘要:'本轮没有需要改变的世界事实。',
+        势力地区:[{名称:'王都中央区',操作:'更新',类型:'地区',描述:'王都核心城区。',目标:'维持日常秩序',进展:'本轮完成一次例行巡逻换岗。',关联事件:['王都例行管制'],公开动态:'巡逻队按计划完成换岗。'}]
+      });
       const next=historyReplies[calls.length-2]||('第'+(calls.length-1)+'次长期历史总结：确认这些既有事实共同塑造了后续局势。');
       return JSON.stringify({摘要:next});
     }},validateWorldState:stat=>clone(stat)},

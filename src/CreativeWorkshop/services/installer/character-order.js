@@ -9,8 +9,12 @@ export function isCharacterWorldbookSlot(entry) {
   const source = record(provenance(entry));
   if (!source?.sourceId) return false;
   if (source.characterSlot === true) return true;
+  const order = Number(entry?.position?.order);
   return entry?.position?.type === 'after_character_definition'
-    && /^\[角色\]\s*/u.test(String(entry?.name || ''));
+    && /^\[角色\]\s*/u.test(String(entry?.name || ''))
+    && Number.isFinite(order)
+    && order >= CHARACTER_ORDER_BASE
+    && order <= CHARACTER_ORDER_LAST;
 }
 
 function characterProjectId(entry) {

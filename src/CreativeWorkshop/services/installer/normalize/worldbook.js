@@ -62,6 +62,15 @@ export function normalizeWorldbookArtifact(content) {
     const effect = record(entry.effect);
     const probability = entry.useProbability === false ? 100 : finiteNumber(entry.probability, 100);
     const group = typeof entry.group === 'string' ? entry.group : strings(record(entry.group)?.labels).join(',');
+    const positionType = normalizePositionType(position?.type ?? entry.position);
+    const normalizedPosition = {
+      type: positionType,
+      role: normalizeRole(position?.role ?? entry.role),
+      order: finiteNumber(position?.order ?? entry.order, index),
+      ...(positionType === 'at_depth' ? {
+        depth: Math.max(0, finiteNumber(position?.depth ?? entry.depth, 4)),
+      } : {}),
+    };
 
     return {
       name,
@@ -78,12 +87,7 @@ export function normalizeWorldbookArtifact(content) {
             ? 'same_as_global'
             : Math.max(1, finiteNumber(strategy?.scan_depth ?? entry.scanDepth, 1)),
       },
-      position: {
-        type: normalizePositionType(position?.type ?? entry.position),
-        role: normalizeRole(position?.role ?? entry.role),
-        depth: Math.max(0, finiteNumber(position?.depth ?? entry.depth, 4)),
-        order: finiteNumber(position?.order ?? entry.order, index),
-      },
+      position: normalizedPosition,
       content: typeof entry.content === 'string' ? entry.content : String(entry.content ?? ''),
       probability: Math.max(0, Math.min(100, probability)),
       recursion: {

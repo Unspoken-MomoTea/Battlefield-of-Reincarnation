@@ -114,11 +114,18 @@ test('creator flows require a cover before local testing or publishing', async (
   const heretic = fs.readFileSync(fileURLToPath(new URL('../views/author/create-heretic.js', import.meta.url)), 'utf8');
   assert.doesNotMatch(template, /封面图（可选）/u);
   assert.match(template, /封面图 \*/u);
+  assert.match(template, /data-drop-target="heretic-cover"/u);
+  assert.match(template, /data-role="heretic-cover-preview"/u);
+  assert.match(template, /data-role="heretic-cover-state"/u);
   assert.match(create, /发布作品必须提供图片/u);
   assert.match(create, /const coverDataUrl = await readFileDataUrl\(cover\)/u);
   assert.match(editor, /本地测试也必须带图片/u);
   assert.match(editor, /发布作品必须提供图片/u);
   assert.match(heretic, /发布异端也必须提供图片/u);
+  assert.match(heretic, /const renderCover=/u);
+  assert.match(heretic, /createObjectURL/u);
+  assert.match(heretic, /dataTransfer\?\.files/u);
+  assert.match(heretic, /is-dragover/u);
   assert.match(heretic, /let attempt=null/u);
   assert.match(heretic, /if\(!attempt\.projectId\)/u);
   assert.match(heretic, /if\(!attempt\.coverUploaded\)/u);

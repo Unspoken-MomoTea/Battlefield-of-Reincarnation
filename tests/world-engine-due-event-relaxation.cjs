@@ -1,10 +1,16 @@
 const assert = require('node:assert/strict');
 const {SamsaraWorldEngine: Engine, emptyState, RECORDS} = require('../script/世界推进系统.js');
 const clone = value => JSON.parse(JSON.stringify(value));
-const fresh = () => ({
-  世界:{名称:'测试世界',时间:'2026年9月7日中午',地点:'军械库',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},
-  系统状态:{是否在主神空间:false},设置:{},任务:{列表:{},副本成就:{}},关系列表:{},传闻:{}
-});
+const fresh = () => {
+  const backend=emptyState();
+  backend.事件['军械库日常警戒']={...RECORDS.事件,描述:'守军维持军械库外围日常警戒。',时间:'2026年9月7日中午',状态:'进行中',分类:'当前事件',地点:'军械库'};
+  backend.势力地区['军械库区域']={类型:'地区',描述:'城内军械库及外围道路。',目标:'维持警戒',进展:'守军保持常规轮值。',下次检查:'',关联事件:['军械库日常警戒'],公开动态:'守军照常巡逻。'};
+  backend.势力地区['城防守军']={类型:'势力',描述:'负责城防与军械库警戒。',目标:'维持城防',进展:'执行常规轮值。',下次检查:'',关联事件:['军械库日常警戒'],公开动态:'守军正常执勤。'};
+  return {
+    世界:{名称:'测试世界',时间:'2026年9月7日中午',地点:'军械库',后台:backend,势力:{城防守军:{实力:'C',领地:'城内',描述:'负责城防与军械库警戒。',声望:0}},探索:{},因果轨道:{偏移记录:{}}},
+    系统状态:{是否在主神空间:false},设置:{},任务:{列表:{},副本成就:{}},关系列表:{},传闻:{}
+  };
+};
 
 function setup(request){
   let stat=fresh(),writes=0,text='守军仍在等待军械库调度。';
@@ -51,7 +57,10 @@ function addDueEvent(state){
 
   {
     let calls=0;
-    const x=setup(async()=>{calls++;return JSON.stringify({摘要:'本轮没有新的世界事实'});});
+    const x=setup(async()=>{calls++;return JSON.stringify({
+      摘要:'军械库整备暂未启动，但外围警戒继续推进。',
+      势力地区:[{名称:'军械库区域',操作:'更新',类型:'地区',描述:'城内军械库及外围道路。',目标:'维持警戒',进展:'守军完成一次中午换岗。',关联事件:['军械库日常警戒'],公开动态:'外围巡逻完成换岗。'}]
+    });});
     x.change(addDueEvent);
     assert.equal(await x.engine.run(),true);
     assert.equal(calls,1,'AI 暂时未处理到期事件也不得因此触发纠错重试');
@@ -64,7 +73,11 @@ function addDueEvent(state){
   }
 
   {
-    const x=setup(async()=>JSON.stringify({摘要:'军械库继续等待',事件:[{名称:'军械库整备与资源清点',下次检查:'2026年9月7日下午'}]}));
+    const x=setup(async()=>JSON.stringify({
+      摘要:'军械库整备继续等待，外围警戒照常推进。',
+      事件:[{名称:'军械库整备与资源清点',下次检查:'2026年9月7日下午'}],
+      势力地区:[{名称:'军械库区域',操作:'更新',类型:'地区',描述:'城内军械库及外围道路。',目标:'维持警戒',进展:'守军把下一轮巡逻交接给午后班次。',关联事件:['军械库日常警戒'],公开动态:'外围警戒维持。'}]
+    }));
     x.change(addDueEvent);
     assert.equal(await x.engine.run(),true);
     const event=x.get().世界.后台.事件.军械库整备与资源清点;

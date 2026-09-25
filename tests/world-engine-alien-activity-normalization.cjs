@@ -50,13 +50,54 @@ for(const name of ['塞琉·尤比基塔斯·伪','兰·伪']){
 }
 
 const requirements=activeAlienActivityRequirements(stat);
-assert.equal(requirements.length,2);
+assert.equal(requirements.length,2,'missing backend activity must still require initialization for each active alien');
 for(const item of requirements){
+  assert.match(item.要求,/触发复核/);
   assert.match(item.要求,/更新时间无需抄写/);
+  assert.doesNotMatch(item.要求,/每轮/);
   assert.doesNotMatch(item.要求,/更新时间精确写为当前世界时间/);
 }
 
+const settled=clone(stat);
+settled.世界.后台=emptyState();
+settled.世界.后台.人物={
+  '塞琉·尤比基塔斯·伪':{
+    所属世界:settled.世界.名称,地点:'帝都贫民窟-第四封锁区',目标:'维持封锁',行动:'继续搜查既定区域。',
+    状态:'活跃',更新时间:settled.世界.时间,下次检查:'',关联事件:['帝都封锁'],认知:['封锁命令仍然有效'],认知来源:[]
+  },
+  '兰·伪':{
+    所属世界:settled.世界.名称,地点:'帝都西侧瞭望塔',目标:'观察城内动向',行动:'按既定计划监视交通。',
+    状态:'活跃',更新时间:settled.世界.时间,下次检查:'',关联事件:[],认知:[],认知来源:[]
+  }
+};
+assert.deepEqual(activeAlienActivityRequirements(settled),[],'complete active aliens with no due/event/area trigger must keep their existing plan instead of being forced to react every world-engine run');
+
+const eventTriggered=clone(settled);
+eventTriggered.世界.后台.最近变化=[{时间:eventTriggered.世界.时间,类别:'事件',名称:'帝都封锁',操作:'更新',字段:'状态',内容:'封锁范围扩大'}];
+const triggeredRequirements=activeAlienActivityRequirements(eventTriggered);
+assert.equal(triggeredRequirements.length,1,'a linked world event change should trigger only the affected alien review');
+assert.equal(triggeredRequirements[0].名称,'塞琉·尤比基塔斯·伪');
+assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变化/);
+
 (async()=>{
+  // 已有完整活动且没有触发条件时，异端应自然延续既定行动；空差分不能再因为“每轮必复核”被打回。
+  let quietState=clone(settled),quietCalls=0,quietWrites=0;
+  const quietHost={
+    localStorage:{getItem:()=>null,setItem:()=>{}},
+    getCurrentChatId:()=> 'alien-no-trigger',
+    getChatMessages:()=>[{message_id:1,role:'assistant',message:'这一小段时间里，主角只在室内整理物品，没有新的公开动静。'}],
+    Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request:async()=>{quietCalls++;return JSON.stringify({摘要:'没有新的世界侧事实。'});}}},
+    Mvu:{getMvuData:()=>({stat_data:clone(quietState)}),replaceMvuData:async data=>{quietWrites++;quietState=clone(data.stat_data);}}
+  };
+  const quietEngine=new Engine(quietHost);
+  quietEngine.config.enabled=true;
+  quietEngine.config.requireMacroBackbone=false;
+  quietEngine.config.retryAttempts=1;
+  quietEngine.worldbook=async()=>[];
+  assert.equal(await quietEngine.run(),true,'no-trigger active aliens must not force a synthetic activity rewrite');
+  assert.equal(quietCalls,1,'quiet world advance should succeed without an alien-repair retry');
+  assert.equal(quietWrites,1,'quiet world advance should commit normally');
+
   // 复现实际开局：世界.时间为空，但后台回复里的两名活跃异端给出了同一个当前时间锚点。
   // 世界引擎应直接接管该时钟并一次成功，不再把异端活动打回。
   let current=clone(stat);
@@ -139,6 +180,12 @@ for(const item of requirements){
   timeEngine.config.requireMacroBackbone=false;
   timeEngine.config.retryAttempts=2;
   timeEngine.worldbook=async()=>[];
+  const initializationRequest=await timeEngine.buildRequest(timeEngine.snapshot());
+  const initializationPayload=JSON.parse(initializationRequest.input);
+  assert.equal(initializationPayload.世界时间维护.是否需要初始化,true);
+  assert.equal(initializationPayload.世界时间维护.初始化锚定.任务世界,timeState.世界.名称);
+  assert.match(initializationPayload.世界时间维护.初始化锚定.禁止,/下一宏观节点.*未来事件.*当前世界时间/);
+  assert.match(initializationPayload.世界时间维护.正文时间职责,/必须输出顶层“时间”/);
   assert.equal(await timeEngine.run(),true,'calendar-incompatible precise event time should be retried instead of committed');
   assert.equal(timeCalls,2,'named-month event date must be rejected once and retried with machine-readable month/day');
   assert.equal(timeState.世界.时间,'帝历1024年-09月-12日-下午');

@@ -33,11 +33,9 @@ export function buildArtifactPlan(installed) {
         ...entry,
         ...(worldCharacterBundle ? {
           position: {
-            ...(entry.position || {}),
             type: 'after_character_definition',
             role: 'system',
-            depth: 4,
-            order: 650,
+            order: 600,
           },
         } : {}),
         extra: {

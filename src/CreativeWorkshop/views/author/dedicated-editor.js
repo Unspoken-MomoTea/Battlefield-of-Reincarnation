@@ -95,6 +95,441 @@ function valuesFromNames(root, names) {
   return Object.fromEntries(names.map(name => [name, getValue(root, name)]));
 }
 
+function randomId(kind, index) {
+  const suffix = globalThis.crypto?.randomUUID?.()
+    || `${Date.now().toString(36)}-${index.toString(36)}`;
+  return `workshop-${kind}-${suffix}`;
+}
+
+function firstEffects(item = {}) {
+  return Object.entries(item.effects || {}).slice(0, 2).map(([name, description]) => ({ name, description }));
+}
+
+function effectsFromCard(card) {
+  const result = {};
+  for (const row of card.querySelectorAll('[data-effect-row]')) {
+    const name = getValue(row, 'effect_name').trim();
+    const description = getValue(row, 'effect_desc').trim();
+    if (!description) continue;
+    result[name || '效果'] = description;
+  }
+  return result;
+}
+
+function appendEffectEditor(doc, card, effects, emit, { max = 2 } = {}) {
+  const block = el(doc, 'div', 'rw-effect-editor');
+  const rows = el(doc, 'div', 'rw-effect-list');
+  const add = el(doc, 'button', 'rw-button rw-effect-add', '+ 添加效果');
+  add.type = 'button';
+  block.append(rows, add);
+
+  const state = effects?.length ? effects.slice(0, max) : [];
+
+  const render = () => {
+    rows.replaceChildren();
+    state.forEach((entry, index) => {
+      const row = el(doc, 'div', 'rw-effect-row');
+      row.dataset.effectRow = String(index);
+      const name = makeInput(doc, 'effect_name', entry.name || '', { maxLength: 80, placeholder: '效果名称' });
+      const description = makeInput(doc, 'effect_desc', entry.description || '', { textarea: true, maxLength: 1600, placeholder: '填写效果内容' });
+      const remove = el(doc, 'button', 'rw-button danger rw-effect-remove', '删除');
+      remove.type = 'button';
+      row.append(field(doc, '效果名称', name), field(doc, '效果', description), remove);
+      const sync = () => {
+        entry.name = name.value;
+        entry.description = description.value;
+        emit();
+      };
+      name.addEventListener('input', sync);
+      description.addEventListener('input', sync);
+      remove.addEventListener('click', () => {
+        state.splice(index, 1);
+        render();
+        emit();
+      });
+      rows.appendChild(row);
+    });
+    add.disabled = state.length >= max;
+    add.hidden = state.length >= max;
+  };
+
+  add.addEventListener('click', () => {
+    if (state.length >= max) return;
+    state.push({ name: '', description: '' });
+    render();
+    emit();
+  });
+  render();
+  return { node: block, values: () => state.filter(item => item.description?.trim()).map(item => ({ ...item })) };
+}
+
+function pointAllocator(doc, { budget, initial = {}, emit }) {
+  const root = el(doc, 'div', 'rw-point-allocator');
+  const remaining = el(doc, 'span', 'rw-point-remaining');
+  const grid = el(doc, 'div', 'rw-point-grid');
+  root.append(grid);
+
+  const values = Object.fromEntries(ATTRIBUTES.map(attr => [
+    attr,
+    Math.max(0, Math.min(8, Number(initial?.[attr]) || 0)),
+  ]));
+  let total = Object.values(values).reduce((sum, value) => sum + value, 0);
+  while (total > budget) {
+    const attr = ATTRIBUTES.find(key => values[key] > 0);
+    if (!attr) break;
+    values[attr] -= 1;
+    total -= 1;
+  }
+
+  const controls = new Map();
+  for (const attr of ATTRIBUTES) {
+    const card = el(doc, 'div', 'rw-point-card');
+    const label = el(doc, 'strong', '', attr);
+    const row = el(doc, 'div', 'rw-point-controls');
+    const minus = el(doc, 'button', 'rw-point-button', '−');
+    const tier = el(doc, 'span', 'rw-point-tier');
+    const plus = el(doc, 'button', 'rw-point-button', '+');
+    minus.type = plus.type = 'button';
+    row.append(minus, tier, plus);
+    card.append(label, row);
+    grid.appendChild(card);
+    controls.set(attr, { tier, minus, plus });
+
+    minus.addEventListener('click', () => {
+      if (values[attr] <= 0) return;
+      values[attr] -= 1;
+      render();
+      emit();
+    });
+    plus.addEventListener('click', () => {
+      const used = Object.values(values).reduce((sum, value) => sum + value, 0);
+      if (values[attr] >= 8 || used >= budget) return;
+      values[attr] += 1;
+      render();
+      emit();
+    });
+  }
+
+  const render = () => {
+    const used = Object.values(values).reduce((sum, value) => sum + value, 0);
+    remaining.textContent = `剩余 ${Math.max(0, budget - used)} 点`;
+    for (const [attr, control] of controls) {
+      const value = values[attr];
+      control.tier.textContent = POINT_QUALITIES[value] || 'SSS';
+      control.minus.disabled = value <= 0;
+      control.plus.disabled = value >= 8 || used >= budget;
+    }
+  };
+  render();
+
+  return {
+    node: root,
+    remaining,
+    values: () => structuredClone(values),
+  };
+}
+
+function normalizeStoreEntries(initial = {}) {
+  const rows = [];
+  for (const [kind, key] of [['equipment', 'equipments'], ['item', 'items'], ['skill', 'skills']]) {
+    for (const item of initial?.[key] || []) {
+      const normalized = structuredClone(item);
+      const tier = STORE_QUALITIES.includes(String(normalized.tier || '').toUpperCase())
+        ? String(normalized.tier).toUpperCase()
+        : 'F';
+      normalized.tier = tier;
+      normalized.cost = Math.max(
+        STORE_PRICE_FLOOR[tier],
+        Math.min(1000, Number(normalized.cost) || 0),
+      );
+      normalized.effects = Object.fromEntries(Object.entries(normalized.effects || {}).slice(0, 2));
+      rows.push({ kind, item: normalized });
+    }
+  }
+  return rows;
+}
+
+function storeEditor(doc, initial, emit) {
+  const root = el(doc, 'div', 'rw-special-editor');
+  const head = el(doc, 'div', 'rw-special-editor-head');
+  head.append(
+    el(doc, 'strong', '', '开局商店'),
+    el(doc, 'small', '', '逐项添加商品。品质只允许 F / E / D，单件价格最高 1000；每件商品最多 2 条效果。'),
+  );
+  root.appendChild(head);
+
+  const list = el(doc, 'div', 'rw-store-entry-list');
+  const add = el(doc, 'button', 'rw-button rw-store-add', '+ 添加商品');
+  add.type = 'button';
+  root.append(list, add);
+
+  const entries = normalizeStoreEntries(initial);
+  let counter = entries.length;
+
+  const render = () => {
+    list.replaceChildren();
+    if (!entries.length) {
+      list.appendChild(el(doc, 'div', 'rw-local-note', '还没有商品。点击“添加商品”后选择装备、道具或技能。'));
+      return;
+    }
+
+    entries.forEach((entry, index) => {
+      const item = entry.item || {};
+      const card = el(doc, 'section', 'rw-store-entry');
+      card.dataset.storeIndex = String(index);
+
+      const cardHead = el(doc, 'div', 'rw-store-entry-head');
+      const kind = makeSelect(doc, 'store_kind', [
+        { value: 'equipment', label: '装备' },
+        { value: 'item', label: '道具' },
+        { value: 'skill', label: '技能' },
+      ], entry.kind);
+      const remove = el(doc, 'button', 'rw-button danger rw-store-remove', '删除商品');
+      remove.type = 'button';
+      cardHead.append(kind, remove);
+      card.appendChild(cardHead);
+
+      const common = el(doc, 'div', 'rw-special-grid');
+      const quality = makeSelect(doc, 'store_quality', STORE_QUALITIES, item.tier || 'F');
+      const initialQuality = quality.value || 'F';
+      const price = makeInput(
+        doc,
+        'store_cost',
+        Math.max(STORE_PRICE_FLOOR[initialQuality], Number(item.cost || 0)),
+        { type: 'number', min: STORE_PRICE_FLOOR[initialQuality], max: 1000, step: 1 },
+      );
+      common.append(
+        field(doc, '名称 *', makeInput(doc, 'store_name', item.name || '', { maxLength: 80 })),
+        field(doc, '品质', quality),
+        field(doc, '价格', price, 'F≥50 / E≥300 / D≥700；最高1000。'),
+        field(
+          doc,
+          '标签',
+          makeInput(doc, 'store_tags', Array.isArray(item.tags) ? item.tags.join(', ') : '', { maxLength: 500 }),
+          '多个标签用逗号分隔，例如：物理、远程、辅助。',
+        ),
+      );
+      card.appendChild(common);
+
+      if (entry.kind === 'equipment') {
+        card.appendChild(field(
+          doc,
+          '装备类型',
+          makeSelect(doc, 'store_equipment_type', STORE_EQUIPMENT_TYPES, String(item.type ?? 0)),
+        ));
+        card.appendChild(field(
+          doc,
+          '消耗',
+          makeInput(doc, 'store_consume', item.consume || '无', { maxLength: 300 }),
+          '例如：无 / 每次攻击消耗子弹1发 / EP 10。',
+        ));
+        card.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始属性'));
+        const attrs = el(doc, 'div', 'rw-store-attr-grid');
+        for (const attr of STORE_ATTRIBUTES) {
+          attrs.appendChild(field(
+            doc,
+            attr,
+            makeSelect(doc, `store_attr_${attr}`, [
+              { value: '', label: '无' },
+              ...EQUIPMENT_ATTR_QUALITIES.map(value => ({ value, label: value })),
+            ], item.attrs?.[attr] || ''),
+          ));
+        }
+        card.appendChild(attrs);
+      } else if (entry.kind === 'item') {
+        const itemGrid = el(doc, 'div', 'rw-special-grid');
+        itemGrid.append(
+          field(doc, '道具类型', makeSelect(doc, 'store_item_type', STORE_ITEM_TYPES, item.type || '消耗')),
+          field(
+            doc,
+            '数量',
+            makeInput(doc, 'store_quantity', Number(item.quantity || 1), { type: 'number', min: 1, max: 999, step: 1 }),
+            '购买一次写入背包的数量。',
+          ),
+          field(doc, '消耗', makeInput(doc, 'store_consume', item.consume || '无', { maxLength: 300 })),
+          field(doc, '冷却 / CD', makeInput(doc, 'store_cd', item.cd || '0', { maxLength: 120 }), '没有冷却填 0。'),
+        );
+        card.appendChild(itemGrid);
+      } else if (entry.kind === 'skill') {
+        const skillGrid = el(doc, 'div', 'rw-special-grid');
+        skillGrid.append(
+          field(doc, '技能类型', makeSelect(doc, 'store_skill_type', STORE_SKILL_TYPES, String(item.type ?? 0))),
+          field(doc, '消耗', makeInput(doc, 'store_consume', item.consume || '无', { maxLength: 300 })),
+        );
+        card.appendChild(skillGrid);
+      }
+
+      card.appendChild(el(doc, 'div', 'rw-special-subtitle', '效果与描述'));
+      const effectEditor = appendEffectEditor(doc, card, firstEffects(item), emit, { max: 2 });
+      card.append(
+        effectEditor.node,
+        field(doc, '描述', makeInput(doc, 'store_desc', item.desc || '', { textarea: true, maxLength: 1600 })),
+      );
+
+      const sync = () => {
+        entry.kind = kind.value;
+        const previousId = entry.item?.id || randomId(entry.kind, counter++);
+        const attrsValue = {};
+        if (entry.kind === 'equipment') {
+          for (const attr of STORE_ATTRIBUTES) {
+            const value = getValue(card, `store_attr_${attr}`);
+            if (value) attrsValue[attr] = value;
+          }
+        }
+        const base = {
+          id: previousId,
+          name: getValue(card, 'store_name').trim(),
+          tier: getValue(card, 'store_quality') || 'F',
+          cost: Math.max(
+            STORE_PRICE_FLOOR[getValue(card, 'store_quality') || 'F'] || 50,
+            Math.min(1000, Number(getValue(card, 'store_cost')) || 0),
+          ),
+          source: '创意工坊',
+          tags: String(getValue(card, 'store_tags') || '')
+            .split(/[,，\n]/u)
+            .map(value => value.trim())
+            .filter(Boolean),
+          effects: effectsFromCard(card),
+          desc: getValue(card, 'store_desc').trim(),
+        };
+        entry.item = entry.kind === 'equipment'
+          ? {
+              ...base,
+              type: Math.max(0, Math.min(17, Number(getValue(card, 'store_equipment_type')) || 0)),
+              attrs: attrsValue,
+              consume: getValue(card, 'store_consume').trim() || '无',
+            }
+          : entry.kind === 'item'
+            ? {
+                ...base,
+                type: STORE_ITEM_TYPES.includes(getValue(card, 'store_item_type'))
+                  ? getValue(card, 'store_item_type')
+                  : '消耗',
+                quantity: Math.max(1, Math.min(999, Number(getValue(card, 'store_quantity')) || 1)),
+                consume: getValue(card, 'store_consume').trim() || '无',
+                cd: getValue(card, 'store_cd').trim() || '0',
+              }
+            : {
+                ...base,
+                type: Math.max(0, Math.min(2, Number(getValue(card, 'store_skill_type')) || 0)),
+                consume: getValue(card, 'store_consume').trim() || '无',
+              };
+        emit();
+      };
+
+      price.addEventListener('change', () => {
+        const floor = STORE_PRICE_FLOOR[quality.value] || 50;
+        const next = Math.max(floor, Math.min(1000, Number(price.value) || 0));
+        price.value = String(next);
+        sync();
+      });
+      quality.addEventListener('change', () => {
+        const floor = STORE_PRICE_FLOOR[quality.value] || 50;
+        price.min = String(floor);
+        if ((Number(price.value) || 0) < floor) price.value = String(floor);
+        sync();
+      });
+      kind.addEventListener('change', () => {
+        sync();
+        render();
+      });
+      card.addEventListener('input', event => {
+        if (!event.target.closest?.('[data-effect-row]')) sync();
+      });
+      card.addEventListener('change', event => {
+        if (event.target !== kind) sync();
+      });
+      effectEditor.node.addEventListener('input', sync);
+      effectEditor.node.addEventListener('click', event => {
+        if (event.target?.closest?.('.rw-effect-add,.rw-effect-remove')) sync();
+      });
+      remove.addEventListener('click', () => {
+        entries.splice(index, 1);
+        render();
+        emit();
+      });
+      list.appendChild(card);
+    });
+  };
+
+  add.addEventListener('click', () => {
+    entries.push({
+      kind: 'equipment',
+      item: {
+        id: randomId('equipment', counter++),
+        name: '',
+        tier: 'F',
+        cost: 50,
+        type: 0,
+        source: '创意工坊',
+        tags: [],
+        attrs: {},
+        effects: {},
+        desc: '',
+        consume: '无',
+        cd: '0',
+      },
+    });
+    render();
+    emit();
+  });
+  render();
+
+  return {
+    node: root,
+    values() {
+      const catalog = { equipments: [], items: [], skills: [] };
+      for (const entry of entries) {
+        if (!entry.item?.name?.trim()) continue;
+        if (entry.kind === 'equipment') catalog.equipments.push(structuredClone(entry.item));
+        if (entry.kind === 'item') catalog.items.push(structuredClone(entry.item));
+        if (entry.kind === 'skill') catalog.skills.push(structuredClone(entry.item));
+      }
+      return { store_catalog: catalog };
+    },
+  };
+}
+
+function worldEditor(doc, initial, emit) {
+  const root = el(doc, 'div', 'rw-special-editor');
+  const head = el(doc, 'div', 'rw-special-editor-head');
+  head.append(
+    el(doc, 'strong', '', '世界书角色'),
+    el(doc, 'small', '', '姓名与关键词用于世界书触发；角色正文直接按预设格式编辑，不再套用 MVU 的身份 / 职业 / 层级字段。'),
+  );
+  root.appendChild(head);
+
+  const grid = el(doc, 'div', 'rw-special-grid');
+  grid.append(
+    field(doc, '角色姓名 *', makeInput(doc, 'world_name', initial.world_name || '', { maxLength: 80 })),
+    field(doc, '关键词 / 别名', makeInput(doc, 'world_keywords', initial.world_keywords || '', { maxLength: 300 }), '多个关键词用逗号分隔，姓名会自动加入关键词。'),
+  );
+
+  const content = makeInput(
+    doc,
+    'world_content',
+    initial.world_content || worldCharacterTemplate(),
+    { textarea: true, maxLength: 20000 },
+  );
+  content.rows = 34;
+  root.append(
+    grid,
+    field(
+      doc,
+      '世界书内容 *',
+      content,
+      '已预填角色设定格式；{{角色姓名}} 会在发布时自动替换成上方姓名。可以自由增删栏目与内容。',
+    ),
+  );
+  root.addEventListener('input', emit);
+  root.addEventListener('change', emit);
+
+  return {
+    node: root,
+    values: () => valuesFromNames(root, ['world_name', 'world_keywords', 'world_content']),
+  };
+}
+
 function rankQuality(rank) {
   return ({ 'Ⅰ': 'F', 'Ⅱ': 'E', 'Ⅲ': 'D' })[rank] || 'F';
 }

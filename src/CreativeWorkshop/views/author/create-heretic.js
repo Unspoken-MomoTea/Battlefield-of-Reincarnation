@@ -19,10 +19,56 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,ref
   const open=overlay.querySelector('[data-action="create-heretic-open"]');
   const cancels=[...overlay.querySelectorAll('[data-action="create-heretic-cancel"]')];
   const preview=form?.querySelector('[data-role="heretic-build-preview"]');
+  const coverInput=form?.querySelector('[data-field="heretic-cover"]');
+  const coverDropzone=form?.querySelector('[data-drop-target="heretic-cover"]');
+  const coverPreview=form?.querySelector('[data-role="heretic-cover-preview"]');
+  const coverState=form?.querySelector('[data-role="heretic-cover-state"]');
   let snapshot=null;
   let attempt=null;
+  let coverFile=null;
+  let coverUrl='';
 
-  const close=()=>{form.hidden=true;snapshot=null;attempt=null;form.reset();if(preview)preview.textContent='打开后读取当前 MVU。';};
+  const revokeCoverPreview=()=>{
+    if(!coverUrl) return;
+    try{host.URL?.revokeObjectURL?.(coverUrl);}catch{}
+    coverUrl='';
+  };
+  const renderCover=()=>{
+    revokeCoverPreview();
+    const selected=coverFile||coverInput?.files?.[0]||null;
+    if(!selected){
+      if(coverPreview){
+        coverPreview.hidden=true;
+        coverPreview.removeAttribute('src');
+      }
+      if(coverState) coverState.textContent='必需。选择后会立即预览。';
+      return;
+    }
+    coverFile=selected;
+    try{
+      coverUrl=host.URL?.createObjectURL?.(selected)||'';
+      if(coverPreview&&coverUrl){
+        coverPreview.src=coverUrl;
+        coverPreview.hidden=false;
+      }
+    }catch{}
+    if(coverState) coverState.textContent=`已选择：${selected.name||'封面图片'} · 尚未上传`;
+    attempt=null;
+  };
+  const close=()=>{
+    form.hidden=true;
+    snapshot=null;
+    attempt=null;
+    coverFile=null;
+    revokeCoverPreview();
+    form.reset();
+    if(preview)preview.textContent='打开后读取当前 MVU。';
+    if(coverPreview){
+      coverPreview.hidden=true;
+      coverPreview.removeAttribute('src');
+    }
+    if(coverState) coverState.textContent='必需。选择后会立即预览。';
+  };
   open?.addEventListener('click',()=>{
     try{
       snapshot=currentCharacter(host);
@@ -45,6 +91,28 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,ref
   });
   cancels.forEach(button=>button.addEventListener('click',close));
 
+  coverInput?.addEventListener('change',()=>{
+    coverFile=coverInput.files?.[0]||null;
+    renderCover();
+  });
+  coverDropzone?.addEventListener('dragover',event=>{
+    event.preventDefault();
+    coverDropzone.classList.add('is-dragover');
+  });
+  coverDropzone?.addEventListener('dragleave',()=>coverDropzone.classList.remove('is-dragover'));
+  coverDropzone?.addEventListener('drop',event=>{
+    event.preventDefault();
+    coverDropzone.classList.remove('is-dragover');
+    const file=event.dataTransfer?.files?.[0]||null;
+    if(!file) return;
+    if(!['image/png','image/jpeg','image/webp'].includes(String(file.type||''))){
+      notifyError(new Error('封面只支持 PNG / JPEG / WebP'));
+      return;
+    }
+    coverFile=file;
+    renderCover();
+  });
+
   form?.addEventListener('submit',event=>{
     event.preventDefault();
     void (async()=>{
@@ -54,7 +122,7 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,ref
         const fd=new FormData(form);
         const name=String(fd.get('name')||'').trim();
         if(!name) throw new Error('请填写异端名称');
-        const cover=form.querySelector('[data-field="heretic-cover"]')?.files?.[0] || null;
+        const cover=coverFile||coverInput?.files?.[0]||null;
         if(!cover) throw new Error('请选择封面图片；发布异端也必须提供图片');
         const personality=String(fd.get('personality')||'');
         const likes=String(fd.get('likes')||'');

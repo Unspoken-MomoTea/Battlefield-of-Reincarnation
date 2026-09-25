@@ -6,6 +6,7 @@ import {
   dedicatedInitialValues,
   projectCategoryForSelection,
   resolvePublishMode,
+  worldCharacterTemplate,
 } from '../views/author/publish-templates.js';
 
 test('unified category maps store to extension backend and character to subtypes', () => {
@@ -41,6 +42,56 @@ test('world character uses one freeform template panel and no MVU-only fields', 
   assert.equal('occupation' in artifacts[1].content.profile, false);
   assert.equal('identities' in artifacts[1].content.profile, false);
   assert.equal('rank' in artifacts[1].content.profile, false);
+});
+
+test('world character default template is freeform lore instead of MVU character fields', () => {
+  const template = worldCharacterTemplate();
+  assert.match(template, /^\{\{角色姓名\}\}:/u);
+  assert.match(template, /基本信息:/u);
+  assert.match(template, /背景设定:/u);
+  assert.match(template, /外貌描写:/u);
+  assert.match(template, /身体数据:/u);
+  assert.match(template, /性格特征:/u);
+  assert.match(template, /目标动机:/u);
+  assert.match(template, /战斗能力:/u);
+  assert.match(template, /个人物品:/u);
+  assert.doesNotMatch(template, /^\s*身份:/mu);
+  assert.doesNotMatch(template, /^\s*职业:/mu);
+  assert.doesNotMatch(template, /^\s*层级:/mu);
+});
+
+test('legacy world character descriptor migrates into the freeform content panel without losing data', () => {
+  const values = dedicatedInitialValues([{
+    kind: 'data',
+    content: {
+      kind: 'world_character',
+      name: '旧人物',
+      profile: {
+        name: '旧人物',
+        aliases: ['旧别名'],
+        race: '人类',
+        identities: ['调查员'],
+        occupation: '剑士',
+        rank: 'Ⅲ',
+        personality: '冷静',
+        appearance: '黑发',
+        background: '旧背景',
+        notes: '旧补充',
+      },
+    },
+  }], 'world_character', '作品');
+
+  assert.equal(values.world_name, '旧人物');
+  assert.equal(values.world_keywords, '旧别名');
+  assert.match(values.world_content, /种族: 人类/u);
+  assert.match(values.world_content, /身份: 调查员/u);
+  assert.match(values.world_content, /职业: 剑士/u);
+  assert.match(values.world_content, /层级: Ⅲ/u);
+  assert.match(values.world_content, /旧背景/u);
+  assert.match(values.world_content, /旧补充/u);
+  assert.equal('world_identity' in values, false);
+  assert.equal('world_occupation' in values, false);
+  assert.equal('world_rank' in values, false);
 });
 
 test('opening character uses 8 point startup budget and auto F-E-D quality from rank', () => {

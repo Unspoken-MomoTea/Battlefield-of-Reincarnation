@@ -589,11 +589,9 @@
           }
 
           const ex = expectedData(q);
-          const trialTaskNames = [];
           q.tasks.forEach(function(task,index){
             const plan = ex.tasks[index] || {};
-            // 数据库键直接使用任务原名；委托方继续写标准值，但试炼身份由隐藏任务名单兜底。
-            // 不再把【晋升试炼·N】塞进任务名，列表展示与数据库保持干净。
+            // 数据库键直接使用任务原名；试炼任务身份只由“委托方”关键词识别，不再保存任务名名单。
             const safeName = String(task.name || ('位格跃迁·' + (index + 1))).replace(/[.。]/g,'·').trim();
             const taskPath = ['stat_data','任务','列表',safeName];
             set(c,taskPath.concat('委托方'),'晋升试炼');
@@ -603,11 +601,8 @@
             set(c,taskPath.concat('交付'),'全部试炼主任务完成后统一结算');
             set(c,taskPath.concat('状态'),'进行中');
             set(c,taskPath.concat('惩罚'),task.punish || '本次晋升试炼失败');
-            if (safeName && trialTaskNames.indexOf(safeName) < 0) trialTaskNames.push(safeName);
           });
-          // 程序级身份证：后续AI即使误改委托方，结算仍按这里记录的任务键识别晋升试炼。
           set(c,'stat_data.系统状态.是否试炼任务',true);
-          set(c,'stat_data.系统状态.试炼任务名单',trialTaskNames);
 
           if (!expectedSingle) {
             set(c,'stat_data.系统状态.是否在主神空间',false);

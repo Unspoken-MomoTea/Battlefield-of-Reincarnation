@@ -2560,7 +2560,108 @@ ${schemaText}`;
 2. 最低构筑：杂兵=血统1/装备1/技能可0；精英=血统1/装备2/技能1；Boss=血统1/装备3/技能2；上限为血统2/装备6/技能4。精英需有杀伤、生存、机动/控制，Boss另有阶段或形态机制。
 3. 能力只归一个主要组件：血统=本体条件，装备=实体，技能=执行方式，状态=当前结果，形态=独立战斗模式。
 4. 只用 WorldResult.关系 更新既有 NPC；只提交新增/修正项。不得输出真属性、最终属性或强化缓存；血统/形态五维必须齐全，技能不写基础/衍生属性。
-5. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、层级和已演出能力一致的缺口，资料不足时做最小补全。`;    class SamsaraWorldEngine {
+5. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、层级和已演出能力一致的缺口，资料不足时做最小补全。`;    // 世界推进主视图渲染：从 50-engine-ui 拆出的事件/因果/时间线业务视图。
+    function worldEngineRenderWorldTab(ctx) {
+        const {
+            engine,s,w,orbit,events,active,future,people,calendarCandidates,snapshot,
+            entries,text,empty,section,stabilityDescription,parseDate,calendar,tools,
+            timelineCards,exists,fields,prose,compactPerson
+        }=ctx;
+        let html='';
+        const offsets=entries(orbit.偏移记录);
+        const stable=w.稳定!==null&&w.稳定!==''&&Number.isFinite(Number(w.稳定))?Number(w.稳定):null;
+        const signed=n=>(n>0?'+':'')+n;
+        const offsetCard=([name,r])=>{
+            const impact=r?.影响程度!==null&&r?.影响程度!==''&&Number.isFinite(Number(r?.影响程度))?Number(r.影响程度):null;
+            return '<article class="we-offset"><div class="we-offset-head"><b>'+text(name)+'</b><span>'+text(impact===null?'影响未记录':signed(impact))+'</span></div><p>'+text(r?.描述||'暂无偏移描述')+'</p><small>引发者 · '+text(r?.引发者||'未记录')+' · '+(impact===null?'待确认':impact<0?'因果破坏':impact>0?'因果修复 / 强化':'无数值变化')+'</small></article>';
+        };
+        const causalHtml='<div class="we-causal"><div class="we-stability"><div><small>世界稳定值</small><strong data-world-stability>'+text(stable===null?'未记录':stable)+'</strong></div><span>'+((s.设置||{}).世界超稳?'世界超稳 · 禁止新增偏移':'基准 100 · 失稳将强化世界排异')+'</span></div>'
+            +(stable===null?'':'<meter min="0" max="120" value="'+Math.max(0,Math.min(120,stable))+'" aria-label="世界稳定值">'+stable+'</meter>')
+            +stabilityDescription(stable)
+            +'<div class="we-offset-heading">偏移记录 <span>'+offsets.length+' 条</span></div>'
+            +(offsets.length?offsets.slice(0,3).map(offsetCard).join('')+(offsets.length>3?'<details class="we-offset-more"><summary>展开其余 '+(offsets.length-3)+' 条偏移</summary>'+offsets.slice(3).map(offsetCard).join('')+'</details>':''):empty('暂无因果偏移','关键人物命运、重大事件或势力格局实质改变后记录。'))+'</div>';
+        const shown=calendarCandidates.filter(([,e])=>engine.calendarMode==='undated'?!parseDate(e.时间||e.开始时间):!engine.selectedDate||parseDate(e.时间||e.开始时间)?.key===engine.selectedDate);
+        const macroCount=events.filter(([,e])=>e.分类==='宏观节点').length;
+        const timelineView=snapshot?timelineState(s):null;
+        const nextMacroName=timelineView?.下一宏观节点?.名称||'';
+        const nextPair=nextMacroName?events.find(([n,e])=>n===nextMacroName&&e.分类==='宏观节点')||null:null;
+        const nextNode=nextPair?.[0]||'等待宏观节点';
+        const nextEvent=nextPair?.[1]||null;
+        const compactPeople=Array.from(people).filter(([,p])=>p.行动||p.公开动态||p.地点).slice(0,4);
+        html+='<div class="we-world-focus">'
+            +'<div class="we-world-focus-main">'+section('世界动向',orbit.当前阶段&&orbit.当前阶段!=='待初始化'?'<div class="we-pulse"><span class="we-pulse-mark">LIVE</span><p>'+text(orbit.当前阶段)+'</p></div>':empty('阶段待确认','世界推进会把当前世界局势直接写入因果轨道.当前阶段。'),'因果轨道 · 当前阶段')+'</div>'
+            +'<div class="we-world-focus-next">'+section('下一宏观节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="点击定位到时间线中的对应宏观事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'本轮需要先建立真实宏观节点')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+(nextEvent?' · 点击定位 →':'')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果边界')+'</div>'
+            +'</div>';
+        html+='<div class="we-kpi-grid we-kpi-compact">'
+            +'<div class="we-kpi"><small>正在发生</small><strong>'+active.length+'</strong><span>当前活动事件</span></div>'
+            +'<div class="we-kpi"><small>近期桥接</small><strong>'+events.filter(([,e])=>e.分类==='近期节点'&&e.状态==='待发生').length+'</strong><span>下一宏观边界之前</span></div>'
+            +'<div class="we-kpi"><small>宏观锚点</small><strong>'+macroCount+'</strong><span>'+text(orbit.当前阶段||'阶段待确认')+'</span></div>'
+            +'<div class="we-kpi"><small>场外人物</small><strong>'+people.size+'</strong><span>'+future.length+' 个未来事件</span></div>'
+            +'</div>';
+        html+='<div class="we-dashboard"><div class="we-command-main">'
+            +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>事件时间线</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+'<div class="we-tools"><span>'+text(engine.calendarMode==='undated'?'未定日 / 作品内时间':engine.selectedDate||'全部日期')+'</span><button data-action="today">回到今天</button><button data-action="clear-date">全部日期</button><button data-action="undated">未定日事件</button></div>'+'<div class="we-timeline">'+(timelineCards(shown.slice(0,engine.eventLimit||12))||empty('没有符合条件的事件'))+'</div>'+(shown.length>(engine.eventLimit||12)?'<button class="we-btn" data-action="more-events">显示更多（共 '+shown.length+' 项）</button>':'')+'</div></div></section>'
+            +'</div><aside class="we-command-side">'
+            +section('因果状态',causalHtml,'稳定与轨道偏移')
+            +section('货币与经济',exists(w.货币)?fields({货币体系:w.货币?.体系,购买力基准:w.货币?.购买力基准,经济波动:w.货币?.经济波动}):empty('尚无货币资料','世界推进会在设定或经济局势明确时维护。'),'世界推进维护')
+            +(exists(w.法则)?section('世界法则',prose(w.法则),'当前生效规则 · '+(Array.isArray(w.法则)?w.法则.length:1)+' 条'):'')
+            +section('人物动向',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'重点 NPC')
+            +'</aside></div>';
+        return html;
+    }
+    // 角色管理视图渲染：只负责名册与世界活动展示；正式档案编辑仍由状态栏负责。
+    function worldEngineRenderPeopleTab(ctx) {
+        const {
+            engine,s,radar,showRadar,alienAlive,entries,formalPeople,backstagePeople,
+            relationRoster,matched,userName,section,text,pill,fields,contextRows,
+            sceneContextBody,empty,tools,person,exists,value
+        }=ctx;
+        let html='';
+        if(showRadar&&alienAlive>0)html+='<div class="we-meta we-alien-count">异端存活数量 <b>'+alienAlive+'</b></div>';
+
+        const alienByKey=new Map(entries(radar.名单).map(([name,record])=>[nameKey(name),{名称:name,记录:record}]));
+        const rolePeople=[
+            ...Array.from(formalPeople).map(([n,p])=>[n,p,{正式:true,异端:alienByKey.has(nameKey(n))}]),
+            ...backstagePeople.map(([n,p])=>[n,p,{正式:false,异端:alienByKey.has(nameKey(n))}])
+        ];
+        const list=rolePeople.filter(([n,p,meta])=>{
+            const searchable=meta.正式?Object.assign({},p,relationRoster[n]||{}):p;
+            if(!matched(n,searchable))return false;
+            if((engine.filter||'全部')==='全部')return true;
+            const present=meta.正式&&!!relationRoster[n]?.在场;
+            return engine.filter==='在场'?present:!present;
+        });
+        const chosen=list.find(([n])=>n===engine.selectedPerson)||list[0];
+        const chosenMeta=chosen?.[2]||{};
+        const chosenContext=chosen?derivePersonWorldContext(s,chosen[0],userName):null;
+        const chosenRelation=chosenMeta.正式&&plain(relationRoster[chosen?.[0]])?relationRoster[chosen[0]]:null;
+        const chosenAudit=engine.isNpcBuildAuditEnabled()&&chosenRelation?npcBuildAssessment(s,chosen[0],chosenRelation):null;
+        const chosenAlien=chosen?alienByKey.get(nameKey(chosen[0]))?.记录:null;
+        const auditPanel=chosenAudit?section('NPC构筑审计',
+            '<div class="we-card"><div class="we-card-top"><h3>'+text(chosenAudit.审计级别)+'</h3>'+pill(chosenAudit.缺口.length?'待补强':'构筑完整',chosenAudit.缺口.length?'future':'dim')+'</div>'
+            +fields({层级:chosenAudit.层级,当前组件:chosenAudit.当前组件})
+            +(chosenAudit.缺口.length?'<div class="we-chips">'+chosenAudit.缺口.map(x=>pill(x,'future')).join('')+'</div><p class="we-muted">进入世界推进请求的热人物会由后台优先补齐缺口；难度脚本只负责已有组件的品质调整。</p>':'<p class="we-muted">当前构筑已达到本层级审计最低要求。</p>')+'</div>',
+            '仅正式关系人物 · 复用NPC生成规则'
+        ):'';
+        const backgroundPanel=chosen?section('背景关联',contextRows(chosenContext),(chosenContext?.背景关联?.length||0)+' 关系 · '+(chosenContext?.关联事件?.length||0)+' 事件'):'';
+        const surroundingsPanel=chosen?section('身边发展',sceneContextBody(chosenContext),'剧情推演现场标签 · 只读派生'):'';
+        const alienPanel=chosenAlien?section('异端档案',fields({来源:chosenAlien.来源,经历:chosenAlien.经历,阵营:chosenAlien.阵营,职业:chosenAlien.职业,层级:chosenAlien.层级,状态:chosenAlien.状态}),'异端雷达 · 只读'):'';
+        const formalCount=rolePeople.filter(([, ,meta])=>meta.正式).length;
+        const worldCount=rolePeople.length-formalCount;
+        const roster=list.length?'<div class="we-roster-list">'+list.map(([n,p,meta])=>{
+            const rel=meta.正式?relationRoster[n]||{}:{};
+            const present=meta.正式&&!!rel.在场;
+            const status=present?'在场':p.状态||'场外';
+            const source=meta.正式?'正式档案':meta.异端?'异端 · 世界人物':'世界人物';
+            const summary=p.行动||p.公开动态||rel.态度||'等待下一次世界推演';
+            return '<button class="we-roster-person '+(chosen?.[0]===n?'active':'')+'" data-person="'+text(n)+'"><span class="we-roster-copy"><b>'+text(n)+'</b><small>⌖ '+text(p.地点||'地点未明')+' · '+text(status)+'</small><em>'+text(summary)+'</em></span>'+pill(source,meta.异端?'future':'dim')+'</button>';
+        }).join('')+'</div>':empty('没有符合条件的人物','调整筛选或等待世界人物进入活动范围。');
+        html+=tools(['全部','在场','场外'])+'<div class="we-columns"><div>'
+            +section('人物名册',roster,'正式 '+formalCount+' · 世界人物 '+worldCount)
+            +(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true),chosenMeta.正式?'正式关系人物':'世界后台人物')+surroundingsPanel+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查}))+auditPanel:empty('尚未选择人物'))
+            +'</div><aside>'+backgroundPanel+alienPanel+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['近期动向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
+        return html;
+    }
+    class SamsaraWorldEngine {
         constructor(host, env) {
             this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
@@ -4313,88 +4414,17 @@ ${schemaText}`;
             const hero='<div class="we-hero"><div><div class="we-eyebrow">SAMSARA / WORLD ARCHIVE</div><h1>'+text(w.名称&&w.名称!=='待初始化'?w.名称:'世界尚未建立')+'</h1><div class="we-world-ranks"><span>位格 <b>'+text(w.位格||'未记录')+'</b></span><span>难度 <b>'+text(w.难度||'未记录')+'</b></span></div><div class="we-muted">'+text(w.地点||'地点待确认')+' · '+text(orbit.当前阶段&&orbit.当前阶段!=='待初始化'?orbit.当前阶段:'等待篇章开启')+'</div></div><div class="we-date">'+text(w.时间||'副本日期待确认')+'<small>累计游玩 '+text((s.系统状态||{}).游玩天数||0)+' 天 · '+(reason?'推进暂停':'副本进行中')+'</small></div></div>';
             let html=hero+(reason?'<div class="we-notice">'+text(reason)+'</div>':'')+(availabilityReason?'<div class="we-notice">'+text(availabilityReason)+'</div>':'');
             if(this.tab==='世界推进'){
-                const offsets=entries(orbit.偏移记录);
-                const stable=w.稳定!==null&&w.稳定!==''&&Number.isFinite(Number(w.稳定))?Number(w.稳定):null;
-                const signed=n=>(n>0?'+':'')+n;
-                const offsetCard=([name,r])=>{
-                    const impact=r?.影响程度!==null&&r?.影响程度!==''&&Number.isFinite(Number(r?.影响程度))?Number(r.影响程度):null;
-                    return '<article class="we-offset"><div class="we-offset-head"><b>'+text(name)+'</b><span>'+text(impact===null?'影响未记录':signed(impact))+'</span></div><p>'+text(r?.描述||'暂无偏移描述')+'</p><small>引发者 · '+text(r?.引发者||'未记录')+' · '+(impact===null?'待确认':impact<0?'因果破坏':impact>0?'因果修复 / 强化':'无数值变化')+'</small></article>';
-                };
-                const causalHtml='<div class="we-causal"><div class="we-stability"><div><small>世界稳定值</small><strong data-world-stability>'+text(stable===null?'未记录':stable)+'</strong></div><span>'+((s.设置||{}).世界超稳?'世界超稳 · 禁止新增偏移':'基准 100 · 失稳将强化世界排异')+'</span></div>'
-                    +(stable===null?'':'<meter min="0" max="120" value="'+Math.max(0,Math.min(120,stable))+'" aria-label="世界稳定值">'+stable+'</meter>')
-                    +stabilityDescription(stable)
-                    +'<div class="we-offset-heading">偏移记录 <span>'+offsets.length+' 条</span></div>'
-                    +(offsets.length?offsets.slice(0,3).map(offsetCard).join('')+(offsets.length>3?'<details class="we-offset-more"><summary>展开其余 '+(offsets.length-3)+' 条偏移</summary>'+offsets.slice(3).map(offsetCard).join('')+'</details>':''):empty('暂无因果偏移','关键人物命运、重大事件或势力格局实质改变后记录。'))+'</div>';
-                const shown=calendarCandidates.filter(([,e])=>this.calendarMode==='undated'?!parseDate(e.时间||e.开始时间):!this.selectedDate||parseDate(e.时间||e.开始时间)?.key===this.selectedDate);
-                const macroCount=events.filter(([,e])=>e.分类==='宏观节点').length;
-                const timelineView=snapshot?timelineState(s):null;
-                const nextMacroName=timelineView?.下一宏观节点?.名称||'';
-                const nextPair=nextMacroName?events.find(([n,e])=>n===nextMacroName&&e.分类==='宏观节点')||null:null;
-                const nextNode=nextPair?.[0]||'等待宏观节点';
-                const nextEvent=nextPair?.[1]||null;
-                const compactPeople=Array.from(people).filter(([,p])=>p.行动||p.公开动态||p.地点).slice(0,4);
-                html+='<div class="we-world-focus">'
-                    +'<div class="we-world-focus-main">'+section('世界动向',orbit.当前阶段&&orbit.当前阶段!=='待初始化'?'<div class="we-pulse"><span class="we-pulse-mark">LIVE</span><p>'+text(orbit.当前阶段)+'</p></div>':empty('阶段待确认','世界推进会把当前世界局势直接写入因果轨道.当前阶段。'),'因果轨道 · 当前阶段')+'</div>'
-                    +'<div class="we-world-focus-next">'+section('下一宏观节点',(nextEvent?'<button class="we-next-node" data-jump-event="'+text(nextNode)+'" title="点击定位到时间线中的对应宏观事件">':'<div class="we-next-node">')+'<span>→</span><div><h3>'+text(nextNode)+'</h3><p>'+text(nextEvent?.公开征兆||nextEvent?.描述||'本轮需要先建立真实宏观节点')+'</p><small>'+text(nextEvent?.时间||nextEvent?.开始时间||'时间待确认')+(nextEvent?' · 点击定位 →':'')+'</small></div>'+(nextEvent?'</button>':'</div>'),'因果边界')+'</div>'
-                    +'</div>';
-                html+='<div class="we-kpi-grid we-kpi-compact">'
-                    +'<div class="we-kpi"><small>正在发生</small><strong>'+active.length+'</strong><span>当前活动事件</span></div>'
-                    +'<div class="we-kpi"><small>近期桥接</small><strong>'+events.filter(([,e])=>e.分类==='近期节点'&&e.状态==='待发生').length+'</strong><span>下一宏观边界之前</span></div>'
-                    +'<div class="we-kpi"><small>宏观锚点</small><strong>'+macroCount+'</strong><span>'+text(orbit.当前阶段||'阶段待确认')+'</span></div>'
-                    +'<div class="we-kpi"><small>场外人物</small><strong>'+people.size+'</strong><span>'+future.length+' 个未来事件</span></div>'
-                    +'</div>';
-                html+='<div class="we-dashboard"><div class="we-command-main">'
-                    +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>事件时间线</h2><small>'+events.length+' 事件 · '+future.length+' 未来 · '+macroCount+' 宏观</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','进行中','待发生','已完成','已取消'])+'<div class="we-tools"><span>'+text(this.calendarMode==='undated'?'未定日 / 作品内时间':this.selectedDate||'全部日期')+'</span><button data-action="today">回到今天</button><button data-action="clear-date">全部日期</button><button data-action="undated">未定日事件</button></div>'+'<div class="we-timeline">'+(timelineCards(shown.slice(0,this.eventLimit||12))||empty('没有符合条件的事件'))+'</div>'+(shown.length>(this.eventLimit||12)?'<button class="we-btn" data-action="more-events">显示更多（共 '+shown.length+' 项）</button>':'')+'</div></div></section>'
-                    +'</div><aside class="we-command-side">'
-                    +section('因果状态',causalHtml,'稳定与轨道偏移')
-                    +section('货币与经济',exists(w.货币)?fields({货币体系:w.货币?.体系,购买力基准:w.货币?.购买力基准,经济波动:w.货币?.经济波动}):empty('尚无货币资料','世界推进会在设定或经济局势明确时维护。'),'世界推进维护')
-                    +(exists(w.法则)?section('世界法则',prose(w.法则),'当前生效规则 · '+(Array.isArray(w.法则)?w.法则.length:1)+' 条'):'')
-                    +section('人物动向',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'重点 NPC')
-                    +'</aside></div>';
-            }else if(this.tab==='角色管理'){
-                if(showRadar&&alienAlive>0)html+='<div class="we-meta we-alien-count">异端存活数量 <b>'+alienAlive+'</b></div>';
-
-                const alienByKey=new Map(entries(radar.名单).map(([name,record])=>[nameKey(name),{名称:name,记录:record}]));
-                const rolePeople=[
-                    ...Array.from(formalPeople).map(([n,p])=>[n,p,{正式:true,异端:alienByKey.has(nameKey(n))}]),
-                    ...backstagePeople.map(([n,p])=>[n,p,{正式:false,异端:alienByKey.has(nameKey(n))}])
-                ];
-                const list=rolePeople.filter(([n,p,meta])=>{
-                    const searchable=meta.正式?Object.assign({},p,relationRoster[n]||{}):p;
-                    if(!matched(n,searchable))return false;
-                    if((this.filter||'全部')==='全部')return true;
-                    const present=meta.正式&&!!relationRoster[n]?.在场;
-                    return this.filter==='在场'?present:!present;
+                html+=worldEngineRenderWorldTab({
+                    engine:this,s,w,orbit,events,active,future,people,calendarCandidates,snapshot,
+                    entries,text,empty,section,stabilityDescription,parseDate,calendar,tools,
+                    timelineCards,exists,fields,prose,compactPerson
                 });
-                const chosen=list.find(([n])=>n===this.selectedPerson)||list[0];
-                const chosenMeta=chosen?.[2]||{};
-                const chosenContext=chosen?derivePersonWorldContext(s,chosen[0],userName):null;
-                const chosenRelation=chosenMeta.正式&&plain(relationRoster[chosen?.[0]])?relationRoster[chosen[0]]:null;
-                const chosenAudit=this.isNpcBuildAuditEnabled()&&chosenRelation?npcBuildAssessment(s,chosen[0],chosenRelation):null;
-                const chosenAlien=chosen?alienByKey.get(nameKey(chosen[0]))?.记录:null;
-                const auditPanel=chosenAudit?section('NPC构筑审计',
-                    '<div class="we-card"><div class="we-card-top"><h3>'+text(chosenAudit.审计级别)+'</h3>'+pill(chosenAudit.缺口.length?'待补强':'构筑完整',chosenAudit.缺口.length?'future':'dim')+'</div>'
-                    +fields({层级:chosenAudit.层级,当前组件:chosenAudit.当前组件})
-                    +(chosenAudit.缺口.length?'<div class="we-chips">'+chosenAudit.缺口.map(x=>pill(x,'future')).join('')+'</div><p class="we-muted">进入世界推进请求的热人物会由后台优先补齐缺口；难度脚本只负责已有组件的品质调整。</p>':'<p class="we-muted">当前构筑已达到本层级审计最低要求。</p>')+'</div>',
-                    '仅正式关系人物 · 复用NPC生成规则'
-                ):'';
-                const backgroundPanel=chosen?section('背景关联',contextRows(chosenContext),(chosenContext?.背景关联?.length||0)+' 关系 · '+(chosenContext?.关联事件?.length||0)+' 事件'):'';
-                const surroundingsPanel=chosen?section('身边发展',sceneContextBody(chosenContext),'剧情推演现场标签 · 只读派生'):'';
-                const alienPanel=chosenAlien?section('异端档案',fields({来源:chosenAlien.来源,经历:chosenAlien.经历,阵营:chosenAlien.阵营,职业:chosenAlien.职业,层级:chosenAlien.层级,状态:chosenAlien.状态}),'异端雷达 · 只读'):'';
-                const formalCount=rolePeople.filter(([, ,meta])=>meta.正式).length;
-                const worldCount=rolePeople.length-formalCount;
-                const roster=list.length?'<div class="we-roster-list">'+list.map(([n,p,meta])=>{
-                    const rel=meta.正式?relationRoster[n]||{}:{};
-                    const present=meta.正式&&!!rel.在场;
-                    const status=present?'在场':p.状态||'场外';
-                    const source=meta.正式?'正式档案':meta.异端?'异端 · 世界人物':'世界人物';
-                    const summary=p.行动||p.公开动态||rel.态度||'等待下一次世界推演';
-                    return '<button class="we-roster-person '+(chosen?.[0]===n?'active':'')+'" data-person="'+text(n)+'"><span class="we-roster-copy"><b>'+text(n)+'</b><small>⌖ '+text(p.地点||'地点未明')+' · '+text(status)+'</small><em>'+text(summary)+'</em></span>'+pill(source,meta.异端?'future':'dim')+'</button>';
-                }).join('')+'</div>':empty('没有符合条件的人物','调整筛选或等待世界人物进入活动范围。');
-                html+=tools(['全部','在场','场外'])+'<div class="we-columns"><div>'
-                    +section('人物名册',roster,'正式 '+formalCount+' · 世界人物 '+worldCount)
-                    +(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true),chosenMeta.正式?'正式关系人物':'世界后台人物')+surroundingsPanel+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查}))+auditPanel:empty('尚未选择人物'))
-                    +'</div><aside>'+backgroundPanel+alienPanel+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['近期动向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
+            }else if(this.tab==='角色管理'){
+                html+=worldEngineRenderPeopleTab({
+                    engine:this,s,radar,showRadar,alienAlive,entries,formalPeople,backstagePeople,
+                    relationRoster,matched,userName,section,text,pill,fields,contextRows,
+                    sceneContextBody,empty,tools,person,exists,value
+                });
             }else if(this.tab==='探索与势力'){
                 const regionRecords=state.势力地区||{};
                 const exploration=entries(w.探索).map(([name,ledger])=>[name,{...(regionRecords[name]||{}),...ledger,类型:'探索'}]);

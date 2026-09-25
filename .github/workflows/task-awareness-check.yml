@@ -71,6 +71,10 @@ jobs:
         run: node tests/world-engine-history-memory-editor.cjs
       - name: World event and activity editor regression
         run: node tests/world-engine-world-editors.cjs
+      - name: World context UI regression
+        run: node tests/world-engine-context-ui-redesign.cjs
+      - name: World person scene UI regression
+        run: node tests/world-engine-person-scene-ui.cjs
       - name: Rumor rolling regression
         run: node tests/world-engine-rumor-capacity.cjs
       - name: World-driven rumor source regression

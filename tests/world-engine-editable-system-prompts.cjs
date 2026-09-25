@@ -8,7 +8,7 @@ const ui = fs.readFileSync(path.join(__dirname, '../script/world-engine-src/50-e
 const {SamsaraWorldEngine: Engine, emptyState} = require(delivery);
 const clone = value => JSON.parse(JSON.stringify(value));
 
-assert.match(foundation, /version:20,\n\s*builtin:true/, 'editable system prompt migration should bump built-in prompt document to v20');
+assert.match(foundation, /version:21,\n\s*builtin:true/, 'editable system prompt migration should keep the current built-in prompt document at v21');
 assert.match(foundation, /corePrompt:\s*CORE_WORLD_RULES/, 'built-in prompt document must carry the same core prompt used at runtime');
 assert.match(foundation, /macroPrompt:\s*DEFAULT_MACRO_PROMPT/, 'built-in prompt document must carry the same macro prompt used at runtime');
 assert.match(foundation, /stabilityPromptTemplate:\s*DEFAULT_STABILITY_PROMPT_TEMPLATE/, 'built-in prompt document must carry the same stability template used at runtime');

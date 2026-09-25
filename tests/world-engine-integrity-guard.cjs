@@ -65,6 +65,43 @@ function fresh(){
   }
 
   {
+    const stat=fresh();
+    stat.世界.时间='2022年-11月-06日-下午';
+    const compiled=compileWorldResult(stat,{
+      摘要:'跨日世界时间与已发生事件原子推进',
+      时间:'2022年-11月-07日-上午',
+      事件:[{
+        名称:'次日搜查开始',
+        描述:'经过一夜准备后，搜查行动已经在次日上午开始。',
+        分类:'当前事件',
+        状态:'进行中',
+        时间:'2022年-11月-07日-上午',
+        更新时间:'2022年-11月-07日-上午'
+      }]
+    });
+    const next=applyPatches(stat,compiled.patches);
+    assert.equal(next.世界.时间,'2022年-11月-07日-上午','world clock must advance in the same transaction as facts that occur at the new time');
+    assert.equal(next.世界.后台.事件['次日搜查开始']?.状态,'进行中','event at the proposed new world time must be accepted in the same WorldResult');
+
+    assert.throws(
+      ()=>compileWorldResult(stat,{
+        摘要:'仍然越过本轮最终世界时间',
+        时间:'2022年-11月-07日-上午',
+        事件:[{
+          名称:'后日行动',
+          描述:'尚未到来的行动被错误写成已经开始。',
+          分类:'当前事件',
+          状态:'进行中',
+          时间:'2022年-11月-08日-上午',
+          更新时间:'2022年-11月-08日-上午'
+        }]
+      }),
+      /时间事实超过当前世界时间/,
+      'facts beyond the proposed final world time must still be rejected'
+    );
+  }
+
+  {
     const impact=WORLD_RESULT_SCHEMA.properties.因果.properties.偏移记录.items.properties.影响程度;
     assert.equal(Object.hasOwn(impact,'minimum'),false,'causal impact magnitude must not be rejected by JSON Schema');
     assert.equal(Object.hasOwn(impact,'maximum'),false,'causal impact magnitude must be soft-normalized instead of rejected by JSON Schema');

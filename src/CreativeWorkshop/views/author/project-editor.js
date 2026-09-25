@@ -209,9 +209,9 @@ export function createAuthorProjectEditor({
     const step3 = element('div', 'rw-publish-step-title');
     const stepCopy = {
       extension: ['版本内容', '当前版本已经载入；上传同名文件会替换旧内容。'],
-      world_character: ['世界角色设定', '直接修改人物资料，保存时自动重新生成世界书角色条目。'],
+      world_character: ['世界角色设定', '直接修改预设格式中的世界书正文；姓名与关键词用于触发。'],
       opening_character: ['开局角色数据', '直接修改原始构筑，不需要上传 JSON 文件。'],
-      opening_partner: ['开局伙伴数据', '直接修改伙伴原始构筑与人设。'],
+      opening_partner: ['开局伙伴数据', '直接修改伙伴原始构筑与人设，并可选附带角色世界书。'],
       store_catalog: ['开局商店内容', '直接维护装备、道具与技能目录。'],
     }[publishMode];
     step3.innerHTML = `<span>03</span><div><strong>${stepCopy[0]}</strong><small>${stepCopy[1]}</small></div>`;

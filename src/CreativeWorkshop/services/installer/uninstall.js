@@ -6,6 +6,7 @@ import { restoreOriginalWorldbookConflicts } from './original-conflicts.js';
 import { restoreOriginalScriptConflicts } from './original-scripts.js';
 import { restoreOriginalRegexConflicts } from './original-regexes.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
+import { compactCharacterWorldbookOrders } from './character-order.js';
 import { maybe, record } from './utils.js';
 
 export async function uninstallProject({ adapter, storage }, projectId) {
@@ -51,7 +52,9 @@ export async function uninstallProject({ adapter, storage }, projectId) {
   );
   try {
     if (targets.worldbook && state.worldbook) {
-      const remaining = state.worldbook.entries.filter(entry => !isProjectWorldbookEntry(entry, installed.id));
+      const remaining = compactCharacterWorldbookOrders(
+        state.worldbook.entries.filter(entry => !isProjectWorldbookEntry(entry, installed.id)),
+      );
       const otherWorkshopEntries = remaining.some(entry => record(provenance(entry))?.sourceId);
       if (remaining.length || !targets.worldbookCreated) await maybe(adapter.createOrReplaceWorldbook(SHARED_WORLDBOOK_NAME, remaining));
       else await maybe(adapter.deleteWorldbook(SHARED_WORLDBOOK_NAME));

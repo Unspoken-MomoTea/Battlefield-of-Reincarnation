@@ -195,7 +195,8 @@ function scriptsFromArtifact(artifact) {
 function resourceOverrideKey(rule) {
   const target = rule?.target || {};
   if (rule?.kind === 'worldbook') {
-    return `worldbook:${target.worldbook || ''}:${target.uid ? `uid:${target.uid}` : `name:${target.name || ''}`}`;
+    if (target.uid) return `worldbook:uid:${target.uid}`;
+    return `worldbook:${target.worldbook || ''}:name:${target.name || ''}`;
   }
   if (rule?.kind === 'regex') {
     return `regex:${target.scope || 'character'}:${target.id ? `id:${target.id}` : `name:${target.name || ''}:find:${target.find_regex || ''}`}`;

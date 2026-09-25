@@ -45,11 +45,35 @@ test('world-character bundles install between the character start and end marker
   assert.equal(plan.worldbook.length, 1);
   assert.deepEqual(plan.worldbook[0].position, {
     type: 'after_character_definition',
-    depth: 4,
     role: 'system',
-    order: 650,
+    order: 600,
   });
 });
+
+test('non-depth worldbook positions do not keep a synthetic D4 depth', () => {
+  const installed = project([
+    {
+      kind: 'worldbook',
+      name: '伙伴角色.json',
+      format: 'json',
+      content: {
+        entries: [{
+          name: '[角色] 伙伴',
+          content: '伙伴设定',
+          strategy: { type: 'selective', keys: ['伙伴'] },
+          position: { type: 'after_character_definition', depth: 4, role: 'system', order: 600 },
+        }],
+      },
+    },
+  ]);
+  const plan = buildArtifactPlan(installed);
+  assert.deepEqual(plan.worldbook[0].position, {
+    type: 'after_character_definition',
+    role: 'system',
+    order: 600,
+  });
+});
+
 
 test('preflight reports semantic worldbook name collisions from unrelated entries', async () => {
   const adapter = fakeAdapter();

@@ -51,7 +51,6 @@
                 事件:worldActivityMap(backend.事件,'事件'),
                 势力地区:worldActivityMap(backend.势力地区,'势力地区'),
                 普通人物:worldActivityMap(backend.人物,'人物',alienKeys),
-            势力:worldActivityMap(next?.世界?.势力||{},'势力'),
                 势力:worldActivityMap(stat?.世界?.势力||{},'势力')
             }
         };
@@ -61,7 +60,8 @@
         const after={
             事件:worldActivityMap(backend.事件,'事件'),
             势力地区:worldActivityMap(backend.势力地区,'势力地区'),
-            普通人物:worldActivityMap(backend.人物,'人物',alienKeys)
+            普通人物:worldActivityMap(backend.人物,'人物',alienKeys),
+            势力:worldActivityMap(next?.世界?.势力||{},'势力')
         },changed=[];
         for(const category of Object.keys(after)){
             const before=requirement?.基线?.[category]||{},current=after[category]||{};
@@ -77,7 +77,7 @@
         if(requirement.初始化缺口?.势力&&(counts.动态势力数<1||counts.顶层势力数<1))issues.push('缺少势力档案：至少建立1个真实相关势力，并同名写入 WorldResult.势力 与 WorldResult.势力地区（类型=势力）');
         if(requirement.初始化缺口?.当前事件&&counts.进行中世界事件数<1)issues.push('缺少正在发生的世界事件：至少建立1个进行中的当前事件/近期节点，未来宏观节点不能替代');
         const changed=worldActivityChanged(next,requirement);
-        if(requirement.必须非异端实质变化&&!changed.length)issues.push('本轮只有异端/维护/未来规划，没有任何非异端世界侧实质变化；必须推进事件、势力地区或普通人物至少一项');
+        if(requirement.必须非异端实质变化&&!changed.length)issues.push('本轮只有异端/维护/未来规划，没有任何非异端世界侧实质变化；必须推进事件、势力地区、顶层势力或普通人物至少一项');
         if(issues.length)throw new Error('世界活动不足：'+issues.join('；'));
         return changed;
     }

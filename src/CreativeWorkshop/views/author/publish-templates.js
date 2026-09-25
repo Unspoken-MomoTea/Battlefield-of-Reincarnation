@@ -6,7 +6,7 @@ const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
 const STORE_ITEM_TYPES = new Set(['消耗', '材料', '特殊']);
 const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const BLOOD_ATTRS = ['力量', '敏捷', '体质', '精神', '魅力'];
-const WORLD_CHARACTER_ORDER = 650;
+const WORLD_CHARACTER_ORDER = 600;
 
 function read(source, name) {
   if (source && typeof source.get === 'function') return String(source.get(name) || '').trim();
@@ -124,23 +124,45 @@ function worldCharacterContent(profile) {
   return raw.replaceAll('{{角色姓名}}', profile?.name || '角色');
 }
 
-function partnerWorldbookContent(name, build = {}, profile = {}, backgroundSetting = '') {
-  const identities = Array.isArray(build.身份) ? build.身份.join(' / ') : String(build.身份 || '');
+export function partnerWorldbookTemplate({
+  name = '{{角色姓名}}',
+  race = '',
+  identity = '',
+  rank = '',
+  personality = '',
+  likes = '',
+  background = '',
+  backgroundSetting = '',
+} = {}) {
+  const identities = Array.isArray(identity) ? identity.join(' / ') : String(identity || '');
   const extra = String(backgroundSetting || '').trim();
   const lines = [
     `${name}:`,
     '  基本信息:',
-    `    种族: ${build.种族 || ''}`,
+    `    种族: ${race}`,
     `    身份: ${identities}`,
-    `    层级: ${build.层级 || ''}`,
-    `    性格: ${profile.性格 || ''}`,
-    `    喜爱: ${profile.喜爱 || ''}`,
-    `    背景故事: ${profile.背景故事 || ''}`,
+    `    层级: ${rank}`,
+    `    性格: ${personality}`,
+    `    喜爱: ${likes}`,
+    `    背景故事: ${background}`,
     '',
     '  背景设定:',
   ];
   if (extra) lines.push(...extra.split('\n').map(line => `    ${line}`));
   return lines.join('\n');
+}
+
+function partnerWorldbookFromBuild(name, build = {}, profile = {}, backgroundSetting = '') {
+  return partnerWorldbookTemplate({
+    name,
+    race: build.种族 || '',
+    identity: build.身份 || [],
+    rank: build.层级 || '',
+    personality: profile.性格 || '',
+    likes: profile.喜爱 || '',
+    background: profile.背景故事 || '',
+    backgroundSetting,
+  });
 }
 
 function worldbookArtifact(name, keys, content) {
@@ -161,7 +183,6 @@ function worldbookArtifact(name, keys, content) {
         position: {
           type: 'after_character_definition',
           role: 'system',
-          depth: 4,
           order: WORLD_CHARACTER_ORDER,
         },
         content,
@@ -397,7 +418,7 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
         name,
         ...(mode === 'opening_partner' ? {
           profile,
-          ...(partnerWorldbook ? { worldbook: { content: partnerWorldbook } } : {}),
+          ...(partnerWorldbook ? { worldbook: { content: partnerWorldbook, format: 'full' } } : {}),
         } : {}),
         build,
       },
@@ -405,7 +426,7 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
     if (!partnerWorldbook) return [dataArtifact];
     return [
       dataArtifact,
-      worldbookArtifact(name, [name], partnerWorldbookContent(name, build, profile, partnerWorldbook)),
+      worldbookArtifact(name, [name], partnerWorldbook),
     ];
   }
 
@@ -506,7 +527,16 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
         name,
         ...structuredClone(item),
       }));
-      result.opening_worldbook_content = String(data.worldbook?.content || '');
+      const storedWorldbook = String(data.worldbook?.content || '');
+      const storedLooksFull = data.worldbook?.format === 'full'
+        || (/^\s*[^\n]+:\s*$/mu.test(storedWorldbook)
+          && storedWorldbook.includes('\n  基本信息:')
+          && storedWorldbook.includes('\n  背景设定:'));
+      result.opening_worldbook_content = storedWorldbook
+        ? (storedLooksFull
+            ? storedWorldbook
+            : partnerWorldbookFromBuild(data.name || projectName, build, profile, storedWorldbook))
+        : '';
       result.opening_worldbook_enabled = Boolean(result.opening_worldbook_content.trim());
     }
     return result;

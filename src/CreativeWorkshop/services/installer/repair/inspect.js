@@ -2,6 +2,7 @@ import { SHARED_WORLDBOOK_NAME } from '../constants.js';
 import { deepSubsetEqual } from '../compare.js';
 import { buildArtifactPlan } from '../plan.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, regexPrefix } from '../ownership.js';
+import { CHARACTER_ORDER_FIRST, CHARACTER_ORDER_LAST, isCharacterWorldbookSlot } from '../character-order.js';
 import { isOriginalConflictEntryInState } from '../original-conflicts.js';
 import { findOriginalRegexTargets, isOriginalRegexInState } from '../original-regexes.js';
 import { findOriginalScriptTargets, isOriginalScriptInState } from '../original-scripts.js';
@@ -88,7 +89,26 @@ export async function inspectInstalledProject(adapter, installed) {
         continue;
       }
       matched.add(actualIndex);
-      if (!deepSubsetEqual(expected, ownEntries[actualIndex])) {
+      const actual = ownEntries[actualIndex];
+      let expectedForCompare = expected;
+      if (isCharacterWorldbookSlot(expected)) {
+        const assignedOrder = Number(targets.worldbookCharacterOrder ?? actual?.position?.order);
+        const actualOrder = Number(actual?.position?.order);
+        if (
+          !Number.isFinite(actualOrder) ||
+          actualOrder < CHARACTER_ORDER_FIRST ||
+          actualOrder > CHARACTER_ORDER_LAST ||
+          (Number.isFinite(assignedOrder) && actualOrder !== assignedOrder)
+        ) {
+          issues.push(issue('worldbook_entry_modified', { name: expected.name }));
+          continue;
+        }
+        expectedForCompare = {
+          ...expected,
+          position: { ...(expected.position || {}), order: actualOrder },
+        };
+      }
+      if (!deepSubsetEqual(expectedForCompare, actual)) {
         issues.push(issue('worldbook_entry_modified', { name: expected.name }));
       }
     }

@@ -118,7 +118,19 @@ export function workshopTemplate(version) {
             <section class="rw-publish-column">
               <div class="rw-publish-step-title"><span>LIVE</span><div><strong>当前构筑预览</strong><small>只显示会上传的字段。</small></div></div>
               <div class="rw-local-note" data-role="heretic-build-preview">打开后读取当前 MVU。</div>
-              <label class="rw-field"><span>封面图 *</span><input class="rw-input" data-field="heretic-cover" type="file" accept="image/png,image/jpeg,image/webp"></label>
+              <div class="rw-publish-upload-block">
+                <span class="rw-field-label">封面图 *</span>
+                <label class="rw-cover-dropzone" data-drop-target="heretic-cover">
+                  <img data-role="heretic-cover-preview" alt="封面预览" hidden>
+                  <div class="rw-cover-dropzone-empty">
+                    <span>▧</span>
+                    <strong>拖入或选择封面</strong>
+                    <small>PNG / JPEG / WebP · 建议人物主体清晰可见</small>
+                  </div>
+                  <input data-field="heretic-cover" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                </label>
+                <div class="rw-file-state" data-role="heretic-cover-state">必需。选择后会立即预览。</div>
+              </div>
             </section>
           </div>
           <footer class="rw-publish-footer"><div class="rw-publish-footer-note">异端仍复用角色项目的审核、版本、更新和举报系统，但不会出现在普通角色创建模板中。</div><div class="rw-row"><button class="rw-button" type="button" data-action="create-heretic-cancel">取消</button><button class="rw-button primary" type="submit">提交异端审核</button></div></footer>

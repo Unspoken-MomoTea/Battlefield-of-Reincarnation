@@ -3,7 +3,7 @@ import { listOpeningAssetsByProject, replaceProjectOpeningAssets, restoreProject
 import { SHARED_WORLDBOOK_NAME } from './constants.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, provenance, regexPrefix } from './ownership.js';
 import { buildArtifactPlan } from './plan.js';
-import { characterOrderForProject, compactCharacterWorldbookOrders, mergeProjectWorldbookEntries } from './character-order.js';
+import { compactCharacterWorldbookOrders, mergeProjectWorldbookEntries } from './character-order.js';
 import { syncOriginalWorldbookConflicts } from './original-conflicts.js';
 import { syncOriginalScriptConflicts } from './original-scripts.js';
 import { syncOriginalRegexConflicts } from './original-regexes.js';
@@ -72,7 +72,6 @@ export async function applyProject({ adapter, storage }, projectId) {
   }
 
   const state = await createInstallSnapshot(adapter, installed, plan, characterNeeded);
-  let appliedCharacterWorldbookOrder = null;
   const openingAssetSnapshot = await listOpeningAssetsByProject(installed.id);
   const openingStoreSnapshot = await listProjectStoreCatalogs(installed.id);
   try {
@@ -84,7 +83,6 @@ export async function applyProject({ adapter, storage }, projectId) {
         installed.id,
       );
       const nextEntries = compactCharacterWorldbookOrders(merged);
-      appliedCharacterWorldbookOrder = characterOrderForProject(nextEntries, installed.id);
       if (nextEntries.length) {
         await maybe(adapter.createOrReplaceWorldbook(SHARED_WORLDBOOK_NAME, nextEntries));
         if (plan.worldbook.length) {
@@ -172,7 +170,6 @@ export async function applyProject({ adapter, storage }, projectId) {
       targetCharacterName: characterNeeded ? currentCharacter : null,
       installTargets: {
         worldbook: plan.worldbook.length ? SHARED_WORLDBOOK_NAME : null,
-        worldbookCharacterOrder: appliedCharacterWorldbookOrder,
         worldbookCreated: plan.worldbook.length > 0 ? Boolean(oldTargets.worldbookCreated || !state.worldbook?.existed) : false,
         worldbookBound: plan.worldbook.length > 0 ? Boolean(oldTargets.worldbookBound || !worldbookWasBound) : false,
         regexIds: plan.regexes.map(regex => regex.id),

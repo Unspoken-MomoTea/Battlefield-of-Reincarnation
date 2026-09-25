@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs';
+
 
 import {
   buildDedicatedArtifacts,
@@ -92,6 +94,18 @@ test('legacy world character descriptor migrates into the freeform content panel
   assert.equal('world_identity' in values, false);
   assert.equal('world_occupation' in values, false);
   assert.equal('world_rank' in values, false);
+});
+
+test('dedicated editor removes world-character MVU fields and exposes optional partner worldbook', () => {
+  const source = fs.readFileSync(new URL('../views/author/dedicated-editor.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /name="world_identity"|['"]world_identity['"]/u);
+  assert.doesNotMatch(source, /name="world_occupation"|['"]world_occupation['"]/u);
+  assert.doesNotMatch(source, /name="world_rank"|['"]world_rank['"]/u);
+  assert.doesNotMatch(source, /['"]world_background['"]|['"]world_notes['"]/u);
+  assert.match(source, /['"]world_content['"]/u);
+  assert.match(source, /填写世界书/u);
+  assert.match(source, /['"]opening_worldbook_content['"]/u);
+  assert.match(source, /不附带世界书/u);
 });
 
 test('opening character uses 8 point startup budget and auto F-E-D quality from rank', () => {

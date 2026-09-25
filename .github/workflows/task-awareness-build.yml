@@ -87,6 +87,8 @@ jobs:
         run: node tests/world-engine-history-memory-safety.cjs
       - name: History memory editor regression
         run: node tests/world-engine-history-memory-editor.cjs
+      - name: World event and activity editor regression
+        run: node tests/world-engine-world-editors.cjs
       - name: Rumor rolling regression
         run: node tests/world-engine-rumor-capacity.cjs
       - name: Editable system prompts regression

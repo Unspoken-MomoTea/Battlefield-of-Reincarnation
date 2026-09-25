@@ -384,7 +384,7 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
       喜爱: read(source, 'opening_likes'),
       背景故事: read(source, 'opening_background'),
     };
-    const partnerWorldbook = mode === 'opening_partner'
+    const partnerWorldbook = mode === 'opening_partner' && source?.opening_worldbook_enabled
       ? read(source, 'opening_worldbook_content').trim()
       : '';
     const dataArtifact = {

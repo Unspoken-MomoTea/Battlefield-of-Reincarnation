@@ -15,7 +15,7 @@ export function buildArtifactPlan(installed) {
     const values = Array.isArray(artifact.content) ? artifact.content : [artifact.content];
     return values.map(value => String(value?.kind || '').trim()).filter(Boolean);
   }));
-  const worldCharacterBundle = dataKinds.has('world_character');
+  const characterWorldbookBundle = dataKinds.has('world_character') || dataKinds.has('opening_partner');
 
   const plan = {
     worldbook: [],
@@ -31,7 +31,7 @@ export function buildArtifactPlan(installed) {
     if (artifact.kind === 'worldbook') {
       plan.worldbook.push(...normalizeWorldbookArtifact(artifact.content).map(entry => ({
         ...entry,
-        ...(worldCharacterBundle ? {
+        ...(characterWorldbookBundle ? {
           position: {
             type: 'after_character_definition',
             role: 'system',
@@ -44,6 +44,7 @@ export function buildArtifactPlan(installed) {
             sourceId: installed.id, sourceType: 'project_artifact',
             sourceTitle: installed.name, sourceVersion: installed.version,
             artifactIndex: index, artifactName: artifact.name,
+            ...(characterWorldbookBundle ? { characterSlot: true } : {}),
           },
         },
       })));

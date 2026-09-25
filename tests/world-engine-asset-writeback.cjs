@@ -173,7 +173,7 @@ assert.match(assetRules, /资产类型协议:[\s\S]{0,260}固定地产:[\s\S]{0,
 assert.match(mvuRules, /遵照<资产与载具规则>/, '普通变量 AI 必须复用资产边界');
 assert.match(source, /WorldResult\.资产|资产账簿/, '世界引擎提示词必须明确资产写入职责');
 assert.match(source, /场外[^\n]{0,160}资产[^\n]{0,160}(?:新增|更新|移除|转移)|资产[^\n]{0,160}(?:新增|更新|移除|转移)/, 'Prompt 应允许世界引擎维护资产变化');
-assert.match(source, /version:20,\n        builtin:true,\n        name:'默认设置'/, '内置默认提示词应包含当前历史摘要规则版本 v20');
+assert.match(source, /version:21,\n        builtin:true,\n        name:'默认设置'/, '内置默认提示词应包含当前世界时间与异端认知规则版本 v21');
 assert.match(variables, /tavernPlayerName[\s\S]{0,1200}playerIdentityNames/, '正文玩家资产投影必须读取 Tavern Persona 身份');
 assert.match(helper, /function getPlayerName[\s\S]{0,1200}function isPlayerOwnedAsset/, '自动收菜必须直接读取 Tavern Persona 身份');
 assert.match(settlementUi, /playerOwnerName[\s\S]{0,1800}isPlayerAssetOwner/, '结算清理必须读取 Tavern Persona 身份');

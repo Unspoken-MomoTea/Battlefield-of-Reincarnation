@@ -124,6 +124,33 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   assert.equal(quietState.世界.后台.势力地区['帝都警备队']?.类型,'势力');
   assert.equal(quietState.世界.势力['帝都警备队']?.实力,'C','faction bootstrap must also populate the top-level faction ledger used by reputation/settlement');
 
+  // 世界现场已经建立后也不能退化成“只有异端会动”。
+  let ongoingState=clone(quietState),ongoingCalls=0,ongoingWrites=0;
+  const ongoingReplies=[
+    {摘要:'异端继续原计划，世界其余部分没有变化。'},
+    {
+      摘要:'封锁现场继续推进。',
+      事件:[{名称:'帝都封锁',操作:'更新',描述:'帝都封锁仍在持续，北区检查密度上升。',分类:'当前事件',状态:'进行中',时间:ongoingState.世界.时间,地点:'帝都北区'}],
+      势力地区:[{名称:'帝都北区',操作:'更新',类型:'地区',描述:'帝都北部住宅与贫民混合区。',目标:'维持封锁秩序',进展:'新增两处临时检查点，行人绕行。',关联事件:['帝都封锁'],公开动态:'北区临检范围继续扩大。'}]
+    }
+  ];
+  const ongoingHost={
+    localStorage:{getItem:()=>null,setItem:()=>{}},
+    getCurrentChatId:()=> 'world-must-keep-moving',
+    getChatMessages:()=>[{message_id:2,role:'assistant',message:'主角继续在室内行动，城内时间仍在流逝。'}],
+    Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request:async()=>JSON.stringify(ongoingReplies[ongoingCalls++])}},
+    Mvu:{getMvuData:()=>({stat_data:clone(ongoingState)}),replaceMvuData:async data=>{ongoingWrites++;ongoingState=clone(data.stat_data);}}
+  };
+  const ongoingEngine=new Engine(ongoingHost);
+  ongoingEngine.config.enabled=true;
+  ongoingEngine.config.requireMacroBackbone=false;
+  ongoingEngine.config.retryAttempts=2;
+  ongoingEngine.worldbook=async()=>[];
+  assert.equal(await ongoingEngine.run(),true,'an initialized world must still make a non-alien semantic step each world-engine run');
+  assert.equal(ongoingCalls,2,'alien-only/summary-only follow-up must be retried even after the world scene already exists');
+  assert.equal(ongoingWrites,1);
+  assert.match(ongoingState.世界.后台.势力地区['帝都北区']?.进展||'',/临时检查点/);
+
   // 复现实际开局：世界.时间为空，但后台回复里的两名活跃异端给出了同一个当前时间锚点。
   // 世界引擎应直接接管该时钟并一次成功，不再把异端活动打回。
   let current=clone(stat);

@@ -84,7 +84,7 @@ test('preflight blocks applying an already installed project from another charac
 });
 
 
-test('preflight blocks missing and ambiguous original worldbook conflict targets before install', async () => {
+test('preflight warns but does not block missing or ambiguous original worldbook targets', async () => {
   const adapter = fakeAdapter();
   adapter.state.worldbooks.set('原世界书A', [
     { uid: 1, name: '重复条目', enabled: true, content: 'A' },
@@ -112,8 +112,9 @@ test('preflight blocks missing and ambiguous original worldbook conflict targets
     ambiguous,
     buildArtifactPlan(ambiguous),
   );
+  assert.equal(ambiguousResult.blocking.length, 0);
   assert.deepEqual(
-    ambiguousResult.blocking.map(item => item.type),
+    ambiguousResult.warnings.map(item => item.type),
     ['original_conflict_target_ambiguous'],
   );
 
@@ -134,8 +135,9 @@ test('preflight blocks missing and ambiguous original worldbook conflict targets
     missing,
     buildArtifactPlan(missing),
   );
+  assert.equal(missingResult.blocking.length, 0);
   assert.deepEqual(
-    missingResult.blocking.map(item => item.type),
+    missingResult.warnings.map(item => item.type),
     ['original_conflict_target_missing'],
   );
 });

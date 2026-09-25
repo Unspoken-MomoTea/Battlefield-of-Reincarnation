@@ -6,7 +6,6 @@ import fs from 'node:fs';
 import {
   buildDedicatedArtifacts,
   dedicatedInitialValues,
-  partnerWorldbookTemplate,
   projectCategoryForSelection,
   resolvePublishMode,
   worldCharacterTemplate,
@@ -104,9 +103,12 @@ test('dedicated editor removes world-character MVU fields and exposes optional p
   assert.doesNotMatch(source, /['"]world_background['"]|['"]world_notes['"]/u);
   assert.match(source, /['"]world_content['"]/u);
   assert.match(source, /填写世界书/u);
+  assert.match(source, /['"]opening_worldbook_keywords['"]/u);
   assert.match(source, /['"]opening_worldbook_content['"]/u);
-  assert.match(source, /partnerWorldbookFromForm/u);
-  assert.match(source, /修改上方基础资料时，前序会同步更新/u);
+  assert.doesNotMatch(source, /partnerWorldbookFromForm/u);
+  assert.doesNotMatch(source, /修改上方基础资料时，前序会同步更新/u);
+  assert.match(source, /关键词 \/ 别名/u);
+  assert.match(source, /世界书内容/u);
   assert.match(source, /不附带世界书/u);
 });
 
@@ -201,45 +203,39 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
   assert.equal(asset.build.装备.伙伴长剑.原始属性.ATK, 'A');
 });
 
-test('opening partner optionally emits the full prefilled worldbook content', () => {
-  const fullContent = partnerWorldbookTemplate({
-    name: '伙伴',
-    race: '精灵',
-    identity: '同伴,向导',
-    rank: 'Ⅱ',
-    personality: '温和',
-    likes: '茶',
-    background: '与主角在旧城相识。',
-    backgroundSetting: '关键关系:\n  与主角互相信任。\n秘密:\n  持有旧地图。',
-  });
+test('opening partner worldbook reuses the freeform character template and green-light keywords', () => {
+  const rawContent = '{{角色姓名}}:\n  基本信息:\n    性别: 女\n    种族: 精灵\n\n  背景设定:\n    出身: 月林';
   const artifacts = buildDedicatedArtifacts({
     opening_name: '伙伴',
-    opening_race: '精灵',
-    opening_identity: '同伴,向导',
+    opening_race: '人类',
+    opening_identity: 'MVU身份不应注入世界书',
     opening_rank: 'Ⅱ',
-    opening_personality: '温和',
-    opening_likes: '茶',
-    opening_background: '与主角在旧城相识。',
+    opening_personality: 'MVU性格不应注入世界书',
+    opening_background: 'MVU背景不应注入世界书',
     opening_bloodline_name: '精灵血统',
     opening_worldbook_enabled: true,
-    opening_worldbook_content: fullContent,
+    opening_worldbook_keywords: '银月, 月林向导',
+    opening_worldbook_content: rawContent,
   }, 'opening_partner', '作品');
 
   assert.deepEqual(artifacts.map(item => item.kind), ['data', 'worldbook']);
-  assert.equal(artifacts[0].content.worldbook.format, 'full');
-  assert.equal(artifacts[0].content.worldbook.content, fullContent);
+  assert.equal(artifacts[0].content.worldbook.format, 'freeform');
+  assert.deepEqual(artifacts[0].content.worldbook.aliases, ['银月', '月林向导']);
+  assert.equal(artifacts[0].content.worldbook.content, rawContent);
   const entry = artifacts[1].content.entries[0];
-  assert.deepEqual(entry.strategy.keys, ['伙伴']);
+  assert.equal(entry.strategy.type, 'selective');
+  assert.deepEqual(entry.strategy.keys, ['伙伴', '银月', '月林向导']);
   assert.deepEqual(entry.position, {
     type: 'after_character_definition',
     role: 'system',
     order: 600,
   });
-  assert.equal(entry.content, fullContent);
   assert.match(entry.content, /^伙伴:/u);
-  assert.match(entry.content, /种族: 精灵/u);
-  assert.match(entry.content, /背景设定:\n    关键关系:/u);
-  assert.match(entry.content, /旧地图/u);
+  assert.match(entry.content, /性别: 女/u);
+  assert.match(entry.content, /出身: 月林/u);
+  assert.doesNotMatch(entry.content, /MVU身份/u);
+  assert.doesNotMatch(entry.content, /MVU性格/u);
+  assert.doesNotMatch(entry.content, /MVU背景/u);
 });
 
 test('opening partner does not emit worldbook when toggle is off or content is blank', () => {
@@ -249,7 +245,7 @@ test('opening partner does not emit worldbook when toggle is off or content is b
     opening_bloodline_name: '人类血统',
   };
   assert.deepEqual(
-    buildDedicatedArtifacts({ ...base, opening_worldbook_enabled: false, opening_worldbook_content: '不会发布' }, 'opening_partner', '作品').map(item => item.kind),
+    buildDedicatedArtifacts({ ...base, opening_worldbook_enabled: false, opening_worldbook_keywords: '不会使用', opening_worldbook_content: '不会发布' }, 'opening_partner', '作品').map(item => item.kind),
     ['data'],
   );
   assert.deepEqual(
@@ -436,6 +432,7 @@ test('dedicated update values recover point allocation, skills, partner equipmen
   assert.equal(values.opening_skills[1].name, '技能二');
   assert.equal(values.opening_partner_equipment[0].name, '长剑');
   assert.equal(values.opening_worldbook_enabled, false);
+  assert.equal(values.opening_worldbook_keywords, '');
   assert.equal(values.opening_worldbook_content, '');
 
   const worldbookValues = dedicatedInitialValues([{
@@ -449,11 +446,26 @@ test('dedicated update values recover point allocation, skills, partner equipmen
     },
   }], 'opening_partner', '作品');
   assert.equal(worldbookValues.opening_worldbook_enabled, true);
-  assert.match(worldbookValues.opening_worldbook_content, /^世界书伙伴:/u);
-  assert.match(worldbookValues.opening_worldbook_content, /种族: 人类/u);
-  assert.match(worldbookValues.opening_worldbook_content, /身份: 同伴/u);
-  assert.match(worldbookValues.opening_worldbook_content, /背景故事: 旧友/u);
-  assert.match(worldbookValues.opening_worldbook_content, /背景设定:\n    额外背景设定/u);
+  assert.equal(worldbookValues.opening_worldbook_keywords, '');
+  assert.equal(worldbookValues.opening_worldbook_content, '额外背景设定');
+
+  const freeformWorldbookValues = dedicatedInitialValues([{
+    kind: 'data',
+    content: {
+      kind: 'opening_partner',
+      name: '自由伙伴',
+      worldbook: {
+        format: 'freeform',
+        aliases: ['别名A', '别名B'],
+        content: '{{角色姓名}}:\n  背景设定:\n    出身: 海港',
+      },
+      build: { 层级: 'Ⅰ', 种族: '人类', 身份: [], 血统: {}, 技能: {}, 装备: {} },
+    },
+  }], 'opening_partner', '作品');
+  assert.equal(freeformWorldbookValues.opening_worldbook_enabled, true);
+  assert.equal(freeformWorldbookValues.opening_worldbook_keywords, '别名A, 别名B');
+  assert.match(freeformWorldbookValues.opening_worldbook_content, /\{\{角色姓名\}\}:/u);
+  assert.match(freeformWorldbookValues.opening_worldbook_content, /出身: 海港/u);
 
   const storeValues = dedicatedInitialValues([{
     kind: 'data',

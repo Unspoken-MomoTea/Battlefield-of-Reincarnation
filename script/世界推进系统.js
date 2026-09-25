@@ -225,7 +225,7 @@
 Step 1 · 取事实：按“当前变量/本轮已确认剧情 > 明确世界书 > 模型常识”读取；已确认差异优先。
 Step 2 · 定边界：确认当前阶段与下一宏观节点；只有篇章、地区、战争、势力或关键人物命运发生阶段变化时才调整宏观骨架。
 Step 3 · 推区间：严格按本轮时间容量，先处理到期/进行中事项，再把未完事项推进合理一步；计划不是事实，不越过下一宏观边界。
-Step 4 · 现场到人物：先更新当前区间内确实变化的地区现场，再决定人物行动。人物受地点、路程、能力、认知、职责、资产与地区条件约束。模型看到正文楼层/当前变量不等于人物知情；场外人物若因<user>新行为改变目标或行动，必须已有相应认知，或本轮经观察、目击、通讯、传播获得并同步人物.认知/认知来源；没有来源则维持原目标/行动，只推进其自身事务。同场正文未决时停在交互前。活跃异端每轮复核。
+Step 4 · 现场到人物：先更新当前区间内确实变化的地区现场，再决定人物行动。人物受地点、路程、能力、认知、职责、资产与地区条件约束。模型看到正文楼层/当前变量不等于人物知情；场外人物若因<user>新行为改变目标或行动，必须已有相应认知，或本轮经观察、目击、通讯、传播获得并同步人物.认知/认知来源；没有来源则维持原目标/行动，只推进其自身事务。同场正文未决时停在交互前。活跃异端只有在活动缺失、复核到期、关联事件/所在地区变化或长期未复核时才更新；无触发时沿用既有目标与行动，禁止为了刷新而凭空改策。
 Step 5 · 结算玩家影响：只按<user>已确认行为结算探索、势力与重大因果偏移；这是客观世界结算，不得据此让未获知情报的场外人物自动追踪、伏击或改策。必要时重构宏观骨架。
 Step 6 · 更新传播：只维护本轮真实变化的传播、货币与历法；结束/过期传播不复活。
 Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出本轮新增或变化的 WorldResult；无业务变化也要客观说明本轮没有新增世界事实。
@@ -263,7 +263,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 1. 事实：当前变量与已确认剧情 > 明确世界书 > 模型常识；计划不是事实，已确认差异不得被原著常识覆盖。
 2. 宏观与时间：只用世界.时间计算本世界进展；宏观顺序保持3~5个阶段级节点，细节只推进到下一宏观边界。待发生/进行中事件必须有可排序时间或明确因果时间；无法确认跨度时只推进一步。
 3. 现场与认知：现场群体与环境事实属于势力地区，同一现场事实不得复制进人物。先更新地区现场再决定人物行动；模型看到正文楼层、当前变量和<user>已确认行为，只代表世界事实，不等于任何场外人物知情。人物只能依据在场观察、既有认知、可信通讯/传播链行动；若因<user>新行为改变目标或行动，必须有可追溯的认知来源（已有或本轮写入人物.认知/认知来源），没有来源不得针对<user>即时反应。
-4. 人物边界：活跃异端每轮复核，死亡不可恢复；普通人物只保留真正热记录。不得替<user>建立后台行动。主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界局部结算不重置世界。
+4. 人物边界：活跃异端按触发条件复核，未触发时延续既有活动；死亡不可恢复。普通人物只保留真正热记录。不得替<user>建立后台行动。主神任务、晋升试炼、任务状态、副本成就不读取、不更新、不据此驱动世界。普通副本返回主神空间后停止本世界推演；单一世界局部结算不重置世界。
 5. 资产：仅限固定地产、大型载具或要塞；药剂、材料、消耗品、钥匙、剧情物品、单兵装备/形态不得写入资产。顶层资产是唯一资产账簿；所属对象为数组，可按已确认场外事实新增、更新、转移或移除；删除保护中的同名资产不得重建，正文/MVU已结算变化不重复结算。
 6. 玩家台账：探索只结算<user>实际到达、调查或可靠获知的整体区域；探索度以0/10/30/60/90/100为阶段锚点且无因不回退。势力声望只因<user>真实关系结果变化，同一结果只结算一次，单轮绝对变化≤1000，超过500仅限重大事件。
 7. 因果：只在关键人物命运、重大事件结果、势力格局或主线可行性实质改变时记偏移；负值=因果破坏，正值=修复/强化。世界超稳不新增偏移；旧轨道失效时同轮重构宏观顺序。
@@ -277,12 +277,12 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:20,
+        version:21,
         builtin:true,
         name:'默认设置',
         exportedAt:'2026-09-14T13:00:00.000Z',
         createdAt:'2026-09-08T13:09:45.350Z',
-        updatedAt:'2026-09-14T13:00:00.000Z',
+        updatedAt:'2026-09-25T08:30:00.000Z',
         settings:{
             corePrompt:CORE_WORLD_RULES,
             macroPrompt:DEFAULT_MACRO_PROMPT,
@@ -6217,11 +6217,12 @@ ${schemaText}`;
     // 世界时间单一所有权：世界推进 AI 负责初始化/推进世界.时间；变量 AI 的写入在事件层被回滚。
     const WORLD_TIME_RULES=`【世界时间所有权】
 1. 世界.时间由世界推进独占维护。顶层“时间”只用于初始化或实际推进当前世界时钟；人物更新时间、事件计划时间不能代替世界时钟。
-2. 当前时间为空/待初始化时，按最新正文与明确资料建立时间锚点；资料只能确定季节、阶段或时段时保持该精度，不为格式完整编造月日。
-3. 精确到月日时统一写 {yyy}年-{mm}月-{dd}日-{时间段}；月份必须为数字。时间段只能选：凌晨 / 黎明 / 清晨 / 早晨 / 上午 / 中午 / 午后 / 下午 / 傍晚 / 入夜 / 晚上 / 深夜。不要输出“夜晚/黄昏/早上”等其它同义词。
-4. 时间段是粗粒度时间锚点，不是每轮计数器。没有足够时间流逝跨过当前时段时，省略“时间”并保持原值；只有正文或明确时间资料表明确实经过了合理时长，才推进到后续时段或日期。禁止仅因本轮执行了世界推进就机械跳时段。
-5. 世界时间不得回退，也不得把待发生事件的计划时间提前写成当前时间。人物/地区等“更新时间”由程序按本轮最终世界时间统一盖章。
-6. 从主神空间进入新副本时，程序会先清空世界.时间与旧历法；必须把这视为全新世界的时间初始化，严禁继承上一副本或主神空间“轮回历”的日期。`;
+2. 当前时间为空/待初始化时，先用“最新已确认正文 + 当前阶段 + 当前地点”定位玩家此刻处于任务世界时间线的哪个位置，再对照已读取的时间线/年表/章节资料建立当前时间锚点。下一宏观节点、任务期限和未来事件日期只能作为未来边界，禁止直接拿来当当前时间。
+3. 资料只能确定年份、月份、季节、阶段或时段时保持同级精度，不为格式完整编造月日；明确资料与当前剧情无法唯一对应时，宁可保留较粗时间，也不要伪造精确日期。
+4. 每轮先对比最新正文与现有世界.时间。正文明确发生过夜、数小时后、次日、跨日旅行，或明确出现新的日期/时段时，必须提交顶层“时间”同步推进；禁止保持旧世界时钟，却把已经发生的事件/人物动态写到旧时钟之后。
+5. 精确到月日时统一写 {yyy}年-{mm}月-{dd}日-{时间段}；月份必须为数字。时间段只能选：凌晨 / 黎明 / 清晨 / 早晨 / 上午 / 中午 / 午后 / 下午 / 傍晚 / 入夜 / 晚上 / 深夜。不要输出“夜晚/黄昏/早上”等其它同义词。
+6. 时间段是粗粒度时间锚点，不是每轮计数器。没有足够时间流逝跨过当前时段时，省略“时间”并保持原值；只有正文或明确时间资料表明确实经过了合理时长，才推进到后续时段或日期。禁止仅因本轮执行了世界推进就机械跳时段。
+7. 世界时间不得回退，也不得把待发生事件的计划时间提前写成当前时间。人物/地区等“更新时间”由程序按本轮最终世界时间统一盖章。从主神空间进入新副本时，程序会先清空世界.时间与旧历法；必须把这视为全新世界的时间初始化，严禁继承上一副本或主神空间“轮回历”的日期。`;
 
     const MACHINE_TIME_DESCRIPTION='精确到月日时使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段仅限：凌晨/黎明/清晨/早晨/上午/中午/午后/下午/傍晚/入夜/晚上/深夜；只能确定季节/阶段时可保留粗粒度。';
     WORLD_RESULT_SCHEMA.properties.时间={type:'string',minLength:1,description:'当前世界时间。'+MACHINE_TIME_DESCRIPTION};
@@ -6324,7 +6325,15 @@ ${schemaText}`;
         if(proposal)result.时间=proposal;
         assertCalendarCompatibleWorldResultTimes(stat,result);
         if(proposal)assertWorldTimeNotBackwards(stat,proposal);
-        const compiled=compileWorldResultBeforeWorldTimeOwnership(stat,result);
+
+        // 本轮顶层时间是整份 WorldResult 的事务基准。先把候选时间放进校验快照，
+        // 再校验同轮事件/人物/地区/历史/传播，避免“新时间尚未落库 → 新时间下的事实被误判为未来”的死锁。
+        const validationStat=proposal?copy(stat):stat;
+        if(proposal){
+            if(!plain(validationStat.世界))validationStat.世界={};
+            validationStat.世界.时间=proposal;
+        }
+        const compiled=compileWorldResultBeforeWorldTimeOwnership(validationStat,result);
         if(proposal){
             const old=stat?.世界?.时间;
             if(String(old??'')!==proposal)compiled.patches.unshift({op:old===undefined?'add':'replace',path:'/世界/时间',value:proposal});
@@ -6342,13 +6351,22 @@ ${schemaText}`;
             request.system=String(request.system||'')+'\n\n'+WORLD_TIME_RULES;
             try{
                 const payload=JSON.parse(request.input);
+                const needsInitialization=worldTimeUnset(base?.stat?.世界?.时间);
                 payload.世界时间维护={
                     当前时间:String(base?.stat?.世界?.时间||''),
-                    是否需要初始化:worldTimeUnset(base?.stat?.世界?.时间),
+                    是否需要初始化:needsInitialization,
                     所有权:'世界推进独占写入；变量 AI 只读',
+                    初始化锚定:needsInitialization?{
+                        任务世界:String(base?.stat?.世界?.名称||''),
+                        当前阶段:String(base?.stat?.世界?.因果轨道?.当前阶段||''),
+                        当前地点:String(base?.stat?.世界?.地点||''),
+                        依据顺序:['最新已确认正文','当前阶段与当前地点','已读取时间线/年表/章节资料','模型已有原著知识','谨慎推断'],
+                        禁止:'不得把下一宏观节点、任务期限或未来事件的日期直接当成当前世界时间；无法唯一定位时保持较粗时间精度。'
+                    }:undefined,
+                    正文时间职责:'若最新正文明确发生过夜、数小时后、次日、跨日旅行或新的日期/时段，必须输出顶层“时间”同步世界时钟；不能保留旧时钟再提交已经发生于新时点的事实。',
                     精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须是数字；不要用自定义月份名称替代数字月。',
                     时间段候选:['凌晨','黎明','清晨','早晨','上午','中午','午后','下午','傍晚','入夜','晚上','深夜'],
-                    推进原则:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确资料表明确实经过合理时长才推进。'
+                    推进原则:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确时间资料表明确实经过合理时长才推进。'
                 };
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}
@@ -6525,12 +6543,40 @@ ${schemaText}`;
             finally{this.worldReplayResolveIdleWaiters();}
         }
     };
-    // 活跃异端活动时间戳：模型提交活动事实；世界时间由 WorldResult.时间 维护，人物时间戳由程序统一盖章。
+    // 活跃异端不再“每轮强制改策”。已有完整活动默认持续，仅在初始化、复核到期、关联事件/所在地区变化或长期未复核时要求提交新活动。
+    const ALIEN_ACTIVITY_STALE_HOURS=24;
+    function alienActivityReviewReasons(stat,item) {
+        const people=stat?.世界?.[PATH]?.人物||{};
+        const personName=stableNameIn(people,item?.名称)||stableNameIn(people,item?.雷达名称),person=personName?people[personName]:null;
+        const reasons=[];
+        const factsComplete=!!(person&&String(person.地点||'').trim()&&String(person.目标||'').trim()&&String(person.行动||'').trim());
+        if(!factsComplete)reasons.push('活动档案缺失');
+
+        const now=worldDateKey(stat?.世界?.时间),updated=worldDateKey(person?.更新时间),nextCheck=worldDateKey(person?.下次检查);
+        if(now!==null&&nextCheck!==null&&nextCheck<=now)reasons.push('下次检查到期');
+        if(factsComplete&&now!==null&&updated!==null&&now-updated>=ALIEN_ACTIVITY_STALE_HOURS)reasons.push('活动已超过24小时未复核');
+
+        const linkedEvents=new Set(Array.isArray(person?.关联事件)?person.关联事件.filter(Boolean):[]);
+        const location=String(person?.地点||'').trim();
+        for(const change of stat?.世界?.[PATH]?.最近变化||[]){
+            if(!plain(change))continue;
+            const category=String(change.类别||change.类型||'').trim(),name=String(change.名称||'').trim();
+            if(name&&/事件/.test(category)&&linkedEvents.has(name))reasons.push('关联事件变化');
+            if(name&&/(?:势力地区|地区)/.test(category)&&location&&worldLocationRelated(location,name))reasons.push('所在地区变化');
+        }
+        return Array.from(new Set(reasons));
+    }
+
     const activeAlienActivityRequirementsBeforeTimestampNormalization=activeAlienActivityRequirements;
     activeAlienActivityRequirements=function(stat) {
-        return activeAlienActivityRequirementsBeforeTimestampNormalization(stat).map(item=>Object.assign({},item,{
-            要求:'本轮必须在 WorldResult.人物 中提交该活跃异端的活动复核；至少给出非空地点、目标、行动。人物更新时间无需抄写，由程序使用本轮最终世界时间统一记录；若本轮已确认其死亡，则只把异端状态更新为死亡，不再提交人物活动。'
-        }));
+        return activeAlienActivityRequirementsBeforeTimestampNormalization(stat).map(item=>{
+            const reasons=alienActivityReviewReasons(stat,item);
+            if(!reasons.length)return null;
+            return Object.assign({},item,{
+                触发原因:reasons,
+                要求:'仅因本轮触发复核才需要在 WorldResult.人物 中提交该活跃异端的新活动；至少给出非空地点、目标、行动。人物更新时间无需抄写，由程序使用本轮最终世界时间统一记录。未获得新情报时沿用既有目标/行动，不得因为模型看见<user>行为就自动追踪或改策；若因<user>行为改变目标/行动，必须已有认知或同轮写入可追溯的认知/认知来源。若本轮已确认死亡，则只把异端状态更新为死亡。'
+            });
+        }).filter(Boolean);
     };
 
     const compileWorldResultBeforeAlienActivityNormalization=compileWorldResult;
@@ -6569,14 +6615,15 @@ ${schemaText}`;
             const timeComplete=!canonicalTime||sameWorldTimeAnchor(person?.更新时间,canonicalTime);
             if(!submitted||!factsComplete||!timeComplete)missing.push(rosterName||item.名称);
         }
-        if(missing.length)throw new Error('异端活动未复核：'+missing.join('、')+'；活跃异端每轮都必须提交人物活动并写明地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若已死亡则更新异端状态为死亡');
+        if(missing.length)throw new Error('异端活动未复核：'+missing.join('、')+'；仅本轮触发复核的活跃异端需要提交地点、目标、行动，人物更新时间由程序使用世界时间统一记录。未触发者沿用既有活动，不得为了刷新而凭空改策；若已死亡则更新异端状态为死亡');
     };
 
     const retryPlanForFailureBeforeAlienActivityNormalization=retryPlanForFailure;
     retryPlanForFailure=function(error,rejected=[]) {
         return retryPlanForFailureBeforeAlienActivityNormalization(error,rejected).map(item=>String(item)
-            .replace('在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动，并把更新时间精确写为当前世界时间；若本轮已确认死亡','在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡')
-            .replace('在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动；更新时间由程序统一记录为当前世界时间；若本轮已确认死亡','在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡')
+            .replace('在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动，并把更新时间精确写为当前世界时间；若本轮已确认死亡','仅对本轮触发复核的该活跃异端补写地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡')
+            .replace('在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动；更新时间由程序统一记录为当前世界时间；若本轮已确认死亡','仅对本轮触发复核的该活跃异端补写地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡')
+            .replace('在 WorldResult.人物 中补写该活跃异端本轮的地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡','仅对本轮触发复核的该活跃异端补写地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡')
         );
     };
     // 传闻节流：默认保持现有公开传闻，只在真实的信息事件发生时刷新；传闻/传播失败不再拖整轮重试。
@@ -6767,7 +6814,7 @@ ${schemaText}`;
         }
     };
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=4;
+    const WORLD_MODULE_PROMPT_VERSION=5;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
 【执行流程】
 1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
@@ -6779,6 +6826,7 @@ ${schemaText}`;
     const COMPACT_CORE_WORLD_RULES=`【核心边界】
 - 事实优先级：当前变量/已确认剧情 > 明确世界书 > 常识；计划不是事实。
 - 模型知道≠场外人物知道。人物只能依据在场观察、既有认知或可信传播行动；因<user>新行为改策必须有认知来源。
+- 活跃异端只在活动缺失、复核到期、关联事件/所在地区变化或长期未复核时更新；无触发时沿用既有目标与行动，不得为了刷新而凭空改策。
 - 时间与路程必须可实现；同一人物同一时段只在一处；不替<user>行动，不复述已演出琐事。
 - 资产只记录固定地产、大型载具或要塞；单兵物品不写资产。探索只记录<user>实际到达、调查或可靠获知的区域。
 - 因果偏移只记已实现的主线级长期变化；没有重大世界偏移就完全不写偏移记录。当前事件公开字段只写现实中可感知的信息。

@@ -103,6 +103,8 @@ test('character mods use contiguous 601+ orders, preserve update position, and c
     ['a', 601],
     ['c', 602],
   ]);
+  const cHealth = await installer.inspect('c');
+  assert.equal(cHealth.health.healthy, true, 'compacting another Mod must not make this character Mod look modified');
 
   await installer.apply('d');
   assert.deepEqual(characterOrders(adapter).map(item => [item.id, item.order]), [

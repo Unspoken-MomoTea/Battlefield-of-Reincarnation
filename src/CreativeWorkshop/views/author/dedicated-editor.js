@@ -1,5 +1,6 @@
+import { worldCharacterTemplate } from './publish-templates.js';
+
 const OPENING_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
-const WORLD_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ'];
 const STORE_QUALITIES = ['F', 'E', 'D'];
 const EQUIPMENT_ATTR_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A'];
 const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
@@ -494,7 +495,7 @@ function worldEditor(doc, initial, emit) {
   const head = el(doc, 'div', 'rw-special-editor-head');
   head.append(
     el(doc, 'strong', '', '世界书角色'),
-    el(doc, 'small', '', '填写人物设定，发布时自动生成世界书角色条目。'),
+    el(doc, 'small', '', '姓名与关键词用于世界书触发；角色正文直接按预设格式编辑，不再套用 MVU 的身份 / 职业 / 层级字段。'),
   );
   root.appendChild(head);
 
@@ -502,26 +503,31 @@ function worldEditor(doc, initial, emit) {
   grid.append(
     field(doc, '角色姓名 *', makeInput(doc, 'world_name', initial.world_name || '', { maxLength: 80 })),
     field(doc, '关键词 / 别名', makeInput(doc, 'world_keywords', initial.world_keywords || '', { maxLength: 300 }), '多个关键词用逗号分隔，姓名会自动加入关键词。'),
-    field(doc, '种族', makeInput(doc, 'world_race', initial.world_race || '', { maxLength: 120 })),
-    field(doc, '身份', makeInput(doc, 'world_identity', initial.world_identity || '', { maxLength: 300 }), '多个身份用逗号分隔。'),
-    field(doc, '职业', makeInput(doc, 'world_occupation', initial.world_occupation || '', { maxLength: 160 })),
-    field(doc, '层级', makeSelect(doc, 'world_rank', WORLD_RANKS, initial.world_rank || 'Ⅰ')),
   );
+
+  const content = makeInput(
+    doc,
+    'world_content',
+    initial.world_content || worldCharacterTemplate(),
+    { textarea: true, maxLength: 20000 },
+  );
+  content.rows = 34;
   root.append(
     grid,
-    field(doc, '性格', makeInput(doc, 'world_personality', initial.world_personality || '', { textarea: true, maxLength: 1600 })),
-    field(doc, '外貌', makeInput(doc, 'world_appearance', initial.world_appearance || '', { textarea: true, maxLength: 1600 })),
-    field(doc, '背景故事', makeInput(doc, 'world_background', initial.world_background || '', { textarea: true, maxLength: 4000 })),
-    field(doc, '补充设定', makeInput(doc, 'world_notes', initial.world_notes || '', { textarea: true, maxLength: 4000 })),
+    field(
+      doc,
+      '世界书内容 *',
+      content,
+      '已预填角色设定格式；{{角色姓名}} 会在发布时自动替换成上方姓名。可以自由增删栏目与内容。',
+    ),
   );
   root.addEventListener('input', emit);
   root.addEventListener('change', emit);
 
-  const names = [
-    'world_name', 'world_keywords', 'world_race', 'world_identity', 'world_occupation',
-    'world_rank', 'world_personality', 'world_appearance', 'world_background', 'world_notes',
-  ];
-  return { node: root, values: () => valuesFromNames(root, names) };
+  return {
+    node: root,
+    values: () => valuesFromNames(root, ['world_name', 'world_keywords', 'world_content']),
+  };
 }
 
 function rankQuality(rank) {
@@ -761,12 +767,45 @@ function openingEditor(doc, mode, initial, emit) {
   );
   root.appendChild(grid);
 
+  let worldbookEnabled = false;
+  let worldbookContent = null;
   if (partner) {
+    const worldbookToggle = el(doc, 'button', 'rw-button', '填写世界书');
+    worldbookToggle.type = 'button';
+    const worldbookBox = el(doc, 'div', 'rw-partner-worldbook');
+    worldbookContent = makeInput(
+      doc,
+      'opening_worldbook_content',
+      initial.opening_worldbook_content || '',
+      { textarea: true, maxLength: 20000 },
+    );
+    worldbookContent.rows = 18;
+    worldbookBox.appendChild(field(
+      doc,
+      '背景设定（世界书）',
+      worldbookContent,
+      '姓名、种族、身份、层级、性格、喜爱与上方背景故事会自动作为前序；这里填写的内容会追加到“背景设定”。不填写则不会生成世界书。',
+    ));
+
+    worldbookEnabled = Boolean(initial.opening_worldbook_enabled || initial.opening_worldbook_content?.trim());
+    const renderWorldbook = () => {
+      worldbookBox.hidden = !worldbookEnabled;
+      worldbookToggle.textContent = worldbookEnabled ? '不附带世界书' : '填写世界书';
+    };
+    worldbookToggle.addEventListener('click', () => {
+      worldbookEnabled = !worldbookEnabled;
+      renderWorldbook();
+      emit();
+    });
+    renderWorldbook();
+
     root.append(
       el(doc, 'div', 'rw-special-subtitle', '伙伴人设'),
       field(doc, '性格', makeInput(doc, 'opening_personality', initial.opening_personality || '', { textarea: true, maxLength: 1600 })),
       field(doc, '喜爱', makeInput(doc, 'opening_likes', initial.opening_likes || '', { textarea: true, maxLength: 1000 })),
       field(doc, '背景故事', makeInput(doc, 'opening_background', initial.opening_background || '', { textarea: true, maxLength: 4000 })),
+      worldbookToggle,
+      worldbookBox,
     );
   }
 
@@ -840,7 +879,11 @@ function openingEditor(doc, mode, initial, emit) {
         ...valuesFromNames(root, names),
         opening_attributes: allocator.values(),
         opening_skills: skillEditor.values(),
-        ...(partner ? { opening_partner_equipment: equipmentEditor?.values() || [] } : {}),
+        ...(partner ? {
+          opening_partner_equipment: equipmentEditor?.values() || [],
+          opening_worldbook_enabled: worldbookEnabled,
+          opening_worldbook_content: worldbookContent?.value || '',
+        } : {}),
       };
     },
   };

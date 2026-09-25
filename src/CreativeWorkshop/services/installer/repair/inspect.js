@@ -2,7 +2,7 @@ import { SHARED_WORLDBOOK_NAME } from '../constants.js';
 import { deepSubsetEqual } from '../compare.js';
 import { buildArtifactPlan } from '../plan.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, regexPrefix } from '../ownership.js';
-import { CHARACTER_ORDER_FIRST, CHARACTER_ORDER_LAST, isCharacterWorldbookSlot } from '../character-order.js';
+import { CHARACTER_ORDER_FIRST, CHARACTER_ORDER_LAST, characterOrderForProject, compactCharacterWorldbookOrders, isCharacterWorldbookSlot } from '../character-order.js';
 import { isOriginalConflictEntryInState } from '../original-conflicts.js';
 import { findOriginalRegexTargets, isOriginalRegexInState } from '../original-regexes.js';
 import { findOriginalScriptTargets, isOriginalScriptInState } from '../original-scripts.js';
@@ -92,13 +92,16 @@ export async function inspectInstalledProject(adapter, installed) {
       const actual = ownEntries[actualIndex];
       let expectedForCompare = expected;
       if (isCharacterWorldbookSlot(expected)) {
-        const assignedOrder = Number(targets.worldbookCharacterOrder ?? actual?.position?.order);
         const actualOrder = Number(actual?.position?.order);
+        const compactedOrder = characterOrderForProject(
+          compactCharacterWorldbookOrders(entries),
+          installed.id,
+        );
         if (
           !Number.isFinite(actualOrder) ||
           actualOrder < CHARACTER_ORDER_FIRST ||
           actualOrder > CHARACTER_ORDER_LAST ||
-          (Number.isFinite(assignedOrder) && actualOrder !== assignedOrder)
+          (Number.isFinite(compactedOrder) && actualOrder !== compactedOrder)
         ) {
           issues.push(issue('worldbook_entry_modified', { name: expected.name }));
           continue;

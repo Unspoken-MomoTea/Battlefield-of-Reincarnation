@@ -13,6 +13,8 @@ PARTS = (
     '30-context-protocol.part.js',
     'ui/10-world-tab.part.js',
     'ui/20-people-tab.part.js',
+    'ui/30-exploration-tab.part.js',
+    'ui/40-archive-tabs.part.js',
     '40-engine-runtime.part.js',
     '50-engine-ui.part.js',
     '55-policy-compat.part.js',

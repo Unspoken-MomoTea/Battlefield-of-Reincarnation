@@ -119,8 +119,8 @@ assert.equal(result.totalReward, 2040, 'old-save sample with 主神空间 commis
 
 const trialIdentityBlock = mustMatch(
   html,
-  /function extractTrialTasks\(data\) \{[\s\S]*?(?=\n          function readTrialTasks\(\))/, 
-  'missing self-contained trial task extractor'
+  /function isTrialTaskCommissioner\(value\) \{[\s\S]*?(?=\n          function readTrialTasks\(\))/, 
+  'missing commissioner-keyword trial task extractor'
 );
 const trialContext = { String, Object, Array, Math };
 vm.createContext(trialContext);
@@ -128,7 +128,7 @@ vm.runInContext(trialIdentityBlock + '\nthis.extractTrialTasks=extractTrialTasks
 assert.deepEqual(
   Array.from(trialContext.extractTrialTasks({任务:{列表:{旧试炼:{委托方:'普升试炼',状态:'可结算'}}}}).map(x=>x.key)),
   ['旧试炼'],
-  'settlement verification must treat 普升试炼 as an exact legacy trial alias'
+  'settlement verification must identify any commissioner containing the trial keyword'
 );
 assert.deepEqual(
   Array.from(trialContext.extractTrialTasks({任务:{列表:{普通委托:{委托方:'主神空间',状态:'可结算'}}}})),

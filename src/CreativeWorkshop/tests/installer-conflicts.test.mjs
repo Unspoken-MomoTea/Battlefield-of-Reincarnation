@@ -48,6 +48,43 @@ test('world-character bundles install between the character start and end marker
     role: 'system',
     order: 600,
   });
+  assert.equal(plan.worldbook[0].extra.reincarnationWorkshop.characterSlot, true);
+});
+
+test('opening-partner worldbook bundles are marked for the same dynamic character slots', () => {
+  const installed = project([
+    {
+      kind: 'worldbook',
+      name: '伙伴.worldbook.json',
+      format: 'json',
+      content: {
+        entries: [{
+          name: '[角色] 伙伴',
+          content: '伙伴设定',
+          strategy: { type: 'selective', keys: ['伙伴'] },
+          position: { type: 'after_character_definition', role: 'system', order: 600 },
+        }],
+      },
+    },
+    {
+      kind: 'data',
+      name: '伙伴.opening.json',
+      format: 'json',
+      content: {
+        schema_version: 1,
+        kind: 'opening_partner',
+        name: '伙伴',
+        build: { 层级: 'Ⅰ', 血统: {}, 技能: {}, 装备: {} },
+      },
+    },
+  ]);
+  const plan = buildArtifactPlan(installed);
+  assert.equal(plan.worldbook[0].extra.reincarnationWorkshop.characterSlot, true);
+  assert.deepEqual(plan.worldbook[0].position, {
+    type: 'after_character_definition',
+    role: 'system',
+    order: 600,
+  });
 });
 
 test('non-depth worldbook positions do not keep a synthetic D4 depth', () => {

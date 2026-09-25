@@ -113,6 +113,8 @@ test('creator flows require a cover before local testing or publishing', async (
   const editor = fs.readFileSync(fileURLToPath(new URL('../views/author/project-editor.js', import.meta.url)), 'utf8');
   const heretic = fs.readFileSync(fileURLToPath(new URL('../views/author/create-heretic.js', import.meta.url)), 'utf8');
   assert.doesNotMatch(template, /封面图（可选）/u);
+  assert.match(template, /data-action="create-heretic-open" hidden/u);
+  assert.match(template, /data-form="create-heretic" hidden/u);
   assert.match(template, /封面图 \*/u);
   assert.match(template, /data-drop-target="heretic-cover"/u);
   assert.match(template, /data-role="heretic-cover-preview"/u);

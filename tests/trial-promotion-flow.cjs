@@ -41,9 +41,9 @@ assert.deepEqual(extractTrialTasks({任务:{列表:{
     丙:{委托方:'本地公会',状态:'可结算'}
 }}}).map(x=>x.key),['乙'],'only commissioner values containing the trial keyword belong to the trial set');
 assert.match(trialUi,/stat_data\.系统状态\.是否试炼任务['"],true/,'trial beautifier must persist the hidden active-trial marker');
-assert.doesNotMatch(trialUi,/试炼任务名单/,'trial beautifier must not persist task-name lists');
+assert.doesNotMatch(trialUi,new RegExp('试炼任务'+'名单'),'trial beautifier must not persist task-name lists');
 assert.match(currentVariables,/是否试炼任务/,'AI variable projection must explicitly hide active-trial marker');
-assert.doesNotMatch(currentVariables,/试炼任务名单/,'removed trial task-name list must not remain in AI projection');
+assert.doesNotMatch(currentVariables,new RegExp('试炼任务'+'名单'),'removed trial task-name list must not remain in AI projection');
 
 const finalizationSource=part(settlement,'          function applySettlementFinalization(', '          async function writeSettlementToMvu(');
 function finalizeHarness(tasks,single=false){

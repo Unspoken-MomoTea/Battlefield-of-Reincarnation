@@ -38,19 +38,137 @@ function effect(name, description) {
   return { [String(name || '').trim() || '效果']: body };
 }
 
+export function worldCharacterTemplate(name = '{{角色姓名}}') {
+  return `${name}:
+  基本信息:
+    性别:
+    年龄:
+    种族:
+    阵营:
+
+  背景设定:
+    出身:
+    关键经历:
+
+  外貌描写:
+    整体印象:
+    面部:
+    体型身材:
+    发型发色:
+    眼睛:
+    穿着风格:
+    显著特征:
+    配饰:
+    风格印象:
+
+  身体数据:
+    身高:
+    体重:
+    三围:
+    头部特征:
+    腰臀特征:
+    四肢特征:
+    私密部位:
+
+  性格特征:
+    行为模式:
+    语言风格:
+    道德体系:
+    个人特质:
+      - 特质一（主导/核心）:
+          体现:
+          行为举例:
+      - 特质二（次要/表象）:
+          体现:
+          行为举例:
+      - 特质三（隐藏/本质）:
+          体现:
+          行为举例:
+
+  目标动机:
+    短期目标:
+    长期目标:
+    核心驱动:
+
+  战斗能力:
+    战斗风格:
+    技能:
+
+  个人物品:
+`;
+}
+
+function legacyWorldCharacterContent(profile = {}) {
+  const identities = Array.isArray(profile.identities) ? profile.identities.join(' / ') : '';
+  const background = [profile.background, profile.notes].filter(Boolean).join('\n');
+  return `${profile.name || '{{角色姓名}}'}:
+  基本信息:
+    种族: ${profile.race || ''}
+    身份: ${identities}
+    职业: ${profile.occupation || ''}
+    层级: ${profile.rank || ''}
+
+  背景设定:
+${background ? background.split('\n').map(line => `    ${line}`).join('\n') : '    '}
+
+  外貌描写:
+    整体印象: ${profile.appearance || ''}
+
+  性格特征:
+    行为模式: ${profile.personality || ''}
+`;
+}
+
 function worldCharacterContent(profile) {
+  const raw = String(profile?.content || '').trim() || legacyWorldCharacterContent(profile);
+  return raw.replaceAll('{{角色姓名}}', profile?.name || '角色');
+}
+
+function partnerWorldbookContent(name, build = {}, profile = {}, backgroundSetting = '') {
+  const identities = Array.isArray(build.身份) ? build.身份.join(' / ') : String(build.身份 || '');
+  const extra = String(backgroundSetting || '').trim();
   const lines = [
-    `【角色】${profile.name}`,
-    profile.race && `种族：${profile.race}`,
-    profile.identities.length && `身份：${profile.identities.join(' / ')}`,
-    profile.occupation && `职业：${profile.occupation}`,
-    profile.rank && `层级：${profile.rank}`,
-    profile.personality && `性格：${profile.personality}`,
-    profile.appearance && `外貌：${profile.appearance}`,
-    profile.background && `背景故事：${profile.background}`,
-    profile.notes && `补充设定：${profile.notes}`,
-  ].filter(Boolean);
+    `${name}:`,
+    '  基本信息:',
+    `    种族: ${build.种族 || ''}`,
+    `    身份: ${identities}`,
+    `    层级: ${build.层级 || ''}`,
+    `    性格: ${profile.性格 || ''}`,
+    `    喜爱: ${profile.喜爱 || ''}`,
+    `    背景故事: ${profile.背景故事 || ''}`,
+    '',
+    '  背景设定:',
+  ];
+  if (extra) lines.push(...extra.split('\n').map(line => `    ${line}`));
   return lines.join('\n');
+}
+
+function worldbookArtifact(name, keys, content) {
+  return {
+    kind: 'worldbook',
+    name: `${name}.worldbook.json`,
+    format: 'json',
+    content: {
+      entries: [{
+        name: `[角色] ${name}`,
+        enabled: true,
+        strategy: {
+          type: 'selective',
+          keys,
+          keys_secondary: { logic: 'and_any', keys: [] },
+          scan_depth: 'same_as_global',
+        },
+        position: {
+          type: 'after_character_definition',
+          role: 'system',
+          depth: 4,
+          order: WORLD_CHARACTER_ORDER,
+        },
+        content,
+        probability: 100,
+      }],
+    },
+  };
 }
 
 export function resolvePublishMode(categorySelection, characterKind = '') {
@@ -242,50 +360,17 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
     const name = read(source, 'world_name') || projectName;
     if (!name) throw new Error('请填写世界角色姓名');
     const aliases = csv(read(source, 'world_keywords'));
-    const profile = {
-      name,
-      aliases,
-      race: read(source, 'world_race'),
-      identities: csv(read(source, 'world_identity')),
-      occupation: read(source, 'world_occupation'),
-      rank: read(source, 'world_rank') || 'Ⅰ',
-      personality: read(source, 'world_personality'),
-      appearance: read(source, 'world_appearance'),
-      background: read(source, 'world_background'),
-      notes: read(source, 'world_notes'),
-    };
+    const content = read(source, 'world_content').trim();
+    if (!content) throw new Error('请填写世界书角色内容');
+    const profile = { name, aliases, content };
     const keys = [...new Set([name, ...aliases])];
     return [
-      {
-        kind: 'worldbook',
-        name: `${name}.worldbook.json`,
-        format: 'json',
-        content: {
-          entries: [{
-            name: `[角色] ${name}`,
-            enabled: true,
-            strategy: {
-              type: 'selective',
-              keys,
-              keys_secondary: { logic: 'and_any', keys: [] },
-              scan_depth: 'same_as_global',
-            },
-            position: {
-              type: 'after_character_definition',
-              role: 'system',
-              depth: 4,
-              order: WORLD_CHARACTER_ORDER,
-            },
-            content: worldCharacterContent(profile),
-            probability: 100,
-          }],
-        },
-      },
+      worldbookArtifact(name, keys, worldCharacterContent(profile)),
       {
         kind: 'data',
         name: `${name}.character.json`,
         format: 'json',
-        content: { schema_version: 1, kind: 'world_character', name, profile },
+        content: { schema_version: 2, kind: 'world_character', name, profile },
       },
     ];
   }
@@ -299,18 +384,29 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
       喜爱: read(source, 'opening_likes'),
       背景故事: read(source, 'opening_background'),
     };
-    return [{
+    const partnerWorldbook = mode === 'opening_partner'
+      ? read(source, 'opening_worldbook_content').trim()
+      : '';
+    const dataArtifact = {
       kind: 'data',
       name: `${name}.opening.json`,
       format: 'json',
       content: {
-        schema_version: 1,
+        schema_version: partnerWorldbook ? 2 : 1,
         kind: mode,
         name,
-        ...(mode === 'opening_partner' ? { profile } : {}),
+        ...(mode === 'opening_partner' ? {
+          profile,
+          ...(partnerWorldbook ? { worldbook: { content: partnerWorldbook } } : {}),
+        } : {}),
         build,
       },
-    }];
+    };
+    if (!partnerWorldbook) return [dataArtifact];
+    return [
+      dataArtifact,
+      worldbookArtifact(name, [name], partnerWorldbookContent(name, build, profile, partnerWorldbook)),
+    ];
   }
 
   if (mode === 'store_catalog') {
@@ -357,17 +453,12 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
   if (mode === 'world_character') {
     const data = values.find(value => value.kind === 'world_character') || {};
     const profile = data.profile || {};
+    const name = data.name || profile.name || projectName;
     return {
-      world_name: data.name || profile.name || projectName,
+      world_name: name,
       world_keywords: (profile.aliases || []).join(', '),
-      world_race: profile.race || '',
-      world_identity: (profile.identities || []).join(', '),
-      world_occupation: profile.occupation || '',
-      world_rank: profile.rank || 'Ⅰ',
-      world_personality: profile.personality || '',
-      world_appearance: profile.appearance || '',
-      world_background: profile.background || '',
-      world_notes: profile.notes || '',
+      world_content: String(profile.content || '').trim()
+        || (Object.keys(profile).length ? legacyWorldCharacterContent({ ...profile, name }) : worldCharacterTemplate()),
     };
   }
 
@@ -415,6 +506,8 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
         name,
         ...structuredClone(item),
       }));
+      result.opening_worldbook_content = String(data.worldbook?.content || '');
+      result.opening_worldbook_enabled = Boolean(result.opening_worldbook_content.trim());
     }
     return result;
   }

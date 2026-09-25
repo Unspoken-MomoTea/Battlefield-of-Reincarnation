@@ -4,7 +4,11 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const prose = fs.readFileSync(path.join(root, 'World Book', '[variables]当前变量.txt'), 'utf8');
-const ui = fs.readFileSync(path.join(root, 'script', 'world-engine-src', '50-engine-ui.part.js'), 'utf8');
+const ui = [
+  path.join(root, 'script', 'world-engine-src', '50-engine-ui.part.js'),
+  path.join(root, 'script', 'world-engine-src', 'ui', '10-world-tab.part.js'),
+  path.join(root, 'script', 'world-engine-src', 'ui', '20-people-tab.part.js'),
+].map(file => fs.readFileSync(file, 'utf8')).join('\n');
 const guide = fs.readFileSync(path.join(root, 'script', '世界引擎接入说明.md'), 'utf8');
 
 // 正文可见投影必须以热场景为一级单位，共享现场只出现一次。

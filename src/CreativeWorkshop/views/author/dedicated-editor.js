@@ -1,4 +1,4 @@
-import { worldCharacterTemplate } from './publish-templates.js';
+import { partnerWorldbookTemplate, worldCharacterTemplate } from './publish-templates.js';
 
 const OPENING_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
 const STORE_QUALITIES = ['F', 'E', 'D'];
@@ -93,6 +93,31 @@ function getValue(root, name) {
 
 function valuesFromNames(root, names) {
   return Object.fromEntries(names.map(name => [name, getValue(root, name)]));
+}
+
+function partnerWorldbookBackgroundSetting(content = '') {
+  const text = String(content || '');
+  const marker = '\n  背景设定:\n';
+  const index = text.indexOf(marker);
+  const body = index >= 0 ? text.slice(index + marker.length) : text;
+  return body
+    .split('\n')
+    .map(line => line.startsWith('    ') ? line.slice(4) : line)
+    .join('\n')
+    .trim();
+}
+
+function partnerWorldbookFromForm(root, current = '') {
+  return partnerWorldbookTemplate({
+    name: getValue(root, 'opening_name').trim() || '{{角色姓名}}',
+    race: getValue(root, 'opening_race').trim(),
+    identity: getValue(root, 'opening_identity').trim(),
+    rank: getValue(root, 'opening_rank').trim(),
+    personality: getValue(root, 'opening_personality').trim(),
+    likes: getValue(root, 'opening_likes').trim(),
+    background: getValue(root, 'opening_background').trim(),
+    backgroundSetting: partnerWorldbookBackgroundSetting(current),
+  });
 }
 
 function randomId(kind, index) {
@@ -779,12 +804,12 @@ function openingEditor(doc, mode, initial, emit) {
       initial.opening_worldbook_content || '',
       { textarea: true, maxLength: 20000 },
     );
-    worldbookContent.rows = 18;
+    worldbookContent.rows = 24;
     worldbookBox.appendChild(field(
       doc,
-      '背景设定（世界书）',
+      '世界书内容',
       worldbookContent,
-      '姓名、种族、身份、层级、性格、喜爱与上方背景故事会自动作为前序；这里填写的内容会追加到“背景设定”。不填写则不会生成世界书。',
+      '打开时会自动把姓名、种族、身份、层级、性格、喜爱与背景故事填入前序；你只需要继续编辑“背景设定”。修改上方基础资料时，前序会同步更新，并保留已经填写的背景设定。',
     ));
 
     worldbookEnabled = Boolean(initial.opening_worldbook_enabled || initial.opening_worldbook_content?.trim());
@@ -794,6 +819,9 @@ function openingEditor(doc, mode, initial, emit) {
     };
     worldbookToggle.addEventListener('click', () => {
       worldbookEnabled = !worldbookEnabled;
+      if (worldbookEnabled) {
+        worldbookContent.value = partnerWorldbookFromForm(root, worldbookContent.value);
+      }
       renderWorldbook();
       emit();
     });
@@ -807,6 +835,10 @@ function openingEditor(doc, mode, initial, emit) {
       worldbookToggle,
       worldbookBox,
     );
+
+    if (worldbookEnabled) {
+      worldbookContent.value = partnerWorldbookFromForm(root, worldbookContent.value);
+    }
   }
 
   const allocator = pointAllocator(doc, {
@@ -862,8 +894,14 @@ function openingEditor(doc, mode, initial, emit) {
   });
   syncAutoQuality();
 
-  root.addEventListener('input', emit);
-  root.addEventListener('change', emit);
+  const syncPartnerWorldbook = event => {
+    if (partner && worldbookEnabled && worldbookContent && event?.target !== worldbookContent) {
+      worldbookContent.value = partnerWorldbookFromForm(root, worldbookContent.value);
+    }
+    emit();
+  };
+  root.addEventListener('input', syncPartnerWorldbook);
+  root.addEventListener('change', syncPartnerWorldbook);
 
   const names = [
     'opening_name', 'opening_race', 'opening_identity',

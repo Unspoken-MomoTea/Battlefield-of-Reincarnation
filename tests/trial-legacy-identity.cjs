@@ -49,7 +49,7 @@ assert.match(
   'active trial marker must still prevent duplicate trial generation'
 );
 assert.match(trialUi,/\/试炼\/\.test\(String\(t\.委托方/,'duplicate detection must also use commissioner trial keyword');
-assert.doesNotMatch(settlement,/试炼任务名单/,'settlement must not depend on task-name lists');
+assert.doesNotMatch(settlement,new RegExp('试炼任务'+'名单'),'settlement must not depend on task-name lists');
 
 const coinCore=part(settlement,'          // SETTLEMENT_COIN_CORE_START','          // SETTLEMENT_COIN_CORE_END');
 assert.match(coinCore,/SETTLEMENT_COIN_TASK_INDEPENDENCE/,'coin settlement must explicitly use task-independent accounting');

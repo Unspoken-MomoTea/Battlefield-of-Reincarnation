@@ -910,77 +910,10 @@
                     sceneContextBody,empty,tools,person,exists,value
                 });
             }else if(this.tab==='探索与势力'){
-                const regionRecords=state.势力地区||{};
-                const exploration=entries(w.探索).map(([name,ledger])=>[name,{...(regionRecords[name]||{}),...ledger,类型:'探索'}]);
-                const factionList=entries(w.势力).map(([name,ledger])=>[name,{...(regionRecords[name]||{}),...ledger,类型:'势力'}]);
-                const projectedNames=new Set([...exploration.map(([n])=>n),...factionList.map(([n])=>n)]);
-                const backstageAreas=entries(regionRecords).filter(([name,r])=>r.类型!=='势力'&&!projectedNames.has(name));
-                const dir=this.directoryTab||'探索';
-                const progressStage=value=>{
-                    const n=Math.max(0,Math.min(100,Number(value)||0));
-                    if(n>=100)return '核心';
-                    if(n>=90)return '掌控';
-                    if(n>=60)return '深入';
-                    if(n>=30)return '熟悉';
-                    if(n>=10)return '浅尝';
-                    return '无知';
-                };
-                const repStage=value=>{
-                    const n=Number(value)||0;
-                    if(n<=-5000)return '敌对';
-                    if(n<=-1000)return '仇视';
-                    if(n<500)return '冷淡';
-                    if(n<2000)return '中立';
-                    if(n<5000)return '友好';
-                    if(n<10000)return '崇敬';
-                    return '崇拜';
-                };
-                const chosenArea=exploration.find(([n])=>n===this.selectedArea)||exploration[0];
-                const chosenFaction=factionList.find(([n])=>n===this.selectedFaction)||factionList[0];
-
-                html+='<div class="we-notice">这里显示的是结算台账，不是地图数据库：只有 <b>世界.探索</b> 中的整体地标才计探索收益；后台尚未投影的地区不会出现在探索名录中。势力声望同样只记录势力对玩家的真实关系结算。</div>';
-                html+='<div class="we-tools">'+['探索','热点','势力'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+t+'</button>').join('')+'</div>';
-
-                if(dir==='探索'){
-                    const cards=exploration.map(([n,r])=>{
-                        const progress=Math.max(0,Math.min(100,Number(r.探索度)||0));
-                        const control=r.控制方||'控制权未明';
-                        const environment=Array.isArray(r.环境状态)?(r.环境状态.length?r.环境状态.length+'项':'未记录'):r.环境状态||'未记录';
-                        return '<button class="we-explore-card '+(chosenArea?.[0]===n?'active':'')+'" data-area="'+text(n)+'">'
-                            +'<div class="we-explore-head"><div><small>探索地标</small><h3>'+text(n)+'</h3></div><span class="we-risk-badge">风险 '+text(r.风险||'F')+'</span></div>'
-                            +'<div class="we-explore-score"><strong>'+progress+'<small>%</small></strong><span>'+text(progressStage(progress))+'</span></div>'
-                            +'<div class="we-explore-bar"><i style="width:'+progress+'%"></i></div>'
-                            +'<div class="we-explore-meta"><span>控制 · '+text(control)+'</span><span>环境 · '+text(environment)+'</span></div>'
-                            +'<p>'+text(r.描述||r.公开动态||'尚无区域描述')+'</p>'
-                            +'</button>';
-                    }).join('');
-                    const areaDetail=chosenArea?(()=>{
-                        const [n,r]=chosenArea;
-                        const backstage=regionRecords[n]||{};
-                        return '<div class="we-area-detail"><div class="we-area-facts">'+fields({风险:r.风险,控制方:r.控制方||'未明',争夺方:r.争夺方,环境状态:r.环境状态})+'<div class="we-area-note">'+text(r.描述||'暂无已确认的玩家探索描述。')+'</div></div>'
-                            +areaSceneBody(backstage)
-                            +'<div class="we-area-archive">'+(exists(backstage.进展)||exists(backstage.公开动态)||exists(backstage.资源)||exists(backstage.近期变化)?details('area-world-'+n,{世界进展:backstage.进展,公开动态:backstage.公开动态,资源:backstage.资源,近期变化:backstage.近期变化},'世界地区档案'):'')
-                            +(exists(r.隐藏真相)?details('area-truth-'+n,{隐藏真相:r.隐藏真相},'主持人档案'):'')+'</div></div>';
-                    })():empty('暂无探索地标','只有已经投影到世界.探索的整体区域才会出现在这里。');
-                    html+=section('探索结算名录','<div class="we-explore-grid we-explore-index">'+(cards||empty('暂无探索地标','等待玩家实际发现整体区域。'))+'</div>');
-                    html+=section('区域档案',areaDetail,'地区现场与后台档案 · 点击上方地标切换');
-                    if(backstageAreas.length){
-                        html+=section('后台未投影地区','<details><summary>'+backstageAreas.length+' 个世界地区尚未计入玩家探索奖励</summary>'+backstageAreas.map(([n,r])=>'<div class="we-brief-row"><b>'+text(n)+'</b><span>'+text(r.进展||r.公开动态||r.描述||'后台运行中')+'</span></div>').join('')+'</details>','仅主持人参考 · 不计探索收益');
-                    }
-                }else if(dir==='热点'){
-                    const hotspots=events.filter(([,e])=>e.状态==='进行中');
-                    html+=section('当前热点',hotspots.map(([n,e])=>eventCard(n,e)).join('')||empty('暂无进行中的热点','世界当前没有进行中的事件。'));
-                }else{
-                    const factionCards=factionList.map(([n,r])=>{
-                        const rep=Number(r.声望)||0,stage=repStage(rep),width=Math.min(100,Math.max(0,rep)/100);
-                        return '<button class="we-faction-card '+(chosenFaction?.[0]===n?'active':'')+'" data-faction="'+text(n)+'"><div class="we-card-top"><h3>'+text(n)+'</h3><span class="we-risk-badge">实力 '+text(r.实力||'F')+'</span></div>'
-                            +'<div class="we-rep"><span>声望 '+rep+'</span><b>'+text(stage)+'</b></div><div class="we-explore-bar"><i style="width:'+width+'%"></i></div>'
-                            +'<div class="we-muted">'+(rep>0?'正声望奖励权重 '+(rep/100).toFixed(1)+'×（合计上限 3×）':'空间币奖励：0（声望不为正）')+'</div>'
-                            +'<p>'+text(r.描述||r.目标||'暂无势力描述')+'</p><small>'+text(r.领地||'领地未记录')+'</small></button>';
-                    }).join('');
-                    const factionDetail=chosenFaction?'<h3>'+text(chosenFaction[0])+'</h3>'+fields({实力:chosenFaction[1].实力,声望:chosenFaction[1].声望,关系阶段:repStage(chosenFaction[1].声望),领地:chosenFaction[1].领地,目标:chosenFaction[1].目标,描述:chosenFaction[1].描述,当前进展:chosenFaction[1].进展}):empty('暂无势力记录');
-                    html+=section('势力结算名录','<div class="we-explore-layout"><div class="we-faction-grid">'+(factionCards||empty('暂无已知势力'))+'</div><aside class="we-area-side">'+section('势力档案',factionDetail,'点击左侧势力切换')+'</aside></div>','声望只反映势力对玩家的真实关系');
-                }
+                html+=worldEngineRenderExplorationTab({
+                    engine:this,state,w,events,entries,text,fields,areaSceneBody,exists,details,
+                    empty,section,eventCard
+                });
             }else if(this.tab==='资产'){
                 const ownersOf=asset=>Array.from(new Set((Object.hasOwn(asset,'所属对象')?(Array.isArray(asset.所属对象)?asset.所属对象:[asset.所属对象]):['<user>']).map(x=>String(x??'').trim()).filter(x=>x&&x!=='无主')));
                 const assets=entries(s.资产).filter(([,asset])=>plain(asset));
@@ -1000,18 +933,17 @@
                     return '<article class="we-card" data-asset-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(asset.类型||'类型未记录','dim')+'</div><div class="we-tools"><b>所属对象</b>'+ownerLinks+(owners.length>1?pill('共同持有','future'):'')+'</div><p>'+text(asset.状态||'状态未记录')+'</p>'+fields({主体规模:asset.主体规模,完整度:asset.完整度==null?undefined:asset.完整度+'%'})+details('asset-'+name,{能源:asset.能源,建设序列:asset.建设序列,驻扎人员:asset.驻扎人员,待办事件:asset.待办事件},'运转详情 · 建设 / 驻扎 / 待办')+'</article>';
                 }).join('')||empty('暂无符合条件的资产'),'共 '+assets.length+' 项 · 可按名称、所属对象或状态搜索');
             }else if(this.tab==='世界事件'){
-                const list=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状态===this.filter));
-                html+=tools(['全部','进行中','待发生','已完成','已取消'])+section('世界事件','<div class="we-timeline">'+(timelineCards(list)||empty('没有符合条件的世界事件','按当前事件、近期节点和宏观节点组织。'))+'</div>','按状态层级与因果顺序排列');
+                html+=worldEngineRenderWorldEventsTab({
+                    engine:this,events,matched,tools,section,timelineCards,empty
+                });
             }else if(this.tab==='传闻'){
                 html+=tools();
                 for(const category of ['街头巷议','情报交易','布告与檄文'])html+=section(category,entries((s.传闻||{})[category]).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><h3>'+text(n)+'</h3><p>'+text(r.内容||r.摘要)+'</p>'+fields({来源:r.来源||r.卖家||r.发布者,可信度:r.可信度,要价:r.要价,位置:r.张贴位置})+details('rumor-'+n,{真实内幕:r.真实内幕},'主持人档案')+'</article>').join('')||empty('暂无'+category,'传闻来自已发生事件与传播渠道。'));
                 html+=section('传播链',entries(state.传播).map(([n,r])=>'<article class="we-card"><div class="we-card-top"><h3>'+text(n)+'</h3>'+pill(r.状态,'dim')+'</div><p>'+text(r.内容)+'</p>'+fields({时间:r.时间,来源:r.来源,范围:r.范围,受众:r.受众,到期时间:r.到期时间})+details('spread-'+n,{关联事件:r.关联事件,引发行动:r.引发行动,真相:r.真相},'因果与传播详情')+'</article>').join('')||empty('尚无传播链'));
             }else if(this.tab==='运行记录'){
-                if(showRadar&&exists(radar.当前模式))html+=section('干涉模式','<article class="we-card"><p>'+text(radar.当前模式)+'</p></article>');
-
-                const historyMemory=projectWorldHistoryMemory(state);
-                html+=section('近期历史锚点',entries(historyMemory.近期锚点).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无未收纳的近期历史锚点'),(historyMemory.统计?.原始锚点总数||0)+' 条原始历史 · 仅展示当前热根节点');
-                html+=section('长期历史总结',(historyMemory.长期总结||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.名称)+'</h3>'+pill('L'+text(r.层级),'dim')+'</div><div class="we-meta">'+text([r.起始时间,r.结束时间].filter(Boolean).join(' → '))+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚无长期历史总结','历史锚点积累后会自动分层压缩；底层事实仍保留在MVU。'),(historyMemory.统计?.总结节点总数||0)+' 个总结节点 · 原始历史不删除');
+                html+=worldEngineRenderRunRecordTab({
+                    state,radar,showRadar,exists,section,text,entries,fields,empty,pill
+                });
             }else if(this.tab==='设置'){
                 const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
                 const fontButtons=Object.entries(WORLD_FONT_SCALES).map(([key,item])=>'<button class="we-setting-btn '+(this.config.fontScale===key?'active':'')+'" data-font-option="'+key+'">'+text(item.name)+' · '+text(item.size)+'</button>').join('');

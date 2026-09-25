@@ -88,15 +88,17 @@ function normalizeResourceOverrides(value) {
       const worldbook = String(target.worldbook || '').trim();
       const uid = String(target.uid ?? '').trim();
       const name = String(target.name || '').trim();
-      if (!worldbook || (!uid && !name)) {
-        throw new HttpError(400, 'invalid_resource_override_target', `第 ${index + 1} 条世界书状态规则缺少世界书名或条目标识`);
+      if (!uid && !name) {
+        throw new HttpError(400, 'invalid_resource_override_target', `第 ${index + 1} 条世界书状态规则至少需要 UID 或名称`);
       }
       normalizedTarget = {
-        worldbook,
+        ...(worldbook ? { worldbook } : {}),
         ...(uid ? { uid } : {}),
         ...(name ? { name } : {}),
       };
-      key = `worldbook\u0000${worldbook}\u0000${uid ? `uid:${uid}` : `name:${name}`}`;
+      key = uid
+        ? `worldbook\u0000uid:${uid}`
+        : `worldbook\u0000${worldbook}\u0000name:${name}`;
     } else if (kind === 'regex') {
       const scope = String(target.scope || 'character').trim();
       const id = String(target.id || '').trim();

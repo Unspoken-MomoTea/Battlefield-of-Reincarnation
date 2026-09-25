@@ -84,23 +84,41 @@ assert.equal(triggeredRequirements[0].名称,'塞琉·尤比基塔斯·伪');
 assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变化/);
 
 (async()=>{
-  // 已有完整活动且没有触发条件时，异端应自然延续既定行动；空差分不能再因为“每轮必复核”被打回。
+  // 异端无触发时仍应延续既定行动，但世界本身不能因此停摆。
+  // 第一答只给摘要应被“世界活动交付”打回；第二答建立地区/势力现场后才允许提交。
   let quietState=clone(settled),quietCalls=0,quietWrites=0;
+  const quietReplies=[
+    {摘要:'没有新的世界侧事实。'},
+    {
+      摘要:'帝都封锁继续运作，警备力量正在调整街区控制。',
+      势力地区:[
+        {名称:'帝都北区',操作:'更新',类型:'地区',描述:'帝都北部住宅与贫民混合区。',目标:'维持封锁秩序',进展:'警备队把搜查重点转向北侧街巷。',关联事件:['帝都封锁'],公开动态:'北区路口增加临检。'},
+        {名称:'帝都警备队',操作:'更新',类型:'势力',描述:'负责帝都治安与封锁执行的武装组织。',目标:'维持帝都封锁',进展:'重新分配巡逻队与检查站。',关联事件:['帝都封锁'],公开动态:'警备队公开加强北区检查。'}
+      ]
+    }
+  ];
   const quietHost={
     localStorage:{getItem:()=>null,setItem:()=>{}},
     getCurrentChatId:()=> 'alien-no-trigger',
     getChatMessages:()=>[{message_id:1,role:'assistant',message:'这一小段时间里，主角只在室内整理物品，没有新的公开动静。'}],
-    Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request:async()=>{quietCalls++;return JSON.stringify({摘要:'没有新的世界侧事实。'});}}},
+    Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request:async()=>JSON.stringify(quietReplies[quietCalls++])}},
     Mvu:{getMvuData:()=>({stat_data:clone(quietState)}),replaceMvuData:async data=>{quietWrites++;quietState=clone(data.stat_data);}}
   };
   const quietEngine=new Engine(quietHost);
   quietEngine.config.enabled=true;
   quietEngine.config.requireMacroBackbone=false;
-  quietEngine.config.retryAttempts=1;
+  quietEngine.config.retryAttempts=2;
   quietEngine.worldbook=async()=>[];
-  assert.equal(await quietEngine.run(),true,'no-trigger active aliens must not force a synthetic activity rewrite');
-  assert.equal(quietCalls,1,'quiet world advance should succeed without an alien-repair retry');
-  assert.equal(quietWrites,1,'quiet world advance should commit normally');
+  const quietRequest=await quietEngine.buildRequest(quietEngine.snapshot());
+  const quietPayload=JSON.parse(quietRequest.input);
+  assert.equal(quietPayload.本轮世界活动交付.初始化缺口.地区,true);
+  assert.equal(quietPayload.本轮世界活动交付.初始化缺口.势力,true);
+  assert.match(quietRequest.system,/世界推进不是“异端模拟器”/);
+  assert.equal(await quietEngine.run(),true,'world activity must progress even when active aliens have no review trigger');
+  assert.equal(quietCalls,2,'summary-only world result must be retried instead of allowing the non-alien world to freeze');
+  assert.equal(quietWrites,1,'repaired world activity should commit once');
+  assert.ok(quietState.世界.后台.势力地区['帝都北区']);
+  assert.equal(quietState.世界.后台.势力地区['帝都警备队']?.类型,'势力');
 
   // 复现实际开局：世界.时间为空，但后台回复里的两名活跃异端给出了同一个当前时间锚点。
   // 世界引擎应直接接管该时钟并一次成功，不再把异端活动打回。
@@ -113,7 +131,13 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   current.世界.异端雷达.名单['兰·伪'].层级='Ⅲ';
 
   const reply={
-    摘要:'异端活动复核完成。',
+    摘要:'帝都搜捕扩大，世界现场与异端活动同时建立。',
+    时间:'帝国历1024年秋',
+    事件:[{名称:'帝都搜捕扩大',操作:'更新',描述:'帝都警备力量扩大夜间搜捕。',分类:'当前事件',状态:'进行中',时间:'帝国历1024年秋',地点:'帝都'}],
+    势力地区:[
+      {名称:'帝都',操作:'更新',类型:'地区',描述:'帝国首都。',目标:'维持城市运转',进展:'夜间搜捕扩大。',关联事件:['帝都搜捕扩大']},
+      {名称:'帝都警备队',操作:'更新',类型:'势力',描述:'帝都治安武装。',目标:'扩大搜捕',进展:'调集巡逻与检查站。',关联事件:['帝都搜捕扩大']}
+    ],
     人物:[
       {名称:'塞琉·尤比基塔斯·伪',操作:'更新',地点:'帝都·北区贫民窟深巷',目标:'猎杀感知范围内的所有异端轮回者。',行动:'利用帝具小比锁定觉醒波动并布置陷阱。',状态:'活跃',更新时间:'帝国历1024年秋'},
       {名称:'兰·伪',操作:'更新',地点:'帝都·行政办公厅机要室',目标:'通过操控情报流向诱导冲突。',行动:'伪造名单并扩大搜捕范围。',状态:'活跃',更新时间:'帝国历1024年秋'}
@@ -163,11 +187,18 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   timeState.世界.历法={名称:'帝国历',月份天数:[30,28,31,30,31,30,31,31,30,31,30,31],闰年规则:'每四年一闰'};
   const timeReplies=[
     {
-      摘要:'建立时间锚点。',时间:'帝历1024年-09月-12日-下午',
-      事件:[{名称:'狩人集结',操作:'更新',描述:'狩人部队开始集结。',时间:'帝历1024年，枯叶之月，第15日',状态:'待发生',地点:'帝都',分类:'宏观节点'}]
+      摘要:'建立时间锚点与当前世界现场。',时间:'帝历1024年-09月-12日-下午',
+      事件:[
+        {名称:'帝都戒严',操作:'更新',描述:'帝都进入戒严状态。',时间:'帝历1024年-09月-12日-下午',状态:'进行中',地点:'帝都',分类:'当前事件'},
+        {名称:'狩人集结',操作:'更新',描述:'狩人部队开始集结。',时间:'帝历1024年，枯叶之月，第15日',状态:'待发生',地点:'帝都',分类:'宏观节点'}
+      ],
+      势力地区:[
+        {名称:'帝都',操作:'更新',类型:'地区',描述:'帝国首都。',目标:'维持秩序',进展:'戒严措施正在执行。',关联事件:['帝都戒严']},
+        {名称:'帝都警备队',操作:'更新',类型:'势力',描述:'帝都治安武装。',目标:'执行戒严',进展:'部署检查站。',关联事件:['帝都戒严']}
+      ]
     },
     {
-      摘要:'建立时间锚点。',时间:'帝历1024年-09月-12日-下午',
+      摘要:'修正宏观日期。',时间:'帝历1024年-09月-12日-下午',
       事件:[{名称:'狩人集结',操作:'更新',描述:'狩人部队开始集结。',时间:'帝历1024年-09月-15日-上午',状态:'待发生',地点:'帝都',分类:'宏观节点'}]
     }
   ];

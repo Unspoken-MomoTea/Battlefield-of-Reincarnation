@@ -19,7 +19,7 @@ const ranks=['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
 const normalizeLifeTier=value=>ranks.includes(value)?value:'Ⅰ';
 const validate=new Function('normalizeLifeTier','TIER_ROMAN',part(ui,'    function validateTrialAdvancement(', '    function renderTierProgressBar(')+';return validateTrialAdvancement;')(normalizeLifeTier,ranks);
 const render=new Function('normalizeLifeTier','TIER_ROMAN','TIER_QUALITY','tierQOfClass','calcTrialScore','TRIAL_SCORE_THRESHOLD','esc',part(ui,'    function renderTierProgressBar(', '    /* 队友段位累计')+';return renderTierProgressBar;')(normalizeLifeTier,ranks,['F','E','D','C','B','A','S','SS','SSS'],()=> 'F',()=>5,24,String);
-const fresh=()=>({角色:{层级:'Ⅰ'},系统状态:{是否可试炼:false,试炼已完成:false,是否试炼任务:true,试炼任务名单:['试炼一'],是否战斗中:false},设置:{},世界:{名称:'试炼世界'},任务:{列表:{试炼一:{委托方:'晋升试炼',状态:'进行中'}},副本成就:{}}});
+const fresh=()=>({角色:{层级:'Ⅰ'},系统状态:{是否可试炼:false,试炼已完成:false,是否试炼任务:true,是否战斗中:false},设置:{},世界:{名称:'试炼世界'},任务:{列表:{试炼一:{委托方:'晋升试炼',状态:'进行中'}},副本成就:{}}});
 const completed=fresh();completed.系统状态.试炼已完成=true;
 assert.match(render(completed.角色,{},completed.系统状态),/data-tier-act="start"/,'completed trial must show promotion even after attribute score drops');
 assert.equal(validate(completed,'Ⅱ').nextTier,'Ⅱ');
@@ -28,25 +28,22 @@ assert.ok(validate({...completed,系统状态:{...completed.系统状态,是否�
 assert.ok(validate(completed,'Ⅲ').error,'stale or forged target must be rejected');
 assert.ok(validate({...completed,角色:{层级:'Ⅸ'}},'').error);
 
-const extractTrialTasks=new Function(part(settlement,'          function extractTrialTasks(data) {','          function readTrialTasks() {')+';return extractTrialTasks;')();
-const damagedTrial={系统状态:{是否试炼任务:true,试炼任务名单:['试炼一','试炼二']},任务:{列表:{
-    试炼一:{委托方:'主神空间',状态:'可结算'},
-    试炼二:{委托方:'系统',状态:'可结算'},
+const extractTrialTasks=new Function(part(settlement,'          function isTrialTaskCommissioner(value) {','          function readTrialTasks() {')+';return extractTrialTasks;')();
+const commissionerMatched={系统状态:{是否试炼任务:true},任务:{列表:{
+    试炼一:{委托方:'晋升试炼',状态:'可结算'},
+    试炼二:{委托方:'系统晋升试炼',状态:'可结算'},
     普通任务:{委托方:'主神任务',状态:'可结算'}
 }}};
-assert.deepEqual(extractTrialTasks(damagedTrial).map(x=>x.key),['试炼一','试炼二'],'hidden trial task names must outrank corrupted commissioner text');
-const markerFallback={系统状态:{是否试炼任务:true,试炼任务名单:[]},任务:{列表:{
+assert.deepEqual(extractTrialTasks(commissionerMatched).map(x=>x.key),['试炼一','试炼二'],'trial tasks must be found by commissioner keyword instead of task names');
+assert.deepEqual(extractTrialTasks({任务:{列表:{
     甲:{委托方:'主神空间',状态:'可结算'},
     乙:{委托方:'普升试炼',状态:'可结算'},
     丙:{委托方:'本地公会',状态:'可结算'}
-}}};
-assert.deepEqual(extractTrialTasks(markerFallback).map(x=>x.key),['甲','乙'],'marker-only legacy fallback may use system/trial commissioner keywords');
-assert.deepEqual(extractTrialTasks({系统状态:{是否试炼任务:false},任务:{列表:{甲:{委托方:'主神空间',状态:'可结算'}}}}),[],'commissioner keywords alone must never turn an ordinary task into a trial');
-assert.deepEqual(extractTrialTasks({任务:{列表:{旧试炼:{委托方:'晋升试炼',状态:'可结算'}}}}).map(x=>x.key),['旧试炼'],'canonical old saves without the hidden marker remain supported');
+}}}).map(x=>x.key),['乙'],'only commissioner values containing the trial keyword belong to the trial set');
 assert.match(trialUi,/stat_data\.系统状态\.是否试炼任务['"],true/,'trial beautifier must persist the hidden active-trial marker');
-assert.match(trialUi,/stat_data\.系统状态\.试炼任务名单/,'trial beautifier must persist exact trial task keys');
+assert.doesNotMatch(trialUi,/试炼任务名单/,'trial beautifier must not persist task-name lists');
 assert.match(currentVariables,/是否试炼任务/,'AI variable projection must explicitly hide active-trial marker');
-assert.match(currentVariables,/试炼任务名单/,'AI variable projection must explicitly hide trial task keys');
+assert.doesNotMatch(currentVariables,/试炼任务名单/,'removed trial task-name list must not remain in AI projection');
 
 const finalizationSource=part(settlement,'          function applySettlementFinalization(', '          async function writeSettlementToMvu(');
 function finalizeHarness(tasks,single=false){
@@ -66,13 +63,12 @@ for(const single of [false,true]){
     x.context.trialTasks=[{key:'试炼一',status:'可结算'}];
     x.apply();assert.equal(x.data.系统状态.试炼已完成,true);
     assert.equal(x.data.系统状态.是否试炼任务,false,'terminal settlement must consume active-trial marker');
-    assert.equal(Array.from(x.data.系统状态.试炼任务名单||[]).length,0,'terminal settlement must clear hidden trial task keys');
     assert.equal(Object.keys(x.data.任务.列表).length,0);
     assert.equal(x.data.角色.层级,'Ⅰ','settlement grants eligibility, not a level');
     x.data.角色.层级='Ⅱ';x.data.系统状态.试炼已完成=false;
     x.apply();assert.equal(x.data.系统状态.试炼已完成,false,'replayed settlement cannot regrant spent promotion');
 }
-const failed=finalizeHarness([{key:'试炼一',status:'失败'}]);failed.apply();assert.equal(failed.data.系统状态.试炼已完成,false);assert.equal(failed.data.系统状态.是否试炼任务,false,'failed terminal trial must also consume active marker');assert.equal(Array.from(failed.data.系统状态.试炼任务名单||[]).length,0);
+const failed=finalizeHarness([{key:'试炼一',status:'失败'}]);failed.apply();assert.equal(failed.data.系统状态.试炼已完成,false);assert.equal(failed.data.系统状态.是否试炼任务,false,'failed terminal trial must also consume active marker');
 const partial=finalizeHarness([{key:'试炼一',status:'可交付'}]);partial.apply();assert.ok(partial.data.任务.列表.试炼一);assert.equal(partial.data.系统状态.试炼已完成,false);assert.equal(partial.data.系统状态.是否试炼任务,true);
 
 let current={stat_data:clone(completed)},writes=0;
@@ -97,4 +93,4 @@ assert.equal(host.__samsaraTierPermit,'Ⅱ','rejected duplicate must not revoke 
 assert.equal(context.tierPermitAllows('Ⅱ'),true,'deferred MVU event must retain its permit');
 assert.equal(context.tierPermitAllows('Ⅱ'),false,'permit must be consumed');
 assert.equal(writes,2,'one message write and one chat write only');
-console.log('PASS trial flow: hidden trial identity, corrupted commissioner recovery, terminal marker cleanup, pending/failed/completed settlement, both world modes, promotion replay protection');
+console.log('PASS trial flow: commissioner-keyword identity, terminal marker cleanup, pending/failed/completed settlement, both world modes, promotion replay protection');

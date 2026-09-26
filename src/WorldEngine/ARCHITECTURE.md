@@ -69,4 +69,4 @@ src/WorldEngine/
 
 ## 请求 Feature 管线
 
-`WorldEngineClassBridge.buildRequest()` 先调用 legacy 核心请求，再由 `WorldEngineFeatureRegistry.afterBuildRequest()` 按注册顺序装饰 payload / timeline / manifest，最后交给 `WorldPromptRegistry` 统一装配所有静态提示词。软维护、完整性、世界活动交付、到期事件复核已迁入独立 class，不再通过 `extends SamsaraWorldEngine` 叠请求层。
+`WorldEngineClassBridge.buildRequest()` 先调用 legacy 核心请求，再由 `WorldEngineFeatureRegistry.afterBuildRequest()` 按注册顺序装饰 payload / timeline / manifest，最后交给 `WorldPromptRegistry` 统一装配所有静态提示词。软维护、完整性、世界活动交付、到期事件复核，以及任务感知、原著时间轴、传闻请求管线都已迁入独立 class，不再通过 `extends SamsaraWorldEngine` 叠请求层。`catalogue()` 与 `run()` 也通过 Feature Registry 的 `afterCatalogue / aroundRun` seam 组合。

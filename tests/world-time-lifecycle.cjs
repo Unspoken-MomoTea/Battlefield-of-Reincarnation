@@ -5,7 +5,10 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const settlement = fs.readFileSync(path.join(root, 'Regular/结算任务美化.html'), 'utf8');
 const selection = fs.readFileSync(path.join(root, 'Regular/选择世界美化.txt'), 'utf8');
-const ownership = fs.readFileSync(path.join(root, 'script/world-engine-src/59-world-time-ownership.part.js'), 'utf8');
+const ownership = [
+  path.join(root, 'script/world-engine-src/59-world-time-ownership.part.js'),
+  path.join(root, 'src/WorldEngine/domains/WorldTimeOwnershipFeature.part.js'),
+].map(file=>fs.readFileSync(file,'utf8')).join('\n');
 
 // 回到主神空间：时间必须脱离副本年代，改用“游玩天数 -> 轮回历”的固定映射。
 assert.match(settlement, /const playDays = Math\.max\(1, Math\.floor\(Number\(sys\.游玩天数\) \|\| 1\)\);/);

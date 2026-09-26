@@ -158,3 +158,10 @@ src/WorldEngine/
 `WorldTimelinePolicy` 接管原本位于 `10-world-state.part.js` 的事件时间线纯领域规则：故事线阶段解析、事件时间锚点/显示标签、陈旧进行中事件检测、未来时间异常、写入时间校验以及事件排序。外部兼容函数名保持不变，底层统一委托 container-owned active policy。
 
 `WorldValidationPolicy` 组合 `WorldTimelinePolicy`，只负责验收编排；Materializer、UI 和软维护仍通过原公共 seam 使用时间线规则。这样时间线规则不再同时散落在状态大文件和验收层。
+
+
+## Phase 14 · 事件生命周期类化
+
+`WorldLifecycleService` 接管结束事件的引用收集、软引用解绑、历史归档、冷事件回收与传播过期判定。兼容函数 `collectEventRefs / detachEventSoftRefs / archiveFinishedEvent / propagationEnded / pruneSoftRefsToColdFinishedEvents / compactFinishedEvents` 继续保留，但统一委托 container-owned active service。
+
+本阶段刻意不移动 `compactWorldLifecycle`：它仍负责把事件、人物与探索生命周期串起来，并且必须继续观察后置模块对 `pruneColdExploration` 的运行期覆盖。等人物生命周期也迁出后，再把顶层 compact 编排收进 service。

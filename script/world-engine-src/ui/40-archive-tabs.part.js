@@ -14,3 +14,9 @@
         html+=section('长期历史总结',(historyMemory.长期总结||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.名称)+'</h3>'+pill('L'+text(r.层级),'dim')+'</div><div class="we-meta">'+text([r.起始时间,r.结束时间].filter(Boolean).join(' → '))+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚无长期历史总结','历史锚点积累后会自动分层压缩；底层事实仍保留在MVU。'),(historyMemory.统计?.总结节点总数||0)+' 个总结节点 · 原始历史不删除');
         return html;
     }
+
+    class ArchiveTabsView {
+        constructor(engine){ this.engine=engine; }
+        renderWorldEvents(context={}) { return worldEngineRenderWorldEventsTab({...context,engine:context.engine||this.engine}); }
+        renderRunRecord(context={}) { return worldEngineRenderRunRecordTab({...context,engine:context.engine||this.engine}); }
+    }

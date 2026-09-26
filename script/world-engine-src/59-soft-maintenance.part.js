@@ -101,4 +101,4 @@
         ensureCurrentExplorationProjection(stat,result);
         return compileWorldResultBeforeExplorationProjection(stat,result);
     };
-    // 探索提示词注入由 WorldPromptRegistry 最终装配；不再扩展主类。\n
+    // 探索提示词注入由 WorldPromptRegistry 最终装配；不再扩展主类。

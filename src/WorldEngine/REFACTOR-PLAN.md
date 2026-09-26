@@ -46,4 +46,10 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 
 ### Phase 3 · 请求装饰类化
 
-软维护、探索提示注入、世界完整性、世界活动交付、到期事件复核已经退出主类继承链。请求侧现在通过 `WorldRequestFeature` + `WorldEngineFeatureRegistry.afterBuildRequest()` 组合；Prompt Registry 仍是所有静态 AI 指令的最终唯一装配器。下一批优先迁移 chronology / task / rumor 请求管线，再单独处理 auto-progress / replay 这组高状态功能。
+软维护、探索提示注入、世界完整性、世界活动交付、到期事件复核已经退出主类继承链。请求侧现在通过 `WorldRequestFeature` + `WorldEngineFeatureRegistry.afterBuildRequest()` 组合；Prompt Registry 仍是所有静态 AI 指令的最终唯一装配器。
+
+### Phase 4 · 任务 / 时间轴 / 传闻请求类化
+
+`WorldTaskAwarenessFeature`、`WorldChronologyFeature`、`WorldRumorRequestFeature` 已接管原先 57/58/56/59-rumor 系列中的主类请求包装。任务世界书选择恢复走 `afterCatalogue`，传闻运行期复核走 `aroundRun`，请求 payload/manifest 统一走 `afterBuildRequest`。这批对应的隐藏静态文本（任务列表只读语义、无时间轴资料说明、传闻取材边界）也已进入 Prompt Registry。
+
+下一批处理 auto-progress / auto-trigger / replay / time-ownership / policy-compat 这组高状态功能；它们涉及调度与恢复，按独立纵向切片迁移，避免一次性重写生命周期。

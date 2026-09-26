@@ -51,3 +51,8 @@
             +'</div><aside>'+backgroundPanel+alienPanel+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['近期动向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
         return html;
     }
+
+    class PeopleTabView {
+        constructor(engine){ this.engine=engine; }
+        render(context={}) { return worldEngineRenderPeopleTab({...context,engine:context.engine||this.engine}); }
+    }

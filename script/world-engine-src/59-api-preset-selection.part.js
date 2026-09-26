@@ -1,56 +1,34 @@
     // 专属 API 预设选择态：选择预设后即使面板重渲染，也必须保持选中并允许删除。
-    const SamsaraWorldEngineBeforeApiPresetSelection=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeApiPresetSelection {
-        constructor(host,env){
-            super(host,env);
-            this.dedicatedApiPresetSelection='';
+    class WorldApiPresetSelectionFeature {
+        constructor(engine){this.engine=engine;this.selection='';this.boundPanel=null;}
+        initialize(){
+            const engine=this.engine;
+            const apply=engine.applyDedicatedApiPreset?.bind(engine),save=engine.saveDedicatedApiPreset?.bind(engine),remove=engine.deleteDedicatedApiPreset?.bind(engine);
+            if(apply)engine.applyDedicatedApiPreset=name=>{const selected=String(name||'').trim(),result=apply(selected);this.selection=selected;return result;};
+            if(save)engine.saveDedicatedApiPreset=name=>{const entry=save(name);this.selection=String(entry?.name||'');return entry;};
+            if(remove)engine.deleteDedicatedApiPreset=name=>{const selected=String(name||'').trim(),deleted=remove(selected);if(deleted&&this.selection===selected)this.selection='';return deleted;};
         }
-        applyDedicatedApiPreset(name){
-            const selected=String(name||'').trim();
-            const result=super.applyDedicatedApiPreset(selected);
-            this.dedicatedApiPresetSelection=selected;
-            return result;
-        }
-        saveDedicatedApiPreset(name){
-            const entry=super.saveDedicatedApiPreset(name);
-            this.dedicatedApiPresetSelection=String(entry?.name||'');
-            return entry;
-        }
-        deleteDedicatedApiPreset(name){
-            const selected=String(name||'').trim();
-            const deleted=super.deleteDedicatedApiPreset(selected);
-            if(deleted&&this.dedicatedApiPresetSelection===selected)this.dedicatedApiPresetSelection='';
-            return deleted;
-        }
-        syncDedicatedApiPresetSelection(){
-            if(this.tab!=='设置'||!this.panel)return;
-            const select=this.panel.querySelector?.('[data-dedicated-preset]');
-            const remove=this.panel.querySelector?.('[data-action="dedicated-preset-delete"]');
+        syncSelection(){
+            const engine=this.engine;if(engine.tab!=='设置'||!engine.panel)return;
+            const select=engine.panel.querySelector?.('[data-dedicated-preset]'),remove=engine.panel.querySelector?.('[data-action="dedicated-preset-delete"]');
             if(!select)return;
-            const wanted=String(this.dedicatedApiPresetSelection||'');
-            const options=Array.from(select.options||[]);
+            const wanted=String(this.selection||''),options=Array.from(select.options||[]);
             if(wanted&&options.some(option=>String(option.value)===wanted))select.value=wanted;
-            else{
-                select.value='';
-                if(wanted)this.dedicatedApiPresetSelection='';
-            }
+            else{select.value='';if(wanted)this.selection='';}
             if(remove)remove.disabled=!String(select.value||'');
         }
-        createPanel(){
-            super.createPanel();
-            if(!this.panel||this.panel.__dedicatedApiPresetSelectionBound)return;
-            Object.defineProperty(this.panel,'__dedicatedApiPresetSelectionBound',{value:true,configurable:true});
-            this.panel.addEventListener('change',event=>{
+        bindPanel(){
+            const panel=this.engine.panel;if(!panel||this.boundPanel===panel)return;
+            this.boundPanel=panel;
+            panel.addEventListener('change',event=>{
                 const select=event.target?.closest?.('[data-dedicated-preset]');
-                if(!select||!this.panel.contains(select))return;
-                this.dedicatedApiPresetSelection=String(select.value||'');
-                const remove=this.panel.querySelector?.('[data-action="dedicated-preset-delete"]');
-                if(remove)remove.disabled=!this.dedicatedApiPresetSelection;
+                if(!select||!panel.contains(select))return;
+                this.selection=String(select.value||'');
+                const remove=panel.querySelector?.('[data-action="dedicated-preset-delete"]');
+                if(remove)remove.disabled=!this.selection;
             },true);
         }
-        render(force){
-            const result=super.render(force);
-            this.syncDedicatedApiPresetSelection();
-            return result;
-        }
-    };
+        afterRender(){this.syncSelection();}
+        dispose(){this.boundPanel=null;}
+    }
+    registerWorldEngineFeature('api-preset-selection',engine=>new WorldApiPresetSelectionFeature(engine));

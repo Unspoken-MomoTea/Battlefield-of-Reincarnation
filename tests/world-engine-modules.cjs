@@ -117,7 +117,8 @@ assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/compileWorldResult\(stat,value\)/,'materializer must own WorldResult compilation');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/applyPatches\(stat,patches\)/,'materializer must own patch application');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'materializer must own final world materialization');
-assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/function\s+validateState\(stat\)\{return DEFAULT_WORLD_RESULT_MATERIALIZER\.validateBaseState\(stat\);\}/,'legacy validateState must remain a reassignable decorator seam');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/let\s+ACTIVE_WORLD_RESULT_MATERIALIZER\s*=\s*DEFAULT_WORLD_RESULT_MATERIALIZER/,'legacy seams must be backed by the active container-owned materializer');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/function\s+validateState\(stat\)\{return ACTIVE_WORLD_RESULT_MATERIALIZER\.validateBaseState\(stat\);\}/,'legacy validateState must remain a reassignable decorator seam');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/validateState\(next\)/,'patch application must honor dynamically decorated validateState');
 
 for(const file of [

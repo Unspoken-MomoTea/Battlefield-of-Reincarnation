@@ -8,6 +8,7 @@
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();
             this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer);
+            ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer);
             this.validation=new WorldValidationService(engine);
             this.commit=new WorldCommitService(engine);

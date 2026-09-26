@@ -52,7 +52,7 @@ assert.match(orchestrator,/services\?\.compiler\?\.stage/,'run orchestrator stag
 assert.match(normalizer,/class\s+WorldResultNormalizer\b/,'normalization must live behind a dedicated domain class');
 assert.match(compiler,/this\.normalizer\.normalizeWorldResult\(value\)/,'compiler.normalize must delegate to the normalizer class');
 assert.match(materializer,/class\s+WorldResultMaterializer\b/,'patch compilation must live behind a dedicated domain class');
-assert.match(compiler,/this\.materializer\.compileWorldResult\(stat,value\)/,'compiler.compile must delegate to the materializer class');
+assert.match(compiler,/compile\(stat,value\)\{return compileWorldResult\(stat,value\);\}/,'compiler.compile must preserve the decorated compileWorldResult seam until legacy compile features are migrated');
 assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'compiler.materialize must delegate to the materializer class');
 assert.match(runtime,/runOrchestrator\(\)/,'runtime must delegate application flow to the orchestrator');
 

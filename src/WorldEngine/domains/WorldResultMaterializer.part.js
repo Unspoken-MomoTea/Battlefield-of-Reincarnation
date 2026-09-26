@@ -412,7 +412,8 @@
         }
     }
     const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER);
-    function compileWorldResult(stat,value){return DEFAULT_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
-    function validateState(stat){return DEFAULT_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}
-    function applyPatches(stat,patches){return DEFAULT_WORLD_RESULT_MATERIALIZER.applyPatches(stat,patches);}
-    function materializeWorldUpdate(stat,seedPatches,modelPatches){return DEFAULT_WORLD_RESULT_MATERIALIZER.materializeWorldUpdate(stat,seedPatches,modelPatches);}
+    let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
+    function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
+    function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}
+    function applyPatches(stat,patches){return ACTIVE_WORLD_RESULT_MATERIALIZER.applyPatches(stat,patches);}
+    function materializeWorldUpdate(stat,seedPatches,modelPatches){return ACTIVE_WORLD_RESULT_MATERIALIZER.materializeWorldUpdate(stat,seedPatches,modelPatches);}

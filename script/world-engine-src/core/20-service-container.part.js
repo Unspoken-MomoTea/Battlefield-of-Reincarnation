@@ -6,12 +6,10 @@
             this.eventEditor=new WorldEventEditor(engine,this.mutations);
             this.personEditor=new WorldPersonEditor(engine,this.mutations);
             this.prompts=new WorldPromptRegistry(engine);
-            this.promptRuntime=new WorldPromptRuntimeAdapter(engine,this.prompts);
             this.features=new WorldEngineFeatureRegistry(engine);
         }
         initialize(){
             this.prompts.initializeConfig();
-            this.promptRuntime.initialize();
             this.features.initialize();
             return this;
         }

@@ -19,6 +19,30 @@ def replace_once(relative, old, new, marker=None):
     return True
 
 
+def replace_once_any(relatives, old, new, marker=None):
+    paths = [(relative, ROOT / relative) for relative in relatives]
+    for relative, path in paths:
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding='utf-8')
+        if marker and marker in text:
+            print(f'[history-memory] already patched: {relative}')
+            return False
+        if not marker and new in text:
+            print(f'[history-memory] already patched: {relative}')
+            return False
+    for relative, path in paths:
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding='utf-8')
+        if old not in text:
+            continue
+        path.write_text(text.replace(old, new, 1), encoding='utf-8')
+        print(f'[history-memory] patched: {relative}')
+        return True
+    raise RuntimeError('[history-memory] anchor not found in candidates: ' + ', '.join(relatives))
+
+
 def remove_once(relative, old):
     path = ROOT / relative
     text = path.read_text(encoding='utf-8')
@@ -103,8 +127,11 @@ replace_once(
 )
 
 # 3) Settings UI + bounded history inspector. Do not render thousands of permanent raw anchors.
-replace_once(
-    'script/world-engine-src/50-engine-ui.part.js',
+replace_once_any(
+    [
+        'script/world-engine-src/ui/40-archive-tabs.part.js',
+        'script/world-engine-src/50-engine-ui.part.js',
+    ],
     """                html+=section('历史锚点',entries(state.历史).reverse().map(([n,r])=>'<article class=\"we-card\"><div class=\"we-meta\">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无已确认的历史锚点'));""",
     """                const historyMemory=projectWorldHistoryMemory(state);
                 html+=section('长期历史总结',(historyMemory.长期总结||[]).slice().reverse().map(r=>'<article class=\"we-card\"><div class=\"we-card-top\"><h3>'+text(r.名称)+'</h3>'+pill('L'+text(r.层级),'dim')+'</div><div class=\"we-meta\">'+text([r.起始时间,r.结束时间].filter(Boolean).join(' → '))+'</div><p>'+text(r.摘要)+'</p></article>').join('')||empty('尚无长期历史总结','历史锚点积累后会自动分层压缩；底层事实仍保留在MVU。'),(historyMemory.统计?.总结节点总数||0)+' 个总结节点 · 原始历史不删除');

@@ -4,8 +4,11 @@
             this.materializer=materializer||DEFAULT_WORLD_RESULT_MATERIALIZER;
         }
 
+        // Transitional rule: normalization/merge/fragment and retry-plan calls intentionally use the
+        // global compatibility seams because legacy features still decorate them after this service loads.
+
         worldResultFragments(value) {
-            const result=this.normalizer.normalizeWorldResult(value),fragments=[];
+            const result=normalizeWorldResult(value),fragments=[];
             const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
             for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
             for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
@@ -53,14 +56,14 @@
         }
 
         stage(stat,accepted,incoming,validate) {
-            const split=this.worldResultFragments(incoming);
-            let staged=accepted?this.normalizer.mergeWorldResults(accepted,{摘要:split.摘要}):this.normalizer.normalizeWorldResult({摘要:split.摘要});
+            const split=worldResultFragments(incoming);
+            let staged=accepted?mergeWorldResults(accepted,{摘要:split.摘要}):normalizeWorldResult({摘要:split.摘要});
             let pending=split.fragments.map(unit=>Object.assign({},unit,{error:null})),progress=true;
             while(pending.length&&progress){
                 progress=false;
                 const nextPending=[];
                 for(const unit of pending){
-                    const candidate=this.normalizer.mergeWorldResults(staged,unit.result);
+                    const candidate=mergeWorldResults(staged,unit.result);
                     try{
                         const compiled=compileWorldResult(stat,candidate);
                         const built=this.materializer.materializeWorldUpdate(stat,[],compiled.patches);
@@ -149,7 +152,7 @@
             if(rejected?.length)reasons.push('部分业务片段未通过（'+rejected.length+'项）');
             if(globalError)reasons.push(String(globalError.message||globalError));
             const error=new Error(reasons.join('；')||'WorldResult 未通过业务校验');
-            error.retryPlan=this.retryPlanForFailure(globalError,rejected);
+            error.retryPlan=retryPlanForFailure(globalError,rejected);
             error.rejectedSlices=copy(rejected||[]);
             return error;
         }

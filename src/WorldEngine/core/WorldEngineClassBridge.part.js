@@ -108,7 +108,7 @@
         setHistorySummaryRecord(name,record){return this.services.history.saveSummary(name,record);}
         createPanel(){
             super.createPanel();
-            this.services?.editorController?.bindPanel();
+            this.services?.bindPanel?.();
             if(!this.panel||this.panel.__classPromptRegistryBound)return;
             Object.defineProperty(this.panel,'__classPromptRegistryBound',{value:true,configurable:true});
             this.panel.addEventListener('click',event=>{
@@ -118,10 +118,15 @@
             });
         }
         render(force=false){
+            this.services?.beforeRender?.();
             const result=super.render(force);
             this.promptWorkspace?.mount();
             this.promptWorkspace?.syncEditableState();
-            this.services?.editorController?.afterRender();
+            this.services?.afterRender?.();
             return result;
+        }
+        dispose(){
+            this.services?.dispose?.();
+            return super.dispose();
         }
     };

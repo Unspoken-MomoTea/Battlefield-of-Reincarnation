@@ -28,8 +28,8 @@ for(const name of [
 const legacyUi=fs.readFileSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js'),'utf8');
 assert.doesNotMatch(legacyUi,/const ownersOf=asset=>/,'asset rendering must leave the application shell');
 assert.doesNotMatch(legacyUi,/for\(const category of \['街头巷议','情报交易','布告与檄文'\]\)/,'rumor rendering must leave the application shell');
-assert.match(legacyUi,/services\?\.views\?\.render\('assets'/,'asset tab must route through view registry');
-assert.match(legacyUi,/services\?\.views\?\.render\('rumors'/,'rumor tab must route through view registry');
+assert.match(legacyUi,/services(?:\?\.|\.)views(?:\?\.|\.)render\('assets'/,'asset tab must route through view registry');
+assert.match(legacyUi,/services(?:\?\.|\.)views(?:\?\.|\.)render\('rumors'/,'rumor tab must route through view registry');
 
 const {SamsaraWorldEngine:Engine}=require(path.join(root,'script','世界推进系统.js'));
 const host={localStorage:{getItem:()=>null,setItem:()=>{}},document:{addEventListener:()=>{},removeEventListener:()=>{}}};

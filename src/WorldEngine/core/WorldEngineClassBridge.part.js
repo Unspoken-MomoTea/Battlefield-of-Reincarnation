@@ -38,6 +38,7 @@
             const prepared=this.promptRegistry.prepareSettings(settings);
             const result=super.applyPromptSettings(prepared);
             this.promptRegistry.apply(prepared.promptRegistry,{save:false});
+            this.services?.npcAuditPolicy?.afterPromptSettings?.();
             this.saveConfig();
             return result;
         }
@@ -57,13 +58,63 @@
             this.saveConfig();
             return doc;
         }
+        init(){
+            const result=super.init();
+            this.services?.features?.afterInit?.(result);
+            return result;
+        }
+        snapshot(){
+            const snapshot=super.snapshot();
+            return this.services?.replay?.adjustSnapshot?.(snapshot)||snapshot;
+        }
+        blocked(snapshot){
+            const base=super.blocked(snapshot);
+            return this.services?.autoProgress?.blocked?.(snapshot,base)??base;
+        }
+        schedule(source='variable-update',attempt=0){
+            if(this.services?.autoProgress)return this.services.autoProgress.schedule(source,attempt);
+            return super.schedule();
+        }
+        toggleAutoProgress(){return this.services?.autoProgress?.toggle?.();}
+        autoProgressIntervalValue(){return this.services?.autoProgress?.interval?.()??2;}
+        autoProgressContextKey(snapshot){return this.services?.autoProgress?.contextKey?.(snapshot)||'';}
+        autoProgressShouldSchedule(snapshot){return this.services?.autoProgress?.shouldSchedule?.(snapshot)===true;}
+        initializeAutoProgressCycle(snapshot){return this.services?.autoProgress?.initializeCycle?.(snapshot);}
+        markAutoProgressRun(snapshot){return this.services?.autoProgress?.markRun?.(snapshot);}
+        resetAutoProgressCycle(){return this.services?.autoProgress?.resetCycle?.();}
+        autoProgressDuringExtraAnalysis(){return this.services?.autoProgress?.duringExtraAnalysis?.()===true;}
+        autoProgressSameFloor(left,right){return this.services?.autoProgress?.sameFloor?.(left,right)===true;}
+        worldReplayCurrentMessage(){return this.services?.replay?.currentMessage?.()||null;}
+        worldReplayPathAllowed(path){return this.services?.replay?.pathAllowed?.(path)===true;}
+        worldReplayAtomicPath(path){return this.services?.replay?.atomicPath?.(path)===true;}
+        worldReplayCollect(before,after,path,operations){return this.services?.replay?.collect?.(before,after,path,operations);}
+        buildWorldReplayPackage(before,after,fingerprint){return this.services?.replay?.buildPackage?.(before,after,fingerprint)||null;}
+        applyWorldReplayPackage(stat,packageValue){return this.services?.replay?.applyPackage?.(stat,packageValue)===true;}
+        worldReplayMarkEventInternal(){return this.services?.replay?.markEventInternal?.();}
+        worldReplayReprocessContext(variables,before){return this.services?.replay?.reprocessContext?.(variables,before)||null;}
+        worldReplaySetCycleRecovered(fingerprint,stat){return this.services?.replay?.setCycleRecovered?.(fingerprint,stat);}
+        worldReplayClearHandledForRetry(stat,fingerprint){return this.services?.replay?.clearHandledForRetry?.(stat,fingerprint);}
+        worldReplayLegacyPackage(context,variables){return this.services?.replay?.legacyPackage?.(context,variables)||null;}
+        worldReplayWaitForIdle(){return this.services?.replay?.waitForIdle?.()||Promise.resolve();}
+        worldReplayResolveIdleWaiters(){return this.services?.replay?.resolveIdleWaiters?.();}
+        worldReplayImmediateRetry(context,variables){return this.services?.replay?.immediateRetry?.(context,variables)||Promise.resolve(false);}
+        handleWorldReplayVariableEvent(variables,before){return this.services?.replay?.handleVariableEvent?.(variables,before)||false;}
+        syncNpcBuildAuditFeature(){return this.services?.npcAuditPolicy?.sync?.()===true;}
+        isNpcBuildAuditEnabled(){return this.services?.npcAuditPolicy?.enabled?.()===true;}
+        isNpcAuditWorldbook(entry){return this.services?.npcAuditPolicy?.isWorldbook?.(entry)===true;}
+        syncNpcAuditWorldbookSelection(catalogue){return this.services?.npcAuditPolicy?.syncWorldbookSelection?.(catalogue);}
+        setNpcBuildAuditEnabled(value){return this.services?.npcAuditPolicy?.setEnabled?.(value);}
+        setSendHistoryToProse(value){return this.services?.historyLifecycle?.setSendToProse?.(value);}
+        proseHistoryMemory(stat){return this.services?.historyLifecycle?.proseMemory?.(stat)||{};}
+        beforeWorldCommit(next,context={}){return this.services?.historyLifecycle?.beforeWorldCommit?.(next,context)===true;}
+        maintainHistoryMemory(){return this.services?.historyLifecycle?.maintain?.()||Promise.resolve(0);}
         async catalogue(){
             const result=await super.catalogue();
             return this.services?.features?.afterCatalogue?.(result)||result;
         }
-        async run(){
-            if(!this.services?.features)return super.run();
-            return this.services.features.run(()=>super.run());
+        async run(options={}){
+            if(!this.services?.features)return super.run(options);
+            return this.services.features.run(()=>super.run(options),options);
         }
         async buildRequest(base){
             this.promptRegistry?.syncLegacy();
@@ -85,18 +136,8 @@
             return request;
         }
         async requestHistoryMemorySummary(world,batch,outputLevel){
-            if(!this.promptRegistry)return super.requestHistoryMemorySummary(world,batch,outputLevel);
-            const savedTransport=this.lastTransportInfo;
-            try{
-                const raw=await this.requestAI(
-                    this.promptRegistry.historySystem(),
-                    this.promptRegistry.historyInput(historyMemoryPrompt(world,batch,outputLevel)),
-                    {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
-                );
-                return historyMemoryParseReply(raw);
-            } finally {
-                this.lastTransportInfo=savedTransport;
-            }
+            if(this.services?.historyLifecycle)return this.services.historyLifecycle.requestSummary(world,batch,outputLevel);
+            throw new Error('历史记忆服务尚未初始化');
         }
         get dedicatedApiPresetSelection(){return this.services?.apiPreset?.selection||'';}
         set dedicatedApiPresetSelection(value){if(this.services?.apiPreset)this.services.apiPreset.selection=String(value||'');}

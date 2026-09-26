@@ -5,13 +5,15 @@ const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=require('../script/世界�
 const clone=value=>JSON.parse(JSON.stringify(value));
 
 const root=path.join(__dirname,'..');
-const mutationPath=path.join(root,'script/world-engine-src/editor/00-world-mutations.part.js');
-const eventEditorPath=path.join(root,'script/world-engine-src/editor/10-event-editor.part.js');
-const personEditorPath=path.join(root,'script/world-engine-src/editor/20-person-editor.part.js');
-for(const file of [mutationPath,eventEditorPath,personEditorPath])assert.ok(fs.existsSync(file),path.relative(root,file)+' must exist as a focused editor module');
+const mutationPath=path.join(root,'src/WorldEngine/domains/WorldMutationService.part.js');
+const eventEditorPath=path.join(root,'src/WorldEngine/domains/WorldEventService.part.js');
+const personEditorPath=path.join(root,'src/WorldEngine/domains/WorldPersonActivityService.part.js');
+const controllerPath=path.join(root,'src/WorldEngine/ui/WorldEditorController.part.js');
+for(const file of [mutationPath,eventEditorPath,personEditorPath,controllerPath])assert.ok(fs.existsSync(file),path.relative(root,file)+' must exist as a focused class module');
 
-const eventEditor=fs.readFileSync(eventEditorPath,'utf8');
-const personEditor=fs.readFileSync(personEditorPath,'utf8');
+const controller=fs.readFileSync(controllerPath,'utf8');
+const eventEditor=controller;
+const personEditor=controller;
 assert.match(eventEditor,/data-action="world-edit-mode"/,'event timeline must expose one explicit edit-mode toggle');
 assert.match(eventEditor,/data-world-event-edit/,'event cards must expose inline editing only while edit mode is active');
 assert.match(eventEditor,/world-event-delete-confirm/,'event deletion must require in-panel confirmation');

@@ -83,6 +83,8 @@ jobs:
         run: node tests/world-engine-view-classes.cjs
       - name: World engine core services regression
         run: node tests/world-engine-core-services.cjs
+      - name: World engine lifecycle service regression
+        run: node tests/world-engine-lifecycle-service.cjs
       - name: World engine runtime services regression
         run: node tests/world-engine-runtime-services.cjs
       - name: Transport and prompt document services regression

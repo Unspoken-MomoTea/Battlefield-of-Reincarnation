@@ -7,6 +7,8 @@
             this.stateProjector=new WorldStateProjector(engine);
             this.timelinePolicy=new WorldTimelinePolicy();
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
+            this.lifecycle=new WorldLifecycleService();
+            ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);

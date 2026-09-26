@@ -148,7 +148,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(this.tab!=='提示词预设'||!this.panel)return;
             const main=this.panel.querySelector('main');if(!main)return;
             const audit=main.querySelector('[data-npc-audit-prompt]');
-            if(!this.isNpcBuildAuditEnabled())audit?.closest('details')?.remove();
+            if(audit?.closest('details')){
+                const details=audit.closest('details');
+                const summary=details.querySelector('summary');
+                if(summary&&!summary.textContent.includes('条件发送'))summary.textContent+=' · 条件发送';
+            }
             let section=main.querySelector('[data-world-module-prompts]');
             if(!section){
                 section=this.host.document.createElement('section');

@@ -144,3 +144,10 @@ src/WorldEngine/
 ### WorldValidation Policy
 
 `WorldValidationPolicy` 持有到期事件、排期完整性、超期活动、时间越界、宏观骨架与推进锚点的基础领域规则；`WorldValidationService` 负责一次完整结果验收的应用编排。迁移期被 legacy feature 动态包装的校验仍通过可重写全局 seam 调用，这些 seam 的底层实现统一指向 container-owned `ACTIVE_WORLD_VALIDATION_POLICY`，避免类化绕过已有运行期扩展。
+
+
+## Phase 12 · 探索领域策略类化
+
+探索域不再把真实规则散在 WorldResult kernel、Materializer 与 `59-soft-maintenance` 三处。`WorldExplorationService` 现在统一拥有整体地标粒度判定、探索度不可无因回退、当前地点最低 10% 自动投影，以及旧版“主区域-子区域”记录合并。公共兼容 seam `repairExplorationGranularity` 继续存在，但底层委托 active exploration service；`WorldResultMaterializer` 组合同一 service 实例。
+
+因此 `59-soft-maintenance.part.js` 不再重写 `compileWorldResult`。探索属于结果编译的正式领域步骤，而不是后置 monkey patch。

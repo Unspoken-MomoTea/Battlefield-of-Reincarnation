@@ -9,6 +9,11 @@
             this.exploration=new WorldExplorationService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
+            this.autoProgress=new WorldAutoProgressController(engine);
+            this.replay=new WorldReplayService(engine);
+            this.timeOwnership=new WorldTimeOwnershipFeature(engine);
+            this.npcAuditPolicy=new WorldNpcAuditPolicy(engine);
+            this.historyLifecycle=new WorldHistoryLifecycle(engine);
             this.views=new WorldEngineViewRegistry(engine);
             this.prompts=new WorldPromptRegistry(engine);
             this.editorController=new WorldEditorController(engine);
@@ -23,6 +28,13 @@
             this.taskAwareness=new WorldTaskAwarenessFeature(engine);
             this.chronology=new WorldChronologyFeature(engine);
             this.rumorRequest=new WorldRumorRequestFeature(engine);
+            // Stateful wrappers are registered first so run composition preserves the former
+            // history > replay > auto-progress > policy nesting without inheritance.
+            this.features.register('historyLifecycle',this.historyLifecycle);
+            this.features.register('replay',this.replay);
+            this.features.register('autoProgress',this.autoProgress);
+            this.features.register('npcAuditPolicy',this.npcAuditPolicy);
+            this.features.register('timeOwnership',this.timeOwnership);
             this.features.register('npcAuditPrompt',this.npcAuditPrompt);
             this.features.register('apiPreset',this.apiPreset);
             this.features.register('causalOverview',this.causalOverview);

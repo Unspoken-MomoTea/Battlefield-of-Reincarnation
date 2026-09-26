@@ -564,7 +564,7 @@
                 },
                 本轮必须完成的宏观骨架:macroRequirement,
                 世界书:books.map(b=>String(b.内容||'')).filter(Boolean),
-                当前变量:projectWorldContext(state),
+                当前变量:(this.services?.stateProjector?.world(state)??projectWorldContext(state)),
                 角色管理:npcAudit.length?{NPC构筑审计:npcAudit}:undefined,
                 正文楼层:floors,
                 程序结构修复:structuralFixes,
@@ -670,17 +670,17 @@
                         const reply=parseReply(received);
                         let legacyPatches=[],rejectedSlices=[];
                         if(reply.kind==='world_result'){
-                            const staged=stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult,validate);
+                            const staged=this.services?.compiler?.stage(base.stat,acceptedWorldResult,reply.worldResult,validate)??stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult,validate);
                             acceptedWorldResult=staged.accepted;
                             rejectedSlices=staged.rejected;
                             reply.summary=acceptedWorldResult.摘要||reply.summary;
                         } else {
-                            legacyPatches=sanitizeModelPatches(normalizeModelPatches(reply.patches));
+                            legacyPatches=this.services?.compiler?.sanitizeLegacy(reply.patches)??sanitizeModelPatches(normalizeModelPatches(reply.patches));
                         }
                         const compileFor=sourceStat=>{
                             const patches=[],warnings=[];
                             if(acceptedWorldResult){
-                                const compiled=compileWorldResult(sourceStat,acceptedWorldResult);
+                                const compiled=this.services?.compiler?.compile(sourceStat,acceptedWorldResult)??compileWorldResult(sourceStat,acceptedWorldResult);
                                 patches.push(...compiled.patches);warnings.push(...compiled.warnings);
                             }
                             if(legacyPatches.length)patches.push(...legacyPatches);
@@ -690,7 +690,7 @@
                         this.lastWorldResult=acceptedWorldResult?copy(acceptedWorldResult):null;
                         this.lastCompiledPatches=copy(modelPatches);
                         this.lastCompileWarnings=copy(compiled.warnings);
-                        let built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
+                        let built=this.services?.compiler?.materialize(sourceStat,request.seedPatches,modelPatches)??materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
                         let next=built.next;
                         let globalError=null;
                         try{
@@ -713,7 +713,7 @@
                             compiled=compileFor(sourceStat);modelPatches=compiled.patches;
                             this.lastCompiledPatches=copy(modelPatches);
                             this.lastCompileWarnings=copy(compiled.warnings);
-                            built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
+                            built=this.services?.compiler?.materialize(sourceStat,request.seedPatches,modelPatches)??materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
                             next=built.next;
                             let currentGlobalError=null;
                             try{

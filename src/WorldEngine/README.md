@@ -14,10 +14,16 @@
 
 ## 当前类
 
-- `WorldEngineServiceContainer`：服务容器。
+- `WorldEngineServiceContainer`：服务组合根。
 - `WorldMutationService`：世界推进变量的原子写回与 replay 合并入口。
 - `WorldEventService`：事件修正、重命名、删除。
 - `WorldPersonActivityService`：只管理 `世界.后台.人物` 活动记录。
-- `WorldPromptRegistry`：所有实际 system 提示词的唯一注册表。
+- `WorldHistoryService`：历史记忆读取、压缩入口与手动修正。
+- `WorldCausalService`：因果偏移编辑、删除与稳定值重算。
+- `WorldExplorationService` / `WorldRumorService` / `WorldRequestService`：探索、传播与请求领域入口。
+- `WorldEngineViewRegistry`：业务视图注册。
+- `WorldEditorController`：事件、世界人物、因果偏移、历史记忆的统一编辑控制器。
+- `WorldPromptWorkspaceController`：提示词预设 UI 控制器。
+- `WorldPromptRegistry`：system、user payload、辅助模型与重试静态指令的唯一注册表。
 
-后续继续把历史、探索/势力、传闻、请求编译、世界书读取与 UI 控制器迁成同样的领域类。
+详细迁移边界见 `ARCHITECTURE.md` 与 `REFACTOR-PLAN.md`；提示词清单规则见 `PROMPT-REGISTRY.md`。

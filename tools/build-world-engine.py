@@ -21,6 +21,7 @@ PARTS = (
     'ui/60-prompt-tab.part.js',
     'ui/70-request-inspector.part.js',
     'core/10-view-registry.part.js',
+    'core/15-feature-registry.part.js',
     'prompts/10-prompt-registry.part.js',
     'editor/00-world-mutations.part.js',
     'editor/10-event-editor.part.js',

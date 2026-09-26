@@ -95,6 +95,8 @@ jobs:
         run: node tests/world-engine-class-phase2.cjs
       - name: World engine class phase3 regression
         run: node tests/world-engine-class-phase3.cjs
+      - name: World engine request feature regression
+        run: node tests/world-engine-request-features.cjs
       - name: Complete world prompt registry regression
         run: node tests/world-engine-prompt-registry-complete.cjs
       - name: World context UI regression

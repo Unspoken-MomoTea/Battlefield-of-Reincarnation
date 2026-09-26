@@ -113,7 +113,7 @@
         if(!summary)throw new Error(source?'历史总结失败：返回缺少摘要 JSON':'历史总结失败：模型空回');
         return summary;
     }
-    function historyMemoryPrompt(world,batch,outputLevel) {
+    function historyMemoryPrompt(world,batch,outputLevel,instruction='按给定顺序压缩；时间字段是权威锚点，不得改写或补造。') {
         const nodes=batch.map((node,index)=>({
             序号:index+1,
             时间:node.timeStart&&node.timeEnd&&node.timeStart!==node.timeEnd?node.timeStart+' → '+node.timeEnd:(node.timeStart||node.timeEnd||''),
@@ -122,7 +122,7 @@
         return JSON.stringify({
             世界:String(world?.名称||''),
             输出层级:'L'+outputLevel,
-            说明:'按给定顺序压缩；时间字段是权威锚点，不得改写或补造。',
+            说明:String(instruction||''),
             历史节点:nodes
         },null,2);
     }

@@ -12,6 +12,7 @@ PARTS = (
     '20-world-result.part.js',
     '30-context-protocol.part.js',
     'services/00-domain-services.part.js',
+    'services/10-request-history-services.part.js',
     'ui/00-styles.part.js',
     'ui/10-world-tab.part.js',
     'ui/20-people-tab.part.js',

@@ -518,7 +518,9 @@
             normalizeBackendState(state);
             const structuralFixes=normalizeEventLayers(state);
             const lifecycle=compactWorldLifecycle(state);
-            const alienActivity=activeAlienActivityRequirements(state);
+            const alienActivity=activeAlienActivityRequirements(state).map(item=>Object.assign({},item,{
+                要求:this.services?.prompts?.get?.('alienReviewInstruction')||PROMPT_DEFAULT_ALIEN_REVIEW
+            }));
             const seedPatches=importStory(state);
             // 缺少后台人物的活跃异端只在本次请求副本中放一个空壳，帮助模型明确这是待补活动；
             // 不把空壳作为正式 seed patch，避免与本轮模型真正创建的人物记录发生 add/add 冲突。

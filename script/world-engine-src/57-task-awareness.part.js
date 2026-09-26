@@ -71,8 +71,10 @@
         async modifyRequest(request,base) {
             const payload=JSON.parse(request.input);
             if(plain(payload.输入语义)){
-                payload.输入语义.当前变量=this.engine.services?.prompts?.get?.('inputCurrentStateSemantics')||payload.输入语义.当前变量;
-                payload.输入语义.任务列表='只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。';
+                try{
+                    const semantics=JSON.parse(this.engine.services?.prompts?.value?.('inputSemantics')||'{}');
+                    if(plain(semantics))Object.assign(payload.输入语义,semantics);
+                }catch(_){}
             }
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'').replace(

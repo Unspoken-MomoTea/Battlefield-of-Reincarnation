@@ -25,6 +25,7 @@ assert.equal(engine.services.stateProjector?.constructor?.name,'WorldStateProjec
 assert.equal(engine.services.compiler?.constructor?.name,'WorldResultCompiler');
 assert.equal(engine.services.resultStaging?.constructor?.name,'WorldResultStagingService');
 assert.equal(engine.services.resultParser?.constructor?.name,'WorldResultReplyParser');
+assert.equal(engine.services.validationPolicy?.constructor?.name,'WorldValidationPolicy');
 
 const projected=engine.services.stateProjector.world(stat);
 assert.equal(projected.世界.名称,'核心服务测试');
@@ -49,6 +50,7 @@ const normalizer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRe
 const materializer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const staging=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultStagingService.part.js'),'utf8');
 const parser=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultReplyParser.part.js'),'utf8');
+const validationPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldValidationPolicy.part.js'),'utf8');
 const requestBuilder=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js'),'utf8');
 assert.match(requestBuilder,/services\?\.stateProjector\?\.world/,'base request builder must use the state projector service seam');
 assert.match(orchestrator,/services\?\.compiler\?\.compile/,'run orchestrator result handling must use the compiler service seam');
@@ -61,6 +63,7 @@ assert.match(compiler,/compile\(stat,value\)\{return compileWorldResult\(stat,va
 assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'compiler.materialize must delegate to the materializer class');
 assert.match(staging,/class\s+WorldResultStagingService\b/,'staged result acceptance must live behind a dedicated domain service');
 assert.match(parser,/class\s+WorldResultReplyParser\b/,'reply parsing must live behind a dedicated domain service');
+assert.match(validationPolicy,/class\s+WorldValidationPolicy\b/,'base runtime validation must live behind a dedicated domain policy');
 assert.match(compiler,/this\.staging\.stage\(stat,accepted,incoming,validate\)/,'compiler.stage must delegate to the staging service');
 assert.match(runtime,/runOrchestrator\(\)/,'runtime must delegate application flow to the orchestrator');
 

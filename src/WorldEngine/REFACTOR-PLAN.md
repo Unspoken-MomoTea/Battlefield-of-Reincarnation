@@ -141,3 +141,10 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 迁移期仍保留 `ensureDueHandled / unscheduledEvents / ensureEventTimeAnchors / ensureStaleActiveHandled / ensureTemporalAnomaliesResolved / ensureMacroBackbone` 等可重写的全局 seam，因为软维护、传闻活性、世界活动交付和到期事件放宽仍会在加载阶段装饰这些入口。全局 seam 的基础实现现在统一由 `ACTIVE_WORLD_VALIDATION_POLICY` 提供，等对应 legacy decorator 继续类化后再逐项删除。
 
 至此 `WorldResultKernel.part.js` 已缩到只剩共享 WorldResult 常量和探索粒度修复。下一步优先把探索粒度迁入探索领域，并继续处理仍在 `script/world-engine-src` 中包装 compile/validation seam 的兼容模块。
+
+
+### Phase 12 · 探索领域策略类化
+
+已完成：`WorldExplorationService` 接管探索粒度判定、探索度回退保护、当前地点自动投影和旧版子区域合并。`WorldResultKernel` 删除探索 helper，`WorldResultMaterializer` 直接组合 exploration service；`59-soft-maintenance` 删除对 `compileWorldResult` 的探索包装，只保留“不回收长期探索台账”的兼容行为。
+
+下一批继续从仍偏重的 legacy helper 中选择独立领域：优先处理世界状态迁移/投影与时间、因果校验，逐步压缩 `10-world-state.part.js` 和 `30-context-protocol.part.js`。

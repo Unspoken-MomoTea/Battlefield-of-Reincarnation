@@ -7,7 +7,9 @@
             this.stateProjector=new WorldStateProjector(engine);
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer);
+            this.exploration=new WorldExplorationService(engine);
+            ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -23,7 +25,6 @@
             this.people=new WorldPersonActivityService(engine);
             this.history=new WorldHistoryService(engine);
             this.causal=new WorldCausalService(engine);
-            this.exploration=new WorldExplorationService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             this.transport=engine._apiTransport||new WorldApiTransportService(engine);

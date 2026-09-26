@@ -1,11 +1,27 @@
 const assert=require('node:assert/strict');
-const {applyPatches,compileWorldResult,compactWorldLifecycle,emptyState,RECORDS}=require('../script/世界推进系统.js');
+const {applyPatches,compileWorldResult,compactWorldLifecycle,emptyState,RECORDS,repairExplorationGranularity}=require('../script/世界推进系统.js');
 const area=(progress=50)=>({风险:'F',探索度:progress,描述:'测试',隐藏真相:''});
 const fresh=(地点='藤美学园·教学楼')=>({
   世界:{名称:'学园默示录',时间:'2008年07月17日-07:00',地点,稳定:100,后台:emptyState(),探索:{},势力:{},因果轨道:{当前阶段:'爆发初期',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}},法则:[],货币:{},历法:{}},
   设置:{单一世界:false},系统状态:{是否在主神空间:false},资产:{},角色:{},关系列表:{},任务:{列表:{}},传闻:{街头巷议:{},情报交易:{},布告与檄文:{}}
 });
 const region=(name,description=name)=>[name,{...RECORDS.势力地区,类型:'地区',描述:description,目标:'维持局势',进展:'',公开动态:''}];
+
+let invalid=fresh();
+assert.throws(()=>compileWorldResult(invalid,{
+  摘要:'错误探索粒度',
+  探索:[{名称:'藤美学园-天台',风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}]
+}),/探索粒度过细.*藤美学园-天台/,'新结果必须拒绝微观子区域探索项');
+
+let legacy=fresh();
+legacy.世界.探索={
+  '藤美学园':area(10),
+  '藤美学园-天台':area(20)
+};
+const repairs=repairExplorationGranularity(legacy);
+assert.equal(legacy.世界.探索['藤美学园-天台'],undefined,'旧版子区域记录必须被合并并移除');
+assert.equal(legacy.世界.探索['藤美学园'].探索度,20,'旧版子区域更高进度必须累计回整体地标');
+assert.ok(repairs.some(p=>p.op==='remove'&&p.path==='/世界/探索/藤美学园-天台'));
 
 let stat=fresh('藤美学园·教学楼');
 let [name,record]=region('藤美学园','玩家已经进入并穿越校园。');

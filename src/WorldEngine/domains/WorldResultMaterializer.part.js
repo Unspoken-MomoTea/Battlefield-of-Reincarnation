@@ -3,7 +3,7 @@
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;}
+        constructor(normalizer,exploration){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -161,6 +161,7 @@
 
         compileWorldResult(stat,value) {
             const result=this.normalizer.normalizeWorldResult(value),patches=[],warnings=[];
+            this.exploration.prepareResult(stat,result);
             const exists=parts=>get(stat,canonicalizeParts(parts,stat));
             const addEntity=(parts,item,sample,options={})=>{
                 if(item.操作==='撤销本轮')return;
@@ -242,10 +243,7 @@
                 patches.push({op:target?'replace':'add',path:pointer(['资产',finalName]),value:record});
             }
             for(const item of result.探索){
-                const granularity=explorationGranularity(item.名称);
-                if(granularity.invalid)throw new Error('探索粒度过细：'+item.名称+'。世界.探索只记录整体地标/区域'+(granularity.parent?'，请改为“'+granularity.parent+'”并把微观进展累加到主区域':'，禁止把天台、教室、走廊、房间等子区域作为独立探索项'));
-                const old=(stat.世界?.探索||{})[item.名称];
-                if(old&&Object.hasOwn(item,'探索度')&&Number(item.探索度)<Number(old.探索度||0))throw new Error('探索度不能无因回退：'+item.名称+' '+old.探索度+' -> '+item.探索度);
+                this.exploration.validateItem(stat,item);
                 addEntity(['世界','探索',item.名称],item,EXISTING.探索);
             }
             if(!(stat.设置||{}).单一世界)for(const item of result.异端){
@@ -400,7 +398,7 @@
             const appliedSeeds=(seedPatches||[]).filter(p=>get(work,canonicalizeParts(tokens(p.path),work))===undefined);
             let next=this.applyPatches(work,appliedSeeds);
             next=this.applyPatches(next,modelPatches||[]);
-            const explorationPatches=repairExplorationGranularity(next);
+            const explorationPatches=this.exploration.repairGranularity(next);
             const layerPatches=normalizeEventLayers(next);
             const causalPatches=repairCausalProjection(next);
             const predecessorPatches=repairMacroPredecessors(next);
@@ -411,7 +409,7 @@
             return {next,appliedSeeds,repairPatches};
         }
     }
-    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER);
+    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE);
     let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
     function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}

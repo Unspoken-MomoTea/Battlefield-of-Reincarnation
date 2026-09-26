@@ -132,3 +132,7 @@ src/WorldEngine/
 专属 API 传输已经迁入 `WorldApiTransportService`；提示词文档持久化迁入 `WorldPromptDocumentService`；原先位于 `40-engine-runtime.part.js` 的主 `run()` 重试、编译、验收、提交循环迁入 `WorldRunOrchestrator`。Runtime 只保留兼容 facade，Application Facade 继续通过 Feature Registry 包裹一次完整运行。
 
 因此 runtime 核心进一步收缩为配置/面板生命周期和少量兼容入口。新的网络传输、预设文档行为或推进步骤不得再直接塞回 `40-engine-runtime.part.js`。
+
+### WorldResult 分片验收
+
+`WorldResultStagingService` 负责结果分片、逐片编译/物化验收、Schema 差异定位与纠错反馈；`WorldResultCompiler` 只组合 Normalizer / Materializer / Staging 三个领域服务，并保留仍被 legacy decorator 使用的全局兼容 seam。

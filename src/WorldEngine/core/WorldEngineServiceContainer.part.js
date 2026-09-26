@@ -24,6 +24,7 @@
             this.history=new WorldHistoryService(engine);
             this.causal=new WorldCausalService(engine);
             this.exploration=new WorldExplorationService(engine);
+            ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             this.transport=engine._apiTransport||new WorldApiTransportService(engine);

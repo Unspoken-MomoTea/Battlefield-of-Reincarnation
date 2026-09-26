@@ -24,6 +24,7 @@ const engine=new Engine(host);
 assert.equal(engine.services.stateProjector?.constructor?.name,'WorldStateProjector');
 assert.equal(engine.services.compiler?.constructor?.name,'WorldResultCompiler');
 assert.equal(engine.services.resultStaging?.constructor?.name,'WorldResultStagingService');
+assert.equal(engine.services.resultParser?.constructor?.name,'WorldResultReplyParser');
 
 const projected=engine.services.stateProjector.world(stat);
 assert.equal(projected.世界.名称,'核心服务测试');
@@ -47,16 +48,19 @@ const compiler=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResu
 const normalizer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultNormalizer.part.js'),'utf8');
 const materializer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const staging=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultStagingService.part.js'),'utf8');
+const parser=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultReplyParser.part.js'),'utf8');
 const requestBuilder=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js'),'utf8');
 assert.match(requestBuilder,/services\?\.stateProjector\?\.world/,'base request builder must use the state projector service seam');
 assert.match(orchestrator,/services\?\.compiler\?\.compile/,'run orchestrator result handling must use the compiler service seam');
 assert.match(orchestrator,/services\?\.compiler\?\.stage/,'run orchestrator staged WorldResult validation must use the compiler service seam');
+assert.match(orchestrator,/services\?\.resultParser\?\.parse/,'run orchestrator reply handling must use the reply parser service seam');
 assert.match(normalizer,/class\s+WorldResultNormalizer\b/,'normalization must live behind a dedicated domain class');
 assert.match(compiler,/this\.normalizer\.normalizeWorldResult\(value\)/,'compiler.normalize must delegate to the normalizer class');
 assert.match(materializer,/class\s+WorldResultMaterializer\b/,'patch compilation must live behind a dedicated domain class');
 assert.match(compiler,/compile\(stat,value\)\{return compileWorldResult\(stat,value\);\}/,'compiler.compile must preserve the decorated compileWorldResult seam until legacy compile features are migrated');
 assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'compiler.materialize must delegate to the materializer class');
 assert.match(staging,/class\s+WorldResultStagingService\b/,'staged result acceptance must live behind a dedicated domain service');
+assert.match(parser,/class\s+WorldResultReplyParser\b/,'reply parsing must live behind a dedicated domain service');
 assert.match(compiler,/this\.staging\.stage\(stat,accepted,incoming,validate\)/,'compiler.stage must delegate to the staging service');
 assert.match(runtime,/runOrchestrator\(\)/,'runtime must delegate application flow to the orchestrator');
 

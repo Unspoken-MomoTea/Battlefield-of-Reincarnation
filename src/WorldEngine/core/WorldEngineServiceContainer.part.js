@@ -20,6 +20,8 @@
             engine._apiTransport=this.transport;
             this.promptDocuments=engine._promptDocuments||new WorldPromptDocumentService(engine);
             engine._promptDocuments=this.promptDocuments;
+            this.run=engine._runOrchestrator||new WorldRunOrchestrator(engine);
+            engine._runOrchestrator=this.run;
             this.autoProgress=new WorldAutoProgressController(engine);
             this.replay=new WorldReplayService(engine);
             this.timeOwnership=new WorldTimeOwnershipFeature(engine);

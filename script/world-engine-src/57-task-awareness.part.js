@@ -75,8 +75,8 @@
             const request=await super.buildRequest(base);
             const payload=JSON.parse(request.input);
             if(plain(payload.输入语义)){
-                payload.输入语义.当前变量='世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史、近期因果偏移，以及任务.列表的只读因果字段。任务奖励、惩罚、副本成就、击杀、商城与纯结算数据不进入世界推进。';
-                payload.输入语义.任务列表='只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。';
+                payload.输入语义.当前变量=worldPromptRuntimeValue('taskCurrentStateSemantics');
+                payload.输入语义.任务列表=worldPromptRuntimeValue('taskListSemantics');
             }
             request.input=JSON.stringify(payload,null,2);
             // 兼容上一版传闻活跃层中的旧措辞；购买后的消费性 remove 不属于世界引擎。

@@ -112,7 +112,7 @@
             payload.本轮世界活动交付={
                 当前数量:copy(requirement.当前数量),
                 初始化缺口:copy(requirement.初始化缺口),
-                硬要求:String(this.engine.services?.prompts?.get?.('worldActivityPayloadInstruction')||PROMPT_DEFAULT_WORLD_ACTIVITY_PAYLOAD).split(/\n+/).map(x=>x.trim()).filter(Boolean)
+                硬要求:String(this.engine.services?.prompts?.value?.('worldActivityInputGuidance')||WORLD_PROMPT_WORLD_ACTIVITY_INPUT).split(/\n+/).map(x=>x.trim()).filter(Boolean)
             };
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'')+'\n\n'+WORLD_ACTIVITY_DELIVERY_RULES;

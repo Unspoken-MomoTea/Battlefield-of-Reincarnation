@@ -79,7 +79,7 @@
             try{
                 const raw=await this.requestAI(
                     this.promptRegistry.historySystem(),
-                    historyMemoryPrompt(world,batch,outputLevel),
+                    historyMemoryPrompt(world,batch,outputLevel,this.promptRegistry.historyCompressionInstruction()),
                     {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
                 );
                 return historyMemoryParseReply(raw);

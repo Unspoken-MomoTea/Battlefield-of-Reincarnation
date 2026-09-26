@@ -46,3 +46,8 @@
             +'</aside></div>';
         return html;
     }
+
+    class WorldTabView {
+        constructor(engine){ this.engine=engine; }
+        render(context={}) { return worldEngineRenderWorldTab({...context,engine:context.engine||this.engine}); }
+    }

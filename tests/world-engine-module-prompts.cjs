@@ -19,7 +19,7 @@ for(const source of ['TASK_AWARENESS_RULES','CHRONOLOGY_GUARD_RULES','SOFT_MAINT
 assert.match(workspace,/data-prompt-registry=/,'module prompt editors must be rendered from the unified registry');
 assert.match(workspace,/全部实际提示词/,'prompt workspace must expose one discoverable all-prompts section');
 assert.match(bridge,/savePromptDocument\(name,settings,activate=true\)/,'saved preset documents must persist registry-backed module prompts');
-assert.doesNotMatch(promptSources,/SamsaraWorldEngine\s*=\s*class/,'legacy editable prompt file must no longer add an engine inheritance layer');
+assert.doesNotMatch(layer,/SamsaraWorldEngine\s*=\s*class/,'legacy editable prompt file must no longer add an engine inheritance layer');
 assert.doesNotMatch(promptSources,/if\(!this\.isNpcBuildAuditEnabled\(\)\)audit\?\.closest\('details'\)\?\.remove\(\)/,'NPC audit prompt must stay visible and editable even while the audit feature is disabled');
 assert.doesNotMatch(promptSources,/空分类本轮必须补2条/,'new final prompt layer must not revive obsolete rumor quota wording');
 assert.match(promptSources,/本轮没有这种重大变化时，省略“因果\.偏移记录”/,'causal offsets must be explicitly optional instead of treated as per-turn maintenance');

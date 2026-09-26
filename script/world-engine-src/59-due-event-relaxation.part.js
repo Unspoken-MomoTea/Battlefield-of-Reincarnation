@@ -31,4 +31,4 @@
     // 到期事件现在只作为模型的软复核清单；未处理时保留原事件，下一轮继续提醒，而不是制造重试死循环。
     ensureDueHandled=function() { return []; };
 
-    // 请求复核清单装饰已迁移至 WorldDueEventFeature。\n
+    // 请求复核清单装饰已迁移至 WorldDueEventFeature。

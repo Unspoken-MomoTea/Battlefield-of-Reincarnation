@@ -129,7 +129,9 @@
             input.structurePrompt=registry.outputProtocol;
             input.modulePrompts=Object.assign({},plain(input.modulePrompts)?input.modulePrompts:{},{
                 task:registry.task,chronology:registry.chronology,maintenance:registry.maintenance,
-                exploration:registry.exploration,integrity:registry.integrity,worldTime:registry.worldTime,rumor:registry.rumor
+                exploration:registry.exploration,integrity:registry.integrity,worldTime:registry.worldTime,
+                rumorLiveliness:registry.rumorLiveliness,rumorThrottle:registry.rumorThrottle,rumorSource:registry.rumorSource,
+                rumor:registry.rumorSource
             });
             return input;
         }
@@ -149,10 +151,9 @@
         headingMatches(pattern,title){
             if(pattern===title)return true;
             if(!pattern.includes('{{'))return false;
-            const parts=pattern.split(/\{\{[^}]+\}\}/g).map(part=>part.replace(/[.*+?^$()|[\]\\]/g,'\\        historySystem(){return this.value('historyMemory');}
-'));
-            try{return new RegExp('^'+parts.join('.+?')+'    }
-).test(title);}catch(_){return false;}
+            const escapePart=part=>part.replace(/[.*+?^$()|[\]\\]/g,'\\$&');
+            const parts=pattern.split(/\{\{[^}]+\}\}/g).map(escapePart);
+            try{return new RegExp('^'+parts.join('.+?')+'$').test(title);}catch(_){return false;}
         }
         auditSystem(system){
             const values=this.list().filter(item=>item.key!=='historyMemory'&&String(item.value||'').trim());

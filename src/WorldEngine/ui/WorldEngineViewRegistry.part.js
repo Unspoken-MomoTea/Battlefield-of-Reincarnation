@@ -1,19 +1,17 @@
-    class WorldEngineTabView {
-        constructor(key,renderer){this.key=key;this.renderer=renderer;}
-        render(context){return typeof this.renderer==='function'?this.renderer(context):'';}
-    }
     class WorldEngineViewRegistry {
         constructor(engine){
             this.engine=engine;
             this.views=new Map([
-                ['world',new WorldEngineTabView('world',worldEngineRenderWorldTab)],
-                ['people',new WorldEngineTabView('people',worldEngineRenderPeopleTab)],
-                ['exploration',new WorldEngineTabView('exploration',worldEngineRenderExplorationTab)],
-                ['events',new WorldEngineTabView('events',worldEngineRenderWorldEventsTab)],
-                ['history',new WorldEngineTabView('history',worldEngineRenderRunRecordTab)],
-                ['settings',new WorldEngineTabView('settings',worldEngineRenderSettingsTab)],
-                ['prompts',new WorldEngineTabView('prompts',worldEngineRenderPromptTab)],
-                ['requestInspector',new WorldEngineTabView('requestInspector',worldEngineRenderRequestInspector)]
+                ['world',new WorldOverviewView(engine)],
+                ['people',new WorldPeopleView(engine)],
+                ['exploration',new WorldExplorationView(engine)],
+                ['assets',new WorldAssetView(engine)],
+                ['events',new WorldEventArchiveView(engine)],
+                ['rumors',new WorldRumorView(engine)],
+                ['history',new WorldHistoryView(engine)],
+                ['settings',new WorldSettingsView(engine)],
+                ['prompts',new WorldPromptView(engine)],
+                ['requestInspector',new WorldRequestInspectorView(engine)]
             ]);
         }
         get(key){return this.views.get(key)||null;}
@@ -26,4 +24,5 @@
             return view.render(context);
         }
         keys(){return Array.from(this.views.keys());}
+        describe(){return this.keys().map(key=>({key,className:this.get(key)?.constructor?.name||''}));}
     }

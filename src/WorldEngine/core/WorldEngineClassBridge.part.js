@@ -60,7 +60,8 @@
         }
         async buildRequest(base){
             this.promptRegistry?.syncLegacy();
-            const request=await super.buildRequest(base);
+            let request=await super.buildRequest(base);
+            request=await this.services?.features?.afterBuildRequest?.(request,base)||request;
             if(this.promptRegistry){
                 request.system=this.promptRegistry.rewriteSystem(request.system);
                 request.input=this.promptRegistry.rewriteInput(request.input);

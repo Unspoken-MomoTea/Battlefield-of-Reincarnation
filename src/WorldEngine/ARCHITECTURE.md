@@ -22,20 +22,24 @@ src/WorldEngine/
     WorldMutationService
     WorldEventService
     WorldPersonActivityService
-    HistoryMemoryService        (后续)
-    ExplorationService          (后续)
-    RumorService                (后续)
+    WorldHistoryService
+    WorldCausalService
+    WorldExplorationService
+    WorldRumorService
+    WorldRequestService
   prompts/
     WorldPromptRegistry
   ui/
-    ...                         (后续把现有 ui/*.part.js 类化)
+    WorldEngineViewRegistry
+    WorldEditorController
+    WorldPromptWorkspaceController
 ```
 
 `SamsaraWorldEngine` 作为 Application Facade，只持有 `engine.services` 并负责初始化、运行、面板生命周期。
 
 ## 3. Prompt Registry 规则
 
-任何最终进入 AI `system` 的文字都必须有注册项。注册项至少包含：
+任何最终作为静态 AI 指令进入 `system`、`user payload`、辅助模型或纠错重试的文字都必须有注册项。注册项至少包含：
 
 - key
 - title

@@ -113,7 +113,7 @@
         if(!summary)throw new Error(source?'历史总结失败：返回缺少摘要 JSON':'历史总结失败：模型空回');
         return summary;
     }
-    function historyMemoryPrompt(world,batch,outputLevel) {
+    function historyMemoryPrompt(world,batch,outputLevel,instruction=PROMPT_DEFAULT_HISTORY_INPUT) {
         const nodes=batch.map((node,index)=>({
             序号:index+1,
             时间:node.timeStart&&node.timeEnd&&node.timeStart!==node.timeEnd?node.timeStart+' → '+node.timeEnd:(node.timeStart||node.timeEnd||''),
@@ -122,7 +122,7 @@
         return JSON.stringify({
             世界:String(world?.名称||''),
             输出层级:'L'+outputLevel,
-            说明:String(globalThis?.Samsara?.worldEngine?.services?.prompts?.get?.('historyMemoryInputInstruction')||PROMPT_DEFAULT_HISTORY_INPUT),
+            说明:String(instruction||PROMPT_DEFAULT_HISTORY_INPUT),
             历史节点:nodes
         },null,2);
     }
@@ -209,7 +209,7 @@
             try{
                 const raw=await this.requestAI(
                     this.services?.prompts?.historyMemorySystem?.()||HISTORY_MEMORY_SYSTEM,
-                    historyMemoryPrompt(world,batch,outputLevel),
+                    historyMemoryPrompt(world,batch,outputLevel,this.services?.prompts?.get?.('historyMemoryInputInstruction')||PROMPT_DEFAULT_HISTORY_INPUT),
                     {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
                 );
                 return historyMemoryParseReply(raw);

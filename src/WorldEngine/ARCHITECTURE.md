@@ -187,3 +187,8 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 ## Phase 19 · 人物活动领域
 
 \`WorldPersonActivityService\` 是世界后台人物活动的 canonical domain service。除编辑 CRUD 外，它现在还拥有热人物筛选、人物所在场景上下文、异端活动复核条件、缺失异端活动补种和复核验收。调用方可以继续使用 \`derivePersonWorldContext / projectHotWorldPeople / activeAlienActivityRequirements / ensureActiveAlienActivity\` 兼容函数，但这些函数只转发到 container-owned service，不再保存业务实现。
+
+
+## Phase 20 · Patch policy
+
+`WorldPatchPolicy` 是世界推进写入契约的 canonical policy：它负责路径解析与 canonicalize、upsert/白名单、后台记录规范化与结构校验、模型 patch 清洗和兼容展开。`WorldResultMaterializer` 与 `WorldResultCompiler` 直接组合该实例；遗留全局 helper 仅用于迁移期兼容。

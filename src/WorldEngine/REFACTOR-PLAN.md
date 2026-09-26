@@ -201,3 +201,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 活跃异端仍采用事件驱动复核：只有活动缺失、下次检查到期、关联事件/所在地区变化或超过24小时未复核时才要求新活动；未触发者沿用既有目标/行动。旧 \`59-alien-activity-normalization\` 现在只保留 \`compileWorldResult\` 时间戳装饰兼容 seam，纠错文案直接由 \`WorldResultStagingService\` 负责，不再二次 monkey patch。
 
 下一批继续处理 \`10-world-state.part.js\` 剩余的 \`emptyState / patch path policy / generic patch normalization\`，以及 \`30-context-protocol.part.js\` 的世界上下文投影装饰链；优先把“领域规则”与“协议/兼容层”彻底分开。
+
+
+### Phase 20 · Patch 写入策略类化
+
+已完成：新增 `WorldPatchPolicy`，接管 JSON Pointer 解析/编码、实体名称 canonicalize、缺失后台父记录补种、upsert 判定、后台记录结构校验、稀疏记录规范化、模型 patch 清洗/展开以及最终写入白名单。原 `10-world-state.part.js` 不再保存这些 patch 契约实现，只保留少量基础状态常量、名称/地点通用 helper 与重试输入兼容逻辑。
+
+`WorldResultMaterializer` 与 `WorldResultCompiler` 已直接组合 container-owned `patchPolicy`：结果物化、状态校验和 legacy patch 清洗不再依赖全局函数作为主实现。全局 `tokens / pointer / allowed / normalizeBackendRecord / sanitizeModelPatches` 等仅作为尚未迁移调用方的兼容转发 seam。
+
+下一批优先把 `retryableModelFailure / retryInput` 收进请求/运行编排领域，并评估 `emptyState / importStory` 的最终归属；随后转向 `30-context-protocol.part.js` 的投影装饰链。

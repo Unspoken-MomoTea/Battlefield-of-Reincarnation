@@ -8,6 +8,7 @@ for(const file of [
   'src/WorldEngine/ARCHITECTURE.md',
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   'src/WorldEngine/domains/WorldStateProjector.part.js',
+  'src/WorldEngine/domains/WorldPatchPolicy.part.js',
   'src/WorldEngine/domains/WorldTimelinePolicy.part.js',
   'src/WorldEngine/domains/WorldLifecycleService.part.js',
   'src/WorldEngine/domains/WorldStateNormalizer.part.js',
@@ -34,6 +35,13 @@ for(const file of [
 
 
 const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
+const patchPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
+for(const legacyName of ['tokens','get','pointer','canonicalizeParts','bootstrapBackendParent','canUpsertMissing','checkRecord','checkDetails','normalizeBackendRecord','sanitizeModelPatches','normalizeModelPatches','allowed']){
+  assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
+}
+for(const method of ['tokens','get','pointer','canonicalizeParts','bootstrapBackendParent','canUpsertMissing','checkRecord','checkDetails','normalizeBackendRecord','sanitizeModelPatches','normalizeModelPatches','allowed']){
+  assert.match(patchPolicySource,new RegExp('\\b'+method+'\\s*\\('),'patch policy must own '+method);
+}
 const personDomainSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPersonActivityService.part.js'),'utf8');
 const alienCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/59-alien-activity-normalization.part.js'),'utf8');
 for(const legacyName of ['derivePersonWorldContext','projectHotWorldPeople','alienRosterMatch','activeAlienActivityRequirements','seedMissingAlienPeople','ensureActiveAlienActivity']){
@@ -75,11 +83,12 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateProjector','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateProjector','patchPolicy','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
 assert.equal(engine.services.stateProjector.constructor.name,'WorldStateProjector');
+assert.equal(engine.services.patchPolicy.constructor.name,'WorldPatchPolicy');
 assert.equal(engine.services.timelinePolicy.constructor.name,'WorldTimelinePolicy');
 assert.equal(engine.services.lifecycle.constructor.name,'WorldLifecycleService');
 assert.equal(engine.services.stateNormalizer.constructor.name,'WorldStateNormalizer');
@@ -88,6 +97,7 @@ assert.equal(engine.services.resultContract.schema,delivery.WORLD_RESULT_SCHEMA,
 assert.equal(engine.services.resultNormalizer.constructor.name,'WorldResultNormalizer');
 assert.equal(engine.services.resultMaterializer.constructor.name,'WorldResultMaterializer');
 assert.equal(engine.services.resultMaterializer.stateNormalizer,engine.services.stateNormalizer,'materializer must compose the container-owned state normalizer');
+assert.equal(engine.services.resultMaterializer.patchPolicy,engine.services.patchPolicy,'materializer must compose the container-owned patch policy');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
 assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyParser');
@@ -97,6 +107,7 @@ assert.equal(engine.services.validationPolicy.timeline,engine.services.timelineP
 assert.equal(engine.services.compiler.normalizer,engine.services.resultNormalizer,'compiler must compose the container-owned normalizer');
 assert.equal(engine.services.compiler.materializer,engine.services.resultMaterializer,'compiler must compose the container-owned materializer');
 assert.equal(engine.services.compiler.staging,engine.services.resultStaging,'compiler must compose the container-owned staging service');
+assert.equal(engine.services.compiler.patchPolicy,engine.services.patchPolicy,'compiler must compose the container-owned patch policy');
 assert.equal(engine.services.validation.constructor.name,'WorldValidationService');
 assert.equal(engine.services.validation.policy,engine.services.validationPolicy,'validation service must compose the container-owned policy');
 assert.equal(engine.services.commit.constructor.name,'WorldCommitService');

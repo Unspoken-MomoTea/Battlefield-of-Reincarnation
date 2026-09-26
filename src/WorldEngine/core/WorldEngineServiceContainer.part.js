@@ -5,6 +5,8 @@
             this.knowledge=new WorldKnowledgeService(engine);
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateProjector=new WorldStateProjector(engine);
+            this.patchPolicy=new WorldPatchPolicy();
+            ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
             this.timelinePolicy=new WorldTimelinePolicy();
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.lifecycle=new WorldLifecycleService();
@@ -19,13 +21,13 @@
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
-            this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging);
+            this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging,this.patchPolicy);
             this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy);
             ACTIVE_WORLD_VALIDATION_POLICY=this.validationPolicy;
             this.validation=new WorldValidationService(engine,this.validationPolicy);

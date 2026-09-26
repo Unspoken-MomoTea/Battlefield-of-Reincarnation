@@ -79,11 +79,8 @@
                     if(item&&Number(item.当前数量)===0)item.为空补足=1;
                 }
             }
-            payload.验收策略={
-                模式:'分级验收',
-                硬错误:'Schema、非法状态、因果引用损坏、明确时间轴冲突',
-                软维护:'事件排期补全、传闻补齐、传播复核；可跨轮渐进完成，不得拖死整轮'
-            };
+            try{payload.验收策略=JSON.parse(this.engine.services?.prompts?.value?.('maintenancePolicy')||WORLD_PROMPT_MAINTENANCE_POLICY);}
+            catch(_){payload.验收策略=JSON.parse(WORLD_PROMPT_MAINTENANCE_POLICY);}
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'')+'\n\n'+SOFT_MAINTENANCE_RULES;
             request.manifest=Object.assign({},request.manifest,{验收策略:{模式:'分级验收',事件因果锚点可接受:true,传闻补齐:'软维护'}});

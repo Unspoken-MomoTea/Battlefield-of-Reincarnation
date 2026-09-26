@@ -621,6 +621,7 @@
             const terminal = this.host.Samsara && this.host.Samsara.terminal;
             this.busy = true; const token = this.generation; let timeout, timedOut=false;
             try {
+                await this.services?.features?.beforeRun?.({token});
                 const base = this.snapshot(), reason = this.blocked(base);
                 if (reason) { this.status = reason; return false; }
                 const old = Object.assign(emptyState(),base.stat.世界[PATH] || {});
@@ -811,6 +812,7 @@
                 if(!(error.name==='AbortError'&&!timedOut))this.notifyFailure(this.status);
                 throw error;
             } finally {
+                try{await this.services?.features?.afterRun?.({token});}catch(error){try{console.error('[世界推进 Feature afterRun]',error);}catch(_){}}
                 clearTimeout(timeout); if(this.controller)this.controller=null; this.committing=false; this.busy=false; this.render();
                 if (this.pending) { this.pending = false; this.schedule(); }
             }

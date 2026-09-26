@@ -32,6 +32,14 @@
         角色管理:'若提供NPC构筑审计，只处理列出的既有NPC缺口；完整构筑资料只在审计对象中提供，避免全量NPC重复占用上下文。'
     },null,2);
 
+    function worldPromptModuleDefault(key,fallback=''){
+        try{
+            const item=Array.isArray(WORLD_PROMPT_MODULE_DEFS)?WORLD_PROMPT_MODULE_DEFS.find(row=>row?.key===key):null;
+            if(item&&typeof item.fallback==='string')return item.fallback;
+        }catch(_){}
+        return String(fallback||'');
+    }
+
     class WorldPromptRegistry {
         constructor(engine){
             this.engine=engine;
@@ -43,13 +51,13 @@
                 def({key:'stability',title:'世界自救',group:'主流程',source:'DEFAULT_STABILITY_PROMPT_TEMPLATE',scope:'system',condition:'稳定值低于100且未开启世界超稳时',native:true,defaultValue:()=>typeof COMPACT_STABILITY_PROMPT_TEMPLATE==='string'?COMPACT_STABILITY_PROMPT_TEMPLATE:DEFAULT_STABILITY_PROMPT_TEMPLATE}),
                 def({key:'npcAudit',title:'NPC构筑审计',group:'主流程',source:'NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT',scope:'system',condition:'启用NPC构筑审计且本轮存在审计对象时',native:true,defaultValue:()=>typeof NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT==='string'?NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT:NPC_BUILD_AUDIT_RULES}),
                 def({key:'outputProtocol',title:'WorldResult 输出协议说明',group:'主流程',source:'protocol()',scope:'system',condition:'每次主世界推进请求；程序 JSON Schema 仍固定只读',native:true,defaultValue:()=>protocol().split('【Canonical WorldResult JSON Schema】')[0].trim()}),
-                def({key:'task',title:'任务只读',group:'运行模块',source:'TASK_AWARENESS_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof TASK_AWARENESS_RULES==='string'?TASK_AWARENESS_RULES:''}),
-                def({key:'chronology',title:'原著 / 数据库时间轴',group:'运行模块',source:'CHRONOLOGY_GUARD_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof CHRONOLOGY_GUARD_RULES==='string'?CHRONOLOGY_GUARD_RULES:''}),
-                def({key:'maintenance',title:'分级维护',group:'运行模块',source:'SOFT_MAINTENANCE_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof SOFT_MAINTENANCE_RULES==='string'?SOFT_MAINTENANCE_RULES:''}),
-                def({key:'exploration',title:'探索台账',group:'运行模块',source:'EXPLORATION_PROJECTION_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof EXPLORATION_PROJECTION_RULES==='string'?EXPLORATION_PROJECTION_RULES:''}),
-                def({key:'integrity',title:'因果与事实时间',group:'运行模块',source:'WORLD_INTEGRITY_GUARD_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof WORLD_INTEGRITY_GUARD_RULES==='string'?WORLD_INTEGRITY_GUARD_RULES:''}),
-                def({key:'worldTime',title:'世界时间所有权',group:'运行模块',source:'WORLD_TIME_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof WORLD_TIME_RULES==='string'?WORLD_TIME_RULES:''}),
-                def({key:'rumor',title:'传闻与传播',group:'运行模块',source:'RUMOR_WORLD_SOURCE_RULES',scope:'system',condition:'每次主世界推进请求；无触发时要求保持既有传播',defaultValue:()=>typeof RUMOR_WORLD_SOURCE_RULES==='string'?RUMOR_WORLD_SOURCE_RULES:(typeof RUMOR_THROTTLE_RULES==='string'?RUMOR_THROTTLE_RULES:'')}),
+                def({key:'task',title:'任务只读',group:'运行模块',source:'TASK_AWARENESS_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('task',typeof TASK_AWARENESS_RULES==='string'?TASK_AWARENESS_RULES:'')}),
+                def({key:'chronology',title:'原著 / 数据库时间轴',group:'运行模块',source:'CHRONOLOGY_GUARD_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('chronology',typeof CHRONOLOGY_GUARD_RULES==='string'?CHRONOLOGY_GUARD_RULES:'')}),
+                def({key:'maintenance',title:'分级维护',group:'运行模块',source:'SOFT_MAINTENANCE_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('maintenance',typeof SOFT_MAINTENANCE_RULES==='string'?SOFT_MAINTENANCE_RULES:'')}),
+                def({key:'exploration',title:'探索台账',group:'运行模块',source:'EXPLORATION_PROJECTION_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('exploration',typeof EXPLORATION_PROJECTION_RULES==='string'?EXPLORATION_PROJECTION_RULES:'')}),
+                def({key:'integrity',title:'因果与事实时间',group:'运行模块',source:'WORLD_INTEGRITY_GUARD_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('integrity',typeof WORLD_INTEGRITY_GUARD_RULES==='string'?WORLD_INTEGRITY_GUARD_RULES:'')}),
+                def({key:'worldTime',title:'世界时间所有权',group:'运行模块',source:'WORLD_TIME_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('worldTime',typeof WORLD_TIME_RULES==='string'?WORLD_TIME_RULES:'')}),
+                def({key:'rumor',title:'传闻与传播',group:'运行模块',source:'RUMOR_WORLD_SOURCE_RULES',scope:'system',condition:'每次主世界推进请求；无触发时要求保持既有传播',defaultValue:()=>worldPromptModuleDefault('rumor',typeof RUMOR_WORLD_SOURCE_RULES==='string'?RUMOR_WORLD_SOURCE_RULES:(typeof RUMOR_THROTTLE_RULES==='string'?RUMOR_THROTTLE_RULES:''))}),
                 def({key:'worldActivity',title:'世界活动交付',group:'运行模块',source:'WORLD_ACTIVITY_DELIVERY_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:''}),
                 def({key:'historyMemory',title:'世界长期历史压缩',group:'辅助模型',source:'HISTORY_MEMORY_SYSTEM',scope:'system',condition:'历史记忆达到自动压缩阈值时单独调用模型',defaultValue:()=>typeof HISTORY_MEMORY_SYSTEM==='string'?HISTORY_MEMORY_SYSTEM:''}),
                 def({key:'inputSemantics',title:'输入语义说明',group:'请求内指令',source:'40-engine-runtime.part.js / 输入语义',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_INPUT_SEMANTICS}),

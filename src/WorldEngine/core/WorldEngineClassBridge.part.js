@@ -1,5 +1,4 @@
-    const SamsaraWorldEngineBeforeClassServices=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeClassServices {
+    SamsaraWorldEngine=((BaseWorldEngine)=>class SamsaraWorldEngine extends BaseWorldEngine {
         constructor(host,env){
             super(host,env);
             this.services=new WorldEngineServiceContainer(this).initialize();
@@ -151,4 +150,4 @@
             this.services?.features?.dispose?.();
             return super.dispose();
         }
-    };
+    })(SamsaraWorldEngine);

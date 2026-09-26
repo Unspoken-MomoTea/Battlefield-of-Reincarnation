@@ -142,8 +142,8 @@
         const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
         const plan=retryPlanBeforeRumorLiveliness(error,rejected).slice();
         let match;
-        if((match=message.match(/传闻为空未补足：([^；\n]+)/)))plan.push('传闻维护：'+match[1]+'。空分类本轮补2条真实世界信息；三类各自展示最近3条，约60字/条，不要无依据围绕<user>。');
-        if((match=message.match(/传播链仍未复核：([^；\n]+)/)))plan.push('传播维护：'+match[1]+'。逐条更新到当前世界时间，并推进范围/受众/内容/引发行动；若传播已结束则结束或移除，不要原样重交。');
+        if((match=message.match(/传闻为空未补足：([^；\n]+)/)))plan.push(worldEditablePromptText('retry.rumorEmpty','传闻维护：{{items}}。空分类本轮补2条真实世界信息；三类各自展示最近3条，约60字/条，不要无依据围绕<user>。',{items:match[1]}));
+        if((match=message.match(/传播链仍未复核：([^；\n]+)/)))plan.push(worldEditablePromptText('retry.rumorPropagation','传播维护：{{items}}。逐条更新到当前世界时间，并推进范围/受众/内容/引发行动；若传播已结束则结束或移除，不要原样重交。',{items:match[1]}));
         return Array.from(new Set(plan.filter(Boolean)));
     };
 

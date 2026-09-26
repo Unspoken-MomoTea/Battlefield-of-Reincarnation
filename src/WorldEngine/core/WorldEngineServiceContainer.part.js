@@ -3,6 +3,7 @@
             this.engine=engine;
             this.stateProjector=new WorldStateProjector(engine);
             this.compiler=new WorldResultCompiler(engine);
+            this.validation=new WorldValidationService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
             this.people=new WorldPersonActivityService(engine);

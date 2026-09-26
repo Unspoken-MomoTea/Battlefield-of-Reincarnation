@@ -14,6 +14,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldResultMaterializer.part.js',
   'src/WorldEngine/domains/WorldResultStagingService.part.js',
   'src/WorldEngine/domains/WorldResultReplyParser.part.js',
+  'src/WorldEngine/domains/WorldValidationPolicy.part.js',
   'src/WorldEngine/domains/WorldResultCompiler.part.js',
   'src/WorldEngine/domains/WorldValidationService.part.js',
   'src/WorldEngine/domains/WorldCommitService.part.js',
@@ -59,7 +60,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateProjector','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateProjector','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -71,10 +72,12 @@ assert.equal(engine.services.resultMaterializer.constructor.name,'WorldResultMat
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
 assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyParser');
 assert.equal(engine.services.compiler.constructor.name,'WorldResultCompiler');
+assert.equal(engine.services.validationPolicy.constructor.name,'WorldValidationPolicy');
 assert.equal(engine.services.compiler.normalizer,engine.services.resultNormalizer,'compiler must compose the container-owned normalizer');
 assert.equal(engine.services.compiler.materializer,engine.services.resultMaterializer,'compiler must compose the container-owned materializer');
 assert.equal(engine.services.compiler.staging,engine.services.resultStaging,'compiler must compose the container-owned staging service');
 assert.equal(engine.services.validation.constructor.name,'WorldValidationService');
+assert.equal(engine.services.validation.policy,engine.services.validationPolicy,'validation service must compose the container-owned policy');
 assert.equal(engine.services.commit.constructor.name,'WorldCommitService');
 assert.equal(engine.services.mutations.constructor.name,'WorldMutationService');
 assert.equal(engine.services.events.constructor.name,'WorldEventService');

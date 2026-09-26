@@ -211,6 +211,7 @@
         }
         render(force) {
             if(!this.isOpen())return;
+            this.services?.beforeRender?.();
             let snapshot,state=emptyState(),reason='';
             try{
                 snapshot=this.snapshot();

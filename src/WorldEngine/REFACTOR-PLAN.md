@@ -56,4 +56,8 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 
 已完成：`WorldAutoProgressController`、`WorldReplayService`、`WorldTimeOwnershipFeature`、`WorldNpcAuditPolicy`、`WorldHistoryLifecycle` 接管 auto-progress / auto-trigger / replay / reprocess / time-ownership / policy-compat / history-memory 中原先依赖主类继承的行为。旧分片仅保留常量、纯函数、编译器补丁或兼容模块名，不再创建新的 `SamsaraWorldEngine` 子类。
 
-下一阶段继续把 `script/world-engine-src` 中仍属于纯领域逻辑的 helper/monkey patch 迁入 `src/WorldEngine`，重点是 WorldResult 编译器、世界状态投影/迁移与剩余时间/因果校验函数；Application Facade 只保留兼容入口。
+### Phase 6 · 核心编译与状态投影
+
+已建立 `WorldStateProjector` 与 `WorldResultCompiler`，主 runtime 已通过 service container 调用它们，不再直接绑定 `projectWorldContext / stageWorldResult / compileWorldResult / materializeWorldUpdate`。底层纯函数仍暂留 legacy source 作为兼容实现。
+
+下一阶段继续把这些 service 背后的纯领域 helper/monkey patch 真正搬入 `src/WorldEngine`，重点是 WorldResult 字段编译器、世界状态投影/迁移与剩余时间/因果校验函数；Application Facade 只保留兼容入口。

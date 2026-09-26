@@ -203,4 +203,4 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 
 ## Phase 22 · State factory
 
-`WorldStateFactory` owns creation of a fresh `世界.后台` record. The exported `emptyState()` remains a compatibility seam and returns a fresh factory product on every call. Dead legacy story import code is not preserved merely for file compatibility.
+`WorldStateFactory` owns creation of a fresh `世界.后台` record. The exported `emptyState()` remains a compatibility seam and returns a fresh factory product on every call. Legacy story seeding is still consumed by `WorldRequestBuilder` for old saves, so its implementation lives in `WorldTimelinePolicy.importStory()`; the global `importStory()` name remains only as a compatibility seam.

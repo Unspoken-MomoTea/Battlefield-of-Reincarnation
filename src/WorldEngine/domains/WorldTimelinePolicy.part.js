@@ -5,6 +5,20 @@
         storyStages(value) {
             return String(value||'').split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
         }
+        importStory(stat) {
+            const orbit=stat.世界.因果轨道||{},events=stat.世界[PATH]?.事件||{};
+            if(Object.values(events).some(e=>e.分类==='主线节点'))return [];
+            const stages=this.storyStages(orbit.故事线);
+            if(stages.length<2||stages.length>30)return [];
+            const index=stages.findIndex(n=>n===orbit.下一节点);
+            const remaining=index>=0?stages.slice(index):stages;
+            let previous='';
+            return remaining.filter(name=>!Object.hasOwn(events,name)).map(name=>{
+                const value={...copy(RECORDS.事件),描述:name,分类:'主线节点',前因:previous?[previous]:[],条件:previous?'前置节点「'+previous+'」达到进入本阶段所需的条件':'待依据世界设定与正文明确触发条件',下次检查:'本轮首次排程'};
+                previous=name;
+                return {op:'add',path:'/世界/后台/事件/'+name.replace(/~/g,'~0').replace(/\//g,'~1'),value};
+            });
+        }
         timelineState(stat) {
             const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
             const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));
@@ -133,6 +147,7 @@
     const DEFAULT_WORLD_TIMELINE_POLICY=new WorldTimelinePolicy();
     let ACTIVE_WORLD_TIMELINE_POLICY=DEFAULT_WORLD_TIMELINE_POLICY;
     function storyStages(value){return ACTIVE_WORLD_TIMELINE_POLICY.storyStages(value);}
+    function importStory(stat){return ACTIVE_WORLD_TIMELINE_POLICY.importStory(stat);}
     function timelineState(stat){return ACTIVE_WORLD_TIMELINE_POLICY.timelineState(stat);}
     function eventTimeAnchor(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventTimeAnchor(event);}
     function eventScheduleLabel(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventScheduleLabel(event);}

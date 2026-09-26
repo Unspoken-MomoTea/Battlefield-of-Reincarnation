@@ -225,6 +225,6 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 
 已完成：新增 `WorldStateFactory`，接管世界后台空状态的 canonical 创建逻辑；公开 `emptyState()` 保持原接口，仅转发到 factory，现有运行时与离线测试无需改调用方式。Service Container 暴露 `stateFactory`，后续需要创建后台状态的 class 可以逐步改为显式组合。
 
-无调用、无导出且已被当前宏观节点机制淘汰的 `importStory()` 已从 `10-world-state.part.js` 删除，不再保留死兼容代码。
+`importStory()` 仍由 `WorldRequestBuilder` 用于旧故事线存档的宏观种子兼容，因此没有删除其行为；真实实现迁入 `WorldTimelinePolicy.importStory()`，全局函数只保留兼容转发。这样旧存档兼容属于时间线领域，不再回到状态大文件。
 
 至此 `10-world-state.part.js` 只剩世界后台 Schema/模型常量与少量名称/地点通用 helper。下一阶段进入 `30-context-protocol.part.js`，优先把角色/资产/因果的正文投影 helper 收进 projector/policy class。

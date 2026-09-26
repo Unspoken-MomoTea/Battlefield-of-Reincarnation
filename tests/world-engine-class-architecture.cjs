@@ -38,10 +38,13 @@ for(const file of [
 
 const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
 const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateFactory.part.js'),'utf8');
+const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
 assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
-assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'unused legacy story importer must be removed');
+assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
 assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT_WORLD_STATE_FACTORY\.emptyBackend\(\);\}/,'public emptyState seam must remain compatible');
+assert.match(timelinePolicySource,/\bimportStory\s*\(stat\)/,'timeline policy must own legacy story seeding');
+assert.match(timelinePolicySource,/function\s+importStory\s*\(stat\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.importStory\(stat\);\}/,'public importStory seam must remain compatible');
 const patchPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
 const requestServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestService.part.js'),'utf8');
 for(const legacyName of ['retryableModelFailure','retryInput']){

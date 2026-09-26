@@ -16,7 +16,13 @@ assert.equal(new Set(declared).size,declared.length,'build PARTS must not contai
 for(const moduleName of ['ui/00-styles.part.js','ui/10-world-tab.part.js','ui/20-people-tab.part.js','ui/30-exploration-tab.part.js','ui/40-archive-tabs.part.js','ui/50-settings-tab.part.js','ui/60-prompt-tab.part.js','ui/70-request-inspector.part.js','editor/00-world-mutations.part.js','editor/10-event-editor.part.js','editor/20-person-editor.part.js']){
   assert.ok(declared.includes(moduleName),`domain module must be registered: ${moduleName}`);
 }
-for(const moduleName of ['@src/WorldEngine/core/WorldEngineServiceContainer.part.js','@src/WorldEngine/core/WorldEngineClassBridge.part.js','@src/WorldEngine/prompts/WorldPromptRegistry.part.js']){
+for(const moduleName of [
+  '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
+  '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
+  '@src/WorldEngine/domains/WorldCausalService.part.js',
+  '@src/WorldEngine/ui/WorldEditorController.part.js'
+]){
   assert.ok(declared.includes(moduleName),`class source module must be registered: ${moduleName}`);
 }
 

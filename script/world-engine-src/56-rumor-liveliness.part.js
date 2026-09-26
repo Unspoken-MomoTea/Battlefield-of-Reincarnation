@@ -147,19 +147,18 @@
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
-    const SamsaraWorldEngineBeforeRumorLiveliness=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorLiveliness {
-        constructor(host,env) {
-            super(host,env);
-            if(this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
-                const upgraded=upgradeRumorPreset(this.config.preset);
-                if(upgraded!==this.config.preset){this.config.preset=upgraded;this.saveConfig();}
+    class WorldRumorLivelinessFeature {
+        constructor(engine){this.engine=engine;this.temporalBefore=null;}
+        initialize(){
+            const engine=this.engine;
+            if(engine.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
+                const upgraded=upgradeRumorPreset(engine.config.preset);
+                if(upgraded!==engine.config.preset){engine.config.preset=upgraded;engine.saveConfig();}
             }
         }
-        async buildRequest(base) {
+        async modifyRequest(request,base) {
             const rumorMaintenance=rumorMaintenanceRequirements(base?.stat||{});
             ACTIVE_RUMOR_MAINTENANCE=rumorMaintenance;
-            const request=await super.buildRequest(base);
             const payload=JSON.parse(request.input);
             if(Array.isArray(request.timeAnomalies))request.timeAnomalies=request.timeAnomalies.filter(item=>item?.类型!=='传闻维护');
             if(Array.isArray(payload.本轮必须修复的时间越界记录))payload.本轮必须修复的时间越界记录=payload.本轮必须修复的时间越界记录.filter(item=>item?.类型!=='传闻维护');
@@ -177,14 +176,19 @@
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             return request;
         }
-        async run() {
-            const temporalAnomaliesBeforeRumorRecovery=temporalAnomalies;
+        beforeRun(){
+            if(this.temporalBefore)return;
+            const before=temporalAnomalies;
+            this.temporalBefore=before;
             temporalAnomalies=function(stat) {
-                const result=temporalAnomaliesBeforeRumorRecovery(stat);
+                const result=before(stat);
                 if(rumorMaintenanceNeeded(stat))result.push({类型:'传闻维护',名称:'常驻传闻与传播链',字段:'活跃性',值:'需复核',说明:'公开传闻为空或传播链需要推进'});
                 return result;
             };
-            try{return await super.run();}
-            finally{if(temporalAnomalies!==temporalAnomaliesBeforeRumorRecovery)temporalAnomalies=temporalAnomaliesBeforeRumorRecovery;}
         }
-    };
+        afterRun(){
+            if(this.temporalBefore&&temporalAnomalies!==this.temporalBefore)temporalAnomalies=this.temporalBefore;
+            this.temporalBefore=null;
+        }
+    }
+    registerWorldEngineFeature('rumor-liveliness',engine=>new WorldRumorLivelinessFeature(engine));

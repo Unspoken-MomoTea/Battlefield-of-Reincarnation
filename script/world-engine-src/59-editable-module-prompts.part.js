@@ -46,9 +46,14 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         return Object.fromEntries(WORLD_PROMPT_MODULE_DEFS.map(item=>[item.key,item.fallback]));
     }
     function normalizeWorldModulePrompts(value){
-        const source=plain(value)?value:{};
-        const out={};
-        for(const item of WORLD_PROMPT_MODULE_DEFS)out[item.key]=typeof source[item.key]==='string'?source[item.key]:item.fallback;
+        const source=plain(value)?value:{},out={};
+        const hasLegacyRumor=typeof source.rumor==='string';
+        for(const item of WORLD_PROMPT_MODULE_DEFS){
+            if(typeof source[item.key]==='string'){out[item.key]=source[item.key];continue;}
+            if(hasLegacyRumor&&item.key==='rumorSource'){out[item.key]=source.rumor;continue;}
+            if(hasLegacyRumor&&(item.key==='rumorLiveliness'||item.key==='rumorThrottle')){out[item.key]='';continue;}
+            out[item.key]=item.fallback;
+        }
         return out;
     }
     function stripLegacyWorldModulePrompts(system){

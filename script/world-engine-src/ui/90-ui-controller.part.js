@@ -1,7 +1,8 @@
     // UI 控制器：拥有面板创建、事件绑定、渲染分发与销毁；Engine facade 只保留兼容入口。
     class WorldEngineUIController {
         constructor(engine){this.engine=engine;}
-            createPanel() {\n            const engine=this.engine;
+            createPanel() {
+            const engine=this.engine;
                 if (engine.panel && engine.panel.isConnected) return;
                 const doc=engine.host.document;
                 engine.style=doc.createElement('style');
@@ -211,7 +212,8 @@
                 isolated.appendChild(engine.panel);
                 doc.body.appendChild(engine.mount);
             }
-            render(force) {\n            const engine=this.engine;
+            render(force) {
+            const engine=this.engine;
                 if(!engine.isOpen())return;
                 let snapshot,state=emptyState(),reason='';
                 try{
@@ -441,7 +443,8 @@
                     engine.jumpEvent='';
                 }
             }
-            dispose() {\n            const engine=this.engine;
+            dispose() {
+            const engine=this.engine;
                 engine.close(); engine.disposed = true; engine.cancel(); clearTimeout(engine.initTimer);
                 engine.unsub.forEach(off => off()); engine.unsub = [];
                 if (engine.keyHandler) engine.host.document.removeEventListener('keydown',engine.keyHandler,true);

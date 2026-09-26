@@ -27,6 +27,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldResultKernel.part.js',
   '@src/WorldEngine/domains/WorldResultContract.part.js',
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
+  '@src/WorldEngine/domains/WorldResultMaterializer.part.js',
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/domains/WorldValidationService.part.js',
   '@src/WorldEngine/domains/WorldCommitService.part.js',
@@ -99,8 +100,6 @@ assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultKernel.part.js')<declared.indexOf('20-world-result.part.js'),'WorldResult kernel must load at the former legacy slot before its compatibility shim');
 assert.ok(texts['20-world-result.part.js'].length<1000,'legacy WorldResult part must stay a thin compatibility shim');
 assert.doesNotMatch(texts['20-world-result.part.js'],/function\s+(?:normalizeWorldResult|compileWorldResult|materializeWorldUpdate)\b/,'legacy WorldResult shim must not regain domain implementation');
-assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+compileWorldResult\b/,'WorldResult compilation must live in dedicated src domain source');
-assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+materializeWorldUpdate\b/,'WorldResult materialization must live in dedicated src domain source');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:normalizeWorldResult|mergeWorldResults|normalizeNamedResultList)\b/,'normalization implementation must leave the kernel after class extraction');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/class\s+WorldResultNormalizer\b/,'WorldResult normalization must have a dedicated class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/normalizeWorldResult\(value\)/,'normalizer class must own WorldResult normalization');
@@ -112,6 +111,14 @@ assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/clas
 assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/const\s+WORLD_RESULT_SCHEMA\s*=\s*WORLD_RESULT_CONTRACT\.schema/,'legacy schema constant must be a contract-backed compatibility seam');
 assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/const\s+EVENT_RESULT_SCHEMA\s*=\s*WORLD_RESULT_CONTRACT\.schemas\.event/,'event schema decorator compatibility must point into the contract');
 assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/const\s+OFFSET_RESULT_SCHEMA\s*=\s*WORLD_RESULT_CONTRACT\.schemas\.offset/,'offset schema decorator compatibility must point into the contract');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultNormalizer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'normalizer must initialize before the materializer');
+assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:compileWorldResult|validateState|applyPatches|materializeWorldUpdate|materializeAssetRecord)\b/,'compile/materialize implementation must leave the WorldResult kernel');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/class\s+WorldResultMaterializer\b/,'WorldResult patch compilation must have a dedicated materializer class');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/compileWorldResult\(stat,value\)/,'materializer must own WorldResult compilation');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/applyPatches\(stat,patches\)/,'materializer must own patch application');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'materializer must own final world materialization');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/function\s+validateState\(stat\)\{return DEFAULT_WORLD_RESULT_MATERIALIZER\.validateBaseState\(stat\);\}/,'legacy validateState must remain a reassignable decorator seam');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/validateState\(next\)/,'patch application must honor dynamically decorated validateState');
 
 for(const file of [
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',

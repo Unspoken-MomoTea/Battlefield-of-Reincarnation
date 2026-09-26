@@ -72,6 +72,15 @@ const promptUi=[
 assert.match(promptUi,/data-prompt-registry/,'prompt workspace must render registry-backed prompt fields');
 assert.match(promptUi,/全部实际提示词/,'prompt workspace must present one discoverable all-prompts section');
 
+const registrySource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldPromptRegistry.part.js'),'utf8');
+for(const promptSource of [
+  'TASK_AWARENESS_RULES','CHRONOLOGY_GUARD_RULES','SOFT_MAINTENANCE_RULES','EXPLORATION_PROJECTION_RULES',
+  'WORLD_INTEGRITY_GUARD_RULES','WORLD_TIME_RULES','RUMOR_LIVELINESS_RULES','RUMOR_THROTTLE_RULES',
+  'RUMOR_WORLD_SOURCE_RULES','WORLD_ACTIVITY_DELIVERY_RULES','NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT','HISTORY_MEMORY_SYSTEM'
+]){
+  assert.ok(registrySource.includes(promptSource),`every file-level AI prompt must be discoverable from the registry: ${promptSource}`);
+}
+
 (async()=>{
   await engine.services.events.save('巡逻','修正巡逻',{
     ...clone(current.stat_data.世界.后台.事件.巡逻),

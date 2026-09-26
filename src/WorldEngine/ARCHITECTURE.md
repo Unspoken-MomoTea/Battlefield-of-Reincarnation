@@ -114,7 +114,7 @@ src/WorldEngine/
 - `WorldPromptView`
 - `WorldRequestInspectorView`
 
-`WorldEngineViewRegistry` 只负责 class 注册与路由。Application Shell 只准备共享 view context，不再实现资产/传闻等业务 HTML。后续迁移 UI 时应把现有 legacy renderer 的内部实现逐步搬进对应 class，而不是重新把业务分支塞回主 UI。
+`WorldEngineViewRegistry` 只负责 class 注册与路由。Application Shell 只准备共享 view context，不再实现资产/传闻等业务 HTML。2026-09-27 已完成 legacy renderer 内部实现迁移：世界概览、人物、探索、事件归档、历史、设置、提示词与请求检查均由对应 View class 直接实现；旧 `script/world-engine-src/ui/10~70-*.part.js` 已删除。新的业务页面只能进入 `src/WorldEngine/ui/views/`，不得重新建立函数式 renderer 影子层。
 
 ## Phase 10 · Runtime 上下文 / 资料 / 基础请求
 

@@ -441,51 +441,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         };
     }
 
-    function timelineState(stat) {
-        const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
-        const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));
-        const near=events.filter(([,e])=>['当前事件','近期节点'].includes(e.分类));
-        const macro=events.filter(([,e])=>e.分类==='宏观节点');
-        const macroFuture=macro.filter(([,e])=>e.状态==='待发生');
-        const macroOpen=macro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
-        const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
-        const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
-        const orbit=stat.世界.因果轨道||{},orbitStages=storyStages(orbit.故事线);
-        const macroNames=new Set(macro.map(([name])=>name));
-        const orbitProjectionInvalid=orbitStages.length<3||orbitStages.length>5||orbitStages.some(name=>!macroNames.has(name));
-        const orbitMacro=macroFuture.find(([name])=>name===orbit.下一节点);
-        const datedMacro=macroFuture.map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
-            .filter(x=>x.key!==null&&(now===null||x.key>=now))
-            .sort((a,b)=>a.key-b.key||a.index-b.index);
-        const nextPair=orbitMacro||datedMacro[0]?.item||macroFuture[0]||null;
-        const nextMacro=nextPair?{
-            名称:nextPair[0],
-            时间:nextPair[1].时间||nextPair[1].开始时间||'',
-            分类:nextPair[1].分类||'',
-            条件:nextPair[1].条件||'',
-            前因:nextPair[1].前因||[],
-            来源:'宏观事件图'
-        }:null;
-        return {
-            当前时间锚点:stat.世界.时间,
-            因果轨道节点数:orbitStages.length,
-            因果轨道需重建:orbitProjectionInvalid,
-            需要初始化:near.length===0&&macro.length===0,
-            当前活动事件数:waiting.filter(([,e])=>e.状态==='进行中').length,
-            近期节点数:near.length,
-            宏观节点数:macro.length,
-            需要补充远期:macroOpen.length<3,
-            下一宏观节点:nextMacro,
-            桥接区间:{
-                起点:stat.世界.时间,
-                终点:nextMacro?.时间||'待建立宏观节点',
-                边界事件:nextMacro?.名称||''
-            },
-            需要展开的宏观节点:expand.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因})),
-            需语义复核节点:semantic.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,下次检查:e.下次检查})),
-            说明:'先用因果轨道、当前事实与模型已有世界/原著知识建立宏观骨架；世界书若存在只作补充校正。随后仅展开当前时间到下一宏观节点之间的近期事件、人物、势力与传播。非公历或作品内时间按作品语义比较，不强行改写为公历。'
-        };
-    }
     function emptyState() {
         return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 资产墓碑:{} };
     }
@@ -745,6 +700,47 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         storyStages(value) {
             return String(value||'').split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
         }
+        timelineState(stat) {
+            const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
+            const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));
+            const near=events.filter(([,e])=>['当前事件','近期节点'].includes(e.分类));
+            const macro=events.filter(([,e])=>e.分类==='宏观节点');
+            const macroFuture=macro.filter(([,e])=>e.状态==='待发生');
+            const macroOpen=macro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
+            const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
+            const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
+            const orbit=stat.世界.因果轨道||{},orbitStages=this.storyStages(orbit.故事线);
+            const macroNames=new Set(macro.map(([name])=>name));
+            const orbitProjectionInvalid=orbitStages.length<3||orbitStages.length>5||orbitStages.some(name=>!macroNames.has(name));
+            const orbitMacro=macroFuture.find(([name])=>name===orbit.下一节点);
+            const datedMacro=macroFuture.map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
+                .filter(x=>x.key!==null&&(now===null||x.key>=now))
+                .sort((a,b)=>a.key-b.key||a.index-b.index);
+            const nextPair=orbitMacro||datedMacro[0]?.item||macroFuture[0]||null;
+            const nextMacro=nextPair?{
+                名称:nextPair[0],
+                时间:nextPair[1].时间||nextPair[1].开始时间||'',
+                分类:nextPair[1].分类||'',
+                条件:nextPair[1].条件||'',
+                前因:nextPair[1].前因||[],
+                来源:'宏观事件图'
+            }:null;
+            return {
+                当前时间锚点:stat.世界.时间,
+                因果轨道节点数:orbitStages.length,
+                因果轨道需重建:orbitProjectionInvalid,
+                需要初始化:near.length===0&&macro.length===0,
+                当前活动事件数:waiting.filter(([,e])=>e.状态==='进行中').length,
+                近期节点数:near.length,
+                宏观节点数:macro.length,
+                需要补充远期:macroOpen.length<3,
+                下一宏观节点:nextMacro,
+                桥接区间:{起点:stat.世界.时间,终点:nextMacro?.时间||'待建立宏观节点',边界事件:nextMacro?.名称||''},
+                需要展开的宏观节点:expand.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因})),
+                需语义复核节点:semantic.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,下次检查:e.下次检查})),
+                说明:'先用因果轨道、当前事实与模型已有世界/原著知识建立宏观骨架；世界书若存在只作补充校正。随后仅展开当前时间到下一宏观节点之间的近期事件、人物、势力与传播。非公历或作品内时间按作品语义比较，不强行改写为公历。'
+            };
+        }
         eventTimeAnchor(event) {
             return String(event?.时间||event?.开始时间||'').trim();
         }
@@ -832,6 +828,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const DEFAULT_WORLD_TIMELINE_POLICY=new WorldTimelinePolicy();
     let ACTIVE_WORLD_TIMELINE_POLICY=DEFAULT_WORLD_TIMELINE_POLICY;
     function storyStages(value){return ACTIVE_WORLD_TIMELINE_POLICY.storyStages(value);}
+    function timelineState(stat){return ACTIVE_WORLD_TIMELINE_POLICY.timelineState(stat);}
     function eventTimeAnchor(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventTimeAnchor(event);}
     function eventScheduleLabel(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventScheduleLabel(event);}
     function staleActiveEvents(stat){return ACTIVE_WORLD_TIMELINE_POLICY.staleActiveEvents(stat);}
@@ -6431,7 +6428,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     const recoveryStat=copy(base.stat);
                     recoveryStat.世界[PATH]=Object.assign(emptyState(),recoveryStat.世界[PATH]||{});
                     normalizeBackendState(recoveryStat);
-                    const recoveryTimeline=timelineState(recoveryStat);
+                    const recoveryTimeline=this.services.timelinePolicy.timelineState(recoveryStat);
                     const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.需要补充远期||recoveryTimeline.因果轨道需重建);
                     const needsScheduleRepair=unscheduledEvents(recoveryStat).length>0;
                     const needsLifecycleRepair=staleActiveEvents(recoveryStat).length>0||temporalAnomalies(recoveryStat).length>0;

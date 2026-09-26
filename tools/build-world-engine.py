@@ -51,6 +51,8 @@ PARTS = (
     '59-api-preset-selection.part.js',
     '59-history-memory.part.js',
     '59-history-memory-editor.part.js',
+    '@src/WorldEngine/domains/WorldStateProjector.part.js',
+    '@src/WorldEngine/domains/WorldResultCompiler.part.js',
     '@src/WorldEngine/domains/WorldMutationService.part.js',
     '@src/WorldEngine/domains/WorldEventService.part.js',
     '@src/WorldEngine/domains/WorldPersonActivityService.part.js',

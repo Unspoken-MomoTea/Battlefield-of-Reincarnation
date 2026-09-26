@@ -9,6 +9,7 @@ for(const file of [
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   'src/WorldEngine/domains/WorldStateProjector.part.js',
   'src/WorldEngine/domains/WorldResultCompiler.part.js',
+  'src/WorldEngine/domains/WorldValidationService.part.js',
   'src/WorldEngine/domains/WorldMutationService.part.js',
   'src/WorldEngine/domains/WorldEventService.part.js',
   'src/WorldEngine/domains/WorldPersonActivityService.part.js',
@@ -48,12 +49,13 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateProjector','compiler','mutations','events','people','history','exploration','rumor','requests','views','prompts']){
+for(const name of ['stateProjector','compiler','validation','mutations','events','people','history','exploration','rumor','requests','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
 assert.equal(engine.services.stateProjector.constructor.name,'WorldStateProjector');
 assert.equal(engine.services.compiler.constructor.name,'WorldResultCompiler');
+assert.equal(engine.services.validation.constructor.name,'WorldValidationService');
 assert.equal(engine.services.mutations.constructor.name,'WorldMutationService');
 assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');

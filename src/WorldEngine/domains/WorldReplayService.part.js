@@ -184,7 +184,7 @@
             if(!e.worldReplayEventBound){
                 const mvu=e.env.Mvu||e.host.Mvu,first=e.fn('eventMakeFirst')||on,event=mvu?.events?.VARIABLE_UPDATE_ENDED;
                 if(first&&event){
-                    const off=first(event,(variables,before)=>{Promise.resolve(this.handleVariableEvent(variables,before)).catch(error=>{try{console.error('[世界推进 replay]',error);}catch(_){}});});
+                    const off=first(event,(variables,before)=>Promise.resolve(this.handleVariableEvent(variables,before)).catch(error=>{try{console.error('[世界推进 replay]',error);}catch(_){}throw error;}));
                     if(typeof off==='function')e.unsub.push(off);else if(off&&off.stop)e.unsub.push(()=>off.stop());
                     e.worldReplayEventBound=true;
                 }

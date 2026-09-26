@@ -141,5 +141,11 @@ jobs:
         run: node tests/world-engine-npc-audit-toggle.cjs
       - name: Asset scope regression
         run: node tests/world-engine-asset-writeback.cjs
+      - name: Class architecture regression
+        run: node tests/world-engine-class-architecture.cjs
+      - name: Complete prompt registry regression
+        run: node tests/world-engine-prompt-registry-complete.cjs
+      - name: Editable prompt registry regression
+        run: node tests/world-engine-module-prompts.cjs
       - name: Module synchronization
         run: node tests/world-engine-modules.cjs

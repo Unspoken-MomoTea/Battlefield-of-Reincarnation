@@ -52,12 +52,18 @@ patch(
     "        delete state.公开摘要;\n        delete state.正文承接;\n        // 旧存档兼容：推演记录已由每轮 L0 历史锚点完全取代。\n        delete state.运行记录;\n        state.版本=Math.max(5,Number(state.版本)||0);",
     'legacy cleanup',
 )
-patch(
-    'script/world-engine-src/40-engine-runtime.part.js',
-    "                        next.世界[PATH].最近变化=changes.slice(-100);\n                        const sourceOld=Object.assign(emptyState(),sourceStat.世界[PATH]||{});\n                        next.世界[PATH].运行记录=sourceOld.运行记录.concat([{时间:base.stat.世界.时间,摘要:reply.summary,补丁数:committedPatches.length,尝试次数:attempt+1}]).slice(-20);\n                        // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。",
-    "                        next.世界[PATH].最近变化=changes.slice(-100);\n                        // 推演记录已由历史锚点取代，不再持久化。\n                        // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。",
-    'runtime persistence',
-)
+runtime_path = ROOT / 'script/world-engine-src/40-engine-runtime.part.js'
+runtime_text = runtime_path.read_text(encoding='utf-8')
+runtime_old = "                        next.世界[PATH].最近变化=changes.slice(-100);\n                        const sourceOld=Object.assign(emptyState(),sourceStat.世界[PATH]||{});\n                        next.世界[PATH].运行记录=sourceOld.运行记录.concat([{时间:base.stat.世界.时间,摘要:reply.summary,补丁数:committedPatches.length,尝试次数:attempt+1}]).slice(-20);\n                        // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。"
+runtime_new = "                        next.世界[PATH].最近变化=changes.slice(-100);\n                        // 推演记录已由历史锚点取代，不再持久化。\n                        // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。"
+if runtime_new in runtime_text:
+    print('[history-core] already runtime persistence')
+elif runtime_old in runtime_text:
+    patch('script/world-engine-src/40-engine-runtime.part.js', runtime_old, runtime_new, 'runtime persistence')
+elif '运行记录=' not in runtime_text and (ROOT / 'src/WorldEngine/domains/WorldCommitService.part.js').is_file():
+    print('[history-core] already runtime persistence in classized commit service')
+else:
+    raise RuntimeError('runtime persistence: legacy anchor missing without classized replacement')
 patch_any(
     [
         'src/WorldEngine/domains/WorldAutoProgressController.part.js',

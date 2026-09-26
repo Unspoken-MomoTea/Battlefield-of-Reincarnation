@@ -35,12 +35,12 @@ patch(
     "                        next.世界[PATH].最近变化=changes.slice(-100);\n                        // 推演记录已由历史锚点取代，不再持久化。\n                        // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。",
     'runtime persistence',
 )
-patch(
-    'script/world-engine-src/59-auto-progress.part.js',
-    "return ['最近变化','运行记录'].some(key=>Array.isArray(backend[key])&&backend[key].length>0);",
-    "return Array.isArray(backend.最近变化)&&backend.最近变化.length>0;",
-    'auto progress signal',
-)
+auto_progress = ROOT / 'src/WorldEngine/runtime/WorldAutoProgressFeature.part.js'
+if auto_progress.is_file():
+    auto_progress_text = auto_progress.read_text(encoding='utf-8')
+    if '运行记录' in auto_progress_text:
+        raise RuntimeError('auto progress signal: retired 运行记录 dependency returned')
+    print('[history-core] already auto progress signal')
 patch(
     'script/ZOD脚本.js',
     "            运行记录: z.array(z.any()).prefault([]),\n",

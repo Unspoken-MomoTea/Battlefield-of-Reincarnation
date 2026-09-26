@@ -92,6 +92,18 @@
             if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
             this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
+            this.services={};
+            const mutationService=new WorldEngineMutationService(this);
+            this.services.mutations=mutationService;
+            this.services.events=new WorldEventService(this,mutationService);
+            this.services.people=new WorldPersonActivityService(this,mutationService);
+            this.services.prompts=new WorldEnginePromptService(this);
+            this.promptService=this.services.prompts;
+            const normalizedRequestPrompts=this.services.prompts.normalize(this.config.requestPrompts);
+            if(!same(normalizedRequestPrompts,this.config.requestPrompts)){
+                this.config.requestPrompts=normalizedRequestPrompts;
+                this.saveConfig();
+            }
             this.apiModeCache={};
             if(hadLegacyTone)this.saveConfig();
             if(this.config.enabled&&!this.usesDedicatedApi()){

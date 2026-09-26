@@ -148,7 +148,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(this.tab!=='提示词预设'||!this.panel)return;
             const main=this.panel.querySelector('main');if(!main)return;
             const audit=main.querySelector('[data-npc-audit-prompt]');
-            if(!this.isNpcBuildAuditEnabled())audit?.closest('details')?.remove();
+            // Prompt Registry 必须始终展示 NPC 审计提示词；开关只控制发送，不再隐藏编辑入口。
             let section=main.querySelector('[data-world-module-prompts]');
             if(!section){
                 section=this.host.document.createElement('section');

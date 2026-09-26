@@ -78,3 +78,8 @@
         }
         return html;
     }
+
+    class ExplorationTabView {
+        constructor(engine){ this.engine=engine; }
+        render(context={}) { return worldEngineRenderExplorationTab({...context,engine:context.engine||this.engine}); }
+    }

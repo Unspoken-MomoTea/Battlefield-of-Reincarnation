@@ -38,6 +38,22 @@
             }
             return current;
         }
+        beforeWorldCommit(next,context){
+            let changed=false;
+            for(const feature of this.items.values()){
+                if(typeof feature.beforeWorldCommit!=='function')continue;
+                changed=feature.beforeWorldCommit(next,context)===true||changed;
+            }
+            return changed;
+        }
+        afterVariableEvent(handled,variables,before){
+            let current=handled;
+            for(const feature of this.items.values()){
+                if(typeof feature.afterVariableEvent!=='function')continue;
+                current=feature.afterVariableEvent(current,variables,before);
+            }
+            return current;
+        }
         async run(next){
             let runner=next;
             for(const feature of Array.from(this.items.values()).reverse()){

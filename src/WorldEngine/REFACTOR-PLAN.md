@@ -133,3 +133,11 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 已新增 `WorldResultReplyParser`，接管 `<world_update>`/Markdown fence/裸 JSON 的提取、首个完整 JSON 对象兜底、legacy patches 识别以及 WorldResult 归一化。运行编排器优先通过 `services.resultParser.parse()` 处理模型回复；全局 `parseReply` 继续作为 CommonJS 离线测试与兼容入口，并由 service container 的 active parser 驱动。
 
 `WorldResultKernel.part.js` 因此进一步缩小，只剩共享常量、探索粒度修复以及时间/宏观验收 helper。下一步应迁移这批验收 helper 到 `WorldValidationService` 背后的独立 policy/class，并继续减少 Kernel 的跨域职责。
+
+### Phase 16 · WorldValidation Policy 类化
+
+已新增 `WorldValidationPolicy`，把到期事件、未排期事件、超期活动、时间越界、宏观骨架和推进锚点判断的基础实现从 `WorldResultKernel.part.js` 移出。Service Container 持有 `validationPolicy`，`WorldValidationService` 组合该实例；其中没有 legacy 装饰器的推进锚点检查已经直接委托 policy。
+
+迁移期仍保留 `ensureDueHandled / unscheduledEvents / ensureEventTimeAnchors / ensureStaleActiveHandled / ensureTemporalAnomaliesResolved / ensureMacroBackbone` 等可重写的全局 seam，因为软维护、传闻活性、世界活动交付和到期事件放宽仍会在加载阶段装饰这些入口。全局 seam 的基础实现现在统一由 `ACTIVE_WORLD_VALIDATION_POLICY` 提供，等对应 legacy decorator 继续类化后再逐项删除。
+
+至此 `WorldResultKernel.part.js` 已缩到只剩共享 WorldResult 常量和探索粒度修复。下一步优先把探索粒度迁入探索领域，并继续处理仍在 `script/world-engine-src` 中包装 compile/validation seam 的兼容模块。

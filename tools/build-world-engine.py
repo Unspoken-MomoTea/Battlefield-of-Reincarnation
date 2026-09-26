@@ -21,6 +21,7 @@ PARTS = (
     'ui/70-request-inspector.part.js',
     '40-engine-runtime.part.js',
     '50-engine-ui.part.js',
+    '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',
     '55-policy-compat.part.js',
     '55-npc-narrative-audit.part.js',
     '56-rumor-liveliness.part.js',

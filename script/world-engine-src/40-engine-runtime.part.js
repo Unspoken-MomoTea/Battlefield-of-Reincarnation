@@ -317,7 +317,7 @@
             const floors=panel&&panel.querySelector('[data-floors]');
             const activation=panel&&panel.querySelector('[data-activation]');
             const books=panel?Array.from(panel.querySelectorAll('[data-book]')):[];
-            return {
+            const settings={
                 preset,
                 corePrompt:panel?.querySelector('[data-core-prompt]')?.value??this.config.corePrompt??CORE_WORLD_RULES,
                 macroPrompt:panel?.querySelector('[data-macro-prompt]')?.value??this.config.macroPrompt??DEFAULT_MACRO_PROMPT,
@@ -330,8 +330,10 @@
                     ?books.filter(e=>e.checked&&!e.disabled).map(e=>e.value)
                     :(Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):null)
             };
+            return this.services?.prompts?.readPromptEditor(settings)||settings;
         }
         applyPromptSettings(settings) {
+            settings=this.services?.prompts?.prepareSettings(settings)||settings;
             if(!plain(settings)||typeof settings.preset!=='string'||settings.preset.length>30000)throw new Error('预设文档内容无效或超过30000字');
             for(const [name,value] of [['核心约束',settings.corePrompt],['宏观骨架提示词',settings.macroPrompt],['世界自救提示词',settings.stabilityPromptTemplate]])if(value!==undefined&&(typeof value!=='string'||value.length>30000))throw new Error(name+'限30000字');
             if(settings.npcAuditPrompt!==undefined&&(typeof settings.npcAuditPrompt!=='string'||settings.npcAuditPrompt.length>30000))throw new Error('NPC审计提示词限30000字');
@@ -347,6 +349,8 @@
             this.config.activationMode=settings.activationMode==='force_selected'?'force_selected':'respect_activation';
             if(Array.isArray(settings.selectedEntries))this.config.selectedEntries=settings.selectedEntries.filter(x=>typeof x==='string');
             else delete this.config.selectedEntries;
+            if(plain(settings.modulePrompts))this.config.modulePrompts=copy(settings.modulePrompts);
+            if(this.services?.prompts)this.config.worldModulePromptVersion=WORLD_PROMPT_REGISTRY_VERSION;
             this.saveConfig();
             return this.config;
         }
@@ -355,6 +359,7 @@
             return this.config.promptDocuments;
         }
         savePromptDocument(name,settings,activate=true) {
+            settings=this.services?.prompts?.decorateSettings(settings)||settings;
             const clean=String(name||'').trim().slice(0,80);
             if(!clean)throw new Error('请先填写预设文档名称');
             if(clean===BUILTIN_DEFAULT_PROMPT_DOCUMENT.name)throw new Error('“默认设置”是内置文档，请换一个名称保存自定义版本');
@@ -394,7 +399,10 @@
                 preset:normalizeEditablePreset(settings.preset),
                 contextTurns:Math.max(1,Math.min(100,Number(settings.contextTurns)||6)),
                 activationMode:settings.activationMode==='force_selected'?'force_selected':'respect_activation',
-                selectedEntries:Array.isArray(settings.selectedEntries)?settings.selectedEntries.filter(x=>typeof x==='string'):null
+                selectedEntries:Array.isArray(settings.selectedEntries)?settings.selectedEntries.filter(x=>typeof x==='string'):null,
+                modulePrompts:plain(settings.modulePrompts)
+                    ?{...(this.services?.prompts?.moduleDefaults?.()||{}),...copy(settings.modulePrompts)}
+                    :(this.services?.prompts?.moduleDefaults?.()||{})
             };
             return this.savePromptDocument(name,normalized,false);
         }
@@ -613,7 +621,15 @@
             const corePrompt=this.config.corePrompt??CORE_WORLD_RULES;
             const system=this.config.preset+(corePrompt?'\n\n'+corePrompt:'')+(macroPrompt?'\n\n'+macroPrompt:'')+(stabilityPrompt?'\n\n'+stabilityPrompt:'')+(npcAudit.length?'\n\n'+(this.config.npcAuditPrompt??NPC_BUILD_AUDIT_RULES):'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2));
             const baseRequest={system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
-            return this.services?.modifyRequest?await this.services.modifyRequest(baseRequest,base):baseRequest;
+            const finalRequest=this.services?.modifyRequest?await this.services.modifyRequest(baseRequest,base):baseRequest;
+            const rebuilt=this.services?.prompts?.composeMainSystem?.(finalRequest.system);
+            if(rebuilt){
+                finalRequest.system=rebuilt.system;
+                finalRequest.manifest=finalRequest.manifest||{};
+                finalRequest.manifest.提示词模块=rebuilt.used;
+                finalRequest.manifest.观测=requestTokenTelemetry(finalRequest.system,finalRequest.input,finalRequest.schema||WORLD_RESULT_SCHEMA);
+            }
+            return finalRequest;
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;

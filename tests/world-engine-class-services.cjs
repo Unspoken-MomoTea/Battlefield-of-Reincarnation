@@ -5,7 +5,9 @@ const {
   WorldEngineMutationService,
   WorldEventService,
   WorldPersonActivityService,
-  WorldEnginePromptService
+  WorldEnginePromptService,
+  WorldEngineRequestService,
+  WorldHistoryMemoryService
 }=require('../script/世界推进系统.js');
 
 const clone=value=>JSON.parse(JSON.stringify(value));
@@ -43,6 +45,8 @@ const host={
   assert.ok(engine.services.events instanceof WorldEventService);
   assert.ok(engine.services.people instanceof WorldPersonActivityService);
   assert.ok(engine.services.prompts instanceof WorldEnginePromptService);
+  assert.ok(engine.services.requests instanceof WorldEngineRequestService);
+  assert.ok(engine.services.history instanceof WorldHistoryMemoryService);
 
   await engine.setWorldEventRecord('旧事件','修正事件',{...clone(stat.世界.后台.事件.旧事件),描述:'修正后'});
   assert.equal(stat.世界.后台.事件.旧事件,undefined);

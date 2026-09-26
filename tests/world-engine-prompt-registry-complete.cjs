@@ -60,8 +60,12 @@ function hostFor(statRef){
   assert.equal(JSON.parse(historyInput).说明,'【自定义历史 input】保持输入时间粒度。');
 
   const exported=engine.services.prompts.list();
-  assert.ok(exported.length>=28,'registry should expose system, payload, history and retry prompts together');
+  assert.ok(exported.length>=31,'registry should expose system, payload, history and retry prompts together');
   assert.ok(exported.every(item=>typeof item.scope==='string'&&typeof item.condition==='string'));
+  const registryKeys=new Set(exported.map(item=>item.key));
+  for(const key of ['chronologyNoEvidenceGuidance','rumorSourceBoundary'])assert.ok(registryKeys.has(key),'registry must expose '+key);
+  const semantics=JSON.parse(engine.services.prompts.value('inputSemantics'));
+  assert.equal(semantics.任务列表,'只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。');
 
   console.log('PASS every static AI instruction is visible, editable and used by the actual request path');
 })().catch(error=>{console.error(error);process.exitCode=1;});

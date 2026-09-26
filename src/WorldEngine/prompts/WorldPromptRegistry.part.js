@@ -24,6 +24,17 @@
         '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
     ].join('\n');
     const WORLD_PROMPT_HISTORY_INPUT='按给定顺序压缩；时间字段是权威锚点，不得改写或补造。';
+    const WORLD_PROMPT_WORLD_TIME_INPUT=JSON.stringify({
+        所有权:'世界推进独占写入；变量 AI 只读',
+        初始化锚定:{
+            依据顺序:['最新已确认正文','当前阶段与当前地点','已读取时间线/年表/章节资料','模型已有原著知识','谨慎推断'],
+            禁止:'不得把下一宏观节点、任务期限或未来事件的日期直接当成当前世界时间；无法唯一定位时保持较粗时间精度。'
+        },
+        正文时间职责:'若最新正文明确发生过夜、数小时后、次日、跨日旅行或新的日期/时段，必须输出顶层“时间”同步世界时钟；不能保留旧时钟再提交已经发生于新时点的事实。',
+        精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须是数字；不要用自定义月份名称替代数字月。',
+        时间段候选:['凌晨','黎明','清晨','早晨','上午','中午','午后','下午','傍晚','入夜','晚上','深夜'],
+        推进原则:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确时间资料表明确实经过合理时长才推进。'
+    },null,2);
     const WORLD_PROMPT_INPUT_SEMANTICS=JSON.stringify({
         世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
         当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；未提供的任务/商城/纯结算数据不属于本引擎职责。',
@@ -75,6 +86,7 @@
                 def({key:'rumorSourceBoundary',title:'传闻取材边界',group:'请求内指令',source:'59-rumor-world-request.part.js / 取材边界',scope:'user payload',condition:'每次传闻维护请求',defaultValue:()=>WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY}),
                 def({key:'alienReviewGuidance',title:'活跃异端复核要求',group:'请求内指令',source:'59-alien-activity-normalization.part.js',scope:'user payload',condition:'活跃异端命中复核触发器时',defaultValue:()=>WORLD_PROMPT_ALIEN_REVIEW}),
                 def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'59-world-activity-delivery.part.js / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
+                def({key:'worldTimeInputGuidance',title:'世界时间维护 · 请求内指令',group:'请求内指令',source:'WorldTimeOwnershipFeature / 世界时间维护',scope:'user payload JSON',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_TIME_INPUT}),
                 def({key:'historyInputGuidance',title:'历史压缩输入说明',group:'辅助模型',source:'historyMemoryPrompt()',scope:'user payload',condition:'历史记忆达到自动压缩阈值时',defaultValue:()=>WORLD_PROMPT_HISTORY_INPUT}),
                 def({key:'retryAcceptedWithPlan',title:'纠错重试 · 已接受结果 + 补充清单',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且已有部分业务结果通过，并存在补充清单时',defaultValue:()=>WORLD_PROMPT_RETRY_ACCEPTED_PLAN}),
                 def({key:'retryAccepted',title:'纠错重试 · 已接受结果',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且已有部分业务结果通过，但没有补充清单时',defaultValue:()=>WORLD_PROMPT_RETRY_ACCEPTED}),
@@ -144,7 +156,7 @@
         apply(value,{save=true}={}){
             const normalized=this.normalize(value);
             for(const item of this._definitions)if(normalized[item.key].length>30000)throw new Error(item.title+'限30000字');
-            for(const key of ['inputSemantics','chronologyPrinciples']){
+            for(const key of ['inputSemantics','chronologyPrinciples','worldTimeInputGuidance']){
                 let parsed=null;try{parsed=JSON.parse(normalized[key]);}catch(_){throw new Error(this._definitions.find(x=>x.key===key)?.title+'必须是合法 JSON 对象');}
                 if(!plain(parsed))throw new Error(this._definitions.find(x=>x.key===key)?.title+'必须是 JSON 对象');
             }
@@ -233,6 +245,19 @@
             if(plain(payload.传闻维护)&&Object.hasOwn(payload.传闻维护,'取材边界'))payload.传闻维护.取材边界=this.value('rumorSourceBoundary');
             if(Array.isArray(payload.本轮必须维持的异端活动))for(const item of payload.本轮必须维持的异端活动)if(plain(item))item.要求=this.value('alienReviewGuidance');
             if(plain(payload.本轮世界活动交付))payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+            if(plain(payload.世界时间维护)){
+                try{
+                    const configured=JSON.parse(this.value('worldTimeInputGuidance'));
+                    if(plain(configured)){
+                        if(Object.hasOwn(configured,'所有权'))payload.世界时间维护.所有权=configured.所有权;
+                        if(plain(configured.初始化锚定)&&plain(payload.世界时间维护.初始化锚定)){
+                            if(Array.isArray(configured.初始化锚定.依据顺序))payload.世界时间维护.初始化锚定.依据顺序=configured.初始化锚定.依据顺序;
+                            if(Object.hasOwn(configured.初始化锚定,'禁止'))payload.世界时间维护.初始化锚定.禁止=configured.初始化锚定.禁止;
+                        }
+                        for(const key of ['正文时间职责','精确日期格式','时间段候选','推进原则'])if(Object.hasOwn(configured,key))payload.世界时间维护[key]=copy(configured[key]);
+                    }
+                }catch(_){}
+            }
             return JSON.stringify(payload,null,2);
         }
         historySystem(){return this.value('historyMemory');}

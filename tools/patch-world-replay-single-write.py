@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / 'script' / 'world-engine-src' / '40-engine-runtime.part.js'
-PERSIST = ROOT / 'script' / 'world-engine-src' / '59-world-replay-persistence.part.js'
+PERSIST = ROOT / 'src' / 'WorldEngine' / 'runtime' / 'WorldReplayPersistenceFeature.part.js'
 
 
 def read_preserve(path: Path):

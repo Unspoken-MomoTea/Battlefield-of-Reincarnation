@@ -4010,7 +4010,7 @@ ${schemaText}`;
                     this.controller=new AbortController();
                     timedOut=false;
                     clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},300000);
-                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan);
+                    const attemptInput=attempt===0?request.input:(this.services?.requests?.retryInput?this.services.requests.retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan):retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan));
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
                     actualRequest.manifest=Object.assign({},copy(request.manifest),{
@@ -6612,28 +6612,6 @@ ${schemaText}`;
         if(!plain(backend))throw new Error('世界后台不存在');
         return backend;
     }
-
-    const SamsaraWorldEngineBeforeWorldEditorMutations=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeWorldEditorMutations {
-        async persistWorldEditorMutation(mutator,status) {
-            if(this.services?.mutations)return this.services.mutations.commit(mutator,status);
-            throw new Error('世界推进写回服务尚未初始化');
-        }
-        worldEditorModeEnabled() {
-            return this.worldEditMode===true;
-        }
-        setWorldEditorMode(value) {
-            this.worldEditMode=value===true;
-            this.render(true);
-            return this.worldEditMode;
-        }
-        toggleWorldEditorMode() {
-            return this.setWorldEditorMode(!this.worldEditorModeEnabled());
-        }
-        worldEditorSection(title) {
-            return worldEditorSection(this.panel,title);
-        }
-    };
     // 事件管理编辑器：编辑/重命名/删除世界后台事件，并维护引用与同楼 replay。
     function worldEventRetargetReferences(stat,oldName,newName,deleted=false) {
         const backend=worldEditorBackend(stat);
@@ -6688,300 +6666,12 @@ ${schemaText}`;
     function worldEventSelect(value,options,field) {
         return '<select data-world-event-field="'+field+'">'+options.map(option=>'<option value="'+worldEditorEscape(option)+'"'+(String(value)===option?' selected':'')+'>'+worldEditorEscape(option)+'</option>').join('')+'</select>';
     }
-
-    const SamsaraWorldEngineBeforeEventEditor=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeEventEditor {
-        worldEventRecord(name) {
-            return this.services?.events?.get(name)||null;
-        }
-        async setWorldEventRecord(oldName,newName,record) {
-            if(!this.services?.events)throw new Error('事件服务尚未初始化');
-            return this.services.events.save(oldName,newName,record);
-        }
-        async removeWorldEventRecord(name) {
-            if(!this.services?.events)throw new Error('事件服务尚未初始化');
-            return this.services.events.remove(name);
-        }
-        worldEventInlineEditorHtml(name,record) {
-            const list=value=>Array.isArray(value)?value.join('\n'):'';
-            const json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
-            return '<div class="we-world-editor" data-world-event-edit data-world-event-name="'+worldEditorEscape(name)+'">'
-                +'<div class="we-world-editor-grid">'
-                +'<label><span>事件名称</span><input data-world-event-field="name" value="'+worldEditorEscape(name)+'"></label>'
-                +'<label><span>分类</span>'+worldEventSelect(record?.分类||'近期节点',['当前事件','近期节点','宏观节点'],'category')+'</label>'
-                +'<label><span>状态</span>'+worldEventSelect(record?.状态||'待发生',['待发生','进行中','已完成','已取消'],'status')+'</label>'
-                +'<label><span>地点</span><input data-world-event-field="location" value="'+worldEditorEscape(record?.地点||'')+'"></label>'
-                +'<label><span>时间</span><input data-world-event-field="time" value="'+worldEditorEscape(record?.时间||'')+'"></label>'
-                +'<label><span>开始时间</span><input data-world-event-field="start" value="'+worldEditorEscape(record?.开始时间||'')+'"></label>'
-                +'<label><span>预计结束</span><input data-world-event-field="end" value="'+worldEditorEscape(record?.预计结束||'')+'"></label>'
-                +'<label><span>下次检查</span><input data-world-event-field="nextCheck" value="'+worldEditorEscape(record?.下次检查||'')+'"></label>'
-                +'<label><span>更新时间</span><input data-world-event-field="updated" value="'+worldEditorEscape(record?.更新时间||'')+'"></label>'
-                +'<label class="we-world-editor-wide"><span>事件描述</span><textarea data-world-event-field="description">'+worldEditorEscape(record?.描述||'')+'</textarea></label>'
-                +'<label class="we-world-editor-wide"><span>公开征兆</span><textarea data-world-event-field="sign">'+worldEditorEscape(record?.公开征兆||'')+'</textarea></label>'
-                +'<label class="we-world-editor-wide"><span>触发条件</span><textarea data-world-event-field="condition">'+worldEditorEscape(record?.条件||'')+'</textarea></label>'
-                +'<label class="we-world-editor-wide"><span>默认走向</span><textarea data-world-event-field="default">'+worldEditorEscape(record?.默认走向||'')+'</textarea></label>'
-                +'<label class="we-world-editor-wide"><span>已确认结果</span><textarea data-world-event-field="result">'+worldEditorEscape(record?.结果||'')+'</textarea></label>'
-                +'<label><span>前因（每行一个）</span><textarea data-world-event-field="causes">'+worldEditorEscape(list(record?.前因))+'</textarea></label>'
-                +'<label><span>参与者（每行一个）</span><textarea data-world-event-field="participants">'+worldEditorEscape(list(record?.参与者))+'</textarea></label>'
-                +'<label><span>关联任务（每行一个）</span><textarea data-world-event-field="tasks">'+worldEditorEscape(list(record?.关联任务))+'</textarea></label>'
-                +'<label class="we-world-editor-wide"><span>可见影响（JSON 数组）</span><textarea data-world-event-field="impacts">'+worldEditorEscape(json(record?.可见影响))+'</textarea></label>'
-                +'</div><div class="we-world-editor-actions">'
-                +'<button type="button" class="we-world-editor-save" data-action="world-event-save" data-event-name="'+worldEditorEscape(name)+'">保存修正</button>'
-                +'<button type="button" data-action="world-event-cancel">取消</button>'
-                +'</div></div>';
-        }
-        beginWorldEventEdit(name,card) {
-            const record=this.worldEventRecord(name);if(!record||!card)return false;
-            card.innerHTML=this.worldEventInlineEditorHtml(name,record);
-            card.classList.add('we-world-editing');
-            try{card.querySelector('[data-world-event-field="name"]')?.focus?.();}catch(_){}
-            return true;
-        }
-        async saveWorldEventInlineEdit(card,oldName) {
-            if(!card)return false;
-            const value=key=>card.querySelector('[data-world-event-field="'+key+'"]')?.value;
-            const current=this.worldEventRecord(oldName)||{};
-            return this.setWorldEventRecord(oldName,String(value('name')||'').trim(),{
-                ...copy(current),
-                分类:String(value('category')||'').trim(),
-                状态:String(value('status')||'').trim(),
-                地点:String(value('location')||'').trim(),
-                时间:String(value('time')||'').trim(),
-                开始时间:String(value('start')||'').trim(),
-                预计结束:String(value('end')||'').trim(),
-                下次检查:String(value('nextCheck')||'').trim(),
-                更新时间:String(value('updated')||'').trim(),
-                描述:String(value('description')||'').trim(),
-                公开征兆:String(value('sign')||'').trim(),
-                条件:String(value('condition')||'').trim(),
-                默认走向:String(value('default')||'').trim(),
-                结果:String(value('result')||'').trim(),
-                前因:worldEditorTextList(value('causes')),
-                参与者:worldEditorTextList(value('participants')),
-                关联任务:worldEditorTextList(value('tasks')),
-                可见影响:worldEditorJsonList(value('impacts'),'可见影响')
-            });
-        }
-        mountWorldEditModeToggle() {
-            if(!this.panel||!['世界推进','角色管理'].includes(this.tab))return;
-            const title=this.tab==='世界推进'?'事件时间线':'人物名册';
-            const section=this.worldEditorSection(title),head=section?.querySelector('.we-section-head');
-            if(!head||head.querySelector('[data-action="world-edit-mode"]'))return;
-            const button=this.host.document.createElement('button');
-            button.type='button';button.className='we-btn we-world-edit-toggle';button.dataset.action='world-edit-mode';
-            button.textContent=this.worldEditorModeEnabled()?'退出编辑':'编辑模式';
-            button.setAttribute('aria-pressed',String(this.worldEditorModeEnabled()));
-            head.appendChild(button);
-        }
-        mountWorldEventEditorControls() {
-            if(!this.panel||this.tab!=='世界推进'||!this.worldEditorModeEnabled())return;
-            for(const card of this.panel.querySelectorAll('[data-event-card]')){
-                if(card.querySelector('.we-world-event-actions')||card.matches('.we-world-editing'))continue;
-                const name=String(card.dataset.eventCard||'');if(!name)continue;
-                const actions=this.host.document.createElement('div');actions.className='we-world-event-actions';
-                actions.innerHTML='<button type="button" data-action="world-event-edit" data-event-name="'+worldEditorEscape(name)+'">编辑</button><button type="button" data-action="world-event-delete" data-event-name="'+worldEditorEscape(name)+'">删除</button>';
-                card.appendChild(actions);
-            }
-        }
-        armWorldEventDelete(button,name) {
-            const actions=button?.closest?.('.we-world-event-actions');if(!actions)return false;
-            button.dataset.action='world-event-delete-confirm';button.textContent='确认删除';button.classList.add('we-world-editor-danger');
-            if(!actions.querySelector('[data-action="world-event-delete-cancel"]')){
-                const cancel=this.host.document.createElement('button');cancel.type='button';cancel.dataset.action='world-event-delete-cancel';cancel.dataset.eventName=name;cancel.textContent='取消';actions.appendChild(cancel);
-            }
-            return true;
-        }
-        cancelWorldEventDelete(button) {
-            const actions=button?.closest?.('.we-world-event-actions');if(!actions)return false;
-            const confirm=actions.querySelector('[data-action="world-event-delete-confirm"]');
-            if(confirm){confirm.dataset.action='world-event-delete';confirm.textContent='删除';confirm.classList.remove('we-world-editor-danger');}
-            actions.querySelector('[data-action="world-event-delete-cancel"]')?.remove();return true;
-        }
-        ensureWorldEventEditorStyles() {
-            if(!this.style||this.style.textContent.includes('.we-world-editor-actions{'))return;
-            this.style.textContent+='\n#sam-world-engine .we-world-edit-toggle{margin-left:auto}#sam-world-engine .we-world-event-actions,#sam-world-engine .we-world-editor-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap;margin-top:9px}#sam-world-engine .we-world-event-actions button,#sam-world-engine .we-world-editor-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;cursor:pointer}#sam-world-engine .we-world-editor-danger{color:#ff8c8c!important;border-color:#b85c5c!important}#sam-world-engine .we-world-editor-save{color:var(--we-accent,var(--gold))!important}#sam-world-engine .we-world-editor{display:grid;gap:10px}#sam-world-engine .we-world-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}#sam-world-engine .we-world-editor-grid label{display:grid;gap:4px;min-width:0}#sam-world-engine .we-world-editor-grid label>span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-world-editor-grid input,#sam-world-engine .we-world-editor-grid select,#sam-world-engine .we-world-editor-grid textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}#sam-world-engine .we-world-editor-grid textarea{min-height:78px!important;max-height:240px!important;resize:vertical;line-height:1.5}#sam-world-engine .we-world-editor-wide{grid-column:1/-1}#sam-world-engine .we-world-editing{overflow:visible}@media(max-width:680px){#sam-world-engine .we-world-editor-grid{grid-template-columns:1fr}#sam-world-engine .we-world-editor-wide{grid-column:auto}}';
-        }
-        worldEditorReportError(error,title='世界事件') {
-            const message=String(error?.message||error||'世界推进资料编辑失败');
-            const toast=this.host?.toastr||this.env?.toastr;
-            if(toast?.error)toast.error(message,title);else try{console.error('['+title+']',error);}catch(_){}
-        }
-        createPanel() {
-            super.createPanel();
-            if(!this.panel||this.panel.__worldEventEditorBound)return;
-            Object.defineProperty(this.panel,'__worldEventEditorBound',{value:true,configurable:true});
-            this.panel.addEventListener('click',event=>{
-                const button=event.target?.closest?.('[data-action="world-edit-mode"],[data-action^="world-event-"]');
-                if(!button||!this.panel.contains(button))return;
-                const action=String(button.dataset.action||'');
-                if(action==='world-edit-mode'){
-                    event.preventDefault();event.stopPropagation();this.toggleWorldEditorMode();return;
-                }
-                if(!action.startsWith('world-event-'))return;
-                event.preventDefault();event.stopPropagation();
-                const card=button.closest('[data-event-card]'),name=String(button.dataset.eventName||card?.dataset?.eventCard||card?.querySelector?.('[data-world-event-edit]')?.dataset?.worldEventName||'');
-                let task=null;
-                if(action==='world-event-edit')this.beginWorldEventEdit(name,card);
-                else if(action==='world-event-save')task=this.saveWorldEventInlineEdit(card,name);
-                else if(action==='world-event-cancel')this.render(true);
-                else if(action==='world-event-delete')this.armWorldEventDelete(button,name);
-                else if(action==='world-event-delete-confirm')task=this.removeWorldEventRecord(name);
-                else if(action==='world-event-delete-cancel')this.cancelWorldEventDelete(button);
-                if(task)Promise.resolve(task).catch(error=>this.worldEditorReportError(error,'世界事件'));
-            });
-        }
-        render(force) {
-            const result=super.render(force);
-            this.ensureWorldEventEditorStyles();
-            this.mountWorldEditModeToggle();
-            this.mountWorldEventEditorControls();
-            return result;
-        }
-    };
     // 角色管理只编辑世界推进自己的 世界.后台.人物 活动记录；正式人物档案仍由状态栏负责。
     function worldPersonValidateRecord(stat,name,record) {
         if(!plain(record))throw new Error('世界活动记录无效：'+name);
         const backend=worldEditorBackend(stat),events=backend.事件||{};
         for(const eventName of record.关联事件||[])if(!Object.hasOwn(events,eventName))throw new Error('关联事件不存在：'+eventName);
     }
-
-    const SamsaraWorldEngineBeforeWorldPersonEditor=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeWorldPersonEditor {
-        worldPersonRecord(name) {
-            return this.services?.people?.get(name)||null;
-        }
-        async setWorldPersonRecord(name,record) {
-            if(!this.services?.people)throw new Error('世界人物服务尚未初始化');
-            return this.services.people.save(name,record);
-        }
-        async removeWorldPersonRecord(name) {
-            if(!this.services?.people)throw new Error('世界人物服务尚未初始化');
-            return this.services.people.remove(name);
-        }
-        worldPersonInlineEditorHtml(name,record) {
-            const list=value=>Array.isArray(value)?value.join('\n'):'';
-            const json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
-            return '<div class="we-world-editor we-world-person-editor" data-world-person-edit data-world-person-name="'+worldEditorEscape(name)+'">'
-                +'<div class="we-world-editor-note"><b>'+worldEditorEscape(name)+'</b><span>只编辑世界活动记录；人物正式资料由状态栏维护。</span></div>'
-                +'<div class="we-world-editor-grid">'
-                +'<label><span>所属世界</span><input data-world-person-field="world" value="'+worldEditorEscape(record?.所属世界||'')+'"></label>'
-                +'<label><span>状态</span><input data-world-person-field="status" value="'+worldEditorEscape(record?.状态||'')+'"></label>'
-                +'<label><span>地点</span><input data-world-person-field="location" value="'+worldEditorEscape(record?.地点||'')+'"></label>'
-                +'<label><span>目标</span><input data-world-person-field="goal" value="'+worldEditorEscape(record?.目标||'')+'"></label>'
-                +'<label class="we-world-editor-wide"><span>当前行动</span><textarea data-world-person-field="action">'+worldEditorEscape(record?.行动||'')+'</textarea></label>'
-                +'<label class="we-world-editor-wide"><span>公开动态</span><textarea data-world-person-field="public">'+worldEditorEscape(record?.公开动态||'')+'</textarea></label>'
-                +'<label><span>开始时间</span><input data-world-person-field="start" value="'+worldEditorEscape(record?.开始时间||'')+'"></label>'
-                +'<label><span>预计结束</span><input data-world-person-field="end" value="'+worldEditorEscape(record?.预计结束||'')+'"></label>'
-                +'<label><span>下次检查</span><input data-world-person-field="nextCheck" value="'+worldEditorEscape(record?.下次检查||'')+'"></label>'
-                +'<label><span>更新时间</span><input data-world-person-field="updated" value="'+worldEditorEscape(record?.更新时间||'')+'"></label>'
-                +'<label class="we-world-editor-wide"><span>登场条件</span><textarea data-world-person-field="appearance">'+worldEditorEscape(record?.登场条件||'')+'</textarea></label>'
-                +'<label><span>认知（每行一条）</span><textarea data-world-person-field="knowledge">'+worldEditorEscape(list(record?.认知))+'</textarea></label>'
-                +'<label><span>关联事件（每行一个）</span><textarea data-world-person-field="events">'+worldEditorEscape(list(record?.关联事件))+'</textarea></label>'
-                +'<label class="we-world-editor-wide"><span>行程（JSON 数组）</span><textarea data-world-person-field="schedule">'+worldEditorEscape(json(record?.行程))+'</textarea></label>'
-                +'<label class="we-world-editor-wide"><span>认知来源（JSON 数组）</span><textarea data-world-person-field="knowledgeSources">'+worldEditorEscape(json(record?.认知来源))+'</textarea></label>'
-                +'<label class="we-world-editor-wide"><span>背景关联（JSON 数组）</span><textarea data-world-person-field="links">'+worldEditorEscape(json(record?.背景关联))+'</textarea></label>'
-                +'</div><div class="we-world-editor-actions">'
-                +'<button type="button" class="we-world-editor-save" data-action="world-person-save" data-person-name="'+worldEditorEscape(name)+'">保存修正</button>'
-                +'<button type="button" data-action="world-person-cancel">取消</button>'
-                +'</div></div>';
-        }
-        beginWorldPersonEdit(name,section) {
-            const found=this.worldPersonRecord(name);if(!found||!section)return false;
-            const head=section.querySelector('.we-section-head');
-            Array.from(section.children).forEach(child=>{if(child!==head)child.hidden=true;});
-            const editor=this.host.document.createElement('div');
-            editor.innerHTML=this.worldPersonInlineEditorHtml(found.name,found.record);
-            const node=editor.firstElementChild;section.appendChild(node);
-            try{node?.querySelector('[data-world-person-field="location"]')?.focus?.();}catch(_){}
-            return true;
-        }
-        async saveWorldPersonInlineEdit(section,name) {
-            if(!section)return false;
-            const editor=section.querySelector('[data-world-person-edit]');if(!editor)return false;
-            const value=key=>editor.querySelector('[data-world-person-field="'+key+'"]')?.value;
-            const found=this.worldPersonRecord(name);if(!found)return false;
-            return this.setWorldPersonRecord(found.name,{
-                ...copy(found.record),
-                所属世界:String(value('world')||'').trim(),
-                状态:String(value('status')||'').trim(),
-                地点:String(value('location')||'').trim(),
-                目标:String(value('goal')||'').trim(),
-                行动:String(value('action')||'').trim(),
-                公开动态:String(value('public')||'').trim(),
-                开始时间:String(value('start')||'').trim(),
-                预计结束:String(value('end')||'').trim(),
-                下次检查:String(value('nextCheck')||'').trim(),
-                更新时间:String(value('updated')||'').trim(),
-                登场条件:String(value('appearance')||'').trim(),
-                认知:worldEditorTextList(value('knowledge')),
-                关联事件:worldEditorTextList(value('events')),
-                行程:worldEditorJsonList(value('schedule'),'行程'),
-                认知来源:worldEditorJsonList(value('knowledgeSources'),'认知来源'),
-                背景关联:worldEditorJsonList(value('links'),'背景关联')
-            });
-        }
-        selectedWorldPersonName() {
-            if(!this.panel||this.tab!=='角色管理')return '';
-            const active=this.panel.querySelector('.we-roster-person.active');
-            return String(active?.dataset?.person||this.selectedPerson||'').trim();
-        }
-        mountWorldPersonEditorControls() {
-            if(!this.panel||this.tab!=='角色管理'||!this.worldEditorModeEnabled())return;
-            const selected=this.selectedWorldPersonName(),found=this.worldPersonRecord(selected);
-            if(!found)return;
-            const section=this.worldEditorSection('身份与当前行动'),head=section?.querySelector('.we-section-head');
-            if(!section||!head||head.querySelector('.we-world-person-actions'))return;
-            const actions=this.host.document.createElement('span');actions.className='we-world-person-actions';
-            actions.innerHTML='<button type="button" data-action="world-person-edit" data-person-name="'+worldEditorEscape(found.name)+'">编辑世界活动</button><button type="button" data-action="world-person-delete" data-person-name="'+worldEditorEscape(found.name)+'">删除世界活动记录</button>';
-            head.appendChild(actions);
-        }
-        armWorldPersonDelete(button,name) {
-            const actions=button?.closest?.('.we-world-person-actions');if(!actions)return false;
-            button.dataset.action='world-person-delete-confirm';button.textContent='确认仅删除世界活动';button.classList.add('we-world-editor-danger');
-            if(!actions.querySelector('[data-action="world-person-delete-cancel"]')){
-                const cancel=this.host.document.createElement('button');cancel.type='button';cancel.dataset.action='world-person-delete-cancel';cancel.dataset.personName=name;cancel.textContent='取消';actions.appendChild(cancel);
-            }
-            return true;
-        }
-        cancelWorldPersonDelete(button) {
-            const actions=button?.closest?.('.we-world-person-actions');if(!actions)return false;
-            const confirm=actions.querySelector('[data-action="world-person-delete-confirm"]');
-            if(confirm){confirm.dataset.action='world-person-delete';confirm.textContent='删除世界活动记录';confirm.classList.remove('we-world-editor-danger');}
-            actions.querySelector('[data-action="world-person-delete-cancel"]')?.remove();return true;
-        }
-        ensureWorldPersonEditorStyles() {
-            if(!this.style||this.style.textContent.includes('.we-world-person-actions{'))return;
-            this.style.textContent+='\n#sam-world-engine .we-world-person-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}#sam-world-engine .we-world-person-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 9px;cursor:pointer}#sam-world-engine .we-world-editor-note{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--we-line,var(--line));border-radius:8px;background:var(--we-surface,#111923)}#sam-world-engine .we-world-editor-note span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}';
-        }
-        createPanel() {
-            super.createPanel();
-            if(!this.panel||this.panel.__worldPersonEditorBound)return;
-            Object.defineProperty(this.panel,'__worldPersonEditorBound',{value:true,configurable:true});
-            this.panel.addEventListener('click',event=>{
-                const button=event.target?.closest?.('[data-action^="world-person-"]');
-                if(!button||!this.panel.contains(button))return;
-                const action=String(button.dataset.action||'');if(!action.startsWith('world-person-'))return;
-                event.preventDefault();event.stopPropagation();
-                const section=this.worldEditorSection('身份与当前行动');
-                const name=String(button.dataset.personName||section?.querySelector?.('[data-world-person-edit]')?.dataset?.worldPersonName||'');
-                let task=null;
-                if(action==='world-person-edit')this.beginWorldPersonEdit(name,section);
-                else if(action==='world-person-save')task=this.saveWorldPersonInlineEdit(section,name);
-                else if(action==='world-person-cancel')this.render(true);
-                else if(action==='world-person-delete')this.armWorldPersonDelete(button,name);
-                else if(action==='world-person-delete-confirm')task=this.removeWorldPersonRecord(name);
-                else if(action==='world-person-delete-cancel')this.cancelWorldPersonDelete(button);
-                if(task)Promise.resolve(task).catch(error=>this.worldEditorReportError(error,'世界人物'));
-            });
-        }
-        render(force) {
-            const result=super.render(force);
-            this.ensureWorldPersonEditorStyles();
-            this.mountWorldEditModeToggle();
-            this.mountWorldPersonEditorControls();
-            return result;
-        }
-    };
     // 变量重处理缺少 replay 时，直接使用 VARIABLE_UPDATE_ENDED 传入的 variables 重新推进；不等待 MVU 二次落盘。
     const SamsaraWorldEngineBeforeImmediateReprocessRetry=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeImmediateReprocessRetry {
@@ -7467,7 +7157,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(this.tab!=='提示词预设'||!this.panel)return;
             const main=this.panel.querySelector('main');if(!main)return;
             const audit=main.querySelector('[data-npc-audit-prompt]');
-            if(!this.isNpcBuildAuditEnabled())audit?.closest('details')?.remove();
+            // Prompt Registry 必须始终展示 NPC 审计提示词；开关只控制发送，不再隐藏编辑入口。
             let section=main.querySelector('[data-world-module-prompts]');
             if(!section){
                 section=this.host.document.createElement('section');
@@ -7769,156 +7459,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
         replay.operations.push({op:'set',path:stabilityPath,value:stable});
     }
-
-    const SamsaraWorldEngineBeforeCausalOffsetEditor=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeCausalOffsetEditor {
-        async persistCausalOffsetMutation(mutator,status) {
-            const snapshot=this.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
-            if(!plain(stat?.世界?.因果轨道))stat.世界.因果轨道={};
-            if(!plain(stat.世界.因果轨道.偏移记录))stat.世界.因果轨道.偏移记录={};
-            const outcome=mutator(stat.世界.因果轨道.偏移记录);
-            if(!outcome)return false;
-            const stable=causalOffsetRecalculateStability(stat);
-            causalOffsetSyncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
-            const target=this.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
-            if(target)target.__samsaraUIMutation=true;
-            try{
-                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
-            }finally{
-                if(target){
-                    if(had)target.__samsaraUIMutation=previous;
-                    else delete target.__samsaraUIMutation;
-                }
-            }
-            this.status=status||'因果偏移已更新';
-            this.render(true);
-            return true;
-        }
-        async setCausalOffsetRecord(oldName,newName,record) {
-            oldName=String(oldName||'').trim();newName=String(newName||'').trim();
-            if(!oldName||!newName||!plain(record))throw new Error('偏移名称和记录不能为空');
-            const impact=Number(record.影响程度);
-            if(!Number.isFinite(impact)||impact===0||impact<-12||impact>15)throw new Error('影响程度必须为 -12~-1 或 +1~+15');
-            return this.persistCausalOffsetMutation(bucket=>{
-                if(!Object.hasOwn(bucket,oldName))throw new Error('偏移记录不存在：'+oldName);
-                if(newName!==oldName&&Object.hasOwn(bucket,newName))throw new Error('偏移名称已存在：'+newName);
-                const next={描述:String(record.描述||'').trim(),引发者:String(record.引发者||'').trim(),影响程度:impact};
-                if(newName!==oldName)delete bucket[oldName];
-                bucket[newName]=next;
-                return {oldName,newName,record:next,deleted:false};
-            },'已编辑因果偏移 · 稳定值已重算');
-        }
-        async removeCausalOffsetRecord(name) {
-            name=String(name||'').trim();if(!name)return false;
-            return this.persistCausalOffsetMutation(bucket=>{
-                if(!Object.hasOwn(bucket,name))return null;
-                delete bucket[name];
-                return {oldName:name,newName:name,record:null,deleted:true};
-            },'已删除因果偏移 · 稳定值已重算');
-        }
-        causalOffsetRecord(name) {
-            return this.snapshot().stat?.世界?.因果轨道?.偏移记录?.[name]||null;
-        }
-        causalOffsetInlineEditorHtml(name,record) {
-            const impact=Number(record?.影响程度);
-            return '<div class="we-offset-inline-editor" data-offset-editor data-offset-original-name="'+causalOverviewEscape(name)+'">'
-                +'<div class="we-offset-edit-grid">'
-                +'<label class="we-offset-edit-field"><span>偏移名称</span><input type="text" data-offset-field="name" value="'+causalOverviewEscape(name)+'"></label>'
-                +'<label class="we-offset-edit-field"><span>影响程度</span><input type="number" min="-12" max="15" step="1" data-offset-field="impact" value="'+causalOverviewEscape(Number.isFinite(impact)?impact:'')+'"><small>-12~-1 或 +1~+15</small></label>'
-                +'<label class="we-offset-edit-field we-offset-edit-wide"><span>偏移描述</span><textarea rows="4" data-offset-field="description" placeholder="只写已经实现的世界级长期改变">'+causalOverviewEscape(record?.描述||'')+'</textarea></label>'
-                +'<label class="we-offset-edit-field we-offset-edit-wide"><span>引发者</span><input type="text" data-offset-field="actor" value="'+causalOverviewEscape(record?.引发者||'')+'"></label>'
-                +'</div><div class="we-offset-actions we-offset-edit-actions">'
-                +'<button type="button" class="we-offset-save" data-action="causal-offset-save" data-offset-name="'+causalOverviewEscape(name)+'">保存</button>'
-                +'<button type="button" data-action="causal-offset-cancel">取消</button>'
-                +'</div></div>';
-        }
-        beginCausalOffsetInlineEdit(name,card) {
-            const record=this.causalOffsetRecord(name);if(!plain(record)||!card)return false;
-            card.innerHTML=this.causalOffsetInlineEditorHtml(name,record);
-            card.classList.add('we-offset-editing');
-            const first=card.querySelector('[data-offset-field="name"]');
-            try{first?.focus?.();first?.select?.();}catch(_){}
-            return true;
-        }
-        async saveCausalOffsetInlineEdit(card,oldName) {
-            if(!card)return false;
-            const value=key=>card.querySelector('[data-offset-field="'+key+'"]')?.value;
-            return this.setCausalOffsetRecord(oldName,String(value('name')||'').trim(),{
-                描述:String(value('description')||'').trim(),
-                引发者:String(value('actor')||'').trim(),
-                影响程度:Number(value('impact'))
-            });
-        }
-        armCausalOffsetDelete(button,name) {
-            if(!button)return false;
-            const actions=button.closest('.we-offset-actions');if(!actions)return false;
-            button.dataset.action='causal-offset-delete-confirm';
-            button.textContent='确认删除';
-            button.classList.add('we-offset-delete-confirm');
-            if(!actions.querySelector('[data-action="causal-offset-delete-cancel"]')){
-                const cancel=this.host.document.createElement('button');
-                cancel.type='button';cancel.dataset.action='causal-offset-delete-cancel';cancel.textContent='取消';
-                cancel.dataset.offsetName=String(name||'');
-                actions.appendChild(cancel);
-            }
-            return true;
-        }
-        cancelCausalOffsetDelete(button) {
-            const actions=button?.closest?.('.we-offset-actions');if(!actions)return false;
-            const confirm=actions.querySelector('[data-action="causal-offset-delete-confirm"]');
-            if(confirm){confirm.dataset.action='causal-offset-delete';confirm.textContent='删除';confirm.classList.remove('we-offset-delete-confirm');}
-            actions.querySelector('[data-action="causal-offset-delete-cancel"]')?.remove();
-            return true;
-        }
-        ensureCausalOffsetEditorStyles() {
-            if(!this.style||this.style.textContent.includes('.we-offset-actions{'))return;
-            this.style.textContent+='\n#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:9px;flex-wrap:wrap}#sam-world-engine .we-offset-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-offset-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-offset-actions [data-action="causal-offset-delete"]:hover,#sam-world-engine .we-offset-delete-confirm{color:#ff8c8c!important;border-color:#b85c5c!important}#sam-world-engine .we-offset-save{color:var(--we-accent,var(--gold))!important;border-color:color-mix(in srgb,var(--we-accent,var(--gold)) 45%,transparent)!important}#sam-world-engine .we-offset-editing{overflow:visible}#sam-world-engine .we-offset-inline-editor{display:grid;gap:8px}#sam-world-engine .we-offset-edit-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(140px,.6fr);gap:8px 12px;align-items:start}#sam-world-engine .we-offset-edit-field{display:grid;gap:4px;align-content:start}#sam-world-engine .we-offset-edit-field>span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-offset-edit-field>small{color:var(--we-sub,var(--sub));font-size:10px}#sam-world-engine .we-offset-edit-field input,#sam-world-engine .we-offset-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}#sam-world-engine .we-offset-edit-field textarea{height:92px!important;min-height:80px!important;max-height:180px!important;resize:vertical;line-height:1.55}#sam-world-engine .we-offset-edit-field input:focus,#sam-world-engine .we-offset-edit-field textarea:focus{outline:1px solid var(--we-accent,var(--gold));border-color:var(--we-accent,var(--gold))}#sam-world-engine .we-offset-edit-wide{grid-column:1/-1}#sam-world-engine .we-offset-edit-actions{margin-top:2px}@media(max-width:680px){#sam-world-engine .we-offset-edit-grid{grid-template-columns:1fr}}';
-        }
-        mountCausalOffsetEditorControls() {
-            if(this.tab!=='因果档案'||!this.panel)return;
-            const cards=Array.from(this.panel.querySelectorAll('.we-offset'));
-            const entries=causalOffsetEntries(this.snapshot().stat);
-            cards.forEach((card,index)=>{
-                const name=entries[index]?.[0];if(!name||card.querySelector('.we-offset-actions'))return;
-                card.dataset.offsetName=name;
-                const actions=this.host.document.createElement('div');actions.className='we-offset-actions';
-                actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+causalOverviewEscape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+causalOverviewEscape(name)+'">删除</button>';
-                card.appendChild(actions);
-            });
-        }
-        createPanel() {
-            super.createPanel();
-            if(!this.panel||this.panel.__causalOffsetEditorBound)return;
-            Object.defineProperty(this.panel,'__causalOffsetEditorBound',{value:true,configurable:true});
-            this.panel.addEventListener('click',event=>{
-                const button=event.target?.closest?.('[data-action^="causal-offset-"]');
-                if(!button||!this.panel.contains(button))return;
-                const action=String(button.dataset.action||'');
-                if(!['causal-offset-edit','causal-offset-save','causal-offset-cancel','causal-offset-delete','causal-offset-delete-confirm','causal-offset-delete-cancel'].includes(action))return;
-                event.preventDefault();event.stopPropagation();
-                const card=button.closest('.we-offset');
-                const name=String(button.dataset.offsetName||card?.dataset?.offsetName||card?.querySelector?.('[data-offset-editor]')?.dataset?.offsetOriginalName||'');
-                let task=null;
-                if(action==='causal-offset-edit')this.beginCausalOffsetInlineEdit(name,card);
-                else if(action==='causal-offset-save')task=this.saveCausalOffsetInlineEdit(card,name);
-                else if(action==='causal-offset-cancel')this.render(true);
-                else if(action==='causal-offset-delete')this.armCausalOffsetDelete(button,name);
-                else if(action==='causal-offset-delete-confirm')task=this.removeCausalOffsetRecord(name);
-                else if(action==='causal-offset-delete-cancel')this.cancelCausalOffsetDelete(button);
-                if(task)Promise.resolve(task).catch(error=>{
-                    const message=String(error?.message||error||'因果偏移操作失败');
-                    const toast=this.host?.toastr||this.env?.toastr;
-                    if(toast?.error)toast.error(message,'因果偏移');else try{console.error('[因果偏移]',error);}catch(_){}
-                });
-            });
-        }
-        render(force) {
-            const result=super.render(force);
-            this.ensureCausalOffsetEditorStyles();
-            this.mountCausalOffsetEditorControls();
-            return result;
-        }
-    };
     // 专属 API 预设选择态：选择预设后即使面板重渲染，也必须保持选中并允许删除。
     const SamsaraWorldEngineBeforeApiPresetSelection=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeApiPresetSelection {
@@ -8293,175 +7833,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         const source=Array.isArray(value)?value.join('\n'):String(value||'');
         return [...new Set(source.split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
     }
-
-    const SamsaraWorldEngineBeforeHistoryMemoryEditor=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeHistoryMemoryEditor {
-        async persistHistoryMemoryEdit(kind,name,build,status) {
-            name=String(name||'').trim();
-            if(!name)throw new Error('历史记录名称不能为空');
-            const snapshot=this.snapshot(),next=copy(snapshot.raw),stat=next.stat_data,backend=stat?.世界?.[PATH];
-            if(!plain(backend))throw new Error('世界后台不存在');
-            const bucketName=kind==='summary'?'历史总结':'历史';
-            const bucket=backend[bucketName];
-            if(!plain(bucket)||!plain(bucket[name]))throw new Error((kind==='summary'?'长期历史总结':'近期历史锚点')+'不存在：'+name);
-            const updated=build(copy(bucket[name]));
-            if(!plain(updated))throw new Error('历史编辑结果无效');
-            bucket[name]=updated;
-            historyMemoryEditorSyncReplay(next,snapshot.fingerprint,['世界',PATH,bucketName,name],updated);
-            const target=this.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
-            if(target)target.__samsaraUIMutation=true;
-            try{
-                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
-            }finally{
-                if(target){
-                    if(had)target.__samsaraUIMutation=previous;
-                    else delete target.__samsaraUIMutation;
-                }
-            }
-            this.lastHistoryMaintenance=status||'历史记忆已手动修正';
-            this.status=status||'历史记忆已手动修正';
-            this.render(true);
-            return true;
-        }
-        async setHistoryAnchorRecord(name,record) {
-            const time=String(record?.时间||'').trim(),fact=String(record?.事实||'').trim();
-            if(!fact)throw new Error('历史事实不能为空');
-            const related=historyMemoryEditorRelated(record?.关联事件);
-            return this.persistHistoryMemoryEdit('anchor',name,current=>({
-                ...current,
-                时间:time,
-                事实:fact,
-                关联事件:related
-            }),'已修正近期历史锚点');
-        }
-        async setHistorySummaryRecord(name,record) {
-            const summary=String(record?.摘要||'').trim();
-            if(!summary)throw new Error('长期历史摘要不能为空');
-            const start=String(record?.起始时间||'').trim(),end=String(record?.结束时间||'').trim();
-            return this.persistHistoryMemoryEdit('summary',name,current=>({
-                ...current,
-                // 层级、子项、序位、创建时间全部保留，避免破坏可追溯总结树。
-                摘要:summary,
-                起始时间:start,
-                结束时间:end
-            }),'已修正长期历史总结');
-        }
-        historyMemoryEditorBackend() {
-            return this.snapshot().stat?.世界?.[PATH]||{};
-        }
-        historyMemoryEditorSection(title) {
-            if(!this.panel)return null;
-            return Array.from(this.panel.querySelectorAll('.we-section')).find(section=>String(section.querySelector('.we-section-head h2')?.textContent||'').trim()===title)||null;
-        }
-        historyAnchorInlineEditorHtml(name,record) {
-            return '<div class="we-history-inline-editor" data-history-editor="anchor" data-history-name="'+historyMemoryEditorEscape(name)+'">'
-                +'<div class="we-history-edit-title"><b>'+historyMemoryEditorEscape(name)+'</b><span>近期历史锚点</span></div>'
-                +'<div class="we-history-edit-grid">'
-                +'<label class="we-history-edit-field"><span>时间</span><input type="text" data-history-field="time" value="'+historyMemoryEditorEscape(record?.时间||'')+'"></label>'
-                +'<label class="we-history-edit-field we-history-edit-wide"><span>已确认事实</span><textarea rows="4" data-history-field="fact" placeholder="只写已经确认发生的历史事实">'+historyMemoryEditorEscape(record?.事实||'')+'</textarea></label>'
-                +'<label class="we-history-edit-field we-history-edit-wide"><span>关联事件</span><input type="text" data-history-field="related" value="'+historyMemoryEditorEscape((Array.isArray(record?.关联事件)?record.关联事件:[]).join('、'))+'"><small>多个事件可用 、 或逗号分隔</small></label>'
-                +'</div><div class="we-history-actions">'
-                +'<button type="button" class="we-history-save" data-action="history-anchor-save" data-history-name="'+historyMemoryEditorEscape(name)+'">保存</button>'
-                +'<button type="button" data-action="history-anchor-cancel">取消</button>'
-                +'</div></div>';
-        }
-        historySummaryInlineEditorHtml(name,record) {
-            return '<div class="we-history-inline-editor" data-history-editor="summary" data-history-name="'+historyMemoryEditorEscape(name)+'">'
-                +'<div class="we-history-edit-title"><b>'+historyMemoryEditorEscape(name)+'</b><span>L'+historyMemoryEditorEscape(Number(record?.层级)||1)+' · 树结构锁定</span></div>'
-                +'<div class="we-history-edit-grid">'
-                +'<label class="we-history-edit-field"><span>起始时间</span><input type="text" data-history-field="start" value="'+historyMemoryEditorEscape(record?.起始时间||'')+'"></label>'
-                +'<label class="we-history-edit-field"><span>结束时间</span><input type="text" data-history-field="end" value="'+historyMemoryEditorEscape(record?.结束时间||'')+'"></label>'
-                +'<label class="we-history-edit-field we-history-edit-wide"><span>长期历史摘要</span><textarea rows="5" data-history-field="summary" placeholder="修正这段长期历史的已确认事实概括">'+historyMemoryEditorEscape(record?.摘要||'')+'</textarea></label>'
-                +'</div><div class="we-history-actions">'
-                +'<button type="button" class="we-history-save" data-action="history-summary-save" data-history-name="'+historyMemoryEditorEscape(name)+'">保存</button>'
-                +'<button type="button" data-action="history-summary-cancel">取消</button>'
-                +'</div></div>';
-        }
-        beginHistoryMemoryEdit(kind,name,card) {
-            const backend=this.historyMemoryEditorBackend();
-            const record=kind==='summary'?backend?.历史总结?.[name]:backend?.历史?.[name];
-            if(!plain(record)||!card)return false;
-            card.innerHTML=kind==='summary'?this.historySummaryInlineEditorHtml(name,record):this.historyAnchorInlineEditorHtml(name,record);
-            card.classList.add('we-history-editing');
-            const first=card.querySelector('textarea,input');
-            try{first?.focus?.();}catch(_){}
-            return true;
-        }
-        async saveHistoryAnchorInlineEdit(card,name) {
-            if(!card)return false;
-            const value=key=>card.querySelector('[data-history-field="'+key+'"]')?.value;
-            return this.setHistoryAnchorRecord(name,{
-                时间:String(value('time')||'').trim(),
-                事实:String(value('fact')||'').trim(),
-                关联事件:historyMemoryEditorRelated(value('related'))
-            });
-        }
-        async saveHistorySummaryInlineEdit(card,name) {
-            if(!card)return false;
-            const value=key=>card.querySelector('[data-history-field="'+key+'"]')?.value;
-            return this.setHistorySummaryRecord(name,{
-                起始时间:String(value('start')||'').trim(),
-                结束时间:String(value('end')||'').trim(),
-                摘要:String(value('summary')||'').trim()
-            });
-        }
-        ensureHistoryMemoryEditorStyles() {
-            if(!this.style||this.style.textContent.includes('.we-history-actions{'))return;
-            this.style.textContent+='\n#sam-world-engine .we-history-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}#sam-world-engine .we-history-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-history-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-history-save{color:var(--we-accent,var(--gold))!important;border-color:color-mix(in srgb,var(--we-accent,var(--gold)) 45%,transparent)!important}#sam-world-engine .we-history-inline-editor{display:grid;gap:9px}#sam-world-engine .we-history-edit-title{display:flex;justify-content:space-between;gap:10px;align-items:center}#sam-world-engine .we-history-edit-title span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-history-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}#sam-world-engine .we-history-edit-field{display:grid;gap:4px;min-width:0}#sam-world-engine .we-history-edit-field>span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-history-edit-field>small{color:var(--we-sub,var(--sub));font-size:10px}#sam-world-engine .we-history-edit-field input,#sam-world-engine .we-history-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}#sam-world-engine .we-history-edit-field textarea{min-height:86px!important;max-height:220px!important;resize:vertical;line-height:1.55}#sam-world-engine .we-history-edit-field input:focus,#sam-world-engine .we-history-edit-field textarea:focus{outline:1px solid var(--we-accent,var(--gold));border-color:var(--we-accent,var(--gold))}#sam-world-engine .we-history-edit-wide{grid-column:1/-1}#sam-world-engine .we-history-editing{overflow:visible}@media(max-width:680px){#sam-world-engine .we-history-edit-grid{grid-template-columns:1fr}#sam-world-engine .we-history-edit-wide{grid-column:auto}}';
-        }
-        mountHistoryMemoryEditorControls() {
-            if(this.tab!=='运行记录'||!this.panel)return;
-            const backend=this.historyMemoryEditorBackend(),memory=projectWorldHistoryMemory(backend);
-            const recentNames=Object.entries(memory.近期锚点||{}).reverse().map(([name])=>name);
-            const recentSection=this.historyMemoryEditorSection('近期历史锚点');
-            Array.from(recentSection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
-                const name=recentNames[index];if(!name||card.querySelector('.we-history-actions'))return;
-                card.dataset.historyName=name;card.dataset.historyKind='anchor';
-                const actions=this.host.document.createElement('div');actions.className='we-history-actions';
-                actions.innerHTML='<button type="button" data-action="history-anchor-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';
-                card.appendChild(actions);
-            });
-            const summaryNames=(memory.长期总结||[]).slice().reverse().map(item=>item.名称);
-            const summarySection=this.historyMemoryEditorSection('长期历史总结');
-            Array.from(summarySection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
-                const name=summaryNames[index];if(!name||card.querySelector('.we-history-actions'))return;
-                card.dataset.historyName=name;card.dataset.historyKind='summary';
-                const actions=this.host.document.createElement('div');actions.className='we-history-actions';
-                actions.innerHTML='<button type="button" data-action="history-summary-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';
-                card.appendChild(actions);
-            });
-        }
-        createPanel() {
-            super.createPanel();
-            if(!this.panel||this.panel.__historyMemoryEditorBound)return;
-            Object.defineProperty(this.panel,'__historyMemoryEditorBound',{value:true,configurable:true});
-            this.panel.addEventListener('click',event=>{
-                const button=event.target?.closest?.('[data-action^="history-anchor-"],[data-action^="history-summary-"]');
-                if(!button||!this.panel.contains(button))return;
-                const action=String(button.dataset.action||'');
-                if(!['history-anchor-edit','history-anchor-save','history-anchor-cancel','history-summary-edit','history-summary-save','history-summary-cancel'].includes(action))return;
-                event.preventDefault();event.stopPropagation();
-                const card=button.closest('.we-card'),name=String(button.dataset.historyName||card?.dataset?.historyName||card?.querySelector?.('[data-history-editor]')?.dataset?.historyName||'');
-                let task=null;
-                if(action==='history-anchor-edit')this.beginHistoryMemoryEdit('anchor',name,card);
-                else if(action==='history-summary-edit')this.beginHistoryMemoryEdit('summary',name,card);
-                else if(action==='history-anchor-save')task=this.saveHistoryAnchorInlineEdit(card,name);
-                else if(action==='history-summary-save')task=this.saveHistorySummaryInlineEdit(card,name);
-                else if(action.endsWith('-cancel'))this.render(true);
-                if(task)Promise.resolve(task).catch(error=>{
-                    const message=String(error?.message||error||'历史记忆编辑失败');
-                    const toast=this.host?.toastr||this.env?.toastr;
-                    if(toast?.error)toast.error(message,'历史记忆');else try{console.error('[历史记忆编辑]',error);}catch(_){}
-                });
-            });
-        }
-        render(force) {
-            const result=super.render(force);
-            this.ensureHistoryMemoryEditorStyles();
-            this.mountHistoryMemoryEditorControls();
-            return result;
-        }
-    };
     class WorldMutationService {
         constructor(engine){this.engine=engine;}
         snapshot(){return this.engine.snapshot();}
@@ -8575,6 +7946,93 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(typeof this.engine.requestHistoryMemorySummary!=='function')throw new Error('历史记忆服务尚未初始化');
             return this.engine.requestHistoryMemorySummary(world,batch,level);
         }
+        backend(){return this.engine.snapshot().stat?.世界?.[PATH]||{};}
+        async commitEdit(kind,name,build,status){
+            name=String(name||'').trim();
+            if(!name)throw new Error('历史记录名称不能为空');
+            const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data,backend=stat?.世界?.[PATH];
+            if(!plain(backend))throw new Error('世界后台不存在');
+            const bucketName=kind==='summary'?'历史总结':'历史',bucket=backend[bucketName];
+            if(!plain(bucket)||!plain(bucket[name]))throw new Error((kind==='summary'?'长期历史总结':'近期历史锚点')+'不存在：'+name);
+            const updated=build(copy(bucket[name]));
+            if(!plain(updated))throw new Error('历史编辑结果无效');
+            bucket[name]=updated;
+            historyMemoryEditorSyncReplay(next,snapshot.fingerprint,['世界',PATH,bucketName,name],updated);
+            const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
+            if(target)target.__samsaraUIMutation=true;
+            try{
+                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
+            }finally{
+                if(target){
+                    if(had)target.__samsaraUIMutation=previous;
+                    else delete target.__samsaraUIMutation;
+                }
+            }
+            engine.lastHistoryMaintenance=status||'历史记忆已手动修正';
+            engine.status=status||'历史记忆已手动修正';
+            engine.render(true);
+            return true;
+        }
+        async saveAnchor(name,record){
+            const time=String(record?.时间||'').trim(),fact=String(record?.事实||'').trim();
+            if(!fact)throw new Error('历史事实不能为空');
+            const related=historyMemoryEditorRelated(record?.关联事件);
+            return this.commitEdit('anchor',name,current=>({...current,时间:time,事实:fact,关联事件:related}),'已修正近期历史锚点');
+        }
+        async saveSummary(name,record){
+            const summary=String(record?.摘要||'').trim();
+            if(!summary)throw new Error('长期历史摘要不能为空');
+            const start=String(record?.起始时间||'').trim(),end=String(record?.结束时间||'').trim();
+            return this.commitEdit('summary',name,current=>({...current,摘要:summary,起始时间:start,结束时间:end}),'已修正长期历史总结');
+        }
+    }
+    class WorldCausalService {
+        constructor(engine){this.engine=engine;}
+        get(name){return this.engine.snapshot().stat?.世界?.因果轨道?.偏移记录?.[String(name||'').trim()]||null;}
+        async commit(mutator,status){
+            const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
+            if(!plain(stat?.世界?.因果轨道))stat.世界.因果轨道={};
+            if(!plain(stat.世界.因果轨道.偏移记录))stat.世界.因果轨道.偏移记录={};
+            const outcome=mutator(stat.世界.因果轨道.偏移记录);
+            if(!outcome)return false;
+            const stable=causalOffsetRecalculateStability(stat);
+            causalOffsetSyncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
+            const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
+            if(target)target.__samsaraUIMutation=true;
+            try{
+                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
+            }finally{
+                if(target){
+                    if(had)target.__samsaraUIMutation=previous;
+                    else delete target.__samsaraUIMutation;
+                }
+            }
+            engine.status=status||'因果偏移已更新';
+            engine.render(true);
+            return true;
+        }
+        async save(oldName,newName,record){
+            oldName=String(oldName||'').trim();newName=String(newName||'').trim();
+            if(!oldName||!newName||!plain(record))throw new Error('偏移名称和记录不能为空');
+            const impact=Number(record.影响程度);
+            if(!Number.isFinite(impact)||impact===0||impact<-12||impact>15)throw new Error('影响程度必须为 -12~-1 或 +1~+15');
+            return this.commit(bucket=>{
+                if(!Object.hasOwn(bucket,oldName))throw new Error('偏移记录不存在：'+oldName);
+                if(newName!==oldName&&Object.hasOwn(bucket,newName))throw new Error('偏移名称已存在：'+newName);
+                const next={描述:String(record.描述||'').trim(),引发者:String(record.引发者||'').trim(),影响程度:impact};
+                if(newName!==oldName)delete bucket[oldName];
+                bucket[newName]=next;
+                return {oldName,newName,record:next,deleted:false};
+            },'已编辑因果偏移 · 稳定值已重算');
+        }
+        async remove(name){
+            name=String(name||'').trim();if(!name)return false;
+            return this.commit(bucket=>{
+                if(!Object.hasOwn(bucket,name))return null;
+                delete bucket[name];
+                return {oldName:name,newName:name,record:null,deleted:true};
+            },'已删除因果偏移 · 稳定值已重算');
+        }
     }
     class WorldExplorationService {
         constructor(engine){this.engine=engine;}
@@ -8597,48 +8055,105 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         build(base){return this.engine.buildRequest(base||this.engine.snapshot());}
         preview(){return this.engine.preview?.();}
         request(system,input,options){return this.engine.requestAI(system,input,options);}
+        retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]){
+            let raw=retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan);
+            let payload;try{payload=JSON.parse(raw);}catch(_){return raw;}
+            if(plain(payload.纠错重试)){
+                payload.纠错重试.要求=this.engine.services?.prompts?.retryRequirement(acceptedResult,retryPlan)||payload.纠错重试.要求;
+            }
+            return JSON.stringify(payload,null,2);
+        }
     }
+    const WORLD_PROMPT_RETRY_ACCEPTED_PLAN='严格按“补充清单”只补充或修正未通过的业务片段。已接受业务结果已经通过本地验收，默认全部保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。';
+    const WORLD_PROMPT_RETRY_ACCEPTED='只补充或修正导致拒绝的业务片段。已接受业务结果默认保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。';
+    const WORLD_PROMPT_RETRY_FRESH='修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。';
+    const WORLD_PROMPT_PROJECTION_GUIDANCE='非战斗正文会读取完整因果轨道：当前阶段用于当前局势，故事线/下一节点用于长期叙事方向，偏移记录用于跨章因果记忆；这些是规划依据，不等于角色预知或自动知晓幕后信息。正文还会读取进行中当前事件的公开字段，以及程序筛选的场外场景：每个热地区只出现一次共享环境/现场群体，人物列表只携带各自行动事实，关联事件只作索引；活跃异端始终保留在其所在热场景。以上均用于叙事连续性，不代表角色已知。可能影响当前场景的当前事件应维护公开征兆和可见影响；不要把隐藏条件、默认走向或未来宏观事件详情塞进公开字段。';
+    const WORLD_PROMPT_REQUEST_SUMMARY='当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。';
+    const WORLD_PROMPT_MACRO_PLANNING='本轮必须补齐骨架，不能以时间未推进、正文没有宏观变化或无业务变化为由省略。建立待发生节点属于未来规划，可排在下一宏观边界之后，不表示事件现在发生；近期细节与已发生事实仍受本轮时间容量和下一宏观边界限制。不得为凑数提前原著日期，或预先结算未来事件的结果；更新时间使用当前世界时间。';
+    const WORLD_PROMPT_MACRO_ACCEPTANCE='按已有状态与本轮结果合并后计数；若本轮结束或取消已有宏观节点，须补足被移出窗口的数量。重试时以已接受业务结果和最新补充清单为准，不重复创建已接受节点。';
+    const WORLD_PROMPT_DUE_REVIEW='软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。';
+    const WORLD_PROMPT_CHRONOLOGY_INPUT='宏观节点先定原著/数据库日期、节点粒度与合理跨度，再展开当前→下一节点区间。明确到日的日期必须服从；仅有月份、时段或顺序时按软约束保守规划，不因估计差异反复改期。';
+    const WORLD_PROMPT_CHRONOLOGY_PRINCIPLES=JSON.stringify({
+        滚动窗口:'3~5个宏观节点只是当前规划视野，不要求覆盖完整篇章；宁可规划得近，也不要把远期大事件打包。',
+        节点粒度:'一个宏观节点只表达一个阶段转折；远行、集结、连续战役或多个独立剧情阶段应拆分或拉开跨度。',
+        间隔自检:'排期前先判断从上一节点到本节点现实上必须经历什么，为旅行、准备、组织动员与因果发展留足时间。',
+        时间精度:'资料只到月份/时段/顺序时保持同级精度并保守留白，不为方便排序强造日级日期。'
+    },null,2);
+    const WORLD_PROMPT_ALIEN_REVIEW='仅因本轮触发复核才需要在 WorldResult.人物 中提交该活跃异端的新活动；至少给出非空地点、目标、行动。人物更新时间无需抄写，由程序使用本轮最终世界时间统一记录。未获得新情报时沿用既有目标/行动，不得因为模型看见<user>行为就自动追踪或改策；若因<user>行为改变目标/行动，必须已有认知或同轮写入可追溯的认知/认知来源。若本轮已确认死亡，则只把异端状态更新为死亡。';
+    const WORLD_PROMPT_WORLD_ACTIVITY_INPUT=[
+        '异端不能作为本轮唯一变化；至少推进事件、势力地区或普通人物中的一项非异端实质变化。',
+        '若地区为空：建立至少1个与当前地点/阶段相关的地区。',
+        '若势力为空：建立至少1个当前真实相关的势力/组织；同名提交 WorldResult.势力（实力/领地/描述/声望）与 WorldResult.势力地区（类型=势力的动态现场）。',
+        '若没有进行中的非宏观事件：建立至少1个正在发生的当前事件/近期节点。',
+        '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
+    ].join('\n');
+    const WORLD_PROMPT_HISTORY_INPUT='按给定顺序压缩；时间字段是权威锚点，不得改写或补造。';
+    const WORLD_PROMPT_INPUT_SEMANTICS=JSON.stringify({
+        世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
+        当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；未提供的任务/商城/纯结算数据不属于本引擎职责。',
+        正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
+        程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
+        时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
+        WorldResult:'唯一业务交付物；不包含 JSON Pointer、add/replace 路径或程序日志。',
+        角色管理:'若提供NPC构筑审计，只处理列出的既有NPC缺口；完整构筑资料只在审计对象中提供，避免全量NPC重复占用上下文。'
+    },null,2);
+
     class WorldPromptRegistry {
         constructor(engine){
             this.engine=engine;
+            const def=(value)=>Object.freeze(value);
             this._definitions=Object.freeze([
-                Object.freeze({key:'preset',title:'执行流程 / 主预设',group:'主流程',source:'COMPACT_DEFAULT_PRESET / config.preset',native:true,defaultValue:()=>typeof COMPACT_DEFAULT_PRESET==='string'?COMPACT_DEFAULT_PRESET:DEFAULT_PRESET}),
-                Object.freeze({key:'core',title:'世界引擎核心约束',group:'主流程',source:'CORE_WORLD_RULES',native:true,defaultValue:()=>typeof COMPACT_CORE_WORLD_RULES==='string'?COMPACT_CORE_WORLD_RULES:CORE_WORLD_RULES}),
-                Object.freeze({key:'macro',title:'宏观骨架',group:'主流程',source:'DEFAULT_MACRO_PROMPT',native:true,defaultValue:()=>typeof COMPACT_MACRO_PROMPT==='string'?COMPACT_MACRO_PROMPT:DEFAULT_MACRO_PROMPT}),
-                Object.freeze({key:'stability',title:'世界自救',group:'主流程',source:'DEFAULT_STABILITY_PROMPT_TEMPLATE',native:true,defaultValue:()=>typeof COMPACT_STABILITY_PROMPT_TEMPLATE==='string'?COMPACT_STABILITY_PROMPT_TEMPLATE:DEFAULT_STABILITY_PROMPT_TEMPLATE}),
-                Object.freeze({key:'npcAudit',title:'NPC构筑审计',group:'主流程',source:'NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT',native:true,defaultValue:()=>typeof NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT==='string'?NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT:NPC_BUILD_AUDIT_RULES}),
-                Object.freeze({key:'outputProtocol',title:'WorldResult 输出协议说明',group:'主流程',source:'protocol()',native:true,defaultValue:()=>protocol().split('【Canonical WorldResult JSON Schema】')[0].trim()}),
-                Object.freeze({key:'task',title:'任务只读',group:'运行模块',source:'TASK_AWARENESS_RULES',defaultValue:()=>typeof TASK_AWARENESS_RULES==='string'?TASK_AWARENESS_RULES:''}),
-                Object.freeze({key:'chronology',title:'原著 / 数据库时间轴',group:'运行模块',source:'CHRONOLOGY_GUARD_RULES',defaultValue:()=>typeof CHRONOLOGY_GUARD_RULES==='string'?CHRONOLOGY_GUARD_RULES:''}),
-                Object.freeze({key:'maintenance',title:'分级维护',group:'运行模块',source:'SOFT_MAINTENANCE_RULES',defaultValue:()=>typeof SOFT_MAINTENANCE_RULES==='string'?SOFT_MAINTENANCE_RULES:''}),
-                Object.freeze({key:'exploration',title:'探索台账',group:'运行模块',source:'EXPLORATION_PROJECTION_RULES',defaultValue:()=>typeof EXPLORATION_PROJECTION_RULES==='string'?EXPLORATION_PROJECTION_RULES:''}),
-                Object.freeze({key:'integrity',title:'因果与事实时间',group:'运行模块',source:'WORLD_INTEGRITY_GUARD_RULES',defaultValue:()=>typeof WORLD_INTEGRITY_GUARD_RULES==='string'?WORLD_INTEGRITY_GUARD_RULES:''}),
-                Object.freeze({key:'worldTime',title:'世界时间所有权',group:'运行模块',source:'WORLD_TIME_RULES',defaultValue:()=>typeof WORLD_TIME_RULES==='string'?WORLD_TIME_RULES:''}),
-                Object.freeze({key:'rumor',title:'传闻与传播',group:'运行模块',source:'RUMOR_WORLD_SOURCE_RULES',defaultValue:()=>typeof RUMOR_WORLD_SOURCE_RULES==='string'?RUMOR_WORLD_SOURCE_RULES:(typeof RUMOR_THROTTLE_RULES==='string'?RUMOR_THROTTLE_RULES:'')}),
-                Object.freeze({key:'worldActivity',title:'世界活动交付',group:'运行模块',source:'WORLD_ACTIVITY_DELIVERY_RULES',defaultValue:()=>typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:''}),
-                Object.freeze({key:'historyMemory',title:'世界长期历史压缩',group:'辅助模型',source:'HISTORY_MEMORY_SYSTEM',defaultValue:()=>typeof HISTORY_MEMORY_SYSTEM==='string'?HISTORY_MEMORY_SYSTEM:''})
+                def({key:'preset',title:'执行流程 / 主预设',group:'主流程',source:'COMPACT_DEFAULT_PRESET / config.preset',scope:'system',condition:'每次主世界推进请求',native:true,defaultValue:()=>typeof COMPACT_DEFAULT_PRESET==='string'?COMPACT_DEFAULT_PRESET:DEFAULT_PRESET}),
+                def({key:'core',title:'世界引擎核心约束',group:'主流程',source:'CORE_WORLD_RULES',scope:'system',condition:'每次主世界推进请求',native:true,defaultValue:()=>typeof COMPACT_CORE_WORLD_RULES==='string'?COMPACT_CORE_WORLD_RULES:CORE_WORLD_RULES}),
+                def({key:'macro',title:'宏观骨架',group:'主流程',source:'DEFAULT_MACRO_PROMPT',scope:'system',condition:'本轮需要建立或补足宏观骨架时',native:true,defaultValue:()=>typeof COMPACT_MACRO_PROMPT==='string'?COMPACT_MACRO_PROMPT:DEFAULT_MACRO_PROMPT}),
+                def({key:'stability',title:'世界自救',group:'主流程',source:'DEFAULT_STABILITY_PROMPT_TEMPLATE',scope:'system',condition:'稳定值低于100且未开启世界超稳时',native:true,defaultValue:()=>typeof COMPACT_STABILITY_PROMPT_TEMPLATE==='string'?COMPACT_STABILITY_PROMPT_TEMPLATE:DEFAULT_STABILITY_PROMPT_TEMPLATE}),
+                def({key:'npcAudit',title:'NPC构筑审计',group:'主流程',source:'NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT',scope:'system',condition:'启用NPC构筑审计且本轮存在审计对象时',native:true,defaultValue:()=>typeof NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT==='string'?NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT:NPC_BUILD_AUDIT_RULES}),
+                def({key:'outputProtocol',title:'WorldResult 输出协议说明',group:'主流程',source:'protocol()',scope:'system',condition:'每次主世界推进请求；程序 JSON Schema 仍固定只读',native:true,defaultValue:()=>protocol().split('【Canonical WorldResult JSON Schema】')[0].trim()}),
+                def({key:'task',title:'任务只读',group:'运行模块',source:'TASK_AWARENESS_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof TASK_AWARENESS_RULES==='string'?TASK_AWARENESS_RULES:''}),
+                def({key:'chronology',title:'原著 / 数据库时间轴',group:'运行模块',source:'CHRONOLOGY_GUARD_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof CHRONOLOGY_GUARD_RULES==='string'?CHRONOLOGY_GUARD_RULES:''}),
+                def({key:'maintenance',title:'分级维护',group:'运行模块',source:'SOFT_MAINTENANCE_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof SOFT_MAINTENANCE_RULES==='string'?SOFT_MAINTENANCE_RULES:''}),
+                def({key:'exploration',title:'探索台账',group:'运行模块',source:'EXPLORATION_PROJECTION_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof EXPLORATION_PROJECTION_RULES==='string'?EXPLORATION_PROJECTION_RULES:''}),
+                def({key:'integrity',title:'因果与事实时间',group:'运行模块',source:'WORLD_INTEGRITY_GUARD_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof WORLD_INTEGRITY_GUARD_RULES==='string'?WORLD_INTEGRITY_GUARD_RULES:''}),
+                def({key:'worldTime',title:'世界时间所有权',group:'运行模块',source:'WORLD_TIME_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof WORLD_TIME_RULES==='string'?WORLD_TIME_RULES:''}),
+                def({key:'rumor',title:'传闻与传播',group:'运行模块',source:'RUMOR_WORLD_SOURCE_RULES',scope:'system',condition:'每次主世界推进请求；无触发时要求保持既有传播',defaultValue:()=>typeof RUMOR_WORLD_SOURCE_RULES==='string'?RUMOR_WORLD_SOURCE_RULES:(typeof RUMOR_THROTTLE_RULES==='string'?RUMOR_THROTTLE_RULES:'')}),
+                def({key:'worldActivity',title:'世界活动交付',group:'运行模块',source:'WORLD_ACTIVITY_DELIVERY_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:''}),
+                def({key:'historyMemory',title:'世界长期历史压缩',group:'辅助模型',source:'HISTORY_MEMORY_SYSTEM',scope:'system',condition:'历史记忆达到自动压缩阈值时单独调用模型',defaultValue:()=>typeof HISTORY_MEMORY_SYSTEM==='string'?HISTORY_MEMORY_SYSTEM:''}),
+                def({key:'inputSemantics',title:'输入语义说明',group:'请求内指令',source:'40-engine-runtime.part.js / 输入语义',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_INPUT_SEMANTICS}),
+                def({key:'macroPlanningGuidance',title:'宏观骨架 · 规划与发生',group:'请求内指令',source:'40-engine-runtime.part.js / 本轮必须完成的宏观骨架',scope:'user payload',condition:'本轮要求补足宏观骨架时',defaultValue:()=>WORLD_PROMPT_MACRO_PLANNING}),
+                def({key:'macroAcceptanceGuidance',title:'宏观骨架 · 验收',group:'请求内指令',source:'40-engine-runtime.part.js / 本轮必须完成的宏观骨架',scope:'user payload',condition:'本轮要求补足宏观骨架时',defaultValue:()=>WORLD_PROMPT_MACRO_ACCEPTANCE}),
+                def({key:'projectionGuidance',title:'正文可见投影规则',group:'请求内指令',source:'40-engine-runtime.part.js / 正文可见投影规则',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_PROJECTION_GUIDANCE}),
+                def({key:'requestSummaryGuidance',title:'本轮输入总说明',group:'请求内指令',source:'40-engine-runtime.part.js / 说明',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_REQUEST_SUMMARY}),
+                def({key:'dueReviewGuidance',title:'到期事件复核说明',group:'请求内指令',source:'59-due-event-relaxation.part.js',scope:'user payload',condition:'本轮存在到期事件时',defaultValue:()=>WORLD_PROMPT_DUE_REVIEW}),
+                def({key:'chronologyInputGuidance',title:'时间线基准 · 要求',group:'请求内指令',source:'58-chronology-guard.part.js / 时间线基准',scope:'user payload',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_INPUT}),
+                def({key:'chronologyPrinciples',title:'时间线基准 · 规划原则',group:'请求内指令',source:'58-chronology-guard.part.js / 规划原则',scope:'user payload JSON',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_PRINCIPLES}),
+                def({key:'alienReviewGuidance',title:'活跃异端复核要求',group:'请求内指令',source:'59-alien-activity-normalization.part.js',scope:'user payload',condition:'活跃异端命中复核触发器时',defaultValue:()=>WORLD_PROMPT_ALIEN_REVIEW}),
+                def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'59-world-activity-delivery.part.js / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
+                def({key:'historyInputGuidance',title:'历史压缩输入说明',group:'辅助模型',source:'historyMemoryPrompt()',scope:'user payload',condition:'历史记忆达到自动压缩阈值时',defaultValue:()=>WORLD_PROMPT_HISTORY_INPUT}),
+                def({key:'retryAcceptedWithPlan',title:'纠错重试 · 已接受结果 + 补充清单',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且已有部分业务结果通过，并存在补充清单时',defaultValue:()=>WORLD_PROMPT_RETRY_ACCEPTED_PLAN}),
+                def({key:'retryAccepted',title:'纠错重试 · 已接受结果',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且已有部分业务结果通过，但没有补充清单时',defaultValue:()=>WORLD_PROMPT_RETRY_ACCEPTED}),
+                def({key:'retryFresh',title:'纠错重试 · 首次整体纠错',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且没有已接受业务结果时',defaultValue:()=>WORLD_PROMPT_RETRY_FRESH})
             ]);
         }
         definitions(){return this._definitions.slice();}
         defaults(){return Object.fromEntries(this._definitions.map(item=>[item.key,String(item.defaultValue?.()??'')]));}
         legacyValues(){
-            const config=this.engine.config||{},modules=plain(config.modulePrompts)?config.modulePrompts:{},fallback=this.defaults();
+            const config=this.engine.config||{},modules=plain(config.modulePrompts)?config.modulePrompts:{},fallback=this.defaults(),registry=plain(config.promptRegistry)?config.promptRegistry:{};
             return {
-                preset:String(config.preset??fallback.preset),
-                core:String(config.corePrompt??fallback.core),
-                macro:String(config.macroPrompt??fallback.macro),
-                stability:String(config.stabilityPromptTemplate??fallback.stability),
-                npcAudit:String(config.npcAuditPrompt??fallback.npcAudit),
-                outputProtocol:String(config.structurePrompt??fallback.outputProtocol),
-                task:String(modules.task??fallback.task),
-                chronology:String(modules.chronology??fallback.chronology),
-                maintenance:String(modules.maintenance??fallback.maintenance),
-                exploration:String(modules.exploration??fallback.exploration),
-                integrity:String(modules.integrity??fallback.integrity),
-                worldTime:String(modules.worldTime??fallback.worldTime),
-                rumor:String(modules.rumor??fallback.rumor),
-                worldActivity:String(config.promptRegistry?.worldActivity??fallback.worldActivity),
-                historyMemory:String(config.promptRegistry?.historyMemory??fallback.historyMemory)
+                ...fallback,
+                ...registry,
+                preset:String(config.preset??registry.preset??fallback.preset),
+                core:String(config.corePrompt??registry.core??fallback.core),
+                macro:String(config.macroPrompt??registry.macro??fallback.macro),
+                stability:String(config.stabilityPromptTemplate??registry.stability??fallback.stability),
+                npcAudit:String(config.npcAuditPrompt??registry.npcAudit??fallback.npcAudit),
+                outputProtocol:String(config.structurePrompt??registry.outputProtocol??fallback.outputProtocol),
+                task:String(modules.task??registry.task??fallback.task),
+                chronology:String(modules.chronology??registry.chronology??fallback.chronology),
+                maintenance:String(modules.maintenance??registry.maintenance??fallback.maintenance),
+                exploration:String(modules.exploration??registry.exploration??fallback.exploration),
+                integrity:String(modules.integrity??registry.integrity??fallback.integrity),
+                worldTime:String(modules.worldTime??registry.worldTime??fallback.worldTime),
+                rumor:String(modules.rumor??registry.rumor??fallback.rumor)
             };
         }
         normalize(value){
@@ -8656,45 +8171,34 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return normalized;
         }
         syncLegacy(values){
-            const config=this.engine.config||(this.engine.config={});
-            const source=values===undefined?this.absorbLegacyOverrides():values;
-            const v=this.normalize(source);
+            const config=this.engine.config||(this.engine.config={}),source=values===undefined?this.absorbLegacyOverrides():values,v=this.normalize(source);
             config.preset=normalizeEditablePreset(v.preset);
-            config.corePrompt=v.core;
-            config.macroPrompt=v.macro;
-            config.stabilityPromptTemplate=v.stability;
-            config.npcAuditPrompt=v.npcAudit;
-            config.structurePrompt=v.outputProtocol;
+            config.corePrompt=v.core;config.macroPrompt=v.macro;config.stabilityPromptTemplate=v.stability;config.npcAuditPrompt=v.npcAudit;config.structurePrompt=v.outputProtocol;
             config.modulePrompts=Object.assign({},plain(config.modulePrompts)?config.modulePrompts:{},{
-                task:v.task,chronology:v.chronology,maintenance:v.maintenance,exploration:v.exploration,
-                integrity:v.integrity,worldTime:v.worldTime,rumor:v.rumor
+                task:v.task,chronology:v.chronology,maintenance:v.maintenance,exploration:v.exploration,integrity:v.integrity,worldTime:v.worldTime,rumor:v.rumor
             });
-            config.promptRegistry=v;
-            return v;
+            config.promptRegistry=v;return v;
         }
         values(){return this.normalize(this.engine.config?.promptRegistry);}
         absorbLegacyOverrides(){
             const config=this.engine.config||{},current=this.values(),next={...current};
-            const native=[
-                ['preset','preset'],['core','corePrompt'],['macro','macroPrompt'],
-                ['stability','stabilityPromptTemplate'],['npcAudit','npcAuditPrompt'],['outputProtocol','structurePrompt']
-            ];
-            for(const [key,legacyKey] of native){
+            for(const [key,legacyKey] of [['preset','preset'],['core','corePrompt'],['macro','macroPrompt'],['stability','stabilityPromptTemplate'],['npcAudit','npcAuditPrompt'],['outputProtocol','structurePrompt']]){
                 if(typeof config[legacyKey]==='string'&&config[legacyKey]!==current[key])next[key]=config[legacyKey];
             }
             const modules=plain(config.modulePrompts)?config.modulePrompts:{};
             for(const key of ['task','chronology','maintenance','exploration','integrity','worldTime','rumor']){
                 if(typeof modules[key]==='string'&&modules[key]!==current[key])next[key]=modules[key];
             }
-            config.promptRegistry=this.normalize(next);
-            return config.promptRegistry;
+            config.promptRegistry=this.normalize(next);return config.promptRegistry;
         }
         value(key){return this.values()[key]??'';}
         list(){const values=this.values();return this._definitions.map(item=>({...item,value:values[item.key]??''}));}
         apply(value,{save=true}={}){
             const normalized=this.normalize(value);
-            for(const item of this._definitions){
-                if(normalized[item.key].length>30000)throw new Error(item.title+'限30000字');
+            for(const item of this._definitions)if(normalized[item.key].length>30000)throw new Error(item.title+'限30000字');
+            for(const key of ['inputSemantics','chronologyPrinciples']){
+                let parsed=null;try{parsed=JSON.parse(normalized[key]);}catch(_){throw new Error(this._definitions.find(x=>x.key===key)?.title+'必须是合法 JSON 对象');}
+                if(!plain(parsed))throw new Error(this._definitions.find(x=>x.key===key)?.title+'必须是 JSON 对象');
             }
             this.syncLegacy(normalized);
             if(save)this.engine.saveConfig?.();
@@ -8710,27 +8214,45 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(typeof input.structurePrompt==='string')registry.outputProtocol=input.structurePrompt;
             if(plain(input.modulePrompts))for(const key of ['task','chronology','maintenance','exploration','integrity','worldTime','rumor'])if(typeof input.modulePrompts[key]==='string')registry[key]=input.modulePrompts[key];
             input.promptRegistry=registry;
-            input.preset=registry.preset;
-            input.corePrompt=registry.core;
-            input.macroPrompt=registry.macro;
-            input.stabilityPromptTemplate=registry.stability;
-            input.npcAuditPrompt=registry.npcAudit;
-            input.structurePrompt=registry.outputProtocol;
+            input.preset=registry.preset;input.corePrompt=registry.core;input.macroPrompt=registry.macro;input.stabilityPromptTemplate=registry.stability;input.npcAuditPrompt=registry.npcAudit;input.structurePrompt=registry.outputProtocol;
             input.modulePrompts=Object.assign({},plain(input.modulePrompts)?input.modulePrompts:{},{
-                task:registry.task,chronology:registry.chronology,maintenance:registry.maintenance,
-                exploration:registry.exploration,integrity:registry.integrity,worldTime:registry.worldTime,rumor:registry.rumor
+                task:registry.task,chronology:registry.chronology,maintenance:registry.maintenance,exploration:registry.exploration,integrity:registry.integrity,worldTime:registry.worldTime,rumor:registry.rumor
             });
             return input;
         }
         rewriteSystem(system){
             let output=String(system||''),activityDefault=typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:'';
-            if(activityDefault){
-                const replacement=this.value('worldActivity').trim();
-                output=output.split(activityDefault).join(replacement);
-            }
+            if(activityDefault)output=output.split(activityDefault).join(this.value('worldActivity').trim());
             return output.replace(/\n{3,}/g,'\n\n').trim();
         }
+        rewriteInput(input){
+            let payload;try{payload=JSON.parse(String(input||''));}catch(_){return input;}
+            try{payload.输入语义=JSON.parse(this.value('inputSemantics'));}catch(_){}
+            if(plain(payload.本轮必须完成的宏观骨架)){
+                payload.本轮必须完成的宏观骨架.规划与发生=this.value('macroPlanningGuidance');
+                payload.本轮必须完成的宏观骨架.验收=this.value('macroAcceptanceGuidance');
+            }
+            if(plain(payload.正文可见投影规则))payload.正文可见投影规则.要求=this.value('projectionGuidance');
+            if(Object.hasOwn(payload,'说明'))payload.说明=this.value('requestSummaryGuidance');
+            if(Array.isArray(payload.本轮必须复核的到期事件))for(const item of payload.本轮必须复核的到期事件)if(plain(item))item.说明=this.value('dueReviewGuidance');
+            if(plain(payload.时间线基准)){
+                payload.时间线基准.要求=this.value('chronologyInputGuidance');
+                try{payload.时间线基准.规划原则=JSON.parse(this.value('chronologyPrinciples'));}catch(_){}
+            }
+            if(Array.isArray(payload.本轮必须维持的异端活动))for(const item of payload.本轮必须维持的异端活动)if(plain(item))item.要求=this.value('alienReviewGuidance');
+            if(plain(payload.本轮世界活动交付))payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+            return JSON.stringify(payload,null,2);
+        }
         historySystem(){return this.value('historyMemory');}
+        historyInput(input){
+            let payload;try{payload=JSON.parse(String(input||''));}catch(_){return input;}
+            if(plain(payload))payload.说明=this.value('historyInputGuidance');
+            return JSON.stringify(payload,null,2);
+        }
+        retryRequirement(acceptedResult,retryPlan=[]){
+            if(acceptedResult)return Array.isArray(retryPlan)&&retryPlan.length?this.value('retryAcceptedWithPlan'):this.value('retryAccepted');
+            return this.value('retryFresh');
+        }
     }
     class WorldEngineTabView {
         constructor(key,renderer){this.key=key;this.renderer=renderer;}
@@ -8761,6 +8283,347 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
         keys(){return Array.from(this.views.keys());}
     }
+    class WorldEditorController {
+        constructor(engine){
+            this.engine=engine;
+            this.editMode=false;
+            this.boundPanel=null;
+        }
+        modeEnabled(){return this.editMode===true;}
+        setMode(value){this.editMode=value===true;this.engine.render(true);return this.editMode;}
+        toggleMode(){return this.setMode(!this.modeEnabled());}
+        section(title){
+            const panel=this.engine.panel;if(!panel)return null;
+            return Array.from(panel.querySelectorAll('.we-section')).find(section=>String(section.querySelector('.we-section-head h2')?.textContent||'').trim()===String(title||''))||null;
+        }
+        reportError(error,title='世界推进编辑'){
+            const message=String(error?.message||error||'世界推进资料编辑失败');
+            const toast=this.engine.host?.toastr||this.engine.env?.toastr;
+            if(toast?.error)toast.error(message,title);else try{console.error('['+title+']',error);}catch(_){}
+        }
+
+        // ---- 共用编辑模式 ----
+        mountModeToggle(){
+            const engine=this.engine;
+            if(!engine.panel||!['世界推进','角色管理'].includes(engine.tab))return;
+            const title=engine.tab==='世界推进'?'事件时间线':'人物名册',section=this.section(title),head=section?.querySelector('.we-section-head');
+            if(!head||head.querySelector('[data-action="world-edit-mode"]'))return;
+            const button=engine.host.document.createElement('button');
+            button.type='button';button.className='we-btn we-world-edit-toggle';button.dataset.action='world-edit-mode';
+            button.textContent=this.modeEnabled()?'退出编辑':'编辑模式';
+            button.setAttribute('aria-pressed',String(this.modeEnabled()));
+            head.appendChild(button);
+        }
+
+        // ---- 事件 ----
+        eventInlineHtml(name,record){
+            const esc=worldEditorEscape,list=value=>Array.isArray(value)?value.join('\n'):'',json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
+            return '<div class="we-world-editor" data-world-event-edit data-world-event-name="'+esc(name)+'"><div class="we-world-editor-grid">'
+                +'<label><span>事件名称</span><input data-world-event-field="name" value="'+esc(name)+'"></label>'
+                +'<label><span>分类</span>'+worldEventSelect(record?.分类||'近期节点',['当前事件','近期节点','宏观节点'],'category')+'</label>'
+                +'<label><span>状态</span>'+worldEventSelect(record?.状态||'待发生',['待发生','进行中','已完成','已取消'],'status')+'</label>'
+                +'<label><span>地点</span><input data-world-event-field="location" value="'+esc(record?.地点||'')+'"></label>'
+                +'<label><span>时间</span><input data-world-event-field="time" value="'+esc(record?.时间||'')+'"></label>'
+                +'<label><span>开始时间</span><input data-world-event-field="start" value="'+esc(record?.开始时间||'')+'"></label>'
+                +'<label><span>预计结束</span><input data-world-event-field="end" value="'+esc(record?.预计结束||'')+'"></label>'
+                +'<label><span>下次检查</span><input data-world-event-field="nextCheck" value="'+esc(record?.下次检查||'')+'"></label>'
+                +'<label><span>更新时间</span><input data-world-event-field="updated" value="'+esc(record?.更新时间||'')+'"></label>'
+                +'<label class="we-world-editor-wide"><span>事件描述</span><textarea data-world-event-field="description">'+esc(record?.描述||'')+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>公开征兆</span><textarea data-world-event-field="sign">'+esc(record?.公开征兆||'')+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>触发条件</span><textarea data-world-event-field="condition">'+esc(record?.条件||'')+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>默认走向</span><textarea data-world-event-field="default">'+esc(record?.默认走向||'')+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>已确认结果</span><textarea data-world-event-field="result">'+esc(record?.结果||'')+'</textarea></label>'
+                +'<label><span>前因（每行一个）</span><textarea data-world-event-field="causes">'+esc(list(record?.前因))+'</textarea></label>'
+                +'<label><span>参与者（每行一个）</span><textarea data-world-event-field="participants">'+esc(list(record?.参与者))+'</textarea></label>'
+                +'<label><span>关联任务（每行一个）</span><textarea data-world-event-field="tasks">'+esc(list(record?.关联任务))+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>可见影响（JSON 数组）</span><textarea data-world-event-field="impacts">'+esc(json(record?.可见影响))+'</textarea></label>'
+                +'</div><div class="we-world-editor-actions"><button type="button" class="we-world-editor-save" data-action="world-event-save" data-event-name="'+esc(name)+'">保存修正</button><button type="button" data-action="world-event-cancel">取消</button></div></div>';
+        }
+        beginEvent(name,card){
+            const record=this.engine.services.events.get(name);if(!record||!card)return false;
+            card.innerHTML=this.eventInlineHtml(name,record);card.classList.add('we-world-editing');
+            try{card.querySelector('[data-world-event-field="name"]')?.focus?.();}catch(_){}
+            return true;
+        }
+        saveEvent(card,oldName){
+            if(!card)return false;
+            const value=key=>card.querySelector('[data-world-event-field="'+key+'"]')?.value,current=this.engine.services.events.get(oldName)||{};
+            return this.engine.services.events.save(oldName,String(value('name')||'').trim(),{
+                ...copy(current),分类:String(value('category')||'').trim(),状态:String(value('status')||'').trim(),
+                地点:String(value('location')||'').trim(),时间:String(value('time')||'').trim(),开始时间:String(value('start')||'').trim(),
+                预计结束:String(value('end')||'').trim(),下次检查:String(value('nextCheck')||'').trim(),更新时间:String(value('updated')||'').trim(),
+                描述:String(value('description')||'').trim(),公开征兆:String(value('sign')||'').trim(),条件:String(value('condition')||'').trim(),
+                默认走向:String(value('default')||'').trim(),结果:String(value('result')||'').trim(),
+                前因:worldEditorTextList(value('causes')),参与者:worldEditorTextList(value('participants')),
+                关联任务:worldEditorTextList(value('tasks')),可见影响:worldEditorJsonList(value('impacts'),'可见影响')
+            });
+        }
+        mountEventControls(){
+            const engine=this.engine;
+            if(!engine.panel||engine.tab!=='世界推进'||!this.modeEnabled())return;
+            for(const card of engine.panel.querySelectorAll('[data-event-card]')){
+                if(card.querySelector('.we-world-event-actions')||card.matches('.we-world-editing'))continue;
+                const name=String(card.dataset.eventCard||'');if(!name)continue;
+                const actions=engine.host.document.createElement('div');actions.className='we-world-event-actions';
+                actions.innerHTML='<button type="button" data-action="world-event-edit" data-event-name="'+worldEditorEscape(name)+'">编辑</button><button type="button" data-action="world-event-delete" data-event-name="'+worldEditorEscape(name)+'">删除</button>';
+                card.appendChild(actions);
+            }
+        }
+        armEventDelete(button,name){
+            const actions=button?.closest?.('.we-world-event-actions');if(!actions)return false;
+            button.dataset.action='world-event-delete-confirm';button.textContent='确认删除';button.classList.add('we-world-editor-danger');
+            if(!actions.querySelector('[data-action="world-event-delete-cancel"]')){
+                const cancel=this.engine.host.document.createElement('button');cancel.type='button';cancel.dataset.action='world-event-delete-cancel';cancel.dataset.eventName=name;cancel.textContent='取消';actions.appendChild(cancel);
+            }
+            return true;
+        }
+        cancelEventDelete(button){
+            const actions=button?.closest?.('.we-world-event-actions');if(!actions)return false;
+            const confirm=actions.querySelector('[data-action="world-event-delete-confirm"]');
+            if(confirm){confirm.dataset.action='world-event-delete';confirm.textContent='删除';confirm.classList.remove('we-world-editor-danger');}
+            actions.querySelector('[data-action="world-event-delete-cancel"]')?.remove();return true;
+        }
+
+        // ---- 世界人物活动 ----
+        personInlineHtml(name,record){
+            const esc=worldEditorEscape,list=value=>Array.isArray(value)?value.join('\n'):'',json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
+            return '<div class="we-world-editor we-world-person-editor" data-world-person-edit data-world-person-name="'+esc(name)+'">'
+                +'<div class="we-world-editor-note"><b>'+esc(name)+'</b><span>只编辑世界活动记录；人物正式资料由状态栏维护。</span></div><div class="we-world-editor-grid">'
+                +'<label><span>所属世界</span><input data-world-person-field="world" value="'+esc(record?.所属世界||'')+'"></label>'
+                +'<label><span>状态</span><input data-world-person-field="status" value="'+esc(record?.状态||'')+'"></label>'
+                +'<label><span>地点</span><input data-world-person-field="location" value="'+esc(record?.地点||'')+'"></label>'
+                +'<label><span>目标</span><input data-world-person-field="goal" value="'+esc(record?.目标||'')+'"></label>'
+                +'<label class="we-world-editor-wide"><span>当前行动</span><textarea data-world-person-field="action">'+esc(record?.行动||'')+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>公开动态</span><textarea data-world-person-field="public">'+esc(record?.公开动态||'')+'</textarea></label>'
+                +'<label><span>开始时间</span><input data-world-person-field="start" value="'+esc(record?.开始时间||'')+'"></label>'
+                +'<label><span>预计结束</span><input data-world-person-field="end" value="'+esc(record?.预计结束||'')+'"></label>'
+                +'<label><span>下次检查</span><input data-world-person-field="nextCheck" value="'+esc(record?.下次检查||'')+'"></label>'
+                +'<label><span>更新时间</span><input data-world-person-field="updated" value="'+esc(record?.更新时间||'')+'"></label>'
+                +'<label class="we-world-editor-wide"><span>登场条件</span><textarea data-world-person-field="appearance">'+esc(record?.登场条件||'')+'</textarea></label>'
+                +'<label><span>认知（每行一条）</span><textarea data-world-person-field="knowledge">'+esc(list(record?.认知))+'</textarea></label>'
+                +'<label><span>关联事件（每行一个）</span><textarea data-world-person-field="events">'+esc(list(record?.关联事件))+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>行程（JSON 数组）</span><textarea data-world-person-field="schedule">'+esc(json(record?.行程))+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>认知来源（JSON 数组）</span><textarea data-world-person-field="knowledgeSources">'+esc(json(record?.认知来源))+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>背景关联（JSON 数组）</span><textarea data-world-person-field="links">'+esc(json(record?.背景关联))+'</textarea></label>'
+                +'</div><div class="we-world-editor-actions"><button type="button" class="we-world-editor-save" data-action="world-person-save" data-person-name="'+esc(name)+'">保存修正</button><button type="button" data-action="world-person-cancel">取消</button></div></div>';
+        }
+        selectedPersonName(){
+            const engine=this.engine;if(!engine.panel||engine.tab!=='角色管理')return '';
+            return String(engine.panel.querySelector('.we-roster-person.active')?.dataset?.person||engine.selectedPerson||'').trim();
+        }
+        beginPerson(name,section){
+            const found=this.engine.services.people.get(name);if(!found||!section)return false;
+            const head=section.querySelector('.we-section-head');
+            Array.from(section.children).forEach(child=>{if(child!==head)child.hidden=true;});
+            const holder=this.engine.host.document.createElement('div');holder.innerHTML=this.personInlineHtml(found.name,found.record);
+            const node=holder.firstElementChild;section.appendChild(node);
+            try{node?.querySelector('[data-world-person-field="location"]')?.focus?.();}catch(_){}
+            return true;
+        }
+        savePerson(section,name){
+            const editor=section?.querySelector('[data-world-person-edit]');if(!editor)return false;
+            const value=key=>editor.querySelector('[data-world-person-field="'+key+'"]')?.value,found=this.engine.services.people.get(name);if(!found)return false;
+            return this.engine.services.people.save(found.name,{
+                ...copy(found.record),所属世界:String(value('world')||'').trim(),状态:String(value('status')||'').trim(),
+                地点:String(value('location')||'').trim(),目标:String(value('goal')||'').trim(),行动:String(value('action')||'').trim(),
+                公开动态:String(value('public')||'').trim(),开始时间:String(value('start')||'').trim(),预计结束:String(value('end')||'').trim(),
+                下次检查:String(value('nextCheck')||'').trim(),更新时间:String(value('updated')||'').trim(),登场条件:String(value('appearance')||'').trim(),
+                认知:worldEditorTextList(value('knowledge')),关联事件:worldEditorTextList(value('events')),行程:worldEditorJsonList(value('schedule'),'行程'),
+                认知来源:worldEditorJsonList(value('knowledgeSources'),'认知来源'),背景关联:worldEditorJsonList(value('links'),'背景关联')
+            });
+        }
+        mountPersonControls(){
+            const engine=this.engine;if(!engine.panel||engine.tab!=='角色管理'||!this.modeEnabled())return;
+            const found=this.engine.services.people.get(this.selectedPersonName());if(!found)return;
+            const section=this.section('身份与当前行动'),head=section?.querySelector('.we-section-head');
+            if(!section||!head||head.querySelector('.we-world-person-actions'))return;
+            const actions=engine.host.document.createElement('span');actions.className='we-world-person-actions';
+            actions.innerHTML='<button type="button" data-action="world-person-edit" data-person-name="'+worldEditorEscape(found.name)+'">编辑世界活动</button><button type="button" data-action="world-person-delete" data-person-name="'+worldEditorEscape(found.name)+'">删除世界活动记录</button>';
+            head.appendChild(actions);
+        }
+        armPersonDelete(button,name){
+            const actions=button?.closest?.('.we-world-person-actions');if(!actions)return false;
+            button.dataset.action='world-person-delete-confirm';button.textContent='确认仅删除世界活动';button.classList.add('we-world-editor-danger');
+            if(!actions.querySelector('[data-action="world-person-delete-cancel"]')){
+                const cancel=this.engine.host.document.createElement('button');cancel.type='button';cancel.dataset.action='world-person-delete-cancel';cancel.dataset.personName=name;cancel.textContent='取消';actions.appendChild(cancel);
+            }
+            return true;
+        }
+        cancelPersonDelete(button){
+            const actions=button?.closest?.('.we-world-person-actions');if(!actions)return false;
+            const confirm=actions.querySelector('[data-action="world-person-delete-confirm"]');
+            if(confirm){confirm.dataset.action='world-person-delete';confirm.textContent='删除世界活动记录';confirm.classList.remove('we-world-editor-danger');}
+            actions.querySelector('[data-action="world-person-delete-cancel"]')?.remove();return true;
+        }
+
+        // ---- 因果偏移 ----
+        causalInlineHtml(name,record){
+            const impact=Number(record?.影响程度),esc=causalOverviewEscape;
+            return '<div class="we-offset-inline-editor" data-offset-editor data-offset-original-name="'+esc(name)+'"><div class="we-offset-edit-grid">'
+                +'<label class="we-offset-edit-field"><span>偏移名称</span><input type="text" data-offset-field="name" value="'+esc(name)+'"></label>'
+                +'<label class="we-offset-edit-field"><span>影响程度</span><input type="number" min="-12" max="15" step="1" data-offset-field="impact" value="'+esc(Number.isFinite(impact)?impact:'')+'"><small>-12~-1 或 +1~+15</small></label>'
+                +'<label class="we-offset-edit-field we-offset-edit-wide"><span>偏移描述</span><textarea rows="4" data-offset-field="description" placeholder="只写已经实现的世界级长期改变">'+esc(record?.描述||'')+'</textarea></label>'
+                +'<label class="we-offset-edit-field we-offset-edit-wide"><span>引发者</span><input type="text" data-offset-field="actor" value="'+esc(record?.引发者||'')+'"></label>'
+                +'</div><div class="we-offset-actions we-offset-edit-actions"><button type="button" class="we-offset-save" data-action="causal-offset-save" data-offset-name="'+esc(name)+'">保存</button><button type="button" data-action="causal-offset-cancel">取消</button></div></div>';
+        }
+        beginCausal(name,card){
+            const record=this.engine.services.causal.get(name);if(!plain(record)||!card)return false;
+            card.innerHTML=this.causalInlineHtml(name,record);card.classList.add('we-offset-editing');
+            try{const first=card.querySelector('[data-offset-field="name"]');first?.focus?.();first?.select?.();}catch(_){}
+            return true;
+        }
+        saveCausal(card,oldName){
+            const value=key=>card?.querySelector('[data-offset-field="'+key+'"]')?.value;
+            return this.engine.services.causal.save(oldName,String(value('name')||'').trim(),{
+                描述:String(value('description')||'').trim(),引发者:String(value('actor')||'').trim(),影响程度:Number(value('impact'))
+            });
+        }
+        mountCausalControls(){
+            const engine=this.engine;if(engine.tab!=='因果档案'||!engine.panel)return;
+            const entries=causalOffsetEntries(engine.snapshot().stat);
+            Array.from(engine.panel.querySelectorAll('.we-offset')).forEach((card,index)=>{
+                const name=entries[index]?.[0];if(!name||card.querySelector('.we-offset-actions'))return;
+                card.dataset.offsetName=name;
+                const actions=engine.host.document.createElement('div');actions.className='we-offset-actions';
+                actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+causalOverviewEscape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+causalOverviewEscape(name)+'">删除</button>';
+                card.appendChild(actions);
+            });
+        }
+        armCausalDelete(button,name){
+            const actions=button?.closest?.('.we-offset-actions');if(!actions)return false;
+            button.dataset.action='causal-offset-delete-confirm';button.textContent='确认删除';button.classList.add('we-offset-delete-confirm');
+            if(!actions.querySelector('[data-action="causal-offset-delete-cancel"]')){
+                const cancel=this.engine.host.document.createElement('button');cancel.type='button';cancel.dataset.action='causal-offset-delete-cancel';cancel.dataset.offsetName=name;cancel.textContent='取消';actions.appendChild(cancel);
+            }
+            return true;
+        }
+        cancelCausalDelete(button){
+            const actions=button?.closest?.('.we-offset-actions');if(!actions)return false;
+            const confirm=actions.querySelector('[data-action="causal-offset-delete-confirm"]');
+            if(confirm){confirm.dataset.action='causal-offset-delete';confirm.textContent='删除';confirm.classList.remove('we-offset-delete-confirm');}
+            actions.querySelector('[data-action="causal-offset-delete-cancel"]')?.remove();return true;
+        }
+
+        // ---- 历史记忆 ----
+        historyInlineHtml(kind,name,record){
+            const esc=historyMemoryEditorEscape;
+            if(kind==='summary')return '<div class="we-history-inline-editor" data-history-editor="summary" data-history-name="'+esc(name)+'">'
+                +'<div class="we-history-edit-title"><b>'+esc(name)+'</b><span>L'+esc(Number(record?.层级)||1)+' · 树结构锁定</span></div><div class="we-history-edit-grid">'
+                +'<label class="we-history-edit-field"><span>起始时间</span><input type="text" data-history-field="start" value="'+esc(record?.起始时间||'')+'"></label>'
+                +'<label class="we-history-edit-field"><span>结束时间</span><input type="text" data-history-field="end" value="'+esc(record?.结束时间||'')+'"></label>'
+                +'<label class="we-history-edit-field we-history-edit-wide"><span>长期历史摘要</span><textarea rows="5" data-history-field="summary">'+esc(record?.摘要||'')+'</textarea></label>'
+                +'</div><div class="we-history-actions"><button type="button" class="we-history-save" data-action="history-summary-save" data-history-name="'+esc(name)+'">保存</button><button type="button" data-action="history-summary-cancel">取消</button></div></div>';
+            return '<div class="we-history-inline-editor" data-history-editor="anchor" data-history-name="'+esc(name)+'">'
+                +'<div class="we-history-edit-title"><b>'+esc(name)+'</b><span>近期历史锚点</span></div><div class="we-history-edit-grid">'
+                +'<label class="we-history-edit-field"><span>时间</span><input type="text" data-history-field="time" value="'+esc(record?.时间||'')+'"></label>'
+                +'<label class="we-history-edit-field we-history-edit-wide"><span>已确认事实</span><textarea rows="4" data-history-field="fact">'+esc(record?.事实||'')+'</textarea></label>'
+                +'<label class="we-history-edit-field we-history-edit-wide"><span>关联事件</span><input type="text" data-history-field="related" value="'+esc((Array.isArray(record?.关联事件)?record.关联事件:[]).join('、'))+'"><small>多个事件可用 、 或逗号分隔</small></label>'
+                +'</div><div class="we-history-actions"><button type="button" class="we-history-save" data-action="history-anchor-save" data-history-name="'+esc(name)+'">保存</button><button type="button" data-action="history-anchor-cancel">取消</button></div></div>';
+        }
+        beginHistory(kind,name,card){
+            const backend=this.engine.services.history.backend(),record=kind==='summary'?backend?.历史总结?.[name]:backend?.历史?.[name];
+            if(!plain(record)||!card)return false;
+            card.innerHTML=this.historyInlineHtml(kind,name,record);card.classList.add('we-history-editing');
+            try{card.querySelector('textarea,input')?.focus?.();}catch(_){}
+            return true;
+        }
+        saveHistory(kind,card,name){
+            const value=key=>card?.querySelector('[data-history-field="'+key+'"]')?.value;
+            if(kind==='summary')return this.engine.services.history.saveSummary(name,{起始时间:String(value('start')||'').trim(),结束时间:String(value('end')||'').trim(),摘要:String(value('summary')||'').trim()});
+            return this.engine.services.history.saveAnchor(name,{时间:String(value('time')||'').trim(),事实:String(value('fact')||'').trim(),关联事件:historyMemoryEditorRelated(value('related'))});
+        }
+        mountHistoryControls(){
+            const engine=this.engine;if(engine.tab!=='运行记录'||!engine.panel)return;
+            const backend=engine.services.history.backend(),memory=projectWorldHistoryMemory(backend);
+            const recentNames=Object.entries(memory.近期锚点||{}).reverse().map(([name])=>name),recentSection=this.section('近期历史锚点');
+            Array.from(recentSection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
+                const name=recentNames[index];if(!name||card.querySelector('.we-history-actions'))return;
+                card.dataset.historyName=name;card.dataset.historyKind='anchor';
+                const actions=engine.host.document.createElement('div');actions.className='we-history-actions';
+                actions.innerHTML='<button type="button" data-action="history-anchor-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';card.appendChild(actions);
+            });
+            const summaryNames=(memory.长期总结||[]).slice().reverse().map(item=>item.名称),summarySection=this.section('长期历史总结');
+            Array.from(summarySection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
+                const name=summaryNames[index];if(!name||card.querySelector('.we-history-actions'))return;
+                card.dataset.historyName=name;card.dataset.historyKind='summary';
+                const actions=engine.host.document.createElement('div');actions.className='we-history-actions';
+                actions.innerHTML='<button type="button" data-action="history-summary-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';card.appendChild(actions);
+            });
+        }
+
+        ensureStyles(){
+            const engine=this.engine;if(!engine.style||engine.style.textContent.includes('.we-world-editor-actions{'))return;
+            engine.style.textContent+='\n'
+                +'#sam-world-engine .we-world-edit-toggle{margin-left:auto}'
+                +'#sam-world-engine .we-world-event-actions,#sam-world-engine .we-world-editor-actions,#sam-world-engine .we-history-actions,#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap;margin-top:9px}'
+                +'#sam-world-engine .we-world-event-actions button,#sam-world-engine .we-world-editor-actions button,#sam-world-engine .we-history-actions button,#sam-world-engine .we-offset-actions button,#sam-world-engine .we-world-person-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;cursor:pointer}'
+                +'#sam-world-engine .we-world-editor-danger,#sam-world-engine .we-offset-delete-confirm{color:#ff8c8c!important;border-color:#b85c5c!important}'
+                +'#sam-world-engine .we-world-editor-save,#sam-world-engine .we-history-save,#sam-world-engine .we-offset-save{color:var(--we-accent,var(--gold))!important}'
+                +'#sam-world-engine .we-world-editor,#sam-world-engine .we-history-inline-editor,#sam-world-engine .we-offset-inline-editor{display:grid;gap:9px}'
+                +'#sam-world-engine .we-world-editor-grid,#sam-world-engine .we-history-edit-grid,#sam-world-engine .we-offset-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}'
+                +'#sam-world-engine .we-world-editor-grid label,#sam-world-engine .we-history-edit-field,#sam-world-engine .we-offset-edit-field{display:grid;gap:4px;min-width:0}'
+                +'#sam-world-engine .we-world-editor-grid input,#sam-world-engine .we-world-editor-grid select,#sam-world-engine .we-world-editor-grid textarea,#sam-world-engine .we-history-edit-field input,#sam-world-engine .we-history-edit-field textarea,#sam-world-engine .we-offset-edit-field input,#sam-world-engine .we-offset-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}'
+                +'#sam-world-engine .we-offset-edit-field textarea{height:92px!important;min-height:80px!important;max-height:180px!important;resize:vertical;line-height:1.55}'
+                +'#sam-world-engine .we-history-edit-field textarea,#sam-world-engine .we-world-editor-grid textarea{min-height:78px!important;max-height:240px!important;resize:vertical;line-height:1.5}'
+                +'#sam-world-engine .we-world-editor-wide,#sam-world-engine .we-history-edit-wide,#sam-world-engine .we-offset-edit-wide{grid-column:1/-1}'
+                +'#sam-world-engine .we-world-person-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}'
+                +'#sam-world-engine .we-world-editor-note,#sam-world-engine .we-history-edit-title{display:flex;justify-content:space-between;gap:10px;align-items:center}'
+                +'@media(max-width:680px){#sam-world-engine .we-world-editor-grid,#sam-world-engine .we-history-edit-grid,#sam-world-engine .we-offset-edit-grid{grid-template-columns:1fr}#sam-world-engine .we-world-editor-wide,#sam-world-engine .we-history-edit-wide,#sam-world-engine .we-offset-edit-wide{grid-column:auto}}';
+        }
+
+        bindPanel(){
+            const panel=this.engine.panel;if(!panel||this.boundPanel===panel)return;
+            this.boundPanel=panel;
+            panel.addEventListener('click',event=>{
+                const button=event.target?.closest?.('[data-action="world-edit-mode"],[data-action^="world-event-"],[data-action^="world-person-"],[data-action^="causal-offset-"],[data-action^="history-anchor-"],[data-action^="history-summary-"]');
+                if(!button||!panel.contains(button))return;
+                const action=String(button.dataset.action||'');
+                if(action==='world-edit-mode'){event.preventDefault();event.stopPropagation();this.toggleMode();return;}
+                let task=null;
+                if(action.startsWith('world-event-')){
+                    event.preventDefault();event.stopPropagation();
+                    const card=button.closest('[data-event-card]'),name=String(button.dataset.eventName||card?.dataset?.eventCard||card?.querySelector?.('[data-world-event-edit]')?.dataset?.worldEventName||'');
+                    if(action==='world-event-edit')this.beginEvent(name,card);
+                    else if(action==='world-event-save')task=this.saveEvent(card,name);
+                    else if(action==='world-event-cancel')this.engine.render(true);
+                    else if(action==='world-event-delete')this.armEventDelete(button,name);
+                    else if(action==='world-event-delete-confirm')task=this.engine.services.events.remove(name);
+                    else if(action==='world-event-delete-cancel')this.cancelEventDelete(button);
+                }else if(action.startsWith('world-person-')){
+                    event.preventDefault();event.stopPropagation();
+                    const section=this.section('身份与当前行动'),name=String(button.dataset.personName||section?.querySelector?.('[data-world-person-edit]')?.dataset?.worldPersonName||'');
+                    if(action==='world-person-edit')this.beginPerson(name,section);
+                    else if(action==='world-person-save')task=this.savePerson(section,name);
+                    else if(action==='world-person-cancel')this.engine.render(true);
+                    else if(action==='world-person-delete')this.armPersonDelete(button,name);
+                    else if(action==='world-person-delete-confirm')task=this.engine.services.people.remove(name);
+                    else if(action==='world-person-delete-cancel')this.cancelPersonDelete(button);
+                }else if(action.startsWith('causal-offset-')){
+                    event.preventDefault();event.stopPropagation();
+                    const card=button.closest('.we-offset'),name=String(button.dataset.offsetName||card?.dataset?.offsetName||card?.querySelector?.('[data-offset-editor]')?.dataset?.offsetOriginalName||'');
+                    if(action==='causal-offset-edit')this.beginCausal(name,card);
+                    else if(action==='causal-offset-save')task=this.saveCausal(card,name);
+                    else if(action==='causal-offset-cancel')this.engine.render(true);
+                    else if(action==='causal-offset-delete')this.armCausalDelete(button,name);
+                    else if(action==='causal-offset-delete-confirm')task=this.engine.services.causal.remove(name);
+                    else if(action==='causal-offset-delete-cancel')this.cancelCausalDelete(button);
+                }else if(action.startsWith('history-anchor-')||action.startsWith('history-summary-')){
+                    event.preventDefault();event.stopPropagation();
+                    const card=button.closest('.we-card'),name=String(button.dataset.historyName||card?.dataset?.historyName||card?.querySelector?.('[data-history-editor]')?.dataset?.historyName||'');
+                    if(action==='history-anchor-edit')this.beginHistory('anchor',name,card);
+                    else if(action==='history-summary-edit')this.beginHistory('summary',name,card);
+                    else if(action==='history-anchor-save')task=this.saveHistory('anchor',card,name);
+                    else if(action==='history-summary-save')task=this.saveHistory('summary',card,name);
+                    else if(action.endsWith('-cancel'))this.engine.render(true);
+                }
+                if(task)Promise.resolve(task).catch(error=>this.reportError(error,action.startsWith('history-')?'历史记忆':action.startsWith('causal-')?'因果偏移':action.startsWith('world-person-')?'世界人物':'世界事件'));
+            });
+        }
+        afterRender(){
+            this.ensureStyles();this.mountModeToggle();this.mountEventControls();this.mountPersonControls();this.mountCausalControls();this.mountHistoryControls();
+        }
+        dispose(){this.boundPanel=null;}
+    }
     class WorldEngineServiceContainer {
         constructor(engine){
             this.engine=engine;
@@ -8768,11 +8631,13 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.events=new WorldEventService(engine);
             this.people=new WorldPersonActivityService(engine);
             this.history=new WorldHistoryService(engine);
+            this.causal=new WorldCausalService(engine);
             this.exploration=new WorldExplorationService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             this.views=new WorldEngineViewRegistry(engine);
             this.prompts=new WorldPromptRegistry(engine);
+            this.editorController=new WorldEditorController(engine);
         }
         initialize(){
             this.prompts.initialize();
@@ -8814,15 +8679,16 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 rows.push('<div class="we-prompt-registry-group"><h3>'+this.escape(group)+'</h3>');
                 for(const item of items){
                     const tokens=formatTokenCount(estimateTokens(item.value),true);
+                    const meta='<div class="we-prompt-registry-meta"><small><b>作用范围</b> · '+this.escape(item.scope||'system')+'</small><small><b>发送条件</b> · '+this.escape(item.condition||'按运行时条件')+'</small></div>';
                     const native=item.native
-                        ?'<div class="we-notice">此提示词已在本页专用编辑器中显示；这里列出实际当前值，保存预设时会一起写入统一注册表。</div><pre class="we-prose we-prompt-registry-preview">'+this.escape(item.value)+'</pre>'
+                        ?'<div class="we-notice">此提示词已在本页上方专用编辑器中直接可编辑；这里同步展示最终实际值，保存预设时与注册表一起持久化。</div><pre class="we-prose we-prompt-registry-preview">'+this.escape(item.value)+'</pre>'
                         :'<textarea data-prompt-registry="'+this.escape(item.key)+'" '+(editable?'':'readonly')+'>'+this.escape(item.value)+'</textarea>';
-                    rows.push('<details class="we-segment we-prompt-registry-item"><summary>'+this.escape(item.title)+' <small>'+this.escape(item.source)+' · '+tokens+'</small></summary>'+native+'</details>');
+                    rows.push('<details class="we-segment we-prompt-registry-item"><summary>'+this.escape(item.title)+' <small>'+this.escape(item.source)+' · '+tokens+'</small></summary>'+meta+native+'</details>');
                 }
                 rows.push('</div>');
             }
             section.innerHTML='<div class="we-section-head"><h2>全部实际提示词</h2><small>'+this.registry.list().length+' 项 · 唯一 Prompt Registry</small></div>'
-                +'<div class="we-notice">这里列出世界推进实际发送给 AI 的全部 system 提示词。带专用编辑器的主流程提示词在本页上方修改；运行模块与辅助模型提示词在这里直接修改。程序 JSON Schema、字段白名单和校验器不是提示词，因此不会开放编辑。</div>'
+                +'<div class="we-notice">这里列出世界推进实际发送给 AI 的全部静态指令：system、user payload、历史压缩与纠错重试。带专用编辑器的主流程提示词在本页上方修改；其余在这里直接修改。程序 JSON Schema、字段白名单、动态校验错误与运行时事实不是提示词，因此不会开放编辑。</div>'
                 +rows.join('');
         }
         syncEditableState(){
@@ -8830,6 +8696,53 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             for(const field of this.engine.panel.querySelectorAll('[data-prompt-registry]'))field.readOnly=!this.editable();
         }
     }
+    // 到期事件采用软复核：提醒模型处理，但不再作为整轮写入的硬门槛。
+    function dueEventReviewPoint(event) {
+        const nextCheck=String(event?.下次检查||'').trim();
+        if(nextCheck)return {原文:nextCheck,键:worldDateKey(nextCheck),来源:'下次检查'};
+        const planned=String(event?.时间||event?.开始时间||'').trim();
+        return {原文:planned,键:worldDateKey(planned),来源:'计划时间'};
+    }
+    function relaxedDueEvents(stat) {
+        const now=worldDateKey(stat?.世界?.时间);if(now===null)return [];
+        const events=stat?.世界?.[PATH]?.事件||{},due=[];
+        for(const [名称,event] of Object.entries(events)){
+            if(!plain(event)||event.状态!=='待发生')continue;
+            const review=dueEventReviewPoint(event);
+            // 明确的未来复核时间尚未到，不重复催办；语义型“下次检查”无法比较时只做软提醒，不阻断写入。
+            if(review.来源==='下次检查'&&review.键!==null&&review.键>now)continue;
+            if(review.来源==='计划时间'&&(review.键===null||review.键>now))continue;
+            due.push({
+                名称,
+                时间:String(event.时间||event.开始时间||''),
+                下次检查:String(event.下次检查||''),
+                条件:String(event.条件||''),
+                前因:copy(event.前因||[]),
+                复核依据:review.来源,
+                说明:'软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。'
+            });
+        }
+        return due;
+    }
+
+    // 旧版会要求“更新时间===当前时间 + 下次检查 + 条件”三项齐全，否则整轮驳回。
+    // 到期事件现在只作为模型的软复核清单；未处理时保留原事件，下一轮继续提醒，而不是制造重试死循环。
+    ensureDueHandled=function() { return []; };
+
+    const SamsaraWorldEngineBeforeDueEventRelaxation=SamsaraWorldEngine;
+    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeDueEventRelaxation {
+        async buildRequest(base) {
+            const request=await super.buildRequest(base),due=relaxedDueEvents(base?.stat||{});
+            request.due=due;
+            try{
+                const payload=JSON.parse(request.input);
+                payload.本轮必须复核的到期事件=due;
+                request.input=JSON.stringify(payload,null,2);
+            }catch(_){}
+            if(request.manifest)request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
+            return request;
+        }
+    };
     const SamsaraWorldEngineBeforeClassServices=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeClassServices {
         constructor(host,env){
@@ -8895,9 +8808,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const request=await super.buildRequest(base);
             if(this.promptRegistry){
                 request.system=this.promptRegistry.rewriteSystem(request.system);
+                request.input=this.promptRegistry.rewriteInput(request.input);
                 request.manifest=request.manifest||{};
                 request.manifest.提示词注册表=this.promptRegistry.list().map(item=>({
-                    key:item.key,标题:item.title,分组:item.group,来源:item.source,
+                    key:item.key,标题:item.title,分组:item.group,来源:item.source,作用范围:item.scope,发送条件:item.condition,
                     估算Tokens:estimateTokens(item.value),启用:String(item.value||'').trim()!==''
                 }));
                 request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
@@ -8910,7 +8824,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             try{
                 const raw=await this.requestAI(
                     this.promptRegistry.historySystem(),
-                    historyMemoryPrompt(world,batch,outputLevel),
+                    this.promptRegistry.historyInput(historyMemoryPrompt(world,batch,outputLevel)),
                     {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
                 );
                 return historyMemoryParseReply(raw);
@@ -8918,8 +8832,28 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 this.lastTransportInfo=savedTransport;
             }
         }
+        persistWorldEditorMutation(mutator,status){return this.services.mutations.commit(mutator,status);}
+        worldEditorModeEnabled(){return this.services.editorController.modeEnabled();}
+        setWorldEditorMode(value){return this.services.editorController.setMode(value);}
+        toggleWorldEditorMode(){return this.services.editorController.toggleMode();}
+        worldEditorSection(title){return this.services.editorController.section(title);}
+        worldEditorReportError(error,title){return this.services.editorController.reportError(error,title);}
+        worldEventRecord(name){return this.services.events.get(name);}
+        setWorldEventRecord(oldName,newName,record){return this.services.events.save(oldName,newName,record);}
+        removeWorldEventRecord(name){return this.services.events.remove(name);}
+        worldPersonRecord(name){return this.services.people.get(name);}
+        setWorldPersonRecord(name,record){return this.services.people.save(name,record);}
+        removeWorldPersonRecord(name){return this.services.people.remove(name);}
+        persistCausalOffsetMutation(mutator,status){return this.services.causal.commit(mutator,status);}
+        causalOffsetRecord(name){return this.services.causal.get(name);}
+        setCausalOffsetRecord(oldName,newName,record){return this.services.causal.save(oldName,newName,record);}
+        removeCausalOffsetRecord(name){return this.services.causal.remove(name);}
+        persistHistoryMemoryEdit(kind,name,build,status){return this.services.history.commitEdit(kind,name,build,status);}
+        setHistoryAnchorRecord(name,record){return this.services.history.saveAnchor(name,record);}
+        setHistorySummaryRecord(name,record){return this.services.history.saveSummary(name,record);}
         createPanel(){
             super.createPanel();
+            this.services?.editorController?.bindPanel();
             if(!this.panel||this.panel.__classPromptRegistryBound)return;
             Object.defineProperty(this.panel,'__classPromptRegistryBound',{value:true,configurable:true});
             this.panel.addEventListener('click',event=>{
@@ -8932,54 +8866,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const result=super.render(force);
             this.promptWorkspace?.mount();
             this.promptWorkspace?.syncEditableState();
+            this.services?.editorController?.afterRender();
             return result;
-        }
-    };
-    // 到期事件采用软复核：提醒模型处理，但不再作为整轮写入的硬门槛。
-    function dueEventReviewPoint(event) {
-        const nextCheck=String(event?.下次检查||'').trim();
-        if(nextCheck)return {原文:nextCheck,键:worldDateKey(nextCheck),来源:'下次检查'};
-        const planned=String(event?.时间||event?.开始时间||'').trim();
-        return {原文:planned,键:worldDateKey(planned),来源:'计划时间'};
-    }
-    function relaxedDueEvents(stat) {
-        const now=worldDateKey(stat?.世界?.时间);if(now===null)return [];
-        const events=stat?.世界?.[PATH]?.事件||{},due=[];
-        for(const [名称,event] of Object.entries(events)){
-            if(!plain(event)||event.状态!=='待发生')continue;
-            const review=dueEventReviewPoint(event);
-            // 明确的未来复核时间尚未到，不重复催办；语义型“下次检查”无法比较时只做软提醒，不阻断写入。
-            if(review.来源==='下次检查'&&review.键!==null&&review.键>now)continue;
-            if(review.来源==='计划时间'&&(review.键===null||review.键>now))continue;
-            due.push({
-                名称,
-                时间:String(event.时间||event.开始时间||''),
-                下次检查:String(event.下次检查||''),
-                条件:String(event.条件||''),
-                前因:copy(event.前因||[]),
-                复核依据:review.来源,
-                说明:'软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。'
-            });
-        }
-        return due;
-    }
-
-    // 旧版会要求“更新时间===当前时间 + 下次检查 + 条件”三项齐全，否则整轮驳回。
-    // 到期事件现在只作为模型的软复核清单；未处理时保留原事件，下一轮继续提醒，而不是制造重试死循环。
-    ensureDueHandled=function() { return []; };
-
-    const SamsaraWorldEngineBeforeDueEventRelaxation=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeDueEventRelaxation {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base),due=relaxedDueEvents(base?.stat||{});
-            request.due=due;
-            try{
-                const payload=JSON.parse(request.input);
-                payload.本轮必须复核的到期事件=due;
-                request.input=JSON.stringify(payload,null,2);
-            }catch(_){}
-            if(request.manifest)request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
         }
     };
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。

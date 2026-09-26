@@ -71,34 +71,7 @@
 
     // 请求装饰已迁移至 WorldSoftMaintenanceFeature。\n\n    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
     const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
-    function explorationLocationContainsArea(location,areaName) {
-        const locationKey=nameKey(location),areaKey=nameKey(areaName);
-        return !!locationKey&&!!areaKey&&(locationKey===areaKey||locationKey.includes(areaKey));
-    }
-    function ensureCurrentExplorationProjection(stat,result) {
-        if(stat?.系统状态?.是否在主神空间)return;
-        const location=String(stat?.世界?.地点||'').trim();if(!location)return;
-        const areas=new Map(Object.entries(stat?.世界?.[PATH]?.势力地区||{}).map(([name,record])=>[nameKey(name),{名称:name,记录:record}]));
-        for(const item of result?.势力地区||[]){
-            if(!plain(item)||item.操作==='撤销本轮')continue;
-            const id=nameKey(item.名称),old=areas.get(id);
-            areas.set(id,{名称:old?.名称||item.名称,记录:Object.assign({},old?.记录||{},item)});
-        }
-        const current=Array.from(areas.values()).filter(item=>plain(item.记录)&&String(item.记录.类型||'地区')!=='势力'&&explorationLocationContainsArea(location,item.名称)).sort((a,b)=>nameKey(b.名称).length-nameKey(a.名称).length)[0];
-        if(!current||explorationGranularity(current.名称).invalid)return;
-        const bucket=stat?.世界?.探索||{},existingName=stableNameIn(bucket,current.名称),existing=existingName?bucket[existingName]:null;
-        const list=Array.isArray(result.探索)?result.探索:(result.探索=[]);
-        const index=list.findIndex(item=>plain(item)&&nameKey(item.名称)===nameKey(current.名称));
-        const explicit=index>=0?list[index]:null,progress=Math.max(10,Number(existing?.探索度)||0,Number(explicit?.探索度)||0);
-        if(existing&&progress===Number(existing.探索度||0)&&!explicit)return;
-        const item={名称:current.名称,操作:'更新',风险:String(explicit?.风险||existing?.风险||'F'),探索度:Math.min(100,progress),描述:String(explicit?.描述||existing?.描述||current.记录.描述||current.记录.公开动态||current.记录.进展||('已实际到达'+current.名称+'。')),隐藏真相:String(explicit?.隐藏真相||existing?.隐藏真相||'')};
-        if(index>=0)list.splice(index,1,item);else list.push(item);
-    }
+    // 探索粒度、当前地点自动投影与旧档合并已迁入 WorldExplorationService。
+    // 长期探索台账仍不进行离场回收。
     pruneColdExploration=function(){return [];};
-    const compileWorldResultBeforeExplorationProjection=compileWorldResult;
-    compileWorldResult=function(stat,value) {
-        const result=normalizeWorldResult(value);
-        ensureCurrentExplorationProjection(stat,result);
-        return compileWorldResultBeforeExplorationProjection(stat,result);
-    };
     // 探索提示词注入由 WorldPromptRegistry 最终装配；不再扩展主类。

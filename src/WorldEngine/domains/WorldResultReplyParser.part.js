@@ -21,7 +21,7 @@
             }
             return '';
         }
-            parse(text) {
+        parse(text) {
             let source=String(text).trim();
             const block=source.match(/<world_update\s*>([\s\S]*?)<\/world_update>/i);
             if(block)source=block[1].trim();

@@ -549,18 +549,19 @@
             const needBackbone=timeline.需要初始化||timeline.需要补充远期;
             const openMacro=Object.entries(state.世界[PATH].事件).filter(([,event])=>event.分类==='宏观节点'&&['进行中','待发生'].includes(event.状态));
             const activeMacroCount=openMacro.filter(([,event])=>event.状态==='进行中').length;
+            const promptValue=key=>this.services?.prompts?.get?.(key)||'';
             const macroRequirement=this.config.requireMacroBackbone!==false&&timeline.需要补充远期?{
                 已有可推进宏观节点:openMacro.map(([名称,event])=>({名称,状态:event.状态})),
                 至少补充节点数:Math.max(0,3-openMacro.length),
                 交付要求:macroBackbonePlan(openMacro.length,activeMacroCount,openMacro.length-activeMacroCount),
-                规划与发生:'本轮必须补齐骨架，不能以时间未推进、正文没有宏观变化或无业务变化为由省略。建立待发生节点属于未来规划，可排在下一宏观边界之后，不表示事件现在发生；近期细节与已发生事实仍受本轮时间容量和下一宏观边界限制。不得为凑数提前原著日期，或预先结算未来事件的结果；更新时间使用当前世界时间。',
-                验收:'按已有状态与本轮结果合并后计数；若本轮结束或取消已有宏观节点，须补足被移出窗口的数量。重试时以已接受业务结果和最新补充清单为准，不重复创建已接受节点。'
+                规划与发生:promptValue('macroPlanningInstruction'),
+                验收:promptValue('macroValidationInstruction')
             }:undefined;
             const proseScan=floors.map(f=>f.正文).join('\n');
             const chronologyScan=needBackbone?[state.世界.名称,'原著','时间线','时间轴','年表','大事记','大事件','剧情大纲','剧情章节','章节','未来','后续'].filter(Boolean).join(' '):'';
             const books=await this.worldbook([proseScan,chronologyScan].filter(Boolean).join('\n'),{timelineBackbone:needBackbone});
             const now=worldDateKey(state.世界.时间);
-            const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:'时间已到；逐项核验条件与前因，符合则转进行中；未符合必须更新下次检查并解释阻碍，不得无声跳过。'}));
+            const due=Object.entries(state.世界[PATH].事件).filter(([,e])=>e.状态==='待发生'&&now!==null&&worldDateKey(e.时间||e.开始时间)!==null&&worldDateKey(e.时间||e.开始时间)<=now).map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因,说明:promptValue('dueEventInstruction')}));
             const unscheduled=unscheduledEvents(state);
             const staleActive=staleActiveEvents(state);
             const timeAnomalies=temporalAnomalies(state);
@@ -568,13 +569,13 @@
             const npcAudit=npcBuildAudit(state);
             const input=JSON.stringify({
                 输入语义:{
-                    世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
-                    当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；未提供的任务/商城/纯结算数据不属于本引擎职责。',
-                    正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
-                    程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
-                    时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
-                    WorldResult:'唯一业务交付物；不包含 JSON Pointer、add/replace 路径或程序日志。',
-                    角色管理:'若提供NPC构筑审计，只处理列出的既有NPC缺口；完整构筑资料只在审计对象中提供，避免全量NPC重复占用上下文。'
+                    世界书:promptValue('inputWorldbookSemantics'),
+                    当前变量:promptValue('inputCurrentStateSemantics'),
+                    正文楼层:promptValue('inputProseSemantics'),
+                    程序结构修复:promptValue('inputStructuralRepairSemantics'),
+                    时间线调度:promptValue('inputTimelineSemantics'),
+                    WorldResult:promptValue('inputWorldResultSemantics'),
+                    角色管理:promptValue('inputNpcAuditSemantics')
                 },
                 本轮必须完成的宏观骨架:macroRequirement,
                 世界书:books.map(b=>String(b.内容||'')).filter(Boolean),
@@ -584,11 +585,11 @@
                 程序结构修复:structuralFixes,
                 本轮时间容量:capacity,
                 时间线调度:timeline,
-                推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:'当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断'},
+                推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'需要建立或补足':'已具备可用宏观骨架',近期细节边界:timeline.下一宏观节点?.名称||'先建立下一宏观节点',知识来源:promptValue('knowledgePriorityInstruction')},
                 正文可见投影规则:{
                     当前时间:state.世界.时间,
                     当前地点:state.世界.地点,
-                    要求:'非战斗正文会读取完整因果轨道：当前阶段用于当前局势，故事线/下一节点用于长期叙事方向，偏移记录用于跨章因果记忆；这些是规划依据，不等于角色预知或自动知晓幕后信息。正文还会读取进行中当前事件的公开字段，以及程序筛选的场外场景：每个热地区只出现一次共享环境/现场群体，人物列表只携带各自行动事实，关联事件只作索引；活跃异端始终保留在其所在热场景。以上均用于叙事连续性，不代表角色已知。可能影响当前场景的当前事件应维护公开征兆和可见影响；不要把隐藏条件、默认走向或未来宏观事件详情塞进公开字段。'
+                    要求:promptValue('proseProjectionInstruction')
                 },
                 可选宏观资料补充:needBackbone,
                 本轮必须复核的到期事件:due,
@@ -597,7 +598,7 @@
                 本轮必须修复的时间越界记录:timeAnomalies,
                 本轮必须维持的异端活动:alienActivity,
                 生命周期整理:lifecycle,
-                说明:'当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。'
+                说明:promptValue('requestGeneralInstruction')
             },null,2);
             const stabilityPrompt=worldStabilityPrompt(state,this.config.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE);
             const macroPrompt=macroRequirement?(this.config.macroPrompt??DEFAULT_MACRO_PROMPT):'';

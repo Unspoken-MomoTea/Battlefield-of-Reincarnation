@@ -3935,7 +3935,7 @@ ${schemaText}`;
                 },
                 本轮必须完成的宏观骨架:macroRequirement,
                 世界书:books.map(b=>String(b.内容||'')).filter(Boolean),
-                当前变量:projectWorldContext(state),
+                当前变量:(this.services?.stateProjector?.world(state)??projectWorldContext(state)),
                 角色管理:npcAudit.length?{NPC构筑审计:npcAudit}:undefined,
                 正文楼层:floors,
                 程序结构修复:structuralFixes,
@@ -4041,17 +4041,17 @@ ${schemaText}`;
                         const reply=parseReply(received);
                         let legacyPatches=[],rejectedSlices=[];
                         if(reply.kind==='world_result'){
-                            const staged=stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult,validate);
+                            const staged=this.services?.compiler?.stage(base.stat,acceptedWorldResult,reply.worldResult,validate)??stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult,validate);
                             acceptedWorldResult=staged.accepted;
                             rejectedSlices=staged.rejected;
                             reply.summary=acceptedWorldResult.摘要||reply.summary;
                         } else {
-                            legacyPatches=sanitizeModelPatches(normalizeModelPatches(reply.patches));
+                            legacyPatches=this.services?.compiler?.sanitizeLegacy(reply.patches)??sanitizeModelPatches(normalizeModelPatches(reply.patches));
                         }
                         const compileFor=sourceStat=>{
                             const patches=[],warnings=[];
                             if(acceptedWorldResult){
-                                const compiled=compileWorldResult(sourceStat,acceptedWorldResult);
+                                const compiled=this.services?.compiler?.compile(sourceStat,acceptedWorldResult)??compileWorldResult(sourceStat,acceptedWorldResult);
                                 patches.push(...compiled.patches);warnings.push(...compiled.warnings);
                             }
                             if(legacyPatches.length)patches.push(...legacyPatches);
@@ -4061,7 +4061,7 @@ ${schemaText}`;
                         this.lastWorldResult=acceptedWorldResult?copy(acceptedWorldResult):null;
                         this.lastCompiledPatches=copy(modelPatches);
                         this.lastCompileWarnings=copy(compiled.warnings);
-                        let built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
+                        let built=this.services?.compiler?.materialize(sourceStat,request.seedPatches,modelPatches)??materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
                         let next=built.next;
                         let globalError=null;
                         try{
@@ -4084,7 +4084,7 @@ ${schemaText}`;
                             compiled=compileFor(sourceStat);modelPatches=compiled.patches;
                             this.lastCompiledPatches=copy(modelPatches);
                             this.lastCompileWarnings=copy(compiled.warnings);
-                            built=materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
+                            built=this.services?.compiler?.materialize(sourceStat,request.seedPatches,modelPatches)??materializeWorldUpdate(sourceStat,request.seedPatches,modelPatches);
                             next=built.next;
                             let currentGlobalError=null;
                             try{
@@ -6422,6 +6422,21 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         const source=Array.isArray(value)?value.join('\n'):String(value||'');
         return [...new Set(source.split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
     }
+    class WorldStateProjector {
+        constructor(engine){this.engine=engine;}
+        world(stat){return projectWorldContext(stat);}
+        assets(value){return projectAssetsForWorld(value);}
+        character(value){return projectCharacterForWorld(value);}
+        causalOrbit(value,currentStability){return projectCausalOrbitForWorld(value,currentStability);}
+    }
+    class WorldResultCompiler {
+        constructor(engine){this.engine=engine;}
+        normalize(value){return normalizeWorldResult(value);}
+        stage(stat,accepted,incoming,validate){return stageWorldResult(stat,accepted,incoming,validate);}
+        compile(stat,value){return compileWorldResult(stat,value);}
+        materialize(stat,seedPatches,modelPatches){return materializeWorldUpdate(stat,seedPatches,modelPatches);}
+        sanitizeLegacy(patches){return sanitizeModelPatches(normalizeModelPatches(patches));}
+    }
     class WorldMutationService {
         constructor(engine){this.engine=engine;}
         snapshot(){return this.engine.snapshot();}
@@ -8299,6 +8314,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     class WorldEngineServiceContainer {
         constructor(engine){
             this.engine=engine;
+            this.stateProjector=new WorldStateProjector(engine);
+            this.compiler=new WorldResultCompiler(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
             this.people=new WorldPersonActivityService(engine);

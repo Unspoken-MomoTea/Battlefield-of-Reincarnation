@@ -51,6 +51,7 @@ host.Mvu={
 
 (async()=>{
   const engine=new Engine(host);
+  engine.config.selectedEntries=null;
   assert.equal(engine.services.context?.constructor?.name,'WorldRuntimeContextService');
   assert.equal(engine.services.knowledge?.constructor?.name,'WorldKnowledgeService');
   assert.equal(engine.services.requestBuilder?.constructor?.name,'WorldRequestBuilder');

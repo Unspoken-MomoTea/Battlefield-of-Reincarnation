@@ -385,24 +385,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const MODEL_DETAILS = copy(DETAILS);
     for (const key of ['承诺','待决事项','关系变化']) delete MODEL_DETAILS.人物[key];
 
-    function emptyState() {
-        return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 资产墓碑:{} };
-    }
-    // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
-    function importStory(stat) {
-        const orbit=stat.世界.因果轨道||{},events=stat.世界.后台?.事件||{};
-        if(Object.values(events).some(e=>e.分类==='主线节点'))return [];
-        const stages=storyStages(orbit.故事线);
-        if(stages.length<2||stages.length>30)return [];
-        const index=stages.findIndex(n=>n===orbit.下一节点);
-        const remaining=index>=0?stages.slice(index):stages;
-        let previous='';
-        return remaining.filter(name=>!Object.hasOwn(events,name)).map(name=>{
-            const value={...copy(RECORDS.事件),描述:name,分类:'主线节点',前因:previous?[previous]:[],条件:previous?'前置节点「'+previous+'」达到进入本阶段所需的条件':'待依据世界设定与正文明确触发条件',下次检查:'本轮首次排程'};
-            previous=name;
-            return {op:'add',path:'/世界/后台/事件/'+name.replace(/~/g,'~0').replace(/\//g,'~1'),value};
-        });
-    }
     const nameKey=value=>String(value||'').toLowerCase().replace(/[\\/／·・._\-\s]+/g,'');
     function stableNameIn(bucket,name) {
         if(!plain(bucket))return '';
@@ -414,6 +396,15 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         const x=nameKey(a),y=nameKey(b);if(!x||!y)return false;
         return x===y||x.includes(y)||y.includes(x);
     }
+    class WorldStateFactory {
+        emptyBackend() {
+            return {版本:5,已处理楼层:'',已处理时间:'',事件:{},人物:{},势力地区:{},历史:{},历史总结:{},传播:{},最近变化:[],资产墓碑:{}};
+        }
+    }
+
+    const DEFAULT_WORLD_STATE_FACTORY=new WorldStateFactory();
+    function emptyState(){return DEFAULT_WORLD_STATE_FACTORY.emptyBackend();}
+
     const WORLD_MODEL_IGNORED_PATHS = [
         /^\/任务(?:\/|$)/,
         /^\/系统状态\/待播报记录$/,
@@ -584,6 +575,20 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         storyStages(value) {
             return String(value||'').split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
         }
+        importStory(stat) {
+            const orbit=stat.世界.因果轨道||{},events=stat.世界[PATH]?.事件||{};
+            if(Object.values(events).some(e=>e.分类==='主线节点'))return [];
+            const stages=this.storyStages(orbit.故事线);
+            if(stages.length<2||stages.length>30)return [];
+            const index=stages.findIndex(n=>n===orbit.下一节点);
+            const remaining=index>=0?stages.slice(index):stages;
+            let previous='';
+            return remaining.filter(name=>!Object.hasOwn(events,name)).map(name=>{
+                const value={...copy(RECORDS.事件),描述:name,分类:'主线节点',前因:previous?[previous]:[],条件:previous?'前置节点「'+previous+'」达到进入本阶段所需的条件':'待依据世界设定与正文明确触发条件',下次检查:'本轮首次排程'};
+                previous=name;
+                return {op:'add',path:'/世界/后台/事件/'+name.replace(/~/g,'~0').replace(/\//g,'~1'),value};
+            });
+        }
         timelineState(stat) {
             const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
             const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));
@@ -712,6 +717,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const DEFAULT_WORLD_TIMELINE_POLICY=new WorldTimelinePolicy();
     let ACTIVE_WORLD_TIMELINE_POLICY=DEFAULT_WORLD_TIMELINE_POLICY;
     function storyStages(value){return ACTIVE_WORLD_TIMELINE_POLICY.storyStages(value);}
+    function importStory(stat){return ACTIVE_WORLD_TIMELINE_POLICY.importStory(stat);}
     function timelineState(stat){return ACTIVE_WORLD_TIMELINE_POLICY.timelineState(stat);}
     function eventTimeAnchor(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventTimeAnchor(event);}
     function eventScheduleLabel(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventScheduleLabel(event);}
@@ -8686,6 +8692,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.context=new WorldRuntimeContextService(engine);
             this.knowledge=new WorldKnowledgeService(engine);
             this.requestBuilder=new WorldRequestBuilder(engine);
+            this.stateFactory=new WorldStateFactory();
             this.stateProjector=new WorldStateProjector(engine);
             this.patchPolicy=new WorldPatchPolicy();
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;

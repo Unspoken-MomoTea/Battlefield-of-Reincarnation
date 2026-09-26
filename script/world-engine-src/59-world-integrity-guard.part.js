@@ -145,4 +145,4 @@
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
-    // 请求 manifest / system 装饰已迁移至 WorldIntegrityRequestFeature + WorldPromptRegistry。\n
+    // 请求 manifest / system 装饰已迁移至 WorldIntegrityRequestFeature + WorldPromptRegistry。

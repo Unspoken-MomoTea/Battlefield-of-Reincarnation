@@ -105,14 +105,14 @@
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
-    const SamsaraWorldEngineBeforeWorldActivityDelivery=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeWorldActivityDelivery {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base),payload=JSON.parse(request.input),requirement=worldActivityRequirement(base.stat);
+    class WorldActivityDeliveryFeature {
+        constructor(engine){this.engine=engine;}
+        async modifyRequest(request,base) {
+            const payload=JSON.parse(request.input),requirement=worldActivityRequirement(base.stat);
             payload.本轮世界活动交付={
                 当前数量:copy(requirement.当前数量),
                 初始化缺口:copy(requirement.初始化缺口),
-                硬要求:String(this.services?.prompts?.get?.('worldActivityPayloadInstruction')||PROMPT_DEFAULT_WORLD_ACTIVITY_PAYLOAD).split(/\n+/).map(x=>x.trim()).filter(Boolean)
+                硬要求:String(this.engine.services?.prompts?.get?.('worldActivityPayloadInstruction')||PROMPT_DEFAULT_WORLD_ACTIVITY_PAYLOAD).split(/\n+/).map(x=>x.trim()).filter(Boolean)
             };
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'')+'\n\n'+WORLD_ACTIVITY_DELIVERY_RULES;
@@ -121,4 +121,5 @@
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             return request;
         }
-    };
+    }
+    registerWorldEngineFeature('world-activity-delivery',engine=>new WorldActivityDeliveryFeature(engine));

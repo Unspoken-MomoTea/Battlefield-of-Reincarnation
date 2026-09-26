@@ -103,6 +103,8 @@ jobs:
         run: node tests/world-engine-core-services.cjs
       - name: World engine runtime services regression
         run: node tests/world-engine-runtime-services.cjs
+      - name: Transport and prompt document services regression
+        run: node tests/world-engine-transport-docs-services.cjs
       - name: World engine validation service regression
         run: node tests/world-engine-validation-service.cjs
       - name: World engine commit service regression

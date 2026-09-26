@@ -46,7 +46,6 @@
         async worldbook(scan='',options={}){
             const engine=this.engine;
             return await (async function(scan,options){
-                }) {
                             const catalogue=await this.catalogue(),output=[];
                             this.bookCatalogue=catalogue;
                             const report=[];this.readReport=report;

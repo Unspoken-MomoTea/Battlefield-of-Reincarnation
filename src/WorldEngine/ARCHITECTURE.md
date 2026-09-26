@@ -170,3 +170,10 @@ src/WorldEngine/
 `WorldLifecycleService` 现在同时负责事件归档、传播过期、人物临时活动回收、死亡异端的后台人物清理，以及整轮 `compactWorldLifecycle` 编排。世界推进只清理 `世界.后台.人物` 的活动记录，不删除 `关系列表` 正式人物档案；正式档案继续由状态栏/辅助生命周期负责。
 
 `世界.探索` 是长期玩家台账，不属于 lifecycle 回收对象。旧 `pruneColdExploration` 路径已经移除，`compactWorldLifecycle` 为兼容仍返回 `回收探索` 字段，但固定为空。
+
+
+### State normalization ownership
+
+`WorldStateNormalizer` owns persisted backend migration and event structural repair: legacy summary migration, backend record normalization, dead-alien activity cleanup, event layer correction, explicit person↔event linking, and macro predecessor completion. `WorldResultMaterializer` composes the container-owned normalizer directly; compatibility functions remain only for UI/runtime callers that have not yet moved to injected services.
+
+Causal projection is intentionally not part of this class. `repairCausalProjection` remains a separate seam until it is migrated into the causal domain.

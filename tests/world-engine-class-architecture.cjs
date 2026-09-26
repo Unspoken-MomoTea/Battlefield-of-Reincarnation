@@ -10,6 +10,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldStateProjector.part.js',
   'src/WorldEngine/domains/WorldTimelinePolicy.part.js',
   'src/WorldEngine/domains/WorldLifecycleService.part.js',
+  'src/WorldEngine/domains/WorldStateNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultKernel.part.js',
   'src/WorldEngine/domains/WorldResultContract.part.js',
   'src/WorldEngine/domains/WorldResultNormalizer.part.js',
@@ -62,17 +63,19 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateProjector','timelinePolicy','lifecycle','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateProjector','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
 assert.equal(engine.services.stateProjector.constructor.name,'WorldStateProjector');
 assert.equal(engine.services.timelinePolicy.constructor.name,'WorldTimelinePolicy');
 assert.equal(engine.services.lifecycle.constructor.name,'WorldLifecycleService');
+assert.equal(engine.services.stateNormalizer.constructor.name,'WorldStateNormalizer');
 assert.equal(engine.services.resultContract.constructor.name,'WorldResultContract');
 assert.equal(engine.services.resultContract.schema,delivery.WORLD_RESULT_SCHEMA,'service contract must expose the canonical compatibility schema');
 assert.equal(engine.services.resultNormalizer.constructor.name,'WorldResultNormalizer');
 assert.equal(engine.services.resultMaterializer.constructor.name,'WorldResultMaterializer');
+assert.equal(engine.services.resultMaterializer.stateNormalizer,engine.services.stateNormalizer,'materializer must compose the container-owned state normalizer');
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
 assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyParser');
 assert.equal(engine.services.compiler.constructor.name,'WorldResultCompiler');
@@ -89,6 +92,43 @@ assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
+
+const normalized=clone(current.stat_data);
+normalized.世界.后台.公开摘要='旧版阶段摘要';
+normalized.世界.后台.正文承接='旧交接';
+normalized.世界.后台.运行记录=[{摘要:'旧记录'}];
+delete normalized.世界.后台.历史总结;
+normalized.世界.因果轨道.故事线='远征开始 -> 城门决战 -> 王都改组';
+for(const name of ['远征开始','城门决战','王都改组'])normalized.世界.后台.事件[name]={
+  ...clone(RECORDS.事件),分类:'宏观节点',状态:'待发生',描述:name,前因:[],参与者:[]
+};
+normalized.世界.后台.事件.天台争夺={
+  ...clone(RECORDS.事件),分类:'宏观节点',状态:'待发生',地点:'学校天台',描述:'夺取天台入口',前因:[],参与者:[]
+};
+normalized.世界.后台.事件.街区追踪={
+  ...clone(RECORDS.事件),分类:'近期节点',状态:'进行中',地点:'北门',描述:'艾琳正在追踪目标',前因:[],参与者:[]
+};
+normalized.世界.后台.人物['艾琳·晨星']={
+  ...clone(RECORDS.人物),所属世界:'测试世界',地点:'北门',目标:'追踪',行动:'追踪',关联事件:[]
+};
+engine.services.stateNormalizer.normalizeBackendState(normalized);
+assert.equal(normalized.世界.因果轨道.当前阶段,'旧版阶段摘要');
+assert.equal(normalized.世界.后台.公开摘要,undefined);
+assert.equal(normalized.世界.后台.正文承接,undefined);
+assert.equal(normalized.世界.后台.运行记录,undefined);
+assert.deepEqual(normalized.世界.后台.历史总结,{});
+const layerFixes=engine.services.stateNormalizer.normalizeEventLayers(normalized);
+assert.equal(normalized.世界.后台.事件.天台争夺.分类,'近期节点');
+assert.equal(normalized.世界.后台.事件.街区追踪.分类,'当前事件');
+assert.ok(layerFixes.length>=2);
+const linkFixes=engine.services.stateNormalizer.repairExplicitEventLinks(normalized);
+assert.ok(normalized.世界.后台.事件.街区追踪.参与者.includes('艾琳·晨星'));
+assert.ok(normalized.世界.后台.人物['艾琳·晨星'].关联事件.includes('街区追踪'));
+assert.ok(linkFixes.length>=2);
+const predecessorFixes=engine.services.stateNormalizer.repairMacroPredecessors(normalized);
+assert.ok(normalized.世界.后台.事件.城门决战.前因.includes('远征开始'));
+assert.ok(normalized.世界.后台.事件.王都改组.前因.includes('城门决战'));
+assert.equal(predecessorFixes.length,2);
 
 const expectedPromptKeys=[
   'preset','core','macro','stability','npcAudit','outputProtocol',

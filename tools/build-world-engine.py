@@ -11,6 +11,7 @@ PARTS = (
     '10-world-state.part.js',
     '@src/WorldEngine/domains/WorldTimelinePolicy.part.js',
     '@src/WorldEngine/domains/WorldLifecycleService.part.js',
+    '@src/WorldEngine/domains/WorldStateNormalizer.part.js',
     '@src/WorldEngine/domains/WorldResultKernel.part.js',
     '@src/WorldEngine/domains/WorldExplorationService.part.js',
     '@src/WorldEngine/domains/WorldResultContract.part.js',

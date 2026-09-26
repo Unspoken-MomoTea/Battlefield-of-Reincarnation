@@ -3,7 +3,7 @@
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;}
+        constructor(normalizer,exploration,stateNormalizer){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -336,7 +336,7 @@
             if (!Array.isArray(patches) || patches.length > 100) throw new Error('每轮最多 100 条补丁');
             const next = copy(stat);
             next.世界[PATH] = Object.assign(emptyState(), next.世界[PATH] || {});
-            normalizeBackendState(next);
+            this.stateNormalizer.normalizeBackendState(next);
             for (const patch of patches) {
                 if (!plain(patch) || !['add','replace','remove'].includes(patch.op)) throw new Error('不支持的补丁操作');
                 let p = canonicalizeParts(tokens(patch.path),next);
@@ -381,8 +381,8 @@
                 }
                 if (patch.op === 'remove') delete parent[p.at(-1)]; else parent[p.at(-1)] = copy(value);
             }
-            normalizeBackendState(next);
-            normalizeEventLayers(next);
+            this.stateNormalizer.normalizeBackendState(next);
+            this.stateNormalizer.normalizeEventLayers(next);
             validateTemporalWrites(stat,next,patches);
             validateState(next);
             for (const [name,item] of Object.entries(next.世界.势力 || {})) {
@@ -394,22 +394,22 @@
         materializeWorldUpdate(stat,seedPatches,modelPatches) {
             const work=copy(stat);
             work.世界[PATH]=Object.assign(emptyState(),work.世界[PATH]||{});
-            normalizeBackendState(work);compactWorldLifecycle(work);
+            this.stateNormalizer.normalizeBackendState(work);compactWorldLifecycle(work);
             const appliedSeeds=(seedPatches||[]).filter(p=>get(work,canonicalizeParts(tokens(p.path),work))===undefined);
             let next=this.applyPatches(work,appliedSeeds);
             next=this.applyPatches(next,modelPatches||[]);
             const explorationPatches=this.exploration.repairGranularity(next);
-            const layerPatches=normalizeEventLayers(next);
+            const layerPatches=this.stateNormalizer.normalizeEventLayers(next);
             const causalPatches=repairCausalProjection(next);
-            const predecessorPatches=repairMacroPredecessors(next);
-            const linkPatches=repairExplicitEventLinks(next);
+            const predecessorPatches=this.stateNormalizer.repairMacroPredecessors(next);
+            const linkPatches=this.stateNormalizer.repairExplicitEventLinks(next);
             compactWorldLifecycle(next);
             validateState(next);
             const repairPatches=[...explorationPatches,...layerPatches,...causalPatches,...predecessorPatches,...linkPatches];
             return {next,appliedSeeds,repairPatches};
         }
     }
-    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE);
+    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER);
     let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
     function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}

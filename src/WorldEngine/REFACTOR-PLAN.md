@@ -171,3 +171,10 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 同时删除 legacy `pruneColdExploration`：探索已定义为长期玩家台账，离开地区不会再被生命周期回收。兼容报告保留 `回收探索: []`，避免调用方结构变化。
 
 CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不再因为 `10-world-state.part.js` 中旧归档锚点已迁走而误报失败。下一批继续拆 `10-world-state.part.js` 中的状态规范化/事件层级修复与因果投影 helper。
+
+
+### Phase 16 · 状态规范化类化
+
+已完成：新增 `WorldStateNormalizer`，迁出 `normalizeBackendState / normalizeEventLayers / repairExplicitEventLinks / repairMacroPredecessors` 及内部事件分类 helper。旧 `10-world-state.part.js` 不再承载存档迁移和事件结构修复实现；兼容函数统一转发到 container-owned active normalizer。
+
+`WorldResultMaterializer` 已直接组合 `stateNormalizer`。因果投影刻意留到下一阶段单独迁入 causal domain，避免 normalizer 再次变成混合职责大类。

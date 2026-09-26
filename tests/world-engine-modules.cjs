@@ -26,6 +26,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldStateProjector.part.js',
   '@src/WorldEngine/domains/WorldTimelinePolicy.part.js',
   '@src/WorldEngine/domains/WorldLifecycleService.part.js',
+  '@src/WorldEngine/domains/WorldStateNormalizer.part.js',
   '@src/WorldEngine/domains/WorldResultKernel.part.js',
   '@src/WorldEngine/domains/WorldResultContract.part.js',
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
@@ -108,6 +109,12 @@ assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/cl
 assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/compact\(stat\)/,'lifecycle service must own the top-level compaction orchestration');
 assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:personActivityMeta|pruneColdTemporaryPeople|pruneDeadAlienPeople|collectEventRefs|detachEventSoftRefs|archiveFinishedEvent|propagationEnded|pruneSoftRefsToColdFinishedEvents|compactFinishedEvents|explorationLocationRefs|pruneColdExploration|compactWorldLifecycle)\b/,'legacy world-state source must not regain lifecycle implementation');
 assert.doesNotMatch(texts['59-soft-maintenance.part.js'],/pruneColdExploration\s*=/,'soft-maintenance must not recreate the removed exploration lifecycle seam');
+
+// Phase 16: backend migration and event structural repair live behind one state normalizer.
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldLifecycleService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js'),'state normalizer must load after lifecycle seams');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'state normalizer must load before materialization');
+assert.match(texts['@src/WorldEngine/domains/WorldStateNormalizer.part.js'],/class\s+WorldStateNormalizer\b/,'state normalization must have a dedicated class');
+assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:normalizeBackendState|eventText|obviouslyLocalMacro|normalizedEventCategory|normalizeEventLayers|explicitPersonAliases|repairExplicitEventLinks|repairMacroPredecessors)\b/,'legacy state monolith must not regain state-normalizer implementation');
 
 // Phase 13: timeline/time validation helpers are class-owned instead of living in the legacy state monolith.
 assert.ok(declared.indexOf('10-world-state.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'timeline policy must load after base state helpers');

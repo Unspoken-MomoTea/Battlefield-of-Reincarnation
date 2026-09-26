@@ -23,6 +23,8 @@
             this.taskAwareness=new WorldTaskAwarenessFeature(engine);
             this.chronology=new WorldChronologyFeature(engine);
             this.rumorRequest=new WorldRumorRequestFeature(engine);
+            this.timeOwnership=new WorldTimeOwnershipFeature(engine);
+            this.historyMemory=new WorldHistoryMemoryFeature(engine);
             this.features.register('npcAuditPrompt',this.npcAuditPrompt);
             this.features.register('apiPreset',this.apiPreset);
             this.features.register('causalOverview',this.causalOverview);
@@ -33,6 +35,8 @@
             this.features.register('taskAwareness',this.taskAwareness);
             this.features.register('chronology',this.chronology);
             this.features.register('rumorRequest',this.rumorRequest);
+            this.features.register('timeOwnership',this.timeOwnership);
+            this.features.register('historyMemory',this.historyMemory);
         }
         initialize(){
             this.prompts.initialize();

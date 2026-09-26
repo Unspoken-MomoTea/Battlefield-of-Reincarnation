@@ -16,6 +16,7 @@
 
 - `WorldEngineServiceContainer`：服务组合根。
 - `WorldRuntimeContextService`：当前楼层/MVU/chat 指纹读取与基础阻塞判断。\n- `WorldKnowledgeService`：角色/聊天/全局世界书目录与蓝绿灯读取。\n- `WorldRequestBuilder`：主推进的基础请求构造；Feature Registry 与 Prompt Registry 在其后继续装饰。\n- `WorldApiTransportService`：专属 API/主神终端传输、结构化降级、模型目录与 API 预设。\n- `WorldPromptDocumentService`：提示词文档保存、导入、导出与删除。\n- `WorldRunOrchestrator`：一次世界推进的请求→重试→编译→验收→提交 Application Flow。\n- `WorldStateProjector`：世界状态 → 世界推进热上下文的唯一投影入口。
+- `WorldTimelinePolicy`：事件时间锚点、时间线显示/排序、陈旧活动检测与未来时间异常规则。
 - `WorldResultCompiler`：WorldResult 标准化、分片验收、补丁编译与 materialize 入口。
 - `WorldValidationService`：编译后统一执行到期事件、时间锚点、超期事件、时间异常、异端、NPC 审计与宏观骨架验收。
 - `WorldCommitService`：稳定值重算、最近变化、历史/replay 提交装饰、Schema 二次确认与单次 MVU 写入。

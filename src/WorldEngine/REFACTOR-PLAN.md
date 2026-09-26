@@ -29,6 +29,8 @@
 
 手动编辑域已经进入第 3 步：事件、世界人物、因果偏移、历史记忆不再各自制造新的主类继承层。
 
+Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示迁移、旧提示词工作台 4 个继承层；这些能力分别由 feature/controller class 或统一 Prompt Registry 接管。
+
 ## 下一批
 
 仍需继续迁移的 legacy 继承功能主要是：
@@ -37,8 +39,7 @@
 - replay 恢复；
 - 时间所有权与时间轴保护；
 - 传闻请求管线；
-- NPC 审计开关；
-- API 预设状态；
-- 因果概览 UI。
+- NPC 审计开关与 policy compat；
+- 软维护 / 世界完整性 / 世界活动交付等请求 feature。
 
 这些后续都应变成独立 service/controller，并由单一 ClassBridge 调用；不得新增新的业务继承链。

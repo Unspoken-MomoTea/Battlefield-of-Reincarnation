@@ -34,5 +34,8 @@
 - `WorldIntegrityRequestFeature`：因果与时间约束 manifest。
 - `WorldActivityRequestFeature`：世界活动交付 payload/timeline/manifest。
 - `WorldDueEventFeature`：到期事件软复核清单。
+- `WorldTaskAwarenessFeature`：任务只读投影与任务世界书选择恢复。
+- `WorldChronologyFeature`：原著/数据库时间线资料读取与时间线基准请求装饰。
+- `WorldRumorRequestFeature`：传闻维护 payload、世界侧取材边界、运行时复核与传闻 UI 收口。
 
 详细迁移边界见 `ARCHITECTURE.md` 与 `REFACTOR-PLAN.md`；提示词清单规则见 `PROMPT-REGISTRY.md`。

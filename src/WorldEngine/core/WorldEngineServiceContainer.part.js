@@ -4,6 +4,7 @@
             this.context=new WorldRuntimeContextService(engine);
             this.knowledge=new WorldKnowledgeService(engine);
             this.requestBuilder=new WorldRequestBuilder(engine);
+            this.stateFactory=new WorldStateFactory();
             this.stateProjector=new WorldStateProjector(engine);
             this.patchPolicy=new WorldPatchPolicy();
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;

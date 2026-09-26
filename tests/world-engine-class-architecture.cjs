@@ -7,6 +7,7 @@ for(const file of [
   'src/WorldEngine/README.md',
   'src/WorldEngine/ARCHITECTURE.md',
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  'src/WorldEngine/domains/WorldStateFactory.part.js',
   'src/WorldEngine/domains/WorldStateProjector.part.js',
   'src/WorldEngine/domains/WorldPatchPolicy.part.js',
   'src/WorldEngine/domains/WorldTimelinePolicy.part.js',
@@ -36,6 +37,11 @@ for(const file of [
 
 
 const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
+const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateFactory.part.js'),'utf8');
+assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
+assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'unused legacy story importer must be removed');
+assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
+assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT_WORLD_STATE_FACTORY\.emptyBackend\(\);\}/,'public emptyState seam must remain compatible');
 const patchPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
 const requestServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestService.part.js'),'utf8');
 for(const legacyName of ['retryableModelFailure','retryInput']){
@@ -89,10 +95,11 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateProjector','patchPolicy','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateFactory','stateProjector','patchPolicy','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
+assert.equal(engine.services.stateFactory.constructor.name,'WorldStateFactory');
 assert.equal(engine.services.stateProjector.constructor.name,'WorldStateProjector');
 assert.equal(engine.services.patchPolicy.constructor.name,'WorldPatchPolicy');
 assert.equal(engine.services.timelinePolicy.constructor.name,'WorldTimelinePolicy');
@@ -131,6 +138,11 @@ assert.equal(retryPayload.纠错重试.当前尝试,2);
 assert.equal(retryPayload.纠错重试.最大尝试次数,3);
 assert.equal(retryPayload.纠错重试.要求,engine.services.prompts.value('retryFresh'),'retry copy must come from editable Prompt Registry');
 
+
+const freshBackend=engine.services.stateFactory.emptyBackend();
+assert.deepEqual(freshBackend,emptyState(),'factory and public emptyState seam must agree');
+freshBackend.事件.临时={};
+assert.deepEqual(engine.services.stateFactory.emptyBackend().事件,{},'state factory must return isolated mutable records');
 
 const normalized=clone(current.stat_data);
 normalized.世界.后台.公开摘要='旧版阶段摘要';

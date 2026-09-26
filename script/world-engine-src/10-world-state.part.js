@@ -17,24 +17,6 @@
     const MODEL_DETAILS = copy(DETAILS);
     for (const key of ['承诺','待决事项','关系变化']) delete MODEL_DETAILS.人物[key];
 
-    function emptyState() {
-        return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 资产墓碑:{} };
-    }
-    // 只拆显式分隔的阶段，不把自然语言段落猜成多个事件，也不凭空分配日期。
-    function importStory(stat) {
-        const orbit=stat.世界.因果轨道||{},events=stat.世界.后台?.事件||{};
-        if(Object.values(events).some(e=>e.分类==='主线节点'))return [];
-        const stages=storyStages(orbit.故事线);
-        if(stages.length<2||stages.length>30)return [];
-        const index=stages.findIndex(n=>n===orbit.下一节点);
-        const remaining=index>=0?stages.slice(index):stages;
-        let previous='';
-        return remaining.filter(name=>!Object.hasOwn(events,name)).map(name=>{
-            const value={...copy(RECORDS.事件),描述:name,分类:'主线节点',前因:previous?[previous]:[],条件:previous?'前置节点「'+previous+'」达到进入本阶段所需的条件':'待依据世界设定与正文明确触发条件',下次检查:'本轮首次排程'};
-            previous=name;
-            return {op:'add',path:'/世界/后台/事件/'+name.replace(/~/g,'~0').replace(/\//g,'~1'),value};
-        });
-    }
     const nameKey=value=>String(value||'').toLowerCase().replace(/[\\/／·・._\-\s]+/g,'');
     function stableNameIn(bucket,name) {
         if(!plain(bucket))return '';

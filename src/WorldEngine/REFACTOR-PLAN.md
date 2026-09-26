@@ -219,3 +219,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 纠错“要求”仍由 `WorldPromptRegistry.retryRequirement()` 提供，因此三种纠错提示词继续在“提示词预设 → 全部实际提示词”中可见、可编辑。全局 `retryableModelFailure / retryInput` 仅保留兼容转发 seam。
 
 下一批评估 `emptyState / importStory` 的最终归属，然后进入 `30-context-protocol.part.js` 的上下文投影装饰链迁移。
+
+
+### Phase 22 · 后台状态工厂归域
+
+已完成：新增 `WorldStateFactory`，接管世界后台空状态的 canonical 创建逻辑；公开 `emptyState()` 保持原接口，仅转发到 factory，现有运行时与离线测试无需改调用方式。Service Container 暴露 `stateFactory`，后续需要创建后台状态的 class 可以逐步改为显式组合。
+
+无调用、无导出且已被当前宏观节点机制淘汰的 `importStory()` 已从 `10-world-state.part.js` 删除，不再保留死兼容代码。
+
+至此 `10-world-state.part.js` 只剩世界后台 Schema/模型常量与少量名称/地点通用 helper。下一阶段进入 `30-context-protocol.part.js`，优先把角色/资产/因果的正文投影 helper 收进 projector/policy class。

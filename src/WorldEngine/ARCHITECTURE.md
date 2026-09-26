@@ -199,3 +199,8 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 `WorldRequestService` 是主推进纠错协议的 canonical service：它负责判断模型/业务失败是否可重试，并构造携带失败原因、已接受结果与补充清单的纠错输入。纠错要求文本不在 service 内另建隐藏副本，而是读取 `WorldPromptRegistry` 的 `retryAcceptedWithPlan / retryAccepted / retryFresh`。
 
 `WorldRunOrchestrator` 只负责 attempt 生命周期和调用该 service；旧全局函数仅用于尚未迁移调用方的兼容转发。
+
+
+## Phase 22 · State factory
+
+`WorldStateFactory` owns creation of a fresh `世界.后台` record. The exported `emptyState()` remains a compatibility seam and returns a fresh factory product on every call. Dead legacy story import code is not preserved merely for file compatibility.

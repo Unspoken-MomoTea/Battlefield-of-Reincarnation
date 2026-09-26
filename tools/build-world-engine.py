@@ -9,6 +9,7 @@ OUTPUT = ROOT / 'script' / '世界推进系统.js'
 PARTS = (
     '00-foundation-prompt.part.js',
     '10-world-state.part.js',
+    '@src/WorldEngine/domains/WorldStateFactory.part.js',
     '@src/WorldEngine/domains/WorldPatchPolicy.part.js',
     '@src/WorldEngine/domains/WorldTimelinePolicy.part.js',
     '@src/WorldEngine/domains/WorldLifecycleService.part.js',

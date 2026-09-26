@@ -21,7 +21,9 @@ const host={
 host.Mvu={getMvuData:()=>({stat_data:clone(stat)}),replaceMvuData:async()=>{}};
 
 const engine=new Engine(host);
+assert.equal(engine.services.validationPolicy?.constructor?.name,'WorldValidationPolicy');
 assert.equal(engine.services.validation?.constructor?.name,'WorldValidationService');
+assert.equal(engine.services.validation.policy,engine.services.validationPolicy);
 
 const request={
   due:[],unscheduled:[],staleActive:[],timeAnomalies:[],alienActivity:[],npcAudit:[],
@@ -30,7 +32,12 @@ const request={
 assert.equal(engine.services.validation.validate(clone(stat),request,null,stat),true);
 assert.equal(engine.services.validation.progressionAnchorChanged(stat,clone(stat)),false);
 
+const policy=fs.readFileSync(path.join(root,'src','WorldEngine','domains','WorldValidationPolicy.part.js'),'utf8');
+const validationService=fs.readFileSync(path.join(root,'src','WorldEngine','domains','WorldValidationService.part.js'),'utf8');
 const orchestrator=fs.readFileSync(path.join(root,'src','WorldEngine','domains','WorldRunOrchestrator.part.js'),'utf8');
+assert.match(policy,/class\s+WorldValidationPolicy\b/,'validation base rules must live in a policy class');
+assert.match(validationService,/this\.policy\.progressionAnchorChanged\(before,current\)/,'non-decorated progression anchor validation should delegate directly to the policy');
+assert.match(validationService,/ensureDueHandled\(/,'decorated validation checks must continue through the global compatibility seams during migration');
 assert.ok(orchestrator.includes('this.services.validation.validate(')||orchestrator.includes('this.services?.validation?.validate('),'run orchestrator must use one validation service seam');
 assert.ok(orchestrator.includes('services?.validation?.progressionAnchorChanged(')||orchestrator.includes('services.validation.progressionAnchorChanged('),'run orchestrator must route progression anchor checks through validation service');
 

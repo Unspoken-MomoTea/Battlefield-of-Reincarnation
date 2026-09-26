@@ -4,6 +4,7 @@ const path = require('node:path');
 const delivery = path.join(__dirname, '../script/世界推进系统.js');
 const foundation = fs.readFileSync(path.join(__dirname, '../script/world-engine-src/00-foundation-prompt.part.js'), 'utf8');
 const runtime = fs.readFileSync(path.join(__dirname, '../script/world-engine-src/40-engine-runtime.part.js'), 'utf8');
+const requestBuilder = fs.readFileSync(path.join(__dirname, '../src/WorldEngine/domains/WorldRequestBuilder.part.js'), 'utf8');
 const ui = [
   path.join(__dirname, '../script/world-engine-src/50-engine-ui.part.js'),
   path.join(__dirname, '../script/world-engine-src/ui/60-prompt-tab.part.js'),
@@ -25,9 +26,9 @@ assert.match(ui, /程序字段 Schema · 只读/, 'canonical program schema rema
 for (const marker of ['corePrompt', 'macroPrompt', 'stabilityPromptTemplate']) {
   assert.ok(runtime.includes(marker), `runtime must persist prompt setting: ${marker}`);
 }
-assert.match(runtime, /this\.config\.corePrompt\s*\?\?\s*CORE_WORLD_RULES/, 'actual request must use saved core prompt');
-assert.match(runtime, /this\.config\.macroPrompt\s*\?\?\s*DEFAULT_MACRO_PROMPT/, 'actual request must use saved macro prompt');
-assert.match(runtime, /worldStabilityPrompt\(state,\s*this\.config\.stabilityPromptTemplate\s*\?\?\s*DEFAULT_STABILITY_PROMPT_TEMPLATE\)/, 'actual request must use saved stability template');
+assert.match(requestBuilder, /this\.config\.corePrompt\s*\?\?\s*CORE_WORLD_RULES/, 'actual request must use saved core prompt');
+assert.match(requestBuilder, /this\.config\.macroPrompt\s*\?\?\s*DEFAULT_MACRO_PROMPT/, 'actual request must use saved macro prompt');
+assert.match(requestBuilder, /worldStabilityPrompt\(state,\s*this\.config\.stabilityPromptTemplate\s*\?\?\s*DEFAULT_STABILITY_PROMPT_TEMPLATE\)/, 'actual request must use saved stability template');
 
 (async () => {
   let stat = {

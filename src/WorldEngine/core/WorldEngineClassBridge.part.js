@@ -86,8 +86,28 @@
                 this.lastTransportInfo=savedTransport;
             }
         }
+        persistWorldEditorMutation(mutator,status){return this.services.mutations.commit(mutator,status);}
+        worldEditorModeEnabled(){return this.services.editorController.modeEnabled();}
+        setWorldEditorMode(value){return this.services.editorController.setMode(value);}
+        toggleWorldEditorMode(){return this.services.editorController.toggleMode();}
+        worldEditorSection(title){return this.services.editorController.section(title);}
+        worldEditorReportError(error,title){return this.services.editorController.reportError(error,title);}
+        worldEventRecord(name){return this.services.events.get(name);}
+        setWorldEventRecord(oldName,newName,record){return this.services.events.save(oldName,newName,record);}
+        removeWorldEventRecord(name){return this.services.events.remove(name);}
+        worldPersonRecord(name){return this.services.people.get(name);}
+        setWorldPersonRecord(name,record){return this.services.people.save(name,record);}
+        removeWorldPersonRecord(name){return this.services.people.remove(name);}
+        persistCausalOffsetMutation(mutator,status){return this.services.causal.commit(mutator,status);}
+        causalOffsetRecord(name){return this.services.causal.get(name);}
+        setCausalOffsetRecord(oldName,newName,record){return this.services.causal.save(oldName,newName,record);}
+        removeCausalOffsetRecord(name){return this.services.causal.remove(name);}
+        persistHistoryMemoryEdit(kind,name,build,status){return this.services.history.commitEdit(kind,name,build,status);}
+        setHistoryAnchorRecord(name,record){return this.services.history.saveAnchor(name,record);}
+        setHistorySummaryRecord(name,record){return this.services.history.saveSummary(name,record);}
         createPanel(){
             super.createPanel();
+            this.services?.editorController?.bindPanel();
             if(!this.panel||this.panel.__classPromptRegistryBound)return;
             Object.defineProperty(this.panel,'__classPromptRegistryBound',{value:true,configurable:true});
             this.panel.addEventListener('click',event=>{
@@ -100,6 +120,7 @@
             const result=super.render(force);
             this.promptWorkspace?.mount();
             this.promptWorkspace?.syncEditableState();
+            this.services?.editorController?.afterRender();
             return result;
         }
     };

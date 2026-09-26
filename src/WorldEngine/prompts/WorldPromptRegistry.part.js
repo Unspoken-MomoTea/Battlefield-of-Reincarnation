@@ -1,3 +1,24 @@
+    const WORLD_PROMPT_COMPACT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
+【执行流程】
+1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
+2. 定边界：确认当前阶段、世界时间与下一宏观节点。
+3. 推世界：按可用时间推进事件、地区、人物与势力；世界不会因<user>停下而暂停。
+4. 结算影响：记录<user>已经造成的客观后果，但不替<user>行动。
+5. 做维护：只处理本轮确有变化的传播、经济、历法；因果偏移仅在出现重大世界级长期改变时维护。
+6. 输出差分：只写新增/变化的 WorldResult；无业务变化只写摘要。`;
+    const WORLD_PROMPT_COMPACT_CORE=`【核心边界】
+- 事实优先级：当前变量/已确认剧情 > 明确世界书 > 常识；计划不是事实。
+- 模型知道≠场外人物知道。人物只能依据在场观察、既有认知或可信传播行动；因<user>新行为改策必须有认知来源。
+- 活跃异端只在活动缺失、复核到期、关联事件/所在地区变化或长期未复核时更新；无触发时沿用既有目标与行动，不得为了刷新而凭空改策。
+- 时间与路程必须可实现；同一人物同一时段只在一处；不替<user>行动，不复述已演出琐事。
+- 资产只记录固定地产、大型载具或要塞；单兵物品不写资产。探索只记录<user>实际到达、调查或可靠获知的区域。
+- 因果偏移只记已实现的主线级长期变化；没有重大世界偏移就完全不写偏移记录。当前事件公开字段只写现实中可感知的信息。
+- 任务结算、奖励、成就、击杀等由对应系统负责。`;
+    const WORLD_PROMPT_COMPACT_MACRO=`【宏观骨架】
+需要补骨架时保持3~5个滚动阶段节点；先定顺序与时间边界，再填近期细节。未来规划可跨边界，实际推进不可越过下一节点；不要把多个独立阶段硬并成一个节点。`;
+    const WORLD_PROMPT_COMPACT_STABILITY=`【世界自救 · {{阶段}}】
+稳定={{稳定值}}。{{规则}}
+排异必须通过世界内合理因果发生；NPC仍受自身认知与传播链限制。`;
     const WORLD_PROMPT_RETRY_ACCEPTED_PLAN='严格按“补充清单”只补充或修正未通过的业务片段。已接受业务结果已经通过本地验收，默认全部保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。';
     const WORLD_PROMPT_RETRY_ACCEPTED='只补充或修正导致拒绝的业务片段。已接受业务结果默认保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。';
     const WORLD_PROMPT_RETRY_FRESH='修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。';
@@ -37,10 +58,10 @@
             this.engine=engine;
             const def=(value)=>Object.freeze(value);
             this._definitions=Object.freeze([
-                def({key:'preset',title:'执行流程 / 主预设',group:'主流程',source:'COMPACT_DEFAULT_PRESET / config.preset',scope:'system',condition:'每次主世界推进请求',native:true,defaultValue:()=>typeof COMPACT_DEFAULT_PRESET==='string'?COMPACT_DEFAULT_PRESET:DEFAULT_PRESET}),
-                def({key:'core',title:'世界引擎核心约束',group:'主流程',source:'CORE_WORLD_RULES',scope:'system',condition:'每次主世界推进请求',native:true,defaultValue:()=>typeof COMPACT_CORE_WORLD_RULES==='string'?COMPACT_CORE_WORLD_RULES:CORE_WORLD_RULES}),
-                def({key:'macro',title:'宏观骨架',group:'主流程',source:'DEFAULT_MACRO_PROMPT',scope:'system',condition:'本轮需要建立或补足宏观骨架时',native:true,defaultValue:()=>typeof COMPACT_MACRO_PROMPT==='string'?COMPACT_MACRO_PROMPT:DEFAULT_MACRO_PROMPT}),
-                def({key:'stability',title:'世界自救',group:'主流程',source:'DEFAULT_STABILITY_PROMPT_TEMPLATE',scope:'system',condition:'稳定值低于100且未开启世界超稳时',native:true,defaultValue:()=>typeof COMPACT_STABILITY_PROMPT_TEMPLATE==='string'?COMPACT_STABILITY_PROMPT_TEMPLATE:DEFAULT_STABILITY_PROMPT_TEMPLATE}),
+                def({key:'preset',title:'执行流程 / 主预设',group:'主流程',source:'COMPACT_DEFAULT_PRESET / config.preset',scope:'system',condition:'每次主世界推进请求',native:true,defaultValue:()=>WORLD_PROMPT_COMPACT_PRESET}),
+                def({key:'core',title:'世界引擎核心约束',group:'主流程',source:'CORE_WORLD_RULES',scope:'system',condition:'每次主世界推进请求',native:true,defaultValue:()=>WORLD_PROMPT_COMPACT_CORE}),
+                def({key:'macro',title:'宏观骨架',group:'主流程',source:'DEFAULT_MACRO_PROMPT',scope:'system',condition:'本轮需要建立或补足宏观骨架时',native:true,defaultValue:()=>WORLD_PROMPT_COMPACT_MACRO}),
+                def({key:'stability',title:'世界自救',group:'主流程',source:'DEFAULT_STABILITY_PROMPT_TEMPLATE',scope:'system',condition:'稳定值低于100且未开启世界超稳时',native:true,defaultValue:()=>WORLD_PROMPT_COMPACT_STABILITY}),
                 def({key:'npcAudit',title:'NPC构筑审计',group:'主流程',source:'NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT',scope:'system',condition:'启用NPC构筑审计且本轮存在审计对象时',native:true,defaultValue:()=>typeof NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT==='string'?NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT:NPC_BUILD_AUDIT_RULES}),
                 def({key:'outputProtocol',title:'WorldResult 输出协议说明',group:'主流程',source:'protocol()',scope:'system',condition:'每次主世界推进请求；程序 JSON Schema 仍固定只读',native:true,defaultValue:()=>protocol().split('【Canonical WorldResult JSON Schema】')[0].trim()}),
                 def({key:'task',title:'任务只读',group:'运行模块',source:'TASK_AWARENESS_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof TASK_AWARENESS_RULES==='string'?TASK_AWARENESS_RULES:''}),
@@ -61,6 +82,7 @@
                 def({key:'chronologyInputGuidance',title:'时间线基准 · 要求',group:'请求内指令',source:'58-chronology-guard.part.js / 时间线基准',scope:'user payload',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_INPUT}),
                 def({key:'chronologyPrinciples',title:'时间线基准 · 规划原则',group:'请求内指令',source:'58-chronology-guard.part.js / 规划原则',scope:'user payload JSON',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_PRINCIPLES}),
                 def({key:'alienReviewGuidance',title:'活跃异端复核要求',group:'请求内指令',source:'59-alien-activity-normalization.part.js',scope:'user payload',condition:'活跃异端命中复核触发器时',defaultValue:()=>WORLD_PROMPT_ALIEN_REVIEW}),
+                def({key:'rumorSourceBoundaryGuidance',title:'传闻维护 · 取材边界',group:'请求内指令',source:'59-rumor-world-request.part.js / 传闻维护.取材边界',scope:'user payload',condition:'每次传闻维护请求',defaultValue:()=> '只使用世界侧可传播事实、已有传播链与既有公开传闻；正文不是直接传播源'}),
                 def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'59-world-activity-delivery.part.js / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
                 def({key:'historyInputGuidance',title:'历史压缩输入说明',group:'辅助模型',source:'historyMemoryPrompt()',scope:'user payload',condition:'历史记忆达到自动压缩阈值时',defaultValue:()=>WORLD_PROMPT_HISTORY_INPUT}),
                 def({key:'retryAcceptedWithPlan',title:'纠错重试 · 已接受结果 + 补充清单',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且已有部分业务结果通过，并存在补充清单时',defaultValue:()=>WORLD_PROMPT_RETRY_ACCEPTED_PLAN}),
@@ -155,8 +177,24 @@
             return input;
         }
         rewriteSystem(system){
-            let output=String(system||''),activityDefault=typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:'';
-            if(activityDefault)output=output.split(activityDefault).join(this.value('worldActivity').trim());
+            let output=String(system||'');
+            const legacy=[
+                typeof TASK_AWARENESS_RULES==='string'?TASK_AWARENESS_RULES:'',
+                typeof CHRONOLOGY_GUARD_RULES==='string'?CHRONOLOGY_GUARD_RULES:'',
+                typeof SOFT_MAINTENANCE_RULES==='string'?SOFT_MAINTENANCE_RULES:'',
+                typeof EXPLORATION_PROJECTION_RULES==='string'?EXPLORATION_PROJECTION_RULES:'',
+                typeof WORLD_INTEGRITY_GUARD_RULES==='string'?WORLD_INTEGRITY_GUARD_RULES:'',
+                typeof WORLD_TIME_RULES==='string'?WORLD_TIME_RULES:'',
+                typeof RUMOR_LIVELINESS_RULES==='string'?RUMOR_LIVELINESS_RULES:'',
+                typeof RUMOR_THROTTLE_RULES==='string'?RUMOR_THROTTLE_RULES:'',
+                typeof RUMOR_WORLD_SOURCE_RULES==='string'?RUMOR_WORLD_SOURCE_RULES:'',
+                typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:''
+            ].filter(Boolean);
+            for(const block of legacy)output=output.split(block).join('');
+            for(const key of ['task','chronology','maintenance','exploration','integrity','worldTime','rumor','worldActivity']){
+                const block=String(this.value(key)||'').trim();
+                if(block)output+=(output.trim()?'\n\n':'')+block;
+            }
             return output.replace(/\n{3,}/g,'\n\n').trim();
         }
         rewriteInput(input){
@@ -174,6 +212,7 @@
                 try{payload.时间线基准.规划原则=JSON.parse(this.value('chronologyPrinciples'));}catch(_){}
             }
             if(Array.isArray(payload.本轮必须维持的异端活动))for(const item of payload.本轮必须维持的异端活动)if(plain(item))item.要求=this.value('alienReviewGuidance');
+            if(plain(payload.传闻维护))payload.传闻维护.取材边界=this.value('rumorSourceBoundaryGuidance');
             if(plain(payload.本轮世界活动交付))payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
             return JSON.stringify(payload,null,2);
         }

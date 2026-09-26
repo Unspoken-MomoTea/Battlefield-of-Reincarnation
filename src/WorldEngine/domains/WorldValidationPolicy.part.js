@@ -1,4 +1,5 @@
     class WorldValidationPolicy {
+        constructor(timeline){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;}
         ensureDueHandled(next,dueList,worldTime) {
             for(const due of dueList||[]){
                 const event=next.世界[PATH].事件[due.名称];
@@ -12,9 +13,9 @@
         unscheduledEvents(stat) {
             return Object.entries(stat?.世界?.[PATH]?.事件||{}).filter(([,event])=>{
                 if(!['待发生','进行中'].includes(event?.状态))return false;
-                const anchor=eventTimeAnchor(event);
+                const anchor=this.timeline.eventTimeAnchor(event);
                 return !anchor||VAGUE_EVENT_TIME.test(anchor);
-            }).map(([名称,event])=>({名称,分类:event.分类,状态:event.状态,条件:event.条件,前因:copy(event.前因||[]),当前时间:eventTimeAnchor(event)}));
+            }).map(([名称,event])=>({名称,分类:event.分类,状态:event.状态,条件:event.条件,前因:copy(event.前因||[]),当前时间:this.timeline.eventTimeAnchor(event)}));
         }
 
         ensureEventTimeAnchors(next,required=[]) {
@@ -22,7 +23,7 @@
             for(const item of required||[]){
                 const event=next?.世界?.[PATH]?.事件?.[item.名称];
                 if(!event||!['待发生','进行中'].includes(event.状态))continue;
-                const anchor=eventTimeAnchor(event);
+                const anchor=this.timeline.eventTimeAnchor(event);
                 if(!anchor||VAGUE_EVENT_TIME.test(anchor))missing.push(item.名称);
             }
             if(missing.length)throw new Error('事件时间锚点仍未补全：'+missing.join('、')+'；请逐项补写具体世界日期/时段，或明确相对/因果时间，禁止空值和“近期/稍后/未来/待定/未知”');
@@ -52,7 +53,7 @@
 
         ensureTemporalAnomaliesResolved(next,required=[]) {
             if(!(required||[]).length)return;
-            const remaining=temporalAnomalies(next);
+            const remaining=this.timeline.temporalAnomalies(next);
             const keys=new Set((required||[]).map(item=>item.类型+'\u0000'+item.名称));
             const bad=remaining.filter(item=>keys.has(item.类型+'\u0000'+item.名称));
             if(bad.length)throw new Error('时间越界记录仍未修复：'+bad.map(item=>item.类型+'/'+item.名称+'('+item.字段+'='+item.值+')').join('、'));
@@ -65,7 +66,7 @@
             const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
             const openMacro=allMacro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
             if(openMacro.length<3)throw new Error('宏观事件不足：需要至少3个可推进宏观节点（进行中+待发生），当前仅'+openMacro.length+'个（进行中'+activeMacro.length+'个，待发生'+futureMacro.length+'个）');
-            const stages=storyStages(next?.世界?.因果轨道?.故事线);
+            const stages=this.timeline.storyStages(next?.世界?.因果轨道?.故事线);
             const names=new Set(allMacro.map(([name])=>name));
             if(stages.length<3||stages.length>5||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');
         }

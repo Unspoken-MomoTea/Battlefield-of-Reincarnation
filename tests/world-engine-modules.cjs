@@ -27,6 +27,9 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/domains/WorldValidationService.part.js',
   '@src/WorldEngine/domains/WorldCommitService.part.js',
+  '@src/WorldEngine/domains/WorldApiTransportService.part.js',
+  '@src/WorldEngine/domains/WorldPromptDocumentService.part.js',
+  '@src/WorldEngine/domains/WorldRunOrchestrator.part.js',
   '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',
   '@src/WorldEngine/ui/views/WorldPeopleView.part.js',
@@ -90,7 +93,9 @@ assert.doesNotMatch(texts['50-engine-ui.part.js'],/this\.style\.textContent\s*=\
 assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/,'base CSS should live in a dedicated UI resource module');
 
 // 本次迁移的关键 seam：replay 随主世界提交一次写入，恢复模块不再额外写第二次。
-assert.match(texts['40-engine-runtime.part.js'],/buildWorldReplayPackage/,'primary world commit must carry replay metadata');
+assert.match(texts['@src/WorldEngine/domains/WorldCommitService.part.js'],/buildWorldReplayPackage/,'primary world commit service must carry replay metadata');
+assert.match(texts['@src/WorldEngine/domains/WorldCommitService.part.js'],/__samsaraWorldReplay/,'primary world commit service must persist replay metadata in the same write');
+assert.match(texts['@src/WorldEngine/domains/WorldRunOrchestrator.part.js'],/services\?\.commit\?\.persist|services\.commit\.persist/,'run orchestrator must delegate the primary write to WorldCommitService');
 assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/reprocessContext\(/);
 assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/legacyPackage\(/);
 assert.doesNotMatch(texts['59-world-replay-persistence.part.js'],/SamsaraWorldEngine\s*=\s*class/,'replay persistence legacy shim must not recreate an inheritance layer');

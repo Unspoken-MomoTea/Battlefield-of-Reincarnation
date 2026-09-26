@@ -29,6 +29,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
   '@src/WorldEngine/domains/WorldResultMaterializer.part.js',
   '@src/WorldEngine/domains/WorldResultStagingService.part.js',
+  '@src/WorldEngine/domains/WorldResultReplyParser.part.js',
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/domains/WorldValidationService.part.js',
   '@src/WorldEngine/domains/WorldCommitService.part.js',
@@ -127,6 +128,12 @@ assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],
 assert.match(texts['@src/WorldEngine/domains/WorldResultStagingService.part.js'],/class\s+WorldResultStagingService\b/,'WorldResult staged acceptance must have a dedicated service class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultStagingService.part.js'],/stage\(stat,accepted,incoming,validate\)/,'staging service must own fragment acceptance');
 assert.match(texts['@src/WorldEngine/domains/WorldResultStagingService.part.js'],/let\s+ACTIVE_WORLD_RESULT_STAGING\s*=\s*DEFAULT_WORLD_RESULT_STAGING/,'legacy staging seams must be backed by the active container-owned service');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultStagingService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultReplyParser.part.js'),'reply parser must load after the staging service');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultReplyParser.part.js')<declared.indexOf('20-world-result.part.js'),'reply parser compatibility seam must load before the legacy WorldResult slot');
+assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:firstCompleteJsonObject|parseReply)\b/,'reply parsing implementation must leave the WorldResult kernel');
+assert.match(texts['@src/WorldEngine/domains/WorldResultReplyParser.part.js'],/class\s+WorldResultReplyParser\b/,'WorldResult reply parsing must have a dedicated parser class');
+assert.match(texts['@src/WorldEngine/domains/WorldResultReplyParser.part.js'],/parse\(text\)/,'reply parser class must own reply parsing');
+assert.match(texts['@src/WorldEngine/domains/WorldResultReplyParser.part.js'],/let\s+ACTIVE_WORLD_RESULT_REPLY_PARSER\s*=\s*DEFAULT_WORLD_RESULT_REPLY_PARSER/,'legacy parseReply seam must be backed by the active container-owned parser');
 
 for(const file of [
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',

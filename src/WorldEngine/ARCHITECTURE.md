@@ -97,3 +97,21 @@ src/WorldEngine/
 `WorldCommitService` 已接管主推进结果验收后的提交准备和最终 MVU 写入：稳定值重算、已处理楼层/时间、最近变化、`beforeWorldCommit` 派生元数据、Schema 二次确认、replay 包以及单次 `replaceMvuData` 都通过一个 service seam 完成。
 
 因此主 runtime 的核心职责已经收缩为：**构造请求 → 获取回复 → 编译 → 统一验收 → 提交**。领域细节由 service 负责，Application Facade 只编排。
+
+
+## Phase 9 · 业务页面类化
+
+玩家可见业务页不再由 `50-engine-ui.part.js` 直接拼接。每个页签对应一个独立 View class：
+
+- `WorldOverviewView`
+- `WorldPeopleView`
+- `WorldExplorationView`
+- `WorldAssetView`
+- `WorldEventArchiveView`
+- `WorldRumorView`
+- `WorldHistoryView`
+- `WorldSettingsView`
+- `WorldPromptView`
+- `WorldRequestInspectorView`
+
+`WorldEngineViewRegistry` 只负责 class 注册与路由。Application Shell 只准备共享 view context，不再实现资产/传闻等业务 HTML。后续迁移 UI 时应把现有 legacy renderer 的内部实现逐步搬进对应 class，而不是重新把业务分支塞回主 UI。

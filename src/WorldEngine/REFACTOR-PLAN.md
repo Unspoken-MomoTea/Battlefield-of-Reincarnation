@@ -71,3 +71,10 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 ### Phase 8 · 提交事务
 
 已新增 `WorldCommitService`，把结果接受后的稳定值、最近变化、历史/replay 派生数据、Schema 二次确认和最终 MVU 单次写回从主运行循环拆出。主 runtime 进一步接近纯 Application Flow。
+
+
+### Phase 9 · UI 业务页类化
+
+已把世界概览、人物、探索、资产、事件、传闻、历史、设置、提示词和请求检查注册成独立 View class。资产与传闻已经从 `50-engine-ui.part.js` 移出；主 UI 只通过 `WorldEngineViewRegistry.render()` 路由页面。
+
+下一步继续把仍位于 `script/world-engine-src/ui/*.part.js` 的 legacy renderer 内部实现迁入这些 class，最终让旧 UI 分片只保留兼容 helper 或彻底删除。

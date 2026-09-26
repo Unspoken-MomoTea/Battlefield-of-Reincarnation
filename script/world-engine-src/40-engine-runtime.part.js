@@ -860,6 +860,7 @@
             for (const key of ['CHAT_CHANGED','MESSAGE_SWIPED','MESSAGE_DELETED']) bind(events[key], () => { this.cancel(); this.resetInspection(); this.status = '已切换上下文'; this.render(); });
             this.keyHandler = event => { if (event.key === 'Escape' && this.isOpen()) { event.stopImmediatePropagation(); this.close(); } };
             this.host.document.addEventListener('keydown',this.keyHandler,true);
+            this.services?.afterInit?.();
         }
         isOpen() { return !!this.panel && !this.panel.hidden; }
         open() {

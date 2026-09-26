@@ -29,7 +29,7 @@
             if(!reasons.length)return null;
             return Object.assign({},item,{
                 触发原因:reasons,
-                要求:'仅因本轮触发复核才需要在 WorldResult.人物 中提交该活跃异端的新活动；至少给出非空地点、目标、行动。人物更新时间无需抄写，由程序使用本轮最终世界时间统一记录。未获得新情报时沿用既有目标/行动，不得因为模型看见<user>行为就自动追踪或改策；若因<user>行为改变目标/行动，必须已有认知或同轮写入可追溯的认知/认知来源。若本轮已确认死亡，则只把异端状态更新为死亡。'
+                要求:worldPromptRuntimeValue('alienReview')
             });
         }).filter(Boolean);
     };

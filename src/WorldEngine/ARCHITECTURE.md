@@ -151,3 +151,10 @@ src/WorldEngine/
 探索域不再把真实规则散在 WorldResult kernel、Materializer 与 `59-soft-maintenance` 三处。`WorldExplorationService` 现在统一拥有整体地标粒度判定、探索度不可无因回退、当前地点最低 10% 自动投影，以及旧版“主区域-子区域”记录合并。公共兼容 seam `repairExplorationGranularity` 继续存在，但底层委托 active exploration service；`WorldResultMaterializer` 组合同一 service 实例。
 
 因此 `59-soft-maintenance.part.js` 不再重写 `compileWorldResult`。探索属于结果编译的正式领域步骤，而不是后置 monkey patch。
+
+
+## Phase 13 · 时间线策略类化
+
+`WorldTimelinePolicy` 接管原本位于 `10-world-state.part.js` 的事件时间线纯领域规则：故事线阶段解析、事件时间锚点/显示标签、陈旧进行中事件检测、未来时间异常、写入时间校验以及事件排序。外部兼容函数名保持不变，底层统一委托 container-owned active policy。
+
+`WorldValidationPolicy` 组合 `WorldTimelinePolicy`，只负责验收编排；Materializer、UI 和软维护仍通过原公共 seam 使用时间线规则。这样时间线规则不再同时散落在状态大文件和验收层。

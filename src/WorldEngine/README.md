@@ -25,5 +25,9 @@
 - `WorldEditorController`：事件、世界人物、因果偏移、历史记忆的统一编辑控制器。
 - `WorldPromptWorkspaceController`：提示词预设 UI 控制器。
 - `WorldPromptRegistry`：system、user payload、辅助模型与重试静态指令的唯一注册表。
+- `WorldEngineFeatureRegistry`：统一挂载不值得继续继承主类的 feature/controller 生命周期。
+- `WorldApiPresetController`：专属 API 预设选择态。
+- `WorldCausalOverviewController`：因果摘要/因果档案 UI。
+- `WorldNpcAuditPromptFeature`：NPC 审计默认提示词迁移。
 
 详细迁移边界见 `ARCHITECTURE.md` 与 `REFACTOR-PLAN.md`；提示词清单规则见 `PROMPT-REGISTRY.md`。

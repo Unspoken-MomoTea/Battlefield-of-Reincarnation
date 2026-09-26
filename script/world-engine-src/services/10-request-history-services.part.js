@@ -63,6 +63,7 @@
 
             request.input=JSON.stringify(payload,null,2);
             let system=String(request.system||'');
+            if(typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'&&WORLD_ACTIVITY_DELIVERY_RULES)system=system.split(WORLD_ACTIVITY_DELIVERY_RULES).join(get('system.worldActivity'));
             system=system.replace('【WorldResult 业务输出协议】',get('system.worldResultHeading'));
             system=system.replace('【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：',get('system.schemaHeading'));
             request.system=system;

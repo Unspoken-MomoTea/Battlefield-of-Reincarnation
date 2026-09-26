@@ -19,6 +19,7 @@ PARTS = (
     'ui/50-settings-tab.part.js',
     'ui/60-prompt-tab.part.js',
     'ui/70-request-inspector.part.js',
+    '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',
     '40-engine-runtime.part.js',
     '50-engine-ui.part.js',
     '55-policy-compat.part.js',

@@ -15,6 +15,7 @@ PARTS = (
     'ui/10-world-tab.part.js',
     'ui/20-people-tab.part.js',
     'ui/30-exploration-tab.part.js',
+    'ui/35-ledger-views.part.js',
     'ui/40-archive-tabs.part.js',
     'ui/50-settings-tab.part.js',
     'ui/60-prompt-tab.part.js',

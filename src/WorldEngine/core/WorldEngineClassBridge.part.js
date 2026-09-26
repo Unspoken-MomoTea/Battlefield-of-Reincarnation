@@ -87,6 +87,19 @@
                 this.lastTransportInfo=savedTransport;
             }
         }
+        applyDedicatedApiPreset(name){
+            const selected=String(name||'').trim(),result=super.applyDedicatedApiPreset(selected);
+            return this.services?.apiPreset?.afterApply(selected,result)??result;
+        }
+        saveDedicatedApiPreset(name){
+            const entry=super.saveDedicatedApiPreset(name);
+            this.services?.apiPreset?.afterSave(entry);
+            return entry;
+        }
+        deleteDedicatedApiPreset(name){
+            const selected=String(name||'').trim(),deleted=super.deleteDedicatedApiPreset(selected);
+            return this.services?.apiPreset?.afterDelete(selected,deleted)??deleted;
+        }
         persistWorldEditorMutation(mutator,status){return this.services.mutations.commit(mutator,status);}
         worldEditorModeEnabled(){return this.services.editorController.modeEnabled();}
         setWorldEditorMode(value){return this.services.editorController.setMode(value);}
@@ -109,6 +122,7 @@
         createPanel(){
             super.createPanel();
             this.services?.editorController?.bindPanel();
+            this.services?.features?.bindPanel();
             if(!this.panel||this.panel.__classPromptRegistryBound)return;
             Object.defineProperty(this.panel,'__classPromptRegistryBound',{value:true,configurable:true});
             this.panel.addEventListener('click',event=>{
@@ -118,10 +132,16 @@
             });
         }
         render(force=false){
+            this.services?.features?.beforeRender(force);
             const result=super.render(force);
             this.promptWorkspace?.mount();
             this.promptWorkspace?.syncEditableState();
             this.services?.editorController?.afterRender();
+            this.services?.features?.afterRender(force,result);
             return result;
+        }
+        dispose(){
+            this.services?.features?.dispose?.();
+            return super.dispose();
         }
     };

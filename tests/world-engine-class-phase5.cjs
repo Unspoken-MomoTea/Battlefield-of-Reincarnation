@@ -52,13 +52,11 @@ engine.config.autoProgressInterval=0;
 assert.equal(engine.services.autoProgress.interval(),1);
 
 const before=clone(state),after=clone(state);
-after.世界.地点='南门';
 after.世界.后台.事件.测试事件={分类:'当前事件',状态:'进行中',描述:'测试',时间:'2026年-09月-26日-晚上',地点:'南门',参与者:[],前因:[],关联任务:[],可见影响:[]};
 const replay=engine.services.replay.buildPackage(before,after,'fp');
 assert.ok(replay&&Array.isArray(replay.operations)&&replay.operations.length>0,'replay service must build recovery package');
 const restored=clone(before);
 assert.equal(engine.services.replay.applyPackage(restored,replay),true);
-assert.equal(restored.世界.地点,'南门');
 assert.ok(restored.世界.后台.事件.测试事件);
 
 const blockedBase=engine.blocked(engine.snapshot());

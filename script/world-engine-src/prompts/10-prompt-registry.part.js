@@ -213,3 +213,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             };
         }
     }
+
+    if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings)){
+        const registryDefaults=new WorldPromptRegistry({config:{}}).moduleDefaults();
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=normalizeEditablePreset(COMPACT_DEFAULT_PRESET);
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.corePrompt=COMPACT_CORE_WORLD_RULES;
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.macroPrompt=COMPACT_MACRO_PROMPT;
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.stabilityPromptTemplate=COMPACT_STABILITY_PROMPT_TEMPLATE;
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.modulePrompts=registryDefaults;
+    }

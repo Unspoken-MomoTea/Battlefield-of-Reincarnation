@@ -34,7 +34,13 @@ jobs:
             exit 1
           fi
       - name: World engine syntax check
-        run: node --check script/世界推进系统.js
+        run: |
+          if ! node --check script/世界推进系统.js; then
+            echo "::group::World engine syntax failure context"
+            nl -ba script/世界推进系统.js | sed -n '8734,8756p'
+            echo "::endgroup::"
+            exit 1
+          fi
       - name: Statusbar syntax check
         run: node --check script/悬浮球状态栏.js
       - name: Auxiliary syntax check

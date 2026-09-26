@@ -22,6 +22,14 @@
         afterRender(force,result){
             for(const feature of this.items.values())feature.afterRender?.(force,result);
         }
+        async afterBuildRequest(request,base){
+            let current=request;
+            for(const feature of this.items.values()){
+                if(typeof feature.afterBuildRequest!=='function')continue;
+                current=await feature.afterBuildRequest(current,base)||current;
+            }
+            return current;
+        }
         dispose(){
             for(const feature of this.items.values())feature.dispose?.();
             this.items.clear();

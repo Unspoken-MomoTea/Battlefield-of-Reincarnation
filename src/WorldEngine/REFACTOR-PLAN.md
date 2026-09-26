@@ -66,3 +66,8 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 ### Phase 7 · 统一结果验收
 
 已新增 `WorldValidationService`。主世界结果的到期事件、事件时间锚点、超期活动、时间越界、异端活动、NPC 审计和宏观骨架校验统一通过一个 class seam 完成；并发状态重编译也复用同一服务。主 runtime 继续向“请求 → 编译 → 验收 → 提交”的 Application Flow 收缩。
+
+
+### Phase 8 · 提交事务
+
+已新增 `WorldCommitService`，把结果接受后的稳定值、最近变化、历史/replay 派生数据、Schema 二次确认和最终 MVU 单次写回从主运行循环拆出。主 runtime 进一步接近纯 Application Flow。

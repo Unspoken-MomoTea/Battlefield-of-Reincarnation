@@ -182,3 +182,8 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 ### Timeline snapshot ownership
 
 `WorldTimelinePolicy` now owns `timelineState()` in addition to story-stage parsing, event time labels, temporal anomaly checks and event ordering. Recovery orchestration calls the container-owned policy directly; the compatibility `timelineState` function only exists for remaining legacy callers.
+
+
+## Phase 19 · 人物活动领域
+
+\`WorldPersonActivityService\` 是世界后台人物活动的 canonical domain service。除编辑 CRUD 外，它现在还拥有热人物筛选、人物所在场景上下文、异端活动复核条件、缺失异端活动补种和复核验收。调用方可以继续使用 \`derivePersonWorldContext / projectHotWorldPeople / activeAlienActivityRequirements / ensureActiveAlienActivity\` 兼容函数，但这些函数只转发到 container-owned service，不再保存业务实现。

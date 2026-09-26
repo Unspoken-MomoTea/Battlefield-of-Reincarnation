@@ -9,6 +9,8 @@
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.lifecycle=new WorldLifecycleService();
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
+            this.people=new WorldPersonActivityService(engine);
+            ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE=this.people;
             this.stateNormalizer=new WorldStateNormalizer();
             ACTIVE_WORLD_STATE_NORMALIZER=this.stateNormalizer;
             this.causal=new WorldCausalService(engine);
@@ -30,7 +32,6 @@
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
-            this.people=new WorldPersonActivityService(engine);
             this.history=new WorldHistoryService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);

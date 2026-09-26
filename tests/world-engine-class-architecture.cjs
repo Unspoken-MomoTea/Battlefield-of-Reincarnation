@@ -32,6 +32,18 @@ for(const file of [
   assert.ok(fs.existsSync(path.join(root,file)),file+' must exist in the dedicated src/WorldEngine source tree');
 }
 
+
+const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
+const personDomainSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPersonActivityService.part.js'),'utf8');
+const alienCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/59-alien-activity-normalization.part.js'),'utf8');
+for(const legacyName of ['derivePersonWorldContext','projectHotWorldPeople','alienRosterMatch','activeAlienActivityRequirements','seedMissingAlienPeople','ensureActiveAlienActivity']){
+  assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
+}
+for(const method of ['deriveContext','projectHot','alienRosterMatch','alienActivityReviewReasons','activeAlienRequirements','seedMissingAlienPeople','ensureActiveAlienActivity','normalizeAlienActivityTimestamps']){
+  assert.match(personDomainSource,new RegExp('\\b'+method+'\\s*\\('),'person activity domain must own '+method);
+}
+assert.doesNotMatch(alienCompatSource,/function\s+alienActivityReviewReasons|activeAlienActivityRequirements\s*=\s*function|ensureActiveAlienActivity\s*=\s*function/,'alien compatibility file must not re-own person-domain policy');
+
 const delivery=require('../script/世界推进系统.js');
 const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=delivery;
 const clone=value=>JSON.parse(JSON.stringify(value));

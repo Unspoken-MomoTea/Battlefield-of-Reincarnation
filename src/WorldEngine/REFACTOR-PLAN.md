@@ -192,3 +192,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 已完成：`timelineState` 从 `10-world-state.part.js` 迁入 `WorldTimelinePolicy`，与故事线解析、事件时间锚点、陈旧活动判定、时间异常检测统一归域。变量重处理后的恢复流程已直接调用 `services.timelinePolicy.timelineState()`。
 
 下一批将继续处理人物热投影/异端活动补种，优先归入 `WorldPersonActivityService` / projector，而不是让 `10-world-state` 继续承担人物领域逻辑。
+
+
+### Phase 19 · 人物活动领域归域
+
+已完成：\`WorldPersonActivityService\` 不再只负责手动编辑，而是接管人物热投影、单人物场景上下文、异端名单匹配、活跃异端复核条件、缺失异端人物补种与复核验收。原先分散在 \`10-world-state.part.js\` 与 \`59-alien-activity-normalization.part.js\` 的真实人物领域规则已经迁入同一个 class。
+
+活跃异端仍采用事件驱动复核：只有活动缺失、下次检查到期、关联事件/所在地区变化或超过24小时未复核时才要求新活动；未触发者沿用既有目标/行动。旧 \`59-alien-activity-normalization\` 现在只保留 \`compileWorldResult\` 时间戳装饰兼容 seam，纠错文案直接由 \`WorldResultStagingService\` 负责，不再二次 monkey patch。
+
+下一批继续处理 \`10-world-state.part.js\` 剩余的 \`emptyState / patch path policy / generic patch normalization\`，以及 \`30-context-protocol.part.js\` 的世界上下文投影装饰链；优先把“领域规则”与“协议/兼容层”彻底分开。

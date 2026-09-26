@@ -625,7 +625,7 @@
             if (this.disposed || this.busy) return false;
             if (!this.isConfigured()) { this.status='世界推进已关闭'; this.render(); return false; }
             const terminal = this.host.Samsara && this.host.Samsara.terminal;
-            this.busy = true; const token = this.generation; let timeout, timedOut=false;
+            this.busy = true; const token = this.generation; let timeout, timedOut=false, runSucceeded=false;
             try {
                 await this.services?.features?.beforeRun?.({token});
                 const base = this.snapshot(), reason = this.blocked(base);
@@ -809,6 +809,7 @@
                 if(replay)result.__samsaraWorldReplay=replay;
                 await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
                 this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 前序失败'+this.lastRetryLog.length+'次':'');
+                runSucceeded=true;
                 return true;
             } catch (error) {
                 const failureMessage=error.name==='AbortError'?(timedOut?'请求超时（300秒）':'请求已取消'):String(error.message||error);
@@ -818,7 +819,7 @@
                 if(!(error.name==='AbortError'&&!timedOut))this.notifyFailure(this.status);
                 throw error;
             } finally {
-                try{await this.services?.features?.afterRun?.({token});}catch(error){try{console.error('[世界推进 Feature afterRun]',error);}catch(_){}}
+                try{await this.services?.features?.afterRun?.({token,success:runSucceeded});}catch(error){try{console.error('[世界推进 Feature afterRun]',error);}catch(_){}}
                 clearTimeout(timeout); if(this.controller)this.controller=null; this.committing=false; this.busy=false; this.render();
                 if (this.pending) { this.pending = false; this.schedule(); }
             }

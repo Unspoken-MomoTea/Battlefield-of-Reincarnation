@@ -136,3 +136,7 @@ src/WorldEngine/
 ### WorldResult 分片验收
 
 `WorldResultStagingService` 负责结果分片、逐片编译/物化验收、Schema 差异定位与纠错反馈；`WorldResultCompiler` 只组合 Normalizer / Materializer / Staging 三个领域服务，并保留仍被 legacy decorator 使用的全局兼容 seam。
+
+### WorldResult 回复解析
+
+`WorldResultReplyParser` 负责模型回复的 JSON 提取、兼容包装识别与 WorldResult 归一化；`WorldRunOrchestrator` 通过 service container 使用它，`parseReply` 仅保留为兼容 seam。

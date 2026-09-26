@@ -46,7 +46,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['mutations','events','people','prompts']){
+for(const name of ['mutations','events','people','history','exploration','rumor','requests','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -54,6 +54,7 @@ assert.equal(engine.services.mutations.constructor.name,'WorldMutationService');
 assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
+assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
 
 const expectedPromptKeys=[
   'preset','core','macro','stability','npcAudit','outputProtocol',

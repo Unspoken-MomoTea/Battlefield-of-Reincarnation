@@ -16,6 +16,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldPersonActivityService.part.js',
   'src/WorldEngine/domains/WorldApiTransportService.part.js',
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
+  'src/WorldEngine/domains/WorldRunOrchestrator.part.js',
   'src/WorldEngine/prompts/WorldPromptRegistry.part.js',
 ]){
   assert.ok(fs.existsSync(path.join(root,file)),file+' must exist in the dedicated src/WorldEngine source tree');
@@ -52,7 +53,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateProjector','compiler','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','views','prompts']){
+for(const name of ['stateProjector','compiler','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');

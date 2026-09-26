@@ -78,3 +78,10 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 已把世界概览、人物、探索、资产、事件、传闻、历史、设置、提示词和请求检查注册成独立 View class。资产与传闻已经从 `50-engine-ui.part.js` 移出；主 UI 只通过 `WorldEngineViewRegistry.render()` 路由页面。
 
 下一步继续把仍位于 `script/world-engine-src/ui/*.part.js` 的 legacy renderer 内部实现迁入这些 class，最终让旧 UI 分片只保留兼容 helper 或彻底删除。
+
+### Phase 10 · Runtime 核心读取类化
+
+已迁移当前楼层/MVU 上下文读取、基础阻塞判断、世界书目录/蓝绿灯读取与基础请求构造。主 runtime 对这些能力只保留兼容 facade，实际实现位于 `WorldRuntimeContextService / WorldKnowledgeService / WorldRequestBuilder`。
+
+下一步继续拆专属 API 传输、Prompt 文档持久化与主 `run()` 的 attempt/compile/commit orchestration，使 `SamsaraWorldEngine` 最终只保留 Application Flow。
+

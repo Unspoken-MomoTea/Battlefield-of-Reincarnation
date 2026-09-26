@@ -441,38 +441,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         };
     }
 
-    function repairCausalProjection(stat) {
-        const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
-        const existing=storyStages(orbit.故事线);
-        const macroEntries=Object.entries(stat.世界[PATH]?.事件||{})
-            .filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消')
-            .map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
-            .sort((a,b)=>(a.key??Infinity)-(b.key??Infinity)||a.index-b.index)
-            .map(x=>x.item);
-        const macroNames=new Set(macroEntries.map(([name])=>name));
-        const patches=[];
-        let line=[];
-        const existingValid=existing.length>=3&&existing.length<=5&&existing.every(name=>macroNames.has(name));
-        if(existingValid)line=existing.slice(0,5);
-        else {
-            // 因果轨道只能由宏观事件投影。宏观事实不足时宁可等待模型补齐，
-            // 也不能拿当前事件/近期节点凑出一条“看似完整”的故事线。
-            if(macroEntries.length<3)return patches;
-            const chosen=[],seen=new Set();
-            const take=name=>{if(name&&macroNames.has(name)&&!seen.has(name)){seen.add(name);chosen.push(name);}};
-            take(orbit.当前阶段);
-            for(const [name] of macroEntries)take(name);
-            if(chosen.length<3)return patches;
-            line=chosen.slice(0,5);
-            const story=line.join(' -> ');
-            if(orbit.故事线!==story){orbit.故事线=story;patches.push({op:'replace',path:'/世界/因果轨道/故事线',value:story});}
-        }
-        const nextName=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='待发生')||'';
-        if(orbit.下一节点!==nextName){orbit.下一节点=nextName;patches.push({op:'replace',path:'/世界/因果轨道/下一节点',value:nextName});}
-        const current=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='进行中');
-        if(current&&(!orbit.当前阶段||orbit.当前阶段==='待初始化')){orbit.当前阶段=current;patches.push({op:'replace',path:'/世界/因果轨道/当前阶段',value:current});}
-        return patches;
-    }
     function timelineState(stat) {
         const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
         const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));
@@ -1143,6 +1111,91 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function normalizeEventLayers(stat){return ACTIVE_WORLD_STATE_NORMALIZER.normalizeEventLayers(stat);}
     function repairExplicitEventLinks(stat){return ACTIVE_WORLD_STATE_NORMALIZER.repairExplicitEventLinks(stat);}
     function repairMacroPredecessors(stat){return ACTIVE_WORLD_STATE_NORMALIZER.repairMacroPredecessors(stat);}
+    class WorldCausalService {
+        constructor(engine=null){this.engine=engine;}
+        repairProjection(stat) {
+            const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
+            const existing=storyStages(orbit.故事线);
+            const macroEntries=Object.entries(stat.世界[PATH]?.事件||{})
+                .filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消')
+                .map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
+                .sort((a,b)=>(a.key??Infinity)-(b.key??Infinity)||a.index-b.index)
+                .map(x=>x.item);
+            const macroNames=new Set(macroEntries.map(([name])=>name));
+            const patches=[];
+            let line=[];
+            const existingValid=existing.length>=3&&existing.length<=5&&existing.every(name=>macroNames.has(name));
+            if(existingValid)line=existing.slice(0,5);
+            else {
+                // 因果轨道只能由宏观事件投影；事实不足时等待模型补齐，不拿近期事件凑骨架。
+                if(macroEntries.length<3)return patches;
+                const chosen=[],seen=new Set();
+                const take=name=>{if(name&&macroNames.has(name)&&!seen.has(name)){seen.add(name);chosen.push(name);}};
+                take(orbit.当前阶段);
+                for(const [name] of macroEntries)take(name);
+                if(chosen.length<3)return patches;
+                line=chosen.slice(0,5);
+                const story=line.join(' -> ');
+                if(orbit.故事线!==story){orbit.故事线=story;patches.push({op:'replace',path:'/世界/因果轨道/故事线',value:story});}
+            }
+            const nextName=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='待发生')||'';
+            if(orbit.下一节点!==nextName){orbit.下一节点=nextName;patches.push({op:'replace',path:'/世界/因果轨道/下一节点',value:nextName});}
+            const current=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='进行中');
+            if(current&&(!orbit.当前阶段||orbit.当前阶段==='待初始化')){
+                orbit.当前阶段=current;
+                patches.push({op:'replace',path:'/世界/因果轨道/当前阶段',value:current});
+            }
+            return patches;
+        }
+        get(name){return this.engine?.snapshot?.().stat?.世界?.因果轨道?.偏移记录?.[String(name||'').trim()]||null;}
+        async commit(mutator,status){
+            const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
+            if(!plain(stat?.世界?.因果轨道))stat.世界.因果轨道={};
+            if(!plain(stat.世界.因果轨道.偏移记录))stat.世界.因果轨道.偏移记录={};
+            const outcome=mutator(stat.世界.因果轨道.偏移记录);
+            if(!outcome)return false;
+            const stable=causalOffsetRecalculateStability(stat);
+            causalOffsetSyncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
+            const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
+            if(target)target.__samsaraUIMutation=true;
+            try{
+                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
+            }finally{
+                if(target){
+                    if(had)target.__samsaraUIMutation=previous;
+                    else delete target.__samsaraUIMutation;
+                }
+            }
+            engine.status=status||'因果偏移已更新';
+            engine.render(true);
+            return true;
+        }
+        async save(oldName,newName,record){
+            oldName=String(oldName||'').trim();newName=String(newName||'').trim();
+            if(!oldName||!newName||!plain(record))throw new Error('偏移名称和记录不能为空');
+            const impact=Number(record.影响程度);
+            if(!Number.isFinite(impact)||impact===0||impact<-12||impact>15)throw new Error('影响程度必须为 -12~-1 或 +1~+15');
+            return this.commit(bucket=>{
+                if(!Object.hasOwn(bucket,oldName))throw new Error('偏移记录不存在：'+oldName);
+                if(newName!==oldName&&Object.hasOwn(bucket,newName))throw new Error('偏移名称已存在：'+newName);
+                const next={描述:String(record.描述||'').trim(),引发者:String(record.引发者||'').trim(),影响程度:impact};
+                if(newName!==oldName)delete bucket[oldName];
+                bucket[newName]=next;
+                return {oldName,newName,record:next,deleted:false};
+            },'已编辑因果偏移 · 稳定值已重算');
+        }
+        async remove(name){
+            name=String(name||'').trim();if(!name)return false;
+            return this.commit(bucket=>{
+                if(!Object.hasOwn(bucket,name))return null;
+                delete bucket[name];
+                return {oldName:name,newName:name,record:null,deleted:true};
+            },'已删除因果偏移 · 稳定值已重算');
+        }
+    }
+    const DEFAULT_WORLD_CAUSAL_SERVICE=new WorldCausalService();
+    let ACTIVE_WORLD_CAUSAL_SERVICE=DEFAULT_WORLD_CAUSAL_SERVICE;
+    function repairCausalProjection(stat){return ACTIVE_WORLD_CAUSAL_SERVICE.repairProjection(stat);}
     const CURRENCY_FIELDS={体系:'',购买力基准:'',经济波动:''};
     const CALENDAR_FIELDS={名称:'',月份天数:[],闰年规则:''};
     const QUALITY_RANKS=['F','E','D','C','B','A','S','SS','SSS'];
@@ -1688,7 +1741,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration,stateNormalizer){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;}
+        constructor(normalizer,exploration,stateNormalizer,causal){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -2085,7 +2138,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             next=this.applyPatches(next,modelPatches||[]);
             const explorationPatches=this.exploration.repairGranularity(next);
             const layerPatches=this.stateNormalizer.normalizeEventLayers(next);
-            const causalPatches=repairCausalProjection(next);
+            const causalPatches=this.causal.repairProjection(next);
             const predecessorPatches=this.stateNormalizer.repairMacroPredecessors(next);
             const linkPatches=this.stateNormalizer.repairExplicitEventLinks(next);
             compactWorldLifecycle(next);
@@ -2094,7 +2147,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return {next,appliedSeeds,repairPatches};
         }
     }
-    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER);
+    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE);
     let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
     function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}
@@ -6134,54 +6187,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return this.commitEdit('summary',name,current=>({...current,摘要:summary,起始时间:start,结束时间:end}),'已修正长期历史总结');
         }
     }
-    class WorldCausalService {
-        constructor(engine){this.engine=engine;}
-        get(name){return this.engine.snapshot().stat?.世界?.因果轨道?.偏移记录?.[String(name||'').trim()]||null;}
-        async commit(mutator,status){
-            const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
-            if(!plain(stat?.世界?.因果轨道))stat.世界.因果轨道={};
-            if(!plain(stat.世界.因果轨道.偏移记录))stat.世界.因果轨道.偏移记录={};
-            const outcome=mutator(stat.世界.因果轨道.偏移记录);
-            if(!outcome)return false;
-            const stable=causalOffsetRecalculateStability(stat);
-            causalOffsetSyncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
-            const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
-            if(target)target.__samsaraUIMutation=true;
-            try{
-                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
-            }finally{
-                if(target){
-                    if(had)target.__samsaraUIMutation=previous;
-                    else delete target.__samsaraUIMutation;
-                }
-            }
-            engine.status=status||'因果偏移已更新';
-            engine.render(true);
-            return true;
-        }
-        async save(oldName,newName,record){
-            oldName=String(oldName||'').trim();newName=String(newName||'').trim();
-            if(!oldName||!newName||!plain(record))throw new Error('偏移名称和记录不能为空');
-            const impact=Number(record.影响程度);
-            if(!Number.isFinite(impact)||impact===0||impact<-12||impact>15)throw new Error('影响程度必须为 -12~-1 或 +1~+15');
-            return this.commit(bucket=>{
-                if(!Object.hasOwn(bucket,oldName))throw new Error('偏移记录不存在：'+oldName);
-                if(newName!==oldName&&Object.hasOwn(bucket,newName))throw new Error('偏移名称已存在：'+newName);
-                const next={描述:String(record.描述||'').trim(),引发者:String(record.引发者||'').trim(),影响程度:impact};
-                if(newName!==oldName)delete bucket[oldName];
-                bucket[newName]=next;
-                return {oldName,newName,record:next,deleted:false};
-            },'已编辑因果偏移 · 稳定值已重算');
-        }
-        async remove(name){
-            name=String(name||'').trim();if(!name)return false;
-            return this.commit(bucket=>{
-                if(!Object.hasOwn(bucket,name))return null;
-                delete bucket[name];
-                return {oldName:name,newName:name,record:null,deleted:true};
-            },'已删除因果偏移 · 稳定值已重算');
-        }
-    }
     class WorldRumorService {
         constructor(engine){this.engine=engine;}
         requirements(stat){
@@ -8664,11 +8669,13 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
             this.stateNormalizer=new WorldStateNormalizer();
             ACTIVE_WORLD_STATE_NORMALIZER=this.stateNormalizer;
+            this.causal=new WorldCausalService(engine);
+            ACTIVE_WORLD_CAUSAL_SERVICE=this.causal;
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -8683,7 +8690,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.events=new WorldEventService(engine);
             this.people=new WorldPersonActivityService(engine);
             this.history=new WorldHistoryService(engine);
-            this.causal=new WorldCausalService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             this.transport=engine._apiTransport||new WorldApiTransportService(engine);

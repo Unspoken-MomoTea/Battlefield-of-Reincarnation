@@ -126,3 +126,9 @@ src/WorldEngine/
 
 `WorldEngineClassBridge` 仍在基础请求之后执行 Feature Registry 与 Prompt Registry，因此本阶段只移动职责，不改变最终请求管线。
 
+
+## Phase 11 · 传输 / 提示词文档 / 主推进编排
+
+专属 API 传输已经迁入 `WorldApiTransportService`；提示词文档持久化迁入 `WorldPromptDocumentService`；原先位于 `40-engine-runtime.part.js` 的主 `run()` 重试、编译、验收、提交循环迁入 `WorldRunOrchestrator`。Runtime 只保留兼容 facade，Application Facade 继续通过 Feature Registry 包裹一次完整运行。
+
+因此 runtime 核心进一步收缩为配置/面板生命周期和少量兼容入口。新的网络传输、预设文档行为或推进步骤不得再直接塞回 `40-engine-runtime.part.js`。

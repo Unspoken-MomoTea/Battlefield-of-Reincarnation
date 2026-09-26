@@ -77,7 +77,7 @@ for(const key of expectedPromptKeys)assert.ok(promptKeys.includes(key),'prompt r
 assert.equal(new Set(promptKeys).size,promptKeys.length,'prompt registry keys must be unique');
 
 const promptUi=[
-  'script/world-engine-src/ui/60-prompt-tab.part.js',
+  'src/WorldEngine/ui/views/WorldPromptView.part.js',
   'src/WorldEngine/prompts/WorldPromptRegistry.part.js',
   'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js',
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');

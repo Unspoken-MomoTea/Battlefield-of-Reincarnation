@@ -98,7 +98,6 @@ assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultKernel.part.js')<declared.indexOf('20-world-result.part.js'),'WorldResult kernel must load at the former legacy slot before its compatibility shim');
 assert.ok(texts['20-world-result.part.js'].length<1000,'legacy WorldResult part must stay a thin compatibility shim');
 assert.doesNotMatch(texts['20-world-result.part.js'],/function\s+(?:normalizeWorldResult|compileWorldResult|materializeWorldUpdate)\b/,'legacy WorldResult shim must not regain domain implementation');
-assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+normalizeWorldResult\b/,'WorldResult normalization must live in dedicated src domain source');
 assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+compileWorldResult\b/,'WorldResult compilation must live in dedicated src domain source');
 assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+materializeWorldUpdate\b/,'WorldResult materialization must live in dedicated src domain source');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:normalizeWorldResult|mergeWorldResults|normalizeNamedResultList)\b/,'normalization implementation must leave the kernel after class extraction');

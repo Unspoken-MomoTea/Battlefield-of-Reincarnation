@@ -115,3 +115,14 @@ src/WorldEngine/
 - `WorldRequestInspectorView`
 
 `WorldEngineViewRegistry` 只负责 class 注册与路由。Application Shell 只准备共享 view context，不再实现资产/传闻等业务 HTML。后续迁移 UI 时应把现有 legacy renderer 的内部实现逐步搬进对应 class，而不是重新把业务分支塞回主 UI。
+
+## Phase 10 · Runtime 上下文 / 资料 / 基础请求
+
+`40-engine-runtime.part.js` 不再直接实现当前楼层读取、阻塞判定、世界书目录扫描或基础请求 JSON/system 拼装。
+
+- `WorldRuntimeContextService`：负责 snapshot 与基础 blocked 语义。
+- `WorldKnowledgeService`：负责世界书来源发现、蓝绿灯/技术条目隔离、EJS 展开与读取报告。
+- `WorldRequestBuilder`：负责把当前世界、正文楼层、世界书、时间容量与调度数据组装成基础 WorldResult 请求。
+
+`WorldEngineClassBridge` 仍在基础请求之后执行 Feature Registry 与 Prompt Registry，因此本阶段只移动职责，不改变最终请求管线。
+

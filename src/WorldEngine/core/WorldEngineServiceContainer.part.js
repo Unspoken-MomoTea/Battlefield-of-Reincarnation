@@ -5,7 +5,8 @@
             this.knowledge=new WorldKnowledgeService(engine);
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateProjector=new WorldStateProjector(engine);
-            this.compiler=new WorldResultCompiler(engine);
+            this.resultNormalizer=new WorldResultNormalizer();
+            this.compiler=new WorldResultCompiler(engine,this.resultNormalizer);
             this.validation=new WorldValidationService(engine);
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);

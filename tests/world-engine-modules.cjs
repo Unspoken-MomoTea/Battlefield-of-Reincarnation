@@ -25,6 +25,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldRequestBuilder.part.js',
   '@src/WorldEngine/domains/WorldStateProjector.part.js',
   '@src/WorldEngine/domains/WorldResultKernel.part.js',
+  '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/domains/WorldValidationService.part.js',
   '@src/WorldEngine/domains/WorldCommitService.part.js',
@@ -100,6 +101,10 @@ assert.doesNotMatch(texts['20-world-result.part.js'],/function\s+(?:normalizeWor
 assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+normalizeWorldResult\b/,'WorldResult normalization must live in dedicated src domain source');
 assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+compileWorldResult\b/,'WorldResult compilation must live in dedicated src domain source');
 assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+materializeWorldUpdate\b/,'WorldResult materialization must live in dedicated src domain source');
+assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:normalizeWorldResult|mergeWorldResults|normalizeNamedResultList)\b/,'normalization implementation must leave the kernel after class extraction');
+assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/class\s+WorldResultNormalizer\b/,'WorldResult normalization must have a dedicated class');
+assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/normalizeWorldResult\(value\)/,'normalizer class must own WorldResult normalization');
+assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/mergeWorldResults\(base,incoming\)/,'normalizer class must own staged merge semantics');
 
 for(const file of [
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',

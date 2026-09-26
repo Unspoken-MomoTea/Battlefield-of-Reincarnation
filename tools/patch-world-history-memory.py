@@ -119,8 +119,11 @@ replace_once(
     marker='分层长期历史记忆'
 )
 
-replace_once(
-    'script/world-engine-src/59-auto-progress.part.js',
+replace_once_any(
+    [
+        'src/WorldEngine/domains/WorldAutoProgressController.part.js',
+        'script/world-engine-src/59-auto-progress.part.js',
+    ],
     "const maps=['事件','人物','势力地区','历史','传播'];",
     "const maps=['事件','人物','势力地区','历史','历史总结','传播'];",
     marker="'历史','历史总结','传播'"

@@ -53,7 +53,8 @@
 
         ensureTemporalAnomaliesResolved(next,required=[]) {
             if(!(required||[]).length)return;
-            const remaining=this.timeline.temporalAnomalies(next);
+            // Validation must observe runtime decorators applied to temporalAnomalies.
+            const remaining=temporalAnomalies(next);
             const keys=new Set((required||[]).map(item=>item.类型+'\u0000'+item.名称));
             const bad=remaining.filter(item=>keys.has(item.类型+'\u0000'+item.名称));
             if(bad.length)throw new Error('时间越界记录仍未修复：'+bad.map(item=>item.类型+'/'+item.名称+'('+item.字段+'='+item.值+')').join('、'));

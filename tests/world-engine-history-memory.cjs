@@ -170,8 +170,8 @@ function summary(level,seq,children,lo,hi){
     const vars=fs.readFileSync(path.join(__dirname,'../World Book/[variables]当前变量.txt'),'utf8');
     const ui=[
       path.join(__dirname,'../script/world-engine-src/50-engine-ui.part.js'),
-      path.join(__dirname,'../script/world-engine-src/ui/40-archive-tabs.part.js'),
-      path.join(__dirname,'../script/world-engine-src/ui/50-settings-tab.part.js'),
+      path.join(__dirname,'../src/WorldEngine/ui/views/WorldHistoryView.part.js'),
+      path.join(__dirname,'../src/WorldEngine/ui/views/WorldSettingsView.part.js'),
     ].map(file=>fs.readFileSync(file,'utf8')).join('\n');
     const runtime=fs.readFileSync(path.join(__dirname,'../script/world-engine-src/40-engine-runtime.part.js'),'utf8');
     const zod=fs.readFileSync(path.join(__dirname,'../script/ZOD脚本.js'),'utf8');

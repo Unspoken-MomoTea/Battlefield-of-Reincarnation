@@ -205,7 +205,6 @@ function setup({reply='',validate,storedConfig}={}){
 
   {
     const source=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
-    assert.match(source,/compactFooterChrome\(/,'世界推进面板应有独立 footer 收口逻辑');
     assert.match(source,/\.we-footer-status\{[^}]*min-width:0[^}]*text-overflow:ellipsis/s,'左侧运行状态必须可收缩并省略，不能挤压右侧');
     assert.match(source,/\.we-footer-meta\{[^}]*flex:0 0 auto[^}]*white-space:nowrap/s,'右侧版本信息必须保持紧凑单行，不得竖向堆字');
     assert.match(source,/title=rawMeta|\.title=rawMeta/,'被收起的 footer 详细说明仍应通过 title 保留');

@@ -100,6 +100,7 @@
             this.services.prompts=new WorldEnginePromptService(this);
             this.services.requests=new WorldEngineRequestService(this,this.services.prompts);
             this.services.history=new WorldHistoryMemoryService(this,this.services.prompts);
+            this.views=new WorldEngineViewRegistry(this);
             this.promptService=this.services.prompts;
             const normalizedRequestPrompts=this.services.prompts.normalize(this.config.requestPrompts);
             if(!same(normalizedRequestPrompts,this.config.requestPrompts)){

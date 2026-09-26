@@ -30,6 +30,8 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldTaskAwarenessFeature.part.js',
   '@src/WorldEngine/domains/WorldChronologyFeature.part.js',
   '@src/WorldEngine/domains/WorldRumorRequestFeature.part.js',
+  '@src/WorldEngine/domains/WorldTimeOwnershipFeature.part.js',
+  '@src/WorldEngine/domains/WorldHistoryMemoryFeature.part.js',
   '@src/WorldEngine/domains/WorldNpcAuditPromptFeature.part.js',
   '@src/WorldEngine/ui/WorldEditorController.part.js',
   '@src/WorldEngine/ui/WorldApiPresetController.part.js',

@@ -2,18 +2,43 @@
         constructor(key,renderer){this.key=key;this.renderer=renderer;}
         render(context){return typeof this.renderer==='function'?this.renderer(context):'';}
     }
+    class WorldOverviewView extends WorldEngineTabView {
+        constructor(){super('world',worldEngineRenderWorldTab);}
+    }
+    class WorldPeopleView extends WorldEngineTabView {
+        constructor(){super('people',worldEngineRenderPeopleTab);}
+    }
+    class WorldExplorationView extends WorldEngineTabView {
+        constructor(){super('exploration',worldEngineRenderExplorationTab);}
+    }
+    class WorldEventsView extends WorldEngineTabView {
+        constructor(){super('events',worldEngineRenderWorldEventsTab);}
+    }
+    class WorldHistoryView extends WorldEngineTabView {
+        constructor(){super('history',worldEngineRenderRunRecordTab);}
+    }
+    class WorldSettingsView extends WorldEngineTabView {
+        constructor(){super('settings',worldEngineRenderSettingsTab);}
+    }
+    class WorldPromptView extends WorldEngineTabView {
+        constructor(){super('prompts',worldEngineRenderPromptTab);}
+    }
+    class WorldRequestInspectorView extends WorldEngineTabView {
+        constructor(){super('requestInspector',worldEngineRenderRequestInspector);}
+    }
+
     class WorldEngineViewRegistry {
         constructor(engine){
             this.engine=engine;
             this.views=new Map([
-                ['world',new WorldEngineTabView('world',worldEngineRenderWorldTab)],
-                ['people',new WorldEngineTabView('people',worldEngineRenderPeopleTab)],
-                ['exploration',new WorldEngineTabView('exploration',worldEngineRenderExplorationTab)],
-                ['events',new WorldEngineTabView('events',worldEngineRenderWorldEventsTab)],
-                ['history',new WorldEngineTabView('history',worldEngineRenderRunRecordTab)],
-                ['settings',new WorldEngineTabView('settings',worldEngineRenderSettingsTab)],
-                ['prompts',new WorldEngineTabView('prompts',worldEngineRenderPromptTab)],
-                ['requestInspector',new WorldEngineTabView('requestInspector',worldEngineRenderRequestInspector)]
+                ['world',new WorldOverviewView()],
+                ['people',new WorldPeopleView()],
+                ['exploration',new WorldExplorationView()],
+                ['events',new WorldEventsView()],
+                ['history',new WorldHistoryView()],
+                ['settings',new WorldSettingsView()],
+                ['prompts',new WorldPromptView()],
+                ['requestInspector',new WorldRequestInspectorView()]
             ]);
         }
         get(key){return this.views.get(key)||null;}

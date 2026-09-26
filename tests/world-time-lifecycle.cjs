@@ -31,8 +31,8 @@ assert.ok(setWorldName > clearCalendar, 'new world name should be written after 
 
 // 世界时间所有权守卫仍禁止普通变量更新改时间，但允许两个程序化世界切换边界。
 assert.match(ownership, /从主神空间进入新副本时，程序会先清空世界\.时间与旧历法/);
-assert.match(ownership, /const enteringWorld=wasSpace&&!isSpace;/);
-assert.match(ownership, /const returningToSpace=!wasSpace&&isSpace;/);
+assert.match(ownership, /enteringWorld=wasSpace&&!isSpace/);
+assert.match(ownership, /returningToSpace=!wasSpace&&isSpace/);
 assert.match(ownership, /enteringWorld&&worldTimeUnset\(incoming\)/);
 assert.match(ownership, /returningToSpace&&mainSpaceTime/);
 assert.match(ownership, /variables\.stat_data\.世界\.时间=previous;/);

@@ -22,20 +22,22 @@ src/WorldEngine/
     WorldMutationService
     WorldEventService
     WorldPersonActivityService
-    HistoryMemoryService        (后续)
-    ExplorationService          (后续)
-    RumorService                (后续)
+    WorldHistoryService
+    WorldExplorationService
+    WorldRumorService
+    WorldRequestService
   prompts/
     WorldPromptRegistry
   ui/
-    ...                         (后续把现有 ui/*.part.js 类化)
+    WorldEngineViewRegistry
+    WorldPromptWorkspaceController
 ```
 
 `SamsaraWorldEngine` 作为 Application Facade，只持有 `engine.services` 并负责初始化、运行、面板生命周期。
 
 ## 3. Prompt Registry 规则
 
-任何最终进入 AI `system` 的文字都必须有注册项。注册项至少包含：
+任何最终作为模型行为指令进入 AI 的文字都必须有注册项，包括 `system`、user payload 中的语义/要求/说明、纠错重试模板，以及历史压缩等辅助模型提示词。注册项至少包含：
 
 - key
 - title
@@ -46,7 +48,7 @@ src/WorldEngine/
 
 提示词预设保存的是完整 registry 值。旧字段 `corePrompt / macroPrompt / stabilityPromptTemplate / npcAuditPrompt / structurePrompt / modulePrompts` 在迁移期继续同步，确保旧预设可用。
 
-程序 JSON Schema、字段白名单、校验器不是提示词，不允许通过 UI 修改。
+程序 JSON Schema、字段白名单、校验器、引用完整性与时间比较算法不是提示词，不允许通过 UI 修改。Prompt Registry 可以修改“模型应该怎么做”，不能修改“程序允许写什么”。
 
 ## 4. 重构策略
 

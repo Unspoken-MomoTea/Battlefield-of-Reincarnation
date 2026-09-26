@@ -8,6 +8,7 @@ SOURCE_DIR = ROOT / 'script' / 'world-engine-src'
 OUTPUT = ROOT / 'script' / '世界推进系统.js'
 PARTS = (
     '00-foundation-prompt.part.js',
+    '@src/WorldEngine/prompts/WorldPromptTemplates.part.js',
     '10-world-state.part.js',
     '20-world-result.part.js',
     '30-context-protocol.part.js',

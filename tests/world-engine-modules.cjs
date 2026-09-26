@@ -22,6 +22,7 @@ for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
   '@src/WorldEngine/domains/WorldStateProjector.part.js',
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
+  '@src/WorldEngine/domains/WorldValidationService.part.js',
   '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
   '@src/WorldEngine/domains/WorldCausalService.part.js',
   '@src/WorldEngine/domains/WorldRequestFeature.part.js',

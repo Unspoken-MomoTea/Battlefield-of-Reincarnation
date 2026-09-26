@@ -155,8 +155,34 @@
             return input;
         }
         rewriteSystem(system){
-            let output=String(system||''),activityDefault=typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:'';
-            if(activityDefault)output=output.split(activityDefault).join(this.value('worldActivity').trim());
+            let output=String(system||'');
+            const replaceBlock=(legacy,key)=>{
+                const block=typeof legacy==='string'?legacy:'';
+                if(!block)return;
+                output=output.split(block).join(this.value(key).trim());
+            };
+            replaceBlock(typeof TASK_AWARENESS_RULES==='string'?TASK_AWARENESS_RULES:'','task');
+            replaceBlock(typeof CHRONOLOGY_GUARD_RULES==='string'?CHRONOLOGY_GUARD_RULES:'','chronology');
+            replaceBlock(typeof SOFT_MAINTENANCE_RULES==='string'?SOFT_MAINTENANCE_RULES:'','maintenance');
+            replaceBlock(typeof EXPLORATION_PROJECTION_RULES==='string'?EXPLORATION_PROJECTION_RULES:'','exploration');
+            replaceBlock(typeof WORLD_INTEGRITY_GUARD_RULES==='string'?WORLD_INTEGRITY_GUARD_RULES:'','integrity');
+            replaceBlock(typeof WORLD_TIME_RULES==='string'?WORLD_TIME_RULES:'','worldTime');
+            replaceBlock(typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:'','worldActivity');
+
+            // 传闻旧管线历史上可能同时注入 1~3 段；最终统一收口成 registry.rumor 一段。
+            const rumorBlocks=[
+                typeof RUMOR_LIVELINESS_RULES==='string'?RUMOR_LIVELINESS_RULES:'',
+                typeof RUMOR_THROTTLE_RULES==='string'?RUMOR_THROTTLE_RULES:'',
+                typeof RUMOR_WORLD_SOURCE_RULES==='string'?RUMOR_WORLD_SOURCE_RULES:''
+            ].filter(Boolean);
+            let rumorSeen=false;
+            for(const block of rumorBlocks){
+                if(!output.includes(block))continue;
+                output=output.split(block).join(rumorSeen?'':this.value('rumor').trim());
+                rumorSeen=true;
+            }
+            if(!rumorSeen&&this.value('rumor').trim())output+=(output?'\n\n':'')+this.value('rumor').trim();
+
             return output.replace(/\n{3,}/g,'\n\n').trim();
         }
         rewriteInput(input){

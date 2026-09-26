@@ -28,6 +28,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldApiTransportService.part.js',
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
   'src/WorldEngine/domains/WorldRunOrchestrator.part.js',
+  'src/WorldEngine/domains/WorldRequestService.part.js',
   'src/WorldEngine/prompts/WorldPromptRegistry.part.js',
 ]){
   assert.ok(fs.existsSync(path.join(root,file)),file+' must exist in the dedicated src/WorldEngine source tree');
@@ -36,6 +37,11 @@ for(const file of [
 
 const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
 const patchPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
+const requestServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestService.part.js'),'utf8');
+for(const legacyName of ['retryableModelFailure','retryInput']){
+  assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
+  assert.match(requestServiceSource,new RegExp('\\b'+legacyName+'\\s*\\('),'request service must own '+legacyName);
+}
 for(const legacyName of ['tokens','get','pointer','canonicalizeParts','bootstrapBackendParent','canUpsertMissing','checkRecord','checkDetails','normalizeBackendRecord','sanitizeModelPatches','normalizeModelPatches','allowed']){
   assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
 }
@@ -117,6 +123,14 @@ assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService
 assert.equal(engine.services.causal.constructor.name,'WorldCausalService');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
+assert.equal(engine.services.requests.constructor.name,'WorldRequestService');
+assert.equal(engine.services.requests.retryableModelFailure(new Error('业务校验失败')),true,'model/business failures remain retryable');
+assert.equal(engine.services.requests.retryableModelFailure(new Error('请求已取消')),false,'cancellation must never be retried');
+const retryPayload=JSON.parse(engine.services.requests.retryInput('{"说明":"测试"}',new Error('业务校验失败'),'{"坏回复":true}',1,3,null,[]));
+assert.equal(retryPayload.纠错重试.当前尝试,2);
+assert.equal(retryPayload.纠错重试.最大尝试次数,3);
+assert.equal(retryPayload.纠错重试.要求,engine.services.prompts.value('retryFresh'),'retry copy must come from editable Prompt Registry');
+
 
 const normalized=clone(current.stat_data);
 normalized.世界.后台.公开摘要='旧版阶段摘要';

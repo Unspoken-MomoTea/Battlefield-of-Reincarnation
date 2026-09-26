@@ -37,6 +37,7 @@
             this.history=new WorldHistoryService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
+            ACTIVE_WORLD_REQUEST_SERVICE=this.requests;
             this.transport=engine._apiTransport||new WorldApiTransportService(engine);
             engine._apiTransport=this.transport;
             this.promptDocuments=engine._promptDocuments||new WorldPromptDocumentService(engine);

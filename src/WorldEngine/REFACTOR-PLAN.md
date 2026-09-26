@@ -210,3 +210,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 `WorldResultMaterializer` 与 `WorldResultCompiler` 已直接组合 container-owned `patchPolicy`：结果物化、状态校验和 legacy patch 清洗不再依赖全局函数作为主实现。全局 `tokens / pointer / allowed / normalizeBackendRecord / sanitizeModelPatches` 等仅作为尚未迁移调用方的兼容转发 seam。
 
 下一批优先把 `retryableModelFailure / retryInput` 收进请求/运行编排领域，并评估 `emptyState / importStory` 的最终归属；随后转向 `30-context-protocol.part.js` 的投影装饰链。
+
+
+### Phase 21 · 请求纠错协议归域
+
+已完成：`WorldRequestService` 接管 `retryableModelFailure / retryInput` 的真实实现，统一负责模型失败是否允许重试、纠错 payload、已接受业务结果与补充清单的携带。运行编排通过 container-owned `requests` service 判断可重试错误，不再由 `10-world-state.part.js` 保存请求协议逻辑。
+
+纠错“要求”仍由 `WorldPromptRegistry.retryRequirement()` 提供，因此三种纠错提示词继续在“提示词预设 → 全部实际提示词”中可见、可编辑。全局 `retryableModelFailure / retryInput` 仅保留兼容转发 seam。
+
+下一批评估 `emptyState / importStory` 的最终归属，然后进入 `30-context-protocol.part.js` 的上下文投影装饰链迁移。

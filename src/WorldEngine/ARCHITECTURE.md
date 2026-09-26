@@ -192,3 +192,10 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 ## Phase 20 · Patch policy
 
 `WorldPatchPolicy` 是世界推进写入契约的 canonical policy：它负责路径解析与 canonicalize、upsert/白名单、后台记录规范化与结构校验、模型 patch 清洗和兼容展开。`WorldResultMaterializer` 与 `WorldResultCompiler` 直接组合该实例；遗留全局 helper 仅用于迁移期兼容。
+
+
+## Phase 21 · 请求纠错协议
+
+`WorldRequestService` 是主推进纠错协议的 canonical service：它负责判断模型/业务失败是否可重试，并构造携带失败原因、已接受结果与补充清单的纠错输入。纠错要求文本不在 service 内另建隐藏副本，而是读取 `WorldPromptRegistry` 的 `retryAcceptedWithPlan / retryAccepted / retryFresh`。
+
+`WorldRunOrchestrator` 只负责 attempt 生命周期和调用该 service；旧全局函数仅用于尚未迁移调用方的兼容转发。

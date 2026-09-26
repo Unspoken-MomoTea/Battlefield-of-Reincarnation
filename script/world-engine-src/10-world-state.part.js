@@ -46,32 +46,3 @@
         const x=nameKey(a),y=nameKey(b);if(!x||!y)return false;
         return x===y||x.includes(y)||y.includes(x);
     }
-    function retryableModelFailure(error) {
-        const message=String(error?.message||error||'');
-        if(!message)return false;
-        if(/^(?:请求已取消|上下文已经切换|推演期间世界时间或副本锚点发生变化|请在主神终端设置|请加载更新后的|禁止写入：)/.test(message))return false;
-        if(error?.name==='AbortError')return false;
-        return true;
-    }
-    function retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]) {
-        let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
-        const feedback=retryFeedback(error,error?.rejectedSlices,Array.isArray(retryPlan)?retryPlan:[]);
-        const plan=feedback.actions;
-        payload.纠错重试={
-            当前尝试:attempt+1,
-            最大尝试次数:maxAttempts,
-            上次拒绝原因:feedback.summary,
-            具体问题:feedback.issues.length?feedback.issues:undefined,
-            上次模型回复:String(lastReply||'').slice(-12000),
-            已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
-            补充清单:plan.length?copy(plan):undefined,
-            要求:acceptedResult
-                ?(plan.length
-                    ?'严格按“补充清单”只补充或修正未通过的业务片段。已接受业务结果已经通过本地验收，默认全部保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。'
-                    :'只补充或修正导致拒绝的业务片段。已接受业务结果默认保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。')
-                :'修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。'
-        };
-        if(payload.纠错重试.已接受业务结果===undefined)delete payload.纠错重试.已接受业务结果;
-        if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;
-        return JSON.stringify(payload,null,2);
-    }

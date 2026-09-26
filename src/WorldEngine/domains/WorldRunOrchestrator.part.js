@@ -179,7 +179,7 @@
                         lastError=error;
                         lastRejectedReply=received||this.lastReply||'';
                         lastRetryPlan=Array.isArray(error?.retryPlan)?copy(error.retryPlan):retryPlanForFailure(error,[]);
-                        const rejectedByModel=!!received&&retryableModelFailure(error);
+                        const rejectedByModel=!!received&&(this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error));
                         if(rejectedByModel)this.lastRetryLog.push({尝试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
                         const canRetry=rejectedByModel&&attempt+1<maxAttempts;
                         if(!canRetry)throw error;

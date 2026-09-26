@@ -37,11 +37,30 @@
             const restoredRun=sameContext&&this.backendHasContent(snapshot);
             e.autoProgressHasRun=restoredRun;e.autoProgressLastSeenFingerprint=restoredRun?handled:'';e.autoProgressDueFingerprint=restoredRun?handled:'';
         }
+        fingerprintParts(fingerprint){
+            try{const parsed=JSON.parse(String(fingerprint||''));return {chat:String(parsed?.[0]??''),id:Number(parsed?.[1]),swipe:Number(parsed?.[2]||0),digest:String(parsed?.[3]??'')};}
+            catch(_){return {chat:'',id:NaN,swipe:0,digest:''};}
+        }
+        sameFloor(left,right){
+            const a=this.fingerprintParts(left),b=this.fingerprintParts(right);
+            return !!a.chat&&a.chat===b.chat&&Number.isFinite(a.id)&&a.id===b.id;
+        }
+        duringExtraAnalysis(){
+            const e=this.engine,mvu=e.env.Mvu||e.host.Mvu;
+            try{return mvu?.isDuringExtraAnalysis?.()===true;}catch(_){return false;}
+        }
         shouldSchedule(snapshot){
             const e=this.engine;this.initializeCycle(snapshot);
             const fingerprint=String(snapshot?.fingerprint||'');if(!fingerprint)return false;
             const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
             if(e.autoProgressLastSeenFingerprint===fingerprint)return e.autoProgressDueFingerprint===fingerprint&&handled!==fingerprint;
+            const previous=e.autoProgressLastSeenFingerprint;
+            if(previous&&this.sameFloor(previous,fingerprint)){
+                const wasDue=e.autoProgressDueFingerprint===previous;
+                e.autoProgressLastSeenFingerprint=fingerprint;
+                if(wasDue)e.autoProgressDueFingerprint=fingerprint;
+                return wasDue;
+            }
             e.autoProgressLastSeenFingerprint=fingerprint;
             if(e.autoProgressHasRun)e.autoProgressRoundsSinceRun++;
             const due=!e.autoProgressHasRun||e.autoProgressRoundsSinceRun>=this.interval();
@@ -55,28 +74,47 @@
         }
         resetCycle(){
             const e=this.engine;
-            e.autoProgressCycleKey='';e.autoProgressLastSeenFingerprint='';e.autoProgressDueFingerprint='';e.autoProgressRoundsSinceRun=0;e.autoProgressHasRun=false;
+            e.autoProgressCycleKey='';e.autoProgressLastSeenFingerprint='';e.autoProgressDueFingerprint='';e.autoProgressRoundsSinceRun=0;e.autoProgressHasRun=false;e.autoProgressWaitingForVariable=false;
         }
         blocked(snapshot,baseReason=''){
             if(snapshot?.stat?.系统状态?.是否战斗中===true)return '战斗中，世界推进暂停';
             return baseReason;
         }
-        schedule(_source='',delay=900){
+        schedule(source='variable-update',attempt=0){
             const e=this.engine;
             if(e.config.autoProgress!==true){if(e.timer){clearTimeout(e.timer);e.timer=null;}return;}
             if(e.disposed||e.committing||!e.isEnabled())return;
             if(e.busy){e.pending=true;return;}
-            clearTimeout(e.timer);
+            const trigger=String(source||'variable-update'),proseTrigger=trigger==='generation-ended'||trigger==='message-received';
+            const tries=Math.max(0,Number(attempt)||0);
+            if(proseTrigger&&this.duringExtraAnalysis()){
+                e.autoProgressWaitingForVariable=true;clearTimeout(e.timer);
+                if(tries<120)e.timer=setTimeout(()=>{e.timer=null;this.schedule(trigger,tries+1);},1000);
+                return;
+            }
+            e.autoProgressWaitingForVariable=false;clearTimeout(e.timer);
+            const delay=proseTrigger?(tries>0?250:800):900;
             e.timer=setTimeout(()=>{
                 e.timer=null;
                 if(e.config.autoProgress!==true||e.disposed||e.committing||!e.isEnabled())return;
                 if(e.busy){e.pending=true;return;}
-                let snapshot;try{snapshot=e.snapshot();}catch(_){return;}
+                if(proseTrigger&&this.duringExtraAnalysis()){
+                    e.autoProgressWaitingForVariable=true;
+                    if(tries<120)e.timer=setTimeout(()=>{e.timer=null;this.schedule(trigger,tries+1);},1000);
+                    return;
+                }
+                let snapshot;
+                try{snapshot=e.snapshot();}
+                catch(_){
+                    if(proseTrigger&&tries<4)e.timer=setTimeout(()=>{e.timer=null;this.schedule(trigger,tries+1);},250);
+                    return;
+                }
+                e.autoProgressWaitingForVariable=false;
                 const reason=e.blocked(snapshot);
                 if(reason){e.status=reason;e.render();return;}
                 if(!this.shouldSchedule(snapshot))return;
                 e.run({automatic:true}).catch(()=>{});
-            },Math.max(0,Number(delay)||0));
+            },delay);
         }
         async aroundRun(next,_options={}){
             let snapshot=null;try{snapshot=this.engine.snapshot();}catch(_){}

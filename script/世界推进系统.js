@@ -414,35 +414,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         const x=nameKey(a),y=nameKey(b);if(!x||!y)return false;
         return x===y||x.includes(y)||y.includes(x);
     }
-    function retryableModelFailure(error) {
-        const message=String(error?.message||error||'');
-        if(!message)return false;
-        if(/^(?:请求已取消|上下文已经切换|推演期间世界时间或副本锚点发生变化|请在主神终端设置|请加载更新后的|禁止写入：)/.test(message))return false;
-        if(error?.name==='AbortError')return false;
-        return true;
-    }
-    function retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]) {
-        let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
-        const feedback=retryFeedback(error,error?.rejectedSlices,Array.isArray(retryPlan)?retryPlan:[]);
-        const plan=feedback.actions;
-        payload.纠错重试={
-            当前尝试:attempt+1,
-            最大尝试次数:maxAttempts,
-            上次拒绝原因:feedback.summary,
-            具体问题:feedback.issues.length?feedback.issues:undefined,
-            上次模型回复:String(lastReply||'').slice(-12000),
-            已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
-            补充清单:plan.length?copy(plan):undefined,
-            要求:acceptedResult
-                ?(plan.length
-                    ?'严格按“补充清单”只补充或修正未通过的业务片段。已接受业务结果已经通过本地验收，默认全部保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。'
-                    :'只补充或修正导致拒绝的业务片段。已接受业务结果默认保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。')
-                :'修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。'
-        };
-        if(payload.纠错重试.已接受业务结果===undefined)delete payload.纠错重试.已接受业务结果;
-        if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;
-        return JSON.stringify(payload,null,2);
-    }
     const WORLD_MODEL_IGNORED_PATHS = [
         /^\/任务(?:\/|$)/,
         /^\/系统状态\/待播报记录$/,
@@ -6219,19 +6190,50 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldRequestService {
-        constructor(engine){this.engine=engine;}
+        constructor(engine=null){this.engine=engine;}
         build(base){return this.engine.buildRequest(base||this.engine.snapshot());}
         preview(){return this.engine.preview?.();}
         request(system,input,options){return this.engine.requestAI(system,input,options);}
+        retryableModelFailure(error){
+            const message=String(error?.message||error||'');
+            if(!message)return false;
+            if(/^(?:请求已取消|上下文已经切换|推演期间世界时间或副本锚点发生变化|请在主神终端设置|请加载更新后的|禁止写入：)/.test(message))return false;
+            if(error?.name==='AbortError')return false;
+            return true;
+        }
+        retryRequirement(acceptedResult,retryPlan=[]){
+            const prompts=this.engine?.services?.prompts;
+            if(prompts?.retryRequirement)return prompts.retryRequirement(acceptedResult,retryPlan);
+            if(acceptedResult)return Array.isArray(retryPlan)&&retryPlan.length?WORLD_PROMPT_RETRY_ACCEPTED_PLAN:WORLD_PROMPT_RETRY_ACCEPTED;
+            return WORLD_PROMPT_RETRY_FRESH;
+        }
         retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]){
-            let raw=retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan);
-            let payload;try{payload=JSON.parse(raw);}catch(_){return raw;}
-            if(plain(payload.纠错重试)){
-                payload.纠错重试.要求=this.engine.services?.prompts?.retryRequirement(acceptedResult,retryPlan)||payload.纠错重试.要求;
-            }
+            let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
+            const feedback=retryFeedback(error,error?.rejectedSlices,Array.isArray(retryPlan)?retryPlan:[]);
+            const plan=feedback.actions;
+            payload.纠错重试={
+                当前尝试:attempt+1,
+                最大尝试次数:maxAttempts,
+                上次拒绝原因:feedback.summary,
+                具体问题:feedback.issues.length?feedback.issues:undefined,
+                上次模型回复:String(lastReply||'').slice(-12000),
+                已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
+                补充清单:plan.length?copy(plan):undefined,
+                要求:this.retryRequirement(acceptedResult,this.engine?retryPlan:plan)
+            };
+            if(payload.纠错重试.已接受业务结果===undefined)delete payload.纠错重试.已接受业务结果;
+            if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;
             return JSON.stringify(payload,null,2);
         }
     }
+
+    const DEFAULT_WORLD_REQUEST_SERVICE=new WorldRequestService();
+    let ACTIVE_WORLD_REQUEST_SERVICE=DEFAULT_WORLD_REQUEST_SERVICE;
+    function retryableModelFailure(error){return ACTIVE_WORLD_REQUEST_SERVICE.retryableModelFailure(error);}
+    function retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]){
+        return ACTIVE_WORLD_REQUEST_SERVICE.retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan);
+    }
+
     class WorldApiTransportService {
         constructor(engine){this.engine=engine;this.modeCache=engine.apiModeCache||{};}
         normalize(value){
@@ -6617,7 +6619,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                         lastError=error;
                         lastRejectedReply=received||this.lastReply||'';
                         lastRetryPlan=Array.isArray(error?.retryPlan)?copy(error.retryPlan):retryPlanForFailure(error,[]);
-                        const rejectedByModel=!!received&&retryableModelFailure(error);
+                        const rejectedByModel=!!received&&(this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error));
                         if(rejectedByModel)this.lastRetryLog.push({尝试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
                         const canRetry=rejectedByModel&&attempt+1<maxAttempts;
                         if(!canRetry)throw error;
@@ -8717,6 +8719,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.history=new WorldHistoryService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
+            ACTIVE_WORLD_REQUEST_SERVICE=this.requests;
             this.transport=engine._apiTransport||new WorldApiTransportService(engine);
             engine._apiTransport=this.transport;
             this.promptDocuments=engine._promptDocuments||new WorldPromptDocumentService(engine);

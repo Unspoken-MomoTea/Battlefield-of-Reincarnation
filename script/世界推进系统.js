@@ -4038,7 +4038,7 @@ ${schemaText}`;
                         attemptTelemetry={尝试:attempt+1,结果:'待验收',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:observation.输出估算Tokens,API输入Tokens:usage?.inputTokens??null,API输出Tokens:usage?.outputTokens??null,API总Tokens:usage?.totalTokens??null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed};
                         this.lastAttemptTelemetry.push(attemptTelemetry);
 
-                        const reply=parseReply(received);
+                        let reply=parseReply(received);
                         let legacyPatches=[],rejectedSlices=[];
                         if(reply.kind==='world_result'){
                             const staged=this.services?.compiler?.stage(base.stat,acceptedWorldResult,reply.worldResult,validate)??stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult,validate);
@@ -4104,30 +4104,33 @@ ${schemaText}`;
                             if(currentGlobalError)throw makeRetryFailure([],currentGlobalError);
                         }
                         const committedPatches=built.appliedSeeds.concat(modelPatches,built.repairPatches);
-
-                        if (!(next.设置 || {}).世界超稳) {
-                            const offsets=(next.世界.因果轨道||{}).偏移记录||{};
-                            const total=Object.values(offsets).reduce((n,r)=>n+(Number(r.影响程度)||0),0);
-                            next.世界.稳定=Math.max(0,Math.min(120,100+total));
+                        if(this.services?.commit){
+                            const finalized=this.services.commit.prepare({
+                                next,committedPatches,base,acceptedWorldResult,reply,validate
+                            });
+                            next=finalized.next;reply=finalized.reply;
+                        }else{
+                            if (!(next.设置 || {}).世界超稳) {
+                                const offsets=(next.世界.因果轨道||{}).偏移记录||{};
+                                const total=Object.values(offsets).reduce((n,r)=>n+(Number(r.影响程度)||0),0);
+                                next.世界.稳定=Math.max(0,Math.min(120,100+total));
+                            }
+                            next.世界[PATH].已处理楼层=base.fingerprint;
+                            next.世界[PATH].已处理时间=base.stat.世界.时间;
+                            const changes=committedPatches.map(p=>{
+                                const parts=tokens(p.path),back=parts[1]===PATH,asset=parts[0]==='资产';
+                                return {时间:base.stat.世界.时间,类别:asset?'资产':back?parts[2]:parts[1],名称:asset?parts[1]:back?parts[3]:parts[2],字段:asset?'资产':parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.状态||p.value.内容||'记录已更新'):''};
+                            });
+                            next.世界[PATH].最近变化=changes.slice(-100);
+                            if(typeof this.beforeWorldCommit==='function')this.beforeWorldCommit(next,{
+                                messageId:base.id,fingerprint:base.fingerprint,worldResult:acceptedWorldResult,reply:copy(reply),baseStat:base.stat
+                            });
+                            const checked=validate(next);
+                            for(const patch of committedPatches){
+                                if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(next,tokens(patch.path))))throw schemaMismatchError(next,checked,patch.path);
+                            }
+                            reply.patches=committedPatches;
                         }
-                        next.世界[PATH].已处理楼层=base.fingerprint;
-                        next.世界[PATH].已处理时间=base.stat.世界.时间;
-                        const changes=committedPatches.map(p=>{
-                            const parts=tokens(p.path),back=parts[1]===PATH,asset=parts[0]==='资产';
-                            return {时间:base.stat.世界.时间,类别:asset?'资产':back?parts[2]:parts[1],名称:asset?parts[1]:back?parts[3]:parts[2],字段:asset?'资产':parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.状态||p.value.内容||'记录已更新'):''};
-                        });
-                        next.世界[PATH].最近变化=changes.slice(-100);
-                        // 推演记录已由历史锚点取代，不再持久化。
-                        // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。
-                        if(typeof this.beforeWorldCommit==='function')this.beforeWorldCommit(next,{
-                            messageId:base.id,fingerprint:base.fingerprint,worldResult:acceptedWorldResult,reply:copy(reply),baseStat:base.stat
-                        });
-
-                        const checked=validate(next);
-                        for(const patch of committedPatches){
-                            if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(next,tokens(patch.path))))throw schemaMismatchError(next,checked,patch.path);
-                        }
-                        reply.patches=committedPatches;
                         prepared={reply,next,current};
                         if(attemptTelemetry)attemptTelemetry.结果='接受';
                         break;
@@ -4154,12 +4157,15 @@ ${schemaText}`;
 
                 if(!prepared)throw lastError||new Error('世界推演未生成可写入结果');
                 this.committing=true;
-                const result=prepared.current.raw;
-                result.stat_data=prepared.next;
-                const replay=typeof this.buildWorldReplayPackage==='function'
-                    ?this.buildWorldReplayPackage(base.stat,prepared.next,base.fingerprint):null;
-                if(replay)result.__samsaraWorldReplay=replay;
-                await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
+                if(this.services?.commit)await this.services.commit.persist(prepared,base);
+                else{
+                    const result=prepared.current.raw;
+                    result.stat_data=prepared.next;
+                    const replay=typeof this.buildWorldReplayPackage==='function'
+                        ?this.buildWorldReplayPackage(base.stat,prepared.next,base.fingerprint):null;
+                    if(replay)result.__samsaraWorldReplay=replay;
+                    await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
+                }
                 this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 前序失败'+this.lastRetryLog.length+'次':'');
                 return true;
             } catch (error) {
@@ -4622,58 +4628,44 @@ ${schemaText}`;
             const hero='<div class="we-hero"><div><div class="we-eyebrow">SAMSARA / WORLD ARCHIVE</div><h1>'+text(w.名称&&w.名称!=='待初始化'?w.名称:'世界尚未建立')+'</h1><div class="we-world-ranks"><span>位格 <b>'+text(w.位格||'未记录')+'</b></span><span>难度 <b>'+text(w.难度||'未记录')+'</b></span></div><div class="we-muted">'+text(w.地点||'地点待确认')+' · '+text(orbit.当前阶段&&orbit.当前阶段!=='待初始化'?orbit.当前阶段:'等待篇章开启')+'</div></div><div class="we-date">'+text(w.时间||'副本日期待确认')+'<small>累计游玩 '+text((s.系统状态||{}).游玩天数||0)+' 天 · '+(reason?'推进暂停':'副本进行中')+'</small></div></div>';
             let html=hero+(reason?'<div class="we-notice">'+text(reason)+'</div>':'')+(availabilityReason?'<div class="we-notice">'+text(availabilityReason)+'</div>':'');
             if(this.tab==='世界推进'){
-                html+=(this.services?.views?.render('world',{
-                    engine:this,s,w,orbit,events,active,future,people,calendarCandidates,snapshot,
+                html+=this.services.views.render('world',{
+                    s,w,orbit,events,active,future,people,calendarCandidates,snapshot,
                     entries,text,empty,section,stabilityDescription,parseDate,calendar,tools,
                     timelineCards,exists,fields,prose,compactPerson
-                })??worldEngineRenderWorldTab({engine:this,s,w,orbit,events,active,future,people,calendarCandidates,snapshot,entries,text,empty,section,stabilityDescription,parseDate,calendar,tools,timelineCards,exists,fields,prose,compactPerson}));
+                });
             }else if(this.tab==='角色管理'){
-                html+=(this.services?.views?.render('people',{
-                    engine:this,s,radar,showRadar,alienAlive,entries,formalPeople,backstagePeople,
+                html+=this.services.views.render('people',{
+                    s,radar,showRadar,alienAlive,entries,formalPeople,backstagePeople,
                     relationRoster,matched,userName,section,text,pill,fields,contextRows,
                     sceneContextBody,empty,tools,person,exists,value
-                })??worldEngineRenderPeopleTab({engine:this,s,radar,showRadar,alienAlive,entries,formalPeople,backstagePeople,relationRoster,matched,userName,section,text,pill,fields,contextRows,sceneContextBody,empty,tools,person,exists,value}));
-            }else if(this.tab==='探索与势力'){
-                html+=(this.services?.views?.render('exploration',{
-                    engine:this,state,w,events,entries,text,fields,areaSceneBody,exists,details,
-                    empty,section,eventCard
-                })??worldEngineRenderExplorationTab({engine:this,state,w,events,entries,text,fields,areaSceneBody,exists,details,empty,section,eventCard}));
-            }else if(this.tab==='资产'){
-                const ownersOf=asset=>Array.from(new Set((Object.hasOwn(asset,'所属对象')?(Array.isArray(asset.所属对象)?asset.所属对象:[asset.所属对象]):['<user>']).map(x=>String(x??'').trim()).filter(x=>x&&x!=='无主')));
-                const assets=entries(s.资产).filter(([,asset])=>plain(asset));
-                const list=assets.filter(([name,asset])=>{
-                    const owners=ownersOf(asset),category=this.filter||'全部';
-                    return (category==='全部'||category==='玩家相关'&&owners.includes('<user>')||category==='共同持有'&&owners.length>1||category==='无主'&&!owners.length)&&matched(name,{...asset,归属:owners.join(' ')});
                 });
-                html+=tools(['全部','玩家相关','共同持有','无主']);
-                html+=section('资产与归属',list.map(([name,asset])=>{
-                    const owners=ownersOf(asset);
-                    const ownerLinks=owners.length?owners.map(owner=>{
-                        const label=owner==='<user>'?(userName||'玩家'):owner;
-                        if(owner!=='<user>'&&(relationNamesByKey.has(nameKey(owner))||people.has(owner)))return '<button data-jump-person="'+text(relationNamesByKey.get(nameKey(owner))||owner)+'">'+text(label)+' ↗</button>';
-                        if(Object.hasOwn(w.势力||{},owner))return '<button data-faction="'+text(owner)+'" data-asset-owner>'+text(label)+' ↗</button>';
-                        return pill(label,'dim');
-                    }).join(''):pill('无主','dim');
-                    return '<article class="we-card" data-asset-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(asset.类型||'类型未记录','dim')+'</div><div class="we-tools"><b>所属对象</b>'+ownerLinks+(owners.length>1?pill('共同持有','future'):'')+'</div><p>'+text(asset.状态||'状态未记录')+'</p>'+fields({主体规模:asset.主体规模,完整度:asset.完整度==null?undefined:asset.完整度+'%'})+details('asset-'+name,{能源:asset.能源,建设序列:asset.建设序列,驻扎人员:asset.驻扎人员,待办事件:asset.待办事件},'运转详情 · 建设 / 驻扎 / 待办')+'</article>';
-                }).join('')||empty('暂无符合条件的资产'),'共 '+assets.length+' 项 · 可按名称、所属对象或状态搜索');
+            }else if(this.tab==='探索与势力'){
+                html+=this.services.views.render('exploration',{
+                    state,w,events,entries,text,fields,areaSceneBody,exists,details,
+                    empty,section,eventCard
+                });
+            }else if(this.tab==='资产'){
+                html+=this.services.views.render('assets',{
+                    s,w,people,userName,relationNamesByKey,entries,matched,tools,section,text,pill,fields,details,empty
+                });
             }else if(this.tab==='世界事件'){
-                html+=(this.services?.views?.render('events',{
-                    engine:this,events,matched,tools,section,timelineCards,empty
-                })??worldEngineRenderWorldEventsTab({engine:this,events,matched,tools,section,timelineCards,empty}));
+                html+=this.services.views.render('events',{
+                    events,matched,tools,section,timelineCards,empty
+                });
             }else if(this.tab==='传闻'){
-                html+=tools();
-                for(const category of ['街头巷议','情报交易','布告与檄文'])html+=section(category,entries((s.传闻||{})[category]).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><h3>'+text(n)+'</h3><p>'+text(r.内容||r.摘要)+'</p>'+fields({来源:r.来源||r.卖家||r.发布者,可信度:r.可信度,要价:r.要价,位置:r.张贴位置})+details('rumor-'+n,{真实内幕:r.真实内幕},'主持人档案')+'</article>').join('')||empty('暂无'+category,'传闻来自已发生事件与传播渠道。'));
-                html+=section('传播链',entries(state.传播).map(([n,r])=>'<article class="we-card"><div class="we-card-top"><h3>'+text(n)+'</h3>'+pill(r.状态,'dim')+'</div><p>'+text(r.内容)+'</p>'+fields({时间:r.时间,来源:r.来源,范围:r.范围,受众:r.受众,到期时间:r.到期时间})+details('spread-'+n,{关联事件:r.关联事件,引发行动:r.引发行动,真相:r.真相},'因果与传播详情')+'</article>').join('')||empty('尚无传播链'));
+                html+=this.services.views.render('rumors',{
+                    s,state,tools,section,entries,matched,text,fields,details,empty,pill
+                });
             }else if(this.tab==='运行记录'){
-                html+=(this.services?.views?.render('history',{
+                html+=this.services.views.render('history',{
                     state,radar,showRadar,exists,section,text,entries,fields,empty,pill
-                })??worldEngineRenderRunRecordTab({state,radar,showRadar,exists,section,text,entries,fields,empty,pill}));
+                });
             }else if(this.tab==='设置'){
-                html+=(this.services?.views?.render('settings',{engine:this,section,text})??worldEngineRenderSettingsTab({engine:this,section,text}));
+                html+=this.services.views.render('settings',{section,text});
             }else if(this.tab==='提示词预设'){
-                html+=(this.services?.views?.render('prompts',{engine:this,text,section,empty})??worldEngineRenderPromptTab({engine:this,text,section,empty}));
+                html+=this.services.views.render('prompts',{text,section,empty});
             }else if(this.tab==='请求检查'){
-                html+=(this.services?.views?.render('requestInspector',{engine:this,text,section,empty,fields,pill})??worldEngineRenderRequestInspector({engine:this,text,section,empty,fields,pill}));
+                html+=this.services.views.render('requestInspector',{text,section,empty,fields,pill});
             }
             main.innerHTML=html;main.scrollTop=force?0:scroll;
             if(this.jumpEvent){
@@ -6460,6 +6452,67 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return progressionAnchorChanged(before,current);
         }
     }
+    class WorldCommitService {
+        constructor(engine){this.engine=engine;}
+        recentChanges(patches,worldTime){
+            return (patches||[]).map(patch=>{
+                const parts=tokens(patch.path),back=parts[1]===PATH,asset=parts[0]==='资产';
+                return {
+                    时间:worldTime,
+                    类别:asset?'资产':back?parts[2]:parts[1],
+                    名称:asset?parts[1]:back?parts[3]:parts[2],
+                    字段:asset?'资产':parts.at(-1),
+                    操作:patch.op==='add'?'新增':patch.op==='remove'?'移除':'更新',
+                    内容:typeof patch.value==='string'?patch.value:plain(patch.value)
+                        ?(patch.value.描述||patch.value.行动||patch.value.事实||patch.value.目标||patch.value.状态||patch.value.内容||'记录已更新')
+                        :''
+                };
+            });
+        }
+        prepare({next,committedPatches=[],base,acceptedWorldResult=null,reply,validate}){
+            const engine=this.engine;
+            if(!plain(next)||!base?.stat)throw new Error('世界提交缺少待写入状态');
+            if(!(next.设置||{}).世界超稳){
+                const offsets=(next.世界?.因果轨道||{}).偏移记录||{};
+                const total=Object.values(offsets).reduce((sum,record)=>sum+(Number(record?.影响程度)||0),0);
+                next.世界.稳定=Math.max(0,Math.min(120,100+total));
+            }
+            if(!plain(next.世界?.[PATH]))next.世界[PATH]=emptyState();
+            next.世界[PATH].已处理楼层=base.fingerprint;
+            next.世界[PATH].已处理时间=base.stat.世界?.时间;
+            next.世界[PATH].最近变化=this.recentChanges(committedPatches,base.stat.世界?.时间).slice(-100);
+
+            if(typeof engine.beforeWorldCommit==='function')engine.beforeWorldCommit(next,{
+                messageId:base.id,
+                fingerprint:base.fingerprint,
+                worldResult:acceptedWorldResult,
+                reply:copy(reply),
+                baseStat:base.stat
+            });
+
+            if(typeof validate==='function'){
+                const checked=validate(next);
+                for(const patch of committedPatches){
+                    if(patch.op==='remove')continue;
+                    if(!same(get(checked,tokens(patch.path)),get(next,tokens(patch.path))))throw schemaMismatchError(next,checked,patch.path);
+                }
+            }
+            const nextReply=copy(reply||{});
+            nextReply.patches=copy(committedPatches);
+            return {next,reply:nextReply};
+        }
+        async persist(prepared,base){
+            if(!prepared?.current?.raw||!prepared?.current?.mvu||!prepared?.next)throw new Error('世界提交上下文不完整');
+            const result=prepared.current.raw;
+            result.stat_data=prepared.next;
+            const replay=typeof this.engine.buildWorldReplayPackage==='function'
+                ?this.engine.buildWorldReplayPackage(base.stat,prepared.next,base.fingerprint)
+                :null;
+            if(replay)result.__samsaraWorldReplay=replay;
+            await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
+            return result;
+        }
+    }
     class WorldMutationService {
         constructor(engine){this.engine=engine;}
         snapshot(){return this.engine.snapshot();}
@@ -7796,22 +7849,88 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return this.value('retryFresh');
         }
     }
-    class WorldEngineTabView {
-        constructor(key,renderer){this.key=key;this.renderer=renderer;}
-        render(context){return typeof this.renderer==='function'?this.renderer(context):'';}
+    class WorldOverviewView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){return worldEngineRenderWorldTab({...context,engine:this.engine});}
+    }
+    class WorldPeopleView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){return worldEngineRenderPeopleTab({...context,engine:this.engine});}
+    }
+    class WorldExplorationView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){return worldEngineRenderExplorationTab({...context,engine:this.engine});}
+    }
+    class WorldAssetView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){
+            const {s,w,people,userName,relationNamesByKey,entries,matched,tools,section,text,pill,fields,details,empty}=context;
+            const ownersOf=asset=>Array.from(new Set((Object.hasOwn(asset,'所属对象')?(Array.isArray(asset.所属对象)?asset.所属对象:[asset.所属对象]):['<user>']).map(x=>String(x??'').trim()).filter(x=>x&&x!=='无主')));
+            const assets=entries(s.资产).filter(([,asset])=>plain(asset));
+            const list=assets.filter(([name,asset])=>{
+                const owners=ownersOf(asset),category=this.engine.filter||'全部';
+                return (category==='全部'||category==='玩家相关'&&owners.includes('<user>')||category==='共同持有'&&owners.length>1||category==='无主'&&!owners.length)&&matched(name,{...asset,归属:owners.join(' ')});
+            });
+            let html=tools(['全部','玩家相关','共同持有','无主']);
+            html+=section('资产与归属',list.map(([name,asset])=>{
+                const owners=ownersOf(asset);
+                const ownerLinks=owners.length?owners.map(owner=>{
+                    const label=owner==='<user>'?(userName||'玩家'):owner;
+                    if(owner!=='<user>'&&(relationNamesByKey.has(nameKey(owner))||people.has(owner)))return '<button data-jump-person="'+text(relationNamesByKey.get(nameKey(owner))||owner)+'">'+text(label)+' ↗</button>';
+                    if(Object.hasOwn(w.势力||{},owner))return '<button data-faction="'+text(owner)+'" data-asset-owner>'+text(label)+' ↗</button>';
+                    return pill(label,'dim');
+                }).join(''):pill('无主','dim');
+                return '<article class="we-card" data-asset-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(asset.类型||'类型未记录','dim')+'</div><div class="we-tools"><b>所属对象</b>'+ownerLinks+(owners.length>1?pill('共同持有','future'):'')+'</div><p>'+text(asset.状态||'状态未记录')+'</p>'+fields({主体规模:asset.主体规模,完整度:asset.完整度==null?undefined:asset.完整度+'%'})+details('asset-'+name,{能源:asset.能源,建设序列:asset.建设序列,驻扎人员:asset.驻扎人员,待办事件:asset.待办事件},'运转详情 · 建设 / 驻扎 / 待办')+'</article>';
+            }).join('')||empty('暂无符合条件的资产'),'共 '+assets.length+' 项 · 可按名称、所属对象或状态搜索');
+            return html;
+        }
+    }
+    class WorldEventArchiveView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){return worldEngineRenderWorldEventsTab({...context,engine:this.engine});}
+    }
+    class WorldRumorView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){
+            const {s,state,tools,section,entries,matched,text,fields,details,empty,pill}=context;
+            let html=tools();
+            for(const category of ['街头巷议','情报交易','布告与檄文']){
+                html+=section(category,entries((s.传闻||{})[category]).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><h3>'+text(n)+'</h3><p>'+text(r.内容||r.摘要)+'</p>'+fields({来源:r.来源||r.卖家||r.发布者,可信度:r.可信度,要价:r.要价,位置:r.张贴位置})+details('rumor-'+n,{真实内幕:r.真实内幕},'主持人档案')+'</article>').join('')||empty('暂无'+category,'传闻来自已发生事件与传播渠道。'));
+            }
+            html+=section('传播链',entries(state.传播).map(([n,r])=>'<article class="we-card"><div class="we-card-top"><h3>'+text(n)+'</h3>'+pill(r.状态,'dim')+'</div><p>'+text(r.内容)+'</p>'+fields({时间:r.时间,来源:r.来源,范围:r.范围,受众:r.受众,到期时间:r.到期时间})+details('spread-'+n,{关联事件:r.关联事件,引发行动:r.引发行动,真相:r.真相},'因果与传播详情')+'</article>').join('')||empty('尚无传播链'));
+            return html;
+        }
+    }
+    class WorldHistoryView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){return worldEngineRenderRunRecordTab({...context,engine:this.engine});}
+    }
+    class WorldSettingsView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){return worldEngineRenderSettingsTab({...context,engine:this.engine});}
+    }
+    class WorldPromptView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){return worldEngineRenderPromptTab({...context,engine:this.engine});}
+    }
+    class WorldRequestInspectorView {
+        constructor(engine){this.engine=engine;}
+        render(context={}){return worldEngineRenderRequestInspector({...context,engine:this.engine});}
     }
     class WorldEngineViewRegistry {
         constructor(engine){
             this.engine=engine;
             this.views=new Map([
-                ['world',new WorldEngineTabView('world',worldEngineRenderWorldTab)],
-                ['people',new WorldEngineTabView('people',worldEngineRenderPeopleTab)],
-                ['exploration',new WorldEngineTabView('exploration',worldEngineRenderExplorationTab)],
-                ['events',new WorldEngineTabView('events',worldEngineRenderWorldEventsTab)],
-                ['history',new WorldEngineTabView('history',worldEngineRenderRunRecordTab)],
-                ['settings',new WorldEngineTabView('settings',worldEngineRenderSettingsTab)],
-                ['prompts',new WorldEngineTabView('prompts',worldEngineRenderPromptTab)],
-                ['requestInspector',new WorldEngineTabView('requestInspector',worldEngineRenderRequestInspector)]
+                ['world',new WorldOverviewView(engine)],
+                ['people',new WorldPeopleView(engine)],
+                ['exploration',new WorldExplorationView(engine)],
+                ['assets',new WorldAssetView(engine)],
+                ['events',new WorldEventArchiveView(engine)],
+                ['rumors',new WorldRumorView(engine)],
+                ['history',new WorldHistoryView(engine)],
+                ['settings',new WorldSettingsView(engine)],
+                ['prompts',new WorldPromptView(engine)],
+                ['requestInspector',new WorldRequestInspectorView(engine)]
             ]);
         }
         get(key){return this.views.get(key)||null;}
@@ -7824,6 +7943,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return view.render(context);
         }
         keys(){return Array.from(this.views.keys());}
+        describe(){return this.keys().map(key=>({key,className:this.get(key)?.constructor?.name||''}));}
     }
     class WorldEditorController {
         constructor(engine){
@@ -8340,6 +8460,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.stateProjector=new WorldStateProjector(engine);
             this.compiler=new WorldResultCompiler(engine);
             this.validation=new WorldValidationService(engine);
+            this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
             this.people=new WorldPersonActivityService(engine);

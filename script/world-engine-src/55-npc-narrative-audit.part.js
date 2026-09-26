@@ -75,4 +75,4 @@
         return compileWorldResultBeforeNpcEquipmentDefault(stat,result);
     };
 
-    // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。\n
+    // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。

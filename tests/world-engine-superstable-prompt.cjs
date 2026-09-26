@@ -5,7 +5,7 @@ const assert=require('assert');
 
 const root=path.join(__dirname,'..');
 const prompt=fs.readFileSync(path.join(root,'script/world-engine-src/00-foundation-prompt.part.js'),'utf8');
-const runtime=fs.readFileSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js'),'utf8');
+const runtime=[path.join(root,'script/world-engine-src/40-engine-runtime.part.js'),path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js')].map(file=>fs.readFileSync(file,'utf8')).join('\n');
 const aux=fs.readFileSync(path.join(root,'script/辅助计算脚本.js'),'utf8');
 
 assert(!prompt.includes('结算玩家影响与世界自救'),'default preset must not always inject world self-defense');

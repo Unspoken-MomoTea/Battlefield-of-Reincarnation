@@ -44,7 +44,7 @@ const stateSource = fs.readFileSync('script/world-engine-src/10-world-state.part
 const runtimeSource = fs.readFileSync('script/world-engine-src/40-engine-runtime.part.js', 'utf8');
 const uiSource = [
   'script/world-engine-src/50-engine-ui.part.js',
-  'script/world-engine-src/ui/30-exploration-tab.part.js',
+  'src/WorldEngine/ui/views/WorldExplorationView.part.js',
 ].map(file => fs.readFileSync(file, 'utf8')).join('\n');
 const proseProjection = fs.readFileSync('World Book/[variables]当前变量.txt', 'utf8');
 

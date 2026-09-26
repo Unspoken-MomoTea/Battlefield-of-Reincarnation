@@ -694,19 +694,22 @@
                         let next=built.next;
                         let globalError=null;
                         try{
-                            ensureDueHandled(next,request.due,base.stat.世界.时间);
-                            ensureEventTimeAnchors(next,request.unscheduled);
-                            ensureStaleActiveHandled(next,request.staleActive,base.stat.世界.时间);
-                            ensureTemporalAnomaliesResolved(next,request.timeAnomalies);
-                            ensureActiveAlienActivity(next,request.alienActivity,acceptedWorldResult,base.stat.世界.时间);
-                            ensureNpcBuildAuditProgress(next,request.npcAudit,acceptedWorldResult);
-                            ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
+                            if(this.services?.validation)this.services.validation.validate(next,request,acceptedWorldResult,base.stat);
+                            else{
+                                ensureDueHandled(next,request.due,base.stat.世界.时间);
+                                ensureEventTimeAnchors(next,request.unscheduled);
+                                ensureStaleActiveHandled(next,request.staleActive,base.stat.世界.时间);
+                                ensureTemporalAnomaliesResolved(next,request.timeAnomalies);
+                                ensureActiveAlienActivity(next,request.alienActivity,acceptedWorldResult,base.stat.世界.时间);
+                                ensureNpcBuildAuditProgress(next,request.npcAudit,acceptedWorldResult);
+                                ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
+                            }
                         }catch(error){globalError=error;}
                         if(rejectedSlices.length||globalError)throw makeRetryFailure(rejectedSlices,globalError);
 
                         const current=this.snapshot();
                         if(token!==this.generation||this.controller.signal.aborted||current.fingerprint!==base.fingerprint||this.blocked(current))throw new Error('上下文已经切换，本次结果已丢弃');
-                        if(progressionAnchorChanged(base.stat,current.stat))throw new Error('推演期间世界时间或副本锚点发生变化，请重新运行');
+                        if(this.services?.validation?.progressionAnchorChanged(base.stat,current.stat)??progressionAnchorChanged(base.stat,current.stat))throw new Error('推演期间世界时间或副本锚点发生变化，请重新运行');
 
                         if(!same(current.stat,base.stat)){
                             sourceStat=current.stat;
@@ -717,12 +720,15 @@
                             next=built.next;
                             let currentGlobalError=null;
                             try{
-                                ensureDueHandled(next,request.due,base.stat.世界.时间);
-                                ensureEventTimeAnchors(next,request.unscheduled);
-                                ensureStaleActiveHandled(next,request.staleActive,base.stat.世界.时间);
-                                ensureTemporalAnomaliesResolved(next,request.timeAnomalies);
-                                ensureActiveAlienActivity(next,request.alienActivity,acceptedWorldResult,base.stat.世界.时间);
-                                ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
+                                if(this.services?.validation)this.services.validation.validate(next,request,acceptedWorldResult,base.stat,{includeNpcAudit:false});
+                                else{
+                                    ensureDueHandled(next,request.due,base.stat.世界.时间);
+                                    ensureEventTimeAnchors(next,request.unscheduled);
+                                    ensureStaleActiveHandled(next,request.staleActive,base.stat.世界.时间);
+                                    ensureTemporalAnomaliesResolved(next,request.timeAnomalies);
+                                    ensureActiveAlienActivity(next,request.alienActivity,acceptedWorldResult,base.stat.世界.时间);
+                                    ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
+                                }
                             }catch(error){currentGlobalError=error;}
                             if(currentGlobalError)throw makeRetryFailure([],currentGlobalError);
                         }

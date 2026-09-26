@@ -113,6 +113,12 @@
         setWorldPersonRecord(name,record){return this.services.personEditor.setRecord(name,record);}
         removeWorldPersonRecord(name){return this.services.personEditor.removeRecord(name);}
         worldEditorReportError(error,title){return this.services.eventEditor.reportError(error,title);}
+        npcAuditFeature(){return this.services?.features?.get?.('npc-audit')||null;}
+        syncNpcBuildAuditFeature(){return this.npcAuditFeature()?.syncFeature?.()??false;}
+        isNpcBuildAuditEnabled(){return this.npcAuditFeature()?.isEnabled?.()===true;}
+        isNpcAuditWorldbook(entry){return this.npcAuditFeature()?.isAuditWorldbook?.(entry)===true;}
+        syncNpcAuditWorldbookSelection(catalogue){return this.npcAuditFeature()?.syncSelection?.(catalogue);}
+        setNpcBuildAuditEnabled(value){return this.npcAuditFeature()?.setEnabled?.(value)??false;}
         fn(name) {
             for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
             return null;
@@ -489,7 +495,7 @@
                 });
             }
             this.applyBuiltinDefaultWorldbookExclusions(result);
-            return result;
+            return this.services?.afterCatalogue?await this.services.afterCatalogue(result):result;
         }
         async worldbook(scan='', options={}) {
             const catalogue=await this.catalogue(),output=[];

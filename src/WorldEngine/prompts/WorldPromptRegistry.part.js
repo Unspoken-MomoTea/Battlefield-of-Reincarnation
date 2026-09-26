@@ -102,6 +102,7 @@
             const normalized=this.normalize(this.engine.config?.promptRegistry);
             this.engine.config.promptRegistry=normalized;
             this.syncLegacy(normalized);
+            if(typeof WORLD_MODULE_PROMPT_VERSION==='number')this.engine.config.worldModulePromptVersion=WORLD_MODULE_PROMPT_VERSION;
             return normalized;
         }
         syncLegacy(values){

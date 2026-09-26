@@ -5,7 +5,9 @@ const root=path.join(__dirname,'..');
 
 for(const file of [
   'src/WorldEngine/runtime/WorldAutoProgressFeature.part.js',
-  'src/WorldEngine/runtime/WorldReplayService.part.js',
+  'src/WorldEngine/runtime/WorldAutoTriggerReplayFeature.part.js',
+  'src/WorldEngine/runtime/WorldReplayPersistenceFeature.part.js',
+  'src/WorldEngine/runtime/WorldImmediateReprocessRetryFeature.part.js',
   'src/WorldEngine/runtime/WorldTimeOwnershipFeature.part.js',
   'src/WorldEngine/runtime/WorldNpcAuditPolicyFeature.part.js',
   'src/WorldEngine/runtime/WorldHistoryMemoryFeature.part.js',
@@ -43,11 +45,13 @@ function hostFor(){
 }
 
 const engine=new Engine(hostFor());
-for(const key of ['autoProgress','replay','worldTimeOwnership','npcAuditPolicy','historyMemory']){
+for(const key of ['autoProgress','autoTriggerReplay','replayPersistence','immediateReprocessRetry','worldTimeOwnership','npcAuditPolicy','historyMemory']){
   assert.ok(engine.services?.[key],key+' service missing');
 }
 assert.equal(engine.services.autoProgress.constructor.name,'WorldAutoProgressFeature');
-assert.equal(engine.services.replay.constructor.name,'WorldReplayService');
+assert.equal(engine.services.autoTriggerReplay.constructor.name,'WorldAutoTriggerReplayFeature');
+assert.equal(engine.services.replayPersistence.constructor.name,'WorldReplayPersistenceFeature');
+assert.equal(engine.services.immediateReprocessRetry.constructor.name,'WorldImmediateReprocessRetryFeature');
 assert.equal(engine.services.worldTimeOwnership.constructor.name,'WorldTimeOwnershipFeature');
 assert.equal(engine.services.npcAuditPolicy.constructor.name,'WorldNpcAuditPolicyFeature');
 assert.equal(engine.services.historyMemory.constructor.name,'WorldHistoryMemoryFeature');
@@ -55,7 +59,9 @@ assert.equal(engine.services.historyMemory.constructor.name,'WorldHistoryMemoryF
 const featureClasses=new Set(engine.services.features.describe().map(item=>item.className));
 for(const className of [
   'WorldAutoProgressFeature',
-  'WorldReplayService',
+  'WorldAutoTriggerReplayFeature',
+  'WorldReplayPersistenceFeature',
+  'WorldImmediateReprocessRetryFeature',
   'WorldTimeOwnershipFeature',
   'WorldNpcAuditPolicyFeature',
   'WorldHistoryMemoryFeature'

@@ -1,6 +1,8 @@
     class WorldEngineServiceContainer {
         constructor(engine){
             this.engine=engine;
+            this.stateProjector=new WorldStateProjector(engine);
+            this.compiler=new WorldResultCompiler(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
             this.people=new WorldPersonActivityService(engine);

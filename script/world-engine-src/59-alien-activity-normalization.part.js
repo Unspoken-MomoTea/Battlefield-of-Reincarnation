@@ -29,7 +29,7 @@
             if(!reasons.length)return null;
             return Object.assign({},item,{
                 触发原因:reasons,
-                要求:String(globalThis?.Samsara?.worldEngine?.services?.prompts?.get?.('alienReviewInstruction')||PROMPT_DEFAULT_ALIEN_REVIEW)
+                要求:PROMPT_DEFAULT_ALIEN_REVIEW
             });
         }).filter(Boolean);
     };

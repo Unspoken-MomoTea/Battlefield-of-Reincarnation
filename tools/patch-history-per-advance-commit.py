@@ -4,9 +4,10 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[1]
 runtime=(ROOT/'script/world-engine-src/40-engine-runtime.part.js').read_text(encoding='utf-8')
+run_orchestrator=(ROOT/'src/WorldEngine/domains/WorldRunOrchestrator.part.js').read_text(encoding='utf-8')
 history=(ROOT/'script/world-engine-src/59-history-memory.part.js').read_text(encoding='utf-8')
 history_lifecycle=(ROOT/'src/WorldEngine/domains/WorldHistoryLifecycle.part.js').read_text(encoding='utf-8')
-if "if(typeof this.beforeWorldCommit==='function')" not in runtime:
+if "if(typeof this.beforeWorldCommit==='function')" not in runtime and "if(typeof this.beforeWorldCommit==='function')" not in run_orchestrator:
     raise RuntimeError('[history-leaf] missing atomic history commit hook')
 if 'beforeWorldCommit(next,context={})' not in history_lifecycle and 'beforeWorldCommit(next, context={})' not in history:
     raise RuntimeError('[history-leaf] missing per-advance L0 history writer')

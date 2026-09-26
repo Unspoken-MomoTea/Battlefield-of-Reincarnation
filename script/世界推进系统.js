@@ -2264,6 +2264,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         const worldResult=normalizeWorldResult(result);
         return {kind:'world_result',summary:worldResult.摘要,worldResult};
     }
+    // WorldResult implementation lives in src/WorldEngine/domains/WorldResultKernel.part.js.
+    // Keep this registered legacy slot temporarily as an explicit compatibility boundary while the old tree is retired.
     function activation(entry, scan, force) {
         if(!String(entry.content||'').trim())return {read:false,reason:'内容为空'};
         if(force)return {read:true,reason:'强制读取'};

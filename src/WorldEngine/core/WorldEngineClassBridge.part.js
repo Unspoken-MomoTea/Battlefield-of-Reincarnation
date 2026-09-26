@@ -2,7 +2,8 @@
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeClassServices {
         constructor(host,env){
             super(host,env);
-            this.services=new WorldEngineServiceContainer(this).initialize();
+            this.services=new WorldEngineServiceContainer(this);
+            this.services.initialize();
             this.promptRegistry=this.services.prompts;
             this.promptWorkspace=new WorldPromptWorkspaceController(this,this.promptRegistry);
             if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings)){

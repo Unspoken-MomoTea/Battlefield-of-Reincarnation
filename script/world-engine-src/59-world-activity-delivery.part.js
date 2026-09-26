@@ -97,9 +97,9 @@
         const plan=retryPlanForFailureBeforeWorldActivityDelivery(error,rejected),message=String(error?.message||error||'');
         if(/世界活动不足：/.test(message)){
             plan.unshift(
-                '世界活动：先推进非异端世界，再复核异端。至少提交一项进行中事件、势力/地区或普通人物的实质变化；只改更新时间、复述原值或新增未来宏观节点不算。',
-                '世界现场：若势力地区为空，建立与当前地点/阶段直接相关的地区；若势力为空，选一个当前真正参与局势的真实势力/组织，同名提交 WorldResult.势力 与 WorldResult.势力地区(类型=势力)，不要编造与资料无关的组织。',
-                '当前现实：若没有进行中的当前事件/近期节点，从当前阶段与最新正文提炼一个“已经正在发生”的现实局势；不要把未来宏观节点提前结算。'
+                worldEditablePromptText('retry.worldActivityMain','世界活动：先推进非异端世界，再复核异端。至少提交一项进行中事件、势力/地区或普通人物的实质变化；只改更新时间、复述原值或新增未来宏观节点不算。'),
+                worldEditablePromptText('retry.worldActivityScene','世界现场：若势力地区为空，建立与当前地点/阶段直接相关的地区；若势力为空，选一个当前真正参与局势的真实势力/组织，同名提交 WorldResult.势力 与 WorldResult.势力地区(类型=势力)，不要编造与资料无关的组织。'),
+                worldEditablePromptText('retry.worldActivityReality','当前现实：若没有进行中的当前事件/近期节点，从当前阶段与最新正文提炼一个“已经正在发生”的现实局势；不要把未来宏观节点提前结算。')
             );
         }
         return Array.from(new Set(plan.filter(Boolean)));

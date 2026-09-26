@@ -32,8 +32,14 @@ host.Mvu={getMvuData:()=>({stat_data:clone(stat)}),replaceMvuData:async()=>{}};
     'corePrompt','macroPrompt','stabilityPromptTemplate','npcAuditPrompt','structurePrompt',
     'task','chronology','maintenance','exploration','integrity','worldTime',
     'rumorLiveliness','rumorThrottle','rumorSource','worldActivity',
-    'historyMemory','retryAcceptedWithPlan','retryAccepted','retryFresh'
+    'historyMemory','retryAcceptedWithPlan','retryAccepted','retryFresh',
+    'inputWorldbookSemantics','inputCurrentStateSemantics','inputProseSemantics',
+    'inputStructuralRepairSemantics','inputTimelineSemantics','inputWorldResultSemantics','inputNpcAuditSemantics',
+    'macroPlanningInstruction','macroValidationInstruction','dueEventInstruction','knowledgePriorityInstruction',
+    'proseProjectionInstruction','requestGeneralInstruction','chronologyPayloadInstruction',
+    'worldActivityPayloadInstruction','alienReviewInstruction','historyMemoryInputInstruction'
   ]) assert.ok(keys.has(key),'prompt registry missing: '+key);
+  assert.ok(descriptors.length>=35,'all system/user/auxiliary/retry prompt text should be visible in one registry');
 
   for(const row of descriptors){
     assert.equal(typeof row.title,'string');

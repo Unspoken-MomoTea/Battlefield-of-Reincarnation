@@ -13,6 +13,9 @@
             for(const feature of this.items.values())feature.initialize?.();
             return this;
         }
+        afterInit(){
+            for(const feature of this.items.values())feature.afterInit?.();
+        }
         bindPanel(){
             for(const feature of this.items.values())feature.bindPanel?.();
         }
@@ -38,12 +41,12 @@
             }
             return current;
         }
-        async run(next){
+        async run(next,context={}){
             let runner=next;
             for(const feature of Array.from(this.items.values()).reverse()){
                 if(typeof feature.aroundRun!=='function')continue;
                 const downstream=runner;
-                runner=()=>feature.aroundRun(downstream);
+                runner=()=>feature.aroundRun(downstream,context);
             }
             return runner();
         }

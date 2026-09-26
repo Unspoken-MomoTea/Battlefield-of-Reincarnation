@@ -168,6 +168,7 @@
             try{return await next();}
             finally{e.worldReplayPendingFingerprint=previousPending;e.worldReplayManualForce=previousManual;this.resolveIdleWaiters();}
         }
+        afterInit(){this.bindEvents();}
         bindEvents(){
             const e=this.engine,on=e.fn('eventOn'),events=e.env.tavern_events||e.host.tavern_events||{};
             if(!e.autoProgressTriggerEventsBound&&on&&events){

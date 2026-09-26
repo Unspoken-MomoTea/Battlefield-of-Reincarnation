@@ -93,12 +93,26 @@
             this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
             this.apiModeCache={};
+            this.services=new WorldEngineServiceContainer(this).initialize();
+            this.promptRegistry=this.services.prompts;
             if(hadLegacyTone)this.saveConfig();
             if(this.config.enabled&&!this.usesDedicatedApi()){
                 const terminal=this.host.Samsara&&this.host.Samsara.terminal;
                 if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
             }
         }
+        persistWorldEditorMutation(mutator,status){return this.services.mutations.persist(mutator,status);}
+        worldEditorModeEnabled(){return this.services.mutations.modeEnabled();}
+        setWorldEditorMode(value){return this.services.mutations.setMode(value);}
+        toggleWorldEditorMode(){return this.services.mutations.toggleMode();}
+        worldEditorSection(title){return this.services.mutations.section(title);}
+        worldEventRecord(name){return this.services.eventEditor.record(name);}
+        setWorldEventRecord(oldName,newName,record){return this.services.eventEditor.setRecord(oldName,newName,record);}
+        removeWorldEventRecord(name){return this.services.eventEditor.removeRecord(name);}
+        worldPersonRecord(name){return this.services.personEditor.record(name);}
+        setWorldPersonRecord(name,record){return this.services.personEditor.setRecord(name,record);}
+        removeWorldPersonRecord(name){return this.services.personEditor.removeRecord(name);}
+        worldEditorReportError(error,title){return this.services.eventEditor.reportError(error,title);}
         fn(name) {
             for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
             return null;

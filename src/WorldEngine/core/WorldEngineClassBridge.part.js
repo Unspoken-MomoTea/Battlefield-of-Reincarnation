@@ -63,9 +63,10 @@
             const request=await super.buildRequest(base);
             if(this.promptRegistry){
                 request.system=this.promptRegistry.rewriteSystem(request.system);
+                request.input=this.promptRegistry.rewriteInput(request.input);
                 request.manifest=request.manifest||{};
                 request.manifest.提示词注册表=this.promptRegistry.list().map(item=>({
-                    key:item.key,标题:item.title,分组:item.group,来源:item.source,
+                    key:item.key,标题:item.title,分组:item.group,来源:item.source,作用范围:item.scope,发送条件:item.condition,
                     估算Tokens:estimateTokens(item.value),启用:String(item.value||'').trim()!==''
                 }));
                 request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
@@ -78,7 +79,7 @@
             try{
                 const raw=await this.requestAI(
                     this.promptRegistry.historySystem(),
-                    historyMemoryPrompt(world,batch,outputLevel),
+                    this.promptRegistry.historyInput(historyMemoryPrompt(world,batch,outputLevel)),
                     {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
                 );
                 return historyMemoryParseReply(raw);

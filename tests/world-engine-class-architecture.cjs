@@ -68,6 +68,7 @@ assert.equal(new Set(promptKeys).size,promptKeys.length,'prompt registry keys mu
 const promptUi=[
   'script/world-engine-src/ui/60-prompt-tab.part.js',
   'src/WorldEngine/prompts/WorldPromptRegistry.part.js',
+  'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js',
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
 assert.match(promptUi,/data-prompt-registry/,'prompt workspace must render registry-backed prompt fields');
 assert.match(promptUi,/全部实际提示词/,'prompt workspace must present one discoverable all-prompts section');

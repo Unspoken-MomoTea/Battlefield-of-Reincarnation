@@ -11,11 +11,13 @@
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
             this.stateNormalizer=new WorldStateNormalizer();
             ACTIVE_WORLD_STATE_NORMALIZER=this.stateNormalizer;
+            this.causal=new WorldCausalService(engine);
+            ACTIVE_WORLD_CAUSAL_SERVICE=this.causal;
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -30,7 +32,6 @@
             this.events=new WorldEventService(engine);
             this.people=new WorldPersonActivityService(engine);
             this.history=new WorldHistoryService(engine);
-            this.causal=new WorldCausalService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             this.transport=engine._apiTransport||new WorldApiTransportService(engine);

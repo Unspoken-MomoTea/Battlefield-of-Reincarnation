@@ -76,6 +76,7 @@ assert.equal(engine.services.resultContract.schema,delivery.WORLD_RESULT_SCHEMA,
 assert.equal(engine.services.resultNormalizer.constructor.name,'WorldResultNormalizer');
 assert.equal(engine.services.resultMaterializer.constructor.name,'WorldResultMaterializer');
 assert.equal(engine.services.resultMaterializer.stateNormalizer,engine.services.stateNormalizer,'materializer must compose the container-owned state normalizer');
+assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
 assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyParser');
 assert.equal(engine.services.compiler.constructor.name,'WorldResultCompiler');
@@ -90,6 +91,7 @@ assert.equal(engine.services.commit.constructor.name,'WorldCommitService');
 assert.equal(engine.services.mutations.constructor.name,'WorldMutationService');
 assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');
+assert.equal(engine.services.causal.constructor.name,'WorldCausalService');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
 
@@ -129,6 +131,14 @@ const predecessorFixes=engine.services.stateNormalizer.repairMacroPredecessors(n
 assert.ok(normalized.世界.后台.事件.城门决战.前因.includes('远征开始'));
 assert.ok(normalized.世界.后台.事件.王都改组.前因.includes('城门决战'));
 assert.equal(predecessorFixes.length,2);
+normalized.世界.后台.事件.远征开始.状态='进行中';
+normalized.世界.因果轨道.当前阶段='待初始化';
+normalized.世界.因果轨道.下一节点='';
+const causalFixes=engine.services.causal.repairProjection(normalized);
+assert.equal(normalized.世界.因果轨道.当前阶段,'远征开始');
+assert.equal(normalized.世界.因果轨道.下一节点,'城门决战');
+assert.ok(causalFixes.some(p=>p.path==='/世界/因果轨道/当前阶段'));
+assert.ok(causalFixes.some(p=>p.path==='/世界/因果轨道/下一节点'));
 
 const expectedPromptKeys=[
   'preset','core','macro','stability','npcAudit','outputProtocol',

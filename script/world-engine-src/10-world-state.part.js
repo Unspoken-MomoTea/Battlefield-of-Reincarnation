@@ -73,38 +73,6 @@
         };
     }
 
-    function repairCausalProjection(stat) {
-        const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
-        const existing=storyStages(orbit.故事线);
-        const macroEntries=Object.entries(stat.世界[PATH]?.事件||{})
-            .filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消')
-            .map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
-            .sort((a,b)=>(a.key??Infinity)-(b.key??Infinity)||a.index-b.index)
-            .map(x=>x.item);
-        const macroNames=new Set(macroEntries.map(([name])=>name));
-        const patches=[];
-        let line=[];
-        const existingValid=existing.length>=3&&existing.length<=5&&existing.every(name=>macroNames.has(name));
-        if(existingValid)line=existing.slice(0,5);
-        else {
-            // 因果轨道只能由宏观事件投影。宏观事实不足时宁可等待模型补齐，
-            // 也不能拿当前事件/近期节点凑出一条“看似完整”的故事线。
-            if(macroEntries.length<3)return patches;
-            const chosen=[],seen=new Set();
-            const take=name=>{if(name&&macroNames.has(name)&&!seen.has(name)){seen.add(name);chosen.push(name);}};
-            take(orbit.当前阶段);
-            for(const [name] of macroEntries)take(name);
-            if(chosen.length<3)return patches;
-            line=chosen.slice(0,5);
-            const story=line.join(' -> ');
-            if(orbit.故事线!==story){orbit.故事线=story;patches.push({op:'replace',path:'/世界/因果轨道/故事线',value:story});}
-        }
-        const nextName=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='待发生')||'';
-        if(orbit.下一节点!==nextName){orbit.下一节点=nextName;patches.push({op:'replace',path:'/世界/因果轨道/下一节点',value:nextName});}
-        const current=line.find(name=>(stat.世界[PATH].事件[name]||{}).状态==='进行中');
-        if(current&&(!orbit.当前阶段||orbit.当前阶段==='待初始化')){orbit.当前阶段=current;patches.push({op:'replace',path:'/世界/因果轨道/当前阶段',value:current});}
-        return patches;
-    }
     function timelineState(stat) {
         const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
         const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));

@@ -178,3 +178,10 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 已完成：新增 `WorldStateNormalizer`，迁出 `normalizeBackendState / normalizeEventLayers / repairExplicitEventLinks / repairMacroPredecessors` 及内部事件分类 helper。旧 `10-world-state.part.js` 不再承载存档迁移和事件结构修复实现；兼容函数统一转发到 container-owned active normalizer。
 
 `WorldResultMaterializer` 已直接组合 `stateNormalizer`。因果投影刻意留到下一阶段单独迁入 causal domain，避免 normalizer 再次变成混合职责大类。
+
+
+### Phase 17 · 因果投影归域
+
+已完成：`repairCausalProjection` 的真实实现迁入现有 `WorldCausalService.repairProjection()`；`WorldResultMaterializer` 直接组合 container-owned causal service，旧全局函数只保留兼容转发给尚未注入 service 的 UI 调用。
+
+因此因果偏移手动维护、稳定值相关操作与宏观因果轨道投影开始统一收口到 causal domain。下一步继续拆 `10-world-state.part.js` 中仍残留的 `timelineState / emptyState / model patch policy` 等底层职责，优先按领域边界拆而不是继续扩大单类。

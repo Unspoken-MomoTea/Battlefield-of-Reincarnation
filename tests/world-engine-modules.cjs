@@ -27,6 +27,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldTimelinePolicy.part.js',
   '@src/WorldEngine/domains/WorldLifecycleService.part.js',
   '@src/WorldEngine/domains/WorldStateNormalizer.part.js',
+  '@src/WorldEngine/domains/WorldCausalService.part.js',
   '@src/WorldEngine/domains/WorldResultKernel.part.js',
   '@src/WorldEngine/domains/WorldResultContract.part.js',
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
@@ -109,6 +110,12 @@ assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/cl
 assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/compact\(stat\)/,'lifecycle service must own the top-level compaction orchestration');
 assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:personActivityMeta|pruneColdTemporaryPeople|pruneDeadAlienPeople|collectEventRefs|detachEventSoftRefs|archiveFinishedEvent|propagationEnded|pruneSoftRefsToColdFinishedEvents|compactFinishedEvents|explorationLocationRefs|pruneColdExploration|compactWorldLifecycle)\b/,'legacy world-state source must not regain lifecycle implementation');
 assert.doesNotMatch(texts['59-soft-maintenance.part.js'],/pruneColdExploration\s*=/,'soft-maintenance must not recreate the removed exploration lifecycle seam');
+
+// Phase 17: causal-orbit projection lives in the causal domain.
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldCausalService.part.js'),'causal projection loads after state normalization');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldCausalService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'causal service must load before materialization');
+assert.match(texts['@src/WorldEngine/domains/WorldCausalService.part.js'],/repairProjection\(stat\)/,'causal service must own orbit projection repair');
+assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+repairCausalProjection\b/,'legacy state monolith must not regain causal projection');
 
 // Phase 16: backend migration and event structural repair live behind one state normalizer.
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldLifecycleService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js'),'state normalizer must load after lifecycle seams');

@@ -1179,34 +1179,85 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const WORLD_ASSET_TYPE_SET=new Set(WORLD_ASSET_TYPES);
     const ITEMLIKE_ASSET_NAME=/(?:纹章|免疫|抗性|初解|技能|能力|药剂?|药水|圣水|解药|血清|试剂|瓶|钥匙|摇把|手柄|材料|矿石|零件|部件|残骸|卷轴|食物|口粮|弹药|消耗品|道具|护符|符文|芯片|样本)$/i;
     const MICRO_EXPLORATION_SEGMENT=/^(?:天台|教室|走廊|楼梯|楼层|办公室|医务室|校医室|房间|寝室|宿舍房间|洗手间|浴室|食堂|门厅|入口|出口|校门|桥头|街口|小巷)$/;
-    function explorationGranularity(name) {
-        const raw=String(name||'').trim();
-        if(!raw)return {invalid:true,parent:''};
-        if(MICRO_EXPLORATION_SEGMENT.test(raw))return {invalid:true,parent:''};
-        const parts=raw.split(/\s*(?:-|—|–|→|>|\/|／|·|・)\s*/).filter(Boolean);
-        if(parts.length>1&&MICRO_EXPLORATION_SEGMENT.test(parts.at(-1)))return {invalid:true,parent:parts.slice(0,-1).join('-')};
-        return {invalid:false,parent:''};
-    }
-    function repairExplorationGranularity(stat) {
-        const bucket=stat?.世界?.探索;if(!plain(bucket))return [];
-        const patches=[];
-        for(const name of Object.keys(bucket)){
-            const info=explorationGranularity(name);if(!info.invalid||!info.parent)continue;
-            const child=bucket[name],parent=bucket[info.parent];
-            const merged=plain(parent)
-                ? Object.assign(copy(EXISTING.探索),copy(parent),{探索度:Math.max(Number(parent.探索度)||0,Number(child?.探索度)||0)})
-                : Object.assign(copy(EXISTING.探索),{
-                    风险:String(child?.风险||'F'),
-                    探索度:Number(child?.探索度)||0,
-                    描述:'由旧版子区域探索记录合并，待补充整体地标描述',
-                    隐藏真相:''
-                });
-            bucket[info.parent]=merged;delete bucket[name];
-            patches.push({op:parent?'replace':'add',path:pointer(['世界','探索',info.parent]),value:copy(merged)});
-            patches.push({op:'remove',path:pointer(['世界','探索',name])});
+    class WorldExplorationService {
+        constructor(engine=null){this.engine=engine;}
+        snapshot(){
+            const stat=this.engine?.snapshot?.().stat||{},world=stat.世界||{},backend=world?.[PATH]||{};
+            return {探索:copy(world.探索||{}),势力:copy(world.势力||{}),势力地区:copy(backend.势力地区||{})};
         }
-        return patches;
+        granularity(name) {
+            const raw=String(name||'').trim();
+            if(!raw)return {invalid:true,parent:''};
+            if(MICRO_EXPLORATION_SEGMENT.test(raw))return {invalid:true,parent:''};
+            const parts=raw.split(/\s*(?:-|—|–|→|>|\/|／|·|・)\s*/).filter(Boolean);
+            if(parts.length>1&&MICRO_EXPLORATION_SEGMENT.test(parts.at(-1)))return {invalid:true,parent:parts.slice(0,-1).join('-')};
+            return {invalid:false,parent:''};
+        }
+        validateItem(stat,item) {
+            const granularity=this.granularity(item?.名称);
+            if(granularity.invalid)throw new Error('探索粒度过细：'+item.名称+'。世界.探索只记录整体地标/区域'+(granularity.parent?'，请改为“'+granularity.parent+'”并把微观进展累加到主区域':'，禁止把天台、教室、走廊、房间等子区域作为独立探索项'));
+            const old=(stat?.世界?.探索||{})[item.名称];
+            if(old&&Object.hasOwn(item,'探索度')&&Number(item.探索度)<Number(old.探索度||0))throw new Error('探索度不能无因回退：'+item.名称+' '+old.探索度+' -> '+item.探索度);
+            return granularity;
+        }
+        repairGranularity(stat) {
+            const bucket=stat?.世界?.探索;if(!plain(bucket))return [];
+            const patches=[];
+            for(const name of Object.keys(bucket)){
+                const info=this.granularity(name);if(!info.invalid||!info.parent)continue;
+                const child=bucket[name],parent=bucket[info.parent];
+                const merged=plain(parent)
+                    ? Object.assign(copy(EXISTING.探索),copy(parent),{探索度:Math.max(Number(parent.探索度)||0,Number(child?.探索度)||0)})
+                    : Object.assign(copy(EXISTING.探索),{
+                        风险:String(child?.风险||'F'),
+                        探索度:Number(child?.探索度)||0,
+                        描述:'由旧版子区域探索记录合并，待补充整体地标描述',
+                        隐藏真相:''
+                    });
+                bucket[info.parent]=merged;delete bucket[name];
+                patches.push({op:parent?'replace':'add',path:pointer(['世界','探索',info.parent]),value:copy(merged)});
+                patches.push({op:'remove',path:pointer(['世界','探索',name])});
+            }
+            return patches;
+        }
+        locationContainsArea(location,areaName) {
+            const locationKey=nameKey(location),areaKey=nameKey(areaName);
+            return !!locationKey&&!!areaKey&&(locationKey===areaKey||locationKey.includes(areaKey));
+        }
+        ensureCurrentProjection(stat,result) {
+            if(stat?.系统状态?.是否在主神空间)return result;
+            const location=String(stat?.世界?.地点||'').trim();if(!location)return result;
+            const areas=new Map(Object.entries(stat?.世界?.[PATH]?.势力地区||{}).map(([name,record])=>[nameKey(name),{名称:name,记录:record}]));
+            for(const item of result?.势力地区||[]){
+                if(!plain(item)||item.操作==='撤销本轮')continue;
+                const id=nameKey(item.名称),old=areas.get(id);
+                areas.set(id,{名称:old?.名称||item.名称,记录:Object.assign({},old?.记录||{},item)});
+            }
+            const current=Array.from(areas.values())
+                .filter(item=>plain(item.记录)&&String(item.记录.类型||'地区')!=='势力'&&this.locationContainsArea(location,item.名称))
+                .sort((a,b)=>nameKey(b.名称).length-nameKey(a.名称).length)[0];
+            if(!current||this.granularity(current.名称).invalid)return result;
+            const bucket=stat?.世界?.探索||{},existingName=stableNameIn(bucket,current.名称),existing=existingName?bucket[existingName]:null;
+            const list=Array.isArray(result.探索)?result.探索:(result.探索=[]);
+            const index=list.findIndex(item=>plain(item)&&nameKey(item.名称)===nameKey(current.名称));
+            const explicit=index>=0?list[index]:null,progress=Math.max(10,Number(existing?.探索度)||0,Number(explicit?.探索度)||0);
+            if(existing&&progress===Number(existing.探索度||0)&&!explicit)return result;
+            const item={
+                名称:current.名称,操作:'更新',
+                风险:String(explicit?.风险||existing?.风险||'F'),
+                探索度:Math.min(100,progress),
+                描述:String(explicit?.描述||existing?.描述||current.记录.描述||current.记录.公开动态||current.记录.进展||('已实际到达'+current.名称+'。')),
+                隐藏真相:String(explicit?.隐藏真相||existing?.隐藏真相||'')
+            };
+            if(index>=0)list.splice(index,1,item);else list.push(item);
+            return result;
+        }
+        prepareResult(stat,result){return this.ensureCurrentProjection(stat,result);}
     }
+    const DEFAULT_WORLD_EXPLORATION_SERVICE=new WorldExplorationService();
+    let ACTIVE_WORLD_EXPLORATION_SERVICE=DEFAULT_WORLD_EXPLORATION_SERVICE;
+    function explorationGranularity(name){return ACTIVE_WORLD_EXPLORATION_SERVICE.granularity(name);}
+    function repairExplorationGranularity(stat){return ACTIVE_WORLD_EXPLORATION_SERVICE.repairGranularity(stat);}
     class WorldResultContract {
         constructor(){this.schema=this.build();}
         schemaFromSample(sample) {
@@ -1640,7 +1691,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;}
+        constructor(normalizer,exploration){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -1798,6 +1849,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
         compileWorldResult(stat,value) {
             const result=this.normalizer.normalizeWorldResult(value),patches=[],warnings=[];
+            this.exploration.prepareResult(stat,result);
             const exists=parts=>get(stat,canonicalizeParts(parts,stat));
             const addEntity=(parts,item,sample,options={})=>{
                 if(item.操作==='撤销本轮')return;
@@ -1879,10 +1931,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 patches.push({op:target?'replace':'add',path:pointer(['资产',finalName]),value:record});
             }
             for(const item of result.探索){
-                const granularity=explorationGranularity(item.名称);
-                if(granularity.invalid)throw new Error('探索粒度过细：'+item.名称+'。世界.探索只记录整体地标/区域'+(granularity.parent?'，请改为“'+granularity.parent+'”并把微观进展累加到主区域':'，禁止把天台、教室、走廊、房间等子区域作为独立探索项'));
-                const old=(stat.世界?.探索||{})[item.名称];
-                if(old&&Object.hasOwn(item,'探索度')&&Number(item.探索度)<Number(old.探索度||0))throw new Error('探索度不能无因回退：'+item.名称+' '+old.探索度+' -> '+item.探索度);
+                this.exploration.validateItem(stat,item);
                 addEntity(['世界','探索',item.名称],item,EXISTING.探索);
             }
             if(!(stat.设置||{}).单一世界)for(const item of result.异端){
@@ -2037,7 +2086,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             const appliedSeeds=(seedPatches||[]).filter(p=>get(work,canonicalizeParts(tokens(p.path),work))===undefined);
             let next=this.applyPatches(work,appliedSeeds);
             next=this.applyPatches(next,modelPatches||[]);
-            const explorationPatches=repairExplorationGranularity(next);
+            const explorationPatches=this.exploration.repairGranularity(next);
             const layerPatches=normalizeEventLayers(next);
             const causalPatches=repairCausalProjection(next);
             const predecessorPatches=repairMacroPredecessors(next);
@@ -2048,7 +2097,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return {next,appliedSeeds,repairPatches};
         }
     }
-    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER);
+    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE);
     let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
     function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}
@@ -4472,36 +4521,9 @@ ${schemaText}`;
 
     // 请求装饰已迁移至 WorldSoftMaintenanceFeature。\n\n    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
     const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
-    function explorationLocationContainsArea(location,areaName) {
-        const locationKey=nameKey(location),areaKey=nameKey(areaName);
-        return !!locationKey&&!!areaKey&&(locationKey===areaKey||locationKey.includes(areaKey));
-    }
-    function ensureCurrentExplorationProjection(stat,result) {
-        if(stat?.系统状态?.是否在主神空间)return;
-        const location=String(stat?.世界?.地点||'').trim();if(!location)return;
-        const areas=new Map(Object.entries(stat?.世界?.[PATH]?.势力地区||{}).map(([name,record])=>[nameKey(name),{名称:name,记录:record}]));
-        for(const item of result?.势力地区||[]){
-            if(!plain(item)||item.操作==='撤销本轮')continue;
-            const id=nameKey(item.名称),old=areas.get(id);
-            areas.set(id,{名称:old?.名称||item.名称,记录:Object.assign({},old?.记录||{},item)});
-        }
-        const current=Array.from(areas.values()).filter(item=>plain(item.记录)&&String(item.记录.类型||'地区')!=='势力'&&explorationLocationContainsArea(location,item.名称)).sort((a,b)=>nameKey(b.名称).length-nameKey(a.名称).length)[0];
-        if(!current||explorationGranularity(current.名称).invalid)return;
-        const bucket=stat?.世界?.探索||{},existingName=stableNameIn(bucket,current.名称),existing=existingName?bucket[existingName]:null;
-        const list=Array.isArray(result.探索)?result.探索:(result.探索=[]);
-        const index=list.findIndex(item=>plain(item)&&nameKey(item.名称)===nameKey(current.名称));
-        const explicit=index>=0?list[index]:null,progress=Math.max(10,Number(existing?.探索度)||0,Number(explicit?.探索度)||0);
-        if(existing&&progress===Number(existing.探索度||0)&&!explicit)return;
-        const item={名称:current.名称,操作:'更新',风险:String(explicit?.风险||existing?.风险||'F'),探索度:Math.min(100,progress),描述:String(explicit?.描述||existing?.描述||current.记录.描述||current.记录.公开动态||current.记录.进展||('已实际到达'+current.名称+'。')),隐藏真相:String(explicit?.隐藏真相||existing?.隐藏真相||'')};
-        if(index>=0)list.splice(index,1,item);else list.push(item);
-    }
+    // 探索粒度、当前地点自动投影与旧档合并已迁入 WorldExplorationService。
+    // 长期探索台账仍不进行离场回收。
     pruneColdExploration=function(){return [];};
-    const compileWorldResultBeforeExplorationProjection=compileWorldResult;
-    compileWorldResult=function(stat,value) {
-        const result=normalizeWorldResult(value);
-        ensureCurrentExplorationProjection(stat,result);
-        return compileWorldResultBeforeExplorationProjection(stat,result);
-    };
     // 探索提示词注入由 WorldPromptRegistry 最终装配；不再扩展主类。
     // 世界完整性保护：统一精确时钟；因果偏移采用软归一化，不因语义或幅度问题拖死整轮推进。
     const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间约束】
@@ -6160,13 +6182,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 delete bucket[name];
                 return {oldName:name,newName:name,record:null,deleted:true};
             },'已删除因果偏移 · 稳定值已重算');
-        }
-    }
-    class WorldExplorationService {
-        constructor(engine){this.engine=engine;}
-        snapshot(){
-            const stat=this.engine.snapshot().stat||{},world=stat.世界||{},backend=world?.[PATH]||{};
-            return {探索:copy(world.探索||{}),势力:copy(world.势力||{}),势力地区:copy(backend.势力地区||{})};
         }
     }
     class WorldRumorService {
@@ -8647,7 +8662,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.stateProjector=new WorldStateProjector(engine);
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer);
+            this.exploration=new WorldExplorationService(engine);
+            ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -8663,7 +8680,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.people=new WorldPersonActivityService(engine);
             this.history=new WorldHistoryService(engine);
             this.causal=new WorldCausalService(engine);
-            this.exploration=new WorldExplorationService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             this.transport=engine._apiTransport||new WorldApiTransportService(engine);

@@ -73,6 +73,10 @@ jobs:
         run: node tests/world-engine-world-editors.cjs
       - name: World engine class architecture regression
         run: node tests/world-engine-class-architecture.cjs
+      - name: World engine class phase2 regression
+        run: node tests/world-engine-class-phase2.cjs
+      - name: Complete world prompt registry regression
+        run: node tests/world-engine-prompt-registry-complete.cjs
       - name: World context UI regression
         run: node tests/world-engine-context-ui-redesign.cjs
       - name: World person scene UI regression

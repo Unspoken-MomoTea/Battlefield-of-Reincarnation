@@ -17,12 +17,12 @@
         return [...new Set(source.split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
     }
 
-    const SamsaraWorldEngineBeforeHistoryMemoryEditor=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeHistoryMemoryEditor {
+    class WorldHistoryMemoryEditor {
+        constructor(engine){this.engine=engine;this.boundPanel=null;}
         async persistHistoryMemoryEdit(kind,name,build,status) {
             name=String(name||'').trim();
             if(!name)throw new Error('历史记录名称不能为空');
-            const snapshot=this.snapshot(),next=copy(snapshot.raw),stat=next.stat_data,backend=stat?.世界?.[PATH];
+            const snapshot=this.engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data,backend=stat?.世界?.[PATH];
             if(!plain(backend))throw new Error('世界后台不存在');
             const bucketName=kind==='summary'?'历史总结':'历史';
             const bucket=backend[bucketName];
@@ -31,7 +31,7 @@
             if(!plain(updated))throw new Error('历史编辑结果无效');
             bucket[name]=updated;
             historyMemoryEditorSyncReplay(next,snapshot.fingerprint,['世界',PATH,bucketName,name],updated);
-            const target=this.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
+            const target=this.engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
             if(target)target.__samsaraUIMutation=true;
             try{
                 await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
@@ -41,9 +41,9 @@
                     else delete target.__samsaraUIMutation;
                 }
             }
-            this.lastHistoryMaintenance=status||'历史记忆已手动修正';
-            this.status=status||'历史记忆已手动修正';
-            this.render(true);
+            this.engine.lastHistoryMaintenance=status||'历史记忆已手动修正';
+            this.engine.status=status||'历史记忆已手动修正';
+            this.engine.render(true);
             return true;
         }
         async setHistoryAnchorRecord(name,record) {
@@ -70,11 +70,11 @@
             }),'已修正长期历史总结');
         }
         historyMemoryEditorBackend() {
-            return this.snapshot().stat?.世界?.[PATH]||{};
+            return this.engine.snapshot().stat?.世界?.[PATH]||{};
         }
         historyMemoryEditorSection(title) {
-            if(!this.panel)return null;
-            return Array.from(this.panel.querySelectorAll('.we-section')).find(section=>String(section.querySelector('.we-section-head h2')?.textContent||'').trim()===title)||null;
+            if(!this.engine.panel)return null;
+            return Array.from(this.engine.panel.querySelectorAll('.we-section')).find(section=>String(section.querySelector('.we-section-head h2')?.textContent||'').trim()===title)||null;
         }
         historyAnchorInlineEditorHtml(name,record) {
             return '<div class="we-history-inline-editor" data-history-editor="anchor" data-history-name="'+historyMemoryEditorEscape(name)+'">'
@@ -129,18 +129,18 @@
             });
         }
         ensureHistoryMemoryEditorStyles() {
-            if(!this.style||this.style.textContent.includes('.we-history-actions{'))return;
-            this.style.textContent+='\n#sam-world-engine .we-history-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}#sam-world-engine .we-history-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-history-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-history-save{color:var(--we-accent,var(--gold))!important;border-color:color-mix(in srgb,var(--we-accent,var(--gold)) 45%,transparent)!important}#sam-world-engine .we-history-inline-editor{display:grid;gap:9px}#sam-world-engine .we-history-edit-title{display:flex;justify-content:space-between;gap:10px;align-items:center}#sam-world-engine .we-history-edit-title span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-history-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}#sam-world-engine .we-history-edit-field{display:grid;gap:4px;min-width:0}#sam-world-engine .we-history-edit-field>span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-history-edit-field>small{color:var(--we-sub,var(--sub));font-size:10px}#sam-world-engine .we-history-edit-field input,#sam-world-engine .we-history-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}#sam-world-engine .we-history-edit-field textarea{min-height:86px!important;max-height:220px!important;resize:vertical;line-height:1.55}#sam-world-engine .we-history-edit-field input:focus,#sam-world-engine .we-history-edit-field textarea:focus{outline:1px solid var(--we-accent,var(--gold));border-color:var(--we-accent,var(--gold))}#sam-world-engine .we-history-edit-wide{grid-column:1/-1}#sam-world-engine .we-history-editing{overflow:visible}@media(max-width:680px){#sam-world-engine .we-history-edit-grid{grid-template-columns:1fr}#sam-world-engine .we-history-edit-wide{grid-column:auto}}';
+            if(!this.engine.style||this.engine.style.textContent.includes('.we-history-actions{'))return;
+            this.engine.style.textContent+='\n#sam-world-engine .we-history-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}#sam-world-engine .we-history-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-history-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-history-save{color:var(--we-accent,var(--gold))!important;border-color:color-mix(in srgb,var(--we-accent,var(--gold)) 45%,transparent)!important}#sam-world-engine .we-history-inline-editor{display:grid;gap:9px}#sam-world-engine .we-history-edit-title{display:flex;justify-content:space-between;gap:10px;align-items:center}#sam-world-engine .we-history-edit-title span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-history-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}#sam-world-engine .we-history-edit-field{display:grid;gap:4px;min-width:0}#sam-world-engine .we-history-edit-field>span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-history-edit-field>small{color:var(--we-sub,var(--sub));font-size:10px}#sam-world-engine .we-history-edit-field input,#sam-world-engine .we-history-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}#sam-world-engine .we-history-edit-field textarea{min-height:86px!important;max-height:220px!important;resize:vertical;line-height:1.55}#sam-world-engine .we-history-edit-field input:focus,#sam-world-engine .we-history-edit-field textarea:focus{outline:1px solid var(--we-accent,var(--gold));border-color:var(--we-accent,var(--gold))}#sam-world-engine .we-history-edit-wide{grid-column:1/-1}#sam-world-engine .we-history-editing{overflow:visible}@media(max-width:680px){#sam-world-engine .we-history-edit-grid{grid-template-columns:1fr}#sam-world-engine .we-history-edit-wide{grid-column:auto}}';
         }
         mountHistoryMemoryEditorControls() {
-            if(this.tab!=='运行记录'||!this.panel)return;
+            if(this.engine.tab!=='运行记录'||!this.engine.panel)return;
             const backend=this.historyMemoryEditorBackend(),memory=projectWorldHistoryMemory(backend);
             const recentNames=Object.entries(memory.近期锚点||{}).reverse().map(([name])=>name);
             const recentSection=this.historyMemoryEditorSection('近期历史锚点');
             Array.from(recentSection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
                 const name=recentNames[index];if(!name||card.querySelector('.we-history-actions'))return;
                 card.dataset.historyName=name;card.dataset.historyKind='anchor';
-                const actions=this.host.document.createElement('div');actions.className='we-history-actions';
+                const actions=this.engine.host.document.createElement('div');actions.className='we-history-actions';
                 actions.innerHTML='<button type="button" data-action="history-anchor-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';
                 card.appendChild(actions);
             });
@@ -149,18 +149,17 @@
             Array.from(summarySection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
                 const name=summaryNames[index];if(!name||card.querySelector('.we-history-actions'))return;
                 card.dataset.historyName=name;card.dataset.historyKind='summary';
-                const actions=this.host.document.createElement('div');actions.className='we-history-actions';
+                const actions=this.engine.host.document.createElement('div');actions.className='we-history-actions';
                 actions.innerHTML='<button type="button" data-action="history-summary-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';
                 card.appendChild(actions);
             });
         }
-        createPanel() {
-            super.createPanel();
-            if(!this.panel||this.panel.__historyMemoryEditorBound)return;
-            Object.defineProperty(this.panel,'__historyMemoryEditorBound',{value:true,configurable:true});
-            this.panel.addEventListener('click',event=>{
+        bindPanel() {
+            if(!this.engine.panel||this.boundPanel===this.engine.panel)return;
+            this.boundPanel=this.engine.panel;
+            this.engine.panel.addEventListener('click',event=>{
                 const button=event.target?.closest?.('[data-action^="history-anchor-"],[data-action^="history-summary-"]');
-                if(!button||!this.panel.contains(button))return;
+                if(!button||!this.engine.panel.contains(button))return;
                 const action=String(button.dataset.action||'');
                 if(!['history-anchor-edit','history-anchor-save','history-anchor-cancel','history-summary-edit','history-summary-save','history-summary-cancel'].includes(action))return;
                 event.preventDefault();event.stopPropagation();
@@ -170,18 +169,18 @@
                 else if(action==='history-summary-edit')this.beginHistoryMemoryEdit('summary',name,card);
                 else if(action==='history-anchor-save')task=this.saveHistoryAnchorInlineEdit(card,name);
                 else if(action==='history-summary-save')task=this.saveHistorySummaryInlineEdit(card,name);
-                else if(action.endsWith('-cancel'))this.render(true);
+                else if(action.endsWith('-cancel'))this.engine.render(true);
                 if(task)Promise.resolve(task).catch(error=>{
                     const message=String(error?.message||error||'历史记忆编辑失败');
-                    const toast=this.host?.toastr||this.env?.toastr;
+                    const toast=this.engine.host?.toastr||this.engine.env?.toastr;
                     if(toast?.error)toast.error(message,'历史记忆');else try{console.error('[历史记忆编辑]',error);}catch(_){}
                 });
             });
         }
-        render(force) {
-            const result=super.render(force);
+        afterRender() {
             this.ensureHistoryMemoryEditorStyles();
             this.mountHistoryMemoryEditorControls();
-            return result;
         }
-    };
+        dispose(){this.boundPanel=null;}
+    }
+    registerWorldEngineFeature('history-memory-editor',engine=>new WorldHistoryMemoryEditor(engine));

@@ -16,6 +16,19 @@ const viewFiles=[
   'src/WorldEngine/ui/views/WorldRequestInspectorView.part.js',
 ];
 for(const file of viewFiles)assert.ok(fs.existsSync(path.join(root,file)),file+' must exist');
+for(const file of viewFiles){
+  const source=fs.readFileSync(path.join(root,file),'utf8');
+  assert.doesNotMatch(source,/return\s+worldEngineRender[A-Za-z]+\(/,file+' must own its render implementation instead of delegating to a legacy function');
+}
+for(const file of [
+  'script/world-engine-src/ui/10-world-tab.part.js',
+  'script/world-engine-src/ui/20-people-tab.part.js',
+  'script/world-engine-src/ui/30-exploration-tab.part.js',
+  'script/world-engine-src/ui/40-archive-tabs.part.js',
+  'script/world-engine-src/ui/50-settings-tab.part.js',
+  'script/world-engine-src/ui/60-prompt-tab.part.js',
+  'script/world-engine-src/ui/70-request-inspector.part.js',
+])assert.equal(fs.existsSync(path.join(root,file)),false,file+' should be removed after its implementation moves into the view class');
 
 const registry=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldEngineViewRegistry.part.js'),'utf8');
 for(const name of [

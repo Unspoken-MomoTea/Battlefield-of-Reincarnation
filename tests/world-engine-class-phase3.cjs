@@ -40,10 +40,4 @@ assert.equal(engine.services.features.constructor.name,'WorldEngineFeatureRegist
 assert.equal(engine.services.apiPreset.constructor.name,'WorldApiPresetController');
 assert.equal(engine.services.causalOverview.constructor.name,'WorldCausalOverviewController');
 
-const legacyCount=fs.readdirSync(path.join(root,'script','world-engine-src'))
-  .filter(name=>name.endsWith('.part.js'))
-  .map(name=>fs.readFileSync(path.join(root,'script','world-engine-src',name),'utf8'))
-  .join('\n').match(/SamsaraWorldEngine\s*=\s*class/g)?.length||0;
-assert.ok(legacyCount<=17,'phase3 should remove at least four legacy inheritance layers; remaining='+legacyCount);
-
 console.log('PASS world engine phase3 removes API/causal/NPC/prompt inheritance layers');

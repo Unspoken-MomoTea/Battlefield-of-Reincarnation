@@ -7,7 +7,7 @@ const runtime = fs.readFileSync(path.join(__dirname, '../script/world-engine-src
 const requestBuilder = fs.readFileSync(path.join(__dirname, '../src/WorldEngine/domains/WorldRequestBuilder.part.js'), 'utf8');
 const ui = [
   path.join(__dirname, '../script/world-engine-src/50-engine-ui.part.js'),
-  path.join(__dirname, '../script/world-engine-src/ui/60-prompt-tab.part.js'),
+  path.join(__dirname, '../src/WorldEngine/ui/views/WorldPromptView.part.js'),
 ].map(file => fs.readFileSync(file, 'utf8')).join('\n');
 const {SamsaraWorldEngine: Engine, emptyState} = require(delivery);
 const clone = value => JSON.parse(JSON.stringify(value));

@@ -54,9 +54,9 @@ assert.deepEqual(prepared.reply.patches,patches);
   assert.ok(written&&written.stat_data,'commit service must perform the single MVU write');
   assert.equal(written.stat_data.世界.后台.事件.测试事件.描述,'测试事件');
 
-  const runtime=fs.readFileSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js'),'utf8');
-  assert.match(runtime,/services\?\.commit\?\.prepare|services\.commit\.prepare/,'runtime must route commit preparation through WorldCommitService');
-  assert.match(runtime,/services\?\.commit\?\.persist|services\.commit\.persist/,'runtime must route MVU persistence through WorldCommitService');
+  const orchestrator=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRunOrchestrator.part.js'),'utf8');
+  assert.match(orchestrator,/services\?\.commit\?\.prepare|services\.commit\.prepare/,'run orchestrator must route commit preparation through WorldCommitService');
+  assert.match(orchestrator,/services\?\.commit\?\.persist|services\.commit\.persist/,'run orchestrator must route MVU persistence through WorldCommitService');
 
   console.log('PASS world commit preparation and persistence are class-based');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -30,17 +30,17 @@
         replay.operations.push({op:'set',path:stabilityPath,value:stable});
     }
 
-    const SamsaraWorldEngineBeforeCausalOffsetEditor=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeCausalOffsetEditor {
+    class WorldCausalOffsetEditor {
+        constructor(engine){this.engine=engine;this.boundPanel=null;}
         async persistCausalOffsetMutation(mutator,status) {
-            const snapshot=this.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
+            const snapshot=this.engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
             if(!plain(stat?.世界?.因果轨道))stat.世界.因果轨道={};
             if(!plain(stat.世界.因果轨道.偏移记录))stat.世界.因果轨道.偏移记录={};
             const outcome=mutator(stat.世界.因果轨道.偏移记录);
             if(!outcome)return false;
             const stable=causalOffsetRecalculateStability(stat);
             causalOffsetSyncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
-            const target=this.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
+            const target=this.engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
             if(target)target.__samsaraUIMutation=true;
             try{
                 await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
@@ -50,8 +50,8 @@
                     else delete target.__samsaraUIMutation;
                 }
             }
-            this.status=status||'因果偏移已更新';
-            this.render(true);
+            this.engine.status=status||'因果偏移已更新';
+            this.engine.render(true);
             return true;
         }
         async setCausalOffsetRecord(oldName,newName,record) {
@@ -77,7 +77,7 @@
             },'已删除因果偏移 · 稳定值已重算');
         }
         causalOffsetRecord(name) {
-            return this.snapshot().stat?.世界?.因果轨道?.偏移记录?.[name]||null;
+            return this.engine.snapshot().stat?.世界?.因果轨道?.偏移记录?.[name]||null;
         }
         causalOffsetInlineEditorHtml(name,record) {
             const impact=Number(record?.影响程度);
@@ -116,7 +116,7 @@
             button.textContent='确认删除';
             button.classList.add('we-offset-delete-confirm');
             if(!actions.querySelector('[data-action="causal-offset-delete-cancel"]')){
-                const cancel=this.host.document.createElement('button');
+                const cancel=this.engine.host.document.createElement('button');
                 cancel.type='button';cancel.dataset.action='causal-offset-delete-cancel';cancel.textContent='取消';
                 cancel.dataset.offsetName=String(name||'');
                 actions.appendChild(cancel);
@@ -131,28 +131,27 @@
             return true;
         }
         ensureCausalOffsetEditorStyles() {
-            if(!this.style||this.style.textContent.includes('.we-offset-actions{'))return;
-            this.style.textContent+='\n#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:9px;flex-wrap:wrap}#sam-world-engine .we-offset-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-offset-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-offset-actions [data-action="causal-offset-delete"]:hover,#sam-world-engine .we-offset-delete-confirm{color:#ff8c8c!important;border-color:#b85c5c!important}#sam-world-engine .we-offset-save{color:var(--we-accent,var(--gold))!important;border-color:color-mix(in srgb,var(--we-accent,var(--gold)) 45%,transparent)!important}#sam-world-engine .we-offset-editing{overflow:visible}#sam-world-engine .we-offset-inline-editor{display:grid;gap:8px}#sam-world-engine .we-offset-edit-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(140px,.6fr);gap:8px 12px;align-items:start}#sam-world-engine .we-offset-edit-field{display:grid;gap:4px;align-content:start}#sam-world-engine .we-offset-edit-field>span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-offset-edit-field>small{color:var(--we-sub,var(--sub));font-size:10px}#sam-world-engine .we-offset-edit-field input,#sam-world-engine .we-offset-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}#sam-world-engine .we-offset-edit-field textarea{height:92px!important;min-height:80px!important;max-height:180px!important;resize:vertical;line-height:1.55}#sam-world-engine .we-offset-edit-field input:focus,#sam-world-engine .we-offset-edit-field textarea:focus{outline:1px solid var(--we-accent,var(--gold));border-color:var(--we-accent,var(--gold))}#sam-world-engine .we-offset-edit-wide{grid-column:1/-1}#sam-world-engine .we-offset-edit-actions{margin-top:2px}@media(max-width:680px){#sam-world-engine .we-offset-edit-grid{grid-template-columns:1fr}}';
+            if(!this.engine.style||this.engine.style.textContent.includes('.we-offset-actions{'))return;
+            this.engine.style.textContent+='\n#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:9px;flex-wrap:wrap}#sam-world-engine .we-offset-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;font-size:var(--we-fs-tiny,11px);cursor:pointer}#sam-world-engine .we-offset-actions button:hover{color:var(--we-ink,var(--ink));background:var(--we-card-hover,#1d2a39)}#sam-world-engine .we-offset-actions [data-action="causal-offset-delete"]:hover,#sam-world-engine .we-offset-delete-confirm{color:#ff8c8c!important;border-color:#b85c5c!important}#sam-world-engine .we-offset-save{color:var(--we-accent,var(--gold))!important;border-color:color-mix(in srgb,var(--we-accent,var(--gold)) 45%,transparent)!important}#sam-world-engine .we-offset-editing{overflow:visible}#sam-world-engine .we-offset-inline-editor{display:grid;gap:8px}#sam-world-engine .we-offset-edit-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(140px,.6fr);gap:8px 12px;align-items:start}#sam-world-engine .we-offset-edit-field{display:grid;gap:4px;align-content:start}#sam-world-engine .we-offset-edit-field>span{color:var(--we-sub,var(--sub));font-size:var(--we-fs-tiny,11px)}#sam-world-engine .we-offset-edit-field>small{color:var(--we-sub,var(--sub));font-size:10px}#sam-world-engine .we-offset-edit-field input,#sam-world-engine .we-offset-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}#sam-world-engine .we-offset-edit-field textarea{height:92px!important;min-height:80px!important;max-height:180px!important;resize:vertical;line-height:1.55}#sam-world-engine .we-offset-edit-field input:focus,#sam-world-engine .we-offset-edit-field textarea:focus{outline:1px solid var(--we-accent,var(--gold));border-color:var(--we-accent,var(--gold))}#sam-world-engine .we-offset-edit-wide{grid-column:1/-1}#sam-world-engine .we-offset-edit-actions{margin-top:2px}@media(max-width:680px){#sam-world-engine .we-offset-edit-grid{grid-template-columns:1fr}}';
         }
         mountCausalOffsetEditorControls() {
-            if(this.tab!=='因果档案'||!this.panel)return;
-            const cards=Array.from(this.panel.querySelectorAll('.we-offset'));
-            const entries=causalOffsetEntries(this.snapshot().stat);
+            if(this.engine.tab!=='因果档案'||!this.engine.panel)return;
+            const cards=Array.from(this.engine.panel.querySelectorAll('.we-offset'));
+            const entries=causalOffsetEntries(this.engine.snapshot().stat);
             cards.forEach((card,index)=>{
                 const name=entries[index]?.[0];if(!name||card.querySelector('.we-offset-actions'))return;
                 card.dataset.offsetName=name;
-                const actions=this.host.document.createElement('div');actions.className='we-offset-actions';
+                const actions=this.engine.host.document.createElement('div');actions.className='we-offset-actions';
                 actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+causalOverviewEscape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+causalOverviewEscape(name)+'">删除</button>';
                 card.appendChild(actions);
             });
         }
-        createPanel() {
-            super.createPanel();
-            if(!this.panel||this.panel.__causalOffsetEditorBound)return;
-            Object.defineProperty(this.panel,'__causalOffsetEditorBound',{value:true,configurable:true});
-            this.panel.addEventListener('click',event=>{
+        bindPanel() {
+            if(!this.engine.panel||this.boundPanel===this.engine.panel)return;
+            this.boundPanel=this.engine.panel;
+            this.engine.panel.addEventListener('click',event=>{
                 const button=event.target?.closest?.('[data-action^="causal-offset-"]');
-                if(!button||!this.panel.contains(button))return;
+                if(!button||!this.engine.panel.contains(button))return;
                 const action=String(button.dataset.action||'');
                 if(!['causal-offset-edit','causal-offset-save','causal-offset-cancel','causal-offset-delete','causal-offset-delete-confirm','causal-offset-delete-cancel'].includes(action))return;
                 event.preventDefault();event.stopPropagation();
@@ -161,21 +160,21 @@
                 let task=null;
                 if(action==='causal-offset-edit')this.beginCausalOffsetInlineEdit(name,card);
                 else if(action==='causal-offset-save')task=this.saveCausalOffsetInlineEdit(card,name);
-                else if(action==='causal-offset-cancel')this.render(true);
+                else if(action==='causal-offset-cancel')this.engine.render(true);
                 else if(action==='causal-offset-delete')this.armCausalOffsetDelete(button,name);
                 else if(action==='causal-offset-delete-confirm')task=this.removeCausalOffsetRecord(name);
                 else if(action==='causal-offset-delete-cancel')this.cancelCausalOffsetDelete(button);
                 if(task)Promise.resolve(task).catch(error=>{
                     const message=String(error?.message||error||'因果偏移操作失败');
-                    const toast=this.host?.toastr||this.env?.toastr;
+                    const toast=this.engine.host?.toastr||this.engine.env?.toastr;
                     if(toast?.error)toast.error(message,'因果偏移');else try{console.error('[因果偏移]',error);}catch(_){}
                 });
             });
         }
-        render(force) {
-            const result=super.render(force);
+        afterRender() {
             this.ensureCausalOffsetEditorStyles();
             this.mountCausalOffsetEditorControls();
-            return result;
         }
-    };
+        dispose(){this.boundPanel=null;}
+    }
+    registerWorldEngineFeature('causal-offset-editor',engine=>new WorldCausalOffsetEditor(engine));

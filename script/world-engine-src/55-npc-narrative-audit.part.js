@@ -75,17 +75,15 @@
         return compileWorldResultBeforeNpcEquipmentDefault(stat,result);
     };
 
-    const SamsaraWorldEngineBeforeNpcNarrativeWeight=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeNpcNarrativeWeight {
-        constructor(host,env) {
-            super(host,env);
-            const currentPrompt=String(this.config.npcAuditPrompt||'');
+    class WorldNpcNarrativePromptFeature {
+        constructor(engine){this.engine=engine;}
+        initialize(){
+            const currentPrompt=String(this.engine.config.npcAuditPrompt||'');
             const previousNarrativeDefault=currentPrompt.includes('【角色管理 · NPC构筑审计】')
                 &&currentPrompt.includes('最低构筑：杂兵=血统1/装备2/技能1')
                 &&(currentPrompt.includes('审计级别只依据既有身份、职业、背景故事、态度体现的剧情份量判断')
                     ||currentPrompt.includes('审计新增装备统一写状态=1'));
-            if(!currentPrompt.trim()||currentPrompt===NPC_BUILD_AUDIT_RULES||previousNarrativeDefault){
-                this.config.npcAuditPrompt=NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT;
-            }
+            if(!currentPrompt.trim()||currentPrompt===NPC_BUILD_AUDIT_RULES||previousNarrativeDefault)this.engine.config.npcAuditPrompt=NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT;
         }
-    };
+    }
+    registerWorldEngineFeature('npc-narrative-prompt',engine=>new WorldNpcNarrativePromptFeature(engine));

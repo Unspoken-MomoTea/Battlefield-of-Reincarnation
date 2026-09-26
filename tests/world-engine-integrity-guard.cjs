@@ -8,7 +8,12 @@ function loadAssembledEngine(){
   const tuple=(builder.match(/PARTS = \(([\s\S]*?)\)\r?\n\r?\n/)||[])[1]||'';
   const parts=[...tuple.matchAll(/'([^']+\.part\.js)'/g)].map(match=>match[1]);
   assert.ok(parts.length>=13,'builder must expose world-engine parts');
-  const source=parts.map(name=>fs.readFileSync(path.join(root,'script','world-engine-src',name),'utf8')).join('');
+  const source=parts.map(name=>{
+    const file=name.startsWith('@')
+      ?path.join(root,name.slice(1))
+      :path.join(root,'script','world-engine-src',name);
+    return fs.readFileSync(file,'utf8');
+  }).join('');
   const mod={exports:{}};
   const compile=new Function('module','exports','require','__filename','__dirname',source);
   compile(mod,mod.exports,require,path.join(root,'script','世界推进系统.js'),path.join(root,'script'));

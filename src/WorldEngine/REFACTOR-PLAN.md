@@ -77,7 +77,7 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 
 已把世界概览、人物、探索、资产、事件、传闻、历史、设置、提示词和请求检查注册成独立 View class。资产与传闻已经从 `50-engine-ui.part.js` 移出；主 UI 只通过 `WorldEngineViewRegistry.render()` 路由页面。
 
-下一步继续把仍位于 `script/world-engine-src/ui/*.part.js` 的 legacy renderer 内部实现迁入这些 class，最终让旧 UI 分片只保留兼容 helper 或彻底删除。
+已完成：原 `script/world-engine-src/ui/10~70-*.part.js` 的业务 renderer 已搬入对应 View class 并删除。Legacy UI 目录只保留共享基础样式资源 `ui/00-styles.part.js`；后续页面业务只能写入 `src/WorldEngine/ui/views/`。
 
 ### Phase 10 · Runtime 核心读取类化
 

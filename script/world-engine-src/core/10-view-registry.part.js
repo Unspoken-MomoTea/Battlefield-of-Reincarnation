@@ -31,6 +31,8 @@
                 ['世界推进',new WorldEngineWorldView(engine)],
                 ['角色管理',new WorldEnginePeopleView(engine)],
                 ['探索与势力',new WorldEngineExplorationView(engine)],
+                ['资产',new WorldEngineAssetView(engine)],
+                ['传闻',new WorldEngineRumorView(engine)],
                 ['设置',new WorldEngineSettingsView(engine)],
                 ['提示词预设',new WorldEnginePromptWorkspaceView(engine)],
                 ['请求检查',new WorldEngineRequestInspectorView(engine)],

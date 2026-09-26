@@ -39,7 +39,7 @@
             try{
                 const payload=JSON.parse(request.input);
                 payload.本轮必须复核的到期事件=due.map(item=>Object.assign({},item,{
-                    说明:this.engine.services?.prompts?.get?.('dueEventInstruction')||item.说明
+                    说明:this.engine.services?.prompts?.value?.('dueReviewGuidance')||WORLD_PROMPT_DUE_REVIEW
                 }));
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}

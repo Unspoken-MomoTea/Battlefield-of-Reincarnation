@@ -55,8 +55,10 @@
             this.syncLegacy(normalized);
             return normalized;
         }
-        syncLegacy(values=this.values()){
-            const config=this.engine.config||(this.engine.config={}),v=this.normalize(values);
+        syncLegacy(values){
+            const config=this.engine.config||(this.engine.config={});
+            const source=values===undefined?this.absorbLegacyOverrides():values;
+            const v=this.normalize(source);
             config.preset=normalizeEditablePreset(v.preset);
             config.corePrompt=v.core;
             config.macroPrompt=v.macro;
@@ -71,6 +73,22 @@
             return v;
         }
         values(){return this.normalize(this.engine.config?.promptRegistry);}
+        absorbLegacyOverrides(){
+            const config=this.engine.config||{},current=this.values(),next={...current};
+            const native=[
+                ['preset','preset'],['core','corePrompt'],['macro','macroPrompt'],
+                ['stability','stabilityPromptTemplate'],['npcAudit','npcAuditPrompt'],['outputProtocol','structurePrompt']
+            ];
+            for(const [key,legacyKey] of native){
+                if(typeof config[legacyKey]==='string'&&config[legacyKey]!==current[key])next[key]=config[legacyKey];
+            }
+            const modules=plain(config.modulePrompts)?config.modulePrompts:{};
+            for(const key of ['task','chronology','maintenance','exploration','integrity','worldTime','rumor']){
+                if(typeof modules[key]==='string'&&modules[key]!==current[key])next[key]=modules[key];
+            }
+            config.promptRegistry=this.normalize(next);
+            return config.promptRegistry;
+        }
         value(key){return this.values()[key]??'';}
         list(){const values=this.values();return this._definitions.map(item=>({...item,value:values[item.key]??''}));}
         apply(value,{save=true}={}){

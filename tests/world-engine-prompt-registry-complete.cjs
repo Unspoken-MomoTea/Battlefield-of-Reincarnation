@@ -47,6 +47,8 @@ function hostFor(statRef){
   });
   engine.applyPromptSettings({promptRegistry:values});
 
+  // 初始化锚定属于条件 payload：只有世界时间尚未建立时才应出现。
+  statRef.value.世界.时间='';
   const request=await engine.buildRequest(engine.snapshot());
   const payload=JSON.parse(request.input);
   assert.match(request.system,/【自定义世界活动 system】/);

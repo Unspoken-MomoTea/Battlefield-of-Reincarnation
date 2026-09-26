@@ -36,7 +36,6 @@ const sandbox = {
 vm.runInNewContext(source,sandbox);
 const engine = host.Samsara.worldEngine;
 assert.equal(handlers.get('mvu')?.length,2,'MVU must have replay-first listener plus ordinary world scheduling listener');
-assert.match(String(handlers.get('mvu')[0]),/handleWorldReplayVariableEvent/,'world replay must run before ordinary/auxiliary VARIABLE_UPDATE_ENDED listeners');
 assert.equal(handlers.get('generation')?.length,1,'generation completion must be a first-class auto-progress trigger');
 assert.equal(handlers.get('received')?.length,1,'message receipt must be a fallback auto-progress trigger');
 assert.equal(handlers.size,6);
@@ -66,6 +65,18 @@ function flush() {
 }
 
 (async()=>{
+    // 只验证公共行为，不绑定内部方法名：replay 必须先于普通 VARIABLE_UPDATE_ENDED 调度执行。
+    const eventOrder=[];
+    const originalReplayHandler=engine.services.replay.handleVariableEvent.bind(engine.services.replay);
+    const originalSchedule=engine.schedule.bind(engine);
+    engine.services.replay.handleVariableEvent=async()=>{eventOrder.push('replay');return false;};
+    engine.schedule=()=>{eventOrder.push('ordinary');};
+    await emit('mvu',{},{});
+    assert.deepEqual(eventOrder.slice(0,2),['replay','ordinary'],'world replay must run before ordinary/auxiliary VARIABLE_UPDATE_ENDED listeners');
+    engine.services.replay.handleVariableEvent=originalReplayHandler;
+    engine.schedule=originalSchedule;
+    timers.clear();
+
     // 真实正文事件本身必须足以启动世界推进；不能再依赖 VARIABLE_UPDATE_ENDED 才“点火”。
     await emit('generation',1);
     await emit('received',1,'normal');

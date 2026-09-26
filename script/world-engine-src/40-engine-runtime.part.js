@@ -639,7 +639,7 @@
                     this.controller=new AbortController();
                     timedOut=false;
                     clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},300000);
-                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan);
+                    const attemptInput=attempt===0?request.input:retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan,this.services?.prompts||null);
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
                     actualRequest.manifest=Object.assign({},copy(request.manifest),{

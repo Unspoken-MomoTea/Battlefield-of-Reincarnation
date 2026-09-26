@@ -50,25 +50,7 @@
     const SamsaraWorldEngineBeforeWorldEditorMutations=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeWorldEditorMutations {
         async persistWorldEditorMutation(mutator,status) {
-            if(typeof mutator!=='function')return false;
-            const snapshot=this.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
-            worldEditorBackend(stat);
-            const outcome=mutator(stat);
-            if(!outcome)return false;
-            worldEditorMergeReplay(next,snapshot.fingerprint,snapshot.stat,stat,this);
-            const target=this.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
-            if(target)target.__samsaraUIMutation=true;
-            try{
-                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
-            }finally{
-                if(target){
-                    if(had)target.__samsaraUIMutation=previous;
-                    else delete target.__samsaraUIMutation;
-                }
-            }
-            this.status=status||'世界推进资料已手动修正';
-            this.render(true);
-            return true;
+            return this.services.mutations.persist(mutator,status);
         }
         worldEditorModeEnabled() {
             return this.worldEditMode===true;

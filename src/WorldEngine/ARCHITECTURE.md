@@ -20,6 +20,8 @@ src/WorldEngine/
     WorldEngineServiceContainer
     WorldEngineFeatureRegistry
   domains/
+    WorldStateProjector
+    WorldResultCompiler
     WorldMutationService
     WorldEventService
     WorldPersonActivityService
@@ -75,3 +77,9 @@ src/WorldEngine/
 ## Phase 5 · 状态型生命周期
 
 自动推进、正文结束触发、replay 恢复、变量重处理即时重推、世界时间所有权、NPC 审计策略和历史压缩生命周期已迁到独立 class。`script/world-engine-src` 不再允许新增 `SamsaraWorldEngine = class ... extends ...`；运行时只保留 `src/WorldEngine/core/WorldEngineClassBridge.part.js` 这一层 Application Facade 继承用于兼容外部 API。
+
+## Phase 6 · 核心状态与编译 seam
+
+`WorldStateProjector` 已成为 runtime 构造“当前变量”热上下文时的 class seam；`WorldResultCompiler` 已成为 runtime 的 WorldResult 分片验收、正式编译、legacy patch 清洗和 materialize seam。旧的纯函数暂时作为底层兼容实现保留，后续可以逐块迁入 class，而 runtime 不再直接绑定这些全局函数。
+
+这一步的目的不是为了“套一层类”，而是先固定调用边界：以后移动 `projectWorldContext / stageWorldResult / compileWorldResult / materializeWorldUpdate` 的内部实现时，不需要再次改动主运行循环。

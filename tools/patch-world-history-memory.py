@@ -112,8 +112,11 @@ replace_once(
     marker="this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;"
 )
 
-replace_once(
-    'script/world-engine-src/40-engine-runtime.part.js',
+replace_once_any(
+    [
+        'src/WorldEngine/domains/WorldRequestBuilder.part.js',
+        'script/world-engine-src/40-engine-runtime.part.js',
+    ],
     "当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史与近期因果偏移。资产通过WorldResult.资产与同一顶层账簿双向同步；旧历史/旧偏移仍可留在MVU冷存档但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',",
     "当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；未提供的任务/商城/纯结算数据不属于本引擎职责。',",
     marker='分层长期历史记忆'

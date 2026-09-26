@@ -21,6 +21,7 @@
             for(const service of this.items.values())service.initialize?.();
             return this;
         }
+        afterInit(){for(const service of this.items.values())service.afterInit?.();}
         bindPanel(){for(const service of this.items.values())service.bindPanel?.();}
         beforeRender(){for(const service of this.items.values())service.beforeRender?.();}
         afterRender(){for(const service of this.items.values())service.afterRender?.();}

@@ -22,6 +22,7 @@ src/WorldEngine/
   domains/
     WorldStateProjector
     WorldResultCompiler
+    WorldValidationService
     WorldMutationService
     WorldEventService
     WorldPersonActivityService
@@ -83,3 +84,9 @@ src/WorldEngine/
 `WorldStateProjector` 已成为 runtime 构造“当前变量”热上下文时的 class seam；`WorldResultCompiler` 已成为 runtime 的 WorldResult 分片验收、正式编译、legacy patch 清洗和 materialize seam。旧的纯函数暂时作为底层兼容实现保留，后续可以逐块迁入 class，而 runtime 不再直接绑定这些全局函数。
 
 这一步的目的不是为了“套一层类”，而是先固定调用边界：以后移动 `projectWorldContext / stageWorldResult / compileWorldResult / materializeWorldUpdate` 的内部实现时，不需要再次改动主运行循环。
+
+## Phase 7 · 统一结果验收 seam
+
+`WorldValidationService` 已接管 runtime 中编译完成后的统一业务验收入口：到期事件、事件时间锚点、超期活动事件、时间越界、活跃异端、NPC 审计与宏观骨架不再由主运行循环逐条调用。主 runtime 只负责调用 `validation.validate(...)` 并处理错误结果。
+
+当运行期间 MVU 发生并发变化、需要对最新状态重新 materialize 时，仍复用同一个 service，但通过 `includeNpcAudit:false` 保持旧行为，避免重构顺手改变二次校验语义。

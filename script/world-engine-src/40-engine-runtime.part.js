@@ -93,7 +93,8 @@
             this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
             this.apiModeCache={};
-            this.services=new WorldEngineServiceContainer(this).initialize();
+            this.services=new WorldEngineServiceContainer(this);
+            this.services.initialize();
             this.promptRegistry=this.services.prompts;
             if(hadLegacyTone)this.saveConfig();
             if(this.config.enabled&&!this.usesDedicatedApi()){

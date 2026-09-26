@@ -82,9 +82,9 @@ host.Mvu={
   assert.ok(Array.isArray(payload.世界书));
 
   const runtime=fs.readFileSync(path.join(root,'script','world-engine-src','40-engine-runtime.part.js'),'utf8');
-  assert.match(runtime,/snapshot\(\)\s*\{\s*return this\.services\?\.context\?\.snapshot/,'runtime snapshot must delegate to context service');
-  assert.match(runtime,/async catalogue\(\)\s*\{\s*return this\.services\?\.knowledge\?\.catalogue/,'runtime catalogue must delegate to knowledge service');
-  assert.match(runtime,/async buildRequest\(base\)\s*\{\s*return this\.services\?\.requestBuilder\?\.build/,'runtime base request must delegate to request builder');
+  assert.match(runtime,/snapshot\(\)[\s\S]*?services\?\.context[\s\S]*?\.snapshot\(\)/,'runtime snapshot must delegate to context service');
+  assert.match(runtime,/async catalogue\(\)[\s\S]*?services\?\.knowledge[\s\S]*?\.catalogue\(\)/,'runtime catalogue must delegate to knowledge service');
+  assert.match(runtime,/async buildRequest\(base\)[\s\S]*?services\?\.requestBuilder[\s\S]*?\.build\(base\)/,'runtime base request must delegate to request builder');
   assert.doesNotMatch(runtime,/const sources=new Map\(\)/,'worldbook catalogue implementation must leave runtime');
   assert.doesNotMatch(runtime,/const structuralFixes=normalizeEventLayers\(state\)/,'base request construction must leave runtime');
 

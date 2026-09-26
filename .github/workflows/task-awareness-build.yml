@@ -97,6 +97,8 @@ jobs:
         run: node tests/world-engine-world-editors.cjs
       - name: World engine class architecture regression
         run: node tests/world-engine-class-architecture.cjs
+      - name: World engine view classes regression
+        run: node tests/world-engine-view-classes.cjs
       - name: World engine core services regression
         run: node tests/world-engine-core-services.cjs
       - name: World engine validation service regression

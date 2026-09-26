@@ -1,4 +1,4 @@
-    // Prompt Registry 最终装配层：业务文件可以保留默认常量，但最终发送文本统一由 WorldPromptRegistry 决定。
+    // Prompt Registry 最终装配层：业务文件保留默认常量，最终发送文本统一由组合式 Prompt 服务决定。
     if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings)){
         const defaults=new WorldPromptRegistry({config:{}}).moduleDefaults();
         BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=normalizeEditablePreset(COMPACT_DEFAULT_PRESET);
@@ -8,44 +8,71 @@
         BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.modulePrompts=defaults;
     }
 
-    const SamsaraWorldEngineBeforePromptRegistryAdapter=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforePromptRegistryAdapter{
-        constructor(host,env){
-            super(host,env);
-            this.services?.prompts?.initializeConfig();
-        }
-        readPromptEditor(){
-            return this.services.prompts.readPromptEditor(super.readPromptEditor());
-        }
-        applyPromptSettings(settings){
-            const prepared=this.services.prompts.prepareSettings(settings);
-            const result=super.applyPromptSettings(prepared);
-            this.services.prompts.persistModulePrompts(prepared);
+    class WorldPromptRuntimeAdapter {
+        constructor(engine,registry){this.engine=engine;this.registry=registry;}
+        initialize(){this.registry.initializeConfig();return this;}
+        readEditor(baseSettings){return this.registry.readPromptEditor(baseSettings);}
+        applySettings(baseApply,settings){
+            const prepared=this.registry.prepareSettings(settings);
+            const result=baseApply(prepared);
+            this.registry.persistModulePrompts(prepared);
             return result;
         }
-        savePromptDocument(name,settings,activate=true){
-            return super.savePromptDocument(name,this.services.prompts.decorateSettings(settings),activate);
+        saveDocument(baseSave,name,settings,activate=true){
+            return baseSave(name,this.registry.decorateSettings(settings),activate);
         }
-        importPromptDocument(raw){
+        importDocument(baseImport,raw){
             let parsed=null;try{parsed=JSON.parse(String(raw||''));}catch(_){}
             const settings=plain(parsed?.settings)?parsed.settings:parsed;
             const importedModules=plain(settings?.modulePrompts)
-                ?{...this.services.prompts.moduleDefaults(),...settings.modulePrompts}
-                :this.services.prompts.moduleDefaults();
-            const doc=super.importPromptDocument(raw);
+                ?{...this.registry.moduleDefaults(),...settings.modulePrompts}
+                :this.registry.moduleDefaults();
+            const doc=baseImport(raw);
             if(doc?.settings){
                 doc.settings.modulePrompts=importedModules;
-                this.saveConfig();
+                this.engine.saveConfig();
             }
             return doc;
         }
-        async buildRequest(base){
-            const request=await super.buildRequest(base);
-            const rebuilt=this.services.prompts.composeMainSystem(request.system);
+        finalizeRequest(request){
+            const rebuilt=this.registry.composeMainSystem(request.system);
             request.system=rebuilt.system;
             request.manifest=request.manifest||{};
             request.manifest.提示词模块=rebuilt.used;
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
             return request;
         }
+    }
+
+    const promptReadBase=SamsaraWorldEngine.prototype.readPromptEditor;
+    const promptApplyBase=SamsaraWorldEngine.prototype.applyPromptSettings;
+    const promptSaveBase=SamsaraWorldEngine.prototype.savePromptDocument;
+    const promptImportBase=SamsaraWorldEngine.prototype.importPromptDocument;
+    const promptBuildBase=SamsaraWorldEngine.prototype.buildRequest;
+
+    SamsaraWorldEngine.prototype.readPromptEditor=function(){
+        const base=promptReadBase.call(this);
+        return this.services.promptRuntime.readEditor(base);
+    };
+    SamsaraWorldEngine.prototype.applyPromptSettings=function(settings){
+        return this.services.promptRuntime.applySettings(
+            prepared=>promptApplyBase.call(this,prepared),
+            settings
+        );
+    };
+    SamsaraWorldEngine.prototype.savePromptDocument=function(name,settings,activate=true){
+        return this.services.promptRuntime.saveDocument(
+            (nextName,nextSettings,nextActivate)=>promptSaveBase.call(this,nextName,nextSettings,nextActivate),
+            name,settings,activate
+        );
+    };
+    SamsaraWorldEngine.prototype.importPromptDocument=function(raw){
+        return this.services.promptRuntime.importDocument(
+            value=>promptImportBase.call(this,value),
+            raw
+        );
+    };
+    SamsaraWorldEngine.prototype.buildRequest=async function(base){
+        const request=await promptBuildBase.call(this,base);
+        return this.services.promptRuntime.finalizeRequest(request);
     };

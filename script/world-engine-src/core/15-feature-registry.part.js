@@ -42,4 +42,20 @@
             }
             return current;
         }
+        async beforeRun(context){
+            for(const service of this.items.values())await service.beforeRun?.(context);
+        }
+        async afterRun(context){
+            const services=Array.from(this.items.values()).reverse();
+            for(const service of services)await service.afterRun?.(context);
+        }
+        afterReplayVariableEvent(handled,variables,before){
+            let result=handled;
+            for(const service of this.items.values()){
+                if(typeof service.afterReplayVariableEvent!=='function')continue;
+                const next=service.afterReplayVariableEvent(result,variables,before);
+                if(next!==undefined)result=next;
+            }
+            return result;
+        }
     }

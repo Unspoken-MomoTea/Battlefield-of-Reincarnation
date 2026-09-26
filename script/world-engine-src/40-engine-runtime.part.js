@@ -475,7 +475,7 @@
                 });
             }
             this.applyBuiltinDefaultWorldbookExclusions(result);
-            return result;
+            return this.services?.afterCatalogue?await this.services.afterCatalogue(result):result;
         }
         async worldbook(scan='', options={}) {
             const catalogue=await this.catalogue(),output=[];
@@ -589,7 +589,8 @@
             const macroPrompt=macroRequirement?(this.config.macroPrompt??DEFAULT_MACRO_PROMPT):'';
             const corePrompt=this.config.corePrompt??CORE_WORLD_RULES;
             const system=this.config.preset+(corePrompt?'\n\n'+corePrompt:'')+(macroPrompt?'\n\n'+macroPrompt:'')+(stabilityPrompt?'\n\n'+stabilityPrompt:'')+(npcAudit.length?'\n\n'+(this.config.npcAuditPrompt??NPC_BUILD_AUDIT_RULES):'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2));
-            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
+            const baseRequest={system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
+            return this.services?.modifyRequest?await this.services.modifyRequest(baseRequest,base):baseRequest;
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;
@@ -601,8 +602,9 @@
             if (this.disposed || this.busy) return false;
             if (!this.isConfigured()) { this.status='世界推进已关闭'; this.render(); return false; }
             const terminal = this.host.Samsara && this.host.Samsara.terminal;
-            this.busy = true; const token = this.generation; let timeout, timedOut=false;
+            this.busy = true; const token = this.generation; let timeout, timedOut=false,runSucceeded=false;
             try {
+                await this.services?.beforeRun?.({token});
                 const base = this.snapshot(), reason = this.blocked(base);
                 if (reason) { this.status = reason; return false; }
                 const old = Object.assign(emptyState(),base.stat.世界[PATH] || {});
@@ -784,6 +786,7 @@
                 if(replay)result.__samsaraWorldReplay=replay;
                 await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
                 this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 前序失败'+this.lastRetryLog.length+'次':'');
+                runSucceeded=true;
                 return true;
             } catch (error) {
                 const failureMessage=error.name==='AbortError'?(timedOut?'请求超时（300秒）':'请求已取消'):String(error.message||error);
@@ -793,6 +796,7 @@
                 if(!(error.name==='AbortError'&&!timedOut))this.notifyFailure(this.status);
                 throw error;
             } finally {
+                try{await this.services?.afterRun?.({token,success:runSucceeded});}catch(error){try{console.error('[世界推进 Feature afterRun]',error);}catch(_){}}
                 clearTimeout(timeout); if(this.controller)this.controller=null; this.committing=false; this.busy=false; this.render();
                 if (this.pending) { this.pending = false; this.schedule(); }
             }
@@ -833,6 +837,7 @@
             for (const key of ['CHAT_CHANGED','MESSAGE_SWIPED','MESSAGE_DELETED']) bind(events[key], () => { this.cancel(); this.resetInspection(); this.status = '已切换上下文'; this.render(); });
             this.keyHandler = event => { if (event.key === 'Escape' && this.isOpen()) { event.stopImmediatePropagation(); this.close(); } };
             this.host.document.addEventListener('keydown',this.keyHandler,true);
+            this.services?.afterInit?.();
         }
         isOpen() { return !!this.panel && !this.panel.hidden; }
         open() {

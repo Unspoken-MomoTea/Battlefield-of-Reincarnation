@@ -17,6 +17,29 @@ def patch(rel, old, new, label):
     path.write_text(text.replace(old, new, 1), encoding='utf-8')
     print('[history-core] patched', label)
 
+def patch_any(rels, old, new, label):
+    paths = [(rel, ROOT / rel) for rel in rels]
+    for rel, path in paths:
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding='utf-8')
+        if new and new in text:
+            print('[history-core] already', label, 'in', rel)
+            return
+        if not new and old not in text:
+            print('[history-core] already removed', label, 'in', rel)
+            return
+    for rel, path in paths:
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding='utf-8')
+        if text.count(old) != 1:
+            continue
+        path.write_text(text.replace(old, new, 1), encoding='utf-8')
+        print('[history-core] patched', label, 'in', rel)
+        return
+    raise RuntimeError(f'{label}: anchor not found in candidates: {", ".join(rels)}')
+
 patch(
     'script/world-engine-src/10-world-state.part.js',
     "return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };",
@@ -35,8 +58,11 @@ patch(
     "                        next.世界[PATH].最近变化=changes.slice(-100);\n                        // 推演记录已由历史锚点取代，不再持久化。\n                        // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。",
     'runtime persistence',
 )
-patch(
-    'script/world-engine-src/59-auto-progress.part.js',
+patch_any(
+    [
+        'src/WorldEngine/domains/WorldAutoProgressController.part.js',
+        'script/world-engine-src/59-auto-progress.part.js',
+    ],
     "return ['最近变化','运行记录'].some(key=>Array.isArray(backend[key])&&backend[key].length>0);",
     "return Array.isArray(backend.最近变化)&&backend.最近变化.length>0;",
     'auto progress signal',

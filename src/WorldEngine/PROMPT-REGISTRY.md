@@ -11,6 +11,8 @@
 3. **辅助模型**：长期历史压缩 system 与输入说明。
 4. **纠错重试**：已有部分结果+补充清单、已有部分结果、首次整体纠错三种要求。
 
+任务只读语义、未命中时间轴资料时的保守说明、传闻世界侧取材边界也属于实际发送给模型的静态指令，现已分别以 `inputSemantics / chronologyNoEvidenceGuidance / rumorSourceBoundary` 登记，不能再藏在请求构造文件里。
+
 每项必须包含 `key / title / group / source / scope / condition / defaultValue`，UI 必须展示“作用范围”和“发送条件”。
 
 ## 不属于可编辑 Prompt 的内容

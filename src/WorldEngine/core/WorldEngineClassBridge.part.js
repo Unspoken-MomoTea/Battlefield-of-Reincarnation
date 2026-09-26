@@ -57,13 +57,18 @@
             this.saveConfig();
             return doc;
         }
+        init(){
+            const result=super.init();
+            this.services?.features?.afterInit?.();
+            return result;
+        }
         async catalogue(){
             const result=await super.catalogue();
             return this.services?.features?.afterCatalogue?.(result)||result;
         }
-        async run(){
-            if(!this.services?.features)return super.run();
-            return this.services.features.run(()=>super.run());
+        async run(options={}){
+            if(!this.services?.features)return super.run(options);
+            return this.services.features.run(()=>super.run(options),options);
         }
         async buildRequest(base){
             this.promptRegistry?.syncLegacy();

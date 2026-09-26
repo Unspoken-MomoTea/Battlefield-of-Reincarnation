@@ -278,6 +278,8 @@
                 +'#sam-world-engine .we-world-editor-grid,#sam-world-engine .we-history-edit-grid,#sam-world-engine .we-offset-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}'
                 +'#sam-world-engine .we-world-editor-grid label,#sam-world-engine .we-history-edit-field,#sam-world-engine .we-offset-edit-field{display:grid;gap:4px;min-width:0}'
                 +'#sam-world-engine .we-world-editor-grid input,#sam-world-engine .we-world-editor-grid select,#sam-world-engine .we-world-editor-grid textarea,#sam-world-engine .we-history-edit-field input,#sam-world-engine .we-history-edit-field textarea,#sam-world-engine .we-offset-edit-field input,#sam-world-engine .we-offset-edit-field textarea{width:100%;border:1px solid var(--we-line,var(--line));border-radius:7px;background:var(--we-surface,#111923);color:var(--we-ink,var(--ink));padding:7px 9px}'
+                +'#sam-world-engine .we-offset-edit-field textarea{height:92px!important;min-height:80px!important;max-height:180px!important;resize:vertical;line-height:1.55}'
+                +'#sam-world-engine .we-history-edit-field textarea,#sam-world-engine .we-world-editor-grid textarea{min-height:78px!important;max-height:240px!important;resize:vertical;line-height:1.5}'
                 +'#sam-world-engine .we-world-editor-wide,#sam-world-engine .we-history-edit-wide,#sam-world-engine .we-offset-edit-wide{grid-column:1/-1}'
                 +'#sam-world-engine .we-world-person-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}'
                 +'#sam-world-engine .we-world-editor-note,#sam-world-engine .we-history-edit-title{display:flex;justify-content:space-between;gap:10px;align-items:center}'

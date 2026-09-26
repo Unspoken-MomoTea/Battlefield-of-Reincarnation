@@ -57,7 +57,8 @@
                 if(['事件','人物','势力地区','历史','传播'].includes(parts[2])&&parts[3])touched.add(parts[2]+'\u0000'+parts[3]);
             }
             if(!touched.size)return;
-            const all=this.temporalAnomalies(next);
+            // Preserve later integrity/rumor decorators on the public compatibility seam.
+            const all=temporalAnomalies(next);
             const hit=all.find(item=>touched.has(item.类型+'\u0000'+item.名称));
             if(hit)throw new Error('时间事实超过当前世界时间：'+hit.类型+'/'+hit.名称+' '+hit.字段+'='+hit.值+'；'+hit.原因);
         }

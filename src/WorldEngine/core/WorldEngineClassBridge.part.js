@@ -5,6 +5,11 @@
             this.services=new WorldEngineServiceContainer(this).initialize();
             this.promptRegistry=this.services.prompts;
             this.promptWorkspace=new WorldPromptWorkspaceController(this,this.promptRegistry);
+            Object.defineProperty(this,'dedicatedApiPresetSelection',{
+                configurable:true,
+                get:()=>this.services?.apiPresets?.selected||'',
+                set:value=>{if(this.services?.apiPresets)this.services.apiPresets.selected=String(value||'');}
+            });
             if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings)){
                 const defaults=this.promptRegistry.defaults();
                 BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.promptRegistry=defaults;
@@ -60,7 +65,8 @@
         }
         async buildRequest(base){
             this.promptRegistry?.syncLegacy();
-            const request=await super.buildRequest(base);
+            let request=await super.buildRequest(base);
+            if(this.services?.due)request=this.services.due.decorate(request,base);
             if(this.promptRegistry){
                 request.system=this.promptRegistry.rewriteSystem(request.system);
                 request.input=this.promptRegistry.rewriteInput(request.input);
@@ -87,6 +93,19 @@
                 this.lastTransportInfo=savedTransport;
             }
         }
+        applyDedicatedApiPreset(name){
+            const result=super.applyDedicatedApiPreset(name);
+            return this.services?.apiPresets?.afterApply(name,result)??result;
+        }
+        saveDedicatedApiPreset(name){
+            const entry=super.saveDedicatedApiPreset(name);
+            return this.services?.apiPresets?.afterSave(entry)??entry;
+        }
+        deleteDedicatedApiPreset(name){
+            const deleted=super.deleteDedicatedApiPreset(name);
+            return this.services?.apiPresets?.afterDelete(name,deleted)??deleted;
+        }
+        syncDedicatedApiPresetSelection(){return this.services?.apiPresets?.sync();}
         persistWorldEditorMutation(mutator,status){return this.services.mutations.commit(mutator,status);}
         worldEditorModeEnabled(){return this.services.editorController.modeEnabled();}
         setWorldEditorMode(value){return this.services.editorController.setMode(value);}
@@ -109,6 +128,7 @@
         createPanel(){
             super.createPanel();
             this.services?.editorController?.bindPanel();
+            this.services?.apiPresets?.bindPanel();
             if(!this.panel||this.panel.__classPromptRegistryBound)return;
             Object.defineProperty(this.panel,'__classPromptRegistryBound',{value:true,configurable:true});
             this.panel.addEventListener('click',event=>{
@@ -118,10 +138,13 @@
             });
         }
         render(force=false){
+            this.services?.causalOverview?.beforeRender();
             const result=super.render(force);
             this.promptWorkspace?.mount();
             this.promptWorkspace?.syncEditableState();
+            this.services?.causalOverview?.afterRender();
             this.services?.editorController?.afterRender();
+            this.services?.apiPresets?.sync();
             return result;
         }
     };

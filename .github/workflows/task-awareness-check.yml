@@ -75,6 +75,8 @@ jobs:
         run: node tests/world-engine-class-architecture.cjs
       - name: World engine class phase2 regression
         run: node tests/world-engine-class-phase2.cjs
+      - name: World engine class phase3 regression
+        run: node tests/world-engine-class-phase3.cjs
       - name: Complete world prompt registry regression
         run: node tests/world-engine-prompt-registry-complete.cjs
       - name: World context UI regression

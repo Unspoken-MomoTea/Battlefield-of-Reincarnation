@@ -23,6 +23,13 @@
             this.taskAwareness=new WorldTaskAwarenessFeature(engine);
             this.chronology=new WorldChronologyFeature(engine);
             this.rumorRequest=new WorldRumorRequestFeature(engine);
+            this.autoProgress=new WorldAutoProgressFeature(engine);
+            this.autoTriggerReplay=new WorldAutoTriggerReplayFeature(engine);
+            this.replayPersistence=new WorldReplayPersistenceFeature(engine);
+            this.immediateReprocessRetry=new WorldImmediateReprocessRetryFeature(engine);
+            this.worldTimeOwnership=new WorldTimeOwnershipFeature(engine);
+            this.npcAuditPolicy=new WorldNpcAuditPolicyFeature(engine);
+            this.historyMemory=new WorldHistoryMemoryFeature(engine);
             this.features.register('npcAuditPrompt',this.npcAuditPrompt);
             this.features.register('apiPreset',this.apiPreset);
             this.features.register('causalOverview',this.causalOverview);
@@ -33,6 +40,13 @@
             this.features.register('taskAwareness',this.taskAwareness);
             this.features.register('chronology',this.chronology);
             this.features.register('rumorRequest',this.rumorRequest);
+            this.features.register('autoProgress',this.autoProgress);
+            this.features.register('autoTriggerReplay',this.autoTriggerReplay);
+            this.features.register('replayPersistence',this.replayPersistence);
+            this.features.register('immediateReprocessRetry',this.immediateReprocessRetry);
+            this.features.register('worldTimeOwnership',this.worldTimeOwnership);
+            this.features.register('npcAuditPolicy',this.npcAuditPolicy);
+            this.features.register('historyMemory',this.historyMemory);
         }
         initialize(){
             this.prompts.initialize();

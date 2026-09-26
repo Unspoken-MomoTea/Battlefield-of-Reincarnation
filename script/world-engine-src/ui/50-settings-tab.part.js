@@ -1,5 +1,7 @@
     // 设置页纯渲染：交互事件仍由主 UI 类统一处理。
-    function worldEngineRenderSettingsTab(ctx) {
+    class WorldSettingsView extends WorldEngineTabView {
+        constructor(){super('settings');}
+        render(ctx) {
         const {engine,section,text}=ctx;
         let html='';
         const api=engine.normalizeDedicatedApi(engine.config.dedicatedApi);
@@ -23,4 +25,5 @@
                 :'<div class="we-notice">当前关闭专属 API。世界推进继续使用主神终端「额外模型配置」；这里不会复制或读取状态栏里的 API Key。</div>')
             ,'接口配置只存本地 localStorage，不写入 MVU');
         return html;
+        }
     }

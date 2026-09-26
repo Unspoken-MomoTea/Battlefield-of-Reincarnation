@@ -4,7 +4,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[1]
 runtime=(ROOT/'script/world-engine-src/40-engine-runtime.part.js').read_text(encoding='utf-8')
-history=(ROOT/'script/world-engine-src/59-history-memory.part.js').read_text(encoding='utf-8')
+history=(ROOT/'src/WorldEngine/runtime/WorldHistoryMemoryFeature.part.js').read_text(encoding='utf-8')
 if "if(typeof this.beforeWorldCommit==='function')" not in runtime:
     raise RuntimeError('[history-leaf] missing atomic history commit hook')
 if 'beforeWorldCommit(next, context={})' not in history:

@@ -8,6 +8,7 @@
             this.exploration=new WorldExplorationService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
+            this.views=new WorldEngineViewRegistry(engine);
             this.prompts=new WorldPromptRegistry(engine);
         }
         initialize(){

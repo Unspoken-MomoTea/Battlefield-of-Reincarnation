@@ -14,7 +14,9 @@
                 Object.freeze({key:'exploration',title:'探索台账',group:'运行模块',source:'EXPLORATION_PROJECTION_RULES',defaultValue:()=>typeof EXPLORATION_PROJECTION_RULES==='string'?EXPLORATION_PROJECTION_RULES:''}),
                 Object.freeze({key:'integrity',title:'因果与事实时间',group:'运行模块',source:'WORLD_INTEGRITY_GUARD_RULES',defaultValue:()=>typeof WORLD_INTEGRITY_GUARD_RULES==='string'?WORLD_INTEGRITY_GUARD_RULES:''}),
                 Object.freeze({key:'worldTime',title:'世界时间所有权',group:'运行模块',source:'WORLD_TIME_RULES',defaultValue:()=>typeof WORLD_TIME_RULES==='string'?WORLD_TIME_RULES:''}),
-                Object.freeze({key:'rumor',title:'传闻与传播',group:'运行模块',source:'RUMOR_WORLD_SOURCE_RULES',defaultValue:()=>typeof RUMOR_WORLD_SOURCE_RULES==='string'?RUMOR_WORLD_SOURCE_RULES:(typeof RUMOR_THROTTLE_RULES==='string'?RUMOR_THROTTLE_RULES:'')}),
+                Object.freeze({key:'rumorLiveliness',title:'传闻活跃性',group:'传闻与传播',source:'RUMOR_LIVELINESS_RULES',defaultValue:()=>typeof worldModulePromptDefaults==='function'?String(worldModulePromptDefaults().rumorLiveliness||''):''}),
+                Object.freeze({key:'rumorThrottle',title:'传闻刷新节流',group:'传闻与传播',source:'RUMOR_THROTTLE_RULES',defaultValue:()=>typeof worldModulePromptDefaults==='function'?String(worldModulePromptDefaults().rumorThrottle||''):''}),
+                Object.freeze({key:'rumorSource',title:'传闻世界侧来源',group:'传闻与传播',source:'RUMOR_WORLD_SOURCE_RULES',defaultValue:()=>typeof worldModulePromptDefaults==='function'?String(worldModulePromptDefaults().rumorSource||''):''}),
                 Object.freeze({key:'worldActivity',title:'世界活动交付',group:'运行模块',source:'WORLD_ACTIVITY_DELIVERY_RULES',defaultValue:()=>typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:''}),
                 Object.freeze({key:'historyMemory',title:'世界长期历史压缩',group:'辅助模型',source:'HISTORY_MEMORY_SYSTEM',defaultValue:()=>typeof HISTORY_MEMORY_SYSTEM==='string'?HISTORY_MEMORY_SYSTEM:''})
             ]);
@@ -36,7 +38,9 @@
                 exploration:String(modules.exploration??fallback.exploration),
                 integrity:String(modules.integrity??fallback.integrity),
                 worldTime:String(modules.worldTime??fallback.worldTime),
-                rumor:String(modules.rumor??fallback.rumor),
+                rumorLiveliness:String(modules.rumorLiveliness??(typeof modules.rumor==='string'?'':fallback.rumorLiveliness)),
+                rumorThrottle:String(modules.rumorThrottle??(typeof modules.rumor==='string'?'':fallback.rumorThrottle)),
+                rumorSource:String(modules.rumorSource??modules.rumor??fallback.rumorSource),
                 worldActivity:String(config.promptRegistry?.worldActivity??fallback.worldActivity),
                 historyMemory:String(config.promptRegistry?.historyMemory??fallback.historyMemory)
             };
@@ -67,7 +71,9 @@
             config.structurePrompt=v.outputProtocol;
             config.modulePrompts=Object.assign({},plain(config.modulePrompts)?config.modulePrompts:{},{
                 task:v.task,chronology:v.chronology,maintenance:v.maintenance,exploration:v.exploration,
-                integrity:v.integrity,worldTime:v.worldTime,rumor:v.rumor
+                integrity:v.integrity,worldTime:v.worldTime,
+                rumorLiveliness:v.rumorLiveliness,rumorThrottle:v.rumorThrottle,rumorSource:v.rumorSource,
+                rumor:v.rumorSource
             });
             config.promptRegistry=v;
             return v;
@@ -83,9 +89,10 @@
                 if(typeof config[legacyKey]==='string'&&config[legacyKey]!==current[key])next[key]=config[legacyKey];
             }
             const modules=plain(config.modulePrompts)?config.modulePrompts:{};
-            for(const key of ['task','chronology','maintenance','exploration','integrity','worldTime','rumor']){
+            for(const key of ['task','chronology','maintenance','exploration','integrity','worldTime','rumorLiveliness','rumorThrottle','rumorSource']){
                 if(typeof modules[key]==='string'&&modules[key]!==current[key])next[key]=modules[key];
             }
+            if(typeof modules.rumor==='string'&&!Object.hasOwn(modules,'rumorSource')&&modules.rumor!==current.rumorSource)next.rumorSource=modules.rumor;
             config.promptRegistry=this.normalize(next);
             return config.promptRegistry;
         }
@@ -108,7 +115,10 @@
             if(typeof input.stabilityPromptTemplate==='string')registry.stability=input.stabilityPromptTemplate;
             if(typeof input.npcAuditPrompt==='string')registry.npcAudit=input.npcAuditPrompt;
             if(typeof input.structurePrompt==='string')registry.outputProtocol=input.structurePrompt;
-            if(plain(input.modulePrompts))for(const key of ['task','chronology','maintenance','exploration','integrity','worldTime','rumor'])if(typeof input.modulePrompts[key]==='string')registry[key]=input.modulePrompts[key];
+            if(plain(input.modulePrompts)){
+                for(const key of ['task','chronology','maintenance','exploration','integrity','worldTime','rumorLiveliness','rumorThrottle','rumorSource'])if(typeof input.modulePrompts[key]==='string')registry[key]=input.modulePrompts[key];
+                if(typeof input.modulePrompts.rumor==='string'&&!Object.hasOwn(input.modulePrompts,'rumorSource'))registry.rumorSource=input.modulePrompts.rumor;
+            }
             input.promptRegistry=registry;
             input.preset=registry.preset;
             input.corePrompt=registry.core;
@@ -129,6 +139,34 @@
                 output=output.split(activityDefault).join(replacement);
             }
             return output.replace(/\n{3,}/g,'\n\n').trim();
+        }
+        headings(value){
+            const out=[],source=String(value||''),re=/【([^】]+)】/g;let match;
+            while((match=re.exec(source)))out.push(match[1]);
+            return out;
+        }
+        headingMatches(pattern,title){
+            if(pattern===title)return true;
+            if(!pattern.includes('{{'))return false;
+            const parts=pattern.split(/\{\{[^}]+\}\}/g).map(part=>part.replace(/[.*+?^$()|[\]\\]/g,'\\        historySystem(){return this.value('historyMemory');}
+'));
+            try{return new RegExp('^'+parts.join('.+?')+'    }
+).test(title);}catch(_){return false;}
+        }
+        auditSystem(system){
+            const values=this.list().filter(item=>item.key!=='historyMemory'&&String(item.value||'').trim());
+            const patterns=values.flatMap(item=>this.headings(item.value));
+            const actual=this.headings(system);
+            const unregistered=actual.filter(title=>!patterns.some(pattern=>this.headingMatches(pattern,title)));
+            const source=String(system||''),firstHeader=source.indexOf('【'),prefix=(firstHeader<0?source:source.slice(0,firstHeader)).trim();
+            if(prefix){
+                const known=values.some(item=>{
+                    const value=String(item.value||'').trim(),header=value.indexOf('【');
+                    return (header<0?value:value.slice(0,header)).trim()===prefix;
+                });
+                if(!known)unregistered.unshift('(无标题前缀)');
+            }
+            return {registered:actual.filter(title=>!unregistered.includes(title)),unregistered:Array.from(new Set(unregistered))};
         }
         historySystem(){return this.value('historyMemory');}
     }

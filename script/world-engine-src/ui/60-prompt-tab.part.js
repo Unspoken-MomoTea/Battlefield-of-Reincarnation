@@ -9,6 +9,7 @@
             stabilityPromptTemplate:engine.config.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE,
             structurePrompt:engine.config.structurePrompt,
             npcAuditPrompt:engine.config.npcAuditPrompt,
+            modulePrompts:engine.services?.prompts?.moduleValues?.()||{},
             contextTurns:engine.config.contextTurns||6,
             activationMode:engine.config.activationMode||'respect_activation',
             selectedEntries:Array.isArray(engine.config.selectedEntries)?copy(engine.config.selectedEntries):null
@@ -29,11 +30,38 @@
             }).join('')+'</div></details>').join(''):empty('尚未加载目录','点击“加载 / 刷新目录”读取当前绑定和全局启用的世界书。')));
         const segments=splitPresetSegments(promptView.preset);
         html+=section('分段提示词','<div class="we-segment-toolbar"><span>默认只读，展开查看；开启编辑后可修改。</span><button class="we-btn" data-action="prompt-edit" aria-pressed="'+!!engine.promptEditing+'">'+(engine.promptEditing?'锁定编辑':'开启编辑')+'</button><button class="we-btn" data-action="segment-add" '+(engine.promptEditing?'':'disabled')+'>＋ 新增分段</button></div><div class="we-segment-list" data-segment-list>'+segments.map((part,i)=>'<details class="we-segment" data-segment-row><summary>'+text(part.title||'未命名分段')+' <small>'+formatTokenCount(estimateTokens(part.body),true)+'</small></summary><div class="we-segment-head"><input '+(engine.promptEditing?'':'readonly')+' data-segment-title aria-label="分段标题 '+i+'" placeholder="分段标题（可留空）" value="'+text(part.title)+'"><small>'+formatTokenCount(estimateTokens(part.body),true)+'</small><span class="we-segment-actions"><button type="button" '+(engine.promptEditing?'':'disabled')+' data-action="segment-up" title="上移">↑</button><button type="button" '+(engine.promptEditing?'':'disabled')+' data-action="segment-down" title="下移">↓</button><button type="button" '+(engine.promptEditing?'':'disabled')+' data-action="segment-delete" title="删除">删除</button></span></div><textarea '+(engine.promptEditing?'':'readonly')+' data-segment="'+i+'" data-title="'+text(part.title)+'" aria-label="预设分段 '+i+'">'+text(part.body)+'</textarea></details>').join('')+'</div><p class="we-muted">这些分段属于主要工作层，可以新增、删除或调整顺序。核心约束与条件提示词在下方单独编辑，并与同一预设文档一起保存。</p>');
-        html+=section('系统提示词','<div class="we-notice">这里展示的文本都会直接参与实际 system 请求，并随预设文档保存、应用、导入和导出。条件提示词只在对应条件成立时发送；只有程序字段 Schema 保持固定。</div>'
-            +'<details class="we-segment"><summary>世界引擎核心约束 · '+(engine.promptEditing?'编辑中':'点击展开')+'</summary><textarea data-core-prompt '+(engine.promptEditing?'':'readonly')+'>'+text(promptView.corePrompt??CORE_WORLD_RULES)+'</textarea><p class="we-muted">始终发送。可修改或留空；留空即不额外注入核心约束。</p></details>'
-            +'<details class="we-segment"><summary>宏观骨架交付 · 条件提示词</summary><textarea data-macro-prompt '+(engine.promptEditing?'':'readonly')+'>'+text(promptView.macroPrompt??DEFAULT_MACRO_PROMPT)+'</textarea><p class="we-muted">仅在本轮需要建立/补足宏观骨架时发送。</p></details>'
-            +'<details class="we-segment"><summary>世界自救 · 条件提示词模板</summary><textarea data-stability-prompt '+(engine.promptEditing?'':'readonly')+'>'+text(promptView.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE)+'</textarea><p class="we-muted">世界稳定值低于100且未开启世界超稳时发送。可使用 {{阶段}}、{{稳定值}}、{{规则}} 占位符。</p></details>'
-            +'<details class="we-segment"><summary>角色管理 · NPC构筑审计 · '+(engine.isNpcBuildAuditEnabled()?'当前启用':'当前关闭')+'</summary><textarea data-npc-audit-prompt '+(engine.promptEditing?'':'readonly')+'>'+text(promptView.npcAuditPrompt??NPC_BUILD_AUDIT_RULES)+'</textarea><p class="we-muted">无论开关状态都可编辑并保存；只有开启审计且本轮存在审计对象时才发送。</p></details>','核心与条件提示词均可编辑');
-        html+=section('WorldResult 输出协议','<details class="we-segment"><summary>WorldResult 协议说明 · 点击展开</summary><textarea data-structure-prompt '+(engine.promptEditing?'':'readonly')+'>'+text(promptView.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'</textarea></details><details class="we-segment"><summary>程序字段 Schema · 只读</summary><textarea readonly>'+text(JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'</textarea></details><p class="we-muted">协议说明使用上方编辑开关。保存后用于实际 system 请求；Schema 固定只读，修改任何文字提示词都不会改变程序变量结构。</p>');
+        const promptDescriptors=engine.services?.prompts?.describe?.()||[];
+        const promptGroups=new Map();
+        for(const item of promptDescriptors){
+            if(!promptGroups.has(item.category))promptGroups.set(item.category,[]);
+            promptGroups.get(item.category).push(item);
+        }
+        const promptValue=item=>{
+            if(Object.hasOwn(promptView,item.key)&&typeof promptView[item.key]==='string')return promptView[item.key];
+            if(plain(promptView.modulePrompts)&&typeof promptView.modulePrompts[item.key]==='string')return promptView.modulePrompts[item.key];
+            return item.value||'';
+        };
+        const legacyAttr=key=>({
+            corePrompt:' data-core-prompt',
+            macroPrompt:' data-macro-prompt',
+            stabilityPromptTemplate:' data-stability-prompt',
+            npcAuditPrompt:' data-npc-audit-prompt',
+            structurePrompt:' data-structure-prompt'
+        }[key]||'');
+        const promptRows=Array.from(promptGroups).map(([category,items])=>
+            '<details class="we-book" open><summary>'+text(category)+' <small>'+items.length+' 项</small></summary><div class="we-segment-list">'
+            +items.map(item=>{
+                const value=promptValue(item),enabled=!!String(value).trim();
+                return '<details class="we-segment" data-prompt-row="'+text(item.key)+'"><summary>'+text(item.title)+' <small>'+text(item.source)+' · '+formatTokenCount(estimateTokens(value),true)+'</small></summary>'
+                    +'<div class="we-prompt-meta"><b>发送条件</b><span>'+text(item.condition)+'</span><em>'+(enabled?'当前有内容':'当前留空 / 不注入')+'</em></div>'
+                    +'<textarea data-prompt-key="'+text(item.key)+'"'+legacyAttr(item.key)+' '+(engine.promptEditing?'':'readonly')+'>'+text(value)+'</textarea>'
+                    +'</details>';
+            }).join('')+'</div></details>'
+        ).join('');
+        html+=section('系统提示词 · 全部',
+            '<div class="we-notice">这里列出世界推进代码中所有会发送给 AI 的可编辑指令：主流程、条件提示、运行模块、历史压缩与纠错重试都在这里。留空某项表示停止注入该项文字规则；程序 Schema、变量白名单和引用校验仍固定。</div>'
+            +(promptRows||empty('提示词注册表为空','请检查 WorldPromptRegistry。')),
+            promptDescriptors.length+' 项已登记 · 全部可编辑');
+        html+=section('程序字段 Schema · 只读','<details class="we-segment" open><summary>Canonical WorldResult JSON Schema</summary><textarea readonly>'+text(JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'</textarea></details><p class="we-muted">Schema 是程序契约，不属于可编辑提示词；修改上方所有提示词都不会改变允许写入的变量结构。</p>');
         return html;
     }

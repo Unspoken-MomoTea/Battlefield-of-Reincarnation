@@ -1,5 +1,7 @@
     // 角色管理视图渲染：只负责名册与世界活动展示；正式档案编辑仍由状态栏负责。
-    function worldEngineRenderPeopleTab(ctx) {
+    class PeopleManagementView extends WorldEngineTabView {
+        constructor(){super('people');}
+        render(ctx) {
         const {
             engine,s,radar,showRadar,alienAlive,entries,formalPeople,backstagePeople,
             relationRoster,matched,userName,section,text,pill,fields,contextRows,
@@ -50,4 +52,5 @@
             +(chosen?section('身份与当前行动',person(chosen[0],chosen[1],true),chosenMeta.正式?'正式关系人物':'世界后台人物')+surroundingsPanel+section('日程与行动',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查}))+auditPanel:empty('尚未选择人物'))
             +'</div><aside>'+backgroundPanel+alienPanel+(chosen?[['情报',chosen[1].认知来源||chosen[1].认知],['近期动向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
         return html;
+        }
     }

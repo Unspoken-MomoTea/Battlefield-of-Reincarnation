@@ -39,12 +39,19 @@ for(const file of [
 const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
 const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateFactory.part.js'),'utf8');
 const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
+const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
+const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
 assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
 assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
 assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT_WORLD_STATE_FACTORY\.emptyBackend\(\);\}/,'public emptyState seam must remain compatible');
 assert.match(timelinePolicySource,/\bimportStory\s*\(stat\)/,'timeline policy must own legacy story seeding');
 assert.match(timelinePolicySource,/function\s+importStory\s*\(stat\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.importStory\(stat\);\}/,'public importStory seam must remain compatible');
+assert.doesNotMatch(contextProtocolSource,/const projectedBackend=\{/,'30-context-protocol must not retain world projection implementation');
+assert.match(contextProtocolSource,/function projectWorldContext\(stat\)\{return requireWorldStateProjector\(\)\.baseWorld\(stat\);\}/,'early projectWorldContext seam must forward to active projector');
+for(const method of ['omitKeys','abilityMap','equipped','carriedItems','forms','character','assets','tailRecord','causalOrbit','baseWorld']){
+  assert.match(stateProjectorSource,new RegExp('\\b'+method+'\\s*\\('),'state projector must own '+method);
+}
 const patchPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
 const requestServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestService.part.js'),'utf8');
 for(const legacyName of ['retryableModelFailure','retryInput']){
@@ -146,6 +153,11 @@ const freshBackend=engine.services.stateFactory.emptyBackend();
 assert.deepEqual(freshBackend,emptyState(),'factory and public emptyState seam must agree');
 freshBackend.事件.临时={};
 assert.deepEqual(engine.services.stateFactory.emptyBackend().事件,{},'state factory must return isolated mutable records');
+
+const projectedByService=engine.services.stateProjector.world(current.stat_data);
+assert.deepEqual(projectedByService,delivery.projectWorldContext(current.stat_data),'service projector must preserve decorated public world context');
+assert.equal(projectedByService.世界.后台.人物.卫兵.地点,'北门');
+assert.equal(projectedByService.资产,undefined);
 
 const normalized=clone(current.stat_data);
 normalized.世界.后台.公开摘要='旧版阶段摘要';

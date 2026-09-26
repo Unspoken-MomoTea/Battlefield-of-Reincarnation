@@ -228,3 +228,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 `importStory()` 仍由 `WorldRequestBuilder` 用于旧故事线存档的宏观种子兼容，因此没有删除其行为；真实实现迁入 `WorldTimelinePolicy.importStory()`，全局函数只保留兼容转发。这样旧存档兼容属于时间线领域，不再回到状态大文件。
 
 至此 `10-world-state.part.js` 只剩世界后台 Schema/模型常量与少量名称/地点通用 helper。下一阶段进入 `30-context-protocol.part.js`，优先把角色/资产/因果的正文投影 helper 收进 projector/policy class。
+
+
+### Phase 23 · 世界上下文投影归域
+
+已完成：`WorldStateProjector` 接管角色能力清洗、装备/道具/形态投影、资产账簿清洗、历史/传播热尾部、因果轨道热偏移以及基础 `projectWorldContext` 构造。原 `30-context-protocol.part.js` 不再保存这些投影算法，只保留一个在早期加载的兼容 base seam。
+
+任务感知与分层历史仍会在加载期装饰全局 `projectWorldContext`；`WorldStateProjector.world()` 暂时经过这个公共 seam，因此本次迁移不会绕过已有任务只读投影或历史记忆投影。真正的基础实现已经在 class 内，等对应 decorator 后续迁成 feature 后即可删除早期兼容层。
+
+下一刀处理 `activation()`：它只服务世界书读取，应该进入 `WorldKnowledgeService`；随后再拆 NPC 构筑审计投影/验收。

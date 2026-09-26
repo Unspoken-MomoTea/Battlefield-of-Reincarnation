@@ -6,6 +6,7 @@
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateFactory=new WorldStateFactory();
             this.stateProjector=new WorldStateProjector(engine);
+            ACTIVE_WORLD_STATE_PROJECTOR=this.stateProjector;
             this.patchPolicy=new WorldPatchPolicy();
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
             this.timelinePolicy=new WorldTimelinePolicy();

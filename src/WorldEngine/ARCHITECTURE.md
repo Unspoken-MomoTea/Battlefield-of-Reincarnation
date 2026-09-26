@@ -204,3 +204,10 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 ## Phase 22 · State factory
 
 `WorldStateFactory` owns creation of a fresh `世界.后台` record. The exported `emptyState()` remains a compatibility seam and returns a fresh factory product on every call. Legacy story seeding is still consumed by `WorldRequestBuilder` for old saves, so its implementation lives in `WorldTimelinePolicy.importStory()`; the global `importStory()` name remains only as a compatibility seam.
+
+
+## Phase 23 · World context projection
+
+`WorldStateProjector` now owns the base world-context projection algorithms: character capability stripping, equipped/carried/form views, shared assets, hot history/propagation tails, causal-orbit projection, and base world payload assembly. `30-context-protocol.part.js` keeps only an early forwarding seam because task-awareness and history-memory compatibility decorators are still loaded before the projector class.
+
+The service-level `world()` method intentionally traverses the decorated public seam until those decorators become class features, while `baseWorld()` is the canonical implementation.

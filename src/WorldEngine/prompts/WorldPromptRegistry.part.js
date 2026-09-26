@@ -21,6 +21,7 @@
                 Object.freeze({key:'historyMemory',title:'世界长期历史压缩',group:'辅助模型',source:'HISTORY_MEMORY_SYSTEM',defaultValue:()=>typeof HISTORY_MEMORY_SYSTEM==='string'?HISTORY_MEMORY_SYSTEM:''})
             ]);
         }
+        moduleKeys(){return ['task','chronology','maintenance','exploration','integrity','worldTime','rumorLiveliness','rumorThrottle','rumorSource'];}
         definitions(){return this._definitions.slice();}
         defaults(){return Object.fromEntries(this._definitions.map(item=>[item.key,String(item.defaultValue?.()??'')]));}
         legacyValues(){

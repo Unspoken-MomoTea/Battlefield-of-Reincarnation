@@ -171,6 +171,7 @@ function summary(level,seq,children,lo,hi){
     const ui=[
       path.join(__dirname,'../script/world-engine-src/50-engine-ui.part.js'),
       path.join(__dirname,'../script/world-engine-src/ui/40-archive-tabs.part.js'),
+      path.join(__dirname,'../script/world-engine-src/ui/50-settings-tab.part.js'),
     ].map(file=>fs.readFileSync(file,'utf8')).join('\n');
     const runtime=fs.readFileSync(path.join(__dirname,'../script/world-engine-src/40-engine-runtime.part.js'),'utf8');
     const zod=fs.readFileSync(path.join(__dirname,'../script/ZOD脚本.js'),'utf8');

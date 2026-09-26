@@ -13,6 +13,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldResultContract.part.js',
     '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
     '@src/WorldEngine/domains/WorldResultMaterializer.part.js',
+    '@src/WorldEngine/domains/WorldResultStagingService.part.js',
     '20-world-result.part.js',
     '30-context-protocol.part.js',
     'ui/00-styles.part.js',

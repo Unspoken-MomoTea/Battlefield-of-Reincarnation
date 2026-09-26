@@ -4788,149 +4788,7 @@ ${schemaText}`;
         return checked;
     }
 
-    const SamsaraWorldEngineBeforeNpcAuditSwitch=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeNpcAuditSwitch {
-        constructor(host,env) {
-            super(host,env);
-            const hadSetting=Object.hasOwn(this.config,'npcBuildAuditEnabled');
-            this.config.npcBuildAuditEnabled=this.config.npcBuildAuditEnabled===true;
-            this.syncNpcBuildAuditFeature();
-            if(!hadSetting)this.saveConfig();
-        }
-        syncNpcBuildAuditFeature() {
-            NPC_BUILD_AUDIT_FEATURE_ENABLED=this.config.npcBuildAuditEnabled===true;
-            this.syncNpcAuditWorldbookSelection();
-            return NPC_BUILD_AUDIT_FEATURE_ENABLED;
-        }
-        isNpcBuildAuditEnabled() { return this.config.npcBuildAuditEnabled===true; }
-        isNpcAuditWorldbook(entry) {
-            return ['实体生成规则','NPC生成规则','状态协议'].includes(normalizeWorldbookEntryTitle(entry.title));
-        }
-        syncNpcAuditWorldbookSelection(catalogue=this.bookCatalogue||[]) {
-            const matches=catalogue.filter(entry=>this.isNpcAuditWorldbook(entry));
-            if(!matches.length)return;
-            const sync=settings=>{
-                if(!settings)return;
-                const previous=settings.selectedEntries;
-                let selected=Array.isArray(previous)?copy(previous):catalogue.filter(entry=>!entry.technical&&selectedEntryMatches(entry,previous)).map(entry=>JSON.stringify([entry.book,entry.id]));
-                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
-                if(this.isNpcBuildAuditEnabled())for(const entry of matches){
-                    if(!entry.technical)selected.push(JSON.stringify([entry.book,entry.id]));
-                }
-                if(JSON.stringify(previous)!==JSON.stringify(selected))settings.selectedEntries=selected;
-            };
-            sync(this.config);
-            sync(this.promptDraft);
-            sync(this.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)?.settings);
-        }
-        async catalogue() {
-            const result=await super.catalogue();
-            this.bookCatalogue=result;
-            this.syncNpcAuditWorldbookSelection(result);
-            this.saveConfig();
-            return result;
-        }
-        applyPromptSettings(settings) {
-            super.applyPromptSettings(settings);
-            this.syncNpcAuditWorldbookSelection();
-            this.saveConfig();
-            return this.config;
-        }
-
-        setNpcBuildAuditEnabled(value) {
-            const wasBusy=!!this.busy;
-            if(wasBusy)this.cancel();
-            this.config.npcBuildAuditEnabled=value===true;
-            this.syncNpcBuildAuditFeature();
-            this.saveConfig();
-            this.status=(this.config.npcBuildAuditEnabled?'NPC构筑审计已启用':'NPC构筑审计已关闭')+(wasBusy?' · 已停止当前推演':'');
-            this.render(true);
-            return this.config.npcBuildAuditEnabled;
-        }
-        async buildRequest(base) {
-            this.syncNpcBuildAuditFeature();
-            return super.buildRequest(base);
-        }
-        async run() {
-            this.syncNpcBuildAuditFeature();
-            const samsara=this.host&&this.host.Samsara,validate=samsara&&samsara.validateWorldState;
-            if(typeof validate!=='function')return super.run();
-            const wrapped=function(stat){
-                const checked=validate.call(samsara,stat);
-                syncWorldStateDerivedSchemaFields(stat,checked);
-                return alignWorldStateSchemaOrder(checked,stat);
-            };
-            samsara.validateWorldState=wrapped;
-            try{return await super.run();}
-            finally{if(samsara.validateWorldState===wrapped)samsara.validateWorldState=validate;}
-        }
-        compactFooterChrome() {
-            if(!this.panel)return;
-            const footer=this.panel.querySelector('footer');
-            if(!footer)return;
-            if(this.style&&!this.style.textContent.includes('.we-footer-status{')){
-                this.style.textContent+='\n#sam-world-engine footer{align-items:center;min-width:0;overflow:hidden}\n'
-                    +'#sam-world-engine footer .we-footer-status{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n'
-                    +'#sam-world-engine footer .we-footer-meta{flex:0 0 auto;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}\n'
-                    +'@media(max-width:760px){#sam-world-engine footer .we-footer-meta{max-width:42%}}\n';
-            }
-            let status=footer.querySelector('.we-footer-status'),meta=footer.querySelector('.we-footer-meta');
-            if(!status){
-                const legacyStatus=footer.querySelector('span'),legacyMeta=footer.querySelector('small');
-                const rawStatus=String(legacyStatus?.textContent||this.status||'').trim();
-                const rawMeta=String(legacyMeta?.textContent||'').trim();
-                status=this.host.document.createElement('span');
-                status.className='we-footer-status';status.textContent=rawStatus;status.title=rawStatus;
-                meta=this.host.document.createElement('span');
-                meta.className='we-footer-meta';
-                const version=rawMeta.match(/build\s*v?[\d.]+/i)||rawMeta.match(/\bv?\d+(?:\.\d+){1,3}\b/i);
-                meta.textContent=version?version[0]:'世界推进';
-                meta.title=rawMeta;
-                footer.replaceChildren(status,meta);
-            }else{
-                status.title=String(status.textContent||this.status||'').trim();
-                if(meta&&!meta.title)meta.title=String(meta.textContent||'').trim();
-            }
-        }
-        createPanel() {
-            super.createPanel();
-            this.compactFooterChrome();
-            if(!this.panel||this.panel.__npcAuditToggleBound)return;
-            Object.defineProperty(this.panel,'__npcAuditToggleBound',{value:true,configurable:true});
-            this.panel.addEventListener('click',event=>{
-                const button=event.target?.closest?.('[data-action="npc-audit-toggle"]');
-                if(!button||!this.panel.contains(button))return;
-                this.setNpcBuildAuditEnabled(!this.isNpcBuildAuditEnabled());
-            });
-        }
-        render(force) {
-            const result=super.render(force);
-            this.renderNpcBuildAuditSetting();
-            this.compactFooterChrome();
-            return result;
-        }
-        renderNpcBuildAuditSetting() {
-            if(!this.panel)return;
-            const enabled=this.isNpcBuildAuditEnabled(),main=this.panel.querySelector('main');
-            if(!main)return;
-            const old=main.querySelector('[data-npc-audit-setting]');
-            if(old)old.remove();
-            if(this.tab==='设置'){
-                const block=this.host.document.createElement('section');
-                block.className='we-section';block.setAttribute('data-npc-audit-setting','');
-                block.innerHTML='<div class="we-section-head"><h2>NPC构筑审计 <span class="we-pill future">实验性功能</span></h2><small>备选功能 · 默认关闭</small></div>'
-                    +'<div class="we-setting-row"><div class="we-setting-copy"><b>自动补全热 NPC 构筑</b><small>关闭时不扫描或补写职业、血统、装备、技能、形态；关系仍按实际剧情正常稀疏同步。开启后才对热 NPC 执行构筑缺口审计。实体生成规则、NPC生成规则、状态协议的资料勾选随此开关同步。</small></div>'
-                    +'<div class="we-setting-actions"><button class="we-setting-btn we-switch '+(enabled?'on':'')+'" data-action="npc-audit-toggle" aria-pressed="'+enabled+'"><span>'+(enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>';
-                const sections=Array.from(main.children),modelSection=sections.find(section=>section.querySelector?.('h2')?.textContent?.trim()==='模型接口');
-                main.insertBefore(block,modelSection||null);
-            }else if(this.tab==='角色管理'&&!enabled){
-                for(const note of main.querySelectorAll('.we-muted')){
-                    if(note.textContent.includes('进入世界推进请求的热人物会由后台优先补齐缺口'))note.textContent='自动构筑审计当前关闭；此处只显示诊断，可在“设置”中临时启用自动补全。';
-                }
-            }
-        }
-    };
-    // NPC 构筑份量与生命层级解耦：份量由人物资料中的剧情定位决定，层级只描述本体强度。
+    // NPC 审计开关、资料同步与 UI 由 WorldNpcAuditPolicy 处理。\n    // NPC 构筑份量与生命层级解耦：份量由人物资料中的剧情定位决定，层级只描述本体强度。
     const NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT=`【角色管理 · NPC构筑审计】
 只处理“角色管理.NPC构筑审计”列出的既有 NPC；目标是补真实缺口，不是提难度、改层级或重做角色。
 1. 审计级别与人物层级独立，是世界推进私有信息，只允许保存在“世界.后台.人物.审计级别”，禁止写入关系列表/NPC公开面板。新建的非队友NPC首次进入后台人物时，由你按剧情身份、叙事地位、已演出能力与遭遇需求填写杂兵级/精英级/首领/Boss级；活跃异端首次建档默认首领/Boss级；队友不定级、不参与NPC构筑审计。
@@ -5294,472 +5152,15 @@ ${schemaText}`;
     };
 
     // 时间轴请求装饰与默认预设迁移已迁移至 WorldChronologyFeature。
-    // 自动推进策略：顶部开关独立控制自动调度；请求检查页配置推进间隔；战斗中暂停且不计轮次。
-    const SamsaraWorldEngineBeforeAutoProgress=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeAutoProgress {
-        constructor(host,env) {
-            super(host,env);
-            let dirty=false;
-            if(!Object.hasOwn(this.config,'autoProgress')){this.config.autoProgress=true;dirty=true;}
-            else this.config.autoProgress=this.config.autoProgress!==false;
-            const hadInterval=Object.hasOwn(this.config,'autoProgressInterval');
-            const interval=Number(this.config.autoProgressInterval);
-            this.config.autoProgressInterval=Math.max(1,Math.min(20,Number.isFinite(interval)?Math.round(interval):2));
-            if(!hadInterval)dirty=true;
-            this.autoProgressCycleKey='';
-            this.autoProgressLastSeenFingerprint='';
-            this.autoProgressDueFingerprint='';
-            this.autoProgressRoundsSinceRun=0;
-            this.autoProgressHasRun=false;
-            if(dirty)this.saveConfig();
-        }
-        blocked(snapshot) {
-            if(snapshot?.stat?.系统状态?.是否战斗中===true)return '战斗中，世界推进暂停';
-            return super.blocked(snapshot);
-        }
-        autoProgressIntervalValue() {
-            const value=Number(this.config.autoProgressInterval);
-            return Math.max(1,Math.min(20,Number.isFinite(value)?Math.round(value):2));
-        }
-        autoProgressContextKey(snapshot) {
-            let chat='';
-            try{const parsed=JSON.parse(String(snapshot?.fingerprint||''));chat=String(parsed?.[0]??'');}catch(_){}
-            return chat+'\u0000'+String(snapshot?.stat?.世界?.名称||'');
-        }
-        autoProgressFingerprintChat(fingerprint) {
-            try{return String(JSON.parse(String(fingerprint||''))?.[0]??'');}catch(_){return '';}
-        }
-        autoProgressBackendHasContent(snapshot) {
-            const backend=snapshot?.stat?.世界?.[PATH];
-            if(!plain(backend))return false;
-            const maps=['事件','人物','势力地区','历史','历史总结','传播'];
-            if(maps.some(key=>plain(backend[key])&&Object.keys(backend[key]).length>0))return true;
-            return Array.isArray(backend.最近变化)&&backend.最近变化.length>0;
-        }
-        initializeAutoProgressCycle(snapshot) {
-            const key=this.autoProgressContextKey(snapshot);
-            if(this.autoProgressCycleKey===key)return;
-            this.autoProgressCycleKey=key;
-            this.autoProgressRoundsSinceRun=0;
-            const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
-            const currentChat=this.autoProgressFingerprintChat(snapshot?.fingerprint);
-            const handledChat=this.autoProgressFingerprintChat(handled);
-            const sameContext=!!handled&&(!currentChat||!handledChat||currentChat===handledChat);
-            // 只有“处理标记 + 实际后台内容”同时存在，才说明这个聊天确实已经跑过世界推进。
-            // 开局/重新处理变量可能只继承旧的已处理楼层；后台仍为空时必须把当前正文当作首次有效正文立即推进。
-            const restoredRun=sameContext&&this.autoProgressBackendHasContent(snapshot);
-            this.autoProgressHasRun=restoredRun;
-            this.autoProgressLastSeenFingerprint=restoredRun?handled:'';
-            this.autoProgressDueFingerprint=restoredRun?handled:'';
-        }
-        autoProgressShouldSchedule(snapshot) {
-            this.initializeAutoProgressCycle(snapshot);
-            const fingerprint=String(snapshot?.fingerprint||'');
-            if(!fingerprint)return false;
-            const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
-            // 重新处理变量会重建本楼层 MVU，但正文指纹不变。已到期楼层的提交标记
-            // 被回滚时允许补跑；重复通知与间隔内跳过的楼层都不能额外计轮。
-            if(this.autoProgressLastSeenFingerprint===fingerprint){
-                return this.autoProgressDueFingerprint===fingerprint&&handled!==fingerprint;
-            }
-            this.autoProgressLastSeenFingerprint=fingerprint;
-            if(this.autoProgressHasRun)this.autoProgressRoundsSinceRun++;
-            const due=!this.autoProgressHasRun||this.autoProgressRoundsSinceRun>=this.autoProgressIntervalValue();
-            if(due)this.autoProgressDueFingerprint=fingerprint;
-            return due;
-        }
-        markAutoProgressRun(snapshot) {
-            if(snapshot)this.initializeAutoProgressCycle(snapshot);
-            this.autoProgressHasRun=true;
-            this.autoProgressRoundsSinceRun=0;
-            if(snapshot?.fingerprint){
-                this.autoProgressLastSeenFingerprint=String(snapshot.fingerprint);
-                this.autoProgressDueFingerprint=String(snapshot.fingerprint);
-            }
-        }
-        resetAutoProgressCycle() {
-            this.autoProgressCycleKey='';
-            this.autoProgressLastSeenFingerprint='';
-            this.autoProgressDueFingerprint='';
-            this.autoProgressRoundsSinceRun=0;
-            this.autoProgressHasRun=false;
-        }
-        schedule() {
-            if(this.config.autoProgress!==true){
-                if(this.timer){clearTimeout(this.timer);this.timer=null;}
-                return;
-            }
-            if(this.disposed||this.committing||!this.isEnabled())return;
-            if(this.busy){this.pending=true;return;}
-            // VARIABLE_UPDATE_ENDED 在 MVU 写回楼层前发出；去抖后才读取存档并计轮，
-            // 否则首次更新可能读不到 stat_data，重处理则可能读到旧的已处理标记。
-            clearTimeout(this.timer);
-            this.timer=setTimeout(()=>{
-                this.timer=null;
-                if(this.config.autoProgress!==true||this.disposed||this.committing||!this.isEnabled())return;
-                if(this.busy){this.pending=true;return;}
-                let snapshot;
-                try{snapshot=this.snapshot();}catch(_){return;}
-                const reason=this.blocked(snapshot);
-                if(reason){this.status=reason;this.render();return;}
-                if(!this.autoProgressShouldSchedule(snapshot))return;
-                this.run().catch(()=>{});
-            },900);
-        }
-        async run() {
-            let snapshot=null;
-            try{snapshot=this.snapshot();}catch(_){}
-            const result=await super.run();
-            if(result===true)this.markAutoProgressRun(snapshot);
-            return result;
-        }
-        toggleAutoProgress() {
-            this.config.autoProgress=!this.config.autoProgress;
-            if(!this.config.autoProgress){
-                if(this.timer){clearTimeout(this.timer);this.timer=null;}
-                this.pending=false;
-                this.status='自动推进已关闭 · 可手动推进';
-            }else{
-                this.resetAutoProgressCycle();
-                this.status='自动推进已开启';
-            }
-            this.saveConfig();
-            this.render(true);
-        }
-        mountAutoProgressTopControl() {
-            if(!this.panel)return;
-            const header=this.panel.querySelector('header'),run=header?.querySelector('[data-action="run"]');
-            if(!header||!run)return;
-            let button=header.querySelector('[data-auto-progress-toggle-top]');
-            if(!button){
-                button=this.host.document.createElement('button');
-                button.type='button';button.className='we-btn we-switch';button.dataset.autoProgressToggleTop='';
-                run.insertAdjacentElement('beforebegin',button);
-                button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();this.toggleAutoProgress();});
-            }
-            button.classList.toggle('on',this.config.autoProgress===true);
-            button.setAttribute('aria-pressed',String(this.config.autoProgress===true));
-            button.title=this.config.autoProgress?'自动推进已开启':'自动推进已关闭';
-            button.innerHTML='<span>自动推进</span><span class="we-switch-track"><i></i></span>';
-        }
-        mountAutoProgressIntervalSetting() {
-            if(this.tab!=='请求检查'||!this.panel)return;
-            const main=this.panel.querySelector('main');if(!main)return;
-            let section=main.querySelector('[data-auto-progress-interval-setting]');
-            if(!section){
-                section=this.host.document.createElement('section');section.className='we-section';section.dataset.autoProgressIntervalSetting='';
-                const retry=[...main.querySelectorAll('.we-section')].find(item=>item.querySelector('.we-section-head h2')?.textContent?.trim()==='失败自动重试');
-                if(retry)main.insertBefore(section,retry);else main.prepend(section);
-            }
-            const enabled=this.config.autoProgress===true,interval=this.autoProgressIntervalValue();
-            section.innerHTML='<div class="we-section-head"><h2>自动推进频率</h2><small>正文轮次</small></div>'+
-                '<div class="we-config-row"><label>推进间隔 <input data-auto-progress-interval type="number" min="1" max="20" value="'+interval+'" '+(enabled?'':'disabled')+'> 轮</label><span class="we-muted">'+
-                (enabled?'首次符合条件、或检测到世界后台尚未建立时立即推进；之后按正文回复轮次触发。2 = 第1、3、5…次正文后推进；1 = 每轮推进。战斗中不计轮数。':'自动推进已关闭，此设置不参与调度。')+
-                '</span></div>';
-            const input=section.querySelector('[data-auto-progress-interval]');
-            input?.addEventListener('change',()=>{
-                const value=Math.max(1,Math.min(20,Number(input.value)||2));
-                this.config.autoProgressInterval=Math.round(value);input.value=String(this.config.autoProgressInterval);
-                this.resetAutoProgressCycle();this.saveConfig();
-                this.status='自动推进间隔已设为 '+this.config.autoProgressInterval+' 轮';
-                this.render(true);
-            });
-        }
-        render(force=false) {
-            const result=super.render(force);
-            this.panel?.querySelector('[data-auto-progress-setting]')?.remove();
-            this.mountAutoProgressTopControl();
-            this.mountAutoProgressIntervalSetting();
-            return result;
-        }
-    };
+    // 自动推进已迁移到 src/WorldEngine/domains/WorldAutoProgressController.part.js。
+    // 保留此兼容分片，避免旧构建/补丁脚本找不到历史模块名。
     // 自动推进触发重构：正文完成是主入口；变量重处理只恢复已确认结果，不重新调用世界 AI。
     const WORLD_REPLAY_VERSION=1;
     const WORLD_REPLAY_SCOPES=[
         ['世界','货币'],['世界','历法'],['世界',PATH],['世界','因果轨道'],['世界','势力'],['世界','探索'],
         ['世界','异端雷达','名单'],['世界','稳定'],['传闻'],['资产'],['关系列表']
     ];
-    const SamsaraWorldEngineBeforeAutoTriggerRebuild=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeAutoTriggerRebuild {
-        constructor(host,env) {
-            super(host,env);
-            this.autoProgressTriggerEventsBound=false;
-            this.autoProgressWaitingForVariable=false;
-            this.worldReplayEventBound=false;
-            this.worldReplayPendingFingerprint='';
-            this.worldReplayManualForce=false;
-        }
-        init() {
-            const result=super.init();
-            const on=this.fn('eventOn');
-            const events=this.env.tavern_events||this.host.tavern_events||{};
-            if(!this.autoProgressTriggerEventsBound&&on&&events){
-                const bindAuto=(event,source)=>{
-                    if(!event)return false;
-                    const off=on(event,()=>this.schedule(source));
-                    if(typeof off==='function')this.unsub.push(off);
-                    else if(off&&off.stop)this.unsub.push(()=>off.stop());
-                    return true;
-                };
-                let bound=false;
-                bound=bindAuto(events.GENERATION_ENDED,'generation-ended')||bound;
-                bound=bindAuto(events.MESSAGE_RECEIVED,'message-received')||bound;
-                if(bound)this.autoProgressTriggerEventsBound=true;
-            }
-            if(!this.worldReplayEventBound){
-                const mvu=this.env.Mvu||this.host.Mvu;
-                const first=this.fn('eventMakeFirst')||on;
-                const event=mvu?.events?.VARIABLE_UPDATE_ENDED;
-                if(first&&event){
-                    const off=first(event,(variables,before)=>this.handleWorldReplayVariableEvent(variables,before));
-                    if(typeof off==='function')this.unsub.push(off);
-                    else if(off&&off.stop)this.unsub.push(()=>off.stop());
-                    this.worldReplayEventBound=true;
-                }
-            }
-            return result;
-        }
-        autoProgressFingerprintParts(fingerprint) {
-            try {
-                const parsed=JSON.parse(String(fingerprint||''));
-                return {chat:String(parsed?.[0]??''),id:Number(parsed?.[1]),swipe:Number(parsed?.[2]||0),digest:String(parsed?.[3]??'')};
-            } catch (_) {
-                return {chat:'',id:NaN,swipe:0,digest:''};
-            }
-        }
-        autoProgressSameFloor(left,right) {
-            const a=this.autoProgressFingerprintParts(left),b=this.autoProgressFingerprintParts(right);
-            return !!a.chat&&a.chat===b.chat&&Number.isFinite(a.id)&&a.id===b.id;
-        }
-        autoProgressDuringExtraAnalysis() {
-            const mvu=this.env.Mvu||this.host.Mvu;
-            try{return mvu?.isDuringExtraAnalysis?.()===true;}catch(_){return false;}
-        }
-        worldReplayCurrentMessage() {
-            const getMessages=this.fn('getChatMessages');
-            if(!getMessages)return null;
-            let message;try{message=getMessages(-1)?.[0];}catch(_){return null;}
-            if(!message)return null;
-            const id=Number(message.message_id!=null?message.message_id:message.id);
-            if(!Number.isInteger(id)||id<0)return null;
-            const role=String(message.role||'').toLowerCase();
-            if(role==='user'||message.is_user===true)return null;
-            const text=String(message.message!=null?message.message:message.mes||'');
-            if(!text.trim())return null;
-            const chatFn=this.fn('getCurrentChatId');
-            let chat='';
-            try{chat=String(chatFn?chatFn():(this.host.SillyTavern?.getContext?.()?.chatId??''));}catch(_){}
-            if(!chat)return null;
-            const fingerprint=JSON.stringify([chat,id,message.swipe_id||0,digest(text)]);
-            return {id,message,text,fingerprint};
-        }
-        worldReplayPathAllowed(path) {
-            if(!Array.isArray(path)||!path.length||path.some(key=>forbidden.has(String(key))))return false;
-            return WORLD_REPLAY_SCOPES.some(scope=>scope.every((key,index)=>path[index]===key));
-        }
-        worldReplayAtomicPath(path) {
-            if(path[0]==='世界'&&path[1]===PATH&&path.length>=4)return true;
-            if(path[0]==='世界'&&['势力','探索'].includes(path[1])&&path.length>=3)return true;
-            if(path[0]==='世界'&&path[1]==='因果轨道'&&path[2]==='偏移记录'&&path.length>=4)return true;
-            if(path[0]==='传闻'&&path.length>=3)return true;
-            if(path[0]==='资产'&&path.length>=2)return true;
-            if(path[0]==='关系列表'&&path.length>=3)return true;
-            return false;
-        }
-        worldReplayCollect(before,after,path,operations) {
-            if(same(before,after))return;
-            if(after===undefined){operations.push({op:'remove',path:copy(path)});return;}
-            if(before===undefined||this.worldReplayAtomicPath(path)||!plain(before)||!plain(after)){
-                operations.push({op:'set',path:copy(path),value:copy(after)});return;
-            }
-            const keys=new Set([...Object.keys(before),...Object.keys(after)]);
-            for(const key of keys){
-                if(forbidden.has(key))continue;
-                this.worldReplayCollect(before[key],after[key],path.concat(key),operations);
-            }
-        }
-        buildWorldReplayPackage(beforeStat,afterStat,fingerprint) {
-            if(!plain(beforeStat)||!plain(afterStat)||!fingerprint)return null;
-            const operations=[];
-            for(const scope of WORLD_REPLAY_SCOPES)this.worldReplayCollect(get(beforeStat,scope),get(afterStat,scope),scope,operations);
-            if(!operations.length)return null;
-            return {version:WORLD_REPLAY_VERSION,fingerprint:String(fingerprint),operations};
-        }
-        applyWorldReplayPackage(stat,packageValue) {
-            if(!plain(stat)||!plain(packageValue)||packageValue.version!==WORLD_REPLAY_VERSION||!Array.isArray(packageValue.operations))return false;
-            for(const operation of packageValue.operations){
-                const path=Array.isArray(operation?.path)?operation.path.map(String):[];
-                if(!this.worldReplayPathAllowed(path)||!['set','remove'].includes(operation?.op))return false;
-            }
-            for(const operation of packageValue.operations){
-                const path=operation.path.map(String);
-                let parent=stat;
-                for(const key of path.slice(0,-1)){
-                    if(!plain(parent[key]))parent[key]={};
-                    parent=parent[key];
-                }
-                const key=path.at(-1);
-                if(operation.op==='remove')delete parent[key];
-                else parent[key]=copy(operation.value);
-            }
-            return true;
-        }
-        worldReplayMarkEventInternal() {
-            const target=this.host;
-            if(!target)return;
-            const had=Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target.__samsaraUIMutation;
-            target.__samsaraUIMutation=true;
-            setTimeout(()=>{
-                try{
-                    if(had)target.__samsaraUIMutation=previous;
-                    else delete target.__samsaraUIMutation;
-                }catch(_){}
-            },0);
-        }
-        handleWorldReplayVariableEvent(variables,before) {
-            if(!plain(variables))return false;
-            const pending=String(this.worldReplayPendingFingerprint||'');
-            const handled=String(variables?.stat_data?.世界?.[PATH]?.已处理楼层||'');
-            // 世界推进成功提交：在 MVU 真正落库前，把本次“实际变更”压缩成同楼恢复包一并保存。
-            if(pending&&handled===pending&&plain(before?.stat_data)&&plain(variables.stat_data)){
-                const replay=this.buildWorldReplayPackage(before.stat_data,variables.stat_data,pending);
-                if(replay)variables.__samsaraWorldReplay=replay;
-                if(this.worldReplayManualForce)this.worldReplayMarkEventInternal();
-                return !!replay;
-            }
-
-            // MVU“重新处理变量”会先清空当前消息 stat_data/schema，但保留未知 root 字段。
-            // 只有当前消息自己的 replay 指纹或 before 中已处理楼层能证明旧结果，才认定为同正文重处理。
-            const current=this.worldReplayCurrentMessage();
-            if(!current||!plain(variables.stat_data))return false;
-            const mvu=this.env.Mvu||this.host.Mvu;
-            let raw;try{raw=mvu?.getMvuData?.({type:'message',message_id:current.id});}catch(_){return false;}
-            if(!raw||plain(raw.stat_data))return false;
-            const storedReplay=raw.__samsaraWorldReplay;
-            const beforeHandled=String(before?.stat_data?.世界?.[PATH]?.已处理楼层||'');
-            const replayMatches=plain(storedReplay)&&String(storedReplay.fingerprint||'')===current.fingerprint;
-            if(!replayMatches&&beforeHandled!==current.fingerprint)return false;
-
-            // 重处理本身不是新的游戏轮次，也绝不能触发世界 AI；让世界引擎把本事件视为内部恢复。
-            this.worldReplayMarkEventInternal();
-            const replay=storedReplay;
-            if(!plain(replay)||String(replay.fingerprint||'')!==current.fingerprint){
-                this.status='变量已重处理 · 本楼没有可恢复的世界推进快照';
-                this.render();
-                return false;
-            }
-            if(!this.applyWorldReplayPackage(variables.stat_data,replay)){
-                this.status='变量已重处理 · 世界推进恢复包无效，未自动重推';
-                this.render();
-                return false;
-            }
-            variables.__samsaraWorldReplay=copy(replay);
-            this.autoProgressCycleKey=this.autoProgressContextKey({fingerprint:current.fingerprint,stat:variables.stat_data});
-            this.autoProgressHasRun=true;
-            this.autoProgressRoundsSinceRun=0;
-            this.autoProgressLastSeenFingerprint=current.fingerprint;
-            this.autoProgressDueFingerprint=current.fingerprint;
-            this.status='已恢复本楼世界推进结果 · 未重新调用 AI';
-            this.render();
-            return true;
-        }
-        autoProgressShouldSchedule(snapshot) {
-            this.initializeAutoProgressCycle(snapshot);
-            const fingerprint=String(snapshot?.fingerprint||'');
-            if(!fingerprint)return false;
-            const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
-            if(this.autoProgressLastSeenFingerprint===fingerprint){
-                return this.autoProgressDueFingerprint===fingerprint&&handled!==fingerprint;
-            }
-            const previous=this.autoProgressLastSeenFingerprint;
-            // regenerate / swipe / 同楼正文重生不算新的推进轮次。
-            // 该楼若本来应推进，正文改变后必须重跑；若本来处于间隔跳过，则继续跳过。
-            if(previous&&this.autoProgressSameFloor(previous,fingerprint)){
-                const wasDue=this.autoProgressDueFingerprint===previous;
-                this.autoProgressLastSeenFingerprint=fingerprint;
-                if(wasDue)this.autoProgressDueFingerprint=fingerprint;
-                return wasDue;
-            }
-            this.autoProgressLastSeenFingerprint=fingerprint;
-            if(this.autoProgressHasRun)this.autoProgressRoundsSinceRun++;
-            const due=!this.autoProgressHasRun||this.autoProgressRoundsSinceRun>=this.autoProgressIntervalValue();
-            if(due)this.autoProgressDueFingerprint=fingerprint;
-            return due;
-        }
-        resetAutoProgressCycle() {
-            super.resetAutoProgressCycle();
-            this.autoProgressWaitingForVariable=false;
-        }
-        snapshot() {
-            const snapshot=super.snapshot();
-            // 只有显式手动“推进世界”才允许同一正文绕过已处理标记重新推演。
-            // 这里只改请求使用的副本；旧世界状态和恢复包在新请求成功前始终保留在 MVU 中。
-            if(this.worldReplayManualForce&&snapshot?.fingerprint&&snapshot?.stat?.世界?.[PATH]?.已处理楼层===snapshot.fingerprint){
-                snapshot.stat.世界[PATH].已处理楼层='';
-                snapshot.stat.世界[PATH].已处理时间='';
-            }
-            return snapshot;
-        }
-        async run(options={}) {
-            let current=null;
-            try{current=super.snapshot();}catch(_){}
-            const fingerprint=String(current?.fingerprint||'');
-            const automatic=plain(options)&&options.automatic===true;
-            const previousPending=this.worldReplayPendingFingerprint;
-            const previousManual=this.worldReplayManualForce;
-            this.worldReplayPendingFingerprint=fingerprint;
-            this.worldReplayManualForce=!automatic;
-            try{return await super.run(options);}
-            finally{
-                this.worldReplayPendingFingerprint=previousPending;
-                this.worldReplayManualForce=previousManual;
-            }
-        }
-        schedule(source='variable-update',attempt=0) {
-            if(this.config.autoProgress!==true){
-                if(this.timer){clearTimeout(this.timer);this.timer=null;}
-                return;
-            }
-            if(this.disposed||this.committing||!this.isEnabled())return;
-            if(this.busy){this.pending=true;return;}
-            const trigger=String(source||'variable-update');
-            const proseTrigger=trigger==='generation-ended'||trigger==='message-received';
-            const tries=Math.max(0,Number(attempt)||0);
-            // 主正文结束后若变量 AI 正在解析，先等变量；变量事件丢失时仍会复查，不让自动推进永久失活。
-            if(proseTrigger&&this.autoProgressDuringExtraAnalysis()){
-                this.autoProgressWaitingForVariable=true;
-                clearTimeout(this.timer);
-                if(tries<120)this.timer=setTimeout(()=>{this.timer=null;this.schedule(trigger,tries+1);},1000);
-                return;
-            }
-            this.autoProgressWaitingForVariable=false;
-            clearTimeout(this.timer);
-            const delay=proseTrigger?(tries>0?250:800):900;
-            this.timer=setTimeout(()=>{
-                this.timer=null;
-                if(this.config.autoProgress!==true||this.disposed||this.committing||!this.isEnabled())return;
-                if(this.busy){this.pending=true;return;}
-                if(proseTrigger&&this.autoProgressDuringExtraAnalysis()){
-                    this.autoProgressWaitingForVariable=true;
-                    if(tries<120)this.timer=setTimeout(()=>{this.timer=null;this.schedule(trigger,tries+1);},1000);
-                    return;
-                }
-                let snapshot;
-                try{snapshot=this.snapshot();}
-                catch(_){
-                    // 正文已完成但本楼 MVU 还没落盘：短暂重试；VARIABLE_UPDATE_ENDED 若先到会直接接管。
-                    if(proseTrigger&&tries<4)this.timer=setTimeout(()=>{this.timer=null;this.schedule(trigger,tries+1);},250);
-                    return;
-                }
-                this.autoProgressWaitingForVariable=false;
-                const reason=this.blocked(snapshot);
-                if(reason){this.status=reason;this.render();return;}
-                if(!this.autoProgressShouldSchedule(snapshot))return;
-                this.run({automatic:true}).catch(()=>{});
-            },delay);
-        }
-    };
-    // 容错验收策略：完整性维护采用渐进补齐，不再让辅助模块拖死整轮世界推进。
+    // 调度与 replay 生命周期由 WorldAutoProgressController / WorldReplayService 组合。\n    // 容错验收策略：完整性维护采用渐进补齐，不再让辅助模块拖死整轮世界推进。
     const SOFT_MAINTENANCE_RULES=`【分级验收 · 软维护不拒绝整轮】
 1. Schema、非法状态、因果引用损坏、明确原著/数据库日期冲突仍属于硬错误；事件排期补全、传闻补齐与传播复核属于软维护，不得仅因软维护未完成而拒绝整轮已合格结果。
 2. 事件已有具体时间、有效条件或明确前因任一项，即视为已有可用时间锚点；条件/前因属于合法相对或因果时间，不要求重复补写日期。
@@ -6237,140 +5638,7 @@ ${schemaText}`;
 
     if(Array.isArray(WORLD_REPLAY_SCOPES)&&!WORLD_REPLAY_SCOPES.some(scope=>scope.length===2&&scope[0]==='世界'&&scope[1]==='时间'))WORLD_REPLAY_SCOPES.unshift(['世界','时间']);
 
-    const SamsaraWorldEngineBeforeWorldTimeOwnership=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeWorldTimeOwnership {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
-            request.system=String(request.system||'')+'\n\n'+WORLD_TIME_RULES;
-            try{
-                const payload=JSON.parse(request.input);
-                const needsInitialization=worldTimeUnset(base?.stat?.世界?.时间);
-                payload.世界时间维护={
-                    当前时间:String(base?.stat?.世界?.时间||''),
-                    是否需要初始化:needsInitialization,
-                    所有权:'世界推进独占写入；变量 AI 只读',
-                    初始化锚定:needsInitialization?{
-                        任务世界:String(base?.stat?.世界?.名称||''),
-                        当前阶段:String(base?.stat?.世界?.因果轨道?.当前阶段||''),
-                        当前地点:String(base?.stat?.世界?.地点||''),
-                        依据顺序:['最新已确认正文','当前阶段与当前地点','已读取时间线/年表/章节资料','模型已有原著知识','谨慎推断'],
-                        禁止:'不得把下一宏观节点、任务期限或未来事件的日期直接当成当前世界时间；无法唯一定位时保持较粗时间精度。'
-                    }:undefined,
-                    正文时间职责:'若最新正文明确发生过夜、数小时后、次日、跨日旅行或新的日期/时段，必须输出顶层“时间”同步世界时钟；不能保留旧时钟再提交已经发生于新时点的事实。',
-                    精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须是数字；不要用自定义月份名称替代数字月。',
-                    时间段候选:['凌晨','黎明','清晨','早晨','上午','中午','午后','下午','傍晚','入夜','晚上','深夜'],
-                    推进原则:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确时间资料表明确实经过合理时长才推进。'
-                };
-                request.input=JSON.stringify(payload,null,2);
-            }catch(_){}
-            request.schema=copy(WORLD_RESULT_SCHEMA);
-            if(request.manifest)request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
-        }
-        handleWorldReplayVariableEvent(variables,before) {
-            const handled=super.handleWorldReplayVariableEvent(variables,before);
-            if(handled||this.committing||!this.isEnabled()||!plain(variables?.stat_data)||!plain(before?.stat_data))return handled;
-            const previous=String(before?.stat_data?.世界?.时间??'');
-            const incoming=String(variables?.stat_data?.世界?.时间??'');
-            if(previous===incoming)return handled;
-
-            // 世界切换是唯一允许程序层改写世界.时间的边界：
-            // 主神空间 -> 副本只能清空/待初始化；副本 -> 主神空间只能写轮回历。
-            // 其它变量更新仍一律回滚，继续保证世界推进的单一所有权。
-            const wasSpace=before?.stat_data?.系统状态?.是否在主神空间===true;
-            const isSpace=variables?.stat_data?.系统状态?.是否在主神空间===true;
-            if(wasSpace!==isSpace){
-                const enteringWorld=wasSpace&&!isSpace;
-                const returningToSpace=!wasSpace&&isSpace;
-                const mainSpaceTime=/^轮回历\d+年-\d{2}月-\d{2}日-(?:凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜)$/.test(incoming);
-                if((enteringWorld&&worldTimeUnset(incoming))||(returningToSpace&&mainSpaceTime))return handled;
-            }
-
-            if(!plain(variables.stat_data.世界))variables.stat_data.世界={};
-            variables.stat_data.世界.时间=previous;
-            return true;
-        }
-    };    // 恢复包可靠性：世界推进成功后主动持久化 replay，不再依赖 replaceMvuData 是否触发可用的 VARIABLE_UPDATE_ENDED。
-    // 对旧楼若 replay 缺失，优先用本次重处理事件的 before/已处理楼层恢复；实在无旧状态时按自动推进开关决定是否立即重建。
-    const SamsaraWorldEngineBeforeReplayPersistence=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeReplayPersistence {
-        worldReplayReprocessContext(variables,before) {
-            if(!plain(variables?.stat_data))return null;
-            const current=this.worldReplayCurrentMessage?.();
-            if(!current)return null;
-            const mvu=this.env.Mvu||this.host.Mvu;
-            let raw;
-            try{raw=mvu?.getMvuData?.({type:'message',message_id:current.id});}catch(_){return null;}
-            // “重新处理变量”会清掉当前楼 stat_data，但 replay 根字段仍可保留；before 也可证明旧楼已成功处理。
-            if(!plain(raw)||plain(raw.stat_data))return null;
-            const beforeStat=plain(before?.stat_data)?before.stat_data:null;
-            const replay=raw.__samsaraWorldReplay;
-            const replayMatches=plain(replay)&&String(replay.fingerprint||'')===current.fingerprint;
-            const beforeHandled=String(beforeStat?.世界?.[PATH]?.已处理楼层||'');
-            if(!replayMatches&&beforeHandled!==current.fingerprint)return null;
-            return {current,raw,mvu,beforeStat};
-        }
-        worldReplaySetCycleRecovered(fingerprint,stat) {
-            this.autoProgressCycleKey=this.autoProgressContextKey({fingerprint,stat});
-            this.autoProgressHasRun=true;
-            this.autoProgressRoundsSinceRun=0;
-            this.autoProgressLastSeenFingerprint=fingerprint;
-            this.autoProgressDueFingerprint=fingerprint;
-        }
-        worldReplayClearHandledForRetry(stat,fingerprint) {
-            const state=stat?.世界?.[PATH];
-            if(!plain(state))return;
-            if(!fingerprint||String(state.已处理楼层||'')===String(fingerprint)){
-                state.已处理楼层='';
-                state.已处理时间='';
-            }
-        }
-        worldReplayLegacyPackage(context,variables) {
-            const beforeStat=context?.beforeStat;
-            if(!plain(beforeStat)||!plain(variables?.stat_data))return null;
-            if(String(beforeStat?.世界?.[PATH]?.已处理楼层||'')!==context.current.fingerprint)return null;
-            return this.buildWorldReplayPackage(variables.stat_data,beforeStat,context.current.fingerprint);
-        }
-        handleWorldReplayVariableEvent(variables,before) {
-            const context=this.worldReplayReprocessContext(variables,before);
-            if(context){
-                let replay=plain(context.raw.__samsaraWorldReplay)&&String(context.raw.__samsaraWorldReplay.fingerprint||'')===context.current.fingerprint
-                    ?context.raw.__samsaraWorldReplay:null;
-                let legacyRecovered=false;
-                if(!replay){
-                    replay=this.worldReplayLegacyPackage(context,variables);
-                    legacyRecovered=!!replay;
-                }
-                if(replay&&this.applyWorldReplayPackage(variables.stat_data,replay)){
-                    this.worldReplayMarkEventInternal();
-                    variables.__samsaraWorldReplay=copy(replay);
-                    this.worldReplaySetCycleRecovered(context.current.fingerprint,variables.stat_data);
-                    this.status=legacyRecovered?'已从旧楼状态重建并恢复世界推进结果 · 未重新调用 AI':'已恢复本楼世界推进结果 · 未重新调用 AI';
-                    this.render();
-                    return true;
-                }
-
-                // before/已处理楼层已经证明这一楼过去确实成功推进过；缺 replay 时不需要重新计算推进间隔。
-                // 清掉失效处理标记，并把这一楼重新标记为 due。自动推进开启时由本分支主动安排补跑，不依赖基础 VARIABLE_UPDATE_ENDED 监听兜底。
-                this.worldReplayClearHandledForRetry(variables.stat_data,context.current.fingerprint);
-                delete variables.__samsaraWorldReplay;
-                this.worldReplaySetCycleRecovered(context.current.fingerprint,variables.stat_data);
-                if(this.config.autoProgress===true&&this.isEnabled()){
-                    this.status='变量已重处理 · 正在自动重新推进本楼';
-                    this.render();
-                    this.schedule('variable-update',0);
-                }else if(this.config.autoProgress!==true){
-                    this.status='变量已重处理 · 旧楼缺少恢复快照；自动推进已关闭，请手动推进';
-                    this.render();
-                }else{
-                    this.status='变量已重处理 · 世界推进已关闭，未自动重建';
-                    this.render();
-                }
-                return false;
-            }
-            return super.handleWorldReplayVariableEvent(variables,before);
-        }
-    };
+    // 请求装饰与变量事件时间所有权由 WorldTimeOwnershipFeature 处理。\n    // replay 持久化已并入 src/WorldEngine/domains/WorldReplayService.part.js。
     // 世界推进手动编辑公共写回层：只修改世界引擎拥有的变量，并把修正合并回同楼 replay。
     function worldEditorEscape(value) {
         if(typeof causalOverviewEscape==='function')return causalOverviewEscape(value);
@@ -6479,71 +5747,7 @@ ${schemaText}`;
         const backend=worldEditorBackend(stat),events=backend.事件||{};
         for(const eventName of record.关联事件||[])if(!Object.hasOwn(events,eventName))throw new Error('关联事件不存在：'+eventName);
     }
-    // 变量重处理缺少 replay 时，直接使用 VARIABLE_UPDATE_ENDED 传入的 variables 重新推进；不等待 MVU 二次落盘。
-    const SamsaraWorldEngineBeforeImmediateReprocessRetry=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeImmediateReprocessRetry {
-        worldReplayWaitForIdle() {
-            if(!this.busy)return Promise.resolve();
-            if(!Array.isArray(this.worldReplayIdleWaiters))this.worldReplayIdleWaiters=[];
-            return new Promise(resolve=>this.worldReplayIdleWaiters.push(resolve));
-        }
-        worldReplayResolveIdleWaiters() {
-            const waiters=Array.isArray(this.worldReplayIdleWaiters)?this.worldReplayIdleWaiters.splice(0):[];
-            for(const resolve of waiters){try{resolve();}catch(_){}}
-        }
-        async worldReplayImmediateRetry(context,variables) {
-            if(!context?.mvu?.replaceMvuData||!plain(variables?.stat_data))return false;
-            if(this.busy){
-                this.cancel();
-                await this.worldReplayWaitForIdle();
-            }
-            if(this.disposed||this.config.autoProgress!==true||!this.isEnabled())return false;
-
-            const seed=Object.assign({},copy(context.raw),copy(variables));
-            this.worldReplayClearHandledForRetry(seed.stat_data,context.current.fingerprint);
-            delete seed.__samsaraWorldReplay;
-            this.worldReplayMarkEventInternal();
-            const previousRetrying=this.worldReplayImmediateRetrying===true;
-            this.worldReplayImmediateRetrying=true;
-            try{
-                await context.mvu.replaceMvuData(seed,{type:'message',message_id:context.current.id});
-            }finally{
-                this.worldReplayImmediateRetrying=previousRetrying;
-            }
-
-            const result=await this.run({automatic:true});
-            if(result!==true)return false;
-
-            let finalRaw;
-            try{finalRaw=context.mvu.getMvuData({type:'message',message_id:context.current.id});}catch(_){finalRaw=null;}
-            if(plain(finalRaw?.stat_data))variables.stat_data=copy(finalRaw.stat_data);
-            if(finalRaw&&Object.prototype.hasOwnProperty.call(finalRaw,'__samsaraWorldReplay'))variables.__samsaraWorldReplay=copy(finalRaw.__samsaraWorldReplay);
-            return true;
-        }
-        async handleWorldReplayVariableEvent(variables,before) {
-            if(this.worldReplayImmediateRetrying===true)return false;
-            const context=this.worldReplayReprocessContext?.(variables,before);
-            if(context){
-                const storedReplay=context.raw.__samsaraWorldReplay;
-                const validStored=plain(storedReplay)&&String(storedReplay.fingerprint||'')===context.current.fingerprint;
-                const legacy=!validStored?this.worldReplayLegacyPackage?.(context,variables):null;
-                if(!validStored&&!legacy){
-                    this.worldReplayClearHandledForRetry(variables.stat_data,context.current.fingerprint);
-                    delete variables.__samsaraWorldReplay;
-                    if(this.config.autoProgress===true&&this.isEnabled()){
-                        this.status='变量已重处理 · 正在重新推进本楼';
-                        this.render();
-                        return await this.worldReplayImmediateRetry(context,variables);
-                    }
-                }
-            }
-            return await super.handleWorldReplayVariableEvent(variables,before);
-        }
-        async run(options={}) {
-            try{return await super.run(options);}
-            finally{this.worldReplayResolveIdleWaiters();}
-        }
-    };
+    // 变量重处理即时恢复/重试已并入 src/WorldEngine/domains/WorldReplayService.part.js。
     // 活跃异端不再“每轮强制改策”。已有完整活动默认持续，仅在初始化、复核到期、关联事件/所在地区变化或长期未复核时要求提交新活动。
     const ALIEN_ACTIVITY_STALE_HOURS=24;
     function alienActivityReviewReasons(stat,item) {
@@ -7200,132 +6404,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         return out;
     };
 
-    const SamsaraWorldEngineBeforeHistoryMemory=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeHistoryMemory {
-        constructor(host,env) {
-            super(host,env);
-            let dirty=false;
-            if(!Object.hasOwn(this.config,'sendHistoryToProse')){this.config.sendHistoryToProse=false;dirty=true;}
-            else this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;
-            this.historyMaintenanceBusy=false;
-            this.lastHistoryMaintenance='';
-            if(dirty)this.saveConfig();
-        }
-        setSendHistoryToProse(value) {
-            this.config.sendHistoryToProse=value===true;
-            this.saveConfig();
-            this.render();
-            return this.config.sendHistoryToProse;
-        }
-        proseHistoryMemory(stat) {
-            return projectWorldHistoryMemory(stat?.世界?.[PATH]||{});
-        }
-        createPanel() {
-            super.createPanel();
-            if(!this.panel||this.panel.__historyMemoryToggleBound)return;
-            Object.defineProperty(this.panel,'__historyMemoryToggleBound',{value:true,configurable:true});
-            this.panel.addEventListener('click',event=>{
-                const button=event.target?.closest?.('[data-action="history-prose-toggle"]');
-                if(!button||!this.panel.contains(button))return;
-                event.preventDefault();
-                this.setSendHistoryToProse(this.config.sendHistoryToProse!==true);
-            });
-        }
-        async requestHistoryMemorySummary(world,batch,outputLevel) {
-            const savedTransport=this.lastTransportInfo;
-            try{
-                const raw=await this.requestAI(
-                    HISTORY_MEMORY_SYSTEM,
-                    historyMemoryPrompt(world,batch,outputLevel),
-                    {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
-                );
-                return historyMemoryParseReply(raw);
-            } finally {
-                this.lastTransportInfo=savedTransport;
-            }
-        }
-        beforeWorldCommit(next, context={}) {
-            const summary=String(context.worldResult?.摘要||context.reply?.summary||this.lastWorldResult?.摘要||'').trim();
-            const messageId=Number(context.messageId);
-            const backend=next?.世界?.[PATH];
-            if(!summary||!Number.isInteger(messageId)||!plain(backend))return false;
-            if(!plain(backend.历史))backend.历史={};
-            if(!plain(backend.历史总结))backend.历史总结={};
-            const key=historyMemoryLeafKey(messageId),record={
-                时间:String(next.世界?.时间||backend.已处理时间||context.baseStat?.世界?.时间||''),
-                事实:summary,
-                关联事件:[]
-            };
-            const previous=backend.历史[key];
-            if(plain(previous)&&String(previous.时间||'')===record.时间&&String(previous.事实||'')===record.事实)return false;
-            backend.历史[key]=record;
-            const invalidated=historyMemoryInvalidateAncestors(backend,'历史:'+key);
-            this.lastHistoryMaintenance='近期历史已更新'+(invalidated.length?' · 旧总结失效 '+invalidated.length+' 个':'');
-            return true;
-        }
-        async maintainHistoryMemory() {
-            if(this.historyMaintenanceBusy)return 0;
-            this.historyMaintenanceBusy=true;
-            const previousStatus=this.status;
-            let made=0,failed='';
-            try{
-                const snapshot=this.snapshot(),stat=copy(snapshot.stat),backend=stat?.世界?.[PATH];
-                if(!plain(backend))return 0;
-                if(!plain(backend.历史总结))backend.历史总结={};
-                const startDigest=historyMemoryDigest(backend);
-                // 只在当前层生成一个父节点，然后继续检查更高层；同一层的大量旧数据分摊到后续世界推进，避免一次爆发过多副请求。
-                for(let level=0;level<32;level++){
-                    const batch=historyMemoryBatchForLevel(backend,level);
-                    if(!batch.length)continue;
-                    const outputLevel=level+1;
-                    this.status='整理长期历史记忆 · L'+outputLevel;this.render();
-                    let summary='';
-                    try{summary=await this.requestHistoryMemorySummary(stat.世界,batch,outputLevel);}
-                    catch(error){failed=String(error?.message||error);break;}
-                    const key=historyMemoryNextKey(backend,outputLevel);
-                    backend.历史总结[key]={
-                        层级:outputLevel,摘要:summary,子项:batch.map(node=>node.id),
-                        起始时间:String(batch.find(node=>node.timeStart)?.timeStart||''),
-                        结束时间:String([...batch].reverse().find(node=>node.timeEnd)?.timeEnd||''),
-                        起始序位:Math.min(...batch.map(node=>Number(node.lo)||0).filter(n=>n>0)),
-                        结束序位:Math.max(...batch.map(node=>Number(node.hi)||0).filter(n=>n>0)),
-                        创建时间:String(stat.世界?.时间||'')
-                    };
-                    made++;
-                }
-                if(!made)return 0;
-                const current=this.snapshot(),currentBackend=current.stat?.世界?.[PATH];
-                if(historyMemoryDigest(currentBackend)!==startDigest){
-                    this.lastHistoryMaintenance='历史在总结期间已变化，本次总结结果丢弃，下轮重试';
-                    return 0;
-                }
-                const validate=this.host.Samsara&&this.host.Samsara.validateWorldState;
-                const next=validate?validate(stat):stat;
-                const result=current.raw;result.stat_data=next;
-                this.committing=true;
-                await current.mvu.replaceMvuData(result,{type:'message',message_id:current.id});
-                this.lastHistoryMaintenance='新增 '+made+' 个历史总结节点';
-                return made;
-            } finally {
-                this.committing=false;
-                if(failed)this.lastHistoryMaintenance='历史总结稍后重试：'+failed;
-                this.status=previousStatus+(made?' · 历史总结+'+made:(failed?' · 历史总结待重试':''));
-                this.render();
-                this.historyMaintenanceBusy=false;
-            }
-        }
-        async run() {
-            const result=await super.run();
-            if(result===true){
-                try{await this.maintainHistoryMemory();}catch(error){
-                    this.lastHistoryMaintenance='历史总结稍后重试：'+String(error?.message||error);
-                    try{console.warn('[世界推进] '+this.lastHistoryMaintenance);}catch(_){}
-                }
-            }
-            return result;
-        }
-    };
-    // 历史记忆手动维护：近期原始锚点可修正事实；长期总结可修正摘要/时间，但树层级与子项引用始终由程序托管。
+    // 历史压缩生命周期与设置交互由 WorldHistoryLifecycle 处理。\n    // 历史记忆手动维护：近期原始锚点可修正事实；长期总结可修正摘要/时间，但树层级与子项引用始终由程序托管。
     function historyMemoryEditorEscape(value) {
         if(typeof causalOverviewEscape==='function')return causalOverviewEscape(value);
         return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -7577,6 +6656,603 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     class WorldRequestFeature {
         constructor(engine){this.engine=engine;}
         async afterBuildRequest(request,_base){return request;}
+    }
+    class WorldAutoProgressController {
+        constructor(engine){this.engine=engine;}
+        initialize(){
+            const e=this.engine;let dirty=false;
+            if(!Object.hasOwn(e.config,'autoProgress')){e.config.autoProgress=true;dirty=true;}
+            else e.config.autoProgress=e.config.autoProgress!==false;
+            const hadInterval=Object.hasOwn(e.config,'autoProgressInterval'),value=Number(e.config.autoProgressInterval);
+            e.config.autoProgressInterval=Math.max(1,Math.min(20,Number.isFinite(value)?Math.round(value):2));
+            if(!hadInterval)dirty=true;
+            this.resetCycle();
+            if(dirty)e.saveConfig();
+        }
+        interval(){
+            const value=Number(this.engine.config.autoProgressInterval);
+            return Math.max(1,Math.min(20,Number.isFinite(value)?Math.round(value):2));
+        }
+        contextKey(snapshot){
+            let chat='';try{chat=String(JSON.parse(String(snapshot?.fingerprint||''))?.[0]??'');}catch(_){}
+            return chat+'\u0000'+String(snapshot?.stat?.世界?.名称||'');
+        }
+        fingerprintChat(fingerprint){
+            try{return String(JSON.parse(String(fingerprint||''))?.[0]??'');}catch(_){return '';}
+        }
+        backendHasContent(snapshot){
+            const backend=snapshot?.stat?.世界?.[PATH];if(!plain(backend))return false;
+            const maps=['事件','人物','势力地区','历史','历史总结','传播'];
+            if(maps.some(key=>plain(backend[key])&&Object.keys(backend[key]).length>0))return true;
+            return Array.isArray(backend.最近变化)&&backend.最近变化.length>0;
+        }
+        initializeCycle(snapshot){
+            const e=this.engine,key=this.contextKey(snapshot);
+            if(e.autoProgressCycleKey===key)return;
+            e.autoProgressCycleKey=key;e.autoProgressRoundsSinceRun=0;
+            const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
+            const currentChat=this.fingerprintChat(snapshot?.fingerprint),handledChat=this.fingerprintChat(handled);
+            const sameContext=!!handled&&(!currentChat||!handledChat||currentChat===handledChat);
+            const restoredRun=sameContext&&this.backendHasContent(snapshot);
+            e.autoProgressHasRun=restoredRun;e.autoProgressLastSeenFingerprint=restoredRun?handled:'';e.autoProgressDueFingerprint=restoredRun?handled:'';
+        }
+        fingerprintParts(fingerprint){
+            try{const parsed=JSON.parse(String(fingerprint||''));return {chat:String(parsed?.[0]??''),id:Number(parsed?.[1]),swipe:Number(parsed?.[2]||0),digest:String(parsed?.[3]??'')};}
+            catch(_){return {chat:'',id:NaN,swipe:0,digest:''};}
+        }
+        sameFloor(left,right){
+            const a=this.fingerprintParts(left),b=this.fingerprintParts(right);
+            return !!a.chat&&a.chat===b.chat&&Number.isFinite(a.id)&&a.id===b.id;
+        }
+        duringExtraAnalysis(){
+            const e=this.engine,mvu=e.env.Mvu||e.host.Mvu;
+            try{return mvu?.isDuringExtraAnalysis?.()===true;}catch(_){return false;}
+        }
+        shouldSchedule(snapshot){
+            const e=this.engine;this.initializeCycle(snapshot);
+            const fingerprint=String(snapshot?.fingerprint||'');if(!fingerprint)return false;
+            const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
+            if(e.autoProgressLastSeenFingerprint===fingerprint)return e.autoProgressDueFingerprint===fingerprint&&handled!==fingerprint;
+            const previous=e.autoProgressLastSeenFingerprint;
+            if(previous&&this.sameFloor(previous,fingerprint)){
+                const wasDue=e.autoProgressDueFingerprint===previous;
+                e.autoProgressLastSeenFingerprint=fingerprint;
+                if(wasDue)e.autoProgressDueFingerprint=fingerprint;
+                return wasDue;
+            }
+            e.autoProgressLastSeenFingerprint=fingerprint;
+            if(e.autoProgressHasRun)e.autoProgressRoundsSinceRun++;
+            const due=!e.autoProgressHasRun||e.autoProgressRoundsSinceRun>=this.interval();
+            if(due)e.autoProgressDueFingerprint=fingerprint;
+            return due;
+        }
+        markRun(snapshot){
+            const e=this.engine;if(snapshot)this.initializeCycle(snapshot);
+            e.autoProgressHasRun=true;e.autoProgressRoundsSinceRun=0;
+            if(snapshot?.fingerprint){e.autoProgressLastSeenFingerprint=String(snapshot.fingerprint);e.autoProgressDueFingerprint=String(snapshot.fingerprint);}
+        }
+        resetCycle(){
+            const e=this.engine;
+            e.autoProgressCycleKey='';e.autoProgressLastSeenFingerprint='';e.autoProgressDueFingerprint='';e.autoProgressRoundsSinceRun=0;e.autoProgressHasRun=false;e.autoProgressWaitingForVariable=false;
+        }
+        blocked(snapshot,baseReason=''){
+            if(snapshot?.stat?.系统状态?.是否战斗中===true)return '战斗中，世界推进暂停';
+            return baseReason;
+        }
+        schedule(source='variable-update',attempt=0){
+            const e=this.engine;
+            if(e.config.autoProgress!==true){if(e.timer){clearTimeout(e.timer);e.timer=null;}return;}
+            if(e.disposed||e.committing||!e.isEnabled())return;
+            if(e.busy){e.pending=true;return;}
+            const trigger=String(source||'variable-update'),proseTrigger=trigger==='generation-ended'||trigger==='message-received';
+            const tries=Math.max(0,Number(attempt)||0);
+            if(proseTrigger&&this.duringExtraAnalysis()){
+                e.autoProgressWaitingForVariable=true;clearTimeout(e.timer);
+                if(tries<120)e.timer=setTimeout(()=>{e.timer=null;this.schedule(trigger,tries+1);},1000);
+                return;
+            }
+            e.autoProgressWaitingForVariable=false;clearTimeout(e.timer);
+            const delay=proseTrigger?(tries>0?250:800):900;
+            e.timer=setTimeout(()=>{
+                e.timer=null;
+                if(e.config.autoProgress!==true||e.disposed||e.committing||!e.isEnabled())return;
+                if(e.busy){e.pending=true;return;}
+                if(proseTrigger&&this.duringExtraAnalysis()){
+                    e.autoProgressWaitingForVariable=true;
+                    if(tries<120)e.timer=setTimeout(()=>{e.timer=null;this.schedule(trigger,tries+1);},1000);
+                    return;
+                }
+                let snapshot;
+                try{snapshot=e.snapshot();}
+                catch(_){
+                    if(proseTrigger&&tries<4)e.timer=setTimeout(()=>{e.timer=null;this.schedule(trigger,tries+1);},250);
+                    return;
+                }
+                e.autoProgressWaitingForVariable=false;
+                const reason=e.blocked(snapshot);
+                if(reason){e.status=reason;e.render();return;}
+                if(!this.shouldSchedule(snapshot))return;
+                e.run({automatic:true}).catch(()=>{});
+            },delay);
+        }
+        async aroundRun(next,_options={}){
+            let snapshot=null;try{snapshot=this.engine.snapshot();}catch(_){}
+            const result=await next();
+            if(result===true)this.markRun(snapshot);
+            return result;
+        }
+        toggle(){
+            const e=this.engine;e.config.autoProgress=!e.config.autoProgress;
+            if(!e.config.autoProgress){
+                if(e.timer){clearTimeout(e.timer);e.timer=null;}e.pending=false;e.status='自动推进已关闭 · 可手动推进';
+            }else{this.resetCycle();e.status='自动推进已开启';}
+            e.saveConfig();e.render(true);return e.config.autoProgress;
+        }
+        mountTopControl(){
+            const e=this.engine;if(!e.panel)return;
+            const header=e.panel.querySelector('header'),run=header?.querySelector('[data-action="run"]');if(!header||!run)return;
+            let button=header.querySelector('[data-auto-progress-toggle-top]');
+            if(!button){
+                button=e.host.document.createElement('button');button.type='button';button.className='we-btn we-switch';button.dataset.autoProgressToggleTop='';
+                run.insertAdjacentElement('beforebegin',button);
+                button.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();this.toggle();});
+            }
+            button.classList.toggle('on',e.config.autoProgress===true);button.setAttribute('aria-pressed',String(e.config.autoProgress===true));
+            button.title=e.config.autoProgress?'自动推进已开启':'自动推进已关闭';
+            button.innerHTML='<span>自动推进</span><span class="we-switch-track"><i></i></span>';
+        }
+        mountIntervalSetting(){
+            const e=this.engine;if(e.tab!=='请求检查'||!e.panel)return;
+            const main=e.panel.querySelector('main');if(!main)return;
+            let section=main.querySelector('[data-auto-progress-interval-setting]');
+            if(!section){
+                section=e.host.document.createElement('section');section.className='we-section';section.dataset.autoProgressIntervalSetting='';
+                const retry=[...main.querySelectorAll('.we-section')].find(item=>item.querySelector('.we-section-head h2')?.textContent?.trim()==='失败自动重试');
+                if(retry)main.insertBefore(section,retry);else main.prepend(section);
+            }
+            const enabled=e.config.autoProgress===true,interval=this.interval();
+            section.innerHTML='<div class="we-section-head"><h2>自动推进频率</h2><small>正文轮次</small></div>'
+                +'<div class="we-config-row"><label>推进间隔 <input data-auto-progress-interval type="number" min="1" max="20" value="'+interval+'" '+(enabled?'':'disabled')+'> 轮</label><span class="we-muted">'
+                +(enabled?'首次符合条件、或检测到世界后台尚未建立时立即推进；之后按正文回复轮次触发。2 = 第1、3、5…次正文后推进；1 = 每轮推进。战斗中不计轮数。':'自动推进已关闭，此设置不参与调度。')+'</span></div>';
+            const input=section.querySelector('[data-auto-progress-interval]');
+            input?.addEventListener('change',()=>{
+                const value=Math.max(1,Math.min(20,Number(input.value)||2));
+                e.config.autoProgressInterval=Math.round(value);input.value=String(e.config.autoProgressInterval);
+                this.resetCycle();e.saveConfig();e.status='自动推进间隔已设为 '+e.config.autoProgressInterval+' 轮';e.render(true);
+            });
+        }
+        afterRender(){
+            this.engine.panel?.querySelector('[data-auto-progress-setting]')?.remove();
+            this.mountTopControl();this.mountIntervalSetting();
+        }
+    }
+    class WorldReplayService {
+        constructor(engine){this.engine=engine;}
+        initialize(){
+            const e=this.engine;
+            e.autoProgressTriggerEventsBound=false;e.autoProgressWaitingForVariable=false;e.worldReplayEventBound=false;
+            e.worldReplayPendingFingerprint='';e.worldReplayManualForce=false;e.worldReplayImmediateRetrying=false;e.worldReplayIdleWaiters=[];
+        }
+        fingerprintParts(fingerprint){
+            try{const parsed=JSON.parse(String(fingerprint||''));return {chat:String(parsed?.[0]??''),id:Number(parsed?.[1]),swipe:Number(parsed?.[2]||0),digest:String(parsed?.[3]??'')};}
+            catch(_){return {chat:'',id:NaN,swipe:0,digest:''};}
+        }
+        sameFloor(left,right){
+            const a=this.fingerprintParts(left),b=this.fingerprintParts(right);
+            return !!a.chat&&a.chat===b.chat&&Number.isFinite(a.id)&&a.id===b.id;
+        }
+        currentMessage(){
+            const e=this.engine,getMessages=e.fn('getChatMessages');if(!getMessages)return null;
+            let message;try{message=getMessages(-1)?.[0];}catch(_){return null;}
+            if(!message)return null;
+            const id=Number(message.message_id!=null?message.message_id:message.id);
+            if(!Number.isInteger(id)||id<0)return null;
+            const role=String(message.role||'').toLowerCase();if(role==='user'||message.is_user===true)return null;
+            const text=String(message.message!=null?message.message:message.mes||'');if(!text.trim())return null;
+            const chatFn=e.fn('getCurrentChatId');let chat='';
+            try{chat=String(chatFn?chatFn():(e.host.SillyTavern?.getContext?.()?.chatId??''));}catch(_){}
+            if(!chat)return null;
+            return {id,message,text,fingerprint:JSON.stringify([chat,id,message.swipe_id||0,digest(text)])};
+        }
+        pathAllowed(path){
+            if(!Array.isArray(path)||!path.length||path.some(key=>forbidden.has(String(key))))return false;
+            return WORLD_REPLAY_SCOPES.some(scope=>scope.every((key,index)=>path[index]===key));
+        }
+        atomicPath(path){
+            if(path[0]==='世界'&&path[1]===PATH&&path.length>=4)return true;
+            if(path[0]==='世界'&&['势力','探索'].includes(path[1])&&path.length>=3)return true;
+            if(path[0]==='世界'&&path[1]==='因果轨道'&&path[2]==='偏移记录'&&path.length>=4)return true;
+            if(path[0]==='传闻'&&path.length>=3)return true;
+            if(path[0]==='资产'&&path.length>=2)return true;
+            if(path[0]==='关系列表'&&path.length>=3)return true;
+            return false;
+        }
+        collect(before,after,path,operations){
+            if(same(before,after))return;
+            if(after===undefined){operations.push({op:'remove',path:copy(path)});return;}
+            if(before===undefined||this.atomicPath(path)||!plain(before)||!plain(after)){operations.push({op:'set',path:copy(path),value:copy(after)});return;}
+            const keys=new Set([...Object.keys(before),...Object.keys(after)]);
+            for(const key of keys){if(!forbidden.has(key))this.collect(before[key],after[key],path.concat(key),operations);}
+        }
+        buildPackage(beforeStat,afterStat,fingerprint){
+            if(!plain(beforeStat)||!plain(afterStat)||!fingerprint)return null;
+            const operations=[];for(const scope of WORLD_REPLAY_SCOPES)this.collect(get(beforeStat,scope),get(afterStat,scope),scope,operations);
+            return operations.length?{version:WORLD_REPLAY_VERSION,fingerprint:String(fingerprint),operations}:null;
+        }
+        applyPackage(stat,packageValue){
+            if(!plain(stat)||!plain(packageValue)||packageValue.version!==WORLD_REPLAY_VERSION||!Array.isArray(packageValue.operations))return false;
+            for(const operation of packageValue.operations){
+                const path=Array.isArray(operation?.path)?operation.path.map(String):[];
+                if(!this.pathAllowed(path)||!['set','remove'].includes(operation?.op))return false;
+            }
+            for(const operation of packageValue.operations){
+                const path=operation.path.map(String);let parent=stat;
+                for(const key of path.slice(0,-1)){if(!plain(parent[key]))parent[key]={};parent=parent[key];}
+                const key=path.at(-1);if(operation.op==='remove')delete parent[key];else parent[key]=copy(operation.value);
+            }
+            return true;
+        }
+        markEventInternal(){
+            const target=this.engine.host;if(!target)return;
+            const had=Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target.__samsaraUIMutation;
+            target.__samsaraUIMutation=true;
+            setTimeout(()=>{try{if(had)target.__samsaraUIMutation=previous;else delete target.__samsaraUIMutation;}catch(_){}},0);
+        }
+        reprocessContext(variables,before){
+            const e=this.engine;if(!plain(variables?.stat_data))return null;
+            const current=this.currentMessage();if(!current)return null;
+            const mvu=e.env.Mvu||e.host.Mvu;let raw;
+            try{raw=mvu?.getMvuData?.({type:'message',message_id:current.id});}catch(_){return null;}
+            if(!plain(raw)||plain(raw.stat_data))return null;
+            const beforeStat=plain(before?.stat_data)?before.stat_data:null,replay=raw.__samsaraWorldReplay;
+            const replayMatches=plain(replay)&&String(replay.fingerprint||'')===current.fingerprint;
+            const beforeHandled=String(beforeStat?.世界?.[PATH]?.已处理楼层||'');
+            if(!replayMatches&&beforeHandled!==current.fingerprint)return null;
+            return {current,raw,mvu,beforeStat};
+        }
+        setCycleRecovered(fingerprint,stat){
+            const e=this.engine,auto=e.services?.autoProgress;
+            e.autoProgressCycleKey=auto?.contextKey({fingerprint,stat})||'';
+            e.autoProgressHasRun=true;e.autoProgressRoundsSinceRun=0;e.autoProgressLastSeenFingerprint=fingerprint;e.autoProgressDueFingerprint=fingerprint;
+        }
+        clearHandledForRetry(stat,fingerprint){
+            const state=stat?.世界?.[PATH];if(!plain(state))return;
+            if(!fingerprint||String(state.已处理楼层||'')===String(fingerprint)){state.已处理楼层='';state.已处理时间='';}
+        }
+        legacyPackage(context,variables){
+            const beforeStat=context?.beforeStat;
+            if(!plain(beforeStat)||!plain(variables?.stat_data))return null;
+            if(String(beforeStat?.世界?.[PATH]?.已处理楼层||'')!==context.current.fingerprint)return null;
+            return this.buildPackage(variables.stat_data,beforeStat,context.current.fingerprint);
+        }
+        waitForIdle(){
+            const e=this.engine;if(!e.busy)return Promise.resolve();
+            if(!Array.isArray(e.worldReplayIdleWaiters))e.worldReplayIdleWaiters=[];
+            return new Promise(resolve=>e.worldReplayIdleWaiters.push(resolve));
+        }
+        resolveIdleWaiters(){
+            const e=this.engine,waiters=Array.isArray(e.worldReplayIdleWaiters)?e.worldReplayIdleWaiters.splice(0):[];
+            for(const resolve of waiters){try{resolve();}catch(_){}}
+        }
+        async immediateRetry(context,variables){
+            const e=this.engine;
+            if(!context?.mvu?.replaceMvuData||!plain(variables?.stat_data))return false;
+            if(e.busy){e.cancel();await this.waitForIdle();}
+            if(e.disposed||e.config.autoProgress!==true||!e.isEnabled())return false;
+            const seed=Object.assign({},copy(context.raw),copy(variables));
+            this.clearHandledForRetry(seed.stat_data,context.current.fingerprint);delete seed.__samsaraWorldReplay;this.markEventInternal();
+            const previous=e.worldReplayImmediateRetrying===true;e.worldReplayImmediateRetrying=true;
+            try{await context.mvu.replaceMvuData(seed,{type:'message',message_id:context.current.id});}
+            finally{e.worldReplayImmediateRetrying=previous;}
+            const result=await e.run({automatic:true});if(result!==true)return false;
+            let finalRaw;try{finalRaw=context.mvu.getMvuData({type:'message',message_id:context.current.id});}catch(_){finalRaw=null;}
+            if(plain(finalRaw?.stat_data))variables.stat_data=copy(finalRaw.stat_data);
+            if(finalRaw&&Object.prototype.hasOwnProperty.call(finalRaw,'__samsaraWorldReplay'))variables.__samsaraWorldReplay=copy(finalRaw.__samsaraWorldReplay);
+            return true;
+        }
+        async handleVariableEvent(variables,before){
+            const e=this.engine;
+            if(e.worldReplayImmediateRetrying===true)return false;
+            const context=this.reprocessContext(variables,before);
+            if(context){
+                const stored=context.raw.__samsaraWorldReplay,valid=plain(stored)&&String(stored.fingerprint||'')===context.current.fingerprint;
+                const legacy=!valid?this.legacyPackage(context,variables):null,replay=valid?stored:legacy;
+                if(replay&&this.applyPackage(variables.stat_data,replay)){
+                    this.markEventInternal();variables.__samsaraWorldReplay=copy(replay);this.setCycleRecovered(context.current.fingerprint,variables.stat_data);
+                    e.status=legacy?'已从旧楼状态重建并恢复世界推进结果 · 未重新调用 AI':'已恢复本楼世界推进结果 · 未重新调用 AI';e.render();return true;
+                }
+                this.clearHandledForRetry(variables.stat_data,context.current.fingerprint);delete variables.__samsaraWorldReplay;this.setCycleRecovered(context.current.fingerprint,variables.stat_data);
+                if(e.config.autoProgress===true&&e.isEnabled()){
+                    e.status='变量已重处理 · 正在重新推进本楼';e.render();
+                    return await this.immediateRetry(context,variables);
+                }
+                e.status=e.config.autoProgress!==true?'变量已重处理 · 旧楼缺少恢复快照；自动推进已关闭，请手动推进':'变量已重处理 · 世界推进已关闭，未自动重建';
+                e.render();return false;
+            }
+            if(!plain(variables))return false;
+            const pending=String(e.worldReplayPendingFingerprint||''),handled=String(variables?.stat_data?.世界?.[PATH]?.已处理楼层||'');
+            if(pending&&handled===pending&&plain(before?.stat_data)&&plain(variables.stat_data)){
+                const replay=this.buildPackage(before.stat_data,variables.stat_data,pending);
+                if(replay)variables.__samsaraWorldReplay=replay;
+                if(e.worldReplayManualForce)this.markEventInternal();
+                return !!replay;
+            }
+            const timeHandled=await e.services?.timeOwnership?.afterReplayVariableEvent?.(variables,before,false);
+            return timeHandled===true;
+        }
+        adjustSnapshot(snapshot){
+            const e=this.engine;
+            if(e.worldReplayManualForce&&snapshot?.fingerprint&&snapshot?.stat?.世界?.[PATH]?.已处理楼层===snapshot.fingerprint){
+                snapshot.stat.世界[PATH].已处理楼层='';snapshot.stat.世界[PATH].已处理时间='';
+            }
+            return snapshot;
+        }
+        async aroundRun(next,options={}){
+            const e=this.engine;let current=null;
+            try{current=e.snapshot();}catch(_){}
+            const fingerprint=String(current?.fingerprint||''),automatic=plain(options)&&options.automatic===true;
+            const previousPending=e.worldReplayPendingFingerprint,previousManual=e.worldReplayManualForce;
+            e.worldReplayPendingFingerprint=fingerprint;e.worldReplayManualForce=!automatic;
+            try{return await next();}
+            finally{e.worldReplayPendingFingerprint=previousPending;e.worldReplayManualForce=previousManual;this.resolveIdleWaiters();}
+        }
+        afterInit(){this.bindEvents();}
+        bindEvents(){
+            const e=this.engine,on=e.fn('eventOn'),events=e.env.tavern_events||e.host.tavern_events||{};
+            if(!e.autoProgressTriggerEventsBound&&on&&events){
+                const bindAuto=(event,source)=>{
+                    if(!event)return false;
+                    const off=on(event,()=>e.schedule(source));
+                    if(typeof off==='function')e.unsub.push(off);else if(off&&off.stop)e.unsub.push(()=>off.stop());
+                    return true;
+                };
+                let bound=false;bound=bindAuto(events.GENERATION_ENDED,'generation-ended')||bound;bound=bindAuto(events.MESSAGE_RECEIVED,'message-received')||bound;
+                if(bound)e.autoProgressTriggerEventsBound=true;
+            }
+            if(!e.worldReplayEventBound){
+                const mvu=e.env.Mvu||e.host.Mvu,first=e.fn('eventMakeFirst')||on,event=mvu?.events?.VARIABLE_UPDATE_ENDED;
+                if(first&&event){
+                    const off=first(event,(variables,before)=>Promise.resolve(this.handleVariableEvent(variables,before)).catch(error=>{try{console.error('[世界推进 replay]',error);}catch(_){}throw error;}));
+                    if(typeof off==='function')e.unsub.push(off);else if(off&&off.stop)e.unsub.push(()=>off.stop());
+                    e.worldReplayEventBound=true;
+                }
+            }
+        }
+    }
+    class WorldTimeOwnershipFeature extends WorldRequestFeature {
+        constructor(engine){super(engine);}
+        async afterBuildRequest(request,base){
+            try{
+                const payload=JSON.parse(request.input),needsInitialization=worldTimeUnset(base?.stat?.世界?.时间);
+                payload.世界时间维护={
+                    当前时间:String(base?.stat?.世界?.时间||''),
+                    是否需要初始化:needsInitialization,
+                    所有权:'世界推进独占写入；变量 AI 只读',
+                    初始化锚定:needsInitialization?{
+                        任务世界:String(base?.stat?.世界?.名称||''),
+                        当前阶段:String(base?.stat?.世界?.因果轨道?.当前阶段||''),
+                        当前地点:String(base?.stat?.世界?.地点||''),
+                        依据顺序:['最新已确认正文','当前阶段与当前地点','已读取时间线/年表/章节资料','模型已有原著知识','谨慎推断'],
+                        禁止:'不得把下一宏观节点、任务期限或未来事件的日期直接当成当前世界时间；无法唯一定位时保持较粗时间精度。'
+                    }:undefined,
+                    正文时间职责:'若最新正文明确发生过夜、数小时后、次日、跨日旅行或新的日期/时段，必须输出顶层“时间”同步世界时钟；不能保留旧时钟再提交已经发生于新时点的事实。',
+                    精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须是数字；不要用自定义月份名称替代数字月。',
+                    时间段候选:['凌晨','黎明','清晨','早晨','上午','中午','午后','下午','傍晚','入夜','晚上','深夜'],
+                    推进原则:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确时间资料表明确实经过合理时长才推进。'
+                };
+                request.input=JSON.stringify(payload,null,2);
+            }catch(_){}
+            request.schema=copy(WORLD_RESULT_SCHEMA);
+            if(request.manifest)request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
+            return request;
+        }
+        afterReplayVariableEvent(variables,before,handled){
+            const e=this.engine;
+            if(handled||e.committing||!e.isEnabled()||!plain(variables?.stat_data)||!plain(before?.stat_data))return handled;
+            const previous=String(before?.stat_data?.世界?.时间??''),incoming=String(variables?.stat_data?.世界?.时间??'');
+            if(previous===incoming)return handled;
+            const wasSpace=before?.stat_data?.系统状态?.是否在主神空间===true,isSpace=variables?.stat_data?.系统状态?.是否在主神空间===true;
+            if(wasSpace!==isSpace){
+                const enteringWorld=wasSpace&&!isSpace,returningToSpace=!wasSpace&&isSpace;
+                const mainSpaceTime=/^轮回历\d+年-\d{2}月-\d{2}日-(?:凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜)$/.test(incoming);
+                if((enteringWorld&&worldTimeUnset(incoming))||(returningToSpace&&mainSpaceTime))return handled;
+            }
+            if(!plain(variables.stat_data.世界))variables.stat_data.世界={};
+            variables.stat_data.世界.时间=previous;
+            return true;
+        }
+    }
+    class WorldNpcAuditPolicy {
+        constructor(engine){this.engine=engine;this.boundPanel=null;}
+        initialize(){
+            const e=this.engine,had=Object.hasOwn(e.config,'npcBuildAuditEnabled');
+            e.config.npcBuildAuditEnabled=e.config.npcBuildAuditEnabled===true;
+            this.sync();if(!had)e.saveConfig();
+        }
+        sync(){
+            const e=this.engine;
+            NPC_BUILD_AUDIT_FEATURE_ENABLED=e.config.npcBuildAuditEnabled===true;
+            this.syncWorldbookSelection();
+            return NPC_BUILD_AUDIT_FEATURE_ENABLED;
+        }
+        enabled(){return this.engine.config.npcBuildAuditEnabled===true;}
+        isWorldbook(entry){return ['实体生成规则','NPC生成规则','状态协议'].includes(normalizeWorldbookEntryTitle(entry.title));}
+        syncWorldbookSelection(catalogue=this.engine.bookCatalogue||[]){
+            const e=this.engine,matches=catalogue.filter(entry=>this.isWorldbook(entry));if(!matches.length)return;
+            const sync=settings=>{
+                if(!settings)return;
+                const previous=settings.selectedEntries;
+                let selected=Array.isArray(previous)?copy(previous):catalogue.filter(entry=>!entry.technical&&selectedEntryMatches(entry,previous)).map(entry=>JSON.stringify([entry.book,entry.id]));
+                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
+                if(this.enabled())for(const entry of matches)if(!entry.technical)selected.push(JSON.stringify([entry.book,entry.id]));
+                if(JSON.stringify(previous)!==JSON.stringify(selected))settings.selectedEntries=selected;
+            };
+            sync(e.config);sync(e.promptDraft);sync(e.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)?.settings);
+        }
+        async afterCatalogue(result){
+            const e=this.engine;e.bookCatalogue=result;this.syncWorldbookSelection(result);e.saveConfig();return result;
+        }
+        afterPromptSettings(){this.syncWorldbookSelection();this.engine.saveConfig();}
+        setEnabled(value){
+            const e=this.engine,wasBusy=!!e.busy;if(wasBusy)e.cancel();
+            e.config.npcBuildAuditEnabled=value===true;this.sync();e.saveConfig();
+            e.status=(e.config.npcBuildAuditEnabled?'NPC构筑审计已启用':'NPC构筑审计已关闭')+(wasBusy?' · 已停止当前推演':'');
+            e.render(true);return e.config.npcBuildAuditEnabled;
+        }
+        async afterBuildRequest(request){this.sync();return request;}
+        async aroundRun(next){
+            const e=this.engine;this.sync();
+            const samsara=e.host&&e.host.Samsara,validate=samsara&&samsara.validateWorldState;
+            if(typeof validate!=='function')return next();
+            const wrapped=function(stat){
+                const checked=validate.call(samsara,stat);
+                syncWorldStateDerivedSchemaFields(stat,checked);
+                return alignWorldStateSchemaOrder(checked,stat);
+            };
+            samsara.validateWorldState=wrapped;
+            try{return await next();}
+            finally{if(samsara.validateWorldState===wrapped)samsara.validateWorldState=validate;}
+        }
+        compactFooter(){
+            const e=this.engine;if(!e.panel)return;
+            const footer=e.panel.querySelector('footer');if(!footer)return;
+            if(e.style&&!e.style.textContent.includes('.we-footer-status{')){
+                e.style.textContent+='\n#sam-world-engine footer{align-items:center;min-width:0;overflow:hidden}\n'
+                    +'#sam-world-engine footer .we-footer-status{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n'
+                    +'#sam-world-engine footer .we-footer-meta{flex:0 0 auto;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}\n'
+                    +'@media(max-width:760px){#sam-world-engine footer .we-footer-meta{max-width:42%}}\n';
+            }
+            let status=footer.querySelector('.we-footer-status'),meta=footer.querySelector('.we-footer-meta');
+            if(!status){
+                const legacyStatus=footer.querySelector('span'),legacyMeta=footer.querySelector('small');
+                const rawStatus=String(legacyStatus?.textContent||e.status||'').trim(),rawMeta=String(legacyMeta?.textContent||'').trim();
+                status=e.host.document.createElement('span');status.className='we-footer-status';status.textContent=rawStatus;status.title=rawStatus;
+                meta=e.host.document.createElement('span');meta.className='we-footer-meta';
+                const version=rawMeta.match(/build\s*v?[\d.]+/i)||rawMeta.match(/\bv?\d+(?:\.\d+){1,3}\b/i);
+                meta.textContent=version?version[0]:'世界推进';meta.title=rawMeta;footer.replaceChildren(status,meta);
+            }else{
+                status.title=String(status.textContent||e.status||'').trim();
+                if(meta&&!meta.title)meta.title=String(meta.textContent||'').trim();
+            }
+        }
+        renderSetting(){
+            const e=this.engine;if(!e.panel)return;
+            const enabled=this.enabled(),main=e.panel.querySelector('main');if(!main)return;
+            main.querySelector('[data-npc-audit-setting]')?.remove();
+            if(e.tab==='设置'){
+                const block=e.host.document.createElement('section');block.className='we-section';block.setAttribute('data-npc-audit-setting','');
+                block.innerHTML='<div class="we-section-head"><h2>NPC构筑审计 <span class="we-pill future">实验性功能</span></h2><small>备选功能 · 默认关闭</small></div>'
+                    +'<div class="we-setting-row"><div class="we-setting-copy"><b>自动补全热 NPC 构筑</b><small>关闭时不扫描或补写职业、血统、装备、技能、形态；关系仍按实际剧情正常稀疏同步。开启后才对热 NPC 执行构筑缺口审计。实体生成规则、NPC生成规则、状态协议的资料勾选随此开关同步。</small></div>'
+                    +'<div class="we-setting-actions"><button class="we-setting-btn we-switch '+(enabled?'on':'')+'" data-action="npc-audit-toggle" aria-pressed="'+enabled+'"><span>'+(enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>';
+                const sections=Array.from(main.children),modelSection=sections.find(section=>section.querySelector?.('h2')?.textContent?.trim()==='模型接口');
+                main.insertBefore(block,modelSection||null);
+            }else if(e.tab==='角色管理'&&!enabled){
+                for(const note of main.querySelectorAll('.we-muted'))if(note.textContent.includes('进入世界推进请求的热人物会由后台优先补齐缺口'))note.textContent='自动构筑审计当前关闭；此处只显示诊断，可在“设置”中临时启用自动补全。';
+            }
+        }
+        bindPanel(){
+            const e=this.engine,panel=e.panel;if(!panel||this.boundPanel===panel)return;
+            this.boundPanel=panel;this.compactFooter();
+            panel.addEventListener('click',event=>{
+                const button=event.target?.closest?.('[data-action="npc-audit-toggle"]');
+                if(!button||!panel.contains(button))return;
+                this.setEnabled(!this.enabled());
+            });
+        }
+        afterRender(){this.renderSetting();this.compactFooter();}
+        dispose(){this.boundPanel=null;}
+    }
+    class WorldHistoryLifecycle {
+        constructor(engine){this.engine=engine;this.boundPanel=null;}
+        initialize(){
+            const e=this.engine;let dirty=false;
+            if(!Object.hasOwn(e.config,'sendHistoryToProse')){e.config.sendHistoryToProse=false;dirty=true;}
+            else e.config.sendHistoryToProse=e.config.sendHistoryToProse===true;
+            e.historyMaintenanceBusy=false;e.lastHistoryMaintenance='';
+            if(dirty)e.saveConfig();
+        }
+        setSendToProse(value){
+            const e=this.engine;e.config.sendHistoryToProse=value===true;e.saveConfig();e.render();return e.config.sendHistoryToProse;
+        }
+        proseMemory(stat){return projectWorldHistoryMemory(stat?.世界?.[PATH]||{});}
+        async requestSummary(world,batch,outputLevel){
+            const e=this.engine,saved=e.lastTransportInfo;
+            try{
+                const system=e.promptRegistry?.historySystem?.()||HISTORY_MEMORY_SYSTEM;
+                const input=e.promptRegistry?.historyInput?.(historyMemoryPrompt(world,batch,outputLevel))||historyMemoryPrompt(world,batch,outputLevel);
+                const raw=await e.requestAI(system,input,{schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2});
+                return historyMemoryParseReply(raw);
+            }finally{e.lastTransportInfo=saved;}
+        }
+        beforeWorldCommit(next,context={}){
+            const e=this.engine,summary=String(context.worldResult?.摘要||context.reply?.summary||e.lastWorldResult?.摘要||'').trim();
+            const messageId=Number(context.messageId),backend=next?.世界?.[PATH];
+            if(!summary||!Number.isInteger(messageId)||!plain(backend))return false;
+            if(!plain(backend.历史))backend.历史={};if(!plain(backend.历史总结))backend.历史总结={};
+            const key=historyMemoryLeafKey(messageId),record={时间:String(next.世界?.时间||backend.已处理时间||context.baseStat?.世界?.时间||''),事实:summary,关联事件:[]};
+            const previous=backend.历史[key];
+            if(plain(previous)&&String(previous.时间||'')===record.时间&&String(previous.事实||'')===record.事实)return false;
+            backend.历史[key]=record;
+            const invalidated=historyMemoryInvalidateAncestors(backend,'历史:'+key);
+            e.lastHistoryMaintenance='近期历史已更新'+(invalidated.length?' · 旧总结失效 '+invalidated.length+' 个':'');
+            return true;
+        }
+        async maintain(){
+            const e=this.engine;if(e.historyMaintenanceBusy)return 0;
+            e.historyMaintenanceBusy=true;
+            const previousStatus=e.status;let made=0,failed='';
+            try{
+                const snapshot=e.snapshot(),stat=copy(snapshot.stat),backend=stat?.世界?.[PATH];
+                if(!plain(backend))return 0;
+                if(!plain(backend.历史总结))backend.历史总结={};
+                const startDigest=historyMemoryDigest(backend);
+                for(let level=0;level<32;level++){
+                    const batch=historyMemoryBatchForLevel(backend,level);if(!batch.length)continue;
+                    const outputLevel=level+1;e.status='整理长期历史记忆 · L'+outputLevel;e.render();
+                    let summary='';
+                    try{summary=await this.requestSummary(stat.世界,batch,outputLevel);}
+                    catch(error){failed=String(error?.message||error);break;}
+                    const key=historyMemoryNextKey(backend,outputLevel);
+                    backend.历史总结[key]={
+                        层级:outputLevel,摘要:summary,子项:batch.map(node=>node.id),
+                        起始时间:String(batch.find(node=>node.timeStart)?.timeStart||''),
+                        结束时间:String([...batch].reverse().find(node=>node.timeEnd)?.timeEnd||''),
+                        起始序位:Math.min(...batch.map(node=>Number(node.lo)||0).filter(n=>n>0)),
+                        结束序位:Math.max(...batch.map(node=>Number(node.hi)||0).filter(n=>n>0)),
+                        创建时间:String(stat.世界?.时间||'')
+                    };made++;
+                }
+                if(!made)return 0;
+                const current=e.snapshot(),currentBackend=current.stat?.世界?.[PATH];
+                if(historyMemoryDigest(currentBackend)!==startDigest){e.lastHistoryMaintenance='历史在总结期间已变化，本次总结结果丢弃，下轮重试';return 0;}
+                const validate=e.host.Samsara&&e.host.Samsara.validateWorldState,next=validate?validate(stat):stat,result=current.raw;
+                result.stat_data=next;e.committing=true;
+                await current.mvu.replaceMvuData(result,{type:'message',message_id:current.id});
+                e.lastHistoryMaintenance='新增 '+made+' 个历史总结节点';return made;
+            }finally{
+                e.committing=false;if(failed)e.lastHistoryMaintenance='历史总结稍后重试：'+failed;
+                e.status=previousStatus+(made?' · 历史总结+'+made:(failed?' · 历史总结待重试':''));
+                e.render();e.historyMaintenanceBusy=false;
+            }
+        }
+        async aroundRun(next){
+            const e=this.engine,result=await next();
+            if(result===true){
+                try{await this.maintain();}
+                catch(error){e.lastHistoryMaintenance='历史总结稍后重试：'+String(error?.message||error);try{console.warn('[世界推进] '+e.lastHistoryMaintenance);}catch(_){}}
+            }
+            return result;
+        }
+        bindPanel(){
+            const e=this.engine,panel=e.panel;if(!panel||this.boundPanel===panel)return;
+            this.boundPanel=panel;
+            panel.addEventListener('click',event=>{
+                const button=event.target?.closest?.('[data-action="history-prose-toggle"]');
+                if(!button||!panel.contains(button))return;
+                event.preventDefault();this.setSendToProse(e.config.sendHistoryToProse!==true);
+            });
+        }
+        dispose(){this.boundPanel=null;}
     }
     class WorldSoftMaintenanceFeature extends WorldRequestFeature {
         async afterBuildRequest(request,_base){
@@ -7835,6 +7511,17 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
     ].join('\n');
     const WORLD_PROMPT_HISTORY_INPUT='按给定顺序压缩；时间字段是权威锚点，不得改写或补造。';
+    const WORLD_PROMPT_WORLD_TIME_INPUT=JSON.stringify({
+        所有权:'世界推进独占写入；变量 AI 只读',
+        初始化锚定:{
+            依据顺序:['最新已确认正文','当前阶段与当前地点','已读取时间线/年表/章节资料','模型已有原著知识','谨慎推断'],
+            禁止:'不得把下一宏观节点、任务期限或未来事件的日期直接当成当前世界时间；无法唯一定位时保持较粗时间精度。'
+        },
+        正文时间职责:'若最新正文明确发生过夜、数小时后、次日、跨日旅行或新的日期/时段，必须输出顶层“时间”同步世界时钟；不能保留旧时钟再提交已经发生于新时点的事实。',
+        精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须是数字；不要用自定义月份名称替代数字月。',
+        时间段候选:['凌晨','黎明','清晨','早晨','上午','中午','午后','下午','傍晚','入夜','晚上','深夜'],
+        推进原则:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确时间资料表明确实经过合理时长才推进。'
+    },null,2);
     const WORLD_PROMPT_INPUT_SEMANTICS=JSON.stringify({
         世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
         当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；未提供的任务/商城/纯结算数据不属于本引擎职责。',
@@ -7886,6 +7573,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 def({key:'rumorSourceBoundary',title:'传闻取材边界',group:'请求内指令',source:'59-rumor-world-request.part.js / 取材边界',scope:'user payload',condition:'每次传闻维护请求',defaultValue:()=>WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY}),
                 def({key:'alienReviewGuidance',title:'活跃异端复核要求',group:'请求内指令',source:'59-alien-activity-normalization.part.js',scope:'user payload',condition:'活跃异端命中复核触发器时',defaultValue:()=>WORLD_PROMPT_ALIEN_REVIEW}),
                 def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'59-world-activity-delivery.part.js / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
+                def({key:'worldTimeInputGuidance',title:'世界时间维护 · 请求内指令',group:'请求内指令',source:'WorldTimeOwnershipFeature / 世界时间维护',scope:'user payload JSON',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_TIME_INPUT}),
                 def({key:'historyInputGuidance',title:'历史压缩输入说明',group:'辅助模型',source:'historyMemoryPrompt()',scope:'user payload',condition:'历史记忆达到自动压缩阈值时',defaultValue:()=>WORLD_PROMPT_HISTORY_INPUT}),
                 def({key:'retryAcceptedWithPlan',title:'纠错重试 · 已接受结果 + 补充清单',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且已有部分业务结果通过，并存在补充清单时',defaultValue:()=>WORLD_PROMPT_RETRY_ACCEPTED_PLAN}),
                 def({key:'retryAccepted',title:'纠错重试 · 已接受结果',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且已有部分业务结果通过，但没有补充清单时',defaultValue:()=>WORLD_PROMPT_RETRY_ACCEPTED}),
@@ -7955,7 +7643,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         apply(value,{save=true}={}){
             const normalized=this.normalize(value);
             for(const item of this._definitions)if(normalized[item.key].length>30000)throw new Error(item.title+'限30000字');
-            for(const key of ['inputSemantics','chronologyPrinciples']){
+            for(const key of ['inputSemantics','chronologyPrinciples','worldTimeInputGuidance']){
                 let parsed=null;try{parsed=JSON.parse(normalized[key]);}catch(_){throw new Error(this._definitions.find(x=>x.key===key)?.title+'必须是合法 JSON 对象');}
                 if(!plain(parsed))throw new Error(this._definitions.find(x=>x.key===key)?.title+'必须是 JSON 对象');
             }
@@ -8044,6 +7732,19 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(plain(payload.传闻维护)&&Object.hasOwn(payload.传闻维护,'取材边界'))payload.传闻维护.取材边界=this.value('rumorSourceBoundary');
             if(Array.isArray(payload.本轮必须维持的异端活动))for(const item of payload.本轮必须维持的异端活动)if(plain(item))item.要求=this.value('alienReviewGuidance');
             if(plain(payload.本轮世界活动交付))payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+            if(plain(payload.世界时间维护)){
+                try{
+                    const configured=JSON.parse(this.value('worldTimeInputGuidance'));
+                    if(plain(configured)){
+                        if(Object.hasOwn(configured,'所有权'))payload.世界时间维护.所有权=configured.所有权;
+                        if(plain(configured.初始化锚定)&&plain(payload.世界时间维护.初始化锚定)){
+                            if(Array.isArray(configured.初始化锚定.依据顺序))payload.世界时间维护.初始化锚定.依据顺序=configured.初始化锚定.依据顺序;
+                            if(Object.hasOwn(configured.初始化锚定,'禁止'))payload.世界时间维护.初始化锚定.禁止=configured.初始化锚定.禁止;
+                        }
+                        for(const key of ['正文时间职责','精确日期格式','时间段候选','推进原则'])if(Object.hasOwn(configured,key))payload.世界时间维护[key]=copy(configured[key]);
+                    }
+                }catch(_){}
+            }
             return JSON.stringify(payload,null,2);
         }
         historySystem(){return this.value('historyMemory');}
@@ -8549,6 +8250,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             for(const feature of this.items.values())feature.initialize?.();
             return this;
         }
+        afterInit(result){
+            for(const feature of this.items.values())feature.afterInit?.(result);
+            return result;
+        }
         bindPanel(){
             for(const feature of this.items.values())feature.bindPanel?.();
         }
@@ -8574,12 +8279,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }
             return current;
         }
-        async run(next){
+        async run(next,options={}){
             let runner=next;
             for(const feature of Array.from(this.items.values()).reverse()){
                 if(typeof feature.aroundRun!=='function')continue;
                 const downstream=runner;
-                runner=()=>feature.aroundRun(downstream);
+                runner=()=>feature.aroundRun(downstream,options);
             }
             return runner();
         }
@@ -8602,6 +8307,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.exploration=new WorldExplorationService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
+            this.autoProgress=new WorldAutoProgressController(engine);
+            this.replay=new WorldReplayService(engine);
+            this.timeOwnership=new WorldTimeOwnershipFeature(engine);
+            this.npcAuditPolicy=new WorldNpcAuditPolicy(engine);
+            this.historyLifecycle=new WorldHistoryLifecycle(engine);
             this.views=new WorldEngineViewRegistry(engine);
             this.prompts=new WorldPromptRegistry(engine);
             this.editorController=new WorldEditorController(engine);
@@ -8616,6 +8326,13 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.taskAwareness=new WorldTaskAwarenessFeature(engine);
             this.chronology=new WorldChronologyFeature(engine);
             this.rumorRequest=new WorldRumorRequestFeature(engine);
+            // Stateful wrappers are registered first so run composition preserves the former
+            // history > replay > auto-progress > policy nesting without inheritance.
+            this.features.register('historyLifecycle',this.historyLifecycle);
+            this.features.register('replay',this.replay);
+            this.features.register('autoProgress',this.autoProgress);
+            this.features.register('npcAuditPolicy',this.npcAuditPolicy);
+            this.features.register('timeOwnership',this.timeOwnership);
             this.features.register('npcAuditPrompt',this.npcAuditPrompt);
             this.features.register('apiPreset',this.apiPreset);
             this.features.register('causalOverview',this.causalOverview);
@@ -8759,6 +8476,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const prepared=this.promptRegistry.prepareSettings(settings);
             const result=super.applyPromptSettings(prepared);
             this.promptRegistry.apply(prepared.promptRegistry,{save:false});
+            this.services?.npcAuditPolicy?.afterPromptSettings?.();
             this.saveConfig();
             return result;
         }
@@ -8778,13 +8496,63 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.saveConfig();
             return doc;
         }
+        init(){
+            const result=super.init();
+            this.services?.features?.afterInit?.(result);
+            return result;
+        }
+        snapshot(){
+            const snapshot=super.snapshot();
+            return this.services?.replay?.adjustSnapshot?.(snapshot)||snapshot;
+        }
+        blocked(snapshot){
+            const base=super.blocked(snapshot);
+            return this.services?.autoProgress?.blocked?.(snapshot,base)??base;
+        }
+        schedule(source='variable-update',attempt=0){
+            if(this.services?.autoProgress)return this.services.autoProgress.schedule(source,attempt);
+            return super.schedule();
+        }
+        toggleAutoProgress(){return this.services?.autoProgress?.toggle?.();}
+        autoProgressIntervalValue(){return this.services?.autoProgress?.interval?.()??2;}
+        autoProgressContextKey(snapshot){return this.services?.autoProgress?.contextKey?.(snapshot)||'';}
+        autoProgressShouldSchedule(snapshot){return this.services?.autoProgress?.shouldSchedule?.(snapshot)===true;}
+        initializeAutoProgressCycle(snapshot){return this.services?.autoProgress?.initializeCycle?.(snapshot);}
+        markAutoProgressRun(snapshot){return this.services?.autoProgress?.markRun?.(snapshot);}
+        resetAutoProgressCycle(){return this.services?.autoProgress?.resetCycle?.();}
+        autoProgressDuringExtraAnalysis(){return this.services?.autoProgress?.duringExtraAnalysis?.()===true;}
+        autoProgressSameFloor(left,right){return this.services?.autoProgress?.sameFloor?.(left,right)===true;}
+        worldReplayCurrentMessage(){return this.services?.replay?.currentMessage?.()||null;}
+        worldReplayPathAllowed(path){return this.services?.replay?.pathAllowed?.(path)===true;}
+        worldReplayAtomicPath(path){return this.services?.replay?.atomicPath?.(path)===true;}
+        worldReplayCollect(before,after,path,operations){return this.services?.replay?.collect?.(before,after,path,operations);}
+        buildWorldReplayPackage(before,after,fingerprint){return this.services?.replay?.buildPackage?.(before,after,fingerprint)||null;}
+        applyWorldReplayPackage(stat,packageValue){return this.services?.replay?.applyPackage?.(stat,packageValue)===true;}
+        worldReplayMarkEventInternal(){return this.services?.replay?.markEventInternal?.();}
+        worldReplayReprocessContext(variables,before){return this.services?.replay?.reprocessContext?.(variables,before)||null;}
+        worldReplaySetCycleRecovered(fingerprint,stat){return this.services?.replay?.setCycleRecovered?.(fingerprint,stat);}
+        worldReplayClearHandledForRetry(stat,fingerprint){return this.services?.replay?.clearHandledForRetry?.(stat,fingerprint);}
+        worldReplayLegacyPackage(context,variables){return this.services?.replay?.legacyPackage?.(context,variables)||null;}
+        worldReplayWaitForIdle(){return this.services?.replay?.waitForIdle?.()||Promise.resolve();}
+        worldReplayResolveIdleWaiters(){return this.services?.replay?.resolveIdleWaiters?.();}
+        worldReplayImmediateRetry(context,variables){return this.services?.replay?.immediateRetry?.(context,variables)||Promise.resolve(false);}
+        handleWorldReplayVariableEvent(variables,before){return this.services?.replay?.handleVariableEvent?.(variables,before)||false;}
+        syncNpcBuildAuditFeature(){return this.services?.npcAuditPolicy?.sync?.()===true;}
+        isNpcBuildAuditEnabled(){return this.services?.npcAuditPolicy?.enabled?.()===true;}
+        isNpcAuditWorldbook(entry){return this.services?.npcAuditPolicy?.isWorldbook?.(entry)===true;}
+        syncNpcAuditWorldbookSelection(catalogue){return this.services?.npcAuditPolicy?.syncWorldbookSelection?.(catalogue);}
+        setNpcBuildAuditEnabled(value){return this.services?.npcAuditPolicy?.setEnabled?.(value);}
+        setSendHistoryToProse(value){return this.services?.historyLifecycle?.setSendToProse?.(value);}
+        proseHistoryMemory(stat){return this.services?.historyLifecycle?.proseMemory?.(stat)||{};}
+        beforeWorldCommit(next,context={}){return this.services?.historyLifecycle?.beforeWorldCommit?.(next,context)===true;}
+        maintainHistoryMemory(){return this.services?.historyLifecycle?.maintain?.()||Promise.resolve(0);}
         async catalogue(){
             const result=await super.catalogue();
             return this.services?.features?.afterCatalogue?.(result)||result;
         }
-        async run(){
-            if(!this.services?.features)return super.run();
-            return this.services.features.run(()=>super.run());
+        async run(options={}){
+            if(!this.services?.features)return super.run(options);
+            return this.services.features.run(()=>super.run(options),options);
         }
         async buildRequest(base){
             this.promptRegistry?.syncLegacy();
@@ -8806,18 +8574,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return request;
         }
         async requestHistoryMemorySummary(world,batch,outputLevel){
-            if(!this.promptRegistry)return super.requestHistoryMemorySummary(world,batch,outputLevel);
-            const savedTransport=this.lastTransportInfo;
-            try{
-                const raw=await this.requestAI(
-                    this.promptRegistry.historySystem(),
-                    this.promptRegistry.historyInput(historyMemoryPrompt(world,batch,outputLevel)),
-                    {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
-                );
-                return historyMemoryParseReply(raw);
-            } finally {
-                this.lastTransportInfo=savedTransport;
-            }
+            if(this.services?.historyLifecycle)return this.services.historyLifecycle.requestSummary(world,batch,outputLevel);
+            throw new Error('历史记忆服务尚未初始化');
         }
         get dedicatedApiPresetSelection(){return this.services?.apiPreset?.selection||'';}
         set dedicatedApiPresetSelection(value){if(this.services?.apiPreset)this.services.apiPreset.selection=String(value||'');}

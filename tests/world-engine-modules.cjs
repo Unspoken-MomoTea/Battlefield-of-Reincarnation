@@ -25,6 +25,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldRequestBuilder.part.js',
   '@src/WorldEngine/domains/WorldStateProjector.part.js',
   '@src/WorldEngine/domains/WorldResultKernel.part.js',
+  '@src/WorldEngine/domains/WorldExplorationService.part.js',
   '@src/WorldEngine/domains/WorldResultContract.part.js',
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
   '@src/WorldEngine/domains/WorldResultMaterializer.part.js',
@@ -107,6 +108,12 @@ assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/class\s+WorldResultNormalizer\b/,'WorldResult normalization must have a dedicated class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/normalizeWorldResult\(value\)/,'normalizer class must own WorldResult normalization');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/mergeWorldResults\(base,incoming\)/,'normalizer class must own staged merge semantics');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultKernel.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldExplorationService.part.js'),'exploration service must load after shared WorldResult defaults');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldExplorationService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultContract.part.js'),'exploration compatibility seams must exist before WorldResult compilation services');
+assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/MICRO_EXPLORATION_SEGMENT|function\s+(?:explorationGranularity|repairExplorationGranularity)\b/,'exploration granularity implementation must leave the WorldResult kernel');
+assert.match(texts['@src/WorldEngine/domains/WorldExplorationService.part.js'],/class\s+WorldExplorationService\b/,'exploration granularity must live in the exploration domain service');
+assert.match(texts['@src/WorldEngine/domains/WorldExplorationService.part.js'],/repairGranularity\(stat\)/,'exploration service must own legacy granularity repair');
+assert.match(texts['@src/WorldEngine/domains/WorldExplorationService.part.js'],/let\s+ACTIVE_WORLD_EXPLORATION_SERVICE\s*=\s*DEFAULT_WORLD_EXPLORATION_SERVICE/,'legacy exploration seams must be backed by the active service');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultKernel.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultContract.part.js'),'contract must load after shared WorldResult constants');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultContract.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultNormalizer.part.js'),'contract must be initialized before downstream WorldResult services');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:schemaFromSample|namedEntitySchema)\b|const\s+WORLD_RESULT_SCHEMA\s*=/,'schema construction must leave the WorldResult kernel');

@@ -16,6 +16,9 @@ assert.equal(new Set(declared).size,declared.length,'build PARTS must not contai
 for(const moduleName of ['ui/00-styles.part.js','ui/10-world-tab.part.js','ui/20-people-tab.part.js','ui/30-exploration-tab.part.js','ui/40-archive-tabs.part.js','ui/50-settings-tab.part.js','ui/60-prompt-tab.part.js','ui/70-request-inspector.part.js','editor/00-world-mutations.part.js','editor/10-event-editor.part.js','editor/20-person-editor.part.js']){
   assert.ok(declared.includes(moduleName),`domain module must be registered: ${moduleName}`);
 }
+for(const moduleName of ['@src/WorldEngine/core/WorldEngineServiceContainer.part.js','@src/WorldEngine/core/WorldEngineClassBridge.part.js','@src/WorldEngine/prompts/WorldPromptRegistry.part.js']){
+  assert.ok(declared.includes(moduleName),`class source module must be registered: ${moduleName}`);
+}
 
 function sourcePartsUnder(base,relative=''){
   const out=[];
@@ -26,11 +29,17 @@ function sourcePartsUnder(base,relative=''){
   }
   return out;
 }
+const legacyDeclared=declared.filter(file=>!file.startsWith('@'));
+const srcDeclared=declared.filter(file=>file.startsWith('@'));
 const actual=sourcePartsUnder(dir).sort();
-assert.deepEqual([...declared].sort(),actual,'every world-engine source part, including nested domain modules, must be registered in the real build pipeline');
+assert.deepEqual([...legacyDeclared].sort(),actual,'every legacy world-engine source part must be registered in the real build pipeline');
+for(const file of srcDeclared){
+  assert.ok(fs.existsSync(path.join(root,file.slice(1))),`registered src module must exist: ${file}`);
+}
 
+const sourcePath=file=>file.startsWith('@')?path.join(root,file.slice(1)):path.join(dir,...file.split('/'));
 const texts=Object.fromEntries(declared.map(file=>{
-  const text=fs.readFileSync(path.join(dir,...file.split('/')),'utf8');
+  const text=fs.readFileSync(sourcePath(file),'utf8');
   assert.ok(text.length>0,`${file} must not be empty`);
   return [file,text];
 }));

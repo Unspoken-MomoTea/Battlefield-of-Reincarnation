@@ -21,6 +21,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldMutationService.part.js',
   'src/WorldEngine/domains/WorldEventService.part.js',
   'src/WorldEngine/domains/WorldPersonActivityService.part.js',
+  'src/WorldEngine/domains/WorldExplorationService.part.js',
   'src/WorldEngine/domains/WorldApiTransportService.part.js',
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
   'src/WorldEngine/domains/WorldRunOrchestrator.part.js',
@@ -82,6 +83,7 @@ assert.equal(engine.services.commit.constructor.name,'WorldCommitService');
 assert.equal(engine.services.mutations.constructor.name,'WorldMutationService');
 assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');
+assert.equal(engine.services.exploration.constructor.name,'WorldExplorationService');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
 

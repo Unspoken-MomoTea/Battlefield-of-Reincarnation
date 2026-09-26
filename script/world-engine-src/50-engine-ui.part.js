@@ -8,7 +8,6 @@
             this.panel.setAttribute('role','dialog');this.panel.setAttribute('aria-label','世界引擎');
             this.panel.innerHTML='<header><div class="we-brand"><i>◈</i>世界引擎<small>WORLD CHRONICLE</small></div><button class="we-btn we-primary" data-action="run">推进世界</button><button class="we-btn" data-action="close" aria-label="返回主神终端">返回 ↗</button></header><div class="we-layout"><nav></nav><main></main></div><footer><span></span><small>剧情时间驱动 · 由主神终端「世界推进」总开关控制</small></footer>';
             this.services?.bindPanel?.();
-            this.services.bindPanel();
             this.panel.addEventListener('click',event=>{
                 const button=event.target.closest('button');if(!button)return;
                 const a=button.dataset.action;

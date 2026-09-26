@@ -1,7 +1,9 @@
     class WorldValidationService {
-        constructor(engine){this.engine=engine;}
+        constructor(engine,policy){this.engine=engine;this.policy=policy||new WorldValidationPolicy();}
         validate(next,request,acceptedWorldResult,baseStat,options={}){
             const base=baseStat||{};
+            // Transitional compatibility: legacy runtime features still decorate these global seams.
+            // Their base implementations are owned by WorldValidationPolicy through ACTIVE_WORLD_VALIDATION_POLICY.
             ensureDueHandled(next,request?.due||[],base?.世界?.时间);
             ensureEventTimeAnchors(next,request?.unscheduled||[]);
             ensureStaleActiveHandled(next,request?.staleActive||[],base?.世界?.时间);
@@ -12,6 +14,6 @@
             return true;
         }
         progressionAnchorChanged(before,current){
-            return progressionAnchorChanged(before,current);
+            return this.policy.progressionAnchorChanged(before,current);
         }
     }

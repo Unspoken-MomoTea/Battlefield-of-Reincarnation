@@ -21,7 +21,7 @@
                 条件:String(event.条件||''),
                 前因:copy(event.前因||[]),
                 复核依据:review.来源,
-                说明:'软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。'
+                说明:worldPromptRuntimeValue('dueEventReview')
             });
         }
         return due;

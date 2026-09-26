@@ -9,6 +9,7 @@ for(const file of [
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   'src/WorldEngine/domains/WorldStateProjector.part.js',
   'src/WorldEngine/domains/WorldResultKernel.part.js',
+  'src/WorldEngine/domains/WorldResultContract.part.js',
   'src/WorldEngine/domains/WorldResultNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultCompiler.part.js',
   'src/WorldEngine/domains/WorldValidationService.part.js',
@@ -55,11 +56,13 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateProjector','resultNormalizer','compiler','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateProjector','resultContract','resultNormalizer','compiler','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
 assert.equal(engine.services.stateProjector.constructor.name,'WorldStateProjector');
+assert.equal(engine.services.resultContract.constructor.name,'WorldResultContract');
+assert.equal(engine.services.resultContract.schema,delivery.WORLD_RESULT_SCHEMA,'service contract must expose the canonical compatibility schema');
 assert.equal(engine.services.resultNormalizer.constructor.name,'WorldResultNormalizer');
 assert.equal(engine.services.compiler.constructor.name,'WorldResultCompiler');
 assert.equal(engine.services.compiler.normalizer,engine.services.resultNormalizer,'compiler must compose the container-owned normalizer');

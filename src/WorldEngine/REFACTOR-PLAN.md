@@ -105,3 +105,10 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 已新增 `WorldResultNormalizer`，把传闻可信度、结构化字段、命名列表、资产、关系、完整 WorldResult 归一化以及 staged result merge 的内部 helper 收进独立类。兼容层只保留 `normalizeWorldResult / mergeWorldResults` 两个函数 seam，供尚未迁移的 legacy feature 调用。
 
 `WorldEngineServiceContainer` 现在显式暴露 `resultNormalizer`，并把同一实例注入 `WorldResultCompiler`；Compiler 的 `normalize()` 不再直接依赖全局 helper。下一步继续把 Schema/Contract 与 materialize/patch compiler 从 Kernel 拆成独立类。
+
+
+### Phase 14 · WorldResult Schema Contract 类化
+
+已新增 `WorldResultContract`，集中构造 WorldResult 主 Schema、关系组件 Schema、资产 Schema、事件/人物/传闻 Schema。对旧代码继续提供 `WORLD_RESULT_SCHEMA`，但它现在只是 `WORLD_RESULT_CONTRACT.schema` 的兼容别名，Schema 构造 helper 不再留在 Kernel。
+
+`WorldEngineServiceContainer.resultContract` 指向同一个 canonical contract，后续新代码应优先通过 service/contract 访问 Schema。下一步继续拆 `WorldResultMaterializer` 与 patch compiler，让 Kernel 只剩少量阶段编排和兼容函数。

@@ -25,6 +25,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldRequestBuilder.part.js',
   '@src/WorldEngine/domains/WorldStateProjector.part.js',
   '@src/WorldEngine/domains/WorldResultKernel.part.js',
+  '@src/WorldEngine/domains/WorldResultContract.part.js',
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/domains/WorldValidationService.part.js',
@@ -104,6 +105,11 @@ assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/class\s+WorldResultNormalizer\b/,'WorldResult normalization must have a dedicated class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/normalizeWorldResult\(value\)/,'normalizer class must own WorldResult normalization');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/mergeWorldResults\(base,incoming\)/,'normalizer class must own staged merge semantics');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultKernel.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultContract.part.js'),'contract must load after shared WorldResult constants');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultContract.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultNormalizer.part.js'),'contract must be initialized before downstream WorldResult services');
+assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:schemaFromSample|namedEntitySchema)\b|const\s+WORLD_RESULT_SCHEMA\s*=/,'schema construction must leave the WorldResult kernel');
+assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/class\s+WorldResultContract\b/,'WorldResult schema must have a dedicated contract class');
+assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/const\s+WORLD_RESULT_SCHEMA\s*=\s*WORLD_RESULT_CONTRACT\.schema/,'legacy schema constant must be a contract-backed compatibility seam');
 
 for(const file of [
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',

@@ -10,6 +10,7 @@ PARTS = (
     '00-foundation-prompt.part.js',
     '10-world-state.part.js',
     '@src/WorldEngine/domains/WorldResultKernel.part.js',
+    '@src/WorldEngine/domains/WorldResultContract.part.js',
     '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
     '20-world-result.part.js',
     '30-context-protocol.part.js',

@@ -1,5 +1,7 @@
     // 请求检查页纯渲染：只读展示最近请求、重试诊断与 WorldResult 编译结果。
-    function worldEngineRenderRequestInspector(ctx) {
+    class RequestInspectorView extends WorldEngineTabView {
+        constructor(){super('requestInspector');}
+        render(ctx) {
         const {engine,text,section,empty,fields,pill}=ctx;
         let html='';
         const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';
@@ -39,4 +41,5 @@
             html+=section('副 API 原始回复 · '+replyTk,raw('查看模型返回原文（用于定位格式问题）',engine.lastReply));
         }
         return html;
+        }
     }

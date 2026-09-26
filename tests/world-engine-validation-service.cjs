@@ -31,7 +31,7 @@ assert.equal(engine.services.validation.validate(clone(stat),request,null,stat),
 assert.equal(engine.services.validation.progressionAnchorChanged(stat,clone(stat)),false);
 
 const runtime=fs.readFileSync(path.join(root,'script','world-engine-src','40-engine-runtime.part.js'),'utf8');
-assert.match(runtime,/services\?\.validation\?\.validate/,'runtime must use one validation service seam');
-assert.match(runtime,/services\?\.validation\?\.progressionAnchorChanged/,'runtime must route progression anchor checks through validation service');
+assert.ok(runtime.includes('this.services.validation.validate(')||runtime.includes('this.services?.validation?.validate('),'runtime must use one validation service seam');
+assert.ok(runtime.includes('services?.validation?.progressionAnchorChanged(')||runtime.includes('services.validation.progressionAnchorChanged('),'runtime must route progression anchor checks through validation service');
 
 console.log('PASS runtime post-compile validation is class-based');

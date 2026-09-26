@@ -80,15 +80,18 @@ replace_once(
     marker='版本:5, 已处理楼层'
 )
 
-replace_once(
-    'script/world-engine-src/10-world-state.part.js',
+replace_once_any(
+    [
+        'src/WorldEngine/domains/WorldStateNormalizer.part.js',
+        'script/world-engine-src/10-world-state.part.js',
+    ],
     """        state.版本=Math.max(4,Number(state.版本)||0);
         for(const category of Object.keys(RECORDS)){""",
     """        state.版本=Math.max(5,Number(state.版本)||0);
         // v5：程序托管的可逆历史总结树；不属于模型可写 RECORDS。
         if(!plain(state.历史总结))state.历史总结={};
         for(const category of Object.keys(RECORDS)){""",
-    marker='v5：程序托管的可逆历史总结树'
+    marker='state.版本=Math.max(5,Number(state.版本)||0);'
 )
 
 # 2) Long-term memory setting is local UI config, default off for prose AI.

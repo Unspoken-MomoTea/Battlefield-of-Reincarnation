@@ -1,5 +1,7 @@
     // 提示词工作台纯渲染：文档/世界书/分段操作仍由主 UI 类处理。
-    function worldEngineRenderPromptTab(ctx) {
+    class PromptWorkspaceView extends WorldEngineTabView {
+        constructor(){super('prompts');}
+        render(ctx) {
         const {engine,text,section,empty}=ctx;
         let html='';
         const promptView=engine.promptDraft||{
@@ -36,4 +38,5 @@
             +'<details class="we-segment"><summary>角色管理 · NPC构筑审计 · '+(engine.isNpcBuildAuditEnabled()?'当前启用':'当前关闭')+'</summary><textarea data-npc-audit-prompt '+(engine.promptEditing?'':'readonly')+'>'+text(promptView.npcAuditPrompt??NPC_BUILD_AUDIT_RULES)+'</textarea><p class="we-muted">无论开关状态都可编辑并保存；只有开启审计且本轮存在审计对象时才发送。</p></details>','核心与条件提示词均可编辑');
         html+=section('WorldResult 输出协议','<details class="we-segment"><summary>WorldResult 协议说明 · 点击展开</summary><textarea data-structure-prompt '+(engine.promptEditing?'':'readonly')+'>'+text(promptView.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'</textarea></details><details class="we-segment"><summary>程序字段 Schema · 只读</summary><textarea readonly>'+text(JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'</textarea></details><p class="we-muted">协议说明使用上方编辑开关。保存后用于实际 system 请求；Schema 固定只读，修改任何文字提示词都不会改变程序变量结构。</p>');
         return html;
+        }
     }

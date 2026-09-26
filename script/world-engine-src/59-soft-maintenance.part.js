@@ -69,10 +69,9 @@
         return softRumorMaintenanceIssues(next,required);
     };
 
-    const SamsaraWorldEngineBeforeSoftMaintenance=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeSoftMaintenance {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
+    class WorldSoftMaintenanceFeature {
+        constructor(engine){this.engine=engine;}
+        async modifyRequest(request) {
             const payload=JSON.parse(request.input);
             if(plain(payload?.传闻维护?.公开传闻)){
                 for(const category of RUMOR_PUBLIC_CATEGORIES){
@@ -91,7 +90,8 @@
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             return request;
         }
-    };
+    }
+    registerWorldEngineFeature('soft-maintenance',engine=>new WorldSoftMaintenanceFeature(engine));
 
     // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
     const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
@@ -125,11 +125,11 @@
         ensureCurrentExplorationProjection(stat,result);
         return compileWorldResultBeforeExplorationProjection(stat,result);
     };
-    const SamsaraWorldEngineBeforeExplorationProjection=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeExplorationProjection {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
+    class WorldExplorationProjectionFeature {
+        constructor(engine){this.engine=engine;}
+        async modifyRequest(request) {
             request.system=String(request.system||'')+'\n\n'+EXPLORATION_PROJECTION_RULES;
             return request;
         }
-    };
+    }
+    registerWorldEngineFeature('exploration-projection',engine=>new WorldExplorationProjectionFeature(engine));

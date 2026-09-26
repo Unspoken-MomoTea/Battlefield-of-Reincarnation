@@ -2,6 +2,7 @@
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeClassServices {
         constructor(host,env){
             super(host,env);
+            this._worldEngineLegacyPrototype=SamsaraWorldEngineBeforeClassServices.prototype;
             this.services=new WorldEngineServiceContainer(this).initialize();
             this.promptRegistry=this.services.prompts;
             this.promptWorkspace=new WorldPromptWorkspaceController(this,this.promptRegistry);
@@ -22,16 +23,17 @@
             values.npcAudit=String(settings.npcAuditPrompt??values.npcAudit);
             values.outputProtocol=String(settings.structurePrompt??values.outputProtocol);
             if(plain(settings.modulePrompts)){
-                for(const key of ['task','chronology','maintenance','exploration','integrity','worldTime','rumor']){
+                for(const key of this.promptRegistry.moduleKeys()){
                     if(typeof settings.modulePrompts[key]==='string')values[key]=settings.modulePrompts[key];
                 }
+                if(typeof settings.modulePrompts.rumor==='string'&&!Object.hasOwn(settings.modulePrompts,'rumorSource'))values.rumorSource=settings.modulePrompts.rumor;
             }
             values=this.promptWorkspace?.read(values)||values;
             settings.promptRegistry=values;
-            settings.modulePrompts=Object.assign({},plain(settings.modulePrompts)?settings.modulePrompts:{},{
-                task:values.task,chronology:values.chronology,maintenance:values.maintenance,
-                exploration:values.exploration,integrity:values.integrity,worldTime:values.worldTime,rumor:values.rumor
-            });
+            const modules={};
+            for(const key of this.promptRegistry.moduleKeys())modules[key]=values[key];
+            modules.rumor=values.rumorSource;
+            settings.modulePrompts=Object.assign({},plain(settings.modulePrompts)?settings.modulePrompts:{},modules);
             return settings;
         }
         applyPromptSettings(settings){
@@ -59,33 +61,17 @@
             return doc;
         }
         async buildRequest(base){
-            this.promptRegistry?.syncLegacy();
-            const request=await super.buildRequest(base);
-            if(this.promptRegistry){
-                request.system=this.promptRegistry.rewriteSystem(request.system);
-                request.manifest=request.manifest||{};
-                request.manifest.提示词注册表=this.promptRegistry.list().map(item=>({
-                    key:item.key,标题:item.title,分组:item.group,来源:item.source,
-                    估算Tokens:estimateTokens(item.value),启用:String(item.value||'').trim()!==''
-                }));
-                request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
-            }
-            return request;
+            return this.services.requests.build(base);
         }
         async requestHistoryMemorySummary(world,batch,outputLevel){
-            if(!this.promptRegistry)return super.requestHistoryMemorySummary(world,batch,outputLevel);
-            const savedTransport=this.lastTransportInfo;
-            try{
-                const raw=await this.requestAI(
-                    this.promptRegistry.historySystem(),
-                    historyMemoryPrompt(world,batch,outputLevel),
-                    {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
-                );
-                return historyMemoryParseReply(raw);
-            } finally {
-                this.lastTransportInfo=savedTransport;
-            }
+            return this.services.history.summarize(world,batch,outputLevel);
         }
+        worldEventRecord(name){return this.services.events.get(name);}
+        setWorldEventRecord(oldName,newName,record){return this.services.events.save(oldName,newName,record);}
+        removeWorldEventRecord(name){return this.services.events.remove(name);}
+        worldPersonRecord(name){return this.services.people.get(name);}
+        setWorldPersonRecord(name,record){return this.services.people.save(name,record);}
+        removeWorldPersonRecord(name){return this.services.people.remove(name);}
         createPanel(){
             super.createPanel();
             if(!this.panel||this.panel.__classPromptRegistryBound)return;

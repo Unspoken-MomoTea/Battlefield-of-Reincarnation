@@ -46,10 +46,13 @@ patch(
     "return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 资产墓碑:{} };",
     'empty state',
 )
-patch(
-    'script/world-engine-src/10-world-state.part.js',
+patch_any(
+    [
+        'src/WorldEngine/domains/WorldStateNormalizer.part.js',
+        'script/world-engine-src/10-world-state.part.js',
+    ],
     "        delete state.公开摘要;\n        delete state.正文承接;\n        state.版本=Math.max(5,Number(state.版本)||0);",
-    "        delete state.公开摘要;\n        delete state.正文承接;\n        // 旧存档兼容：推演记录已由每轮 L0 历史锚点完全取代。\n        delete state.运行记录;\n        state.版本=Math.max(5,Number(state.版本)||0);",
+    "        delete state.公开摘要;\n        delete state.正文承接;\n        delete state.运行记录;\n        state.版本=Math.max(5,Number(state.版本)||0);",
     'legacy cleanup',
 )
 runtime_path = ROOT / 'script/world-engine-src/40-engine-runtime.part.js'

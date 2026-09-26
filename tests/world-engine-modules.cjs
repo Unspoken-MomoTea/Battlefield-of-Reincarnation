@@ -18,10 +18,14 @@ for(const moduleName of ['ui/00-styles.part.js','ui/10-world-tab.part.js','ui/20
 }
 for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',
   '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
   '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
   '@src/WorldEngine/domains/WorldCausalService.part.js',
-  '@src/WorldEngine/ui/WorldEditorController.part.js'
+  '@src/WorldEngine/domains/WorldNpcAuditPromptFeature.part.js',
+  '@src/WorldEngine/ui/WorldEditorController.part.js',
+  '@src/WorldEngine/ui/WorldApiPresetController.part.js',
+  '@src/WorldEngine/ui/WorldCausalOverviewController.part.js'
 ]){
   assert.ok(declared.includes(moduleName),`class source module must be registered: ${moduleName}`);
 }

@@ -30,6 +30,23 @@
             }
             return current;
         }
+        async afterCatalogue(catalogue){
+            let current=catalogue;
+            for(const feature of this.items.values()){
+                if(typeof feature.afterCatalogue!=='function')continue;
+                current=await feature.afterCatalogue(current)||current;
+            }
+            return current;
+        }
+        async run(next){
+            let runner=next;
+            for(const feature of Array.from(this.items.values()).reverse()){
+                if(typeof feature.aroundRun!=='function')continue;
+                const downstream=runner;
+                runner=()=>feature.aroundRun(downstream);
+            }
+            return runner();
+        }
         dispose(){
             for(const feature of this.items.values())feature.dispose?.();
             this.items.clear();

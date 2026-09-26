@@ -1,6 +1,9 @@
     class WorldEngineServiceContainer {
         constructor(engine){
             this.engine=engine;
+            this.context=new WorldRuntimeContextService(engine);
+            this.knowledge=new WorldKnowledgeService(engine);
+            this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateProjector=new WorldStateProjector(engine);
             this.compiler=new WorldResultCompiler(engine);
             this.validation=new WorldValidationService(engine);

@@ -117,7 +117,7 @@
                     间隔自检:'排期前先判断从上一节点到本节点现实上必须经历什么，为旅行、准备、组织动员与因果发展留足时间。',
                     时间精度:'资料只到月份/时段/顺序时保持同级精度并保守留白，不为方便排序强造日级日期。'
                 },
-                要求:engine.services?.prompts?.get?.('chronologyPayloadInstruction')||PROMPT_DEFAULT_CHRONOLOGY_PAYLOAD
+                要求:engine.services?.prompts?.value?.('chronologyInputGuidance')||WORLD_PROMPT_CHRONOLOGY_INPUT
             };
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'')+'\n\n'+CHRONOLOGY_GUARD_RULES;

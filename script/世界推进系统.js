@@ -8730,8 +8730,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return request;
         }
     };
-    const SamsaraWorldEngineBeforeClassServices=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeClassServices {
+    SamsaraWorldEngine=((BaseWorldEngine)=>class SamsaraWorldEngine extends BaseWorldEngine {
         constructor(host,env){
             super(host,env);
             this.services=new WorldEngineServiceContainer(this).initialize();
@@ -8882,7 +8881,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.services?.features?.dispose?.();
             return super.dispose();
         }
-    };
+    })(SamsaraWorldEngine);
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
     if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople,extractWorldProse,derivePersonWorldContext,projectHotWorldPeople,WORLD_UI_THEMES,WORLD_FONT_SCALES,estimateTokens,formatTokenCount,normalizeTokenUsage,requestTokenTelemetry}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;

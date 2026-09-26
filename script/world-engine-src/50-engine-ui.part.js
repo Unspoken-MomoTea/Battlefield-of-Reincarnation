@@ -40,7 +40,7 @@
                 else if(a==='prompt-edit'){
                     this.promptEditing=!this.promptEditing;
                     button.textContent=this.promptEditing?'锁定编辑':'开启编辑';button.setAttribute('aria-pressed',String(this.promptEditing));
-                    this.panel.querySelectorAll('[data-segment-title],[data-segment],[data-structure-prompt],[data-npc-audit-prompt]').forEach(el=>el.readOnly=!this.promptEditing);
+                    this.panel.querySelectorAll('[data-segment-title],[data-segment],[data-core-prompt],[data-macro-prompt],[data-stability-prompt],[data-structure-prompt],[data-npc-audit-prompt],[data-module-prompt],[data-request-prompt]').forEach(el=>el.readOnly=!this.promptEditing);
                     this.panel.querySelectorAll('[data-action^="segment-"]').forEach(el=>el.disabled=!this.promptEditing);
                 }
                 else if(a==='save-default'){

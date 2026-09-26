@@ -128,14 +128,22 @@
 
     if(Array.isArray(WORLD_REPLAY_SCOPES)&&!WORLD_REPLAY_SCOPES.some(scope=>scope.length===2&&scope[0]==='世界'&&scope[1]==='时间'))WORLD_REPLAY_SCOPES.unshift(['世界','时间']);
 
-    const SamsaraWorldEngineBeforeWorldTimeOwnership=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeWorldTimeOwnership {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
+    class WorldTimeOwnershipFeature {
+        constructor(engine){this.engine=engine;this.replayOriginal=null;}
+        initialize(){
+            const engine=this.engine;
+            if(typeof engine.handleWorldReplayVariableEvent==='function'){
+                this.replayOriginal=engine.handleWorldReplayVariableEvent.bind(engine);
+                engine.handleWorldReplayVariableEvent=(variables,before)=>{
+                    const handled=this.replayOriginal(variables,before);
+                    return this.afterReplayVariableEvent(handled,variables,before);
+                };
+            }
+        }
+        async modifyRequest(request,base) {
             request.system=String(request.system||'')+'\n\n'+WORLD_TIME_RULES;
             try{
-                const payload=JSON.parse(request.input);
-                const needsInitialization=worldTimeUnset(base?.stat?.世界?.时间);
+                const payload=JSON.parse(request.input),needsInitialization=worldTimeUnset(base?.stat?.世界?.时间);
                 payload.世界时间维护={
                     当前时间:String(base?.stat?.世界?.时间||''),
                     是否需要初始化:needsInitialization,
@@ -158,27 +166,20 @@
             if(request.manifest)request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             return request;
         }
-        handleWorldReplayVariableEvent(variables,before) {
-            const handled=super.handleWorldReplayVariableEvent(variables,before);
-            if(handled||this.committing||!this.isEnabled()||!plain(variables?.stat_data)||!plain(before?.stat_data))return handled;
-            const previous=String(before?.stat_data?.世界?.时间??'');
-            const incoming=String(variables?.stat_data?.世界?.时间??'');
+        afterReplayVariableEvent(handled,variables,before) {
+            const engine=this.engine;
+            if(handled||engine.committing||!engine.isEnabled()||!plain(variables?.stat_data)||!plain(before?.stat_data))return handled;
+            const previous=String(before?.stat_data?.世界?.时间??''),incoming=String(variables?.stat_data?.世界?.时间??'');
             if(previous===incoming)return handled;
-
-            // 世界切换是唯一允许程序层改写世界.时间的边界：
-            // 主神空间 -> 副本只能清空/待初始化；副本 -> 主神空间只能写轮回历。
-            // 其它变量更新仍一律回滚，继续保证世界推进的单一所有权。
-            const wasSpace=before?.stat_data?.系统状态?.是否在主神空间===true;
-            const isSpace=variables?.stat_data?.系统状态?.是否在主神空间===true;
+            const wasSpace=before?.stat_data?.系统状态?.是否在主神空间===true,isSpace=variables?.stat_data?.系统状态?.是否在主神空间===true;
             if(wasSpace!==isSpace){
-                const enteringWorld=wasSpace&&!isSpace;
-                const returningToSpace=!wasSpace&&isSpace;
+                const enteringWorld=wasSpace&&!isSpace,returningToSpace=!wasSpace&&isSpace;
                 const mainSpaceTime=/^轮回历\d+年-\d{2}月-\d{2}日-(?:凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜)$/.test(incoming);
                 if((enteringWorld&&worldTimeUnset(incoming))||(returningToSpace&&mainSpaceTime))return handled;
             }
-
             if(!plain(variables.stat_data.世界))variables.stat_data.世界={};
             variables.stat_data.世界.时间=previous;
             return true;
         }
-    };
+    }
+    registerWorldEngineFeature('world-time-ownership',engine=>new WorldTimeOwnershipFeature(engine));

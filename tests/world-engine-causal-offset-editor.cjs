@@ -4,7 +4,11 @@ const path=require('node:path');
 const {SamsaraWorldEngine:Engine,emptyState}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 
-const layer=fs.readFileSync(path.join(__dirname,'../script/world-engine-src/59-causal-offset-editor.part.js'),'utf8');
+const layer=[
+  path.join(__dirname,'../script/world-engine-src/59-causal-offset-editor.part.js'),
+  path.join(__dirname,'../src/WorldEngine/domains/WorldCausalService.part.js'),
+  path.join(__dirname,'../src/WorldEngine/ui/WorldEditorController.part.js'),
+].map(file=>fs.readFileSync(file,'utf8')).join('\n');
 assert.match(layer,/data-offset-field="name"/,'causal offset editor must render an inline name field');
 assert.match(layer,/data-offset-field="description"/,'causal offset editor must render an inline description field');
 assert.match(layer,/data-offset-field="actor"/,'causal offset editor must render an inline actor field');

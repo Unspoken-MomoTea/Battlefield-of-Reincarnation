@@ -733,30 +733,33 @@
                             if(currentGlobalError)throw makeRetryFailure([],currentGlobalError);
                         }
                         const committedPatches=built.appliedSeeds.concat(modelPatches,built.repairPatches);
-
-                        if (!(next.设置 || {}).世界超稳) {
-                            const offsets=(next.世界.因果轨道||{}).偏移记录||{};
-                            const total=Object.values(offsets).reduce((n,r)=>n+(Number(r.影响程度)||0),0);
-                            next.世界.稳定=Math.max(0,Math.min(120,100+total));
+                        if(this.services?.commit){
+                            const finalized=this.services.commit.prepare({
+                                next,committedPatches,base,acceptedWorldResult,reply,validate
+                            });
+                            next=finalized.next;reply=finalized.reply;
+                        }else{
+                            if (!(next.设置 || {}).世界超稳) {
+                                const offsets=(next.世界.因果轨道||{}).偏移记录||{};
+                                const total=Object.values(offsets).reduce((n,r)=>n+(Number(r.影响程度)||0),0);
+                                next.世界.稳定=Math.max(0,Math.min(120,100+total));
+                            }
+                            next.世界[PATH].已处理楼层=base.fingerprint;
+                            next.世界[PATH].已处理时间=base.stat.世界.时间;
+                            const changes=committedPatches.map(p=>{
+                                const parts=tokens(p.path),back=parts[1]===PATH,asset=parts[0]==='资产';
+                                return {时间:base.stat.世界.时间,类别:asset?'资产':back?parts[2]:parts[1],名称:asset?parts[1]:back?parts[3]:parts[2],字段:asset?'资产':parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.状态||p.value.内容||'记录已更新'):''};
+                            });
+                            next.世界[PATH].最近变化=changes.slice(-100);
+                            if(typeof this.beforeWorldCommit==='function')this.beforeWorldCommit(next,{
+                                messageId:base.id,fingerprint:base.fingerprint,worldResult:acceptedWorldResult,reply:copy(reply),baseStat:base.stat
+                            });
+                            const checked=validate(next);
+                            for(const patch of committedPatches){
+                                if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(next,tokens(patch.path))))throw schemaMismatchError(next,checked,patch.path);
+                            }
+                            reply.patches=committedPatches;
                         }
-                        next.世界[PATH].已处理楼层=base.fingerprint;
-                        next.世界[PATH].已处理时间=base.stat.世界.时间;
-                        const changes=committedPatches.map(p=>{
-                            const parts=tokens(p.path),back=parts[1]===PATH,asset=parts[0]==='资产';
-                            return {时间:base.stat.世界.时间,类别:asset?'资产':back?parts[2]:parts[1],名称:asset?parts[1]:back?parts[3]:parts[2],字段:asset?'资产':parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.描述||p.value.行动||p.value.事实||p.value.目标||p.value.状态||p.value.内容||'记录已更新'):''};
-                        });
-                        next.世界[PATH].最近变化=changes.slice(-100);
-                        // 推演记录已由历史锚点取代，不再持久化。
-                        // 可选提交装饰钩子：用于把本轮派生元数据与主世界结果原子落库，避免额外 MVU 写回。
-                        if(typeof this.beforeWorldCommit==='function')this.beforeWorldCommit(next,{
-                            messageId:base.id,fingerprint:base.fingerprint,worldResult:acceptedWorldResult,reply:copy(reply),baseStat:base.stat
-                        });
-
-                        const checked=validate(next);
-                        for(const patch of committedPatches){
-                            if(patch.op!=='remove'&&!same(get(checked,tokens(patch.path)),get(next,tokens(patch.path))))throw schemaMismatchError(next,checked,patch.path);
-                        }
-                        reply.patches=committedPatches;
                         prepared={reply,next,current};
                         if(attemptTelemetry)attemptTelemetry.结果='接受';
                         break;
@@ -783,12 +786,15 @@
 
                 if(!prepared)throw lastError||new Error('世界推演未生成可写入结果');
                 this.committing=true;
-                const result=prepared.current.raw;
-                result.stat_data=prepared.next;
-                const replay=typeof this.buildWorldReplayPackage==='function'
-                    ?this.buildWorldReplayPackage(base.stat,prepared.next,base.fingerprint):null;
-                if(replay)result.__samsaraWorldReplay=replay;
-                await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
+                if(this.services?.commit)await this.services.commit.persist(prepared,base);
+                else{
+                    const result=prepared.current.raw;
+                    result.stat_data=prepared.next;
+                    const replay=typeof this.buildWorldReplayPackage==='function'
+                        ?this.buildWorldReplayPackage(base.stat,prepared.next,base.fingerprint):null;
+                    if(replay)result.__samsaraWorldReplay=replay;
+                    await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
+                }
                 this.status='已更新 · '+prepared.reply.summary+(this.lastRetryLog.length?' · 前序失败'+this.lastRetryLog.length+'次':'');
                 return true;
             } catch (error) {

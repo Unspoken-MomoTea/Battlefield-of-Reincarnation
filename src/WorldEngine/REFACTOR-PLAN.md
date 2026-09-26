@@ -127,3 +127,9 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 已新增 `WorldResultStagingService`，接管 WorldResult 的业务分片、逐片编译/物化验收、Schema 差异定位以及纠错重试反馈。外部仍保留 `stageWorldResult / retryFeedback / makeRetryFailure` 等兼容 seam，已有 policy/runtime 装饰器无需改变；`WorldResultCompiler.stage()` 与 service container 则改为组合容器拥有的 staging service。
 
 这样 `WorldResultKernel.part.js` 继续收缩，只保留仍待迁移的共享常量、探索修复、时间/宏观验收 helper 与回复解析。下一批优先拆 Reply Parser，并把已由 `WorldValidationService` 使用的时间/宏观验收函数迁成独立 policy/service，避免 Kernel 继续承担运行期验收职责。
+
+### Phase 14 · WorldResult 回复解析类化
+
+已新增 `WorldResultReplyParser`，接管 `<world_update>`/Markdown fence/裸 JSON 的提取、首个完整 JSON 对象兜底、legacy patches 识别以及 WorldResult 归一化。运行编排器优先通过 `services.resultParser.parse()` 处理模型回复；全局 `parseReply` 继续作为 CommonJS 离线测试与兼容入口，并由 service container 的 active parser 驱动。
+
+`WorldResultKernel.part.js` 因此进一步缩小，只剩共享常量、探索粒度修复以及时间/宏观验收 helper。下一步应迁移这批验收 helper 到 `WorldValidationService` 背后的独立 policy/class，并继续减少 Kernel 的跨域职责。

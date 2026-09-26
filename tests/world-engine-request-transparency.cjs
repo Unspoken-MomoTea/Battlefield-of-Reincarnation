@@ -2,7 +2,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const delivery = path.join(__dirname, '../script/世界推进系统.js');
-const uiSource = fs.readFileSync(path.join(__dirname, '../script/world-engine-src/50-engine-ui.part.js'), 'utf8');
+const uiSource = [
+  path.join(__dirname, '../script/world-engine-src/50-engine-ui.part.js'),
+  path.join(__dirname, '../script/world-engine-src/ui/60-prompt-tab.part.js'),
+  path.join(__dirname, '../script/world-engine-src/ui/70-request-inspector.part.js'),
+].map(file => fs.readFileSync(file, 'utf8')).join('\n');
 const runtimeSource = fs.readFileSync(path.join(__dirname, '../script/world-engine-src/40-engine-runtime.part.js'), 'utf8');
 const {SamsaraWorldEngine: Engine, emptyState} = require(delivery);
 const clone = value => JSON.parse(JSON.stringify(value));

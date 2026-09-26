@@ -441,142 +441,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         };
     }
 
-    function collectEventRefs(state) {
-        const refs=new Set();
-        for(const event of Object.values(state.事件||{}))for(const id of event.前因||[])refs.add(id);
-        for(const category of ['人物','势力地区','传播'])for(const record of Object.values(state[category]||{}))for(const id of record.关联事件||[])refs.add(id);
-        return refs;
-    }
-    function detachEventSoftRefs(state,eventName) {
-        const changed=[];
-        for(const category of ['人物','势力地区','传播']){
-            for(const [name,record] of Object.entries(state?.[category]||{})){
-                if(!Array.isArray(record?.关联事件)||!record.关联事件.includes(eventName))continue;
-                record.关联事件=record.关联事件.filter(id=>id!==eventName);
-                changed.push(category+'/'+name);
-            }
-        }
-        return changed;
-    }
-    function archiveFinishedEvent(stat,state,name,event,archived) {
-        let key='归档·'+name,seq=2;
-        while(Object.hasOwn(state.历史||{},key))key='归档·'+name+'#'+seq++;
-        state.历史=state.历史||{};
-        state.历史[key]={
-            时间:event.更新时间||event.预计结束||event.时间||stat.世界.时间||'',
-            事实:event.结果||event.描述||(event.状态==='已取消'?'事件已取消':'事件已结束'),
-            关联事件:[]
-        };
-        delete state.事件[name];
-        archived.push(name);
-    }
-    function propagationEnded(record,nowKey) {
-        if(!plain(record))return true;
-        const status=String(record.状态||'').trim();
-        if(/^(?:已结束|结束|已停止|停止|已失效|失效|已过期|过期|传播结束)$/.test(status))return true;
-        const expiry=worldDateKey(record.到期时间);
-        return expiry!==null&&nowKey!==null&&expiry<=nowKey;
-    }
-    function pruneSoftRefsToColdFinishedEvents(state,now) {
-        if(now===null)return [];
-        const cold=new Set();
-        for(const [name,event] of Object.entries(state?.事件||{})){
-            if(!['已完成','已取消'].includes(event?.状态))continue;
-            const endedAt=worldDateKey(event.更新时间||event.预计结束||event.时间);
-            if(endedAt!==null&&now-endedAt>=FINISHED_EVENT_GRACE_HOURS)cold.add(name);
-        }
-        if(!cold.size)return [];
-        const changed=[];
-        for(const eventName of cold)changed.push(...detachEventSoftRefs(state,eventName));
-        // 已结束且同样进入冷区的事件之间不再互相作为热前因引用；
-        // 活跃/未来事件的前因仍保留，因此不会破坏仍在推进的因果链。
-        for(const [name,event] of Object.entries(state?.事件||{})){
-            if(!cold.has(name)||!Array.isArray(event?.前因)||!event.前因.some(id=>cold.has(id)))continue;
-            event.前因=event.前因.filter(id=>!cold.has(id));
-            changed.push('事件/'+name);
-        }
-        return changed;
-    }
-    function compactFinishedEvents(stat,target=EVENT_TARGET) {
-        const state=stat?.世界?.[PATH]; if(!state?.事件)return [];
-        const archived=[],now=worldDateKey(stat?.世界?.时间);
-        pruneSoftRefsToColdFinishedEvents(state,now);
-        const protectedNames=new Set(storyStages(stat?.世界?.因果轨道?.故事线));
-        let refs=collectEventRefs(state);
-        const finished=()=>Object.entries(state.事件||{}).filter(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name)&&!protectedNames.has(name));
-        // 有明确时间的旧结束事件，在经过一个世界日后直接冷归档；刚刚结束的内容至少保留到下一阶段。
-        for(const [name,event] of finished()){
-            const endedAt=worldDateKey(event.更新时间||event.预计结束||event.时间);
-            if(now!==null&&endedAt!==null&&now-endedAt>=FINISHED_EVENT_GRACE_HOURS)archiveFinishedEvent(stat,state,name,event,archived);
-        }
-        // 无法比较作品内时间时，用“最多保留最近8条结束事件”兜底，避免长期无限增长。
-        refs=collectEventRefs(state);
-        let candidates=finished();
-        while(candidates.length>RECENT_FINISHED_EVENT_TARGET){
-            const [name,event]=candidates[0];
-            archiveFinishedEvent(stat,state,name,event,archived);
-            refs=collectEventRefs(state);candidates=finished();
-        }
-        // 旧存档超大时继续沿用硬上限兜底，只回收无引用的结束事件。
-        while(Object.keys(state.事件||{}).length>target){
-            refs=collectEventRefs(state);
-            const candidate=Object.entries(state.事件||{}).find(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name));
-            if(!candidate)break;
-            archiveFinishedEvent(stat,state,candidate[0],candidate[1],archived);
-        }
-        // 历史锚点是永久已确认事实，不再按固定数量删除；旧事实由分层历史总结退出热上下文。
-        return archived;
-    }
-    function explorationLocationRefs(record,kind) {
-        if(!plain(record))return [];
-        const out=[];
-        if(String(record.地点||'').trim())out.push(String(record.地点).trim());
-        if(kind==='事件'){
-            for(const item of Array.isArray(record.可见影响)?record.可见影响:[]){
-                if(plain(item)&&String(item.地点||'').trim())out.push(String(item.地点).trim());
-            }
-        }else if(kind==='人物'){
-            for(const item of Array.isArray(record.行程)?record.行程:[]){
-                if(!plain(item)||!String(item.地点||'').trim())continue;
-                const status=String(item.状态||'').trim();
-                if(/^(?:已完成|完成|已结束|结束|已取消|取消|已失效|失效)$/.test(status))continue;
-                out.push(String(item.地点).trim());
-            }
-        }
-        return out;
-    }
-    function pruneColdExploration(stat) {
-        const world=stat?.世界,bucket=world?.探索,state=world?.[PATH];
-        if(!plain(bucket)||!state)return [];
-        const currentLocation=String(world?.地点||'').trim();
-        // 没有当前地点时无法证明玩家已经离开，宁可保留，避免误删长期档案。
-        if(!currentLocation)return [];
-        const eventLocations=Object.values(state.事件||{}).flatMap(record=>explorationLocationRefs(record,'事件'));
-        const personLocations=Object.values(state.人物||{}).flatMap(record=>explorationLocationRefs(record,'人物'));
-        const removed=[];
-        for(const areaName of Object.keys(bucket)){
-            if(!String(areaName||'').trim())continue;
-            if(worldLocationRelated(currentLocation,areaName))continue;
-            if(eventLocations.some(location=>worldLocationRelated(location,areaName)))continue;
-            if(personLocations.some(location=>worldLocationRelated(location,areaName)))continue;
-            delete bucket[areaName];
-            removed.push(areaName);
-        }
-        return removed;
-    }
-    function compactWorldLifecycle(stat) {
-        const state=stat?.世界?.[PATH];
-        if(!state)return {归档事件:[],回收传播:[],回收人物:[],回收探索:[]};
-        const now=worldDateKey(stat?.世界?.时间),removed=[];
-        for(const [name,record] of Object.entries(state.传播||{})){
-            if(propagationEnded(record,now)){delete state.传播[name];removed.push(name);}
-        }
-        const archived=compactFinishedEvents(stat);
-        const removedPeople=pruneColdTemporaryPeople(stat);
-        // 先回收已经结束的事件与冷人物，再判断哪些探索区域真正失去剧情关联。
-        const removedExploration=pruneColdExploration(stat);
-        return {归档事件:archived,回收传播:removed,回收人物:removedPeople,回收探索:removedExploration};
-    }
     function repairCausalProjection(stat) {
         const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
         const existing=storyStages(orbit.故事线);
@@ -695,24 +559,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         const x=nameKey(a),y=nameKey(b);if(!x||!y)return false;
         return x===y||x.includes(y)||y.includes(x);
     }
-    function personActivityMeta(stat,name,person) {
-        const relations=stat?.关系列表||{},roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
-        const events=stat?.世界?.[PATH]?.事件||{},worldTime=String(stat?.世界?.时间||''),currentLocation=String(stat?.世界?.地点||'');
-        const formalName=stableNameIn(relations,name),alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
-        const activeAlien=!!(alien&&alien.状态!=='死亡'),deadAlien=!!(alien&&alien.状态==='死亡');
-        const liveEntries=Object.entries(events).filter(([,event])=>event&&['待发生','进行中'].includes(event.状态));
-        const liveNames=new Set(liveEntries.map(([eventName])=>eventName));
-        const linked=Array.isArray(person?.关联事件)&&person.关联事件.some(eventName=>liveNames.has(eventName));
-        const participant=liveEntries.some(([,event])=>(event.参与者||[]).some(item=>nameKey(item)===nameKey(name)));
-        const here=!!(person?.地点&&currentLocation&&worldLocationRelated(person.地点,currentLocation));
-        const now=worldDateKey(worldTime),updated=worldDateKey(person?.更新时间);
-        const ageHours=now!==null&&updated!==null?now-updated:null;
-        const recent=sameWorldTimeAnchor(person?.更新时间,worldTime)||(ageHours!==null&&ageHours>=0&&ageHours<=HOT_PERSON_RECENT_HOURS);
-        const checkAt=worldDateKey(person?.下次检查);
-        const dueSoon=now!==null&&checkAt!==null&&checkAt>=now-HOT_PERSON_RECENT_HOURS&&checkAt<=now+7*24;
-        const terminal=TERMINAL_PERSON_STATUS.test(String(person?.状态||'').trim());
-        return {formalName,activeAlien,deadAlien,linked,participant,here,recent,dueSoon,terminal,ageHours};
-    }
     function projectHotWorldPeople(stat,limit=HOT_PERSON_TARGET) {
         const people=stat?.世界?.[PATH]?.人物||{},rows=[];
         for(const [name,person] of Object.entries(people)){
@@ -728,45 +574,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         const aliens=rows.filter(row=>row.meta.activeAlien),ordinary=rows.filter(row=>!row.meta.activeAlien).slice(0,Math.max(0,Number(limit)||0));
         return Object.fromEntries([...aliens,...ordinary].map(row=>[row.name,copy(row.person)]));
     }
-    function pruneColdTemporaryPeople(stat) {
-        const people=stat?.世界?.[PATH]?.人物;if(!plain(people))return [];
-        const removed=[];
-        const entries=Object.entries(people);
-        for(const [name,person] of entries){
-            if(!plain(person))continue;
-            const meta=personActivityMeta(stat,name,person);
-            const protectedNow=!!(meta.formalName||meta.activeAlien||meta.linked||meta.participant||meta.here||meta.dueSoon);
-            if(protectedNow)continue;
-            const stale=meta.ageHours!==null&&meta.ageHours>COLD_TEMP_PERSON_GRACE_HOURS;
-            if(meta.terminal||stale){delete people[name];removed.push(name);}
-        }
-        const cold=Object.entries(people).filter(([name,person])=>{
-            if(!plain(person))return false;
-            const meta=personActivityMeta(stat,name,person);
-            const protectedNow=!!(meta.formalName||meta.activeAlien||meta.linked||meta.participant||meta.here||meta.dueSoon);
-            const recentlyActive=meta.ageHours!==null&&meta.ageHours>=0&&meta.ageHours<=COLD_TEMP_PERSON_GRACE_HOURS;
-            return !protectedNow&&!recentlyActive;
-        });
-        while(cold.length>COLD_TEMP_PERSON_TARGET){
-            const [name]=cold.shift();
-            if(Object.hasOwn(people,name)){delete people[name];removed.push(name);}
-        }
-        return removed;
-    }
     function alienRosterMatch(stat,name) {
         const roster=stat?.世界?.异端雷达?.名单||{},matched=stableNameIn(roster,name);
         return matched?{名称:matched,记录:roster[matched]}:null;
-    }
-    function pruneDeadAlienPeople(stat) {
-        const people=stat?.世界?.[PATH]?.人物,roster=stat?.世界?.异端雷达?.名单;
-        if(!plain(people)||!plain(roster))return [];
-        const removed=[];
-        for(const [alienName,alien] of Object.entries(roster)){
-            if(alien?.状态!=='死亡')continue;
-            const personName=stableNameIn(people,alienName);
-            if(personName){delete people[personName];removed.push(personName);}
-        }
-        return removed;
     }
     function activeAlienActivityRequirements(stat) {
         if((stat?.设置||{}).单一世界)return [];
@@ -1159,6 +969,173 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function validateTemporalWrites(before,next,patches){return ACTIVE_WORLD_TIMELINE_POLICY.validateTemporalWrites(before,next,patches);}
     function eventDisplayBucket(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventDisplayBucket(event);}
     function sortWorldEvents(records,orbit={}){return ACTIVE_WORLD_TIMELINE_POLICY.sortWorldEvents(records,orbit);}
+    class WorldLifecycleService {
+        personActivityMeta(stat,name,person) {
+            const relations=stat?.关系列表||{},roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
+            const events=stat?.世界?.[PATH]?.事件||{},worldTime=String(stat?.世界?.时间||''),currentLocation=String(stat?.世界?.地点||'');
+            const formalName=stableNameIn(relations,name),alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
+            const activeAlien=!!(alien&&alien.状态!=='死亡'),deadAlien=!!(alien&&alien.状态==='死亡');
+            const liveEntries=Object.entries(events).filter(([,event])=>event&&['待发生','进行中'].includes(event.状态));
+            const liveNames=new Set(liveEntries.map(([eventName])=>eventName));
+            const linked=Array.isArray(person?.关联事件)&&person.关联事件.some(eventName=>liveNames.has(eventName));
+            const participant=liveEntries.some(([,event])=>(event.参与者||[]).some(item=>nameKey(item)===nameKey(name)));
+            const here=!!(person?.地点&&currentLocation&&worldLocationRelated(person.地点,currentLocation));
+            const now=worldDateKey(worldTime),updated=worldDateKey(person?.更新时间);
+            const ageHours=now!==null&&updated!==null?now-updated:null;
+            const recent=sameWorldTimeAnchor(person?.更新时间,worldTime)||(ageHours!==null&&ageHours>=0&&ageHours<=HOT_PERSON_RECENT_HOURS);
+            const checkAt=worldDateKey(person?.下次检查);
+            const dueSoon=now!==null&&checkAt!==null&&checkAt>=now-HOT_PERSON_RECENT_HOURS&&checkAt<=now+7*24;
+            const terminal=TERMINAL_PERSON_STATUS.test(String(person?.状态||'').trim());
+            return {formalName,activeAlien,deadAlien,linked,participant,here,recent,dueSoon,terminal,ageHours};
+        }
+        pruneColdTemporaryPeople(stat) {
+            const people=stat?.世界?.[PATH]?.人物;if(!plain(people))return [];
+            const removed=[];
+            for(const [name,person] of Object.entries(people)){
+                if(!plain(person))continue;
+                const meta=this.personActivityMeta(stat,name,person);
+                const protectedNow=!!(meta.formalName||meta.activeAlien||meta.linked||meta.participant||meta.here||meta.dueSoon);
+                if(protectedNow)continue;
+                const stale=meta.ageHours!==null&&meta.ageHours>COLD_TEMP_PERSON_GRACE_HOURS;
+                if(meta.terminal||stale){delete people[name];removed.push(name);}
+            }
+            const cold=Object.entries(people).filter(([name,person])=>{
+                if(!plain(person))return false;
+                const meta=this.personActivityMeta(stat,name,person);
+                const protectedNow=!!(meta.formalName||meta.activeAlien||meta.linked||meta.participant||meta.here||meta.dueSoon);
+                const recentlyActive=meta.ageHours!==null&&meta.ageHours>=0&&meta.ageHours<=COLD_TEMP_PERSON_GRACE_HOURS;
+                return !protectedNow&&!recentlyActive;
+            });
+            while(cold.length>COLD_TEMP_PERSON_TARGET){
+                const [name]=cold.shift();
+                if(Object.hasOwn(people,name)){delete people[name];removed.push(name);}
+            }
+            return removed;
+        }
+        pruneDeadAlienPeople(stat) {
+            const people=stat?.世界?.[PATH]?.人物,roster=stat?.世界?.异端雷达?.名单;
+            if(!plain(people)||!plain(roster))return [];
+            const removed=[];
+            for(const [alienName,alien] of Object.entries(roster)){
+                if(alien?.状态!=='死亡')continue;
+                const personName=stableNameIn(people,alienName);
+                if(personName){delete people[personName];removed.push(personName);}
+            }
+            return removed;
+        }
+        collectEventRefs(state) {
+            const refs=new Set();
+            for(const event of Object.values(state.事件||{}))for(const id of event.前因||[])refs.add(id);
+            for(const category of ['人物','势力地区','传播'])for(const record of Object.values(state[category]||{}))for(const id of record.关联事件||[])refs.add(id);
+            return refs;
+        }
+        detachEventSoftRefs(state,eventName) {
+            const changed=[];
+            for(const category of ['人物','势力地区','传播']){
+                for(const [name,record] of Object.entries(state?.[category]||{})){
+                    if(!Array.isArray(record?.关联事件)||!record.关联事件.includes(eventName))continue;
+                    record.关联事件=record.关联事件.filter(id=>id!==eventName);
+                    changed.push(category+'/'+name);
+                }
+            }
+            return changed;
+        }
+        archiveFinishedEvent(stat,state,name,event,archived) {
+            // 历史锚点是永久已确认事实，不再按固定数量删除；旧事实由分层历史总结退出热上下文。
+            let key='归档·'+name,seq=2;
+            while(Object.hasOwn(state.历史||{},key))key='归档·'+name+'#'+seq++;
+            state.历史=state.历史||{};
+            state.历史[key]={
+                时间:event.更新时间||event.预计结束||event.时间||stat.世界.时间||'',
+                事实:event.结果||event.描述||(event.状态==='已取消'?'事件已取消':'事件已结束'),
+                关联事件:[]
+            };
+            delete state.事件[name];
+            archived.push(name);
+        }
+        propagationEnded(record,nowKey) {
+            if(!plain(record))return true;
+            const status=String(record.状态||'').trim();
+            if(/^(?:已结束|结束|已停止|停止|已失效|失效|已过期|过期|传播结束)$/.test(status))return true;
+            const expiry=worldDateKey(record.到期时间);
+            return expiry!==null&&nowKey!==null&&expiry<=nowKey;
+        }
+        pruneSoftRefsToColdFinishedEvents(state,now) {
+            if(now===null)return [];
+            const cold=new Set();
+            for(const [name,event] of Object.entries(state?.事件||{})){
+                if(!['已完成','已取消'].includes(event?.状态))continue;
+                const endedAt=worldDateKey(event.更新时间||event.预计结束||event.时间);
+                if(endedAt!==null&&now-endedAt>=FINISHED_EVENT_GRACE_HOURS)cold.add(name);
+            }
+            if(!cold.size)return [];
+            const changed=[];
+            for(const eventName of cold)changed.push(...this.detachEventSoftRefs(state,eventName));
+            // 冷结束事件之间不再互相作为热前因；活跃/未来事件对旧事实的前因引用继续保护归档。
+            for(const [name,event] of Object.entries(state?.事件||{})){
+                if(!cold.has(name)||!Array.isArray(event?.前因)||!event.前因.some(id=>cold.has(id)))continue;
+                event.前因=event.前因.filter(id=>!cold.has(id));
+                changed.push('事件/'+name);
+            }
+            return changed;
+        }
+        compactFinishedEvents(stat,target=EVENT_TARGET) {
+            const state=stat?.世界?.[PATH]; if(!state?.事件)return [];
+            const archived=[],now=worldDateKey(stat?.世界?.时间);
+            this.pruneSoftRefsToColdFinishedEvents(state,now);
+            const protectedNames=new Set(storyStages(stat?.世界?.因果轨道?.故事线));
+            let refs=this.collectEventRefs(state);
+            const finished=()=>Object.entries(state.事件||{}).filter(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name)&&!protectedNames.has(name));
+            // 有明确时间的旧结束事件，在经过一个世界日后直接冷归档；刚结束内容至少保留到下一阶段。
+            for(const [name,event] of finished()){
+                const endedAt=worldDateKey(event.更新时间||event.预计结束||event.时间);
+                if(now!==null&&endedAt!==null&&now-endedAt>=FINISHED_EVENT_GRACE_HOURS)this.archiveFinishedEvent(stat,state,name,event,archived);
+            }
+            refs=this.collectEventRefs(state);
+            let candidates=finished();
+            while(candidates.length>RECENT_FINISHED_EVENT_TARGET){
+                const [name,event]=candidates[0];
+                this.archiveFinishedEvent(stat,state,name,event,archived);
+                refs=this.collectEventRefs(state);candidates=finished();
+            }
+            while(Object.keys(state.事件||{}).length>target){
+                refs=this.collectEventRefs(state);
+                const candidate=Object.entries(state.事件||{}).find(([name,event])=>['已完成','已取消'].includes(event.状态)&&!refs.has(name));
+                if(!candidate)break;
+                this.archiveFinishedEvent(stat,state,candidate[0],candidate[1],archived);
+            }
+            return archived;
+        }
+        compact(stat) {
+            const state=stat?.世界?.[PATH];
+            if(!state)return {归档事件:[],回收传播:[],回收人物:[],回收探索:[]};
+            const now=worldDateKey(stat?.世界?.时间),removedPropagation=[];
+            for(const [name,record] of Object.entries(state.传播||{})){
+                if(this.propagationEnded(record,now)){delete state.传播[name];removedPropagation.push(name);}
+            }
+            const archived=this.compactFinishedEvents(stat);
+            const removedPeople=[...this.pruneDeadAlienPeople(stat),...this.pruneColdTemporaryPeople(stat)];
+            return {
+                归档事件:archived,
+                回收传播:removedPropagation,
+                回收人物:[...new Set(removedPeople)],
+                // 探索是玩家长期台账：离开区域后不再由 lifecycle 回收。
+                回收探索:[]
+            };
+        }
+    }
+    const DEFAULT_WORLD_LIFECYCLE_SERVICE=new WorldLifecycleService();
+    let ACTIVE_WORLD_LIFECYCLE_SERVICE=DEFAULT_WORLD_LIFECYCLE_SERVICE;
+    function personActivityMeta(stat,name,person){return ACTIVE_WORLD_LIFECYCLE_SERVICE.personActivityMeta(stat,name,person);}
+    function pruneColdTemporaryPeople(stat){return ACTIVE_WORLD_LIFECYCLE_SERVICE.pruneColdTemporaryPeople(stat);}
+    function pruneDeadAlienPeople(stat){return ACTIVE_WORLD_LIFECYCLE_SERVICE.pruneDeadAlienPeople(stat);}
+    function collectEventRefs(state){return ACTIVE_WORLD_LIFECYCLE_SERVICE.collectEventRefs(state);}
+    function detachEventSoftRefs(state,eventName){return ACTIVE_WORLD_LIFECYCLE_SERVICE.detachEventSoftRefs(state,eventName);}
+    function archiveFinishedEvent(stat,state,name,event,archived){return ACTIVE_WORLD_LIFECYCLE_SERVICE.archiveFinishedEvent(stat,state,name,event,archived);}
+    function propagationEnded(record,nowKey){return ACTIVE_WORLD_LIFECYCLE_SERVICE.propagationEnded(record,nowKey);}
+    function pruneSoftRefsToColdFinishedEvents(state,now){return ACTIVE_WORLD_LIFECYCLE_SERVICE.pruneSoftRefsToColdFinishedEvents(state,now);}
+    function compactFinishedEvents(stat,target=EVENT_TARGET){return ACTIVE_WORLD_LIFECYCLE_SERVICE.compactFinishedEvents(stat,target);}
+    function compactWorldLifecycle(stat){return ACTIVE_WORLD_LIFECYCLE_SERVICE.compact(stat);}
     const CURRENCY_FIELDS={体系:'',购买力基准:'',经济波动:''};
     const CALENDAR_FIELDS={名称:'',月份天数:[],闰年规则:''};
     const QUALITY_RANKS=['F','E','D','C','B','A','S','SS','SSS'];
@@ -4536,9 +4513,8 @@ ${schemaText}`;
 
     // 请求装饰已迁移至 WorldSoftMaintenanceFeature。\n\n    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
     const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
-    // 探索粒度、当前地点自动投影与旧档合并已迁入 WorldExplorationService。
-    // 长期探索台账仍不进行离场回收。
-    pruneColdExploration=function(){return [];};
+    // 探索粒度、当前地点自动投影与旧档合并已迁入 WorldExplorationService；
+    // 长期探索台账不再参与 lifecycle 离场回收，因此无需保留 prune monkey patch。
     // 探索提示词注入由 WorldPromptRegistry 最终装配；不再扩展主类。
     // 世界完整性保护：统一精确时钟；因果偏移采用软归一化，不因语义或幅度问题拖死整轮推进。
     const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间约束】
@@ -8677,6 +8653,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.stateProjector=new WorldStateProjector(engine);
             this.timelinePolicy=new WorldTimelinePolicy();
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
+            this.lifecycle=new WorldLifecycleService();
+            ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);

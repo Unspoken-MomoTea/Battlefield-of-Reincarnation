@@ -1276,51 +1276,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function progressionAnchorChanged(before,after) {
         return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
     }
-    function firstCompleteJsonObject(source) {
-        const text=String(source||''),start=text.indexOf('{');
-        if(start<0)return '';
-        let depth=0,inString=false,escaped=false;
-        for(let i=start;i<text.length;i++){
-            const ch=text[i];
-            if(inString){
-                if(escaped)escaped=false;
-                else if(ch==='\\')escaped=true;
-                else if(ch==='"')inString=false;
-                continue;
-            }
-            if(ch==='"'){inString=true;continue;}
-            if(ch==='{')depth++;
-            else if(ch==='}'){
-                depth--;
-                if(depth===0)return text.slice(start,i+1);
-                if(depth<0)return '';
-            }
-        }
-        return '';
-    }
-    function parseReply(text) {
-        let source=String(text).trim();
-        const block=source.match(/<world_update\s*>([\s\S]*?)<\/world_update>/i);
-        if(block)source=block[1].trim();
-        const fence=source.match(/\x60\x60\x60(?:json)?\s*([\s\S]*?)\x60\x60\x60/i);
-        if(fence)source=fence[1].trim();
-        let result;
-        try {result=JSON.parse(source);}
-        catch(error){
-            const candidate=firstCompleteJsonObject(source);
-            try {if(!candidate)throw error;result=JSON.parse(candidate);}
-            catch(_){throw new Error('返回 JSON 无法解析：'+error.message+'；原始回复保留在请求检查。');}
-        }
-        if(!plain(result))throw new Error('回复必须是一个 JSON 对象');
-        for(const key of ['WorldResult','world_result','world_update','result']){
-            if(plain(result[key])&&Object.keys(result).length===1){result=result[key];break;}
-        }
-        if(Array.isArray(result.patches)&&typeof result.summary==='string'){
-            return {kind:'legacy_patches',summary:result.summary,patches:result.patches};
-        }
-        const worldResult=normalizeWorldResult(result);
-        return {kind:'world_result',summary:worldResult.摘要,worldResult};
-    }
     class WorldResultContract {
         constructor(){this.schema=this.build();}
         schemaFromSample(sample) {
@@ -2335,6 +2290,56 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function retryPlanForFailure(error,rejected=[]){return ACTIVE_WORLD_RESULT_STAGING.retryPlanForFailure(error,rejected);}
     function retryFeedback(error,rejected=[],plans=[]){return ACTIVE_WORLD_RESULT_STAGING.retryFeedback(error,rejected,plans);}
     function makeRetryFailure(rejected,globalError){return ACTIVE_WORLD_RESULT_STAGING.makeRetryFailure(rejected,globalError);}
+    class WorldResultReplyParser {
+        firstCompleteJsonObject(source) {
+            const text=String(source||''),start=text.indexOf('{');
+            if(start<0)return '';
+            let depth=0,inString=false,escaped=false;
+            for(let i=start;i<text.length;i++){
+                const ch=text[i];
+                if(inString){
+                    if(escaped)escaped=false;
+                    else if(ch==='\\')escaped=true;
+                    else if(ch==='"')inString=false;
+                    continue;
+                }
+                if(ch==='"'){inString=true;continue;}
+                if(ch==='{')depth++;
+                else if(ch==='}'){
+                    depth--;
+                    if(depth===0)return text.slice(start,i+1);
+                    if(depth<0)return '';
+                }
+            }
+            return '';
+        }
+        parse(text) {
+            let source=String(text).trim();
+            const block=source.match(/<world_update\s*>([\s\S]*?)<\/world_update>/i);
+            if(block)source=block[1].trim();
+            const fence=source.match(/\x60\x60\x60(?:json)?\s*([\s\S]*?)\x60\x60\x60/i);
+            if(fence)source=fence[1].trim();
+            let result;
+            try {result=JSON.parse(source);}
+            catch(error){
+                const candidate=this.firstCompleteJsonObject(source);
+                try {if(!candidate)throw error;result=JSON.parse(candidate);}
+                catch(_){throw new Error('返回 JSON 无法解析：'+error.message+'；原始回复保留在请求检查。');}
+            }
+            if(!plain(result))throw new Error('回复必须是一个 JSON 对象');
+            for(const key of ['WorldResult','world_result','world_update','result']){
+                if(plain(result[key])&&Object.keys(result).length===1){result=result[key];break;}
+            }
+            if(Array.isArray(result.patches)&&typeof result.summary==='string'){
+                return {kind:'legacy_patches',summary:result.summary,patches:result.patches};
+            }
+            const worldResult=normalizeWorldResult(result);
+            return {kind:'world_result',summary:worldResult.摘要,worldResult};
+        }
+    }
+    const DEFAULT_WORLD_RESULT_REPLY_PARSER=new WorldResultReplyParser();
+    let ACTIVE_WORLD_RESULT_REPLY_PARSER=DEFAULT_WORLD_RESULT_REPLY_PARSER;
+    function parseReply(text){return ACTIVE_WORLD_RESULT_REPLY_PARSER.parse(text);}
     // WorldResult implementation lives in src/WorldEngine/domains/WorldResultKernel.part.js.
     // Keep this registered legacy slot temporarily as an explicit compatibility boundary while the old tree is retired.
     function activation(entry, scan, force) {
@@ -6447,7 +6452,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                         attemptTelemetry={尝试:attempt+1,结果:'待验收',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:observation.输出估算Tokens,API输入Tokens:usage?.inputTokens??null,API输出Tokens:usage?.outputTokens??null,API总Tokens:usage?.totalTokens??null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed};
                         this.lastAttemptTelemetry.push(attemptTelemetry);
 
-                        let reply=parseReply(received);
+                        let reply=this.services?.resultParser?.parse(received)??parseReply(received);
                         let legacyPatches=[],rejectedSlices=[];
                         if(reply.kind==='world_result'){
                             const staged=this.services?.compiler?.stage(base.stat,acceptedWorldResult,reply.worldResult,validate)??stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult,validate);
@@ -8628,6 +8633,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
+            this.resultParser=new WorldResultReplyParser();
+            ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
             this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging);
             this.validation=new WorldValidationService(engine);
             this.commit=new WorldCommitService(engine);

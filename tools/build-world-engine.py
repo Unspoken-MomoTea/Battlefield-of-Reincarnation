@@ -59,6 +59,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldRumorService.part.js',
     '@src/WorldEngine/domains/WorldRequestService.part.js',
     '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
+    '@src/WorldEngine/ui/WorldEngineViewRegistry.part.js',
     '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
     '@src/WorldEngine/ui/WorldPromptWorkspaceController.part.js',
     '@src/WorldEngine/core/WorldEngineClassBridge.part.js',

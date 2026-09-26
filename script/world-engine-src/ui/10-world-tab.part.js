@@ -1,5 +1,7 @@
     // 世界推进主视图渲染：从 50-engine-ui 拆出的事件/因果/时间线业务视图。
-    function worldEngineRenderWorldTab(ctx) {
+    class WorldOverviewView extends WorldEngineTabView {
+        constructor(){super('world');}
+        render(ctx) {
         const {
             engine,s,w,orbit,events,active,future,people,calendarCandidates,snapshot,
             entries,text,empty,section,stabilityDescription,parseDate,calendar,tools,
@@ -45,4 +47,5 @@
             +section('人物动向',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">查看人物名册 →</button>':empty('暂无人物动态')),'重点 NPC')
             +'</aside></div>';
         return html;
+        }
     }

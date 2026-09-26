@@ -16,9 +16,17 @@
             this.apiPreset=new WorldApiPresetController(engine);
             this.causalOverview=new WorldCausalOverviewController(engine);
             this.npcAuditPrompt=new WorldNpcAuditPromptFeature(engine);
+            this.softMaintenance=new WorldSoftMaintenanceFeature(engine);
+            this.integrityRequest=new WorldIntegrityRequestFeature(engine);
+            this.worldActivityRequest=new WorldActivityRequestFeature(engine);
+            this.dueEvent=new WorldDueEventFeature(engine);
             this.features.register('npcAuditPrompt',this.npcAuditPrompt);
             this.features.register('apiPreset',this.apiPreset);
             this.features.register('causalOverview',this.causalOverview);
+            this.features.register('softMaintenance',this.softMaintenance);
+            this.features.register('integrityRequest',this.integrityRequest);
+            this.features.register('worldActivityRequest',this.worldActivityRequest);
+            this.features.register('dueEvent',this.dueEvent);
         }
         initialize(){
             this.prompts.initialize();

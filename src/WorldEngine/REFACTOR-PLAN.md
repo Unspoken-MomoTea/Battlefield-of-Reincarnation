@@ -141,3 +141,9 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 迁移期仍保留 `ensureDueHandled / unscheduledEvents / ensureEventTimeAnchors / ensureStaleActiveHandled / ensureTemporalAnomaliesResolved / ensureMacroBackbone` 等可重写的全局 seam，因为软维护、传闻活性、世界活动交付和到期事件放宽仍会在加载阶段装饰这些入口。全局 seam 的基础实现现在统一由 `ACTIVE_WORLD_VALIDATION_POLICY` 提供，等对应 legacy decorator 继续类化后再逐项删除。
 
 至此 `WorldResultKernel.part.js` 已缩到只剩共享 WorldResult 常量和探索粒度修复。下一步优先把探索粒度迁入探索领域，并继续处理仍在 `script/world-engine-src` 中包装 compile/validation seam 的兼容模块。
+
+### Phase 17 · 探索粒度归入 Exploration Domain
+
+`explorationGranularity / repairExplorationGranularity` 的真实实现已从 `WorldResultKernel.part.js` 迁入现有 `WorldExplorationService`。为了让 WorldResult Materializer 和旧软维护模块在 Service Container 初始化前也能使用同一规则，构建顺序把 Exploration Service 提前到 Contract/Normalizer/Materializer 之前，并以默认实例提供兼容函数 seam；Container 初始化后再切换到 `engine.services.exploration`。
+
+这一刀没有改变探索粒度规则：天台、教室、走廊、房间等微观子区域仍不得独立进入 `世界.探索`，旧子区域记录仍自动合并回主区域。至此 `WorldResultKernel.part.js` 只保留多个 WorldResult 子服务共同依赖的常量/默认结构，不再包含业务函数。

@@ -71,6 +71,8 @@ jobs:
         run: node tests/world-engine-history-memory-editor.cjs
       - name: World event and activity editor regression
         run: node tests/world-engine-world-editors.cjs
+      - name: World engine class architecture regression
+        run: node tests/world-engine-class-architecture.cjs
       - name: World context UI regression
         run: node tests/world-engine-context-ui-redesign.cjs
       - name: World person scene UI regression

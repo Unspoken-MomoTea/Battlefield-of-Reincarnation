@@ -52,4 +52,4 @@
         return Array.from(root?.querySelectorAll?.('.we-section')||[]).find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()===title)||null;
     }
 
-    // UI 生命周期已迁移至 src/WorldEngine/ui/WorldCausalOverviewController.part.js。\n
+    // UI 生命周期已迁移至 src/WorldEngine/ui/WorldCausalOverviewController.part.js。

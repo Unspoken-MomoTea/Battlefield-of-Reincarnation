@@ -105,4 +105,4 @@
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
-    // 请求 payload/timeline/manifest 装饰已迁移至 WorldActivityRequestFeature。\n
+    // 请求 payload/timeline/manifest 装饰已迁移至 WorldActivityRequestFeature。

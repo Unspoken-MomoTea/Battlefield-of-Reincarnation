@@ -22,6 +22,7 @@
             return this;
         }
         bindPanel(){for(const service of this.items.values())service.bindPanel?.();}
+        beforeRender(){for(const service of this.items.values())service.beforeRender?.();}
         afterRender(){for(const service of this.items.values())service.afterRender?.();}
         dispose(){for(const service of this.items.values())service.dispose?.();}
         async modifyRequest(request,base){

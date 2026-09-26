@@ -208,7 +208,7 @@
             const savedTransport=this.lastTransportInfo;
             try{
                 const raw=await this.requestAI(
-                    HISTORY_MEMORY_SYSTEM,
+                    this.services?.prompts?.historyMemorySystem?.()||HISTORY_MEMORY_SYSTEM,
                     historyMemoryPrompt(world,batch,outputLevel),
                     {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
                 );

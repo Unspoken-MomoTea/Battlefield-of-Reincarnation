@@ -41,9 +41,11 @@ const built=engine.services.compiler.materialize(stat,[],compiled.patches);
 assert.equal(built.next.世界.后台.事件.巡逻升级.描述,'北门巡逻升级');
 
 const runtime=fs.readFileSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js'),'utf8');
+const orchestrator=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRunOrchestrator.part.js'),'utf8');
 const requestBuilder=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js'),'utf8');
 assert.match(requestBuilder,/services\?\.stateProjector\?\.world/,'base request builder must use the state projector service seam');
-assert.match(runtime,/services\?\.compiler\?\.compile/,'runtime result handling must use the compiler service seam');
-assert.match(runtime,/services\?\.compiler\?\.stage/,'runtime staged WorldResult validation must use the compiler service seam');
+assert.match(orchestrator,/services\?\.compiler\?\.compile/,'run orchestrator result handling must use the compiler service seam');
+assert.match(orchestrator,/services\?\.compiler\?\.stage/,'run orchestrator staged WorldResult validation must use the compiler service seam');
+assert.match(runtime,/runOrchestrator\(\)/,'runtime must delegate application flow to the orchestrator');
 
 console.log('PASS runtime uses class-based state projection and WorldResult compiler services');

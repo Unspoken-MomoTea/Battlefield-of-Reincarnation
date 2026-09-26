@@ -144,3 +144,7 @@ src/WorldEngine/
 ### WorldValidation Policy
 
 `WorldValidationPolicy` 持有到期事件、排期完整性、超期活动、时间越界、宏观骨架与推进锚点的基础领域规则；`WorldValidationService` 负责一次完整结果验收的应用编排。迁移期被 legacy feature 动态包装的校验仍通过可重写全局 seam 调用，这些 seam 的底层实现统一指向 container-owned `ACTIVE_WORLD_VALIDATION_POLICY`，避免类化绕过已有运行期扩展。
+
+### 探索粒度领域归属
+
+`WorldExplorationService` 除探索/势力快照外，同时拥有探索记录粒度判定与旧子区域合并修复。构建阶段提供默认 service-backed 兼容 seam，运行期由 Service Container 切换到 container-owned 实例；WorldResult Kernel 不再实现探索领域逻辑。

@@ -155,3 +155,10 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 已完成：新增 `WorldTimelinePolicy`，迁出 `storyStages / eventTimeAnchor / eventScheduleLabel / staleActiveEvents / temporalAnomalies / validateTemporalWrites / sortWorldEvents` 等时间线规则；`WorldValidationPolicy` 改为组合 timeline policy，兼容全局函数继续转发到 active policy。
 
 这一步继续缩小 `10-world-state.part.js`，下一批优先拆事件生命周期/归档与状态规范化，再处理因果投影 helper。
+
+
+### Phase 14 · 事件生命周期类化
+
+已完成：新增 `WorldLifecycleService`，迁出冷结束事件归档、事件软引用解绑、传播过期判定与结束事件容量回收；`10-world-state.part.js` 不再实现这些规则。
+
+`compactWorldLifecycle` 暂留 legacy 状态层作为兼容编排器，避免绕过 `59-soft-maintenance` 对长期探索台账“不离场回收”的动态 seam。下一批优先迁人物临时活动回收/异端死亡清理，再把顶层 lifecycle orchestration 收口。

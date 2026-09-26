@@ -15,6 +15,7 @@
             this.features.initialize();
             return this;
         }
+        afterInit(){this.features.afterInit();}
         bindPanel(){
             this.eventEditor.bindPanel();
             this.personEditor.bindPanel();

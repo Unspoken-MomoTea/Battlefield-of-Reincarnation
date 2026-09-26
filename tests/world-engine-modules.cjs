@@ -41,8 +41,6 @@ for(const moduleName of [
   '@src/WorldEngine/ui/views/WorldSettingsView.part.js',
   '@src/WorldEngine/ui/views/WorldPromptView.part.js',
   '@src/WorldEngine/ui/views/WorldRequestInspectorView.part.js',
-  '@src/WorldEngine/ui/views/WorldSettingsView.part.js',
-  '@src/WorldEngine/ui/views/WorldPromptView.part.js',
   '@src/WorldEngine/domains/WorldCausalService.part.js',
   '@src/WorldEngine/domains/WorldRequestFeature.part.js',
   '@src/WorldEngine/domains/WorldAutoProgressController.part.js',

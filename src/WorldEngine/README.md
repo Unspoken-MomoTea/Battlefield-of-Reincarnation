@@ -29,5 +29,10 @@
 - `WorldApiPresetController`：专属 API 预设选择态。
 - `WorldCausalOverviewController`：因果摘要/因果档案 UI。
 - `WorldNpcAuditPromptFeature`：NPC 审计默认提示词迁移。
+- `WorldRequestFeature`：所有请求装饰 feature 的公共 seam。
+- `WorldSoftMaintenanceFeature`：软维护验收 payload/manifest。
+- `WorldIntegrityRequestFeature`：因果与时间约束 manifest。
+- `WorldActivityRequestFeature`：世界活动交付 payload/timeline/manifest。
+- `WorldDueEventFeature`：到期事件软复核清单。
 
 详细迁移边界见 `ARCHITECTURE.md` 与 `REFACTOR-PLAN.md`；提示词清单规则见 `PROMPT-REGISTRY.md`。

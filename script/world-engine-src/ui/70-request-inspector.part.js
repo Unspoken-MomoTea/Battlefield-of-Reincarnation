@@ -40,3 +40,8 @@
         }
         return html;
     }
+
+    class RequestInspectorView {
+        constructor(engine){ this.engine=engine; }
+        render(context={}) { return worldEngineRenderRequestInspector({...context,engine:context.engine||this.engine}); }
+    }

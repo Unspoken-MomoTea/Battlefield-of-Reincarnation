@@ -51,16 +51,33 @@ PARTS = (
     '59-api-preset-selection.part.js',
     '59-history-memory.part.js',
     '59-history-memory-editor.part.js',
+    '@src/WorldEngine/domains/WorldMutationService.part.js',
+    '@src/WorldEngine/domains/WorldEventService.part.js',
+    '@src/WorldEngine/domains/WorldPersonActivityService.part.js',
+    '@src/WorldEngine/domains/WorldHistoryService.part.js',
+    '@src/WorldEngine/domains/WorldExplorationService.part.js',
+    '@src/WorldEngine/domains/WorldRumorService.part.js',
+    '@src/WorldEngine/domains/WorldRequestService.part.js',
+    '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
+    '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+    '@src/WorldEngine/ui/WorldPromptWorkspaceController.part.js',
+    '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
     '59-due-event-relaxation.part.js',
     '60-bootstrap.part.js',
 )
 
 
+def part_path(name: str) -> Path:
+    if name.startswith('@'):
+        return ROOT / name[1:]
+    return SOURCE_DIR / name
+
+
 def assembled_source() -> str:
-    missing = [name for name in PARTS if not (SOURCE_DIR / name).is_file()]
+    missing = [name for name in PARTS if not part_path(name).is_file()]
     if missing:
         raise SystemExit('missing world-engine source parts: ' + ', '.join(missing))
-    return ''.join((SOURCE_DIR / name).read_text(encoding='utf-8') for name in PARTS)
+    return ''.join(part_path(name).read_text(encoding='utf-8') for name in PARTS)
 
 
 def main() -> int:

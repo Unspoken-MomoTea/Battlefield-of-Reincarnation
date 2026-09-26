@@ -4,6 +4,7 @@
             this.stateProjector=new WorldStateProjector(engine);
             this.compiler=new WorldResultCompiler(engine);
             this.validation=new WorldValidationService(engine);
+            this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
             this.people=new WorldPersonActivityService(engine);

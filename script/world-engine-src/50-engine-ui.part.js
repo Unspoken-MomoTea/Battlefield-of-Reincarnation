@@ -404,7 +404,6 @@
             if(renderedView!==null&&renderedView!==undefined)html+=renderedView;
             main.innerHTML=html;main.scrollTop=force?0:scroll;
             this.services?.afterRender?.();
-            this.services.afterRender();
             if(this.jumpEvent){
                 const jumpName=this.jumpEvent;
                 const target=Array.from(main.querySelectorAll('[data-event-card]')).find(el=>el.dataset.eventCard===jumpName);

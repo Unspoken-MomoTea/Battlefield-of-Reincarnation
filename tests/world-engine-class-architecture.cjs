@@ -55,10 +55,27 @@ assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
+assert.equal(engine.services.requests.constructor.name,'WorldRequestService');
+assert.equal(engine.services.history.constructor.name,'WorldHistoryService');
+assert.equal(engine.services.exploration.constructor.name,'WorldExplorationService');
+assert.equal(engine.services.rumor.constructor.name,'WorldRumorService');
+for(const [key,className] of [
+  ['world','WorldOverviewView'],
+  ['people','WorldPeopleView'],
+  ['exploration','WorldExplorationView'],
+  ['events','WorldEventsView'],
+  ['history','WorldHistoryView'],
+  ['settings','WorldSettingsView'],
+  ['prompts','WorldPromptView'],
+  ['requestInspector','WorldRequestInspectorView'],
+]){
+  assert.equal(engine.services.views.get(key)?.constructor?.name,className,`view ${key} must be a dedicated class`);
+}
 
 const expectedPromptKeys=[
   'preset','core','macro','stability','npcAudit','outputProtocol',
-  'task','chronology','maintenance','exploration','integrity','worldTime','rumor',
+  'task','chronology','maintenance','exploration','integrity','worldTime',
+  'rumorLiveliness','rumorThrottle','rumorSource',
   'worldActivity','historyMemory'
 ];
 const promptKeys=engine.services.prompts.list().map(item=>item.key);
@@ -72,6 +89,10 @@ const promptUi=[
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
 assert.match(promptUi,/data-prompt-registry/,'prompt workspace must render registry-backed prompt fields');
 assert.match(promptUi,/全部实际提示词/,'prompt workspace must present one discoverable all-prompts section');
+assert.doesNotMatch(promptUi,/we-prompt-registry-preview/,'all registered prompts must be directly editable instead of hidden behind read-only previews');
+const registrySystem=engine.services.prompts.list().map(item=>item.value).filter(Boolean).join('\n\n');
+assert.deepEqual(engine.services.prompts.auditSystem(registrySystem).unregistered,[],'registered system text must self-audit without hidden prompt blocks');
+assert.ok(engine.services.prompts.auditSystem(registrySystem+'\n\n【未登记提示】\n这段不允许偷偷发送。').unregistered.includes('未登记提示'),'prompt audit must detect hidden system blocks');
 
 (async()=>{
   await engine.services.events.save('巡逻','修正巡逻',{
@@ -91,9 +112,11 @@ assert.match(promptUi,/全部实际提示词/,'prompt workspace must present one
   const values=engine.services.prompts.values();
   values.worldActivity='【自定义世界活动】\n只用于测试注册表覆盖。';
   values.historyMemory='【自定义历史压缩】\n只压缩既有事实。';
+  values.rumorSource='【自定义传闻来源】\n只使用世界侧公开事实。';
   engine.applyPromptSettings({promptRegistry:values});
   assert.equal(engine.services.prompts.value('worldActivity'),'【自定义世界活动】\n只用于测试注册表覆盖。');
   assert.equal(engine.services.prompts.value('historyMemory'),'【自定义历史压缩】\n只压缩既有事实。');
+  assert.equal(engine.services.prompts.value('rumorSource'),'【自定义传闻来源】\n只使用世界侧公开事实。');
 
   console.log('PASS world engine uses composed domain classes and exposes every system prompt through one registry');
 })().catch(error=>{console.error(error);process.exitCode=1;});

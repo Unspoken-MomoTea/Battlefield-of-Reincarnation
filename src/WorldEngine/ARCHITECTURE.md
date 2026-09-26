@@ -23,6 +23,7 @@ src/WorldEngine/
     WorldStateProjector
     WorldResultCompiler
     WorldValidationService
+    WorldCommitService
     WorldMutationService
     WorldEventService
     WorldPersonActivityService
@@ -90,3 +91,9 @@ src/WorldEngine/
 `WorldValidationService` 已接管 runtime 中编译完成后的统一业务验收入口：到期事件、事件时间锚点、超期活动事件、时间越界、活跃异端、NPC 审计与宏观骨架不再由主运行循环逐条调用。主 runtime 只负责调用 `validation.validate(...)` 并处理错误结果。
 
 当运行期间 MVU 发生并发变化、需要对最新状态重新 materialize 时，仍复用同一个 service，但通过 `includeNpcAudit:false` 保持旧行为，避免重构顺手改变二次校验语义。
+
+## Phase 8 · 提交事务 seam
+
+`WorldCommitService` 已接管主推进结果验收后的提交准备和最终 MVU 写入：稳定值重算、已处理楼层/时间、最近变化、`beforeWorldCommit` 派生元数据、Schema 二次确认、replay 包以及单次 `replaceMvuData` 都通过一个 service seam 完成。
+
+因此主 runtime 的核心职责已经收缩为：**构造请求 → 获取回复 → 编译 → 统一验收 → 提交**。领域细节由 service 负责，Application Facade 只编排。

@@ -63,6 +63,7 @@
             const request=await super.buildRequest(base);
             if(this.promptRegistry){
                 request.system=this.promptRegistry.rewriteSystem(request.system);
+                request.input=this.promptRegistry.rewriteInput(request.input);
                 request.manifest=request.manifest||{};
                 request.manifest.提示词注册表=this.promptRegistry.list().map(item=>({
                     key:item.key,标题:item.title,分组:item.group,来源:item.source,

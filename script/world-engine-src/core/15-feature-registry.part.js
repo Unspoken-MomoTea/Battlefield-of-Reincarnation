@@ -10,15 +10,18 @@
         constructor(engine){
             this.engine=engine;
             this.items=new Map();
-            for(const item of WORLD_ENGINE_FEATURE_FACTORIES){
-                const service=item.factory(engine);
-                if(service)this.items.set(item.name,service);
-            }
+            this.factories=WORLD_ENGINE_FEATURE_FACTORIES.slice();
         }
         get(name){return this.items.get(name)||null;}
         describe(){return Array.from(this.items,([name,service])=>({name,className:service?.constructor?.name||''}));}
         initialize(){
-            for(const service of this.items.values())service.initialize?.();
+            for(const item of this.factories){
+                if(this.items.has(item.name))continue;
+                const service=item.factory(this.engine);
+                if(!service)continue;
+                this.items.set(item.name,service);
+                service.initialize?.();
+            }
             return this;
         }
         afterInit(){for(const service of this.items.values())service.afterInit?.();}

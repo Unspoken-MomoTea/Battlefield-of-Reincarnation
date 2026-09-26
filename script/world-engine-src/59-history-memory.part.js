@@ -122,7 +122,7 @@
         return JSON.stringify({
             世界:String(world?.名称||''),
             输出层级:'L'+outputLevel,
-            说明:'按给定顺序压缩；时间字段是权威锚点，不得改写或补造。',
+            说明:String(globalThis?.Samsara?.worldEngine?.services?.prompts?.get?.('historyMemoryInputInstruction')||PROMPT_DEFAULT_HISTORY_INPUT),
             历史节点:nodes
         },null,2);
     }

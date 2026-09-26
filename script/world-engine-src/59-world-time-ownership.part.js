@@ -144,21 +144,23 @@
             request.system=String(request.system||'')+'\n\n'+WORLD_TIME_RULES;
             try{
                 const payload=JSON.parse(request.input),needsInitialization=worldTimeUnset(base?.stat?.世界?.时间);
+                let guidance;try{guidance=JSON.parse(this.engine.services?.prompts?.value?.('worldTimeMaintenanceGuidance')||WORLD_PROMPT_WORLD_TIME_MAINTENANCE);}
+                catch(_){guidance=JSON.parse(WORLD_PROMPT_WORLD_TIME_MAINTENANCE);}
                 payload.世界时间维护={
                     当前时间:String(base?.stat?.世界?.时间||''),
                     是否需要初始化:needsInitialization,
-                    所有权:'世界推进独占写入；变量 AI 只读',
+                    所有权:String(guidance.所有权||''),
                     初始化锚定:needsInitialization?{
                         任务世界:String(base?.stat?.世界?.名称||''),
                         当前阶段:String(base?.stat?.世界?.因果轨道?.当前阶段||''),
                         当前地点:String(base?.stat?.世界?.地点||''),
-                        依据顺序:['最新已确认正文','当前阶段与当前地点','已读取时间线/年表/章节资料','模型已有原著知识','谨慎推断'],
-                        禁止:'不得把下一宏观节点、任务期限或未来事件的日期直接当成当前世界时间；无法唯一定位时保持较粗时间精度。'
+                        依据顺序:copy(guidance.初始化依据顺序||[]),
+                        禁止:String(guidance.初始化禁止||'')
                     }:undefined,
-                    正文时间职责:'若最新正文明确发生过夜、数小时后、次日、跨日旅行或新的日期/时段，必须输出顶层“时间”同步世界时钟；不能保留旧时钟再提交已经发生于新时点的事实。',
-                    精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须是数字；不要用自定义月份名称替代数字月。',
-                    时间段候选:['凌晨','黎明','清晨','早晨','上午','中午','午后','下午','傍晚','入夜','晚上','深夜'],
-                    推进原则:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确时间资料表明确实经过合理时长才推进。'
+                    正文时间职责:String(guidance.正文时间职责||''),
+                    精确日期格式:String(guidance.精确日期格式||''),
+                    时间段候选:copy(guidance.时间段候选||[]),
+                    推进原则:String(guidance.推进原则||'')
                 };
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}

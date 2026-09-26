@@ -125,143 +125,20 @@
         saveConfig() {
             try{this.host.localStorage?.setItem?.(CONFIG,JSON.stringify(this.config));}catch(_){}
         }
-        normalizeDedicatedApi(value) {
-            const api=plain(value)?value:{};
-            return {
-                enabled:api.enabled===true,
-                apiUrl:String(api.apiUrl||'').trim(),
-                apiKey:String(api.apiKey||''),
-                model:String(api.model||'').trim(),
-                apiPresets:Array.isArray(api.apiPresets)?api.apiPresets.filter(plain).map(p=>({
-                    name:String(p.name||'').trim().slice(0,80),
-                    apiUrl:String(p.apiUrl||'').trim(),
-                    apiKey:String(p.apiKey||''),
-                    model:String(p.model||'').trim()
-                })).filter(p=>p.name).slice(0,30):[],
-                fetchedModels:Array.isArray(api.fetchedModels)?api.fetchedModels.map(String).filter(Boolean).slice(0,500):[]
-            };
-        }
-        usesDedicatedApi() { return this.config.dedicatedApi?.enabled===true; }
-        dedicatedApiReady() {
-            const api=this.config.dedicatedApi||{};
-            return api.enabled===true&&!!String(api.apiUrl||'').trim()&&!!String(api.model||'').trim();
-        }
-        apiSourceLabel() { return this.usesDedicatedApi()?'世界推进专属 API':'主神终端额外模型'; }
-        setDedicatedApi(patch) {
-            const current=this.normalizeDedicatedApi(this.config.dedicatedApi);
-            const next=this.normalizeDedicatedApi(Object.assign({},current,plain(patch)?patch:{}));
-            if(patch&&Object.hasOwn(patch,'apiUrl')&&String(patch.apiUrl||'').trim()!==current.apiUrl)next.fetchedModels=[];
-            this.config.dedicatedApi=next;
-            this.saveConfig();
-            return next;
-        }
-        saveDedicatedApiPreset(name) {
-            const clean=String(name||'').trim().slice(0,80);
-            if(!clean)throw new Error('请输入 API 预设名称');
-            const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
-            const entry={name:clean,apiUrl:api.apiUrl,apiKey:api.apiKey,model:api.model};
-            const idx=api.apiPresets.findIndex(p=>p.name===clean);
-            if(idx>=0)api.apiPresets[idx]=entry;else api.apiPresets.unshift(entry);
-            api.apiPresets=api.apiPresets.slice(0,30);
-            this.config.dedicatedApi=api;this.saveConfig();return entry;
-        }
-        deleteDedicatedApiPreset(name) {
-            const clean=String(name||'').trim(),api=this.normalizeDedicatedApi(this.config.dedicatedApi);
-            const before=api.apiPresets.length;api.apiPresets=api.apiPresets.filter(p=>p.name!==clean);
-            this.config.dedicatedApi=api;this.saveConfig();return before!==api.apiPresets.length;
-        }
-        applyDedicatedApiPreset(name) {
-            const api=this.normalizeDedicatedApi(this.config.dedicatedApi),preset=api.apiPresets.find(p=>p.name===String(name||''));
-            if(!preset)throw new Error('API 预设不存在');
-            api.apiUrl=preset.apiUrl;api.apiKey=preset.apiKey;api.model=preset.model;api.fetchedModels=[];
-            this.config.dedicatedApi=api;this.saveConfig();return api;
-        }
-        dedicatedEndpoint(kind='chat') {
-            const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
-            let endpoint=String(api.apiUrl||'').trim().replace(/\/+$/,'');
-            if(!endpoint)throw new Error('请先填写专属 API 地址');
-            if(kind==='models'){
-                if(/\/chat\/completions$/i.test(endpoint))endpoint=endpoint.replace(/\/chat\/completions$/i,'/models');
-                else if(/\/v1$/i.test(endpoint))endpoint+='/models';
-                else if(/\/v1\//i.test(endpoint))endpoint=endpoint.replace(/\/v1\/.*$/i,'/v1/models');
-                else endpoint+=/\/v\d+$/i.test(endpoint)?'/models':'/v1/models';
-                return endpoint;
-            }
-            if(/\/chat\/completions$/i.test(endpoint))return endpoint;
-            if(/\/v1$/i.test(endpoint))return endpoint+'/chat/completions';
-            if(/\/v1\//i.test(endpoint))return endpoint.replace(/\/v1\/.*$/i,'/v1/chat/completions');
-            return endpoint+(/\/v\d+$/i.test(endpoint)?'/chat/completions':'/v1/chat/completions');
-        }
-        async fetchDedicatedModels() {
-            const api=this.normalizeDedicatedApi(this.config.dedicatedApi),fetcher=this.host.fetch||(typeof fetch!=='undefined'?fetch:null);
-            if(!fetcher)throw new Error('当前环境没有 fetch');
-            const headers={};if(api.apiKey.trim())headers.Authorization='Bearer '+api.apiKey.trim();
-            const response=await fetcher(this.dedicatedEndpoint('models'),{headers});
-            if(!response.ok){
-                let body='';try{body=await response.text();}catch(_){}
-                throw new Error('加载模型失败：HTTP '+response.status+(body?' / '+body.slice(0,240):''));
-            }
-            const body=await response.json();
-            const raw=Array.isArray(body?.data)?body.data:Array.isArray(body?.models)?body.models:[];
-            const models=raw.map(item=>typeof item==='string'?item:item?.id||item?.name).filter(Boolean).map(String);
-            if(!models.length)throw new Error('API 返回的模型列表为空');
-            api.fetchedModels=Array.from(new Set(models)).sort().slice(0,500);
-            if(api.model&&!api.fetchedModels.includes(api.model))api.fetchedModels.unshift(api.model);
-            this.config.dedicatedApi=api;this.saveConfig();return api.fetchedModels;
-        }
-        structuredUnsupported(status,body) {
-            const code=Number(status),text=String(body||'');
-            return [400,404,415,422].includes(code)&&/response[_ -]?format|json[_ -]?schema|json[_ -]?object|unknown (?:field|parameter)|unrecognized|unsupported|not supported|invalid.*schema|INVALID_ARGUMENT|invalid[_ -]?argument/i.test(text);
-        }
-        async requestDedicatedApi(system,input,options={}) {
-            const api=this.normalizeDedicatedApi(this.config.dedicatedApi),fetcher=this.host.fetch||(typeof fetch!=='undefined'?fetch:null);
-            if(!this.dedicatedApiReady())throw new Error('世界推进专属 API 已启用，但地址或模型未配置完整');
-            if(!fetcher)throw new Error('当前环境没有 fetch');
-            const endpoint=this.dedicatedEndpoint('chat'),headers={'Content-Type':'application/json'};
-            if(api.apiKey.trim())headers.Authorization='Bearer '+api.apiKey.trim();
-            const cacheKey=endpoint+'|'+api.model,wants=options.structured==='auto'&&plain(options.schema);
-            const cached=wants?this.apiModeCache[cacheKey]:'';
-            const modes=!wants?['plain']:cached==='json_schema'?['json_schema','json_object','plain']:cached==='json_object'?['json_object','plain']:cached==='plain'?['plain']:['json_schema','json_object','plain'];
-            let lastError='';const modeAttempts=[];
-            for(const mode of modes){
-                modeAttempts.push(mode);
-                const body={
-                    model:api.model,
-                    messages:[{role:'system',content:String(system||'')},{role:'user',content:String(input||'')}],
-                    stream:false,
-                    temperature:Number.isFinite(Number(options.temperature))?Number(options.temperature):0.3
-                };
-                if(mode==='json_schema')body.response_format={type:'json_schema',json_schema:{name:String(options.schemaName||'samsara_world_result').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64),strict:false,schema:options.schema}};
-                else if(mode==='json_object')body.response_format={type:'json_object'};
-                const response=await fetcher(endpoint,{method:'POST',headers,body:JSON.stringify(body),signal:options.signal});
-                if(!response.ok){
-                    let err='';try{err=await response.text();}catch(_){}
-                    lastError='HTTP '+response.status+': '+response.statusText+(err?' / '+err.slice(0,300):'');
-                    if(mode!=='plain'&&this.structuredUnsupported(response.status,err)){delete this.apiModeCache[cacheKey];continue;}
-                    this.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:null};
-                    throw new Error(lastError);
-                }
-                const data=await response.json(),message=data?.choices?.[0]?.message;
-                const raw=message?.content;
-                const content=typeof raw==='string'?raw:(plain(raw)?JSON.stringify(raw):message?.parsed?JSON.stringify(message.parsed):'');
-                if(!content)throw new Error('专属 API 返回内容为空');
-                if(wants)this.apiModeCache[cacheKey]=mode;
-                this.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:normalizeTokenUsage(data?.usage)};
-                return content;
-            }
-            throw new Error(lastError||'专属 API 不支持当前结构化输出模式');
-        }
-        async requestAI(system,input,options={}) {
-            if(this.usesDedicatedApi()){
-                const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
-                this.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:'请求中',尝试模式:[],usage:null};
-                return this.requestDedicatedApi(system,input,options);
-            }
-            const terminal=this.host.Samsara&&this.host.Samsara.terminal;
-            if(!terminal||typeof terminal.request!=='function'||!terminal.apiReady?.())throw new Error('请在主神终端设置中启用额外模型并选择模型');
-            this.lastTransportInfo={接口:'主神终端额外模型',模型:'',结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
-            return terminal.request(system,input,options);
-        }
+        transportService(){return this._apiTransport||(this._apiTransport=new WorldApiTransportService(this));}
+        normalizeDedicatedApi(value){return this.transportService().normalize(value);}
+        usesDedicatedApi(){return this.transportService().usesDedicated();}
+        dedicatedApiReady(){return this.transportService().ready();}
+        apiSourceLabel(){return this.transportService().sourceLabel();}
+        setDedicatedApi(patch){return this.transportService().set(patch);}
+        saveDedicatedApiPreset(name){return this.transportService().savePreset(name);}
+        deleteDedicatedApiPreset(name){return this.transportService().deletePreset(name);}
+        applyDedicatedApiPreset(name){return this.transportService().applyPreset(name);}
+        dedicatedEndpoint(kind='chat'){return this.transportService().endpoint(kind);}
+        fetchDedicatedModels(){return this.transportService().fetchModels();}
+        structuredUnsupported(status,body){return this.transportService().structuredUnsupported(status,body);}
+        requestDedicatedApi(system,input,options={}){return this.transportService().requestDedicated(system,input,options);}
+        requestAI(system,input,options={}){return this.transportService().request(system,input,options);}
         setPreset(text) {
             if (typeof text !== 'string' || text.length > 30000) throw new Error('预设限30000字');
             this.config.preset = normalizeEditablePreset(text);
@@ -312,68 +189,12 @@
             this.saveConfig();
             return this.config;
         }
-        getPromptDocuments() {
-            if(!Array.isArray(this.config.promptDocuments))this.config.promptDocuments=[];
-            return this.config.promptDocuments;
-        }
-        savePromptDocument(name,settings,activate=true) {
-            const clean=String(name||'').trim().slice(0,80);
-            if(!clean)throw new Error('请先填写预设文档名称');
-            if(clean===BUILTIN_DEFAULT_PROMPT_DOCUMENT.name)throw new Error('“默认设置”是内置文档，请换一个名称保存自定义版本');
-            const docs=this.getPromptDocuments(),now=new Date().toISOString();
-            let doc=docs.find(item=>!item.builtin&&item.id===this.config.activePromptDocumentId&&item.name===clean)||docs.find(item=>!item.builtin&&item.name===clean);
-            if(doc){
-                doc.name=clean;doc.updatedAt=now;doc.settings=copy(settings);
-            }else{
-                doc={id:'prompt-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),name:clean,createdAt:now,updatedAt:now,settings:copy(settings)};
-                docs.unshift(doc);
-            }
-            this.config.promptDocuments=docs.slice(0,60);
-            if(activate)this.config.activePromptDocumentId=doc.id;
-            this.saveConfig();
-            return doc;
-        }
-        deletePromptDocument(id) {
-            if(id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)return false;
-            const before=this.getPromptDocuments().length;
-            this.config.promptDocuments=this.getPromptDocuments().filter(doc=>doc.id!==id);
-            if(this.config.activePromptDocumentId===id)delete this.config.activePromptDocumentId;
-            this.saveConfig();
-            return before!==this.config.promptDocuments.length;
-        }
-        importPromptDocument(raw) {
-            let parsed;try{parsed=JSON.parse(String(raw||''));}catch(_){throw new Error('导入文件不是有效 JSON');}
-            const settings=plain(parsed.settings)?parsed.settings:parsed;
-            if(typeof settings.preset!=='string')throw new Error('导入文件缺少 preset');
-            if(settings.preset.length>30000)throw new Error('导入预设超过30000字');
-            const name=String(parsed.name||settings.name||'导入预设').trim().slice(0,80)||'导入预设';
-            const normalized={
-                corePrompt:typeof settings.corePrompt==='string'?settings.corePrompt:CORE_WORLD_RULES,
-                macroPrompt:typeof settings.macroPrompt==='string'?settings.macroPrompt:DEFAULT_MACRO_PROMPT,
-                stabilityPromptTemplate:typeof settings.stabilityPromptTemplate==='string'?settings.stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,
-                npcAuditPrompt:typeof settings.npcAuditPrompt==='string'?settings.npcAuditPrompt:undefined,
-                structurePrompt:typeof settings.structurePrompt==='string'?settings.structurePrompt:undefined,
-                preset:normalizeEditablePreset(settings.preset),
-                contextTurns:Math.max(1,Math.min(100,Number(settings.contextTurns)||6)),
-                activationMode:settings.activationMode==='force_selected'?'force_selected':'respect_activation',
-                selectedEntries:Array.isArray(settings.selectedEntries)?settings.selectedEntries.filter(x=>typeof x==='string'):null
-            };
-            return this.savePromptDocument(name,normalized,false);
-        }
-        exportPromptDocument(id) {
-            const doc=this.getPromptDocuments().find(item=>item.id===id);
-            if(!doc)throw new Error('预设文档不存在');
-            const BlobCtor=this.host.Blob||(typeof Blob!=='undefined'?Blob:null);
-            const URLApi=this.host.URL||(typeof URL!=='undefined'?URL:null);
-            if(!BlobCtor||!URLApi?.createObjectURL)throw new Error('当前环境不支持文件导出');
-            const exportedSettings=Object.assign({corePrompt:CORE_WORLD_RULES,macroPrompt:DEFAULT_MACRO_PROMPT,stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,npcAuditPrompt:NPC_BUILD_AUDIT_RULES,structurePrompt:protocol().split('【Canonical WorldResult JSON Schema】')[0].trim()},copy(doc.settings));
-            const payload={type:'samsara-world-prompt-document',version:2,name:doc.name,exportedAt:new Date().toISOString(),settings:exportedSettings};
-            const blob=new BlobCtor([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
-            const href=URLApi.createObjectURL(blob),a=this.host.document.createElement('a');
-            a.href=href;a.download=doc.name.replace(/[\\/:*?"<>|]+/g,'_')+'.world-prompt.json';a.style.display='none';
-            this.host.document.body.appendChild(a);a.click();a.remove();
-            setTimeout(()=>URLApi.revokeObjectURL(href),1000);
-        }
+        promptDocumentService(){return this._promptDocuments||(this._promptDocuments=new WorldPromptDocumentService(this));}
+        getPromptDocuments(){return this.promptDocumentService().list();}
+        savePromptDocument(name,settings,activate=true){return this.promptDocumentService().save(name,settings,activate);}
+        deletePromptDocument(id){return this.promptDocumentService().remove(id);}
+        importPromptDocument(raw){return this.promptDocumentService().import(raw);}
+        exportPromptDocument(id){return this.promptDocumentService().export(id);}
         isConfigured() { return !!this.config.enabled; }
         isAvailable() {
             if(this.usesDedicatedApi())return this.dedicatedApiReady();

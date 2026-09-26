@@ -120,7 +120,7 @@ replace_once(
 )
 
 replace_once(
-    'script/world-engine-src/59-auto-progress.part.js',
+    'src/WorldEngine/runtime/WorldAutoProgressFeature.part.js',
     "const maps=['事件','人物','势力地区','历史','传播'];",
     "const maps=['事件','人物','势力地区','历史','历史总结','传播'];",
     marker="'历史','历史总结','传播'"

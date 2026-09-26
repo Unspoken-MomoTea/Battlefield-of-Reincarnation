@@ -60,8 +60,11 @@ remove_once(
     '    const HISTORY_TARGET = 200;\n',
 )
 
-replace_once(
-    'script/world-engine-src/10-world-state.part.js',
+replace_once_any(
+    [
+        'src/WorldEngine/domains/WorldLifecycleService.part.js',
+        'script/world-engine-src/10-world-state.part.js',
+    ],
     """        const historyKeys=Object.keys(state.历史||{});
         if(historyKeys.length>HISTORY_TARGET)for(const key of historyKeys.slice(0,historyKeys.length-HISTORY_TARGET))delete state.历史[key];
         return archived;""",

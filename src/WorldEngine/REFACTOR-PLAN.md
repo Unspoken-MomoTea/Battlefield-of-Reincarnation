@@ -162,3 +162,12 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 已完成：新增 `WorldLifecycleService`，迁出冷结束事件归档、事件软引用解绑、传播过期判定与结束事件容量回收；`10-world-state.part.js` 不再实现这些规则。
 
 `compactWorldLifecycle` 暂留 legacy 状态层作为兼容编排器，避免绕过 `59-soft-maintenance` 对长期探索台账“不离场回收”的动态 seam。下一批优先迁人物临时活动回收/异端死亡清理，再把顶层 lifecycle orchestration 收口。
+
+
+### Phase 15 · 人物与总生命周期类化
+
+已完成：`WorldLifecycleService` 接管 `personActivityMeta / pruneColdTemporaryPeople / pruneDeadAlienPeople / compactWorldLifecycle`。冷临时人物、死亡异端后台活动、过期传播与冷结束事件现在由同一 lifecycle service 统一编排；正式人物档案不由世界推进删除。
+
+同时删除 legacy `pruneColdExploration`：探索已定义为长期玩家台账，离开地区不会再被生命周期回收。兼容报告保留 `回收探索: []`，避免调用方结构变化。
+
+CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不再因为 `10-world-state.part.js` 中旧归档锚点已迁走而误报失败。下一批继续拆 `10-world-state.part.js` 中的状态规范化/事件层级修复与因果投影 helper。

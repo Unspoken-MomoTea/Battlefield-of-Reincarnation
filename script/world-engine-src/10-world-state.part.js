@@ -73,56 +73,6 @@
         };
     }
 
-    function explorationLocationRefs(record,kind) {
-        if(!plain(record))return [];
-        const out=[];
-        if(String(record.地点||'').trim())out.push(String(record.地点).trim());
-        if(kind==='事件'){
-            for(const item of Array.isArray(record.可见影响)?record.可见影响:[]){
-                if(plain(item)&&String(item.地点||'').trim())out.push(String(item.地点).trim());
-            }
-        }else if(kind==='人物'){
-            for(const item of Array.isArray(record.行程)?record.行程:[]){
-                if(!plain(item)||!String(item.地点||'').trim())continue;
-                const status=String(item.状态||'').trim();
-                if(/^(?:已完成|完成|已结束|结束|已取消|取消|已失效|失效)$/.test(status))continue;
-                out.push(String(item.地点).trim());
-            }
-        }
-        return out;
-    }
-    function pruneColdExploration(stat) {
-        const world=stat?.世界,bucket=world?.探索,state=world?.[PATH];
-        if(!plain(bucket)||!state)return [];
-        const currentLocation=String(world?.地点||'').trim();
-        // 没有当前地点时无法证明玩家已经离开，宁可保留，避免误删长期档案。
-        if(!currentLocation)return [];
-        const eventLocations=Object.values(state.事件||{}).flatMap(record=>explorationLocationRefs(record,'事件'));
-        const personLocations=Object.values(state.人物||{}).flatMap(record=>explorationLocationRefs(record,'人物'));
-        const removed=[];
-        for(const areaName of Object.keys(bucket)){
-            if(!String(areaName||'').trim())continue;
-            if(worldLocationRelated(currentLocation,areaName))continue;
-            if(eventLocations.some(location=>worldLocationRelated(location,areaName)))continue;
-            if(personLocations.some(location=>worldLocationRelated(location,areaName)))continue;
-            delete bucket[areaName];
-            removed.push(areaName);
-        }
-        return removed;
-    }
-    function compactWorldLifecycle(stat) {
-        const state=stat?.世界?.[PATH];
-        if(!state)return {归档事件:[],回收传播:[],回收人物:[],回收探索:[]};
-        const now=worldDateKey(stat?.世界?.时间),removed=[];
-        for(const [name,record] of Object.entries(state.传播||{})){
-            if(propagationEnded(record,now)){delete state.传播[name];removed.push(name);}
-        }
-        const archived=compactFinishedEvents(stat);
-        const removedPeople=pruneColdTemporaryPeople(stat);
-        // 先回收已经结束的事件与冷人物，再判断哪些探索区域真正失去剧情关联。
-        const removedExploration=pruneColdExploration(stat);
-        return {归档事件:archived,回收传播:removed,回收人物:removedPeople,回收探索:removedExploration};
-    }
     function repairCausalProjection(stat) {
         const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
         const existing=storyStages(orbit.故事线);
@@ -241,24 +191,6 @@
         const x=nameKey(a),y=nameKey(b);if(!x||!y)return false;
         return x===y||x.includes(y)||y.includes(x);
     }
-    function personActivityMeta(stat,name,person) {
-        const relations=stat?.关系列表||{},roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
-        const events=stat?.世界?.[PATH]?.事件||{},worldTime=String(stat?.世界?.时间||''),currentLocation=String(stat?.世界?.地点||'');
-        const formalName=stableNameIn(relations,name),alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
-        const activeAlien=!!(alien&&alien.状态!=='死亡'),deadAlien=!!(alien&&alien.状态==='死亡');
-        const liveEntries=Object.entries(events).filter(([,event])=>event&&['待发生','进行中'].includes(event.状态));
-        const liveNames=new Set(liveEntries.map(([eventName])=>eventName));
-        const linked=Array.isArray(person?.关联事件)&&person.关联事件.some(eventName=>liveNames.has(eventName));
-        const participant=liveEntries.some(([,event])=>(event.参与者||[]).some(item=>nameKey(item)===nameKey(name)));
-        const here=!!(person?.地点&&currentLocation&&worldLocationRelated(person.地点,currentLocation));
-        const now=worldDateKey(worldTime),updated=worldDateKey(person?.更新时间);
-        const ageHours=now!==null&&updated!==null?now-updated:null;
-        const recent=sameWorldTimeAnchor(person?.更新时间,worldTime)||(ageHours!==null&&ageHours>=0&&ageHours<=HOT_PERSON_RECENT_HOURS);
-        const checkAt=worldDateKey(person?.下次检查);
-        const dueSoon=now!==null&&checkAt!==null&&checkAt>=now-HOT_PERSON_RECENT_HOURS&&checkAt<=now+7*24;
-        const terminal=TERMINAL_PERSON_STATUS.test(String(person?.状态||'').trim());
-        return {formalName,activeAlien,deadAlien,linked,participant,here,recent,dueSoon,terminal,ageHours};
-    }
     function projectHotWorldPeople(stat,limit=HOT_PERSON_TARGET) {
         const people=stat?.世界?.[PATH]?.人物||{},rows=[];
         for(const [name,person] of Object.entries(people)){
@@ -274,45 +206,9 @@
         const aliens=rows.filter(row=>row.meta.activeAlien),ordinary=rows.filter(row=>!row.meta.activeAlien).slice(0,Math.max(0,Number(limit)||0));
         return Object.fromEntries([...aliens,...ordinary].map(row=>[row.name,copy(row.person)]));
     }
-    function pruneColdTemporaryPeople(stat) {
-        const people=stat?.世界?.[PATH]?.人物;if(!plain(people))return [];
-        const removed=[];
-        const entries=Object.entries(people);
-        for(const [name,person] of entries){
-            if(!plain(person))continue;
-            const meta=personActivityMeta(stat,name,person);
-            const protectedNow=!!(meta.formalName||meta.activeAlien||meta.linked||meta.participant||meta.here||meta.dueSoon);
-            if(protectedNow)continue;
-            const stale=meta.ageHours!==null&&meta.ageHours>COLD_TEMP_PERSON_GRACE_HOURS;
-            if(meta.terminal||stale){delete people[name];removed.push(name);}
-        }
-        const cold=Object.entries(people).filter(([name,person])=>{
-            if(!plain(person))return false;
-            const meta=personActivityMeta(stat,name,person);
-            const protectedNow=!!(meta.formalName||meta.activeAlien||meta.linked||meta.participant||meta.here||meta.dueSoon);
-            const recentlyActive=meta.ageHours!==null&&meta.ageHours>=0&&meta.ageHours<=COLD_TEMP_PERSON_GRACE_HOURS;
-            return !protectedNow&&!recentlyActive;
-        });
-        while(cold.length>COLD_TEMP_PERSON_TARGET){
-            const [name]=cold.shift();
-            if(Object.hasOwn(people,name)){delete people[name];removed.push(name);}
-        }
-        return removed;
-    }
     function alienRosterMatch(stat,name) {
         const roster=stat?.世界?.异端雷达?.名单||{},matched=stableNameIn(roster,name);
         return matched?{名称:matched,记录:roster[matched]}:null;
-    }
-    function pruneDeadAlienPeople(stat) {
-        const people=stat?.世界?.[PATH]?.人物,roster=stat?.世界?.异端雷达?.名单;
-        if(!plain(people)||!plain(roster))return [];
-        const removed=[];
-        for(const [alienName,alien] of Object.entries(roster)){
-            if(alien?.状态!=='死亡')continue;
-            const personName=stableNameIn(people,alienName);
-            if(personName){delete people[personName];removed.push(personName);}
-        }
-        return removed;
     }
     function activeAlienActivityRequirements(stat) {
         if((stat?.设置||{}).单一世界)return [];

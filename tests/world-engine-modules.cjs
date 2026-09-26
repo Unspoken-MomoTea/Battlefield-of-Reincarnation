@@ -101,12 +101,12 @@ assert.ok(texts['50-engine-ui.part.js'].length<50000,'main UI class should stay 
 assert.doesNotMatch(texts['50-engine-ui.part.js'],/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the main UI class');
 assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/,'base CSS should live in a dedicated UI resource module');
 
-// Phase 14: event archival and propagation expiry live behind a lifecycle service.
+// Phase 15: event/person lifecycle and the top-level compaction flow live behind one service.
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldLifecycleService.part.js'),'lifecycle service must load after timeline/date helpers');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldLifecycleService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'lifecycle service must load before materialization invokes compactWorldLifecycle');
-assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/class\s+WorldLifecycleService\b/,'event lifecycle rules must live behind a dedicated service');
-assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:collectEventRefs|detachEventSoftRefs|archiveFinishedEvent|propagationEnded|pruneSoftRefsToColdFinishedEvents|compactFinishedEvents)\b/,'legacy world-state source must not regain event lifecycle implementation');
-assert.match(texts['10-world-state.part.js'],/function\s+compactWorldLifecycle\b/,'top-level lifecycle orchestration remains until people/exploration lifecycle migration is complete');
+assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/class\s+WorldLifecycleService\b/,'world lifecycle rules must live behind a dedicated service');
+assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/compact\(stat\)/,'lifecycle service must own the top-level compaction orchestration');
+assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:personActivityMeta|pruneColdTemporaryPeople|pruneDeadAlienPeople|collectEventRefs|detachEventSoftRefs|archiveFinishedEvent|propagationEnded|pruneSoftRefsToColdFinishedEvents|compactFinishedEvents|explorationLocationRefs|pruneColdExploration|compactWorldLifecycle)\b/,'legacy world-state source must not regain lifecycle implementation');
 
 // Phase 13: timeline/time validation helpers are class-owned instead of living in the legacy state monolith.
 assert.ok(declared.indexOf('10-world-state.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'timeline policy must load after base state helpers');

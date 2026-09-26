@@ -35,7 +35,15 @@ function hostFor(statRef){
     worldActivityInputGuidance:'【自定义世界活动 payload】至少推进一个非异端世界对象。',
     retryFresh:'【自定义纠错】只修正本轮错误。',
     historyMemory:'【自定义历史 system】只压缩已确认历史。',
-    historyInputGuidance:'【自定义历史 input】保持输入时间粒度。'
+    historyInputGuidance:'【自定义历史 input】保持输入时间粒度。',
+    worldTimeInputGuidance:JSON.stringify({
+      所有权:'【自定义时间所有权】只由世界推进写入',
+      初始化锚定:{依据顺序:['当前正文'],禁止:'【自定义禁止】不要拿未来时间当现在'},
+      正文时间职责:'【自定义时间职责】只同步真实流逝',
+      精确日期格式:'【自定义日期格式】保持数字月',
+      时间段候选:['上午','下午'],
+      推进原则:'【自定义推进原则】没有时间流逝就不推进'
+    })
   });
   engine.applyPromptSettings({promptRegistry:values});
 
@@ -46,6 +54,9 @@ function hostFor(statRef){
   assert.equal(payload.正文可见投影规则.要求,'【自定义投影】只发送玩家能在正文中利用的公开投影。');
   assert.equal(payload.说明,'【自定义总说明】只提交真实世界差分。');
   assert.deepEqual(payload.本轮世界活动交付.硬要求,['【自定义世界活动 payload】至少推进一个非异端世界对象。']);
+  assert.equal(payload.世界时间维护.所有权,'【自定义时间所有权】只由世界推进写入');
+  assert.deepEqual(payload.世界时间维护.初始化锚定.依据顺序,['当前正文']);
+  assert.equal(payload.世界时间维护.推进原则,'【自定义推进原则】没有时间流逝就不推进');
 
   const retry=JSON.parse(engine.services.requests.retryInput(
     request.input,new Error('测试错误'),'{}',1,5,null,[]
@@ -63,7 +74,7 @@ function hostFor(statRef){
   assert.ok(exported.length>=31,'registry should expose system, payload, history and retry prompts together');
   assert.ok(exported.every(item=>typeof item.scope==='string'&&typeof item.condition==='string'));
   const registryKeys=new Set(exported.map(item=>item.key));
-  for(const key of ['chronologyNoEvidenceGuidance','rumorSourceBoundary'])assert.ok(registryKeys.has(key),'registry must expose '+key);
+  for(const key of ['chronologyNoEvidenceGuidance','rumorSourceBoundary','worldTimeInputGuidance'])assert.ok(registryKeys.has(key),'registry must expose '+key);
   const semantics=JSON.parse(engine.services.prompts.value('inputSemantics'));
   assert.equal(semantics.任务列表,'只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。');
 

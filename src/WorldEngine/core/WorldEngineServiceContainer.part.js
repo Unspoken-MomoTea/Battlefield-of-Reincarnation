@@ -5,6 +5,8 @@
             this.knowledge=new WorldKnowledgeService(engine);
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateProjector=new WorldStateProjector(engine);
+            this.timelinePolicy=new WorldTimelinePolicy();
+            ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
@@ -16,7 +18,7 @@
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
             this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging);
-            this.validationPolicy=new WorldValidationPolicy();
+            this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy);
             ACTIVE_WORLD_VALIDATION_POLICY=this.validationPolicy;
             this.validation=new WorldValidationService(engine,this.validationPolicy);
             this.commit=new WorldCommitService(engine);

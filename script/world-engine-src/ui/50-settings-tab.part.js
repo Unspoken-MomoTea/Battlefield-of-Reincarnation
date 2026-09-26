@@ -24,3 +24,8 @@
             ,'接口配置只存本地 localStorage，不写入 MVU');
         return html;
     }
+
+    class SettingsTabView {
+        constructor(engine){ this.engine=engine; }
+        render(context={}) { return worldEngineRenderSettingsTab({...context,engine:context.engine||this.engine}); }
+    }

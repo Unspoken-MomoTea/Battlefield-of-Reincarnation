@@ -64,8 +64,8 @@ PARTS = (
     '@src/WorldEngine/ui/WorldEditorController.part.js',
     '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
     '@src/WorldEngine/ui/WorldPromptWorkspaceController.part.js',
-    '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
     '59-due-event-relaxation.part.js',
+    '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
     '60-bootstrap.part.js',
 )
 

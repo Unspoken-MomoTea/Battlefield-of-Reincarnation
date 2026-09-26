@@ -139,8 +139,11 @@ replace_once_any(
     marker="section('长期历史总结'"
 )
 
-replace_once(
-    'script/world-engine-src/50-engine-ui.part.js',
+replace_once_any(
+    [
+        'script/world-engine-src/ui/50-settings-tab.part.js',
+        'script/world-engine-src/50-engine-ui.part.js',
+    ],
     """                html+=section('模型接口',
 """,
     """                const historyToProse=this.config.sendHistoryToProse===true;

@@ -3,7 +3,7 @@
         async modifyRequest(request,base){
             const maintenance=rumorMaintenanceRequirements(base?.stat||{}),payload=JSON.parse(request.input);
             payload.传闻维护=Object.assign({},payload.传闻维护||{}, {
-                取材边界:'只使用世界侧可传播事实、已有传播链与既有公开传闻；正文不是直接传播源',
+                取材边界:this.engine.services?.prompts?.value?.('rumorSourceBoundary')||WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY,
                 本轮公开传闻动作:maintenance.本轮公开传闻动作,
                 刷新原因:copy(maintenance.刷新原因||[]),
                 世界侧可传播事实:copy(maintenance.世界侧可传播事实||[]),

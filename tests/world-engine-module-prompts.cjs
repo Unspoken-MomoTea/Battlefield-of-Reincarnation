@@ -15,7 +15,7 @@ for(const source of ['TASK_AWARENESS_RULES','CHRONOLOGY_GUARD_RULES','SOFT_MAINT
 assert.match(layer,/data-module-prompt=/,'module prompt editors must be rendered');
 assert.match(layer,/\[data-core-prompt\],\[data-macro-prompt\],\[data-stability-prompt\],\[data-module-prompt\]/,'new prompt blocks must follow the same edit-mode toggle as the original prompt workspace');
 assert.match(layer,/savePromptDocument\(name,settings,activate=true\)/,'saved preset documents must explicitly persist module prompts');
-assert.match(layer,/if\(!this\.isNpcBuildAuditEnabled\(\)\)audit\?\.closest\('details'\)\?\.remove\(\)/,'NPC audit prompt must be hidden while audit is disabled');
+assert.doesNotMatch(layer,/if\(!this\.isNpcBuildAuditEnabled\(\)\)audit\?\.closest\('details'\)\?\.remove\(\)/,'NPC audit prompt must stay visible and editable even while the audit feature is disabled');
 assert.doesNotMatch(layer,/空分类本轮必须补2条/,'new final prompt layer must not revive obsolete rumor quota wording');
 assert.match(layer,/本轮没有这种重大变化时，省略“因果\.偏移记录”/,'causal offsets must be explicitly optional instead of treated as per-turn maintenance');
 assert.match(layer,/\{yyy\}年-\{mm\}月-\{dd\}日-\{时间段\}/,'world-time prompt must use the neutral machine-readable template');

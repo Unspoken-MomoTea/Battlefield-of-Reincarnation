@@ -667,7 +667,7 @@
                         attemptTelemetry={尝试:attempt+1,结果:'待验收',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:observation.输出估算Tokens,API输入Tokens:usage?.inputTokens??null,API输出Tokens:usage?.outputTokens??null,API总Tokens:usage?.totalTokens??null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed};
                         this.lastAttemptTelemetry.push(attemptTelemetry);
 
-                        const reply=parseReply(received);
+                        let reply=parseReply(received);
                         let legacyPatches=[],rejectedSlices=[];
                         if(reply.kind==='world_result'){
                             const staged=this.services?.compiler?.stage(base.stat,acceptedWorldResult,reply.worldResult,validate)??stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult,validate);

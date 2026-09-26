@@ -147,44 +147,4 @@
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
-    const SamsaraWorldEngineBeforeRumorLiveliness=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorLiveliness {
-        constructor(host,env) {
-            super(host,env);
-            if(this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
-                const upgraded=upgradeRumorPreset(this.config.preset);
-                if(upgraded!==this.config.preset){this.config.preset=upgraded;this.saveConfig();}
-            }
-        }
-        async buildRequest(base) {
-            const rumorMaintenance=rumorMaintenanceRequirements(base?.stat||{});
-            ACTIVE_RUMOR_MAINTENANCE=rumorMaintenance;
-            const request=await super.buildRequest(base);
-            const payload=JSON.parse(request.input);
-            if(Array.isArray(request.timeAnomalies))request.timeAnomalies=request.timeAnomalies.filter(item=>item?.类型!=='传闻维护');
-            if(Array.isArray(payload.本轮必须修复的时间越界记录))payload.本轮必须修复的时间越界记录=payload.本轮必须修复的时间越界记录.filter(item=>item?.类型!=='传闻维护');
-            payload.传闻维护={
-                当前地点:rumorMaintenance.当前地点,
-                话题:rumorMaintenance.话题,
-                公开传闻:rumorMaintenance.公开传闻,
-                本轮必须复核的传播链:rumorMaintenance.本轮必须复核的传播链,
-                可传播候选事件:rumorMaintenance.可传播候选事件
-            };
-            request.input=JSON.stringify(payload,null,2);
-            request.system=String(request.system||'')+'\n\n'+RUMOR_LIVELINESS_RULES;
-            request.rumorMaintenance=copy(rumorMaintenance);
-            request.manifest=Object.assign({},request.manifest,{传闻维护:{空分类:RUMOR_PUBLIC_CATEGORIES.filter(category=>rumorMaintenance.公开传闻[category].当前数量===0),待复核传播:rumorMaintenance.本轮必须复核的传播链.map(item=>item.名称),可传播候选:rumorMaintenance.可传播候选事件.map(item=>item.名称)}});
-            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
-        }
-        async run() {
-            const temporalAnomaliesBeforeRumorRecovery=temporalAnomalies;
-            temporalAnomalies=function(stat) {
-                const result=temporalAnomaliesBeforeRumorRecovery(stat);
-                if(rumorMaintenanceNeeded(stat))result.push({类型:'传闻维护',名称:'常驻传闻与传播链',字段:'活跃性',值:'需复核',说明:'公开传闻为空或传播链需要推进'});
-                return result;
-            };
-            try{return await super.run();}
-            finally{if(temporalAnomalies!==temporalAnomaliesBeforeRumorRecovery)temporalAnomalies=temporalAnomaliesBeforeRumorRecovery;}
-        }
-    };
+    // 传闻请求与 run 生命周期已迁移至 WorldRumorRequestFeature。

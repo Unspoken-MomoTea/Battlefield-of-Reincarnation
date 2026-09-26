@@ -6,10 +6,11 @@ const root = path.join(__dirname, '..');
 const prose = fs.readFileSync(path.join(root, 'World Book', '[variables]当前变量.txt'), 'utf8');
 const ui = [
   path.join(root, 'script', 'world-engine-src', '50-engine-ui.part.js'),
-  path.join(root, 'script', 'world-engine-src', 'ui', '10-world-tab.part.js'),
-  path.join(root, 'script', 'world-engine-src', 'ui', '20-people-tab.part.js'),
-  path.join(root, 'script', 'world-engine-src', 'ui', '30-exploration-tab.part.js'),
-  path.join(root, 'script', 'world-engine-src', 'ui', '40-archive-tabs.part.js'),
+  path.join(root, 'src', 'WorldEngine', 'ui', 'views', 'WorldOverviewView.part.js'),
+  path.join(root, 'src', 'WorldEngine', 'ui', 'views', 'WorldPeopleView.part.js'),
+  path.join(root, 'src', 'WorldEngine', 'ui', 'views', 'WorldExplorationView.part.js'),
+  path.join(root, 'src', 'WorldEngine', 'ui', 'views', 'WorldEventArchiveView.part.js'),
+  path.join(root, 'src', 'WorldEngine', 'ui', 'views', 'WorldHistoryView.part.js'),
 ].map(file => fs.readFileSync(file, 'utf8')).join('\n');
 const guide = fs.readFileSync(path.join(root, 'script', '世界引擎接入说明.md'), 'utf8');
 

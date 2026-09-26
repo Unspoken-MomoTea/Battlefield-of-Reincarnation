@@ -24,7 +24,7 @@
 - `WorldPersonActivityService`：只管理 `世界.后台.人物` 活动记录。
 - `WorldHistoryService`：历史记忆读取、压缩入口与手动修正。
 - `WorldCausalService`：因果偏移编辑、删除与稳定值重算。
-- `WorldExplorationService` / `WorldRumorService` / `WorldRequestService`：探索、传播与请求领域入口。
+- `WorldExplorationService`：探索快照、整体地标粒度校验、当前地点最低探索投影与旧版子区域合并；`WorldRumorService` / `WorldRequestService`：传播与请求领域入口。
 - `WorldEngineViewRegistry`：业务视图注册。
 - `WorldEditorController`：事件、世界人物、因果偏移、历史记忆的统一编辑控制器。
 - `WorldPromptWorkspaceController`：提示词预设 UI 控制器。

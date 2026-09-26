@@ -162,9 +162,7 @@ src/WorldEngine/
 
 ## Phase 14 · 事件生命周期类化
 
-`WorldLifecycleService` 接管结束事件的引用收集、软引用解绑、历史归档、冷事件回收与传播过期判定。兼容函数 `collectEventRefs / detachEventSoftRefs / archiveFinishedEvent / propagationEnded / pruneSoftRefsToColdFinishedEvents / compactFinishedEvents` 继续保留，但统一委托 container-owned active service。
-
-本阶段刻意不移动 `compactWorldLifecycle`：它仍负责把事件、人物与探索生命周期串起来，并且必须继续观察后置模块对 `pruneColdExploration` 的运行期覆盖。等人物生命周期也迁出后，再把顶层 compact 编排收进 service。
+`WorldLifecycleService` 首先接管结束事件的引用收集、软引用解绑、历史归档、冷事件回收与传播过期判定；Phase 15 继续把人物临时活动、死亡异端后台清理和顶层 `compactWorldLifecycle` 编排收进同一个 service。兼容函数仅负责转发到 container-owned active service。
 
 
 ### Lifecycle ownership

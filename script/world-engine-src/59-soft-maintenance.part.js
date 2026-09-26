@@ -71,7 +71,6 @@
 
     // 请求装饰已迁移至 WorldSoftMaintenanceFeature。\n\n    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
     const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
-    // 探索粒度、当前地点自动投影与旧档合并已迁入 WorldExplorationService。
-    // 长期探索台账仍不进行离场回收。
-    pruneColdExploration=function(){return [];};
+    // 探索粒度、当前地点自动投影与旧档合并已迁入 WorldExplorationService；
+    // 长期探索台账不再参与 lifecycle 离场回收，因此无需保留 prune monkey patch。
     // 探索提示词注入由 WorldPromptRegistry 最终装配；不再扩展主类。

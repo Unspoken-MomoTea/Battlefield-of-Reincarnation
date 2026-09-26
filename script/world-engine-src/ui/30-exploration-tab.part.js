@@ -1,5 +1,7 @@
     // 探索与势力视图：玩家探索结算台账、地区现场与势力声望。
-    function worldEngineRenderExplorationTab(ctx) {
+    class ExplorationFactionView extends WorldEngineTabView {
+        constructor(){super('exploration');}
+        render(ctx) {
         const {
             engine,state,w,events,entries,text,fields,areaSceneBody,exists,details,
             empty,section,eventCard
@@ -77,4 +79,5 @@
             html+=section('势力结算名录','<div class="we-explore-layout"><div class="we-faction-grid">'+(factionCards||empty('暂无已知势力'))+'</div><aside class="we-area-side">'+section('势力档案',factionDetail,'点击左侧势力切换')+'</aside></div>','声望只反映势力对玩家的真实关系');
         }
         return html;
+        }
     }

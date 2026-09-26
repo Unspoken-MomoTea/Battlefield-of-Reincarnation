@@ -15,7 +15,7 @@ assert.ok(declared.length>=10,'world engine should be assembled from modular sou
 assert.equal(new Set(declared).size,declared.length,'build PARTS must not contain duplicate modules');
 for(const moduleName of [
   'ui/00-styles.part.js','ui/10-world-tab.part.js','ui/20-people-tab.part.js','ui/30-exploration-tab.part.js','ui/35-ledger-views.part.js','ui/40-archive-tabs.part.js','ui/50-settings-tab.part.js','ui/60-prompt-tab.part.js','ui/70-request-inspector.part.js',
-  'core/10-view-registry.part.js','core/20-service-container.part.js','prompts/10-prompt-registry.part.js',
+  'core/10-view-registry.part.js','core/15-feature-registry.part.js','core/20-service-container.part.js','prompts/10-prompt-registry.part.js',
   'editor/00-world-mutations.part.js','editor/10-event-editor.part.js','editor/20-person-editor.part.js'
 ]){
   assert.ok(declared.includes(moduleName),`domain module must be registered: ${moduleName}`);
@@ -43,6 +43,11 @@ assert.equal(built,assembled,'script/世界推进系统.js must exactly equal th
 assert.ok(texts['50-engine-ui.part.js'].length<45000,'main UI shell should stay below 45 KB after class routing');
 assert.doesNotMatch(texts['50-engine-ui.part.js'],/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the main UI class');
 assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/,'base CSS should live in a dedicated UI resource module');
+for(const [file,text] of Object.entries(texts)){
+  assert.doesNotMatch(text,/SamsaraWorldEngine\s*=\s*class\b/,file+' must not extend the main engine through inheritance patches');
+  assert.doesNotMatch(text,/SamsaraWorldEngine\.prototype\b/,file+' must not monkey-patch the main engine prototype');
+}
+assert.match(texts['core/15-feature-registry.part.js'],/class WorldEngineFeatureRegistry\b/,'runtime extensions must use feature classes');
 
 // 本次迁移的关键 seam：replay 随主世界提交一次写入，恢复模块不再额外写第二次。
 assert.match(texts['40-engine-runtime.part.js'],/buildWorldReplayPackage/,'primary world commit must carry replay metadata');

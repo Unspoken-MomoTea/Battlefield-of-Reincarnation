@@ -14,7 +14,9 @@
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
             this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging);
-            this.validation=new WorldValidationService(engine);
+            this.validationPolicy=new WorldValidationPolicy();
+            ACTIVE_WORLD_VALIDATION_POLICY=this.validationPolicy;
+            this.validation=new WorldValidationService(engine,this.validationPolicy);
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);

@@ -28,6 +28,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldResultContract.part.js',
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
   '@src/WorldEngine/domains/WorldResultMaterializer.part.js',
+  '@src/WorldEngine/domains/WorldResultStagingService.part.js',
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/domains/WorldValidationService.part.js',
   '@src/WorldEngine/domains/WorldCommitService.part.js',
@@ -120,6 +121,12 @@ assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/let\s+ACTIVE_WORLD_RESULT_MATERIALIZER\s*=\s*DEFAULT_WORLD_RESULT_MATERIALIZER/,'legacy seams must be backed by the active container-owned materializer');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/function\s+validateState\(stat\)\{return ACTIVE_WORLD_RESULT_MATERIALIZER\.validateBaseState\(stat\);\}/,'legacy validateState must remain a reassignable decorator seam');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/validateState\(next\)/,'patch application must honor dynamically decorated validateState');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultStagingService.part.js'),'staging service must load after the materializer it composes');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultStagingService.part.js')<declared.indexOf('20-world-result.part.js'),'staging compatibility seams must load before the legacy WorldResult slot');
+assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:worldResultFragments|stageWorldResult|retryPlanForFailure|retryFeedback|makeRetryFailure)\b/,'staging and retry implementation must leave the WorldResult kernel');
+assert.match(texts['@src/WorldEngine/domains/WorldResultStagingService.part.js'],/class\s+WorldResultStagingService\b/,'WorldResult staged acceptance must have a dedicated service class');
+assert.match(texts['@src/WorldEngine/domains/WorldResultStagingService.part.js'],/stage\(stat,accepted,incoming,validate\)/,'staging service must own fragment acceptance');
+assert.match(texts['@src/WorldEngine/domains/WorldResultStagingService.part.js'],/let\s+ACTIVE_WORLD_RESULT_STAGING\s*=\s*DEFAULT_WORLD_RESULT_STAGING/,'legacy staging seams must be backed by the active container-owned service');
 
 for(const file of [
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',

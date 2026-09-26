@@ -22,9 +22,36 @@
         '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
     ].join('\n');
     const WORLD_PROMPT_HISTORY_INPUT='按给定顺序压缩；时间字段是权威锚点，不得改写或补造。';
+    const WORLD_PROMPT_TIMELINE_SCHEDULE='先用因果轨道、当前事实与模型已有世界/原著知识建立宏观骨架；世界书若存在只作补充校正。随后仅展开当前时间到下一宏观节点之间的近期事件、人物、势力与传播。非公历或作品内时间按作品语义比较，不强行改写为公历。';
+    const WORLD_PROMPT_KNOWLEDGE_PRIORITY='当前确认事实 > 明确世界书设定（若有） > 模型已有原著/世界知识 > 谨慎推断';
+    const WORLD_PROMPT_STALE_ACTIVE='局部活动长期停留在进行中；应结束/取消，或确认仍持续并更新到当前世界时间、当前进展与下次检查。';
+    const WORLD_PROMPT_CHRONOLOGY_MISSING='未命中明确时间线条目；使用模型已有原著知识保守估计，不得为推进剧情压缩跨度';
+    const WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY='只使用世界侧可传播事实、已有传播链与既有公开传闻；正文不是直接传播源';
+    const WORLD_PROMPT_HISTORY_PROJECTION='世界长期叙事与因果记忆；用于保持跨章连续性，不自动等于任何角色已经获知的情报。';
+    const WORLD_PROMPT_MAINTENANCE_POLICY=JSON.stringify({
+        模式:'分级验收',
+        硬错误:'Schema、非法状态、因果引用损坏、明确时间轴冲突',
+        软维护:'事件排期补全、传闻补齐、传播复核；可跨轮渐进完成，不得拖死整轮'
+    },null,2);
+    const WORLD_PROMPT_WORLD_TIME_MAINTENANCE=JSON.stringify({
+        所有权:'世界推进独占写入；变量 AI 只读',
+        初始化依据顺序:['最新已确认正文','当前阶段与当前地点','已读取时间线/年表/章节资料','模型已有原著知识','谨慎推断'],
+        初始化禁止:'不得把下一宏观节点、任务期限或未来事件的日期直接当成当前世界时间；无法唯一定位时保持较粗时间精度。',
+        正文时间职责:'若最新正文明确发生过夜、数小时后、次日、跨日旅行或新的日期/时段，必须输出顶层“时间”同步世界时钟；不能保留旧时钟再提交已经发生于新时点的事实。',
+        精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须为数字；不要用自定义月份名称替代数字月。',
+        时间段候选:['凌晨','黎明','清晨','早晨','上午','中午','午后','下午','傍晚','入夜','晚上','深夜'],
+        推进原则:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确时间资料表明确实经过合理时长才推进。'
+    },null,2);
+    const WORLD_PROMPT_MACRO_DELIVERY_TEMPLATE=JSON.stringify([
+        '宏观骨架：当前可推进宏观节点{{current}}个（进行中{{active}}、待发生{{future}}），还需补充至少{{missing}}个真正的宏观节点；已确认正在发生的阶段转折可记进行中，其余新增节点记待发生。会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。',
+        '事件交付：在 WorldResult.事件 中实际建立节点，分类=宏观节点；描述说明篇章、地区整体局势、战争、势力格局或关键人物命运的一个阶段转折，不能只在摘要或因果轨道里列名字。已有合格节点沿用原名，只提交缺失或变化字段。',
+        '宏观排期：每个新增节点必须给出明确时间锚点；沿用明确资料的日期或时间精度，精确日期未知时使用可理解的相对/因果时间，不写近期/稍后/未来/待定/未知。条件按需填写。前因只能引用已存在，或本轮同时提交且成功建立的事件名称；无明确前因使用 []，不得用当前阶段或自然语言原因代替事件名。',
+        '因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序；只使用最终3~5个仍可推进且 分类=宏观节点 的不同事件名称，不要写当前阶段、当前事件或近期节点。'
+    ],null,2);
     const WORLD_PROMPT_INPUT_SEMANTICS=JSON.stringify({
         世界书:'可选设定/原著差异/时间资料；不是已发生事实，没有世界书也必须正常推演。',
-        当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；未提供的任务/商城/纯结算数据不属于本引擎职责。',
+        当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移、任务.列表只读因果字段，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；任务奖励、惩罚、副本成就、击杀、商城与纯结算数据不属于本引擎职责。',
+        任务列表:'只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。',
         正文楼层:'已经演出的剧情；用于确认当前事实与时间跨度，不复述成后台日常。',
         程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
         时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
@@ -53,6 +80,15 @@
                 def({key:'worldActivity',title:'世界活动交付',group:'运行模块',source:'WORLD_ACTIVITY_DELIVERY_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:''}),
                 def({key:'historyMemory',title:'世界长期历史压缩',group:'辅助模型',source:'HISTORY_MEMORY_SYSTEM',scope:'system',condition:'历史记忆达到自动压缩阈值时单独调用模型',defaultValue:()=>typeof HISTORY_MEMORY_SYSTEM==='string'?HISTORY_MEMORY_SYSTEM:''}),
                 def({key:'inputSemantics',title:'输入语义说明',group:'请求内指令',source:'40-engine-runtime.part.js / 输入语义',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_INPUT_SEMANTICS}),
+                def({key:'timelineScheduleGuidance',title:'时间线调度说明',group:'请求内指令',source:'timelineState() / 时间线调度.说明',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_TIMELINE_SCHEDULE}),
+                def({key:'knowledgePriorityGuidance',title:'推演知识优先级',group:'请求内指令',source:'40-engine-runtime.part.js / 推演阶段.知识来源',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_KNOWLEDGE_PRIORITY}),
+                def({key:'staleActiveGuidance',title:'超期活动事件复核说明',group:'请求内指令',source:'staleActiveEvents()',scope:'user payload',condition:'存在超期进行中事件时',defaultValue:()=>WORLD_PROMPT_STALE_ACTIVE}),
+                def({key:'chronologyMissingSourceGuidance',title:'时间轴资料未命中说明',group:'请求内指令',source:'58-chronology-guard.part.js / 原著时间资料',scope:'user payload',condition:'未命中明确时间线/年表资料时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_MISSING}),
+                def({key:'maintenancePolicy',title:'分级验收策略',group:'请求内指令',source:'59-soft-maintenance.part.js / 验收策略',scope:'user payload JSON',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_MAINTENANCE_POLICY}),
+                def({key:'rumorSourceBoundary',title:'传闻取材边界',group:'请求内指令',source:'59-rumor-world-request.part.js / 取材边界',scope:'user payload',condition:'传闻维护层运行时',defaultValue:()=>WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY}),
+                def({key:'worldTimeMaintenanceGuidance',title:'世界时间维护说明',group:'请求内指令',source:'59-world-time-ownership.part.js / 世界时间维护',scope:'user payload JSON',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_TIME_MAINTENANCE}),
+                def({key:'historyProjectionGuidance',title:'长期历史记忆投影说明',group:'请求内指令',source:'projectWorldHistoryMemory() / 历史记忆.说明',scope:'user payload',condition:'当前变量包含历史记忆时',defaultValue:()=>WORLD_PROMPT_HISTORY_PROJECTION}),
+                def({key:'macroDeliveryGuidance',title:'宏观骨架交付要求模板',group:'请求内指令',source:'macroBackbonePlan() / 交付要求',scope:'user payload JSON array template',condition:'本轮要求补足宏观骨架时；支持 {{current}}/{{active}}/{{future}}/{{missing}}',defaultValue:()=>WORLD_PROMPT_MACRO_DELIVERY_TEMPLATE}),
                 def({key:'macroPlanningGuidance',title:'宏观骨架 · 规划与发生',group:'请求内指令',source:'40-engine-runtime.part.js / 本轮必须完成的宏观骨架',scope:'user payload',condition:'本轮要求补足宏观骨架时',defaultValue:()=>WORLD_PROMPT_MACRO_PLANNING}),
                 def({key:'macroAcceptanceGuidance',title:'宏观骨架 · 验收',group:'请求内指令',source:'40-engine-runtime.part.js / 本轮必须完成的宏观骨架',scope:'user payload',condition:'本轮要求补足宏观骨架时',defaultValue:()=>WORLD_PROMPT_MACRO_ACCEPTANCE}),
                 def({key:'projectionGuidance',title:'正文可见投影规则',group:'请求内指令',source:'40-engine-runtime.part.js / 正文可见投影规则',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_PROJECTION_GUIDANCE}),
@@ -126,11 +162,12 @@
             config.promptRegistry=this.normalize(next);return config.promptRegistry;
         }
         value(key){return this.values()[key]??'';}
+        get(key){return this.value(key);}
         list(){const values=this.values();return this._definitions.map(item=>({...item,value:values[item.key]??''}));}
         apply(value,{save=true}={}){
             const normalized=this.normalize(value);
             for(const item of this._definitions)if(normalized[item.key].length>30000)throw new Error(item.title+'限30000字');
-            for(const key of ['inputSemantics','chronologyPrinciples']){
+            for(const key of ['inputSemantics','chronologyPrinciples','maintenancePolicy','worldTimeMaintenanceGuidance','macroDeliveryGuidance']){
                 let parsed=null;try{parsed=JSON.parse(normalized[key]);}catch(_){throw new Error(this._definitions.find(x=>x.key===key)?.title+'必须是合法 JSON 对象');}
                 if(!plain(parsed))throw new Error(this._definitions.find(x=>x.key===key)?.title+'必须是 JSON 对象');
             }
@@ -162,19 +199,50 @@
         rewriteInput(input){
             let payload;try{payload=JSON.parse(String(input||''));}catch(_){return input;}
             try{payload.输入语义=JSON.parse(this.value('inputSemantics'));}catch(_){}
+            if(plain(payload.时间线调度))payload.时间线调度.说明=this.value('timelineScheduleGuidance');
+            if(plain(payload.推演阶段))payload.推演阶段.知识来源=this.value('knowledgePriorityGuidance');
             if(plain(payload.本轮必须完成的宏观骨架)){
-                payload.本轮必须完成的宏观骨架.规划与发生=this.value('macroPlanningGuidance');
-                payload.本轮必须完成的宏观骨架.验收=this.value('macroAcceptanceGuidance');
+                const macro=payload.本轮必须完成的宏观骨架;
+                macro.规划与发生=this.value('macroPlanningGuidance');
+                macro.验收=this.value('macroAcceptanceGuidance');
+                try{
+                    const current=Array.isArray(macro.已有可推进宏观节点)?macro.已有可推进宏观节点.length:0;
+                    const active=Array.isArray(macro.已有可推进宏观节点)?macro.已有可推进宏观节点.filter(x=>x?.状态==='进行中').length:0;
+                    const future=Array.isArray(macro.已有可推进宏观节点)?macro.已有可推进宏观节点.filter(x=>x?.状态==='待发生').length:0;
+                    const missing=Number(macro.至少补充节点数)||0;
+                    const fill=value=>String(value).replace(/\{\{current\}\}/g,String(current)).replace(/\{\{active\}\}/g,String(active)).replace(/\{\{future\}\}/g,String(future)).replace(/\{\{missing\}\}/g,String(missing));
+                    macro.交付要求=JSON.parse(this.value('macroDeliveryGuidance')).map(fill);
+                }catch(_){}
             }
             if(plain(payload.正文可见投影规则))payload.正文可见投影规则.要求=this.value('projectionGuidance');
             if(Object.hasOwn(payload,'说明'))payload.说明=this.value('requestSummaryGuidance');
             if(Array.isArray(payload.本轮必须复核的到期事件))for(const item of payload.本轮必须复核的到期事件)if(plain(item))item.说明=this.value('dueReviewGuidance');
+            if(Array.isArray(payload.本轮必须复核的超期活动事件))for(const item of payload.本轮必须复核的超期活动事件)if(plain(item))item.说明=this.value('staleActiveGuidance');
             if(plain(payload.时间线基准)){
                 payload.时间线基准.要求=this.value('chronologyInputGuidance');
                 try{payload.时间线基准.规划原则=JSON.parse(this.value('chronologyPrinciples'));}catch(_){}
+                if(String(payload.时间线基准.原著时间资料||'').startsWith('未命中'))payload.时间线基准.原著时间资料=this.value('chronologyMissingSourceGuidance');
+            }
+            if(plain(payload.验收策略)){try{payload.验收策略=JSON.parse(this.value('maintenancePolicy'));}catch(_){}}
+            if(plain(payload.传闻维护)&&Object.hasOwn(payload.传闻维护,'取材边界'))payload.传闻维护.取材边界=this.value('rumorSourceBoundary');
+            if(plain(payload.世界时间维护)){
+                try{
+                    const guidance=JSON.parse(this.value('worldTimeMaintenanceGuidance'));
+                    payload.世界时间维护.所有权=guidance.所有权;
+                    payload.世界时间维护.正文时间职责=guidance.正文时间职责;
+                    payload.世界时间维护.精确日期格式=guidance.精确日期格式;
+                    payload.世界时间维护.时间段候选=copy(guidance.时间段候选||[]);
+                    payload.世界时间维护.推进原则=guidance.推进原则;
+                    if(plain(payload.世界时间维护.初始化锚定)){
+                        payload.世界时间维护.初始化锚定.依据顺序=copy(guidance.初始化依据顺序||[]);
+                        payload.世界时间维护.初始化锚定.禁止=guidance.初始化禁止;
+                    }
+                }catch(_){}
             }
             if(Array.isArray(payload.本轮必须维持的异端活动))for(const item of payload.本轮必须维持的异端活动)if(plain(item))item.要求=this.value('alienReviewGuidance');
             if(plain(payload.本轮世界活动交付))payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+            const memory=payload?.当前变量?.世界?.[PATH]?.历史记忆;
+            if(plain(memory))memory.说明=this.value('historyProjectionGuidance');
             return JSON.stringify(payload,null,2);
         }
         historySystem(){return this.value('historyMemory');}

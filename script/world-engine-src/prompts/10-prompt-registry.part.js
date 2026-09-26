@@ -125,13 +125,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         initializeConfig(){
             const engine=this.engine,config=engine.config||(engine.config={});
             let dirty=false;
+            const previousVersion=Number(config.worldModulePromptVersion||0);
             const values=this.moduleValues();
             if(!same(config.modulePrompts,values)){config.modulePrompts=values;dirty=true;}
-            if(Number(config.worldModulePromptVersion||0)<WORLD_PROMPT_REGISTRY_VERSION){
+            if(previousVersion<WORLD_PROMPT_REGISTRY_VERSION){
                 config.worldModulePromptVersion=WORLD_PROMPT_REGISTRY_VERSION;dirty=true;
-            }
-            if(config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
-                if(config.preset===DEFAULT_PRESET||Number(config.worldModulePromptVersion||0)<=WORLD_PROMPT_REGISTRY_VERSION){
+                if(config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
                     config.preset=normalizeEditablePreset(COMPACT_DEFAULT_PRESET);
                     if(!config.corePrompt||config.corePrompt===CORE_WORLD_RULES)config.corePrompt=COMPACT_CORE_WORLD_RULES;
                     if(!config.macroPrompt||config.macroPrompt===DEFAULT_MACRO_PROMPT)config.macroPrompt=COMPACT_MACRO_PROMPT;

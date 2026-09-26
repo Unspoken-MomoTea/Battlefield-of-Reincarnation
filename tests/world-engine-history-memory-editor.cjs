@@ -4,9 +4,13 @@ const path=require('node:path');
 const {SamsaraWorldEngine:Engine,emptyState}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 
-const layerPath=path.join(__dirname,'../script/world-engine-src/59-history-memory-editor.part.js');
-assert.ok(fs.existsSync(layerPath),'history memory editor must live in its own source layer');
-const layer=fs.readFileSync(layerPath,'utf8');
+const layerPaths=[
+  path.join(__dirname,'../script/world-engine-src/59-history-memory-editor.part.js'),
+  path.join(__dirname,'../src/WorldEngine/domains/WorldHistoryService.part.js'),
+  path.join(__dirname,'../src/WorldEngine/ui/WorldEditorController.part.js'),
+];
+for(const layerPath of layerPaths)assert.ok(fs.existsSync(layerPath),'history memory editor class source must exist');
+const layer=layerPaths.map(file=>fs.readFileSync(file,'utf8')).join('\n');
 assert.match(layer,/data-action="history-anchor-edit"/,'recent history anchors must expose an edit action');
 assert.match(layer,/data-action="history-summary-edit"/,'long-term history summaries must expose an edit action');
 assert.match(layer,/data-history-field="fact"/,'anchor editor must expose the confirmed fact');

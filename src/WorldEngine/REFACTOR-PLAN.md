@@ -43,3 +43,7 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 - 软维护 / 世界完整性 / 世界活动交付等请求 feature。
 
 这些后续都应变成独立 service/controller，并由单一 ClassBridge 调用；不得新增新的业务继承链。
+
+### Phase 3 · 请求装饰类化
+
+软维护、探索提示注入、世界完整性、世界活动交付、到期事件复核已经退出主类继承链。请求侧现在通过 `WorldRequestFeature` + `WorldEngineFeatureRegistry.afterBuildRequest()` 组合；Prompt Registry 仍是所有静态 AI 指令的最终唯一装配器。下一批优先迁移 chronology / task / rumor 请求管线，再单独处理 auto-progress / replay 这组高状态功能。

@@ -83,6 +83,8 @@ const promptUi=[
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
 assert.match(promptUi,/data-prompt-registry/,'prompt workspace must render registry-backed prompt fields');
 assert.match(promptUi,/全部实际提示词/,'prompt workspace must present one discoverable all-prompts section');
+assert.match(promptUi,/const editor='<textarea data-prompt-registry=/,'every registry item, including native prompts, must be directly editable in the all-prompts section');
+assert.doesNotMatch(promptUi,/we-prompt-registry-preview/,'native prompts must not fall back to read-only preview blocks');
 
 (async()=>{
   await engine.services.events.save('巡逻','修正巡逻',{

@@ -5007,7 +5007,8 @@ ${schemaText}`;
         return compileWorldResultBeforeNpcEquipmentDefault(stat,result);
     };
 
-    // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。\n    // 传闻是常驻活跃层：公开传闻保证世界始终有可见动向，后台传播负责其因果来源与人物知情链。
+    // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。
+    // 传闻是常驻活跃层：公开传闻保证世界始终有可见动向，后台传播负责其因果来源与人物知情链。
     const RUMOR_LIVELINESS_TOPICS=['悬赏线索','商路动向','势力情报','遗迹坐标','人物行踪','黑市消息','宝物传闻','怪物异动','深渊异变','种族摩擦','物价波动'];
     const RUMOR_PUBLIC_CATEGORIES=['街头巷议','情报交易','布告与檄文'];
     const RUMOR_VISIBLE_LIMIT=3;
@@ -5968,31 +5969,7 @@ ${schemaText}`;
         return softRumorMaintenanceIssues(next,required);
     };
 
-    const SamsaraWorldEngineBeforeSoftMaintenance=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeSoftMaintenance {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
-            const payload=JSON.parse(request.input);
-            if(plain(payload?.传闻维护?.公开传闻)){
-                for(const category of RUMOR_PUBLIC_CATEGORIES){
-                    const item=payload.传闻维护.公开传闻[category];
-                    if(item&&Number(item.当前数量)===0)item.为空补足=1;
-                }
-            }
-            payload.验收策略={
-                模式:'分级验收',
-                硬错误:'Schema、非法状态、因果引用损坏、明确时间轴冲突',
-                软维护:'事件排期补全、传闻补齐、传播复核；可跨轮渐进完成，不得拖死整轮'
-            };
-            request.input=JSON.stringify(payload,null,2);
-            request.system=String(request.system||'')+'\n\n'+SOFT_MAINTENANCE_RULES;
-            request.manifest=Object.assign({},request.manifest,{验收策略:{模式:'分级验收',事件因果锚点可接受:true,传闻补齐:'软维护'}});
-            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
-        }
-    };
-
-    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
+    // 请求装饰已迁移至 WorldSoftMaintenanceFeature。\n\n    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
     const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
     function explorationLocationContainsArea(location,areaName) {
         const locationKey=nameKey(location),areaKey=nameKey(areaName);
@@ -6024,14 +6001,7 @@ ${schemaText}`;
         ensureCurrentExplorationProjection(stat,result);
         return compileWorldResultBeforeExplorationProjection(stat,result);
     };
-    const SamsaraWorldEngineBeforeExplorationProjection=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeExplorationProjection {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
-            request.system=String(request.system||'')+'\n\n'+EXPLORATION_PROJECTION_RULES;
-            return request;
-        }
-    };
+    // 探索提示词注入由 WorldPromptRegistry 最终装配；不再扩展主类。
     // 世界完整性保护：统一精确时钟；因果偏移采用软归一化，不因语义或幅度问题拖死整轮推进。
     const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间约束】
 1. 时间校验按字段粒度处理：事件、地区、历史、传播等宏观事实只按“自然日”硬校验；同一自然日内的上午/下午/HH:mm差异不算未来越界，只有跨日未来事实才拒绝。
@@ -6179,17 +6149,7 @@ ${schemaText}`;
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
-    const SamsaraWorldEngineBeforeIntegrityGuard=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeIntegrityGuard {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
-            request.system=String(request.system||'')+'\n\n'+WORLD_INTEGRITY_GUARD_RULES;
-            request.manifest=request.manifest||{};
-            request.manifest.因果与时间约束={启用:true,因果偏移处理:'仅重大世界级变化时维护；无变化则省略',单条建议范围:'-12~-1 / +1~+15',宏观事实时间:'同一自然日允许；跨日未来拒绝',人物精确时间:'仅双方均为 HH:mm 时精确比较'};
-            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
-            return request;
-        }
-    };
+    // 请求 manifest / system 装饰已迁移至 WorldIntegrityRequestFeature + WorldPromptRegistry。
     // 世界时间段别名兼容：自然语言同义词先归一化，再交给统一时间比较器。
     // 只处理明确属于同一日内时段的别名；“午夜”等跨日语义不在这里猜测。
     const WORLD_DAYPART_ALIASES=Object.freeze({
@@ -7073,7 +7033,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.modulePrompts=worldModulePromptDefaults();
     }
 
-    // 运行时读写、预设持久化与最终请求重写已迁移到 WorldPromptRegistry + WorldEngineClassBridge。\n    // 世界活动交付：异端只是世界中的一类人物，不能成为唯一会变化的后台对象。
+    // 运行时读写、预设持久化与最终请求重写已迁移到 WorldPromptRegistry + WorldEngineClassBridge。
+    // 世界活动交付：异端只是世界中的一类人物，不能成为唯一会变化的后台对象。
     const WORLD_ACTIVITY_DELIVERY_RULES=`【世界活动交付 · 非异端世界必须推进】
 1. 世界推进不是“异端模拟器”。每轮按：进行中/到期事件 → 势力与地区现场 → 普通热人物 → 传播 → 异端复核 的顺序推演；异端不能替代其它世界活动。
 2. 新世界或旧存档缺少世界现场时，本轮必须建立至少1个与当前地点/阶段相关的地区、至少1个真实存在或可由明确设定推出的势力/组织，并建立至少1个正在发生的当前事件/近期节点。势力首次建立时，同名写入 WorldResult.势力（顶层实力/领地/声望档案）与 WorldResult.势力地区（类型=势力的动态现场）；不得只建立未来宏观节点。
@@ -7180,29 +7141,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
-    const SamsaraWorldEngineBeforeWorldActivityDelivery=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeWorldActivityDelivery {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base),payload=JSON.parse(request.input),requirement=worldActivityRequirement(base.stat);
-            payload.本轮世界活动交付={
-                当前数量:copy(requirement.当前数量),
-                初始化缺口:copy(requirement.初始化缺口),
-                硬要求:[
-                    '异端不能作为本轮唯一变化；至少推进事件、势力地区或普通人物中的一项非异端实质变化。',
-                    '若地区为空：建立至少1个与当前地点/阶段相关的地区。',
-                    '若势力为空：建立至少1个当前真实相关的势力/组织；同名提交 WorldResult.势力（实力/领地/描述/声望）与 WorldResult.势力地区（类型=势力的动态现场）。',
-                    '若没有进行中的非宏观事件：建立至少1个正在发生的当前事件/近期节点。',
-                    '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
-                ]
-            };
-            request.input=JSON.stringify(payload,null,2);
-            request.system=String(request.system||'')+'\n\n'+WORLD_ACTIVITY_DELIVERY_RULES;
-            request.timeline=Object.assign({},request.timeline,{世界活动要求:requirement});
-            request.manifest=Object.assign({},request.manifest,{世界活动交付:{当前数量:copy(requirement.当前数量),初始化缺口:copy(requirement.初始化缺口)}});
-            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
-        }
-    };
+    // 请求 payload/timeline/manifest 装饰已迁移至 WorldActivityRequestFeature。
     // 主面板只保留最新因果摘要；完整偏移、故事线、干涉模式、法则与经济资料进入独立“因果档案”页。
     // 资产与传闻仍由世界引擎维护数据，但玩家侧由状态栏承载，因此不在世界推进面板重复展示。
     const CAUSAL_OVERVIEW_LIMIT=3;
@@ -7257,7 +7196,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         return Array.from(root?.querySelectorAll?.('.we-section')||[]).find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()===title)||null;
     }
 
-    // UI 生命周期已迁移至 src/WorldEngine/ui/WorldCausalOverviewController.part.js。\n    // 因果偏移手动维护：玩家可直接修正/删除偏移；写回后立即重算稳定值并同步同楼 replay。
+    // UI 生命周期已迁移至 src/WorldEngine/ui/WorldCausalOverviewController.part.js。
+    // 因果偏移手动维护：玩家可直接修正/删除偏移；写回后立即重算稳定值并同步同楼 replay。
     function causalOffsetRecalculateStability(stat) {
         if(!plain(stat?.世界))return null;
         if(stat.设置?.世界超稳===true){stat.世界.稳定=100;return 100;}
@@ -7837,6 +7777,81 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 payload.纠错重试.要求=this.engine.services?.prompts?.retryRequirement(acceptedResult,retryPlan)||payload.纠错重试.要求;
             }
             return JSON.stringify(payload,null,2);
+        }
+    }
+    class WorldRequestFeature {
+        constructor(engine){this.engine=engine;}
+        async afterBuildRequest(request,_base){return request;}
+    }
+    class WorldSoftMaintenanceFeature extends WorldRequestFeature {
+        async afterBuildRequest(request,_base){
+            let payload;
+            try{payload=JSON.parse(request.input);}catch(_){return request;}
+            if(plain(payload?.传闻维护?.公开传闻)){
+                for(const category of RUMOR_PUBLIC_CATEGORIES){
+                    const item=payload.传闻维护.公开传闻[category];
+                    if(item&&Number(item.当前数量)===0)item.为空补足=1;
+                }
+            }
+            payload.验收策略={
+                模式:'分级验收',
+                硬错误:'Schema、非法状态、因果引用损坏、明确时间轴冲突',
+                软维护:'事件排期补全、传闻补齐、传播复核；可跨轮渐进完成，不得拖死整轮'
+            };
+            request.input=JSON.stringify(payload,null,2);
+            request.manifest=Object.assign({},request.manifest,{
+                验收策略:{模式:'分级验收',事件因果锚点可接受:true,传闻补齐:'软维护'}
+            });
+            return request;
+        }
+    }
+    class WorldIntegrityRequestFeature extends WorldRequestFeature {
+        async afterBuildRequest(request,_base){
+            request.manifest=request.manifest||{};
+            request.manifest.因果与时间约束={
+                启用:true,
+                因果偏移处理:'仅重大世界级变化时维护；无变化则省略',
+                单条建议范围:'-12~-1 / +1~+15',
+                宏观事实时间:'同一自然日允许；跨日未来拒绝',
+                人物精确时间:'仅双方均为 HH:mm 时精确比较'
+            };
+            return request;
+        }
+    }
+    class WorldActivityRequestFeature extends WorldRequestFeature {
+        async afterBuildRequest(request,base){
+            let payload;
+            try{payload=JSON.parse(request.input);}catch(_){return request;}
+            const requirement=worldActivityRequirement(base?.stat||{});
+            payload.本轮世界活动交付={
+                当前数量:copy(requirement.当前数量),
+                初始化缺口:copy(requirement.初始化缺口),
+                硬要求:[
+                    '异端不能作为本轮唯一变化；至少推进事件、势力地区或普通人物中的一项非异端实质变化。',
+                    '若地区为空：建立至少1个与当前地点/阶段相关的地区。',
+                    '若势力为空：建立至少1个当前真实相关的势力/组织；同名提交 WorldResult.势力（实力/领地/描述/声望）与 WorldResult.势力地区（类型=势力的动态现场）。',
+                    '若没有进行中的非宏观事件：建立至少1个正在发生的当前事件/近期节点。',
+                    '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
+                ]
+            };
+            request.input=JSON.stringify(payload,null,2);
+            request.timeline=Object.assign({},request.timeline,{世界活动要求:requirement});
+            request.manifest=Object.assign({},request.manifest,{
+                世界活动交付:{当前数量:copy(requirement.当前数量),初始化缺口:copy(requirement.初始化缺口)}
+            });
+            return request;
+        }
+    }
+    class WorldDueEventFeature extends WorldRequestFeature {
+        async afterBuildRequest(request,base){
+            const due=relaxedDueEvents(base?.stat||{});
+            request.due=due;
+            try{
+                const payload=JSON.parse(request.input);
+                payload.本轮必须复核的到期事件=due;
+                request.input=JSON.stringify(payload,null,2);
+            }catch(_){}
+            return request;
         }
     }
     class WorldNpcAuditPromptFeature {
@@ -8595,6 +8610,14 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         afterRender(force,result){
             for(const feature of this.items.values())feature.afterRender?.(force,result);
         }
+        async afterBuildRequest(request,base){
+            let current=request;
+            for(const feature of this.items.values()){
+                if(typeof feature.afterBuildRequest!=='function')continue;
+                current=await feature.afterBuildRequest(current,base)||current;
+            }
+            return current;
+        }
         dispose(){
             for(const feature of this.items.values())feature.dispose?.();
             this.items.clear();
@@ -8621,9 +8644,17 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.apiPreset=new WorldApiPresetController(engine);
             this.causalOverview=new WorldCausalOverviewController(engine);
             this.npcAuditPrompt=new WorldNpcAuditPromptFeature(engine);
+            this.softMaintenance=new WorldSoftMaintenanceFeature(engine);
+            this.integrityRequest=new WorldIntegrityRequestFeature(engine);
+            this.worldActivityRequest=new WorldActivityRequestFeature(engine);
+            this.dueEvent=new WorldDueEventFeature(engine);
             this.features.register('npcAuditPrompt',this.npcAuditPrompt);
             this.features.register('apiPreset',this.apiPreset);
             this.features.register('causalOverview',this.causalOverview);
+            this.features.register('softMaintenance',this.softMaintenance);
+            this.features.register('integrityRequest',this.integrityRequest);
+            this.features.register('worldActivityRequest',this.worldActivityRequest);
+            this.features.register('dueEvent',this.dueEvent);
         }
         initialize(){
             this.prompts.initialize();
@@ -8716,20 +8747,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     // 到期事件现在只作为模型的软复核清单；未处理时保留原事件，下一轮继续提醒，而不是制造重试死循环。
     ensureDueHandled=function() { return []; };
 
-    const SamsaraWorldEngineBeforeDueEventRelaxation=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeDueEventRelaxation {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base),due=relaxedDueEvents(base?.stat||{});
-            request.due=due;
-            try{
-                const payload=JSON.parse(request.input);
-                payload.本轮必须复核的到期事件=due;
-                request.input=JSON.stringify(payload,null,2);
-            }catch(_){}
-            if(request.manifest)request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
-        }
-    };
+    // 请求复核清单装饰已迁移至 WorldDueEventFeature。
     SamsaraWorldEngine=class SamsaraWorldEngineWithServices extends SamsaraWorldEngine {
         constructor(host,env){
             super(host,env);
@@ -8791,7 +8809,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
         async buildRequest(base){
             this.promptRegistry?.syncLegacy();
-            const request=await super.buildRequest(base);
+            let request=await super.buildRequest(base);
+            request=await this.services?.features?.afterBuildRequest?.(request,base)||request;
             if(this.promptRegistry){
                 request.system=this.promptRegistry.rewriteSystem(request.system);
                 request.input=this.promptRegistry.rewriteInput(request.input);

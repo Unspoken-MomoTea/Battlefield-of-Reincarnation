@@ -18,6 +18,7 @@
 src/WorldEngine/
   core/
     WorldEngineServiceContainer
+    WorldEngineFeatureRegistry
   domains/
     WorldMutationService
     WorldEventService
@@ -33,9 +34,11 @@ src/WorldEngine/
     WorldEngineViewRegistry
     WorldEditorController
     WorldPromptWorkspaceController
+    WorldApiPresetController
+    WorldCausalOverviewController
 ```
 
-`SamsaraWorldEngine` 作为 Application Facade，只持有 `engine.services` 并负责初始化、运行、面板生命周期。
+`SamsaraWorldEngine` 作为 Application Facade，只持有 `engine.services` 并负责初始化、运行、面板生命周期。Phase 3 起，横切功能通过 `WorldEngineFeatureRegistry` 的 `initialize / bindPanel / beforeRender / afterRender / dispose` 生命周期挂载，不再为 UI/配置类功能新增一层 `extends SamsaraWorldEngine`。
 
 ## 3. Prompt Registry 规则
 

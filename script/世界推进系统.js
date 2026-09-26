@@ -5157,47 +5157,7 @@ ${schemaText}`;
         return Array.from(new Set(plan.filter(Boolean)));
     };
 
-    const SamsaraWorldEngineBeforeRumorLiveliness=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorLiveliness {
-        constructor(host,env) {
-            super(host,env);
-            if(this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
-                const upgraded=upgradeRumorPreset(this.config.preset);
-                if(upgraded!==this.config.preset){this.config.preset=upgraded;this.saveConfig();}
-            }
-        }
-        async buildRequest(base) {
-            const rumorMaintenance=rumorMaintenanceRequirements(base?.stat||{});
-            ACTIVE_RUMOR_MAINTENANCE=rumorMaintenance;
-            const request=await super.buildRequest(base);
-            const payload=JSON.parse(request.input);
-            if(Array.isArray(request.timeAnomalies))request.timeAnomalies=request.timeAnomalies.filter(item=>item?.类型!=='传闻维护');
-            if(Array.isArray(payload.本轮必须修复的时间越界记录))payload.本轮必须修复的时间越界记录=payload.本轮必须修复的时间越界记录.filter(item=>item?.类型!=='传闻维护');
-            payload.传闻维护={
-                当前地点:rumorMaintenance.当前地点,
-                话题:rumorMaintenance.话题,
-                公开传闻:rumorMaintenance.公开传闻,
-                本轮必须复核的传播链:rumorMaintenance.本轮必须复核的传播链,
-                可传播候选事件:rumorMaintenance.可传播候选事件
-            };
-            request.input=JSON.stringify(payload,null,2);
-            request.system=String(request.system||'')+'\n\n'+RUMOR_LIVELINESS_RULES;
-            request.rumorMaintenance=copy(rumorMaintenance);
-            request.manifest=Object.assign({},request.manifest,{传闻维护:{空分类:RUMOR_PUBLIC_CATEGORIES.filter(category=>rumorMaintenance.公开传闻[category].当前数量===0),待复核传播:rumorMaintenance.本轮必须复核的传播链.map(item=>item.名称),可传播候选:rumorMaintenance.可传播候选事件.map(item=>item.名称)}});
-            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
-        }
-        async run() {
-            const temporalAnomaliesBeforeRumorRecovery=temporalAnomalies;
-            temporalAnomalies=function(stat) {
-                const result=temporalAnomaliesBeforeRumorRecovery(stat);
-                if(rumorMaintenanceNeeded(stat))result.push({类型:'传闻维护',名称:'常驻传闻与传播链',字段:'活跃性',值:'需复核',说明:'公开传闻为空或传播链需要推进'});
-                return result;
-            };
-            try{return await super.run();}
-            finally{if(temporalAnomalies!==temporalAnomaliesBeforeRumorRecovery)temporalAnomalies=temporalAnomaliesBeforeRumorRecovery;}
-        }
-    };
+    // 传闻请求与 run 生命周期已迁移至 WorldRumorRequestFeature。
     // 任务感知层：任务.列表是现有 MVU 的唯一正式任务账簿；世界引擎只读消费，不建立第二套后台任务库。
     const TASK_AWARENESS_RULES=`【任务感知 · 只读】
 任务列表是世界因果来源之一。世界推进不得创建、删除或修改任务，也不得推进任务状态、交付、结算或奖励；任务影响只通过事件、人物行动、势力地区、探索与传播表现。事件可用“关联任务”引用当前任务.列表中已存在的任务名，作为因果来源；禁止引用不存在的任务。
@@ -5242,53 +5202,7 @@ ${schemaText}`;
         return compileWorldResultBeforeTaskAwareness(stat,result);
     };
 
-    const SamsaraWorldEngineBeforeTaskAwareness=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeTaskAwareness {
-        restoreTaskWorldbookSelection(catalogue) {
-            if(this.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue))return false;
-            const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===TASK_WORLD_BOOK_TITLE&&!entry.technical);
-            let changed=false;
-            if(matches.length){
-                const selected=Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):[];
-                for(const entry of matches){
-                    const raw=JSON.stringify([entry.book,entry.id]);
-                    if(!selected.includes(raw)){selected.push(raw);changed=true;}
-                }
-                this.config.selectedEntries=selected;
-            }
-            const applied=Array.isArray(this.config.builtinDefaultWorldbookExclusionsApplied)?this.config.builtinDefaultWorldbookExclusionsApplied:[];
-            const cleaned=applied.filter(title=>title!==TASK_WORLD_BOOK_TITLE);
-            if(cleaned.length!==applied.length){this.config.builtinDefaultWorldbookExclusionsApplied=cleaned;changed=true;}
-            if(changed){
-                const builtin=this.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id);
-                if(builtin?.settings)builtin.settings.selectedEntries=copy(this.config.selectedEntries||[]);
-                this.saveConfig();
-            }
-            return changed;
-        }
-        async catalogue() {
-            const result=await super.catalogue();
-            this.restoreTaskWorldbookSelection(result);
-            return result;
-        }
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
-            const payload=JSON.parse(request.input);
-            if(plain(payload.输入语义)){
-                payload.输入语义.当前变量='世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史、近期因果偏移，以及任务.列表的只读因果字段。任务奖励、惩罚、副本成就、击杀、商城与纯结算数据不进入世界推进。';
-                payload.输入语义.任务列表='只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。';
-            }
-            request.input=JSON.stringify(payload,null,2);
-            // 兼容上一版传闻活跃层中的旧措辞；购买后的消费性 remove 不属于世界引擎。
-            request.system=String(request.system||'').replace(
-                '情报交易有卖家时更新1~2条，购买后移除；',
-                '情报交易有卖家时更新1~2条；购买结算由变量AI按正文事实处理；'
-            )+'\n\n'+TASK_AWARENESS_RULES;
-            request.manifest=Object.assign({},request.manifest,{任务感知:{任务数量:Object.keys(payload?.当前变量?.任务?.列表||{}).length,只读:true,副本成就:false}});
-            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
-        }
-    };
+    // 请求、世界书目录恢复已迁移至 WorldTaskAwarenessFeature。
     // 原著/数据库时间轴保护层：宏观节点先服从权威时间资料，再展开区间细节。
     const CHRONOLOGY_GUARD_RULES=`【原著/数据库时间轴硬约束】
 1. 宏观节点的日期与跨度必须先服从当前已确认事实和明确世界书/数据库中的原著时间资料，再使用模型已有原著知识补足；不得为了推动剧情、制造冲突、维持紧张感或让<user>尽快参与而主动提前关键事件。
@@ -5379,60 +5293,7 @@ ${schemaText}`;
         return Array.from(new Set(plan));
     };
 
-    const SamsaraWorldEngineBeforeChronologyGuard=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeChronologyGuard {
-        constructor(host,env) {
-            super(host,env);
-            if(!this.config.activePromptDocumentId||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
-                const upgraded=upgradeChronologyPreset(this.config.preset);
-                if(upgraded!==this.config.preset){this.config.preset=upgraded;this.saveConfig();}
-            }
-        }
-        async buildRequest(base) {
-            const request=await super.buildRequest(base),payload=JSON.parse(request.input),state=base?.stat||{};
-            const chronologyScan=[state?.世界?.名称,'原著','时间线','时间轴','年表','校历','大事记','大事件','剧情大纲','剧情章节','章节','未来','后续'].filter(Boolean).join(' ');
-            const chronologyBooks=await this.worldbook(chronologyScan,{timelineBackbone:true});
-            const chronologyOnly=(chronologyBooks||[]).filter(book=>isTimelineBackboneEntry(book?.名称));
-            const existing=Array.isArray(payload.世界书)?payload.世界书.map(String):[],merged=existing.slice(),seen=new Set(existing);
-            for(const book of chronologyOnly){const text=String(book?.内容||'');if(text&&!seen.has(text)){seen.add(text);merged.push(text);}}
-            payload.世界书=merged;
-            ACTIVE_CHRONOLOGY_GUARD={worldTime:String(state?.世界?.时间||''),books:merged.slice()};
-            const next=payload?.时间线调度?.下一宏观节点||null;
-            payload.时间线基准={
-                当前世界时间:String(state?.世界?.时间||''),
-                下一宏观节点:next?{名称:String(next.名称||''),当前排期:String(next.时间||'')}:null,
-                原著时间资料:chronologyOnly.length?'已读取 '+chronologyOnly.length+' 条明确时间线/年表资料':'未命中明确时间线条目；使用模型已有原著知识保守估计，不得为推进剧情压缩跨度',
-                规划原则:{
-                    滚动窗口:'3~5个宏观节点只是当前规划视野，不要求覆盖完整篇章；宁可规划得近，也不要把远期大事件打包。',
-                    节点粒度:'一个宏观节点只表达一个阶段转折；远行、集结、连续战役或多个独立剧情阶段应拆分或拉开跨度。',
-                    间隔自检:'排期前先判断从上一节点到本节点现实上必须经历什么，为旅行、准备、组织动员与因果发展留足时间。',
-                    时间精度:'资料只到月份/时段/顺序时保持同级精度并保守留白，不为方便排序强造日级日期。'
-                },
-                要求:'宏观节点先定原著/数据库日期、节点粒度与合理跨度，再展开当前→下一节点区间。明确到日的日期必须服从；仅有月份、时段或顺序时按软约束保守规划，不因估计差异反复改期。'
-            };
-            request.input=JSON.stringify(payload,null,2);
-            request.system=String(request.system||'')+'\n\n'+CHRONOLOGY_GUARD_RULES;
-            const manifest=request.manifest||(request.manifest={});
-            const rows=Array.isArray(manifest.世界书条目)?manifest.世界书条目:[];
-            const rowKeys=new Set(rows.map(row=>String(row?.世界书||'')+'\u0000'+String(row?.条目ID||'')));
-            for(const book of chronologyOnly){
-                const key=String(book?.世界书||'')+'\u0000'+String(book?.条目ID||'');
-                if(rowKeys.has(key))continue;rowKeys.add(key);
-                rows.push({世界书:book?.世界书,条目ID:book?.条目ID,名称:book?.名称,估算Tokens:estimateTokens(book?.内容)});
-            }
-            manifest.世界书条目=rows;
-            if(plain(manifest.世界书读取))manifest.世界书读取.实际读取=merged.length;
-            manifest.原著时间轴={
-                强制校准:true,
-                校验模式:'明确到日的资料硬校验；月份、时段、顺序与节点粒度软引导',
-                当前世界时间:String(state?.世界?.时间||''),
-                时间线资料:chronologyOnly.map(book=>String(book?.名称||'')).filter(Boolean),
-                下一宏观节点:next?String(next.名称||''):''
-            };
-            manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
-        }
-    };
+    // 时间轴请求装饰与默认预设迁移已迁移至 WorldChronologyFeature。
     // 自动推进策略：顶部开关独立控制自动调度；请求检查页配置推进间隔；战斗中暂停且不计轮次。
     const SamsaraWorldEngineBeforeAutoProgress=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeAutoProgress {
@@ -6831,42 +6692,7 @@ ${schemaText}`;
         return removed;
     }
 
-    const SamsaraWorldEngineBeforeRumorThrottle=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorThrottle {
-        constructor(host,env) {
-            super(host,env);
-            if(this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
-                const upgraded=upgradeRumorThrottlePreset(this.config.preset);
-                if(upgraded!==this.config.preset){this.config.preset=upgraded;this.saveConfig();}
-            }
-        }
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
-            const maintenance=rumorMaintenanceRequirements(base?.stat||{});
-            const payload=JSON.parse(request.input);
-            payload.传闻维护=Object.assign({},payload.传闻维护||{}, {
-                本轮公开传闻动作:maintenance.本轮公开传闻动作,
-                刷新原因:copy(maintenance.刷新原因||[]),
-                可传播候选事件:copy(maintenance.可传播候选事件||[])
-            });
-            request.input=JSON.stringify(payload,null,2);
-            request.system=String(request.system||'')+'\n\n'+RUMOR_THROTTLE_RULES;
-            request.manifest=request.manifest||{};
-            request.manifest.传闻节流={
-                模式:'按需刷新',
-                本轮动作:maintenance.本轮公开传闻动作,
-                刷新原因:copy(maintenance.刷新原因||[]),
-                软失败不重试:true
-            };
-            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
-            return request;
-        }
-        render(force) {
-            const result=super.render(force);
-            if(this.tab==='传闻')hideRumorTradeHostOnlyDetails(this.panel?.querySelector?.('main'));
-            return result;
-        }
-    };
+    // 传闻节流请求与 UI 收口已迁移至 WorldRumorRequestFeature。
     const RUMOR_WORLD_SOURCE_RULES=`【信息传播 · 世界侧事实】
 1. 传闻与传播描述世界里正在流通的信息；正文只用于确认事实与时间，不是直接传播源。禁止把正文中的个人行动、战斗细节、私密对话、能力或收益直接改写成传闻。
 2. 直接取材仅限“传闻维护.世界侧可传播事实”、已有传播链与既有公开传闻。私密事实只有形成目击、公开后果、调查发现、公告或主动泄露等现实渠道后才能传播。
@@ -6920,39 +6746,8 @@ ${schemaText}`;
         delete required.当前地点;
         return required;
     };
-    const SamsaraWorldEngineBeforeRumorWorldSource=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorWorldSource{
-        async buildRequest(base){
-            const request=await super.buildRequest(base);
-            const maintenance=rumorMaintenanceRequirements(base?.stat||{});
-            const payload=JSON.parse(request.input);
-            payload.传闻维护=Object.assign({},payload.传闻维护||{}, {
-                取材边界:'只使用世界侧可传播事实、已有传播链与既有公开传闻；正文不是直接传播源',
-                本轮公开传闻动作:maintenance.本轮公开传闻动作,
-                刷新原因:copy(maintenance.刷新原因||[]),
-                世界侧可传播事实:copy(maintenance.世界侧可传播事实||[]),
-                本轮新公开事实:copy(maintenance.本轮新公开事实||[])
-            });
-            delete payload.传闻维护.当前地点;
-            delete payload.传闻维护.可传播候选事件;
-            request.input=JSON.stringify(payload,null,2);
-            request.rumorMaintenance=copy(maintenance);
-            request.manifest=request.manifest||{};
-            request.manifest.传闻节流={模式:'世界侧事实驱动',本轮动作:maintenance.本轮公开传闻动作,刷新原因:copy(maintenance.刷新原因||[]),正文直接取材:false,软失败不重试:true};
-            return request;
-        }
-    };
-    const SamsaraWorldEngineBeforeRumorWorldSystem=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorWorldSystem{
-        async buildRequest(base){
-            const request=await super.buildRequest(base);
-            let text=String(request.system||'');
-            if(typeof RUMOR_LIVELINESS_RULES==='string')text=text.replace(RUMOR_LIVELINESS_RULES,'');
-            if(typeof RUMOR_THROTTLE_RULES==='string')text=text.replace(RUMOR_THROTTLE_RULES,'');
-            request.system=text.trim()+'\n\n'+RUMOR_WORLD_SOURCE_RULES;
-            return request;
-        }
-    };
+    // 世界侧传闻请求装饰已迁移至 src/WorldEngine/domains/WorldRumorRequestFeature.part.js。
+    // 传闻 system 最终装配已迁移至 WorldPromptRegistry；不再扩展主类。
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
     const WORLD_MODULE_PROMPT_VERSION=5;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
@@ -7854,6 +7649,152 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return request;
         }
     }
+    class WorldTaskAwarenessFeature extends WorldRequestFeature {
+        restoreWorldbookSelection(catalogue){
+            const engine=this.engine;
+            if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue))return false;
+            const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===TASK_WORLD_BOOK_TITLE&&!entry.technical);
+            let changed=false;
+            if(matches.length){
+                const selected=Array.isArray(engine.config.selectedEntries)?copy(engine.config.selectedEntries):[];
+                for(const entry of matches){
+                    const raw=JSON.stringify([entry.book,entry.id]);
+                    if(!selected.includes(raw)){selected.push(raw);changed=true;}
+                }
+                engine.config.selectedEntries=selected;
+            }
+            const applied=Array.isArray(engine.config.builtinDefaultWorldbookExclusionsApplied)?engine.config.builtinDefaultWorldbookExclusionsApplied:[];
+            const cleaned=applied.filter(title=>title!==TASK_WORLD_BOOK_TITLE);
+            if(cleaned.length!==applied.length){engine.config.builtinDefaultWorldbookExclusionsApplied=cleaned;changed=true;}
+            if(changed){
+                const builtin=engine.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id);
+                if(builtin?.settings)builtin.settings.selectedEntries=copy(engine.config.selectedEntries||[]);
+                engine.saveConfig();
+            }
+            return changed;
+        }
+        async afterCatalogue(catalogue){
+            this.restoreWorldbookSelection(catalogue);
+            return catalogue;
+        }
+        async afterBuildRequest(request,_base){
+            let payload;
+            try{payload=JSON.parse(request.input);}catch(_){return request;}
+            request.manifest=Object.assign({},request.manifest,{
+                任务感知:{任务数量:Object.keys(payload?.当前变量?.任务?.列表||{}).length,只读:true,副本成就:false}
+            });
+            return request;
+        }
+    }
+    class WorldChronologyFeature extends WorldRequestFeature {
+        initialize(){
+            const engine=this.engine;
+            if(!engine.config.activePromptDocumentId||engine.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
+                const upgraded=upgradeChronologyPreset(engine.config.preset);
+                if(upgraded!==engine.config.preset){engine.config.preset=upgraded;engine.saveConfig();}
+            }
+        }
+        async afterBuildRequest(request,base){
+            let payload;
+            try{payload=JSON.parse(request.input);}catch(_){return request;}
+            const state=base?.stat||{};
+            const chronologyScan=[state?.世界?.名称,'原著','时间线','时间轴','年表','校历','大事记','大事件','剧情大纲','剧情章节','章节','未来','后续'].filter(Boolean).join(' ');
+            const chronologyBooks=await this.engine.worldbook(chronologyScan,{timelineBackbone:true});
+            const chronologyOnly=(chronologyBooks||[]).filter(book=>isTimelineBackboneEntry(book?.名称));
+            const existing=Array.isArray(payload.世界书)?payload.世界书.map(String):[],merged=existing.slice(),seen=new Set(existing);
+            for(const book of chronologyOnly){
+                const content=String(book?.内容||'');
+                if(content&&!seen.has(content)){seen.add(content);merged.push(content);}
+            }
+            payload.世界书=merged;
+            ACTIVE_CHRONOLOGY_GUARD={worldTime:String(state?.世界?.时间||''),books:merged.slice()};
+            const next=payload?.时间线调度?.下一宏观节点||null;
+            payload.时间线基准={
+                当前世界时间:String(state?.世界?.时间||''),
+                下一宏观节点:next?{名称:String(next.名称||''),当前排期:String(next.时间||'')}:null,
+                原著时间资料:chronologyOnly.length?'已读取 '+chronologyOnly.length+' 条明确时间线/年表资料':'__PROMPT_REGISTRY_NO_EVIDENCE__',
+                规划原则:{},
+                要求:''
+            };
+            request.input=JSON.stringify(payload,null,2);
+            const manifest=request.manifest||(request.manifest={});
+            const rows=Array.isArray(manifest.世界书条目)?manifest.世界书条目:[];
+            const rowKeys=new Set(rows.map(row=>String(row?.世界书||'')+'\u0000'+String(row?.条目ID||'')));
+            for(const book of chronologyOnly){
+                const key=String(book?.世界书||'')+'\u0000'+String(book?.条目ID||'');
+                if(rowKeys.has(key))continue;
+                rowKeys.add(key);
+                rows.push({世界书:book?.世界书,条目ID:book?.条目ID,名称:book?.名称,估算Tokens:estimateTokens(book?.内容)});
+            }
+            manifest.世界书条目=rows;
+            if(plain(manifest.世界书读取))manifest.世界书读取.实际读取=merged.length;
+            manifest.原著时间轴={
+                强制校准:true,
+                校验模式:'明确到日的资料硬校验；月份、时段、顺序与节点粒度软引导',
+                当前世界时间:String(state?.世界?.时间||''),
+                时间线资料:chronologyOnly.map(book=>String(book?.名称||'')).filter(Boolean),
+                下一宏观节点:next?String(next.名称||''):''
+            };
+            return request;
+        }
+    }
+    class WorldRumorRequestFeature extends WorldRequestFeature {
+        initialize(){
+            const engine=this.engine;
+            if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)return;
+            let upgraded=upgradeRumorPreset(engine.config.preset);
+            upgraded=upgradeRumorThrottlePreset(upgraded);
+            if(upgraded!==engine.config.preset){engine.config.preset=upgraded;engine.saveConfig();}
+        }
+        async afterBuildRequest(request,base){
+            const maintenance=rumorMaintenanceRequirements(base?.stat||{});
+            ACTIVE_RUMOR_MAINTENANCE=maintenance;
+            let payload;
+            try{payload=JSON.parse(request.input);}catch(_){return request;}
+            if(Array.isArray(request.timeAnomalies))request.timeAnomalies=request.timeAnomalies.filter(item=>item?.类型!=='传闻维护');
+            if(Array.isArray(payload.本轮必须修复的时间越界记录))payload.本轮必须修复的时间越界记录=payload.本轮必须修复的时间越界记录.filter(item=>item?.类型!=='传闻维护');
+            payload.传闻维护={
+                话题:copy(maintenance.话题||[]),
+                公开传闻:copy(maintenance.公开传闻||{}),
+                本轮必须复核的传播链:copy(maintenance.本轮必须复核的传播链||[]),
+                取材边界:'__PROMPT_REGISTRY_RUMOR_SOURCE__',
+                本轮公开传闻动作:maintenance.本轮公开传闻动作,
+                刷新原因:copy(maintenance.刷新原因||[]),
+                世界侧可传播事实:copy(maintenance.世界侧可传播事实||[]),
+                本轮新公开事实:copy(maintenance.本轮新公开事实||[])
+            };
+            request.input=JSON.stringify(payload,null,2);
+            request.rumorMaintenance=copy(maintenance);
+            request.manifest=Object.assign({},request.manifest,{
+                传闻维护:{
+                    空分类:RUMOR_PUBLIC_CATEGORIES.filter(category=>maintenance.公开传闻?.[category]?.当前数量===0),
+                    待复核传播:(maintenance.本轮必须复核的传播链||[]).map(item=>item.名称),
+                    可传播候选:(maintenance.本轮新公开事实||[]).map(item=>item.名称)
+                },
+                传闻节流:{
+                    模式:'世界侧事实驱动',
+                    本轮动作:maintenance.本轮公开传闻动作,
+                    刷新原因:copy(maintenance.刷新原因||[]),
+                    正文直接取材:false,
+                    软失败不重试:true
+                }
+            });
+            return request;
+        }
+        async aroundRun(next){
+            const previous=temporalAnomalies;
+            temporalAnomalies=function(stat){
+                const result=previous(stat);
+                if(rumorMaintenanceNeeded(stat))result.push({类型:'传闻维护',名称:'常驻传闻与传播链',字段:'活跃性',值:'需复核',说明:'公开传闻为空或传播链需要推进'});
+                return result;
+            };
+            try{return await next();}
+            finally{if(temporalAnomalies!==previous)temporalAnomalies=previous;}
+        }
+        afterRender(){
+            if(this.engine.tab==='传闻')hideRumorTradeHostOnlyDetails(this.engine.panel?.querySelector?.('main'));
+        }
+    }
     class WorldNpcAuditPromptFeature {
         constructor(engine){this.engine=engine;}
         initialize(){
@@ -7877,6 +7818,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     const WORLD_PROMPT_MACRO_ACCEPTANCE='按已有状态与本轮结果合并后计数；若本轮结束或取消已有宏观节点，须补足被移出窗口的数量。重试时以已接受业务结果和最新补充清单为准，不重复创建已接受节点。';
     const WORLD_PROMPT_DUE_REVIEW='软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。';
     const WORLD_PROMPT_CHRONOLOGY_INPUT='宏观节点先定原著/数据库日期、节点粒度与合理跨度，再展开当前→下一节点区间。明确到日的日期必须服从；仅有月份、时段或顺序时按软约束保守规划，不因估计差异反复改期。';
+    const WORLD_PROMPT_CHRONOLOGY_NO_EVIDENCE='未命中明确时间线条目；使用模型已有原著知识保守估计，不得为推进剧情压缩跨度';
+    const WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY='只使用世界侧可传播事实、已有传播链与既有公开传闻；正文不是直接传播源';
     const WORLD_PROMPT_CHRONOLOGY_PRINCIPLES=JSON.stringify({
         滚动窗口:'3~5个宏观节点只是当前规划视野，不要求覆盖完整篇章；宁可规划得近，也不要把远期大事件打包。',
         节点粒度:'一个宏观节点只表达一个阶段转折；远行、集结、连续战役或多个独立剧情阶段应拆分或拉开跨度。',
@@ -7899,7 +7842,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         程序结构修复:'引擎已做的确定性纠正；不得在输出中恢复被程序降级/修正的旧错误。',
         时间线调度:'程序计算出的宏观边界与到期复核要求；模型负责语义推演，不重定义调度协议。',
         WorldResult:'唯一业务交付物；不包含 JSON Pointer、add/replace 路径或程序日志。',
-        角色管理:'若提供NPC构筑审计，只处理列出的既有NPC缺口；完整构筑资料只在审计对象中提供，避免全量NPC重复占用上下文。'
+        角色管理:'若提供NPC构筑审计，只处理列出的既有NPC缺口；完整构筑资料只在审计对象中提供，避免全量NPC重复占用上下文。',
+        任务列表:'只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。'
     },null,2);
 
     function worldPromptModuleDefault(key,fallback=''){
@@ -7938,6 +7882,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 def({key:'dueReviewGuidance',title:'到期事件复核说明',group:'请求内指令',source:'59-due-event-relaxation.part.js',scope:'user payload',condition:'本轮存在到期事件时',defaultValue:()=>WORLD_PROMPT_DUE_REVIEW}),
                 def({key:'chronologyInputGuidance',title:'时间线基准 · 要求',group:'请求内指令',source:'58-chronology-guard.part.js / 时间线基准',scope:'user payload',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_INPUT}),
                 def({key:'chronologyPrinciples',title:'时间线基准 · 规划原则',group:'请求内指令',source:'58-chronology-guard.part.js / 规划原则',scope:'user payload JSON',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_PRINCIPLES}),
+                def({key:'chronologyNoEvidenceGuidance',title:'时间线基准 · 未命中资料说明',group:'请求内指令',source:'58-chronology-guard.part.js / 原著时间资料',scope:'user payload',condition:'未读取到明确时间线/年表资料时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_NO_EVIDENCE}),
+                def({key:'rumorSourceBoundary',title:'传闻取材边界',group:'请求内指令',source:'59-rumor-world-request.part.js / 取材边界',scope:'user payload',condition:'每次传闻维护请求',defaultValue:()=>WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY}),
                 def({key:'alienReviewGuidance',title:'活跃异端复核要求',group:'请求内指令',source:'59-alien-activity-normalization.part.js',scope:'user payload',condition:'活跃异端命中复核触发器时',defaultValue:()=>WORLD_PROMPT_ALIEN_REVIEW}),
                 def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'59-world-activity-delivery.part.js / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
                 def({key:'historyInputGuidance',title:'历史压缩输入说明',group:'辅助模型',source:'historyMemoryPrompt()',scope:'user payload',condition:'历史记忆达到自动压缩阈值时',defaultValue:()=>WORLD_PROMPT_HISTORY_INPUT}),
@@ -8093,7 +8039,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(plain(payload.时间线基准)){
                 payload.时间线基准.要求=this.value('chronologyInputGuidance');
                 try{payload.时间线基准.规划原则=JSON.parse(this.value('chronologyPrinciples'));}catch(_){}
+                if(payload.时间线基准.原著时间资料==='__PROMPT_REGISTRY_NO_EVIDENCE__')payload.时间线基准.原著时间资料=this.value('chronologyNoEvidenceGuidance');
             }
+            if(plain(payload.传闻维护)&&Object.hasOwn(payload.传闻维护,'取材边界'))payload.传闻维护.取材边界=this.value('rumorSourceBoundary');
             if(Array.isArray(payload.本轮必须维持的异端活动))for(const item of payload.本轮必须维持的异端活动)if(plain(item))item.要求=this.value('alienReviewGuidance');
             if(plain(payload.本轮世界活动交付))payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
             return JSON.stringify(payload,null,2);
@@ -8618,6 +8566,23 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }
             return current;
         }
+        async afterCatalogue(catalogue){
+            let current=catalogue;
+            for(const feature of this.items.values()){
+                if(typeof feature.afterCatalogue!=='function')continue;
+                current=await feature.afterCatalogue(current)||current;
+            }
+            return current;
+        }
+        async run(next){
+            let runner=next;
+            for(const feature of Array.from(this.items.values()).reverse()){
+                if(typeof feature.aroundRun!=='function')continue;
+                const downstream=runner;
+                runner=()=>feature.aroundRun(downstream);
+            }
+            return runner();
+        }
         dispose(){
             for(const feature of this.items.values())feature.dispose?.();
             this.items.clear();
@@ -8648,6 +8613,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.integrityRequest=new WorldIntegrityRequestFeature(engine);
             this.worldActivityRequest=new WorldActivityRequestFeature(engine);
             this.dueEvent=new WorldDueEventFeature(engine);
+            this.taskAwareness=new WorldTaskAwarenessFeature(engine);
+            this.chronology=new WorldChronologyFeature(engine);
+            this.rumorRequest=new WorldRumorRequestFeature(engine);
             this.features.register('npcAuditPrompt',this.npcAuditPrompt);
             this.features.register('apiPreset',this.apiPreset);
             this.features.register('causalOverview',this.causalOverview);
@@ -8655,6 +8623,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.features.register('integrityRequest',this.integrityRequest);
             this.features.register('worldActivityRequest',this.worldActivityRequest);
             this.features.register('dueEvent',this.dueEvent);
+            this.features.register('taskAwareness',this.taskAwareness);
+            this.features.register('chronology',this.chronology);
+            this.features.register('rumorRequest',this.rumorRequest);
         }
         initialize(){
             this.prompts.initialize();
@@ -8806,6 +8777,14 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             doc.settings=prepared;
             this.saveConfig();
             return doc;
+        }
+        async catalogue(){
+            const result=await super.catalogue();
+            return this.services?.features?.afterCatalogue?.(result)||result;
+        }
+        async run(){
+            if(!this.services?.features)return super.run();
+            return this.services.features.run(()=>super.run());
         }
         async buildRequest(base){
             this.promptRegistry?.syncLegacy();

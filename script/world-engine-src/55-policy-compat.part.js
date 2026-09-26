@@ -25,8 +25,8 @@
         const messages=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
         const plan=retryPlanBeforeActionableEventRefs(error,rejected).map(line=>String(line)
             .replace('且每个名称都必须对应已建立且未取消的宏观节点。','且每个名称都必须对应已建立且未取消的宏观节点；不要写当前阶段、当前事件或近期节点。'));
-        if(/事件前因(?:不存在|非法自引用)/.test(messages))plan.push('事件前因：先修复链首缺失或自引用，再重新提交受影响的后继节点。前因数组只放事件名称，且须已存在或同轮成功建立；当前阶段/自然语言原因不算事件，无明确前因写 []。不得为消除报错凭空补造事件。');
-        if(/字段未通过完整 Schema 校验/.test(messages))plan.push('Schema纠错：只修报错路径中的业务字段；真属性/最终属性/强化属于后台派生缓存，模型不得补写，这类派生差异由程序吸收。');
+        if(/事件前因(?:不存在|非法自引用)/.test(messages))plan.push(worldEditablePromptText('retry.eventPredecessor','事件前因：先修复链首缺失或自引用，再重新提交受影响的后继节点。前因数组只放事件名称，且须已存在或同轮成功建立；当前阶段/自然语言原因不算事件，无明确前因写 []。不得为消除报错凭空补造事件。'));
+        if(/字段未通过完整 Schema 校验/.test(messages))plan.push(worldEditablePromptText('retry.schema','Schema纠错：只修报错路径中的业务字段；真属性/最终属性/强化属于后台派生缓存，模型不得补写，这类派生差异由程序吸收。'));
         return Array.from(new Set(plan.filter(Boolean)));
     };
 

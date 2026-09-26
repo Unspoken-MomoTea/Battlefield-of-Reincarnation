@@ -69,31 +69,7 @@
         return softRumorMaintenanceIssues(next,required);
     };
 
-    const SamsaraWorldEngineBeforeSoftMaintenance=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeSoftMaintenance {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
-            const payload=JSON.parse(request.input);
-            if(plain(payload?.传闻维护?.公开传闻)){
-                for(const category of RUMOR_PUBLIC_CATEGORIES){
-                    const item=payload.传闻维护.公开传闻[category];
-                    if(item&&Number(item.当前数量)===0)item.为空补足=1;
-                }
-            }
-            payload.验收策略={
-                模式:'分级验收',
-                硬错误:'Schema、非法状态、因果引用损坏、明确时间轴冲突',
-                软维护:'事件排期补全、传闻补齐、传播复核；可跨轮渐进完成，不得拖死整轮'
-            };
-            request.input=JSON.stringify(payload,null,2);
-            request.system=String(request.system||'')+'\n\n'+SOFT_MAINTENANCE_RULES;
-            request.manifest=Object.assign({},request.manifest,{验收策略:{模式:'分级验收',事件因果锚点可接受:true,传闻补齐:'软维护'}});
-            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
-            return request;
-        }
-    };
-
-    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
+    // 请求装饰已迁移至 WorldSoftMaintenanceFeature。\n\n    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
     const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
     function explorationLocationContainsArea(location,areaName) {
         const locationKey=nameKey(location),areaKey=nameKey(areaName);
@@ -125,11 +101,4 @@
         ensureCurrentExplorationProjection(stat,result);
         return compileWorldResultBeforeExplorationProjection(stat,result);
     };
-    const SamsaraWorldEngineBeforeExplorationProjection=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeExplorationProjection {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
-            request.system=String(request.system||'')+'\n\n'+EXPLORATION_PROJECTION_RULES;
-            return request;
-        }
-    };
+    // 探索提示词注入由 WorldPromptRegistry 最终装配；不再扩展主类。\n

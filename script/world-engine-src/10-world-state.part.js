@@ -732,7 +732,7 @@
         if(error?.name==='AbortError')return false;
         return true;
     }
-    function retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[]) {
+    function retryInput(baseInput,error,lastReply,attempt,maxAttempts,acceptedResult,retryPlan=[],retryPrompts=null) {
         let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
         const feedback=retryFeedback(error,error?.rejectedSlices,Array.isArray(retryPlan)?retryPlan:[]);
         const plan=feedback.actions;
@@ -746,9 +746,9 @@
             补充清单:plan.length?copy(plan):undefined,
             要求:acceptedResult
                 ?(plan.length
-                    ?'严格按“补充清单”只补充或修正未通过的业务片段。已接受业务结果已经通过本地验收，默认全部保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。'
-                    :'只补充或修正导致拒绝的业务片段。已接受业务结果默认保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。')
-                :'修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。'
+                    ?String(retryPrompts?.acceptedWithPlan||PROMPT_DEFAULT_RETRY_ACCEPTED_PLAN)
+                    :String(retryPrompts?.accepted||PROMPT_DEFAULT_RETRY_ACCEPTED))
+                :String(retryPrompts?.fresh||PROMPT_DEFAULT_RETRY_FRESH)
         };
         if(payload.纠错重试.已接受业务结果===undefined)delete payload.纠错重试.已接受业务结果;
         if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;

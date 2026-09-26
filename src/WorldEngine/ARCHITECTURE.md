@@ -38,7 +38,7 @@ src/WorldEngine/
     WorldCausalOverviewController
 ```
 
-`SamsaraWorldEngine` 作为 Application Facade，只持有 `engine.services` 并负责初始化、运行、面板生命周期。Phase 3 起，横切功能通过 `WorldEngineFeatureRegistry` 的 `initialize / bindPanel / beforeRender / afterRender / dispose` 生命周期挂载，不再为 UI/配置类功能新增一层 `extends SamsaraWorldEngine`。
+`SamsaraWorldEngine` 作为 Application Facade，只持有 `engine.services` 并负责初始化、运行、面板生命周期。Phase 3 起，横切功能通过 `WorldEngineFeatureRegistry` 的 `initialize / bindPanel / beforeRender / afterRender / afterBuildRequest / dispose` 生命周期挂载，不再为 UI/配置类功能新增一层 `extends SamsaraWorldEngine`。
 
 ## 3. Prompt Registry 规则
 
@@ -65,3 +65,8 @@ src/WorldEngine/
 4. 最后把 `script/world-engine-src` 中剩余 legacy source 迁到 `src/WorldEngine`。
 
 每一步都必须保持 `script/世界推进系统.js` 的外部接口兼容。
+
+
+## 请求 Feature 管线
+
+`WorldEngineClassBridge.buildRequest()` 先调用 legacy 核心请求，再由 `WorldEngineFeatureRegistry.afterBuildRequest()` 按注册顺序装饰 payload / timeline / manifest，最后交给 `WorldPromptRegistry` 统一装配所有静态提示词。软维护、完整性、世界活动交付、到期事件复核已迁入独立 class，不再通过 `extends SamsaraWorldEngine` 叠请求层。

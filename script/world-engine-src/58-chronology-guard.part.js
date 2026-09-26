@@ -88,22 +88,22 @@
         return Array.from(new Set(plan));
     };
 
-    const SamsaraWorldEngineBeforeChronologyGuard=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeChronologyGuard {
-        constructor(host,env) {
-            super(host,env);
-            if(!this.config.activePromptDocumentId||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
-                const upgraded=upgradeChronologyPreset(this.config.preset);
-                if(upgraded!==this.config.preset){this.config.preset=upgraded;this.saveConfig();}
+    class WorldChronologyFeature {
+        constructor(engine){this.engine=engine;}
+        initialize(){
+            const engine=this.engine;
+            if(!engine.config.activePromptDocumentId||engine.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
+                const upgraded=upgradeChronologyPreset(engine.config.preset);
+                if(upgraded!==engine.config.preset){engine.config.preset=upgraded;engine.saveConfig();}
             }
         }
-        async buildRequest(base) {
-            const request=await super.buildRequest(base),payload=JSON.parse(request.input),state=base?.stat||{};
+        async modifyRequest(request,base) {
+            const engine=this.engine,payload=JSON.parse(request.input),state=base?.stat||{};
             const chronologyScan=[state?.世界?.名称,'原著','时间线','时间轴','年表','校历','大事记','大事件','剧情大纲','剧情章节','章节','未来','后续'].filter(Boolean).join(' ');
-            const chronologyBooks=await this.worldbook(chronologyScan,{timelineBackbone:true});
+            const chronologyBooks=await engine.worldbook(chronologyScan,{timelineBackbone:true});
             const chronologyOnly=(chronologyBooks||[]).filter(book=>isTimelineBackboneEntry(book?.名称));
             const existing=Array.isArray(payload.世界书)?payload.世界书.map(String):[],merged=existing.slice(),seen=new Set(existing);
-            for(const book of chronologyOnly){const text=String(book?.内容||'');if(text&&!seen.has(text)){seen.add(text);merged.push(text);}}
+            for(const book of chronologyOnly){const value=String(book?.内容||'');if(value&&!seen.has(value)){seen.add(value);merged.push(value);}}
             payload.世界书=merged;
             ACTIVE_CHRONOLOGY_GUARD={worldTime:String(state?.世界?.时间||''),books:merged.slice()};
             const next=payload?.时间线调度?.下一宏观节点||null;
@@ -117,7 +117,7 @@
                     间隔自检:'排期前先判断从上一节点到本节点现实上必须经历什么，为旅行、准备、组织动员与因果发展留足时间。',
                     时间精度:'资料只到月份/时段/顺序时保持同级精度并保守留白，不为方便排序强造日级日期。'
                 },
-                要求:'宏观节点先定原著/数据库日期、节点粒度与合理跨度，再展开当前→下一节点区间。明确到日的日期必须服从；仅有月份、时段或顺序时按软约束保守规划，不因估计差异反复改期。'
+                要求:engine.services?.prompts?.get?.('chronologyPayloadInstruction')||PROMPT_DEFAULT_CHRONOLOGY_PAYLOAD
             };
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'')+'\n\n'+CHRONOLOGY_GUARD_RULES;
@@ -141,4 +141,5 @@
             manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             return request;
         }
-    };
+    }
+    registerWorldEngineFeature('chronology',engine=>new WorldChronologyFeature(engine));

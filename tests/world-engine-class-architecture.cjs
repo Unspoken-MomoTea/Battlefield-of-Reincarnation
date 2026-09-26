@@ -46,7 +46,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['mutations','events','people','history','exploration','rumor','requests','views','prompts']){
+for(const name of ['mutations','events','people','history','exploration','rumor','requests','worldbooks','transport','execution','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -56,6 +56,9 @@ assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
 assert.equal(engine.services.requests.constructor.name,'WorldRequestService');
+assert.equal(engine.services.worldbooks.constructor.name,'WorldWorldbookService');
+assert.equal(engine.services.transport.constructor.name,'WorldTransportService');
+assert.equal(engine.services.execution.constructor.name,'WorldExecutionService');
 assert.equal(engine.services.history.constructor.name,'WorldHistoryService');
 assert.equal(engine.services.exploration.constructor.name,'WorldExplorationService');
 assert.equal(engine.services.rumor.constructor.name,'WorldRumorService');

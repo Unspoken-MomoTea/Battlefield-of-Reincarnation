@@ -41,6 +41,7 @@ const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains
 const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
 const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
 const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
+const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
 assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
@@ -49,6 +50,9 @@ assert.match(timelinePolicySource,/\bimportStory\s*\(stat\)/,'timeline policy mu
 assert.match(timelinePolicySource,/function\s+importStory\s*\(stat\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.importStory\(stat\);\}/,'public importStory seam must remain compatible');
 assert.doesNotMatch(contextProtocolSource,/const projectedBackend=\{/,'30-context-protocol must not retain world projection implementation');
 assert.match(contextProtocolSource,/function projectWorldContext\(stat\)\{return requireWorldStateProjector\(\)\.baseWorld\(stat\);\}/,'early projectWorldContext seam must forward to active projector');
+assert.doesNotMatch(contextProtocolSource,/function\s+activation\s*\(/,'worldbook activation implementation must leave 30-context-protocol');
+assert.match(knowledgeServiceSource,/\bactivation\s*\(entry,scan,force\)/,'knowledge service must own worldbook activation policy');
+assert.match(knowledgeServiceSource,/this\.activation\(e,scan,this\.config\.activationMode==='force_selected'\)/,'worldbook reads must use the service-owned activation policy');
 for(const method of ['omitKeys','abilityMap','equipped','carriedItems','forms','character','assets','tailRecord','causalOrbit','baseWorld']){
   assert.match(stateProjectorSource,new RegExp('\\b'+method+'\\s*\\('),'state projector must own '+method);
 }

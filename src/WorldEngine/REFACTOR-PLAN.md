@@ -237,3 +237,10 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 任务感知与分层历史仍会在加载期装饰全局 `projectWorldContext`；`WorldStateProjector.world()` 暂时经过这个公共 seam，因此本次迁移不会绕过已有任务只读投影或历史记忆投影。真正的基础实现已经在 class 内，等对应 decorator 后续迁成 feature 后即可删除早期兼容层。
 
 下一刀处理 `activation()`：它只服务世界书读取，应该进入 `WorldKnowledgeService`；随后再拆 NPC 构筑审计投影/验收。
+
+
+### Phase 24 · 世界书激活策略归域
+
+已完成：`activation()` 从 `30-context-protocol.part.js` 迁入 `WorldKnowledgeService.activation()`。蓝灯常驻、绿灯主关键词、次要关键词逻辑、强制读取与禁用/空内容判定现在和世界书 catalogue/read 管线属于同一个 class；`worldbook()` 直接调用 service method，不再依赖全局 helper。
+
+`30-context-protocol.part.js` 继续缩小，当前剩余重点是 NPC 构筑审计投影/验收、协议文本兼容以及极少量早期 seam。

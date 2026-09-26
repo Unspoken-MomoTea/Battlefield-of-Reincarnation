@@ -1,5 +1,22 @@
     class WorldKnowledgeService {
         constructor(engine){this.engine=engine;}
+        activation(entry,scan,force){
+            if(!String(entry.content||'').trim())return {read:false,reason:'内容为空'};
+            if(force)return {read:true,reason:'强制读取'};
+            if(!entry.enabled)return {read:false,reason:'条目禁用'};
+            if(entry.mode==='constant')return {read:true,reason:'蓝灯常驻'};
+            if(entry.mode!=='selective')return {read:false,reason:'不支持的激活方式，需显式强制读取'};
+            const list=v=>Array.isArray(v)?v:typeof v==='string'?v.split(',').map(x=>x.trim()).filter(Boolean):[];
+            const match=k=>{
+                if(k instanceof RegExp){k.lastIndex=0;return k.test(scan);}
+                if(plain(k)){try{return new RegExp(k.pattern||k.source||k.regex,k.flags||'').test(scan);}catch(_){return false;}}
+                return !!String(k||'')&&scan.includes(String(k));
+            };
+            if(!list(entry.keys).some(match))return {read:false,reason:'绿灯未命中关键词'};
+            const second=entry.secondary||{},keys=list(second.keys||second),hits=keys.map(match);
+            const ok=!keys.length||(second.logic==='and_all'?hits.every(Boolean):second.logic==='not_all'?!hits.every(Boolean):second.logic==='not_any'?!hits.some(Boolean):hits.some(Boolean));
+            return {read:ok,reason:ok?'绿灯已命中':'绿灯次要条件未满足'};
+        }
         async catalogue(){
             const engine=this.engine;
             return await (async function(){
@@ -52,7 +69,7 @@
                             for(const e of catalogue){
                                 const selected=!e.technical&&selectedEntryMatches(e,this.config.selectedEntries);
                                 const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&isTimelineBackboneEntry(e.title);
-                                const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
+                                const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?this.activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
                                 report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
                                 if(!decision.read)continue;
                                 let content=e.content;

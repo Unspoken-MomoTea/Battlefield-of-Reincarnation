@@ -211,3 +211,8 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 `WorldStateProjector` now owns the base world-context projection algorithms: character capability stripping, equipped/carried/form views, shared assets, hot history/propagation tails, causal-orbit projection, and base world payload assembly. `30-context-protocol.part.js` keeps only an early forwarding seam because task-awareness and history-memory compatibility decorators are still loaded before the projector class.
 
 The service-level `world()` method intentionally traverses the decorated public seam until those decorators become class features, while `baseWorld()` is the canonical implementation.
+
+
+## Phase 24 · Worldbook activation
+
+Worldbook activation is owned by `WorldKnowledgeService`: constant/selective entry handling, primary/secondary keyword matching, force-selected reads, disabled entries, and empty-content rejection are evaluated in the same service that discovers and reads worldbooks. The context-protocol legacy file no longer owns this policy.

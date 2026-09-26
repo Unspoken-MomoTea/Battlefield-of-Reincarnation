@@ -63,39 +63,4 @@
         return removed;
     }
 
-    const SamsaraWorldEngineBeforeRumorThrottle=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeRumorThrottle {
-        constructor(host,env) {
-            super(host,env);
-            if(this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
-                const upgraded=upgradeRumorThrottlePreset(this.config.preset);
-                if(upgraded!==this.config.preset){this.config.preset=upgraded;this.saveConfig();}
-            }
-        }
-        async buildRequest(base) {
-            const request=await super.buildRequest(base);
-            const maintenance=rumorMaintenanceRequirements(base?.stat||{});
-            const payload=JSON.parse(request.input);
-            payload.传闻维护=Object.assign({},payload.传闻维护||{}, {
-                本轮公开传闻动作:maintenance.本轮公开传闻动作,
-                刷新原因:copy(maintenance.刷新原因||[]),
-                可传播候选事件:copy(maintenance.可传播候选事件||[])
-            });
-            request.input=JSON.stringify(payload,null,2);
-            request.system=String(request.system||'')+'\n\n'+RUMOR_THROTTLE_RULES;
-            request.manifest=request.manifest||{};
-            request.manifest.传闻节流={
-                模式:'按需刷新',
-                本轮动作:maintenance.本轮公开传闻动作,
-                刷新原因:copy(maintenance.刷新原因||[]),
-                软失败不重试:true
-            };
-            request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
-            return request;
-        }
-        render(force) {
-            const result=super.render(force);
-            if(this.tab==='传闻')hideRumorTradeHostOnlyDetails(this.panel?.querySelector?.('main'));
-            return result;
-        }
-    };
+    // 传闻节流请求与 UI 收口已迁移至 WorldRumorRequestFeature。

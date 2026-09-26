@@ -20,6 +20,8 @@ for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',
   '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
+  '@src/WorldEngine/domains/WorldStateProjector.part.js',
+  '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
   '@src/WorldEngine/domains/WorldCausalService.part.js',
   '@src/WorldEngine/domains/WorldRequestFeature.part.js',

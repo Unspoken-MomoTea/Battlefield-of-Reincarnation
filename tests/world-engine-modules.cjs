@@ -30,6 +30,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldResultMaterializer.part.js',
   '@src/WorldEngine/domains/WorldResultStagingService.part.js',
   '@src/WorldEngine/domains/WorldResultReplyParser.part.js',
+  '@src/WorldEngine/domains/WorldValidationPolicy.part.js',
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/domains/WorldValidationService.part.js',
   '@src/WorldEngine/domains/WorldCommitService.part.js',
@@ -134,6 +135,12 @@ assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],
 assert.match(texts['@src/WorldEngine/domains/WorldResultReplyParser.part.js'],/class\s+WorldResultReplyParser\b/,'WorldResult reply parsing must have a dedicated parser class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultReplyParser.part.js'],/parse\(text\)/,'reply parser class must own reply parsing');
 assert.match(texts['@src/WorldEngine/domains/WorldResultReplyParser.part.js'],/let\s+ACTIVE_WORLD_RESULT_REPLY_PARSER\s*=\s*DEFAULT_WORLD_RESULT_REPLY_PARSER/,'legacy parseReply seam must be backed by the active container-owned parser');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultReplyParser.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldValidationPolicy.part.js'),'validation policy must load after WorldResult reply parsing');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldValidationPolicy.part.js')<declared.indexOf('20-world-result.part.js'),'validation compatibility seams must load before legacy decorators');
+assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:ensureDueHandled|unscheduledEvents|ensureEventTimeAnchors|ensureStaleActiveHandled|ensureTemporalAnomaliesResolved|ensureMacroBackbone|progressionAnchorChanged)\b/,'runtime validation implementation must leave the WorldResult kernel');
+assert.match(texts['@src/WorldEngine/domains/WorldValidationPolicy.part.js'],/class\s+WorldValidationPolicy\b/,'runtime validation helpers must have a dedicated policy class');
+assert.match(texts['@src/WorldEngine/domains/WorldValidationPolicy.part.js'],/ensureMacroBackbone\(next,timeline,required=true\)/,'validation policy must own macro backbone validation');
+assert.match(texts['@src/WorldEngine/domains/WorldValidationPolicy.part.js'],/let\s+ACTIVE_WORLD_VALIDATION_POLICY\s*=\s*DEFAULT_WORLD_VALIDATION_POLICY/,'legacy validation seams must be backed by the active container-owned policy');
 
 for(const file of [
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',

@@ -23,6 +23,11 @@ for(const moduleName of [
   '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
   '@src/WorldEngine/domains/WorldCausalService.part.js',
   '@src/WorldEngine/domains/WorldRequestFeature.part.js',
+  '@src/WorldEngine/domains/WorldAutoProgressController.part.js',
+  '@src/WorldEngine/domains/WorldReplayService.part.js',
+  '@src/WorldEngine/domains/WorldTimeOwnershipFeature.part.js',
+  '@src/WorldEngine/domains/WorldNpcAuditPolicy.part.js',
+  '@src/WorldEngine/domains/WorldHistoryLifecycle.part.js',
   '@src/WorldEngine/domains/WorldSoftMaintenanceFeature.part.js',
   '@src/WorldEngine/domains/WorldIntegrityRequestFeature.part.js',
   '@src/WorldEngine/domains/WorldActivityRequestFeature.part.js',
@@ -69,8 +74,9 @@ assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/
 
 // 本次迁移的关键 seam：replay 随主世界提交一次写入，恢复模块不再额外写第二次。
 assert.match(texts['40-engine-runtime.part.js'],/buildWorldReplayPackage/,'primary world commit must carry replay metadata');
-assert.match(texts['59-world-replay-persistence.part.js'],/worldReplayReprocessContext/);
-assert.match(texts['59-world-replay-persistence.part.js'],/worldReplayLegacyPackage/);
-assert.doesNotMatch(texts['59-world-replay-persistence.part.js'],/worldReplayPersistAfterSuccess/,'replay persistence must not create a second MVU write');
+assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/reprocessContext\(/);
+assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/legacyPackage\(/);
+assert.doesNotMatch(texts['59-world-replay-persistence.part.js'],/SamsaraWorldEngine\s*=\s*class/,'replay persistence legacy shim must not recreate an inheritance layer');
+for(const file of legacyDeclared)assert.doesNotMatch(texts[file],/SamsaraWorldEngine\s*=\s*class/,file+' must not add another SamsaraWorldEngine inheritance layer');
 
 console.log(`world-engine modules synchronized through build declaration (${declared.length} parts)`);

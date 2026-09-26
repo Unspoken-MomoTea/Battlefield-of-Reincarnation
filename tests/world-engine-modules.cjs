@@ -110,6 +110,8 @@ assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultContract.part.js
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:schemaFromSample|namedEntitySchema)\b|const\s+WORLD_RESULT_SCHEMA\s*=/,'schema construction must leave the WorldResult kernel');
 assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/class\s+WorldResultContract\b/,'WorldResult schema must have a dedicated contract class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/const\s+WORLD_RESULT_SCHEMA\s*=\s*WORLD_RESULT_CONTRACT\.schema/,'legacy schema constant must be a contract-backed compatibility seam');
+assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/const\s+EVENT_RESULT_SCHEMA\s*=\s*WORLD_RESULT_CONTRACT\.schemas\.event/,'event schema decorator compatibility must point into the contract');
+assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/const\s+OFFSET_RESULT_SCHEMA\s*=\s*WORLD_RESULT_CONTRACT\.schemas\.offset/,'offset schema decorator compatibility must point into the contract');
 
 for(const file of [
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',

@@ -130,8 +130,31 @@
         }}}
         }
         };
+        this.schemas={
+            faction:FACTION_RESULT_SCHEMA,exploration:EXPLORATION_RESULT_SCHEMA,event:EVENT_RESULT_SCHEMA,person:PERSON_RESULT_SCHEMA,
+            offset:OFFSET_RESULT_SCHEMA,streetRumor:STREET_RUMOR_RESULT_SCHEMA,intelTrade:INTEL_TRADE_RESULT_SCHEMA,
+            relationSkill:RELATION_SKILL_SCHEMA,relationOccupation:RELATION_OCCUPATION_SCHEMA,relationBloodline:RELATION_BLOODLINE_SCHEMA,
+            relationEquip:RELATION_EQUIP_SCHEMA,relationStatus:RELATION_STATUS_SCHEMA,relationForm:RELATION_FORM_SCHEMA,
+            relationCurrentForm:RELATION_CURRENT_FORM_SCHEMA,asset:ASSET_RESULT_SCHEMA
+        };
         return schema;
         }
     }
     const WORLD_RESULT_CONTRACT=new WorldResultContract();
+    // Transitional aliases: legacy features still decorate component schemas at startup.
+    const FACTION_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.faction;
+    const EXPLORATION_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.exploration;
+    const EVENT_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.event;
+    const PERSON_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.person;
+    const OFFSET_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.offset;
+    const STREET_RUMOR_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.streetRumor;
+    const INTEL_TRADE_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.intelTrade;
+    const RELATION_SKILL_SCHEMA=WORLD_RESULT_CONTRACT.schemas.relationSkill;
+    const RELATION_OCCUPATION_SCHEMA=WORLD_RESULT_CONTRACT.schemas.relationOccupation;
+    const RELATION_BLOODLINE_SCHEMA=WORLD_RESULT_CONTRACT.schemas.relationBloodline;
+    const RELATION_EQUIP_SCHEMA=WORLD_RESULT_CONTRACT.schemas.relationEquip;
+    const RELATION_STATUS_SCHEMA=WORLD_RESULT_CONTRACT.schemas.relationStatus;
+    const RELATION_FORM_SCHEMA=WORLD_RESULT_CONTRACT.schemas.relationForm;
+    const RELATION_CURRENT_FORM_SCHEMA=WORLD_RESULT_CONTRACT.schemas.relationCurrentForm;
+    const ASSET_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.asset;
     const WORLD_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schema;

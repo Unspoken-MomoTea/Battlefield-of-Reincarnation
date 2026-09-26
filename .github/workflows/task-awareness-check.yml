@@ -93,6 +93,8 @@ jobs:
         run: node tests/world-engine-request-features.cjs
       - name: Complete world prompt registry regression
         run: node tests/world-engine-prompt-registry-complete.cjs
+      - name: World engine prompt source audit
+        run: node tests/world-engine-prompt-source-audit.cjs
       - name: World context UI regression
         run: node tests/world-engine-context-ui-redesign.cjs
       - name: World person scene UI regression

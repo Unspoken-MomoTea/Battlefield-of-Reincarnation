@@ -5,23 +5,28 @@ const path=require('node:path');
 const root=path.join(__dirname,'..');
 const delivery=path.join(root,'script','世界推进系统.js');
 const layer=fs.readFileSync(path.join(root,'script','world-engine-src','59-editable-module-prompts.part.js'),'utf8');
+const registry=fs.readFileSync(path.join(root,'src','WorldEngine','prompts','WorldPromptRegistry.part.js'),'utf8');
+const workspace=fs.readFileSync(path.join(root,'src','WorldEngine','ui','WorldPromptWorkspaceController.part.js'),'utf8');
+const bridge=fs.readFileSync(path.join(root,'src','WorldEngine','core','WorldEngineClassBridge.part.js'),'utf8');
+const promptSources=[layer,registry,workspace,bridge].join('\n');
 const {SamsaraWorldEngine:Engine,emptyState}=require(delivery);
 const clone=value=>JSON.parse(JSON.stringify(value));
 
-assert.match(layer,/WORLD_PROMPT_MODULE_DEFS/,'module prompt registry missing');
+assert.match(promptSources,/WORLD_PROMPT_MODULE_DEFS/,'module prompt registry missing');
 for(const source of ['TASK_AWARENESS_RULES','CHRONOLOGY_GUARD_RULES','SOFT_MAINTENANCE_RULES','EXPLORATION_PROJECTION_RULES','WORLD_INTEGRITY_GUARD_RULES','WORLD_TIME_RULES','RUMOR_THROTTLE_RULES / RUMOR_WORLD_SOURCE_RULES']){
   assert.ok(layer.includes(source),`prompt workspace must expose actual module source: ${source}`);
 }
-assert.match(layer,/data-module-prompt=/,'module prompt editors must be rendered');
-assert.match(layer,/\[data-core-prompt\],\[data-macro-prompt\],\[data-stability-prompt\],\[data-module-prompt\]/,'new prompt blocks must follow the same edit-mode toggle as the original prompt workspace');
-assert.match(layer,/savePromptDocument\(name,settings,activate=true\)/,'saved preset documents must explicitly persist module prompts');
-assert.doesNotMatch(layer,/if\(!this\.isNpcBuildAuditEnabled\(\)\)audit\?\.closest\('details'\)\?\.remove\(\)/,'NPC audit prompt must stay visible and editable even while the audit feature is disabled');
-assert.doesNotMatch(layer,/空分类本轮必须补2条/,'new final prompt layer must not revive obsolete rumor quota wording');
-assert.match(layer,/本轮没有这种重大变化时，省略“因果\.偏移记录”/,'causal offsets must be explicitly optional instead of treated as per-turn maintenance');
-assert.match(layer,/\{yyy\}年-\{mm\}月-\{dd\}日-\{时间段\}/,'world-time prompt must use the neutral machine-readable template');
-assert.doesNotMatch(layer,/帝历1024年-09月-12日-下午/,'runtime module defaults must not hard-code a world-specific date example');
-assert.match(layer,/凌晨 \/ 黎明 \/ 清晨 \/ 早晨 \/ 上午 \/ 中午 \/ 午后 \/ 下午 \/ 傍晚 \/ 入夜 \/ 晚上 \/ 深夜/,'world-time prompt must restrict AI output to the canonical 12 dayparts');
-assert.match(layer,/没有足够时间流逝跨过当前时段就保持原值/,'world-time prompt must not force a daypart change every world-engine run');
+assert.match(workspace,/data-prompt-registry=/,'module prompt editors must be rendered from the unified registry');
+assert.match(workspace,/全部实际提示词/,'prompt workspace must expose one discoverable all-prompts section');
+assert.match(bridge,/savePromptDocument\(name,settings,activate=true\)/,'saved preset documents must persist registry-backed module prompts');
+assert.doesNotMatch(promptSources,/SamsaraWorldEngine\s*=\s*class/,'legacy editable prompt file must no longer add an engine inheritance layer');
+assert.doesNotMatch(promptSources,/if\(!this\.isNpcBuildAuditEnabled\(\)\)audit\?\.closest\('details'\)\?\.remove\(\)/,'NPC audit prompt must stay visible and editable even while the audit feature is disabled');
+assert.doesNotMatch(promptSources,/空分类本轮必须补2条/,'new final prompt layer must not revive obsolete rumor quota wording');
+assert.match(promptSources,/本轮没有这种重大变化时，省略“因果\.偏移记录”/,'causal offsets must be explicitly optional instead of treated as per-turn maintenance');
+assert.match(promptSources,/\{yyy\}年-\{mm\}月-\{dd\}日-\{时间段\}/,'world-time prompt must use the neutral machine-readable template');
+assert.doesNotMatch(promptSources,/帝历1024年-09月-12日-下午/,'runtime module defaults must not hard-code a world-specific date example');
+assert.match(promptSources,/凌晨 \/ 黎明 \/ 清晨 \/ 早晨 \/ 上午 \/ 中午 \/ 午后 \/ 下午 \/ 傍晚 \/ 入夜 \/ 晚上 \/ 深夜/,'world-time prompt must restrict AI output to the canonical 12 dayparts');
+assert.match(promptSources,/没有足够时间流逝跨过当前时段就保持原值/,'world-time prompt must not force a daypart change every world-engine run');
 
 
 function fresh(){

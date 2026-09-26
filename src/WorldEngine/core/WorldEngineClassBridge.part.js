@@ -84,20 +84,6 @@
             }
             return request;
         }
-        async requestHistoryMemorySummary(world,batch,outputLevel){
-            if(!this.promptRegistry)return super.requestHistoryMemorySummary(world,batch,outputLevel);
-            const savedTransport=this.lastTransportInfo;
-            try{
-                const raw=await this.requestAI(
-                    this.promptRegistry.historySystem(),
-                    this.promptRegistry.historyInput(historyMemoryPrompt(world,batch,outputLevel)),
-                    {schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2}
-                );
-                return historyMemoryParseReply(raw);
-            } finally {
-                this.lastTransportInfo=savedTransport;
-            }
-        }
         get dedicatedApiPresetSelection(){return this.services?.apiPreset?.selection||'';}
         set dedicatedApiPresetSelection(value){if(this.services?.apiPreset)this.services.apiPreset.selection=String(value||'');}
         syncDedicatedApiPresetSelection(){return this.services?.apiPreset?.sync();}
@@ -133,6 +119,15 @@
         persistHistoryMemoryEdit(kind,name,build,status){return this.services.history.commitEdit(kind,name,build,status);}
         setHistoryAnchorRecord(name,record){return this.services.history.saveAnchor(name,record);}
         setHistorySummaryRecord(name,record){return this.services.history.saveSummary(name,record);}
+        setSendHistoryToProse(value){return this.services.historyMemory.setSendToProse(value);}
+        proseHistoryMemory(stat){return this.services.historyMemory.prose(stat);}
+        maintainHistoryMemory(){return this.services.historyMemory.maintain();}
+        requestHistoryMemorySummary(world,batch,outputLevel){return this.services.historyMemory.requestSummary(world,batch,outputLevel);}
+        beforeWorldCommit(next,context){return this.services?.features?.beforeWorldCommit?.(next,context)||false;}
+        handleWorldReplayVariableEvent(variables,before){
+            const handled=super.handleWorldReplayVariableEvent(variables,before);
+            return this.services?.features?.afterVariableEvent?.(handled,variables,before)??handled;
+        }
         createPanel(){
             super.createPanel();
             this.services?.editorController?.bindPanel();

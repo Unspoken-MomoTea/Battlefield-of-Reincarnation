@@ -20,6 +20,7 @@
             this.personEditor.bindPanel();
             this.features.bindPanel();
         }
+        beforeRender(){this.features.beforeRender();}
         afterRender(){
             this.eventEditor.afterRender();
             this.personEditor.afterRender();

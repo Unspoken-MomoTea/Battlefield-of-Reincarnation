@@ -18,6 +18,7 @@
 - `WorldStateProjector`：世界状态 → 世界推进热上下文的唯一投影入口。
 - `WorldResultCompiler`：WorldResult 标准化、分片验收、补丁编译与 materialize 入口。
 - `WorldValidationService`：编译后统一执行到期事件、时间锚点、超期事件、时间异常、异端、NPC 审计与宏观骨架验收。
+- `WorldCommitService`：稳定值重算、最近变化、历史/replay 提交装饰、Schema 二次确认与单次 MVU 写入。
 - `WorldMutationService`：世界推进变量的原子写回与 replay 合并入口。
 - `WorldEventService`：事件修正、重命名、删除。
 - `WorldPersonActivityService`：只管理 `世界.后台.人物` 活动记录。

@@ -8,6 +8,7 @@ for(const file of [
   'src/WorldEngine/ARCHITECTURE.md',
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   'src/WorldEngine/domains/WorldStateProjector.part.js',
+  'src/WorldEngine/domains/WorldResultKernel.part.js',
   'src/WorldEngine/domains/WorldResultCompiler.part.js',
   'src/WorldEngine/domains/WorldValidationService.part.js',
   'src/WorldEngine/domains/WorldCommitService.part.js',

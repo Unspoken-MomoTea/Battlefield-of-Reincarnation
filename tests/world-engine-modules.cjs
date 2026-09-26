@@ -24,6 +24,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldKnowledgeService.part.js',
   '@src/WorldEngine/domains/WorldRequestBuilder.part.js',
   '@src/WorldEngine/domains/WorldStateProjector.part.js',
+  '@src/WorldEngine/domains/WorldResultKernel.part.js',
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/domains/WorldValidationService.part.js',
   '@src/WorldEngine/domains/WorldCommitService.part.js',
@@ -91,6 +92,14 @@ assert.equal(built,assembled,'script/世界推进系统.js must exactly equal th
 assert.ok(texts['50-engine-ui.part.js'].length<50000,'main UI class should stay below 50 KB after control-tab extraction');
 assert.doesNotMatch(texts['50-engine-ui.part.js'],/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the main UI class');
 assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/,'base CSS should live in a dedicated UI resource module');
+
+// Phase 12: the real WorldResult implementation must live under src/WorldEngine, not in the legacy numbered source tree.
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultKernel.part.js')<declared.indexOf('20-world-result.part.js'),'WorldResult kernel must load at the former legacy slot before its compatibility shim');
+assert.ok(texts['20-world-result.part.js'].length<1000,'legacy WorldResult part must stay a thin compatibility shim');
+assert.doesNotMatch(texts['20-world-result.part.js'],/function\s+(?:normalizeWorldResult|compileWorldResult|materializeWorldUpdate)\b/,'legacy WorldResult shim must not regain domain implementation');
+assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+normalizeWorldResult\b/,'WorldResult normalization must live in dedicated src domain source');
+assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+compileWorldResult\b/,'WorldResult compilation must live in dedicated src domain source');
+assert.match(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+materializeWorldUpdate\b/,'WorldResult materialization must live in dedicated src domain source');
 
 for(const file of [
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',

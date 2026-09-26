@@ -135,7 +135,7 @@ replace_once_any(
 # 3) Settings UI + bounded history inspector. Do not render thousands of permanent raw anchors.
 replace_once_any(
     [
-        'script/world-engine-src/ui/40-archive-tabs.part.js',
+        'src/WorldEngine/ui/views/WorldHistoryView.part.js',
         'script/world-engine-src/50-engine-ui.part.js',
     ],
     """                html+=section('历史锚点',entries(state.历史).reverse().map(([n,r])=>'<article class=\"we-card\"><div class=\"we-meta\">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无已确认的历史锚点'));""",
@@ -147,7 +147,7 @@ replace_once_any(
 
 replace_once_any(
     [
-        'script/world-engine-src/ui/50-settings-tab.part.js',
+        'src/WorldEngine/ui/views/WorldSettingsView.part.js',
         'script/world-engine-src/50-engine-ui.part.js',
     ],
     """                html+=section('模型接口',

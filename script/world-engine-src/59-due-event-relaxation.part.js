@@ -31,17 +31,20 @@
     // 到期事件现在只作为模型的软复核清单；未处理时保留原事件，下一轮继续提醒，而不是制造重试死循环。
     ensureDueHandled=function() { return []; };
 
-    const SamsaraWorldEngineBeforeDueEventRelaxation=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeDueEventRelaxation {
-        async buildRequest(base) {
-            const request=await super.buildRequest(base),due=relaxedDueEvents(base?.stat||{});
+    class WorldDueEventFeature {
+        constructor(engine){this.engine=engine;}
+        async modifyRequest(request,base) {
+            const due=relaxedDueEvents(base?.stat||{});
             request.due=due;
             try{
                 const payload=JSON.parse(request.input);
-                payload.本轮必须复核的到期事件=due;
+                payload.本轮必须复核的到期事件=due.map(item=>Object.assign({},item,{
+                    说明:this.engine.services?.prompts?.get?.('dueEventInstruction')||item.说明
+                }));
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}
             if(request.manifest)request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             return request;
         }
-    };
+    }
+    registerWorldEngineFeature('due-event-relaxation',engine=>new WorldDueEventFeature(engine));

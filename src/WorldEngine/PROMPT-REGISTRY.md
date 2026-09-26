@@ -38,3 +38,5 @@
 - 测试覆盖发送条件与实际替换结果。
 
 不要再把新的不可编辑指令直接拼接到 `request.system` 或请求 JSON。
+
+`tests/world-engine-prompt-source-audit.cjs` 还会扫描世界推进源码中的 `*PROMPT* / *RULES* / *GUIDANCE* / *INSTRUCTION*` 静态常量；除 Registry 自身默认值外，任何新提示词常量如果没有被 `WorldPromptRegistry` 引用都会直接使 CI 失败。这样以后不会再出现“功能能跑，但提示词藏在文件里”的回退。

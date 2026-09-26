@@ -4,6 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / 'script' / 'world-engine-src' / '40-engine-runtime.part.js'
 PERSIST = ROOT / 'script' / 'world-engine-src' / '59-world-replay-persistence.part.js'
 COMMIT_SERVICE = ROOT / 'src' / 'WorldEngine' / 'domains' / 'WorldCommitService.part.js'
+RUN_ORCHESTRATOR = ROOT / 'src' / 'WorldEngine' / 'domains' / 'WorldRunOrchestrator.part.js'
 
 
 def read_preserve(path: Path):
@@ -43,12 +44,19 @@ new_commit = block("""                this.committing=true;
                 await prepared.current.mvu.replaceMvuData(result,{type:'message',message_id:base.id});
 """, rnl)
 commit_service = COMMIT_SERVICE.read_text(encoding='utf-8') if COMMIT_SERVICE.is_file() else ''
+run_orchestrator = RUN_ORCHESTRATOR.read_text(encoding='utf-8') if RUN_ORCHESTRATOR.is_file() else ''
 commit_service_owns_replay = (
     'class WorldCommitService' in commit_service
     and 'buildWorldReplayPackage' in commit_service
     and '__samsaraWorldReplay' in commit_service
 )
-if commit_service_owns_replay and ('services.commit.persist' in runtime or 'services?.commit' in runtime):
+commit_call_is_classized = (
+    'services.commit.persist' in runtime
+    or 'services?.commit' in runtime
+    or 'services?.commit?.persist' in run_orchestrator
+    or 'services.commit.persist' in run_orchestrator
+)
+if commit_service_owns_replay and commit_call_is_classized:
     # Phase 8+: replay 已由 WorldCommitService 在同一次 MVU 提交内写入。
     # 旧 runtime 锚点消失属于预期迁移，不应再把旧实现补回主循环。
     pass

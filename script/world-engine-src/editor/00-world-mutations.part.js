@@ -46,25 +46,3 @@
         if(!plain(backend))throw new Error('世界后台不存在');
         return backend;
     }
-
-    const SamsaraWorldEngineBeforeWorldEditorMutations=SamsaraWorldEngine;
-    SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeWorldEditorMutations {
-        async persistWorldEditorMutation(mutator,status) {
-            if(this.services?.mutations)return this.services.mutations.commit(mutator,status);
-            throw new Error('世界推进写回服务尚未初始化');
-        }
-        worldEditorModeEnabled() {
-            return this.worldEditMode===true;
-        }
-        setWorldEditorMode(value) {
-            this.worldEditMode=value===true;
-            this.render(true);
-            return this.worldEditMode;
-        }
-        toggleWorldEditorMode() {
-            return this.setWorldEditorMode(!this.worldEditorModeEnabled());
-        }
-        worldEditorSection(title) {
-            return worldEditorSection(this.panel,title);
-        }
-    };

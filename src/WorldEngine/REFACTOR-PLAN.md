@@ -52,4 +52,8 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 
 `WorldTaskAwarenessFeature`、`WorldChronologyFeature`、`WorldRumorRequestFeature` 已接管原先 57/58/56/59-rumor 系列中的主类请求包装。任务世界书选择恢复走 `afterCatalogue`，传闻运行期复核走 `aroundRun`，请求 payload/manifest 统一走 `afterBuildRequest`。这批对应的隐藏静态文本（任务列表只读语义、无时间轴资料说明、传闻取材边界）也已进入 Prompt Registry。
 
-下一批处理 auto-progress / auto-trigger / replay / time-ownership / policy-compat 这组高状态功能；它们涉及调度与恢复，按独立纵向切片迁移，避免一次性重写生命周期。
+### Phase 5 · 状态型生命周期类化
+
+已完成：`WorldAutoProgressController`、`WorldReplayService`、`WorldTimeOwnershipFeature`、`WorldNpcAuditPolicy`、`WorldHistoryLifecycle` 接管 auto-progress / auto-trigger / replay / reprocess / time-ownership / policy-compat / history-memory 中原先依赖主类继承的行为。旧分片仅保留常量、纯函数、编译器补丁或兼容模块名，不再创建新的 `SamsaraWorldEngine` 子类。
+
+下一阶段继续把 `script/world-engine-src` 中仍属于纯领域逻辑的 helper/monkey patch 迁入 `src/WorldEngine`，重点是 WorldResult 编译器、世界状态投影/迁移与剩余时间/因果校验函数；Application Facade 只保留兼容入口。

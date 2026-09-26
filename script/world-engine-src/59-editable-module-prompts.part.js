@@ -35,8 +35,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
 当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移不是每轮必填，只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化；本轮没有这种重大变化时，省略“因果.偏移记录”，不得为了让稳定值变化而硬造记录。位置暴露、敌人警觉、受伤、逃脱、行动/生存难度变化等局部后果不记。计划、风险、能力上限不记；同根因优先更新同一条。稳定值由程序根据有效偏移汇总，模型不得直接修改。`}),
         Object.freeze({key:'worldTime',title:'世界时间',source:'WORLD_TIME_RULES',legacy:()=>[WORLD_TIME_RULES],fallback:`【世界时间所有权】
 世界.时间由世界推进维护。为空时据已确认资料初始化；没有足够时间流逝跨过当前时段就保持原值，不因每轮推进而机械跳时段。精确到月日使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段只能选：凌晨 / 黎明 / 清晨 / 早晨 / 上午 / 中午 / 午后 / 下午 / 傍晚 / 入夜 / 晚上 / 深夜。只有正文或明确资料表明确实经过合理时长才推进时段/日期；不得回退或把未来计划时间当当前时间。人物/地区更新时间由程序统一盖章。`}),
-        Object.freeze({key:'rumor',title:'传闻与传播',source:'RUMOR_THROTTLE_RULES / RUMOR_WORLD_SOURCE_RULES',legacy:()=>[RUMOR_LIVELINESS_RULES,RUMOR_THROTTLE_RULES,RUMOR_WORLD_SOURCE_RULES],fallback:`【信息传播 · 世界侧事实】
-传闻只来自“世界侧可传播事实”、已有传播链和既有公开传闻；正文不是直接传播源。私密事实必须先形成目击、公开后果、调查、公告或泄露。公开内容不得超过来源/受众认知，传播按时间与空间扩散。无触发保持原样；空分类、传播复核或新公开事实时按需更新，每个触发每类最多1条。普通行动/战斗本身不触发；传闻失败不重跑整轮。购买、扣款与消费性删除由MVU处理。`})
+        Object.freeze({key:'rumorLiveliness',title:'传闻活跃性',source:'RUMOR_LIVELINESS_RULES',legacy:()=>[RUMOR_LIVELINESS_RULES],fallback:`【传闻与传播 · 活跃性】
+传闻是持续存在的世界信息层；只围绕真实世界事实维护。空分类可补真实信息，已有传播链按到期、陈旧或关联事件变化复核；不得为了“看起来活跃”而围绕<user>凭空制造消息。`}),
+        Object.freeze({key:'rumorThrottle',title:'传闻刷新节流',source:'RUMOR_THROTTLE_RULES',legacy:()=>[RUMOR_THROTTLE_RULES],fallback:`【传闻刷新节流】
+公开传闻默认保持不变；仅在空分类、传播链需复核或本轮出现新的公开可传播事实时按需更新。单次触发每个分类最多更新1条；普通行动、普通战斗和轻微数值变化不触发。传闻/传播属于软维护，失败不重跑整轮。`}),
+        Object.freeze({key:'rumorSource',title:'传闻世界侧来源',source:'RUMOR_WORLD_SOURCE_RULES',legacy:()=>[RUMOR_WORLD_SOURCE_RULES],fallback:`【信息传播 · 世界侧事实】
+传闻只来自世界侧可传播事实、已有传播链和既有公开传闻；正文不是直接传播源。私密事实必须先形成目击、公开后果、调查、公告或泄露等现实渠道。公开内容不得超过来源/受众认知，传播按时间与空间扩散；购买、扣款与消费性删除由MVU处理。`})
     ]);
     function worldModulePromptDefaults(){
         return Object.fromEntries(WORLD_PROMPT_MODULE_DEFS.map(item=>[item.key,item.fallback]));

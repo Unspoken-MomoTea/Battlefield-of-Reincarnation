@@ -135,6 +135,7 @@ replace_once_any(
 # 3) Settings UI + bounded history inspector. Do not render thousands of permanent raw anchors.
 replace_once_any(
     [
+        'src/WorldEngine/ui/views/WorldHistoryView.part.js',
         'script/world-engine-src/ui/40-archive-tabs.part.js',
         'script/world-engine-src/50-engine-ui.part.js',
     ],
@@ -147,6 +148,7 @@ replace_once_any(
 
 replace_once_any(
     [
+        'src/WorldEngine/ui/views/WorldSettingsView.part.js',
         'script/world-engine-src/ui/50-settings-tab.part.js',
         'script/world-engine-src/50-engine-ui.part.js',
     ],

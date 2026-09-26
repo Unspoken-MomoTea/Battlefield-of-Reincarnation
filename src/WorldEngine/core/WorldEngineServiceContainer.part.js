@@ -16,6 +16,10 @@
             this.exploration=new WorldExplorationService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
+            this.transport=engine._apiTransport||new WorldApiTransportService(engine);
+            engine._apiTransport=this.transport;
+            this.promptDocuments=engine._promptDocuments||new WorldPromptDocumentService(engine);
+            engine._promptDocuments=this.promptDocuments;
             this.autoProgress=new WorldAutoProgressController(engine);
             this.replay=new WorldReplayService(engine);
             this.timeOwnership=new WorldTimeOwnershipFeature(engine);

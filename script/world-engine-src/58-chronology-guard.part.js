@@ -107,16 +107,12 @@
             payload.世界书=merged;
             ACTIVE_CHRONOLOGY_GUARD={worldTime:String(state?.世界?.时间||''),books:merged.slice()};
             const next=payload?.时间线调度?.下一宏观节点||null;
+            let chronologyPrinciples={};try{chronologyPrinciples=JSON.parse(engine.services?.prompts?.value?.('chronologyPrinciples')||WORLD_PROMPT_CHRONOLOGY_PRINCIPLES);}catch(_){}
             payload.时间线基准={
                 当前世界时间:String(state?.世界?.时间||''),
                 下一宏观节点:next?{名称:String(next.名称||''),当前排期:String(next.时间||'')}:null,
-                原著时间资料:chronologyOnly.length?'已读取 '+chronologyOnly.length+' 条明确时间线/年表资料':'未命中明确时间线条目；使用模型已有原著知识保守估计，不得为推进剧情压缩跨度',
-                规划原则:{
-                    滚动窗口:'3~5个宏观节点只是当前规划视野，不要求覆盖完整篇章；宁可规划得近，也不要把远期大事件打包。',
-                    节点粒度:'一个宏观节点只表达一个阶段转折；远行、集结、连续战役或多个独立剧情阶段应拆分或拉开跨度。',
-                    间隔自检:'排期前先判断从上一节点到本节点现实上必须经历什么，为旅行、准备、组织动员与因果发展留足时间。',
-                    时间精度:'资料只到月份/时段/顺序时保持同级精度并保守留白，不为方便排序强造日级日期。'
-                },
+                原著时间资料:chronologyOnly.length?'已读取 '+chronologyOnly.length+' 条明确时间线/年表资料':(engine.services?.prompts?.value?.('chronologyMissingSourceGuidance')||WORLD_PROMPT_CHRONOLOGY_MISSING),
+                规划原则:chronologyPrinciples,
                 要求:engine.services?.prompts?.value?.('chronologyInputGuidance')||WORLD_PROMPT_CHRONOLOGY_INPUT
             };
             request.input=JSON.stringify(payload,null,2);

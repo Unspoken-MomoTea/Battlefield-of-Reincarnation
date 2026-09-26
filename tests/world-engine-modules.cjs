@@ -123,6 +123,10 @@ assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.j
 assert.match(texts['@src/WorldEngine/domains/WorldStateNormalizer.part.js'],/class\s+WorldStateNormalizer\b/,'state normalization must have a dedicated class');
 assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:normalizeBackendState|eventText|obviouslyLocalMacro|normalizedEventCategory|normalizeEventLayers|explicitPersonAliases|repairExplicitEventLinks|repairMacroPredecessors)\b/,'legacy state monolith must not regain state-normalizer implementation');
 
+// Phase 18: timeline snapshot/projection state also belongs to WorldTimelinePolicy.
+assert.match(texts['@src/WorldEngine/domains/WorldTimelinePolicy.part.js'],/timelineState\(stat\)/,'timeline policy must own timeline snapshot calculation');
+assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+timelineState\b/,'legacy state monolith must not regain timelineState');
+
 // Phase 13: timeline/time validation helpers are class-owned instead of living in the legacy state monolith.
 assert.ok(declared.indexOf('10-world-state.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'timeline policy must load after base state helpers');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'timeline policy must load before result materialization uses temporal seams');

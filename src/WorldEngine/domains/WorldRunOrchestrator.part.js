@@ -15,7 +15,7 @@
                     const recoveryStat=copy(base.stat);
                     recoveryStat.世界[PATH]=Object.assign(emptyState(),recoveryStat.世界[PATH]||{});
                     normalizeBackendState(recoveryStat);
-                    const recoveryTimeline=timelineState(recoveryStat);
+                    const recoveryTimeline=this.services.timelinePolicy.timelineState(recoveryStat);
                     const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.需要补充远期||recoveryTimeline.因果轨道需重建);
                     const needsScheduleRepair=unscheduledEvents(recoveryStat).length>0;
                     const needsLifecycleRepair=staleActiveEvents(recoveryStat).length>0||temporalAnomalies(recoveryStat).length>0;

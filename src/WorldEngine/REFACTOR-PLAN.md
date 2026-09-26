@@ -185,3 +185,10 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 已完成：`repairCausalProjection` 的真实实现迁入现有 `WorldCausalService.repairProjection()`；`WorldResultMaterializer` 直接组合 container-owned causal service，旧全局函数只保留兼容转发给尚未注入 service 的 UI 调用。
 
 因此因果偏移手动维护、稳定值相关操作与宏观因果轨道投影开始统一收口到 causal domain。下一步继续拆 `10-world-state.part.js` 中仍残留的 `timelineState / emptyState / model patch policy` 等底层职责，优先按领域边界拆而不是继续扩大单类。
+
+
+### Phase 18 · 时间线状态归域
+
+已完成：`timelineState` 从 `10-world-state.part.js` 迁入 `WorldTimelinePolicy`，与故事线解析、事件时间锚点、陈旧活动判定、时间异常检测统一归域。变量重处理后的恢复流程已直接调用 `services.timelinePolicy.timelineState()`。
+
+下一批将继续处理人物热投影/异端活动补种，优先归入 `WorldPersonActivityService` / projector，而不是让 `10-world-state` 继续承担人物领域逻辑。

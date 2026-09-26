@@ -177,3 +177,8 @@ src/WorldEngine/
 `WorldStateNormalizer` owns persisted backend migration and event structural repair: legacy summary migration, backend record normalization, dead-alien activity cleanup, event layer correction, explicit person↔event linking, and macro predecessor completion. `WorldResultMaterializer` composes the container-owned normalizer directly; compatibility functions remain only for UI/runtime callers that have not yet moved to injected services.
 
 Causal projection is intentionally not part of this class. `repairCausalProjection` remains a separate seam until it is migrated into the causal domain.
+
+
+### Timeline snapshot ownership
+
+`WorldTimelinePolicy` now owns `timelineState()` in addition to story-stage parsing, event time labels, temporal anomaly checks and event ordering. Recovery orchestration calls the container-owned policy directly; the compatibility `timelineState` function only exists for remaining legacy callers.

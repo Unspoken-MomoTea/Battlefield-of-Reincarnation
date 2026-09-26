@@ -139,6 +139,10 @@ assert.equal(normalized.世界.因果轨道.当前阶段,'远征开始');
 assert.equal(normalized.世界.因果轨道.下一节点,'城门决战');
 assert.ok(causalFixes.some(p=>p.path==='/世界/因果轨道/当前阶段'));
 assert.ok(causalFixes.some(p=>p.path==='/世界/因果轨道/下一节点'));
+const timelineSnapshot=engine.services.timelinePolicy.timelineState(normalized);
+assert.equal(timelineSnapshot.因果轨道需重建,false);
+assert.equal(timelineSnapshot.宏观节点数,3);
+assert.equal(timelineSnapshot.下一宏观节点.名称,'城门决战');
 
 const expectedPromptKeys=[
   'preset','core','macro','stability','npcAudit','outputProtocol',

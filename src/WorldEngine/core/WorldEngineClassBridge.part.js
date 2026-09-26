@@ -69,6 +69,9 @@
                     key:item.key,标题:item.title,分组:item.group,来源:item.source,作用范围:item.scope,发送条件:item.condition,
                     估算Tokens:estimateTokens(item.value),启用:String(item.value||'').trim()!==''
                 }));
+                request.manifest.提示词模块=this.promptRegistry.list()
+                    .filter(item=>item.group==='运行模块'&&item.scope==='system'&&String(item.value||'').trim())
+                    .map(item=>({key:item.key,title:item.title,source:item.source,估算Tokens:estimateTokens(item.value)}));
                 request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
             }
             return request;
@@ -87,6 +90,9 @@
                 this.lastTransportInfo=savedTransport;
             }
         }
+        get dedicatedApiPresetSelection(){return this.services?.apiPreset?.selection||'';}
+        set dedicatedApiPresetSelection(value){if(this.services?.apiPreset)this.services.apiPreset.selection=String(value||'');}
+        syncDedicatedApiPresetSelection(){return this.services?.apiPreset?.sync();}
         applyDedicatedApiPreset(name){
             const selected=String(name||'').trim(),result=super.applyDedicatedApiPreset(selected);
             return this.services?.apiPreset?.afterApply(selected,result)??result;

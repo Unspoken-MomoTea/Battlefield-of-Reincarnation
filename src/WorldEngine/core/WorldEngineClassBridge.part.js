@@ -57,6 +57,14 @@
             this.saveConfig();
             return doc;
         }
+        async catalogue(){
+            const result=await super.catalogue();
+            return this.services?.features?.afterCatalogue?.(result)||result;
+        }
+        async run(){
+            if(!this.services?.features)return super.run();
+            return this.services.features.run(()=>super.run());
+        }
         async buildRequest(base){
             this.promptRegistry?.syncLegacy();
             let request=await super.buildRequest(base);

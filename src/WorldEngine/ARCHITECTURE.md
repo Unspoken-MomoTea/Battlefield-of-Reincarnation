@@ -140,3 +140,7 @@ src/WorldEngine/
 ### WorldResult 回复解析
 
 `WorldResultReplyParser` 负责模型回复的 JSON 提取、兼容包装识别与 WorldResult 归一化；`WorldRunOrchestrator` 通过 service container 使用它，`parseReply` 仅保留为兼容 seam。
+
+### WorldValidation Policy
+
+`WorldValidationPolicy` 持有到期事件、排期完整性、超期活动、时间越界、宏观骨架与推进锚点的基础领域规则；`WorldValidationService` 负责一次完整结果验收的应用编排。迁移期被 legacy feature 动态包装的校验仍通过可重写全局 seam 调用，这些 seam 的底层实现统一指向 container-owned `ACTIVE_WORLD_VALIDATION_POLICY`，避免类化绕过已有运行期扩展。

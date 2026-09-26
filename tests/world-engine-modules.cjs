@@ -13,7 +13,7 @@ assert.ok(partsBlock,'build-world-engine.py must declare PARTS');
 const declared=[...partsBlock[1].matchAll(/'([^']+\.part\.js)'/g)].map(match=>match[1]);
 assert.ok(declared.length>=10,'world engine should be assembled from modular source parts');
 assert.equal(new Set(declared).size,declared.length,'build PARTS must not contain duplicate modules');
-for(const moduleName of ['ui/00-styles.part.js','ui/10-world-tab.part.js','ui/20-people-tab.part.js','ui/30-exploration-tab.part.js','ui/40-archive-tabs.part.js','ui/50-settings-tab.part.js','ui/60-prompt-tab.part.js','ui/70-request-inspector.part.js','editor/00-world-mutations.part.js','editor/10-event-editor.part.js','editor/20-person-editor.part.js']){
+for(const moduleName of ['ui/00-styles.part.js','editor/00-world-mutations.part.js','editor/10-event-editor.part.js','editor/20-person-editor.part.js']){
   assert.ok(declared.includes(moduleName),`domain module must be registered: ${moduleName}`);
 }
 for(const moduleName of [
@@ -41,6 +41,8 @@ for(const moduleName of [
   '@src/WorldEngine/ui/views/WorldSettingsView.part.js',
   '@src/WorldEngine/ui/views/WorldPromptView.part.js',
   '@src/WorldEngine/ui/views/WorldRequestInspectorView.part.js',
+  '@src/WorldEngine/ui/views/WorldSettingsView.part.js',
+  '@src/WorldEngine/ui/views/WorldPromptView.part.js',
   '@src/WorldEngine/domains/WorldCausalService.part.js',
   '@src/WorldEngine/domains/WorldRequestFeature.part.js',
   '@src/WorldEngine/domains/WorldAutoProgressController.part.js',
@@ -91,6 +93,19 @@ assert.equal(built,assembled,'script/世界推进系统.js must exactly equal th
 assert.ok(texts['50-engine-ui.part.js'].length<50000,'main UI class should stay below 50 KB after control-tab extraction');
 assert.doesNotMatch(texts['50-engine-ui.part.js'],/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the main UI class');
 assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/,'base CSS should live in a dedicated UI resource module');
+
+for(const file of [
+  '@src/WorldEngine/ui/views/WorldOverviewView.part.js',
+  '@src/WorldEngine/ui/views/WorldPeopleView.part.js',
+  '@src/WorldEngine/ui/views/WorldExplorationView.part.js',
+  '@src/WorldEngine/ui/views/WorldEventArchiveView.part.js',
+  '@src/WorldEngine/ui/views/WorldHistoryView.part.js',
+  '@src/WorldEngine/ui/views/WorldSettingsView.part.js',
+  '@src/WorldEngine/ui/views/WorldPromptView.part.js',
+  '@src/WorldEngine/ui/views/WorldRequestInspectorView.part.js'
+]){
+  assert.doesNotMatch(texts[file],/worldEngineRender(?:WorldTab|PeopleTab|ExplorationTab|WorldEventsTab|RunRecordTab|SettingsTab|PromptTab|RequestInspector)/,file+' must own its renderer instead of delegating to a legacy function');
+}
 
 // 本次迁移的关键 seam：replay 随主世界提交一次写入，恢复模块不再额外写第二次。
 assert.match(texts['@src/WorldEngine/domains/WorldCommitService.part.js'],/buildWorldReplayPackage/,'primary world commit service must carry replay metadata');

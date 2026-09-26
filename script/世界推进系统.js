@@ -403,18 +403,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return {op:'add',path:'/世界/后台/事件/'+name.replace(/~/g,'~0').replace(/\//g,'~1'),value};
         });
     }
-    function tokens(path) {
-        if (typeof path !== 'string' || !path.startsWith('/')) throw new Error('补丁路径必须以 / 开头');
-        const parts = path.slice(1).split('/').map(p => p.replace(/~1/g, '/').replace(/~0/g, '~'));
-        if (parts.some(p => !p || forbidden.has(p))) throw new Error('补丁路径含非法键');
-        return parts;
-    }
-    function get(obj, parts) {
-        return parts.reduce((v, key) => v != null && Object.prototype.hasOwnProperty.call(v, key) ? v[key] : undefined, obj);
-    }
-    function pointer(parts) {
-        return '/'+parts.map(p=>String(p).replace(/~/g,'~0').replace(/\//g,'~1')).join('/');
-    }
     const nameKey=value=>String(value||'').toLowerCase().replace(/[\\/／·・._\-\s]+/g,'');
     function stableNameIn(bucket,name) {
         if(!plain(bucket))return '';
@@ -425,107 +413,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function worldLocationRelated(a,b) {
         const x=nameKey(a),y=nameKey(b);if(!x||!y)return false;
         return x===y||x.includes(y)||y.includes(x);
-    }
-    function canonicalizeParts(parts,stat) {
-        const p=parts.slice();
-        if(p[0]==='世界'&&p[1]===PATH&&p[3]&&['人物','事件','势力地区'].includes(p[2])){
-            const pools=[];
-            const state=stat?.世界?.[PATH]||{};
-            if(plain(state[p[2]]))pools.push(...Object.keys(state[p[2]]));
-            if(p[2]==='人物'){
-                pools.push(...Object.keys(stat?.关系列表||{}));
-                pools.push(...Object.keys(stat?.世界?.异端雷达?.名单||{}));
-            }
-            const key=nameKey(p[3]),matches=[...new Set(pools)].filter(name=>nameKey(name)===key);
-            if(matches.length===1)p[3]=matches[0];
-        }
-        return p;
-    }
-    function bootstrapBackendParent(stat,parts) {
-        if(parts[0]!=='世界'||parts[1]!==PATH||parts.length!==5)return;
-        const category=parts[2],name=parts[3];
-        if(!['事件','人物','势力地区','传播'].includes(category))return;
-        const bucket=stat.世界[PATH][category]||(stat.世界[PATH][category]={});
-        if(Object.hasOwn(bucket,name))return;
-        const seed=category==='事件'?{描述:name}:category==='人物'?{所属世界:stat.世界.名称||'',地点:'',行动:''}:{};
-        bucket[name]=normalizeBackendRecord(category,seed);
-    }
-    function canUpsertMissing(parts,stat) {
-        if(parts[0]==='世界'&&parts[1]===PATH){
-            if(parts[2]==='历史'||parts[2]==='剧本')return false;
-            if(parts.length===4&&['事件','人物','势力地区','传播'].includes(parts[2]))return true;
-            if(parts.length===5&&['事件','人物','势力地区','传播'].includes(parts[2])&&!!get(stat,parts.slice(0,4)))return true;
-        }
-        if(parts[0]==='世界'&&parts[1]==='因果轨道'&&parts[2]==='偏移记录'&&parts.length===4)return true;
-        if(parts[0]==='世界'&&['势力','探索'].includes(parts[1])&&parts.length===3)return true;
-        if(parts[0]==='传闻'&&['街头巷议','情报交易','布告与檄文'].includes(parts[1])&&parts.length===3)return true;
-        return false;
-    }
-    function checkRecord(value, template, optional = {}) {
-        if(!plain(value))throw new Error('记录必须是完整对象，不能是文本或数组');
-        const missing=Object.keys(template).filter(k=>!Object.hasOwn(value,k));
-        const unknown=Object.keys(value).filter(k=>!Object.hasOwn(template,k)&&!Object.hasOwn(optional,k));
-        if(missing.length||unknown.length)throw new Error('记录字段不完整或不受支持：'+(missing.length?'缺少 '+missing.join('、'):'')+(unknown.length?'；未知 '+unknown.join('、'):''));
-        for (const [key, base] of Object.entries(template)) {
-            const v = value[key];
-            if (Array.isArray(base) ? !Array.isArray(v) || v.some(x => typeof x !== 'string') : typeof v !== typeof base) throw new Error('记录字段类型错误：' + key);
-        }
-    }
-    function checkDetails(value, optional) {
-        for (const [key, base] of Object.entries(optional)) {
-            if (!Object.hasOwn(value,key)) continue;
-            const v=value[key];
-            if (Array.isArray(base)) {
-                if (!Array.isArray(v)) throw new Error('明细需为列表：'+key);
-                if (base.length) v.forEach(item=>checkRecord(item,base[0]));
-                else if (v.some(item=>typeof item !== 'string')) throw new Error('明细需为文本列表：'+key);
-            } else if (typeof v !== typeof base) throw new Error('明细类型错误：'+key);
-        }
-    }
-    // LLM 常会只返回本轮实际变化的字段。后台整记录在安全边界内自动补默认值/合并旧值，
-    // 未知字段直接丢弃；可选明细若提供，仍按完整明细结构严格校验。
-    function normalizeBackendRecord(category,value,old) {
-        if(!plain(value)||!Object.hasOwn(RECORDS,category))return value;
-        const template=RECORDS[category],optional=DETAILS[category]||{};
-        const out=Object.assign(copy(template),plain(old)?copy(old):{});
-        for(const [key,item] of Object.entries(value)){
-            if(Object.hasOwn(template,key)||Object.hasOwn(optional,key))out[key]=copy(item);
-        }
-        return out;
-    }
-    const MODEL_IGNORED_PATHS = [
-        /^\/任务(?:\/|$)/,
-        /^\/系统状态\/待播报记录$/,
-        /^\/世界\/后台\/(?:版本|已处理楼层|已处理时间|运行记录|最近变化)(?:\/|$)/,
-        /^\/世界\/后台\/剧本(?:\/|$)/
-    ];
-    function sanitizeModelPatches(patches) {
-        if(!Array.isArray(patches))return patches;
-        return patches.filter(p=>!(plain(p)&&typeof p.path==='string'&&MODEL_IGNORED_PATHS.some(rule=>rule.test(p.path))));
-    }
-    function normalizeModelPatches(patches) {
-        if(!Array.isArray(patches))return patches;
-        const out=[],esc=value=>String(value).replace(/~/g,'~0').replace(/\//g,'~1');
-        for(const raw of patches){
-            if(!plain(raw)){out.push(raw);continue;}
-            const patch=copy(raw);
-            if(typeof patch.path==='string')patch.path=patch.path.replace(/^\/世界\/因校轨道(?=\/|$)/,'/世界/因果轨道');
-            if(patch.path==='/世界/因果轨道'&&patch.op!=='remove'&&plain(patch.value)){
-                for(const key of ['当前阶段','故事线','下一节点']){
-                    if(Object.hasOwn(patch.value,key))out.push({op:'add',path:'/世界/因果轨道/'+key,value:copy(patch.value[key])});
-                }
-                if(plain(patch.value.偏移记录))for(const [name,value] of Object.entries(patch.value.偏移记录)){
-                    out.push({op:'add',path:'/世界/因果轨道/偏移记录/'+esc(name),value:copy(value)});
-                }
-                continue;
-            }
-            if(patch.path==='/世界/因果轨道/偏移记录'&&patch.op!=='remove'&&plain(patch.value)){
-                for(const [name,value] of Object.entries(patch.value))out.push({op:'add',path:'/世界/因果轨道/偏移记录/'+esc(name),value:copy(value)});
-                continue;
-            }
-            out.push(patch);
-        }
-        return out;
     }
     function retryableModelFailure(error) {
         const message=String(error?.message||error||'');
@@ -556,30 +443,169 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;
         return JSON.stringify(payload,null,2);
     }
-    // 允许世界叙事、世界经济与共享资产账簿；玩家属性、持币余额、奖励发放和时钟仍不在写入名单内。
-    function allowed(parts, stat) {
-        const [a,b,c,d] = parts;
-        if (a === '世界' && b === PATH) {
-            if (c === '剧本') return false;
-            if (!Object.hasOwn(RECORDS, c) || !d) return false;
-            if (c === '历史') return parts.length === 4;
-            return parts.length === 4 || (parts.length === 5 && (Object.hasOwn(RECORDS[c], parts[4]) || Object.hasOwn(DETAILS[c],parts[4])));
+    const WORLD_MODEL_IGNORED_PATHS = [
+        /^\/任务(?:\/|$)/,
+        /^\/系统状态\/待播报记录$/,
+        /^\/世界\/后台\/(?:版本|已处理楼层|已处理时间|运行记录|最近变化)(?:\/|$)/,
+        /^\/世界\/后台\/剧本(?:\/|$)/
+    ];
+
+    class WorldPatchPolicy {
+        tokens(path) {
+            if (typeof path !== 'string' || !path.startsWith('/')) throw new Error('补丁路径必须以 / 开头');
+            const parts = path.slice(1).split('/').map(p => p.replace(/~1/g, '/').replace(/~0/g, '~'));
+            if (parts.some(p => !p || forbidden.has(p))) throw new Error('补丁路径含非法键');
+            return parts;
         }
-        if (a === '世界' && b === '因果轨道') {
-            if (['当前阶段','故事线','下一节点'].includes(c)) return parts.length === 3;
-            return !(stat.设置 || {}).世界超稳 && c === '偏移记录' && parts.length === 4;
+
+        get(obj,parts) {
+            return parts.reduce((v,key)=>v!=null&&Object.prototype.hasOwnProperty.call(v,key)?v[key]:undefined,obj);
         }
-        if (a === '世界' && b === '货币') return parts.length === 3 && Object.hasOwn(CURRENCY_FIELDS,c);
-        if (a === '世界' && b === '历法') return parts.length === 3 && Object.hasOwn(CALENDAR_FIELDS,c);
-        if (a === '世界' && ['势力','探索'].includes(b)) return parts.length === 3 || (parts.length === 4 && Object.hasOwn(b === '势力' ? {实力:0,领地:0,描述:0,声望:0} : {风险:0,探索度:0,描述:0,隐藏真相:0},d));
-        if (a === '世界' && b === '异端雷达') return parts.length === 5 && c === '名单' && parts[4] === '状态' && !(stat.设置 || {}).单一世界;
-        if (a === '传闻' && ['街头巷议','情报交易','布告与檄文'].includes(b)) return parts.length === 3;
-        if (a === '资产') return parts.length === 2 && !!b;
-        // 只允许修改变量AI已经建立的 NPC；禁止通过世界引擎创建关系列表对象。
-        if (a === '关系列表') return parts.length === 3 && RELATION_SYNC_KEYS.has(c) && !!get(stat,[a,b]);
-        if (a === '任务') return parts.length === 4 && ['列表','副本成就'].includes(b) && d === '状态' && !!get(stat,[a,b,c]);
-        return false;
+
+        pointer(parts) {
+            return '/'+parts.map(p=>String(p).replace(/~/g,'~0').replace(/\//g,'~1')).join('/');
+        }
+
+        canonicalizeParts(parts,stat) {
+            const p=parts.slice();
+            if(p[0]==='世界'&&p[1]===PATH&&p[3]&&['人物','事件','势力地区'].includes(p[2])){
+                const pools=[];
+                const state=stat?.世界?.[PATH]||{};
+                if(plain(state[p[2]]))pools.push(...Object.keys(state[p[2]]));
+                if(p[2]==='人物'){
+                    pools.push(...Object.keys(stat?.关系列表||{}));
+                    pools.push(...Object.keys(stat?.世界?.异端雷达?.名单||{}));
+                }
+                const key=nameKey(p[3]),matches=[...new Set(pools)].filter(name=>nameKey(name)===key);
+                if(matches.length===1)p[3]=matches[0];
+            }
+            return p;
+        }
+
+        bootstrapBackendParent(stat,parts) {
+            if(parts[0]!=='世界'||parts[1]!==PATH||parts.length!==5)return;
+            const category=parts[2],name=parts[3];
+            if(!['事件','人物','势力地区','传播'].includes(category))return;
+            const bucket=stat.世界[PATH][category]||(stat.世界[PATH][category]={});
+            if(Object.hasOwn(bucket,name))return;
+            const seed=category==='事件'?{描述:name}:category==='人物'?{所属世界:stat.世界.名称||'',地点:'',行动:''}:{};
+            bucket[name]=this.normalizeBackendRecord(category,seed);
+        }
+
+        canUpsertMissing(parts,stat) {
+            if(parts[0]==='世界'&&parts[1]===PATH){
+                if(parts[2]==='历史'||parts[2]==='剧本')return false;
+                if(parts.length===4&&['事件','人物','势力地区','传播'].includes(parts[2]))return true;
+                if(parts.length===5&&['事件','人物','势力地区','传播'].includes(parts[2])&&!!this.get(stat,parts.slice(0,4)))return true;
+            }
+            if(parts[0]==='世界'&&parts[1]==='因果轨道'&&parts[2]==='偏移记录'&&parts.length===4)return true;
+            if(parts[0]==='世界'&&['势力','探索'].includes(parts[1])&&parts.length===3)return true;
+            if(parts[0]==='传闻'&&['街头巷议','情报交易','布告与檄文'].includes(parts[1])&&parts.length===3)return true;
+            return false;
+        }
+
+        checkRecord(value,template,optional={}) {
+            if(!plain(value))throw new Error('记录必须是完整对象，不能是文本或数组');
+            const missing=Object.keys(template).filter(k=>!Object.hasOwn(value,k));
+            const unknown=Object.keys(value).filter(k=>!Object.hasOwn(template,k)&&!Object.hasOwn(optional,k));
+            if(missing.length||unknown.length)throw new Error('记录字段不完整或不受支持：'+(missing.length?'缺少 '+missing.join('、'):'')+(unknown.length?'；未知 '+unknown.join('、'):''));
+            for(const [key,base] of Object.entries(template)){
+                const v=value[key];
+                if(Array.isArray(base)?!Array.isArray(v)||v.some(x=>typeof x!=='string'):typeof v!==typeof base)throw new Error('记录字段类型错误：'+key);
+            }
+        }
+
+        checkDetails(value,optional) {
+            for(const [key,base] of Object.entries(optional)){
+                if(!Object.hasOwn(value,key))continue;
+                const v=value[key];
+                if(Array.isArray(base)){
+                    if(!Array.isArray(v))throw new Error('明细需为列表：'+key);
+                    if(base.length)v.forEach(item=>this.checkRecord(item,base[0]));
+                    else if(v.some(item=>typeof item!=='string'))throw new Error('明细需为文本列表：'+key);
+                }else if(typeof v!==typeof base)throw new Error('明细类型错误：'+key);
+            }
+        }
+
+        normalizeBackendRecord(category,value,old) {
+            if(!plain(value)||!Object.hasOwn(RECORDS,category))return value;
+            const template=RECORDS[category],optional=DETAILS[category]||{};
+            const out=Object.assign(copy(template),plain(old)?copy(old):{});
+            for(const [key,item] of Object.entries(value)){
+                if(Object.hasOwn(template,key)||Object.hasOwn(optional,key))out[key]=copy(item);
+            }
+            return out;
+        }
+
+        sanitizeModelPatches(patches) {
+            if(!Array.isArray(patches))return patches;
+            return patches.filter(p=>!(plain(p)&&typeof p.path==='string'&&WORLD_MODEL_IGNORED_PATHS.some(rule=>rule.test(p.path))));
+        }
+
+        normalizeModelPatches(patches) {
+            if(!Array.isArray(patches))return patches;
+            const out=[],esc=value=>String(value).replace(/~/g,'~0').replace(/\//g,'~1');
+            for(const raw of patches){
+                if(!plain(raw)){out.push(raw);continue;}
+                const patch=copy(raw);
+                if(typeof patch.path==='string')patch.path=patch.path.replace(/^\/世界\/因校轨道(?=\/|$)/,'/世界/因果轨道');
+                if(patch.path==='/世界/因果轨道'&&patch.op!=='remove'&&plain(patch.value)){
+                    for(const key of ['当前阶段','故事线','下一节点']){
+                        if(Object.hasOwn(patch.value,key))out.push({op:'add',path:'/世界/因果轨道/'+key,value:copy(patch.value[key])});
+                    }
+                    if(plain(patch.value.偏移记录))for(const [name,value] of Object.entries(patch.value.偏移记录)){
+                        out.push({op:'add',path:'/世界/因果轨道/偏移记录/'+esc(name),value:copy(value)});
+                    }
+                    continue;
+                }
+                if(patch.path==='/世界/因果轨道/偏移记录'&&patch.op!=='remove'&&plain(patch.value)){
+                    for(const [name,value] of Object.entries(patch.value))out.push({op:'add',path:'/世界/因果轨道/偏移记录/'+esc(name),value:copy(value)});
+                    continue;
+                }
+                out.push(patch);
+            }
+            return out;
+        }
+
+        allowed(parts,stat) {
+            const [a,b,c,d]=parts;
+            if(a==='世界'&&b===PATH){
+                if(c==='剧本')return false;
+                if(!Object.hasOwn(RECORDS,c)||!d)return false;
+                if(c==='历史')return parts.length===4;
+                return parts.length===4||(parts.length===5&&(Object.hasOwn(RECORDS[c],parts[4])||Object.hasOwn(DETAILS[c],parts[4])));
+            }
+            if(a==='世界'&&b==='因果轨道'){
+                if(['当前阶段','故事线','下一节点'].includes(c))return parts.length===3;
+                return !(stat.设置||{}).世界超稳&&c==='偏移记录'&&parts.length===4;
+            }
+            if(a==='世界'&&b==='时间')return parts.length===2;
+            if(a==='世界'&&b==='货币')return parts.length===3&&Object.hasOwn(CURRENCY_FIELDS,c);
+            if(a==='世界'&&b==='历法')return parts.length===3&&Object.hasOwn(CALENDAR_FIELDS,c);
+            if(a==='世界'&&['势力','探索'].includes(b))return parts.length===3||(parts.length===4&&Object.hasOwn(b==='势力'?{实力:0,领地:0,描述:0,声望:0}:{风险:0,探索度:0,描述:0,隐藏真相:0},d));
+            if(a==='世界'&&b==='异端雷达')return parts.length===5&&c==='名单'&&parts[4]==='状态'&&!(stat.设置||{}).单一世界;
+            if(a==='传闻'&&['街头巷议','情报交易','布告与檄文'].includes(b))return parts.length===3;
+            if(a==='资产')return parts.length===2&&!!b;
+            if(a==='关系列表')return parts.length===3&&RELATION_SYNC_KEYS.has(c)&&!!this.get(stat,[a,b]);
+            if(a==='任务')return parts.length===4&&['列表','副本成就'].includes(b)&&d==='状态'&&!!this.get(stat,[a,b,c]);
+            return false;
+        }
     }
+
+    const DEFAULT_WORLD_PATCH_POLICY=new WorldPatchPolicy();
+    let ACTIVE_WORLD_PATCH_POLICY=DEFAULT_WORLD_PATCH_POLICY;
+    function tokens(path){return ACTIVE_WORLD_PATCH_POLICY.tokens(path);}
+    function get(obj,parts){return ACTIVE_WORLD_PATCH_POLICY.get(obj,parts);}
+    function pointer(parts){return ACTIVE_WORLD_PATCH_POLICY.pointer(parts);}
+    function canonicalizeParts(parts,stat){return ACTIVE_WORLD_PATCH_POLICY.canonicalizeParts(parts,stat);}
+    function bootstrapBackendParent(stat,parts){return ACTIVE_WORLD_PATCH_POLICY.bootstrapBackendParent(stat,parts);}
+    function canUpsertMissing(parts,stat){return ACTIVE_WORLD_PATCH_POLICY.canUpsertMissing(parts,stat);}
+    function checkRecord(value,template,optional={}){return ACTIVE_WORLD_PATCH_POLICY.checkRecord(value,template,optional);}
+    function checkDetails(value,optional){return ACTIVE_WORLD_PATCH_POLICY.checkDetails(value,optional);}
+    function normalizeBackendRecord(category,value,old){return ACTIVE_WORLD_PATCH_POLICY.normalizeBackendRecord(category,value,old);}
+    function sanitizeModelPatches(patches){return ACTIVE_WORLD_PATCH_POLICY.sanitizeModelPatches(patches);}
+    function normalizeModelPatches(patches){return ACTIVE_WORLD_PATCH_POLICY.normalizeModelPatches(patches);}
+    function allowed(parts,stat){return ACTIVE_WORLD_PATCH_POLICY.allowed(parts,stat);}
     const VAGUE_EVENT_TIME=/^(?:近期|稍后|未来|之后|待定|未定|未知|不详|待确认|时间未定|日期未定)$/;
     const STALE_CURRENT_EVENT_HOURS=7*24;
     const STALE_NEAR_EVENT_HOURS=30*24;
@@ -1846,7 +1872,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration,stateNormalizer,causal){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;}
+        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -2005,12 +2031,12 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         compileWorldResult(stat,value) {
             const result=this.normalizer.normalizeWorldResult(value),patches=[],warnings=[];
             this.exploration.prepareResult(stat,result);
-            const exists=parts=>get(stat,canonicalizeParts(parts,stat));
+            const exists=parts=>this.patchPolicy.get(stat,this.patchPolicy.canonicalizeParts(parts,stat));
             const addEntity=(parts,item,sample,options={})=>{
                 if(item.操作==='撤销本轮')return;
-                let actual=canonicalizeParts(parts,stat),old=get(stat,actual);
+                let actual=this.patchPolicy.canonicalizeParts(parts,stat),old=this.patchPolicy.get(stat,actual);
                 if(item.操作==='移除'){
-                    if(old!==undefined&&options.removable)patches.push({op:'remove',path:pointer(actual)});
+                    if(old!==undefined&&options.removable)patches.push({op:'remove',path:this.patchPolicy.pointer(actual)});
                     return;
                 }
                 const record=this.resultFields(item,sample);
@@ -2024,15 +2050,15 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                     }
                 }
                 if(!Object.keys(record).length){warnings.push('忽略空业务记录：'+item.名称);return;}
-                patches.push({op:old===undefined?'add':'replace',path:pointer(actual),value:record});
+                patches.push({op:old===undefined?'add':'replace',path:this.patchPolicy.pointer(actual),value:record});
             };
             for(const [key,value] of Object.entries(result.货币||{})){
-                const parts=['世界','货币',key],old=get(stat,parts);
-                if(old!==value)patches.push({op:old===undefined?'add':'replace',path:pointer(parts),value});
+                const parts=['世界','货币',key],old=this.patchPolicy.get(stat,parts);
+                if(old!==value)patches.push({op:old===undefined?'add':'replace',path:this.patchPolicy.pointer(parts),value});
             }
             for(const [key,value] of Object.entries(result.历法||{})){
-                const parts=['世界','历法',key],old=get(stat,parts);
-                if(!same(old,value))patches.push({op:old===undefined?'add':'replace',path:pointer(parts),value:copy(value)});
+                const parts=['世界','历法',key],old=this.patchPolicy.get(stat,parts);
+                if(!same(old,value))patches.push({op:old===undefined?'add':'replace',path:this.patchPolicy.pointer(parts),value:copy(value)});
             }
             for(const item of result.事件)addEntity(['世界',PATH,'事件',item.名称],item,{...RECORDS.事件,...MODEL_DETAILS.事件},{event:true});
             const plannedDead=new Set((result.异端||[]).filter(item=>item.操作!=='撤销本轮'&&item.状态==='死亡').map(item=>nameKey(item.名称)));
@@ -2047,22 +2073,22 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 if(item.操作==='撤销本轮')continue;
                 let name=item.名称,parts=['世界',PATH,'历史',name],record=this.resultFields(item,RECORDS.历史);
                 if(!Object.keys(record).length){warnings.push('忽略空历史记录：'+name);continue;}
-                if(get(stat,parts)!==undefined){
-                    const old=get(stat,parts);
-                    if(same(normalizeBackendRecord('历史',record,old),old))continue;
-                    let n=2;while(get(stat,['世界',PATH,'历史',name+'#'+n])!==undefined)n++;
+                if(this.patchPolicy.get(stat,parts)!==undefined){
+                    const old=this.patchPolicy.get(stat,parts);
+                    if(same(this.patchPolicy.normalizeBackendRecord('历史',record,old),old))continue;
+                    let n=2;while(this.patchPolicy.get(stat,['世界',PATH,'历史',name+'#'+n])!==undefined)n++;
                     name=name+'#'+n;parts=['世界',PATH,'历史',name];
                 }
-                patches.push({op:'add',path:pointer(parts),value:record});
+                patches.push({op:'add',path:this.patchPolicy.pointer(parts),value:record});
             }
             const causal=result.因果||{};
             if(Object.hasOwn(causal,'当前阶段')){
-                const parts=['世界','因果轨道','当前阶段'],old=get(stat,parts);
-                patches.push({op:old===undefined?'add':'replace',path:pointer(parts),value:causal.当前阶段});
+                const parts=['世界','因果轨道','当前阶段'],old=this.patchPolicy.get(stat,parts);
+                patches.push({op:old===undefined?'add':'replace',path:this.patchPolicy.pointer(parts),value:causal.当前阶段});
             }
             if(Array.isArray(causal.宏观顺序)&&causal.宏观顺序.length>=3&&causal.宏观顺序.length<=5){
-                const parts=['世界','因果轨道','故事线'],story=causal.宏观顺序.join(' -> '),old=get(stat,parts);
-                patches.push({op:old===undefined?'add':'replace',path:pointer(parts),value:story});
+                const parts=['世界','因果轨道','故事线'],story=causal.宏观顺序.join(' -> '),old=this.patchPolicy.get(stat,parts);
+                patches.push({op:old===undefined?'add':'replace',path:this.patchPolicy.pointer(parts),value:story});
             } else if(Array.isArray(causal.宏观顺序)&&causal.宏观顺序.length)warnings.push('宏观顺序不足3个，等待补齐后再投影因果轨道');
             for(const item of causal.偏移记录||[]){
                 if((stat.设置||{}).世界超稳){warnings.push('世界超稳：忽略偏移 '+item.名称);continue;}
@@ -2076,14 +2102,14 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 const tombstoneName=stableNameIn(stat?.世界?.[PATH]?.资产墓碑||{},item.名称);
                 if(!target&&item.操作!=='移除'&&tombstoneName)throw new Error('资产已被用户或MVU删除，受删除保护，世界引擎不得重建：'+item.名称);
                 if(item.操作==='移除'){
-                    if(target)patches.push({op:'remove',path:pointer(['资产',target])});
+                    if(target)patches.push({op:'remove',path:this.patchPolicy.pointer(['资产',target])});
                     else warnings.push('资产对象不存在，忽略移除：'+item.名称);
                     continue;
                 }
                 const finalName=target||item.名称;
                 const record=this.materializeAssetRecord(existing,item,!target);
                 if(existing&&same(existing,record))continue;
-                patches.push({op:target?'replace':'add',path:pointer(['资产',finalName]),value:record});
+                patches.push({op:target?'replace':'add',path:this.patchPolicy.pointer(['资产',finalName]),value:record});
             }
             for(const item of result.探索){
                 this.exploration.validateItem(stat,item);
@@ -2096,7 +2122,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 const oldStatus=roster[target]?.状态;
                 if(oldStatus==='死亡'&&item.状态!=='死亡'){warnings.push('死亡异端状态不可逆：'+target);continue;}
                 if(oldStatus===item.状态)continue;
-                patches.push({op:'replace',path:pointer(['世界','异端雷达','名单',target,'状态']),value:item.状态});
+                patches.push({op:'replace',path:this.patchPolicy.pointer(['世界','异端雷达','名单',target,'状态']),value:item.状态});
             } else if(result.异端.length)warnings.push('单一世界：忽略异端雷达更新');
             for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻[key])addEntity(['传闻',key,item.名称],item,EXISTING[key],{removable:true});
             const auditNames=new Set(npcBuildAudit(stat).map(item=>nameKey(item.名称)));
@@ -2119,7 +2145,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                         if(count>limit)throw new Error(target+' '+field+' 数量超过NPC生成规则上限 '+limit);
                     }
                     if(same(npc?.[field],nextValue))continue;
-                    patches.push({op:npc?.[field]===undefined?'add':'replace',path:pointer(['关系列表',target,field]),value:copy(nextValue)});
+                    patches.push({op:npc?.[field]===undefined?'add':'replace',path:this.patchPolicy.pointer(['关系列表',target,field]),value:copy(nextValue)});
                 }
             }
             return {result,patches,warnings};
@@ -2131,8 +2157,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 if (!plain(state[category]) || Object.keys(state[category]).length > 300) throw new Error(category + '记录过多或结构错误');
                 for (const [name,value] of Object.entries(state[category])) {
                     if (forbidden.has(name)) throw new Error('非法记录名');
-                    checkRecord(value,template,DETAILS[category]);
-                    checkDetails(value,DETAILS[category]);
+                    this.patchPolicy.checkRecord(value,template,DETAILS[category]);
+                    this.patchPolicy.checkDetails(value,DETAILS[category]);
                 }
             }
             for (const [name,event] of Object.entries(state.事件)) {
@@ -2182,23 +2208,23 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             this.stateNormalizer.normalizeBackendState(next);
             for (const patch of patches) {
                 if (!plain(patch) || !['add','replace','remove'].includes(patch.op)) throw new Error('不支持的补丁操作');
-                let p = canonicalizeParts(tokens(patch.path),next);
-                patch.path=pointer(p);
-                if (!allowed(p,next)) throw new Error('禁止写入：' + patch.path);
-                bootstrapBackendParent(next,p);
-                const old = get(next,p);
+                let p = this.patchPolicy.canonicalizeParts(this.patchPolicy.tokens(patch.path),next);
+                patch.path=this.patchPolicy.pointer(p);
+                if (!this.patchPolicy.allowed(p,next)) throw new Error('禁止写入：' + patch.path);
+                this.patchPolicy.bootstrapBackendParent(next,p);
+                const old = this.patchPolicy.get(next,p);
                 if (p[1] === PATH && p[2] === '历史' && (patch.op !== 'add' || old !== undefined)) throw new Error('历史只允许新增');
                 // 世界模型经常把“首次设置”写成 replace；对允许创建的世界记录按 upsert 处理。
-                if (patch.op !== 'add' && old === undefined && !canUpsertMissing(p,next)) throw new Error('目标不存在：' + patch.path);
+                if (patch.op !== 'add' && old === undefined && !this.patchPolicy.canUpsertMissing(p,next)) throw new Error('目标不存在：' + patch.path);
                 if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播') || (p[0] === '资产' && p.length === 2))) throw new Error('仅可移除过期传播、传闻与已彻底消失的资产，其他记录使用状态结束');
                 let value=patch.value;
                 if (patch.op !== 'remove') {
                     if (value === undefined) throw new Error('缺少补丁值');
                     const category = p.length === 3 ? p[1] : p.length === 4 ? p[2] : '';
                     if(p[0]==='世界'&&p[1]===PATH&&p.length===4&&Object.hasOwn(RECORDS,category)){
-                        value=normalizeBackendRecord(category,value,old);
-                        checkRecord(value,RECORDS[category],DETAILS[category]);
-                        checkDetails(value,DETAILS[category]);
+                        value=this.patchPolicy.normalizeBackendRecord(category,value,old);
+                        this.patchPolicy.checkRecord(value,RECORDS[category],DETAILS[category]);
+                        this.patchPolicy.checkDetails(value,DETAILS[category]);
                     } else if (EXISTING[category]) {
                         const schema=EXISTING[category];
                         if(plain(value)){
@@ -2206,7 +2232,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                             for(const key of Object.keys(schema))if(Object.hasOwn(value,key))merged[key]=copy(value[key]);
                             value=merged;
                         }
-                        checkRecord(value,schema);
+                        this.patchPolicy.checkRecord(value,schema);
                         if(p[0]==='传闻'&&p[1]==='情报交易'&&!(next.系统状态||{}).是否在主神空间&&next.世界?.名称!=='主神空间'&&/空间币/.test(String(value.要价||'')))throw new Error('任务世界情报交易必须使用本地货币，不能使用空间币');
                     }
                     else if (old !== undefined && (typeof old !== typeof value || Array.isArray(old) !== Array.isArray(value))) throw new Error('字段类型发生改变');
@@ -2238,7 +2264,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             const work=copy(stat);
             work.世界[PATH]=Object.assign(emptyState(),work.世界[PATH]||{});
             this.stateNormalizer.normalizeBackendState(work);compactWorldLifecycle(work);
-            const appliedSeeds=(seedPatches||[]).filter(p=>get(work,canonicalizeParts(tokens(p.path),work))===undefined);
+            const appliedSeeds=(seedPatches||[]).filter(p=>this.patchPolicy.get(work,this.patchPolicy.canonicalizeParts(this.patchPolicy.tokens(p.path),work))===undefined);
             let next=this.applyPatches(work,appliedSeeds);
             next=this.applyPatches(next,modelPatches||[]);
             const explorationPatches=this.exploration.repairGranularity(next);
@@ -5970,10 +5996,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         causalOrbit(value,currentStability){return projectCausalOrbitForWorld(value,currentStability);}
     }
     class WorldResultCompiler {
-        constructor(engine,normalizer,materializer,staging){
+        constructor(engine,normalizer,materializer,staging,patchPolicy){
             this.engine=engine;
             this.normalizer=normalizer||new WorldResultNormalizer();
-            this.materializer=materializer||new WorldResultMaterializer(this.normalizer);
+            this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;
+            this.materializer=materializer||new WorldResultMaterializer(this.normalizer,undefined,undefined,undefined,this.patchPolicy);
             this.staging=staging||new WorldResultStagingService(this.normalizer,this.materializer);
         }
         normalize(value){return this.normalizer.normalizeWorldResult(value);}
@@ -5981,7 +6008,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         // Legacy compile decorators still wrap the global seam; keep routing through it until those features are class-migrated.
         compile(stat,value){return compileWorldResult(stat,value);}
         materialize(stat,seedPatches,modelPatches){return this.materializer.materializeWorldUpdate(stat,seedPatches,modelPatches);}
-        sanitizeLegacy(patches){return sanitizeModelPatches(normalizeModelPatches(patches));}
+        sanitizeLegacy(patches){return this.patchPolicy.sanitizeModelPatches(this.patchPolicy.normalizeModelPatches(patches));}
     }
     class WorldValidationService {
         constructor(engine,policy){this.engine=engine;this.policy=policy||new WorldValidationPolicy();}
@@ -8658,6 +8685,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.knowledge=new WorldKnowledgeService(engine);
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateProjector=new WorldStateProjector(engine);
+            this.patchPolicy=new WorldPatchPolicy();
+            ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
             this.timelinePolicy=new WorldTimelinePolicy();
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.lifecycle=new WorldLifecycleService();
@@ -8672,13 +8701,13 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
-            this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging);
+            this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging,this.patchPolicy);
             this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy);
             ACTIVE_WORLD_VALIDATION_POLICY=this.validationPolicy;
             this.validation=new WorldValidationService(engine,this.validationPolicy);

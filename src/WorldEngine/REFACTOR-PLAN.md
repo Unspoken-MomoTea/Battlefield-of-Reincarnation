@@ -736,3 +736,12 @@ Phase 66 首次迁移后，`WorldStateIntegrityPolicy.validate()` 多返回了�
 本阶段是零行为迁移：六主题色值、浅/深色 scheme、语义 token、主题 CSS 生成方式、共享状态栏主题 localStorage key 与三档字号配置逐字保持不变；CommonJS 导出的 `WORLD_UI_THEMES / WORLD_FONT_SCALES` 也保持原接口。
 
 Theme Catalog 紧跟 Foundation 加载，早于 TokenTelemetry 和后续 UI/runtime consumer。构建 workflow 也显式追踪新文件，避免自动同步交付文件时漏提交源模块。Foundation 现在只剩通用基础 helper、通用运行常量和 IIFE 边界，不再承担视觉配置。
+
+
+### Phase 73 · Foundation 运行常量抽离
+
+已完成：新增 `src/WorldEngine/core/WorldEngineRuntimeConstants.part.js`，从 Foundation 抽出 `CONFIG / PATH / EVENT_TARGET / RECENT_FINISHED_EVENT_TARGET / FINISHED_EVENT_GRACE_HOURS / HOT_* / COLD_TEMP_* / TERMINAL_PERSON_STATUS`。
+
+这些值是跨生命周期、上下文投影、配置与人物回收共用的运行常量，不属于 IIFE 基础设施。迁移后 `WorldEngineFoundation.part.js` 仅保留 `copy / plain / same / digest / escape / forbidden` 与 IIFE 起始边界，体积约 924B。
+
+RuntimeConstants 紧跟 Foundation、早于 ThemeCatalog 与所有领域 consumer 加载；所有常量值保持不变。自动构建 workflow 显式追踪新模块，并由架构测试禁止这些运行常量重新回流 Foundation。

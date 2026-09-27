@@ -24,6 +24,9 @@ const host={
 
 const engine=new Engine(host);
 assert.equal(engine.services?.applicationLifecycle?.constructor?.name,'WorldEngineLifecycleController','service container must expose the application lifecycle controller');
+// This regression isolates the public lifecycle seam; feature subscriptions have their own dedicated tests.
+engine.services.features.afterInit=()=>{};
+engine.services.features.dispose=()=>{};
 
 let renders=0,schedules=0,cancels=0,resets=0;
 engine.render=()=>{renders++;};

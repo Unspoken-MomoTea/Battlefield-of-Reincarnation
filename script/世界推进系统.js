@@ -16,6 +16,18 @@
     const escape = value => String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
     const CONFIG = 'samsara_world_engine_v1';
+    const PATH = '后台';
+    const EVENT_TARGET = 180;
+    const RECENT_FINISHED_EVENT_TARGET = 8;
+    const FINISHED_EVENT_GRACE_HOURS = 24;
+    const HOT_HISTORY_TARGET = 24;
+    const HOT_OFFSET_TARGET = 8;
+    const HOT_PROPAGATION_TARGET = 24;
+    const HOT_PERSON_TARGET = 24;
+    const HOT_PERSON_RECENT_HOURS = 72;
+    const COLD_TEMP_PERSON_GRACE_HOURS = 30 * 24;
+    const COLD_TEMP_PERSON_TARGET = 32;
+    const TERMINAL_PERSON_STATUS = /^(?:已结束|结束|已离场|离场|已离开|离开|退休|已退休|失效|已失效|消失|已消失|死亡)$/;
     const STATUS_THEME_CONFIG = 'samsara_theme_v2';
     // 六主题只在这里维护色值。CSS 只消费语义 token，避免羊皮/樱白等主题再堆局部补丁。
     const WORLD_UI_THEMES = Object.freeze({
@@ -36,18 +48,6 @@
         large:{name:'大字',size:'18px',desc:'正文约17px，辅助字约14-15px'},
         xlarge:{name:'特大',size:'20px',desc:'正文约19px，远距离阅读'}
     };
-    const PATH = '后台';
-    const EVENT_TARGET = 180;
-    const RECENT_FINISHED_EVENT_TARGET = 8;
-    const FINISHED_EVENT_GRACE_HOURS = 24;
-    const HOT_HISTORY_TARGET = 24;
-    const HOT_OFFSET_TARGET = 8;
-    const HOT_PROPAGATION_TARGET = 24;
-    const HOT_PERSON_TARGET = 24;
-    const HOT_PERSON_RECENT_HOURS = 72;
-    const COLD_TEMP_PERSON_GRACE_HOURS = 30 * 24;
-    const COLD_TEMP_PERSON_TARGET = 32;
-    const TERMINAL_PERSON_STATUS = /^(?:已结束|结束|已离场|离场|已离开|离开|退休|已退休|失效|已失效|消失|已消失|死亡)$/;
     class WorldTokenTelemetry {
         estimate(value) {
             const source=typeof value==='string'?value:JSON.stringify(value??'');

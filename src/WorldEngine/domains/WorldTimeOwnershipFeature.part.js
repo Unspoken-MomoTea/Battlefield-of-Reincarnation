@@ -1,8 +1,8 @@
     class WorldTimeOwnershipFeature extends WorldRequestFeature {
-        constructor(engine){super(engine);}
+        constructor(engine,policy=DEFAULT_WORLD_TIME_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_TIME_POLICY;}
         async afterBuildRequest(request,base){
             try{
-                const payload=JSON.parse(request.input),needsInitialization=worldTimeUnset(base?.stat?.世界?.时间);
+                const payload=JSON.parse(request.input),needsInitialization=this.policy.unset(base?.stat?.世界?.时间);
                 payload.世界时间维护={
                     当前时间:String(base?.stat?.世界?.时间||''),
                     是否需要初始化:needsInitialization,
@@ -34,7 +34,7 @@
             if(wasSpace!==isSpace){
                 const enteringWorld=wasSpace&&!isSpace,returningToSpace=!wasSpace&&isSpace;
                 const mainSpaceTime=/^轮回历\d+年-\d{2}月-\d{2}日-(?:凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜)$/.test(incoming);
-                if((enteringWorld&&worldTimeUnset(incoming))||(returningToSpace&&mainSpaceTime))return handled;
+                if((enteringWorld&&this.policy.unset(incoming))||(returningToSpace&&mainSpaceTime))return handled;
             }
             if(!plain(variables.stat_data.世界))variables.stat_data.世界={};
             variables.stat_data.世界.时间=previous;

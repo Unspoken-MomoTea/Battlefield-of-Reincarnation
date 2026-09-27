@@ -58,28 +58,10 @@
         deletePromptDocument(id){return this.promptDocumentService().remove(id);}
         importPromptDocument(raw){return this.promptDocumentService().import(raw);}
         exportPromptDocument(id){return this.promptDocumentService().export(id);}
-        isConfigured() { return !!this.config.enabled; }
-        isAvailable() {
-            if(this.usesDedicatedApi())return this.dedicatedApiReady();
-            const terminal=this.host.Samsara&&this.host.Samsara.terminal;
-            return !!(terminal&&typeof terminal.apiReady==='function'&&terminal.apiReady());
-        }
-        isEnabled() { return this.isConfigured()&&this.isAvailable(); }
-        setEnabled(value) {
-            const on=!!value;
-            this.config.enabled=on;
-            if(on&&!this.usesDedicatedApi()){
-                const terminal=this.host.Samsara&&this.host.Samsara.terminal;
-                if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
-            } else if(!on) {
-                this.cancel();
-                if(this.isOpen())this.close();
-            }
-            this.saveConfig();
-            this.status=on?(this.isAvailable()?'世界推进已开启':(this.usesDedicatedApi()?'世界推进已开启 · 等待专属 API 配置':'世界推进已开启 · 等待额外模型配置')):'世界推进已关闭';
-            this.render();
-            return this.isEnabled();
-        }
+        isConfigured(){return this.configService.isConfigured();}
+        isAvailable(){return this.configService.isAvailable();}
+        isEnabled(){return this.configService.isEnabled();}
+        setEnabled(value){return this.configService.setEnabled(value);}
         cancel() { ++this.generation; this.pending = false; clearTimeout(this.timer); if (this.controller) this.controller.abort(); }
         applyBuiltinDefaultWorldbookExclusions(catalogue) {
             if(this.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue)||!catalogue.length)return false;

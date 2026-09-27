@@ -51,7 +51,9 @@
         });
     };
 
-    // 因果偏移软归一化与世界尺度过滤已迁移至 WorldCausalService。\n\n    const retryPlanBeforeIntegrityGuard=retryPlanForFailure;
+    // 因果偏移软归一化与世界尺度过滤已迁移至 WorldCausalService。
+
+    const retryPlanBeforeIntegrityGuard=retryPlanForFailure;
     retryPlanForFailure=function(error,rejected=[]) {
         const plan=retryPlanBeforeIntegrityGuard(error,rejected).slice();
         const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');

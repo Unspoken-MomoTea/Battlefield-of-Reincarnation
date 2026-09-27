@@ -1,6 +1,6 @@
 from pathlib import Path
 
-path=Path(__file__).resolve().parents[1]/'script/world-engine-src/50-engine-ui.part.js'
+path=Path(__file__).resolve().parents[1]/'src/WorldEngine/core/SamsaraWorldEngine.part.js'
 s=path.read_text(encoding='utf-8')
 s=s.replace("['运行记录','≋']","['运行记录','≋','历史记忆']",1)
 s=s.replace('tabs.map(([t,i])=>','tabs.map(([t,i,label])=>',1)

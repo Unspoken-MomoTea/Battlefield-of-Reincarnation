@@ -304,3 +304,10 @@ All 20 static retry templates are registered in `WorldPromptRegistry` under the 
 `WorldDueEventPolicy` is the canonical owner of due-event review timing and soft-reminder semantics. It composes `WorldTimePolicy`, produces the request review list, and explicitly defines due-event validation as non-blocking. `WorldDueEventFeature` and `WorldValidationPolicy` share the same container-owned policy instance.
 
 The legacy `59-due-event-relaxation.part.js` module has been deleted; no runtime assignment to `ensureDueHandled` remains.
+
+
+## Phase 38 · Event predecessor validation
+
+Event predecessor validation is now part of the canonical `WorldResultMaterializer.validateBaseState()` contract. Self references are rejected explicitly, missing predecessor names are reported with actionable details, and graph cycles remain validated in the same materializer state-validation pass.
+
+The legacy `55-policy-compat.part.js` module has been deleted. No runtime reassignment of `validateState` is used for predecessor validation.

@@ -1,5 +1,49 @@
     class WorldPromptDocumentService {
         constructor(engine){this.engine=engine;}
+        setPreset(text){
+            const engine=this.engine;
+            if(typeof text!=='string'||text.length>30000)throw new Error('预设限30000字');
+            engine.config.preset=normalizeEditablePreset(text);
+            engine.config.presetEditorVersion=2;
+            engine.saveConfig();
+            return engine.config.preset;
+        }
+        currentSettings(){
+            const engine=this.engine,config=engine.config||{};
+            return {
+                preset:config.preset,
+                corePrompt:config.corePrompt??CORE_WORLD_RULES,
+                macroPrompt:config.macroPrompt??DEFAULT_MACRO_PROMPT,
+                stabilityPromptTemplate:config.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE,
+                npcAuditPrompt:config.npcAuditPrompt,
+                structurePrompt:config.structurePrompt??WORLD_RESULT_CONTRACT.instruction(),
+                contextTurns:Math.max(1,Math.min(100,Number(config.contextTurns)||6)),
+                activationMode:config.activationMode||'respect_activation',
+                selectedEntries:Array.isArray(config.selectedEntries)?copy(config.selectedEntries):null
+            };
+        }
+        applySettings(settings){
+            const engine=this.engine;
+            if(!plain(settings)||typeof settings.preset!=='string'||settings.preset.length>30000)throw new Error('预设文档内容无效或超过30000字');
+            for(const [name,value] of [['核心约束',settings.corePrompt],['宏观骨架提示词',settings.macroPrompt],['世界自救提示词',settings.stabilityPromptTemplate]]){
+                if(value!==undefined&&(typeof value!=='string'||value.length>30000))throw new Error(name+'限30000字');
+            }
+            if(settings.npcAuditPrompt!==undefined&&(typeof settings.npcAuditPrompt!=='string'||settings.npcAuditPrompt.length>30000))throw new Error('NPC审计提示词限30000字');
+            if(settings.structurePrompt!==undefined&&(typeof settings.structurePrompt!=='string'||settings.structurePrompt.length>30000))throw new Error('结构提示词限30000字');
+            engine.config.corePrompt=settings.corePrompt===undefined?CORE_WORLD_RULES:settings.corePrompt;
+            engine.config.macroPrompt=settings.macroPrompt===undefined?DEFAULT_MACRO_PROMPT:settings.macroPrompt;
+            engine.config.stabilityPromptTemplate=settings.stabilityPromptTemplate===undefined?DEFAULT_STABILITY_PROMPT_TEMPLATE:settings.stabilityPromptTemplate;
+            engine.config.npcAuditPrompt=settings.npcAuditPrompt===undefined?NPC_BUILD_AUDIT_RULES:settings.npcAuditPrompt;
+            engine.config.structurePrompt=settings.structurePrompt===undefined?WORLD_RESULT_CONTRACT.instruction():settings.structurePrompt;
+            engine.config.preset=normalizeEditablePreset(settings.preset);
+            engine.config.presetEditorVersion=2;
+            engine.config.contextTurns=Math.max(1,Math.min(100,Number(settings.contextTurns)||6));
+            engine.config.activationMode=settings.activationMode==='force_selected'?'force_selected':'respect_activation';
+            if(Array.isArray(settings.selectedEntries))engine.config.selectedEntries=settings.selectedEntries.filter(x=>typeof x==='string');
+            else delete engine.config.selectedEntries;
+            engine.saveConfig();
+            return engine.config;
+        }
         list(){
             const config=this.engine.config;
             if(!Array.isArray(config.promptDocuments))config.promptDocuments=[];

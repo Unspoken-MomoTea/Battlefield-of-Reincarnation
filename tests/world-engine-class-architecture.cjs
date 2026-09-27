@@ -26,6 +26,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldMutationService.part.js',
   'src/WorldEngine/domains/WorldEventService.part.js',
   'src/WorldEngine/domains/WorldPersonActivityService.part.js',
+  'src/WorldEngine/domains/WorldNpcAuditService.part.js',
   'src/WorldEngine/domains/WorldApiTransportService.part.js',
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
   'src/WorldEngine/domains/WorldRunOrchestrator.part.js',
@@ -42,6 +43,8 @@ const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domai
 const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
 const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
+const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditService.part.js'),'utf8');
+const npcNarrativeCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-npc-narrative-audit.part.js'),'utf8');
 assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
 assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
@@ -52,7 +55,10 @@ assert.doesNotMatch(contextProtocolSource,/const projectedBackend=\{/,'30-contex
 assert.match(contextProtocolSource,/function projectWorldContext\(stat\)\{return requireWorldStateProjector\(\)\.baseWorld\(stat\);\}/,'early projectWorldContext seam must forward to active projector');
 assert.doesNotMatch(contextProtocolSource,/function\s+activation\s*\(/,'worldbook activation implementation must leave 30-context-protocol');
 assert.match(knowledgeServiceSource,/\bactivation\s*\(entry,scan,force\)/,'knowledge service must own worldbook activation policy');
-assert.match(knowledgeServiceSource,/this\.activation\(e,scan,this\.config\.activationMode==='force_selected'\)/,'worldbook reads must use the service-owned activation policy');
+assert.match(knowledgeServiceSource,/this\.activation\(e,scan,engine\.config\.activationMode==='force_selected'\)/,'worldbook reads must use the service-owned activation policy');
+for(const legacyName of ['projectAuditComponentMap','projectCharacterForAudit','npcBuildText','npcBuildAssessment','npcBuildAudit','ensureNpcBuildAuditProgress'])assert.doesNotMatch(contextProtocolSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 30-context-protocol');
+for(const method of ['projectComponentMap','projectCharacter','buildText','inferNarrativeLevel','narrativeLevel','assessment','audit','ensureProgress'])assert.match(npcAuditServiceSource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit service must own '+method);
+assert.doesNotMatch(npcNarrativeCompatSource,/npcBuildAssessment\s*=\s*function|function\s+inferNpcNarrativeAuditLevel|function\s+npcNarrativeAuditLevel/,'narrative audit compatibility file must not re-own audit policy');
 for(const method of ['omitKeys','abilityMap','equipped','carriedItems','forms','character','assets','tailRecord','causalOrbit','baseWorld']){
   assert.match(stateProjectorSource,new RegExp('\\b'+method+'\\s*\\('),'state projector must own '+method);
 }
@@ -109,7 +115,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateFactory','stateProjector','patchPolicy','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateFactory','stateProjector','patchPolicy','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -125,6 +131,7 @@ assert.equal(engine.services.resultNormalizer.constructor.name,'WorldResultNorma
 assert.equal(engine.services.resultMaterializer.constructor.name,'WorldResultMaterializer');
 assert.equal(engine.services.resultMaterializer.stateNormalizer,engine.services.stateNormalizer,'materializer must compose the container-owned state normalizer');
 assert.equal(engine.services.resultMaterializer.patchPolicy,engine.services.patchPolicy,'materializer must compose the container-owned patch policy');
+assert.equal(engine.services.resultMaterializer.npcAudit,engine.services.npcAudit,'materializer must compose the container-owned NPC audit service');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
 assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyParser');
@@ -137,10 +144,12 @@ assert.equal(engine.services.compiler.staging,engine.services.resultStaging,'com
 assert.equal(engine.services.compiler.patchPolicy,engine.services.patchPolicy,'compiler must compose the container-owned patch policy');
 assert.equal(engine.services.validation.constructor.name,'WorldValidationService');
 assert.equal(engine.services.validation.policy,engine.services.validationPolicy,'validation service must compose the container-owned policy');
+assert.equal(engine.services.validation.npcAudit,engine.services.npcAudit,'validation service must compose the container-owned NPC audit service');
 assert.equal(engine.services.commit.constructor.name,'WorldCommitService');
 assert.equal(engine.services.mutations.constructor.name,'WorldMutationService');
 assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');
+assert.equal(engine.services.npcAudit.constructor.name,'WorldNpcAuditService');
 assert.equal(engine.services.causal.constructor.name,'WorldCausalService');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');

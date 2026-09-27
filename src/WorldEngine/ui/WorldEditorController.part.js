@@ -51,7 +51,7 @@
 
         // ---- 事件 ----
         eventInlineHtml(name,record){
-            const esc=worldEditorEscape,list=value=>Array.isArray(value)?value.join('\n'):'',json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
+            const esc=value=>this.escape(value),list=value=>Array.isArray(value)?value.join('\n'):'',json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
             return '<div class="we-world-editor" data-world-event-edit data-world-event-name="'+esc(name)+'"><div class="we-world-editor-grid">'
                 +'<label><span>事件名称</span><input data-world-event-field="name" value="'+esc(name)+'"></label>'
                 +'<label><span>分类</span>'+this.eventSelect(record?.分类||'近期节点',['当前事件','近期节点','宏观节点'],'category')+'</label>'
@@ -99,7 +99,7 @@
                 if(card.querySelector('.we-world-event-actions')||card.matches('.we-world-editing'))continue;
                 const name=String(card.dataset.eventCard||'');if(!name)continue;
                 const actions=engine.host.document.createElement('div');actions.className='we-world-event-actions';
-                actions.innerHTML='<button type="button" data-action="world-event-edit" data-event-name="'+worldEditorEscape(name)+'">编辑</button><button type="button" data-action="world-event-delete" data-event-name="'+worldEditorEscape(name)+'">删除</button>';
+                actions.innerHTML='<button type="button" data-action="world-event-edit" data-event-name="'+this.escape(name)+'">编辑</button><button type="button" data-action="world-event-delete" data-event-name="'+this.escape(name)+'">删除</button>';
                 card.appendChild(actions);
             }
         }
@@ -162,8 +162,8 @@
                 地点:String(value('location')||'').trim(),目标:String(value('goal')||'').trim(),行动:String(value('action')||'').trim(),
                 公开动态:String(value('public')||'').trim(),开始时间:String(value('start')||'').trim(),预计结束:String(value('end')||'').trim(),
                 下次检查:String(value('nextCheck')||'').trim(),更新时间:String(value('updated')||'').trim(),登场条件:String(value('appearance')||'').trim(),
-                认知:this.textList(value('knowledge')),关联事件:this.textList(value('events')),行程:worldEditorJsonList(value('schedule'),'行程'),
-                认知来源:worldEditorJsonList(value('knowledgeSources'),'认知来源'),背景关联:worldEditorJsonList(value('links'),'背景关联')
+                认知:this.textList(value('knowledge')),关联事件:this.textList(value('events')),行程:this.jsonList(value('schedule'),'行程'),
+                认知来源:this.jsonList(value('knowledgeSources'),'认知来源'),背景关联:this.jsonList(value('links'),'背景关联')
             });
         }
         mountPersonControls(){
@@ -172,7 +172,7 @@
             const section=this.section('身份与当前行动'),head=section?.querySelector('.we-section-head');
             if(!section||!head||head.querySelector('.we-world-person-actions'))return;
             const actions=engine.host.document.createElement('span');actions.className='we-world-person-actions';
-            actions.innerHTML='<button type="button" data-action="world-person-edit" data-person-name="'+worldEditorEscape(found.name)+'">编辑世界活动</button><button type="button" data-action="world-person-delete" data-person-name="'+worldEditorEscape(found.name)+'">删除世界活动记录</button>';
+            actions.innerHTML='<button type="button" data-action="world-person-edit" data-person-name="'+this.escape(found.name)+'">编辑世界活动</button><button type="button" data-action="world-person-delete" data-person-name="'+this.escape(found.name)+'">删除世界活动记录</button>';
             head.appendChild(actions);
         }
         armPersonDelete(button,name){

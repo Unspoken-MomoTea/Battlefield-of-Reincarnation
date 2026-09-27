@@ -20,6 +20,7 @@ for(const moduleName of ['editor/00-world-mutations.part.js','editor/10-event-ed
 }
 for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineFoundation.part.js',
+  '@src/WorldEngine/ui/WorldThemeCatalog.part.js',
   '@src/WorldEngine/domains/WorldTokenTelemetry.part.js',
   '@src/WorldEngine/prompts/WorldBasePromptDefaults.part.js',
   '@src/WorldEngine/ui/WorldEngineStyles.part.js',
@@ -120,6 +121,10 @@ const texts=Object.fromEntries(declared.map(file=>{
 }));
 const assembled=declared.map(file=>texts[file]).join('');
 assert.equal(built,assembled,'script/世界推进系统.js must exactly equal the source parts in build order');
+assert.ok(declared.indexOf('@src/WorldEngine/core/WorldEngineFoundation.part.js')<declared.indexOf('@src/WorldEngine/ui/WorldThemeCatalog.part.js'),'theme catalog must load immediately after the foundation boundary');
+assert.ok(declared.indexOf('@src/WorldEngine/ui/WorldThemeCatalog.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldTokenTelemetry.part.js'),'theme catalog must initialize before later UI/runtime consumers');
+assert.doesNotMatch(texts['@src/WorldEngine/core/WorldEngineFoundation.part.js'],/WORLD_UI_THEMES|WORLD_FONT_SCALES|STATUS_THEME_CONFIG/,'foundation must not re-own UI theme data');
+assert.match(texts['@src/WorldEngine/ui/WorldThemeCatalog.part.js'],/const WORLD_UI_THEMES = Object\.freeze/,'UI theme registry must live in the theme catalog');
 assert.ok(declared.indexOf('@src/WorldEngine/core/WorldEngineFoundation.part.js')<declared.indexOf('@src/WorldEngine/prompts/WorldBasePromptDefaults.part.js'),'base prompt defaults must load immediately after foundation boundary');
 assert.ok(declared.indexOf('@src/WorldEngine/prompts/WorldBasePromptDefaults.part.js')<declared.indexOf('@src/WorldEngine/core/WorldEngineConfigService.part.js'),'base prompt defaults must initialize before configuration consumes them');
 const applicationShell=texts['@src/WorldEngine/core/SamsaraWorldEngine.part.js'];

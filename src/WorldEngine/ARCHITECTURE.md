@@ -487,3 +487,8 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 ## Phase 63 · Knowledge classification
 
 `WorldKnowledgeSelectionPolicy` now owns both selection identity matching and worldbook classification: technical entries are isolated through `isTechnical()`, while chronology/backbone references are identified through `isTimelineBackbone()`. `WorldKnowledgeService` and `WorldChronologyFeature` compose the same container-owned policy. Foundation no longer carries knowledge-boundary regex algorithms.
+
+
+## Phase 64 · Relation sync policy
+
+`WorldRelationSyncPolicy` owns the formal-character synchronization contract: component shape validation, scalar bounds, derived-attribute reset, incremental component merge and component-count limits. `WorldResultMaterializer` composes the container-owned policy and only turns validated relation changes into patches; patch application reuses the same policy.

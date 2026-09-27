@@ -93,6 +93,7 @@ assert.doesNotMatch(variableProjection, /身边发展:\s*Object\.keys\(surroundi
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
 assert.match(source, /先更新[^\n]*地区现场[^\n]*再决定人物行动/, '默认 Pipeline 应改为世界现场优先');
 assert.match(source, /同一现场事实不得复制|不复制地点现场/, 'Prompt 必须约束共享现场去重');
-const promptVersion=Number(source.match(/version:(\d+),\n        builtin:true,\n        name:'默认设置'/)?.[1]||0);\nassert.ok(promptVersion>=19, '场外人物认知边界要求内置 Prompt 不得回退到 v19 之前');
+const promptVersion=Number(source.match(/version:(\d+),\n        builtin:true,\n        name:'默认设置'/)?.[1]||0);
+assert.ok(promptVersion>=19, '场外人物认知边界要求内置 Prompt 不得回退到 v19 之前');
 
 console.log('world-engine scene context acceptance passed');

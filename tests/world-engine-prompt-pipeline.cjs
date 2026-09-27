@@ -1,7 +1,8 @@
 const fs = require('fs');
 const assert = require('assert');
 
-const source = fs.readFileSync('script/世界推进系统.js', 'utf8');\nconst contractSource = fs.readFileSync('src/WorldEngine/domains/WorldResultContract.part.js','utf8');
+const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
+const contractSource = fs.readFileSync('src/WorldEngine/domains/WorldResultContract.part.js','utf8');
 
 function capture(pattern, label) {
   const match = source.match(pattern);

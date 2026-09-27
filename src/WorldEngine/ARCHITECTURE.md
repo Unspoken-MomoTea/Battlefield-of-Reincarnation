@@ -347,3 +347,10 @@ Replay version/scope constants now live with `WorldReplayService`. Eleven legacy
 Manual causal-offset persistence now belongs to `WorldCausalService`; history edit parsing/replay synchronization belongs to `WorldHistoryService`; inline edit rendering belongs to `WorldEditorController`; causal summary/archive rendering belongs to `WorldCausalOverviewController`.
 
 The former `59-causal-overview-ui`, `59-causal-offset-editor`, and `59-history-memory-editor` files are deleted. Compatibility function names required by the delivery/test surface are defined only in the relevant src controller, not under the legacy source tree.
+
+
+## Phase 44 · Legacy editor directory removed
+
+Manual world-engine editing no longer depends on the legacy `editor/` directory. Shared mutation parsing/replay behavior belongs to `WorldMutationService`; event reference/graph rules belong to `WorldEventService`; person-activity validation belongs to `WorldPersonActivityService`; form/presentation helpers belong to `WorldEditorController`.
+
+The former `editor/00-world-mutations`, `editor/10-event-editor`, and `editor/20-person-editor` modules are deleted from both the source tree and build pipeline.

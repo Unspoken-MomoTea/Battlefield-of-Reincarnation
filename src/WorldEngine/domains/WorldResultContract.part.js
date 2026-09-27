@@ -15,6 +15,16 @@
             for(const [key,value] of Object.entries(sample||{}))properties[key]=this.schemaFromSample(value);
             return {type:'object',properties,required:['名称',...requiredFields],additionalProperties:false};
         }
+        instruction() {
+            return `只输出一个 WorldResult JSON 对象；不要输出 Markdown、解释、思考过程、<thinking> 或 JSON Pointer。
+省略业务字段表示无变化；已有实体只写本轮变化字段，新增实体写足以建立该实体的确定事实；实体用“名称”关联。
+“操作”默认“更新”；“移除”只用于 Schema 允许删除的记录；“撤销本轮”只用于纠错重试。
+字段语义遵循【世界引擎核心约束】；字段结构和值域只以以下 Schema 为准。WorldResult 之外的任务、世界时间、玩家属性/货币/击杀等不要输出。
+关系只更新已存在的关系列表对象；不得为玩家建立后台人物记录。`;
+        }
+        protocol() {
+            return this.instruction()+'\n\n【Canonical WorldResult JSON Schema】\n'+JSON.stringify(this.schema,null,2);
+        }
         build(){
         const FACTION_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.势力);
         FACTION_RESULT_SCHEMA.properties.实力={type:'string',enum:copy(QUALITY_RANKS)};
@@ -158,3 +168,4 @@
     const RELATION_CURRENT_FORM_SCHEMA=WORLD_RESULT_CONTRACT.schemas.relationCurrentForm;
     const ASSET_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.asset;
     const WORLD_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schema;
+    function protocol(){return WORLD_RESULT_CONTRACT.protocol();}

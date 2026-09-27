@@ -11,17 +11,7 @@
             for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
             return null;
         }
-        notifyFailure(message) {
-            const raw=String(message||'世界推进失败').trim();
-            if(!raw||/^(?:请求已取消|上下文已经切换|已切换上下文)/.test(raw))return false;
-            const shown=raw.length>900?raw.slice(0,897)+'…':raw;
-            const toast=(this.host&&this.host.toastr)||(this.env&&this.env.toastr)||(this.host&&this.host.parent&&this.host.parent.toastr);
-            if(toast&&typeof toast.error==='function'){
-                try{toast.error(shown,'世界推进失败');return true;}catch(_){}
-            }
-            try{console.error('[世界推进] '+shown);}catch(_){}
-            return false;
-        }
+        notifyFailure(message){return this.runOrchestrator().notifyFailure(message);}
         snapshot() {
             const service=this.services?.context||new WorldRuntimeContextService(this);
             return service.snapshot();
@@ -64,28 +54,7 @@
         setEnabled(value){return this.configService.setEnabled(value);}
         runScheduler(){return this.services?.runScheduler||this._runScheduler||(this._runScheduler=new WorldRunScheduler(this));}
         cancel(){return this.runScheduler().cancel();}
-        applyBuiltinDefaultWorldbookExclusions(catalogue) {
-            if(this.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue)||!catalogue.length)return false;
-            const applied=new Set(Array.isArray(this.config.builtinDefaultWorldbookExclusionsApplied)?this.config.builtinDefaultWorldbookExclusionsApplied:[]);
-            let selected=Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):[];
-            let progressed=false,changed=false;
-            for(const title of BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS){
-                if(applied.has(title))continue;
-                const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===title);
-                if(!matches.length)continue;
-                const before=selected.length;
-                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
-                applied.add(title);progressed=true;
-                if(selected.length!==before)changed=true;
-            }
-            if(!progressed)return false;
-            this.config.selectedEntries=selected;
-            this.config.builtinDefaultWorldbookExclusionsApplied=Array.from(applied);
-            const builtin=this.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id);
-            if(builtin?.settings)builtin.settings.selectedEntries=copy(selected);
-            this.saveConfig();
-            return changed;
-        }
+        applyBuiltinDefaultWorldbookExclusions(catalogue){const service=this.services?.knowledge||new WorldKnowledgeService(this);return service.applyBuiltinDefaultWorldbookExclusions(catalogue);}
         async catalogue() {
             const service=this.services?.knowledge||new WorldKnowledgeService(this);
             return service.catalogue();
@@ -102,22 +71,9 @@
         runOrchestrator(){return this.services?.run||this._runOrchestrator||(this._runOrchestrator=new WorldRunOrchestrator(this));}
         async run(options={}){return this.runOrchestrator().execute(options);}
         getState() { return copy(Object.assign(emptyState(),this.snapshot().stat.世界[PATH] || {})); }
-        resetInspection() {
-            this.lastRequest=null;this.previewRequest=null;this.lastReply='';this.lastFailure='';
-            this.lastRetryLog=[];this.lastAttemptCount=0;this.lastAttemptTelemetry=[];this.lastTransportInfo=null;this.lastWorldResult=null;this.lastCompiledPatches=[];this.lastCompileWarnings=[];
-        }
-        statusTone() {
-            try {
-                const tone=this.host.localStorage.getItem(STATUS_THEME_CONFIG);
-                if(WORLD_TONE_KEYS.has(tone))return tone;
-            } catch (_) {}
-            return 'night';
-        }
-        syncStatusTone() {
-            const tone=this.statusTone();
-            if(this.panel)this.panel.dataset.tone=tone;
-            return tone;
-        }
+        resetInspection(){return this.runOrchestrator().resetInspection();}
+        statusTone(){return this.services?.panelRenderer?.statusTone?.()||'night';}
+        syncStatusTone(){return this.services?.panelRenderer?.syncStatusTone?.()||this.statusTone();}
         init() { return this.services?.applicationLifecycle?.init?.(); }
         isOpen() { return this.services?.applicationLifecycle?.isOpen?.()??false; }
         open() { return this.services?.applicationLifecycle?.open?.(); }

@@ -11,45 +11,7 @@
 9. 单条建议范围 -12~-1 或 +1~+15，0 不建新记录；同一引发者同轮负向总量最多 -12、正向总量最多 +15。程序对越界、同根拆分、局部后果或尚未产生现实结果的偏移执行软归一化/忽略，不触发重试，也不驳回本轮其它世界推进结果。
 10. 世界.稳定是偏移台账的派生值，由程序汇总；模型不得直接修改，也不需要每轮“更新稳定值”。`;
 
-    const worldDateKeyBeforeIntegrityGuard=worldDateKey;
-    worldDateKey=function(value) {
-        const source=String(value||''),base=worldDateKeyBeforeIntegrityGuard(source);
-        if(base===null)return null;
-        const clock=source.match(/(?:^|[日T\s_-])(\d{1,2}):([0-5]\d)(?::([0-5]\d))?/);
-        if(!clock)return base;
-        const hour=Number(clock[1]),minute=Number(clock[2]),second=Number(clock[3]||0);
-        if(!Number.isInteger(hour)||hour<0||hour>23)return null;
-        return Math.floor(base/24)*24+hour+minute/60+second/3600;
-    };
-
-    // 完整性校验与排序/调度使用不同精度：世界事件等宏观事实以“日”为硬边界，
-    // 避免把“上午/下午”这种粗粒度标签伪装成精确小时后误杀同日推进。
-    // 人物只有在两侧都给出 HH:mm 时才保留分钟级保护，防止真实的精确时钟倒流。
-    const temporalAnomaliesBeforeIntegrityGuard=temporalAnomalies;
-    function integrityWorldDayKey(value) {
-        const key=worldDateKey(value);
-        return key===null?null:Math.floor(key/24);
-    }
-    function integrityHasExactClock(value) {
-        return /(?:^|[日T\s_-])(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?/.test(String(value||''));
-    }
-    temporalAnomalies=function(stat) {
-        const anomalies=temporalAnomaliesBeforeIntegrityGuard(stat);
-        if(!anomalies.length)return anomalies;
-        const nowRaw=String(stat?.世界?.时间||''),nowDay=integrityWorldDayKey(nowRaw),nowKey=worldDateKey(nowRaw);
-        if(nowDay===null)return anomalies;
-        const nowExact=integrityHasExactClock(nowRaw);
-        return anomalies.filter(item=>{
-            const valueRaw=String(item?.值||''),valueDay=integrityWorldDayKey(valueRaw);
-            if(valueDay===null)return true;
-            if(valueDay>nowDay)return true;
-            if(valueDay<nowDay)return false;
-            if(item?.类型!=='人物')return false;
-            if(!nowExact||!integrityHasExactClock(valueRaw))return false;
-            const valueKey=worldDateKey(valueRaw);
-            return nowKey!==null&&valueKey!==null&&valueKey>nowKey;
-        });
-    };
+    // 精确时钟解析、同日粗粒度放行与人物分钟级保护已迁移至 WorldTimePolicy + WorldTimelinePolicy。
 
     // 因果偏移软归一化与世界尺度过滤已迁移至 WorldCausalService。
 

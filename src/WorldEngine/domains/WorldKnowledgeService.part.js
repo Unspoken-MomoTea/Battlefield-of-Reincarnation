@@ -1,5 +1,28 @@
     class WorldKnowledgeService {
         constructor(engine){this.engine=engine;}
+        applyBuiltinDefaultWorldbookExclusions(catalogue) {
+            const engine=this.engine;
+            if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue)||!catalogue.length)return false;
+            const applied=new Set(Array.isArray(engine.config.builtinDefaultWorldbookExclusionsApplied)?engine.config.builtinDefaultWorldbookExclusionsApplied:[]);
+            let selected=Array.isArray(engine.config.selectedEntries)?copy(engine.config.selectedEntries):[];
+            let progressed=false,changed=false;
+            for(const title of BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS){
+                if(applied.has(title))continue;
+                const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===title);
+                if(!matches.length)continue;
+                const before=selected.length;
+                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
+                applied.add(title);progressed=true;
+                if(selected.length!==before)changed=true;
+            }
+            if(!progressed)return false;
+            engine.config.selectedEntries=selected;
+            engine.config.builtinDefaultWorldbookExclusionsApplied=Array.from(applied);
+            const builtin=engine.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id);
+            if(builtin?.settings)builtin.settings.selectedEntries=copy(selected);
+            engine.saveConfig();
+            return changed;
+        }
         activation(entry,scan,force){
             if(!String(entry.content||'').trim())return {read:false,reason:'内容为空'};
             if(force)return {read:true,reason:'强制读取'};
@@ -54,7 +77,7 @@
                     });
                 });
             }
-            engine.applyBuiltinDefaultWorldbookExclusions(result);
+            this.applyBuiltinDefaultWorldbookExclusions(result);
             return result;
         }
         async worldbook(scan='',options={}){

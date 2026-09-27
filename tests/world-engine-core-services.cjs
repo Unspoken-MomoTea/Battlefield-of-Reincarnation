@@ -65,6 +65,7 @@ assert.match(compiler,/compile\(stat,value\)\{return compileWorldResult\(stat,va
 assert.match(materializer,/this\.people\.normalizeAlienActivityTimestamps\(stat,value\)/,'canonical materializer compile must preprocess alien activity so direct and class-based compile paths agree');
 assert.match(materializer,/this\.taskLedger\.validateReferences\(stat,result\)/,'canonical materializer compile must validate task references through the task ledger service');
 assert.match(materializer,/this\.chronology\.validate\(stat,result\)/,'canonical materializer compile must validate chronology through the chronology policy');
+assert.match(materializer,/this\.npcAudit\.normalizeNewEquipment\(stat,result\)/,'canonical materializer compile must normalize newly audited NPC equipment through the NPC audit service');
 assert.match(materializer,/this\.causal\.prepareResult\(stat,result\)/,'canonical materializer compile must run causal filtering and soft normalization through the causal service');
 assert.match(materializer,/this\.causal\.staleLocalOffsetRepairs\(stat,result\)/,'canonical materializer compile must append causal stale-offset repairs through the causal service');
 assert.match(causal,/class\s+WorldCausalService\b/,'causal compile rules must live behind the causal domain service');

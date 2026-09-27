@@ -334,3 +334,12 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 `WorldResultStagingService.retryPlanForFailure()` 现在只委托 canonical guidance service；`makeRetryFailure()` 也直接在 Staging 内完成具体原因去重与 actions 生成，删除 `55-policy-compat` 的二次包装。四个 legacy 文件已不存在 `retryPlanForFailure=function...`。
 
 下一批继续清理仍依赖全局 decorator 的 validation / temporal / projector / history seam，优先迁移实际算法，不为了“类数量”机械拆文件。
+
+
+### Phase 34 · 历史记忆上下文投影归域
+
+已完成：移除 `59-history-memory.part.js` 对 `projectWorldContext` 的最后一层后加载装饰。现有 `WorldHistoryService.project()` 成为历史记忆投影的正式 service seam；构建顺序把 HistoryService 放到 StateProjector 之前，Service Container 先构造 container-owned `history`，再注入 `WorldStateProjector`。
+
+`WorldStateProjector.baseWorld()` 现在直接输出 `世界.后台.历史记忆`，不再先发送旧 `历史` 热尾巴再由 wrapper 删除；`world()` 直接返回 `baseWorld()`。因此 `projectWorldContext()` 只剩外部兼容入口，不再存在 task/history 加载期 decorator。
+
+本阶段只迁调用边界，不重写分层历史树的纯算法：`projectWorldHistoryMemory / historyMemoryRootsAtLevel / historyMemoryBatchForLevel` 等仍保留在 history-memory 模块供 HistoryService 与 HistoryLifecycle 共用。下一阶段再评估把这批算法整体搬入 `src/WorldEngine/domains`，避免一边迁 seam 一边改压缩语义。

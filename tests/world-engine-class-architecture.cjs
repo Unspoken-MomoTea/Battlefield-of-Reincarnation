@@ -3,6 +3,30 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const root=path.join(__dirname,'..');
+
+function worldEnginePartFiles(base,relative=''){
+  const out=[];
+  for(const entry of fs.readdirSync(path.join(base,relative),{withFileTypes:true})){
+    const next=relative?path.join(relative,entry.name):entry.name;
+    if(entry.isDirectory())out.push(...worldEnginePartFiles(base,next));
+    else if(entry.isFile()&&entry.name.endsWith('.part.js'))out.push(next.split(path.sep).join('/'));
+  }
+  return out;
+}
+const worldEngineSrcRoot=path.join(root,'src/WorldEngine');
+const worldEnginePartSources=Object.fromEntries(worldEnginePartFiles(worldEngineSrcRoot).map(relative=>{
+  const repoPath='src/WorldEngine/'+relative;
+  return [repoPath,fs.readFileSync(path.join(worldEngineSrcRoot,relative),'utf8')];
+}));
+const samsaraInheritanceOwners=Object.entries(worldEnginePartSources)
+  .filter(([,source])=>/\bextends\s+SamsaraWorldEngine\b/.test(source))
+  .map(([repoPath])=>repoPath);
+assert.deepEqual(samsaraInheritanceOwners,['src/WorldEngine/core/WorldEngineClassBridge.part.js'],'WorldEngineClassBridge must remain the only SamsaraWorldEngine inheritance compatibility layer');
+const forbiddenGlobalReassignment=/\b(?:compileWorldResult|retryPlanForFailure|projectWorldContext|applyPatches|validateState|materializeWorldUpdate)\s*=\s*(?:async\s+)?function\b/;
+for(const [repoPath,source] of Object.entries(worldEnginePartSources)){
+  assert.doesNotMatch(source,forbiddenGlobalReassignment,repoPath+' must not reintroduce legacy global monkey-patch reassignment');
+}
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src')),false,'legacy world-engine source tree must remain deleted');
 assert.equal(fs.existsSync(path.join(root,'src/WorldEngine/domains/WorldResultKernel.part.js')),false,'obsolete WorldResultKernel filename must not return after vocabulary extraction');
 for(const file of [
   'src/WorldEngine/README.md',

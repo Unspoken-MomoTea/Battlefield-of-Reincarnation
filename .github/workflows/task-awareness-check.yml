@@ -81,6 +81,8 @@ jobs:
         run: node tests/world-engine-class-architecture.cjs
       - name: World engine configuration migration regression
         run: node tests/world-engine-config-service.cjs
+      - name: World engine panel controller regression
+        run: node tests/world-engine-panel-controller.cjs
       - name: World engine view classes regression
         run: node tests/world-engine-view-classes.cjs
       - name: World engine core services regression

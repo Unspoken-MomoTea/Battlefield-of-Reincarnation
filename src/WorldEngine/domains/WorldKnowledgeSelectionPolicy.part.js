@@ -1,4 +1,4 @@
-    const WORLD_TECHNICAL_BOOK_RULES=[/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
+    const WORLD_TECHNICAL_BOOK_PATTERNS=[/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
 
     class WorldKnowledgeSelectionPolicy {
         parseKey(value) {
@@ -28,7 +28,7 @@
             return false;
         }
         isTechnical(title) {
-            return WORLD_TECHNICAL_BOOK_RULES.some(rule=>rule.test(String(title||'').trim()));
+            return WORLD_TECHNICAL_BOOK_PATTERNS.some(rule=>rule.test(String(title||'').trim()));
         }
         isTimelineBackbone(title) {
             const name=String(title||'').replace(/\s+/g,'');

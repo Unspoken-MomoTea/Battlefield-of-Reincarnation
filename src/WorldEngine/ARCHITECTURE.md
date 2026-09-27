@@ -271,17 +271,10 @@ World time is now part of the canonical `WorldResultContract` and `WorldResultNo
 With this phase, `WorldResultCompiler.compile()` and staged fragment compilation call `WorldResultMaterializer` directly. The exported global `compileWorldResult()` remains only as an external compatibility seam; there are no remaining `compileWorldResult=function...` decorators in runtime source.
 
 
-## Phase 33 · Retry guidance
-
-`WorldRetryGuidanceService` is the canonical owner of static model-facing corrective actions. `WorldResultStagingService` delegates retry-plan generation to the container-owned service instead of relying on load-order wrappers. The service reads every static template from `WorldPromptRegistry` at execution time, while runtime facts such as entity names, counts and rejected paths are interpolated programmatically.
-
-The legacy policy/rumor/integrity/world-activity modules no longer override `retryPlanForFailure` or `makeRetryFailure`.
-
-
 ## Phase 33 · Retry guidance pipeline
 
 `WorldRetryGuidanceService` is the canonical business-failure-to-retry-plan mapper. It owns the matching and ordering previously layered by `WorldResultStagingService` plus four runtime monkey patches: event predecessor / Schema guidance, rumor guidance, temporal-integrity guidance, and world-activity guidance.
 
-All 19 static retry templates are registered in `WorldPromptRegistry` under the `纠错重试` group. The service reads the active registry value at execution time and formats placeholders such as `{name}`, `{details}`, and macro-node counts, so edits in “提示词预设 → 全部实际提示词” affect the next retry instead of only changing display text.
+All 20 static retry templates are registered in `WorldPromptRegistry` under the `纠错重试` group. The service reads the active registry value at execution time and formats placeholders such as `{name}`, `{details}`, and macro-node counts, so edits in “提示词预设 → 全部实际提示词” affect the next retry instead of only changing display text.
 
-`WorldResultStagingService.retryPlanForFailure()` now delegates directly to the service, and `makeRetryFailure()` owns the concrete-reason/retry-feedback normalization that previously lived in `55-policy-compat.part.js`. The four legacy modules no longer assign `retryPlanForFailure=function...`; chronology compatibility guidance also sources the shared retry-template defaults instead of carrying a hidden duplicate string.
+`WorldResultStagingService.retryPlanForFailure()` delegates directly to the container-owned guidance service, and `makeRetryFailure()` owns the concrete-reason/retry-feedback normalization that previously lived in `55-policy-compat.part.js`. The policy/rumor/integrity/world-activity legacy modules no longer assign `retryPlanForFailure=function...` or `makeRetryFailure=function...`; chronology compatibility guidance also sources the shared retry-template defaults instead of carrying a hidden duplicate string.

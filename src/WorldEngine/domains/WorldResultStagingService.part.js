@@ -10,8 +10,14 @@
         // Result normalization, merge, fragment splitting, compilation and retry planning are canonical class calls.
 
         worldResultFragments(value) {
+            const rawRumors=plain(value?.传闻)?value.传闻:{},rawRumorErrors={};
+            for(const source of Array.isArray(rawRumors.街头巷议)?rawRumors.街头巷议:[]){
+                if(!plain(source)||source.操作==='移除'||source.操作==='撤销本轮'||!Object.hasOwn(source,'可信度'))continue;
+                try{this.normalizer.assertRumorCredibility(source.可信度);}
+                catch(error){rawRumorErrors.街头巷议=error;break;}
+            }
             const result=this.normalizer.normalizeWorldResult(value),fragments=[];
-            const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
+            const push=(label,body,error=null)=>fragments.push({label,result:Object.assign({摘要:''},body),error});
             if(Object.hasOwn(result,'时间'))push('时间',{时间:result.时间});
             for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
             for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
@@ -22,7 +28,7 @@
             if(Array.isArray(result.因果?.宏观顺序)&&result.因果.宏观顺序.length)push('因果/宏观顺序',{因果:{宏观顺序:copy(result.因果.宏观顺序)}});
             for(const item of result.因果?.偏移记录||[])push('因果/偏移记录/'+item.名称,{因果:{偏移记录:[copy(item)]}});
             // 容量约束针对最终分类；新增与移除必须一起验收，不能拆散换新操作。
-            for(const key of WORLD_RESULT_RUMORS)if(result.传闻?.[key]?.length)push('传闻/'+key,{传闻:{[key]:copy(result.传闻[key])}});
+            for(const key of WORLD_RESULT_RUMORS)if(result.传闻?.[key]?.length)push('传闻/'+key,{传闻:{[key]:copy(result.传闻[key])}},rawRumorErrors[key]||null);
             for(const item of result.关系||[])push('关系/'+item.名称,{关系:[copy(item)]});
             return {摘要:result.摘要,fragments};
         }
@@ -61,11 +67,12 @@
         stage(stat,accepted,incoming,validate) {
             const split=this.worldResultFragments(incoming);
             let staged=accepted?this.normalizer.mergeWorldResults(accepted,{摘要:split.摘要}):this.normalizer.normalizeWorldResult({摘要:split.摘要});
-            let pending=split.fragments.map(unit=>Object.assign({},unit,{error:null})),progress=true;
+            let pending=split.fragments.map(unit=>Object.assign({},unit,{error:unit.error||null})),progress=true;
             while(pending.length&&progress){
                 progress=false;
                 const nextPending=[];
                 for(const unit of pending){
+                    if(unit.error){nextPending.push(unit);continue;}
                     const candidate=this.normalizer.mergeWorldResults(staged,unit.result);
                     try{
                         const compiled=this.materializer.compileWorldResult(stat,candidate);

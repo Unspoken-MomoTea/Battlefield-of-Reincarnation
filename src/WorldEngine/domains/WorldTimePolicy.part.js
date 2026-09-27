@@ -46,6 +46,43 @@
             return date.getTime()/3600000+dayHour;
         }
 
+        capacity(previous,current) {
+            const from=String(previous||'').trim(),to=String(current||'').trim();
+            const a=this.key(from),b=this.key(to);
+            if(!from)return {起点:'首次运行/无上次引擎时间',终点:to,小时:null,等级:'首轮初始化',允许:'先建立宏观骨架；近期细节只依据当前事实，不假定额外耗时。'};
+            if(a!==null&&b!==null){
+                const hours=Math.max(0,b-a);
+                if(hours<=0)return {起点:from,终点:to,小时:0,等级:'未推进',允许:'只能记录本轮新确认事实、即时反应或同步结果；不得完成需要时间的后台事项。'};
+                if(hours<=2)return {起点:from,终点:to,小时:hours,等级:'短时段',允许:'只够当面短谈、通讯、案头事务或同区域短途移动；大型行动只能准备或启动。'};
+                if(hours<=12)return {起点:from,终点:to,小时:hours,等级:'数小时',允许:'允许同城区移动、有限调查/准备、一次工作阶段；跨城或大规模调动通常不能完成。'};
+                if(hours<=24)return {起点:from,终点:to,小时:hours,等级:'半天至一天',允许:'允许完成一套日常事务、一次较完整阶段或城区迁移；长期工程与远距行动仍需分段。'};
+                return {起点:from,终点:to,小时:hours,等级:'数日以上',允许:'可推进长途行程、物资转运、据点/组织事项的多个阶段，但仍按因果与资源逐步推进。'};
+            }
+            return {起点:from,终点:to,小时:null,等级:'作品内时间',允许:'按作品内时间语义保守估计行动容量；无法确认跨度时只推进一步，不直接跳到长期结果。'};
+        }
+
+        calendarDate(value,calendar) {
+            const source=String(value||'').trim();
+            const full=source.match(/(?:^|[^\d])(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/)||source.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?!\d)/);
+            let y,month,d,fallbackYear=false;
+            if(full){
+                y=+full[1];month=+full[2];d=+full[3];
+            }else{
+                const md=source.match(/(?:^|[^\d])(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/)||source.match(/(?:^|[^\d])(\d{1,2})[-/.](\d{1,2})(?!\d)/);
+                if(!md)return null;
+                y=2026;month=+md[1];d=+md[2];fallbackYear=true;
+            }
+            const custom=Array.isArray(calendar?.月份天数)?calendar.月份天数.map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=99).slice(0,24):[];
+            if(custom.length){
+                if(month<1||month>custom.length||d<1||d>custom[month-1])return null;
+                return {y,m:month,d,key:y+'-'+month+'-'+d,fallbackYear,customCalendar:true};
+            }
+            const date=new Date(0);
+            date.setFullYear(y,month-1,d);date.setHours(0,0,0,0);
+            if(date.getFullYear()!==y||date.getMonth()!==month-1||date.getDate()!==d)return null;
+            return {y,m:month,d,key:y+'-'+month+'-'+d,fallbackYear,customCalendar:false};
+        }
+
         dayKey(value) {
             const key=this.key(value);
             return key===null?null:Math.floor(key/24);
@@ -75,7 +112,7 @@
         assertCalendarCompatibleTimeValue(stat,result,value,label='时间') {
             const raw=String(value??'').trim();
             if(!this.claimsMonthDay(raw))return;
-            if(calendarDate(raw,this.calendarFor(stat,result)))return;
+            if(this.calendarDate(raw,this.calendarFor(stat,result)))return;
             throw new Error(label+'格式无法用于日历：'+raw+'。精确到月日时请使用 {yyy}年-{mm}月-{dd}日-{时间段}；不要用月份名称替代数字月。');
         }
 
@@ -143,3 +180,6 @@
 
     const DEFAULT_WORLD_TIME_POLICY=new WorldTimePolicy();
     let ACTIVE_WORLD_TIME_POLICY=DEFAULT_WORLD_TIME_POLICY;
+    function worldDateKey(value){return ACTIVE_WORLD_TIME_POLICY.key(value);}
+    function worldTimeCapacity(previous,current){return ACTIVE_WORLD_TIME_POLICY.capacity(previous,current);}
+    function calendarDate(value,calendar){return ACTIVE_WORLD_TIME_POLICY.calendarDate(value,calendar);}

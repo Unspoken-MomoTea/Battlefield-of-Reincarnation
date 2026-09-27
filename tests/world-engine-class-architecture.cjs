@@ -110,9 +110,13 @@ assert.match(proseExtractorSource,/function\s+extractWorldProse\s*\(value\)\{ret
 assert.doesNotMatch(foundationSource,/function\s+extractWorldProse\s*\(/,'prose extraction implementation must leave the foundation');
 assert.match(requestBuilderSource,/proseExtractor\.extract\(m\.message\?\?m\.mes\?\?'\'\)/,'request builder must use the injected prose extractor rather than the compatibility global');
 assert.match(knowledgeSelectionSource,/class\s+WorldKnowledgeSelectionPolicy\s*\{/,'worldbook selection matching must live behind a dedicated policy');
-for(const method of ['parseKey','normalizeIdentity','normalizeTitle','matches'])assert.match(knowledgeSelectionSource,new RegExp('\\b'+method+'\\s*\\('),'knowledge selection policy must own '+method);
+for(const method of ['parseKey','normalizeIdentity','normalizeTitle','matches','isTechnical','isTimelineBackbone'])assert.match(knowledgeSelectionSource,new RegExp('\\b'+method+'\\s*\\('),'knowledge selection policy must own '+method);
 for(const helper of ['parseSelectedEntryKey','normalizeWorldbookIdentity','normalizeWorldbookEntryTitle','selectedEntryMatches'])assert.doesNotMatch(basePromptDefaultsSource,new RegExp('function\\s+'+helper+'\\s*\\('),helper+' implementation must not live in prompt defaults');
 for(const helper of ['parseSelectedEntryKey','normalizeWorldbookIdentity','normalizeWorldbookEntryTitle','selectedEntryMatches'])assert.match(knowledgeSelectionSource,new RegExp('function\\s+'+helper+'\\s*\\('),helper+' compatibility seam must live with the selection policy');
+for(const helper of ['isTechnicalBook','isTimelineBackboneEntry'])assert.match(knowledgeSelectionSource,new RegExp('function\\s+'+helper+'\\s*\\('),helper+' compatibility seam must live with the knowledge policy');
+assert.doesNotMatch(foundationSource,/TECHNICAL_BOOK|function\s+isTimelineBackboneEntry\s*\(|const\s+isTechnicalBook\s*=/,'worldbook classification must leave WorldEngineFoundation');
+assert.match(knowledgeServiceSource,/technical:this\.selection\.isTechnical\(title\)/,'knowledge catalogue must classify technical entries through the injected policy');
+assert.match(knowledgeServiceSource,/this\.selection\.isTimelineBackbone\(e\.title\)/,'knowledge reads must classify timeline backbone entries through the injected policy');
 assert.match(knowledgeServiceSource,/\bapplyBuiltinDefaultWorldbookExclusions\s*\(catalogue\)/,'knowledge service must own built-in worldbook exclusion migration');
 assert.match(orchestratorSource,/\bresetInspection\s*\(\)/,'run orchestrator must own inspection-state reset');
 assert.match(orchestratorSource,/\bnotifyFailure\s*\(message\)/,'run orchestrator must own run-failure notification');
@@ -310,6 +314,7 @@ assert.equal(engine.services.knowledgeSelection.constructor.name,'WorldKnowledge
 assert.equal(engine.services.knowledge.selection,engine.services.knowledgeSelection,'knowledge service must compose the container-owned selection policy');
 assert.equal(engine.services.taskAwareness.selection,engine.services.knowledgeSelection,'task awareness must share the container-owned selection policy');
 assert.equal(engine.services.npcAuditPolicy.selection,engine.services.knowledgeSelection,'NPC audit policy must share the container-owned selection policy');
+assert.equal(engine.services.chronology.selection,engine.services.knowledgeSelection,'chronology feature must share the container-owned knowledge classification policy');
 assert.equal(engine.services.runScheduler.constructor.name,'WorldRunScheduler');
 assert.equal(engine.services.runScheduler.engine,engine,'run scheduler must belong to the application engine');
 assert.equal(engine.services.applicationLifecycle.constructor.name,'WorldEngineLifecycleController');

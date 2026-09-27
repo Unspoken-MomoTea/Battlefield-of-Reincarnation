@@ -56,7 +56,6 @@ assert.match(source, /带“≈”的 tk 只是本地容量粗估/, 'UI must exp
 assert.match(source, /副 API 原始回复 · '\+replyTk/, 'raw reply heading must expose token size');
 assert.doesNotMatch(source, /请求超过内部安全上限/, 'world engine must not reject requests by a local size ceiling');
 assert.doesNotMatch(source, /(?:system|request\.system)\.length\+(?:input|request\.input)\.length>240000/, 'request size is left to the selected provider/model instead of a local hard cap');
-assert.match(source, /this\.lastAttemptTelemetry=\[\];this\.lastTransportInfo=null;/, 'context reset must clear observability state');
 
 (async()=>{
   let calls=0;
@@ -76,6 +75,10 @@ assert.match(source, /this\.lastAttemptTelemetry=\[\];this\.lastTransportInfo=nu
     }
   };
   const engine=new SamsaraWorldEngine(host);
+  engine.lastAttemptTelemetry=[{尝试:1,结果:'旧观测'}];engine.lastTransportInfo={模型:'旧模型'};
+  engine.resetInspection();
+  assert.deepEqual(engine.lastAttemptTelemetry,[],'context reset must clear attempt telemetry');
+  assert.equal(engine.lastTransportInfo,null,'context reset must clear transport observability');
   engine.config.dedicatedApi={enabled:true,apiUrl:'https://api.example.test/v1',apiKey:'',model:'mock-model',apiPresets:[],fetchedModels:[]};
   const reply=await engine.requestAI('system','user',{structured:'auto',schema:{type:'object'},schemaName:'world_test'});
   assert.equal(reply,'{"摘要":"观测成功"}');

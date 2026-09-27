@@ -7,8 +7,9 @@ const delivery=path.join(root,'script','世界推进系统.js');
 const layer=fs.readFileSync(path.join(root,'src','WorldEngine','prompts','WorldPromptDefaults.part.js'),'utf8');
 const registry=fs.readFileSync(path.join(root,'src','WorldEngine','prompts','WorldPromptRegistry.part.js'),'utf8');
 const workspace=fs.readFileSync(path.join(root,'src','WorldEngine','ui','WorldPromptWorkspaceController.part.js'),'utf8');
+const integration=fs.readFileSync(path.join(root,'src','WorldEngine','prompts','WorldPromptIntegrationService.part.js'),'utf8');
 const bridge=fs.readFileSync(path.join(root,'src','WorldEngine','core','WorldEngineClassBridge.part.js'),'utf8');
-const promptSources=[layer,registry,workspace,bridge].join('\n');
+const promptSources=[layer,registry,workspace,integration,bridge].join('\n');
 const {SamsaraWorldEngine:Engine,emptyState}=require(delivery);
 const clone=value=>JSON.parse(JSON.stringify(value));
 

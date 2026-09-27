@@ -266,8 +266,8 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 
 ### Phase 27 · 异端时间戳 compile wrapper 移除
 
-已完成：删除 `script/world-engine-src/59-alien-activity-normalization.part.js`。活跃异端活动时间戳规范化不再通过后加载的 `compileWorldResult=function...` monkey patch 生效，而由 `WorldResultCompiler` 与 `WorldResultStagingService` 显式组合同一个 `WorldPersonActivityService`，在最终编译和分片验收两条路径统一调用 `normalizeAlienActivityTimestamps()`。
+已完成：删除 `script/world-engine-src/59-alien-activity-normalization.part.js`。第一次迁移尝试把预处理放到 `WorldResultCompiler / WorldResultStagingService`，但公开兼容入口仍允许测试与旧调用方直接调用全局 `compileWorldResult()`，会绕过这两层。最终实现因此下沉到 canonical `WorldResultMaterializer.compileWorldResult()`：Materializer 显式组合 container-owned `WorldPersonActivityService`，在任何编译入口真正生成 patch 之前统一调用 `normalizeAlienActivityTimestamps()`。
 
-这样保持原行为覆盖范围：空世界时间可从本轮结果解析时间锚点，完整异端活动由程序统一写最终世界时间；分片验收与最终提交不会出现不同语义。原有 `Active alien activity normalization` 集成回归继续作为公开行为 seam。
+这样三条路径——直接 `compileWorldResult()`、Compiler 最终编译、Staging 分片验收——都会进入同一个 Materializer 编译边界，不再需要重复预处理。空世界时间仍可从本轮结果解析时间锚点，完整异端活动仍由程序统一写最终世界时间；原有 `Active alien activity normalization` 集成回归继续作为公开行为 seam。
 
 剩余 `compileWorldResult` legacy decorator 继续按领域逐条迁移。

@@ -3,6 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const root=path.join(__dirname,'..');
+assert.equal(fs.existsSync(path.join(root,'src/WorldEngine/domains/WorldResultKernel.part.js')),false,'obsolete WorldResultKernel filename must not return after vocabulary extraction');
 for(const file of [
   'src/WorldEngine/README.md',
   'src/WorldEngine/ARCHITECTURE.md',

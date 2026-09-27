@@ -53,12 +53,4 @@
 
     // 因果偏移软归一化与世界尺度过滤已迁移至 WorldCausalService。
 
-    const retryPlanBeforeIntegrityGuard=retryPlanForFailure;
-    retryPlanForFailure=function(error,rejected=[]) {
-        const plan=retryPlanBeforeIntegrityGuard(error,rejected).slice();
-        const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
-        if(/时间事实超过当前世界时间|时间越界记录仍未修复/.test(message))plan.unshift('时间一致性：事件/地区/历史/传播只把“跨到未来自然日”视为硬越界，同日不同上午/下午/HH:mm无需回写；人物只有双方均明确 HH:mm 时才做分钟级校验。未来计划放预计结束、下次检查或待发生事件。');
-        return Array.from(new Set(plan.filter(Boolean)));
-    };
-
-    // 请求 manifest / system 装饰已迁移至 WorldIntegrityRequestFeature + WorldPromptRegistry。
+    // 时间一致性纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // 请求 manifest / system 装饰已迁移至 WorldIntegrityRequestFeature + WorldPromptRegistry。

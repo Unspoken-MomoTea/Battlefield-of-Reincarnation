@@ -29,6 +29,7 @@ src/WorldEngine/
     WorldPersonActivityService
     WorldTaskAwarenessService
     WorldChronologyPolicy
+    WorldTimePolicy
     WorldNpcAuditService
     WorldHistoryService
     WorldCausalService
@@ -258,3 +259,12 @@ Controlled removal of stale causal offsets is now part of `WorldPatchPolicy` rat
 ## Phase 31 · NPC equipment compile preprocessing
 
 `WorldNpcAuditService.normalizeNewEquipment()` owns the rule that newly introduced equipment for an existing audited NPC defaults to equipped state `1`, while existing equipment keeps its submitted/current state. `WorldResultMaterializer` applies this at the canonical compile boundary. The legacy narrative-audit module now contains prompt compatibility text only and no longer decorates `compileWorldResult`.
+
+
+## Phase 32 · World time result policy
+
+`WorldTimePolicy` owns the result-side world-clock rules: initialization inference from complete current activities, exact-date calendar compatibility, no-backwards enforcement, the candidate-time validation snapshot, and the final `/世界/时间` patch. `WorldPersonActivityService`, `WorldResultMaterializer` and `WorldTimeOwnershipFeature` compose the same container-owned policy.
+
+World time is now part of the canonical `WorldResultContract` and `WorldResultNormalizer`; `WorldResultStagingService` splits and merges it directly through canonical classes. `WorldPatchPolicy` already owns the `/世界/时间` write permission, and replay scope declares world time at its source. The legacy 59 time module contains only the editable `WORLD_TIME_RULES` prompt text and no longer rewrites normalizer, merge, fragments, patch permission or compile functions.
+
+With this phase, `WorldResultCompiler.compile()` and staged fragment compilation call `WorldResultMaterializer` directly. The exported global `compileWorldResult()` remains only as an external compatibility seam; there are no remaining `compileWorldResult=function...` decorators in runtime source.

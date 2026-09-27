@@ -3,8 +3,7 @@
         initialize(){
             const engine=this.engine;
             if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)return;
-            let upgraded=upgradeRumorPreset(engine.config.preset);
-            upgraded=upgradeRumorThrottlePreset(upgraded);
+            const upgraded=this.rumor.upgradePreset(engine.config.preset);
             if(upgraded!==engine.config.preset){engine.config.preset=upgraded;engine.saveConfig();}
         }
         async afterBuildRequest(request,base){

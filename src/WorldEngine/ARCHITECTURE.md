@@ -36,6 +36,7 @@ src/WorldEngine/
     WorldExplorationService
     WorldRumorService
     WorldRequestService
+    WorldRetryGuidanceService
   prompts/
     WorldPromptRegistry
   ui/
@@ -268,3 +269,10 @@ Controlled removal of stale causal offsets is now part of `WorldPatchPolicy` rat
 World time is now part of the canonical `WorldResultContract` and `WorldResultNormalizer`; `WorldResultStagingService` splits and merges it directly through canonical classes. `WorldPatchPolicy` already owns the `/世界/时间` write permission, and replay scope declares world time at its source. The legacy 59 time module contains only the editable `WORLD_TIME_RULES` prompt text and no longer rewrites normalizer, merge, fragments, patch permission or compile functions.
 
 With this phase, `WorldResultCompiler.compile()` and staged fragment compilation call `WorldResultMaterializer` directly. The exported global `compileWorldResult()` remains only as an external compatibility seam; there are no remaining `compileWorldResult=function...` decorators in runtime source.
+
+
+## Phase 33 · Retry guidance
+
+`WorldRetryGuidanceService` is the canonical owner of static model-facing corrective actions. `WorldResultStagingService` delegates retry-plan generation to the container-owned service instead of relying on load-order wrappers. The service reads every static template from `WorldPromptRegistry` at execution time, while runtime facts such as entity names, counts and rejected paths are interpolated programmatically.
+
+The legacy policy/rumor/integrity/world-activity modules no longer override `retryPlanForFailure` or `makeRetryFailure`.

@@ -65,6 +65,12 @@ assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-run
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
 assert.match(applicationShellSource,/class\s+SamsaraWorldEngine\s*\{/,'base application shell must live under src/WorldEngine/core');
 assert.match(configServiceSource,/class\s+WorldEngineConfigService\s*\{/,'configuration initialization must live behind a dedicated src service');
+for(const method of ['isConfigured','isAvailable','isEnabled','setEnabled'])assert.match(configServiceSource,new RegExp('\\b'+method+'\\s*\\('),'configuration service must own '+method);
+assert.match(applicationShellSource,/isConfigured\(\)\{return this\.configService\.isConfigured\(\);\}/,'application shell isConfigured must remain a facade seam');
+assert.match(applicationShellSource,/isAvailable\(\)\{return this\.configService\.isAvailable\(\);\}/,'application shell isAvailable must remain a facade seam');
+assert.match(applicationShellSource,/isEnabled\(\)\{return this\.configService\.isEnabled\(\);\}/,'application shell isEnabled must remain a facade seam');
+assert.match(applicationShellSource,/setEnabled\(value\)\{return this\.configService\.setEnabled\(value\);\}/,'application shell setEnabled must remain a facade seam');
+assert.doesNotMatch(applicationShellSource,/terminal\.apiReady|terminal\.enableApi|世界推进已开启 · 等待专属 API 配置/,'availability and enable-state implementation must not grow back into the shell');
 assert.match(applicationShellSource,/this\.configService=new WorldEngineConfigService\(this\)/,'application shell must delegate constructor config migration');
 for(const legacyConfigMarker of ['retryDefaultFiveMigrated','builtinDefaultPromptVersionApplied'])assert.doesNotMatch(applicationShellSource,new RegExp(legacyConfigMarker),'constructor config migration marker must not grow back into the application shell');
 assert.match(applicationShellSource,/createPanel\(\)\s*\{\s*return this\.services\?\.panelController\?\.createPanel\?\.\(\);\s*\}/,'application shell createPanel must delegate to the panel controller');
@@ -76,7 +82,7 @@ assert.match(applicationShellSource,/render\(force=false\)\s*\{\s*return this\.s
 assert.match(panelRendererSource,/class\s+WorldPanelRenderer\s*\{/,'shared panel rendering orchestration must live behind a dedicated renderer');
 for(const viewKey of ['world','people','exploration','assets','events','rumors','history','settings','prompts','requestInspector'])assert.match(panelRendererSource,new RegExp("engine\\.services\\.views\\.render\\('"+viewKey+"'"),'panel renderer must dispatch '+viewKey+' through the View registry');
 assert.doesNotMatch(applicationShellSource,/services\.views\.render|const\s+tabs\s*=\s*\[/,'view dispatch and navigation rendering must not grow back into the application shell');
-assert.ok(applicationShellSource.length<10000,'application shell should stay below 10 KB after prompt settings extraction');
+assert.ok(applicationShellSource.length<9000,'application shell should stay below 9 KB after configuration availability extraction');
 assert.match(applicationLifecycleSource,/class\s+WorldEngineLifecycleController\s*\{/,'application lifecycle must live behind a dedicated controller');
 for(const method of ['init','isOpen','open','close','toggle','dispose'])assert.match(applicationLifecycleSource,new RegExp('\\b'+method+'\\s*\\('),'application lifecycle controller must own '+method);
 assert.match(applicationShellSource,/init\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.init\?\.\(\);\s*\}/,'application shell init must delegate to the lifecycle controller');

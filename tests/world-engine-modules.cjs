@@ -21,6 +21,7 @@ for(const moduleName of ['editor/00-world-mutations.part.js','editor/10-event-ed
 }
 for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  '@src/WorldEngine/core/WorldEngineConfigService.part.js',
   '@src/WorldEngine/core/SamsaraWorldEngine.part.js',
   '@src/WorldEngine/domains/WorldStateModel.part.js',
   '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',

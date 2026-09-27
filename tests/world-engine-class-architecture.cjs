@@ -13,6 +13,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldTimelinePolicy.part.js',
   'src/WorldEngine/domains/WorldChronologyPolicy.part.js',
   'src/WorldEngine/domains/WorldTimePolicy.part.js',
+  'src/WorldEngine/domains/WorldDueEventPolicy.part.js',
   'src/WorldEngine/domains/WorldLifecycleService.part.js',
   'src/WorldEngine/domains/WorldStateNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultKernel.part.js',
@@ -49,6 +50,7 @@ const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains
 const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
 const chronologyPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldChronologyPolicy.part.js'),'utf8');
 const worldTimePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimePolicy.part.js'),'utf8');
+const dueEventPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldDueEventPolicy.part.js'),'utf8');
 const retryGuidanceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRetryGuidanceService.part.js'),'utf8');
 const worldTimeLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-time-ownership.part.js'),'utf8');
 const chronologyLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/58-chronology-guard.part.js'),'utf8');
@@ -68,6 +70,8 @@ assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class
 assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT_WORLD_STATE_FACTORY\.emptyBackend\(\);\}/,'public emptyState seam must remain compatible');
 assert.match(foundationSource,/function\s+worldDateKey\s*\(value\)\s*\{\s*return ACTIVE_WORLD_TIME_POLICY\.key\(value\);\s*\}/,'foundation worldDateKey must be compatibility-only');
 for(const method of ['normalizeDaypartAlias','key','dayKey','hasExactClock'])assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
+for(const method of ['reviewPoint','review','ensureHandled'])assert.match(dueEventPolicySource,new RegExp('\\b'+method+'\\s*\\('),'due event policy must own '+method);
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-due-event-relaxation.part.js')),false,'legacy due-event relaxation module must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-world-time-daypart-aliases.part.js')),false,'legacy daypart wrapper must be deleted');
 const integrityLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
 assert.doesNotMatch(integrityLegacySource,/worldDateKey\s*=\s*function|temporalAnomalies\s*=\s*function/,'integrity legacy module must not rewrite time parser or anomaly policy');
@@ -171,7 +175,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -188,6 +192,7 @@ assert.equal(engine.services.timelinePolicy.constructor.name,'WorldTimelinePolic
 assert.equal(engine.services.timelinePolicy.timePolicy,engine.services.timePolicy,'timeline policy must share the container-owned time policy');
 assert.equal(engine.services.chronologyPolicy.constructor.name,'WorldChronologyPolicy');
 assert.equal(engine.services.timePolicy.constructor.name,'WorldTimePolicy');
+assert.equal(engine.services.dueEventPolicy.constructor.name,'WorldDueEventPolicy');
 assert.equal(engine.services.lifecycle.constructor.name,'WorldLifecycleService');
 assert.equal(engine.services.stateNormalizer.constructor.name,'WorldStateNormalizer');
 assert.equal(engine.services.resultContract.constructor.name,'WorldResultContract');
@@ -211,6 +216,7 @@ assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyPars
 assert.equal(engine.services.compiler.constructor.name,'WorldResultCompiler');
 assert.equal(engine.services.validationPolicy.constructor.name,'WorldValidationPolicy');
 assert.equal(engine.services.validationPolicy.timeline,engine.services.timelinePolicy,'validation policy must compose the container-owned timeline policy');
+assert.equal(engine.services.validationPolicy.duePolicy,engine.services.dueEventPolicy,'validation policy must compose the container-owned due-event policy');
 assert.equal(engine.services.compiler.normalizer,engine.services.resultNormalizer,'compiler must compose the container-owned normalizer');
 assert.equal(engine.services.compiler.materializer,engine.services.resultMaterializer,'compiler must compose the container-owned materializer');
 assert.equal(engine.services.compiler.staging,engine.services.resultStaging,'compiler must compose the container-owned staging service');
@@ -230,6 +236,7 @@ assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
 assert.equal(engine.services.taskAwareness.taskLedger,engine.services.taskLedger,'task request feature must share the canonical task ledger service');
 assert.equal(engine.services.chronology.policy,engine.services.chronologyPolicy,'chronology request feature must share the canonical chronology policy');
+assert.equal(engine.services.dueEvent.policy,engine.services.dueEventPolicy,'due-event request feature must share the canonical due-event policy');
 assert.equal(engine.services.timeOwnership.policy,engine.services.timePolicy,'time ownership feature must share the canonical world time policy');
 assert.equal(engine.services.requests.constructor.name,'WorldRequestService');
 assert.equal(engine.services.requests.retryableModelFailure(new Error('业务校验失败')),true,'model/business failures remain retryable');

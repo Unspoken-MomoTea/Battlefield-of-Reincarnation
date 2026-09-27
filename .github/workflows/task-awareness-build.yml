@@ -57,10 +57,8 @@ jobs:
         run: node --check script/悬浮球状态栏.js
       - name: Auxiliary syntax check
         run: node --check script/辅助计算脚本.js
-      - name: Request observability regression
-        run: node tests/world-engine-observability.cjs
-      - name: Dedicated API preset selection regression
-        run: node tests/world-engine-api-preset-selection.cjs
+      - name: Full world engine regression suite
+        run: node tests/run-world-engine-suite.cjs
       - name: Simplified task settlement regression
         run: node tests/task-settlement-simplified.cjs
       - name: Settlement coin task-independence regression
@@ -83,102 +81,6 @@ jobs:
         run: node tests/settlement-character-lifecycle.cjs
       - name: Statusbar settlement topbar regression
         run: node tests/statusbar-settlement-topbar.cjs
-      - name: Super-stable prompt regression
-        run: node tests/world-engine-superstable-prompt.cjs
-      - name: Task awareness regression
-        run: node tests/world-engine-task-awareness.cjs
-      - name: History memory regression
-        run: node tests/world-engine-history-memory.cjs
-      - name: History memory safety regression
-        run: node tests/world-engine-history-memory-safety.cjs
-      - name: History memory editor regression
-        run: node tests/world-engine-history-memory-editor.cjs
-      - name: World event and activity editor regression
-        run: node tests/world-engine-world-editors.cjs
-      - name: World engine class architecture regression
-        run: node tests/world-engine-class-architecture.cjs
-      - name: World engine configuration migration regression
-        run: node tests/world-engine-config-service.cjs
-      - name: World engine panel controller regression
-        run: node tests/world-engine-panel-controller.cjs
-      - name: World engine panel renderer regression
-        run: node tests/world-engine-panel-renderer.cjs
-      - name: World engine application lifecycle regression
-        run: node tests/world-engine-application-lifecycle.cjs
-      - name: World engine prompt settings regression
-        run: node tests/world-engine-prompt-settings.cjs
-      - name: World engine view classes regression
-        run: node tests/world-engine-view-classes.cjs
-      - name: World engine core services regression
-        run: node tests/world-engine-core-services.cjs
-      - name: World engine prose extraction regression
-        run: node tests/world-engine-prose.cjs
-      - name: World engine lifecycle service regression
-        run: node tests/world-engine-lifecycle-service.cjs
-      - name: World engine runtime services regression
-        run: node tests/world-engine-runtime-services.cjs
-      - name: Transport and prompt document services regression
-        run: node tests/world-engine-transport-docs-services.cjs
-      - name: World run orchestrator regression
-        run: node tests/world-engine-run-orchestrator.cjs
-      - name: World engine validation service regression
-        run: node tests/world-engine-validation-service.cjs
-      - name: World engine commit service regression
-        run: node tests/world-engine-commit-service.cjs
-      - name: World engine class phase2 regression
-        run: node tests/world-engine-class-phase2.cjs
-      - name: World engine class phase3 regression
-        run: node tests/world-engine-class-phase3.cjs
-      - name: World engine class phase4 regression
-        run: node tests/world-engine-class-phase4.cjs
-      - name: World engine class phase5 regression
-        run: node tests/world-engine-class-phase5.cjs
-      - name: World engine request feature regression
-        run: node tests/world-engine-request-features.cjs
-      - name: Complete world prompt registry regression
-        run: node tests/world-engine-prompt-registry-complete.cjs
-      - name: World engine prompt source audit
-        run: node tests/world-engine-prompt-source-audit.cjs
-      - name: World context UI regression
-        run: node tests/world-engine-context-ui-redesign.cjs
-      - name: World person scene UI regression
-        run: node tests/world-engine-person-scene-ui.cjs
-      - name: Rumor rolling regression
-        run: node tests/world-engine-rumor-capacity.cjs
-      - name: Editable system prompts regression
-        run: node tests/world-engine-editable-system-prompts.cjs
-      - name: Editable module prompts regression
-        run: node tests/world-engine-module-prompts.cjs
-      - name: Offstage NPC knowledge boundary regression
-        run: node tests/offstage-knowledge-boundary.cjs
-      - name: Causal overview regression
-        run: node tests/world-engine-causal-summary.cjs
-      - name: Soft maintenance regression
-        run: node tests/world-engine-soft-maintenance.cjs
-      - name: Active alien activity normalization
-        run: node tests/world-engine-alien-activity-normalization.cjs
-      - name: Auto progress regression
-        run: node tests/world-engine-auto-progress.cjs
-      - name: Auto progress after variable reprocessing
-        run: node tests/world-engine-auto-reprocess.cjs
-      - name: Missing replay auto retry policy
-        run: node tests/world-engine-reprocess-missing-snapshot-policy.cjs
-      - name: World engine event bootstrap
-        run: node tests/world-engine-event-bootstrap.cjs
-      - name: Due event relaxation regression
-        run: node tests/world-engine-due-event-relaxation.cjs
-      - name: Chronology guard regression
-        run: node tests/world-engine-chronology-guard.cjs
-      - name: World time lifecycle regression
-        run: node tests/world-time-lifecycle.cjs
-      - name: Asset harvest lifecycle regression
-        run: node tests/asset-harvest-lifecycle.cjs
-      - name: Causal stability gate regression
-        run: node tests/world-engine-causal-stability-gate.cjs
-      - name: Causal offset editor regression
-        run: node tests/world-engine-causal-offset-editor.cjs
-      - name: World integrity regression
-        run: node tests/world-engine-integrity-guard.cjs
       - name: Commit generated delivery
         run: |
           if git diff --quiet -- src/WorldEngine/core/WorldEngineFoundation.part.js src/WorldEngine/core/WorldSharedUtilities.part.js src/WorldEngine/core/WorldEngineRuntimeConstants.part.js src/WorldEngine/ui/WorldThemeCatalog.part.js src/WorldEngine/prompts/WorldBasePromptDefaults.part.js src/WorldEngine/domains/WorldStateModel.part.js src/WorldEngine/core/SamsaraWorldEngine.part.js src/WorldEngine/core/WorldEngineConfigService.part.js src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js src/WorldEngine/prompts/WorldPromptDefaults.part.js src/WorldEngine/domains/WorldReplayService.part.js script/世界推进系统.js script/悬浮球状态栏.js script/辅助计算脚本.js "dist/V20260916/辅助计算脚本.js" script/ZOD脚本.js "World Book/[mvu_update]变量更新规则.txt" "World Book/[variables]当前变量.txt" "World Book/[InitVar]世界初始设定.yaml" "World Book/⚙️资产与载具规则.txt" "Regular/结算任务美化.html" "Regular/选择世界美化.txt" "Regular/试炼任务美化.html" "script/世界引擎接入说明.md" "docs/世界引擎V2审计.md" tests/statusbar-settlement-topbar.cjs tests/world-engine.cjs tests/world-engine-superstable-prompt.cjs tests/world-engine-prompt-pipeline.cjs tests/world-engine-scene-context.cjs tests/world-engine-asset-multi-owner.cjs tests/world-engine-asset-writeback.cjs tests/world-engine-request-transparency.cjs tests/world-engine-observability.cjs tests/world-engine-history-memory.cjs tests/world-engine-history-memory-safety.cjs tests/world-engine-history-memory-editor.cjs tests/world-engine-auto-reprocess.cjs tests/world-engine-reprocess-missing-snapshot-policy.cjs tests/world-engine-causal-offset-editor.cjs tests/world-time-lifecycle.cjs tests/asset-harvest-lifecycle.cjs; then exit 0; fi
@@ -187,9 +89,3 @@ jobs:
           git add src/WorldEngine/core/WorldEngineFoundation.part.js src/WorldEngine/core/WorldSharedUtilities.part.js src/WorldEngine/core/WorldEngineRuntimeConstants.part.js src/WorldEngine/ui/WorldThemeCatalog.part.js src/WorldEngine/prompts/WorldBasePromptDefaults.part.js src/WorldEngine/domains/WorldStateModel.part.js src/WorldEngine/core/SamsaraWorldEngine.part.js src/WorldEngine/core/WorldEngineConfigService.part.js src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js src/WorldEngine/prompts/WorldPromptDefaults.part.js src/WorldEngine/domains/WorldReplayService.part.js script/世界推进系统.js script/悬浮球状态栏.js script/辅助计算脚本.js "dist/V20260916/辅助计算脚本.js" script/ZOD脚本.js "World Book/[mvu_update]变量更新规则.txt" "World Book/[variables]当前变量.txt" "World Book/[InitVar]世界初始设定.yaml" "World Book/⚙️资产与载具规则.txt" "Regular/结算任务美化.html" "Regular/选择世界美化.txt" "Regular/试炼任务美化.html" "script/世界引擎接入说明.md" "docs/世界引擎V2审计.md" tests/statusbar-settlement-topbar.cjs tests/world-engine.cjs tests/world-engine-superstable-prompt.cjs tests/world-engine-prompt-pipeline.cjs tests/world-engine-scene-context.cjs tests/world-engine-asset-multi-owner.cjs tests/world-engine-asset-writeback.cjs tests/world-engine-request-transparency.cjs tests/world-engine-observability.cjs tests/world-engine-history-memory.cjs tests/world-engine-history-memory-safety.cjs tests/world-engine-history-memory-editor.cjs tests/world-engine-auto-reprocess.cjs tests/world-engine-reprocess-missing-snapshot-policy.cjs tests/world-engine-causal-offset-editor.cjs tests/world-time-lifecycle.cjs tests/asset-harvest-lifecycle.cjs
           git commit -m "build: sync world engine delivery [task-awareness-built]"
           git push
-      - name: NPC audit regression
-        run: node tests/world-engine-npc-audit-toggle.cjs
-      - name: Asset scope regression
-        run: node tests/world-engine-asset-writeback.cjs
-      - name: Module synchronization
-        run: node tests/world-engine-modules.cjs

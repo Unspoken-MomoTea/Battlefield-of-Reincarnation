@@ -456,3 +456,20 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 - `59-history-memory-editor.part.js`
 
 现有因果摘要、因果偏移编辑、历史记忆编辑三组公开回归继续作为行为 seam。下一批处理 `editor/` 三个旧编辑 helper 与 `20/30` 两个兼容槽，仍坚持 legacy 目录只删不长。
+
+
+### Phase 44 · editor 目录彻底迁出 legacy
+
+已完成：删除 `script/world-engine-src/editor/` 下全部三个 helper 文件，手动编辑链不再依赖任何 legacy editor 全局函数。
+
+- `WorldMutationService` 拥有世界后台获取、文本列表/JSON 列表规范化、replay 路径冲突判定与编辑 delta 合并。
+- `WorldEventService` 拥有事件重命名/删除后的引用重定向，以及事件前因图与关联事件完整性校验。
+- `WorldPersonActivityService` 拥有世界人物活动记录的关联事件校验。
+- `WorldEditorController` 拥有 HTML 转义、表单 list/JSON 解析与事件 select 渲染。
+
+已删除：
+- `editor/00-world-mutations.part.js`
+- `editor/10-event-editor.part.js`
+- `editor/20-person-editor.part.js`
+
+至此 `script/world-engine-src/editor/` 目录消失。下一批处理 `20-world-result.part.js` 与 `30-context-protocol.part.js` 两个兼容槽，再评估 `10-world-state` 是否可以把 RECORDS/DETAILS 与命名 helper 迁进 src 后整文件删除。

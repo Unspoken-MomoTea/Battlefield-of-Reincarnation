@@ -3,7 +3,7 @@
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;}
+        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -256,7 +256,7 @@
                 patches.push({op:'replace',path:this.patchPolicy.pointer(['世界','异端雷达','名单',target,'状态']),value:item.状态});
             } else if(result.异端.length)warnings.push('单一世界：忽略异端雷达更新');
             for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻[key])addEntity(['传闻',key,item.名称],item,EXISTING[key],{removable:true});
-            const auditNames=new Set(npcBuildAudit(stat).map(item=>nameKey(item.名称)));
+            const auditNames=new Set(this.npcAudit.audit(stat).map(item=>nameKey(item.名称)));
             for(const item of result.关系||[]){
                 if(item.操作==='撤销本轮')continue;
                 const target=stableNameIn(stat.关系列表||{},item.名称);

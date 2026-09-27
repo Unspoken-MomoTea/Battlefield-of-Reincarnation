@@ -290,3 +290,10 @@ All 20 static retry templates are registered in `WorldPromptRegistry` under the 
 `WorldHistoryMemoryPolicy` is the canonical owner of the hierarchical history forest: L0 leaf identity/order, collected-child tracking, ancestor invalidation, root selection, compression batching, summary IDs, summary reply parsing, compression payload construction, projection, and change digests.
 
 `WorldHistoryService` and `WorldHistoryLifecycle` share the container-owned policy. `WorldStateProjector` depends on the history service and no longer calls the global history helper. The former `script/world-engine-src/59-history-memory.part.js` has been deleted; compatibility helper names now forward from the src policy only.
+
+
+## Phase 36 · Canonical time parsing
+
+`WorldTimePolicy` is the sole owner of comparable world-time parsing: calendar dates, canonical and alias dayparts, traditional branch hours, and exact HH:mm[:ss] clocks. The public `worldDateKey()` function is compatibility-only and forwards to `ACTIVE_WORLD_TIME_POLICY`.
+
+`WorldTimelinePolicy` composes the same container-owned time policy and owns the final integrity precision rules: non-person current facts are rejected only when they cross a natural-day boundary, while person activity uses minute-level ordering only when both timestamps provide exact clocks. The legacy integrity module retains prompt text only; the separate daypart wrapper module has been deleted.

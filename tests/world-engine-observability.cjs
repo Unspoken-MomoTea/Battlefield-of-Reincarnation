@@ -45,12 +45,12 @@ assert.deepEqual(telemetry.User分段.map(x=>x.名称), ['世界书','正文楼�
 assert.doesNotMatch(source, /请求字符数:/, 'request manifest must no longer expose character counts');
 assert.doesNotMatch(source, /part\.body\.length\+' 字/, 'prompt segment badges must use tk instead of characters');
 assert.doesNotMatch(source, /f\.字符数\+'字'/, 'floor diagnostics must not render character counts');
-assert.match(source, /世界书条目:books\.map\(b=>\(\{[^}]*估算Tokens:estimateTokens\(b\.内容\)/, 'worldbook manifest must carry token estimates');
-assert.match(source, /正文楼层:floors\.map\(f=>\(\{[^}]*估算Tokens:estimateTokens\(f\.正文\)/, 'prose manifest must carry token estimates');
-assert.match(source, /观测:requestTokenTelemetry\(system,input,WORLD_RESULT_SCHEMA\)/, 'request manifest must carry token telemetry');
+assert.match(source, /世界书条目:books\.map\(b=>\(\{[^}]*估算Tokens:telemetry\.estimate\(b\.内容\)/, 'worldbook manifest must use the canonical telemetry service');
+assert.match(source, /正文楼层:floors\.map\(f=>\(\{[^}]*估算Tokens:telemetry\.estimate\(f\.正文\)/, 'prose manifest must use the canonical telemetry service');
+assert.match(source, /观测:telemetry\.request\(system,input,WORLD_RESULT_SCHEMA\)/, 'request manifest must use the canonical telemetry service');
 assert.match(source, /lastAttemptTelemetry=\[\]/, 'attempt telemetry must be in-memory state');
 assert.match(source, /this\.lastAttemptTelemetry\.push\(attemptTelemetry\)/, 'returned attempts must be observed');
-assert.match(source, /结构化模式:mode,尝试模式:copy\(modeAttempts\),usage:normalizeTokenUsage\(data\?\.usage\)/, 'dedicated API must record actual structured mode and provider usage');
+assert.match(source, /结构化模式:mode,尝试模式:copy\(modeAttempts\),usage:this\.telemetry\.normalizeUsage\(data\?\.usage\)/, 'dedicated API must normalize provider usage through the canonical telemetry service');
 assert.match(source, /auto（由主神终端协商）/, 'terminal path must not fake an actual structured mode');
 assert.match(source, /带“≈”的 tk 只是本地容量粗估/, 'UI must explain estimated vs provider token usage');
 assert.match(source, /副 API 原始回复 · '\+replyTk/, 'raw reply heading must expose token size');

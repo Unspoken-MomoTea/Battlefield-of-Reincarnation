@@ -104,57 +104,6 @@
     const TECHNICAL_BOOK = [/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
     const isTechnicalBook = title => TECHNICAL_BOOK.some(rule => rule.test(String(title || '').trim()));
     // 聊天接口返回原始消息，不会应用酒馆的显示正则。发送和关键词扫描共用此抽取结果。
-    function extractWorldProse(value) {
-        let source=String(value??'').replace(/\r\n?/g,'\n');
-        source=source.replace(/<!--[\s\S]*?(?:-->|$)/g,'\n');
-        source=source.replace(/<details\b[^>]*>\s*<summary\b[^>]*>([\s\S]*?)<\/summary>[\s\S]*?(?:<\/details>|$)/gi,
-            (block,title)=>/思考|思维链|变量|更新|检定|结算|状态栏|thinking|reasoning|analysis/i.test(title)?'\n':block);
-        const hidden=new Set(['think','thinking','reasoning','analysis','konatan_planning','dm_think','chain_of_thought',
-            'updatevariable','jsonpatch','variables','status_current_variables','user_status_readonly',
-            'worldresult','options','statusplaceholder',
-            'action','summary','update','scene_time','pic','dicecombat','dicecheck','enemyoverview',
-            'summonoverview','lootlog','experiencelog','questcontract','merchantstore','combatsnapshot',
-            'ash-review','acu-review','ash_review','acu_review','ash_note','acu_note','ash-review-slot',
-            'script','style','head','iframe']); // 'combatresult','craftresult','checkresult',
-        // 部分正文模型通过 assistant prefill 注入隐藏块的开始标签，最终楼层只会保存结束标签。
-        // 仅对思考类标签启用“首个隐藏标签为孤立结束标签”的兼容，避免误吞变量/面板前的正常正文。
-        const prefillHidden=new Set(['think','thinking','reasoning','analysis','konatan_planning','dm_think','chain_of_thought']);
-        // 按标签栈移除整个技术块，支持嵌套与属性；未闭合技术块的剩余内容也不发送。
-        const tags=/<\s*(\/?)\s*([a-z_][\w-]*)\b[^>]*>/gi;
-        const stack=[];let text='',cursor=0,match,seenHiddenTag=false;
-        while((match=tags.exec(source))){
-            const name=match[2].toLowerCase();
-            if(!hidden.has(name))continue;
-            const closing=!!match[1];
-            // assistant prefill 可能把 <thinking>/<konatan_planning~> 等开始标签放在保存文本之外。
-            // 若本楼第一个隐藏边界就是对应结束标签，则从消息开头到该标签都属于隐藏思考。
-            if(closing&&!stack.length&&!seenHiddenTag&&prefillHidden.has(name)){
-                cursor=tags.lastIndex;
-                seenHiddenTag=true;
-                continue;
-            }
-            seenHiddenTag=true;
-            if(!stack.length)text+=source.slice(cursor,match.index);
-            if(closing){
-                const at=stack.lastIndexOf(name);
-                if(at>=0)stack.length=at;
-            }else if(!/\/\s*>$/.test(match[0]))stack.push(name);
-            cursor=tags.lastIndex;
-            if(!stack.length)text+='\n';
-        }
-        if(!stack.length)text+=source.slice(cursor);
-        // 代码面板不属于已演出剧情；无语言标记的纯叙事围栏仍可兼容。
-        text=text.replace(/^[ \t]*(`{3,}|~{3,})([^\n]*)\n([\s\S]*?)(?:^[ \t]*\1[ \t]*$|(?![\s\S]))/gm,
-            (_block,_fence,language,body)=>{
-                if(/^(?:json\w*|ya?ml|html|xml|javascript|js|typescript|ts|css|python|diff)\b/i.test(language.trim()))return '\n';
-                try{const data=JSON.parse(body);if(data&&typeof data==='object')return '\n';}catch(_){}
-                return body;
-            });
-        // 对应参考助手 bodyTagsText 为空的模式：始终清洗整楼，不按正文标签截取。
-        try{const data=JSON.parse(text);if(data&&typeof data==='object')return '';}catch(_){}
-        return text.replace(/<[^>]+>/g,tag=>/^<user>$/i.test(tag)?tag:'')
-            .replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
-    }
     function isTimelineBackboneEntry(title) {
         const name=String(title||'').replace(/\s+/g,'');
         if(/(?:变量|输出格式|更新规则|COT|思考|风格|助手|状态栏)/i.test(name))return false;
@@ -198,6 +147,63 @@
         if(date.getFullYear()!==y||date.getMonth()!==month-1||date.getDate()!==d)return null;
         return {y,m:month,d,key:y+'-'+month+'-'+d,fallbackYear,customCalendar:false};
     }
+    class WorldProseExtractor {
+        extract(value) {
+            let source=String(value??'').replace(/\r\n?/g,'\n');
+            source=source.replace(/<!--[\s\S]*?(?:-->|$)/g,'\n');
+            source=source.replace(/<details\b[^>]*>\s*<summary\b[^>]*>([\s\S]*?)<\/summary>[\s\S]*?(?:<\/details>|$)/gi,
+                (block,title)=>/思考|思维链|变量|更新|检定|结算|状态栏|thinking|reasoning|analysis/i.test(title)?'\n':block);
+            const hidden=new Set(['think','thinking','reasoning','analysis','konatan_planning','dm_think','chain_of_thought',
+                'updatevariable','jsonpatch','variables','status_current_variables','user_status_readonly',
+                'worldresult','options','statusplaceholder',
+                'action','summary','update','scene_time','pic','dicecombat','dicecheck','enemyoverview',
+                'summonoverview','lootlog','experiencelog','questcontract','merchantstore','combatsnapshot',
+                'ash-review','acu-review','ash_review','acu_review','ash_note','acu_note','ash-review-slot',
+                'script','style','head','iframe']); // 'combatresult','craftresult','checkresult',
+            // 部分正文模型通过 assistant prefill 注入隐藏块的开始标签，最终楼层只会保存结束标签。
+            // 仅对思考类标签启用“首个隐藏标签为孤立结束标签”的兼容，避免误吞变量/面板前的正常正文。
+            const prefillHidden=new Set(['think','thinking','reasoning','analysis','konatan_planning','dm_think','chain_of_thought']);
+            // 按标签栈移除整个技术块，支持嵌套与属性；未闭合技术块的剩余内容也不发送。
+            const tags=/<\s*(\/?)\s*([a-z_][\w-]*)\b[^>]*>/gi;
+            const stack=[];let text='',cursor=0,match,seenHiddenTag=false;
+            while((match=tags.exec(source))){
+                const name=match[2].toLowerCase();
+                if(!hidden.has(name))continue;
+                const closing=!!match[1];
+                // assistant prefill 可能把 <thinking>/<konatan_planning~> 等开始标签放在保存文本之外。
+                // 若本楼第一个隐藏边界就是对应结束标签，则从消息开头到该标签都属于隐藏思考。
+                if(closing&&!stack.length&&!seenHiddenTag&&prefillHidden.has(name)){
+                    cursor=tags.lastIndex;
+                    seenHiddenTag=true;
+                    continue;
+                }
+                seenHiddenTag=true;
+                if(!stack.length)text+=source.slice(cursor,match.index);
+                if(closing){
+                    const at=stack.lastIndexOf(name);
+                    if(at>=0)stack.length=at;
+                }else if(!/\/\s*>$/.test(match[0]))stack.push(name);
+                cursor=tags.lastIndex;
+                if(!stack.length)text+='\n';
+            }
+            if(!stack.length)text+=source.slice(cursor);
+            // 代码面板不属于已演出剧情；无语言标记的纯叙事围栏仍可兼容。
+            text=text.replace(/^[ \t]*(`{3,}|~{3,})([^\n]*)\n([\s\S]*?)(?:^[ \t]*\1[ \t]*$|(?![\s\S]))/gm,
+                (_block,_fence,language,body)=>{
+                    if(/^(?:json\w*|ya?ml|html|xml|javascript|js|typescript|ts|css|python|diff)\b/i.test(language.trim()))return '\n';
+                    try{const data=JSON.parse(body);if(data&&typeof data==='object')return '\n';}catch(_){}
+                    return body;
+                });
+            // 对应参考助手 bodyTagsText 为空的模式：始终清洗整楼，不按正文标签截取。
+            try{const data=JSON.parse(text);if(data&&typeof data==='object')return '';}catch(_){}
+            return text.replace(/<[^>]+>/g,tag=>/^<user>$/i.test(tag)?tag:'')
+                .replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+        }
+    }
+
+    const DEFAULT_WORLD_PROSE_EXTRACTOR=new WorldProseExtractor();
+    let ACTIVE_WORLD_PROSE_EXTRACTOR=DEFAULT_WORLD_PROSE_EXTRACTOR;
+    function extractWorldProse(value){return ACTIVE_WORLD_PROSE_EXTRACTOR.extract(value);}
     const DEFAULT_PRESET = `你是轮回战场的世界引擎。只推进正文场景之外仍在运行的世界，并保持事件、场景、人物、势力、传播、资产与因果一致。
 【执行流程】
 Step 1 · 取事实：按“当前变量/本轮已确认剧情 > 明确世界书 > 模型常识”读取；已确认差异优先。
@@ -4777,9 +4783,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldRequestBuilder {
-        constructor(engine){this.engine=engine;}
+        constructor(engine,proseExtractor=DEFAULT_WORLD_PROSE_EXTRACTOR){this.engine=engine;this.proseExtractor=proseExtractor||DEFAULT_WORLD_PROSE_EXTRACTOR;}
         async build(base){
-            const engine=this.engine;
+            const engine=this.engine,proseExtractor=this.proseExtractor;
             return await (async function(base){
                             const state=copy(base.stat);
                             state.世界[PATH]=Object.assign(emptyState(),state.世界[PATH]||{});
@@ -4810,7 +4816,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                             };
                             const floors=messages.filter(m=>Number(m.message_id??m.id)<=id&&isAssistant(m))
                                 .sort((a,b)=>Number(a.message_id??a.id)-Number(b.message_id??b.id))
-                                .map(m=>({楼层:m.message_id??m.id,角色:'assistant',正文:extractWorldProse(m.message??m.mes??'')}))
+                                .map(m=>({楼层:m.message_id??m.id,角色:'assistant',正文:proseExtractor.extract(m.message??m.mes??'')}))
                                 .filter(f=>f.正文).slice(-count);
                             if(!floors.length)throw new Error('未读到可用AI正文：楼层为空或仅含思考、变量更新与面板，请检查聊天内容');
                             const timeline=timelineState(state);
@@ -8721,7 +8727,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.knowledgeSelection=new WorldKnowledgeSelectionPolicy();
             ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY=this.knowledgeSelection;
             this.knowledge=new WorldKnowledgeService(engine,this.knowledgeSelection);
-            this.requestBuilder=new WorldRequestBuilder(engine);
+            this.proseExtractor=new WorldProseExtractor();
+            ACTIVE_WORLD_PROSE_EXTRACTOR=this.proseExtractor;
+            this.requestBuilder=new WorldRequestBuilder(engine,this.proseExtractor);
             this.stateFactory=new WorldStateFactory();
             this.taskLedger=new WorldTaskAwarenessService();
             this.historyMemory=new WorldHistoryMemoryPolicy();

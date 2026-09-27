@@ -25,11 +25,13 @@ for(const name of [
   assert.match(registry,new RegExp('new\\s+'+name+'\\b'),name+' must be registered');
 }
 
-const legacyUi=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
-assert.doesNotMatch(legacyUi,/const ownersOf=asset=>/,'asset rendering must leave the application shell');
-assert.doesNotMatch(legacyUi,/for\(const category of \['街头巷议','情报交易','布告与檄文'\]\)/,'rumor rendering must leave the application shell');
-assert.match(legacyUi,/services(?:\?\.|\.)views(?:\?\.|\.)render\('assets'/,'asset tab must route through view registry');
-assert.match(legacyUi,/services(?:\?\.|\.)views(?:\?\.|\.)render\('rumors'/,'rumor tab must route through view registry');
+const applicationShell=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
+const panelRenderer=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelRenderer.part.js'),'utf8');
+assert.doesNotMatch(applicationShell,/const ownersOf=asset=>/,'asset rendering must leave the application shell');
+assert.doesNotMatch(applicationShell,/for\(const category of \['街头巷议','情报交易','布告与檄文'\]\)/,'rumor rendering must leave the application shell');
+assert.match(applicationShell,/services\?\.panelRenderer\?\.render\?\.\(force\)/,'application shell render must delegate to WorldPanelRenderer');
+assert.match(panelRenderer,/services(?:\?\.|\.)views(?:\?\.|\.)render\('assets'/,'asset tab must route through view registry from WorldPanelRenderer');
+assert.match(panelRenderer,/services(?:\?\.|\.)views(?:\?\.|\.)render\('rumors'/,'rumor tab must route through view registry from WorldPanelRenderer');
 
 const {SamsaraWorldEngine:Engine}=require(path.join(root,'script','世界推进系统.js'));
 const host={localStorage:{getItem:()=>null,setItem:()=>{}},document:{addEventListener:()=>{},removeEventListener:()=>{}}};

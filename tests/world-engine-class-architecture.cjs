@@ -28,6 +28,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldStateNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultKernel.part.js',
   'src/WorldEngine/domains/WorldRelationSyncPolicy.part.js',
+  'src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js',
   'src/WorldEngine/domains/WorldResultContract.part.js',
   'src/WorldEngine/domains/WorldResultNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultMaterializer.part.js',
@@ -74,10 +75,15 @@ const proseExtractorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domai
 const tokenTelemetrySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTokenTelemetry.part.js'),'utf8');
 const requestBuilderSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js'),'utf8');
 const knowledgeSelectionSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js'),'utf8');
+const assetMaterializationSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js'),'utf8');
+const resultMaterializerSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
+assert.match(assetMaterializationSource,/class\s+WorldAssetMaterializationPolicy\b/,'asset materialization policy must live under src/WorldEngine');
+for(const method of ['validateScope','normalizeOwners','materializeRecord'])assert.match(assetMaterializationSource,new RegExp('\\b'+method+'\\s*\\('),'asset materialization policy must own '+method);
+assert.doesNotMatch(resultMaterializerSource,/assertWorldAssetScope\s*\(|materializeAssetRecord\s*\(/,'asset merge rules must leave WorldResultMaterializer');
 assert.match(applicationShellSource,/class\s+SamsaraWorldEngine\s*\{/,'base application shell must live under src/WorldEngine/core');
 assert.match(hostAdapterSource,/class\s+WorldHostAdapter\s*\{/,'host function resolution must live behind a dedicated adapter');
 assert.match(hostAdapterSource,/resolve\(name\)/,'host adapter must own function resolution');
@@ -353,6 +359,8 @@ assert.equal(engine.services.resultMaterializer.chronology,engine.services.chron
 assert.equal(engine.services.resultMaterializer.timePolicy,engine.services.timePolicy,'materializer must compose the container-owned world time policy');
 assert.equal(engine.services.relationSync.constructor.name,'WorldRelationSyncPolicy');
 assert.equal(engine.services.resultMaterializer.relationSync,engine.services.relationSync,'materializer must compose the container-owned relation sync policy');
+assert.equal(engine.services.assetMaterialization.constructor.name,'WorldAssetMaterializationPolicy');
+assert.equal(engine.services.resultMaterializer.assetPolicy,engine.services.assetMaterialization,'materializer must compose the container-owned asset materialization policy');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.retryGuidance.constructor.name,'WorldRetryGuidanceService');
 assert.equal(engine.services.retryGuidance.engine,engine,'retry guidance must be able to read the active prompt registry');

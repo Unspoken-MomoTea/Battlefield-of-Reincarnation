@@ -1,5 +1,5 @@
     class WorldStateProjector {
-        constructor(engine=null){this.engine=engine;}
+        constructor(engine=null,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE){this.engine=engine;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;}
         omitKeys(value,keys=[]){
             if(!plain(value))return copy(value);
             const out=copy(value);
@@ -145,9 +145,11 @@
             if(!Object.keys(out.资产).length)delete out.资产;
             if(!out.资产删除保护.length)delete out.资产删除保护;
             if(!Object.keys(out.传闻).length)delete out.传闻;
+            const tasks=this.taskLedger.projectList(src?.任务?.列表);
+            if(Object.keys(tasks).length)out.任务={列表:tasks};
             return out;
         }
-        // Public service path keeps legacy task/history decorators until they are class-migrated.
+        // Public service path keeps the remaining history decorator until it is class-migrated.
         world(stat){return projectWorldContext(stat);}
     }
 

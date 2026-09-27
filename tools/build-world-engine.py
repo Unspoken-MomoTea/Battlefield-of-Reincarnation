@@ -13,6 +13,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldPatchPolicy.part.js',
     '@src/WorldEngine/domains/WorldTimelinePolicy.part.js',
     '@src/WorldEngine/domains/WorldChronologyPolicy.part.js',
+    '@src/WorldEngine/domains/WorldTimePolicy.part.js',
     '@src/WorldEngine/domains/WorldLifecycleService.part.js',
     '@src/WorldEngine/domains/WorldPersonActivityService.part.js',
     '@src/WorldEngine/domains/WorldTaskAwarenessService.part.js',

@@ -10,7 +10,7 @@
                 'action','summary','update','scene_time','pic','dicecombat','dicecheck','enemyoverview',
                 'summonoverview','lootlog','experiencelog','questcontract','merchantstore','combatsnapshot',
                 'combatresult','craftresult','checkresult',
-                'ash-review','acu-review','ash_review','acu_note','acu-review-slot',
+                'ash-review','acu-review','ash_review','acu_review','ash_note','acu_note','ash-review-slot',
                 'script','style','head','iframe']);
             // 部分正文模型通过 assistant prefill 注入隐藏块的开始标签，最终楼层只会保存结束标签。
             // 仅对思考类标签启用“首个隐藏标签为孤立结束标签”的兼容，避免误吞变量/面板前的正常正文。

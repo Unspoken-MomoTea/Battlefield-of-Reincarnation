@@ -4134,6 +4134,16 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             `;
         return css;
     }
+    class WorldHostAdapter {
+        constructor(engine){this.engine=engine;}
+        resolve(name){
+            const engine=this.engine;
+            for(const obj of [engine.env,engine.host,engine.host?.TavernHelper]){
+                if(obj&&typeof obj[name]==='function')return obj[name].bind(obj);
+            }
+            return null;
+        }
+    }
     class WorldEngineConfigService {
         constructor(engine){this.engine=engine;}
         defaults(){
@@ -4287,13 +4297,11 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
             this.lastRequest=null; this.previewRequest=null; this.lastReply=''; this.lastFailure='';
             this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastAttemptTelemetry=[]; this.lastTransportInfo=null; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
+            this.hostAdapter=new WorldHostAdapter(this);
             this.configService=new WorldEngineConfigService(this);
             this.config=this.configService.initialize();
         }
-        fn(name) {
-            for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
-            return null;
-        }
+        fn(name) { return this.hostAdapter.resolve(name); }
         notifyFailure(message){return this.runOrchestrator().notifyFailure(message);}
         snapshot() {
             const service=this.services?.context||new WorldRuntimeContextService(this);
@@ -4303,11 +4311,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             const service=this.services?.context||new WorldRuntimeContextService(this);
             return service.blocked(snapshot);
         }
-        saveConfig() {
-            if(this.configService)return this.configService.save();
-            try{this.host.localStorage?.setItem?.(CONFIG,JSON.stringify(this.config));}catch(_){}
-            return this.config;
-        }
+        saveConfig() { return this.configService.save(); }
         transportService(){return this._apiTransport||(this._apiTransport=new WorldApiTransportService(this));}
         normalizeDedicatedApi(value){return this.transportService().normalize(value);}
         usesDedicatedApi(){return this.transportService().usesDedicated();}
@@ -4353,7 +4357,10 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         schedule(){return this.runScheduler().schedule();}
         runOrchestrator(){return this.services?.run||this._runOrchestrator||(this._runOrchestrator=new WorldRunOrchestrator(this));}
         async run(options={}){return this.runOrchestrator().execute(options);}
-        getState() { return copy(Object.assign(emptyState(),this.snapshot().stat.世界[PATH] || {})); }
+        getState() {
+            const service=this.services?.context||new WorldRuntimeContextService(this);
+            return service.backendState();
+        }
         resetInspection(){return this.runOrchestrator().resetInspection();}
         statusTone(){return this.services?.panelRenderer?.statusTone?.()||'night';}
         syncStatusTone(){return this.services?.panelRenderer?.syncStatusTone?.()||this.statusTone();}
@@ -4651,6 +4658,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                         if (/轮回清算协议/.test(snapshot.text)) return '结算楼层由结算美化程序处理';
                         if (snapshot.message.is_user || snapshot.message.role === 'user') return '等待正文完成';
                         return '';
+        }
+        backendState(){
+            return copy(Object.assign(emptyState(),this.snapshot().stat.世界[PATH]||{}));
         }
     }
     class WorldKnowledgeService {
@@ -8693,6 +8703,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     class WorldEngineServiceContainer {
         constructor(engine){
             this.engine=engine;
+            this.hostAdapter=engine.hostAdapter;
             this.configuration=engine.configService;
             this.runScheduler=engine._runScheduler||new WorldRunScheduler(engine);
             engine._runScheduler=this.runScheduler;

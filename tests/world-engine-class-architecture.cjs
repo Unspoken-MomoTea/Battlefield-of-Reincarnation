@@ -27,6 +27,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldLifecycleService.part.js',
   'src/WorldEngine/domains/WorldStateNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultKernel.part.js',
+  'src/WorldEngine/domains/WorldRelationSyncPolicy.part.js',
   'src/WorldEngine/domains/WorldResultContract.part.js',
   'src/WorldEngine/domains/WorldResultNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultMaterializer.part.js',
@@ -171,8 +172,11 @@ const softMaintenancePolicySource=fs.readFileSync(path.join(root,'src/WorldEngin
 const retryGuidanceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRetryGuidanceService.part.js'),'utf8');
 const promptDefaultsSource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldPromptDefaults.part.js'),'utf8');
 const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
+const relationSyncSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRelationSyncPolicy.part.js'),'utf8');
 const resultMaterializerSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
+for(const method of ['validateStringArray','validateStringMap','validateQuality','validateRawAttributes','validateComponentShape','validateRelationSyncValue','materializeRelationComponent','mergeRelationComponent','assertComponentLimit'])assert.match(relationSyncSource,new RegExp('\\b'+method+'\\s*\\('),'relation sync policy must own '+method);
+for(const legacyMethod of ['validateStringArray','validateStringMap','validateQuality','validateRawAttributes','validateComponentShape','validateRelationSyncValue','materializeRelationComponent','mergeRelationComponent'])assert.doesNotMatch(resultMaterializerSource,new RegExp('\\b'+legacyMethod+'\\s*\\([^)]*\\)\\s*\\{'),legacyMethod+' implementation must leave WorldResultMaterializer');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js')),false,'legacy context-protocol slot must be deleted');
 assert.match(stateProjectorSource,/let\s+ACTIVE_WORLD_STATE_PROJECTOR\s*=\s*DEFAULT_WORLD_STATE_PROJECTOR/,'active state projector seam must live with the canonical projector');
 assert.match(stateProjectorSource,/function\s+requireWorldStateProjector\s*\(\)/,'state projector src module must own its compatibility resolver');
@@ -300,7 +304,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelController','panelRenderer','proseExtractor','knowledgeSelection','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelController','panelRenderer','proseExtractor','knowledgeSelection','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','relationSync','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -347,6 +351,8 @@ assert.equal(engine.services.resultMaterializer.people,engine.services.people,'m
 assert.equal(engine.services.resultMaterializer.taskLedger,engine.services.taskLedger,'materializer must compose the container-owned task ledger service');
 assert.equal(engine.services.resultMaterializer.chronology,engine.services.chronologyPolicy,'materializer must compose the container-owned chronology policy');
 assert.equal(engine.services.resultMaterializer.timePolicy,engine.services.timePolicy,'materializer must compose the container-owned world time policy');
+assert.equal(engine.services.relationSync.constructor.name,'WorldRelationSyncPolicy');
+assert.equal(engine.services.resultMaterializer.relationSync,engine.services.relationSync,'materializer must compose the container-owned relation sync policy');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.retryGuidance.constructor.name,'WorldRetryGuidanceService');
 assert.equal(engine.services.retryGuidance.engine,engine,'retry guidance must be able to read the active prompt registry');

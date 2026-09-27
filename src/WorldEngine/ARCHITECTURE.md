@@ -472,3 +472,8 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 已完成：新增 `WorldProseExtractor`，把原先位于 `WorldEngineFoundation.part.js` 的完整 `extractWorldProse` 算法原样迁出。隐藏思考/变量更新/技术面板过滤、assistant prefill 孤立结束标签兼容、代码围栏判定、JSON 技术楼层抑制以及 `<user>` 标签保留语义均不改变。
 
 `WorldRequestBuilder` 现在显式组合 container-owned `proseExtractor`，正文楼层构造直接调用 `proseExtractor.extract()`；公开 `extractWorldProse(value)` 仍作为 CommonJS/旧调用 compatibility seam，但只转发到 active extractor。现有 `world-engine-prose` 与主引擎正文清洗回归继续作为公开行为验收。
+
+
+## Phase 61 · Token telemetry
+
+`WorldTokenTelemetry` is the canonical owner of local token estimation, token-count formatting, provider usage normalization and request-segment telemetry. `WorldRequestBuilder` and `WorldApiTransportService` compose the same container-owned telemetry instance. Compatibility functions keep the existing exported surface but delegate to the active telemetry service; `WorldEngineFoundation` no longer owns observability algorithms.

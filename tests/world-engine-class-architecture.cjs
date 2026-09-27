@@ -54,7 +54,7 @@ for(const file of [
 }
 
 
-const foundationSource=fs.readFileSync(path.join(root,'script/world-engine-src/00-foundation-prompt.part.js'),'utf8');
+const foundationSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineFoundation.part.js'),'utf8');
 const configServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineConfigService.part.js'),'utf8');
 const runSchedulerSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldRunScheduler.part.js'),'utf8');
 const applicationShellSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');

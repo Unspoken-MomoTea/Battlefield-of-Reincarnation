@@ -12,6 +12,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldStateFactory.part.js',
     '@src/WorldEngine/domains/WorldPatchPolicy.part.js',
     '@src/WorldEngine/domains/WorldTimePolicy.part.js',
+    '@src/WorldEngine/domains/WorldDueEventPolicy.part.js',
     '@src/WorldEngine/domains/WorldTimelinePolicy.part.js',
     '@src/WorldEngine/domains/WorldChronologyPolicy.part.js',
     '@src/WorldEngine/domains/WorldLifecycleService.part.js',
@@ -107,7 +108,6 @@ PARTS = (
     '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',
     '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
     '@src/WorldEngine/ui/WorldPromptWorkspaceController.part.js',
-    '59-due-event-relaxation.part.js',
     '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
     '60-bootstrap.part.js',
 )

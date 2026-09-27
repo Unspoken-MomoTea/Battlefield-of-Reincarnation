@@ -52,6 +52,7 @@ const causal=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldCausal
 const patchPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
 const staging=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultStagingService.part.js'),'utf8');
 const parser=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultReplyParser.part.js'),'utf8');
+const worldTimePolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimePolicy.part.js'),'utf8');
 const validationPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldValidationPolicy.part.js'),'utf8');
 const requestBuilder=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js'),'utf8');
 assert.match(requestBuilder,/services\?\.stateProjector\?\.world/,'base request builder must use the state projector service seam');
@@ -61,8 +62,10 @@ assert.match(orchestrator,/services\?\.resultParser\?\.parse/,'run orchestrator 
 assert.match(normalizer,/class\s+WorldResultNormalizer\b/,'normalization must live behind a dedicated domain class');
 assert.match(compiler,/this\.normalizer\.normalizeWorldResult\(value\)/,'compiler.normalize must delegate to the normalizer class');
 assert.match(materializer,/class\s+WorldResultMaterializer\b/,'patch compilation must live behind a dedicated domain class');
-assert.match(compiler,/compile\(stat,value\)\{return compileWorldResult\(stat,value\);\}/,'compiler.compile must preserve the remaining decorated compileWorldResult seam');
-assert.match(materializer,/this\.people\.normalizeAlienActivityTimestamps\(stat,value\)/,'canonical materializer compile must preprocess alien activity so direct and class-based compile paths agree');
+assert.match(compiler,/compile\(stat,value\)\{return this\.materializer\.compileWorldResult\(stat,value\);\}/,'compiler.compile must call the canonical materializer directly after compile decorators are removed');
+assert.match(materializer,/this\.timePolicy\.prepareCompile\(originalStat,initial\)/,'canonical materializer must establish the world-time transaction before domain compilation');
+assert.match(materializer,/this\.people\.normalizeAlienActivityTimestamps\(stat,timing\.result\)/,'canonical materializer compile must preprocess alien activity against the final world-time snapshot');
+assert.match(materializer,/this\.timePolicy\.finalizeCompile\(originalStat,timing\.proposal,\{result,patches,warnings\}\)/,'canonical materializer must finalize the world-time patch after domain compilation');
 assert.match(materializer,/this\.taskLedger\.validateReferences\(stat,result\)/,'canonical materializer compile must validate task references through the task ledger service');
 assert.match(materializer,/this\.chronology\.validate\(stat,result\)/,'canonical materializer compile must validate chronology through the chronology policy');
 assert.match(materializer,/this\.npcAudit\.normalizeNewEquipment\(stat,result\)/,'canonical materializer compile must normalize newly audited NPC equipment through the NPC audit service');
@@ -72,8 +75,11 @@ assert.match(causal,/class\s+WorldCausalService\b/,'causal compile rules must li
 assert.match(patchPolicy,/\bremovable\s*\(parts\)/,'patch policy must own the controlled causal remove contract');
 assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'compiler.materialize must delegate to the materializer class');
 assert.match(staging,/class\s+WorldResultStagingService\b/,'staged result acceptance must live behind a dedicated domain service');
+assert.match(staging,/this\.materializer\.compileWorldResult\(stat,candidate\)/,'staging must compile fragments directly through the canonical materializer');
+assert.match(staging,/this\.normalizer\.mergeWorldResults\(staged,unit\.result\)/,'staging must merge fragments through the canonical normalizer');
 assert.match(staging,/this\.chronology\.retryGuidance\(error,rejected\)/,'staging retry planning must source chronology guidance from the chronology policy');
 assert.match(parser,/class\s+WorldResultReplyParser\b/,'reply parsing must live behind a dedicated domain service');
+assert.match(worldTimePolicy,/class\s+WorldTimePolicy\b/,'world-time result policy must live behind a dedicated domain class');
 assert.match(validationPolicy,/class\s+WorldValidationPolicy\b/,'base runtime validation must live behind a dedicated domain policy');
 assert.match(compiler,/this\.staging\.stage\(stat,accepted,incoming,validate\)/,'compiler.stage must delegate to the staging service');
 assert.match(runtime,/runOrchestrator\(\)/,'runtime must delegate application flow to the orchestrator');

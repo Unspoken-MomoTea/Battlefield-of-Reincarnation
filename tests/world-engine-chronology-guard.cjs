@@ -54,6 +54,9 @@ function freshState(){
     '数据库已有明确日期时不得退化成模糊相对时间'
   );
 
+  const chronologyRetry=engine.services.resultStaging.retryPlanForFailure(new Error('宏观节点日期与原著/数据库时间锚点冲突：第一层Boss攻略战 提交 2022年11月7日，资料明确为 2022年12月4日'),[]);
+  assert.equal(chronologyRetry[0],'宏观时间轴：只纠正已明确到日的原著/数据库日期冲突；重新沿用该日期。不要顺带把仅有月份、时段或先后顺序的节点强行精确到日，后者按原著节奏保守留白即可。','时间轴硬校验失败应由 chronology policy 继续给出原有纠错动作');
+
   const monthOnly=[{世界书:'测试世界书',条目ID:'timeline-month',名称:'原著年表',内容:'<原著年表>2022年12月 阿尔萨斯北伐诺森德与霜之哀伤。2023年1月 远渡卡利姆多与海加尔山战役进入新阶段。</原著年表>'}];
   monthOnly.report=[{世界书:'测试世界书',条目ID:'timeline-month',名称:'原著年表',读取:true,原因:'宏观资料补充'}];
   engine.worldbook=async()=>monthOnly;

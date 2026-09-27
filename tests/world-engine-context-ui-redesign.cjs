@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const prose = fs.readFileSync(path.join(root, 'World Book', '[variables]当前变量.txt'), 'utf8');
 const ui = [
-  path.join(root, 'script', 'world-engine-src', '50-engine-ui.part.js'),
+  path.join(root, 'src', 'WorldEngine', 'core', 'SamsaraWorldEngine.part.js'),
   path.join(root, 'src', 'WorldEngine', 'ui', 'views', 'WorldOverviewView.part.js'),
   path.join(root, 'src', 'WorldEngine', 'ui', 'views', 'WorldPeopleView.part.js'),
   path.join(root, 'src', 'WorldEngine', 'ui', 'views', 'WorldExplorationView.part.js'),

@@ -638,3 +638,10 @@ patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动
 已完成：新增 `WorldTokenTelemetry`，把 token 粗估、显示格式化、provider usage 归一与请求分段观测从 `WorldEngineFoundation.part.js` 迁入独立领域类。Foundation 不再保存可观测性算法。
 
 `WorldRequestBuilder` 与 `WorldApiTransportService` 显式组合 Service Container 中同一个 `tokenTelemetry` 实例：请求 manifest 的世界书/正文楼层估算与整体 request telemetry 由该实例生成；专属 API 的 usage 归一也走同一实例。旧 `estimateTokens / formatTokenCount / normalizeTokenUsage / requestTokenTelemetry` 名称仅保留 compatibility forwarder，供尚未迁移的 UI/Feature 与 CommonJS 测试使用，不再形成第二套算法。
+
+
+### Phase 62 · 日历与时间容量归入 Time Policy
+
+已完成：`WorldEngineFoundation.part.js` 不再保存 `worldDateKey / worldTimeCapacity / calendarDate` 的真实实现。时间键解析继续由 `WorldTimePolicy.key()` 负责，并新增 `capacity(previous,current)` 与 `calendarDate(value,calendar)`，把“本轮可推进多少时间”和 UI/校验共用的日历日期解析统一到同一个时间领域。
+
+`WorldTimePolicy.assertCalendarCompatibleTimeValue()` 也直接调用自身 `calendarDate()`，不再反向依赖 Foundation helper。旧三个全局函数名保留 compatibility forwarder，PanelController、PanelRenderer、Materializer 与外部 CommonJS 测试无需改变调用方式，但底层统一落到 container-owned active time policy。

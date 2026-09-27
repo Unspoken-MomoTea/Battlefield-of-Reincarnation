@@ -1,11 +1,4 @@
-    // 可选策略层：NPC 构筑审计默认关闭；同时吸收主变量 Schema 的派生缓存，并提供可执行的事件纠错信息。
-    let NPC_BUILD_AUDIT_FEATURE_ENABLED=false;
-    const npcBuildAuditBeforeFeatureSwitch=npcBuildAudit;
-    npcBuildAudit=function(stat,limit=NPC_BUILD_AUDIT_LIMIT) {
-        if(!NPC_BUILD_AUDIT_FEATURE_ENABLED)return [];
-        return npcBuildAuditBeforeFeatureSwitch(stat,limit);
-    };
-
+    // NPC 审计启停由 WorldNpcAuditPolicy 写入 canonical service flag；本层只保留 Schema 派生缓存与通用纠错兼容。
     const validateStateBeforeActionableEventRefs=validateState;
     validateState=function(stat) {
         const events=stat?.世界?.[PATH]?.事件||{};
@@ -37,36 +30,6 @@
         error.retryPlan=feedback.actions;
         if(feedback.issues.length)error.message=feedback.summary+'\n\n具体原因\n'+feedback.issues.join('\n');
         return error;
-    };
-
-    // NPC 构筑审计本身已经计算了精确缺口；这里仅增强失败反馈，不改变原有通过/驳回判定。
-    const ensureNpcBuildAuditProgressBeforeConcreteFeedback=ensureNpcBuildAuditProgress;
-    ensureNpcBuildAuditProgress=function(next,required=[],acceptedResult) {
-        try{return ensureNpcBuildAuditProgressBeforeConcreteFeedback(next,required,acceptedResult);}
-        catch(error){
-            if(!/NPC构筑审计未推进/.test(String(error?.message||error||'')))throw error;
-            const proposals=Array.isArray(acceptedResult?.关系)?acceptedResult.关系:[];
-            const details=[];
-            for(const before of required||[]){
-                const target=stableNameIn(next?.关系列表||{},before.名称);
-                if(!target)continue;
-                const after=npcBuildAssessment(next,target,next.关系列表[target]);
-                if(!after)continue;
-                const proposal=proposals.find(item=>nameKey(item?.名称)===nameKey(before.名称));
-                const touched=proposal&&(before.建议字段||[]).some(field=>Object.hasOwn(proposal,field));
-                if(touched&&after.缺口.length<before.缺口.length)continue;
-                const submitted=proposal?Object.keys(proposal).filter(field=>!['名称','操作'].includes(field)):[];
-                const unresolved=(after.缺口||[]).length?after.缺口:before.缺口||[];
-                const suggested=(after.建议字段||before.建议字段||[]).filter(Boolean);
-                details.push(
-                    before.名称+'：未解决缺口：'+(unresolved.length?unresolved.join('、'):'未识别')
-                    +'；建议修复字段：'+(suggested.length?suggested.join('、'):'无')
-                    +'；本轮实际提交：'+(submitted.length?submitted.join('、'):'无')
-                );
-            }
-            if(!details.length)throw error;
-            throw new Error('NPC构筑审计未推进：\n'+details.map(item=>' - '+item).join('\n')+'\n修复要求：每个列出的审计对象本轮至少补齐一个真实缺口；禁止只改好感、HP或无关字段。');
-        }
     };
 
     const WORLD_STATE_DERIVED_SCHEMA_KEYS=new Set(['真属性','最终属性','强化']);

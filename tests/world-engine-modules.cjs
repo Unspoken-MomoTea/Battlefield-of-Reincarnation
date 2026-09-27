@@ -18,6 +18,7 @@ for(const moduleName of ['editor/00-world-mutations.part.js','editor/10-event-ed
 }
 for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineFoundation.part.js',
+  '@src/WorldEngine/domains/WorldTokenTelemetry.part.js',
   '@src/WorldEngine/prompts/WorldBasePromptDefaults.part.js',
   '@src/WorldEngine/ui/WorldEngineStyles.part.js',
   '@src/WorldEngine/core/WorldEngineBootstrap.part.js',

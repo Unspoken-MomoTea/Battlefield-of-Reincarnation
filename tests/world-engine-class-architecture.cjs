@@ -44,6 +44,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldNpcAuditService.part.js',
   'src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js',
   'src/WorldEngine/domains/WorldHistoryService.part.js',
+  'src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js',
   'src/WorldEngine/domains/WorldApiTransportService.part.js',
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
   'src/WorldEngine/domains/WorldRunOrchestrator.part.js',
@@ -66,6 +67,7 @@ const panelControllerSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/W
 const panelRendererSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelRenderer.part.js'),'utf8');
 const promptDocumentServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPromptDocumentService.part.js'),'utf8');
 const orchestratorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRunOrchestrator.part.js'),'utf8');
+const knowledgeSelectionSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
@@ -94,6 +96,10 @@ assert.match(panelRendererSource,/class\s+WorldPanelRenderer\s*\{/,'shared panel
 for(const viewKey of ['world','people','exploration','assets','events','rumors','history','settings','prompts','requestInspector'])assert.match(panelRendererSource,new RegExp("engine\\.services\\.views\\.render\\('"+viewKey+"'"),'panel renderer must dispatch '+viewKey+' through the View registry');
 assert.doesNotMatch(applicationShellSource,/services\.views\.render|const\s+tabs\s*=\s*\[/,'view dispatch and navigation rendering must not grow back into the application shell');
 assert.ok(applicationShellSource.length<6500,'application shell should stay below 6.5 KB after helper ownership cleanup');
+assert.match(knowledgeSelectionSource,/class\s+WorldKnowledgeSelectionPolicy\s*\{/,'worldbook selection matching must live behind a dedicated policy');
+for(const method of ['parseKey','normalizeIdentity','normalizeTitle','matches'])assert.match(knowledgeSelectionSource,new RegExp('\\b'+method+'\\s*\\('),'knowledge selection policy must own '+method);
+for(const helper of ['parseSelectedEntryKey','normalizeWorldbookIdentity','normalizeWorldbookEntryTitle','selectedEntryMatches'])assert.doesNotMatch(basePromptDefaultsSource,new RegExp('function\\s+'+helper+'\\s*\\('),helper+' implementation must not live in prompt defaults');
+for(const helper of ['parseSelectedEntryKey','normalizeWorldbookIdentity','normalizeWorldbookEntryTitle','selectedEntryMatches'])assert.match(knowledgeSelectionSource,new RegExp('function\\s+'+helper+'\\s*\\('),helper+' compatibility seam must live with the selection policy');
 assert.match(knowledgeServiceSource,/\bapplyBuiltinDefaultWorldbookExclusions\s*\(catalogue\)/,'knowledge service must own built-in worldbook exclusion migration');
 assert.match(orchestratorSource,/\bresetInspection\s*\(\)/,'run orchestrator must own inspection-state reset');
 assert.match(orchestratorSource,/\bnotifyFailure\s*\(message\)/,'run orchestrator must own run-failure notification');
@@ -273,11 +279,15 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelController','panelRenderer','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelController','panelRenderer','knowledgeSelection','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
 assert.equal(engine.services.hostAdapter,engine.hostAdapter,'service container must expose the shell-owned host adapter');
+assert.equal(engine.services.knowledgeSelection.constructor.name,'WorldKnowledgeSelectionPolicy');
+assert.equal(engine.services.knowledge.selection,engine.services.knowledgeSelection,'knowledge service must compose the container-owned selection policy');
+assert.equal(engine.services.taskAwareness.selection,engine.services.knowledgeSelection,'task awareness must share the container-owned selection policy');
+assert.equal(engine.services.npcAuditPolicy.selection,engine.services.knowledgeSelection,'NPC audit policy must share the container-owned selection policy');
 assert.equal(engine.services.runScheduler.constructor.name,'WorldRunScheduler');
 assert.equal(engine.services.runScheduler.engine,engine,'run scheduler must belong to the application engine');
 assert.equal(engine.services.applicationLifecycle.constructor.name,'WorldEngineLifecycleController');

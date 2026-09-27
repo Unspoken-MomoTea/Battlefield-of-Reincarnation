@@ -7,7 +7,6 @@ SOURCE_FILES = [
     ROOT / 'script' / 'world-engine-src' / '56-rumor-liveliness.part.js',
     ROOT / 'script' / 'world-engine-src' / '57-task-awareness.part.js',
     ROOT / 'script' / 'world-engine-src' / '58-chronology-guard.part.js',
-    ROOT / 'script' / 'world-engine-src' / '59-soft-maintenance.part.js',
 ]
 TEST_FILE = ROOT / 'tests' / 'world-engine-observability.cjs'
 DOC_FILE = ROOT / 'docs' / '世界引擎V2审计.md'

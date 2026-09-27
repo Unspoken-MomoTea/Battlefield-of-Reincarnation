@@ -3,11 +3,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const delivery = path.join(__dirname, '../script/世界推进系统.js');
 const uiSource = [
-  path.join(__dirname, '../script/world-engine-src/50-engine-ui.part.js'),
+  path.join(__dirname, '../src/WorldEngine/core/SamsaraWorldEngine.part.js'),
   path.join(__dirname, '../src/WorldEngine/ui/views/WorldPromptView.part.js'),
   path.join(__dirname, '../src/WorldEngine/ui/views/WorldRequestInspectorView.part.js'),
 ].map(file => fs.readFileSync(file, 'utf8')).join('\n');
-const runtimeSource = fs.readFileSync(path.join(__dirname, '../script/world-engine-src/40-engine-runtime.part.js'), 'utf8');
+const runtimeSource = fs.readFileSync(path.join(__dirname, '../src/WorldEngine/core/SamsaraWorldEngine.part.js'), 'utf8');
 const {SamsaraWorldEngine: Engine, emptyState} = require(delivery);
 const clone = value => JSON.parse(JSON.stringify(value));
 const fresh = () => ({

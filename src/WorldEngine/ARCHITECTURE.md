@@ -27,6 +27,7 @@ src/WorldEngine/
     WorldMutationService
     WorldEventService
     WorldPersonActivityService
+    WorldTaskAwarenessService
     WorldNpcAuditService
     WorldHistoryService
     WorldCausalService
@@ -209,9 +210,9 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 
 ## Phase 23 · World context projection
 
-`WorldStateProjector` now owns the base world-context projection algorithms: character capability stripping, equipped/carried/form views, shared assets, hot history/propagation tails, causal-orbit projection, and base world payload assembly. `30-context-protocol.part.js` keeps only an early forwarding seam because task-awareness and history-memory compatibility decorators are still loaded before the projector class.
+`WorldStateProjector` now owns the base world-context projection algorithms: character capability stripping, equipped/carried/form views, shared assets, hot history/propagation tails, causal-orbit projection, read-only task projection, and base world payload assembly. `30-context-protocol.part.js` keeps only an early forwarding seam because the history-memory compatibility decorator is still loaded before the projector class.
 
-The service-level `world()` method intentionally traverses the decorated public seam until those decorators become class features, while `baseWorld()` is the canonical implementation.
+The service-level `world()` method intentionally traverses the decorated public seam until the remaining history decorator becomes a class feature, while `baseWorld()` is the canonical implementation.
 
 
 ## Phase 24 · Worldbook activation
@@ -234,3 +235,8 @@ Worldbook activation is owned by `WorldKnowledgeService`: constant/selective ent
 ## Phase 27 · Person compile preprocessing
 
 Alien activity timestamp normalization is no longer a global `compileWorldResult` decorator. The canonical `WorldResultMaterializer` composes the container-owned `WorldPersonActivityService` and normalizes alien activity immediately inside `compileWorldResult()`. Because the public global compile seam, `WorldResultCompiler`, and `WorldResultStagingService` all eventually compile through the same materializer boundary, direct compatibility calls and class-based flows preserve identical timestamp behavior without duplicate preprocessing.
+
+
+## Phase 28 · Task awareness domain
+
+`WorldTaskAwarenessService` owns the read-only formal task ledger projection and validation of event `关联任务` references. `WorldStateProjector` and `WorldResultMaterializer` compose the same container-owned `taskLedger`; the request-facing `WorldTaskAwarenessFeature` shares that service but remains responsible only for worldbook-selection migration and request manifest decoration. The legacy 57 module no longer wraps `projectWorldContext` or `compileWorldResult`.

@@ -185,7 +185,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -204,6 +204,7 @@ assert.equal(engine.services.chronologyPolicy.constructor.name,'WorldChronologyP
 assert.equal(engine.services.timePolicy.constructor.name,'WorldTimePolicy');
 assert.equal(engine.services.dueEventPolicy.constructor.name,'WorldDueEventPolicy');
 assert.equal(engine.services.activityPolicy.constructor.name,'WorldActivityPolicy');
+assert.equal(engine.services.softMaintenancePolicy.constructor.name,'WorldSoftMaintenancePolicy');
 assert.equal(engine.services.lifecycle.constructor.name,'WorldLifecycleService');
 assert.equal(engine.services.stateNormalizer.constructor.name,'WorldStateNormalizer');
 assert.equal(engine.services.resultContract.constructor.name,'WorldResultContract');

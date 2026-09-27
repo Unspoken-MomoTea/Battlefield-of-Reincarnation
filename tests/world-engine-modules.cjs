@@ -22,6 +22,7 @@ for(const moduleName of [
   '@src/WorldEngine/ui/WorldEngineStyles.part.js',
   '@src/WorldEngine/core/WorldEngineBootstrap.part.js',
   '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  '@src/WorldEngine/core/WorldHostAdapter.part.js',
   '@src/WorldEngine/core/WorldEngineConfigService.part.js',
   '@src/WorldEngine/core/WorldRunScheduler.part.js',
   '@src/WorldEngine/core/SamsaraWorldEngine.part.js',

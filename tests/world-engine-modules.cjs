@@ -50,6 +50,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldStateNormalizer.part.js',
   '@src/WorldEngine/domains/WorldCausalService.part.js',
   '@src/WorldEngine/domains/WorldResultKernel.part.js',
+  '@src/WorldEngine/domains/WorldRelationSyncPolicy.part.js',
   '@src/WorldEngine/domains/WorldResultContract.part.js',
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
   '@src/WorldEngine/domains/WorldResultMaterializer.part.js',

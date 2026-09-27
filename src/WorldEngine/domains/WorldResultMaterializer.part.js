@@ -1,63 +1,10 @@
-    const ASSET_DEFAULTS={所属对象:[],类型:'',主体规模:1,完整度:100,状态:'',建设序列:{},驻扎人员:{},待办事件:[]};
-    const ASSET_ENERGY_DEFAULTS={类型:'',当前:0,上限:0,描述:''};
-    const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
-    const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit,people,taskLedger,chronology,timePolicy,relationSync,rumor){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;this.relationSync=relationSync||DEFAULT_WORLD_RELATION_SYNC_POLICY;this.rumor=rumor||DEFAULT_WORLD_RUMOR_SERVICE;}
+        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit,people,taskLedger,chronology,timePolicy,relationSync,assetPolicy,rumor){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;this.relationSync=relationSync||DEFAULT_WORLD_RELATION_SYNC_POLICY;this.assetPolicy=assetPolicy||DEFAULT_WORLD_ASSET_MATERIALIZATION_POLICY;this.rumor=rumor||DEFAULT_WORLD_RUMOR_SERVICE;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
             return out;
         }
-        assertWorldAssetScope(item,isNew=false) {
-            if(!isNew)return;
-            const type=String(item?.类型||'').trim(),name=String(item?.名称||'').trim();
-            if(!WORLD_ASSET_TYPE_SET.has(type))throw new Error('新资产类型非法：'+(name||'未命名')+'；资产只允许固定地产、大型载具或要塞，普通道具/材料/消耗品不得进入资产账簿');
-            if(ITEMLIKE_ASSET_NAME.test(name))throw new Error('疑似道具被误写为资产：'+name+'；请写入角色道具/装备/形态等对应字段，不得写入资产');
-        }
-        materializeAssetRecord(oldValue,item,isNew=false) {
-            const oldAsset=plain(oldValue)?copy(oldValue):{},asset=Object.assign(copy(ASSET_DEFAULTS),oldAsset);
-            const normalizeOwners=value=>{const source=Array.isArray(value)?value:(value===undefined?[]:[value]),out=[];for(const raw of source){const owner=String(raw??'').trim();if(!owner||owner==='无主'||out.includes(owner))continue;out.push(owner);}return out.slice(0,12);};
-            // 旧资产没有所属对象时兼容为玩家资产；显式空数组则表示无主。
-            asset.所属对象=Object.hasOwn(oldAsset,'所属对象')?normalizeOwners(oldAsset.所属对象):['<user>'];
-            if(isNew){
-                if(!Object.hasOwn(item,'所属对象'))throw new Error('新资产必须明确所属对象数组；无主资产请使用空数组：'+item.名称);
-                if(!Object.hasOwn(item,'类型')||!String(item.类型||'').trim())throw new Error('新资产必须明确类型：'+item.名称);
-            }
-            if(Object.hasOwn(item,'所属对象'))asset.所属对象=normalizeOwners(item.所属对象);
-            for(const field of ['类型','主体规模','完整度','状态'])if(Object.hasOwn(item,field))asset[field]=copy(item[field]);
-            if(Object.hasOwn(item,'能源')){
-                if(item.能源===null)delete asset.能源;
-                else asset.能源=Object.assign(copy(ASSET_ENERGY_DEFAULTS),plain(oldAsset.能源)?copy(oldAsset.能源):{},plain(item.能源)?copy(item.能源):{});
-            }
-            const mergeNamedMap=(field,defaults)=>{
-                if(!Object.hasOwn(item,field))return;
-                const merged=plain(oldAsset[field])?copy(oldAsset[field]):{};
-                for(const [name,value] of Object.entries(item[field]||{})){
-                    if(forbidden.has(name))continue;
-                    if(value===null){delete merged[name];continue;}
-                    const previous=plain(merged[name])?copy(merged[name]):{};
-                    merged[name]=Object.assign(copy(defaults),previous,copy(value));
-                }
-                if(Object.keys(merged).length)asset[field]=merged;else delete asset[field];
-            };
-            mergeNamedMap('消耗单元',ASSET_UNIT_DEFAULTS);
-            mergeNamedMap('建设序列',ASSET_BUILD_DEFAULTS);
-            if(Object.hasOwn(item,'驻扎人员')){
-                const merged=plain(oldAsset.驻扎人员)?copy(oldAsset.驻扎人员):{};
-                for(const [name,value] of Object.entries(item.驻扎人员||{})){
-                    if(forbidden.has(name))continue;
-                    if(value===null)delete merged[name];else merged[name]=String(value??'');
-                }
-                asset.驻扎人员=merged;
-            }
-            if(Object.hasOwn(item,'待办事件'))asset.待办事件=copy(item.待办事件||[]);
-            if(!plain(asset.建设序列))asset.建设序列={};
-            if(!plain(asset.驻扎人员))asset.驻扎人员={};
-            if(!Array.isArray(asset.待办事件))asset.待办事件=[];
-            return asset;
-        }
-
         compileWorldResult(stat,value) {
             const originalStat=stat,initial=this.normalizer.normalizeWorldResult(value),timing=this.timePolicy.prepareCompile(originalStat,initial);
             stat=timing.validationStat;
@@ -135,7 +82,7 @@
             for(const item of result.资产||[]){
                 if(item.操作==='撤销本轮')continue;
                 const target=stableNameIn(stat.资产||{},item.名称),existing=target?(stat.资产||{})[target]:undefined;
-                if(!target&&item.操作!=='移除')this.assertWorldAssetScope(item,true);
+                if(!target&&item.操作!=='移除')this.assetPolicy.validateScope(item,true);
                 const tombstoneName=stableNameIn(stat?.世界?.[PATH]?.资产墓碑||{},item.名称);
                 if(!target&&item.操作!=='移除'&&tombstoneName)throw new Error('资产已被用户或MVU删除，受删除保护，世界引擎不得重建：'+item.名称);
                 if(item.操作==='移除'){
@@ -144,7 +91,7 @@
                     continue;
                 }
                 const finalName=target||item.名称;
-                const record=this.materializeAssetRecord(existing,item,!target);
+                const record=this.assetPolicy.materializeRecord(existing,item,!target);
                 if(existing&&same(existing,record))continue;
                 patches.push({op:target?'replace':'add',path:this.patchPolicy.pointer(['资产',finalName]),value:record});
             }
@@ -315,7 +262,7 @@
             return {next,appliedSeeds,repairPatches};
         }
     }
-    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE,DEFAULT_WORLD_PATCH_POLICY,DEFAULT_WORLD_NPC_AUDIT_SERVICE,DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE,DEFAULT_WORLD_TASK_AWARENESS_SERVICE,DEFAULT_WORLD_CHRONOLOGY_POLICY,DEFAULT_WORLD_TIME_POLICY,DEFAULT_WORLD_RELATION_SYNC_POLICY);
+    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE,DEFAULT_WORLD_PATCH_POLICY,DEFAULT_WORLD_NPC_AUDIT_SERVICE,DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE,DEFAULT_WORLD_TASK_AWARENESS_SERVICE,DEFAULT_WORLD_CHRONOLOGY_POLICY,DEFAULT_WORLD_TIME_POLICY,DEFAULT_WORLD_RELATION_SYNC_POLICY,DEFAULT_WORLD_ASSET_MATERIALIZATION_POLICY);
     let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
     function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}

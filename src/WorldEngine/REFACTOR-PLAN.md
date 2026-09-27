@@ -754,3 +754,18 @@ RuntimeConstants 紧跟 Foundation、早于 ThemeCatalog 与所有领域 consume
 `WorldEngineFoundation.part.js` 现在只保留文件头、`(function (root) {` 与 `'use strict';`，约 185B；它不再承载任何领域、UI、配置、常量或工具实现。SharedUtilities 紧跟 Foundation 加载，随后才是 RuntimeConstants / ThemeCatalog / 领域模块，因此所有旧全局 helper 的可见顺序不变。
 
 本阶段不为无状态工具机械创建 class；共享纯函数以单独 utility part 维护。构建 workflow 与架构测试锁定 Foundation 不得重新长回 helper 或业务逻辑。
+
+
+### Phase 75 · 全面类化完成门槛
+
+已完成：在 `tests/world-engine-class-architecture.cjs` 增加全源码树完成门槛，而不是继续按历史文件逐个打补丁。
+
+门槛会递归扫描 `src/WorldEngine/**/*.part.js`：
+
+- 只允许 `core/WorldEngineClassBridge.part.js` 出现 `extends SamsaraWorldEngine`；它是唯一保留的外部 API / super 调用顺序兼容层。
+- 禁止重新用 `= function` 覆写 `compileWorldResult / retryPlanForFailure / projectWorldContext / applyPatches / validateState / materializeWorldUpdate` 六个历史核心 seam。
+- `script/world-engine-src/` 必须持续不存在。
+- 现有 Prompt Registry 完整性、Prompt 源码审计、全部实际提示词可编辑回归继续作为提示词边界门槛。
+- Foundation 已是纯 IIFE 边界；构建器只接受 `@src/WorldEngine/...`。
+
+至此“全面类化”不再以文件越多、类越多为目标。剩余较大的 `WorldRunOrchestrator / WorldResultNormalizer / WorldRumorService / WorldCausalService / WorldPersonActivityService / UI Controller/Renderer` 都已有明确单一领域 owner；后续只有在出现新的职责边界或测试 seam 时才继续拆分，禁止为了尺寸机械碎片化。

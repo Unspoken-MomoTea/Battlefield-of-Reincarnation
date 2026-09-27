@@ -16,12 +16,14 @@ for(const file of [
   assert.ok(fs.existsSync(path.join(root,file)),file+' must exist');
 }
 
+for(const file of [
+  'script/world-engine-src/59-causal-offset-editor.part.js',
+  'script/world-engine-src/59-history-memory-editor.part.js',
+]) assert.equal(fs.existsSync(path.join(root,file)),false,file+' must be deleted after src editor migration');
 const legacyEditors=[
   'script/world-engine-src/editor/00-world-mutations.part.js',
   'script/world-engine-src/editor/10-event-editor.part.js',
   'script/world-engine-src/editor/20-person-editor.part.js',
-  'script/world-engine-src/59-causal-offset-editor.part.js',
-  'script/world-engine-src/59-history-memory-editor.part.js',
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
 assert.doesNotMatch(legacyEditors,/SamsaraWorldEngine\s*=\s*class/,'manual editor modules must not create more SamsaraWorldEngine inheritance layers');
 

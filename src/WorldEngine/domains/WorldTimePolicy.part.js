@@ -1,6 +1,59 @@
     const WORLD_TIME_MACHINE_DESCRIPTION='精确到月日时使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段仅限：凌晨/黎明/清晨/早晨/上午/中午/午后/下午/傍晚/入夜/晚上/深夜；只能确定季节/阶段时可保留粗粒度。';
+    const WORLD_DAYPART_ALIASES=Object.freeze({
+        '清早':'清晨',
+        '早上':'早晨',
+        '黄昏':'傍晚',
+        '夜晚':'晚上',
+        '夜间':'晚上',
+        '夜里':'晚上',
+        '晚间':'晚上'
+    });
 
     class WorldTimePolicy {
+        normalizeDaypartAlias(value) {
+            let source=String(value||'');
+            for(const [alias,canonical] of Object.entries(WORLD_DAYPART_ALIASES))source=source.replaceAll(alias,canonical);
+            return source;
+        }
+
+        key(value) {
+            const source=this.normalizeDaypartAlias(value);
+            let m=source.match(/(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/);
+            if(!m)m=source.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+            if(!m)return null;
+            const y=+m[1],month=+m[2],day=+m[3];
+            if(!Number.isInteger(y)||!Number.isInteger(month)||!Number.isInteger(day)||month<1||month>12||day<1)return null;
+            const date=new Date(0);
+            date.setUTCFullYear(y,month-1,day);date.setUTCHours(0,0,0,0);
+            if(date.getUTCFullYear()!==y||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return null;
+
+            const exact=source.match(/(?:^|[日T\s_-])(\d{1,2}):([0-5]\d)(?::([0-5]\d))?/);
+            if(exact){
+                const hour=Number(exact[1]),minute=Number(exact[2]),second=Number(exact[3]||0);
+                if(!Number.isInteger(hour)||hour<0||hour>23)return null;
+                return date.getTime()/3600000+hour+minute/60+second/3600;
+            }
+
+            const part=source.match(/凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜/);
+            const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
+            let dayHour=part?hour[part[0]]:0;
+            const branch=source.match(/([子丑寅卯辰巳午未申酉戌亥])时(?:([一二三四1234])刻)?/);
+            if(branch){
+                const branchHour={子:23,丑:1,寅:3,卯:5,辰:7,巳:9,午:11,未:13,申:15,酉:17,戌:19,亥:21};
+                const quarterMap={一:1,二:2,三:3,四:4,'1':1,'2':2,'3':3,'4':4};
+                dayHour=branchHour[branch[1]]+(quarterMap[branch[2]]||0)*0.25;
+            }
+            return date.getTime()/3600000+dayHour;
+        }
+
+        dayKey(value) {
+            const key=this.key(value);
+            return key===null?null:Math.floor(key/24);
+        }
+
+        hasExactClock(value) {
+            return /(?:^|[日T\s_-])(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?/.test(String(value||''));
+        }
         unset(value) {
             const raw=String(value??'').trim();
             return !raw||raw==='待初始化';
@@ -63,7 +116,7 @@
         assertNotBackwards(stat,nextTime) {
             const current=String(stat?.世界?.时间||'').trim();
             if(this.unset(current)||!nextTime)return;
-            const before=worldDateKey(current),after=worldDateKey(nextTime);
+            const before=this.key(current),after=this.key(nextTime);
             if(before!==null&&after!==null&&after<before)throw new Error('世界时间不可回退：'+current+' -> '+nextTime);
         }
 
@@ -89,3 +142,4 @@
     }
 
     const DEFAULT_WORLD_TIME_POLICY=new WorldTimePolicy();
+    let ACTIVE_WORLD_TIME_POLICY=DEFAULT_WORLD_TIME_POLICY;

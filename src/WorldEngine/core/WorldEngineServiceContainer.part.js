@@ -105,6 +105,7 @@
             this.historyLifecycle=new WorldHistoryLifecycle(engine,this.historyMemory);
             this.views=new WorldEngineViewRegistry(engine);
             this.prompts=new WorldPromptRegistry(engine);
+            this.promptIntegration=new WorldPromptIntegrationService(engine,this.prompts,this.tokenTelemetry);
             this.panelController=new WorldPanelController(engine);
             this.panelRenderer=new WorldPanelRenderer(engine);
             this.editorController=new WorldEditorController(engine);

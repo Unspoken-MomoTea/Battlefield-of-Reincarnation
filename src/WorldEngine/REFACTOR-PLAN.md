@@ -677,3 +677,10 @@ patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动
 该 policy 显式组合 container-owned `patchPolicy / timePolicy / rumor`，因此记录结构校验、日历解析和传闻公开状态不再通过 Materializer 内部散落逻辑重复实现。公开 `validateState()` seam 保持不变，仍经 `WorldResultMaterializer.validateBaseState()` 转发。
 
 `WorldResultMaterializer` 继续负责结果编译、patch 应用与最终物化编排，但不再拥有“什么样的完整世界状态才合法”的领域规则。
+
+
+#### Phase 66 修复 · 传闻原始格式诊断
+
+Phase 66 首次迁移后，`WorldStateIntegrityPolicy.validate()` 多返回了状态对象，暴露出旧 `validateState()` 成功时返回 `undefined` 曾被 Staging 偶然当成 Schema mismatch 的历史副作用。与此同时，`WorldResultNormalizer` 会把未知街头巷议可信度降级为“可疑”，导致原始格式错误失去 softRejected 诊断。
+
+修复后：StateIntegrity 恢复旧的无返回值成功契约；`WorldResultNormalizer.assertRumorCredibility()` 显式识别 canonical 值与既有可信/不可信同义词；`WorldResultStagingService` 在归一化前记录不可识别的原始可信度，并按传闻软失败规则保留诊断。普通兼容 `normalizeWorldResult()` 仍维持未知值降级为“可疑”的旧行为。

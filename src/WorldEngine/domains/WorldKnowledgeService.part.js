@@ -69,7 +69,7 @@
                     const title=e.name||e.comment||'未命名';
                     result.push({
                         book,id:String(e.uid??e.id??i),title,sources:Array.from(labels),
-                        technical:isTechnicalBook(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,
+                        technical:this.selection.isTechnical(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,
                         mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),
                         keys:e.strategy?.keys||e.keys||e.key||[],
                         secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},
@@ -86,7 +86,7 @@
             const report=[];engine.readReport=report;
             for(const e of catalogue){
                 const selected=!e.technical&&this.selection.matches(e,engine.config.selectedEntries);
-                const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&isTimelineBackboneEntry(e.title);
+                const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&this.selection.isTimelineBackbone(e.title);
                 const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?this.activation(e,scan,engine.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
                 report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
                 if(!decision.read)continue;

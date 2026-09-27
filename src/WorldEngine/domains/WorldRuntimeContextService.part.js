@@ -27,4 +27,7 @@
                         if (snapshot.message.is_user || snapshot.message.role === 'user') return '等待正文完成';
                         return '';
         }
+        backendState(){
+            return copy(Object.assign(emptyState(),this.snapshot().stat.世界[PATH]||{}));
+        }
     }

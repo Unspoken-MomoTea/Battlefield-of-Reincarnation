@@ -1,3 +1,5 @@
+    const WORLD_TECHNICAL_BOOK_RULES=[/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
+
     class WorldKnowledgeSelectionPolicy {
         parseKey(value) {
             try{
@@ -25,6 +27,14 @@
             }
             return false;
         }
+        isTechnical(title) {
+            return WORLD_TECHNICAL_BOOK_RULES.some(rule=>rule.test(String(title||'').trim()));
+        }
+        isTimelineBackbone(title) {
+            const name=String(title||'').replace(/\s+/g,'');
+            if(/(?:变量|输出格式|更新规则|COT|思考|风格|助手|状态栏)/i.test(name))return false;
+            return /(?:校历|世界年表|事件年表|原著年表|时间线|时间轴|大事记|大事件摘要|历史大事件|剧情大纲|剧情章节|章节控制器|主线年表)/i.test(name);
+        }
     }
 
     const DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY=new WorldKnowledgeSelectionPolicy();
@@ -33,3 +43,5 @@
     function normalizeWorldbookIdentity(value){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.normalizeIdentity(value);}
     function normalizeWorldbookEntryTitle(value){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.normalizeTitle(value);}
     function selectedEntryMatches(entry,selectedEntries){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.matches(entry,selectedEntries);}
+    function isTechnicalBook(title){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.isTechnical(title);}
+    function isTimelineBackboneEntry(title){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.isTimelineBackbone(title);}

@@ -162,6 +162,7 @@
         compileWorldResult(stat,value) {
             const prepared=this.people.normalizeAlienActivityTimestamps(stat,value);
             const result=this.normalizer.normalizeWorldResult(prepared),patches=[],warnings=[];
+            this.npcAudit.normalizeNewEquipment(stat,result);
             const droppedCausalOffsets=this.causal.prepareResult(stat,result);
             this.chronology.validate(stat,result);
             this.taskLedger.validateReferences(stat,result);

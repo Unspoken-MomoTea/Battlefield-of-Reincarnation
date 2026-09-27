@@ -205,7 +205,7 @@ assert.match(texts['@src/WorldEngine/domains/WorldCommitService.part.js'],/__sam
 assert.match(texts['@src/WorldEngine/domains/WorldRunOrchestrator.part.js'],/services\?\.commit\?\.persist|services\.commit\.persist/,'run orchestrator must delegate the primary write to WorldCommitService');
 assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/reprocessContext\(/);
 assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/legacyPackage\(/);
-assert.doesNotMatch(texts['59-world-replay-persistence.part.js'],/SamsaraWorldEngine\s*=\s*class/,'replay persistence legacy shim must not recreate an inheritance layer');
+assert.equal(fs.existsSync(path.join(dir,'59-world-replay-persistence.part.js')),false,'replay persistence legacy shim must be deleted');\nassert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/const\s+WORLD_REPLAY_VERSION=1/,'replay contract version must live with the replay service');\nassert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/const\s+WORLD_REPLAY_SCOPES=/,'replay scopes must live with the replay service');
 for(const file of legacyDeclared)assert.doesNotMatch(texts[file],/SamsaraWorldEngine\s*=\s*class/,file+' must not add another SamsaraWorldEngine inheritance layer');
 
 console.log(`world-engine modules synchronized through build declaration (${declared.length} parts)`);

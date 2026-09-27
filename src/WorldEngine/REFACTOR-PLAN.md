@@ -262,3 +262,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 `sameWorldTimeAnchor()` 的真实实现迁入 `WorldTimelinePolicy.sameTimeAnchor()`，人物活动、生命周期与传闻等旧调用继续通过兼容函数获得同一语义。`30-context-protocol.part.js` 不再保存输出协议或时间比较算法，进一步收缩为早期 projector seam 与旧 NPC 默认提示兼容层。
 
 下一批优先处理剩余 `compileWorldResult` decorator；按领域逐条迁移，不一次拆掉整个装饰链。
+
+
+### Phase 27 · 异端时间戳 compile wrapper 移除
+
+已完成：删除 `script/world-engine-src/59-alien-activity-normalization.part.js`。活跃异端活动时间戳规范化不再通过后加载的 `compileWorldResult=function...` monkey patch 生效，而由 `WorldResultCompiler` 与 `WorldResultStagingService` 显式组合同一个 `WorldPersonActivityService`，在最终编译和分片验收两条路径统一调用 `normalizeAlienActivityTimestamps()`。
+
+这样保持原行为覆盖范围：空世界时间可从本轮结果解析时间锚点，完整异端活动由程序统一写最终世界时间；分片验收与最终提交不会出现不同语义。原有 `Active alien activity normalization` 集成回归继续作为公开行为 seam。
+
+剩余 `compileWorldResult` legacy decorator 继续按领域逐条迁移。

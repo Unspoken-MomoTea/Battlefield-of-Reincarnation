@@ -287,6 +287,7 @@ assert.equal(engine.services.validationPolicy.constructor.name,'WorldValidationP
 assert.equal(engine.services.validationPolicy.timeline,engine.services.timelinePolicy,'validation policy must compose the container-owned timeline policy');
 assert.equal(engine.services.validationPolicy.duePolicy,engine.services.dueEventPolicy,'validation policy must compose the container-owned due-event policy');
 assert.equal(engine.services.validationPolicy.activityPolicy,engine.services.activityPolicy,'validation policy must compose the container-owned world activity policy');
+assert.equal(engine.services.softMaintenancePolicy.timeline,engine.services.timelinePolicy,'soft-maintenance policy must share the container-owned timeline policy');
 assert.equal(engine.services.validationPolicy.softMaintenancePolicy,engine.services.softMaintenancePolicy,'validation policy must compose the container-owned soft-maintenance policy');
 assert.equal(engine.services.compiler.normalizer,engine.services.resultNormalizer,'compiler must compose the container-owned normalizer');
 assert.equal(engine.services.compiler.materializer,engine.services.resultMaterializer,'compiler must compose the container-owned materializer');

@@ -652,3 +652,10 @@ patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动
 已完成：`WorldEngineFoundation.part.js` 不再保存 `TECHNICAL_BOOK / isTechnicalBook / isTimelineBackboneEntry` 的真实规则。技术世界书隔离与时间轴/年表骨架识别现在统一由 `WorldKnowledgeSelectionPolicy.isTechnical()` 与 `isTimelineBackbone()` 负责。
 
 `WorldKnowledgeService` 的 catalogue/read 两条路径以及 `WorldChronologyFeature` 的原著时间轴二次筛选，共享 Service Container 中同一个 `knowledgeSelection` 实例。旧 `isTechnicalBook / isTimelineBackboneEntry` 仅保留 compatibility forwarder，防止仍未迁移的调用方形成第二套分类规则。
+
+
+### Phase 64 · 正式人物关系同步规则独立
+
+已完成：新增 `WorldRelationSyncPolicy`，从 `WorldResultMaterializer` 中抽出正式人物同步的完整规则：基础类型、品质与原始属性校验，职业/技能/血统/装备/状态/形态库完整对象校验，HP/EP/好感度边界、当前形态结构、派生 `真属性` 清空、组件增量合并，以及组件数量上限。
+
+`WorldResultMaterializer` 现在只负责确定目标人物、审计字段权限和生成 patch；编译与 applyPatches 两条路径都委托 container-owned `relationSync` 做同一份合法性判断。正式人物数据契约不再与资产、事件、因果等结果物化逻辑混在一个大类中。

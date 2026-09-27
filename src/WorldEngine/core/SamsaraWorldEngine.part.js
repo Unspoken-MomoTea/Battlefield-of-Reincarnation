@@ -4,7 +4,10 @@
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
             this.lastRequest=null; this.previewRequest=null; this.lastReply=''; this.lastFailure='';
             this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastAttemptTelemetry=[]; this.lastTransportInfo=null; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
-            this.configService=new WorldEngineConfigService(this);\n            this.config=this.configService.initialize();\n        }\n        fn(name) {
+            this.configService=new WorldEngineConfigService(this);
+            this.config=this.configService.initialize();
+        }
+        fn(name) {
             for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
             return null;
         }

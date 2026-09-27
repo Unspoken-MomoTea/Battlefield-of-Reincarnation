@@ -6,7 +6,8 @@
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateFactory=new WorldStateFactory();
             this.taskLedger=new WorldTaskAwarenessService();
-            this.stateProjector=new WorldStateProjector(engine,this.taskLedger);
+            this.history=new WorldHistoryService(engine);
+            this.stateProjector=new WorldStateProjector(engine,this.taskLedger,this.history);
             ACTIVE_WORLD_STATE_PROJECTOR=this.stateProjector;
             this.patchPolicy=new WorldPatchPolicy();
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
@@ -42,7 +43,6 @@
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
-            this.history=new WorldHistoryService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;

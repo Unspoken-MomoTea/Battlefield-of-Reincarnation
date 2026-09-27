@@ -139,6 +139,7 @@ assert.equal(engine.services.resultMaterializer.constructor.name,'WorldResultMat
 assert.equal(engine.services.resultMaterializer.stateNormalizer,engine.services.stateNormalizer,'materializer must compose the container-owned state normalizer');
 assert.equal(engine.services.resultMaterializer.patchPolicy,engine.services.patchPolicy,'materializer must compose the container-owned patch policy');
 assert.equal(engine.services.resultMaterializer.npcAudit,engine.services.npcAudit,'materializer must compose the container-owned NPC audit service');
+assert.equal(engine.services.resultMaterializer.people,engine.services.people,'materializer must compose the container-owned person activity service for canonical compile preprocessing');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
 assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyParser');
@@ -149,8 +150,6 @@ assert.equal(engine.services.compiler.normalizer,engine.services.resultNormalize
 assert.equal(engine.services.compiler.materializer,engine.services.resultMaterializer,'compiler must compose the container-owned materializer');
 assert.equal(engine.services.compiler.staging,engine.services.resultStaging,'compiler must compose the container-owned staging service');
 assert.equal(engine.services.compiler.patchPolicy,engine.services.patchPolicy,'compiler must compose the container-owned patch policy');
-assert.equal(engine.services.compiler.people,engine.services.people,'compiler must compose the container-owned person activity service');
-assert.equal(engine.services.resultStaging.people,engine.services.people,'staging must compose the same person activity service for fragment compilation');
 assert.equal(engine.services.validation.constructor.name,'WorldValidationService');
 assert.equal(engine.services.validation.policy,engine.services.validationPolicy,'validation service must compose the container-owned policy');
 assert.equal(engine.services.validation.npcAudit,engine.services.npcAudit,'validation service must compose the container-owned NPC audit service');

@@ -326,3 +326,10 @@ The macro-backbone requirement remains independently configurable, but world-act
 `WorldSoftMaintenancePolicy` owns the non-blocking event-schedule maintenance contract. It treats a concrete time, meaningful condition, or explicit predecessor as a usable schedule anchor and returns unresolved maintenance items without turning them into whole-run hard failures.
 
 `WorldValidationPolicy` composes the container-owned soft-maintenance policy. The former `59-soft-maintenance.part.js` module has been deleted; its maintenance prompt default moved with the policy, while the exploration prompt default moved into `WorldExplorationService`. Both remain registry-backed editable prompts.
+
+
+## Phase 41 · Rumor domain defaults
+
+`WorldRumorService` now owns both rumor maintenance behavior and the legacy/default prompt material required by the editable prompt registry. It also owns the built-in preset migration through `upgradePreset()`. `WorldRumorRequestFeature` remains a request/UI feature and delegates preset migration to the same container-owned rumor service.
+
+The former rumor legacy modules (`56-rumor-liveliness`, `59-rumor-throttle`, `59-rumor-world-source`, `59-rumor-world-request`, `59-rumor-world-system`) are deleted. No rumor business or prompt-default implementation remains in `script/world-engine-src`.

@@ -524,3 +524,14 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 新增 `tests/world-engine-panel-controller.cjs`，从公开 `engine.createPanel()` seam 验证 mount/style/panel 实际挂载、三类事件路由存在以及 Tab 点击继续更新 engine 状态。架构回归同时禁止 click/input/change 路由重新长回 `SamsaraWorldEngine`，并把 src application shell 体积锁在 45KB 以下。
 
 下一阶段继续迁出 `render()` 中的导航/展示编排；业务 View 已经独立，目标是让 shell 最终只保留 panel 生命周期和 application facade。
+
+
+### Phase 50 · 面板渲染编排 Renderer 化
+
+已完成：新增 `WorldPanelRenderer`，把 `SamsaraWorldEngine.render()` 中约 22.4KB 的快照准备、后台规范化、运行按钮状态、导航生成、公共 UI helper、日历/人物/事件展示上下文组装、View Registry 调度和事件跳转收尾整体迁出 application shell。业务 View class 本身不改，Renderer 只负责公共展示编排与把 context 交给既有 View。
+
+`SamsaraWorldEngine.render(force)` 现在只委托 container-owned `panelRenderer`；ClassBridge 仍按原顺序执行 Feature Registry 的 before/afterRender、Prompt Workspace 同步以及 EditorController.afterRender。迁移后基础 shell 从约 38KB 降到约 15.7KB。
+
+新增 `tests/world-engine-panel-renderer.cjs`，从公开 `engine.render()` seam 验证“总览”兼容别名、导航、运行按钮、主题/字号状态和业务 View 调度。架构回归逐项锁住 10 个业务 View 必须经 `WorldPanelRenderer → WorldEngineViewRegistry` 调度，并把 application shell 体积上限收紧到 20KB。
+
+下一阶段继续审查 shell 剩余约 15KB：优先抽离 init/open/close/dispose 等 panel 生命周期与剩余 Prompt/API 兼容 facade，目标是 `SamsaraWorldEngine` 最终只保留 application lifecycle 与稳定公开 seam。

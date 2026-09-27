@@ -20,6 +20,7 @@
 - `WorldTimePolicy`：世界时间候选解析、日历兼容、禁止回退、编译事务快照与最终时间 patch。
 - `WorldLifecycleService`：冷结束事件归档、事件软引用解绑与传播过期判定。
 - `WorldResultCompiler`：WorldResult 标准化、分片验收、补丁编译与 materialize 入口。
+- `WorldRetryGuidanceService`：业务失败 → 纠错补充清单；所有静态纠错动作模板从 Prompt Registry 读取。
 - `WorldValidationService`：编译后统一执行到期事件、时间锚点、超期事件、时间异常、异端、NPC 审计与宏观骨架验收。
 - `WorldCommitService`：稳定值重算、最近变化、历史/replay 提交装饰、Schema 二次确认与单次 MVU 写入。
 - `WorldMutationService`：世界推进变量的原子写回与 replay 合并入口。

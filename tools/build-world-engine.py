@@ -47,7 +47,6 @@ PARTS = (
     'editor/10-event-editor.part.js',
     'editor/20-person-editor.part.js',
     '59-reprocess-immediate-retry.part.js',
-    '59-alien-activity-normalization.part.js',
     '59-rumor-throttle.part.js',
     '59-rumor-world-source.part.js',
     '59-rumor-world-facts.part.js',

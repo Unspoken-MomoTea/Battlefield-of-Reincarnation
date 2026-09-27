@@ -1,5 +1,5 @@
     class WorldStateProjector {
-        constructor(engine=null,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE){this.engine=engine;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;}
+        constructor(engine=null,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE,history=null){this.engine=engine;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.history=history||null;}
         omitKeys(value,keys=[]){
             if(!plain(value))return copy(value);
             const out=copy(value);
@@ -104,9 +104,9 @@
                 事件:copy(backend.事件||{}),
                 人物:projectHotWorldPeople(src),
                 势力地区:copy(backend.势力地区||{}),
-                历史:this.tailRecord(backend.历史,HOT_HISTORY_TARGET),
                 传播:this.tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
             };
+            projectedBackend.历史记忆=this.history?.project?this.history.project(backend):projectWorldHistoryMemory(backend);
             for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.资源点;
             const out={
                 世界:{
@@ -149,8 +149,7 @@
             if(Object.keys(tasks).length)out.任务={列表:tasks};
             return out;
         }
-        // Public service path keeps the remaining history decorator until it is class-migrated.
-        world(stat){return projectWorldContext(stat);}
+        world(stat){return this.baseWorld(stat);}
     }
 
     const DEFAULT_WORLD_STATE_PROJECTOR=new WorldStateProjector();

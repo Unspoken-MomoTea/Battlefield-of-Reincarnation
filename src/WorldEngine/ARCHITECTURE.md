@@ -297,3 +297,10 @@ All 20 static retry templates are registered in `WorldPromptRegistry` under the 
 `WorldTimePolicy` is the sole owner of comparable world-time parsing: calendar dates, canonical and alias dayparts, traditional branch hours, and exact HH:mm[:ss] clocks. The public `worldDateKey()` function is compatibility-only and forwards to `ACTIVE_WORLD_TIME_POLICY`.
 
 `WorldTimelinePolicy` composes the same container-owned time policy and owns the final integrity precision rules: non-person current facts are rejected only when they cross a natural-day boundary, while person activity uses minute-level ordering only when both timestamps provide exact clocks. The legacy integrity module retains prompt text only; the separate daypart wrapper module has been deleted.
+
+
+## Phase 37 · Due-event policy
+
+`WorldDueEventPolicy` is the canonical owner of due-event review timing and soft-reminder semantics. It composes `WorldTimePolicy`, produces the request review list, and explicitly defines due-event validation as non-blocking. `WorldDueEventFeature` and `WorldValidationPolicy` share the same container-owned policy instance.
+
+The legacy `59-due-event-relaxation.part.js` module has been deleted; no runtime assignment to `ensureDueHandled` remains.

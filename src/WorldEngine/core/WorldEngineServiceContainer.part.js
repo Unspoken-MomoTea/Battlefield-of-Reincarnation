@@ -65,7 +65,17 @@
             );
             this.stateIntegrity=new WorldStateIntegrityPolicy(this.patchPolicy,this.timePolicy,this.rumor);
             this.patchApplication=new WorldPatchApplicationService(this.patchPolicy,this.stateNormalizer,this.timelinePolicy,this.stateIntegrity,this.relationSync,this.rumor);
-            this.resultMaterializer=new WorldResultMaterializer(this.resultPatchCompilation,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.stateIntegrity,this.patchApplication);
+            this.stateMaterialization=new WorldStateMaterializationService(
+                this.stateFactory,
+                this.stateNormalizer,
+                this.lifecycle,
+                this.patchPolicy,
+                this.patchApplication,
+                this.exploration,
+                this.causal,
+                this.stateIntegrity
+            );
+            this.resultMaterializer=new WorldResultMaterializer(this.resultPatchCompilation,this.stateMaterialization);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.retryGuidance=new WorldRetryGuidanceService(engine);
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy,this.retryGuidance,this.rumor);

@@ -222,3 +222,10 @@ Worldbook activation is owned by `WorldKnowledgeService`: constant/selective ent
 ## Phase 25 · NPC audit domain
 
 `WorldNpcAuditService` owns NPC audit projection, narrative-weight classification, hot-audit selection, gap calculation and progress validation. Audit level is private world-engine state and remains independent from character power tier. The feature-toggle/worldbook/UI concerns stay in `WorldNpcAuditPolicy`; materialization and validation compose the canonical audit service directly.
+
+
+## Phase 26 · Contract and time seams
+
+`WorldResultContract` owns both the editable WorldResult output instruction and the immutable Canonical Schema assembly. `WorldPromptRegistry.outputProtocol` reads the contract instruction directly, while the public `protocol()` name is only a compatibility forwarder.
+
+`WorldTimelinePolicy` owns world-time anchor equivalence through `sameTimeAnchor()`. The legacy `sameWorldTimeAnchor()` function forwards to the active policy so lifecycle/person/rumor callers retain behavior during migration.

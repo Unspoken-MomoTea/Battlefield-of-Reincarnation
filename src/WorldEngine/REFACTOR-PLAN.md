@@ -718,3 +718,12 @@ Phase 66 首次迁移后，`WorldStateIntegrityPolicy.validate()` 多返回了�
 `WorldEngineClassBridge` 继续保留公开方法和 `super` 调用顺序，只负责把基础结果交给 container-owned `promptIntegration`。新 service 与 `WorldPromptRegistry`、`WorldTokenTelemetry` 使用 Service Container 中同一实例，并在 Bridge 创建 `WorldPromptWorkspaceController` 后显式 attach，不建立第二套 Prompt 状态。
 
 因此“全部实际提示词”仍由唯一 Prompt Registry 驱动，而 ClassBridge 不再保存 prompt prepare/rewrite/manifest/DOM 绑定算法。
+
+
+### Phase 71 · WorldResult 词汇表归位
+
+已完成：`WorldResultKernel.part.js` 在 Phase 68/69 后已经不再包含任何编译、归一化、物化、校验或回复解析算法，只剩 WorldResult 共享枚举、字段模板与集合常量。本阶段将其零行为改名为 `WorldResultVocabulary.part.js`，不再保留“Kernel”这一误导性的历史名称。
+
+`CURRENCY_FIELDS / CALENDAR_FIELDS / QUALITY_RANKS / RUMOR_CREDIBILITY / INTEL_RATINGS / EXISTING / RELATION_* / WORLD_RESULT_LISTS / WORLD_RESULT_RUMORS / RESULT_OPERATIONS` 的值与加载顺序完全不变，现有 Contract、Normalizer、PatchPolicy、StateIntegrity、RelationSync 与 PatchCompilation 继续消费同一组全局兼容常量。
+
+构建器与架构/模块测试已切换到 Vocabulary 路径，并显式禁止旧 `WorldResultKernel.part.js` 文件重新出现。纯常量不机械包装成空 class；下一步继续评估 Foundation 中仍混合的 UI 主题与通用基础 helper。

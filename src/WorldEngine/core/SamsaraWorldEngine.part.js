@@ -187,50 +187,12 @@
             if(this.panel)this.panel.dataset.tone=tone;
             return tone;
         }
-        init() {
-            const on = this.fn('eventOn');
-            const mvu = this.env.Mvu || this.host.Mvu;
-            if (!on || !mvu || !mvu.events) { this.initTimer = setTimeout(() => { if (!this.disposed) this.init(); },500); return; }
-            const bind = (event,callback) => { if (event) { const off = on(event,callback); if (typeof off === 'function') this.unsub.push(off); else if (off && off.stop) this.unsub.push(() => off.stop()); } };
-            bind(mvu.events.VARIABLE_UPDATE_ENDED, (variables,before) => {
-                // 自身提交和装备等 UI 写回不代表正文完成，避免误触发补跑。
-                if(this.committing||this.host.__samsaraUIMutation||this.env.__samsaraUIMutation||this.host.parent?.__samsaraUIMutation)return;
-                try {
-                    const snapshot=this.snapshot();
-                    if(plain(variables?.stat_data))snapshot.stat=variables.stat_data;
-                    if(this.blocked(snapshot))this.cancel();
-                } catch (_) { /* MVU 可能尚未写回；由延迟调度读取最终状态。 */ }
-                this.render(); this.schedule();
-            });
-            const events = this.env.tavern_events || this.host.tavern_events || {};
-            for (const key of ['CHAT_CHANGED','MESSAGE_SWIPED','MESSAGE_DELETED']) bind(events[key], () => { this.cancel(); this.resetInspection(); this.status = '已切换上下文'; this.render(); });
-            this.keyHandler = event => { if (event.key === 'Escape' && this.isOpen()) { event.stopImmediatePropagation(); this.close(); } };
-            this.host.document.addEventListener('keydown',this.keyHandler,true);
-        }
-        isOpen() { return !!this.panel && !this.panel.hidden; }
-        open() {
-            if (this.isOpen()) return;
-            this.createPanel();
-            const terminal = this.host.Samsara && this.host.Samsara.terminal;
-            if (terminal) this.returnState = terminal.suspend();
-            this.panel.hidden = false; this.render();
-        }
-        close() {
-            this.promptEditing=false;
-            if (!this.isOpen()) return;
-            this.panel.hidden = true;
-            const terminal = this.host.Samsara && this.host.Samsara.terminal;
-            if (terminal) terminal.restore(this.returnState);
-            this.returnState = null;
-        }
-        toggle() { this.isOpen() ? this.close() : this.open(); }
+        init() { return this.services?.applicationLifecycle?.init?.(); }
+        isOpen() { return this.services?.applicationLifecycle?.isOpen?.()??false; }
+        open() { return this.services?.applicationLifecycle?.open?.(); }
+        close() { return this.services?.applicationLifecycle?.close?.(); }
+        toggle() { return this.services?.applicationLifecycle?.toggle?.(); }
         createPanel() { return this.services?.panelController?.createPanel?.(); }
         render(force=false) { return this.services?.panelRenderer?.render?.(force); }
-        dispose() {
-            this.close(); this.disposed = true; this.cancel(); clearTimeout(this.initTimer);
-            this.unsub.forEach(off => off()); this.unsub = [];
-            if (this.keyHandler) this.host.document.removeEventListener('keydown',this.keyHandler,true);
-            if (this.panel) this.panel.remove(); if (this.style) this.style.remove();
-            if (this.mount) this.mount.remove();
-        }
+        dispose() { return this.services?.applicationLifecycle?.dispose?.(); }
     }

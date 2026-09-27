@@ -8,59 +8,6 @@
     const copy = value => JSON.parse(JSON.stringify(value));
     const plain = value => !!value && typeof value === 'object' && !Array.isArray(value);
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-    // P1-C 诊断只需要稳定的近似量级；不同模型 tokenizer 不同，只有 API usage 才视为精确 token。
-    function estimateTokens(value) {
-        const source=typeof value==='string'?value:JSON.stringify(value??'');
-        if(!source)return 0;
-        let eastAsian=0,nonAscii=0,ascii=0;
-        for(const ch of source){
-            const cp=ch.codePointAt(0);
-            const east=(cp>=0x3400&&cp<=0x9fff)||(cp>=0xf900&&cp<=0xfaff)||(cp>=0x3040&&cp<=0x30ff)||(cp>=0x31f0&&cp<=0x31ff)||(cp>=0xac00&&cp<=0xd7af)||(cp>=0x3100&&cp<=0x312f)||(cp>=0xff00&&cp<=0xffef);
-            if(east)eastAsian++;
-            else if(cp<=0x7f)ascii++;
-            else nonAscii++;
-        }
-        return Math.max(1,Math.ceil(eastAsian*1.08+nonAscii+ascii/3.8));
-    }
-    function formatTokenCount(count,estimated=true) {
-        const n=Math.max(0,Math.round(Number(count)||0));
-        let value=String(n);
-        if(n>=1000){
-            const digits=n>=100000?0:n>=10000?1:2;
-            value=(n/1000).toFixed(digits).replace(/(\.\d*?[1-9])0+$|\.0+$/,'$1')+'k';
-        }
-        return (estimated?'≈':'')+value+' tk';
-    }
-    function normalizeTokenUsage(usage) {
-        if(!plain(usage))return null;
-        const finite=value=>Number.isFinite(Number(value))&&Number(value)>=0?Math.round(Number(value)):null;
-        const inputTokens=finite(usage.prompt_tokens??usage.input_tokens??usage.promptTokens??usage.inputTokens);
-        const outputTokens=finite(usage.completion_tokens??usage.output_tokens??usage.completionTokens??usage.outputTokens);
-        let totalTokens=finite(usage.total_tokens??usage.totalTokens);
-        if(totalTokens===null&&inputTokens!==null&&outputTokens!==null)totalTokens=inputTokens+outputTokens;
-        return inputTokens===null&&outputTokens===null&&totalTokens===null?null:{inputTokens,outputTokens,totalTokens};
-    }
-    function requestTokenTelemetry(system,input,schema) {
-        const systemText=String(system||''),inputText=String(input||'');
-        let payload=null;try{payload=JSON.parse(inputText);}catch(_){}
-        const systemParts=systemText.split(/\n(?=【)/).filter(Boolean).map((part,index)=>({
-            名称:(part.match(/^【([^】]+)】/)||[])[1]||'system '+(index+1),
-            估算Tokens:estimateTokens(part)
-        }));
-        const userParts=plain(payload)?Object.entries(payload).filter(([,value])=>value!==undefined).map(([name,value])=>({
-            名称:name,估算Tokens:estimateTokens(JSON.stringify({[name]:value},null,2))
-        })):[];
-        const systemTokens=estimateTokens(systemText),userTokens=estimateTokens(inputText);
-        return {
-            估算:true,
-            请求估算Tokens:systemTokens+userTokens,
-            System估算Tokens:systemTokens,
-            User估算Tokens:userTokens,
-            Schema估算Tokens:estimateTokens(JSON.stringify(schema||{},null,2)),
-            System分段:systemParts,
-            User分段:userParts
-        };
-    }
     function digest(text) {
         let a = 2166136261, b = 5381;
         for (let i=0;i<text.length;i++) { a = Math.imul(a ^ text.charCodeAt(i),16777619); b = Math.imul(b,33) ^ text.charCodeAt(i); }
@@ -147,6 +94,67 @@
         if(date.getFullYear()!==y||date.getMonth()!==month-1||date.getDate()!==d)return null;
         return {y,m:month,d,key:y+'-'+month+'-'+d,fallbackYear,customCalendar:false};
     }
+    class WorldTokenTelemetry {
+        estimate(value) {
+            const source=typeof value==='string'?value:JSON.stringify(value??'');
+            if(!source)return 0;
+            let eastAsian=0,nonAscii=0,ascii=0;
+            for(const ch of source){
+                const cp=ch.codePointAt(0);
+                const east=(cp>=0x3400&&cp<=0x9fff)||(cp>=0xf900&&cp<=0xfaff)||(cp>=0x3040&&cp<=0x30ff)||(cp>=0x31f0&&cp<=0x31ff)||(cp>=0xac00&&cp<=0xd7af)||(cp>=0x3100&&cp<=0x312f)||(cp>=0xff00&&cp<=0xffef);
+                if(east)eastAsian++;
+                else if(cp<=0x7f)ascii++;
+                else nonAscii++;
+            }
+            return Math.max(1,Math.ceil(eastAsian*1.08+nonAscii+ascii/3.8));
+        }
+        format(count,estimated=true) {
+            const n=Math.max(0,Math.round(Number(count)||0));
+            let value=String(n);
+            if(n>=1000){
+                const digits=n>=100000?0:n>=10000?1:2;
+                value=(n/1000).toFixed(digits).replace(/(\.\d*?[1-9])0+$|\.0+$/,'$1')+'k';
+            }
+            return (estimated?'≈':'')+value+' tk';
+        }
+        normalizeUsage(usage) {
+            if(!plain(usage))return null;
+            const finite=value=>Number.isFinite(Number(value))&&Number(value)>=0?Math.round(Number(value)):null;
+            const inputTokens=finite(usage.prompt_tokens??usage.input_tokens??usage.promptTokens??usage.inputTokens);
+            const outputTokens=finite(usage.completion_tokens??usage.output_tokens??usage.completionTokens??usage.outputTokens);
+            let totalTokens=finite(usage.total_tokens??usage.totalTokens);
+            if(totalTokens===null&&inputTokens!==null&&outputTokens!==null)totalTokens=inputTokens+outputTokens;
+            return inputTokens===null&&outputTokens===null&&totalTokens===null?null:{inputTokens,outputTokens,totalTokens};
+        }
+        request(system,input,schema) {
+            const systemText=String(system||''),inputText=String(input||'');
+            let payload=null;try{payload=JSON.parse(inputText);}catch(_){}
+            const systemParts=systemText.split(/\n(?=【)/).filter(Boolean).map((part,index)=>({
+                名称:(part.match(/^【([^】]+)】/)||[])[1]||'system '+(index+1),
+                估算Tokens:this.estimate(part)
+            }));
+            const userParts=plain(payload)?Object.entries(payload).filter(([,value])=>value!==undefined).map(([name,value])=>({
+                名称:name,估算Tokens:this.estimate(JSON.stringify({[name]:value},null,2))
+            })):[];
+            const systemTokens=this.estimate(systemText),userTokens=this.estimate(inputText);
+            return {
+                估算:true,
+                请求估算Tokens:systemTokens+userTokens,
+                System估算Tokens:systemTokens,
+                User估算Tokens:userTokens,
+                Schema估算Tokens:this.estimate(JSON.stringify(schema||{},null,2)),
+                System分段:systemParts,
+                User分段:userParts
+            };
+        }
+    }
+
+    const DEFAULT_WORLD_TOKEN_TELEMETRY=new WorldTokenTelemetry();
+    let ACTIVE_WORLD_TOKEN_TELEMETRY=DEFAULT_WORLD_TOKEN_TELEMETRY;
+    function estimateTokens(value){return ACTIVE_WORLD_TOKEN_TELEMETRY.estimate(value);}
+    function formatTokenCount(count,estimated=true){return ACTIVE_WORLD_TOKEN_TELEMETRY.format(count,estimated);}
+    function normalizeTokenUsage(usage){return ACTIVE_WORLD_TOKEN_TELEMETRY.normalizeUsage(usage);}
+    function requestTokenTelemetry(system,input,schema){return ACTIVE_WORLD_TOKEN_TELEMETRY.request(system,input,schema);}
     class WorldProseExtractor {
         extract(value) {
             let source=String(value??'').replace(/\r\n?/g,'\n');
@@ -4784,9 +4792,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldRequestBuilder {
-        constructor(engine,proseExtractor=DEFAULT_WORLD_PROSE_EXTRACTOR){this.engine=engine;this.proseExtractor=proseExtractor||DEFAULT_WORLD_PROSE_EXTRACTOR;}
+        constructor(engine,proseExtractor=DEFAULT_WORLD_PROSE_EXTRACTOR,telemetry=DEFAULT_WORLD_TOKEN_TELEMETRY){this.engine=engine;this.proseExtractor=proseExtractor||DEFAULT_WORLD_PROSE_EXTRACTOR;this.telemetry=telemetry||DEFAULT_WORLD_TOKEN_TELEMETRY;}
         async build(base){
-            const engine=this.engine,proseExtractor=this.proseExtractor;
+            const engine=this.engine,proseExtractor=this.proseExtractor,telemetry=this.telemetry;
             return await (async function(base){
                             const state=copy(base.stat);
                             state.世界[PATH]=Object.assign(emptyState(),state.世界[PATH]||{});
@@ -4878,7 +4886,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                             const macroPrompt=macroRequirement?(this.config.macroPrompt??DEFAULT_MACRO_PROMPT):'';
                             const corePrompt=this.config.corePrompt??CORE_WORLD_RULES;
                             const system=this.config.preset+(corePrompt?'\n\n'+corePrompt:'')+(macroPrompt?'\n\n'+macroPrompt:'')+(stabilityPrompt?'\n\n'+stabilityPrompt:'')+(npcAudit.length?'\n\n'+(this.config.npcAuditPrompt??NPC_BUILD_AUDIT_RULES):'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\n程序实际字段定义（不可由文字说明改变）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2));
-                            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
+                            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:telemetry.estimate(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,角色:f.角色,估算Tokens:telemetry.estimate(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.类型+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:telemetry.request(system,input,WORLD_RESULT_SCHEMA)}};
             }).call(engine,base);
         }
     }
@@ -5589,7 +5597,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
 
     class WorldApiTransportService {
-        constructor(engine){this.engine=engine;this.modeCache=engine.apiModeCache||{};}
+        constructor(engine,telemetry=DEFAULT_WORLD_TOKEN_TELEMETRY){this.engine=engine;this.telemetry=telemetry||DEFAULT_WORLD_TOKEN_TELEMETRY;this.modeCache=engine.apiModeCache||{};}
         normalize(value){
             const api=plain(value)?value:{};
             return {
@@ -5701,7 +5709,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 if(!content)throw new Error('专属 API 返回内容为空');
                 if(wants)this.modeCache[cacheKey]=mode;
                 engine.apiModeCache=this.modeCache;
-                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:normalizeTokenUsage(data?.usage)};
+                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:this.telemetry.normalizeUsage(data?.usage)};
                 return content;
             }
             throw new Error(lastError||'专属 API 不支持当前结构化输出模式');
@@ -8728,9 +8736,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.knowledgeSelection=new WorldKnowledgeSelectionPolicy();
             ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY=this.knowledgeSelection;
             this.knowledge=new WorldKnowledgeService(engine,this.knowledgeSelection);
+            this.tokenTelemetry=new WorldTokenTelemetry();
+            ACTIVE_WORLD_TOKEN_TELEMETRY=this.tokenTelemetry;
             this.proseExtractor=new WorldProseExtractor();
             ACTIVE_WORLD_PROSE_EXTRACTOR=this.proseExtractor;
-            this.requestBuilder=new WorldRequestBuilder(engine,this.proseExtractor);
+            this.requestBuilder=new WorldRequestBuilder(engine,this.proseExtractor,this.tokenTelemetry);
             this.stateFactory=new WorldStateFactory();
             this.taskLedger=new WorldTaskAwarenessService();
             this.historyMemory=new WorldHistoryMemoryPolicy();
@@ -8780,7 +8790,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.events=new WorldEventService(engine);
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;
-            this.transport=engine._apiTransport||new WorldApiTransportService(engine);
+            this.transport=engine._apiTransport||new WorldApiTransportService(engine,this.tokenTelemetry);
+            this.transport.telemetry=this.tokenTelemetry;
             engine._apiTransport=this.transport;
             this.promptDocuments=engine._promptDocuments||new WorldPromptDocumentService(engine);
             engine._promptDocuments=this.promptDocuments;

@@ -700,6 +700,45 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     const DEFAULT_WORLD_TIME_POLICY=new WorldTimePolicy();
     let ACTIVE_WORLD_TIME_POLICY=DEFAULT_WORLD_TIME_POLICY;
+    class WorldDueEventPolicy {
+        constructor(timePolicy=DEFAULT_WORLD_TIME_POLICY){this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;}
+
+        reviewPoint(event) {
+            const nextCheck=String(event?.下次检查||'').trim();
+            if(nextCheck)return {原文:nextCheck,键:this.timePolicy.key(nextCheck),来源:'下次检查'};
+            const planned=String(event?.时间||event?.开始时间||'').trim();
+            return {原文:planned,键:this.timePolicy.key(planned),来源:'计划时间'};
+        }
+
+        review(stat) {
+            const now=this.timePolicy.key(stat?.世界?.时间);if(now===null)return [];
+            const events=stat?.世界?.[PATH]?.事件||{},due=[];
+            for(const [名称,event] of Object.entries(events)){
+                if(!plain(event)||event.状态!=='待发生')continue;
+                const review=this.reviewPoint(event);
+                if(review.来源==='下次检查'&&review.键!==null&&review.键>now)continue;
+                if(review.来源==='计划时间'&&(review.键===null||review.键>now))continue;
+                due.push({
+                    名称,
+                    时间:String(event.时间||event.开始时间||''),
+                    下次检查:String(event.下次检查||''),
+                    条件:String(event.条件||''),
+                    前因:copy(event.前因||[]),
+                    复核依据:review.来源,
+                    说明:'软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。'
+                });
+            }
+            return due;
+        }
+
+        ensureHandled(_next,_dueList,_worldTime) {
+            return [];
+        }
+    }
+
+    const DEFAULT_WORLD_DUE_EVENT_POLICY=new WorldDueEventPolicy();
+    function dueEventReviewPoint(event){return DEFAULT_WORLD_DUE_EVENT_POLICY.reviewPoint(event);}
+    function relaxedDueEvents(stat){return DEFAULT_WORLD_DUE_EVENT_POLICY.review(stat);}
     const VAGUE_EVENT_TIME=/^(?:近期|稍后|未来|之后|待定|未定|未知|不详|待确认|时间未定|日期未定)$/;
     const STALE_CURRENT_EVENT_HOURS=7*24;
     const STALE_NEAR_EVENT_HOURS=30*24;
@@ -3290,16 +3329,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     let ACTIVE_WORLD_RESULT_REPLY_PARSER=DEFAULT_WORLD_RESULT_REPLY_PARSER;
     function parseReply(text){return ACTIVE_WORLD_RESULT_REPLY_PARSER.parse(text);}
     class WorldValidationPolicy {
-        constructor(timeline){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;}
-        ensureDueHandled(next,dueList,worldTime) {
-            for(const due of dueList||[]){
-                const event=next.世界[PATH].事件[due.名称];
-                if(!event)continue;
-                if(event.状态==='待发生'&&(event.更新时间!==worldTime||!event.下次检查||!event.条件)){
-                    throw new Error('到期事件未处理：'+due.名称+'。需启动事件，或记录本轮复核日期、阻碍条件与下次检查。');
-                }
-            }
-        }
+        constructor(timeline,duePolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;}
+        ensureDueHandled(next,dueList,worldTime) { return this.duePolicy.ensureHandled(next,dueList,worldTime); }
 
         unscheduledEvents(stat) {
             return Object.entries(stat?.世界?.[PATH]?.事件||{}).filter(([,event])=>{
@@ -3367,7 +3398,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
         }
     }
-    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy();
+    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY);
     let ACTIVE_WORLD_VALIDATION_POLICY=DEFAULT_WORLD_VALIDATION_POLICY;
     function ensureDueHandled(next,dueList,worldTime){return ACTIVE_WORLD_VALIDATION_POLICY.ensureDueHandled(next,dueList,worldTime);}
     function unscheduledEvents(stat){return ACTIVE_WORLD_VALIDATION_POLICY.unscheduledEvents(stat);}
@@ -7162,8 +7193,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldDueEventFeature extends WorldRequestFeature {
+        constructor(engine,policy=DEFAULT_WORLD_DUE_EVENT_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_DUE_EVENT_POLICY;}
         async afterBuildRequest(request,base){
-            const due=relaxedDueEvents(base?.stat||{});
+            const due=this.policy.review(base?.stat||{});
             request.due=due;
             try{
                 const payload=JSON.parse(request.input);
@@ -8568,6 +8600,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
             this.timePolicy=new WorldTimePolicy();
             ACTIVE_WORLD_TIME_POLICY=this.timePolicy;
+            this.dueEventPolicy=new WorldDueEventPolicy(this.timePolicy);
             this.timelinePolicy=new WorldTimelinePolicy(this.timePolicy);
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.chronologyPolicy=new WorldChronologyPolicy();
@@ -8594,7 +8627,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
             this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging,this.patchPolicy);
-            this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy);
+            this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy,this.dueEventPolicy);
             ACTIVE_WORLD_VALIDATION_POLICY=this.validationPolicy;
             this.validation=new WorldValidationService(engine,this.validationPolicy,this.npcAudit);
             this.commit=new WorldCommitService(engine);
@@ -8623,7 +8656,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.softMaintenance=new WorldSoftMaintenanceFeature(engine);
             this.integrityRequest=new WorldIntegrityRequestFeature(engine);
             this.worldActivityRequest=new WorldActivityRequestFeature(engine);
-            this.dueEvent=new WorldDueEventFeature(engine);
+            this.dueEvent=new WorldDueEventFeature(engine,this.dueEventPolicy);
             this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger);
             this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy);
             this.rumorRequest=new WorldRumorRequestFeature(engine,this.rumor);
@@ -8702,40 +8735,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             for(const field of this.engine.panel.querySelectorAll('[data-prompt-registry]'))field.readOnly=!this.editable();
         }
     }
-    // 到期事件采用软复核：提醒模型处理，但不再作为整轮写入的硬门槛。
-    function dueEventReviewPoint(event) {
-        const nextCheck=String(event?.下次检查||'').trim();
-        if(nextCheck)return {原文:nextCheck,键:worldDateKey(nextCheck),来源:'下次检查'};
-        const planned=String(event?.时间||event?.开始时间||'').trim();
-        return {原文:planned,键:worldDateKey(planned),来源:'计划时间'};
-    }
-    function relaxedDueEvents(stat) {
-        const now=worldDateKey(stat?.世界?.时间);if(now===null)return [];
-        const events=stat?.世界?.[PATH]?.事件||{},due=[];
-        for(const [名称,event] of Object.entries(events)){
-            if(!plain(event)||event.状态!=='待发生')continue;
-            const review=dueEventReviewPoint(event);
-            // 明确的未来复核时间尚未到，不重复催办；语义型“下次检查”无法比较时只做软提醒，不阻断写入。
-            if(review.来源==='下次检查'&&review.键!==null&&review.键>now)continue;
-            if(review.来源==='计划时间'&&(review.键===null||review.键>now))continue;
-            due.push({
-                名称,
-                时间:String(event.时间||event.开始时间||''),
-                下次检查:String(event.下次检查||''),
-                条件:String(event.条件||''),
-                前因:copy(event.前因||[]),
-                复核依据:review.来源,
-                说明:'软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。'
-            });
-        }
-        return due;
-    }
-
-    // 旧版会要求“更新时间===当前时间 + 下次检查 + 条件”三项齐全，否则整轮驳回。
-    // 到期事件现在只作为模型的软复核清单；未处理时保留原事件，下一轮继续提醒，而不是制造重试死循环。
-    ensureDueHandled=function() { return []; };
-
-    // 请求复核清单装饰已迁移至 WorldDueEventFeature。
     SamsaraWorldEngine=class SamsaraWorldEngineWithServices extends SamsaraWorldEngine {
         constructor(host,env){
             super(host,env);

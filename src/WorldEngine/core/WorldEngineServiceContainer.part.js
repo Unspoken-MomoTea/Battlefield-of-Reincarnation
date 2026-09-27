@@ -10,7 +10,9 @@
             this.knowledgeSelection=new WorldKnowledgeSelectionPolicy();
             ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY=this.knowledgeSelection;
             this.knowledge=new WorldKnowledgeService(engine,this.knowledgeSelection);
-            this.requestBuilder=new WorldRequestBuilder(engine);
+            this.proseExtractor=new WorldProseExtractor();
+            ACTIVE_WORLD_PROSE_EXTRACTOR=this.proseExtractor;
+            this.requestBuilder=new WorldRequestBuilder(engine,this.proseExtractor);
             this.stateFactory=new WorldStateFactory();
             this.taskLedger=new WorldTaskAwarenessService();
             this.historyMemory=new WorldHistoryMemoryPolicy();

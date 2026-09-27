@@ -387,3 +387,14 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 本阶段通过公开 `applyPatches()` seam 新增回归，锁定自引用与缺失名称两类错误语义；构建与 Phase 5/架构测试也不再读取已删除的兼容模块。
 
 下一批继续处理 `59-soft-maintenance`、传闻相关文件和 `59-world-activity-delivery` 剩余的 validation/staging 全局覆写。新业务逻辑仍只进入 `src/WorldEngine`。
+
+
+### Phase 39 · 世界活动交付策略归域
+
+已完成：新增 `WorldActivityPolicy`，统一接管世界活动语义快照、数量统计、初始化缺口、非异端实质变化判定、最终交付验收与修复需求判断。原 `59-world-activity-delivery.part.js` 中的算法和 `ensureMacroBackbone=function...` monkey patch 已全部移除，旧文件整文件删除。
+
+`WorldActivityRequestFeature` 只负责把 policy 生成的要求写入 payload / timeline / manifest；`WorldValidationPolicy.ensureMacroBackbone()` 在完成可选宏观骨架校验后，无论 `requireMacroBackbone` 是否关闭，都会调用同一个 container-owned `activityPolicy.ensureDelivery()`。因此保留原行为：关闭宏观骨架不等于允许世界停摆。
+
+`WORLD_ACTIVITY_DELIVERY_RULES` 默认提示文本随 policy 一起迁入 `src/WorldEngine`，Prompt Registry 的 `worldActivity` 仍登记并可编辑；请求内 `worldActivityInputGuidance` 的来源元数据同步改为 `WorldActivityRequestFeature`。现有异端活动集成回归继续守住“只有异端/摘要变化必须 retry，补足现实世界活动后才允许提交”。
+
+下一批继续处理 soft-maintenance 与 rumor 域仍存在的全局 validation/staging 覆写。

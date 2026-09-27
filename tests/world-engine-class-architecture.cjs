@@ -7,6 +7,7 @@ for(const file of [
   'src/WorldEngine/README.md',
   'src/WorldEngine/ARCHITECTURE.md',
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  'src/WorldEngine/domains/WorldStateModel.part.js',
   'src/WorldEngine/domains/WorldStateFactory.part.js',
   'src/WorldEngine/domains/WorldStateProjector.part.js',
   'src/WorldEngine/domains/WorldPatchPolicy.part.js',
@@ -48,7 +49,13 @@ for(const file of [
 
 
 const foundationSource=fs.readFileSync(path.join(root,'script/world-engine-src/00-foundation-prompt.part.js'),'utf8');
-const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
+const stateModelSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateModel.part.js'),'utf8');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/10-world-state.part.js')),false,'legacy world-state slot must be deleted');
+assert.match(stateModelSource,/class\s+WorldRecordCatalog\b/,'record catalog must live under src/WorldEngine');
+assert.match(stateModelSource,/class\s+WorldEntityIdentityPolicy\b/,'entity identity policy must live under src/WorldEngine');
+for(const name of ['NPC_AUDIT_LEVELS','RECORDS','DETAILS','MODEL_RECORDS','MODEL_DETAILS'])assert.match(stateModelSource,new RegExp('const\\s+'+name+'\\s*='),name+' compatibility constant must live in the state model');
+for(const seam of ['stableNameIn','worldLocationRelated'])assert.match(stateModelSource,new RegExp('function\\s+'+seam+'\\s*\\('),seam+' compatibility seam must live in the state model');
+assert.match(stateModelSource,/const\s+nameKey\s*=\s*value=>DEFAULT_WORLD_ENTITY_IDENTITY_POLICY\.key\(value\)/,'nameKey compatibility seam must delegate to the identity policy');
 const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateFactory.part.js'),'utf8');
 const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
 const chronologyPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldChronologyPolicy.part.js'),'utf8');
@@ -71,8 +78,6 @@ const historyServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domai
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditService.part.js'),'utf8');
 const npcAuditPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditPolicy.part.js'),'utf8');
-assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
-assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
 assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT_WORLD_STATE_FACTORY\.emptyBackend\(\);\}/,'public emptyState seam must remain compatible');
 assert.match(foundationSource,/function\s+worldDateKey\s*\(value\)\s*\{\s*return ACTIVE_WORLD_TIME_POLICY\.key\(value\);\s*\}/,'foundation worldDateKey must be compatibility-only');
@@ -119,11 +124,9 @@ const causalServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domain
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-causal-stability-gate.part.js')),false,'causal stability compile/apply wrapper file must be removed');
 const requestServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestService.part.js'),'utf8');
 for(const legacyName of ['retryableModelFailure','retryInput']){
-  assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
   assert.match(requestServiceSource,new RegExp('\\b'+legacyName+'\\s*\\('),'request service must own '+legacyName);
 }
 for(const legacyName of ['tokens','get','pointer','canonicalizeParts','bootstrapBackendParent','canUpsertMissing','checkRecord','checkDetails','normalizeBackendRecord','sanitizeModelPatches','normalizeModelPatches','allowed']){
-  assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
 }
 for(const method of ['tokens','get','pointer','canonicalizeParts','bootstrapBackendParent','canUpsertMissing','checkRecord','checkDetails','normalizeBackendRecord','sanitizeModelPatches','normalizeModelPatches','removable','allowed']){
   assert.match(patchPolicySource,new RegExp('\\b'+method+'\\s*\\('),'patch policy must own '+method);
@@ -135,7 +138,6 @@ const taskAwarenessServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine
 const rumorServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRumorService.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-alien-activity-normalization.part.js')),false,'alien compile wrapper file must be removed after service migration');
 for(const legacyName of ['derivePersonWorldContext','projectHotWorldPeople','alienRosterMatch','activeAlienActivityRequirements','seedMissingAlienPeople','ensureActiveAlienActivity']){
-  assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
 }
 for(const method of ['deriveContext','projectHot','alienRosterMatch','alienActivityReviewReasons','activeAlienRequirements','seedMissingAlienPeople','ensureActiveAlienActivity','normalizeAlienActivityTimestamps']){
   assert.match(personDomainSource,new RegExp('\\b'+method+'\\s*\\('),'person activity domain must own '+method);

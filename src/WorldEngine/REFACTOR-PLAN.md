@@ -573,3 +573,14 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 最终引擎上的自动推进调度仍由 `WorldEngineClassBridge.schedule()` 优先交给 `WorldAutoProgressController`，本阶段不改变正文触发、轮次计数、战斗暂停或额外分析等待语义；`WorldRunOrchestrator` 结束后调用的公开 schedule seam 也继续经过原覆盖顺序。
 
 同时修复 Service Container 初始化顺序：先创建 container-owned `WorldTimelinePolicy`，再以该实例创建 `WorldSoftMaintenancePolicy`，避免后者静默退回默认 timeline。架构回归锁定两者必须共享同一 policy 实例。
+
+
+### Phase 55 · Shell helper 职责归位
+
+已完成：不新增新的“杂物 service”，而是把 application shell 中剩余的真实实现归回已有领域 owner。
+
+- `WorldKnowledgeService` 接管内置默认世界书排除迁移；catalogue 内部直接调用该 service method，公开 `engine.applyBuiltinDefaultWorldbookExclusions()` 仅保留兼容 facade。
+- `WorldRunOrchestrator` 接管 `resetInspection()` 与运行失败通知 `notifyFailure()`；上下文切换和运行循环继续通过公开 seam 获得相同清理/提示行为。
+- `WorldPanelRenderer` 接管状态栏主题读取与 panel tone 同步；PanelController / Renderer 继续通过公开 `statusTone / syncStatusTone` seam 工作。
+
+迁移后 `SamsaraWorldEngine.part.js` 从约 8.4KB 降到约 6.1KB。shell 不再持有 worldbook 排除算法、toast 失败通知、检查面板状态清理或主题 localStorage 读取。

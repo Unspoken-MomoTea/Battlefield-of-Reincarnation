@@ -31,6 +31,7 @@ src/WorldEngine/
     WorldChronologyPolicy
     WorldTimePolicy
     WorldNpcAuditService
+    WorldSoftMaintenancePolicy
     WorldHistoryService
     WorldCausalService
     WorldExplorationService
@@ -318,3 +319,10 @@ The legacy `55-policy-compat.part.js` module has been deleted. No runtime reassi
 `WorldActivityPolicy` owns the canonical non-alien world-activity contract: semantic baselines, scene/faction/event bootstrap counts, meaningful-change detection and final delivery validation. `WorldActivityRequestFeature` and `WorldValidationPolicy` share the same container-owned policy instance.
 
 The macro-backbone requirement remains independently configurable, but world-activity delivery is always validated after the optional macro check. The legacy `59-world-activity-delivery.part.js` module has been deleted. Its system prompt default moved with the policy into `src/WorldEngine` and remains editable through `WorldPromptRegistry`.
+
+
+## Phase 40 · Soft maintenance policy
+
+`WorldSoftMaintenancePolicy` owns the non-blocking event-schedule maintenance contract. It treats a concrete time, meaningful condition, or explicit predecessor as a usable schedule anchor and returns unresolved maintenance items without turning them into whole-run hard failures.
+
+`WorldValidationPolicy` composes the container-owned soft-maintenance policy. The former `59-soft-maintenance.part.js` module has been deleted; its maintenance prompt default moved with the policy, while the exploration prompt default moved into `WorldExplorationService`. Both remain registry-backed editable prompts.

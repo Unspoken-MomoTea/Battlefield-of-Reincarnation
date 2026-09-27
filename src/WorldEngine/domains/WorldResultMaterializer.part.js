@@ -162,6 +162,7 @@
         compileWorldResult(stat,value) {
             const prepared=this.people.normalizeAlienActivityTimestamps(stat,value);
             const result=this.normalizer.normalizeWorldResult(prepared),patches=[],warnings=[];
+            const droppedCausalOffsets=this.causal.prepareResult(stat,result);
             this.chronology.validate(stat,result);
             this.taskLedger.validateReferences(stat,result);
             this.exploration.prepareResult(stat,result);
@@ -282,6 +283,11 @@
                     patches.push({op:npc?.[field]===undefined?'add':'replace',path:this.patchPolicy.pointer(['关系列表',target,field]),value:copy(nextValue)});
                 }
             }
+            const causalRepairs=this.causal.staleLocalOffsetRepairs(stat,result);
+            const occupiedCausalPaths=new Set(patches.map(patch=>patch.path));
+            for(const patch of causalRepairs.patches)if(!occupiedCausalPaths.has(patch.path))patches.push(patch);
+            if(droppedCausalOffsets.length)warnings.push('忽略非世界尺度因果偏移：'+droppedCausalOffsets.join('、'));
+            if(causalRepairs.names.length)warnings.push('清理局部稳定偏移：'+causalRepairs.names.join('、'));
             return {result,patches,warnings};
         }
 
@@ -344,13 +350,13 @@
                 if (!plain(patch) || !['add','replace','remove'].includes(patch.op)) throw new Error('不支持的补丁操作');
                 let p = this.patchPolicy.canonicalizeParts(this.patchPolicy.tokens(patch.path),next);
                 patch.path=this.patchPolicy.pointer(p);
-                if (!this.patchPolicy.allowed(p,next)) throw new Error('禁止写入：' + patch.path);
+                if (!this.patchPolicy.allowed(p,next,patch.op)) throw new Error('禁止写入：' + patch.path);
                 this.patchPolicy.bootstrapBackendParent(next,p);
                 const old = this.patchPolicy.get(next,p);
                 if (p[1] === PATH && p[2] === '历史' && (patch.op !== 'add' || old !== undefined)) throw new Error('历史只允许新增');
                 // 世界模型经常把“首次设置”写成 replace；对允许创建的世界记录按 upsert 处理。
                 if (patch.op !== 'add' && old === undefined && !this.patchPolicy.canUpsertMissing(p,next)) throw new Error('目标不存在：' + patch.path);
-                if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播') || (p[0] === '资产' && p.length === 2))) throw new Error('仅可移除过期传播、传闻与已彻底消失的资产，其他记录使用状态结束');
+                if (patch.op === 'remove' && !this.patchPolicy.removable(p)) throw new Error('仅可移除过期传播、传闻、已彻底消失的资产与程序确认的因果脏记录，其他记录使用状态结束');
                 let value=patch.value;
                 if (patch.op !== 'remove') {
                     if (value === undefined) throw new Error('缺少补丁值');

@@ -26,6 +26,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldMutationService.part.js',
   'src/WorldEngine/domains/WorldEventService.part.js',
   'src/WorldEngine/domains/WorldPersonActivityService.part.js',
+  'src/WorldEngine/domains/WorldTaskAwarenessService.part.js',
   'src/WorldEngine/domains/WorldNpcAuditService.part.js',
   'src/WorldEngine/domains/WorldApiTransportService.part.js',
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
@@ -83,6 +84,8 @@ for(const method of ['tokens','get','pointer','canonicalizeParts','bootstrapBack
   assert.match(patchPolicySource,new RegExp('\\b'+method+'\\s*\\('),'patch policy must own '+method);
 }
 const personDomainSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPersonActivityService.part.js'),'utf8');
+const taskAwarenessServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTaskAwarenessService.part.js'),'utf8');
+const taskAwarenessLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/57-task-awareness.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-alien-activity-normalization.part.js')),false,'alien compile wrapper file must be removed after service migration');
 for(const legacyName of ['derivePersonWorldContext','projectHotWorldPeople','alienRosterMatch','activeAlienActivityRequirements','seedMissingAlienPeople','ensureActiveAlienActivity']){
   assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
@@ -90,6 +93,8 @@ for(const legacyName of ['derivePersonWorldContext','projectHotWorldPeople','ali
 for(const method of ['deriveContext','projectHot','alienRosterMatch','alienActivityReviewReasons','activeAlienRequirements','seedMissingAlienPeople','ensureActiveAlienActivity','normalizeAlienActivityTimestamps']){
   assert.match(personDomainSource,new RegExp('\\b'+method+'\\s*\\('),'person activity domain must own '+method);
 }
+for(const method of ['projectList','validateReferences'])assert.match(taskAwarenessServiceSource,new RegExp('\\b'+method+'\\s*\\('),'task awareness service must own '+method);
+assert.doesNotMatch(taskAwarenessLegacySource,/function\s+projectTaskListForWorld|projectWorldContext\s*=\s*function|compileWorldResult\s*=\s*function/,'57-task-awareness must not re-own projection or compile validation');
 
 const delivery=require('../script/世界推进系统.js');
 const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=delivery;
@@ -122,12 +127,14 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateFactory','stateProjector','patchPolicy','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateFactory','taskLedger','stateProjector','patchPolicy','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
 assert.equal(engine.services.stateFactory.constructor.name,'WorldStateFactory');
 assert.equal(engine.services.stateProjector.constructor.name,'WorldStateProjector');
+assert.equal(engine.services.taskLedger.constructor.name,'WorldTaskAwarenessService');
+assert.equal(engine.services.stateProjector.taskLedger,engine.services.taskLedger,'projector must compose the container-owned task ledger service');
 assert.equal(engine.services.patchPolicy.constructor.name,'WorldPatchPolicy');
 assert.equal(engine.services.timelinePolicy.constructor.name,'WorldTimelinePolicy');
 assert.equal(engine.services.lifecycle.constructor.name,'WorldLifecycleService');
@@ -140,6 +147,7 @@ assert.equal(engine.services.resultMaterializer.stateNormalizer,engine.services.
 assert.equal(engine.services.resultMaterializer.patchPolicy,engine.services.patchPolicy,'materializer must compose the container-owned patch policy');
 assert.equal(engine.services.resultMaterializer.npcAudit,engine.services.npcAudit,'materializer must compose the container-owned NPC audit service');
 assert.equal(engine.services.resultMaterializer.people,engine.services.people,'materializer must compose the container-owned person activity service for canonical compile preprocessing');
+assert.equal(engine.services.resultMaterializer.taskLedger,engine.services.taskLedger,'materializer must compose the container-owned task ledger service');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
 assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyParser');
@@ -161,6 +169,7 @@ assert.equal(engine.services.npcAudit.constructor.name,'WorldNpcAuditService');
 assert.equal(engine.services.causal.constructor.name,'WorldCausalService');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
+assert.equal(engine.services.taskAwareness.taskLedger,engine.services.taskLedger,'task request feature must share the canonical task ledger service');
 assert.equal(engine.services.requests.constructor.name,'WorldRequestService');
 assert.equal(engine.services.requests.retryableModelFailure(new Error('业务校验失败')),true,'model/business failures remain retryable');
 assert.equal(engine.services.requests.retryableModelFailure(new Error('请求已取消')),false,'cancellation must never be retried');

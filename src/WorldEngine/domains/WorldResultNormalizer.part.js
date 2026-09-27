@@ -1,10 +1,18 @@
     class WorldResultNormalizer {
-        normalizeRumorCredibility(value) {
+        rumorCredibility(value) {
             const raw=String(value??'').trim();
-            if(RUMOR_CREDIBILITY.includes(raw))return raw;
-            if(/^(?:可信|属实|真实|确实|高|较高|很高|基本属实)$/.test(raw))return '或许可信';
-            if(/^(?:不可信|虚假|谣言|低|较低|很低|纯属谣言)$/.test(raw))return '酒话';
-            return '可疑';
+            if(RUMOR_CREDIBILITY.includes(raw))return {value:raw,recognized:true,raw};
+            if(/^(?:可信|属实|真实|确实|高|较高|很高|基本属实)$/.test(raw))return {value:'或许可信',recognized:true,raw};
+            if(/^(?:不可信|虚假|谣言|低|较低|很低|纯属谣言)$/.test(raw))return {value:'酒话',recognized:true,raw};
+            return {value:'可疑',recognized:false,raw};
+        }
+        normalizeRumorCredibility(value) {
+            return this.rumorCredibility(value).value;
+        }
+        assertRumorCredibility(value) {
+            const parsed=this.rumorCredibility(value);
+            if(!parsed.recognized)throw new Error('传闻可信度无效：'+(parsed.raw||'空')+'；只允许 酒话/可疑/或许可信，或可识别的可信/不可信同义描述');
+            return parsed.value;
         }
         sampleForWorldResultList(key) {
             if(key==='事件')return {...RECORDS.事件,...MODEL_DETAILS.事件};

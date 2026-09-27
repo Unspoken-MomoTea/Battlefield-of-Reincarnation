@@ -48,6 +48,8 @@ const orchestrator=fs.readFileSync(path.join(root,'src/WorldEngine/domains/World
 const compiler=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultCompiler.part.js'),'utf8');
 const normalizer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultNormalizer.part.js'),'utf8');
 const materializer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
+const causal=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldCausalService.part.js'),'utf8');
+const patchPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
 const staging=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultStagingService.part.js'),'utf8');
 const parser=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultReplyParser.part.js'),'utf8');
 const validationPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldValidationPolicy.part.js'),'utf8');
@@ -63,6 +65,10 @@ assert.match(compiler,/compile\(stat,value\)\{return compileWorldResult\(stat,va
 assert.match(materializer,/this\.people\.normalizeAlienActivityTimestamps\(stat,value\)/,'canonical materializer compile must preprocess alien activity so direct and class-based compile paths agree');
 assert.match(materializer,/this\.taskLedger\.validateReferences\(stat,result\)/,'canonical materializer compile must validate task references through the task ledger service');
 assert.match(materializer,/this\.chronology\.validate\(stat,result\)/,'canonical materializer compile must validate chronology through the chronology policy');
+assert.match(materializer,/this\.causal\.prepareResult\(stat,result\)/,'canonical materializer compile must run causal filtering and soft normalization through the causal service');
+assert.match(materializer,/this\.causal\.staleLocalOffsetRepairs\(stat,result\)/,'canonical materializer compile must append causal stale-offset repairs through the causal service');
+assert.match(causal,/class\s+WorldCausalService\b/,'causal compile rules must live behind the causal domain service');
+assert.match(patchPolicy,/\bremovable\s*\(parts\)/,'patch policy must own the controlled causal remove contract');
 assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'compiler.materialize must delegate to the materializer class');
 assert.match(staging,/class\s+WorldResultStagingService\b/,'staged result acceptance must live behind a dedicated domain service');
 assert.match(staging,/this\.chronology\.retryGuidance\(error,rejected\)/,'staging retry planning must source chronology guidance from the chronology policy');

@@ -10,21 +10,4 @@
 7. 构筑补全只用 WorldResult.关系 更新既有 NPC；审计级别只用 WorldResult.人物 写入世界后台。只提交新增/修正项，不得输出真属性、最终属性或强化缓存；血统/形态五维必须齐全，技能不写基础/衍生属性。
 8. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、剧情定位、层级和已演出能力一致的缺口，资料不足时做最小补全。`;
 
-    // 世界推进审计新补出的装备默认直接装备，避免状态0导致辅助计算脚本忽略其属性。
-    const compileWorldResultBeforeNpcEquipmentDefault=compileWorldResult;
-    compileWorldResult=function(stat,value) {
-        const result=normalizeWorldResult(value);
-        for(const relation of result.关系||[]){
-            if(!plain(relation?.装备))continue;
-            const target=stableNameIn(stat?.关系列表||{},relation.名称);
-            const npc=target?stat.关系列表[target]:null;
-            if(!plain(npc))continue;
-            for(const [equipName,equip] of Object.entries(relation.装备)){
-                if(!plain(equip))continue;
-                if(!stableNameIn(npc.装备||{},equipName))equip.状态=1;
-            }
-        }
-        return compileWorldResultBeforeNpcEquipmentDefault(stat,result);
-    };
-
-    // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。
+    // 审计新增装备默认状态=1的编译规则已迁移至 WorldNpcAuditService。\n\n    // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。

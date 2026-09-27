@@ -15,10 +15,12 @@ for(const file of [
   'script/world-engine-src/59-rumor-world-source.part.js',
   'script/world-engine-src/59-rumor-world-request.part.js',
   'script/world-engine-src/59-rumor-world-system.part.js',
-]) assert.equal(fs.existsSync(path.join(root,file)),false,file+' must stay deleted after rumor service migration');
-const migrated=[
   'script/world-engine-src/57-task-awareness.part.js',
   'script/world-engine-src/58-chronology-guard.part.js',
+]) assert.equal(fs.existsSync(path.join(root,file)),false,file+' must stay deleted after src migration');
+const migrated=[
+  'src/WorldEngine/domains/WorldTaskAwarenessFeature.part.js',
+  'src/WorldEngine/domains/WorldChronologyFeature.part.js',
   'src/WorldEngine/domains/WorldRumorService.part.js',
   'src/WorldEngine/domains/WorldRumorRequestFeature.part.js',
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');

@@ -25,7 +25,7 @@ for(const name of [
   assert.match(registry,new RegExp('new\\s+'+name+'\\b'),name+' must be registered');
 }
 
-const legacyUi=fs.readFileSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js'),'utf8');
+const legacyUi=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
 assert.doesNotMatch(legacyUi,/const ownersOf=asset=>/,'asset rendering must leave the application shell');
 assert.doesNotMatch(legacyUi,/for\(const category of \['街头巷议','情报交易','布告与檄文'\]\)/,'rumor rendering must leave the application shell');
 assert.match(legacyUi,/services(?:\?\.|\.)views(?:\?\.|\.)render\('assets'/,'asset tab must route through view registry');

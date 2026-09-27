@@ -7,7 +7,10 @@
             this.services.promptIntegration.attachWorkspace(this.promptWorkspace);
             this.services.promptIntegration.initializeDefaults();
         }
-        readPromptEditor(){return this.services?.promptIntegration?.readEditor(super.readPromptEditor())||super.readPromptEditor();}
+        readPromptEditor(){
+            const settings=super.readPromptEditor();
+            return this.services?.promptIntegration?.readEditor(settings)||settings;
+        }
         applyPromptSettings(settings){
             const integration=this.services?.promptIntegration;
             if(!integration)return super.applyPromptSettings(settings);

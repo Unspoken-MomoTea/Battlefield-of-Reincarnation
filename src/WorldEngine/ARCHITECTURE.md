@@ -379,3 +379,10 @@ The src shell owns only application/facade state, compatibility methods, panel l
 `WorldEngineConfigService` is the canonical owner of application configuration defaults, localStorage hydration, legacy prompt-document migration, built-in default version application, retry/font/history normalization, dedicated-API normalization, and configuration persistence during construction.
 
 The base `SamsaraWorldEngine` shell creates exactly one configuration service before the service container, delegates constructor migration through `initialize()`, and exposes the same instance as `engine.services.configuration`. Configuration migration markers must not be reintroduced into the application shell.
+
+
+## Phase 49 · Panel interaction controller
+
+`WorldPanelController` owns creation of the world-engine Shadow DOM mount and all base panel click/input/change routing. `SamsaraWorldEngine.createPanel()` is now a facade seam that delegates to the container-owned controller. The ClassBridge continues to attach editor, feature, and prompt-workspace behavior after base panel creation.
+
+The panel mount contract is explicit again: `#sam-world-engine-host` owns an open ShadowRoot containing the base style element and `#sam-world-engine`. Application-shell source must not own DOM action routing.

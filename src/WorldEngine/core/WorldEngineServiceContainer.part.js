@@ -67,6 +67,7 @@
             this.historyLifecycle=new WorldHistoryLifecycle(engine,this.historyMemory);
             this.views=new WorldEngineViewRegistry(engine);
             this.prompts=new WorldPromptRegistry(engine);
+            this.panelController=new WorldPanelController(engine);
             this.editorController=new WorldEditorController(engine);
             this.features=new WorldEngineFeatureRegistry(engine);
             this.apiPreset=new WorldApiPresetController(engine);

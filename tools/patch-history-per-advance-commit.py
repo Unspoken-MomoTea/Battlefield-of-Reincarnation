@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 ROOT=Path(__file__).resolve().parents[1]
-runtime=(ROOT/'script/world-engine-src/40-engine-runtime.part.js').read_text(encoding='utf-8')
+runtime=(ROOT/'src/WorldEngine/core/SamsaraWorldEngine.part.js').read_text(encoding='utf-8')
 run_orchestrator=(ROOT/'src/WorldEngine/domains/WorldRunOrchestrator.part.js').read_text(encoding='utf-8')
 history_lifecycle=(ROOT/'src/WorldEngine/domains/WorldHistoryLifecycle.part.js').read_text(encoding='utf-8')
 if "if(typeof this.beforeWorldCommit==='function')" not in runtime and "if(typeof this.beforeWorldCommit==='function')" not in run_orchestrator:

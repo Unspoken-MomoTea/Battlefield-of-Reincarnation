@@ -87,6 +87,8 @@ jobs:
         run: node tests/world-engine-panel-renderer.cjs
       - name: World engine application lifecycle regression
         run: node tests/world-engine-application-lifecycle.cjs
+      - name: World engine prompt settings regression
+        run: node tests/world-engine-prompt-settings.cjs
       - name: World engine view classes regression
         run: node tests/world-engine-view-classes.cjs
       - name: World engine core services regression

@@ -50,9 +50,22 @@
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
             this.rumor=new WorldRumorService(engine);
+            this.resultPatchCompilation=new WorldResultPatchCompilationService(
+                this.resultNormalizer,
+                this.exploration,
+                this.causal,
+                this.patchPolicy,
+                this.npcAudit,
+                this.people,
+                this.taskLedger,
+                this.chronologyPolicy,
+                this.timePolicy,
+                this.relationSync,
+                this.assetMaterialization
+            );
             this.stateIntegrity=new WorldStateIntegrityPolicy(this.patchPolicy,this.timePolicy,this.rumor);
             this.patchApplication=new WorldPatchApplicationService(this.patchPolicy,this.stateNormalizer,this.timelinePolicy,this.stateIntegrity,this.relationSync,this.rumor);
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy,this.timePolicy,this.relationSync,this.assetMaterialization,this.rumor,this.stateIntegrity,this.patchApplication);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultPatchCompilation,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.stateIntegrity,this.patchApplication);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.retryGuidance=new WorldRetryGuidanceService(engine);
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy,this.retryGuidance,this.rumor);

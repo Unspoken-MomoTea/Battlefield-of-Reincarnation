@@ -146,10 +146,11 @@ assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js
 assert.match(texts['@src/WorldEngine/domains/WorldTimelinePolicy.part.js'],/class\s+WorldTimelinePolicy\b/,'timeline rules must live behind a dedicated policy class');
 assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:storyStages|eventTimeAnchor|eventScheduleLabel|staleActiveEvents|temporalAnomalies|validateTemporalWrites|eventDisplayBucket|sortWorldEvents)\b/,'legacy world-state source must not regain timeline implementation');
 
-// Phase 12: the real WorldResult implementation must live under src/WorldEngine, not in the legacy numbered source tree.
-assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultKernel.part.js')<declared.indexOf('20-world-result.part.js'),'WorldResult kernel must load at the former legacy slot before its compatibility shim');
-assert.ok(texts['20-world-result.part.js'].length<1000,'legacy WorldResult part must stay a thin compatibility shim');
-assert.doesNotMatch(texts['20-world-result.part.js'],/function\s+(?:normalizeWorldResult|compileWorldResult|materializeWorldUpdate)\b/,'legacy WorldResult shim must not regain domain implementation');
+// Phase 45: the obsolete numbered WorldResult/context compatibility slots are gone.
+assert.equal(declared.includes('20-world-result.part.js'),false,'legacy WorldResult compatibility slot must be removed');
+assert.equal(declared.includes('30-context-protocol.part.js'),false,'legacy context-protocol compatibility slot must be removed');
+assert.equal(fs.existsSync(path.join(dir,'20-world-result.part.js')),false,'legacy WorldResult compatibility file must be deleted');
+assert.equal(fs.existsSync(path.join(dir,'30-context-protocol.part.js')),false,'legacy context-protocol file must be deleted');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:normalizeWorldResult|mergeWorldResults|normalizeNamedResultList)\b/,'normalization implementation must leave the kernel after class extraction');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/class\s+WorldResultNormalizer\b/,'WorldResult normalization must have a dedicated class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/normalizeWorldResult\(value\)/,'normalizer class must own WorldResult normalization');

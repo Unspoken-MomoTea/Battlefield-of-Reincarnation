@@ -9,6 +9,7 @@ for(const file of [
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   'src/WorldEngine/core/WorldEngineConfigService.part.js',
   'src/WorldEngine/core/SamsaraWorldEngine.part.js',
+  'src/WorldEngine/core/WorldEngineLifecycleController.part.js',
   'src/WorldEngine/ui/WorldPanelController.part.js',
   'src/WorldEngine/ui/WorldPanelRenderer.part.js',
   'src/WorldEngine/domains/WorldStateModel.part.js',
@@ -55,6 +56,7 @@ for(const file of [
 const foundationSource=fs.readFileSync(path.join(root,'script/world-engine-src/00-foundation-prompt.part.js'),'utf8');
 const configServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineConfigService.part.js'),'utf8');
 const applicationShellSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
+const applicationLifecycleSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineLifecycleController.part.js'),'utf8');
 const panelControllerSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelController.part.js'),'utf8');
 const panelRendererSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelRenderer.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
@@ -72,8 +74,16 @@ assert.match(applicationShellSource,/render\(force=false\)\s*\{\s*return this\.s
 assert.match(panelRendererSource,/class\s+WorldPanelRenderer\s*\{/,'shared panel rendering orchestration must live behind a dedicated renderer');
 for(const viewKey of ['world','people','exploration','assets','events','rumors','history','settings','prompts','requestInspector'])assert.match(panelRendererSource,new RegExp("engine\\.services\\.views\\.render\\('"+viewKey+"'"),'panel renderer must dispatch '+viewKey+' through the View registry');
 assert.doesNotMatch(applicationShellSource,/services\.views\.render|const\s+tabs\s*=\s*\[/,'view dispatch and navigation rendering must not grow back into the application shell');
-assert.ok(applicationShellSource.length<20000,'application shell should stay below 20 KB after panel rendering extraction');
-assert.match(applicationShellSource,/dispose\(\)/,'src application shell must own disposal lifecycle');
+assert.ok(applicationShellSource.length<14000,'application shell should stay below 14 KB after application lifecycle extraction');
+assert.match(applicationLifecycleSource,/class\s+WorldEngineLifecycleController\s*\{/,'application lifecycle must live behind a dedicated controller');
+for(const method of ['init','isOpen','open','close','toggle','dispose'])assert.match(applicationLifecycleSource,new RegExp('\\b'+method+'\\s*\\('),'application lifecycle controller must own '+method);
+assert.match(applicationShellSource,/init\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.init\?\.\(\);\s*\}/,'application shell init must delegate to the lifecycle controller');
+assert.match(applicationShellSource,/isOpen\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.isOpen\?\.\(\)\?\?false;\s*\}/,'application shell isOpen must delegate to the lifecycle controller');
+assert.match(applicationShellSource,/open\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.open\?\.\(\);\s*\}/,'application shell open must delegate to the lifecycle controller');
+assert.match(applicationShellSource,/close\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.close\?\.\(\);\s*\}/,'application shell close must delegate to the lifecycle controller');
+assert.match(applicationShellSource,/toggle\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.toggle\?\.\(\);\s*\}/,'application shell toggle must delegate to the lifecycle controller');
+assert.match(applicationShellSource,/dispose\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.dispose\?\.\(\);\s*\}/,'application shell dispose must delegate to the lifecycle controller');
+assert.doesNotMatch(applicationShellSource,/eventOn|terminal\.suspend|terminal\.restore|addEventListener\('keydown'|removeEventListener\('keydown'/,'application lifecycle implementation must not grow back into the shell');
 const stateModelSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateModel.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/10-world-state.part.js')),false,'legacy world-state slot must be deleted');
 assert.match(stateModelSource,/class\s+WorldRecordCatalog\b/,'record catalog must live under src/WorldEngine');
@@ -215,10 +225,11 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['panelController','panelRenderer','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['applicationLifecycle','panelController','panelRenderer','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
+assert.equal(engine.services.applicationLifecycle.constructor.name,'WorldEngineLifecycleController');
 assert.equal(engine.services.stateFactory.constructor.name,'WorldStateFactory');
 assert.equal(engine.services.stateProjector.constructor.name,'WorldStateProjector');
 assert.equal(engine.services.historyMemory.constructor.name,'WorldHistoryMemoryPolicy');

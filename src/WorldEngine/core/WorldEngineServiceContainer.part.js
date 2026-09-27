@@ -19,10 +19,10 @@
             ACTIVE_WORLD_TIME_POLICY=this.timePolicy;
             this.dueEventPolicy=new WorldDueEventPolicy(this.timePolicy);
             this.activityPolicy=new WorldActivityPolicy();
-            this.softMaintenancePolicy=new WorldSoftMaintenancePolicy(this.timelinePolicy);
-            ACTIVE_WORLD_SOFT_MAINTENANCE_POLICY=this.softMaintenancePolicy;
             this.timelinePolicy=new WorldTimelinePolicy(this.timePolicy);
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
+            this.softMaintenancePolicy=new WorldSoftMaintenancePolicy(this.timelinePolicy);
+            ACTIVE_WORLD_SOFT_MAINTENANCE_POLICY=this.softMaintenancePolicy;
             this.chronologyPolicy=new WorldChronologyPolicy();
             this.lifecycle=new WorldLifecycleService();
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;

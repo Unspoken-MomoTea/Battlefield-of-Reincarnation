@@ -10,9 +10,11 @@
             this.knowledgeSelection=new WorldKnowledgeSelectionPolicy();
             ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY=this.knowledgeSelection;
             this.knowledge=new WorldKnowledgeService(engine,this.knowledgeSelection);
+            this.tokenTelemetry=new WorldTokenTelemetry();
+            ACTIVE_WORLD_TOKEN_TELEMETRY=this.tokenTelemetry;
             this.proseExtractor=new WorldProseExtractor();
             ACTIVE_WORLD_PROSE_EXTRACTOR=this.proseExtractor;
-            this.requestBuilder=new WorldRequestBuilder(engine,this.proseExtractor);
+            this.requestBuilder=new WorldRequestBuilder(engine,this.proseExtractor,this.tokenTelemetry);
             this.stateFactory=new WorldStateFactory();
             this.taskLedger=new WorldTaskAwarenessService();
             this.historyMemory=new WorldHistoryMemoryPolicy();
@@ -62,7 +64,7 @@
             this.events=new WorldEventService(engine);
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;
-            this.transport=engine._apiTransport||new WorldApiTransportService(engine);
+            this.transport=engine._apiTransport||new WorldApiTransportService(engine,this.tokenTelemetry);
             engine._apiTransport=this.transport;
             this.promptDocuments=engine._promptDocuments||new WorldPromptDocumentService(engine);
             engine._promptDocuments=this.promptDocuments;

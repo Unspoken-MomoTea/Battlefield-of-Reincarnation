@@ -84,7 +84,7 @@ function hostFor(statRef){
   const registryKeys=new Set(exported.map(item=>item.key));
   for(const key of ['chronologyNoEvidenceGuidance','rumorSourceBoundary','worldTimeInputGuidance'])assert.ok(registryKeys.has(key),'registry must expose '+key);
   for(const key of [
-    'retryGuideMacroBackbone','retryGuideEventDelivery','retryGuideMacroSchedule','retryGuideCausalProjection',
+    'retryGuideMacroBackbone','retryGuideEventDelivery','retryGuideMacroSchedule','retryGuideCausalProjection','retryGuideCausalProjectionRepair',
     'retryGuideDueEvent','retryGuideEventTime','retryGuideStaleEvent','retryGuideTemporalRepair','retryGuideAlienActivity',
     'retryGuideNpcAudit','retryGuideChronology','retryGuidePredecessor','retryGuideSchemaMismatch','retryGuideRumorEmpty',
     'retryGuidePropagationReview','retryGuideTemporalIntegrity','retryGuideWorldActivity','retryGuideWorldScene','retryGuideCurrentReality'

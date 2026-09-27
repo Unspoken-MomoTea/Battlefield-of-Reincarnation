@@ -1014,6 +1014,48 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function validateTemporalWrites(before,next,patches){return ACTIVE_WORLD_TIMELINE_POLICY.validateTemporalWrites(before,next,patches);}
     function eventDisplayBucket(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventDisplayBucket(event);}
     function sortWorldEvents(records,orbit={}){return ACTIVE_WORLD_TIMELINE_POLICY.sortWorldEvents(records,orbit);}
+    const SOFT_MAINTENANCE_RULES=`【分级验收 · 软维护不拒绝整轮】
+1. Schema、非法状态、因果引用损坏、明确原著/数据库日期冲突仍属于硬错误；事件排期补全、传闻补齐与传播复核属于软维护，不得仅因软维护未完成而拒绝整轮已合格结果。
+2. 事件已有具体时间、有效条件或明确前因任一项，即视为已有可用时间锚点；条件/前因属于合法相对或因果时间，不要求重复补写日期。
+3. 公开传闻为空时优先补1条真实世界信息；未补到的分类保留为下轮维护项，不要求为了凑齐传闻重写已经合格的事件、人物、因果等模块。此条取代“空分类本轮必须补2条”的硬验收含义。
+4. 纠错只修真正的硬错误或被拒绝片段；已经通过的片段沿用，不要整包重写。`;
+
+    class WorldSoftMaintenancePolicy {
+        constructor(timeline=DEFAULT_WORLD_TIMELINE_POLICY){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;}
+
+        eventHasUsableSchedule(event) {
+            if(!plain(event))return false;
+            const raw=this.timeline.eventTimeAnchor(event);
+            if(raw&&!VAGUE_EVENT_TIME.test(raw))return true;
+            const condition=String(event.条件||'').trim();
+            if(condition&&!/^(?:无|暂无|无条件|未知|待定|未定|不详|待确认)$/.test(condition))return true;
+            return Array.isArray(event.前因)&&event.前因.some(Boolean);
+        }
+
+        unscheduledEvents(stat) {
+            return Object.entries(stat?.世界?.[PATH]?.事件||{}).filter(([,event])=>{
+                if(!['待发生','进行中'].includes(event?.状态))return false;
+                return !this.eventHasUsableSchedule(event);
+            }).map(([名称,event])=>({
+                名称,分类:event.分类,状态:event.状态,条件:event.条件,
+                前因:copy(event.前因||[]),当前时间:this.timeline.eventScheduleLabel(event)
+            }));
+        }
+
+        ensureEventTimeAnchors(next,required=[]) {
+            const missing=[];
+            for(const item of required||[]){
+                const event=next?.世界?.[PATH]?.事件?.[item.名称];
+                if(!event||!['待发生','进行中'].includes(event.状态))continue;
+                if(!this.eventHasUsableSchedule(event))missing.push(item.名称);
+            }
+            return missing;
+        }
+    }
+
+    const DEFAULT_WORLD_SOFT_MAINTENANCE_POLICY=new WorldSoftMaintenancePolicy();
+    let ACTIVE_WORLD_SOFT_MAINTENANCE_POLICY=DEFAULT_WORLD_SOFT_MAINTENANCE_POLICY;
+    function eventHasUsableSchedule(event){return ACTIVE_WORLD_SOFT_MAINTENANCE_POLICY.eventHasUsableSchedule(event);}
     class WorldChronologyPolicy {
         constructor(){this.guard=null;}
 
@@ -2023,6 +2065,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const WORLD_ASSET_TYPES=['固定地产','大型载具','要塞'];
     const WORLD_ASSET_TYPE_SET=new Set(WORLD_ASSET_TYPES);
     const ITEMLIKE_ASSET_NAME=/(?:纹章|免疫|抗性|初解|技能|能力|药剂?|药水|圣水|解药|血清|试剂|瓶|钥匙|摇把|手柄|材料|矿石|零件|部件|残骸|卷轴|食物|口粮|弹药|消耗品|道具|护符|符文|芯片|样本)$/i;
+    const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
     const MICRO_EXPLORATION_SEGMENT=/^(?:天台|教室|走廊|楼梯|楼层|办公室|医务室|校医室|房间|寝室|宿舍房间|洗手间|浴室|食堂|门厅|入口|出口|校门|桥头|街口|小巷)$/;
     class WorldExplorationService {
         constructor(engine=null){this.engine=engine;}
@@ -3436,27 +3479,12 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     let ACTIVE_WORLD_RESULT_REPLY_PARSER=DEFAULT_WORLD_RESULT_REPLY_PARSER;
     function parseReply(text){return ACTIVE_WORLD_RESULT_REPLY_PARSER.parse(text);}
     class WorldValidationPolicy {
-        constructor(timeline,duePolicy,activityPolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;this.activityPolicy=activityPolicy||DEFAULT_WORLD_ACTIVITY_POLICY;}
+        constructor(timeline,duePolicy,activityPolicy,softMaintenancePolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;this.activityPolicy=activityPolicy||DEFAULT_WORLD_ACTIVITY_POLICY;this.softMaintenancePolicy=softMaintenancePolicy||DEFAULT_WORLD_SOFT_MAINTENANCE_POLICY;}
         ensureDueHandled(next,dueList,worldTime) { return this.duePolicy.ensureHandled(next,dueList,worldTime); }
 
-        unscheduledEvents(stat) {
-            return Object.entries(stat?.世界?.[PATH]?.事件||{}).filter(([,event])=>{
-                if(!['待发生','进行中'].includes(event?.状态))return false;
-                const anchor=this.timeline.eventTimeAnchor(event);
-                return !anchor||VAGUE_EVENT_TIME.test(anchor);
-            }).map(([名称,event])=>({名称,分类:event.分类,状态:event.状态,条件:event.条件,前因:copy(event.前因||[]),当前时间:this.timeline.eventTimeAnchor(event)}));
-        }
+        unscheduledEvents(stat) { return this.softMaintenancePolicy.unscheduledEvents(stat); }
 
-        ensureEventTimeAnchors(next,required=[]) {
-            const missing=[];
-            for(const item of required||[]){
-                const event=next?.世界?.[PATH]?.事件?.[item.名称];
-                if(!event||!['待发生','进行中'].includes(event.状态))continue;
-                const anchor=this.timeline.eventTimeAnchor(event);
-                if(!anchor||VAGUE_EVENT_TIME.test(anchor))missing.push(item.名称);
-            }
-            if(missing.length)throw new Error('事件时间锚点仍未补全：'+missing.join('、')+'；请逐项补写具体世界日期/时段，或明确相对/因果时间，禁止空值和“近期/稍后/未来/待定/未知”');
-        }
+        ensureEventTimeAnchors(next,required=[]) { return this.softMaintenancePolicy.ensureEventTimeAnchors(next,required); }
 
         ensureStaleActiveHandled(next,required=[],worldTime='') {
             const now=worldDateKey(worldTime),state=next?.世界?.[PATH];
@@ -3507,7 +3535,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
         }
     }
-    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY,DEFAULT_WORLD_ACTIVITY_POLICY);
+    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY,DEFAULT_WORLD_ACTIVITY_POLICY,DEFAULT_WORLD_SOFT_MAINTENANCE_POLICY);
     let ACTIVE_WORLD_VALIDATION_POLICY=DEFAULT_WORLD_VALIDATION_POLICY;
     function ensureDueHandled(next,dueList,worldTime){return ACTIVE_WORLD_VALIDATION_POLICY.ensureDueHandled(next,dueList,worldTime);}
     function unscheduledEvents(stat){return ACTIVE_WORLD_VALIDATION_POLICY.unscheduledEvents(stat);}
@@ -4878,50 +4906,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         ['世界','时间'],['世界','货币'],['世界','历法'],['世界',PATH],['世界','因果轨道'],['世界','势力'],['世界','探索'],
         ['世界','异端雷达','名单'],['世界','稳定'],['传闻'],['资产'],['关系列表']
     ];
-    // 调度与 replay 生命周期由 WorldAutoProgressController / WorldReplayService 组合。\n    // 容错验收策略：完整性维护采用渐进补齐，不再让辅助模块拖死整轮世界推进。
-    const SOFT_MAINTENANCE_RULES=`【分级验收 · 软维护不拒绝整轮】
-1. Schema、非法状态、因果引用损坏、明确原著/数据库日期冲突仍属于硬错误；事件排期补全、传闻补齐与传播复核属于软维护，不得仅因软维护未完成而拒绝整轮已合格结果。
-2. 事件已有具体时间、有效条件或明确前因任一项，即视为已有可用时间锚点；条件/前因属于合法相对或因果时间，不要求重复补写日期。
-3. 公开传闻为空时优先补1条真实世界信息；未补到的分类保留为下轮维护项，不要求为了凑齐传闻重写已经合格的事件、人物、因果等模块。此条取代“空分类本轮必须补2条”的硬验收含义。
-4. 纠错只修真正的硬错误或被拒绝片段；已经通过的片段沿用，不要整包重写。`;
-
-    function eventHasUsableSchedule(event) {
-        if(!plain(event))return false;
-        const raw=eventTimeAnchor(event);
-        if(raw&&!VAGUE_EVENT_TIME.test(raw))return true;
-        const condition=String(event.条件||'').trim();
-        if(condition&&!/^(?:无|暂无|无条件|未知|待定|未定|不详|待确认)$/.test(condition))return true;
-        return Array.isArray(event.前因)&&event.前因.some(Boolean);
-    }
-
-    // 统一“显示层”和“验收层”的时间锚点定义：条件/前因本来就能生成合法的因果排期标签。
-    unscheduledEvents=function(stat) {
-        return Object.entries(stat?.世界?.[PATH]?.事件||{}).filter(([,event])=>{
-            if(!['待发生','进行中'].includes(event?.状态))return false;
-            return !eventHasUsableSchedule(event);
-        }).map(([名称,event])=>({
-            名称,分类:event.分类,状态:event.状态,条件:event.条件,
-            前因:copy(event.前因||[]),当前时间:eventScheduleLabel(event)
-        }));
-    };
-
-    // 真正没有任何时间/条件/前因的旧事件仍会进入维护清单，但不再否决本轮其它合格结果。
-    ensureEventTimeAnchors=function(next,required=[]) {
-        const missing=[];
-        for(const item of required||[]){
-            const event=next?.世界?.[PATH]?.事件?.[item.名称];
-            if(!event||!['待发生','进行中'].includes(event.状态))continue;
-            if(!eventHasUsableSchedule(event))missing.push(item.名称);
-        }
-        return missing;
-    };
-
-    // 请求装饰已迁移至 WorldSoftMaintenanceFeature。\n\n    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
-    const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
-    // 探索粒度、当前地点自动投影与旧档合并已迁入 WorldExplorationService；
-    // 长期探索台账不再参与 lifecycle 离场回收，因此无需保留 prune monkey patch。
-    // 探索提示词注入由 WorldPromptRegistry 最终装配；不再扩展主类。
-    // 世界完整性保护：统一精确时钟；因果偏移采用软归一化，不因语义或幅度问题拖死整轮推进。
+    // 调度与 replay 生命周期由 WorldAutoProgressController / WorldReplayService 组合。\n    // 世界完整性保护：统一精确时钟；因果偏移采用软归一化，不因语义或幅度问题拖死整轮推进。
     const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间约束】
 1. 时间校验按字段粒度处理：事件、地区、历史、传播等宏观事实只按“自然日”硬校验；同一自然日内的上午/下午/HH:mm差异不算未来越界，只有跨日未来事实才拒绝。
 2. 人物当前动态仅在“当前世界时间”和“人物更新时间”双方都明确到 HH:mm 时做分钟级先后校验；任一侧只有清晨/上午/下午等粗粒度时，同日视为合法。当前状态仍优先复用世界.时间原文，未来计划放预计结束、下次检查或待发生事件。
@@ -8602,6 +8587,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ACTIVE_WORLD_TIME_POLICY=this.timePolicy;
             this.dueEventPolicy=new WorldDueEventPolicy(this.timePolicy);
             this.activityPolicy=new WorldActivityPolicy();
+            this.softMaintenancePolicy=new WorldSoftMaintenancePolicy(this.timelinePolicy);
+            ACTIVE_WORLD_SOFT_MAINTENANCE_POLICY=this.softMaintenancePolicy;
             this.timelinePolicy=new WorldTimelinePolicy(this.timePolicy);
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.chronologyPolicy=new WorldChronologyPolicy();
@@ -8628,7 +8615,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
             this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging,this.patchPolicy);
-            this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy,this.dueEventPolicy,this.activityPolicy);
+            this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy,this.dueEventPolicy,this.activityPolicy,this.softMaintenancePolicy);
             ACTIVE_WORLD_VALIDATION_POLICY=this.validationPolicy;
             this.validation=new WorldValidationService(engine,this.validationPolicy,this.npcAudit);
             this.commit=new WorldCommitService(engine);

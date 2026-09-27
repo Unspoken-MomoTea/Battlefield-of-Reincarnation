@@ -49,6 +49,7 @@ const compiler=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResu
 const normalizer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultNormalizer.part.js'),'utf8');
 const materializer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const stateIntegrity=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js'),'utf8');
+const patchApplication=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchApplicationService.part.js'),'utf8');
 const causal=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldCausalService.part.js'),'utf8');
 const patchPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
 const staging=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultStagingService.part.js'),'utf8');
@@ -82,6 +83,10 @@ assert.match(materializer,/this\.assetPolicy\.validateScope\(item,true\)/,'canon
 assert.match(materializer,/this\.assetPolicy\.materializeRecord\(existing,item,!target\)/,'canonical materializer must delegate asset merge semantics to the asset policy');
 assert.match(materializer,/validateBaseState\(stat\)\s*\{\s*return this\.stateIntegrity\.validate\(stat\);\s*\}/,'materializer validateBaseState must delegate to the state integrity policy');
 assert.match(stateIntegrity,/class\s+WorldStateIntegrityPolicy\b/,'persisted state invariants must live behind a dedicated policy');
+assert.match(patchApplication,/class\s+WorldPatchApplicationService\b/,'patch execution must live behind a dedicated service');
+assert.match(materializer,/applyPatches\(stat,patches\)\s*\{\s*return this\.patchApplication\.apply\(stat,patches\);\s*\}/,'materializer patch application must delegate to the patch application service');
+assert.match(patchApplication,/this\.timeline\.validateTemporalWrites\(stat,next,patches\)/,'patch application must validate temporal writes through the timeline policy');
+assert.match(patchApplication,/this\.stateIntegrity\.validate\(next\)/,'patch application must validate the resulting persisted state through the integrity policy');
 assert.match(causal,/class\s+WorldCausalService\b/,'causal compile rules must live behind the causal domain service');
 assert.match(patchPolicy,/\bremovable\s*\(parts\)/,'patch policy must own the controlled causal remove contract');
 assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'compiler.materialize must delegate to the materializer class');

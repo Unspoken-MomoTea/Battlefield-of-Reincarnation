@@ -4,10 +4,9 @@ import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_DIR = ROOT / 'script' / 'world-engine-src'
 OUTPUT = ROOT / 'script' / '世界推进系统.js'
 PARTS = (
-    '00-foundation-prompt.part.js',
+    '@src/WorldEngine/core/WorldEngineFoundation.part.js',
     '@src/WorldEngine/domains/WorldStateModel.part.js',
     '@src/WorldEngine/domains/WorldStateFactory.part.js',
     '@src/WorldEngine/domains/WorldPatchPolicy.part.js',
@@ -33,7 +32,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldResultStagingService.part.js',
     '@src/WorldEngine/domains/WorldResultReplyParser.part.js',
     '@src/WorldEngine/domains/WorldValidationPolicy.part.js',
-    'ui/00-styles.part.js',
+    '@src/WorldEngine/ui/WorldEngineStyles.part.js',
     '@src/WorldEngine/core/WorldEngineConfigService.part.js',
     '@src/WorldEngine/core/WorldRunScheduler.part.js',
     '@src/WorldEngine/core/SamsaraWorldEngine.part.js',
@@ -89,14 +88,14 @@ PARTS = (
     '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
     '@src/WorldEngine/ui/WorldPromptWorkspaceController.part.js',
     '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
-    '60-bootstrap.part.js',
+    '@src/WorldEngine/core/WorldEngineBootstrap.part.js',
 )
 
 
 def part_path(name: str) -> Path:
-    if name.startswith('@'):
-        return ROOT / name[1:]
-    return SOURCE_DIR / name
+    if not name.startswith('@'):
+        raise SystemExit('world-engine PARTS must use @src paths after legacy source removal: ' + name)
+    return ROOT / name[1:]
 
 
 def assembled_source() -> str:

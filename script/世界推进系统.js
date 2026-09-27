@@ -1985,14 +1985,44 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return patches;
         }
         get(name){return this.engine?.snapshot?.().stat?.世界?.因果轨道?.偏移记录?.[String(name||'').trim()]||null;}
+        recalculateStability(stat) {
+            if(!plain(stat?.世界))return null;
+            if(stat.设置?.世界超稳===true){stat.世界.稳定=100;return 100;}
+            const bucket=stat.世界?.因果轨道?.偏移记录||{};
+            const total=Object.values(plain(bucket)?bucket:{}).reduce((sum,item)=>sum+(Number(item?.影响程度)||0),0);
+            const stable=Math.max(0,Math.min(120,100+total));
+            stat.世界.稳定=stable;
+            return stable;
+        }
+        replaySamePath(left,right) {
+            return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((item,index)=>String(item)===String(right[index]));
+        }
+        syncReplay(raw,fingerprint,oldName,newName,record,deleted,stable) {
+            const replay=raw?.__samsaraWorldReplay;
+            if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return;
+            const oldPath=['世界','因果轨道','偏移记录',String(oldName||'')];
+            const newPath=['世界','因果轨道','偏移记录',String(newName||'')];
+            const stabilityPath=['世界','稳定'];
+            replay.operations=replay.operations.filter(operation=>{
+                const path=operation?.path;
+                return !this.replaySamePath(path,oldPath)&&!this.replaySamePath(path,newPath)&&!this.replaySamePath(path,stabilityPath);
+            });
+            if(deleted){
+                replay.operations.push({op:'remove',path:oldPath});
+            }else{
+                if(String(oldName)!==String(newName))replay.operations.push({op:'remove',path:oldPath});
+                replay.operations.push({op:'set',path:newPath,value:copy(record)});
+            }
+            replay.operations.push({op:'set',path:stabilityPath,value:stable});
+        }
         async commit(mutator,status){
             const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
             if(!plain(stat?.世界?.因果轨道))stat.世界.因果轨道={};
             if(!plain(stat.世界.因果轨道.偏移记录))stat.世界.因果轨道.偏移记录={};
             const outcome=mutator(stat.世界.因果轨道.偏移记录);
             if(!outcome)return false;
-            const stable=causalOffsetRecalculateStability(stat);
-            causalOffsetSyncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
+            const stable=this.recalculateStability(stat);
+            this.syncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
             const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
             if(target)target.__samsaraUIMutation=true;
             try{
@@ -5152,110 +5182,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         const backend=worldEditorBackend(stat),events=backend.事件||{};
         for(const eventName of record.关联事件||[])if(!Object.hasOwn(events,eventName))throw new Error('关联事件不存在：'+eventName);
     }
-    // 主面板只保留最新因果摘要；完整偏移、故事线、干涉模式、法则与经济资料进入独立“因果档案”页。
-    // 资产与传闻仍由世界引擎维护数据，但玩家侧由状态栏承载，因此不在世界推进面板重复展示。
-    const CAUSAL_OVERVIEW_LIMIT=3;
-    const WORLD_ENGINE_HIDDEN_PLAYER_TABS=new Set(['资产','传闻']);
-    function isWorldEnginePlayerTabHidden(tab) {
-        return WORLD_ENGINE_HIDDEN_PLAYER_TABS.has(String(tab||''));
-    }
-    function causalOffsetEntries(stat) {
-        const bucket=stat?.世界?.因果轨道?.偏移记录;
-        return Object.entries(plain(bucket)?bucket:{}).slice().reverse();
-    }
-    function latestCausalOffsets(stat,limit=CAUSAL_OVERVIEW_LIMIT) {
-        return causalOffsetEntries(stat).slice(0,Math.max(0,Number(limit)||0));
-    }
-    function causalImpactLabel(value) {
-        const n=Number(value);
-        return Number.isFinite(n)?(n>0?'+':'')+n:'影响未记录';
-    }
-    function causalOverviewEscape(value) {
-        return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-    }
-    function causalInterferenceMode(stat) {
-        return String(stat?.世界?.异端雷达?.当前模式||'').trim();
-    }
-    function causalCompactHtml(stat) {
-        const world=stat?.世界||{},offsets=causalOffsetEntries(stat),latest=offsets.slice(0,CAUSAL_OVERVIEW_LIMIT);
-        const stable=world.稳定!==null&&world.稳定!==''&&Number.isFinite(Number(world.稳定))?Number(world.稳定):null;
-        const rows=latest.map(([name,record])=>'<button class="we-causal-jump" data-tab="因果档案"><span><b>'+causalOverviewEscape(name)+'</b><small>'+causalOverviewEscape(record?.引发者||'引发者未记录')+'</small></span><strong>'+causalOverviewEscape(causalImpactLabel(record?.影响程度))+'</strong><p>'+causalOverviewEscape(record?.描述||'暂无偏移描述')+'</p></button>').join('');
-        return '<div class="we-causal-summary"><button class="we-stability-compact" data-tab="因果档案"><span><small>世界稳定值</small><strong>'+causalOverviewEscape(stable===null?'未记录':stable)+'</strong></span><em>查看因果档案 →</em></button>'
-            +(rows?'<div class="we-causal-latest">'+rows+'</div>':'<div class="we-empty"><b>暂无因果偏移</b><small>重大且已确认的因果改变会记录在这里。</small></div>')
-            +'<button class="we-link-btn" data-tab="因果档案">查看全部 '+offsets.length+' 条偏移、故事线与世界法则 →</button></div>';
-    }
-    function causalArchiveHtml(stat) {
-        const world=stat?.世界||{},orbit=world.因果轨道||{},offsets=causalOffsetEntries(stat),stable=world.稳定!==null&&world.稳定!==''&&Number.isFinite(Number(world.稳定))?Number(world.稳定):null;
-        const offsetCard=([name,record])=>'<article class="we-offset"><div class="we-offset-head"><b>'+causalOverviewEscape(name)+'</b><span>'+causalOverviewEscape(causalImpactLabel(record?.影响程度))+'</span></div><p>'+causalOverviewEscape(record?.描述||'暂无偏移描述')+'</p><small>引发者 · '+causalOverviewEscape(record?.引发者||'未记录')+'</small></article>';
-        const recent=offsets.slice(0,12),older=offsets.slice(12);
-        const laws=Array.isArray(world.法则)?world.法则:(world.法则?[world.法则]:[]);
-        const money=world.货币||{};
-        const interference=causalInterferenceMode(stat);
-        const story='<article class="we-card we-causal-track"><dl><dt>当前阶段</dt><dd>'+causalOverviewEscape(orbit.当前阶段||'待初始化')+'</dd><dt>故事线</dt><dd>'+causalOverviewEscape(orbit.故事线||'未记录')+'</dd><dt>下一节点</dt><dd>'+causalOverviewEscape(orbit.下一节点||'未记录')+'</dd></dl></article>';
-        const stability='<div class="we-causal"><div class="we-stability"><div><small>世界稳定值</small><strong data-world-stability>'+causalOverviewEscape(stable===null?'未记录':stable)+'</strong></div><span>完整偏移保留为因果记忆；主面板仅显示最新 '+CAUSAL_OVERVIEW_LIMIT+' 条</span></div>'
-            +(stable===null?'':'<meter min="0" max="120" value="'+Math.max(0,Math.min(120,stable))+'" aria-label="世界稳定值">'+stable+'</meter>')
-            +'</div>';
-        const offsetList=recent.length?recent.map(offsetCard).join(''):'<div class="we-empty"><b>暂无因果偏移</b><small>只有已发生的重大不可逆结果才会建立记录。</small></div>';
-        const olderHtml=older.length?'<details class="we-offset-more"><summary>查看更早 '+older.length+' 条偏移</summary>'+older.map(offsetCard).join('')+'</details>':'';
-        const interferenceHtml=interference?'<section class="we-section we-causal-interference"><div class="we-section-head"><h2>干涉模式</h2><small>副本干涉态势</small></div><article class="we-card"><p>'+causalOverviewEscape(interference)+'</p></article></section>':'';
-        const moneyHtml='<article class="we-card"><dl><dt>货币体系</dt><dd>'+causalOverviewEscape(money.体系||'未记录')+'</dd><dt>购买力基准</dt><dd>'+causalOverviewEscape(money.购买力基准||'未记录')+'</dd><dt>经济波动</dt><dd>'+causalOverviewEscape(money.经济波动||'未记录')+'</dd></dl></article>';
-        const lawHtml=laws.length?'<div class="we-reading we-world-laws">'+laws.map(item=>'<article><p>'+causalOverviewEscape(item)+'</p></article>').join('')+'</div>':'<div class="we-empty"><b>尚无世界法则</b><small>明确生效的法则会在这里维护。</small></div>';
-        return '<div class="we-causal-archive-grid"><div><section class="we-section"><div class="we-section-head"><h2>因果偏移档案</h2><small>'+offsets.length+' 条 · 最新在前</small></div>'+stability+offsetList+olderHtml+'</section></div><aside><section class="we-section"><div class="we-section-head"><h2>因果轨道</h2><small>长期方向</small></div>'+story+'</section>'+interferenceHtml+'<section class="we-section"><div class="we-section-head"><h2>货币与经济</h2><small>世界推进维护</small></div>'+moneyHtml+'</section><section class="we-section"><div class="we-section-head"><h2>世界法则</h2><small>'+laws.length+' 条</small></div>'+lawHtml+'</section></aside></div>';
-    }
-    function causalSectionByTitle(root,title) {
-        return Array.from(root?.querySelectorAll?.('.we-section')||[]).find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()===title)||null;
-    }
-
-    // UI 生命周期已迁移至 src/WorldEngine/ui/WorldCausalOverviewController.part.js。
-    // 因果偏移手动维护：玩家可直接修正/删除偏移；写回后立即重算稳定值并同步同楼 replay。
-    function causalOffsetRecalculateStability(stat) {
-        if(!plain(stat?.世界))return null;
-        if(stat.设置?.世界超稳===true){stat.世界.稳定=100;return 100;}
-        const bucket=stat.世界?.因果轨道?.偏移记录||{};
-        const total=Object.values(plain(bucket)?bucket:{}).reduce((sum,item)=>sum+(Number(item?.影响程度)||0),0);
-        const stable=Math.max(0,Math.min(120,100+total));
-        stat.世界.稳定=stable;
-        return stable;
-    }
-    function causalOffsetReplaySamePath(left,right) {
-        return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((item,index)=>String(item)===String(right[index]));
-    }
-    function causalOffsetSyncReplay(raw,fingerprint,oldName,newName,record,deleted,stable) {
-        const replay=raw?.__samsaraWorldReplay;
-        if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return;
-        const oldPath=['世界','因果轨道','偏移记录',String(oldName||'')];
-        const newPath=['世界','因果轨道','偏移记录',String(newName||'')];
-        const stabilityPath=['世界','稳定'];
-        replay.operations=replay.operations.filter(operation=>{
-            const path=operation?.path;
-            return !causalOffsetReplaySamePath(path,oldPath)&&!causalOffsetReplaySamePath(path,newPath)&&!causalOffsetReplaySamePath(path,stabilityPath);
-        });
-        if(deleted){
-            replay.operations.push({op:'remove',path:oldPath});
-        }else{
-            if(String(oldName)!==String(newName))replay.operations.push({op:'remove',path:oldPath});
-            replay.operations.push({op:'set',path:newPath,value:copy(record)});
-        }
-        replay.operations.push({op:'set',path:stabilityPath,value:stable});
-    }
-    // 历史记忆手动维护：近期原始锚点可修正事实；长期总结可修正摘要/时间，但树层级与子项引用始终由程序托管。
-    function historyMemoryEditorEscape(value) {
-        if(typeof causalOverviewEscape==='function')return causalOverviewEscape(value);
-        return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-    }
-    function historyMemoryEditorSamePath(left,right) {
-        return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((item,index)=>String(item)===String(right[index]));
-    }
-    function historyMemoryEditorSyncReplay(raw,fingerprint,path,value) {
-        const replay=raw?.__samsaraWorldReplay;
-        if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return;
-        replay.operations=replay.operations.filter(operation=>!historyMemoryEditorSamePath(operation?.path,path));
-        replay.operations.push({op:'set',path:copy(path),value:copy(value)});
-    }
-    function historyMemoryEditorRelated(value) {
-        const source=Array.isArray(value)?value.join('\n'):String(value||'');
-        return [...new Set(source.split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
-    }
     class WorldRuntimeContextService {
         constructor(engine){this.engine=engine;}
         snapshot(){
@@ -5658,6 +5584,19 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return this.engine.requestHistoryMemorySummary(world,batch,level);
         }
         backend(){return this.engine.snapshot().stat?.世界?.[PATH]||{};}
+        related(value) {
+            const source=Array.isArray(value)?value.join('\n'):String(value||'');
+            return [...new Set(source.split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
+        }
+        replaySamePath(left,right) {
+            return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((item,index)=>String(item)===String(right[index]));
+        }
+        syncReplay(raw,fingerprint,path,value) {
+            const replay=raw?.__samsaraWorldReplay;
+            if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return;
+            replay.operations=replay.operations.filter(operation=>!this.replaySamePath(operation?.path,path));
+            replay.operations.push({op:'set',path:copy(path),value:copy(value)});
+        }
         async commitEdit(kind,name,build,status){
             name=String(name||'').trim();
             if(!name)throw new Error('历史记录名称不能为空');
@@ -5668,7 +5607,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const updated=build(copy(bucket[name]));
             if(!plain(updated))throw new Error('历史编辑结果无效');
             bucket[name]=updated;
-            historyMemoryEditorSyncReplay(next,snapshot.fingerprint,['世界',PATH,bucketName,name],updated);
+            this.syncReplay(next,snapshot.fingerprint,['世界',PATH,bucketName,name],updated);
             const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
             if(target)target.__samsaraUIMutation=true;
             try{
@@ -5687,7 +5626,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         async saveAnchor(name,record){
             const time=String(record?.时间||'').trim(),fact=String(record?.事实||'').trim();
             if(!fact)throw new Error('历史事实不能为空');
-            const related=historyMemoryEditorRelated(record?.关联事件);
+            const related=this.related(record?.关联事件);
             return this.commitEdit('anchor',name,current=>({...current,时间:time,事实:fact,关联事件:related}),'已修正近期历史锚点');
         }
         async saveSummary(name,record){
@@ -8079,6 +8018,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const toast=this.engine.host?.toastr||this.engine.env?.toastr;
             if(toast?.error)toast.error(message,title);else try{console.error('['+title+']',error);}catch(_){}
         }
+        escape(value){
+            return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
 
         // ---- 共用编辑模式 ----
         mountModeToggle(){
@@ -8236,7 +8178,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
 
         // ---- 因果偏移 ----
         causalInlineHtml(name,record){
-            const impact=Number(record?.影响程度),esc=causalOverviewEscape;
+            const impact=Number(record?.影响程度),esc=value=>this.escape(value);
             return '<div class="we-offset-inline-editor" data-offset-editor data-offset-original-name="'+esc(name)+'"><div class="we-offset-edit-grid">'
                 +'<label class="we-offset-edit-field"><span>偏移名称</span><input type="text" data-offset-field="name" value="'+esc(name)+'"></label>'
                 +'<label class="we-offset-edit-field"><span>影响程度</span><input type="number" min="-12" max="15" step="1" data-offset-field="impact" value="'+esc(Number.isFinite(impact)?impact:'')+'"><small>-12~-1 或 +1~+15</small></label>'
@@ -8258,12 +8200,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
         mountCausalControls(){
             const engine=this.engine;if(engine.tab!=='因果档案'||!engine.panel)return;
-            const entries=causalOffsetEntries(engine.snapshot().stat);
+            const entries=engine.services.causalOverview.offsetEntries(engine.snapshot().stat);
             Array.from(engine.panel.querySelectorAll('.we-offset')).forEach((card,index)=>{
                 const name=entries[index]?.[0];if(!name||card.querySelector('.we-offset-actions'))return;
                 card.dataset.offsetName=name;
                 const actions=engine.host.document.createElement('div');actions.className='we-offset-actions';
-                actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+causalOverviewEscape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+causalOverviewEscape(name)+'">删除</button>';
+                actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+this.escape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+this.escape(name)+'">删除</button>';
                 card.appendChild(actions);
             });
         }
@@ -8284,7 +8226,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
 
         // ---- 历史记忆 ----
         historyInlineHtml(kind,name,record){
-            const esc=historyMemoryEditorEscape;
+            const esc=value=>this.escape(value);
             if(kind==='summary')return '<div class="we-history-inline-editor" data-history-editor="summary" data-history-name="'+esc(name)+'">'
                 +'<div class="we-history-edit-title"><b>'+esc(name)+'</b><span>L'+esc(Number(record?.层级)||1)+' · 树结构锁定</span></div><div class="we-history-edit-grid">'
                 +'<label class="we-history-edit-field"><span>起始时间</span><input type="text" data-history-field="start" value="'+esc(record?.起始时间||'')+'"></label>'
@@ -8308,7 +8250,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         saveHistory(kind,card,name){
             const value=key=>card?.querySelector('[data-history-field="'+key+'"]')?.value;
             if(kind==='summary')return this.engine.services.history.saveSummary(name,{起始时间:String(value('start')||'').trim(),结束时间:String(value('end')||'').trim(),摘要:String(value('summary')||'').trim()});
-            return this.engine.services.history.saveAnchor(name,{时间:String(value('time')||'').trim(),事实:String(value('fact')||'').trim(),关联事件:historyMemoryEditorRelated(value('related'))});
+            return this.engine.services.history.saveAnchor(name,{时间:String(value('time')||'').trim(),事实:String(value('fact')||'').trim(),关联事件:value('related')});
         }
         mountHistoryControls(){
             const engine=this.engine;if(engine.tab!=='运行记录'||!engine.panel)return;
@@ -8318,14 +8260,14 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 const name=recentNames[index];if(!name||card.querySelector('.we-history-actions'))return;
                 card.dataset.historyName=name;card.dataset.historyKind='anchor';
                 const actions=engine.host.document.createElement('div');actions.className='we-history-actions';
-                actions.innerHTML='<button type="button" data-action="history-anchor-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';card.appendChild(actions);
+                actions.innerHTML='<button type="button" data-action="history-anchor-edit" data-history-name="'+this.escape(name)+'">编辑</button>';card.appendChild(actions);
             });
             const summaryNames=(memory.长期总结||[]).slice().reverse().map(item=>item.名称),summarySection=this.section('长期历史总结');
             Array.from(summarySection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
                 const name=summaryNames[index];if(!name||card.querySelector('.we-history-actions'))return;
                 card.dataset.historyName=name;card.dataset.historyKind='summary';
                 const actions=engine.host.document.createElement('div');actions.className='we-history-actions';
-                actions.innerHTML='<button type="button" data-action="history-summary-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';card.appendChild(actions);
+                actions.innerHTML='<button type="button" data-action="history-summary-edit" data-history-name="'+this.escape(name)+'">编辑</button>';card.appendChild(actions);
             });
         }
 
@@ -8450,10 +8392,64 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         afterRender(){this.sync();}
         dispose(){this.boundPanel=null;}
     }
+    const CAUSAL_OVERVIEW_LIMIT=3;
+    const WORLD_ENGINE_HIDDEN_PLAYER_TABS=new Set(['资产','传闻']);
+
     class WorldCausalOverviewController {
         constructor(engine){this.engine=engine;}
+        static isPlayerTabHidden(tab){return WORLD_ENGINE_HIDDEN_PLAYER_TABS.has(String(tab||''));}
+        static offsetEntries(stat){
+            const bucket=stat?.世界?.因果轨道?.偏移记录;
+            return Object.entries(plain(bucket)?bucket:{}).slice().reverse();
+        }
+        static latestOffsets(stat,limit=CAUSAL_OVERVIEW_LIMIT){
+            return this.offsetEntries(stat).slice(0,Math.max(0,Number(limit)||0));
+        }
+        static impactLabel(value){
+            const n=Number(value);
+            return Number.isFinite(n)?(n>0?'+':'')+n:'影响未记录';
+        }
+        static escape(value){
+            return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
+        static interferenceMode(stat){return String(stat?.世界?.异端雷达?.当前模式||'').trim();}
+        static compactHtml(stat){
+            const world=stat?.世界||{},offsets=this.offsetEntries(stat),latest=offsets.slice(0,CAUSAL_OVERVIEW_LIMIT);
+            const stable=world.稳定!==null&&world.稳定!==''&&Number.isFinite(Number(world.稳定))?Number(world.稳定):null;
+            const rows=latest.map(([name,record])=>'<button class="we-causal-jump" data-tab="因果档案"><span><b>'+this.escape(name)+'</b><small>'+this.escape(record?.引发者||'引发者未记录')+'</small></span><strong>'+this.escape(this.impactLabel(record?.影响程度))+'</strong><p>'+this.escape(record?.描述||'暂无偏移描述')+'</p></button>').join('');
+            return '<div class="we-causal-summary"><button class="we-stability-compact" data-tab="因果档案"><span><small>世界稳定值</small><strong>'+this.escape(stable===null?'未记录':stable)+'</strong></span><em>查看因果档案 →</em></button>'
+                +(rows?'<div class="we-causal-latest">'+rows+'</div>':'<div class="we-empty"><b>暂无因果偏移</b><small>重大且已确认的因果改变会记录在这里。</small></div>')
+                +'<button class="we-link-btn" data-tab="因果档案">查看全部 '+offsets.length+' 条偏移、故事线与世界法则 →</button></div>';
+        }
+        static archiveHtml(stat){
+            const world=stat?.世界||{},orbit=world.因果轨道||{},offsets=this.offsetEntries(stat),stable=world.稳定!==null&&world.稳定!==''&&Number.isFinite(Number(world.稳定))?Number(world.稳定):null;
+            const offsetCard=([name,record])=>'<article class="we-offset"><div class="we-offset-head"><b>'+this.escape(name)+'</b><span>'+this.escape(this.impactLabel(record?.影响程度))+'</span></div><p>'+this.escape(record?.描述||'暂无偏移描述')+'</p><small>引发者 · '+this.escape(record?.引发者||'未记录')+'</small></article>';
+            const recent=offsets.slice(0,12),older=offsets.slice(12);
+            const laws=Array.isArray(world.法则)?world.法则:(world.法则?[world.法则]:[]);
+            const money=world.货币||{},interference=this.interferenceMode(stat);
+            const story='<article class="we-card we-causal-track"><dl><dt>当前阶段</dt><dd>'+this.escape(orbit.当前阶段||'待初始化')+'</dd><dt>故事线</dt><dd>'+this.escape(orbit.故事线||'未记录')+'</dd><dt>下一节点</dt><dd>'+this.escape(orbit.下一节点||'未记录')+'</dd></dl></article>';
+            const stability='<div class="we-causal"><div class="we-stability"><div><small>世界稳定值</small><strong data-world-stability>'+this.escape(stable===null?'未记录':stable)+'</strong></div><span>完整偏移保留为因果记忆；主面板仅显示最新 '+CAUSAL_OVERVIEW_LIMIT+' 条</span></div>'
+                +(stable===null?'':'<meter min="0" max="120" value="'+Math.max(0,Math.min(120,stable))+'" aria-label="世界稳定值">'+stable+'</meter>')
+                +'</div>';
+            const offsetList=recent.length?recent.map(offsetCard).join(''):'<div class="we-empty"><b>暂无因果偏移</b><small>只有已发生的重大不可逆结果才会建立记录。</small></div>';
+            const olderHtml=older.length?'<details class="we-offset-more"><summary>查看更早 '+older.length+' 条偏移</summary>'+older.map(offsetCard).join('')+'</details>':'';
+            const interferenceHtml=interference?'<section class="we-section we-causal-interference"><div class="we-section-head"><h2>干涉模式</h2><small>副本干涉态势</small></div><article class="we-card"><p>'+this.escape(interference)+'</p></article></section>':'';
+            const moneyHtml='<article class="we-card"><dl><dt>货币体系</dt><dd>'+this.escape(money.体系||'未记录')+'</dd><dt>购买力基准</dt><dd>'+this.escape(money.购买力基准||'未记录')+'</dd><dt>经济波动</dt><dd>'+this.escape(money.经济波动||'未记录')+'</dd></dl></article>';
+            const lawHtml=laws.length?'<div class="we-reading we-world-laws">'+laws.map(item=>'<article><p>'+this.escape(item)+'</p></article>').join('')+'</div>':'<div class="we-empty"><b>尚无世界法则</b><small>明确生效的法则会在这里维护。</small></div>';
+            return '<div class="we-causal-archive-grid"><div><section class="we-section"><div class="we-section-head"><h2>因果偏移档案</h2><small>'+offsets.length+' 条 · 最新在前</small></div>'+stability+offsetList+olderHtml+'</section></div><aside><section class="we-section"><div class="we-section-head"><h2>因果轨道</h2><small>长期方向</small></div>'+story+'</section>'+interferenceHtml+'<section class="we-section"><div class="we-section-head"><h2>货币与经济</h2><small>世界推进维护</small></div>'+moneyHtml+'</section><section class="we-section"><div class="we-section-head"><h2>世界法则</h2><small>'+laws.length+' 条</small></div>'+lawHtml+'</section></aside></div>';
+        }
+        static sectionByTitle(root,title){
+            return Array.from(root?.querySelectorAll?.('.we-section')||[]).find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()===title)||null;
+        }
+        isPlayerTabHidden(tab){return this.constructor.isPlayerTabHidden(tab);}
+        offsetEntries(stat){return this.constructor.offsetEntries(stat);}
+        latestOffsets(stat,limit=CAUSAL_OVERVIEW_LIMIT){return this.constructor.latestOffsets(stat,limit);}
+        interferenceMode(stat){return this.constructor.interferenceMode(stat);}
+        compactHtml(stat){return this.constructor.compactHtml(stat);}
+        archiveHtml(stat){return this.constructor.archiveHtml(stat);}
+        sectionByTitle(root,title){return this.constructor.sectionByTitle(root,title);}
         beforeRender(){
-            if(typeof isWorldEnginePlayerTabHidden==='function'&&isWorldEnginePlayerTabHidden(this.engine.tab))this.engine.tab='世界推进';
+            if(this.isPlayerTabHidden(this.engine.tab))this.engine.tab='世界推进';
         }
         ensureStyles(){
             const engine=this.engine;
@@ -8476,27 +8472,27 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
         compactWorldOverview(){
             const engine=this.engine,main=engine.panel?.querySelector?.('main');if(!main)return;
-            const stat=engine.snapshot().stat,causal=causalSectionByTitle(main,'因果状态');
+            const stat=engine.snapshot().stat,causal=this.sectionByTitle(main,'因果状态');
             main.querySelector('.we-kpi-grid.we-kpi-compact')?.remove();
             if(causal){
                 const head=causal.querySelector('.we-section-head');
                 if(head){
                     const h=head.querySelector('h2'),small=head.querySelector('small');
                     if(h)h.textContent='因果摘要';
-                    if(small)small.textContent='最新 '+Math.min(CAUSAL_OVERVIEW_LIMIT,causalOffsetEntries(stat).length)+' 条 · 点击进入档案';
+                    if(small)small.textContent='最新 '+Math.min(CAUSAL_OVERVIEW_LIMIT,this.offsetEntries(stat).length)+' 条 · 点击进入档案';
                 }
                 Array.from(causal.children).filter(child=>child!==head).forEach(child=>child.remove());
-                causal.insertAdjacentHTML('beforeend',causalCompactHtml(stat));
+                causal.insertAdjacentHTML('beforeend',this.compactHtml(stat));
             }
-            for(const title of ['货币与经济','世界法则'])causalSectionByTitle(main,title)?.remove();
+            for(const title of ['货币与经济','世界法则'])this.sectionByTitle(main,title)?.remove();
         }
         removeRunRecordInterference(){
             const main=this.engine.panel?.querySelector?.('main');if(!main)return;
-            causalSectionByTitle(main,'干涉模式')?.remove();
+            this.sectionByTitle(main,'干涉模式')?.remove();
         }
         renderArchive(){
             const engine=this.engine,main=engine.panel?.querySelector?.('main');if(!main)return;
-            main.insertAdjacentHTML('beforeend',causalArchiveHtml(engine.snapshot().stat));
+            main.insertAdjacentHTML('beforeend',this.archiveHtml(engine.snapshot().stat));
         }
         afterRender(){
             const engine=this.engine;
@@ -8509,6 +8505,17 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             else if(engine.tab==='运行记录')this.removeRunRecordInterference();
         }
     }
+
+
+    function isWorldEnginePlayerTabHidden(tab){return WorldCausalOverviewController.isPlayerTabHidden(tab);}
+    function causalOffsetEntries(stat){return WorldCausalOverviewController.offsetEntries(stat);}
+    function latestCausalOffsets(stat,limit=CAUSAL_OVERVIEW_LIMIT){return WorldCausalOverviewController.latestOffsets(stat,limit);}
+    function causalImpactLabel(value){return WorldCausalOverviewController.impactLabel(value);}
+    function causalOverviewEscape(value){return WorldCausalOverviewController.escape(value);}
+    function causalInterferenceMode(stat){return WorldCausalOverviewController.interferenceMode(stat);}
+    function causalCompactHtml(stat){return WorldCausalOverviewController.compactHtml(stat);}
+    function causalArchiveHtml(stat){return WorldCausalOverviewController.archiveHtml(stat);}
+    function causalSectionByTitle(root,title){return WorldCausalOverviewController.sectionByTitle(root,title);}
     class WorldEngineFeatureRegistry {
         constructor(engine){
             this.engine=engine;

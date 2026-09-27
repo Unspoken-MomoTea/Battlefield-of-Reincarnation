@@ -253,3 +253,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 最终有效规则保持不变：审计级别与生命层级解耦；世界后台已有合法私有审计级别时优先沿用；活跃异端无私有定级时默认首领/Boss级；队友不参与审计；最低构筑按杂兵 1/2/1、精英 1/4/2、Boss 1/6/4 计算，装备只统计状态=1。未补真实缺口时仍返回逐 NPC 的未解决缺口、建议字段和本轮实际提交。
 
 `WorldResultMaterializer` 与 `WorldValidationService` 现在显式组合 container-owned `npcAudit`，不再通过全局审计函数作为主实现。全局 `npcBuildAssessment / npcBuildAudit / ensureNpcBuildAuditProgress` 仅保留 UI、旧 feature 与离线测试兼容转发；`WorldNpcAuditPolicy` 只负责启停、世界书同步和 UI，不再承担审计算法。
+
+
+### Phase 26 · 输出协议与时间锚点归域
+
+已完成：`protocol()` 的真实实现迁入 `WorldResultContract`。Contract 现在同时拥有可编辑的输出协议说明 `instruction()` 与“说明 + Canonical WorldResult JSON Schema”的完整 `protocol()`；旧全局 `protocol()` 只保留兼容转发。Prompt Registry 的 `outputProtocol` 默认值直接读取 `WORLD_RESULT_CONTRACT.instruction()`，因此提示词仍在“全部实际提示词”中统一可编辑，而 Schema 继续保持程序只读契约。
+
+`sameWorldTimeAnchor()` 的真实实现迁入 `WorldTimelinePolicy.sameTimeAnchor()`，人物活动、生命周期与传闻等旧调用继续通过兼容函数获得同一语义。`30-context-protocol.part.js` 不再保存输出协议或时间比较算法，进一步收缩为早期 projector seam 与旧 NPC 默认提示兼容层。
+
+下一批优先处理剩余 `compileWorldResult` decorator；按领域逐条迁移，不一次拆掉整个装饰链。

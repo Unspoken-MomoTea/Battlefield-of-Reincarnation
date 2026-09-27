@@ -280,3 +280,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 `WorldStateProjector` 现在直接组合 container-owned `taskLedger` 生成 `当前变量.任务.列表`；`WorldResultMaterializer` 在 canonical `compileWorldResult()` 边界通过同一 service 校验事件只能引用现有任务。因此直接调用兼容 `projectWorldContext / compileWorldResult`、Compiler 与 Staging 路径保持同一行为。
 
 `57-task-awareness.part.js` 删除 `projectWorldContext=function...` 与 `compileWorldResult=function...` 两个 monkey patch，只保留任务只读提示、任务世界书标题与旧排除标记迁移；`WorldTaskAwarenessFeature` 继续只负责世界书选择恢复和请求 manifest，并与 Projector/Materializer 共用同一 `taskLedger`。
+
+
+### Phase 29 · 原著 / 数据库时间轴策略归域
+
+已完成：新增 `WorldChronologyPolicy`，把明确到日的原著/数据库时间证据提取、节点改期豁免、宏观节点日期硬校验以及对应纠错动作从 `58-chronology-guard.part.js` 收口到一个 stateful policy。
+
+`WorldChronologyFeature` 继续负责读取时间线/年表世界书与请求 payload/manifest，但不再写全局 `ACTIVE_CHRONOLOGY_GUARD`，而是把本轮世界时间与最终读取资料写入 container-owned `chronologyPolicy`。Canonical `WorldResultMaterializer.compileWorldResult()` 在真正编译 patch 前调用同一 policy 做硬校验，因此直接兼容入口、Compiler 与 Staging 都保持一致。
+
+`WorldResultStagingService` 组合相同 policy，通过 `retryGuidance()` 继续生成原有“宏观时间轴”纠错动作；后续 legacy retry wrapper 仍可在其外层追加各自领域说明。`58-chronology-guard.part.js` 现在只保留可编辑的时间轴提示词、默认预设升级常量与迁移逻辑，不再重写 `compileWorldResult` 或 `retryPlanForFailure`。

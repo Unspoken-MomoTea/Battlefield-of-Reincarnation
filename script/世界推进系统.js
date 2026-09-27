@@ -4294,17 +4294,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
             return null;
         }
-        notifyFailure(message) {
-            const raw=String(message||'世界推进失败').trim();
-            if(!raw||/^(?:请求已取消|上下文已经切换|已切换上下文)/.test(raw))return false;
-            const shown=raw.length>900?raw.slice(0,897)+'…':raw;
-            const toast=(this.host&&this.host.toastr)||(this.env&&this.env.toastr)||(this.host&&this.host.parent&&this.host.parent.toastr);
-            if(toast&&typeof toast.error==='function'){
-                try{toast.error(shown,'世界推进失败');return true;}catch(_){}
-            }
-            try{console.error('[世界推进] '+shown);}catch(_){}
-            return false;
-        }
+        notifyFailure(message){return this.runOrchestrator().notifyFailure(message);}
         snapshot() {
             const service=this.services?.context||new WorldRuntimeContextService(this);
             return service.snapshot();
@@ -4347,28 +4337,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         setEnabled(value){return this.configService.setEnabled(value);}
         runScheduler(){return this.services?.runScheduler||this._runScheduler||(this._runScheduler=new WorldRunScheduler(this));}
         cancel(){return this.runScheduler().cancel();}
-        applyBuiltinDefaultWorldbookExclusions(catalogue) {
-            if(this.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue)||!catalogue.length)return false;
-            const applied=new Set(Array.isArray(this.config.builtinDefaultWorldbookExclusionsApplied)?this.config.builtinDefaultWorldbookExclusionsApplied:[]);
-            let selected=Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):[];
-            let progressed=false,changed=false;
-            for(const title of BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS){
-                if(applied.has(title))continue;
-                const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===title);
-                if(!matches.length)continue;
-                const before=selected.length;
-                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
-                applied.add(title);progressed=true;
-                if(selected.length!==before)changed=true;
-            }
-            if(!progressed)return false;
-            this.config.selectedEntries=selected;
-            this.config.builtinDefaultWorldbookExclusionsApplied=Array.from(applied);
-            const builtin=this.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id);
-            if(builtin?.settings)builtin.settings.selectedEntries=copy(selected);
-            this.saveConfig();
-            return changed;
-        }
+        applyBuiltinDefaultWorldbookExclusions(catalogue){const service=this.services?.knowledge||new WorldKnowledgeService(this);return service.applyBuiltinDefaultWorldbookExclusions(catalogue);}
         async catalogue() {
             const service=this.services?.knowledge||new WorldKnowledgeService(this);
             return service.catalogue();
@@ -4385,22 +4354,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         runOrchestrator(){return this.services?.run||this._runOrchestrator||(this._runOrchestrator=new WorldRunOrchestrator(this));}
         async run(options={}){return this.runOrchestrator().execute(options);}
         getState() { return copy(Object.assign(emptyState(),this.snapshot().stat.世界[PATH] || {})); }
-        resetInspection() {
-            this.lastRequest=null;this.previewRequest=null;this.lastReply='';this.lastFailure='';
-            this.lastRetryLog=[];this.lastAttemptCount=0;this.lastAttemptTelemetry=[];this.lastTransportInfo=null;this.lastWorldResult=null;this.lastCompiledPatches=[];this.lastCompileWarnings=[];
-        }
-        statusTone() {
-            try {
-                const tone=this.host.localStorage.getItem(STATUS_THEME_CONFIG);
-                if(WORLD_TONE_KEYS.has(tone))return tone;
-            } catch (_) {}
-            return 'night';
-        }
-        syncStatusTone() {
-            const tone=this.statusTone();
-            if(this.panel)this.panel.dataset.tone=tone;
-            return tone;
-        }
+        resetInspection(){return this.runOrchestrator().resetInspection();}
+        statusTone(){return this.services?.panelRenderer?.statusTone?.()||'night';}
+        syncStatusTone(){return this.services?.panelRenderer?.syncStatusTone?.()||this.statusTone();}
         init() { return this.services?.applicationLifecycle?.init?.(); }
         isOpen() { return this.services?.applicationLifecycle?.isOpen?.()??false; }
         open() { return this.services?.applicationLifecycle?.open?.(); }
@@ -4699,6 +4655,29 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
     class WorldKnowledgeService {
         constructor(engine){this.engine=engine;}
+        applyBuiltinDefaultWorldbookExclusions(catalogue) {
+            const engine=this.engine;
+            if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue)||!catalogue.length)return false;
+            const applied=new Set(Array.isArray(engine.config.builtinDefaultWorldbookExclusionsApplied)?engine.config.builtinDefaultWorldbookExclusionsApplied:[]);
+            let selected=Array.isArray(engine.config.selectedEntries)?copy(engine.config.selectedEntries):[];
+            let progressed=false,changed=false;
+            for(const title of BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS){
+                if(applied.has(title))continue;
+                const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===title);
+                if(!matches.length)continue;
+                const before=selected.length;
+                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
+                applied.add(title);progressed=true;
+                if(selected.length!==before)changed=true;
+            }
+            if(!progressed)return false;
+            engine.config.selectedEntries=selected;
+            engine.config.builtinDefaultWorldbookExclusionsApplied=Array.from(applied);
+            const builtin=engine.getPromptDocuments().find(doc=>doc.id===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id);
+            if(builtin?.settings)builtin.settings.selectedEntries=copy(selected);
+            engine.saveConfig();
+            return changed;
+        }
         activation(entry,scan,force){
             if(!String(entry.content||'').trim())return {read:false,reason:'内容为空'};
             if(force)return {read:true,reason:'强制读取'};
@@ -4753,7 +4732,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     });
                 });
             }
-            engine.applyBuiltinDefaultWorldbookExclusions(result);
+            this.applyBuiltinDefaultWorldbookExclusions(result);
             return result;
         }
         async worldbook(scan='',options={}){
@@ -5833,6 +5812,22 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
     class WorldRunOrchestrator {
         constructor(engine){this.engine=engine;}
+        resetInspection(){
+            const e=this.engine;
+            e.lastRequest=null;e.previewRequest=null;e.lastReply='';e.lastFailure='';
+            e.lastRetryLog=[];e.lastAttemptCount=0;e.lastAttemptTelemetry=[];e.lastTransportInfo=null;e.lastWorldResult=null;e.lastCompiledPatches=[];e.lastCompileWarnings=[];
+        }
+        notifyFailure(message){
+            const e=this.engine,raw=String(message||'世界推进失败').trim();
+            if(!raw||/^(?:请求已取消|上下文已经切换|已切换上下文)/.test(raw))return false;
+            const shown=raw.length>900?raw.slice(0,897)+'…':raw;
+            const toast=(e.host&&e.host.toastr)||(e.env&&e.env.toastr)||(e.host&&e.host.parent&&e.host.parent.toastr);
+            if(toast&&typeof toast.error==='function'){
+                try{toast.error(shown,'世界推进失败');return true;}catch(_){}
+            }
+            try{console.error('[世界推进] '+shown);}catch(_){}
+            return false;
+        }
         async execute(options={}) {
             const engine=this.engine;
             return await (async function() {
@@ -7851,6 +7846,19 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
     class WorldPanelRenderer {
         constructor(engine){this.engine=engine;}
+        statusTone(){
+            const engine=this.engine;
+            try{
+                const tone=engine.host.localStorage.getItem(STATUS_THEME_CONFIG);
+                if(WORLD_TONE_KEYS.has(tone))return tone;
+            }catch(_){}
+            return 'night';
+        }
+        syncStatusTone(){
+            const tone=this.statusTone(),engine=this.engine;
+            if(engine.panel)engine.panel.dataset.tone=tone;
+            return tone;
+        }
         render(force=false) {
             const engine=this.engine;
 
@@ -7864,7 +7872,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 reason=engine.blocked(snapshot);
             }catch(e){reason=e.message;}
             const s=snapshot?snapshot.stat:{},w=s.世界||{},orbit=w.因果轨道||{};
-            engine.syncStatusTone();
+            this.syncStatusTone();
             engine.panel.dataset.fontScale=engine.config.fontScale||'standard';
             if(engine.tab==='总览')engine.tab='世界推进';
             const main=engine.panel.querySelector('main'),scroll=main.scrollTop;

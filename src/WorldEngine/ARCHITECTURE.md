@@ -233,4 +233,4 @@ Worldbook activation is owned by `WorldKnowledgeService`: constant/selective ent
 
 ## Phase 27 · Person compile preprocessing
 
-Alien activity timestamp normalization is no longer a global `compileWorldResult` decorator. `WorldResultCompiler` and `WorldResultStagingService` both compose the container-owned `WorldPersonActivityService` and run the same preprocessing before the remaining compatibility compile chain. This keeps fragment acceptance and final compilation behavior aligned.
+Alien activity timestamp normalization is no longer a global `compileWorldResult` decorator. The canonical `WorldResultMaterializer` composes the container-owned `WorldPersonActivityService` and normalizes alien activity immediately inside `compileWorldResult()`. Because the public global compile seam, `WorldResultCompiler`, and `WorldResultStagingService` all eventually compile through the same materializer boundary, direct compatibility calls and class-based flows preserve identical timestamp behavior without duplicate preprocessing.

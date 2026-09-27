@@ -544,3 +544,14 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 `SamsaraWorldEngine.init / isOpen / open / close / toggle / dispose` 现在只保留稳定公开 facade seam，并委托 container-owned `applicationLifecycle`。因此 `WorldEngineClassBridge.init()` 的 Feature Registry `afterInit` 包装，以及 `dispose()` 前的 feature 清理顺序保持不变。
 
 本阶段刻意不迁 `schedule / cancel`：它们属于运行调度/中断语义，并与 `WorldAutoProgressController`、`WorldRunOrchestrator` 有直接关系，不能为了缩文件把 application lifecycle 和推进调度重新耦合。迁移后基础 shell 约 13.4KB，架构测试把上限收紧到 14KB。
+
+
+### Phase 52 · Prompt 设置与编辑职责归域
+
+已完成：`SamsaraWorldEngine` 中剩余最大的 Prompt 实现块继续拆出。为避免重复造新类，本阶段沿用已有边界：
+
+- `WorldPromptDocumentService` 新增 `setPreset / currentSettings / applySettings`，统一负责 Prompt 基础设置的长度校验、默认值、contextTurns / activationMode / selectedEntries 规范化与持久化。
+- `WorldPromptWorkspaceController.readSettings()` 负责从「提示词预设」面板读取分段预设、专用 Prompt 字段、上下文楼层、激活模式和世界书勾选状态。
+- `SamsaraWorldEngine.setPreset / readPromptEditor / applyPromptSettings` 只保留稳定公开 facade seam；`WorldEngineClassBridge` 继续在这些 seam 外层完成 Prompt Registry 的 prepare/apply 同步，因此全部实际提示词的可编辑行为不变。
+
+迁移后 application shell 从约 13.4KB 降到约 9.4KB，架构上限收紧到 10KB，并禁止 Prompt DOM selector 与设置校验文案重新回流到 shell。

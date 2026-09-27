@@ -106,7 +106,7 @@
                 势力地区:copy(backend.势力地区||{}),
                 传播:this.tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
             };
-            projectedBackend.历史记忆=this.history?.project?this.history.project(backend):projectWorldHistoryMemory(backend);
+            projectedBackend.历史记忆=this.history?.project?this.history.project(backend):DEFAULT_WORLD_HISTORY_MEMORY_POLICY.project(backend);
             for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.资源点;
             const out={
                 世界:{

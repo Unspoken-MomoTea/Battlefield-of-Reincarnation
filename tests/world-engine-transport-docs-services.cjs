@@ -55,7 +55,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js'
 ])assert.ok(fs.existsSync(path.join(root,file)),file+' must exist');
 
-const runtime=fs.readFileSync(path.join(root,'script','world-engine-src','40-engine-runtime.part.js'),'utf8');
+const runtime=fs.readFileSync(path.join(root,'src','WorldEngine','core','SamsaraWorldEngine.part.js'),'utf8');
 assert.match(runtime,/WorldApiTransportService/,'runtime must initialize/delegate API transport service');
 const container=fs.readFileSync(path.join(root,'src','WorldEngine','core','WorldEngineServiceContainer.part.js'),'utf8');
 assert.match(container,/this\.transport=/);

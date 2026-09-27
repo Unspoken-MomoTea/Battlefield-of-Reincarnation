@@ -65,6 +65,8 @@ assert.match(orchestrator,/services\?\.compiler\?\.compile/,'run orchestrator re
 assert.match(orchestrator,/services\?\.compiler\?\.stage/,'run orchestrator staged WorldResult validation must use the compiler service seam');
 assert.match(orchestrator,/services\?\.resultParser\?\.parse/,'run orchestrator reply handling must use the reply parser service seam');
 assert.match(normalizer,/class\s+WorldResultNormalizer\b/,'normalization must live behind a dedicated domain class');
+assert.match(normalizer,/assertRumorCredibility\s*\(value\)/,'normalizer must expose raw rumor credibility diagnostics without changing compatibility normalization');
+assert.match(staging,/rawRumorErrors/,'staging must preserve raw rumor-format diagnostics before normalization');
 assert.match(compiler,/this\.normalizer\.normalizeWorldResult\(value\)/,'compiler.normalize must delegate to the normalizer class');
 assert.match(materializer,/class\s+WorldResultMaterializer\b/,'patch compilation must live behind a dedicated domain class');
 assert.match(compiler,/compile\(stat,value\)\{return this\.materializer\.compileWorldResult\(stat,value\);\}/,'compiler.compile must call the canonical materializer directly after compile decorators are removed');

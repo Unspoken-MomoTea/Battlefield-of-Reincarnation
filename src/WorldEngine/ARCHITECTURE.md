@@ -528,3 +528,10 @@ It composes `WorldStateFactory` and `WorldLifecycleService` directly instead of 
 `WorldPromptIntegrationService` owns the application-layer integration between `WorldPromptRegistry`, prompt documents, request decoration, token telemetry and `WorldPromptWorkspaceController`. It does not own prompt defaults or persistence schemas; those remain in the registry/document services.
 
 `WorldEngineClassBridge` now preserves only public compatibility seams and super-call ordering for prompt methods. Concrete registry merging, request rewriting, manifest telemetry and prompt-panel synchronization must not grow back into the bridge.
+
+
+## Phase 71 · Result vocabulary
+
+The former `WorldResultKernel` no longer exists as an algorithmic kernel. After patch compilation and final materialization were extracted, the file contained only shared WorldResult enums, record templates and field sets, so it has been renamed to `WorldResultVocabulary.part.js` without changing runtime values or load order.
+
+Pure shared constants remain plain data instead of being wrapped in an empty service class. Domain behavior continues to live in the existing Contract, Normalizer, PatchCompilation, StateMaterialization, RelationSync, AssetMaterialization and Integrity services.

@@ -8,6 +8,7 @@
 
 - `SamsaraWorldEngine` 最终只负责生命周期与模块编排，不再继续承载事件、人物、提示词等业务实现。
 - `WorldStateModel` 提供共享记录目录与实体身份匹配基础策略；旧 `10-world-state.part.js` 已删除。
+- `src/WorldEngine/core/SamsaraWorldEngine.part.js` 是完整 Application/UI Shell；旧 `40-engine-runtime.part.js` / `50-engine-ui.part.js` 已删除，领域算法与业务页面不得回流到 shell。
 - 每个业务域通过独立 class 暴露稳定接口。
 - 所有实际发送给 AI 的 system 提示词必须登记在 `WorldPromptRegistry`，并在“提示词预设”页面可见、可编辑、可保存到预设文档。
 - UI、领域逻辑、MVU 写回、提示词配置分离。

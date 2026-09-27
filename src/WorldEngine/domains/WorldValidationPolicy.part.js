@@ -1,25 +1,10 @@
     class WorldValidationPolicy {
-        constructor(timeline,duePolicy,activityPolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;this.activityPolicy=activityPolicy||DEFAULT_WORLD_ACTIVITY_POLICY;}
+        constructor(timeline,duePolicy,activityPolicy,softMaintenancePolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;this.activityPolicy=activityPolicy||DEFAULT_WORLD_ACTIVITY_POLICY;this.softMaintenancePolicy=softMaintenancePolicy||DEFAULT_WORLD_SOFT_MAINTENANCE_POLICY;}
         ensureDueHandled(next,dueList,worldTime) { return this.duePolicy.ensureHandled(next,dueList,worldTime); }
 
-        unscheduledEvents(stat) {
-            return Object.entries(stat?.世界?.[PATH]?.事件||{}).filter(([,event])=>{
-                if(!['待发生','进行中'].includes(event?.状态))return false;
-                const anchor=this.timeline.eventTimeAnchor(event);
-                return !anchor||VAGUE_EVENT_TIME.test(anchor);
-            }).map(([名称,event])=>({名称,分类:event.分类,状态:event.状态,条件:event.条件,前因:copy(event.前因||[]),当前时间:this.timeline.eventTimeAnchor(event)}));
-        }
+        unscheduledEvents(stat) { return this.softMaintenancePolicy.unscheduledEvents(stat); }
 
-        ensureEventTimeAnchors(next,required=[]) {
-            const missing=[];
-            for(const item of required||[]){
-                const event=next?.世界?.[PATH]?.事件?.[item.名称];
-                if(!event||!['待发生','进行中'].includes(event.状态))continue;
-                const anchor=this.timeline.eventTimeAnchor(event);
-                if(!anchor||VAGUE_EVENT_TIME.test(anchor))missing.push(item.名称);
-            }
-            if(missing.length)throw new Error('事件时间锚点仍未补全：'+missing.join('、')+'；请逐项补写具体世界日期/时段，或明确相对/因果时间，禁止空值和“近期/稍后/未来/待定/未知”');
-        }
+        ensureEventTimeAnchors(next,required=[]) { return this.softMaintenancePolicy.ensureEventTimeAnchors(next,required); }
 
         ensureStaleActiveHandled(next,required=[],worldTime='') {
             const now=worldDateKey(worldTime),state=next?.世界?.[PATH];
@@ -70,7 +55,7 @@
             return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
         }
     }
-    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY,DEFAULT_WORLD_ACTIVITY_POLICY);
+    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY,DEFAULT_WORLD_ACTIVITY_POLICY,DEFAULT_WORLD_SOFT_MAINTENANCE_POLICY);
     let ACTIVE_WORLD_VALIDATION_POLICY=DEFAULT_WORLD_VALIDATION_POLICY;
     function ensureDueHandled(next,dueList,worldTime){return ACTIVE_WORLD_VALIDATION_POLICY.ensureDueHandled(next,dueList,worldTime);}
     function unscheduledEvents(stat){return ACTIVE_WORLD_VALIDATION_POLICY.unscheduledEvents(stat);}

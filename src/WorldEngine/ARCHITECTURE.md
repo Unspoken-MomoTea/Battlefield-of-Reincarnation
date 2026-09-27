@@ -253,3 +253,8 @@ Alien activity timestamp normalization is no longer a global `compileWorldResult
 `WorldCausalService` owns world-scale causal filtering, soft impact normalization, same-root coalescing, per-actor impact budgets and stale local-offset cleanup. `WorldResultMaterializer` invokes those methods at the canonical compile boundary, so direct `compileWorldResult`, Compiler and Staging share identical behavior.
 
 Controlled removal of stale causal offsets is now part of `WorldPatchPolicy` rather than an `applyPatches` monkey patch. The causal-stability legacy module has been deleted; the integrity legacy module retains only temporal-integrity compatibility behavior.
+
+
+## Phase 31 · NPC equipment compile preprocessing
+
+`WorldNpcAuditService.normalizeNewEquipment()` owns the rule that newly introduced equipment for an existing audited NPC defaults to equipped state `1`, while existing equipment keeps its submitted/current state. `WorldResultMaterializer` applies this at the canonical compile boundary. The legacy narrative-audit module now contains prompt compatibility text only and no longer decorates `compileWorldResult`.

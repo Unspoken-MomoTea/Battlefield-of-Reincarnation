@@ -631,3 +631,10 @@ patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动
 已完成：新增 `WorldProseExtractor`，把原先位于 `WorldEngineFoundation.part.js` 的完整 `extractWorldProse` 算法原样迁出。隐藏思考/变量更新/技术面板过滤、assistant prefill 孤立结束标签兼容、代码围栏判定、JSON 技术楼层抑制以及 `<user>` 标签保留语义均不改变。
 
 `WorldRequestBuilder` 现在显式组合 container-owned `proseExtractor`，正文楼层构造直接调用 `proseExtractor.extract()`；公开 `extractWorldProse(value)` 仍作为 CommonJS/旧调用 compatibility seam，但只转发到 active extractor。现有 `world-engine-prose` 与主引擎正文清洗回归继续作为公开行为验收。
+
+
+### Phase 61 · Token 遥测归域
+
+已完成：新增 `WorldTokenTelemetry`，把 token 粗估、显示格式化、provider usage 归一与请求分段观测从 `WorldEngineFoundation.part.js` 迁入独立领域类。Foundation 不再保存可观测性算法。
+
+`WorldRequestBuilder` 与 `WorldApiTransportService` 显式组合 Service Container 中同一个 `tokenTelemetry` 实例：请求 manifest 的世界书/正文楼层估算与整体 request telemetry 由该实例生成；专属 API 的 usage 归一也走同一实例。旧 `estimateTokens / formatTokenCount / normalizeTokenUsage / requestTokenTelemetry` 名称仅保留 compatibility forwarder，供尚未迁移的 UI/Feature 与 CommonJS 测试使用，不再形成第二套算法。

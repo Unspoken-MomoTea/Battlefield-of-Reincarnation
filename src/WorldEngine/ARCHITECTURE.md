@@ -507,3 +507,10 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 ## Phase 67 · Patch application service
 
 `WorldPatchApplicationService` owns mutation execution after WorldResult compilation: canonical paths, write permission, upsert/remove contracts, record merging, relation/task/economy constraints, temporal validation, persisted-state integrity, per-round reputation bounds and rumor rolling. `WorldResultMaterializer.applyPatches()` is now a thin facade to the container-owned service; final materialization remains responsible only for seed/model sequencing and domain repair passes.
+
+
+## Phase 68 · Result patch compilation service
+
+`WorldResultPatchCompilationService` owns the full WorldResult-to-patch compilation transaction. It composes the canonical normalizer, time, person, NPC audit, chronology, task, exploration, causal, relation-sync, asset-materialization and patch policies.
+
+`WorldResultMaterializer.compileWorldResult()` is now a compatibility/application facade only. The materializer itself owns final state materialization and repair orchestration, while generic patch execution remains in `WorldPatchApplicationService`.

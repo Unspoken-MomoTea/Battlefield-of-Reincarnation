@@ -33,8 +33,6 @@ PARTS = (
     '@src/WorldEngine/domains/WorldResultStagingService.part.js',
     '@src/WorldEngine/domains/WorldResultReplyParser.part.js',
     '@src/WorldEngine/domains/WorldValidationPolicy.part.js',
-    '20-world-result.part.js',
-    '30-context-protocol.part.js',
     'ui/00-styles.part.js',
     '40-engine-runtime.part.js',
     '50-engine-ui.part.js',

@@ -137,14 +137,4 @@
         ensureRumorLiveliness(next,ACTIVE_RUMOR_MAINTENANCE);
     };
 
-    const retryPlanBeforeRumorLiveliness=retryPlanForFailure;
-    retryPlanForFailure=function(error,rejected=[]) {
-        const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
-        const plan=retryPlanBeforeRumorLiveliness(error,rejected).slice();
-        let match;
-        if((match=message.match(/传闻为空未补足：([^；\n]+)/)))plan.push('传闻维护：'+match[1]+'。空分类本轮补2条真实世界信息；三类各自展示最近3条，约60字/条，不要无依据围绕<user>。');
-        if((match=message.match(/传播链仍未复核：([^；\n]+)/)))plan.push('传播维护：'+match[1]+'。逐条更新到当前世界时间，并推进范围/受众/内容/引发行动；若传播已结束则结束或移除，不要原样重交。');
-        return Array.from(new Set(plan.filter(Boolean)));
-    };
-
-    // 传闻请求与 run 生命周期已迁移至 WorldRumorRequestFeature。
+    // 传闻与传播纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // 传闻请求与 run 生命周期已迁移至 WorldRumorRequestFeature。

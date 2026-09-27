@@ -13,7 +13,7 @@ const engine=new Engine(host);
 engine.setPreset('【测试预设】\n只保留这段');
 assert.equal(engine.config.preset,'【测试预设】\n只保留这段');
 assert.equal(engine.config.presetEditorVersion,2);
-assert.equal(JSON.parse(store['samsara-world-engine']||'{}').preset,'【测试预设】\n只保留这段');
+assert.equal(JSON.parse(store['samsara_world_engine_v1']||'{}').preset,'【测试预设】\n只保留这段');
 
 const result=engine.applyPromptSettings({
   preset:'【应用设置】\n正文',

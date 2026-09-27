@@ -184,6 +184,7 @@
         normalizeWorldResult(value) {
             if(!plain(value))throw new Error('WorldResult 必须是 JSON 对象');
             const result={摘要:String(value.摘要??value.summary??'世界继续推进')};
+            if(Object.hasOwn(value,'时间')){const time=String(value.时间??'').trim();if(time)result.时间=time;}
             const legacyStage=(Object.hasOwn(value,'公开摘要')||Object.hasOwn(value,'public_summary'))?String(value.公开摘要??value.public_summary??'').trim():'';
             result.货币={};
             if(plain(value.货币)){
@@ -248,6 +249,7 @@
             const a=base?this.normalizeWorldResult(base):this.normalizeWorldResult({摘要:''});
             const b=this.normalizeWorldResult(incoming);
             const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
+            if(Object.hasOwn(b,'时间'))result.时间=b.时间;else if(Object.hasOwn(a,'时间'))result.时间=a.时间;
             result.货币=Object.assign({},a.货币||{},b.货币||{});
             result.历法=Object.assign({},a.历法||{},b.历法||{});
             for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'])result[key]=this.mergeNamedResultLists(a[key],b[key]);

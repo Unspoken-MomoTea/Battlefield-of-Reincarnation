@@ -49,7 +49,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const snapshot=e.snapshot();snapshot.message={message_id:3,role:'assistant'};
         const r=await e.buildRequest(snapshot),p=JSON.parse(r.input);
         assert.deepEqual(p.正文楼层.map(f=>f.正文),['旧正文。','城门已经关闭。']);
-        assert.deepEqual(p.世界书.map(b=>b.名称),['城门设定']);
+        assert.deepEqual(p.世界书,['已封闭'],'清洗后的正文只应激活城门设定内容，不应触发隐藏思考里的海港设定');
         assert.doesNotMatch(r.input,/海港|JSONPatch|隐藏计划|后台推演/);
         assert.deepEqual(r.manifest.正文楼层.map(f=>f.字符数),[4,7]);
         x.host.getChatMessages=()=>[{message_id:3,role:'assistant',message:'<thinking>未闭合思考'}];

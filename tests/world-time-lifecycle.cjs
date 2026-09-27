@@ -5,8 +5,9 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const settlement = fs.readFileSync(path.join(root, 'Regular/结算任务美化.html'), 'utf8');
 const selection = fs.readFileSync(path.join(root, 'Regular/选择世界美化.txt'), 'utf8');
+assert.equal(fs.existsSync(path.join(root, 'script/world-engine-src/59-world-time-ownership.part.js')), false, 'legacy world-time prompt shell must be deleted');
 const ownership = [
-  path.join(root, 'script/world-engine-src/59-world-time-ownership.part.js'),
+  path.join(root, 'src/WorldEngine/prompts/WorldPromptDefaults.part.js'),
   path.join(root, 'src/WorldEngine/domains/WorldTimePolicy.part.js'),
   path.join(root, 'src/WorldEngine/domains/WorldTimeOwnershipFeature.part.js'),
 ].map(file=>fs.readFileSync(file,'utf8')).join('\n');

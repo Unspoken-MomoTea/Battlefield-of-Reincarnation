@@ -354,3 +354,14 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 `script/world-engine-src/59-history-memory.part.js` 已从构建清单和源码树直接删除；`HISTORY_MEMORY_SYSTEM` 也随 policy 进入 src，Prompt Registry 的 `historyMemory` 注册项保持不变，因此历史压缩提示词仍在“提示词预设 → 全部实际提示词”中可见、可编辑。
 
 下一批继续清 validation / temporal compatibility seam；legacy 目录只允许删薄或删除，不再新增领域实现。
+
+
+### Phase 36 · 时间解析与完整性时序彻底归域
+
+已完成：`worldDateKey()` 的真实算法从 `00-foundation-prompt.part.js`、`59-world-integrity-guard.part.js`、`59-world-time-daypart-aliases.part.js` 收口到 `WorldTimePolicy`。数字公历日期、作品内时段、地支时辰、HH:mm/秒级精确时钟与“早上/夜晚/黄昏”等同义时段现在由 `WorldTimePolicy.key()` 统一解析；Foundation 只保留外部兼容转发。
+
+`WorldTimelinePolicy` 显式组合 container-owned `timePolicy`，并直接拥有最终有效的时间完整性语义：事件、地区、历史、传播等宏观事实只按自然日越界；人物动态仅在双方都有精确时钟时执行同日分钟级未来检查。原 `59-world-integrity-guard` 删除 `worldDateKey / temporalAnomalies` monkey patch，`59-world-time-daypart-aliases.part.js` 整文件删除。
+
+现有 `world-engine-integrity-guard.cjs` 继续作为公开行为 seam，确保精确人物时钟、同日宏观放行、跨日拒绝、时段前后与世界时间不可回退语义保持不变。
+
+下一批继续清理剩余 validation / rumor / due-event 全局覆写；新实现只进入 `src/WorldEngine`，legacy 文件只允许删除逻辑或保留兼容常量。

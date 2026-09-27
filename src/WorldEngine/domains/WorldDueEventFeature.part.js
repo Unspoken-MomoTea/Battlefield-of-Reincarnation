@@ -1,6 +1,7 @@
     class WorldDueEventFeature extends WorldRequestFeature {
+        constructor(engine,policy=DEFAULT_WORLD_DUE_EVENT_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_DUE_EVENT_POLICY;}
         async afterBuildRequest(request,base){
-            const due=relaxedDueEvents(base?.stat||{});
+            const due=this.policy.review(base?.stat||{});
             request.due=due;
             try{
                 const payload=JSON.parse(request.input);

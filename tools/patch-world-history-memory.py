@@ -134,7 +134,6 @@ replace_once_any(
 replace_once_any(
     [
         'src/WorldEngine/domains/WorldAutoProgressController.part.js',
-        'script/world-engine-src/59-auto-progress.part.js',
     ],
     "const maps=['事件','人物','势力地区','历史','传播'];",
     "const maps=['事件','人物','势力地区','历史','历史总结','传播'];",

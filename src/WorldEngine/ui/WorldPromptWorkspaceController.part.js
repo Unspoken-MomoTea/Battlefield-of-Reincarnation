@@ -2,6 +2,31 @@
         constructor(engine,registry){this.engine=engine;this.registry=registry;}
         escape(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
         editable(){return this.engine.promptEditing===true;}
+        readSettings(){
+            const engine=this.engine,panel=engine.panel;
+            const list=panel&&panel.querySelector('[data-segment-list]');
+            const rows=list?Array.from(list.querySelectorAll('[data-segment-row]')):[];
+            const preset=list?rows.map(row=>segmentText({
+                title:row.querySelector('[data-segment-title]')?.value||'',
+                body:row.querySelector('[data-segment]')?.value||''
+            })).filter(Boolean).join('\n'):engine.config.preset;
+            const floors=panel&&panel.querySelector('[data-floors]');
+            const activation=panel&&panel.querySelector('[data-activation]');
+            const books=panel?Array.from(panel.querySelectorAll('[data-book]')):[];
+            return {
+                preset,
+                corePrompt:panel?.querySelector('[data-core-prompt]')?.value??engine.config.corePrompt??CORE_WORLD_RULES,
+                macroPrompt:panel?.querySelector('[data-macro-prompt]')?.value??engine.config.macroPrompt??DEFAULT_MACRO_PROMPT,
+                stabilityPromptTemplate:panel?.querySelector('[data-stability-prompt]')?.value??engine.config.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE,
+                npcAuditPrompt:panel?.querySelector('[data-npc-audit-prompt]')?.value??engine.config.npcAuditPrompt,
+                structurePrompt:panel?.querySelector('[data-structure-prompt]')?.value??engine.config.structurePrompt??WORLD_RESULT_CONTRACT.instruction(),
+                contextTurns:Math.max(1,Math.min(100,Number(floors?.value??engine.config.contextTurns)||6)),
+                activationMode:activation?.value||engine.config.activationMode||'respect_activation',
+                selectedEntries:books.length
+                    ?books.filter(item=>item.checked&&!item.disabled).map(item=>item.value)
+                    :(Array.isArray(engine.config.selectedEntries)?copy(engine.config.selectedEntries):null)
+            };
+        }
         read(values){
             const next=this.registry.normalize(values),panel=this.engine.panel;
             if(!panel)return next;

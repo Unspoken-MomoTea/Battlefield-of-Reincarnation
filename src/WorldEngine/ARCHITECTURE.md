@@ -333,3 +333,10 @@ The macro-backbone requirement remains independently configurable, but world-act
 `WorldRumorService` now owns both rumor maintenance behavior and the legacy/default prompt material required by the editable prompt registry. It also owns the built-in preset migration through `upgradePreset()`. `WorldRumorRequestFeature` remains a request/UI feature and delegates preset migration to the same container-owned rumor service.
 
 The former rumor legacy modules (`56-rumor-liveliness`, `59-rumor-throttle`, `59-rumor-world-source`, `59-rumor-world-request`, `59-rumor-world-system`) are deleted. No rumor business or prompt-default implementation remains in `script/world-engine-src`.
+
+
+## Phase 42 · Prompt defaults and legacy shell cleanup
+
+Static model-facing defaults are now centralized under `src/WorldEngine/prompts/WorldPromptDefaults.part.js`. It owns the compact built-in preset, module-prompt definitions, and the legacy/default text for task awareness, chronology, NPC audit, integrity and world-time prompts. `WorldPromptRegistry` remains the runtime/editing registry; this file is only the canonical source of defaults and preset migrations.
+
+Replay version/scope constants now live with `WorldReplayService`. Eleven legacy prompt/stateful placeholder files were deleted instead of retained as empty compatibility parts. Build declarations, CI path tracking and regression tests reference the src owners directly. No new model prompt default or stateful feature may be added back under `script/world-engine-src`.

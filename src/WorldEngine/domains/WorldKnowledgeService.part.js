@@ -1,5 +1,5 @@
     class WorldKnowledgeService {
-        constructor(engine){this.engine=engine;}
+        constructor(engine,selection=DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY){this.engine=engine;this.selection=selection||DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY;}
         applyBuiltinDefaultWorldbookExclusions(catalogue) {
             const engine=this.engine;
             if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue)||!catalogue.length)return false;
@@ -8,10 +8,10 @@
             let progressed=false,changed=false;
             for(const title of BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS){
                 if(applied.has(title))continue;
-                const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===title);
+                const matches=catalogue.filter(entry=>this.selection.normalizeTitle(entry.title)===title);
                 if(!matches.length)continue;
                 const before=selected.length;
-                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
+                selected=selected.filter(raw=>!matches.some(entry=>this.selection.matches(entry,[raw])));
                 applied.add(title);progressed=true;
                 if(selected.length!==before)changed=true;
             }
@@ -85,7 +85,7 @@
             engine.bookCatalogue=catalogue;
             const report=[];engine.readReport=report;
             for(const e of catalogue){
-                const selected=!e.technical&&selectedEntryMatches(e,engine.config.selectedEntries);
+                const selected=!e.technical&&this.selection.matches(e,engine.config.selectedEntries);
                 const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&isTimelineBackboneEntry(e.title);
                 const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?this.activation(e,scan,engine.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
                 report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});

@@ -34,6 +34,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
     '@src/WorldEngine/domains/WorldRumorService.part.js',
     '@src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js',
+    '@src/WorldEngine/domains/WorldPatchApplicationService.part.js',
     '@src/WorldEngine/domains/WorldResultMaterializer.part.js',
     '@src/WorldEngine/domains/WorldRetryGuidanceService.part.js',
     '@src/WorldEngine/domains/WorldResultStagingService.part.js',

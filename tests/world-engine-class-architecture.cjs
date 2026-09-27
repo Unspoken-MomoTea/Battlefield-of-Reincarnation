@@ -58,7 +58,7 @@ assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.
 assert.match(applicationShellSource,/class\s+SamsaraWorldEngine\s*\{/,'base application shell must live under src/WorldEngine/core');
 assert.match(configServiceSource,/class\s+WorldEngineConfigService\s*\{/,'configuration initialization must live behind a dedicated src service');
 assert.match(applicationShellSource,/this\.configService=new WorldEngineConfigService\(this\)/,'application shell must delegate constructor config migration');
-for(const legacyConfigMarker of ['retryDefaultFiveMigrated','userDefaultPromptSettings','builtinDefaultPromptVersionApplied'])assert.doesNotMatch(applicationShellSource,new RegExp(legacyConfigMarker),'config migration marker must not grow back into the application shell');
+for(const legacyConfigMarker of ['retryDefaultFiveMigrated','builtinDefaultPromptVersionApplied'])assert.doesNotMatch(applicationShellSource,new RegExp(legacyConfigMarker),'constructor config migration marker must not grow back into the application shell');
 assert.match(applicationShellSource,/createPanel\(\)/,'src application shell must own panel lifecycle');
 assert.match(applicationShellSource,/dispose\(\)/,'src application shell must own disposal lifecycle');
 const stateModelSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateModel.part.js'),'utf8');

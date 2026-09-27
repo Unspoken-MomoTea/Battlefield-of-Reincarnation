@@ -57,7 +57,6 @@
             for(const category of ['人物','势力地区','传播']){
                 for(const record of Object.values(state[category]))if(record.关联事件.some(id=>!Object.hasOwn(state.事件,id)))throw new Error('关联事件不存在');
             }
-            return stat;
         }
     }
 

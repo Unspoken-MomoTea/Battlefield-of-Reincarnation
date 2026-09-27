@@ -16,6 +16,29 @@
                 dedicatedApi:{enabled:false,apiUrl:'',apiKey:'',model:'',apiPresets:[],fetchedModels:[]}
             };
         }
+        isConfigured(){return !!this.engine.config.enabled;}
+        isAvailable(){
+            const engine=this.engine;
+            if(engine.usesDedicatedApi())return engine.dedicatedApiReady();
+            const terminal=engine.host.Samsara&&engine.host.Samsara.terminal;
+            return !!(terminal&&typeof terminal.apiReady==='function'&&terminal.apiReady());
+        }
+        isEnabled(){return this.isConfigured()&&this.isAvailable();}
+        setEnabled(value){
+            const engine=this.engine,on=!!value;
+            engine.config.enabled=on;
+            if(on&&!engine.usesDedicatedApi()){
+                const terminal=engine.host.Samsara&&engine.host.Samsara.terminal;
+                if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
+            } else if(!on) {
+                engine.cancel();
+                if(engine.isOpen())engine.close();
+            }
+            this.save();
+            engine.status=on?(this.isAvailable()?'世界推进已开启':(engine.usesDedicatedApi()?'世界推进已开启 · 等待专属 API 配置':'世界推进已开启 · 等待额外模型配置')):'世界推进已关闭';
+            engine.render();
+            return this.isEnabled();
+        }
         save(){
             const engine=this.engine;
             try{engine.host.localStorage?.setItem?.(CONFIG,JSON.stringify(engine.config));}catch(_){}

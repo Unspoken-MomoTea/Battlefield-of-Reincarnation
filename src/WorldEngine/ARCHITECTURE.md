@@ -556,3 +556,12 @@ The catalog is loaded immediately after `WorldEngineFoundation`, preserving the 
 `WorldEngineFoundation.part.js` is now only the opening IIFE boundary. Generic shared helpers live in `core/WorldSharedUtilities.part.js`, loaded immediately after the foundation and before runtime constants or domain consumers.
 
 The foundation is intentionally not a service class: it defines the single-file lexical scope only. No helper, policy, prompt, UI data or runtime behavior should be added back into it.
+
+
+## Phase 75 · Classization completion gate
+
+The refactor is now protected by a whole-tree architecture gate. Exactly one source part may inherit from `SamsaraWorldEngine`: `core/WorldEngineClassBridge.part.js`, retained solely for public compatibility and super-call ordering.
+
+Core public seams must not be extended through global function reassignment. New behavior must be composed through the owning service/policy/controller/feature. The legacy source tree must remain absent, all build parts must come from `src/WorldEngine`, and prompt instructions remain governed by `WorldPromptRegistry` plus the prompt-source audit.
+
+Large files with a coherent domain owner are not refactor targets by size alone. Further decomposition requires an actual responsibility boundary and a regression seam.

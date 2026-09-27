@@ -122,7 +122,15 @@
             return out;
         }
 
-        allowed(parts,stat) {
+        removable(parts) {
+            const [a,b,c]=parts;
+            if(a==='传闻')return true;
+            if(a==='世界'&&b===PATH&&c==='传播')return true;
+            if(a==='资产'&&parts.length===2)return true;
+            return a==='世界'&&b==='因果轨道'&&c==='偏移记录'&&parts.length===4;
+        }
+
+        allowed(parts,stat,op='') {
             const [a,b,c,d]=parts;
             if(a==='世界'&&b===PATH){
                 if(c==='剧本')return false;
@@ -132,6 +140,7 @@
             }
             if(a==='世界'&&b==='因果轨道'){
                 if(['当前阶段','故事线','下一节点'].includes(c))return parts.length===3;
+                if(c==='偏移记录'&&parts.length===4&&op==='remove')return true;
                 return !(stat.设置||{}).世界超稳&&c==='偏移记录'&&parts.length===4;
             }
             if(a==='世界'&&b==='时间')return parts.length===2;
@@ -160,4 +169,4 @@
     function normalizeBackendRecord(category,value,old){return ACTIVE_WORLD_PATCH_POLICY.normalizeBackendRecord(category,value,old);}
     function sanitizeModelPatches(patches){return ACTIVE_WORLD_PATCH_POLICY.sanitizeModelPatches(patches);}
     function normalizeModelPatches(patches){return ACTIVE_WORLD_PATCH_POLICY.normalizeModelPatches(patches);}
-    function allowed(parts,stat){return ACTIVE_WORLD_PATCH_POLICY.allowed(parts,stat);}
+    function allowed(parts,stat,op=''){return ACTIVE_WORLD_PATCH_POLICY.allowed(parts,stat,op);}

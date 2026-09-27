@@ -54,6 +54,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js',
   '@src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js',
   '@src/WorldEngine/domains/WorldPatchApplicationService.part.js',
+  '@src/WorldEngine/domains/WorldStateMaterializationService.part.js',
   '@src/WorldEngine/domains/WorldResultContract.part.js',
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
   '@src/WorldEngine/domains/WorldResultPatchCompilationService.part.js',
@@ -176,20 +177,23 @@ assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldAssetMaterializationPo
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldRumorService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js'),'state integrity must load after the rumor service it composes');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'state integrity policy must initialize before the materializer');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldPatchApplicationService.part.js'),'patch application must load after state integrity');
-assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldPatchApplicationService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'patch application service must initialize before the materializer');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldPatchApplicationService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldStateMaterializationService.part.js'),'state materialization must load after patch application');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateMaterializationService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'state materialization service must initialize before the materializer facade');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:compileWorldResult|validateState|applyPatches|materializeWorldUpdate|materializeAssetRecord)\b/,'compile/materialize implementation must leave the WorldResult kernel');
 assert.match(texts['@src/WorldEngine/domains/WorldResultPatchCompilationService.part.js'],/class\s+WorldResultPatchCompilationService\b/,'WorldResult patch compilation must have a dedicated service class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultPatchCompilationService.part.js'],/compile\(stat,value\)/,'patch compilation service must own WorldResult compilation');
-assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/class\s+WorldResultMaterializer\b/,'final world materialization must have a dedicated materializer class');
+assert.match(texts['@src/WorldEngine/domains/WorldStateMaterializationService.part.js'],/class\s+WorldStateMaterializationService\b/,'final world state materialization must have a dedicated service class');
+assert.match(texts['@src/WorldEngine/domains/WorldStateMaterializationService.part.js'],/materialize\(stat,seedPatches,modelPatches\)/,'state materialization service must own final repair orchestration');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/class\s+WorldResultMaterializer\b/,'WorldResultMaterializer must remain the compatibility facade');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/compileWorldResult\(stat,value\)\s*\{\s*return this\.patchCompilation\.compile\(stat,value\);\s*\}/,'materializer must preserve a thin compile compatibility facade');
 assert.match(texts['@src/WorldEngine/domains/WorldPatchApplicationService.part.js'],/apply\(stat,patches\)/,'patch application service must own patch execution');
-assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/applyPatches\(stat,patches\)/,'materializer must preserve the public patch-application facade');
-assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'materializer must own final world materialization');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/applyPatches\(stat,patches\)\s*\{\s*return this\.stateMaterialization\.apply\(stat,patches\);\s*\}/,'materializer must preserve the public patch-application facade through state materialization');
+assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/materializeWorldUpdate\(stat,seedPatches,modelPatches\)\s*\{\s*return this\.stateMaterialization\.materialize\(stat,seedPatches,modelPatches\);\s*\}/,'materializer must preserve the public final-materialization facade');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/let\s+ACTIVE_WORLD_RESULT_MATERIALIZER\s*=\s*DEFAULT_WORLD_RESULT_MATERIALIZER/,'legacy seams must be backed by the active container-owned materializer');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/function\s+validateState\(stat\)\{return ACTIVE_WORLD_RESULT_MATERIALIZER\.validateBaseState\(stat\);\}/,'legacy validateState compatibility seam must remain available');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/(?<!function\s)validateState\(next\)/,'materializer internals must not route state validation back through the global compatibility seam');
 assert.match(texts['@src/WorldEngine/domains/WorldPatchApplicationService.part.js'],/this\.stateIntegrity\.validate\(next\)/,'patch application must validate through the composed state-integrity policy');
-assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/this\.validateBaseState\(next\)/,'final repair materialization must retain a state-integrity validation pass');
+assert.match(texts['@src/WorldEngine/domains/WorldStateMaterializationService.part.js'],/this\.validate\(next\)/,'final repair materialization service must retain a state-integrity validation pass');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultStagingService.part.js'),'staging service must load after the materializer it composes');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:worldResultFragments|stageWorldResult|retryPlanForFailure|retryFeedback|makeRetryFailure)\b/,'staging and retry implementation must leave the WorldResult kernel');
 assert.match(texts['@src/WorldEngine/domains/WorldResultStagingService.part.js'],/class\s+WorldResultStagingService\b/,'WorldResult staged acceptance must have a dedicated service class');

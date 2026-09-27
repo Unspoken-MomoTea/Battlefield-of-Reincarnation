@@ -34,6 +34,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldResultReplyParser.part.js',
     '@src/WorldEngine/domains/WorldValidationPolicy.part.js',
     '@src/WorldEngine/ui/WorldEngineStyles.part.js',
+    '@src/WorldEngine/core/WorldHostAdapter.part.js',
     '@src/WorldEngine/core/WorldEngineConfigService.part.js',
     '@src/WorldEngine/core/WorldRunScheduler.part.js',
     '@src/WorldEngine/core/SamsaraWorldEngine.part.js',

@@ -564,3 +564,12 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 公开 `SamsaraWorldEngine` 同名方法只保留 facade seam。原行为保持：关闭时取消当前请求并关闭面板；重新开启普通终端 API 时调用 `terminal.enableApi()`；专属 API 的等待状态文案与最终 `isEnabled()` 返回值不变。
 
 迁移后 shell 约 8.6KB，架构上限进一步收紧到 9KB。运行调度 `cancel / schedule` 仍未并入 Config Service，避免配置状态与请求生命周期混为一体。
+
+
+### Phase 54 · 基础运行调度独立
+
+已完成：新增 `WorldRunScheduler`，接管基础 `cancel()` 与 fallback `schedule()` 的 generation 中断、pending 清理、timer 与 AbortController 取消，以及 900ms 手动调度。公开 `SamsaraWorldEngine.cancel / schedule` 只保留稳定 facade seam。
+
+最终引擎上的自动推进调度仍由 `WorldEngineClassBridge.schedule()` 优先交给 `WorldAutoProgressController`，本阶段不改变正文触发、轮次计数、战斗暂停或额外分析等待语义；`WorldRunOrchestrator` 结束后调用的公开 schedule seam 也继续经过原覆盖顺序。
+
+同时修复 Service Container 初始化顺序：先创建 container-owned `WorldTimelinePolicy`，再以该实例创建 `WorldSoftMaintenancePolicy`，避免后者静默退回默认 timeline。架构回归锁定两者必须共享同一 policy 实例。

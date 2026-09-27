@@ -62,7 +62,6 @@ const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/doma
 const npcNarrativeCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-npc-narrative-audit.part.js'),'utf8');
 const npcAuditPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditPolicy.part.js'),'utf8');
 const policyCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-policy-compat.part.js'),'utf8');
-const integrityLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
 assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
 assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');

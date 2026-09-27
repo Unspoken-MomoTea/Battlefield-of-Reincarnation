@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const delivery = path.join(__dirname, '../script/世界推进系统.js');
-const foundation = fs.readFileSync(path.join(__dirname, '../src/WorldEngine/prompts/WorldBasePromptDefaults.part.js'), 'utf8');
+const basePromptDefaults = fs.readFileSync(path.join(__dirname, '../src/WorldEngine/prompts/WorldBasePromptDefaults.part.js'), 'utf8');
 const promptSettings = fs.readFileSync(path.join(__dirname, '../src/WorldEngine/domains/WorldPromptDocumentService.part.js'), 'utf8');
 const requestBuilder = fs.readFileSync(path.join(__dirname, '../src/WorldEngine/domains/WorldRequestBuilder.part.js'), 'utf8');
 const ui = [
@@ -12,10 +12,10 @@ const ui = [
 const {SamsaraWorldEngine: Engine, emptyState} = require(delivery);
 const clone = value => JSON.parse(JSON.stringify(value));
 
-assert.match(foundation, /version:21,\n\s*builtin:true/, 'editable system prompt migration should keep the current built-in prompt document at v21');
-assert.match(foundation, /corePrompt:\s*CORE_WORLD_RULES/, 'built-in prompt document must carry the same core prompt used at runtime');
-assert.match(foundation, /macroPrompt:\s*DEFAULT_MACRO_PROMPT/, 'built-in prompt document must carry the same macro prompt used at runtime');
-assert.match(foundation, /stabilityPromptTemplate:\s*DEFAULT_STABILITY_PROMPT_TEMPLATE/, 'built-in prompt document must carry the same stability template used at runtime');
+assert.match(basePromptDefaults, /version:21,\n\s*builtin:true/, 'editable system prompt migration should keep the current built-in prompt document at v21');
+assert.match(basePromptDefaults, /corePrompt:\s*CORE_WORLD_RULES/, 'built-in prompt document must carry the same core prompt used at runtime');
+assert.match(basePromptDefaults, /macroPrompt:\s*DEFAULT_MACRO_PROMPT/, 'built-in prompt document must carry the same macro prompt used at runtime');
+assert.match(basePromptDefaults, /stabilityPromptTemplate:\s*DEFAULT_STABILITY_PROMPT_TEMPLATE/, 'built-in prompt document must carry the same stability template used at runtime');
 
 for (const marker of ['data-core-prompt', 'data-macro-prompt', 'data-stability-prompt', 'data-npc-audit-prompt', 'data-structure-prompt']) {
   assert.ok(ui.includes(marker), `prompt workspace must expose editable field: ${marker}`);

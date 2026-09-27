@@ -13,6 +13,19 @@
             return this.engine.requestHistoryMemorySummary(world,batch,level);
         }
         backend(){return this.engine.snapshot().stat?.世界?.[PATH]||{};}
+        related(value) {
+            const source=Array.isArray(value)?value.join('\n'):String(value||'');
+            return [...new Set(source.split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
+        }
+        replaySamePath(left,right) {
+            return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((item,index)=>String(item)===String(right[index]));
+        }
+        syncReplay(raw,fingerprint,path,value) {
+            const replay=raw?.__samsaraWorldReplay;
+            if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return;
+            replay.operations=replay.operations.filter(operation=>!this.replaySamePath(operation?.path,path));
+            replay.operations.push({op:'set',path:copy(path),value:copy(value)});
+        }
         async commitEdit(kind,name,build,status){
             name=String(name||'').trim();
             if(!name)throw new Error('历史记录名称不能为空');
@@ -23,7 +36,7 @@
             const updated=build(copy(bucket[name]));
             if(!plain(updated))throw new Error('历史编辑结果无效');
             bucket[name]=updated;
-            historyMemoryEditorSyncReplay(next,snapshot.fingerprint,['世界',PATH,bucketName,name],updated);
+            this.syncReplay(next,snapshot.fingerprint,['世界',PATH,bucketName,name],updated);
             const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
             if(target)target.__samsaraUIMutation=true;
             try{
@@ -42,7 +55,7 @@
         async saveAnchor(name,record){
             const time=String(record?.时间||'').trim(),fact=String(record?.事实||'').trim();
             if(!fact)throw new Error('历史事实不能为空');
-            const related=historyMemoryEditorRelated(record?.关联事件);
+            const related=this.related(record?.关联事件);
             return this.commitEdit('anchor',name,current=>({...current,时间:time,事实:fact,关联事件:related}),'已修正近期历史锚点');
         }
         async saveSummary(name,record){

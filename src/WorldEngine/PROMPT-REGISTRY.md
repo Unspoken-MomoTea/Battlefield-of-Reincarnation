@@ -9,7 +9,7 @@
 1. **system**：主预设、核心边界、宏观骨架、世界自救、NPC 审计、WorldResult 协议、任务/时间轴/维护/探索/因果/时间/传闻/世界活动等运行模块。
 2. **user payload**：输入语义、宏观骨架规划与验收、正文投影说明、到期事件复核、时间线基准、异端复核、世界活动硬要求等。
 3. **辅助模型**：长期历史压缩 system 与输入说明。
-4. **纠错重试**：已有部分结果+补充清单、已有部分结果、首次整体纠错三种要求。
+4. **纠错重试**：已有部分结果+补充清单、已有部分结果、首次整体纠错三种要求，以及运行时根据失败类型选择的 `retryGuide*` 纠错动作模板。
 
 任务只读语义、未命中时间轴资料时的保守说明、传闻世界侧取材边界也属于实际发送给模型的静态指令，现已分别以 `inputSemantics / chronologyNoEvidenceGuidance / rumorSourceBoundary` 登记，不能再藏在请求构造文件里。
 
@@ -40,3 +40,9 @@
 不要再把新的不可编辑指令直接拼接到 `request.system` 或请求 JSON。
 
 `tests/world-engine-prompt-source-audit.cjs` 还会扫描世界推进源码中的 `*PROMPT* / *RULES* / *GUIDANCE* / *INSTRUCTION*` 静态常量；除 Registry 自身默认值外，任何新提示词常量如果没有被 `WorldPromptRegistry` 引用都会直接使 CI 失败。这样以后不会再出现“功能能跑，但提示词藏在文件里”的回退。
+
+## Retry Guidance
+
+`WorldRetryGuidanceService` 的静态模板同样属于 Prompt Registry 管理范围。目前 `retryGuideMacroBackbone`、`retryGuideEventDelivery`、`retryGuideMacroSchedule`、`retryGuideCausalProjection`、事件/时间/NPC/异端/传闻/世界活动等共 19 项 guidance 均在“全部实际提示词”中显示并可编辑。
+
+模板中的 `{name} / {details} / {current} / {active} / {future} / {missing}` 是运行时占位符，只由程序填入当前失败事实；用户编辑模板时可以保留这些占位符。错误事实本身不保存进预设。

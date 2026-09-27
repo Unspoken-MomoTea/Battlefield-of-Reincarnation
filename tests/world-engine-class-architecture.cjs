@@ -83,14 +83,13 @@ for(const method of ['tokens','get','pointer','canonicalizeParts','bootstrapBack
   assert.match(patchPolicySource,new RegExp('\\b'+method+'\\s*\\('),'patch policy must own '+method);
 }
 const personDomainSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPersonActivityService.part.js'),'utf8');
-const alienCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/59-alien-activity-normalization.part.js'),'utf8');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-alien-activity-normalization.part.js')),false,'alien compile wrapper file must be removed after service migration');
 for(const legacyName of ['derivePersonWorldContext','projectHotWorldPeople','alienRosterMatch','activeAlienActivityRequirements','seedMissingAlienPeople','ensureActiveAlienActivity']){
   assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
 }
 for(const method of ['deriveContext','projectHot','alienRosterMatch','alienActivityReviewReasons','activeAlienRequirements','seedMissingAlienPeople','ensureActiveAlienActivity','normalizeAlienActivityTimestamps']){
   assert.match(personDomainSource,new RegExp('\\b'+method+'\\s*\\('),'person activity domain must own '+method);
 }
-assert.doesNotMatch(alienCompatSource,/function\s+alienActivityReviewReasons|activeAlienActivityRequirements\s*=\s*function|ensureActiveAlienActivity\s*=\s*function/,'alien compatibility file must not re-own person-domain policy');
 
 const delivery=require('../script/世界推进系统.js');
 const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=delivery;
@@ -150,6 +149,8 @@ assert.equal(engine.services.compiler.normalizer,engine.services.resultNormalize
 assert.equal(engine.services.compiler.materializer,engine.services.resultMaterializer,'compiler must compose the container-owned materializer');
 assert.equal(engine.services.compiler.staging,engine.services.resultStaging,'compiler must compose the container-owned staging service');
 assert.equal(engine.services.compiler.patchPolicy,engine.services.patchPolicy,'compiler must compose the container-owned patch policy');
+assert.equal(engine.services.compiler.people,engine.services.people,'compiler must compose the container-owned person activity service');
+assert.equal(engine.services.resultStaging.people,engine.services.people,'staging must compose the same person activity service for fragment compilation');
 assert.equal(engine.services.validation.constructor.name,'WorldValidationService');
 assert.equal(engine.services.validation.policy,engine.services.validationPolicy,'validation service must compose the container-owned policy');
 assert.equal(engine.services.validation.npcAudit,engine.services.npcAudit,'validation service must compose the container-owned NPC audit service');

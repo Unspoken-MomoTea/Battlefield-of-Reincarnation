@@ -442,3 +442,10 @@ Public engine methods remain compatibility facades so external integrations and 
 The IIFE foundation, UI style resource, and bootstrap remain ordered build fragments because they define the single-file runtime boundary; their canonical locations are now `core/WorldEngineFoundation.part.js`, `ui/WorldEngineStyles.part.js`, and `core/WorldEngineBootstrap.part.js`. `tools/build-world-engine.py` rejects non-`@src` parts.
 
 This is a physical source-boundary migration, not a behavioral rewrite. Further decomposition of the foundation happens separately so source ownership changes are not mixed with runtime semantics.
+
+
+## Phase 57 · Base prompt defaults
+
+Editable base prompt defaults no longer live in `WorldEngineFoundation`. `WorldBasePromptDefaults.part.js` owns `DEFAULT_PRESET`, `CORE_WORLD_RULES`, macro/stability defaults, the built-in prompt document and preset-editing helpers, and loads before configuration initialization consumes them.
+
+The split preserves the original concatenated byte order. A small worldbook-selection helper group remains in this module only because it was inside the same contiguous legacy tail; it is an explicit Phase 58 migration target rather than a new ownership decision.

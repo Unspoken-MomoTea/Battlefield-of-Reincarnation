@@ -2,7 +2,8 @@
         retryGuideMacroBackbone:'宏观骨架：当前可推进宏观节点{current}个（进行中{active}、待发生{future}），还需补充至少{missing}个真正的宏观节点；已确认正在发生的阶段转折可记进行中，其余新增节点记待发生。会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。',
         retryGuideEventDelivery:'事件交付：在 WorldResult.事件 中实际建立节点，分类=宏观节点；描述说明篇章、地区整体局势、战争、势力格局或关键人物命运的一个阶段转折，不能只在摘要或因果轨道里列名字。已有合格节点沿用原名，只提交缺失或变化字段。',
         retryGuideMacroSchedule:'宏观排期：每个新增节点必须给出明确时间锚点；沿用明确资料的日期或时间精度，精确日期未知时使用可理解的相对/因果时间，不写近期/稍后/未来/待定/未知。条件按需填写。前因只能引用已存在，或本轮同时提交且成功建立的事件名称；无明确前因使用 []，不得用当前阶段或自然语言原因代替事件名。',
-        retryGuideCausalProjection:'因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序；只使用最终3~5个仍可推进且 分类=宏观节点 的不同事件名称，且每个名称都必须对应已建立且未取消的宏观节点；不要写当前阶段、当前事件或近期节点。',
+        retryGuideCausalProjection:'因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序；只使用最终3~5个仍可推进且 分类=宏观节点 的不同事件名称，不要写当前阶段、当前事件或近期节点。',
+        retryGuideCausalProjectionRepair:'因果轨道：不要重写已接受事件，只补写 因果.宏观顺序；长度必须3~5，且每个名称都必须对应已建立且未取消的宏观节点；不要写当前阶段、当前事件或近期节点。',
         retryGuideDueEvent:'到期事件/{name}：本轮必须明确启动该事件，或更新本轮复核日期、阻碍条件与下次检查。',
         retryGuideEventTime:'事件/{name}：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。',
         retryGuideStaleEvent:'事件/{name}：该局部活动已远超正常持续窗口。若实际早已结束则改为已完成并补结果；若失效则已取消；只有确实仍持续时才保留进行中，并把更新时间写为当前世界时间、更新当前描述并填写下次检查。',
@@ -55,7 +56,7 @@
                 const current=Math.max(0,Number(match[1])||0),active=Math.max(0,Number(match[2])||0),future=Math.max(0,Number(match[3])||0);
                 plan.push(...this.macroBackbonePlan(current,active,future));
             }else if(/因果轨道未形成有效宏观投影/.test(primary)){
-                plan.push(this.format('retryGuideCausalProjection'));
+                plan.push(this.format('retryGuideCausalProjectionRepair'));
             }else if((match=primary.match(/到期事件未处理：([^。]+)/))){
                 plan.push(this.format('retryGuideDueEvent',{name:match[1]}));
             }else if((match=primary.match(/事件时间锚点缺失或过于模糊：([^；]+)/))){

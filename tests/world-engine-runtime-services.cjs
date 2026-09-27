@@ -81,7 +81,7 @@ host.Mvu={
   assert.match(payload.正文楼层.at(-1).正文,/钟塔敲响/);
   assert.ok(Array.isArray(payload.世界书));
 
-  const runtime=fs.readFileSync(path.join(root,'script','world-engine-src','40-engine-runtime.part.js'),'utf8');
+  const runtime=fs.readFileSync(path.join(root,'src','WorldEngine','core','SamsaraWorldEngine.part.js'),'utf8');
   assert.match(runtime,/snapshot\(\)[\s\S]*?services\?\.context[\s\S]*?\.snapshot\(\)/,'runtime snapshot must delegate to context service');
   assert.match(runtime,/async catalogue\(\)[\s\S]*?services\?\.knowledge[\s\S]*?\.catalogue\(\)/,'runtime catalogue must delegate to knowledge service');
   assert.match(runtime,/async buildRequest\(base\)[\s\S]*?services\?\.requestBuilder[\s\S]*?\.build\(base\)/,'runtime base request must delegate to request builder');

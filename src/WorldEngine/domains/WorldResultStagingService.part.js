@@ -6,8 +6,7 @@
             this.retryGuidance=retryGuidance||DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE;
         }
 
-        // Retry-plan calls still traverse the compatibility seam because a few legacy modules only add domain-specific retry guidance.
-        // Result normalization, merge, fragment splitting and compilation are canonical class calls.
+        // Result normalization, merge, fragment splitting, compilation and retry planning are canonical class calls.
 
         worldResultFragments(value) {
             const result=this.normalizer.normalizeWorldResult(value),fragments=[];

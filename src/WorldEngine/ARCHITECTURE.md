@@ -27,6 +27,7 @@ src/WorldEngine/
     WorldMutationService
     WorldEventService
     WorldPersonActivityService
+    WorldNpcAuditService
     WorldHistoryService
     WorldCausalService
     WorldExplorationService
@@ -216,3 +217,8 @@ The service-level `world()` method intentionally traverses the decorated public 
 ## Phase 24 · Worldbook activation
 
 Worldbook activation is owned by `WorldKnowledgeService`: constant/selective entry handling, primary/secondary keyword matching, force-selected reads, disabled entries, and empty-content rejection are evaluated in the same service that discovers and reads worldbooks. The context-protocol legacy file no longer owns this policy.
+
+
+## Phase 25 · NPC audit domain
+
+`WorldNpcAuditService` owns NPC audit projection, narrative-weight classification, hot-audit selection, gap calculation and progress validation. Audit level is private world-engine state and remains independent from character power tier. The feature-toggle/worldbook/UI concerns stay in `WorldNpcAuditPolicy`; materialization and validation compose the canonical audit service directly.

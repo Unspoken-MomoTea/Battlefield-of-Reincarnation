@@ -473,3 +473,14 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 - `editor/20-person-editor.part.js`
 
 至此 `script/world-engine-src/editor/` 目录消失。下一批处理 `20-world-result.part.js` 与 `30-context-protocol.part.js` 两个兼容槽，再评估 `10-world-state` 是否可以把 RECORDS/DETAILS 与命名 helper 迁进 src 后整文件删除。
+
+
+### Phase 45 · 删除 20 / 30 编号兼容槽
+
+已完成：`20-world-result.part.js` 与 `30-context-protocol.part.js` 从 legacy 树和真实构建管线整文件删除。
+
+- WorldResult 的兼容常量/函数早已由 `WorldResultKernel / Contract / Normalizer / Materializer / Staging / ReplyParser` 等 src 模块拥有，原 20 号文件只剩注释，因此直接删除。
+- `WorldStateProjector.part.js` 现在同时拥有 active projector seam 与 `projectWorldContext / projectCharacterForWorld / projectAssetsForWorld` 等外部兼容转发，不再需要 30 号前置壳。
+- 旧版 `NPC_BUILD_AUDIT_RULES` 仅用于历史预设迁移与默认兼容，现已迁入 `src/WorldEngine/prompts/WorldPromptDefaults.part.js`；当前实际审计提示仍以 `NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT` 为准并由 Prompt Registry 可编辑。
+
+下一批评估 `10-world-state.part.js`：把剩余 RECORDS / DETAILS / NPC_AUDIT_LEVELS 与名称/location helper 迁入 src 后尝试整文件删除。随后再集中处理最后的大壳 `40-engine-runtime` / `50-engine-ui`。

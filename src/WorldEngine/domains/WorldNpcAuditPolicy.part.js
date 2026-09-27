@@ -1,5 +1,5 @@
     class WorldNpcAuditPolicy {
-        constructor(engine){this.engine=engine;this.boundPanel=null;}
+        constructor(engine,selection=DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY){this.engine=engine;this.selection=selection||DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY;this.boundPanel=null;}
         initialize(){
             const e=this.engine,had=Object.hasOwn(e.config,'npcBuildAuditEnabled');
             e.config.npcBuildAuditEnabled=e.config.npcBuildAuditEnabled===true;
@@ -12,14 +12,14 @@
             return NPC_BUILD_AUDIT_FEATURE_ENABLED;
         }
         enabled(){return this.engine.config.npcBuildAuditEnabled===true;}
-        isWorldbook(entry){return ['实体生成规则','NPC生成规则','状态协议'].includes(normalizeWorldbookEntryTitle(entry.title));}
+        isWorldbook(entry){return ['实体生成规则','NPC生成规则','状态协议'].includes(this.selection.normalizeTitle(entry.title));}
         syncWorldbookSelection(catalogue=this.engine.bookCatalogue||[]){
             const e=this.engine,matches=catalogue.filter(entry=>this.isWorldbook(entry));if(!matches.length)return;
             const sync=settings=>{
                 if(!settings)return;
                 const previous=settings.selectedEntries;
-                let selected=Array.isArray(previous)?copy(previous):catalogue.filter(entry=>!entry.technical&&selectedEntryMatches(entry,previous)).map(entry=>JSON.stringify([entry.book,entry.id]));
-                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
+                let selected=Array.isArray(previous)?copy(previous):catalogue.filter(entry=>!entry.technical&&this.selection.matches(entry,previous)).map(entry=>JSON.stringify([entry.book,entry.id]));
+                selected=selected.filter(raw=>!matches.some(entry=>this.selection.matches(entry,[raw])));
                 if(this.enabled())for(const entry of matches)if(!entry.technical)selected.push(JSON.stringify([entry.book,entry.id]));
                 if(JSON.stringify(previous)!==JSON.stringify(selected))settings.selectedEntries=selected;
             };

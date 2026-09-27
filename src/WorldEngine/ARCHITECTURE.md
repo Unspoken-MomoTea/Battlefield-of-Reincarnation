@@ -542,3 +542,10 @@ Pure shared constants remain plain data instead of being wrapped in an empty ser
 UI theme data is no longer part of the core foundation. `ui/WorldThemeCatalog.part.js` is the single source for the shared status-theme storage key, six semantic theme registries, derived tone keys/theme CSS, and font-scale registry.
 
 The catalog is loaded immediately after `WorldEngineFoundation`, preserving the single-file runtime order while keeping visual configuration inside the UI boundary. The foundation must not re-own theme registries or font-scale data.
+
+
+## Phase 73 · Runtime constants
+
+`core/WorldEngineRuntimeConstants.part.js` owns cross-cutting runtime configuration constants: storage key, backend path key, event/history/person hot-set capacities, retention windows and terminal person-status matcher.
+
+`WorldEngineFoundation.part.js` is now only the IIFE boundary plus generic shared helpers. Runtime policy values must not be reintroduced into the foundation.

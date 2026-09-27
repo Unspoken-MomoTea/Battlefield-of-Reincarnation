@@ -28,5 +28,5 @@ def ensure_prompt_version_floor():
     print('[history-prompt] patched prompt version 19 -> 20')
 
 ensure_prompt_version_floor()
-patch('script/world-engine-src/59-history-memory.part.js','可以删除：重复描述、已经失去后续意义的过程细节、UI/运行记录信息。','可以删除：重复描述、已经失去后续意义的过程细节、UI/调试信息。','compression wording')
+patch('src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js','可以删除：重复描述、已经失去后续意义的过程细节、UI/运行记录信息。','可以删除：重复描述、已经失去后续意义的过程细节、UI/调试信息。','compression wording')
 print('[history-prompt] done')

@@ -630,6 +630,12 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 说明:'先用因果轨道、当前事实与模型已有世界/原著知识建立宏观骨架；世界书若存在只作补充校正。随后仅展开当前时间到下一宏观节点之间的近期事件、人物、势力与传播。非公历或作品内时间按作品语义比较，不强行改写为公历。'
             };
         }
+        sameTimeAnchor(a,b) {
+            const x=String(a||'').trim(),y=String(b||'').trim();if(!x||!y)return false;
+            if(x===y)return true;
+            const shorter=x.length<=y.length?x:y,longer=x.length<=y.length?y:x;
+            return shorter.length>=8&&longer.includes(shorter);
+        }
         eventTimeAnchor(event) {
             return String(event?.时间||event?.开始时间||'').trim();
         }
@@ -719,6 +725,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function storyStages(value){return ACTIVE_WORLD_TIMELINE_POLICY.storyStages(value);}
     function importStory(stat){return ACTIVE_WORLD_TIMELINE_POLICY.importStory(stat);}
     function timelineState(stat){return ACTIVE_WORLD_TIMELINE_POLICY.timelineState(stat);}
+    function sameWorldTimeAnchor(a,b){return ACTIVE_WORLD_TIMELINE_POLICY.sameTimeAnchor(a,b);}
     function eventTimeAnchor(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventTimeAnchor(event);}
     function eventScheduleLabel(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventScheduleLabel(event);}
     function staleActiveEvents(stat){return ACTIVE_WORLD_TIMELINE_POLICY.staleActiveEvents(stat);}
@@ -1591,6 +1598,16 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             for(const [key,value] of Object.entries(sample||{}))properties[key]=this.schemaFromSample(value);
             return {type:'object',properties,required:['名称',...requiredFields],additionalProperties:false};
         }
+        instruction() {
+            return `只输出一个 WorldResult JSON 对象；不要输出 Markdown、解释、思考过程、<thinking> 或 JSON Pointer。
+省略业务字段表示无变化；已有实体只写本轮变化字段，新增实体写足以建立该实体的确定事实；实体用“名称”关联。
+“操作”默认“更新”；“移除”只用于 Schema 允许删除的记录；“撤销本轮”只用于纠错重试。
+字段语义遵循【世界引擎核心约束】；字段结构和值域只以以下 Schema 为准。WorldResult 之外的任务、世界时间、玩家属性/货币/击杀等不要输出。
+关系只更新已存在的关系列表对象；不得为玩家建立后台人物记录。`;
+        }
+        protocol() {
+            return this.instruction()+'\n\n【Canonical WorldResult JSON Schema】\n'+JSON.stringify(this.schema,null,2);
+        }
         build(){
         const FACTION_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.势力);
         FACTION_RESULT_SCHEMA.properties.实力={type:'string',enum:copy(QUALITY_RANKS)};
@@ -1734,6 +1751,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const RELATION_CURRENT_FORM_SCHEMA=WORLD_RESULT_CONTRACT.schemas.relationCurrentForm;
     const ASSET_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schemas.asset;
     const WORLD_RESULT_SCHEMA=WORLD_RESULT_CONTRACT.schema;
+    function protocol(){return WORLD_RESULT_CONTRACT.protocol();}
     class WorldResultNormalizer {
         normalizeRumorCredibility(value) {
             const raw=String(value??'').trim();
@@ -2736,29 +2754,12 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function projectCarriedItems(value){return requireWorldStateProjector().carriedItems(value);}
     function projectForms(value){return requireWorldStateProjector().forms(value);}
 
-    function sameWorldTimeAnchor(a,b) {
-        const x=String(a||'').trim(),y=String(b||'').trim();if(!x||!y)return false;
-        if(x===y)return true;
-        const shorter=x.length<=y.length?x:y,longer=x.length<=y.length?y:x;
-        return shorter.length>=8&&longer.includes(shorter);
-    }
     function projectCharacterForWorld(value){return requireWorldStateProjector().character(value);}
     function projectAssetsForWorld(value){return requireWorldStateProjector().assets(value);}
     function projectCausalOrbitForWorld(value,currentStability){return requireWorldStateProjector().causalOrbit(value,currentStability);}
     // Base seam is intentionally defined before task/history decorators; they wrap this name later.
     function projectWorldContext(stat){return requireWorldStateProjector().baseWorld(stat);}
 
-    function protocol() {
-        const schemaText=JSON.stringify(WORLD_RESULT_SCHEMA,null,2);
-        return `只输出一个 WorldResult JSON 对象；不要输出 Markdown、解释、思考过程、<thinking> 或 JSON Pointer。
-省略业务字段表示无变化；已有实体只写本轮变化字段，新增实体写足以建立该实体的确定事实；实体用“名称”关联。
-“操作”默认“更新”；“移除”只用于 Schema 允许删除的记录；“撤销本轮”只用于纠错重试。
-字段语义遵循【世界引擎核心约束】；字段结构和值域只以以下 Schema 为准。WorldResult 之外的任务、世界时间、玩家属性/货币/击杀等不要输出。
-关系只更新已存在的关系列表对象；不得为玩家建立后台人物记录。
-
-【Canonical WorldResult JSON Schema】
-${schemaText}`;
-    }
     const NPC_BUILD_AUDIT_RULES=`【角色管理 · NPC构筑审计】
 只处理“角色管理.NPC构筑审计”列出的既有 NPC；目标是补真实缺口，不是提难度或重做角色。
 1. 不改人物层级、HP_MAX/EP_MAX；不覆盖已完整组件，不用改名制造重复能力。
@@ -6409,7 +6410,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const BlobCtor=engine.host.Blob||(typeof Blob!=='undefined'?Blob:null);
             const URLApi=engine.host.URL||(typeof URL!=='undefined'?URL:null);
             if(!BlobCtor||!URLApi?.createObjectURL)throw new Error('当前环境不支持文件导出');
-            const defaults={corePrompt:CORE_WORLD_RULES,macroPrompt:DEFAULT_MACRO_PROMPT,stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,npcAuditPrompt:NPC_BUILD_AUDIT_RULES,structurePrompt:protocol().split('【Canonical WorldResult JSON Schema】')[0].trim()};
+            const defaults={corePrompt:CORE_WORLD_RULES,macroPrompt:DEFAULT_MACRO_PROMPT,stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,npcAuditPrompt:NPC_BUILD_AUDIT_RULES,structurePrompt:WORLD_RESULT_CONTRACT.instruction()};
             const exportedSettings=Object.assign(defaults,copy(doc.settings));
             if(engine.services?.prompts)exportedSettings.promptRegistry=engine.services.prompts.normalize(exportedSettings.promptRegistry||engine.services.prompts.values());
             const payload={type:'samsara-world-prompt-document',version:3,name:doc.name,exportedAt:new Date().toISOString(),settings:exportedSettings};
@@ -7538,7 +7539,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 def({key:'macro',title:'宏观骨架',group:'主流程',source:'DEFAULT_MACRO_PROMPT',scope:'system',condition:'本轮需要建立或补足宏观骨架时',native:true,defaultValue:()=>typeof COMPACT_MACRO_PROMPT==='string'?COMPACT_MACRO_PROMPT:DEFAULT_MACRO_PROMPT}),
                 def({key:'stability',title:'世界自救',group:'主流程',source:'DEFAULT_STABILITY_PROMPT_TEMPLATE',scope:'system',condition:'稳定值低于100且未开启世界超稳时',native:true,defaultValue:()=>typeof COMPACT_STABILITY_PROMPT_TEMPLATE==='string'?COMPACT_STABILITY_PROMPT_TEMPLATE:DEFAULT_STABILITY_PROMPT_TEMPLATE}),
                 def({key:'npcAudit',title:'NPC构筑审计',group:'主流程',source:'NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT',scope:'system',condition:'启用NPC构筑审计且本轮存在审计对象时',native:true,defaultValue:()=>typeof NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT==='string'?NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT:NPC_BUILD_AUDIT_RULES}),
-                def({key:'outputProtocol',title:'WorldResult 输出协议说明',group:'主流程',source:'protocol()',scope:'system',condition:'每次主世界推进请求；程序 JSON Schema 仍固定只读',native:true,defaultValue:()=>protocol().split('【Canonical WorldResult JSON Schema】')[0].trim()}),
+                def({key:'outputProtocol',title:'WorldResult 输出协议说明',group:'主流程',source:'WorldResultContract.instruction()',scope:'system',condition:'每次主世界推进请求；程序 JSON Schema 仍固定只读',native:true,defaultValue:()=>WORLD_RESULT_CONTRACT.instruction()}),
                 def({key:'task',title:'任务只读',group:'运行模块',source:'TASK_AWARENESS_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('task',typeof TASK_AWARENESS_RULES==='string'?TASK_AWARENESS_RULES:'')}),
                 def({key:'chronology',title:'原著 / 数据库时间轴',group:'运行模块',source:'CHRONOLOGY_GUARD_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('chronology',typeof CHRONOLOGY_GUARD_RULES==='string'?CHRONOLOGY_GUARD_RULES:'')}),
                 def({key:'maintenance',title:'分级维护',group:'运行模块',source:'SOFT_MAINTENANCE_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('maintenance',typeof SOFT_MAINTENANCE_RULES==='string'?SOFT_MAINTENANCE_RULES:'')}),

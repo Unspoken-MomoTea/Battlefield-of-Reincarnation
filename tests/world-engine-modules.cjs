@@ -82,6 +82,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldChronologyFeature.part.js',
   '@src/WorldEngine/domains/WorldRumorRequestFeature.part.js',
   '@src/WorldEngine/domains/WorldNpcAuditPromptFeature.part.js',
+  '@src/WorldEngine/ui/WorldPanelController.part.js',
   '@src/WorldEngine/ui/WorldEditorController.part.js',
   '@src/WorldEngine/ui/WorldApiPresetController.part.js',
   '@src/WorldEngine/ui/WorldCausalOverviewController.part.js'

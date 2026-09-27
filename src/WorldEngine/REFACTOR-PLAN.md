@@ -418,3 +418,25 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 `WorldRumorService.upgradePreset()` 保留原本实际生效的两步迁移：旧“更新传播”步骤先升级为常驻传闻步骤，再升级为当前“世界侧事实驱动 + 按需刷新 + 软失败”步骤；未接线的旧 `RUMOR_WORLD_SOURCE_PRESET_STEP` 不再保留，避免重构顺手引入新行为。`WorldRumorRequestFeature.initialize()` 直接调用 container-owned rumor service，不再依赖全局升级函数。
 
 原 `56-rumor-liveliness.part.js`、`59-rumor-throttle.part.js`、`59-rumor-world-source.part.js` 以及只剩注释的 `59-rumor-world-request.part.js / 59-rumor-world-system.part.js` 已全部删除。构建清单、自动同步 workflow 与 request-size patch 工具同步移除这些 legacy 路径。
+
+
+### Phase 42 · Legacy 小壳与提示词默认值清零
+
+已完成：把仍散落在 legacy 55/57/58/59 文件中的静态提示词默认值、Module Prompt 定义与内置 preset 迁移逻辑统一收进 `src/WorldEngine/prompts/WorldPromptDefaults.part.js`。本次是零行为迁移：NPC 构筑审计、任务只读、原著时间轴、因果/事实时间、世界时间、精简默认 preset 与模块提示词文本均保持原文；`WorldPromptRegistry` 继续引用同名常量，因此“提示词预设 → 全部实际提示词”的可见、可编辑、保存/导入/导出行为不变。
+
+Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldReplayService`，与真正消费它们的恢复服务同域。旧的 auto-progress / auto-trigger / replay-persistence / reprocess / api-preset 注释占位不再保留。
+
+本阶段整文件删除：
+- `55-npc-narrative-audit.part.js`
+- `57-task-awareness.part.js`
+- `58-chronology-guard.part.js`
+- `59-world-integrity-guard.part.js`
+- `59-world-time-ownership.part.js`
+- `59-editable-module-prompts.part.js`
+- `59-auto-progress.part.js`
+- `59-auto-trigger-rebuild.part.js`
+- `59-world-replay-persistence.part.js`
+- `59-reprocess-immediate-retry.part.js`
+- `59-api-preset-selection.part.js`
+
+自动构建 workflow、历史补丁工具、replay 单写工具和 Phase 3/4/5/架构测试同步切到 `src/WorldEngine`。至此 `script/world-engine-src` 顶层只剩 10 个文件；后续仍执行同一规则：旧目录只能继续删除/变薄，新业务与默认提示不得回流。

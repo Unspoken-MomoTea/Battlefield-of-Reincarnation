@@ -48,6 +48,7 @@ const orchestrator=fs.readFileSync(path.join(root,'src/WorldEngine/domains/World
 const compiler=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultCompiler.part.js'),'utf8');
 const normalizer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultNormalizer.part.js'),'utf8');
 const materializer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
+const stateIntegrity=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js'),'utf8');
 const causal=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldCausalService.part.js'),'utf8');
 const patchPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
 const staging=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultStagingService.part.js'),'utf8');
@@ -77,6 +78,8 @@ assert.match(materializer,/this\.causal\.prepareResult\(stat,result\)/,'canonica
 assert.match(materializer,/this\.causal\.staleLocalOffsetRepairs\(stat,result\)/,'canonical materializer compile must append causal stale-offset repairs through the causal service');
 assert.match(materializer,/this\.assetPolicy\.validateScope\(item,true\)/,'canonical materializer must delegate new-asset scope validation to the asset policy');
 assert.match(materializer,/this\.assetPolicy\.materializeRecord\(existing,item,!target\)/,'canonical materializer must delegate asset merge semantics to the asset policy');
+assert.match(materializer,/validateBaseState\(stat\)\s*\{\s*return this\.stateIntegrity\.validate\(stat\);\s*\}/,'materializer validateBaseState must delegate to the state integrity policy');
+assert.match(stateIntegrity,/class\s+WorldStateIntegrityPolicy\b/,'persisted state invariants must live behind a dedicated policy');
 assert.match(causal,/class\s+WorldCausalService\b/,'causal compile rules must live behind the causal domain service');
 assert.match(patchPolicy,/\bremovable\s*\(parts\)/,'patch policy must own the controlled causal remove contract');
 assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'compiler.materialize must delegate to the materializer class');

@@ -32,6 +32,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldExplorationService.part.js',
     '@src/WorldEngine/domains/WorldResultContract.part.js',
     '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
+    '@src/WorldEngine/domains/WorldResultPatchCompilationService.part.js',
     '@src/WorldEngine/domains/WorldRumorService.part.js',
     '@src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js',
     '@src/WorldEngine/domains/WorldPatchApplicationService.part.js',

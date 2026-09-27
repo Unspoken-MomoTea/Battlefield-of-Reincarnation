@@ -67,6 +67,10 @@ for(const file of [
 
 
 const foundationSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineFoundation.part.js'),'utf8');
+const themeCatalogSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldThemeCatalog.part.js'),'utf8');
+assert.doesNotMatch(foundationSource,/WORLD_UI_THEMES|WORLD_FONT_SCALES|STATUS_THEME_CONFIG/,'foundation must not contain UI theme registry or theme storage key');
+assert.match(themeCatalogSource,/const WORLD_TONE_KEYS = new Set\(Object\.keys\(WORLD_UI_THEMES\)\);/,'tone keys must derive from the extracted theme registry');
+assert.match(themeCatalogSource,/const WORLD_FONT_SCALES = \{/,'font scales must live with the UI theme catalog');
 const basePromptDefaultsSource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldBasePromptDefaults.part.js'),'utf8');
 const hostAdapterSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldHostAdapter.part.js'),'utf8');
 const configServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineConfigService.part.js'),'utf8');

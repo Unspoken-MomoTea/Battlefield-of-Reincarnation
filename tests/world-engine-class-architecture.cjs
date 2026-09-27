@@ -11,6 +11,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldStateProjector.part.js',
   'src/WorldEngine/domains/WorldPatchPolicy.part.js',
   'src/WorldEngine/domains/WorldTimelinePolicy.part.js',
+  'src/WorldEngine/domains/WorldChronologyPolicy.part.js',
   'src/WorldEngine/domains/WorldLifecycleService.part.js',
   'src/WorldEngine/domains/WorldStateNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultKernel.part.js',
@@ -41,6 +42,8 @@ for(const file of [
 const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
 const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateFactory.part.js'),'utf8');
 const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
+const chronologyPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldChronologyPolicy.part.js'),'utf8');
+const chronologyLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/58-chronology-guard.part.js'),'utf8');
 const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
 const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
 const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
@@ -57,6 +60,8 @@ assert.doesNotMatch(contextProtocolSource,/function\s+sameWorldTimeAnchor\s*\(/,
 assert.doesNotMatch(contextProtocolSource,/function\s+protocol\s*\(/,'output protocol implementation must leave 30-context-protocol');
 assert.match(timelinePolicySource,/\bsameTimeAnchor\s*\(a,b\)/,'timeline policy must own compatible world-time anchor comparison');
 assert.match(timelinePolicySource,/function\s+sameWorldTimeAnchor\s*\(a,b\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.sameTimeAnchor\(a,b\);\}/,'public sameWorldTimeAnchor seam must remain compatible');
+for(const method of ['setGuard','compactName','evidenceForEvent','shiftDeclared','validate','retryGuidance'])assert.match(chronologyPolicySource,new RegExp('\\b'+method+'\\s*\\('),'chronology policy must own '+method);
+assert.doesNotMatch(chronologyLegacySource,/ACTIVE_CHRONOLOGY_GUARD|function\s+chronologyCompactName|function\s+chronologyEvidenceForEvent|function\s+chronologyShiftDeclared|function\s+validateChronologyResult|compileWorldResult\s*=\s*function|retryPlanForFailure\s*=\s*function/,'58-chronology-guard must not re-own chronology validation or retry wrappers');
 assert.match(resultContractSource,/\binstruction\s*\(\)/,'result contract must own editable output protocol instruction');
 assert.match(resultContractSource,/\bprotocol\s*\(\)/,'result contract must own canonical schema protocol assembly');
 assert.match(resultContractSource,/function\s+protocol\s*\(\)\s*\{return WORLD_RESULT_CONTRACT\.protocol\(\);\}/,'public protocol seam must remain compatible');
@@ -127,7 +132,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateFactory','taskLedger','stateProjector','patchPolicy','timelinePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateFactory','taskLedger','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -137,6 +142,7 @@ assert.equal(engine.services.taskLedger.constructor.name,'WorldTaskAwarenessServ
 assert.equal(engine.services.stateProjector.taskLedger,engine.services.taskLedger,'projector must compose the container-owned task ledger service');
 assert.equal(engine.services.patchPolicy.constructor.name,'WorldPatchPolicy');
 assert.equal(engine.services.timelinePolicy.constructor.name,'WorldTimelinePolicy');
+assert.equal(engine.services.chronologyPolicy.constructor.name,'WorldChronologyPolicy');
 assert.equal(engine.services.lifecycle.constructor.name,'WorldLifecycleService');
 assert.equal(engine.services.stateNormalizer.constructor.name,'WorldStateNormalizer');
 assert.equal(engine.services.resultContract.constructor.name,'WorldResultContract');
@@ -148,8 +154,10 @@ assert.equal(engine.services.resultMaterializer.patchPolicy,engine.services.patc
 assert.equal(engine.services.resultMaterializer.npcAudit,engine.services.npcAudit,'materializer must compose the container-owned NPC audit service');
 assert.equal(engine.services.resultMaterializer.people,engine.services.people,'materializer must compose the container-owned person activity service for canonical compile preprocessing');
 assert.equal(engine.services.resultMaterializer.taskLedger,engine.services.taskLedger,'materializer must compose the container-owned task ledger service');
+assert.equal(engine.services.resultMaterializer.chronology,engine.services.chronologyPolicy,'materializer must compose the container-owned chronology policy');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
+assert.equal(engine.services.resultStaging.chronology,engine.services.chronologyPolicy,'staging must compose the container-owned chronology policy');
 assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyParser');
 assert.equal(engine.services.compiler.constructor.name,'WorldResultCompiler');
 assert.equal(engine.services.validationPolicy.constructor.name,'WorldValidationPolicy');
@@ -170,6 +178,7 @@ assert.equal(engine.services.causal.constructor.name,'WorldCausalService');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
 assert.equal(engine.services.taskAwareness.taskLedger,engine.services.taskLedger,'task request feature must share the canonical task ledger service');
+assert.equal(engine.services.chronology.policy,engine.services.chronologyPolicy,'chronology request feature must share the canonical chronology policy');
 assert.equal(engine.services.requests.constructor.name,'WorldRequestService');
 assert.equal(engine.services.requests.retryableModelFailure(new Error('业务校验失败')),true,'model/business failures remain retryable');
 assert.equal(engine.services.requests.retryableModelFailure(new Error('请求已取消')),false,'cancellation must never be retried');

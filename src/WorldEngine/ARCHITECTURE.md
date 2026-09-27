@@ -502,3 +502,8 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 ## Phase 66 · State integrity policy
 
 `WorldStateIntegrityPolicy` owns persisted world-state invariants: backend record structure, event predecessor integrity/cycles, calendar validity, faction/exploration/causal/relation ranges, task/achievement states, public rumor credibility and event-reference integrity. It composes the canonical patch, time and rumor policies. `WorldResultMaterializer.validateBaseState()` remains only as the compatibility/application seam and delegates to the policy.
+
+
+## Phase 67 · Patch application service
+
+`WorldPatchApplicationService` owns mutation execution after WorldResult compilation: canonical paths, write permission, upsert/remove contracts, record merging, relation/task/economy constraints, temporal validation, persisted-state integrity, per-round reputation bounds and rumor rolling. `WorldResultMaterializer.applyPatches()` is now a thin facade to the container-owned service; final materialization remains responsible only for seed/model sequencing and domain repair passes.

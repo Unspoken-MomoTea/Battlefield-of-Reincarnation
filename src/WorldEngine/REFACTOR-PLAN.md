@@ -668,3 +668,12 @@ patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动
 `WORLD_ASSET_TYPES / WORLD_ASSET_TYPE_SET / ITEMLIKE_ASSET_NAME` 与四组资产默认模板也从 ResultKernel/Materializer 迁入该 policy；`WorldResultContract` 继续消费同一个 `WORLD_ASSET_TYPES` 生成 Schema，因此“Schema 允许什么”和“程序实际接受什么”仍来自同一份资产类型定义。
 
 `WorldResultMaterializer` 现在只负责资产目标解析、删除保护、移除/新增/replace patch 编排；新增资产校验与记录合并都委托 container-owned `assetMaterialization`。现有 `world-engine-asset-writeback.cjs` 继续作为公开行为 seam。
+
+
+### Phase 66 · 持久状态完整性策略独立
+
+已完成：新增 `WorldStateIntegrityPolicy`，从 `WorldResultMaterializer.validateBaseState()` 抽出持久状态不变量：后台记录结构、事件状态/分类、前因自引用与缺失引用、事件图循环、历法月长、势力/探索/因果/好感度范围、任务/成就状态、公开传闻可信度，以及人物/势力地区/传播对事件的引用完整性。
+
+该 policy 显式组合 container-owned `patchPolicy / timePolicy / rumor`，因此记录结构校验、日历解析和传闻公开状态不再通过 Materializer 内部散落逻辑重复实现。公开 `validateState()` seam 保持不变，仍经 `WorldResultMaterializer.validateBaseState()` 转发。
+
+`WorldResultMaterializer` 继续负责结果编译、patch 应用与最终物化编排，但不再拥有“什么样的完整世界状态才合法”的领域规则。

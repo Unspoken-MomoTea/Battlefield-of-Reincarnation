@@ -1114,6 +1114,164 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function activeAlienActivityRequirements(stat){return ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE.activeAlienRequirements(stat);}
     function seedMissingAlienPeople(stat,required){return ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE.seedMissingAlienPeople(stat,required);}
     function ensureActiveAlienActivity(next,required,acceptedResult,worldTime){return ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE.ensureActiveAlienActivity(next,required,acceptedResult,worldTime);}
+    let NPC_BUILD_AUDIT_FEATURE_ENABLED=false;
+
+    class WorldNpcAuditService {
+        projectComponentMap(value,{equipment=false}={}) {
+            if(!plain(value))return {};
+            const out={};
+            for(const [name,item] of Object.entries(value)){
+                if(!plain(item))continue;
+                if(equipment&&Number(item.状态)===2)continue;
+                const clean=copy(item);
+                for(const key of ['最终属性','强化','真属性'])delete clean[key];
+                if(plain(clean.技能)){
+                    clean.技能=Object.fromEntries(Object.entries(clean.技能).filter(([,skill])=>plain(skill)).map(([skillName,skill])=>{
+                        const projected=copy(skill);
+                        for(const key of ['最终属性','强化','真属性'])delete projected[key];
+                        return [skillName,projected];
+                    }));
+                }
+                out[name]=clean;
+            }
+            return out;
+        }
+
+        projectCharacter(value) {
+            const source=plain(value)?value:{},out={};
+            for(const key of ['在场','种族','身份','职业','层级','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事']){
+                if(Object.hasOwn(source,key))out[key]=copy(source[key]);
+            }
+            const 状态=this.projectComponentMap(source.状态),血统=this.projectComponentMap(source.血统),技能=this.projectComponentMap(source.技能);
+            const 装备=this.projectComponentMap(source.装备,{equipment:true}),形态库=this.projectComponentMap(source.形态库);
+            if(Object.keys(状态).length)out.状态=状态;
+            if(Object.keys(血统).length)out.血统=血统;
+            if(Object.keys(技能).length)out.技能=技能;
+            if(Object.keys(装备).length)out.装备=装备;
+            if(Object.keys(形态库).length)out.形态库=形态库;
+            if(plain(source.当前形态))out.当前形态=copy(source.当前形态);
+            return out;
+        }
+
+        buildText(value) {
+            try{return JSON.stringify(value||{});}catch(_){return String(value||'');}
+        }
+
+        inferNarrativeLevel(npc) {
+            const profileText=[...(Array.isArray(npc?.身份)?npc.身份:[]),...Object.keys(npc?.职业||{}),npc?.背景故事,npc?.态度].filter(Boolean).join(' ');
+            if(/(?:boss|首领|领主|头目|魔王|王者|宗主|掌门|教皇|最终敌人|最终对手)/i.test(profileText))return '首领/Boss级';
+            return /(?:精英|精锐|王牌|核心战力|强敌)/i.test(profileText)?'精英级':'杂兵级';
+        }
+
+        narrativeLevel(stat,name,npc) {
+            const people=stat?.世界?.[PATH]?.人物||{},backendName=stableNameIn(people,name),person=backendName?people[backendName]:null;
+            const explicit=String(person?.审计级别||'').trim();
+            if(NPC_AUDIT_LEVELS.includes(explicit))return explicit;
+            const roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
+            const alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
+            if(alien&&alien.状态!=='死亡')return '首领/Boss级';
+            return this.inferNarrativeLevel(npc);
+        }
+
+        assessment(stat,name,npc) {
+            if(!plain(npc)||Number(npc.HP)<=0||npc.是否队友===true)return null;
+            const level=this.narrativeLevel(stat,name,npc);
+            const minimum=level==='首领/Boss级'?{血统:1,装备:6,技能:4}:level==='精英级'?{血统:1,装备:4,技能:2}:{血统:1,装备:2,技能:1};
+            const counts={
+                血统:Object.keys(npc.血统||{}).length,
+                装备:Object.values(npc.装备||{}).filter(item=>plain(item)&&Number(item.状态)===1).length,
+                技能:Object.keys(npc.技能||{}).length,
+                状态:Object.keys(npc.状态||{}).length,
+                形态:Object.keys(npc.形态库||{}).length
+            };
+            const gaps=[],suggest=new Set();
+            for(const field of ['种族','身份','职业','外貌','着装','性格','喜爱','背景故事','态度']){
+                const value=npc[field],missing=Array.isArray(value)?!value.length:plain(value)?!Object.keys(value).length:!String(value||'').trim();
+                if(missing){gaps.push('资料缺失/'+field);suggest.add(field);}
+            }
+            for(const field of ['血统','装备','技能']){
+                if(counts[field]<minimum[field]){gaps.push(field+'不足 '+counts[field]+'/'+minimum[field]);suggest.add(field);}
+            }
+            const combatText=this.buildText({职业:npc.职业,血统:npc.血统,装备:npc.装备,技能:npc.技能,状态:npc.状态,形态库:npc.形态库});
+            if(level!=='杂兵级'){
+                const offense=/(?:伤害|攻击|斩|刺|射击|爆破|火力|ATK|MATK|杀伤|输出|毒|灼烧|雷击|炮击)/i.test(combatText);
+                const survival=/(?:防御|护盾|减伤|恢复|治疗|格挡|护甲|屏障|再生|吸收|DEF|MDEF|生存)/i.test(combatText);
+                const control=/(?:控制|位移|突进|冲刺|束缚|眩晕|减速|沉默|击退|牵引|冻结|召唤|机动|封锁|禁锢)/i.test(combatText);
+                if(!offense){gaps.push('缺主要杀伤手段');suggest.add('技能');suggest.add('装备');}
+                if(!survival){gaps.push('缺防御/生存手段');suggest.add('技能');suggest.add('装备');suggest.add('状态');}
+                if(!control){gaps.push('缺机动/控制手段');suggest.add('技能');suggest.add('形态库');}
+            }
+            if(level==='首领/Boss级'){
+                const stage=counts.形态>0||/(?:阶段|二阶段|变身|形态|解放|觉醒|狂暴|转阶段|状态切换)/i.test(combatText);
+                if(!stage){gaps.push('缺Boss阶段/形态/状态变化机制');suggest.add('形态库');suggest.add('状态');suggest.add('技能');}
+            }
+            return {名称:name,审计级别:level,层级:String(npc.层级||'Ⅰ'),当前组件:counts,缺口:gaps,建议字段:Array.from(suggest),当前构筑:this.projectCharacter(npc)};
+        }
+
+        audit(stat,limit=NPC_BUILD_AUDIT_LIMIT) {
+            if(!NPC_BUILD_AUDIT_FEATURE_ENABLED)return [];
+            const relations=stat?.关系列表||{},backend=stat?.世界?.[PATH]||{},people=backend.人物||{},events=backend.事件||{},roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
+            const currentLocation=String(stat?.世界?.地点||''),worldTime=String(stat?.世界?.时间||'');
+            const activeEventNames=new Set(Object.entries(events).filter(([,e])=>e&&['待发生','进行中'].includes(e.状态)&&['当前事件','近期节点'].includes(e.分类)).map(([eventName])=>eventName));
+            const currentParticipants=new Set();
+            for(const [eventName,event] of Object.entries(events)){
+                if(!activeEventNames.has(eventName))continue;
+                for(const p of event?.参与者||[])currentParticipants.add(nameKey(p));
+            }
+            const rows=[];
+            for(const [name,npc] of Object.entries(relations)){
+                const assessment=this.assessment(stat,name,npc);if(!assessment||!assessment.缺口.length)continue;
+                const backendName=stableNameIn(people,name),person=backendName?people[backendName]:null;
+                const alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
+                const activeAlien=!!(alien&&alien.状态!=='死亡');
+                const linked=!!(person&&(person.关联事件||[]).some(eventName=>activeEventNames.has(eventName)))||currentParticipants.has(nameKey(name));
+                const here=!!npc.在场||!!(person&&currentLocation&&String(person.地点||'')&&(String(person.地点).includes(currentLocation)||currentLocation.includes(String(person.地点))));
+                const updated=!!(person&&sameWorldTimeAnchor(person.更新时间,worldTime));
+                if(!activeAlien&&!linked&&!here&&!updated)continue;
+                const reasons=[];
+                if(activeAlien)reasons.push('活跃异端');
+                if(linked)reasons.push('当前/近期事件参与者');
+                if(here)reasons.push(npc.在场?'当前在场':'当前地点相关');
+                if(updated)reasons.push('本轮人物动态已更新');
+                const levelWeight=assessment.审计级别==='首领/Boss级'?40:assessment.审计级别==='精英级'?20:0;
+                const priority=(activeAlien?80:0)+(linked?60:0)+(here?40:0)+(updated?20:0)+levelWeight+assessment.缺口.length;
+                rows.push({...assessment,触发依据:reasons,__priority:priority});
+            }
+            return rows.sort((a,b)=>b.__priority-a.__priority||a.名称.localeCompare(b.名称,'zh-CN')).slice(0,Math.max(0,Number(limit)||0)).map(item=>{const out={...item};delete out.__priority;return out;});
+        }
+
+        ensureProgress(next,required=[],acceptedResult) {
+            if(!(required||[]).length)return;
+            const proposals=Array.isArray(acceptedResult?.关系)?acceptedResult.关系:[],details=[];
+            for(const before of required||[]){
+                const target=stableNameIn(next?.关系列表||{},before.名称);
+                if(!target)continue;
+                const after=this.assessment(next,target,next.关系列表[target]);
+                if(!after)continue;
+                const proposal=proposals.find(item=>nameKey(item?.名称)===nameKey(before.名称));
+                const touched=proposal&&(before.建议字段||[]).some(field=>Object.hasOwn(proposal,field));
+                if(touched&&after.缺口.length<before.缺口.length)continue;
+                const submitted=proposal?Object.keys(proposal).filter(field=>!['名称','操作'].includes(field)):[];
+                const unresolved=(after.缺口||[]).length?after.缺口:before.缺口||[];
+                const suggested=(after.建议字段||before.建议字段||[]).filter(Boolean);
+                details.push(
+                    before.名称+'：未解决缺口：'+(unresolved.length?unresolved.join('、'):'未识别')
+                    +'；建议修复字段：'+(suggested.length?suggested.join('、'):'无')
+                    +'；本轮实际提交：'+(submitted.length?submitted.join('、'):'无')
+                );
+            }
+            if(details.length)throw new Error('NPC构筑审计未推进：\n'+details.map(item=>' - '+item).join('\n')+'\n修复要求：每个列出的审计对象本轮至少补齐一个真实缺口；禁止只改好感、HP或无关字段。');
+        }
+    }
+
+    const DEFAULT_WORLD_NPC_AUDIT_SERVICE=new WorldNpcAuditService();
+    let ACTIVE_WORLD_NPC_AUDIT_SERVICE=DEFAULT_WORLD_NPC_AUDIT_SERVICE;
+    function projectAuditComponentMap(value,options={}){return ACTIVE_WORLD_NPC_AUDIT_SERVICE.projectComponentMap(value,options);}
+    function projectCharacterForAudit(value){return ACTIVE_WORLD_NPC_AUDIT_SERVICE.projectCharacter(value);}
+    function npcBuildText(value){return ACTIVE_WORLD_NPC_AUDIT_SERVICE.buildText(value);}
+    function npcBuildAssessment(stat,name,npc){return ACTIVE_WORLD_NPC_AUDIT_SERVICE.assessment(stat,name,npc);}
+    function npcBuildAudit(stat,limit=NPC_BUILD_AUDIT_LIMIT){return ACTIVE_WORLD_NPC_AUDIT_SERVICE.audit(stat,limit);}
+    function ensureNpcBuildAuditProgress(next,required=[],acceptedResult){return ACTIVE_WORLD_NPC_AUDIT_SERVICE.ensureProgress(next,required,acceptedResult);}
     const EVENT_CATEGORIES=new Set(['当前事件','近期节点','宏观节点']);
     const LOCAL_EVENT_WORDS=/(?:天台|教室|办公室|医务室|走廊|楼梯|楼层|入口|门扉|校门|校车|桥头|大桥|房间|仓库|食堂|街口|小巷|会合|汇合|集结|夺取|抢夺|突破|开门|绕行|护送|搜索|调查)/;
     const MACRO_EVENT_WORDS=/(?:世界级|全国|跨国|地区级灾难|城市级灾难|战略级|核(?:打击|爆|武器)|EMP|电磁脉冲|战争|政权|社会秩序|基础设施(?:失效|崩溃)|大规模迁移|长期流亡|生存阶段|篇章转折|据点(?:建立|失守|沦陷|崩溃|保卫)|文明|国家|大陆)/;
@@ -1849,7 +2007,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;}
+        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -2102,7 +2260,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 patches.push({op:'replace',path:this.patchPolicy.pointer(['世界','异端雷达','名单',target,'状态']),value:item.状态});
             } else if(result.异端.length)warnings.push('单一世界：忽略异端雷达更新');
             for(const key of WORLD_RESULT_RUMORS)for(const item of result.传闻[key])addEntity(['传闻',key,item.名称],item,EXISTING[key],{removable:true});
-            const auditNames=new Set(npcBuildAudit(stat).map(item=>nameKey(item.名称)));
+            const auditNames=new Set(this.npcAudit.audit(stat).map(item=>nameKey(item.名称)));
             for(const item of result.关系||[]){
                 if(item.操作==='撤销本轮')continue;
                 const target=stableNameIn(stat.关系列表||{},item.名称);
@@ -2567,23 +2725,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function progressionAnchorChanged(before,after){return ACTIVE_WORLD_VALIDATION_POLICY.progressionAnchorChanged(before,after);}
     // WorldResult implementation lives in src/WorldEngine/domains/WorldResultKernel.part.js.
     // Keep this registered legacy slot temporarily as an explicit compatibility boundary while the old tree is retired.
-    function activation(entry, scan, force) {
-        if(!String(entry.content||'').trim())return {read:false,reason:'内容为空'};
-        if(force)return {read:true,reason:'强制读取'};
-        if(!entry.enabled)return {read:false,reason:'条目禁用'};
-        if(entry.mode==='constant')return {read:true,reason:'蓝灯常驻'};
-        if(entry.mode!=='selective')return {read:false,reason:'不支持的激活方式，需显式强制读取'};
-        const list=v=>Array.isArray(v)?v:typeof v==='string'?v.split(',').map(x=>x.trim()).filter(Boolean):[];
-        const match=k=>{
-            if(k instanceof RegExp){k.lastIndex=0;return k.test(scan);}
-            if(plain(k)){try{return new RegExp(k.pattern||k.source||k.regex,k.flags||'').test(scan);}catch(_){return false;}}
-            return !!String(k||'')&&scan.includes(String(k));
-        };
-        if(!list(entry.keys).some(match))return {read:false,reason:'绿灯未命中关键词'};
-        const second=entry.secondary||{},keys=list(second.keys||second),hits=keys.map(match);
-        const ok=!keys.length||(second.logic==='and_all'?hits.every(Boolean):second.logic==='not_all'?!hits.every(Boolean):second.logic==='not_any'?!hits.some(Boolean):hits.some(Boolean));
-        return {read:ok,reason:ok?'绿灯已命中':'绿灯次要条件未满足'};
-    }
     let ACTIVE_WORLD_STATE_PROJECTOR=null;
     function requireWorldStateProjector(){
         if(!ACTIVE_WORLD_STATE_PROJECTOR)throw new Error('WorldStateProjector 尚未初始化');
@@ -2595,120 +2736,12 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function projectCarriedItems(value){return requireWorldStateProjector().carriedItems(value);}
     function projectForms(value){return requireWorldStateProjector().forms(value);}
 
-    function projectAuditComponentMap(value,{equipment=false}={}) {
-        if(!plain(value))return {};
-        const out={};
-        for(const [name,item] of Object.entries(value)){
-            if(!plain(item))continue;
-            if(equipment&&Number(item.状态)===2)continue;
-            const clean=omitKeys(item,['最终属性','强化','真属性']);
-            if(plain(clean.技能)){
-                clean.技能=Object.fromEntries(Object.entries(clean.技能).filter(([,skill])=>plain(skill)).map(([skillName,skill])=>[skillName,omitKeys(skill,['最终属性','强化','真属性'])]));
-            }
-            out[name]=clean;
-        }
-        return out;
-    }
-    function projectCharacterForAudit(value) {
-        const source=plain(value)?value:{},out={};
-        for(const key of ['在场','种族','身份','职业','层级','HP_MAX','HP','THP','EP_MAX','EP','性格','喜爱','外貌','着装','是否队友','好感度','态度','背景故事']){
-            if(Object.hasOwn(source,key))out[key]=copy(source[key]);
-        }
-        const 状态=projectAuditComponentMap(source.状态),血统=projectAuditComponentMap(source.血统),技能=projectAuditComponentMap(source.技能);
-        const 装备=projectAuditComponentMap(source.装备,{equipment:true}),形态库=projectAuditComponentMap(source.形态库);
-        if(Object.keys(状态).length)out.状态=状态;
-        if(Object.keys(血统).length)out.血统=血统;
-        if(Object.keys(技能).length)out.技能=技能;
-        if(Object.keys(装备).length)out.装备=装备;
-        if(Object.keys(形态库).length)out.形态库=形态库;
-        if(plain(source.当前形态))out.当前形态=copy(source.当前形态);
-        return out;
-    }
     function sameWorldTimeAnchor(a,b) {
         const x=String(a||'').trim(),y=String(b||'').trim();if(!x||!y)return false;
         if(x===y)return true;
         const shorter=x.length<=y.length?x:y,longer=x.length<=y.length?y:x;
         return shorter.length>=8&&longer.includes(shorter);
     }
-    function npcBuildText(value) {
-        try{return JSON.stringify(value||{});}catch(_){return String(value||'');}
-    }
-    function npcBuildAssessment(stat,name,npc) {
-        if(!plain(npc)||Number(npc.HP)<=0)return null;
-        const rank=Math.max(0,RELATION_RANKS.indexOf(String(npc.层级||'Ⅰ')));
-        const profileText=[...(Array.isArray(npc.身份)?npc.身份:[]),...Object.keys(npc.职业||{}),npc.背景故事,npc.态度].filter(Boolean).join(' ');
-        const bossHint=/(?:boss|首领|领主|头目|魔王|王者|宗主|掌门|教皇|最终敌人|最终对手)/i.test(profileText);
-        const level=(bossHint||rank>=5)?'首领/Boss级':rank>=2?'精英级':'杂兵级';
-        const minimum=level==='首领/Boss级'?{血统:1,装备:3,技能:2}:level==='精英级'?{血统:1,装备:2,技能:1}:{血统:1,装备:1,技能:0};
-        const counts={血统:Object.keys(npc.血统||{}).length,装备:Object.values(npc.装备||{}).filter(item=>plain(item)&&Number(item.状态)!==2).length,技能:Object.keys(npc.技能||{}).length,状态:Object.keys(npc.状态||{}).length,形态:Object.keys(npc.形态库||{}).length};
-        const gaps=[],suggest=new Set();
-        for(const field of ['种族','身份','职业','外貌','着装','性格','喜爱','背景故事','态度']){
-            const value=npc[field],missing=Array.isArray(value)?!value.length:plain(value)?!Object.keys(value).length:!String(value||'').trim();
-            if(missing){gaps.push('资料缺失/'+field);suggest.add(field);}
-        }
-        for(const field of ['血统','装备','技能']){
-            if(counts[field]<minimum[field]){gaps.push(field+'不足 '+counts[field]+'/'+minimum[field]);suggest.add(field);}
-        }
-        const combatText=npcBuildText({职业:npc.职业,血统:npc.血统,装备:npc.装备,技能:npc.技能,状态:npc.状态,形态库:npc.形态库});
-        if(level!=='杂兵级'){
-            const offense=/(?:伤害|攻击|斩|刺|射击|爆破|火力|ATK|MATK|杀伤|输出|毒|灼烧|雷击|炮击)/i.test(combatText);
-            const survival=/(?:防御|护盾|减伤|恢复|治疗|格挡|护甲|屏障|再生|吸收|DEF|MDEF|生存)/i.test(combatText);
-            const control=/(?:控制|位移|突进|冲刺|束缚|眩晕|减速|沉默|击退|牵引|冻结|召唤|机动|封锁|禁锢)/i.test(combatText);
-            if(!offense){gaps.push('缺主要杀伤手段');suggest.add('技能');suggest.add('装备');}
-            if(!survival){gaps.push('缺防御/生存手段');suggest.add('技能');suggest.add('装备');suggest.add('状态');}
-            if(!control){gaps.push('缺机动/控制手段');suggest.add('技能');suggest.add('形态库');}
-        }
-        if(level==='首领/Boss级'){
-            const stage=counts.形态>0||/(?:阶段|二阶段|变身|形态|解放|觉醒|狂暴|转阶段|状态切换)/i.test(combatText);
-            if(!stage){gaps.push('缺Boss阶段/形态/状态变化机制');suggest.add('形态库');suggest.add('状态');suggest.add('技能');}
-        }
-        return {名称:name,审计级别:level,层级:String(npc.层级||'Ⅰ'),当前组件:counts,缺口:gaps,建议字段:Array.from(suggest),当前构筑:projectCharacterForAudit(npc)};
-    }
-    function npcBuildAudit(stat,limit=NPC_BUILD_AUDIT_LIMIT) {
-        const relations=stat?.关系列表||{},backend=stat?.世界?.[PATH]||{},people=backend.人物||{},events=backend.事件||{},roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
-        const currentLocation=String(stat?.世界?.地点||''),worldTime=String(stat?.世界?.时间||'');
-        const activeEventNames=new Set(Object.entries(events).filter(([,e])=>e&&['待发生','进行中'].includes(e.状态)&&['当前事件','近期节点'].includes(e.分类)).map(([eventName])=>eventName));
-        const currentParticipants=new Set();
-        for(const [eventName,event] of Object.entries(events)){
-            if(!activeEventNames.has(eventName))continue;
-            for(const p of event?.参与者||[])currentParticipants.add(nameKey(p));
-        }
-        const rows=[];
-        for(const [name,npc] of Object.entries(relations)){
-            const assessment=npcBuildAssessment(stat,name,npc);if(!assessment||!assessment.缺口.length)continue;
-            const backendName=stableNameIn(people,name),person=backendName?people[backendName]:null;
-            const alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
-            const activeAlien=!!(alien&&alien.状态!=='死亡');
-            const linked=!!(person&&(person.关联事件||[]).some(eventName=>activeEventNames.has(eventName)))||currentParticipants.has(nameKey(name));
-            const here=!!npc.在场||!!(person&&currentLocation&&String(person.地点||'')&&(String(person.地点).includes(currentLocation)||currentLocation.includes(String(person.地点))));
-            const updated=!!(person&&sameWorldTimeAnchor(person.更新时间,worldTime));
-            if(!activeAlien&&!linked&&!here&&!updated)continue;
-            const reasons=[];
-            if(activeAlien)reasons.push('活跃异端');
-            if(linked)reasons.push('当前/近期事件参与者');
-            if(here)reasons.push(npc.在场?'当前在场':'当前地点相关');
-            if(updated)reasons.push('本轮人物动态已更新');
-            const levelWeight=assessment.审计级别==='首领/Boss级'?40:assessment.审计级别==='精英级'?20:0;
-            const priority=(activeAlien?80:0)+(linked?60:0)+(here?40:0)+(updated?20:0)+levelWeight+assessment.缺口.length;
-            rows.push({...assessment,触发依据:reasons,__priority:priority});
-        }
-        return rows.sort((a,b)=>b.__priority-a.__priority||a.名称.localeCompare(b.名称,'zh-CN')).slice(0,Math.max(0,Number(limit)||0)).map(item=>{const out={...item};delete out.__priority;return out;});
-    }
-    function ensureNpcBuildAuditProgress(next,required=[],acceptedResult) {
-        if(!(required||[]).length)return;
-        const proposals=acceptedResult?.关系||[],failed=[];
-        for(const before of required){
-            const target=stableNameIn(next?.关系列表||{},before.名称);
-            if(!target)continue;
-            const after=npcBuildAssessment(next,target,next.关系列表[target]);
-            if(!after)continue;
-            const proposal=proposals.find(item=>nameKey(item.名称)===nameKey(before.名称));
-            const touched=proposal&&before.建议字段.some(field=>Object.hasOwn(proposal,field));
-            if(!touched||after.缺口.length>=before.缺口.length)failed.push(before.名称);
-        }
-        if(failed.length)throw new Error('NPC构筑审计未推进：'+failed.join('、')+'；每个列出的审计对象本轮至少补齐一个真实缺口，禁止只改好感、HP或无关字段');
-    }
-
     function projectCharacterForWorld(value){return requireWorldStateProjector().character(value);}
     function projectAssetsForWorld(value){return requireWorldStateProjector().assets(value);}
     function projectCausalOrbitForWorld(value,currentStability){return requireWorldStateProjector().causalOrbit(value,currentStability);}
@@ -4006,14 +4039,7 @@ ${schemaText}`;
             if (this.mount) this.mount.remove();
         }
     }
-    // 可选策略层：NPC 构筑审计默认关闭；同时吸收主变量 Schema 的派生缓存，并提供可执行的事件纠错信息。
-    let NPC_BUILD_AUDIT_FEATURE_ENABLED=false;
-    const npcBuildAuditBeforeFeatureSwitch=npcBuildAudit;
-    npcBuildAudit=function(stat,limit=NPC_BUILD_AUDIT_LIMIT) {
-        if(!NPC_BUILD_AUDIT_FEATURE_ENABLED)return [];
-        return npcBuildAuditBeforeFeatureSwitch(stat,limit);
-    };
-
+    // NPC 审计启停由 WorldNpcAuditPolicy 写入 canonical service flag；本层只保留 Schema 派生缓存与通用纠错兼容。
     const validateStateBeforeActionableEventRefs=validateState;
     validateState=function(stat) {
         const events=stat?.世界?.[PATH]?.事件||{};
@@ -4045,36 +4071,6 @@ ${schemaText}`;
         error.retryPlan=feedback.actions;
         if(feedback.issues.length)error.message=feedback.summary+'\n\n具体原因\n'+feedback.issues.join('\n');
         return error;
-    };
-
-    // NPC 构筑审计本身已经计算了精确缺口；这里仅增强失败反馈，不改变原有通过/驳回判定。
-    const ensureNpcBuildAuditProgressBeforeConcreteFeedback=ensureNpcBuildAuditProgress;
-    ensureNpcBuildAuditProgress=function(next,required=[],acceptedResult) {
-        try{return ensureNpcBuildAuditProgressBeforeConcreteFeedback(next,required,acceptedResult);}
-        catch(error){
-            if(!/NPC构筑审计未推进/.test(String(error?.message||error||'')))throw error;
-            const proposals=Array.isArray(acceptedResult?.关系)?acceptedResult.关系:[];
-            const details=[];
-            for(const before of required||[]){
-                const target=stableNameIn(next?.关系列表||{},before.名称);
-                if(!target)continue;
-                const after=npcBuildAssessment(next,target,next.关系列表[target]);
-                if(!after)continue;
-                const proposal=proposals.find(item=>nameKey(item?.名称)===nameKey(before.名称));
-                const touched=proposal&&(before.建议字段||[]).some(field=>Object.hasOwn(proposal,field));
-                if(touched&&after.缺口.length<before.缺口.length)continue;
-                const submitted=proposal?Object.keys(proposal).filter(field=>!['名称','操作'].includes(field)):[];
-                const unresolved=(after.缺口||[]).length?after.缺口:before.缺口||[];
-                const suggested=(after.建议字段||before.建议字段||[]).filter(Boolean);
-                details.push(
-                    before.名称+'：未解决缺口：'+(unresolved.length?unresolved.join('、'):'未识别')
-                    +'；建议修复字段：'+(suggested.length?suggested.join('、'):'无')
-                    +'；本轮实际提交：'+(submitted.length?submitted.join('、'):'无')
-                );
-            }
-            if(!details.length)throw error;
-            throw new Error('NPC构筑审计未推进：\n'+details.map(item=>' - '+item).join('\n')+'\n修复要求：每个列出的审计对象本轮至少补齐一个真实缺口；禁止只改好感、HP或无关字段。');
-        }
     };
 
     const WORLD_STATE_DERIVED_SCHEMA_KEYS=new Set(['真属性','最终属性','强化']);
@@ -4116,54 +4112,6 @@ ${schemaText}`;
 6. 能力只归一个主要组件：血统=本体条件，装备=实体，技能=执行方式，状态=当前结果，形态=独立战斗模式。
 7. 构筑补全只用 WorldResult.关系 更新既有 NPC；审计级别只用 WorldResult.人物 写入世界后台。只提交新增/修正项，不得输出真属性、最终属性或强化缓存；血统/形态五维必须齐全，技能不写基础/衍生属性。
 8. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、剧情定位、层级和已演出能力一致的缺口，资料不足时做最小补全。`;
-
-    function inferNpcNarrativeAuditLevel(npc) {
-        const profileText=[...(Array.isArray(npc?.身份)?npc.身份:[]),...Object.keys(npc?.职业||{}),npc?.背景故事,npc?.态度].filter(Boolean).join(' ');
-        const bossHint=/(?:boss|首领|领主|头目|魔王|王者|宗主|掌门|教皇|最终敌人|最终对手)/i.test(profileText);
-        if(bossHint)return '首领/Boss级';
-        const eliteHint=/(?:精英|精锐|王牌|核心战力|强敌)/i.test(profileText);
-        return eliteHint?'精英级':'杂兵级';
-    }
-
-    function npcNarrativeAuditLevel(stat,name,npc) {
-        const backend=stat?.世界?.[PATH]||{},people=backend.人物||{};
-        const backendName=stableNameIn(people,name),person=backendName?people[backendName]:null;
-        const explicit=String(person?.审计级别||'').trim();
-        if(NPC_AUDIT_LEVELS.includes(explicit))return explicit;
-        const roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
-        const alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
-        if(alien&&alien.状态!=='死亡')return '首领/Boss级';
-        return inferNpcNarrativeAuditLevel(npc);
-    }
-
-    npcBuildAssessment=function(stat,name,npc) {
-        if(!plain(npc)||Number(npc.HP)<=0||npc.是否队友===true)return null;
-        const level=npcNarrativeAuditLevel(stat,name,npc);
-        const minimum=level==='首领/Boss级'?{血统:1,装备:6,技能:4}:level==='精英级'?{血统:1,装备:4,技能:2}:{血统:1,装备:2,技能:1};
-        const counts={血统:Object.keys(npc.血统||{}).length,装备:Object.values(npc.装备||{}).filter(item=>plain(item)&&Number(item.状态)===1).length,技能:Object.keys(npc.技能||{}).length,状态:Object.keys(npc.状态||{}).length,形态:Object.keys(npc.形态库||{}).length};
-        const gaps=[],suggest=new Set();
-        for(const field of ['种族','身份','职业','外貌','着装','性格','喜爱','背景故事','态度']){
-            const value=npc[field],missing=Array.isArray(value)?!value.length:plain(value)?!Object.keys(value).length:!String(value||'').trim();
-            if(missing){gaps.push('资料缺失/'+field);suggest.add(field);}
-        }
-        for(const field of ['血统','装备','技能']){
-            if(counts[field]<minimum[field]){gaps.push(field+'不足 '+counts[field]+'/'+minimum[field]);suggest.add(field);}
-        }
-        const combatText=npcBuildText({职业:npc.职业,血统:npc.血统,装备:npc.装备,技能:npc.技能,状态:npc.状态,形态库:npc.形态库});
-        if(level!=='杂兵级'){
-            const offense=/(?:伤害|攻击|斩|刺|射击|爆破|火力|ATK|MATK|杀伤|输出|毒|灼烧|雷击|炮击)/i.test(combatText);
-            const survival=/(?:防御|护盾|减伤|恢复|治疗|格挡|护甲|屏障|再生|吸收|DEF|MDEF|生存)/i.test(combatText);
-            const control=/(?:控制|位移|突进|冲刺|束缚|眩晕|减速|沉默|击退|牵引|冻结|召唤|机动|封锁|禁锢)/i.test(combatText);
-            if(!offense){gaps.push('缺主要杀伤手段');suggest.add('技能');suggest.add('装备');}
-            if(!survival){gaps.push('缺防御/生存手段');suggest.add('技能');suggest.add('装备');suggest.add('状态');}
-            if(!control){gaps.push('缺机动/控制手段');suggest.add('技能');suggest.add('形态库');}
-        }
-        if(level==='首领/Boss级'){
-            const stage=counts.形态>0||/(?:阶段|二阶段|变身|形态|解放|觉醒|狂暴|转阶段|状态切换)/i.test(combatText);
-            if(!stage){gaps.push('缺Boss阶段/形态/状态变化机制');suggest.add('形态库');suggest.add('状态');suggest.add('技能');}
-        }
-        return {名称:name,审计级别:level,层级:String(npc.层级||'Ⅰ'),当前组件:counts,缺口:gaps,建议字段:Array.from(suggest),当前构筑:projectCharacterForAudit(npc)};
-    };
 
     // 世界推进审计新补出的装备默认直接装备，避免状态0导致辅助计算脚本忽略其属性。
     const compileWorldResultBeforeNpcEquipmentDefault=compileWorldResult;
@@ -5667,72 +5615,83 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
     class WorldKnowledgeService {
         constructor(engine){this.engine=engine;}
+        activation(entry,scan,force){
+            if(!String(entry.content||'').trim())return {read:false,reason:'内容为空'};
+            if(force)return {read:true,reason:'强制读取'};
+            if(!entry.enabled)return {read:false,reason:'条目禁用'};
+            if(entry.mode==='constant')return {read:true,reason:'蓝灯常驻'};
+            if(entry.mode!=='selective')return {read:false,reason:'不支持的激活方式，需显式强制读取'};
+            const list=v=>Array.isArray(v)?v:typeof v==='string'?v.split(',').map(x=>x.trim()).filter(Boolean):[];
+            const match=k=>{
+                if(k instanceof RegExp){k.lastIndex=0;return k.test(scan);}
+                if(plain(k)){try{return new RegExp(k.pattern||k.source||k.regex,k.flags||'').test(scan);}catch(_){return false;}}
+                return !!String(k||'')&&scan.includes(String(k));
+            };
+            if(!list(entry.keys).some(match))return {read:false,reason:'绿灯未命中关键词'};
+            const second=entry.secondary||{},keys=list(second.keys||second),hits=keys.map(match);
+            const ok=!keys.length||(second.logic==='and_all'?hits.every(Boolean):second.logic==='not_all'?!hits.every(Boolean):second.logic==='not_any'?!hits.some(Boolean):hits.some(Boolean));
+            return {read:ok,reason:ok?'绿灯已命中':'绿灯次要条件未满足'};
+        }
         async catalogue(){
-            const engine=this.engine;
-            return await (async function(){
-                            const get=this.fn('getWorldbook');
-                            if(!get)return [];
-                            const sources=new Map(),addSource=(book,label)=>{
-                                const name=String(book||'').trim();if(!name)return;
-                                if(!sources.has(name))sources.set(name,new Set());
-                                sources.get(name).add(label);
-                            };
-                            const namesFn=this.fn('getCharWorldbookNames');
-                            if(namesFn){
-                                const names=await namesFn('current')||{};
-                                addSource(names.primary,'角色主书');
-                                for(const book of names.additional||[])addSource(book,'角色附加');
-                            }
-                            const chatFn=this.fn('getChatWorldbookName');
-                            if(chatFn){
-                                try{addSource(await chatFn('current'),'聊天绑定');}catch(_){}
-                            }
-                            const globalFn=this.fn('getGlobalWorldbookNames');
-                            if(globalFn){
-                                try{for(const book of await globalFn()||[])addSource(book,'全局启用');}catch(_){}
-                            }
-                            const result=[];
-                            for(const [book,labels] of sources){
-                                const entries=await get(book)||[];
-                                entries.forEach((e,i)=>{
-                                    const title=e.name||e.comment||'未命名';
-                                    result.push({
-                                        book,id:String(e.uid??e.id??i),title,sources:Array.from(labels),
-                                        technical:isTechnicalBook(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,
-                                        mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),
-                                        keys:e.strategy?.keys||e.keys||e.key||[],
-                                        secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},
-                                        content:e.content||''
-                                    });
-                                });
-                            }
-                            this.applyBuiltinDefaultWorldbookExclusions(result);
-                            return result;
-            }).call(engine);
+            const engine=this.engine,get=engine.fn('getWorldbook');
+            if(!get)return [];
+            const sources=new Map(),addSource=(book,label)=>{
+                const name=String(book||'').trim();if(!name)return;
+                if(!sources.has(name))sources.set(name,new Set());
+                sources.get(name).add(label);
+            };
+            const namesFn=engine.fn('getCharWorldbookNames');
+            if(namesFn){
+                const names=await namesFn('current')||{};
+                addSource(names.primary,'角色主书');
+                for(const book of names.additional||[])addSource(book,'角色附加');
+            }
+            const chatFn=engine.fn('getChatWorldbookName');
+            if(chatFn){
+                try{addSource(await chatFn('current'),'聊天绑定');}catch(_){}
+            }
+            const globalFn=engine.fn('getGlobalWorldbookNames');
+            if(globalFn){
+                try{for(const book of await globalFn()||[])addSource(book,'全局启用');}catch(_){}
+            }
+            const result=[];
+            for(const [book,labels] of sources){
+                const entries=await get(book)||[];
+                entries.forEach((e,i)=>{
+                    const title=e.name||e.comment||'未命名';
+                    result.push({
+                        book,id:String(e.uid??e.id??i),title,sources:Array.from(labels),
+                        technical:isTechnicalBook(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,
+                        mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),
+                        keys:e.strategy?.keys||e.keys||e.key||[],
+                        secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},
+                        content:e.content||''
+                    });
+                });
+            }
+            engine.applyBuiltinDefaultWorldbookExclusions(result);
+            return result;
         }
         async worldbook(scan='',options={}){
-            const engine=this.engine;
-            return await (async function(scan,options){
-                            const catalogue=await this.catalogue(),output=[];
-                            this.bookCatalogue=catalogue;
-                            const report=[];this.readReport=report;
-                            for(const e of catalogue){
-                                const selected=!e.technical&&selectedEntryMatches(e,this.config.selectedEntries);
-                                const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&isTimelineBackboneEntry(e.title);
-                                const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
-                                report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
-                                if(!decision.read)continue;
-                                let content=e.content;
-                                if(content.includes('<%')){
-                                    const ejs=this.host.EjsTemplate;
-                                    if(!ejs?.evalTemplate||!ejs?.prepareContext)throw new Error('所选世界书含动态模板，需要 EJS 扩展：'+e.title);
-                                    content=await ejs.evalTemplate(content,await ejs.prepareContext({}));
-                                }
-                                output.push({世界书:e.book,条目ID:e.id,名称:e.title,内容:content});
-                            }
-                            Object.defineProperty(output,'report',{value:report});
-                            return output;
-            }).call(engine,scan,options);
+            const engine=this.engine,catalogue=await engine.catalogue(),output=[];
+            engine.bookCatalogue=catalogue;
+            const report=[];engine.readReport=report;
+            for(const e of catalogue){
+                const selected=!e.technical&&selectedEntryMatches(e,engine.config.selectedEntries);
+                const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&isTimelineBackboneEntry(e.title);
+                const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?this.activation(e,scan,engine.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
+                report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
+                if(!decision.read)continue;
+                let entryContent=e.content;
+                if(entryContent.includes('<%')){
+                    const ejs=engine.host.EjsTemplate;
+                    if(!ejs?.evalTemplate||!ejs?.prepareContext)throw new Error('所选世界书含动态模板，需要 EJS 扩展：'+e.title);
+                    entryContent=await ejs.evalTemplate(entryContent,await ejs.prepareContext({}));
+                }
+                output.push({世界书:e.book,条目ID:e.id,名称:e.title,内容:entryContent});
+            }
+            Object.defineProperty(output,'report',{value:report});
+            return output;
         }
     }
     class WorldRequestBuilder {
@@ -6006,7 +5965,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         sanitizeLegacy(patches){return this.patchPolicy.sanitizeModelPatches(this.patchPolicy.normalizeModelPatches(patches));}
     }
     class WorldValidationService {
-        constructor(engine,policy){this.engine=engine;this.policy=policy||new WorldValidationPolicy();}
+        constructor(engine,policy,npcAudit){this.engine=engine;this.policy=policy||new WorldValidationPolicy();this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;}
         validate(next,request,acceptedWorldResult,baseStat,options={}){
             const base=baseStat||{};
             // Transitional compatibility: legacy runtime features still decorate these global seams.
@@ -6016,7 +5975,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ensureStaleActiveHandled(next,request?.staleActive||[],base?.世界?.时间);
             ensureTemporalAnomaliesResolved(next,request?.timeAnomalies||[]);
             ensureActiveAlienActivity(next,request?.alienActivity||[],acceptedWorldResult,base?.世界?.时间);
-            if(options.includeNpcAudit!==false&&Array.isArray(request?.npcAudit))ensureNpcBuildAuditProgress(next,request.npcAudit,acceptedWorldResult);
+            if(options.includeNpcAudit!==false&&Array.isArray(request?.npcAudit))this.npcAudit.ensureProgress(next,request.npcAudit,acceptedWorldResult);
             ensureMacroBackbone(next,request?.timeline||{},this.engine.config.requireMacroBackbone!==false);
             return true;
         }
@@ -8721,6 +8680,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
             this.people=new WorldPersonActivityService(engine);
             ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE=this.people;
+            this.npcAudit=new WorldNpcAuditService();
+            ACTIVE_WORLD_NPC_AUDIT_SERVICE=this.npcAudit;
             this.stateNormalizer=new WorldStateNormalizer();
             ACTIVE_WORLD_STATE_NORMALIZER=this.stateNormalizer;
             this.causal=new WorldCausalService(engine);
@@ -8729,7 +8690,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -8738,7 +8699,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging,this.patchPolicy);
             this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy);
             ACTIVE_WORLD_VALIDATION_POLICY=this.validationPolicy;
-            this.validation=new WorldValidationService(engine,this.validationPolicy);
+            this.validation=new WorldValidationService(engine,this.validationPolicy,this.npcAudit);
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);

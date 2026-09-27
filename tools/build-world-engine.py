@@ -36,7 +36,6 @@ PARTS = (
     'ui/00-styles.part.js',
     '40-engine-runtime.part.js',
     '50-engine-ui.part.js',
-    '55-policy-compat.part.js',
     '55-npc-narrative-audit.part.js',
     '56-rumor-liveliness.part.js',
     '57-task-awareness.part.js',

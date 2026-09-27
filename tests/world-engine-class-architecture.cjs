@@ -19,6 +19,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldResultContract.part.js',
   'src/WorldEngine/domains/WorldResultNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultMaterializer.part.js',
+  'src/WorldEngine/domains/WorldRetryGuidanceService.part.js',
   'src/WorldEngine/domains/WorldResultStagingService.part.js',
   'src/WorldEngine/domains/WorldResultReplyParser.part.js',
   'src/WorldEngine/domains/WorldValidationPolicy.part.js',
@@ -45,6 +46,7 @@ const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains
 const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
 const chronologyPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldChronologyPolicy.part.js'),'utf8');
 const worldTimePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimePolicy.part.js'),'utf8');
+const retryGuidanceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRetryGuidanceService.part.js'),'utf8');
 const worldTimeLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-time-ownership.part.js'),'utf8');
 const chronologyLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/58-chronology-guard.part.js'),'utf8');
 const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
@@ -110,6 +112,11 @@ for(const method of ['unset','identity','claimsMonthDay','assertCalendarCompatib
   assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
 }
 assert.doesNotMatch(worldTimeLegacySource,/(?:normalizeWorldResult|mergeWorldResults|worldResultFragments|allowed|compileWorldResult)\s*=\s*function|function\s+(?:worldTimeUnset|resolveWorldTimeProposal|assertCalendarCompatibleWorldResultTimes)/,'world time legacy prompt file must not re-own result or compile policy');
+assert.match(retryGuidanceSource,/class\s+WorldRetryGuidanceService\b/,'retry guidance must live behind a dedicated domain service');
+for(const file of ['55-policy-compat.part.js','56-rumor-liveliness.part.js','59-world-integrity-guard.part.js','59-world-activity-delivery.part.js']){
+  const source=fs.readFileSync(path.join(root,'script/world-engine-src',file),'utf8');
+  assert.doesNotMatch(source,/retryPlanForFailure\s*=\s*function/,'legacy module must not monkey-patch retryPlanForFailure: '+file);
+}
 for(const method of ['projectList','validateReferences'])assert.match(taskAwarenessServiceSource,new RegExp('\\b'+method+'\\s*\\('),'task awareness service must own '+method);
 assert.doesNotMatch(taskAwarenessLegacySource,/function\s+projectTaskListForWorld|projectWorldContext\s*=\s*function|compileWorldResult\s*=\s*function/,'57-task-awareness must not re-own projection or compile validation');
 
@@ -144,7 +151,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateFactory','taskLedger','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateFactory','taskLedger','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -170,7 +177,10 @@ assert.equal(engine.services.resultMaterializer.taskLedger,engine.services.taskL
 assert.equal(engine.services.resultMaterializer.chronology,engine.services.chronologyPolicy,'materializer must compose the container-owned chronology policy');
 assert.equal(engine.services.resultMaterializer.timePolicy,engine.services.timePolicy,'materializer must compose the container-owned world time policy');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
+assert.equal(engine.services.retryGuidance.constructor.name,'WorldRetryGuidanceService');
+assert.equal(engine.services.retryGuidance.engine,engine,'retry guidance must be able to read the active prompt registry');
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
+assert.equal(engine.services.resultStaging.retryGuidance,engine.services.retryGuidance,'staging must compose the container-owned retry guidance service');
 assert.equal(engine.services.resultStaging.chronology,engine.services.chronologyPolicy,'staging must compose the container-owned chronology policy');
 assert.equal(engine.services.resultParser.constructor.name,'WorldResultReplyParser');
 assert.equal(engine.services.compiler.constructor.name,'WorldResultCompiler');

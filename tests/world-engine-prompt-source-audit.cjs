@@ -29,6 +29,7 @@ for(const file of sources){
     const name=match[1];
     // 预设文档 ID / 版本号只是配置元数据，不是发送给 AI 的提示词文本。
     if(/PROMPT_(?:DOCUMENT|VERSION)/.test(name))continue;
+    if(name==='DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE')continue; // service singleton metadata, not model-facing prompt text
     if(!promptNames.has(name))promptNames.set(name,[]);
     promptNames.get(name).push(path.relative(root,file));
   }

@@ -55,6 +55,8 @@ const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domai
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditService.part.js'),'utf8');
 const npcNarrativeCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-npc-narrative-audit.part.js'),'utf8');
+const npcAuditPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditPolicy.part.js'),'utf8');
+const policyCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-policy-compat.part.js'),'utf8');
 assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
 assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
@@ -78,6 +80,8 @@ assert.match(knowledgeServiceSource,/this\.activation\(e,scan,engine\.config\.ac
 for(const legacyName of ['projectAuditComponentMap','projectCharacterForAudit','npcBuildText','npcBuildAssessment','npcBuildAudit','ensureNpcBuildAuditProgress'])assert.doesNotMatch(contextProtocolSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 30-context-protocol');
 for(const method of ['projectComponentMap','projectCharacter','buildText','inferNarrativeLevel','narrativeLevel','assessment','audit','normalizeNewEquipment','ensureProgress'])assert.match(npcAuditServiceSource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit service must own '+method);
 assert.doesNotMatch(npcNarrativeCompatSource,/npcBuildAssessment\s*=\s*function|function\s+inferNpcNarrativeAuditLevel|function\s+npcNarrativeAuditLevel|compileWorldResult\s*=\s*function/,'narrative audit compatibility file must not re-own audit or compile policy');
+for(const method of ['syncDerivedSchemaFields','alignSchemaOrder'])assert.match(npcAuditPolicySource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit policy must own '+method);
+assert.doesNotMatch(policyCompatSource,/WORLD_STATE_DERIVED_SCHEMA_KEYS|function\s+syncWorldStateDerivedSchemaFields|function\s+alignWorldStateSchemaOrder/,'55-policy-compat must not re-own derived schema alignment');
 for(const method of ['omitKeys','abilityMap','equipped','carriedItems','forms','character','assets','tailRecord','causalOrbit','baseWorld']){
   assert.match(stateProjectorSource,new RegExp('\\b'+method+'\\s*\\('),'state projector must own '+method);
 }

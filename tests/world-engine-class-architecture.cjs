@@ -179,7 +179,6 @@ const retryGuidanceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domain
 const promptDefaultsSource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldPromptDefaults.part.js'),'utf8');
 const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
 const relationSyncSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRelationSyncPolicy.part.js'),'utf8');
-const resultMaterializerSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
 for(const method of ['validateStringArray','validateStringMap','validateQuality','validateRawAttributes','validateComponentShape','validateRelationSyncValue','materializeRelationComponent','mergeRelationComponent','assertComponentLimit'])assert.match(relationSyncSource,new RegExp('\\b'+method+'\\s*\\('),'relation sync policy must own '+method);
 for(const legacyMethod of ['validateStringArray','validateStringMap','validateQuality','validateRawAttributes','validateComponentShape','validateRelationSyncValue','materializeRelationComponent','mergeRelationComponent'])assert.doesNotMatch(resultMaterializerSource,new RegExp('\\b'+legacyMethod+'\\s*\\([^)]*\\)\\s*\\{'),legacyMethod+' implementation must leave WorldResultMaterializer');

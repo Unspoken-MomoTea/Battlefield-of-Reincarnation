@@ -9,7 +9,7 @@
         normalize(value){return this.normalizer.normalizeWorldResult(value);}
         stage(stat,accepted,incoming,validate){return this.staging.stage(stat,accepted,incoming,validate);}
         // Legacy compile decorators still wrap the global seam; keep routing through it until those features are class-migrated.
-        compile(stat,value){return compileWorldResult(stat,value);}
+        compile(stat,value){return this.materializer.compileWorldResult(stat,value);}
         materialize(stat,seedPatches,modelPatches){return this.materializer.materializeWorldUpdate(stat,seedPatches,modelPatches);}
         sanitizeLegacy(patches){return this.patchPolicy.sanitizeModelPatches(this.patchPolicy.normalizeModelPatches(patches));}
     }

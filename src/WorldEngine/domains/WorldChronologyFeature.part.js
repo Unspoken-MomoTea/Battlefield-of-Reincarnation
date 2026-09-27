@@ -1,5 +1,5 @@
     class WorldChronologyFeature extends WorldRequestFeature {
-        constructor(engine,policy=DEFAULT_WORLD_CHRONOLOGY_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_CHRONOLOGY_POLICY;}
+        constructor(engine,policy=DEFAULT_WORLD_CHRONOLOGY_POLICY,selection=DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_CHRONOLOGY_POLICY;this.selection=selection||DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY;}
         initialize(){
             const engine=this.engine;
             if(!engine.config.activePromptDocumentId||engine.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
@@ -13,7 +13,7 @@
             const state=base?.stat||{};
             const chronologyScan=[state?.世界?.名称,'原著','时间线','时间轴','年表','校历','大事记','大事件','剧情大纲','剧情章节','章节','未来','后续'].filter(Boolean).join(' ');
             const chronologyBooks=await this.engine.worldbook(chronologyScan,{timelineBackbone:true});
-            const chronologyOnly=(chronologyBooks||[]).filter(book=>isTimelineBackboneEntry(book?.名称));
+            const chronologyOnly=(chronologyBooks||[]).filter(book=>this.selection.isTimelineBackbone(book?.名称));
             const existing=Array.isArray(payload.世界书)?payload.世界书.map(String):[],merged=existing.slice(),seen=new Set(existing);
             for(const book of chronologyOnly){
                 const content=String(book?.内容||'');

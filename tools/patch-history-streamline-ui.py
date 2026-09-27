@@ -15,14 +15,9 @@ if 'tabs.map(([t,i,label])=>' not in s:
         raise RuntimeError('navigation tab renderer anchor missing')
     s=s.replace('tabs.map(([t,i])=>','tabs.map(([t,i,label])=>',1)
 if "+'</span>'+(label||t)+'</button>'" not in s:
-    old="+ '</span>'+t+'</button>'"
-    compact="+"</span>"+t+"</button>""
-    if "+'</span>'+t+'</button>'" in s:
-        s=s.replace("+'</span>'+t+'</button>'","+'</span>'+(label||t)+'</button>'",1)
-    elif compact in s:
-        s=s.replace(compact,"+"</span>"+(label||t)+"</button>"",1)
-    else:
+    if "+'</span>'+t+'</button>'" not in s:
         raise RuntimeError('navigation visible-label anchor missing')
+    s=s.replace("+'</span>'+t+'</button>'","+'</span>'+(label||t)+'</button>'",1)
 renderer.write_text(s,encoding='utf-8')
 
 # History page content belongs to the dedicated View class.

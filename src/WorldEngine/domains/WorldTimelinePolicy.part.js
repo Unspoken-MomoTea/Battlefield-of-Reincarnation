@@ -60,6 +60,12 @@
                 说明:'先用因果轨道、当前事实与模型已有世界/原著知识建立宏观骨架；世界书若存在只作补充校正。随后仅展开当前时间到下一宏观节点之间的近期事件、人物、势力与传播。非公历或作品内时间按作品语义比较，不强行改写为公历。'
             };
         }
+        sameTimeAnchor(a,b) {
+            const x=String(a||'').trim(),y=String(b||'').trim();if(!x||!y)return false;
+            if(x===y)return true;
+            const shorter=x.length<=y.length?x:y,longer=x.length<=y.length?y:x;
+            return shorter.length>=8&&longer.includes(shorter);
+        }
         eventTimeAnchor(event) {
             return String(event?.时间||event?.开始时间||'').trim();
         }
@@ -149,6 +155,7 @@
     function storyStages(value){return ACTIVE_WORLD_TIMELINE_POLICY.storyStages(value);}
     function importStory(stat){return ACTIVE_WORLD_TIMELINE_POLICY.importStory(stat);}
     function timelineState(stat){return ACTIVE_WORLD_TIMELINE_POLICY.timelineState(stat);}
+    function sameWorldTimeAnchor(a,b){return ACTIVE_WORLD_TIMELINE_POLICY.sameTimeAnchor(a,b);}
     function eventTimeAnchor(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventTimeAnchor(event);}
     function eventScheduleLabel(event){return ACTIVE_WORLD_TIMELINE_POLICY.eventScheduleLabel(event);}
     function staleActiveEvents(stat){return ACTIVE_WORLD_TIMELINE_POLICY.staleActiveEvents(stat);}

@@ -645,3 +645,10 @@ patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动
 已完成：`WorldEngineFoundation.part.js` 不再保存 `worldDateKey / worldTimeCapacity / calendarDate` 的真实实现。时间键解析继续由 `WorldTimePolicy.key()` 负责，并新增 `capacity(previous,current)` 与 `calendarDate(value,calendar)`，把“本轮可推进多少时间”和 UI/校验共用的日历日期解析统一到同一个时间领域。
 
 `WorldTimePolicy.assertCalendarCompatibleTimeValue()` 也直接调用自身 `calendarDate()`，不再反向依赖 Foundation helper。旧三个全局函数名保留 compatibility forwarder，PanelController、PanelRenderer、Materializer 与外部 CommonJS 测试无需改变调用方式，但底层统一落到 container-owned active time policy。
+
+
+### Phase 63 · 世界书分类归入 Knowledge Policy
+
+已完成：`WorldEngineFoundation.part.js` 不再保存 `TECHNICAL_BOOK / isTechnicalBook / isTimelineBackboneEntry` 的真实规则。技术世界书隔离与时间轴/年表骨架识别现在统一由 `WorldKnowledgeSelectionPolicy.isTechnical()` 与 `isTimelineBackbone()` 负责。
+
+`WorldKnowledgeService` 的 catalogue/read 两条路径以及 `WorldChronologyFeature` 的原著时间轴二次筛选，共享 Service Container 中同一个 `knowledgeSelection` 实例。旧 `isTechnicalBook / isTimelineBackboneEntry` 仅保留 compatibility forwarder，防止仍未迁移的调用方形成第二套分类规则。

@@ -449,3 +449,12 @@ This is a physical source-boundary migration, not a behavioral rewrite. Further 
 Editable base prompt defaults no longer live in `WorldEngineFoundation`. `WorldBasePromptDefaults.part.js` owns `DEFAULT_PRESET`, `CORE_WORLD_RULES`, macro/stability defaults, the built-in prompt document and preset-editing helpers, and loads before configuration initialization consumes them.
 
 The split preserves the original concatenated byte order. A small worldbook-selection helper group remains in this module only because it was inside the same contiguous legacy tail; it is an explicit Phase 58 migration target rather than a new ownership decision.
+
+
+### Phase 58 · Host Adapter 与后台状态读取归域
+
+已完成：新增 `WorldHostAdapter`，统一负责从 `env / host / TavernHelper` 解析并绑定酒馆宿主函数。公开 `engine.fn(name)` 继续保留，但只作为兼容 facade；Service Container 暴露同一个 `hostAdapter` 实例，后续宿主适配逻辑不得重新写回 application shell。
+
+`WorldRuntimeContextService.backendState()` 接管 `engine.getState()` 的后台状态提取：仍从当前 MVU snapshot 读取，并与空后台结构合并后返回副本。公开 `getState()` 只委托 Runtime Context。与此同时 `saveConfig()` 收口为直接调用 `WorldEngineConfigService.save()`，删除 shell 内已经不可达的 localStorage fallback 实现。
+
+本阶段刻意保留构造器中的 busy / committing / status / lastRequest 等 application 瞬时状态；这些属于 facade 自身运行态，不为缩短文件机械拆 class。

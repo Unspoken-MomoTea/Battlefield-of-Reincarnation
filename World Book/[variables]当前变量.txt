@@ -97,11 +97,12 @@ if (data.角色.最终属性) {
   delete readonly.角色.最终属性.MDEF;
 }
 
-// 3. 关系列表只读信息 (提取NPC的最终属性与生命上限)
+// 3. 关系列表只读信息 (仅提取在场NPC的最终属性与生命上限)
 if (!_.isEmpty(data.关系列表)) {
   readonly.关系列表 = {};
   _.forEach(data.关系列表, (npc, name) => {
     if (deadAlienNameKeys.has(projectionNameKey(name))) return;
+    if (npc.在场 === false) return;
     readonly.关系列表[name] = {};
     if (npc.HP_MAX !== undefined) readonly.关系列表[name].HP_MAX = npc.HP_MAX;
     if (npc.EP_MAX !== undefined) readonly.关系列表[name].EP_MAX = npc.EP_MAX;

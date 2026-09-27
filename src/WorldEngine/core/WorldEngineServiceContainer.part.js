@@ -31,10 +31,11 @@
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy,this.timePolicy);
+            this.rumor=new WorldRumorService(engine);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy,this.timePolicy,this.rumor);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.retryGuidance=new WorldRetryGuidanceService(engine);
-            this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy,this.retryGuidance);
+            this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy,this.retryGuidance,this.rumor);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
@@ -45,7 +46,6 @@
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
-            this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;
             this.transport=engine._apiTransport||new WorldApiTransportService(engine);
@@ -72,7 +72,7 @@
             this.dueEvent=new WorldDueEventFeature(engine);
             this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger);
             this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy);
-            this.rumorRequest=new WorldRumorRequestFeature(engine);
+            this.rumorRequest=new WorldRumorRequestFeature(engine,this.rumor);
             // Stateful wrappers are registered first so run composition preserves the former
             // history > replay > auto-progress > policy nesting without inheritance.
             this.features.register('historyLifecycle',this.historyLifecycle);

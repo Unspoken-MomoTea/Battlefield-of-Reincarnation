@@ -59,6 +59,25 @@ assert.match(malformedRumor.softRejected[0].片段,/^传闻\//);
 const hardFailure=stageWorldResult(stat,null,{事件:[{名称:'缺失时间事件',操作:'更新',描述:'测试硬错误',状态:'进行中',分类:'当前事件'}]},validateState);
 assert.equal(hardFailure.rejected.length,1,'真正的结构/业务硬错误仍必须保留为重试对象');
 assert.match(hardFailure.rejected[0].片段,/^事件\//);
+
+// The production path uses container-owned services, not the exported compatibility wrappers.
+const services=new Engine({localStorage:{getItem:()=>null,setItem:()=>{}}}).services;
+const malformedInput={传闻:{街头巷议:[{名称:'格式错误的传闻',操作:'更新',来源:'居民',内容:'测试',可信度:'完全可信'}]}};
+const serviceFailure=services.compiler.stage(stat,null,malformedInput,validateState);
+assert.equal(serviceFailure.rejected.length,0,'canonical staging must treat rumor failures as soft');
+assert.equal(serviceFailure.softRejected?.length,1,'canonical staging must retain soft failure diagnostics');
+for(const [input,names] of [
+    [{传闻:{街头巷议:[{名称:'第四条',操作:'更新',...records.街头巷议}]}},['旧2','旧3','第四条']],
+    [{传闻:{街头巷议:[{名称:'旧1',操作:'更新',...records.街头巷议,内容:'旧1的新进展'},{名称:'第四条',操作:'更新',...records.街头巷议,内容:'第四条新消息'}]}},['旧3','旧1','第四条']],
+]){
+    const accepted=services.compiler.stage(stat,null,input,clone);
+    assert.equal(accepted.rejected.length,0);
+    assert.equal(accepted.softRejected?.length||0,0,'valid rolling updates must not be silently discarded');
+    const patches=services.compiler.compile(stat,accepted.accepted).patches;
+    const built=services.compiler.materialize(stat,[],patches).next;
+    assert.deepEqual(Object.keys(built.传闻.街头巷议),names,'canonical materialization must roll and refresh rumors');
+}
+assert.deepEqual(Object.keys(stat.传闻.街头巷议),['旧1','旧2','旧3'],'service path must preserve the input snapshot');
 assert.match(RUMOR_THROTTLE_RULES,/公开传闻默认保持不变/);
 assert.match(RUMOR_THROTTLE_RULES,/不得仅为传闻\/传播重新调用整轮世界推进/);
 

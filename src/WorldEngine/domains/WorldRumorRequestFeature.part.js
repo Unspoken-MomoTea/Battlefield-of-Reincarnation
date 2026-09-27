@@ -1,4 +1,5 @@
     class WorldRumorRequestFeature extends WorldRequestFeature {
+        constructor(engine,rumor){super(engine);this.rumor=rumor||DEFAULT_WORLD_RUMOR_SERVICE;}
         initialize(){
             const engine=this.engine;
             if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)return;
@@ -7,8 +8,7 @@
             if(upgraded!==engine.config.preset){engine.config.preset=upgraded;engine.saveConfig();}
         }
         async afterBuildRequest(request,base){
-            const maintenance=rumorMaintenanceRequirements(base?.stat||{});
-            ACTIVE_RUMOR_MAINTENANCE=maintenance;
+            const maintenance=this.rumor.requirements(base?.stat||{});
             let payload;
             try{payload=JSON.parse(request.input);}catch(_){return request;}
             if(Array.isArray(request.timeAnomalies))request.timeAnomalies=request.timeAnomalies.filter(item=>item?.类型!=='传闻维护');
@@ -41,17 +41,22 @@
             });
             return request;
         }
-        async aroundRun(next){
-            const previous=temporalAnomalies;
-            temporalAnomalies=function(stat){
-                const result=previous(stat);
-                if(rumorMaintenanceNeeded(stat))result.push({类型:'传闻维护',名称:'常驻传闻与传播链',字段:'活跃性',值:'需复核',说明:'公开传闻为空或传播链需要推进'});
-                return result;
-            };
-            try{return await next();}
-            finally{if(temporalAnomalies!==previous)temporalAnomalies=previous;}
+        hideHostOnlyDetails(root) {
+            const sections=Array.from(root?.querySelectorAll?.('.we-section')||[]);
+            const trade=sections.find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()==='情报交易');
+            if(!trade)return 0;
+            let removed=0;
+            for(const detail of trade.querySelectorAll('details')){
+                const summary=detail.querySelector('summary')?.textContent?.trim();
+                if(summary==='主持人档案'){
+                    detail.remove();
+                    removed++;
+                }
+            }
+            return removed;
         }
+
         afterRender(){
-            if(this.engine.tab==='传闻')hideRumorTradeHostOnlyDetails(this.engine.panel?.querySelector?.('main'));
+            if(this.engine.tab==='传闻')this.hideHostOnlyDetails(this.engine.panel?.querySelector?.('main'));
         }
     }

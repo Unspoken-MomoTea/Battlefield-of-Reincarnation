@@ -36,39 +36,6 @@
         return missing;
     };
 
-    const rumorMaintenanceRequirementsBeforeSoftMaintenance=rumorMaintenanceRequirements;
-    rumorMaintenanceRequirements=function(stat) {
-        const required=rumorMaintenanceRequirementsBeforeSoftMaintenance(stat);
-        for(const category of RUMOR_PUBLIC_CATEGORIES){
-            const item=required?.公开传闻?.[category];
-            if(item&&Number(item.当前数量)===0)item.为空补足=1;
-        }
-        return required;
-    };
-
-    function softRumorMaintenanceIssues(next,required) {
-        const result={公开传闻:[],传播链:[]};
-        if(!plain(required)||String(next?.世界?.名称||'')!==String(required.世界||'')||String(next?.世界?.时间||'')!==String(required.世界时间||''))return result;
-        for(const category of RUMOR_PUBLIC_CATEGORIES){
-            const count=Object.keys(plain(next?.传闻?.[category])?next.传闻[category]:{}).length;
-            const initial=Number(required?.公开传闻?.[category]?.当前数量)||0;
-            if(initial===0&&count===0)result.公开传闻.push(category);
-        }
-        for(const item of required.本轮必须复核的传播链||[]){
-            const record=next?.世界?.[PATH]?.传播?.[item.名称];
-            if(!record||propagationEnded(record,worldDateKey(required.世界时间)))continue;
-            const updated=String(record.更新时间||'').trim()===String(required.世界时间||'').trim();
-            const before=item.当前||{};
-            const semantic=['范围','内容','受众','引发行动','状态','到期时间'].some(key=>!same(record?.[key],before?.[key]));
-            if(!updated||(item.需语义变化&&!semantic))result.传播链.push(item.名称);
-        }
-        return result;
-    }
-
-    ensureRumorLiveliness=function(next,required) {
-        return softRumorMaintenanceIssues(next,required);
-    };
-
     // 请求装饰已迁移至 WorldSoftMaintenanceFeature。\n\n    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
     const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
     // 探索粒度、当前地点自动投影与旧档合并已迁入 WorldExplorationService；

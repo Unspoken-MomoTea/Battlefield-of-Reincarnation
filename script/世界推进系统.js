@@ -2365,12 +2365,188 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const DEFAULT_WORLD_RESULT_NORMALIZER=new WorldResultNormalizer();
     function normalizeWorldResult(value){return DEFAULT_WORLD_RESULT_NORMALIZER.normalizeWorldResult(value);}
     function mergeWorldResults(base,incoming){return DEFAULT_WORLD_RESULT_NORMALIZER.mergeWorldResults(base,incoming);}
+    const RUMOR_LIVELINESS_TOPICS=['悬赏线索','商路动向','势力情报','遗迹坐标','人物行踪','黑市消息','宝物传闻','怪物异动','深渊异变','种族摩擦','物价波动'];
+    const RUMOR_PUBLIC_CATEGORIES=['街头巷议','情报交易','布告与檄文'];
+    const RUMOR_VISIBLE_LIMIT=3;
+    const RUMOR_STALE_HOURS=72;
+    class WorldRumorService {
+        constructor(engine){this.engine=engine;}
+        requirements(stat=this.engine?.snapshot().stat||{}){
+            const required=this.baseRequirements(stat),facts=this.publicFacts(stat),fresh=facts.filter(item=>item.新近).slice(-6);
+            // Preserve the old throttle candidate window as well as the final world-side facts view.
+            required.可传播候选事件=required.可传播候选事件.filter(item=>String(item.更新时间||'').trim()===required.世界时间.trim()).slice(-2);
+            const empty=RUMOR_PUBLIC_CATEGORIES.filter(category=>Number(required.公开传闻[category].当前数量)===0),review=required.本轮必须复核的传播链,reasons=[];
+            if(empty.length)reasons.push('空分类：'+empty.join('、'));
+            if(review.length)reasons.push('传播复核：'+review.map(item=>item.名称).join('、'));
+            if(fresh.length)reasons.push('新世界公开事实：'+fresh.map(item=>item.名称).join('、'));
+            required.世界侧可传播事实=facts;
+            required.本轮新公开事实=fresh;
+            required.刷新原因=reasons;
+            required.本轮公开传闻动作=reasons.length?'按需更新；每个触发每类最多1条':'保持不变';
+            delete required.当前地点;
+            return required;
+        }
+        classifyFailures(rejected){
+            const hard=[],soft=[];
+            for(const item of rejected||[])(/^(?:传闻\/|传播\/)/.test(String(item?.片段||''))?soft:hard).push(item);
+            return soft.length?{rejected:hard,softRejected:soft}:{rejected:hard};
+        }
+        validatePublicState(stat){
+            // Capacity is a rolling window. Validate the same visible tail as the former shadow-state wrapper.
+            const items=Object.values(stat?.传闻?.街头巷议||{}).slice(-RUMOR_VISIBLE_LIMIT);
+            if(items.some(item=>!['酒话','可疑','或许可信'].includes(item.可信度)))throw new Error('传闻可信度无效');
+        }
+        finishPatches(stat,patches){
+            this.refreshTouchedOrder(stat,patches);
+            this.trimCapacity(stat);
+            return stat;
+        }
+        trimCapacity(stat) {
+            const removed=[];
+            for(const category of RUMOR_PUBLIC_CATEGORIES){
+                const bucket=stat?.传闻?.[category];
+                if(!plain(bucket))continue;
+                const overflow=Math.max(0,Object.keys(bucket).length-RUMOR_VISIBLE_LIMIT);
+                for(const name of Object.keys(bucket).slice(0,overflow)){
+                    delete bucket[name];
+                    removed.push(category+'/'+name);
+                }
+            }
+            return removed;
+        }
+        refreshTouchedOrder(stat,patches=[]) {
+            for(const patch of patches||[]){
+                if(!plain(patch)||patch.op==='remove')continue;
+                const parts=tokens(patch.path);
+                if(parts.length!==3||parts[0]!=='传闻'||!RUMOR_PUBLIC_CATEGORIES.includes(parts[1]))continue;
+                const bucket=stat?.传闻?.[parts[1]];
+                if(!plain(bucket))continue;
+                const name=stableNameIn(bucket,parts[2])||parts[2];
+                if(!Object.hasOwn(bucket,name))continue;
+                const value=bucket[name];
+                delete bucket[name];
+                bucket[name]=value;
+            }
+        }
+        eventTouchedKey(event) {
+            return worldDateKey(event?.更新时间||event?.预计结束||event?.开始时间||event?.时间);
+        }
+        baseRequirements(stat) {
+            const backend=stat?.世界?.[PATH]||{},rumors=stat?.传闻||{},events=backend.事件||{},propagation=backend.传播||{};
+            const worldTime=String(stat?.世界?.时间||''),now=worldDateKey(worldTime);
+            const publicState={};
+            for(const category of RUMOR_PUBLIC_CATEGORIES){
+                const bucket=plain(rumors?.[category])?rumors[category]:{};
+                const count=Object.keys(bucket).length;
+                publicState[category]={当前数量:count,为空补足:count===0?1:0};
+            }
+            const review=[];
+            for(const [名称,record] of Object.entries(propagation)){
+                if(!plain(record)||!/^传播中$/.test(String(record.状态||'').trim()))continue;
+                const reasons=[],updatedText=String(record.更新时间||'').trim(),touched=worldDateKey(updatedText||record.时间),expiry=worldDateKey(record.到期时间);
+                let semantic=false;
+                if(!updatedText)reasons.push('缺少更新时间');
+                if(expiry!==null&&now!==null&&expiry<=now){reasons.push('已到期');semantic=true;}
+                if(touched!==null&&now!==null&&now-touched>=RUMOR_STALE_HOURS){reasons.push('超过72小时未复核');semantic=true;}
+                const changedEvents=[];
+                for(const eventName of Array.isArray(record.关联事件)?record.关联事件:[]){
+                    const event=events[eventName];if(!plain(event))continue;
+                    const eventTouched=this.eventTouchedKey(event);
+                    if((eventTouched!==null&&(touched===null||eventTouched>touched))||['已完成','已取消'].includes(event.状态))changedEvents.push(eventName);
+                }
+                if(changedEvents.length){reasons.push('关联事件已有新进展：'+changedEvents.join('、'));semantic=true;}
+                if(!reasons.length)continue;
+                review.push({
+                    名称,原因:reasons,需语义变化:semantic,
+                    当前:{来源:String(record.来源||''),范围:String(record.范围||''),时间:String(record.时间||''),更新时间:updatedText,到期时间:String(record.到期时间||''),内容:String(record.内容||''),状态:String(record.状态||''),受众:copy(record.受众||[]),引发行动:copy(record.引发行动||[]),关联事件:copy(record.关联事件||[])}
+                });
+            }
+            const linked=new Set(Object.values(propagation).flatMap(record=>Array.isArray(record?.关联事件)?record.关联事件:[]));
+            const candidates=Object.entries(events).filter(([name,event])=>{
+                if(!plain(event)||!['进行中','已完成'].includes(event.状态)||linked.has(name))return false;
+                const visible=String(event.公开征兆||'').trim()||(Array.isArray(event.可见影响)&&event.可见影响.length);
+                return !!visible;
+            }).slice(-6).map(([名称,event])=>({名称,状态:event.状态,地点:String(event.地点||''),公开征兆:String(event.公开征兆||''),更新时间:String(event.更新时间||event.时间||'')}));
+            return {
+                世界:String(stat?.世界?.名称||''),世界时间:worldTime,当前地点:String(stat?.世界?.地点||''),
+                话题:copy(RUMOR_LIVELINESS_TOPICS),公开传闻:publicState,
+                本轮必须复核的传播链:review,可传播候选事件:candidates
+            };
+        }
+        maintenanceNeeded(stat) {
+            const required=this.requirements(stat);
+            return Object.values(required.公开传闻).some(item=>item.当前数量===0)||required.本轮必须复核的传播链.length>0;
+        }
+        sameTime(value,current){
+            const a=String(value||'').trim(),b=String(current||'').trim();
+            return !!a&&!!b&&(typeof sameWorldTimeAnchor==='function'?sameWorldTimeAnchor(a,b):a===b);
+        }
+        publicFacts(stat=this.engine?.snapshot().stat||{}){
+            const backend=stat?.世界?.[PATH]||{},now=String(stat?.世界?.时间||'').trim(),facts=[];
+            const add=item=>{if(plain(item)&&String(item.公开内容||'').trim())facts.push(item);};
+            for(const [名称,event] of Object.entries(backend.事件||{})){
+                if(!plain(event)||!['进行中','已完成'].includes(String(event.状态||'')))continue;
+                const visible=[String(event.公开征兆||'').trim(),...(Array.isArray(event.可见影响)?event.可见影响.map(x=>String(x?.影响||'').trim()):[])].filter(Boolean);
+                if(!visible.length)continue;
+                const time=String(event.更新时间||event.时间||'').trim();
+                add({类型:'公开事件',名称,地点:String(event.地点||''),时间:time,公开内容:visible.join('；'),关联事件:[名称],新近:this.sameTime(time,now)});
+            }
+            for(const [名称,person] of Object.entries(backend.人物||{})){
+                const text=String(person?.公开动态||'').trim();if(!text)continue;
+                const time=String(person?.更新时间||'').trim();
+                add({类型:'人物公开动态',名称,时间:time,公开内容:text,关联事件:copy(Array.isArray(person?.关联事件)?person.关联事件:[]),新近:this.sameTime(time,now)});
+            }
+            for(const [名称,area] of Object.entries(backend.势力地区||{})){
+                const text=String(area?.公开动态||'').trim();if(!text)continue;
+                const time=String(area?.更新时间||'').trim();
+                add({类型:'地区公开动态',名称,时间:time,公开内容:text,新近:this.sameTime(time,now)});
+            }
+            for(const [名称,faction] of Object.entries(stat?.世界?.势力||{})){
+                const text=[faction?.领地,faction?.描述].map(x=>String(x||'').trim()).filter(Boolean).join('；');
+                add({类型:'势力公开背景',名称,公开内容:text,新近:false});
+            }
+            for(const [名称,place] of Object.entries(stat?.世界?.探索||{}))add({类型:'探索公开背景',名称,风险:String(place?.风险||''),公开内容:String(place?.描述||''),新近:false});
+            const economy=String(stat?.世界?.货币?.经济波动||'').trim();
+            if(economy)add({类型:'经济公开背景',名称:'经济波动',公开内容:economy,新近:false});
+            return facts.slice(-24);
+        }
+
+        maintenanceIssues(next,required) {
+            const result={公开传闻:[],传播链:[]};
+            if(!plain(required)||String(next?.世界?.名称||'')!==String(required.世界||'')||String(next?.世界?.时间||'')!==String(required.世界时间||''))return result;
+            for(const category of RUMOR_PUBLIC_CATEGORIES){
+                const count=Object.keys(plain(next?.传闻?.[category])?next.传闻[category]:{}).length;
+                const initial=Number(required?.公开传闻?.[category]?.当前数量)||0;
+                if(initial===0&&count===0)result.公开传闻.push(category);
+            }
+            for(const item of required.本轮必须复核的传播链||[]){
+                const record=next?.世界?.[PATH]?.传播?.[item.名称];
+                if(!record||propagationEnded(record,worldDateKey(required.世界时间)))continue;
+                const updated=String(record.更新时间||'').trim()===String(required.世界时间||'').trim();
+                const before=item.当前||{};
+                const semantic=['范围','内容','受众','引发行动','状态','到期时间'].some(key=>!same(record?.[key],before?.[key]));
+                if(!updated||(item.需语义变化&&!semantic))result.传播链.push(item.名称);
+            }
+            return result;
+        }
+
+    }
+    const DEFAULT_WORLD_RUMOR_SERVICE=new WorldRumorService();
+    // Compatibility entry points are stateless; production code uses the container-owned service.
+    function rumorMaintenanceRequirements(stat){return DEFAULT_WORLD_RUMOR_SERVICE.requirements(stat);}
+    function rumorMaintenanceNeeded(stat){return DEFAULT_WORLD_RUMOR_SERVICE.maintenanceNeeded(stat);}
+    function worldPublicRumorFacts(stat){return DEFAULT_WORLD_RUMOR_SERVICE.publicFacts(stat);}
+    function rumorWorldSameTime(value,current){return DEFAULT_WORLD_RUMOR_SERVICE.sameTime(value,current);}
+    function trimRumorCapacity(stat){return DEFAULT_WORLD_RUMOR_SERVICE.trimCapacity(stat);}
+    function refreshTouchedRumorOrder(stat,patches){return DEFAULT_WORLD_RUMOR_SERVICE.refreshTouchedOrder(stat,patches);}
+    function softRumorMaintenanceIssues(next,required){return DEFAULT_WORLD_RUMOR_SERVICE.maintenanceIssues(next,required);}
+    function ensureRumorLiveliness(next,required){return DEFAULT_WORLD_RUMOR_SERVICE.maintenanceIssues(next,required);}
     const ASSET_DEFAULTS={所属对象:[],类型:'',主体规模:1,完整度:100,状态:'',建设序列:{},驻扎人员:{},待办事件:[]};
     const ASSET_ENERGY_DEFAULTS={类型:'',当前:0,上限:0,描述:''};
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit,people,taskLedger,chronology,timePolicy){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;}
+        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit,people,taskLedger,chronology,timePolicy,rumor){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;this.rumor=rumor||DEFAULT_WORLD_RUMOR_SERVICE;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -2695,11 +2871,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             for (const item of Object.values(stat.关系列表 || {})) if (!range(item.好感度,-100,100)) throw new Error('人物好感越界');
             for (const item of Object.values((stat.任务 || {}).列表 || {})) if (!['进行中','可交付','可结算','失败'].includes(item.状态)) throw new Error('任务状态无效');
             for (const item of Object.values((stat.任务 || {}).副本成就 || {})) if (!['未达成','已达成'].includes(item.状态)) throw new Error('成就状态无效');
-            for (const category of ['街头巷议','情报交易','布告与檄文']) {
-                const items = Object.values((stat.传闻 || {})[category] || {});
-                if (items.length > 3) throw new Error('每类当前传闻最多3条：'+category+'合并后有'+items.length+'条；请在同一分类提交操作=移除，移除至少'+(items.length-3)+'条被替代的旧传闻；当前名称：'+Object.keys(stat.传闻[category]).join('、'));
-                if (category === '街头巷议' && items.some(i => !['酒话','可疑','或许可信'].includes(i.可信度))) throw new Error('传闻可信度无效');
-            }
+            this.rumor.validatePublicState(stat);
             const visiting = new Set(), visited = new Set();
             function visit(name) {
                 if (visiting.has(name)) throw new Error('事件前因形成循环');
@@ -2768,7 +2940,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 const old = (stat.世界.势力 || {})[name];
                 if (Math.abs(item.声望 - (old ? old.声望 : 0)) > 1000) throw new Error('单轮声望变动超过1000');
             }
-            return next;
+            return this.rumor.finishPatches(next,patches);
         }
         materializeWorldUpdate(stat,seedPatches,modelPatches) {
             const work=copy(stat);
@@ -2888,9 +3060,10 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     const DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE=new WorldRetryGuidanceService();
     class WorldResultStagingService {
-        constructor(normalizer,materializer,chronology,retryGuidance){
+        constructor(normalizer,materializer,chronology,retryGuidance,rumor){
             this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;
             this.materializer=materializer||DEFAULT_WORLD_RESULT_MATERIALIZER;
+            this.rumor=rumor||this.materializer.rumor||DEFAULT_WORLD_RUMOR_SERVICE;
             this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;
             this.retryGuidance=retryGuidance||DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE;
         }
@@ -2975,7 +3148,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             }
             return {
                 accepted:staged,
-                rejected:pending.map(unit=>({片段:unit.label,原因:String(unit.error?.message||unit.error||'业务片段未通过校验')}))
+                ...this.rumor.classifyFailures(pending.map(unit=>({片段:unit.label,原因:String(unit.error?.message||unit.error||'业务片段未通过校验')})))
             };
         }
         // 首次请求与纠错共用同一份交付标准，避免模型失败后才知道宏观骨架的硬要求。
@@ -4495,10 +4668,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。
     // 传闻是常驻活跃层：公开传闻保证世界始终有可见动向，后台传播负责其因果来源与人物知情链。
-    const RUMOR_LIVELINESS_TOPICS=['悬赏线索','商路动向','势力情报','遗迹坐标','人物行踪','黑市消息','宝物传闻','怪物异动','深渊异变','种族摩擦','物价波动'];
-    const RUMOR_PUBLIC_CATEGORIES=['街头巷议','情报交易','布告与檄文'];
-    const RUMOR_VISIBLE_LIMIT=3;
-    const RUMOR_STALE_HOURS=72;
     const RUMOR_LIVELINESS_RULES=`【传闻与传播 · 常驻活跃层】
 1. 街头巷议、情报交易、布告与檄文各自展示最近3条；某类为空时本轮补2条。单条约60字，除非影响重大，不围绕<user>。
    可直接追加新名称，程序会在合并后自动滚动淘汰最旧条目，不需要为容量主动提交「操作:移除」。沿用原名称视为刷新该条传闻，并优先保留；仅在传闻本身已失效、撤销或需要明确删除时使用「操作:移除」。
@@ -4509,131 +4678,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const RUMOR_PRESET_STEP_NEW='Step 6 · 信息传播：传闻是常驻活跃层；三类公开传闻为空时补2条，并随地区、卖家、发布势力与局势替换。新可传播事实建立或推进传播链，关联事件变化、陈旧或到期时复核。';
     const upgradeRumorPreset=value=>String(value||'').includes(RUMOR_PRESET_STEP_OLD)?String(value).replace(RUMOR_PRESET_STEP_OLD,RUMOR_PRESET_STEP_NEW):String(value||'');
     if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=upgradeRumorPreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
-    let ACTIVE_RUMOR_MAINTENANCE=null;
-
-    // “最多3条”是展示窗口，不是模型输出校验。所有写入先正常合并，再按对象顺序滚动保留最近3条。
-    // replace 不会改变 JS 对象键顺序，因此把本轮更新过的同名条目重新插到末尾，使其真正视为“最新”。
-    function trimRumorCapacity(stat) {
-        const removed=[];
-        for(const category of RUMOR_PUBLIC_CATEGORIES){
-            const bucket=stat?.传闻?.[category];
-            if(!plain(bucket))continue;
-            const overflow=Math.max(0,Object.keys(bucket).length-RUMOR_VISIBLE_LIMIT);
-            for(const name of Object.keys(bucket).slice(0,overflow)){
-                delete bucket[name];
-                removed.push(category+'/'+name);
-            }
-        }
-        return removed;
-    }
-    function refreshTouchedRumorOrder(stat,patches=[]) {
-        for(const patch of patches||[]){
-            if(!plain(patch)||patch.op==='remove')continue;
-            const parts=tokens(patch.path);
-            if(parts.length!==3||parts[0]!=='传闻'||!RUMOR_PUBLIC_CATEGORIES.includes(parts[1]))continue;
-            const bucket=stat?.传闻?.[parts[1]];
-            if(!plain(bucket))continue;
-            const name=stableNameIn(bucket,parts[2])||parts[2];
-            if(!Object.hasOwn(bucket,name))continue;
-            const value=bucket[name];
-            delete bucket[name];
-            bucket[name]=value;
-        }
-    }
-    const validateStateBeforeRumorRolling=validateState;
-    validateState=function(stat) {
-        // 兼容核心层旧的“>3即报错”校验：在影子状态中裁成展示窗口后继续执行其余完整校验。
-        const shadow=copy(stat);
-        trimRumorCapacity(shadow);
-        return validateStateBeforeRumorRolling(shadow);
-    };
-    const applyPatchesBeforeRumorRolling=applyPatches;
-    applyPatches=function(stat,patches) {
-        const next=applyPatchesBeforeRumorRolling(stat,patches);
-        refreshTouchedRumorOrder(next,patches);
-        trimRumorCapacity(next);
-        return next;
-    };
-
-    function rumorEventTouchedKey(event) {
-        return worldDateKey(event?.更新时间||event?.预计结束||event?.开始时间||event?.时间);
-    }
-    function rumorMaintenanceRequirements(stat) {
-        const backend=stat?.世界?.[PATH]||{},rumors=stat?.传闻||{},events=backend.事件||{},propagation=backend.传播||{};
-        const worldTime=String(stat?.世界?.时间||''),now=worldDateKey(worldTime);
-        const publicState={};
-        for(const category of RUMOR_PUBLIC_CATEGORIES){
-            const bucket=plain(rumors?.[category])?rumors[category]:{};
-            const count=Object.keys(bucket).length;
-            publicState[category]={当前数量:count,为空补足:count===0?2:0};
-        }
-        const review=[];
-        for(const [名称,record] of Object.entries(propagation)){
-            if(!plain(record)||!/^传播中$/.test(String(record.状态||'').trim()))continue;
-            const reasons=[],updatedText=String(record.更新时间||'').trim(),touched=worldDateKey(updatedText||record.时间),expiry=worldDateKey(record.到期时间);
-            let semantic=false;
-            if(!updatedText)reasons.push('缺少更新时间');
-            if(expiry!==null&&now!==null&&expiry<=now){reasons.push('已到期');semantic=true;}
-            if(touched!==null&&now!==null&&now-touched>=RUMOR_STALE_HOURS){reasons.push('超过72小时未复核');semantic=true;}
-            const changedEvents=[];
-            for(const eventName of Array.isArray(record.关联事件)?record.关联事件:[]){
-                const event=events[eventName];if(!plain(event))continue;
-                const eventTouched=rumorEventTouchedKey(event);
-                if((eventTouched!==null&&(touched===null||eventTouched>touched))||['已完成','已取消'].includes(event.状态))changedEvents.push(eventName);
-            }
-            if(changedEvents.length){reasons.push('关联事件已有新进展：'+changedEvents.join('、'));semantic=true;}
-            if(!reasons.length)continue;
-            review.push({
-                名称,原因:reasons,需语义变化:semantic,
-                当前:{来源:String(record.来源||''),范围:String(record.范围||''),时间:String(record.时间||''),更新时间:updatedText,到期时间:String(record.到期时间||''),内容:String(record.内容||''),状态:String(record.状态||''),受众:copy(record.受众||[]),引发行动:copy(record.引发行动||[]),关联事件:copy(record.关联事件||[])}
-            });
-        }
-        const linked=new Set(Object.values(propagation).flatMap(record=>Array.isArray(record?.关联事件)?record.关联事件:[]));
-        const candidates=Object.entries(events).filter(([name,event])=>{
-            if(!plain(event)||!['进行中','已完成'].includes(event.状态)||linked.has(name))return false;
-            const visible=String(event.公开征兆||'').trim()||(Array.isArray(event.可见影响)&&event.可见影响.length);
-            return !!visible;
-        }).slice(-6).map(([名称,event])=>({名称,状态:event.状态,地点:String(event.地点||''),公开征兆:String(event.公开征兆||''),更新时间:String(event.更新时间||event.时间||'')}));
-        return {
-            世界:String(stat?.世界?.名称||''),世界时间:worldTime,当前地点:String(stat?.世界?.地点||''),
-            话题:copy(RUMOR_LIVELINESS_TOPICS),公开传闻:publicState,
-            本轮必须复核的传播链:review,可传播候选事件:candidates
-        };
-    }
-    function rumorMaintenanceNeeded(stat) {
-        const required=rumorMaintenanceRequirements(stat);
-        return Object.values(required.公开传闻).some(item=>item.当前数量===0)||required.本轮必须复核的传播链.length>0;
-    }
-    function ensureRumorLiveliness(next,required) {
-        if(!plain(required)||String(next?.世界?.名称||'')!==String(required.世界||'')||String(next?.世界?.时间||'')!==String(required.世界时间||''))return;
-        const shortages=[];
-        for(const category of RUMOR_PUBLIC_CATEGORIES){
-            const count=Object.keys(plain(next?.传闻?.[category])?next.传闻[category]:{}).length;
-            const initial=Number(required?.公开传闻?.[category]?.当前数量)||0;
-            if(count===0)shortages.push(category+'仍为空');
-            else if(initial===0&&count<2)shortages.push(category+'仅'+count+'条');
-        }
-        if(shortages.length)throw new Error('传闻为空未补足：'+shortages.join('、')+'；空分类本轮必须补2条，三类各自展示最近3条');
-        const unresolved=[];
-        for(const item of required.本轮必须复核的传播链||[]){
-            const record=next?.世界?.[PATH]?.传播?.[item.名称];
-            if(!record)continue;
-            if(propagationEnded(record,worldDateKey(required.世界时间)))continue;
-            const updated=String(record.更新时间||'').trim()===String(required.世界时间||'').trim();
-            const before=item.当前||{};
-            const semantic=['范围','内容','受众','引发行动','状态','到期时间'].some(key=>!same(record?.[key],before?.[key]));
-            if(!updated||(item.需语义变化&&!semantic))unresolved.push(item.名称);
-        }
-        if(unresolved.length)throw new Error('传播链仍未复核：'+unresolved.join('、')+'；更新到当前世界时间，并按真实变化推进范围/受众/内容/引发行动，或明确结束/移除');
-    }
-
-    const ensureTemporalAnomaliesResolvedBeforeRumors=ensureTemporalAnomaliesResolved;
-    ensureTemporalAnomaliesResolved=function(next,required=[]) {
-        ensureTemporalAnomaliesResolvedBeforeRumors(next,required);
-        ensureRumorLiveliness(next,ACTIVE_RUMOR_MAINTENANCE);
-    };
-
-    // 传闻与传播纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // 传闻请求与 run 生命周期已迁移至 WorldRumorRequestFeature。
+    // 传闻维护、容量与验收算法已迁入 WorldRumorService。
     // 任务感知层：任务.列表是现有 MVU 的唯一正式任务账簿；世界引擎只读消费，不建立第二套后台任务库。
     const TASK_AWARENESS_RULES=`【任务感知 · 只读】
 任务列表是世界因果来源之一。世界推进不得创建、删除或修改任务，也不得推进任务状态、交付、结算或奖励；任务影响只通过事件、人物行动、势力地区、探索与传播表现。事件可用“关联任务”引用当前任务.列表中已存在的任务名，作为因果来源；禁止引用不存在的任务。
@@ -4706,39 +4751,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             if(!eventHasUsableSchedule(event))missing.push(item.名称);
         }
         return missing;
-    };
-
-    const rumorMaintenanceRequirementsBeforeSoftMaintenance=rumorMaintenanceRequirements;
-    rumorMaintenanceRequirements=function(stat) {
-        const required=rumorMaintenanceRequirementsBeforeSoftMaintenance(stat);
-        for(const category of RUMOR_PUBLIC_CATEGORIES){
-            const item=required?.公开传闻?.[category];
-            if(item&&Number(item.当前数量)===0)item.为空补足=1;
-        }
-        return required;
-    };
-
-    function softRumorMaintenanceIssues(next,required) {
-        const result={公开传闻:[],传播链:[]};
-        if(!plain(required)||String(next?.世界?.名称||'')!==String(required.世界||'')||String(next?.世界?.时间||'')!==String(required.世界时间||''))return result;
-        for(const category of RUMOR_PUBLIC_CATEGORIES){
-            const count=Object.keys(plain(next?.传闻?.[category])?next.传闻[category]:{}).length;
-            const initial=Number(required?.公开传闻?.[category]?.当前数量)||0;
-            if(initial===0&&count===0)result.公开传闻.push(category);
-        }
-        for(const item of required.本轮必须复核的传播链||[]){
-            const record=next?.世界?.[PATH]?.传播?.[item.名称];
-            if(!record||propagationEnded(record,worldDateKey(required.世界时间)))continue;
-            const updated=String(record.更新时间||'').trim()===String(required.世界时间||'').trim();
-            const before=item.当前||{};
-            const semantic=['范围','内容','受众','引发行动','状态','到期时间'].some(key=>!same(record?.[key],before?.[key]));
-            if(!updated||(item.需语义变化&&!semantic))result.传播链.push(item.名称);
-        }
-        return result;
-    }
-
-    ensureRumorLiveliness=function(next,required) {
-        return softRumorMaintenanceIssues(next,required);
     };
 
     // 请求装饰已迁移至 WorldSoftMaintenanceFeature。\n\n    // 玩家探索是长期/结算台账：实际进入整体地区时自动建立最低10%，离开后不回收。
@@ -4959,56 +4971,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     }
     if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=upgradeRumorThrottlePreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
 
-    const rumorMaintenanceRequirementsBeforeThrottle=rumorMaintenanceRequirements;
-    rumorMaintenanceRequirements=function(stat) {
-        const required=rumorMaintenanceRequirementsBeforeThrottle(stat);
-        const emptyCategories=RUMOR_PUBLIC_CATEGORIES.filter(category=>Number(required?.公开传闻?.[category]?.当前数量||0)===0);
-        const review=Array.isArray(required?.本轮必须复核的传播链)?required.本轮必须复核的传播链:[];
-        const currentTime=String(required?.世界时间||'').trim();
-        const candidates=(Array.isArray(required?.可传播候选事件)?required.可传播候选事件:[])
-            .filter(item=>String(item?.更新时间||'').trim()===currentTime)
-            .slice(-2);
-        const reasons=[];
-        if(emptyCategories.length)reasons.push('空分类：'+emptyCategories.join('、'));
-        if(review.length)reasons.push('传播复核：'+review.map(item=>item.名称).join('、'));
-        if(candidates.length)reasons.push('新公开事实：'+candidates.map(item=>item.名称).join('、'));
-        required.可传播候选事件=candidates;
-        required.刷新原因=reasons;
-        required.本轮公开传闻动作=reasons.length?'按需更新；每个触发每类最多1条':'保持不变';
-        return required;
-    };
-
-    function isSoftRumorFragment(label) {
-        return /^(?:传闻\/|传播\/)/.test(String(label||''));
-    }
-    const stageWorldResultBeforeRumorThrottle=stageWorldResult;
-    stageWorldResult=function(stat,accepted,incoming,validate) {
-        const staged=stageWorldResultBeforeRumorThrottle(stat,accepted,incoming,validate);
-        const softRejected=(staged.rejected||[]).filter(item=>isSoftRumorFragment(item?.片段));
-        if(!softRejected.length)return staged;
-        return Object.assign({},staged,{
-            rejected:(staged.rejected||[]).filter(item=>!isSoftRumorFragment(item?.片段)),
-            softRejected
-        });
-    };
-
-    // 情报交易的“真实内幕”是后台主持人信息：数据继续保留给AI/变量系统，玩家传闻面板不渲染该详情入口。
-    function hideRumorTradeHostOnlyDetails(root) {
-        const sections=Array.from(root?.querySelectorAll?.('.we-section')||[]);
-        const trade=sections.find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()==='情报交易');
-        if(!trade)return 0;
-        let removed=0;
-        for(const detail of trade.querySelectorAll('details')){
-            const summary=detail.querySelector('summary')?.textContent?.trim();
-            if(summary==='主持人档案'){
-                detail.remove();
-                removed++;
-            }
-        }
-        return removed;
-    }
-
-    // 传闻节流请求与 UI 收口已迁移至 WorldRumorRequestFeature。
+    // 节流策略迁入 WorldRumorService；玩家信息隐藏迁入 WorldRumorRequestFeature。
     const RUMOR_WORLD_SOURCE_RULES=`【信息传播 · 世界侧事实】
 1. 传闻与传播描述世界里正在流通的信息；正文只用于确认事实与时间，不是直接传播源。禁止把正文中的个人行动、战斗细节、私密对话、能力或收益直接改写成传闻。
 2. 直接取材仅限“传闻维护.世界侧可传播事实”、已有传播链与既有公开传闻。私密事实只有形成目击、公开后果、调查发现、公告或主动泄露等现实渠道后才能传播。
@@ -5017,51 +4980,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 5. 普通行动、普通战斗、轻微状态或数值变化本身不触发传闻；只有其公开后果已经进入世界侧事实池时才可传播。
 6. 传闻/传播属于软维护，单个片段失败不得让整轮世界推进重跑。情报交易的购买、付款与消费性删除由MVU按正文结果处理；世界引擎只维护世界侧信息来源。`;
     const RUMOR_WORLD_SOURCE_PRESET_STEP='Step 6 · 信息传播：以世界侧公开事实和已有传播链为来源；正文不是直接传播源。私密事实必须先形成现实传播渠道，传播范围按时间与空间路径扩张。';
-    function rumorWorldSameTime(value,current){
-        const a=String(value||'').trim(),b=String(current||'').trim();
-        return !!a&&!!b&&(typeof sameWorldTimeAnchor==='function'?sameWorldTimeAnchor(a,b):a===b);
-    }
-    function worldPublicRumorFacts(stat){
-        const backend=stat?.世界?.[PATH]||{},now=String(stat?.世界?.时间||'').trim(),facts=[];
-        const add=item=>{if(plain(item)&&String(item.公开内容||'').trim())facts.push(item);};
-        for(const [名称,event] of Object.entries(backend.事件||{})){
-            if(!plain(event)||!['进行中','已完成'].includes(String(event.状态||'')))continue;
-            const visible=[String(event.公开征兆||'').trim(),...(Array.isArray(event.可见影响)?event.可见影响.map(x=>String(x?.影响||'').trim()):[])].filter(Boolean);
-            if(!visible.length)continue;
-            const time=String(event.更新时间||event.时间||'').trim();
-            add({类型:'公开事件',名称,地点:String(event.地点||''),时间:time,公开内容:visible.join('；'),关联事件:[名称],新近:rumorWorldSameTime(time,now)});
-        }
-        for(const [名称,person] of Object.entries(backend.人物||{})){
-            const text=String(person?.公开动态||'').trim();if(!text)continue;
-            const time=String(person?.更新时间||'').trim();
-            add({类型:'人物公开动态',名称,时间:time,公开内容:text,关联事件:copy(Array.isArray(person?.关联事件)?person.关联事件:[]),新近:rumorWorldSameTime(time,now)});
-        }
-        for(const [名称,area] of Object.entries(backend.势力地区||{})){
-            const text=String(area?.公开动态||'').trim();if(!text)continue;
-            const time=String(area?.更新时间||'').trim();
-            add({类型:'地区公开动态',名称,时间:time,公开内容:text,新近:rumorWorldSameTime(time,now)});
-        }
-        for(const [名称,faction] of Object.entries(stat?.世界?.势力||{})){
-            const text=[faction?.领地,faction?.描述].map(x=>String(x||'').trim()).filter(Boolean).join('；');
-            add({类型:'势力公开背景',名称,公开内容:text,新近:false});
-        }
-        for(const [名称,place] of Object.entries(stat?.世界?.探索||{}))add({类型:'探索公开背景',名称,风险:String(place?.风险||''),公开内容:String(place?.描述||''),新近:false});
-        const economy=String(stat?.世界?.货币?.经济波动||'').trim();
-        if(economy)add({类型:'经济公开背景',名称:'经济波动',公开内容:economy,新近:false});
-        return facts.slice(-24);
-    }
-
-    const rumorMaintenanceRequirementsBeforeWorldSource=rumorMaintenanceRequirements;
-    rumorMaintenanceRequirements=function(stat){
-        const required=rumorMaintenanceRequirementsBeforeWorldSource(stat),facts=worldPublicRumorFacts(stat),fresh=facts.filter(item=>item.新近).slice(-6);
-        const empty=RUMOR_PUBLIC_CATEGORIES.filter(category=>Number(required?.公开传闻?.[category]?.当前数量||0)===0),review=required?.本轮必须复核的传播链||[],reasons=[];
-        if(empty.length)reasons.push('空分类：'+empty.join('、'));
-        if(review.length)reasons.push('传播复核：'+review.map(item=>item.名称).join('、'));
-        if(fresh.length)reasons.push('新世界公开事实：'+fresh.map(item=>item.名称).join('、'));
-        required.世界侧可传播事实=facts;required.本轮新公开事实=fresh;required.刷新原因=reasons;required.本轮公开传闻动作=reasons.length?'按需更新；每个触发每类最多1条':'保持不变';
-        delete required.当前地点;
-        return required;
-    };
     // 世界侧传闻请求装饰已迁移至 src/WorldEngine/domains/WorldRumorRequestFeature.part.js。
     // 传闻 system 最终装配已迁移至 WorldPromptRegistry；不再扩展主类。
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
@@ -6104,15 +6022,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             },'已删除错误世界事件：'+name);
         }
     }
-    class WorldRumorService {
-        constructor(engine){this.engine=engine;}
-        requirements(stat){
-            return typeof rumorMaintenanceRequirements==='function'?rumorMaintenanceRequirements(stat||this.engine.snapshot().stat):{};
-        }
-        publicFacts(stat){
-            return typeof worldPublicRumorFacts==='function'?worldPublicRumorFacts(stat||this.engine.snapshot().stat):[];
-        }
-    }
     class WorldRequestService {
         constructor(engine=null){this.engine=engine;}
         build(base){return this.engine.buildRequest(base||this.engine.snapshot());}
@@ -6387,9 +6296,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                         const personName=stableNameIn(recoveryStat.世界?.[PATH]?.人物||{},item.名称),person=personName?recoveryStat.世界[PATH].人物[personName]:null;
                         return !person||!String(person.地点||'').trim()||!String(person.目标||'').trim()||!String(person.行动||'').trim()||String(person.更新时间||'').trim()!==String(recoveryStat.世界?.时间||'').trim();
                     });
+                    const needsRumorRepair=this.services.rumor.maintenanceNeeded(recoveryStat);
                     const needsWorldActivityRepair=typeof worldActivityRepairRequired==='function'&&worldActivityRepairRequired(recoveryStat);
-                    if(!needsMacroRepair&&!needsScheduleRepair&&!needsLifecycleRepair&&!needsAlienRepair&&!needsWorldActivityRepair){this.status='本楼层已处理，不重复结算';return false;}
-                    this.status=needsWorldActivityRepair?'检测到世界活动骨架缺失 · 修复本楼层':needsMacroRepair?'检测到宏观骨架不完整 · 修复本楼层':needsScheduleRepair?'检测到事件时间锚点缺失 · 修复本楼层':needsAlienRepair?'检测到异端活动缺失 · 修复本楼层':'检测到生命周期或时间异常 · 修复本楼层';
+                    if(!needsMacroRepair&&!needsScheduleRepair&&!needsLifecycleRepair&&!needsAlienRepair&&!needsWorldActivityRepair&&!needsRumorRepair){this.status='本楼层已处理，不重复结算';return false;}
+                    this.status=needsWorldActivityRepair?'检测到世界活动骨架缺失 · 修复本楼层':needsMacroRepair?'检测到宏观骨架不完整 · 修复本楼层':needsScheduleRepair?'检测到事件时间锚点缺失 · 修复本楼层':needsAlienRepair?'检测到异端活动缺失 · 修复本楼层':needsRumorRepair?'检测到传闻或传播需要维护 · 修复本楼层':'检测到生命周期或时间异常 · 修复本楼层';
                 }
                 if (!this.isAvailable()) throw new Error(this.usesDedicatedApi()?'请在世界推进「设置」中完成专属 API 地址与模型配置':'请在主神终端设置中启用额外模型并选择模型');
                 const validate = this.host.Samsara && this.host.Samsara.validateWorldState;
@@ -6442,6 +6352,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                             const staged=this.services?.compiler?.stage(base.stat,acceptedWorldResult,reply.worldResult,validate)??stageWorldResult(base.stat,acceptedWorldResult,reply.worldResult,validate);
                             acceptedWorldResult=staged.accepted;
                             rejectedSlices=staged.rejected;
+                            if(staged.softRejected?.length)actualRequest.manifest.软失败片段=copy(staged.softRejected);
                             reply.summary=acceptedWorldResult.摘要||reply.summary;
                         } else {
                             legacyPatches=this.services?.compiler?.sanitizeLegacy(reply.patches)??sanitizeModelPatches(normalizeModelPatches(reply.patches));
@@ -7374,6 +7285,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldRumorRequestFeature extends WorldRequestFeature {
+        constructor(engine,rumor){super(engine);this.rumor=rumor||DEFAULT_WORLD_RUMOR_SERVICE;}
         initialize(){
             const engine=this.engine;
             if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)return;
@@ -7382,8 +7294,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(upgraded!==engine.config.preset){engine.config.preset=upgraded;engine.saveConfig();}
         }
         async afterBuildRequest(request,base){
-            const maintenance=rumorMaintenanceRequirements(base?.stat||{});
-            ACTIVE_RUMOR_MAINTENANCE=maintenance;
+            const maintenance=this.rumor.requirements(base?.stat||{});
             let payload;
             try{payload=JSON.parse(request.input);}catch(_){return request;}
             if(Array.isArray(request.timeAnomalies))request.timeAnomalies=request.timeAnomalies.filter(item=>item?.类型!=='传闻维护');
@@ -7416,18 +7327,23 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             });
             return request;
         }
-        async aroundRun(next){
-            const previous=temporalAnomalies;
-            temporalAnomalies=function(stat){
-                const result=previous(stat);
-                if(rumorMaintenanceNeeded(stat))result.push({类型:'传闻维护',名称:'常驻传闻与传播链',字段:'活跃性',值:'需复核',说明:'公开传闻为空或传播链需要推进'});
-                return result;
-            };
-            try{return await next();}
-            finally{if(temporalAnomalies!==previous)temporalAnomalies=previous;}
+        hideHostOnlyDetails(root) {
+            const sections=Array.from(root?.querySelectorAll?.('.we-section')||[]);
+            const trade=sections.find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()==='情报交易');
+            if(!trade)return 0;
+            let removed=0;
+            for(const detail of trade.querySelectorAll('details')){
+                const summary=detail.querySelector('summary')?.textContent?.trim();
+                if(summary==='主持人档案'){
+                    detail.remove();
+                    removed++;
+                }
+            }
+            return removed;
         }
+
         afterRender(){
-            if(this.engine.tab==='传闻')hideRumorTradeHostOnlyDetails(this.engine.panel?.querySelector?.('main'));
+            if(this.engine.tab==='传闻')this.hideHostOnlyDetails(this.engine.panel?.querySelector?.('main'));
         }
     }
     class WorldNpcAuditPromptFeature {
@@ -8688,10 +8604,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy,this.timePolicy);
+            this.rumor=new WorldRumorService(engine);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy,this.timePolicy,this.rumor);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.retryGuidance=new WorldRetryGuidanceService(engine);
-            this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy,this.retryGuidance);
+            this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy,this.retryGuidance,this.rumor);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
@@ -8702,7 +8619,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
-            this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;
             this.transport=engine._apiTransport||new WorldApiTransportService(engine);
@@ -8729,7 +8645,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.dueEvent=new WorldDueEventFeature(engine);
             this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger);
             this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy);
-            this.rumorRequest=new WorldRumorRequestFeature(engine);
+            this.rumorRequest=new WorldRumorRequestFeature(engine,this.rumor);
             // Stateful wrappers are registered first so run composition preserves the former
             // history > replay > auto-progress > policy nesting without inheritance.
             this.features.register('historyLifecycle',this.historyLifecycle);

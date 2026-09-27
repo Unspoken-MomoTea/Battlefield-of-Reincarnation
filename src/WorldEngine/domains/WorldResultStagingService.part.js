@@ -1,7 +1,8 @@
     class WorldResultStagingService {
-        constructor(normalizer,materializer,chronology,retryGuidance){
+        constructor(normalizer,materializer,chronology,retryGuidance,rumor){
             this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;
             this.materializer=materializer||DEFAULT_WORLD_RESULT_MATERIALIZER;
+            this.rumor=rumor||this.materializer.rumor||DEFAULT_WORLD_RUMOR_SERVICE;
             this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;
             this.retryGuidance=retryGuidance||DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE;
         }
@@ -86,7 +87,7 @@
             }
             return {
                 accepted:staged,
-                rejected:pending.map(unit=>({片段:unit.label,原因:String(unit.error?.message||unit.error||'业务片段未通过校验')}))
+                ...this.rumor.classifyFailures(pending.map(unit=>({片段:unit.label,原因:String(unit.error?.message||unit.error||'业务片段未通过校验')})))
             };
         }
         // 首次请求与纠错共用同一份交付标准，避免模型失败后才知道宏观骨架的硬要求。

@@ -1,14 +1,23 @@
 const assert=require('node:assert/strict');
-const fs=require('node:fs');
 const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 const NOW='2010年-04月-13日-上午';
 
-const rumorUiSource=fs.readFileSync(require.resolve('../script/world-engine-src/59-rumor-throttle.part.js'),'utf8');
-assert.match(rumorUiSource,/function hideRumorTradeHostOnlyDetails\(/,'传闻UI必须有情报交易后台信息隐藏保护');
-assert.match(rumorUiSource,/===['"]情报交易['"]/,'隐私保护必须只定位情报交易区块');
-assert.match(rumorUiSource,/summary===['"]主持人档案['"]/,'主持人档案详情必须从玩家面板移除');
-assert.match(rumorUiSource,/this\.tab===['"]传闻['"][\s\S]{0,120}hideRumorTradeHostOnlyDetails/,'传闻页每次渲染都必须执行隐私保护');
+// Exercise the registered render hook instead of binding the assertion to an old source file.
+{
+  const engine=new Engine({localStorage:{getItem:()=>null,setItem:()=>{}}});
+  const removed=[];
+  const detail=label=>({querySelector:()=>({textContent:label}),remove:()=>removed.push(label)});
+  const sections=[
+    {querySelector:()=>({textContent:'街头巷议'}),querySelectorAll:()=>[detail('主持人档案')]},
+    {querySelector:()=>({textContent:'情报交易'}),querySelectorAll:()=>[detail('主持人档案'),detail('购买须知')]}
+  ];
+  engine.panel={querySelector:()=>({querySelectorAll:()=>sections})};
+  engine.tab='世界推进';engine.services.rumorRequest.afterRender();
+  assert.deepEqual(removed,[]);
+  engine.tab='传闻';engine.services.rumorRequest.afterRender();
+  assert.deepEqual(removed,['主持人档案'],'只移除情报交易中的主持人档案，保留其它区块和购买说明');
+}
 
 function filledRumors(){
   return {
@@ -19,6 +28,8 @@ function filledRumors(){
 }
 function freshState({rumors,stalePropagation=false}={}){
   const backend=emptyState();
+  backend.势力地区['藤美学园']={...clone(RECORDS.势力地区),类型:'地区',描述:'正在加强出入管理的校园',更新时间:NOW};
+  backend.势力地区['藤美学园校方']={...clone(RECORDS.势力地区),类型:'势力',描述:'负责校园警戒与管理',更新时间:NOW};
   backend.事件['校门封锁']={
     ...clone(RECORDS.事件),分类:'当前事件',描述:'校方临时封锁北门并检查离校人员。',时间:NOW,条件:'连续失踪事件引发警戒',前因:[],状态:'进行中',
     默认走向:'封锁继续扩大。',结果:'',公开征兆:'北门增设警戒线与临时岗哨。',地点:'藤美学园-北门',更新时间:NOW
@@ -32,7 +43,7 @@ function freshState({rumors,stalePropagation=false}={}){
   }
   return {
     世界:{名称:'学园默示录',时间:NOW,地点:'藤美学园-主教学楼',稳定:100,后台:backend,
-      因果轨道:{当前阶段:'校内警戒升级',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}},势力:{},探索:{},法则:[],货币:{体系:'日元',购买力基准:'便利店餐食约500日元',经济波动:''},历法:{}},
+      因果轨道:{当前阶段:'校内警戒升级',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}},势力:{藤美学园校方:{实力:'F',领地:'藤美学园',描述:'负责校园警戒与管理',声望:0}},探索:{},法则:[],货币:{体系:'日元',购买力基准:'便利店餐食约500日元',经济波动:''},历法:{}},
     设置:{单一世界:true},系统状态:{是否在主神空间:false},资产:{},关系列表:{},传闻:rumors===undefined?{街头巷议:{},情报交易:{},布告与檄文:{}}:clone(rumors)
   };
 }
@@ -52,6 +63,7 @@ function setup({state=freshState(),reply}={}){
 function livelyReply(){
   return JSON.stringify({
     摘要:'补齐本地传闻并建立北门封锁的传播链。',
+    事件:[{名称:'校门封锁',操作:'更新',描述:'校方已经把警戒线扩至北门外。'}],
     传播:[{名称:'北门封锁消息',操作:'更新',关联事件:['校门封锁'],来源:'目击学生',范围:'藤美学园校内',时间:NOW,
       内容:'北门临时封锁的消息已从现场学生扩散到各班。',真相:'校方因连续失踪事件加强警戒。',状态:'传播中',更新时间:NOW,到期时间:'2010年-04月-14日-上午',受众:['学生','教职工'],引发行动:['部分学生改走南门']}],
     传闻:{
@@ -75,10 +87,10 @@ function livelyReply(){
   {
     const x=setup();
     const request=await x.engine.buildRequest(x.engine.snapshot()),payload=JSON.parse(request.input);
-    assert.match(request.system,/【传闻与传播 · 常驻活跃层】/,'系统提示必须把传闻定义为常驻活跃层');
+    assert.match(request.system,/【信息传播 · 世界侧事实】/,'系统提示使用当前已注册的世界侧取材规则');
     assert.deepEqual(payload.传闻维护.话题,['悬赏线索','商路动向','势力情报','遗迹坐标','人物行踪','黑市消息','宝物传闻','怪物异动','深渊异变','种族摩擦','物价波动']);
-    for(const category of ['街头巷议','情报交易','布告与檄文'])assert.equal(payload.传闻维护.公开传闻[category].为空补足,2,category+'为空时必须要求补2条');
-    assert.ok(payload.传闻维护.可传播候选事件.some(item=>item.名称==='校门封锁'),'有公开征兆且尚无传播链的事件应进入传播候选');
+    for(const category of ['街头巷议','情报交易','布告与檄文'])assert.equal(payload.传闻维护.公开传闻[category].为空补足,1,category+'为空时按软维护规则优先补1条');
+    assert.ok(payload.传闻维护.本轮新公开事实.some(item=>item.名称==='校门封锁'),'有公开征兆的事件应进入世界侧事实池');
   }
 
   {
@@ -91,14 +103,31 @@ function livelyReply(){
 
   {
     const state=freshState({rumors:filledRumors(),stalePropagation:true});
-    const x=setup({state,reply:JSON.stringify({摘要:'本轮没有需要更新的信息。'})});
-    let failure='';try{await x.engine.run();}catch(error){failure=String(error.message||error);}
-    assert.match(failure,/传播链仍未复核：北门封锁消息/,'陈旧传播链不能继续原样挂着');
+    const x=setup({state,reply:JSON.stringify({摘要:'世界事件推进，传播暂未复核。',事件:[{名称:'校门封锁',操作:'更新',描述:'校方已经把警戒线扩至北门外。'}]})});
+    assert.equal(await x.engine.run(),true,'未完成的传播复核属于软维护，不否决本轮');
+    assert.equal(x.getCalls(),1,'未维护传播链不得触发整轮重试');
+    const next=x.getState();
+    assert.equal(x.engine.services.rumor.maintenanceNeeded(next),true,'未复核传播链仍保留为后续维护项');
+  }
+
+  {
+    const state=freshState({rumors:filledRumors()});
+    const reply=JSON.stringify({摘要:'事件更新，错误传闻保留为诊断。',
+      事件:[{名称:'校门封锁',操作:'更新',描述:'校方已增加北门巡逻。'}],
+      传闻:{情报交易:[{名称:'错误传闻',操作:'更新',卖家:'居民',摘要:'错误货币',要价:'20空间币',情报评级:'F',真实内幕:'测试'}]},
+      传播:[{名称:'错误传播',操作:'更新',关联事件:['不存在的事件']}]});
+    const x=setup({state,reply});x.engine.config.retryAttempts=3;
+    assert.equal(await x.engine.run(),true,'传闻和传播软失败不得阻止其它已验收片段提交');
+    assert.equal(x.getCalls(),1,'实际主流程不能因传闻软失败重试');
+    assert.equal(x.getState().世界.后台.事件.校门封锁.描述,'校方已增加北门巡逻。');
+    assert.equal(x.getState().传闻.情报交易.错误传闻,undefined);
+    assert.equal(x.getState().世界.后台.传播.错误传播,undefined);
+    assert.equal(x.engine.lastRequest.manifest.软失败片段.length,2,'请求检查保留被丢弃片段的原因');
   }
 
   {
     const state=freshState({rumors:filledRumors(),stalePropagation:true});
-    const reply=JSON.stringify({摘要:'北门封锁消息继续扩散。',传播:[{名称:'北门封锁消息',操作:'更新',范围:'全校',更新时间:NOW,受众:['学生','教职工','家长群'],引发行动:['更多学生改走南门']}]});
+    const reply=JSON.stringify({摘要:'北门封锁消息继续扩散。',事件:[{名称:'校门封锁',操作:'更新',描述:'校方已经把警戒线扩至北门外。'}],传播:[{名称:'北门封锁消息',操作:'更新',范围:'全校',更新时间:NOW,受众:['学生','教职工','家长群'],引发行动:['更多学生改走南门']}]});
     const x=setup({state,reply});
     x.markProcessed();
     assert.equal(await x.engine.run(),true,'即使楼层已处理，陈旧传播链也应允许触发修复运行');

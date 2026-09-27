@@ -12,6 +12,8 @@ assert.ok(partsBlock,'build-world-engine.py must declare PARTS');
 const declared=[...partsBlock[1].matchAll(/'([^']+\.part\.js)'/g)].map(match=>match[1]);
 assert.ok(declared.length>=10,'world engine should be assembled from modular source parts');
 assert.equal(new Set(declared).size,declared.length,'build PARTS must not contain duplicate modules');
+assert.ok(declared.indexOf('@src/WorldEngine/prompts/WorldPromptRegistry.part.js')<declared.indexOf('@src/WorldEngine/prompts/WorldPromptIntegrationService.part.js'),'prompt integration must load after the canonical registry');
+assert.ok(declared.indexOf('@src/WorldEngine/prompts/WorldPromptIntegrationService.part.js')<declared.indexOf('@src/WorldEngine/core/WorldEngineServiceContainer.part.js'),'prompt integration must load before the service container constructs it');
 assert.ok(declared.every(file=>file.startsWith('@src/WorldEngine/')),'all world-engine source parts must come from src/WorldEngine after legacy removal');
 for(const moduleName of ['editor/00-world-mutations.part.js','editor/10-event-editor.part.js','editor/20-person-editor.part.js']){
   assert.equal(declared.includes(moduleName),false,`migrated editor module must leave legacy build: ${moduleName}`);
@@ -70,6 +72,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldPromptDocumentService.part.js',
   '@src/WorldEngine/domains/WorldRunOrchestrator.part.js',
   '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
+  '@src/WorldEngine/prompts/WorldPromptIntegrationService.part.js',
   '@src/WorldEngine/ui/views/WorldOverviewView.part.js',
   '@src/WorldEngine/ui/views/WorldPeopleView.part.js',
   '@src/WorldEngine/ui/views/WorldExplorationView.part.js',

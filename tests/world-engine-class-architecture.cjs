@@ -31,6 +31,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldPersonActivityService.part.js',
   'src/WorldEngine/domains/WorldTaskAwarenessService.part.js',
   'src/WorldEngine/domains/WorldNpcAuditService.part.js',
+  'src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js',
   'src/WorldEngine/domains/WorldHistoryService.part.js',
   'src/WorldEngine/domains/WorldApiTransportService.part.js',
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
@@ -53,8 +54,8 @@ const chronologyLegacySource=fs.readFileSync(path.join(root,'script/world-engine
 const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
 const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
 const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
+const historyMemoryPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js'),'utf8');
 const historyServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldHistoryService.part.js'),'utf8');
-const historyMemoryLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-history-memory.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditService.part.js'),'utf8');
 const npcNarrativeCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-npc-narrative-audit.part.js'),'utf8');
@@ -69,7 +70,10 @@ assert.match(timelinePolicySource,/function\s+importStory\s*\(stat\)\s*\{return 
 assert.doesNotMatch(contextProtocolSource,/function\s+sameWorldTimeAnchor\s*\(/,'time-anchor comparison implementation must leave 30-context-protocol');
 assert.doesNotMatch(contextProtocolSource,/function\s+protocol\s*\(/,'output protocol implementation must leave 30-context-protocol');
 assert.match(historyServiceSource,/\bproject\s*\(stat\)/,'history service must expose world-history projection');
-assert.doesNotMatch(historyMemoryLegacySource,/projectWorldContext\s*=\s*function|projectWorldContextBeforeHistoryMemory/,'history memory legacy module must not decorate world context projection');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-history-memory.part.js')),false,'legacy history memory module must be deleted after algorithm migration');
+for(const method of ['leafKey','leafEntries','collectedIds','invalidateAncestors','rootsAtLevel','batchForLevel','nextKey','parseReply','prompt','project','digest'])assert.match(historyMemoryPolicySource,new RegExp('\\b'+method+'\\s*\\('),'history memory policy must own '+method);
+assert.match(historyServiceSource,/return this\.policy\.project\(backend\)/,'history service must delegate projection to the canonical history memory policy');
+assert.doesNotMatch(stateProjectorSource,/projectWorldHistoryMemory\(backend\)/,'state projector must not depend on the global history compatibility helper');
 assert.match(stateProjectorSource,/world\(stat\)\{return this\.baseWorld\(stat\);\}/,'state projector public world path must be canonical after context decorators are removed');
 assert.match(timelinePolicySource,/\bsameTimeAnchor\s*\(a,b\)/,'timeline policy must own compatible world-time anchor comparison');
 assert.match(timelinePolicySource,/function\s+sameWorldTimeAnchor\s*\(a,b\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.sameTimeAnchor\(a,b\);\}/,'public sameWorldTimeAnchor seam must remain compatible');
@@ -161,12 +165,14 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateFactory','taskLedger','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
 assert.equal(engine.services.stateFactory.constructor.name,'WorldStateFactory');
 assert.equal(engine.services.stateProjector.constructor.name,'WorldStateProjector');
+assert.equal(engine.services.historyMemory.constructor.name,'WorldHistoryMemoryPolicy');
+assert.equal(engine.services.history.policy,engine.services.historyMemory,'history service must share the container-owned history memory policy');
 assert.equal(engine.services.taskLedger.constructor.name,'WorldTaskAwarenessService');
 assert.equal(engine.services.stateProjector.taskLedger,engine.services.taskLedger,'projector must compose the container-owned task ledger service');
 assert.equal(engine.services.history.constructor.name,'WorldHistoryService');

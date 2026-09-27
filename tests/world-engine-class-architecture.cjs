@@ -69,6 +69,7 @@ assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT
 assert.match(foundationSource,/function\s+worldDateKey\s*\(value\)\s*\{\s*return ACTIVE_WORLD_TIME_POLICY\.key\(value\);\s*\}/,'foundation worldDateKey must be compatibility-only');
 for(const method of ['normalizeDaypartAlias','key','dayKey','hasExactClock'])assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-world-time-daypart-aliases.part.js')),false,'legacy daypart wrapper must be deleted');
+const integrityLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
 assert.doesNotMatch(integrityLegacySource,/worldDateKey\s*=\s*function|temporalAnomalies\s*=\s*function/,'integrity legacy module must not rewrite time parser or anomaly policy');
 assert.match(timelinePolicySource,/constructor\(timePolicy=DEFAULT_WORLD_TIME_POLICY\)/,'timeline policy must explicitly compose the canonical time policy');
 assert.match(timelinePolicySource,/\bimportStory\s*\(stat\)/,'timeline policy must own legacy story seeding');
@@ -103,7 +104,6 @@ for(const method of ['omitKeys','abilityMap','equipped','carriedItems','forms','
 }
 const patchPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
 const causalServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldCausalService.part.js'),'utf8');
-const integrityLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-causal-stability-gate.part.js')),false,'causal stability compile/apply wrapper file must be removed');
 const requestServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestService.part.js'),'utf8');
 for(const legacyName of ['retryableModelFailure','retryInput']){

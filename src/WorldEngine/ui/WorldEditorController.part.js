@@ -19,6 +19,22 @@
         escape(value){
             return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
         }
+        textList(value){
+            if(Array.isArray(value))return [...new Set(value.map(item=>String(item||'').trim()).filter(Boolean))];
+            return [...new Set(String(value||'').split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
+        }
+        jsonList(value,label='列表'){
+            if(Array.isArray(value))return copy(value);
+            const raw=String(value||'').trim();
+            if(!raw)return [];
+            let parsed;
+            try{parsed=JSON.parse(raw);}catch(_){throw new Error(label+'必须是合法 JSON 数组');}
+            if(!Array.isArray(parsed))throw new Error(label+'必须是 JSON 数组');
+            return parsed;
+        }
+        eventSelect(value,options,field){
+            return '<select data-world-event-field="'+field+'">'+options.map(option=>'<option value="'+this.escape(option)+'"'+(String(value)===option?' selected':'')+'>'+this.escape(option)+'</option>').join('')+'</select>';
+        }
 
         // ---- 共用编辑模式 ----
         mountModeToggle(){
@@ -38,8 +54,8 @@
             const esc=worldEditorEscape,list=value=>Array.isArray(value)?value.join('\n'):'',json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
             return '<div class="we-world-editor" data-world-event-edit data-world-event-name="'+esc(name)+'"><div class="we-world-editor-grid">'
                 +'<label><span>事件名称</span><input data-world-event-field="name" value="'+esc(name)+'"></label>'
-                +'<label><span>分类</span>'+worldEventSelect(record?.分类||'近期节点',['当前事件','近期节点','宏观节点'],'category')+'</label>'
-                +'<label><span>状态</span>'+worldEventSelect(record?.状态||'待发生',['待发生','进行中','已完成','已取消'],'status')+'</label>'
+                +'<label><span>分类</span>'+this.eventSelect(record?.分类||'近期节点',['当前事件','近期节点','宏观节点'],'category')+'</label>'
+                +'<label><span>状态</span>'+this.eventSelect(record?.状态||'待发生',['待发生','进行中','已完成','已取消'],'status')+'</label>'
                 +'<label><span>地点</span><input data-world-event-field="location" value="'+esc(record?.地点||'')+'"></label>'
                 +'<label><span>时间</span><input data-world-event-field="time" value="'+esc(record?.时间||'')+'"></label>'
                 +'<label><span>开始时间</span><input data-world-event-field="start" value="'+esc(record?.开始时间||'')+'"></label>'
@@ -72,8 +88,8 @@
                 预计结束:String(value('end')||'').trim(),下次检查:String(value('nextCheck')||'').trim(),更新时间:String(value('updated')||'').trim(),
                 描述:String(value('description')||'').trim(),公开征兆:String(value('sign')||'').trim(),条件:String(value('condition')||'').trim(),
                 默认走向:String(value('default')||'').trim(),结果:String(value('result')||'').trim(),
-                前因:worldEditorTextList(value('causes')),参与者:worldEditorTextList(value('participants')),
-                关联任务:worldEditorTextList(value('tasks')),可见影响:worldEditorJsonList(value('impacts'),'可见影响')
+                前因:this.textList(value('causes')),参与者:this.textList(value('participants')),
+                关联任务:this.textList(value('tasks')),可见影响:this.jsonList(value('impacts'),'可见影响')
             });
         }
         mountEventControls(){
@@ -146,7 +162,7 @@
                 地点:String(value('location')||'').trim(),目标:String(value('goal')||'').trim(),行动:String(value('action')||'').trim(),
                 公开动态:String(value('public')||'').trim(),开始时间:String(value('start')||'').trim(),预计结束:String(value('end')||'').trim(),
                 下次检查:String(value('nextCheck')||'').trim(),更新时间:String(value('updated')||'').trim(),登场条件:String(value('appearance')||'').trim(),
-                认知:worldEditorTextList(value('knowledge')),关联事件:worldEditorTextList(value('events')),行程:worldEditorJsonList(value('schedule'),'行程'),
+                认知:this.textList(value('knowledge')),关联事件:this.textList(value('events')),行程:worldEditorJsonList(value('schedule'),'行程'),
                 认知来源:worldEditorJsonList(value('knowledgeSources'),'认知来源'),背景关联:worldEditorJsonList(value('links'),'背景关联')
             });
         }

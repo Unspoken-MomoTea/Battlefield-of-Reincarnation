@@ -214,9 +214,9 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 
 ## Phase 23 · World context projection
 
-`WorldStateProjector` owns the canonical world-context projection: character capability stripping, equipped/carried/form views, shared assets, propagation tails, causal-orbit projection, read-only task projection, hierarchical history-memory projection, and the final base world payload. `30-context-protocol.part.js` now provides only the external compatibility function `projectWorldContext()`, which forwards to the active projector; no task/history module decorates that global seam anymore.
+`WorldStateProjector` owns the canonical world-context projection: character capability stripping, equipped/carried/form views, shared assets, propagation tails, causal-orbit projection, read-only task projection, hierarchical history-memory projection, and the final base world payload. The public compatibility functions, including `projectWorldContext()`, now live in the same src module and forward to the active projector. No legacy context-protocol module remains.
 
-`WorldStateProjector.world()` is now identical to the canonical `baseWorld()` path.
+`WorldStateProjector.world()` is identical to the canonical `baseWorld()` path.
 
 
 ## Phase 24 · Worldbook activation
@@ -354,3 +354,8 @@ The former `59-causal-overview-ui`, `59-causal-offset-editor`, and `59-history-m
 Manual world-engine editing no longer depends on the legacy `editor/` directory. Shared mutation parsing/replay behavior belongs to `WorldMutationService`; event reference/graph rules belong to `WorldEventService`; person-activity validation belongs to `WorldPersonActivityService`; form/presentation helpers belong to `WorldEditorController`.
 
 The former `editor/00-world-mutations`, `editor/10-event-editor`, and `editor/20-person-editor` modules are deleted from both the source tree and build pipeline.
+
+
+## Phase 45 · Numbered compatibility slots removed
+
+The obsolete `20-world-result.part.js` and `30-context-protocol.part.js` files are deleted. WorldResult compatibility surfaces are owned by the src WorldResult domain modules. Projection compatibility surfaces are owned by `WorldStateProjector.part.js`. The legacy NPC audit prompt migration constant lives in `WorldPromptDefaults.part.js`; no prompt or projection implementation remains under the removed numbered slots.

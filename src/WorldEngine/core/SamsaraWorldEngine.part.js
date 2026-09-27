@@ -4,102 +4,7 @@
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
             this.lastRequest=null; this.previewRequest=null; this.lastReply=''; this.lastFailure='';
             this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastAttemptTelemetry=[]; this.lastTransportInfo=null; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
-            this.config = {
-                enabled:false,
-                preset:DEFAULT_PRESET,
-                corePrompt:CORE_WORLD_RULES,
-                macroPrompt:DEFAULT_MACRO_PROMPT,
-                stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,
-                retryAttempts:5,
-                requireMacroBackbone:true,
-                presetEditorVersion:0,
-                promptDocuments:[],
-                fontScale:'standard',
-                // 仅控制是否把压缩后的长期历史发送给正文AI；世界推进自身始终读取。
-                sendHistoryToProse:false,
-                dedicatedApi:{enabled:false,apiUrl:'',apiKey:'',model:'',apiPresets:[],fetchedModels:[]}
-            };
-            try { Object.assign(this.config, JSON.parse(host.localStorage.getItem(CONFIG) || '{}')); } catch (_) {}
-            const hadLegacyTone=Object.hasOwn(this.config,'tone');
-            delete this.config.tone;
-            if(Number(this.config.presetEditorVersion||0)<2)this.config.preset=ensurePresetStructure(this.config.preset);
-            else this.config.preset=normalizeEditablePreset(this.config.preset);
-            this.config.presetEditorVersion=2;
-            if(typeof this.config.corePrompt!=='string')this.config.corePrompt=CORE_WORLD_RULES;
-            if(typeof this.config.macroPrompt!=='string')this.config.macroPrompt=DEFAULT_MACRO_PROMPT;
-            if(typeof this.config.stabilityPromptTemplate!=='string')this.config.stabilityPromptTemplate=DEFAULT_STABILITY_PROMPT_TEMPLATE;
-            if(!Array.isArray(this.config.promptDocuments))this.config.promptDocuments=[];
-            this.config.promptDocuments=this.config.promptDocuments
-                .filter(doc=>plain(doc)&&typeof doc.name==='string'&&plain(doc.settings)&&typeof doc.settings.preset==='string'&&doc.id!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id&&doc.name!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.name)
-                .slice(0,58);
-            // 旧版“保存为默认设置”曾直接覆盖内置默认。v3 起把这份本地内容迁移为独立个人文档，
-            // 内置“默认设置”始终绑定代码中的最新 DEFAULT_PRESET，不再被 localStorage 遮蔽。
-            if(plain(this.config.userDefaultPromptSettings)&&typeof this.config.userDefaultPromptSettings.preset==='string'){
-                const legacySettings={
-                    corePrompt:typeof this.config.userDefaultPromptSettings.corePrompt==='string'?this.config.userDefaultPromptSettings.corePrompt:CORE_WORLD_RULES,
-                    macroPrompt:typeof this.config.userDefaultPromptSettings.macroPrompt==='string'?this.config.userDefaultPromptSettings.macroPrompt:DEFAULT_MACRO_PROMPT,
-                    stabilityPromptTemplate:typeof this.config.userDefaultPromptSettings.stabilityPromptTemplate==='string'?this.config.userDefaultPromptSettings.stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,
-                    npcAuditPrompt:typeof this.config.userDefaultPromptSettings.npcAuditPrompt==='string'?this.config.userDefaultPromptSettings.npcAuditPrompt:undefined,
-                    structurePrompt:typeof this.config.userDefaultPromptSettings.structurePrompt==='string'?this.config.userDefaultPromptSettings.structurePrompt:undefined,
-                    preset:normalizeEditablePreset(this.config.userDefaultPromptSettings.preset),
-                    contextTurns:Math.max(1,Math.min(100,Number(this.config.userDefaultPromptSettings.contextTurns)||3)),
-                    activationMode:this.config.userDefaultPromptSettings.activationMode==='force_selected'?'force_selected':'respect_activation',
-                    selectedEntries:Array.isArray(this.config.userDefaultPromptSettings.selectedEntries)?copy(this.config.userDefaultPromptSettings.selectedEntries):null
-                };
-                const personal=this.config.promptDocuments.find(doc=>doc.id===USER_DEFAULT_PROMPT_DOCUMENT_ID);
-                if(!personal)this.config.promptDocuments.unshift({id:USER_DEFAULT_PROMPT_DOCUMENT_ID,type:'samsara-world-prompt-document',version:1,builtin:false,name:'个人默认设置',createdAt:'',updatedAt:'',settings:copy(legacySettings)});
-            }
-            this.config.promptDocuments=this.config.promptDocuments.filter(doc=>doc.id!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id).slice(0,59);
-            this.config.promptDocuments.unshift(copy(BUILTIN_DEFAULT_PROMPT_DOCUMENT));
-            {
-                const appliedVersion=Number(this.config.builtinDefaultPromptVersionApplied||0);
-                if(appliedVersion<BUILTIN_DEFAULT_PROMPT_VERSION){
-                    // 首次安装自动应用；已在使用内置默认的用户随版本升级。
-                    // 自定义文档/个人默认不会被强制覆盖，但内置默认文档本身始终升级到最新代码模板。
-                    const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id;
-                    if(shouldApply){
-                        const settings=BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings;
-                        this.config.corePrompt=settings.corePrompt??CORE_WORLD_RULES;
-                        this.config.macroPrompt=settings.macroPrompt??DEFAULT_MACRO_PROMPT;
-                        this.config.stabilityPromptTemplate=settings.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE;
-                        this.config.corePrompt=settings.corePrompt===undefined?CORE_WORLD_RULES:settings.corePrompt;
-            this.config.macroPrompt=settings.macroPrompt===undefined?DEFAULT_MACRO_PROMPT:settings.macroPrompt;
-            this.config.stabilityPromptTemplate=settings.stabilityPromptTemplate===undefined?DEFAULT_STABILITY_PROMPT_TEMPLATE:settings.stabilityPromptTemplate;
-            this.config.npcAuditPrompt=settings.npcAuditPrompt===undefined?NPC_BUILD_AUDIT_RULES:settings.npcAuditPrompt;
-            this.config.structurePrompt=settings.structurePrompt===undefined?protocol().split('【Canonical WorldResult JSON Schema】')[0].trim():settings.structurePrompt;
-                        this.config.preset=normalizeEditablePreset(settings.preset);
-                        this.config.presetEditorVersion=2;
-                        this.config.contextTurns=settings.contextTurns;
-                        this.config.activationMode=settings.activationMode;
-                        this.config.selectedEntries=copy(settings.selectedEntries);
-                        this.config.activePromptDocumentId=BUILTIN_DEFAULT_PROMPT_DOCUMENT.id;
-                        this.config.builtinDefaultWorldbookExclusionsApplied=[];
-                    }
-                    this.config.builtinDefaultPromptVersionApplied=BUILTIN_DEFAULT_PROMPT_VERSION;
-                    this.saveConfig();
-                }
-            }
-            {
-                const retryLimit=Number(this.config.retryAttempts);
-                this.config.retryAttempts=Math.max(1,Math.min(5,Number.isFinite(retryLimit)?retryLimit:5));
-                if(!this.config.retryDefaultFiveMigrated){
-                    if(this.config.retryAttempts===3)this.config.retryAttempts=5;
-                    this.config.retryDefaultFiveMigrated=true;
-                    this.saveConfig();
-                }
-            }
-            if(!Object.hasOwn(this.config,'requireMacroBackbone'))this.config.requireMacroBackbone=true;
-            if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
-            this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;
-            this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);
-            this.apiModeCache={};
-            if(hadLegacyTone)this.saveConfig();
-            if(this.config.enabled&&!this.usesDedicatedApi()){
-                const terminal=this.host.Samsara&&this.host.Samsara.terminal;
-                if(terminal&&typeof terminal.enableApi==='function')terminal.enableApi();
-            }
-        }
-        fn(name) {
+            this.configService=new WorldEngineConfigService(this);\n            this.config=this.configService.initialize();\n        }\n        fn(name) {
             for (const obj of [this.env, this.host, this.host.TavernHelper]) if (obj && typeof obj[name] === 'function') return obj[name].bind(obj);
             return null;
         }
@@ -123,7 +28,9 @@
             return service.blocked(snapshot);
         }
         saveConfig() {
+            if(this.configService)return this.configService.save();
             try{this.host.localStorage?.setItem?.(CONFIG,JSON.stringify(this.config));}catch(_){}
+            return this.config;
         }
         transportService(){return this._apiTransport||(this._apiTransport=new WorldApiTransportService(this));}
         normalizeDedicatedApi(value){return this.transportService().normalize(value);}

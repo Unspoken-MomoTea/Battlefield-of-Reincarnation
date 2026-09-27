@@ -59,6 +59,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldRequestService.part.js',
   'src/WorldEngine/prompts/WorldPromptDefaults.part.js',
   'src/WorldEngine/prompts/WorldPromptRegistry.part.js',
+  'src/WorldEngine/prompts/WorldPromptIntegrationService.part.js',
 ]){
   assert.ok(fs.existsSync(path.join(root,file)),file+' must exist in the dedicated src/WorldEngine source tree');
 }
@@ -87,6 +88,11 @@ const resultPatchCompilationSource=fs.readFileSync(path.join(root,'src/WorldEngi
 const resultMaterializerSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js'),'utf8');
+const promptIntegrationSource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldPromptIntegrationService.part.js'),'utf8');
+const classBridgeSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineClassBridge.part.js'),'utf8');
+assert.match(promptIntegrationSource,/class\s+WorldPromptIntegrationService\b/,'prompt application integration must live behind a dedicated service');
+for(const method of ['readEditor','prepareApply','afterApply','prepareDocument','importDocument','beforeBuildRequest','decorateRequest','bindPanel','afterRender'])assert.match(promptIntegrationSource,new RegExp('\\b'+method+'\\s*\\('),'prompt integration service must own '+method);
+for(const marker of ['promptRegistry.prepareSettings','promptRegistry.rewriteSystem','__classPromptRegistryBound','promptWorkspace?.mount'])assert.doesNotMatch(classBridgeSource,new RegExp(marker.replace(/[?.]/g,'\\assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');')),'prompt integration implementation must leave WorldEngineClassBridge: '+marker);
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
 assert.match(assetMaterializationSource,/class\s+WorldAssetMaterializationPolicy\b/,'asset materialization policy must live under src/WorldEngine');
@@ -330,7 +336,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelController','panelRenderer','proseExtractor','knowledgeSelection','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','relationSync','assetMaterialization','resultPatchCompilation','stateIntegrity','patchApplication','stateMaterialization','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelController','panelRenderer','proseExtractor','knowledgeSelection','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','relationSync','assetMaterialization','resultPatchCompilation','stateIntegrity','patchApplication','stateMaterialization','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts','promptIntegration']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -339,6 +345,10 @@ assert.equal(engine.services.proseExtractor.constructor.name,'WorldProseExtracto
 assert.equal(engine.services.tokenTelemetry.constructor.name,'WorldTokenTelemetry');
 assert.equal(engine.services.requestBuilder.telemetry,engine.services.tokenTelemetry,'request builder must compose the container-owned token telemetry');
 assert.equal(engine.services.transport.telemetry,engine.services.tokenTelemetry,'API transport must compose the container-owned token telemetry');
+assert.equal(engine.services.promptIntegration.constructor.name,'WorldPromptIntegrationService');
+assert.equal(engine.services.promptIntegration.registry,engine.services.prompts,'prompt integration must share the canonical prompt registry');
+assert.equal(engine.services.promptIntegration.telemetry,engine.services.tokenTelemetry,'prompt integration must share canonical token telemetry');
+assert.equal(engine.services.promptIntegration.workspace,engine.promptWorkspace,'prompt integration must attach the active prompt workspace');
 assert.equal(engine.services.requestBuilder.proseExtractor,engine.services.proseExtractor,'request builder must compose the container-owned prose extractor');
 assert.equal(engine.services.knowledgeSelection.constructor.name,'WorldKnowledgeSelectionPolicy');
 assert.equal(engine.services.knowledge.selection,engine.services.knowledgeSelection,'knowledge service must compose the container-owned selection policy');

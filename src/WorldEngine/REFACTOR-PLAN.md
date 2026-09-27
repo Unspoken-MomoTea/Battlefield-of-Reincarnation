@@ -684,3 +684,10 @@ patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动
 Phase 66 首次迁移后，`WorldStateIntegrityPolicy.validate()` 多返回了状态对象，暴露出旧 `validateState()` 成功时返回 `undefined` 曾被 Staging 偶然当成 Schema mismatch 的历史副作用。与此同时，`WorldResultNormalizer` 会把未知街头巷议可信度降级为“可疑”，导致原始格式错误失去 softRejected 诊断。
 
 修复后：StateIntegrity 恢复旧的无返回值成功契约；`WorldResultNormalizer.assertRumorCredibility()` 显式识别 canonical 值与既有可信/不可信同义词；`WorldResultStagingService` 在归一化前记录不可识别的原始可信度，并按传闻软失败规则保留诊断。普通兼容 `normalizeWorldResult()` 仍维持未知值降级为“可疑”的旧行为。
+
+
+### Phase 67 · Patch 执行服务独立
+
+已完成：新增 `WorldPatchApplicationService`，从 `WorldResultMaterializer.applyPatches()` 抽出 patch 执行事务：路径 canonicalize、写入白名单、后台父路径 bootstrap、历史只追加、缺失目标 upsert、remove 约束、记录默认值合并、任务世界情报货币限制、类型/数值校验、成就不可回退、正式人物字段同步校验、单轮好感与势力声望变化限制，以及写入后的 backend/event/time/state/rumor 收尾。
+
+该 service 显式组合 container-owned `patchPolicy / stateNormalizer / timelinePolicy / stateIntegrity / relationSync / rumor`；`WorldResultMaterializer.applyPatches()` 仅保留兼容/应用层转发。这样 Materializer 继续负责“WorldResult → patches”和最终 repair 编排，不再承担通用 patch 事务引擎。

@@ -77,6 +77,9 @@ for(const method of ['omitKeys','abilityMap','equipped','carriedItems','forms','
   assert.match(stateProjectorSource,new RegExp('\\b'+method+'\\s*\\('),'state projector must own '+method);
 }
 const patchPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
+const causalServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldCausalService.part.js'),'utf8');
+const integrityLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-causal-stability-gate.part.js')),false,'causal stability compile/apply wrapper file must be removed');
 const requestServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestService.part.js'),'utf8');
 for(const legacyName of ['retryableModelFailure','retryInput']){
   assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
@@ -85,9 +88,11 @@ for(const legacyName of ['retryableModelFailure','retryInput']){
 for(const legacyName of ['tokens','get','pointer','canonicalizeParts','bootstrapBackendParent','canUpsertMissing','checkRecord','checkDetails','normalizeBackendRecord','sanitizeModelPatches','normalizeModelPatches','allowed']){
   assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
 }
-for(const method of ['tokens','get','pointer','canonicalizeParts','bootstrapBackendParent','canUpsertMissing','checkRecord','checkDetails','normalizeBackendRecord','sanitizeModelPatches','normalizeModelPatches','allowed']){
+for(const method of ['tokens','get','pointer','canonicalizeParts','bootstrapBackendParent','canUpsertMissing','checkRecord','checkDetails','normalizeBackendRecord','sanitizeModelPatches','normalizeModelPatches','removable','allowed']){
   assert.match(patchPolicySource,new RegExp('\\b'+method+'\\s*\\('),'patch policy must own '+method);
 }
+for(const method of ['clampImpact','offsetText','softNormalizeOffsets','hasWorldScaleEvidence','filterNewOffsetsByWorldScale','prepareResult','staleLocalOffsetRepairs','repairProjection'])assert.match(causalServiceSource,new RegExp('\\b'+method+'\\s*\\('),'causal service must own '+method);
+assert.doesNotMatch(integrityLegacySource,/delete\s+OFFSET_RESULT_SCHEMA\.properties\.影响程度|function\s+softNormalizeCausalOffsets|compileWorldResult\s*=\s*function/,'integrity legacy file must not re-own causal schema or compile policy');
 const personDomainSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPersonActivityService.part.js'),'utf8');
 const taskAwarenessServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTaskAwarenessService.part.js'),'utf8');
 const taskAwarenessLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/57-task-awareness.part.js'),'utf8');
@@ -175,6 +180,7 @@ assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');
 assert.equal(engine.services.npcAudit.constructor.name,'WorldNpcAuditService');
 assert.equal(engine.services.causal.constructor.name,'WorldCausalService');
+assert.equal(engine.services.causal.patchPolicy,engine.services.patchPolicy,'causal service must compose the container-owned patch policy');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
 assert.equal(engine.services.taskAwareness.taskLedger,engine.services.taskLedger,'task request feature must share the canonical task ledger service');

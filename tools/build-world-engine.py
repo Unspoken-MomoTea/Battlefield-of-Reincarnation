@@ -44,7 +44,6 @@ PARTS = (
     '59-auto-trigger-rebuild.part.js',
     '59-soft-maintenance.part.js',
     '59-world-integrity-guard.part.js',
-    '59-world-time-daypart-aliases.part.js',
     '59-world-time-ownership.part.js',
     '59-world-replay-persistence.part.js',
     'editor/00-world-mutations.part.js',

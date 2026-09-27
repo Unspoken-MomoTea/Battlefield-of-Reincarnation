@@ -96,7 +96,7 @@ replace_once_any(
 
 # 2) Long-term memory setting is local UI config, default off for prose AI.
 replace_once(
-    'script/world-engine-src/40-engine-runtime.part.js',
+    'src/WorldEngine/core/SamsaraWorldEngine.part.js',
     """                promptDocuments:[],
                 fontScale:'standard',
                 dedicatedApi:{enabled:false,apiUrl:'',apiKey:'',model:'',apiPresets:[],fetchedModels:[]}""",
@@ -109,7 +109,7 @@ replace_once(
 )
 
 replace_once(
-    'script/world-engine-src/40-engine-runtime.part.js',
+    'src/WorldEngine/core/SamsaraWorldEngine.part.js',
     """            if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);""",
     """            if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
@@ -121,7 +121,7 @@ replace_once(
 replace_once_any(
     [
         'src/WorldEngine/domains/WorldRequestBuilder.part.js',
-        'script/world-engine-src/40-engine-runtime.part.js',
+        'src/WorldEngine/core/SamsaraWorldEngine.part.js',
     ],
     "当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期历史与近期因果偏移。资产通过WorldResult.资产与同一顶层账簿双向同步；旧历史/旧偏移仍可留在MVU冷存档但默认不进入本轮上下文。未提供的任务/商城/纯结算数据不属于本引擎职责。',",
     "当前变量:'世界推进专用热数据投影；含世界、人物能力、完整资产账簿、活跃传播、近期因果偏移，以及“近期原始锚点 + 更早根总结”组成的分层长期历史记忆。原始历史永久留在MVU，已被上层总结收纳的旧节点不再重复进入热上下文。资产通过WorldResult.资产与同一顶层账簿双向同步；未提供的任务/商城/纯结算数据不属于本引擎职责。',",
@@ -141,7 +141,6 @@ replace_once_any(
 replace_once_any(
     [
         'src/WorldEngine/ui/views/WorldHistoryView.part.js',
-        'script/world-engine-src/50-engine-ui.part.js',
     ],
     """                html+=section('历史锚点',entries(state.历史).reverse().map(([n,r])=>'<article class=\"we-card\"><div class=\"we-meta\">'+text(r.时间)+'</div><h3>'+text(n)+'</h3><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('尚无已确认的历史锚点'));""",
     """                const historyMemory=projectWorldHistoryMemory(state);
@@ -153,7 +152,6 @@ replace_once_any(
 replace_once_any(
     [
         'src/WorldEngine/ui/views/WorldSettingsView.part.js',
-        'script/world-engine-src/50-engine-ui.part.js',
     ],
     """                html+=section('模型接口',
 """,

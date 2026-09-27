@@ -62,7 +62,8 @@
         isAvailable(){return this.configService.isAvailable();}
         isEnabled(){return this.configService.isEnabled();}
         setEnabled(value){return this.configService.setEnabled(value);}
-        cancel() { ++this.generation; this.pending = false; clearTimeout(this.timer); if (this.controller) this.controller.abort(); }
+        runScheduler(){return this.services?.runScheduler||this._runScheduler||(this._runScheduler=new WorldRunScheduler(this));}
+        cancel(){return this.runScheduler().cancel();}
         applyBuiltinDefaultWorldbookExclusions(catalogue) {
             if(this.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue)||!catalogue.length)return false;
             const applied=new Set(Array.isArray(this.config.builtinDefaultWorldbookExclusionsApplied)?this.config.builtinDefaultWorldbookExclusionsApplied:[]);
@@ -97,12 +98,7 @@
             const service=this.services?.requestBuilder||new WorldRequestBuilder(this);
             return service.build(base);
         }
-        schedule() {
-            if (this.disposed || this.committing || !this.isEnabled()) return;
-            if (this.busy) { this.pending = true; return; }
-            clearTimeout(this.timer);
-            this.timer = setTimeout(() => this.run().catch(() => {}), 900);
-        }
+        schedule(){return this.runScheduler().schedule();}
         runOrchestrator(){return this.services?.run||this._runOrchestrator||(this._runOrchestrator=new WorldRunOrchestrator(this));}
         async run(options={}){return this.runOrchestrator().execute(options);}
         getState() { return copy(Object.assign(emptyState(),this.snapshot().stat.世界[PATH] || {})); }

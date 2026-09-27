@@ -35,6 +35,7 @@
         const EVENT_RESULT_SCHEMA=this.namedEntitySchema({...RECORDS.事件,...MODEL_DETAILS.事件});
         EVENT_RESULT_SCHEMA.properties.状态={type:'string',enum:['待发生','进行中','已完成','已取消']};
         EVENT_RESULT_SCHEMA.properties.分类={type:'string',enum:Array.from(EVENT_CATEGORIES)};
+        for(const key of ['时间','开始时间','预计结束','更新时间','下次检查'])if(EVENT_RESULT_SCHEMA.properties[key])EVENT_RESULT_SCHEMA.properties[key].description=WORLD_TIME_MACHINE_DESCRIPTION;
         const PERSON_RESULT_SCHEMA=this.namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物});
         PERSON_RESULT_SCHEMA.properties.审计级别={type:'string',enum:copy(NPC_AUDIT_LEVELS)};
         const OFFSET_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.偏移记录);
@@ -94,6 +95,7 @@
         required:['摘要'],
         properties:{
         摘要:{type:'string'},
+        时间:{type:'string',minLength:1,description:'当前世界时间。'+WORLD_TIME_MACHINE_DESCRIPTION},
         货币:{type:'object',additionalProperties:false,properties:{
         体系:{type:'string'},
         购买力基准:{type:'string'},

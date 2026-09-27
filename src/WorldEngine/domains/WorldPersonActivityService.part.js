@@ -1,7 +1,7 @@
     const ALIEN_ACTIVITY_STALE_HOURS=24;
 
     class WorldPersonActivityService {
-        constructor(engine=null){this.engine=engine;}
+        constructor(engine=null,timePolicy=DEFAULT_WORLD_TIME_POLICY){this.engine=engine;this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;}
 
         deriveContext(stat,personName,playerName='') {
             const backend=stat?.世界?.[PATH]||{},people=backend.人物||{},areas=backend.势力地区||{};
@@ -156,7 +156,7 @@
             const plannedDead=new Set((result.异端||[])
                 .filter(item=>item?.操作!=='撤销本轮'&&item?.状态==='死亡')
                 .map(item=>nameKey(item.名称)));
-            const proposedTime=typeof resolveWorldTimeProposal==='function'?resolveWorldTimeProposal(stat,result):'';
+            const proposedTime=this.timePolicy.resolveProposal(stat,result);
             const worldTime=String(proposedTime||stat?.世界?.时间||'').trim();
             if(Array.isArray(result.人物)){
                 for(const item of result.人物){

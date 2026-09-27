@@ -71,8 +71,8 @@ assert.doesNotMatch(contextProtocolSource,/function\s+activation\s*\(/,'worldboo
 assert.match(knowledgeServiceSource,/\bactivation\s*\(entry,scan,force\)/,'knowledge service must own worldbook activation policy');
 assert.match(knowledgeServiceSource,/this\.activation\(e,scan,engine\.config\.activationMode==='force_selected'\)/,'worldbook reads must use the service-owned activation policy');
 for(const legacyName of ['projectAuditComponentMap','projectCharacterForAudit','npcBuildText','npcBuildAssessment','npcBuildAudit','ensureNpcBuildAuditProgress'])assert.doesNotMatch(contextProtocolSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 30-context-protocol');
-for(const method of ['projectComponentMap','projectCharacter','buildText','inferNarrativeLevel','narrativeLevel','assessment','audit','ensureProgress'])assert.match(npcAuditServiceSource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit service must own '+method);
-assert.doesNotMatch(npcNarrativeCompatSource,/npcBuildAssessment\s*=\s*function|function\s+inferNpcNarrativeAuditLevel|function\s+npcNarrativeAuditLevel/,'narrative audit compatibility file must not re-own audit policy');
+for(const method of ['projectComponentMap','projectCharacter','buildText','inferNarrativeLevel','narrativeLevel','assessment','audit','normalizeNewEquipment','ensureProgress'])assert.match(npcAuditServiceSource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit service must own '+method);
+assert.doesNotMatch(npcNarrativeCompatSource,/npcBuildAssessment\s*=\s*function|function\s+inferNpcNarrativeAuditLevel|function\s+npcNarrativeAuditLevel|compileWorldResult\s*=\s*function/,'narrative audit compatibility file must not re-own audit or compile policy');
 for(const method of ['omitKeys','abilityMap','equipped','carriedItems','forms','character','assets','tailRecord','causalOrbit','baseWorld']){
   assert.match(stateProjectorSource,new RegExp('\\b'+method+'\\s*\\('),'state projector must own '+method);
 }

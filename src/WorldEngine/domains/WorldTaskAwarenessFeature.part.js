@@ -1,9 +1,9 @@
     class WorldTaskAwarenessFeature extends WorldRequestFeature {
-        constructor(engine,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE){super(engine);this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;}
+        constructor(engine,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE,selection=DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY){super(engine);this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.selection=selection||DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY;}
         restoreWorldbookSelection(catalogue){
             const engine=this.engine;
             if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue))return false;
-            const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===TASK_WORLD_BOOK_TITLE&&!entry.technical);
+            const matches=catalogue.filter(entry=>this.selection.normalizeTitle(entry.title)===TASK_WORLD_BOOK_TITLE&&!entry.technical);
             let changed=false;
             if(matches.length){
                 const selected=Array.isArray(engine.config.selectedEntries)?copy(engine.config.selectedEntries):[];

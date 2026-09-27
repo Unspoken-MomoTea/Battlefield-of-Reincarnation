@@ -75,6 +75,8 @@ assert.match(materializer,/this\.chronology\.validate\(stat,result\)/,'canonical
 assert.match(materializer,/this\.npcAudit\.normalizeNewEquipment\(stat,result\)/,'canonical materializer compile must normalize newly audited NPC equipment through the NPC audit service');
 assert.match(materializer,/this\.causal\.prepareResult\(stat,result\)/,'canonical materializer compile must run causal filtering and soft normalization through the causal service');
 assert.match(materializer,/this\.causal\.staleLocalOffsetRepairs\(stat,result\)/,'canonical materializer compile must append causal stale-offset repairs through the causal service');
+assert.match(materializer,/this\.assetPolicy\.validateScope\(item,true\)/,'canonical materializer must delegate new-asset scope validation to the asset policy');
+assert.match(materializer,/this\.assetPolicy\.materializeRecord\(existing,item,!target\)/,'canonical materializer must delegate asset merge semantics to the asset policy');
 assert.match(causal,/class\s+WorldCausalService\b/,'causal compile rules must live behind the causal domain service');
 assert.match(patchPolicy,/\bremovable\s*\(parts\)/,'patch policy must own the controlled causal remove contract');
 assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'compiler.materialize must delegate to the materializer class');

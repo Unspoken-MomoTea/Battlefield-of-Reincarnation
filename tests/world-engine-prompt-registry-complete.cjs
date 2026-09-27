@@ -34,6 +34,8 @@ function hostFor(statRef){
     worldActivity:'【自定义世界活动 system】世界必须继续运转。',
     worldActivityInputGuidance:'【自定义世界活动 payload】至少推进一个非异端世界对象。',
     retryFresh:'【自定义纠错】只修正本轮错误。',
+    retryGuideWorldActivity:'【自定义世界活动纠错】只补真实世界活动。',
+    retryGuideRumorEmpty:'【自定义传闻纠错】{details}，只补公开事实。',
     historyMemory:'【自定义历史 system】只压缩已确认历史。',
     historyInputGuidance:'【自定义历史 input】保持输入时间粒度。',
     worldTimeInputGuidance:JSON.stringify({
@@ -64,6 +66,10 @@ function hostFor(statRef){
     request.input,new Error('测试错误'),'{}',1,5,null,[]
   ));
   assert.equal(retry.纠错重试.要求,'【自定义纠错】只修正本轮错误。');
+  const activityPlan=engine.services.resultStaging.retryPlanForFailure(new Error('世界活动不足：没有现实推进'),[]);
+  assert.equal(activityPlan[0],'【自定义世界活动纠错】只补真实世界活动。','retry guidance must use the edited registry value at runtime');
+  const rumorPlan=engine.services.resultStaging.retryPlanForFailure(new Error('传闻为空未补足：街头巷议仍为空；空分类本轮必须补2条'),[]);
+  assert.ok(rumorPlan.includes('【自定义传闻纠错】街头巷议仍为空，只补公开事实。'),'retry guidance placeholders must be formatted after reading the edited registry value');
 
   let historySystem='',historyInput='';
   engine.requestAI=async(system,input)=>{historySystem=String(system);historyInput=String(input);return JSON.stringify({摘要:'历史压缩结果'});};
@@ -77,6 +83,12 @@ function hostFor(statRef){
   assert.ok(exported.every(item=>typeof item.scope==='string'&&typeof item.condition==='string'));
   const registryKeys=new Set(exported.map(item=>item.key));
   for(const key of ['chronologyNoEvidenceGuidance','rumorSourceBoundary','worldTimeInputGuidance'])assert.ok(registryKeys.has(key),'registry must expose '+key);
+  for(const key of [
+    'retryGuideMacroBackbone','retryGuideEventDelivery','retryGuideMacroSchedule','retryGuideCausalProjection',
+    'retryGuideDueEvent','retryGuideEventTime','retryGuideStaleEvent','retryGuideTemporalRepair','retryGuideAlienActivity',
+    'retryGuideNpcAudit','retryGuideChronology','retryGuidePredecessor','retryGuideSchemaMismatch','retryGuideRumorEmpty',
+    'retryGuidePropagationReview','retryGuideTemporalIntegrity','retryGuideWorldActivity','retryGuideWorldScene','retryGuideCurrentReality'
+  ])assert.ok(registryKeys.has(key),'registry must expose editable retry guidance '+key);
   const semantics=JSON.parse(engine.services.prompts.value('inputSemantics'));
   assert.equal(semantics.任务列表,'只读因果账本。事件可通过关联任务引用已存在任务；不得创建、删除、改状态、交付或结算任务。');
 

@@ -62,6 +62,7 @@ const applicationLifecycleSource=fs.readFileSync(path.join(root,'src/WorldEngine
 const panelControllerSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelController.part.js'),'utf8');
 const panelRendererSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelRenderer.part.js'),'utf8');
 const promptDocumentServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPromptDocumentService.part.js'),'utf8');
+const orchestratorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRunOrchestrator.part.js'),'utf8');
 const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
@@ -84,7 +85,17 @@ assert.match(applicationShellSource,/render\(force=false\)\s*\{\s*return this\.s
 assert.match(panelRendererSource,/class\s+WorldPanelRenderer\s*\{/,'shared panel rendering orchestration must live behind a dedicated renderer');
 for(const viewKey of ['world','people','exploration','assets','events','rumors','history','settings','prompts','requestInspector'])assert.match(panelRendererSource,new RegExp("engine\\.services\\.views\\.render\\('"+viewKey+"'"),'panel renderer must dispatch '+viewKey+' through the View registry');
 assert.doesNotMatch(applicationShellSource,/services\.views\.render|const\s+tabs\s*=\s*\[/,'view dispatch and navigation rendering must not grow back into the application shell');
-assert.ok(applicationShellSource.length<8500,'application shell should stay below 8.5 KB after run scheduling extraction');
+assert.ok(applicationShellSource.length<6500,'application shell should stay below 6.5 KB after helper ownership cleanup');
+assert.match(knowledgeServiceSource,/\bapplyBuiltinDefaultWorldbookExclusions\s*\(catalogue\)/,'knowledge service must own built-in worldbook exclusion migration');
+assert.match(orchestratorSource,/\bresetInspection\s*\(\)/,'run orchestrator must own inspection-state reset');
+assert.match(orchestratorSource,/\bnotifyFailure\s*\(message\)/,'run orchestrator must own run-failure notification');
+for(const method of ['statusTone','syncStatusTone'])assert.match(panelRendererSource,new RegExp('\\b'+method+'\\s*\\('),'panel renderer must own '+method);
+assert.match(applicationShellSource,/applyBuiltinDefaultWorldbookExclusions\(catalogue\)\{const service=this\.services\?\.knowledge\|\|new WorldKnowledgeService\(this\);return service\.applyBuiltinDefaultWorldbookExclusions\(catalogue\);\}/,'worldbook exclusion public seam must delegate to knowledge service');
+assert.match(applicationShellSource,/resetInspection\(\)\{return this\.runOrchestrator\(\)\.resetInspection\(\);\}/,'inspection reset public seam must delegate to run orchestrator');
+assert.match(applicationShellSource,/notifyFailure\(message\)\{return this\.runOrchestrator\(\)\.notifyFailure\(message\);\}/,'failure notification public seam must delegate to run orchestrator');
+assert.match(applicationShellSource,/statusTone\(\)\{return this\.services\?\.panelRenderer\?\.statusTone\?\.\(\)\|\|'night';\}/,'status tone public seam must delegate to panel renderer');
+assert.match(applicationShellSource,/syncStatusTone\(\)\{return this\.services\?\.panelRenderer\?\.syncStatusTone\?\.\(\)\|\|this\.statusTone\(\);\}/,'status tone sync public seam must delegate to panel renderer');
+assert.doesNotMatch(applicationShellSource,/builtinDefaultWorldbookExclusionsApplied=Array\.from|toastr\.error|lastRetryLog=\[\]|STATUS_THEME_CONFIG/,'migrated helper implementations must not grow back into the application shell');
 assert.match(runSchedulerSource,/class\s+WorldRunScheduler\s*\{/,'base run scheduling must live behind a dedicated scheduler');
 for(const method of ['cancel','schedule'])assert.match(runSchedulerSource,new RegExp('\\b'+method+'\\s*\\('),'run scheduler must own '+method);
 assert.match(applicationShellSource,/cancel\(\)\{return this\.runScheduler\(\)\.cancel\(\);\}/,'application shell cancel must remain a scheduler facade');

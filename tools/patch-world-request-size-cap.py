@@ -4,7 +4,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 SOURCE_FILES = [
     ROOT / 'script' / 'world-engine-src' / '40-engine-runtime.part.js',
-    ROOT / 'script' / 'world-engine-src' / '56-rumor-liveliness.part.js',
     ROOT / 'script' / 'world-engine-src' / '57-task-awareness.part.js',
     ROOT / 'script' / 'world-engine-src' / '58-chronology-guard.part.js',
 ]

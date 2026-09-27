@@ -529,7 +529,15 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return out;
         }
 
-        allowed(parts,stat) {
+        removable(parts) {
+            const [a,b,c]=parts;
+            if(a==='传闻')return true;
+            if(a==='世界'&&b===PATH&&c==='传播')return true;
+            if(a==='资产'&&parts.length===2)return true;
+            return a==='世界'&&b==='因果轨道'&&c==='偏移记录'&&parts.length===4;
+        }
+
+        allowed(parts,stat,op='') {
             const [a,b,c,d]=parts;
             if(a==='世界'&&b===PATH){
                 if(c==='剧本')return false;
@@ -539,6 +547,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             }
             if(a==='世界'&&b==='因果轨道'){
                 if(['当前阶段','故事线','下一节点'].includes(c))return parts.length===3;
+                if(c==='偏移记录'&&parts.length===4&&op==='remove')return true;
                 return !(stat.设置||{}).世界超稳&&c==='偏移记录'&&parts.length===4;
             }
             if(a==='世界'&&b==='时间')return parts.length===2;
@@ -567,7 +576,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function normalizeBackendRecord(category,value,old){return ACTIVE_WORLD_PATCH_POLICY.normalizeBackendRecord(category,value,old);}
     function sanitizeModelPatches(patches){return ACTIVE_WORLD_PATCH_POLICY.sanitizeModelPatches(patches);}
     function normalizeModelPatches(patches){return ACTIVE_WORLD_PATCH_POLICY.normalizeModelPatches(patches);}
-    function allowed(parts,stat){return ACTIVE_WORLD_PATCH_POLICY.allowed(parts,stat);}
+    function allowed(parts,stat,op=''){return ACTIVE_WORLD_PATCH_POLICY.allowed(parts,stat,op);}
     const VAGUE_EVENT_TIME=/^(?:近期|稍后|未来|之后|待定|未定|未知|不详|待确认|时间未定|日期未定)$/;
     const STALE_CURRENT_EVENT_HOURS=7*24;
     const STALE_NEAR_EVENT_HOURS=30*24;
@@ -1488,8 +1497,131 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function normalizeEventLayers(stat){return ACTIVE_WORLD_STATE_NORMALIZER.normalizeEventLayers(stat);}
     function repairExplicitEventLinks(stat){return ACTIVE_WORLD_STATE_NORMALIZER.repairExplicitEventLinks(stat);}
     function repairMacroPredecessors(stat){return ACTIVE_WORLD_STATE_NORMALIZER.repairMacroPredecessors(stat);}
+    const WORLD_CAUSAL_CHAIN_HINT=/(?:余波|后续|进一步|继续|继而|因此|由此|连锁|衍生|扩散|扩大|反应|吸引力|同一(?:契约|事件|行为|根因))/;
+    const WORLD_CAUSAL_SPECULATION_HINT=/(?:可能|或许|预计|预期|将会|或将|未来(?:会|可能|将)|潜在|恐怕|有望|计划|打算|准备)/;
+    const WORLD_CAUSAL_NO_EFFECT_HINT=/(?:尚未|还未|并未|未曾|没有|仅仅|只是).{0,18}(?:发生|执行|实施|使用|启动|造成|导致|改变|影响|生效)|(?:尚未|还未|并未|未曾|没有).{0,18}(?:结果|变化|后果)/;
+    const WORLD_CAUSAL_REALIZED_HINT=/(?:已经|已然|已被|已使|已让|导致|造成|致使|使得|迫使|结果|改写|改变|破坏|摧毁|死亡|失去|退出|完成|失败|成功|被捕|被杀|被夺|被毁|封锁|崩溃|断裂|清除|修复)/;
+    const WORLD_CAUSAL_RESPONSE_HINT=/(?:稳定值(?:持续)?下降|世界排异(?:反应|升级|增强)?|排异强度)/;
+    const WORLD_CAUSAL_SCALE_HINTS=[
+        /(?:关键人物|核心人物|重要人物|关键角色|核心角色).{0,28}(?:命运|死亡|阵亡|被杀|永久|不可逆|退场|失去|背叛|被捕|失踪|改写|改变|修复)/,
+        /(?:死亡|阵亡|被杀|永久|不可逆|退场|被捕|失踪|改写|改变|修复).{0,28}(?:关键人物|核心人物|重要人物|关键角色|核心角色)/,
+        /(?:重大|关键|宏观|主线).{0,8}(?:事件|节点|战役|战争|仪式|计划|灾难).{0,32}(?:改变|改写|失败|成功|取消|终止|提前|延后|崩溃|完成|毁灭|修复|失效)/,
+        /(?:势力|阵营|政权|国家|帝国|王国|组织|军团|城市|地区).{0,32}(?:格局|覆灭|崩溃|瓦解|分裂|易主|政变|失守|沦陷|吞并|解体|重组|修复)/,
+        /(?:主线|故事线|世界格局|下一节点|原定(?:走向|结局)).{0,32}(?:改变|改写|断裂|失效|无法|偏离|重构|修复|恢复)/,
+        /(?:异常污染|跨世界污染|污染|世界裂隙|跨世界异常|异常侵蚀|世界侵蚀).{0,32}(?:扩大|扩散|蔓延|加剧|持续|清除|消除|修复|收束|封闭)/,
+        /(?:异端|入侵者).{0,28}(?:全部|彻底|主要|核心).{0,16}(?:清除|消灭|死亡|覆灭).{0,36}(?:跨世界干涉|异常污染|世界裂隙|世界结构|主线|世界格局).{0,24}(?:消失|解除|恢复|修复|收束|封闭)/,
+        /(?:跨世界干涉|异常污染|世界裂隙|世界结构|主线|世界格局).{0,24}(?:因|由于).{0,20}(?:异端|入侵者).{0,24}(?:清除|消灭|死亡|覆灭).{0,20}(?:消失|解除|恢复|修复|收束|封闭)/,
+        /(?:不可逆|永久).{0,20}(?:命运|主线|重大事件|关键事件|势力格局|世界格局)/
+    ];
+    const WORLD_CAUSAL_CLEAR_LOCAL_HINT=/(?:位置(?:暴露|泄露|被发现|被感知)|被(?:敌人|异端|对手).{0,16}(?:发现|察觉|感知|盯上|追踪|锁定)|异端.{0,16}(?:知道|获知|发现|察觉|感知).{0,16}(?:玩家|轮回者|位置|行踪|能力|身份)|提前感知|引起警觉|提高.{0,10}难度|增加.{0,10}难度|生存难度|行动难度|追杀压力|短期.{0,8}(?:困难|不利)|局部战斗|普通战斗|受伤|轻伤|逃脱|脱险|暂时受阻|临时受阻)/;
+
     class WorldCausalService {
-        constructor(engine=null){this.engine=engine;}
+        constructor(engine=null,patchPolicy=DEFAULT_WORLD_PATCH_POLICY){this.engine=engine;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;}
+        clampImpact(value) {
+            const impact=Number(value);
+            if(!Number.isFinite(impact))return null;
+            if(impact===0)return 0;
+            return impact<0?Math.max(-12,impact):Math.min(15,impact);
+        }
+        offsetText(item) {
+            return [item?.名称,item?.描述].filter(Boolean).join(' ');
+        }
+        softNormalizeOffsets(stat,result) {
+            const items=Array.isArray(result?.因果?.偏移记录)?result.因果.偏移记录:null;
+            if(!items||!items.length)return [];
+            const existing=stat?.世界?.因果轨道?.偏移记录||{},prepared=[];
+            for(const raw of items){
+                if(!plain(raw))continue;
+                const item=copy(raw);
+                if(item.操作==='撤销本轮'){prepared.push(item);continue;}
+                const existingName=stableNameIn(existing,item.名称),isNew=!existingName;
+                if(Object.hasOwn(item,'影响程度')){
+                    const impact=this.clampImpact(item.影响程度);
+                    if(impact===null){
+                        if(isNew)continue;
+                        delete item.影响程度;
+                    }else if(isNew&&impact===0)continue;
+                    else item.影响程度=impact;
+                }else if(isNew)continue;
+                const text=this.offsetText(item);
+                if(isNew&&WORLD_CAUSAL_NO_EFFECT_HINT.test(text))continue;
+                if(isNew&&WORLD_CAUSAL_SPECULATION_HINT.test(text)&&!WORLD_CAUSAL_REALIZED_HINT.test(text))continue;
+                if(isNew&&Number(item.影响程度)<0&&WORLD_CAUSAL_RESPONSE_HINT.test(text))continue;
+                prepared.push(item);
+            }
+
+            const removed=new Set(),groups=new Map();
+            for(let i=0;i<prepared.length;i++){
+                const item=prepared[i];
+                if(!plain(item)||item.操作==='撤销本轮'||!Object.hasOwn(item,'影响程度'))continue;
+                const actor=String(item.引发者||'').trim().toLowerCase();
+                const impact=Number(item.影响程度);
+                if(!actor||!Number.isFinite(impact)||impact===0)continue;
+                const key=actor+'|'+(impact<0?'negative':'positive'),group=groups.get(key)||[];
+                group.push({index:i,item,text:this.offsetText(item),impact});groups.set(key,group);
+            }
+            for(const group of groups.values()){
+                const chained=group.filter(entry=>WORLD_CAUSAL_CHAIN_HINT.test(entry.text));
+                if(chained.length<2)continue;
+                let winner=chained[0];
+                for(const entry of chained.slice(1))if(Math.abs(entry.impact)>Math.abs(winner.impact))winner=entry;
+                for(const entry of chained)if(entry.index!==winner.index)removed.add(entry.index);
+            }
+            let normalized=prepared.filter((_,index)=>!removed.has(index));
+            const budgets=new Map();
+            normalized=normalized.filter(item=>{
+                if(!plain(item)||item.操作==='撤销本轮'||!Object.hasOwn(item,'影响程度'))return true;
+                const actor=String(item.引发者||'').trim().toLowerCase(),impact=Number(item.影响程度);
+                if(!actor||!Number.isFinite(impact)||impact===0)return true;
+                const sign=impact<0?'negative':'positive',key=actor+'|'+sign;
+                let remaining=budgets.has(key)?budgets.get(key):(impact<0?12:15);
+                const magnitude=Math.min(Math.abs(impact),remaining);
+                remaining=Math.max(0,remaining-magnitude);budgets.set(key,remaining);
+                if(magnitude<=0)return false;
+                item.影响程度=impact<0?-magnitude:magnitude;
+                return true;
+            });
+            result.因果.偏移记录=normalized;
+            return normalized;
+        }
+        hasWorldScaleEvidence(item) {
+            const text=this.offsetText(item);
+            return !!text&&WORLD_CAUSAL_SCALE_HINTS.some(rule=>rule.test(text));
+        }
+        filterNewOffsetsByWorldScale(stat,result) {
+            const items=result?.因果?.偏移记录;
+            if(!Array.isArray(items)||!items.length)return [];
+            const existing=stat?.世界?.因果轨道?.偏移记录||{},dropped=[];
+            result.因果.偏移记录=items.filter(item=>{
+                if(!plain(item)||item.操作==='撤销本轮')return true;
+                if(stableNameIn(existing,item.名称))return true;
+                if(this.hasWorldScaleEvidence(item))return true;
+                dropped.push(item.名称);
+                return false;
+            });
+            return dropped;
+        }
+        prepareResult(stat,result) {
+            const dropped=this.filterNewOffsetsByWorldScale(stat,result);
+            this.softNormalizeOffsets(stat,result);
+            return dropped;
+        }
+        staleLocalOffsetRepairs(stat,result) {
+            const bucket=stat?.世界?.因果轨道?.偏移记录||{},protectedNames=new Set();
+            for(const item of result?.因果?.偏移记录||[]){
+                if(plain(item)&&this.hasWorldScaleEvidence(item))protectedNames.add(nameKey(item.名称));
+            }
+            const patches=[],names=[];
+            for(const [name,record] of Object.entries(bucket)){
+                const impact=Number(record?.影响程度)||0;
+                if(!impact||protectedNames.has(nameKey(name)))continue;
+                const text=this.offsetText(Object.assign({名称:name},record));
+                if(!WORLD_CAUSAL_CLEAR_LOCAL_HINT.test(text)||WORLD_CAUSAL_SCALE_HINTS.some(rule=>rule.test(text)))continue;
+                patches.push({op:'remove',path:this.patchPolicy.pointer(['世界','因果轨道','偏移记录',name])});
+                names.push(name);
+            }
+            return {patches,names};
+        }
         repairProjection(stat) {
             const orbit=stat.世界.因果轨道||(stat.世界.因果轨道={当前阶段:'',故事线:'',下一节点:'',偏移记录:{}});
             const existing=storyStages(orbit.故事线);
@@ -1725,7 +1857,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         const PERSON_RESULT_SCHEMA=this.namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物});
         PERSON_RESULT_SCHEMA.properties.审计级别={type:'string',enum:copy(NPC_AUDIT_LEVELS)};
         const OFFSET_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.偏移记录);
-        OFFSET_RESULT_SCHEMA.properties.影响程度={type:'number',minimum:-100,maximum:120};
+        OFFSET_RESULT_SCHEMA.properties.影响程度={type:'number'};
         const STREET_RUMOR_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.街头巷议,['更新','移除','撤销本轮'],['来源','内容','可信度']);
         STREET_RUMOR_RESULT_SCHEMA.properties.可信度={type:'string',enum:copy(RUMOR_CREDIBILITY)};
         const INTEL_TRADE_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.情报交易,['更新','移除','撤销本轮'],['卖家','情报评级','摘要','要价','真实内幕']);
@@ -2288,6 +2420,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         compileWorldResult(stat,value) {
             const prepared=this.people.normalizeAlienActivityTimestamps(stat,value);
             const result=this.normalizer.normalizeWorldResult(prepared),patches=[],warnings=[];
+            const droppedCausalOffsets=this.causal.prepareResult(stat,result);
             this.chronology.validate(stat,result);
             this.taskLedger.validateReferences(stat,result);
             this.exploration.prepareResult(stat,result);
@@ -2408,6 +2541,11 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                     patches.push({op:npc?.[field]===undefined?'add':'replace',path:this.patchPolicy.pointer(['关系列表',target,field]),value:copy(nextValue)});
                 }
             }
+            const causalRepairs=this.causal.staleLocalOffsetRepairs(stat,result);
+            const occupiedCausalPaths=new Set(patches.map(patch=>patch.path));
+            for(const patch of causalRepairs.patches)if(!occupiedCausalPaths.has(patch.path))patches.push(patch);
+            if(droppedCausalOffsets.length)warnings.push('忽略非世界尺度因果偏移：'+droppedCausalOffsets.join('、'));
+            if(causalRepairs.names.length)warnings.push('清理局部稳定偏移：'+causalRepairs.names.join('、'));
             return {result,patches,warnings};
         }
 
@@ -2470,13 +2608,13 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 if (!plain(patch) || !['add','replace','remove'].includes(patch.op)) throw new Error('不支持的补丁操作');
                 let p = this.patchPolicy.canonicalizeParts(this.patchPolicy.tokens(patch.path),next);
                 patch.path=this.patchPolicy.pointer(p);
-                if (!this.patchPolicy.allowed(p,next)) throw new Error('禁止写入：' + patch.path);
+                if (!this.patchPolicy.allowed(p,next,patch.op)) throw new Error('禁止写入：' + patch.path);
                 this.patchPolicy.bootstrapBackendParent(next,p);
                 const old = this.patchPolicy.get(next,p);
                 if (p[1] === PATH && p[2] === '历史' && (patch.op !== 'add' || old !== undefined)) throw new Error('历史只允许新增');
                 // 世界模型经常把“首次设置”写成 replace；对允许创建的世界记录按 upsert 处理。
                 if (patch.op !== 'add' && old === undefined && !this.patchPolicy.canUpsertMissing(p,next)) throw new Error('目标不存在：' + patch.path);
-                if (patch.op === 'remove' && !(p[0] === '传闻' || (p[1] === PATH && p[2] === '传播') || (p[0] === '资产' && p.length === 2))) throw new Error('仅可移除过期传播、传闻与已彻底消失的资产，其他记录使用状态结束');
+                if (patch.op === 'remove' && !this.patchPolicy.removable(p)) throw new Error('仅可移除过期传播、传闻、已彻底消失的资产与程序确认的因果脏记录，其他记录使用状态结束');
                 let value=patch.value;
                 if (patch.op !== 'remove') {
                     if (value === undefined) throw new Error('缺少补丁值');
@@ -4557,91 +4695,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         });
     };
 
-    // 因果影响幅度是语义层规则，不交给 JSON Schema 拒绝；编译阶段统一软归一化。
-    delete OFFSET_RESULT_SCHEMA.properties.影响程度.minimum;
-    delete OFFSET_RESULT_SCHEMA.properties.影响程度.maximum;
-
-    const CAUSAL_CHAIN_HINT=/(?:余波|后续|进一步|继续|继而|因此|由此|连锁|衍生|扩散|扩大|反应|吸引力|同一(?:契约|事件|行为|根因))/;
-    const CAUSAL_SPECULATION_HINT=/(?:可能|或许|预计|预期|将会|或将|未来(?:会|可能|将)|潜在|恐怕|有望|计划|打算|准备)/;
-    const CAUSAL_NO_EFFECT_HINT=/(?:尚未|还未|并未|未曾|没有|仅仅|只是).{0,18}(?:发生|执行|实施|使用|启动|造成|导致|改变|影响|生效)|(?:尚未|还未|并未|未曾|没有).{0,18}(?:结果|变化|后果)/;
-    const CAUSAL_REALIZED_HINT=/(?:已经|已然|已被|已使|已让|导致|造成|致使|使得|迫使|结果|改写|改变|破坏|摧毁|死亡|失去|退出|完成|失败|成功|被捕|被杀|被夺|被毁|封锁|崩溃|断裂|清除|修复)/;
-    const CAUSAL_RESPONSE_HINT=/(?:稳定值(?:持续)?下降|世界排异(?:反应|升级|增强)?|排异强度)/;
-    function clampCausalImpact(value) {
-        const impact=Number(value);
-        if(!Number.isFinite(impact))return null;
-        if(impact===0)return 0;
-        return impact<0?Math.max(-12,impact):Math.min(15,impact);
-    }
-    function causalOffsetText(item) {
-        return [item?.名称,item?.描述].filter(Boolean).join(' ');
-    }
-    function softNormalizeCausalOffsets(stat,result) {
-        const items=Array.isArray(result?.因果?.偏移记录)?result.因果.偏移记录:null;
-        if(!items||!items.length)return;
-        const existing=stat?.世界?.因果轨道?.偏移记录||{},prepared=[];
-        for(const raw of items){
-            if(!plain(raw))continue;
-            const item=copy(raw);
-            if(item.操作==='撤销本轮'){prepared.push(item);continue;}
-            const existingName=stableNameIn(existing,item.名称),isNew=!existingName;
-            if(Object.hasOwn(item,'影响程度')){
-                const impact=clampCausalImpact(item.影响程度);
-                if(impact===null){
-                    if(isNew)continue;
-                    delete item.影响程度;
-                }else if(isNew&&impact===0)continue;
-                else item.影响程度=impact;
-            }else if(isNew)continue;
-            const text=causalOffsetText(item);
-            if(isNew&&CAUSAL_NO_EFFECT_HINT.test(text))continue;
-            if(isNew&&CAUSAL_SPECULATION_HINT.test(text)&&!CAUSAL_REALIZED_HINT.test(text))continue;
-            if(isNew&&Number(item.影响程度)<0&&CAUSAL_RESPONSE_HINT.test(text))continue;
-            prepared.push(item);
-        }
-
-        // 明确写成“同一根因/后续/余波”等的同一引发者同向碎片，保留影响绝对值最大的代表项。
-        const removed=new Set(),groups=new Map();
-        for(let i=0;i<prepared.length;i++){
-            const item=prepared[i];
-            if(!plain(item)||item.操作==='撤销本轮'||!Object.hasOwn(item,'影响程度'))continue;
-            const actor=String(item.引发者||'').trim().toLowerCase();
-            const impact=Number(item.影响程度);
-            if(!actor||!Number.isFinite(impact)||impact===0)continue;
-            const key=actor+'|'+(impact<0?'negative':'positive'),group=groups.get(key)||[];
-            group.push({index:i,item,text:causalOffsetText(item),impact});groups.set(key,group);
-        }
-        for(const group of groups.values()){
-            const chained=group.filter(entry=>CAUSAL_CHAIN_HINT.test(entry.text));
-            if(chained.length<2)continue;
-            let winner=chained[0];
-            for(const entry of chained.slice(1))if(Math.abs(entry.impact)>Math.abs(winner.impact))winner=entry;
-            for(const entry of chained)if(entry.index!==winner.index)removed.add(entry.index);
-        }
-        let normalized=prepared.filter((_,index)=>!removed.has(index));
-
-        // 同一引发者同轮总影响做软封顶；不重试、不抛错，只缩减后续条目的剩余额度。
-        const budgets=new Map();
-        normalized=normalized.filter(item=>{
-            if(!plain(item)||item.操作==='撤销本轮'||!Object.hasOwn(item,'影响程度'))return true;
-            const actor=String(item.引发者||'').trim().toLowerCase(),impact=Number(item.影响程度);
-            if(!actor||!Number.isFinite(impact)||impact===0)return true;
-            const sign=impact<0?'negative':'positive',key=actor+'|'+sign;
-            let remaining=budgets.has(key)?budgets.get(key):(impact<0?12:15);
-            const magnitude=Math.min(Math.abs(impact),remaining);
-            remaining=Math.max(0,remaining-magnitude);budgets.set(key,remaining);
-            if(magnitude<=0)return false;
-            item.影响程度=impact<0?-magnitude:magnitude;
-            return true;
-        });
-        result.因果.偏移记录=normalized;
-    }
-
-    const compileWorldResultBeforeIntegrityGuard=compileWorldResult;
-    compileWorldResult=function(stat,value) {
-        const result=normalizeWorldResult(value);
-        softNormalizeCausalOffsets(stat,result);
-        return compileWorldResultBeforeIntegrityGuard(stat,result);
-    };
+    // 因果偏移软归一化与世界尺度过滤已迁移至 WorldCausalService。
 
     const retryPlanBeforeIntegrityGuard=retryPlanForFailure;
     retryPlanForFailure=function(error,rejected=[]) {
@@ -4671,82 +4725,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const worldDateKeyBeforeDaypartAliases=worldDateKey;
     worldDateKey=function(value) {
         return worldDateKeyBeforeDaypartAliases(normalizeWorldDaypartAlias(value));
-    };
-    // 稳定度因果闸门：只有已实现的“世界本身长期变化”才允许进入稳定台账；玩家战术处境、异端获知情报等局部后果直接忽略。
-    const CAUSAL_WORLD_SCALE_HINTS=[
-        /(?:关键人物|核心人物|重要人物|关键角色|核心角色).{0,28}(?:命运|死亡|阵亡|被杀|永久|不可逆|退场|失去|背叛|被捕|失踪|改写|改变|修复)/,
-        /(?:死亡|阵亡|被杀|永久|不可逆|退场|被捕|失踪|改写|改变|修复).{0,28}(?:关键人物|核心人物|重要人物|关键角色|核心角色)/,
-        /(?:重大|关键|宏观|主线).{0,8}(?:事件|节点|战役|战争|仪式|计划|灾难).{0,32}(?:改变|改写|失败|成功|取消|终止|提前|延后|崩溃|完成|毁灭|修复|失效)/,
-        /(?:势力|阵营|政权|国家|帝国|王国|组织|军团|城市|地区).{0,32}(?:格局|覆灭|崩溃|瓦解|分裂|易主|政变|失守|沦陷|吞并|解体|重组|修复)/,
-        /(?:主线|故事线|世界格局|下一节点|原定(?:走向|结局)).{0,32}(?:改变|改写|断裂|失效|无法|偏离|重构|修复|恢复)/,
-        /(?:异常污染|跨世界污染|污染|世界裂隙|跨世界异常|异常侵蚀|世界侵蚀).{0,32}(?:扩大|扩散|蔓延|加剧|持续|清除|消除|修复|收束|封闭)/,
-        /(?:异端|入侵者).{0,28}(?:全部|彻底|主要|核心).{0,16}(?:清除|消灭|死亡|覆灭).{0,36}(?:跨世界干涉|异常污染|世界裂隙|世界结构|主线|世界格局).{0,24}(?:消失|解除|恢复|修复|收束|封闭)/,
-        /(?:跨世界干涉|异常污染|世界裂隙|世界结构|主线|世界格局).{0,24}(?:因|由于).{0,20}(?:异端|入侵者).{0,24}(?:清除|消灭|死亡|覆灭).{0,20}(?:消失|解除|恢复|修复|收束|封闭)/,
-        /(?:不可逆|永久).{0,20}(?:命运|主线|重大事件|关键事件|势力格局|世界格局)/
-    ];
-    const CAUSAL_CLEAR_LOCAL_HINT=/(?:位置(?:暴露|泄露|被发现|被感知)|被(?:敌人|异端|对手).{0,16}(?:发现|察觉|感知|盯上|追踪|锁定)|异端.{0,16}(?:知道|获知|发现|察觉|感知).{0,16}(?:玩家|轮回者|位置|行踪|能力|身份)|提前感知|引起警觉|提高.{0,10}难度|增加.{0,10}难度|生存难度|行动难度|追杀压力|短期.{0,8}(?:困难|不利)|局部战斗|普通战斗|受伤|轻伤|逃脱|脱险|暂时受阻|临时受阻)/;
-    function causalOffsetHasWorldScaleEvidence(item) {
-        const text=causalOffsetText(item);
-        return !!text&&CAUSAL_WORLD_SCALE_HINTS.some(rule=>rule.test(text));
-    }
-    function filterNewCausalOffsetsByWorldScale(stat,result) {
-        const items=result?.因果?.偏移记录;
-        if(!Array.isArray(items)||!items.length)return [];
-        const existing=stat?.世界?.因果轨道?.偏移记录||{},dropped=[];
-        result.因果.偏移记录=items.filter(item=>{
-            if(!plain(item)||item.操作==='撤销本轮')return true;
-            if(stableNameIn(existing,item.名称))return true;
-            if(causalOffsetHasWorldScaleEvidence(item))return true;
-            dropped.push(item.名称);
-            return false;
-        });
-        return dropped;
-    }
-    function staleLocalCausalOffsetRepairs(stat,result) {
-        const bucket=stat?.世界?.因果轨道?.偏移记录||{},protectedNames=new Set();
-        for(const item of result?.因果?.偏移记录||[]){
-            if(plain(item)&&causalOffsetHasWorldScaleEvidence(item))protectedNames.add(nameKey(item.名称));
-        }
-        const patches=[],names=[];
-        for(const [name,record] of Object.entries(bucket)){
-            const impact=Number(record?.影响程度)||0;
-            if(!impact||protectedNames.has(nameKey(name)))continue;
-            const text=causalOffsetText(Object.assign({名称:name},record));
-            if(!CAUSAL_CLEAR_LOCAL_HINT.test(text)||CAUSAL_WORLD_SCALE_HINTS.some(rule=>rule.test(text)))continue;
-            patches.push({op:'remove',path:pointer(['世界','因果轨道','偏移记录',name])});
-            names.push(name);
-        }
-        return {patches,names};
-    }
-
-    const compileWorldResultBeforeCausalStabilityGate=compileWorldResult;
-    compileWorldResult=function(stat,value) {
-        const result=normalizeWorldResult(value);
-        const dropped=filterNewCausalOffsetsByWorldScale(stat,result);
-        const compiled=compileWorldResultBeforeCausalStabilityGate(stat,result);
-        const repairs=staleLocalCausalOffsetRepairs(stat,result);
-        const occupied=new Set(compiled.patches.map(patch=>patch.path));
-        for(const patch of repairs.patches)if(!occupied.has(patch.path))compiled.patches.push(patch);
-        if(dropped.length)compiled.warnings.push('忽略非世界尺度因果偏移：'+dropped.join('、'));
-        if(repairs.names.length)compiled.warnings.push('清理局部稳定偏移：'+repairs.names.join('、'));
-        return compiled;
-    };
-
-    // 基础补丁层只允许删除传播/传闻/资产；因果闸门需要能清理历史脏偏移。
-    // 只对“世界.因果轨道.偏移记录.<名称>”这一条精确路径做受控预删除，其余 remove 仍走原安全规则。
-    const applyPatchesBeforeCausalStabilityGate=applyPatches;
-    applyPatches=function(stat,patches) {
-        if(!Array.isArray(patches)||!patches.some(patch=>patch?.op==='remove'&&(()=>{try{const p=tokens(patch.path);return p[0]==='世界'&&p[1]==='因果轨道'&&p[2]==='偏移记录'&&p.length===4;}catch(_){return false;}})()))return applyPatchesBeforeCausalStabilityGate(stat,patches);
-        const seeded=copy(stat),rest=[];
-        for(const patch of patches){
-            let p=null;try{p=tokens(patch.path);}catch(_){}
-            if(patch?.op==='remove'&&p&&p[0]==='世界'&&p[1]==='因果轨道'&&p[2]==='偏移记录'&&p.length===4){
-                if(plain(seeded?.世界?.因果轨道?.偏移记录))delete seeded.世界.因果轨道.偏移记录[p[3]];
-                continue;
-            }
-            rest.push(patch);
-        }
-        return applyPatchesBeforeCausalStabilityGate(seeded,rest);
     };
     // 世界时间单一所有权：世界推进 AI 负责初始化/推进世界.时间；变量 AI 的写入在事件层被回滚。
     const WORLD_TIME_RULES=`【世界时间所有权】
@@ -8686,7 +8664,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ACTIVE_WORLD_NPC_AUDIT_SERVICE=this.npcAudit;
             this.stateNormalizer=new WorldStateNormalizer();
             ACTIVE_WORLD_STATE_NORMALIZER=this.stateNormalizer;
-            this.causal=new WorldCausalService(engine);
+            this.causal=new WorldCausalService(engine,this.patchPolicy);
             ACTIVE_WORLD_CAUSAL_SERVICE=this.causal;
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();

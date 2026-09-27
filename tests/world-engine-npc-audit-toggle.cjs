@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=require('../script/世界推进系统.js');
+const {SamsaraWorldEngine:Engine,emptyState,RECORDS,compileWorldResult,applyPatches}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 
 function freshState(){
@@ -104,6 +104,26 @@ function setup({reply='',validate,storedConfig}={}){
     const disabledCustom=await x.engine.buildRequest(x.engine.snapshot());
     assert.doesNotMatch(disabledCustom.system,/自定义审计规则标记/);
     assert.equal(JSON.parse(x.getStored()).npcBuildAuditEnabled,false);
+  }
+
+  {
+    const x=setup();
+    x.engine.setNpcBuildAuditEnabled(true);
+    const stat=x.getState();
+    const compiled=compileWorldResult(stat,{
+      摘要:'为审计对象补入一件新装备',
+      关系:[{
+        名称:'玛雅',操作:'更新',
+        装备:{
+          审计短剑:{
+            品质:'F',类型:0,标签:['近战'],原始属性:{力量:'F'},效果:{攻击:'用于近战防卫'},
+            描述:'临时补给的短剑。',消耗:'无',状态:0
+          }
+        }
+      }]
+    });
+    const next=applyPatches(stat,compiled.patches);
+    assert.equal(next.关系列表.玛雅.装备.审计短剑?.状态,1,'审计为既有NPC新增的装备必须默认直接装备，不能以状态0绕过构筑数量');
   }
 
   {

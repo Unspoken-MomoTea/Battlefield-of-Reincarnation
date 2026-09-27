@@ -59,7 +59,7 @@ const policy=fs.readFileSync(path.join(root,'src','WorldEngine','domains','World
 const validationService=fs.readFileSync(path.join(root,'src','WorldEngine','domains','WorldValidationService.part.js'),'utf8');
 const orchestrator=fs.readFileSync(path.join(root,'src','WorldEngine','domains','WorldRunOrchestrator.part.js'),'utf8');
 assert.match(timelinePolicy,/class\s+WorldTimelinePolicy\b/,'timeline rules must live in a dedicated domain policy');
-assert.doesNotMatch(fs.readFileSync(path.join(root,'script','world-engine-src','10-world-state.part.js'),'utf8'),/function\s+(?:eventScheduleLabel|staleActiveEvents|temporalAnomalies|sortWorldEvents)\b/,'timeline implementation must leave the legacy world-state source');
+assert.equal(fs.existsSync(path.join(root,'script','world-engine-src','10-world-state.part.js')),false,'legacy world-state slot must be deleted');
 assert.match(policy,/class\s+WorldValidationPolicy\b/,'validation base rules must live in a policy class');
 assert.match(validationService,/this\.policy\.progressionAnchorChanged\(before,current\)/,'non-decorated progression anchor validation should delegate directly to the policy');
 assert.match(validationService,/ensureDueHandled\(/,'decorated validation checks must continue through the global compatibility seams during migration');

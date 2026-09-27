@@ -160,29 +160,7 @@
         if(/(?:变量|输出格式|更新规则|COT|思考|风格|助手|状态栏)/i.test(name))return false;
         return /(?:校历|世界年表|事件年表|原著年表|时间线|时间轴|大事记|大事件摘要|历史大事件|剧情大纲|剧情章节|章节控制器|主线年表)/i.test(name);
     }
-    function worldDateKey(value) {
-        const source=String(value||'');
-        let m=source.match(/(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/);
-        if(!m)m=source.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
-        if(!m)return null;
-        const y=+m[1],month=+m[2],day=+m[3];
-        if(!Number.isInteger(y)||!Number.isInteger(month)||!Number.isInteger(day)||month<1||month>12||day<1)return null;
-        const date=new Date(0);
-        date.setUTCFullYear(y,month-1,day);date.setUTCHours(0,0,0,0);
-        // 数字年月日按真实公历天序计算，避免 2月28日→3月1日 被旧“每月31天”近似拉成96小时。
-        // 非公历/相对语义本来就不会匹配这里，继续由语义复核处理。
-        if(date.getUTCFullYear()!==y||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return null;
-        const part=source.match(/凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜/);
-        const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
-        let dayHour=part?hour[part[0]]:0;
-        const branch=source.match(/([子丑寅卯辰巳午未申酉戌亥])时(?:([一二三四1234])刻)?/);
-        if(branch){
-            const branchHour={子:23,丑:1,寅:3,卯:5,辰:7,巳:9,午:11,未:13,申:15,酉:17,戌:19,亥:21};
-            const quarterMap={一:1,二:2,三:3,四:4,'1':1,'2':2,'3':3,'4':4};
-            dayHour=branchHour[branch[1]]+(quarterMap[branch[2]]||0)*0.25;
-        }
-        return date.getTime()/3600000+dayHour;
-    }
+    function worldDateKey(value) { return ACTIVE_WORLD_TIME_POLICY.key(value); }
     function worldTimeCapacity(previous,current) {
         const from=String(previous||'').trim(),to=String(current||'').trim();
         const a=worldDateKey(from),b=worldDateKey(to);
@@ -577,10 +555,156 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function sanitizeModelPatches(patches){return ACTIVE_WORLD_PATCH_POLICY.sanitizeModelPatches(patches);}
     function normalizeModelPatches(patches){return ACTIVE_WORLD_PATCH_POLICY.normalizeModelPatches(patches);}
     function allowed(parts,stat,op=''){return ACTIVE_WORLD_PATCH_POLICY.allowed(parts,stat,op);}
+    const WORLD_TIME_MACHINE_DESCRIPTION='精确到月日时使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段仅限：凌晨/黎明/清晨/早晨/上午/中午/午后/下午/傍晚/入夜/晚上/深夜；只能确定季节/阶段时可保留粗粒度。';
+    const WORLD_DAYPART_ALIASES=Object.freeze({
+        '清早':'清晨',
+        '早上':'早晨',
+        '黄昏':'傍晚',
+        '夜晚':'晚上',
+        '夜间':'晚上',
+        '夜里':'晚上',
+        '晚间':'晚上'
+    });
+
+    class WorldTimePolicy {
+        normalizeDaypartAlias(value) {
+            let source=String(value||'');
+            for(const [alias,canonical] of Object.entries(WORLD_DAYPART_ALIASES))source=source.replaceAll(alias,canonical);
+            return source;
+        }
+
+        key(value) {
+            const source=this.normalizeDaypartAlias(value);
+            let m=source.match(/(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/);
+            if(!m)m=source.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+            if(!m)return null;
+            const y=+m[1],month=+m[2],day=+m[3];
+            if(!Number.isInteger(y)||!Number.isInteger(month)||!Number.isInteger(day)||month<1||month>12||day<1)return null;
+            const date=new Date(0);
+            date.setUTCFullYear(y,month-1,day);date.setUTCHours(0,0,0,0);
+            if(date.getUTCFullYear()!==y||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return null;
+
+            const exact=source.match(/(?:^|[日T\s_-])(\d{1,2}):([0-5]\d)(?::([0-5]\d))?/);
+            if(exact){
+                const hour=Number(exact[1]),minute=Number(exact[2]),second=Number(exact[3]||0);
+                if(!Number.isInteger(hour)||hour<0||hour>23)return null;
+                return date.getTime()/3600000+hour+minute/60+second/3600;
+            }
+
+            const part=source.match(/凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜/);
+            const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
+            let dayHour=part?hour[part[0]]:0;
+            const branch=source.match(/([子丑寅卯辰巳午未申酉戌亥])时(?:([一二三四1234])刻)?/);
+            if(branch){
+                const branchHour={子:23,丑:1,寅:3,卯:5,辰:7,巳:9,午:11,未:13,申:15,酉:17,戌:19,亥:21};
+                const quarterMap={一:1,二:2,三:3,四:4,'1':1,'2':2,'3':3,'4':4};
+                dayHour=branchHour[branch[1]]+(quarterMap[branch[2]]||0)*0.25;
+            }
+            return date.getTime()/3600000+dayHour;
+        }
+
+        dayKey(value) {
+            const key=this.key(value);
+            return key===null?null:Math.floor(key/24);
+        }
+
+        hasExactClock(value) {
+            return /(?:^|[日T\s_-])(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?/.test(String(value||''));
+        }
+        unset(value) {
+            const raw=String(value??'').trim();
+            return !raw||raw==='待初始化';
+        }
+
+        identity(value) {
+            return String(value??'').trim().replace(/[\s·・_—–-]+/g,'');
+        }
+
+        claimsMonthDay(value) {
+            const source=String(value??'').trim();
+            return !!source&&/月/.test(source)&&/(?:第\s*)?\d{1,2}\s*日/.test(source);
+        }
+
+        calendarFor(stat,result) {
+            return plain(result?.历法)?result.历法:(plain(stat?.世界?.历法)?stat.世界.历法:{});
+        }
+
+        assertCalendarCompatibleTimeValue(stat,result,value,label='时间') {
+            const raw=String(value??'').trim();
+            if(!this.claimsMonthDay(raw))return;
+            if(calendarDate(raw,this.calendarFor(stat,result)))return;
+            throw new Error(label+'格式无法用于日历：'+raw+'。精确到月日时请使用 {yyy}年-{mm}月-{dd}日-{时间段}；不要用月份名称替代数字月。');
+        }
+
+        assertCalendarCompatibleWorldResultTimes(stat,result) {
+            const temporalKeys=new Set(['时间','开始时间','预计结束','更新时间','到期时间','下次检查','开始','结束','期限','获知时间']);
+            const walk=(value,path=[])=>{
+                if(Array.isArray(value)){for(let i=0;i<value.length;i++)walk(value[i],path.concat(i));return;}
+                if(!plain(value))return;
+                for(const [key,child] of Object.entries(value)){
+                    const nextPath=path.concat(key);
+                    if(typeof child==='string'&&temporalKeys.has(key))this.assertCalendarCompatibleTimeValue(stat,result,child,nextPath.join('.'));
+                    else if(child&&typeof child==='object')walk(child,nextPath);
+                }
+            };
+            walk(result);
+            return result;
+        }
+
+        inferFromCurrentActivities(result) {
+            const candidates=new Map();
+            for(const item of result?.人物||[]){
+                if(!plain(item)||item.操作==='撤销本轮')continue;
+                const activeFacts=String(item.地点||'').trim()&&String(item.目标||'').trim()&&String(item.行动||'').trim();
+                const raw=String(item.更新时间||'').trim();
+                if(!activeFacts||!raw)continue;
+                const key=this.identity(raw);if(key&&!candidates.has(key))candidates.set(key,raw);
+            }
+            return candidates.size===1?Array.from(candidates.values())[0]:'';
+        }
+
+        resolveProposal(stat,result) {
+            const explicit=String(result?.时间||'').trim();
+            if(explicit)return explicit;
+            if(!this.unset(stat?.世界?.时间))return '';
+            return this.inferFromCurrentActivities(result);
+        }
+
+        assertNotBackwards(stat,nextTime) {
+            const current=String(stat?.世界?.时间||'').trim();
+            if(this.unset(current)||!nextTime)return;
+            const before=this.key(current),after=this.key(nextTime);
+            if(before!==null&&after!==null&&after<before)throw new Error('世界时间不可回退：'+current+' -> '+nextTime);
+        }
+
+        prepareCompile(stat,result) {
+            const proposal=this.resolveProposal(stat,result);
+            if(proposal)result.时间=proposal;
+            this.assertCalendarCompatibleWorldResultTimes(stat,result);
+            if(proposal)this.assertNotBackwards(stat,proposal);
+            if(!proposal)return {proposal:'',result,validationStat:stat};
+            const validationStat=copy(stat);
+            if(!plain(validationStat.世界))validationStat.世界={};
+            validationStat.世界.时间=proposal;
+            return {proposal,result,validationStat};
+        }
+
+        finalizeCompile(originalStat,proposal,compiled) {
+            if(!proposal)return compiled;
+            const old=originalStat?.世界?.时间;
+            if(String(old??'')!==proposal)compiled.patches.unshift({op:old===undefined?'add':'replace',path:'/世界/时间',value:proposal});
+            compiled.result.时间=proposal;
+            return compiled;
+        }
+    }
+
+    const DEFAULT_WORLD_TIME_POLICY=new WorldTimePolicy();
+    let ACTIVE_WORLD_TIME_POLICY=DEFAULT_WORLD_TIME_POLICY;
     const VAGUE_EVENT_TIME=/^(?:近期|稍后|未来|之后|待定|未定|未知|不详|待确认|时间未定|日期未定)$/;
     const STALE_CURRENT_EVENT_HOURS=7*24;
     const STALE_NEAR_EVENT_HOURS=30*24;
     class WorldTimelinePolicy {
+        constructor(timePolicy=DEFAULT_WORLD_TIME_POLICY){this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;}
         storyStages(value) {
             return String(value||'').split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
         }
@@ -599,19 +723,19 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             });
         }
         timelineState(stat) {
-            const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
+            const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=this.timePolicy.key(stat.世界.时间);
             const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));
             const near=events.filter(([,e])=>['当前事件','近期节点'].includes(e.分类));
             const macro=events.filter(([,e])=>e.分类==='宏观节点');
             const macroFuture=macro.filter(([,e])=>e.状态==='待发生');
             const macroOpen=macro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
-            const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
-            const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
+            const expand=macroFuture.filter(([,e])=>{const t=this.timePolicy.key(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
+            const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&this.timePolicy.key(e.时间||e.开始时间)===null);
             const orbit=stat.世界.因果轨道||{},orbitStages=this.storyStages(orbit.故事线);
             const macroNames=new Set(macro.map(([name])=>name));
             const orbitProjectionInvalid=orbitStages.length<3||orbitStages.length>5||orbitStages.some(name=>!macroNames.has(name));
             const orbitMacro=macroFuture.find(([name])=>name===orbit.下一节点);
-            const datedMacro=macroFuture.map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
+            const datedMacro=macroFuture.map((item,index)=>({item,index,key:this.timePolicy.key(item[1].时间||item[1].开始时间)}))
                 .filter(x=>x.key!==null&&(now===null||x.key>=now))
                 .sort((a,b)=>a.key-b.key||a.index-b.index);
             const nextPair=orbitMacro||datedMacro[0]?.item||macroFuture[0]||null;
@@ -658,11 +782,11 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return '时间待补';
         }
         staleActiveEvents(stat) {
-            const now=worldDateKey(stat?.世界?.时间);if(now===null)return [];
+            const now=this.timePolicy.key(stat?.世界?.时间);if(now===null)return [];
             const out=[];
             for(const [名称,event] of Object.entries(stat?.世界?.[PATH]?.事件||{})){
                 if(event?.状态!=='进行中'||event?.分类==='宏观节点')continue;
-                const touched=worldDateKey(event.更新时间||event.时间||event.开始时间);
+                const touched=this.timePolicy.key(event.更新时间||event.时间||event.开始时间);
                 if(touched===null)continue;
                 const threshold=event.分类==='当前事件'?STALE_CURRENT_EVENT_HOURS:STALE_NEAR_EVENT_HOURS;
                 const age=now-touched;
@@ -671,10 +795,15 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return out;
         }
         temporalAnomalies(stat) {
-            const now=worldDateKey(stat?.世界?.时间);if(now===null)return [];
-            const state=stat?.世界?.[PATH]||{},out=[];
+            const nowRaw=String(stat?.世界?.时间||''),nowKey=this.timePolicy.key(nowRaw),nowDay=this.timePolicy.dayKey(nowRaw);
+            if(nowDay===null)return [];
+            const nowExact=this.timePolicy.hasExactClock(nowRaw),state=stat?.世界?.[PATH]||{},out=[];
             const push=(类型,名称,字段,值,原因)=>{
-                const key=worldDateKey(值);if(key!==null&&key>now)out.push({类型,名称,字段,值:String(值||''),原因});
+                const valueRaw=String(值||''),valueKey=this.timePolicy.key(valueRaw),valueDay=this.timePolicy.dayKey(valueRaw);
+                if(valueDay===null)return;
+                if(valueDay>nowDay){out.push({类型,名称,字段,值:valueRaw,原因});return;}
+                if(valueDay<nowDay||类型!=='人物'||!nowExact||!this.timePolicy.hasExactClock(valueRaw))return;
+                if(nowKey!==null&&valueKey!==null&&valueKey>nowKey)out.push({类型,名称,字段,值:valueRaw,原因});
             };
             for(const [name,event] of Object.entries(state.事件||{})){
                 if(['进行中','已完成'].includes(event?.状态))push('事件',name,'时间',event.时间||event.开始时间,'已发生/进行中的事件不能晚于当前世界时间');
@@ -697,7 +826,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 if(['事件','人物','势力地区','历史','传播'].includes(parts[2])&&parts[3])touched.add(parts[2]+'\u0000'+parts[3]);
             }
             if(!touched.size)return;
-            // Preserve later integrity/rumor decorators on the public compatibility seam.
+            // Preserve the remaining rumor runtime decorator on the public compatibility seam.
             const all=temporalAnomalies(next);
             const hit=all.find(item=>touched.has(item.类型+'\u0000'+item.名称));
             if(hit)throw new Error('时间事实超过当前世界时间：'+hit.类型+'/'+hit.名称+' '+hit.字段+'='+hit.值+'；'+hit.原因);
@@ -723,7 +852,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                         if(ai!==bi)return ai-bi;
                     }
                 }
-                const da=worldDateKey(a[1]?.时间||a[1]?.开始时间),db=worldDateKey(b[1]?.时间||b[1]?.开始时间);
+                const da=this.timePolicy.key(a[1]?.时间||a[1]?.开始时间),db=this.timePolicy.key(b[1]?.时间||b[1]?.开始时间);
                 if(da!==db)return (da??Infinity)-(db??Infinity);
                 return String(a[0]).localeCompare(String(b[0]),'zh-CN');
             });
@@ -817,97 +946,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     }
 
     const DEFAULT_WORLD_CHRONOLOGY_POLICY=new WorldChronologyPolicy();
-    const WORLD_TIME_MACHINE_DESCRIPTION='精确到月日时使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段仅限：凌晨/黎明/清晨/早晨/上午/中午/午后/下午/傍晚/入夜/晚上/深夜；只能确定季节/阶段时可保留粗粒度。';
-
-    class WorldTimePolicy {
-        unset(value) {
-            const raw=String(value??'').trim();
-            return !raw||raw==='待初始化';
-        }
-
-        identity(value) {
-            return String(value??'').trim().replace(/[\s·・_—–-]+/g,'');
-        }
-
-        claimsMonthDay(value) {
-            const source=String(value??'').trim();
-            return !!source&&/月/.test(source)&&/(?:第\s*)?\d{1,2}\s*日/.test(source);
-        }
-
-        calendarFor(stat,result) {
-            return plain(result?.历法)?result.历法:(plain(stat?.世界?.历法)?stat.世界.历法:{});
-        }
-
-        assertCalendarCompatibleTimeValue(stat,result,value,label='时间') {
-            const raw=String(value??'').trim();
-            if(!this.claimsMonthDay(raw))return;
-            if(calendarDate(raw,this.calendarFor(stat,result)))return;
-            throw new Error(label+'格式无法用于日历：'+raw+'。精确到月日时请使用 {yyy}年-{mm}月-{dd}日-{时间段}；不要用月份名称替代数字月。');
-        }
-
-        assertCalendarCompatibleWorldResultTimes(stat,result) {
-            const temporalKeys=new Set(['时间','开始时间','预计结束','更新时间','到期时间','下次检查','开始','结束','期限','获知时间']);
-            const walk=(value,path=[])=>{
-                if(Array.isArray(value)){for(let i=0;i<value.length;i++)walk(value[i],path.concat(i));return;}
-                if(!plain(value))return;
-                for(const [key,child] of Object.entries(value)){
-                    const nextPath=path.concat(key);
-                    if(typeof child==='string'&&temporalKeys.has(key))this.assertCalendarCompatibleTimeValue(stat,result,child,nextPath.join('.'));
-                    else if(child&&typeof child==='object')walk(child,nextPath);
-                }
-            };
-            walk(result);
-            return result;
-        }
-
-        inferFromCurrentActivities(result) {
-            const candidates=new Map();
-            for(const item of result?.人物||[]){
-                if(!plain(item)||item.操作==='撤销本轮')continue;
-                const activeFacts=String(item.地点||'').trim()&&String(item.目标||'').trim()&&String(item.行动||'').trim();
-                const raw=String(item.更新时间||'').trim();
-                if(!activeFacts||!raw)continue;
-                const key=this.identity(raw);if(key&&!candidates.has(key))candidates.set(key,raw);
-            }
-            return candidates.size===1?Array.from(candidates.values())[0]:'';
-        }
-
-        resolveProposal(stat,result) {
-            const explicit=String(result?.时间||'').trim();
-            if(explicit)return explicit;
-            if(!this.unset(stat?.世界?.时间))return '';
-            return this.inferFromCurrentActivities(result);
-        }
-
-        assertNotBackwards(stat,nextTime) {
-            const current=String(stat?.世界?.时间||'').trim();
-            if(this.unset(current)||!nextTime)return;
-            const before=worldDateKey(current),after=worldDateKey(nextTime);
-            if(before!==null&&after!==null&&after<before)throw new Error('世界时间不可回退：'+current+' -> '+nextTime);
-        }
-
-        prepareCompile(stat,result) {
-            const proposal=this.resolveProposal(stat,result);
-            if(proposal)result.时间=proposal;
-            this.assertCalendarCompatibleWorldResultTimes(stat,result);
-            if(proposal)this.assertNotBackwards(stat,proposal);
-            if(!proposal)return {proposal:'',result,validationStat:stat};
-            const validationStat=copy(stat);
-            if(!plain(validationStat.世界))validationStat.世界={};
-            validationStat.世界.时间=proposal;
-            return {proposal,result,validationStat};
-        }
-
-        finalizeCompile(originalStat,proposal,compiled) {
-            if(!proposal)return compiled;
-            const old=originalStat?.世界?.时间;
-            if(String(old??'')!==proposal)compiled.patches.unshift({op:old===undefined?'add':'replace',path:'/世界/时间',value:proposal});
-            compiled.result.时间=proposal;
-            return compiled;
-        }
-    }
-
-    const DEFAULT_WORLD_TIME_POLICY=new WorldTimePolicy();
     class WorldLifecycleService {
         personActivityMeta(stat,name,person) {
             const relations=stat?.关系列表||{},roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
@@ -4771,69 +4809,11 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 9. 单条建议范围 -12~-1 或 +1~+15，0 不建新记录；同一引发者同轮负向总量最多 -12、正向总量最多 +15。程序对越界、同根拆分、局部后果或尚未产生现实结果的偏移执行软归一化/忽略，不触发重试，也不驳回本轮其它世界推进结果。
 10. 世界.稳定是偏移台账的派生值，由程序汇总；模型不得直接修改，也不需要每轮“更新稳定值”。`;
 
-    const worldDateKeyBeforeIntegrityGuard=worldDateKey;
-    worldDateKey=function(value) {
-        const source=String(value||''),base=worldDateKeyBeforeIntegrityGuard(source);
-        if(base===null)return null;
-        const clock=source.match(/(?:^|[日T\s_-])(\d{1,2}):([0-5]\d)(?::([0-5]\d))?/);
-        if(!clock)return base;
-        const hour=Number(clock[1]),minute=Number(clock[2]),second=Number(clock[3]||0);
-        if(!Number.isInteger(hour)||hour<0||hour>23)return null;
-        return Math.floor(base/24)*24+hour+minute/60+second/3600;
-    };
-
-    // 完整性校验与排序/调度使用不同精度：世界事件等宏观事实以“日”为硬边界，
-    // 避免把“上午/下午”这种粗粒度标签伪装成精确小时后误杀同日推进。
-    // 人物只有在两侧都给出 HH:mm 时才保留分钟级保护，防止真实的精确时钟倒流。
-    const temporalAnomaliesBeforeIntegrityGuard=temporalAnomalies;
-    function integrityWorldDayKey(value) {
-        const key=worldDateKey(value);
-        return key===null?null:Math.floor(key/24);
-    }
-    function integrityHasExactClock(value) {
-        return /(?:^|[日T\s_-])(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?/.test(String(value||''));
-    }
-    temporalAnomalies=function(stat) {
-        const anomalies=temporalAnomaliesBeforeIntegrityGuard(stat);
-        if(!anomalies.length)return anomalies;
-        const nowRaw=String(stat?.世界?.时间||''),nowDay=integrityWorldDayKey(nowRaw),nowKey=worldDateKey(nowRaw);
-        if(nowDay===null)return anomalies;
-        const nowExact=integrityHasExactClock(nowRaw);
-        return anomalies.filter(item=>{
-            const valueRaw=String(item?.值||''),valueDay=integrityWorldDayKey(valueRaw);
-            if(valueDay===null)return true;
-            if(valueDay>nowDay)return true;
-            if(valueDay<nowDay)return false;
-            if(item?.类型!=='人物')return false;
-            if(!nowExact||!integrityHasExactClock(valueRaw))return false;
-            const valueKey=worldDateKey(valueRaw);
-            return nowKey!==null&&valueKey!==null&&valueKey>nowKey;
-        });
-    };
+    // 精确时钟解析、同日粗粒度放行与人物分钟级保护已迁移至 WorldTimePolicy + WorldTimelinePolicy。
 
     // 因果偏移软归一化与世界尺度过滤已迁移至 WorldCausalService。
 
     // 时间一致性纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // 请求 manifest / system 装饰已迁移至 WorldIntegrityRequestFeature + WorldPromptRegistry。
-    // 世界时间段别名兼容：自然语言同义词先归一化，再交给统一时间比较器。
-    // 只处理明确属于同一日内时段的别名；“午夜”等跨日语义不在这里猜测。
-    const WORLD_DAYPART_ALIASES=Object.freeze({
-        '清早':'清晨',
-        '早上':'早晨',
-        '黄昏':'傍晚',
-        '夜晚':'晚上',
-        '夜间':'晚上',
-        '夜里':'晚上',
-        '晚间':'晚上'
-    });
-    function normalizeWorldDaypartAlias(value) {
-        let source=String(value||'');
-        for(const [alias,canonical] of Object.entries(WORLD_DAYPART_ALIASES))source=source.replaceAll(alias,canonical);
-        return source;
-    }
-    const worldDateKeyBeforeDaypartAliases=worldDateKey;
-    worldDateKey=function(value) {
-        return worldDateKeyBeforeDaypartAliases(normalizeWorldDaypartAlias(value));
-    };
     // 世界时间单一所有权：世界推进 AI 负责初始化/推进世界.时间；变量 AI 的写入在事件层被回滚。
     const WORLD_TIME_RULES=`【世界时间所有权】
 1. 世界.时间由世界推进独占维护。顶层“时间”只用于初始化或实际推进当前世界时钟；人物更新时间、事件计划时间不能代替世界时钟。
@@ -8586,10 +8566,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ACTIVE_WORLD_STATE_PROJECTOR=this.stateProjector;
             this.patchPolicy=new WorldPatchPolicy();
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
-            this.timelinePolicy=new WorldTimelinePolicy();
+            this.timePolicy=new WorldTimePolicy();
+            ACTIVE_WORLD_TIME_POLICY=this.timePolicy;
+            this.timelinePolicy=new WorldTimelinePolicy(this.timePolicy);
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.chronologyPolicy=new WorldChronologyPolicy();
-            this.timePolicy=new WorldTimePolicy();
             this.lifecycle=new WorldLifecycleService();
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
             this.people=new WorldPersonActivityService(engine,this.timePolicy);

@@ -484,3 +484,14 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 - 旧版 `NPC_BUILD_AUDIT_RULES` 仅用于历史预设迁移与默认兼容，现已迁入 `src/WorldEngine/prompts/WorldPromptDefaults.part.js`；当前实际审计提示仍以 `NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT` 为准并由 Prompt Registry 可编辑。
 
 下一批评估 `10-world-state.part.js`：把剩余 RECORDS / DETAILS / NPC_AUDIT_LEVELS 与名称/location helper 迁入 src 后尝试整文件删除。随后再集中处理最后的大壳 `40-engine-runtime` / `50-engine-ui`。
+
+
+### Phase 46 · 删除 10 号状态兼容槽
+
+已完成：`script/world-engine-src/10-world-state.part.js` 整文件删除。它在前序类化后只剩共享记录字典与名称/location helper，本阶段将这些基础职责收进 `src/WorldEngine/domains/WorldStateModel.part.js`。
+
+- `WorldRecordCatalog` 拥有 `RECORDS / DETAILS / MODEL_RECORDS / MODEL_DETAILS` 与 NPC 审计级别集合；模型视图继续剔除人物的承诺、待决事项、关系变化，保持原 WorldResult 语义。
+- `WorldEntityIdentityPolicy` 拥有名称归一、稳定实体名匹配与地点包含关系。
+- 原 `RECORDS / DETAILS / MODEL_* / NPC_AUDIT_LEVELS / nameKey / stableNameIn / worldLocationRelated` 名称保留为 src 内兼容 seam，现有领域类和外部测试无需绑定 legacy 文件。
+
+构建器、自动构建 workflow、历史 patch 工具与架构/生命周期/校验测试不再读取或 fallback 到 10 号文件。至此 legacy 顶层只剩 foundation、runtime、UI、bootstrap 与共享样式；下一阶段转向 `40-engine-runtime.part.js`，按“配置/Application Shell → src service/controller，旧文件只删不长”的原则继续。

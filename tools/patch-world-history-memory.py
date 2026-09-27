@@ -63,7 +63,6 @@ remove_once(
 replace_once_any(
     [
         'src/WorldEngine/domains/WorldLifecycleService.part.js',
-        'script/world-engine-src/10-world-state.part.js',
     ],
     """        const historyKeys=Object.keys(state.历史||{});
         if(historyKeys.length>HISTORY_TARGET)for(const key of historyKeys.slice(0,historyKeys.length-HISTORY_TARGET))delete state.历史[key];
@@ -76,7 +75,6 @@ replace_once_any(
 replace_once_any(
     [
         'src/WorldEngine/domains/WorldStateFactory.part.js',
-        'script/world-engine-src/10-world-state.part.js',
     ],
     "return { 版本:4, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };",
     "return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };",
@@ -86,7 +84,6 @@ replace_once_any(
 replace_once_any(
     [
         'src/WorldEngine/domains/WorldStateNormalizer.part.js',
-        'script/world-engine-src/10-world-state.part.js',
     ],
     """        state.版本=Math.max(4,Number(state.版本)||0);
         for(const category of Object.keys(RECORDS)){""",

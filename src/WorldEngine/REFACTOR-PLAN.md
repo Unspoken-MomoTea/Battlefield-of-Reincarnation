@@ -118,7 +118,7 @@ Phase 3 第一批又移除了 API 预设、因果概览、NPC 审计默认提示
 
 已新增 `WorldResultMaterializer`，接管 WorldResult 到 MVU patch 的编译、关系组件与资产物化、patch 应用、基础状态校验及最终世界更新 materialize。原 Kernel 只保留阶段分片/重试诊断和少量兼容编排，体积继续从约45KB降到约18KB。
 
-为兼容仍会动态装饰校验器的旧 feature，对外继续保留 `compileWorldResult / validateState / applyPatches / materializeWorldUpdate` 函数 seam；其中 Materializer 内部应用 patch 后仍调用全局 `validateState`，保证 policy/rumor 的包装链不会被类化绕过。
+对外继续保留 `compileWorldResult / validateState / applyPatches / materializeWorldUpdate` 函数 seam 作为兼容 API；动态校验 decorator 已全部清零，因此 Materializer 内部不得再反向调用全局 `validateState`，统一通过自身组合的 `stateIntegrity` 完成持久状态校验。
 
 `WorldEngineServiceContainer` 现在显式组合 `resultContract / resultNormalizer / resultMaterializer / compiler`，并把 container-owned Materializer 绑定为全局兼容 seam 的底层实现。由于任务、时间、完整性、异端等旧 feature 仍会包装 `compileWorldResult`，Compiler 的 `compile()` 暂时继续经过这个可装饰 seam；`materialize()` 已直接使用同一 Materializer。等这些 compile decorator 完成类化后再移除兼容路由。下一步继续拆 Kernel 中的 staged acceptance / retry diagnostics / reply parser。
 

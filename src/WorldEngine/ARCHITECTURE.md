@@ -415,3 +415,10 @@ Prompt configuration is split along existing domain/UI boundaries instead of add
 `WorldEngineConfigService` owns the public configured/available/effective-enabled state and the `setEnabled` transition in addition to config initialization and persistence. Disabling still cancels work and closes the panel through engine seams; enabling the normal terminal path still requests terminal API activation.
 
 The application shell retains only `isConfigured / isAvailable / isEnabled / setEnabled` facade methods. Run cancellation and scheduling remain separate runtime concerns.
+
+
+## Phase 54 · Base run scheduler
+
+`WorldRunScheduler` owns the base cancellation and fallback scheduling mechanics: generation invalidation, pending reset, timer cancellation, AbortController interruption and the 900ms fallback run delay. `SamsaraWorldEngine.cancel / schedule` are facade-only.
+
+Automatic progression remains owned by `WorldAutoProgressController`, whose ClassBridge override keeps precedence over the base scheduler. The service container also constructs `WorldTimelinePolicy` before `WorldSoftMaintenancePolicy`, so soft maintenance and validation share the same timeline policy instance.

@@ -1,13 +1,50 @@
     class WorldMutationService {
         constructor(engine){this.engine=engine;}
         snapshot(){return this.engine.snapshot();}
+        backend(stat){
+            const backend=stat?.世界?.[PATH];
+            if(!plain(backend))throw new Error('世界后台不存在');
+            return backend;
+        }
+        textList(value){
+            if(Array.isArray(value))return [...new Set(value.map(item=>String(item||'').trim()).filter(Boolean))];
+            return [...new Set(String(value||'').split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
+        }
+        jsonList(value,label='列表'){
+            if(Array.isArray(value))return copy(value);
+            const raw=String(value||'').trim();
+            if(!raw)return [];
+            let parsed;
+            try{parsed=JSON.parse(raw);}catch(_){throw new Error(label+'必须是合法 JSON 数组');}
+            if(!Array.isArray(parsed))throw new Error(label+'必须是 JSON 数组');
+            return parsed;
+        }
+        pathConflict(left,right){
+            if(!Array.isArray(left)||!Array.isArray(right))return false;
+            const limit=Math.min(left.length,right.length);
+            for(let index=0;index<limit;index++)if(String(left[index])!==String(right[index]))return false;
+            return true;
+        }
+        mergeReplay(raw,fingerprint,beforeStat,afterStat){
+            const replay=raw?.__samsaraWorldReplay;
+            if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return false;
+            const engine=this.engine;
+            if(!engine||typeof engine.buildWorldReplayPackage!=='function')return false;
+            const delta=engine.buildWorldReplayPackage(beforeStat,afterStat,fingerprint);
+            if(!plain(delta)||!Array.isArray(delta.operations)||!delta.operations.length)return false;
+            for(const incoming of delta.operations){
+                replay.operations=replay.operations.filter(existing=>!this.pathConflict(existing?.path,incoming?.path));
+                replay.operations.push(copy(incoming));
+            }
+            return true;
+        }
         async commit(mutator,status){
             if(typeof mutator!=='function')return false;
             const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
-            worldEditorBackend(stat);
+            this.backend(stat);
             const outcome=mutator(stat);
             if(!outcome)return false;
-            worldEditorMergeReplay(next,snapshot.fingerprint,snapshot.stat,stat,engine);
+            this.mergeReplay(next,snapshot.fingerprint,snapshot.stat,stat);
             const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
             if(target)target.__samsaraUIMutation=true;
             try{

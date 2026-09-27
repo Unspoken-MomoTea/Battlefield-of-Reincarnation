@@ -60,8 +60,12 @@ const retryGuidanceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domain
 const promptDefaultsSource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldPromptDefaults.part.js'),'utf8');
 const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
 const resultMaterializerSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
-const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
 const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js')),false,'legacy context-protocol slot must be deleted');
+assert.match(stateProjectorSource,/let\s+ACTIVE_WORLD_STATE_PROJECTOR\s*=\s*DEFAULT_WORLD_STATE_PROJECTOR/,'active state projector seam must live with the canonical projector');
+assert.match(stateProjectorSource,/function\s+requireWorldStateProjector\s*\(\)/,'state projector src module must own its compatibility resolver');
+assert.match(stateProjectorSource,/function\s+projectWorldContext\s*\(stat\)\{return requireWorldStateProjector\(\)\.baseWorld\(stat\);\}/,'public projectWorldContext seam must live in the src projector module');
+assert.match(promptDefaultsSource,/const\s+NPC_BUILD_AUDIT_RULES\s*=/,'legacy NPC audit prompt migration default must live under src prompts');
 const historyMemoryPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js'),'utf8');
 const historyServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldHistoryService.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
@@ -85,8 +89,6 @@ assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-world-inte
 assert.match(timelinePolicySource,/constructor\(timePolicy=DEFAULT_WORLD_TIME_POLICY\)/,'timeline policy must explicitly compose the canonical time policy');
 assert.match(timelinePolicySource,/\bimportStory\s*\(stat\)/,'timeline policy must own legacy story seeding');
 assert.match(timelinePolicySource,/function\s+importStory\s*\(stat\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.importStory\(stat\);\}/,'public importStory seam must remain compatible');
-assert.doesNotMatch(contextProtocolSource,/function\s+sameWorldTimeAnchor\s*\(/,'time-anchor comparison implementation must leave 30-context-protocol');
-assert.doesNotMatch(contextProtocolSource,/function\s+protocol\s*\(/,'output protocol implementation must leave 30-context-protocol');
 assert.match(historyServiceSource,/\bproject\s*\(stat\)/,'history service must expose world-history projection');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-history-memory.part.js')),false,'legacy history memory module must be deleted after algorithm migration');
 for(const method of ['leafKey','leafEntries','collectedIds','invalidateAncestors','rootsAtLevel','batchForLevel','nextKey','parseReply','prompt','project','digest'])assert.match(historyMemoryPolicySource,new RegExp('\\b'+method+'\\s*\\('),'history memory policy must own '+method);
@@ -103,12 +105,8 @@ assert.match(resultMaterializerSource,/事件前因不存在：'\+name\+' <- '/,
 assert.match(resultContractSource,/\binstruction\s*\(\)/,'result contract must own editable output protocol instruction');
 assert.match(resultContractSource,/\bprotocol\s*\(\)/,'result contract must own canonical schema protocol assembly');
 assert.match(resultContractSource,/function\s+protocol\s*\(\)\s*\{return WORLD_RESULT_CONTRACT\.protocol\(\);\}/,'public protocol seam must remain compatible');
-assert.doesNotMatch(contextProtocolSource,/const projectedBackend=\{/,'30-context-protocol must not retain world projection implementation');
-assert.match(contextProtocolSource,/function projectWorldContext\(stat\)\{return requireWorldStateProjector\(\)\.baseWorld\(stat\);\}/,'early projectWorldContext seam must forward to active projector');
-assert.doesNotMatch(contextProtocolSource,/function\s+activation\s*\(/,'worldbook activation implementation must leave 30-context-protocol');
 assert.match(knowledgeServiceSource,/\bactivation\s*\(entry,scan,force\)/,'knowledge service must own worldbook activation policy');
 assert.match(knowledgeServiceSource,/this\.activation\(e,scan,engine\.config\.activationMode==='force_selected'\)/,'worldbook reads must use the service-owned activation policy');
-for(const legacyName of ['projectAuditComponentMap','projectCharacterForAudit','npcBuildText','npcBuildAssessment','npcBuildAudit','ensureNpcBuildAuditProgress'])assert.doesNotMatch(contextProtocolSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 30-context-protocol');
 for(const method of ['projectComponentMap','projectCharacter','buildText','inferNarrativeLevel','narrativeLevel','assessment','audit','normalizeNewEquipment','ensureProgress'])assert.match(npcAuditServiceSource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit service must own '+method);
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/55-npc-narrative-audit.part.js')),false,'legacy NPC audit prompt shell must be deleted');
 assert.match(promptDefaultsSource,/const\s+NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT\s*=/,'NPC audit editable prompt default must live under src/WorldEngine/prompts');

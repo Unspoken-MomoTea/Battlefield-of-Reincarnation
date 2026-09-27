@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / 'script' / '世界推进系统.js'
 PARTS = (
     '@src/WorldEngine/core/WorldEngineFoundation.part.js',
+    '@src/WorldEngine/domains/WorldTokenTelemetry.part.js',
     '@src/WorldEngine/domains/WorldProseExtractor.part.js',
     '@src/WorldEngine/prompts/WorldBasePromptDefaults.part.js',
     '@src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js',

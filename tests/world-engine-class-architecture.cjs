@@ -134,6 +134,7 @@ for(const method of ['clampImpact','offsetText','softNormalizeOffsets','hasWorld
 assert.doesNotMatch(integrityLegacySource,/delete\s+OFFSET_RESULT_SCHEMA\.properties\.影响程度|function\s+softNormalizeCausalOffsets|compileWorldResult\s*=\s*function/,'integrity legacy file must not re-own causal schema or compile policy');
 const personDomainSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPersonActivityService.part.js'),'utf8');
 const taskAwarenessServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTaskAwarenessService.part.js'),'utf8');
+const rumorServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRumorService.part.js'),'utf8');
 const taskAwarenessLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/57-task-awareness.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-alien-activity-normalization.part.js')),false,'alien compile wrapper file must be removed after service migration');
 for(const legacyName of ['derivePersonWorldContext','projectHotWorldPeople','alienRosterMatch','activeAlienActivityRequirements','seedMissingAlienPeople','ensureActiveAlienActivity']){
@@ -147,10 +148,14 @@ for(const method of ['unset','identity','claimsMonthDay','assertCalendarCompatib
 }
 assert.doesNotMatch(worldTimeLegacySource,/(?:normalizeWorldResult|mergeWorldResults|worldResultFragments|allowed|compileWorldResult)\s*=\s*function|function\s+(?:worldTimeUnset|resolveWorldTimeProposal|assertCalendarCompatibleWorldResultTimes)/,'world time legacy prompt file must not re-own result or compile policy');
 assert.match(retryGuidanceSource,/class\s+WorldRetryGuidanceService\b/,'retry guidance must live behind a dedicated domain service');
-for(const file of ['56-rumor-liveliness.part.js','59-world-integrity-guard.part.js']){
-  const source=fs.readFileSync(path.join(root,'script/world-engine-src',file),'utf8');
-  assert.doesNotMatch(source,/retryPlanForFailure\s*=\s*function/,'legacy module must not monkey-patch retryPlanForFailure: '+file);
+for(const file of ['56-rumor-liveliness.part.js','59-rumor-throttle.part.js','59-rumor-world-source.part.js','59-rumor-world-request.part.js','59-rumor-world-system.part.js']){
+  assert.equal(fs.existsSync(path.join(root,'script/world-engine-src',file)),false,'legacy rumor module must be deleted after service migration: '+file);
 }
+const integritySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
+assert.doesNotMatch(integritySource,/retryPlanForFailure\s*=\s*function/,'integrity legacy module must not monkey-patch retryPlanForFailure');
+for(const promptName of ['RUMOR_LIVELINESS_RULES','RUMOR_THROTTLE_RULES','RUMOR_WORLD_SOURCE_RULES'])assert.match(rumorServiceSource,new RegExp('const\\s+'+promptName+'\\s*='),'rumor service must own '+promptName);
+assert.match(rumorServiceSource,/\bupgradePreset\s*\(value\)/,'rumor service must own preset migration');
+
 for(const method of ['projectList','validateReferences'])assert.match(taskAwarenessServiceSource,new RegExp('\\b'+method+'\\s*\\('),'task awareness service must own '+method);
 assert.doesNotMatch(taskAwarenessLegacySource,/function\s+projectTaskListForWorld|projectWorldContext\s*=\s*function|compileWorldResult\s*=\s*function/,'57-task-awareness must not re-own projection or compile validation');
 

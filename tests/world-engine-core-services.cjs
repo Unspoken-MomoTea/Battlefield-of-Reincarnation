@@ -43,7 +43,7 @@ assert.ok(compiled.patches.some(p=>String(p.path).includes('/事件/巡逻升级
 const built=engine.services.compiler.materialize(stat,[],compiled.patches);
 assert.equal(built.next.世界.后台.事件.巡逻升级.描述,'北门巡逻升级');
 
-const runtime=fs.readFileSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js'),'utf8');
+const runtime=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
 const orchestrator=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRunOrchestrator.part.js'),'utf8');
 const compiler=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultCompiler.part.js'),'utf8');
 const normalizer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultNormalizer.part.js'),'utf8');

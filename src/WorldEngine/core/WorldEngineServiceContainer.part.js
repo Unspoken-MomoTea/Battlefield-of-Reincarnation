@@ -15,6 +15,8 @@
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
             this.people=new WorldPersonActivityService(engine);
             ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE=this.people;
+            this.npcAudit=new WorldNpcAuditService();
+            ACTIVE_WORLD_NPC_AUDIT_SERVICE=this.npcAudit;
             this.stateNormalizer=new WorldStateNormalizer();
             ACTIVE_WORLD_STATE_NORMALIZER=this.stateNormalizer;
             this.causal=new WorldCausalService(engine);
@@ -23,7 +25,7 @@
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -32,7 +34,7 @@
             this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging,this.patchPolicy);
             this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy);
             ACTIVE_WORLD_VALIDATION_POLICY=this.validationPolicy;
-            this.validation=new WorldValidationService(engine,this.validationPolicy);
+            this.validation=new WorldValidationService(engine,this.validationPolicy,this.npcAudit);
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);

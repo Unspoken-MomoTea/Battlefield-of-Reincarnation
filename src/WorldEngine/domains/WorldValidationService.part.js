@@ -1,5 +1,5 @@
     class WorldValidationService {
-        constructor(engine,policy){this.engine=engine;this.policy=policy||new WorldValidationPolicy();}
+        constructor(engine,policy,npcAudit){this.engine=engine;this.policy=policy||new WorldValidationPolicy();this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;}
         validate(next,request,acceptedWorldResult,baseStat,options={}){
             const base=baseStat||{};
             // Transitional compatibility: legacy runtime features still decorate these global seams.
@@ -9,7 +9,7 @@
             ensureStaleActiveHandled(next,request?.staleActive||[],base?.世界?.时间);
             ensureTemporalAnomaliesResolved(next,request?.timeAnomalies||[]);
             ensureActiveAlienActivity(next,request?.alienActivity||[],acceptedWorldResult,base?.世界?.时间);
-            if(options.includeNpcAudit!==false&&Array.isArray(request?.npcAudit))ensureNpcBuildAuditProgress(next,request.npcAudit,acceptedWorldResult);
+            if(options.includeNpcAudit!==false&&Array.isArray(request?.npcAudit))this.npcAudit.ensureProgress(next,request.npcAudit,acceptedWorldResult);
             ensureMacroBackbone(next,request?.timeline||{},this.engine.config.requireMacroBackbone!==false);
             return true;
         }

@@ -584,3 +584,18 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 - `WorldPanelRenderer` 接管状态栏主题读取与 panel tone 同步；PanelController / Renderer 继续通过公开 `statusTone / syncStatusTone` seam 工作。
 
 迁移后 `SamsaraWorldEngine.part.js` 从约 8.4KB 降到约 6.1KB。shell 不再持有 worldbook 排除算法、toast 失败通知、检查面板状态清理或主题 localStorage 读取。
+
+
+### Phase 56 · Legacy source tree 归零
+
+已完成迁移设计：最后三个迁移期 source part 进入专属源码树：
+
+- `00-foundation-prompt.part.js` → `src/WorldEngine/core/WorldEngineFoundation.part.js`
+- `ui/00-styles.part.js` → `src/WorldEngine/ui/WorldEngineStyles.part.js`
+- `60-bootstrap.part.js` → `src/WorldEngine/core/WorldEngineBootstrap.part.js`
+
+本阶段只做零行为的物理归位与构建路径切换，不同时重写 foundation 内容。构建器现在要求每个 `PARTS` 项都来自 `@src/WorldEngine/...`；`tests/world-engine-modules.cjs` 同时锁定不得重新出现 legacy part 或 `script/world-engine-src` 目录。
+
+patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动同步路径全部改读新的 src foundation。酒馆交付仍只有 `script/世界推进系统.js`，CommonJS 导出与浏览器 bootstrap 行为保持不变。
+
+后续 Phase 57 才继续把 `WorldEngineFoundation` 内仍混合的基础设施按职责拆分；禁止为了“类化”给纯常量/CSS/bootstrap 机械套空 class。

@@ -659,3 +659,12 @@ patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动
 已完成：新增 `WorldRelationSyncPolicy`，从 `WorldResultMaterializer` 中抽出正式人物同步的完整规则：基础类型、品质与原始属性校验，职业/技能/血统/装备/状态/形态库完整对象校验，HP/EP/好感度边界、当前形态结构、派生 `真属性` 清空、组件增量合并，以及组件数量上限。
 
 `WorldResultMaterializer` 现在只负责确定目标人物、审计字段权限和生成 patch；编译与 applyPatches 两条路径都委托 container-owned `relationSync` 做同一份合法性判断。正式人物数据契约不再与资产、事件、因果等结果物化逻辑混在一个大类中。
+
+
+### Phase 65 · 资产物化规则独立
+
+已完成：新增 `WorldAssetMaterializationPolicy`，从 `WorldResultMaterializer` 抽出共享资产账簿的完整物化规则：正式资产类型边界、明显道具名拦截、所属对象数组规范化、新资产必填归属/类型、能源局部合并、消耗单元与建设序列按名增量合并、模型不可见收菜调度字段保留、驻扎人员增删以及待办事件替换。
+
+`WORLD_ASSET_TYPES / WORLD_ASSET_TYPE_SET / ITEMLIKE_ASSET_NAME` 与四组资产默认模板也从 ResultKernel/Materializer 迁入该 policy；`WorldResultContract` 继续消费同一个 `WORLD_ASSET_TYPES` 生成 Schema，因此“Schema 允许什么”和“程序实际接受什么”仍来自同一份资产类型定义。
+
+`WorldResultMaterializer` 现在只负责资产目标解析、删除保护、移除/新增/replace patch 编排；新增资产校验与记录合并都委托 container-owned `assetMaterialization`。现有 `world-engine-asset-writeback.cjs` 继续作为公开行为 seam。

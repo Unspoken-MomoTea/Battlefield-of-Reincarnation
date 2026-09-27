@@ -18,6 +18,7 @@
 src/WorldEngine/
   core/
     WorldEngineServiceContainer
+    WorldEngineLifecycleController
     WorldEngineFeatureRegistry
   domains/
     WorldStateModel
@@ -393,3 +394,10 @@ The panel mount contract is explicit again: `#sam-world-engine-host` owns an ope
 `WorldPanelRenderer` owns shared render orchestration around the already-independent business View classes: snapshot/state preparation, navigation, common formatting helpers, calendar/person/event context assembly, View Registry dispatch, run-button state, and jump finalization.
 
 The public `SamsaraWorldEngine.render(force)` method is now a facade seam. The ClassBridge still wraps that seam with feature hooks, prompt-workspace synchronization, and editor post-render behavior. The application shell must not directly render business Views or rebuild navigation.
+
+
+## Phase 51 · Application lifecycle
+
+`WorldEngineLifecycleController` owns host lifecycle integration: MVU/tavern subscriptions, context-switch cleanup, Escape handling, panel open/close/toggle, terminal suspend/restore, and final disposal of subscriptions and DOM mounts.
+
+The public `SamsaraWorldEngine.init / isOpen / open / close / toggle / dispose` methods are compatibility facade seams only. Run scheduling and cancellation intentionally remain outside this controller so application lifecycle does not absorb auto-progress or run-orchestration responsibilities.

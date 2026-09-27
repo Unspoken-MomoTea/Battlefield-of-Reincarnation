@@ -1,3 +1,9 @@
+    const WORLD_REPLAY_VERSION=1;
+    const WORLD_REPLAY_SCOPES=[
+        ['世界','时间'],['世界','货币'],['世界','历法'],['世界',PATH],['世界','因果轨道'],['世界','势力'],['世界','探索'],
+        ['世界','异端雷达','名单'],['世界','稳定'],['传闻'],['资产'],['关系列表']
+    ];
+
     class WorldReplayService {
         constructor(engine){this.engine=engine;}
         initialize(){

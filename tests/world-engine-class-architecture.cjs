@@ -12,6 +12,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldPatchPolicy.part.js',
   'src/WorldEngine/domains/WorldTimelinePolicy.part.js',
   'src/WorldEngine/domains/WorldChronologyPolicy.part.js',
+  'src/WorldEngine/domains/WorldTimePolicy.part.js',
   'src/WorldEngine/domains/WorldLifecycleService.part.js',
   'src/WorldEngine/domains/WorldStateNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultKernel.part.js',
@@ -43,6 +44,8 @@ const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/
 const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateFactory.part.js'),'utf8');
 const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
 const chronologyPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldChronologyPolicy.part.js'),'utf8');
+const worldTimePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimePolicy.part.js'),'utf8');
+const worldTimeLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-time-ownership.part.js'),'utf8');
 const chronologyLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/58-chronology-guard.part.js'),'utf8');
 const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
 const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
@@ -103,6 +106,10 @@ for(const legacyName of ['derivePersonWorldContext','projectHotWorldPeople','ali
 for(const method of ['deriveContext','projectHot','alienRosterMatch','alienActivityReviewReasons','activeAlienRequirements','seedMissingAlienPeople','ensureActiveAlienActivity','normalizeAlienActivityTimestamps']){
   assert.match(personDomainSource,new RegExp('\\b'+method+'\\s*\\('),'person activity domain must own '+method);
 }
+for(const method of ['unset','identity','claimsMonthDay','assertCalendarCompatibleWorldResultTimes','inferFromCurrentActivities','resolveProposal','assertNotBackwards','prepareCompile','finalizeCompile']){
+  assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
+}
+assert.doesNotMatch(worldTimeLegacySource,/(?:normalizeWorldResult|mergeWorldResults|worldResultFragments|allowed|compileWorldResult)\s*=\s*function|function\s+(?:worldTimeUnset|resolveWorldTimeProposal|assertCalendarCompatibleWorldResultTimes)/,'world time legacy prompt file must not re-own result or compile policy');
 for(const method of ['projectList','validateReferences'])assert.match(taskAwarenessServiceSource,new RegExp('\\b'+method+'\\s*\\('),'task awareness service must own '+method);
 assert.doesNotMatch(taskAwarenessLegacySource,/function\s+projectTaskListForWorld|projectWorldContext\s*=\s*function|compileWorldResult\s*=\s*function/,'57-task-awareness must not re-own projection or compile validation');
 
@@ -137,7 +144,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateFactory','taskLedger','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['stateFactory','taskLedger','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -148,6 +155,7 @@ assert.equal(engine.services.stateProjector.taskLedger,engine.services.taskLedge
 assert.equal(engine.services.patchPolicy.constructor.name,'WorldPatchPolicy');
 assert.equal(engine.services.timelinePolicy.constructor.name,'WorldTimelinePolicy');
 assert.equal(engine.services.chronologyPolicy.constructor.name,'WorldChronologyPolicy');
+assert.equal(engine.services.timePolicy.constructor.name,'WorldTimePolicy');
 assert.equal(engine.services.lifecycle.constructor.name,'WorldLifecycleService');
 assert.equal(engine.services.stateNormalizer.constructor.name,'WorldStateNormalizer');
 assert.equal(engine.services.resultContract.constructor.name,'WorldResultContract');
@@ -160,6 +168,7 @@ assert.equal(engine.services.resultMaterializer.npcAudit,engine.services.npcAudi
 assert.equal(engine.services.resultMaterializer.people,engine.services.people,'materializer must compose the container-owned person activity service for canonical compile preprocessing');
 assert.equal(engine.services.resultMaterializer.taskLedger,engine.services.taskLedger,'materializer must compose the container-owned task ledger service');
 assert.equal(engine.services.resultMaterializer.chronology,engine.services.chronologyPolicy,'materializer must compose the container-owned chronology policy');
+assert.equal(engine.services.resultMaterializer.timePolicy,engine.services.timePolicy,'materializer must compose the container-owned world time policy');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.resultStaging.constructor.name,'WorldResultStagingService');
 assert.equal(engine.services.resultStaging.chronology,engine.services.chronologyPolicy,'staging must compose the container-owned chronology policy');
@@ -178,6 +187,7 @@ assert.equal(engine.services.commit.constructor.name,'WorldCommitService');
 assert.equal(engine.services.mutations.constructor.name,'WorldMutationService');
 assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');
+assert.equal(engine.services.people.timePolicy,engine.services.timePolicy,'person activity must share the canonical world time policy');
 assert.equal(engine.services.npcAudit.constructor.name,'WorldNpcAuditService');
 assert.equal(engine.services.causal.constructor.name,'WorldCausalService');
 assert.equal(engine.services.causal.patchPolicy,engine.services.patchPolicy,'causal service must compose the container-owned patch policy');
@@ -185,6 +195,7 @@ assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
 assert.equal(engine.services.taskAwareness.taskLedger,engine.services.taskLedger,'task request feature must share the canonical task ledger service');
 assert.equal(engine.services.chronology.policy,engine.services.chronologyPolicy,'chronology request feature must share the canonical chronology policy');
+assert.equal(engine.services.timeOwnership.policy,engine.services.timePolicy,'time ownership feature must share the canonical world time policy');
 assert.equal(engine.services.requests.constructor.name,'WorldRequestService');
 assert.equal(engine.services.requests.retryableModelFailure(new Error('业务校验失败')),true,'model/business failures remain retryable');
 assert.equal(engine.services.requests.retryableModelFailure(new Error('请求已取消')),false,'cancellation must never be retried');

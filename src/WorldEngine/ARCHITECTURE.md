@@ -549,3 +549,10 @@ The catalog is loaded immediately after `WorldEngineFoundation`, preserving the 
 `core/WorldEngineRuntimeConstants.part.js` owns cross-cutting runtime configuration constants: storage key, backend path key, event/history/person hot-set capacities, retention windows and terminal person-status matcher.
 
 `WorldEngineFoundation.part.js` is now only the IIFE boundary plus generic shared helpers. Runtime policy values must not be reintroduced into the foundation.
+
+
+## Phase 74 · Pure foundation boundary
+
+`WorldEngineFoundation.part.js` is now only the opening IIFE boundary. Generic shared helpers live in `core/WorldSharedUtilities.part.js`, loaded immediately after the foundation and before runtime constants or domain consumers.
+
+The foundation is intentionally not a service class: it defines the single-file lexical scope only. No helper, policy, prompt, UI data or runtime behavior should be added back into it.

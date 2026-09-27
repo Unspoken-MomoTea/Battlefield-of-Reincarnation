@@ -1,5 +1,21 @@
     class WorldRunOrchestrator {
         constructor(engine){this.engine=engine;}
+        resetInspection(){
+            const e=this.engine;
+            e.lastRequest=null;e.previewRequest=null;e.lastReply='';e.lastFailure='';
+            e.lastRetryLog=[];e.lastAttemptCount=0;e.lastAttemptTelemetry=[];e.lastTransportInfo=null;e.lastWorldResult=null;e.lastCompiledPatches=[];e.lastCompileWarnings=[];
+        }
+        notifyFailure(message){
+            const e=this.engine,raw=String(message||'世界推进失败').trim();
+            if(!raw||/^(?:请求已取消|上下文已经切换|已切换上下文)/.test(raw))return false;
+            const shown=raw.length>900?raw.slice(0,897)+'…':raw;
+            const toast=(e.host&&e.host.toastr)||(e.env&&e.env.toastr)||(e.host&&e.host.parent&&e.host.parent.toastr);
+            if(toast&&typeof toast.error==='function'){
+                try{toast.error(shown,'世界推进失败');return true;}catch(_){}
+            }
+            try{console.error('[世界推进] '+shown);}catch(_){}
+            return false;
+        }
         async execute(options={}) {
             const engine=this.engine;
             return await (async function() {

@@ -311,3 +311,10 @@ The legacy `59-due-event-relaxation.part.js` module has been deleted; no runtime
 Event predecessor validation is now part of the canonical `WorldResultMaterializer.validateBaseState()` contract. Self references are rejected explicitly, missing predecessor names are reported with actionable details, and graph cycles remain validated in the same materializer state-validation pass.
 
 The legacy `55-policy-compat.part.js` module has been deleted. No runtime reassignment of `validateState` is used for predecessor validation.
+
+
+## Phase 39 · World activity policy
+
+`WorldActivityPolicy` owns the canonical non-alien world-activity contract: semantic baselines, scene/faction/event bootstrap counts, meaningful-change detection and final delivery validation. `WorldActivityRequestFeature` and `WorldValidationPolicy` share the same container-owned policy instance.
+
+The macro-backbone requirement remains independently configurable, but world-activity delivery is always validated after the optional macro check. The legacy `59-world-activity-delivery.part.js` module has been deleted. Its system prompt default moved with the policy into `src/WorldEngine` and remains editable through `WorldPromptRegistry`.

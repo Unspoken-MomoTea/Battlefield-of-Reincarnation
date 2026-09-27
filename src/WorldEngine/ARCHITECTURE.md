@@ -482,3 +482,8 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 ## Phase 62 · Calendar and time capacity
 
 `WorldTimePolicy` now owns world-time keys, elapsed-capacity classification and calendar-date parsing as one domain. The application Foundation no longer implements `worldDateKey`, `worldTimeCapacity` or `calendarDate`. Existing global names remain compatibility forwards to the active time policy so UI, validation and exported test surfaces preserve behavior without duplicating algorithms.
+
+
+## Phase 63 · Knowledge classification
+
+`WorldKnowledgeSelectionPolicy` now owns both selection identity matching and worldbook classification: technical entries are isolated through `isTechnical()`, while chronology/backbone references are identified through `isTimelineBackbone()`. `WorldKnowledgeService` and `WorldChronologyFeature` compose the same container-owned policy. Foundation no longer carries knowledge-boundary regex algorithms.

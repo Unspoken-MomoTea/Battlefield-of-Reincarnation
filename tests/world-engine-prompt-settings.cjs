@@ -77,6 +77,9 @@ assert.equal(settings.activationMode,'respect_activation');
 assert.deepEqual(settings.selectedEntries,['book-a']);
 
 assert.equal(engine.services.promptDocuments.constructor.name,'WorldPromptDocumentService');
+assert.equal(engine.services.promptIntegration.constructor.name,'WorldPromptIntegrationService');
+assert.equal(engine.services.promptIntegration.registry,engine.services.prompts);
+assert.equal(engine.services.promptIntegration.workspace,engine.promptWorkspace);
 assert.equal(engine.promptWorkspace.constructor.name,'WorldPromptWorkspaceController');
 
 console.log('world-engine prompt settings regression tests passed');

@@ -12,6 +12,7 @@
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
             this.timelinePolicy=new WorldTimelinePolicy();
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
+            this.chronologyPolicy=new WorldChronologyPolicy();
             this.lifecycle=new WorldLifecycleService();
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
             this.people=new WorldPersonActivityService(engine);
@@ -26,9 +27,9 @@
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
-            this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
+            this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
@@ -66,7 +67,7 @@
             this.worldActivityRequest=new WorldActivityRequestFeature(engine);
             this.dueEvent=new WorldDueEventFeature(engine);
             this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger);
-            this.chronology=new WorldChronologyFeature(engine);
+            this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy);
             this.rumorRequest=new WorldRumorRequestFeature(engine);
             // Stateful wrappers are registered first so run composition preserves the former
             // history > replay > auto-progress > policy nesting without inheritance.

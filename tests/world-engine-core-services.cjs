@@ -61,6 +61,7 @@ assert.match(compiler,/this\.normalizer\.normalizeWorldResult\(value\)/,'compile
 assert.match(materializer,/class\s+WorldResultMaterializer\b/,'patch compilation must live behind a dedicated domain class');
 assert.match(compiler,/compile\(stat,value\)\{return compileWorldResult\(stat,value\);\}/,'compiler.compile must preserve the remaining decorated compileWorldResult seam');
 assert.match(materializer,/this\.people\.normalizeAlienActivityTimestamps\(stat,value\)/,'canonical materializer compile must preprocess alien activity so direct and class-based compile paths agree');
+assert.match(materializer,/this\.taskLedger\.validateReferences\(stat,result\)/,'canonical materializer compile must validate task references through the task ledger service');
 assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatches,modelPatches\)/,'compiler.materialize must delegate to the materializer class');
 assert.match(staging,/class\s+WorldResultStagingService\b/,'staged result acceptance must live behind a dedicated domain service');
 assert.match(parser,/class\s+WorldResultReplyParser\b/,'reply parsing must live behind a dedicated domain service');

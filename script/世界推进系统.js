@@ -4872,6 +4872,10 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             if (this.mount) this.mount.remove();
         }
     }
+    // Canonical editable prompt defaults and built-in prompt migrations.
+    // Moved from legacy world-engine source parts; behavior intentionally unchanged.
+
+    // ---- migrated from script/world-engine-src/55-npc-narrative-audit.part.js ----
     // NPC 构筑份量与生命层级解耦：份量由人物资料中的剧情定位决定，层级只描述本体强度。
     const NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT=`【角色管理 · NPC构筑审计】
 只处理“角色管理.NPC构筑审计”列出的既有 NPC；目标是补真实缺口，不是提难度、改层级或重做角色。
@@ -4887,6 +4891,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     // 审计新增装备默认状态=1的编译规则已迁移至 WorldNpcAuditService。
 
     // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。
+
+
+    // ---- migrated from script/world-engine-src/57-task-awareness.part.js ----
     // 任务感知层：任务.列表是现有 MVU 的唯一正式任务账簿；世界引擎只读消费，不建立第二套后台任务库。
     const TASK_AWARENESS_RULES=`【任务感知 · 只读】
 任务列表是世界因果来源之一。世界推进不得创建、删除或修改任务，也不得推进任务状态、交付、结算或奖励；任务影响只通过事件、人物行动、势力地区、探索与传播表现。事件可用“关联任务”引用当前任务.列表中已存在的任务名，作为因果来源；禁止引用不存在的任务。
@@ -4896,6 +4903,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS.delete(TASK_WORLD_BOOK_TITLE);
 
     // 任务只读投影与事件关联校验已迁移至 WorldTaskAwarenessService。\n\n    // 请求、世界书目录恢复已迁移至 WorldTaskAwarenessFeature。
+
+
+    // ---- migrated from script/world-engine-src/58-chronology-guard.part.js ----
     // 原著/数据库时间轴保护层：宏观节点先服从权威时间资料，再展开区间细节。
     const CHRONOLOGY_GUARD_RULES=`【原著/数据库时间轴硬约束】
 1. 宏观节点的日期与跨度必须先服从当前已确认事实和明确世界书/数据库中的原著时间资料，再使用模型已有原著知识补足；不得为了推动剧情、制造冲突、维持紧张感或让<user>尽快参与而主动提前关键事件。
@@ -4915,15 +4925,10 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=upgradeChronologyPreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
 
     // 日级时间证据、编译硬校验与纠错动作已迁移至 WorldChronologyPolicy。\n\n    // 时间轴请求装饰与默认预设迁移已迁移至 WorldChronologyFeature。
-    // 自动推进已迁移到 src/WorldEngine/domains/WorldAutoProgressController.part.js。
-    // 保留此兼容分片，避免旧构建/补丁脚本找不到历史模块名。
-    // 自动推进触发重构：正文完成是主入口；变量重处理只恢复已确认结果，不重新调用世界 AI。
-    const WORLD_REPLAY_VERSION=1;
-    const WORLD_REPLAY_SCOPES=[
-        ['世界','时间'],['世界','货币'],['世界','历法'],['世界',PATH],['世界','因果轨道'],['世界','势力'],['世界','探索'],
-        ['世界','异端雷达','名单'],['世界','稳定'],['传闻'],['资产'],['关系列表']
-    ];
-    // 调度与 replay 生命周期由 WorldAutoProgressController / WorldReplayService 组合。\n    // 世界完整性保护：统一精确时钟；因果偏移采用软归一化，不因语义或幅度问题拖死整轮推进。
+
+
+    // ---- migrated from script/world-engine-src/59-world-integrity-guard.part.js ----
+    // 世界完整性保护：统一精确时钟；因果偏移采用软归一化，不因语义或幅度问题拖死整轮推进。
     const WORLD_INTEGRITY_GUARD_RULES=`【因果偏移与时间约束】
 1. 时间校验按字段粒度处理：事件、地区、历史、传播等宏观事实只按“自然日”硬校验；同一自然日内的上午/下午/HH:mm差异不算未来越界，只有跨日未来事实才拒绝。
 2. 人物当前动态仅在“当前世界时间”和“人物更新时间”双方都明确到 HH:mm 时做分钟级先后校验；任一侧只有清晨/上午/下午等粗粒度时，同日视为合法。当前状态仍优先复用世界.时间原文，未来计划放预计结束、下次检查或待发生事件。
@@ -4941,6 +4946,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     // 因果偏移软归一化与世界尺度过滤已迁移至 WorldCausalService。
 
     // 时间一致性纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // 请求 manifest / system 装饰已迁移至 WorldIntegrityRequestFeature + WorldPromptRegistry。
+
+
+    // ---- migrated from script/world-engine-src/59-world-time-ownership.part.js ----
     // 世界时间单一所有权：世界推进 AI 负责初始化/推进世界.时间；变量 AI 的写入在事件层被回滚。
     const WORLD_TIME_RULES=`【世界时间所有权】
 1. 世界.时间由世界推进独占维护。顶层“时间”只用于初始化或实际推进当前世界时钟；人物更新时间、事件计划时间不能代替世界时钟。
@@ -4952,7 +4960,90 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 7. 世界时间不得回退，也不得把待发生事件的计划时间提前写成当前时间。人物/地区等“更新时间”由程序按本轮最终世界时间统一盖章。从主神空间进入新副本时，程序会先清空世界.时间与旧历法；必须把这视为全新世界的时间初始化，严禁继承上一副本或主神空间“轮回历”的日期。`;
 
     // 世界时间结果策略、Schema、编译事务与 replay 范围已迁移至 WorldTimePolicy / canonical services。
-    // 本文件仅保留可编辑的 WORLD_TIME_RULES 提示词常量。\n    // replay 持久化已并入 src/WorldEngine/domains/WorldReplayService.part.js。
+    // 本文件仅保留可编辑的 WORLD_TIME_RULES 提示词常量。\n
+
+    // ---- migrated from script/world-engine-src/59-editable-module-prompts.part.js ----
+    // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
+    const WORLD_MODULE_PROMPT_VERSION=5;
+    const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
+【执行流程】
+1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
+2. 定边界：确认当前阶段、世界时间与下一宏观节点。
+3. 推世界：按可用时间推进事件、地区、人物与势力；世界不会因<user>停下而暂停。
+4. 结算影响：记录<user>已经造成的客观后果，但不替<user>行动。
+5. 做维护：只处理本轮确有变化的传播、经济、历法；因果偏移仅在出现重大世界级长期改变时维护。
+6. 输出差分：只写新增/变化的 WorldResult；无业务变化只写摘要。`;
+    const COMPACT_CORE_WORLD_RULES=`【核心边界】
+- 事实优先级：当前变量/已确认剧情 > 明确世界书 > 常识；计划不是事实。
+- 模型知道≠场外人物知道。人物只能依据在场观察、既有认知或可信传播行动；因<user>新行为改策必须有认知来源。
+- 活跃异端只在活动缺失、复核到期、关联事件/所在地区变化或长期未复核时更新；无触发时沿用既有目标与行动，不得为了刷新而凭空改策。
+- 时间与路程必须可实现；同一人物同一时段只在一处；不替<user>行动，不复述已演出琐事。
+- 资产只记录固定地产、大型载具或要塞；单兵物品不写资产。探索只记录<user>实际到达、调查或可靠获知的区域。
+- 因果偏移只记已实现的主线级长期变化；没有重大世界偏移就完全不写偏移记录。当前事件公开字段只写现实中可感知的信息。
+- 任务结算、奖励、成就、击杀等由对应系统负责。`;
+    const COMPACT_MACRO_PROMPT=`【宏观骨架】
+需要补骨架时保持3~5个滚动阶段节点；先定顺序与时间边界，再填近期细节。未来规划可跨边界，实际推进不可越过下一节点；不要把多个独立阶段硬并成一个节点。`;
+    const COMPACT_STABILITY_PROMPT_TEMPLATE=`【世界自救 · {{阶段}}】
+稳定={{稳定值}}。{{规则}}
+排异必须通过世界内合理因果发生；NPC仍受自身认知与传播链限制。`;
+
+    const WORLD_PROMPT_MODULE_DEFS=Object.freeze([
+        Object.freeze({key:'task',title:'任务只读',source:'TASK_AWARENESS_RULES',legacy:()=>[TASK_AWARENESS_RULES],fallback:`【任务感知 · 只读】
+任务.列表只作世界因果输入；事件可用“关联任务”引用已存在任务。不得创建、删除、改状态、交付或结算任务。情报购买与扣款由MVU处理；成就、击杀、奖励、惩罚不参与世界推进。`}),
+        Object.freeze({key:'chronology',title:'原著 / 数据库时间轴',source:'CHRONOLOGY_GUARD_RULES',legacy:()=>[CHRONOLOGY_GUARD_RULES],fallback:`【原著/数据库时间轴硬约束】
+宏观排期：已确认事实 > 明确世界书/数据库日期 > 常识。明确日期必须沿用；只有已确认且记录的因果偏移可改期。资料只到月份/时段/顺序时保持同级精度。先定“当前时间→下一节点”边界再推进区间细节；3~5个节点只是滚动窗口，不合并独立阶段。`}),
+        Object.freeze({key:'maintenance',title:'分级维护',source:'SOFT_MAINTENANCE_RULES',legacy:()=>[SOFT_MAINTENANCE_RULES],fallback:`【分级验收 · 软维护不拒绝整轮】
+Schema、非法状态、因果引用、明确日期冲突是硬错误；排期补全、传闻补齐、传播复核可跨轮维护。事件有时间、条件或前因任一即可作为锚点。纠错只改被拒片段，不重写已通过内容。`}),
+        Object.freeze({key:'exploration',title:'探索台账',source:'EXPLORATION_PROJECTION_RULES',legacy:()=>[EXPLORATION_PROJECTION_RULES],fallback:`【玩家探索投影硬约束】
+<user>实际到达整体区域时探索度至少10%；远方后台地区不自动记入；离开后保留已有探索。`}),
+        Object.freeze({key:'integrity',title:'因果与事实时间',source:'WORLD_INTEGRITY_GUARD_RULES',legacy:()=>[WORLD_INTEGRITY_GUARD_RULES],fallback:`【因果偏移与时间约束】
+当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移不是每轮必填，只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化；本轮没有这种重大变化时，省略“因果.偏移记录”，不得为了让稳定值变化而硬造记录。位置暴露、敌人警觉、受伤、逃脱、行动/生存难度变化等局部后果不记。计划、风险、能力上限不记；同根因优先更新同一条。稳定值由程序根据有效偏移汇总，模型不得直接修改。`}),
+        Object.freeze({key:'worldTime',title:'世界时间',source:'WORLD_TIME_RULES',legacy:()=>[WORLD_TIME_RULES],fallback:`【世界时间所有权】
+世界.时间由世界推进维护。为空时据已确认资料初始化；没有足够时间流逝跨过当前时段就保持原值，不因每轮推进而机械跳时段。精确到月日使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段只能选：凌晨 / 黎明 / 清晨 / 早晨 / 上午 / 中午 / 午后 / 下午 / 傍晚 / 入夜 / 晚上 / 深夜。只有正文或明确资料表明确实经过合理时长才推进时段/日期；不得回退或把未来计划时间当当前时间。人物/地区更新时间由程序统一盖章。`}),
+        Object.freeze({key:'rumor',title:'传闻与传播',source:'RUMOR_THROTTLE_RULES / RUMOR_WORLD_SOURCE_RULES',legacy:()=>[RUMOR_LIVELINESS_RULES,RUMOR_THROTTLE_RULES,RUMOR_WORLD_SOURCE_RULES],fallback:`【信息传播 · 世界侧事实】
+传闻只来自“世界侧可传播事实”、已有传播链和既有公开传闻；正文不是直接传播源。私密事实必须先形成目击、公开后果、调查、公告或泄露。公开内容不得超过来源/受众认知，传播按时间与空间扩散。无触发保持原样；空分类、传播复核或新公开事实时按需更新，每个触发每类最多1条。普通行动/战斗本身不触发；传闻失败不重跑整轮。购买、扣款与消费性删除由MVU处理。`})
+    ]);
+    function worldModulePromptDefaults(){
+        return Object.fromEntries(WORLD_PROMPT_MODULE_DEFS.map(item=>[item.key,item.fallback]));
+    }
+    function normalizeWorldModulePrompts(value){
+        const source=plain(value)?value:{};
+        const out={};
+        for(const item of WORLD_PROMPT_MODULE_DEFS)out[item.key]=typeof source[item.key]==='string'?source[item.key]:item.fallback;
+        return out;
+    }
+    function stripLegacyWorldModulePrompts(system){
+        let text=String(system||'');
+        for(const item of WORLD_PROMPT_MODULE_DEFS){
+            for(const legacy of item.legacy()){
+                const block=String(legacy||'');
+                if(block)text=text.split(block).join('');
+            }
+        }
+        return text.replace(/\n{3,}/g,'\n\n').trim();
+    }
+    function appendConfiguredWorldModulePrompts(system,modulePrompts){
+        let text=stripLegacyWorldModulePrompts(system);
+        const prompts=normalizeWorldModulePrompts(modulePrompts),used=[];
+        for(const item of WORLD_PROMPT_MODULE_DEFS){
+            const block=String(prompts[item.key]||'').trim();
+            if(!block)continue;
+            text+=(text?'\n\n':'')+block;
+            used.push({key:item.key,title:item.title,source:item.source,估算Tokens:estimateTokens(block)});
+        }
+        return {system:text,used};
+    }
+
+    // 内置默认直接展示精简版；旧用户只在仍使用内置默认时迁移一次，自定义文档不强制覆盖。
+    if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings)){
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=normalizeEditablePreset(COMPACT_DEFAULT_PRESET);
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.corePrompt=COMPACT_CORE_WORLD_RULES;
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.macroPrompt=COMPACT_MACRO_PROMPT;
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.stabilityPromptTemplate=COMPACT_STABILITY_PROMPT_TEMPLATE;
+        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.modulePrompts=worldModulePromptDefaults();
+    }
+
+    // 运行时读写、预设持久化与最终请求重写已迁移到 WorldPromptRegistry + WorldEngineClassBridge。
     // 世界推进手动编辑公共写回层：只修改世界引擎拥有的变量，并把修正合并回同楼 replay。
     function worldEditorEscape(value) {
         if(typeof causalOverviewEscape==='function')return causalOverviewEscape(value);
@@ -5061,88 +5152,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         const backend=worldEditorBackend(stat),events=backend.事件||{};
         for(const eventName of record.关联事件||[])if(!Object.hasOwn(events,eventName))throw new Error('关联事件不存在：'+eventName);
     }
-    // 变量重处理即时恢复/重试已并入 src/WorldEngine/domains/WorldReplayService.part.js。
-    // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=5;
-    const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
-【执行流程】
-1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
-2. 定边界：确认当前阶段、世界时间与下一宏观节点。
-3. 推世界：按可用时间推进事件、地区、人物与势力；世界不会因<user>停下而暂停。
-4. 结算影响：记录<user>已经造成的客观后果，但不替<user>行动。
-5. 做维护：只处理本轮确有变化的传播、经济、历法；因果偏移仅在出现重大世界级长期改变时维护。
-6. 输出差分：只写新增/变化的 WorldResult；无业务变化只写摘要。`;
-    const COMPACT_CORE_WORLD_RULES=`【核心边界】
-- 事实优先级：当前变量/已确认剧情 > 明确世界书 > 常识；计划不是事实。
-- 模型知道≠场外人物知道。人物只能依据在场观察、既有认知或可信传播行动；因<user>新行为改策必须有认知来源。
-- 活跃异端只在活动缺失、复核到期、关联事件/所在地区变化或长期未复核时更新；无触发时沿用既有目标与行动，不得为了刷新而凭空改策。
-- 时间与路程必须可实现；同一人物同一时段只在一处；不替<user>行动，不复述已演出琐事。
-- 资产只记录固定地产、大型载具或要塞；单兵物品不写资产。探索只记录<user>实际到达、调查或可靠获知的区域。
-- 因果偏移只记已实现的主线级长期变化；没有重大世界偏移就完全不写偏移记录。当前事件公开字段只写现实中可感知的信息。
-- 任务结算、奖励、成就、击杀等由对应系统负责。`;
-    const COMPACT_MACRO_PROMPT=`【宏观骨架】
-需要补骨架时保持3~5个滚动阶段节点；先定顺序与时间边界，再填近期细节。未来规划可跨边界，实际推进不可越过下一节点；不要把多个独立阶段硬并成一个节点。`;
-    const COMPACT_STABILITY_PROMPT_TEMPLATE=`【世界自救 · {{阶段}}】
-稳定={{稳定值}}。{{规则}}
-排异必须通过世界内合理因果发生；NPC仍受自身认知与传播链限制。`;
-
-    const WORLD_PROMPT_MODULE_DEFS=Object.freeze([
-        Object.freeze({key:'task',title:'任务只读',source:'TASK_AWARENESS_RULES',legacy:()=>[TASK_AWARENESS_RULES],fallback:`【任务感知 · 只读】
-任务.列表只作世界因果输入；事件可用“关联任务”引用已存在任务。不得创建、删除、改状态、交付或结算任务。情报购买与扣款由MVU处理；成就、击杀、奖励、惩罚不参与世界推进。`}),
-        Object.freeze({key:'chronology',title:'原著 / 数据库时间轴',source:'CHRONOLOGY_GUARD_RULES',legacy:()=>[CHRONOLOGY_GUARD_RULES],fallback:`【原著/数据库时间轴硬约束】
-宏观排期：已确认事实 > 明确世界书/数据库日期 > 常识。明确日期必须沿用；只有已确认且记录的因果偏移可改期。资料只到月份/时段/顺序时保持同级精度。先定“当前时间→下一节点”边界再推进区间细节；3~5个节点只是滚动窗口，不合并独立阶段。`}),
-        Object.freeze({key:'maintenance',title:'分级维护',source:'SOFT_MAINTENANCE_RULES',legacy:()=>[SOFT_MAINTENANCE_RULES],fallback:`【分级验收 · 软维护不拒绝整轮】
-Schema、非法状态、因果引用、明确日期冲突是硬错误；排期补全、传闻补齐、传播复核可跨轮维护。事件有时间、条件或前因任一即可作为锚点。纠错只改被拒片段，不重写已通过内容。`}),
-        Object.freeze({key:'exploration',title:'探索台账',source:'EXPLORATION_PROJECTION_RULES',legacy:()=>[EXPLORATION_PROJECTION_RULES],fallback:`【玩家探索投影硬约束】
-<user>实际到达整体区域时探索度至少10%；远方后台地区不自动记入；离开后保留已有探索。`}),
-        Object.freeze({key:'integrity',title:'因果与事实时间',source:'WORLD_INTEGRITY_GUARD_RULES',legacy:()=>[WORLD_INTEGRITY_GUARD_RULES],fallback:`【因果偏移与时间约束】
-当前事实不得落在世界时间之后；未来计划写预计结束、下次检查或待发生事件。因果偏移不是每轮必填，只记录已实现且改变关键人物命运、重大事件结果、关键势力格局、主线可行性或异常污染规模的长期变化；本轮没有这种重大变化时，省略“因果.偏移记录”，不得为了让稳定值变化而硬造记录。位置暴露、敌人警觉、受伤、逃脱、行动/生存难度变化等局部后果不记。计划、风险、能力上限不记；同根因优先更新同一条。稳定值由程序根据有效偏移汇总，模型不得直接修改。`}),
-        Object.freeze({key:'worldTime',title:'世界时间',source:'WORLD_TIME_RULES',legacy:()=>[WORLD_TIME_RULES],fallback:`【世界时间所有权】
-世界.时间由世界推进维护。为空时据已确认资料初始化；没有足够时间流逝跨过当前时段就保持原值，不因每轮推进而机械跳时段。精确到月日使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段只能选：凌晨 / 黎明 / 清晨 / 早晨 / 上午 / 中午 / 午后 / 下午 / 傍晚 / 入夜 / 晚上 / 深夜。只有正文或明确资料表明确实经过合理时长才推进时段/日期；不得回退或把未来计划时间当当前时间。人物/地区更新时间由程序统一盖章。`}),
-        Object.freeze({key:'rumor',title:'传闻与传播',source:'RUMOR_THROTTLE_RULES / RUMOR_WORLD_SOURCE_RULES',legacy:()=>[RUMOR_LIVELINESS_RULES,RUMOR_THROTTLE_RULES,RUMOR_WORLD_SOURCE_RULES],fallback:`【信息传播 · 世界侧事实】
-传闻只来自“世界侧可传播事实”、已有传播链和既有公开传闻；正文不是直接传播源。私密事实必须先形成目击、公开后果、调查、公告或泄露。公开内容不得超过来源/受众认知，传播按时间与空间扩散。无触发保持原样；空分类、传播复核或新公开事实时按需更新，每个触发每类最多1条。普通行动/战斗本身不触发；传闻失败不重跑整轮。购买、扣款与消费性删除由MVU处理。`})
-    ]);
-    function worldModulePromptDefaults(){
-        return Object.fromEntries(WORLD_PROMPT_MODULE_DEFS.map(item=>[item.key,item.fallback]));
-    }
-    function normalizeWorldModulePrompts(value){
-        const source=plain(value)?value:{};
-        const out={};
-        for(const item of WORLD_PROMPT_MODULE_DEFS)out[item.key]=typeof source[item.key]==='string'?source[item.key]:item.fallback;
-        return out;
-    }
-    function stripLegacyWorldModulePrompts(system){
-        let text=String(system||'');
-        for(const item of WORLD_PROMPT_MODULE_DEFS){
-            for(const legacy of item.legacy()){
-                const block=String(legacy||'');
-                if(block)text=text.split(block).join('');
-            }
-        }
-        return text.replace(/\n{3,}/g,'\n\n').trim();
-    }
-    function appendConfiguredWorldModulePrompts(system,modulePrompts){
-        let text=stripLegacyWorldModulePrompts(system);
-        const prompts=normalizeWorldModulePrompts(modulePrompts),used=[];
-        for(const item of WORLD_PROMPT_MODULE_DEFS){
-            const block=String(prompts[item.key]||'').trim();
-            if(!block)continue;
-            text+=(text?'\n\n':'')+block;
-            used.push({key:item.key,title:item.title,source:item.source,估算Tokens:estimateTokens(block)});
-        }
-        return {system:text,used};
-    }
-
-    // 内置默认直接展示精简版；旧用户只在仍使用内置默认时迁移一次，自定义文档不强制覆盖。
-    if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings)){
-        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=normalizeEditablePreset(COMPACT_DEFAULT_PRESET);
-        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.corePrompt=COMPACT_CORE_WORLD_RULES;
-        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.macroPrompt=COMPACT_MACRO_PROMPT;
-        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.stabilityPromptTemplate=COMPACT_STABILITY_PROMPT_TEMPLATE;
-        BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.modulePrompts=worldModulePromptDefaults();
-    }
-
-    // 运行时读写、预设持久化与最终请求重写已迁移到 WorldPromptRegistry + WorldEngineClassBridge。
     // 主面板只保留最新因果摘要；完整偏移、故事线、干涉模式、法则与经济资料进入独立“因果档案”页。
     // 资产与传闻仍由世界引擎维护数据，但玩家侧由状态栏承载，因此不在世界推进面板重复展示。
     const CAUSAL_OVERVIEW_LIMIT=3;
@@ -5229,8 +5238,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
         replay.operations.push({op:'set',path:stabilityPath,value:stable});
     }
-    // 已迁移至 src/WorldEngine/ui/WorldApiPresetController.part.js。
-    // 本 legacy part 保留为构建顺序兼容占位；不得再扩展 SamsaraWorldEngine。
     // 历史记忆手动维护：近期原始锚点可修正事实；长期总结可修正摘要/时间，但树层级与子项引用始终由程序托管。
     function historyMemoryEditorEscape(value) {
         if(typeof causalOverviewEscape==='function')return causalOverviewEscape(value);
@@ -6650,6 +6657,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.mountTopControl();this.mountIntervalSetting();
         }
     }
+    const WORLD_REPLAY_VERSION=1;
+    const WORLD_REPLAY_SCOPES=[
+        ['世界','时间'],['世界','货币'],['世界','历法'],['世界',PATH],['世界','因果轨道'],['世界','势力'],['世界','探索'],
+        ['世界','异端雷达','名单'],['世界','稳定'],['传闻'],['资产'],['关系列表']
+    ];
+
     class WorldReplayService {
         constructor(engine){this.engine=engine;}
         initialize(){

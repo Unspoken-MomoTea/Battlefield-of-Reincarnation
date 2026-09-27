@@ -372,3 +372,10 @@ The obsolete numbered state slot is gone. `WorldStateModel.part.js` is the canon
 The two physical halves of the base engine class are no longer stored as numbered legacy fragments. Former `40-engine-runtime.part.js` opened `class SamsaraWorldEngine`, and former `50-engine-ui.part.js` continued the same class body and closed it; they are now merged, without behavior changes, into `src/WorldEngine/core/SamsaraWorldEngine.part.js`.
 
 The src shell owns only application/facade state, compatibility methods, panel lifecycle, navigation and interaction dispatch. Runtime context, transport, request construction, run orchestration, prompt documents, editor mutations and business-tab rendering remain delegated to their existing services/controllers/views. New domain logic must not be added to the shell. Both legacy 40/50 files are deleted and architecture tests prevent them from returning.
+
+
+## Phase 48 · Configuration initialization
+
+`WorldEngineConfigService` is the canonical owner of application configuration defaults, localStorage hydration, legacy prompt-document migration, built-in default version application, retry/font/history normalization, dedicated-API normalization, and configuration persistence during construction.
+
+The base `SamsaraWorldEngine` shell creates exactly one configuration service before the service container, delegates constructor migration through `initialize()`, and exposes the same instance as `engine.services.configuration`. Configuration migration markers must not be reintroduced into the application shell.

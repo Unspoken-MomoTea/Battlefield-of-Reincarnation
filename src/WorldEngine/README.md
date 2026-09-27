@@ -49,4 +49,13 @@
 - `WorldChronologyFeature`：原著/数据库时间线资料读取与时间线基准请求装饰。
 - `WorldRumorRequestFeature`：传闻维护 payload、世界侧取材边界、运行时复核与传闻 UI 收口。
 
+## 后续开发硬规则
+
+- `src/WorldEngine/` 是唯一源码树；禁止恢复 `script/world-engine-src/` 或直接手改生成文件承载业务实现。
+- `WorldEngineClassBridge` 是唯一允许的 `extends SamsaraWorldEngine` 兼容层；新功能必须进入 service / policy / controller / feature / view，不得新增主类继承补丁。
+- 禁止通过重新赋值 `compileWorldResult / retryPlanForFailure / projectWorldContext / applyPatches / validateState / materializeWorldUpdate` 追加行为；需要扩展时显式组合对应领域服务。
+- 纯常量放 vocabulary/catalog/constants，纯工具放 utilities；不要为了“类化”机械创建空 class，也不要仅因为文件较大就拆散职责完整的领域类。
+- 所有实际发送给 AI 的静态指令继续必须登记 `WorldPromptRegistry` 并通过提示词源码审计；程序 Schema、白名单和校验规则保持不可编辑。
+- 每次迁移保持公开 seam 与单文件交付兼容，先用现有回归锁行为，再移动实现。
+
 详细迁移边界见 `ARCHITECTURE.md` 与 `REFACTOR-PLAN.md`；提示词清单规则见 `PROMPT-REGISTRY.md`。

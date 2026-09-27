@@ -44,6 +44,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldNpcAuditService.part.js',
   'src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js',
   'src/WorldEngine/domains/WorldHistoryService.part.js',
+  'src/WorldEngine/domains/WorldProseExtractor.part.js',
   'src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js',
   'src/WorldEngine/domains/WorldApiTransportService.part.js',
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
@@ -67,6 +68,8 @@ const panelControllerSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/W
 const panelRendererSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelRenderer.part.js'),'utf8');
 const promptDocumentServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPromptDocumentService.part.js'),'utf8');
 const orchestratorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRunOrchestrator.part.js'),'utf8');
+const proseExtractorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldProseExtractor.part.js'),'utf8');
+const requestBuilderSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js'),'utf8');
 const knowledgeSelectionSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js'),'utf8');
@@ -96,6 +99,11 @@ assert.match(panelRendererSource,/class\s+WorldPanelRenderer\s*\{/,'shared panel
 for(const viewKey of ['world','people','exploration','assets','events','rumors','history','settings','prompts','requestInspector'])assert.match(panelRendererSource,new RegExp("engine\\.services\\.views\\.render\\('"+viewKey+"'"),'panel renderer must dispatch '+viewKey+' through the View registry');
 assert.doesNotMatch(applicationShellSource,/services\.views\.render|const\s+tabs\s*=\s*\[/,'view dispatch and navigation rendering must not grow back into the application shell');
 assert.ok(applicationShellSource.length<6500,'application shell should stay below 6.5 KB after helper ownership cleanup');
+assert.match(proseExtractorSource,/class\s+WorldProseExtractor\s*\{/,'prose cleaning must live behind a dedicated extractor');
+assert.match(proseExtractorSource,/\bextract\s*\(value\)/,'prose extractor must own floor cleaning');
+assert.match(proseExtractorSource,/function\s+extractWorldProse\s*\(value\)\{return ACTIVE_WORLD_PROSE_EXTRACTOR\.extract\(value\);\}/,'public extractWorldProse seam must forward to the active extractor');
+assert.doesNotMatch(foundationSource,/function\s+extractWorldProse\s*\(/,'prose extraction implementation must leave the foundation');
+assert.match(requestBuilderSource,/proseExtractor\.extract\(m\.message\?\?m\.mes\?\?'\'\)/,'request builder must use the injected prose extractor rather than the compatibility global');
 assert.match(knowledgeSelectionSource,/class\s+WorldKnowledgeSelectionPolicy\s*\{/,'worldbook selection matching must live behind a dedicated policy');
 for(const method of ['parseKey','normalizeIdentity','normalizeTitle','matches'])assert.match(knowledgeSelectionSource,new RegExp('\\b'+method+'\\s*\\('),'knowledge selection policy must own '+method);
 for(const helper of ['parseSelectedEntryKey','normalizeWorldbookIdentity','normalizeWorldbookEntryTitle','selectedEntryMatches'])assert.doesNotMatch(basePromptDefaultsSource,new RegExp('function\\s+'+helper+'\\s*\\('),helper+' implementation must not live in prompt defaults');
@@ -279,11 +287,13 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelController','panelRenderer','knowledgeSelection','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelController','panelRenderer','proseExtractor','knowledgeSelection','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
 assert.equal(engine.services.hostAdapter,engine.hostAdapter,'service container must expose the shell-owned host adapter');
+assert.equal(engine.services.proseExtractor.constructor.name,'WorldProseExtractor');
+assert.equal(engine.services.requestBuilder.proseExtractor,engine.services.proseExtractor,'request builder must compose the container-owned prose extractor');
 assert.equal(engine.services.knowledgeSelection.constructor.name,'WorldKnowledgeSelectionPolicy');
 assert.equal(engine.services.knowledge.selection,engine.services.knowledgeSelection,'knowledge service must compose the container-owned selection policy');
 assert.equal(engine.services.taskAwareness.selection,engine.services.knowledgeSelection,'task awareness must share the container-owned selection policy');

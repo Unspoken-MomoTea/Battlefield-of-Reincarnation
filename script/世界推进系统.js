@@ -5328,170 +5328,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
     // 已迁移至 src/WorldEngine/ui/WorldApiPresetController.part.js。
     // 本 legacy part 保留为构建顺序兼容占位；不得再扩展 SamsaraWorldEngine。
-    // 世界长期历史记忆：按“每次推进一条 L0 叶子 → 旧叶子逐层压缩”的摘要森林工作。
-    // 事件冷归档仍保留在后台.历史，但不作为近期/长期记忆树的 L0 来源；L0 只来自每次成功世界推进的 WorldResult.摘要。
-    // 同一正文楼层重推会覆盖该楼叶子，并递归失效依赖旧叶子的上层总结，等价于摘要系统的 regenerate/edit 重摘。
-    // L0 达到 18 条时压最旧 12 条并保留最近 6 条原始细节；L1 每 6 条压一层；L2+ 每 3 条继续向上。
-    const HISTORY_MEMORY_L0_BATCH=12;
-    const HISTORY_MEMORY_L0_KEEP=6;
-    const HISTORY_MEMORY_L1_BATCH=6;
-    const HISTORY_MEMORY_HIGHER_BATCH=3;
-    const HISTORY_MEMORY_LEGACY_RAW_CONTEXT=24;
-    const HISTORY_MEMORY_LEAF_PREFIX='推进·';
-    const HISTORY_MEMORY_SCHEMA={
-        type:'object',additionalProperties:false,required:['摘要'],
-        properties:{摘要:{type:'string',minLength:1}}
-    };
-    const HISTORY_MEMORY_SYSTEM=`【世界长期历史压缩】
-只总结已确认历史事实。你收到的是按真实先后顺序排列的既有历史节点；任务是把它们融合成一条更高层的世界史记忆，不是续写剧情。
-必须保留：时间顺序、主要参与者、原因、关键转折、最终结果，以及仍会影响后续局势的长期后果与重要因果偏移。
-可以删除：重复描述、已经失去后续意义的过程细节、UI/调试信息。
-禁止：补写未发生剧情、猜测隐藏真相、修改既有结局、制造输入中不存在的日期/人物/关系、把历史事实写成未来计划。
-如果输入时间粒度不完整，就保持原有粒度，不自行补全。
-只输出 JSON：{"摘要":"..."}`;
-
-    function historyMemoryLeafKey(messageId) {
-        return HISTORY_MEMORY_LEAF_PREFIX+String(messageId);
-    }
-    function historyMemoryLeafEntries(backend) {
-        return Object.entries(backend?.历史||{}).filter(([name,item])=>
-            String(name||'').startsWith(HISTORY_MEMORY_LEAF_PREFIX)&&plain(item)&&String(item.事实||'').trim()
-        );
-    }
-    function historyMemoryLeafOrder(name,fallback=0) {
-        const raw=String(name||'').slice(HISTORY_MEMORY_LEAF_PREFIX.length),n=Number(raw);
-        return Number.isFinite(n)&&n>=0?n:fallback;
-    }
-    function historyMemoryCollectedIds(backend) {
-        const collected=new Set();
-        for(const item of Object.values(backend?.历史总结||{})){
-            if(!plain(item)||!Array.isArray(item.子项))continue;
-            for(const id of item.子项){const key=String(id||'').trim();if(key)collected.add(key);}
-        }
-        return collected;
-    }
-    function historyMemoryInvalidateAncestors(backend,childId) {
-        if(!plain(backend?.历史总结))return [];
-        const affected=new Set([String(childId||'')]),removed=[];
-        let changed=true;
-        while(changed){
-            changed=false;
-            for(const [name,item] of Object.entries(backend.历史总结||{})){
-                if(!plain(item)||!Array.isArray(item.子项))continue;
-                if(!item.子项.some(id=>affected.has(String(id||''))))continue;
-                delete backend.历史总结[name];
-                affected.add('总结:'+name);
-                removed.push(name);
-                changed=true;
-            }
-        }
-        return removed;
-    }
-    function historyMemorySummaryOrder(item,fallback=0) {
-        const n=Number(item?.起始序位);
-        return Number.isFinite(n)&&n>0?n:fallback;
-    }
-    function historyMemoryRootsAtLevel(backend,level) {
-        const source=plain(backend)?backend:{},collected=historyMemoryCollectedIds(source);
-        if(level===0){
-            return historyMemoryLeafEntries(source).map(([name,item],index)=>({
-                id:'历史:'+name,name,level:0,text:String(item?.事实||'').trim(),
-                timeStart:String(item?.时间||'').trim(),timeEnd:String(item?.时间||'').trim(),
-                lo:historyMemoryLeafOrder(name,index+1),hi:historyMemoryLeafOrder(name,index+1)
-            })).filter(node=>node.text&&!collected.has(node.id))
-                .sort((a,b)=>a.lo-b.lo||a.name.localeCompare(b.name,'zh-CN'));
-        }
-        return Object.entries(source.历史总结||{}).filter(([,item])=>plain(item)&&Number(item.层级)===level)
-            .map(([name,item],index)=>({
-                id:'总结:'+name,name,level,text:String(item.摘要||'').trim(),
-                timeStart:String(item.起始时间||'').trim(),timeEnd:String(item.结束时间||'').trim(),
-                lo:historyMemorySummaryOrder(item,index+1),
-                hi:Number.isFinite(Number(item.结束序位))?Number(item.结束序位):historyMemorySummaryOrder(item,index+1)
-            })).filter(node=>node.text&&!collected.has(node.id))
-            .sort((a,b)=>a.lo-b.lo||a.hi-b.hi||a.name.localeCompare(b.name,'zh-CN'));
-    }
-    function historyMemoryBatchForLevel(backend,level) {
-        const roots=historyMemoryRootsAtLevel(backend,level);
-        if(level===0){
-            if(roots.length<HISTORY_MEMORY_L0_BATCH+HISTORY_MEMORY_L0_KEEP)return [];
-            return roots.slice(0,HISTORY_MEMORY_L0_BATCH);
-        }
-        const threshold=level===1?HISTORY_MEMORY_L1_BATCH:HISTORY_MEMORY_HIGHER_BATCH;
-        if(roots.length<threshold)return [];
-        return roots.slice(0,threshold);
-    }
-    function historyMemoryNextKey(backend,level) {
-        const prefix='H'+level+'-',used=new Set(Object.keys(backend?.历史总结||{}));
-        let max=0;
-        for(const name of used){
-            if(!String(name).startsWith(prefix))continue;
-            const n=Number(String(name).slice(prefix.length));if(Number.isFinite(n))max=Math.max(max,n);
-        }
-        let seq=max+1,key='';
-        do{key=prefix+String(seq++).padStart(6,'0');}while(used.has(key));
-        return key;
-    }
-    function historyMemoryParseReply(raw) {
-        let source=String(raw||'').trim();
-        const fenced=source.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);if(fenced)source=fenced[1].trim();
-        let value=null;
-        try{value=JSON.parse(source);}catch(_){
-            const start=source.indexOf('{'),end=source.lastIndexOf('}');
-            if(start>=0&&end>start){try{value=JSON.parse(source.slice(start,end+1));}catch(__){}}
-        }
-        const summary=String(value?.摘要||value?.summary||'').trim();
-        if(!summary)throw new Error(source?'历史总结失败：返回缺少摘要 JSON':'历史总结失败：模型空回');
-        return summary;
-    }
-    function historyMemoryPrompt(world,batch,outputLevel) {
-        const nodes=batch.map((node,index)=>({
-            序号:index+1,
-            时间:node.timeStart&&node.timeEnd&&node.timeStart!==node.timeEnd?node.timeStart+' → '+node.timeEnd:(node.timeStart||node.timeEnd||''),
-            事实:node.text
-        }));
-        return JSON.stringify({
-            世界:String(world?.名称||''),
-            输出层级:'L'+outputLevel,
-            说明:'按给定顺序压缩；时间字段是权威锚点，不得改写或补造。',
-            历史节点:nodes
-        },null,2);
-    }
-    function projectWorldHistoryMemory(backend) {
-        const state=plain(backend)?backend:{},raw=state.历史||{},summaries=state.历史总结||{};
-        const collected=historyMemoryCollectedIds(state);
-        const allLeaves=historyMemoryLeafEntries(state);
-        const rawRoots=historyMemoryRootsAtLevel(state,0);
-        const recent=rawRoots.slice(-HISTORY_MEMORY_LEGACY_RAW_CONTEXT);
-        const recentMap=Object.fromEntries(recent.map(node=>{
-            const key=node.id.slice(3),record=raw[key]||{};
-            return [key,{时间:String(record.时间||''),事实:String(record.事实||''),关联事件:Array.isArray(record.关联事件)?copy(record.关联事件):[]}];
-        }));
-        const rootSummaries=Object.entries(summaries).filter(([name,item])=>plain(item)&&!collected.has('总结:'+name))
-            .map(([name,item],index)=>({
-                名称:name,层级:Math.max(1,Number(item.层级)||1),
-                起始时间:String(item.起始时间||''),结束时间:String(item.结束时间||''),摘要:String(item.摘要||''),
-                __order:historyMemorySummaryOrder(item,index+1)
-            })).filter(item=>item.摘要)
-            .sort((a,b)=>a.__order-b.__order||a.层级-b.层级||a.名称.localeCompare(b.名称,'zh-CN'))
-            .map(item=>{const out={...item};delete out.__order;return out;});
-        return {
-            说明:'世界长期叙事与因果记忆；用于保持跨章连续性，不自动等于任何角色已经获知的情报。',
-            近期锚点:recentMap,
-            长期总结:rootSummaries,
-            统计:{
-                原始锚点总数:allLeaves.length,
-                总结节点总数:Object.keys(summaries).length,
-                未收纳锚点数:rawRoots.length,
-                隐藏未压缩锚点数:Math.max(0,rawRoots.length-recent.length),
-                冷归档事实数:Math.max(0,Object.keys(raw).length-allLeaves.length)
-            }
-        };
-    }
-    function historyMemoryDigest(backend) {
-        try{return JSON.stringify([backend?.历史||{},backend?.历史总结||{}]);}catch(_){return '';}
-    }
-
-    // 世界推进历史投影已迁移至 WorldHistoryService + WorldStateProjector。\n\n    // 历史压缩生命周期与设置交互由 WorldHistoryLifecycle 处理。\n    // 历史记忆手动维护：近期原始锚点可修正事实；长期总结可修正摘要/时间，但树层级与子项引用始终由程序托管。
+    // 历史记忆手动维护：近期原始锚点可修正事实；长期总结可修正摘要/时间，但树层级与子项引用始终由程序托管。
     function historyMemoryEditorEscape(value) {
         if(typeof causalOverviewEscape==='function')return causalOverviewEscape(value);
         return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -5719,11 +5556,188 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }).call(engine,base);
         }
     }
+    // 世界长期历史记忆：每次推进写 L0 叶子，旧叶子逐层压缩；正文读取由独立设置控制。
+    const HISTORY_MEMORY_L0_BATCH=12;
+    const HISTORY_MEMORY_L0_KEEP=6;
+    const HISTORY_MEMORY_L1_BATCH=6;
+    const HISTORY_MEMORY_HIGHER_BATCH=3;
+    const HISTORY_MEMORY_LEGACY_RAW_CONTEXT=24;
+    const HISTORY_MEMORY_LEAF_PREFIX='推进·';
+    const HISTORY_MEMORY_SCHEMA={
+        type:'object',additionalProperties:false,required:['摘要'],
+        properties:{摘要:{type:'string',minLength:1}}
+    };
+    const HISTORY_MEMORY_SYSTEM=`【世界长期历史压缩】
+只总结已确认历史事实。你收到的是按真实先后顺序排列的既有历史节点；任务是把它们融合成一条更高层的世界史记忆，不是续写剧情。
+必须保留：时间顺序、主要参与者、原因、关键转折、最终结果，以及仍会影响后续局势的长期后果与重要因果偏移。
+可以删除：重复描述、已经失去后续意义的过程细节、UI/调试信息。
+禁止：补写未发生剧情、猜测隐藏真相、修改既有结局、制造输入中不存在的日期/人物/关系、把历史事实写成未来计划。
+如果输入时间粒度不完整，就保持原有粒度，不自行补全。
+只输出 JSON：{"摘要":"..."}`;
+
+    class WorldHistoryMemoryPolicy {
+        leafKey(messageId) {
+            return HISTORY_MEMORY_LEAF_PREFIX+String(messageId);
+        }
+        leafEntries(backend) {
+            return Object.entries(backend?.历史||{}).filter(([name,item])=>
+                String(name||'').startsWith(HISTORY_MEMORY_LEAF_PREFIX)&&plain(item)&&String(item.事实||'').trim()
+            );
+        }
+        leafOrder(name,fallback=0) {
+            const raw=String(name||'').slice(HISTORY_MEMORY_LEAF_PREFIX.length),n=Number(raw);
+            return Number.isFinite(n)&&n>=0?n:fallback;
+        }
+        collectedIds(backend) {
+            const collected=new Set();
+            for(const item of Object.values(backend?.历史总结||{})){
+                if(!plain(item)||!Array.isArray(item.子项))continue;
+                for(const id of item.子项){const key=String(id||'').trim();if(key)collected.add(key);}
+            }
+            return collected;
+        }
+        invalidateAncestors(backend,childId) {
+            if(!plain(backend?.历史总结))return [];
+            const affected=new Set([String(childId||'')]),removed=[];
+            let changed=true;
+            while(changed){
+                changed=false;
+                for(const [name,item] of Object.entries(backend.历史总结||{})){
+                    if(!plain(item)||!Array.isArray(item.子项))continue;
+                    if(!item.子项.some(id=>affected.has(String(id||''))))continue;
+                    delete backend.历史总结[name];
+                    affected.add('总结:'+name);
+                    removed.push(name);
+                    changed=true;
+                }
+            }
+            return removed;
+        }
+        summaryOrder(item,fallback=0) {
+            const n=Number(item?.起始序位);
+            return Number.isFinite(n)&&n>0?n:fallback;
+        }
+        rootsAtLevel(backend,level) {
+            const source=plain(backend)?backend:{},collected=this.collectedIds(source);
+            if(level===0){
+                return this.leafEntries(source).map(([name,item],index)=>({
+                    id:'历史:'+name,name,level:0,text:String(item?.事实||'').trim(),
+                    timeStart:String(item?.时间||'').trim(),timeEnd:String(item?.时间||'').trim(),
+                    lo:this.leafOrder(name,index+1),hi:this.leafOrder(name,index+1)
+                })).filter(node=>node.text&&!collected.has(node.id))
+                    .sort((a,b)=>a.lo-b.lo||a.name.localeCompare(b.name,'zh-CN'));
+            }
+            return Object.entries(source.历史总结||{}).filter(([,item])=>plain(item)&&Number(item.层级)===level)
+                .map(([name,item],index)=>({
+                    id:'总结:'+name,name,level,text:String(item.摘要||'').trim(),
+                    timeStart:String(item.起始时间||'').trim(),timeEnd:String(item.结束时间||'').trim(),
+                    lo:this.summaryOrder(item,index+1),
+                    hi:Number.isFinite(Number(item.结束序位))?Number(item.结束序位):this.summaryOrder(item,index+1)
+                })).filter(node=>node.text&&!collected.has(node.id))
+                .sort((a,b)=>a.lo-b.lo||a.hi-b.hi||a.name.localeCompare(b.name,'zh-CN'));
+        }
+        batchForLevel(backend,level) {
+            const roots=this.rootsAtLevel(backend,level);
+            if(level===0){
+                if(roots.length<HISTORY_MEMORY_L0_BATCH+HISTORY_MEMORY_L0_KEEP)return [];
+                return roots.slice(0,HISTORY_MEMORY_L0_BATCH);
+            }
+            const threshold=level===1?HISTORY_MEMORY_L1_BATCH:HISTORY_MEMORY_HIGHER_BATCH;
+            if(roots.length<threshold)return [];
+            return roots.slice(0,threshold);
+        }
+        nextKey(backend,level) {
+            const prefix='H'+level+'-',used=new Set(Object.keys(backend?.历史总结||{}));
+            let max=0;
+            for(const name of used){
+                if(!String(name).startsWith(prefix))continue;
+                const n=Number(String(name).slice(prefix.length));if(Number.isFinite(n))max=Math.max(max,n);
+            }
+            let seq=max+1,key='';
+            do{key=prefix+String(seq++).padStart(6,'0');}while(used.has(key));
+            return key;
+        }
+        parseReply(raw) {
+            let source=String(raw||'').trim();
+            const fenced=source.match(/^\`\`\`(?:json)?\s*([\s\S]*?)\s*\`\`\`$/i);if(fenced)source=fenced[1].trim();
+            let value=null;
+            try{value=JSON.parse(source);}catch(_){
+                const start=source.indexOf('{'),end=source.lastIndexOf('}');
+                if(start>=0&&end>start){try{value=JSON.parse(source.slice(start,end+1));}catch(__){}}
+            }
+            const summary=String(value?.摘要||value?.summary||'').trim();
+            if(!summary)throw new Error(source?'历史总结失败：返回缺少摘要 JSON':'历史总结失败：模型空回');
+            return summary;
+        }
+        prompt(world,batch,outputLevel) {
+            const nodes=batch.map((node,index)=>({
+                序号:index+1,
+                时间:node.timeStart&&node.timeEnd&&node.timeStart!==node.timeEnd?node.timeStart+' → '+node.timeEnd:(node.timeStart||node.timeEnd||''),
+                事实:node.text
+            }));
+            return JSON.stringify({
+                世界:String(world?.名称||''),
+                输出层级:'L'+outputLevel,
+                说明:'按给定顺序压缩；时间字段是权威锚点，不得改写或补造。',
+                历史节点:nodes
+            },null,2);
+        }
+        project(backend) {
+            const state=plain(backend)?backend:{},raw=state.历史||{},summaries=state.历史总结||{};
+            const collected=this.collectedIds(state);
+            const allLeaves=this.leafEntries(state);
+            const rawRoots=this.rootsAtLevel(state,0);
+            const recent=rawRoots.slice(-HISTORY_MEMORY_LEGACY_RAW_CONTEXT);
+            const recentMap=Object.fromEntries(recent.map(node=>{
+                const key=node.id.slice(3),record=raw[key]||{};
+                return [key,{时间:String(record.时间||''),事实:String(record.事实||''),关联事件:Array.isArray(record.关联事件)?copy(record.关联事件):[]}];
+            }));
+            const rootSummaries=Object.entries(summaries).filter(([name,item])=>plain(item)&&!collected.has('总结:'+name))
+                .map(([name,item],index)=>({
+                    名称:name,层级:Math.max(1,Number(item.层级)||1),
+                    起始时间:String(item.起始时间||''),结束时间:String(item.结束时间||''),摘要:String(item.摘要||''),
+                    __order:this.summaryOrder(item,index+1)
+                })).filter(item=>item.摘要)
+                .sort((a,b)=>a.__order-b.__order||a.层级-b.层级||a.名称.localeCompare(b.名称,'zh-CN'))
+                .map(item=>{const out={...item};delete out.__order;return out;});
+            return {
+                说明:'世界长期叙事与因果记忆；用于保持跨章连续性，不自动等于任何角色已经获知的情报。',
+                近期锚点:recentMap,
+                长期总结:rootSummaries,
+                统计:{
+                    原始锚点总数:allLeaves.length,
+                    总结节点总数:Object.keys(summaries).length,
+                    未收纳锚点数:rawRoots.length,
+                    隐藏未压缩锚点数:Math.max(0,rawRoots.length-recent.length),
+                    冷归档事实数:Math.max(0,Object.keys(raw).length-allLeaves.length)
+                }
+            };
+        }
+        digest(backend) {
+            try{return JSON.stringify([backend?.历史||{},backend?.历史总结||{}]);}catch(_){return '';}
+        }
+    }
+
+    const DEFAULT_WORLD_HISTORY_MEMORY_POLICY=new WorldHistoryMemoryPolicy();
+    let ACTIVE_WORLD_HISTORY_MEMORY_POLICY=DEFAULT_WORLD_HISTORY_MEMORY_POLICY;
+    function historyMemoryLeafKey(messageId){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.leafKey(messageId);}
+    function historyMemoryLeafEntries(backend){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.leafEntries(backend);}
+    function historyMemoryLeafOrder(name,fallback=0){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.leafOrder(name,fallback);}
+    function historyMemoryCollectedIds(backend){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.collectedIds(backend);}
+    function historyMemoryInvalidateAncestors(backend,childId){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.invalidateAncestors(backend,childId);}
+    function historyMemorySummaryOrder(item,fallback=0){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.summaryOrder(item,fallback);}
+    function historyMemoryRootsAtLevel(backend,level){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.rootsAtLevel(backend,level);}
+    function historyMemoryBatchForLevel(backend,level){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.batchForLevel(backend,level);}
+    function historyMemoryNextKey(backend,level){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.nextKey(backend,level);}
+    function historyMemoryParseReply(raw){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.parseReply(raw);}
+    function historyMemoryPrompt(world,batch,outputLevel){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.prompt(world,batch,outputLevel);}
+    function projectWorldHistoryMemory(backend){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.project(backend);}
+    function historyMemoryDigest(backend){return ACTIVE_WORLD_HISTORY_MEMORY_POLICY.digest(backend);}
     class WorldHistoryService {
-        constructor(engine){this.engine=engine;}
+        constructor(engine,policy=DEFAULT_WORLD_HISTORY_MEMORY_POLICY){this.engine=engine;this.policy=policy||DEFAULT_WORLD_HISTORY_MEMORY_POLICY;}
         project(stat){
             const backend=stat?.世界?.[PATH]||stat||{};
-            return typeof projectWorldHistoryMemory==='function'?projectWorldHistoryMemory(backend):{};
+            return this.policy.project(backend);
         }
         setSendToProse(value){
             if(typeof this.engine.setSendHistoryToProse==='function')return this.engine.setSendHistoryToProse(value);
@@ -5881,7 +5895,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 势力地区:copy(backend.势力地区||{}),
                 传播:this.tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
             };
-            projectedBackend.历史记忆=this.history?.project?this.history.project(backend):projectWorldHistoryMemory(backend);
+            projectedBackend.历史记忆=this.history?.project?this.history.project(backend):DEFAULT_WORLD_HISTORY_MEMORY_POLICY.project(backend);
             for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.资源点;
             const out={
                 世界:{
@@ -7105,7 +7119,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         dispose(){this.boundPanel=null;}
     }
     class WorldHistoryLifecycle {
-        constructor(engine){this.engine=engine;this.boundPanel=null;}
+        constructor(engine,policy=DEFAULT_WORLD_HISTORY_MEMORY_POLICY){this.engine=engine;this.policy=policy||DEFAULT_WORLD_HISTORY_MEMORY_POLICY;this.boundPanel=null;}
         initialize(){
             const e=this.engine;let dirty=false;
             if(!Object.hasOwn(e.config,'sendHistoryToProse')){e.config.sendHistoryToProse=false;dirty=true;}
@@ -7116,14 +7130,15 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         setSendToProse(value){
             const e=this.engine;e.config.sendHistoryToProse=value===true;e.saveConfig();e.render();return e.config.sendHistoryToProse;
         }
-        proseMemory(stat){return projectWorldHistoryMemory(stat?.世界?.[PATH]||{});}
+        proseMemory(stat){return this.policy.project(stat?.世界?.[PATH]||{});}
         async requestSummary(world,batch,outputLevel){
             const e=this.engine,saved=e.lastTransportInfo;
             try{
                 const system=e.promptRegistry?.historySystem?.()||HISTORY_MEMORY_SYSTEM;
-                const input=e.promptRegistry?.historyInput?.(historyMemoryPrompt(world,batch,outputLevel))||historyMemoryPrompt(world,batch,outputLevel);
+                const prompt=this.policy.prompt(world,batch,outputLevel);
+                const input=e.promptRegistry?.historyInput?.(prompt)||prompt;
                 const raw=await e.requestAI(system,input,{schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2});
-                return historyMemoryParseReply(raw);
+                return this.policy.parseReply(raw);
             }finally{e.lastTransportInfo=saved;}
         }
         beforeWorldCommit(next,context={}){
@@ -7131,11 +7146,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const messageId=Number(context.messageId),backend=next?.世界?.[PATH];
             if(!summary||!Number.isInteger(messageId)||!plain(backend))return false;
             if(!plain(backend.历史))backend.历史={};if(!plain(backend.历史总结))backend.历史总结={};
-            const key=historyMemoryLeafKey(messageId),record={时间:String(next.世界?.时间||backend.已处理时间||context.baseStat?.世界?.时间||''),事实:summary,关联事件:[]};
+            const key=this.policy.leafKey(messageId),record={时间:String(next.世界?.时间||backend.已处理时间||context.baseStat?.世界?.时间||''),事实:summary,关联事件:[]};
             const previous=backend.历史[key];
             if(plain(previous)&&String(previous.时间||'')===record.时间&&String(previous.事实||'')===record.事实)return false;
             backend.历史[key]=record;
-            const invalidated=historyMemoryInvalidateAncestors(backend,'历史:'+key);
+            const invalidated=this.policy.invalidateAncestors(backend,'历史:'+key);
             e.lastHistoryMaintenance='近期历史已更新'+(invalidated.length?' · 旧总结失效 '+invalidated.length+' 个':'');
             return true;
         }
@@ -7147,14 +7162,14 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 const snapshot=e.snapshot(),stat=copy(snapshot.stat),backend=stat?.世界?.[PATH];
                 if(!plain(backend))return 0;
                 if(!plain(backend.历史总结))backend.历史总结={};
-                const startDigest=historyMemoryDigest(backend);
+                const startDigest=this.policy.digest(backend);
                 for(let level=0;level<32;level++){
-                    const batch=historyMemoryBatchForLevel(backend,level);if(!batch.length)continue;
+                    const batch=this.policy.batchForLevel(backend,level);if(!batch.length)continue;
                     const outputLevel=level+1;e.status='整理长期历史记忆 · L'+outputLevel;e.render();
                     let summary='';
                     try{summary=await this.requestSummary(stat.世界,batch,outputLevel);}
                     catch(error){failed=String(error?.message||error);break;}
-                    const key=historyMemoryNextKey(backend,outputLevel);
+                    const key=this.policy.nextKey(backend,outputLevel);
                     backend.历史总结[key]={
                         层级:outputLevel,摘要:summary,子项:batch.map(node=>node.id),
                         起始时间:String(batch.find(node=>node.timeStart)?.timeStart||''),
@@ -7166,7 +7181,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 }
                 if(!made)return 0;
                 const current=e.snapshot(),currentBackend=current.stat?.世界?.[PATH];
-                if(historyMemoryDigest(currentBackend)!==startDigest){e.lastHistoryMaintenance='历史在总结期间已变化，本次总结结果丢弃，下轮重试';return 0;}
+                if(this.policy.digest(currentBackend)!==startDigest){e.lastHistoryMaintenance='历史在总结期间已变化，本次总结结果丢弃，下轮重试';return 0;}
                 const validate=e.host.Samsara&&e.host.Samsara.validateWorldState,next=validate?validate(stat):stat,result=current.raw;
                 result.stat_data=next;e.committing=true;
                 await current.mvu.replaceMvuData(result,{type:'message',message_id:current.id});
@@ -8648,7 +8663,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateFactory=new WorldStateFactory();
             this.taskLedger=new WorldTaskAwarenessService();
-            this.history=new WorldHistoryService(engine);
+            this.historyMemory=new WorldHistoryMemoryPolicy();
+            ACTIVE_WORLD_HISTORY_MEMORY_POLICY=this.historyMemory;
+            this.history=new WorldHistoryService(engine,this.historyMemory);
             this.stateProjector=new WorldStateProjector(engine,this.taskLedger,this.history);
             ACTIVE_WORLD_STATE_PROJECTOR=this.stateProjector;
             this.patchPolicy=new WorldPatchPolicy();
@@ -8698,7 +8715,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.replay=new WorldReplayService(engine);
             this.timeOwnership=new WorldTimeOwnershipFeature(engine,this.timePolicy);
             this.npcAuditPolicy=new WorldNpcAuditPolicy(engine);
-            this.historyLifecycle=new WorldHistoryLifecycle(engine);
+            this.historyLifecycle=new WorldHistoryLifecycle(engine,this.historyMemory);
             this.views=new WorldEngineViewRegistry(engine);
             this.prompts=new WorldPromptRegistry(engine);
             this.editorController=new WorldEditorController(engine);

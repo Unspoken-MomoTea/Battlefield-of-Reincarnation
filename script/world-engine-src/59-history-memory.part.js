@@ -161,16 +161,4 @@
         try{return JSON.stringify([backend?.历史||{},backend?.历史总结||{}]);}catch(_){return '';}
     }
 
-    // 世界推进自身始终读“近期根锚点 + 更早根总结”；正文是否读取由独立设置控制。
-    const projectWorldContextBeforeHistoryMemory=projectWorldContext;
-    projectWorldContext=function(stat) {
-        const out=projectWorldContextBeforeHistoryMemory(stat);
-        const backend=stat?.世界?.[PATH]||{},projected=out?.世界?.[PATH];
-        if(projected){
-            delete projected.历史;
-            projected.历史记忆=projectWorldHistoryMemory(backend);
-        }
-        return out;
-    };
-
-    // 历史压缩生命周期与设置交互由 WorldHistoryLifecycle 处理。\n
+    // 世界推进历史投影已迁移至 WorldHistoryService + WorldStateProjector。\n\n    // 历史压缩生命周期与设置交互由 WorldHistoryLifecycle 处理。\n

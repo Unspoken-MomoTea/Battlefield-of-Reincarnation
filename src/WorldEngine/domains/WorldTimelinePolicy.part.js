@@ -2,6 +2,7 @@
     const STALE_CURRENT_EVENT_HOURS=7*24;
     const STALE_NEAR_EVENT_HOURS=30*24;
     class WorldTimelinePolicy {
+        constructor(timePolicy=DEFAULT_WORLD_TIME_POLICY){this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;}
         storyStages(value) {
             return String(value||'').split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
         }
@@ -20,19 +21,19 @@
             });
         }
         timelineState(stat) {
-            const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=worldDateKey(stat.世界.时间);
+            const state=stat.世界[PATH],events=Object.entries(state.事件||{}),now=this.timePolicy.key(stat.世界.时间);
             const waiting=events.filter(([,e])=>['待发生','进行中'].includes(e.状态));
             const near=events.filter(([,e])=>['当前事件','近期节点'].includes(e.分类));
             const macro=events.filter(([,e])=>e.分类==='宏观节点');
             const macroFuture=macro.filter(([,e])=>e.状态==='待发生');
             const macroOpen=macro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
-            const expand=macroFuture.filter(([,e])=>{const t=worldDateKey(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
-            const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&worldDateKey(e.时间||e.开始时间)===null);
+            const expand=macroFuture.filter(([,e])=>{const t=this.timePolicy.key(e.时间||e.开始时间);return now!==null&&t!==null&&t>=now&&t-now<=7*24;});
+            const semantic=waiting.filter(([,e])=>String(e.时间||e.开始时间||'').trim()&&this.timePolicy.key(e.时间||e.开始时间)===null);
             const orbit=stat.世界.因果轨道||{},orbitStages=this.storyStages(orbit.故事线);
             const macroNames=new Set(macro.map(([name])=>name));
             const orbitProjectionInvalid=orbitStages.length<3||orbitStages.length>5||orbitStages.some(name=>!macroNames.has(name));
             const orbitMacro=macroFuture.find(([name])=>name===orbit.下一节点);
-            const datedMacro=macroFuture.map((item,index)=>({item,index,key:worldDateKey(item[1].时间||item[1].开始时间)}))
+            const datedMacro=macroFuture.map((item,index)=>({item,index,key:this.timePolicy.key(item[1].时间||item[1].开始时间)}))
                 .filter(x=>x.key!==null&&(now===null||x.key>=now))
                 .sort((a,b)=>a.key-b.key||a.index-b.index);
             const nextPair=orbitMacro||datedMacro[0]?.item||macroFuture[0]||null;
@@ -79,11 +80,11 @@
             return '时间待补';
         }
         staleActiveEvents(stat) {
-            const now=worldDateKey(stat?.世界?.时间);if(now===null)return [];
+            const now=this.timePolicy.key(stat?.世界?.时间);if(now===null)return [];
             const out=[];
             for(const [名称,event] of Object.entries(stat?.世界?.[PATH]?.事件||{})){
                 if(event?.状态!=='进行中'||event?.分类==='宏观节点')continue;
-                const touched=worldDateKey(event.更新时间||event.时间||event.开始时间);
+                const touched=this.timePolicy.key(event.更新时间||event.时间||event.开始时间);
                 if(touched===null)continue;
                 const threshold=event.分类==='当前事件'?STALE_CURRENT_EVENT_HOURS:STALE_NEAR_EVENT_HOURS;
                 const age=now-touched;
@@ -92,10 +93,15 @@
             return out;
         }
         temporalAnomalies(stat) {
-            const now=worldDateKey(stat?.世界?.时间);if(now===null)return [];
-            const state=stat?.世界?.[PATH]||{},out=[];
+            const nowRaw=String(stat?.世界?.时间||''),nowKey=this.timePolicy.key(nowRaw),nowDay=this.timePolicy.dayKey(nowRaw);
+            if(nowDay===null)return [];
+            const nowExact=this.timePolicy.hasExactClock(nowRaw),state=stat?.世界?.[PATH]||{},out=[];
             const push=(类型,名称,字段,值,原因)=>{
-                const key=worldDateKey(值);if(key!==null&&key>now)out.push({类型,名称,字段,值:String(值||''),原因});
+                const valueRaw=String(值||''),valueKey=this.timePolicy.key(valueRaw),valueDay=this.timePolicy.dayKey(valueRaw);
+                if(valueDay===null)return;
+                if(valueDay>nowDay){out.push({类型,名称,字段,值:valueRaw,原因});return;}
+                if(valueDay<nowDay||类型!=='人物'||!nowExact||!this.timePolicy.hasExactClock(valueRaw))return;
+                if(nowKey!==null&&valueKey!==null&&valueKey>nowKey)out.push({类型,名称,字段,值:valueRaw,原因});
             };
             for(const [name,event] of Object.entries(state.事件||{})){
                 if(['进行中','已完成'].includes(event?.状态))push('事件',name,'时间',event.时间||event.开始时间,'已发生/进行中的事件不能晚于当前世界时间');
@@ -118,7 +124,7 @@
                 if(['事件','人物','势力地区','历史','传播'].includes(parts[2])&&parts[3])touched.add(parts[2]+'\u0000'+parts[3]);
             }
             if(!touched.size)return;
-            // Preserve later integrity/rumor decorators on the public compatibility seam.
+            // Preserve the remaining rumor runtime decorator on the public compatibility seam.
             const all=temporalAnomalies(next);
             const hit=all.find(item=>touched.has(item.类型+'\u0000'+item.名称));
             if(hit)throw new Error('时间事实超过当前世界时间：'+hit.类型+'/'+hit.名称+' '+hit.字段+'='+hit.值+'；'+hit.原因);
@@ -144,7 +150,7 @@
                         if(ai!==bi)return ai-bi;
                     }
                 }
-                const da=worldDateKey(a[1]?.时间||a[1]?.开始时间),db=worldDateKey(b[1]?.时间||b[1]?.开始时间);
+                const da=this.timePolicy.key(a[1]?.时间||a[1]?.开始时间),db=this.timePolicy.key(b[1]?.时间||b[1]?.开始时间);
                 if(da!==db)return (da??Infinity)-(db??Infinity);
                 return String(a[0]).localeCompare(String(b[0]),'zh-CN');
             });

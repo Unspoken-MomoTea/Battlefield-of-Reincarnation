@@ -2,6 +2,8 @@
         constructor(engine){
             this.engine=engine;
             this.configuration=engine.configService;
+            this.runScheduler=engine._runScheduler||new WorldRunScheduler(engine);
+            engine._runScheduler=this.runScheduler;
             this.applicationLifecycle=new WorldEngineLifecycleController(engine);
             this.context=new WorldRuntimeContextService(engine);
             this.knowledge=new WorldKnowledgeService(engine);

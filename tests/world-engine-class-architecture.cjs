@@ -7,6 +7,7 @@ for(const file of [
   'src/WorldEngine/README.md',
   'src/WorldEngine/ARCHITECTURE.md',
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  'src/WorldEngine/core/WorldEngineConfigService.part.js',
   'src/WorldEngine/core/SamsaraWorldEngine.part.js',
   'src/WorldEngine/domains/WorldStateModel.part.js',
   'src/WorldEngine/domains/WorldStateFactory.part.js',
@@ -50,10 +51,14 @@ for(const file of [
 
 
 const foundationSource=fs.readFileSync(path.join(root,'script/world-engine-src/00-foundation-prompt.part.js'),'utf8');
+const configServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineConfigService.part.js'),'utf8');
 const applicationShellSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
 assert.match(applicationShellSource,/class\s+SamsaraWorldEngine\s*\{/,'base application shell must live under src/WorldEngine/core');
+assert.match(configServiceSource,/class\s+WorldEngineConfigService\s*\{/,'configuration initialization must live behind a dedicated src service');
+assert.match(applicationShellSource,/this\.configService=new WorldEngineConfigService\(this\)/,'application shell must delegate constructor config migration');
+for(const legacyConfigMarker of ['retryDefaultFiveMigrated','userDefaultPromptSettings','builtinDefaultPromptVersionApplied'])assert.doesNotMatch(applicationShellSource,new RegExp(legacyConfigMarker),'config migration marker must not grow back into the application shell');
 assert.match(applicationShellSource,/createPanel\(\)/,'src application shell must own panel lifecycle');
 assert.match(applicationShellSource,/dispose\(\)/,'src application shell must own disposal lifecycle');
 const stateModelSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateModel.part.js'),'utf8');

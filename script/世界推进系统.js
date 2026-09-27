@@ -3608,32 +3608,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function ensureTemporalAnomaliesResolved(next,required=[]){return ACTIVE_WORLD_VALIDATION_POLICY.ensureTemporalAnomaliesResolved(next,required);}
     function ensureMacroBackbone(next,timeline,required=true){return ACTIVE_WORLD_VALIDATION_POLICY.ensureMacroBackbone(next,timeline,required);}
     function progressionAnchorChanged(before,after){return ACTIVE_WORLD_VALIDATION_POLICY.progressionAnchorChanged(before,after);}
-    // WorldResult implementation lives in src/WorldEngine/domains/WorldResultKernel.part.js.
-    // Keep this registered legacy slot temporarily as an explicit compatibility boundary while the old tree is retired.
-    let ACTIVE_WORLD_STATE_PROJECTOR=null;
-    function requireWorldStateProjector(){
-        if(!ACTIVE_WORLD_STATE_PROJECTOR)throw new Error('WorldStateProjector 尚未初始化');
-        return ACTIVE_WORLD_STATE_PROJECTOR;
-    }
-    function omitKeys(value,keys=[]){return requireWorldStateProjector().omitKeys(value,keys);}
-    function projectAbilityMap(value){return requireWorldStateProjector().abilityMap(value);}
-    function projectEquipped(value){return requireWorldStateProjector().equipped(value);}
-    function projectCarriedItems(value){return requireWorldStateProjector().carriedItems(value);}
-    function projectForms(value){return requireWorldStateProjector().forms(value);}
-
-    function projectCharacterForWorld(value){return requireWorldStateProjector().character(value);}
-    function projectAssetsForWorld(value){return requireWorldStateProjector().assets(value);}
-    function projectCausalOrbitForWorld(value,currentStability){return requireWorldStateProjector().causalOrbit(value,currentStability);}
-    // Base seam is intentionally defined before task/history decorators; they wrap this name later.
-    function projectWorldContext(stat){return requireWorldStateProjector().baseWorld(stat);}
-
-    const NPC_BUILD_AUDIT_RULES=`【角色管理 · NPC构筑审计】
-只处理“角色管理.NPC构筑审计”列出的既有 NPC；目标是补真实缺口，不是提难度或重做角色。
-1. 不改人物层级、HP_MAX/EP_MAX；不覆盖已完整组件，不用改名制造重复能力。
-2. 最低构筑：杂兵=血统1/装备1/技能可0；精英=血统1/装备2/技能1；Boss=血统1/装备3/技能2；上限为血统2/装备6/技能4。精英需有杀伤、生存、机动/控制，Boss另有阶段或形态机制。
-3. 能力只归一个主要组件：血统=本体条件，装备=实体，技能=执行方式，状态=当前结果，形态=独立战斗模式。
-4. 只用 WorldResult.关系 更新既有 NPC；只提交新增/修正项。不得输出真属性、最终属性或强化缓存；血统/形态五维必须齐全，技能不写基础/衍生属性。
-5. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、层级和已演出能力一致的缺口，资料不足时做最小补全。`;    // 世界引擎基础样式资源：保持视觉不变，只把大块 CSS 从 UI 类方法中移出。
+    // 世界引擎基础样式资源：保持视觉不变，只把大块 CSS 从 UI 类方法中移出。
     function worldEngineBaseStyleText() {
         let css = [
                 '#sam-world-engine .we-event-tasks{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--we-surface,transparent)}#sam-world-engine .we-event-task{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}#sam-world-engine .we-event-task summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}#sam-world-engine .we-event-task summary:before{content:"▸";color:var(--sub)}#sam-world-engine .we-event-task[open] summary:before{content:"▾"}#sam-world-engine .we-task-name{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:600}#sam-world-engine .we-event-task summary .we-pill{flex-shrink:0}#sam-world-engine .we-event-task p{overflow-wrap:anywhere}',
@@ -4910,6 +4885,15 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     // Canonical editable prompt defaults and built-in prompt migrations.
     // Moved from legacy world-engine source parts; behavior intentionally unchanged.
 
+    // Legacy NPC audit prompt retained only to migrate older prompt documents/config defaults.
+    const NPC_BUILD_AUDIT_RULES=`【角色管理 · NPC构筑审计】
+只处理“角色管理.NPC构筑审计”列出的既有 NPC；目标是补真实缺口，不是提难度或重做角色。
+1. 不改人物层级、HP_MAX/EP_MAX；不覆盖已完整组件，不用改名制造重复能力。
+2. 最低构筑：杂兵=血统1/装备1/技能可0；精英=血统1/装备2/技能1；Boss=血统1/装备3/技能2；上限为血统2/装备6/技能4。精英需有杀伤、生存、机动/控制，Boss另有阶段或形态机制。
+3. 能力只归一个主要组件：血统=本体条件，装备=实体，技能=执行方式，状态=当前结果，形态=独立战斗模式。
+4. 只用 WorldResult.关系 更新既有 NPC；只提交新增/修正项。不得输出真属性、最终属性或强化缓存；血统/形态五维必须齐全，技能不写基础/衍生属性。
+5. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、层级和已演出能力一致的缺口，资料不足时做最小补全。`;
+
     // ---- migrated from script/world-engine-src/55-npc-narrative-audit.part.js ----
     // NPC 构筑份量与生命层级解耦：份量由人物资料中的剧情定位决定，层级只描述本体强度。
     const NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT=`【角色管理 · NPC构筑审计】
@@ -5688,7 +5672,20 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
 
     const DEFAULT_WORLD_STATE_PROJECTOR=new WorldStateProjector();
-    ACTIVE_WORLD_STATE_PROJECTOR=DEFAULT_WORLD_STATE_PROJECTOR;
+    let ACTIVE_WORLD_STATE_PROJECTOR=DEFAULT_WORLD_STATE_PROJECTOR;
+    function requireWorldStateProjector(){
+        if(!ACTIVE_WORLD_STATE_PROJECTOR)throw new Error('WorldStateProjector 尚未初始化');
+        return ACTIVE_WORLD_STATE_PROJECTOR;
+    }
+    function omitKeys(value,keys=[]){return requireWorldStateProjector().omitKeys(value,keys);}
+    function projectAbilityMap(value){return requireWorldStateProjector().abilityMap(value);}
+    function projectEquipped(value){return requireWorldStateProjector().equipped(value);}
+    function projectCarriedItems(value){return requireWorldStateProjector().carriedItems(value);}
+    function projectForms(value){return requireWorldStateProjector().forms(value);}
+    function projectCharacterForWorld(value){return requireWorldStateProjector().character(value);}
+    function projectAssetsForWorld(value){return requireWorldStateProjector().assets(value);}
+    function projectCausalOrbitForWorld(value,currentStability){return requireWorldStateProjector().causalOrbit(value,currentStability);}
+    function projectWorldContext(stat){return requireWorldStateProjector().baseWorld(stat);}
 
     class WorldResultCompiler {
         constructor(engine,normalizer,materializer,staging,patchPolicy){

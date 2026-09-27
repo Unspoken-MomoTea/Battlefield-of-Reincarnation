@@ -26,7 +26,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldNpcAuditService.part.js',
     '@src/WorldEngine/domains/WorldStateNormalizer.part.js',
     '@src/WorldEngine/domains/WorldCausalService.part.js',
-    '@src/WorldEngine/domains/WorldResultKernel.part.js',
+    '@src/WorldEngine/domains/WorldResultVocabulary.part.js',
     '@src/WorldEngine/domains/WorldRelationSyncPolicy.part.js',
     '@src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js',
     '@src/WorldEngine/domains/WorldExplorationService.part.js',

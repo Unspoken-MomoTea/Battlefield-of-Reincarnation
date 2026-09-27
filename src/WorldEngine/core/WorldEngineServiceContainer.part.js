@@ -1,6 +1,7 @@
     class WorldEngineServiceContainer {
         constructor(engine){
             this.engine=engine;
+            this.hostAdapter=engine.hostAdapter;
             this.configuration=engine.configService;
             this.runScheduler=engine._runScheduler||new WorldRunScheduler(engine);
             engine._runScheduler=this.runScheduler;

@@ -817,6 +817,97 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     }
 
     const DEFAULT_WORLD_CHRONOLOGY_POLICY=new WorldChronologyPolicy();
+    const WORLD_TIME_MACHINE_DESCRIPTION='精确到月日时使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段仅限：凌晨/黎明/清晨/早晨/上午/中午/午后/下午/傍晚/入夜/晚上/深夜；只能确定季节/阶段时可保留粗粒度。';
+
+    class WorldTimePolicy {
+        unset(value) {
+            const raw=String(value??'').trim();
+            return !raw||raw==='待初始化';
+        }
+
+        identity(value) {
+            return String(value??'').trim().replace(/[\s·・_—–-]+/g,'');
+        }
+
+        claimsMonthDay(value) {
+            const source=String(value??'').trim();
+            return !!source&&/月/.test(source)&&/(?:第\s*)?\d{1,2}\s*日/.test(source);
+        }
+
+        calendarFor(stat,result) {
+            return plain(result?.历法)?result.历法:(plain(stat?.世界?.历法)?stat.世界.历法:{});
+        }
+
+        assertCalendarCompatibleTimeValue(stat,result,value,label='时间') {
+            const raw=String(value??'').trim();
+            if(!this.claimsMonthDay(raw))return;
+            if(calendarDate(raw,this.calendarFor(stat,result)))return;
+            throw new Error(label+'格式无法用于日历：'+raw+'。精确到月日时请使用 {yyy}年-{mm}月-{dd}日-{时间段}；不要用月份名称替代数字月。');
+        }
+
+        assertCalendarCompatibleWorldResultTimes(stat,result) {
+            const temporalKeys=new Set(['时间','开始时间','预计结束','更新时间','到期时间','下次检查','开始','结束','期限','获知时间']);
+            const walk=(value,path=[])=>{
+                if(Array.isArray(value)){for(let i=0;i<value.length;i++)walk(value[i],path.concat(i));return;}
+                if(!plain(value))return;
+                for(const [key,child] of Object.entries(value)){
+                    const nextPath=path.concat(key);
+                    if(typeof child==='string'&&temporalKeys.has(key))this.assertCalendarCompatibleTimeValue(stat,result,child,nextPath.join('.'));
+                    else if(child&&typeof child==='object')walk(child,nextPath);
+                }
+            };
+            walk(result);
+            return result;
+        }
+
+        inferFromCurrentActivities(result) {
+            const candidates=new Map();
+            for(const item of result?.人物||[]){
+                if(!plain(item)||item.操作==='撤销本轮')continue;
+                const activeFacts=String(item.地点||'').trim()&&String(item.目标||'').trim()&&String(item.行动||'').trim();
+                const raw=String(item.更新时间||'').trim();
+                if(!activeFacts||!raw)continue;
+                const key=this.identity(raw);if(key&&!candidates.has(key))candidates.set(key,raw);
+            }
+            return candidates.size===1?Array.from(candidates.values())[0]:'';
+        }
+
+        resolveProposal(stat,result) {
+            const explicit=String(result?.时间||'').trim();
+            if(explicit)return explicit;
+            if(!this.unset(stat?.世界?.时间))return '';
+            return this.inferFromCurrentActivities(result);
+        }
+
+        assertNotBackwards(stat,nextTime) {
+            const current=String(stat?.世界?.时间||'').trim();
+            if(this.unset(current)||!nextTime)return;
+            const before=worldDateKey(current),after=worldDateKey(nextTime);
+            if(before!==null&&after!==null&&after<before)throw new Error('世界时间不可回退：'+current+' -> '+nextTime);
+        }
+
+        prepareCompile(stat,result) {
+            const proposal=this.resolveProposal(stat,result);
+            if(proposal)result.时间=proposal;
+            this.assertCalendarCompatibleWorldResultTimes(stat,result);
+            if(proposal)this.assertNotBackwards(stat,proposal);
+            if(!proposal)return {proposal:'',result,validationStat:stat};
+            const validationStat=copy(stat);
+            if(!plain(validationStat.世界))validationStat.世界={};
+            validationStat.世界.时间=proposal;
+            return {proposal,result,validationStat};
+        }
+
+        finalizeCompile(originalStat,proposal,compiled) {
+            if(!proposal)return compiled;
+            const old=originalStat?.世界?.时间;
+            if(String(old??'')!==proposal)compiled.patches.unshift({op:old===undefined?'add':'replace',path:'/世界/时间',value:proposal});
+            compiled.result.时间=proposal;
+            return compiled;
+        }
+    }
+
+    const DEFAULT_WORLD_TIME_POLICY=new WorldTimePolicy();
     class WorldLifecycleService {
         personActivityMeta(stat,name,person) {
             const relations=stat?.关系列表||{},roster=(stat?.设置||{}).单一世界?{}:(stat?.世界?.异端雷达?.名单||{});
@@ -987,7 +1078,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const ALIEN_ACTIVITY_STALE_HOURS=24;
 
     class WorldPersonActivityService {
-        constructor(engine=null){this.engine=engine;}
+        constructor(engine=null,timePolicy=DEFAULT_WORLD_TIME_POLICY){this.engine=engine;this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;}
 
         deriveContext(stat,personName,playerName='') {
             const backend=stat?.世界?.[PATH]||{},people=backend.人物||{},areas=backend.势力地区||{};
@@ -1142,7 +1233,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             const plannedDead=new Set((result.异端||[])
                 .filter(item=>item?.操作!=='撤销本轮'&&item?.状态==='死亡')
                 .map(item=>nameKey(item.名称)));
-            const proposedTime=typeof resolveWorldTimeProposal==='function'?resolveWorldTimeProposal(stat,result):'';
+            const proposedTime=this.timePolicy.resolveProposal(stat,result);
             const worldTime=String(proposedTime||stat?.世界?.时间||'').trim();
             if(Array.isArray(result.人物)){
                 for(const item of result.人物){
@@ -1868,6 +1959,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         const EVENT_RESULT_SCHEMA=this.namedEntitySchema({...RECORDS.事件,...MODEL_DETAILS.事件});
         EVENT_RESULT_SCHEMA.properties.状态={type:'string',enum:['待发生','进行中','已完成','已取消']};
         EVENT_RESULT_SCHEMA.properties.分类={type:'string',enum:Array.from(EVENT_CATEGORIES)};
+        for(const key of ['时间','开始时间','预计结束','更新时间','下次检查'])if(EVENT_RESULT_SCHEMA.properties[key])EVENT_RESULT_SCHEMA.properties[key].description=WORLD_TIME_MACHINE_DESCRIPTION;
         const PERSON_RESULT_SCHEMA=this.namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物});
         PERSON_RESULT_SCHEMA.properties.审计级别={type:'string',enum:copy(NPC_AUDIT_LEVELS)};
         const OFFSET_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.偏移记录);
@@ -1927,6 +2019,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         required:['摘要'],
         properties:{
         摘要:{type:'string'},
+        时间:{type:'string',minLength:1,description:'当前世界时间。'+WORLD_TIME_MACHINE_DESCRIPTION},
         货币:{type:'object',additionalProperties:false,properties:{
         体系:{type:'string'},
         购买力基准:{type:'string'},
@@ -2188,6 +2281,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         normalizeWorldResult(value) {
             if(!plain(value))throw new Error('WorldResult 必须是 JSON 对象');
             const result={摘要:String(value.摘要??value.summary??'世界继续推进')};
+            if(Object.hasOwn(value,'时间')){const time=String(value.时间??'').trim();if(time)result.时间=time;}
             const legacyStage=(Object.hasOwn(value,'公开摘要')||Object.hasOwn(value,'public_summary'))?String(value.公开摘要??value.public_summary??'').trim():'';
             result.货币={};
             if(plain(value.货币)){
@@ -2252,6 +2346,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             const a=base?this.normalizeWorldResult(base):this.normalizeWorldResult({摘要:''});
             const b=this.normalizeWorldResult(incoming);
             const result={摘要:[a.摘要,b.摘要].filter(Boolean).filter((x,i,list)=>list.indexOf(x)===i).join('；')};
+            if(Object.hasOwn(b,'时间'))result.时间=b.时间;else if(Object.hasOwn(a,'时间'))result.时间=a.时间;
             result.货币=Object.assign({},a.货币||{},b.货币||{});
             result.历法=Object.assign({},a.历法||{},b.历法||{});
             for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'])result[key]=this.mergeNamedResultLists(a[key],b[key]);
@@ -2275,7 +2370,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit,people,taskLedger,chronology){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;}
+        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit,people,taskLedger,chronology,timePolicy){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;this.timePolicy=timePolicy||DEFAULT_WORLD_TIME_POLICY;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -2432,7 +2527,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         }
 
         compileWorldResult(stat,value) {
-            const prepared=this.people.normalizeAlienActivityTimestamps(stat,value);
+            const originalStat=stat,initial=this.normalizer.normalizeWorldResult(value),timing=this.timePolicy.prepareCompile(originalStat,initial);
+            stat=timing.validationStat;
+            const prepared=this.people.normalizeAlienActivityTimestamps(stat,timing.result);
             const result=this.normalizer.normalizeWorldResult(prepared),patches=[],warnings=[];
             this.npcAudit.normalizeNewEquipment(stat,result);
             const droppedCausalOffsets=this.causal.prepareResult(stat,result);
@@ -2561,7 +2658,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             for(const patch of causalRepairs.patches)if(!occupiedCausalPaths.has(patch.path))patches.push(patch);
             if(droppedCausalOffsets.length)warnings.push('忽略非世界尺度因果偏移：'+droppedCausalOffsets.join('、'));
             if(causalRepairs.names.length)warnings.push('清理局部稳定偏移：'+causalRepairs.names.join('、'));
-            return {result,patches,warnings};
+            return this.timePolicy.finalizeCompile(originalStat,timing.proposal,{result,patches,warnings});
         }
 
         validateBaseState(stat) {
@@ -2691,7 +2788,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return {next,appliedSeeds,repairPatches};
         }
     }
-    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE,DEFAULT_WORLD_PATCH_POLICY,DEFAULT_WORLD_NPC_AUDIT_SERVICE,DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE,DEFAULT_WORLD_TASK_AWARENESS_SERVICE,DEFAULT_WORLD_CHRONOLOGY_POLICY);
+    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE,DEFAULT_WORLD_PATCH_POLICY,DEFAULT_WORLD_NPC_AUDIT_SERVICE,DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE,DEFAULT_WORLD_TASK_AWARENESS_SERVICE,DEFAULT_WORLD_CHRONOLOGY_POLICY,DEFAULT_WORLD_TIME_POLICY);
     let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
     function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}
@@ -2704,12 +2801,13 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;
         }
 
-        // Transitional rule: normalization/merge/fragment and retry-plan calls intentionally use the
-        // global compatibility seams because legacy features still decorate them after this service loads.
+        // Retry-plan calls still traverse the compatibility seam because a few legacy modules only add domain-specific retry guidance.
+        // Result normalization, merge, fragment splitting and compilation are canonical class calls.
 
         worldResultFragments(value) {
-            const result=normalizeWorldResult(value),fragments=[];
+            const result=this.normalizer.normalizeWorldResult(value),fragments=[];
             const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
+            if(Object.hasOwn(result,'时间'))push('时间',{时间:result.时间});
             for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
             for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
             for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端']){
@@ -2756,16 +2854,16 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         }
 
         stage(stat,accepted,incoming,validate) {
-            const split=worldResultFragments(incoming);
-            let staged=accepted?mergeWorldResults(accepted,{摘要:split.摘要}):normalizeWorldResult({摘要:split.摘要});
+            const split=this.worldResultFragments(incoming);
+            let staged=accepted?this.normalizer.mergeWorldResults(accepted,{摘要:split.摘要}):this.normalizer.normalizeWorldResult({摘要:split.摘要});
             let pending=split.fragments.map(unit=>Object.assign({},unit,{error:null})),progress=true;
             while(pending.length&&progress){
                 progress=false;
                 const nextPending=[];
                 for(const unit of pending){
-                    const candidate=mergeWorldResults(staged,unit.result);
+                    const candidate=this.normalizer.mergeWorldResults(staged,unit.result);
                     try{
-                        const compiled=compileWorldResult(stat,candidate);
+                        const compiled=this.materializer.compileWorldResult(stat,candidate);
                         const built=this.materializer.materializeWorldUpdate(stat,[],compiled.patches);
                         if(typeof validate==='function'){
                             const checked=validate(built.next);
@@ -4563,7 +4661,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     // 自动推进触发重构：正文完成是主入口；变量重处理只恢复已确认结果，不重新调用世界 AI。
     const WORLD_REPLAY_VERSION=1;
     const WORLD_REPLAY_SCOPES=[
-        ['世界','货币'],['世界','历法'],['世界',PATH],['世界','因果轨道'],['世界','势力'],['世界','探索'],
+        ['世界','时间'],['世界','货币'],['世界','历法'],['世界',PATH],['世界','因果轨道'],['世界','势力'],['世界','探索'],
         ['世界','异端雷达','名单'],['世界','稳定'],['传闻'],['资产'],['关系列表']
     ];
     // 调度与 replay 生命周期由 WorldAutoProgressController / WorldReplayService 组合。\n    // 容错验收策略：完整性维护采用渐进补齐，不再让辅助模块拖死整轮世界推进。
@@ -4736,127 +4834,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 6. 时间段是粗粒度时间锚点，不是每轮计数器。没有足够时间流逝跨过当前时段时，省略“时间”并保持原值；只有正文或明确时间资料表明确实经过了合理时长，才推进到后续时段或日期。禁止仅因本轮执行了世界推进就机械跳时段。
 7. 世界时间不得回退，也不得把待发生事件的计划时间提前写成当前时间。人物/地区等“更新时间”由程序按本轮最终世界时间统一盖章。从主神空间进入新副本时，程序会先清空世界.时间与旧历法；必须把这视为全新世界的时间初始化，严禁继承上一副本或主神空间“轮回历”的日期。`;
 
-    const MACHINE_TIME_DESCRIPTION='精确到月日时使用 {yyy}年-{mm}月-{dd}日-{时间段}；时间段仅限：凌晨/黎明/清晨/早晨/上午/中午/午后/下午/傍晚/入夜/晚上/深夜；只能确定季节/阶段时可保留粗粒度。';
-    WORLD_RESULT_SCHEMA.properties.时间={type:'string',minLength:1,description:'当前世界时间。'+MACHINE_TIME_DESCRIPTION};
-    if(EVENT_RESULT_SCHEMA?.properties){
-        for(const key of ['时间','开始时间','预计结束','更新时间','下次检查'])if(EVENT_RESULT_SCHEMA.properties[key])EVENT_RESULT_SCHEMA.properties[key].description=MACHINE_TIME_DESCRIPTION;
-    }
-
-    function worldTimeUnset(value) {
-        const raw=String(value??'').trim();
-        return !raw||raw==='待初始化';
-    }
-    function worldTimeIdentity(value) {
-        return String(value??'').trim().replace(/[\s·・_—–-]+/g,'');
-    }
-    function worldTimeClaimsMonthDay(value) {
-        const source=String(value??'').trim();
-        return !!source&&/月/.test(source)&&/(?:第\s*)?\d{1,2}\s*日/.test(source);
-    }
-    function worldTimeCalendarFor(stat,result) {
-        return plain(result?.历法)?result.历法:(plain(stat?.世界?.历法)?stat.世界.历法:{});
-    }
-    function assertCalendarCompatibleTimeValue(stat,result,value,label='时间') {
-        const raw=String(value??'').trim();
-        if(!worldTimeClaimsMonthDay(raw))return;
-        if(calendarDate(raw,worldTimeCalendarFor(stat,result)))return;
-        throw new Error(label+'格式无法用于日历：'+raw+'。精确到月日时请使用 {yyy}年-{mm}月-{dd}日-{时间段}；不要用月份名称替代数字月。');
-    }
-    function assertCalendarCompatibleWorldResultTimes(stat,result) {
-        const temporalKeys=new Set(['时间','开始时间','预计结束','更新时间','到期时间','下次检查','开始','结束','期限','获知时间']);
-        const walk=(value,path=[])=>{
-            if(Array.isArray(value)){for(let i=0;i<value.length;i++)walk(value[i],path.concat(i));return;}
-            if(!plain(value))return;
-            for(const [key,child] of Object.entries(value)){
-                const nextPath=path.concat(key);
-                if(typeof child==='string'&&temporalKeys.has(key))assertCalendarCompatibleTimeValue(stat,result,child,nextPath.join('.'));
-                else if(child&&typeof child==='object')walk(child,nextPath);
-            }
-        };
-        walk(result);
-    }
-    function inferWorldTimeFromCurrentActivities(result) {
-        const candidates=new Map();
-        for(const item of result?.人物||[]){
-            if(!plain(item)||item.操作==='撤销本轮')continue;
-            const activeFacts=String(item.地点||'').trim()&&String(item.目标||'').trim()&&String(item.行动||'').trim();
-            const raw=String(item.更新时间||'').trim();
-            if(!activeFacts||!raw)continue;
-            const key=worldTimeIdentity(raw);if(key&&!candidates.has(key))candidates.set(key,raw);
-        }
-        return candidates.size===1?Array.from(candidates.values())[0]:'';
-    }
-    function resolveWorldTimeProposal(stat,result) {
-        const explicit=String(result?.时间||'').trim();
-        if(explicit)return explicit;
-        if(!worldTimeUnset(stat?.世界?.时间))return '';
-        return inferWorldTimeFromCurrentActivities(result);
-    }
-    function assertWorldTimeNotBackwards(stat,nextTime) {
-        const current=String(stat?.世界?.时间||'').trim();
-        if(worldTimeUnset(current)||!nextTime)return;
-        const before=worldDateKey(current),after=worldDateKey(nextTime);
-        if(before!==null&&after!==null&&after<before)throw new Error('世界时间不可回退：'+current+' -> '+nextTime);
-    }
-
-    const normalizeWorldResultBeforeWorldTimeOwnership=normalizeWorldResult;
-    normalizeWorldResult=function(value) {
-        const result=normalizeWorldResultBeforeWorldTimeOwnership(value);
-        if(plain(value)&&Object.hasOwn(value,'时间')){
-            const time=String(value.时间??'').trim();
-            if(time)result.时间=time;
-        }
-        return result;
-    };
-
-    const mergeWorldResultsBeforeWorldTimeOwnership=mergeWorldResults;
-    mergeWorldResults=function(base,incoming) {
-        const result=mergeWorldResultsBeforeWorldTimeOwnership(base,incoming);
-        const a=base?normalizeWorldResult(base):null,b=normalizeWorldResult(incoming);
-        if(Object.hasOwn(b,'时间'))result.时间=b.时间;
-        else if(a&&Object.hasOwn(a,'时间'))result.时间=a.时间;
-        return result;
-    };
-
-    const worldResultFragmentsBeforeWorldTimeOwnership=worldResultFragments;
-    worldResultFragments=function(value) {
-        const result=normalizeWorldResult(value),split=worldResultFragmentsBeforeWorldTimeOwnership(result);
-        if(Object.hasOwn(result,'时间'))split.fragments.unshift({label:'时间',result:{摘要:'',时间:result.时间}});
-        return split;
-    };
-
-    const allowedBeforeWorldTimeOwnership=allowed;
-    allowed=function(parts,stat) {
-        if(Array.isArray(parts)&&parts.length===2&&parts[0]==='世界'&&parts[1]==='时间')return true;
-        return allowedBeforeWorldTimeOwnership(parts,stat);
-    };
-
-    const compileWorldResultBeforeWorldTimeOwnership=compileWorldResult;
-    compileWorldResult=function(stat,value) {
-        const result=normalizeWorldResult(value),proposal=resolveWorldTimeProposal(stat,result);
-        if(proposal)result.时间=proposal;
-        assertCalendarCompatibleWorldResultTimes(stat,result);
-        if(proposal)assertWorldTimeNotBackwards(stat,proposal);
-
-        // 本轮顶层时间是整份 WorldResult 的事务基准。先把候选时间放进校验快照，
-        // 再校验同轮事件/人物/地区/历史/传播，避免“新时间尚未落库 → 新时间下的事实被误判为未来”的死锁。
-        const validationStat=proposal?copy(stat):stat;
-        if(proposal){
-            if(!plain(validationStat.世界))validationStat.世界={};
-            validationStat.世界.时间=proposal;
-        }
-        const compiled=compileWorldResultBeforeWorldTimeOwnership(validationStat,result);
-        if(proposal){
-            const old=stat?.世界?.时间;
-            if(String(old??'')!==proposal)compiled.patches.unshift({op:old===undefined?'add':'replace',path:'/世界/时间',value:proposal});
-            compiled.result.时间=proposal;
-        }
-        return compiled;
-    };
-
-    if(Array.isArray(WORLD_REPLAY_SCOPES)&&!WORLD_REPLAY_SCOPES.some(scope=>scope.length===2&&scope[0]==='世界'&&scope[1]==='时间'))WORLD_REPLAY_SCOPES.unshift(['世界','时间']);
-
-    // 请求装饰与变量事件时间所有权由 WorldTimeOwnershipFeature 处理。\n    // replay 持久化已并入 src/WorldEngine/domains/WorldReplayService.part.js。
+    // 世界时间结果策略、Schema、编译事务与 replay 范围已迁移至 WorldTimePolicy / canonical services。
+    // 本文件仅保留可编辑的 WORLD_TIME_RULES 提示词常量。\n    // replay 持久化已并入 src/WorldEngine/domains/WorldReplayService.part.js。
     // 世界推进手动编辑公共写回层：只修改世界引擎拥有的变量，并把修正合并回同楼 replay。
     function worldEditorEscape(value) {
         if(typeof causalOverviewEscape==='function')return causalOverviewEscape(value);
@@ -5935,8 +5914,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
         normalize(value){return this.normalizer.normalizeWorldResult(value);}
         stage(stat,accepted,incoming,validate){return this.staging.stage(stat,accepted,incoming,validate);}
-        // Legacy compile decorators still wrap the global seam; keep routing through it until those features are class-migrated.
-        compile(stat,value){return compileWorldResult(stat,value);}
+        // All compile preprocessing is now canonical; the global compileWorldResult name is compatibility-only.
+        compile(stat,value){return this.materializer.compileWorldResult(stat,value);}
         materialize(stat,seedPatches,modelPatches){return this.materializer.materializeWorldUpdate(stat,seedPatches,modelPatches);}
         sanitizeLegacy(patches){return this.patchPolicy.sanitizeModelPatches(this.patchPolicy.normalizeModelPatches(patches));}
     }
@@ -6983,10 +6962,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldTimeOwnershipFeature extends WorldRequestFeature {
-        constructor(engine){super(engine);}
+        constructor(engine,policy=DEFAULT_WORLD_TIME_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_TIME_POLICY;}
         async afterBuildRequest(request,base){
             try{
-                const payload=JSON.parse(request.input),needsInitialization=worldTimeUnset(base?.stat?.世界?.时间);
+                const payload=JSON.parse(request.input),needsInitialization=this.policy.unset(base?.stat?.世界?.时间);
                 payload.世界时间维护={
                     当前时间:String(base?.stat?.世界?.时间||''),
                     是否需要初始化:needsInitialization,
@@ -7018,7 +6997,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(wasSpace!==isSpace){
                 const enteringWorld=wasSpace&&!isSpace,returningToSpace=!wasSpace&&isSpace;
                 const mainSpaceTime=/^轮回历\d+年-\d{2}月-\d{2}日-(?:凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜)$/.test(incoming);
-                if((enteringWorld&&worldTimeUnset(incoming))||(returningToSpace&&mainSpaceTime))return handled;
+                if((enteringWorld&&this.policy.unset(incoming))||(returningToSpace&&mainSpaceTime))return handled;
             }
             if(!plain(variables.stat_data.世界))variables.stat_data.世界={};
             variables.stat_data.世界.时间=previous;
@@ -8656,9 +8635,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.timelinePolicy=new WorldTimelinePolicy();
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.chronologyPolicy=new WorldChronologyPolicy();
+            this.timePolicy=new WorldTimePolicy();
             this.lifecycle=new WorldLifecycleService();
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
-            this.people=new WorldPersonActivityService(engine);
+            this.people=new WorldPersonActivityService(engine,this.timePolicy);
             ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE=this.people;
             this.npcAudit=new WorldNpcAuditService();
             ACTIVE_WORLD_NPC_AUDIT_SERVICE=this.npcAudit;
@@ -8670,7 +8650,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy,this.timePolicy);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -8695,7 +8675,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             engine._runOrchestrator=this.run;
             this.autoProgress=new WorldAutoProgressController(engine);
             this.replay=new WorldReplayService(engine);
-            this.timeOwnership=new WorldTimeOwnershipFeature(engine);
+            this.timeOwnership=new WorldTimeOwnershipFeature(engine,this.timePolicy);
             this.npcAuditPolicy=new WorldNpcAuditPolicy(engine);
             this.historyLifecycle=new WorldHistoryLifecycle(engine);
             this.views=new WorldEngineViewRegistry(engine);

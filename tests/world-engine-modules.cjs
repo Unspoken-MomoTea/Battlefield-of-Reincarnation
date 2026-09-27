@@ -118,7 +118,8 @@ assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldLifecycleService.part.
 assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/class\s+WorldLifecycleService\b/,'world lifecycle rules must live behind a dedicated service');
 assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/compact\(stat\)/,'lifecycle service must own the top-level compaction orchestration');
 assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:personActivityMeta|pruneColdTemporaryPeople|pruneDeadAlienPeople|collectEventRefs|detachEventSoftRefs|archiveFinishedEvent|propagationEnded|pruneSoftRefsToColdFinishedEvents|compactFinishedEvents|explorationLocationRefs|pruneColdExploration|compactWorldLifecycle)\b/,'legacy world-state source must not regain lifecycle implementation');
-assert.doesNotMatch(texts['59-soft-maintenance.part.js'],/pruneColdExploration\s*=/,'soft-maintenance must not recreate the removed exploration lifecycle seam');
+assert.equal(Object.hasOwn(texts,'59-soft-maintenance.part.js'),false,'deleted soft-maintenance legacy module must not return to the build');
+assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldExplorationService.part.js'],/pruneColdExploration\s*=/,'exploration service must not recreate the removed lifecycle pruning seam');
 
 // Phase 17: causal-orbit projection lives in the causal domain.
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldCausalService.part.js'),'causal projection loads after state normalization');

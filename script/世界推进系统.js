@@ -4264,6 +4264,23 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return config;
         }
     }
+    class WorldRunScheduler {
+        constructor(engine){this.engine=engine;}
+        cancel(){
+            const e=this.engine;
+            ++e.generation;
+            e.pending=false;
+            clearTimeout(e.timer);
+            if(e.controller)e.controller.abort();
+        }
+        schedule(){
+            const e=this.engine;
+            if(e.disposed||e.committing||!e.isEnabled())return;
+            if(e.busy){e.pending=true;return;}
+            clearTimeout(e.timer);
+            e.timer=setTimeout(()=>e.run().catch(()=>{}),900);
+        }
+    }
     class SamsaraWorldEngine {
         constructor(host, env) {
             this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
@@ -4328,7 +4345,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         isAvailable(){return this.configService.isAvailable();}
         isEnabled(){return this.configService.isEnabled();}
         setEnabled(value){return this.configService.setEnabled(value);}
-        cancel() { ++this.generation; this.pending = false; clearTimeout(this.timer); if (this.controller) this.controller.abort(); }
+        runScheduler(){return this.services?.runScheduler||this._runScheduler||(this._runScheduler=new WorldRunScheduler(this));}
+        cancel(){return this.runScheduler().cancel();}
         applyBuiltinDefaultWorldbookExclusions(catalogue) {
             if(this.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue)||!catalogue.length)return false;
             const applied=new Set(Array.isArray(this.config.builtinDefaultWorldbookExclusionsApplied)?this.config.builtinDefaultWorldbookExclusionsApplied:[]);
@@ -4363,12 +4381,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             const service=this.services?.requestBuilder||new WorldRequestBuilder(this);
             return service.build(base);
         }
-        schedule() {
-            if (this.disposed || this.committing || !this.isEnabled()) return;
-            if (this.busy) { this.pending = true; return; }
-            clearTimeout(this.timer);
-            this.timer = setTimeout(() => this.run().catch(() => {}), 900);
-        }
+        schedule(){return this.runScheduler().schedule();}
         runOrchestrator(){return this.services?.run||this._runOrchestrator||(this._runOrchestrator=new WorldRunOrchestrator(this));}
         async run(options={}){return this.runOrchestrator().execute(options);}
         getState() { return copy(Object.assign(emptyState(),this.snapshot().stat.世界[PATH] || {})); }
@@ -8673,6 +8686,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         constructor(engine){
             this.engine=engine;
             this.configuration=engine.configService;
+            this.runScheduler=engine._runScheduler||new WorldRunScheduler(engine);
+            engine._runScheduler=this.runScheduler;
             this.applicationLifecycle=new WorldEngineLifecycleController(engine);
             this.context=new WorldRuntimeContextService(engine);
             this.knowledge=new WorldKnowledgeService(engine);
@@ -8690,10 +8705,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ACTIVE_WORLD_TIME_POLICY=this.timePolicy;
             this.dueEventPolicy=new WorldDueEventPolicy(this.timePolicy);
             this.activityPolicy=new WorldActivityPolicy();
-            this.softMaintenancePolicy=new WorldSoftMaintenancePolicy(this.timelinePolicy);
-            ACTIVE_WORLD_SOFT_MAINTENANCE_POLICY=this.softMaintenancePolicy;
             this.timelinePolicy=new WorldTimelinePolicy(this.timePolicy);
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
+            this.softMaintenancePolicy=new WorldSoftMaintenancePolicy(this.timelinePolicy);
+            ACTIVE_WORLD_SOFT_MAINTENANCE_POLICY=this.softMaintenancePolicy;
             this.chronologyPolicy=new WorldChronologyPolicy();
             this.lifecycle=new WorldLifecycleService();
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;

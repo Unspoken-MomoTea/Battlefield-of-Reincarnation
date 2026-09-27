@@ -492,3 +492,8 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 ## Phase 64 · Relation sync policy
 
 `WorldRelationSyncPolicy` owns the formal-character synchronization contract: component shape validation, scalar bounds, derived-attribute reset, incremental component merge and component-count limits. `WorldResultMaterializer` composes the container-owned policy and only turns validated relation changes into patches; patch application reuses the same policy.
+
+
+## Phase 65 · Asset materialization policy
+
+`WorldAssetMaterializationPolicy` owns the shared-asset write contract: supported asset classes, item-like name rejection, owner normalization, safe defaults, partial energy merge, named unit/build merge with hidden harvest scheduling preserved, garrison updates and pending-event replacement. The canonical `WorldResultMaterializer` only resolves the target asset and emits add/replace/remove patches through the container-owned policy.

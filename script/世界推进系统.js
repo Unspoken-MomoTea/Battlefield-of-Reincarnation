@@ -3381,31 +3381,57 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         DEFAULT_WORLD_RELATION_SYNC_POLICY,
         DEFAULT_WORLD_RUMOR_SERVICE
     );
-    class WorldResultMaterializer {
-        constructor(patchCompilation,exploration,stateNormalizer,causal,patchPolicy,stateIntegrity,patchApplication){this.patchCompilation=patchCompilation||DEFAULT_WORLD_RESULT_PATCH_COMPILATION_SERVICE;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.stateIntegrity=stateIntegrity||DEFAULT_WORLD_STATE_INTEGRITY_POLICY;this.patchApplication=patchApplication||DEFAULT_WORLD_PATCH_APPLICATION_SERVICE;}
-        compileWorldResult(stat,value) { return this.patchCompilation.compile(stat,value); }
-
-        validateBaseState(stat) { return this.stateIntegrity.validate(stat); }
-        applyPatches(stat,patches) { return this.patchApplication.apply(stat,patches); }
-        materializeWorldUpdate(stat,seedPatches,modelPatches) {
+    class WorldStateMaterializationService {
+        constructor(stateFactory,stateNormalizer,lifecycle,patchPolicy,patchApplication,exploration,causal,stateIntegrity){
+            this.stateFactory=stateFactory||DEFAULT_WORLD_STATE_FACTORY;
+            this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;
+            this.lifecycle=lifecycle||DEFAULT_WORLD_LIFECYCLE_SERVICE;
+            this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;
+            this.patchApplication=patchApplication||DEFAULT_WORLD_PATCH_APPLICATION_SERVICE;
+            this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;
+            this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;
+            this.stateIntegrity=stateIntegrity||DEFAULT_WORLD_STATE_INTEGRITY_POLICY;
+        }
+        validate(stat){return this.stateIntegrity.validate(stat);}
+        apply(stat,patches){return this.patchApplication.apply(stat,patches);}
+        materialize(stat,seedPatches,modelPatches) {
             const work=copy(stat);
-            work.世界[PATH]=Object.assign(emptyState(),work.世界[PATH]||{});
-            this.stateNormalizer.normalizeBackendState(work);compactWorldLifecycle(work);
+            work.世界[PATH]=Object.assign(this.stateFactory.emptyBackend(),work.世界[PATH]||{});
+            this.stateNormalizer.normalizeBackendState(work);
+            this.lifecycle.compact(work);
             const appliedSeeds=(seedPatches||[]).filter(p=>this.patchPolicy.get(work,this.patchPolicy.canonicalizeParts(this.patchPolicy.tokens(p.path),work))===undefined);
-            let next=this.applyPatches(work,appliedSeeds);
-            next=this.applyPatches(next,modelPatches||[]);
+            let next=this.apply(work,appliedSeeds);
+            next=this.apply(next,modelPatches||[]);
             const explorationPatches=this.exploration.repairGranularity(next);
             const layerPatches=this.stateNormalizer.normalizeEventLayers(next);
             const causalPatches=this.causal.repairProjection(next);
             const predecessorPatches=this.stateNormalizer.repairMacroPredecessors(next);
             const linkPatches=this.stateNormalizer.repairExplicitEventLinks(next);
-            compactWorldLifecycle(next);
-            this.validateBaseState(next);
+            this.lifecycle.compact(next);
+            this.validate(next);
             const repairPatches=[...explorationPatches,...layerPatches,...causalPatches,...predecessorPatches,...linkPatches];
             return {next,appliedSeeds,repairPatches};
         }
     }
-    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_PATCH_COMPILATION_SERVICE,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE,DEFAULT_WORLD_PATCH_POLICY,DEFAULT_WORLD_STATE_INTEGRITY_POLICY,DEFAULT_WORLD_PATCH_APPLICATION_SERVICE);
+    const DEFAULT_WORLD_STATE_MATERIALIZATION_SERVICE=new WorldStateMaterializationService(
+        DEFAULT_WORLD_STATE_FACTORY,
+        DEFAULT_WORLD_STATE_NORMALIZER,
+        DEFAULT_WORLD_LIFECYCLE_SERVICE,
+        DEFAULT_WORLD_PATCH_POLICY,
+        DEFAULT_WORLD_PATCH_APPLICATION_SERVICE,
+        DEFAULT_WORLD_EXPLORATION_SERVICE,
+        DEFAULT_WORLD_CAUSAL_SERVICE,
+        DEFAULT_WORLD_STATE_INTEGRITY_POLICY
+    );
+    class WorldResultMaterializer {
+        constructor(patchCompilation,stateMaterialization){this.patchCompilation=patchCompilation||DEFAULT_WORLD_RESULT_PATCH_COMPILATION_SERVICE;this.stateMaterialization=stateMaterialization||DEFAULT_WORLD_STATE_MATERIALIZATION_SERVICE;}
+        compileWorldResult(stat,value) { return this.patchCompilation.compile(stat,value); }
+
+        validateBaseState(stat) { return this.stateMaterialization.validate(stat); }
+        applyPatches(stat,patches) { return this.stateMaterialization.apply(stat,patches); }
+        materializeWorldUpdate(stat,seedPatches,modelPatches) { return this.stateMaterialization.materialize(stat,seedPatches,modelPatches); }
+    }
+    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_PATCH_COMPILATION_SERVICE,DEFAULT_WORLD_STATE_MATERIALIZATION_SERVICE);
     let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
     function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}
@@ -8907,7 +8933,17 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             );
             this.stateIntegrity=new WorldStateIntegrityPolicy(this.patchPolicy,this.timePolicy,this.rumor);
             this.patchApplication=new WorldPatchApplicationService(this.patchPolicy,this.stateNormalizer,this.timelinePolicy,this.stateIntegrity,this.relationSync,this.rumor);
-            this.resultMaterializer=new WorldResultMaterializer(this.resultPatchCompilation,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.stateIntegrity,this.patchApplication);
+            this.stateMaterialization=new WorldStateMaterializationService(
+                this.stateFactory,
+                this.stateNormalizer,
+                this.lifecycle,
+                this.patchPolicy,
+                this.patchApplication,
+                this.exploration,
+                this.causal,
+                this.stateIntegrity
+            );
+            this.resultMaterializer=new WorldResultMaterializer(this.resultPatchCompilation,this.stateMaterialization);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.retryGuidance=new WorldRetryGuidanceService(engine);
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy,this.retryGuidance,this.rumor);

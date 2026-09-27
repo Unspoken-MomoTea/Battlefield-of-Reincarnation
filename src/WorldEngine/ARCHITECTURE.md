@@ -521,3 +521,10 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 `WorldStateMaterializationService` owns final persisted-state assembly after patch compilation: backend default hydration, normalization, lifecycle compaction, seed/model patch ordering, exploration/event/causal/reference repair passes and final integrity validation.
 
 It composes `WorldStateFactory` and `WorldLifecycleService` directly instead of routing through global compatibility helpers. `WorldResultMaterializer` is now a compatibility facade over `WorldResultPatchCompilationService` and `WorldStateMaterializationService`.
+
+
+## Phase 70 · Prompt integration service
+
+`WorldPromptIntegrationService` owns the application-layer integration between `WorldPromptRegistry`, prompt documents, request decoration, token telemetry and `WorldPromptWorkspaceController`. It does not own prompt defaults or persistence schemas; those remain in the registry/document services.
+
+`WorldEngineClassBridge` now preserves only public compatibility seams and super-call ordering for prompt methods. Concrete registry merging, request rewriting, manifest telemetry and prompt-panel synchronization must not grow back into the bridge.

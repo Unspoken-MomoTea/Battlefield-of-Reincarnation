@@ -8,6 +8,7 @@ for(const file of [
   'src/WorldEngine/ARCHITECTURE.md',
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   'src/WorldEngine/core/WorldEngineConfigService.part.js',
+  'src/WorldEngine/core/WorldRunScheduler.part.js',
   'src/WorldEngine/core/SamsaraWorldEngine.part.js',
   'src/WorldEngine/core/WorldEngineLifecycleController.part.js',
   'src/WorldEngine/ui/WorldPanelController.part.js',
@@ -55,6 +56,7 @@ for(const file of [
 
 const foundationSource=fs.readFileSync(path.join(root,'script/world-engine-src/00-foundation-prompt.part.js'),'utf8');
 const configServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineConfigService.part.js'),'utf8');
+const runSchedulerSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldRunScheduler.part.js'),'utf8');
 const applicationShellSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
 const applicationLifecycleSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineLifecycleController.part.js'),'utf8');
 const panelControllerSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelController.part.js'),'utf8');
@@ -82,7 +84,12 @@ assert.match(applicationShellSource,/render\(force=false\)\s*\{\s*return this\.s
 assert.match(panelRendererSource,/class\s+WorldPanelRenderer\s*\{/,'shared panel rendering orchestration must live behind a dedicated renderer');
 for(const viewKey of ['world','people','exploration','assets','events','rumors','history','settings','prompts','requestInspector'])assert.match(panelRendererSource,new RegExp("engine\\.services\\.views\\.render\\('"+viewKey+"'"),'panel renderer must dispatch '+viewKey+' through the View registry');
 assert.doesNotMatch(applicationShellSource,/services\.views\.render|const\s+tabs\s*=\s*\[/,'view dispatch and navigation rendering must not grow back into the application shell');
-assert.ok(applicationShellSource.length<9000,'application shell should stay below 9 KB after configuration availability extraction');
+assert.ok(applicationShellSource.length<8500,'application shell should stay below 8.5 KB after run scheduling extraction');
+assert.match(runSchedulerSource,/class\s+WorldRunScheduler\s*\{/,'base run scheduling must live behind a dedicated scheduler');
+for(const method of ['cancel','schedule'])assert.match(runSchedulerSource,new RegExp('\\b'+method+'\\s*\\('),'run scheduler must own '+method);
+assert.match(applicationShellSource,/cancel\(\)\{return this\.runScheduler\(\)\.cancel\(\);\}/,'application shell cancel must remain a scheduler facade');
+assert.match(applicationShellSource,/schedule\(\)\{return this\.runScheduler\(\)\.schedule\(\);\}/,'application shell schedule must remain a scheduler facade');
+assert.doesNotMatch(applicationShellSource,/clearTimeout\(this\.timer\)|this\.controller\.abort\(\)|setTimeout\(\(\)=>this\.run/,'run scheduling implementation must not grow back into the application shell');
 assert.match(applicationLifecycleSource,/class\s+WorldEngineLifecycleController\s*\{/,'application lifecycle must live behind a dedicated controller');
 for(const method of ['init','isOpen','open','close','toggle','dispose'])assert.match(applicationLifecycleSource,new RegExp('\\b'+method+'\\s*\\('),'application lifecycle controller must own '+method);
 assert.match(applicationShellSource,/init\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.init\?\.\(\);\s*\}/,'application shell init must delegate to the lifecycle controller');
@@ -241,10 +248,12 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['applicationLifecycle','panelController','panelRenderer','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['runScheduler','applicationLifecycle','panelController','panelRenderer','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
+assert.equal(engine.services.runScheduler.constructor.name,'WorldRunScheduler');
+assert.equal(engine.services.runScheduler.engine,engine,'run scheduler must belong to the application engine');
 assert.equal(engine.services.applicationLifecycle.constructor.name,'WorldEngineLifecycleController');
 assert.equal(engine.services.stateFactory.constructor.name,'WorldStateFactory');
 assert.equal(engine.services.stateProjector.constructor.name,'WorldStateProjector');

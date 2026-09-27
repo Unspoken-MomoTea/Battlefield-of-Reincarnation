@@ -153,5 +153,18 @@
     }
 
     const DEFAULT_WORLD_STATE_PROJECTOR=new WorldStateProjector();
-    ACTIVE_WORLD_STATE_PROJECTOR=DEFAULT_WORLD_STATE_PROJECTOR;
+    let ACTIVE_WORLD_STATE_PROJECTOR=DEFAULT_WORLD_STATE_PROJECTOR;
+    function requireWorldStateProjector(){
+        if(!ACTIVE_WORLD_STATE_PROJECTOR)throw new Error('WorldStateProjector 尚未初始化');
+        return ACTIVE_WORLD_STATE_PROJECTOR;
+    }
+    function omitKeys(value,keys=[]){return requireWorldStateProjector().omitKeys(value,keys);}
+    function projectAbilityMap(value){return requireWorldStateProjector().abilityMap(value);}
+    function projectEquipped(value){return requireWorldStateProjector().equipped(value);}
+    function projectCarriedItems(value){return requireWorldStateProjector().carriedItems(value);}
+    function projectForms(value){return requireWorldStateProjector().forms(value);}
+    function projectCharacterForWorld(value){return requireWorldStateProjector().character(value);}
+    function projectAssetsForWorld(value){return requireWorldStateProjector().assets(value);}
+    function projectCausalOrbitForWorld(value,currentStability){return requireWorldStateProjector().causalOrbit(value,currentStability);}
+    function projectWorldContext(stat){return requireWorldStateProjector().baseWorld(stat);}
 

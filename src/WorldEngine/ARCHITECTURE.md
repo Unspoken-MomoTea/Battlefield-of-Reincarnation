@@ -28,6 +28,7 @@ src/WorldEngine/
     WorldEventService
     WorldPersonActivityService
     WorldTaskAwarenessService
+    WorldChronologyPolicy
     WorldNpcAuditService
     WorldHistoryService
     WorldCausalService
@@ -240,3 +241,8 @@ Alien activity timestamp normalization is no longer a global `compileWorldResult
 ## Phase 28 · Task awareness domain
 
 `WorldTaskAwarenessService` owns the read-only formal task ledger projection and validation of event `关联任务` references. `WorldStateProjector` and `WorldResultMaterializer` compose the same container-owned `taskLedger`; the request-facing `WorldTaskAwarenessFeature` shares that service but remains responsible only for worldbook-selection migration and request manifest decoration. The legacy 57 module no longer wraps `projectWorldContext` or `compileWorldResult`.
+
+
+## Phase 29 · Chronology policy
+
+`WorldChronologyPolicy` owns the request-scoped chronology evidence guard, exact-day evidence lookup, causal-shift exceptions, compile-time macro-date validation and chronology-specific retry guidance. `WorldChronologyFeature` only gathers worldbook evidence and writes it into the shared policy; `WorldResultMaterializer` and `WorldResultStagingService` consume the same policy. The legacy chronology module retains prompt/preset migration text only and no longer decorates compile or retry globals.

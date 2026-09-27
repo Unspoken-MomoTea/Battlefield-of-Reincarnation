@@ -1,8 +1,9 @@
     class WorldResultStagingService {
-        constructor(normalizer,materializer,chronology){
+        constructor(normalizer,materializer,chronology,retryGuidance){
             this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;
             this.materializer=materializer||DEFAULT_WORLD_RESULT_MATERIALIZER;
             this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;
+            this.retryGuidance=retryGuidance||DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE;
         }
 
         // Retry-plan calls still traverse the compatibility seam because a few legacy modules only add domain-specific retry guidance.
@@ -92,46 +93,13 @@
         // 首次请求与纠错共用同一份交付标准，避免模型失败后才知道宏观骨架的硬要求。
 
         macroBackbonePlan(current,active,future) {
-            const missing=Math.max(0,3-current);
-            return [
-                '宏观骨架：当前可推进宏观节点'+current+'个（进行中'+active+'、待发生'+future+'），还需补充至少'+missing+'个真正的宏观节点；已确认正在发生的阶段转折可记进行中，其余新增节点记待发生。会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。',
-                '事件交付：在 WorldResult.事件 中实际建立节点，分类=宏观节点；描述说明篇章、地区整体局势、战争、势力格局或关键人物命运的一个阶段转折，不能只在摘要或因果轨道里列名字。已有合格节点沿用原名，只提交缺失或变化字段。',
-                '宏观排期：每个新增节点必须给出明确时间锚点；沿用明确资料的日期或时间精度，精确日期未知时使用可理解的相对/因果时间，不写近期/稍后/未来/待定/未知。条件按需填写。前因只能引用已存在，或本轮同时提交且成功建立的事件名称；无明确前因使用 []，不得用当前阶段或自然语言原因代替事件名。',
-                '因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序；只使用最终3~5个仍可推进且 分类=宏观节点 的不同事件名称，不要写当前阶段、当前事件或近期节点。'
-            ];
+            return this.retryGuidance.macroBackbonePlan(current,active,future);
         }
 
         retryPlanForFailure(error,rejected=[]) {
-            const plan=[];
-            for(const item of rejected||[])plan.push(item.片段+'：'+item.原因);
-            const message=String(error?.message||error||'');
-            let match=message.match(/宏观事件不足：需要至少3个可推进宏观节点（进行中\+待发生），当前仅(\d+)个（进行中(\d+)个，待发生(\d+)个）/);
-            if(match){
-                const current=Math.max(0,Number(match[1])||0),active=Math.max(0,Number(match[2])||0),future=Math.max(0,Number(match[3])||0);
-                plan.push(...this.macroBackbonePlan(current,active,future));
-            }else if(/因果轨道未形成有效宏观投影/.test(message)){
-                plan.push('因果轨道：不要重写已接受事件，只补写 因果.宏观顺序；长度必须3~5，且每个名称都必须对应已建立且未取消的宏观节点。');
-            }else if((match=message.match(/到期事件未处理：([^。]+)/))){
-                plan.push('到期事件/'+match[1]+'：本轮必须明确启动该事件，或更新本轮复核日期、阻碍条件与下次检查。');
-            }else if((match=message.match(/事件时间锚点缺失或过于模糊：([^；]+)/))){
-                plan.push('事件/'+match[1]+'：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。');
-            }else if((match=message.match(/事件时间锚点仍未补全：([^；]+)/))){
-                for(const name of match[1].split('、').filter(Boolean))plan.push('事件/'+name+'：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。');
-            }else if((match=message.match(/超期活动事件仍未复核：([^；]+)/))){
-                for(const name of match[1].split('、').filter(Boolean))plan.push('事件/'+name+'：该局部活动已远超正常持续窗口。若实际早已结束则改为已完成并补结果；若失效则已取消；只有确实仍持续时才保留进行中，并把更新时间写为当前世界时间、更新当前描述并填写下次检查。');
-            }else if((match=message.match(/时间越界记录仍未修复：([^；]+)/))){
-                plan.push('时间一致性：修复这些已经发生的记录，任何已完成/进行中事件、人物更新时间、地区已发生变化、历史与传播都不得晚于当前世界时间：'+match[1]);
-            }else if((match=message.match(/异端活动未复核：([^；]+)/))){
-                for(const name of match[1].split('、').filter(Boolean))plan.push('异端活动/'+name+'：仅对本轮触发复核的该活跃异端补写地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡，则只更新异端状态=死亡，不再提交人物活动。');
-            }else if((match=message.match(/NPC构筑审计未推进：([^；]+)/))){
-                for(const name of match[1].split('、').filter(Boolean))plan.push('NPC构筑审计/'+name+'：只在 WorldResult.关系 中补齐该既有NPC至少一个列出的构筑缺口；优先补职业/血统/装备/技能/状态/形态或缺失档案字段，不得新建NPC、改HP_MAX/EP_MAX或输出真属性/最终属性。');
-            }else if(message&&!rejected.length){
-                plan.push('整体校验：'+message);
-            }
-            const chronologyGuidance=this.chronology.retryGuidance(error,rejected);
-            if(chronologyGuidance)plan.unshift(chronologyGuidance);
-            return Array.from(new Set(plan.filter(Boolean)));
+            return this.retryGuidance.plan(error,rejected);
         }
+
         // UI 和模型请求共用去重视图；原始分片仍保留在日志，未知错误不截断。
 
         retryFeedback(error,rejected=[],plans=[]) {
@@ -156,12 +124,15 @@
             if(rejected?.length)reasons.push('部分业务片段未通过（'+rejected.length+'项）');
             if(globalError)reasons.push(String(globalError.message||globalError));
             const error=new Error(reasons.join('；')||'WorldResult 未通过业务校验');
-            error.retryPlan=retryPlanForFailure(globalError,rejected);
+            error.retryPlan=this.retryPlanForFailure(globalError,rejected);
             error.rejectedSlices=copy(rejected||[]);
+            const feedback=this.retryFeedback(error,rejected,error.retryPlan);
+            error.retryPlan=feedback.actions;
+            if(feedback.issues.length)error.message=feedback.summary+'\n\n具体原因\n'+feedback.issues.join('\n');
             return error;
         }
     }
-    const DEFAULT_WORLD_RESULT_STAGING=new WorldResultStagingService(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_RESULT_MATERIALIZER,DEFAULT_WORLD_CHRONOLOGY_POLICY);
+    const DEFAULT_WORLD_RESULT_STAGING=new WorldResultStagingService(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_RESULT_MATERIALIZER,DEFAULT_WORLD_CHRONOLOGY_POLICY,DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE);
     let ACTIVE_WORLD_RESULT_STAGING=DEFAULT_WORLD_RESULT_STAGING;
     function worldResultFragments(value){return ACTIVE_WORLD_RESULT_STAGING.worldResultFragments(value);}
     function stageWorldResult(stat,accepted,incoming,validate){return ACTIVE_WORLD_RESULT_STAGING.stage(stat,accepted,incoming,validate);}

@@ -43,6 +43,7 @@ for(const file of [
 }
 
 
+const foundationSource=fs.readFileSync(path.join(root,'script/world-engine-src/00-foundation-prompt.part.js'),'utf8');
 const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
 const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateFactory.part.js'),'utf8');
 const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
@@ -61,10 +62,16 @@ const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/doma
 const npcNarrativeCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-npc-narrative-audit.part.js'),'utf8');
 const npcAuditPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditPolicy.part.js'),'utf8');
 const policyCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-policy-compat.part.js'),'utf8');
+const integrityLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
 assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
 assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
 assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT_WORLD_STATE_FACTORY\.emptyBackend\(\);\}/,'public emptyState seam must remain compatible');
+assert.match(foundationSource,/function\s+worldDateKey\s*\(value\)\s*\{\s*return ACTIVE_WORLD_TIME_POLICY\.key\(value\);\s*\}/,'foundation worldDateKey must be compatibility-only');
+for(const method of ['normalizeDaypartAlias','key','dayKey','hasExactClock'])assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-world-time-daypart-aliases.part.js')),false,'legacy daypart wrapper must be deleted');
+assert.doesNotMatch(integrityLegacySource,/worldDateKey\s*=\s*function|temporalAnomalies\s*=\s*function/,'integrity legacy module must not rewrite time parser or anomaly policy');
+assert.match(timelinePolicySource,/constructor\(timePolicy=DEFAULT_WORLD_TIME_POLICY\)/,'timeline policy must explicitly compose the canonical time policy');
 assert.match(timelinePolicySource,/\bimportStory\s*\(stat\)/,'timeline policy must own legacy story seeding');
 assert.match(timelinePolicySource,/function\s+importStory\s*\(stat\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.importStory\(stat\);\}/,'public importStory seam must remain compatible');
 assert.doesNotMatch(contextProtocolSource,/function\s+sameWorldTimeAnchor\s*\(/,'time-anchor comparison implementation must leave 30-context-protocol');
@@ -179,6 +186,7 @@ assert.equal(engine.services.history.constructor.name,'WorldHistoryService');
 assert.equal(engine.services.stateProjector.history,engine.services.history,'projector must compose the container-owned history service');
 assert.equal(engine.services.patchPolicy.constructor.name,'WorldPatchPolicy');
 assert.equal(engine.services.timelinePolicy.constructor.name,'WorldTimelinePolicy');
+assert.equal(engine.services.timelinePolicy.timePolicy,engine.services.timePolicy,'timeline policy must share the container-owned time policy');
 assert.equal(engine.services.chronologyPolicy.constructor.name,'WorldChronologyPolicy');
 assert.equal(engine.services.timePolicy.constructor.name,'WorldTimePolicy');
 assert.equal(engine.services.lifecycle.constructor.name,'WorldLifecycleService');

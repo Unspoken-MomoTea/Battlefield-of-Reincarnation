@@ -2927,7 +2927,10 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             for (const [name,event] of Object.entries(state.事件)) {
                 if (!['待发生','进行中','已完成','已取消'].includes(event.状态)) throw new Error('非法事件状态：'+name+' = '+String(event.状态||'空')+'；只允许 待发生/进行中/已完成/已取消');
                 if (!EVENT_CATEGORIES.has(event.分类)) throw new Error('非法事件分类：'+name+' = '+String(event.分类||'空'));
-                if (event.前因.some(id => !Object.hasOwn(state.事件,id))) throw new Error('事件前因不存在：' + name);
+                const parents=Array.isArray(event?.前因)?event.前因.filter(Boolean):[];
+                if(parents.includes(name))throw new Error('事件前因非法自引用：'+name+'；前因不能引用事件自身，无明确前因请使用 []');
+                const missing=parents.filter(id=>!Object.hasOwn(state.事件,id));
+                if(missing.length)throw new Error('事件前因不存在：'+name+' <- '+missing.join('、')+'；前因只能引用已经存在，或本轮同时提交且成功建立的事件名称；当前阶段/自然语言原因不能作为前因，无明确前因请使用 []');
             }
             const calendar=plain(stat.世界?.历法)?stat.世界.历法:{};
             const monthDays=Array.isArray(calendar.月份天数)?calendar.月份天数:[];
@@ -4706,22 +4709,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             if (this.mount) this.mount.remove();
         }
     }
-    // NPC 审计启停、Schema 派生缓存对齐与纠错 guidance 均已迁入 canonical class/service；本层只保留事件前因兼容校验。
-    const validateStateBeforeActionableEventRefs=validateState;
-    validateState=function(stat) {
-        const events=stat?.世界?.[PATH]?.事件||{};
-        if(plain(events)){
-            for(const [name,event] of Object.entries(events)){
-                const parents=Array.isArray(event?.前因)?event.前因.filter(Boolean):[];
-                if(parents.includes(name))throw new Error('事件前因非法自引用：'+name+'；前因不能引用事件自身，无明确前因请使用 []');
-                const missing=parents.filter(id=>!Object.hasOwn(events,id));
-                if(missing.length)throw new Error('事件前因不存在：'+name+' <- '+missing.join('、')+'；前因只能引用已经存在，或本轮同时提交且成功建立的事件名称；当前阶段/自然语言原因不能作为前因，无明确前因请使用 []');
-            }
-        }
-        return validateStateBeforeActionableEventRefs(stat);
-    };
-
-    // 事件前因与 Schema 纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // ZOD 派生缓存对齐已迁移至 WorldNpcAuditPolicy。\n\n    // NPC 审计开关、资料同步与 UI 由 WorldNpcAuditPolicy 处理。\n    // NPC 构筑份量与生命层级解耦：份量由人物资料中的剧情定位决定，层级只描述本体强度。
+    // NPC 构筑份量与生命层级解耦：份量由人物资料中的剧情定位决定，层级只描述本体强度。
     const NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT=`【角色管理 · NPC构筑审计】
 只处理“角色管理.NPC构筑审计”列出的既有 NPC；目标是补真实缺口，不是提难度、改层级或重做角色。
 1. 审计级别与人物层级独立，是世界推进私有信息，只允许保存在“世界.后台.人物.审计级别”，禁止写入关系列表/NPC公开面板。新建的非队友NPC首次进入后台人物时，由你按剧情身份、叙事地位、已演出能力与遭遇需求填写杂兵级/精英级/首领/Boss级；活跃异端首次建档默认首领/Boss级；队友不定级、不参与NPC构筑审计。

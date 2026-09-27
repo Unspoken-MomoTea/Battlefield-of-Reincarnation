@@ -51,6 +51,7 @@ const materializer=fs.readFileSync(path.join(root,'src/WorldEngine/domains/World
 const causal=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldCausalService.part.js'),'utf8');
 const patchPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchPolicy.part.js'),'utf8');
 const staging=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultStagingService.part.js'),'utf8');
+const retryGuidance=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRetryGuidanceService.part.js'),'utf8');
 const parser=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultReplyParser.part.js'),'utf8');
 const worldTimePolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimePolicy.part.js'),'utf8');
 const validationPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldValidationPolicy.part.js'),'utf8');
@@ -77,9 +78,11 @@ assert.match(compiler,/this\.materializer\.materializeWorldUpdate\(stat,seedPatc
 assert.match(staging,/class\s+WorldResultStagingService\b/,'staged result acceptance must live behind a dedicated domain service');
 assert.match(staging,/this\.materializer\.compileWorldResult\(stat,candidate\)/,'staging must compile fragments directly through the canonical materializer');
 assert.match(staging,/this\.normalizer\.mergeWorldResults\(staged,unit\.result\)/,'staging must merge fragments through the canonical normalizer');
-assert.match(staging,/this\.chronology\.retryGuidance\(error,rejected\)/,'staging retry planning must source chronology guidance from the chronology policy');
+assert.match(staging,/return this\.retryGuidance\.plan\(error,rejected\)/,'staging retry planning must delegate to the canonical retry guidance service');
 assert.match(parser,/class\s+WorldResultReplyParser\b/,'reply parsing must live behind a dedicated domain service');
 assert.match(worldTimePolicy,/class\s+WorldTimePolicy\b/,'world-time result policy must live behind a dedicated domain class');
+assert.match(retryGuidance,/class\s+WorldRetryGuidanceService\b/,'retry guidance must live behind a dedicated domain service');
+assert.match(retryGuidance,/this\.engine\?\.services\?\.prompts\?\.value\?\.\(key\)/,'retry guidance must read editable prompt values at execution time');
 assert.match(validationPolicy,/class\s+WorldValidationPolicy\b/,'base runtime validation must live behind a dedicated domain policy');
 assert.match(compiler,/this\.staging\.stage\(stat,accepted,incoming,validate\)/,'compiler.stage must delegate to the staging service');
 assert.match(runtime,/runOrchestrator\(\)/,'runtime must delegate application flow to the orchestrator');

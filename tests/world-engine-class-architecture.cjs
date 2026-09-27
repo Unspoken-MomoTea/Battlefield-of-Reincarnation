@@ -67,10 +67,14 @@ for(const file of [
 
 
 const foundationSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineFoundation.part.js'),'utf8');
+const sharedUtilitiesSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldSharedUtilities.part.js'),'utf8');
 const runtimeConstantsSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineRuntimeConstants.part.js'),'utf8');
 const themeCatalogSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldThemeCatalog.part.js'),'utf8');
 assert.doesNotMatch(foundationSource,/WORLD_UI_THEMES|WORLD_FONT_SCALES|STATUS_THEME_CONFIG/,'foundation must not contain UI theme registry or theme storage key');
 assert.doesNotMatch(foundationSource,/EVENT_TARGET|HOT_PERSON_TARGET|TERMINAL_PERSON_STATUS|samsara_world_engine_v1/,'foundation must stay free of runtime policy constants');
+assert.doesNotMatch(foundationSource,/const\s+(?:copy|plain|same|escape|forbidden)|function\s+digest/,'foundation must only open the IIFE boundary');
+for(const helper of ['copy','plain','same','escape','forbidden'])assert.match(sharedUtilitiesSource,new RegExp('\\b'+helper+'\\b'),'shared utilities must expose '+helper);
+assert.match(sharedUtilitiesSource,/function\s+digest\s*\(text\)/,'shared utilities must own digest');
 assert.match(runtimeConstantsSource,/const PATH = '后台';/,'runtime constants module must own the backend path key');
 assert.match(runtimeConstantsSource,/const COLD_TEMP_PERSON_GRACE_HOURS = 30 \* 24;/,'runtime constants module must own lifecycle retention thresholds');
 assert.match(themeCatalogSource,/const WORLD_TONE_KEYS = new Set\(Object\.keys\(WORLD_UI_THEMES\)\);/,'tone keys must derive from the extracted theme registry');

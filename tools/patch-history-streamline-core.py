@@ -47,7 +47,6 @@ else:
     patch_any(
         [
             'src/WorldEngine/domains/WorldStateFactory.part.js',
-            'script/world-engine-src/10-world-state.part.js',
         ],
         "return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 运行记录:[], 资产墓碑:{} };",
         "return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 资产墓碑:{} };",
@@ -55,7 +54,6 @@ else:
     )
 cleanup_candidates = [
     'src/WorldEngine/domains/WorldStateNormalizer.part.js',
-    'script/world-engine-src/10-world-state.part.js',
 ]
 if any(
     (ROOT / rel).is_file() and 'delete state.运行记录;' in (ROOT / rel).read_text(encoding='utf-8')

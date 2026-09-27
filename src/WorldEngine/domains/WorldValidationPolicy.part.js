@@ -1,5 +1,5 @@
     class WorldValidationPolicy {
-        constructor(timeline,duePolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;}
+        constructor(timeline,duePolicy,activityPolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;this.activityPolicy=activityPolicy||DEFAULT_WORLD_ACTIVITY_POLICY;}
         ensureDueHandled(next,dueList,worldTime) { return this.duePolicy.ensureHandled(next,dueList,worldTime); }
 
         unscheduledEvents(stat) {
@@ -53,22 +53,24 @@
         }
 
         ensureMacroBackbone(next,timeline,required=true) {
-            if(!required||!timeline?.需要补充远期)return;
-            const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消');
-            const activeMacro=allMacro.filter(([,e])=>e.状态==='进行中');
-            const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
-            const openMacro=allMacro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
-            if(openMacro.length<3)throw new Error('宏观事件不足：需要至少3个可推进宏观节点（进行中+待发生），当前仅'+openMacro.length+'个（进行中'+activeMacro.length+'个，待发生'+futureMacro.length+'个）');
-            const stages=this.timeline.storyStages(next?.世界?.因果轨道?.故事线);
-            const names=new Set(allMacro.map(([name])=>name));
-            if(stages.length<3||stages.length>5||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');
+            if(required&&timeline?.需要补充远期){
+                const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消');
+                const activeMacro=allMacro.filter(([,e])=>e.状态==='进行中');
+                const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
+                const openMacro=allMacro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
+                if(openMacro.length<3)throw new Error('宏观事件不足：需要至少3个可推进宏观节点（进行中+待发生），当前仅'+openMacro.length+'个（进行中'+activeMacro.length+'个，待发生'+futureMacro.length+'个）');
+                const stages=this.timeline.storyStages(next?.世界?.因果轨道?.故事线);
+                const names=new Set(allMacro.map(([name])=>name));
+                if(stages.length<3||stages.length>5||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');
+            }
+            return this.activityPolicy.ensureDelivery(next,timeline?.世界活动要求);
         }
 
         progressionAnchorChanged(before,after) {
             return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
         }
     }
-    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY);
+    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY,DEFAULT_WORLD_ACTIVITY_POLICY);
     let ACTIVE_WORLD_VALIDATION_POLICY=DEFAULT_WORLD_VALIDATION_POLICY;
     function ensureDueHandled(next,dueList,worldTime){return ACTIVE_WORLD_VALIDATION_POLICY.ensureDueHandled(next,dueList,worldTime);}
     function unscheduledEvents(stat){return ACTIVE_WORLD_VALIDATION_POLICY.unscheduledEvents(stat);}

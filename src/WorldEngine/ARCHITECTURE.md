@@ -386,3 +386,10 @@ The base `SamsaraWorldEngine` shell creates exactly one configuration service be
 `WorldPanelController` owns creation of the world-engine Shadow DOM mount and all base panel click/input/change routing. `SamsaraWorldEngine.createPanel()` is now a facade seam that delegates to the container-owned controller. The ClassBridge continues to attach editor, feature, and prompt-workspace behavior after base panel creation.
 
 The panel mount contract is explicit again: `#sam-world-engine-host` owns an open ShadowRoot containing the base style element and `#sam-world-engine`. Application-shell source must not own DOM action routing.
+
+
+## Phase 50 · Panel renderer
+
+`WorldPanelRenderer` owns shared render orchestration around the already-independent business View classes: snapshot/state preparation, navigation, common formatting helpers, calendar/person/event context assembly, View Registry dispatch, run-button state, and jump finalization.
+
+The public `SamsaraWorldEngine.render(force)` method is now a facade seam. The ClassBridge still wraps that seam with feature hooks, prompt-workspace synchronization, and editor post-render behavior. The application shell must not directly render business Views or rebuild navigation.

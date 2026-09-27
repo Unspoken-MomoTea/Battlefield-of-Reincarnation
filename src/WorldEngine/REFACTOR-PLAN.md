@@ -504,3 +504,12 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 新的 src shell 仍只承担 Application Facade / UI Shell：配置状态、兼容方法、面板生命周期、导航与交互分发。当前楼层/阻塞、世界书、API 传输、Prompt 文档、请求构造、运行循环、提交、编辑与业务页面仍分别委托既有 service/controller/view；本阶段没有把领域算法重新塞回大类。
 
 构建器、CI 自同步、历史/replay/request-size 一次性 patch 工具和源码结构测试已统一读取 src shell。下一步继续从这个完整 class 中抽出配置初始化/迁移与 UI 事件分发，但旧 `script/world-engine-src` 不再恢复 40 / 50 占位文件。
+
+
+### Phase 48 · 配置初始化与迁移服务化
+
+已完成：新增 `WorldEngineConfigService`，把 `SamsaraWorldEngine` 构造函数中的配置默认值、localStorage 读取、旧 tone 清理、preset v2 归一化、旧“保存为默认设置”迁移、内置默认文档版本升级、重试 3→5 迁移、字号/历史正文开关规范化、专属 API 配置规范化与已启用状态下的终端 API 激活收口到独立 service。
+
+`SamsaraWorldEngine` 构造函数现在只初始化 application runtime 状态并委托 `configService.initialize()`；`saveConfig()` 也委托同一 service。Service Container 通过 `configuration` 暴露 constructor-owned 实例，不重复创建第二份配置服务。
+
+新增构造级回归 `tests/world-engine-config-service.cjs`，从公开 `new SamsaraWorldEngine(host)` seam 验证旧配置迁移结果，避免后续继续拆 shell 时改变既有用户配置语义。下一阶段继续从 src shell 中抽离 UI 事件分发/导航和纯展示 helper；领域逻辑仍禁止回流到 shell。

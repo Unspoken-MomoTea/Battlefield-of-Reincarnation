@@ -160,29 +160,7 @@
         if(/(?:变量|输出格式|更新规则|COT|思考|风格|助手|状态栏)/i.test(name))return false;
         return /(?:校历|世界年表|事件年表|原著年表|时间线|时间轴|大事记|大事件摘要|历史大事件|剧情大纲|剧情章节|章节控制器|主线年表)/i.test(name);
     }
-    function worldDateKey(value) {
-        const source=String(value||'');
-        let m=source.match(/(\d{1,4})\s*年\s*-?\s*(\d{1,2})\s*月\s*-?\s*(\d{1,2})\s*日/);
-        if(!m)m=source.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
-        if(!m)return null;
-        const y=+m[1],month=+m[2],day=+m[3];
-        if(!Number.isInteger(y)||!Number.isInteger(month)||!Number.isInteger(day)||month<1||month>12||day<1)return null;
-        const date=new Date(0);
-        date.setUTCFullYear(y,month-1,day);date.setUTCHours(0,0,0,0);
-        // 数字年月日按真实公历天序计算，避免 2月28日→3月1日 被旧“每月31天”近似拉成96小时。
-        // 非公历/相对语义本来就不会匹配这里，继续由语义复核处理。
-        if(date.getUTCFullYear()!==y||date.getUTCMonth()!==month-1||date.getUTCDate()!==day)return null;
-        const part=source.match(/凌晨|黎明|清晨|早晨|上午|中午|午后|下午|傍晚|入夜|晚上|深夜/);
-        const hour={凌晨:2,黎明:5,清晨:6,早晨:8,上午:10,中午:12,午后:14,下午:15,傍晚:18,入夜:19,晚上:20,深夜:23};
-        let dayHour=part?hour[part[0]]:0;
-        const branch=source.match(/([子丑寅卯辰巳午未申酉戌亥])时(?:([一二三四1234])刻)?/);
-        if(branch){
-            const branchHour={子:23,丑:1,寅:3,卯:5,辰:7,巳:9,午:11,未:13,申:15,酉:17,戌:19,亥:21};
-            const quarterMap={一:1,二:2,三:3,四:4,'1':1,'2':2,'3':3,'4':4};
-            dayHour=branchHour[branch[1]]+(quarterMap[branch[2]]||0)*0.25;
-        }
-        return date.getTime()/3600000+dayHour;
-    }
+    function worldDateKey(value) { return ACTIVE_WORLD_TIME_POLICY.key(value); }
     function worldTimeCapacity(previous,current) {
         const from=String(previous||'').trim(),to=String(current||'').trim();
         const a=worldDateKey(from),b=worldDateKey(to);

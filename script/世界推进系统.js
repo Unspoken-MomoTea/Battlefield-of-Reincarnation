@@ -5491,19 +5491,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         try{return JSON.stringify([backend?.历史||{},backend?.历史总结||{}]);}catch(_){return '';}
     }
 
-    // 世界推进自身始终读“近期根锚点 + 更早根总结”；正文是否读取由独立设置控制。
-    const projectWorldContextBeforeHistoryMemory=projectWorldContext;
-    projectWorldContext=function(stat) {
-        const out=projectWorldContextBeforeHistoryMemory(stat);
-        const backend=stat?.世界?.[PATH]||{},projected=out?.世界?.[PATH];
-        if(projected){
-            delete projected.历史;
-            projected.历史记忆=projectWorldHistoryMemory(backend);
-        }
-        return out;
-    };
-
-    // 历史压缩生命周期与设置交互由 WorldHistoryLifecycle 处理。\n    // 历史记忆手动维护：近期原始锚点可修正事实；长期总结可修正摘要/时间，但树层级与子项引用始终由程序托管。
+    // 世界推进历史投影已迁移至 WorldHistoryService + WorldStateProjector。\n\n    // 历史压缩生命周期与设置交互由 WorldHistoryLifecycle 处理。\n    // 历史记忆手动维护：近期原始锚点可修正事实；长期总结可修正摘要/时间，但树层级与子项引用始终由程序托管。
     function historyMemoryEditorEscape(value) {
         if(typeof causalOverviewEscape==='function')return causalOverviewEscape(value);
         return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -5731,8 +5719,62 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }).call(engine,base);
         }
     }
+    class WorldHistoryService {
+        constructor(engine){this.engine=engine;}
+        project(stat){
+            const backend=stat?.世界?.[PATH]||stat||{};
+            return typeof projectWorldHistoryMemory==='function'?projectWorldHistoryMemory(backend):{};
+        }
+        setSendToProse(value){
+            if(typeof this.engine.setSendHistoryToProse==='function')return this.engine.setSendHistoryToProse(value);
+            this.engine.config.sendHistoryToProse=value===true;this.engine.saveConfig?.();return this.engine.config.sendHistoryToProse;
+        }
+        async summarize(world,batch,level){
+            if(typeof this.engine.requestHistoryMemorySummary!=='function')throw new Error('历史记忆服务尚未初始化');
+            return this.engine.requestHistoryMemorySummary(world,batch,level);
+        }
+        backend(){return this.engine.snapshot().stat?.世界?.[PATH]||{};}
+        async commitEdit(kind,name,build,status){
+            name=String(name||'').trim();
+            if(!name)throw new Error('历史记录名称不能为空');
+            const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data,backend=stat?.世界?.[PATH];
+            if(!plain(backend))throw new Error('世界后台不存在');
+            const bucketName=kind==='summary'?'历史总结':'历史',bucket=backend[bucketName];
+            if(!plain(bucket)||!plain(bucket[name]))throw new Error((kind==='summary'?'长期历史总结':'近期历史锚点')+'不存在：'+name);
+            const updated=build(copy(bucket[name]));
+            if(!plain(updated))throw new Error('历史编辑结果无效');
+            bucket[name]=updated;
+            historyMemoryEditorSyncReplay(next,snapshot.fingerprint,['世界',PATH,bucketName,name],updated);
+            const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
+            if(target)target.__samsaraUIMutation=true;
+            try{
+                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
+            }finally{
+                if(target){
+                    if(had)target.__samsaraUIMutation=previous;
+                    else delete target.__samsaraUIMutation;
+                }
+            }
+            engine.lastHistoryMaintenance=status||'历史记忆已手动修正';
+            engine.status=status||'历史记忆已手动修正';
+            engine.render(true);
+            return true;
+        }
+        async saveAnchor(name,record){
+            const time=String(record?.时间||'').trim(),fact=String(record?.事实||'').trim();
+            if(!fact)throw new Error('历史事实不能为空');
+            const related=historyMemoryEditorRelated(record?.关联事件);
+            return this.commitEdit('anchor',name,current=>({...current,时间:time,事实:fact,关联事件:related}),'已修正近期历史锚点');
+        }
+        async saveSummary(name,record){
+            const summary=String(record?.摘要||'').trim();
+            if(!summary)throw new Error('长期历史摘要不能为空');
+            const start=String(record?.起始时间||'').trim(),end=String(record?.结束时间||'').trim();
+            return this.commitEdit('summary',name,current=>({...current,摘要:summary,起始时间:start,结束时间:end}),'已修正长期历史总结');
+        }
+    }
     class WorldStateProjector {
-        constructor(engine=null,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE){this.engine=engine;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;}
+        constructor(engine=null,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE,history=null){this.engine=engine;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.history=history||null;}
         omitKeys(value,keys=[]){
             if(!plain(value))return copy(value);
             const out=copy(value);
@@ -5837,9 +5879,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 事件:copy(backend.事件||{}),
                 人物:projectHotWorldPeople(src),
                 势力地区:copy(backend.势力地区||{}),
-                历史:this.tailRecord(backend.历史,HOT_HISTORY_TARGET),
                 传播:this.tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
             };
+            projectedBackend.历史记忆=this.history?.project?this.history.project(backend):projectWorldHistoryMemory(backend);
             for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.资源点;
             const out={
                 世界:{
@@ -5882,8 +5924,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(Object.keys(tasks).length)out.任务={列表:tasks};
             return out;
         }
-        // Public service path keeps the remaining history decorator until it is class-migrated.
-        world(stat){return projectWorldContext(stat);}
+        world(stat){return this.baseWorld(stat);}
     }
 
     const DEFAULT_WORLD_STATE_PROJECTOR=new WorldStateProjector();
@@ -6047,60 +6088,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 worldEventValidateGraph(stat);
                 return {deleted:name};
             },'已删除错误世界事件：'+name);
-        }
-    }
-    class WorldHistoryService {
-        constructor(engine){this.engine=engine;}
-        project(stat){
-            const backend=stat?.世界?.[PATH]||stat||{};
-            return typeof projectWorldHistoryMemory==='function'?projectWorldHistoryMemory(backend):{};
-        }
-        setSendToProse(value){
-            if(typeof this.engine.setSendHistoryToProse==='function')return this.engine.setSendHistoryToProse(value);
-            this.engine.config.sendHistoryToProse=value===true;this.engine.saveConfig?.();return this.engine.config.sendHistoryToProse;
-        }
-        async summarize(world,batch,level){
-            if(typeof this.engine.requestHistoryMemorySummary!=='function')throw new Error('历史记忆服务尚未初始化');
-            return this.engine.requestHistoryMemorySummary(world,batch,level);
-        }
-        backend(){return this.engine.snapshot().stat?.世界?.[PATH]||{};}
-        async commitEdit(kind,name,build,status){
-            name=String(name||'').trim();
-            if(!name)throw new Error('历史记录名称不能为空');
-            const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data,backend=stat?.世界?.[PATH];
-            if(!plain(backend))throw new Error('世界后台不存在');
-            const bucketName=kind==='summary'?'历史总结':'历史',bucket=backend[bucketName];
-            if(!plain(bucket)||!plain(bucket[name]))throw new Error((kind==='summary'?'长期历史总结':'近期历史锚点')+'不存在：'+name);
-            const updated=build(copy(bucket[name]));
-            if(!plain(updated))throw new Error('历史编辑结果无效');
-            bucket[name]=updated;
-            historyMemoryEditorSyncReplay(next,snapshot.fingerprint,['世界',PATH,bucketName,name],updated);
-            const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
-            if(target)target.__samsaraUIMutation=true;
-            try{
-                await snapshot.mvu.replaceMvuData(next,{type:'message',message_id:snapshot.id});
-            }finally{
-                if(target){
-                    if(had)target.__samsaraUIMutation=previous;
-                    else delete target.__samsaraUIMutation;
-                }
-            }
-            engine.lastHistoryMaintenance=status||'历史记忆已手动修正';
-            engine.status=status||'历史记忆已手动修正';
-            engine.render(true);
-            return true;
-        }
-        async saveAnchor(name,record){
-            const time=String(record?.时间||'').trim(),fact=String(record?.事实||'').trim();
-            if(!fact)throw new Error('历史事实不能为空');
-            const related=historyMemoryEditorRelated(record?.关联事件);
-            return this.commitEdit('anchor',name,current=>({...current,时间:time,事实:fact,关联事件:related}),'已修正近期历史锚点');
-        }
-        async saveSummary(name,record){
-            const summary=String(record?.摘要||'').trim();
-            if(!summary)throw new Error('长期历史摘要不能为空');
-            const start=String(record?.起始时间||'').trim(),end=String(record?.结束时间||'').trim();
-            return this.commitEdit('summary',name,current=>({...current,摘要:summary,起始时间:start,结束时间:end}),'已修正长期历史总结');
         }
     }
     class WorldRumorService {
@@ -8661,7 +8648,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateFactory=new WorldStateFactory();
             this.taskLedger=new WorldTaskAwarenessService();
-            this.stateProjector=new WorldStateProjector(engine,this.taskLedger);
+            this.history=new WorldHistoryService(engine);
+            this.stateProjector=new WorldStateProjector(engine,this.taskLedger,this.history);
             ACTIVE_WORLD_STATE_PROJECTOR=this.stateProjector;
             this.patchPolicy=new WorldPatchPolicy();
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
@@ -8697,7 +8685,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
             this.events=new WorldEventService(engine);
-            this.history=new WorldHistoryService(engine);
             this.rumor=new WorldRumorService(engine);
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;

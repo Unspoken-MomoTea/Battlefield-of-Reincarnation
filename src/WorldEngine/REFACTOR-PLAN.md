@@ -745,3 +745,12 @@ Theme Catalog 紧跟 Foundation 加载，早于 TokenTelemetry 和后续 UI/runt
 这些值是跨生命周期、上下文投影、配置与人物回收共用的运行常量，不属于 IIFE 基础设施。迁移后 `WorldEngineFoundation.part.js` 仅保留 `copy / plain / same / digest / escape / forbidden` 与 IIFE 起始边界，体积约 924B。
 
 RuntimeConstants 紧跟 Foundation、早于 ThemeCatalog 与所有领域 consumer 加载；所有常量值保持不变。自动构建 workflow 显式追踪新模块，并由架构测试禁止这些运行常量重新回流 Foundation。
+
+
+### Phase 74 · Foundation 收口为纯 IIFE 边界
+
+已完成：新增 `src/WorldEngine/core/WorldSharedUtilities.part.js`，把 Foundation 最后残留的共享 helper `copy / plain / same / digest / escape / forbidden` 原样迁出。
+
+`WorldEngineFoundation.part.js` 现在只保留文件头、`(function (root) {` 与 `'use strict';`，约 185B；它不再承载任何领域、UI、配置、常量或工具实现。SharedUtilities 紧跟 Foundation 加载，随后才是 RuntimeConstants / ThemeCatalog / 领域模块，因此所有旧全局 helper 的可见顺序不变。
+
+本阶段不为无状态工具机械创建 class；共享纯函数以单独 utility part 维护。构建 workflow 与架构测试锁定 Foundation 不得重新长回 helper 或业务逻辑。

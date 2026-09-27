@@ -29,6 +29,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldResultKernel.part.js',
   'src/WorldEngine/domains/WorldRelationSyncPolicy.part.js',
   'src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js',
+  'src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js',
   'src/WorldEngine/domains/WorldResultContract.part.js',
   'src/WorldEngine/domains/WorldResultNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultMaterializer.part.js',
@@ -76,6 +77,7 @@ const tokenTelemetrySource=fs.readFileSync(path.join(root,'src/WorldEngine/domai
 const requestBuilderSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js'),'utf8');
 const knowledgeSelectionSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js'),'utf8');
 const assetMaterializationSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js'),'utf8');
+const stateIntegritySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js'),'utf8');
 const resultMaterializerSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js'),'utf8');
@@ -224,8 +226,9 @@ assert.match(timelinePolicySource,/function\s+sameWorldTimeAnchor\s*\(a,b\)\s*\{
 for(const method of ['setGuard','compactName','evidenceForEvent','shiftDeclared','validate','retryGuidance'])assert.match(chronologyPolicySource,new RegExp('\\b'+method+'\\s*\\('),'chronology policy must own '+method);
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/58-chronology-guard.part.js')),false,'legacy chronology prompt shell must be deleted');
 assert.match(promptDefaultsSource,/const\s+CHRONOLOGY_GUARD_RULES\s*=/,'chronology editable prompt default must live under src/WorldEngine/prompts');
-assert.match(resultMaterializerSource,/事件前因非法自引用/,'canonical materializer validation must own explicit event self-reference rejection');
-assert.match(resultMaterializerSource,/事件前因不存在：'\+name\+' <- '/,'canonical materializer validation must own actionable missing-predecessor feedback');
+assert.match(stateIntegritySource,/事件前因非法自引用/,'state integrity policy must own explicit event self-reference rejection');
+assert.match(stateIntegritySource,/事件前因不存在：'\+name\+' <- '/,'state integrity policy must own actionable missing-predecessor feedback');
+assert.doesNotMatch(resultMaterializerSource,/事件前因非法自引用|事件前因不存在：'\+name\+' <- '/,'state integrity rules must leave WorldResultMaterializer');
 assert.match(resultContractSource,/\binstruction\s*\(\)/,'result contract must own editable output protocol instruction');
 assert.match(resultContractSource,/\bprotocol\s*\(\)/,'result contract must own canonical schema protocol assembly');
 assert.match(resultContractSource,/function\s+protocol\s*\(\)\s*\{return WORLD_RESULT_CONTRACT\.protocol\(\);\}/,'public protocol seam must remain compatible');
@@ -360,6 +363,11 @@ assert.equal(engine.services.relationSync.constructor.name,'WorldRelationSyncPol
 assert.equal(engine.services.resultMaterializer.relationSync,engine.services.relationSync,'materializer must compose the container-owned relation sync policy');
 assert.equal(engine.services.assetMaterialization.constructor.name,'WorldAssetMaterializationPolicy');
 assert.equal(engine.services.resultMaterializer.assetPolicy,engine.services.assetMaterialization,'materializer must compose the container-owned asset materialization policy');
+assert.equal(engine.services.stateIntegrity.constructor.name,'WorldStateIntegrityPolicy');
+assert.equal(engine.services.stateIntegrity.patchPolicy,engine.services.patchPolicy,'state integrity must share the canonical patch policy');
+assert.equal(engine.services.stateIntegrity.timePolicy,engine.services.timePolicy,'state integrity must share the canonical time policy');
+assert.equal(engine.services.stateIntegrity.rumor,engine.services.rumor,'state integrity must share the canonical rumor service');
+assert.equal(engine.services.resultMaterializer.stateIntegrity,engine.services.stateIntegrity,'materializer must compose the container-owned state integrity policy');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.retryGuidance.constructor.name,'WorldRetryGuidanceService');
 assert.equal(engine.services.retryGuidance.engine,engine,'retry guidance must be able to read the active prompt registry');

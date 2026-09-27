@@ -55,6 +55,7 @@ const retryGuidanceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domain
 const worldTimeLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-time-ownership.part.js'),'utf8');
 const chronologyLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/58-chronology-guard.part.js'),'utf8');
 const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
+const resultMaterializerSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
 const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
 const historyMemoryPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js'),'utf8');
@@ -63,7 +64,6 @@ const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/dom
 const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditService.part.js'),'utf8');
 const npcNarrativeCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-npc-narrative-audit.part.js'),'utf8');
 const npcAuditPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditPolicy.part.js'),'utf8');
-const policyCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-policy-compat.part.js'),'utf8');
 assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
 assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
@@ -72,6 +72,7 @@ assert.match(foundationSource,/function\s+worldDateKey\s*\(value\)\s*\{\s*return
 for(const method of ['normalizeDaypartAlias','key','dayKey','hasExactClock'])assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
 for(const method of ['reviewPoint','review','ensureHandled'])assert.match(dueEventPolicySource,new RegExp('\\b'+method+'\\s*\\('),'due event policy must own '+method);
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-due-event-relaxation.part.js')),false,'legacy due-event relaxation module must be deleted');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/55-policy-compat.part.js')),false,'legacy policy compatibility module must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-world-time-daypart-aliases.part.js')),false,'legacy daypart wrapper must be deleted');
 const integrityLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
 assert.doesNotMatch(integrityLegacySource,/worldDateKey\s*=\s*function|temporalAnomalies\s*=\s*function/,'integrity legacy module must not rewrite time parser or anomaly policy');
@@ -90,6 +91,8 @@ assert.match(timelinePolicySource,/\bsameTimeAnchor\s*\(a,b\)/,'timeline policy 
 assert.match(timelinePolicySource,/function\s+sameWorldTimeAnchor\s*\(a,b\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.sameTimeAnchor\(a,b\);\}/,'public sameWorldTimeAnchor seam must remain compatible');
 for(const method of ['setGuard','compactName','evidenceForEvent','shiftDeclared','validate','retryGuidance'])assert.match(chronologyPolicySource,new RegExp('\\b'+method+'\\s*\\('),'chronology policy must own '+method);
 assert.doesNotMatch(chronologyLegacySource,/ACTIVE_CHRONOLOGY_GUARD|function\s+chronologyCompactName|function\s+chronologyEvidenceForEvent|function\s+chronologyShiftDeclared|function\s+validateChronologyResult|compileWorldResult\s*=\s*function|retryPlanForFailure\s*=\s*function/,'58-chronology-guard must not re-own chronology validation or retry wrappers');
+assert.match(resultMaterializerSource,/事件前因非法自引用/,'canonical materializer validation must own explicit event self-reference rejection');
+assert.match(resultMaterializerSource,/事件前因不存在：'\+name\+' <- '/,'canonical materializer validation must own actionable missing-predecessor feedback');
 assert.match(resultContractSource,/\binstruction\s*\(\)/,'result contract must own editable output protocol instruction');
 assert.match(resultContractSource,/\bprotocol\s*\(\)/,'result contract must own canonical schema protocol assembly');
 assert.match(resultContractSource,/function\s+protocol\s*\(\)\s*\{return WORLD_RESULT_CONTRACT\.protocol\(\);\}/,'public protocol seam must remain compatible');
@@ -102,7 +105,6 @@ for(const legacyName of ['projectAuditComponentMap','projectCharacterForAudit','
 for(const method of ['projectComponentMap','projectCharacter','buildText','inferNarrativeLevel','narrativeLevel','assessment','audit','normalizeNewEquipment','ensureProgress'])assert.match(npcAuditServiceSource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit service must own '+method);
 assert.doesNotMatch(npcNarrativeCompatSource,/npcBuildAssessment\s*=\s*function|function\s+inferNpcNarrativeAuditLevel|function\s+npcNarrativeAuditLevel|compileWorldResult\s*=\s*function/,'narrative audit compatibility file must not re-own audit or compile policy');
 for(const method of ['syncDerivedSchemaFields','alignSchemaOrder'])assert.match(npcAuditPolicySource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit policy must own '+method);
-assert.doesNotMatch(policyCompatSource,/WORLD_STATE_DERIVED_SCHEMA_KEYS|function\s+syncWorldStateDerivedSchemaFields|function\s+alignWorldStateSchemaOrder/,'55-policy-compat must not re-own derived schema alignment');
 for(const method of ['omitKeys','abilityMap','equipped','carriedItems','forms','character','assets','tailRecord','causalOrbit','baseWorld']){
   assert.match(stateProjectorSource,new RegExp('\\b'+method+'\\s*\\('),'state projector must own '+method);
 }
@@ -137,7 +139,7 @@ for(const method of ['unset','identity','claimsMonthDay','assertCalendarCompatib
 }
 assert.doesNotMatch(worldTimeLegacySource,/(?:normalizeWorldResult|mergeWorldResults|worldResultFragments|allowed|compileWorldResult)\s*=\s*function|function\s+(?:worldTimeUnset|resolveWorldTimeProposal|assertCalendarCompatibleWorldResultTimes)/,'world time legacy prompt file must not re-own result or compile policy');
 assert.match(retryGuidanceSource,/class\s+WorldRetryGuidanceService\b/,'retry guidance must live behind a dedicated domain service');
-for(const file of ['55-policy-compat.part.js','56-rumor-liveliness.part.js','59-world-integrity-guard.part.js','59-world-activity-delivery.part.js']){
+for(const file of ['56-rumor-liveliness.part.js','59-world-integrity-guard.part.js','59-world-activity-delivery.part.js']){
   const source=fs.readFileSync(path.join(root,'script/world-engine-src',file),'utf8');
   assert.doesNotMatch(source,/retryPlanForFailure\s*=\s*function/,'legacy module must not monkey-patch retryPlanForFailure: '+file);
 }

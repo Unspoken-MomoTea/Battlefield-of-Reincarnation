@@ -118,7 +118,7 @@ const texts=Object.fromEntries(declared.map(file=>{
 const assembled=declared.map(file=>texts[file]).join('');
 assert.equal(built,assembled,'script/世界推进系统.js must exactly equal the source parts in build order');
 const applicationShell=texts['@src/WorldEngine/core/SamsaraWorldEngine.part.js'];
-assert.ok(applicationShell.length<10000,'application shell should stay below 10 KB after prompt settings extraction');
+assert.ok(applicationShell.length<9000,'application shell should stay below 9 KB after configuration availability extraction');
 assert.doesNotMatch(applicationShell,/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the application shell');
 assert.equal(declared.includes('40-engine-runtime.part.js'),false,'legacy runtime shell must leave the build');
 assert.equal(declared.includes('50-engine-ui.part.js'),false,'legacy UI shell must leave the build');

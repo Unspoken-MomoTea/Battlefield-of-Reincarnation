@@ -96,7 +96,7 @@ replace_once_any(
 
 # 2) Long-term memory setting is local UI config, default off for prose AI.
 replace_once(
-    'src/WorldEngine/core/SamsaraWorldEngine.part.js',
+    'src/WorldEngine/core/WorldEngineConfigService.part.js',
     """                promptDocuments:[],
                 fontScale:'standard',
                 dedicatedApi:{enabled:false,apiUrl:'',apiKey:'',model:'',apiPresets:[],fetchedModels:[]}""",
@@ -109,7 +109,7 @@ replace_once(
 )
 
 replace_once(
-    'src/WorldEngine/core/SamsaraWorldEngine.part.js',
+    'src/WorldEngine/core/WorldEngineConfigService.part.js',
     """            if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);""",
     """            if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';

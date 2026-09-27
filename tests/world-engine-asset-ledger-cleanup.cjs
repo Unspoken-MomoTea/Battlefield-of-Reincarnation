@@ -40,7 +40,7 @@ assert.deepEqual(ctx.资产.远征堡.待办事件, ['商队两日未归', '北�
 assert.equal(ctx.资产.远征堡.建设序列.商路.功能, '组织商队跨区运输', '后台推演需要看到资产建设功能');
 
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
-const stateSource = fs.readFileSync('script/world-engine-src/10-world-state.part.js', 'utf8');
+const stateSource = fs.readFileSync('src/WorldEngine/domains/WorldStateModel.part.js', 'utf8');
 const runtimeSource = fs.readFileSync('script/world-engine-src/40-engine-runtime.part.js', 'utf8');
 const uiSource = [
   'script/world-engine-src/50-engine-ui.part.js',
@@ -49,7 +49,7 @@ const uiSource = [
 const proseProjection = fs.readFileSync('World Book/[variables]当前变量.txt', 'utf8');
 
 for (const [name, text] of [
-  ['世界状态源码', stateSource],
+  ['世界状态模型源码', stateSource],
   ['运行时源码', runtimeSource],
   ['UI源码', uiSource],
   ['正文只读投影', proseProjection],

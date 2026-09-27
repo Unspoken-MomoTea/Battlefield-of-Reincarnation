@@ -340,3 +340,10 @@ The former rumor legacy modules (`56-rumor-liveliness`, `59-rumor-throttle`, `59
 Static model-facing defaults are now centralized under `src/WorldEngine/prompts/WorldPromptDefaults.part.js`. It owns the compact built-in preset, module-prompt definitions, and the legacy/default text for task awareness, chronology, NPC audit, integrity and world-time prompts. `WorldPromptRegistry` remains the runtime/editing registry; this file is only the canonical source of defaults and preset migrations.
 
 Replay version/scope constants now live with `WorldReplayService`. Eleven legacy prompt/stateful placeholder files were deleted instead of retained as empty compatibility parts. Build declarations, CI path tracking and regression tests reference the src owners directly. No new model prompt default or stateful feature may be added back under `script/world-engine-src`.
+
+
+## Phase 43 · Editor and causal UI ownership
+
+Manual causal-offset persistence now belongs to `WorldCausalService`; history edit parsing/replay synchronization belongs to `WorldHistoryService`; inline edit rendering belongs to `WorldEditorController`; causal summary/archive rendering belongs to `WorldCausalOverviewController`.
+
+The former `59-causal-overview-ui`, `59-causal-offset-editor`, and `59-history-memory-editor` files are deleted. Compatibility function names required by the delivery/test surface are defined only in the relevant src controller, not under the legacy source tree.

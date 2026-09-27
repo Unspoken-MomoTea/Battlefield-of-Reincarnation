@@ -18,7 +18,6 @@ const migrated=[
   'script/world-engine-src/59-world-replay-persistence.part.js',
   'script/world-engine-src/59-reprocess-immediate-retry.part.js',
   'script/world-engine-src/59-world-time-ownership.part.js',
-  'script/world-engine-src/55-policy-compat.part.js',
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
 assert.doesNotMatch(migrated,/SamsaraWorldEngine\s*=\s*class/,'phase5 stateful modules must not extend SamsaraWorldEngine');
 

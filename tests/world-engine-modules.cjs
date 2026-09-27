@@ -3,7 +3,6 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const root=path.join(__dirname,'..');
-const dir=path.join(root,'script','world-engine-src');
 const buildScript=fs.readFileSync(path.join(root,'tools','build-world-engine.py'),'utf8');
 const built=fs.readFileSync(path.join(root,'script','世界推进系统.js'),'utf8');
 
@@ -13,13 +12,14 @@ assert.ok(partsBlock,'build-world-engine.py must declare PARTS');
 const declared=[...partsBlock[1].matchAll(/'([^']+\.part\.js)'/g)].map(match=>match[1]);
 assert.ok(declared.length>=10,'world engine should be assembled from modular source parts');
 assert.equal(new Set(declared).size,declared.length,'build PARTS must not contain duplicate modules');
-for(const moduleName of ['ui/00-styles.part.js']){
-  assert.ok(declared.includes(moduleName),`legacy compatibility module must be registered: ${moduleName}`);
-}
+assert.ok(declared.every(file=>file.startsWith('@src/WorldEngine/')),'all world-engine source parts must come from src/WorldEngine after legacy removal');
 for(const moduleName of ['editor/00-world-mutations.part.js','editor/10-event-editor.part.js','editor/20-person-editor.part.js']){
   assert.equal(declared.includes(moduleName),false,`migrated editor module must leave legacy build: ${moduleName}`);
 }
 for(const moduleName of [
+  '@src/WorldEngine/core/WorldEngineFoundation.part.js',
+  '@src/WorldEngine/ui/WorldEngineStyles.part.js',
+  '@src/WorldEngine/core/WorldEngineBootstrap.part.js',
   '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   '@src/WorldEngine/core/WorldEngineConfigService.part.js',
   '@src/WorldEngine/core/WorldRunScheduler.part.js',
@@ -93,24 +93,12 @@ for(const moduleName of [
   assert.ok(declared.includes(moduleName),`class source module must be registered: ${moduleName}`);
 }
 
-function sourcePartsUnder(base,relative=''){
-  const out=[];
-  for(const entry of fs.readdirSync(path.join(base,relative),{withFileTypes:true})){
-    const next=relative?path.join(relative,entry.name):entry.name;
-    if(entry.isDirectory())out.push(...sourcePartsUnder(base,next));
-    else if(entry.isFile()&&entry.name.endsWith('.part.js'))out.push(next.split(path.sep).join('/'));
-  }
-  return out;
-}
-const legacyDeclared=declared.filter(file=>!file.startsWith('@'));
-const srcDeclared=declared.filter(file=>file.startsWith('@'));
-const actual=sourcePartsUnder(dir).sort();
-assert.deepEqual([...legacyDeclared].sort(),actual,'every legacy world-engine source part must be registered in the real build pipeline');
-for(const file of srcDeclared){
+assert.equal(fs.existsSync(path.join(root,'script','world-engine-src')),false,'legacy world-engine source directory must be removed');
+for(const file of declared){
   assert.ok(fs.existsSync(path.join(root,file.slice(1))),`registered src module must exist: ${file}`);
 }
 
-const sourcePath=file=>file.startsWith('@')?path.join(root,file.slice(1)):path.join(dir,...file.split('/'));
+const sourcePath=file=>path.join(root,file.slice(1));
 const texts=Object.fromEntries(declared.map(file=>{
   const text=fs.readFileSync(sourcePath(file),'utf8');
   assert.ok(text.length>0,`${file} must not be empty`);
@@ -123,9 +111,7 @@ assert.ok(applicationShell.length<9000,'application shell should stay below 9 KB
 assert.doesNotMatch(applicationShell,/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the application shell');
 assert.equal(declared.includes('40-engine-runtime.part.js'),false,'legacy runtime shell must leave the build');
 assert.equal(declared.includes('50-engine-ui.part.js'),false,'legacy UI shell must leave the build');
-assert.equal(fs.existsSync(path.join(dir,'40-engine-runtime.part.js')),false,'legacy runtime shell file must be deleted');
-assert.equal(fs.existsSync(path.join(dir,'50-engine-ui.part.js')),false,'legacy UI shell file must be deleted');
-assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/,'base CSS should live in a dedicated UI resource module');
+assert.match(texts['@src/WorldEngine/ui/WorldEngineStyles.part.js'],/function worldEngineBaseStyleText\(/,'base CSS should live in the src UI resource module');
 
 // Phase 15: event/person lifecycle and the top-level compaction flow live behind one service.
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldLifecycleService.part.js'),'lifecycle service must load after timeline/date helpers');
@@ -140,7 +126,6 @@ assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldExplorationService.part
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldCausalService.part.js'),'causal projection loads after state normalization');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldCausalService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'causal service must load before materialization');
 assert.match(texts['@src/WorldEngine/domains/WorldCausalService.part.js'],/repairProjection\(stat\)/,'causal service must own orbit projection repair');
-assert.equal(fs.existsSync(path.join(dir,'10-world-state.part.js')),false,'legacy world-state source file must be deleted');
 
 // Phase 16: backend migration and event structural repair live behind one state normalizer.
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldLifecycleService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js'),'state normalizer must load after lifecycle seams');

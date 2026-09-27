@@ -440,3 +440,19 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 - `59-api-preset-selection.part.js`
 
 自动构建 workflow、历史补丁工具、replay 单写工具和 Phase 3/4/5/架构测试同步切到 `src/WorldEngine`。至此 `script/world-engine-src` 顶层只剩 10 个文件；后续仍执行同一规则：旧目录只能继续删除/变薄，新业务与默认提示不得回流。
+
+
+### Phase 43 · 编辑与因果 UI 小壳彻底迁出 legacy
+
+已完成：把最后三个 59 系列编辑/UI 小壳迁入已有 src 类并整文件删除。
+
+- `WorldCausalService` 直接拥有手动偏移编辑后的稳定值重算、同路径 replay 比较与 replay 同步；不再反向调用 `59-causal-offset-editor` 全局 helper。
+- `WorldCausalOverviewController` 直接拥有因果摘要/档案展示、隐藏玩家重复页、干涉模式展示与 section 查找；同名函数只在该 src 文件中保留外部兼容转发。
+- `WorldHistoryService` 直接拥有历史编辑的关联事件解析与 replay 同步；`WorldEditorController` 自己负责 HTML 转义，不再依赖 history editor 全局 helper。
+
+已删除：
+- `59-causal-overview-ui.part.js`
+- `59-causal-offset-editor.part.js`
+- `59-history-memory-editor.part.js`
+
+现有因果摘要、因果偏移编辑、历史记忆编辑三组公开回归继续作为行为 seam。下一批处理 `editor/` 三个旧编辑 helper 与 `20/30` 两个兼容槽，仍坚持 legacy 目录只删不长。

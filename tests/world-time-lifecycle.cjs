@@ -7,6 +7,7 @@ const settlement = fs.readFileSync(path.join(root, 'Regular/结算任务美化.h
 const selection = fs.readFileSync(path.join(root, 'Regular/选择世界美化.txt'), 'utf8');
 const ownership = [
   path.join(root, 'script/world-engine-src/59-world-time-ownership.part.js'),
+  path.join(root, 'src/WorldEngine/domains/WorldTimePolicy.part.js'),
   path.join(root, 'src/WorldEngine/domains/WorldTimeOwnershipFeature.part.js'),
 ].map(file=>fs.readFileSync(file,'utf8')).join('\n');
 
@@ -33,7 +34,7 @@ assert.ok(setWorldName > clearCalendar, 'new world name should be written after 
 assert.match(ownership, /从主神空间进入新副本时，程序会先清空世界\.时间与旧历法/);
 assert.match(ownership, /enteringWorld=wasSpace&&!isSpace/);
 assert.match(ownership, /returningToSpace=!wasSpace&&isSpace/);
-assert.match(ownership, /enteringWorld&&worldTimeUnset\(incoming\)/);
+assert.match(ownership, /enteringWorld&&this\.policy\.unset\(incoming\)/);
 assert.match(ownership, /returningToSpace&&mainSpaceTime/);
 assert.match(ownership, /variables\.stat_data\.世界\.时间=previous;/);
 

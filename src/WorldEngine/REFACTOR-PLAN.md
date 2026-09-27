@@ -513,3 +513,14 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 `SamsaraWorldEngine` 构造函数现在只初始化 application runtime 状态并委托 `configService.initialize()`；`saveConfig()` 也委托同一 service。Service Container 通过 `configuration` 暴露 constructor-owned 实例，不重复创建第二份配置服务。
 
 新增构造级回归 `tests/world-engine-config-service.cjs`，从公开 `new SamsaraWorldEngine(host)` seam 验证旧配置迁移结果，避免后续继续拆 shell 时改变既有用户配置语义。下一阶段继续从 src shell 中抽离 UI 事件分发/导航和纯展示 helper；领域逻辑仍禁止回流到 shell。
+
+
+### Phase 49 · 面板交互路由 Controller 化
+
+已完成：新增 `WorldPanelController`，把 `SamsaraWorldEngine.createPanel()` 中约 16.7KB 的面板创建、click/input/change 事件分发、Tab/日期/筛选/Prompt/API 设置交互整体迁出 application shell。Shell 的 `createPanel()` 现在只委托 container-owned `panelController`；ClassBridge 仍在公开 seam 之后挂载 EditorController、Feature Registry 与 Prompt Workspace，不改变扩展顺序。
+
+迁移过程中补回历史版本原本存在、后来被 UI 重构误删的 Shadow DOM mount 初始化：`sam-world-engine-host → attachShadow({mode:'open'}) → style + panel`。这不是新 UI 方案，而是恢复项目既有的 Shadow DOM 隔离设计。
+
+新增 `tests/world-engine-panel-controller.cjs`，从公开 `engine.createPanel()` seam 验证 mount/style/panel 实际挂载、三类事件路由存在以及 Tab 点击继续更新 engine 状态。架构回归同时禁止 click/input/change 路由重新长回 `SamsaraWorldEngine`，并把 src application shell 体积锁在 45KB 以下。
+
+下一阶段继续迁出 `render()` 中的导航/展示编排；业务 View 已经独立，目标是让 shell 最终只保留 panel 生命周期和 application facade。

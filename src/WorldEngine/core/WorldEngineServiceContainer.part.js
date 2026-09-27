@@ -13,10 +13,11 @@
             ACTIVE_WORLD_STATE_PROJECTOR=this.stateProjector;
             this.patchPolicy=new WorldPatchPolicy();
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
-            this.timelinePolicy=new WorldTimelinePolicy();
+            this.timePolicy=new WorldTimePolicy();
+            ACTIVE_WORLD_TIME_POLICY=this.timePolicy;
+            this.timelinePolicy=new WorldTimelinePolicy(this.timePolicy);
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.chronologyPolicy=new WorldChronologyPolicy();
-            this.timePolicy=new WorldTimePolicy();
             this.lifecycle=new WorldLifecycleService();
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
             this.people=new WorldPersonActivityService(engine,this.timePolicy);

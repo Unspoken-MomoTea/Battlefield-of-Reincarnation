@@ -25,6 +25,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldResultContract.part.js',
     '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
     '@src/WorldEngine/domains/WorldResultMaterializer.part.js',
+    '@src/WorldEngine/domains/WorldRetryGuidanceService.part.js',
     '@src/WorldEngine/domains/WorldResultStagingService.part.js',
     '@src/WorldEngine/domains/WorldResultReplyParser.part.js',
     '@src/WorldEngine/domains/WorldValidationPolicy.part.js',

@@ -92,7 +92,7 @@ const promptIntegrationSource=fs.readFileSync(path.join(root,'src/WorldEngine/pr
 const classBridgeSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineClassBridge.part.js'),'utf8');
 assert.match(promptIntegrationSource,/class\s+WorldPromptIntegrationService\b/,'prompt application integration must live behind a dedicated service');
 for(const method of ['readEditor','prepareApply','afterApply','prepareDocument','importDocument','beforeBuildRequest','decorateRequest','bindPanel','afterRender'])assert.match(promptIntegrationSource,new RegExp('\\b'+method+'\\s*\\('),'prompt integration service must own '+method);
-for(const marker of ['promptRegistry.prepareSettings','promptRegistry.rewriteSystem','__classPromptRegistryBound','promptWorkspace?.mount'])assert.doesNotMatch(classBridgeSource,new RegExp(marker.replace(/[?.]/g,'\\assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');')),'prompt integration implementation must leave WorldEngineClassBridge: '+marker);
+assert.doesNotMatch(classBridgeSource,/promptRegistry\.prepareSettings|promptRegistry\.rewriteSystem|__classPromptRegistryBound|promptWorkspace\?\.mount/,'prompt integration implementation must leave WorldEngineClassBridge');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
 assert.match(assetMaterializationSource,/class\s+WorldAssetMaterializationPolicy\b/,'asset materialization policy must live under src/WorldEngine');

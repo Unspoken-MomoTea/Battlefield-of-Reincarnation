@@ -23,6 +23,7 @@ for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   '@src/WorldEngine/core/WorldEngineConfigService.part.js',
   '@src/WorldEngine/core/SamsaraWorldEngine.part.js',
+  '@src/WorldEngine/core/WorldEngineLifecycleController.part.js',
   '@src/WorldEngine/domains/WorldStateModel.part.js',
   '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',
   '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
@@ -117,7 +118,7 @@ const texts=Object.fromEntries(declared.map(file=>{
 const assembled=declared.map(file=>texts[file]).join('');
 assert.equal(built,assembled,'script/世界推进系统.js must exactly equal the source parts in build order');
 const applicationShell=texts['@src/WorldEngine/core/SamsaraWorldEngine.part.js'];
-assert.ok(applicationShell.length<75000,'combined application/UI shell should stay below 75 KB while business views remain extracted');
+assert.ok(applicationShell.length<14000,'application shell should stay below 14 KB after application lifecycle extraction');
 assert.doesNotMatch(applicationShell,/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the application shell');
 assert.equal(declared.includes('40-engine-runtime.part.js'),false,'legacy runtime shell must leave the build');
 assert.equal(declared.includes('50-engine-ui.part.js'),false,'legacy UI shell must leave the build');

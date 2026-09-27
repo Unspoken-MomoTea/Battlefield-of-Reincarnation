@@ -555,3 +555,12 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 - `SamsaraWorldEngine.setPreset / readPromptEditor / applyPromptSettings` 只保留稳定公开 facade seam；`WorldEngineClassBridge` 继续在这些 seam 外层完成 Prompt Registry 的 prepare/apply 同步，因此全部实际提示词的可编辑行为不变。
 
 迁移后 application shell 从约 13.4KB 降到约 9.4KB，架构上限收紧到 10KB，并禁止 Prompt DOM selector 与设置校验文案重新回流到 shell。
+
+
+### Phase 53 · 引擎启用/可用性状态归入 Config Service
+
+已完成：`isConfigured / isAvailable / isEnabled / setEnabled` 从 application shell 迁入现有 `WorldEngineConfigService`。配置服务现在不仅负责初始化/迁移/持久化，也负责“用户总开关 + 当前 API 可用性”的有效状态判定。
+
+公开 `SamsaraWorldEngine` 同名方法只保留 facade seam。原行为保持：关闭时取消当前请求并关闭面板；重新开启普通终端 API 时调用 `terminal.enableApi()`；专属 API 的等待状态文案与最终 `isEnabled()` 返回值不变。
+
+迁移后 shell 约 8.6KB，架构上限进一步收紧到 9KB。运行调度 `cancel / schedule` 仍未并入 Config Service，避免配置状态与请求生命周期混为一体。

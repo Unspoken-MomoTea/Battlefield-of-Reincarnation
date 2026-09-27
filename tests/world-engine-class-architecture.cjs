@@ -59,6 +59,8 @@ const applicationShellSource=fs.readFileSync(path.join(root,'src/WorldEngine/cor
 const applicationLifecycleSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineLifecycleController.part.js'),'utf8');
 const panelControllerSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelController.part.js'),'utf8');
 const panelRendererSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelRenderer.part.js'),'utf8');
+const promptDocumentServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPromptDocumentService.part.js'),'utf8');
+const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
 assert.match(applicationShellSource,/class\s+SamsaraWorldEngine\s*\{/,'base application shell must live under src/WorldEngine/core');
@@ -74,7 +76,7 @@ assert.match(applicationShellSource,/render\(force=false\)\s*\{\s*return this\.s
 assert.match(panelRendererSource,/class\s+WorldPanelRenderer\s*\{/,'shared panel rendering orchestration must live behind a dedicated renderer');
 for(const viewKey of ['world','people','exploration','assets','events','rumors','history','settings','prompts','requestInspector'])assert.match(panelRendererSource,new RegExp("engine\\.services\\.views\\.render\\('"+viewKey+"'"),'panel renderer must dispatch '+viewKey+' through the View registry');
 assert.doesNotMatch(applicationShellSource,/services\.views\.render|const\s+tabs\s*=\s*\[/,'view dispatch and navigation rendering must not grow back into the application shell');
-assert.ok(applicationShellSource.length<14000,'application shell should stay below 14 KB after application lifecycle extraction');
+assert.ok(applicationShellSource.length<10000,'application shell should stay below 10 KB after prompt settings extraction');
 assert.match(applicationLifecycleSource,/class\s+WorldEngineLifecycleController\s*\{/,'application lifecycle must live behind a dedicated controller');
 for(const method of ['init','isOpen','open','close','toggle','dispose'])assert.match(applicationLifecycleSource,new RegExp('\\b'+method+'\\s*\\('),'application lifecycle controller must own '+method);
 assert.match(applicationShellSource,/init\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.init\?\.\(\);\s*\}/,'application shell init must delegate to the lifecycle controller');
@@ -84,6 +86,14 @@ assert.match(applicationShellSource,/close\(\)\s*\{\s*return this\.services\?\.a
 assert.match(applicationShellSource,/toggle\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.toggle\?\.\(\);\s*\}/,'application shell toggle must delegate to the lifecycle controller');
 assert.match(applicationShellSource,/dispose\(\)\s*\{\s*return this\.services\?\.applicationLifecycle\?\.dispose\?\.\(\);\s*\}/,'application shell dispose must delegate to the lifecycle controller');
 assert.doesNotMatch(applicationShellSource,/eventOn|terminal\.suspend|terminal\.restore|addEventListener\('keydown'|removeEventListener\('keydown'/,'application lifecycle implementation must not grow back into the shell');
+assert.match(promptDocumentServiceSource,/\bsetPreset\s*\(text\)/,'prompt document service must own preset mutation');
+assert.match(promptDocumentServiceSource,/\bcurrentSettings\s*\(\)/,'prompt document service must expose current base settings');
+assert.match(promptDocumentServiceSource,/\bapplySettings\s*\(settings\)/,'prompt document service must own prompt setting validation/application');
+assert.match(promptWorkspaceSource,/\breadSettings\s*\(\)/,'prompt workspace controller must own prompt editor DOM reads');
+assert.match(applicationShellSource,/setPreset\(text\)\{return this\.promptDocumentService\(\)\.setPreset\(text\);\}/,'application shell setPreset must remain a facade seam');
+assert.match(applicationShellSource,/readPromptEditor\(\)\{return this\.promptWorkspace\?\.readSettings\?\.\(\)\|\|this\.promptDocumentService\(\)\.currentSettings\(\);\}/,'application shell readPromptEditor must remain a facade seam');
+assert.match(applicationShellSource,/applyPromptSettings\(settings\)\{return this\.promptDocumentService\(\)\.applySettings\(settings\);\}/,'application shell applyPromptSettings must remain a facade seam');
+assert.doesNotMatch(applicationShellSource,/data-segment-list|data-core-prompt|预设文档内容无效或超过30000字|NPC审计提示词限30000字/,'prompt editor DOM reads and setting validation must not grow back into the shell');
 const stateModelSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateModel.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/10-world-state.part.js')),false,'legacy world-state slot must be deleted');
 assert.match(stateModelSource,/class\s+WorldRecordCatalog\b/,'record catalog must live under src/WorldEngine');

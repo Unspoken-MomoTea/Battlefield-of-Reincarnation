@@ -9,6 +9,7 @@ for(const file of [
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
   'src/WorldEngine/core/WorldEngineConfigService.part.js',
   'src/WorldEngine/core/SamsaraWorldEngine.part.js',
+  'src/WorldEngine/ui/WorldPanelController.part.js',
   'src/WorldEngine/domains/WorldStateModel.part.js',
   'src/WorldEngine/domains/WorldStateFactory.part.js',
   'src/WorldEngine/domains/WorldStateProjector.part.js',
@@ -53,13 +54,19 @@ for(const file of [
 const foundationSource=fs.readFileSync(path.join(root,'script/world-engine-src/00-foundation-prompt.part.js'),'utf8');
 const configServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineConfigService.part.js'),'utf8');
 const applicationShellSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
+const panelControllerSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelController.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
 assert.match(applicationShellSource,/class\s+SamsaraWorldEngine\s*\{/,'base application shell must live under src/WorldEngine/core');
 assert.match(configServiceSource,/class\s+WorldEngineConfigService\s*\{/,'configuration initialization must live behind a dedicated src service');
 assert.match(applicationShellSource,/this\.configService=new WorldEngineConfigService\(this\)/,'application shell must delegate constructor config migration');
 for(const legacyConfigMarker of ['retryDefaultFiveMigrated','builtinDefaultPromptVersionApplied'])assert.doesNotMatch(applicationShellSource,new RegExp(legacyConfigMarker),'constructor config migration marker must not grow back into the application shell');
-assert.match(applicationShellSource,/createPanel\(\)/,'src application shell must own panel lifecycle');
+assert.match(applicationShellSource,/createPanel\(\)\s*\{\s*return this\.services\?\.panelController\?\.createPanel\?\.\(\);\s*\}/,'application shell createPanel must delegate to the panel controller');
+assert.match(panelControllerSource,/class\s+WorldPanelController\s*\{/,'panel interaction routing must live behind a dedicated controller');
+assert.match(panelControllerSource,/attachShadow\(\{mode:'open'\}\)/,'panel controller must preserve the Shadow DOM mount boundary');
+for(const type of ['click','input','change'])assert.match(panelControllerSource,new RegExp("addEventListener\\('"+type+"'"),'panel controller must own '+type+' routing');
+assert.doesNotMatch(applicationShellSource,/panel\.addEventListener\('(click|input|change)'/,'panel DOM event routing must not grow back into the application shell');
+assert.ok(applicationShellSource.length<45000,'application shell should stay below 45 KB after panel routing extraction');
 assert.match(applicationShellSource,/dispose\(\)/,'src application shell must own disposal lifecycle');
 const stateModelSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateModel.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/10-world-state.part.js')),false,'legacy world-state slot must be deleted');
@@ -202,7 +209,7 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['panelController','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
@@ -265,6 +272,7 @@ assert.equal(engine.services.causal.constructor.name,'WorldCausalService');
 assert.equal(engine.services.causal.patchPolicy,engine.services.patchPolicy,'causal service must compose the container-owned patch policy');
 assert.equal(engine.services.prompts.constructor.name,'WorldPromptRegistry');
 assert.equal(engine.services.views.constructor.name,'WorldEngineViewRegistry');
+assert.equal(engine.services.panelController.constructor.name,'WorldPanelController');
 assert.equal(engine.services.taskAwareness.taskLedger,engine.services.taskLedger,'task request feature must share the canonical task ledger service');
 assert.equal(engine.services.chronology.policy,engine.services.chronologyPolicy,'chronology request feature must share the canonical chronology policy');
 assert.equal(engine.services.dueEvent.policy,engine.services.dueEventPolicy,'due-event request feature must share the canonical due-event policy');

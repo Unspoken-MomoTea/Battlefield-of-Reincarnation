@@ -398,3 +398,14 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 `WORLD_ACTIVITY_DELIVERY_RULES` 默认提示文本随 policy 一起迁入 `src/WorldEngine`，Prompt Registry 的 `worldActivity` 仍登记并可编辑；请求内 `worldActivityInputGuidance` 的来源元数据同步改为 `WorldActivityRequestFeature`。现有异端活动集成回归继续守住“只有异端/摘要变化必须 retry，补足现实世界活动后才允许提交”。
 
 下一批继续处理 soft-maintenance 与 rumor 域仍存在的全局 validation/staging 覆写。
+
+
+### Phase 40 · 软维护验收策略彻底归域
+
+已完成：新增 `WorldSoftMaintenancePolicy`，接管事件可用排期锚点判定、未排期事件扫描与排期补全复核。最终语义保持既有软维护行为：具体时间、有效条件、明确前因任一存在即可作为合法时间锚点；真正仍缺锚点的事件只返回维护缺口，不再因为辅助维护未完成而拒绝整轮已合格结果。
+
+`WorldValidationPolicy` 显式组合 container-owned `softMaintenancePolicy`，公开 `unscheduledEvents / ensureEventTimeAnchors` 兼容 seam 继续经过 active validation policy；`WorldRunOrchestrator` 和 `WorldValidationService` 因而无需任何后加载 monkey patch 即获得同一软维护语义。
+
+`SOFT_MAINTENANCE_RULES` 默认提示文本已随 policy 迁入 `src/WorldEngine`；`EXPLORATION_PROJECTION_RULES` 迁入 `WorldExplorationService`。两者仍由 Prompt Registry / module prompt workspace 展示和编辑。原 `script/world-engine-src/59-soft-maintenance.part.js` 已整文件删除，构建 workflow 与 request-size patch 工具也移除了该旧路径。
+
+下一批继续清理 rumor legacy：优先把仍留在 `56-rumor-liveliness / 59-rumor-throttle / 59-rumor-world-source` 的默认提示与预设升级逻辑迁到 `src/WorldEngine`，然后删除不再需要的旧文件。

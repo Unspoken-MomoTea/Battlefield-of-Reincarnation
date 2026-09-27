@@ -57,6 +57,9 @@ const worldTimePolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/Wo
 const validationPolicy=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldValidationPolicy.part.js'),'utf8');
 const requestBuilder=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js'),'utf8');
 assert.match(requestBuilder,/services\?\.stateProjector\?\.world/,'base request builder must use the state projector service seam');
+const projector=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
+assert.match(projector,/projectedBackend\.历史记忆=this\.history\?\.project\?this\.history\.project\(backend\):projectWorldHistoryMemory\(backend\)/,'state projector must own history-memory projection at the canonical context boundary');
+assert.match(projector,/world\(stat\)\{return this\.baseWorld\(stat\);\}/,'state projector must no longer traverse a decorated global world-context seam');
 assert.match(orchestrator,/services\?\.compiler\?\.compile/,'run orchestrator result handling must use the compiler service seam');
 assert.match(orchestrator,/services\?\.compiler\?\.stage/,'run orchestrator staged WorldResult validation must use the compiler service seam');
 assert.match(orchestrator,/services\?\.resultParser\?\.parse/,'run orchestrator reply handling must use the reply parser service seam');

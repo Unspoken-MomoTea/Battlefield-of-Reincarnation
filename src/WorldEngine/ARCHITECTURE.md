@@ -497,3 +497,8 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 ## Phase 65 · Asset materialization policy
 
 `WorldAssetMaterializationPolicy` owns the shared-asset write contract: supported asset classes, item-like name rejection, owner normalization, safe defaults, partial energy merge, named unit/build merge with hidden harvest scheduling preserved, garrison updates and pending-event replacement. The canonical `WorldResultMaterializer` only resolves the target asset and emits add/replace/remove patches through the container-owned policy.
+
+
+## Phase 66 · State integrity policy
+
+`WorldStateIntegrityPolicy` owns persisted world-state invariants: backend record structure, event predecessor integrity/cycles, calendar validity, faction/exploration/causal/relation ranges, task/achievement states, public rumor credibility and event-reference integrity. It composes the canonical patch, time and rumor policies. `WorldResultMaterializer.validateBaseState()` remains only as the compatibility/application seam and delegates to the policy.

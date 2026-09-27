@@ -408,3 +408,10 @@ The public `SamsaraWorldEngine.init / isOpen / open / close / toggle / dispose` 
 Prompt configuration is split along existing domain/UI boundaries instead of adding another wrapper class. `WorldPromptDocumentService` owns preset mutation and base prompt-setting validation/application; `WorldPromptWorkspaceController` owns reads from the prompt editing DOM.
 
 `SamsaraWorldEngine.setPreset / readPromptEditor / applyPromptSettings` are compatibility facades only. `WorldEngineClassBridge` still wraps these seams to synchronize `WorldPromptRegistry`, so the all-prompts registry remains the single editable source for static AI instructions.
+
+
+## Phase 53 · Configuration availability
+
+`WorldEngineConfigService` owns the public configured/available/effective-enabled state and the `setEnabled` transition in addition to config initialization and persistence. Disabling still cancels work and closes the panel through engine seams; enabling the normal terminal path still requests terminal API activation.
+
+The application shell retains only `isConfigured / isAvailable / isEnabled / setEnabled` facade methods. Run cancellation and scheduling remain separate runtime concerns.

@@ -8,59 +8,6 @@
     const copy = value => JSON.parse(JSON.stringify(value));
     const plain = value => !!value && typeof value === 'object' && !Array.isArray(value);
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-    // P1-C 诊断只需要稳定的近似量级；不同模型 tokenizer 不同，只有 API usage 才视为精确 token。
-    function estimateTokens(value) {
-        const source=typeof value==='string'?value:JSON.stringify(value??'');
-        if(!source)return 0;
-        let eastAsian=0,nonAscii=0,ascii=0;
-        for(const ch of source){
-            const cp=ch.codePointAt(0);
-            const east=(cp>=0x3400&&cp<=0x9fff)||(cp>=0xf900&&cp<=0xfaff)||(cp>=0x3040&&cp<=0x30ff)||(cp>=0x31f0&&cp<=0x31ff)||(cp>=0xac00&&cp<=0xd7af)||(cp>=0x3100&&cp<=0x312f)||(cp>=0xff00&&cp<=0xffef);
-            if(east)eastAsian++;
-            else if(cp<=0x7f)ascii++;
-            else nonAscii++;
-        }
-        return Math.max(1,Math.ceil(eastAsian*1.08+nonAscii+ascii/3.8));
-    }
-    function formatTokenCount(count,estimated=true) {
-        const n=Math.max(0,Math.round(Number(count)||0));
-        let value=String(n);
-        if(n>=1000){
-            const digits=n>=100000?0:n>=10000?1:2;
-            value=(n/1000).toFixed(digits).replace(/(\.\d*?[1-9])0+$|\.0+$/,'$1')+'k';
-        }
-        return (estimated?'≈':'')+value+' tk';
-    }
-    function normalizeTokenUsage(usage) {
-        if(!plain(usage))return null;
-        const finite=value=>Number.isFinite(Number(value))&&Number(value)>=0?Math.round(Number(value)):null;
-        const inputTokens=finite(usage.prompt_tokens??usage.input_tokens??usage.promptTokens??usage.inputTokens);
-        const outputTokens=finite(usage.completion_tokens??usage.output_tokens??usage.completionTokens??usage.outputTokens);
-        let totalTokens=finite(usage.total_tokens??usage.totalTokens);
-        if(totalTokens===null&&inputTokens!==null&&outputTokens!==null)totalTokens=inputTokens+outputTokens;
-        return inputTokens===null&&outputTokens===null&&totalTokens===null?null:{inputTokens,outputTokens,totalTokens};
-    }
-    function requestTokenTelemetry(system,input,schema) {
-        const systemText=String(system||''),inputText=String(input||'');
-        let payload=null;try{payload=JSON.parse(inputText);}catch(_){}
-        const systemParts=systemText.split(/\n(?=【)/).filter(Boolean).map((part,index)=>({
-            名称:(part.match(/^【([^】]+)】/)||[])[1]||'system '+(index+1),
-            估算Tokens:estimateTokens(part)
-        }));
-        const userParts=plain(payload)?Object.entries(payload).filter(([,value])=>value!==undefined).map(([name,value])=>({
-            名称:name,估算Tokens:estimateTokens(JSON.stringify({[name]:value},null,2))
-        })):[];
-        const systemTokens=estimateTokens(systemText),userTokens=estimateTokens(inputText);
-        return {
-            估算:true,
-            请求估算Tokens:systemTokens+userTokens,
-            System估算Tokens:systemTokens,
-            User估算Tokens:userTokens,
-            Schema估算Tokens:estimateTokens(JSON.stringify(schema||{},null,2)),
-            System分段:systemParts,
-            User分段:userParts
-        };
-    }
     function digest(text) {
         let a = 2166136261, b = 5381;
         for (let i=0;i<text.length;i++) { a = Math.imul(a ^ text.charCodeAt(i),16777619); b = Math.imul(b,33) ^ text.charCodeAt(i); }

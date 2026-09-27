@@ -691,3 +691,12 @@ Phase 66 首次迁移后，`WorldStateIntegrityPolicy.validate()` 多返回了�
 已完成：新增 `WorldPatchApplicationService`，从 `WorldResultMaterializer.applyPatches()` 抽出 patch 执行事务：路径 canonicalize、写入白名单、后台父路径 bootstrap、历史只追加、缺失目标 upsert、remove 约束、记录默认值合并、任务世界情报货币限制、类型/数值校验、成就不可回退、正式人物字段同步校验、单轮好感与势力声望变化限制，以及写入后的 backend/event/time/state/rumor 收尾。
 
 该 service 显式组合 container-owned `patchPolicy / stateNormalizer / timelinePolicy / stateIntegrity / relationSync / rumor`；`WorldResultMaterializer.applyPatches()` 仅保留兼容/应用层转发。这样 Materializer 继续负责“WorldResult → patches”和最终 repair 编排，不再承担通用 patch 事务引擎。
+
+
+### Phase 68 · WorldResult Patch 编译服务独立
+
+已完成：新增 `WorldResultPatchCompilationService`，把原本仍集中在 `WorldResultMaterializer.compileWorldResult()` 的完整“WorldResult → patches/warnings”编译流程迁出。时间事务、异端活动时间戳、NPC 新装备默认值、因果过滤与修复、原著时间轴、任务引用、探索、资产、正式人物关系、公开传闻与后台实体 patch 生成，都通过该 service 组合现有领域 policy/service。
+
+`WorldResultMaterializer` 不再持有上述编译期依赖；其 `compileWorldResult()` 只保留兼容转发到 container-owned `resultPatchCompilation`。Materializer 继续拥有最终世界物化职责：seed/model patch 顺序、后台规范化、探索/事件层级/因果/前因/显式链接 repair、生命周期 compact 与最终状态完整性验证。
+
+因此 `WorldResultCompiler / WorldResultStagingService / compileWorldResult()` 公开 seam 全部保持不变，但“结果编译”和“最终物化”已经成为两个独立职责。

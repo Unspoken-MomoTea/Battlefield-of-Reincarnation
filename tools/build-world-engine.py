@@ -14,6 +14,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldTimelinePolicy.part.js',
     '@src/WorldEngine/domains/WorldLifecycleService.part.js',
     '@src/WorldEngine/domains/WorldPersonActivityService.part.js',
+    '@src/WorldEngine/domains/WorldTaskAwarenessService.part.js',
     '@src/WorldEngine/domains/WorldNpcAuditService.part.js',
     '@src/WorldEngine/domains/WorldStateNormalizer.part.js',
     '@src/WorldEngine/domains/WorldCausalService.part.js',

@@ -477,3 +477,8 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 ## Phase 61 · Token telemetry
 
 `WorldTokenTelemetry` is the canonical owner of local token estimation, token-count formatting, provider usage normalization and request-segment telemetry. `WorldRequestBuilder` and `WorldApiTransportService` compose the same container-owned telemetry instance. Compatibility functions keep the existing exported surface but delegate to the active telemetry service; `WorldEngineFoundation` no longer owns observability algorithms.
+
+
+## Phase 62 · Calendar and time capacity
+
+`WorldTimePolicy` now owns world-time keys, elapsed-capacity classification and calendar-date parsing as one domain. The application Foundation no longer implements `worldDateKey`, `worldTimeCapacity` or `calendarDate`. Existing global names remain compatibility forwards to the active time policy so UI, validation and exported test surfaces preserve behavior without duplicating algorithms.

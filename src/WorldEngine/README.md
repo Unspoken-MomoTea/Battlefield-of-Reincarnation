@@ -1,8 +1,8 @@
 # WorldEngine
 
-`src/WorldEngine/` 是世界推进的长期开发源码与架构文档目录。
+`src/WorldEngine/` 是世界推进的唯一开发源码与架构文档目录。
 
-运行时仍由 `tools/build-world-engine.py` 生成单文件 `script/世界推进系统.js`，酒馆安装方式不变。旧的 `script/world-engine-src/` 在迁移期间作为 legacy source 保留；新代码优先进入这里，并通过构建器按固定顺序拼接。
+运行时仍由 `tools/build-world-engine.py` 按固定顺序拼接这里的 `.part.js`，生成单文件 `script/世界推进系统.js`；酒馆安装方式不变。`script/world-engine-src/` 已在 Phase 56 删除，禁止重新建立第二套源码树。
 
 ## 目标
 
@@ -12,7 +12,7 @@
 - 每个业务域通过独立 class 暴露稳定接口。
 - 所有实际发送给 AI 的 system 提示词必须登记在 `WorldPromptRegistry`，并在“提示词预设”页面可见、可编辑、可保存到预设文档。
 - UI、领域逻辑、MVU 写回、提示词配置分离。
-- 迁移期间保持单文件交付和现有存档兼容。
+- 保持单文件交付和现有存档兼容；生成文件不作为第二份手工源码维护。
 
 ## 当前类
 

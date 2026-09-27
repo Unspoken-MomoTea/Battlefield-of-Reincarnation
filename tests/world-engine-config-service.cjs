@@ -80,5 +80,26 @@ assert.equal(saved.fontScale,'standard');
 
 assert.equal(engine.configService?.constructor?.name,'WorldEngineConfigService');
 assert.equal(engine.services?.configuration,engine.configService,'service container must expose the constructor-owned configuration service');
+assert.equal(engine.isConfigured(),true,'public configuration seam must reflect the enabled flag');
+assert.equal(engine.isAvailable(),true,'terminal availability must remain visible through the public seam');
+assert.equal(engine.isEnabled(),true,'enabled + available must remain the effective world-engine state');
+
+let cancelCalls=0,closeCalls=0,renderCalls=0;
+engine.cancel=()=>{cancelCalls++;};
+engine.isOpen=()=>true;
+engine.close=()=>{closeCalls++;};
+engine.render=()=>{renderCalls++;};
+assert.equal(engine.setEnabled(false),false,'disabling must return the effective disabled state');
+assert.equal(engine.config.enabled,false);
+assert.equal(cancelCalls,1,'disabling must cancel pending world work');
+assert.equal(closeCalls,1,'disabling an open panel must close it');
+assert.equal(renderCalls,1,'disabling must refresh UI state');
+assert.equal(engine.status,'世界推进已关闭');
+
+assert.equal(engine.setEnabled(true),true,'re-enabling with available terminal API must return true');
+assert.equal(engine.config.enabled,true);
+assert.equal(enableCalls,2,'re-enabling without dedicated API must enable the terminal API');
+assert.equal(renderCalls,2,'re-enabling must refresh UI state');
+assert.equal(engine.status,'世界推进已开启');
 
 console.log('world-engine configuration migration regression tests passed');

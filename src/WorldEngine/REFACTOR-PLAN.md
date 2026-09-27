@@ -271,3 +271,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 这样三条路径——直接 `compileWorldResult()`、Compiler 最终编译、Staging 分片验收——都会进入同一个 Materializer 编译边界，不再需要重复预处理。空世界时间仍可从本轮结果解析时间锚点，完整异端活动仍由程序统一写最终世界时间；原有 `Active alien activity normalization` 集成回归继续作为公开行为 seam。
 
 剩余 `compileWorldResult` legacy decorator 继续按领域逐条迁移。
+
+
+### Phase 28 · 任务感知领域归域
+
+已完成：新增 `WorldTaskAwarenessService`，统一拥有正式任务账簿的只读投影与事件 `关联任务` 合法性校验。世界推进继续只读取 `任务.列表` 中的委托方、目标、隐藏真相、难度、交付与状态；奖励、惩罚、副本成就、击杀等结算数据不进入世界上下文。
+
+`WorldStateProjector` 现在直接组合 container-owned `taskLedger` 生成 `当前变量.任务.列表`；`WorldResultMaterializer` 在 canonical `compileWorldResult()` 边界通过同一 service 校验事件只能引用现有任务。因此直接调用兼容 `projectWorldContext / compileWorldResult`、Compiler 与 Staging 路径保持同一行为。
+
+`57-task-awareness.part.js` 删除 `projectWorldContext=function...` 与 `compileWorldResult=function...` 两个 monkey patch，只保留任务只读提示、任务世界书标题与旧排除标记迁移；`WorldTaskAwarenessFeature` 继续只负责世界书选择恢复和请求 manifest，并与 Projector/Materializer 共用同一 `taskLedger`。

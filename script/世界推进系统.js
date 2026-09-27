@@ -2025,7 +2025,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;}
+        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit,people){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -2182,7 +2182,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         }
 
         compileWorldResult(stat,value) {
-            const result=this.normalizer.normalizeWorldResult(value),patches=[],warnings=[];
+            const prepared=this.people.normalizeAlienActivityTimestamps(stat,value);
+            const result=this.normalizer.normalizeWorldResult(prepared),patches=[],warnings=[];
             this.exploration.prepareResult(stat,result);
             const exists=parts=>this.patchPolicy.get(stat,this.patchPolicy.canonicalizeParts(parts,stat));
             const addEntity=(parts,item,sample,options={})=>{
@@ -2431,7 +2432,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return {next,appliedSeeds,repairPatches};
         }
     }
-    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE);
+    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE,DEFAULT_WORLD_PATCH_POLICY,DEFAULT_WORLD_NPC_AUDIT_SERVICE,DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE);
     let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
     function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}
@@ -4986,13 +4987,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         for(const eventName of record.关联事件||[])if(!Object.hasOwn(events,eventName))throw new Error('关联事件不存在：'+eventName);
     }
     // 变量重处理即时恢复/重试已并入 src/WorldEngine/domains/WorldReplayService.part.js。
-    // 活跃异端的人物筛选、热投影、补种、复核与时间戳策略已归入 WorldPersonActivityService。
-    // 这里仅保留 compileWorldResult 的兼容装饰 seam，等待剩余 compile decorator 全部类化后统一删除。
-    const compileWorldResultBeforeAlienActivityNormalization=compileWorldResult;
-    compileWorldResult=function(stat,value) {
-        const result=ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE.normalizeAlienActivityTimestamps(stat,value);
-        return compileWorldResultBeforeAlienActivityNormalization(stat,result);
-    };
     // 传闻节流：默认保持现有公开传闻，只在真实的信息事件发生时刷新；传闻/传播失败不再拖整轮重试。
     const RUMOR_THROTTLE_RULES=`【传闻刷新节流 · 取代前述“每轮替换”要求】
 1. 公开传闻默认保持不变。只有“传闻维护.本轮公开传闻动作”要求更新时才写传闻；禁止为了制造活跃感、凑数量或普通小事每轮改写。
@@ -8691,7 +8685,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;

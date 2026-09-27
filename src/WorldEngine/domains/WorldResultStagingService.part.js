@@ -1,8 +1,7 @@
     class WorldResultStagingService {
-        constructor(normalizer,materializer,people){
+        constructor(normalizer,materializer){
             this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;
             this.materializer=materializer||DEFAULT_WORLD_RESULT_MATERIALIZER;
-            this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;
         }
 
         // Transitional rule: normalization/merge/fragment and retry-plan calls intentionally use the
@@ -66,8 +65,7 @@
                 for(const unit of pending){
                     const candidate=mergeWorldResults(staged,unit.result);
                     try{
-                        const prepared=this.people.normalizeAlienActivityTimestamps(stat,candidate);
-                        const compiled=compileWorldResult(stat,prepared);
+                        const compiled=compileWorldResult(stat,candidate);
                         const built=this.materializer.materializeWorldUpdate(stat,[],compiled.patches);
                         if(typeof validate==='function'){
                             const checked=validate(built.next);
@@ -159,7 +157,7 @@
             return error;
         }
     }
-    const DEFAULT_WORLD_RESULT_STAGING=new WorldResultStagingService(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_RESULT_MATERIALIZER,DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE);
+    const DEFAULT_WORLD_RESULT_STAGING=new WorldResultStagingService(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_RESULT_MATERIALIZER);
     let ACTIVE_WORLD_RESULT_STAGING=DEFAULT_WORLD_RESULT_STAGING;
     function worldResultFragments(value){return ACTIVE_WORLD_RESULT_STAGING.worldResultFragments(value);}
     function stageWorldResult(stat,accepted,incoming,validate){return ACTIVE_WORLD_RESULT_STAGING.stage(stat,accepted,incoming,validate);}

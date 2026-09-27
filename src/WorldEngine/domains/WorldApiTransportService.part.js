@@ -1,5 +1,5 @@
     class WorldApiTransportService {
-        constructor(engine){this.engine=engine;this.modeCache=engine.apiModeCache||{};}
+        constructor(engine,telemetry=DEFAULT_WORLD_TOKEN_TELEMETRY){this.engine=engine;this.telemetry=telemetry||DEFAULT_WORLD_TOKEN_TELEMETRY;this.modeCache=engine.apiModeCache||{};}
         normalize(value){
             const api=plain(value)?value:{};
             return {
@@ -111,7 +111,7 @@
                 if(!content)throw new Error('专属 API 返回内容为空');
                 if(wants)this.modeCache[cacheKey]=mode;
                 engine.apiModeCache=this.modeCache;
-                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:normalizeTokenUsage(data?.usage)};
+                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:this.telemetry.normalizeUsage(data?.usage)};
                 return content;
             }
             throw new Error(lastError||'专属 API 不支持当前结构化输出模式');

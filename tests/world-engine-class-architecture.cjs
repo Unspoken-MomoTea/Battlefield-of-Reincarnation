@@ -30,6 +30,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldRelationSyncPolicy.part.js',
   'src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js',
   'src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js',
+  'src/WorldEngine/domains/WorldPatchApplicationService.part.js',
   'src/WorldEngine/domains/WorldResultContract.part.js',
   'src/WorldEngine/domains/WorldResultNormalizer.part.js',
   'src/WorldEngine/domains/WorldResultMaterializer.part.js',
@@ -78,6 +79,7 @@ const requestBuilderSource=fs.readFileSync(path.join(root,'src/WorldEngine/domai
 const knowledgeSelectionSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js'),'utf8');
 const assetMaterializationSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js'),'utf8');
 const stateIntegritySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js'),'utf8');
+const patchApplicationSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPatchApplicationService.part.js'),'utf8');
 const resultMaterializerSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js'),'utf8');
@@ -86,6 +88,10 @@ assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.
 assert.match(assetMaterializationSource,/class\s+WorldAssetMaterializationPolicy\b/,'asset materialization policy must live under src/WorldEngine');
 for(const method of ['validateScope','normalizeOwners','materializeRecord'])assert.match(assetMaterializationSource,new RegExp('\\b'+method+'\\s*\\('),'asset materialization policy must own '+method);
 assert.doesNotMatch(resultMaterializerSource,/assertWorldAssetScope\s*\(|materializeAssetRecord\s*\(/,'asset merge rules must leave WorldResultMaterializer');
+assert.match(patchApplicationSource,/class\s+WorldPatchApplicationService\b/,'patch application must live behind a dedicated service');
+assert.match(patchApplicationSource,/\bapply\s*\(stat,patches\)/,'patch application service must own patch execution');
+assert.doesNotMatch(resultMaterializerSource,/禁止写入：|历史只允许新增|单轮好感变动超过20|单轮声望变动超过1000/,'patch execution rules must leave WorldResultMaterializer');
+assert.match(resultMaterializerSource,/applyPatches\(stat,patches\)\s*\{\s*return this\.patchApplication\.apply\(stat,patches\);\s*\}/,'materializer applyPatches must remain a thin application-service facade');
 assert.match(applicationShellSource,/class\s+SamsaraWorldEngine\s*\{/,'base application shell must live under src/WorldEngine/core');
 assert.match(hostAdapterSource,/class\s+WorldHostAdapter\s*\{/,'host function resolution must live behind a dedicated adapter');
 assert.match(hostAdapterSource,/resolve\(name\)/,'host adapter must own function resolution');
@@ -368,6 +374,14 @@ assert.equal(engine.services.stateIntegrity.patchPolicy,engine.services.patchPol
 assert.equal(engine.services.stateIntegrity.timePolicy,engine.services.timePolicy,'state integrity must share the canonical time policy');
 assert.equal(engine.services.stateIntegrity.rumor,engine.services.rumor,'state integrity must share the canonical rumor service');
 assert.equal(engine.services.resultMaterializer.stateIntegrity,engine.services.stateIntegrity,'materializer must compose the container-owned state integrity policy');
+assert.equal(engine.services.patchApplication.constructor.name,'WorldPatchApplicationService');
+assert.equal(engine.services.patchApplication.patchPolicy,engine.services.patchPolicy,'patch application must share the canonical patch policy');
+assert.equal(engine.services.patchApplication.stateNormalizer,engine.services.stateNormalizer,'patch application must share the canonical state normalizer');
+assert.equal(engine.services.patchApplication.timeline,engine.services.timelinePolicy,'patch application must share the canonical timeline policy');
+assert.equal(engine.services.patchApplication.stateIntegrity,engine.services.stateIntegrity,'patch application must share the canonical state integrity policy');
+assert.equal(engine.services.patchApplication.relationSync,engine.services.relationSync,'patch application must share the canonical relation sync policy');
+assert.equal(engine.services.patchApplication.rumor,engine.services.rumor,'patch application must share the canonical rumor service');
+assert.equal(engine.services.resultMaterializer.patchApplication,engine.services.patchApplication,'materializer must compose the container-owned patch application service');
 assert.equal(engine.services.resultMaterializer.causal,engine.services.causal,'materializer must compose the container-owned causal service');
 assert.equal(engine.services.retryGuidance.constructor.name,'WorldRetryGuidanceService');
 assert.equal(engine.services.retryGuidance.engine,engine,'retry guidance must be able to read the active prompt registry');

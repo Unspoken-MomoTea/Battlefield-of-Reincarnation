@@ -112,32 +112,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             body:String(segment.body||'')
         })).map(segmentText).filter(Boolean).join('\n');
     }
-    function parseSelectedEntryKey(value) {
-        try{
-            const parsed=JSON.parse(String(value||''));
-            return Array.isArray(parsed)&&parsed.length>=2?[String(parsed[0]||''),String(parsed[1]??'')]:null;
-        }catch(_){return null;}
-    }
-    function normalizeWorldbookIdentity(value) {
-        let name=String(value||'').trim().toLowerCase();
-        const versionAt=name.search(/(?:\bv(?:er(?:sion)?)?|版本)?\s*\d+(?:\.\d+){1,3}/i);
-        if(versionAt>0)name=name.slice(0,versionAt);
-        return name.replace(/[\s_\-·.]+/g,'');
-    }
-    function normalizeWorldbookEntryTitle(value) {
-        return String(value||'').trim().replace(/^⚙(?:\uFE0F)?\s*/u,'').trim();
-    }
-    function selectedEntryMatches(entry, selectedEntries) {
-        if(!Array.isArray(selectedEntries))return entry?.enabled!==false;
-        const exact=JSON.stringify([String(entry?.book||''),String(entry?.id??'')]);
-        if(selectedEntries.includes(exact))return true;
-        const entryBook=normalizeWorldbookIdentity(entry?.book),entryId=String(entry?.id??'');
-        for(const raw of selectedEntries){
-            const ref=parseSelectedEntryKey(raw);if(!ref||ref[1]!==entryId)continue;
-            if(ref[0]==='*'||(entryBook&&normalizeWorldbookIdentity(ref[0])===entryBook))return true;
-        }
-        return false;
-    }
     function ensurePresetStructure(value) {
         const current=splitPresetSegments(value||DEFAULT_PRESET).map(segment=>segment.title==='势力与地区'?{...segment,title:'探索与势力'}:segment);
         const defaults=splitPresetSegments(DEFAULT_PRESET);

@@ -170,6 +170,7 @@ function summary(level,seq,children,lo,hi){
     const vars=fs.readFileSync(path.join(__dirname,'../World Book/[variables]当前变量.txt'),'utf8');
     const ui=[
       path.join(__dirname,'../src/WorldEngine/core/SamsaraWorldEngine.part.js'),
+      path.join(__dirname,'../src/WorldEngine/ui/WorldPanelRenderer.part.js'),
       path.join(__dirname,'../src/WorldEngine/ui/views/WorldHistoryView.part.js'),
       path.join(__dirname,'../src/WorldEngine/ui/views/WorldSettingsView.part.js'),
     ].map(file=>fs.readFileSync(file,'utf8')).join('\n');

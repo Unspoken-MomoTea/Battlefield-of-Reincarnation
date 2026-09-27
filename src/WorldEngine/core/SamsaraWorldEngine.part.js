@@ -49,56 +49,9 @@
         structuredUnsupported(status,body){return this.transportService().structuredUnsupported(status,body);}
         requestDedicatedApi(system,input,options={}){return this.transportService().requestDedicated(system,input,options);}
         requestAI(system,input,options={}){return this.transportService().request(system,input,options);}
-        setPreset(text) {
-            if (typeof text !== 'string' || text.length > 30000) throw new Error('预设限30000字');
-            this.config.preset = normalizeEditablePreset(text);
-            this.config.presetEditorVersion=2;
-            this.saveConfig();
-        }
-        readPromptEditor() {
-            const panel=this.panel;
-            const list=panel&&panel.querySelector('[data-segment-list]');
-            const rows=list?Array.from(list.querySelectorAll('[data-segment-row]')):[];
-            const preset=list?rows.map(row=>segmentText({
-                title:row.querySelector('[data-segment-title]')?.value||'',
-                body:row.querySelector('[data-segment]')?.value||''
-            })).filter(Boolean).join('\n'):this.config.preset;
-            const floors=panel&&panel.querySelector('[data-floors]');
-            const activation=panel&&panel.querySelector('[data-activation]');
-            const books=panel?Array.from(panel.querySelectorAll('[data-book]')):[];
-            return {
-                preset,
-                corePrompt:panel?.querySelector('[data-core-prompt]')?.value??this.config.corePrompt??CORE_WORLD_RULES,
-                macroPrompt:panel?.querySelector('[data-macro-prompt]')?.value??this.config.macroPrompt??DEFAULT_MACRO_PROMPT,
-                stabilityPromptTemplate:panel?.querySelector('[data-stability-prompt]')?.value??this.config.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE,
-                npcAuditPrompt:panel?.querySelector('[data-npc-audit-prompt]')?.value??this.config.npcAuditPrompt,
-                structurePrompt:panel?.querySelector('[data-structure-prompt]')?.value??this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim(),
-                contextTurns:Math.max(1,Math.min(100,Number(floors?.value??this.config.contextTurns)||6)),
-                activationMode:activation?.value||this.config.activationMode||'respect_activation',
-                selectedEntries:books.length
-                    ?books.filter(e=>e.checked&&!e.disabled).map(e=>e.value)
-                    :(Array.isArray(this.config.selectedEntries)?copy(this.config.selectedEntries):null)
-            };
-        }
-        applyPromptSettings(settings) {
-            if(!plain(settings)||typeof settings.preset!=='string'||settings.preset.length>30000)throw new Error('预设文档内容无效或超过30000字');
-            for(const [name,value] of [['核心约束',settings.corePrompt],['宏观骨架提示词',settings.macroPrompt],['世界自救提示词',settings.stabilityPromptTemplate]])if(value!==undefined&&(typeof value!=='string'||value.length>30000))throw new Error(name+'限30000字');
-            if(settings.npcAuditPrompt!==undefined&&(typeof settings.npcAuditPrompt!=='string'||settings.npcAuditPrompt.length>30000))throw new Error('NPC审计提示词限30000字');
-            if(settings.structurePrompt!==undefined&&(typeof settings.structurePrompt!=='string'||settings.structurePrompt.length>30000))throw new Error('结构提示词限30000字');
-            this.config.corePrompt=settings.corePrompt===undefined?CORE_WORLD_RULES:settings.corePrompt;
-            this.config.macroPrompt=settings.macroPrompt===undefined?DEFAULT_MACRO_PROMPT:settings.macroPrompt;
-            this.config.stabilityPromptTemplate=settings.stabilityPromptTemplate===undefined?DEFAULT_STABILITY_PROMPT_TEMPLATE:settings.stabilityPromptTemplate;
-            this.config.npcAuditPrompt=settings.npcAuditPrompt===undefined?NPC_BUILD_AUDIT_RULES:settings.npcAuditPrompt;
-            this.config.structurePrompt=settings.structurePrompt===undefined?protocol().split('【Canonical WorldResult JSON Schema】')[0].trim():settings.structurePrompt;
-            this.config.preset=normalizeEditablePreset(settings.preset);
-            this.config.presetEditorVersion=2;
-            this.config.contextTurns=Math.max(1,Math.min(100,Number(settings.contextTurns)||6));
-            this.config.activationMode=settings.activationMode==='force_selected'?'force_selected':'respect_activation';
-            if(Array.isArray(settings.selectedEntries))this.config.selectedEntries=settings.selectedEntries.filter(x=>typeof x==='string');
-            else delete this.config.selectedEntries;
-            this.saveConfig();
-            return this.config;
-        }
+        setPreset(text){return this.promptDocumentService().setPreset(text);}
+        readPromptEditor(){return this.promptWorkspace?.readSettings?.()||this.promptDocumentService().currentSettings();}
+        applyPromptSettings(settings){return this.promptDocumentService().applySettings(settings);}
         promptDocumentService(){return this._promptDocuments||(this._promptDocuments=new WorldPromptDocumentService(this));}
         getPromptDocuments(){return this.promptDocumentService().list();}
         savePromptDocument(name,settings,activate=true){return this.promptDocumentService().save(name,settings,activate);}

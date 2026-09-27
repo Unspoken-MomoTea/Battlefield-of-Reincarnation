@@ -307,3 +307,19 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一化后调用该方法，因此直接导出的 `compileWorldResult()`、Compiler 与 Staging 都继续得到相同结果。现有装备若明确处于状态0/2则不会被重写；只有本轮首次加入该 NPC 装备表的装备被默认视为已装备，防止用状态0绕过 NPC 构筑数量。
 
 `55-npc-narrative-audit.part.js` 现在只保留剧情份量版 NPC 构筑审计提示词和默认提示词迁移说明，不再参与编译链。
+
+
+### Phase 32 · 世界时间结果策略彻底归域
+
+已完成：新增 `WorldTimePolicy`，把 `59-world-time-ownership.part.js` 中原先依赖加载顺序的时间结果逻辑全部迁入 canonical domain：世界时间是否未初始化、活动时间锚点归一、当前活动反推初始时间、精确日期日历兼容校验、禁止时间回退、本轮候选时间校验快照以及最终 `/世界/时间` patch。
+
+这次不是只删除最后一层 `compileWorldResult` wrapper。原来同文件对 `normalizeWorldResult / mergeWorldResults / worldResultFragments / allowed` 的四条动态覆盖也一起消失：
+- `WorldResultContract` 正式声明顶层 `时间` 与事件时间字段的机器可读格式说明；
+- `WorldResultNormalizer` 正式保留/合并顶层时间；
+- `WorldResultStagingService` 正式把时间拆成独立验收片段，并直接使用 Normalizer/Materializer；
+- `WorldPatchPolicy` 的 canonical `allowed()` 本来已经允许 `/世界/时间`，不再需要后加载补丁；
+- `WORLD_REPLAY_SCOPES` 在定义处直接包含 `世界.时间`。
+
+`WorldPersonActivityService` 与 `WorldTimeOwnershipFeature` 都显式组合 container-owned `timePolicy`；Materializer 先用 policy 建立候选世界时间快照，再在该快照上执行人物/事件/因果等整份编译，最后统一提交时间 patch，保持原有事务语义。
+
+至此运行源码中不再存在任何 `compileWorldResult=function...` decorator。全局 `compileWorldResult()` 仅保留外部兼容入口，Compiler 与 Staging 都直接调用 canonical Materializer。下一批转向剩余 `retryPlanForFailure` 文案装饰器和最后的 project/history 兼容 seam。

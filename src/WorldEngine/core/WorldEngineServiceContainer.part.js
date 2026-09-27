@@ -90,7 +90,7 @@
             this.worldActivityRequest=new WorldActivityRequestFeature(engine,this.activityPolicy);
             this.dueEvent=new WorldDueEventFeature(engine,this.dueEventPolicy);
             this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger,this.knowledgeSelection);
-            this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy);
+            this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy,this.knowledgeSelection);
             this.rumorRequest=new WorldRumorRequestFeature(engine,this.rumor);
             // Stateful wrappers are registered first so run composition preserves the former
             // history > replay > auto-progress > policy nesting without inheritance.

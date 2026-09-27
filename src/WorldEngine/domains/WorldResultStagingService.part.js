@@ -1,7 +1,8 @@
     class WorldResultStagingService {
-        constructor(normalizer,materializer){
+        constructor(normalizer,materializer,chronology){
             this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;
             this.materializer=materializer||DEFAULT_WORLD_RESULT_MATERIALIZER;
+            this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;
         }
 
         // Transitional rule: normalization/merge/fragment and retry-plan calls intentionally use the
@@ -126,6 +127,8 @@
             }else if(message&&!rejected.length){
                 plan.push('整体校验：'+message);
             }
+            const chronologyGuidance=this.chronology.retryGuidance(error,rejected);
+            if(chronologyGuidance)plan.unshift(chronologyGuidance);
             return Array.from(new Set(plan.filter(Boolean)));
         }
         // UI 和模型请求共用去重视图；原始分片仍保留在日志，未知错误不截断。
@@ -157,7 +160,7 @@
             return error;
         }
     }
-    const DEFAULT_WORLD_RESULT_STAGING=new WorldResultStagingService(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_RESULT_MATERIALIZER);
+    const DEFAULT_WORLD_RESULT_STAGING=new WorldResultStagingService(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_RESULT_MATERIALIZER,DEFAULT_WORLD_CHRONOLOGY_POLICY);
     let ACTIVE_WORLD_RESULT_STAGING=DEFAULT_WORLD_RESULT_STAGING;
     function worldResultFragments(value){return ACTIVE_WORLD_RESULT_STAGING.worldResultFragments(value);}
     function stageWorldResult(stat,accepted,incoming,validate){return ACTIVE_WORLD_RESULT_STAGING.stage(stat,accepted,incoming,validate);}

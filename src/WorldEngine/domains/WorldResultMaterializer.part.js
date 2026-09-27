@@ -189,7 +189,7 @@
             this.stateNormalizer.normalizeBackendState(next);
             this.stateNormalizer.normalizeEventLayers(next);
             validateTemporalWrites(stat,next,patches);
-            validateState(next);
+            this.validateBaseState(next);
             for (const [name,item] of Object.entries(next.世界.势力 || {})) {
                 const old = (stat.世界.势力 || {})[name];
                 if (Math.abs(item.声望 - (old ? old.声望 : 0)) > 1000) throw new Error('单轮声望变动超过1000');
@@ -209,7 +209,7 @@
             const predecessorPatches=this.stateNormalizer.repairMacroPredecessors(next);
             const linkPatches=this.stateNormalizer.repairExplicitEventLinks(next);
             compactWorldLifecycle(next);
-            validateState(next);
+            this.validateBaseState(next);
             const repairPatches=[...explorationPatches,...layerPatches,...causalPatches,...predecessorPatches,...linkPatches];
             return {next,appliedSeeds,repairPatches};
         }

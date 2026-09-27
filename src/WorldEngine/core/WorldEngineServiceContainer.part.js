@@ -5,7 +5,8 @@
             this.knowledge=new WorldKnowledgeService(engine);
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateFactory=new WorldStateFactory();
-            this.stateProjector=new WorldStateProjector(engine);
+            this.taskLedger=new WorldTaskAwarenessService();
+            this.stateProjector=new WorldStateProjector(engine,this.taskLedger);
             ACTIVE_WORLD_STATE_PROJECTOR=this.stateProjector;
             this.patchPolicy=new WorldPatchPolicy();
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
@@ -25,7 +26,7 @@
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -64,7 +65,7 @@
             this.integrityRequest=new WorldIntegrityRequestFeature(engine);
             this.worldActivityRequest=new WorldActivityRequestFeature(engine);
             this.dueEvent=new WorldDueEventFeature(engine);
-            this.taskAwareness=new WorldTaskAwarenessFeature(engine);
+            this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger);
             this.chronology=new WorldChronologyFeature(engine);
             this.rumorRequest=new WorldRumorRequestFeature(engine);
             // Stateful wrappers are registered first so run composition preserves the former

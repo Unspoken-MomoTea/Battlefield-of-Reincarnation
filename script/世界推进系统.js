@@ -2590,11 +2590,39 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function normalizeWorldResult(value){return DEFAULT_WORLD_RESULT_NORMALIZER.normalizeWorldResult(value);}
     function mergeWorldResults(base,incoming){return DEFAULT_WORLD_RESULT_NORMALIZER.mergeWorldResults(base,incoming);}
     const RUMOR_LIVELINESS_TOPICS=['悬赏线索','商路动向','势力情报','遗迹坐标','人物行踪','黑市消息','宝物传闻','怪物异动','深渊异变','种族摩擦','物价波动'];
+    const RUMOR_LIVELINESS_RULES=`【传闻与传播 · 常驻活跃层】
+1. 街头巷议、情报交易、布告与檄文各自展示最近3条；某类为空时本轮补2条。单条约60字，除非影响重大，不围绕<user>。
+   可直接追加新名称，程序会在合并后自动滚动淘汰最旧条目，不需要为容量主动提交「操作:移除」。沿用原名称视为刷新该条传闻，并优先保留；仅在传闻本身已失效、撤销或需要明确删除时使用「操作:移除」。
+2. 街头巷议随当前地区、说书人/目击者和局势替换1~2条；情报交易有卖家时更新1~2条，购买、付款与消费性删除由MVU按正文结果处理；布告与檄文随当前地区与发布势力替换。
+3. 后台传播是人物知情与公开传闻的因果链。新可传播事实建立或推进传播；关联事件变化、传播陈旧或到期时复核范围、受众、内容与引发行动，结束/过期传播不复活。
+4. 优先话题：${RUMOR_LIVELINESS_TOPICS.join(' / ')}。`;
+    const RUMOR_THROTTLE_RULES=`【传闻刷新节流 · 取代前述“每轮替换”要求】
+1. 公开传闻默认保持不变。只有“传闻维护.本轮公开传闻动作”要求更新时才写传闻；禁止为了制造活跃感、凑数量或普通小事每轮改写。
+2. 触发只包括：某分类为空需补1条；已有传播链因关联事件新进展、到期或超过72小时而需复核；本轮刚建立/更新且尚未建立传播链、具有公开征兆/可见影响的新事件。旧事件不会因为仍然存在而反复触发。普通行动、普通战斗、轻微状态或数值变化不触发刷新。
+3. 单次触发每个分类最多更新1条。优先刷新与本次事实直接相关的同名传闻；否则追加1条，由程序自动滚动淘汰最旧条目。没有触发时三类传闻都保持原样，不提交无变化更新。
+4. 传闻与传播属于软维护。单个传闻/传播片段格式错误或本轮未维护完成时，丢弃该片段并保留其它已验收结果；不得仅为传闻/传播重新调用整轮世界推进。
+5. 情报交易的购买、付款、消费性删除仍由MVU/变量AI处理；世界引擎只维护其世界侧信息来源。`;
+    const RUMOR_WORLD_SOURCE_RULES=`【信息传播 · 世界侧事实】
+1. 传闻与传播描述世界里正在流通的信息；正文只用于确认事实与时间，不是直接传播源。禁止把正文中的个人行动、战斗细节、私密对话、能力或收益直接改写成传闻。
+2. 直接取材仅限“传闻维护.世界侧可传播事实”、已有传播链与既有公开传闻。私密事实只有形成目击、公开后果、调查发现、公告或主动泄露等现实渠道后才能传播。
+3. 公开内容不得超过来源与受众当时可知范围；后台真相不进入公开内容。传播必须有时间与空间路径，不能无因瞬间扩散到全世界。
+4. 公开传闻默认保持不变；仅在空分类、传播链需复核或出现新的世界侧公开事实时按需更新，每个触发每类最多1条。
+5. 普通行动、普通战斗、轻微状态或数值变化本身不触发传闻；只有其公开后果已经进入世界侧事实池时才可传播。
+6. 传闻/传播属于软维护，单个片段失败不得让整轮世界推进重跑。情报交易的购买、付款与消费性删除由MVU按正文结果处理；世界引擎只维护世界侧信息来源。`;
+    const RUMOR_PRESET_STEP_OLD='Step 6 · 更新传播：只维护本轮真实变化的传播、货币与历法；结束/过期传播不复活。';
+    const RUMOR_PRESET_STEP_NEW='Step 6 · 信息传播：传闻是常驻活跃层；三类公开传闻为空时补2条，并随地区、卖家、发布势力与局势替换。新可传播事实建立或推进传播链，关联事件变化、陈旧或到期时复核。';
+    const RUMOR_THROTTLE_PRESET_STEP='Step 6 · 信息传播：公开传闻默认保持不变；仅在空分类、传播链需复核或出现新的公开可传播事实时按需更新，每个触发每类最多1条。传闻/传播属于软维护，失败不重跑整轮。';
     const RUMOR_PUBLIC_CATEGORIES=['街头巷议','情报交易','布告与檄文'];
     const RUMOR_VISIBLE_LIMIT=3;
     const RUMOR_STALE_HOURS=72;
     class WorldRumorService {
         constructor(engine){this.engine=engine;}
+        upgradePreset(value){
+            let source=String(value||'');
+            if(source.includes(RUMOR_PRESET_STEP_OLD))source=source.replace(RUMOR_PRESET_STEP_OLD,RUMOR_PRESET_STEP_NEW);
+            if(!source.includes(RUMOR_THROTTLE_PRESET_STEP)&&source.includes(RUMOR_PRESET_STEP_NEW))source=source.replace(RUMOR_PRESET_STEP_NEW,RUMOR_THROTTLE_PRESET_STEP);
+            return source;
+        }
         requirements(stat=this.engine?.snapshot().stat||{}){
             const required=this.baseRequirements(stat),facts=this.publicFacts(stat),fresh=facts.filter(item=>item.新近).slice(-6);
             // Preserve the old throttle candidate window as well as the final world-side facts view.
@@ -2756,6 +2784,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     }
     const DEFAULT_WORLD_RUMOR_SERVICE=new WorldRumorService();
+    if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=DEFAULT_WORLD_RUMOR_SERVICE.upgradePreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
     // Compatibility entry points are stateless; production code uses the container-owned service.
     function rumorMaintenanceRequirements(stat){return DEFAULT_WORLD_RUMOR_SERVICE.requirements(stat);}
     function rumorMaintenanceNeeded(stat){return DEFAULT_WORLD_RUMOR_SERVICE.maintenanceNeeded(stat);}
@@ -4858,18 +4887,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     // 审计新增装备默认状态=1的编译规则已迁移至 WorldNpcAuditService。
 
     // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。
-    // 传闻是常驻活跃层：公开传闻保证世界始终有可见动向，后台传播负责其因果来源与人物知情链。
-    const RUMOR_LIVELINESS_RULES=`【传闻与传播 · 常驻活跃层】
-1. 街头巷议、情报交易、布告与檄文各自展示最近3条；某类为空时本轮补2条。单条约60字，除非影响重大，不围绕<user>。
-   可直接追加新名称，程序会在合并后自动滚动淘汰最旧条目，不需要为容量主动提交「操作:移除」。沿用原名称视为刷新该条传闻，并优先保留；仅在传闻本身已失效、撤销或需要明确删除时使用「操作:移除」。
-2. 街头巷议随当前地区、说书人/目击者和局势替换1~2条；情报交易有卖家时更新1~2条，购买、付款与消费性删除由MVU按正文结果处理；布告与檄文随当前地区与发布势力替换。
-3. 后台传播是人物知情与公开传闻的因果链。新可传播事实建立或推进传播；关联事件变化、传播陈旧或到期时复核范围、受众、内容与引发行动，结束/过期传播不复活。
-4. 优先话题：${RUMOR_LIVELINESS_TOPICS.join(' / ')}。`;
-    const RUMOR_PRESET_STEP_OLD='Step 6 · 更新传播：只维护本轮真实变化的传播、货币与历法；结束/过期传播不复活。';
-    const RUMOR_PRESET_STEP_NEW='Step 6 · 信息传播：传闻是常驻活跃层；三类公开传闻为空时补2条，并随地区、卖家、发布势力与局势替换。新可传播事实建立或推进传播链，关联事件变化、陈旧或到期时复核。';
-    const upgradeRumorPreset=value=>String(value||'').includes(RUMOR_PRESET_STEP_OLD)?String(value).replace(RUMOR_PRESET_STEP_OLD,RUMOR_PRESET_STEP_NEW):String(value||'');
-    if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=upgradeRumorPreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
-    // 传闻维护、容量与验收算法已迁入 WorldRumorService。
     // 任务感知层：任务.列表是现有 MVU 的唯一正式任务账簿；世界引擎只读消费，不建立第二套后台任务库。
     const TASK_AWARENESS_RULES=`【任务感知 · 只读】
 任务列表是世界因果来源之一。世界推进不得创建、删除或修改任务，也不得推进任务状态、交付、结算或奖励；任务影响只通过事件、人物行动、势力地区、探索与传播表现。事件可用“关联任务”引用当前任务.列表中已存在的任务名，作为因果来源；禁止引用不存在的任务。
@@ -5045,33 +5062,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         for(const eventName of record.关联事件||[])if(!Object.hasOwn(events,eventName))throw new Error('关联事件不存在：'+eventName);
     }
     // 变量重处理即时恢复/重试已并入 src/WorldEngine/domains/WorldReplayService.part.js。
-    // 传闻节流：默认保持现有公开传闻，只在真实的信息事件发生时刷新；传闻/传播失败不再拖整轮重试。
-    const RUMOR_THROTTLE_RULES=`【传闻刷新节流 · 取代前述“每轮替换”要求】
-1. 公开传闻默认保持不变。只有“传闻维护.本轮公开传闻动作”要求更新时才写传闻；禁止为了制造活跃感、凑数量或普通小事每轮改写。
-2. 触发只包括：某分类为空需补1条；已有传播链因关联事件新进展、到期或超过72小时而需复核；本轮刚建立/更新且尚未建立传播链、具有公开征兆/可见影响的新事件。旧事件不会因为仍然存在而反复触发。普通行动、普通战斗、轻微状态或数值变化不触发刷新。
-3. 单次触发每个分类最多更新1条。优先刷新与本次事实直接相关的同名传闻；否则追加1条，由程序自动滚动淘汰最旧条目。没有触发时三类传闻都保持原样，不提交无变化更新。
-4. 传闻与传播属于软维护。单个传闻/传播片段格式错误或本轮未维护完成时，丢弃该片段并保留其它已验收结果；不得仅为传闻/传播重新调用整轮世界推进。
-5. 情报交易的购买、付款、消费性删除仍由MVU/变量AI处理；世界引擎只维护其世界侧信息来源。`;
-    const RUMOR_THROTTLE_PRESET_STEP='Step 6 · 信息传播：公开传闻默认保持不变；仅在空分类、传播链需复核或出现新的公开可传播事实时按需更新，每个触发每类最多1条。传闻/传播属于软维护，失败不重跑整轮。';
-    function upgradeRumorThrottlePreset(value) {
-        const source=String(value||'');
-        if(source.includes(RUMOR_THROTTLE_PRESET_STEP))return source;
-        if(typeof RUMOR_PRESET_STEP_NEW==='string'&&source.includes(RUMOR_PRESET_STEP_NEW))return source.replace(RUMOR_PRESET_STEP_NEW,RUMOR_THROTTLE_PRESET_STEP);
-        return source;
-    }
-    if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=upgradeRumorThrottlePreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
-
-    // 节流策略迁入 WorldRumorService；玩家信息隐藏迁入 WorldRumorRequestFeature。
-    const RUMOR_WORLD_SOURCE_RULES=`【信息传播 · 世界侧事实】
-1. 传闻与传播描述世界里正在流通的信息；正文只用于确认事实与时间，不是直接传播源。禁止把正文中的个人行动、战斗细节、私密对话、能力或收益直接改写成传闻。
-2. 直接取材仅限“传闻维护.世界侧可传播事实”、已有传播链与既有公开传闻。私密事实只有形成目击、公开后果、调查发现、公告或主动泄露等现实渠道后才能传播。
-3. 公开内容不得超过来源与受众当时可知范围；后台真相不进入公开内容。传播必须有时间与空间路径，不能无因瞬间扩散到全世界。
-4. 公开传闻默认保持不变；仅在空分类、传播链需复核或出现新的世界侧公开事实时按需更新，每个触发每类最多1条。
-5. 普通行动、普通战斗、轻微状态或数值变化本身不触发传闻；只有其公开后果已经进入世界侧事实池时才可传播。
-6. 传闻/传播属于软维护，单个片段失败不得让整轮世界推进重跑。情报交易的购买、付款与消费性删除由MVU按正文结果处理；世界引擎只维护世界侧信息来源。`;
-    const RUMOR_WORLD_SOURCE_PRESET_STEP='Step 6 · 信息传播：以世界侧公开事实和已有传播链为来源；正文不是直接传播源。私密事实必须先形成现实传播渠道，传播范围按时间与空间路径扩张。';
-    // 世界侧传闻请求装饰已迁移至 src/WorldEngine/domains/WorldRumorRequestFeature.part.js。
-    // 传闻 system 最终装配已迁移至 WorldPromptRegistry；不再扩展主类。
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
     const WORLD_MODULE_PROMPT_VERSION=5;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
@@ -7286,8 +7276,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         initialize(){
             const engine=this.engine;
             if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)return;
-            let upgraded=upgradeRumorPreset(engine.config.preset);
-            upgraded=upgradeRumorThrottlePreset(upgraded);
+            const upgraded=this.rumor.upgradePreset(engine.config.preset);
             if(upgraded!==engine.config.preset){engine.config.preset=upgraded;engine.saveConfig();}
         }
         async afterBuildRequest(request,base){

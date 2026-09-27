@@ -1360,6 +1360,20 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return rows.sort((a,b)=>b.__priority-a.__priority||a.名称.localeCompare(b.名称,'zh-CN')).slice(0,Math.max(0,Number(limit)||0)).map(item=>{const out={...item};delete out.__priority;return out;});
         }
 
+        normalizeNewEquipment(stat,result) {
+            for(const relation of result?.关系||[]){
+                if(!plain(relation?.装备))continue;
+                const target=stableNameIn(stat?.关系列表||{},relation.名称);
+                const npc=target?stat.关系列表[target]:null;
+                if(!plain(npc))continue;
+                for(const [equipName,equip] of Object.entries(relation.装备)){
+                    if(!plain(equip))continue;
+                    if(!stableNameIn(npc.装备||{},equipName))equip.状态=1;
+                }
+            }
+            return result;
+        }
+
         ensureProgress(next,required=[],acceptedResult) {
             if(!(required||[]).length)return;
             const proposals=Array.isArray(acceptedResult?.关系)?acceptedResult.关系:[],details=[];
@@ -2420,6 +2434,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         compileWorldResult(stat,value) {
             const prepared=this.people.normalizeAlienActivityTimestamps(stat,value);
             const result=this.normalizer.normalizeWorldResult(prepared),patches=[],warnings=[];
+            this.npcAudit.normalizeNewEquipment(stat,result);
             const droppedCausalOffsets=this.causal.prepareResult(stat,result);
             this.chronology.validate(stat,result);
             this.taskLedger.validateReferences(stat,result);
@@ -4362,22 +4377,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 7. 构筑补全只用 WorldResult.关系 更新既有 NPC；审计级别只用 WorldResult.人物 写入世界后台。只提交新增/修正项，不得输出真属性、最终属性或强化缓存；血统/形态五维必须齐全，技能不写基础/衍生属性。
 8. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、剧情定位、层级和已演出能力一致的缺口，资料不足时做最小补全。`;
 
-    // 世界推进审计新补出的装备默认直接装备，避免状态0导致辅助计算脚本忽略其属性。
-    const compileWorldResultBeforeNpcEquipmentDefault=compileWorldResult;
-    compileWorldResult=function(stat,value) {
-        const result=normalizeWorldResult(value);
-        for(const relation of result.关系||[]){
-            if(!plain(relation?.装备))continue;
-            const target=stableNameIn(stat?.关系列表||{},relation.名称);
-            const npc=target?stat.关系列表[target]:null;
-            if(!plain(npc))continue;
-            for(const [equipName,equip] of Object.entries(relation.装备)){
-                if(!plain(equip))continue;
-                if(!stableNameIn(npc.装备||{},equipName))equip.状态=1;
-            }
-        }
-        return compileWorldResultBeforeNpcEquipmentDefault(stat,result);
-    };
+    // 审计新增装备默认状态=1的编译规则已迁移至 WorldNpcAuditService。
 
     // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。
     // 传闻是常驻活跃层：公开传闻保证世界始终有可见动向，后台传播负责其因果来源与人物知情链。

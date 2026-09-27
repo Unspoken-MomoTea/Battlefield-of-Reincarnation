@@ -65,6 +65,7 @@
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;
             this.transport=engine._apiTransport||new WorldApiTransportService(engine,this.tokenTelemetry);
+            this.transport.telemetry=this.tokenTelemetry;
             engine._apiTransport=this.transport;
             this.promptDocuments=engine._promptDocuments||new WorldPromptDocumentService(engine);
             engine._promptDocuments=this.promptDocuments;

@@ -700,3 +700,12 @@ Phase 66 首次迁移后，`WorldStateIntegrityPolicy.validate()` 多返回了�
 `WorldResultMaterializer` 不再持有上述编译期依赖；其 `compileWorldResult()` 只保留兼容转发到 container-owned `resultPatchCompilation`。Materializer 继续拥有最终世界物化职责：seed/model patch 顺序、后台规范化、探索/事件层级/因果/前因/显式链接 repair、生命周期 compact 与最终状态完整性验证。
 
 因此 `WorldResultCompiler / WorldResultStagingService / compileWorldResult()` 公开 seam 全部保持不变，但“结果编译”和“最终物化”已经成为两个独立职责。
+
+
+### Phase 69 · 最终世界状态物化服务独立
+
+已完成：新增 `WorldStateMaterializationService`，把原本残留在 `WorldResultMaterializer.materializeWorldUpdate()` 的最终状态物化与 repair 编排迁出。该 service 显式组合 `WorldStateFactory / WorldStateNormalizer / WorldLifecycleService / WorldPatchPolicy / WorldPatchApplicationService / WorldExplorationService / WorldCausalService / WorldStateIntegrityPolicy`。
+
+生产路径不再依赖 `emptyState()` 与 `compactWorldLifecycle()` 全局兼容函数：后台默认结构直接由 `stateFactory.emptyBackend()` 提供，生命周期压缩直接调用 container-owned `lifecycle.compact()`。seed patch、model patch、探索粒度、事件层级、因果投影、宏观前因与显式事件链接 repair 的顺序保持不变。
+
+`WorldResultMaterializer` 现在仅是兼容 facade：`compileWorldResult / validateBaseState / applyPatches / materializeWorldUpdate` 分别转发到 patch compilation 或 state materialization service，不再保存领域算法。

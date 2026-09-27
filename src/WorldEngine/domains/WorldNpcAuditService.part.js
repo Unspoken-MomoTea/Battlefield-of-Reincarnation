@@ -124,6 +124,20 @@
             return rows.sort((a,b)=>b.__priority-a.__priority||a.名称.localeCompare(b.名称,'zh-CN')).slice(0,Math.max(0,Number(limit)||0)).map(item=>{const out={...item};delete out.__priority;return out;});
         }
 
+        normalizeNewEquipment(stat,result) {
+            for(const relation of result?.关系||[]){
+                if(!plain(relation?.装备))continue;
+                const target=stableNameIn(stat?.关系列表||{},relation.名称);
+                const npc=target?stat.关系列表[target]:null;
+                if(!plain(npc))continue;
+                for(const [equipName,equip] of Object.entries(relation.装备)){
+                    if(!plain(equip))continue;
+                    if(!stableNameIn(npc.装备||{},equipName))equip.状态=1;
+                }
+            }
+            return result;
+        }
+
         ensureProgress(next,required=[],acceptedResult) {
             if(!(required||[]).length)return;
             const proposals=Array.isArray(acceptedResult?.关系)?acceptedResult.关系:[],details=[];

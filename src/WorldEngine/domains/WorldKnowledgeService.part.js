@@ -61,7 +61,7 @@
             }).call(engine);
         }
         async worldbook(scan='',options={}){
-            const engine=this.engine;
+            const engine=this.engine,service=this;
             return await (async function(scan,options){
                             const catalogue=await this.catalogue(),output=[];
                             this.bookCatalogue=catalogue;
@@ -69,7 +69,7 @@
                             for(const e of catalogue){
                                 const selected=!e.technical&&selectedEntryMatches(e,this.config.selectedEntries);
                                 const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&isTimelineBackboneEntry(e.title);
-                                const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?this.activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
+                                const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?service.activation(e,scan,this.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
                                 report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
                                 if(!decision.read)continue;
                                 let content=e.content;

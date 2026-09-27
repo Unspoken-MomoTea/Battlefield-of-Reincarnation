@@ -52,6 +52,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldResultKernel.part.js',
   '@src/WorldEngine/domains/WorldRelationSyncPolicy.part.js',
   '@src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js',
+  '@src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js',
   '@src/WorldEngine/domains/WorldResultContract.part.js',
   '@src/WorldEngine/domains/WorldResultNormalizer.part.js',
   '@src/WorldEngine/domains/WorldResultMaterializer.part.js',
@@ -169,6 +170,8 @@ assert.match(texts['@src/WorldEngine/domains/WorldResultContract.part.js'],/cons
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldResultNormalizer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'normalizer must initialize before the materializer');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultContract.part.js'),'asset type policy must initialize before the result contract consumes WORLD_ASSET_TYPES');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'asset materialization policy must initialize before the materializer');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldRumorService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js'),'state integrity must load after the rumor service it composes');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'state integrity policy must initialize before the materializer');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:compileWorldResult|validateState|applyPatches|materializeWorldUpdate|materializeAssetRecord)\b/,'compile/materialize implementation must leave the WorldResult kernel');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/class\s+WorldResultMaterializer\b/,'WorldResult patch compilation must have a dedicated materializer class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultMaterializer.part.js'],/compileWorldResult\(stat,value\)/,'materializer must own WorldResult compilation');

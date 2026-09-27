@@ -535,3 +535,12 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 新增 `tests/world-engine-panel-renderer.cjs`，从公开 `engine.render()` seam 验证“总览”兼容别名、导航、运行按钮、主题/字号状态和业务 View 调度。架构回归逐项锁住 10 个业务 View 必须经 `WorldPanelRenderer → WorldEngineViewRegistry` 调度，并把 application shell 体积上限收紧到 20KB。
 
 下一阶段继续审查 shell 剩余约 15KB：优先抽离 init/open/close/dispose 等 panel 生命周期与剩余 Prompt/API 兼容 facade，目标是 `SamsaraWorldEngine` 最终只保留 application lifecycle 与稳定公开 seam。
+
+
+### Phase 51 · Application 生命周期 Controller 化
+
+已完成：新增 `WorldEngineLifecycleController`，把 `SamsaraWorldEngine` 中的 MVU / Tavern 事件订阅、上下文切换处理、Escape 监听、面板 `open / close / toggle`、主神终端 `suspend / restore` 与 `dispose` 清理整体迁出 application shell。
+
+`SamsaraWorldEngine.init / isOpen / open / close / toggle / dispose` 现在只保留稳定公开 facade seam，并委托 container-owned `applicationLifecycle`。因此 `WorldEngineClassBridge.init()` 的 Feature Registry `afterInit` 包装，以及 `dispose()` 前的 feature 清理顺序保持不变。
+
+本阶段刻意不迁 `schedule / cancel`：它们属于运行调度/中断语义，并与 `WorldAutoProgressController`、`WorldRunOrchestrator` 有直接关系，不能为了缩文件把 application lifecycle 和推进调度重新耦合。迁移后基础 shell 约 13.4KB，架构测试把上限收紧到 14KB。

@@ -332,3 +332,14 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 这次迁移同时落实“提示词不可再藏源码”的要求：`WORLD_RETRY_GUIDANCE_DEFAULTS` 的 19 个静态模板全部以 `retryGuide*` key 登记到 `WorldPromptRegistry`，运行时通过 `engine.services.prompts.value(key)` 读取当前预设值。因此“提示词预设 → 全部实际提示词”可以直接编辑每一条纠错 guidance；错误实体名、数量、路径等动态诊断仍由程序插值，不开放成提示词。
 
 `makeRetryFailure` 的具体原因压缩/去重也已并入 Staging，不再依赖 `55-policy-compat` 后加载包装。至此运行源码不再存在 `retryPlanForFailure=function...` 装饰器。下一批处理最后的 `projectWorldContext` 历史记忆兼容 seam，并继续清理 validation/helper monkey patch。
+
+
+### Phase 33 · 纠错补充清单类化 + 全量可编辑
+
+已完成：新增 `WorldRetryGuidanceService`，统一接管“业务校验错误 → 纠错补充清单”的匹配、顺序与占位符填充。原本分散在 `WorldResultStagingService`、`55-policy-compat.part.js`、`56-rumor-liveliness.part.js`、`59-world-integrity-guard.part.js`、`59-world-activity-delivery.part.js` 的纠错动作不再依赖后加载 monkey patch。
+
+本阶段同时修掉提示词工作台的一个遗漏：这批纠错动作虽然会真实发送给模型，但以前没有登记到 Prompt Registry。现在 19 条模板全部进入“纠错重试”分组，包含宏观骨架、事件时间、到期事件、超期活动、异端、NPC 审计、原著时间轴、事件前因、Schema、传闻/传播、时间一致性与世界活动等。支持 `{name}`、`{details}`、`{current}` 等运行时占位符；用户编辑后，`WorldRetryGuidanceService` 在下一次纠错时直接读取当前预设值。
+
+`WorldResultStagingService.retryPlanForFailure()` 现在只委托 canonical service；`makeRetryFailure()` 也直接在 Staging 内完成具体原因去重与 actions 生成，删除 `55-policy-compat` 的二次包装。四个 legacy 文件已不存在 `retryPlanForFailure=function...`。
+
+下一批继续清理仍依赖全局 decorator 的 validation / temporal / projector / history seam，优先迁移实际算法，不为了“类数量”机械拆文件。

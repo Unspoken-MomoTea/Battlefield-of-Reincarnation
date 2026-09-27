@@ -158,14 +158,44 @@
             return patches;
         }
         get(name){return this.engine?.snapshot?.().stat?.世界?.因果轨道?.偏移记录?.[String(name||'').trim()]||null;}
+        recalculateStability(stat) {
+            if(!plain(stat?.世界))return null;
+            if(stat.设置?.世界超稳===true){stat.世界.稳定=100;return 100;}
+            const bucket=stat.世界?.因果轨道?.偏移记录||{};
+            const total=Object.values(plain(bucket)?bucket:{}).reduce((sum,item)=>sum+(Number(item?.影响程度)||0),0);
+            const stable=Math.max(0,Math.min(120,100+total));
+            stat.世界.稳定=stable;
+            return stable;
+        }
+        replaySamePath(left,right) {
+            return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((item,index)=>String(item)===String(right[index]));
+        }
+        syncReplay(raw,fingerprint,oldName,newName,record,deleted,stable) {
+            const replay=raw?.__samsaraWorldReplay;
+            if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return;
+            const oldPath=['世界','因果轨道','偏移记录',String(oldName||'')];
+            const newPath=['世界','因果轨道','偏移记录',String(newName||'')];
+            const stabilityPath=['世界','稳定'];
+            replay.operations=replay.operations.filter(operation=>{
+                const path=operation?.path;
+                return !this.replaySamePath(path,oldPath)&&!this.replaySamePath(path,newPath)&&!this.replaySamePath(path,stabilityPath);
+            });
+            if(deleted){
+                replay.operations.push({op:'remove',path:oldPath});
+            }else{
+                if(String(oldName)!==String(newName))replay.operations.push({op:'remove',path:oldPath});
+                replay.operations.push({op:'set',path:newPath,value:copy(record)});
+            }
+            replay.operations.push({op:'set',path:stabilityPath,value:stable});
+        }
         async commit(mutator,status){
             const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
             if(!plain(stat?.世界?.因果轨道))stat.世界.因果轨道={};
             if(!plain(stat.世界.因果轨道.偏移记录))stat.世界.因果轨道.偏移记录={};
             const outcome=mutator(stat.世界.因果轨道.偏移记录);
             if(!outcome)return false;
-            const stable=causalOffsetRecalculateStability(stat);
-            causalOffsetSyncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
+            const stable=this.recalculateStability(stat);
+            this.syncReplay(next,snapshot.fingerprint,outcome.oldName,outcome.newName,outcome.record,outcome.deleted,stable);
             const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
             if(target)target.__samsaraUIMutation=true;
             try{

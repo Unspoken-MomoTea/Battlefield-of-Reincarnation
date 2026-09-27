@@ -24,7 +24,7 @@ host.Mvu={getMvuData:()=>({stat_data:{世界:{名称:'测试世界',时间:'2026
 
   const service=fs.readFileSync(path.join(root,'src','WorldEngine','domains','WorldRunOrchestrator.part.js'),'utf8');
   assert.match(service,/while\(attempt<maxAttempts\)/,'retry/compile/commit loop must live in run orchestrator');
-  const runtime=fs.readFileSync(path.join(root,'script','world-engine-src','40-engine-runtime.part.js'),'utf8');
+  const runtime=fs.readFileSync(path.join(root,'src','WorldEngine','core','SamsaraWorldEngine.part.js'),'utf8');
   assert.doesNotMatch(runtime,/while\(attempt<maxAttempts\)/,'runtime facade must no longer own attempt orchestration');
   assert.match(runtime,/runOrchestrator\(\)/,'runtime must delegate run through the class seam');
 

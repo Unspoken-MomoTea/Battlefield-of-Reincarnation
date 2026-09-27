@@ -56,7 +56,7 @@ def remove_once(relative, old):
 
 # 1) History anchors are permanent facts. Remove the old normal 200-item deletion cap.
 remove_once(
-    'script/world-engine-src/00-foundation-prompt.part.js',
+    'src/WorldEngine/core/WorldEngineFoundation.part.js',
     '    const HISTORY_TARGET = 200;\n',
 )
 

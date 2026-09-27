@@ -16,6 +16,9 @@
             const toast=this.engine.host?.toastr||this.engine.env?.toastr;
             if(toast?.error)toast.error(message,title);else try{console.error('['+title+']',error);}catch(_){}
         }
+        escape(value){
+            return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
 
         // ---- 共用编辑模式 ----
         mountModeToggle(){
@@ -173,7 +176,7 @@
 
         // ---- 因果偏移 ----
         causalInlineHtml(name,record){
-            const impact=Number(record?.影响程度),esc=causalOverviewEscape;
+            const impact=Number(record?.影响程度),esc=value=>this.escape(value);
             return '<div class="we-offset-inline-editor" data-offset-editor data-offset-original-name="'+esc(name)+'"><div class="we-offset-edit-grid">'
                 +'<label class="we-offset-edit-field"><span>偏移名称</span><input type="text" data-offset-field="name" value="'+esc(name)+'"></label>'
                 +'<label class="we-offset-edit-field"><span>影响程度</span><input type="number" min="-12" max="15" step="1" data-offset-field="impact" value="'+esc(Number.isFinite(impact)?impact:'')+'"><small>-12~-1 或 +1~+15</small></label>'
@@ -195,12 +198,12 @@
         }
         mountCausalControls(){
             const engine=this.engine;if(engine.tab!=='因果档案'||!engine.panel)return;
-            const entries=causalOffsetEntries(engine.snapshot().stat);
+            const entries=engine.services.causalOverview.offsetEntries(engine.snapshot().stat);
             Array.from(engine.panel.querySelectorAll('.we-offset')).forEach((card,index)=>{
                 const name=entries[index]?.[0];if(!name||card.querySelector('.we-offset-actions'))return;
                 card.dataset.offsetName=name;
                 const actions=engine.host.document.createElement('div');actions.className='we-offset-actions';
-                actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+causalOverviewEscape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+causalOverviewEscape(name)+'">删除</button>';
+                actions.innerHTML='<button type="button" data-action="causal-offset-edit" data-offset-name="'+this.escape(name)+'">编辑</button><button type="button" data-action="causal-offset-delete" data-offset-name="'+this.escape(name)+'">删除</button>';
                 card.appendChild(actions);
             });
         }
@@ -221,7 +224,7 @@
 
         // ---- 历史记忆 ----
         historyInlineHtml(kind,name,record){
-            const esc=historyMemoryEditorEscape;
+            const esc=value=>this.escape(value);
             if(kind==='summary')return '<div class="we-history-inline-editor" data-history-editor="summary" data-history-name="'+esc(name)+'">'
                 +'<div class="we-history-edit-title"><b>'+esc(name)+'</b><span>L'+esc(Number(record?.层级)||1)+' · 树结构锁定</span></div><div class="we-history-edit-grid">'
                 +'<label class="we-history-edit-field"><span>起始时间</span><input type="text" data-history-field="start" value="'+esc(record?.起始时间||'')+'"></label>'
@@ -245,7 +248,7 @@
         saveHistory(kind,card,name){
             const value=key=>card?.querySelector('[data-history-field="'+key+'"]')?.value;
             if(kind==='summary')return this.engine.services.history.saveSummary(name,{起始时间:String(value('start')||'').trim(),结束时间:String(value('end')||'').trim(),摘要:String(value('summary')||'').trim()});
-            return this.engine.services.history.saveAnchor(name,{时间:String(value('time')||'').trim(),事实:String(value('fact')||'').trim(),关联事件:historyMemoryEditorRelated(value('related'))});
+            return this.engine.services.history.saveAnchor(name,{时间:String(value('time')||'').trim(),事实:String(value('fact')||'').trim(),关联事件:value('related')});
         }
         mountHistoryControls(){
             const engine=this.engine;if(engine.tab!=='运行记录'||!engine.panel)return;
@@ -255,14 +258,14 @@
                 const name=recentNames[index];if(!name||card.querySelector('.we-history-actions'))return;
                 card.dataset.historyName=name;card.dataset.historyKind='anchor';
                 const actions=engine.host.document.createElement('div');actions.className='we-history-actions';
-                actions.innerHTML='<button type="button" data-action="history-anchor-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';card.appendChild(actions);
+                actions.innerHTML='<button type="button" data-action="history-anchor-edit" data-history-name="'+this.escape(name)+'">编辑</button>';card.appendChild(actions);
             });
             const summaryNames=(memory.长期总结||[]).slice().reverse().map(item=>item.名称),summarySection=this.section('长期历史总结');
             Array.from(summarySection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
                 const name=summaryNames[index];if(!name||card.querySelector('.we-history-actions'))return;
                 card.dataset.historyName=name;card.dataset.historyKind='summary';
                 const actions=engine.host.document.createElement('div');actions.className='we-history-actions';
-                actions.innerHTML='<button type="button" data-action="history-summary-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">编辑</button>';card.appendChild(actions);
+                actions.innerHTML='<button type="button" data-action="history-summary-edit" data-history-name="'+this.escape(name)+'">编辑</button>';card.appendChild(actions);
             });
         }
 

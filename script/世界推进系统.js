@@ -1121,6 +1121,35 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function activeAlienActivityRequirements(stat){return ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE.activeAlienRequirements(stat);}
     function seedMissingAlienPeople(stat,required){return ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE.seedMissingAlienPeople(stat,required);}
     function ensureActiveAlienActivity(next,required,acceptedResult,worldTime){return ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE.ensureActiveAlienActivity(next,required,acceptedResult,worldTime);}
+    class WorldTaskAwarenessService {
+        projectList(value) {
+            if(!plain(value))return {};
+            const out={};
+            for(const [name,task] of Object.entries(value)){
+                if(!plain(task))continue;
+                const projected={};
+                for(const key of ['委托方','目标','隐藏真相','难度','交付','状态']){
+                    if(Object.hasOwn(task,key))projected[key]=copy(task[key]);
+                }
+                if(Object.keys(projected).length)out[name]=projected;
+            }
+            return out;
+        }
+
+        validateReferences(stat,result) {
+            const taskNames=new Set(Object.keys(stat?.任务?.列表||{}));
+            for(const event of result?.事件||[]){
+                if(!Array.isArray(event?.关联任务))continue;
+                for(const taskName of event.关联任务){
+                    const name=String(taskName||'').trim();
+                    if(name&&!taskNames.has(name))throw new Error('事件/'+String(event.名称||'未命名')+'：关联任务不存在：'+name);
+                }
+            }
+            return result;
+        }
+    }
+
+    const DEFAULT_WORLD_TASK_AWARENESS_SERVICE=new WorldTaskAwarenessService();
     let NPC_BUILD_AUDIT_FEATURE_ENABLED=false;
 
     class WorldNpcAuditService {
@@ -2025,7 +2054,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const ASSET_UNIT_DEFAULTS={余量:0,上限:0,加成:[]};
     const ASSET_BUILD_DEFAULTS={阶段:'基础',功能:'',加成:[],产出:'',下次产出日期:'',下次产出游天:0};
     class WorldResultMaterializer {
-        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit,people){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;}
+        constructor(normalizer,exploration,stateNormalizer,causal,patchPolicy,npcAudit,people,taskLedger){this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;this.exploration=exploration||DEFAULT_WORLD_EXPLORATION_SERVICE;this.stateNormalizer=stateNormalizer||DEFAULT_WORLD_STATE_NORMALIZER;this.causal=causal||DEFAULT_WORLD_CAUSAL_SERVICE;this.patchPolicy=patchPolicy||DEFAULT_WORLD_PATCH_POLICY;this.npcAudit=npcAudit||DEFAULT_WORLD_NPC_AUDIT_SERVICE;this.people=people||DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;}
         resultFields(item,sample) {
             const out={};
             for(const key of Object.keys(sample||{}))if(Object.hasOwn(item,key))out[key]=copy(item[key]);
@@ -2184,6 +2213,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         compileWorldResult(stat,value) {
             const prepared=this.people.normalizeAlienActivityTimestamps(stat,value);
             const result=this.normalizer.normalizeWorldResult(prepared),patches=[],warnings=[];
+            this.taskLedger.validateReferences(stat,result);
             this.exploration.prepareResult(stat,result);
             const exists=parts=>this.patchPolicy.get(stat,this.patchPolicy.canonicalizeParts(parts,stat));
             const addEntity=(parts,item,sample,options={})=>{
@@ -2432,7 +2462,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return {next,appliedSeeds,repairPatches};
         }
     }
-    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE,DEFAULT_WORLD_PATCH_POLICY,DEFAULT_WORLD_NPC_AUDIT_SERVICE,DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE);
+    const DEFAULT_WORLD_RESULT_MATERIALIZER=new WorldResultMaterializer(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_EXPLORATION_SERVICE,DEFAULT_WORLD_STATE_NORMALIZER,DEFAULT_WORLD_CAUSAL_SERVICE,DEFAULT_WORLD_PATCH_POLICY,DEFAULT_WORLD_NPC_AUDIT_SERVICE,DEFAULT_WORLD_PERSON_ACTIVITY_SERVICE,DEFAULT_WORLD_TASK_AWARENESS_SERVICE);
     let ACTIVE_WORLD_RESULT_MATERIALIZER=DEFAULT_WORLD_RESULT_MATERIALIZER;
     function compileWorldResult(stat,value){return ACTIVE_WORLD_RESULT_MATERIALIZER.compileWorldResult(stat,value);}
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}
@@ -4291,43 +4321,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     // 旧版曾把正式任务规则从内置默认资料中排除；现在恢复为可读取的权威规则。
     BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS.delete(TASK_WORLD_BOOK_TITLE);
 
-    function projectTaskListForWorld(value) {
-        if(!plain(value))return {};
-        const out={};
-        for(const [name,task] of Object.entries(value)){
-            if(!plain(task))continue;
-            const projected={};
-            for(const key of ['委托方','目标','隐藏真相','难度','交付','状态']){
-                if(Object.hasOwn(task,key))projected[key]=copy(task[key]);
-            }
-            if(Object.keys(projected).length)out[name]=projected;
-        }
-        return out;
-    }
-
-    const projectWorldContextBeforeTaskAwareness=projectWorldContext;
-    projectWorldContext=function(stat) {
-        const out=projectWorldContextBeforeTaskAwareness(stat);
-        const tasks=projectTaskListForWorld(stat?.任务?.列表);
-        if(Object.keys(tasks).length)out.任务={列表:tasks};
-        return out;
-    };
-
-    const compileWorldResultBeforeTaskAwareness=compileWorldResult;
-    compileWorldResult=function(stat,value) {
-        const result=normalizeWorldResult(value);
-        const taskNames=new Set(Object.keys(stat?.任务?.列表||{}));
-        for(const event of result.事件||[]){
-            if(!Array.isArray(event?.关联任务))continue;
-            for(const taskName of event.关联任务){
-                const name=String(taskName||'').trim();
-                if(name&&!taskNames.has(name))throw new Error('事件/'+String(event.名称||'未命名')+'：关联任务不存在：'+name);
-            }
-        }
-        return compileWorldResultBeforeTaskAwareness(stat,result);
-    };
-
-    // 请求、世界书目录恢复已迁移至 WorldTaskAwarenessFeature。
+    // 任务只读投影与事件关联校验已迁移至 WorldTaskAwarenessService。\n\n    // 请求、世界书目录恢复已迁移至 WorldTaskAwarenessFeature。
     // 原著/数据库时间轴保护层：宏观节点先服从权威时间资料，再展开区间细节。
     const CHRONOLOGY_GUARD_RULES=`【原著/数据库时间轴硬约束】
 1. 宏观节点的日期与跨度必须先服从当前已确认事实和明确世界书/数据库中的原著时间资料，再使用模型已有原著知识补足；不得为了推动剧情、制造冲突、维持紧张感或让<user>尽快参与而主动提前关键事件。
@@ -5789,7 +5783,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldStateProjector {
-        constructor(engine=null){this.engine=engine;}
+        constructor(engine=null,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE){this.engine=engine;this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;}
         omitKeys(value,keys=[]){
             if(!plain(value))return copy(value);
             const out=copy(value);
@@ -5935,9 +5929,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(!Object.keys(out.资产).length)delete out.资产;
             if(!out.资产删除保护.length)delete out.资产删除保护;
             if(!Object.keys(out.传闻).length)delete out.传闻;
+            const tasks=this.taskLedger.projectList(src?.任务?.列表);
+            if(Object.keys(tasks).length)out.任务={列表:tasks};
             return out;
         }
-        // Public service path keeps legacy task/history decorators until they are class-migrated.
+        // Public service path keeps the remaining history decorator until it is class-migrated.
         world(stat){return projectWorldContext(stat);}
     }
 
@@ -7308,6 +7304,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldTaskAwarenessFeature extends WorldRequestFeature {
+        constructor(engine,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE){super(engine);this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;}
         restoreWorldbookSelection(catalogue){
             const engine=this.engine;
             if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue))return false;
@@ -8665,7 +8662,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.knowledge=new WorldKnowledgeService(engine);
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateFactory=new WorldStateFactory();
-            this.stateProjector=new WorldStateProjector(engine);
+            this.taskLedger=new WorldTaskAwarenessService();
+            this.stateProjector=new WorldStateProjector(engine,this.taskLedger);
             ACTIVE_WORLD_STATE_PROJECTOR=this.stateProjector;
             this.patchPolicy=new WorldPatchPolicy();
             ACTIVE_WORLD_PATCH_POLICY=this.patchPolicy;
@@ -8685,7 +8683,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -8724,7 +8722,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.integrityRequest=new WorldIntegrityRequestFeature(engine);
             this.worldActivityRequest=new WorldActivityRequestFeature(engine);
             this.dueEvent=new WorldDueEventFeature(engine);
-            this.taskAwareness=new WorldTaskAwarenessFeature(engine);
+            this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger);
             this.chronology=new WorldChronologyFeature(engine);
             this.rumorRequest=new WorldRumorRequestFeature(engine);
             // Stateful wrappers are registered first so run composition preserves the former

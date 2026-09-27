@@ -213,9 +213,9 @@ Causal projection is intentionally not part of this class. `repairCausalProjecti
 
 ## Phase 23 · World context projection
 
-`WorldStateProjector` now owns the base world-context projection algorithms: character capability stripping, equipped/carried/form views, shared assets, hot history/propagation tails, causal-orbit projection, read-only task projection, and base world payload assembly. `30-context-protocol.part.js` keeps only an early forwarding seam because the history-memory compatibility decorator is still loaded before the projector class.
+`WorldStateProjector` owns the canonical world-context projection: character capability stripping, equipped/carried/form views, shared assets, propagation tails, causal-orbit projection, read-only task projection, hierarchical history-memory projection, and the final base world payload. `30-context-protocol.part.js` now provides only the external compatibility function `projectWorldContext()`, which forwards to the active projector; no task/history module decorates that global seam anymore.
 
-The service-level `world()` method intentionally traverses the decorated public seam until the remaining history decorator becomes a class feature, while `baseWorld()` is the canonical implementation.
+`WorldStateProjector.world()` is now identical to the canonical `baseWorld()` path.
 
 
 ## Phase 24 · Worldbook activation
@@ -278,3 +278,8 @@ With this phase, `WorldResultCompiler.compile()` and staged fragment compilation
 All 20 static retry templates are registered in `WorldPromptRegistry` under the `纠错重试` group. The service reads the active registry value at execution time and formats placeholders such as `{name}`, `{details}`, and macro-node counts, so edits in “提示词预设 → 全部实际提示词” affect the next retry instead of only changing display text.
 
 `WorldResultStagingService.retryPlanForFailure()` delegates directly to the container-owned guidance service, and `makeRetryFailure()` owns the concrete-reason/retry-feedback normalization that previously lived in `55-policy-compat.part.js`. The policy/rumor/integrity/world-activity legacy modules no longer assign `retryPlanForFailure=function...` or `makeRetryFailure=function...`; chronology compatibility guidance also sources the shared retry-template defaults instead of carrying a hidden duplicate string.
+
+
+## Phase 34 · History context projection
+
+`WorldHistoryService.project()` is injected into `WorldStateProjector`. The projector emits `世界.后台.历史记忆` directly and no longer emits a raw history tail that must be deleted by a later wrapper. The legacy history-memory module no longer assigns `projectWorldContext`; the public compatibility function is a simple early forwarder to the active projector.

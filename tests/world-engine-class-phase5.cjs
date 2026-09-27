@@ -12,12 +12,17 @@ for(const file of [
   'src/WorldEngine/domains/WorldHistoryLifecycle.part.js',
 ]) assert.ok(fs.existsSync(path.join(root,file)),file+' must exist');
 
-const migrated=[
+for(const file of [
   'script/world-engine-src/59-auto-progress.part.js',
   'script/world-engine-src/59-auto-trigger-rebuild.part.js',
   'script/world-engine-src/59-world-replay-persistence.part.js',
   'script/world-engine-src/59-reprocess-immediate-retry.part.js',
   'script/world-engine-src/59-world-time-ownership.part.js',
+]) assert.equal(fs.existsSync(path.join(root,file)),false,file+' must be deleted after stateful service migration');
+const migrated=[
+  'src/WorldEngine/domains/WorldAutoProgressController.part.js',
+  'src/WorldEngine/domains/WorldReplayService.part.js',
+  'src/WorldEngine/domains/WorldTimeOwnershipFeature.part.js',
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
 assert.doesNotMatch(migrated,/SamsaraWorldEngine\s*=\s*class/,'phase5 stateful modules must not extend SamsaraWorldEngine');
 

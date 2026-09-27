@@ -41,9 +41,9 @@ assert.equal(ctx.资产.远征堡.建设序列.商路.功能, '组织商队跨�
 
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
 const stateSource = fs.readFileSync('src/WorldEngine/domains/WorldStateModel.part.js', 'utf8');
-const runtimeSource = fs.readFileSync('script/world-engine-src/40-engine-runtime.part.js', 'utf8');
+const runtimeSource = fs.readFileSync('src/WorldEngine/core/SamsaraWorldEngine.part.js', 'utf8');
 const uiSource = [
-  'script/world-engine-src/50-engine-ui.part.js',
+  'src/WorldEngine/core/SamsaraWorldEngine.part.js',
   'src/WorldEngine/ui/views/WorldExplorationView.part.js',
 ].map(file => fs.readFileSync(file, 'utf8')).join('\n');
 const proseProjection = fs.readFileSync('World Book/[variables]当前变量.txt', 'utf8');

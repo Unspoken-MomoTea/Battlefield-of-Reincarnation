@@ -21,7 +21,7 @@
             ACTIVE_WORLD_NPC_AUDIT_SERVICE=this.npcAudit;
             this.stateNormalizer=new WorldStateNormalizer();
             ACTIVE_WORLD_STATE_NORMALIZER=this.stateNormalizer;
-            this.causal=new WorldCausalService(engine);
+            this.causal=new WorldCausalService(engine,this.patchPolicy);
             ACTIVE_WORLD_CAUSAL_SERVICE=this.causal;
             this.resultContract=WORLD_RESULT_CONTRACT;
             this.resultNormalizer=new WorldResultNormalizer();

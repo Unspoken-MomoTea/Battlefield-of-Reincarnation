@@ -97,16 +97,11 @@ const engine=new Engine(host);
 assert.equal(engine.services.lifecycle?.constructor?.name,'WorldLifecycleService');
 
 const lifecycleSource=fs.readFileSync(path.join(root,'src','WorldEngine','domains','WorldLifecycleService.part.js'),'utf8');
-const legacySource=fs.readFileSync(path.join(root,'script','world-engine-src','10-world-state.part.js'),'utf8');
 assert.match(lifecycleSource,/class\s+WorldLifecycleService\b/);
 assert.match(lifecycleSource,/personActivityMeta\(stat,name,person\)/);
 assert.match(lifecycleSource,/pruneColdTemporaryPeople\(stat\)/);
 assert.match(lifecycleSource,/pruneDeadAlienPeople\(stat\)/);
 assert.match(lifecycleSource,/compact\(stat\)/);
-assert.doesNotMatch(
-  legacySource,
-  /function\s+(?:personActivityMeta|pruneColdTemporaryPeople|pruneDeadAlienPeople|collectEventRefs|detachEventSoftRefs|archiveFinishedEvent|propagationEnded|pruneSoftRefsToColdFinishedEvents|compactFinishedEvents|explorationLocationRefs|pruneColdExploration|compactWorldLifecycle)\b/,
-  'person/event lifecycle implementation must leave the legacy state monolith'
-);
+assert.equal(fs.existsSync(path.join(root,'script','world-engine-src','10-world-state.part.js')),false,'legacy world-state source must stay deleted');
 
 console.log('PASS world lifecycle event, propagation and temporary-person cleanup are class-based');

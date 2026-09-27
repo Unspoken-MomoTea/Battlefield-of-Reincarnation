@@ -84,7 +84,6 @@ else:
 patch_any(
     [
         'src/WorldEngine/domains/WorldAutoProgressController.part.js',
-        'script/world-engine-src/59-auto-progress.part.js',
     ],
     "return ['最近变化','运行记录'].some(key=>Array.isArray(backend[key])&&backend[key].length>0);",
     "return Array.isArray(backend.最近变化)&&backend.最近变化.length>0;",

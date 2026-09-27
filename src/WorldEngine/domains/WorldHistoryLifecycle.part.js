@@ -1,5 +1,5 @@
     class WorldHistoryLifecycle {
-        constructor(engine){this.engine=engine;this.boundPanel=null;}
+        constructor(engine,policy=DEFAULT_WORLD_HISTORY_MEMORY_POLICY){this.engine=engine;this.policy=policy||DEFAULT_WORLD_HISTORY_MEMORY_POLICY;this.boundPanel=null;}
         initialize(){
             const e=this.engine;let dirty=false;
             if(!Object.hasOwn(e.config,'sendHistoryToProse')){e.config.sendHistoryToProse=false;dirty=true;}
@@ -10,14 +10,15 @@
         setSendToProse(value){
             const e=this.engine;e.config.sendHistoryToProse=value===true;e.saveConfig();e.render();return e.config.sendHistoryToProse;
         }
-        proseMemory(stat){return projectWorldHistoryMemory(stat?.世界?.[PATH]||{});}
+        proseMemory(stat){return this.policy.project(stat?.世界?.[PATH]||{});}
         async requestSummary(world,batch,outputLevel){
             const e=this.engine,saved=e.lastTransportInfo;
             try{
                 const system=e.promptRegistry?.historySystem?.()||HISTORY_MEMORY_SYSTEM;
-                const input=e.promptRegistry?.historyInput?.(historyMemoryPrompt(world,batch,outputLevel))||historyMemoryPrompt(world,batch,outputLevel);
+                const prompt=this.policy.prompt(world,batch,outputLevel);
+                const input=e.promptRegistry?.historyInput?.(prompt)||prompt;
                 const raw=await e.requestAI(system,input,{schema:HISTORY_MEMORY_SCHEMA,schemaName:'samsara_world_history_summary_v1',structured:'auto',temperature:0.2});
-                return historyMemoryParseReply(raw);
+                return this.policy.parseReply(raw);
             }finally{e.lastTransportInfo=saved;}
         }
         beforeWorldCommit(next,context={}){
@@ -25,11 +26,11 @@
             const messageId=Number(context.messageId),backend=next?.世界?.[PATH];
             if(!summary||!Number.isInteger(messageId)||!plain(backend))return false;
             if(!plain(backend.历史))backend.历史={};if(!plain(backend.历史总结))backend.历史总结={};
-            const key=historyMemoryLeafKey(messageId),record={时间:String(next.世界?.时间||backend.已处理时间||context.baseStat?.世界?.时间||''),事实:summary,关联事件:[]};
+            const key=this.policy.leafKey(messageId),record={时间:String(next.世界?.时间||backend.已处理时间||context.baseStat?.世界?.时间||''),事实:summary,关联事件:[]};
             const previous=backend.历史[key];
             if(plain(previous)&&String(previous.时间||'')===record.时间&&String(previous.事实||'')===record.事实)return false;
             backend.历史[key]=record;
-            const invalidated=historyMemoryInvalidateAncestors(backend,'历史:'+key);
+            const invalidated=this.policy.invalidateAncestors(backend,'历史:'+key);
             e.lastHistoryMaintenance='近期历史已更新'+(invalidated.length?' · 旧总结失效 '+invalidated.length+' 个':'');
             return true;
         }
@@ -41,14 +42,14 @@
                 const snapshot=e.snapshot(),stat=copy(snapshot.stat),backend=stat?.世界?.[PATH];
                 if(!plain(backend))return 0;
                 if(!plain(backend.历史总结))backend.历史总结={};
-                const startDigest=historyMemoryDigest(backend);
+                const startDigest=this.policy.digest(backend);
                 for(let level=0;level<32;level++){
-                    const batch=historyMemoryBatchForLevel(backend,level);if(!batch.length)continue;
+                    const batch=this.policy.batchForLevel(backend,level);if(!batch.length)continue;
                     const outputLevel=level+1;e.status='整理长期历史记忆 · L'+outputLevel;e.render();
                     let summary='';
                     try{summary=await this.requestSummary(stat.世界,batch,outputLevel);}
                     catch(error){failed=String(error?.message||error);break;}
-                    const key=historyMemoryNextKey(backend,outputLevel);
+                    const key=this.policy.nextKey(backend,outputLevel);
                     backend.历史总结[key]={
                         层级:outputLevel,摘要:summary,子项:batch.map(node=>node.id),
                         起始时间:String(batch.find(node=>node.timeStart)?.timeStart||''),
@@ -60,7 +61,7 @@
                 }
                 if(!made)return 0;
                 const current=e.snapshot(),currentBackend=current.stat?.世界?.[PATH];
-                if(historyMemoryDigest(currentBackend)!==startDigest){e.lastHistoryMaintenance='历史在总结期间已变化，本次总结结果丢弃，下轮重试';return 0;}
+                if(this.policy.digest(currentBackend)!==startDigest){e.lastHistoryMaintenance='历史在总结期间已变化，本次总结结果丢弃，下轮重试';return 0;}
                 const validate=e.host.Samsara&&e.host.Samsara.validateWorldState,next=validate?validate(stat):stat,result=current.raw;
                 result.stat_data=next;e.committing=true;
                 await current.mvu.replaceMvuData(result,{type:'message',message_id:current.id});

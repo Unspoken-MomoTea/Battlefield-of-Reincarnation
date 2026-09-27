@@ -1,14 +1,6 @@
     class WorldValidationPolicy {
-        constructor(timeline){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;}
-        ensureDueHandled(next,dueList,worldTime) {
-            for(const due of dueList||[]){
-                const event=next.世界[PATH].事件[due.名称];
-                if(!event)continue;
-                if(event.状态==='待发生'&&(event.更新时间!==worldTime||!event.下次检查||!event.条件)){
-                    throw new Error('到期事件未处理：'+due.名称+'。需启动事件，或记录本轮复核日期、阻碍条件与下次检查。');
-                }
-            }
-        }
+        constructor(timeline,duePolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;}
+        ensureDueHandled(next,dueList,worldTime) { return this.duePolicy.ensureHandled(next,dueList,worldTime); }
 
         unscheduledEvents(stat) {
             return Object.entries(stat?.世界?.[PATH]?.事件||{}).filter(([,event])=>{
@@ -76,7 +68,7 @@
             return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
         }
     }
-    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy();
+    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY);
     let ACTIVE_WORLD_VALIDATION_POLICY=DEFAULT_WORLD_VALIDATION_POLICY;
     function ensureDueHandled(next,dueList,worldTime){return ACTIVE_WORLD_VALIDATION_POLICY.ensureDueHandled(next,dueList,worldTime);}
     function unscheduledEvents(stat){return ACTIVE_WORLD_VALIDATION_POLICY.unscheduledEvents(stat);}

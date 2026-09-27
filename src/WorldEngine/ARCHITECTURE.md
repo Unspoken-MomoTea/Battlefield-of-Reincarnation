@@ -283,3 +283,10 @@ All 20 static retry templates are registered in `WorldPromptRegistry` under the 
 ## Phase 34 · History context projection
 
 `WorldHistoryService.project()` is injected into `WorldStateProjector`. The projector emits `世界.后台.历史记忆` directly and no longer emits a raw history tail that must be deleted by a later wrapper. The legacy history-memory module no longer assigns `projectWorldContext`; the public compatibility function is a simple early forwarder to the active projector.
+
+
+## Phase 35 · History memory algorithms
+
+`WorldHistoryMemoryPolicy` is the canonical owner of the hierarchical history forest: L0 leaf identity/order, collected-child tracking, ancestor invalidation, root selection, compression batching, summary IDs, summary reply parsing, compression payload construction, projection, and change digests.
+
+`WorldHistoryService` and `WorldHistoryLifecycle` share the container-owned policy. `WorldStateProjector` depends on the history service and no longer calls the global history helper. The former `script/world-engine-src/59-history-memory.part.js` has been deleted; compatibility helper names now forward from the src policy only.

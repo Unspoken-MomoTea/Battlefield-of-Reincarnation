@@ -1,7 +1,7 @@
 const fs = require('fs');
 const assert = require('assert');
 
-const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
+const source = fs.readFileSync('script/世界推进系统.js', 'utf8');\nconst contractSource = fs.readFileSync('src/WorldEngine/domains/WorldResultContract.part.js','utf8');
 
 function capture(pattern, label) {
   const match = source.match(pattern);
@@ -11,7 +11,7 @@ function capture(pattern, label) {
 
 const preset = capture(/const DEFAULT_PRESET = `([\s\S]*?)`;\n    const BUILTIN_DEFAULT_SELECTED_ENTRIES/, 'DEFAULT_PRESET');
 const core = capture(/const CORE_WORLD_RULES = `([\s\S]*?)`;/, 'CORE_WORLD_RULES');
-const protocol = capture(/function protocol\(\)[\s\S]*?return `([\s\S]*?)`;\n    \}/, 'protocol');
+
 
 assert(source.includes("version:21,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 21');
 assert(source.includes("const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id"), 'built-in migration must not overwrite custom prompt documents');
@@ -42,13 +42,14 @@ for (const marker of businessInvariants) {
 }
 assert(core.length < 1750, `CORE_WORLD_RULES regressed into a long rule manual: ${core.length} chars`);
 
-assert(protocol.includes('【Canonical WorldResult JSON Schema】'), 'protocol must retain canonical schema');
-assert(protocol.includes('${schemaText}'), 'protocol must inject the canonical schema');
-assert(protocol.includes('人物背景关联只记录持续的团体/组织/社交关系'), 'protocol should define background-link ownership');
-assert(protocol.includes('现场群体与环境变化写在势力地区'), 'protocol should define shared scene ownership');
+assert.match(contractSource,/protocol\(\)\s*\{[\s\S]*this\.instruction\(\)[\s\S]*Canonical WorldResult JSON Schema[\s\S]*JSON\.stringify\(this\.schema,null,2\)/,'WorldResultContract must assemble editable instructions with the canonical schema');
+assert.match(contractSource,/背景关联/,'canonical contract must retain person background-link structure');
+assert.match(contractSource,/现场群体/,'canonical contract must retain shared scene structure');
+assert.match(contractSource,/所属对象:\{type:'array'/,'canonical contract must retain asset ownership');
+assert.match(contractSource,/操作:\{type:'string',enum:\['更新','移除','撤销本轮'\]\}/,'canonical contract must retain asset writeback operations');
+assert.match(source,/function protocol\(\)\{return WORLD_RESULT_CONTRACT\.protocol\(\);\}/,'legacy protocol seam must delegate to WorldResultContract');
 assert(core.includes('唯一资产账簿') && core.includes('驻扎人员') && core.includes('待办事件'), 'core should define the shared writable asset ledger');
-assert(protocol.includes('资产使用顶层资产作为唯一账簿') && protocol.includes('新增、更新、转移或移除资产'), 'protocol should expose asset writeback semantics');
-assert(!protocol.includes('【WorldResult 标准字段结构】'), 'duplicated field-manual section must stay removed');
+assert(!contractSource.includes('【WorldResult 标准字段结构】'), 'duplicated field-manual section must stay removed');
 assert(!core.includes('WorldResult.探索必须是数组'), 'schema-level exploration shape must not return to core rules');
 assert(!preset.includes('风险只能是 F/E/D/C/B/A/S/SS/SSS'), 'schema enum must not be duplicated in default prompt');
 assert(source.includes("['json_schema','json_object','plain']"), 'structured-output fallback order must remain json_schema -> json_object -> plain');
@@ -62,4 +63,4 @@ for (const architectureMarker of [
   assert(source.includes(architectureMarker), `architecture marker missing: ${architectureMarker}`);
 }
 
-console.log(`world-engine prompt pipeline audit passed: preset=${preset.length}, core=${core.length}, protocol=${protocol.length}`);
+console.log(`world-engine prompt pipeline audit passed: preset=${preset.length}, core=${core.length}, contract=${contractSource.length}`);

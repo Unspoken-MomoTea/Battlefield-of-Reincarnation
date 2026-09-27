@@ -61,7 +61,7 @@
         schemaMismatchError(beforeState,afterState,patchPath) {
             const parts=tokens(patchPath),before=get(beforeState,parts),after=get(afterState,parts);
             const diff=this.firstSchemaDifference(before,after,parts)||{parts,before,after};
-            return new Error('字段未通过完整 Schema 校验：'+pointer(diff.parts)+'（'+shortSchemaValue(diff.before)+' → '+shortSchemaValue(diff.after)+'）');
+            return new Error('字段未通过完整 Schema 校验：'+pointer(diff.parts)+'（'+this.shortSchemaValue(diff.before)+' → '+this.shortSchemaValue(diff.after)+'）');
         }
 
         stage(stat,accepted,incoming,validate) {

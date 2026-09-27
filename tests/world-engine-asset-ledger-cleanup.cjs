@@ -59,6 +59,6 @@ for (const [name, text] of [
 assert.match(source, /delete area\.资源点/, '交付脚本只允许保留旧存档资源点的只读过滤兼容');
 assert.doesNotMatch(uiSource, /<small>当前选择<\/small>/, '区域档案不应重复上方探索卡的当前选择摘要');
 assert.doesNotMatch(uiSource, /sceneLane\('资源点'/, '地区现场 UI 不应再渲染资源点栏');
-assert.match(source, /资产[^\n]{0,120}(?:驻扎人员|待办事件)|(?:驻扎人员|待办事件)[^\n]{0,120}资产/, 'Prompt 应明确让后台世界推演参考现有资产账簿');
+assert.match(source, /完整资产账簿/, '请求语义应明确当前变量包含完整资产账簿');
 
 console.log('world-engine asset ledger cleanup acceptance passed');

@@ -1,4 +1,4 @@
-const {chromium}=require('C:/Users/MLT/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require('playwright');
 const path=require('node:path');const fs=require('node:fs');const assert=require('node:assert/strict');
 const {emptyState,RECORDS}=require('../script/世界推进系统.js');
 const b=emptyState();

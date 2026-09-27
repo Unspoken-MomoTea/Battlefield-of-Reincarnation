@@ -90,7 +90,7 @@ if (previousSillyTavern === undefined) delete global.SillyTavern;
 else global.SillyTavern = previousSillyTavern;
 
 const syncStart = helper.indexOf('function syncRemovedAssets(');
-const syncEnd = helper.indexOf('/** 资产全自动收菜系统', syncStart);
+const syncEnd = helper.indexOf('/** 资产自动收菜', syncStart);
 assert.ok(syncStart >= 0 && syncEnd > syncStart, '必须能提取资产删除同步函数');
 const syncRemovedAssets = new Function(helper.slice(syncStart, syncEnd) + ';return syncRemovedAssets;')();
 const beforeManualDelete = {世界:{时间:'第10日',后台:{}},资产:{旧塔:{所属对象:[]}}};
@@ -120,7 +120,7 @@ assert.match(status, /无主/, '空所属对象在 UI 中必须显示“无主�
 assert.match(status, /var assets = sd\.资产 \|\| \{\}/, '状态栏经营页仍应读取并显示全部资产，而不是只过滤玩家资产');
 assert.match(vars, /playerIdentityNames[\s\S]{0,900}isPlayerOwnedAsset/, '正文玩家资产投影必须使用 Tavern Persona 与旧标记兼容');
 assert.match(rules, /空数组[^\n]*无主|\[\][^\n]*无主/, '资产规则必须明确空数组表示无主');
-assert.match(source, /version:19,\n        builtin:true,\n        name:'默认设置'/, '多主体归属语义应升级内置 Prompt 到 v19');
+const promptVersion=Number(source.match(/version:(\d+),\n        builtin:true,\n        name:'默认设置'/)?.[1]||0);\nassert.ok(promptVersion>=19, '多主体归属语义要求内置 Prompt 不得回退到 v19 之前');
 assert.match(source, /资产墓碑|删除保护/, '世界引擎必须明确处理手动删除资产的防诈尸语义');
 
 console.log('world-engine multi-owner asset lifecycle acceptance passed');

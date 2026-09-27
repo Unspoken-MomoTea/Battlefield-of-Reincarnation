@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {SamsaraWorldEngine:Engine,emptyState}=require('../script/世界推进系统.js');
+const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 const names=['帝都大搜捕收网','安宁道武装起义','革命军总攻序幕'];
 const rootCause='帝具使交战与轮回者乱入';
@@ -9,8 +9,12 @@ const events=names.map((名称,index)=>({
 }));
 
 (async()=>{
+  const backend=emptyState();
+  backend.事件['帝都交战']={...RECORDS.事件,描述:'帝具使交战正在扩大戒严范围。',分类:'当前事件',状态:'进行中',地点:'帝都',时间:'2026年9月14日',更新时间:'2026年9月14日'};
+  backend.势力地区['帝都城区']={...RECORDS.势力地区,类型:'地区',描述:'帝都街区处于戒严和搜捕中',更新时间:'2026年9月14日'};
+  backend.势力地区['帝国警备队']={...RECORDS.势力地区,类型:'势力',描述:'帝都官方警备力量',更新时间:'2026年9月14日'};
   let current={
-    世界:{名称:'斩赤红之瞳',时间:'2026年9月14日',地点:'帝都',后台:emptyState(),势力:{},探索:{},
+    世界:{名称:'斩赤红之瞳',时间:'2026年9月14日',地点:'帝都',后台:backend,势力:{帝国警备队:{实力:'C',领地:'帝都',描述:'帝都官方警备力量',声望:0}},探索:{},
       异端雷达:{名单:{}},因果轨道:{当前阶段:rootCause,故事线:'',下一节点:'',偏移记录:{}}},
     系统状态:{是否在主神空间:false},设置:{},关系列表:{},传闻:{}
   };

@@ -7,7 +7,7 @@ const start = source.indexOf('if (current.世界) {', source.indexOf('// 后台�
 const end = source.indexOf('// 世界超稳模式:', start);
 assert.ok(start >= 0 && end > start, '应能定位正文世界投影块');
 
-const render = new Function('current', 'data', 'readonly', '_', 'isWorldEngineEnabled', 'isOneWorld', source.slice(start, end));
+const render = new Function('current', 'data', 'readonly', '_', 'isWorldEngineEnabled', 'isOneWorld', 'playerIdentityNames', source.slice(start, end));
 const clone = value => JSON.parse(JSON.stringify(value));
 const lodash = {
   get(value, dotted, fallback) {
@@ -57,7 +57,7 @@ const data = {
 function project(sample) {
   const current = { 世界: clone(sample.世界) };
   const readonly = { 世界: {} };
-  render(current, sample, readonly, lodash, true, false);
+  render(current, sample, readonly, lodash, true, false, ['玩家','<user>','{{user}}']);
   return readonly.世界;
 }
 

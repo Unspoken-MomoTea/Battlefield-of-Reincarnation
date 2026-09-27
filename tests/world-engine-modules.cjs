@@ -27,6 +27,7 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldTaskAwarenessService.part.js',
   '@src/WorldEngine/domains/WorldTimelinePolicy.part.js',
   '@src/WorldEngine/domains/WorldChronologyPolicy.part.js',
+  '@src/WorldEngine/domains/WorldTimePolicy.part.js',
   '@src/WorldEngine/domains/WorldLifecycleService.part.js',
   '@src/WorldEngine/domains/WorldStateNormalizer.part.js',
   '@src/WorldEngine/domains/WorldCausalService.part.js',

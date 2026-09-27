@@ -409,3 +409,12 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 `SOFT_MAINTENANCE_RULES` 默认提示文本已随 policy 迁入 `src/WorldEngine`；`EXPLORATION_PROJECTION_RULES` 迁入 `WorldExplorationService`。两者仍由 Prompt Registry / module prompt workspace 展示和编辑。原 `script/world-engine-src/59-soft-maintenance.part.js` 已整文件删除，构建 workflow 与 request-size patch 工具也移除了该旧路径。
 
 下一批继续清理 rumor legacy：优先把仍留在 `56-rumor-liveliness / 59-rumor-throttle / 59-rumor-world-source` 的默认提示与预设升级逻辑迁到 `src/WorldEngine`，然后删除不再需要的旧文件。
+
+
+### Phase 41 · Rumor legacy 提示与预设迁移
+
+已完成：传闻领域的真实维护算法此前已经集中到 `WorldRumorService`，本阶段继续把最后残留的静态提示默认值与内置 preset 升级逻辑也收进该 service。现在 `RUMOR_LIVELINESS_RULES / RUMOR_THROTTLE_RULES / RUMOR_WORLD_SOURCE_RULES` 由 `src/WorldEngine/domains/WorldRumorService.part.js` 持有，仍通过统一 Module Prompt / Prompt Registry 暴露为可编辑的“传闻与传播”提示。
+
+`WorldRumorService.upgradePreset()` 保留原本实际生效的两步迁移：旧“更新传播”步骤先升级为常驻传闻步骤，再升级为当前“世界侧事实驱动 + 按需刷新 + 软失败”步骤；未接线的旧 `RUMOR_WORLD_SOURCE_PRESET_STEP` 不再保留，避免重构顺手引入新行为。`WorldRumorRequestFeature.initialize()` 直接调用 container-owned rumor service，不再依赖全局升级函数。
+
+原 `56-rumor-liveliness.part.js`、`59-rumor-throttle.part.js`、`59-rumor-world-source.part.js` 以及只剩注释的 `59-rumor-world-request.part.js / 59-rumor-world-system.part.js` 已全部删除。构建清单、自动同步 workflow 与 request-size patch 工具同步移除这些 legacy 路径。

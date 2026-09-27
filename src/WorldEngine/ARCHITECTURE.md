@@ -422,3 +422,14 @@ The application shell retains only `isConfigured / isAvailable / isEnabled / set
 `WorldRunScheduler` owns the base cancellation and fallback scheduling mechanics: generation invalidation, pending reset, timer cancellation, AbortController interruption and the 900ms fallback run delay. `SamsaraWorldEngine.cancel / schedule` are facade-only.
 
 Automatic progression remains owned by `WorldAutoProgressController`, whose ClassBridge override keeps precedence over the base scheduler. The service container also constructs `WorldTimelinePolicy` before `WorldSoftMaintenancePolicy`, so soft maintenance and validation share the same timeline policy instance.
+
+
+## Phase 55 · Remaining shell helper ownership
+
+The application shell no longer owns built-in worldbook exclusion migration, run-inspection reset, failure toast routing, or status-theme persistence logic.
+
+- `WorldKnowledgeService` owns default worldbook exclusion migration.
+- `WorldRunOrchestrator` owns inspection reset and failure notification.
+- `WorldPanelRenderer` owns status tone lookup and panel synchronization.
+
+Public engine methods remain compatibility facades so external integrations and existing controllers keep the same surface.

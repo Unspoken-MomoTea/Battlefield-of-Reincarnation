@@ -312,39 +312,48 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             body:String(segment.body||'')
         })).map(segmentText).filter(Boolean).join('\n');
     }
-    function parseSelectedEntryKey(value) {
-        try{
-            const parsed=JSON.parse(String(value||''));
-            return Array.isArray(parsed)&&parsed.length>=2?[String(parsed[0]||''),String(parsed[1]??'')]:null;
-        }catch(_){return null;}
-    }
-    function normalizeWorldbookIdentity(value) {
-        let name=String(value||'').trim().toLowerCase();
-        const versionAt=name.search(/(?:\bv(?:er(?:sion)?)?|版本)?\s*\d+(?:\.\d+){1,3}/i);
-        if(versionAt>0)name=name.slice(0,versionAt);
-        return name.replace(/[\s_\-·.]+/g,'');
-    }
-    function normalizeWorldbookEntryTitle(value) {
-        return String(value||'').trim().replace(/^⚙(?:\uFE0F)?\s*/u,'').trim();
-    }
-    function selectedEntryMatches(entry, selectedEntries) {
-        if(!Array.isArray(selectedEntries))return entry?.enabled!==false;
-        const exact=JSON.stringify([String(entry?.book||''),String(entry?.id??'')]);
-        if(selectedEntries.includes(exact))return true;
-        const entryBook=normalizeWorldbookIdentity(entry?.book),entryId=String(entry?.id??'');
-        for(const raw of selectedEntries){
-            const ref=parseSelectedEntryKey(raw);if(!ref||ref[1]!==entryId)continue;
-            if(ref[0]==='*'||(entryBook&&normalizeWorldbookIdentity(ref[0])===entryBook))return true;
-        }
-        return false;
-    }
     function ensurePresetStructure(value) {
         const current=splitPresetSegments(value||DEFAULT_PRESET).map(segment=>segment.title==='势力与地区'?{...segment,title:'探索与势力'}:segment);
         const defaults=splitPresetSegments(DEFAULT_PRESET);
         const titles=new Set(current.map(s=>s.title).filter(Boolean));
         for(const segment of defaults)if(segment.title&&!titles.has(segment.title))current.push(segment);
         return current.map(segmentText).filter(Boolean).join('\n');
-    }    class WorldRecordCatalog {
+    }    class WorldKnowledgeSelectionPolicy {
+        parseKey(value) {
+            try{
+                const parsed=JSON.parse(String(value||''));
+                return Array.isArray(parsed)&&parsed.length>=2?[String(parsed[0]||''),String(parsed[1]??'')]:null;
+            }catch(_){return null;}
+        }
+        normalizeIdentity(value) {
+            let name=String(value||'').trim().toLowerCase();
+            const versionAt=name.search(/(?:\bv(?:er(?:sion)?)?|版本)?\s*\d+(?:\.\d+){1,3}/i);
+            if(versionAt>0)name=name.slice(0,versionAt);
+            return name.replace(/[\s_\-·.]+/g,'');
+        }
+        normalizeTitle(value) {
+            return String(value||'').trim().replace(/^⚙(?:\uFE0F)?\s*/u,'').trim();
+        }
+        matches(entry,selectedEntries) {
+            if(!Array.isArray(selectedEntries))return entry?.enabled!==false;
+            const exact=JSON.stringify([String(entry?.book||''),String(entry?.id??'')]);
+            if(selectedEntries.includes(exact))return true;
+            const entryBook=this.normalizeIdentity(entry?.book),entryId=String(entry?.id??'');
+            for(const raw of selectedEntries){
+                const ref=this.parseKey(raw);if(!ref||ref[1]!==entryId)continue;
+                if(ref[0]==='*'||(entryBook&&this.normalizeIdentity(ref[0])===entryBook))return true;
+            }
+            return false;
+        }
+    }
+
+    const DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY=new WorldKnowledgeSelectionPolicy();
+    let ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY=DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY;
+    function parseSelectedEntryKey(value){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.parseKey(value);}
+    function normalizeWorldbookIdentity(value){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.normalizeIdentity(value);}
+    function normalizeWorldbookEntryTitle(value){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.normalizeTitle(value);}
+    function selectedEntryMatches(entry,selectedEntries){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.matches(entry,selectedEntries);}
+    class WorldRecordCatalog {
         constructor(){
             this.npcAuditLevels=['杂兵级','精英级','首领/Boss级'];
             this.records={
@@ -4664,7 +4673,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldKnowledgeService {
-        constructor(engine){this.engine=engine;}
+        constructor(engine,selection=DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY){this.engine=engine;this.selection=selection||DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY;}
         applyBuiltinDefaultWorldbookExclusions(catalogue) {
             const engine=this.engine;
             if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue)||!catalogue.length)return false;
@@ -4673,10 +4682,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             let progressed=false,changed=false;
             for(const title of BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS){
                 if(applied.has(title))continue;
-                const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===title);
+                const matches=catalogue.filter(entry=>this.selection.normalizeTitle(entry.title)===title);
                 if(!matches.length)continue;
                 const before=selected.length;
-                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
+                selected=selected.filter(raw=>!matches.some(entry=>this.selection.matches(entry,[raw])));
                 applied.add(title);progressed=true;
                 if(selected.length!==before)changed=true;
             }
@@ -4750,7 +4759,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             engine.bookCatalogue=catalogue;
             const report=[];engine.readReport=report;
             for(const e of catalogue){
-                const selected=!e.technical&&selectedEntryMatches(e,engine.config.selectedEntries);
+                const selected=!e.technical&&this.selection.matches(e,engine.config.selectedEntries);
                 const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&isTimelineBackboneEntry(e.title);
                 const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?this.activation(e,scan,engine.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
                 report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
@@ -6473,7 +6482,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldNpcAuditPolicy {
-        constructor(engine){this.engine=engine;this.boundPanel=null;}
+        constructor(engine,selection=DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY){this.engine=engine;this.selection=selection||DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY;this.boundPanel=null;}
         initialize(){
             const e=this.engine,had=Object.hasOwn(e.config,'npcBuildAuditEnabled');
             e.config.npcBuildAuditEnabled=e.config.npcBuildAuditEnabled===true;
@@ -6486,14 +6495,14 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return NPC_BUILD_AUDIT_FEATURE_ENABLED;
         }
         enabled(){return this.engine.config.npcBuildAuditEnabled===true;}
-        isWorldbook(entry){return ['实体生成规则','NPC生成规则','状态协议'].includes(normalizeWorldbookEntryTitle(entry.title));}
+        isWorldbook(entry){return ['实体生成规则','NPC生成规则','状态协议'].includes(this.selection.normalizeTitle(entry.title));}
         syncWorldbookSelection(catalogue=this.engine.bookCatalogue||[]){
             const e=this.engine,matches=catalogue.filter(entry=>this.isWorldbook(entry));if(!matches.length)return;
             const sync=settings=>{
                 if(!settings)return;
                 const previous=settings.selectedEntries;
-                let selected=Array.isArray(previous)?copy(previous):catalogue.filter(entry=>!entry.technical&&selectedEntryMatches(entry,previous)).map(entry=>JSON.stringify([entry.book,entry.id]));
-                selected=selected.filter(raw=>!matches.some(entry=>selectedEntryMatches(entry,[raw])));
+                let selected=Array.isArray(previous)?copy(previous):catalogue.filter(entry=>!entry.technical&&this.selection.matches(entry,previous)).map(entry=>JSON.stringify([entry.book,entry.id]));
+                selected=selected.filter(raw=>!matches.some(entry=>this.selection.matches(entry,[raw])));
                 if(this.enabled())for(const entry of matches)if(!entry.technical)selected.push(JSON.stringify([entry.book,entry.id]));
                 if(JSON.stringify(previous)!==JSON.stringify(selected))settings.selectedEntries=selected;
             };
@@ -6767,11 +6776,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldTaskAwarenessFeature extends WorldRequestFeature {
-        constructor(engine,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE){super(engine);this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;}
+        constructor(engine,taskLedger=DEFAULT_WORLD_TASK_AWARENESS_SERVICE,selection=DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY){super(engine);this.taskLedger=taskLedger||DEFAULT_WORLD_TASK_AWARENESS_SERVICE;this.selection=selection||DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY;}
         restoreWorldbookSelection(catalogue){
             const engine=this.engine;
             if(engine.config.activePromptDocumentId!==BUILTIN_DEFAULT_PROMPT_DOCUMENT.id||!Array.isArray(catalogue))return false;
-            const matches=catalogue.filter(entry=>normalizeWorldbookEntryTitle(entry.title)===TASK_WORLD_BOOK_TITLE&&!entry.technical);
+            const matches=catalogue.filter(entry=>this.selection.normalizeTitle(entry.title)===TASK_WORLD_BOOK_TITLE&&!entry.technical);
             let changed=false;
             if(matches.length){
                 const selected=Array.isArray(engine.config.selectedEntries)?copy(engine.config.selectedEntries):[];
@@ -8709,7 +8718,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             engine._runScheduler=this.runScheduler;
             this.applicationLifecycle=new WorldEngineLifecycleController(engine);
             this.context=new WorldRuntimeContextService(engine);
-            this.knowledge=new WorldKnowledgeService(engine);
+            this.knowledgeSelection=new WorldKnowledgeSelectionPolicy();
+            ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY=this.knowledgeSelection;
+            this.knowledge=new WorldKnowledgeService(engine,this.knowledgeSelection);
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateFactory=new WorldStateFactory();
             this.taskLedger=new WorldTaskAwarenessService();
@@ -8769,7 +8780,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.autoProgress=new WorldAutoProgressController(engine);
             this.replay=new WorldReplayService(engine);
             this.timeOwnership=new WorldTimeOwnershipFeature(engine,this.timePolicy);
-            this.npcAuditPolicy=new WorldNpcAuditPolicy(engine);
+            this.npcAuditPolicy=new WorldNpcAuditPolicy(engine,this.knowledgeSelection);
             this.historyLifecycle=new WorldHistoryLifecycle(engine,this.historyMemory);
             this.views=new WorldEngineViewRegistry(engine);
             this.prompts=new WorldPromptRegistry(engine);
@@ -8784,7 +8795,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.integrityRequest=new WorldIntegrityRequestFeature(engine);
             this.worldActivityRequest=new WorldActivityRequestFeature(engine,this.activityPolicy);
             this.dueEvent=new WorldDueEventFeature(engine,this.dueEventPolicy);
-            this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger);
+            this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger,this.knowledgeSelection);
             this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy);
             this.rumorRequest=new WorldRumorRequestFeature(engine,this.rumor);
             // Stateful wrappers are registered first so run composition preserves the former

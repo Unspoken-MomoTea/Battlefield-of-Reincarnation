@@ -6,7 +6,9 @@
             this.requestBuilder=new WorldRequestBuilder(engine);
             this.stateFactory=new WorldStateFactory();
             this.taskLedger=new WorldTaskAwarenessService();
-            this.history=new WorldHistoryService(engine);
+            this.historyMemory=new WorldHistoryMemoryPolicy();
+            ACTIVE_WORLD_HISTORY_MEMORY_POLICY=this.historyMemory;
+            this.history=new WorldHistoryService(engine,this.historyMemory);
             this.stateProjector=new WorldStateProjector(engine,this.taskLedger,this.history);
             ACTIVE_WORLD_STATE_PROJECTOR=this.stateProjector;
             this.patchPolicy=new WorldPatchPolicy();
@@ -56,7 +58,7 @@
             this.replay=new WorldReplayService(engine);
             this.timeOwnership=new WorldTimeOwnershipFeature(engine,this.timePolicy);
             this.npcAuditPolicy=new WorldNpcAuditPolicy(engine);
-            this.historyLifecycle=new WorldHistoryLifecycle(engine);
+            this.historyLifecycle=new WorldHistoryLifecycle(engine,this.historyMemory);
             this.views=new WorldEngineViewRegistry(engine);
             this.prompts=new WorldPromptRegistry(engine);
             this.editorController=new WorldEditorController(engine);

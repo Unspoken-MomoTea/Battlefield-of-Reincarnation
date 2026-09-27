@@ -433,3 +433,12 @@ The application shell no longer owns built-in worldbook exclusion migration, run
 - `WorldPanelRenderer` owns status tone lookup and panel synchronization.
 
 Public engine methods remain compatibility facades so external integrations and existing controllers keep the same surface.
+
+
+## Phase 56 · Canonical source tree
+
+`src/WorldEngine/` is now the only development source tree for the world engine. The migration-only `script/world-engine-src/` tree is removed.
+
+The IIFE foundation, UI style resource, and bootstrap remain ordered build fragments because they define the single-file runtime boundary; their canonical locations are now `core/WorldEngineFoundation.part.js`, `ui/WorldEngineStyles.part.js`, and `core/WorldEngineBootstrap.part.js`. `tools/build-world-engine.py` rejects non-`@src` parts.
+
+This is a physical source-boundary migration, not a behavioral rewrite. Further decomposition of the foundation happens separately so source ownership changes are not mixed with runtime semantics.

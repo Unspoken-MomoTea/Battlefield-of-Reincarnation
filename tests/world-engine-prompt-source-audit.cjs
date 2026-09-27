@@ -47,7 +47,7 @@ const retryGuidance=fs.readFileSync(path.join(root,'src','WorldEngine','domains'
 const retryDefaults=retryGuidance.match(/const WORLD_RETRY_GUIDANCE_DEFAULTS=Object\.freeze\(\{([\s\S]*?)\}\);/);
 assert.ok(retryDefaults,'retry guidance defaults must be discoverable');
 const retryKeys=Array.from(retryDefaults[1].matchAll(/\b(retryGuide[A-Z][A-Za-z0-9]*)\s*:/g),match=>match[1]);
-assert.ok(retryKeys.length>=19,'retry guidance audit should discover every retry template');
+assert.ok(retryKeys.length>=20,'retry guidance audit should discover every retry template');
 for(const key of retryKeys)assert.ok(registry.includes("key:'"+key+"'"),'retry guidance must be editable through WorldPromptRegistry: '+key);
 
 const inline=[];

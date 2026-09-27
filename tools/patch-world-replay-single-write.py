@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNTIME = ROOT / 'script' / 'world-engine-src' / '40-engine-runtime.part.js'
+RUNTIME = ROOT / 'src' / 'WorldEngine' / 'core' / 'SamsaraWorldEngine.part.js'
 COMMIT_SERVICE = ROOT / 'src' / 'WorldEngine' / 'domains' / 'WorldCommitService.part.js'
 RUN_ORCHESTRATOR = ROOT / 'src' / 'WorldEngine' / 'domains' / 'WorldRunOrchestrator.part.js'
 

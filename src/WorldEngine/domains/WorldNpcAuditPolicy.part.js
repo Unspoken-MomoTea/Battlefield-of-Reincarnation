@@ -36,14 +36,42 @@
             e.render(true);return e.config.npcBuildAuditEnabled;
         }
         async afterBuildRequest(request){this.sync();return request;}
+        syncDerivedSchemaFields(target,checked) {
+            const derived=new Set(['真属性','最终属性','强化']);
+            if(Array.isArray(target)&&Array.isArray(checked)){
+                const count=Math.min(target.length,checked.length);
+                for(let i=0;i<count;i++)this.syncDerivedSchemaFields(target[i],checked[i]);
+                return;
+            }
+            if(!plain(target)||!plain(checked))return;
+            for(const key of derived){
+                if(Object.hasOwn(checked,key))target[key]=checked[key]===undefined?undefined:copy(checked[key]);
+                else if(Object.hasOwn(target,key))delete target[key];
+            }
+            for(const key of Object.keys(checked)){
+                if(derived.has(key)||!Object.hasOwn(target,key))continue;
+                this.syncDerivedSchemaFields(target[key],checked[key]);
+            }
+        }
+        alignSchemaOrder(checked,target) {
+            if(Array.isArray(checked))return checked.map((value,index)=>this.alignSchemaOrder(value,Array.isArray(target)?target[index]:undefined));
+            if(plain(checked)&&plain(target)){
+                const out={};
+                for(const key of Object.keys(target))if(Object.hasOwn(checked,key))out[key]=this.alignSchemaOrder(checked[key],target[key]);
+                for(const key of Object.keys(checked))if(!Object.hasOwn(out,key))out[key]=this.alignSchemaOrder(checked[key],target[key]);
+                return out;
+            }
+            return checked;
+        }
         async aroundRun(next){
             const e=this.engine;this.sync();
             const samsara=e.host&&e.host.Samsara,validate=samsara&&samsara.validateWorldState;
             if(typeof validate!=='function')return next();
+            const policy=this;
             const wrapped=function(stat){
                 const checked=validate.call(samsara,stat);
-                syncWorldStateDerivedSchemaFields(stat,checked);
-                return alignWorldStateSchemaOrder(checked,stat);
+                policy.syncDerivedSchemaFields(stat,checked);
+                return policy.alignSchemaOrder(checked,stat);
             };
             samsara.validateWorldState=wrapped;
             try{return await next();}

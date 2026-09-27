@@ -458,3 +458,10 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 `WorldRuntimeContextService.backendState()` 接管 `engine.getState()` 的后台状态提取：仍从当前 MVU snapshot 读取，并与空后台结构合并后返回副本。公开 `getState()` 只委托 Runtime Context。与此同时 `saveConfig()` 收口为直接调用 `WorldEngineConfigService.save()`，删除 shell 内已经不可达的 localStorage fallback 实现。
 
 本阶段刻意保留构造器中的 busy / committing / status / lastRequest 等 application 瞬时状态；这些属于 facade 自身运行态，不为缩短文件机械拆 class。
+
+
+### Phase 59 · 世界书选择匹配归入 Knowledge Policy
+
+已完成：新增 `WorldKnowledgeSelectionPolicy`，统一拥有世界书条目选择引用解析、世界书身份去版本归一、条目标题去齿轮前缀以及 selectedEntries 匹配。原先随 Foundation Prompt 连续块迁入 `WorldBasePromptDefaults.part.js` 的四个 helper 已全部移出，Prompt 默认文件重新只保存 Prompt/预设职责。
+
+`WorldKnowledgeService`、`WorldTaskAwarenessFeature` 与 `WorldNpcAuditPolicy` 现在共享 Service Container 中同一个 `knowledgeSelection` 实例，因此默认世界书跨版本匹配、任务世界书恢复和 NPC 审计世界书开关使用完全相同的匹配规则。原 `parseSelectedEntryKey / normalizeWorldbookIdentity / normalizeWorldbookEntryTitle / selectedEntryMatches` 名称仍保留为 compatibility forwarder，不再保存第二套算法。

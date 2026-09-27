@@ -31,6 +31,7 @@ for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',
   '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
   '@src/WorldEngine/domains/WorldRuntimeContextService.part.js',
+  '@src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js',
   '@src/WorldEngine/domains/WorldKnowledgeService.part.js',
   '@src/WorldEngine/domains/WorldRequestBuilder.part.js',
   '@src/WorldEngine/domains/WorldStateProjector.part.js',

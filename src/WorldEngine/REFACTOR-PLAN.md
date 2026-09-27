@@ -495,3 +495,12 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 - 原 `RECORDS / DETAILS / MODEL_* / NPC_AUDIT_LEVELS / nameKey / stableNameIn / worldLocationRelated` 名称保留为 src 内兼容 seam，现有领域类和外部测试无需绑定 legacy 文件。
 
 构建器、自动构建 workflow、历史 patch 工具与架构/生命周期/校验测试不再读取或 fallback 到 10 号文件。至此 legacy 顶层只剩 foundation、runtime、UI、bootstrap 与共享样式；下一阶段转向 `40-engine-runtime.part.js`，按“配置/Application Shell → src service/controller，旧文件只删不长”的原则继续。
+
+
+### Phase 47 · 40 / 50 大壳迁入 src
+
+已完成：原 `40-engine-runtime.part.js` 与 `50-engine-ui.part.js` 实际是同一个 `SamsaraWorldEngine` class 被物理切成前后两段。本阶段不再维持这种依赖拼接顺序的 legacy 结构，而是零行为合并为完整的 `src/WorldEngine/core/SamsaraWorldEngine.part.js`，并从旧目录整文件删除 40 / 50。
+
+新的 src shell 仍只承担 Application Facade / UI Shell：配置状态、兼容方法、面板生命周期、导航与交互分发。当前楼层/阻塞、世界书、API 传输、Prompt 文档、请求构造、运行循环、提交、编辑与业务页面仍分别委托既有 service/controller/view；本阶段没有把领域算法重新塞回大类。
+
+构建器、CI 自同步、历史/replay/request-size 一次性 patch 工具和源码结构测试已统一读取 src shell。下一步继续从这个完整 class 中抽出配置初始化/迁移与 UI 事件分发，但旧 `script/world-engine-src` 不再恢复 40 / 50 占位文件。

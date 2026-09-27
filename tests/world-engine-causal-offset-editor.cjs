@@ -4,8 +4,8 @@ const path=require('node:path');
 const {SamsaraWorldEngine:Engine,emptyState}=require('../script/世界推进系统.js');
 const clone=value=>JSON.parse(JSON.stringify(value));
 
+assert.equal(fs.existsSync(path.join(__dirname,'../script/world-engine-src/59-causal-offset-editor.part.js')),false,'legacy causal offset editor file must be deleted');
 const layer=[
-  path.join(__dirname,'../script/world-engine-src/59-causal-offset-editor.part.js'),
   path.join(__dirname,'../src/WorldEngine/domains/WorldCausalService.part.js'),
   path.join(__dirname,'../src/WorldEngine/ui/WorldEditorController.part.js'),
 ].map(file=>fs.readFileSync(file,'utf8')).join('\n');

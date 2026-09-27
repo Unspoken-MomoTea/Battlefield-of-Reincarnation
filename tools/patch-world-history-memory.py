@@ -115,7 +115,7 @@ replace_once(
     """            if(!['standard','large','xlarge'].includes(this.config.fontScale))this.config.fontScale='standard';
             this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;
             this.config.dedicatedApi=this.normalizeDedicatedApi(this.config.dedicatedApi);""",
-    marker="this.config.sendHistoryToProse=this.config.sendHistoryToProse===true;"
+    marker="config.sendHistoryToProse=config.sendHistoryToProse===true;"
 )
 
 replace_once_any(

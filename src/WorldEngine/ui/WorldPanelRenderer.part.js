@@ -1,5 +1,18 @@
     class WorldPanelRenderer {
         constructor(engine){this.engine=engine;}
+        statusTone(){
+            const engine=this.engine;
+            try{
+                const tone=engine.host.localStorage.getItem(STATUS_THEME_CONFIG);
+                if(WORLD_TONE_KEYS.has(tone))return tone;
+            }catch(_){}
+            return 'night';
+        }
+        syncStatusTone(){
+            const tone=this.statusTone(),engine=this.engine;
+            if(engine.panel)engine.panel.dataset.tone=tone;
+            return tone;
+        }
         render(force=false) {
             const engine=this.engine;
 
@@ -13,7 +26,7 @@
                 reason=engine.blocked(snapshot);
             }catch(e){reason=e.message;}
             const s=snapshot?snapshot.stat:{},w=s.世界||{},orbit=w.因果轨道||{};
-            engine.syncStatusTone();
+            this.syncStatusTone();
             engine.panel.dataset.fontScale=engine.config.fontScale||'standard';
             if(engine.tab==='总览')engine.tab='世界推进';
             const main=engine.panel.querySelector('main'),scroll=main.scrollTop;

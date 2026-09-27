@@ -17,9 +17,10 @@ for(const file of [
   'script/world-engine-src/55-npc-narrative-audit.part.js',
   'script/world-engine-src/59-api-preset-selection.part.js',
   'script/world-engine-src/59-editable-module-prompts.part.js',
+  'script/world-engine-src/59-causal-overview-ui.part.js',
 ]) assert.equal(fs.existsSync(path.join(root,file)),false,file+' must be deleted after src migration');
 const migrated=[
-  'script/world-engine-src/59-causal-overview-ui.part.js',
+  'src/WorldEngine/ui/WorldCausalOverviewController.part.js',
   'src/WorldEngine/prompts/WorldPromptDefaults.part.js',
   'src/WorldEngine/domains/WorldNpcAuditPromptFeature.part.js',
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');

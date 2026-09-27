@@ -1,8 +1,9 @@
     class WorldActivityRequestFeature extends WorldRequestFeature {
+        constructor(engine,policy=DEFAULT_WORLD_ACTIVITY_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_ACTIVITY_POLICY;}
         async afterBuildRequest(request,base){
             let payload;
             try{payload=JSON.parse(request.input);}catch(_){return request;}
-            const requirement=worldActivityRequirement(base?.stat||{});
+            const requirement=this.policy.requirement(base?.stat||{});
             payload.本轮世界活动交付={
                 当前数量:copy(requirement.当前数量),
                 初始化缺口:copy(requirement.初始化缺口),

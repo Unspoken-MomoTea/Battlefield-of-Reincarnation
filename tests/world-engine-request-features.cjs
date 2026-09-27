@@ -7,6 +7,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldRequestFeature.part.js',
   'src/WorldEngine/domains/WorldSoftMaintenanceFeature.part.js',
   'src/WorldEngine/domains/WorldIntegrityRequestFeature.part.js',
+  'src/WorldEngine/domains/WorldActivityPolicy.part.js',
   'src/WorldEngine/domains/WorldActivityRequestFeature.part.js',
   'src/WorldEngine/domains/WorldDueEventPolicy.part.js',
   'src/WorldEngine/domains/WorldDueEventFeature.part.js',
@@ -15,7 +16,6 @@ for(const file of [
 const migrated=[
   'script/world-engine-src/59-soft-maintenance.part.js',
   'script/world-engine-src/59-world-integrity-guard.part.js',
-  'script/world-engine-src/59-world-activity-delivery.part.js',
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
 assert.doesNotMatch(migrated,/SamsaraWorldEngine\s*=\s*class/,'request-feature modules must not add engine inheritance layers');
 

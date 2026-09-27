@@ -38,7 +38,7 @@
         const PERSON_RESULT_SCHEMA=this.namedEntitySchema({...RECORDS.人物,...MODEL_DETAILS.人物});
         PERSON_RESULT_SCHEMA.properties.审计级别={type:'string',enum:copy(NPC_AUDIT_LEVELS)};
         const OFFSET_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.偏移记录);
-        OFFSET_RESULT_SCHEMA.properties.影响程度={type:'number',minimum:-100,maximum:120};
+        OFFSET_RESULT_SCHEMA.properties.影响程度={type:'number'};
         const STREET_RUMOR_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.街头巷议,['更新','移除','撤销本轮'],['来源','内容','可信度']);
         STREET_RUMOR_RESULT_SCHEMA.properties.可信度={type:'string',enum:copy(RUMOR_CREDIBILITY)};
         const INTEL_TRADE_RESULT_SCHEMA=this.namedEntitySchema(EXISTING.情报交易,['更新','移除','撤销本轮'],['卖家','情报评级','摘要','要价','真实内幕']);

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const source = fs.readFileSync(path.join(__dirname, '../script/world-engine-src/00-foundation-prompt.part.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../src/WorldEngine/core/WorldEngineFoundation.part.js'), 'utf8');
 function readTemplateConstant(name) {
   const marker = `const ${name} = \``;
   const start = source.indexOf(marker);

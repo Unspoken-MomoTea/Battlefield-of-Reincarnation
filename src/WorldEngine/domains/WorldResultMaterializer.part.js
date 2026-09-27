@@ -307,7 +307,10 @@
             for (const [name,event] of Object.entries(state.事件)) {
                 if (!['待发生','进行中','已完成','已取消'].includes(event.状态)) throw new Error('非法事件状态：'+name+' = '+String(event.状态||'空')+'；只允许 待发生/进行中/已完成/已取消');
                 if (!EVENT_CATEGORIES.has(event.分类)) throw new Error('非法事件分类：'+name+' = '+String(event.分类||'空'));
-                if (event.前因.some(id => !Object.hasOwn(state.事件,id))) throw new Error('事件前因不存在：' + name);
+                const parents=Array.isArray(event?.前因)?event.前因.filter(Boolean):[];
+                if(parents.includes(name))throw new Error('事件前因非法自引用：'+name+'；前因不能引用事件自身，无明确前因请使用 []');
+                const missing=parents.filter(id=>!Object.hasOwn(state.事件,id));
+                if(missing.length)throw new Error('事件前因不存在：'+name+' <- '+missing.join('、')+'；前因只能引用已经存在，或本轮同时提交且成功建立的事件名称；当前阶段/自然语言原因不能作为前因，无明确前因请使用 []');
             }
             const calendar=plain(stat.世界?.历法)?stat.世界.历法:{};
             const monthDays=Array.isArray(calendar.月份天数)?calendar.月份天数:[];

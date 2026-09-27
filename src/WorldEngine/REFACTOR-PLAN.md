@@ -289,3 +289,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 `WorldChronologyFeature` 继续负责读取时间线/年表世界书与请求 payload/manifest，但不再写全局 `ACTIVE_CHRONOLOGY_GUARD`，而是把本轮世界时间与最终读取资料写入 container-owned `chronologyPolicy`。Canonical `WorldResultMaterializer.compileWorldResult()` 在真正编译 patch 前调用同一 policy 做硬校验，因此直接兼容入口、Compiler 与 Staging 都保持一致。
 
 `WorldResultStagingService` 组合相同 policy，通过 `retryGuidance()` 继续生成原有“宏观时间轴”纠错动作；后续 legacy retry wrapper 仍可在其外层追加各自领域说明。`58-chronology-guard.part.js` 现在只保留可编辑的时间轴提示词、默认预设升级常量与迁移逻辑，不再重写 `compileWorldResult` 或 `retryPlanForFailure`。
+
+
+### Phase 30 · 因果编译策略统一归域
+
+已完成：`WorldCausalService` 现在统一拥有两套旧 59 因果编译规则：新偏移的世界尺度证据过滤，以及影响幅度/未实现后果/预测描述/世界排异反应/同根因拆分/同引发者预算的软归一化。Materializer 保持原执行顺序：先 `filterNewOffsetsByWorldScale`，再 `softNormalizeOffsets`，随后编译业务 patch，最后追加历史局部脏偏移清理与诊断警告。
+
+`59-causal-stability-gate.part.js` 已整文件删除；`59-world-integrity-guard.part.js` 不再保存因果 Schema 修改、软归一化函数或 `compileWorldResult` wrapper，只保留时间完整性规则与对应 retry 逻辑。
+
+因果偏移 `影响程度` 的 JSON Schema 现在在 `WorldResultContract` 中直接定义为 number，不设置硬上下限；-12/+15 等业务范围继续由 CausalService 软处理。历史脏偏移清理不再通过 `applyPatches` monkey patch 绕过安全层，`WorldPatchPolicy` 显式拥有 `removable()` 与按操作类型判定的 `allowed(..., op)`，只开放精确的 `/世界/因果轨道/偏移记录/<名称>` 删除路径。

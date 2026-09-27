@@ -2,7 +2,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / 'script' / 'world-engine-src' / '40-engine-runtime.part.js'
-PERSIST = ROOT / 'script' / 'world-engine-src' / '59-world-replay-persistence.part.js'
 COMMIT_SERVICE = ROOT / 'src' / 'WorldEngine' / 'domains' / 'WorldCommitService.part.js'
 RUN_ORCHESTRATOR = ROOT / 'src' / 'WorldEngine' / 'domains' / 'WorldRunOrchestrator.part.js'
 
@@ -65,22 +64,5 @@ else:
 RUNTIME.write_bytes(runtime.encode('utf-8'))
 
 
-# 旧实现成功后会再次读取当前楼并 replaceMvuData 一次来补 replay。
-# replay 已在主提交内原子写入后，这条第二写路径必须删除。
-persist, pnl = read_preserve(PERSIST)
-start_marker = block("""        async worldReplayPersistAfterSuccess(beforeSnapshot) {
-""", pnl)
-class_end = block("""    };
-""", pnl)
-start = persist.find(start_marker)
-if start >= 0:
-    end = persist.find(class_end, start)
-    if end < 0:
-        raise RuntimeError('[replay-single-write] persistence class end missing')
-    persist = persist[:start] + persist[end:]
-
-if 'worldReplayPersistAfterSuccess' in persist:
-    raise RuntimeError('[replay-single-write] legacy second-write persistence still present')
-PERSIST.write_bytes(persist.encode('utf-8'))
-
+# Legacy second-write replay persistence has been deleted; WorldCommitService owns the single write.\n
 print('patched replay persistence into the primary world commit')

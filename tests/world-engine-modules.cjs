@@ -21,6 +21,7 @@ for(const moduleName of ['editor/00-world-mutations.part.js','editor/10-event-ed
 }
 for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  '@src/WorldEngine/core/SamsaraWorldEngine.part.js',
   '@src/WorldEngine/domains/WorldStateModel.part.js',
   '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',
   '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
@@ -112,8 +113,13 @@ const texts=Object.fromEntries(declared.map(file=>{
 }));
 const assembled=declared.map(file=>texts[file]).join('');
 assert.equal(built,assembled,'script/世界推进系统.js must exactly equal the source parts in build order');
-assert.ok(texts['50-engine-ui.part.js'].length<50000,'main UI class should stay below 50 KB after control-tab extraction');
-assert.doesNotMatch(texts['50-engine-ui.part.js'],/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the main UI class');
+const applicationShell=texts['@src/WorldEngine/core/SamsaraWorldEngine.part.js'];
+assert.ok(applicationShell.length<75000,'combined application/UI shell should stay below 75 KB while business views remain extracted');
+assert.doesNotMatch(applicationShell,/this\.style\.textContent\s*=\s*\[/,'base CSS must not grow back into the application shell');
+assert.equal(declared.includes('40-engine-runtime.part.js'),false,'legacy runtime shell must leave the build');
+assert.equal(declared.includes('50-engine-ui.part.js'),false,'legacy UI shell must leave the build');
+assert.equal(fs.existsSync(path.join(dir,'40-engine-runtime.part.js')),false,'legacy runtime shell file must be deleted');
+assert.equal(fs.existsSync(path.join(dir,'50-engine-ui.part.js')),false,'legacy UI shell file must be deleted');
 assert.match(texts['ui/00-styles.part.js'],/function worldEngineBaseStyleText\(/,'base CSS should live in a dedicated UI resource module');
 
 // Phase 15: event/person lifecycle and the top-level compaction flow live behind one service.

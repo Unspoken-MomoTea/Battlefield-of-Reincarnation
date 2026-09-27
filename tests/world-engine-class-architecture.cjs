@@ -40,6 +40,7 @@ for(const file of [
 const legacyStateSource=fs.readFileSync(path.join(root,'script/world-engine-src/10-world-state.part.js'),'utf8');
 const stateFactorySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateFactory.part.js'),'utf8');
 const timelinePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'utf8');
+const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
 const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
 const stateProjectorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldStateProjector.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
@@ -51,6 +52,13 @@ assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class
 assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT_WORLD_STATE_FACTORY\.emptyBackend\(\);\}/,'public emptyState seam must remain compatible');
 assert.match(timelinePolicySource,/\bimportStory\s*\(stat\)/,'timeline policy must own legacy story seeding');
 assert.match(timelinePolicySource,/function\s+importStory\s*\(stat\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.importStory\(stat\);\}/,'public importStory seam must remain compatible');
+assert.doesNotMatch(contextProtocolSource,/function\s+sameWorldTimeAnchor\s*\(/,'time-anchor comparison implementation must leave 30-context-protocol');
+assert.doesNotMatch(contextProtocolSource,/function\s+protocol\s*\(/,'output protocol implementation must leave 30-context-protocol');
+assert.match(timelinePolicySource,/\bsameTimeAnchor\s*\(a,b\)/,'timeline policy must own compatible world-time anchor comparison');
+assert.match(timelinePolicySource,/function\s+sameWorldTimeAnchor\s*\(a,b\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.sameTimeAnchor\(a,b\);\}/,'public sameWorldTimeAnchor seam must remain compatible');
+assert.match(resultContractSource,/\binstruction\s*\(\)/,'result contract must own editable output protocol instruction');
+assert.match(resultContractSource,/\bprotocol\s*\(\)/,'result contract must own canonical schema protocol assembly');
+assert.match(resultContractSource,/function\s+protocol\s*\(\)\s*\{return WORLD_RESULT_CONTRACT\.protocol\(\);\}/,'public protocol seam must remain compatible');
 assert.doesNotMatch(contextProtocolSource,/const projectedBackend=\{/,'30-context-protocol must not retain world projection implementation');
 assert.match(contextProtocolSource,/function projectWorldContext\(stat\)\{return requireWorldStateProjector\(\)\.baseWorld\(stat\);\}/,'early projectWorldContext seam must forward to active projector');
 assert.doesNotMatch(contextProtocolSource,/function\s+activation\s*\(/,'worldbook activation implementation must leave 30-context-protocol');
@@ -229,6 +237,9 @@ const expectedPromptKeys=[
 const promptKeys=engine.services.prompts.list().map(item=>item.key);
 for(const key of expectedPromptKeys)assert.ok(promptKeys.includes(key),'prompt registry must expose '+key);
 assert.equal(new Set(promptKeys).size,promptKeys.length,'prompt registry keys must be unique');
+
+const promptRegistrySource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldPromptRegistry.part.js'),'utf8');
+assert.match(promptRegistrySource,/WorldResultContract\.instruction\(\)/,'prompt registry must source editable output protocol from the canonical contract');
 
 const promptUi=[
   'src/WorldEngine/ui/views/WorldPromptView.part.js',

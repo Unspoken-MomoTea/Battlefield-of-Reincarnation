@@ -34,6 +34,7 @@
 - `WorldEngineViewRegistry`：业务视图注册。
 - `WorldEditorController`：事件、世界人物、因果偏移、历史记忆的统一编辑控制器。
 - `WorldPromptWorkspaceController`：提示词预设 UI 控制器。
+- `WorldBasePromptDefaults`：默认预设、核心约束、内置默认 Prompt 文档与基础预设编辑 helper 的物理源码归属。
 - `WorldPromptRegistry`：system、user payload、辅助模型与重试静态指令的唯一注册表。
 - `WorldEngineFeatureRegistry`：统一挂载不值得继续继承主类的 feature/controller 生命周期。
 - `WorldApiPresetController`：专属 API 预设选择态。

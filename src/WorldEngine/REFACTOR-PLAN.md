@@ -365,3 +365,14 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 现有 `world-engine-integrity-guard.cjs` 继续作为公开行为 seam，确保精确人物时钟、同日宏观放行、跨日拒绝、时段前后与世界时间不可回退语义保持不变。
 
 下一批继续清理剩余 validation / rumor / due-event 全局覆写；新实现只进入 `src/WorldEngine`，legacy 文件只允许删除逻辑或保留兼容常量。
+
+
+### Phase 37 · 到期事件软复核归域
+
+已完成：新增 `WorldDueEventPolicy`，接管到期复核点计算、到期事件软复核清单以及“未处理不作为整轮硬门槛”的最终语义。Policy 显式组合 `WorldTimePolicy`，不再依赖旧文件通过全局 `worldDateKey` 进行运行时覆盖。
+
+`WorldDueEventFeature` 只负责把 policy 生成的软复核清单写入请求；`WorldValidationPolicy.ensureDueHandled()` 只委托同一个 due-event policy，因此请求层与验收层共享一套规则。旧 `59-due-event-relaxation.part.js` 已整文件删除，不再存在 `ensureDueHandled=function...` monkey patch。
+
+现有 `world-engine-due-event-relaxation.cjs` 继续作为公开行为 seam：到期事件会进入软提醒；未来 `下次检查` 到来前不重复催办；模型本轮不处理到期事件不会导致 retry；延期只更新 `下次检查`，不得篡改触发条件。
+
+下一批继续清理 soft-maintenance / rumor / world-activity 对 validation/staging 的全局覆写，仍坚持“新逻辑只进入 `src/WorldEngine`，旧文件只删逻辑”。

@@ -739,6 +739,110 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const DEFAULT_WORLD_DUE_EVENT_POLICY=new WorldDueEventPolicy();
     function dueEventReviewPoint(event){return DEFAULT_WORLD_DUE_EVENT_POLICY.reviewPoint(event);}
     function relaxedDueEvents(stat){return DEFAULT_WORLD_DUE_EVENT_POLICY.review(stat);}
+    // 世界活动交付：异端只是世界中的一类人物，不能成为唯一会变化的后台对象。
+    const WORLD_ACTIVITY_DELIVERY_RULES=`【世界活动交付 · 非异端世界必须推进】
+1. 世界推进不是“异端模拟器”。每轮按：进行中/到期事件 → 势力与地区现场 → 普通热人物 → 传播 → 异端复核 的顺序推演；异端不能替代其它世界活动。
+2. 新世界或旧存档缺少世界现场时，本轮必须建立至少1个与当前地点/阶段相关的地区、至少1个真实存在或可由明确设定推出的势力/组织，并建立至少1个正在发生的当前事件/近期节点。势力首次建立时，同名写入 WorldResult.势力（顶层实力/领地/声望档案）与 WorldResult.势力地区（类型=势力的动态现场）；不得只建立未来宏观节点。
+3. 每轮世界推进至少提交1项“非异端实质变化”：进行中事件推进/转态、势力或地区状态变化、普通人物自身事务推进三者之一。只改更新时间、下次检查、重复原文或只补未来宏观规划不算实质变化。
+4. 变化幅度服从本轮时间容量。时间未推进时只推进即时反应/同步结果；数小时、跨日或数日时再按容量推进更大的行动。不得为了满足本条凭空制造重大事件。
+5. 如果某类对象确实没有可变化事项，优先推进另外两类；只有世界本身已经终止/冻结的明确设定才允许没有非异端变化，普通“正文没有提到”不是停摆理由。`;
+
+    class WorldActivityPolicy {
+        semanticRecord(record,kind) {
+            const out=plain(record)?copy(record):{};
+            delete out.更新时间;
+            delete out.下次检查;
+            if(kind==='事件'&&out.分类==='宏观节点'&&out.状态==='待发生')return null;
+            return out;
+        }
+
+        recordMap(records,kind,excludeNames=new Set()) {
+            const out={};
+            for(const [name,record] of Object.entries(records||{})){
+                if(excludeNames.has(nameKey(name)))continue;
+                const semantic=this.semanticRecord(record,kind);
+                if(semantic!==null)out[nameKey(name)]=semantic;
+            }
+            return out;
+        }
+
+        counts(stat) {
+            const backend=stat?.世界?.[PATH]||{},areas=backend.势力地区||{},events=backend.事件||{},people=backend.人物||{};
+            const alienKeys=new Set(Object.keys(stat?.世界?.异端雷达?.名单||{}).map(nameKey));
+            return {
+                地区数:Object.values(areas).filter(record=>plain(record)&&String(record.类型||'地区')!=='势力').length,
+                动态势力数:Object.values(areas).filter(record=>plain(record)&&String(record.类型||'地区')==='势力').length,
+                顶层势力数:Object.keys(stat?.世界?.势力||{}).length,
+                进行中世界事件数:Object.values(events).filter(record=>plain(record)&&record.状态==='进行中'&&record.分类!=='宏观节点').length,
+                普通人物数:Object.entries(people).filter(([name,record])=>plain(record)&&!alienKeys.has(nameKey(name))).length
+            };
+        }
+
+        requirement(stat) {
+            const backend=stat?.世界?.[PATH]||{},counts=this.counts(stat);
+            const alienKeys=new Set(Object.keys(stat?.世界?.异端雷达?.名单||{}).map(nameKey));
+            return {
+                世界:String(stat?.世界?.名称||''),
+                当前时间:String(stat?.世界?.时间||''),
+                当前地点:String(stat?.世界?.地点||''),
+                当前数量:counts,
+                初始化缺口:{
+                    地区:counts.地区数<1,
+                    势力:counts.动态势力数<1||counts.顶层势力数<1,
+                    当前事件:counts.进行中世界事件数<1
+                },
+                必须非异端实质变化:true,
+                基线:{
+                    事件:this.recordMap(backend.事件,'事件'),
+                    势力地区:this.recordMap(backend.势力地区,'势力地区'),
+                    普通人物:this.recordMap(backend.人物,'人物',alienKeys),
+                    势力:this.recordMap(stat?.世界?.势力||{},'势力')
+                }
+            };
+        }
+
+        changed(next,requirement) {
+            const backend=next?.世界?.[PATH]||{},alienKeys=new Set(Object.keys(next?.世界?.异端雷达?.名单||{}).map(nameKey));
+            const after={
+                事件:this.recordMap(backend.事件,'事件'),
+                势力地区:this.recordMap(backend.势力地区,'势力地区'),
+                普通人物:this.recordMap(backend.人物,'人物',alienKeys),
+                势力:this.recordMap(next?.世界?.势力||{},'势力')
+            },changed=[];
+            for(const category of Object.keys(after)){
+                const before=requirement?.基线?.[category]||{},current=after[category]||{};
+                const names=new Set([...Object.keys(before),...Object.keys(current)]);
+                for(const name of names)if(!same(before[name],current[name])){changed.push(category+'/'+name);break;}
+            }
+            return changed;
+        }
+
+        ensureDelivery(next,requirement) {
+            if(!requirement||next?.系统状态?.是否在主神空间)return [];
+            const counts=this.counts(next),issues=[];
+            if(requirement.初始化缺口?.地区&&counts.地区数<1)issues.push('缺少地区现场：至少建立1个与当前地点/阶段相关的地区');
+            if(requirement.初始化缺口?.势力&&(counts.动态势力数<1||counts.顶层势力数<1))issues.push('缺少势力档案：至少建立1个真实相关势力，并同名写入 WorldResult.势力 与 WorldResult.势力地区（类型=势力）');
+            if(requirement.初始化缺口?.当前事件&&counts.进行中世界事件数<1)issues.push('缺少正在发生的世界事件：至少建立1个进行中的当前事件/近期节点，未来宏观节点不能替代');
+            const changed=this.changed(next,requirement);
+            if(requirement.必须非异端实质变化&&!changed.length)issues.push('本轮只有异端/维护/未来规划，没有任何非异端世界侧实质变化；必须推进事件、势力地区、顶层势力或普通人物至少一项');
+            if(issues.length)throw new Error('世界活动不足：'+issues.join('；'));
+            return changed;
+        }
+
+        repairRequired(stat) {
+            const requirement=this.requirement(stat),counts=requirement.当前数量;
+            return counts.地区数<1||counts.动态势力数<1||counts.顶层势力数<1||counts.进行中世界事件数<1;
+        }
+    }
+
+    const DEFAULT_WORLD_ACTIVITY_POLICY=new WorldActivityPolicy();
+    function worldActivitySemanticRecord(record,kind){return DEFAULT_WORLD_ACTIVITY_POLICY.semanticRecord(record,kind);}
+    function worldActivityMap(records,kind,excludeNames=new Set()){return DEFAULT_WORLD_ACTIVITY_POLICY.recordMap(records,kind,excludeNames);}
+    function worldActivityCounts(stat){return DEFAULT_WORLD_ACTIVITY_POLICY.counts(stat);}
+    function worldActivityRequirement(stat){return DEFAULT_WORLD_ACTIVITY_POLICY.requirement(stat);}
+    function worldActivityChanged(next,requirement){return DEFAULT_WORLD_ACTIVITY_POLICY.changed(next,requirement);}
+    function ensureWorldActivityDelivery(next,requirement){return DEFAULT_WORLD_ACTIVITY_POLICY.ensureDelivery(next,requirement);}
+    function worldActivityRepairRequired(stat){return DEFAULT_WORLD_ACTIVITY_POLICY.repairRequired(stat);}
     const VAGUE_EVENT_TIME=/^(?:近期|稍后|未来|之后|待定|未定|未知|不详|待确认|时间未定|日期未定)$/;
     const STALE_CURRENT_EVENT_HOURS=7*24;
     const STALE_NEAR_EVENT_HOURS=30*24;
@@ -3332,7 +3436,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     let ACTIVE_WORLD_RESULT_REPLY_PARSER=DEFAULT_WORLD_RESULT_REPLY_PARSER;
     function parseReply(text){return ACTIVE_WORLD_RESULT_REPLY_PARSER.parse(text);}
     class WorldValidationPolicy {
-        constructor(timeline,duePolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;}
+        constructor(timeline,duePolicy,activityPolicy){this.timeline=timeline||DEFAULT_WORLD_TIMELINE_POLICY;this.duePolicy=duePolicy||DEFAULT_WORLD_DUE_EVENT_POLICY;this.activityPolicy=activityPolicy||DEFAULT_WORLD_ACTIVITY_POLICY;}
         ensureDueHandled(next,dueList,worldTime) { return this.duePolicy.ensureHandled(next,dueList,worldTime); }
 
         unscheduledEvents(stat) {
@@ -3386,22 +3490,24 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         }
 
         ensureMacroBackbone(next,timeline,required=true) {
-            if(!required||!timeline?.需要补充远期)return;
-            const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消');
-            const activeMacro=allMacro.filter(([,e])=>e.状态==='进行中');
-            const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
-            const openMacro=allMacro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
-            if(openMacro.length<3)throw new Error('宏观事件不足：需要至少3个可推进宏观节点（进行中+待发生），当前仅'+openMacro.length+'个（进行中'+activeMacro.length+'个，待发生'+futureMacro.length+'个）');
-            const stages=this.timeline.storyStages(next?.世界?.因果轨道?.故事线);
-            const names=new Set(allMacro.map(([name])=>name));
-            if(stages.length<3||stages.length>5||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');
+            if(required&&timeline?.需要补充远期){
+                const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状态!=='已取消');
+                const activeMacro=allMacro.filter(([,e])=>e.状态==='进行中');
+                const futureMacro=allMacro.filter(([,e])=>e.状态==='待发生');
+                const openMacro=allMacro.filter(([,e])=>['进行中','待发生'].includes(e.状态));
+                if(openMacro.length<3)throw new Error('宏观事件不足：需要至少3个可推进宏观节点（进行中+待发生），当前仅'+openMacro.length+'个（进行中'+activeMacro.length+'个，待发生'+futureMacro.length+'个）');
+                const stages=this.timeline.storyStages(next?.世界?.因果轨道?.故事线);
+                const names=new Set(allMacro.map(([name])=>name));
+                if(stages.length<3||stages.length>5||stages.some(name=>!names.has(name)))throw new Error('因果轨道未形成有效宏观投影：请用已建立的宏观节点生成3~5节点故事线');
+            }
+            return this.activityPolicy.ensureDelivery(next,timeline?.世界活动要求);
         }
 
         progressionAnchorChanged(before,after) {
             return before?.世界?.名称!==after?.世界?.名称||before?.世界?.时间!==after?.世界?.时间||!!before?.系统状态?.是否在主神空间!==!!after?.系统状态?.是否在主神空间;
         }
     }
-    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY);
+    const DEFAULT_WORLD_VALIDATION_POLICY=new WorldValidationPolicy(DEFAULT_WORLD_TIMELINE_POLICY,DEFAULT_WORLD_DUE_EVENT_POLICY,DEFAULT_WORLD_ACTIVITY_POLICY);
     let ACTIVE_WORLD_VALIDATION_POLICY=DEFAULT_WORLD_VALIDATION_POLICY;
     function ensureDueHandled(next,dueList,worldTime){return ACTIVE_WORLD_VALIDATION_POLICY.ensureDueHandled(next,dueList,worldTime);}
     function unscheduledEvents(stat){return ACTIVE_WORLD_VALIDATION_POLICY.unscheduledEvents(stat);}
@@ -5062,101 +5168,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
 
     // 运行时读写、预设持久化与最终请求重写已迁移到 WorldPromptRegistry + WorldEngineClassBridge。
-    // 世界活动交付：异端只是世界中的一类人物，不能成为唯一会变化的后台对象。
-    const WORLD_ACTIVITY_DELIVERY_RULES=`【世界活动交付 · 非异端世界必须推进】
-1. 世界推进不是“异端模拟器”。每轮按：进行中/到期事件 → 势力与地区现场 → 普通热人物 → 传播 → 异端复核 的顺序推演；异端不能替代其它世界活动。
-2. 新世界或旧存档缺少世界现场时，本轮必须建立至少1个与当前地点/阶段相关的地区、至少1个真实存在或可由明确设定推出的势力/组织，并建立至少1个正在发生的当前事件/近期节点。势力首次建立时，同名写入 WorldResult.势力（顶层实力/领地/声望档案）与 WorldResult.势力地区（类型=势力的动态现场）；不得只建立未来宏观节点。
-3. 每轮世界推进至少提交1项“非异端实质变化”：进行中事件推进/转态、势力或地区状态变化、普通人物自身事务推进三者之一。只改更新时间、下次检查、重复原文或只补未来宏观规划不算实质变化。
-4. 变化幅度服从本轮时间容量。时间未推进时只推进即时反应/同步结果；数小时、跨日或数日时再按容量推进更大的行动。不得为了满足本条凭空制造重大事件。
-5. 如果某类对象确实没有可变化事项，优先推进另外两类；只有世界本身已经终止/冻结的明确设定才允许没有非异端变化，普通“正文没有提到”不是停摆理由。`;
-
-    function worldActivitySemanticRecord(record,kind) {
-        const out=plain(record)?copy(record):{};
-        delete out.更新时间;
-        delete out.下次检查;
-        if(kind==='事件'&&out.分类==='宏观节点'&&out.状态==='待发生')return null;
-        return out;
-    }
-    function worldActivityMap(records,kind,excludeNames=new Set()) {
-        const out={};
-        for(const [name,record] of Object.entries(records||{})){
-            if(excludeNames.has(nameKey(name)))continue;
-            const semantic=worldActivitySemanticRecord(record,kind);
-            if(semantic!==null)out[nameKey(name)]=semantic;
-        }
-        return out;
-    }
-    function worldActivityCounts(stat) {
-        const backend=stat?.世界?.[PATH]||{},areas=backend.势力地区||{},events=backend.事件||{},people=backend.人物||{};
-        const alienKeys=new Set(Object.keys(stat?.世界?.异端雷达?.名单||{}).map(nameKey));
-        return {
-            地区数:Object.values(areas).filter(record=>plain(record)&&String(record.类型||'地区')!=='势力').length,
-            动态势力数:Object.values(areas).filter(record=>plain(record)&&String(record.类型||'地区')==='势力').length,
-            顶层势力数:Object.keys(stat?.世界?.势力||{}).length,
-            进行中世界事件数:Object.values(events).filter(record=>plain(record)&&record.状态==='进行中'&&record.分类!=='宏观节点').length,
-            普通人物数:Object.entries(people).filter(([name,record])=>plain(record)&&!alienKeys.has(nameKey(name))).length
-        };
-    }
-    function worldActivityRequirement(stat) {
-        const backend=stat?.世界?.[PATH]||{},counts=worldActivityCounts(stat);
-        const alienKeys=new Set(Object.keys(stat?.世界?.异端雷达?.名单||{}).map(nameKey));
-        return {
-            世界:String(stat?.世界?.名称||''),
-            当前时间:String(stat?.世界?.时间||''),
-            当前地点:String(stat?.世界?.地点||''),
-            当前数量:counts,
-            初始化缺口:{
-                地区:counts.地区数<1,
-                势力:counts.动态势力数<1||counts.顶层势力数<1,
-                当前事件:counts.进行中世界事件数<1
-            },
-            必须非异端实质变化:true,
-            基线:{
-                事件:worldActivityMap(backend.事件,'事件'),
-                势力地区:worldActivityMap(backend.势力地区,'势力地区'),
-                普通人物:worldActivityMap(backend.人物,'人物',alienKeys),
-                势力:worldActivityMap(stat?.世界?.势力||{},'势力')
-            }
-        };
-    }
-    function worldActivityChanged(next,requirement) {
-        const backend=next?.世界?.[PATH]||{},alienKeys=new Set(Object.keys(next?.世界?.异端雷达?.名单||{}).map(nameKey));
-        const after={
-            事件:worldActivityMap(backend.事件,'事件'),
-            势力地区:worldActivityMap(backend.势力地区,'势力地区'),
-            普通人物:worldActivityMap(backend.人物,'人物',alienKeys),
-            势力:worldActivityMap(next?.世界?.势力||{},'势力')
-        },changed=[];
-        for(const category of Object.keys(after)){
-            const before=requirement?.基线?.[category]||{},current=after[category]||{};
-            const names=new Set([...Object.keys(before),...Object.keys(current)]);
-            for(const name of names)if(!same(before[name],current[name])){changed.push(category+'/'+name);break;}
-        }
-        return changed;
-    }
-    function ensureWorldActivityDelivery(next,requirement) {
-        if(!requirement||next?.系统状态?.是否在主神空间)return [];
-        const counts=worldActivityCounts(next),issues=[];
-        if(requirement.初始化缺口?.地区&&counts.地区数<1)issues.push('缺少地区现场：至少建立1个与当前地点/阶段相关的地区');
-        if(requirement.初始化缺口?.势力&&(counts.动态势力数<1||counts.顶层势力数<1))issues.push('缺少势力档案：至少建立1个真实相关势力，并同名写入 WorldResult.势力 与 WorldResult.势力地区（类型=势力）');
-        if(requirement.初始化缺口?.当前事件&&counts.进行中世界事件数<1)issues.push('缺少正在发生的世界事件：至少建立1个进行中的当前事件/近期节点，未来宏观节点不能替代');
-        const changed=worldActivityChanged(next,requirement);
-        if(requirement.必须非异端实质变化&&!changed.length)issues.push('本轮只有异端/维护/未来规划，没有任何非异端世界侧实质变化；必须推进事件、势力地区、顶层势力或普通人物至少一项');
-        if(issues.length)throw new Error('世界活动不足：'+issues.join('；'));
-        return changed;
-    }
-    function worldActivityRepairRequired(stat) {
-        const requirement=worldActivityRequirement(stat),counts=requirement.当前数量;
-        return counts.地区数<1||counts.动态势力数<1||counts.顶层势力数<1||counts.进行中世界事件数<1;
-    }
-
-    const ensureMacroBackboneBeforeWorldActivityDelivery=ensureMacroBackbone;
-    ensureMacroBackbone=function(next,timeline,required=true) {
-        ensureMacroBackboneBeforeWorldActivityDelivery(next,timeline,required);
-        ensureWorldActivityDelivery(next,timeline?.世界活动要求);
-    };
-
-    // 世界活动纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // 请求 payload/timeline/manifest 装饰已迁移至 WorldActivityRequestFeature。
     // 主面板只保留最新因果摘要；完整偏移、故事线、干涉模式、法则与经济资料进入独立“因果档案”页。
     // 资产与传闻仍由世界引擎维护数据，但玩家侧由状态栏承载，因此不在世界推进面板重复展示。
     const CAUSAL_OVERVIEW_LIMIT=3;
@@ -7157,10 +7168,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldActivityRequestFeature extends WorldRequestFeature {
+        constructor(engine,policy=DEFAULT_WORLD_ACTIVITY_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_ACTIVITY_POLICY;}
         async afterBuildRequest(request,base){
             let payload;
             try{payload=JSON.parse(request.input);}catch(_){return request;}
-            const requirement=worldActivityRequirement(base?.stat||{});
+            const requirement=this.policy.requirement(base?.stat||{});
             payload.本轮世界活动交付={
                 当前数量:copy(requirement.当前数量),
                 初始化缺口:copy(requirement.初始化缺口),
@@ -7434,7 +7446,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 def({key:'integrity',title:'因果与事实时间',group:'运行模块',source:'WORLD_INTEGRITY_GUARD_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('integrity',typeof WORLD_INTEGRITY_GUARD_RULES==='string'?WORLD_INTEGRITY_GUARD_RULES:'')}),
                 def({key:'worldTime',title:'世界时间所有权',group:'运行模块',source:'WORLD_TIME_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>worldPromptModuleDefault('worldTime',typeof WORLD_TIME_RULES==='string'?WORLD_TIME_RULES:'')}),
                 def({key:'rumor',title:'传闻与传播',group:'运行模块',source:'RUMOR_WORLD_SOURCE_RULES',scope:'system',condition:'每次主世界推进请求；无触发时要求保持既有传播',defaultValue:()=>worldPromptModuleDefault('rumor',typeof RUMOR_WORLD_SOURCE_RULES==='string'?RUMOR_WORLD_SOURCE_RULES:(typeof RUMOR_THROTTLE_RULES==='string'?RUMOR_THROTTLE_RULES:''))}),
-                def({key:'worldActivity',title:'世界活动交付',group:'运行模块',source:'WORLD_ACTIVITY_DELIVERY_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:''}),
+                def({key:'worldActivity',title:'世界活动交付',group:'运行模块',source:'WorldActivityPolicy / WORLD_ACTIVITY_DELIVERY_RULES',scope:'system',condition:'每次主世界推进请求',defaultValue:()=>typeof WORLD_ACTIVITY_DELIVERY_RULES==='string'?WORLD_ACTIVITY_DELIVERY_RULES:''}),
                 def({key:'historyMemory',title:'世界长期历史压缩',group:'辅助模型',source:'HISTORY_MEMORY_SYSTEM',scope:'system',condition:'历史记忆达到自动压缩阈值时单独调用模型',defaultValue:()=>typeof HISTORY_MEMORY_SYSTEM==='string'?HISTORY_MEMORY_SYSTEM:''}),
                 def({key:'inputSemantics',title:'输入语义说明',group:'请求内指令',source:'40-engine-runtime.part.js / 输入语义',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_INPUT_SEMANTICS}),
                 def({key:'macroPlanningGuidance',title:'宏观骨架 · 规划与发生',group:'请求内指令',source:'40-engine-runtime.part.js / 本轮必须完成的宏观骨架',scope:'user payload',condition:'本轮要求补足宏观骨架时',defaultValue:()=>WORLD_PROMPT_MACRO_PLANNING}),
@@ -7447,7 +7459,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 def({key:'chronologyNoEvidenceGuidance',title:'时间线基准 · 未命中资料说明',group:'请求内指令',source:'58-chronology-guard.part.js / 原著时间资料',scope:'user payload',condition:'未读取到明确时间线/年表资料时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_NO_EVIDENCE}),
                 def({key:'rumorSourceBoundary',title:'传闻取材边界',group:'请求内指令',source:'59-rumor-world-request.part.js / 取材边界',scope:'user payload',condition:'每次传闻维护请求',defaultValue:()=>WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY}),
                 def({key:'alienReviewGuidance',title:'活跃异端复核要求',group:'请求内指令',source:'59-alien-activity-normalization.part.js',scope:'user payload',condition:'活跃异端命中复核触发器时',defaultValue:()=>WORLD_PROMPT_ALIEN_REVIEW}),
-                def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'59-world-activity-delivery.part.js / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
+                def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'WorldActivityRequestFeature / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
                 def({key:'worldTimeInputGuidance',title:'世界时间维护 · 请求内指令',group:'请求内指令',source:'WorldTimeOwnershipFeature / 世界时间维护',scope:'user payload JSON',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_TIME_INPUT}),
                 def({key:'historyInputGuidance',title:'历史压缩输入说明',group:'辅助模型',source:'historyMemoryPrompt()',scope:'user payload',condition:'历史记忆达到自动压缩阈值时',defaultValue:()=>WORLD_PROMPT_HISTORY_INPUT}),
                 def({key:'retryGuideMacroBackbone',title:'纠错动作 · 宏观骨架数量',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'宏观事件不足时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideMacroBackbone}),
@@ -8589,6 +8601,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.timePolicy=new WorldTimePolicy();
             ACTIVE_WORLD_TIME_POLICY=this.timePolicy;
             this.dueEventPolicy=new WorldDueEventPolicy(this.timePolicy);
+            this.activityPolicy=new WorldActivityPolicy();
             this.timelinePolicy=new WorldTimelinePolicy(this.timePolicy);
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.chronologyPolicy=new WorldChronologyPolicy();
@@ -8615,7 +8628,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;
             this.compiler=new WorldResultCompiler(engine,this.resultNormalizer,this.resultMaterializer,this.resultStaging,this.patchPolicy);
-            this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy,this.dueEventPolicy);
+            this.validationPolicy=new WorldValidationPolicy(this.timelinePolicy,this.dueEventPolicy,this.activityPolicy);
             ACTIVE_WORLD_VALIDATION_POLICY=this.validationPolicy;
             this.validation=new WorldValidationService(engine,this.validationPolicy,this.npcAudit);
             this.commit=new WorldCommitService(engine);
@@ -8643,7 +8656,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.npcAuditPrompt=new WorldNpcAuditPromptFeature(engine);
             this.softMaintenance=new WorldSoftMaintenanceFeature(engine);
             this.integrityRequest=new WorldIntegrityRequestFeature(engine);
-            this.worldActivityRequest=new WorldActivityRequestFeature(engine);
+            this.worldActivityRequest=new WorldActivityRequestFeature(engine,this.activityPolicy);
             this.dueEvent=new WorldDueEventFeature(engine,this.dueEventPolicy);
             this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger);
             this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy);

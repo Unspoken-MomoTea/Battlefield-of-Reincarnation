@@ -229,3 +229,8 @@ Worldbook activation is owned by `WorldKnowledgeService`: constant/selective ent
 `WorldResultContract` owns both the editable WorldResult output instruction and the immutable Canonical Schema assembly. `WorldPromptRegistry.outputProtocol` reads the contract instruction directly, while the public `protocol()` name is only a compatibility forwarder.
 
 `WorldTimelinePolicy` owns world-time anchor equivalence through `sameTimeAnchor()`. The legacy `sameWorldTimeAnchor()` function forwards to the active policy so lifecycle/person/rumor callers retain behavior during migration.
+
+
+## Phase 27 · Person compile preprocessing
+
+Alien activity timestamp normalization is no longer a global `compileWorldResult` decorator. `WorldResultCompiler` and `WorldResultStagingService` both compose the container-owned `WorldPersonActivityService` and run the same preprocessing before the remaining compatibility compile chain. This keeps fragment acceptance and final compilation behavior aligned.

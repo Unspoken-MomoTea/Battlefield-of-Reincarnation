@@ -27,6 +27,3 @@
     const WORLD_RESULT_LISTS=['事件','人物','势力地区','历史','传播','势力','探索','资产','异端','关系'];
     const WORLD_RESULT_RUMORS=['街头巷议','情报交易','布告与檄文'];
     const RESULT_OPERATIONS=new Set(['更新','移除','撤销本轮']);
-    const WORLD_ASSET_TYPES=['固定地产','大型载具','要塞'];
-    const WORLD_ASSET_TYPE_SET=new Set(WORLD_ASSET_TYPES);
-    const ITEMLIKE_ASSET_NAME=/(?:纹章|免疫|抗性|初解|技能|能力|药剂?|药水|圣水|解药|血清|试剂|瓶|钥匙|摇把|手柄|材料|矿石|零件|部件|残骸|卷轴|食物|口粮|弹药|消耗品|道具|护符|符文|芯片|样本)$/i;

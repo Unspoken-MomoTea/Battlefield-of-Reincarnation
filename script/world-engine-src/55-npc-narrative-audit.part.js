@@ -10,4 +10,6 @@
 7. 构筑补全只用 WorldResult.关系 更新既有 NPC；审计级别只用 WorldResult.人物 写入世界后台。只提交新增/修正项，不得输出真属性、最终属性或强化缓存；血统/形态五维必须齐全，技能不写基础/衍生属性。
 8. 效果必须可结算，不写随机概率词条；每个审计对象至少修复一个与现有身份、职业、剧情定位、层级和已演出能力一致的缺口，资料不足时做最小补全。`;
 
-    // 审计新增装备默认状态=1的编译规则已迁移至 WorldNpcAuditService。\n\n    // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。
+    // 审计新增装备默认状态=1的编译规则已迁移至 WorldNpcAuditService。
+
+    // 默认审计提示词迁移由 WorldNpcAuditPromptFeature.initialize() 负责。

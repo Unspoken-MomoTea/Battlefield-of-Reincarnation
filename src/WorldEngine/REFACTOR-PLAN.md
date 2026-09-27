@@ -608,3 +608,12 @@ patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动
 迁移内容包括默认预设、核心约束、宏观提示、稳定度模板、内置默认 Prompt 文档、稳定度阶段与预设编辑 helper。Prompt/预设默认值不再物理藏在基础 IIFE 文件中；相关测试与历史 Prompt patch 工具也统一读取 prompts 目录。
 
 由于本阶段坚持连续块零行为迁移，`parseSelectedEntryKey / normalizeWorldbookIdentity / normalizeWorldbookEntryTitle / selectedEntryMatches` 这组世界书匹配 helper 暂时随尾部进入 `WorldBasePromptDefaults`。下一阶段应把它们迁入 Knowledge/selection policy，再继续拆 Foundation 中 token 观测、主题常量与正文抽取等基础职责。
+
+
+### Phase 58 · Host Adapter 与后台状态读取归域
+
+已完成：新增 `WorldHostAdapter`，统一负责从 `env / host / TavernHelper` 解析并绑定酒馆宿主函数。公开 `engine.fn(name)` 继续保留，但只作为兼容 facade；Service Container 暴露同一个 `hostAdapter` 实例，后续宿主适配逻辑不得重新写回 application shell。
+
+`WorldRuntimeContextService.backendState()` 接管 `engine.getState()` 的后台状态提取：仍从当前 MVU snapshot 读取，并与空后台结构合并后返回副本。公开 `getState()` 只委托 Runtime Context。与此同时 `saveConfig()` 收口为直接调用 `WorldEngineConfigService.save()`，删除 shell 内已经不可达的 localStorage fallback 实现。
+
+本阶段刻意保留构造器中的 busy / committing / status / lastRequest 等 application 瞬时状态；这些属于 facade 自身运行态，不为缩短文件机械拆 class。

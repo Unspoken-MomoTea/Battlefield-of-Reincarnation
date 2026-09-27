@@ -20,12 +20,18 @@ for(const file of [
   'script/world-engine-src/59-causal-offset-editor.part.js',
   'script/world-engine-src/59-history-memory-editor.part.js',
 ]) assert.equal(fs.existsSync(path.join(root,file)),false,file+' must be deleted after src editor migration');
-const legacyEditors=[
+for(const file of [
   'script/world-engine-src/editor/00-world-mutations.part.js',
   'script/world-engine-src/editor/10-event-editor.part.js',
   'script/world-engine-src/editor/20-person-editor.part.js',
+]) assert.equal(fs.existsSync(path.join(root,file)),false,file+' must be deleted after src editor migration');
+const srcEditors=[
+  'src/WorldEngine/domains/WorldMutationService.part.js',
+  'src/WorldEngine/domains/WorldEventService.part.js',
+  'src/WorldEngine/domains/WorldPersonActivityService.part.js',
+  'src/WorldEngine/ui/WorldEditorController.part.js',
 ].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
-assert.doesNotMatch(legacyEditors,/SamsaraWorldEngine\s*=\s*class/,'manual editor modules must not create more SamsaraWorldEngine inheritance layers');
+assert.doesNotMatch(srcEditors,/SamsaraWorldEngine\s*=\s*class/,'manual editor owners must not create more SamsaraWorldEngine inheritance layers');
 
 const stat={
   世界:{名称:'类化测试世界',时间:'2026年09月26日-晚上',地点:'中央区',稳定:100,后台:emptyState(),势力:{},探索:{},历法:{},法则:[],货币:{},因果轨道:{当前阶段:'测试',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}}},

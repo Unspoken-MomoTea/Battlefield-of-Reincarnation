@@ -79,6 +79,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldRumorRequestFeature.part.js',
     '@src/WorldEngine/domains/WorldNpcAuditPromptFeature.part.js',
     '@src/WorldEngine/prompts/WorldPromptRegistry.part.js',
+    '@src/WorldEngine/prompts/WorldPromptIntegrationService.part.js',
     '@src/WorldEngine/ui/views/WorldOverviewView.part.js',
     '@src/WorldEngine/ui/views/WorldPeopleView.part.js',
     '@src/WorldEngine/ui/views/WorldExplorationView.part.js',

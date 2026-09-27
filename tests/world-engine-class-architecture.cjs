@@ -55,6 +55,7 @@ for(const file of [
 
 
 const foundationSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineFoundation.part.js'),'utf8');
+const basePromptDefaultsSource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldBasePromptDefaults.part.js'),'utf8');
 const configServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineConfigService.part.js'),'utf8');
 const runSchedulerSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldRunScheduler.part.js'),'utf8');
 const applicationShellSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
@@ -150,6 +151,8 @@ const npcAuditPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domai
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
 assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT_WORLD_STATE_FACTORY\.emptyBackend\(\);\}/,'public emptyState seam must remain compatible');
 assert.match(foundationSource,/function\s+worldDateKey\s*\(value\)\s*\{\s*return ACTIVE_WORLD_TIME_POLICY\.key\(value\);\s*\}/,'foundation worldDateKey must be compatibility-only');
+assert.doesNotMatch(foundationSource,/const\s+(?:DEFAULT_PRESET|CORE_WORLD_RULES|DEFAULT_MACRO_PROMPT|DEFAULT_STABILITY_PROMPT_TEMPLATE|BUILTIN_DEFAULT_PROMPT_DOCUMENT)\b/,'editable base prompt defaults must not live in foundation infrastructure');
+for(const name of ['DEFAULT_PRESET','CORE_WORLD_RULES','DEFAULT_MACRO_PROMPT','DEFAULT_STABILITY_PROMPT_TEMPLATE','BUILTIN_DEFAULT_PROMPT_DOCUMENT'])assert.match(basePromptDefaultsSource,new RegExp('(?:const\\s+)?'+name+'\\b'),'base prompt defaults module must own '+name);
 for(const method of ['normalizeDaypartAlias','key','dayKey','hasExactClock'])assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
 for(const method of ['reviewPoint','review','ensureHandled'])assert.match(dueEventPolicySource,new RegExp('\\b'+method+'\\s*\\('),'due event policy must own '+method);
 for(const method of ['semanticRecord','recordMap','counts','requirement','changed','ensureDelivery','repairRequired'])assert.match(worldActivityPolicySource,new RegExp('\\b'+method+'\\s*\\('),'world activity policy must own '+method);

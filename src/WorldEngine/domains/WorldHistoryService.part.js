@@ -1,8 +1,8 @@
     class WorldHistoryService {
-        constructor(engine){this.engine=engine;}
+        constructor(engine,policy=DEFAULT_WORLD_HISTORY_MEMORY_POLICY){this.engine=engine;this.policy=policy||DEFAULT_WORLD_HISTORY_MEMORY_POLICY;}
         project(stat){
             const backend=stat?.世界?.[PATH]||stat||{};
-            return typeof projectWorldHistoryMemory==='function'?projectWorldHistoryMemory(backend):{};
+            return this.policy.project(backend);
         }
         setSendToProse(value){
             if(typeof this.engine.setSendHistoryToProse==='function')return this.engine.setSendHistoryToProse(value);

@@ -244,3 +244,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 已完成：`activation()` 从 `30-context-protocol.part.js` 迁入 `WorldKnowledgeService.activation()`。蓝灯常驻、绿灯主关键词、次要关键词逻辑、强制读取与禁用/空内容判定现在和世界书 catalogue/read 管线属于同一个 class；`worldbook()` 直接调用 service method，不再依赖全局 helper。
 
 `30-context-protocol.part.js` 继续缩小，当前剩余重点是 NPC 构筑审计投影/验收、协议文本兼容以及极少量早期 seam。
+
+
+### Phase 25 · NPC 构筑审计领域归域
+
+已完成：新增 `WorldNpcAuditService`，把 NPC 审计投影、剧情份量定级、热对象筛选、构筑缺口计算与验收反馈从 `30-context-protocol.part.js` / `55-npc-narrative-audit.part.js` / `55-policy-compat.part.js` 收口到一个 canonical domain service。
+
+最终有效规则保持不变：审计级别与生命层级解耦；世界后台已有合法私有审计级别时优先沿用；活跃异端无私有定级时默认首领/Boss级；队友不参与审计；最低构筑按杂兵 1/2/1、精英 1/4/2、Boss 1/6/4 计算，装备只统计状态=1。未补真实缺口时仍返回逐 NPC 的未解决缺口、建议字段和本轮实际提交。
+
+`WorldResultMaterializer` 与 `WorldValidationService` 现在显式组合 container-owned `npcAudit`，不再通过全局审计函数作为主实现。全局 `npcBuildAssessment / npcBuildAudit / ensureNpcBuildAuditProgress` 仅保留 UI、旧 feature 与离线测试兼容转发；`WorldNpcAuditPolicy` 只负责启停、世界书同步和 UI，不再承担审计算法。

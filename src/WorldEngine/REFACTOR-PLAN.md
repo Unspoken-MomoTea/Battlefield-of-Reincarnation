@@ -727,3 +727,12 @@ Phase 66 首次迁移后，`WorldStateIntegrityPolicy.validate()` 多返回了�
 `CURRENCY_FIELDS / CALENDAR_FIELDS / QUALITY_RANKS / RUMOR_CREDIBILITY / INTEL_RATINGS / EXISTING / RELATION_* / WORLD_RESULT_LISTS / WORLD_RESULT_RUMORS / RESULT_OPERATIONS` 的值与加载顺序完全不变，现有 Contract、Normalizer、PatchPolicy、StateIntegrity、RelationSync 与 PatchCompilation 继续消费同一组全局兼容常量。
 
 构建器与架构/模块测试已切换到 Vocabulary 路径，并显式禁止旧 `WorldResultKernel.part.js` 文件重新出现。纯常量不机械包装成空 class；下一步继续评估 Foundation 中仍混合的 UI 主题与通用基础 helper。
+
+
+### Phase 72 · UI 主题目录从 Foundation 抽离
+
+已完成：`WorldEngineFoundation.part.js` 不再保存 UI 主题与字号数据。新增 `src/WorldEngine/ui/WorldThemeCatalog.part.js`，完整承接 `STATUS_THEME_CONFIG / WORLD_UI_THEMES / WORLD_TONE_KEYS / WORLD_UI_THEME_CSS / WORLD_FONT_SCALES`。
+
+本阶段是零行为迁移：六主题色值、浅/深色 scheme、语义 token、主题 CSS 生成方式、共享状态栏主题 localStorage key 与三档字号配置逐字保持不变；CommonJS 导出的 `WORLD_UI_THEMES / WORLD_FONT_SCALES` 也保持原接口。
+
+Theme Catalog 紧跟 Foundation 加载，早于 TokenTelemetry 和后续 UI/runtime consumer。构建 workflow 也显式追踪新文件，避免自动同步交付文件时漏提交源模块。Foundation 现在只剩通用基础 helper、通用运行常量和 IIFE 边界，不再承担视觉配置。

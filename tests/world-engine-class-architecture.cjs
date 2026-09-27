@@ -7,6 +7,7 @@ for(const file of [
   'src/WorldEngine/README.md',
   'src/WorldEngine/ARCHITECTURE.md',
   'src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  'src/WorldEngine/core/WorldHostAdapter.part.js',
   'src/WorldEngine/core/WorldEngineConfigService.part.js',
   'src/WorldEngine/core/WorldRunScheduler.part.js',
   'src/WorldEngine/core/SamsaraWorldEngine.part.js',
@@ -56,6 +57,7 @@ for(const file of [
 
 const foundationSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineFoundation.part.js'),'utf8');
 const basePromptDefaultsSource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldBasePromptDefaults.part.js'),'utf8');
+const hostAdapterSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldHostAdapter.part.js'),'utf8');
 const configServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineConfigService.part.js'),'utf8');
 const runSchedulerSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldRunScheduler.part.js'),'utf8');
 const applicationShellSource=fs.readFileSync(path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),'utf8');
@@ -69,6 +71,10 @@ const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/W
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
 assert.match(applicationShellSource,/class\s+SamsaraWorldEngine\s*\{/,'base application shell must live under src/WorldEngine/core');
+assert.match(hostAdapterSource,/class\s+WorldHostAdapter\s*\{/,'host function resolution must live behind a dedicated adapter');
+assert.match(hostAdapterSource,/resolve\(name\)/,'host adapter must own function resolution');
+assert.match(applicationShellSource,/fn\(name\)\s*\{\s*return this\.hostAdapter\.resolve\(name\);\s*\}/,'application shell fn must remain a host-adapter facade');
+assert.doesNotMatch(applicationShellSource,/for\s*\(const obj of \[this\.env|this\.host\.TavernHelper/,'host function resolution must not grow back into the shell');
 assert.match(configServiceSource,/class\s+WorldEngineConfigService\s*\{/,'configuration initialization must live behind a dedicated src service');
 for(const method of ['isConfigured','isAvailable','isEnabled','setEnabled'])assert.match(configServiceSource,new RegExp('\\b'+method+'\\s*\\('),'configuration service must own '+method);
 assert.match(applicationShellSource,/isConfigured\(\)\{return this\.configService\.isConfigured\(\);\}/,'application shell isConfigured must remain a facade seam');
@@ -94,6 +100,11 @@ assert.match(orchestratorSource,/\bnotifyFailure\s*\(message\)/,'run orchestrato
 for(const method of ['statusTone','syncStatusTone'])assert.match(panelRendererSource,new RegExp('\\b'+method+'\\s*\\('),'panel renderer must own '+method);
 assert.match(applicationShellSource,/applyBuiltinDefaultWorldbookExclusions\(catalogue\)\{const service=this\.services\?\.knowledge\|\|new WorldKnowledgeService\(this\);return service\.applyBuiltinDefaultWorldbookExclusions\(catalogue\);\}/,'worldbook exclusion public seam must delegate to knowledge service');
 assert.match(applicationShellSource,/resetInspection\(\)\{return this\.runOrchestrator\(\)\.resetInspection\(\);\}/,'inspection reset public seam must delegate to run orchestrator');
+const runtimeContextSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRuntimeContextService.part.js'),'utf8');
+assert.match(runtimeContextSource,/backendState\(\)/,'runtime context must own backend state extraction');
+assert.match(applicationShellSource,/getState\(\)\s*\{[\s\S]*?return service\.backendState\(\);[\s\S]*?\}/,'application shell getState must delegate to runtime context');
+assert.doesNotMatch(applicationShellSource,/Object\.assign\(emptyState\(\),this\.snapshot\(\)\.stat/,'backend state extraction must not grow back into the shell');
+assert.match(applicationShellSource,/saveConfig\(\)\s*\{\s*return this\.configService\.save\(\);\s*\}/,'application shell saveConfig must remain a configuration facade');
 assert.match(applicationShellSource,/notifyFailure\(message\)\{return this\.runOrchestrator\(\)\.notifyFailure\(message\);\}/,'failure notification public seam must delegate to run orchestrator');
 assert.match(applicationShellSource,/statusTone\(\)\{return this\.services\?\.panelRenderer\?\.statusTone\?\.\(\)\|\|'night';\}/,'status tone public seam must delegate to panel renderer');
 assert.match(applicationShellSource,/syncStatusTone\(\)\{return this\.services\?\.panelRenderer\?\.syncStatusTone\?\.\(\)\|\|this\.statusTone\(\);\}/,'status tone sync public seam must delegate to panel renderer');
@@ -262,10 +273,11 @@ const host={
 const engine=new Engine(host);
 
 assert.ok(engine.services,'engine must expose a composed service container');
-for(const name of ['runScheduler','applicationLifecycle','panelController','panelRenderer','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
+for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelController','panelRenderer','stateFactory','taskLedger','historyMemory','stateProjector','patchPolicy','timelinePolicy','chronologyPolicy','timePolicy','dueEventPolicy','activityPolicy','softMaintenancePolicy','lifecycle','stateNormalizer','resultContract','resultNormalizer','resultMaterializer','retryGuidance','resultStaging','resultParser','compiler','validationPolicy','validation','commit','mutations','events','people','npcAudit','history','exploration','rumor','requests','transport','promptDocuments','run','views','prompts']){
   assert.ok(engine.services[name],`service container must expose ${name}`);
 }
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
+assert.equal(engine.services.hostAdapter,engine.hostAdapter,'service container must expose the shell-owned host adapter');
 assert.equal(engine.services.runScheduler.constructor.name,'WorldRunScheduler');
 assert.equal(engine.services.runScheduler.engine,engine,'run scheduler must belong to the application engine');
 assert.equal(engine.services.applicationLifecycle.constructor.name,'WorldEngineLifecycleController');

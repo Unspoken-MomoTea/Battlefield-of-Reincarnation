@@ -40,6 +40,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
   'src/WorldEngine/domains/WorldRunOrchestrator.part.js',
   'src/WorldEngine/domains/WorldRequestService.part.js',
+  'src/WorldEngine/prompts/WorldPromptDefaults.part.js',
   'src/WorldEngine/prompts/WorldPromptRegistry.part.js',
 ]){
   assert.ok(fs.existsSync(path.join(root,file)),file+' must exist in the dedicated src/WorldEngine source tree');
@@ -56,8 +57,7 @@ const dueEventPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domai
 const worldActivityPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldActivityPolicy.part.js'),'utf8');
 const softMaintenancePolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldSoftMaintenancePolicy.part.js'),'utf8');
 const retryGuidanceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRetryGuidanceService.part.js'),'utf8');
-const worldTimeLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-time-ownership.part.js'),'utf8');
-const chronologyLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/58-chronology-guard.part.js'),'utf8');
+const promptDefaultsSource=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldPromptDefaults.part.js'),'utf8');
 const resultContractSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultContract.part.js'),'utf8');
 const resultMaterializerSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldResultMaterializer.part.js'),'utf8');
 const contextProtocolSource=fs.readFileSync(path.join(root,'script/world-engine-src/30-context-protocol.part.js'),'utf8');
@@ -66,7 +66,6 @@ const historyMemoryPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/
 const historyServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldHistoryService.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditService.part.js'),'utf8');
-const npcNarrativeCompatSource=fs.readFileSync(path.join(root,'script/world-engine-src/55-npc-narrative-audit.part.js'),'utf8');
 const npcAuditPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditPolicy.part.js'),'utf8');
 assert.doesNotMatch(legacyStateSource,/function\s+emptyState\s*\(/,'empty backend implementation must leave 10-world-state');
 assert.doesNotMatch(legacyStateSource,/function\s+importStory\s*\(/,'story import implementation must leave 10-world-state');
@@ -82,8 +81,7 @@ assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-world-acti
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-due-event-relaxation.part.js')),false,'legacy due-event relaxation module must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/55-policy-compat.part.js')),false,'legacy policy compatibility module must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-world-time-daypart-aliases.part.js')),false,'legacy daypart wrapper must be deleted');
-const integrityLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
-assert.doesNotMatch(integrityLegacySource,/worldDateKey\s*=\s*function|temporalAnomalies\s*=\s*function/,'integrity legacy module must not rewrite time parser or anomaly policy');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js')),false,'legacy integrity prompt shell must be deleted after src prompt migration');
 assert.match(timelinePolicySource,/constructor\(timePolicy=DEFAULT_WORLD_TIME_POLICY\)/,'timeline policy must explicitly compose the canonical time policy');
 assert.match(timelinePolicySource,/\bimportStory\s*\(stat\)/,'timeline policy must own legacy story seeding');
 assert.match(timelinePolicySource,/function\s+importStory\s*\(stat\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.importStory\(stat\);\}/,'public importStory seam must remain compatible');
@@ -98,7 +96,8 @@ assert.match(stateProjectorSource,/world\(stat\)\{return this\.baseWorld\(stat\)
 assert.match(timelinePolicySource,/\bsameTimeAnchor\s*\(a,b\)/,'timeline policy must own compatible world-time anchor comparison');
 assert.match(timelinePolicySource,/function\s+sameWorldTimeAnchor\s*\(a,b\)\s*\{return ACTIVE_WORLD_TIMELINE_POLICY\.sameTimeAnchor\(a,b\);\}/,'public sameWorldTimeAnchor seam must remain compatible');
 for(const method of ['setGuard','compactName','evidenceForEvent','shiftDeclared','validate','retryGuidance'])assert.match(chronologyPolicySource,new RegExp('\\b'+method+'\\s*\\('),'chronology policy must own '+method);
-assert.doesNotMatch(chronologyLegacySource,/ACTIVE_CHRONOLOGY_GUARD|function\s+chronologyCompactName|function\s+chronologyEvidenceForEvent|function\s+chronologyShiftDeclared|function\s+validateChronologyResult|compileWorldResult\s*=\s*function|retryPlanForFailure\s*=\s*function/,'58-chronology-guard must not re-own chronology validation or retry wrappers');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/58-chronology-guard.part.js')),false,'legacy chronology prompt shell must be deleted');
+assert.match(promptDefaultsSource,/const\s+CHRONOLOGY_GUARD_RULES\s*=/,'chronology editable prompt default must live under src/WorldEngine/prompts');
 assert.match(resultMaterializerSource,/事件前因非法自引用/,'canonical materializer validation must own explicit event self-reference rejection');
 assert.match(resultMaterializerSource,/事件前因不存在：'\+name\+' <- '/,'canonical materializer validation must own actionable missing-predecessor feedback');
 assert.match(resultContractSource,/\binstruction\s*\(\)/,'result contract must own editable output protocol instruction');
@@ -111,7 +110,8 @@ assert.match(knowledgeServiceSource,/\bactivation\s*\(entry,scan,force\)/,'knowl
 assert.match(knowledgeServiceSource,/this\.activation\(e,scan,engine\.config\.activationMode==='force_selected'\)/,'worldbook reads must use the service-owned activation policy');
 for(const legacyName of ['projectAuditComponentMap','projectCharacterForAudit','npcBuildText','npcBuildAssessment','npcBuildAudit','ensureNpcBuildAuditProgress'])assert.doesNotMatch(contextProtocolSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 30-context-protocol');
 for(const method of ['projectComponentMap','projectCharacter','buildText','inferNarrativeLevel','narrativeLevel','assessment','audit','normalizeNewEquipment','ensureProgress'])assert.match(npcAuditServiceSource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit service must own '+method);
-assert.doesNotMatch(npcNarrativeCompatSource,/npcBuildAssessment\s*=\s*function|function\s+inferNpcNarrativeAuditLevel|function\s+npcNarrativeAuditLevel|compileWorldResult\s*=\s*function/,'narrative audit compatibility file must not re-own audit or compile policy');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/55-npc-narrative-audit.part.js')),false,'legacy NPC audit prompt shell must be deleted');
+assert.match(promptDefaultsSource,/const\s+NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT\s*=/,'NPC audit editable prompt default must live under src/WorldEngine/prompts');
 for(const method of ['syncDerivedSchemaFields','alignSchemaOrder'])assert.match(npcAuditPolicySource,new RegExp('\\b'+method+'\\s*\\('),'NPC audit policy must own '+method);
 for(const method of ['omitKeys','abilityMap','equipped','carriedItems','forms','character','assets','tailRecord','causalOrbit','baseWorld']){
   assert.match(stateProjectorSource,new RegExp('\\b'+method+'\\s*\\('),'state projector must own '+method);
@@ -131,11 +131,10 @@ for(const method of ['tokens','get','pointer','canonicalizeParts','bootstrapBack
   assert.match(patchPolicySource,new RegExp('\\b'+method+'\\s*\\('),'patch policy must own '+method);
 }
 for(const method of ['clampImpact','offsetText','softNormalizeOffsets','hasWorldScaleEvidence','filterNewOffsetsByWorldScale','prepareResult','staleLocalOffsetRepairs','repairProjection'])assert.match(causalServiceSource,new RegExp('\\b'+method+'\\s*\\('),'causal service must own '+method);
-assert.doesNotMatch(integrityLegacySource,/delete\s+OFFSET_RESULT_SCHEMA\.properties\.影响程度|function\s+softNormalizeCausalOffsets|compileWorldResult\s*=\s*function/,'integrity legacy file must not re-own causal schema or compile policy');
+assert.match(promptDefaultsSource,/const\s+WORLD_INTEGRITY_GUARD_RULES\s*=/,'integrity editable prompt default must live under src/WorldEngine/prompts');
 const personDomainSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPersonActivityService.part.js'),'utf8');
 const taskAwarenessServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTaskAwarenessService.part.js'),'utf8');
 const rumorServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRumorService.part.js'),'utf8');
-const taskAwarenessLegacySource=fs.readFileSync(path.join(root,'script/world-engine-src/57-task-awareness.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-alien-activity-normalization.part.js')),false,'alien compile wrapper file must be removed after service migration');
 for(const legacyName of ['derivePersonWorldContext','projectHotWorldPeople','alienRosterMatch','activeAlienActivityRequirements','seedMissingAlienPeople','ensureActiveAlienActivity']){
   assert.doesNotMatch(legacyStateSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave 10-world-state');
@@ -146,18 +145,19 @@ for(const method of ['deriveContext','projectHot','alienRosterMatch','alienActiv
 for(const method of ['unset','identity','claimsMonthDay','assertCalendarCompatibleWorldResultTimes','inferFromCurrentActivities','resolveProposal','assertNotBackwards','prepareCompile','finalizeCompile']){
   assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
 }
-assert.doesNotMatch(worldTimeLegacySource,/(?:normalizeWorldResult|mergeWorldResults|worldResultFragments|allowed|compileWorldResult)\s*=\s*function|function\s+(?:worldTimeUnset|resolveWorldTimeProposal|assertCalendarCompatibleWorldResultTimes)/,'world time legacy prompt file must not re-own result or compile policy');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/59-world-time-ownership.part.js')),false,'legacy world-time prompt shell must be deleted');
+assert.match(promptDefaultsSource,/const\s+WORLD_TIME_RULES\s*=/,'world-time editable prompt default must live under src/WorldEngine/prompts');
 assert.match(retryGuidanceSource,/class\s+WorldRetryGuidanceService\b/,'retry guidance must live behind a dedicated domain service');
 for(const file of ['56-rumor-liveliness.part.js','59-rumor-throttle.part.js','59-rumor-world-source.part.js','59-rumor-world-request.part.js','59-rumor-world-system.part.js']){
   assert.equal(fs.existsSync(path.join(root,'script/world-engine-src',file)),false,'legacy rumor module must be deleted after service migration: '+file);
 }
-const integritySource=fs.readFileSync(path.join(root,'script/world-engine-src/59-world-integrity-guard.part.js'),'utf8');
-assert.doesNotMatch(integritySource,/retryPlanForFailure\s*=\s*function/,'integrity legacy module must not monkey-patch retryPlanForFailure');
+
 for(const promptName of ['RUMOR_LIVELINESS_RULES','RUMOR_THROTTLE_RULES','RUMOR_WORLD_SOURCE_RULES'])assert.match(rumorServiceSource,new RegExp('const\\s+'+promptName+'\\s*='),'rumor service must own '+promptName);
 assert.match(rumorServiceSource,/\bupgradePreset\s*\(value\)/,'rumor service must own preset migration');
 
 for(const method of ['projectList','validateReferences'])assert.match(taskAwarenessServiceSource,new RegExp('\\b'+method+'\\s*\\('),'task awareness service must own '+method);
-assert.doesNotMatch(taskAwarenessLegacySource,/function\s+projectTaskListForWorld|projectWorldContext\s*=\s*function|compileWorldResult\s*=\s*function/,'57-task-awareness must not re-own projection or compile validation');
+assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/57-task-awareness.part.js')),false,'legacy task-awareness prompt shell must be deleted');
+assert.match(promptDefaultsSource,/const\s+TASK_AWARENESS_RULES\s*=/,'task editable prompt default must live under src/WorldEngine/prompts');
 
 const delivery=require('../script/世界推进系统.js');
 const {SamsaraWorldEngine:Engine,emptyState,RECORDS}=delivery;

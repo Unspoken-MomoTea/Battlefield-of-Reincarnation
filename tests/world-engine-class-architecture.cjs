@@ -63,6 +63,7 @@ const panelControllerSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/W
 const panelRendererSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelRenderer.part.js'),'utf8');
 const promptDocumentServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPromptDocumentService.part.js'),'utf8');
 const orchestratorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRunOrchestrator.part.js'),'utf8');
+const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const promptWorkspaceSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPromptWorkspaceController.part.js'),'utf8');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/40-engine-runtime.part.js')),false,'legacy runtime shell must be deleted');
 assert.equal(fs.existsSync(path.join(root,'script/world-engine-src/50-engine-ui.part.js')),false,'legacy UI shell must be deleted');
@@ -144,7 +145,6 @@ assert.match(stateProjectorSource,/function\s+projectWorldContext\s*\(stat\)\{re
 assert.match(promptDefaultsSource,/const\s+NPC_BUILD_AUDIT_RULES\s*=/,'legacy NPC audit prompt migration default must live under src prompts');
 const historyMemoryPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js'),'utf8');
 const historyServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldHistoryService.part.js'),'utf8');
-const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
 const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditService.part.js'),'utf8');
 const npcAuditPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditPolicy.part.js'),'utf8');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');

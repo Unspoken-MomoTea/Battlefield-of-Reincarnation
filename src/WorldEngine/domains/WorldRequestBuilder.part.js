@@ -1,7 +1,7 @@
     class WorldRequestBuilder {
-        constructor(engine){this.engine=engine;}
+        constructor(engine,proseExtractor=DEFAULT_WORLD_PROSE_EXTRACTOR){this.engine=engine;this.proseExtractor=proseExtractor||DEFAULT_WORLD_PROSE_EXTRACTOR;}
         async build(base){
-            const engine=this.engine;
+            const engine=this.engine,proseExtractor=this.proseExtractor;
             return await (async function(base){
                             const state=copy(base.stat);
                             state.世界[PATH]=Object.assign(emptyState(),state.世界[PATH]||{});
@@ -32,7 +32,7 @@
                             };
                             const floors=messages.filter(m=>Number(m.message_id??m.id)<=id&&isAssistant(m))
                                 .sort((a,b)=>Number(a.message_id??a.id)-Number(b.message_id??b.id))
-                                .map(m=>({楼层:m.message_id??m.id,角色:'assistant',正文:extractWorldProse(m.message??m.mes??'')}))
+                                .map(m=>({楼层:m.message_id??m.id,角色:'assistant',正文:proseExtractor.extract(m.message??m.mes??'')}))
                                 .filter(f=>f.正文).slice(-count);
                             if(!floors.length)throw new Error('未读到可用AI正文：楼层为空或仅含思考、变量更新与面板，请检查聊天内容');
                             const timeline=timelineState(state);

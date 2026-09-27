@@ -343,3 +343,14 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 `WorldStateProjector.baseWorld()` 现在直接输出 `世界.后台.历史记忆`，不再先发送旧 `历史` 热尾巴再由 wrapper 删除；`world()` 直接返回 `baseWorld()`。因此 `projectWorldContext()` 只剩外部兼容入口，不再存在 task/history 加载期 decorator。
 
 本阶段只迁调用边界，不重写分层历史树的纯算法：`projectWorldHistoryMemory / historyMemoryRootsAtLevel / historyMemoryBatchForLevel` 等仍保留在 history-memory 模块供 HistoryService 与 HistoryLifecycle 共用。下一阶段再评估把这批算法整体搬入 `src/WorldEngine/domains`，避免一边迁 seam 一边改压缩语义。
+
+
+### Phase 35 · 历史记忆树算法彻底迁出 legacy
+
+已完成：在 Phase 34 只迁走上下文投影 seam 之后，本阶段新增 `WorldHistoryMemoryPolicy`，把原 `59-history-memory.part.js` 中剩余的全部真实算法迁入 `src/WorldEngine/domains/`：L0 叶子编号与排序、已收纳子项计算、祖先总结失效、各层根节点/压缩批次、总结键生成、辅助模型回复解析、压缩输入生成、历史记忆投影以及并发 digest。
+
+`WorldHistoryService` 与 `WorldHistoryLifecycle` 显式组合 container-owned `historyMemory` policy；`WorldStateProjector` 继续只依赖 HistoryService，fallback 也直接调用默认 policy，不再引用全局 `projectWorldHistoryMemory()`。公开 `projectWorldHistoryMemory / historyMemory* helper` 仅由 src policy 提供兼容转发。
+
+`script/world-engine-src/59-history-memory.part.js` 已从构建清单和源码树直接删除；`HISTORY_MEMORY_SYSTEM` 也随 policy 进入 src，Prompt Registry 的 `historyMemory` 注册项保持不变，因此历史压缩提示词仍在“提示词预设 → 全部实际提示词”中可见、可编辑。
+
+下一批继续清 validation / temporal compatibility seam；legacy 目录只允许删薄或删除，不再新增领域实现。

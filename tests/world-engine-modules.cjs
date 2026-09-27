@@ -20,6 +20,7 @@ for(const moduleName of ['editor/00-world-mutations.part.js','editor/10-event-ed
 }
 for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineFoundation.part.js',
+  '@src/WorldEngine/core/WorldSharedUtilities.part.js',
   '@src/WorldEngine/core/WorldEngineRuntimeConstants.part.js',
   '@src/WorldEngine/ui/WorldThemeCatalog.part.js',
   '@src/WorldEngine/domains/WorldTokenTelemetry.part.js',
@@ -122,6 +123,10 @@ const texts=Object.fromEntries(declared.map(file=>{
 }));
 const assembled=declared.map(file=>texts[file]).join('');
 assert.equal(built,assembled,'script/世界推进系统.js must exactly equal the source parts in build order');
+assert.ok(declared.indexOf('@src/WorldEngine/core/WorldEngineFoundation.part.js')<declared.indexOf('@src/WorldEngine/core/WorldSharedUtilities.part.js'),'shared utilities must load immediately after foundation');
+assert.ok(declared.indexOf('@src/WorldEngine/core/WorldSharedUtilities.part.js')<declared.indexOf('@src/WorldEngine/core/WorldEngineRuntimeConstants.part.js'),'shared utilities must initialize before runtime constants and domain consumers');
+assert.doesNotMatch(texts['@src/WorldEngine/core/WorldEngineFoundation.part.js'],/const\s+(?:copy|plain|same|escape|forbidden)|function\s+digest/,'foundation must remain a pure IIFE boundary');
+assert.match(texts['@src/WorldEngine/core/WorldSharedUtilities.part.js'],/function digest\(text\)/,'shared utilities module must own digest');
 assert.ok(declared.indexOf('@src/WorldEngine/core/WorldEngineFoundation.part.js')<declared.indexOf('@src/WorldEngine/core/WorldEngineRuntimeConstants.part.js'),'runtime constants must load immediately after foundation');
 assert.ok(declared.indexOf('@src/WorldEngine/core/WorldEngineRuntimeConstants.part.js')<declared.indexOf('@src/WorldEngine/ui/WorldThemeCatalog.part.js'),'runtime constants must initialize before theme/runtime consumers');
 assert.doesNotMatch(texts['@src/WorldEngine/core/WorldEngineFoundation.part.js'],/EVENT_TARGET|HOT_PERSON_TARGET|TERMINAL_PERSON_STATUS|samsara_world_engine_v1/,'foundation must not re-own runtime policy constants');

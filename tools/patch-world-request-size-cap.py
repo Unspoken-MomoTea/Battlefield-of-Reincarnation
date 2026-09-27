@@ -4,8 +4,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 SOURCE_FILES = [
     ROOT / 'script' / 'world-engine-src' / '40-engine-runtime.part.js',
-    ROOT / 'script' / 'world-engine-src' / '57-task-awareness.part.js',
-    ROOT / 'script' / 'world-engine-src' / '58-chronology-guard.part.js',
 ]
 TEST_FILE = ROOT / 'tests' / 'world-engine-observability.cjs'
 DOC_FILE = ROOT / 'docs' / '世界引擎V2审计.md'

@@ -59,7 +59,7 @@
             const BlobCtor=engine.host.Blob||(typeof Blob!=='undefined'?Blob:null);
             const URLApi=engine.host.URL||(typeof URL!=='undefined'?URL:null);
             if(!BlobCtor||!URLApi?.createObjectURL)throw new Error('当前环境不支持文件导出');
-            const defaults={corePrompt:CORE_WORLD_RULES,macroPrompt:DEFAULT_MACRO_PROMPT,stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,npcAuditPrompt:NPC_BUILD_AUDIT_RULES,structurePrompt:protocol().split('【Canonical WorldResult JSON Schema】')[0].trim()};
+            const defaults={corePrompt:CORE_WORLD_RULES,macroPrompt:DEFAULT_MACRO_PROMPT,stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,npcAuditPrompt:NPC_BUILD_AUDIT_RULES,structurePrompt:WORLD_RESULT_CONTRACT.instruction()};
             const exportedSettings=Object.assign(defaults,copy(doc.settings));
             if(engine.services?.prompts)exportedSettings.promptRegistry=engine.services.prompts.normalize(exportedSettings.promptRegistry||engine.services.prompts.values());
             const payload={type:'samsara-world-prompt-document',version:3,name:doc.name,exportedAt:new Date().toISOString(),settings:exportedSettings};

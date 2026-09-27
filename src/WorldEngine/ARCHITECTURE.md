@@ -514,3 +514,10 @@ The split preserves the original concatenated byte order. A small worldbook-sele
 `WorldResultPatchCompilationService` owns the full WorldResult-to-patch compilation transaction. It composes the canonical normalizer, time, person, NPC audit, chronology, task, exploration, causal, relation-sync, asset-materialization and patch policies.
 
 `WorldResultMaterializer.compileWorldResult()` is now a compatibility/application facade only. The materializer itself owns final state materialization and repair orchestration, while generic patch execution remains in `WorldPatchApplicationService`.
+
+
+## Phase 69 · State materialization service
+
+`WorldStateMaterializationService` owns final persisted-state assembly after patch compilation: backend default hydration, normalization, lifecycle compaction, seed/model patch ordering, exploration/event/causal/reference repair passes and final integrity validation.
+
+It composes `WorldStateFactory` and `WorldLifecycleService` directly instead of routing through global compatibility helpers. `WorldResultMaterializer` is now a compatibility facade over `WorldResultPatchCompilationService` and `WorldStateMaterializationService`.

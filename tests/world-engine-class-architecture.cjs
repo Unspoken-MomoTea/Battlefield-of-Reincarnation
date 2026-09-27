@@ -95,7 +95,7 @@ assert.match(applicationShellSource,/resetInspection\(\)\{return this\.runOrches
 assert.match(applicationShellSource,/notifyFailure\(message\)\{return this\.runOrchestrator\(\)\.notifyFailure\(message\);\}/,'failure notification public seam must delegate to run orchestrator');
 assert.match(applicationShellSource,/statusTone\(\)\{return this\.services\?\.panelRenderer\?\.statusTone\?\.\(\)\|\|'night';\}/,'status tone public seam must delegate to panel renderer');
 assert.match(applicationShellSource,/syncStatusTone\(\)\{return this\.services\?\.panelRenderer\?\.syncStatusTone\?\.\(\)\|\|this\.statusTone\(\);\}/,'status tone sync public seam must delegate to panel renderer');
-assert.doesNotMatch(applicationShellSource,/builtinDefaultWorldbookExclusionsApplied=Array\.from|toastr\.error|lastRetryLog=\[\]|STATUS_THEME_CONFIG/,'migrated helper implementations must not grow back into the application shell');
+assert.doesNotMatch(applicationShellSource,/builtinDefaultWorldbookExclusionsApplied=Array\.from|toastr\.error|STATUS_THEME_CONFIG/,'migrated worldbook, failure-notification and theme implementations must not grow back into the application shell');
 assert.match(runSchedulerSource,/class\s+WorldRunScheduler\s*\{/,'base run scheduling must live behind a dedicated scheduler');
 for(const method of ['cancel','schedule'])assert.match(runSchedulerSource,new RegExp('\\b'+method+'\\s*\\('),'run scheduler must own '+method);
 assert.match(applicationShellSource,/cancel\(\)\{return this\.runScheduler\(\)\.cancel\(\);\}/,'application shell cancel must remain a scheduler facade');

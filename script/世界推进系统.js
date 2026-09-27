@@ -812,7 +812,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         retryGuidance(error,rejected=[]) {
             const messages=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
             if(!/宏观节点日期(?:未服从|与).*原著\/数据库时间锚点/.test(messages))return '';
-            return '宏观时间轴：只纠正已明确到日的原著/数据库日期冲突；重新沿用该日期。不要顺带把仅有月份、时段或先后顺序的节点强行精确到日，后者按原著节奏保守留白即可。';
+            return DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE.format('retryGuideChronology');
         }
     }
 
@@ -2794,15 +2794,107 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function validateState(stat){return ACTIVE_WORLD_RESULT_MATERIALIZER.validateBaseState(stat);}
     function applyPatches(stat,patches){return ACTIVE_WORLD_RESULT_MATERIALIZER.applyPatches(stat,patches);}
     function materializeWorldUpdate(stat,seedPatches,modelPatches){return ACTIVE_WORLD_RESULT_MATERIALIZER.materializeWorldUpdate(stat,seedPatches,modelPatches);}
+    const WORLD_RETRY_GUIDANCE_DEFAULTS=Object.freeze({
+        retryGuideMacroBackbone:'宏观骨架：当前可推进宏观节点{current}个（进行中{active}、待发生{future}），还需补充至少{missing}个真正的宏观节点；已确认正在发生的阶段转折可记进行中，其余新增节点记待发生。会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。',
+        retryGuideEventDelivery:'事件交付：在 WorldResult.事件 中实际建立节点，分类=宏观节点；描述说明篇章、地区整体局势、战争、势力格局或关键人物命运的一个阶段转折，不能只在摘要或因果轨道里列名字。已有合格节点沿用原名，只提交缺失或变化字段。',
+        retryGuideMacroSchedule:'宏观排期：每个新增节点必须给出明确时间锚点；沿用明确资料的日期或时间精度，精确日期未知时使用可理解的相对/因果时间，不写近期/稍后/未来/待定/未知。条件按需填写。前因只能引用已存在，或本轮同时提交且成功建立的事件名称；无明确前因使用 []，不得用当前阶段或自然语言原因代替事件名。',
+        retryGuideCausalProjection:'因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序；只使用最终3~5个仍可推进且 分类=宏观节点 的不同事件名称，且每个名称都必须对应已建立且未取消的宏观节点；不要写当前阶段、当前事件或近期节点。',
+        retryGuideDueEvent:'到期事件/{name}：本轮必须明确启动该事件，或更新本轮复核日期、阻碍条件与下次检查。',
+        retryGuideEventTime:'事件/{name}：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。',
+        retryGuideStaleEvent:'事件/{name}：该局部活动已远超正常持续窗口。若实际早已结束则改为已完成并补结果；若失效则已取消；只有确实仍持续时才保留进行中，并把更新时间写为当前世界时间、更新当前描述并填写下次检查。',
+        retryGuideTemporalRepair:'时间一致性：修复这些已经发生的记录，任何已完成/进行中事件、人物更新时间、地区已发生变化、历史与传播都不得晚于当前世界时间：{details}',
+        retryGuideAlienActivity:'异端活动/{name}：仅对本轮触发复核的该活跃异端补写地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡，则只更新异端状态=死亡，不再提交人物活动。',
+        retryGuideNpcAudit:'NPC构筑审计/{name}：只在 WorldResult.关系 中补齐该既有NPC至少一个列出的构筑缺口；优先补职业/血统/装备/技能/状态/形态或缺失档案字段，不得新建NPC、改HP_MAX/EP_MAX或输出真属性/最终属性。',
+        retryGuideChronology:'宏观时间轴：只纠正已明确到日的原著/数据库日期冲突；重新沿用该日期。不要顺带把仅有月份、时段或先后顺序的节点强行精确到日，后者按原著节奏保守留白即可。',
+        retryGuidePredecessor:'事件前因：先修复链首缺失或自引用，再重新提交受影响的后继节点。前因数组只放事件名称，且须已存在或同轮成功建立；当前阶段/自然语言原因不算事件，无明确前因写 []。不得为消除报错凭空补造事件。',
+        retryGuideSchemaMismatch:'Schema纠错：只修报错路径中的业务字段；真属性/最终属性/强化属于后台派生缓存，模型不得补写，这类派生差异由程序吸收。',
+        retryGuideRumorEmpty:'传闻维护：{details}。空分类本轮补2条真实世界信息；三类各自展示最近3条，约60字/条，不要无依据围绕<user>。',
+        retryGuidePropagationReview:'传播维护：{details}。逐条更新到当前世界时间，并推进范围/受众/内容/引发行动；若传播已结束则结束或移除，不要原样重交。',
+        retryGuideTemporalIntegrity:'时间一致性：事件/地区/历史/传播只把“跨到未来自然日”视为硬越界，同日不同上午/下午/HH:mm无需回写；人物只有双方均明确 HH:mm 时才做分钟级校验。未来计划放预计结束、下次检查或待发生事件。',
+        retryGuideWorldActivity:'世界活动：先推进非异端世界，再复核异端。至少提交一项进行中事件、势力/地区或普通人物的实质变化；只改更新时间、复述原值或新增未来宏观节点不算。',
+        retryGuideWorldScene:'世界现场：若势力地区为空，建立与当前地点/阶段直接相关的地区；若势力为空，选一个当前真正参与局势的真实势力/组织，同名提交 WorldResult.势力 与 WorldResult.势力地区(类型=势力)，不要编造与资料无关的组织。',
+        retryGuideCurrentReality:'当前现实：若没有进行中的当前事件/近期节点，从当前阶段与最新正文提炼一个“已经正在发生”的现实局势；不要把未来宏观节点提前结算。'
+    });
+
+    class WorldRetryGuidanceService {
+        constructor(engine=null){this.engine=engine;}
+
+        template(key) {
+            const configured=this.engine?.services?.prompts?.value?.(key);
+            if(typeof configured==='string')return configured;
+            return String(WORLD_RETRY_GUIDANCE_DEFAULTS[key]??'');
+        }
+
+        format(key,vars={}) {
+            let text=this.template(key);
+            for(const [name,value] of Object.entries(vars||{}))text=text.split('{'+name+'}').join(String(value??''));
+            return text;
+        }
+
+        macroBackbonePlan(current,active,future) {
+            const missing=Math.max(0,3-current);
+            return [
+                this.format('retryGuideMacroBackbone',{current,active,future,missing}),
+                this.format('retryGuideEventDelivery'),
+                this.format('retryGuideMacroSchedule'),
+                this.format('retryGuideCausalProjection')
+            ].filter(Boolean);
+        }
+
+        plan(error,rejected=[]) {
+            const plan=[];
+            for(const item of rejected||[])plan.push(String(item?.片段||'')+'：'+String(item?.原因||''));
+            const primary=String(error?.message||error||'');
+            const combined=[primary,...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
+            let match=primary.match(/宏观事件不足：需要至少3个可推进宏观节点（进行中\+待发生），当前仅(\d+)个（进行中(\d+)个，待发生(\d+)个）/);
+            if(match){
+                const current=Math.max(0,Number(match[1])||0),active=Math.max(0,Number(match[2])||0),future=Math.max(0,Number(match[3])||0);
+                plan.push(...this.macroBackbonePlan(current,active,future));
+            }else if(/因果轨道未形成有效宏观投影/.test(primary)){
+                plan.push(this.format('retryGuideCausalProjection'));
+            }else if((match=primary.match(/到期事件未处理：([^。]+)/))){
+                plan.push(this.format('retryGuideDueEvent',{name:match[1]}));
+            }else if((match=primary.match(/事件时间锚点缺失或过于模糊：([^；]+)/))){
+                plan.push(this.format('retryGuideEventTime',{name:match[1]}));
+            }else if((match=primary.match(/事件时间锚点仍未补全：([^；]+)/))){
+                for(const name of match[1].split('、').filter(Boolean))plan.push(this.format('retryGuideEventTime',{name}));
+            }else if((match=primary.match(/超期活动事件仍未复核：([^；]+)/))){
+                for(const name of match[1].split('、').filter(Boolean))plan.push(this.format('retryGuideStaleEvent',{name}));
+            }else if((match=primary.match(/时间越界记录仍未修复：([^；]+)/))){
+                plan.push(this.format('retryGuideTemporalRepair',{details:match[1]}));
+            }else if((match=primary.match(/异端活动未复核：([^；]+)/))){
+                for(const name of match[1].split('、').filter(Boolean))plan.push(this.format('retryGuideAlienActivity',{name}));
+            }else if((match=primary.match(/NPC构筑审计未推进：([^；]+)/))){
+                for(const name of match[1].split('、').filter(Boolean))plan.push(this.format('retryGuideNpcAudit',{name}));
+            }else if(primary&&!rejected.length){
+                plan.push('整体校验：'+primary);
+            }
+
+            if(/宏观节点日期(?:未服从|与).*原著\/数据库时间锚点/.test(combined))plan.unshift(this.format('retryGuideChronology'));
+            if(/事件前因(?:不存在|非法自引用)/.test(combined))plan.push(this.format('retryGuidePredecessor'));
+            if(/字段未通过完整 Schema 校验/.test(combined))plan.push(this.format('retryGuideSchemaMismatch'));
+            if((match=combined.match(/传闻为空未补足：([^；\n]+)/)))plan.push(this.format('retryGuideRumorEmpty',{details:match[1]}));
+            if((match=combined.match(/传播链仍未复核：([^；\n]+)/)))plan.push(this.format('retryGuidePropagationReview',{details:match[1]}));
+            if(/时间事实超过当前世界时间|时间越界记录仍未修复/.test(combined))plan.unshift(this.format('retryGuideTemporalIntegrity'));
+            if(/世界活动不足：/.test(primary))plan.unshift(
+                this.format('retryGuideWorldActivity'),
+                this.format('retryGuideWorldScene'),
+                this.format('retryGuideCurrentReality')
+            );
+            return Array.from(new Set(plan.filter(Boolean)));
+        }
+    }
+
+    const DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE=new WorldRetryGuidanceService();
     class WorldResultStagingService {
-        constructor(normalizer,materializer,chronology){
+        constructor(normalizer,materializer,chronology,retryGuidance){
             this.normalizer=normalizer||DEFAULT_WORLD_RESULT_NORMALIZER;
             this.materializer=materializer||DEFAULT_WORLD_RESULT_MATERIALIZER;
             this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;
+            this.retryGuidance=retryGuidance||DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE;
         }
 
-        // Retry-plan calls still traverse the compatibility seam because a few legacy modules only add domain-specific retry guidance.
-        // Result normalization, merge, fragment splitting and compilation are canonical class calls.
+        // Result normalization, merge, fragment splitting, compilation and retry planning are canonical class calls.
 
         worldResultFragments(value) {
             const result=this.normalizer.normalizeWorldResult(value),fragments=[];
@@ -2888,46 +2980,13 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         // 首次请求与纠错共用同一份交付标准，避免模型失败后才知道宏观骨架的硬要求。
 
         macroBackbonePlan(current,active,future) {
-            const missing=Math.max(0,3-current);
-            return [
-                '宏观骨架：当前可推进宏观节点'+current+'个（进行中'+active+'、待发生'+future+'），还需补充至少'+missing+'个真正的宏观节点；已确认正在发生的阶段转折可记进行中，其余新增节点记待发生。会合、撤离、赶路、局部争夺/突破等近期节点不计入宏观骨架，不要反复把它们改标为宏观节点。',
-                '事件交付：在 WorldResult.事件 中实际建立节点，分类=宏观节点；描述说明篇章、地区整体局势、战争、势力格局或关键人物命运的一个阶段转折，不能只在摘要或因果轨道里列名字。已有合格节点沿用原名，只提交缺失或变化字段。',
-                '宏观排期：每个新增节点必须给出明确时间锚点；沿用明确资料的日期或时间精度，精确日期未知时使用可理解的相对/因果时间，不写近期/稍后/未来/待定/未知。条件按需填写。前因只能引用已存在，或本轮同时提交且成功建立的事件名称；无明确前因使用 []，不得用当前阶段或自然语言原因代替事件名。',
-                '因果轨道：在保留已接受宏观节点的基础上，补写 因果.宏观顺序；只使用最终3~5个仍可推进且 分类=宏观节点 的不同事件名称，不要写当前阶段、当前事件或近期节点。'
-            ];
+            return this.retryGuidance.macroBackbonePlan(current,active,future);
         }
 
         retryPlanForFailure(error,rejected=[]) {
-            const plan=[];
-            for(const item of rejected||[])plan.push(item.片段+'：'+item.原因);
-            const message=String(error?.message||error||'');
-            let match=message.match(/宏观事件不足：需要至少3个可推进宏观节点（进行中\+待发生），当前仅(\d+)个（进行中(\d+)个，待发生(\d+)个）/);
-            if(match){
-                const current=Math.max(0,Number(match[1])||0),active=Math.max(0,Number(match[2])||0),future=Math.max(0,Number(match[3])||0);
-                plan.push(...this.macroBackbonePlan(current,active,future));
-            }else if(/因果轨道未形成有效宏观投影/.test(message)){
-                plan.push('因果轨道：不要重写已接受事件，只补写 因果.宏观顺序；长度必须3~5，且每个名称都必须对应已建立且未取消的宏观节点。');
-            }else if((match=message.match(/到期事件未处理：([^。]+)/))){
-                plan.push('到期事件/'+match[1]+'：本轮必须明确启动该事件，或更新本轮复核日期、阻碍条件与下次检查。');
-            }else if((match=message.match(/事件时间锚点缺失或过于模糊：([^；]+)/))){
-                plan.push('事件/'+match[1]+'：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。');
-            }else if((match=message.match(/事件时间锚点仍未补全：([^；]+)/))){
-                for(const name of match[1].split('、').filter(Boolean))plan.push('事件/'+name+'：补写明确时间锚点；优先具体世界日期/时段，精确日期未知时写相对或因果时间，禁止空值和“近期/稍后/未来/待定/未知”。');
-            }else if((match=message.match(/超期活动事件仍未复核：([^；]+)/))){
-                for(const name of match[1].split('、').filter(Boolean))plan.push('事件/'+name+'：该局部活动已远超正常持续窗口。若实际早已结束则改为已完成并补结果；若失效则已取消；只有确实仍持续时才保留进行中，并把更新时间写为当前世界时间、更新当前描述并填写下次检查。');
-            }else if((match=message.match(/时间越界记录仍未修复：([^；]+)/))){
-                plan.push('时间一致性：修复这些已经发生的记录，任何已完成/进行中事件、人物更新时间、地区已发生变化、历史与传播都不得晚于当前世界时间：'+match[1]);
-            }else if((match=message.match(/异端活动未复核：([^；]+)/))){
-                for(const name of match[1].split('、').filter(Boolean))plan.push('异端活动/'+name+'：仅对本轮触发复核的该活跃异端补写地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡，则只更新异端状态=死亡，不再提交人物活动。');
-            }else if((match=message.match(/NPC构筑审计未推进：([^；]+)/))){
-                for(const name of match[1].split('、').filter(Boolean))plan.push('NPC构筑审计/'+name+'：只在 WorldResult.关系 中补齐该既有NPC至少一个列出的构筑缺口；优先补职业/血统/装备/技能/状态/形态或缺失档案字段，不得新建NPC、改HP_MAX/EP_MAX或输出真属性/最终属性。');
-            }else if(message&&!rejected.length){
-                plan.push('整体校验：'+message);
-            }
-            const chronologyGuidance=this.chronology.retryGuidance(error,rejected);
-            if(chronologyGuidance)plan.unshift(chronologyGuidance);
-            return Array.from(new Set(plan.filter(Boolean)));
+            return this.retryGuidance.plan(error,rejected);
         }
+
         // UI 和模型请求共用去重视图；原始分片仍保留在日志，未知错误不截断。
 
         retryFeedback(error,rejected=[],plans=[]) {
@@ -2952,12 +3011,15 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             if(rejected?.length)reasons.push('部分业务片段未通过（'+rejected.length+'项）');
             if(globalError)reasons.push(String(globalError.message||globalError));
             const error=new Error(reasons.join('；')||'WorldResult 未通过业务校验');
-            error.retryPlan=retryPlanForFailure(globalError,rejected);
+            error.retryPlan=this.retryPlanForFailure(globalError,rejected);
             error.rejectedSlices=copy(rejected||[]);
+            const feedback=this.retryFeedback(error,rejected,error.retryPlan);
+            error.retryPlan=feedback.actions;
+            if(feedback.issues.length)error.message=feedback.summary+'\n\n具体原因\n'+feedback.issues.join('\n');
             return error;
         }
     }
-    const DEFAULT_WORLD_RESULT_STAGING=new WorldResultStagingService(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_RESULT_MATERIALIZER,DEFAULT_WORLD_CHRONOLOGY_POLICY);
+    const DEFAULT_WORLD_RESULT_STAGING=new WorldResultStagingService(DEFAULT_WORLD_RESULT_NORMALIZER,DEFAULT_WORLD_RESULT_MATERIALIZER,DEFAULT_WORLD_CHRONOLOGY_POLICY,DEFAULT_WORLD_RETRY_GUIDANCE_SERVICE);
     let ACTIVE_WORLD_RESULT_STAGING=DEFAULT_WORLD_RESULT_STAGING;
     function worldResultFragments(value){return ACTIVE_WORLD_RESULT_STAGING.worldResultFragments(value);}
     function stageWorldResult(stat,accepted,incoming,validate){return ACTIVE_WORLD_RESULT_STAGING.stage(stat,accepted,incoming,validate);}
@@ -4401,7 +4463,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             if (this.mount) this.mount.remove();
         }
     }
-    // NPC 审计启停由 WorldNpcAuditPolicy 写入 canonical service flag；本层只保留 Schema 派生缓存与通用纠错兼容。
+    // NPC 审计启停、Schema 派生缓存对齐与纠错 guidance 均已迁入 canonical class/service；本层只保留事件前因兼容校验。
     const validateStateBeforeActionableEventRefs=validateState;
     validateState=function(stat) {
         const events=stat?.世界?.[PATH]?.事件||{};
@@ -4416,54 +4478,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         return validateStateBeforeActionableEventRefs(stat);
     };
 
-    const retryPlanBeforeActionableEventRefs=retryPlanForFailure;
-    retryPlanForFailure=function(error,rejected=[]) {
-        const messages=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
-        const plan=retryPlanBeforeActionableEventRefs(error,rejected).map(line=>String(line)
-            .replace('且每个名称都必须对应已建立且未取消的宏观节点。','且每个名称都必须对应已建立且未取消的宏观节点；不要写当前阶段、当前事件或近期节点。'));
-        if(/事件前因(?:不存在|非法自引用)/.test(messages))plan.push('事件前因：先修复链首缺失或自引用，再重新提交受影响的后继节点。前因数组只放事件名称，且须已存在或同轮成功建立；当前阶段/自然语言原因不算事件，无明确前因写 []。不得为消除报错凭空补造事件。');
-        if(/字段未通过完整 Schema 校验/.test(messages))plan.push('Schema纠错：只修报错路径中的业务字段；真属性/最终属性/强化属于后台派生缓存，模型不得补写，这类派生差异由程序吸收。');
-        return Array.from(new Set(plan.filter(Boolean)));
-    };
-
-    const makeRetryFailureBeforeConcreteReasons=makeRetryFailure;
-    makeRetryFailure=function(rejected,globalError) {
-        const error=makeRetryFailureBeforeConcreteReasons(rejected,globalError);
-        const feedback=retryFeedback(error,rejected,error.retryPlan);
-        error.retryPlan=feedback.actions;
-        if(feedback.issues.length)error.message=feedback.summary+'\n\n具体原因\n'+feedback.issues.join('\n');
-        return error;
-    };
-
-    const WORLD_STATE_DERIVED_SCHEMA_KEYS=new Set(['真属性','最终属性','强化']);
-    function syncWorldStateDerivedSchemaFields(target,checked) {
-        if(Array.isArray(target)&&Array.isArray(checked)){
-            const count=Math.min(target.length,checked.length);
-            for(let i=0;i<count;i++)syncWorldStateDerivedSchemaFields(target[i],checked[i]);
-            return;
-        }
-        if(!plain(target)||!plain(checked))return;
-        for(const key of WORLD_STATE_DERIVED_SCHEMA_KEYS){
-            if(Object.hasOwn(checked,key))target[key]=checked[key]===undefined?undefined:copy(checked[key]);
-            else if(Object.hasOwn(target,key))delete target[key];
-        }
-        for(const key of Object.keys(checked)){
-            if(WORLD_STATE_DERIVED_SCHEMA_KEYS.has(key)||!Object.hasOwn(target,key))continue;
-            syncWorldStateDerivedSchemaFields(target[key],checked[key]);
-        }
-    }
-    function alignWorldStateSchemaOrder(checked,target) {
-        if(Array.isArray(checked))return checked.map((value,index)=>alignWorldStateSchemaOrder(value,Array.isArray(target)?target[index]:undefined));
-        if(plain(checked)&&plain(target)){
-            const out={};
-            for(const key of Object.keys(target))if(Object.hasOwn(checked,key))out[key]=alignWorldStateSchemaOrder(checked[key],target[key]);
-            for(const key of Object.keys(checked))if(!Object.hasOwn(out,key))out[key]=alignWorldStateSchemaOrder(checked[key],target[key]);
-            return out;
-        }
-        return checked;
-    }
-
-    // NPC 审计开关、资料同步与 UI 由 WorldNpcAuditPolicy 处理。\n    // NPC 构筑份量与生命层级解耦：份量由人物资料中的剧情定位决定，层级只描述本体强度。
+    // 事件前因与 Schema 纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // ZOD 派生缓存对齐已迁移至 WorldNpcAuditPolicy。\n\n    // NPC 审计开关、资料同步与 UI 由 WorldNpcAuditPolicy 处理。\n    // NPC 构筑份量与生命层级解耦：份量由人物资料中的剧情定位决定，层级只描述本体强度。
     const NPC_BUILD_AUDIT_RULES_NARRATIVE_WEIGHT=`【角色管理 · NPC构筑审计】
 只处理“角色管理.NPC构筑审计”列出的既有 NPC；目标是补真实缺口，不是提难度、改层级或重做角色。
 1. 审计级别与人物层级独立，是世界推进私有信息，只允许保存在“世界.后台.人物.审计级别”，禁止写入关系列表/NPC公开面板。新建的非队友NPC首次进入后台人物时，由你按剧情身份、叙事地位、已演出能力与遭遇需求填写杂兵级/精英级/首领/Boss级；活跃异端首次建档默认首领/Boss级；队友不定级、不参与NPC构筑审计。
@@ -4617,17 +4632,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         ensureRumorLiveliness(next,ACTIVE_RUMOR_MAINTENANCE);
     };
 
-    const retryPlanBeforeRumorLiveliness=retryPlanForFailure;
-    retryPlanForFailure=function(error,rejected=[]) {
-        const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
-        const plan=retryPlanBeforeRumorLiveliness(error,rejected).slice();
-        let match;
-        if((match=message.match(/传闻为空未补足：([^；\n]+)/)))plan.push('传闻维护：'+match[1]+'。空分类本轮补2条真实世界信息；三类各自展示最近3条，约60字/条，不要无依据围绕<user>。');
-        if((match=message.match(/传播链仍未复核：([^；\n]+)/)))plan.push('传播维护：'+match[1]+'。逐条更新到当前世界时间，并推进范围/受众/内容/引发行动；若传播已结束则结束或移除，不要原样重交。');
-        return Array.from(new Set(plan.filter(Boolean)));
-    };
-
-    // 传闻请求与 run 生命周期已迁移至 WorldRumorRequestFeature。
+    // 传闻与传播纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // 传闻请求与 run 生命周期已迁移至 WorldRumorRequestFeature。
     // 任务感知层：任务.列表是现有 MVU 的唯一正式任务账簿；世界引擎只读消费，不建立第二套后台任务库。
     const TASK_AWARENESS_RULES=`【任务感知 · 只读】
 任务列表是世界因果来源之一。世界推进不得创建、删除或修改任务，也不得推进任务状态、交付、结算或奖励；任务影响只通过事件、人物行动、势力地区、探索与传播表现。事件可用“关联任务”引用当前任务.列表中已存在的任务名，作为因果来源；禁止引用不存在的任务。
@@ -4795,15 +4800,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     // 因果偏移软归一化与世界尺度过滤已迁移至 WorldCausalService。
 
-    const retryPlanBeforeIntegrityGuard=retryPlanForFailure;
-    retryPlanForFailure=function(error,rejected=[]) {
-        const plan=retryPlanBeforeIntegrityGuard(error,rejected).slice();
-        const message=[String(error?.message||error||''),...(rejected||[]).map(item=>String(item?.原因||''))].join('\n');
-        if(/时间事实超过当前世界时间|时间越界记录仍未修复/.test(message))plan.unshift('时间一致性：事件/地区/历史/传播只把“跨到未来自然日”视为硬越界，同日不同上午/下午/HH:mm无需回写；人物只有双方均明确 HH:mm 时才做分钟级校验。未来计划放预计结束、下次检查或待发生事件。');
-        return Array.from(new Set(plan.filter(Boolean)));
-    };
-
-    // 请求 manifest / system 装饰已迁移至 WorldIntegrityRequestFeature + WorldPromptRegistry。
+    // 时间一致性纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // 请求 manifest / system 装饰已迁移至 WorldIntegrityRequestFeature + WorldPromptRegistry。
     // 世界时间段别名兼容：自然语言同义词先归一化，再交给统一时间比较器。
     // 只处理明确属于同一日内时段的别名；“午夜”等跨日语义不在这里猜测。
     const WORLD_DAYPART_ALIASES=Object.freeze({
@@ -5241,20 +5238,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         ensureWorldActivityDelivery(next,timeline?.世界活动要求);
     };
 
-    const retryPlanForFailureBeforeWorldActivityDelivery=retryPlanForFailure;
-    retryPlanForFailure=function(error,rejected=[]) {
-        const plan=retryPlanForFailureBeforeWorldActivityDelivery(error,rejected),message=String(error?.message||error||'');
-        if(/世界活动不足：/.test(message)){
-            plan.unshift(
-                '世界活动：先推进非异端世界，再复核异端。至少提交一项进行中事件、势力/地区或普通人物的实质变化；只改更新时间、复述原值或新增未来宏观节点不算。',
-                '世界现场：若势力地区为空，建立与当前地点/阶段直接相关的地区；若势力为空，选一个当前真正参与局势的真实势力/组织，同名提交 WorldResult.势力 与 WorldResult.势力地区(类型=势力)，不要编造与资料无关的组织。',
-                '当前现实：若没有进行中的当前事件/近期节点，从当前阶段与最新正文提炼一个“已经正在发生”的现实局势；不要把未来宏观节点提前结算。'
-            );
-        }
-        return Array.from(new Set(plan.filter(Boolean)));
-    };
-
-    // 请求 payload/timeline/manifest 装饰已迁移至 WorldActivityRequestFeature。
+    // 世界活动纠错动作已迁移至 WorldRetryGuidanceService。\n\n    // 请求 payload/timeline/manifest 装饰已迁移至 WorldActivityRequestFeature。
     // 主面板只保留最新因果摘要；完整偏移、故事线、干涉模式、法则与经济资料进入独立“因果档案”页。
     // 资产与传闻仍由世界引擎维护数据，但玩家侧由状态栏承载，因此不在世界推进面板重复展示。
     const CAUSAL_OVERVIEW_LIMIT=3;
@@ -7042,14 +7026,42 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             e.render(true);return e.config.npcBuildAuditEnabled;
         }
         async afterBuildRequest(request){this.sync();return request;}
+        syncDerivedSchemaFields(target,checked) {
+            const derived=new Set(['真属性','最终属性','强化']);
+            if(Array.isArray(target)&&Array.isArray(checked)){
+                const count=Math.min(target.length,checked.length);
+                for(let i=0;i<count;i++)this.syncDerivedSchemaFields(target[i],checked[i]);
+                return;
+            }
+            if(!plain(target)||!plain(checked))return;
+            for(const key of derived){
+                if(Object.hasOwn(checked,key))target[key]=checked[key]===undefined?undefined:copy(checked[key]);
+                else if(Object.hasOwn(target,key))delete target[key];
+            }
+            for(const key of Object.keys(checked)){
+                if(derived.has(key)||!Object.hasOwn(target,key))continue;
+                this.syncDerivedSchemaFields(target[key],checked[key]);
+            }
+        }
+        alignSchemaOrder(checked,target) {
+            if(Array.isArray(checked))return checked.map((value,index)=>this.alignSchemaOrder(value,Array.isArray(target)?target[index]:undefined));
+            if(plain(checked)&&plain(target)){
+                const out={};
+                for(const key of Object.keys(target))if(Object.hasOwn(checked,key))out[key]=this.alignSchemaOrder(checked[key],target[key]);
+                for(const key of Object.keys(checked))if(!Object.hasOwn(out,key))out[key]=this.alignSchemaOrder(checked[key],target[key]);
+                return out;
+            }
+            return checked;
+        }
         async aroundRun(next){
             const e=this.engine;this.sync();
             const samsara=e.host&&e.host.Samsara,validate=samsara&&samsara.validateWorldState;
             if(typeof validate!=='function')return next();
+            const policy=this;
             const wrapped=function(stat){
                 const checked=validate.call(samsara,stat);
-                syncWorldStateDerivedSchemaFields(stat,checked);
-                return alignWorldStateSchemaOrder(checked,stat);
+                policy.syncDerivedSchemaFields(stat,checked);
+                return policy.alignSchemaOrder(checked,stat);
             };
             samsara.validateWorldState=wrapped;
             try{return await next();}
@@ -7519,6 +7531,25 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'59-world-activity-delivery.part.js / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
                 def({key:'worldTimeInputGuidance',title:'世界时间维护 · 请求内指令',group:'请求内指令',source:'WorldTimeOwnershipFeature / 世界时间维护',scope:'user payload JSON',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_TIME_INPUT}),
                 def({key:'historyInputGuidance',title:'历史压缩输入说明',group:'辅助模型',source:'historyMemoryPrompt()',scope:'user payload',condition:'历史记忆达到自动压缩阈值时',defaultValue:()=>WORLD_PROMPT_HISTORY_INPUT}),
+                def({key:'retryGuideMacroBackbone',title:'纠错动作 · 宏观骨架数量',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'宏观事件不足时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideMacroBackbone}),
+                def({key:'retryGuideEventDelivery',title:'纠错动作 · 宏观事件交付',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'宏观事件不足时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideEventDelivery}),
+                def({key:'retryGuideMacroSchedule',title:'纠错动作 · 宏观排期',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'宏观事件不足时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideMacroSchedule}),
+                def({key:'retryGuideCausalProjection',title:'纠错动作 · 因果轨道投影',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'宏观骨架投影无效时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideCausalProjection}),
+                def({key:'retryGuideDueEvent',title:'纠错动作 · 到期事件',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'到期事件未处理时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideDueEvent}),
+                def({key:'retryGuideEventTime',title:'纠错动作 · 事件时间',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'事件时间锚点缺失时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideEventTime}),
+                def({key:'retryGuideStaleEvent',title:'纠错动作 · 超期活动事件',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'活动事件长期未复核时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideStaleEvent}),
+                def({key:'retryGuideTemporalRepair',title:'纠错动作 · 时间越界修复',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'时间越界记录未修复时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideTemporalRepair}),
+                def({key:'retryGuideAlienActivity',title:'纠错动作 · 异端活动',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'异端活动未复核时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideAlienActivity}),
+                def({key:'retryGuideNpcAudit',title:'纠错动作 · NPC 构筑审计',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'NPC 构筑未推进时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideNpcAudit}),
+                def({key:'retryGuideChronology',title:'纠错动作 · 原著时间轴',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'明确日期与原著/数据库冲突时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideChronology}),
+                def({key:'retryGuidePredecessor',title:'纠错动作 · 事件前因',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'事件前因缺失或自引用时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuidePredecessor}),
+                def({key:'retryGuideSchemaMismatch',title:'纠错动作 · Schema 差异',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'完整 Schema 校验失败时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideSchemaMismatch}),
+                def({key:'retryGuideRumorEmpty',title:'纠错动作 · 传闻补齐',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'传闻分类为空时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideRumorEmpty}),
+                def({key:'retryGuidePropagationReview',title:'纠错动作 · 传播复核',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'传播链未复核时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuidePropagationReview}),
+                def({key:'retryGuideTemporalIntegrity',title:'纠错动作 · 时间一致性',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'时间事实越界时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideTemporalIntegrity}),
+                def({key:'retryGuideWorldActivity',title:'纠错动作 · 世界活动',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'世界活动不足时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideWorldActivity}),
+                def({key:'retryGuideWorldScene',title:'纠错动作 · 世界现场',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'世界活动不足且缺现场时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideWorldScene}),
+                def({key:'retryGuideCurrentReality',title:'纠错动作 · 当前现实',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'世界活动不足且缺进行中现实时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideCurrentReality}),
                 def({key:'retryAcceptedWithPlan',title:'纠错重试 · 已接受结果 + 补充清单',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且已有部分业务结果通过，并存在补充清单时',defaultValue:()=>WORLD_PROMPT_RETRY_ACCEPTED_PLAN}),
                 def({key:'retryAccepted',title:'纠错重试 · 已接受结果',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且已有部分业务结果通过，但没有补充清单时',defaultValue:()=>WORLD_PROMPT_RETRY_ACCEPTED}),
                 def({key:'retryFresh',title:'纠错重试 · 首次整体纠错',group:'纠错重试',source:'retryInput()',scope:'user payload',condition:'重试且没有已接受业务结果时',defaultValue:()=>WORLD_PROMPT_RETRY_FRESH})
@@ -8652,7 +8683,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
             this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy,this.timePolicy);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
-            this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy);
+            this.retryGuidance=new WorldRetryGuidanceService(engine);
+            this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy,this.retryGuidance);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
             this.resultParser=new WorldResultReplyParser();
             ACTIVE_WORLD_RESULT_REPLY_PARSER=this.resultParser;

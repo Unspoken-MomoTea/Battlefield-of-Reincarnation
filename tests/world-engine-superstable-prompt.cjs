@@ -4,7 +4,7 @@ const vm=require('vm');
 const assert=require('assert');
 
 const root=path.join(__dirname,'..');
-const prompt=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineFoundation.part.js'),'utf8');
+const prompt=fs.readFileSync(path.join(root,'src/WorldEngine/prompts/WorldBasePromptDefaults.part.js'),'utf8');
 const runtime=[path.join(root,'src/WorldEngine/core/SamsaraWorldEngine.part.js'),path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js')].map(file=>fs.readFileSync(file,'utf8')).join('\n');
 const aux=fs.readFileSync(path.join(root,'script/辅助计算脚本.js'),'utf8');
 

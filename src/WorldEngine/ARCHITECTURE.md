@@ -246,3 +246,10 @@ Alien activity timestamp normalization is no longer a global `compileWorldResult
 ## Phase 29 · Chronology policy
 
 `WorldChronologyPolicy` owns the request-scoped chronology evidence guard, exact-day evidence lookup, causal-shift exceptions, compile-time macro-date validation and chronology-specific retry guidance. `WorldChronologyFeature` only gathers worldbook evidence and writes it into the shared policy; `WorldResultMaterializer` and `WorldResultStagingService` consume the same policy. The legacy chronology module retains prompt/preset migration text only and no longer decorates compile or retry globals.
+
+
+## Phase 30 · Causal compile domain
+
+`WorldCausalService` owns world-scale causal filtering, soft impact normalization, same-root coalescing, per-actor impact budgets and stale local-offset cleanup. `WorldResultMaterializer` invokes those methods at the canonical compile boundary, so direct `compileWorldResult`, Compiler and Staging share identical behavior.
+
+Controlled removal of stale causal offsets is now part of `WorldPatchPolicy` rather than an `applyPatches` monkey patch. The causal-stability legacy module has been deleted; the integrity legacy module retains only temporal-integrity compatibility behavior.

@@ -1472,6 +1472,11 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             return result;
         }
 
+        validateRecord(stat,name,record){
+            if(!plain(record))throw new Error('世界活动记录无效：'+name);
+            const backend=this.engine.services.mutations.backend(stat),events=backend.事件||{};
+            for(const eventName of record.关联事件||[])if(!Object.hasOwn(events,eventName))throw new Error('关联事件不存在：'+eventName);
+        }
         get(name){
             if(!this.engine)return null;
             const people=this.engine.snapshot().stat?.世界?.[PATH]?.人物||{};
@@ -1483,16 +1488,16 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             if(!this.engine)throw new Error('人物活动服务未绑定引擎');
             name=String(name||'').trim();if(!name)throw new Error('人物名称不能为空');
             return this.engine.services.mutations.commit(stat=>{
-                const backend=worldEditorBackend(stat),people=backend.人物||{},stable=stableNameIn(people,name);
+                const mutations=this.engine.services.mutations,backend=mutations.backend(stat),people=backend.人物||{},stable=stableNameIn(people,name);
                 if(!stable||!plain(people[stable]))throw new Error('世界活动记录不存在：'+name);
                 const current=people[stable];
                 const next=normalizeBackendRecord('人物',record,current);
-                next.认知=worldEditorTextList(next.认知);
-                next.关联事件=worldEditorTextList(next.关联事件);
-                next.行程=worldEditorJsonList(next.行程,'行程');
-                next.认知来源=worldEditorJsonList(next.认知来源,'认知来源');
-                next.背景关联=worldEditorJsonList(next.背景关联,'背景关联');
-                worldPersonValidateRecord(stat,stable,next);
+                next.认知=mutations.textList(next.认知);
+                next.关联事件=mutations.textList(next.关联事件);
+                next.行程=mutations.jsonList(next.行程,'行程');
+                next.认知来源=mutations.jsonList(next.认知来源,'认知来源');
+                next.背景关联=mutations.jsonList(next.背景关联,'背景关联');
+                this.validateRecord(stat,stable,next);
                 people[stable]=next;
                 return {name:stable};
             },'已修正世界活动记录：'+name);
@@ -1502,7 +1507,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             if(!this.engine)return false;
             name=String(name||'').trim();if(!name)return false;
             return this.engine.services.mutations.commit(stat=>{
-                const backend=worldEditorBackend(stat),people=backend.人物||{},stable=stableNameIn(people,name);
+                const backend=this.engine.services.mutations.backend(stat),people=backend.人物||{},stable=stableNameIn(people,name);
                 if(!stable||!plain(people[stable]))return null;
                 delete people[stable];
                 return {deleted:stable};
@@ -5074,114 +5079,6 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
 
     // 运行时读写、预设持久化与最终请求重写已迁移到 WorldPromptRegistry + WorldEngineClassBridge。
-    // 世界推进手动编辑公共写回层：只修改世界引擎拥有的变量，并把修正合并回同楼 replay。
-    function worldEditorEscape(value) {
-        if(typeof causalOverviewEscape==='function')return causalOverviewEscape(value);
-        return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-    }
-    function worldEditorTextList(value) {
-        if(Array.isArray(value))return [...new Set(value.map(item=>String(item||'').trim()).filter(Boolean))];
-        return [...new Set(String(value||'').split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
-    }
-    function worldEditorJsonList(value,label='列表') {
-        if(Array.isArray(value))return copy(value);
-        const raw=String(value||'').trim();
-        if(!raw)return [];
-        let parsed;
-        try{parsed=JSON.parse(raw);}catch(_){throw new Error(label+'必须是合法 JSON 数组');}
-        if(!Array.isArray(parsed))throw new Error(label+'必须是 JSON 数组');
-        return parsed;
-    }
-    function worldEditorPathSame(left,right) {
-        return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((item,index)=>String(item)===String(right[index]));
-    }
-    function worldEditorPathConflict(left,right) {
-        if(!Array.isArray(left)||!Array.isArray(right))return false;
-        const limit=Math.min(left.length,right.length);
-        for(let index=0;index<limit;index++)if(String(left[index])!==String(right[index]))return false;
-        return true;
-    }
-    function worldEditorMergeReplay(raw,fingerprint,beforeStat,afterStat,engine) {
-        const replay=raw?.__samsaraWorldReplay;
-        if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return false;
-        if(!engine||typeof engine.buildWorldReplayPackage!=='function')return false;
-        const delta=engine.buildWorldReplayPackage(beforeStat,afterStat,fingerprint);
-        if(!plain(delta)||!Array.isArray(delta.operations)||!delta.operations.length)return false;
-        for(const incoming of delta.operations){
-            replay.operations=replay.operations.filter(existing=>!worldEditorPathConflict(existing?.path,incoming?.path));
-            replay.operations.push(copy(incoming));
-        }
-        return true;
-    }
-    function worldEditorSection(panel,title) {
-        if(!panel)return null;
-        return Array.from(panel.querySelectorAll('.we-section')).find(section=>String(section.querySelector('.we-section-head h2')?.textContent||'').trim()===String(title||''))||null;
-    }
-    function worldEditorBackend(stat) {
-        const backend=stat?.世界?.[PATH];
-        if(!plain(backend))throw new Error('世界后台不存在');
-        return backend;
-    }
-    // 事件管理编辑器：编辑/重命名/删除世界后台事件，并维护引用与同楼 replay。
-    function worldEventRetargetReferences(stat,oldName,newName,deleted=false) {
-        const backend=worldEditorBackend(stat);
-        const retarget=list=>{
-            if(!Array.isArray(list))return [];
-            const out=[];
-            for(const item of list){
-                const value=String(item||'');
-                if(value!==oldName){if(value&&!out.includes(value))out.push(value);continue;}
-                if(!deleted&&newName&&!out.includes(newName))out.push(newName);
-            }
-            return out;
-        };
-        for(const [name,event] of Object.entries(backend.事件||{})){
-            if(name===newName&&!deleted)continue;
-            if(Array.isArray(event?.前因))event.前因=retarget(event.前因);
-        }
-        for(const category of ['人物','势力地区','传播','历史']){
-            for(const record of Object.values(backend[category]||{})){
-                if(Array.isArray(record?.关联事件))record.关联事件=retarget(record.关联事件);
-            }
-        }
-        const orbit=stat?.世界?.因果轨道;
-        if(plain(orbit)&&String(orbit.下一节点||'')===oldName)orbit.下一节点=deleted?'':newName;
-    }
-    function worldEventValidateGraph(stat) {
-        const backend=worldEditorBackend(stat),events=backend.事件||{};
-        for(const [name,event] of Object.entries(events)){
-            if(!plain(event))throw new Error('事件记录无效：'+name);
-            if(!['待发生','进行中','已完成','已取消'].includes(String(event.状态||'')))throw new Error('事件状态只允许：待发生 / 进行中 / 已完成 / 已取消');
-            if(!EVENT_CATEGORIES.has(String(event.分类||'')))throw new Error('事件分类只允许：当前事件 / 近期节点 / 宏观节点');
-            if(!Array.isArray(event.前因))throw new Error('事件前因必须是列表');
-            if(event.前因.includes(name))throw new Error('事件不能把自己设为前因：'+name);
-            for(const cause of event.前因)if(!Object.hasOwn(events,cause))throw new Error('事件前因不存在：'+cause);
-        }
-        const visiting=new Set(),visited=new Set();
-        const visit=name=>{
-            if(visiting.has(name))throw new Error('事件前因形成循环');
-            if(visited.has(name))return;
-            visiting.add(name);
-            for(const cause of events[name]?.前因||[])visit(cause);
-            visiting.delete(name);visited.add(name);
-        };
-        Object.keys(events).forEach(visit);
-        for(const category of ['人物','势力地区','传播','历史']){
-            for(const record of Object.values(backend[category]||{})){
-                if(!Array.isArray(record?.关联事件))continue;
-                for(const eventName of record.关联事件)if(!Object.hasOwn(events,eventName))throw new Error(category+'关联了不存在的事件：'+eventName);
-            }
-        }
-    }
-    function worldEventSelect(value,options,field) {
-        return '<select data-world-event-field="'+field+'">'+options.map(option=>'<option value="'+worldEditorEscape(option)+'"'+(String(value)===option?' selected':'')+'>'+worldEditorEscape(option)+'</option>').join('')+'</select>';
-    }
-    // 角色管理只编辑世界推进自己的 世界.后台.人物 活动记录；正式人物档案仍由状态栏负责。
-    function worldPersonValidateRecord(stat,name,record) {
-        if(!plain(record))throw new Error('世界活动记录无效：'+name);
-        const backend=worldEditorBackend(stat),events=backend.事件||{};
-        for(const eventName of record.关联事件||[])if(!Object.hasOwn(events,eventName))throw new Error('关联事件不存在：'+eventName);
-    }
     class WorldRuntimeContextService {
         constructor(engine){this.engine=engine;}
         snapshot(){
@@ -5891,13 +5788,50 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     class WorldMutationService {
         constructor(engine){this.engine=engine;}
         snapshot(){return this.engine.snapshot();}
+        backend(stat){
+            const backend=stat?.世界?.[PATH];
+            if(!plain(backend))throw new Error('世界后台不存在');
+            return backend;
+        }
+        textList(value){
+            if(Array.isArray(value))return [...new Set(value.map(item=>String(item||'').trim()).filter(Boolean))];
+            return [...new Set(String(value||'').split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
+        }
+        jsonList(value,label='列表'){
+            if(Array.isArray(value))return copy(value);
+            const raw=String(value||'').trim();
+            if(!raw)return [];
+            let parsed;
+            try{parsed=JSON.parse(raw);}catch(_){throw new Error(label+'必须是合法 JSON 数组');}
+            if(!Array.isArray(parsed))throw new Error(label+'必须是 JSON 数组');
+            return parsed;
+        }
+        pathConflict(left,right){
+            if(!Array.isArray(left)||!Array.isArray(right))return false;
+            const limit=Math.min(left.length,right.length);
+            for(let index=0;index<limit;index++)if(String(left[index])!==String(right[index]))return false;
+            return true;
+        }
+        mergeReplay(raw,fingerprint,beforeStat,afterStat){
+            const replay=raw?.__samsaraWorldReplay;
+            if(!plain(replay)||String(replay.fingerprint||'')!==String(fingerprint||'')||!Array.isArray(replay.operations))return false;
+            const engine=this.engine;
+            if(!engine||typeof engine.buildWorldReplayPackage!=='function')return false;
+            const delta=engine.buildWorldReplayPackage(beforeStat,afterStat,fingerprint);
+            if(!plain(delta)||!Array.isArray(delta.operations)||!delta.operations.length)return false;
+            for(const incoming of delta.operations){
+                replay.operations=replay.operations.filter(existing=>!this.pathConflict(existing?.path,incoming?.path));
+                replay.operations.push(copy(incoming));
+            }
+            return true;
+        }
         async commit(mutator,status){
             if(typeof mutator!=='function')return false;
             const engine=this.engine,snapshot=engine.snapshot(),next=copy(snapshot.raw),stat=next.stat_data;
-            worldEditorBackend(stat);
+            this.backend(stat);
             const outcome=mutator(stat);
             if(!outcome)return false;
-            worldEditorMergeReplay(next,snapshot.fingerprint,snapshot.stat,stat,engine);
+            this.mergeReplay(next,snapshot.fingerprint,snapshot.stat,stat);
             const target=engine.host,had=!!target&&Object.prototype.hasOwnProperty.call(target,'__samsaraUIMutation'),previous=target?.__samsaraUIMutation;
             if(target)target.__samsaraUIMutation=true;
             try{
@@ -5915,6 +5849,56 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     }
     class WorldEventService {
         constructor(engine){this.engine=engine;}
+        retargetReferences(stat,oldName,newName,deleted=false){
+            const backend=this.engine.services.mutations.backend(stat);
+            const retarget=list=>{
+                if(!Array.isArray(list))return [];
+                const out=[];
+                for(const item of list){
+                    const value=String(item||'');
+                    if(value!==oldName){if(value&&!out.includes(value))out.push(value);continue;}
+                    if(!deleted&&newName&&!out.includes(newName))out.push(newName);
+                }
+                return out;
+            };
+            for(const [name,event] of Object.entries(backend.事件||{})){
+                if(name===newName&&!deleted)continue;
+                if(Array.isArray(event?.前因))event.前因=retarget(event.前因);
+            }
+            for(const category of ['人物','势力地区','传播','历史']){
+                for(const record of Object.values(backend[category]||{})){
+                    if(Array.isArray(record?.关联事件))record.关联事件=retarget(record.关联事件);
+                }
+            }
+            const orbit=stat?.世界?.因果轨道;
+            if(plain(orbit)&&String(orbit.下一节点||'')===oldName)orbit.下一节点=deleted?'':newName;
+        }
+        validateGraph(stat){
+            const backend=this.engine.services.mutations.backend(stat),events=backend.事件||{};
+            for(const [name,event] of Object.entries(events)){
+                if(!plain(event))throw new Error('事件记录无效：'+name);
+                if(!['待发生','进行中','已完成','已取消'].includes(String(event.状态||'')))throw new Error('事件状态只允许：待发生 / 进行中 / 已完成 / 已取消');
+                if(!EVENT_CATEGORIES.has(String(event.分类||'')))throw new Error('事件分类只允许：当前事件 / 近期节点 / 宏观节点');
+                if(!Array.isArray(event.前因))throw new Error('事件前因必须是列表');
+                if(event.前因.includes(name))throw new Error('事件不能把自己设为前因：'+name);
+                for(const cause of event.前因)if(!Object.hasOwn(events,cause))throw new Error('事件前因不存在：'+cause);
+            }
+            const visiting=new Set(),visited=new Set();
+            const visit=name=>{
+                if(visiting.has(name))throw new Error('事件前因形成循环');
+                if(visited.has(name))return;
+                visiting.add(name);
+                for(const cause of events[name]?.前因||[])visit(cause);
+                visiting.delete(name);visited.add(name);
+            };
+            Object.keys(events).forEach(visit);
+            for(const category of ['人物','势力地区','传播','历史']){
+                for(const record of Object.values(backend[category]||{})){
+                    if(!Array.isArray(record?.关联事件))continue;
+                    for(const eventName of record.关联事件)if(!Object.hasOwn(events,eventName))throw new Error(category+'关联了不存在的事件：'+eventName);
+                }
+            }
+        }
         get(name){
             const events=this.engine.snapshot().stat?.世界?.[PATH]?.事件||{};
             return plain(events?.[name])?events[name]:null;
@@ -5924,31 +5908,31 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(!oldName||!newName)throw new Error('事件名称不能为空');
             if(forbidden.has(newName))throw new Error('事件名称包含非法键');
             return this.engine.services.mutations.commit(stat=>{
-                const backend=worldEditorBackend(stat),events=backend.事件||{};
+                const mutations=this.engine.services.mutations,backend=mutations.backend(stat),events=backend.事件||{};
                 const current=events[oldName];
                 if(!plain(current))throw new Error('事件不存在：'+oldName);
                 if(newName!==oldName&&Object.hasOwn(events,newName))throw new Error('事件名称已存在：'+newName);
                 const next=normalizeBackendRecord('事件',record,current);
-                next.前因=worldEditorTextList(next.前因);
-                next.参与者=worldEditorTextList(next.参与者);
-                next.关联任务=worldEditorTextList(next.关联任务);
-                next.可见影响=worldEditorJsonList(next.可见影响,'可见影响');
+                next.前因=mutations.textList(next.前因);
+                next.参与者=mutations.textList(next.参与者);
+                next.关联任务=mutations.textList(next.关联任务);
+                next.可见影响=mutations.jsonList(next.可见影响,'可见影响');
                 if(next.前因.includes(oldName)||next.前因.includes(newName))throw new Error('事件不能把自己设为前因');
                 if(newName!==oldName)delete events[oldName];
                 events[newName]=next;
-                if(newName!==oldName)worldEventRetargetReferences(stat,oldName,newName,false);
-                worldEventValidateGraph(stat);
+                if(newName!==oldName)this.retargetReferences(stat,oldName,newName,false);
+                this.validateGraph(stat);
                 return {oldName,newName};
             },newName===oldName?'已修正世界事件：'+newName:'已重命名并修正世界事件：'+oldName+' → '+newName);
         }
         async remove(name){
             name=String(name||'').trim();if(!name)return false;
             return this.engine.services.mutations.commit(stat=>{
-                const backend=worldEditorBackend(stat),events=backend.事件||{};
+                const backend=this.engine.services.mutations.backend(stat),events=backend.事件||{};
                 if(!plain(events[name]))return null;
                 delete events[name];
-                worldEventRetargetReferences(stat,name,'',true);
-                worldEventValidateGraph(stat);
+                this.retargetReferences(stat,name,'',true);
+                this.validateGraph(stat);
                 return {deleted:name};
             },'已删除错误世界事件：'+name);
         }
@@ -8021,6 +8005,22 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         escape(value){
             return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
         }
+        textList(value){
+            if(Array.isArray(value))return [...new Set(value.map(item=>String(item||'').trim()).filter(Boolean))];
+            return [...new Set(String(value||'').split(/[\n,，、;；]+/).map(item=>item.trim()).filter(Boolean))];
+        }
+        jsonList(value,label='列表'){
+            if(Array.isArray(value))return copy(value);
+            const raw=String(value||'').trim();
+            if(!raw)return [];
+            let parsed;
+            try{parsed=JSON.parse(raw);}catch(_){throw new Error(label+'必须是合法 JSON 数组');}
+            if(!Array.isArray(parsed))throw new Error(label+'必须是 JSON 数组');
+            return parsed;
+        }
+        eventSelect(value,options,field){
+            return '<select data-world-event-field="'+field+'">'+options.map(option=>'<option value="'+this.escape(option)+'"'+(String(value)===option?' selected':'')+'>'+this.escape(option)+'</option>').join('')+'</select>';
+        }
 
         // ---- 共用编辑模式 ----
         mountModeToggle(){
@@ -8037,11 +8037,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
 
         // ---- 事件 ----
         eventInlineHtml(name,record){
-            const esc=worldEditorEscape,list=value=>Array.isArray(value)?value.join('\n'):'',json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
+            const esc=value=>this.escape(value),list=value=>Array.isArray(value)?value.join('\n'):'',json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
             return '<div class="we-world-editor" data-world-event-edit data-world-event-name="'+esc(name)+'"><div class="we-world-editor-grid">'
                 +'<label><span>事件名称</span><input data-world-event-field="name" value="'+esc(name)+'"></label>'
-                +'<label><span>分类</span>'+worldEventSelect(record?.分类||'近期节点',['当前事件','近期节点','宏观节点'],'category')+'</label>'
-                +'<label><span>状态</span>'+worldEventSelect(record?.状态||'待发生',['待发生','进行中','已完成','已取消'],'status')+'</label>'
+                +'<label><span>分类</span>'+this.eventSelect(record?.分类||'近期节点',['当前事件','近期节点','宏观节点'],'category')+'</label>'
+                +'<label><span>状态</span>'+this.eventSelect(record?.状态||'待发生',['待发生','进行中','已完成','已取消'],'status')+'</label>'
                 +'<label><span>地点</span><input data-world-event-field="location" value="'+esc(record?.地点||'')+'"></label>'
                 +'<label><span>时间</span><input data-world-event-field="time" value="'+esc(record?.时间||'')+'"></label>'
                 +'<label><span>开始时间</span><input data-world-event-field="start" value="'+esc(record?.开始时间||'')+'"></label>'
@@ -8074,8 +8074,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 预计结束:String(value('end')||'').trim(),下次检查:String(value('nextCheck')||'').trim(),更新时间:String(value('updated')||'').trim(),
                 描述:String(value('description')||'').trim(),公开征兆:String(value('sign')||'').trim(),条件:String(value('condition')||'').trim(),
                 默认走向:String(value('default')||'').trim(),结果:String(value('result')||'').trim(),
-                前因:worldEditorTextList(value('causes')),参与者:worldEditorTextList(value('participants')),
-                关联任务:worldEditorTextList(value('tasks')),可见影响:worldEditorJsonList(value('impacts'),'可见影响')
+                前因:this.textList(value('causes')),参与者:this.textList(value('participants')),
+                关联任务:this.textList(value('tasks')),可见影响:this.jsonList(value('impacts'),'可见影响')
             });
         }
         mountEventControls(){
@@ -8085,7 +8085,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 if(card.querySelector('.we-world-event-actions')||card.matches('.we-world-editing'))continue;
                 const name=String(card.dataset.eventCard||'');if(!name)continue;
                 const actions=engine.host.document.createElement('div');actions.className='we-world-event-actions';
-                actions.innerHTML='<button type="button" data-action="world-event-edit" data-event-name="'+worldEditorEscape(name)+'">编辑</button><button type="button" data-action="world-event-delete" data-event-name="'+worldEditorEscape(name)+'">删除</button>';
+                actions.innerHTML='<button type="button" data-action="world-event-edit" data-event-name="'+this.escape(name)+'">编辑</button><button type="button" data-action="world-event-delete" data-event-name="'+this.escape(name)+'">删除</button>';
                 card.appendChild(actions);
             }
         }
@@ -8106,7 +8106,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
 
         // ---- 世界人物活动 ----
         personInlineHtml(name,record){
-            const esc=worldEditorEscape,list=value=>Array.isArray(value)?value.join('\n'):'',json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
+            const esc=value=>this.escape(value),list=value=>Array.isArray(value)?value.join('\n'):'',json=value=>JSON.stringify(Array.isArray(value)?value:[],null,2);
             return '<div class="we-world-editor we-world-person-editor" data-world-person-edit data-world-person-name="'+esc(name)+'">'
                 +'<div class="we-world-editor-note"><b>'+esc(name)+'</b><span>只编辑世界活动记录；人物正式资料由状态栏维护。</span></div><div class="we-world-editor-grid">'
                 +'<label><span>所属世界</span><input data-world-person-field="world" value="'+esc(record?.所属世界||'')+'"></label>'
@@ -8148,8 +8148,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 地点:String(value('location')||'').trim(),目标:String(value('goal')||'').trim(),行动:String(value('action')||'').trim(),
                 公开动态:String(value('public')||'').trim(),开始时间:String(value('start')||'').trim(),预计结束:String(value('end')||'').trim(),
                 下次检查:String(value('nextCheck')||'').trim(),更新时间:String(value('updated')||'').trim(),登场条件:String(value('appearance')||'').trim(),
-                认知:worldEditorTextList(value('knowledge')),关联事件:worldEditorTextList(value('events')),行程:worldEditorJsonList(value('schedule'),'行程'),
-                认知来源:worldEditorJsonList(value('knowledgeSources'),'认知来源'),背景关联:worldEditorJsonList(value('links'),'背景关联')
+                认知:this.textList(value('knowledge')),关联事件:this.textList(value('events')),行程:this.jsonList(value('schedule'),'行程'),
+                认知来源:this.jsonList(value('knowledgeSources'),'认知来源'),背景关联:this.jsonList(value('links'),'背景关联')
             });
         }
         mountPersonControls(){
@@ -8158,7 +8158,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const section=this.section('身份与当前行动'),head=section?.querySelector('.we-section-head');
             if(!section||!head||head.querySelector('.we-world-person-actions'))return;
             const actions=engine.host.document.createElement('span');actions.className='we-world-person-actions';
-            actions.innerHTML='<button type="button" data-action="world-person-edit" data-person-name="'+worldEditorEscape(found.name)+'">编辑世界活动</button><button type="button" data-action="world-person-delete" data-person-name="'+worldEditorEscape(found.name)+'">删除世界活动记录</button>';
+            actions.innerHTML='<button type="button" data-action="world-person-edit" data-person-name="'+this.escape(found.name)+'">编辑世界活动</button><button type="button" data-action="world-person-delete" data-person-name="'+this.escape(found.name)+'">删除世界活动记录</button>';
             head.appendChild(actions);
         }
         armPersonDelete(button,name){

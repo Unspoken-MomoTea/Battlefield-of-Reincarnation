@@ -298,3 +298,12 @@ CI 的历史记忆补丁也改为识别 `WorldLifecycleService` 新归属，不�
 `59-causal-stability-gate.part.js` 已整文件删除；`59-world-integrity-guard.part.js` 不再保存因果 Schema 修改、软归一化函数或 `compileWorldResult` wrapper，只保留时间完整性规则与对应 retry 逻辑。
 
 因果偏移 `影响程度` 的 JSON Schema 现在在 `WorldResultContract` 中直接定义为 number，不设置硬上下限；-12/+15 等业务范围继续由 CausalService 软处理。历史脏偏移清理不再通过 `applyPatches` monkey patch 绕过安全层，`WorldPatchPolicy` 显式拥有 `removable()` 与按操作类型判定的 `allowed(..., op)`，只开放精确的 `/世界/因果轨道/偏移记录/<名称>` 删除路径。
+
+
+### Phase 31 · NPC 审计装备默认状态归域
+
+已完成：`55-npc-narrative-audit.part.js` 最后一条 `compileWorldResult` monkey patch 已移除。审计补全关系装备时，“既有 NPC 的新装备默认 `状态=1`、已有装备不强改状态”的真实实现迁入 `WorldNpcAuditService.normalizeNewEquipment()`。
+
+Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一化后调用该方法，因此直接导出的 `compileWorldResult()`、Compiler 与 Staging 都继续得到相同结果。现有装备若明确处于状态0/2则不会被重写；只有本轮首次加入该 NPC 装备表的装备被默认视为已装备，防止用状态0绕过 NPC 构筑数量。
+
+`55-npc-narrative-audit.part.js` 现在只保留剧情份量版 NPC 构筑审计提示词和默认提示词迁移说明，不再参与编译链。

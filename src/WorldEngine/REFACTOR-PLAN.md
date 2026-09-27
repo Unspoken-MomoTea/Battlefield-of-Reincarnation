@@ -376,3 +376,14 @@ Canonical `WorldResultMaterializer.compileWorldResult()` 在 WorldResult 归一�
 现有 `world-engine-due-event-relaxation.cjs` 继续作为公开行为 seam：到期事件会进入软提醒；未来 `下次检查` 到来前不重复催办；模型本轮不处理到期事件不会导致 retry；延期只更新 `下次检查`，不得篡改触发条件。
 
 下一批继续清理 soft-maintenance / rumor / world-activity 对 validation/staging 的全局覆写，仍坚持“新逻辑只进入 `src/WorldEngine`，旧文件只删逻辑”。
+
+
+### Phase 38 · 事件前因校验兼容层移除
+
+已完成：`55-policy-compat.part.js` 整文件删除。事件前因的最终结构规则现在直接属于 `WorldResultMaterializer.validateBaseState()`：前因不得引用事件自身；每个前因名称必须指向已经存在或本轮成功建立的事件；完整事件图仍执行循环检测。
+
+原兼容层提供的可执行错误反馈保持不变：自引用继续返回 `事件前因非法自引用：<事件名>`，缺失前因继续列出 `事件前因不存在：<事件> <- <缺失名称>`，因此 `WorldResultStagingService` 与 `WorldRetryGuidanceService` 的既有纠错 seam 无需任何 monkey patch。
+
+本阶段通过公开 `applyPatches()` seam 新增回归，锁定自引用与缺失名称两类错误语义；构建与 Phase 5/架构测试也不再读取已删除的兼容模块。
+
+下一批继续处理 `59-soft-maintenance`、传闻相关文件和 `59-world-activity-delivery` 剩余的 validation/staging 全局覆写。新业务逻辑仍只进入 `src/WorldEngine`。

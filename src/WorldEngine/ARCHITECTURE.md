@@ -20,6 +20,7 @@ src/WorldEngine/
     WorldEngineServiceContainer
     WorldEngineFeatureRegistry
   domains/
+    WorldStateModel
     WorldStateProjector
     WorldResultCompiler
     WorldValidationService
@@ -359,3 +360,8 @@ The former `editor/00-world-mutations`, `editor/10-event-editor`, and `editor/20
 ## Phase 45 · Numbered compatibility slots removed
 
 The obsolete `20-world-result.part.js` and `30-context-protocol.part.js` files are deleted. WorldResult compatibility surfaces are owned by the src WorldResult domain modules. Projection compatibility surfaces are owned by `WorldStateProjector.part.js`. The legacy NPC audit prompt migration constant lives in `WorldPromptDefaults.part.js`; no prompt or projection implementation remains under the removed numbered slots.
+
+
+## Phase 46 · State model primitives
+
+The obsolete numbered state slot is gone. `WorldStateModel.part.js` is the canonical foundation for shared world record shapes and entity identity semantics. `WorldRecordCatalog` owns record/detail/model-view definitions and NPC audit levels; `WorldEntityIdentityPolicy` owns normalized entity keys, stable bucket lookup and location-related matching. Legacy constant/function names are compatibility forwards defined in the src module, not a separate runtime implementation.

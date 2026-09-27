@@ -31,9 +31,10 @@ assert.equal(WORLD_ENGINE_HIDDEN_PLAYER_TABS.has('传闻'),true,'世界推进玩
 assert.equal(isWorldEnginePlayerTabHidden('资产'),true);
 assert.equal(isWorldEnginePlayerTabHidden('传闻'),true);
 assert.equal(isWorldEnginePlayerTabHidden('角色管理'),false,'角色管理等核心页仍应保留');
-const causalLegacySource=fs.readFileSync(require.resolve('../script/world-engine-src/59-causal-overview-ui.part.js'),'utf8');
+assert.equal(fs.existsSync(require.resolve('../src/WorldEngine/ui/WorldCausalOverviewController.part.js')),true);
+assert.equal(fs.existsSync(require('node:path').join(__dirname,'../script/world-engine-src/59-causal-overview-ui.part.js')),false,'legacy causal overview UI file must be deleted after src migration');
 const causalControllerSource=fs.readFileSync(require.resolve('../src/WorldEngine/ui/WorldCausalOverviewController.part.js'),'utf8');
-const causalSource=causalLegacySource+'\n'+causalControllerSource;
+const causalSource=causalControllerSource;
 assert.match(causalSource,/querySelector\('\.we-kpi-grid\.we-kpi-compact'\)\?\.remove\(\)/,'主面板应删除低价值KPI数据栏');
 assert.match(causalControllerSource,/removeRunRecordInterference[\s\S]*causalSectionByTitle\(main,'干涉模式'\)\?\.remove\(\)/,'运行记录应移除干涉模式区块');
 assert.match(causalControllerSource,/hideRedundantPlayerModules[\s\S]*WORLD_ENGINE_HIDDEN_PLAYER_TABS[\s\S]*\?\.remove\(\)/,'资产与传闻导航应从世界推进玩家UI移除');

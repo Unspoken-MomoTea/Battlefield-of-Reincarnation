@@ -709,3 +709,12 @@ Phase 66 首次迁移后，`WorldStateIntegrityPolicy.validate()` 多返回了�
 生产路径不再依赖 `emptyState()` 与 `compactWorldLifecycle()` 全局兼容函数：后台默认结构直接由 `stateFactory.emptyBackend()` 提供，生命周期压缩直接调用 container-owned `lifecycle.compact()`。seed patch、model patch、探索粒度、事件层级、因果投影、宏观前因与显式事件链接 repair 的顺序保持不变。
 
 `WorldResultMaterializer` 现在仅是兼容 facade：`compileWorldResult / validateBaseState / applyPatches / materializeWorldUpdate` 分别转发到 patch compilation 或 state materialization service，不再保存领域算法。
+
+
+### Phase 70 · Prompt 应用集成服务独立
+
+已完成：新增 `WorldPromptIntegrationService`，把 `WorldEngineClassBridge` 中剩余的 Prompt Registry 应用层整合迁出：编辑器字段与完整 Registry 合并、apply/save/import 时的 preset 准备与回写、Feature 装饰后 system/input 重写、Prompt manifest/token 观测，以及提示词面板的编辑按钮绑定与 render 后 Workspace 同步。
+
+`WorldEngineClassBridge` 继续保留公开方法和 `super` 调用顺序，只负责把基础结果交给 container-owned `promptIntegration`。新 service 与 `WorldPromptRegistry`、`WorldTokenTelemetry` 使用 Service Container 中同一实例，并在 Bridge 创建 `WorldPromptWorkspaceController` 后显式 attach，不建立第二套 Prompt 状态。
+
+因此“全部实际提示词”仍由唯一 Prompt Registry 驱动，而 ClassBridge 不再保存 prompt prepare/rewrite/manifest/DOM 绑定算法。

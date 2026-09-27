@@ -36,7 +36,7 @@ assert.equal(fs.existsSync(require('node:path').join(__dirname,'../script/world-
 const causalControllerSource=fs.readFileSync(require.resolve('../src/WorldEngine/ui/WorldCausalOverviewController.part.js'),'utf8');
 const causalSource=causalControllerSource;
 assert.match(causalSource,/querySelector\('\.we-kpi-grid\.we-kpi-compact'\)\?\.remove\(\)/,'主面板应删除低价值KPI数据栏');
-assert.match(causalControllerSource,/removeRunRecordInterference[\s\S]*causalSectionByTitle\(main,'干涉模式'\)\?\.remove\(\)/,'运行记录应移除干涉模式区块');
+assert.match(causalControllerSource,/removeRunRecordInterference[\s\S]*this\.sectionByTitle\(main,'干涉模式'\)\?\.remove\(\)/,'运行记录应通过 controller-owned section helper 移除干涉模式区块');
 assert.match(causalControllerSource,/hideRedundantPlayerModules[\s\S]*WORLD_ENGINE_HIDDEN_PLAYER_TABS[\s\S]*\?\.remove\(\)/,'资产与传闻导航应从世界推进玩家UI移除');
-assert.match(causalControllerSource,/isWorldEnginePlayerTabHidden\(this\.engine\.tab\).*this\.engine\.tab='世界推进'/s,'隐藏页被旧状态或程序指定时应自动回到世界推进');
+assert.match(causalControllerSource,/this\.isPlayerTabHidden\(this\.engine\.tab\).*this\.engine\.tab='世界推进'/s,'隐藏页被旧状态或程序指定时应由 controller-owned helper 自动回到世界推进');
 console.log('PASS causal overview keeps full history, moves interference mode into the causal archive, removes the KPI strip, and hides redundant asset/rumor player tabs');

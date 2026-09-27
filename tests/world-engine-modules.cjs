@@ -21,6 +21,7 @@ for(const moduleName of ['editor/00-world-mutations.part.js','editor/10-event-ed
 }
 for(const moduleName of [
   '@src/WorldEngine/core/WorldEngineServiceContainer.part.js',
+  '@src/WorldEngine/domains/WorldStateModel.part.js',
   '@src/WorldEngine/core/WorldEngineFeatureRegistry.part.js',
   '@src/WorldEngine/core/WorldEngineClassBridge.part.js',
   '@src/WorldEngine/domains/WorldRuntimeContextService.part.js',
@@ -120,7 +121,7 @@ assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldLifecycleService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'lifecycle service must load before materialization invokes compactWorldLifecycle');
 assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/class\s+WorldLifecycleService\b/,'world lifecycle rules must live behind a dedicated service');
 assert.match(texts['@src/WorldEngine/domains/WorldLifecycleService.part.js'],/compact\(stat\)/,'lifecycle service must own the top-level compaction orchestration');
-assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:personActivityMeta|pruneColdTemporaryPeople|pruneDeadAlienPeople|collectEventRefs|detachEventSoftRefs|archiveFinishedEvent|propagationEnded|pruneSoftRefsToColdFinishedEvents|compactFinishedEvents|explorationLocationRefs|pruneColdExploration|compactWorldLifecycle)\b/,'legacy world-state source must not regain lifecycle implementation');
+assert.equal(declared.includes('10-world-state.part.js'),false,'legacy world-state slot must leave the build after state-model migration');
 assert.equal(Object.hasOwn(texts,'59-soft-maintenance.part.js'),false,'deleted soft-maintenance legacy module must not return to the build');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldExplorationService.part.js'],/pruneColdExploration\s*=/,'exploration service must not recreate the removed lifecycle pruning seam');
 
@@ -128,23 +129,23 @@ assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldExplorationService.part
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldCausalService.part.js'),'causal projection loads after state normalization');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldCausalService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'causal service must load before materialization');
 assert.match(texts['@src/WorldEngine/domains/WorldCausalService.part.js'],/repairProjection\(stat\)/,'causal service must own orbit projection repair');
-assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+repairCausalProjection\b/,'legacy state monolith must not regain causal projection');
+assert.equal(fs.existsSync(path.join(dir,'10-world-state.part.js')),false,'legacy world-state source file must be deleted');
 
 // Phase 16: backend migration and event structural repair live behind one state normalizer.
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldLifecycleService.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js'),'state normalizer must load after lifecycle seams');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateNormalizer.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'state normalizer must load before materialization');
 assert.match(texts['@src/WorldEngine/domains/WorldStateNormalizer.part.js'],/class\s+WorldStateNormalizer\b/,'state normalization must have a dedicated class');
-assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:normalizeBackendState|eventText|obviouslyLocalMacro|normalizedEventCategory|normalizeEventLayers|explicitPersonAliases|repairExplicitEventLinks|repairMacroPredecessors)\b/,'legacy state monolith must not regain state-normalizer implementation');
+assert.match(texts['@src/WorldEngine/domains/WorldStateModel.part.js'],/class\s+WorldRecordCatalog\b/,'state-model module must own shared record definitions');
 
 // Phase 18: timeline snapshot/projection state also belongs to WorldTimelinePolicy.
 assert.match(texts['@src/WorldEngine/domains/WorldTimelinePolicy.part.js'],/timelineState\(stat\)/,'timeline policy must own timeline snapshot calculation');
-assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+timelineState\b/,'legacy state monolith must not regain timelineState');
+assert.match(texts['@src/WorldEngine/domains/WorldStateModel.part.js'],/class\s+WorldEntityIdentityPolicy\b/,'state-model module must own shared identity rules');
 
 // Phase 13: timeline/time validation helpers are class-owned instead of living in the legacy state monolith.
-assert.ok(declared.indexOf('10-world-state.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'timeline policy must load after base state helpers');
+assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldStateModel.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js'),'timeline policy must load after canonical state-model helpers');
 assert.ok(declared.indexOf('@src/WorldEngine/domains/WorldTimelinePolicy.part.js')<declared.indexOf('@src/WorldEngine/domains/WorldResultMaterializer.part.js'),'timeline policy must load before result materialization uses temporal seams');
 assert.match(texts['@src/WorldEngine/domains/WorldTimelinePolicy.part.js'],/class\s+WorldTimelinePolicy\b/,'timeline rules must live behind a dedicated policy class');
-assert.doesNotMatch(texts['10-world-state.part.js'],/function\s+(?:storyStages|eventTimeAnchor|eventScheduleLabel|staleActiveEvents|temporalAnomalies|validateTemporalWrites|eventDisplayBucket|sortWorldEvents)\b/,'legacy world-state source must not regain timeline implementation');
+assert.match(texts['@src/WorldEngine/domains/WorldStateModel.part.js'],/const\s+RECORDS\s*=DEFAULT_WORLD_RECORD_CATALOG\.records/,'record compatibility constants must be catalog-backed');
 
 // Phase 45: the obsolete numbered WorldResult/context compatibility slots are gone.
 assert.equal(declared.includes('20-world-result.part.js'),false,'legacy WorldResult compatibility slot must be removed');

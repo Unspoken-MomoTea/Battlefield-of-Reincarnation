@@ -48,14 +48,6 @@
     const COLD_TEMP_PERSON_GRACE_HOURS = 30 * 24;
     const COLD_TEMP_PERSON_TARGET = 32;
     const TERMINAL_PERSON_STATUS = /^(?:已结束|结束|已离场|离场|已离开|离开|退休|已退休|失效|已失效|消失|已消失|死亡)$/;
-    const TECHNICAL_BOOK = [/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
-    const isTechnicalBook = title => TECHNICAL_BOOK.some(rule => rule.test(String(title || '').trim()));
-    // 聊天接口返回原始消息，不会应用酒馆的显示正则。发送和关键词扫描共用此抽取结果。
-    function isTimelineBackboneEntry(title) {
-        const name=String(title||'').replace(/\s+/g,'');
-        if(/(?:变量|输出格式|更新规则|COT|思考|风格|助手|状态栏)/i.test(name))return false;
-        return /(?:校历|世界年表|事件年表|原著年表|时间线|时间轴|大事记|大事件摘要|历史大事件|剧情大纲|剧情章节|章节控制器|主线年表)/i.test(name);
-    }
     class WorldTokenTelemetry {
         estimate(value) {
             const source=typeof value==='string'?value:JSON.stringify(value??'');
@@ -295,7 +287,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         const titles=new Set(current.map(s=>s.title).filter(Boolean));
         for(const segment of defaults)if(segment.title&&!titles.has(segment.title))current.push(segment);
         return current.map(segmentText).filter(Boolean).join('\n');
-    }    class WorldKnowledgeSelectionPolicy {
+    }    const WORLD_TECHNICAL_BOOK_PATTERNS=[/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
+
+    class WorldKnowledgeSelectionPolicy {
         parseKey(value) {
             try{
                 const parsed=JSON.parse(String(value||''));
@@ -322,6 +316,14 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             }
             return false;
         }
+        isTechnical(title) {
+            return WORLD_TECHNICAL_BOOK_PATTERNS.some(rule=>rule.test(String(title||'').trim()));
+        }
+        isTimelineBackbone(title) {
+            const name=String(title||'').replace(/\s+/g,'');
+            if(/(?:变量|输出格式|更新规则|COT|思考|风格|助手|状态栏)/i.test(name))return false;
+            return /(?:校历|世界年表|事件年表|原著年表|时间线|时间轴|大事记|大事件摘要|历史大事件|剧情大纲|剧情章节|章节控制器|主线年表)/i.test(name);
+        }
     }
 
     const DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY=new WorldKnowledgeSelectionPolicy();
@@ -330,6 +332,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     function normalizeWorldbookIdentity(value){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.normalizeIdentity(value);}
     function normalizeWorldbookEntryTitle(value){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.normalizeTitle(value);}
     function selectedEntryMatches(entry,selectedEntries){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.matches(entry,selectedEntries);}
+    function isTechnicalBook(title){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.isTechnical(title);}
+    function isTimelineBackboneEntry(title){return ACTIVE_WORLD_KNOWLEDGE_SELECTION_POLICY.isTimelineBackbone(title);}
     class WorldRecordCatalog {
         constructor(){
             this.npcAuditLevels=['杂兵级','精英级','首领/Boss级'];
@@ -4760,7 +4764,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     const title=e.name||e.comment||'未命名';
                     result.push({
                         book,id:String(e.uid??e.id??i),title,sources:Array.from(labels),
-                        technical:isTechnicalBook(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,
+                        technical:this.selection.isTechnical(title),enabled:e.enabled!==false&&!e.disable&&!e.disabled,
                         mode:e.strategy?.type||e.type||(e.constant===false?'selective':'constant'),
                         keys:e.strategy?.keys||e.keys||e.key||[],
                         secondary:e.strategy?.keys_secondary||e.keys_secondary||e.secondary_keys||{},
@@ -4777,7 +4781,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const report=[];engine.readReport=report;
             for(const e of catalogue){
                 const selected=!e.technical&&this.selection.matches(e,engine.config.selectedEntries);
-                const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&isTimelineBackboneEntry(e.title);
+                const timelineBackbone=!!options.timelineBackbone&&selected&&e.enabled&&this.selection.isTimelineBackbone(e.title);
                 const decision=e.technical?{read:false,reason:'世界引擎技术条目已隔离'}:timelineBackbone?{read:true,reason:'宏观资料补充'}:selected?this.activation(e,scan,engine.config.activationMode==='force_selected'):{read:false,reason:'未勾选'};
                 report.push({世界书:e.book,条目ID:e.id,名称:e.title,灯:e.mode==='constant'?'蓝灯':e.mode==='selective'?'绿灯':'其他',读取:decision.read,原因:decision.reason});
                 if(!decision.read)continue;
@@ -6831,7 +6835,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     class WorldChronologyFeature extends WorldRequestFeature {
-        constructor(engine,policy=DEFAULT_WORLD_CHRONOLOGY_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_CHRONOLOGY_POLICY;}
+        constructor(engine,policy=DEFAULT_WORLD_CHRONOLOGY_POLICY,selection=DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_CHRONOLOGY_POLICY;this.selection=selection||DEFAULT_WORLD_KNOWLEDGE_SELECTION_POLICY;}
         initialize(){
             const engine=this.engine;
             if(!engine.config.activePromptDocumentId||engine.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
@@ -6845,7 +6849,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const state=base?.stat||{};
             const chronologyScan=[state?.世界?.名称,'原著','时间线','时间轴','年表','校历','大事记','大事件','剧情大纲','剧情章节','章节','未来','后续'].filter(Boolean).join(' ');
             const chronologyBooks=await this.engine.worldbook(chronologyScan,{timelineBackbone:true});
-            const chronologyOnly=(chronologyBooks||[]).filter(book=>isTimelineBackboneEntry(book?.名称));
+            const chronologyOnly=(chronologyBooks||[]).filter(book=>this.selection.isTimelineBackbone(book?.名称));
             const existing=Array.isArray(payload.世界书)?payload.世界书.map(String):[],merged=existing.slice(),seen=new Set(existing);
             for(const book of chronologyOnly){
                 const content=String(book?.内容||'');
@@ -8818,7 +8822,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.worldActivityRequest=new WorldActivityRequestFeature(engine,this.activityPolicy);
             this.dueEvent=new WorldDueEventFeature(engine,this.dueEventPolicy);
             this.taskAwareness=new WorldTaskAwarenessFeature(engine,this.taskLedger,this.knowledgeSelection);
-            this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy);
+            this.chronology=new WorldChronologyFeature(engine,this.chronologyPolicy,this.knowledgeSelection);
             this.rumorRequest=new WorldRumorRequestFeature(engine,this.rumor);
             // Stateful wrappers are registered first so run composition preserves the former
             // history > replay > auto-progress > policy nesting without inheritance.

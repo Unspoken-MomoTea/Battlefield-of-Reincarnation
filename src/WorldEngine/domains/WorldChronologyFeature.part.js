@@ -1,4 +1,5 @@
     class WorldChronologyFeature extends WorldRequestFeature {
+        constructor(engine,policy=DEFAULT_WORLD_CHRONOLOGY_POLICY){super(engine);this.policy=policy||DEFAULT_WORLD_CHRONOLOGY_POLICY;}
         initialize(){
             const engine=this.engine;
             if(!engine.config.activePromptDocumentId||engine.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id){
@@ -19,7 +20,7 @@
                 if(content&&!seen.has(content)){seen.add(content);merged.push(content);}
             }
             payload.世界书=merged;
-            ACTIVE_CHRONOLOGY_GUARD={worldTime:String(state?.世界?.时间||''),books:merged.slice()};
+            this.policy.setGuard(state?.世界?.时间,merged);
             const next=payload?.时间线调度?.下一宏观节点||null;
             payload.时间线基准={
                 当前世界时间:String(state?.世界?.时间||''),

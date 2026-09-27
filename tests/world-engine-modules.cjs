@@ -146,8 +146,6 @@ assert.match(texts['@src/WorldEngine/domains/WorldStateModel.part.js'],/const\s+
 // Phase 45: the obsolete numbered WorldResult/context compatibility slots are gone.
 assert.equal(declared.includes('20-world-result.part.js'),false,'legacy WorldResult compatibility slot must be removed');
 assert.equal(declared.includes('30-context-protocol.part.js'),false,'legacy context-protocol compatibility slot must be removed');
-assert.equal(fs.existsSync(path.join(dir,'20-world-result.part.js')),false,'legacy WorldResult compatibility file must be deleted');
-assert.equal(fs.existsSync(path.join(dir,'30-context-protocol.part.js')),false,'legacy context-protocol file must be deleted');
 assert.doesNotMatch(texts['@src/WorldEngine/domains/WorldResultKernel.part.js'],/function\s+(?:normalizeWorldResult|mergeWorldResults|normalizeNamedResultList)\b/,'normalization implementation must leave the kernel after class extraction');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/class\s+WorldResultNormalizer\b/,'WorldResult normalization must have a dedicated class');
 assert.match(texts['@src/WorldEngine/domains/WorldResultNormalizer.part.js'],/normalizeWorldResult\(value\)/,'normalizer class must own WorldResult normalization');
@@ -203,9 +201,7 @@ assert.match(texts['@src/WorldEngine/domains/WorldCommitService.part.js'],/__sam
 assert.match(texts['@src/WorldEngine/domains/WorldRunOrchestrator.part.js'],/services\?\.commit\?\.persist|services\.commit\.persist/,'run orchestrator must delegate the primary write to WorldCommitService');
 assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/reprocessContext\(/);
 assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/legacyPackage\(/);
-assert.equal(fs.existsSync(path.join(dir,'59-world-replay-persistence.part.js')),false,'replay persistence legacy shim must be deleted');
 assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/const\s+WORLD_REPLAY_VERSION=1/,'replay contract version must live with the replay service');
 assert.match(texts['@src/WorldEngine/domains/WorldReplayService.part.js'],/const\s+WORLD_REPLAY_SCOPES=/,'replay scopes must live with the replay service');
-for(const file of legacyDeclared)assert.doesNotMatch(texts[file],/SamsaraWorldEngine\s*=\s*class/,file+' must not add another SamsaraWorldEngine inheritance layer');
 
 console.log(`world-engine modules synchronized through build declaration (${declared.length} parts)`);

@@ -535,3 +535,10 @@ It composes `WorldStateFactory` and `WorldLifecycleService` directly instead of 
 The former `WorldResultKernel` no longer exists as an algorithmic kernel. After patch compilation and final materialization were extracted, the file contained only shared WorldResult enums, record templates and field sets, so it has been renamed to `WorldResultVocabulary.part.js` without changing runtime values or load order.
 
 Pure shared constants remain plain data instead of being wrapped in an empty service class. Domain behavior continues to live in the existing Contract, Normalizer, PatchCompilation, StateMaterialization, RelationSync, AssetMaterialization and Integrity services.
+
+
+## Phase 72 · UI theme catalog
+
+UI theme data is no longer part of the core foundation. `ui/WorldThemeCatalog.part.js` is the single source for the shared status-theme storage key, six semantic theme registries, derived tone keys/theme CSS, and font-scale registry.
+
+The catalog is loaded immediately after `WorldEngineFoundation`, preserving the single-file runtime order while keeping visual configuration inside the UI boundary. The foundation must not re-own theme registries or font-scale data.

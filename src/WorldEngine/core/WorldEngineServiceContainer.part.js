@@ -13,9 +13,10 @@
             this.timelinePolicy=new WorldTimelinePolicy();
             ACTIVE_WORLD_TIMELINE_POLICY=this.timelinePolicy;
             this.chronologyPolicy=new WorldChronologyPolicy();
+            this.timePolicy=new WorldTimePolicy();
             this.lifecycle=new WorldLifecycleService();
             ACTIVE_WORLD_LIFECYCLE_SERVICE=this.lifecycle;
-            this.people=new WorldPersonActivityService(engine);
+            this.people=new WorldPersonActivityService(engine,this.timePolicy);
             ACTIVE_WORLD_PERSON_ACTIVITY_SERVICE=this.people;
             this.npcAudit=new WorldNpcAuditService();
             ACTIVE_WORLD_NPC_AUDIT_SERVICE=this.npcAudit;
@@ -27,7 +28,7 @@
             this.resultNormalizer=new WorldResultNormalizer();
             this.exploration=new WorldExplorationService(engine);
             ACTIVE_WORLD_EXPLORATION_SERVICE=this.exploration;
-            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy);
+            this.resultMaterializer=new WorldResultMaterializer(this.resultNormalizer,this.exploration,this.stateNormalizer,this.causal,this.patchPolicy,this.npcAudit,this.people,this.taskLedger,this.chronologyPolicy,this.timePolicy);
             ACTIVE_WORLD_RESULT_MATERIALIZER=this.resultMaterializer;
             this.resultStaging=new WorldResultStagingService(this.resultNormalizer,this.resultMaterializer,this.chronologyPolicy);
             ACTIVE_WORLD_RESULT_STAGING=this.resultStaging;
@@ -52,7 +53,7 @@
             engine._runOrchestrator=this.run;
             this.autoProgress=new WorldAutoProgressController(engine);
             this.replay=new WorldReplayService(engine);
-            this.timeOwnership=new WorldTimeOwnershipFeature(engine);
+            this.timeOwnership=new WorldTimeOwnershipFeature(engine,this.timePolicy);
             this.npcAuditPolicy=new WorldNpcAuditPolicy(engine);
             this.historyLifecycle=new WorldHistoryLifecycle(engine);
             this.views=new WorldEngineViewRegistry(engine);

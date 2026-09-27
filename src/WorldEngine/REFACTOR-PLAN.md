@@ -599,3 +599,12 @@ Replay 合同常量 `WORLD_REPLAY_VERSION / WORLD_REPLAY_SCOPES` 迁入 `WorldRe
 patch 工具、Prompt/知识边界测试、架构测试与 GitHub Actions 自动同步路径全部改读新的 src foundation。酒馆交付仍只有 `script/世界推进系统.js`，CommonJS 导出与浏览器 bootstrap 行为保持不变。
 
 后续 Phase 57 才继续把 `WorldEngineFoundation` 内仍混合的基础设施按职责拆分；禁止为了“类化”给纯常量/CSS/bootstrap 机械套空 class。
+
+
+### Phase 57 · Foundation Prompt 尾部归入 prompts
+
+已完成：`WorldEngineFoundation.part.js` 中从 `DEFAULT_PRESET` 开始的连续尾部整体迁入 `src/WorldEngine/prompts/WorldBasePromptDefaults.part.js`，并紧跟 Foundation 加载、早于 ConfigService。切分按原字符边界完成，`Foundation + WorldBasePromptDefaults` 与迁移前 Foundation 逐字一致，因此本阶段不改变单文件运行语义。
+
+迁移内容包括默认预设、核心约束、宏观提示、稳定度模板、内置默认 Prompt 文档、稳定度阶段与预设编辑 helper。Prompt/预设默认值不再物理藏在基础 IIFE 文件中；相关测试与历史 Prompt patch 工具也统一读取 prompts 目录。
+
+由于本阶段坚持连续块零行为迁移，`parseSelectedEntryKey / normalizeWorldbookIdentity / normalizeWorldbookEntryTitle / selectedEntryMatches` 这组世界书匹配 helper 暂时随尾部进入 `WorldBasePromptDefaults`。下一阶段应把它们迁入 Knowledge/selection policy，再继续拆 Foundation 中 token 观测、主题常量与正文抽取等基础职责。

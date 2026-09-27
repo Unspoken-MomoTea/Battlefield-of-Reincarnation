@@ -36,6 +36,7 @@ PARTS = (
     'ui/00-styles.part.js',
     '@src/WorldEngine/core/WorldEngineConfigService.part.js',
     '@src/WorldEngine/core/SamsaraWorldEngine.part.js',
+    '@src/WorldEngine/core/WorldEngineLifecycleController.part.js',
     '@src/WorldEngine/prompts/WorldPromptDefaults.part.js',
     '@src/WorldEngine/domains/WorldRuntimeContextService.part.js',
     '@src/WorldEngine/domains/WorldKnowledgeService.part.js',

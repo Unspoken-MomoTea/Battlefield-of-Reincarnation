@@ -180,10 +180,14 @@ const npcAuditServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/doma
 const npcAuditPolicySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldNpcAuditPolicy.part.js'),'utf8');
 assert.match(stateFactorySource,/class\s+WorldStateFactory/,'state factory class must own backend creation');
 assert.match(stateFactorySource,/function\s+emptyState\s*\(\)\s*\{return DEFAULT_WORLD_STATE_FACTORY\.emptyBackend\(\);\}/,'public emptyState seam must remain compatible');
-assert.match(foundationSource,/function\s+worldDateKey\s*\(value\)\s*\{\s*return ACTIVE_WORLD_TIME_POLICY\.key\(value\);\s*\}/,'foundation worldDateKey must be compatibility-only');
+for(const legacyName of ['worldDateKey','worldTimeCapacity','calendarDate'])assert.doesNotMatch(foundationSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave WorldEngineFoundation');
+for(const method of ['normalizeDaypartAlias','key','capacity','calendarDate','dayKey','hasExactClock'])assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
+assert.match(worldTimePolicySource,/function\s+worldDateKey\s*\(value\)\{return ACTIVE_WORLD_TIME_POLICY\.key\(value\);\}/,'worldDateKey compatibility seam must delegate to active time policy');
+assert.match(worldTimePolicySource,/function\s+worldTimeCapacity\s*\(previous,current\)\{return ACTIVE_WORLD_TIME_POLICY\.capacity\(previous,current\);\}/,'worldTimeCapacity compatibility seam must delegate to active time policy');
+assert.match(worldTimePolicySource,/function\s+calendarDate\s*\(value,calendar\)\{return ACTIVE_WORLD_TIME_POLICY\.calendarDate\(value,calendar\);\}/,'calendarDate compatibility seam must delegate to active time policy');
 assert.doesNotMatch(foundationSource,/const\s+(?:DEFAULT_PRESET|CORE_WORLD_RULES|DEFAULT_MACRO_PROMPT|DEFAULT_STABILITY_PROMPT_TEMPLATE|BUILTIN_DEFAULT_PROMPT_DOCUMENT)\b/,'editable base prompt defaults must not live in foundation infrastructure');
 for(const name of ['DEFAULT_PRESET','CORE_WORLD_RULES','DEFAULT_MACRO_PROMPT','DEFAULT_STABILITY_PROMPT_TEMPLATE','BUILTIN_DEFAULT_PROMPT_DOCUMENT'])assert.match(basePromptDefaultsSource,new RegExp('(?:const\\s+)?'+name+'\\b'),'base prompt defaults module must own '+name);
-for(const method of ['normalizeDaypartAlias','key','dayKey','hasExactClock'])assert.match(worldTimePolicySource,new RegExp('\\b'+method+'\\s*\\('),'world time policy must own '+method);
+
 for(const method of ['reviewPoint','review','ensureHandled'])assert.match(dueEventPolicySource,new RegExp('\\b'+method+'\\s*\\('),'due event policy must own '+method);
 for(const method of ['semanticRecord','recordMap','counts','requirement','changed','ensureDelivery','repairRequired'])assert.match(worldActivityPolicySource,new RegExp('\\b'+method+'\\s*\\('),'world activity policy must own '+method);
 for(const method of ['eventHasUsableSchedule','unscheduledEvents','ensureEventTimeAnchors'])assert.match(softMaintenancePolicySource,new RegExp('\\b'+method+'\\s*\\('),'soft maintenance policy must own '+method);

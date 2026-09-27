@@ -33,6 +33,20 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             '保留正文\n\n继续正文'
         );
     });
+    await test('event predecessors reject self references and missing event names with actionable errors', () => {
+        const self=fresh();
+        assert.throws(
+            ()=>applyPatches(self,[add('/世界/后台/事件/自指事件',{...RECORDS.事件,描述:'自指事件',分类:'当前事件',状态:'待发生',时间:'2026年9月7日清晨',前因:['自指事件']})]),
+            /事件前因非法自引用：自指事件/,
+            'event predecessor validation must reject a self reference explicitly'
+        );
+        const missing=fresh();
+        assert.throws(
+            ()=>applyPatches(missing,[add('/世界/后台/事件/后续事件',{...RECORDS.事件,描述:'后续事件',分类:'当前事件',状态:'待发生',时间:'2026年9月7日清晨',前因:['不存在节点']})]),
+            /事件前因不存在：后续事件 <- 不存在节点/,
+            'event predecessor validation must report the missing predecessor name'
+        );
+    });
     await test('WorldResult.关系 rejects HP or EP beyond existing maxima', () => {
         const stat=fresh();
         stat.关系列表.角色={在场:false,种族:'人类',身份:[],层级:'Ⅰ',HP_MAX:50,HP:50,THP:0,EP_MAX:20,EP:20,是否队友:false,好感度:0,态度:''};

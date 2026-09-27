@@ -45,6 +45,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldHistoryMemoryPolicy.part.js',
   'src/WorldEngine/domains/WorldHistoryService.part.js',
   'src/WorldEngine/domains/WorldProseExtractor.part.js',
+  'src/WorldEngine/domains/WorldTokenTelemetry.part.js',
   'src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js',
   'src/WorldEngine/domains/WorldApiTransportService.part.js',
   'src/WorldEngine/domains/WorldPromptDocumentService.part.js',
@@ -69,6 +70,7 @@ const panelRendererSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/Wor
 const promptDocumentServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldPromptDocumentService.part.js'),'utf8');
 const orchestratorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRunOrchestrator.part.js'),'utf8');
 const proseExtractorSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldProseExtractor.part.js'),'utf8');
+const tokenTelemetrySource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldTokenTelemetry.part.js'),'utf8');
 const requestBuilderSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldRequestBuilder.part.js'),'utf8');
 const knowledgeSelectionSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeSelectionPolicy.part.js'),'utf8');
 const knowledgeServiceSource=fs.readFileSync(path.join(root,'src/WorldEngine/domains/WorldKnowledgeService.part.js'),'utf8');
@@ -80,6 +82,9 @@ assert.match(hostAdapterSource,/class\s+WorldHostAdapter\s*\{/,'host function re
 assert.match(hostAdapterSource,/resolve\(name\)/,'host adapter must own function resolution');
 assert.match(applicationShellSource,/fn\(name\)\s*\{\s*return this\.hostAdapter\.resolve\(name\);\s*\}/,'application shell fn must remain a host-adapter facade');
 assert.doesNotMatch(applicationShellSource,/for\s*\(const obj of \[this\.env|this\.host\.TavernHelper/,'host function resolution must not grow back into the shell');
+for(const legacyName of ['estimateTokens','formatTokenCount','normalizeTokenUsage','requestTokenTelemetry'])assert.doesNotMatch(foundationSource,new RegExp('function\\s+'+legacyName+'\\s*\\('),legacyName+' implementation must leave WorldEngineFoundation');
+assert.match(tokenTelemetrySource,/class\s+WorldTokenTelemetry\s*\{/,'token telemetry algorithms must live behind a dedicated domain class');
+for(const method of ['estimate','format','normalizeUsage','request'])assert.match(tokenTelemetrySource,new RegExp('\\b'+method+'\\s*\\('),'token telemetry must own '+method);
 assert.match(configServiceSource,/class\s+WorldEngineConfigService\s*\{/,'configuration initialization must live behind a dedicated src service');
 for(const method of ['isConfigured','isAvailable','isEnabled','setEnabled'])assert.match(configServiceSource,new RegExp('\\b'+method+'\\s*\\('),'configuration service must own '+method);
 assert.match(applicationShellSource,/isConfigured\(\)\{return this\.configService\.isConfigured\(\);\}/,'application shell isConfigured must remain a facade seam');
@@ -293,6 +298,9 @@ for(const name of ['hostAdapter','runScheduler','applicationLifecycle','panelCon
 assert.equal(engine.services.constructor.name,'WorldEngineServiceContainer');
 assert.equal(engine.services.hostAdapter,engine.hostAdapter,'service container must expose the shell-owned host adapter');
 assert.equal(engine.services.proseExtractor.constructor.name,'WorldProseExtractor');
+assert.equal(engine.services.tokenTelemetry.constructor.name,'WorldTokenTelemetry');
+assert.equal(engine.services.requestBuilder.telemetry,engine.services.tokenTelemetry,'request builder must compose the container-owned token telemetry');
+assert.equal(engine.services.transport.telemetry,engine.services.tokenTelemetry,'API transport must compose the container-owned token telemetry');
 assert.equal(engine.services.requestBuilder.proseExtractor,engine.services.proseExtractor,'request builder must compose the container-owned prose extractor');
 assert.equal(engine.services.knowledgeSelection.constructor.name,'WorldKnowledgeSelectionPolicy');
 assert.equal(engine.services.knowledge.selection,engine.services.knowledgeSelection,'knowledge service must compose the container-owned selection policy');

@@ -1,7 +1,61 @@
+    const CAUSAL_OVERVIEW_LIMIT=3;
+    const WORLD_ENGINE_HIDDEN_PLAYER_TABS=new Set(['资产','传闻']);
+
     class WorldCausalOverviewController {
         constructor(engine){this.engine=engine;}
+        static isPlayerTabHidden(tab){return WORLD_ENGINE_HIDDEN_PLAYER_TABS.has(String(tab||''));}
+        static offsetEntries(stat){
+            const bucket=stat?.世界?.因果轨道?.偏移记录;
+            return Object.entries(plain(bucket)?bucket:{}).slice().reverse();
+        }
+        static latestOffsets(stat,limit=CAUSAL_OVERVIEW_LIMIT){
+            return this.offsetEntries(stat).slice(0,Math.max(0,Number(limit)||0));
+        }
+        static impactLabel(value){
+            const n=Number(value);
+            return Number.isFinite(n)?(n>0?'+':'')+n:'影响未记录';
+        }
+        static escape(value){
+            return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
+        static interferenceMode(stat){return String(stat?.世界?.异端雷达?.当前模式||'').trim();}
+        static compactHtml(stat){
+            const world=stat?.世界||{},offsets=this.offsetEntries(stat),latest=offsets.slice(0,CAUSAL_OVERVIEW_LIMIT);
+            const stable=world.稳定!==null&&world.稳定!==''&&Number.isFinite(Number(world.稳定))?Number(world.稳定):null;
+            const rows=latest.map(([name,record])=>'<button class="we-causal-jump" data-tab="因果档案"><span><b>'+this.escape(name)+'</b><small>'+this.escape(record?.引发者||'引发者未记录')+'</small></span><strong>'+this.escape(this.impactLabel(record?.影响程度))+'</strong><p>'+this.escape(record?.描述||'暂无偏移描述')+'</p></button>').join('');
+            return '<div class="we-causal-summary"><button class="we-stability-compact" data-tab="因果档案"><span><small>世界稳定值</small><strong>'+this.escape(stable===null?'未记录':stable)+'</strong></span><em>查看因果档案 →</em></button>'
+                +(rows?'<div class="we-causal-latest">'+rows+'</div>':'<div class="we-empty"><b>暂无因果偏移</b><small>重大且已确认的因果改变会记录在这里。</small></div>')
+                +'<button class="we-link-btn" data-tab="因果档案">查看全部 '+offsets.length+' 条偏移、故事线与世界法则 →</button></div>';
+        }
+        static archiveHtml(stat){
+            const world=stat?.世界||{},orbit=world.因果轨道||{},offsets=this.offsetEntries(stat),stable=world.稳定!==null&&world.稳定!==''&&Number.isFinite(Number(world.稳定))?Number(world.稳定):null;
+            const offsetCard=([name,record])=>'<article class="we-offset"><div class="we-offset-head"><b>'+this.escape(name)+'</b><span>'+this.escape(this.impactLabel(record?.影响程度))+'</span></div><p>'+this.escape(record?.描述||'暂无偏移描述')+'</p><small>引发者 · '+this.escape(record?.引发者||'未记录')+'</small></article>';
+            const recent=offsets.slice(0,12),older=offsets.slice(12);
+            const laws=Array.isArray(world.法则)?world.法则:(world.法则?[world.法则]:[]);
+            const money=world.货币||{},interference=this.interferenceMode(stat);
+            const story='<article class="we-card we-causal-track"><dl><dt>当前阶段</dt><dd>'+this.escape(orbit.当前阶段||'待初始化')+'</dd><dt>故事线</dt><dd>'+this.escape(orbit.故事线||'未记录')+'</dd><dt>下一节点</dt><dd>'+this.escape(orbit.下一节点||'未记录')+'</dd></dl></article>';
+            const stability='<div class="we-causal"><div class="we-stability"><div><small>世界稳定值</small><strong data-world-stability>'+this.escape(stable===null?'未记录':stable)+'</strong></div><span>完整偏移保留为因果记忆；主面板仅显示最新 '+CAUSAL_OVERVIEW_LIMIT+' 条</span></div>'
+                +(stable===null?'':'<meter min="0" max="120" value="'+Math.max(0,Math.min(120,stable))+'" aria-label="世界稳定值">'+stable+'</meter>')
+                +'</div>';
+            const offsetList=recent.length?recent.map(offsetCard).join(''):'<div class="we-empty"><b>暂无因果偏移</b><small>只有已发生的重大不可逆结果才会建立记录。</small></div>';
+            const olderHtml=older.length?'<details class="we-offset-more"><summary>查看更早 '+older.length+' 条偏移</summary>'+older.map(offsetCard).join('')+'</details>':'';
+            const interferenceHtml=interference?'<section class="we-section we-causal-interference"><div class="we-section-head"><h2>干涉模式</h2><small>副本干涉态势</small></div><article class="we-card"><p>'+this.escape(interference)+'</p></article></section>':'';
+            const moneyHtml='<article class="we-card"><dl><dt>货币体系</dt><dd>'+this.escape(money.体系||'未记录')+'</dd><dt>购买力基准</dt><dd>'+this.escape(money.购买力基准||'未记录')+'</dd><dt>经济波动</dt><dd>'+this.escape(money.经济波动||'未记录')+'</dd></dl></article>';
+            const lawHtml=laws.length?'<div class="we-reading we-world-laws">'+laws.map(item=>'<article><p>'+this.escape(item)+'</p></article>').join('')+'</div>':'<div class="we-empty"><b>尚无世界法则</b><small>明确生效的法则会在这里维护。</small></div>';
+            return '<div class="we-causal-archive-grid"><div><section class="we-section"><div class="we-section-head"><h2>因果偏移档案</h2><small>'+offsets.length+' 条 · 最新在前</small></div>'+stability+offsetList+olderHtml+'</section></div><aside><section class="we-section"><div class="we-section-head"><h2>因果轨道</h2><small>长期方向</small></div>'+story+'</section>'+interferenceHtml+'<section class="we-section"><div class="we-section-head"><h2>货币与经济</h2><small>世界推进维护</small></div>'+moneyHtml+'</section><section class="we-section"><div class="we-section-head"><h2>世界法则</h2><small>'+laws.length+' 条</small></div>'+lawHtml+'</section></aside></div>';
+        }
+        static sectionByTitle(root,title){
+            return Array.from(root?.querySelectorAll?.('.we-section')||[]).find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()===title)||null;
+        }
+        isPlayerTabHidden(tab){return this.constructor.isPlayerTabHidden(tab);}
+        offsetEntries(stat){return this.constructor.offsetEntries(stat);}
+        latestOffsets(stat,limit=CAUSAL_OVERVIEW_LIMIT){return this.constructor.latestOffsets(stat,limit);}
+        interferenceMode(stat){return this.constructor.interferenceMode(stat);}
+        compactHtml(stat){return this.constructor.compactHtml(stat);}
+        archiveHtml(stat){return this.constructor.archiveHtml(stat);}
+        sectionByTitle(root,title){return this.constructor.sectionByTitle(root,title);}
         beforeRender(){
-            if(typeof isWorldEnginePlayerTabHidden==='function'&&isWorldEnginePlayerTabHidden(this.engine.tab))this.engine.tab='世界推进';
+            if(this.isPlayerTabHidden(this.engine.tab))this.engine.tab='世界推进';
         }
         ensureStyles(){
             const engine=this.engine;
@@ -24,27 +78,27 @@
         }
         compactWorldOverview(){
             const engine=this.engine,main=engine.panel?.querySelector?.('main');if(!main)return;
-            const stat=engine.snapshot().stat,causal=causalSectionByTitle(main,'因果状态');
+            const stat=engine.snapshot().stat,causal=this.sectionByTitle(main,'因果状态');
             main.querySelector('.we-kpi-grid.we-kpi-compact')?.remove();
             if(causal){
                 const head=causal.querySelector('.we-section-head');
                 if(head){
                     const h=head.querySelector('h2'),small=head.querySelector('small');
                     if(h)h.textContent='因果摘要';
-                    if(small)small.textContent='最新 '+Math.min(CAUSAL_OVERVIEW_LIMIT,causalOffsetEntries(stat).length)+' 条 · 点击进入档案';
+                    if(small)small.textContent='最新 '+Math.min(CAUSAL_OVERVIEW_LIMIT,this.offsetEntries(stat).length)+' 条 · 点击进入档案';
                 }
                 Array.from(causal.children).filter(child=>child!==head).forEach(child=>child.remove());
-                causal.insertAdjacentHTML('beforeend',causalCompactHtml(stat));
+                causal.insertAdjacentHTML('beforeend',this.compactHtml(stat));
             }
-            for(const title of ['货币与经济','世界法则'])causalSectionByTitle(main,title)?.remove();
+            for(const title of ['货币与经济','世界法则'])this.sectionByTitle(main,title)?.remove();
         }
         removeRunRecordInterference(){
             const main=this.engine.panel?.querySelector?.('main');if(!main)return;
-            causalSectionByTitle(main,'干涉模式')?.remove();
+            this.sectionByTitle(main,'干涉模式')?.remove();
         }
         renderArchive(){
             const engine=this.engine,main=engine.panel?.querySelector?.('main');if(!main)return;
-            main.insertAdjacentHTML('beforeend',causalArchiveHtml(engine.snapshot().stat));
+            main.insertAdjacentHTML('beforeend',this.archiveHtml(engine.snapshot().stat));
         }
         afterRender(){
             const engine=this.engine;
@@ -57,3 +111,14 @@
             else if(engine.tab==='运行记录')this.removeRunRecordInterference();
         }
     }
+
+
+    function isWorldEnginePlayerTabHidden(tab){return WorldCausalOverviewController.isPlayerTabHidden(tab);}
+    function causalOffsetEntries(stat){return WorldCausalOverviewController.offsetEntries(stat);}
+    function latestCausalOffsets(stat,limit=CAUSAL_OVERVIEW_LIMIT){return WorldCausalOverviewController.latestOffsets(stat,limit);}
+    function causalImpactLabel(value){return WorldCausalOverviewController.impactLabel(value);}
+    function causalOverviewEscape(value){return WorldCausalOverviewController.escape(value);}
+    function causalInterferenceMode(stat){return WorldCausalOverviewController.interferenceMode(stat);}
+    function causalCompactHtml(stat){return WorldCausalOverviewController.compactHtml(stat);}
+    function causalArchiveHtml(stat){return WorldCausalOverviewController.archiveHtml(stat);}
+    function causalSectionByTitle(root,title){return WorldCausalOverviewController.sectionByTitle(root,title);}

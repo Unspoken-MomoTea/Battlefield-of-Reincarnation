@@ -5,12 +5,13 @@
             this.chronology=chronology||DEFAULT_WORLD_CHRONOLOGY_POLICY;
         }
 
-        // Transitional rule: normalization/merge/fragment and retry-plan calls intentionally use the
-        // global compatibility seams because legacy features still decorate them after this service loads.
+        // Retry-plan calls still traverse the compatibility seam because a few legacy modules only add domain-specific retry guidance.
+        // Result normalization, merge, fragment splitting and compilation are canonical class calls.
 
         worldResultFragments(value) {
-            const result=normalizeWorldResult(value),fragments=[];
+            const result=this.normalizer.normalizeWorldResult(value),fragments=[];
             const push=(label,body)=>fragments.push({label,result:Object.assign({摘要:''},body)});
+            if(Object.hasOwn(result,'时间'))push('时间',{时间:result.时间});
             for(const [key,value] of Object.entries(result.货币||{}))push('货币/'+key,{货币:{[key]:copy(value)}});
             for(const [key,value] of Object.entries(result.历法||{}))push('历法/'+key,{历法:{[key]:copy(value)}});
             for(const key of ['事件','人物','势力地区','历史','传播','势力','探索','资产','异端']){
@@ -57,16 +58,16 @@
         }
 
         stage(stat,accepted,incoming,validate) {
-            const split=worldResultFragments(incoming);
-            let staged=accepted?mergeWorldResults(accepted,{摘要:split.摘要}):normalizeWorldResult({摘要:split.摘要});
+            const split=this.worldResultFragments(incoming);
+            let staged=accepted?this.normalizer.mergeWorldResults(accepted,{摘要:split.摘要}):this.normalizer.normalizeWorldResult({摘要:split.摘要});
             let pending=split.fragments.map(unit=>Object.assign({},unit,{error:null})),progress=true;
             while(pending.length&&progress){
                 progress=false;
                 const nextPending=[];
                 for(const unit of pending){
-                    const candidate=mergeWorldResults(staged,unit.result);
+                    const candidate=this.normalizer.mergeWorldResults(staged,unit.result);
                     try{
-                        const compiled=compileWorldResult(stat,candidate);
+                        const compiled=this.materializer.compileWorldResult(stat,candidate);
                         const built=this.materializer.materializeWorldUpdate(stat,[],compiled.patches);
                         if(typeof validate==='function'){
                             const checked=validate(built.next);

@@ -401,3 +401,10 @@ The public `SamsaraWorldEngine.render(force)` method is now a facade seam. The C
 `WorldEngineLifecycleController` owns host lifecycle integration: MVU/tavern subscriptions, context-switch cleanup, Escape handling, panel open/close/toggle, terminal suspend/restore, and final disposal of subscriptions and DOM mounts.
 
 The public `SamsaraWorldEngine.init / isOpen / open / close / toggle / dispose` methods are compatibility facade seams only. Run scheduling and cancellation intentionally remain outside this controller so application lifecycle does not absorb auto-progress or run-orchestration responsibilities.
+
+
+## Phase 52 · Prompt settings and workspace
+
+Prompt configuration is split along existing domain/UI boundaries instead of adding another wrapper class. `WorldPromptDocumentService` owns preset mutation and base prompt-setting validation/application; `WorldPromptWorkspaceController` owns reads from the prompt editing DOM.
+
+`SamsaraWorldEngine.setPreset / readPromptEditor / applyPromptSettings` are compatibility facades only. `WorldEngineClassBridge` still wraps these seams to synchronize `WorldPromptRegistry`, so the all-prompts registry remains the single editable source for static AI instructions.

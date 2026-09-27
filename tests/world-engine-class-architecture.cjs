@@ -26,7 +26,7 @@ for(const file of [
   'src/WorldEngine/domains/WorldSoftMaintenancePolicy.part.js',
   'src/WorldEngine/domains/WorldLifecycleService.part.js',
   'src/WorldEngine/domains/WorldStateNormalizer.part.js',
-  'src/WorldEngine/domains/WorldResultKernel.part.js',
+  'src/WorldEngine/domains/WorldResultVocabulary.part.js',
   'src/WorldEngine/domains/WorldRelationSyncPolicy.part.js',
   'src/WorldEngine/domains/WorldAssetMaterializationPolicy.part.js',
   'src/WorldEngine/domains/WorldStateIntegrityPolicy.part.js',

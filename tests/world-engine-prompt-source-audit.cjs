@@ -61,6 +61,23 @@ for(const file of sources){
 }
 assert.deepEqual(inline,[],'do not inject new inline system prompt text outside WorldPromptRegistry');
 
+const runtimeNeutralityTargets=[
+  ...filesUnder(path.join(root,'src','WorldEngine')),
+  path.join(root,'script','世界推进系统.js')
+].filter(file=>fs.existsSync(file));
+const franchiseTerms=[
+  '学园默示录','藤美学园','床主市','高城家','毒岛冴子',
+  '斩！赤红之瞳','斩赤红之瞳','塞琉·尤比基塔斯','帝具','狩人部队','夜袭'
+];
+const runtimeFranchiseLeaks=[];
+for(const file of runtimeNeutralityTargets){
+  const text=fs.readFileSync(file,'utf8');
+  for(const term of franchiseTerms){
+    if(text.includes(term))runtimeFranchiseLeaks.push({file:path.relative(root,file),term});
+  }
+}
+assert.deepEqual(runtimeFranchiseLeaks,[],'world-engine runtime must stay franchise-neutral; examples belong only in test fixtures or content packs');
+
 const workspace=fs.readFileSync(path.join(root,'src','WorldEngine','ui','WorldPromptWorkspaceController.part.js'),'utf8');
 assert.match(workspace,/全部实际提示词/);
 assert.match(workspace,/作用范围/);

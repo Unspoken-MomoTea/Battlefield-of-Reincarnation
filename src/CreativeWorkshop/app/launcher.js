@@ -1,6 +1,8 @@
 const STORAGE_KEY = 'reincarnation-workshop:launcher-position';
 const DRAG_THRESHOLD = 4;
 const CLICK_SUPPRESS_MS = 350;
+const MOBILE_BREAKPOINT = 760;
+const MOBILE_EDGE_MARGIN = 16;
 
 function finite(value) {
   return Number.isFinite(Number(value));
@@ -10,23 +12,42 @@ export function bindWorkshopLauncher({ launcher, overlay, host, open, close }) {
   let drag = null;
   let suppressClickUntil = 0;
 
-  const viewportSize = () => ({
-    width: Math.max(
-      Number(host.innerWidth) || 0,
-      Number(launcher.ownerDocument?.documentElement?.clientWidth) || 0,
-    ),
-    height: Math.max(
-      Number(host.innerHeight) || 0,
-      Number(launcher.ownerDocument?.documentElement?.clientHeight) || 0,
-    ),
-  });
+  const viewportMetrics = () => {
+    const viewport = host.visualViewport;
+    const docEl = launcher.ownerDocument?.documentElement;
+    const width = Number(viewport?.width)
+      || Number(docEl?.clientWidth)
+      || Number(host.innerWidth)
+      || 0;
+    const height = Number(viewport?.height)
+      || Number(docEl?.clientHeight)
+      || Number(host.innerHeight)
+      || 0;
+    return {
+      left: Number(viewport?.offsetLeft) || 0,
+      top: Number(viewport?.offsetTop) || 0,
+      width,
+      height,
+    };
+  };
+
+  const isMobileViewport = () => {
+    const viewport = viewportMetrics();
+    const coarsePointer = Boolean(host.matchMedia?.('(pointer: coarse)')?.matches)
+      || Number(host.navigator?.maxTouchPoints || 0) > 0;
+    return coarsePointer || viewport.width <= MOBILE_BREAKPOINT;
+  };
 
   const clampPosition = (left, top) => {
     const rect = launcher.getBoundingClientRect();
-    const viewport = viewportSize();
+    const viewport = viewportMetrics();
+    const minLeft = viewport.left;
+    const minTop = viewport.top;
+    const maxLeft = Math.max(minLeft, viewport.left + viewport.width - rect.width);
+    const maxTop = Math.max(minTop, viewport.top + viewport.height - rect.height);
     return {
-      left: Math.min(Math.max(0, Number(left) || 0), Math.max(0, viewport.width - rect.width)),
-      top: Math.min(Math.max(0, Number(top) || 0), Math.max(0, viewport.height - rect.height)),
+      left: Math.min(Math.max(minLeft, Number(left) || 0), maxLeft),
+      top: Math.min(Math.max(minTop, Number(top) || 0), maxTop),
     };
   };
 
@@ -37,7 +58,7 @@ export function bindWorkshopLauncher({ launcher, overlay, host, open, close }) {
     launcher.style.right = 'auto';
     launcher.style.bottom = 'auto';
 
-    if (persist) {
+    if (persist && !isMobileViewport()) {
       try {
         host.localStorage?.setItem(STORAGE_KEY, JSON.stringify(next));
       } catch {}
@@ -45,7 +66,23 @@ export function bindWorkshopLauncher({ launcher, overlay, host, open, close }) {
     return next;
   };
 
+  const pinToMobileViewport = () => {
+    const viewport = viewportMetrics();
+    const rect = launcher.getBoundingClientRect();
+    applyPosition(
+      viewport.left + viewport.width - rect.width - MOBILE_EDGE_MARGIN,
+      viewport.top + viewport.height - rect.height - MOBILE_EDGE_MARGIN,
+    );
+  };
+
   const restorePosition = () => {
+    if (isMobileViewport()) {
+      // 手机/WebView 的 layout viewport 往往比真实可视区大，桌面端保存的位置会被恢复到屏幕外。
+      // 移动端始终先落在 visualViewport 右下角，保证悬浮入口可见。
+      pinToMobileViewport();
+      return;
+    }
+
     try {
       const saved = JSON.parse(host.localStorage?.getItem(STORAGE_KEY) || 'null');
       if (!saved || !finite(saved.left) || !finite(saved.top)) return;
@@ -112,7 +149,11 @@ export function bindWorkshopLauncher({ launcher, overlay, host, open, close }) {
     else open();
   };
 
-  const onResize = () => {
+  const onViewportChange = () => {
+    if (isMobileViewport()) {
+      pinToMobileViewport();
+      return;
+    }
     if (!launcher.style.left || !launcher.style.top) return;
     const rect = launcher.getBoundingClientRect();
     applyPosition(rect.left, rect.top, { persist: true });
@@ -125,7 +166,9 @@ export function bindWorkshopLauncher({ launcher, overlay, host, open, close }) {
   launcher.addEventListener('pointerup', finishDrag);
   launcher.addEventListener('pointercancel', onPointerCancel);
   launcher.addEventListener('click', onClick);
-  host.addEventListener?.('resize', onResize);
+  host.addEventListener?.('resize', onViewportChange);
+  host.visualViewport?.addEventListener?.('resize', onViewportChange);
+  host.visualViewport?.addEventListener?.('scroll', onViewportChange);
 
   const schedule = host.requestAnimationFrame || (callback => host.setTimeout(callback, 0));
   schedule(restorePosition);
@@ -136,6 +179,8 @@ export function bindWorkshopLauncher({ launcher, overlay, host, open, close }) {
     launcher.removeEventListener('pointerup', finishDrag);
     launcher.removeEventListener('pointercancel', onPointerCancel);
     launcher.removeEventListener('click', onClick);
-    host.removeEventListener?.('resize', onResize);
+    host.removeEventListener?.('resize', onViewportChange);
+    host.visualViewport?.removeEventListener?.('resize', onViewportChange);
+    host.visualViewport?.removeEventListener?.('scroll', onViewportChange);
   };
 }

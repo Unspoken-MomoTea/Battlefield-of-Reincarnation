@@ -214,7 +214,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.locator('.we-explore-card[data-area="灰港外港"]').click();
  assert.equal(await page.locator('.we-explore-card[data-area="灰港外港"]').evaluate(el=>el.classList.contains('active')),true,'点击地标切换右侧区域档案');
  assert.equal(await page.getByRole('heading',{name:'区域档案',exact:true}).count(),1);
- assert.equal(await page.getByText('65%',{exact:true}).count()>=2,true,'区域卡与详情都展示探索度');
+ assert.equal(await page.locator('.we-explore-card[data-area="灰港外港"]').getByText('65%',{exact:true}).count(),1,'选中区域卡应明确展示探索度');
  assert.equal(await page.getByText('深入',{exact:true}).count()>=1,true,'探索度阶段要一眼可见');
  const areaNoteStyle=await page.locator('.we-area-note').first().evaluate(el=>{const s=getComputedStyle(el);return {fontSize:parseFloat(s.fontSize),background:s.backgroundColor,color:s.color};});
  assert.equal(areaNoteStyle.fontSize>=14,true,'区域档案说明文字不得继续使用10px');

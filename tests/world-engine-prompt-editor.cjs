@@ -28,6 +28,12 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.addScriptTag({path:path.join(__dirname,'../script/世界推进系统.js')});await page.evaluate(()=>{Samsara.worldEngine.setEnabled(true);Samsara.worldEngine.open();});
 
  await page.locator('[data-tab="提示词预设"]').click();
+ const stabilityHint=page.locator('[data-stability-prompt]').locator('..').locator(':scope > .we-muted');
+ assert.equal(await stabilityHint.evaluate(el=>getComputedStyle(el).paddingLeft),'12px','条件提示词底部说明应与折叠标题正文左边缘对齐');
+ const registryMeta=page.locator('.we-prompt-registry-meta').first();
+ assert.equal(await registryMeta.evaluate(el=>getComputedStyle(el).paddingLeft),'12px','Prompt Registry 作用范围/发送条件不得贴到卡片左边框');
+ const nativeRegistryNote=page.locator('.we-prompt-registry-item > .we-notice').first();
+ assert.equal(await nativeRegistryNote.evaluate(el=>getComputedStyle(el).marginLeft),'12px','原生提示词同步说明应保持同一内容边距');
  assert.equal(await page.locator('[data-segment]').first().getAttribute('readonly'),'');
  assert.equal(await page.locator('[data-segment-row]').first().getAttribute('open'),null);
  assert.equal(await page.locator('[data-action="segment-add"]').isDisabled(),true);

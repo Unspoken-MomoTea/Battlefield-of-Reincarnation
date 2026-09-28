@@ -38,14 +38,14 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.locator('[data-structure-prompt]').fill('测试结构说明');
  await page.locator('[data-action="save-default"]').click();
  assert.equal(await page.evaluate(()=>Samsara.worldEngine.config.structurePrompt),'测试结构说明');
- assert.equal(await page.evaluate(()=>Samsara.worldEngine.getPromptDocuments()[0].settings.structurePrompt),'测试结构说明');
+ assert.equal(await page.evaluate(()=>Samsara.worldEngine.getPromptDocuments().find(doc=>doc.id==='user-default'||doc.name==='个人默认设置')?.settings.structurePrompt),'测试结构说明');
  await page.locator('[data-action="prompt-edit"]').click();
  assert.equal(await page.locator('[data-structure-prompt]').getAttribute('readonly'),'');
  await page.reload();
  await page.evaluate(stat=>{window.getCurrentChatId=()=> 'preview';window.getChatMessages=()=>[{message_id:1,message:'正文',role:'assistant'}];window.Mvu={getMvuData:()=>({stat_data:stat})};window.eventOn=()=>()=>{};},stat);
  await page.addScriptTag({path:path.join(__dirname,'../script/世界推进系统.js')});
  assert.equal(await page.evaluate(()=>Samsara.worldEngine.config.structurePrompt),'测试结构说明');
- assert.equal(await page.evaluate(()=>Samsara.worldEngine.getPromptDocuments()[0].settings.structurePrompt),'测试结构说明');
+ assert.equal(await page.evaluate(()=>Samsara.worldEngine.getPromptDocuments().find(doc=>doc.id==='user-default'||doc.name==='个人默认设置')?.settings.structurePrompt),'测试结构说明');
  assert.deepEqual(errors,[]);
  console.log('PASS: 默认锁定、折叠、编辑、保存默认和重载持久化');
  }finally{await browser.close();}

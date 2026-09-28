@@ -56,7 +56,8 @@ const events=names.map((名称,index)=>({
   assert.ok(diagnostic.length<500,'三条因果错误不应膨胀成重复的规则段落');
   assert.equal(correction.已接受业务结果.人物[0].名称,'卫兵');
   assert.equal(current.世界.后台.人物.卫兵.行动,'巡逻');
-  assert.deepEqual(Object.keys(current.世界.后台.事件),names);
+  assert.deepEqual(Object.entries(current.世界.后台.事件).filter(([,event])=>event.分类==='宏观节点').map(([name])=>name),names);
+  assert.equal(current.世界.后台.事件['帝都交战'].状态,'进行中','用于满足现实世界活动门槛的既有当前事件必须保留');
   assert.equal(current.世界.后台.事件[rootCause],undefined,'不凭空补造当前阶段对应的事件');
   assert.deepEqual(current.世界.后台.事件[names[1]].前因,[names[0]],'后继有效依赖应保留');
   assert.equal(engine.lastRetryLog[0].片段.length,3,'完整结构化诊断仍保留以供排查');

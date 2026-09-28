@@ -40,12 +40,18 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  for(const label of ['C-B','Ⅳ']) assert.ok(await page.locator('.we-hero').getByText(label,{exact:true}).count(),label);
  assert.equal(await page.getByText('世界概况',{exact:true}).count(),0);
  assert.equal(await page.getByText('异端存活数量',{exact:true}).count(),0);
- const laws=page.locator('.we-command-side .we-section').filter({has:page.getByRole('heading',{name:'世界法则',exact:true})});
- assert.equal(await laws.count(),1,'世界法则应排在右侧辅助栏');
- assert.equal(await laws.locator('summary').count(),0,'右侧世界法则不再占用全宽折叠面板');
+ assert.equal(await page.getByRole('heading',{name:'因果摘要',exact:true}).count(),1,'主面板只保留紧凑因果摘要');
+ assert.equal(await page.getByRole('heading',{name:'世界法则',exact:true}).count(),0,'完整法则已迁入因果档案');
+ await page.locator('nav [data-tab="因果档案"]').click();
+ const laws=page.locator('.we-causal-archive-grid .we-section').filter({has:page.getByRole('heading',{name:'世界法则',exact:true})});
+ assert.equal(await laws.count(),1,'完整世界法则应位于因果档案');
+ assert.equal(await laws.locator('summary').count(),0,'因果档案中的法则保持直接阅读');
  assert.equal(await laws.locator('.we-reading article').count(),2);
  assert.equal(await laws.locator('.we-pill').count(),0);
  assert.equal(await laws.locator('p').first().evaluate(e=>getComputedStyle(e).whiteSpace),'pre-wrap');
+ const archiveMode=page.locator('.we-causal-archive-grid .we-section').filter({has:page.getByRole('heading',{name:'干涉模式',exact:true})});
+ assert.equal(await archiveMode.locator('.we-card').count(),1);
+ assert.ok((await archiveMode.locator('p').innerText()).includes('这是下一段。'));
  for(const width of [1440,390]) {
  await page.setViewportSize({width,height:1080});
  assert.equal(await laws.locator('.we-reading').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);
@@ -56,11 +62,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.locator('[data-tab="角色管理"]').first().click();
  assert.ok((await page.locator('.we-alien-count').innerText()).includes('1'));
  await page.locator('[data-tab="运行记录"]').first().click();
- const mode=page.locator('.we-section').filter({has:page.getByRole('heading',{name:'干涉模式',exact:true})});
- assert.equal(await mode.locator('.we-card').count(),1);
- assert.equal(await mode.locator('summary').count(),0);
+ assert.equal(await page.getByRole('heading',{name:'干涉模式',exact:true}).count(),0,'干涉模式只在因果档案显示，运行记录不再重复');
  assert.equal(await page.locator('[data-action="cancel"]').count(),0);
- assert.ok((await mode.locator('p').innerText()).includes('这是下一段。'));
  await page.screenshot({path:path.join(__dirname,'artifacts/world-interference-reading.png')});
  await page.evaluate(()=>{const e=Samsara.worldEngine;e.busy=true;e.controller=new AbortController();e.render();});
  const runButton=page.locator('header [data-action="run"]');

@@ -31,7 +31,9 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.evaluate(stat=>{window.getCurrentChatId=()=> 'task-ui';window.getChatMessages=()=>[{message_id:1,message:'车夫递来一封信。',role:'assistant'}];window.Mvu={getMvuData:()=>({stat_data:stat})};window.eventOn=()=>()=>{};window.Samsara={terminal:{apiReady:()=>false,suspend:()=>({open:false}),restore:()=>{}}};},stat);
  await page.addScriptTag({path:path.join(__dirname,'../script/世界推进系统.js')});
  await page.evaluate(()=>{Samsara.worldEngine.setEnabled(true);Samsara.worldEngine.open();});
- assert.equal(await page.locator('.we-stability-description').getByText('世界开始识别异常源',{exact:true}).isVisible(),true);
+ assert.equal(await page.locator('.we-stability-compact strong').innerText(),'96','主面板因果摘要应直接显示稳定值');
+ assert.equal(await page.locator('.we-stability-description').count(),0,'Phase 43 后主面板不再重复展开稳定阶段长说明');
+ assert.equal(await page.locator('nav [data-tab="因果档案"]').count(),1,'完整因果信息通过独立档案页进入');
  await page.locator('[data-tab="世界事件"]').click();
  const card=page.locator('[data-event-card="灰港封锁"]');
  assert.equal(await card.locator('.we-event-task').count(),2);

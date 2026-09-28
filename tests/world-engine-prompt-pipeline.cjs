@@ -15,7 +15,7 @@ const core = capture(/const CORE_WORLD_RULES = `([\s\S]*?)`;/, 'CORE_WORLD_RULES
 
 
 assert(source.includes("version:21,\n        builtin:true,\n        name:'默认设置'"), 'built-in prompt version should be 21');
-assert(source.includes("const shouldApply=appliedVersion===0||this.config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id"), 'built-in migration must not overwrite custom prompt documents');
+assert(source.includes("const shouldApply=appliedVersion===0||config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id"), 'built-in migration must not overwrite custom prompt documents');
 
 for (let i = 1; i <= 7; i += 1) {
   assert(preset.includes(`Step ${i} ·`), `pipeline is missing Step ${i}`);

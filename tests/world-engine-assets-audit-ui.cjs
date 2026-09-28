@@ -48,13 +48,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.setViewportSize({width:480,height:850});
  assert.equal(await card.locator('.we-event-task summary').first().isVisible(),true);
  await page.setViewportSize({width:1200,height:900});
- await page.locator('[data-tab="资产"]').click();
- assert.equal(await page.locator('[data-asset-card]').count(),2);
- assert.match(await page.locator('[data-asset-card="联防仓库"]').textContent(),/共同持有/);
- await page.locator('[data-asset-owner]').click();
- assert.equal(await page.evaluate(()=>Samsara.worldEngine.tab),'探索与势力');
- await page.locator('[data-tab="资产"]').click();
- await page.screenshot({path:path.join(__dirname,'artifacts/world-engine-assets.png')});
+ assert.equal(await page.locator('nav [data-tab="资产"]').count(),0,'Phase 43 后资产是后台账簿，不再作为玩家导航页重复展示');
+ assert.equal(await page.locator('[data-asset-card]').count(),0,'世界推进玩家面板不应偷偷渲染已隐藏的资产页');
  await page.locator('[data-tab="提示词预设"]').click();
  assert.equal(await page.locator('[data-npc-audit-prompt]').count(),0);
  await page.evaluate(()=>Samsara.worldEngine.setNpcBuildAuditEnabled(true));

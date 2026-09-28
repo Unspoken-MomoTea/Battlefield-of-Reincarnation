@@ -30,14 +30,15 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.screenshot({path:path.join(out,'world-desktop.png')});
  assert.equal(await page.locator('#sam-world-engine pre').count(),0);
  assert.equal(await page.getByRole('heading',{name:'近期变化',exact:true}).count(),0);
- assert.equal(await page.getByRole('heading',{name:'因果状态',exact:true}).count(),1);
- assert.equal(await page.locator('[data-world-stability]').innerText(),'96','读取稳定值，不从偏移记录重新计算');
- assert.equal(await page.locator('.we-offset').first().innerText().then(t=>t.includes('-10')&&t.includes('河运派')),true);
- assert.equal(await page.locator('.we-offset').nth(1).innerText().then(t=>t.includes('+2')),true);
- assert.equal(await page.locator('.we-offset').nth(3).isVisible(),false);
- await page.locator('.we-offset-more summary').click();
- assert.equal(await page.locator('.we-offset').nth(3).isVisible(),true);
- await page.locator('.we-offset-more summary').click();
+ assert.equal(await page.getByRole('heading',{name:'因果摘要',exact:true}).count(),1);
+ assert.equal(await page.locator('.we-stability-compact strong').innerText(),'96','读取稳定值，不从偏移记录重新计算');
+ assert.equal(await page.locator('.we-causal-jump').count(),3,'主面板只显示最新3条因果偏移摘要');
+ assert.equal(await page.locator('nav [data-tab="因果档案"]').count(),1,'完整因果信息必须有独立档案入口');
+ await page.locator('nav [data-tab="因果档案"]').click();
+ assert.equal(await page.locator('.we-offset').count(),4,'因果档案保留完整偏移记录');
+ assert.equal(await page.locator('.we-offset').last().innerText().then(t=>t.includes('-10')&&t.includes('河运派')),true);
+ assert.equal(await page.getByRole('heading',{name:'世界法则',exact:true}).count(),1);
+ assert.equal(await page.getByRole('heading',{name:'货币与经济',exact:true}).count(),1);
  assert.equal(await page.locator('[data-action="enabled"]').count(),0);
  assert.equal(await page.locator('[data-action="run"]').isDisabled(),true);
  assert.equal(await page.getByText(/额外模型未准备好/).count(),1);
@@ -47,12 +48,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('#sam-world-engine').evaluate(el=>getComputedStyle(el).fontSize),'16px','默认字号应比旧版更清晰');
  assert.equal(await page.locator('header [data-tab="设置"]').count(),0,'头部不应重复放置设置入口');
  assert.equal(await page.locator('nav [data-tab="设置"]').count(),1,'设置只保留在导航 Tab');
- const rumorTab=page.locator('nav [data-tab="传闻"]'),rumorIcon=rumorTab.locator('.we-tab-icon');
- const rumorBefore=await rumorIcon.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {text:el.textContent,width:r.width,height:r.height,fontSize:s.fontSize,lineHeight:s.lineHeight,fontWeight:s.fontWeight};});
- assert.equal(rumorBefore.text,'◎','传闻使用普通符号而不是字体回退不稳定的 dotted circle');
- await rumorTab.click();
- const rumorAfter=await page.locator('nav [data-tab="传闻"] .we-tab-icon').evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {text:el.textContent,width:r.width,height:r.height,fontSize:s.fontSize,lineHeight:s.lineHeight,fontWeight:s.fontWeight};});
- assert.deepEqual(rumorAfter,rumorBefore,'传闻 Tab 选中前后图标尺寸必须完全一致');
+ assert.equal(await page.locator('nav [data-tab="传闻"]').count(),0,'Phase 43 后传闻不再作为玩家重复页显示');
+ assert.equal(await page.locator('nav [data-tab="资产"]').count(),0,'Phase 43 后资产不再作为玩家重复页显示');
  await page.locator('[data-tab="设置"]').first().click();
  assert.equal(await page.getByRole('heading',{name:'界面字号',exact:true}).count(),1);
  assert.equal(await page.locator('.we-tone-card').count(),0,'世界推进设置不再提供独立色调卡片');
@@ -111,10 +108,13 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('.we-people-strip .we-person-compact').count()<=4,true,'人物动态保持紧凑摘要');
  assert.equal(await page.getByRole('heading',{name:'世界动向',exact:true}).count(),1,'世界推进只保留一处世界动向');
  assert.equal(await page.getByRole('heading',{name:'当前活动',exact:true}).count(),0,'重复的当前活动侧栏必须移除');
- assert.equal(await page.getByRole('heading',{name:'货币与经济',exact:true}).count(),1,'世界面板必须显示货币与经济');
+ assert.equal(await page.getByRole('heading',{name:'货币与经济',exact:true}).count(),0,'世界主面板只保留因果摘要，不重复完整经济档案');
+ await page.locator('nav [data-tab="因果档案"]').click();
+ assert.equal(await page.getByRole('heading',{name:'货币与经济',exact:true}).count(),1,'完整经济资料应位于因果档案');
  assert.equal(await page.getByText('银冠',{exact:true}).count()>=1,true);
  assert.equal(await page.getByText('普通餐食约3银冠',{exact:true}).count()>=1,true);
  assert.equal(await page.getByText('粮价小幅上涨',{exact:true}).count()>=1,true);
+ await page.locator('nav [data-tab="世界推进"]').click();
  const timelineNames=await page.locator('.we-timeline [data-event-card] h3').allTextContents();
  assert.deepEqual(timelineNames,['灰港封锁'],'首次打开只显示副本当天');
  assert.equal(await page.locator('[data-date="2026-9-7"]').getAttribute('aria-pressed'),'true');
@@ -195,7 +195,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.getByText(/复用NPC生成规则/).count(),1);
  assert.equal(await page.getByText('日落前提交第一份报告',{exact:true}).count(),0);
  await page.screenshot({path:path.join(out,'world-people.png')});
- for(const tab of ['探索与势力','世界事件','传闻','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
+ for(const tab of ['探索与势力','世界事件','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
  await page.locator('[data-tab="请求检查"]').click();
  assert.equal(await page.locator('[data-retries]').inputValue(),'3','失败重试次数默认3');
  await page.locator('[data-retries]').fill('2');

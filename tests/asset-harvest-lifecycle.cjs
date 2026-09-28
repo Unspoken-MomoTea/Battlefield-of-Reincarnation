@@ -67,7 +67,7 @@ assert.equal(turnCalls.processCombatAndCooldowns,1,'真正的正文变量更新�
 fireTurn();fireTurn();
 assert.equal(turnCalls.processStatusDuration,1,'同楼世界推进/UI/schema 写回不得重复消耗状态');
 assert.equal(turnCalls.processCombatAndCooldowns,1,'同楼世界推进/UI/schema 写回不得重复推进冷却');
-assert.equal(turnCalls.recalcAllCharacters,4,'防重复不得挡住普通辅助计算');
+assert.equal(turnCalls.recalcAllCharacters,5,'UI/同楼防重复不得挡住普通辅助计算');
 turnContext.chat.push({is_user:true,mes:'下一次玩家输入'});
 fireTurn();
 assert.equal(turnCalls.processCombatAndCooldowns,1,'只有用户消息变化不算新 AI 正文楼层');

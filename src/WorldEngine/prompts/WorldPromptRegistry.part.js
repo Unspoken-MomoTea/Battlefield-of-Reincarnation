@@ -6,10 +6,13 @@
     const WORLD_PROMPT_MACRO_PLANNING='本轮必须补齐骨架，不能以时间未推进、正文没有宏观变化或无业务变化为由省略。建立待发生节点属于未来规划，可排在下一宏观边界之后，不表示事件现在发生；近期细节与已发生事实仍受本轮时间容量和下一宏观边界限制。不得为凑数提前原著日期，或预先结算未来事件的结果；更新时间使用当前世界时间。';
     const WORLD_PROMPT_MACRO_ACCEPTANCE='按已有状态与本轮结果合并后计数；若本轮结束或取消已有宏观节点，须补足被移出窗口的数量。重试时以已接受业务结果和最新补充清单为准，不重复创建已接受节点。';
     const WORLD_PROMPT_DUE_REVIEW='软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。';
-    const WORLD_PROMPT_CHRONOLOGY_INPUT='宏观节点先定原著/数据库日期、节点粒度与合理跨度，再展开当前→下一节点区间。明确到日的日期必须服从；仅有月份、时段或顺序时按软约束保守规划，不因估计差异反复改期。';
-    const WORLD_PROMPT_CHRONOLOGY_NO_EVIDENCE='未命中明确时间线条目；使用模型已有原著知识保守估计，不得为推进剧情压缩跨度';
+    const WORLD_PROMPT_CHRONOLOGY_INPUT='先判断未受干预时的原著/权威默认走向，再定宏观节点日期、粒度与跨度。已发生事实不可覆盖；明确到日的日期硬校验。月份、时段、顺序、条件与趋势按软约束保守规划。若已确认因果偏移足以改变节点，只重构受影响部分，不为了回归原著强行修正。';
+    const WORLD_PROMPT_CHRONOLOGY_NO_EVIDENCE='未命中明确时间线条目；优先使用模型已有原著/作品知识维持主线惯性，未知处保守留白，不用自创危机替代作品剧情，也不得为推进剧情压缩跨度';
     const WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY='只使用世界侧可传播事实、已有传播链与既有公开传闻；正文不是直接传播源';
     const WORLD_PROMPT_CHRONOLOGY_PRINCIPLES=JSON.stringify({
+        剧情主轴:'原著/权威剧情是未受干预时的默认未来；没有足够已确认因果改变时优先推进作品本身正在发生的故事，再扩展新世界事件。',
+        证据分级:'已发生事实锁定；明确到日的资料进入硬校验；月份、时段、顺序、条件剧情、趋势与大致间隔保持同级精度并作为软约束。',
+        偏移处理:'已确认偏移只重构真正受影响的节点，未受影响原著节点继续存在；禁止为“回归原著”强行制造等价死亡、替代事故、无因复活或其它命运修正。',
         滚动窗口:'3~5个宏观节点只是当前规划视野，不要求覆盖完整篇章；宁可规划得近，也不要把远期大事件打包。',
         节点粒度:'一个宏观节点只表达一个阶段转折；远行、集结、连续战役或多个独立剧情阶段应拆分或拉开跨度。',
         间隔自检:'排期前先判断从上一节点到本节点现实上必须经历什么，为旅行、准备、组织动员与因果发展留足时间。',
@@ -144,10 +147,17 @@
             return out;
         }
         initialize(){
-            const normalized=this.normalize(this.engine.config?.promptRegistry);
-            this.engine.config.promptRegistry=normalized;
+            const config=this.engine.config||(this.engine.config={}),previousVersion=Number(config.worldModulePromptVersion||0);
+            if(typeof WORLD_MODULE_PROMPT_VERSION==='number'&&previousVersion<WORLD_MODULE_PROMPT_VERSION&&(!config.activePromptDocumentId||config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)){
+                const defaults=this.defaults(),registry=plain(config.promptRegistry)?{...config.promptRegistry}:{};
+                for(const key of ['chronology','chronologyInputGuidance','chronologyNoEvidenceGuidance','chronologyPrinciples'])registry[key]=defaults[key];
+                config.promptRegistry=registry;
+                config.modulePrompts=Object.assign({},plain(config.modulePrompts)?config.modulePrompts:{},{chronology:defaults.chronology});
+            }
+            const normalized=this.normalize(config.promptRegistry);
+            config.promptRegistry=normalized;
             this.syncLegacy(normalized);
-            if(typeof WORLD_MODULE_PROMPT_VERSION==='number')this.engine.config.worldModulePromptVersion=WORLD_MODULE_PROMPT_VERSION;
+            if(typeof WORLD_MODULE_PROMPT_VERSION==='number')config.worldModulePromptVersion=WORLD_MODULE_PROMPT_VERSION;
             return normalized;
         }
         syncLegacy(values){

@@ -216,10 +216,14 @@
                 GS_PARENT.__samsaraUIMutation = true;
                 if (win !== GS_PARENT) win.__samsaraUIMutation = true;
             } catch(e4) { try { window.__samsaraUIMutation = true; } catch(e5){} }
+            var pendingWrites = [];
+            var rememberWrite = function(result) {
+                if (result && typeof result.then === 'function') pendingWrites.push(Promise.resolve(result));
+            };
             // 写回 message 通道
-            win.Mvu.replaceMvuData(cloned, { type: 'message', message_id: 'latest' });
+            rememberWrite(win.Mvu.replaceMvuData(cloned, { type: 'message', message_id: 'latest' }));
             // 同步 chat 通道
-            try { win.Mvu.replaceMvuData(cloned, { type: 'chat' }); } catch (e2) {}
+            try { rememberWrite(win.Mvu.replaceMvuData(cloned, { type: 'chat' })); } catch (e2) {}
             // ★ 关键: 手动广播 VARIABLE_UPDATE_ENDED 事件, 把 (after, before) 传给监听者
             //   这会让"辅助计算脚本"的 onUpdateData(after, before) 跑一遍, 后台重算属性/HP/EP
             //   事件签名见 exported.mvu.d.ts:186 -> (variables, variables_before_update) => void
@@ -234,11 +238,22 @@
                     eventEmit(evtName, cloned, before);
                 }
             } catch (e3) { console.warn('[主神终端] 广播VARIABLE_UPDATE_ENDED失败:', e3.message); }
-            // 事件回调同步执行完毕后, 立即清除标志(eventEmit 同步触发 onUpdateData, 返回后即安全)
-            try {
-                GS_PARENT.__samsaraUIMutation = false;
-                if (win !== GS_PARENT) win.__samsaraUIMutation = false;
-            } catch(e6) { try { window.__samsaraUIMutation = false; } catch(e7){} }
+            // 同步写回可立即清除；异步 replaceMvuData 可能在 Promise 完成前后再次广播
+            // VARIABLE_UPDATE_ENDED，因此 UI 标记必须覆盖完整持久化生命周期，避免形态/穿戴等
+            // 本地操作被误判为新正文战斗回合。
+            var clearUIMutation = function() {
+                try {
+                    GS_PARENT.__samsaraUIMutation = false;
+                    if (win !== GS_PARENT) win.__samsaraUIMutation = false;
+                } catch(e6) { try { window.__samsaraUIMutation = false; } catch(e7){} }
+            };
+            if (pendingWrites.length) {
+                Promise.allSettled(pendingWrites).then(function() {
+                    setTimeout(clearUIMutation, 0);
+                }, clearUIMutation);
+            } else {
+                clearUIMutation();
+            }
             try { console.log('%c[主神终端] ✅ 数据已写回MVU并广播更新事件', 'color:#86efac'); } catch(e){}
             return true;
         } catch (e) {

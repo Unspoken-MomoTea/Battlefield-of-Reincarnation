@@ -518,8 +518,8 @@ normalized.世界.因果轨道.故事线='远征开始 -> 城门决战 -> 王都
 for(const name of ['远征开始','城门决战','王都改组'])normalized.世界.后台.事件[name]={
   ...clone(RECORDS.事件),分类:'宏观节点',状态:'待发生',描述:name,前因:[],参与者:[]
 };
-normalized.世界.后台.事件.天台争夺={
-  ...clone(RECORDS.事件),分类:'宏观节点',状态:'待发生',地点:'学校天台',描述:'夺取天台入口',前因:[],参与者:[]
+normalized.世界.后台.事件.平台争夺={
+  ...clone(RECORDS.事件),分类:'宏观节点',状态:'待发生',地点:'主设施-观测平台',描述:'争夺观测平台入口',前因:[],参与者:[]
 };
 normalized.世界.后台.事件.街区追踪={
   ...clone(RECORDS.事件),分类:'近期节点',状态:'进行中',地点:'北门',描述:'艾琳正在追踪目标',前因:[],参与者:[]
@@ -534,7 +534,7 @@ assert.equal(normalized.世界.后台.正文承接,undefined);
 assert.equal(normalized.世界.后台.运行记录,undefined);
 assert.deepEqual(normalized.世界.后台.历史总结,{});
 const layerFixes=engine.services.stateNormalizer.normalizeEventLayers(normalized);
-assert.equal(normalized.世界.后台.事件.天台争夺.分类,'近期节点');
+assert.equal(normalized.世界.后台.事件.平台争夺.分类,'近期节点');
 assert.equal(normalized.世界.后台.事件.街区追踪.分类,'当前事件');
 assert.ok(layerFixes.length>=2);
 const linkFixes=engine.services.stateNormalizer.repairExplicitEventLinks(normalized);

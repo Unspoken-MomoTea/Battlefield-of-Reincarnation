@@ -25,6 +25,9 @@ function freshState(){
 (async()=>{
   const state=freshState();
   const ctx=projectWorldContext(state);
+  assert.equal(ctx.设置,undefined,'世界 AI 上下文不得暴露设置对象');
+  assert.equal(ctx.世界模式,undefined,'世界 AI 上下文不得暴露单一世界/世界超稳等程序模式');
+  assert.doesNotMatch(JSON.stringify(ctx),/"(?:单一世界|世界超稳)"/,'程序设置开关不得进入世界 AI 当前变量投影');
   assert.deepEqual(ctx.任务,{列表:{
     调查黑鸦商队:{委托方:'北境商会',目标:'查明黑鸦商队失踪原因并寻找幸存者',隐藏真相:'商队被地方军阀秘密扣押',难度:'D',交付:'北境商会办事处',状态:'进行中'}
   }},'世界推进只读取任务列表中的因果字段');

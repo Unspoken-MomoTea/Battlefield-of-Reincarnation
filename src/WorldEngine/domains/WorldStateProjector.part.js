@@ -133,10 +133,6 @@
                 系统状态:{
                     是否战斗中:!!src.系统状态?.是否战斗中,
                     是否在主神空间:!!src.系统状态?.是否在主神空间
-                },
-                世界模式:{
-                    单一世界:!!src.设置?.单一世界,
-                    世界超稳:!!src.设置?.世界超稳
                 }
             };
             for(const [name,person] of Object.entries(src.关系列表||{}))out.关系列表[name]=this.character(person);

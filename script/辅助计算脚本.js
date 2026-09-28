@@ -135,10 +135,11 @@
             // 状态时长、战斗轮次与冷却只按“新 AI 正文楼层”推进一次。
             // 世界推进、UI 操作、schema reconciliation 等同楼层二次写回只做数据一致性计算，不再消耗回合。
             const turnMessageKey = currentAssistantTurnKey();
+            const uiMutation = isUIMutationActive();
             let shouldAdvanceTurn = false;
             if (turnMessageKey) {
                 if (!lastTurnMessageKey) lastTurnMessageKey = turnMessageKey;
-                else shouldAdvanceTurn = turnMessageKey !== lastTurnMessageKey;
+                else shouldAdvanceTurn = !uiMutation && turnMessageKey !== lastTurnMessageKey;
             }
 
             // ★ 先回滚受保护字段，再执行后续计算

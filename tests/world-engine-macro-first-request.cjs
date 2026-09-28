@@ -84,12 +84,12 @@ async function requirement(x) {
     [names[0]]:record(events[0],{状态:'进行中',时间:'2026年9月14日'}),
     旧政权终结:record(events[1],{状态:'已完成',时间:'2026年9月13日'}),
     取消的战争:record(events[2],{状态:'已取消'}),
-    天台会合:record(events[0],{描述:'小队在天台会合。',地点:'天台'})
+    平台会合:record(events[0],{描述:'小队在观测平台会合。',地点:'主设施-观测平台'})
   });
   const part = await requirement(partial);
   assert.equal(part.task.至少补充节点数,2,'进行中计入，已完成/已取消/被降级的局部事件不计入');
   assert.deepEqual(part.task.已有可推进宏观节点,[{名称:names[0],状态:'进行中'}]);
-  assert.equal(part.payload.当前变量.世界.后台.事件.天台会合.分类,'近期节点');
+  assert.equal(part.payload.当前变量.世界.后台.事件.平台会合.分类,'近期节点');
   assert.match(part.task.验收,/结束或取消已有宏观节点.*补足/);
 
   const full = setup(Object.fromEntries(events.map(e=>[e.名称,record(e)])));

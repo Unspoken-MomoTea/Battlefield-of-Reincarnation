@@ -43,7 +43,8 @@
             if(plain(manifest.世界书读取))manifest.世界书读取.实际读取=merged.length;
             manifest.原著时间轴={
                 强制校准:true,
-                校验模式:'明确到日的资料硬校验；月份、时段、顺序与节点粒度软引导',
+                校验模式:'已发生事实锁定；明确到日资料硬校验；月份、时段、顺序、条件与趋势软引导；已确认偏移只重构受影响节点',
+                剧情原则:'原著是未受干预时的默认未来，不做强制命运修正',
                 当前世界时间:String(state?.世界?.时间||''),
                 时间线资料:chronologyOnly.map(book=>String(book?.名称||'')).filter(Boolean),
                 下一宏观节点:next?String(next.名称||''):''

@@ -29,19 +29,24 @@ function freshState(){
   engine.worldbook=async()=>chronology;
 
   const request=await engine.buildRequest(engine.snapshot()),payload=JSON.parse(request.input);
-  assert.match(request.system,/【原著\/数据库时间轴硬约束】/,'系统约束必须明确原著/数据库时间轴优先');
-  assert.match(request.system,/明确日期必须沿用；只有已确认且记录的因果偏移可改期/,'明确日期不得因推进欲望被擅自提前或延后');
+  assert.match(request.system,/【原著\/数据库剧情时间轴约束】/,'系统约束必须明确原著/数据库剧情时间轴优先');
+  assert.match(request.system,/原著\/权威剧情是未受干预时的默认未来/,'原著应作为无干预时的默认未来');
+  assert.match(request.system,/禁止为了回归原著强行命运修正/,'已确认偏移后不得用命运修正强拉回原著');
   assert.match(request.system,/3~5个节点只是滚动窗口/,'宏观节点数量必须是滚动窗口而不是整段剧情压缩目标');
   assert.match(request.system,/不合并独立阶段/,'必须禁止把多个独立阶段打包成单一宏观节点');
+  assert.match(engine.config.macroPrompt,/原著\/权威剧情作为未受干预时的默认骨架/,'内置宏观提示应以原著作为无干预时的默认骨架');
   assert.match(engine.config.macroPrompt,/3~5个滚动阶段节点/,'内置宏观提示应使用滚动宏观窗口并保留真实时间跨度');
   assert.equal(payload.时间线基准.当前世界时间,'2022年11月6日上午');
-  assert.match(payload.时间线基准.要求,/明确到日的日期必须服从/);
+  assert.match(payload.时间线基准.要求,/明确到日的日期硬校验/);
+  assert.match(payload.时间线基准.规划原则.剧情主轴,/作品本身正在发生的故事/);
+  assert.match(payload.时间线基准.规划原则.偏移处理,/禁止为“回归原著”/);
   assert.match(payload.时间线基准.规划原则.滚动窗口,/不要求覆盖完整篇章/);
   assert.match(payload.时间线基准.规划原则.节点粒度,/一个宏观节点只表达一个阶段转折/);
   assert.match(payload.时间线基准.规划原则.时间精度,/不为方便排序强造日级日期/);
   assert.ok(payload.世界书.some(text=>text.includes('2022年12月4日 第一层Boss攻略战')),'即使已有宏观骨架逻辑变化，明确年表仍应进入请求上下文');
   assert.equal(request.manifest.原著时间轴.强制校准,true);
-  assert.match(request.manifest.原著时间轴.校验模式,/明确到日.*硬校验.*软引导/,'只有明确日级锚点应进入硬校验，其余时间证据保持软约束');
+  assert.match(request.manifest.原著时间轴.校验模式,/明确到日.*硬校验.*月份.*软引导.*偏移只重构受影响节点/,'只有明确日级锚点进入硬校验，其余时间证据保持软约束，偏移只改受影响节点');
+  assert.match(request.manifest.原著时间轴.剧情原则,/默认未来.*不做强制命运修正/);
 
   assert.throws(
     ()=>compileWorldResult(state,{摘要:'错误压缩时间线',事件:[{名称:'第一层Boss攻略战',分类:'宏观节点',状态:'待发生',时间:'2022年11月7日'}]}),
@@ -54,8 +59,21 @@ function freshState(){
     '数据库已有明确日期时不得退化成模糊相对时间'
   );
 
+  assert.doesNotThrow(
+    ()=>compileWorldResult(state,{
+      摘要:'已确认偏移改变节点成立条件',
+      事件:[{名称:'第一层Boss攻略战',分类:'宏观节点',状态:'待发生',时间:'2022年12月10日'}],
+      因果:{偏移记录:[{
+        名称:'第一层Boss攻略战路线改写',
+        描述:'攻略组关键条件已经不可逆改变，第一层Boss攻略战原定组织方式失效，无法按原计划成立，需要重构受影响节点。',
+        引发者:'测试者',影响程度:-6
+      }]}
+    }),
+    '已确认的主线级因果偏移应允许受影响的明确日期节点改期，而不是强行拉回原著'
+  );
+
   const chronologyRetry=engine.services.resultStaging.retryPlanForFailure(new Error('宏观节点日期与原著/数据库时间锚点冲突：第一层Boss攻略战 提交 2022年11月7日，资料明确为 2022年12月4日'),[]);
-  assert.equal(chronologyRetry[0],'宏观时间轴：只纠正已明确到日的原著/数据库日期冲突；重新沿用该日期。不要顺带把仅有月份、时段或先后顺序的节点强行精确到日，后者按原著节奏保守留白即可。','时间轴硬校验失败应由 chronology policy 继续给出原有纠错动作');
+  assert.equal(chronologyRetry[0],'宏观时间轴：只处理已明确到日的原著/数据库日期冲突。若该节点仍成立，沿用明确日期；若已确认因果偏移改变了其日期、成立条件或是否发生，则补齐明确关联该节点的偏移记录并只重构受影响节点。月份、时段、顺序、条件与趋势继续按软约束保守留白，不要为了回归原著强行修正剧情。','时间轴硬校验失败应提示沿用锚点或按已确认偏移重构受影响节点');
 
   const monthOnly=[{世界书:'测试世界书',条目ID:'timeline-month',名称:'原著年表',内容:'<原著年表>2022年12月 阿尔萨斯北伐诺森德与霜之哀伤。2023年1月 远渡卡利姆多与海加尔山战役进入新阶段。</原著年表>'}];
   monthOnly.report=[{世界书:'测试世界书',条目ID:'timeline-month',名称:'原著年表',读取:true,原因:'宏观资料补充'}];

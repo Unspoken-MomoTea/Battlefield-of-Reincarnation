@@ -40,9 +40,12 @@
             for(const item of result?.因果?.偏移记录||[])if(plain(item))records.push(item);
             return records.some(item=>{
                 if(Number(item?.影响程度)===0)return false;
-                const marker=this.compactName(item?.名称),desc=String(item?.描述||'');
+                const marker=this.compactName(item?.名称),desc=String(item?.描述||''),signal=String(item?.名称||'')+' '+desc;
                 const directlyRelated=(marker&&(marker.includes(target)||target.includes(marker)))||desc.includes(String(eventName||''));
-                return directlyRelated&&/(提前|提早|延后|推迟|改期|时序|时间线|日期|进程|节点)/.test(String(item?.名称||'')+desc);
+                if(!directlyRelated)return false;
+                const scheduleShift=/(提前|提早|延后|推迟|改期|时序|时间线|日期|进程|节点)/;
+                const plotShift=/(失效|取消|中止|终止|不再发生|无法(?:按|照)?原定|原定.*(?:失效|改变)|改写|替代|分歧|偏离|阻止|避免|主线.*(?:改变|失效|重构)|剧情.*(?:改变|失效|重构))/;
+                return scheduleShift.test(signal)||plotShift.test(signal);
             });
         }
 
@@ -59,8 +62,8 @@
                 const evidence=this.evidenceForEvent(event.名称,guard.books);if(!evidence)continue;
                 if(this.shiftDeclared(stat,result,event.名称))continue;
                 const proposedRaw=String(event.时间||event.开始时间||'').trim(),proposed=worldDateKey(proposedRaw);
-                if(proposed===null)throw new Error('宏观节点日期未服从原著/数据库时间锚点：'+event.名称+'；资料明确为 '+evidence.raw+'，不得改成模糊或不可比较时间。若已确认因果偏移导致改期，必须同轮提交明确关联该节点的因果.偏移记录。');
-                if(Math.floor(proposed/24)!==Math.floor(evidence.key/24))throw new Error('宏观节点日期与原著/数据库时间锚点冲突：'+event.名称+' 提交 '+proposedRaw+'，资料明确为 '+evidence.raw+'；不得为了推进剧情提前或压缩原著时间。若已确认因果偏移导致改期，必须同轮提交明确关联该节点的因果.偏移记录。');
+                if(proposed===null)throw new Error('宏观节点日期未服从原著/数据库时间锚点：'+event.名称+'；资料明确为 '+evidence.raw+'，不得改成模糊或不可比较时间。若已确认因果偏移改变了该节点的日期、成立条件或是否发生，必须同轮提交明确关联该节点的因果.偏移记录并只重构受影响节点。');
+                if(Math.floor(proposed/24)!==Math.floor(evidence.key/24))throw new Error('宏观节点日期与原著/数据库时间锚点冲突：'+event.名称+' 提交 '+proposedRaw+'，资料明确为 '+evidence.raw+'；不得为了推进剧情提前或压缩原著时间。若已确认因果偏移改变了该节点的日期、成立条件或是否发生，必须同轮提交明确关联该节点的因果.偏移记录并只重构受影响节点。');
             }
             return result;
         }

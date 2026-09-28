@@ -224,12 +224,12 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:21,
+        version:22,
         builtin:true,
         name:'默认设置',
         exportedAt:'2026-09-14T13:00:00.000Z',
         createdAt:'2026-09-08T13:09:45.350Z',
-        updatedAt:'2026-09-25T08:30:00.000Z',
+        updatedAt:'2026-09-28T15:45:00.000Z',
         settings:{
             corePrompt:CORE_WORLD_RULES,
             macroPrompt:DEFAULT_MACRO_PROMPT,
@@ -1149,9 +1149,12 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             for(const item of result?.因果?.偏移记录||[])if(plain(item))records.push(item);
             return records.some(item=>{
                 if(Number(item?.影响程度)===0)return false;
-                const marker=this.compactName(item?.名称),desc=String(item?.描述||'');
+                const marker=this.compactName(item?.名称),desc=String(item?.描述||''),signal=String(item?.名称||'')+' '+desc;
                 const directlyRelated=(marker&&(marker.includes(target)||target.includes(marker)))||desc.includes(String(eventName||''));
-                return directlyRelated&&/(提前|提早|延后|推迟|改期|时序|时间线|日期|进程|节点)/.test(String(item?.名称||'')+desc);
+                if(!directlyRelated)return false;
+                const scheduleShift=/(提前|提早|延后|推迟|改期|时序|时间线|日期|进程|节点)/;
+                const plotShift=/(失效|取消|中止|终止|不再发生|无法(?:按|照)?原定|原定.*(?:失效|改变)|改写|替代|分歧|偏离|阻止|避免|主线.*(?:改变|失效|重构)|剧情.*(?:改变|失效|重构))/;
+                return scheduleShift.test(signal)||plotShift.test(signal);
             });
         }
 
@@ -1168,8 +1171,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 const evidence=this.evidenceForEvent(event.名称,guard.books);if(!evidence)continue;
                 if(this.shiftDeclared(stat,result,event.名称))continue;
                 const proposedRaw=String(event.时间||event.开始时间||'').trim(),proposed=worldDateKey(proposedRaw);
-                if(proposed===null)throw new Error('宏观节点日期未服从原著/数据库时间锚点：'+event.名称+'；资料明确为 '+evidence.raw+'，不得改成模糊或不可比较时间。若已确认因果偏移导致改期，必须同轮提交明确关联该节点的因果.偏移记录。');
-                if(Math.floor(proposed/24)!==Math.floor(evidence.key/24))throw new Error('宏观节点日期与原著/数据库时间锚点冲突：'+event.名称+' 提交 '+proposedRaw+'，资料明确为 '+evidence.raw+'；不得为了推进剧情提前或压缩原著时间。若已确认因果偏移导致改期，必须同轮提交明确关联该节点的因果.偏移记录。');
+                if(proposed===null)throw new Error('宏观节点日期未服从原著/数据库时间锚点：'+event.名称+'；资料明确为 '+evidence.raw+'，不得改成模糊或不可比较时间。若已确认因果偏移改变了该节点的日期、成立条件或是否发生，必须同轮提交明确关联该节点的因果.偏移记录并只重构受影响节点。');
+                if(Math.floor(proposed/24)!==Math.floor(evidence.key/24))throw new Error('宏观节点日期与原著/数据库时间锚点冲突：'+event.名称+' 提交 '+proposedRaw+'，资料明确为 '+evidence.raw+'；不得为了推进剧情提前或压缩原著时间。若已确认因果偏移改变了该节点的日期、成立条件或是否发生，必须同轮提交明确关联该节点的因果.偏移记录并只重构受影响节点。');
             }
             return result;
         }
@@ -3465,7 +3468,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         retryGuideTemporalRepair:'时间一致性：修复这些已经发生的记录，任何已完成/进行中事件、人物更新时间、地区已发生变化、历史与传播都不得晚于当前世界时间：{details}',
         retryGuideAlienActivity:'异端活动/{name}：仅对本轮触发复核的该活跃异端补写地点、目标、行动；人物更新时间由程序使用世界时间统一记录；若本轮已确认死亡，则只更新异端状态=死亡，不再提交人物活动。',
         retryGuideNpcAudit:'NPC构筑审计/{name}：只在 WorldResult.关系 中补齐该既有NPC至少一个列出的构筑缺口；优先补职业/血统/装备/技能/状态/形态或缺失档案字段，不得新建NPC、改HP_MAX/EP_MAX或输出真属性/最终属性。',
-        retryGuideChronology:'宏观时间轴：只纠正已明确到日的原著/数据库日期冲突；重新沿用该日期。不要顺带把仅有月份、时段或先后顺序的节点强行精确到日，后者按原著节奏保守留白即可。',
+        retryGuideChronology:'宏观时间轴：只处理已明确到日的原著/数据库日期冲突。若该节点仍成立，沿用明确日期；若已确认因果偏移改变了其日期、成立条件或是否发生，则补齐明确关联该节点的偏移记录并只重构受影响节点。月份、时段、顺序、条件与趋势继续按软约束保守留白，不要为了回归原著强行修正剧情。',
         retryGuidePredecessor:'事件前因：先修复链首缺失或自引用，再重新提交受影响的后继节点。前因数组只放事件名称，且须已存在或同轮成功建立；当前阶段/自然语言原因不算事件，无明确前因写 []。不得为消除报错凭空补造事件。',
         retryGuideSchemaMismatch:'Schema纠错：只修报错路径中的业务字段；真属性/最终属性/强化属于后台派生缓存，模型不得补写，这类派生差异由程序吸收。',
         retryGuideRumorEmpty:'传闻维护：{details}。空分类本轮补2条真实世界信息；三类各自展示最近3条，约60字/条，不要无依据围绕<user>。',
@@ -4676,19 +4679,21 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     // ---- migrated from script/world-engine-src/58-chronology-guard.part.js ----
     // 原著/数据库时间轴保护层：宏观节点先服从权威时间资料，再展开区间细节。
-    const CHRONOLOGY_GUARD_RULES=`【原著/数据库时间轴硬约束】
-1. 宏观节点的日期与跨度必须先服从当前已确认事实和明确世界书/数据库中的原著时间资料，再使用模型已有原著知识补足；不得为了推动剧情、制造冲突、维持紧张感或让<user>尽快参与而主动提前关键事件。
-2. 世界书/数据库已给出某宏观事件的明确日期时，必须沿用该日期/时段；只有已确认剧情造成足以改线的因果偏移，且同轮因果.偏移记录明确关联该节点并说明提前/延后原因时，才允许改期。
-3. 原著只给月份、时段、事件顺序或大致间隔时，沿用同级时间精度并按原著节奏保守留白；不确定跨度就使用可理解的相对/因果时间，只推进必要一步，不得擅自补成过近的具体日期。
-4. 先确定“当前世界时间 → 下一宏观节点”的合理时间边界，再在该区间内生成当前事件与近期节点；不能先决定下一章要发生什么，再倒推一个过近日期。
-5. 3~5个宏观节点只是滚动规划窗口，不代表必须覆盖完整原著篇章。一个宏观节点只表达一个阶段转折；不得为了凑节点数量，把远行、集结、连续战役或多个独立剧情阶段合并成一个节点。
-6. 排期相邻宏观节点前，先检查两者之间现实上需要经历的旅行、准备、组织动员、战役推进与因果发展；若中间包含多个独立阶段，就拆分节点或拉开跨度。`;
+    const CHRONOLOGY_GUARD_RULES=`【原著/数据库剧情时间轴约束】
+1. 原著/权威资料定义“未被干预时的默认未来”，不是不可改变的剧本。若当前已确认事实与因果偏移不足以改变主线，优先继续推进作品本身正在发生的剧情，再扩展新的世界事件。
+2. 已发生事实绝对优先，不能被原著常识覆盖。世界书/数据库对某宏观事件明确到日时，该日级锚点是硬约束；只有已确认剧情已经改变该节点的日期、成立条件或是否发生，且因果.偏移记录明确关联该节点时，才允许改期、取消或重构。
+3. 原著只给月份、季节、时段、事件顺序、条件剧情、趋势或大致间隔时，保持同级时间精度并按原著节奏保守留白；这些属于软约束，不为方便排序强造日级日期，也不因合理估计差异反复重试。
+4. 原著具有惯性但没有修正力。玩家或世界已经救下、杀死、阻止、摧毁或改写关键条件后，只重构真正受影响的节点；未受影响的原著剧情继续存在。禁止为了“回归原著”强行制造等价死亡、替代事故、无因复活或其它命运补偿。
+5. 先判断“如果<user>从现在起不再干预，接下来最自然发生的原著/权威剧情是什么”，再确定“当前世界时间 → 下一宏观节点”的合理时间边界，并在该区间内生成当前事件与近期节点；不能先自创下一场危机，再倒推一个过近日期。
+6. 3~5个宏观节点只是滚动规划窗口，不代表必须覆盖完整原著篇章。一个宏观节点只表达一个阶段转折；不得为了凑节点数量，把远行、集结、连续战役或多个独立剧情阶段合并成一个节点。
+7. 排期相邻宏观节点前，先检查两者之间现实上需要经历的旅行、准备、组织动员、战役推进与因果发展；若中间包含多个独立阶段，就拆分节点或拉开跨度。`;
     const CHRONOLOGY_PRESET_STEP_OLD='Step 2 · 定边界：确认当前阶段与下一宏观节点；只有篇章、地区、战争、势力或关键人物命运发生阶段变化时才调整宏观骨架。';
     const CHRONOLOGY_PRESET_STEP_V1='Step 2 · 定边界与日期：以当前世界时间为起点，先按明确世界书/数据库时间资料与原著节奏确定下一宏观节点及合理跨度；只有已确认因果偏移才能改期，再决定是否调整宏观骨架。';
     const CHRONOLOGY_PRESET_STEP_V2='Step 2 · 定边界与日期：以当前世界时间为起点，按明确资料与原著节奏规划接下来3~5个滚动宏观节点；每个节点只表达一个阶段转折，并为相邻节点间的旅行、准备与因果发展留足时间；只有已确认因果偏移才能改期。';
+    const CHRONOLOGY_PRESET_STEP_V3='Step 2 · 定剧情与时间边界：以当前世界时间为起点，把原著/权威剧情作为未受干预时的默认未来，按明确资料与原著节奏规划接下来3~5个滚动宏观节点；已确认偏移只重构受影响节点，不强行回归原著。';
     const upgradeChronologyPreset=value=>{
         const text=String(value||'');
-        for(const previous of [CHRONOLOGY_PRESET_STEP_OLD,CHRONOLOGY_PRESET_STEP_V1])if(text.includes(previous))return text.replace(previous,CHRONOLOGY_PRESET_STEP_V2);
+        for(const previous of [CHRONOLOGY_PRESET_STEP_OLD,CHRONOLOGY_PRESET_STEP_V1,CHRONOLOGY_PRESET_STEP_V2])if(text.includes(previous))return text.replace(previous,CHRONOLOGY_PRESET_STEP_V3);
         return text;
     };
     if(plain(BUILTIN_DEFAULT_PROMPT_DOCUMENT?.settings))BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset=upgradeChronologyPreset(BUILTIN_DEFAULT_PROMPT_DOCUMENT.settings.preset);
@@ -4733,17 +4738,18 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     // ---- migrated from script/world-engine-src/59-editable-module-prompts.part.js ----
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=5;
-    const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，只提交已经发生或需要规划的世界变化。
+    const WORLD_MODULE_PROMPT_VERSION=6;
+    const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，并优先延续当前作品正在发生的故事；只提交已经发生或需要规划的世界变化。
 【执行流程】
 1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
-2. 定边界：确认当前阶段、世界时间与下一宏观节点。
-3. 推世界：按可用时间推进事件、地区、人物与势力；世界不会因<user>停下而暂停。
-4. 结算影响：记录<user>已经造成的客观后果，但不替<user>行动。
+2. 定剧情：先判断若<user>从现在起不再干预，原著/权威资料接下来最自然会发生什么；它是默认未来，不是不可改变剧本。
+3. 定边界并推世界：确认当前阶段、世界时间与下一宏观节点，按可用时间推进事件、地区、人物与势力；世界不会因<user>停下而暂停。
+4. 结算影响：记录<user>已经造成的客观后果；足以改线时只重构受影响剧情，未受影响主线继续推进，不替<user>行动。
 5. 做维护：只处理本轮确有变化的传播、经济、历法；因果偏移仅在出现重大世界级长期改变时维护。
 6. 输出差分：只写新增/变化的 WorldResult；无业务变化只写摘要。`;
     const COMPACT_CORE_WORLD_RULES=`【核心边界】
 - 事实优先级：当前变量/已确认剧情 > 明确世界书 > 常识；计划不是事实。
+- 原著/权威剧情是未受干预时的默认未来：没有足够已确认因果改变时沿原著主线推进；偏移后只重构受影响节点，禁止为“回归原著”强行制造等价死亡、替代事故、无因复活或其它命运修正。优先推进作品正在发生的故事，再扩展新世界事件。
 - 模型知道≠场外人物知道。人物只能依据在场观察、既有认知或可信传播行动；因<user>新行为改策必须有认知来源。
 - 活跃异端只在活动缺失、复核到期、关联事件/所在地区变化或长期未复核时更新；无触发时沿用既有目标与行动，不得为了刷新而凭空改策。
 - 时间与路程必须可实现；同一人物同一时段只在一处；不替<user>行动，不复述已演出琐事。
@@ -4751,7 +4757,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 - 因果偏移只记已实现的主线级长期变化；没有重大世界偏移就完全不写偏移记录。当前事件公开字段只写现实中可感知的信息。
 - 任务结算、奖励、成就、击杀等由对应系统负责。`;
     const COMPACT_MACRO_PROMPT=`【宏观骨架】
-需要补骨架时保持3~5个滚动阶段节点；先定顺序与时间边界，再填近期细节。未来规划可跨边界，实际推进不可越过下一节点；不要把多个独立阶段硬并成一个节点。`;
+需要补骨架时保持3~5个滚动阶段节点；原著/权威剧情作为未受干预时的默认骨架，未受影响节点保持惯性，已确认偏移只重构受影响部分。先定顺序与时间边界，再填近期细节。未来规划可跨边界，实际推进不可越过下一节点；不要把多个独立阶段硬并成一个节点。`;
     const COMPACT_STABILITY_PROMPT_TEMPLATE=`【世界自救 · {{阶段}}】
 稳定={{稳定值}}。{{规则}}
 排异必须通过世界内合理因果发生；NPC仍受自身认知与传播链限制。`;
@@ -4759,8 +4765,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const WORLD_PROMPT_MODULE_DEFS=Object.freeze([
         Object.freeze({key:'task',title:'任务只读',source:'TASK_AWARENESS_RULES',legacy:()=>[TASK_AWARENESS_RULES],fallback:`【任务感知 · 只读】
 任务.列表只作世界因果输入；事件可用“关联任务”引用已存在任务。不得创建、删除、改状态、交付或结算任务。情报购买与扣款由MVU处理；成就、击杀、奖励、惩罚不参与世界推进。`}),
-        Object.freeze({key:'chronology',title:'原著 / 数据库时间轴',source:'CHRONOLOGY_GUARD_RULES',legacy:()=>[CHRONOLOGY_GUARD_RULES],fallback:`【原著/数据库时间轴硬约束】
-宏观排期：已确认事实 > 明确世界书/数据库日期 > 常识。明确日期必须沿用；只有已确认且记录的因果偏移可改期。资料只到月份/时段/顺序时保持同级精度。先定“当前时间→下一节点”边界再推进区间细节；3~5个节点只是滚动窗口，不合并独立阶段。`}),
+        Object.freeze({key:'chronology',title:'原著 / 数据库时间轴',source:'CHRONOLOGY_GUARD_RULES',legacy:()=>[CHRONOLOGY_GUARD_RULES],fallback:`【原著/数据库剧情时间轴约束】
+原著/权威剧情是未受干预时的默认未来；无足够因果改变时优先沿原著推进。已发生事实不可覆盖；明确到日的日期硬校验，只有明确关联的已确认偏移可让受影响节点改期、取消或重构。月份、时段、顺序、条件与趋势保持同级精度并作软约束。偏移后只改受影响节点，禁止为了回归原著强行命运修正。3~5个节点只是滚动窗口，不合并独立阶段。`}),
         Object.freeze({key:'maintenance',title:'分级维护',source:'SOFT_MAINTENANCE_RULES',legacy:()=>[SOFT_MAINTENANCE_RULES],fallback:`【分级验收 · 软维护不拒绝整轮】
 Schema、非法状态、因果引用、明确日期冲突是硬错误；排期补全、传闻补齐、传播复核可跨轮维护。事件有时间、条件或前因任一即可作为锚点。纠错只改被拒片段，不重写已通过内容。`}),
         Object.freeze({key:'exploration',title:'探索台账',source:'EXPLORATION_PROJECTION_RULES',legacy:()=>[EXPLORATION_PROJECTION_RULES],fallback:`【玩家探索投影硬约束】
@@ -7028,7 +7034,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(plain(manifest.世界书读取))manifest.世界书读取.实际读取=merged.length;
             manifest.原著时间轴={
                 强制校准:true,
-                校验模式:'明确到日的资料硬校验；月份、时段、顺序与节点粒度软引导',
+                校验模式:'已发生事实锁定；明确到日资料硬校验；月份、时段、顺序、条件与趋势软引导；已确认偏移只重构受影响节点',
+                剧情原则:'原著是未受干预时的默认未来，不做强制命运修正',
                 当前世界时间:String(state?.世界?.时间||''),
                 时间线资料:chronologyOnly.map(book=>String(book?.名称||'')).filter(Boolean),
                 下一宏观节点:next?String(next.名称||''):''
@@ -7119,10 +7126,13 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     const WORLD_PROMPT_MACRO_PLANNING='本轮必须补齐骨架，不能以时间未推进、正文没有宏观变化或无业务变化为由省略。建立待发生节点属于未来规划，可排在下一宏观边界之后，不表示事件现在发生；近期细节与已发生事实仍受本轮时间容量和下一宏观边界限制。不得为凑数提前原著日期，或预先结算未来事件的结果；更新时间使用当前世界时间。';
     const WORLD_PROMPT_MACRO_ACCEPTANCE='按已有状态与本轮结果合并后计数；若本轮结束或取消已有宏观节点，须补足被移出窗口的数量。重试时以已接受业务结果和最新补充清单为准，不重复创建已接受节点。';
     const WORLD_PROMPT_DUE_REVIEW='软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。';
-    const WORLD_PROMPT_CHRONOLOGY_INPUT='宏观节点先定原著/数据库日期、节点粒度与合理跨度，再展开当前→下一节点区间。明确到日的日期必须服从；仅有月份、时段或顺序时按软约束保守规划，不因估计差异反复改期。';
-    const WORLD_PROMPT_CHRONOLOGY_NO_EVIDENCE='未命中明确时间线条目；使用模型已有原著知识保守估计，不得为推进剧情压缩跨度';
+    const WORLD_PROMPT_CHRONOLOGY_INPUT='先判断未受干预时的原著/权威默认走向，再定宏观节点日期、粒度与跨度。已发生事实不可覆盖；明确到日的日期硬校验。月份、时段、顺序、条件与趋势按软约束保守规划。若已确认因果偏移足以改变节点，只重构受影响部分，不为了回归原著强行修正。';
+    const WORLD_PROMPT_CHRONOLOGY_NO_EVIDENCE='未命中明确时间线条目；优先使用模型已有原著/作品知识维持主线惯性，未知处保守留白，不用自创危机替代作品剧情，也不得为推进剧情压缩跨度';
     const WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY='只使用世界侧可传播事实、已有传播链与既有公开传闻；正文不是直接传播源';
     const WORLD_PROMPT_CHRONOLOGY_PRINCIPLES=JSON.stringify({
+        剧情主轴:'原著/权威剧情是未受干预时的默认未来；没有足够已确认因果改变时优先推进作品本身正在发生的故事，再扩展新世界事件。',
+        证据分级:'已发生事实锁定；明确到日的资料进入硬校验；月份、时段、顺序、条件剧情、趋势与大致间隔保持同级精度并作为软约束。',
+        偏移处理:'已确认偏移只重构真正受影响的节点，未受影响原著节点继续存在；禁止为“回归原著”强行制造等价死亡、替代事故、无因复活或其它命运修正。',
         滚动窗口:'3~5个宏观节点只是当前规划视野，不要求覆盖完整篇章；宁可规划得近，也不要把远期大事件打包。',
         节点粒度:'一个宏观节点只表达一个阶段转折；远行、集结、连续战役或多个独立剧情阶段应拆分或拉开跨度。',
         间隔自检:'排期前先判断从上一节点到本节点现实上必须经历什么，为旅行、准备、组织动员与因果发展留足时间。',
@@ -7257,10 +7267,17 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return out;
         }
         initialize(){
-            const normalized=this.normalize(this.engine.config?.promptRegistry);
-            this.engine.config.promptRegistry=normalized;
+            const config=this.engine.config||(this.engine.config={}),previousVersion=Number(config.worldModulePromptVersion||0);
+            if(typeof WORLD_MODULE_PROMPT_VERSION==='number'&&previousVersion<WORLD_MODULE_PROMPT_VERSION&&(!config.activePromptDocumentId||config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)){
+                const defaults=this.defaults(),registry=plain(config.promptRegistry)?{...config.promptRegistry}:{};
+                for(const key of ['chronology','chronologyInputGuidance','chronologyNoEvidenceGuidance','chronologyPrinciples'])registry[key]=defaults[key];
+                config.promptRegistry=registry;
+                config.modulePrompts=Object.assign({},plain(config.modulePrompts)?config.modulePrompts:{},{chronology:defaults.chronology});
+            }
+            const normalized=this.normalize(config.promptRegistry);
+            config.promptRegistry=normalized;
             this.syncLegacy(normalized);
-            if(typeof WORLD_MODULE_PROMPT_VERSION==='number')this.engine.config.worldModulePromptVersion=WORLD_MODULE_PROMPT_VERSION;
+            if(typeof WORLD_MODULE_PROMPT_VERSION==='number')config.worldModulePromptVersion=WORLD_MODULE_PROMPT_VERSION;
             return normalized;
         }
         syncLegacy(values){

@@ -55,12 +55,12 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     const BUILTIN_DEFAULT_PROMPT_DOCUMENT = {
         id:'builtin-default',
         type:'samsara-world-prompt-document',
-        version:21,
+        version:22,
         builtin:true,
         name:'默认设置',
         exportedAt:'2026-09-14T13:00:00.000Z',
         createdAt:'2026-09-08T13:09:45.350Z',
-        updatedAt:'2026-09-25T08:30:00.000Z',
+        updatedAt:'2026-09-28T15:45:00.000Z',
         settings:{
             corePrompt:CORE_WORLD_RULES,
             macroPrompt:DEFAULT_MACRO_PROMPT,

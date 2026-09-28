@@ -51,7 +51,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.locator('nav [data-tab="资产"]').count(),0,'Phase 43 后资产是后台账簿，不再作为玩家导航页重复展示');
  assert.equal(await page.locator('[data-asset-card]').count(),0,'世界推进玩家面板不应偷偷渲染已隐藏的资产页');
  await page.locator('[data-tab="提示词预设"]').click();
- assert.equal(await page.locator('[data-npc-audit-prompt]').count(),0);
+ assert.equal(await page.locator('[data-npc-audit-prompt]').count(),1,'关闭NPC审计时提示词仍应可查看与编辑');
  await page.evaluate(()=>Samsara.worldEngine.setNpcBuildAuditEnabled(true));
  const audit=page.locator('[data-npc-audit-prompt]');
  assert.equal(await audit.getAttribute('readonly'),'');
@@ -61,7 +61,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.locator('[data-action="save"]').click();
  assert.equal(await page.evaluate(()=>Samsara.worldEngine.config.npcAuditPrompt),'自定义 NPC 审计要求：仅补真实缺口。');
  await page.evaluate(()=>Samsara.worldEngine.setNpcBuildAuditEnabled(false));
- assert.equal(await page.locator('[data-npc-audit-prompt]').count(),0);
+ assert.equal(await page.locator('[data-npc-audit-prompt]').count(),1,'关闭NPC审计不应移除其可编辑提示词');
  await page.locator('[data-action="save"]').click();
  await page.evaluate(()=>Samsara.worldEngine.setNpcBuildAuditEnabled(true));
  assert.equal(await page.locator('[data-npc-audit-prompt]').inputValue(),'自定义 NPC 审计要求：仅补真实缺口。');

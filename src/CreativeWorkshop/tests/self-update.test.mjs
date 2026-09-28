@@ -62,7 +62,7 @@ test('testing channel follows main and preserves the staging apiBase', async () 
     before.latestImportUrl,
     `https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${latest}/src/CreativeWorkshop/index.js`,
   );
-  assert.ok(urls.some(url => url.includes('/commits/main')));
+  assert.ok(urls.some(url => url.includes('/commits?') && url.includes('sha=main') && url.includes('path=src%2FCreativeWorkshop')));
 
   const result = await updater.updateLoaderLink();
   assert.equal(result.updated, true);
@@ -94,7 +94,13 @@ test('testing channel does not wait for a stale Worker cache that matches the cu
       if (value.includes('/api/client/latest')) {
         return response(current, { channel: 'testing', ref: 'main' });
       }
-      if (value.includes('/commits/main')) return response(latest);
+      if (value.includes('/commits?') && value.includes('sha=main')) return response(latest);
+      if (value.includes('/compare/')) {
+        return new Response(JSON.stringify({ status: 'behind' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       throw new Error(`unexpected request: ${value}`);
     },
   });
@@ -102,7 +108,51 @@ test('testing channel does not wait for a stale Worker cache that matches the cu
   const check = await updater.check();
   assert.equal(check.latestSha, latest);
   assert.equal(check.updateAvailable, true);
-  assert.ok(urls.some(url => url.includes('/commits/main')));
+  assert.ok(urls.some(url => url.includes('/commits?') && url.includes('sha=main') && url.includes('path=src%2FCreativeWorkshop')));
+});
+
+test('testing channel ignores newer main commits that did not change CreativeWorkshop', async () => {
+  const adapter = adapterFixture();
+  const latestWorkshop = '8888888888888888888888888888888888888888';
+  const newerMain = '9999999999999999999999999999999999999999';
+  adapter.state.character[0].content = adapter.state.character[0].content.replace(
+    /@[0-9a-f]{40}\/src\/CreativeWorkshop\/index\.js/u,
+    `@${newerMain}/src/CreativeWorkshop/index.js`,
+  );
+
+  const urls = [];
+  const updater = createWorkshopSelfUpdater({
+    adapter,
+    channel: 'testing',
+    ref: 'main',
+    fetchImpl: async url => {
+      const value = String(url);
+      urls.push(value);
+      if (value.includes('/api/client/latest')) {
+        return response(latestWorkshop, { channel: 'testing', ref: 'main' });
+      }
+      if (value.includes('/commits?') && value.includes('sha=main')) {
+        return response(latestWorkshop);
+      }
+      if (value.includes('/compare/')) {
+        return new Response(JSON.stringify({ status: 'ahead' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      throw new Error(`unexpected request: ${value}`);
+    },
+  });
+
+  const check = await updater.check();
+  assert.equal(check.latestSha, latestWorkshop);
+  assert.equal(check.updateAvailable, false);
+  assert.ok(urls.some(url => url.includes('/commits?') && url.includes('path=src%2FCreativeWorkshop')));
+  assert.ok(urls.some(url => url.includes('/compare/')));
+
+  const update = await updater.updateLoaderLink();
+  assert.equal(update.updated, false);
+  assert.match(adapter.state.character[0].content, new RegExp(`@${newerMain}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
 
 test('stable channel follows workshop-stable and never checks main', async () => {
@@ -121,7 +171,13 @@ test('stable channel follows workshop-stable and never checks main', async () =>
       if (value.includes('/api/client/latest')) {
         return response(staleWorker, { channel: 'stable', ref: 'workshop-stable' });
       }
-      if (value.includes('/commits/workshop-stable')) return response(stable);
+      if (value.includes('/commits?') && value.includes('sha=workshop-stable')) return response(stable);
+      if (value.includes('/compare/')) {
+        return new Response(JSON.stringify({ status: 'behind' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       throw new Error(`unexpected request: ${value}`);
     },
   });
@@ -131,15 +187,15 @@ test('stable channel follows workshop-stable and never checks main', async () =>
   assert.equal(check.ref, 'workshop-stable');
   assert.equal(check.latestSha, stable);
   assert.equal(check.updateAvailable, true);
-  assert.ok(urls.some(url => url.includes('/commits/workshop-stable')));
-  assert.equal(urls.some(url => url.includes('/commits/main')), false);
+  assert.ok(urls.some(url => url.includes('/commits?') && url.includes('sha=workshop-stable') && url.includes('path=src%2FCreativeWorkshop')));
+  assert.equal(urls.some(url => url.includes('/commits?') && url.includes('sha=main')), false);
 
   await updater.updateLoaderLink();
   assert.match(
     adapter.state.character[0].content,
     new RegExp(`@${stable}/src/CreativeWorkshop/index\\.js`, 'u'),
   );
-  assert.equal(urls.some(url => url.includes('/commits/main')), false);
+  assert.equal(urls.some(url => url.includes('/commits?') && url.includes('sha=main')), false);
 });
 
 test('self update leaves unrelated loader content untouched', async () => {
@@ -182,7 +238,13 @@ test('mismatched worker metadata falls back to the client channel ref instead of
           ref: 'main',
         });
       }
-      if (value.includes('/commits/workshop-stable')) return response(stable);
+      if (value.includes('/commits?') && value.includes('sha=workshop-stable')) return response(stable);
+      if (value.includes('/compare/')) {
+        return new Response(JSON.stringify({ status: 'behind' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       throw new Error(`unexpected request: ${value}`);
     },
   });
@@ -191,7 +253,7 @@ test('mismatched worker metadata falls back to the client channel ref instead of
   assert.equal(check.latestSha, stable);
   assert.equal(check.channel, 'stable');
   assert.equal(check.ref, 'workshop-stable');
-  assert.equal(urls.some(url => url.includes('/commits/main')), false);
+  assert.equal(urls.some(url => url.includes('/commits?') && url.includes('sha=main')), false);
 });
 
 

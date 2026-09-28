@@ -3,6 +3,7 @@ const assert = require('assert');
 
 const source = fs.readFileSync('script/世界推进系统.js', 'utf8');
 const contractSource = fs.readFileSync('src/WorldEngine/domains/WorldResultContract.part.js','utf8');
+const {WORLD_RESULT_SCHEMA}=require('../script/世界推进系统.js');
 
 function capture(pattern, label) {
   const match = source.match(pattern);
@@ -44,8 +45,8 @@ for (const marker of businessInvariants) {
 assert(core.length < 1750, `CORE_WORLD_RULES regressed into a long rule manual: ${core.length} chars`);
 
 assert.match(contractSource,/protocol\(\)\s*\{[\s\S]*this\.instruction\(\)[\s\S]*Canonical WorldResult JSON Schema[\s\S]*JSON\.stringify\(this\.schema,null,2\)/,'WorldResultContract must assemble editable instructions with the canonical schema');
-assert.match(contractSource,/背景关联/,'canonical contract must retain person background-link structure');
-assert.match(contractSource,/现场群体/,'canonical contract must retain shared scene structure');
+assert.ok(WORLD_RESULT_SCHEMA.properties.人物.items.properties.背景关联,'canonical schema must retain person background-link structure');
+assert.ok(WORLD_RESULT_SCHEMA.properties.势力地区.items.properties.现场群体,'canonical schema must retain shared scene structure');
 assert.match(contractSource,/所属对象:\{type:'array'/,'canonical contract must retain asset ownership');
 assert.match(contractSource,/操作:\{type:'string',enum:\['更新','移除','撤销本轮'\]\}/,'canonical contract must retain asset writeback operations');
 assert.match(source,/function protocol\(\)\{return WORLD_RESULT_CONTRACT\.protocol\(\);\}/,'legacy protocol seam must delegate to WorldResultContract');

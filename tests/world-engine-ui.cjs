@@ -267,7 +267,9 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  for(const legacyTitle of ['世界推进','世界演进准则','质量评分','时间容量与信息边界','因果轨道与偏移','探索与势力','势力与地区']){
    assert.equal(await page.locator('[data-segment][data-title="'+legacyTitle+'"]').count(),0,'旧说明书分段不得回流：'+legacyTitle);
  }
- assert.match(await page.locator('[data-segment][data-title="执行流程"]').inputValue(),/Step 1 · 取事实/);
+ const executionFlow=await page.locator('[data-segment][data-title="执行流程"]').inputValue();
+ assert.match(executionFlow,/1\. 取事实：/);
+ assert.match(executionFlow,/6\. 输出差分：/);
 
  await page.locator('[data-action="books"]').click();
  await page.locator('[data-book]').first().waitFor();

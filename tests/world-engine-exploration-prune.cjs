@@ -1,8 +1,8 @@
 const assert=require('node:assert/strict');
 const {applyPatches,compileWorldResult,compactWorldLifecycle,emptyState,RECORDS,repairExplorationGranularity}=require('../script/世界推进系统.js');
 const area=(progress=50)=>({风险:'F',探索度:progress,描述:'测试',隐藏真相:''});
-const fresh=(地点='北城学园·教学楼')=>({
-  世界:{名称:'测试末日世界',时间:'2008年07月17日-07:00',地点,稳定:100,后台:emptyState(),探索:{},势力:{},因果轨道:{当前阶段:'爆发初期',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}},法则:[],货币:{},历法:{}},
+const fresh=(地点='测试区域·主设施')=>({
+  世界:{名称:'测试灾变世界',时间:'2008年07月17日-07:00',地点,稳定:100,后台:emptyState(),探索:{},势力:{},因果轨道:{当前阶段:'爆发初期',故事线:'',下一节点:'',偏移记录:{}},异端雷达:{名单:{}},法则:[],货币:{},历法:{}},
   设置:{单一世界:false},系统状态:{是否在主神空间:false},资产:{},角色:{},关系列表:{},任务:{列表:{}},传闻:{街头巷议:{},情报交易:{},布告与檄文:{}}
 });
 const region=(name,description=name)=>[name,{...RECORDS.势力地区,类型:'地区',描述:description,目标:'维持局势',进展:'',公开动态:''}];
@@ -10,52 +10,52 @@ const region=(name,description=name)=>[name,{...RECORDS.势力地区,类型:'地
 let invalid=fresh();
 assert.throws(()=>compileWorldResult(invalid,{
   摘要:'错误探索粒度',
-  探索:[{名称:'北城学园-天台',风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}]
-}),/探索粒度过细.*北城学园-天台/,'新结果必须拒绝微观子区域探索项');
+  探索:[{名称:'测试区域-观测平台',风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}]
+}),/探索粒度过细.*测试区域-观测平台/,'新结果必须拒绝微观子区域探索项');
 
 let legacy=fresh();
 legacy.世界.探索={
-  '北城学园':area(10),
-  '北城学园-天台':area(20)
+  '测试区域':area(10),
+  '测试区域-观测平台':area(20)
 };
 const repairs=repairExplorationGranularity(legacy);
-assert.equal(legacy.世界.探索['北城学园-天台'],undefined,'旧版子区域记录必须被合并并移除');
-assert.equal(legacy.世界.探索['北城学园'].探索度,20,'旧版子区域更高进度必须累计回整体地标');
-assert.ok(repairs.some(p=>p.op==='remove'&&p.path==='/世界/探索/北城学园-天台'));
+assert.equal(legacy.世界.探索['测试区域-观测平台'],undefined,'旧版子区域记录必须被合并并移除');
+assert.equal(legacy.世界.探索['测试区域'].探索度,20,'旧版子区域更高进度必须累计回整体地标');
+assert.ok(repairs.some(p=>p.op==='remove'&&p.path==='/世界/探索/测试区域-观测平台'));
 
-let stat=fresh('北城学园·教学楼');
-let [name,record]=region('北城学园','玩家已经进入并穿越校园。');
+let stat=fresh('测试区域·主设施');
+let [name,record]=region('测试区域','玩家已经进入并穿越区域。');
 stat.世界.后台.势力地区[name]=record;
 let next=applyPatches(stat,compileWorldResult(stat,{摘要:'只推进后台地区'}).patches);
-assert.ok(next.世界.探索['北城学园'],'当前地点已位于后台整体地区时必须自动投影探索');
-assert.equal(next.世界.探索['北城学园'].探索度,10,'首次实际到达整体区域至少记10%浅尝');
+assert.ok(next.世界.探索['测试区域'],'当前地点已位于后台整体地区时必须自动投影探索');
+assert.equal(next.世界.探索['测试区域'].探索度,10,'首次实际到达整体区域至少记10%浅尝');
 
-stat=fresh('北城市市区街道·中央路');
-next=applyPatches(stat,compileWorldResult(stat,{摘要:'玩家进入市区',势力地区:[{名称:'北城市市区街道',类型:'地区',描述:'社会秩序正在崩坏。',进展:'玩家已进入市区街道。'}]}).patches);
-assert.ok(next.世界.后台.势力地区['北城市市区街道']);
-assert.ok(next.世界.探索['北城市市区街道'],'本轮新建且与当前地点匹配的整体地区也必须同步投影');
-assert.equal(next.世界.探索['北城市市区街道'].探索度,10);
+stat=fresh('另一城区·中央路');
+next=applyPatches(stat,compileWorldResult(stat,{摘要:'玩家进入市区',势力地区:[{名称:'另一城区',类型:'地区',描述:'社会秩序正在崩坏。',进展:'玩家已进入市区街道。'}]}).patches);
+assert.ok(next.世界.后台.势力地区['另一城区']);
+assert.ok(next.世界.探索['另一城区'],'本轮新建且与当前地点匹配的整体地区也必须同步投影');
+assert.equal(next.世界.探索['另一城区'].探索度,10);
 
-stat=fresh('北城学园·校门');
-[name,record]=region('北城学园');
+stat=fresh('测试区域·东门');
+[name,record]=region('测试区域');
 stat.世界.后台.势力地区[name]=record;
-stat.世界.后台.势力地区['远郊宅邸']={...record,描述:'远方后台地区'};
+stat.世界.后台.势力地区['远方遗址']={...record,描述:'远方后台地区'};
 next=applyPatches(stat,compileWorldResult(stat,{摘要:'远方地区也在后台推进'}).patches);
-assert.ok(next.世界.探索['北城学园']);
-assert.equal(next.世界.探索['远郊宅邸'],undefined,'玩家未到达的远方后台地区不得自动变成探索奖励');
+assert.ok(next.世界.探索['测试区域']);
+assert.equal(next.世界.探索['远方遗址'],undefined,'玩家未到达的远方后台地区不得自动变成探索奖励');
 
-stat=fresh('北城学园·教学楼');
-[name,record]=region('北城学园');
+stat=fresh('测试区域·主设施');
+[name,record]=region('测试区域');
 stat.世界.后台.势力地区[name]=record;
-next=applyPatches(stat,compileWorldResult(stat,{摘要:'深入调查校园',探索:[{名称:'北城学园',探索度:30,风险:'D',描述:'已掌握校园主要路线。'}]}).patches);
-assert.equal(next.世界.探索['北城学园'].探索度,30,'AI明确给出的更高探索进度不得被10%兜底覆盖');
+next=applyPatches(stat,compileWorldResult(stat,{摘要:'深入调查区域',探索:[{名称:'测试区域',探索度:30,风险:'D',描述:'已掌握区域主要路线。'}]}).patches);
+assert.equal(next.世界.探索['测试区域'].探索度,30,'AI明确给出的更高探索进度不得被10%兜底覆盖');
 assert.equal(Object.keys(next.世界.探索).length,1);
 
-stat=fresh('北城市市区街道');
-stat.世界.探索={'北城学园':area(30),'北城市市区街道':area(10)};
+stat=fresh('另一城区');
+stat.世界.探索={'测试区域':area(30),'另一城区':area(10)};
 const lifecycle=compactWorldLifecycle(stat);
-assert.ok(stat.世界.探索['北城学园'],'探索台账是玩家长期/结算档案，离开区域后不得被生命周期回收');
-assert.ok(stat.世界.探索['北城市市区街道']);
+assert.ok(stat.世界.探索['测试区域'],'探索台账是玩家长期/结算档案，离开区域后不得被生命周期回收');
+assert.ok(stat.世界.探索['另一城区']);
 assert.deepEqual(lifecycle.回收探索||[],[],'生命周期不得再清除已获得的探索记录');
 
 console.log('world-engine exploration projection regression passed');

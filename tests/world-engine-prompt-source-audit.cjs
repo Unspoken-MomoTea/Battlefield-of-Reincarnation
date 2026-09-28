@@ -67,7 +67,8 @@ const runtimeNeutralityTargets=[
 ].filter(file=>fs.existsSync(file));
 const franchiseTerms=[
   '学园默示录','藤美学园','床主市','高城家','毒岛冴子',
-  '斩！赤红之瞳','斩赤红之瞳','塞琉·尤比基塔斯','帝具','狩人部队','夜袭'
+  '斩！赤红之瞳','斩赤红之瞳','塞琉·尤比基塔斯','帝具','狩人部队','夜袭',
+  '天台','教室','医务室','校医室','校门','校车'
 ];
 const runtimeFranchiseLeaks=[];
 for(const file of runtimeNeutralityTargets){

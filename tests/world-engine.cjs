@@ -162,7 +162,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     });
     await test('event schedule labels never surface bare vague time tokens', () => {
         assert.equal(eventScheduleLabel({时间:'2010年-04月-13日-下午'}),'2010年-04月-13日-下午');
-        assert.equal(eventScheduleLabel({时间:'近期',条件:'主角团离开校园'}),'条件触发 · 主角团离开校园');
+        assert.equal(eventScheduleLabel({时间:'近期',条件:'幸存队伍离开区域'}),'条件触发 · 幸存队伍离开区域');
         assert.equal(eventScheduleLabel({时间:'',前因:['校舍突围战']}),'前置节点后 · 校舍突围战');
         assert.equal(eventScheduleLabel({时间:'',条件:''}),'时间待补');
     });
@@ -332,20 +332,20 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const x=setup(async()=>JSON.stringify({summary:'结构修复',patches:[]}));
         x.change(s=>{
             s.世界.后台.事件={
-                '校园突围与校车集结':{...RECORDS.事件,分类:'宏观节点',描述:'幸存者集结并夺取校车逃离校园。',地点:'北城学园-正门',状态:'待发生',时间:'2026年9月7日中午'},
+                '区域突围与运输车集结':{...RECORDS.事件,分类:'宏观节点',描述:'幸存者集结并夺取运输车逃离区域。',地点:'测试区域-正门',状态:'待发生',时间:'2026年9月7日中午'},
                 '床主大桥封锁线':{...RECORDS.事件,分类:'宏观节点',描述:'幸存者抵达床主大桥并寻找绕行路线。',地点:'床主大桥',状态:'待发生',时间:'2026年9月7日下午'},
-                '东区避难所据点保卫战':{...RECORDS.事件,分类:'宏观节点',描述:'主要庇护据点遭大规模尸潮围攻并改变后续生存阶段。',地点:'东区避难所',状态:'待发生',时间:'2026年9月8日'},
-                '天台门扉突破':{...RECORDS.事件,分类:'近期事件',描述:'天台入口铁门被撞开。',地点:'主教学楼-天台入口',状态:'进行中',时间:'2026年9月7日上午'},
-                '医务室劫掠危机':{...RECORDS.事件,分类:'近期事件',描述:'张彪·狂暴分支正冲向医务室。',地点:'主教学楼-二楼-医务室',状态:'进行中',时间:'2026年9月7日上午'}
+                '外围据点据点保卫战':{...RECORDS.事件,分类:'宏观节点',描述:'主要庇护据点遭大规模大规模威胁围攻并改变后续生存阶段。',地点:'外围据点',状态:'待发生',时间:'2026年9月8日'},
+                '观测平台门扉突破':{...RECORDS.事件,分类:'近期事件',描述:'观测平台入口铁门被撞开。',地点:'主设施-观测平台入口',状态:'进行中',时间:'2026年9月7日上午'},
+                '医务室劫掠危机':{...RECORDS.事件,分类:'近期事件',描述:'张彪·狂暴分支正冲向医务室。',地点:'主设施-二楼-医务室',状态:'进行中',时间:'2026年9月7日上午'}
             };
             s.世界.后台.人物['张彪·狂暴分支']={...RECORDS.人物,所属世界:'测试世界',行动:'冲向医务室'};
         });
         assert.equal(await x.engine.run(),true);
         const events=x.get().世界.后台.事件;
-        assert.equal(events['校园突围与校车集结'].分类,'近期节点');
+        assert.equal(events['区域突围与运输车集结'].分类,'近期节点');
         assert.equal(events['床主大桥封锁线'].分类,'近期节点');
-        assert.equal(events['东区避难所据点保卫战'].分类,'宏观节点');
-        assert.equal(events['天台门扉突破'].分类,'当前事件');
+        assert.equal(events['外围据点据点保卫战'].分类,'宏观节点');
+        assert.equal(events['观测平台门扉突破'].分类,'当前事件');
         assert.equal(events['医务室劫掠危机'].分类,'当前事件');
         assert.deepEqual(x.get().世界.后台.人物['张彪·狂暴分支'].关联事件,['医务室劫掠危机']);
     });
@@ -354,12 +354,12 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const x=setup(async()=>{
             calls++;
             if(calls===1)return JSON.stringify({summary:'局部事件冒充宏观',patches:[
-                add('/世界/后台/事件/校园突围与校车集结',{描述:'夺取校车离开校园',地点:'北城学园-正门',分类:'宏观节点',状态:'待发生',时间:'2026年9月7日中午'}),
+                add('/世界/后台/事件/区域突围与运输车集结',{描述:'夺取运输车离开区域',地点:'测试区域-正门',分类:'宏观节点',状态:'待发生',时间:'2026年9月7日中午'}),
                 add('/世界/后台/事件/床主大桥封锁线',{描述:'抵达大桥并寻找绕路',地点:'床主大桥',分类:'宏观节点',状态:'待发生',时间:'2026年9月7日下午'}),
-                add('/世界/后台/事件/医务室会合',{描述:'在医务室完成会合',地点:'主教学楼-医务室',分类:'宏观节点',状态:'待发生',时间:'2026年9月7日下午'})
+                add('/世界/后台/事件/医务室会合',{描述:'在医务室完成会合',地点:'主设施-医务室',分类:'宏观节点',状态:'待发生',时间:'2026年9月7日下午'})
             ]});
             return JSON.stringify({summary:'真正宏观骨架',patches:[
-                add('/世界/后台/事件/高城据点阶段',{描述:'主要庇护据点建立并改变幸存者生存阶段',地点:'北城市',分类:'宏观节点',状态:'待发生',时间:'2026年9月8日'}),
+                add('/世界/后台/事件/高城据点阶段',{描述:'主要庇护据点建立并改变幸存者生存阶段',地点:'外环城区',分类:'宏观节点',状态:'待发生',时间:'2026年9月8日'}),
                 add('/世界/后台/事件/战略级基础设施失效',{描述:'更大范围战略级灾难导致通讯和电子基础设施失效',地点:'全国范围',分类:'宏观节点',状态:'待发生',时间:'爆发后数日'}),
                 add('/世界/后台/事件/社会秩序长期崩溃',{描述:'地区社会秩序进入长期崩溃和流亡阶段',地点:'关东地区',分类:'宏观节点',状态:'待发生',时间:'爆发后一周内'})
             ]});
@@ -369,7 +369,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(calls,2);
         assert.match(x.engine.lastRetryLog[0].错误,/宏观事件不足/);
         const events=x.get().世界.后台.事件;
-        assert.equal(events['校园突围与校车集结'],undefined);
+        assert.equal(events['区域突围与运输车集结'],undefined);
         assert.equal(Object.values(events).filter(e=>e.分类==='宏观节点'&&e.状态==='待发生').length,3);
     });
     await test('valid macro storyline still repairs a stale next-node pointer', async () => {
@@ -402,11 +402,11 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     await test('causal projection is rebuilt only from macro events, never from current-scene details', async () => {
         const x=setup(async()=>JSON.stringify({summary:'同步宏观轨道',patches:[]}));
         x.change(s=>{
-            s.世界.因果轨道={当前阶段:'感染者危机爆发',故事线:'北城学园陷落',下一节点:'城市撤离',偏移记录:{}};
+            s.世界.因果轨道={当前阶段:'威胁群体危机爆发',故事线:'测试区域陷落',下一节点:'城市撤离',偏移记录:{}};
             s.世界.后台.事件={
                 '校医室混乱':{...RECORDS.事件,分类:'当前事件',描述:'眼前混乱',状态:'进行中',时间:'2026年9月7日上午'},
                 '夺取校巴':{...RECORDS.事件,分类:'近期节点',描述:'局部撤离动作',状态:'待发生',时间:'2026年9月7日中午'},
-                '城市撤离':{...RECORDS.事件,分类:'宏观节点',描述:'主角团离开当前城市核心区',状态:'待发生',时间:'2026年9月8日'},
+                '城市撤离':{...RECORDS.事件,分类:'宏观节点',描述:'幸存队伍离开当前城市核心区',状态:'待发生',时间:'2026年9月8日'},
                 '战略级灾难':{...RECORDS.事件,分类:'宏观节点',描述:'世界级基础设施失效',状态:'待发生',时间:'2026年9月10日'},
                 '秩序全面崩溃':{...RECORDS.事件,分类:'宏观节点',描述:'社会秩序进入下一阶段',状态:'待发生',时间:'2026年9月14日'}
             };
@@ -486,29 +486,29 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const compiled=compileWorldResult(stat,{
             摘要:'同轮因果',
             事件:[
-                {名称:'天台入口攻防',描述:'铁门受冲击',前因:['病毒向高层蔓延'],状态:'进行中',分类:'当前事件',时间:'2026年9月7日上午'},
-                {名称:'病毒向高层蔓延',描述:'感染者向高层扩散',前因:['北城学园爆发'],状态:'已完成',分类:'近期节点',时间:'2026年9月7日上午'},
-                {名称:'北城学园爆发',描述:'校园爆发',状态:'进行中',分类:'宏观节点',时间:'2026年9月7日上午'}
+                {名称:'观测平台入口攻防',描述:'铁门受冲击',前因:['病毒向高层蔓延'],状态:'进行中',分类:'当前事件',时间:'2026年9月7日上午'},
+                {名称:'病毒向高层蔓延',描述:'威胁群体向高层扩散',前因:['测试区域爆发'],状态:'已完成',分类:'近期节点',时间:'2026年9月7日上午'},
+                {名称:'测试区域爆发',描述:'区域爆发',状态:'进行中',分类:'宏观节点',时间:'2026年9月7日上午'}
             ]
         });
         const next=applyPatches(stat,compiled.patches);
-        assert.deepEqual(next.世界.后台.事件.天台入口攻防.前因,['病毒向高层蔓延']);
+        assert.deepEqual(next.世界.后台.事件.观测平台入口攻防.前因,['病毒向高层蔓延']);
         assert.ok(next.世界.后台.事件.病毒向高层蔓延);
     });
     await test('exploration reward ledger rejects micro locations and self-heals old child-area records', () => {
         const stat=fresh();
         assert.throws(()=>compileWorldResult(stat,{
             摘要:'错误探索粒度',
-            探索:[{名称:'北城学园-天台',风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}]
-        }),/探索粒度过细.*北城学园-天台/);
+            探索:[{名称:'测试区域-观测平台',风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}]
+        }),/探索粒度过细.*测试区域-观测平台/);
         stat.世界.探索={
-            '北城学园':{风险:'F',探索度:10,描述:'已进入校园',隐藏真相:''},
-            '北城学园-天台':{风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}
+            '测试区域':{风险:'F',探索度:10,描述:'已进入区域',隐藏真相:''},
+            '测试区域-观测平台':{风险:'F',探索度:20,描述:'视野开阔',隐藏真相:''}
         };
         const repairs=repairExplorationGranularity(stat);
-        assert.equal(stat.世界.探索['北城学园-天台'],undefined);
-        assert.equal(stat.世界.探索.北城学园.探索度,20);
-        assert.ok(repairs.some(p=>p.op==='remove'&&p.path==='/世界/探索/北城学园-天台'));
+        assert.equal(stat.世界.探索['测试区域-观测平台'],undefined);
+        assert.equal(stat.世界.探索.测试区域.探索度,20);
+        assert.ok(repairs.some(p=>p.op==='remove'&&p.path==='/世界/探索/测试区域-观测平台'));
     });
     await test('WorldResult can update world currency economy fields without touching player balances', () => {
         const stat=fresh();
@@ -548,11 +548,11 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const compiled=compileWorldResult(stat,{
             摘要:'传闻兼容',
             传闻:{街头巷议:[
-                {名称:'校门惨剧',来源:'学生',内容:'校门发生咬人事件',分类:'事实'},
+                {名称:'东门惨剧',来源:'居民',内容:'东门发生咬人事件',分类:'事实'},
                 {名称:'疯病传闻',来源:'手机简讯',内容:'被咬就会发疯',分类:'猜测'},
                 {名称:'操场巨响',来源:'操场幸存者',内容:'操场有车被掀翻',分类:'事实'},
                 {名称:'操场异动',来源:'操场幸存者',内容:'操场有车被掀翻',分类:'事实'},
-                {名称:'超人出没',来源:'目击学生',内容:'有人像忍者一样移动',分类:'谣言'}
+                {名称:'超人出没',来源:'目击居民',内容:'有人像忍者一样移动',分类:'谣言'}
             ]}
         });
         const rumorPatches=compiled.patches.filter(p=>p.path.startsWith('/传闻/街头巷议/'));
@@ -590,17 +590,17 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const compiled=compileWorldResult(stat,{
             摘要:'地区资源简写',
             势力地区:[{
-                名称:'北城学园',
+                名称:'测试区域',
                 资源:['极度匮乏（医疗物资、淡水、载具）'],
                 近期变化:['走廊布满血迹']
             }]
         });
-        const patch=compiled.patches.find(p=>p.path==='/世界/后台/势力地区/北城学园');
+        const patch=compiled.patches.find(p=>p.path==='/世界/后台/势力地区/测试区域');
         assert.ok(patch);
         assert.deepEqual(patch.value.资源,[{名称:'极度匮乏（医疗物资、淡水、载具）',数量:'',用途:'',限制:''}]);
         assert.deepEqual(patch.value.近期变化,[{时间:'',事实:'走廊布满血迹',关联事件:''}]);
         const next=applyPatches(stat,compiled.patches);
-        assert.equal(next.世界.后台.势力地区.北城学园.资源[0].名称,'极度匮乏（医疗物资、淡水、载具）');
+        assert.equal(next.世界.后台.势力地区.测试区域.资源[0].名称,'极度匮乏（医疗物资、淡水、载具）');
     });
     await test('WorldResult ignores task and achievement mutations while preserving relationship updates', () => {
         const stat=fresh();
@@ -649,10 +649,10 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
     await test('legacy public summary migrates once into causal current stage and legacy handoff is removed', () => {
         const stat=fresh();
         stat.世界.因果轨道.当前阶段='爆发初期';
-        stat.世界.后台.公开摘要='感染者病毒已经席卷北城学园，校园秩序全面崩溃。';
+        stat.世界.后台.公开摘要='灾变污染已经席卷测试区域，区域秩序全面崩溃。';
         stat.世界.后台.正文承接=[{来源:'旧结构',触达方式:'旧结构',可见事实:'旧结构',当前场景影响:'旧结构'}];
         const next=applyPatches(stat,[]);
-        assert.equal(next.世界.因果轨道.当前阶段,'感染者病毒已经席卷北城学园，校园秩序全面崩溃。');
+        assert.equal(next.世界.因果轨道.当前阶段,'灾变污染已经席卷测试区域，区域秩序全面崩溃。');
         assert.equal(Object.hasOwn(next.世界.后台,'公开摘要'),false);
         assert.equal(Object.hasOwn(next.世界.后台,'正文承接'),false);
     });
@@ -699,25 +699,25 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const parsed=parseReply(JSON.stringify({
             摘要:'对象映射格式',
             事件:{
-                '北城学园爆发':{描述:'校园全面失序',分类:'宏观节点',状态:'进行中',时间:'2010年-04月-13日-上午'},
-                '北城市大混乱':{描述:'城市社会秩序彻底崩溃',分类:'宏观节点',状态:'待发生',时间:'2010年-04月-13日-傍晚'}
+                '测试区域爆发':{描述:'区域全面失序',分类:'宏观节点',状态:'进行中',时间:'2010年-04月-13日-上午'},
+                '外环城区大混乱':{描述:'城市社会秩序彻底崩溃',分类:'宏观节点',状态:'待发生',时间:'2010年-04月-13日-傍晚'}
             },
             人物:{
-                '测试角色甲':{所在世界:'测试末日世界',地点:'二楼走廊',目标:'寻找生还者',行动:'向楼梯间推进',已知信息:'感染者头部是弱点',下次检查条件:'到达楼梯间'}
+                '测试角色甲':{所在世界:'测试灾变世界',地点:'二楼走廊',目标:'寻找生还者',行动:'向楼梯间推进',已知信息:'威胁群体头部是弱点',下次检查条件:'到达楼梯间'}
             },
             传播:{
-                '校门口的惨剧':{来源:'逃命学生',范围:'北城学园校内',时间:'2010年-04月-13日-09:30',关联事件:'北城学园爆发',内容:'校门口发生咬人事件'}
+                '东门口的惨剧':{来源:'逃命居民',范围:'测试区域区域内',时间:'2010年-04月-13日-09:30',关联事件:'测试区域爆发',内容:'东门口发生咬人事件'}
             },
-            因果:{宏观顺序:['北城学园爆发','北城市大混乱','后续阶段']}
+            因果:{宏观顺序:['测试区域爆发','外环城区大混乱','后续阶段']}
         }));
         assert.equal(parsed.kind,'world_result');
-        assert.deepEqual(parsed.worldResult.事件.map(x=>x.名称),['北城学园爆发','北城市大混乱']);
+        assert.deepEqual(parsed.worldResult.事件.map(x=>x.名称),['测试区域爆发','外环城区大混乱']);
         assert.equal(parsed.worldResult.人物[0].名称,'测试角色甲');
-        assert.equal(parsed.worldResult.人物[0].所属世界,'测试末日世界');
-        assert.deepEqual(parsed.worldResult.人物[0].认知,['感染者头部是弱点']);
+        assert.equal(parsed.worldResult.人物[0].所属世界,'测试灾变世界');
+        assert.deepEqual(parsed.worldResult.人物[0].认知,['威胁群体头部是弱点']);
         assert.equal(parsed.worldResult.人物[0].下次检查,'到达楼梯间');
-        assert.equal(parsed.worldResult.传播[0].名称,'校门口的惨剧');
-        assert.deepEqual(parsed.worldResult.传播[0].关联事件,['北城学园爆发']);
+        assert.equal(parsed.worldResult.传播[0].名称,'东门口的惨剧');
+        assert.deepEqual(parsed.worldResult.传播[0].关联事件,['测试区域爆发']);
     });
     await test('WorldResult parser unwraps common structured-provider envelopes without retry', () => {
         for(const wrapper of ['WorldResult','world_result','world_update','result']){
@@ -931,7 +931,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
             });
             return JSON.stringify({
                 摘要:'修正探索并补齐宏观',
-                探索:[{名称:'学校',风险:'D',探索度:10,描述:'玩家已确认学校内部局部情况'}],
+                探索:[{名称:'学校',风险:'D',探索度:10,描述:'玩家已确认学区域内部局部情况'}],
                 事件:[
                     {名称:'宏观B',描述:'城区交通网络中断',分类:'宏观节点',状态:'待发生',时间:'2026年9月10日'},
                     {名称:'宏观C',描述:'幸存者势力形成稳定据点',分类:'宏观节点',状态:'待发生',时间:'2026年9月14日'}
@@ -1021,7 +1021,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.match(r.system,/探索度:number\(0~100\)/);
         assert.match(r.system,/WorldResult\.势力必须是数组/);
         assert.match(r.system,/声望:number\(-5000~10000\)/);
-        assert.match(r.system,/禁止天台、教室、走廊、楼梯/);
+        assert.match(r.system,/禁止观测平台、教室、走廊、楼梯/);
         assert.match(r.system,/声望锚点-5000敌对.*10000崇拜/);
         assert.match(r.system,/货币体系不是跨界后永久锁死/);
         assert.match(r.system,/历法一致性/);
@@ -1127,8 +1127,8 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         const end=sourceText.indexOf('    async function executeJourney() {',start);
         assert.ok(start>=0&&end>start,'开局必须提供纯程序世界法则解析器');
         const parseOpeningWorldLaws=new Function(sourceText.slice(start,end)+'; return parseOpeningWorldLaws;')();
-        assert.deepEqual(parseOpeningWorldLaws('物理法则主导；感染者病毒被咬必异变; 超自然体系受排异压制。'),[
-            '物理法则主导','感染者病毒被咬必异变','超自然体系受排异压制。'
+        assert.deepEqual(parseOpeningWorldLaws('物理法则主导；灾变污染被咬必异变; 超自然体系受排异压制。'),[
+            '物理法则主导','灾变污染被咬必异变','超自然体系受排异压制。'
         ]);
         assert.equal(parseOpeningWorldLaws(Array.from({length:12},(_,i)=>'法则'+i).join('；')).length,10);
         assert.ok(sourceText.includes("_set(c, 'stat_data.世界.法则', parseOpeningWorldLaws(p.law));"),'预设世界必须在开局程序中直接写入法则');
@@ -1946,7 +1946,7 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         stat.世界.后台.事件={
             北门身份核验:{...RECORDS.事件,描述:'后台完整描述不得暴露',时间:'2026年9月7日上午',状态:'进行中',地点:'测试地点',分类:'当前事件',公开征兆:'守卫正在逐人检查证件。',可见影响:[{时间:'当前',地点:'测试地点',影响:'出城速度明显下降。'}],默认走向:'隐藏未来走向',条件:'隐藏条件'},
             空影响巡逻:{...RECORDS.事件,描述:'后台描述',时间:'2026年9月7日上午',状态:'进行中',地点:'测试地点',分类:'当前事件',公开征兆:'巡逻队临时增加了一班岗哨。',可见影响:[]},
-            远期政变:{...RECORDS.事件,描述:'隐藏宏观未来',时间:'2026年10月1日',状态:'待发生',地点:'王都',分类:'宏观节点',公开征兆:'不应提前显示'}
+            远期政变:{...RECORDS.事件,描述:'隐藏宏观未来',时间:'2026年10月1日',状态:'待发生',地点:'中心城',分类:'宏观节点',公开征兆:'不应提前显示'}
         };
         stat.世界.异端雷达={当前模式:'干涉局',名单:{
             异端甲:{来源:'原创',经历:'潜伏专家',阵营:'篡夺者',职业:'刺客',层级:'Ⅱ',状态:'活跃'},

@@ -1,5 +1,11 @@
     const EXPLORATION_PROJECTION_RULES='【玩家探索投影硬约束】实际到达整体区域时至少记录10%探索；远方后台地区不自动投影；离开区域后仍保留探索台账。';
-    const MICRO_EXPLORATION_SEGMENT=/^(?:天台|教室|走廊|楼梯|楼层|办公室|医务室|校医室|房间|寝室|宿舍房间|洗手间|浴室|食堂|门厅|入口|出口|校门|桥头|街口|小巷)$/;
+    const MICRO_EXPLORATION_ROOT=/^(?:房间|房室|大厅|走廊|通道|楼梯|楼层|入口|出口|出入口|屋顶|平台|仓库|餐厅|卫生间|浴室|车厢|甲板|舱室)$/;
+    const MICRO_EXPLORATION_CHILD=/(?:室|房|厅|间|廊|梯|层|入口|出口|门|口|台|舱|仓|库|堂|巷|通道|甲板|屋顶)$/;
+    function isMicroExplorationSegment(segment,nested=false) {
+        const value=String(segment||'').trim();if(!value)return false;
+        if(MICRO_EXPLORATION_ROOT.test(value))return true;
+        return nested&&value.length<=16&&MICRO_EXPLORATION_CHILD.test(value);
+    }
     class WorldExplorationService {
         constructor(engine=null){this.engine=engine;}
         snapshot(){
@@ -9,14 +15,14 @@
         granularity(name) {
             const raw=String(name||'').trim();
             if(!raw)return {invalid:true,parent:''};
-            if(MICRO_EXPLORATION_SEGMENT.test(raw))return {invalid:true,parent:''};
+            if(isMicroExplorationSegment(raw,false))return {invalid:true,parent:''};
             const parts=raw.split(/\s*(?:-|—|–|→|>|\/|／|·|・)\s*/).filter(Boolean);
-            if(parts.length>1&&MICRO_EXPLORATION_SEGMENT.test(parts.at(-1)))return {invalid:true,parent:parts.slice(0,-1).join('-')};
+            if(parts.length>1&&isMicroExplorationSegment(parts.at(-1),true))return {invalid:true,parent:parts.slice(0,-1).join('-')};
             return {invalid:false,parent:''};
         }
         validateItem(stat,item) {
             const granularity=this.granularity(item?.名称);
-            if(granularity.invalid)throw new Error('探索粒度过细：'+item.名称+'。世界.探索只记录整体地标/区域'+(granularity.parent?'，请改为“'+granularity.parent+'”并把微观进展累加到主区域':'，禁止把天台、教室、走廊、房间等子区域作为独立探索项'));
+            if(granularity.invalid)throw new Error('探索粒度过细：'+item.名称+'。世界.探索只记录整体地标/区域'+(granularity.parent?'，请改为“'+granularity.parent+'”并把微观进展累加到主区域':'，禁止把建筑内部、单个房室、楼层、出入口等微观子区域作为独立探索项'));
             const old=(stat?.世界?.探索||{})[item.名称];
             if(old&&Object.hasOwn(item,'探索度')&&Number(item.探索度)<Number(old.探索度||0))throw new Error('探索度不能无因回退：'+item.名称+' '+old.探索度+' -> '+item.探索度);
             return granularity;

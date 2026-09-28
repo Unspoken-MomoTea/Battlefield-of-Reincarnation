@@ -1,6 +1,16 @@
     const EVENT_CATEGORIES=new Set(['当前事件','近期节点','宏观节点']);
-    const LOCAL_EVENT_WORDS=/(?:天台|教室|办公室|医务室|走廊|楼梯|楼层|入口|门扉|校门|校车|桥头|大桥|房间|仓库|食堂|街口|小巷|会合|汇合|集结|夺取|抢夺|突破|开门|绕行|护送|搜索|调查)/;
+    const LOCAL_EVENT_ACTION_WORDS=/(?:会合|汇合|集结|争夺|夺取|抢夺|突破|突围|开门|绕行|护送|搜索|调查|巡逻|防守|攻防|撤离|潜入|救援|搬运|封锁|交涉)/;
+    const GENERIC_MICRO_LOCATION_ROOT=/^(?:房间|房室|大厅|走廊|通道|楼梯|楼层|入口|出口|出入口|屋顶|平台|仓库|餐厅|卫生间|浴室|车厢|甲板|舱室)$/;
+    const GENERIC_MICRO_LOCATION_CHILD=/(?:室|房|厅|间|廊|梯|层|入口|出口|门|口|台|舱|仓|库|堂|巷|通道|甲板|屋顶)$/;
     const MACRO_EVENT_WORDS=/(?:世界级|全国|跨国|地区级灾难|城市级灾难|战略级|核(?:打击|爆|武器)|EMP|电磁脉冲|战争|政权|社会秩序|基础设施(?:失效|崩溃)|大规模迁移|长期流亡|生存阶段|篇章转折|据点(?:建立|失守|沦陷|崩溃|保卫)|文明|国家|大陆)/;
+    function looksFineGrainedLocation(value) {
+        const raw=String(value||'').trim();if(!raw)return false;
+        if(GENERIC_MICRO_LOCATION_ROOT.test(raw))return true;
+        const parts=raw.split(/\s*(?:-|—|–|→|>|\/|／|·|・)\s*/).filter(Boolean);
+        if(parts.length<2)return false;
+        const leaf=parts.at(-1);
+        return leaf.length<=16&&GENERIC_MICRO_LOCATION_CHILD.test(leaf);
+    }
 
     class WorldStateNormalizer {
         normalizeBackendState(stat) {
@@ -30,8 +40,8 @@
         obviouslyLocalMacro(name,event) {
             const text=this.eventText(name,event);
             if(MACRO_EVENT_WORDS.test(text))return false;
-            const fineLocation=/(?:天台|教室|办公室|医务室|走廊|楼梯|楼层|入口|门扉|校门|校车|桥头|大桥|房间|仓库|食堂|街口|小巷)/.test(String(event?.地点||'')+' '+String(name||''));
-            return fineLocation&&LOCAL_EVENT_WORDS.test(text);
+            const fineLocation=looksFineGrainedLocation(event?.地点)||looksFineGrainedLocation(name);
+            return fineLocation&&LOCAL_EVENT_ACTION_WORDS.test(text);
         }
         normalizedEventCategory(name,event) {
             const raw=String(event?.分类||'').trim();

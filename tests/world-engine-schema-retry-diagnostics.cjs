@@ -8,11 +8,11 @@ const clone = value => JSON.parse(JSON.stringify(value));
 
 function baseState(){
   const backend=emptyState();
-  backend.事件['校园封锁']={...RECORDS.事件,描述:'校门区域正在封锁并疏散幸存者。',分类:'当前事件',状态:'进行中',地点:'北城学园',时间:'2010年-04月-13日-上午',更新时间:'2010年-04月-13日-上午'};
-  backend.势力地区['北城学园']={...RECORDS.势力地区,类型:'地区',描述:'校园仍处于病毒爆发初期',更新时间:'2010年-04月-13日-上午'};
-  backend.势力地区['校园幸存者']={...RECORDS.势力地区,类型:'势力',描述:'临时形成的幸存者群体',更新时间:'2010年-04月-13日-上午'};
+  backend.事件['区域封锁']={...RECORDS.事件,描述:'东门区域正在封锁并疏散幸存者。',分类:'当前事件',状态:'进行中',地点:'测试区域',时间:'2010年-04月-13日-上午',更新时间:'2010年-04月-13日-上午'};
+  backend.势力地区['测试区域']={...RECORDS.势力地区,类型:'地区',描述:'区域仍处于病毒爆发初期',更新时间:'2010年-04月-13日-上午'};
+  backend.势力地区['本地幸存者']={...RECORDS.势力地区,类型:'势力',描述:'临时形成的幸存者群体',更新时间:'2010年-04月-13日-上午'};
   return {
-    世界:{名称:'测试末日世界',时间:'2010年-04月-13日-上午',地点:'北城学园',后台:backend,势力:{校园幸存者:{实力:'F',领地:'北城学园',描述:'临时幸存者群体',声望:0}},探索:{},异端雷达:{名单:{}},因果轨道:{当前阶段:'',故事线:'',下一节点:'',偏移记录:{}}},
+    世界:{名称:'测试灾变世界',时间:'2010年-04月-13日-上午',地点:'测试区域',后台:backend,势力:{本地幸存者:{实力:'F',领地:'测试区域',描述:'临时幸存者群体',声望:0}},探索:{},异端雷达:{名单:{}},因果轨道:{当前阶段:'',故事线:'',下一节点:'',偏移记录:{}}},
     系统状态:{是否在主神空间:false},设置:{},关系列表:{},传闻:{街头巷议:{},情报交易:{},布告与檄文:{}}
   };
 }
@@ -23,7 +23,7 @@ function setup(responses, validate){
     localStorage:{getItem:()=>null,setItem:()=>{}},
     Samsara:{validateWorldState:validate,terminal:{apiReady:()=>true,request:async (_system,input)=>{inputs.push(input);return responses[Math.min(calls++,responses.length-1)];}}},
     getCurrentChatId:()=> 'schema-retry-diagnostics',
-    getChatMessages:()=>[{message_id:1,role:'assistant',message:'北城学园内仍处于病毒爆发初期。'}]
+    getChatMessages:()=>[{message_id:1,role:'assistant',message:'测试区域内仍处于病毒爆发初期。'}]
   };
   host.Mvu={getMvuData:()=>({stat_data:clone(current)}),replaceMvuData:async data=>{writes++;current=clone(data.stat_data);}};
   const engine=new Engine(host);engine.config.enabled=true;engine.config.requireMacroBackbone=false;engine.worldbook=async()=>[];
@@ -49,7 +49,7 @@ function setup(responses, validate){
     }
     return next;
   };
-  const rumorReply=JSON.stringify({摘要:'更新校园传闻并推进巡逻',人物:[{名称:'巡逻学生',操作:'更新',地点:'校门',目标:'维持警戒',行动:'把警戒线推进到校门外侧',状态:'活跃'}],传闻:{街头巷议:[{名称:'狂犬病爆发说',操作:'更新',来源:'北城学园幸存学生',内容:'被咬伤的人会迅速变异。',可信度:'低'}]}});
+  const rumorReply=JSON.stringify({摘要:'更新区域传闻并推进巡逻',人物:[{名称:'巡逻居民',操作:'更新',地点:'东门',目标:'维持警戒',行动:'把警戒线推进到东门外侧',状态:'活跃'}],传闻:{街头巷议:[{名称:'狂犬病爆发说',操作:'更新',来源:'测试区域幸存居民',内容:'被咬伤的人会迅速变异。',可信度:'低'}]}});
   const a=setup([rumorReply],tolerantValidate);a.engine.config.retryAttempts=1;
   assert.equal(await a.engine.run(),true,'ZOD 可安全归正的可信度别名不应触发重试');
   assert.equal(a.calls(),1);assert.equal(a.writes(),1);
@@ -60,7 +60,7 @@ function setup(responses, validate){
     if(person?.行动==='含糊行动')person.行动='规范行动';
     return next;
   };
-  const bad=JSON.stringify({摘要:'第一次',人物:[{名称:'卫兵',操作:'更新',地点:'校门',目标:'警戒',行动:'含糊行动',状态:'活跃',更新时间:'2010年-04月-13日-上午'}]});
+  const bad=JSON.stringify({摘要:'第一次',人物:[{名称:'卫兵',操作:'更新',地点:'东门',目标:'警戒',行动:'含糊行动',状态:'活跃',更新时间:'2010年-04月-13日-上午'}]});
   const good=JSON.stringify({摘要:'第二次',人物:[{名称:'卫兵',操作:'更新',行动:'规范行动'}]});
   const b=setup([bad,good],rewriteValidate);b.engine.config.retryAttempts=2;
   assert.equal(await b.engine.run(),true);

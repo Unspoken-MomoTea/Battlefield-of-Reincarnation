@@ -6,11 +6,11 @@ const clone=value=>JSON.parse(JSON.stringify(value));
 
 const stat={
   世界:{
-    名称:'测试帝国世界',
-    时间:'王国历1024年 雨季 · 深夜',
-    地点:'王都贫民窟',
+    名称:'测试都市世界',
+    时间:'世界历1024年 雨季 · 深夜',
+    地点:'中心城贫民窟',
     后台:emptyState(),
-    因果轨道:{当前阶段:'猎兵团集结',故事线:'',下一节点:'',偏移记录:{}},
+    因果轨道:{当前阶段:'巡查组织集结',故事线:'',下一节点:'',偏移记录:{}},
     异端雷达:{名单:{
       '异端甲':{来源:'轮回者',经历:'',阵营:'',职业:'',层级:'Ⅱ',状态:'活跃'},
       '异端乙':{来源:'轮回者',经历:'',阵营:'',职业:'',层级:'Ⅱ',状态:'活跃'}
@@ -23,14 +23,14 @@ const stat={
 };
 
 const result={
-  摘要:'异端继续在王都行动。',
+  摘要:'异端继续在中心城行动。',
   人物:[
     {
-      名称:'异端甲',操作:'更新',地点:'王都贫民窟-第四封锁区',目标:'捕获目标',行动:'指挥搜捕。',
-      更新时间:'王国历1024年 雨季 深夜'
+      名称:'异端甲',操作:'更新',地点:'中心城贫民窟-第四封锁区',目标:'捕获目标',行动:'指挥搜捕。',
+      更新时间:'世界历1024年 雨季 深夜'
     },
     {
-      名称:'异端乙',操作:'更新',地点:'王都西侧瞭望塔',目标:'观测目标',行动:'拦截援军情报。'
+      名称:'异端乙',操作:'更新',地点:'中心城西侧瞭望塔',目标:'观测目标',行动:'拦截援军情报。'
     }
   ],
   异端:[
@@ -60,24 +60,24 @@ for(const item of requirements){
 
 const settled=clone(stat);
 settled.世界.后台=emptyState();
-settled.世界.后台.事件['王都封锁']={
-  ...RECORDS.事件,描述:'王都封锁仍在持续。',分类:'当前事件',状态:'进行中',
+settled.世界.后台.事件['中心城封锁']={
+  ...RECORDS.事件,描述:'中心城封锁仍在持续。',分类:'当前事件',状态:'进行中',
   时间:settled.世界.时间,更新时间:settled.世界.时间
 };
 settled.世界.后台.人物={
   '异端甲':{
-    所属世界:settled.世界.名称,地点:'王都贫民窟-第四封锁区',目标:'维持封锁',行动:'继续搜查既定区域。',
-    状态:'活跃',更新时间:settled.世界.时间,下次检查:'',关联事件:['王都封锁'],认知:['封锁命令仍然有效'],认知来源:[]
+    所属世界:settled.世界.名称,地点:'中心城贫民窟-第四封锁区',目标:'维持封锁',行动:'继续搜查既定区域。',
+    状态:'活跃',更新时间:settled.世界.时间,下次检查:'',关联事件:['中心城封锁'],认知:['封锁命令仍然有效'],认知来源:[]
   },
   '异端乙':{
-    所属世界:settled.世界.名称,地点:'王都西侧瞭望塔',目标:'观察城内动向',行动:'按既定计划监视交通。',
+    所属世界:settled.世界.名称,地点:'中心城西侧瞭望塔',目标:'观察城内动向',行动:'按既定计划监视交通。',
     状态:'活跃',更新时间:settled.世界.时间,下次检查:'',关联事件:[],认知:[],认知来源:[]
   }
 };
 assert.deepEqual(activeAlienActivityRequirements(settled),[],'complete active aliens with no due/event/area trigger must keep their existing plan instead of being forced to react every world-engine run');
 
 const eventTriggered=clone(settled);
-eventTriggered.世界.后台.最近变化=[{时间:eventTriggered.世界.时间,类别:'事件',名称:'王都封锁',操作:'更新',字段:'状态',内容:'封锁范围扩大'}];
+eventTriggered.世界.后台.最近变化=[{时间:eventTriggered.世界.时间,类别:'事件',名称:'中心城封锁',操作:'更新',字段:'状态',内容:'封锁范围扩大'}];
 const triggeredRequirements=activeAlienActivityRequirements(eventTriggered);
 assert.equal(triggeredRequirements.length,1,'a linked world event change should trigger only the affected alien review');
 assert.equal(triggeredRequirements[0].名称,'异端甲');
@@ -90,11 +90,11 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   const quietReplies=[
     {摘要:'没有新的世界侧事实。'},
     {
-      摘要:'王都封锁继续运作，警备力量正在调整街区控制。',
-      势力:[{名称:'王都警备队',操作:'更新',实力:'C',领地:'王都',描述:'负责王都治安与封锁执行的武装组织。',声望:0}],
+      摘要:'中心城封锁继续运作，警备力量正在调整街区控制。',
+      势力:[{名称:'城市警备队',操作:'更新',实力:'C',领地:'中心城',描述:'负责中心城治安与封锁执行的武装组织。',声望:0}],
       势力地区:[
-        {名称:'王都北区',操作:'更新',类型:'地区',描述:'王都北部住宅与贫民混合区。',目标:'维持封锁秩序',进展:'警备队把搜查重点转向北侧街巷。',关联事件:['王都封锁'],公开动态:'北区路口增加临检。'},
-        {名称:'王都警备队',操作:'更新',类型:'势力',描述:'负责王都治安与封锁执行的武装组织。',目标:'维持王都封锁',进展:'重新分配巡逻队与检查站。',关联事件:['王都封锁'],公开动态:'警备队公开加强北区检查。'}
+        {名称:'中心城北区',操作:'更新',类型:'地区',描述:'中心城北部住宅与贫民混合区。',目标:'维持封锁秩序',进展:'警备队把搜查重点转向北侧街巷。',关联事件:['中心城封锁'],公开动态:'北区路口增加临检。'},
+        {名称:'城市警备队',操作:'更新',类型:'势力',描述:'负责中心城治安与封锁执行的武装组织。',目标:'维持中心城封锁',进展:'重新分配巡逻队与检查站。',关联事件:['中心城封锁'],公开动态:'警备队公开加强北区检查。'}
       ]
     }
   ];
@@ -120,9 +120,9 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   assert.equal(await quietEngine.run(),true,'world activity must progress even when active aliens have no review trigger');
   assert.equal(quietCalls,2,'summary-only world result must be retried instead of allowing the non-alien world to freeze');
   assert.equal(quietWrites,1,'repaired world activity should commit once');
-  assert.ok(quietState.世界.后台.势力地区['王都北区']);
-  assert.equal(quietState.世界.后台.势力地区['王都警备队']?.类型,'势力');
-  assert.equal(quietState.世界.势力['王都警备队']?.实力,'C','faction bootstrap must also populate the top-level faction ledger used by reputation/settlement');
+  assert.ok(quietState.世界.后台.势力地区['中心城北区']);
+  assert.equal(quietState.世界.后台.势力地区['城市警备队']?.类型,'势力');
+  assert.equal(quietState.世界.势力['城市警备队']?.实力,'C','faction bootstrap must also populate the top-level faction ledger used by reputation/settlement');
 
   // 世界现场已经建立后也不能退化成“只有异端会动”。
   let ongoingState=clone(quietState),ongoingCalls=0,ongoingWrites=0;
@@ -130,8 +130,8 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
     {摘要:'异端继续原计划，世界其余部分没有变化。'},
     {
       摘要:'封锁现场继续推进。',
-      事件:[{名称:'王都封锁',操作:'更新',描述:'王都封锁仍在持续，北区检查密度上升。',分类:'当前事件',状态:'进行中',时间:ongoingState.世界.时间,地点:'王都北区'}],
-      势力地区:[{名称:'王都北区',操作:'更新',类型:'地区',描述:'王都北部住宅与贫民混合区。',目标:'维持封锁秩序',进展:'新增两处临时检查点，行人绕行。',关联事件:['王都封锁'],公开动态:'北区临检范围继续扩大。'}]
+      事件:[{名称:'中心城封锁',操作:'更新',描述:'中心城封锁仍在持续，北区检查密度上升。',分类:'当前事件',状态:'进行中',时间:ongoingState.世界.时间,地点:'中心城北区'}],
+      势力地区:[{名称:'中心城北区',操作:'更新',类型:'地区',描述:'中心城北部住宅与贫民混合区。',目标:'维持封锁秩序',进展:'新增两处临时检查点，行人绕行。',关联事件:['中心城封锁'],公开动态:'北区临检范围继续扩大。'}]
     }
   ];
   const ongoingHost={
@@ -149,7 +149,7 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   assert.equal(await ongoingEngine.run(),true,'an initialized world must still make a non-alien semantic step each world-engine run');
   assert.equal(ongoingCalls,2,'alien-only/summary-only follow-up must be retried even after the world scene already exists');
   assert.equal(ongoingWrites,1);
-  assert.match(ongoingState.世界.后台.势力地区['王都北区']?.进展||'',/临时检查点/);
+  assert.match(ongoingState.世界.后台.势力地区['中心城北区']?.进展||'',/临时检查点/);
 
   // 复现实际开局：世界.时间为空，但后台回复里的两名活跃异端给出了同一个当前时间锚点。
   // 世界引擎应直接接管该时钟并一次成功，不再把异端活动打回。
@@ -157,22 +157,22 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   current.世界.时间='';
   current.世界.地点='';
   current.世界.后台=emptyState();
-  current.世界.因果轨道={当前阶段:'猎兵团集结，反抗组织面临全面围剿。',故事线:'反抗组织初战受阻 -> 猎兵团全面搜捕 -> 轮回者搅局 -> 最终特殊武装决战',下一节点:'待初始化',偏移记录:{}};
+  current.世界.因果轨道={当前阶段:'巡查组织集结，地方组织面临全面围剿。',故事线:'地方组织初战受阻 -> 巡查组织全面搜捕 -> 轮回者搅局 -> 最终特殊装备决战',下一节点:'待初始化',偏移记录:{}};
   current.世界.异端雷达.名单['异端甲'].层级='Ⅲ';
   current.世界.异端雷达.名单['异端乙'].层级='Ⅲ';
 
   const reply={
-    摘要:'王都搜捕扩大，世界现场与异端活动同时建立。',
-    时间:'王国历1024年秋',
-    事件:[{名称:'王都搜捕扩大',操作:'更新',描述:'王都警备力量扩大夜间搜捕。',分类:'当前事件',状态:'进行中',时间:'王国历1024年秋',地点:'王都'}],
-    势力:[{名称:'王都警备队',操作:'更新',实力:'C',领地:'王都',描述:'王都治安武装。',声望:0}],
+    摘要:'中心城搜捕扩大，世界现场与异端活动同时建立。',
+    时间:'世界历1024年秋',
+    事件:[{名称:'中心城搜捕扩大',操作:'更新',描述:'中心城警备力量扩大夜间搜捕。',分类:'当前事件',状态:'进行中',时间:'世界历1024年秋',地点:'中心城'}],
+    势力:[{名称:'城市警备队',操作:'更新',实力:'C',领地:'中心城',描述:'中心城治安武装。',声望:0}],
     势力地区:[
-      {名称:'王都',操作:'更新',类型:'地区',描述:'帝国首都。',目标:'维持城市运转',进展:'夜间搜捕扩大。',关联事件:['王都搜捕扩大']},
-      {名称:'王都警备队',操作:'更新',类型:'势力',描述:'王都治安武装。',目标:'扩大搜捕',进展:'调集巡逻与检查站。',关联事件:['王都搜捕扩大']}
+      {名称:'中心城',操作:'更新',类型:'地区',描述:'帝国首都。',目标:'维持城市运转',进展:'夜间搜捕扩大。',关联事件:['中心城搜捕扩大']},
+      {名称:'城市警备队',操作:'更新',类型:'势力',描述:'中心城治安武装。',目标:'扩大搜捕',进展:'调集巡逻与检查站。',关联事件:['中心城搜捕扩大']}
     ],
     人物:[
-      {名称:'异端甲',操作:'更新',地点:'王都·北区贫民窟深巷',目标:'猎杀感知范围内的所有异端轮回者。',行动:'利用侦测装置锁定觉醒波动并布置陷阱。',状态:'活跃',更新时间:'王国历1024年秋'},
-      {名称:'异端乙',操作:'更新',地点:'王都·行政办公厅机要室',目标:'通过操控情报流向诱导冲突。',行动:'伪造名单并扩大搜捕范围。',状态:'活跃',更新时间:'王国历1024年秋'}
+      {名称:'异端甲',操作:'更新',地点:'中心城·北区贫民窟深巷',目标:'猎杀感知范围内的所有异端轮回者。',行动:'利用侦测装置锁定觉醒波动并布置陷阱。',状态:'活跃',更新时间:'世界历1024年秋'},
+      {名称:'异端乙',操作:'更新',地点:'中心城·行政办公厅机要室',目标:'通过操控情报流向诱导冲突。',行动:'伪造名单并扩大搜捕范围。',状态:'活跃',更新时间:'世界历1024年秋'}
     ],
     异端:[
       {名称:'异端甲',状态:'活跃'},
@@ -180,7 +180,7 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
     ]
   };
   let calls=0,writes=0;
-  const message={message_id:1,role:'assistant',message:'雨夜里，王都的搜捕正在扩大。'};
+  const message={message_id:1,role:'assistant',message:'雨夜里，中心城的搜捕正在扩大。'};
   const host={
     localStorage:{getItem:()=>null,setItem:()=>{}},
     getCurrentChatId:()=> 'alien-empty-world-time',
@@ -196,7 +196,7 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   assert.equal(await engine.run(),true,'empty world time must not reject complete active-alien activity');
   assert.equal(calls,1,'valid activity should be accepted on the first request');
   assert.equal(writes,1,'accepted activity should be committed once');
-  assert.equal(current.世界.时间,'王国历1024年秋','world engine should promote the common current-activity time anchor into 世界.时间');
+  assert.equal(current.世界.时间,'世界历1024年秋','world engine should promote the common current-activity time anchor into 世界.时间');
   for(const name of ['异端甲','异端乙']){
     const person=current.世界.后台.人物[name];
     assert.ok(person?.地点&&person?.目标&&person?.行动,'complete activity must be committed for '+name);
@@ -216,30 +216,30 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   timeState.世界.时间='';
   timeState.世界.后台=emptyState();
   timeState.世界.异端雷达={名单:{}};
-  timeState.世界.历法={名称:'王国历',月份天数:[30,28,31,30,31,30,31,31,30,31,30,31],闰年规则:'每四年一闰'};
+  timeState.世界.历法={名称:'世界历',月份天数:[30,28,31,30,31,30,31,31,30,31,30,31],闰年规则:'每四年一闰'};
   const timeReplies=[
     {
-      摘要:'建立时间锚点与当前世界现场。',时间:'王历1024年-09月-12日-下午',
+      摘要:'建立时间锚点与当前世界现场。',时间:'世界历1024年-09月-12日-下午',
       事件:[
-        {名称:'王都戒严',操作:'更新',描述:'王都进入戒严状态。',时间:'王历1024年-09月-12日-下午',状态:'进行中',地点:'王都',分类:'当前事件'},
-        {名称:'猎兵团集结',操作:'更新',描述:'猎兵团开始集结。',时间:'王历1024年，枯叶之月，第15日',状态:'待发生',地点:'王都',分类:'宏观节点'}
+        {名称:'中心城戒严',操作:'更新',描述:'中心城进入戒严状态。',时间:'世界历1024年-09月-12日-下午',状态:'进行中',地点:'中心城',分类:'当前事件'},
+        {名称:'巡查组织集结',操作:'更新',描述:'巡查组织开始集结。',时间:'世界历1024年，枯叶之月，第15日',状态:'待发生',地点:'中心城',分类:'宏观节点'}
       ],
-      势力:[{名称:'王都警备队',操作:'更新',实力:'C',领地:'王都',描述:'王都治安武装。',声望:0}],
+      势力:[{名称:'城市警备队',操作:'更新',实力:'C',领地:'中心城',描述:'中心城治安武装。',声望:0}],
       势力地区:[
-        {名称:'王都',操作:'更新',类型:'地区',描述:'帝国首都。',目标:'维持秩序',进展:'戒严措施正在执行。',关联事件:['王都戒严']},
-        {名称:'王都警备队',操作:'更新',类型:'势力',描述:'王都治安武装。',目标:'执行戒严',进展:'部署检查站。',关联事件:['王都戒严']}
+        {名称:'中心城',操作:'更新',类型:'地区',描述:'帝国首都。',目标:'维持秩序',进展:'戒严措施正在执行。',关联事件:['中心城戒严']},
+        {名称:'城市警备队',操作:'更新',类型:'势力',描述:'中心城治安武装。',目标:'执行戒严',进展:'部署检查站。',关联事件:['中心城戒严']}
       ]
     },
     {
-      摘要:'修正宏观日期。',时间:'王历1024年-09月-12日-下午',
-      事件:[{名称:'猎兵团集结',操作:'更新',描述:'猎兵团开始集结。',时间:'王历1024年-09月-15日-上午',状态:'待发生',地点:'王都',分类:'宏观节点'}]
+      摘要:'修正宏观日期。',时间:'世界历1024年-09月-12日-下午',
+      事件:[{名称:'巡查组织集结',操作:'更新',描述:'巡查组织开始集结。',时间:'世界历1024年-09月-15日-上午',状态:'待发生',地点:'中心城',分类:'宏观节点'}]
     }
   ];
   let timeCalls=0;
   const timeHost={
     localStorage:{getItem:()=>null,setItem:()=>{}},
     getCurrentChatId:()=> 'calendar-compatible-world-time',
-    getChatMessages:()=>[{message_id:2,role:'assistant',message:'王都进入秋季戒严。'}],
+    getChatMessages:()=>[{message_id:2,role:'assistant',message:'中心城进入秋季戒严。'}],
     Samsara:{validateWorldState:clone,terminal:{apiReady:()=>true,request:async()=>JSON.stringify(timeReplies[timeCalls++])}},
     Mvu:{getMvuData:()=>({stat_data:clone(timeState)}),replaceMvuData:async data=>{timeState=clone(data.stat_data);}}
   };
@@ -257,15 +257,15 @@ assert.match(triggeredRequirements[0].触发原因.join('、'),/关联事件变�
   assert.match(initializationRequest.system,/活跃异端只在活动缺失、复核到期、关联事件\/所在地区变化或长期未复核时更新/,'built-in prompt must no longer tell the model to rewrite every active alien each run');
   assert.equal(await timeEngine.run(),true,'calendar-incompatible precise event time should be retried instead of committed');
   assert.equal(timeCalls,2,'named-month event date must be rejected once and retried with machine-readable month/day');
-  assert.equal(timeState.世界.时间,'王历1024年-09月-12日-下午');
+  assert.equal(timeState.世界.时间,'世界历1024年-09月-12日-下午');
   assert.ok(calendarDate(timeState.世界.时间,timeState.世界.历法),'committed world time must be convertible into the calendar panel');
-  assert.equal(timeState.世界.后台.事件['猎兵团集结'].时间,'王历1024年-09月-15日-上午');
-  assert.ok(calendarDate(timeState.世界.后台.事件['猎兵团集结'].时间,timeState.世界.历法),'committed event time must also be calendar/sort compatible');
+  assert.equal(timeState.世界.后台.事件['巡查组织集结'].时间,'世界历1024年-09月-15日-上午');
+  assert.ok(calendarDate(timeState.世界.后台.事件['巡查组织集结'].时间,timeState.世界.历法),'committed event time must also be calendar/sort compatible');
 
   const source=fs.readFileSync(path.join(__dirname,'../script/世界推进系统.js'),'utf8');
   assert.match(source,/【世界时间所有权】/,'delivery must inject world-time ownership rules');
   assert.match(source,/\{yyy\}年-\{mm\}月-\{dd\}日-\{时间段\}/,'delivery prompt must use the neutral world-time format template');
-  assert.doesNotMatch(source,/例如“王历1024年-09月-12日-下午”/,'delivery prompt must not teach a specific world calendar as the generic format');
+  assert.doesNotMatch(source,/例如“世界历1024年-09月-12日-下午”/,'delivery prompt must not teach a specific world calendar as the generic format');
   assert.match(source,/canonicalTime=String\(next\?\.世界\?\.时间/,'alien validator must read the final world-engine clock');
   console.log('PASS world engine owns 世界.时间, enforces calendar-compatible precise dates, and active-alien timestamps follow that clock');
 })().catch(error=>{console.error(error);process.exitCode=1;});

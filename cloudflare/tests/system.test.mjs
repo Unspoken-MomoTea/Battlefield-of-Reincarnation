@@ -10,7 +10,7 @@ test('client latest endpoint serves cached metadata for the configured stable re
     CLIENT_UPDATE_REF: 'workshop-stable',
     SESSION_KV: {
       get: async (key, type) => {
-        assert.equal(key, 'public:workshop-client:stable:workshop-stable');
+        assert.equal(key, 'public:workshop-client:v2:stable:workshop-stable');
         assert.equal(type, 'json');
         return {
           channel: 'stable',

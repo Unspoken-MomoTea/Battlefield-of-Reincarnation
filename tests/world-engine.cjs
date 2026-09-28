@@ -1228,9 +1228,9 @@ async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); 
         assert.equal(Object.values(x.get().世界.后台.事件).filter(e=>e.分类==='宏观节点'&&e.状态==='待发生').length,3);
         assert.match(x.get().世界.因果轨道.故事线,/城市撤离.*战略级灾难.*秩序崩溃/);
     });
-    await test('retry limit defaults to three and persists from request-inspection setting', () => {
+    await test('retry limit defaults to five and persists from request-inspection setting', () => {
         const engine=new Engine({localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{}});
-        assert.equal(engine.config.retryAttempts,3);
+        assert.equal(engine.config.retryAttempts,5);
         const sourceText=fs.readFileSync(file,'utf8');
         assert.match(sourceText,/data-retries/);
         assert.match(sourceText,/最大尝试次数/);

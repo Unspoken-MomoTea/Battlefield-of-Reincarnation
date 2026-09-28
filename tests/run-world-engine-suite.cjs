@@ -11,7 +11,7 @@ const integrationTests=[
 ];
 
 const worldEngineTests=fs.readdirSync(testsDir,{withFileTypes:true})
-  .filter(entry=>entry.isFile()&&/^world-engine-.*\.cjs$/.test(entry.name))
+  .filter(entry=>entry.isFile()&&/^world-engine(?:-.*)?\.cjs$/.test(entry.name))
   .map(entry=>entry.name)
   .sort();
 const missingIntegration=integrationTests.filter(file=>!fs.existsSync(path.join(testsDir,file)));

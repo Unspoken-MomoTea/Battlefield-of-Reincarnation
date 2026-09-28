@@ -197,7 +197,7 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.screenshot({path:path.join(out,'world-people.png')});
  for(const tab of ['探索与势力','世界事件','运行记录','提示词预设']){await page.locator('[data-tab="'+tab+'"]').click();assert.equal(await page.locator('main pre').count(),0);}
  await page.locator('[data-tab="请求检查"]').click();
- assert.equal(await page.locator('[data-retries]').inputValue(),'3','失败重试次数默认3');
+ assert.equal(await page.locator('[data-retries]').inputValue(),'5','最大尝试次数默认5');
  await page.locator('[data-retries]').fill('2');
  await page.locator('[data-retries]').dispatchEvent('change');
  assert.equal(await page.evaluate(()=>Samsara.worldEngine.config.retryAttempts),2,'请求检查可修改失败重试次数');

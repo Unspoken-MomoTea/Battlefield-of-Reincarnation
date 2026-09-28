@@ -334,8 +334,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.getByText('车夫递来一封信。',{exact:true}).waitFor();
  const request=await page.evaluate(()=>Samsara.worldEngine.previewRequest);
  const requestPayload=JSON.parse(request.input);
- assert.equal(requestPayload.世界书[0].名称,'无关键词条目');
- assert.equal(requestPayload.世界书.length,1);
+ assert.deepEqual(requestPayload.世界书,['这是一条普通设定','任务规则'],'AI请求只发送实际读取的世界书正文，不携带目录元数据');
+ assert.deepEqual(request.manifest.世界书条目.map(item=>item.名称),['无关键词条目','⚙️任务与委托系统'],'本地检查清单保留实际读取条目的名称');
  assert.equal(request.manifest.正文楼层.length,1);
  assert.equal(request.manifest.输出协议,'WorldResult v1');
  assert.equal(request.schema.type,'object');

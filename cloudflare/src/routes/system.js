@@ -2,6 +2,7 @@ import { json } from '../http.js';
 
 const WORKSHOP_REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const WORKSHOP_ENTRY_PATH = '/src/CreativeWorkshop/index.js';
+const WORKSHOP_SOURCE_PATH = 'src/CreativeWorkshop';
 const CACHE_TTL_SECONDS = 300;
 
 function updateChannel(env) {
@@ -17,7 +18,7 @@ function updateRef(env) {
 }
 
 function cacheKey(env) {
-  return `public:workshop-client:${updateChannel(env)}:${updateRef(env)}`;
+  return `public:workshop-client:v2:${updateChannel(env)}:${updateRef(env)}`;
 }
 
 async function fetchLatestClient(env) {
@@ -34,8 +35,13 @@ async function fetchLatestClient(env) {
     return { ...cached, cached: true };
   }
 
+  const query = new URLSearchParams({
+    sha: ref,
+    path: WORKSHOP_SOURCE_PATH,
+    per_page: '1',
+  });
   const response = await fetch(
-    `https://api.github.com/repos/${WORKSHOP_REPOSITORY}/commits/${encodeURIComponent(ref)}`,
+    `https://api.github.com/repos/${WORKSHOP_REPOSITORY}/commits?${query}`,
     {
       headers: {
         Accept: 'application/vnd.github+json',
@@ -44,11 +50,11 @@ async function fetchLatestClient(env) {
     },
   );
   if (!response.ok) {
-    throw new Error(`GitHub ${ref} commit request failed: ${response.status}`);
+    throw new Error(`GitHub ${ref} client commit request failed: ${response.status}`);
   }
   const payload = await response.json();
-  const sha = String(payload?.sha || '').trim();
-  if (!/^[0-9a-f]{40}$/iu.test(sha)) throw new Error(`GitHub returned invalid commit sha for ${ref}`);
+  const sha = String(Array.isArray(payload) ? payload[0]?.sha : payload?.sha || '').trim();
+  if (!/^[0-9a-f]{40}$/iu.test(sha)) throw new Error(`GitHub returned invalid workshop client sha for ${ref}`);
 
   const result = {
     channel,
@@ -57,6 +63,7 @@ async function fetchLatestClient(env) {
     short_sha: sha.slice(0, 8),
     repository: WORKSHOP_REPOSITORY,
     entry_path: WORKSHOP_ENTRY_PATH,
+    source_path: WORKSHOP_SOURCE_PATH,
     checked_at: Math.floor(Date.now() / 1000),
   };
   await env.SESSION_KV?.put?.(key, JSON.stringify(result), {

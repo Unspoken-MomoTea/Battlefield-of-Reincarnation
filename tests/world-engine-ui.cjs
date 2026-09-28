@@ -271,7 +271,9 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.match(executionFlow,/1\. 取事实：/);
  assert.match(executionFlow,/6\. 输出差分：/);
 
- await page.locator('[data-action="books"]').click();
+ const booksButton=page.locator('[data-action="books"]');
+ await booksButton.evaluate(el=>el.scrollIntoView({block:'center',inline:'nearest'}));
+ await booksButton.click();
  await page.locator('[data-book]').first().waitFor();
  assert.equal(await page.locator('[data-book]:checked').count(),4,'内置默认应勾选世界资料与三条NPC构筑规则');
  const taskRow=page.locator('.we-book-row').filter({hasText:'任务与委托系统'});

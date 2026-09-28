@@ -68,7 +68,7 @@ test('stable latest endpoint resolves workshop-stable instead of main', async ()
   const stableSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   globalThis.fetch = async url => {
     urls.push(String(url));
-    return new Response(JSON.stringify({ sha: stableSha }), {
+    return new Response(JSON.stringify([{ sha: stableSha }]), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -94,7 +94,10 @@ test('stable latest endpoint resolves workshop-stable instead of main', async ()
   }
 
   assert.equal(urls.some(url => url.includes('/commits/main')), false);
-  assert.equal(urls.some(url => url.includes('/commits/workshop-stable')), true);
+  assert.equal(
+    urls.some(url => url.includes('/commits?') && url.includes('sha=workshop-stable') && url.includes('path=src%2FCreativeWorkshop')),
+    true,
+  );
 });
 
 test('testing latest endpoint resolves main and uses a separate cache key', async () => {
@@ -103,7 +106,7 @@ test('testing latest endpoint resolves main and uses a separate cache key', asyn
   const mainSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   globalThis.fetch = async url => {
     urls.push(String(url));
-    return new Response(JSON.stringify({ sha: mainSha }), {
+    return new Response(JSON.stringify([{ sha: mainSha }]), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -132,9 +135,12 @@ test('testing latest endpoint resolves main and uses a separate cache key', asyn
     globalThis.fetch = originalFetch;
   }
 
-  assert.equal(urls.some(url => url.includes('/commits/main')), true);
   assert.equal(
-    await testEnv.SESSION_KV.get('public:workshop-client:testing:main') !== null,
+    urls.some(url => url.includes('/commits?') && url.includes('sha=main') && url.includes('path=src%2FCreativeWorkshop')),
+    true,
+  );
+  assert.equal(
+    await testEnv.SESSION_KV.get('public:workshop-client:v2:testing:main') !== null,
     true,
   );
 });

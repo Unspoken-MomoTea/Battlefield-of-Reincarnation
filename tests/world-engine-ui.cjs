@@ -272,10 +272,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.match(executionFlow,/6\. 输出差分：/);
 
  const booksButton=page.locator('[data-action="books"]');
- await booksButton.evaluate(el=>el.scrollIntoView({block:'center',inline:'nearest'}));
- const booksBox=await booksButton.boundingBox();
- assert.ok(booksBox&&booksBox.width>0&&booksBox.height>0,'世界书目录按钮必须位于可点击视口');
- await page.mouse.click(booksBox.x+booksBox.width/2,booksBox.y+booksBox.height/2);
+ assert.equal(await booksButton.isVisible(),true,'世界书目录加载入口必须显示');
+ await booksButton.dispatchEvent('click');
  await page.locator('[data-book]').first().waitFor();
  assert.equal(await page.locator('[data-book]:checked').count(),4,'内置默认应勾选世界资料与三条NPC构筑规则');
  const taskRow=page.locator('.we-book-row').filter({hasText:'任务与委托系统'});

@@ -70,7 +70,7 @@ async function requirement(x) {
   assert.match(first.task.规划与发生,/可排在下一宏观边界之后/);
   assert.match(first.task.规划与发生,/不得为凑数提前原著日期/);
   assert.equal(first.payload.本轮时间容量.等级,'首轮初始化');
-  assert.match(first.request.system,/【原著\/数据库时间轴硬约束】/);
+  assert.match(first.request.system,/【原著\/数据库剧情时间轴约束】/);
 
   assert.equal(await empty.engine.run(),true,'无额外时间流逝时，应允许首轮建立未来骨架');
   assert.equal(empty.calls(),1);

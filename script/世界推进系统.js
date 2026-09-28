@@ -4043,6 +4043,10 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 #sam-world-engine .we-segment-head small{color:var(--sub);font-size:10px}
                 #sam-world-engine .we-segment-actions{display:flex;gap:4px}
                 #sam-world-engine .we-segment>summary{padding:12px;cursor:pointer;color:var(--we-ink)}
+                #sam-world-engine .we-segment>.we-muted{margin:0;padding:9px 12px 11px;min-width:0;overflow-wrap:anywhere}
+                #sam-world-engine .we-prompt-registry-meta{display:flex;flex-wrap:wrap;gap:4px 14px;min-width:0;padding:0 12px 10px}
+                #sam-world-engine .we-prompt-registry-meta small{min-width:0;overflow-wrap:anywhere}
+                #sam-world-engine .we-prompt-registry-item>.we-notice{margin:0 12px 10px}
                 #sam-world-engine .we-segment textarea{display:block;width:100%;min-height:170px;height:210px;border:0;border-radius:0;background:#fff;padding:12px 13px;resize:vertical}
                 /* ===== 世界引擎独立外观：跟随主神终端六色调；未设置时回退暗夜 ===== */
                 ${WORLD_UI_THEME_CSS}

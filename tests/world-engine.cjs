@@ -9,18 +9,11 @@ const clone = x => JSON.parse(JSON.stringify(x));
 const fresh = () => ({世界:{名称:'测试世界',时间:'2026年9月7日清晨',地点:'测试地点',后台:emptyState(),势力:{},探索:{},因果轨道:{偏移记录:{}}},系统状态:{是否在主神空间:false},设置:{},任务:{列表:{调查:{状态:'进行中'}},副本成就:{发现:{状态:'未达成'}}},关系列表:{},传闻:{}});
 const add = (path,value) => ({op:'add',path,value});
 let tests = 0;
-const failedTests=[];
-async function test(name, fn) {
-    try { await fn(); tests++; console.log('PASS '+name); }
-    catch (error) {
-        failedTests.push({name,error});
-        console.error('FAIL '+name+' · '+String(error?.message||error));
-    }
-}
+async function test(name, fn) { await fn(); tests++; console.log('PASS '+name); }
 (async () => {
     await test('calendar uses 2026 when an era year is unreadable but month and day are available', () => {
         assert.deepEqual(calendarDate('大业十三年-08月-12日-午时四刻'),{y:2026,m:8,d:12,key:'2026-8-12',fallbackYear:true,customCalendar:false});
-        assert.deepEqual(calendarDate('08月12日-午时'),{y:2026,m:8,d:12,key:'2026-8-12',fallbackYear:true,customCalendar:false});
+        assert.deepEqual(calendarDate('08月12日-午时'),{y:2026,m:8,d:12,key:'2026-8-12',fallbackYear:true});
         assert.deepEqual(calendarDate('斗罗历2634年-03月-15日-上午'),{y:2634,m:3,d:15,key:'2634-3-15',fallbackYear:false,customCalendar:false});
         assert.deepEqual(calendarDate('2026-09-08'),{y:2026,m:9,d:8,key:'2026-9-8',fallbackYear:false,customCalendar:false});
         assert.equal(calendarDate('近期'),null);
@@ -2064,10 +2057,5 @@ async function test(name, fn) {
         const zod=fs.readFileSync(path.join(__dirname,'../script/ZOD脚本.js'),'utf8').replace(/^import .*;$/m,'').replace('export const Schema','const Schema');
         new vm.Script(zod);
     });
-    if(failedTests.length){
-        console.error(`${failedTests.length} root world-engine tests failed:`);
-        for(const item of failedTests)console.error('- '+item.name+' · '+String(item.error?.message||item.error));
-        throw new Error(failedTests.length+' root world-engine tests failed');
-    }
     console.log(`${tests} tests passed`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -263,14 +263,11 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await builtinDoc.locator('[data-action="doc-delete"]').count(),0,'内置默认文档不可删除');
  assert.equal(await page.locator('[data-floors]').inputValue(),'3','默认文档正文窗口为3层');
  assert.equal(await page.locator('[data-activation]').inputValue(),'respect_activation','默认文档使用遵循蓝绿灯');
- assert.equal(await page.locator('[data-segment][data-title="世界推进"]').count(),1);
- assert.equal(await page.locator('[data-segment][data-title="世界演进准则"]').count(),1);
- assert.equal(await page.locator('[data-segment][data-title="质量评分"]').count(),1);
- assert.equal(await page.locator('[data-segment][data-title="时间容量与信息边界"]').count(),1);
- assert.equal(await page.locator('[data-segment][data-title="因果轨道与偏移"]').count(),1);
- assert.equal(await page.locator('[data-segment][data-title="探索与势力"]').count(),1);
- assert.equal(await page.locator('[data-segment][data-title="势力与地区"]').count(),0);
- assert.equal((await page.locator('[data-segment][data-title="世界推进"]').inputValue()).includes('【世界推进】'),false);
+ assert.equal(await page.locator('[data-segment][data-title="执行流程"]').count(),1,'压缩后的默认预设只保留统一执行流程段');
+ for(const legacyTitle of ['世界推进','世界演进准则','质量评分','时间容量与信息边界','因果轨道与偏移','探索与势力','势力与地区']){
+   assert.equal(await page.locator('[data-segment][data-title="'+legacyTitle+'"]').count(),0,'旧说明书分段不得回流：'+legacyTitle);
+ }
+ assert.match(await page.locator('[data-segment][data-title="执行流程"]').inputValue(),/Step 1 · 取事实/);
 
  await page.locator('[data-action="books"]').click();
  await page.locator('[data-book]').first().waitFor();

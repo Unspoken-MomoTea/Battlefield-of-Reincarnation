@@ -49,7 +49,9 @@ assert.ok(WORLD_RESULT_SCHEMA.properties.势力地区.items.properties.现场群
 assert.match(contractSource,/所属对象:\{type:'array'/,'canonical contract must retain asset ownership');
 assert.match(contractSource,/操作:\{type:'string',enum:\['更新','移除','撤销本轮'\]\}/,'canonical contract must retain asset writeback operations');
 assert.match(source,/function protocol\(\)\{return WORLD_RESULT_CONTRACT\.protocol\(\);\}/,'legacy protocol seam must delegate to WorldResultContract');
-assert(core.includes('唯一资产账簿') && core.includes('驻扎人员') && core.includes('待办事件'), 'core should define the shared writable asset ledger');
+assert(core.includes('唯一资产账簿'), 'core should define the shared writable asset ledger');
+assert.ok(WORLD_RESULT_SCHEMA.properties.资产.items.properties.驻扎人员,'asset schema must retain garrison writeback');
+assert.ok(WORLD_RESULT_SCHEMA.properties.资产.items.properties.待办事件,'asset schema must retain pending-event writeback');
 assert(!contractSource.includes('【WorldResult 标准字段结构】'), 'duplicated field-manual section must stay removed');
 assert(!core.includes('WorldResult.探索必须是数组'), 'schema-level exploration shape must not return to core rules');
 assert(!preset.includes('风险只能是 F/E/D/C/B/A/S/SS/SSS'), 'schema enum must not be duplicated in default prompt');

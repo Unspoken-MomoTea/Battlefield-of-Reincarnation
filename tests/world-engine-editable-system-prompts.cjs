@@ -12,7 +12,7 @@ const ui = [
 const {SamsaraWorldEngine: Engine, emptyState} = require(delivery);
 const clone = value => JSON.parse(JSON.stringify(value));
 
-assert.match(basePromptDefaults, /version:21,\n\s*builtin:true/, 'editable system prompt migration should keep the current built-in prompt document at v21');
+assert.match(basePromptDefaults, /version:22,\n\s*builtin:true/, 'editable system prompt migration should keep the current built-in prompt document at v22');
 assert.match(basePromptDefaults, /corePrompt:\s*CORE_WORLD_RULES/, 'built-in prompt document must carry the same core prompt used at runtime');
 assert.match(basePromptDefaults, /macroPrompt:\s*DEFAULT_MACRO_PROMPT/, 'built-in prompt document must carry the same macro prompt used at runtime');
 assert.match(basePromptDefaults, /stabilityPromptTemplate:\s*DEFAULT_STABILITY_PROMPT_TEMPLATE/, 'built-in prompt document must carry the same stability template used at runtime');

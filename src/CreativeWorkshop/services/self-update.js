@@ -9,7 +9,9 @@ import {
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const ENTRY_PATH = '/src/CreativeWorkshop/index.js';
 const SCOPES = ['character', 'preset', 'global'];
-const GITHUB_COMMIT_BASE = `https://api.github.com/repos/${REPOSITORY}/commits/`;
+const GITHUB_COMMITS_URL = `https://api.github.com/repos/${REPOSITORY}/commits`;
+const GITHUB_COMPARE_BASE = `https://api.github.com/repos/${REPOSITORY}/compare/`;
+const CLIENT_SOURCE_PATH = 'src/CreativeWorkshop';
 const HOT_IMPORT_BASE = `https://cdn.jsdelivr.net/gh/${REPOSITORY}@`;
 
 function clone(value) {
@@ -42,18 +44,44 @@ function scriptsInTrees(trees) {
   return values;
 }
 
-async function githubRefSha(fetchImpl, ref) {
-  const response = await fetchImpl(`${GITHUB_COMMIT_BASE}${encodeURIComponent(ref)}`, {
+async function githubClientSha(fetchImpl, ref) {
+  const query = new URLSearchParams({
+    sha: String(ref),
+    path: CLIENT_SOURCE_PATH,
+    per_page: '1',
+  });
+  const response = await fetchImpl(`${GITHUB_COMMITS_URL}?${query}`, {
     headers: { Accept: 'application/vnd.github+json' },
     cache: 'no-store',
   });
   if (!response.ok) {
-    throw new Error(`无法查询工坊 ${ref} 更新：GitHub HTTP ${response.status}`);
+    throw new Error(`无法查询工坊 ${ref} 客户端更新：GitHub HTTP ${response.status}`);
   }
   const data = await response.json();
-  const sha = String(data?.sha || '').trim();
-  if (!validSha(sha)) throw new Error(`GitHub 返回的 ${ref} 提交无效`);
+  const sha = String(Array.isArray(data) ? data[0]?.sha : data?.sha || '').trim();
+  if (!validSha(sha)) throw new Error(`GitHub 返回的 ${ref} 创意工坊提交无效`);
   return sha;
+}
+
+async function refNeedsClientUpdate(fetchImpl, currentRef, latestSha) {
+  if (!validSha(currentRef) || currentRef === latestSha) return currentRef !== latestSha;
+
+  try {
+    const response = await fetchImpl(
+      `${GITHUB_COMPARE_BASE}${encodeURIComponent(latestSha)}...${encodeURIComponent(currentRef)}`,
+      {
+        headers: { Accept: 'application/vnd.github+json' },
+        cache: 'no-store',
+      },
+    );
+    if (!response.ok) return true;
+    const data = await response.json();
+    // currentRef 如果位于最新工坊提交之后，说明只是 main 上又有其它模块提交；
+    // 它已经包含最新工坊代码，不应该因此提示“创意工坊更新”。
+    return !['ahead', 'identical'].includes(String(data?.status || '').toLowerCase());
+  } catch {
+    return true;
+  }
 }
 
 async function serverLatest(fetchImpl, expectedChannel, expectedRef) {
@@ -82,15 +110,15 @@ async function resolveLatestShaForRefs(fetchImpl, refs, channel, ref) {
   try {
     latest = await serverLatest(fetchImpl, channel, ref);
   } catch {
-    latest = { sha: await githubRefSha(fetchImpl, ref), channel, ref };
+    latest = { sha: await githubClientSha(fetchImpl, ref), channel, ref };
   }
 
-  // 测试通道必须即时跟踪 main：即使 Worker KV 恰好缓存成当前 loader 的旧 SHA，
-  // 也要直接核对 main，避免“等待缓存过期”才发现更新。
+  // 测试通道即时核对“最后一次修改 src/CreativeWorkshop 的提交”，而不是 main 分支头。
+  // 这样世界推进、状态栏等无关提交不会被误判为创意工坊更新。
   // 正式通道仍只核对 workshop-stable，绝不会跨到 main。
   if (channel === 'testing' || (refs || []).some(currentRef => currentRef !== latest.sha)) {
     try {
-      latest = { sha: await githubRefSha(fetchImpl, ref), channel, ref };
+      latest = { sha: await githubClientSha(fetchImpl, ref), channel, ref };
     } catch {}
   }
 
@@ -147,13 +175,19 @@ export function createWorkshopSelfUpdater({
       updateChannel,
       updateRef,
     );
-    return { refs, latest };
+    const staleRefs = new Set();
+    for (const currentRef of refs) {
+      if (await refNeedsClientUpdate(fetchImpl, currentRef, latest.sha)) {
+        staleRefs.add(currentRef);
+      }
+    }
+    return { refs, latest, staleRefs };
   }
 
   return {
     async check() {
       const scan = await scanLoaders(adapter);
-      const { refs, latest } = await resolve(scan);
+      const { refs, latest, staleRefs } = await resolve(scan);
       return {
         repository: REPOSITORY,
         entryPath: ENTRY_PATH,
@@ -165,13 +199,13 @@ export function createWorkshopSelfUpdater({
         loaders: scan.loaders,
         refs,
         loaderFound: scan.loaders.length > 0,
-        updateAvailable: scan.loaders.some(item => item.refs.some(currentRef => currentRef !== latest.sha)),
+        updateAvailable: scan.loaders.some(item => item.refs.some(currentRef => staleRefs.has(currentRef))),
       };
     },
 
     async updateLoaderLink() {
       const scan = await scanLoaders(adapter);
-      const { refs, latest } = await resolve(scan);
+      const { refs, latest, staleRefs } = await resolve(scan);
       const latestSha = latest.sha;
 
       if (!scan.loaders.length) {
@@ -191,6 +225,7 @@ export function createWorkshopSelfUpdater({
       const changedScopes = new Set();
       let changedScripts = 0;
       for (const loader of scan.loaders) {
+        if (loader.refs.length && !loader.refs.some(currentRef => staleRefs.has(currentRef))) continue;
         const trees = scan.treesByScope.get(loader.scope);
         const tree = trees[loader.treeIndex];
         const script = loader.scriptIndex === null ? tree : tree?.scripts?.[loader.scriptIndex];
@@ -204,7 +239,7 @@ export function createWorkshopSelfUpdater({
 
       if (!changedScopes.size) {
         const staleOrUnknown = scan.loaders.some(item =>
-          !item.refs.length || item.refs.some(currentRef => currentRef !== latestSha)
+          !item.refs.length || item.refs.some(currentRef => staleRefs.has(currentRef))
         );
         if (staleOrUnknown) {
           throw new Error('找到了创意工坊载入脚本，但没有识别到可自动改写的固定提交链接');

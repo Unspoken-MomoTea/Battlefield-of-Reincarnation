@@ -109,6 +109,69 @@ test('launcher click toggles the workshop and drag does not trigger a click', ()
   assert.equal(closes, 1);
 });
 
+test('mobile launcher ignores desktop coordinates and stays inside the visual viewport', () => {
+  const launcher = {
+    ...target(),
+    style: {},
+    classList: classList(),
+    ownerDocument: { documentElement: { clientWidth: 980, clientHeight: 900 } },
+    getBoundingClientRect() {
+      return {
+        left: Number.parseFloat(this.style.left) || 700,
+        top: Number.parseFloat(this.style.top) || 500,
+        width: 50,
+        height: 50,
+      };
+    },
+    setPointerCapture() {},
+    hasPointerCapture() { return false; },
+  };
+  const visualViewport = {
+    ...target(),
+    width: 390,
+    height: 700,
+    offsetLeft: 0,
+    offsetTop: 0,
+  };
+  const storage = new Map([
+    ['reincarnation-workshop:launcher-position', JSON.stringify({ left: 700, top: 500 })],
+  ]);
+  const host = {
+    ...target(),
+    innerWidth: 980,
+    innerHeight: 900,
+    visualViewport,
+    localStorage: {
+      getItem(key) { return storage.get(key) ?? null; },
+      setItem(key, value) { storage.set(key, value); },
+    },
+    requestAnimationFrame(callback) { callback(); },
+    setTimeout(callback) { callback(); },
+  };
+  const overlay = { classList: classList() };
+
+  const cleanup = bindWorkshopLauncher({
+    launcher,
+    overlay,
+    host,
+    open() {},
+    close() {},
+  });
+
+  assert.equal(launcher.style.left, '324px');
+  assert.equal(launcher.style.top, '634px');
+  assert.match(storage.get('reincarnation-workshop:launcher-position'), /"left":700/u);
+
+  visualViewport.width = 360;
+  visualViewport.height = 640;
+  visualViewport.dispatch('resize');
+
+  assert.equal(launcher.style.left, '294px');
+  assert.equal(launcher.style.top, '574px');
+
+  cleanup();
+});
+
 test('workshop copy uses the simplified repair label and neutral project placeholder', () => {
   const html = workshopTemplate('test');
   assert.match(html, /data-action="maintenance">修复<\/button>/u);

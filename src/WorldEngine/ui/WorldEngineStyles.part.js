@@ -206,6 +206,7 @@
                 #sam-world-engine .we-preset-toolbar b{font-size:14px;color:#2c3e50}
                 #sam-world-engine .we-preset-toolbar small{font-size:10px;color:var(--sub)}
                 #sam-world-engine .we-preset-toolbar>div:last-child{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+                @media(max-height:420px){#sam-world-engine .we-preset-toolbar{position:static}}
                 #sam-world-engine .we-doc-create{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;gap:8px;margin-bottom:10px}
                 #sam-world-engine .we-doc-create input{min-width:0;padding:8px 10px;border:1px solid #d4dcdd;border-radius:9px;background:#fff;color:var(--ink)}
                 #sam-world-engine .we-doc-list{display:grid;gap:7px}

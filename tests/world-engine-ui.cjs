@@ -275,21 +275,21 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await booksButton.isVisible(),true,'世界书目录加载入口必须显示');
  await booksButton.dispatchEvent('click');
  await page.locator('[data-book]').first().waitFor();
- assert.equal(await page.locator('[data-book]:checked').count(),4,'内置默认应勾选世界资料与三条NPC构筑规则');
+ assert.equal(await page.locator('[data-book]:checked').count(),2,'默认应勾选世界主资料与任务只读资料');
  const taskRow=page.locator('.we-book-row').filter({hasText:'任务与委托系统'});
  assert.equal(await taskRow.count(),1,'默认目录应包含任务与委托系统');
- assert.equal(await taskRow.locator('[data-book]').isChecked(),false,'任务与委托系统继续默认取消勾选');
+ assert.equal(await taskRow.locator('[data-book]').isChecked(),true,'任务感知已恢复任务与委托系统作为只读世界因果资料');
  for(const name of ['实体生成规则','NPC生成规则','状态协议']){
    const row=page.locator('.we-book-row').filter({hasText:name});
    assert.equal(await row.count(),1,'默认目录应包含 '+name);
-   assert.equal(await row.locator('[data-book]').isChecked(),true,'角色管理构筑强化需要默认勾选 '+name);
+   assert.equal(await row.locator('[data-book]').isChecked(),false,'NPC构筑审计默认关闭时不得自动读取 '+name);
  }
  assert.equal(await page.locator('[data-book]:disabled').count(),1);
  await page.locator('[data-action="book-none"]').click();
  await page.locator('[data-action="save"]').click();
  assert.equal(await page.locator('[data-book]:checked').count(),0,'手动保存全不选后应保持为空');
  await builtinDoc.locator('[data-action="doc-apply"]').click();
- assert.equal(await page.locator('[data-book]:checked').count(),1,'重新点击应用默认设置后必须恢复默认世界书勾选');
+ assert.equal(await page.locator('[data-book]:checked').count(),2,'重新应用默认设置后应恢复世界主资料与任务只读资料');
  assert.equal(await page.locator('.we-book').filter({hasText:'聊天世界书'}).filter({hasText:'聊天绑定'}).count(),1,'聊天绑定世界书必须进入目录');
  assert.equal(await page.locator('.we-book').filter({hasText:'外挂世界书'}).filter({hasText:'全局启用'}).count(),1,'酒馆全局启用世界书必须进入目录');
  assert.equal(await page.locator('.we-preset-toolbar [data-action="save"]').count(),1,'保存当前设置固定在顶部工作条');

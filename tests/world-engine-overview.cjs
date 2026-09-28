@@ -79,16 +79,15 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  await page.locator('[data-tab="探索与势力"]').first().click();
  await page.locator('[data-directory="势力"]').click();
  const friendCard=page.locator('[data-faction="朋友"]');
- assert.match(await friendCard.innerText(),/正声望奖励权重 5\.0×/);
- assert.match(await friendCard.innerText(),/合计上限 3×/);
+ assert.doesNotMatch(await friendCard.innerText(),/奖励权重|合计上限|空间币奖励/,'势力卡片不再显示奖励说明');
  for(const name of ['敌人','中立']) {
  const card=page.locator('[data-faction="'+name+'"]');
- assert.ok((await card.innerText()).includes('空间币奖励：0'));
+ assert.doesNotMatch(await card.innerText(),/奖励权重|合计上限|空间币奖励/,'非正声望势力也不显示奖励说明');
  assert.equal(await card.locator('.we-explore-bar i').evaluate(e=>e.style.width),'0%');
  }
  await page.evaluate(()=>{const stat=Mvu.getMvuData().stat_data;stat.世界.势力.朋友.声望=-20;Samsara.worldEngine.render(true);});
  const negativeFriend=page.locator('[data-faction="朋友"]');
- assert.match(await negativeFriend.innerText(),/空间币奖励：0（声望不为正）/);
+ assert.doesNotMatch(await negativeFriend.innerText(),/奖励权重|合计上限|空间币奖励/,'声望变负后仍不显示奖励说明');
  assert.equal(await negativeFriend.locator('.we-explore-bar i').evaluate(e=>e.style.width),'0%');
  await page.evaluate(()=>{const stat=Mvu.getMvuData().stat_data;stat.世界.异端雷达={名单:{}};stat.世界.法则=[];Samsara.worldEngine.tab='世界推进';Samsara.worldEngine.render(true);});
  assert.equal(await page.getByRole('heading',{name:'世界法则',exact:true}).count(),0,'无法则时整个世界法则面板必须隐藏');

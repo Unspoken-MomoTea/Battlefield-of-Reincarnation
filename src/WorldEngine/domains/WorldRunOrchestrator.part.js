@@ -55,8 +55,10 @@
 
                 const configuredAttempts=Number(this.config.retryAttempts),perModelAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:5));
                 const configuredFallback=String(this.config.fallbackModel||'').trim();
-                const primaryDedicatedModel=this.usesDedicatedApi()?String(this.normalizeDedicatedApi(this.config.dedicatedApi)?.model||'').trim():'';
-                const fallbackModel=configuredFallback&&configuredFallback!==primaryDedicatedModel?configuredFallback:'';
+                const primaryModel=this.usesDedicatedApi()
+                    ?String(this.normalizeDedicatedApi(this.config.dedicatedApi)?.model||'').trim()
+                    :String(this.host.Samsara?.terminal?.currentModel?.()||'').trim();
+                const fallbackModel=configuredFallback&&configuredFallback!==primaryModel?configuredFallback:'';
                 const maxAttempts=perModelAttempts*(fallbackModel?2:1);
                 const temperature=Math.max(0,Math.min(2,Number.isFinite(Number(this.config.temperature))?Number(this.config.temperature):0.3));
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];

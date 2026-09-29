@@ -1,6 +1,8 @@
 name: creative-workshop-promote-stable
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       release_version:
@@ -17,6 +19,7 @@ permissions:
 
 jobs:
   promote:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish release]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -100,7 +103,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.release.outputs.tag }}" "${{ steps.target.outputs.sha }}" \
-            -m "Creative Workshop v${{ steps.release.outputs.version }}"
+            -m "Battlefield of Reincarnation V${{ steps.release.outputs.version }}"
 
       - name: Promote stable and tag atomically
         shell: bash

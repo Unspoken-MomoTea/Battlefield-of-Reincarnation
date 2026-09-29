@@ -3,23 +3,20 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { validateUnifiedRelease } from './release-policy.mjs';
+import { validateUnifiedRelease, workshopVersionFromSource } from './release-policy.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '../..');
 const workshopPath = path.join(root, 'src/CreativeWorkshop/app/workshop-app.js');
 const worldEnginePath = path.join(root, 'src/WorldEngine/core/WorldEngineFoundation.part.js');
-const requestedVersion = String(process.argv[2] || '').trim();
-
-if (!requestedVersion) {
-  console.error('请提供正式版本号，例如：node scripts/validate-release-version.mjs 2.0.0');
-  process.exit(2);
-}
+const workshopSource = fs.readFileSync(workshopPath, 'utf8');
+const worldEngineSource = fs.readFileSync(worldEnginePath, 'utf8');
+const requestedVersion = String(process.argv[2] || '').trim() || workshopVersionFromSource(workshopSource);
 
 try {
   const release = validateUnifiedRelease(
-    fs.readFileSync(workshopPath, 'utf8'),
-    fs.readFileSync(worldEnginePath, 'utf8'),
+    workshopSource,
+    worldEngineSource,
     requestedVersion,
   );
   const lines = [`version=${release.version}`, `tag=${release.tag}`];

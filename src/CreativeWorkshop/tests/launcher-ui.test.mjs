@@ -287,7 +287,7 @@ test('login action labels are centered and formal release deploys production bef
   assert.match(workflow, /Deploy production Worker/u);
   assert.match(workflow, /Verify production health and Discord login start/u);
   assert.match(workflow, /\/api\/auth\/discord\/start\?login_id=/u);
-  assert.match(workflow, /production auth polling\/CORS passed/u);
+  assert.match(workflow, /Production auth polling\/CORS passed/u);
   assert.ok(
     workflow.indexOf('Deploy production Worker') < workflow.indexOf('Create immutable release tag'),
     'production Worker must be healthy before the immutable V tag is created',

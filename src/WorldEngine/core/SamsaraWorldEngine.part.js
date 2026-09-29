@@ -1,6 +1,6 @@
     class SamsaraWorldEngine {
         constructor(host, env) {
-            this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
+            this.host = host; this.env = env || host; this.version=WORLD_ENGINE_VERSION; this.unsub = []; this.generation = 0;
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
             this.lastRequest=null; this.previewRequest=null; this.lastReply=''; this.lastFailure='';
             this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastAttemptTelemetry=[]; this.lastTransportInfo=null; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];

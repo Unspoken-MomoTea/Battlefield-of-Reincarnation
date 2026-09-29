@@ -127,7 +127,7 @@
             }
             const terminal=engine.host.Samsara&&engine.host.Samsara.terminal;
             if(!terminal||typeof terminal.request!=='function'||!terminal.apiReady?.())throw new Error('请在主神终端设置中启用额外模型并选择模型');
-            engine.lastTransportInfo={接口:'主神终端额外模型',模型:String(options.model||''),结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
+            engine.lastTransportInfo={接口:'主神终端额外模型',模型:String(options.model||terminal.currentModel?.()||''),结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
             return terminal.request(system,input,options);
         }
     }

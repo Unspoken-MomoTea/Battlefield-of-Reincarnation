@@ -135,3 +135,10 @@ UI 组件不得绕过 service/installer 层直接修改酒馆数据。
 - 道具：名称、品质、价格、道具类型（消耗 / 材料 / 特殊）、标签、数量、最多2条效果、描述、消耗、冷却/CD。ID 与来源由工坊自动生成。
 - 技能：名称、品质、价格、技能类型（主动 / 被动 / 特殊）、标签、最多2条效果、描述、消耗。ID 与来源由工坊自动生成。
 - 安装进开局后仍保留 Catalog 的 `type / tags / attrs / effects / desc / consume / cd` 供商店分类与展示；结算到 MVU 时只写各 MVU 实体 Schema 已支持的字段。当前背包道具 Schema 不含“消耗/冷却”，因此这两项属于商店展示元数据，不会额外写入角色.道具。
+
+
+## 核心组件维护
+
+“修复”现在同时管理第一方核心组件与工坊作品。世界推进可识别旧式整段内联脚本，并在更新时原位迁移为固定 commit SHA loader。测试通道读取 `main` 中 `script/世界推进系统.js` 的最后修改提交；正式世界推进只接受 `world-engine-vX.Y.Z` Git Tag。
+
+创意工坊正式发布继续原子推进 `workshop-stable` 并创建 `workshop-vX.Y.Z`。只有当最新正式 Tag 与当前 `workshop-stable` 发布头一致时，Tag 才作为客户端正式版本事实；迁移期若两者不一致则继续使用原 stable 逻辑，避免回退到旧 Tag。无论测试还是正式通道，Tavern Helper 最终持久化的都是不可变 commit SHA。

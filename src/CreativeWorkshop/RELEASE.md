@@ -321,3 +321,15 @@ window.ReincarnationWorkshopConfig = {
 ```
 
 正式环境不建议覆盖 `updateChannel` / `updateRef`，避免人为绕过 stable 通道。
+
+
+## 正式版本事实与固定 SHA
+
+正式客户端以 Git Tag 表达版本事实：
+
+- `workshop-vX.Y.Z`：创意工坊正式版本。
+- `world-engine-vX.Y.Z`：世界推进正式版本。
+
+`workshop-stable` 继续保留为创意工坊的部署/发布指针，不删除。Worker 仅当最新 `workshop-vX.Y.Z` 与当前 `workshop-stable` 发布头一致时返回 Tag 版本；否则保持 legacy stable 查询，避免迁移期间把正式客户端降级到旧 Tag。
+
+世界推进正式通道更严格：没有 `world-engine-vX.Y.Z` 时返回“尚未正式发布”，不会回退到 `main`。客户端真正写入 Tavern Helper loader 的仍是 Tag 所指向的不可变 commit SHA。

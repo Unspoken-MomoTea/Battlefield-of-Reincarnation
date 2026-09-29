@@ -8,6 +8,7 @@ export function createWorkshopBridge({
   workshopApi,
   projectService,
   selfUpdater,
+  worldEngineUpdater,
 }) {
   return {
     version, open, close, refresh, destroy, hotUpdate,
@@ -29,5 +30,7 @@ export function createWorkshopBridge({
     cleanupCachedProjects: () => projectService.cleanupCacheOnly(),
     checkWorkshopUpdate: () => selfUpdater.check(),
     updateWorkshopLoaderLink: () => selfUpdater.updateLoaderLink(),
+    checkWorldEngineUpdate: () => worldEngineUpdater.check(),
+    updateWorldEngine: () => worldEngineUpdater.updateAndReload(),
   };
 }

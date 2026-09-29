@@ -48,6 +48,7 @@ export function createWorkshopViews(context) {
       ...common,
       projectService: context.projectService,
       selfUpdater: context.selfUpdater,
+      worldEngineUpdater: context.worldEngineUpdater,
       version: context.version,
       currentSha: context.currentSha,
       hotUpdateClient: context.hotUpdateClient,

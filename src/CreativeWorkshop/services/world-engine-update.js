@@ -11,7 +11,7 @@ import {
 } from './world-engine-loader.js';
 
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
-const SOURCE_PATH = 'src/WorldEngine';
+const SOURCE_PATH = 'script/世界推进系统.js';
 const TAG_PREFIX = 'world-engine-v';
 const GITHUB_COMMITS_URL = `https://api.github.com/repos/${REPOSITORY}/commits`;
 const GITHUB_COMPARE_BASE = `https://api.github.com/repos/${REPOSITORY}/compare/`;

@@ -12,7 +12,7 @@ import { bindWorkshopLauncher } from './launcher.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '2.0.3';
+export const WORKSHOP_VERSION = '2.0.4';
 
 const CURRENT_SHA = (() => {
   const match = String(import.meta.url).match(
@@ -104,6 +104,17 @@ export function bootWorkshop() {
 
   async function checkWorkshopUpdateAfterConnection() {
     try {
+      if (getUpdateChannel() === 'stable') {
+        const normalized = await Promise.allSettled([
+          workshopSelfUpdater.normalizeFormalLoaderLink?.(),
+          worldEngineUpdater.normalizeFormalLoaderLink?.(),
+        ]);
+        for (const result of normalized) {
+          if (result.status === 'rejected') {
+            console.warn('[轮回战场创意工坊] 正式版本链接规范化失败，将继续检查更新', result.reason);
+          }
+        }
+      }
       await updateNotice?.check();
     } catch (error) {
       console.warn('[轮回战场创意工坊] 自动更新检查失败', error);

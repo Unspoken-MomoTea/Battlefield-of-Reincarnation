@@ -5631,6 +5631,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     }
     const WORLD_SNAPSHOT_STORAGE='samsara_world_engine_snapshots_v1';
+    const WORLD_SNAPSHOT_PER_CHAT=12;
+    const WORLD_SNAPSHOT_STORAGE_LIMIT=36;
 
     class WorldSnapshotService {
         constructor(engine,mutations=null){this.engine=engine;this.mutations=mutations;}
@@ -5641,10 +5643,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         readAll(){
             let raw=[];
             try{raw=JSON.parse(this.storage()?.getItem?.(WORLD_SNAPSHOT_STORAGE)||'[]');}catch(_){raw=[];}
-            return (Array.isArray(raw)?raw:[]).filter(item=>plain(item)&&item.id&&plain(item.data)).slice(0,12);
+            return (Array.isArray(raw)?raw:[]).filter(item=>plain(item)&&item.id&&plain(item.data)).slice(0,WORLD_SNAPSHOT_STORAGE_LIMIT);
         }
         writeAll(items){
-            const clean=(Array.isArray(items)?items:[]).slice(0,12);
+            const clean=(Array.isArray(items)?items:[]).slice(0,WORLD_SNAPSHOT_STORAGE_LIMIT);
             try{this.storage()?.setItem?.(WORLD_SNAPSHOT_STORAGE,JSON.stringify(clean));}catch(error){throw new Error('保存世界快照失败：'+String(error?.message||error));}
             return clean;
         }
@@ -5670,7 +5672,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 }
             };
             const rest=this.readAll().filter(old=>String(old.id)!==item.id);
-            this.writeAll([item,...rest]);
+            const sameChat=rest.filter(old=>String(old.chatId||'')===chat).slice(0,WORLD_SNAPSHOT_PER_CHAT-1);
+            const otherChats=rest.filter(old=>String(old.chatId||'')!==chat);
+            this.writeAll([item,...sameChat,...otherChats]);
             return copy(item);
         }
         remove(id){

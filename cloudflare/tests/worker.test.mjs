@@ -70,7 +70,7 @@ test('stable latest endpoint uses matching workshop tag as formal release', asyn
     const value = String(url);
     urls.push(value);
     if (value.includes('/tags?')) {
-      return new Response(JSON.stringify([{ name: 'workshop-v1.20.1', commit: { sha: stableSha } }]), {
+      return new Response(JSON.stringify([{ name: 'V1.20.1', commit: { sha: stableSha } }]), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -88,7 +88,7 @@ test('stable latest endpoint uses matching workshop tag as formal release', asyn
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.release_source, 'tag');
-    assert.equal(body.tag, 'workshop-v1.20.1');
+    assert.equal(body.tag, 'V1.20.1');
     assert.equal(body.version, '1.20.1');
     assert.equal(body.sha, stableSha);
   } finally {
@@ -107,7 +107,7 @@ test('stable workshop keeps legacy stable behavior until a tag matches stable he
   globalThis.fetch = async url => {
     const value = String(url);
     if (value.includes('/tags?')) {
-      return new Response(JSON.stringify([{ name: 'workshop-v1.0.0', commit: { sha: tagSha } }]), {
+      return new Response(JSON.stringify([{ name: 'V1.0.0', commit: { sha: tagSha } }]), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });

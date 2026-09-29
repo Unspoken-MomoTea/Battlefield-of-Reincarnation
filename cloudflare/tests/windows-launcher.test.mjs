@@ -36,7 +36,7 @@ test('Windows release launcher exposes one unambiguous menu and one implementati
   assert.match(launcher, /创意工坊发布工具/u);
   assert.match(launcher, /发布正式客户端/u);
   assert.match(launcher, /更新正式服务器/u);
-  assert.match(launcher, /workshop-stable \+ workshop-vX\.Y\.Z/u);
+  assert.match(launcher, /workshop-stable \+ VX\.Y\.Z/u);
   assert.doesNotMatch(launcher, /git -C "%ROOT%" fetch/u);
   assert.match(launcher, /choice \/c RQ/u);
   assert.doesNotMatch(launcher, /echo \[0\] 关闭工具/u);

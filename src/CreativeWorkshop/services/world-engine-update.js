@@ -12,7 +12,7 @@ import {
 
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const SOURCE_PATH = 'script/世界推进系统.js';
-const TAG_PREFIX = 'world-engine-v';
+const TAG_PREFIX = 'V';
 const GITHUB_COMMITS_URL = `https://api.github.com/repos/${REPOSITORY}/commits`;
 const GITHUB_COMPARE_BASE = `https://api.github.com/repos/${REPOSITORY}/compare/`;
 
@@ -147,7 +147,7 @@ export function createWorldEngineUpdater({
   async function updateLoaderLink() {
     const treeScan = await scan();
     const latest = await resolveLatest(fetchImpl, channel, ref);
-    if (!latest) throw new Error('当前正式通道尚未发布 world-engine-vX.Y.Z Tag');
+    if (!latest) throw new Error('当前正式通道尚未发布 VX.Y.Z Tag');
     if (!treeScan.matches.length) throw new Error('没有找到已安装的世界推进脚本');
 
     const changedScopes = new Set();

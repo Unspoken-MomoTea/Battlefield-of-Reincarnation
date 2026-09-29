@@ -11,13 +11,15 @@ export function releasePlan(target) {
 
 const STABLE_VERSION_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 
-export function workshopReleaseTag(version) {
+export function releaseTag(version) {
   const value = String(version || '').trim();
   if (!STABLE_VERSION_PATTERN.test(value)) {
-    throw new Error('正式版本号必须是 X.Y.Z，例如 1.12.1');
+    throw new Error('正式版本号必须是 X.Y.Z，例如 2.0.0');
   }
-  return `workshop-v${value}`;
+  return `V${value}`;
 }
+
+export const workshopReleaseTag = releaseTag;
 
 export function workshopVersionFromSource(source) {
   const match = String(source || '').match(
@@ -27,9 +29,31 @@ export function workshopVersionFromSource(source) {
   return match[1].trim();
 }
 
+export function worldEngineVersionFromSource(source) {
+  const match = String(source || '').match(
+    /WORLD_ENGINE_VERSION\s*=\s*['"]([^'"]+)['"]/u,
+  );
+  if (!match) throw new Error('找不到 WORLD_ENGINE_VERSION');
+  return match[1].trim();
+}
+
+export function validateUnifiedRelease(workshopSource, worldEngineSource, requestedVersion) {
+  const version = String(requestedVersion || '').trim();
+  const tag = releaseTag(version);
+  const workshopVersion = workshopVersionFromSource(workshopSource);
+  const worldEngineVersion = worldEngineVersionFromSource(worldEngineSource);
+  if (workshopVersion !== version) {
+    throw new Error(`正式版本 ${version} 与 WORKSHOP_VERSION ${workshopVersion} 不一致`);
+  }
+  if (worldEngineVersion !== version) {
+    throw new Error(`正式版本 ${version} 与 WORLD_ENGINE_VERSION ${worldEngineVersion} 不一致`);
+  }
+  return { version, tag };
+}
+
 export function validateWorkshopRelease(source, requestedVersion) {
   const version = String(requestedVersion || '').trim();
-  const tag = workshopReleaseTag(version);
+  const tag = releaseTag(version);
   const actual = workshopVersionFromSource(source);
   if (actual !== version) {
     throw new Error(`正式版本 ${version} 与 WORKSHOP_VERSION ${actual} 不一致`);
@@ -54,12 +78,9 @@ export function validateReleaseConfig(config, target) {
     const binding = value?.find(item => item.binding === key);
     const id = binding?.database_id ?? binding?.id ?? binding?.bucket_name;
     if (!id) throw new Error(`${expected.label}缺少 ${key} 资源`);
-
     const otherBinding = otherValue?.find(item => item.binding === key);
     const otherId = otherBinding?.database_id ?? otherBinding?.id ?? otherBinding?.bucket_name;
-    if (!otherId || otherId !== id) {
-      throw new Error(`${key} 必须由测试服和正式服共用同一资源`);
-    }
+    if (!otherId || otherId !== id) throw new Error(`${key} 必须由测试服和正式服共用同一资源`);
   }
   if (!env.vars?.DISCORD_CLIENT_ID || !env.vars?.PUBLIC_BASE_URL) throw new Error('缺少 Discord / API 配置');
   if (env.vars.CLIENT_UPDATE_REF !== expected.ref || env.vars.CLIENT_UPDATE_CHANNEL !== expected.channel) {

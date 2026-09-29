@@ -90,9 +90,9 @@ test('stable release version must exactly match WORKSHOP_VERSION and produces an
   const source = "export const WORKSHOP_VERSION = '1.12.1';\n";
   assert.deepEqual(validateWorkshopRelease(source, '1.12.1'), {
     version: '1.12.1',
-    tag: 'workshop-v1.12.1',
+    tag: 'V1.12.1',
   });
-  assert.equal(workshopReleaseTag('1.12.1'), 'workshop-v1.12.1');
+  assert.equal(workshopReleaseTag('1.12.1'), 'V1.12.1');
 
   assert.throws(
     () => validateWorkshopRelease(source, '1.12.0'),

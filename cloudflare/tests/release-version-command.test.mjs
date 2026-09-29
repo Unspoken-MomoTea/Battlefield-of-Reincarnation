@@ -14,7 +14,7 @@ const appSource = fs.readFileSync(
 const versionMatch = appSource.match(/WORKSHOP_VERSION\s*=\s*'([^']+)'/u);
 assert.ok(versionMatch, 'test fixture must be able to read WORKSHOP_VERSION');
 const currentVersion = versionMatch[1];
-const currentTag = 'workshop-v' + currentVersion;
+const currentTag = 'V' + currentVersion;
 
 test('release version command writes the validated version and immutable tag for GitHub Actions', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-release-version-'));

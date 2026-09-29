@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: '正式版本号，必须与 WORKSHOP_VERSION 完全一致，例如 1.12.1'
+        description: '统一正式版本号，必须与工坊/世界推进版本一致，例如 2.0.0'
         required: true
         type: string
       target_sha:
@@ -90,6 +90,9 @@ jobs:
       - name: Client syntax
         run: find src/CreativeWorkshop -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
 
+      - name: World engine regression suite
+        run: node tests/run-world-engine-suite.cjs
+
       - name: Create immutable release tag
         shell: bash
         run: |
@@ -108,7 +111,7 @@ jobs:
             "HEAD:refs/heads/workshop-stable" \
             "refs/tags/$TAG:refs/tags/$TAG"
 
-          echo "### Creative Workshop stable promoted" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Battlefield of Reincarnation V release promoted" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Version: `v${{ steps.release.outputs.version }}`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Tag: `$TAG`" >> "$GITHUB_STEP_SUMMARY"

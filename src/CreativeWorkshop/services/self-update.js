@@ -1,7 +1,7 @@
 import { getApiBase, getUpdateChannel, getUpdateRef } from '../config.js';
 import { createTavernAdapter } from './tavern-adapter.js';
 import { latestTaggedRelease, validCommitSha } from './release-tags.js';
-import { SCRIPT_TREE_SCRIPT_TREE_SCOPES, cloneScriptTree, scriptsInTrees } from './script-tree-update.js';
+import { SCRIPT_TREE_SCOPES, cloneScriptTree, scriptsInTrees } from './script-tree-update.js';
 import {
   isWorkshopLoaderScript,
   rewriteWorkshopLoaderContent,

@@ -793,7 +793,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     // 世界活动交付：异端只是世界中的一类人物，不能成为唯一会变化的后台对象。
     const WORLD_ACTIVITY_DELIVERY_RULES=`【世界活动交付 · 非异端世界必须推进】
 1. 世界推进不是“异端模拟器”。每轮按：进行中/到期事件 → 势力与地区现场 → 普通热人物 → 传播 → 异端复核 的顺序推演；异端不能替代其它世界活动。
-2. 新世界或旧存档缺少世界现场时，本轮必须建立至少1个与当前地点/阶段相关的地区、至少1个真实存在或可由明确设定推出的势力/组织，并建立至少1个正在发生的当前事件/近期节点。势力首次建立时，同名写入 WorldResult.势力（顶层实力/领地/声望档案）与 WorldResult.势力地区（类型=势力的动态现场）；不得只建立未来宏观节点。
+2. 新世界或旧存档缺少世界现场时，本轮必须建立至少1个与当前地点/阶段相关的地区，并建立至少1个正在发生的当前事件/近期节点。势力为空时应优先补充一个当前真正参与局势的真实势力/组织；若建立势力，同名写入 WorldResult.势力（顶层实力/领地/声望档案）与 WorldResult.势力地区（类型=势力的动态现场）。势力初始化属于软目标，不能为了补档案编造组织，也不得因势力片段验收失败拖垮其它真实世界推进。
 3. 每轮世界推进至少提交1项“非异端实质变化”：进行中事件推进/转态、势力或地区状态变化、普通人物自身事务推进三者之一。只改更新时间、下次检查、重复原文或只补未来宏观规划不算实质变化。
 4. 变化幅度服从本轮时间容量。时间未推进时只推进即时反应/同步结果；数小时、跨日或数日时再按容量推进更大的行动。不得为了满足本条凭空制造重大事件。
 5. 如果某类对象确实没有可变化事项，优先推进另外两类；只有世界本身已经终止/冻结的明确设定才允许没有非异端变化，普通“正文没有提到”不是停摆理由。`;
@@ -872,7 +872,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             if(!requirement||next?.系统状态?.是否在主神空间)return [];
             const counts=this.counts(next),issues=[];
             if(requirement.初始化缺口?.地区&&counts.地区数<1)issues.push('缺少地区现场：至少建立1个与当前地点/阶段相关的地区');
-            if(requirement.初始化缺口?.势力&&(counts.动态势力数<1||counts.顶层势力数<1))issues.push('缺少势力档案：至少建立1个真实相关势力，并同名写入 WorldResult.势力 与 WorldResult.势力地区（类型=势力）');
             if(requirement.初始化缺口?.当前事件&&counts.进行中世界事件数<1)issues.push('缺少正在发生的世界事件：至少建立1个进行中的当前事件/近期节点，未来宏观节点不能替代');
             const changed=this.changed(next,requirement);
             if(requirement.必须非异端实质变化&&!changed.length)issues.push('本轮只有异端/维护/未来规划，没有任何非异端世界侧实质变化；必须推进事件、势力地区、顶层势力或普通人物至少一项');
@@ -882,7 +881,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
         repairRequired(stat) {
             const requirement=this.requirement(stat),counts=requirement.当前数量;
-            return counts.地区数<1||counts.动态势力数<1||counts.顶层势力数<1||counts.进行中世界事件数<1;
+            return counts.地区数<1||counts.进行中世界事件数<1;
         }
     }
 
@@ -3475,7 +3474,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         retryGuidePropagationReview:'传播维护：{details}。逐条更新到当前世界时间，并推进范围/受众/内容/引发行动；若传播已结束则结束或移除，不要原样重交。',
         retryGuideTemporalIntegrity:'时间一致性：事件/地区/历史/传播只把“跨到未来自然日”视为硬越界，同日不同上午/下午/HH:mm无需回写；人物只有双方均明确 HH:mm 时才做分钟级校验。未来计划放预计结束、下次检查或待发生事件。',
         retryGuideWorldActivity:'世界活动：先推进非异端世界，再复核异端。至少提交一项进行中事件、势力/地区或普通人物的实质变化；只改更新时间、复述原值或新增未来宏观节点不算。',
-        retryGuideWorldScene:'世界现场：若势力地区为空，建立与当前地点/阶段直接相关的地区；若势力为空，选一个当前真正参与局势的真实势力/组织，同名提交 WorldResult.势力 与 WorldResult.势力地区(类型=势力)，不要编造与资料无关的组织。',
+        retryGuideWorldScene:'世界现场：若地区为空，建立与当前地点/阶段直接相关的地区。势力为空时可优先补一个当前真正参与局势的真实势力/组织，并同名提交 WorldResult.势力 与 WorldResult.势力地区(类型=势力)；势力属于软目标，若资料不足或势力片段因声望/Schema等规则被拒，不要为补档案反复重交或编造组织。',
         retryGuideCurrentReality:'当前现实：若没有进行中的当前事件/近期节点，从当前阶段与最新正文提炼一个“已经正在发生”的现实局势；不要把未来宏观节点提前结算。'
     });
 
@@ -4344,6 +4343,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 macroPrompt:DEFAULT_MACRO_PROMPT,
                 stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,
                 retryAttempts:5,
+                temperature:0.3,
+                fallbackModel:'',
                 requireMacroBackbone:true,
                 presetEditorVersion:0,
                 promptDocuments:[],
@@ -4444,6 +4445,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
             const retryLimit=Number(config.retryAttempts);
             config.retryAttempts=Math.max(1,Math.min(5,Number.isFinite(retryLimit)?retryLimit:5));
+            const temperature=Number(config.temperature);
+            config.temperature=Math.max(0,Math.min(2,Number.isFinite(temperature)?temperature:0.3));
+            config.fallbackModel=String(config.fallbackModel||'').trim().slice(0,160);
             if(!config.retryDefaultFiveMigrated){
                 if(config.retryAttempts===3)config.retryAttempts=5;
                 config.retryDefaultFiveMigrated=true;
@@ -4742,7 +4746,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     // ---- migrated from script/world-engine-src/59-editable-module-prompts.part.js ----
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=6;
+    const WORLD_MODULE_PROMPT_VERSION=7;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，并优先延续当前作品正在发生的故事；只提交已经发生或需要规划的世界变化。
 【执行流程】
 1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
@@ -5626,6 +5630,77 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             return true;
         }
     }
+    const WORLD_SNAPSHOT_STORAGE='samsara_world_engine_snapshots_v1';
+    const WORLD_SNAPSHOT_PER_CHAT=12;
+    const WORLD_SNAPSHOT_STORAGE_LIMIT=36;
+
+    class WorldSnapshotService {
+        constructor(engine,mutations=null){this.engine=engine;this.mutations=mutations;}
+        storage(){return this.engine?.host?.localStorage||null;}
+        chatId(snapshot){
+            try{return String(JSON.parse(String(snapshot?.fingerprint||''))?.[0]??'');}catch(_){return '';}
+        }
+        readAll(){
+            let raw=[];
+            try{raw=JSON.parse(this.storage()?.getItem?.(WORLD_SNAPSHOT_STORAGE)||'[]');}catch(_){raw=[];}
+            return (Array.isArray(raw)?raw:[]).filter(item=>plain(item)&&item.id&&plain(item.data)).slice(0,WORLD_SNAPSHOT_STORAGE_LIMIT);
+        }
+        writeAll(items){
+            const clean=(Array.isArray(items)?items:[]).slice(0,WORLD_SNAPSHOT_STORAGE_LIMIT);
+            try{this.storage()?.setItem?.(WORLD_SNAPSHOT_STORAGE,JSON.stringify(clean));}catch(error){throw new Error('保存世界快照失败：'+String(error?.message||error));}
+            return clean;
+        }
+        list(){
+            const snapshot=this.engine.snapshot(),chat=this.chatId(snapshot);
+            return this.readAll().filter(item=>!chat||String(item.chatId||'')===chat);
+        }
+        create(name=''){
+            const snapshot=this.engine.snapshot(),stat=snapshot.stat||{},world=stat.世界||{},chat=this.chatId(snapshot);
+            const cleanName=String(name||'').trim().slice(0,80)||String(world.时间||'世界快照');
+            const item={
+                id:'ws-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),
+                name:cleanName,
+                createdAt:new Date().toISOString(),
+                chatId:chat,
+                worldName:String(world.名称||''),
+                worldTime:String(world.时间||''),
+                data:{
+                    世界:copy(stat.世界||{}),
+                    资产:copy(stat.资产||{}),
+                    关系列表:copy(stat.关系列表||{}),
+                    传闻:copy(stat.传闻||{})
+                }
+            };
+            const rest=this.readAll().filter(old=>String(old.id)!==item.id);
+            const sameChat=rest.filter(old=>String(old.chatId||'')===chat).slice(0,WORLD_SNAPSHOT_PER_CHAT-1);
+            const otherChats=rest.filter(old=>String(old.chatId||'')!==chat);
+            this.writeAll([item,...sameChat,...otherChats]);
+            return copy(item);
+        }
+        remove(id){
+            const before=this.readAll(),after=before.filter(item=>String(item.id)!==String(id||''));
+            if(after.length===before.length)return false;
+            this.writeAll(after);return true;
+        }
+        async restore(id){
+            const snapshot=this.engine.snapshot(),chat=this.chatId(snapshot),item=this.readAll().find(entry=>String(entry.id)===String(id||''));
+            if(!item)throw new Error('世界快照不存在');
+            if(item.chatId&&chat&&String(item.chatId)!==chat)throw new Error('世界快照属于其他聊天，禁止跨聊天恢复');
+            if(item.worldName&&snapshot.stat?.世界?.名称&&String(item.worldName)!==String(snapshot.stat.世界.名称))throw new Error('世界快照属于其他世界，禁止直接覆盖');
+            const commit=this.mutations?.commit?.bind(this.mutations);
+            if(!commit)throw new Error('世界快照恢复服务未初始化');
+            return commit(stat=>{
+                stat.世界=copy(item.data.世界||stat.世界||{});
+                stat.资产=copy(item.data.资产||{});
+                stat.关系列表=copy(item.data.关系列表||{});
+                stat.传闻=copy(item.data.传闻||{});
+                if(!plain(stat.世界?.[PATH]))stat.世界[PATH]=emptyState();
+                stat.世界[PATH].已处理楼层='';
+                stat.世界[PATH].已处理时间='';
+                return true;
+            },'已恢复世界快照：'+item.name);
+        }
+    }
     class WorldEventService {
         constructor(engine){this.engine=engine;}
         retargetReferences(stat,oldName,newName,deleted=false){
@@ -5852,13 +5927,15 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(!fetcher)throw new Error('当前环境没有 fetch');
             const endpoint=this.endpoint('chat'),headers={'Content-Type':'application/json'};
             if(api.apiKey.trim())headers.Authorization='Bearer '+api.apiKey.trim();
-            const cacheKey=endpoint+'|'+api.model,wants=options.structured==='auto'&&plain(options.schema);
+            const model=String(options.model||api.model||'').trim();
+            if(!model)throw new Error('世界推进专属 API 缺少可用模型');
+            const cacheKey=endpoint+'|'+model,wants=options.structured==='auto'&&plain(options.schema);
             const cached=wants?this.modeCache[cacheKey]:'';
             const modes=!wants?['plain']:cached==='json_schema'?['json_schema','json_object','plain']:cached==='json_object'?['json_object','plain']:cached==='plain'?['plain']:['json_schema','json_object','plain'];
             let lastError='';const modeAttempts=[];
             for(const mode of modes){
                 modeAttempts.push(mode);
-                const body={model:api.model,messages:[{role:'system',content:String(system||'')},{role:'user',content:String(input||'')}],stream:false,temperature:Number.isFinite(Number(options.temperature))?Number(options.temperature):0.3};
+                const body={model,messages:[{role:'system',content:String(system||'')},{role:'user',content:String(input||'')}],stream:false,temperature:Number.isFinite(Number(options.temperature))?Number(options.temperature):0.3};
                 if(mode==='json_schema')body.response_format={type:'json_schema',json_schema:{name:String(options.schemaName||'samsara_world_result').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64),strict:false,schema:options.schema}};
                 else if(mode==='json_object')body.response_format={type:'json_object'};
                 const response=await fetcher(endpoint,{method:'POST',headers,body:JSON.stringify(body),signal:options.signal});
@@ -5866,7 +5943,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     let err='';try{err=await response.text();}catch(_){}
                     lastError='HTTP '+response.status+': '+response.statusText+(err?' / '+err.slice(0,300):'');
                     if(mode!=='plain'&&this.structuredUnsupported(response.status,err)){delete this.modeCache[cacheKey];continue;}
-                    engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:null};
+                    engine.lastTransportInfo={接口:'世界推进专属 API',模型:model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:null};
                     throw new Error(lastError);
                 }
                 const data=await response.json(),message=data?.choices?.[0]?.message,raw=message?.content;
@@ -5874,7 +5951,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 if(!content)throw new Error('专属 API 返回内容为空');
                 if(wants)this.modeCache[cacheKey]=mode;
                 engine.apiModeCache=this.modeCache;
-                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:this.telemetry.normalizeUsage(data?.usage)};
+                engine.lastTransportInfo={接口:'世界推进专属 API',模型:model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:this.telemetry.normalizeUsage(data?.usage)};
                 return content;
             }
             throw new Error(lastError||'专属 API 不支持当前结构化输出模式');
@@ -5883,12 +5960,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const engine=this.engine;
             if(this.usesDedicated()){
                 const api=this.normalize(engine.config.dedicatedApi);
-                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:'请求中',尝试模式:[],usage:null};
+                engine.lastTransportInfo={接口:'世界推进专属 API',模型:String(options.model||api.model||''),结构化模式:'请求中',尝试模式:[],usage:null};
                 return this.requestDedicated(system,input,options);
             }
             const terminal=engine.host.Samsara&&engine.host.Samsara.terminal;
             if(!terminal||typeof terminal.request!=='function'||!terminal.apiReady?.())throw new Error('请在主神终端设置中启用额外模型并选择模型');
-            engine.lastTransportInfo={接口:'主神终端额外模型',模型:'',结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
+            engine.lastTransportInfo={接口:'主神终端额外模型',模型:String(options.model||terminal.currentModel?.()||''),结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
             return terminal.request(system,input,options);
         }
     }
@@ -6064,7 +6141,14 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 const request=await this.buildRequest(base);
                 if(token!==this.generation)throw new Error('请求已取消');
 
-                const configuredAttempts=Number(this.config.retryAttempts),maxAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:5));
+                const configuredAttempts=Number(this.config.retryAttempts),perModelAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:5));
+                const configuredFallback=String(this.config.fallbackModel||'').trim();
+                const primaryModel=this.usesDedicatedApi()
+                    ?String(this.normalizeDedicatedApi(this.config.dedicatedApi)?.model||'').trim()
+                    :String(this.host.Samsara?.terminal?.currentModel?.()||'').trim();
+                const fallbackModel=configuredFallback&&configuredFallback!==primaryModel?configuredFallback:'';
+                const maxAttempts=perModelAttempts*(fallbackModel?2:1);
+                const temperature=Math.max(0,Math.min(2,Number.isFinite(Number(this.config.temperature))?Number(this.config.temperature):0.3));
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];
 
                 while(attempt<maxAttempts){
@@ -6072,6 +6156,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     this.controller=new AbortController();
                     timedOut=false;
                     clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},300000);
+                    const usingFallback=!!fallbackModel&&attempt>=perModelAttempts;
+                    const phaseAttempt=usingFallback?attempt-perModelAttempts:attempt;
                     const attemptInput=attempt===0?request.input:(this.services?.requests?.retryInput?this.services.requests.retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan):retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan));
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
@@ -6079,18 +6165,20 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                         观测:requestTokenTelemetry(request.system,attemptInput,request.schema),
                         尝试序号:attempt+1,
                         最大尝试次数:maxAttempts,
+                        每模型最大尝试次数:perModelAttempts,
+                        模型阶段:usingFallback?'备用模型':'主模型',
                         失败记录:copy(this.lastRetryLog)
                     });
-                    actualRequest.manifest.观测.请求类型=attempt===0?'首次请求':'纠错重试';
+                    actualRequest.manifest.观测.请求类型=attempt===0?'首次请求':usingFallback?'备用模型纠错':'纠错重试';
                     this.lastAttemptCount=attempt+1;
                     this.lastRequest=actualRequest;
-                    this.status=attempt===0?'六模块联合推演中':'纠错重试 '+(attempt+1)+'/'+maxAttempts;
+                    this.status=attempt===0?'六模块联合推演中':usingFallback?'备用模型重试 '+(phaseAttempt+1)+'/'+perModelAttempts:'纠错重试 '+(phaseAttempt+1)+'/'+perModelAttempts;
                     this.render();
 
                     let received='',attemptTelemetry=null;
                     const attemptStarted=Date.now();this.lastTransportInfo=null;
                     try{
-                        received=String(await this.requestAI(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature:0.3}));
+                        received=String(await this.requestAI(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature,model:usingFallback?fallbackModel:undefined}));
                         clearTimeout(timeout);
                         if(token!==this.generation||this.controller.signal.aborted)throw new Error('请求已取消');
                         this.lastReply=received;this.lastFailure='';
@@ -6139,7 +6227,14 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                                 ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                             }
                         }catch(error){globalError=error;}
-                        if(rejectedSlices.length||globalError)throw makeRetryFailure(rejectedSlices,globalError);
+                        if(globalError||(rejectedSlices.length&&attempt+1<maxAttempts))throw makeRetryFailure(rejectedSlices,globalError);
+                        if(rejectedSlices.length){
+                            const partialFailure=makeRetryFailure(rejectedSlices,null);
+                            const partialPlan=Array.isArray(partialFailure.retryPlan)?copy(partialFailure.retryPlan):[];
+                            this.lastRetryLog.push({尝试:attempt+1,类型:'局部片段已丢弃',错误:String(partialFailure.message||partialFailure),片段:copy(rejectedSlices),补充清单:partialPlan});
+                            actualRequest.manifest.最终丢弃片段=copy(rejectedSlices);
+                            this.lastCompileWarnings.push('重试耗尽后丢弃 '+rejectedSlices.length+' 个未通过业务片段；已通过片段继续提交');
+                        }
 
                         const current=this.snapshot();
                         if(token!==this.generation||this.controller.signal.aborted||current.fingerprint!==base.fingerprint||this.blocked(current))throw new Error('上下文已经切换，本次结果已丢弃');
@@ -6206,14 +6301,16 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                             this.lastAttemptTelemetry.push({尝试:attempt+1,结果:'请求失败',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:0,API输入Tokens:null,API输出Tokens:null,API总Tokens:null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed,原因:String(error.message||error)});
                         }
                         lastError=error;
-                        lastRejectedReply=received||this.lastReply||'';
+                        lastRejectedReply=received||'';
                         lastRetryPlan=Array.isArray(error?.retryPlan)?copy(error.retryPlan):retryPlanForFailure(error,[]);
-                        const rejectedByModel=!!received&&(this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error));
-                        if(rejectedByModel)this.lastRetryLog.push({尝试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
-                        const canRetry=rejectedByModel&&attempt+1<maxAttempts;
+                        const retryableFailure=timedOut===true?true:(this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error));
+                        if(retryableFailure)this.lastRetryLog.push({尝试:attempt+1,类型:received?'模型回复被拒绝':'请求失败',错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
+                        const canRetry=retryableFailure&&attempt+1<maxAttempts;
                         if(!canRetry)throw error;
                         attempt++;
-                        this.status='回复未通过 · 自动纠错 '+(attempt+1)+'/'+maxAttempts;
+                        const nextUsesFallback=!!fallbackModel&&attempt>=perModelAttempts;
+                        const nextPhaseAttempt=nextUsesFallback?attempt-perModelAttempts:attempt;
+                        this.status=nextUsesFallback?'主模型连续失败 · 切换备用模型 '+(nextPhaseAttempt+1)+'/'+perModelAttempts:'回复未通过 · 自动纠错 '+(nextPhaseAttempt+1)+'/'+perModelAttempts;
                         this.render();
                     }
                 }
@@ -6929,10 +7026,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 硬要求:[
                     '异端不能作为本轮唯一变化；至少推进事件、势力地区或普通人物中的一项非异端实质变化。',
                     '若地区为空：建立至少1个与当前地点/阶段相关的地区。',
-                    '若势力为空：建立至少1个当前真实相关的势力/组织；同名提交 WorldResult.势力（实力/领地/描述/声望）与 WorldResult.势力地区（类型=势力的动态现场）。',
                     '若没有进行中的非宏观事件：建立至少1个正在发生的当前事件/近期节点。',
                     '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
-                ]
+                ],
+                软目标:['__PROMPT_REGISTRY_WORLD_ACTIVITY_SOFT__']
             };
             request.input=JSON.stringify(payload,null,2);
             request.timeline=Object.assign({},request.timeline,{世界活动要求:requirement});
@@ -7146,10 +7243,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     const WORLD_PROMPT_WORLD_ACTIVITY_INPUT=[
         '异端不能作为本轮唯一变化；至少推进事件、势力地区或普通人物中的一项非异端实质变化。',
         '若地区为空：建立至少1个与当前地点/阶段相关的地区。',
-        '若势力为空：建立至少1个当前真实相关的势力/组织；同名提交 WorldResult.势力（实力/领地/描述/声望）与 WorldResult.势力地区（类型=势力的动态现场）。',
         '若没有进行中的非宏观事件：建立至少1个正在发生的当前事件/近期节点。',
         '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
     ].join('\n');
+    const WORLD_PROMPT_WORLD_ACTIVITY_SOFT_INPUT='若势力为空，优先补充1个当前真正参与局势的真实势力/组织；建立时同名提交 WorldResult.势力 与 WorldResult.势力地区（类型=势力）。若没有可靠资料或势力片段因声望、Schema等规则验收失败，不要为了补档案编造或反复重交，也不要影响其它已通过片段。';
     const WORLD_PROMPT_HISTORY_INPUT='按给定顺序压缩；时间字段是权威锚点，不得改写或补造。';
     const WORLD_PROMPT_WORLD_TIME_INPUT=JSON.stringify({
         所有权:'世界推进独占写入；变量 AI 只读',
@@ -7213,6 +7310,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 def({key:'rumorSourceBoundary',title:'传闻取材边界',group:'请求内指令',source:'59-rumor-world-request.part.js / 取材边界',scope:'user payload',condition:'每次传闻维护请求',defaultValue:()=>WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY}),
                 def({key:'alienReviewGuidance',title:'活跃异端复核要求',group:'请求内指令',source:'59-alien-activity-normalization.part.js',scope:'user payload',condition:'活跃异端命中复核触发器时',defaultValue:()=>WORLD_PROMPT_ALIEN_REVIEW}),
                 def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'WorldActivityRequestFeature / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
+                def({key:'worldActivitySoftGuidance',title:'世界活动交付 · 势力软目标',group:'请求内指令',source:'WorldActivityRequestFeature / 软目标',scope:'user payload lines',condition:'势力档案为空时作为非阻塞建议',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_SOFT_INPUT}),
                 def({key:'worldTimeInputGuidance',title:'世界时间维护 · 请求内指令',group:'请求内指令',source:'WorldTimeOwnershipFeature / 世界时间维护',scope:'user payload JSON',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_TIME_INPUT}),
                 def({key:'historyInputGuidance',title:'历史压缩输入说明',group:'辅助模型',source:'historyMemoryPrompt()',scope:'user payload',condition:'历史记忆达到自动压缩阈值时',defaultValue:()=>WORLD_PROMPT_HISTORY_INPUT}),
                 def({key:'retryGuideMacroBackbone',title:'纠错动作 · 宏观骨架数量',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'宏观事件不足时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideMacroBackbone}),
@@ -7274,7 +7372,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const config=this.engine.config||(this.engine.config={}),previousVersion=Number(config.worldModulePromptVersion||0);
             if(typeof WORLD_MODULE_PROMPT_VERSION==='number'&&previousVersion<WORLD_MODULE_PROMPT_VERSION&&(!config.activePromptDocumentId||config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)){
                 const defaults=this.defaults(),registry=plain(config.promptRegistry)?{...config.promptRegistry}:{};
-                for(const key of ['chronology','chronologyInputGuidance','chronologyNoEvidenceGuidance','chronologyPrinciples'])registry[key]=defaults[key];
+                for(const key of ['chronology','chronologyInputGuidance','chronologyNoEvidenceGuidance','chronologyPrinciples','worldActivity','worldActivityInputGuidance','worldActivitySoftGuidance','retryGuideWorldScene'])registry[key]=defaults[key];
                 config.promptRegistry=registry;
                 config.modulePrompts=Object.assign({},plain(config.modulePrompts)?config.modulePrompts:{},{chronology:defaults.chronology});
             }
@@ -7398,7 +7496,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }
             if(plain(payload.传闻维护)&&Object.hasOwn(payload.传闻维护,'取材边界'))payload.传闻维护.取材边界=this.value('rumorSourceBoundary');
             if(Array.isArray(payload.本轮必须维持的异端活动))for(const item of payload.本轮必须维持的异端活动)if(plain(item))item.要求=this.value('alienReviewGuidance');
-            if(plain(payload.本轮世界活动交付))payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+            if(plain(payload.本轮世界活动交付)){
+                payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+                payload.本轮世界活动交付.软目标=this.value('worldActivitySoftGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+            }
             if(plain(payload.世界时间维护)){
                 try{
                     const configured=JSON.parse(this.value('worldTimeInputGuidance'));
@@ -7781,7 +7882,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     const api=engine.normalizeDedicatedApi(engine.config.dedicatedApi);
                     const fontButtons=Object.entries(WORLD_FONT_SCALES).map(([key,item])=>'<button class="we-setting-btn '+(engine.config.fontScale===key?'active':'')+'" data-font-option="'+key+'">'+text(item.name)+' · '+text(item.size)+'</button>').join('');
                     const presets=api.apiPresets.map(p=>'<option value="'+text(p.name)+'">'+text(p.name)+'</option>').join('');
-                    const modelOptions=Array.from(new Set([api.model,...api.fetchedModels].filter(Boolean))).map(model=>'<option value="'+text(model)+'"></option>').join('');
+                    const terminalModels=Array.isArray(engine.host.Samsara?.terminal?.models?.())?engine.host.Samsara.terminal.models():[];
+                    const terminalModel=String(engine.host.Samsara?.terminal?.currentModel?.()||'');
+                    const modelOptions=Array.from(new Set([api.model,...api.fetchedModels,terminalModel,...terminalModels].filter(Boolean))).map(model=>'<option value="'+text(model)+'"></option>').join('');
+                    const temperature=Math.max(0,Math.min(2,Number.isFinite(Number(engine.config.temperature))?Number(engine.config.temperature):0.3));
+                    const fallbackModel=String(engine.config.fallbackModel||'');
                     const terminalReady=!!(engine.host.Samsara?.terminal?.apiReady?.());
                     const sourceState=engine.usesDedicatedApi()
                         ?(engine.dedicatedApiReady()?'专属 API 已就绪':'专属 API 已接管，但配置尚不完整')
@@ -7791,6 +7896,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     html+=section('历史记忆','<div class="we-setting-row"><div class="we-setting-copy"><b>向正文提供历史记忆</b><small>开启后，正文AI额外读取“近期原始锚点 + 更早长期总结”；关闭只影响正文，世界推进自身仍始终使用完整的分层历史脉络。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(historyToProse?'on':'')+'" data-action="history-prose-toggle"><span>'+text(historyToProse?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>','默认关闭 · 原始历史事实不会因关闭而删除');
                     html+=section('模型接口',
                         '<div class="we-setting-row"><div class="we-setting-copy"><b>当前调用来源</b><small>'+text(sourceState)+'</small></div><div class="we-setting-actions"><span class="we-source-badge">'+text(engine.apiSourceLabel())+'</span></div></div>'
+                        +'<div class="we-api-grid"><label>推演温度<input class="we-setting-input" data-world-temperature type="number" min="0" max="2" step="0.05" value="'+text(temperature)+'"></label><label>Fallback 模型（可选）<input class="we-setting-input" data-fallback-model list="we-world-fallback-models" value="'+text(fallbackModel)+'" placeholder="主模型连续失败后切换"><datalist id="we-world-fallback-models">'+modelOptions+'</datalist></label></div><p class="we-muted">温度默认 0.3。Fallback 留空即关闭；填写后，主模型用尽“每个模型最大尝试次数”仍失败才切换备用模型继续。专属 API 与新版主神终端额外模型都支持模型覆盖。</p>'
                         +'<div class="we-setting-row"><div class="we-setting-copy"><b>世界推进专属 API</b><small>开启后世界推进只走这里，不再调用状态栏 / 主神终端的 API；即使配置不完整也不会偷偷回退。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(api.enabled?'on':'')+'" data-action="dedicated-toggle"><span>'+text(api.enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>'
                         +(api.enabled
                             ?'<div class="we-api-toolbar"><select class="we-setting-input" data-dedicated-preset><option value="">— 选择已保存 API 预设 —</option>'+presets+'</select><input class="we-setting-input" data-dedicated-preset-name maxlength="80" placeholder="预设名称"><button class="we-setting-btn" data-action="dedicated-preset-save">保存预设</button><button class="we-setting-btn" data-action="dedicated-preset-delete">删除预设</button></div>'
@@ -7798,6 +7904,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                              +'<p class="we-muted">接口按 OpenAI-compatible /v1/chat/completions 与 /v1/models 方式连接，并保留 JSON Schema → JSON Object → 普通文本的结构化兼容降级。</p>'
                             :'<div class="we-notice">当前关闭专属 API。世界推进继续使用主神终端「额外模型配置」；这里不会复制或读取状态栏里的 API Key。</div>')
                         ,'接口配置只存本地 localStorage，不写入 MVU');
+                    const snapshots=engine.services?.snapshots?.list?.()||[];
+                    html+=section('世界快照',
+                        '<div class="we-doc-create"><input class="we-setting-input" data-world-snapshot-name maxlength="80" placeholder="快照名称，例如：司法岛决战前"><button class="we-btn we-primary" data-action="world-snapshot-save">保存世界快照</button></div>'
+                        +(snapshots.length?'<div class="we-doc-list">'+snapshots.map(item=>'<div class="we-doc-row"><div><b>'+text(item.name)+'</b><small>'+text(item.worldTime||'时间未记录')+' · '+text(item.createdAt?new Date(item.createdAt).toLocaleString():'未记录时间')+'</small></div><span class="we-doc-actions"><button data-action="world-snapshot-restore" data-snapshot-id="'+text(item.id)+'">恢复</button><button data-action="world-snapshot-delete" data-snapshot-id="'+text(item.id)+'">删除</button></span></div>').join('')+'</div>':'<div class="we-empty"><b>暂无世界快照</b><small>只保存世界推进负责的数据，不回滚玩家角色数值与任务状态。</small></div>')
+                        +'<p class="we-muted">快照保存 世界、资产、关系列表与传闻；恢复时不会回滚角色属性、背包、任务或成就。恢复后会清除当前楼层的世界推进处理锚点，允许重新建立后续世界状态。</p>',
+                        '最多保留当前聊天最近 12 份 · 仅存本地');
                     return html;
                 
         }
@@ -7860,10 +7972,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                         const feedback=retryFeedback(item.错误,Array.isArray(item.片段)?item.片段:[],Array.isArray(item.补充清单)?item.补充清单:[]);
                         const details=feedback.issues.length?'<p><b>具体问题</b><br>'+feedback.issues.map(text).join('<br>')+'</p>':'';
                         const guidance=feedback.actions.length?'<p><b>修复要求</b><br>'+feedback.actions.map(text).join('<br>')+'</p>':'';
-                        return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>模型回复被拒绝</b><p>'+text(feedback.summary)+'</p>'+details+guidance+'</div></div>';
+                        return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>'+text(item.类型||'模型回复被拒绝')+'</b><p>'+text(feedback.summary)+'</p>'+details+guidance+'</div></div>';
                     }).join('');
                     const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
-                    html+=section('失败自动重试','<div class="we-config-row"><label>最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(engine.config.retryAttempts??5)+'"> 次</label><span class="we-muted">包含首次请求。1 = 只请求一次；5 = 最多总共尝试 5 次。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(engine.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(engine.lastAttemptCount)+' 次；每次模型业务拒绝都会在下方完整保留，包括最后一次失败。</p>':'')+(retryLog||''));
+                    html+=section('失败自动重试','<div class="we-config-row"><label>每个模型最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(engine.config.retryAttempts??5)+'"> 次</label><span class="we-muted">包含首次请求。HTTP/网络错误、空回、解析失败和业务验收失败都会重试；危险越权、上下文变化和写入未确认仍直接终止。配置备用模型后，主模型达到本次数上限才切换备用模型，并再使用同样的尝试次数。</span></div>'+(engine.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(engine.lastAttemptCount)+' 次；请求失败和模型业务拒绝都会在下方保留。业务分片验收会累计已通过片段，纠错只要求补失败部分。</p>':'')+(retryLog||''));
                     html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                     for(const [label,r] of [['最近实际发送',engine.lastRequest],['下一次请求预览',engine.previewRequest]]){
                         if(!r){html+=section(label,empty('暂无'+label));continue;}
@@ -8047,6 +8159,25 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     const scale=button.dataset.fontOption;
                     if(WORLD_FONT_SCALES[scale]){engine.config.fontScale=scale;engine.panel.dataset.fontScale=scale;engine.saveConfig();engine.status='界面字号已切换为 '+WORLD_FONT_SCALES[scale].name;engine.render(true);}
                 }
+                else if(a==='world-snapshot-save'){
+                    try{
+                        const name=engine.panel.querySelector('[data-world-snapshot-name]')?.value||'';
+                        const item=engine.services?.snapshots?.create?.(name);
+                        if(!item)throw new Error('世界快照服务未初始化');
+                        engine.status='已保存世界快照：'+item.name;engine.render(true);
+                    }catch(e){engine.status=e.message;engine.panel.querySelector('footer span').textContent=engine.status;}
+                }
+                else if(a==='world-snapshot-restore'){
+                    const id=button.dataset.snapshotId||'';
+                    engine.cancel();
+                    Promise.resolve(engine.services?.snapshots?.restore?.(id)).then(ok=>{
+                        if(ok){engine.status='世界快照已恢复';engine.render(true);}
+                    }).catch(e=>{engine.status=e.message;engine.panel.querySelector('footer span').textContent=engine.status;});
+                }
+                else if(a==='world-snapshot-delete'){
+                    const id=button.dataset.snapshotId||'';
+                    if(engine.services?.snapshots?.remove?.(id)){engine.status='世界快照已删除';engine.render(true);}
+                }
                 else if(a==='dedicated-toggle'){
                     engine.cancel();
                     const api=engine.normalizeDedicatedApi(engine.config.dedicatedApi);
@@ -8113,7 +8244,15 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 if(event.target.matches('[data-retries]')){
                     const value=Math.max(1,Math.min(5,Number(event.target.value)||1));
                     engine.config.retryAttempts=value;event.target.value=value;engine.saveConfig();
-                    engine.status='最大尝试次数已设为 '+value+' 次';
+                    engine.status='每个模型最大尝试次数已设为 '+value+' 次';
+                    engine.panel.querySelector('footer span').textContent=engine.status;
+                }else if(event.target.matches('[data-world-temperature]')){
+                    const value=Math.max(0,Math.min(2,Number(event.target.value)||0));
+                    engine.config.temperature=value;event.target.value=String(value);engine.saveConfig();
+                    engine.status='世界推演温度已设为 '+value;engine.panel.querySelector('footer span').textContent=engine.status;
+                }else if(event.target.matches('[data-fallback-model]')){
+                    engine.config.fallbackModel=String(event.target.value||'').trim().slice(0,160);engine.saveConfig();
+                    engine.status=engine.config.fallbackModel?'Fallback 模型已保存：'+engine.config.fallbackModel:'Fallback 模型已关闭';
                     engine.panel.querySelector('footer span').textContent=engine.status;
                 }else if(event.target.matches('[data-doc-import]')){
                     const input=event.target,file=input.files&&input.files[0];if(!file)return;
@@ -9077,6 +9216,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.validation=new WorldValidationService(engine,this.validationPolicy,this.npcAudit);
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
+            this.snapshots=new WorldSnapshotService(engine,this.mutations);
             this.events=new WorldEventService(engine);
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;

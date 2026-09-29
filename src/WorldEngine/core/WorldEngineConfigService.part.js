@@ -8,6 +8,8 @@
                 macroPrompt:DEFAULT_MACRO_PROMPT,
                 stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,
                 retryAttempts:5,
+                temperature:0.3,
+                fallbackModel:'',
                 requireMacroBackbone:true,
                 presetEditorVersion:0,
                 promptDocuments:[],
@@ -108,6 +110,9 @@
 
             const retryLimit=Number(config.retryAttempts);
             config.retryAttempts=Math.max(1,Math.min(5,Number.isFinite(retryLimit)?retryLimit:5));
+            const temperature=Number(config.temperature);
+            config.temperature=Math.max(0,Math.min(2,Number.isFinite(temperature)?temperature:0.3));
+            config.fallbackModel=String(config.fallbackModel||'').trim().slice(0,160);
             if(!config.retryDefaultFiveMigrated){
                 if(config.retryAttempts===3)config.retryAttempts=5;
                 config.retryDefaultFiveMigrated=true;

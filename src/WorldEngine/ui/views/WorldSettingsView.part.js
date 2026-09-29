@@ -8,7 +8,11 @@
                     const api=engine.normalizeDedicatedApi(engine.config.dedicatedApi);
                     const fontButtons=Object.entries(WORLD_FONT_SCALES).map(([key,item])=>'<button class="we-setting-btn '+(engine.config.fontScale===key?'active':'')+'" data-font-option="'+key+'">'+text(item.name)+' · '+text(item.size)+'</button>').join('');
                     const presets=api.apiPresets.map(p=>'<option value="'+text(p.name)+'">'+text(p.name)+'</option>').join('');
-                    const modelOptions=Array.from(new Set([api.model,...api.fetchedModels].filter(Boolean))).map(model=>'<option value="'+text(model)+'"></option>').join('');
+                    const terminalModels=Array.isArray(engine.host.Samsara?.terminal?.models?.())?engine.host.Samsara.terminal.models():[];
+                    const terminalModel=String(engine.host.Samsara?.terminal?.currentModel?.()||'');
+                    const modelOptions=Array.from(new Set([api.model,...api.fetchedModels,terminalModel,...terminalModels].filter(Boolean))).map(model=>'<option value="'+text(model)+'"></option>').join('');
+                    const temperature=Math.max(0,Math.min(2,Number.isFinite(Number(engine.config.temperature))?Number(engine.config.temperature):0.3));
+                    const fallbackModel=String(engine.config.fallbackModel||'');
                     const terminalReady=!!(engine.host.Samsara?.terminal?.apiReady?.());
                     const sourceState=engine.usesDedicatedApi()
                         ?(engine.dedicatedApiReady()?'专属 API 已就绪':'专属 API 已接管，但配置尚不完整')
@@ -18,6 +22,7 @@
                     html+=section('历史记忆','<div class="we-setting-row"><div class="we-setting-copy"><b>向正文提供历史记忆</b><small>开启后，正文AI额外读取“近期原始锚点 + 更早长期总结”；关闭只影响正文，世界推进自身仍始终使用完整的分层历史脉络。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(historyToProse?'on':'')+'" data-action="history-prose-toggle"><span>'+text(historyToProse?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>','默认关闭 · 原始历史事实不会因关闭而删除');
                     html+=section('模型接口',
                         '<div class="we-setting-row"><div class="we-setting-copy"><b>当前调用来源</b><small>'+text(sourceState)+'</small></div><div class="we-setting-actions"><span class="we-source-badge">'+text(engine.apiSourceLabel())+'</span></div></div>'
+                        +'<div class="we-api-grid"><label>推演温度<input class="we-setting-input" data-world-temperature type="number" min="0" max="2" step="0.05" value="'+text(temperature)+'"></label><label>Fallback 模型（可选）<input class="we-setting-input" data-fallback-model list="we-world-fallback-models" value="'+text(fallbackModel)+'" placeholder="主模型连续失败后切换"><datalist id="we-world-fallback-models">'+modelOptions+'</datalist></label></div><p class="we-muted">温度默认 0.3。Fallback 留空即关闭；填写后，主模型用尽“每个模型最大尝试次数”仍失败才切换备用模型继续。专属 API 与新版主神终端额外模型都支持模型覆盖。</p>'
                         +'<div class="we-setting-row"><div class="we-setting-copy"><b>世界推进专属 API</b><small>开启后世界推进只走这里，不再调用状态栏 / 主神终端的 API；即使配置不完整也不会偷偷回退。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(api.enabled?'on':'')+'" data-action="dedicated-toggle"><span>'+text(api.enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>'
                         +(api.enabled
                             ?'<div class="we-api-toolbar"><select class="we-setting-input" data-dedicated-preset><option value="">— 选择已保存 API 预设 —</option>'+presets+'</select><input class="we-setting-input" data-dedicated-preset-name maxlength="80" placeholder="预设名称"><button class="we-setting-btn" data-action="dedicated-preset-save">保存预设</button><button class="we-setting-btn" data-action="dedicated-preset-delete">删除预设</button></div>'
@@ -25,6 +30,12 @@
                              +'<p class="we-muted">接口按 OpenAI-compatible /v1/chat/completions 与 /v1/models 方式连接，并保留 JSON Schema → JSON Object → 普通文本的结构化兼容降级。</p>'
                             :'<div class="we-notice">当前关闭专属 API。世界推进继续使用主神终端「额外模型配置」；这里不会复制或读取状态栏里的 API Key。</div>')
                         ,'接口配置只存本地 localStorage，不写入 MVU');
+                    const snapshots=engine.services?.snapshots?.list?.()||[];
+                    html+=section('世界快照',
+                        '<div class="we-doc-create"><input class="we-setting-input" data-world-snapshot-name maxlength="80" placeholder="快照名称，例如：司法岛决战前"><button class="we-btn we-primary" data-action="world-snapshot-save">保存世界快照</button></div>'
+                        +(snapshots.length?'<div class="we-doc-list">'+snapshots.map(item=>'<div class="we-doc-row"><div><b>'+text(item.name)+'</b><small>'+text(item.worldTime||'时间未记录')+' · '+text(item.createdAt?new Date(item.createdAt).toLocaleString():'未记录时间')+'</small></div><span class="we-doc-actions"><button data-action="world-snapshot-restore" data-snapshot-id="'+text(item.id)+'">恢复</button><button data-action="world-snapshot-delete" data-snapshot-id="'+text(item.id)+'">删除</button></span></div>').join('')+'</div>':'<div class="we-empty"><b>暂无世界快照</b><small>只保存世界推进负责的数据，不回滚玩家角色数值与任务状态。</small></div>')
+                        +'<p class="we-muted">快照保存 世界、资产、关系列表与传闻；恢复时不会回滚角色属性、背包、任务或成就。恢复后会清除当前楼层的世界推进处理锚点，允许重新建立后续世界状态。</p>',
+                        '最多保留当前聊天最近 12 份 · 仅存本地');
                     return html;
                 
         }

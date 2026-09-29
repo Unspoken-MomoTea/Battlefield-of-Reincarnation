@@ -475,6 +475,8 @@ assert.equal(engine.services.validation.policy,engine.services.validationPolicy,
 assert.equal(engine.services.validation.npcAudit,engine.services.npcAudit,'validation service must compose the container-owned NPC audit service');
 assert.equal(engine.services.commit.constructor.name,'WorldCommitService');
 assert.equal(engine.services.mutations.constructor.name,'WorldMutationService');
+assert.equal(engine.services.snapshots.constructor.name,'WorldSnapshotService');
+assert.equal(engine.services.snapshots.mutations,engine.services.mutations,'snapshot restore must reuse the canonical mutation transaction service');
 assert.equal(engine.services.events.constructor.name,'WorldEventService');
 assert.equal(engine.services.people.constructor.name,'WorldPersonActivityService');
 assert.equal(engine.services.people.timePolicy,engine.services.timePolicy,'person activity must share the canonical world time policy');

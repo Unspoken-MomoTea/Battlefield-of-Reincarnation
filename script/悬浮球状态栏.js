@@ -4070,7 +4070,7 @@
         }
         var headers = { 'Content-Type': 'application/json' };
         if (cfg.apiKey && cfg.apiKey.trim()) headers.Authorization = 'Bearer ' + cfg.apiKey.trim();
-        var model = cfg.model || 'gpt-4o-mini';
+        var model = safeStr(options.model).trim() || cfg.model || 'gpt-4o-mini';
         var cacheKey = endpoint + '|' + model;
         var wantsStructured = options.structured === 'auto' && options.schema;
         var cached = wantsStructured ? API_STRUCTURED_MODE_CACHE[cacheKey] : '';
@@ -9826,6 +9826,8 @@ if (hasReq) {
         GS_PARENT.Samsara.terminal = {
             request: function(system, input, options) { return apiChat(system, input, options); },
             apiReady: function() { return isApiConfigEnabled() && !!getApiConfig().model; },
+            currentModel: function() { return safeStr(getApiConfig().model).trim(); },
+            models: function() { return apiAvailableModels(getApiConfig()); },
             enableApi: function() {
                 saveApiConfig(function(cfg) { cfg.enabled = true; });
                 return isApiConfigEnabled();

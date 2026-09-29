@@ -124,6 +124,25 @@
                     const scale=button.dataset.fontOption;
                     if(WORLD_FONT_SCALES[scale]){engine.config.fontScale=scale;engine.panel.dataset.fontScale=scale;engine.saveConfig();engine.status='界面字号已切换为 '+WORLD_FONT_SCALES[scale].name;engine.render(true);}
                 }
+                else if(a==='world-snapshot-save'){
+                    try{
+                        const name=engine.panel.querySelector('[data-world-snapshot-name]')?.value||'';
+                        const item=engine.services?.snapshots?.create?.(name);
+                        if(!item)throw new Error('世界快照服务未初始化');
+                        engine.status='已保存世界快照：'+item.name;engine.render(true);
+                    }catch(e){engine.status=e.message;engine.panel.querySelector('footer span').textContent=engine.status;}
+                }
+                else if(a==='world-snapshot-restore'){
+                    const id=button.dataset.snapshotId||'';
+                    engine.cancel();
+                    Promise.resolve(engine.services?.snapshots?.restore?.(id)).then(ok=>{
+                        if(ok){engine.status='世界快照已恢复';engine.render(true);}
+                    }).catch(e=>{engine.status=e.message;engine.panel.querySelector('footer span').textContent=engine.status;});
+                }
+                else if(a==='world-snapshot-delete'){
+                    const id=button.dataset.snapshotId||'';
+                    if(engine.services?.snapshots?.remove?.(id)){engine.status='世界快照已删除';engine.render(true);}
+                }
                 else if(a==='dedicated-toggle'){
                     engine.cancel();
                     const api=engine.normalizeDedicatedApi(engine.config.dedicatedApi);
@@ -190,7 +209,15 @@
                 if(event.target.matches('[data-retries]')){
                     const value=Math.max(1,Math.min(5,Number(event.target.value)||1));
                     engine.config.retryAttempts=value;event.target.value=value;engine.saveConfig();
-                    engine.status='最大尝试次数已设为 '+value+' 次';
+                    engine.status='每个模型最大尝试次数已设为 '+value+' 次';
+                    engine.panel.querySelector('footer span').textContent=engine.status;
+                }else if(event.target.matches('[data-world-temperature]')){
+                    const value=Math.max(0,Math.min(2,Number(event.target.value)||0));
+                    engine.config.temperature=value;event.target.value=String(value);engine.saveConfig();
+                    engine.status='世界推演温度已设为 '+value;engine.panel.querySelector('footer span').textContent=engine.status;
+                }else if(event.target.matches('[data-fallback-model]')){
+                    engine.config.fallbackModel=String(event.target.value||'').trim().slice(0,160);engine.saveConfig();
+                    engine.status=engine.config.fallbackModel?'Fallback 模型已保存：'+engine.config.fallbackModel:'Fallback 模型已关闭';
                     engine.panel.querySelector('footer span').textContent=engine.status;
                 }else if(event.target.matches('[data-doc-import]')){
                     const input=event.target,file=input.files&&input.files[0];if(!file)return;

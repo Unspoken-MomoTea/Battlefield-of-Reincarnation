@@ -88,6 +88,7 @@
             this.validation=new WorldValidationService(engine,this.validationPolicy,this.npcAudit);
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
+            this.snapshots=new WorldSnapshotService(engine,this.mutations);
             this.events=new WorldEventService(engine);
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;

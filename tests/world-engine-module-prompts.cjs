@@ -61,10 +61,12 @@ function hostFor(statRef){
   const host=hostFor(statRef);
   const engine=new Engine(host);
   engine.config.enabled=true;
-  assert.equal(engine.config.worldModulePromptVersion,6);
+  assert.equal(engine.config.worldModulePromptVersion,7);
   assert.match(engine.config.preset,/只提交已经发生或需要规划的世界变化/,'built-in preset should migrate to concise pipeline');
   assert.match(engine.config.preset,/原著\/权威资料接下来最自然会发生什么/,'built-in preset should keep canon as the default future');
   assert.match(engine.config.corePrompt,/禁止为“回归原著”强行制造等价死亡/,'compact core must forbid forced canon correction after a realized deviation');
+  assert.doesNotMatch(engine.services.prompts.value('worldActivityInputGuidance'),/若势力为空.*建立至少1个/,'faction bootstrap must leave the hard activity guidance');
+  assert.match(engine.services.prompts.value('worldActivitySoftGuidance'),/势力为空.*优先补充/,'faction bootstrap must remain visible as an editable soft target');
   assert.match(engine.config.corePrompt,/模型知道≠场外人物知道/,'compact core must preserve anti-omniscience boundary');
   assert.match(engine.config.corePrompt,/活跃异端只在活动缺失、复核到期、关联事件\/所在地区变化或长期未复核时更新/,'compact core must keep active-alien review event-driven');
   assert.match(engine.config.corePrompt,/没有重大世界偏移就完全不写偏移记录/,'compact core must not pressure the model to touch stability every round');

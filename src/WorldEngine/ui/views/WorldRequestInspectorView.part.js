@@ -12,10 +12,10 @@
                         const feedback=retryFeedback(item.错误,Array.isArray(item.片段)?item.片段:[],Array.isArray(item.补充清单)?item.补充清单:[]);
                         const details=feedback.issues.length?'<p><b>具体问题</b><br>'+feedback.issues.map(text).join('<br>')+'</p>':'';
                         const guidance=feedback.actions.length?'<p><b>修复要求</b><br>'+feedback.actions.map(text).join('<br>')+'</p>':'';
-                        return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>模型回复被拒绝</b><p>'+text(feedback.summary)+'</p>'+details+guidance+'</div></div>';
+                        return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>'+text(item.类型||'模型回复被拒绝')+'</b><p>'+text(feedback.summary)+'</p>'+details+guidance+'</div></div>';
                     }).join('');
                     const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
-                    html+=section('失败自动重试','<div class="we-config-row"><label>最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(engine.config.retryAttempts??5)+'"> 次</label><span class="we-muted">包含首次请求。1 = 只请求一次；5 = 最多总共尝试 5 次。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(engine.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(engine.lastAttemptCount)+' 次；每次模型业务拒绝都会在下方完整保留，包括最后一次失败。</p>':'')+(retryLog||''));
+                    html+=section('失败自动重试','<div class="we-config-row"><label>每个模型最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(engine.config.retryAttempts??5)+'"> 次</label><span class="we-muted">包含首次请求。HTTP/网络错误、空回、解析失败和业务验收失败都会重试；危险越权、上下文变化和写入未确认仍直接终止。配置备用模型后，主模型达到本次数上限才切换备用模型，并再使用同样的尝试次数。</span></div>'+(engine.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(engine.lastAttemptCount)+' 次；请求失败和模型业务拒绝都会在下方保留。业务分片验收会累计已通过片段，纠错只要求补失败部分。</p>':'')+(retryLog||''));
                     html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                     for(const [label,r] of [['最近实际发送',engine.lastRequest],['下一次请求预览',engine.previewRequest]]){
                         if(!r){html+=section(label,empty('暂无'+label));continue;}

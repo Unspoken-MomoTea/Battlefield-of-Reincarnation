@@ -272,3 +272,24 @@ test('project creation keeps the action footer visible while only the middle con
   assert.match(WORKSHOP_CSS, /\.rw-publish-grid\{[\s\S]*max-height:none;overflow:auto/u);
   assert.match(WORKSHOP_CSS, /\.rw-publish-footer\{[\s\S]*position:relative;z-index:6/u);
 });
+
+
+test('login action labels are centered and formal release deploys production before tagging', () => {
+  assert.match(
+    WORKSHOP_CSS,
+    /\.rw-button\{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;vertical-align:middle\}/u,
+  );
+
+  const workflow = fs.readFileSync(
+    fileURLToPath(new URL('../../../.github/workflows/creative-workshop-promote-stable.yml', import.meta.url)),
+    'utf8',
+  );
+  assert.match(workflow, /Deploy production Worker/u);
+  assert.match(workflow, /Verify production health and Discord login start/u);
+  assert.match(workflow, /\/api\/auth\/discord\/start\?login_id=/u);
+  assert.match(workflow, /production auth polling\/CORS passed/u);
+  assert.ok(
+    workflow.indexOf('Deploy production Worker') < workflow.indexOf('Create immutable release tag'),
+    'production Worker must be healthy before the immutable V tag is created',
+  );
+});

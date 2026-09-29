@@ -13,9 +13,7 @@
                     '若没有进行中的非宏观事件：建立至少1个正在发生的当前事件/近期节点。',
                     '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
                 ],
-                软目标:[
-                    '若势力为空，优先补充1个当前真正参与局势的真实势力/组织；建立时同名提交 WorldResult.势力 与 WorldResult.势力地区（类型=势力）。若没有可靠资料或势力片段验收失败，不要为了补档案编造组织，也不要影响其它已通过片段。'
-                ]
+                软目标:['__PROMPT_REGISTRY_WORLD_ACTIVITY_SOFT__']
             };
             request.input=JSON.stringify(payload,null,2);
             request.timeline=Object.assign({},request.timeline,{世界活动要求:requirement});

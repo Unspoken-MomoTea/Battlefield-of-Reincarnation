@@ -124,6 +124,25 @@
                     const scale=button.dataset.fontOption;
                     if(WORLD_FONT_SCALES[scale]){engine.config.fontScale=scale;engine.panel.dataset.fontScale=scale;engine.saveConfig();engine.status='界面字号已切换为 '+WORLD_FONT_SCALES[scale].name;engine.render(true);}
                 }
+                else if(a==='world-snapshot-save'){
+                    try{
+                        const name=engine.panel.querySelector('[data-world-snapshot-name]')?.value||'';
+                        const item=engine.services?.snapshots?.create?.(name);
+                        if(!item)throw new Error('世界快照服务未初始化');
+                        engine.status='已保存世界快照：'+item.name;engine.render(true);
+                    }catch(e){engine.status=e.message;engine.panel.querySelector('footer span').textContent=engine.status;}
+                }
+                else if(a==='world-snapshot-restore'){
+                    const id=button.dataset.snapshotId||'';
+                    engine.cancel();
+                    Promise.resolve(engine.services?.snapshots?.restore?.(id)).then(ok=>{
+                        if(ok){engine.status='世界快照已恢复';engine.render(true);}
+                    }).catch(e=>{engine.status=e.message;engine.panel.querySelector('footer span').textContent=engine.status;});
+                }
+                else if(a==='world-snapshot-delete'){
+                    const id=button.dataset.snapshotId||'';
+                    if(engine.services?.snapshots?.remove?.(id)){engine.status='世界快照已删除';engine.render(true);}
+                }
                 else if(a==='dedicated-toggle'){
                     engine.cancel();
                     const api=engine.normalizeDedicatedApi(engine.config.dedicatedApi);

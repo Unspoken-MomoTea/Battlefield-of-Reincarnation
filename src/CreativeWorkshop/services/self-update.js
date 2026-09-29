@@ -15,8 +15,12 @@ const GITHUB_COMPARE_BASE = `https://api.github.com/repos/${REPOSITORY}/compare/
 const CLIENT_SOURCE_PATH = 'src/CreativeWorkshop';
 const HOT_IMPORT_BASE = `https://cdn.jsdelivr.net/gh/${REPOSITORY}@`;
 
-function importUrlForSha(sha) {
-  return `${HOT_IMPORT_BASE}${sha}${ENTRY_PATH}`;
+function installRefForLatest(latest) {
+  return latest?.releaseSource === 'tag' && latest?.tag ? latest.tag : latest.sha;
+}
+
+function importUrlForRef(ref) {
+  return `${HOT_IMPORT_BASE}${ref}${ENTRY_PATH}`;
 }
 
 async function githubClientSha(fetchImpl, ref) {
@@ -219,8 +223,9 @@ export function createWorkshopSelfUpdater({
         latestTag: latest.tag || '',
         releaseSource: latest.releaseSource || '',
         latestSha: latest.sha,
+        latestLoaderRef: installRefForLatest(latest),
         latestShortSha: latest.sha.slice(0, 8),
-        latestImportUrl: importUrlForSha(latest.sha),
+        latestImportUrl: importUrlForRef(installRefForLatest(latest)),
         loaders: scan.loaders,
         refs,
         loaderFound: scan.loaders.length > 0,
@@ -232,6 +237,7 @@ export function createWorkshopSelfUpdater({
       const scan = await scanLoaders(adapter);
       const { refs, latest, staleRefs } = await resolve(scan);
       const latestSha = latest.sha;
+      const latestLoaderRef = installRefForLatest(latest);
 
       if (!scan.loaders.length) {
         return {
@@ -242,8 +248,9 @@ export function createWorkshopSelfUpdater({
         latestTag: latest.tag || '',
         releaseSource: latest.releaseSource || '',
           latestSha,
+          latestLoaderRef,
           latestShortSha: latestSha.slice(0, 8),
-          latestImportUrl: importUrlForSha(latestSha),
+          latestImportUrl: importUrlForRef(latestLoaderRef),
           loaderFound: false,
           changedScripts: 0,
           changedScopes: [],
@@ -258,7 +265,7 @@ export function createWorkshopSelfUpdater({
         const tree = trees[loader.treeIndex];
         const script = loader.scriptIndex === null ? tree : tree?.scripts?.[loader.scriptIndex];
         if (!script || typeof script.content !== 'string') continue;
-        const nextContent = rewriteWorkshopLoaderContent(script.content, latestSha);
+        const nextContent = rewriteWorkshopLoaderContent(script.content, latestLoaderRef);
         if (nextContent === script.content) continue;
         script.content = nextContent;
         changedScopes.add(loader.scope);
@@ -270,7 +277,7 @@ export function createWorkshopSelfUpdater({
           !item.refs.length || item.refs.some(currentRef => staleRefs.has(currentRef))
         );
         if (staleOrUnknown) {
-          throw new Error('找到了创意工坊载入脚本，但没有识别到可自动改写的固定提交链接');
+          throw new Error('找到了创意工坊载入脚本，但没有识别到可自动改写的版本链接');
         }
         return {
           updated: false,
@@ -280,8 +287,9 @@ export function createWorkshopSelfUpdater({
         latestTag: latest.tag || '',
         releaseSource: latest.releaseSource || '',
           latestSha,
+          latestLoaderRef,
           latestShortSha: latestSha.slice(0, 8),
-          latestImportUrl: importUrlForSha(latestSha),
+          latestImportUrl: importUrlForRef(latestLoaderRef),
           loaderFound: true,
           changedScripts: 0,
           changedScopes: [],
@@ -300,10 +308,10 @@ export function createWorkshopSelfUpdater({
         const verified = await scanLoaders(adapter);
         const writtenLoaders = verified.loaders.filter(item => changedScopes.has(item.scope));
         const stale = writtenLoaders.filter(item =>
-          !item.refs.length || item.refs.some(currentRef => currentRef !== latestSha)
+          !item.refs.length || item.refs.some(currentRef => currentRef !== latestLoaderRef)
         );
         if (!writtenLoaders.length || stale.length) {
-          throw new Error('创意工坊载入脚本写入后校验失败：Tavern Helper 未保存新的固定提交链接');
+          throw new Error('创意工坊载入脚本写入后校验失败：Tavern Helper 未保存新的版本链接');
         }
       } catch (error) {
         for (const scope of written.reverse()) {
@@ -320,8 +328,9 @@ export function createWorkshopSelfUpdater({
         latestTag: latest.tag || '',
         releaseSource: latest.releaseSource || '',
         latestSha,
+        latestLoaderRef,
         latestShortSha: latestSha.slice(0, 8),
-        latestImportUrl: importUrlForSha(latestSha),
+        latestImportUrl: importUrlForRef(latestLoaderRef),
         loaderFound: true,
         changedScripts,
         changedScopes: [...changedScopes],

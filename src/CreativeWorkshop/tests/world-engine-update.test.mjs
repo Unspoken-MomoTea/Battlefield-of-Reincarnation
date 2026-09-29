@@ -126,3 +126,52 @@ test('stable world engine on the latest formal V tag is not reported as an updat
   assert.match(adapter.state.character[0].content, /@V2\.0\.1\/script\/世界推进系统\.js/u);
   assert.equal(urls.some(url => url.includes('/compare/')), false);
 });
+
+
+test('stable world engine update rewrites an old sha loader to the formal V tag', async () => {
+  const old = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+  const latest = 'ffffffffffffffffffffffffffffffffffffffff';
+  const adapter = adapterFixture(
+    `import('https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${old}/script/世界推进系统.js');`,
+  );
+  const host = { Samsara: { worldEngine: { version: '2.0.2', busy: false, committing: false } } };
+  let loaded = '';
+  const updater = createWorldEngineUpdater({
+    adapter,
+    host,
+    channel: 'stable',
+    ref: 'workshop-stable',
+    fetchImpl: async url => {
+      const value = String(url);
+      if (value.includes('/api/components/latest')) {
+        return json({
+          sha: latest,
+          channel: 'stable',
+          ref: 'workshop-stable',
+          version: '2.0.3',
+          tag: 'V2.0.3',
+          release_source: 'tag',
+        });
+      }
+      if (value.includes('/compare/')) return json({ status: 'behind' });
+      throw new Error(`unexpected ${value}`);
+    },
+    loadScript: async url => {
+      loaded = String(url);
+      host.Samsara.worldEngine = { version: '2.0.3', busy: false, committing: false };
+    },
+  });
+
+  const check = await updater.check();
+  assert.equal(check.updateAvailable, true);
+  assert.equal(check.latestLoaderRef, 'V2.0.3');
+  assert.match(check.latestImportUrl, /@V2\.0\.3\/script\/世界推进系统\.js/u);
+
+  const result = await updater.updateAndReload();
+  assert.equal(result.updated, true);
+  assert.equal(result.hotReloaded, true);
+  assert.equal(result.latestLoaderRef, 'V2.0.3');
+  assert.match(adapter.state.character[0].content, /@V2\.0\.3\/script\/世界推进系统\.js/u);
+  assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/script/世界推进系统\\.js`, 'u'));
+  assert.match(loaded, /@V2\.0\.3\/script\/世界推进系统\.js/u);
+});

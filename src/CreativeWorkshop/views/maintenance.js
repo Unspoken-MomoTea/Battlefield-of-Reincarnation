@@ -92,7 +92,7 @@ export function createMaintenanceView({
           updateButton.disabled = true;
           updateButton.textContent = '更新完成';
           const done = statusBox(
-            `Tavern Helper 已保存最新固定提交 ${updated.latestShortSha}。`,
+            `Tavern Helper 已保存最新版本 ${updated.latestShortSha}。`,
             'ok',
           );
           updateButton.insertAdjacentElement('afterend', done);
@@ -137,10 +137,10 @@ export function createMaintenanceView({
       detailBody.append(
         element('div', '', `更新通道：${channelLabel} · ${result.ref || '未知引用'}`),
         element('div', '', `载入脚本：${loaderNames}`),
-        button('重新写入最新固定链接', '', async () => {
+        button('重新写入最新版本链接', '', async () => {
           const updated = await selfUpdater.updateLoaderLink();
           if (!updated.loaderFound) throw new Error('没有找到可自动更新的创意工坊载入脚本');
-          try { host.toastr?.info?.('已重新写入最新固定链接', '创意工坊'); } catch {}
+          try { host.toastr?.info?.('已重新写入最新版本链接', '创意工坊'); } catch {}
           await renderClientSection(container);
         }),
       );
@@ -213,8 +213,8 @@ export function createMaintenanceView({
           element('span', 'rw-update-badge', result.legacyFound ? '可接入热更新' : '发现新版本'),
           versions,
           element('div', 'rw-update-summary', result.legacyFound
-            ? '检测到旧式内联世界推进；更新后会原位替换为固定 SHA loader。'
-            : '更新会先写入固定 SHA loader；世界推进空闲时立即重载。'),
+            ? '检测到旧式内联世界推进；更新后会原位替换为版本 loader。'
+            : '更新会先写入版本 loader；世界推进空闲时立即重载。'),
         );
         container.appendChild(updateState);
         const updateButton = button(result.legacyFound ? '接管并更新世界推进' : '立即更新世界推进', 'primary rw-maintenance-update-cta', async () => {
@@ -224,9 +224,9 @@ export function createMaintenanceView({
           const message = updated.hotReloaded
             ? `世界推进已热更新到 ${updated.latestVersion ? `v${updated.latestVersion}` : updated.latestShortSha}。`
             : updated.busy
-              ? `固定链接已更新到 ${updated.latestShortSha}；当前世界推进正在执行，本轮不强制切换。`
+              ? `版本链接已更新到 ${updated.latestShortSha}；当前世界推进正在执行，本轮不强制切换。`
               : updated.reloadRequired
-                ? `固定链接已更新到 ${updated.latestShortSha}；运行时重载失败或不可用，下次加载自动生效。`
+                ? `版本链接已更新到 ${updated.latestShortSha}；运行时重载失败或不可用，下次加载自动生效。`
                 : '世界推进已经是目标版本。';
           try { host.toastr?.success?.(message, '世界推进'); } catch {}
           await renderWorldEngineSection(container);
@@ -241,7 +241,7 @@ export function createMaintenanceView({
       detailBody.append(
         element('div', '', `更新通道：${result.channel === 'testing' ? '测试版' : '正式版'} · ${result.ref}`),
         element('div', '', `目标：${result.latestTag || result.latestShortSha}`),
-        element('div', '', `安装形态：${result.legacyFound ? '旧式内联脚本' : result.loaderFound ? '固定 SHA loader' : '运行时实例'}`),
+        element('div', '', `安装形态：${result.legacyFound ? '旧式内联脚本' : result.loaderFound ? '版本 loader' : '运行时实例'}`),
       );
       details.append(element('summary', '', '查看载入信息'), detailBody);
       container.appendChild(details);

@@ -19,29 +19,34 @@ export function isLegacyWorldEngineScript(script) {
   return content.includes('/* 轮回战场 · 世界引擎') && content.includes('host.Samsara.worldEngine');
 }
 
-export function rewriteWorldEngineLoaderContent(content, sha) {
+export function rewriteWorldEngineLoaderContent(content, ref, resolvedSha = '') {
   JSDELIVR_PATTERN.lastIndex = 0;
-  const next = String(content || '').replace(JSDELIVR_PATTERN, `$1${sha}$3`);
+  let next = String(content || '').replace(JSDELIVR_PATTERN, `$1${ref}$3`);
   JSDELIVR_PATTERN.lastIndex = 0;
+  if (resolvedSha && next.includes('host.SamsaraWorldEngineLoader')) {
+    next = next.replace(/const sha = '[^']*';/u, `const sha = '${resolvedSha}';`);
+  }
   return next;
 }
 
-export function worldEngineImportUrl(sha) {
-  return `https://cdn.jsdelivr.net/gh/${REPOSITORY}@${sha}${ENTRY_PATH}`;
+export function worldEngineImportUrl(ref) {
+  return `https://cdn.jsdelivr.net/gh/${REPOSITORY}@${ref}${ENTRY_PATH}`;
 }
 
-export function buildWorldEngineLoaderContent(sha) {
-  const url = worldEngineImportUrl(sha);
+export function buildWorldEngineLoaderContent(ref, resolvedSha = '') {
+  const url = worldEngineImportUrl(ref);
+  const sha = resolvedSha || (/^[0-9a-f]{40}$/iu.test(String(ref)) ? String(ref) : '');
   return `(() => {
   'use strict';
   const repository = '${REPOSITORY}';
+  const ref = '${ref}';
   const sha = '${sha}';
   const url = '${url}';
   let host = window;
   try {
     while (host.parent && host.parent !== host) { void host.parent.document; host = host.parent; }
   } catch (_) {}
-  host.SamsaraWorldEngineLoader = { repository, sha, url };
+  host.SamsaraWorldEngineLoader = { repository, ref, sha, url };
   import(url).catch(error => {
     console.error('[世界推进] 远程加载失败:', error);
     try { host.toastr && host.toastr.error && host.toastr.error(error.message || String(error), '世界推进加载失败'); } catch (_) {}

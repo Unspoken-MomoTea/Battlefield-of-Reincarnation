@@ -28,9 +28,9 @@ export function isWorkshopLoaderScript(script) {
   );
 }
 
-export function rewriteWorkshopLoaderContent(content, sha) {
+export function rewriteWorkshopLoaderContent(content, ref) {
   JSDELIVR_PATTERN.lastIndex = 0;
-  const next = String(content || '').replace(JSDELIVR_PATTERN, `$1${sha}$3`);
+  const next = String(content || '').replace(JSDELIVR_PATTERN, `$1${ref}$3`);
   JSDELIVR_PATTERN.lastIndex = 0;
   return next;
 }

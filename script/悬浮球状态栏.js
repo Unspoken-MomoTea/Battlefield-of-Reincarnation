@@ -9826,6 +9826,8 @@ if (hasReq) {
         GS_PARENT.Samsara.terminal = {
             request: function(system, input, options) { return apiChat(system, input, options); },
             apiReady: function() { return isApiConfigEnabled() && !!getApiConfig().model; },
+            currentModel: function() { return safeStr(getApiConfig().model).trim(); },
+            models: function() { return apiAvailableModels(getApiConfig()); },
             enableApi: function() {
                 saveApiConfig(function(cfg) { cfg.enabled = true; });
                 return isApiConfigEnabled();

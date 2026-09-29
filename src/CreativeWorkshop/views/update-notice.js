@@ -107,8 +107,8 @@ export function createWorkshopUpdateNotice({
       element('div', '', `目标版本：${result.latestShortSha}`),
       currentSha ? element('div', '', `当前运行：${currentSha.slice(0, 8)}`) : element('div', '', `当前运行：v${currentVersion}`),
       element('div', '', `载入脚本：${result.loaders.map(loaderName).join('、')}`),
-      element('div', '', '只会替换创意工坊的固定提交链接，apiBase 与脚本里的其他配置会保留。'),
-      element('div', '', '更新只会直接保存新的固定提交链接，不刷新整个酒馆。'),
+      element('div', '', '只会替换创意工坊的版本链接，apiBase 与脚本里的其他配置会保留。'),
+      element('div', '', '更新只会直接保存新的版本链接，不刷新整个酒馆。'),
     );
     details.append(detailsSummary, detailsBody);
 
@@ -153,7 +153,7 @@ export function createWorkshopUpdateNotice({
           progress,
           'success',
           '载入脚本链接已覆盖',
-          `Tavern Helper 已保存最新固定提交 ${updated.latestShortSha}。`,
+          `Tavern Helper 已保存最新版本 ${updated.latestShortSha}。`,
         );
 
         try {

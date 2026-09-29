@@ -16,6 +16,10 @@ const TAG_PREFIX = 'V';
 const GITHUB_COMMITS_URL = `https://api.github.com/repos/${REPOSITORY}/commits`;
 const GITHUB_COMPARE_BASE = `https://api.github.com/repos/${REPOSITORY}/compare/`;
 
+function installRefForLatest(latest) {
+  return latest?.releaseSource === 'tag' && latest?.tag ? latest.tag : latest.sha;
+}
+
 async function githubWorldEngineSha(fetchImpl, ref) {
   const query = new URLSearchParams({ sha: String(ref), path: SOURCE_PATH, per_page: '1' });
   const response = await fetchImpl(`${GITHUB_COMMITS_URL}?${query}`, {
@@ -142,7 +146,8 @@ export function createWorldEngineUpdater({
       latestVersion: latest?.version || '',
       latestTag: latest?.tag || '',
       releaseSource: latest?.releaseSource || '',
-      latestImportUrl: latest ? worldEngineImportUrl(latest.sha) : '',
+      latestLoaderRef: latest ? installRefForLatest(latest) : '',
+      latestImportUrl: latest ? worldEngineImportUrl(installRefForLatest(latest)) : '',
       updateAvailable,
     };
   }
@@ -152,6 +157,7 @@ export function createWorldEngineUpdater({
     const latest = await resolveLatest(fetchImpl, channel, ref);
     if (!latest) throw new Error('当前正式通道尚未发布 VX.Y.Z Tag');
     if (!treeScan.matches.length) throw new Error('没有找到已安装的世界推进脚本');
+    const latestLoaderRef = installRefForLatest(latest);
 
     const changedScopes = new Set();
     let changedScripts = 0;
@@ -160,11 +166,11 @@ export function createWorldEngineUpdater({
       if (!script || typeof script.content !== 'string') continue;
       let next = script.content;
       if (item.kind === 'legacy') {
-        next = buildWorldEngineLoaderContent(latest.sha);
+        next = buildWorldEngineLoaderContent(latestLoaderRef, latest.sha);
       } else {
         const checks = await Promise.all(item.refs.map(currentRef => refNeedsUpdate(fetchImpl, currentRef, latest)));
         if (!checks.some(Boolean)) continue;
-        next = rewriteWorldEngineLoaderContent(script.content, latest.sha);
+        next = rewriteWorldEngineLoaderContent(script.content, latestLoaderRef, latest.sha);
       }
       if (next === script.content) continue;
       script.content = next;
@@ -179,10 +185,11 @@ export function createWorldEngineUpdater({
         changedScripts: 0,
         changedScopes: [],
         latestSha: latest.sha,
+        latestLoaderRef,
         latestShortSha: latest.sha.slice(0, 8),
         latestVersion: latest.version || '',
         latestTag: latest.tag || '',
-        latestImportUrl: worldEngineImportUrl(latest.sha),
+        latestImportUrl: worldEngineImportUrl(latestLoaderRef),
       };
     }
 
@@ -190,7 +197,7 @@ export function createWorldEngineUpdater({
       const verified = await scan();
       const written = verified.matches.filter(item => changedScopes.has(item.scope));
       return written.length > 0 && written.every(
-        item => item.kind === 'loader' && item.refs.length > 0 && item.refs.every(value => value === latest.sha),
+        item => item.kind === 'loader' && item.refs.length > 0 && item.refs.every(value => value === latestLoaderRef),
       );
     });
 
@@ -214,6 +221,7 @@ export function createWorldEngineUpdater({
     }
     host.SamsaraWorldEngineLoader = {
       repository: REPOSITORY,
+      ref: updated.latestLoaderRef || updated.latestSha,
       sha: updated.latestSha,
       url: updated.latestImportUrl,
     };

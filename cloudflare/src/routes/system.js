@@ -7,14 +7,14 @@ const COMPONENTS = Object.freeze({
     id: 'workshop',
     entryPath: '/src/CreativeWorkshop/index.js',
     sourcePath: 'src/CreativeWorkshop',
-    tagPrefix: 'workshop-v',
+    tagPrefix: 'V',
     legacyStableRef: 'workshop-stable',
   },
   'world-engine': {
     id: 'world-engine',
     entryPath: '/script/世界推进系统.js',
     sourcePath: 'script/世界推进系统.js',
-    tagPrefix: 'world-engine-v',
+    tagPrefix: 'V',
     legacyStableRef: '',
   },
 });

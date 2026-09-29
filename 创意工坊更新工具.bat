@@ -67,8 +67,8 @@ echo   [1] 更新测试服
 echo       origin/main -^> staging Worker + 共享 D1 / KV / R2
 echo.
 echo   [2] 发布正式客户端
-echo       origin/main -^> workshop-stable + workshop-vX.Y.Z
-echo       自动读取 WORKSHOP_VERSION、跑测试、创建 Tag、原子推送
+echo       origin/main -^> workshop-stable + VX.Y.Z
+echo       自动读取统一版本、跑工坊 + 世界推进测试、创建 Tag、原子推送
 echo.
 echo   [3] 更新正式服务器
 echo       origin/workshop-stable -^> production Worker + 共享 D1 / KV / R2
@@ -184,7 +184,7 @@ echo   SHA     %STABLE_SHA%
 echo   %STABLE_VERSION%
 echo.
 echo 正式版本 Tags：
-git -C "%ROOT%" tag -l "workshop-v*" --sort=-version:refname
+git -C "%ROOT%" tag -l "V*" --sort=-version:refname
 echo.
 goto :AFTER
 

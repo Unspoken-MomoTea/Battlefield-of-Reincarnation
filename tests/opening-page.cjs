@@ -7,6 +7,7 @@ const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].m
 assert.ok(scripts.length>0,'opening page should contain scripts');
 assert.doesNotMatch(html,/\?\./,'opening page avoids optional chaining for older embedded WebViews');
 assert.doesNotMatch(html,/\?\?/,'opening page avoids nullish coalescing for older embedded WebViews');
+assert.doesNotMatch(scripts.join('\\n'), /&(amp|lt|gt|quot|#39);/, 'opening inline scripts avoid HTML entity literals that srcdoc hosts may decode before JavaScript parsing');
 for(const [index,source] of scripts.entries()){
   try{ new Function(source); }
   catch(error){ throw new Error('opening inline script #'+(index+1)+' failed to compile: '+error.message); }

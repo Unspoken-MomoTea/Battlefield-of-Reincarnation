@@ -1129,7 +1129,20 @@
 
     const tierColor = t => getComputedStyle(document.documentElement).getPropertyValue('--t-' + t).trim() || '#66fcf1';
     const $ = id => document.getElementById(id);
-    const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    function esc(value) {
+        const text = String(value == null ? '' : value);
+        const amp = String.fromCharCode(38);
+        return text.replace(/[&<>"']/g, function(char) {
+            switch (char.charCodeAt(0)) {
+                case 38: return amp + 'amp;';
+                case 60: return amp + 'lt;';
+                case 62: return amp + 'gt;';
+                case 34: return amp + 'quot;';
+                case 39: return amp + '#39;';
+                default: return char;
+            }
+        });
+    }
 
     function openingDb() {
         return new Promise((resolve, reject) => {

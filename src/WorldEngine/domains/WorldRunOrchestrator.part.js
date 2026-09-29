@@ -137,7 +137,14 @@
                                 ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                             }
                         }catch(error){globalError=error;}
-                        if(rejectedSlices.length||globalError)throw makeRetryFailure(rejectedSlices,globalError);
+                        if(globalError||(rejectedSlices.length&&attempt+1<maxAttempts))throw makeRetryFailure(rejectedSlices,globalError);
+                        if(rejectedSlices.length){
+                            const partialFailure=makeRetryFailure(rejectedSlices,null);
+                            const partialPlan=Array.isArray(partialFailure.retryPlan)?copy(partialFailure.retryPlan):[];
+                            this.lastRetryLog.push({尝试:attempt+1,类型:'局部片段已丢弃',错误:String(partialFailure.message||partialFailure),片段:copy(rejectedSlices),补充清单:partialPlan});
+                            actualRequest.manifest.最终丢弃片段=copy(rejectedSlices);
+                            this.lastCompileWarnings.push('重试耗尽后丢弃 '+rejectedSlices.length+' 个未通过业务片段；已通过片段继续提交');
+                        }
 
                         const current=this.snapshot();
                         if(token!==this.generation||this.controller.signal.aborted||current.fingerprint!==base.fingerprint||this.blocked(current))throw new Error('上下文已经切换，本次结果已丢弃');

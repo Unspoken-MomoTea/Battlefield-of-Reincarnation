@@ -13,7 +13,7 @@ const COMPONENTS = Object.freeze({
   'world-engine': {
     id: 'world-engine',
     entryPath: '/script/世界推进系统.js',
-    sourcePath: 'src/WorldEngine',
+    sourcePath: 'script/世界推进系统.js',
     tagPrefix: 'world-engine-v',
     legacyStableRef: '',
   },

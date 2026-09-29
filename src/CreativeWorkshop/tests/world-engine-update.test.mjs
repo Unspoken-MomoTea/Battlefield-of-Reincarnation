@@ -175,3 +175,41 @@ test('stable world engine update rewrites an old sha loader to the formal V tag'
   assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/script/世界推进系统\\.js`, 'u'));
   assert.match(loaded, /@V2\.0\.3\/script\/世界推进系统\.js/u);
 });
+
+test('stable latest world engine sha is silently normalized to the equivalent formal V tag', async () => {
+  const latest = '3434343434343434343434343434343434343434';
+  const adapter = adapterFixture(
+    `import('https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${latest}/script/世界推进系统.js');`,
+  );
+  const host = { Samsara: { worldEngine: { version: '2.0.4', busy: false, committing: false } } };
+  const updater = createWorldEngineUpdater({
+    adapter,
+    host,
+    channel: 'stable',
+    ref: 'workshop-stable',
+    fetchImpl: async url => {
+      const value = String(url);
+      if (value.includes('/api/components/latest')) {
+        return json({
+          sha: latest,
+          channel: 'stable',
+          ref: 'workshop-stable',
+          version: '2.0.4',
+          tag: 'V2.0.4',
+          release_source: 'tag',
+        });
+      }
+      throw new Error(`equivalent sha normalization must not query anything else: ${value}`);
+    },
+    loadScript: async () => {},
+  });
+
+  const check = await updater.check();
+  assert.equal(check.updateAvailable, false);
+
+  const normalized = await updater.normalizeFormalLoaderLink();
+  assert.equal(normalized.normalized, true);
+  assert.equal(normalized.latestLoaderRef, 'V2.0.4');
+  assert.match(adapter.state.character[0].content, /@V2\.0\.4\/script\/世界推进系统\.js/u);
+  assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/script/世界推进系统\\.js`, 'u'));
+});

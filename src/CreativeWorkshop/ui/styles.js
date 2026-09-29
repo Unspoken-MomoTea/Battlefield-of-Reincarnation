@@ -106,6 +106,7 @@ export const WORKSHOP_CSS = `
     color:#c8c7c2;padding:0 12px;cursor:pointer;font:650 13px/1 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
     transition:background .14s ease,border-color .14s ease,color .14s ease,transform .14s ease;
   }
+  .rw-button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;vertical-align:middle}
   .rw-close:hover,.rw-button:hover,.rw-tab:hover{background:rgba(255,255,255,.055);border-color:var(--rw-line-strong);color:#fff}
   .rw-button.primary{border-color:rgba(162,139,107,.22);background:var(--rw-accent-soft);color:var(--rw-accent-text)}
   .rw-button.primary:hover{background:rgba(162,139,107,.16)}

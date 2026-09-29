@@ -5,7 +5,7 @@
  */
 (function (root) {
     'use strict';
-    const WORLD_ENGINE_VERSION='2.0.1';
+    const WORLD_ENGINE_VERSION='2.0.2';
     const copy = value => JSON.parse(JSON.stringify(value));
     const plain = value => !!value && typeof value === 'object' && !Array.isArray(value);
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);

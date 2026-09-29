@@ -793,7 +793,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     // 世界活动交付：异端只是世界中的一类人物，不能成为唯一会变化的后台对象。
     const WORLD_ACTIVITY_DELIVERY_RULES=`【世界活动交付 · 非异端世界必须推进】
 1. 世界推进不是“异端模拟器”。每轮按：进行中/到期事件 → 势力与地区现场 → 普通热人物 → 传播 → 异端复核 的顺序推演；异端不能替代其它世界活动。
-2. 新世界或旧存档缺少世界现场时，本轮必须建立至少1个与当前地点/阶段相关的地区、至少1个真实存在或可由明确设定推出的势力/组织，并建立至少1个正在发生的当前事件/近期节点。势力首次建立时，同名写入 WorldResult.势力（顶层实力/领地/声望档案）与 WorldResult.势力地区（类型=势力的动态现场）；不得只建立未来宏观节点。
+2. 新世界或旧存档缺少世界现场时，本轮必须建立至少1个与当前地点/阶段相关的地区，并建立至少1个正在发生的当前事件/近期节点。势力为空时应优先补充一个当前真正参与局势的真实势力/组织；若建立势力，同名写入 WorldResult.势力（顶层实力/领地/声望档案）与 WorldResult.势力地区（类型=势力的动态现场）。势力初始化属于软目标，不能为了补档案编造组织，也不得因势力片段验收失败拖垮其它真实世界推进。
 3. 每轮世界推进至少提交1项“非异端实质变化”：进行中事件推进/转态、势力或地区状态变化、普通人物自身事务推进三者之一。只改更新时间、下次检查、重复原文或只补未来宏观规划不算实质变化。
 4. 变化幅度服从本轮时间容量。时间未推进时只推进即时反应/同步结果；数小时、跨日或数日时再按容量推进更大的行动。不得为了满足本条凭空制造重大事件。
 5. 如果某类对象确实没有可变化事项，优先推进另外两类；只有世界本身已经终止/冻结的明确设定才允许没有非异端变化，普通“正文没有提到”不是停摆理由。`;
@@ -872,7 +872,6 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             if(!requirement||next?.系统状态?.是否在主神空间)return [];
             const counts=this.counts(next),issues=[];
             if(requirement.初始化缺口?.地区&&counts.地区数<1)issues.push('缺少地区现场：至少建立1个与当前地点/阶段相关的地区');
-            if(requirement.初始化缺口?.势力&&(counts.动态势力数<1||counts.顶层势力数<1))issues.push('缺少势力档案：至少建立1个真实相关势力，并同名写入 WorldResult.势力 与 WorldResult.势力地区（类型=势力）');
             if(requirement.初始化缺口?.当前事件&&counts.进行中世界事件数<1)issues.push('缺少正在发生的世界事件：至少建立1个进行中的当前事件/近期节点，未来宏观节点不能替代');
             const changed=this.changed(next,requirement);
             if(requirement.必须非异端实质变化&&!changed.length)issues.push('本轮只有异端/维护/未来规划，没有任何非异端世界侧实质变化；必须推进事件、势力地区、顶层势力或普通人物至少一项');
@@ -882,7 +881,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
         repairRequired(stat) {
             const requirement=this.requirement(stat),counts=requirement.当前数量;
-            return counts.地区数<1||counts.动态势力数<1||counts.顶层势力数<1||counts.进行中世界事件数<1;
+            return counts.地区数<1||counts.进行中世界事件数<1;
         }
     }
 
@@ -4344,6 +4343,8 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 macroPrompt:DEFAULT_MACRO_PROMPT,
                 stabilityPromptTemplate:DEFAULT_STABILITY_PROMPT_TEMPLATE,
                 retryAttempts:5,
+                temperature:0.3,
+                fallbackModel:'',
                 requireMacroBackbone:true,
                 presetEditorVersion:0,
                 promptDocuments:[],
@@ -4444,6 +4445,9 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
             const retryLimit=Number(config.retryAttempts);
             config.retryAttempts=Math.max(1,Math.min(5,Number.isFinite(retryLimit)?retryLimit:5));
+            const temperature=Number(config.temperature);
+            config.temperature=Math.max(0,Math.min(2,Number.isFinite(temperature)?temperature:0.3));
+            config.fallbackModel=String(config.fallbackModel||'').trim().slice(0,160);
             if(!config.retryDefaultFiveMigrated){
                 if(config.retryAttempts===3)config.retryAttempts=5;
                 config.retryDefaultFiveMigrated=true;
@@ -5852,13 +5856,15 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             if(!fetcher)throw new Error('当前环境没有 fetch');
             const endpoint=this.endpoint('chat'),headers={'Content-Type':'application/json'};
             if(api.apiKey.trim())headers.Authorization='Bearer '+api.apiKey.trim();
-            const cacheKey=endpoint+'|'+api.model,wants=options.structured==='auto'&&plain(options.schema);
+            const model=String(options.model||api.model||'').trim();
+            if(!model)throw new Error('世界推进专属 API 缺少可用模型');
+            const cacheKey=endpoint+'|'+model,wants=options.structured==='auto'&&plain(options.schema);
             const cached=wants?this.modeCache[cacheKey]:'';
             const modes=!wants?['plain']:cached==='json_schema'?['json_schema','json_object','plain']:cached==='json_object'?['json_object','plain']:cached==='plain'?['plain']:['json_schema','json_object','plain'];
             let lastError='';const modeAttempts=[];
             for(const mode of modes){
                 modeAttempts.push(mode);
-                const body={model:api.model,messages:[{role:'system',content:String(system||'')},{role:'user',content:String(input||'')}],stream:false,temperature:Number.isFinite(Number(options.temperature))?Number(options.temperature):0.3};
+                const body={model,messages:[{role:'system',content:String(system||'')},{role:'user',content:String(input||'')}],stream:false,temperature:Number.isFinite(Number(options.temperature))?Number(options.temperature):0.3};
                 if(mode==='json_schema')body.response_format={type:'json_schema',json_schema:{name:String(options.schemaName||'samsara_world_result').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64),strict:false,schema:options.schema}};
                 else if(mode==='json_object')body.response_format={type:'json_object'};
                 const response=await fetcher(endpoint,{method:'POST',headers,body:JSON.stringify(body),signal:options.signal});
@@ -5866,7 +5872,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     let err='';try{err=await response.text();}catch(_){}
                     lastError='HTTP '+response.status+': '+response.statusText+(err?' / '+err.slice(0,300):'');
                     if(mode!=='plain'&&this.structuredUnsupported(response.status,err)){delete this.modeCache[cacheKey];continue;}
-                    engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:null};
+                    engine.lastTransportInfo={接口:'世界推进专属 API',模型:model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:null};
                     throw new Error(lastError);
                 }
                 const data=await response.json(),message=data?.choices?.[0]?.message,raw=message?.content;
@@ -5874,7 +5880,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 if(!content)throw new Error('专属 API 返回内容为空');
                 if(wants)this.modeCache[cacheKey]=mode;
                 engine.apiModeCache=this.modeCache;
-                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:this.telemetry.normalizeUsage(data?.usage)};
+                engine.lastTransportInfo={接口:'世界推进专属 API',模型:model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:this.telemetry.normalizeUsage(data?.usage)};
                 return content;
             }
             throw new Error(lastError||'专属 API 不支持当前结构化输出模式');
@@ -5883,12 +5889,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const engine=this.engine;
             if(this.usesDedicated()){
                 const api=this.normalize(engine.config.dedicatedApi);
-                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:'请求中',尝试模式:[],usage:null};
+                engine.lastTransportInfo={接口:'世界推进专属 API',模型:String(options.model||api.model||''),结构化模式:'请求中',尝试模式:[],usage:null};
                 return this.requestDedicated(system,input,options);
             }
             const terminal=engine.host.Samsara&&engine.host.Samsara.terminal;
             if(!terminal||typeof terminal.request!=='function'||!terminal.apiReady?.())throw new Error('请在主神终端设置中启用额外模型并选择模型');
-            engine.lastTransportInfo={接口:'主神终端额外模型',模型:'',结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
+            engine.lastTransportInfo={接口:'主神终端额外模型',模型:String(options.model||''),结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
             return terminal.request(system,input,options);
         }
     }
@@ -6929,10 +6935,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 硬要求:[
                     '异端不能作为本轮唯一变化；至少推进事件、势力地区或普通人物中的一项非异端实质变化。',
                     '若地区为空：建立至少1个与当前地点/阶段相关的地区。',
-                    '若势力为空：建立至少1个当前真实相关的势力/组织；同名提交 WorldResult.势力（实力/领地/描述/声望）与 WorldResult.势力地区（类型=势力的动态现场）。',
                     '若没有进行中的非宏观事件：建立至少1个正在发生的当前事件/近期节点。',
                     '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
-                ]
+                ],
+                软目标:['__PROMPT_REGISTRY_WORLD_ACTIVITY_SOFT__']
             };
             request.input=JSON.stringify(payload,null,2);
             request.timeline=Object.assign({},request.timeline,{世界活动要求:requirement});

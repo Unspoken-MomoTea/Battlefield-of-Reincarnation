@@ -100,7 +100,7 @@ async function githubRefHeadSha(fetchImpl, ref) {
 }
 
 async function githubStableWorkshop(fetchImpl, ref) {
-  const tagged = await latestTaggedRelease(fetchImpl, 'workshop-v');
+  const tagged = await latestTaggedRelease(fetchImpl, 'V');
   const headSha = await githubRefHeadSha(fetchImpl, ref);
   if (tagged && tagged.sha === headSha) return { ...tagged, channel: 'stable', ref };
   return {

@@ -207,10 +207,11 @@ export function createWorldEngineUpdater({
       changedScripts,
       changedScopes: [...changedScopes],
       latestSha: latest.sha,
+      latestLoaderRef,
       latestShortSha: latest.sha.slice(0, 8),
       latestVersion: latest.version || '',
       latestTag: latest.tag || '',
-      latestImportUrl: worldEngineImportUrl(latest.sha),
+      latestImportUrl: worldEngineImportUrl(latestLoaderRef),
     };
   }
 

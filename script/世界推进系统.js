@@ -3474,7 +3474,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
         retryGuidePropagationReview:'传播维护：{details}。逐条更新到当前世界时间，并推进范围/受众/内容/引发行动；若传播已结束则结束或移除，不要原样重交。',
         retryGuideTemporalIntegrity:'时间一致性：事件/地区/历史/传播只把“跨到未来自然日”视为硬越界，同日不同上午/下午/HH:mm无需回写；人物只有双方均明确 HH:mm 时才做分钟级校验。未来计划放预计结束、下次检查或待发生事件。',
         retryGuideWorldActivity:'世界活动：先推进非异端世界，再复核异端。至少提交一项进行中事件、势力/地区或普通人物的实质变化；只改更新时间、复述原值或新增未来宏观节点不算。',
-        retryGuideWorldScene:'世界现场：若势力地区为空，建立与当前地点/阶段直接相关的地区；若势力为空，选一个当前真正参与局势的真实势力/组织，同名提交 WorldResult.势力 与 WorldResult.势力地区(类型=势力)，不要编造与资料无关的组织。',
+        retryGuideWorldScene:'世界现场：若地区为空，建立与当前地点/阶段直接相关的地区。势力为空时可优先补一个当前真正参与局势的真实势力/组织，并同名提交 WorldResult.势力 与 WorldResult.势力地区(类型=势力)；势力属于软目标，若资料不足或势力片段因声望/Schema等规则被拒，不要为补档案反复重交或编造组织。',
         retryGuideCurrentReality:'当前现实：若没有进行中的当前事件/近期节点，从当前阶段与最新正文提炼一个“已经正在发生”的现实局势；不要把未来宏观节点提前结算。'
     });
 
@@ -4746,7 +4746,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
 
     // ---- migrated from script/world-engine-src/59-editable-module-prompts.part.js ----
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=6;
+    const WORLD_MODULE_PROMPT_VERSION=7;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，并优先延续当前作品正在发生的故事；只提交已经发生或需要规划的世界变化。
 【执行流程】
 1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。
@@ -7170,10 +7170,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     const WORLD_PROMPT_WORLD_ACTIVITY_INPUT=[
         '异端不能作为本轮唯一变化；至少推进事件、势力地区或普通人物中的一项非异端实质变化。',
         '若地区为空：建立至少1个与当前地点/阶段相关的地区。',
-        '若势力为空：建立至少1个当前真实相关的势力/组织；同名提交 WorldResult.势力（实力/领地/描述/声望）与 WorldResult.势力地区（类型=势力的动态现场）。',
         '若没有进行中的非宏观事件：建立至少1个正在发生的当前事件/近期节点。',
         '只改更新时间/下次检查、重复原值或只新增待发生宏观节点不算实质变化。'
     ].join('\n');
+    const WORLD_PROMPT_WORLD_ACTIVITY_SOFT_INPUT='若势力为空，优先补充1个当前真正参与局势的真实势力/组织；建立时同名提交 WorldResult.势力 与 WorldResult.势力地区（类型=势力）。若没有可靠资料或势力片段因声望、Schema等规则验收失败，不要为了补档案编造或反复重交，也不要影响其它已通过片段。';
     const WORLD_PROMPT_HISTORY_INPUT='按给定顺序压缩；时间字段是权威锚点，不得改写或补造。';
     const WORLD_PROMPT_WORLD_TIME_INPUT=JSON.stringify({
         所有权:'世界推进独占写入；变量 AI 只读',
@@ -7237,6 +7237,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 def({key:'rumorSourceBoundary',title:'传闻取材边界',group:'请求内指令',source:'59-rumor-world-request.part.js / 取材边界',scope:'user payload',condition:'每次传闻维护请求',defaultValue:()=>WORLD_PROMPT_RUMOR_SOURCE_BOUNDARY}),
                 def({key:'alienReviewGuidance',title:'活跃异端复核要求',group:'请求内指令',source:'59-alien-activity-normalization.part.js',scope:'user payload',condition:'活跃异端命中复核触发器时',defaultValue:()=>WORLD_PROMPT_ALIEN_REVIEW}),
                 def({key:'worldActivityInputGuidance',title:'世界活动交付 · 硬要求',group:'请求内指令',source:'WorldActivityRequestFeature / 硬要求',scope:'user payload lines',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_INPUT}),
+                def({key:'worldActivitySoftGuidance',title:'世界活动交付 · 势力软目标',group:'请求内指令',source:'WorldActivityRequestFeature / 软目标',scope:'user payload lines',condition:'势力档案为空时作为非阻塞建议',defaultValue:()=>WORLD_PROMPT_WORLD_ACTIVITY_SOFT_INPUT}),
                 def({key:'worldTimeInputGuidance',title:'世界时间维护 · 请求内指令',group:'请求内指令',source:'WorldTimeOwnershipFeature / 世界时间维护',scope:'user payload JSON',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_WORLD_TIME_INPUT}),
                 def({key:'historyInputGuidance',title:'历史压缩输入说明',group:'辅助模型',source:'historyMemoryPrompt()',scope:'user payload',condition:'历史记忆达到自动压缩阈值时',defaultValue:()=>WORLD_PROMPT_HISTORY_INPUT}),
                 def({key:'retryGuideMacroBackbone',title:'纠错动作 · 宏观骨架数量',group:'纠错重试',source:'WorldRetryGuidanceService',scope:'user payload / 补充清单',condition:'宏观事件不足时',defaultValue:()=>WORLD_RETRY_GUIDANCE_DEFAULTS.retryGuideMacroBackbone}),
@@ -7298,7 +7299,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const config=this.engine.config||(this.engine.config={}),previousVersion=Number(config.worldModulePromptVersion||0);
             if(typeof WORLD_MODULE_PROMPT_VERSION==='number'&&previousVersion<WORLD_MODULE_PROMPT_VERSION&&(!config.activePromptDocumentId||config.activePromptDocumentId===BUILTIN_DEFAULT_PROMPT_DOCUMENT.id)){
                 const defaults=this.defaults(),registry=plain(config.promptRegistry)?{...config.promptRegistry}:{};
-                for(const key of ['chronology','chronologyInputGuidance','chronologyNoEvidenceGuidance','chronologyPrinciples'])registry[key]=defaults[key];
+                for(const key of ['chronology','chronologyInputGuidance','chronologyNoEvidenceGuidance','chronologyPrinciples','worldActivity','worldActivityInputGuidance','worldActivitySoftGuidance','retryGuideWorldScene'])registry[key]=defaults[key];
                 config.promptRegistry=registry;
                 config.modulePrompts=Object.assign({},plain(config.modulePrompts)?config.modulePrompts:{},{chronology:defaults.chronology});
             }
@@ -7422,7 +7423,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }
             if(plain(payload.传闻维护)&&Object.hasOwn(payload.传闻维护,'取材边界'))payload.传闻维护.取材边界=this.value('rumorSourceBoundary');
             if(Array.isArray(payload.本轮必须维持的异端活动))for(const item of payload.本轮必须维持的异端活动)if(plain(item))item.要求=this.value('alienReviewGuidance');
-            if(plain(payload.本轮世界活动交付))payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+            if(plain(payload.本轮世界活动交付)){
+                payload.本轮世界活动交付.硬要求=this.value('worldActivityInputGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+                payload.本轮世界活动交付.软目标=this.value('worldActivitySoftGuidance').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+            }
             if(plain(payload.世界时间维护)){
                 try{
                     const configured=JSON.parse(this.value('worldTimeInputGuidance'));
@@ -9137,6 +9141,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             this.validation=new WorldValidationService(engine,this.validationPolicy,this.npcAudit);
             this.commit=new WorldCommitService(engine);
             this.mutations=new WorldMutationService(engine);
+            this.snapshots=new WorldSnapshotService(engine,this.mutations);
             this.events=new WorldEventService(engine);
             this.requests=new WorldRequestService(engine);
             ACTIVE_WORLD_REQUEST_SERVICE=this.requests;

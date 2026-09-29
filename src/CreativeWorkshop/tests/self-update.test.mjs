@@ -202,8 +202,14 @@ test('stable channel uses workshop tag when it matches workshop-stable and never
   assert.ok(urls.some(url => url.includes('/commits/workshop-stable')));
   assert.equal(urls.some(url => url.includes('sha=main')), false);
 
-  await updater.updateLoaderLink();
-  assert.match(adapter.state.character[0].content, new RegExp(`@${stable}/src/CreativeWorkshop/index\\.js`, 'u'));
+  const updated = await updater.updateLoaderLink();
+  assert.equal(updated.latestLoaderRef, 'V1.20.1');
+  assert.equal(
+    updated.latestImportUrl,
+    'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@V1.20.1/src/CreativeWorkshop/index.js',
+  );
+  assert.match(adapter.state.character[0].content, /@V1\.20\.1\/src\/CreativeWorkshop\/index\.js/u);
+  assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${stable}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
 
 test('self update leaves unrelated loader content untouched', async () => {

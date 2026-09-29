@@ -7,6 +7,8 @@ const stored={
   preset:'自定义旧预设',
   presetEditorVersion:2,
   retryAttempts:3,
+  temperature:9,
+  fallbackModel:'  backup-model  ',
   retryDefaultFiveMigrated:false,
   requireMacroBackbone:false,
   fontScale:'oversized',
@@ -49,6 +51,8 @@ const engine=new Engine(host);
 
 assert.equal(Object.hasOwn(engine.config,'tone'),false,'legacy tone must be removed during construction');
 assert.equal(engine.config.retryAttempts,5,'legacy retry default 3 must migrate to 5');
+assert.equal(engine.config.temperature,2,'temperature must clamp to the supported 0..2 range');
+assert.equal(engine.config.fallbackModel,'backup-model','fallback model must normalize whitespace');
 assert.equal(engine.config.retryDefaultFiveMigrated,true,'retry migration marker must be persisted');
 assert.equal(engine.config.requireMacroBackbone,false,'explicit macro-backbone preference must be preserved');
 assert.equal(engine.config.fontScale,'standard','invalid font scale must normalize to standard');

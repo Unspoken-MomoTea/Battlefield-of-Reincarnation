@@ -175,7 +175,7 @@ test('stable channel uses workshop tag when it matches workshop-stable and never
         });
       }
       if (value.includes('/tags?')) {
-        return new Response(JSON.stringify([{ name: 'workshop-v1.20.1', commit: { sha: stable } }]), {
+        return new Response(JSON.stringify([{ name: 'V1.20.1', commit: { sha: stable } }]), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -195,7 +195,7 @@ test('stable channel uses workshop tag when it matches workshop-stable and never
   assert.equal(check.channel, 'stable');
   assert.equal(check.ref, 'workshop-stable');
   assert.equal(check.latestSha, stable);
-  assert.equal(check.latestTag, 'workshop-v1.20.1');
+  assert.equal(check.latestTag, 'V1.20.1');
   assert.equal(check.latestVersion, '1.20.1');
   assert.equal(check.updateAvailable, true);
   assert.ok(urls.some(url => url.includes('/tags?')));

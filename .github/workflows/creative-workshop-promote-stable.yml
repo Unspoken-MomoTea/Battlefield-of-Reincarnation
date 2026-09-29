@@ -31,6 +31,11 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.63.0
+          npx playwright install --with-deps chromium
+
       - name: Resolve release target
         id: target
         shell: bash

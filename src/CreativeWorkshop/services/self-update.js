@@ -210,7 +210,74 @@ export function createWorkshopSelfUpdater({
     return { refs, latest, staleRefs };
   }
 
+  async function normalizeFormalLoaderLink() {
+    const scan = await scanLoaders(adapter);
+    const { latest } = await resolve(scan);
+    if (updateChannel !== 'stable' || latest?.releaseSource !== 'tag' || !latest?.tag || !latest?.sha) {
+      return { normalized: false, changedScripts: 0, changedScopes: [] };
+    }
+
+    const changedScopes = new Set();
+    let changedScripts = 0;
+    for (const loader of scan.loaders) {
+      if (!loader.refs.length || !loader.refs.every(currentRef => currentRef === latest.sha)) continue;
+      const trees = scan.treesByScope.get(loader.scope);
+      const tree = trees?.[loader.treeIndex];
+      const script = loader.scriptIndex === null ? tree : tree?.scripts?.[loader.scriptIndex];
+      if (!script || typeof script.content !== 'string') continue;
+      const nextContent = rewriteWorkshopLoaderContent(script.content, latest.tag);
+      if (nextContent === script.content) continue;
+      script.content = nextContent;
+      changedScopes.add(loader.scope);
+      changedScripts += 1;
+    }
+
+    if (!changedScopes.size) {
+      return {
+        normalized: false,
+        changedScripts: 0,
+        changedScopes: [],
+        latestSha: latest.sha,
+        latestTag: latest.tag,
+        latestLoaderRef: latest.tag,
+      };
+    }
+
+    const originals = new Map();
+    const written = [];
+    try {
+      for (const scope of changedScopes) {
+        originals.set(scope, cloneScriptTree(await adapter.getScriptTrees(scope)));
+        await adapter.replaceScriptTrees(scan.treesByScope.get(scope), scope);
+        written.push(scope);
+      }
+      const verified = await scanLoaders(adapter);
+      const writtenLoaders = verified.loaders.filter(item => changedScopes.has(item.scope));
+      const invalid = writtenLoaders.filter(item =>
+        !item.refs.length || item.refs.some(currentRef => currentRef !== latest.tag)
+      );
+      if (!writtenLoaders.length || invalid.length) {
+        throw new Error('正式版本链接规范化后校验失败');
+      }
+    } catch (error) {
+      for (const scope of written.reverse()) {
+        try { await adapter.replaceScriptTrees(originals.get(scope), scope); } catch {}
+      }
+      throw error;
+    }
+
+    return {
+      normalized: true,
+      changedScripts,
+      changedScopes: [...changedScopes],
+      latestSha: latest.sha,
+      latestTag: latest.tag,
+      latestLoaderRef: latest.tag,
+    };
+  }
+
   return {
+    normalizeFormalLoaderLink,
     async check() {
       const scan = await scanLoaders(adapter);
       const { refs, latest, staleRefs } = await resolve(scan);

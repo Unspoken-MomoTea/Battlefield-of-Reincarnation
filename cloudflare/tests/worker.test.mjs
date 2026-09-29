@@ -62,85 +62,108 @@ test('health endpoint exposes the service contract', async () => {
   });
 });
 
-test('stable latest endpoint resolves workshop-stable instead of main', async () => {
+test('stable latest endpoint uses matching workshop tag as formal release', async () => {
   const originalFetch = globalThis.fetch;
   const urls = [];
   const stableSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   globalThis.fetch = async url => {
-    urls.push(String(url));
-    return new Response(JSON.stringify([{ sha: stableSha }]), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const value = String(url);
+    urls.push(value);
+    if (value.includes('/tags?')) {
+      return new Response(JSON.stringify([{ name: 'workshop-v1.20.1', commit: { sha: stableSha } }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (value.includes('/commits/workshop-stable')) {
+      return new Response(JSON.stringify({ sha: stableSha }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected request: ${value}`);
   };
-
   try {
-    const response = await handleRequest(
-      new Request('https://workshop.example/api/client/latest'),
-      env(),
-    );
+    const response = await handleRequest(new Request('https://workshop.example/api/client/latest'), env());
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.equal(body.channel, 'stable');
-    assert.equal(body.ref, 'workshop-stable');
+    assert.equal(body.release_source, 'tag');
+    assert.equal(body.tag, 'workshop-v1.20.1');
+    assert.equal(body.version, '1.20.1');
     assert.equal(body.sha, stableSha);
-    assert.equal(body.short_sha, stableSha.slice(0, 8));
-    assert.equal(body.repository, 'Unspoken-MomoTea/Battlefield-of-Reincarnation');
-    assert.equal(body.entry_path, '/src/CreativeWorkshop/index.js');
-    assert.ok(body.checked_at > 0);
-    assert.equal(body.cached, false);
   } finally {
     globalThis.fetch = originalFetch;
   }
-
-  assert.equal(urls.some(url => url.includes('/commits/main')), false);
-  assert.equal(
-    urls.some(url => url.includes('/commits?') && url.includes('sha=workshop-stable') && url.includes('path=src%2FCreativeWorkshop')),
-    true,
-  );
+  assert.ok(urls.some(url => url.includes('/tags?')));
+  assert.ok(urls.some(url => url.includes('/commits/workshop-stable')));
+  assert.equal(urls.some(url => url.includes('sha=main')), false);
 });
 
-test('testing latest endpoint resolves main and uses a separate cache key', async () => {
+test('stable workshop keeps legacy stable behavior until a tag matches stable head', async () => {
   const originalFetch = globalThis.fetch;
-  const urls = [];
-  const mainSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const tagSha = '1111111111111111111111111111111111111111';
+  const stableHead = '2222222222222222222222222222222222222222';
+  const componentSha = '3333333333333333333333333333333333333333';
   globalThis.fetch = async url => {
-    urls.push(String(url));
-    return new Response(JSON.stringify([{ sha: mainSha }]), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const value = String(url);
+    if (value.includes('/tags?')) {
+      return new Response(JSON.stringify([{ name: 'workshop-v1.0.0', commit: { sha: tagSha } }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (value.includes('/commits/workshop-stable')) {
+      return new Response(JSON.stringify({ sha: stableHead }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (value.includes('/commits?')) {
+      return new Response(JSON.stringify([{ sha: componentSha }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected request: ${value}`);
   };
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/client/latest'),
+      env({ SESSION_KV: new MemoryKV() }),
+    );
+    const body = await response.json();
+    assert.equal(body.release_source, 'legacy-ref');
+    assert.equal(body.sha, componentSha);
+    assert.equal(body.tag, '');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
+test('testing latest endpoint resolves main and uses component cache key', async () => {
+  const originalFetch = globalThis.fetch;
+  const mainSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  globalThis.fetch = async () => new Response(JSON.stringify([{ sha: mainSha }]), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
   const testEnv = env({
     CLIENT_UPDATE_CHANNEL: 'testing',
     CLIENT_UPDATE_REF: 'main',
     SESSION_KV: new MemoryKV(),
   });
-
   try {
-    const response = await handleRequest(
-      new Request('https://workshop.example/api/client/latest'),
-      testEnv,
-    );
-    assert.equal(response.status, 200);
+    const response = await handleRequest(new Request('https://workshop.example/api/client/latest'), testEnv);
     const body = await response.json();
     assert.equal(body.channel, 'testing');
     assert.equal(body.ref, 'main');
+    assert.equal(body.release_source, 'branch');
     assert.equal(body.sha, mainSha);
-    assert.equal(body.short_sha, mainSha.slice(0, 8));
-    assert.ok(body.checked_at > 0);
-    assert.equal(body.cached, false);
   } finally {
     globalThis.fetch = originalFetch;
   }
-
   assert.equal(
-    urls.some(url => url.includes('/commits?') && url.includes('sha=main') && url.includes('path=src%2FCreativeWorkshop')),
-    true,
-  );
-  assert.equal(
-    await testEnv.SESSION_KV.get('public:workshop-client:v2:testing:main') !== null,
+    await testEnv.SESSION_KV.get('public:core-component:v1:workshop:testing:main') !== null,
     true,
   );
 });

@@ -124,16 +124,17 @@
         align-items: center;
         gap: 6px;
       }
-      .cb-module-header.action { color: #ffffff; border-left-color: #ff4d6d; background: #2a121a; }
-      .cb-module-header.damage { color: #ffffff; border-left-color: #fb923c; background: #2d1806; }
-      .cb-module-header.end { color: #ffffff; border-left-color: #4ade80; background: #062817; }
-      .cb-module-header.decision { color: #ffffff; border-left-color: #a78bfa; background: #171229; }
+      .cb-module-header.prep { color: #ffffff; border-left-color: #38bdf8; background: #0c2338; } /* 战前准备 */
+      .cb-module-header.action { color: #ffffff; border-left-color: #ff4d6d; background: #2a121a; } /* 主要行动 */
+      .cb-module-header.damage { color: #ffffff; border-left-color: #fb923c; background: #2d1806; } /* 伤害结算 */
+      .cb-module-header.end { color: #ffffff; border-left-color: #4ade80; background: #062817; } /* 结算收尾 */
+      .cb-module-header.decision { color: #ffffff; border-left-color: #a78bfa; background: #171229; } /* 战术决策 */
 
       /* 管道数据网格行：黑底反色边框 */
       .cb-pipeline-row {
         display: flex;
         flex-wrap: wrap;
-        align-items: flex-start;  /* item 多行时顶部对齐, 防止高度拉伸错位 */
+        align-items: flex-start;
         gap: 8px 14px;
         padding: 6px 10px;
         margin: 3px 0;
@@ -146,17 +147,16 @@
         background: #10131c;
         border-left: 2px solid #a78bfa;
       }
-      /* ★ 终局结算·可拾取物条目(🔹/🔸/※ 开头的缩进行): 橙色左边框呼应图标 */
+      /* 终局结算·可拾取物/击杀统计条目: 橙色左边框 */
       .cb-pipeline-row.loot {
         border-left: 2px solid #fb923c;
         background: #16130c;
       }
       .cb-pipeline-item {
-        /* 流式布局: 长公式按整词换行, 避免 flex 收缩把内容挤压成逐字竖排堆叠 */
         display: inline-block;
         max-width: 100%;
         vertical-align: top;
-        overflow-wrap: break-word;  /* 超长 token(长串数字/表达式)兜底强制断行 */
+        overflow-wrap: break-word;
         line-height: 1.6;
         color: #f1f5f9;
       }
@@ -171,66 +171,30 @@
       .cb-arrow { color: #facc15; font-weight: 900; margin: 0 4px; }
       .cb-mult { color: #facc15; font-weight: 800; margin: 0 2px; }
       .cb-separator { color: #64748b; font-weight: 400; margin: 0 4px; opacity: 0.85; }
-      /* ★ 终局结算·备注符号(※): 弱化灰蓝斜体 */
       .cb-note { color: #94a3b8; font-style: italic; }
       .cb-success { color: #4ade80; font-weight: 800; }
       .cb-fail { color: #ff4d4f; font-weight: 800; }
+      .cb-warning { color: #fbbf24; font-weight: 800; }
       .cb-damage { color: #ff334b; font-weight: 900; font-size: 1.1em; text-shadow: 0 0 8px rgba(255, 51, 75, 0.4); }
+
+      /* ★ 哥哥确定的全新战术与伤害色彩分类 */
+      .cb-resource { color: #38bdf8; font-weight: 700; } /* 行动资源与消耗品：天蓝色 */
+      .cb-dmg-phys { color: #fb923c; font-weight: 700; } /* 物理构成：亮橙金 */
+      .cb-dmg-magic { color: #818cf8; font-weight: 700; text-shadow: 0 0 5px rgba(129, 140, 248, 0.25); } /* 魔法/能量构成：灵能蓝紫 */
+      .cb-dmg-true { color: #c084fc; font-weight: 800; text-shadow: 0 0 6px rgba(192, 132, 252, 0.35); } /* 真实伤害：法则幽紫 */
 
       /* --- 手机端适配代码 --- */
       @media (max-width: 600px) {
-        body {
-          padding: 12px;
-        }
-
-        .cb-summary {
-          max-width: 95%;
-          padding: 4px 12px;
-          gap: 6px;
-        }
-
-        .cb-label {
-          max-width: calc(85vw - 50px);
-          font-size: 0.85em;
-          letter-spacing: 0;
-        }
-
-        .cb-content {
-          margin: 8px 0 15px 15px;
-          padding: 10px 12px;
-        }
-
-        .cb-line {
-          font-size: 0.85em;
-          padding: 3px 0;
-        }
-
-        .cb-module-header {
-          font-size: 0.85em;
-          padding: 3px 10px;
-          margin: 8px 0 5px 0;
-        }
-
-        .cb-pipeline-row {
-          gap: 4px 8px;
-          padding: 5px 8px;
-        }
-
-        .cb-pipeline-row.sub {
-          margin-left: 6px;
-        }
-
-        .cb-pipeline-item {
-          font-size: 0.9em;
-        }
-
-        .cb-pipeline-item {
-          line-height: 1.55;   /* 手机端多行公式行距收紧 */
-        }
-
-        .cb-code {
-          padding: 1px 4px;
-        }
+        body { padding: 12px; }
+        .cb-summary { max-width: 95%; padding: 4px 12px; gap: 6px; }
+        .cb-label { max-width: calc(85vw - 50px); font-size: 0.85em; letter-spacing: 0; }
+        .cb-content { margin: 8px 0 15px 15px; padding: 10px 12px; }
+        .cb-line { font-size: 0.85em; padding: 3px 0; }
+        .cb-module-header { font-size: 0.85em; padding: 3px 10px; margin: 8px 0 5px 0; }
+        .cb-pipeline-row { gap: 4px 8px; padding: 5px 8px; }
+        .cb-pipeline-row.sub { margin-left: 6px; }
+        .cb-pipeline-item { font-size: 0.9em; line-height: 1.55; }
+        .cb-code { padding: 1px 4px; }
       }
     </style>
 </head>
@@ -251,16 +215,31 @@
     <script>
       (function() {
         var moduleIcons = {
-          '战况总览': '🛡️', '行动顺位': '⚡', '主要行动': '⚔️',
-          'NPC战术决策': '🧭', '次要行动与移动': '👟', '伤害结算': '💥',
-          '战意判定': '🧠', '回合收尾·战况更新': '⏱️', '战斗终局结算': '🏆'
+          '战前准备': '🎯',
+          '战况总览': '🛡️',
+          '行动顺位': '⚡',
+          '主要行动': '⚔️',
+          'NPC战术决策': '🧭',
+          '次要行动与移动': '👟',
+          '伤害结算': '💥',
+          '战意判定': '🧠',
+          '回合收尾·战况更新': '⏱️',
+          '战斗终局结算': '🏆'
         };
 
         function highlightInline(text) {
           var keywords = ["DC","HP","THP","EP","DEF","MDEF","AP","ATK","MATK","vs"];
+          var resourceWords = ["主要行动", "次要行动", "移动", "主要动作", "次要动作"];
+          var damageTypeWords = {
+            "物理构成": "dmg-phys",
+            "最终物理": "dmg-phys",
+            "魔法构成": "dmg-magic",
+            "最终魔法": "dmg-magic",
+            "真实伤害": "dmg-true"
+          };
           var specialChars = {
             '[': 'bracket', ']': 'bracket',
-            '✅': 'success', '❌': 'fail', '💥': 'damage', '💚': 'heal',
+            '✅': 'success', '❌': 'fail', '⚠️': 'warning', '💥': 'damage', '💚': 'heal',
             '💀': 'fail', '🔹': 'bracket', '🔸': 'bracket', '▸': 'bracket',
             '※': 'note',
             '➞': 'arrow', '→': 'arrow',
@@ -277,6 +256,7 @@
               continue;
             }
             if (inCode) { result += char; continue; }
+
             var specialToken = Object.keys(specialChars).find(function(token) {
               return text.substring(i, i + token.length) === token;
             });
@@ -285,17 +265,46 @@
               i += specialToken.length - 1;
               continue;
             }
+
             if (char === '-' && text.substring(i, i + 2) === '->') {
               result += '<span class="cb-arrow">-></span>';
               i += 1;
               continue;
             }
+
             var dcMatch = text.substring(i).match(/^DC\s*\d+/);
             if (dcMatch) {
               result += '<span class="cb-dc">' + dcMatch[0] + '</span>';
               i += dcMatch[0].length - 1;
               continue;
             }
+
+            // 伤害类型词汇精准着色
+            var dmgMatched = false;
+            for (var dmgKey in damageTypeWords) {
+              if (text.substring(i, i + dmgKey.length) === dmgKey) {
+                result += '<span class="cb-' + damageTypeWords[dmgKey] + '">' + dmgKey + '</span>';
+                i += dmgKey.length - 1;
+                dmgMatched = true;
+                break;
+              }
+            }
+            if (dmgMatched) continue;
+
+            // 行动资源词汇天蓝着色
+            var resMatched = false;
+            for (var r = 0; r < resourceWords.length; r++) {
+              var rw = resourceWords[r];
+              if (text.substring(i, i + rw.length) === rw) {
+                result += '<span class="cb-resource">' + rw + '</span>';
+                i += rw.length - 1;
+                resMatched = true;
+                break;
+              }
+            }
+            if (resMatched) continue;
+
+            // 核心战斗英文属性关键词着色
             var matched = false;
             for (var k = 0; k < keywords.length; k++) {
               var kw = keywords[k];
@@ -307,6 +316,14 @@
               }
             }
             if (matched) continue;
+
+            // 消耗型负数/资源扣减（如 破甲羽箭 -1 或 EP -25）智能识别天蓝色
+            var resDeltaMatch = text.substring(i).match(/^([^\s,\|\[\]]+)\s*(-[0-9]+)/);
+            if (resDeltaMatch && !/HP|THP|DEF|MDEF|DC/i.test(resDeltaMatch[1])) {
+              result += '<span class="cb-resource">' + resDeltaMatch[1] + ' ' + resDeltaMatch[2] + '</span>';
+              i += resDeltaMatch[0].length - 1;
+              continue;
+            }
 
             var numMatch = text.substring(i).match(/^(\d+\/\d+|\d*[Dd]\d+(?:\s*[+-]\s*\d+)?|-?\d+%?)/);
             if (numMatch) {
@@ -345,10 +362,11 @@
               }
               var icon = moduleIcons[modName] || '⚔️';
               var modClass = 'cb-module-header';
-              if (modName.indexOf('行动') !== -1) modClass += ' action';
-              if (modName.indexOf('伤害') !== -1) modClass += ' damage';
-              if (modName.indexOf('结算') !== -1 || modName.indexOf('收尾') !== -1) modClass += ' end';
-              if (modName.indexOf('战术') !== -1 || modName.indexOf('决策') !== -1) modClass += ' decision';
+              if (modName.indexOf('准备') !== -1) modClass += ' prep';
+              else if (modName.indexOf('行动') !== -1) modClass += ' action';
+              else if (modName.indexOf('伤害') !== -1) modClass += ' damage';
+              else if (modName.indexOf('结算') !== -1 || modName.indexOf('收尾') !== -1) modClass += ' end';
+              else if (modName.indexOf('战术') !== -1 || modName.indexOf('决策') !== -1) modClass += ' decision';
               finalHtml += '<div class="' + modClass + '">' + icon + ' ' + modName + '</div>';
               return;
             }
@@ -357,8 +375,8 @@
               var isSub = /^\s*\|\s{2,}/.test(line);
               var inner = cleanedLine.endsWith('|') ? cleanedLine.slice(1, -1) : cleanedLine.slice(1);
               var segments = inner.split('|');
-              // ★ 终局结算·可拾取物: 缩进条目以 🔹/🔸/※ 开头时追加 loot 类(橙色边框)
-              var isLoot = /^\s*\|\s{2,}[🔹🔸※]/.test(line);
+              // 终局结算·可拾取物/击杀统计条目(🔹/🔸/※/▸ 开头的缩进行): 追加 loot 类(橙色边框)
+              var isLoot = /^\s*\|\s{2,}[🔹🔸※▸]/.test(line);
               var rowHtml = '<div class="cb-pipeline-row' + (isSub ? ' sub' : '') + (isLoot ? ' loot' : '') + '">';
               segments.forEach(function(seg) {
                 var trimmedSeg = seg.trim();

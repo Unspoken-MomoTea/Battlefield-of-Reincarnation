@@ -151,10 +151,14 @@
         border-color: #4c3477;
         border-left: 2px solid #8b5cf6;
       }
-      /* ★ 生产结算·产出物条目(🔹/🔸/※ 开头的缩进行): 橙铜左边框呼应图标 */
+      /* ★ 生产结算·产出物条目(🔹/🔸/⭐/※ 开头的缩进行): 橙铜/金色左边框呼应图标 */
       .cr-pipeline-row.loot {
         border-left: 2px solid #d97a06;
         background: #191106;
+      }
+      .cr-pipeline-row.loot.miracle {
+        border-left: 2px solid #ffd700;
+        background: #1f1807;
       }
       .cr-pipeline-item {
         /* 流式布局: 长公式按整词换行, 避免 flex 收缩把内容挤压成逐字竖排堆叠 */
@@ -180,7 +184,7 @@
       .cr-note { color: #a89b7a; font-style: italic; }
       .cr-success { color: #4ade80; font-weight: 800; }
       .cr-fail { color: #ff4d4f; font-weight: 800; }
-      /* 💥精益求精: 出金爆闪, 呼应"完美产出" */
+      /* 💥精益求精 / ⭐奇迹词条: 出金爆闪, 呼应"完美产出" */
       .cr-great { color: #ffd700; font-weight: 900; text-shadow: 0 0 10px rgba(255, 215, 0, 0.55); }
       .cr-reforge { color: #ddd6fe; font-weight: 900; background: rgba(139, 92, 246, 0.2); padding: 1px 5px; border: 1px solid rgba(167, 139, 250, 0.5); border-radius: 4px; }
 
@@ -229,9 +233,6 @@
 
         .cr-pipeline-item {
           font-size: 0.9em;
-        }
-
-        .cr-pipeline-item {
           line-height: 1.55;   /* 手机端多行公式行距收紧 */
         }
 
@@ -266,7 +267,7 @@
           var specialChars = {
             '[': 'bracket', ']': 'bracket',
             '✅': 'success', '❌': 'fail', '⚠️': 'fail', '💀': 'fail',
-            '💥': 'great',
+            '💥': 'great', '⭐': 'great',
             '🔹': 'bracket', '🔸': 'bracket', '▸': 'bracket',
             '※': 'note',
             '➞': 'arrow', '→': 'arrow',
@@ -283,7 +284,7 @@
               continue;
             }
             if (inCode) { result += char; continue; }
-            var reforgeMatch = text.substring(i).match(/^(造物重铸|重铸目标|重铸变化)/);
+            var reforgeMatch = text.substring(i).match(/^(造物重铸|重铸目标|重铸变化|奇迹响应加成)/);
             if (reforgeMatch) {
               result += '<span class="cr-reforge">' + reforgeMatch[0] + '</span>';
               i += reforgeMatch[0].length - 1;
@@ -364,14 +365,20 @@
             }
 
             // ★ 与战斗版同源: 以 '|' 开头即识别为配方管道行(容忍缺尾竖线),
-            //   双空格缩进判定为 sub 子行; 🔹/🔸/※ 开头判定为产出物 loot 条目
+            //   双空格缩进判定为 sub 子行; 🔹/🔸/⭐/※ 开头判定为产出物 loot 条目
             if (cleanedLine.startsWith('|')) {
               var isSub = /^\s*\|\s{2,}/.test(line);
               var inner = cleanedLine.endsWith('|') ? cleanedLine.slice(1, -1) : cleanedLine.slice(1);
               var segments = inner.split('|');
-              var isLoot = /^\s*\|\s{2,}[🔹🔸※]/.test(line);
-              var isReforgeRow = isReforgePanel && /(造物重铸|重铸目标|重铸变化)/.test(inner);
-              var rowHtml = '<div class="cr-pipeline-row' + (isSub ? ' sub' : '') + (isLoot ? ' loot' : '') + (isReforgeRow ? ' reforge' : '') + '">';
+              var isLoot = /^\s*\|\s{2,}[🔹🔸⭐※]/.test(line);
+              var isMiracleLoot = /^\s*\|\s{2,}⭐/.test(line);
+              var isReforgeRow = isReforgePanel && /(造物重铸|重铸目标|重铸变化|奇迹响应加成)/.test(inner);
+              var rowClass = 'cr-pipeline-row' +
+                             (isSub ? ' sub' : '') +
+                             (isLoot ? ' loot' : '') +
+                             (isMiracleLoot ? ' miracle' : '') +
+                             (isReforgeRow ? ' reforge' : '');
+              var rowHtml = '<div class="' + rowClass + '">';
               segments.forEach(function(seg) {
                 var trimmedSeg = seg.trim();
                 if (trimmedSeg) {

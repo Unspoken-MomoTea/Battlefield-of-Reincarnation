@@ -1,428 +1,1461 @@
-```text
-<!DOCTYPE html>
+```html
+<!doctype html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>动态检定结果渲染器</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      
-      body { 
-        background: transparent;
-        color: #e0e0e0; 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-        padding: 20px; 
-        line-height: 1.6; 
-      }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BG3 统一判定与实体结算</title>
+  <style>
+    :root {
+      --bg3-bg-dark: #0c0e12;
+      --bg3-bg-card: #141720;
+      --bg3-bg-surface: #1a1e2b;
+      --bg3-bg-parchment: #181613;
+      --bg3-gold-bright: #edd89f;
+      --bg3-gold-mid: #c4a661;
+      --bg3-gold-dim: #8a7343;
+      --bg3-border-dark: #383121;
+      --bg3-text-main: #e3dac9;
+      --bg3-text-dim: #9e9482;
+      --bg3-text-italic: #bfb5a3;
 
-      .dice-btn { 
-        display: inline-flex; 
-        align-items: center; 
-        gap: 8px; 
-        padding: 3px 12px;
-        margin: 2px 0;
-        background: linear-gradient(135deg, rgba(42,45,58,0.9), rgba(31,34,41,0.9));
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 20px; 
-        cursor: pointer; 
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        user-select: none; 
-        position: relative; 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
-      }
-      
-      .dice-btn:hover { 
-        background: linear-gradient(135deg, rgba(58,61,74,0.95), rgba(47,50,57,0.95));
-        border-color: rgba(255,255,255,0.2);
-        transform: translateY(-2px); 
-        box-shadow: 0 4px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
-      }
-      
-      .dice-btn.active { 
-        background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.2));
-        border-color: rgba(16,185,129,0.5);
-        box-shadow: 0 4px 16px rgba(16,185,129,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
-      }
-      
-      .dice-icon { 
-        width: 20px; 
-        height: 20px; 
-        fill: #9ca3af; 
-        transition: transform 0.3s ease, fill 0.3s ease; 
-        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
-      }
-      
-      .dice-btn:hover .dice-icon { 
-        fill: #cbd5e1; 
-        transform: rotate(15deg) scale(1.05); 
-      }
-      
-      .dice-btn.active .dice-icon { 
-        fill: #86efac; 
-        transform: rotate(45deg); 
-        filter: drop-shadow(0 0 6px rgba(134,239,172,0.5));
-      }
-      
-      .dice-label { 
-        font-size: 0.88em; 
-        color: #9ca3af; 
-        font-weight: 500; 
-        max-width: 350px; 
-        overflow: hidden; 
-        text-overflow: ellipsis; 
-        white-space: nowrap; 
-        letter-spacing: 0.3px;
-      }
-      
-      .dice-btn:hover .dice-label { 
-        color: #e5e7eb; 
-      }
-      
-      .dice-btn.active .dice-label { 
-        color: #86efac; 
-        text-shadow: 0 0 10px rgba(134,239,172,0.3);
-      }
-      
-      .dice-content { 
-        display: none; 
-        margin: 10px 0 20px 28px; 
-        padding: 18px 20px; 
-        background: linear-gradient(135deg, rgba(36,40,49,0.95), rgba(26,29,36,0.95));
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 12px; 
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03);
-        animation: fadeIn 0.3s ease; 
-        position: relative; 
-        overflow: hidden; 
-      }
-      
-      .dice-content::before { 
-        content: ''; 
-        position: absolute; 
-        top: 0; 
-        left: 0; 
-        width: 3px; 
-        height: 100%; 
-        background: linear-gradient(180deg, #60a5fa, #3b82f6); 
-        box-shadow: 0 0 10px rgba(59,130,246,0.5);
-      }
-      
-      .dice-content.show { 
-        display: block; 
-      }
-      
-      @keyframes fadeIn { 
-        from { 
-          opacity: 0; 
-          transform: translateY(-10px); 
-        } 
-        to { 
-          opacity: 1; 
-          transform: translateY(0); 
-        } 
-      }
-      
-      .content-line { 
-        padding: 4px 0; 
-        font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace; 
-        font-size: 0.9em; 
-        color: #d1d5db; 
-        word-wrap: break-word; 
-        white-space: pre-wrap; 
-        transition: background-color 0.2s;
-      }
-      
-      .content-line:hover {
-        background: linear-gradient(90deg, transparent, rgba(96,165,250,0.05), transparent);
-      }
-      
-      .content-line.indent-1 { padding-left: 24px; }
-      .content-line.indent-2 { padding-left: 48px; }
-      .content-line.indent-3 { padding-left: 72px; }
-      
-      .content-line.first-line { 
-        font-size: 1em; 
-        font-weight: 600; 
-        color: #f3f4f6; 
-        padding: 6px 8px;
-        padding-bottom: 10px; 
-        margin-bottom: 10px; 
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        background: linear-gradient(90deg, rgba(96,165,250,0.08), transparent);
-        border-radius: 4px 4px 0 0;
-      }
+      /* 评级与光效 */
+      --q-crit-success: #ffd700;
+      --q-crit-glow: #48c774;
+      --q-success: #2ecc71;
+      --q-failure: #e74c3c;
+      --q-crit-failure: #961c1c;
 
-      .content-line.section-header {
-        font-size: 0.82em;
-        font-weight: 700;
-        color: #93c5fd;
-        margin-top: 8px;
-        padding: 4px 8px;
-        background: rgba(255,255,255,0.04);
-        border-left: 2px solid #60a5fa;
-        border-radius: 0 4px 4px 0;
-        letter-spacing: 0.5px;
-      }
-      .content-line.section-header.check { color: #fdba74; border-left-color: #fb923c; background: rgba(251,146,60,0.06); }
-      .content-line.section-header.result { color: #fca5a5; border-left-color: #ef4444; background: rgba(239,68,68,0.06); }
-      .content-line.section-header.change { color: #fde047; border-left-color: #eab308; background: rgba(234,179,8,0.06); }
-      .content-line.section-header.note { color: #d8b4fe; border-left-color: #a855f7; background: rgba(168,85,247,0.06); font-style: italic; }
-      .content-line.section-header.entity { color: #86efac; border-left-color: #22c55e; background: rgba(34,197,94,0.06); }
-      
-      .tk-bracket { 
-        color: #fbbf24; 
-        font-weight: 500; 
-        text-shadow: 0 0 6px rgba(251,191,36,0.3);
-      }
-      
-      .tk-code { 
-        background: rgba(30,41,59,0.8);
-        color: #38bdf8; 
-        padding: 2px 6px; 
-        border-radius: 4px; 
-        font-size: 0.95em; 
-        border: 1px solid rgba(56,189,248,0.3);
-        margin: 0 2px;
-      }
-      
-      .tk-keyword { 
-        color: #e879f9; 
-        font-weight: 600; 
-        text-transform: uppercase;
-        text-shadow: 0 0 8px rgba(232,121,249,0.3);
-      }
-      
-      .tk-dc { 
-        color: #f87171; 
-        font-weight: 700; 
-        text-shadow: 0 0 6px rgba(248,113,113,0.3);
-      }
-      
-      .tk-number { 
-        color: #4ade80; 
-        font-weight: 600; 
-        text-shadow: 0 0 6px rgba(74,222,128,0.2);
-      }
-      
-      .tk-dice { 
-        color: #fb923c; 
-        font-weight: 500; 
-        background: rgba(251,146,60,0.1);
-        padding: 1px 4px;
-        border-radius: 3px;
-      }
-      
-      .tk-arrow { 
-        color: #fcd34d; 
-        font-weight: bold; 
-        margin: 0 4px; 
-        font-size: 1.1em;
-      }
-      
-      .tk-success { 
-        color: #4ade80; 
-        font-weight: 600; 
-        text-shadow: 0 0 8px rgba(74,222,128,0.4);
-      }
-      
-      .tk-fail { 
-        color: #f87171; 
-        font-weight: 600; 
-        text-shadow: 0 0 8px rgba(248,113,113,0.4);
-      }
-      
-      .tk-damage { 
-        color: #ef4444; 
-        font-weight: bold; 
-        font-size: 1.1em;
-        text-shadow: 0 0 10px rgba(239,68,68,0.5);
-      }
-      
-      .tk-heal { 
-        color: #4ade80; 
-        font-weight: bold; 
-        font-size: 1.1em;
-        text-shadow: 0 0 10px rgba(74,222,128,0.5);
-      }
-      
-      .tk-separator { 
-        color: #6b7280; 
-        margin: 0 6px; 
-        opacity: 0.6;
-      }
+      /* 品质与层级色 */
+      --q-f: #a0a0a0;
+      --q-e: #52b788;
+      --q-d: #4895ef;
+      --q-c: #9d4edd;
+      --q-b: #f7a072;
+      --q-a: #f35b04;
+      --q-s: #ffd166;
+      --q-ss: #f72585;
+      --q-sss: #72efdd;
 
-      .tk-note {
-        color: #9ca3af;
-        font-style: italic;
-      }
+      --bg3-font: Cinzel, 'Times New Roman', 'Noto Serif SC', serif;
+    }
 
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* --- 手机端适配代码 --- */
-@media (max-width: 600px) {
-  body {
-    padding: 12px;
-  }
+    body {
+      background: transparent;
+      color: var(--bg3-text-main);
+      font-family: var(--bg3-font);
+      line-height: 1.5;
+      padding: 0;
+      width: 100%;
+      overflow-x: hidden;
+    }
 
-  .dice-btn {
-    max-width: 95%; 
-  }
+    .bg3-wrapper {
+      width: 100%;
+      max-width: 640px;
+      margin: 10px auto 14px auto;
+      user-select: none;
+      display: block;
+      clear: both;
+    }
 
-  .dice-label {
-     max-width: calc(85vw - 50px); 
-  }
+    .bg3-capsule {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 38px;
+      padding: 4px 12px;
+      background: linear-gradient(180deg, #1a1c24 0%, #0d0e14 100%);
+      border: 1px solid var(--bg3-gold-dim);
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
 
-  .dice-content {
-    margin: 8px 0 15px 15px;
-  }
-}
-    </style>
+    .bg3-capsule:hover {
+      border-color: var(--bg3-gold-mid);
+      box-shadow: 0 0 10px rgba(196, 166, 97, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .bg3-capsule::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 4px;
+      height: 4px;
+      border-top: 1px solid var(--bg3-gold-bright);
+      border-left: 1px solid var(--bg3-gold-bright);
+      pointer-events: none;
+    }
+
+    .bg3-capsule::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      width: 4px;
+      height: 4px;
+      border-bottom: 1px solid var(--bg3-gold-bright);
+      border-right: 1px solid var(--bg3-gold-bright);
+      pointer-events: none;
+    }
+
+    .cap-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .cap-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      background: #252219;
+      border: 1px solid var(--bg3-gold-dim);
+      color: var(--bg3-gold-bright);
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      border-radius: 2px;
+    }
+
+    .cap-mid {
+      flex: 1;
+      margin: 0 10px;
+      font-size: 13px;
+      color: var(--bg3-text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: left;
+    }
+
+    .cap-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .cap-tag {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: bold;
+    }
+
+    .cap-arrow {
+      color: var(--bg3-gold-dim);
+      font-size: 10px;
+      transition: transform 0.25s ease;
+    }
+
+    .bg3-capsule.active .cap-arrow {
+      transform: rotate(180deg);
+      color: var(--bg3-gold-bright);
+    }
+
+    .bg3-detail {
+      margin-top: 4px;
+      background: radial-gradient(circle at 50% 20%, #1a1e28 0%, #0c0e12 100%);
+      border: 1px solid var(--bg3-gold-dim);
+      border-top: 1px solid var(--bg3-gold-bright);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.85);
+      border-radius: 0 0 4px 4px;
+      padding: 16px;
+      display: none;
+    }
+
+    .bg3-detail.open {
+      display: block;
+      animation: bg3FadeDown 0.25s ease-out;
+    }
+
+    @keyframes bg3FadeDown {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bg3-detail.open { animation: none; }
+      .cap-arrow, .item-arrow { transition: none; }
+    }
+
+    .detail-header {
+      text-align: center;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--bg3-border-dark);
+    }
+
+    .detail-title-main {
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: var(--bg3-gold-bright);
+      text-shadow: 0 0 6px rgba(237, 216, 159, 0.4);
+    }
+
+    .detail-title-sub {
+      font-size: 12px;
+      color: var(--bg3-text-dim);
+      margin-top: 2px;
+    }
+
+    /* 检定专属：VS 对峙栏 */
+    .check-vs-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--bg3-border-dark);
+    }
+
+    .check-side-box {
+      flex: 1;
+      padding: 6px 10px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(138, 115, 67, 0.4);
+      border-radius: 3px;
+    }
+
+    .check-side-box.right-side { text-align: right; }
+    .side-box-title { font-size: 10px; color: var(--bg3-gold-dim); letter-spacing: 0.5px; }
+    .side-box-name { font-size: 13px; font-weight: 600; color: var(--bg3-gold-bright); margin: 2px 0; }
+    .side-box-sub { font-size: 11px; color: var(--bg3-text-dim); }
+
+    .vs-divider {
+      flex-shrink: 0;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--bg3-gold-bright);
+      border: 1px solid var(--bg3-gold-dim);
+      background: #111;
+      border-radius: 2px;
+    }
+
+    .dice-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      margin: 16px 0;
+    }
+
+    .dice-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .dice-box {
+      width: 58px;
+      height: 58px;
+      background: linear-gradient(135deg, #222634 0%, #101218 100%);
+      border: 2px solid var(--bg3-gold-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.8), inset 0 0 6px rgba(196, 166, 97, 0.3);
+      clip-path: polygon(25% 0%, 75% 0%, 100% 25%, 100% 75%, 75% 100%, 25% 100%, 0% 75%, 0% 25%);
+    }
+
+    .dice-value { font-size: 22px; font-weight: bold; color: var(--bg3-gold-bright); text-shadow: 0 0 6px rgba(237, 216, 159, 0.6); }
+    .dice-label { font-size: 10px; color: var(--bg3-text-dim); }
+
+    .dice-box.crit-success {
+      border-color: var(--q-crit-success);
+      box-shadow: 0 0 16px rgba(72, 199, 116, 0.8), inset 0 0 8px rgba(255, 215, 0, 0.6);
+    }
+    .dice-box.crit-success .dice-value { color: #afffd0; text-shadow: 0 0 8px #48c774; }
+
+    .dice-box.crit-failure {
+      border-color: var(--q-crit-failure);
+      box-shadow: 0 0 16px rgba(150, 28, 28, 0.8), inset 0 0 8px rgba(231, 76, 60, 0.6);
+    }
+    .dice-box.crit-failure .dice-value { color: #ff9999; text-shadow: 0 0 8px #e74c3c; }
+
+    .formula-banner {
+      text-align: center;
+      margin: 8px 0 6px 0;
+      padding: 6px 10px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px dashed var(--bg3-border-dark);
+      border-radius: 3px;
+      font-size: 12px;
+      color: var(--bg3-text-dim);
+      line-height: 1.5;
+    }
+    .formula-banner span { color: var(--bg3-gold-bright); font-weight: 600; }
+
+    .result-banner {
+      text-align: center;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      border-radius: 3px;
+      margin-bottom: 12px;
+      border: 1px solid;
+    }
+    .diff-badge {
+      font-size: 11px;
+      margin-left: 6px;
+      padding: 1px 5px;
+      border-radius: 2px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid currentColor;
+      font-weight: normal;
+    }
+
+    /* 实体档案解耦卡片 */
+    .entity-profile-card {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(138, 115, 67, 0.4);
+      border-radius: 3px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+    .entity-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 6px 12px;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .entity-grid-field { color: var(--bg3-text-dim); }
+    .entity-grid-field span { color: var(--bg3-gold-bright); font-weight: 600; }
+
+    .entity-extra {
+      font-size: 12px;
+      color: var(--bg3-text-main);
+      padding-top: 6px;
+      border-top: 1px dashed var(--bg3-border-dark);
+      line-height: 1.4;
+    }
+    .entity-extra-label { color: var(--bg3-gold-dim); font-weight: 600; }
+
+    /* 分区展柜 */
+    .section-wrap { margin-bottom: 14px; }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--bg3-gold-dim);
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--bg3-border-dark), transparent); }
+    .items-col { display: flex; flex-direction: column; gap: 6px; }
+
+    /* 单品条与手风琴抽屉 */
+    .item-card {
+      border: 1px solid var(--bg3-border-dark);
+      background: rgba(16, 18, 24, 0.6);
+      border-radius: 3px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .item-card.has-drawer:hover { border-color: rgba(196, 166, 97, 0.4); }
+
+    .item-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: linear-gradient(90deg, rgba(25, 28, 38, 0.6) 0%, transparent 100%);
+    }
+    .item-card.has-drawer .item-bar { cursor: pointer; }
+
+    .item-bar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .item-quality-badge { font-size: 10px; font-weight: bold; padding: 1px 5px; border-radius: 2px; border: 1px solid currentColor; flex-shrink: 0; }
+    .item-name { font-size: 13px; font-weight: 600; color: var(--bg3-text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .item-bar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 8px; }
+    .item-snippet { font-size: 11px; color: var(--bg3-gold-mid); }
+    .item-arrow { font-size: 10px; color: var(--bg3-gold-dim); transition: transform 0.2s ease; }
+    .item-card.expanded .item-arrow { transform: rotate(90deg); color: var(--bg3-gold-bright); }
+
+    .item-sub-panel {
+      padding: 10px;
+      background: var(--bg3-bg-parchment);
+      border-top: 1px solid var(--bg3-border-dark);
+      display: none;
+    }
+    .item-card.expanded .item-sub-panel { display: block; animation: bg3FadeDown 0.2s ease-out; }
+
+    .item-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+    .item-tag { font-size: 10px; padding: 1px 6px; background: #111318; border: 1px solid #332d22; color: var(--bg3-text-dim); border-radius: 2px; }
+
+    .item-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--bg3-text-dim);
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px dashed var(--bg3-border-dark);
+    }
+    .item-meta-item span { color: var(--bg3-gold-bright); font-weight: 600; }
+
+    .item-effects { margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .item-effect-line { font-size: 12px; color: var(--bg3-text-main); padding-left: 8px; border-left: 2px solid var(--bg3-gold-dim); line-height: 1.4; }
+    .effect-title { color: var(--bg3-gold-bright); font-weight: 600; margin-right: 4px; }
+
+    /* 嵌套技能子列表展示 */
+    .nested-skills { margin-top: 6px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .nested-skill-item { font-size: 12px; color: var(--bg3-text-main); padding: 4px 8px; background: rgba(0,0,0,0.3); border: 1px solid rgba(138, 115, 67, 0.25); border-radius: 2px; }
+
+    .item-desc { font-size: 12px; font-style: italic; color: var(--bg3-text-italic); padding-top: 6px; border-top: 1px solid rgba(138, 115, 67, 0.2); line-height: 1.4; }
+
+    /* 关系与凭证/变动卡片 */
+    .relation-card {
+      background: rgba(16, 18, 24, 0.6);
+      border: 1px solid var(--bg3-border-dark);
+      border-radius: 3px;
+      padding: 8px 12px;
+    }
+    .relation-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .relation-name { font-size: 13px; font-weight: bold; color: var(--bg3-gold-bright); }
+    .relation-shift { font-size: 12px; font-weight: bold; color: #2ecc71; }
+    .relation-body { font-size: 12px; color: var(--bg3-text-main); line-height: 1.4; }
+
+    /* 底部双轨因果卡片 */
+    .consequence-card {
+      background: rgba(13, 14, 18, 0.6);
+      border-left: 2px solid var(--bg3-gold-dim);
+      padding: 6px 10px;
+      border-radius: 0 3px 3px 0;
+      margin-top: 8px;
+    }
+    .consequence-title { font-size: 10px; color: var(--bg3-gold-dim); letter-spacing: 0.5px; margin-bottom: 2px; }
+    .consequence-body { font-size: 12px; color: var(--bg3-text-main); line-height: 1.4; }
+
+    .rating-crit-success { color: #ffd700; background: rgba(46, 204, 113, 0.15); border-color: #ffd700; box-shadow: 0 0 8px rgba(72, 199, 116, 0.4); }
+    .rating-success { color: #2ecc71; background: rgba(46, 204, 113, 0.1); border-color: #2ecc71; box-shadow: 0 0 6px rgba(46, 204, 113, 0.2); }
+    .rating-failure { color: #e74c3c; background: rgba(231, 76, 60, 0.1); border-color: #e74c3c; box-shadow: 0 0 6px rgba(231, 76, 60, 0.2); }
+    .rating-crit-failure { color: #ff4d4d; background: rgba(150, 28, 28, 0.2); border-color: #961c1c; box-shadow: 0 0 8px rgba(150, 28, 28, 0.5); }
+
+    .q-border-f { border-color: var(--q-f) !important; color: var(--q-f) !important; }
+    .q-border-e { border-color: var(--q-e) !important; color: var(--q-e) !important; }
+    .q-border-d { border-color: var(--q-d) !important; color: var(--q-d) !important; }
+    .q-border-c { border-color: var(--q-c) !important; color: var(--q-c) !important; }
+    .q-border-b { border-color: var(--q-b) !important; color: var(--q-b) !important; }
+    .q-border-a { border-color: var(--q-a) !important; color: var(--q-a) !important; }
+    .q-border-s { border-color: var(--q-s) !important; color: var(--q-s) !important; box-shadow: 0 0 4px rgba(255, 209, 102, 0.3); }
+    .q-border-ss { border-color: var(--q-ss) !important; color: var(--q-ss) !important; box-shadow: 0 0 6px rgba(247, 37, 133, 0.4); }
+    .q-border-sss { border-color: var(--q-sss) !important; color: var(--q-sss) !important; box-shadow: 0 0 6px rgba(114, 239, 221, 0.4); }
+
+    @media screen and (max-width: 420px) {
+      .bg3-wrapper { margin: 8px auto 10px auto; }
+      .bg3-detail { padding: 10px; }
+      .check-vs-row { flex-direction: column; align-items: stretch; gap: 6px; }
+      .check-side-box.right-side { text-align: left; }
+      .vs-divider { align-self: center; }
+      .dice-box { width: 50px; height: 50px; }
+      .dice-value { font-size: 20px; }
+      .cap-mid { font-size: 12px; }
+      .item-name { font-size: 12px; }
+      .item-meta-row { gap: 8px; }
+      .entity-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 
-    <!-- 替换模板开始 -->
-    <div class="dice-wrapper">
-      <div class="dice-btn">
-        <svg class="dice-icon" viewBox="0 0 24 24">
-          <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5zm2 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 10a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm0-10a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM7 17a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm5-5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
-        </svg>
-        <span class="dice-label"></span>
+  <div class="bg3-wrapper">
+    <div class="bg3-capsule">
+      <div class="cap-left">
+        <span class="cap-badge">❖ 记录</span>
       </div>
-      <div class="dice-content"></div>
-      <div class="dice-raw" style="display:none;">$1</div>
-      
-      <script>
-        (function() {
-          'use strict';
-          const currentScript = document.currentScript;
-          if (!currentScript) return;
-          const wrapper = currentScript.closest('.dice-wrapper');
-          if (!wrapper) return;
+      <div class="cap-mid">加载中...</div>
+      <div class="cap-right">
+        <span class="cap-tag">判定</span>
+        <span class="cap-arrow">▼</span>
+      </div>
+    </div>
+    <div class="bg3-detail"></div>
+    <div class="bg3-raw-data" style="display:none;">$1</div>
 
-          // [改] 加入 THP / ATK 关键词
-          const sectionIcons = {
-            '行动': '🎯', '内容': '📋', '推演': '🎲', '伤害构成': '⚔️',
-            '结算': '📊', '变化': '🔄', '附加状态': '🏷️', '最终状态': '✅',
-            '备注': '💡', '观测情报': '🔍', '组件架构': '🧩', '实体档案': '👤',
-            '总结': '📌'
-          };
-          const sectionTypes = {
-            '推演': 'check', '结算': 'result', '变化': 'change',
-            '备注': 'note', '实体档案': 'entity'
-          };
+    <script>
+      (function() {
+        'use strict';
+        var currentScript = document.currentScript;
+        if (!currentScript) return;
+        var wrapper = currentScript.closest('.bg3-wrapper');
+        if (!wrapper) return;
 
-          function beautifyContent(text) {
-              const keywords = ["DC","HP","THP","EP","DEF","MDEF","AP","ATK","MATK","vs"];
-              const specialChars = {
-                  '[': 'bracket', ']': 'bracket', '`': 'code',
-                  '✅': 'success', '❌': 'fail', '💥': 'damage', '💚': 'heal',
-                  '⚠️': 'fail', '💀': 'fail',
-                  '🔹': 'bracket', '🔸': 'bracket', '▸': 'bracket', '※': 'note',
-                  '➞': 'arrow', '→': 'arrow', '|': 'separator', '｜': 'separator', '×': 'separator'
-              };
-              const lines = text.trim().split('\n');
-              let finalHtml = '';
+        var rawBox = wrapper.querySelector('.bg3-raw-data');
+        var capsule = wrapper.querySelector('.bg3-capsule');
+        var detail = wrapper.querySelector('.bg3-detail');
+        var capBadge = wrapper.querySelector('.cap-badge');
+        var capMid = wrapper.querySelector('.cap-mid');
+        var capTag = wrapper.querySelector('.cap-tag');
 
-              lines.forEach((line, index) => {
-                  let cleanedLine = line.trim().substring(line.trim().startsWith('>') ? 1 : 0).trim();
-                  let indentLevel = Math.floor((line.match(/^(\s*)/) || ['',''])[1].length / 2);
+        if (!rawBox || !capsule || !detail) return;
 
-                  // [改] 分区标题检测: "字段名:" 独占一行时, 渲染为带图标的标题
-                  const secMatch = cleanedLine.match(/^([^：:]{1,10})[：:]\s*$/);
-                  if (secMatch && sectionIcons[secMatch[1]]) {
-                      const fname = secMatch[1];
-                      const stype = sectionTypes[fname] || '';
-                      finalHtml += `<div class="content-line section-header ${stype}">${sectionIcons[fname]} ${fname}</div>`;
-                      return;
-                  }
+        var rawText = (rawBox.textContent || '').trim();
+        if (!rawText) return;
 
-                  let lineHtml = '';
-                  let inCode = false;
+        function getQualityClass(quality) {
+          if (!quality) return 'q-border-f';
+          var q = quality.trim().toUpperCase();
+          if (q === 'SSS' || q === 'Ⅸ') return 'q-border-sss';
+          if (q === 'SS' || q === 'Ⅷ') return 'q-border-ss';
+          if (q === 'S' || q === 'Ⅶ') return 'q-border-s';
+          if (q === 'A' || q === 'Ⅵ') return 'q-border-a';
+          if (q === 'B' || q === 'Ⅴ') return 'q-border-b';
+          if (q === 'C' || q === 'Ⅳ') return 'q-border-c';
+          if (q === 'D' || q === 'Ⅲ') return 'q-border-d';
+          if (q === 'E' || q === 'Ⅱ') return 'q-border-e';
+          return 'q-border-f';
+        }
 
-                  for (let i = 0; i < cleanedLine.length; i++) {
-                      const char = cleanedLine[i];
-                      if (char === '`') {
-                          inCode = !inCode;
-                          lineHtml += inCode ? '<span class="tk-code">' : '</span>';
-                          continue;
-                      }
-                      if (inCode) {
-                          lineHtml += char;
-                          continue;
-                      }
-                      const specialToken = Object.keys(specialChars).find(token =>
-                          cleanedLine.substring(i, i + token.length) === token
-                      );
-                      if (specialToken) {
-                          lineHtml += `<span class="tk-${specialChars[specialToken]}">${specialToken}</span>`;
-                          i += specialToken.length - 1;
-                          continue;
-                      }
-                      // DC + 数字: 整体标红 (如 DC42, DC 12)
-                      const dcMatch = cleanedLine.substring(i).match(/^DC\s*\d+/);
-                      if (dcMatch) {
-                          const dcStr = dcMatch[0];
-                          lineHtml += `<span class="tk-dc">${dcStr}</span>`;
-                          i += dcStr.length - 1;
-                          continue;
-                      }
-                      let matched = false;
-                      for (const kw of keywords) {
-                          if (cleanedLine.substring(i, i + kw.length) === kw && /(^|\s|[^a-zA-Z])/.test(cleanedLine[i-1] || ' ') && /(\s|$|[^a-zA-Z])/.test(cleanedLine[i+kw.length] || ' ')) {
-                              lineHtml += `<span class="tk-keyword">${kw}</span>`;
-                              i += kw.length - 1;
-                              matched = true;
-                              break;
-                          }
-                      }
-                      if (matched) continue;
-                      
-                      const numMatch = cleanedLine.substring(i).match(/^(\d+\/\d+|\d*[Dd]\d+(?:\s*[+-]\s*\d+)?|-?\d+%?)/);
-                      if (numMatch) {
-                          const numStr = numMatch[0];
-                          const isDice = /[Dd]/.test(numStr);
-                          lineHtml += `<span class="${isDice ? 'tk-dice' : 'tk-number'}">${numStr}</span>`;
-                          i += numStr.length - 1;
-                          continue;
-                      }
+        function getRatingClass(ratingText) {
+          if (!ratingText) return 'rating-success';
+          if (ratingText.indexOf('大成功') !== -1) return 'rating-crit-success';
+          if (ratingText.indexOf('大失败') !== -1) return 'rating-crit-failure';
+          if (ratingText.indexOf('成功') !== -1 || ratingText.indexOf('胜出') !== -1) return 'rating-success';
+          if (ratingText.indexOf('失败') !== -1 || ratingText.indexOf('落败') !== -1) return 'rating-failure';
+          return 'rating-success';
+        }
 
-                      lineHtml += char;
-                  }
-                  
-                  let className = 'content-line';
-                  if (index === 0) className += ' first-line';
-                  else if (indentLevel > 0) className += ` indent-${Math.min(indentLevel, 3)}`;
-                  finalHtml += `<div class="${className}">${lineHtml}</div>`;
-              });
-              return finalHtml;
+        function createDiceBox(val, label) {
+          var slot = document.createElement('div');
+          slot.className = 'dice-slot';
+
+          var box = document.createElement('div');
+          box.className = 'dice-box';
+
+          var valNum = parseInt(val, 10);
+          if (!isNaN(valNum)) {
+            if (valNum >= 96) box.classList.add('crit-success');
+            else if (valNum <= 5) box.classList.add('crit-failure');
           }
 
-          const btn = wrapper.querySelector('.dice-btn');
-          const rawDiv = wrapper.querySelector('.dice-raw');
-          const labelSpan = wrapper.querySelector('.dice-label');
-          const contentDiv = wrapper.querySelector('.dice-content');
+          var valElem = document.createElement('div');
+          valElem.className = 'dice-value';
+          valElem.textContent = isNaN(valNum) ? '--' : String(valNum);
+          box.appendChild(valElem);
 
-          if (!btn || !rawDiv || !labelSpan || !contentDiv) return;
+          var lblElem = document.createElement('div');
+          lblElem.className = 'dice-label';
+          lblElem.textContent = label || 'D100';
 
-          const rawText = rawDiv.textContent;
-          const firstLine = rawText.trim().split('\n')[0] || '检定结果';
-          // [改] 去掉了 .replace(/^[^\w\s\u4e00-\u9fa5]+/, '') — 不再吞掉前导 [
-          const cleanLabel = firstLine.replace(/^\s*>\s*/, '').trim();
-          
-          labelSpan.textContent = cleanLabel;
-          contentDiv.innerHTML = beautifyContent(rawText);
+          slot.appendChild(box);
+          slot.appendChild(lblElem);
+          return slot;
+        }
 
-          btn.addEventListener('click', function() {
-            btn.classList.toggle('active');
-            contentDiv.classList.toggle('show');
-          });
+        function buildItemCard(item, category) {
+          var card = document.createElement('div');
+          card.className = 'item-card';
 
-        })();
-      </script>
-    </div>
-    <!-- 替换模板结束 -->
+          var bar = document.createElement('div');
+          bar.className = 'item-bar';
+
+          var left = document.createElement('div');
+          left.className = 'item-bar-left';
+
+          var qBadge = document.createElement('span');
+          qBadge.className = 'item-quality-badge ' + getQualityClass(item.quality);
+          qBadge.textContent = item.quality || 'F';
+          left.appendChild(qBadge);
+
+          var nameSpan = document.createElement('span');
+          nameSpan.className = 'item-name';
+          nameSpan.textContent = item.name;
+          left.appendChild(nameSpan);
+
+          var right = document.createElement('div');
+          right.className = 'item-bar-right';
+
+          var snippetSpan = document.createElement('span');
+          snippetSpan.className = 'item-snippet';
+          if (item.shift) {
+            snippetSpan.textContent = item.shift;
+          } else if (category === 'item') {
+            snippetSpan.textContent = item.qty ? ('× ' + item.qty) : (item.type !== '--' ? item.type : '');
+          } else if (category === 'buff') {
+            snippetSpan.textContent = item.duration || (item.type !== '--' ? item.type : '');
+          } else if (category === 'asset') {
+            snippetSpan.textContent = item.status || (item.scale ? ('LV' + item.scale) : '');
+          } else {
+            snippetSpan.textContent = item.rawAttr || item.cost || (item.type !== '--' ? item.type : '');
+          }
+          right.appendChild(snippetSpan);
+
+          var hasDrawer = (item.effects && item.effects.length > 0) || (item.nestedSkills && item.nestedSkills.length > 0) || !!item.desc || (item.tags && item.tags.length > 0) || !!item.coreFunc;
+
+          if (hasDrawer) {
+            card.classList.add('has-drawer');
+            var arrow = document.createElement('span');
+            arrow.className = 'item-arrow';
+            arrow.textContent = '▸';
+            right.appendChild(arrow);
+          }
+
+          bar.appendChild(left);
+          bar.appendChild(right);
+          card.appendChild(bar);
+
+          if (hasDrawer) {
+            var subPanel = document.createElement('div');
+            subPanel.className = 'item-sub-panel';
+
+            if (item.tags && item.tags.length > 0) {
+              var tagWrap = document.createElement('div');
+              tagWrap.className = 'item-tags';
+              for (var t = 0; t < item.tags.length; t++) {
+                var tagEl = document.createElement('span');
+                tagEl.className = 'item-tag';
+                tagEl.textContent = item.tags[t];
+                tagWrap.appendChild(tagEl);
+              }
+              subPanel.appendChild(tagWrap);
+            }
+
+            var metaRow = document.createElement('div');
+            metaRow.className = 'item-meta-row';
+
+            function addMeta(lbl, val) {
+              if (!val || val === '--') return;
+              var it = document.createElement('div');
+              it.className = 'item-meta-item';
+              it.textContent = lbl + ': ';
+              var sp = document.createElement('span');
+              sp.textContent = val;
+              it.appendChild(sp);
+              metaRow.appendChild(it);
+            }
+
+            addMeta('类型', item.type);
+            addMeta('规模', item.scale ? ('LV' + item.scale) : '');
+            addMeta('归属', item.owner);
+            addMeta('部位', item.position);
+            addMeta('状态', item.status);
+            addMeta('原始属性', item.rawAttr);
+            addMeta('消耗', item.cost);
+            addMeta('持续', item.duration);
+            addMeta('来源', item.source);
+
+            if (metaRow.childNodes.length > 0) {
+              subPanel.appendChild(metaRow);
+            }
+
+            if (item.coreFunc) {
+              var cfWrap = document.createElement('div');
+              cfWrap.className = 'item-effects';
+              var cfLine = document.createElement('div');
+              cfLine.className = 'item-effect-line';
+              var cfTitle = document.createElement('span');
+              cfTitle.className = 'effect-title';
+              cfTitle.textContent = '核心功能:';
+              cfLine.appendChild(cfTitle);
+              cfLine.appendChild(document.createTextNode(' ' + item.coreFunc));
+              cfWrap.appendChild(cfLine);
+              subPanel.appendChild(cfWrap);
+            }
+
+            if (item.effects && item.effects.length > 0) {
+              var effWrap = document.createElement('div');
+              effWrap.className = 'item-effects';
+              for (var e = 0; e < item.effects.length; e++) {
+                var lineEl = document.createElement('div');
+                lineEl.className = 'item-effect-line';
+                var fullText = item.effects[e];
+                var colIdx = fullText.indexOf(':');
+                if (colIdx !== -1) {
+                  var eTitle = document.createElement('span');
+                  eTitle.className = 'effect-title';
+                  eTitle.textContent = fullText.substring(0, colIdx + 1);
+                  lineEl.appendChild(eTitle);
+                  lineEl.appendChild(document.createTextNode(' ' + fullText.substring(colIdx + 1).trim()));
+                } else {
+                  lineEl.textContent = fullText;
+                }
+                effWrap.appendChild(lineEl);
+              }
+              subPanel.appendChild(effWrap);
+            }
+
+            if (item.nestedSkills && item.nestedSkills.length > 0) {
+              var nsWrap = document.createElement('div');
+              nsWrap.className = 'nested-skills';
+              for (var s = 0; s < item.nestedSkills.length; s++) {
+                var nsEl = document.createElement('div');
+                nsEl.className = 'nested-skill-item';
+                var sText = item.nestedSkills[s];
+                var sIdx = sText.indexOf(':');
+                if (sIdx !== -1) {
+                  var sTitle = document.createElement('strong');
+                  sTitle.style.color = 'var(--bg3-gold-bright)';
+                  sTitle.textContent = sText.substring(0, sIdx + 1);
+                  nsEl.appendChild(sTitle);
+                  nsEl.appendChild(document.createTextNode(' ' + sText.substring(sIdx + 1).trim()));
+                } else {
+                  nsEl.textContent = sText;
+                }
+                nsWrap.appendChild(nsEl);
+              }
+              subPanel.appendChild(nsWrap);
+            }
+
+            if (item.desc) {
+              var descEl = document.createElement('div');
+              descEl.className = 'item-desc';
+              descEl.textContent = item.desc;
+              subPanel.appendChild(descEl);
+            }
+
+            card.appendChild(subPanel);
+
+            bar.addEventListener('click', function(ev) {
+              ev.stopPropagation();
+              card.classList.toggle('expanded');
+            });
+          }
+
+          return card;
+        }
+
+        var isCheckMode = (rawText.indexOf('判定推演:') !== -1) || (rawText.indexOf('难度DC:') !== -1) || (rawText.indexOf('DC构成:') !== -1) || (rawText.indexOf('守方:') !== -1);
+
+        if (isCheckMode) {
+          var cData = {
+            type: 'DC检定',
+            action: '--',
+            item: '--',
+            actor: '--',
+            actorMod: '',
+            dcText: '',
+            dcBreakdown: '',
+            target: '',
+            targetMod: '',
+            rollText: '',
+            calcText: '',
+            rating: '',
+            consequence: '',
+            finalStatus: ''
+          };
+
+          var cLines = rawText.split('\n');
+          for (var i = 0; i < cLines.length; i++) {
+            var cLine = cLines[i].trim();
+            if (!cLine) continue;
+
+            if (cLine.indexOf('{') === 0 && cLine.indexOf('}') !== -1) {
+              cData.type = cLine.substring(1, cLine.indexOf('}')).trim();
+              continue;
+            }
+            if (cLine.indexOf('[') === 0 && cLine.indexOf(']') !== -1) {
+              cData.type = cLine.substring(1, cLine.indexOf(']')).trim();
+              continue;
+            }
+            if (cLine === 'DC检定' || cLine === '对抗检定') {
+              cData.type = cLine;
+              continue;
+            }
+
+            var parts = cLine.split('|');
+            for (var p = 0; p < parts.length; p++) {
+              var seg = parts[p].trim();
+              if (!seg) continue;
+              var cIdx = seg.indexOf(':');
+              if (cIdx === -1) continue;
+              var k = seg.substring(0, cIdx).trim();
+              var v = seg.substring(cIdx + 1).trim();
+
+              if (k === '行为') cData.action = v || cData.action;
+              else if (k === '检定项') cData.item = v || cData.item;
+              else if (k === '行动方') {
+                var aMatch = v.match(/^(.*?)(?:\s*\((.*?)\))?$/);
+                if (aMatch) {
+                  cData.actor = aMatch[1].trim() || cData.actor;
+                  cData.actorMod = aMatch[2] ? aMatch[2].trim() : '';
+                } else { cData.actor = v; }
+              } else if (k === '难度DC') {
+                cData.dcText = v;
+              } else if (k === 'DC构成') {
+                cData.dcBreakdown = v;
+                var dcEndMatch = v.match(/=\s*\[?(\d+)\]?/);
+                if (dcEndMatch && !cData.dcText) cData.dcText = 'DC ' + dcEndMatch[1];
+              } else if (k === '守方') {
+                var tMatch = v.match(/^(.*?)(?:\s*\((.*?)\))?$/);
+                if (tMatch) {
+                  cData.target = tMatch[1].trim();
+                  cData.targetMod = tMatch[2] ? tMatch[2].trim() : '';
+                } else { cData.target = v; }
+              } else if (k === '掷骰') {
+                cData.rollText = v;
+              } else if (k === '判定推演') {
+                cData.calcText = v;
+              } else if (k === '评级') {
+                cData.rating = v;
+              } else if (k === '后果变动') {
+                cData.consequence = v;
+              } else if (k === '最终状态') {
+                cData.finalStatus = v;
+              }
+            }
+          }
+
+          capBadge.textContent = '🎲 ' + cData.type + ' · ' + cData.item;
+          var vsDesc = cData.target ? (cData.actor + ' vs ' + cData.target) : cData.actor;
+          capMid.textContent = cData.action + ' (' + vsDesc + ')';
+
+          var rClass = getRatingClass(cData.rating);
+          capTag.className = 'cap-tag ' + rClass;
+          capTag.textContent = cData.rating || '判定完成';
+
+          detail.innerHTML = '';
+
+          var hDiv = document.createElement('div');
+          hDiv.className = 'detail-header';
+          var headTitle = cData.target ? '❖ 对抗裁决 ❖' : '❖ 判定推演 ❖';
+          var tMain = document.createElement('div');
+          tMain.className = 'detail-title-main';
+          tMain.textContent = headTitle;
+          hDiv.appendChild(tMain);
+          detail.appendChild(hDiv);
+
+          var vsRow = document.createElement('div');
+          vsRow.className = 'check-vs-row';
+
+          var leftBox = document.createElement('div');
+          leftBox.className = 'check-side-box';
+          var ltTitle = document.createElement('div');
+          ltTitle.className = 'side-box-title';
+          ltTitle.textContent = '行动方';
+          var ltName = document.createElement('div');
+          ltName.className = 'side-box-name';
+          ltName.textContent = cData.actor;
+          var ltSub = document.createElement('div');
+          ltSub.className = 'side-box-sub';
+          ltSub.textContent = cData.actorMod || '无加值修正';
+          leftBox.appendChild(ltTitle);
+          leftBox.appendChild(ltName);
+          leftBox.appendChild(ltSub);
+
+          var vsDiv = document.createElement('div');
+          vsDiv.className = 'vs-divider';
+          vsDiv.textContent = cData.target ? 'VS' : 'DC';
+
+          var rightBox = document.createElement('div');
+          rightBox.className = 'check-side-box right-side';
+          var rtTitle = document.createElement('div');
+          rtTitle.className = 'side-box-title';
+          rtTitle.textContent = cData.target ? '对抗目标' : '难度阈值';
+          var rtName = document.createElement('div');
+          rtName.className = 'side-box-name';
+          rtName.textContent = cData.target ? cData.target : (cData.dcText || '目标DC');
+          var rtSub = document.createElement('div');
+          rtSub.className = 'side-box-sub';
+          rtSub.textContent = cData.target ? (cData.targetMod || '无加值修正') : '难度考核';
+          rightBox.appendChild(rtTitle);
+          rightBox.appendChild(rtName);
+          rightBox.appendChild(rtSub);
+
+          vsRow.appendChild(leftBox);
+          vsRow.appendChild(vsDiv);
+          vsRow.appendChild(rightBox);
+          detail.appendChild(vsRow);
+
+          var dStage = document.createElement('div');
+          dStage.className = 'dice-stage';
+
+          function extractDice(text) {
+            if (!text) return '--';
+            var chosenMatch = text.match(/取(?:[高低])\s*:\s*(\d+)/i);
+            if (chosenMatch) return chosenMatch[1];
+            var dMatch = text.match(/d100\((\d+)\)/i);
+            if (dMatch) return dMatch[1];
+            return '--';
+          }
+
+          if (cData.target) {
+            var fullFormula = cData.rollText + ' ' + cData.calcText;
+            var aSub = fullFormula.substring(0, fullFormula.indexOf('vs'));
+            var tSub = fullFormula.indexOf('vs') !== -1 ? fullFormula.substring(fullFormula.indexOf('vs')) : '';
+            dStage.appendChild(createDiceBox(extractDice(aSub), cData.actor));
+            dStage.appendChild(createDiceBox(extractDice(tSub), cData.target));
+          } else {
+            dStage.appendChild(createDiceBox(extractDice(cData.rollText + ' ' + cData.calcText), '检定点数'));
+          }
+          detail.appendChild(dStage);
+
+          if (cData.dcBreakdown) {
+            var dcRow = document.createElement('div');
+            dcRow.className = 'formula-banner';
+            var dcSpan = document.createElement('span');
+            dcSpan.textContent = 'DC构成：';
+            dcRow.appendChild(dcSpan);
+            dcRow.appendChild(document.createTextNode(cData.dcBreakdown));
+            detail.appendChild(dcRow);
+          }
+
+          if (cData.calcText) {
+            var fRow = document.createElement('div');
+            fRow.className = 'formula-banner';
+            var fSpan = document.createElement('span');
+            fSpan.textContent = '判定推演：';
+            fRow.appendChild(fSpan);
+            fRow.appendChild(document.createTextNode(cData.calcText));
+            detail.appendChild(fRow);
+          }
+
+          var diffStr = '';
+          if (cData.target) {
+            var vsMatch = cData.calcText.match(/=\s*\[?(\d+)\]?\s*vs.*?=\s*\[?(\d+)\]?/);
+            if (vsMatch) {
+              var diffV = parseInt(vsMatch[1], 10) - parseInt(vsMatch[2], 10);
+              diffStr = diffV >= 0 ? ('优势胜出 +' + diffV) : ('劣势落败 ' + diffV);
+            }
+          } else {
+            var dcMatch = cData.calcText.match(/=\s*\[?(\d+)\]?\s*vs\s*(?:DC\s*)?\[?(\d+)\]?/i);
+            if (dcMatch) {
+              var diffD = parseInt(dcMatch[1], 10) - parseInt(dcMatch[2], 10);
+              diffStr = diffD >= 0 ? ('超额 +' + diffD) : ('差额 ' + diffD);
+            }
+          }
+
+          var resBanner = document.createElement('div');
+          resBanner.className = 'result-banner ' + rClass;
+          resBanner.appendChild(document.createTextNode(cData.rating || '判定完成'));
+          if (diffStr) {
+            var dBadge = document.createElement('span');
+            dBadge.className = 'diff-badge';
+            dBadge.textContent = diffStr;
+            resBanner.appendChild(dBadge);
+          }
+          detail.appendChild(resBanner);
+
+          if (cData.consequence) {
+            var consCard = document.createElement('div');
+            consCard.className = 'consequence-card';
+            var cTitle = document.createElement('div');
+            cTitle.className = 'consequence-title';
+            cTitle.textContent = '现实因果变动';
+            var cBody = document.createElement('div');
+            cBody.className = 'consequence-body';
+            cBody.textContent = cData.consequence;
+            consCard.appendChild(cTitle);
+            consCard.appendChild(cBody);
+            detail.appendChild(consCard);
+          }
+
+          if (cData.finalStatus) {
+            var statCard = document.createElement('div');
+            statCard.className = 'consequence-card';
+            var sTitle = document.createElement('div');
+            sTitle.className = 'consequence-title';
+            sTitle.textContent = '最终状态更新';
+            var sBody = document.createElement('div');
+            sBody.className = 'consequence-body';
+            sBody.textContent = cData.finalStatus;
+            statCard.appendChild(sTitle);
+            statCard.appendChild(sBody);
+            detail.appendChild(statCard);
+          }
+
+        } else {
+          // --- 动态流式解析：完全跟随 AI 文本实际输出顺序 ---
+          var sectionsOrder = [];
+          var currentSection = null;
+
+          var eMeta = {
+            type: '',
+            source: '',
+            consequence: '',
+            status: ''
+          };
+
+          function getSectionTitle(tag, rawHeader) {
+            if (rawHeader) {
+              return '✦ ' + rawHeader.replace(/【|】/g, '').trim() + ' ✦';
+            }
+            if (tag === 'bloodline') return '✦ 血统架构 ✦';
+            if (tag === 'equip') return '✦ 装备 ✦';
+            if (tag === 'skill') return '✦ 技能变动 / 主要能力 ✦';
+            if (tag === 'form') return '✦ 形态变动 / 形态库 ✦';
+            if (tag === 'asset') return '✦ 战略资产 / 大型载具 ✦';
+            if (tag === 'item') return '✦ 道具 / 材料 ✦';
+            if (tag === 'buff') return '✦ 状态变动 ✦';
+            if (tag === 'relation') return '✦ 羁绊与态度质变 ✦';
+            if (tag === 'profile') return '✦ 实体档案 ✦';
+            return '✦ 详细条目 ✦';
+          }
+
+          function openSection(secTag, headerText) {
+            currentSection = { tag: secTag, title: getSectionTitle(secTag, headerText), profile: null, items: [], relations: [] };
+            sectionsOrder.push(currentSection);
+          }
+
+          var eLines = rawText.split('\n');
+          var curItem = null;
+          var inMode = 'none'; // 'none' | 'eff' | 'skill' | 'desc'
+
+          for (var j = 0; j < eLines.length; j++) {
+            var line = eLines[j].trim();
+            if (!line) continue;
+
+            if (line.indexOf('{') === 0 && line.indexOf('}') !== -1) {
+              eMeta.type = line.substring(1, line.indexOf('}')).trim();
+              continue;
+            }
+            if (line.indexOf('[') === 0 && line.indexOf(']') !== -1) {
+              eMeta.type = line.substring(1, line.indexOf(']')).trim();
+              continue;
+            }
+            if (line === '实体登场' || line === '物品获取' || line === '战利品获取' || line === '状态变迁' || line === '形态变动' || line === '能力进化' || line === '关系变动') {
+              eMeta.type = (line === '战利品获取') ? '物品获取' : line;
+              continue;
+            }
+
+            // 智能节识别（模糊匹配任何可能出现的变动区块）
+            if (line.indexOf('【') === 0 && line.indexOf('】') !== -1) {
+              var hMatch = line.match(/【(.*?)】/);
+              var hName = hMatch ? hMatch[1] : '';
+              curItem = null;
+              inMode = 'none';
+
+              if (hName.indexOf('装备') !== -1) openSection('equip', hName);
+              else if (hName.indexOf('道具') !== -1 || hName.indexOf('物品') !== -1 || hName.indexOf('材料') !== -1) openSection('item', hName);
+              else if (hName.indexOf('资产') !== -1 || hName.indexOf('载具') !== -1) openSection('asset', hName);
+              else if (hName.indexOf('实体') !== -1 || hName.indexOf('档案') !== -1) openSection('profile', hName);
+              else if (hName.indexOf('血统') !== -1) openSection('bloodline', hName);
+              else if (hName.indexOf('技能') !== -1 || hName.indexOf('能力') !== -1) openSection('skill', hName);
+              else if (hName.indexOf('形态') !== -1) openSection('form', hName);
+              else if (hName.indexOf('状态') !== -1) openSection('buff', hName);
+              else if (hName.indexOf('关系') !== -1 || hName.indexOf('好感') !== -1) openSection('relation', hName);
+              else if (hName.indexOf('凭证') !== -1 || hName.indexOf('货币') !== -1 || hName.indexOf('资源') !== -1) openSection('relation', hName);
+              else openSection('misc', hName);
+              continue;
+            }
+
+            if (line.indexOf('| 后果变动:') === 0) {
+              inMode = 'none';
+              eMeta.consequence = line.replace(/\|\s*后果变动:\s*/, '').replace(/\|/g, '').trim();
+              continue;
+            }
+            if (line.indexOf('| 最终状态:') === 0) {
+              inMode = 'none';
+              eMeta.status = line.replace(/\|\s*最终状态:\s*/, '').replace(/\|/g, '').trim();
+              continue;
+            }
+
+            // 关系变动 / 凭证变动 / 通用变动行解析
+            if (currentSection && currentSection.tag === 'relation') {
+              var isRelOrToken = (line.indexOf('| 角色:') === 0 || line.indexOf('| 凭证:') === 0 || line.indexOf('| 资源:') === 0 || line.indexOf('| 货币:') === 0);
+              if (isRelOrToken) {
+                inMode = 'none';
+                var relObj = { name: '--', shift: '', attitude: '', reason: '' };
+                var rParts = line.split('|');
+                for (var rp = 0; rp < rParts.length; rp++) {
+                  var rSeg = rParts[rp].trim();
+                  if (!rSeg) continue;
+                  var rCol = rSeg.indexOf(':');
+                  if (rCol === -1) continue;
+                  var rk = rSeg.substring(0, rCol).trim();
+                  var rv = rSeg.substring(rCol + 1).trim();
+                  if (rk === '角色' || rk === '凭证' || rk === '资源' || rk === '货币') relObj.name = rv;
+                  else if (rk === '好感变动' || rk === '变动' || rk === '数量变动') relObj.shift = rv;
+                  else if (rk === '当前态度' || rk === '当前状态') relObj.attitude = rv;
+                  else if (rk === '变动成因' || rk === '成因' || rk === '说明') relObj.reason = rv;
+                }
+                if (!relObj.attitude && relObj.shift) relObj.attitude = '数值变迁: ' + relObj.shift;
+                currentSection.relations.push(relObj);
+                continue;
+              }
+            }
+
+            // 实体档案数据行
+            if (currentSection && currentSection.tag === 'profile') {
+              if (!currentSection.profile) {
+                currentSection.profile = { name: '--', tier: 'Ⅰ', race: '--', occupation: '--', count: '', mechanism: '', attitude: '', favor: '', appearance: '', desc: '' };
+              }
+              var prParts = line.split('|');
+              for (var pr = 0; pr < prParts.length; pr++) {
+                var prSeg = prParts[pr].trim();
+                if (!prSeg) continue;
+                var prC = prSeg.indexOf(':');
+                if (prC === -1) continue;
+                var prK = prSeg.substring(0, prC).trim();
+                var prV = prSeg.substring(prC + 1).trim();
+                if (prK === '实体') currentSection.profile.name = prV;
+                else if (prK === '层级') currentSection.profile.tier = prV;
+                else if (prK === '种族') currentSection.profile.race = prV;
+                else if (prK === '职业') currentSection.profile.occupation = prV;
+                else if (prK === '数量') currentSection.profile.count = prV;
+                else if (prK === '观测机制') currentSection.profile.mechanism = prV;
+                else if (prK === '态度') currentSection.profile.attitude = prV;
+                else if (prK === '好感度') currentSection.profile.favor = prV;
+                else if (prK === '外貌着装') currentSection.profile.appearance = prV;
+                else if (prK === '描述') currentSection.profile.desc = prV;
+              }
+              continue;
+            }
+
+            // 单品条目解析 (支持物品、技能、血统、形态、状态、资产)
+            var isItemHeader = (line.indexOf('| 物品:') === 0 || line.indexOf('| 技能:') === 0 || line.indexOf('| 血统:') === 0 || line.indexOf('| 形态:') === 0 || line.indexOf('| 状态:') === 0 || line.indexOf('| 资产:') === 0);
+            if (isItemHeader) {
+              inMode = 'none';
+              if (!currentSection) openSection('item');
+              curItem = { name: '--', quality: 'F', type: '--', scale: '', owner: '', coreFunc: '', position: '', rawAttr: '', cost: '', qty: '', duration: '', source: '', status: '', shift: '', tags: [], effects: [], nestedSkills: [], desc: '' };
+              var itmFields = line.split('|');
+              for (var f = 0; f < itmFields.length; f++) {
+                var fPart = itmFields[f].trim();
+                if (!fPart) continue;
+                var fCol = fPart.indexOf(':');
+                if (fCol === -1) continue;
+                var fk = fPart.substring(0, fCol).trim();
+                var fv = fPart.substring(fCol + 1).trim();
+
+                if (fk === '物品' || fk === '技能' || fk === '血统' || fk === '形态' || fk === '状态' || fk === '资产') curItem.name = fv;
+                else if (fk === '品质' || fk === '层级') curItem.quality = fv;
+                else if (fk === '类型') curItem.type = fv;
+                else if (fk === '规模') curItem.scale = fv.replace(/LV/i, '');
+                else if (fk === '归属') curItem.owner = fv;
+                else if (fk === '核心功能') curItem.coreFunc = fv;
+                else if (fk === '位置') curItem.position = fv;
+                else if (fk === '原始属性') curItem.rawAttr = fv;
+                else if (fk === '消耗') curItem.cost = fv;
+                else if (fk === '数量') curItem.qty = fv;
+                else if (fk === '数量变动' || fk === '变动') { curItem.shift = fv; }
+                else if (fk === '持续') curItem.duration = fv;
+                else if (fk === '来源') curItem.source = fv;
+                else if (fk === '状态') curItem.status = fv;
+                else if (fk === '标签') {
+                  var tm = fv.match(/\[(.*?)\]/g);
+                  if (tm) {
+                    for (var tIdx = 0; tIdx < tm.length; tIdx++) {
+                      curItem.tags.push(tm[tIdx].replace(/[\[\]]/g, '').trim());
+                    }
+                  } else { curItem.tags.push(fv); }
+                }
+              }
+
+              currentSection.items.push(curItem);
+              continue;
+            }
+
+            var isTopLevelMeta = (line.indexOf('| 来源:') === 0);
+            if (isTopLevelMeta) {
+              inMode = 'none';
+              var epParts = line.split('|');
+              for (var ep = 0; ep < epParts.length; ep++) {
+                var epSeg = epParts[ep].trim();
+                if (!epSeg) continue;
+                var epCol = epSeg.indexOf(':');
+                if (epCol === -1) continue;
+                var ek = epSeg.substring(0, epCol).trim();
+                var ev = epSeg.substring(epCol + 1).trim();
+                if (ek === '来源') eMeta.source = ev;
+              }
+              continue;
+            }
+
+            // 单品内部属性补充行
+            if (curItem) {
+              if (line.indexOf('| 原始属性:') === 0) {
+                inMode = 'none';
+                curItem.rawAttr = line.replace(/\|\s*原始属性:\s*/, '').replace(/\|/g, '').trim();
+                continue;
+              }
+              if (line.indexOf('| 消耗:') === 0) {
+                inMode = 'none';
+                curItem.cost = line.replace(/\|\s*消耗:\s*/, '').replace(/\|/g, '').trim();
+                continue;
+              }
+              if (line.indexOf('| 状态:') === 0) {
+                inMode = 'none';
+                curItem.status = line.replace(/\|\s*状态:\s*/, '').replace(/\|/g, '').trim();
+                continue;
+              }
+              if (line.indexOf('| 核心功能:') === 0) {
+                inMode = 'none';
+                curItem.coreFunc = line.replace(/\|\s*核心功能:\s*/, '').replace(/\|/g, '').trim();
+                continue;
+              }
+              if (line.indexOf('| 标签:') === 0) {
+                inMode = 'none';
+                var tRaw = line.replace(/\|\s*标签:\s*/, '').replace(/\|/g, '').trim();
+                var tMatches = tRaw.match(/\[(.*?)\]/g);
+                if (tMatches) {
+                  for (var tmI = 0; tmI < tMatches.length; tmI++) {
+                    curItem.tags.push(tMatches[tmI].replace(/[\[\]]/g, '').trim());
+                  }
+                } else if (tRaw) { curItem.tags.push(tRaw); }
+                continue;
+              }
+
+              if (line.indexOf('| 效果:') === 0) {
+                inMode = 'eff';
+                var effIn = line.replace(/\|\s*效果:\s*/, '').replace(/\|/g, '').trim();
+                if (effIn) curItem.effects.push(effIn);
+                continue;
+              }
+
+              if (line.indexOf('| 技能:') === 0) {
+                inMode = 'skill';
+                var skIn = line.replace(/\|\s*技能:\s*/, '').replace(/\|/g, '').trim();
+                if (skIn) curItem.nestedSkills.push(skIn);
+                continue;
+              }
+
+              if (line.indexOf('| 描述:') === 0) {
+                inMode = 'desc';
+                var descIn = line.replace(/\|\s*描述:\s*/, '').replace(/\|/g, '').trim();
+                if (descIn) curItem.desc = descIn;
+                continue;
+              }
+
+              // 处于多行模式时的后续行收集
+              var cleanLine = line.replace(/^\|\s*/, '').replace(/\s*\|$/, '').trim();
+              if (cleanLine) {
+                if (inMode === 'eff') curItem.effects.push(cleanLine);
+                else if (inMode === 'skill') curItem.nestedSkills.push(cleanLine);
+                else if (inMode === 'desc') curItem.desc += (curItem.desc ? ' ' : '') + cleanLine;
+              }
+            }
+          }
+
+          var firstProfile = null;
+          for (var s = 0; s < sectionsOrder.length; s++) {
+            if (sectionsOrder[s].profile) {
+              firstProfile = sectionsOrder[s].profile;
+              break;
+            }
+          }
+
+          if (!eMeta.type) {
+            if (firstProfile) {
+              eMeta.type = '实体登场';
+            } else if (sectionsOrder.some(function(sec) { return sec.tag === 'skill' || sec.tag === 'form' || sec.tag === 'buff' || sec.tag === 'relation'; })) {
+              eMeta.type = '状态变迁';
+            } else {
+              eMeta.type = '物品获取';
+            }
+          }
+
+          if (eMeta.type === '实体登场' || firstProfile) {
+            capBadge.textContent = '👤 实体侦测';
+            var entName = firstProfile ? firstProfile.name : '--';
+            capMid.textContent = eMeta.source ? (entName + ' · ' + eMeta.source) : entName;
+            capTag.className = 'cap-tag ' + (firstProfile ? getQualityClass(firstProfile.tier) : 'q-border-f');
+            capTag.textContent = firstProfile ? ('阶位: ' + firstProfile.tier) : '新实体';
+          } else if (eMeta.type === '状态变迁' || eMeta.type === '形态变动') {
+            capBadge.textContent = '🏷️ 变迁与突破';
+            capMid.textContent = eMeta.source || '状态与能力变迁';
+            capTag.className = 'cap-tag q-border-d';
+            var shiftCounts = [];
+            sectionsOrder.forEach(function(sec) {
+              if (sec.tag === 'skill' && sec.items.length) shiftCounts.push(sec.items.length + ' 技能');
+              if (sec.tag === 'form' && sec.items.length) shiftCounts.push(sec.items.length + ' 形态');
+              if (sec.tag === 'buff' && sec.items.length) shiftCounts.push(sec.items.length + ' 状态');
+              if (sec.tag === 'relation' && sec.relations.length) shiftCounts.push(sec.relations.length + ' 记录');
+              if (sec.tag === 'item' && sec.items.length) shiftCounts.push(sec.items.length + ' 道具');
+            });
+            capTag.textContent = shiftCounts.length ? shiftCounts.join(' · ') : (eMeta.type || '能力变迁');
+          } else {
+            capBadge.textContent = '❖ 物品获取';
+            capMid.textContent = eMeta.source || '收纳整理';
+            capTag.className = 'cap-tag q-border-e';
+            var lootCounts = [];
+            sectionsOrder.forEach(function(sec) {
+              if (sec.tag === 'equip' && sec.items.length) lootCounts.push(sec.items.length + ' 装备');
+              if (sec.tag === 'item' && sec.items.length) lootCounts.push(sec.items.length + ' 道具');
+              if (sec.tag === 'asset' && sec.items.length) lootCounts.push(sec.items.length + ' 资产');
+            });
+            capTag.textContent = lootCounts.length ? lootCounts.join(' · ') : '已收纳';
+          }
+
+          detail.innerHTML = '';
+
+          var hDiv2 = document.createElement('div');
+          hDiv2.className = 'detail-header';
+          var tMainText = (eMeta.type === '实体登场' || firstProfile) ? '❖ 实体详细档案 ❖' : ((eMeta.type === '状态变迁' || eMeta.type === '形态变动') ? '❖ 能力突破与变迁 ❖' : '❖ 物品收纳清单 ❖');
+          var tMainEl = document.createElement('div');
+          tMainEl.className = 'detail-title-main';
+          tMainEl.textContent = tMainText;
+          hDiv2.appendChild(tMainEl);
+
+          if (eMeta.source) {
+            var tSubEl = document.createElement('div');
+            tSubEl.className = 'detail-title-sub';
+            tSubEl.textContent = '来源: ' + eMeta.source;
+            hDiv2.appendChild(tSubEl);
+          }
+          detail.appendChild(hDiv2);
+
+          // 核心渲染：严格按照 sectionsOrder 顺序依次动态输出到 DOM 中
+          for (var k = 0; k < sectionsOrder.length; k++) {
+            var secObj = sectionsOrder[k];
+
+            if (secObj.tag === 'profile' && secObj.profile) {
+              var prof = secObj.profile;
+              var pCard = document.createElement('div');
+              pCard.className = 'entity-profile-card';
+
+              var pGrid = document.createElement('div');
+              pGrid.className = 'entity-grid';
+
+              function addPField(lbl, val) {
+                if (!val) return;
+                var fEl = document.createElement('div');
+                fEl.className = 'entity-grid-field';
+                fEl.textContent = lbl + ': ';
+                var fSpan = document.createElement('span');
+                fSpan.textContent = val;
+                fEl.appendChild(fSpan);
+                pGrid.appendChild(fEl);
+              }
+
+              addPField('实体', prof.name);
+              addPField('层级', prof.tier);
+              addPField('好感度', prof.favor);
+              addPField('种族', prof.race);
+              addPField('职业', prof.occupation);
+              if (prof.count) addPField('群体数量', prof.count);
+              pCard.appendChild(pGrid);
+
+              function addPExtra(lbl, val) {
+                if (!val) return;
+                var exDiv = document.createElement('div');
+                exDiv.className = 'entity-extra';
+                var exLbl = document.createElement('span');
+                exLbl.className = 'entity-extra-label';
+                exLbl.textContent = lbl + '：';
+                exDiv.appendChild(exLbl);
+                exDiv.appendChild(document.createTextNode(val));
+                pCard.appendChild(exDiv);
+              }
+
+              addPExtra('观测机制', prof.mechanism);
+              addPExtra('真实态度', prof.attitude);
+              addPExtra('外貌着装', prof.appearance);
+              addPExtra('身份风味', prof.desc);
+
+              detail.appendChild(pCard);
+
+            } else if (secObj.tag === 'relation' && secObj.relations && secObj.relations.length > 0) {
+              var rWrap = document.createElement('div');
+              rWrap.className = 'section-wrap';
+              var rTitle = document.createElement('div');
+              rTitle.className = 'section-title';
+              rTitle.textContent = secObj.title;
+              rWrap.appendChild(rTitle);
+
+              var rList = document.createElement('div');
+              rList.className = 'items-col';
+              for (var rl = 0; rl < secObj.relations.length; rl++) {
+                var rItem = secObj.relations[rl];
+                var rc = document.createElement('div');
+                rc.className = 'relation-card';
+
+                var rTop = document.createElement('div');
+                rTop.className = 'relation-top';
+                var rName = document.createElement('span');
+                rName.className = 'relation-name';
+                rName.textContent = rItem.name;
+                var rShift = document.createElement('span');
+                rShift.className = 'relation-shift';
+                rShift.textContent = rItem.shift;
+                rTop.appendChild(rName);
+                rTop.appendChild(rShift);
+
+                var rBody = document.createElement('div');
+                rBody.className = 'relation-body';
+                if (rItem.attitude) {
+                  var strongAtt = document.createElement('strong');
+                  strongAtt.textContent = '当前状态/态度：';
+                  rBody.appendChild(strongAtt);
+                  rBody.appendChild(document.createTextNode(rItem.attitude));
+                }
+
+                if (rItem.reason) {
+                  if (rItem.attitude) rBody.appendChild(document.createElement('br'));
+                  var strongRea = document.createElement('strong');
+                  strongRea.textContent = '变动成因：';
+                  rBody.appendChild(strongRea);
+                  rBody.appendChild(document.createTextNode(rItem.reason));
+                }
+
+                rc.appendChild(rTop);
+                rc.appendChild(rBody);
+                rList.appendChild(rc);
+              }
+              rWrap.appendChild(rList);
+              detail.appendChild(rWrap);
+
+            } else if (secObj.items && secObj.items.length > 0) {
+              var sWrap = document.createElement('div');
+              sWrap.className = 'section-wrap';
+              var sTitle = document.createElement('div');
+              sTitle.className = 'section-title';
+              sTitle.textContent = secObj.title;
+              sWrap.appendChild(sTitle);
+
+              var sList = document.createElement('div');
+              sList.className = 'items-col';
+              for (var m = 0; m < secObj.items.length; m++) {
+                sList.appendChild(buildItemCard(secObj.items[m], secObj.tag));
+              }
+              sWrap.appendChild(sList);
+              detail.appendChild(sWrap);
+            }
+          }
+
+          if (eMeta.consequence) {
+            var cFoot = document.createElement('div');
+            cFoot.className = 'consequence-card';
+            var cTitle2 = document.createElement('div');
+            cTitle2.className = 'consequence-title';
+            cTitle2.textContent = '现实因果变动';
+            var cBody2 = document.createElement('div');
+            cBody2.className = 'consequence-body';
+            cBody2.textContent = eMeta.consequence;
+            cFoot.appendChild(cTitle2);
+            cFoot.appendChild(cBody2);
+            detail.appendChild(cFoot);
+          }
+
+          if (eMeta.status) {
+            var sFoot = document.createElement('div');
+            sFoot.className = 'consequence-card';
+            var sTitle2 = document.createElement('div');
+            sTitle2.className = 'consequence-title';
+            sTitle2.textContent = '最终状态更新';
+            var sBody2 = document.createElement('div');
+            sBody2.className = 'consequence-body';
+            sBody2.textContent = eMeta.status;
+            sFoot.appendChild(sTitle2);
+            sFoot.appendChild(sBody2);
+            detail.appendChild(sFoot);
+          }
+        }
+
+        capsule.addEventListener('click', function() {
+          var isOpen = detail.classList.contains('open');
+          if (isOpen) {
+            detail.classList.remove('open');
+            capsule.classList.remove('active');
+          } else {
+            detail.classList.add('open');
+            capsule.classList.add('active');
+          }
+        });
+
+      })();
+    </script>
+  </div>
 
 </body>
 </html>

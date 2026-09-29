@@ -1,33 +1,39 @@
 ---
 variables_update_format:
   rule:
-    - You MUST output the update analysis and the actual update commands at once in the end of the next reply
-    - The update commands works like the **JSON Patch (RFC 6902)** standard, must be a valid JSON array containing operation objects, but supports the following operations instead:
-        - replace: replace the value of existing paths
-        - delta: update the value of existing number paths by a delta value (the delta value MUST be a number without quotes)
-        - insert: insert new items into an object or array (using `-` as array index intends appending to the end)
-        - remove
-        - move
-    - Don't update field names starts with `_` as they are readonly, such as `_变量`
-    - When a typed variable requires an empty state (or is temporarily unassigned), you MUST assign it a concrete empty value. You MUST NOT use null
-    - When updating variables, preserve EVERY piece of information verbatim
+    - You MUST output the update analysis and the actual update commands together at the very end of EVERY reply
+    - The update commands work like the **JSON Patch (RFC 6902)** standard and MUST be a valid JSON array containing operation objects, but ONLY support:
+        - replace: replace the value of an existing path
+        - delta: update an existing number path by an integer delta; the value MUST be a raw number without quotes
+        - insert: insert a new item into an object or array; use `-` as array index to append to the end
+        - remove: remove an existing path (e.g. dead entities, consumed items, expired buffs)
+        - move: move an existing value using `from` and `to`
+    - Paths MUST strictly follow `<status_current_variables>` structure and start with `/世界`, `/角色`, `/任务`, `/关系列表`, `/资产`, `/系统状态`, or `/传闻`
+    - NEVER update readonly or system-managed fields starting with `_` or forbidden roots (such as `/角色/最终属性`, `/NPC/最终属性`, `/世界/稳定`, `/世界/后台`)
+    - When a typed variable requires an empty state, assign a concrete empty value matching its type (`""`, `[]`, `{}`); NEVER use `null`
+    - Preserve all unchanged information verbatim; do NOT summarize, rewrite, clear, or overwrite unrelated existing data
+    - Only output paths whose values actually changed in the current turn; if no variables changed, output an empty JSON array `[]`
+    - NEVER use `add`, `copy`, `test`, or any unsupported operations
+
   format: |-
     <UpdateVariable>
-      <Analysis>/* IN ENGLISH, no more than 80 words */
-      - ${calculate time passed: ...}
-      - ${decide whether dramatic updates are allowed as it's in a special case or the time passed is more than usual: yes/no}
-      - ${analyze every variable based on its corresponding `check`, according only to current content instead of previous plots: ...}
+      <Analysis>/* IN Chinese, more than 150 Chinese characters; every numeric change needs an explicit formula line, every affected character needs one independent driver line, and every changed axis must be declared separately */
+      - ${Time & Environment: calculate exact passed time and /世界/时间 increment, verify current location, and check exploration progress stage (0/10/30/60/90/100)}
+      - ${Combat & Resources: calculate user HP/EP/THP changes with explicit formulas, check form/vehicle durability and fuel consumption, verify buff/debuff durations and remove expired ones}
+      - ${Entity Tracking & Mobs: verify newly encountered entities/mobs from Step.2 draft, ensure full panel insertion (bloodline/gear/skills) without empty objects, calculate NPC favorability change (routine ±1~5 / critical ±10) with psychological drivers, and update presence/attitude}
+      - ${Inventory & Equipment: verify new gear insertion with base attributes, update equip status 0<->1, track consumable item count changes, and remove items when quantity reaches 0}
+      - ${Causal Shift & Quests: record causal deviation and next story node if key fate changed, sync quest status to '可结算' or '可交付' immediately upon goal completion without premature reward distribution}
+      - ${Patch Validation: audit all ops, paths, and values; ensure numeric deltas without quotes, object keys without dots, and strictly no modification to readonly fields}
       </Analysis>
       <JSONPatch>
       [
         { "op": "replace", "path": "${/path/to/variable}", "value": "${new_value}" },
-        { "op": "delta", "path": "${/path/to/number/variable}", "value": ${positve_or_negative_delta} },
+        { "op": "delta", "path": "${/path/to/number/variable}", "value": ${positive_or_negative_delta} },
         { "op": "insert", "path": "${/path/to/object/new_key}", "value": "${new_value}" },
         { "op": "insert", "path": "${/path/to/array/-}", "value": "${new_value}" },
         { "op": "remove", "path": "${/path/to/object/key}" },
         { "op": "remove", "path": "${/path/to/array/0}" },
-        { "op": "move", "from": "${/path/to/variable}", "to": "${/path/to/another/path}" },
-        ...
+        { "op": "move", "from": "${/path/to/variable}", "to": "${/path/to/another/path}" }
       ]
       </JSONPatch>
     </UpdateVariable>

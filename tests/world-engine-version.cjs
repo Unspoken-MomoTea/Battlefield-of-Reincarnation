@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.join(__dirname,'..');
+const foundation=fs.readFileSync(path.join(root,'src/WorldEngine/core/WorldEngineFoundation.part.js'),'utf8');
+const delivery=fs.readFileSync(path.join(root,'script/世界推进系统.js'),'utf8');
+const runtime=require('../script/世界推进系统.js');
+assert.match(foundation,/WORLD_ENGINE_VERSION='\d+\.\d+\.\d+'/u);
+assert.match(delivery,/WORLD_ENGINE_VERSION='\d+\.\d+\.\d+'/u);
+assert.match(runtime.WORLD_ENGINE_VERSION,/^\d+\.\d+\.\d+$/u);
+const engine=new runtime.SamsaraWorldEngine({localStorage:{getItem:()=>null,setItem:()=>{}},Samsara:{}},{});
+assert.equal(engine.version,runtime.WORLD_ENGINE_VERSION);
+console.log('world-engine version regression tests passed');

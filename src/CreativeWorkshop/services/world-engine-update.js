@@ -238,9 +238,61 @@ export function createWorldEngineUpdater({
     return { hotReloaded: true, reloadRequired: false, busy: false };
   }
 
+  async function normalizeFormalLoaderLink() {
+    const treeScan = await scan();
+    const latest = await resolveLatest(fetchImpl, channel, ref);
+    if (channel !== 'stable' || latest?.releaseSource !== 'tag' || !latest?.tag || !latest?.sha) {
+      return { normalized: false, changedScripts: 0, changedScopes: [] };
+    }
+
+    const changedScopes = new Set();
+    let changedScripts = 0;
+    for (const item of treeScan.matches) {
+      if (item.kind !== 'loader' || !item.refs.length || !item.refs.every(currentRef => currentRef === latest.sha)) {
+        continue;
+      }
+      const script = scriptFromScan(treeScan, item);
+      if (!script || typeof script.content !== 'string') continue;
+      const next = rewriteWorldEngineLoaderContent(script.content, latest.tag, latest.sha);
+      if (next === script.content) continue;
+      script.content = next;
+      changedScopes.add(item.scope);
+      changedScripts += 1;
+    }
+
+    if (!changedScopes.size) {
+      return {
+        normalized: false,
+        changedScripts: 0,
+        changedScopes: [],
+        latestSha: latest.sha,
+        latestTag: latest.tag,
+        latestLoaderRef: latest.tag,
+      };
+    }
+
+    await persistScriptTreeMutation(adapter, treeScan, changedScopes, async () => {
+      const verified = await scan();
+      const written = verified.matches.filter(item => changedScopes.has(item.scope));
+      return written.length > 0 && written.every(
+        item => item.kind === 'loader' && item.refs.length > 0 && item.refs.every(value => value === latest.tag),
+      );
+    });
+
+    return {
+      normalized: true,
+      changedScripts,
+      changedScopes: [...changedScopes],
+      latestSha: latest.sha,
+      latestTag: latest.tag,
+      latestLoaderRef: latest.tag,
+    };
+  }
+
   return {
     check,
     updateLoaderLink,
+    normalizeFormalLoaderLink,
     async updateAndReload() {
       const updated = await updateLoaderLink();
       if (!updated.updated) return { ...updated, hotReloaded: false, reloadRequired: false };

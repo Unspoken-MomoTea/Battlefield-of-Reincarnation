@@ -367,3 +367,40 @@ test('stable loader on the latest formal V tag is not reported as an update', as
   assert.match(adapter.state.character[0].content, /@V2\.0\.1\/src\/CreativeWorkshop\/index\.js/u);
   assert.equal(urls.some(url => url.includes('/compare/')), false);
 });
+
+test('stable latest sha is silently normalized to the equivalent formal V tag', async () => {
+  const latest = '1212121212121212121212121212121212121212';
+  const adapter = adapterFixture('https://workshop.6661816.xyz');
+  adapter.state.character[0].content = adapter.state.character[0].content.replace(
+    '593cf339818e5ed1c8e2ed363d28e34ff98fa835',
+    latest,
+  );
+  const updater = createWorkshopSelfUpdater({
+    adapter,
+    channel: 'stable',
+    ref: 'workshop-stable',
+    fetchImpl: async url => {
+      const value = String(url);
+      if (value.includes('/api/client/latest')) {
+        return response(latest, {
+          channel: 'stable',
+          ref: 'workshop-stable',
+          version: '2.0.4',
+          tag: 'V2.0.4',
+          release_source: 'tag',
+        });
+      }
+      throw new Error(`equivalent sha normalization must not query anything else: ${value}`);
+    },
+  });
+
+  const check = await updater.check();
+  assert.equal(check.updateAvailable, false);
+  assert.deepEqual(check.refs, [latest]);
+
+  const normalized = await updater.normalizeFormalLoaderLink();
+  assert.equal(normalized.normalized, true);
+  assert.equal(normalized.latestLoaderRef, 'V2.0.4');
+  assert.match(adapter.state.character[0].content, /@V2\.0\.4\/src\/CreativeWorkshop\/index\.js/u);
+  assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'));
+});

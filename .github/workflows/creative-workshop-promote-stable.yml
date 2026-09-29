@@ -50,12 +50,13 @@ jobs:
             exit 1
           fi
 
-          if ! git merge-base --is-ancestor origin/workshop-stable "$TARGET_SHA"; then
-            echo "Refusing non-fast-forward release from workshop-stable to $TARGET_SHA."
-            exit 1
+          STABLE_SHA="$(git rev-parse origin/workshop-stable^{commit})"
+          if ! git merge-base --is-ancestor "$STABLE_SHA" "$TARGET_SHA"; then
+            echo "workshop-stable is a deployment pointer with rollback history; guarded realignment will use force-with-lease."
           fi
 
           echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "stable_sha=$STABLE_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Checkout release target
         shell: bash
@@ -110,7 +111,9 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${{ steps.release.outputs.tag }}"
-          git push --atomic origin \
+          git push --atomic \
+            --force-with-lease="refs/heads/workshop-stable:${{ steps.target.outputs.stable_sha }}" \
+            origin \
             "HEAD:refs/heads/workshop-stable" \
             "refs/tags/$TAG:refs/tags/$TAG"
 

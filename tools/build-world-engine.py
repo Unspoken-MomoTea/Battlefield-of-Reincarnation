@@ -62,6 +62,7 @@ PARTS = (
     '@src/WorldEngine/domains/WorldValidationService.part.js',
     '@src/WorldEngine/domains/WorldCommitService.part.js',
     '@src/WorldEngine/domains/WorldMutationService.part.js',
+    '@src/WorldEngine/domains/WorldSnapshotService.part.js',
     '@src/WorldEngine/domains/WorldEventService.part.js',
     '@src/WorldEngine/domains/WorldRequestService.part.js',
     '@src/WorldEngine/domains/WorldApiTransportService.part.js',

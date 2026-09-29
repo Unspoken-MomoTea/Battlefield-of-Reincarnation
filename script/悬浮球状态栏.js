@@ -4070,7 +4070,7 @@
         }
         var headers = { 'Content-Type': 'application/json' };
         if (cfg.apiKey && cfg.apiKey.trim()) headers.Authorization = 'Bearer ' + cfg.apiKey.trim();
-        var model = cfg.model || 'gpt-4o-mini';
+        var model = safeStr(options.model).trim() || cfg.model || 'gpt-4o-mini';
         var cacheKey = endpoint + '|' + model;
         var wantsStructured = options.structured === 'auto' && options.schema;
         var cached = wantsStructured ? API_STRUCTURED_MODE_CACHE[cacheKey] : '';

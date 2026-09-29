@@ -192,7 +192,7 @@ export function createMaintenanceView({
         unavailable.append(
           element('strong', '', '尚未发布正式世界推进 Tag'),
           element('span', '', result.channel === 'stable'
-            ? '当前正式通道需要 world-engine-vX.Y.Z；首次正式 Tag 发布前不会把 main 测试代码推给正式用户。'
+            ? '当前正式通道需要 VX.Y.Z；首次正式 Tag 发布前不会把 main 测试代码推给正式用户。'
             : '暂时无法取得测试通道最新提交。'),
         );
         container.appendChild(unavailable);

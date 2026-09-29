@@ -28,6 +28,12 @@
                              +'<p class="we-muted">接口按 OpenAI-compatible /v1/chat/completions 与 /v1/models 方式连接，并保留 JSON Schema → JSON Object → 普通文本的结构化兼容降级。</p>'
                             :'<div class="we-notice">当前关闭专属 API。世界推进继续使用主神终端「额外模型配置」；这里不会复制或读取状态栏里的 API Key。</div>')
                         ,'接口配置只存本地 localStorage，不写入 MVU');
+                    const snapshots=engine.services?.snapshots?.list?.()||[];
+                    html+=section('世界快照',
+                        '<div class="we-doc-create"><input class="we-setting-input" data-world-snapshot-name maxlength="80" placeholder="快照名称，例如：司法岛决战前"><button class="we-btn we-primary" data-action="world-snapshot-save">保存世界快照</button></div>'
+                        +(snapshots.length?'<div class="we-doc-list">'+snapshots.map(item=>'<div class="we-doc-row"><div><b>'+text(item.name)+'</b><small>'+text(item.worldTime||'时间未记录')+' · '+text(item.createdAt?new Date(item.createdAt).toLocaleString():'未记录时间')+'</small></div><span class="we-doc-actions"><button data-action="world-snapshot-restore" data-snapshot-id="'+text(item.id)+'">恢复</button><button data-action="world-snapshot-delete" data-snapshot-id="'+text(item.id)+'">删除</button></span></div>').join('')+'</div>':'<div class="we-empty"><b>暂无世界快照</b><small>只保存世界推进负责的数据，不回滚玩家角色数值与任务状态。</small></div>')
+                        +'<p class="we-muted">快照保存 世界、资产、关系列表与传闻；恢复时不会回滚角色属性、背包、任务或成就。恢复后会清除当前楼层的世界推进处理锚点，允许重新建立后续世界状态。</p>',
+                        '最多保留当前聊天最近 12 份 · 仅存本地');
                     return html;
                 
         }

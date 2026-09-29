@@ -1159,7 +1159,7 @@
             for (const row of rows) for (const group of groups) {
                 const target = DB[group];
                 const existing = new Set(target.map(item => item.id));
-                for (const item of row.catalog?.[group] || []) {
+                for (const item of (row.catalog && row.catalog[group]) || []) {
                     const sourceId = String(item.id || '').trim();
                     if (!sourceId) continue;
                     const id = 'workshop:' + row.sourceProjectId + ':' + sourceId;
@@ -1206,11 +1206,11 @@
     }
     function renderOpeningCharacterLibrary() {
         const el=$('opening-character-library'); if(!el)return;
-        el.innerHTML='<div class="asset-library-head"><div><h3>开局角色档案</h3><small>选择后将直接采用其原始构筑，派生属性由当前版本重新计算。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_character',selectedOpeningCharacter?.id,'selectOpeningCharacter')+'</div>';
+        el.innerHTML='<div class="asset-library-head"><div><h3>开局角色档案</h3><small>选择后将直接采用其原始构筑，派生属性由当前版本重新计算。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_character',(selectedOpeningCharacter ? selectedOpeningCharacter.id : ''),'selectOpeningCharacter')+'</div>';
     }
     function renderOpeningPartnerLibrary() {
         const el=$('opening-partner-library'); if(!el)return;
-        el.innerHTML='<div class="asset-library-head"><div><h3>开局伙伴档案</h3><small>完整伙伴无需 AI 再随机补全战术模块；按层级支付空间币（Ⅰ=70 / Ⅱ=350 / Ⅲ=1000）。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_partner',selectedOpeningPartner?.id,'selectOpeningPartner')+'</div>';
+        el.innerHTML='<div class="asset-library-head"><div><h3>开局伙伴档案</h3><small>完整伙伴无需 AI 再随机补全战术模块；按层级支付空间币（Ⅰ=70 / Ⅱ=350 / Ⅲ=1000）。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_partner',(selectedOpeningPartner ? selectedOpeningPartner.id : ''),'selectOpeningPartner')+'</div>';
     }
     function openingAttributePanelLocked() {
         return characterMode==='library' && !!selectedOpeningCharacter;
@@ -1228,8 +1228,8 @@
     }
     function setCharacterMode(mode) {
         characterMode=mode==='library'?'library':'custom';
-        $('character-mode-custom')?.classList.toggle('active',characterMode==='custom');
-        $('character-mode-library')?.classList.toggle('active',characterMode==='library');
+        if ($('character-mode-custom')) $('character-mode-custom').classList.toggle('active',characterMode==='custom');
+        if ($('character-mode-library')) $('character-mode-library').classList.toggle('active',characterMode==='library');
         if($('opening-character-library')) $('opening-character-library').style.display=characterMode==='library'?'':'none';
         if(characterMode==='custom') selectedOpeningCharacter=null;
         renderOpeningCharacterLibrary();
@@ -1249,8 +1249,8 @@
             useCustomPartnerFlag=false;
         }
         partnerMode=nextMode;
-        $('partner-mode-custom')?.classList.toggle('active',partnerMode==='custom');
-        $('partner-mode-library')?.classList.toggle('active',partnerMode==='library');
+        if ($('partner-mode-custom')) $('partner-mode-custom').classList.toggle('active',partnerMode==='custom');
+        if ($('partner-mode-library')) $('partner-mode-library').classList.toggle('active',partnerMode==='library');
         if($('custom-partner-form')) $('custom-partner-form').style.display=partnerMode==='custom'?'':'none';
         if($('opening-partner-library')) $('opening-partner-library').style.display=partnerMode==='library'?'':'none';
         if(partnerMode==='custom') updatePartnerBuildBtnState();
@@ -1665,7 +1665,7 @@
     }
     function renderSubCategories() {
         const types = currentSubTypes();
-        if (!types.some(t => String(t.v) === String(activeSubCategory))) activeSubCategory = String(types[0]?.v ?? '');
+        if (!types.some(t => String(t.v) === String(activeSubCategory))) activeSubCategory = String(types[0] ? types[0].v : '');
         $('sub-category-list').innerHTML = types.map(t => `
             <button class="category-item ${String(t.v)===String(activeSubCategory)?'active':''}" onclick="switchSubCategory('${t.v}')">${t.label}</button>`).join('');
     }
@@ -2155,16 +2155,16 @@
             ? (selectedOpeningCharacter.build || selectedOpeningCharacter.character || {})
             : null;
         const openingBloodName = openingSummaryBuild ? (Object.keys(openingSummaryBuild.血统 || {})[0] || '') : '';
-        const openingBlood = openingBloodName ? (openingSummaryBuild.血统?.[openingBloodName] || {}) : null;
-        const tierKey = openingSummaryBuild?.层级 || 'Ⅰ';
+        const openingBlood = openingBloodName ? ((openingSummaryBuild.血统 && openingSummaryBuild.血统[openingBloodName]) || {}) : null;
+        const tierKey = (openingSummaryBuild && openingSummaryBuild.层级) || 'Ⅰ';
         const tier = tierKey + ' 级';
-        const bloodTierKey = openingBlood?.品质 || 'F';
+        const bloodTierKey = (openingBlood && openingBlood.品质) || 'F';
         const bloodTier = bloodTierKey + ' 级';
         
         let attrHtml = '';
         if (openingBlood) {
             DB.attributes.forEach(attr => {
-                const attrTier = openingBlood.原始属性?.[attr] || 'F';
+                const attrTier = (openingBlood.原始属性 && openingBlood.原始属性[attr]) || 'F';
                 attrHtml += `<div class="cf-attr-box"><strong>${esc(attr)}:</strong> <span>${esc(attrTier)}级</span></div>`;
             });
         } else {
@@ -2174,9 +2174,9 @@
             });
         }
         const bloodName = openingBloodName || (race + '血统');
-        const bloodDesc = openingBlood?.描述 || '最初的基础，却有无限可能';
-        const bloodTags = (openingBlood?.标签 || ['初始血统', race]).join('、');
-        const bloodEffects = Object.entries(openingBlood?.效果 || {});
+        const bloodDesc = (openingBlood && openingBlood.描述) || '最初的基础，却有无限可能';
+        const bloodTags = ((openingBlood && openingBlood.标签) || ['初始血统', race]).join('、');
+        const bloodEffects = Object.entries((openingBlood && openingBlood.效果) || {});
         const bloodEffectHtml = bloodEffects.length
             ? bloodEffects.map(([effectName,effectText]) => `<p style="color:var(--accent); margin-top:6px;"><strong>${esc(effectName)}：</strong>${esc(effectText)}</p>`).join('')
             : `<p style="color:var(--accent); margin-top:6px; font-weight:bold;"><i class="fa-solid fa-bolt"></i> 核心天赋效果暂缺，降临后将由主神 (AI) 根据种族特性当场演算并赋予。</p>`;
@@ -2202,7 +2202,7 @@
                 // 智能获取子类型标签
                 let typeLabel = item.type;
                 if(item._cat === 'equipment' || (!item._cat && DB.equipments.some(e=>e.id===item.id))) {
-                    typeLabel = DB.equipTypes.find(t=>String(t.v)===String(item.type))?.label || item.type;
+                    typeLabel = (DB.equipTypes.find(t=>String(t.v)===String(item.type)) || {}).label || item.type;
                 }
                 
                 return `
@@ -2378,11 +2378,11 @@
 
     function collectState() {
         const attrs = {}; document.querySelectorAll('.attr-input').forEach((input, idx) => { attrs[DB.attributes[idx]] = parseInt(input.value||0); });
-        return { name:$('f-name').value, gender:$('f-gender').value, age:$('f-age').value, race:$('f-race').value, identity:$('f-identity').value, attrs:attrs, coins:currentCoins, selectedItems:[...selectedItems], selectedPlot, selectedPartner, useCustomPartnerFlag, selectedOpeningCharacterId:selectedOpeningCharacter?.id||'', selectedOpeningPartnerId:selectedOpeningPartner?.id||'', characterMode, partnerMode, singleWorldEnabled, customItems, customPartner:{name:$('cp-name').value,tier:$('cp-tier').value,race:$('cp-race').value,gender:$('cp-gender').value,app:$('cp-app').value,like:$('cp-like').value,bg:$('cp-bg').value}, singleWorld:{name:$('sw-name').value,time:$('sw-time').value,identity:$('sw-identity').value,mainstate:$('sw-mainstate').value,goal:$('sw-goal').value}, stabilityLocked: $('ws-lock') ? $('ws-lock').checked : false, partnerCostPaid, activePlotCat, originalIdentity, singleWorldIdentityOverridden };
+        return { name:$('f-name').value, gender:$('f-gender').value, age:$('f-age').value, race:$('f-race').value, identity:$('f-identity').value, attrs:attrs, coins:currentCoins, selectedItems:[...selectedItems], selectedPlot, selectedPartner, useCustomPartnerFlag, selectedOpeningCharacterId:(selectedOpeningCharacter ? selectedOpeningCharacter.id : '')||'', selectedOpeningPartnerId:(selectedOpeningPartner ? selectedOpeningPartner.id : '')||'', characterMode, partnerMode, singleWorldEnabled, customItems, customPartner:{name:$('cp-name').value,tier:$('cp-tier').value,race:$('cp-race').value,gender:$('cp-gender').value,app:$('cp-app').value,like:$('cp-like').value,bg:$('cp-bg').value}, singleWorld:{name:$('sw-name').value,time:$('sw-time').value,identity:$('sw-identity').value,mainstate:$('sw-mainstate').value,goal:$('sw-goal').value}, stabilityLocked: $('ws-lock') ? $('ws-lock').checked : false, partnerCostPaid, activePlotCat, originalIdentity, singleWorldIdentityOverridden };
     }
     
     function applyState(st) {
-        $('f-name').value = st.name||''; $('f-gender').value = st.gender||'男'; $('f-age').value = st.age||20; $('f-race').value = st.race||'人类'; $('f-identity').value = st.identity||'守护者'; currentCoins = st.coins ?? DB.initSpaceCoins; partnerCostPaid = st.partnerCostPaid || 0; $('val-coins').innerText = currentCoins; selectedItems = new Set(st.selectedItems||[]); selectedPlot = st.selectedPlot||null; selectedPartner = st.selectedPartner||null; useCustomPartnerFlag = !!st.useCustomPartnerFlag; characterMode=st.characterMode||'custom'; partnerMode=st.partnerMode||'library'; selectedOpeningCharacter=openingAssets.find(a=>a.id===st.selectedOpeningCharacterId)||null; selectedOpeningPartner=openingAssets.find(a=>a.id===st.selectedOpeningPartnerId)||null; singleWorldEnabled = !!st.singleWorldEnabled; customItems = st.customItems||[]; if (st.activePlotCat) activePlotCat = st.activePlotCat; else activePlotCat = 'multi'; originalIdentity = (st.originalIdentity !== undefined ? st.originalIdentity : null); singleWorldIdentityOverridden = !!st.singleWorldIdentityOverridden; document.querySelectorAll('.attr-input').forEach((input, idx) => { input.value = (st.attrs && st.attrs[DB.attributes[idx]]) ?? DB.attrMin; }); updateFactionDesc(); if (st.customPartner) { $('cp-name').value=st.customPartner.name||''; $('cp-tier').value=st.customPartner.tier||'F'; $('cp-race').value=st.customPartner.race||''; $('cp-gender').value=st.customPartner.gender||'男'; $('cp-app').value=st.customPartner.app||''; $('cp-like').value=st.customPartner.like||''; $('cp-bg').value=st.customPartner.bg||''; } if (st.singleWorld) { ['name','time','identity','mainstate','goal'].forEach(k => { const el=$('sw-'+k); if(el) el.value = st.singleWorld[k]||''; }); } const lockEl = $('ws-lock'); if (lockEl) lockEl.checked = !!st.stabilityLocked; const swForm = $('single-world-form'); if (swForm) { if (activePlotCat === 'single') { swForm.style.display=''; swForm.classList.add('expanded'); } else { swForm.classList.remove('expanded'); } } const idEl = $('f-identity'); if (idEl) { if (activePlotCat === 'single' || singleWorldIdentityOverridden) { if (!singleWorldIdentityOverridden) { originalIdentity = idEl.value; singleWorldIdentityOverridden = true; } idEl.value = IDENTITY_SINGLE_WORLD; idEl.disabled = true; singleWorldIdentityLocked = true; updateFactionDesc(); } else { idEl.disabled = false; singleWorldIdentityLocked = false; } } setCharacterMode(characterMode); setPartnerMode(partnerMode); renderOpeningCharacterLibrary(); renderOpeningPartnerLibrary(); calcTier(); renderItems(); renderSelectedPanel(); renderPlotTabs(); renderPlots(); renderPartners(); updateBgSummary(); const cpClearBtn = $('cp-clear-btn'); if (cpClearBtn) cpClearBtn.style.display = (useCustomPartnerFlag && selectedPartner === 'custom') ? '' : 'none';
+        $('f-name').value = st.name||''; $('f-gender').value = st.gender||'男'; $('f-age').value = st.age||20; $('f-race').value = st.race||'人类'; $('f-identity').value = st.identity||'守护者'; currentCoins = (st.coins !== undefined && st.coins !== null ? st.coins : DB.initSpaceCoins); partnerCostPaid = st.partnerCostPaid || 0; $('val-coins').innerText = currentCoins; selectedItems = new Set(st.selectedItems||[]); selectedPlot = st.selectedPlot||null; selectedPartner = st.selectedPartner||null; useCustomPartnerFlag = !!st.useCustomPartnerFlag; characterMode=st.characterMode||'custom'; partnerMode=st.partnerMode||'library'; selectedOpeningCharacter=openingAssets.find(a=>a.id===st.selectedOpeningCharacterId)||null; selectedOpeningPartner=openingAssets.find(a=>a.id===st.selectedOpeningPartnerId)||null; singleWorldEnabled = !!st.singleWorldEnabled; customItems = st.customItems||[]; if (st.activePlotCat) activePlotCat = st.activePlotCat; else activePlotCat = 'multi'; originalIdentity = (st.originalIdentity !== undefined ? st.originalIdentity : null); singleWorldIdentityOverridden = !!st.singleWorldIdentityOverridden; document.querySelectorAll('.attr-input').forEach((input, idx) => { const savedAttr = st.attrs && st.attrs[DB.attributes[idx]]; input.value = (savedAttr !== undefined && savedAttr !== null) ? savedAttr : DB.attrMin; }); updateFactionDesc(); if (st.customPartner) { $('cp-name').value=st.customPartner.name||''; $('cp-tier').value=st.customPartner.tier||'F'; $('cp-race').value=st.customPartner.race||''; $('cp-gender').value=st.customPartner.gender||'男'; $('cp-app').value=st.customPartner.app||''; $('cp-like').value=st.customPartner.like||''; $('cp-bg').value=st.customPartner.bg||''; } if (st.singleWorld) { ['name','time','identity','mainstate','goal'].forEach(k => { const el=$('sw-'+k); if(el) el.value = st.singleWorld[k]||''; }); } const lockEl = $('ws-lock'); if (lockEl) lockEl.checked = !!st.stabilityLocked; const swForm = $('single-world-form'); if (swForm) { if (activePlotCat === 'single') { swForm.style.display=''; swForm.classList.add('expanded'); } else { swForm.classList.remove('expanded'); } } const idEl = $('f-identity'); if (idEl) { if (activePlotCat === 'single' || singleWorldIdentityOverridden) { if (!singleWorldIdentityOverridden) { originalIdentity = idEl.value; singleWorldIdentityOverridden = true; } idEl.value = IDENTITY_SINGLE_WORLD; idEl.disabled = true; singleWorldIdentityLocked = true; updateFactionDesc(); } else { idEl.disabled = false; singleWorldIdentityLocked = false; } } setCharacterMode(characterMode); setPartnerMode(partnerMode); renderOpeningCharacterLibrary(); renderOpeningPartnerLibrary(); calcTier(); renderItems(); renderSelectedPanel(); renderPlotTabs(); renderPlots(); renderPartners(); updateBgSummary(); const cpClearBtn = $('cp-clear-btn'); if (cpClearBtn) cpClearBtn.style.display = (useCustomPartnerFlag && selectedPartner === 'custom') ? '' : 'none';
     }
     
     function openPresetModal() { renderPresetList(); $('preset-modal').style.display = 'flex'; }
@@ -2714,7 +2714,7 @@
                     const p = DB.plots.find(x => x.id === selectedPlot);
                     if (p) {
                         // .match(/【(.*?)】/) 会提取出【】里面的内容
-                        const cleanName = p.name.match(/【(.*?)】/)?.[1] || p.name;
+                        const cleanName = (p.name.match(/【(.*?)】/) || [])[1] || p.name;
                         _set(c, 'stat_data.世界.名称', cleanName);
                         // 世界位格(罗马数字 Ⅰ~Ⅸ), 与[InitVar]世界初始设定.yaml 字段对齐, 与【选择世界】正则保持同步
                         if (p.rank) _set(c, 'stat_data.世界.位格', p.rank);
@@ -2757,7 +2757,7 @@
                 isWorldAnchored = true; // 状态更新：已选择多元世界
                 
                 // 提取出干净的名字, 评级改用世界位格(罗马数字)
-                const cleanName = p.name.match(/【(.*?)】/)?.[1] || p.name;
+                const cleanName = (p.name.match(/【(.*?)】/) || [])[1] || p.name;
                 const rank = p.rank || 'Ⅰ';
                 const tier = (p.tier || 'F~E').replace(/\s+/g,'').replace('~','-') + '级';
 

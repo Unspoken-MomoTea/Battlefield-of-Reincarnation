@@ -5,6 +5,8 @@ const path=require('node:path');
 const html=fs.readFileSync(path.join(__dirname,'../Regular/开局.html'),'utf8');
 const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
 assert.ok(scripts.length>0,'opening page should contain scripts');
+assert.doesNotMatch(html,/\?\./,'opening page avoids optional chaining for older embedded WebViews');
+assert.doesNotMatch(html,/\?\?/,'opening page avoids nullish coalescing for older embedded WebViews');
 for(const [index,source] of scripts.entries()){
   try{ new Function(source); }
   catch(error){ throw new Error('opening inline script #'+(index+1)+' failed to compile: '+error.message); }

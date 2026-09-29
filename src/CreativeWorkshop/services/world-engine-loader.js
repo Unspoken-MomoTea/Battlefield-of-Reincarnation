@@ -39,13 +39,14 @@ export function buildWorldEngineLoaderContent(ref, resolvedSha = '') {
   return `(() => {
   'use strict';
   const repository = '${REPOSITORY}';
+  const ref = '${ref}';
   const sha = '${sha}';
   const url = '${url}';
   let host = window;
   try {
     while (host.parent && host.parent !== host) { void host.parent.document; host = host.parent; }
   } catch (_) {}
-  host.SamsaraWorldEngineLoader = { repository, sha, url };
+  host.SamsaraWorldEngineLoader = { repository, ref, sha, url };
   import(url).catch(error => {
     console.error('[世界推进] 远程加载失败:', error);
     try { host.toastr && host.toastr.error && host.toastr.error(error.message || String(error), '世界推进加载失败'); } catch (_) {}

@@ -89,13 +89,15 @@
             if(!fetcher)throw new Error('当前环境没有 fetch');
             const endpoint=this.endpoint('chat'),headers={'Content-Type':'application/json'};
             if(api.apiKey.trim())headers.Authorization='Bearer '+api.apiKey.trim();
-            const cacheKey=endpoint+'|'+api.model,wants=options.structured==='auto'&&plain(options.schema);
+            const model=String(options.model||api.model||'').trim();
+            if(!model)throw new Error('世界推进专属 API 缺少可用模型');
+            const cacheKey=endpoint+'|'+model,wants=options.structured==='auto'&&plain(options.schema);
             const cached=wants?this.modeCache[cacheKey]:'';
             const modes=!wants?['plain']:cached==='json_schema'?['json_schema','json_object','plain']:cached==='json_object'?['json_object','plain']:cached==='plain'?['plain']:['json_schema','json_object','plain'];
             let lastError='';const modeAttempts=[];
             for(const mode of modes){
                 modeAttempts.push(mode);
-                const body={model:api.model,messages:[{role:'system',content:String(system||'')},{role:'user',content:String(input||'')}],stream:false,temperature:Number.isFinite(Number(options.temperature))?Number(options.temperature):0.3};
+                const body={model,messages:[{role:'system',content:String(system||'')},{role:'user',content:String(input||'')}],stream:false,temperature:Number.isFinite(Number(options.temperature))?Number(options.temperature):0.3};
                 if(mode==='json_schema')body.response_format={type:'json_schema',json_schema:{name:String(options.schemaName||'samsara_world_result').replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64),strict:false,schema:options.schema}};
                 else if(mode==='json_object')body.response_format={type:'json_object'};
                 const response=await fetcher(endpoint,{method:'POST',headers,body:JSON.stringify(body),signal:options.signal});
@@ -103,7 +105,7 @@
                     let err='';try{err=await response.text();}catch(_){}
                     lastError='HTTP '+response.status+': '+response.statusText+(err?' / '+err.slice(0,300):'');
                     if(mode!=='plain'&&this.structuredUnsupported(response.status,err)){delete this.modeCache[cacheKey];continue;}
-                    engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:null};
+                    engine.lastTransportInfo={接口:'世界推进专属 API',模型:model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:null};
                     throw new Error(lastError);
                 }
                 const data=await response.json(),message=data?.choices?.[0]?.message,raw=message?.content;
@@ -111,7 +113,7 @@
                 if(!content)throw new Error('专属 API 返回内容为空');
                 if(wants)this.modeCache[cacheKey]=mode;
                 engine.apiModeCache=this.modeCache;
-                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:this.telemetry.normalizeUsage(data?.usage)};
+                engine.lastTransportInfo={接口:'世界推进专属 API',模型:model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:this.telemetry.normalizeUsage(data?.usage)};
                 return content;
             }
             throw new Error(lastError||'专属 API 不支持当前结构化输出模式');
@@ -120,12 +122,12 @@
             const engine=this.engine;
             if(this.usesDedicated()){
                 const api=this.normalize(engine.config.dedicatedApi);
-                engine.lastTransportInfo={接口:'世界推进专属 API',模型:api.model,结构化模式:'请求中',尝试模式:[],usage:null};
+                engine.lastTransportInfo={接口:'世界推进专属 API',模型:String(options.model||api.model||''),结构化模式:'请求中',尝试模式:[],usage:null};
                 return this.requestDedicated(system,input,options);
             }
             const terminal=engine.host.Samsara&&engine.host.Samsara.terminal;
             if(!terminal||typeof terminal.request!=='function'||!terminal.apiReady?.())throw new Error('请在主神终端设置中启用额外模型并选择模型');
-            engine.lastTransportInfo={接口:'主神终端额外模型',模型:'',结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
+            engine.lastTransportInfo={接口:'主神终端额外模型',模型:String(options.model||''),结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
             return terminal.request(system,input,options);
         }
     }

@@ -112,11 +112,10 @@ async function main() {
 
   const targetSha = run(git, ['rev-parse', 'origin/main^{commit}'], root, true);
   const stableSha = run(git, ['rev-parse', 'origin/workshop-stable^{commit}'], root, true);
-  assertAncestor(
-    stableSha,
-    targetSha,
-    '当前 origin/main 不能从 workshop-stable fast-forward，拒绝正式发布',
-  );
+  const stableIsAncestor = tryRun(git, ['merge-base', '--is-ancestor', stableSha, targetSha]).status === 0;
+  if (!stableIsAncestor) {
+    console.log('提示：workshop-stable 含回滚/发布指针历史，将使用 force-with-lease 安全重锚到本次正式版本。');
+  }
 
   const workshopSource = run(
     git,
@@ -229,7 +228,9 @@ async function main() {
 
     console.log('\n原子推进 workshop-stable + 正式 Tag…');
     run(git, [
-      'push', '--atomic', 'origin',
+      'push', '--atomic',
+      `--force-with-lease=refs/heads/workshop-stable:${latestStable}`,
+      'origin',
       'refs/remotes/origin/main:refs/heads/workshop-stable',
       `refs/tags/${release.tag}:refs/tags/${release.tag}`,
     ]);

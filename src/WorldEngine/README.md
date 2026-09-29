@@ -60,3 +60,12 @@
 - 每次迁移保持公开 seam 与单文件交付兼容，先用现有回归锁行为，再移动实现。
 
 详细迁移边界见 `ARCHITECTURE.md` 与 `REFACTOR-PLAN.md`；提示词清单规则见 `PROMPT-REGISTRY.md`。
+
+
+## 版本与热更新
+
+世界推进运行时公开 `WORLD_ENGINE_VERSION` 与 `Samsara.WorldEngineInfo`。正式版本使用不可覆盖的 `world-engine-vX.Y.Z` Git Tag；测试维护通道读取 `main` 中生成交付文件 `script/世界推进系统.js` 的最后修改提交，避免源码提交与 CI 生成交付分属不同 commit 时固定到尚未同步的 SHA。
+
+创意工坊“修复”页可识别旧式内联 `世界推进系统.js`，原位迁移为固定 SHA loader。若当前引擎不处于 `busy/committing` 状态，写入后立即加载新 SHA；新脚本通过既有 `dispose() -> init()` 生命周期替换旧实例。若正在推进，只保存新 loader，本轮不强制切换。
+
+正式发布前提升 `WORLD_ENGINE_VERSION`，然后运行 `node tools/release-world-engine.mjs`。工具会确认生成交付同步，执行世界推进语法检查与统一回归，再创建并推送 `world-engine-vX.Y.Z`。

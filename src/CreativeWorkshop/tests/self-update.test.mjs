@@ -155,10 +155,9 @@ test('testing channel ignores newer main commits that did not change CreativeWor
   assert.match(adapter.state.character[0].content, new RegExp(`@${newerMain}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
 
-test('stable channel follows workshop-stable and never checks main', async () => {
+test('stable channel uses workshop tag when it matches workshop-stable and never checks main', async () => {
   const adapter = adapterFixture('https://workshop.6661816.xyz');
   const stable = 'abcdefabcdefabcdefabcdefabcdefabcdefabcd';
-  const staleWorker = '1111111111111111111111111111111111111111';
   const urls = [];
 
   const updater = createWorkshopSelfUpdater({
@@ -169,9 +168,19 @@ test('stable channel follows workshop-stable and never checks main', async () =>
       const value = String(url);
       urls.push(value);
       if (value.includes('/api/client/latest')) {
-        return response(staleWorker, { channel: 'stable', ref: 'workshop-stable' });
+        return response('1111111111111111111111111111111111111111', {
+          channel: 'stable',
+          ref: 'workshop-stable',
+          release_source: 'legacy-ref',
+        });
       }
-      if (value.includes('/commits?') && value.includes('sha=workshop-stable')) return response(stable);
+      if (value.includes('/tags?')) {
+        return new Response(JSON.stringify([{ name: 'workshop-v1.20.1', commit: { sha: stable } }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (value.includes('/commits/workshop-stable')) return response(stable);
       if (value.includes('/compare/')) {
         return new Response(JSON.stringify({ status: 'behind' }), {
           status: 200,
@@ -186,16 +195,15 @@ test('stable channel follows workshop-stable and never checks main', async () =>
   assert.equal(check.channel, 'stable');
   assert.equal(check.ref, 'workshop-stable');
   assert.equal(check.latestSha, stable);
+  assert.equal(check.latestTag, 'workshop-v1.20.1');
+  assert.equal(check.latestVersion, '1.20.1');
   assert.equal(check.updateAvailable, true);
-  assert.ok(urls.some(url => url.includes('/commits?') && url.includes('sha=workshop-stable') && url.includes('path=src%2FCreativeWorkshop')));
-  assert.equal(urls.some(url => url.includes('/commits?') && url.includes('sha=main')), false);
+  assert.ok(urls.some(url => url.includes('/tags?')));
+  assert.ok(urls.some(url => url.includes('/commits/workshop-stable')));
+  assert.equal(urls.some(url => url.includes('sha=main')), false);
 
   await updater.updateLoaderLink();
-  assert.match(
-    adapter.state.character[0].content,
-    new RegExp(`@${stable}/src/CreativeWorkshop/index\\.js`, 'u'),
-  );
-  assert.equal(urls.some(url => url.includes('/commits?') && url.includes('sha=main')), false);
+  assert.match(adapter.state.character[0].content, new RegExp(`@${stable}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
 
 test('self update leaves unrelated loader content untouched', async () => {
@@ -221,9 +229,10 @@ import('https://example.com/another-plugin.js');`;
   assert.match(content, new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
 
-test('mismatched worker metadata falls back to the client channel ref instead of main', async () => {
+test('mismatched worker metadata falls back to stable channel without main', async () => {
   const adapter = adapterFixture('https://workshop.6661816.xyz');
   const stable = 'fedcbafedcbafedcbafedcbafedcbafedcbafedc';
+  const stableHead = '2222222222222222222222222222222222222222';
   const urls = [];
   const updater = createWorkshopSelfUpdater({
     adapter,
@@ -238,6 +247,13 @@ test('mismatched worker metadata falls back to the client channel ref instead of
           ref: 'main',
         });
       }
+      if (value.includes('/tags?')) {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (value.includes('/commits/workshop-stable')) return response(stableHead);
       if (value.includes('/commits?') && value.includes('sha=workshop-stable')) return response(stable);
       if (value.includes('/compare/')) {
         return new Response(JSON.stringify({ status: 'behind' }), {
@@ -253,9 +269,9 @@ test('mismatched worker metadata falls back to the client channel ref instead of
   assert.equal(check.latestSha, stable);
   assert.equal(check.channel, 'stable');
   assert.equal(check.ref, 'workshop-stable');
-  assert.equal(urls.some(url => url.includes('/commits?') && url.includes('sha=main')), false);
+  assert.equal(check.releaseSource, 'legacy-ref');
+  assert.equal(urls.some(url => url.includes('sha=main')), false);
 });
-
 
 test('cdn.jsdelivr loader is rewritten and persisted to the latest fixed commit', async () => {
   const adapter = adapterFixture();

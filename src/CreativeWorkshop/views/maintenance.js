@@ -13,6 +13,7 @@ export function createMaintenanceView({
   version,
   currentSha = '',
   hotUpdateClient,
+  worldEngineUpdater,
 }) {
   let activeModal = null;
 
@@ -157,6 +158,104 @@ export function createMaintenanceView({
     }
   }
 
+  async function renderWorldEngineSection(container) {
+    container.replaceChildren();
+    container.className = 'rw-maintenance-section rw-maintenance-client';
+
+    const currentInfo = worldEngineUpdater?.current?.() || {};
+    const head = element('div', 'rw-maintenance-section-head');
+    const copy = element('div', '');
+    copy.append(
+      element('strong', '', '世界推进更新'),
+      element('div', 'rw-muted', currentInfo.version ? `当前版本 v${currentInfo.version}` : '检查已安装的世界推进与远程版本'),
+    );
+    head.appendChild(copy);
+    container.appendChild(head);
+
+    if (!worldEngineUpdater) {
+      container.appendChild(statusBox('当前客户端没有加载世界推进维护器。', 'bad'));
+      return;
+    }
+
+    const state = statusBox('正在检查世界推进…');
+    container.appendChild(state);
+    try {
+      const result = await worldEngineUpdater.check();
+      state.remove();
+      if (!result.installed) {
+        container.appendChild(statusBox('未找到已安装的世界推进脚本。', 'bad'));
+        return;
+      }
+
+      if (!result.releaseAvailable) {
+        const unavailable = element('div', 'rw-update-state rw-update-state--problem');
+        unavailable.append(
+          element('strong', '', '尚未发布正式世界推进 Tag'),
+          element('span', '', result.channel === 'stable'
+            ? '当前正式通道需要 world-engine-vX.Y.Z；首次正式 Tag 发布前不会把 main 测试代码推给正式用户。'
+            : '暂时无法取得测试通道最新提交。'),
+        );
+        container.appendChild(unavailable);
+        return;
+      }
+
+      const targetLabel = result.latestVersion ? `v${result.latestVersion}` : result.latestShortSha;
+      const sourceLabel = result.current.version ? `v${result.current.version}` : (result.current.sha ? result.current.sha.slice(0, 8) : '旧式安装');
+      if (result.updateAvailable) {
+        const updateState = element('div', 'rw-update-state rw-update-state--available');
+        const versions = element('div', 'rw-update-version-line');
+        versions.append(
+          element('strong', '', sourceLabel),
+          element('span', '', '→'),
+          element('strong', '', targetLabel),
+        );
+        updateState.append(
+          element('span', 'rw-update-badge', result.legacyFound ? '可接入热更新' : '发现新版本'),
+          versions,
+          element('div', 'rw-update-summary', result.legacyFound
+            ? '检测到旧式内联世界推进；更新后会原位替换为固定 SHA loader。'
+            : '更新会先写入固定 SHA loader；世界推进空闲时立即重载。'),
+        );
+        container.appendChild(updateState);
+        const updateButton = button(result.legacyFound ? '接管并更新世界推进' : '立即更新世界推进', 'primary rw-maintenance-update-cta', async () => {
+          updateButton.disabled = true;
+          updateButton.textContent = '正在更新…';
+          const updated = await worldEngineUpdater.updateAndReload();
+          const message = updated.hotReloaded
+            ? `世界推进已热更新到 ${updated.latestVersion ? `v${updated.latestVersion}` : updated.latestShortSha}。`
+            : updated.busy
+              ? `固定链接已更新到 ${updated.latestShortSha}；当前世界推进正在执行，本轮不强制切换。`
+              : updated.reloadRequired
+                ? `固定链接已更新到 ${updated.latestShortSha}；运行时重载失败或不可用，下次加载自动生效。`
+                : '世界推进已经是目标版本。';
+          try { host.toastr?.success?.(message, '世界推进'); } catch {}
+          await renderWorldEngineSection(container);
+        });
+        container.appendChild(updateButton);
+      } else {
+        container.appendChild(statusBox(`✓ 世界推进已对齐 ${targetLabel}`, 'ok'));
+      }
+
+      const details = element('details', 'rw-update-details');
+      const detailBody = element('div', 'rw-update-details-body');
+      detailBody.append(
+        element('div', '', `更新通道：${result.channel === 'testing' ? '测试版' : '正式版'} · ${result.ref}`),
+        element('div', '', `目标：${result.latestTag || result.latestShortSha}`),
+        element('div', '', `安装形态：${result.legacyFound ? '旧式内联脚本' : result.loaderFound ? '固定 SHA loader' : '运行时实例'}`),
+      );
+      details.append(element('summary', '', '查看载入信息'), detailBody);
+      container.appendChild(details);
+    } catch (error) {
+      state.remove();
+      const failed = element('div', 'rw-update-state rw-update-state--problem');
+      failed.append(
+        element('strong', '', '检查世界推进失败'),
+        element('span', '', error.message),
+      );
+      container.appendChild(failed);
+    }
+  }
+
   async function renderInstalledSection(container) {
     container.replaceChildren();
     const head = element('div', 'rw-maintenance-section-head');
@@ -234,11 +333,13 @@ export function createMaintenanceView({
     modal.body.appendChild(intro);
 
     const client = element('section', 'rw-maintenance-section');
+    const worldEngine = element('section', 'rw-maintenance-section');
     const installed = element('section', 'rw-maintenance-section');
-    modal.body.append(client, installed);
+    modal.body.append(client, worldEngine, installed);
 
     await Promise.allSettled([
       renderClientSection(client),
+      renderWorldEngineSection(worldEngine),
       renderInstalledSection(installed),
     ]);
   }

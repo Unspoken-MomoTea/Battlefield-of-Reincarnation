@@ -101,7 +101,7 @@
 
     // ---- migrated from script/world-engine-src/59-editable-module-prompts.part.js ----
     // 提示词工作台最终层：只暴露真正发送给世界 AI 的文字模块；程序 Schema/校验仍由代码负责。
-    const WORLD_MODULE_PROMPT_VERSION=6;
+    const WORLD_MODULE_PROMPT_VERSION=7;
     const COMPACT_DEFAULT_PRESET=`你是轮回战场的世界引擎。推进正文之外仍在运行的世界，并优先延续当前作品正在发生的故事；只提交已经发生或需要规划的世界变化。
 【执行流程】
 1. 取事实：当前变量/已确认剧情 > 明确世界书 > 模型常识。

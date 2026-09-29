@@ -5,6 +5,7 @@
  */
 (function (root) {
     'use strict';
+    const WORLD_ENGINE_VERSION='2.0.0';
     const copy = value => JSON.parse(JSON.stringify(value));
     const plain = value => !!value && typeof value === 'object' && !Array.isArray(value);
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -4487,7 +4488,7 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
     }
     class SamsaraWorldEngine {
         constructor(host, env) {
-            this.host = host; this.env = env || host; this.unsub = []; this.generation = 0;
+            this.host = host; this.env = env || host; this.version=WORLD_ENGINE_VERSION; this.unsub = []; this.generation = 0;
             this.busy = false; this.committing = false; this.disposed = false; this.tab = '总览'; this.status = '待命';
             this.lastRequest=null; this.previewRequest=null; this.lastReply=''; this.lastFailure='';
             this.lastRetryLog=[]; this.lastAttemptCount=0; this.lastAttemptTelemetry=[]; this.lastTransportInfo=null; this.lastWorldResult=null; this.lastCompiledPatches=[]; this.lastCompileWarnings=[];
@@ -9499,7 +9500,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         }
     };
     // CommonJS 入口仅供离线测试，浏览器脚本不依赖打包器。
-    if (typeof module !== 'undefined' && module.exports) { module.exports = {SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople,extractWorldProse,derivePersonWorldContext,projectHotWorldPeople,WORLD_UI_THEMES,WORLD_FONT_SCALES,estimateTokens,formatTokenCount,normalizeTokenUsage,requestTokenTelemetry}; return; }
+    if (typeof module !== 'undefined' && module.exports) { module.exports = {WORLD_ENGINE_VERSION,SamsaraWorldEngine,applyPatches,parseReply,emptyState,RECORDS,compileWorldResult,normalizeWorldResult,mergeWorldResults,WORLD_RESULT_SCHEMA,projectWorldContext,compactWorldLifecycle,calendarDate,repairExplorationGranularity,sortWorldEvents,eventScheduleLabel,staleActiveEvents,temporalAnomalies,activeAlienActivityRequirements,pruneDeadAlienPeople,extractWorldProse,derivePersonWorldContext,projectHotWorldPeople,WORLD_UI_THEMES,WORLD_FONT_SCALES,estimateTokens,formatTokenCount,normalizeTokenUsage,requestTokenTelemetry}; return; }
     const host = root.parent && root.parent !== root ? root.parent : root;
     // 酒馆脚本沙箱中的助手接口可能是词法全局，不一定挂在 iframe.window 上。
     const runtime = {
@@ -9515,6 +9516,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     if (typeof getGlobalWorldbookNames === 'function') runtime.getGlobalWorldbookNames = (...args) => getGlobalWorldbookNames(...args);
     if (typeof getWorldbook === 'function') runtime.getWorldbook = (...args) => getWorldbook(...args);
     host.Samsara = host.Samsara || {};
+    const loaderInfo=plain(host.SamsaraWorldEngineLoader)?host.SamsaraWorldEngineLoader:{};
+    host.Samsara.WorldEngineInfo={version:WORLD_ENGINE_VERSION,sha:String(loaderInfo.sha||''),repository:String(loaderInfo.repository||'Unspoken-MomoTea/Battlefield-of-Reincarnation'),entryPath:'/script/世界推进系统.js'};
     if (host.Samsara.worldEngine) host.Samsara.worldEngine.dispose();
     const engine = new SamsaraWorldEngine(host,runtime);
     host.Samsara.WorldEngine = SamsaraWorldEngine;

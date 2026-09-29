@@ -71,6 +71,8 @@ for(const moduleName of [
   '@src/WorldEngine/domains/WorldResultCompiler.part.js',
   '@src/WorldEngine/domains/WorldValidationService.part.js',
   '@src/WorldEngine/domains/WorldCommitService.part.js',
+  '@src/WorldEngine/domains/WorldMutationService.part.js',
+  '@src/WorldEngine/domains/WorldSnapshotService.part.js',
   '@src/WorldEngine/domains/WorldApiTransportService.part.js',
   '@src/WorldEngine/domains/WorldPromptDocumentService.part.js',
   '@src/WorldEngine/domains/WorldRunOrchestrator.part.js',

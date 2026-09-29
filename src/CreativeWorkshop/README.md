@@ -139,6 +139,6 @@ UI 组件不得绕过 service/installer 层直接修改酒馆数据。
 
 ## 核心组件维护
 
-“修复”现在同时管理第一方核心组件与工坊作品。世界推进可识别旧式整段内联脚本，并在更新时原位迁移为固定 commit SHA loader。测试通道读取 `main` 中 `script/世界推进系统.js` 的最后修改提交；正式世界推进只接受 `world-engine-vX.Y.Z` Git Tag。
+“修复”现在同时管理第一方核心组件与工坊作品。世界推进可识别旧式整段内联脚本，并在更新时原位迁移为固定 commit SHA loader。测试通道读取 `main` 中 `script/世界推进系统.js` 的最后修改提交；正式世界推进只接受 `VX.Y.Z` Git Tag。
 
-创意工坊正式发布继续原子推进 `workshop-stable` 并创建 `workshop-vX.Y.Z`。只有当最新正式 Tag 与当前 `workshop-stable` 发布头一致时，Tag 才作为客户端正式版本事实；迁移期若两者不一致则继续使用原 stable 逻辑，避免回退到旧 Tag。无论测试还是正式通道，Tavern Helper 最终持久化的都是不可变 commit SHA。
+统一正式发布会原子推进 `workshop-stable` 并创建整个项目共享的 `VX.Y.Z`。只有当最新正式 Tag 与当前 `workshop-stable` 发布头一致时，Tag 才作为客户端正式版本事实；迁移期若两者不一致则继续使用原 stable 逻辑，避免回退到旧 Tag。无论测试还是正式通道，Tavern Helper 最终持久化的都是不可变 commit SHA。

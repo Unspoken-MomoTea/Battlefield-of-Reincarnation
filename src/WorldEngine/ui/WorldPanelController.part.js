@@ -190,7 +190,15 @@
                 if(event.target.matches('[data-retries]')){
                     const value=Math.max(1,Math.min(5,Number(event.target.value)||1));
                     engine.config.retryAttempts=value;event.target.value=value;engine.saveConfig();
-                    engine.status='最大尝试次数已设为 '+value+' 次';
+                    engine.status='每个模型最大尝试次数已设为 '+value+' 次';
+                    engine.panel.querySelector('footer span').textContent=engine.status;
+                }else if(event.target.matches('[data-world-temperature]')){
+                    const value=Math.max(0,Math.min(2,Number(event.target.value)||0));
+                    engine.config.temperature=value;event.target.value=String(value);engine.saveConfig();
+                    engine.status='世界推演温度已设为 '+value;engine.panel.querySelector('footer span').textContent=engine.status;
+                }else if(event.target.matches('[data-fallback-model]')){
+                    engine.config.fallbackModel=String(event.target.value||'').trim().slice(0,160);engine.saveConfig();
+                    engine.status=engine.config.fallbackModel?'Fallback 模型已保存：'+engine.config.fallbackModel:'Fallback 模型已关闭';
                     engine.panel.querySelector('footer span').textContent=engine.status;
                 }else if(event.target.matches('[data-doc-import]')){
                     const input=event.target,file=input.files&&input.files[0];if(!file)return;

@@ -64,6 +64,22 @@ function setup(request,initial=baseState()){
   }
 
   {
+    const reply=JSON.stringify({
+      摘要:'事件有效但势力声望越界',
+      事件:[{名称:'港口警戒',操作:'更新',描述:'港口警戒已经推进到外港检查线。'}],
+      势力:[{名称:'海军本部',操作:'更新',实力:'S',领地:'大海',描述:'世界政府直属海军',声望:5000}]
+    });
+    const x=setup(()=>reply,baseState({withFaction:false}));
+    x.engine.config.retryAttempts=2;
+    assert.equal(await x.engine.run(),true,'局部片段连续失败时，最终应丢弃失败项并提交累计通过项');
+    assert.equal(x.calls(),2,'先给失败势力片段一次纠错机会，最终仍失败才丢弃');
+    assert.equal(x.writes(),1);
+    assert.equal(x.current().世界.后台.事件['港口警戒'].描述,'港口警戒已经推进到外港检查线。');
+    assert.equal(x.current().世界.势力?.海军本部,undefined,'声望越界势力片段不得写入');
+    assert.ok(x.engine.lastRetryLog.some(item=>item.类型==='局部片段已丢弃'));
+  }
+
+  {
     const x=setup(calls=>{if(calls<=2)throw new Error('HTTP 503: primary model unavailable');return validReply();});
     x.engine.config.retryAttempts=2;
     x.engine.config.temperature=0.65;

@@ -206,7 +206,7 @@
                         lastError=error;
                         lastRejectedReply=received||'';
                         lastRetryPlan=Array.isArray(error?.retryPlan)?copy(error.retryPlan):retryPlanForFailure(error,[]);
-                        const retryableFailure=this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error);
+                        const retryableFailure=timedOut===true?true:(this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error));
                         if(retryableFailure)this.lastRetryLog.push({尝试:attempt+1,类型:received?'模型回复被拒绝':'请求失败',错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
                         const canRetry=retryableFailure&&attempt+1<maxAttempts;
                         if(!canRetry)throw error;

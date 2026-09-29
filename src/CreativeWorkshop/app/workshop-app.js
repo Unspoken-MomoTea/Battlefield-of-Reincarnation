@@ -2,6 +2,7 @@ import { getUpdateChannel, resolveHostWindow } from '../config.js';
 import { workshopApi } from '../services/api.js';
 import { projectService } from '../services/project-service.js';
 import { workshopSelfUpdater } from '../services/self-update.js';
+import { worldEngineUpdater } from '../services/world-engine-update.js';
 import { createUiHelpers } from '../ui/helpers.js';
 import { createWorkshopShell } from '../ui/shell.js';
 import { createWorkshopUpdateNotice } from '../views/update-notice.js';
@@ -63,6 +64,7 @@ export function bootWorkshop() {
   const views = createWorkshopViews({
     host, doc, nodes, ui, workshopApi, projectService,
     selfUpdater: workshopSelfUpdater,
+    worldEngineUpdater,
     version: WORKSHOP_VERSION,
     currentSha: CURRENT_SHA,
     hotUpdateClient: updateLoaderOnly,
@@ -244,6 +246,7 @@ export function bootWorkshop() {
     workshopApi,
     projectService,
     selfUpdater: workshopSelfUpdater,
+    worldEngineUpdater,
   });
   host[GLOBAL_NAME] = bridge;
   host.dispatchEvent(new CustomEvent('reincarnation-workshop-ready', {

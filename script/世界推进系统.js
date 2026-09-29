@@ -6070,7 +6070,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 const request=await this.buildRequest(base);
                 if(token!==this.generation)throw new Error('请求已取消');
 
-                const configuredAttempts=Number(this.config.retryAttempts),maxAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:5));
+                const configuredAttempts=Number(this.config.retryAttempts),perModelAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:5));
+                const configuredFallback=String(this.config.fallbackModel||'').trim();
+                const primaryDedicatedModel=this.usesDedicatedApi()?String(this.normalizeDedicatedApi(this.config.dedicatedApi)?.model||'').trim():'';
+                const fallbackModel=configuredFallback&&configuredFallback!==primaryDedicatedModel?configuredFallback:'';
+                const maxAttempts=perModelAttempts*(fallbackModel?2:1);
+                const temperature=Math.max(0,Math.min(2,Number.isFinite(Number(this.config.temperature))?Number(this.config.temperature):0.3));
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];
 
                 while(attempt<maxAttempts){
@@ -6078,6 +6083,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     this.controller=new AbortController();
                     timedOut=false;
                     clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},300000);
+                    const usingFallback=!!fallbackModel&&attempt>=perModelAttempts;
+                    const phaseAttempt=usingFallback?attempt-perModelAttempts:attempt;
                     const attemptInput=attempt===0?request.input:(this.services?.requests?.retryInput?this.services.requests.retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan):retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan));
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
@@ -6085,18 +6092,20 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                         观测:requestTokenTelemetry(request.system,attemptInput,request.schema),
                         尝试序号:attempt+1,
                         最大尝试次数:maxAttempts,
+                        每模型最大尝试次数:perModelAttempts,
+                        模型阶段:usingFallback?'备用模型':'主模型',
                         失败记录:copy(this.lastRetryLog)
                     });
-                    actualRequest.manifest.观测.请求类型=attempt===0?'首次请求':'纠错重试';
+                    actualRequest.manifest.观测.请求类型=attempt===0?'首次请求':usingFallback?'备用模型纠错':'纠错重试';
                     this.lastAttemptCount=attempt+1;
                     this.lastRequest=actualRequest;
-                    this.status=attempt===0?'六模块联合推演中':'纠错重试 '+(attempt+1)+'/'+maxAttempts;
+                    this.status=attempt===0?'六模块联合推演中':usingFallback?'备用模型重试 '+(phaseAttempt+1)+'/'+perModelAttempts:'纠错重试 '+(phaseAttempt+1)+'/'+perModelAttempts;
                     this.render();
 
                     let received='',attemptTelemetry=null;
                     const attemptStarted=Date.now();this.lastTransportInfo=null;
                     try{
-                        received=String(await this.requestAI(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature:0.3}));
+                        received=String(await this.requestAI(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature,model:usingFallback?fallbackModel:undefined}));
                         clearTimeout(timeout);
                         if(token!==this.generation||this.controller.signal.aborted)throw new Error('请求已取消');
                         this.lastReply=received;this.lastFailure='';
@@ -6145,7 +6154,14 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                                 ensureMacroBackbone(next,request.timeline,this.config.requireMacroBackbone!==false);
                             }
                         }catch(error){globalError=error;}
-                        if(rejectedSlices.length||globalError)throw makeRetryFailure(rejectedSlices,globalError);
+                        if(globalError||(rejectedSlices.length&&attempt+1<maxAttempts))throw makeRetryFailure(rejectedSlices,globalError);
+                        if(rejectedSlices.length){
+                            const partialFailure=makeRetryFailure(rejectedSlices,null);
+                            const partialPlan=Array.isArray(partialFailure.retryPlan)?copy(partialFailure.retryPlan):[];
+                            this.lastRetryLog.push({尝试:attempt+1,类型:'局部片段已丢弃',错误:String(partialFailure.message||partialFailure),片段:copy(rejectedSlices),补充清单:partialPlan});
+                            actualRequest.manifest.最终丢弃片段=copy(rejectedSlices);
+                            this.lastCompileWarnings.push('重试耗尽后丢弃 '+rejectedSlices.length+' 个未通过业务片段；已通过片段继续提交');
+                        }
 
                         const current=this.snapshot();
                         if(token!==this.generation||this.controller.signal.aborted||current.fingerprint!==base.fingerprint||this.blocked(current))throw new Error('上下文已经切换，本次结果已丢弃');
@@ -6212,14 +6228,16 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                             this.lastAttemptTelemetry.push({尝试:attempt+1,结果:'请求失败',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:0,API输入Tokens:null,API输出Tokens:null,API总Tokens:null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed,原因:String(error.message||error)});
                         }
                         lastError=error;
-                        lastRejectedReply=received||this.lastReply||'';
+                        lastRejectedReply=received||'';
                         lastRetryPlan=Array.isArray(error?.retryPlan)?copy(error.retryPlan):retryPlanForFailure(error,[]);
-                        const rejectedByModel=!!received&&(this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error));
-                        if(rejectedByModel)this.lastRetryLog.push({尝试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
-                        const canRetry=rejectedByModel&&attempt+1<maxAttempts;
+                        const retryableFailure=timedOut===true?true:(this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error));
+                        if(retryableFailure)this.lastRetryLog.push({尝试:attempt+1,类型:received?'模型回复被拒绝':'请求失败',错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
+                        const canRetry=retryableFailure&&attempt+1<maxAttempts;
                         if(!canRetry)throw error;
                         attempt++;
-                        this.status='回复未通过 · 自动纠错 '+(attempt+1)+'/'+maxAttempts;
+                        const nextUsesFallback=!!fallbackModel&&attempt>=perModelAttempts;
+                        const nextPhaseAttempt=nextUsesFallback?attempt-perModelAttempts:attempt;
+                        this.status=nextUsesFallback?'主模型连续失败 · 切换备用模型 '+(nextPhaseAttempt+1)+'/'+perModelAttempts:'回复未通过 · 自动纠错 '+(nextPhaseAttempt+1)+'/'+perModelAttempts;
                         this.render();
                     }
                 }
@@ -7788,6 +7806,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     const fontButtons=Object.entries(WORLD_FONT_SCALES).map(([key,item])=>'<button class="we-setting-btn '+(engine.config.fontScale===key?'active':'')+'" data-font-option="'+key+'">'+text(item.name)+' · '+text(item.size)+'</button>').join('');
                     const presets=api.apiPresets.map(p=>'<option value="'+text(p.name)+'">'+text(p.name)+'</option>').join('');
                     const modelOptions=Array.from(new Set([api.model,...api.fetchedModels].filter(Boolean))).map(model=>'<option value="'+text(model)+'"></option>').join('');
+                    const temperature=Math.max(0,Math.min(2,Number.isFinite(Number(engine.config.temperature))?Number(engine.config.temperature):0.3));
+                    const fallbackModel=String(engine.config.fallbackModel||'');
                     const terminalReady=!!(engine.host.Samsara?.terminal?.apiReady?.());
                     const sourceState=engine.usesDedicatedApi()
                         ?(engine.dedicatedApiReady()?'专属 API 已就绪':'专属 API 已接管，但配置尚不完整')
@@ -7797,6 +7817,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     html+=section('历史记忆','<div class="we-setting-row"><div class="we-setting-copy"><b>向正文提供历史记忆</b><small>开启后，正文AI额外读取“近期原始锚点 + 更早长期总结”；关闭只影响正文，世界推进自身仍始终使用完整的分层历史脉络。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(historyToProse?'on':'')+'" data-action="history-prose-toggle"><span>'+text(historyToProse?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>','默认关闭 · 原始历史事实不会因关闭而删除');
                     html+=section('模型接口',
                         '<div class="we-setting-row"><div class="we-setting-copy"><b>当前调用来源</b><small>'+text(sourceState)+'</small></div><div class="we-setting-actions"><span class="we-source-badge">'+text(engine.apiSourceLabel())+'</span></div></div>'
+                        +'<div class="we-api-grid"><label>推演温度<input class="we-setting-input" data-world-temperature type="number" min="0" max="2" step="0.05" value="'+text(temperature)+'"></label><label>Fallback 模型（可选）<input class="we-setting-input" data-fallback-model list="we-world-fallback-models" value="'+text(fallbackModel)+'" placeholder="主模型连续失败后切换"><datalist id="we-world-fallback-models">'+modelOptions+'</datalist></label></div><p class="we-muted">温度默认 0.3。Fallback 留空即关闭；填写后，主模型用尽“每个模型最大尝试次数”仍失败才切换备用模型继续。专属 API 与新版主神终端额外模型都支持模型覆盖。</p>'
                         +'<div class="we-setting-row"><div class="we-setting-copy"><b>世界推进专属 API</b><small>开启后世界推进只走这里，不再调用状态栏 / 主神终端的 API；即使配置不完整也不会偷偷回退。</small></div><div class="we-setting-actions"><button class="we-setting-btn we-switch '+(api.enabled?'on':'')+'" data-action="dedicated-toggle"><span>'+text(api.enabled?'已启用':'未启用')+'</span><span class="we-switch-track"><i></i></span></button></div></div>'
                         +(api.enabled
                             ?'<div class="we-api-toolbar"><select class="we-setting-input" data-dedicated-preset><option value="">— 选择已保存 API 预设 —</option>'+presets+'</select><input class="we-setting-input" data-dedicated-preset-name maxlength="80" placeholder="预设名称"><button class="we-setting-btn" data-action="dedicated-preset-save">保存预设</button><button class="we-setting-btn" data-action="dedicated-preset-delete">删除预设</button></div>'
@@ -7804,6 +7825,12 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                              +'<p class="we-muted">接口按 OpenAI-compatible /v1/chat/completions 与 /v1/models 方式连接，并保留 JSON Schema → JSON Object → 普通文本的结构化兼容降级。</p>'
                             :'<div class="we-notice">当前关闭专属 API。世界推进继续使用主神终端「额外模型配置」；这里不会复制或读取状态栏里的 API Key。</div>')
                         ,'接口配置只存本地 localStorage，不写入 MVU');
+                    const snapshots=engine.services?.snapshots?.list?.()||[];
+                    html+=section('世界快照',
+                        '<div class="we-doc-create"><input class="we-setting-input" data-world-snapshot-name maxlength="80" placeholder="快照名称，例如：司法岛决战前"><button class="we-btn we-primary" data-action="world-snapshot-save">保存世界快照</button></div>'
+                        +(snapshots.length?'<div class="we-doc-list">'+snapshots.map(item=>'<div class="we-doc-row"><div><b>'+text(item.name)+'</b><small>'+text(item.worldTime||'时间未记录')+' · '+text(item.createdAt?new Date(item.createdAt).toLocaleString():'未记录时间')+'</small></div><span class="we-doc-actions"><button data-action="world-snapshot-restore" data-snapshot-id="'+text(item.id)+'">恢复</button><button data-action="world-snapshot-delete" data-snapshot-id="'+text(item.id)+'">删除</button></span></div>').join('')+'</div>':'<div class="we-empty"><b>暂无世界快照</b><small>只保存世界推进负责的数据，不回滚玩家角色数值与任务状态。</small></div>')
+                        +'<p class="we-muted">快照保存 世界、资产、关系列表与传闻；恢复时不会回滚角色属性、背包、任务或成就。恢复后会清除当前楼层的世界推进处理锚点，允许重新建立后续世界状态。</p>',
+                        '最多保留当前聊天最近 12 份 · 仅存本地');
                     return html;
                 
         }
@@ -7866,10 +7893,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                         const feedback=retryFeedback(item.错误,Array.isArray(item.片段)?item.片段:[],Array.isArray(item.补充清单)?item.补充清单:[]);
                         const details=feedback.issues.length?'<p><b>具体问题</b><br>'+feedback.issues.map(text).join('<br>')+'</p>':'';
                         const guidance=feedback.actions.length?'<p><b>修复要求</b><br>'+feedback.actions.map(text).join('<br>')+'</p>':'';
-                        return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>模型回复被拒绝</b><p>'+text(feedback.summary)+'</p>'+details+guidance+'</div></div>';
+                        return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>'+text(item.类型||'模型回复被拒绝')+'</b><p>'+text(feedback.summary)+'</p>'+details+guidance+'</div></div>';
                     }).join('');
                     const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
-                    html+=section('失败自动重试','<div class="we-config-row"><label>最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(engine.config.retryAttempts??5)+'"> 次</label><span class="we-muted">包含首次请求。1 = 只请求一次；5 = 最多总共尝试 5 次。只纠正 WorldResult 业务结果/编译校验，危险越权、上下文变化和写入未确认不会自动重试。</span></div>'+(engine.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(engine.lastAttemptCount)+' 次；每次模型业务拒绝都会在下方完整保留，包括最后一次失败。</p>':'')+(retryLog||''));
+                    html+=section('失败自动重试','<div class="we-config-row"><label>每个模型最大尝试次数 <input data-retries type="number" min="1" max="5" value="'+text(engine.config.retryAttempts??5)+'"> 次</label><span class="we-muted">包含首次请求。HTTP/网络错误、空回、解析失败和业务验收失败都会重试；危险越权、上下文变化和写入未确认仍直接终止。配置备用模型后，主模型达到本次数上限才切换备用模型，并再使用同样的尝试次数。</span></div>'+(engine.lastAttemptCount?'<p class="we-muted">最近一次共尝试 '+text(engine.lastAttemptCount)+' 次；请求失败和模型业务拒绝都会在下方保留。业务分片验收会累计已通过片段，纠错只要求补失败部分。</p>':'')+(retryLog||''));
                     html+='<div class="we-tools"><button data-action="preview">生成下一次请求预览（不调用 API）</button></div>';
                     for(const [label,r] of [['最近实际发送',engine.lastRequest],['下一次请求预览',engine.previewRequest]]){
                         if(!r){html+=section(label,empty('暂无'+label));continue;}
@@ -8053,6 +8080,25 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     const scale=button.dataset.fontOption;
                     if(WORLD_FONT_SCALES[scale]){engine.config.fontScale=scale;engine.panel.dataset.fontScale=scale;engine.saveConfig();engine.status='界面字号已切换为 '+WORLD_FONT_SCALES[scale].name;engine.render(true);}
                 }
+                else if(a==='world-snapshot-save'){
+                    try{
+                        const name=engine.panel.querySelector('[data-world-snapshot-name]')?.value||'';
+                        const item=engine.services?.snapshots?.create?.(name);
+                        if(!item)throw new Error('世界快照服务未初始化');
+                        engine.status='已保存世界快照：'+item.name;engine.render(true);
+                    }catch(e){engine.status=e.message;engine.panel.querySelector('footer span').textContent=engine.status;}
+                }
+                else if(a==='world-snapshot-restore'){
+                    const id=button.dataset.snapshotId||'';
+                    engine.cancel();
+                    Promise.resolve(engine.services?.snapshots?.restore?.(id)).then(ok=>{
+                        if(ok){engine.status='世界快照已恢复';engine.render(true);}
+                    }).catch(e=>{engine.status=e.message;engine.panel.querySelector('footer span').textContent=engine.status;});
+                }
+                else if(a==='world-snapshot-delete'){
+                    const id=button.dataset.snapshotId||'';
+                    if(engine.services?.snapshots?.remove?.(id)){engine.status='世界快照已删除';engine.render(true);}
+                }
                 else if(a==='dedicated-toggle'){
                     engine.cancel();
                     const api=engine.normalizeDedicatedApi(engine.config.dedicatedApi);
@@ -8119,7 +8165,15 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 if(event.target.matches('[data-retries]')){
                     const value=Math.max(1,Math.min(5,Number(event.target.value)||1));
                     engine.config.retryAttempts=value;event.target.value=value;engine.saveConfig();
-                    engine.status='最大尝试次数已设为 '+value+' 次';
+                    engine.status='每个模型最大尝试次数已设为 '+value+' 次';
+                    engine.panel.querySelector('footer span').textContent=engine.status;
+                }else if(event.target.matches('[data-world-temperature]')){
+                    const value=Math.max(0,Math.min(2,Number(event.target.value)||0));
+                    engine.config.temperature=value;event.target.value=String(value);engine.saveConfig();
+                    engine.status='世界推演温度已设为 '+value;engine.panel.querySelector('footer span').textContent=engine.status;
+                }else if(event.target.matches('[data-fallback-model]')){
+                    engine.config.fallbackModel=String(event.target.value||'').trim().slice(0,160);engine.saveConfig();
+                    engine.status=engine.config.fallbackModel?'Fallback 模型已保存：'+engine.config.fallbackModel:'Fallback 模型已关闭';
                     engine.panel.querySelector('footer span').textContent=engine.status;
                 }else if(event.target.matches('[data-doc-import]')){
                     const input=event.target,file=input.files&&input.files[0];if(!file)return;

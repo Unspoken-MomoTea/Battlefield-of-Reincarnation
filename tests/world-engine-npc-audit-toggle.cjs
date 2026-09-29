@@ -242,10 +242,13 @@ function setup({reply='',validate,storedConfig}={}){
     });
     const x=setup({reply});
     x.engine.config.enabled=true;
-    let failure='';
-    try{await x.engine.run();}catch(error){failure=String(error.message||error);}
-    assert.match(failure,/事件前因不存在：外环城区生存转折 <- 爆发初期/,'前因错误必须直接指出哪一个引用不存在');
-    const correction=(x.engine.lastRetryLog[0]?.补充清单||[]).join('\n');
+    assert.equal(await x.engine.run(),true,'局部前因错误不应拖垮同轮已通过的地区推进');
+    const state=x.getState();
+    assert.equal(state.世界.后台.事件['外环城区生存转折'],undefined,'前因错误事件片段必须被丢弃，不能写入');
+    assert.equal(state.世界.后台.势力地区['测试区域观测平台'].进展,'幸存者把更多桌椅推到铁门后方继续加固。','同轮已通过地区片段必须保留');
+    const dropped=x.engine.lastRetryLog.find(item=>item.类型==='局部片段已丢弃');
+    assert.match(String(dropped?.错误||''),/事件前因不存在：外环城区生存转折 <- 爆发初期/,'丢弃记录仍必须直接指出哪一个引用不存在');
+    const correction=(dropped?.补充清单||[]).join('\n');
     assert.match(correction,/前因数组只放事件名称/,'纠错提示必须告诉模型如何修复前因');
     assert.match(correction,/当前阶段|自然语言原因/,'纠错提示必须明确当前阶段不是事件前因');
   }

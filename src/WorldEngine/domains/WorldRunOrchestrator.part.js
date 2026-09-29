@@ -53,7 +53,12 @@
                 const request=await this.buildRequest(base);
                 if(token!==this.generation)throw new Error('请求已取消');
 
-                const configuredAttempts=Number(this.config.retryAttempts),maxAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:5));
+                const configuredAttempts=Number(this.config.retryAttempts),perModelAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:5));
+                const configuredFallback=String(this.config.fallbackModel||'').trim();
+                const primaryDedicatedModel=this.usesDedicatedApi()?String(this.normalizeDedicatedApi(this.config.dedicatedApi)?.model||'').trim():'';
+                const fallbackModel=configuredFallback&&configuredFallback!==primaryDedicatedModel?configuredFallback:'';
+                const maxAttempts=perModelAttempts*(fallbackModel?2:1);
+                const temperature=Math.max(0,Math.min(2,Number.isFinite(Number(this.config.temperature))?Number(this.config.temperature):0.3));
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];
 
                 while(attempt<maxAttempts){
@@ -61,6 +66,8 @@
                     this.controller=new AbortController();
                     timedOut=false;
                     clearTimeout(timeout);timeout=setTimeout(()=>{timedOut=true;this.controller.abort();},300000);
+                    const usingFallback=!!fallbackModel&&attempt>=perModelAttempts;
+                    const phaseAttempt=usingFallback?attempt-perModelAttempts:attempt;
                     const attemptInput=attempt===0?request.input:(this.services?.requests?.retryInput?this.services.requests.retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan):retryInput(request.input,lastError,lastRejectedReply,attempt,maxAttempts,acceptedWorldResult,lastRetryPlan));
                     const actualRequest=copy(request);
                     actualRequest.input=attemptInput;
@@ -68,18 +75,20 @@
                         观测:requestTokenTelemetry(request.system,attemptInput,request.schema),
                         尝试序号:attempt+1,
                         最大尝试次数:maxAttempts,
+                        每模型最大尝试次数:perModelAttempts,
+                        模型阶段:usingFallback?'备用模型':'主模型',
                         失败记录:copy(this.lastRetryLog)
                     });
-                    actualRequest.manifest.观测.请求类型=attempt===0?'首次请求':'纠错重试';
+                    actualRequest.manifest.观测.请求类型=attempt===0?'首次请求':usingFallback?'备用模型纠错':'纠错重试';
                     this.lastAttemptCount=attempt+1;
                     this.lastRequest=actualRequest;
-                    this.status=attempt===0?'六模块联合推演中':'纠错重试 '+(attempt+1)+'/'+maxAttempts;
+                    this.status=attempt===0?'六模块联合推演中':usingFallback?'备用模型重试 '+(phaseAttempt+1)+'/'+perModelAttempts:'纠错重试 '+(phaseAttempt+1)+'/'+perModelAttempts;
                     this.render();
 
                     let received='',attemptTelemetry=null;
                     const attemptStarted=Date.now();this.lastTransportInfo=null;
                     try{
-                        received=String(await this.requestAI(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature:0.3}));
+                        received=String(await this.requestAI(request.system,attemptInput,{signal:this.controller.signal,schema:request.schema,schemaName:'samsara_world_result_v1',structured:'auto',temperature,model:usingFallback?fallbackModel:undefined}));
                         clearTimeout(timeout);
                         if(token!==this.generation||this.controller.signal.aborted)throw new Error('请求已取消');
                         this.lastReply=received;this.lastFailure='';
@@ -195,14 +204,16 @@
                             this.lastAttemptTelemetry.push({尝试:attempt+1,结果:'请求失败',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:0,API输入Tokens:null,API输出Tokens:null,API总Tokens:null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed,原因:String(error.message||error)});
                         }
                         lastError=error;
-                        lastRejectedReply=received||this.lastReply||'';
+                        lastRejectedReply=received||'';
                         lastRetryPlan=Array.isArray(error?.retryPlan)?copy(error.retryPlan):retryPlanForFailure(error,[]);
-                        const rejectedByModel=!!received&&(this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error));
-                        if(rejectedByModel)this.lastRetryLog.push({尝试:attempt+1,错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
-                        const canRetry=rejectedByModel&&attempt+1<maxAttempts;
+                        const retryableFailure=this.services?.requests?.retryableModelFailure?this.services.requests.retryableModelFailure(error):retryableModelFailure(error);
+                        if(retryableFailure)this.lastRetryLog.push({尝试:attempt+1,类型:received?'模型回复被拒绝':'请求失败',错误:String(error.message||error),片段:Array.isArray(error?.rejectedSlices)?copy(error.rejectedSlices):[],补充清单:copy(lastRetryPlan)});
+                        const canRetry=retryableFailure&&attempt+1<maxAttempts;
                         if(!canRetry)throw error;
                         attempt++;
-                        this.status='回复未通过 · 自动纠错 '+(attempt+1)+'/'+maxAttempts;
+                        const nextUsesFallback=!!fallbackModel&&attempt>=perModelAttempts;
+                        const nextPhaseAttempt=nextUsesFallback?attempt-perModelAttempts:attempt;
+                        this.status=nextUsesFallback?'主模型连续失败 · 切换备用模型 '+(nextPhaseAttempt+1)+'/'+perModelAttempts:'回复未通过 · 自动纠错 '+(nextPhaseAttempt+1)+'/'+perModelAttempts;
                         this.render();
                     }
                 }

@@ -84,3 +84,45 @@ test('stable world engine refuses main when no formal tag exists', async () => {
   assert.equal(result.releaseAvailable, false);
   assert.equal(result.updateAvailable, false);
 });
+
+test('stable world engine on the latest formal V tag is not reported as an update', async () => {
+  const latest = 'dddddddddddddddddddddddddddddddddddddddd';
+  const adapter = adapterFixture(
+    "import('https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@V2.0.1/script/世界推进系统.js');",
+  );
+  const host = { Samsara: { worldEngine: { version: '2.0.1', busy: false, committing: false } } };
+  const urls = [];
+  const updater = createWorldEngineUpdater({
+    adapter,
+    host,
+    channel: 'stable',
+    ref: 'workshop-stable',
+    fetchImpl: async url => {
+      const value = String(url);
+      urls.push(value);
+      if (value.includes('/api/components/latest')) {
+        return json({
+          sha: latest,
+          channel: 'stable',
+          ref: 'workshop-stable',
+          version: '2.0.1',
+          tag: 'V2.0.1',
+          release_source: 'tag',
+        });
+      }
+      throw new Error(`latest matching tag must not need GitHub compare: ${value}`);
+    },
+    loadScript: async () => {},
+  });
+
+  const check = await updater.check();
+  assert.equal(check.latestTag, 'V2.0.1');
+  assert.equal(check.latestVersion, '2.0.1');
+  assert.equal(check.updateAvailable, false);
+
+  const result = await updater.updateAndReload();
+  assert.equal(result.updated, false);
+  assert.equal(result.hotReloaded, false);
+  assert.match(adapter.state.character[0].content, /@V2\.0\.1\/script\/世界推进系统\.js/u);
+  assert.equal(urls.some(url => url.includes('/compare/')), false);
+});

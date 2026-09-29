@@ -65,11 +65,14 @@ async function resolveLatest(fetchImpl, channel, ref) {
   return null;
 }
 
-async function refNeedsUpdate(fetchImpl, currentRef, latestSha) {
-  if (!validCommitSha(currentRef) || currentRef === latestSha) return currentRef !== latestSha;
+async function refNeedsUpdate(fetchImpl, currentRef, latest) {
+  const ref = String(currentRef || '').trim();
+  if (!ref) return true;
+  if (ref === latest.sha || (latest.tag && ref === latest.tag)) return false;
+  if (!validCommitSha(ref)) return true;
   try {
     const response = await fetchImpl(
-      `${GITHUB_COMPARE_BASE}${encodeURIComponent(latestSha)}...${encodeURIComponent(currentRef)}`,
+      `${GITHUB_COMPARE_BASE}${encodeURIComponent(latest.sha)}...${encodeURIComponent(ref)}`,
       { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' },
     );
     if (!response.ok) return true;
@@ -119,7 +122,7 @@ export function createWorldEngineUpdater({
     let updateAvailable = legacy.length > 0 && Boolean(latest);
     if (latest) {
       for (const item of loaders) {
-        const checks = await Promise.all(item.refs.map(currentRef => refNeedsUpdate(fetchImpl, currentRef, latest.sha)));
+        const checks = await Promise.all(item.refs.map(currentRef => refNeedsUpdate(fetchImpl, currentRef, latest)));
         if (checks.some(Boolean)) updateAvailable = true;
       }
     }
@@ -159,7 +162,7 @@ export function createWorldEngineUpdater({
       if (item.kind === 'legacy') {
         next = buildWorldEngineLoaderContent(latest.sha);
       } else {
-        const checks = await Promise.all(item.refs.map(currentRef => refNeedsUpdate(fetchImpl, currentRef, latest.sha)));
+        const checks = await Promise.all(item.refs.map(currentRef => refNeedsUpdate(fetchImpl, currentRef, latest)));
         if (!checks.some(Boolean)) continue;
         next = rewriteWorldEngineLoaderContent(script.content, latest.sha);
       }

@@ -38,12 +38,15 @@ async function githubClientSha(fetchImpl, ref) {
   return sha;
 }
 
-async function refNeedsClientUpdate(fetchImpl, currentRef, latestSha) {
-  if (!validCommitSha(currentRef) || currentRef === latestSha) return currentRef !== latestSha;
+async function refNeedsClientUpdate(fetchImpl, currentRef, latest) {
+  const ref = String(currentRef || '').trim();
+  if (!ref) return true;
+  if (ref === latest.sha || (latest.tag && ref === latest.tag)) return false;
+  if (!validCommitSha(ref)) return true;
 
   try {
     const response = await fetchImpl(
-      `${GITHUB_COMPARE_BASE}${encodeURIComponent(latestSha)}...${encodeURIComponent(currentRef)}`,
+      `${GITHUB_COMPARE_BASE}${encodeURIComponent(latest.sha)}...${encodeURIComponent(ref)}`,
       {
         headers: { Accept: 'application/vnd.github+json' },
         cache: 'no-store',
@@ -196,7 +199,7 @@ export function createWorkshopSelfUpdater({
     );
     const staleRefs = new Set();
     for (const currentRef of refs) {
-      if (await refNeedsClientUpdate(fetchImpl, currentRef, latest.sha)) {
+      if (await refNeedsClientUpdate(fetchImpl, currentRef, latest)) {
         staleRefs.add(currentRef);
       }
     }

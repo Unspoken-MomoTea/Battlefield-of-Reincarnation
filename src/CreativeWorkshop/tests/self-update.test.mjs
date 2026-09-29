@@ -321,3 +321,43 @@ test('self update rejects a Tavern Helper write that does not persist', async ()
     new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'),
   );
 });
+
+test('stable loader on the latest formal V tag is not reported as an update', async () => {
+  const adapter = adapterFixture('https://workshop.6661816.xyz');
+  adapter.state.character[0].content = adapter.state.character[0].content.replace(
+    '593cf339818e5ed1c8e2ed363d28e34ff98fa835',
+    'V2.0.1',
+  );
+  const latest = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const urls = [];
+  const updater = createWorkshopSelfUpdater({
+    adapter,
+    channel: 'stable',
+    ref: 'workshop-stable',
+    fetchImpl: async url => {
+      const value = String(url);
+      urls.push(value);
+      if (value.includes('/api/client/latest')) {
+        return response(latest, {
+          channel: 'stable',
+          ref: 'workshop-stable',
+          version: '2.0.1',
+          tag: 'V2.0.1',
+          release_source: 'tag',
+        });
+      }
+      throw new Error(`latest matching tag must not need GitHub compare: ${value}`);
+    },
+  });
+
+  const check = await updater.check();
+  assert.equal(check.latestTag, 'V2.0.1');
+  assert.equal(check.latestVersion, '2.0.1');
+  assert.equal(check.updateAvailable, false);
+  assert.deepEqual(check.refs, ['V2.0.1']);
+
+  const result = await updater.updateLoaderLink();
+  assert.equal(result.updated, false);
+  assert.match(adapter.state.character[0].content, /@V2\.0\.1\/src\/CreativeWorkshop\/index\.js/u);
+  assert.equal(urls.some(url => url.includes('/compare/')), false);
+});

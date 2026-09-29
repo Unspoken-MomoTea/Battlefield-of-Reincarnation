@@ -293,3 +293,15 @@ test('login action labels are centered and formal release deploys production bef
     'production Worker must be healthy before the immutable V tag is created',
   );
 });
+
+
+test('centered workshop buttons still honor the hidden attribute', () => {
+  assert.match(
+    WORKSHOP_CSS,
+    /\.rw-button\[hidden\]\{display:none!important\}/u,
+  );
+  assert.match(
+    workshopTemplate(),
+    /data-action="login">Discord 登录<\/button>/u,
+  );
+});

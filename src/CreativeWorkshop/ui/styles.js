@@ -107,6 +107,7 @@ export const WORKSHOP_CSS = `
     transition:background .14s ease,border-color .14s ease,color .14s ease,transform .14s ease;
   }
   .rw-button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;vertical-align:middle}
+  .rw-button[hidden]{display:none!important}
   .rw-close:hover,.rw-button:hover,.rw-tab:hover{background:rgba(255,255,255,.055);border-color:var(--rw-line-strong);color:#fff}
   .rw-button.primary{border-color:rgba(162,139,107,.22);background:var(--rw-accent-soft);color:var(--rw-accent-text)}
   .rw-button.primary:hover{background:rgba(162,139,107,.16)}

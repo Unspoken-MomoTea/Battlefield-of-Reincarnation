@@ -54,6 +54,17 @@ const clone=value=>JSON.parse(JSON.stringify(value));
   assert.equal(engine.services.snapshots.remove(saved.id),true);
   assert.equal(engine.services.snapshots.list().length,0);
 
+  let chat='snapshot-a';
+  host.getCurrentChatId=()=>chat;
+  host.getChatMessages=()=>[{message_id:8,role:'assistant',message:'快照容量测试。'}];
+  for(let i=0;i<12;i++)engine.services.snapshots.create('A-'+i);
+  assert.equal(engine.services.snapshots.list().length,12,'同一聊天最多保留12份');
+  chat='snapshot-b';
+  engine.services.snapshots.create('B-0');
+  assert.equal(engine.services.snapshots.list().length,1,'新聊天只显示自己的快照');
+  chat='snapshot-a';
+  assert.equal(engine.services.snapshots.list().length,12,'其它聊天新增快照不得挤掉当前聊天的12份');
+
   const source=fs.readFileSync(file,'utf8');
   assert.match(source,/保存世界快照/);
   assert.match(source,/data-world-snapshot-name/);

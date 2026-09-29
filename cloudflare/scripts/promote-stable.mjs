@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
-  validateWorkshopRelease,
+  validateUnifiedRelease,
   workshopVersionFromSource,
 } from './release-policy.mjs';
 
@@ -118,14 +118,20 @@ async function main() {
     '当前 origin/main 不能从 workshop-stable fast-forward，拒绝正式发布',
   );
 
-  const source = run(
+  const workshopSource = run(
     git,
     ['show', `${targetSha}:src/CreativeWorkshop/app/workshop-app.js`],
     root,
     true,
   );
-  const version = workshopVersionFromSource(source);
-  const release = validateWorkshopRelease(source, version);
+  const worldEngineSource = run(
+    git,
+    ['show', `${targetSha}:src/WorldEngine/core/WorldEngineFoundation.part.js`],
+    root,
+    true,
+  );
+  const version = workshopVersionFromSource(workshopSource);
+  const release = validateUnifiedRelease(workshopSource, worldEngineSource, version);
 
   if (remoteTagExists(release.tag)) {
     throw new Error(`正式 Tag ${release.tag} 已存在。正式版本不可覆盖，请先提升 WORKSHOP_VERSION。`);
@@ -135,7 +141,7 @@ async function main() {
   }
 
   console.log('\n============================================================');
-  console.log('              创意工坊 · 正式客户端发布');
+  console.log('              轮回战场 · 正式版本发布');
   console.log('============================================================');
   console.log(`当前 stable：${stableSha.slice(0, 12)}`);
   console.log(`发布目标：    ${targetSha.slice(0, 12)}（origin/main）`);
@@ -144,7 +150,7 @@ async function main() {
   console.log('============================================================');
 
   if (targetSha === stableSha) {
-    throw new Error('origin/main 与 workshop-stable 已经是同一个提交，没有新的正式客户端可发布');
+    throw new Error('origin/main 与 workshop-stable 已经是同一个提交，没有新的正式版本可发布');
   }
 
   if (preview) {
@@ -154,7 +160,7 @@ async function main() {
   }
 
   const confirm = await question(
-    `\n输入 RELEASE ${release.version} 确认发布正式客户端：`,
+    `\n输入 RELEASE ${release.version} 确认发布正式版本：`,
   );
   if (confirm !== `RELEASE ${release.version}`) {
     console.log('已取消正式发布。');
@@ -188,6 +194,9 @@ async function main() {
       checkout,
     );
 
+    console.log('\n运行世界推进完整回归…');
+    node(['tests/run-world-engine-suite.cjs'], checkout);
+
     console.log('\n检查 JS / MJS 语法…');
     for (const dir of ['cloudflare/src', 'cloudflare/scripts', 'src/CreativeWorkshop']) {
       for (const filename of files(path.join(checkout, dir), ['.js', '.mjs'])) {
@@ -214,7 +223,7 @@ async function main() {
       '-c', 'user.name=Reincarnation Workshop Release',
       '-c', 'user.email=workshop-release@local.invalid',
       'tag', '-a', release.tag, targetSha,
-      '-m', `Creative Workshop v${release.version}`,
+      '-m', `Battlefield of Reincarnation V${release.version}`,
     ]);
     tagCreated = true;
 
@@ -228,11 +237,11 @@ async function main() {
     published = true;
 
     console.log('\n============================================================');
-    console.log('正式客户端发布成功');
+    console.log('正式版本发布成功');
     console.log(`版本：v${release.version}`);
     console.log(`Tag： ${release.tag}`);
     console.log(`SHA： ${targetSha}`);
-    console.log('下一步如需更新正式 Worker / D1，请回到 BAT 主菜单选择“更新正式服”。');
+    console.log('V Tag 同时固定创意工坊与世界推进；下一步如需更新正式 Worker / D1，请回到 BAT 主菜单选择“更新正式服务器”。');
     console.log('============================================================');
   } catch (error) {
     if (tagCreated && !published) {

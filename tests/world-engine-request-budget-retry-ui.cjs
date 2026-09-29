@@ -49,7 +49,7 @@ function setupAlwaysRejected(){
 
   assert.match(source,/setTimeout\(\(\)=>\{timedOut=true;this\.controller\.abort\(\);\},300000\)/,'世界推进请求超时应为 300 秒');
   assert.match(source,/请求超时（300秒）/);
-  assert.match(source,/最大尝试次数 <input data-retries type="number" min="1" max="5"/,'UI 次数包含首次请求，范围应为 1~5');
+  assert.match(source,/每个模型最大尝试次数 <input data-retries type="number" min="1" max="5"/,'UI 应明确 1~5 是每个模型的总尝试次数，包含首次请求');
   assert.doesNotMatch(source,/失败后额外重试/);
   assert.doesNotMatch(source,/每次尝试观测（点击展开）/,'删除重复的逐次 token 观测折叠区');
   assert.doesNotMatch(source,/User:tokenLabel\(obs\.User估算Tokens/,'Token 构成不再显示与子项重复的 User 总项');

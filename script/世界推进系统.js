@@ -5961,7 +5961,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             }
             const terminal=engine.host.Samsara&&engine.host.Samsara.terminal;
             if(!terminal||typeof terminal.request!=='function'||!terminal.apiReady?.())throw new Error('请在主神终端设置中启用额外模型并选择模型');
-            engine.lastTransportInfo={接口:'主神终端额外模型',模型:String(options.model||''),结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
+            engine.lastTransportInfo={接口:'主神终端额外模型',模型:String(options.model||terminal.currentModel?.()||''),结构化模式:options.structured==='auto'?'auto（由主神终端协商）':'plain',尝试模式:[],usage:null};
             return terminal.request(system,input,options);
         }
     }
@@ -6139,8 +6139,10 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
 
                 const configuredAttempts=Number(this.config.retryAttempts),perModelAttempts=Math.max(1,Math.min(5,Number.isFinite(configuredAttempts)?configuredAttempts:5));
                 const configuredFallback=String(this.config.fallbackModel||'').trim();
-                const primaryDedicatedModel=this.usesDedicatedApi()?String(this.normalizeDedicatedApi(this.config.dedicatedApi)?.model||'').trim():'';
-                const fallbackModel=configuredFallback&&configuredFallback!==primaryDedicatedModel?configuredFallback:'';
+                const primaryModel=this.usesDedicatedApi()
+                    ?String(this.normalizeDedicatedApi(this.config.dedicatedApi)?.model||'').trim()
+                    :String(this.host.Samsara?.terminal?.currentModel?.()||'').trim();
+                const fallbackModel=configuredFallback&&configuredFallback!==primaryModel?configuredFallback:'';
                 const maxAttempts=perModelAttempts*(fallbackModel?2:1);
                 const temperature=Math.max(0,Math.min(2,Number.isFinite(Number(this.config.temperature))?Number(this.config.temperature):0.3));
                 let attempt=0,lastError=null,lastRejectedReply='',prepared=null,acceptedWorldResult=null,lastRetryPlan=[];
@@ -7876,7 +7878,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     const api=engine.normalizeDedicatedApi(engine.config.dedicatedApi);
                     const fontButtons=Object.entries(WORLD_FONT_SCALES).map(([key,item])=>'<button class="we-setting-btn '+(engine.config.fontScale===key?'active':'')+'" data-font-option="'+key+'">'+text(item.name)+' · '+text(item.size)+'</button>').join('');
                     const presets=api.apiPresets.map(p=>'<option value="'+text(p.name)+'">'+text(p.name)+'</option>').join('');
-                    const modelOptions=Array.from(new Set([api.model,...api.fetchedModels].filter(Boolean))).map(model=>'<option value="'+text(model)+'"></option>').join('');
+                    const terminalModels=Array.isArray(engine.host.Samsara?.terminal?.models?.())?engine.host.Samsara.terminal.models():[];
+                    const terminalModel=String(engine.host.Samsara?.terminal?.currentModel?.()||'');
+                    const modelOptions=Array.from(new Set([api.model,...api.fetchedModels,terminalModel,...terminalModels].filter(Boolean))).map(model=>'<option value="'+text(model)+'"></option>').join('');
                     const temperature=Math.max(0,Math.min(2,Number.isFinite(Number(engine.config.temperature))?Number(engine.config.temperature):0.3));
                     const fallbackModel=String(engine.config.fallbackModel||'');
                     const terminalReady=!!(engine.host.Samsara?.terminal?.apiReady?.());

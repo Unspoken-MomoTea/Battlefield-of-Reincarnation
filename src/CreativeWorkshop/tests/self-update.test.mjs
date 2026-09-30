@@ -175,7 +175,7 @@ test('stable channel uses workshop tag when it matches workshop-stable and never
         });
       }
       if (value.includes('/tags?')) {
-        return new Response(JSON.stringify([{ name: 'V1.20.1', commit: { sha: stable } }]), {
+        return new Response(JSON.stringify([{ name: 'workshop-v1.20.1', commit: { sha: stable } }]), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -195,7 +195,7 @@ test('stable channel uses workshop tag when it matches workshop-stable and never
   assert.equal(check.channel, 'stable');
   assert.equal(check.ref, 'workshop-stable');
   assert.equal(check.latestSha, stable);
-  assert.equal(check.latestTag, 'V1.20.1');
+  assert.equal(check.latestTag, 'workshop-v1.20.1');
   assert.equal(check.latestVersion, '1.20.1');
   assert.equal(check.updateAvailable, true);
   assert.ok(urls.some(url => url.includes('/tags?')));
@@ -203,10 +203,10 @@ test('stable channel uses workshop tag when it matches workshop-stable and never
   assert.equal(urls.some(url => url.includes('sha=main')), false);
 
   const updated = await updater.updateLoaderLink();
-  assert.equal(updated.latestLoaderRef, 'V1.20.1');
+  assert.equal(updated.latestLoaderRef, 'workshop-v1.20.1');
   assert.equal(
     updated.latestImportUrl,
-    'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@V1.20.1/src/CreativeWorkshop/index.js',
+    'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@workshop-v1.20.1/src/CreativeWorkshop/index.js',
   );
   assert.match(adapter.state.character[0].content, /@V1\.20\.1\/src\/CreativeWorkshop\/index\.js/u);
   assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${stable}/src/CreativeWorkshop/index\\.js`, 'u'));
@@ -328,11 +328,11 @@ test('self update rejects a Tavern Helper write that does not persist', async ()
   );
 });
 
-test('stable loader on the latest formal V tag is not reported as an update', async () => {
+test('stable loader on the latest workshop tag is not reported as an update', async () => {
   const adapter = adapterFixture('https://workshop.6661816.xyz');
   adapter.state.character[0].content = adapter.state.character[0].content.replace(
     '593cf339818e5ed1c8e2ed363d28e34ff98fa835',
-    'V2.0.1',
+    'workshop-v2.0.1',
   );
   const latest = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   const urls = [];
@@ -348,7 +348,7 @@ test('stable loader on the latest formal V tag is not reported as an update', as
           channel: 'stable',
           ref: 'workshop-stable',
           version: '2.0.1',
-          tag: 'V2.0.1',
+          tag: 'workshop-v2.0.1',
           release_source: 'tag',
         });
       }
@@ -357,10 +357,10 @@ test('stable loader on the latest formal V tag is not reported as an update', as
   });
 
   const check = await updater.check();
-  assert.equal(check.latestTag, 'V2.0.1');
+  assert.equal(check.latestTag, 'workshop-v2.0.1');
   assert.equal(check.latestVersion, '2.0.1');
   assert.equal(check.updateAvailable, false);
-  assert.deepEqual(check.refs, ['V2.0.1']);
+  assert.deepEqual(check.refs, ['workshop-v2.0.1']);
 
   const result = await updater.updateLoaderLink();
   assert.equal(result.updated, false);
@@ -368,7 +368,7 @@ test('stable loader on the latest formal V tag is not reported as an update', as
   assert.equal(urls.some(url => url.includes('/compare/')), false);
 });
 
-test('stable latest sha is silently normalized to the equivalent formal V tag', async () => {
+test('stable latest sha is silently normalized to the equivalent workshop tag', async () => {
   const latest = '1212121212121212121212121212121212121212';
   const adapter = adapterFixture('https://workshop.6661816.xyz');
   adapter.state.character[0].content = adapter.state.character[0].content.replace(
@@ -386,7 +386,7 @@ test('stable latest sha is silently normalized to the equivalent formal V tag', 
           channel: 'stable',
           ref: 'workshop-stable',
           version: '2.0.4',
-          tag: 'V2.0.4',
+          tag: 'workshop-v2.0.4',
           release_source: 'tag',
         });
       }
@@ -400,7 +400,7 @@ test('stable latest sha is silently normalized to the equivalent formal V tag', 
 
   const normalized = await updater.normalizeFormalLoaderLink();
   assert.equal(normalized.normalized, true);
-  assert.equal(normalized.latestLoaderRef, 'V2.0.4');
+  assert.equal(normalized.latestLoaderRef, 'workshop-v2.0.4');
   assert.match(adapter.state.character[0].content, /@V2\.0\.4\/src\/CreativeWorkshop\/index\.js/u);
   assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'));
 });

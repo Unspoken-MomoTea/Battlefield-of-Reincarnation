@@ -145,6 +145,50 @@ test('preflight blocks applying an already installed project from another charac
 });
 
 
+test('preflight accepts a portable installed mod on the same card family after a version upgrade', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.character = '轮回战场 重构版 V3.7';
+  const installed = project([], {
+    applied: true,
+    targetCharacterName: '轮回战场 重构版 V3.6.11',
+    installTargets: {
+      worldbook: SHARED_WORLDBOOK_NAME,
+      regexIds: [],
+      scripts: { character: [], preset: [], global: [] },
+      presets: [],
+    },
+  });
+  const result = await analyzeInstallConflicts(
+    adapter,
+    installed,
+    { worldbook: [], regexes: [], presets: [], scripts: { character: [], preset: [], global: [] }, data: [] },
+  );
+  assert.deepEqual(result.blocking, []);
+});
+
+
+test('preflight keeps version migration blocked when the old card still owns character-local resources', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.character = '轮回战场 重构版 V3.7';
+  const installed = project([], {
+    applied: true,
+    targetCharacterName: '轮回战场 重构版 V3.6.11',
+    installTargets: {
+      worldbook: SHARED_WORLDBOOK_NAME,
+      regexIds: ['rw:project-1:0:0'],
+      scripts: { character: [], preset: [], global: [] },
+      presets: [],
+    },
+  });
+  const result = await analyzeInstallConflicts(
+    adapter,
+    installed,
+    { worldbook: [], regexes: [], presets: [], scripts: { character: [], preset: [], global: [] }, data: [] },
+  );
+  assert.deepEqual(result.blocking.map(item => item.type), ['character_mismatch']);
+});
+
+
 test('preflight warns but does not block missing or ambiguous original worldbook targets', async () => {
   const adapter = fakeAdapter();
   adapter.state.worldbooks.set('原世界书A', [

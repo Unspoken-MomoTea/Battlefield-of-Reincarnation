@@ -54,6 +54,7 @@ export async function mountOpeningAssetPicker(root, {
               ${expanded ? `<div class="oa-detail">
                 ${profile.性格 ? `<p><em>性格</em>${esc(profile.性格)}</p>` : ''}
                 ${profile.喜爱 ? `<p><em>喜爱</em>${esc(profile.喜爱)}</p>` : ''}
+                ${profile.外貌 ? `<p><em>外貌</em>${esc(profile.外貌)}</p>` : ''}
                 ${profile.背景故事 ? `<p><em>背景</em>${esc(profile.背景故事)}</p>` : ''}
                 <p><em>构筑</em>血统 ${Object.keys((asset.build||{}).血统||{}).length} · 技能 ${Object.keys((asset.build||{}).技能||{}).length} · 装备 ${Object.keys((asset.build||{}).装备||{}).length} · 形态 ${Object.keys((asset.build||{}).形态库||{}).length}</p>
               </div>` : ''}

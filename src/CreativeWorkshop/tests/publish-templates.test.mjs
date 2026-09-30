@@ -105,6 +105,7 @@ test('dedicated editor removes world-character MVU fields and exposes optional p
   assert.match(source, /填写世界书/u);
   assert.match(source, /['"]opening_worldbook_keywords['"]/u);
   assert.match(source, /['"]opening_worldbook_content['"]/u);
+  assert.match(source, /['"]opening_appearance['"]/u);
   assert.doesNotMatch(source, /partnerWorldbookFromForm/u);
   assert.doesNotMatch(source, /修改上方基础资料时，前序会同步更新/u);
   assert.match(source, /关键词 \/ 别名/u);
@@ -180,6 +181,7 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
     opening_rank: 'Ⅲ',
     opening_personality: '沉稳',
     opening_likes: '茶',
+    opening_appearance: '银色长发，灰蓝双眼。',
     opening_background: '旧友',
     opening_bloodline_name: '强化血统',
     opening_attributes: { 力量: 4, 敏捷: 4, 体质: 4, 精神: 2, 魅力: 2 },
@@ -196,6 +198,7 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
 
   assert.equal(asset.kind, 'opening_partner');
   assert.equal(asset.profile.性格, '沉稳');
+  assert.equal(asset.profile.外貌, '银色长发，灰蓝双眼。');
   assert.equal(asset.build.层级, 'Ⅲ');
   assert.equal(asset.build.血统.强化血统.品质, 'D');
   assert.equal(asset.build.技能.护卫.品质, 'D');
@@ -211,6 +214,7 @@ test('opening partner worldbook reuses the freeform character template and green
     opening_identity: 'MVU身份不应注入世界书',
     opening_rank: 'Ⅱ',
     opening_personality: 'MVU性格不应注入世界书',
+    opening_appearance: 'MVU外貌不应注入世界书',
     opening_background: 'MVU背景不应注入世界书',
     opening_bloodline_name: '精灵血统',
     opening_worldbook_enabled: true,
@@ -235,6 +239,7 @@ test('opening partner worldbook reuses the freeform character template and green
   assert.match(entry.content, /出身: 月林/u);
   assert.doesNotMatch(entry.content, /MVU身份/u);
   assert.doesNotMatch(entry.content, /MVU性格/u);
+  assert.doesNotMatch(entry.content, /MVU外貌/u);
   assert.doesNotMatch(entry.content, /MVU背景/u);
 });
 
@@ -440,11 +445,12 @@ test('dedicated update values recover point allocation, skills, partner equipmen
     content: {
       kind: 'opening_partner',
       name: '世界书伙伴',
-      profile: { 性格: '安静', 喜爱: '书', 背景故事: '旧友' },
+      profile: { 性格: '安静', 喜爱: '书', 外貌: '黑发金瞳', 背景故事: '旧友' },
       worldbook: { content: '额外背景设定' },
       build: { 层级: 'Ⅰ', 种族: '人类', 身份: ['同伴'], 血统: {}, 技能: {}, 装备: {} },
     },
   }], 'opening_partner', '作品');
+  assert.equal(worldbookValues.opening_appearance, '黑发金瞳');
   assert.equal(worldbookValues.opening_worldbook_enabled, true);
   assert.equal(worldbookValues.opening_worldbook_keywords, '');
   assert.equal(worldbookValues.opening_worldbook_content, '额外背景设定');

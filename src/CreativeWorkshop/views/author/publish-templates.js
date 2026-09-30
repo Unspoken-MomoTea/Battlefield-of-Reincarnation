@@ -362,6 +362,7 @@ export function buildDedicatedArtifacts(source, mode, projectName) {
     const profile = {
       性格: read(source, 'opening_personality'),
       喜爱: read(source, 'opening_likes'),
+      外貌: read(source, 'opening_appearance'),
       背景故事: read(source, 'opening_background'),
     };
     const partnerWorldbookEnabled = mode === 'opening_partner' && source?.opening_worldbook_enabled;
@@ -472,6 +473,7 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
       opening_rank: OPENING_RANKS.has(build.层级) ? build.层级 : 'Ⅰ',
       opening_personality: profile.性格 || '',
       opening_likes: profile.喜爱 || '',
+      opening_appearance: profile.外貌 || '',
       opening_background: profile.背景故事 || '',
       opening_bloodline_name: bloodlineName,
       opening_bloodline_effect_name: bloodEffectName,

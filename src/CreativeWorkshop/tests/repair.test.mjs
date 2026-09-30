@@ -123,3 +123,53 @@ test('health inspection detects edited original conflict entries and repair pres
   ]);
   assert.equal(storage.current().installTargets.originalWorldbookChanges[0].userModified, true);
 });
+
+test('repair migrates an installed worldbook override after the card worldbook name and UID change', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('轮回战场 3.6.11', [
+    { uid: 77, name: '[mvu_plot]', enabled: true, content: '3.6.11 original' },
+  ]);
+  adapter.state.binding.primary = '轮回战场 3.6.11';
+
+  const value = project([
+    {
+      kind: 'worldbook',
+      name: 'DLC世界书.json',
+      format: 'json',
+      content: {
+        entries: { 0: { comment: 'DLC规则', content: 'replacement', constant: true } },
+      },
+    },
+  ]);
+  value.bundle.resource_overrides = [{
+    kind: 'worldbook',
+    state: 'disabled',
+    target: { worldbook: '轮回战场 3.6.11', uid: '77', name: '[mvu_plot]' },
+  }];
+
+  const storage = memoryStorage(value);
+  const installer = createWorkshopInstaller({ adapter, storage });
+  await installer.apply('project-1');
+
+  adapter.state.worldbooks.delete('轮回战场 3.6.11');
+  adapter.state.worldbooks.set('轮回战场 3.7', [
+    { uid: 177, name: '[mvu_plot]', enabled: true, content: '3.7 replacement' },
+  ]);
+  adapter.state.binding.primary = '轮回战场 3.7';
+
+  const before = await inspectInstalledProject(adapter, storage.current());
+  assert.equal(before.healthy, false);
+  assert.ok(before.issues.some(item => item.type === 'original_conflict_target_moved'));
+  assert.ok(before.issues.some(item => item.type === 'original_conflict_state_mismatch'));
+
+  const repaired = await repairInstalledProject({ adapter, storage }, 'project-1');
+  assert.equal(repaired.health.healthy, true);
+  assert.equal(adapter.state.worldbooks.get('轮回战场 3.7')[0].enabled, false);
+  assert.equal(adapter.state.worldbooks.get('轮回战场 3.7')[0].content, '3.7 replacement');
+
+  const migrated = storage.current().installTargets.originalWorldbookChanges[0];
+  assert.equal(migrated.worldbookName, '轮回战场 3.7');
+  assert.equal(migrated.identity.uid, '177');
+  assert.equal(migrated.userModified, true);
+});
+

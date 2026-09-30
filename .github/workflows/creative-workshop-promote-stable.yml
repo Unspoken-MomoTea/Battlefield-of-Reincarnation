@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: '统一正式版本号，必须与工坊/世界推进版本一致，例如 2.0.0'
+        description: '创意工坊正式版本号，必须与 WORKSHOP_VERSION 一致，例如 2.0.9'
         required: true
         type: string
       target_sha:
@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   promote:
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish release]') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish workshop]') }}
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -43,11 +43,6 @@ jobs:
       - name: Install Worker dependencies
         working-directory: cloudflare
         run: npm ci --no-audit --no-fund
-
-      - name: Install Playwright Chromium
-        run: |
-          npm install --no-save --no-package-lock playwright@1.63.0
-          npx playwright install --with-deps chromium
 
       - name: Resolve release target
         id: target
@@ -85,7 +80,7 @@ jobs:
         shell: bash
         env:
           RELEASE_VERSION_INPUT: ${{ inputs.release_version }}
-        run: node cloudflare/scripts/validate-release-version.mjs "$RELEASE_VERSION_INPUT"
+        run: node cloudflare/scripts/validate-release-version.mjs workshop "$RELEASE_VERSION_INPUT"
 
       - name: Reject an existing immutable tag
         shell: bash
@@ -111,9 +106,6 @@ jobs:
 
       - name: Client syntax
         run: find src/CreativeWorkshop -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
-
-      - name: World engine regression suite
-        run: node tests/run-world-engine-suite.cjs
 
       - name: Validate production Worker deployment
         working-directory: cloudflare
@@ -191,7 +183,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.release.outputs.tag }}" "${{ steps.target.outputs.sha }}" \
-            -m "Battlefield of Reincarnation V${{ steps.release.outputs.version }}"
+            -m "Reincarnation Workshop v${{ steps.release.outputs.version }}"
 
       - name: Promote stable and tag atomically
         shell: bash
@@ -204,10 +196,11 @@ jobs:
             "HEAD:refs/heads/workshop-stable" \
             "refs/tags/$TAG:refs/tags/$TAG"
 
-          echo "### Battlefield of Reincarnation V release promoted" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Reincarnation Workshop release promoted" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Version: `v${{ steps.release.outputs.version }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Workshop version: `v${{ steps.release.outputs.version }}`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Tag: `$TAG`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Commit: `${{ steps.target.outputs.sha }}`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Stable ref: `workshop-stable`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Testing ref remains: `main`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- World engine release is independent and unchanged by this workflow." >> "$GITHUB_STEP_SUMMARY"

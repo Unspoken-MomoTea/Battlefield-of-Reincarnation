@@ -208,7 +208,7 @@ test('stable channel uses workshop tag when it matches workshop-stable and never
     updated.latestImportUrl,
     'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@workshop-v1.20.1/src/CreativeWorkshop/index.js',
   );
-  assert.match(adapter.state.character[0].content, /@V1\.20\.1\/src\/CreativeWorkshop\/index\.js/u);
+  assert.match(adapter.state.character[0].content, /@workshop-v1\.20\.1\/src\/CreativeWorkshop\/index\.js/u);
   assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${stable}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
 
@@ -364,7 +364,7 @@ test('stable loader on the latest workshop tag is not reported as an update', as
 
   const result = await updater.updateLoaderLink();
   assert.equal(result.updated, false);
-  assert.match(adapter.state.character[0].content, /@V2\.0\.1\/src\/CreativeWorkshop\/index\.js/u);
+  assert.match(adapter.state.character[0].content, /@workshop-v2\.0\.1\/src\/CreativeWorkshop\/index\.js/u);
   assert.equal(urls.some(url => url.includes('/compare/')), false);
 });
 
@@ -401,6 +401,6 @@ test('stable latest sha is silently normalized to the equivalent workshop tag', 
   const normalized = await updater.normalizeFormalLoaderLink();
   assert.equal(normalized.normalized, true);
   assert.equal(normalized.latestLoaderRef, 'workshop-v2.0.4');
-  assert.match(adapter.state.character[0].content, /@V2\.0\.4\/src\/CreativeWorkshop\/index\.js/u);
+  assert.match(adapter.state.character[0].content, /@workshop-v2\.0\.4\/src\/CreativeWorkshop\/index\.js/u);
   assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'));
 });

@@ -102,6 +102,13 @@ test('library opening partner forwards the published appearance into the MVU par
     'utf8',
   );
   assert.match(opening, /外貌:\s*pp\.外貌\s*\|\|\s*pb\.外貌\s*\|\|\s*''/u);
+
+  const picker = fs.readFileSync(
+    fileURLToPath(new URL('../../opening/ui/asset-picker.js', import.meta.url)),
+    'utf8',
+  );
+  assert.match(picker, /profile\.外貌/u);
+  assert.match(picker, /<em>外貌<\/em>/u);
 });
 
 test('creator styles hide the character subtype outside character category and keep compact grids inside bounds', async () => {

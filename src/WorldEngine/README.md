@@ -64,8 +64,8 @@
 
 ## 版本与热更新
 
-世界推进运行时公开 `WORLD_ENGINE_VERSION` 与 `Samsara.WorldEngineInfo`。正式版本使用不可覆盖的 `VX.Y.Z` Git Tag；测试维护通道读取 `main` 中生成交付文件 `script/世界推进系统.js` 的最后修改提交，避免源码提交与 CI 生成交付分属不同 commit 时固定到尚未同步的 SHA。
+世界推进运行时公开 `WORLD_ENGINE_VERSION` 与 `Samsara.WorldEngineInfo`。正式版本使用独立、不可覆盖的 `world-engine-vX.Y.Z` Git Tag；测试维护通道读取 `main` 中生成交付文件 `script/世界推进系统.js` 的最后修改提交。
 
-创意工坊“修复”页可识别旧式内联 `世界推进系统.js`，原位迁移为受维护的版本 loader。测试通道写固定 SHA；正式通道写当前不可变 `VX.Y.Z` Tag，并同时保留其解析后的精确 SHA 元数据。若当前引擎不处于 `busy/committing` 状态，写入后立即加载目标版本；新脚本通过既有 `dispose() -> init()` 生命周期替换旧实例。若正在推进，只保存新 loader，本轮不强制切换。
+创意工坊“修复”页可识别旧式内联 `世界推进系统.js`，原位迁移为受维护的版本 loader。测试通道写固定 SHA；正式通道优先写 `world-engine-vX.Y.Z`，迁移期仍兼容历史 `VX.Y.Z` 统一 Tag。若当前引擎不处于 `busy/committing` 状态，写入后立即加载目标版本；若正在推进，只保存新 loader，本轮不强制切换。
 
-正式发布前让 `WORLD_ENGINE_VERSION` 与 `WORKSHOP_VERSION` 保持同一版本号，然后使用根目录 `创意工坊更新工具.bat` 的“发布正式版本”。工具会确认生成交付同步，执行世界推进语法检查与统一回归，再创建并推送 `VX.Y.Z`。
+`WORLD_ENGINE_VERSION` 与 `WORKSHOP_VERSION` 不再要求相同。发布世界推进时，根目录 `创意工坊更新工具.bat` 的“发布世界推进正式版”只校验世界推进源码与生成交付、运行世界推进完整回归并创建 `world-engine-vX.Y.Z`；不会推进 `workshop-stable`，也不会修改创意工坊版本。

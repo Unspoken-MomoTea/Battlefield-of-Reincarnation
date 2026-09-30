@@ -85,6 +85,36 @@ test('health inspection refuses a character scoped repair on the wrong character
 });
 
 
+test('health inspection treats a worldbook-only card version rename as repairable and repair migrates the target', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.character = '轮回战场 重构版 V3.6.11';
+  const storage = memoryStorage(project([
+    {
+      kind: 'worldbook',
+      name: '世界书.json',
+      format: 'json',
+      content: { entries: { 0: { comment: '工坊条目', content: 'hello', constant: true } } },
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+  await installer.apply('project-1');
+
+  adapter.state.character = '轮回战场 重构版 V3.7';
+  adapter.state.binding.additional = [];
+
+  const before = await inspectInstalledProject(adapter, storage.current());
+  assert.equal(before.healthy, false);
+  assert.equal(before.repairable, true);
+  assert.ok(before.issues.some(item => item.type === 'character_target_moved'));
+  assert.ok(before.issues.some(item => item.type === 'worldbook_binding_missing'));
+
+  const repaired = await repairInstalledProject({ adapter, storage }, 'project-1');
+  assert.equal(repaired.health.healthy, true);
+  assert.equal(storage.current().targetCharacterName, '轮回战场 重构版 V3.7');
+  assert.ok(adapter.state.binding.additional.includes(SHARED_WORLDBOOK_NAME));
+});
+
+
 test('health inspection detects edited original conflict entries and repair preserves the edit while disabling it again', async () => {
   const adapter = fakeAdapter();
   adapter.state.worldbooks.set('角色原世界书', [

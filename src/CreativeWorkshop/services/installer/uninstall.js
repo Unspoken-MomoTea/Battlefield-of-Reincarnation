@@ -7,6 +7,7 @@ import { restoreOriginalScriptConflicts } from './original-scripts.js';
 import { restoreOriginalRegexConflicts } from './original-regexes.js';
 import { createInstallSnapshot, restoreInstallSnapshot } from './snapshot.js';
 import { compactCharacterWorldbookOrders } from './character-order.js';
+import { canMigrateCharacterTarget } from './character-target.js';
 import { maybe, record } from './utils.js';
 
 export async function uninstallProject({ adapter, storage }, projectId) {
@@ -29,7 +30,11 @@ export async function uninstallProject({ adapter, storage }, projectId) {
     targets.originalScriptChanges?.some(item => item.scope === 'character')
   );
   const currentCharacter = characterNeeded ? await maybe(adapter.getCurrentCharacterName()) : null;
-  if (installed.targetCharacterName && installed.targetCharacterName !== currentCharacter) {
+  if (
+    installed.targetCharacterName &&
+    installed.targetCharacterName !== currentCharacter &&
+    !canMigrateCharacterTarget(installed, currentCharacter)
+  ) {
     throw new Error(`该作品安装在角色“${installed.targetCharacterName}”，请切回该角色后再卸载`);
   }
 

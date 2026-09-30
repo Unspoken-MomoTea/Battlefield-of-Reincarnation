@@ -174,6 +174,74 @@ test('an applied project cannot be uninstalled from a different character', asyn
   await assert.rejects(() => installer.uninstall('project-1'), /角色A/u);
 });
 
+
+test('reapply migrates a worldbook-only mod from an older card version to the current card version', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.character = '轮回战场 重构版 V3.6.11';
+  const storage = memoryStorage(project([
+    {
+      kind: 'worldbook',
+      name: '世界书.json',
+      format: 'json',
+      content: { entries: { 0: { comment: '工坊条目', content: 'v2', constant: true } } },
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  const oldApplied = await installer.apply('project-1');
+  assert.equal(oldApplied.targetCharacterName, '轮回战场 重构版 V3.6.11');
+
+  const cachedV3 = storage.current();
+  cachedV3.version = 3;
+  cachedV3.bundle = {
+    schema_version: 1,
+    artifacts: [{
+      kind: 'worldbook',
+      name: '世界书.json',
+      format: 'json',
+      content: { entries: { 0: { comment: '工坊条目', content: 'v3', constant: true } } },
+    }],
+  };
+  await storage.putInstalledProject(cachedV3);
+
+  adapter.state.character = '轮回战场 重构版 V3.7';
+  adapter.state.binding.additional = [];
+
+  const migrated = await installer.apply('project-1');
+  assert.equal(migrated.appliedVersion, 3);
+  assert.equal(migrated.targetCharacterName, '轮回战场 重构版 V3.7');
+  assert.ok(adapter.state.binding.additional.includes(SHARED_WORLDBOOK_NAME));
+  assert.equal(
+    adapter.state.worldbooks.get(SHARED_WORLDBOOK_NAME)
+      .find(entry => entry.extra?.reincarnationWorkshop?.sourceId === 'project-1')?.content,
+    'v3',
+  );
+});
+
+
+test('a worldbook-only mod can be uninstalled from the upgraded version of the same card', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.character = '轮回战场 重构版 V3.6.11';
+  const storage = memoryStorage(project([
+    {
+      kind: 'worldbook',
+      name: '世界书.json',
+      format: 'json',
+      content: { entries: { 0: { comment: '工坊条目', content: 'v2', constant: true } } },
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+  await installer.apply('project-1');
+
+  adapter.state.character = '轮回战场 重构版 V3.7';
+  adapter.state.binding.additional = [];
+
+  const removed = await installer.uninstall('project-1');
+  assert.equal(removed.applied, false);
+  assert.equal(removed.targetCharacterName, null);
+  assert.equal(adapter.state.worldbooks.has(SHARED_WORLDBOOK_NAME), false);
+});
+
 test('uninstall restores a preset that existed before workshop installation', async () => {
   const adapter = fakeAdapter();
   const targetPreset = '[创意工坊] 测试作品 · 预设.json · project--1';

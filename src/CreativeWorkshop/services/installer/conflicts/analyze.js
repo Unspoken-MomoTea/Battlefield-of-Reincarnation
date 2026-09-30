@@ -4,6 +4,7 @@ import { isProjectWorldbookEntry, regexPrefix, scriptPrefix } from '../ownership
 import { findOriginalRegexTargets } from '../original-regexes.js';
 import { findOriginalScriptTargets } from '../original-scripts.js';
 import { findOriginalWorldbookTargets } from '../original-conflicts.js';
+import { canMigrateCharacterTarget } from '../character-target.js';
 import { maybe } from '../utils.js';
 
 function issue(type, extra = {}) {
@@ -31,10 +32,11 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
 
   if (installed.applied && installed.targetCharacterName && characterScoped) {
     const current = await maybe(adapter.getCurrentCharacterName());
-    if (current !== installed.targetCharacterName) {
+    if (current !== installed.targetCharacterName && !canMigrateCharacterTarget(installed, current)) {
       blocking.push(issue('character_mismatch', {
         expected: installed.targetCharacterName,
         actual: current || '',
+        message: `当前角色不是安装目标角色“${installed.targetCharacterName}”`,
       }));
       return { blocking, warnings };
     }

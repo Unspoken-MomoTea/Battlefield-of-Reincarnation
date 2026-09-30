@@ -45,6 +45,17 @@ function tryRun(command, args, cwd = root) {
   });
 }
 
+function npmCli() {
+  const candidates = [
+    process.env.npm_execpath,
+    path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'),
+    path.resolve(path.dirname(process.execPath), '../lib/node_modules/npm/bin/npm-cli.js'),
+  ];
+  const result = candidates.find(value => value && fs.existsSync(value));
+  if (!result) throw new Error('找不到 npm-cli.js，请安装包含 npm 的 Node.js 22 或更高版本');
+  return result;
+}
+
 async function question(prompt) {
   if (!process.stdin.isTTY) throw new Error('请从交互终端或双击 BAT 发布工具运行');
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -139,6 +150,11 @@ async function main() {
     console.log('\n建立临时发布检出…');
     run(git, ['worktree', 'add', '--detach', checkout, targetSha]);
     worktreeAdded = true;
+
+    const npm = npmCli();
+    console.log('\n安装世界推进 UI 回归依赖…');
+    run(process.execPath, [npm, 'install', '--no-save', '--no-package-lock', 'playwright@1.63.0'], checkout);
+    run(process.execPath, [path.join(checkout, 'node_modules/playwright/cli.js'), 'install', 'chromium'], checkout);
 
     const python = pythonCommand();
     console.log('\n校验世界推进生成交付同步…');

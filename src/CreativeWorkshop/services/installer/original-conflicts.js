@@ -127,10 +127,13 @@ function findRecordedEntry(books, change) {
 }
 
 function sameIdentity(left, right) {
-  if (left?.uid || right?.uid) {
-    return Boolean(left?.uid && right?.uid) && String(left.uid) === String(right.uid);
-  }
-  return String(left?.name || '').trim() === String(right?.name || '').trim();
+  const leftUid = String(left?.uid ?? '').trim();
+  const rightUid = String(right?.uid ?? '').trim();
+  if (leftUid && rightUid && leftUid === rightUid) return true;
+
+  const leftName = String(left?.name || '').trim();
+  const rightName = String(right?.name || '').trim();
+  return Boolean(leftName && rightName && leftName === rightName);
 }
 
 function findPreviousChange(previous, key, identity) {

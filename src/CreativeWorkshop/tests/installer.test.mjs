@@ -350,6 +350,55 @@ test('worldbook state override follows a stable UID when the card worldbook is r
   assert.equal(adapter.state.worldbooks.get('轮回战场 3.7')[0].enabled, true);
 });
 
+test('reapply migrates a renamed card worldbook when the entry UID changes with the card version', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.worldbooks.set('轮回战场 3.6.11', [
+    { uid: 77, name: '[mvu_plot]', enabled: true, content: '3.6.11 original' },
+  ]);
+  adapter.state.binding.primary = '轮回战场 3.6.11';
+
+  const value = project([
+    {
+      kind: 'worldbook',
+      name: 'DLC世界书.json',
+      format: 'json',
+      content: {
+        entries: { 0: { comment: 'DLC规则', content: 'addon', constant: true } },
+      },
+    },
+  ]);
+  value.bundle.resource_overrides = [{
+    kind: 'worldbook',
+    state: 'disabled',
+    target: { worldbook: '轮回战场 3.6.11', uid: '77', name: '[mvu_plot]' },
+  }];
+
+  const storage = memoryStorage(value);
+  const installer = createWorkshopInstaller({ adapter, storage });
+  await installer.apply('project-1');
+  assert.equal(adapter.state.worldbooks.get('轮回战场 3.6.11')[0].enabled, false);
+
+  adapter.state.worldbooks.delete('轮回战场 3.6.11');
+  adapter.state.worldbooks.set('轮回战场 3.7', [
+    { uid: 177, name: '[mvu_plot]', enabled: true, content: '3.7 replacement' },
+  ]);
+  adapter.state.binding.primary = '轮回战场 3.7';
+
+  const reapplied = await installer.apply('project-1');
+  const migrated = reapplied.installTargets.originalWorldbookChanges[0];
+
+  assert.equal(adapter.state.worldbooks.get('轮回战场 3.7')[0].enabled, false);
+  assert.equal(adapter.state.worldbooks.get('轮回战场 3.7')[0].content, '3.7 replacement');
+  assert.equal(migrated.worldbookName, '轮回战场 3.7');
+  assert.equal(migrated.identity.uid, '177');
+  assert.equal(migrated.userModified, true);
+
+  await installer.uninstall('project-1');
+  assert.deepEqual(adapter.state.worldbooks.get('轮回战场 3.7'), [
+    { uid: 177, name: '[mvu_plot]', enabled: true, content: '3.7 replacement' },
+  ]);
+});
+
 test('missing original worldbook override no longer blocks the mod installation', async () => {
   const adapter = fakeAdapter();
   adapter.state.worldbooks.set('轮回战场 3.7', [

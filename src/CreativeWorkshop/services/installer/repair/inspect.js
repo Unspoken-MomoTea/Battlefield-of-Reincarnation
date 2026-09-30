@@ -3,7 +3,7 @@ import { deepSubsetEqual } from '../compare.js';
 import { buildArtifactPlan } from '../plan.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, regexPrefix } from '../ownership.js';
 import { CHARACTER_ORDER_FIRST, CHARACTER_ORDER_LAST, characterOrderForProject, compactCharacterWorldbookOrders, isCharacterWorldbookSlot } from '../character-order.js';
-import { isOriginalConflictEntryInState } from '../original-conflicts.js';
+import { findOriginalWorldbookTargets, isOriginalConflictEntryInState } from '../original-conflicts.js';
 import { findOriginalRegexTargets, isOriginalRegexInState } from '../original-regexes.js';
 import { findOriginalScriptTargets, isOriginalScriptInState } from '../original-scripts.js';
 import { maybe } from '../utils.js';
@@ -168,39 +168,66 @@ export async function inspectInstalledProject(adapter, installed) {
     }
   }
 
-  for (const change of targets.originalWorldbookChanges ?? []) {
-    const names = await maybe(adapter.getWorldbookNames());
-    if (!names.includes(change.worldbookName)) {
-      issues.push(issue('original_worldbook_missing', {
-        worldbookName: change.worldbookName,
-        name: change.identity?.name || change.identity?.uid || '',
-      }));
-      continue;
+  const originalWorldbookChanges = targets.originalWorldbookChanges ?? [];
+  if (originalWorldbookChanges.length) {
+    const books = new Map();
+    for (const worldbookName of await maybe(adapter.getWorldbookNames())) {
+      if (!worldbookName || worldbookName === SHARED_WORLDBOOK_NAME) continue;
+      books.set(worldbookName, await maybe(adapter.getWorldbook(worldbookName)));
     }
 
-    const entries = await maybe(adapter.getWorldbook(change.worldbookName));
-    const actual = entries.find(entry => matchesIdentity(entry, change.identity));
-    if (!actual) {
-      issues.push(issue('original_conflict_entry_missing', {
-        worldbookName: change.worldbookName,
-        name: change.identity?.name || change.identity?.uid || '',
-      }));
-      continue;
-    }
-    const desiredState = change.desiredState || (change.action === 'enable' ? 'enabled' : 'disabled');
-    if (!isOriginalConflictEntryInState(actual, desiredState)) {
-      issues.push(issue('original_conflict_state_mismatch', {
-        worldbookName: change.worldbookName,
-        name: change.identity?.name || change.identity?.uid || '',
-        expectedState: desiredState,
-      }));
-      continue;
-    }
-    if (change.afterFingerprint && fingerprint(actual) !== change.afterFingerprint) {
-      issues.push(issue('original_conflict_modified', {
-        worldbookName: change.worldbookName,
-        name: change.identity?.name || change.identity?.uid || '',
-      }));
+    for (const change of originalWorldbookChanges) {
+      const matches = findOriginalWorldbookTargets(books, {
+        worldbook: change.worldbookName,
+        ...(change.identity || {}),
+      });
+      const name = change.identity?.name || change.identity?.uid || '';
+      if (!matches.length) {
+        issues.push(issue('original_conflict_entry_missing', {
+          worldbookName: change.worldbookName,
+          name,
+        }));
+        continue;
+      }
+      if (matches.length > 1) {
+        issues.push(issue('original_conflict_entry_ambiguous', {
+          worldbookName: change.worldbookName,
+          name,
+          count: matches.length,
+        }));
+        continue;
+      }
+
+      const located = matches[0];
+      const actual = located.entry;
+      const actualUid = entryUid(actual);
+      const recordedUid = String(change.identity?.uid ?? '').trim();
+      const targetMoved =
+        located.worldbookName !== change.worldbookName ||
+        Boolean(recordedUid && actualUid && recordedUid !== actualUid);
+      if (targetMoved) {
+        issues.push(issue('original_conflict_target_moved', {
+          worldbookName: change.worldbookName,
+          actualWorldbookName: located.worldbookName,
+          name,
+        }));
+      }
+
+      const desiredState = change.desiredState || (change.action === 'enable' ? 'enabled' : 'disabled');
+      if (!isOriginalConflictEntryInState(actual, desiredState)) {
+        issues.push(issue('original_conflict_state_mismatch', {
+          worldbookName: located.worldbookName,
+          name,
+          expectedState: desiredState,
+        }));
+        continue;
+      }
+      if (change.afterFingerprint && fingerprint(actual) !== change.afterFingerprint) {
+        issues.push(issue('original_conflict_modified', {
+          worldbookName: located.worldbookName,
+          name,
+        }));
+      }
     }
   }
 

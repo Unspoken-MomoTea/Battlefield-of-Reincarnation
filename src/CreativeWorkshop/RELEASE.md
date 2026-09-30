@@ -13,17 +13,21 @@
 | 测试 | `https://workshop-test.6661816.xyz` | `staging` | `main` | 与正式服共用 D1 / KV / R2 |
 | 正式 | `https://workshop.6661816.xyz` | `production` | `workshop-stable` | 与测试服共用 D1 / KV / R2 |
 
-整个轮回战场正式版本创建不可覆盖的统一 Git Tag：
+创意工坊与世界推进从此使用**独立版本与独立不可变 Git Tag**：
 
 ```text
-VX.Y.Z
+workshop-vX.Y.Z
+world-engine-vX.Y.Z
 ```
 
-例如 `WORKSHOP_VERSION = 2.0.0` 且 `WORLD_ENGINE_VERSION = 2.0.0` 时，正式发布 Tag 必须是：
+`WORKSHOP_VERSION` 只约束 `workshop-vX.Y.Z`；`WORLD_ENGINE_VERSION` 只约束 `world-engine-vX.Y.Z`。两者可以不同，例如：
 
 ```text
-V2.0.0
+WORKSHOP_VERSION = 2.0.9  -> workshop-v2.0.9
+WORLD_ENGINE_VERSION = 2.0.8 -> world-engine-v2.0.8
 ```
+
+历史 `VX.Y.Z` 统一 Tag 只作为旧正式版本兼容来源保留，不再创建新的统一 Tag。
 
 ## Windows 双击发布工具
 
@@ -39,27 +43,22 @@ Windows 用户首选仓库根目录：
 
 ```text
 1. 更新测试服
-2. 发布正式客户端（自动推进 workshop-stable + 创建 VX.Y.Z）
-3. 更新正式服务器
-4. 依次更新测试服 + 正式服务器
-5. 只检查测试服
-6. 只检查正式服务器
-7. 两个服务器环境都只检查
-8. 预演正式客户端发布
-9. 查看 main / workshop-stable / 正式 Tag
+2. 发布创意工坊正式版（推进 workshop-stable + 创建 workshop-vX.Y.Z）
+3. 发布世界推进正式版（只创建 world-engine-vX.Y.Z）
+4. 更新正式服务器
+5. 依次更新测试服 + 正式服务器
+6. 只检查测试服
+7. 只检查正式服务器
+8. 预演创意工坊正式发布
+9. 查看 main / workshop-stable / 两类正式 Tag
 0. 退出
 ```
 
-正式客户端发布会自动读取远端 `origin/main` 中的 `WORKSHOP_VERSION`，自动决定 Tag 名，不要求手工填写版本号。例如当前版本为 `1.12.2` 时，工具会准备：
+创意工坊发布会自动读取远端 `origin/main` 中的 `WORKSHOP_VERSION`，准备 `workshop-vX.Y.Z`，在临时 worktree 运行 Worker / Client 测试与语法检查，再原子推进 `workshop-stable` 与创意工坊 Tag。
 
-```text
-workshop-stable
-V2.0.0
-```
+世界推进发布则只读取 `WORLD_ENGINE_VERSION`，校验 `script/世界推进系统.js` 与分片源码同步，运行世界推进完整回归，然后只创建并推送 `world-engine-vX.Y.Z`；**不会推进 `workshop-stable`，也不会修改或要求提升 `WORKSHOP_VERSION`**。
 
-确认发布后，它会在临时 worktree 重新运行 Worker tests、Client tests 和 JS/MJS syntax，再使用原子 push 同时推进 stable 与 Tag。
-
-GitHub Actions 的 `creative-workshop-promote-stable` 仍保留，作为网页端的第二条正式发布入口。
+GitHub Actions 分别提供 `creative-workshop-promote-stable` 与 `world-engine-promote-stable` 两个独立入口。
 
 ## 日常开发与测试服
 
@@ -256,7 +255,7 @@ shared PROJECTS R2
 2. 执行 `npm run update:staging`。
 3. 在测试版完整验证登录、上传、审核、下载、安装、更新、停用、卸载、原资源恢复和多 Mod 共存。
 4. 在 GitHub Actions 执行 `creative-workshop-promote-stable`，输入与 `WORKSHOP_VERSION` 相同的正式版本号。
-5. 确认产生新的 `VX.Y.Z` Tag，且 `workshop-stable` 已推进。
+5. 确认产生新的 `workshop-vX.Y.Z` Tag，且 `workshop-stable` 已推进。
 6. 执行 `npm run update:production`。
 7. 脚本会从本地已同步的 `origin/workshop-stable`（或本地 `workshop-stable`）建立临时 worktree，再跑测试、共享 D1 migration（通常已由 staging 应用）、正式 Worker deploy 和 health check；服务器更新阶段不会再次访问 GitHub 做 fetch。
 8. 正式客户端随后只会看到该 stable 提交。
@@ -331,11 +330,12 @@ window.ReincarnationWorkshopConfig = {
 
 ## 正式版本事实、Tag 与精确 SHA
 
-正式客户端以 Git Tag 表达版本事实：
+正式版本事实按组件拆开：
 
-- `VX.Y.Z`：创意工坊正式版本。
-- `VX.Y.Z`：世界推进正式版本。
+- `workshop-vX.Y.Z`：创意工坊正式版本；`workshop-stable` 是其正式部署/更新指针。
+- `world-engine-vX.Y.Z`：世界推进正式版本；不依赖 `workshop-stable`。
+- 历史 `VX.Y.Z`：旧统一发布兼容 Tag，只读保留，不再生成。
 
-`workshop-stable` 继续保留为创意工坊的部署/发布指针，不删除。Worker 仅当最新 `VX.Y.Z` 与当前 `workshop-stable` 发布头一致时返回 Tag 版本；否则保持 legacy stable 查询，避免迁移期间把正式客户端降级到旧 Tag。
+Worker 查询创意工坊时优先使用 `workshop-v*`，迁移期兼容旧 `V*`；只有 Tag 对应当前 `workshop-stable` 发布头时才作为正式工坊版本事实。世界推进查询只在 `world-engine-v*` 与历史 `V*` 中解析正式版本，**不会因为创意工坊发布了新版本而产生世界推进更新**。
 
-世界推进正式通道更严格：没有 `VX.Y.Z` 时返回“尚未正式发布”，不会回退到 `main`。正式客户端写入 Tavern Helper loader 的是可读的不可变 `VX.Y.Z` Tag；更新器同时保留 Tag 解析后的精确 commit SHA 作为内部元数据。测试通道仍直接写固定 commit SHA。
+测试通道仍直接写固定 commit SHA；正式 loader 使用对应组件的不可变 Tag，并同时保留解析后的精确 commit SHA 作为诊断元数据。

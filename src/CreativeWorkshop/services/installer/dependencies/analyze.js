@@ -1,3 +1,5 @@
+import { canMigrateCharacterTarget } from '../character-target.js';
+
 function issue(type, extra = {}) {
   return { type, ...extra };
 }
@@ -34,7 +36,12 @@ export async function analyzeProjectDependencies(installed, listInstalled, curre
     }
 
     const appliedVersion = Number(local.appliedVersion || 0);
-    if (currentCharacter !== undefined && local.targetCharacterName && local.targetCharacterName !== currentCharacter) {
+    if (
+      currentCharacter !== undefined &&
+      local.targetCharacterName &&
+      local.targetCharacterName !== currentCharacter &&
+      !canMigrateCharacterTarget(local, currentCharacter)
+    ) {
       blocking.push(issue('dependency_character_mismatch', {
         project_id: requiredId, name: local.name || requiredId, expected: local.targetCharacterName,
       }));

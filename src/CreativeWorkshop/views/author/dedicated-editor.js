@@ -798,7 +798,7 @@ function openingEditor(doc, mode, initial, emit) {
         doc,
         '世界书内容',
         worldbookContent,
-        '与“世界书角色”使用同一套自由正文模板；不会自动写入上方 MVU 的种族、身份、层级、性格等资料。{{角色姓名}} 会在发布时替换成伙伴姓名。',
+        '与“世界书角色”使用同一套自由正文模板；不会自动写入上方 MVU 的种族、身份、层级、性格、喜爱、外貌或背景故事等资料。{{角色姓名}} 会在发布时替换成伙伴姓名。',
       ),
     );
 
@@ -821,6 +821,7 @@ function openingEditor(doc, mode, initial, emit) {
       el(doc, 'div', 'rw-special-subtitle', '伙伴人设'),
       field(doc, '性格', makeInput(doc, 'opening_personality', initial.opening_personality || '', { textarea: true, maxLength: 1600 })),
       field(doc, '喜爱', makeInput(doc, 'opening_likes', initial.opening_likes || '', { textarea: true, maxLength: 1000 })),
+      field(doc, '外貌', makeInput(doc, 'opening_appearance', initial.opening_appearance || '', { textarea: true, maxLength: 1600 })),
       field(doc, '背景故事', makeInput(doc, 'opening_background', initial.opening_background || '', { textarea: true, maxLength: 4000 })),
       worldbookToggle,
       worldbookBox,
@@ -889,7 +890,7 @@ function openingEditor(doc, mode, initial, emit) {
 
   const names = [
     'opening_name', 'opening_race', 'opening_identity',
-    'opening_rank', 'opening_personality', 'opening_likes', 'opening_background',
+    'opening_rank', 'opening_personality', 'opening_likes', 'opening_appearance', 'opening_background',
     'opening_bloodline_name', 'opening_bloodline_effect_name',
     'opening_bloodline_effect_desc', 'opening_bloodline_desc',
   ];

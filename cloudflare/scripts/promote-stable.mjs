@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
-  validateUnifiedRelease,
+  validateWorkshopRelease,
   workshopVersionFromSource,
 } from './release-policy.mjs';
 
@@ -67,9 +67,7 @@ function npmCli() {
     path.resolve(path.dirname(process.execPath), '../lib/node_modules/npm/bin/npm-cli.js'),
   ];
   const result = candidates.find(value => value && fs.existsSync(value));
-  if (!result) {
-    throw new Error('找不到 npm-cli.js，请安装包含 npm 的 Node.js 22 或更高版本');
-  }
+  if (!result) throw new Error('找不到 npm-cli.js，请安装包含 npm 的 Node.js 22 或更高版本');
   return result;
 }
 
@@ -81,11 +79,6 @@ async function question(prompt) {
   } finally {
     rl.close();
   }
-}
-
-function assertAncestor(ancestor, descendant, message) {
-  const result = tryRun(git, ['merge-base', '--is-ancestor', ancestor, descendant]);
-  if (result.status !== 0) throw new Error(message);
 }
 
 function remoteTagExists(tag) {
@@ -100,21 +93,17 @@ function localTagExists(tag) {
 }
 
 async function main() {
-  if (extraArgs.length) {
-    throw new Error('参数无效；仅支持 --dry-run');
-  }
-  if (Number(process.versions.node.split('.')[0]) < 22) {
-    throw new Error('需要 Node.js 22 或更高版本');
-  }
+  if (extraArgs.length) throw new Error('参数无效；仅支持 --dry-run');
+  if (Number(process.versions.node.split('.')[0]) < 22) throw new Error('需要 Node.js 22 或更高版本');
 
-  console.log('\n读取正式发布目标…');
+  console.log('\n读取创意工坊正式发布目标…');
   run(git, ['fetch', '--tags', 'origin', 'main', 'workshop-stable']);
 
   const targetSha = run(git, ['rev-parse', 'origin/main^{commit}'], root, true);
   const stableSha = run(git, ['rev-parse', 'origin/workshop-stable^{commit}'], root, true);
   const stableIsAncestor = tryRun(git, ['merge-base', '--is-ancestor', stableSha, targetSha]).status === 0;
   if (!stableIsAncestor) {
-    console.log('提示：workshop-stable 含回滚/发布指针历史，将使用 force-with-lease 安全重锚到本次正式版本。');
+    console.log('提示：workshop-stable 含回滚/发布指针历史，将使用 force-with-lease 安全重锚。');
   }
 
   const workshopSource = run(
@@ -123,58 +112,51 @@ async function main() {
     root,
     true,
   );
-  const worldEngineSource = run(
-    git,
-    ['show', `${targetSha}:src/WorldEngine/core/WorldEngineFoundation.part.js`],
-    root,
-    true,
-  );
   const version = workshopVersionFromSource(workshopSource);
-  const release = validateUnifiedRelease(workshopSource, worldEngineSource, version);
+  const release = validateWorkshopRelease(workshopSource, version);
 
   if (remoteTagExists(release.tag)) {
-    throw new Error(`正式 Tag ${release.tag} 已存在。正式版本不可覆盖，请先提升 WORKSHOP_VERSION。`);
+    throw new Error(`创意工坊正式 Tag ${release.tag} 已存在。请先提升 WORKSHOP_VERSION。`);
   }
   if (localTagExists(release.tag)) {
-    throw new Error(`本地 Tag ${release.tag} 已存在，但远端不存在。请先人工确认该本地 Tag 后再发布。`);
+    throw new Error(`本地 Tag ${release.tag} 已存在但远端不存在，请先人工确认。`);
   }
 
   console.log('\n============================================================');
-  console.log('              轮回战场 · 正式版本发布');
+  console.log('              轮回战场 · 创意工坊正式发布');
   console.log('============================================================');
   console.log(`当前 stable：${stableSha.slice(0, 12)}`);
   console.log(`发布目标：    ${targetSha.slice(0, 12)}（origin/main）`);
-  console.log(`正式版本：    v${release.version}`);
-  console.log(`正式 Tag：    ${release.tag}`);
+  console.log(`工坊版本：    v${release.version}`);
+  console.log(`工坊 Tag：    ${release.tag}`);
+  console.log('世界推进版本不会被本流程修改或发布。');
   console.log('============================================================');
 
   if (targetSha === stableSha) {
-    throw new Error('origin/main 与 workshop-stable 已经是同一个提交，没有新的正式版本可发布');
+    throw new Error('origin/main 与 workshop-stable 已是同一提交，没有新的创意工坊正式版本可发布');
   }
 
   if (preview) {
-    console.log('\n[预演] 将运行完整测试，并原子推进 workshop-stable + 正式 Tag。');
-    console.log('[预演] 当前没有执行测试、创建 Tag 或 push。');
+    console.log('\n[预演] 将运行 Worker + 创意工坊测试，并原子推进 workshop-stable + 创意工坊 Tag。');
+    console.log('[预演] 不会创建 Tag 或 push。');
     return;
   }
 
-  const confirm = await question(
-    `\n输入 RELEASE ${release.version} 确认发布正式版本：`,
-  );
-  if (confirm !== `RELEASE ${release.version}`) {
-    console.log('已取消正式发布。');
+  const confirm = await question(`\n输入 WORKSHOP ${release.version} 确认发布创意工坊：`);
+  if (confirm !== `WORKSHOP ${release.version}`) {
+    console.log('已取消创意工坊正式发布。');
     return;
   }
 
   const npm = npmCli();
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-stable-release-'));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-workshop-release-'));
   const checkout = path.join(tempRoot, 'release');
   let worktreeAdded = false;
   let tagCreated = false;
   let published = false;
 
   try {
-    console.log('\n建立临时正式发布检出…');
+    console.log('\n建立临时发布检出…');
     run(git, ['worktree', 'add', '--detach', checkout, targetSha]);
     worktreeAdded = true;
 
@@ -182,21 +164,12 @@ async function main() {
     node([npm, 'ci', '--no-audit', '--no-fund'], path.join(checkout, 'cloudflare'));
 
     console.log('\n运行 Worker contract tests…');
-    node(
-      ['--test', ...files(path.join(checkout, 'cloudflare/tests'), ['.test.mjs'])],
-      checkout,
-    );
+    node(['--test', ...files(path.join(checkout, 'cloudflare/tests'), ['.test.mjs'])], checkout);
 
-    console.log('\n运行 Client contract tests…');
-    node(
-      ['--test', ...files(path.join(checkout, 'src/CreativeWorkshop/tests'), ['.test.mjs'])],
-      checkout,
-    );
+    console.log('\n运行创意工坊 Client contract tests…');
+    node(['--test', ...files(path.join(checkout, 'src/CreativeWorkshop/tests'), ['.test.mjs'])], checkout);
 
-    console.log('\n运行世界推进完整回归…');
-    node(['tests/run-world-engine-suite.cjs'], checkout);
-
-    console.log('\n检查 JS / MJS 语法…');
+    console.log('\n检查 Worker / 创意工坊 JS / MJS 语法…');
     for (const dir of ['cloudflare/src', 'cloudflare/scripts', 'src/CreativeWorkshop']) {
       for (const filename of files(path.join(checkout, dir), ['.js', '.mjs'])) {
         node(['--check', filename], checkout);
@@ -207,26 +180,20 @@ async function main() {
     run(git, ['fetch', '--tags', 'origin', 'main', 'workshop-stable']);
     const latestMain = run(git, ['rev-parse', 'origin/main^{commit}'], root, true);
     const latestStable = run(git, ['rev-parse', 'origin/workshop-stable^{commit}'], root, true);
-    if (latestMain !== targetSha) {
-      throw new Error('测试期间 origin/main 又有新提交。为避免发布错版本，请重新运行发布工具。');
-    }
-    if (latestStable !== stableSha) {
-      throw new Error('测试期间 workshop-stable 已被其他发布推进。请重新运行发布工具。');
-    }
-    if (remoteTagExists(release.tag)) {
-      throw new Error(`测试期间正式 Tag ${release.tag} 已被创建。请重新检查发布状态。`);
-    }
+    if (latestMain !== targetSha) throw new Error('测试期间 origin/main 又有新提交，请重新运行发布工具。');
+    if (latestStable !== stableSha) throw new Error('测试期间 workshop-stable 已推进，请重新运行发布工具。');
+    if (remoteTagExists(release.tag)) throw new Error(`测试期间 Tag ${release.tag} 已创建，请重新检查。`);
 
-    console.log('\n创建不可变正式 Tag…');
+    console.log('\n创建创意工坊不可变 Tag…');
     run(git, [
       '-c', 'user.name=Reincarnation Workshop Release',
       '-c', 'user.email=workshop-release@local.invalid',
       'tag', '-a', release.tag, targetSha,
-      '-m', `Battlefield of Reincarnation V${release.version}`,
+      '-m', `Reincarnation Workshop v${release.version}`,
     ]);
     tagCreated = true;
 
-    console.log('\n原子推进 workshop-stable + 正式 Tag…');
+    console.log('\n原子推进 workshop-stable + 创意工坊 Tag…');
     run(git, [
       'push', '--atomic',
       `--force-with-lease=refs/heads/workshop-stable:${latestStable}`,
@@ -234,15 +201,14 @@ async function main() {
       'refs/remotes/origin/main:refs/heads/workshop-stable',
       `refs/tags/${release.tag}:refs/tags/${release.tag}`,
     ]);
-
     published = true;
 
     console.log('\n============================================================');
-    console.log('正式版本发布成功');
+    console.log('创意工坊正式版本发布成功');
     console.log(`版本：v${release.version}`);
     console.log(`Tag： ${release.tag}`);
     console.log(`SHA： ${targetSha}`);
-    console.log('V Tag 同时固定创意工坊与世界推进；下一步如需更新正式 Worker / D1，请回到 BAT 主菜单选择“更新正式服务器”。');
+    console.log('世界推进保持其独立版本；如需更新正式 Worker，请回主菜单执行“更新正式服务器”。');
     console.log('============================================================');
   } catch (error) {
     if (tagCreated && !published) {
@@ -259,6 +225,6 @@ async function main() {
 }
 
 main().catch(error => {
-  console.error(`\n正式发布失败：${error instanceof Error ? error.message : String(error)}`);
+  console.error(`\n创意工坊正式发布失败：${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });

@@ -408,14 +408,6 @@ export function createInstalledView({
     if (item.applied) {
       menuDropdown.appendChild(button('停用并还原原版', 'danger', async () => {
         closeMenu();
-        const confirmed = await confirmDialog({
-          title: `停用“${item.name}”？`,
-          message: '工坊会移除该项目拥有的资源，并恢复它临时屏蔽/替换的原版世界书和酒馆助手脚本。',
-          confirmText: '停用并还原',
-          cancelText: '取消',
-          danger: true,
-        });
-        if (!confirmed) return;
         const result = await projectService.uninstall(item.id);
         try { host.toastr?.success?.(`已停用 ${item.name}，原版内容已按恢复记录处理`, '创意工坊'); } catch {}
         showRestoreWarnings(result, item.name);
@@ -424,14 +416,6 @@ export function createInstalledView({
     } else {
       menuDropdown.appendChild(button('删除本地缓存', 'danger', async () => {
         closeMenu();
-        const confirmed = await confirmDialog({
-          title: `删除“${item.name}”的缓存？`,
-          message: '只会删除本地下载缓存，不会影响服务器上的作品。',
-          confirmText: '删除缓存',
-          cancelText: '取消',
-          danger: true,
-        });
-        if (!confirmed) return;
         await projectService.removeCached(item.id);
         await refreshInstalled();
       }));

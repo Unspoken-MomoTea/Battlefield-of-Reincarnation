@@ -7,14 +7,14 @@ const COMPONENTS = Object.freeze({
     id: 'workshop',
     entryPath: '/src/CreativeWorkshop/index.js',
     sourcePath: 'src/CreativeWorkshop',
-    tagPrefix: 'V',
+    tagPrefixes: ['workshop-v', 'V'],
     legacyStableRef: 'workshop-stable',
   },
   'world-engine': {
     id: 'world-engine',
     entryPath: '/script/世界推进系统.js',
     sourcePath: 'script/世界推进系统.js',
-    tagPrefix: 'V',
+    tagPrefixes: ['world-engine-v', 'V'],
     legacyStableRef: '',
   },
 });
@@ -74,19 +74,24 @@ async function refHead(ref) {
 
 async function latestTaggedRelease(component) {
   const rows = await githubJson(`https://api.github.com/repos/${REPOSITORY}/tags?per_page=100`);
-  const candidates = (Array.isArray(rows) ? rows : [])
-    .map(row => {
-      const parsed = parseVersion(row?.name, component.tagPrefix);
-      const sha = String(row?.commit?.sha || '').trim();
-      return parsed && validSha(sha) ? { ...parsed, tag: String(row.name), sha } : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => compareVersion(b, a));
+  const prefixes = Array.isArray(component.tagPrefixes) ? component.tagPrefixes : [];
+  const candidates = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const sha = String(row?.commit?.sha || '').trim();
+    if (!validSha(sha)) continue;
+    for (let priority = 0; priority < prefixes.length; priority += 1) {
+      const parsed = parseVersion(row?.name, prefixes[priority]);
+      if (!parsed) continue;
+      candidates.push({ ...parsed, tag: String(row.name), sha, priority });
+      break;
+    }
+  }
+  candidates.sort((a, b) => compareVersion(b, a) || (a.priority - b.priority));
   return candidates[0] || null;
 }
 
 function cacheKey(env, component) {
-  return `public:core-component:v1:${component.id}:${updateChannel(env)}:${updateRef(env)}`;
+  return `public:core-component:v2:${component.id}:${updateChannel(env)}:${updateRef(env)}`;
 }
 
 async function fetchLatestComponent(env, componentId) {
@@ -136,7 +141,7 @@ async function fetchLatestComponent(env, componentId) {
       tag = tagged.tag;
       releaseSource = 'tag';
     } else {
-      const error = new Error(`No formal ${component.tagPrefix}X.Y.Z release exists yet`);
+      const error = new Error(`No formal ${component.tagPrefixes?.[0] || ''}X.Y.Z release exists yet`);
       error.status = 404;
       error.code = 'component_release_unavailable';
       throw error;

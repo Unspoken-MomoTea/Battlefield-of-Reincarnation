@@ -274,7 +274,7 @@ test('project creation keeps the action footer visible while only the middle con
 });
 
 
-test('login action labels are centered and formal release deploys production before tagging', () => {
+test('login action labels are centered and workshop release stays isolated from world engine release', () => {
   assert.match(
     WORKSHOP_CSS,
     /\.rw-button\{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;vertical-align:middle\}/u,
@@ -288,9 +288,21 @@ test('login action labels are centered and formal release deploys production bef
   assert.match(workflow, /Verify production health and Discord login start/u);
   assert.match(workflow, /\/api\/auth\/discord\/start\?login_id=/u);
   assert.match(workflow, /Production auth polling\/CORS passed/u);
+  assert.match(workflow, /validate-release-version\.mjs workshop/u);
+  assert.doesNotMatch(workflow, /World engine regression suite/u);
+  assert.doesNotMatch(workflow, /WORLD_ENGINE_VERSION/u);
+
+  const worldWorkflow = fs.readFileSync(
+    fileURLToPath(new URL('../../../.github/workflows/world-engine-promote-stable.yml', import.meta.url)),
+    'utf8',
+  );
+  assert.match(worldWorkflow, /validate-release-version\.mjs world-engine/u);
+  assert.match(worldWorkflow, /World engine regression suite/u);
+  assert.doesNotMatch(worldWorkflow, /Deploy production Worker/u);
+  assert.doesNotMatch(worldWorkflow, /workshop-stable.*force-with-lease/u);
   assert.ok(
     workflow.indexOf('Deploy production Worker') < workflow.indexOf('Create immutable release tag'),
-    'production Worker must be healthy before the immutable V tag is created',
+    'production Worker must be healthy before the immutable workshop tag is created',
   );
 });
 

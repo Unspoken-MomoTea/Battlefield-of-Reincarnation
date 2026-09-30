@@ -70,7 +70,7 @@ test('stable latest endpoint uses matching workshop tag as formal release', asyn
     const value = String(url);
     urls.push(value);
     if (value.includes('/tags?')) {
-      return new Response(JSON.stringify([{ name: 'V1.20.1', commit: { sha: stableSha } }]), {
+      return new Response(JSON.stringify([{ name: 'workshop-v1.20.1', commit: { sha: stableSha } }]), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -88,7 +88,7 @@ test('stable latest endpoint uses matching workshop tag as formal release', asyn
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.release_source, 'tag');
-    assert.equal(body.tag, 'V1.20.1');
+    assert.equal(body.tag, 'workshop-v1.20.1');
     assert.equal(body.version, '1.20.1');
     assert.equal(body.sha, stableSha);
   } finally {
@@ -97,6 +97,40 @@ test('stable latest endpoint uses matching workshop tag as formal release', asyn
   assert.ok(urls.some(url => url.includes('/tags?')));
   assert.ok(urls.some(url => url.includes('/commits/workshop-stable')));
   assert.equal(urls.some(url => url.includes('sha=main')), false);
+});
+
+test('world engine stable endpoint ignores newer workshop tags and selects its own namespace', async () => {
+  const originalFetch = globalThis.fetch;
+  const workshopSha = '4444444444444444444444444444444444444444';
+  const worldSha = '5555555555555555555555555555555555555555';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('/tags?')) {
+      return new Response(JSON.stringify([
+        { name: 'workshop-v9.9.9', commit: { sha: workshopSha } },
+        { name: 'world-engine-v2.0.8', commit: { sha: worldSha } },
+        { name: 'V2.0.7', commit: { sha: '6666666666666666666666666666666666666666' } },
+      ]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/components/latest?component=world-engine'),
+      env({ SESSION_KV: new MemoryKV() }),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.release_source, 'tag');
+    assert.equal(body.tag, 'world-engine-v2.0.8');
+    assert.equal(body.version, '2.0.8');
+    assert.equal(body.sha, worldSha);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('stable workshop keeps legacy stable behavior until a tag matches stable head', async () => {
@@ -163,7 +197,7 @@ test('testing latest endpoint resolves main and uses component cache key', async
     globalThis.fetch = originalFetch;
   }
   assert.equal(
-    await testEnv.SESSION_KV.get('public:core-component:v1:workshop:testing:main') !== null,
+    await testEnv.SESSION_KV.get('public:core-component:v2:workshop:testing:main') !== null,
     true,
   );
 });

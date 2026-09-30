@@ -9,7 +9,7 @@ test('client latest endpoint serves cached component metadata', async () => {
     CLIENT_UPDATE_REF: 'workshop-stable',
     SESSION_KV: {
       get: async (key, type) => {
-        assert.equal(key, 'public:core-component:v1:workshop:stable:workshop-stable');
+        assert.equal(key, 'public:core-component:v2:workshop:stable:workshop-stable');
         assert.equal(type, 'json');
         return {
           component: 'workshop',
@@ -18,7 +18,7 @@ test('client latest endpoint serves cached component metadata', async () => {
           sha,
           short_sha: sha.slice(0, 8),
           version: '1.20.1',
-          tag: 'V1.20.1',
+          tag: 'workshop-v1.20.1',
           release_source: 'tag',
         };
       },
@@ -34,7 +34,7 @@ test('client latest endpoint serves cached component metadata', async () => {
   assert.equal(response.status, 200);
   const data = await response.json();
   assert.equal(data.sha, sha);
-  assert.equal(data.tag, 'V1.20.1');
+  assert.equal(data.tag, 'workshop-v1.20.1');
   assert.equal(data.cached, true);
 });
 

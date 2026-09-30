@@ -6,7 +6,9 @@ import {
   releasePlan,
   validateReleaseConfig,
   validateWorkshopRelease,
+  validateWorldEngineRelease,
   workshopReleaseTag,
+  worldEngineReleaseTag,
 } from '../scripts/release-policy.mjs';
 
 function configFixture() {
@@ -86,17 +88,30 @@ test('release config rejects production placeholders before deployment', () => {
   );
 });
 
-test('stable release version must exactly match WORKSHOP_VERSION and produces an immutable tag name', () => {
-  const source = "export const WORKSHOP_VERSION = '1.12.1';\n";
-  assert.deepEqual(validateWorkshopRelease(source, '1.12.1'), {
+test('workshop and world engine releases use independent immutable tag namespaces', () => {
+  const workshopSource = "export const WORKSHOP_VERSION = '1.12.1';\n";
+  const worldSource = "const WORLD_ENGINE_VERSION='2.3.4';\n";
+
+  assert.deepEqual(validateWorkshopRelease(workshopSource, '1.12.1'), {
+    component: 'workshop',
     version: '1.12.1',
-    tag: 'V1.12.1',
+    tag: 'workshop-v1.12.1',
   });
-  assert.equal(workshopReleaseTag('1.12.1'), 'V1.12.1');
+  assert.deepEqual(validateWorldEngineRelease(worldSource, '2.3.4'), {
+    component: 'world-engine',
+    version: '2.3.4',
+    tag: 'world-engine-v2.3.4',
+  });
+  assert.equal(workshopReleaseTag('1.12.1'), 'workshop-v1.12.1');
+  assert.equal(worldEngineReleaseTag('2.3.4'), 'world-engine-v2.3.4');
 
   assert.throws(
-    () => validateWorkshopRelease(source, '1.12.0'),
+    () => validateWorkshopRelease(workshopSource, '1.12.0'),
     /与 WORKSHOP_VERSION 1\.12\.1 不一致/u,
+  );
+  assert.throws(
+    () => validateWorldEngineRelease(worldSource, '2.3.3'),
+    /与 WORLD_ENGINE_VERSION 2\.3\.4 不一致/u,
   );
   assert.throws(
     () => workshopReleaseTag('v1.12.1'),

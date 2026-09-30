@@ -85,7 +85,7 @@ test('stable world engine refuses main when no formal tag exists', async () => {
   assert.equal(result.updateAvailable, false);
 });
 
-test('stable world engine on the latest formal V tag is not reported as an update', async () => {
+test('stable world engine accepts the legacy unified V tag during migration', async () => {
   const latest = 'dddddddddddddddddddddddddddddddddddddddd';
   const adapter = adapterFixture(
     "import('https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@V2.0.1/script/世界推进系统.js');",
@@ -128,7 +128,7 @@ test('stable world engine on the latest formal V tag is not reported as an updat
 });
 
 
-test('stable world engine update rewrites an old sha loader to the formal V tag', async () => {
+test('stable world engine update rewrites an old sha loader to the world-engine tag', async () => {
   const old = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
   const latest = 'ffffffffffffffffffffffffffffffffffffffff';
   const adapter = adapterFixture(
@@ -149,7 +149,7 @@ test('stable world engine update rewrites an old sha loader to the formal V tag'
           channel: 'stable',
           ref: 'workshop-stable',
           version: '2.0.3',
-          tag: 'V2.0.3',
+          tag: 'world-engine-v2.0.3',
           release_source: 'tag',
         });
       }
@@ -164,19 +164,19 @@ test('stable world engine update rewrites an old sha loader to the formal V tag'
 
   const check = await updater.check();
   assert.equal(check.updateAvailable, true);
-  assert.equal(check.latestLoaderRef, 'V2.0.3');
-  assert.match(check.latestImportUrl, /@V2\.0\.3\/script\/世界推进系统\.js/u);
+  assert.equal(check.latestLoaderRef, 'world-engine-v2.0.3');
+  assert.match(check.latestImportUrl, /@world-engine-v2\.0\.3\/script\/世界推进系统\.js/u);
 
   const result = await updater.updateAndReload();
   assert.equal(result.updated, true);
   assert.equal(result.hotReloaded, true);
-  assert.equal(result.latestLoaderRef, 'V2.0.3');
-  assert.match(adapter.state.character[0].content, /@V2\.0\.3\/script\/世界推进系统\.js/u);
+  assert.equal(result.latestLoaderRef, 'world-engine-v2.0.3');
+  assert.match(adapter.state.character[0].content, /@world-engine-v2\.0\.3\/script\/世界推进系统\.js/u);
   assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/script/世界推进系统\\.js`, 'u'));
-  assert.match(loaded, /@V2\.0\.3\/script\/世界推进系统\.js/u);
+  assert.match(loaded, /@world-engine-v2\.0\.3\/script\/世界推进系统\.js/u);
 });
 
-test('stable latest world engine sha is silently normalized to the equivalent formal V tag', async () => {
+test('stable latest world engine sha is silently normalized to the equivalent world-engine tag', async () => {
   const latest = '3434343434343434343434343434343434343434';
   const adapter = adapterFixture(
     `import('https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${latest}/script/世界推进系统.js');`,
@@ -195,7 +195,7 @@ test('stable latest world engine sha is silently normalized to the equivalent fo
           channel: 'stable',
           ref: 'workshop-stable',
           version: '2.0.4',
-          tag: 'V2.0.4',
+          tag: 'world-engine-v2.0.4',
           release_source: 'tag',
         });
       }
@@ -209,7 +209,7 @@ test('stable latest world engine sha is silently normalized to the equivalent fo
 
   const normalized = await updater.normalizeFormalLoaderLink();
   assert.equal(normalized.normalized, true);
-  assert.equal(normalized.latestLoaderRef, 'V2.0.4');
-  assert.match(adapter.state.character[0].content, /@V2\.0\.4\/script\/世界推进系统\.js/u);
+  assert.equal(normalized.latestLoaderRef, 'world-engine-v2.0.4');
+  assert.match(adapter.state.character[0].content, /@world-engine-v2\.0\.4\/script\/世界推进系统\.js/u);
   assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/script/世界推进系统\\.js`, 'u'));
 });

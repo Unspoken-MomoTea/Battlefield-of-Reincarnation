@@ -3,6 +3,21 @@ export const RELEASE_TARGETS = Object.freeze({
   production: { ref: 'workshop-stable', channel: 'stable', label: '正式服' },
 });
 
+export const RELEASE_COMPONENTS = Object.freeze({
+  workshop: {
+    id: 'workshop',
+    label: '创意工坊',
+    tagPrefix: 'workshop-v',
+    legacyTagPrefix: 'V',
+  },
+  'world-engine': {
+    id: 'world-engine',
+    label: '世界推进',
+    tagPrefix: 'world-engine-v',
+    legacyTagPrefix: 'V',
+  },
+});
+
 export function releasePlan(target) {
   if (target === 'both') return ['staging', 'production'];
   if (Object.hasOwn(RELEASE_TARGETS, target)) return [target];
@@ -11,15 +26,22 @@ export function releasePlan(target) {
 
 const STABLE_VERSION_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 
-export function releaseTag(version) {
+function normalizedVersion(version) {
   const value = String(version || '').trim();
   if (!STABLE_VERSION_PATTERN.test(value)) {
     throw new Error('正式版本号必须是 X.Y.Z，例如 2.0.0');
   }
-  return `V${value}`;
+  return value;
 }
 
-export const workshopReleaseTag = releaseTag;
+export function componentReleaseTag(component, version) {
+  const meta = RELEASE_COMPONENTS[component];
+  if (!meta) throw new Error(`未知正式发布组件：${component}`);
+  return `${meta.tagPrefix}${normalizedVersion(version)}`;
+}
+
+export const workshopReleaseTag = version => componentReleaseTag('workshop', version);
+export const worldEngineReleaseTag = version => componentReleaseTag('world-engine', version);
 
 export function workshopVersionFromSource(source) {
   const match = String(source || '').match(
@@ -37,28 +59,22 @@ export function worldEngineVersionFromSource(source) {
   return match[1].trim();
 }
 
-export function validateUnifiedRelease(workshopSource, worldEngineSource, requestedVersion) {
-  const version = String(requestedVersion || '').trim();
-  const tag = releaseTag(version);
-  const workshopVersion = workshopVersionFromSource(workshopSource);
-  const worldEngineVersion = worldEngineVersionFromSource(worldEngineSource);
-  if (workshopVersion !== version) {
-    throw new Error(`正式版本 ${version} 与 WORKSHOP_VERSION ${workshopVersion} 不一致`);
-  }
-  if (worldEngineVersion !== version) {
-    throw new Error(`正式版本 ${version} 与 WORLD_ENGINE_VERSION ${worldEngineVersion} 不一致`);
-  }
-  return { version, tag };
-}
-
 export function validateWorkshopRelease(source, requestedVersion) {
-  const version = String(requestedVersion || '').trim();
-  const tag = releaseTag(version);
+  const version = normalizedVersion(requestedVersion);
   const actual = workshopVersionFromSource(source);
   if (actual !== version) {
     throw new Error(`正式版本 ${version} 与 WORKSHOP_VERSION ${actual} 不一致`);
   }
-  return { version, tag };
+  return { component: 'workshop', version, tag: workshopReleaseTag(version) };
+}
+
+export function validateWorldEngineRelease(source, requestedVersion) {
+  const version = normalizedVersion(requestedVersion);
+  const actual = worldEngineVersionFromSource(source);
+  if (actual !== version) {
+    throw new Error(`正式版本 ${version} 与 WORLD_ENGINE_VERSION ${actual} 不一致`);
+  }
+  return { component: 'world-engine', version, tag: worldEngineReleaseTag(version) };
 }
 
 export function validateReleaseConfig(config, target) {

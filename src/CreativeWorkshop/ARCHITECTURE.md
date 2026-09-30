@@ -85,9 +85,9 @@ R2 → bundle / manifest / 封面
 - 客户端安装操作集中在受控 service/installer 层。
 - 世界书、正则、酒馆助手脚本安装具有来源命名空间，避免误删用户内容。
 - 已吸收对方“DLC 修复/更新”思路：独立维护中心负责安装健康检查、Repair、恢复点状态和工坊客户端更新。
-- 工坊本体更新不要求玩家手动替换 import：维护中心可扫描 ScriptTree 中的工坊 loader；测试版写入 `main` 对应的固定 SHA，正式版写入当前不可变的 `VX.Y.Z` Tag。
+- 工坊本体更新不要求玩家手动替换 import：维护中心可扫描 ScriptTree 中的工坊 loader；测试版写入 `main` 对应的固定 SHA，正式版写入不可变的 `workshop-vX.Y.Z` Tag。
 - 自 v1.7.0 起，自更新从“维护页工具”提升为客户端生命周期能力：服务健康检查成功后自动扫描 loader；发现旧 SHA 时弹出更新提示，用户确认后事务式重写 ScriptTree。
-- 自更新负责持久化目标版本引用并在写入后重新读取 ScriptTree 校验结果：测试通道写固定 SHA，正式通道写不可变 `VX.Y.Z` Tag；不通过刷新整个 SillyTavern 来伪装更新成功。
+- 自更新负责持久化目标版本引用并在写入后重新读取 ScriptTree 校验结果：测试通道写固定 SHA；正式创意工坊写 `workshop-vX.Y.Z`，正式世界推进写 `world-engine-vX.Y.Z`；两者版本互不联动。
 - latest 查询允许 Worker KV 缓存，但当目标 SHA 与本地 loader 不一致时客户端额外核对当前环境自己的 GitHub ref；正式通道永不回退查询 `main`。
 
 ### 尚未吸收，后续按需要实现

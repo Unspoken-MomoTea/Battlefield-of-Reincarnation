@@ -13,33 +13,36 @@ function labelCount(label) {
   return [...launcher.matchAll(pattern)].length;
 }
 
-test('Windows release launcher exposes one unambiguous menu and one implementation label per action', () => {
+test('Windows launcher separates workshop and world engine release actions', () => {
   for (const label of [
     'MENU',
     'UPDATE_STAGING',
-    'PUBLISH_STABLE',
+    'PUBLISH_WORKSHOP',
+    'PUBLISH_WORLD',
     'UPDATE_PRODUCTION',
     'UPDATE_BOTH',
     'CHECK_STAGING',
     'CHECK_PRODUCTION',
-    'CHECK_BOTH',
-    'PUBLISH_PREVIEW',
+    'PUBLISH_WORKSHOP_PREVIEW',
     'STATUS',
-    'RUN_PUBLISH',
+    'RUN_WORKSHOP_PUBLISH',
+    'RUN_WORLD_PUBLISH',
     'RUN_SERVER',
     'AFTER',
   ]) {
     assert.equal(labelCount(label), 1, 'duplicate or missing BAT label: ' + label);
   }
 
-  assert.equal(labelCount('RUN'), 0);
-  assert.match(launcher, /创意工坊发布工具/u);
-  assert.match(launcher, /发布正式客户端/u);
-  assert.match(launcher, /更新正式服务器/u);
-  assert.match(launcher, /workshop-stable \+ VX\.Y\.Z/u);
+  assert.match(launcher, /发布创意工坊正式版/u);
+  assert.match(launcher, /workshop-vX\.Y\.Z/u);
+  assert.match(launcher, /发布世界推进正式版/u);
+  assert.match(launcher, /world-engine-vX\.Y\.Z/u);
+  assert.match(launcher, /只读取 WORKSHOP_VERSION，不修改世界推进版本/u);
+  assert.match(launcher, /只读取 WORLD_ENGINE_VERSION，不推进 workshop-stable/u);
+  assert.doesNotMatch(launcher, /自动读取统一版本/u);
+  assert.doesNotMatch(launcher, /workshop-stable \+ VX\.Y\.Z/u);
   assert.doesNotMatch(launcher, /git -C "%ROOT%" fetch/u);
   assert.match(launcher, /choice \/c RQ/u);
-  assert.doesNotMatch(launcher, /echo \[0\] 关闭工具/u);
 });
 
 test('legacy updater shortcut delegates to the root BAT launcher', () => {

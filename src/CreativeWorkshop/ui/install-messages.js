@@ -23,6 +23,7 @@ const CONFLICT_LABELS = {
 const HEALTH_LABELS = {
   not_applied: () => '作品尚未安装',
   character_mismatch: issue => `当前角色不是安装目标角色“${issue.expected}”`,
+  character_target_moved: issue => `检测到角色卡版本升级（${issue.expected} → ${issue.actual}），可自动迁移安装目标`,
   version_drift: issue => `缓存 v${issue.cachedVersion}，当前仍应用 v${issue.appliedVersion}`,
   worldbook_entry_missing: issue => `缺少世界书条目“${issue.name}”`,
   worldbook_entry_modified: issue => `世界书条目“${issue.name}”已被修改`,

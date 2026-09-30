@@ -305,3 +305,25 @@ test('centered workshop buttons still honor the hidden attribute', () => {
     /data-action="login">Discord 登录<\/button>/u,
   );
 });
+
+
+test('per-mod stop and local cache delete actions execute without confirmation dialogs', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../views/installed.js', import.meta.url)),
+    'utf8',
+  );
+
+  const stopStart = source.indexOf("button('停用并还原原版'");
+  const deleteStart = source.indexOf("button('删除本地缓存'");
+  assert.ok(stopStart >= 0);
+  assert.ok(deleteStart >= 0);
+
+  const stopBlock = source.slice(stopStart, deleteStart);
+  const deleteBlock = source.slice(deleteStart, source.indexOf("menu.append(menuTrigger", deleteStart));
+
+  assert.match(stopBlock, /projectService\.uninstall\(item\.id\)/u);
+  assert.doesNotMatch(stopBlock, /confirmDialog\(/u);
+
+  assert.match(deleteBlock, /projectService\.removeCached\(item\.id\)/u);
+  assert.doesNotMatch(deleteBlock, /confirmDialog\(/u);
+});

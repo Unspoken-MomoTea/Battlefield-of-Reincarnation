@@ -4,6 +4,7 @@ import { buildArtifactPlan } from '../plan.js';
 import { isProjectScriptTree, isProjectWorldbookEntry, regexPrefix } from '../ownership.js';
 import { CHARACTER_ORDER_FIRST, CHARACTER_ORDER_LAST, characterOrderForProject, compactCharacterWorldbookOrders, isCharacterWorldbookSlot } from '../character-order.js';
 import { findOriginalWorldbookTargets, isOriginalConflictEntryInState } from '../original-conflicts.js';
+import { canMigrateCharacterTarget } from '../character-target.js';
 import { findOriginalRegexTargets, isOriginalRegexInState } from '../original-regexes.js';
 import { findOriginalScriptTargets, isOriginalScriptInState } from '../original-scripts.js';
 import { maybe } from '../utils.js';
@@ -48,21 +49,27 @@ export async function inspectInstalledProject(adapter, installed) {
     targets.originalWorldbookChanges?.length ||
     targets.originalScriptChanges?.some(item => item.scope === 'character'),
   );
+  const issues = [];
   if (characterScoped && installed.targetCharacterName) {
     const current = await maybe(adapter.getCurrentCharacterName());
     if (current !== installed.targetCharacterName) {
-      return {
-        healthy: false,
-        repairable: false,
-        issues: [issue('character_mismatch', {
+      if (canMigrateCharacterTarget(installed, current)) {
+        issues.push(issue('character_target_moved', {
           expected: installed.targetCharacterName,
           actual: current || '',
-        })],
-      };
+        }));
+      } else {
+        return {
+          healthy: false,
+          repairable: false,
+          issues: [issue('character_mismatch', {
+            expected: installed.targetCharacterName,
+            actual: current || '',
+          })],
+        };
+      }
     }
   }
-
-  const issues = [];
   if (Number(installed.appliedVersion || 0) !== Number(installed.version || 0)) {
     issues.push(issue('version_drift', {
       appliedVersion: Number(installed.appliedVersion || 0),

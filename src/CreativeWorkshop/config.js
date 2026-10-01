@@ -84,3 +84,25 @@ export function getWorldEngineUpdateRef() {
   if (configured) return configured;
   return getWorldEngineUpdateChannel() === 'testing' ? 'main' : 'world-engine-v*';
 }
+
+
+export function getStatusBarUpdateChannel() {
+  const host = resolveHostWindow();
+  const configured = String(
+    host.ReincarnationWorkshopConfig?.statusBarUpdateChannel ??
+    globalThis.window?.ReincarnationWorkshopConfig?.statusBarUpdateChannel ??
+    '',
+  ).trim().toLowerCase();
+  return UPDATE_CHANNELS.has(configured) ? configured : 'stable';
+}
+
+export function getStatusBarUpdateRef() {
+  const host = resolveHostWindow();
+  const configured = String(
+    host.ReincarnationWorkshopConfig?.statusBarUpdateRef ??
+    globalThis.window?.ReincarnationWorkshopConfig?.statusBarUpdateRef ??
+    '',
+  ).trim();
+  if (configured) return configured;
+  return getStatusBarUpdateChannel() === 'testing' ? 'main' : 'status-bar-v*';
+}

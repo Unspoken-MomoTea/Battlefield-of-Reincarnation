@@ -358,6 +358,14 @@ export function bindCreateProjectFlow({
     progress.hidden = false;
   }
 
+  function showRequiredField(message, target) {
+    setSubmitStatus('error', message);
+    try {
+      target?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      target?.focus?.({ preventScroll: true });
+    } catch {}
+  }
+
   localTestButton?.addEventListener('click', () => {
     if (localTestButton.disabled) return;
 
@@ -371,9 +379,15 @@ export function bindCreateProjectFlow({
       : '';
     const dependencies = dependencyPicker.values();
 
-    if (!name) return notifyError(new Error('请先填写作品名称'));
+    if (!name) {
+      showRequiredField('还不能保存：请先填写左侧“作品名称”。', nodes.createForm.querySelector('[name="name"]'));
+      return;
+    }
     const cover = nodes.createCover.files?.[0] || null;
-    if (!cover) return notifyError(new Error('请选择封面图片；发布作品必须提供图片'));
+    if (!cover) {
+      showRequiredField('还不能保存：请选择封面图片。所有本地测试和正式作品都必须带封面。', nodes.createForm.querySelector('[data-drop-target="create-cover"]'));
+      return;
+    }
     let bundle;
     try {
       bundle = buildPublishBundle(form, name);
@@ -435,9 +449,15 @@ export function bindCreateProjectFlow({
       .filter(Boolean);
     const dependencies = dependencyPicker.values();
 
-    if (!name) return notifyError(new Error('请先填写作品名称'));
+    if (!name) {
+      showRequiredField('还不能提交：请先填写左侧“作品名称”。', nodes.createForm.querySelector('[name="name"]'));
+      return;
+    }
     const cover = nodes.createCover.files?.[0] || null;
-    if (!cover) return notifyError(new Error('请选择封面图片；发布作品必须提供图片'));
+    if (!cover) {
+      showRequiredField('还不能提交：请选择封面图片。所有正式作品都必须带封面。', nodes.createForm.querySelector('[data-drop-target="create-cover"]'));
+      return;
+    }
     let bundle;
     try {
       bundle = buildPublishBundle(form, name);

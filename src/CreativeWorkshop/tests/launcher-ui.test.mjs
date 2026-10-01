@@ -223,6 +223,19 @@ test('first project creation exposes a local-only test path', () => {
 });
 
 
+test('new project validation stays in the form instead of logging handled missing-field errors', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/create-project.js', import.meta.url)),
+    'utf8',
+  );
+  assert.match(source, /function showRequiredField\(message, target\)/u);
+  assert.match(source, /还不能保存：请先填写左侧“作品名称”/u);
+  assert.match(source, /所有本地测试和正式作品都必须带封面/u);
+  assert.match(source, /还不能提交：请先填写左侧“作品名称”/u);
+  assert.match(source, /所有正式作品都必须带封面/u);
+  assert.doesNotMatch(source, /return notifyError\(new Error\('请先填写作品名称'\)\)/u);
+});
+
 test('local test projects keep their cover and can be reopened for editing', () => {
   const installed = fs.readFileSync(
     fileURLToPath(new URL('../views/installed.js', import.meta.url)),

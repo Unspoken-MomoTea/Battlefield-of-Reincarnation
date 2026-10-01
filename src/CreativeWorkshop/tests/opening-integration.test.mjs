@@ -128,6 +128,37 @@ test('opening library shows portraits and selected build details before launch',
   assert.match(opening, /applyOpeningAttributePoints\(selectedOpeningAttributePoints\(asset\)\)/u);
 });
 
+test('opening library live-refreshes installed assets and shows bloodline effects without duplicate portrait', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const opening = fs.readFileSync(
+    fileURLToPath(new URL('../../../Regular/开局.html', import.meta.url)),
+    'utf8',
+  );
+  const registry = fs.readFileSync(
+    fileURLToPath(new URL('../../opening/character-assets/registry.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(registry, /OPENING_ASSETS_CHANGED_EVENT = 'reincarnation:opening-assets-changed'/u);
+  assert.match(registry, /notifyOpeningAssetsChanged\(\{ action: 'replace'/u);
+  assert.match(registry, /notifyOpeningAssetsChanged\(\{ action: 'remove'/u);
+  assert.match(opening, /addEventListener\('reincarnation:opening-assets-changed'/u);
+  assert.match(opening, /void loadOpeningAssets\(\)/u);
+
+  const panelStart = opening.indexOf('function renderSelectedAssetPanel(asset, kind)');
+  const panelEnd = opening.indexOf('function renderOpeningCharacterLibrary()', panelStart);
+  const panel = opening.slice(panelStart, panelEnd);
+  assert.ok(panelStart >= 0 && panelEnd > panelStart);
+  assert.doesNotMatch(panel, /asset-selected-avatar/u);
+  assert.doesNotMatch(panel, /<span>血统 \$\{esc\(blood\.name\)/u);
+  assert.match(panel, /<strong>血统<\/strong>/u);
+  assert.match(panel, /blood\.data\.效果/u);
+  assert.match(panel, /asset-selected-effect/u);
+  assert.match(panel, /const equipmentSection = kind === 'partner'/u);
+  assert.match(panel, /\$\{equipmentSection\}/u);
+});
+
 test('creator styles hide the character subtype outside character category and keep compact grids inside bounds', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');

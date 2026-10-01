@@ -8,7 +8,6 @@ import './components/equipment.js';
 import './components/attribute.js';
 import './components/skill.js';
 import './components/selection.js';
-import '../opening/data/opening-state.js';
 import '../opening/data/state-bridge.js';
 import '../opening/data/state-receiver.js';
 import '../opening/data/host-adapter.js';

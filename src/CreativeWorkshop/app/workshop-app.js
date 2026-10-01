@@ -135,7 +135,12 @@ export function bootWorkshop() {
       nodes.health.textContent = `${channelLabel} · 在线 · ${result.version}`;
       nodes.health.title = `工坊服务状态 · ${channelLabel}通道 · ${result.update_ref || ''}`.trim();
       nodes.health.className = `rw-health-chip ok rw-health-chip--${channel}`;
-      if (checkUpdate) void checkWorkshopUpdateAfterConnection();
+      if (checkUpdate) {
+        void checkWorkshopUpdateAfterConnection();
+        void views.installed.checkAllUpdates(false, { automatic: true, refresh: false }).catch(error => {
+          console.warn('[轮回战场创意工坊] 自动检查已安装作品更新失败', error);
+        });
+      }
       return true;
     } catch (error) {
       nodes.health.textContent = `未连接 · ${error.message}`;

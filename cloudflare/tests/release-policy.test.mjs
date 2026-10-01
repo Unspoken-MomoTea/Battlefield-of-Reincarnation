@@ -7,8 +7,10 @@ import {
   validateReleaseConfig,
   validateWorkshopRelease,
   validateWorldEngineRelease,
+  validateStatusBarRelease,
   workshopReleaseTag,
   worldEngineReleaseTag,
+  statusBarReleaseTag,
 } from '../scripts/release-policy.mjs';
 
 function configFixture() {
@@ -88,9 +90,10 @@ test('release config rejects production placeholders before deployment', () => {
   );
 });
 
-test('workshop and world engine releases use independent immutable tag namespaces', () => {
+test('workshop, world engine and status bar releases use independent immutable tag namespaces', () => {
   const workshopSource = "export const WORKSHOP_VERSION = '1.12.1';\n";
   const worldSource = "const WORLD_ENGINE_VERSION='2.3.4';\n";
+  const statusBarSource = "var STATUS_BAR_VERSION = '1.0.0';\n";
 
   assert.deepEqual(validateWorkshopRelease(workshopSource, '1.12.1'), {
     component: 'workshop',
@@ -102,8 +105,14 @@ test('workshop and world engine releases use independent immutable tag namespace
     version: '2.3.4',
     tag: 'world-engine-v2.3.4',
   });
+  assert.deepEqual(validateStatusBarRelease(statusBarSource, '1.0.0'), {
+    component: 'status-bar',
+    version: '1.0.0',
+    tag: 'status-bar-v1.0.0',
+  });
   assert.equal(workshopReleaseTag('1.12.1'), 'workshop-v1.12.1');
   assert.equal(worldEngineReleaseTag('2.3.4'), 'world-engine-v2.3.4');
+  assert.equal(statusBarReleaseTag('1.0.0'), 'status-bar-v1.0.0');
 
   assert.throws(
     () => validateWorkshopRelease(workshopSource, '1.12.0'),

@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, '../../..');
+const generated = fs.readFileSync(path.join(root, 'script/悬浮球状态栏.js'), 'utf8');
+const parts = [
+  'core/StatusBarFoundation.part.js',
+  'ui/StatusBarStyles.part.js',
+  'ui/StatusBarShell.part.js',
+  'domains/StatusBarBloodFusion.part.js',
+  'domains/StatusBarTransferLoot.part.js',
+  'ui/StatusBarEventBindings.part.js',
+  'settings/StatusBarSettings.part.js',
+  'ui/StatusBarRenderer.part.js',
+  'ui/StatusBarDetailsEditor.part.js',
+  'shop/StatusBarShopCatalog.part.js',
+  'shop/StatusBarShopView.part.js',
+  'shop/StatusBarShopTransaction.part.js',
+  'shop/StatusBarShopAi.part.js',
+  'domains/StatusBarActions.part.js',
+  'core/StatusBarBootstrap.part.js',
+];
+
+test('status bar delivery is assembled exactly from modular source parts', () => {
+  const assembled = parts
+    .map(part => fs.readFileSync(path.join(root, 'src/StatusBar', part), 'utf8'))
+    .join('');
+  assert.equal(generated, assembled);
+});
+
+test('status bar exposes an independent version and reload-safe event lifecycle', () => {
+  assert.match(generated, /STATUS_BAR_VERSION = '1\.0\.0'/u);
+  assert.match(generated, /class StatusBarRuntimeLifecycle/u);
+  assert.match(generated, /SamsaraStatusBarRuntime/u);
+  assert.match(generated, /Samsara\.StatusBarInfo/u);
+  assert.match(generated, /trackStatusBarSubscription\(eventOn\(/u);
+  assert.match(generated, /stopSubscriptions\(\)/u);
+});

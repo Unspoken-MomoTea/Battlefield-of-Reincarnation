@@ -355,3 +355,30 @@ window.ReincarnationWorkshopConfig = {
 Worker 查询创意工坊时优先使用 `workshop-v*`，迁移期兼容旧 `V*`；只有 Tag 对应当前 `workshop-stable` 发布头时才作为正式工坊版本事实。世界推进查询只在 `world-engine-v*` 与历史 `V*` 中解析正式版本，**不会因为创意工坊发布了新版本而产生世界推进更新**。
 
 测试通道仍直接写固定 commit SHA；正式 loader 使用对应组件的不可变 Tag，并同时保留解析后的精确 commit SHA 作为诊断元数据。
+
+## 状态栏独立版本与工坊维护
+
+状态栏与世界推进采用相同的“源码分片 → 单文件交付 → 工坊维护 loader”模式，但版本命名空间完全独立：
+
+```text
+src/StatusBar/**                         # 唯一开发源码
+python tools/build-status-bar.py         # 生成
+script/悬浮球状态栏.js                   # 酒馆单文件交付
+status-bar-vX.Y.Z                        # 正式不可变 Tag
+```
+
+正式工坊默认只检查 `status-bar-v*`。即使创意工坊本身运行在 testing/main，状态栏也不会跟随 main；测试状态栏必须在 loader 配置中显式加入：
+
+```js
+window.ReincarnationWorkshopConfig = {
+  apiBase: 'https://workshop-test.6661816.xyz',
+  updateChannel: 'testing',
+  updateRef: 'main',
+  statusBarUpdateChannel: 'testing',
+  statusBarUpdateRef: 'main',
+};
+```
+
+“修复”页会显示独立的“状态栏更新”区。旧角色卡中完整内联的 `悬浮球状态栏.js` 可直接被接管并改写成版本 loader；第一次接管只持久化 loader，不在当前页面强制叠加新版运行时。由 loader 启动的新版状态栏会登记 `SamsaraStatusBarRuntime`、`Samsara.StatusBarInfo` 并集中持有可停止的事件订阅，后续版本才允许安全热重载。
+
+正式发布使用 `.github/workflows/status-bar-promote-stable.yml` 或提交标记 `[publish status-bar]`。发布前会校验 `STATUS_BAR_VERSION`、生成交付同步、状态栏语法/回归和工坊 updater 合同；成功后只创建 `status-bar-vX.Y.Z`，不会移动 `workshop-stable`，也不会发布世界推进。

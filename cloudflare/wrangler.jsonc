@@ -13,7 +13,9 @@
     "CLIENT_UPDATE_CHANNEL": "stable",
     "CLIENT_UPDATE_REF": "workshop-stable",
     "OPENING_UPDATE_CHANNEL": "testing",
-    "OPENING_UPDATE_REF": "main"
+    "OPENING_UPDATE_REF": "main",
+    "STATUS_BAR_UPDATE_CHANNEL": "stable",
+    "STATUS_BAR_UPDATE_REF": "status-bar-v*"
   },
 
   "d1_databases": [
@@ -54,7 +56,9 @@
         "CLIENT_UPDATE_CHANNEL": "testing",
         "CLIENT_UPDATE_REF": "main",
         "OPENING_UPDATE_CHANNEL": "testing",
-        "OPENING_UPDATE_REF": "main"
+        "OPENING_UPDATE_REF": "main",
+        "STATUS_BAR_UPDATE_CHANNEL": "stable",
+        "STATUS_BAR_UPDATE_REF": "status-bar-v*"
       },
       "d1_databases": [
         {
@@ -92,7 +96,9 @@
         "CLIENT_UPDATE_CHANNEL": "stable",
         "CLIENT_UPDATE_REF": "workshop-stable",
         "OPENING_UPDATE_CHANNEL": "testing",
-        "OPENING_UPDATE_REF": "main"
+        "OPENING_UPDATE_REF": "main",
+        "STATUS_BAR_UPDATE_CHANNEL": "stable",
+        "STATUS_BAR_UPDATE_REF": "status-bar-v*"
       },
       "d1_databases": [
         {

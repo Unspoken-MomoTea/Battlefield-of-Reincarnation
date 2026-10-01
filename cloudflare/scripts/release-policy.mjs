@@ -16,6 +16,12 @@ export const RELEASE_COMPONENTS = Object.freeze({
     tagPrefix: 'world-engine-v',
     legacyTagPrefix: 'V',
   },
+  'status-bar': {
+    id: 'status-bar',
+    label: '状态栏',
+    tagPrefix: 'status-bar-v',
+    legacyTagPrefix: '',
+  },
 });
 
 export function releasePlan(target) {
@@ -42,6 +48,7 @@ export function componentReleaseTag(component, version) {
 
 export const workshopReleaseTag = version => componentReleaseTag('workshop', version);
 export const worldEngineReleaseTag = version => componentReleaseTag('world-engine', version);
+export const statusBarReleaseTag = version => componentReleaseTag('status-bar', version);
 
 export function workshopVersionFromSource(source) {
   const match = String(source || '').match(
@@ -56,6 +63,15 @@ export function worldEngineVersionFromSource(source) {
     /WORLD_ENGINE_VERSION\s*=\s*['"]([^'"]+)['"]/u,
   );
   if (!match) throw new Error('找不到 WORLD_ENGINE_VERSION');
+  return match[1].trim();
+}
+
+
+export function statusBarVersionFromSource(source) {
+  const match = String(source || '').match(
+    /STATUS_BAR_VERSION\s*=\s*['"]([^'"]+)['"]/u,
+  );
+  if (!match) throw new Error('找不到 STATUS_BAR_VERSION');
   return match[1].trim();
 }
 
@@ -75,6 +91,16 @@ export function validateWorldEngineRelease(source, requestedVersion) {
     throw new Error(`正式版本 ${version} 与 WORLD_ENGINE_VERSION ${actual} 不一致`);
   }
   return { component: 'world-engine', version, tag: worldEngineReleaseTag(version) };
+}
+
+
+export function validateStatusBarRelease(source, requestedVersion) {
+  const version = normalizedVersion(requestedVersion);
+  const actual = statusBarVersionFromSource(source);
+  if (actual !== version) {
+    throw new Error(`正式版本 ${version} 与 STATUS_BAR_VERSION ${actual} 不一致`);
+  }
+  return { component: 'status-bar', version, tag: statusBarReleaseTag(version) };
 }
 
 export function validateReleaseConfig(config, target) {

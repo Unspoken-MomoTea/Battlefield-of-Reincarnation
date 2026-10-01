@@ -106,3 +106,43 @@ test('opening latest redirects to an immutable main sha with no-cache headers', 
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('status bar endpoint uses only status-bar tags on stable channel', async () => {
+  const originalFetch = globalThis.fetch;
+  const statusSha = '1212121212121212121212121212121212121212';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('/tags?')) {
+      return new Response(JSON.stringify([
+        { name: 'workshop-v9.9.9', commit: { sha: '3434343434343434343434343434343434343434' } },
+        { name: 'world-engine-v9.9.9', commit: { sha: '5656565656565656565656565656565656565656' } },
+        { name: 'status-bar-v1.0.0', commit: { sha: statusSha } },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await routeSystem(
+      new Request('https://workshop.example/api/components/latest?component=status-bar'),
+      {
+        CLIENT_UPDATE_CHANNEL: 'stable',
+        CLIENT_UPDATE_REF: 'workshop-stable',
+        STATUS_BAR_UPDATE_CHANNEL: 'stable',
+        STATUS_BAR_UPDATE_REF: 'status-bar-v*',
+        SESSION_KV: { get: async () => null, put: async () => {} },
+      },
+      '/api/components/latest',
+      'test',
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.component, 'status-bar');
+    assert.equal(body.channel, 'stable');
+    assert.equal(body.ref, 'status-bar-v*');
+    assert.equal(body.tag, 'status-bar-v1.0.0');
+    assert.equal(body.sha, statusSha);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

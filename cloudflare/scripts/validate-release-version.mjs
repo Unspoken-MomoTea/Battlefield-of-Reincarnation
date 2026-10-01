@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 import {
   validateWorkshopRelease,
   validateWorldEngineRelease,
+  validateStatusBarRelease,
   workshopVersionFromSource,
   worldEngineVersionFromSource,
+  statusBarVersionFromSource,
 } from './release-policy.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -33,8 +35,17 @@ try {
     if (generatedVersion !== release.version) {
       throw new Error(`生成交付 WORLD_ENGINE_VERSION ${generatedVersion} 与源码 ${release.version} 不一致`);
     }
+  } else if (component === 'status-bar') {
+    source = fs.readFileSync(path.join(root, 'src/StatusBar/core/StatusBarFoundation.part.js'), 'utf8');
+    const generated = fs.readFileSync(path.join(root, 'script/悬浮球状态栏.js'), 'utf8');
+    requestedVersion = requestedInput || statusBarVersionFromSource(source);
+    release = validateStatusBarRelease(source, requestedVersion);
+    const generatedVersion = statusBarVersionFromSource(generated);
+    if (generatedVersion !== release.version) {
+      throw new Error(`生成交付 STATUS_BAR_VERSION ${generatedVersion} 与源码 ${release.version} 不一致`);
+    }
   } else {
-    throw new Error('发布组件必须是 workshop 或 world-engine');
+    throw new Error('发布组件必须是 workshop、world-engine 或 status-bar');
   }
 
   const lines = [

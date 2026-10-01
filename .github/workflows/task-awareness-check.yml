@@ -45,6 +45,10 @@ jobs:
             echo "::endgroup::"
             exit 1
           fi
+      - name: Statusbar delivery synchronized
+        run: python tools/build-status-bar.py --check
+      - name: Statusbar source contracts
+        run: node --test src/StatusBar/tests/*.test.mjs
       - name: Statusbar syntax check
         run: node --check script/悬浮球状态栏.js
       - name: Auxiliary syntax check
@@ -78,4 +82,6 @@ jobs:
       - name: Opening storage contract
         run: node tests/opening-storage-contract.cjs
       - name: Generated delivery synchronized
-        run: python tools/build-world-engine.py --check
+        run: |
+          python tools/build-world-engine.py --check
+          python tools/build-status-bar.py --check

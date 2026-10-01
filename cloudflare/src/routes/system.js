@@ -23,6 +23,13 @@ const COMPONENTS = Object.freeze({
     tagPrefixes: ['world-engine-v', 'V'],
     legacyStableRef: '',
   },
+  'status-bar': {
+    id: 'status-bar',
+    entryPath: '/script/悬浮球状态栏.js',
+    sourcePath: 'script/悬浮球状态栏.js',
+    tagPrefixes: ['status-bar-v'],
+    legacyStableRef: '',
+  },
   opening: OPENING_COMPONENT,
 });
 
@@ -38,12 +45,28 @@ function updateRef(env) {
   return updateChannel(env) === 'testing' ? 'main' : 'workshop-stable';
 }
 
+function statusBarUpdateChannel(env) {
+  return String(env.STATUS_BAR_UPDATE_CHANNEL || 'stable').trim().toLowerCase() === 'testing'
+    ? 'testing'
+    : 'stable';
+}
+
+function statusBarUpdateRef(env) {
+  const configured = String(env.STATUS_BAR_UPDATE_REF || '').trim();
+  if (configured) return configured;
+  return statusBarUpdateChannel(env) === 'testing' ? 'main' : 'status-bar-v*';
+}
+
 function componentUpdateChannel(env, component) {
-  return component?.id === 'opening' ? getOpeningUpdateChannel(env) : updateChannel(env);
+  if (component?.id === 'opening') return getOpeningUpdateChannel(env);
+  if (component?.id === 'status-bar') return statusBarUpdateChannel(env);
+  return updateChannel(env);
 }
 
 function componentUpdateRef(env, component) {
-  return component?.id === 'opening' ? getOpeningUpdateRef(env) : updateRef(env);
+  if (component?.id === 'opening') return getOpeningUpdateRef(env);
+  if (component?.id === 'status-bar') return statusBarUpdateRef(env);
+  return updateRef(env);
 }
 
 function validSha(value) {

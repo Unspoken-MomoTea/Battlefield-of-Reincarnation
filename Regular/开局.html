@@ -1474,7 +1474,7 @@
                 });
             });
             root.addEventListener('reincarnation:opening-store-changed', event => {
-                const projectId = String(event?.detail?.projectId || '');
+                const projectId = String(event && event.detail && event.detail.projectId || '');
                 void loadOpeningStoreCatalogs(projectId).then(() => {
                     renderSubCategories();
                     renderRarityFilter();

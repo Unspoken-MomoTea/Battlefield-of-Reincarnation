@@ -45,6 +45,10 @@ test('staging and production share one Cloudflare data set but keep separate cod
   assert.equal(staging.vars.OPENING_UPDATE_REF, 'main');
   assert.equal(production.vars.OPENING_UPDATE_CHANNEL, 'testing');
   assert.equal(production.vars.OPENING_UPDATE_REF, 'main');
+  assert.equal(staging.vars.STATUS_BAR_UPDATE_CHANNEL, 'stable');
+  assert.equal(staging.vars.STATUS_BAR_UPDATE_REF, 'status-bar-v*');
+  assert.equal(production.vars.STATUS_BAR_UPDATE_CHANNEL, 'stable');
+  assert.equal(production.vars.STATUS_BAR_UPDATE_REF, 'status-bar-v*');
   assert.equal(staging.vars.DISCORD_CLIENT_ID, production.vars.DISCORD_CLIENT_ID);
   assert.equal(staging.vars.ADMIN_DISCORD_IDS, production.vars.ADMIN_DISCORD_IDS);
 });

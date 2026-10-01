@@ -1,0 +1,14 @@
+name: opening promote stable
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate-opening:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build opening
+        run: python tools/build-opening.py
+      - name: Opening syntax
+        run: find src/opening -name '*.js' -print0 | xargs -0 -n1 node --check

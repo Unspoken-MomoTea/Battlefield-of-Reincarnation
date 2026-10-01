@@ -18,6 +18,10 @@ for(const id of ['character-mode-custom','character-mode-library','opening-chara
 assert.match(html,/indexedDB\.open\('reincarnation-workshop', 4\)/,'opening uses shared workshop database');
 assert.match(html,/openingCharacterBuild/,'opening consumes installed character build');
 assert.match(html,/partnerIsCompleteAsset/,'opening distinguishes complete installed partner');
+assert.match(html,/characterMode = openingAssets\.some\(asset => asset\.kind === 'opening_character'\) \? 'library' : 'custom'/,'opening defaults character mode from installed character assets');
+assert.match(html,/partnerMode = openingAssets\.some\(asset => asset\.kind === 'opening_partner'\) \? 'library' : 'custom'/,'opening defaults partner mode from installed partner assets');
+assert.match(html,/id="partner-mode-custom" class="active"[\s\S]*id="partner-mode-library"/,'partner mode buttons match character mode ordering');
+assert.match(html,/partnerNode && !partnerIsCompleteAsset \? \`\[协同实体补全指令\]/,'complete installed partners do not receive the AI completion instruction');
 assert.match(html,/opening_store_catalogs/,'opening reads installed workshop store catalogs');
 assert.match(html,/workshop:' \+ row\.sourceProjectId \+ ':' \+ sourceId/,'workshop store ids are namespaced');
 assert.match(html,/Promise\.all\(\[loadOpeningAssets\(\), loadOpeningStoreCatalogs\(\)\]\)/,'opening loads assets and store catalogs together');

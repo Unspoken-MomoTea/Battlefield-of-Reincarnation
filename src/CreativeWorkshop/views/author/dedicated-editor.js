@@ -4,7 +4,7 @@ const OPENING_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
 const STORE_QUALITIES = ['F', 'E', 'D'];
 const EQUIPMENT_ATTR_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A'];
 const STORE_ATTR_POINTS = Object.fromEntries(EQUIPMENT_ATTR_QUALITIES.map((quality, index) => [quality, index]));
-const STORE_ATTR_MAX_POINTS = 12;
+const STORE_ATTR_MAX_POINTS = 15;
 const STORE_ATTR_MAX_COUNT = 3;
 const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
 const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
@@ -257,7 +257,7 @@ function storeEditor(doc, initial, emit) {
   const head = el(doc, 'div', 'rw-special-editor-head');
   head.append(
     el(doc, 'strong', '', '开局商店'),
-    el(doc, 'small', '', '逐项添加商品。品质只允许 F / E / D，单件价格最高 1000；装备原始属性最多 3 项、合计 12 点；每件商品最多 2 条效果。'),
+    el(doc, 'small', '', '逐项添加商品。品质只允许 F / E / D，单件价格最高 1000；装备原始属性最多 3 项、合计 15 点；每件商品最多 2 条效果。'),
   );
   root.appendChild(head);
 
@@ -341,6 +341,10 @@ function storeEditor(doc, initial, emit) {
         };
         const renderAttrBudget = (message = '') => {
           const usage = attrUsage();
+          const selectionLocked = usage.count >= STORE_ATTR_MAX_COUNT;
+          for (const select of attrSelects.values()) {
+            select.disabled = selectionLocked && !select.value;
+          }
           attrBudget.textContent = message || `已选 ${usage.count}/${STORE_ATTR_MAX_COUNT} 项 · 使用 ${usage.points}/${STORE_ATTR_MAX_POINTS} 点（F=0 / E=1 / D=2 / C=3 / B=4 / A=5）`;
           attrBudget.classList.toggle(
             'is-error',

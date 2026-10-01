@@ -238,11 +238,11 @@ export function createInstalledView({
     } catch {}
   }
 
-  async function checkAllUpdates(force = false) {
+  async function checkAllUpdates(force = false, { automatic = false, refresh = true } = {}) {
     const result = await projectService.checkAllUpdates(force);
     rememberUpdateResult(result);
-    await refreshInstalled({ checkUpdates: false });
-    notifyUpdateResult(result);
+    if (refresh) await refreshInstalled({ checkUpdates: false });
+    notifyUpdateResult(result, { automatic });
     return result;
   }
 

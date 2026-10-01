@@ -96,3 +96,67 @@ test('installed view automatically surfaces a newer remote version on the local 
   assert.match(rendered, /升级到 v2/u);
   assert.equal(checkAllUpdates.textContent, '检查全部更新 · 1');
 });
+
+
+test('background update check records update state without forcing the Installed library to render', async () => {
+  let installedCalls = 0;
+  const notices = [];
+  const checkAllUpdates = new FakeNode('检查全部更新');
+
+  const view = createInstalledView({
+    nodes: {
+      installedList: new FakeNode(),
+      checkAllUpdates,
+    },
+    element: (_tag, className = '', text = '') => {
+      const node = new FakeNode(text);
+      node.className = className;
+      return node;
+    },
+    button: (label, className = '', onClick = null) => {
+      const node = new FakeNode(label);
+      node.className = className;
+      node.onClick = onClick;
+      return node;
+    },
+    empty: (node, message) => node.replaceChildren(new FakeNode(message)),
+    confirmDialog: async () => false,
+    openModal: () => ({ body: new FakeNode() }),
+    projectService: {
+      installed: async () => {
+        installedCalls += 1;
+        return [];
+      },
+      checkAllUpdates: async force => {
+        assert.equal(force, false);
+        return {
+          checkedAt: 456,
+          fromCache: false,
+          items: [{
+            id: 'remote-1',
+            name: '测试扩展',
+            localVersion: 1,
+            remoteVersion: 2,
+            updateAvailable: true,
+            unavailable: false,
+          }],
+        };
+      },
+    },
+    workshopApi: {},
+    host: {
+      toastr: {
+        info(message, title) { notices.push({ message, title }); },
+      },
+    },
+    doc: {},
+    categoryLabels: { extension: '扩展' },
+  });
+
+  await view.checkAllUpdates(false, { automatic: true, refresh: false });
+
+  assert.equal(installedCalls, 0);
+  assert.equal(checkAllUpdates.textContent, '检查全部更新 · 1');
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].title, '创意工坊 · 发现更新');
+});

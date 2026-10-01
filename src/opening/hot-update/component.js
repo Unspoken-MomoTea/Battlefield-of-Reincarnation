@@ -5,7 +5,7 @@ export const OPENING_COMPONENT = Object.freeze({
   label: '开局系统',
   version: OPENING_VERSION,
   entryPath: '/src/opening/entry.html',
-  sourcePath: 'src/opening/entry.html',
+  sourcePath: 'src/opening',
   tagPrefixes: ['opening-v'],
   repair: Object.freeze({
     requiredFiles: [
@@ -21,7 +21,7 @@ const UPDATE_CHANNELS = new Set(['stable', 'testing']);
 
 export function getOpeningUpdateChannel(env = {}) {
   const configured = String(env.OPENING_UPDATE_CHANNEL || '').trim().toLowerCase();
-  return UPDATE_CHANNELS.has(configured) ? configured : 'stable';
+  return UPDATE_CHANNELS.has(configured) ? configured : 'testing';
 }
 
 export function getOpeningUpdateRef(env = {}) {

@@ -5,6 +5,9 @@ import './components/store.js';
 import './components/worldbook.js';
 import './components/bloodline.js';
 import './components/equipment.js';
+import './components/attribute.js';
+import './components/skill.js';
+import '../opening/data/opening-state.js';
 import { getOpeningComponent } from './components/registry.js';
 
 const root = document.getElementById('opening-root');
@@ -17,6 +20,8 @@ const openingModules = [
   'worldbook',
   'bloodline',
   'equipment',
+  'attribute',
+  'skill',
 ];
 
 export function mountOpening() {
@@ -24,9 +29,7 @@ export function mountOpening() {
 
   for (const name of openingModules) {
     const component = getOpeningComponent(name);
-    if (component?.mount) {
-      component.mount(root);
-    }
+    if (component?.mount) component.mount(root);
   }
 
   window.dispatchEvent(new CustomEvent('opening:mounted', {

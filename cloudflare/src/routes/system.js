@@ -1,4 +1,10 @@
 import { json } from '../http.js';
+import {
+  OPENING_COMPONENT,
+  getOpeningUpdateChannel,
+  getOpeningUpdateRef,
+  openingCdnUrl,
+} from '../../../src/opening/hot-update/component.js';
 
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const CACHE_TTL_SECONDS = 300;
@@ -17,6 +23,7 @@ const COMPONENTS = Object.freeze({
     tagPrefixes: ['world-engine-v', 'V'],
     legacyStableRef: '',
   },
+  opening: OPENING_COMPONENT,
 });
 
 function updateChannel(env) {
@@ -29,6 +36,14 @@ function updateRef(env) {
   const configured = String(env.CLIENT_UPDATE_REF || '').trim();
   if (configured) return configured;
   return updateChannel(env) === 'testing' ? 'main' : 'workshop-stable';
+}
+
+function componentUpdateChannel(env, component) {
+  return component?.id === 'opening' ? getOpeningUpdateChannel(env) : updateChannel(env);
+}
+
+function componentUpdateRef(env, component) {
+  return component?.id === 'opening' ? getOpeningUpdateRef(env) : updateRef(env);
 }
 
 function validSha(value) {
@@ -91,7 +106,7 @@ async function latestTaggedRelease(component) {
 }
 
 function cacheKey(env, component) {
-  return `public:core-component:v2:${component.id}:${updateChannel(env)}:${updateRef(env)}`;
+  return `public:core-component:v3:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
 }
 
 async function fetchLatestComponent(env, componentId) {
@@ -102,8 +117,8 @@ async function fetchLatestComponent(env, componentId) {
     error.code = 'component_not_found';
     throw error;
   }
-  const channel = updateChannel(env);
-  const ref = updateRef(env);
+  const channel = componentUpdateChannel(env, component);
+  const ref = componentUpdateRef(env, component);
   const key = cacheKey(env, component);
   const cached = await env.SESSION_KV?.get?.(key, 'json');
   if (
@@ -184,6 +199,37 @@ export async function routeSystem(request, env, pathname, serviceVersion) {
       update_channel: updateChannel(env),
       update_ref: updateRef(env),
     });
+  }
+  if (request.method === 'GET' && pathname === '/opening/latest') {
+    try {
+      const latest = await fetchLatestComponent(env, 'opening');
+      const location = openingCdnUrl({
+        repository: REPOSITORY,
+        sha: latest.sha,
+        entryPath: latest.entry_path,
+      });
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: location,
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          Pragma: 'no-cache',
+          Expires: '0',
+          'X-Opening-Channel': latest.channel,
+          'X-Opening-Ref': latest.ref,
+          'X-Opening-Sha': latest.sha,
+          'X-Opening-Version': latest.version || '',
+        },
+      });
+    } catch (error) {
+      return json({
+        error: error.code || 'opening_update_check_failed',
+        code: error.code || 'opening_update_check_failed',
+        message: error instanceof Error ? error.message : String(error),
+      }, error.status || 502, {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      });
+    }
   }
   if (request.method === 'GET' && pathname === '/api/client/latest') {
     try {

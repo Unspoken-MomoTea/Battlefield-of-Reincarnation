@@ -56,7 +56,7 @@ test('health endpoint exposes the service contract', async () => {
   assert.deepEqual(await response.json(), {
     ok: true,
     service: 'reincarnation-workshop',
-    version: '0.13.2',
+    version: '0.13.3',
     update_channel: 'stable',
     update_ref: 'workshop-stable',
   });
@@ -197,7 +197,7 @@ test('testing latest endpoint resolves main and uses component cache key', async
     globalThis.fetch = originalFetch;
   }
   assert.equal(
-    await testEnv.SESSION_KV.get('public:core-component:v2:workshop:testing:main') !== null,
+    await testEnv.SESSION_KV.get('public:core-component:v3:workshop:testing:main') !== null,
     true,
   );
 });
@@ -351,4 +351,38 @@ test('unsupported routes return a stable 404 contract', async () => {
   const response = await handleRequest(new Request('https://workshop.example/api/nope'), env());
   assert.equal(response.status, 404);
   assert.equal((await response.json()).code, 'not_found');
+});
+
+
+test('production opening preview endpoint follows its independent main channel without changing workshop stable', async () => {
+  const originalFetch = globalThis.fetch;
+  const sha = 'abcdefabcdefabcdefabcdefabcdefabcdefabcd';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('/commits?')) {
+      return new Response(JSON.stringify([{ sha }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.6661816.xyz/opening/latest', { redirect: 'manual' }),
+      env({
+        OPENING_UPDATE_CHANNEL: 'testing',
+        OPENING_UPDATE_REF: 'main',
+        SESSION_KV: new MemoryKV(),
+      }),
+    );
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get('x-opening-channel'), 'testing');
+    assert.equal(response.headers.get('x-opening-ref'), 'main');
+    assert.match(response.headers.get('location') || '', new RegExp('@' + sha + '/Regular/%E5%BC%80%E5%B1%80\\.html\\?v='));
+    assert.match(response.headers.get('cache-control') || '', /no-store/u);
+    assert.equal(response.headers.get('access-control-allow-origin'), '*');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

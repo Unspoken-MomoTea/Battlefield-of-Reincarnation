@@ -7,6 +7,8 @@ on:
       - 'src/CreativeWorkshop/**'
       - 'src/StatusBar/**'
       - 'src/opening/**'
+      - 'Regular/开局.html'
+      - 'tests/opening-page.cjs'
       - 'cloudflare/**'
       - '.github/workflows/creative-workshop-check.yml'
       - '.github/workflows/creative-workshop-promote-stable.yml'
@@ -21,6 +23,8 @@ on:
       - 'src/CreativeWorkshop/**'
       - 'src/StatusBar/**'
       - 'src/opening/**'
+      - 'Regular/开局.html'
+      - 'tests/opening-page.cjs'
       - 'cloudflare/**'
       - '.github/workflows/creative-workshop-check.yml'
       - '.github/workflows/creative-workshop-promote-stable.yml'
@@ -52,7 +56,9 @@ jobs:
       - name: Opening syntax
         run: find src/opening -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
       - name: Opening contract tests
-        run: node --test src/opening/tests/*.test.mjs
+        run: |
+          node --test src/opening/tests/*.test.mjs
+          node tests/opening-page.cjs
       - name: Worker syntax
         run: |
           find cloudflare/src -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check

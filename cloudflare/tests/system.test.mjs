@@ -100,8 +100,10 @@ test('opening latest redirects to an immutable main sha with no-cache headers', 
     assert.equal(response.headers.get('x-opening-channel'), 'testing');
     assert.equal(response.headers.get('x-opening-ref'), 'main');
     assert.equal(response.headers.get('x-opening-sha'), sha);
-    assert.equal(writes.length, 1);
+    assert.equal(writes.length, 2);
     assert.equal(writes[0].key, 'public:core-component:v3:opening:testing:main');
+    assert.equal(writes[1].key, 'public:core-component:last-known:v1:opening:testing:main');
+    assert.equal(writes[1].options, undefined);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -218,6 +220,132 @@ test('opening component endpoint exposes the same testing build used by /opening
     assert.equal(body.sha, sha);
     assert.equal(body.entry_path, '/dist/opening/entry.html');
     assert.equal(body.source_path, 'dist/opening/entry.html');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test('opening testing channel falls back to GitHub Atom when REST is rate limited', async () => {
+  const originalFetch = globalThis.fetch;
+  const sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const requests = [];
+  globalThis.fetch = async (url, init = {}) => {
+    const value = String(url);
+    requests.push({ value, init });
+    if (value.includes('api.github.com/repos/') && value.includes('/commits?')) {
+      return new Response(JSON.stringify({ message: 'API rate limit exceeded' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (value === 'https://github.com/Unspoken-MomoTea/Battlefield-of-Reincarnation/commits/main.atom') {
+      return new Response(
+        `<?xml version="1.0"?><feed><entry><link rel="alternate" href="https://github.com/Unspoken-MomoTea/Battlefield-of-Reincarnation/commit/${sha}"/></entry></feed>`,
+        { status: 200, headers: { 'Content-Type': 'application/atom+xml' } },
+      );
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await routeSystem(
+      new Request('https://workshop.example/opening/latest', { redirect: 'manual' }),
+      {
+        OPENING_UPDATE_CHANNEL: 'testing',
+        OPENING_UPDATE_REF: 'main',
+        SESSION_KV: { get: async () => null, put: async () => {} },
+      },
+      '/opening/latest',
+      'test',
+    );
+    assert.equal(response.status, 302);
+    assert.match(response.headers.get('location') || '', new RegExp('@' + sha + '/dist/opening/entry\\.html\\?v='));
+    assert.ok(requests.some(entry => entry.value.endsWith('/commits/main.atom')));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('GitHub REST requests use configured token when available', async () => {
+  const originalFetch = globalThis.fetch;
+  const sha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  let authorization = '';
+  globalThis.fetch = async (url, init = {}) => {
+    const value = String(url);
+    if (value.includes('api.github.com/repos/') && value.includes('/commits?')) {
+      authorization = new Headers(init.headers).get('authorization') || '';
+      return new Response(JSON.stringify([{ sha }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await routeSystem(
+      new Request('https://workshop.example/api/components/latest?component=opening'),
+      {
+        GITHUB_TOKEN: 'worker-token',
+        OPENING_UPDATE_CHANNEL: 'testing',
+        OPENING_UPDATE_REF: 'main',
+        SESSION_KV: { get: async () => null, put: async () => {} },
+      },
+      '/api/components/latest',
+      'test',
+    );
+    assert.equal(response.status, 200);
+    assert.equal(authorization, 'Bearer worker-token');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('opening component uses persistent last-known metadata when upstream resolution fails', async () => {
+  const originalFetch = globalThis.fetch;
+  const sha = 'cccccccccccccccccccccccccccccccccccccccc';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('api.github.com/')) {
+      return new Response('{}', { status: 500, headers: { 'Content-Type': 'application/json' } });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await routeSystem(
+      new Request('https://workshop.example/api/components/latest?component=opening'),
+      {
+        OPENING_UPDATE_CHANNEL: 'testing',
+        OPENING_UPDATE_REF: 'main',
+        SESSION_KV: {
+          get: async key => {
+            if (key === 'public:core-component:last-known:v1:opening:testing:main') {
+              return {
+                component: 'opening',
+                channel: 'testing',
+                ref: 'main',
+                sha,
+                short_sha: sha.slice(0, 8),
+                version: '',
+                tag: '',
+                release_source: 'branch',
+                repository: 'Unspoken-MomoTea/Battlefield-of-Reincarnation',
+                entry_path: '/dist/opening/entry.html',
+                source_path: 'dist/opening/entry.html',
+              };
+            }
+            return null;
+          },
+          put: async () => {},
+        },
+      },
+      '/api/components/latest',
+      'test',
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.sha, sha);
+    assert.equal(body.cached, true);
+    assert.equal(body.stale, true);
   } finally {
     globalThis.fetch = originalFetch;
   }

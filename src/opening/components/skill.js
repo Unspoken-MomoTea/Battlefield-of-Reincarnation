@@ -1,10 +1,13 @@
 import { registerOpeningComponent } from './registry.js';
-import { getOpeningState } from '../data/opening-state.js';
+import { getOpeningSelection, setOpeningSelection } from '../data/selection-store.js';
 
 const skill = {
   mount(root) {
-    const state = getOpeningState();
-    state.selections.skills ||= [];
+    const selection = getOpeningSelection();
+    if (!Array.isArray(selection.selected.skills)) {
+      setOpeningSelection('selected.skills', []);
+    }
+
     const panel = document.createElement('section');
     panel.dataset.openingModule = 'skill';
     panel.textContent = '技能选择模块已加载';

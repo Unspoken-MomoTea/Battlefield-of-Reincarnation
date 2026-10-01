@@ -9,6 +9,7 @@ import './components/attribute.js';
 import './components/skill.js';
 import './components/selection.js';
 import '../opening/data/opening-state.js';
+import '../opening/data/state-bridge.js';
 import { getOpeningComponent } from './components/registry.js';
 
 const root = document.getElementById('opening-root');

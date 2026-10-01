@@ -1,19 +1,20 @@
-import { getOpeningState } from './opening-state.js';
+import { getOpeningSelection, setOpeningSelection } from './selection-store.js';
 
 export function saveCharacterBuild(build = {}) {
-  const state = getOpeningState();
-  state.character = {
-    ...state.character,
+  const current = getOpeningSelection().selected.character || {};
+  const character = {
+    ...current,
     ...build,
   };
-  return state.character;
+  setOpeningSelection('selected.character', character);
+  return character;
 }
 
 export function savePartnerBuild(partner = {}) {
-  const state = getOpeningState();
-  state.partner = {
-    ...state.partner,
-    ...partner,
-  };
-  return state.partner;
+  const partners = Array.isArray(partner)
+    ? [...partner]
+    : (partner && Object.keys(partner).length ? [{ ...partner }] : []);
+
+  setOpeningSelection('selected.partner', partners);
+  return partners;
 }

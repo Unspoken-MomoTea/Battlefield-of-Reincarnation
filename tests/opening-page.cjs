@@ -21,7 +21,7 @@ assert.match(html,/partnerIsCompleteAsset/,'opening distinguishes complete insta
 assert.match(html,/characterMode = openingAssets\.some\(asset => asset\.kind === 'opening_character'\) \? 'library' : 'custom'/,'opening defaults character mode from installed character assets');
 assert.match(html,/partnerMode = openingAssets\.some\(asset => asset\.kind === 'opening_partner'\) \? 'library' : 'custom'/,'opening defaults partner mode from installed partner assets');
 assert.match(html,/id="partner-mode-custom" class="active"[\s\S]*id="partner-mode-library"/,'partner mode buttons match character mode ordering');
-assert.match(html,/partnerNode && !partnerIsCompleteAsset \? \`\[协同实体补全指令\]/,'complete installed partners do not receive the AI completion instruction');
+assert.ok(html.includes('partnerNode && !partnerIsCompleteAsset ? `[协同实体补全指令]'),'complete installed partners do not receive the AI completion instruction');
 assert.match(html,/opening_store_catalogs/,'opening reads installed workshop store catalogs');
 assert.match(html,/workshop:' \+ row\.sourceProjectId \+ ':' \+ sourceId/,'workshop store ids are namespaced');
 assert.match(html,/Promise\.all\(\[loadOpeningAssets\(\), loadOpeningStoreCatalogs\(\)\]\)/,'opening loads assets and store catalogs together');

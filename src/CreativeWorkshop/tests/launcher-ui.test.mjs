@@ -260,6 +260,28 @@ test('local test projects keep their cover and can be reopened for editing', () 
   assert.match(saveBlock, /const next = \{[\s\S]*\.\.\.record,[\s\S]*remoteProjectId/u);
 });
 
+test('local test editor can upload the tested draft into the review queue', () => {
+  const editor = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/project-editor.js', import.meta.url)),
+    'utf8',
+  );
+  const cache = fs.readFileSync(
+    fileURLToPath(new URL('../services/projects/cache.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(editor, /提交审核（上传）/u);
+  assert.match(editor, /workshopApi\.createProject\(/u);
+  assert.match(editor, /workshopApi\.uploadProjectVersion\(/u);
+  assert.match(editor, /workshopApi\.uploadProjectCover\(/u);
+  assert.match(editor, /workshopApi\.submitProject\(/u);
+  assert.match(editor, /submitted_project_id/u);
+  assert.match(editor, /本地测试副本会继续保留/u);
+  assert.match(editor, /重新提交请在“我的作品”中操作/u);
+  assert.match(cache, /submittedProjectId: project\.submittedProjectId \?\? previous\?\.submittedProjectId \?\? null/u);
+  assert.match(cache, /tags: Array\.isArray\(project\.tags\)/u);
+});
+
 test('worldbook detail mirrors reference D-depth metadata without redundant groups', () => {
   const source = fs.readFileSync(
     fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),

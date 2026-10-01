@@ -45,6 +45,13 @@ assert.match(html,/samsara_npc_portrait_/,'opening writes the selected partner c
 assert.match(html,/selectedOpeningCharacter\.avatarUrl/,'opening character portrait comes from the installed opening asset');
 assert.match(html,/selectedOpeningPartner\.avatarUrl/,'opening partner portrait comes from the installed opening asset');
 assert.match(html,/function renderSelectedAssetPanel\(asset, kind\)/,'opening renders detailed selected asset information');
+assert.match(html,/addEventListener\('reincarnation:opening-assets-changed'/,'opening listens for live workshop asset changes');
+assert.match(html,/blood\.data\.效果/,'selected character bloodline effects are visible');
+assert.match(html,/const equipmentSection = kind === 'partner'/,'equipment detail stays partner-only');
+const selectedPanelStart=html.indexOf('function renderSelectedAssetPanel(asset, kind)');
+const selectedPanelEnd=html.indexOf('function renderOpeningCharacterLibrary()',selectedPanelStart);
+const selectedPanelSource=html.slice(selectedPanelStart,selectedPanelEnd);
+assert.doesNotMatch(selectedPanelSource,/asset-selected-avatar/,'selected character detail does not duplicate the list portrait');
 assert.match(html,/asset\.avatarUrl/,'opening library cards render installed project covers');
 assert.match(html,/blood\.data\.原始属性/,'selected asset details expose bloodline base attributes');
 assert.match(html,/function selectedOpeningAttributePoints\(asset\)/,'opening can map selected bloodline tiers back into the locked attribute panel');

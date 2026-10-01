@@ -10,6 +10,7 @@ function baseRecord(project, manifest, bundle, previous, source) {
   return {
     id: project.id, name: project.name, category: project.category, version: Number(project.version),
     summary: typeof project.summary === 'string' ? project.summary : (previous?.summary || ''),
+    tags: Array.isArray(project.tags) ? structuredClone(project.tags) : structuredClone(previous?.tags || []),
     ownerName: typeof project.owner_name === 'string' ? project.owner_name : (previous?.ownerName || ''),
     hasCover: project.has_cover === undefined ? Boolean(previous?.hasCover) : Boolean(project.has_cover),
     coverUrl: typeof project.cover_url === 'string'
@@ -109,6 +110,7 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
     category: project.category,
     version,
     summary: project.summary || '',
+    tags: Array.isArray(project.tags) ? structuredClone(project.tags) : [],
     dependencies: project.dependencies || [],
     has_cover: Boolean(project.coverDataUrl),
     cover_url: project.coverDataUrl || '',
@@ -116,6 +118,7 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
   const next = {
     ...record,
     remoteProjectId: project.id,
+    submittedProjectId: project.submittedProjectId ?? previous?.submittedProjectId ?? null,
   };
   await putInstalledProject(next);
   return next;

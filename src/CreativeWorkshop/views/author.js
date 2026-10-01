@@ -263,6 +263,9 @@ export function createAuthorView({
 
   return {
     refresh: refreshMine,
+    editLocalTest(project, onSaved) {
+      return projectEditor.open(project, { localTest: true, onLocalSaved: onSaved });
+    },
     destroy() {
       projectEditor.destroy();
     },

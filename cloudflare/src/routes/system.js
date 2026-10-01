@@ -105,34 +105,77 @@ function compareVersion(left, right) {
   return (left.major - right.major) || (left.minor - right.minor) || (left.patch - right.patch);
 }
 
-async function githubJson(url) {
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'reincarnation-workshop-worker',
-    },
-  });
-  if (!response.ok) throw new Error(`GitHub request failed: ${response.status}`);
+async function githubJson(env, url) {
+  const token = String(env?.GITHUB_TOKEN || env?.GH_TOKEN || '').trim();
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'reincarnation-workshop-worker',
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const error = new Error(`GitHub request failed: ${response.status}`);
+    error.status = response.status;
+    error.code = 'github_request_failed';
+    throw error;
+  }
   return response.json();
 }
 
-async function latestPathCommit(component, ref) {
+async function githubBranchHeadFromAtom(ref) {
+  const url = `https://github.com/${REPOSITORY}/commits/${encodeURIComponent(ref)}.atom`;
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/atom+xml',
+      'User-Agent': 'reincarnation-workshop-worker',
+    },
+  });
+  if (!response.ok) {
+    const error = new Error(`GitHub Atom request failed: ${response.status}`);
+    error.status = response.status;
+    error.code = 'github_atom_failed';
+    throw error;
+  }
+  const xml = await response.text();
+  const match = xml.match(/\/commit\/([0-9a-f]{40})(?=["<])/iu)
+    || xml.match(/Commit\/([0-9a-f]{40})(?=<)/iu);
+  const sha = String(match?.[1] || '').trim();
+  if (!validSha(sha)) {
+    const error = new Error(`GitHub Atom returned invalid ref head for ${ref}`);
+    error.code = 'github_atom_invalid';
+    throw error;
+  }
+  return sha;
+}
+
+async function latestPathCommit(env, component, ref) {
   const query = new URLSearchParams({ sha: ref, path: component.sourcePath, per_page: '1' });
-  const payload = await githubJson(`https://api.github.com/repos/${REPOSITORY}/commits?${query}`);
-  const sha = String(Array.isArray(payload) ? payload[0]?.sha : payload?.sha || '').trim();
-  if (!validSha(sha)) throw new Error(`GitHub returned invalid ${component.id} commit for ${ref}`);
-  return sha;
+  try {
+    const payload = await githubJson(env, `https://api.github.com/repos/${REPOSITORY}/commits?${query}`);
+    const sha = String(Array.isArray(payload) ? payload[0]?.sha : payload?.sha || '').trim();
+    if (!validSha(sha)) throw new Error(`GitHub returned invalid ${component.id} commit for ${ref}`);
+    return sha;
+  } catch (error) {
+    if (Number(error?.status || 0) !== 403 && Number(error?.status || 0) !== 429) throw error;
+    return githubBranchHeadFromAtom(ref);
+  }
 }
 
-async function refHead(ref) {
-  const payload = await githubJson(`https://api.github.com/repos/${REPOSITORY}/commits/${encodeURIComponent(ref)}`);
-  const sha = String(payload?.sha || '').trim();
-  if (!validSha(sha)) throw new Error(`GitHub returned invalid ref head for ${ref}`);
-  return sha;
+async function refHead(env, ref) {
+  try {
+    const payload = await githubJson(env, `https://api.github.com/repos/${REPOSITORY}/commits/${encodeURIComponent(ref)}`);
+    const sha = String(payload?.sha || '').trim();
+    if (!validSha(sha)) throw new Error(`GitHub returned invalid ref head for ${ref}`);
+    return sha;
+  } catch (error) {
+    if (Number(error?.status || 0) !== 403 && Number(error?.status || 0) !== 429) throw error;
+    return githubBranchHeadFromAtom(ref);
+  }
 }
 
-async function latestTaggedRelease(component) {
-  const rows = await githubJson(`https://api.github.com/repos/${REPOSITORY}/tags?per_page=100`);
+async function latestTaggedRelease(env, component) {
+  const rows = await githubJson(env, `https://api.github.com/repos/${REPOSITORY}/tags?per_page=100`);
   const prefixes = Array.isArray(component.tagPrefixes) ? component.tagPrefixes : [];
   const candidates = [];
   for (const row of Array.isArray(rows) ? rows : []) {
@@ -153,6 +196,19 @@ function cacheKey(env, component) {
   return `public:core-component:v3:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
 }
 
+function snapshotKey(env, component) {
+  return `public:core-component:last-known:v1:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
+}
+
+function validCachedComponent(cached, component, channel, ref) {
+  return (
+    cached?.component === component.id
+    && validSha(cached?.sha)
+    && cached?.channel === channel
+    && cached?.ref === ref
+  );
+}
+
 async function fetchLatestComponent(env, componentId) {
   const component = COMPONENTS[componentId];
   if (!component) {
@@ -164,47 +220,51 @@ async function fetchLatestComponent(env, componentId) {
   const channel = componentUpdateChannel(env, component);
   const ref = componentUpdateRef(env, component);
   const key = cacheKey(env, component);
+  const fallbackKey = snapshotKey(env, component);
   const cached = await env.SESSION_KV?.get?.(key, 'json');
-  if (
-    cached?.component === component.id &&
-    validSha(cached?.sha) &&
-    cached?.channel === channel &&
-    cached?.ref === ref
-  ) {
+  if (validCachedComponent(cached, component, channel, ref)) {
     return { ...cached, cached: true };
   }
+  const snapshot = await env.SESSION_KV?.get?.(fallbackKey, 'json');
 
   let sha = '';
   let version = '';
   let tag = '';
   let releaseSource = 'branch';
-  if (channel === 'testing') {
-    sha = await latestPathCommit(component, ref);
-  } else {
-    const tagged = await latestTaggedRelease(component);
-    if (component.id === 'workshop') {
-      const stableRef = component.legacyStableRef || ref;
-      const stableHead = await refHead(stableRef);
-      if (tagged && tagged.sha === stableHead) {
+  try {
+    if (channel === 'testing') {
+      sha = await latestPathCommit(env, component, ref);
+    } else {
+      const tagged = await latestTaggedRelease(env, component);
+      if (component.id === 'workshop') {
+        const stableRef = component.legacyStableRef || ref;
+        const stableHead = await refHead(env, stableRef);
+        if (tagged && tagged.sha === stableHead) {
+          sha = tagged.sha;
+          version = tagged.version;
+          tag = tagged.tag;
+          releaseSource = 'tag';
+        } else {
+          sha = await latestPathCommit(env, component, stableRef);
+          releaseSource = 'legacy-ref';
+        }
+      } else if (tagged) {
         sha = tagged.sha;
         version = tagged.version;
         tag = tagged.tag;
         releaseSource = 'tag';
       } else {
-        sha = await latestPathCommit(component, stableRef);
-        releaseSource = 'legacy-ref';
+        const error = new Error(`No formal ${component.tagPrefixes?.[0] || ''}X.Y.Z release exists yet`);
+        error.status = 404;
+        error.code = 'component_release_unavailable';
+        throw error;
       }
-    } else if (tagged) {
-      sha = tagged.sha;
-      version = tagged.version;
-      tag = tagged.tag;
-      releaseSource = 'tag';
-    } else {
-      const error = new Error(`No formal ${component.tagPrefixes?.[0] || ''}X.Y.Z release exists yet`);
-      error.status = 404;
-      error.code = 'component_release_unavailable';
-      throw error;
     }
+  } catch (error) {
+    if (validCachedComponent(snapshot, component, channel, ref)) {
+      return { ...snapshot, cached: true, stale: true };
+    }
+    throw error;
   }
 
   const result = {
@@ -222,6 +282,7 @@ async function fetchLatestComponent(env, componentId) {
     checked_at: Math.floor(Date.now() / 1000),
   };
   await env.SESSION_KV?.put?.(key, JSON.stringify(result), { expirationTtl: CACHE_TTL_SECONDS });
+  await env.SESSION_KV?.put?.(fallbackKey, JSON.stringify(result));
   return { ...result, cached: false };
 }
 

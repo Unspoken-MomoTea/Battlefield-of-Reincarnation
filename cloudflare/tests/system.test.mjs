@@ -69,7 +69,7 @@ test('opening latest redirects to an immutable main sha with no-cache headers', 
   const writes = [];
   globalThis.fetch = async url => {
     const value = String(url);
-    assert.match(value, /\/commits\?sha=main&path=Regular%2F%E5%BC%80%E5%B1%80\.html&per_page=1/u);
+    assert.match(value, /\/commits\?sha=main&path=src%2Fopening&per_page=1/u);
     return new Response(JSON.stringify([{ sha }]), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -94,7 +94,7 @@ test('opening latest redirects to an immutable main sha with no-cache headers', 
     assert.equal(response.status, 302);
     assert.equal(
       response.headers.get('location'),
-      `https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${sha}/Regular/%E5%BC%80%E5%B1%80.html?v=${sha.slice(0, 12)}`,
+      `https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${sha}/src/opening/entry.html?v=${sha.slice(0, 12)}`,
     );
     assert.match(response.headers.get('cache-control') || '', /no-store/u);
     assert.equal(response.headers.get('x-opening-channel'), 'testing');

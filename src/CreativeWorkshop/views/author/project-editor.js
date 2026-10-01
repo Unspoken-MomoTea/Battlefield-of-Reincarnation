@@ -57,6 +57,18 @@ export function createAuthorProjectEditor({
   }
 
 
+  function dataUrlToBlob(dataUrl) {
+    const value = String(dataUrl || '');
+    const match = value.match(/^data:([^;,]+);base64,(.+)$/u);
+    if (!match) throw new Error('本地封面数据无效，请重新选择图片');
+    const binary = (host.atob || atob)(match[2]);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const BlobCtor = host.Blob || Blob;
+    return new BlobCtor([bytes], { type: match[1] });
+  }
+
+
 
   function dropBinding(target, input, handler) {
     target.addEventListener('dragover', event => {
@@ -117,6 +129,7 @@ export function createAuthorProjectEditor({
             latest_version: Number(project.version || 1),
             published_version: 0,
             status: 'draft',
+            submitted_project_id: project.submittedProjectId || null,
           },
           latest: {
             version: Number(project.version || 1),
@@ -150,8 +163,12 @@ export function createAuthorProjectEditor({
     const left = element('section', 'rw-publish-column');
     const right = element('section', 'rw-publish-column rw-publish-upload-column');
     let attempt = null;
+    let localSubmitAttempt = null;
 
-    const resetAttempt = () => { attempt = null; };
+    const resetAttempt = () => {
+      attempt = null;
+      localSubmitAttempt = null;
+    };
 
     const step1 = element('div', 'rw-publish-step-title');
     step1.innerHTML = '<span>01</span><div><strong>基本资料</strong><small>直接在上一版资料上修改，不需要重新填写。</small></div>';
@@ -451,7 +468,9 @@ export function createAuthorProjectEditor({
         'div',
         'rw-publish-footer-note',
         isLocalTest
-          ? '● 本地测试只保存在当前浏览器；这里可反复修改。已安装旧版不会被立即覆盖，保存后可回“已安装”应用新版。'
+          ? (current.submitted_project_id
+            ? '● 这份本地测试已经上传过审核；后续审核/重新提交请在“我的作品”中操作。本地副本仍可继续测试。'
+            : '● 本地测试只保存在当前浏览器；可以继续修改，也可以直接上传并提交审核。已安装旧版不会被立即覆盖。')
           : publishMode === 'extension'
             ? (autoPublish
               ? '● 此作品已通过首次审核；新版本会直接发布并进入管理员“更新动态”。原版资源状态仍随版本保存。'
@@ -482,10 +501,12 @@ export function createAuthorProjectEditor({
           name: nextName,
           summary: summary.value,
           category: category.value || current.category,
+          tags: tagsFromInput(tags.value),
           dependencies: dependencies.values(),
           version,
           bundle,
           coverDataUrl,
+          submittedProjectId: current.submitted_project_id || null,
         });
         current.latest_version = version;
         progress.className = 'rw-submit-progress rw-submit-progress--success';
@@ -501,6 +522,111 @@ export function createAuthorProjectEditor({
         throw error;
       }
     });
+    const localSubmit = isLocalTest
+      ? button(current.submitted_project_id ? '已提交审核' : '提交审核（上传）', 'good', async () => {
+        if (current.submitted_project_id) return;
+        const nextName = name.value.trim();
+        if (!nextName) throw new Error('请填写作品名称');
+
+        const selectedCover = coverInput.files?.[0] || null;
+        const bundle = buildVersionBundle(nextName);
+        const tagsValue = tagsFromInput(tags.value);
+        const dependenciesValue = dependencies.values();
+        const coverDataUrl = selectedCover
+          ? await readFileDataUrl(selectedCover)
+          : existingLocalCoverDataUrl;
+        if (!coverDataUrl) throw new Error('请选择封面图片；发布作品必须提供图片');
+
+        const signature = JSON.stringify({
+          name: nextName,
+          summary: summary.value,
+          category: category.value || current.category,
+          tags: tagsValue,
+          dependencies: dependenciesValue,
+          changelog: changelog.value,
+          artifactNames: bundle.artifacts.map(item => [item.kind, item.name, item.scope || '']),
+          coverSize: selectedCover?.size || coverDataUrl.length,
+        });
+        if (!localSubmitAttempt || localSubmitAttempt.signature !== signature) {
+          localSubmitAttempt = {
+            signature,
+            projectId: null,
+            versionUploaded: false,
+            coverUploaded: false,
+            submitted: false,
+          };
+        }
+
+        progress.hidden = false;
+        progress.className = 'rw-submit-progress rw-submit-progress--working';
+        try {
+          if (!localSubmitAttempt.projectId) {
+            progress.textContent = '步骤 1/4 · 正在创建工坊作品…';
+            const created = await workshopApi.createProject({
+              name: nextName,
+              summary: summary.value,
+              category: category.value || current.category,
+              tags: tagsValue,
+              dependencies: dependenciesValue,
+            });
+            if (!created?.project?.id) throw new Error('服务器没有返回作品 ID，无法继续提交');
+            localSubmitAttempt.projectId = created.project.id;
+          }
+
+          if (!localSubmitAttempt.versionUploaded) {
+            progress.textContent = '步骤 2/4 · 正在上传本地测试内容…';
+            await workshopApi.uploadProjectVersion(localSubmitAttempt.projectId, {
+              changelog: changelog.value,
+              bundle,
+            });
+            localSubmitAttempt.versionUploaded = true;
+          }
+
+          if (!localSubmitAttempt.coverUploaded) {
+            progress.textContent = '步骤 3/4 · 正在上传封面…';
+            await workshopApi.uploadProjectCover(
+              localSubmitAttempt.projectId,
+              selectedCover || dataUrlToBlob(coverDataUrl),
+            );
+            localSubmitAttempt.coverUploaded = true;
+          }
+
+          if (!localSubmitAttempt.submitted) {
+            progress.textContent = '步骤 4/4 · 正在提交审核…';
+            await workshopApi.submitProject(localSubmitAttempt.projectId);
+            localSubmitAttempt.submitted = true;
+          }
+
+          current.submitted_project_id = localSubmitAttempt.projectId;
+          await projectService.saveLocalTest({
+            id: project.remoteProjectId || current.id,
+            name: nextName,
+            summary: summary.value,
+            category: category.value || current.category,
+            tags: tagsValue,
+            dependencies: dependenciesValue,
+            version: Number(current.latest_version || 1),
+            bundle,
+            coverDataUrl,
+            submittedProjectId: current.submitted_project_id,
+          });
+          progress.className = 'rw-submit-progress rw-submit-progress--success';
+          progress.textContent = '提交成功 · 已从本地测试创建工坊作品并进入审核队列；本地测试副本会继续保留。';
+          localSubmit.disabled = true;
+          localSubmit.textContent = '已提交审核';
+          try { host.toastr?.success?.('本地测试已提交审核', '创意工坊'); } catch {}
+          try { await options.onLocalSaved?.(); } catch {}
+          try { await refreshMine(); } catch {}
+        } catch (error) {
+          progress.className = 'rw-submit-progress rw-submit-progress--error';
+          progress.textContent = `提交审核失败：${error instanceof Error ? error.message : String(error)}\n再次点击会从失败步骤继续。`;
+          notifyError(error);
+          throw error;
+        }
+      })
+      : null;
+    if (localSubmit && current.submitted_project_id) localSubmit.disabled = true;
+
     const submit = button(autoPublish ? '发布新版本' : '提交新版本审核', 'good', async () => {
       const nextName = name.value.trim();
       if (!nextName) throw new Error('请填写作品名称');
@@ -596,6 +722,7 @@ export function createAuthorProjectEditor({
       }
     });
     footerActions.append(cancel, localTest);
+    if (isLocalTest && localSubmit) footerActions.appendChild(localSubmit);
     if (!isLocalTest) footerActions.appendChild(submit);
     footer.appendChild(footerActions);
     form.appendChild(footer);

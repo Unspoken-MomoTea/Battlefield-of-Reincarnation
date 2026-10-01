@@ -1161,7 +1161,7 @@
             request.onerror = () => reject(request.error);
         });
     }
-    async function loadOpeningStoreCatalogs() {
+    async function loadOpeningStoreCatalogs(changedProjectId = '') {
         try {
             const db = await openingDb();
             const rows = await new Promise((resolve,reject) => {
@@ -1170,7 +1170,23 @@
                 req.onerror = () => reject(req.error);
             });
             db.close();
+
             const groups = ['equipments','items','skills'];
+            if (changedProjectId) {
+                for (const group of groups) {
+                    for (const item of DB[group]) {
+                        if (item._sourceProjectId !== changedProjectId || !selectedItems.has(item.id)) continue;
+                        selectedItems.delete(item.id);
+                        currentCoins += Number(item.cost || 0);
+                    }
+                }
+                if ($('val-coins')) $('val-coins').innerText = currentCoins;
+            }
+
+            for (const group of groups) {
+                DB[group] = DB[group].filter(item => !item._sourceProjectId);
+            }
+
             for (const row of rows) for (const group of groups) {
                 const target = DB[group];
                 const existing = new Set(target.map(item => item.id));
@@ -1423,7 +1439,7 @@
         renderSubCategories(); renderRarityFilter(); renderItems();
     });
 
-    function bindOpeningAssetLiveRefresh() {
+    function bindOpeningLiveRefresh() {
         const roots = [];
         for (const root of [
             window,
@@ -1433,13 +1449,28 @@
             if (!root || roots.includes(root) || typeof root.addEventListener !== 'function') continue;
             roots.push(root);
             root.addEventListener('reincarnation:opening-assets-changed', () => {
-                void loadOpeningAssets().catch(error => {
-                    console.warn('[轮回战场开局] 实时刷新创意工坊角色失败', error);
+                void loadOpeningAssets().then(() => {
+                    renderSelectedPanel();
+                    updateBgSummary();
+                }).catch(error => {
+                    console.warn('[轮回战场开局] 实时刷新创意工坊角色/伙伴失败', error);
+                });
+            });
+            root.addEventListener('reincarnation:opening-store-changed', event => {
+                const projectId = String(event?.detail?.projectId || '');
+                void loadOpeningStoreCatalogs(projectId).then(() => {
+                    renderSubCategories();
+                    renderRarityFilter();
+                    renderItems();
+                    renderSelectedPanel();
+                    updateBgSummary();
+                }).catch(error => {
+                    console.warn('[轮回战场开局] 实时刷新创意工坊商店失败', error);
                 });
             });
         }
     }
-    bindOpeningAssetLiveRefresh();
+    bindOpeningLiveRefresh();
 
     function getCurrentSource() {
         const cat = DB.itemCategories.find(c => c.key === activeItemTab);

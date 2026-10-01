@@ -48,3 +48,8 @@ jobs:
       - name: Worker contract tests
         working-directory: cloudflare
         run: npm test
+      - name: Worker bundle dry-run
+        working-directory: cloudflare
+        run: |
+          npm ci --no-audit --no-fund
+          npx wrangler deploy --env production --dry-run

@@ -69,7 +69,7 @@ test('opening latest redirects to an immutable main sha with no-cache headers', 
   const writes = [];
   globalThis.fetch = async url => {
     const value = String(url);
-    assert.match(value, /\/commits\?sha=main&path=Regular%2F%25E5%25BC%2580%25E5%25B1%2580\.html&per_page=1/u);
+    assert.match(value, /\/commits\?sha=main&path=Regular%2F%E5%BC%80%E5%B1%80\.html&per_page=1/u);
     return new Response(JSON.stringify([{ sha }]), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

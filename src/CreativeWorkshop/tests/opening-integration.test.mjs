@@ -219,7 +219,7 @@ test('installed opening partner suppresses the AI completion instruction', async
   );
 
   assert.match(opening, /if \(selectedPartner === 'library' && selectedOpeningPartner\)[\s\S]*partnerIsCompleteAsset = true;/u);
-  assert.match(opening, /partnerNode && !partnerIsCompleteAsset \? \`\[协同实体补全指令\]/u);
+  assert.ok(opening.includes('partnerNode && !partnerIsCompleteAsset ? `[协同实体补全指令]'));
 });
 test('creator styles hide the character subtype outside character category and keep compact grids inside bounds', async () => {
   const fs = await import('node:fs');

@@ -189,11 +189,18 @@ export function createMaintenanceView({
       }
 
       if (!result.releaseAvailable) {
-        const unavailable = element('div', 'rw-update-state rw-update-state--problem');
+        const installedFormalRef = result.loaders
+          .flatMap(item => item.refs || [])
+          .find(value => /^(?:world-engine-v|V)\d+\.\d+\.\d+$/u.test(String(value || '')));
+        const unavailable = element('div', 'rw-update-state rw-update-state--unavailable');
         unavailable.append(
-          element('strong', '', '尚未发布正式世界推进 Tag'),
+          element('strong', '', installedFormalRef
+            ? `当前正式地址 ${installedFormalRef}`
+            : '暂未取得正式世界推进发布信息'),
           element('span', '', result.channel === 'stable'
-            ? '当前正式通道需要 world-engine-vX.Y.Z；首次世界推进正式 Tag 发布前不会把 main 测试代码推给正式用户。'
+            ? (installedFormalRef
+              ? '当前正式脚本可以继续使用；本次只是没有取得远程更新信息，稍后重新检查即可。'
+              : '当前运行不受影响；修复页暂时没有取得正式版本信息，不会因此切换到 main 测试代码。')
             : '暂时无法取得测试通道最新提交。'),
         );
         container.appendChild(unavailable);
@@ -292,14 +299,21 @@ export function createMaintenanceView({
       }
 
       if (!result.releaseAvailable) {
-        const unavailable = element('div', 'rw-update-state rw-update-state--problem');
+        const installedFormalRef = result.loaders
+          .flatMap(item => item.refs || [])
+          .find(value => /^status-bar-v\d+\.\d+\.\d+$/u.test(String(value || '')));
+        const unavailable = element('div', 'rw-update-state rw-update-state--unavailable');
         unavailable.append(
-          element('strong', '', '尚未发布正式状态栏 Tag'),
+          element('strong', '', installedFormalRef
+            ? `当前正式地址 ${installedFormalRef}`
+            : '暂未取得正式状态栏发布信息'),
           element(
             'span',
             '',
             result.channel === 'stable'
-              ? '当前正式通道需要 status-bar-vX.Y.Z；首次正式 Tag 发布前不会把 main 测试状态栏推给正式用户。'
+              ? (installedFormalRef
+                ? '当前正式脚本可以继续使用；本次只是没有取得远程更新信息，稍后重新检查即可。'
+                : '当前运行不受影响；修复页暂时没有取得正式版本信息，不会因此切换到 main 测试代码。')
               : '暂时无法取得测试通道最新提交。',
           ),
         );

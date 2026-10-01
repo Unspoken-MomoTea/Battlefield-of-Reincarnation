@@ -46,6 +46,18 @@ status-bar-vX.Y.Z
 
 当前源码版本由 `STATUS_BAR_VERSION` 提供。创意工坊“修复”页负责检测状态栏安装形态、把旧式内联脚本迁移为版本 loader、写入新版本链接，并在 loader 管理的新版运行时安全时尝试热重载。
 
+正式安装与世界推进一样只保留一个版本化入口；首个正式版为：
+
+```js
+(async () => {
+  await import(
+    'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@status-bar-v1.0.0/script/悬浮球状态栏.js'
+  );
+})();
+```
+
+以后不需要玩家手工更换第二套地址；创意工坊更新状态栏时直接把这个 loader 的 Tag 改写到新的 `status-bar-vX.Y.Z`。
+
 测试状态栏必须显式配置：
 
 ```js

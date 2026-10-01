@@ -873,6 +873,10 @@ export const WORKSHOP_CSS = `
     padding:9px 10px;border:1px solid rgba(216,123,120,.18);border-radius:9px;background:rgba(216,123,120,.05)
   }
   .rw-update-state--problem strong{color:#e1a19d}
+  .rw-update-state--unavailable{
+    padding:9px 10px;border:1px solid rgba(214,173,104,.18);border-radius:9px;background:rgba(214,173,104,.045)
+  }
+  .rw-update-state--unavailable strong{color:#d0b27e}
   .rw-maintenance-update-cta{
     width:100%;min-height:48px!important;border-color:rgba(214,173,104,.48)!important;
     background:linear-gradient(180deg,#d0af78,#b99258)!important;color:#17130e!important;

@@ -1,4 +1,4 @@
-import { getApiBase, getUpdateChannel, getUpdateRef, resolveHostWindow } from '../config.js';
+import { getApiBase, getWorldEngineUpdateChannel, getWorldEngineUpdateRef, resolveHostWindow } from '../config.js';
 import { createTavernAdapter } from './tavern-adapter.js';
 import { latestTaggedRelease, validCommitSha } from './release-tags.js';
 import { persistScriptTreeMutation, scanScriptTrees, scriptFromScan } from './script-tree-update.js';
@@ -109,8 +109,8 @@ function currentRuntime(host) {
 export function createWorldEngineUpdater({
   adapter = createTavernAdapter(),
   fetchImpl = globalThis.fetch?.bind(globalThis),
-  channel = getUpdateChannel(),
-  ref = getUpdateRef(),
+  channel = getWorldEngineUpdateChannel(),
+  ref = getWorldEngineUpdateRef(),
   host = resolveHostWindow(),
   loadScript = url => import(url),
 } = {}) {

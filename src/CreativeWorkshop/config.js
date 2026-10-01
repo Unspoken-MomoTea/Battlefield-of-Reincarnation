@@ -62,3 +62,25 @@ export function getUpdateRef() {
   if (configured) return configured;
   return DEFAULT_UPDATE_REFS[getUpdateChannel()];
 }
+
+
+export function getWorldEngineUpdateChannel() {
+  const host = resolveHostWindow();
+  const configured = String(
+    host.ReincarnationWorkshopConfig?.worldEngineUpdateChannel ??
+    globalThis.window?.ReincarnationWorkshopConfig?.worldEngineUpdateChannel ??
+    '',
+  ).trim().toLowerCase();
+  return UPDATE_CHANNELS.has(configured) ? configured : 'stable';
+}
+
+export function getWorldEngineUpdateRef() {
+  const host = resolveHostWindow();
+  const configured = String(
+    host.ReincarnationWorkshopConfig?.worldEngineUpdateRef ??
+    globalThis.window?.ReincarnationWorkshopConfig?.worldEngineUpdateRef ??
+    '',
+  ).trim();
+  if (configured) return configured;
+  return getWorldEngineUpdateChannel() === 'testing' ? 'main' : 'world-engine-v*';
+}

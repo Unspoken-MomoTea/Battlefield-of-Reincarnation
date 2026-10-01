@@ -317,7 +317,7 @@ window.ReincarnationWorkshopConfig = {
 stable / workshop-stable
 ```
 
-测试时也可以显式指定：
+测试创意工坊时可以显式指定：
 
 ```js
 window.ReincarnationWorkshopConfig = {
@@ -327,7 +327,21 @@ window.ReincarnationWorkshopConfig = {
 };
 ```
 
-正式环境不建议覆盖 `updateChannel` / `updateRef`，避免人为绕过 stable 通道。
+这只让**创意工坊**跟踪 `main`；世界推进默认仍保持正式 `world-engine-v*` 通道，不会因为进入测试工坊而出现测试世界推进更新。
+
+只有确实要测试世界推进时，才额外显式打开：
+
+```js
+window.ReincarnationWorkshopConfig = {
+  apiBase: 'https://workshop-test.6661816.xyz',
+  updateChannel: 'testing',
+  updateRef: 'main',
+  worldEngineUpdateChannel: 'testing',
+  worldEngineUpdateRef: 'main',
+};
+```
+
+正式环境不建议覆盖这些通道参数，避免人为绕过正式 Tag。
 
 
 ## 正式版本事实、Tag 与精确 SHA

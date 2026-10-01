@@ -186,3 +186,39 @@ test('calculator endpoint uses only calculator tags on stable channel', async ()
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('opening component endpoint exposes the same testing build used by /opening/latest', async () => {
+  const originalFetch = globalThis.fetch;
+  const sha = '2468246824682468246824682468246824682468';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    assert.match(value, /\/commits\?sha=main&path=dist%2Fopening%2Fentry.html&per_page=1/u);
+    return new Response(JSON.stringify([{ sha }]), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  try {
+    const response = await routeSystem(
+      new Request('https://workshop.example/api/components/latest?component=opening'),
+      {
+        OPENING_UPDATE_CHANNEL: 'testing',
+        OPENING_UPDATE_REF: 'main',
+        SESSION_KV: { get: async () => null, put: async () => {} },
+      },
+      '/api/components/latest',
+      'test',
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.component, 'opening');
+    assert.equal(body.channel, 'testing');
+    assert.equal(body.ref, 'main');
+    assert.equal(body.sha, sha);
+    assert.equal(body.entry_path, '/dist/opening/entry.html');
+    assert.equal(body.source_path, 'dist/opening/entry.html');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

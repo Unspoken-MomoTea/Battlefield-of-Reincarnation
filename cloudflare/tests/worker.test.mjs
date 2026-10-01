@@ -452,3 +452,39 @@ test('calculator component endpoint remains independent from other component tag
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('opening component metadata endpoint is publicly routed in production Worker', async () => {
+  const originalFetch = globalThis.fetch;
+  const sha = '1357135713571357135713571357135713571357';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('/commits?')) {
+      return new Response(JSON.stringify([{ sha }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/components/latest?component=opening'),
+      env({
+        OPENING_UPDATE_CHANNEL: 'testing',
+        OPENING_UPDATE_REF: 'main',
+        SESSION_KV: new MemoryKV(),
+      }),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.component, 'opening');
+    assert.equal(body.channel, 'testing');
+    assert.equal(body.ref, 'main');
+    assert.equal(body.sha, sha);
+    assert.equal(body.entry_path, '/dist/opening/entry.html');
+    assert.equal(body.source_path, 'dist/opening/entry.html');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

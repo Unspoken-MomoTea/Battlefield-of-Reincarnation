@@ -14,6 +14,36 @@ export function createInstalledView({
   categoryLabels,
   editLocalTest = null,
 }) {
+  let updateStateById = new Map();
+
+  function updateState(item) {
+    return updateStateById.get(String(item?.id || '')) || null;
+  }
+
+  function rememberUpdateResult(result) {
+    const items = Array.isArray(result?.items) ? result.items : [];
+    updateStateById = new Map(items.map(item => [String(item.id), item]));
+    const updates = items.filter(item => item.updateAvailable);
+    if (nodes.checkAllUpdates) {
+      nodes.checkAllUpdates.textContent = updates.length
+        ? `检查全部更新 · ${updates.length}`
+        : '检查全部更新';
+    }
+    return updates;
+  }
+
+  function rememberSingleUpdate(item, result) {
+    if (!item?.id || !result?.installed) return;
+    updateStateById.set(String(item.id), {
+      id: item.id,
+      name: item.name,
+      localVersion: Number(result.localVersion ?? item.version ?? 0),
+      remoteVersion: result.remoteVersion == null ? null : Number(result.remoteVersion),
+      updateAvailable: Boolean(result.updateAvailable),
+      unavailable: false,
+    });
+  }
+
   function showRestoreWarnings(result, name) {
     const warnings = Array.isArray(result?.restoreWarnings) ? result.restoreWarnings : [];
     if (!warnings.length) return;
@@ -38,6 +68,10 @@ export function createInstalledView({
   }
 
   function installedState(item) {
+    const remote = updateState(item);
+    if (item.source === 'remote' && remote?.updateAvailable) {
+      return { label: `有更新 v${remote.remoteVersion}`, className: 'update' };
+    }
     if (!item.applied) return { label: '已下载', className: 'cached' };
     if (Number(item.appliedVersion || 0) < Number(item.version)) {
       return { label: `待应用 v${item.version}`, className: 'update' };
@@ -187,19 +221,28 @@ export function createInstalledView({
     return result;
   }
 
-  async function checkAllUpdates(force = false) {
-    const result = await projectService.checkAllUpdates(force);
-    const updates = result.items.filter(item => item.updateAvailable);
-    const unavailable = result.items.filter(item => item.unavailable);
+  function notifyUpdateResult(result, { automatic = false } = {}) {
+    const updates = (result?.items || []).filter(item => item.updateAvailable);
+    const unavailable = (result?.items || []).filter(item => item.unavailable);
+    if (automatic && (!updates.length || result?.fromCache)) return;
     const message = updates.length
       ? `${updates.length} 个作品有更新：${updates.map(item => `${item.name} → v${item.remoteVersion}`).join('、')}`
       : '所有可查询作品均已是最新版本';
     try {
       host.toastr?.info?.(
         unavailable.length ? `${message}；另有 ${unavailable.length} 个作品当前不可用` : message,
-        result.fromCache ? '创意工坊 · 缓存检查结果' : '创意工坊 · 更新检查',
+        automatic
+          ? '创意工坊 · 发现更新'
+          : result?.fromCache ? '创意工坊 · 缓存检查结果' : '创意工坊 · 更新检查',
       );
     } catch {}
+  }
+
+  async function checkAllUpdates(force = false) {
+    const result = await projectService.checkAllUpdates(force);
+    rememberUpdateResult(result);
+    await refreshInstalled({ checkUpdates: false });
+    notifyUpdateResult(result);
     return result;
   }
 
@@ -256,8 +299,10 @@ export function createInstalledView({
 
   async function checkUpdate(item) {
     const result = await projectService.checkUpdate(item.id);
+    rememberSingleUpdate(item, result);
     if (!result.updateAvailable) {
       try { host.toastr?.info?.('本地缓存已经是服务器最新版本', item.name); } catch {}
+      await refreshInstalled({ checkUpdates: false });
       return result;
     }
     const shouldSync = await confirmDialog({
@@ -356,7 +401,14 @@ export function createInstalledView({
 
     const actions = element('div', 'rw-local-actions');
     let primary = null;
-    if (!item.applied || Number(item.appliedVersion || 0) < Number(item.version)) {
+    const remoteUpdate = updateState(item);
+    if (item.source === 'remote' && remoteUpdate?.updateAvailable) {
+      primary = button(
+        item.applied ? `升级到 v${remoteUpdate.remoteVersion}` : `下载 v${remoteUpdate.remoteVersion}`,
+        'primary rw-local-primary',
+        () => checkUpdate(item),
+      );
+    } else if (!item.applied || Number(item.appliedVersion || 0) < Number(item.version)) {
       primary = button(
         item.applied ? '应用新版' : '安装到酒馆',
         'primary rw-local-primary',
@@ -440,9 +492,24 @@ export function createInstalledView({
     return card;
   }
 
-  async function refreshInstalled() {
+  async function refreshInstalled({ checkUpdates = true } = {}) {
     const installed = (await projectService.installed()).sort((a, b) => b.updatedAt - a.updatedAt);
-    if (!installed.length) return empty(nodes.installedList, '还没有下载任何作品');
+    if (!installed.length) {
+      updateStateById = new Map();
+      if (nodes.checkAllUpdates) nodes.checkAllUpdates.textContent = '检查全部更新';
+      return empty(nodes.installedList, '还没有下载任何作品');
+    }
+
+    if (checkUpdates) {
+      try {
+        const result = await projectService.checkAllUpdates(false);
+        rememberUpdateResult(result);
+        notifyUpdateResult(result, { automatic: true });
+      } catch (error) {
+        console.warn('[轮回战场创意工坊] 自动检查本地作品更新失败，将继续显示本地作品', error);
+      }
+    }
+
     nodes.installedList.replaceChildren(...installed.map(localCard));
   }
 

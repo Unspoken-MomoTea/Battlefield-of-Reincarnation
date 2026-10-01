@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/CreativeWorkshop/**'
       - 'src/StatusBar/**'
+      - 'src/Calculator/**'
       - 'src/opening/**'
       - 'Regular/开局.html'
       - 'tests/opening-page.cjs'
@@ -14,6 +15,7 @@ on:
       - '.github/workflows/creative-workshop-promote-stable.yml'
       - '.github/workflows/world-engine-promote-stable.yml'
       - '.github/workflows/status-bar-promote-stable.yml'
+      - '.github/workflows/calculator-promote-stable.yml'
       - '.github/workflows/opening-preview-deploy.yml'
       - '.github/workflows/deploy-workshop-staging.yml'
       - '创意工坊更新工具.bat'
@@ -22,6 +24,7 @@ on:
     paths:
       - 'src/CreativeWorkshop/**'
       - 'src/StatusBar/**'
+      - 'src/Calculator/**'
       - 'src/opening/**'
       - 'Regular/开局.html'
       - 'tests/opening-page.cjs'
@@ -53,6 +56,12 @@ jobs:
         run: node --test src/StatusBar/tests/*.test.mjs
       - name: Statusbar delivery syntax
         run: node --check script/悬浮球状态栏.js
+      - name: Calculator delivery synchronized
+        run: python tools/build-calculator.py --check
+      - name: Calculator source contracts
+        run: node --test src/Calculator/tests/*.test.mjs
+      - name: Calculator delivery syntax
+        run: node --check script/辅助计算脚本.js
       - name: Opening syntax
         run: find src/opening -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
       - name: Opening contract tests

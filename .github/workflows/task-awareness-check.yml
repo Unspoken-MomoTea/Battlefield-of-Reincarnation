@@ -51,6 +51,10 @@ jobs:
         run: node --test src/StatusBar/tests/*.test.mjs
       - name: Statusbar syntax check
         run: node --check script/悬浮球状态栏.js
+      - name: Calculator delivery synchronized
+        run: python tools/build-calculator.py --check
+      - name: Calculator source contracts
+        run: node --test src/Calculator/tests/*.test.mjs
       - name: Auxiliary syntax check
         run: node --check script/辅助计算脚本.js
       - name: Full world engine regression suite
@@ -85,3 +89,4 @@ jobs:
         run: |
           python tools/build-world-engine.py --check
           python tools/build-status-bar.py --check
+          python tools/build-calculator.py --check

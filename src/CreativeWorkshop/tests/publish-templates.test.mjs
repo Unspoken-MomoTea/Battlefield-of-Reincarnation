@@ -415,21 +415,38 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
     /最多只能设置 3 项/u,
   );
 
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: {
+        equipments: [{
+          ...store.equipments[0],
+          attrs: { 力量: 'A', 敏捷: 'A', 体质: 'B' },
+        }],
+        items: [],
+        skills: [],
+      },
+    }, 'store_catalog', '坏商店'),
+    /17 \/ 15/u,
+  );
+
   const capped = buildDedicatedArtifacts({
     store_catalog: {
       equipments: [{
         ...store.equipments[0],
-        attrs: { 力量: 'A', 敏捷: 'A', 体质: 'A' },
+        attrs: { 力量: 'A', 敏捷: 'B', 体质: 'C' },
       }],
       items: [],
       skills: [],
     },
   }, 'store_catalog', '合法商店')[0].content;
-  assert.deepEqual(capped.catalog.equipments[0].attrs, { 力量: 'A', 敏捷: 'A', 体质: 'A' });
+  assert.deepEqual(capped.catalog.equipments[0].attrs, { 力量: 'A', 敏捷: 'B', 体质: 'C' });
 
   const editorSource = fs.readFileSync(new URL('../views/author/dedicated-editor.js', import.meta.url), 'utf8');
   const publishSource = fs.readFileSync(new URL('../views/author/publish-templates.js', import.meta.url), 'utf8');
   assert.match(editorSource, /STORE_ATTR_MAX_POINTS = 15/u);
+  assert.match(editorSource, /index \+ 1/u);
+  assert.match(editorSource, /F=1 \/ E=2 \/ D=3 \/ C=4 \/ B=5 \/ A=6/u);
+  assert.match(publishSource, /STORE_ATTR_POINTS = \{ F: 1, E: 2, D: 3, C: 4, B: 5, A: 6 \}/u);
   assert.match(publishSource, /STORE_ATTR_MAX_POINTS = 15/u);
 });
 

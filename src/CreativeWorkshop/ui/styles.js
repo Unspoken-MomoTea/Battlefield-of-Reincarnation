@@ -832,6 +832,7 @@ export const WORKSHOP_CSS = `
   }
   .rw-maintenance-protection strong{font-size:12px}
   .rw-maintenance-protection div{color:#8eab97;font-size:11px;line-height:1.55}
+  .rw-maintenance-body{grid-auto-rows:max-content;align-content:start}
   .rw-maintenance-section{
     display:grid;gap:10px;padding:12px;border:1px solid var(--rw-line);border-radius:11px;background:#151619
   }

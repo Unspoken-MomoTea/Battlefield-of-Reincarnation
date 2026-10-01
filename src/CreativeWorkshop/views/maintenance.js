@@ -448,6 +448,7 @@ export function createMaintenanceView({
     });
     activeModal = modal;
     modal.body.replaceChildren();
+    modal.body.classList.add('rw-maintenance-body');
 
     const intro = element('div', 'rw-maintenance-protection');
     intro.append(

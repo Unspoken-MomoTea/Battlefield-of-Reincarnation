@@ -22,11 +22,7 @@ export function getOpeningUpdateRef(env = {}) {
   return getOpeningUpdateChannel(env) === 'testing' ? 'main' : 'opening-v*';
 }
 
-export function openingCdnUrl({
-  repository,
-  sha,
-  entryPath = OPENING_COMPONENT.entryPath,
-}) {
+export function openingCdnUrl({ repository, sha, entryPath = OPENING_COMPONENT.entryPath }) {
   const safeRepository = String(repository || '').trim();
   const safeSha = String(sha || '').trim();
   if (!safeRepository) throw new Error('缺少 Opening 仓库');

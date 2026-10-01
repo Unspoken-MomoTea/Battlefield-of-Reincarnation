@@ -73,21 +73,22 @@ export function createAuthorProjectEditor({
     });
   }
 
-  async function open(project) {
+  async function open(project, options = {}) {
     activeModal?.close?.({ force: true });
     revokeCover();
     currentCoverBlob = null;
 
-    if (project.status === 'pending') {
+    const isLocalTest = Boolean(options.localTest || project?.source === 'local-test');
+    if (!isLocalTest && project.status === 'pending') {
       try { host.toastr?.info?.('这个版本正在审核，审核结束后才能继续修改', '创意工坊'); } catch {}
       return;
     }
-    if (project.status === 'archived') {
+    if (!isLocalTest && project.status === 'archived') {
       try { host.toastr?.warning?.('该作品被管理员下架，需管理员恢复后才能继续更新', '创意工坊'); } catch {}
       return;
     }
 
-    const modal = openModal(`更新作品 · ${project.name}`, {
+    const modal = openModal(`${isLocalTest ? '编辑本地测试' : '更新作品'} · ${project.name}`, {
       extraWide: true,
       onClose: () => {
         revokeCover();
@@ -96,11 +97,36 @@ export function createAuthorProjectEditor({
     });
     activeModal = modal;
     modal.panel.classList.add('rw-author-update-modal');
-    modal.body.textContent = '正在读取当前作品资料与版本内容…';
+    modal.body.textContent = isLocalTest ? '正在读取本地测试资料…' : '正在读取当前作品资料与版本内容…';
 
     let detail;
     try {
-      detail = await workshopApi.getOwnProjectEditor(project.id);
+      if (isLocalTest) {
+        const localSourceId = project.remoteProjectId
+          || String(project.id || '').replace(/^local-test:/u, '');
+        detail = {
+          project: {
+            id: localSourceId,
+            name: String(project.name || '').replace(/（本地测试）$/u, '').trim(),
+            summary: project.summary || '',
+            category: project.category || 'extension',
+            tags: Array.isArray(project.tags) ? structuredClone(project.tags) : [],
+            dependencies: Array.isArray(project.dependencies) ? structuredClone(project.dependencies) : [],
+            has_cover: Boolean(project.hasCover && project.coverUrl),
+            cover_url: project.coverUrl || '',
+            latest_version: Number(project.version || 1),
+            published_version: 0,
+            status: 'draft',
+          },
+          latest: {
+            version: Number(project.version || 1),
+            changelog: '',
+            bundle: structuredClone(project.bundle || { schema_version: 1, artifacts: [] }),
+          },
+        };
+      } else {
+        detail = await workshopApi.getOwnProjectEditor(project.id);
+      }
     } catch (error) {
       modal.body.textContent = `读取失败：${error instanceof Error ? error.message : String(error)}`;
       notifyError(error);
@@ -110,7 +136,8 @@ export function createAuthorProjectEditor({
     if (activeModal !== modal) return;
 
     const current = detail.project;
-    const autoPublish = Number(current.published_version || 0) > 0;
+    const existingLocalCoverDataUrl = isLocalTest ? String(current.cover_url || project.coverUrl || '') : '';
+    const autoPublish = !isLocalTest && Number(current.published_version || 0) > 0;
     const latest = detail.latest || { bundle: { schema_version: 1, artifacts: [] } };
     const baselineBundle = latest.bundle || { schema_version: 1, artifacts: [] };
     const artifacts = artifactsWithoutLegacyConflicts(baselineBundle.artifacts);
@@ -379,9 +406,14 @@ export function createAuthorProjectEditor({
     };
 
     if (current.has_cover) {
-      try {
-        showCoverBlob(await workshopApi.getOwnProjectCover(current.id));
-      } catch {}
+      if (isLocalTest && existingLocalCoverDataUrl) {
+        coverPreview.src = existingLocalCoverDataUrl;
+        coverPreview.hidden = false;
+      } else {
+        try {
+          showCoverBlob(await workshopApi.getOwnProjectCover(current.id));
+        } catch {}
+      }
     }
 
     const renderSelectedCover = () => {
@@ -418,31 +450,35 @@ export function createAuthorProjectEditor({
       element(
         'div',
         'rw-publish-footer-note',
-        publishMode === 'extension'
-          ? (autoPublish
-            ? '● 此作品已通过首次审核；新版本会直接发布并进入管理员“更新动态”。原版资源状态仍随版本保存。'
-            : '● 原版资源状态会随新版本保存；停用/卸载作品时恢复安装前状态。')
-          : (autoPublish
-            ? '● 此作品已通过首次审核；新版本会直接发布并进入管理员“更新动态”。'
-            : '● 专用角色/商店模板只保存自身数据，不读写原版资源状态。'),
+        isLocalTest
+          ? '● 本地测试只保存在当前浏览器；这里可反复修改。已安装旧版不会被立即覆盖，保存后可回“已安装”应用新版。'
+          : publishMode === 'extension'
+            ? (autoPublish
+              ? '● 此作品已通过首次审核；新版本会直接发布并进入管理员“更新动态”。原版资源状态仍随版本保存。'
+              : '● 原版资源状态会随新版本保存；停用/卸载作品时恢复安装前状态。')
+            : (autoPublish
+              ? '● 此作品已通过首次审核；新版本会直接发布并进入管理员“更新动态”。'
+              : '● 专用角色/商店模板只保存自身数据，不读写原版资源状态。'),
       ),
     );
     const footerActions = element('div', 'rw-row');
     const cancel = button('取消', '', () => modal.close());
-    const localTest = button('保存到本地测试', '', async () => {
+    const localTest = button(isLocalTest ? '保存本地修改' : '保存到本地测试', '', async () => {
       const nextName = name.value.trim();
       if (!nextName) throw new Error('请填写作品名称');
       const bundle = buildVersionBundle(nextName);
       const version = Math.max(1, Number(current.latest_version || 0) + 1);
       progress.hidden = false;
       progress.className = 'rw-submit-progress rw-submit-progress--working';
-      progress.textContent = '正在保存本地测试版本…';
+      progress.textContent = isLocalTest ? '正在保存本地修改…' : '正在保存本地测试版本…';
       try {
-        const localCover = coverInput.files?.[0] || currentCoverBlob || null;
-        if (!localCover) throw new Error('请选择封面图片；本地测试也必须带图片');
-        const coverDataUrl = await readFileDataUrl(localCover);
+        const selectedCover = coverInput.files?.[0] || null;
+        let coverDataUrl = existingLocalCoverDataUrl;
+        if (selectedCover) coverDataUrl = await readFileDataUrl(selectedCover);
+        else if (!coverDataUrl && currentCoverBlob) coverDataUrl = await readFileDataUrl(currentCoverBlob);
+        if (!coverDataUrl) throw new Error('请选择封面图片；本地测试也必须带图片');
         await projectService.saveLocalTest({
-          id: current.id,
+          id: isLocalTest ? (project.remoteProjectId || current.id) : current.id,
           name: nextName,
           summary: summary.value,
           category: category.value || current.category,
@@ -451,9 +487,13 @@ export function createAuthorProjectEditor({
           bundle,
           coverDataUrl,
         });
+        current.latest_version = version;
         progress.className = 'rw-submit-progress rw-submit-progress--success';
-        progress.textContent = '已保存到本地测试。不会上传服务器，也不会提交审核；可到“已安装”中安装测试。';
-        try { host.toastr?.success?.('本地测试版本已保存', '创意工坊'); } catch {}
+        progress.textContent = isLocalTest
+          ? '本地测试已保存。若当前已安装旧版，会保留已应用版本，回到“已安装”后可点击“应用新版”。'
+          : '已保存到本地测试。不会上传服务器，也不会提交审核；可到“已安装”中安装测试。';
+        try { host.toastr?.success?.(isLocalTest ? '本地测试修改已保存' : '本地测试版本已保存', '创意工坊'); } catch {}
+        try { await options.onLocalSaved?.(); } catch {}
       } catch (error) {
         progress.className = 'rw-submit-progress rw-submit-progress--error';
         progress.textContent = `保存本地测试失败：${error instanceof Error ? error.message : String(error)}`;
@@ -555,7 +595,8 @@ export function createAuthorProjectEditor({
         throw error;
       }
     });
-    footerActions.append(cancel, localTest, submit);
+    footerActions.append(cancel, localTest);
+    if (!isLocalTest) footerActions.appendChild(submit);
     footer.appendChild(footerActions);
     form.appendChild(footer);
 

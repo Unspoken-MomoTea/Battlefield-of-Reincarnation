@@ -531,9 +531,10 @@
 <style>
 .asset-library-shell{margin:0 0 20px;padding:16px;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border));border-radius:14px;background:linear-gradient(145deg,rgba(255,255,255,.035),rgba(0,0,0,.14));box-shadow:0 14px 38px rgba(0,0,0,.14)}
 .asset-library-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.asset-library-head h3{margin:0;font-size:1rem}.asset-library-head small{color:var(--text-sub)}
-.asset-library-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.asset-library-card{position:relative;padding:14px;border:1px solid var(--border);border-radius:12px;background:rgba(0,0,0,.12);cursor:pointer;transition:.18s;overflow:hidden}.asset-library-card:hover{transform:translateY(-2px);border-color:var(--accent-dark)}.asset-library-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent)}.asset-library-card strong{display:block;margin:5px 0 8px}.asset-library-source{font-size:.7rem;color:var(--accent)}.asset-library-tags{display:flex;gap:5px;flex-wrap:wrap}.asset-library-tags span{font-size:.68rem;padding:2px 7px;border-radius:99px;background:rgba(255,255,255,.06);color:var(--text-sub)}.asset-library-empty{grid-column:1/-1;text-align:center;padding:22px;border:1px dashed var(--border);border-radius:10px;color:var(--text-sub)}
+.asset-library-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.asset-library-card{position:relative;padding:10px;border:1px solid var(--border);border-radius:12px;background:rgba(0,0,0,.12);cursor:pointer;transition:.18s;overflow:hidden}.asset-library-card:hover{transform:translateY(-2px);border-color:var(--accent-dark)}.asset-library-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent)}.asset-library-card-main{display:grid;grid-template-columns:58px minmax(0,1fr);gap:10px;align-items:center}.asset-library-avatar,.asset-library-avatar-placeholder{width:58px;height:72px;border-radius:9px;border:1px solid var(--border);object-fit:cover;background:linear-gradient(145deg,rgba(102,252,241,.13),rgba(0,0,0,.25))}.asset-library-avatar-placeholder{display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:1.3rem}.asset-library-copy{min-width:0}.asset-library-card strong{display:block;margin:5px 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.asset-library-source{font-size:.7rem;color:var(--accent)}.asset-library-tags{display:flex;gap:5px;flex-wrap:wrap}.asset-library-tags span{font-size:.68rem;padding:2px 7px;border-radius:99px;background:rgba(255,255,255,.06);color:var(--text-sub)}.asset-library-empty{grid-column:1/-1;text-align:center;padding:22px;border:1px dashed var(--border);border-radius:10px;color:var(--text-sub)}
+.asset-selected-panel{margin-top:12px;padding:14px;border:1px solid color-mix(in srgb,var(--accent) 45%,var(--border));border-radius:12px;background:rgba(102,252,241,.035)}.asset-selected-hero{display:grid;grid-template-columns:84px minmax(0,1fr);gap:14px;align-items:start}.asset-selected-avatar,.asset-selected-avatar-placeholder{width:84px;height:108px;object-fit:cover;border-radius:11px;border:1px solid var(--accent-dark);background:rgba(0,0,0,.22)}.asset-selected-avatar-placeholder{display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:1.8rem}.asset-selected-copy h4{margin:0 0 5px;color:#fff;font-size:1.05rem}.asset-selected-copy small{color:var(--accent)}.asset-selected-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.asset-selected-meta span{font-size:.72rem;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.06);color:var(--text-sub)}.asset-selected-section{margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}.asset-selected-section>strong{display:block;margin-bottom:7px;color:#fff;font-size:.86rem}.asset-selected-attrs{display:grid;grid-template-columns:repeat(5,minmax(64px,1fr));gap:6px}.asset-selected-attr{padding:7px;border:1px solid var(--border);border-radius:8px;text-align:center;background:rgba(0,0,0,.12)}.asset-selected-attr b{display:block;color:var(--text-sub);font-size:.69rem;margin-bottom:3px}.asset-selected-attr span{font-weight:700;color:var(--accent)}.asset-selected-list{display:flex;flex-wrap:wrap;gap:6px}.asset-selected-list span{padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.055);font-size:.74rem;color:var(--text)}.asset-selected-profile{display:grid;gap:5px;color:var(--text-sub);font-size:.78rem;line-height:1.55}.asset-selected-profile b{color:var(--text)}
 .asset-mode-tabs{display:flex;gap:8px;margin-bottom:12px}.asset-mode-tabs button{flex:1;padding:9px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text-sub);cursor:pointer}.asset-mode-tabs button.active{color:var(--accent);border-color:var(--accent-dark);background:color-mix(in srgb,var(--accent) 8%,transparent)}
-@media(max-width:620px){.asset-library-head{align-items:flex-start;flex-direction:column}.asset-library-grid{grid-template-columns:1fr}}
+@media(max-width:620px){.asset-library-head{align-items:flex-start;flex-direction:column}.asset-library-grid{grid-template-columns:1fr}.asset-selected-hero{grid-template-columns:66px minmax(0,1fr)}.asset-selected-avatar,.asset-selected-avatar-placeholder{width:66px;height:86px}.asset-selected-attrs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body>
@@ -1110,6 +1111,7 @@
     let selectedOpeningCharacter = null;
     let selectedOpeningPartner = null;
     let characterMode = 'custom';
+    let customOpeningAttributePoints = null;
     let partnerMode = 'library';
     let openingAssets = [];
     let customItems = [];
@@ -1204,26 +1206,116 @@
         renderOpeningCharacterLibrary();
         renderOpeningPartnerLibrary();
     }
+    function assetBuild(asset) {
+        return asset && (asset.build || asset.character) || {};
+    }
     function assetSummary(asset) {
-        const build = asset.build || asset.character || {};
+        const build = assetBuild(asset);
         return [build.种族, build.层级, ...(Array.isArray(build.身份)?build.身份.slice(0,2):[])].filter(Boolean);
+    }
+    function assetBloodline(asset) {
+        const build = assetBuild(asset);
+        const names = Object.keys(build.血统 || {});
+        const name = names.length ? names[0] : '';
+        return { name, data: name ? (build.血统[name] || {}) : {} };
     }
     function renderAssetCards(kind, selectedId, onClickName) {
         const list = openingAssets.filter(a => a.kind === kind);
         if (!list.length) return '<div class="asset-library-empty">◇ 暂无已安装档案<br><small>之后可从创意工坊安装到这里。</small></div>';
-        return list.map(asset => `<div class="asset-library-card ${selectedId===asset.id?'selected':''}" onclick="${onClickName}('${esc(asset.id)}')">
-            <span class="asset-library-source">${esc(asset.sourceProjectName || '本地档案')}</span>
-            <strong>${esc(asset.name || '未命名角色')}</strong>
-            <div class="asset-library-tags">${assetSummary(asset).map(v=>`<span>${esc(v)}</span>`).join('')}</div>
-        </div>`).join('');
+        return list.map(asset => {
+            const avatar = String(asset.avatarUrl || '').trim();
+            const avatarHtml = avatar
+                ? `<img class="asset-library-avatar" src="${esc(avatar)}" alt="${esc(asset.name || '角色')}">`
+                : '<span class="asset-library-avatar-placeholder">◇</span>';
+            return `<div class="asset-library-card ${selectedId===asset.id?'selected':''}" onclick="${onClickName}('${esc(asset.id)}')">
+                <div class="asset-library-card-main">
+                    ${avatarHtml}
+                    <div class="asset-library-copy">
+                        <span class="asset-library-source">${esc(asset.sourceProjectName || '本地档案')}</span>
+                        <strong>${esc(asset.name || '未命名角色')}</strong>
+                        <div class="asset-library-tags">${assetSummary(asset).map(v=>`<span>${esc(v)}</span>`).join('')}</div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+    function renderSelectedAssetPanel(asset, kind) {
+        if (!asset) return '';
+        const build = assetBuild(asset);
+        const blood = assetBloodline(asset);
+        const attrs = blood.data.原始属性 || {};
+        const skills = Object.entries(build.技能 || {});
+        const equipments = Object.entries(build.装备 || {});
+        const profile = asset.profile || {};
+        const avatar = String(asset.avatarUrl || '').trim();
+        const avatarHtml = avatar
+            ? `<img class="asset-selected-avatar" src="${esc(avatar)}" alt="${esc(asset.name || '角色')}">`
+            : '<span class="asset-selected-avatar-placeholder">◇</span>';
+        const identities = Array.isArray(build.身份) ? build.身份 : [];
+        const attrHtml = DB.attributes.map(attr => `<div class="asset-selected-attr"><b>${esc(attr)}</b><span>${esc(attrs[attr] || 'F')}</span></div>`).join('');
+        const skillHtml = skills.length
+            ? skills.map(([name,value]) => `<span>${esc(name)} · ${esc((value && value.品质) || 'F')}</span>`).join('')
+            : '<span>无技能</span>';
+        const equipmentHtml = equipments.length
+            ? equipments.map(([name,value]) => `<span>${esc(name)} · ${esc((value && value.品质) || 'F')}</span>`).join('')
+            : '<span>无装备</span>';
+        const profileHtml = kind === 'partner'
+            ? `<div class="asset-selected-section"><strong>人物资料</strong><div class="asset-selected-profile">
+                ${profile.性格 ? `<div><b>性格：</b>${esc(profile.性格)}</div>` : ''}
+                ${profile.喜爱 ? `<div><b>喜爱：</b>${esc(profile.喜爱)}</div>` : ''}
+                ${profile.外貌 ? `<div><b>外貌：</b>${esc(profile.外貌)}</div>` : ''}
+                ${profile.背景故事 ? `<div><b>背景：</b>${esc(profile.背景故事)}</div>` : ''}
+              </div></div>`
+            : '';
+        return `<div class="asset-selected-panel">
+            <div class="asset-selected-hero">
+                ${avatarHtml}
+                <div class="asset-selected-copy">
+                    <small>当前选中 · ${esc(asset.sourceProjectName || '本地档案')}</small>
+                    <h4>${esc(asset.name || '未命名角色')}</h4>
+                    <div class="asset-selected-meta">
+                        <span>种族 ${esc(build.种族 || '未知')}</span>
+                        <span>层级 ${esc(build.层级 || 'Ⅰ')}</span>
+                        ${identities.map(v=>`<span>${esc(v)}</span>`).join('')}
+                        ${blood.name ? `<span>血统 ${esc(blood.name)} · ${esc(blood.data.品质 || 'F')}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="asset-selected-section"><strong>血统原始属性</strong><div class="asset-selected-attrs">${attrHtml}</div></div>
+            <div class="asset-selected-section"><strong>技能</strong><div class="asset-selected-list">${skillHtml}</div></div>
+            <div class="asset-selected-section"><strong>装备</strong><div class="asset-selected-list">${equipmentHtml}</div></div>
+            ${profileHtml}
+        </div>`;
     }
     function renderOpeningCharacterLibrary() {
         const el=$('opening-character-library'); if(!el)return;
-        el.innerHTML='<div class="asset-library-head"><div><h3>开局角色档案</h3><small>选择后将直接采用其原始构筑，派生属性由当前版本重新计算。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_character',(selectedOpeningCharacter ? selectedOpeningCharacter.id : ''),'selectOpeningCharacter')+'</div>';
+        el.innerHTML='<div class="asset-library-head"><div><h3>开局角色档案</h3><small>选择后将直接采用其原始构筑，派生属性由当前版本重新计算。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_character',(selectedOpeningCharacter ? selectedOpeningCharacter.id : ''),'selectOpeningCharacter')+'</div>'+renderSelectedAssetPanel(selectedOpeningCharacter,'character');
     }
     function renderOpeningPartnerLibrary() {
         const el=$('opening-partner-library'); if(!el)return;
-        el.innerHTML='<div class="asset-library-head"><div><h3>开局伙伴档案</h3><small>完整伙伴无需 AI 再随机补全战术模块；按层级支付空间币（Ⅰ=70 / Ⅱ=350 / Ⅲ=1000）。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_partner',(selectedOpeningPartner ? selectedOpeningPartner.id : ''),'selectOpeningPartner')+'</div>';
+        el.innerHTML='<div class="asset-library-head"><div><h3>开局伙伴档案</h3><small>完整伙伴无需 AI 再随机补全战术模块；按层级支付空间币（Ⅰ=70 / Ⅱ=350 / Ⅲ=1000）。</small></div></div><div class="asset-library-grid">'+renderAssetCards('opening_partner',(selectedOpeningPartner ? selectedOpeningPartner.id : ''),'selectOpeningPartner')+'</div>'+renderSelectedAssetPanel(selectedOpeningPartner,'partner');
+    }
+    function currentOpeningAttributePoints() {
+        return DB.attributes.map((attr, idx) => {
+            const input = document.querySelector('.attr-input[data-idx="' + idx + '"]');
+            return input ? Math.max(0, Math.min(8, parseInt(input.value || 0) || 0)) : 0;
+        });
+    }
+    function openingQualityPoint(value) {
+        const index = DB.rarityList.indexOf(String(value || 'F').toUpperCase());
+        return index < 0 ? 0 : index;
+    }
+    function selectedOpeningAttributePoints(asset) {
+        const blood = assetBloodline(asset);
+        const attrs = blood.data.原始属性 || {};
+        return DB.attributes.map(attr => openingQualityPoint(attrs[attr] || 'F'));
+    }
+    function applyOpeningAttributePoints(points) {
+        DB.attributes.forEach((attr, idx) => {
+            const input = document.querySelector('.attr-input[data-idx="' + idx + '"]');
+            if (input) input.value = String(Math.max(0, Math.min(8, Number(points && points[idx]) || 0)));
+        });
+        calcTier();
     }
     function openingAttributePanelLocked() {
         return characterMode==='library' && !!selectedOpeningCharacter;
@@ -1234,17 +1326,29 @@
         const locked=openingAttributePanelLocked();
         panel.classList.toggle('is-library-locked', locked);
         panel.setAttribute('aria-disabled', locked ? 'true' : 'false');
-        document.querySelectorAll('.attr-step').forEach(btn => {
-            if (locked) btn.disabled=true;
-        });
-        if (!locked) calcTier();
+        if (locked) {
+            applyOpeningAttributePoints(selectedOpeningAttributePoints(selectedOpeningCharacter));
+        } else {
+            calcTier();
+        }
     }
     function setCharacterMode(mode) {
-        characterMode=mode==='library'?'library':'custom';
+        const nextMode=mode==='library'?'library':'custom';
+        if(nextMode==='library' && characterMode==='custom' && !customOpeningAttributePoints){
+            customOpeningAttributePoints=currentOpeningAttributePoints();
+        }
+        characterMode=nextMode;
+        if(characterMode==='custom'){
+            selectedOpeningCharacter=null;
+            if(customOpeningAttributePoints){
+                const restore=customOpeningAttributePoints.slice();
+                customOpeningAttributePoints=null;
+                applyOpeningAttributePoints(restore);
+            }
+        }
         if ($('character-mode-custom')) $('character-mode-custom').classList.toggle('active',characterMode==='custom');
         if ($('character-mode-library')) $('character-mode-library').classList.toggle('active',characterMode==='library');
         if($('opening-character-library')) $('opening-character-library').style.display=characterMode==='library'?'':'none';
-        if(characterMode==='custom') selectedOpeningCharacter=null;
         renderOpeningCharacterLibrary();
         syncOpeningAttributePanel();
     }
@@ -1271,10 +1375,14 @@
     }
     function selectOpeningCharacter(id) {
         const asset=openingAssets.find(a=>a.id===id&&a.kind==='opening_character'); if(!asset)return;
+        if(characterMode==='custom' && !customOpeningAttributePoints){
+            customOpeningAttributePoints=currentOpeningAttributePoints();
+        }
         selectedOpeningCharacter=asset; characterMode='library';
-        const build=asset.build||asset.character||{};
+        const build=assetBuild(asset);
         if(asset.name) $('f-name').value=asset.name;
         if(build.种族) $('f-race').value=build.种族;
+        applyOpeningAttributePoints(selectedOpeningAttributePoints(asset));
         renderOpeningCharacterLibrary(); syncOpeningAttributePanel(); showToast('已载入开局角色：'+(asset.name||'未命名'));
     }
     function selectOpeningPartner(id) {
@@ -2192,7 +2300,9 @@
         const bloodEffects = Object.entries((openingBlood && openingBlood.效果) || {});
         const bloodEffectHtml = bloodEffects.length
             ? bloodEffects.map(([effectName,effectText]) => `<p style="color:var(--accent); margin-top:6px;"><strong>${esc(effectName)}：</strong>${esc(effectText)}</p>`).join('')
-            : `<p style="color:var(--accent); margin-top:6px; font-weight:bold;"><i class="fa-solid fa-bolt"></i> 核心天赋效果暂缺，降临后将由主神 (AI) 根据种族特性当场演算并赋予。</p>`;
+            : openingBlood
+                ? `<p style="color:var(--text-sub); margin-top:6px;"><i class="fa-solid fa-lock"></i> 该角色档案未填写额外血统效果；开局不会自动生成或覆盖。</p>`
+                : `<p style="color:var(--accent); margin-top:6px; font-weight:bold;"><i class="fa-solid fa-bolt"></i> 核心天赋效果暂缺，降临后将由主神 (AI) 根据种族特性当场演算并赋予。</p>`;
 
         const consumed = DB.initSpaceCoins - currentCoins;
         
@@ -2249,6 +2359,23 @@
                     <div class="cf-text"><strong>外貌:</strong> ${$('cp-app').value.trim() || '无'}</div>
                     <div class="cf-text"><strong>喜爱:</strong> ${$('cp-like').value.trim() || '无'}</div>
                     <div class="cf-item-props"><p>${$('cp-bg').value.trim()||'暂无背景故事...'}</p></div>
+                </div>`;
+        } else if (selectedPartner === 'library' && selectedOpeningPartner) {
+            partnerCount = 1;
+            const pb = assetBuild(selectedOpeningPartner);
+            const pp = selectedOpeningPartner.profile || {};
+            const partnerBlood = assetBloodline(selectedOpeningPartner);
+            const partnerAttrs = partnerBlood.data.原始属性 || {};
+            const partnerAttrText = DB.attributes.map(attr => esc(attr) + ':' + esc(partnerAttrs[attr] || 'F')).join(' · ');
+            partnerHtml = `
+                <div class="cf-item">
+                    <div class="cf-item-head"><span style="color:var(--text-sub)">1.</span><span class="cf-item-name" style="color:#fff">${esc(selectedOpeningPartner.name || '未命名伙伴')}</span><span class="tier-badge t-${esc(pb.层级 || 'Ⅰ')}">${esc(pb.层级 || 'Ⅰ')}</span></div>
+                    <div class="cf-text"><strong>种族:</strong> ${esc(pb.种族 || '未知')} | <strong>身份:</strong> ${esc(Array.isArray(pb.身份) ? pb.身份.join(' / ') : (pb.身份 || '无'))}</div>
+                    <div class="cf-text"><strong>血统:</strong> ${esc(partnerBlood.name || '无')} ${partnerBlood.name ? '(' + esc(partnerBlood.data.品质 || 'F') + ')' : ''}</div>
+                    <div class="cf-text"><strong>原始属性:</strong> ${partnerAttrText}</div>
+                    <div class="cf-text"><strong>外貌:</strong> ${esc(pp.外貌 || pb.外貌 || '无')}</div>
+                    <div class="cf-text"><strong>喜爱:</strong> ${esc(pp.喜爱 || pb.喜爱 || '无')}</div>
+                    <div class="cf-item-props"><p>${esc(pp.背景故事 || pb.背景故事 || '暂无背景故事')}</p></div>
                 </div>`;
         } 
 
@@ -2632,6 +2759,22 @@
         });
 
         const openingCharacterBuild = characterMode === 'library' && selectedOpeningCharacter ? (selectedOpeningCharacter.build || selectedOpeningCharacter.character || {}) : null;
+        const libraryBloodlineName = openingCharacterBuild ? (Object.keys(openingCharacterBuild.血统 || {})[0] || '') : '';
+        const libraryBloodline = libraryBloodlineName && openingCharacterBuild
+            ? ((openingCharacterBuild.血统 && openingCharacterBuild.血统[libraryBloodlineName]) || {})
+            : null;
+        const initialBloodlineName = libraryBloodlineName || bloodlineName;
+        const initialBloodlineQuality = (libraryBloodline && libraryBloodline.品质) || tier;
+        const initialBloodlineDescription = (libraryBloodline && libraryBloodline.描述) || '最初的基础，却有无限可能';
+        const initialBloodlineAttributes = libraryBloodline
+            ? DB.attributes.map(attr => attr + ': ' + (((libraryBloodline.原始属性 || {})[attr]) || 'F') + '级').join(', ')
+            : attrStr;
+        const libraryBloodlineEffects = libraryBloodline ? Object.entries(libraryBloodline.效果 || {}) : [];
+        const initialBloodlineEffectText = libraryBloodline
+            ? (libraryBloodlineEffects.length
+                ? libraryBloodlineEffects.map(([effectName,effectText]) => effectName + ': ' + effectText).join('；')
+                : '无（保持角色档案，不自动补写）')
+            : '待首次降临生成';
         let partnerNode = null;
         let partnerIsCompleteAsset = false;
         if (selectedPartner === 'library' && selectedOpeningPartner) {
@@ -2807,6 +2950,9 @@
         const envInstruction = isWorldAnchored
             ? "在叙事中，根据当前【时间锚点】与世界背景，更新货币、因果轨道、势力等地点变量，并全量刷新传闻，必须完整且符合世界当前局势。最后生成【主神任务】。"
             : "在叙事中，请重点描绘「主神空间」或私人休整区的宏大/静谧环境、光影变幻或系统光球的微光。聚焦于角色刚到此处的状态。";
+        const bloodlineAwakeningInstruction = openingCharacterBuild
+            ? ''
+            : `首次降临时，请根据角色填写的【种族】特性，为「${initialBloodlineName}」设计 1~2 个符合【${initialBloodlineQuality}级】强度限制的专属血统效果，并在剧情中表现出觉醒的异象！`;
         const promptText = `进行开局初始化，请根据以下配置展开叙事：
 （注：系统已将角色的初始装备、道具、血统与羁绊对象直接写入底层数据库。人物与羁绊基本属性已存在，禁止在初始化时替换它们，请直接提取使用。）
 
@@ -2818,9 +2964,11 @@
 身份: ${identity}
 
 【初始血统】
-名称: ${bloodlineName}
-品质: ${tier}级
-描述: 最初的基础，却有无限可能
+名称: ${initialBloodlineName}
+品质: ${initialBloodlineQuality}级
+原始属性: ${initialBloodlineAttributes}
+效果: ${initialBloodlineEffectText}
+描述: ${initialBloodlineDescription}
 
 【协同实体 (伙伴)】
 ${partnerText}
@@ -2831,7 +2979,7 @@ ${worldText}
 ---
 【系统指令与叙事要求】：
 生成一个极具沉浸感的开局场景。
-首次降临时，请根据角色填写的【种族】特性，为「${bloodlineName}」设计 1~2 个符合【${tier}级】强度限制的专属血统效果，并在剧情中表现出觉醒的异象！
+${bloodlineAwakeningInstruction}
 ${envInstruction}
 ${partnerNode && !partnerIsCompleteAsset ? `[协同实体补全指令]：角色身边存在专属伙伴「${partnerNode.姓名 || '未命名'}」。该实体当前仅具有基础概念（层级、阵营、背景故事、喜好），缺乏具体战斗数据。请你基于其资料与【${partnerNode.层级 || '未知'}级】的强度限制，**自动为其推演并补全空白的战术模块**：
 1. 赋予契合人设并符合层级限制的【血统】与【技能】。

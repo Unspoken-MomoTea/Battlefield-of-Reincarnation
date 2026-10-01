@@ -223,6 +223,43 @@ test('first project creation exposes a local-only test path', () => {
 });
 
 
+test('local test projects keep their cover and can be reopened for editing', () => {
+  const installed = fs.readFileSync(
+    fileURLToPath(new URL('../views/installed.js', import.meta.url)),
+    'utf8',
+  );
+  const editor = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/project-editor.js', import.meta.url)),
+    'utf8',
+  );
+  const cache = fs.readFileSync(
+    fileURLToPath(new URL('../services/projects/cache.js', import.meta.url)),
+    'utf8',
+  );
+  const views = fs.readFileSync(
+    fileURLToPath(new URL('../app/views.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(installed, /item\.hasCover && \(item\.source === 'remote' \|\| item\.coverUrl\)/u);
+  assert.match(installed, /item\.source === 'local-test'[\s\S]*button\('编辑'/u);
+  assert.match(installed, /编辑本地测试/u);
+  assert.match(views, /editLocalTest: \(project, onSaved\) => author\.editLocalTest/u);
+
+  assert.match(editor, /options\.localTest \|\| project\?\.source === 'local-test'/u);
+  assert.match(editor, /编辑本地测试/u);
+  assert.match(editor, /existingLocalCoverDataUrl/u);
+  assert.match(editor, /保存本地修改/u);
+  assert.match(editor, /if \(!isLocalTest\) footerActions\.appendChild\(submit\)/u);
+
+  assert.doesNotMatch(cache, /本地测试版正在酒馆中启用，请先停用后再覆盖测试内容/u);
+  const saveStart = cache.indexOf('export const saveLocalTestProject');
+  const saveEnd = cache.indexOf('export async function exportCachedProject', saveStart);
+  const saveBlock = cache.slice(saveStart, saveEnd);
+  assert.doesNotMatch(saveBlock, /applied:\s*false/u);
+  assert.match(saveBlock, /const next = \{[\s\S]*\.\.\.record,[\s\S]*remoteProjectId/u);
+});
+
 test('worldbook detail mirrors reference D-depth metadata without redundant groups', () => {
   const source = fs.readFileSync(
     fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),

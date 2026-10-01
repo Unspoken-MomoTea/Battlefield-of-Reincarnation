@@ -72,9 +72,6 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
   }
   const localId = `local-test:${project.id}`;
   const previous = await getInstalledProject(localId);
-  if (previous?.applied) {
-    throw new Error('本地测试版正在酒馆中启用，请先停用后再覆盖测试内容');
-  }
   const version = Number(project.version || 1);
   const bundle = structuredClone(project.bundle);
   const manifestArtifacts = await Promise.all(bundle.artifacts.map(async artifact => {
@@ -116,17 +113,12 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
     has_cover: Boolean(project.coverDataUrl),
     cover_url: project.coverDataUrl || '',
   }, manifest, bundle, previous, 'local-test');
-  await putInstalledProject({
+  const next = {
     ...record,
     remoteProjectId: project.id,
-    applied: false,
-    appliedVersion: null,
-    appliedAt: null,
-    targetCharacterName: null,
-    installTargets: null,
-    applyError: '',
-  });
-  return record;
+  };
+  await putInstalledProject(next);
+  return next;
 });
 
 export async function exportCachedProject(projectId) {

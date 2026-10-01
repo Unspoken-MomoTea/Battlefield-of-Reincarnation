@@ -12,6 +12,7 @@ export function createInstalledView({
   host,
   doc,
   categoryLabels,
+  editLocalTest = null,
 }) {
   function showRestoreWarnings(result, name) {
     const warnings = Array.isArray(result?.restoreWarnings) ? result.restoreWarnings : [];
@@ -296,9 +297,11 @@ export function createInstalledView({
   function localCard(item) {
     const card = element('article', 'rw-card rw-local-card');
 
-    if (item.source === 'remote' && item.hasCover) {
+    if (item.hasCover && (item.source === 'remote' || item.coverUrl)) {
       const cover = element('img', 'rw-cover rw-local-cover');
-      cover.src = workshopApi.getProjectCoverUrl(item.id);
+      cover.src = item.source === 'remote'
+        ? workshopApi.getProjectCoverUrl(item.id)
+        : item.coverUrl;
       cover.alt = `${item.name} 封面`;
       cover.loading = 'lazy';
       card.appendChild(cover);
@@ -367,6 +370,9 @@ export function createInstalledView({
       primary = button('重新应用', 'primary rw-local-primary', () => applyItem(item));
     }
     actions.appendChild(primary);
+    if (item.source === 'local-test' && typeof editLocalTest === 'function') {
+      actions.appendChild(button('编辑', '', () => editLocalTest(item, refreshInstalled)));
+    }
 
     const menu = element('div', 'rw-card-menu rw-local-menu');
     const menuDropdown = element('div', 'rw-card-menu-dropdown');
@@ -376,6 +382,13 @@ export function createInstalledView({
       menuDropdown.hidden = !menuDropdown.hidden;
     });
     menuTrigger.setAttribute('aria-label', `${item.name} 更多操作`);
+
+    if (item.source === 'local-test' && typeof editLocalTest === 'function') {
+      menuDropdown.appendChild(button('编辑本地测试', '', () => {
+        closeMenu();
+        void editLocalTest(item, refreshInstalled);
+      }));
+    }
 
     if (item.applied) {
       const protections = protectionChanges(item);

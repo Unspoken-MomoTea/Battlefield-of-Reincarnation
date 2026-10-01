@@ -28,6 +28,16 @@ function worldEngineVersion() {
   return match[1];
 }
 
+function calculatorVersion() {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../../src/Calculator/core/CalculatorFoundation.part.js', import.meta.url)),
+    'utf8',
+  );
+  const match = source.match(/CALCULATOR_VERSION\s*=\s*'([^']+)'/u);
+  assert.ok(match);
+  return match[1];
+}
+
 function run(component, version) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-release-version-'));
   const output = path.join(dir, 'github-output.txt');
@@ -64,6 +74,17 @@ test('release version command writes independent world engine release metadata',
   assert.ok(values.includes('tag=' + tag));
 });
 
+test('release version command writes independent calculator release metadata', () => {
+  const version = calculatorVersion();
+  const tag = 'calculator-v' + version;
+  const { result, values } = run('calculator', version);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.includes(version + ' → ' + tag));
+  assert.ok(values.includes('component=calculator'));
+  assert.ok(values.includes('version=' + version));
+  assert.ok(values.includes('tag=' + tag));
+});
+
 test('release version command rejects versions that differ from each component source', () => {
   const invalidVersion = '9999.9999.9999';
   const workshop = spawnSync(process.execPath, [script, 'workshop', invalidVersion], { encoding: 'utf8' });
@@ -73,4 +94,8 @@ test('release version command rejects versions that differ from each component s
   const world = spawnSync(process.execPath, [script, 'world-engine', invalidVersion], { encoding: 'utf8' });
   assert.notEqual(world.status, 0);
   assert.match(world.stderr, /与 WORLD_ENGINE_VERSION/u);
+
+  const calculator = spawnSync(process.execPath, [script, 'calculator', invalidVersion], { encoding: 'utf8' });
+  assert.notEqual(calculator.status, 0);
+  assert.match(calculator.stderr, /与 CALCULATOR_VERSION/u);
 });

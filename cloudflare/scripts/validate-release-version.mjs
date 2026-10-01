@@ -7,9 +7,11 @@ import {
   validateWorkshopRelease,
   validateWorldEngineRelease,
   validateStatusBarRelease,
+  validateCalculatorRelease,
   workshopVersionFromSource,
   worldEngineVersionFromSource,
   statusBarVersionFromSource,
+  calculatorVersionFromSource,
 } from './release-policy.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -44,8 +46,17 @@ try {
     if (generatedVersion !== release.version) {
       throw new Error(`生成交付 STATUS_BAR_VERSION ${generatedVersion} 与源码 ${release.version} 不一致`);
     }
+  } else if (component === 'calculator') {
+    source = fs.readFileSync(path.join(root, 'src/Calculator/core/CalculatorFoundation.part.js'), 'utf8');
+    const generated = fs.readFileSync(path.join(root, 'script/辅助计算脚本.js'), 'utf8');
+    requestedVersion = requestedInput || calculatorVersionFromSource(source);
+    release = validateCalculatorRelease(source, requestedVersion);
+    const generatedVersion = calculatorVersionFromSource(generated);
+    if (generatedVersion !== release.version) {
+      throw new Error(`生成交付 CALCULATOR_VERSION ${generatedVersion} 与源码 ${release.version} 不一致`);
+    }
   } else {
-    throw new Error('发布组件必须是 workshop、world-engine 或 status-bar');
+    throw new Error('发布组件必须是 workshop、world-engine、status-bar 或 calculator');
   }
 
   const lines = [

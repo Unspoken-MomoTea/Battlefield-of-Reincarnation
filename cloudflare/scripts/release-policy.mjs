@@ -22,6 +22,12 @@ export const RELEASE_COMPONENTS = Object.freeze({
     tagPrefix: 'status-bar-v',
     legacyTagPrefix: '',
   },
+  calculator: {
+    id: 'calculator',
+    label: '辅助计算',
+    tagPrefix: 'calculator-v',
+    legacyTagPrefix: '',
+  },
 });
 
 export function releasePlan(target) {
@@ -49,6 +55,7 @@ export function componentReleaseTag(component, version) {
 export const workshopReleaseTag = version => componentReleaseTag('workshop', version);
 export const worldEngineReleaseTag = version => componentReleaseTag('world-engine', version);
 export const statusBarReleaseTag = version => componentReleaseTag('status-bar', version);
+export const calculatorReleaseTag = version => componentReleaseTag('calculator', version);
 
 export function workshopVersionFromSource(source) {
   const match = String(source || '').match(
@@ -72,6 +79,14 @@ export function statusBarVersionFromSource(source) {
     /STATUS_BAR_VERSION\s*=\s*['"]([^'"]+)['"]/u,
   );
   if (!match) throw new Error('找不到 STATUS_BAR_VERSION');
+  return match[1].trim();
+}
+
+export function calculatorVersionFromSource(source) {
+  const match = String(source || '').match(
+    /CALCULATOR_VERSION\s*=\s*['"]([^'"]+)['"]/u,
+  );
+  if (!match) throw new Error('找不到 CALCULATOR_VERSION');
   return match[1].trim();
 }
 
@@ -101,6 +116,15 @@ export function validateStatusBarRelease(source, requestedVersion) {
     throw new Error(`正式版本 ${version} 与 STATUS_BAR_VERSION ${actual} 不一致`);
   }
   return { component: 'status-bar', version, tag: statusBarReleaseTag(version) };
+}
+
+export function validateCalculatorRelease(source, requestedVersion) {
+  const version = normalizedVersion(requestedVersion);
+  const actual = calculatorVersionFromSource(source);
+  if (actual !== version) {
+    throw new Error(`正式版本 ${version} 与 CALCULATOR_VERSION ${actual} 不一致`);
+  }
+  return { component: 'calculator', version, tag: calculatorReleaseTag(version) };
 }
 
 export function validateReleaseConfig(config, target) {

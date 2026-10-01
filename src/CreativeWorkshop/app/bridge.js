@@ -9,6 +9,7 @@ export function createWorkshopBridge({
   projectService,
   selfUpdater,
   worldEngineUpdater,
+  statusBarUpdater,
 }) {
   return {
     version, open, close, refresh, destroy, hotUpdate,
@@ -32,5 +33,7 @@ export function createWorkshopBridge({
     updateWorkshopLoaderLink: () => selfUpdater.updateLoaderLink(),
     checkWorldEngineUpdate: () => worldEngineUpdater.check(),
     updateWorldEngine: () => worldEngineUpdater.updateAndReload(),
+    checkStatusBarUpdate: () => statusBarUpdater.check(),
+    updateStatusBar: () => statusBarUpdater.updateAndReload(),
   };
 }

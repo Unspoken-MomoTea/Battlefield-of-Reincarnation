@@ -10,6 +10,7 @@ import './components/skill.js';
 import './components/selection.js';
 import '../opening/data/opening-state.js';
 import '../opening/data/state-bridge.js';
+import '../opening/data/state-receiver.js';
 import { getOpeningComponent } from './components/registry.js';
 
 const root = document.getElementById('opening-root');

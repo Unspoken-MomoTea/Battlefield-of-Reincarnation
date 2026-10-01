@@ -1,42 +1,29 @@
-# Opening modules
+# Opening / 开局系统
 
-新版开局的模块化核心。旧的 `Regular/开局.html` 会分阶段迁移到这里，迁移期间保持现有开局可用。
-
-## Character assets
-
-`character-assets/schema.js` 定义角色资产用途：
-
-- `world_character`：世界书人物
-- `opening_character`：开局角色
-- `opening_partner`：开局伙伴
-- `heretic`：异端库角色快照
-
-异端快照只保存可重算的原始构筑与人设，不保存最终属性、真属性、HP/EP，也不保存道具、货币、权限、任务或世界状态。
-
-## Opening store
-
-`store/provider-registry.js` 是开局商店的扩展边界。核心商店和未来创意工坊内容都通过 provider 提供 catalog，开局 UI 不直接依赖某个工坊实现。
-
-
-## Hot update preview
-
-Opening is now an independent hot-update component rooted in `src/opening/`.
-
-- Version source: `src/opening/version.js`
-- Component metadata: `src/opening/hot-update/component.js`
-- Current preview source: `Regular/开局.html`
-- Stable tag namespace reserved for later: `opening-vX.Y.Z`
-
-During the preview stage, both Worker environments resolve Opening from `main` by the latest commit that changed `Regular/开局.html`. The fixed shell URL is:
+开局采用 **模块化源码 + 单文件交付产物**。用户继续使用固定地址：
 
 ```js
 var url = 'https://workshop.6661816.xyz/opening/latest';
 ```
 
-The Worker returns a `302` with `Cache-Control: no-store` to an immutable jsDelivr URL pinned to the exact 40-character commit SHA, for example:
+源码边界：
+- `page/template.html`：页面骨架。
+- `styles/core.css`、`styles/extra.css`：页面样式。
+- `runtime/00-70*.js`：数据库、资产读取、变量模式、角色、商店、伙伴/剧情、导航/预设、最终降临。
+- `character-assets/`：工坊开局角色/伙伴资产。
+- `store/`：核心与工坊商店。
+- `hot-update/`：Opening 独立热更新元数据。
+
+`tools/build-opening.py` 生成两份字节一致的产物：
+- `dist/opening/entry.html`：`/opening/latest` 实际交付文件。
+- `Regular/开局.html`：旧入口兼容副本。
+
+CI 使用 `python tools/build-opening.py --check` 防止源码与产物漂移。页面与产物均禁止 Markdown 代码围栏。
+
+测试通道跟随 `main` 上最近一次修改 `dist/opening/entry.html` 的提交；Worker 再重定向到固定 SHA 的 jsDelivr：
 
 ```text
-https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@<sha>/Regular/%E5%BC%80%E5%B1%80.html?v=<short-sha>
+https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@<sha>/dist/opening/entry.html?v=<short-sha>
 ```
 
-This means the regex shell address does not change, while each Opening build receives a different immutable CDN URL. After the first formal Opening release, production can switch from `testing/main` to `stable/opening-vX.Y.Z` without changing the shell again.
+正式通道只接受 `opening-vX.Y.Z` 标签，并校验标签版本与 `src/opening/version.js` 一致。

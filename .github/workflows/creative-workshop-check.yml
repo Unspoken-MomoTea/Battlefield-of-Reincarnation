@@ -9,6 +9,8 @@ on:
       - 'src/Calculator/**'
       - 'src/opening/**'
       - 'Regular/开局.html'
+      - 'dist/opening/**'
+      - 'tools/build-opening.py'
       - 'tests/opening-page.cjs'
       - 'cloudflare/**'
       - '.github/workflows/creative-workshop-check.yml'
@@ -27,6 +29,8 @@ on:
       - 'src/Calculator/**'
       - 'src/opening/**'
       - 'Regular/开局.html'
+      - 'dist/opening/**'
+      - 'tools/build-opening.py'
       - 'tests/opening-page.cjs'
       - 'cloudflare/**'
       - '.github/workflows/creative-workshop-check.yml'
@@ -62,6 +66,8 @@ jobs:
         run: node --test src/Calculator/tests/*.test.mjs
       - name: Calculator delivery syntax
         run: node --check script/辅助计算脚本.js
+      - name: Opening delivery synchronized
+        run: python tools/build-opening.py --check
       - name: Opening syntax
         run: find src/opening -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
       - name: Opening contract tests

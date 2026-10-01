@@ -12,8 +12,8 @@ import { OPENING_VERSION } from '../version.js';
 test('opening hot-update metadata is isolated from workshop/world-engine versions', () => {
   assert.equal(OPENING_VERSION, '1.0.0');
   assert.equal(OPENING_COMPONENT.id, 'opening');
-  assert.equal(OPENING_COMPONENT.entryPath, '/src/opening/entry.html');
-  assert.equal(OPENING_COMPONENT.sourcePath, 'src/opening');
+  assert.equal(OPENING_COMPONENT.entryPath, '/dist/opening/entry.html');
+  assert.equal(OPENING_COMPONENT.sourcePath, 'dist/opening/entry.html');
   assert.deepEqual(OPENING_COMPONENT.tagPrefixes, ['opening-v']);
 });
 
@@ -36,6 +36,6 @@ test('opening CDN URL uses an immutable sha and encoded Chinese path', () => {
       repository: 'Unspoken-MomoTea/Battlefield-of-Reincarnation',
       sha,
     }),
-    'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@0123456789abcdef0123456789abcdef01234567/src/opening/entry.html?v=0123456789ab',
+    'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@0123456789abcdef0123456789abcdef01234567/dist/opening/entry.html?v=0123456789ab',
   );
 });

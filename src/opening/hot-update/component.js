@@ -4,13 +4,12 @@ export const OPENING_COMPONENT = Object.freeze({
   id: 'opening',
   label: '开局系统',
   version: OPENING_VERSION,
-  entryPath: '/src/opening/entry.html',
-  sourcePath: 'src/opening',
+  entryPath: '/dist/opening/entry.html',
+  sourcePath: 'dist/opening/entry.html',
   tagPrefixes: ['opening-v'],
   repair: Object.freeze({
     requiredFiles: [
-      'src/opening/entry.html',
-      'src/opening/runtime.js',
+      'dist/opening/entry.html',
       'src/opening/version.js',
     ],
     loader: 'opening/latest',

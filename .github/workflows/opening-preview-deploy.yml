@@ -22,6 +22,10 @@ jobs:
         with:
           node-version: '22'
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Check Cloudflare deployment secrets
         shell: bash
         run: |
@@ -32,9 +36,13 @@ jobs:
         working-directory: cloudflare
         run: npm ci --no-audit --no-fund
 
+      - name: Opening delivery synchronized
+        run: python tools/build-opening.py --check
+
       - name: Opening and Worker contract tests
         run: |
           node --test src/opening/tests/*.test.mjs
+          node tests/opening-page.cjs
           cd cloudflare
           npm test
 
@@ -92,7 +100,7 @@ jobs:
             if (response.headers.get('x-opening-ref') !== 'main') {
               throw new Error(`unexpected opening ref: ${response.headers.get('x-opening-ref')}`);
             }
-            if (!/@[0-9a-f]{40}\/src\/opening\/entry\.html\?v=/u.test(location)) {
+            if (!/@[0-9a-f]{40}\/dist\/opening\/entry\.html\?v=/u.test(location)) {
               throw new Error(`unexpected opening location: ${location}`);
             }
             return { response, location };
@@ -104,7 +112,7 @@ jobs:
               signal: AbortSignal.timeout(15000),
             });
             const text = await response.text();
-            if (!response.ok || !text.includes('<!DOCTYPE html>') || !text.includes('id="opening-root"') || !text.includes('./runtime.js')) {
+            if (!response.ok || !text.startsWith('<!DOCTYPE html>') || !text.includes('class="wizard-layout"') || !text.includes('executeJourney')) {
               throw new Error(`unexpected opening HTML: ${response.status}, length=${text.length}`);
             }
             return text;

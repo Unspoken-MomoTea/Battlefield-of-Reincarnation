@@ -11,9 +11,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build opening
-        run: python tools/build-opening.py
-      - name: Opening syntax
-        run: find src/opening -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Verify opening version
-        run: grep "OPENING_VERSION" src/opening/version.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Opening delivery synchronized
+        run: python tools/build-opening.py --check
+      - name: Opening source syntax
+        run: find src/opening -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+      - name: Opening contracts
+        run: |
+          node --test src/opening/tests/*.test.mjs
+          node tests/opening-page.cjs
+      - name: Verify opening tag matches source version
+        if: ${{ github.ref_type == 'tag' }}
+        shell: bash
+        run: |
+          VERSION="$(node --input-type=module -e "import('./src/opening/version.js').then(m => process.stdout.write(m.OPENING_VERSION))")"
+          test "$GITHUB_REF_NAME" = "opening-v$VERSION" || {
+            echo "::error::tag $GITHUB_REF_NAME does not match opening-v$VERSION"
+            exit 1
+          }

@@ -1269,6 +1269,7 @@ export const WORKSHOP_CSS = `
   }
   .rw-store-attr-grid .rw-field,.rw-opening-attr-grid .rw-field{gap:4px;min-width:0}
   .rw-store-attr-grid .rw-field>span,.rw-opening-attr-grid .rw-field>span{font-size:9px}
+  .rw-store-attr-grid .rw-select:disabled{opacity:.34;cursor:not-allowed;filter:saturate(.25);background:#101114;color:#66645f}
   .rw-store-attr-budget{display:block;color:#9d998f;font-size:9px;line-height:1.45}
   .rw-store-attr-budget.is-error{color:#e89a94}
   .rw-point-allocator{min-width:0;display:grid;gap:9px}

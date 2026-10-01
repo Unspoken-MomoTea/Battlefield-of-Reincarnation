@@ -186,9 +186,10 @@ test('opening live-refresh covers characters, partners, and store catalogs', asy
   assert.match(opening, /renderOpeningCharacterLibrary\(\);[\s\S]*renderOpeningPartnerLibrary\(\);/u);
   assert.match(opening, /实时刷新创意工坊角色\/伙伴失败/u);
 
-  assert.match(editor, /STORE_ATTR_MAX_POINTS = 12/u);
+  assert.match(editor, /STORE_ATTR_MAX_POINTS = 15/u);
   assert.match(editor, /STORE_ATTR_MAX_COUNT = 3/u);
   assert.match(editor, /已选 \$\{usage\.count\}\/\$\{STORE_ATTR_MAX_COUNT\} 项/u);
+  assert.match(editor, /select\.disabled = selectionLocked && !select\.value/u);
   assert.match(editor, /本次选择已撤回/u);
 });
 

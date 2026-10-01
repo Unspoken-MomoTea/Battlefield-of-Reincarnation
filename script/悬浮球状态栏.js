@@ -11,6 +11,7 @@
  */
 (function () {
     'use strict';
+    var STATUS_BAR_VERSION = '1.0.0';
     try { console.log('%c[主神终端] ⚡ 轮回终端 v2 接入中...', 'color:#8f9fff;font-weight:bold'); } catch (e) {}
 
     /* ===== 1. 父窗口重定向 ===== */
@@ -22,6 +23,30 @@
     var $ = (GS_PARENT.jQuery || GS_PARENT.$ || window.jQuery || window.$);
     var document = GS_PARENT.document;
     var _ = (GS_PARENT._ || window._);
+
+    /* 状态栏运行时生命周期：用于版本诊断与 loader 管理后的安全热重载。 */
+    var STATUS_BAR_LOADER = GS_PARENT.SamsaraStatusBarLoader || {};
+    class StatusBarRuntimeLifecycle {
+        constructor(host, loader) {
+            this.host = host;
+            this.version = STATUS_BAR_VERSION;
+            this.ref = String(loader && loader.ref || '');
+            this.sha = String(loader && loader.sha || '');
+            this.url = String(loader && loader.url || '');
+            this.subscriptions = [];
+            this.startedAt = Date.now();
+        }
+        track(subscription) {
+            if (subscription && typeof subscription.stop === 'function') this.subscriptions.push(subscription);
+            return subscription;
+        }
+        stopSubscriptions() {
+            var current = this.subscriptions.splice(0);
+            for (var i = 0; i < current.length; i++) {
+                try { current[i].stop(); } catch (e) {}
+            }
+        }
+    }
 
     /* 当前酒馆 Persona：状态栏内部与其他 Samsara 模块共用同一份玩家身份。 */
     var PLAYER_NAME = '';
@@ -139,14 +164,36 @@
     /* ===== 5. 预清理旧实例 ===== */
     function samPreClean() {
         try {
+            var previousRuntime = GS_PARENT.SamsaraStatusBarRuntime;
+            if (previousRuntime && typeof previousRuntime.stopSubscriptions === 'function') {
+                previousRuntime.stopSubscriptions();
+            }
             if ($) {
                 $('#samsara-ball, #samsara-panel, #samsara-modal, #samsara-theme-style').remove();
                 $(document).off('.sam .samPanel .samBall .samModal');
+                $(window).off('.sam');
             }
-            if (window.samsaraGuardTimer) clearInterval(window.samsaraGuardTimer);
+            if (window.samsaraGuardTimer) {
+                clearInterval(window.samsaraGuardTimer);
+                window.samsaraGuardTimer = null;
+            }
         } catch (e) { console.warn('[主神终端] 预清理失败:', e.message); }
     }
     samPreClean();
+
+    var STATUS_BAR_RUNTIME = new StatusBarRuntimeLifecycle(GS_PARENT, STATUS_BAR_LOADER);
+    GS_PARENT.SamsaraStatusBarRuntime = STATUS_BAR_RUNTIME;
+    GS_PARENT.Samsara = GS_PARENT.Samsara || {};
+    GS_PARENT.Samsara.StatusBarInfo = {
+        version: STATUS_BAR_VERSION,
+        ref: STATUS_BAR_RUNTIME.ref,
+        sha: STATUS_BAR_RUNTIME.sha,
+        url: STATUS_BAR_RUNTIME.url,
+        startedAt: STATUS_BAR_RUNTIME.startedAt
+    };
+    function trackStatusBarSubscription(subscription) {
+        return STATUS_BAR_RUNTIME.track(subscription);
+    }
 
     /* ===== 6. 获取数据 ===== */
     function getMvuGlobal() {
@@ -9889,14 +9936,14 @@ if (hasReq) {
             if (win && win.Mvu && win.Mvu.events) {
                 $(document).off('VARIABLE_UPDATE_ENDED.sam');
                 $(document).on('VARIABLE_UPDATE_ENDED.sam', debouncedRefresh);
-                if (typeof eventOn === 'function') eventOn(win.Mvu.events.VARIABLE_UPDATE_ENDED, debouncedRefresh);
+                if (typeof eventOn === 'function') trackStatusBarSubscription(eventOn(win.Mvu.events.VARIABLE_UPDATE_ENDED, debouncedRefresh));
             }
             // 2) 酒馆原生事件: 删楼层/切swipe/切聊天 → MVU 快照回退或切换, 需刷新
             //    MVU 事件体系只覆盖"变量更新", 不覆盖"楼层变更", 故须补酒馆事件
             if (typeof tavern_events !== 'undefined') {
-                if (tavern_events.MESSAGE_DELETED && typeof eventOn === 'function') eventOn(tavern_events.MESSAGE_DELETED, debouncedRefresh);
-                if (tavern_events.MESSAGE_SWIPED  && typeof eventOn === 'function') eventOn(tavern_events.MESSAGE_SWIPED,  debouncedRefresh);
-                if (tavern_events.CHAT_CHANGED    && typeof eventOn === 'function') eventOn(tavern_events.CHAT_CHANGED,    debouncedRefresh);
+                if (tavern_events.MESSAGE_DELETED && typeof eventOn === 'function') trackStatusBarSubscription(eventOn(tavern_events.MESSAGE_DELETED, debouncedRefresh));
+                if (tavern_events.MESSAGE_SWIPED  && typeof eventOn === 'function') trackStatusBarSubscription(eventOn(tavern_events.MESSAGE_SWIPED,  debouncedRefresh));
+                if (tavern_events.CHAT_CHANGED    && typeof eventOn === 'function') trackStatusBarSubscription(eventOn(tavern_events.CHAT_CHANGED,    debouncedRefresh));
             }
         } catch (e) {}
         // DOM守护定时器: 球/面板被移除则重建

@@ -3,6 +3,9 @@ import { worldCharacterTemplate } from './publish-templates.js';
 const OPENING_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
 const STORE_QUALITIES = ['F', 'E', 'D'];
 const EQUIPMENT_ATTR_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A'];
+const STORE_ATTR_POINTS = Object.fromEntries(EQUIPMENT_ATTR_QUALITIES.map((quality, index) => [quality, index]));
+const STORE_ATTR_MAX_POINTS = 12;
+const STORE_ATTR_MAX_COUNT = 3;
 const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
 const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const ATTRIBUTES = ['力量', '敏捷', '体质', '精神', '魅力'];
@@ -254,7 +257,7 @@ function storeEditor(doc, initial, emit) {
   const head = el(doc, 'div', 'rw-special-editor-head');
   head.append(
     el(doc, 'strong', '', '开局商店'),
-    el(doc, 'small', '', '逐项添加商品。品质只允许 F / E / D，单件价格最高 1000；每件商品最多 2 条效果。'),
+    el(doc, 'small', '', '逐项添加商品。品质只允许 F / E / D，单件价格最高 1000；装备原始属性最多 3 项、合计 12 点；每件商品最多 2 条效果。'),
   );
   root.appendChild(head);
 
@@ -323,19 +326,48 @@ function storeEditor(doc, initial, emit) {
           makeInput(doc, 'store_consume', item.consume || '无', { maxLength: 300 }),
           '例如：无 / 每次攻击消耗子弹1发 / EP 10。',
         ));
-        card.appendChild(el(doc, 'div', 'rw-special-subtitle', '原始属性'));
+        const attrTitle = el(doc, 'div', 'rw-special-subtitle', '原始属性');
+        const attrBudget = el(doc, 'small', 'rw-store-attr-budget');
         const attrs = el(doc, 'div', 'rw-store-attr-grid');
+        const attrSelects = new Map();
+        const attrUsage = () => {
+          const selected = [...attrSelects.values()]
+            .map(select => String(select.value || '').toUpperCase())
+            .filter(Boolean);
+          return {
+            count: selected.length,
+            points: selected.reduce((sum, qualityValue) => sum + (STORE_ATTR_POINTS[qualityValue] ?? 0), 0),
+          };
+        };
+        const renderAttrBudget = (message = '') => {
+          const usage = attrUsage();
+          attrBudget.textContent = message || `已选 ${usage.count}/${STORE_ATTR_MAX_COUNT} 项 · 使用 ${usage.points}/${STORE_ATTR_MAX_POINTS} 点（F=0 / E=1 / D=2 / C=3 / B=4 / A=5）`;
+          attrBudget.classList.toggle(
+            'is-error',
+            usage.count > STORE_ATTR_MAX_COUNT || usage.points > STORE_ATTR_MAX_POINTS,
+          );
+        };
         for (const attr of STORE_ATTRIBUTES) {
-          attrs.appendChild(field(
-            doc,
-            attr,
-            makeSelect(doc, `store_attr_${attr}`, [
-              { value: '', label: '无' },
-              ...EQUIPMENT_ATTR_QUALITIES.map(value => ({ value, label: value })),
-            ], item.attrs?.[attr] || ''),
-          ));
+          const select = makeSelect(doc, `store_attr_${attr}`, [
+            { value: '', label: '无' },
+            ...EQUIPMENT_ATTR_QUALITIES.map(value => ({ value, label: value })),
+          ], item.attrs?.[attr] || '');
+          select.dataset.previousValue = select.value;
+          select.addEventListener('change', () => {
+            const usage = attrUsage();
+            if (usage.count > STORE_ATTR_MAX_COUNT || usage.points > STORE_ATTR_MAX_POINTS) {
+              select.value = select.dataset.previousValue || '';
+              renderAttrBudget(`属性限制：最多 ${STORE_ATTR_MAX_COUNT} 项、合计 ${STORE_ATTR_MAX_POINTS} 点；本次选择已撤回。`);
+            } else {
+              select.dataset.previousValue = select.value;
+              renderAttrBudget();
+            }
+          });
+          attrSelects.set(attr, select);
+          attrs.appendChild(field(doc, attr, select));
         }
-        card.appendChild(attrs);
+        renderAttrBudget();
+        card.append(attrTitle, attrBudget, attrs);
       } else if (entry.kind === 'item') {
         const itemGrid = el(doc, 'div', 'rw-special-grid');
         itemGrid.append(

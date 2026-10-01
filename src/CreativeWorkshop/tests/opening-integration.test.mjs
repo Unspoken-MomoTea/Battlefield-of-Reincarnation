@@ -193,6 +193,34 @@ test('opening live-refresh covers characters, partners, and store catalogs', asy
   assert.match(editor, /本次选择已撤回/u);
 });
 
+test('opening defaults character and partner tabs from installed workshop assets', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const opening = fs.readFileSync(
+    fileURLToPath(new URL('../../../Regular/开局.html', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(opening, /let characterMode = 'custom';/u);
+  assert.match(opening, /let partnerMode = 'custom';/u);
+  assert.match(opening, /let openingAssetDefaultsApplied = false;/u);
+  assert.match(opening, /characterMode = openingAssets\.some\(asset => asset\.kind === 'opening_character'\) \? 'library' : 'custom'/u);
+  assert.match(opening, /partnerMode = openingAssets\.some\(asset => asset\.kind === 'opening_partner'\) \? 'library' : 'custom'/u);
+  assert.match(opening, /id="partner-mode-custom" class="active"[\s\S]*id="partner-mode-library"/u);
+  assert.match(opening, /id="opening-partner-library" style="display:none;"/u);
+});
+
+test('installed opening partner suppresses the AI completion instruction', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const opening = fs.readFileSync(
+    fileURLToPath(new URL('../../../Regular/开局.html', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(opening, /if \(selectedPartner === 'library' && selectedOpeningPartner\)[\s\S]*partnerIsCompleteAsset = true;/u);
+  assert.match(opening, /partnerNode && !partnerIsCompleteAsset \? \`\[协同实体补全指令\]/u);
+});
 test('creator styles hide the character subtype outside character category and keep compact grids inside bounds', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');

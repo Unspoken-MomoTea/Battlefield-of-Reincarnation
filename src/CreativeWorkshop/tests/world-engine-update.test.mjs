@@ -213,3 +213,48 @@ test('stable latest world engine sha is silently normalized to the equivalent wo
   assert.match(adapter.state.character[0].content, /@world-engine-v2\.0\.4\/script\/世界推进系统\.js/u);
   assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/script/世界推进系统\\.js`, 'u'));
 });
+
+
+test('stable world engine treats a testing sha as stale even when it is ahead of the formal tag', async () => {
+  const testingSha = '5656565656565656565656565656565656565656';
+  const stableSha = '4545454545454545454545454545454545454545';
+  const adapter = adapterFixture(
+    `import('https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@${testingSha}/script/世界推进系统.js');`,
+  );
+  const host = { Samsara: { worldEngine: { version: '2.0.8', busy: false, committing: false } } };
+  const urls = [];
+  const updater = createWorldEngineUpdater({
+    adapter,
+    host,
+    channel: 'stable',
+    ref: 'world-engine-v*',
+    fetchImpl: async url => {
+      const value = String(url);
+      urls.push(value);
+      if (value.includes('/api/components/latest')) {
+        return json({
+          sha: stableSha,
+          channel: 'stable',
+          ref: 'world-engine-v*',
+          version: '2.0.8',
+          tag: 'V2.0.8',
+          release_source: 'tag',
+        });
+      }
+      throw new Error(`formal tag mismatch must not use ancestry compare: ${value}`);
+    },
+    loadScript: async url => {
+      host.Samsara.worldEngine = { version: '2.0.8', busy: false, committing: false };
+      return url;
+    },
+  });
+
+  const check = await updater.check();
+  assert.equal(check.updateAvailable, true);
+  assert.equal(urls.some(url => url.includes('/compare/')), false);
+
+  const updated = await updater.updateAndReload();
+  assert.equal(updated.updated, true);
+  assert.equal(updated.latestLoaderRef, 'V2.0.8');
+  assert.match(adapter.state.character[0].content, /@V2\.0\.8\/script\/世界推进系统\.js/u);
+});

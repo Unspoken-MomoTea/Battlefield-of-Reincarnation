@@ -7,6 +7,14 @@ export const OPENING_COMPONENT = Object.freeze({
   entryPath: '/src/opening/entry.html',
   sourcePath: 'src/opening/entry.html',
   tagPrefixes: ['opening-v'],
+  repair: Object.freeze({
+    requiredFiles: [
+      'src/opening/entry.html',
+      'src/opening/runtime.js',
+      'src/opening/version.js',
+    ],
+    loader: 'opening/latest',
+  }),
 });
 
 const UPDATE_CHANNELS = new Set(['stable', 'testing']);

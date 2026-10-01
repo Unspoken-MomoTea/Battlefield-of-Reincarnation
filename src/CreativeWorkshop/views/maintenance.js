@@ -15,6 +15,7 @@ export function createMaintenanceView({
   hotUpdateClient,
   worldEngineUpdater,
   statusBarUpdater,
+  calculatorUpdater,
 }) {
   let activeModal = null;
 
@@ -394,6 +395,136 @@ export function createMaintenanceView({
     }
   }
 
+  async function renderCalculatorSection(container) {
+    container.replaceChildren();
+    container.className = 'rw-maintenance-section rw-maintenance-client';
+
+    const currentInfo = calculatorUpdater?.current?.() || {};
+    const head = element('div', 'rw-maintenance-section-head');
+    const copy = element('div', '');
+    copy.append(
+      element('strong', '', '辅助计算更新'),
+      element(
+        'div',
+        'rw-muted',
+        currentInfo.version ? `当前版本 v${currentInfo.version}` : '检查已安装的辅助计算脚本与远程版本',
+      ),
+    );
+    head.appendChild(copy);
+    container.appendChild(head);
+
+    if (!calculatorUpdater) {
+      container.appendChild(statusBox('当前客户端没有加载辅助计算维护器。', 'bad'));
+      return;
+    }
+
+    const state = statusBox('正在检查辅助计算…');
+    container.appendChild(state);
+    try {
+      const result = await calculatorUpdater.check();
+      state.remove();
+
+      if (!result.installed) {
+        container.appendChild(statusBox('未找到已安装的辅助计算脚本脚本。', 'bad'));
+        return;
+      }
+
+      if (!result.releaseAvailable) {
+        const installedFormalRef = result.loaders
+          .flatMap(item => item.refs || [])
+          .find(value => /^calculator-v\d+\.\d+\.\d+$/u.test(String(value || '')));
+        const unavailable = element('div', 'rw-update-state rw-update-state--unavailable');
+        unavailable.append(
+          element('strong', '', installedFormalRef
+            ? `当前正式地址 ${installedFormalRef}`
+            : '暂未取得正式辅助计算发布信息'),
+          element(
+            'span',
+            '',
+            result.channel === 'stable'
+              ? (installedFormalRef
+                ? '当前正式脚本可以继续使用；本次只是没有取得远程更新信息，稍后重新检查即可。'
+                : '当前运行不受影响；修复页暂时没有取得正式版本信息，不会因此切换到 main 测试代码。')
+              : '暂时无法取得测试通道最新提交。',
+          ),
+        );
+        container.appendChild(unavailable);
+        return;
+      }
+
+      const targetLabel = result.latestVersion ? `v${result.latestVersion}` : result.latestShortSha;
+      const sourceLabel = result.current.version
+        ? `v${result.current.version}`
+        : (result.current.sha ? result.current.sha.slice(0, 8) : '旧式安装');
+
+      if (result.updateAvailable) {
+        const updateState = element('div', 'rw-update-state rw-update-state--available');
+        const versions = element('div', 'rw-update-version-line');
+        versions.append(
+          element('strong', '', sourceLabel),
+          element('span', '', '→'),
+          element('strong', '', targetLabel),
+        );
+        updateState.append(
+          element('span', 'rw-update-badge', result.legacyFound ? '可接入热更新' : '发现新版本'),
+          versions,
+          element(
+            'div',
+            'rw-update-summary',
+            result.legacyFound
+              ? '检测到旧式内联辅助计算；更新会原位替换为版本 loader。首次接管为避免旧事件残留，下次载入自动启用新版。'
+              : '更新会先写入版本 loader，再由新版辅助计算生命周期安全热重载。',
+          ),
+        );
+        container.appendChild(updateState);
+
+        const updateButton = button(
+          result.legacyFound ? '接管并更新辅助计算' : '立即更新辅助计算',
+          'primary rw-maintenance-update-cta',
+          async () => {
+            updateButton.disabled = true;
+            updateButton.textContent = '正在更新…';
+            const updated = await calculatorUpdater.updateAndReload();
+            const message = updated.hotReloaded
+              ? `辅助计算已热更新到 ${updated.latestVersion ? `v${updated.latestVersion}` : updated.latestShortSha}。`
+              : updated.legacyMigration
+                ? `辅助计算 loader 已接管到 ${updated.latestShortSha}；为避免旧版事件重复，本次不强制热载入，下次页面加载自动生效。`
+                : updated.reloadRequired
+                  ? `辅助计算版本链接已更新到 ${updated.latestShortSha}；运行时重载不可用，下次加载自动生效。`
+                  : '辅助计算已经是目标版本。';
+            try { host.toastr?.success?.(message, '辅助计算'); } catch {}
+            await renderCalculatorSection(container);
+          },
+        );
+        container.appendChild(updateButton);
+      } else {
+        container.appendChild(statusBox(`✓ 辅助计算已对齐 ${targetLabel}`, 'ok'));
+      }
+
+      const details = element('details', 'rw-update-details');
+      const detailBody = element('div', 'rw-update-details-body');
+      detailBody.append(
+        element('div', '', `更新通道：${result.channel === 'testing' ? '测试版' : '正式版'} · ${result.ref}`),
+        element('div', '', `目标：${result.latestTag || result.latestShortSha}`),
+        element(
+          'div',
+          '',
+          `安装形态：${result.legacyFound ? '旧式内联脚本' : result.loaderFound ? '版本 loader' : '运行时实例'}`,
+        ),
+      );
+      details.append(element('summary', '', '查看载入信息'), detailBody);
+      container.appendChild(details);
+    } catch (error) {
+      state.remove();
+      const failed = element('div', 'rw-update-state rw-update-state--problem');
+      failed.append(
+        element('strong', '', '检查辅助计算失败'),
+        element('span', '', error.message),
+      );
+      container.appendChild(failed);
+    }
+  }
+
   async function renderInstalledSection(container) {
     container.replaceChildren();
     const head = element('div', 'rw-maintenance-section-head');
@@ -474,13 +605,15 @@ export function createMaintenanceView({
     const client = element('section', 'rw-maintenance-section');
     const worldEngine = element('section', 'rw-maintenance-section');
     const statusBar = element('section', 'rw-maintenance-section');
+    const calculator = element('section', 'rw-maintenance-section');
     const installed = element('section', 'rw-maintenance-section');
-    modal.body.append(client, worldEngine, statusBar, installed);
+    modal.body.append(client, worldEngine, statusBar, calculator, installed);
 
     await Promise.allSettled([
       renderClientSection(client),
       renderWorldEngineSection(worldEngine),
       renderStatusBarSection(statusBar),
+      renderCalculatorSection(calculator),
       renderInstalledSection(installed),
     ]);
   }

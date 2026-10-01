@@ -10,6 +10,7 @@ export function createWorkshopBridge({
   selfUpdater,
   worldEngineUpdater,
   statusBarUpdater,
+  calculatorUpdater,
 }) {
   return {
     version, open, close, refresh, destroy, hotUpdate,
@@ -35,5 +36,7 @@ export function createWorkshopBridge({
     updateWorldEngine: () => worldEngineUpdater.updateAndReload(),
     checkStatusBarUpdate: () => statusBarUpdater.check(),
     updateStatusBar: () => statusBarUpdater.updateAndReload(),
+    checkCalculatorUpdate: () => calculatorUpdater.check(),
+    updateCalculator: () => calculatorUpdater.updateAndReload(),
   };
 }

@@ -53,6 +53,7 @@ export function createWorkshopViews(context) {
       selfUpdater: context.selfUpdater,
       worldEngineUpdater: context.worldEngineUpdater,
       statusBarUpdater: context.statusBarUpdater,
+      calculatorUpdater: context.calculatorUpdater,
       version: context.version,
       currentSha: context.currentSha,
       hotUpdateClient: context.hotUpdateClient,

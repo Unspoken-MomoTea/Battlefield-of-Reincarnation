@@ -4,6 +4,7 @@ import { projectService } from '../services/project-service.js';
 import { workshopSelfUpdater } from '../services/self-update.js';
 import { worldEngineUpdater } from '../services/world-engine-update.js';
 import { statusBarUpdater } from '../services/status-bar-update.js';
+import { calculatorUpdater } from '../services/calculator-update.js';
 import { createUiHelpers } from '../ui/helpers.js';
 import { createWorkshopShell } from '../ui/shell.js';
 import { createWorkshopUpdateNotice } from '../views/update-notice.js';
@@ -13,7 +14,7 @@ import { bindWorkshopLauncher } from './launcher.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '2.0.10';
+export const WORKSHOP_VERSION = '2.0.11';
 
 const CURRENT_SHA = (() => {
   const match = String(import.meta.url).match(
@@ -67,6 +68,7 @@ export function bootWorkshop() {
     selfUpdater: workshopSelfUpdater,
     worldEngineUpdater,
     statusBarUpdater,
+    calculatorUpdater,
     version: WORKSHOP_VERSION,
     currentSha: CURRENT_SHA,
     hotUpdateClient: updateLoaderOnly,
@@ -111,6 +113,7 @@ export function bootWorkshop() {
           workshopSelfUpdater.normalizeFormalLoaderLink?.(),
           worldEngineUpdater.normalizeFormalLoaderLink?.(),
           statusBarUpdater.normalizeFormalLoaderLink?.(),
+          calculatorUpdater.normalizeFormalLoaderLink?.(),
         ]);
         for (const result of normalized) {
           if (result.status === 'rejected') {
@@ -262,6 +265,7 @@ export function bootWorkshop() {
     selfUpdater: workshopSelfUpdater,
     worldEngineUpdater,
     statusBarUpdater,
+    calculatorUpdater,
   });
   host[GLOBAL_NAME] = bridge;
   host.dispatchEvent(new CustomEvent('reincarnation-workshop-ready', {

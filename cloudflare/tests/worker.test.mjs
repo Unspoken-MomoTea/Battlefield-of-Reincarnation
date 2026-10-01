@@ -419,3 +419,36 @@ test('status bar component endpoint remains independent from workshop and world 
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('calculator component endpoint remains independent from other component tags', async () => {
+  const originalFetch = globalThis.fetch;
+  const calculatorSha = '6767676767676767676767676767676767676767';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('/tags?')) {
+      return new Response(JSON.stringify([
+        { name: 'workshop-v4.0.0', commit: { sha: '8989898989898989898989898989898989898989' } },
+        { name: 'status-bar-v4.0.0', commit: { sha: '9090909090909090909090909090909090909090' } },
+        { name: 'calculator-v1.0.0', commit: { sha: calculatorSha } },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/components/latest?component=calculator'),
+      env({
+        CALCULATOR_UPDATE_CHANNEL: 'stable',
+        CALCULATOR_UPDATE_REF: 'calculator-v*',
+        SESSION_KV: new MemoryKV(),
+      }),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.tag, 'calculator-v1.0.0');
+    assert.equal(body.sha, calculatorSha);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

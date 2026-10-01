@@ -146,3 +146,43 @@ test('status bar endpoint uses only status-bar tags on stable channel', async ()
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('calculator endpoint uses only calculator tags on stable channel', async () => {
+  const originalFetch = globalThis.fetch;
+  const calculatorSha = '2323232323232323232323232323232323232323';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('/tags?')) {
+      return new Response(JSON.stringify([
+        { name: 'workshop-v9.9.9', commit: { sha: '3434343434343434343434343434343434343434' } },
+        { name: 'status-bar-v9.9.9', commit: { sha: '5656565656565656565656565656565656565656' } },
+        { name: 'calculator-v1.0.0', commit: { sha: calculatorSha } },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await routeSystem(
+      new Request('https://workshop.example/api/components/latest?component=calculator'),
+      {
+        CLIENT_UPDATE_CHANNEL: 'stable',
+        CLIENT_UPDATE_REF: 'workshop-stable',
+        CALCULATOR_UPDATE_CHANNEL: 'stable',
+        CALCULATOR_UPDATE_REF: 'calculator-v*',
+        SESSION_KV: { get: async () => null, put: async () => {} },
+      },
+      '/api/components/latest',
+      'test',
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.component, 'calculator');
+    assert.equal(body.channel, 'stable');
+    assert.equal(body.ref, 'calculator-v*');
+    assert.equal(body.tag, 'calculator-v1.0.0');
+    assert.equal(body.sha, calculatorSha);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

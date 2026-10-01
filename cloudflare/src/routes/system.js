@@ -30,6 +30,13 @@ const COMPONENTS = Object.freeze({
     tagPrefixes: ['status-bar-v'],
     legacyStableRef: '',
   },
+  calculator: {
+    id: 'calculator',
+    entryPath: '/script/辅助计算脚本.js',
+    sourcePath: 'script/辅助计算脚本.js',
+    tagPrefixes: ['calculator-v'],
+    legacyStableRef: '',
+  },
   opening: OPENING_COMPONENT,
 });
 
@@ -57,15 +64,29 @@ function statusBarUpdateRef(env) {
   return statusBarUpdateChannel(env) === 'testing' ? 'main' : 'status-bar-v*';
 }
 
+function calculatorUpdateChannel(env) {
+  return String(env.CALCULATOR_UPDATE_CHANNEL || 'stable').trim().toLowerCase() === 'testing'
+    ? 'testing'
+    : 'stable';
+}
+
+function calculatorUpdateRef(env) {
+  const configured = String(env.CALCULATOR_UPDATE_REF || '').trim();
+  if (configured) return configured;
+  return calculatorUpdateChannel(env) === 'testing' ? 'main' : 'calculator-v*';
+}
+
 function componentUpdateChannel(env, component) {
   if (component?.id === 'opening') return getOpeningUpdateChannel(env);
   if (component?.id === 'status-bar') return statusBarUpdateChannel(env);
+  if (component?.id === 'calculator') return calculatorUpdateChannel(env);
   return updateChannel(env);
 }
 
 function componentUpdateRef(env, component) {
   if (component?.id === 'opening') return getOpeningUpdateRef(env);
   if (component?.id === 'status-bar') return statusBarUpdateRef(env);
+  if (component?.id === 'calculator') return calculatorUpdateRef(env);
   return updateRef(env);
 }
 

@@ -15,7 +15,9 @@
     "OPENING_UPDATE_CHANNEL": "testing",
     "OPENING_UPDATE_REF": "main",
     "STATUS_BAR_UPDATE_CHANNEL": "stable",
-    "STATUS_BAR_UPDATE_REF": "status-bar-v*"
+    "STATUS_BAR_UPDATE_REF": "status-bar-v*",
+    "CALCULATOR_UPDATE_CHANNEL": "stable",
+    "CALCULATOR_UPDATE_REF": "calculator-v*"
   },
 
   "d1_databases": [
@@ -58,7 +60,9 @@
         "OPENING_UPDATE_CHANNEL": "testing",
         "OPENING_UPDATE_REF": "main",
         "STATUS_BAR_UPDATE_CHANNEL": "stable",
-        "STATUS_BAR_UPDATE_REF": "status-bar-v*"
+        "STATUS_BAR_UPDATE_REF": "status-bar-v*",
+    "CALCULATOR_UPDATE_CHANNEL": "stable",
+    "CALCULATOR_UPDATE_REF": "calculator-v*"
       },
       "d1_databases": [
         {
@@ -98,7 +102,9 @@
         "OPENING_UPDATE_CHANNEL": "testing",
         "OPENING_UPDATE_REF": "main",
         "STATUS_BAR_UPDATE_CHANNEL": "stable",
-        "STATUS_BAR_UPDATE_REF": "status-bar-v*"
+        "STATUS_BAR_UPDATE_REF": "status-bar-v*",
+    "CALCULATOR_UPDATE_CHANNEL": "stable",
+    "CALCULATOR_UPDATE_REF": "calculator-v*"
       },
       "d1_databases": [
         {

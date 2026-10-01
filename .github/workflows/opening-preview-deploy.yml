@@ -92,7 +92,7 @@ jobs:
             if (response.headers.get('x-opening-ref') !== 'main') {
               throw new Error(`unexpected opening ref: ${response.headers.get('x-opening-ref')}`);
             }
-            if (!/@[0-9a-f]{40}\/Regular\/%E5%BC%80%E5%B1%80\.html\?v=/u.test(location)) {
+            if (!/@[0-9a-f]{40}\/src\/opening\/entry\.html\?v=/u.test(location)) {
               throw new Error(`unexpected opening location: ${location}`);
             }
             return { response, location };
@@ -104,7 +104,7 @@ jobs:
               signal: AbortSignal.timeout(15000),
             });
             const text = await response.text();
-            if (!response.ok || !text.includes('<!DOCTYPE html>') || !text.includes('wizard-layout')) {
+            if (!response.ok || !text.includes('<!DOCTYPE html>') || !text.includes('id="opening-root"') || !text.includes('./runtime.js')) {
               throw new Error(`unexpected opening HTML: ${response.status}, length=${text.length}`);
             }
             return text;

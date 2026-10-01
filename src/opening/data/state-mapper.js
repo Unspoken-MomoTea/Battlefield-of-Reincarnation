@@ -5,13 +5,15 @@
  */
 
 export function mapOpeningBuild(build = {}) {
+  const selected = build.selected || build;
   return {
-    character: build.character || null,
-    partner: build.partner || [],
-    equipment: build.equipment || build.selections?.equipment || [],
-    skills: build.skills || build.selections?.skills || [],
-    products: build.products || build.selections?.store || [],
-    worldbookCharacters: build.worldbookCharacters || [],
+    character: selected.character || null,
+    partner: Array.isArray(selected.partner) ? selected.partner : (selected.partner ? [selected.partner] : []),
+    bloodline: selected.bloodline || null,
+    equipment: selected.equipment || build.equipment || build.selections?.equipment || [],
+    skills: selected.skills || build.skills || build.selections?.skills || [],
+    products: build.products || selected.products || build.selections?.store || [],
+    worldbookCharacters: selected.worldbookCharacters || build.worldbookCharacters || [],
     source: 'opening',
     timestamp: Date.now(),
   };

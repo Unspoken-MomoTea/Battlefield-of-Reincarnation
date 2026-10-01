@@ -32,6 +32,74 @@ test('calculator loader exposes and rewrites its pinned ref', () => {
   assert.match(content, /script\/辅助计算脚本\.js/u);
 });
 
+
+test('testing calculator prefers the Worker component endpoint and avoids direct GitHub polling', async () => {
+  const old = '1111111111111111111111111111111111111111';
+  const latest = '2222222222222222222222222222222222222222';
+  const adapter = adapterFixture(buildCalculatorLoaderContent(old, old));
+  const urls = [];
+
+  const updater = createCalculatorUpdater({
+    adapter,
+    host: { SamsaraCalculatorRuntime: { version: '1.0.0', sha: old } },
+    channel: 'testing',
+    ref: 'main',
+    fetchImpl: async url => {
+      const value = String(url);
+      urls.push(value);
+      if (value.includes('/api/components/latest')) {
+        return json({
+          component: 'calculator',
+          sha: latest,
+          channel: 'testing',
+          ref: 'main',
+          release_source: 'branch',
+          cached: false,
+          stale: false,
+        });
+      }
+      throw new Error(`testing calculator should not call GitHub directly when Worker succeeds: ${value}`);
+    },
+    loadScript: async () => {},
+  });
+
+  const result = await updater.check();
+  assert.equal(result.releaseAvailable, true);
+  assert.equal(result.latestSha, latest);
+  assert.equal(result.updateAvailable, true);
+  assert.equal(urls.some(value => value.includes('/api/components/latest')), true);
+  assert.equal(urls.some(value => value.includes('api.github.com')), false);
+});
+
+test('testing calculator falls back to GitHub when the Worker endpoint is unavailable', async () => {
+  const old = '3333333333333333333333333333333333333333';
+  const latest = '4444444444444444444444444444444444444444';
+  const adapter = adapterFixture(buildCalculatorLoaderContent(old, old));
+  const urls = [];
+
+  const updater = createCalculatorUpdater({
+    adapter,
+    host: {},
+    channel: 'testing',
+    ref: 'main',
+    fetchImpl: async url => {
+      const value = String(url);
+      urls.push(value);
+      if (value.includes('/api/components/latest')) return json({ code: 'temporary_unavailable' }, 503);
+      if (value.includes('/commits?')) return json([{ sha: latest }]);
+      if (value.includes('/compare/')) return json({ status: 'behind' });
+      throw new Error(`unexpected ${value}`);
+    },
+    loadScript: async () => {},
+  });
+
+  const result = await updater.check();
+  assert.equal(result.latestSha, latest);
+  assert.equal(result.updateAvailable, true);
+  assert.equal(urls.some(value => value.includes('/api/components/latest')), true);
+  assert.equal(urls.some(value => value.includes('/commits?')), true);
+});
+
 test('legacy inline calculator migrates to loader but defers first runtime replacement', async () => {
   const legacy = `(function(){ eventOn(Mvu.events.VARIABLE_UPDATE_ENDED, function(){}); window.__辅助计算脚本_loaded__ = true; })();`;
   const adapter = adapterFixture(legacy);

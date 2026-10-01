@@ -1,6 +1,25 @@
 const DB_NAME = 'reincarnation-workshop';
 const STORE_NAME = 'opening_assets';
 const DB_VERSION = 4;
+export const OPENING_ASSETS_CHANGED_EVENT = 'reincarnation:opening-assets-changed';
+
+function notifyOpeningAssetsChanged(detail = {}) {
+  const roots = [];
+  for (const root of [
+    globalThis.window,
+    (() => { try { return globalThis.window?.parent; } catch { return null; } })(),
+    (() => { try { return globalThis.window?.top; } catch { return null; } })(),
+  ]) {
+    if (!root || roots.includes(root) || typeof root.dispatchEvent !== 'function') continue;
+    roots.push(root);
+    try {
+      const EventCtor = root.CustomEvent || globalThis.CustomEvent;
+      if (typeof EventCtor === 'function') {
+        root.dispatchEvent(new EventCtor(OPENING_ASSETS_CHANGED_EVENT, { detail }));
+      }
+    } catch {}
+  }
+}
 
 function hasIndexedDb() {
   return typeof indexedDB !== 'undefined' && typeof indexedDB?.open === 'function';
@@ -46,13 +65,19 @@ export async function putOpeningAsset(asset) {
   return asset;
 }
 
-export async function removeOpeningAssetsByProject(projectId) {
+async function removeOpeningAssetsByProjectInternal(projectId) {
   if (!hasIndexedDb()) return 0;
   const all = await listOpeningAssets();
   const targets = all.filter(asset => asset.sourceProjectId === projectId);
   if (!targets.length) return 0;
   await withStore('readwrite', store => targets.forEach(asset => store.delete(asset.id)));
   return targets.length;
+}
+
+export async function removeOpeningAssetsByProject(projectId) {
+  const removed = await removeOpeningAssetsByProjectInternal(projectId);
+  if (removed) notifyOpeningAssetsChanged({ action: 'remove', projectId, count: removed });
+  return removed;
 }
 
 export async function listOpeningAssets(kind = '') {
@@ -98,12 +123,13 @@ export async function replaceProjectOpeningAssets(project, dataArtifacts = []) {
     if (supported.length) throw new Error('当前环境不支持 IndexedDB，无法安装开局角色或伙伴');
     return 0;
   }
-  await removeOpeningAssetsByProject(project.id);
+  await removeOpeningAssetsByProjectInternal(project.id);
   let count = 0;
   for (const { asset, index, itemIndex } of supported) {
       await putOpeningAsset(createOpeningAssetRecord(project, asset, index, itemIndex));
       count += 1;
   }
+  notifyOpeningAssetsChanged({ action: 'replace', projectId: project.id, count });
   return count;
 }
 
@@ -115,6 +141,7 @@ export async function restoreProjectOpeningAssets(projectId, assets = []) {
     if (assets.length) throw new Error('当前环境不支持 IndexedDB，无法恢复开局资产');
     return;
   }
-  await removeOpeningAssetsByProject(projectId);
+  await removeOpeningAssetsByProjectInternal(projectId);
   for (const asset of assets) await putOpeningAsset(asset);
+  notifyOpeningAssetsChanged({ action: 'restore', projectId, count: assets.length });
 }

@@ -2300,7 +2300,9 @@
         const bloodEffects = Object.entries((openingBlood && openingBlood.效果) || {});
         const bloodEffectHtml = bloodEffects.length
             ? bloodEffects.map(([effectName,effectText]) => `<p style="color:var(--accent); margin-top:6px;"><strong>${esc(effectName)}：</strong>${esc(effectText)}</p>`).join('')
-            : `<p style="color:var(--accent); margin-top:6px; font-weight:bold;"><i class="fa-solid fa-bolt"></i> 核心天赋效果暂缺，降临后将由主神 (AI) 根据种族特性当场演算并赋予。</p>`;
+            : openingBlood
+                ? `<p style="color:var(--text-sub); margin-top:6px;"><i class="fa-solid fa-lock"></i> 该角色档案未填写额外血统效果；开局不会自动生成或覆盖。</p>`
+                : `<p style="color:var(--accent); margin-top:6px; font-weight:bold;"><i class="fa-solid fa-bolt"></i> 核心天赋效果暂缺，降临后将由主神 (AI) 根据种族特性当场演算并赋予。</p>`;
 
         const consumed = DB.initSpaceCoins - currentCoins;
         
@@ -2357,6 +2359,23 @@
                     <div class="cf-text"><strong>外貌:</strong> ${$('cp-app').value.trim() || '无'}</div>
                     <div class="cf-text"><strong>喜爱:</strong> ${$('cp-like').value.trim() || '无'}</div>
                     <div class="cf-item-props"><p>${$('cp-bg').value.trim()||'暂无背景故事...'}</p></div>
+                </div>`;
+        } else if (selectedPartner === 'library' && selectedOpeningPartner) {
+            partnerCount = 1;
+            const pb = assetBuild(selectedOpeningPartner);
+            const pp = selectedOpeningPartner.profile || {};
+            const partnerBlood = assetBloodline(selectedOpeningPartner);
+            const partnerAttrs = partnerBlood.data.原始属性 || {};
+            const partnerAttrText = DB.attributes.map(attr => esc(attr) + ':' + esc(partnerAttrs[attr] || 'F')).join(' · ');
+            partnerHtml = `
+                <div class="cf-item">
+                    <div class="cf-item-head"><span style="color:var(--text-sub)">1.</span><span class="cf-item-name" style="color:#fff">${esc(selectedOpeningPartner.name || '未命名伙伴')}</span><span class="tier-badge t-${esc(pb.层级 || 'Ⅰ')}">${esc(pb.层级 || 'Ⅰ')}</span></div>
+                    <div class="cf-text"><strong>种族:</strong> ${esc(pb.种族 || '未知')} | <strong>身份:</strong> ${esc(Array.isArray(pb.身份) ? pb.身份.join(' / ') : (pb.身份 || '无'))}</div>
+                    <div class="cf-text"><strong>血统:</strong> ${esc(partnerBlood.name || '无')} ${partnerBlood.name ? '(' + esc(partnerBlood.data.品质 || 'F') + ')' : ''}</div>
+                    <div class="cf-text"><strong>原始属性:</strong> ${partnerAttrText}</div>
+                    <div class="cf-text"><strong>外貌:</strong> ${esc(pp.外貌 || pb.外貌 || '无')}</div>
+                    <div class="cf-text"><strong>喜爱:</strong> ${esc(pp.喜爱 || pb.喜爱 || '无')}</div>
+                    <div class="cf-item-props"><p>${esc(pp.背景故事 || pb.背景故事 || '暂无背景故事')}</p></div>
                 </div>`;
         } 
 
@@ -2740,6 +2759,22 @@
         });
 
         const openingCharacterBuild = characterMode === 'library' && selectedOpeningCharacter ? (selectedOpeningCharacter.build || selectedOpeningCharacter.character || {}) : null;
+        const libraryBloodlineName = openingCharacterBuild ? (Object.keys(openingCharacterBuild.血统 || {})[0] || '') : '';
+        const libraryBloodline = libraryBloodlineName && openingCharacterBuild
+            ? ((openingCharacterBuild.血统 && openingCharacterBuild.血统[libraryBloodlineName]) || {})
+            : null;
+        const initialBloodlineName = libraryBloodlineName || bloodlineName;
+        const initialBloodlineQuality = (libraryBloodline && libraryBloodline.品质) || tier;
+        const initialBloodlineDescription = (libraryBloodline && libraryBloodline.描述) || '最初的基础，却有无限可能';
+        const initialBloodlineAttributes = libraryBloodline
+            ? DB.attributes.map(attr => attr + ': ' + (((libraryBloodline.原始属性 || {})[attr]) || 'F') + '级').join(', ')
+            : attrStr;
+        const libraryBloodlineEffects = libraryBloodline ? Object.entries(libraryBloodline.效果 || {}) : [];
+        const initialBloodlineEffectText = libraryBloodline
+            ? (libraryBloodlineEffects.length
+                ? libraryBloodlineEffects.map(([effectName,effectText]) => effectName + ': ' + effectText).join('；')
+                : '无（保持角色档案，不自动补写）')
+            : '待首次降临生成';
         let partnerNode = null;
         let partnerIsCompleteAsset = false;
         if (selectedPartner === 'library' && selectedOpeningPartner) {
@@ -2915,6 +2950,9 @@
         const envInstruction = isWorldAnchored
             ? "在叙事中，根据当前【时间锚点】与世界背景，更新货币、因果轨道、势力等地点变量，并全量刷新传闻，必须完整且符合世界当前局势。最后生成【主神任务】。"
             : "在叙事中，请重点描绘「主神空间」或私人休整区的宏大/静谧环境、光影变幻或系统光球的微光。聚焦于角色刚到此处的状态。";
+        const bloodlineAwakeningInstruction = openingCharacterBuild
+            ? ''
+            : `首次降临时，请根据角色填写的【种族】特性，为「${initialBloodlineName}」设计 1~2 个符合【${initialBloodlineQuality}级】强度限制的专属血统效果，并在剧情中表现出觉醒的异象！`;
         const promptText = `进行开局初始化，请根据以下配置展开叙事：
 （注：系统已将角色的初始装备、道具、血统与羁绊对象直接写入底层数据库。人物与羁绊基本属性已存在，禁止在初始化时替换它们，请直接提取使用。）
 
@@ -2926,9 +2964,11 @@
 身份: ${identity}
 
 【初始血统】
-名称: ${bloodlineName}
-品质: ${tier}级
-描述: 最初的基础，却有无限可能
+名称: ${initialBloodlineName}
+品质: ${initialBloodlineQuality}级
+原始属性: ${initialBloodlineAttributes}
+效果: ${initialBloodlineEffectText}
+描述: ${initialBloodlineDescription}
 
 【协同实体 (伙伴)】
 ${partnerText}
@@ -2939,7 +2979,7 @@ ${worldText}
 ---
 【系统指令与叙事要求】：
 生成一个极具沉浸感的开局场景。
-首次降临时，请根据角色填写的【种族】特性，为「${bloodlineName}」设计 1~2 个符合【${tier}级】强度限制的专属血统效果，并在剧情中表现出觉醒的异象！
+${bloodlineAwakeningInstruction}
 ${envInstruction}
 ${partnerNode && !partnerIsCompleteAsset ? `[协同实体补全指令]：角色身边存在专属伙伴「${partnerNode.姓名 || '未命名'}」。该实体当前仅具有基础概念（层级、阵营、背景故事、喜好），缺乏具体战斗数据。请你基于其资料与【${partnerNode.层级 || '未知'}级】的强度限制，**自动为其推演并补全空白的战术模块**：
 1. 赋予契合人设并符合层级限制的【血统】与【技能】。

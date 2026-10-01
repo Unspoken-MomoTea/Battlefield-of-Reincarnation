@@ -44,6 +44,7 @@ async function serverLatest(fetchImpl, channel, ref) {
   const sha = String(data?.sha || '').trim();
   if (!validCommitSha(sha)) throw new Error('状态栏更新服务返回了无效提交');
   if (data?.channel && String(data.channel) !== channel) throw new Error('状态栏更新通道不匹配');
+  if (data?.ref && String(data.ref) !== ref) throw new Error('状态栏更新 Ref 不匹配');
   return {
     sha,
     channel,
@@ -51,16 +52,19 @@ async function serverLatest(fetchImpl, channel, ref) {
     version: String(data?.version || ''),
     tag: String(data?.tag || ''),
     releaseSource: String(data?.release_source || ''),
+    lookupSource: 'server',
+    stale: Boolean(data?.stale),
   };
 }
 
 async function resolveLatest(fetchImpl, channel, ref) {
-  if (channel === 'testing') {
-    const sha = await githubStatusBarSha(fetchImpl, ref);
-    return { sha, channel, ref, version: '', tag: '', releaseSource: 'branch' };
-  }
   let fromServer = null;
   try { fromServer = await serverLatest(fetchImpl, channel, ref); } catch {}
+  if (channel === 'testing') {
+    if (fromServer?.releaseSource === 'branch') return fromServer;
+    const sha = await githubStatusBarSha(fetchImpl, ref);
+    return { sha, channel, ref, version: '', tag: '', releaseSource: 'branch', lookupSource: 'github', stale: false };
+  }
   if (fromServer?.releaseSource === 'tag') return fromServer;
   try {
     const tagged = await latestTaggedRelease(fetchImpl, TAG_PREFIXES);
@@ -74,6 +78,11 @@ async function refNeedsUpdate(fetchImpl, currentRef, latest) {
   if (!ref) return true;
   if (ref === latest.sha || (latest.tag && ref === latest.tag)) return false;
   if (latest?.releaseSource === 'tag') return true;
+  if (latest?.releaseSource === 'branch' && latest?.lookupSource === 'server') {
+    // A stale Worker snapshot must never downgrade a client that may already have a newer SHA.
+    if (latest.stale && validCommitSha(ref)) return false;
+    return true;
+  }
   if (!validCommitSha(ref)) return true;
   try {
     const response = await fetchImpl(

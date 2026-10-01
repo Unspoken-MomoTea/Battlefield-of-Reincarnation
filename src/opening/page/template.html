@@ -1,0 +1,254 @@
+```
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>轮回建档协议 - 主神空间</title>
+    <style>/*__OPENING_STYLE_CORE__*/</style>
+
+<style>/*__OPENING_STYLE_EXTRA__*/</style>
+</head>
+<body>
+    <div class="wizard-layout">
+        <header class="app-header">
+            <h1>轮回战场 · 建档协议</h1>
+            <div class="header-actions">
+                <div class="wallet">可用空间币：<span class="coins" id="val-coins">1000</span></div>
+                <button class="icon-btn" onclick="openPresetModal()">💾 预设管理</button>
+            </div>
+        </header>
+
+        <div class="step-nav" id="step-nav">
+            <div class="step active" id="nav-1" onclick="jumpStep(1)"><span class="title">信息 / 属性</span></div>
+            <div class="step" id="nav-2" onclick="jumpStep(2)"><span class="title">装备 / 技能</span></div>
+            <div class="step" id="nav-3" onclick="jumpStep(3)"><span class="title">伙伴 / 背景</span></div>
+            <div class="step" id="nav-4" onclick="jumpStep(4)"><span class="title">确认 / 导出</span></div>
+        </div>
+
+        <div class="content-area">
+            <div class="step-pane active" id="pane-1">
+      <section class="variable-api-mode" id="variable-api-mode-section">
+          <div class="variable-api-mode-head">
+              <h2 class="variable-api-mode-title">配 · 变量更新方式</h2>
+          </div>
+          <p class="variable-api-mode-intro">决定面板变量由谁更新。选择后会自动开关角色世界书与当前预设里的对应条目；额外 API 的地址、Key 与模型仍需在 MVU 扩展中配置。</p>
+          <div class="variable-api-mode-grid">
+              <button type="button" class="variable-api-mode-card" data-variable-api-mode="额外API" onclick="chooseVariableApiMode('额外API')">
+                  <div class="variable-api-mode-card-title">额外API输出 <span class="variable-api-mode-badge">推荐</span></div>
+                  <div class="variable-api-mode-desc">由独立的额外模型在变量更新轮单独处理变量，正文模型只负责故事。长文本下更稳定，也更不容易让正文被更新指令污染。</div>
+                  <div class="variable-api-mode-tags"><span class="variable-api-mode-tag">正文更干净</span><span class="variable-api-mode-tag">需配置额外模型</span></div>
+              </button>
+              <button type="button" class="variable-api-mode-card" data-variable-api-mode="随主API" onclick="chooseVariableApiMode('随主API')">
+                  <div class="variable-api-mode-card-title">随主AI输出 <span class="variable-api-mode-badge">开箱即用</span></div>
+                  <div class="variable-api-mode-desc">主模型在讲故事的同一轮里顺带输出变量更新，无需额外模型配置；代价是正文与更新指令挤在同一轮，长篇幅时更容易出现格式错误。</div>
+                  <div class="variable-api-mode-tags"><span class="variable-api-mode-tag">无需额外设置</span><span class="variable-api-mode-tag">长文易出错</span></div>
+              </button>
+          </div>
+          <div class="variable-api-mode-status" id="variable-api-mode-status"></div>
+      </section>
+
+      <h2 class="section-title">角色档案</h2>
+                <div class="asset-library-shell">
+                    <div class="asset-mode-tabs"><button type="button" id="character-mode-custom" class="active" onclick="setCharacterMode('custom')">自定义角色</button><button type="button" id="character-mode-library" onclick="setCharacterMode('library')">开局角色库</button></div>
+                    <div id="opening-character-library" style="display:none;"></div>
+                </div>
+                <h2 class="section-title">基础信息录入</h2>
+                <div class="grid-2">
+                    <div class="form-group"><label>代号 / 姓名</label><input type="text" class="form-control" id="f-name" placeholder="输入角色姓名..."></div>
+                    <div class="form-group"><label>性别</label><select class="form-control" id="f-gender"><option>男</option><option>女</option><option>扶她</option><option>男娘</option><option>药娘</option><option>太监</option><option>无性别</option></select></div>
+                    <div class="form-group"><label>年龄</label><input type="number" class="form-control" id="f-age" value="20"></div>
+                    <div class="form-group"><label>种族</label><input type="text" class="form-control" id="f-race" value="人类" placeholder="如：人类、精灵..."></div>
+                </div>
+                <div class="form-group"><label>阵营身份 (限定五类)</label><select class="form-control" id="f-identity" onchange="updateFactionDesc()"><option>守护者</option><option>篡夺者</option><option>织梦者</option><option>残魂</option><option>穿越者</option></select></div>
+                <div class="faction-desc" id="faction-desc"></div>
+
+                <div class="attributes-panel" id="opening-attributes-panel">
+                    <div class="panel-header">
+                        <h3>血统属性分配（此处只针对血统，并不代表最终属性）</h3>
+                        <div class="points-summary">
+                            <div class="points-badge">可分配点数：<strong id="attr-remaining">8</strong> / <span id="attr-total-base">8</span></div>
+                        </div>
+                    </div>
+                    <div class="attribute-editor">
+                        <div class="attribute-grid" id="attr-grid"></div>
+                    </div>
+                    <div class="attributes-lock-note" id="opening-attributes-lock-note">已选择开局角色档案：血统五维由该角色构筑直接提供，此处无需再次加点。</div>
+                </div>
+            </div>
+
+            <div class="step-pane" id="pane-2">
+                <div class="selections-container">
+                    <div class="category-tabs" id="item-tabs"></div>
+                    <div class="category-selection-layout">
+                        <div class="category-sidebar"><div class="category-list" id="sub-category-list"></div></div>
+                        <div class="category-content">
+                            <div class="rarity-filter" id="rarity-filter"></div>
+                            <div class="item-grid" id="item-grid"></div>
+                        </div>
+                    </div>
+                    <div class="selected-panel">
+                        <div class="panel-header">
+                            <div class="header-top"><span class="title">已选授权清单</span><span class="count-badge" id="selected-count">0</span></div>
+                            <div class="points-info"><span class="points-label">剩余空间币：</span><span class="points-value" id="selected-coins">1000</span></div>
+                        </div>
+                        <div class="panel-body" id="selected-body"></div>
+                    </div>
+                    <div class="collapsible-form" id="custom-item-form" style="display:none;" data-hidden="1">
+                        <div class="form-header" onclick="toggleCustomItem()">
+                            <div><div class="form-title">+ 录入自定义物资</div><div class="form-desc">预设无法满足时自定义装备/道具/技能，字段遵循实体生成规则</div></div>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="form-body" id="custom-item-body"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-pane" id="pane-3">
+                <div class="background-page">
+                    <div>
+                        <h2 class="section-title">协同实体 (伙伴)</h2>
+                        <div class="asset-library-shell">
+                            <div class="asset-mode-tabs"><button type="button" id="partner-mode-custom" class="active" onclick="setPartnerMode('custom')">自定义伙伴</button><button type="button" id="partner-mode-library" onclick="setPartnerMode('library')">开局伙伴库</button></div>
+                            <div id="opening-partner-library" style="display:none;"></div>
+                        </div>
+                    </div>
+                    <div class="custom-partner-direct" id="custom-partner-form" style="display:none;">
+                        <div class="custom-partner-direct-head">
+                            <strong>自定义伙伴</strong>
+                            <small>直接填写伙伴资料并确认建档，不再额外套一层折叠栏。</small>
+                        </div>
+                        <div class="form-body" id="custom-partner-body"></div>
+                    </div>
+
+                    <div>
+                        <h2 class="section-title">初始剧情切入点 (二选一)</h2>
+                        <div class="category-tabs" id="plot-tabs"></div>
+                        <div class="destined-ones-content" style="margin-top:12px;"><div class="destined-one-list" id="grid-plot"></div></div>
+                    </div>
+
+                    <div class="collapsible-form" id="single-world-form" style="display:none;" data-hidden="1">
+                        <div class="form-header" onclick="toggleSingleWorld()">
+                            <div><div class="form-title">🌐 单一世界模式 (自定义想去的世界)</div><div class="form-desc">切换到「单一世界」选项卡后此处展开填写，系统将直接投放至你指定的世界</div></div>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="form-body" id="single-world-body"></div>
+                    </div>
+
+                    <div class="lock-toggle-box" id="world-stability-lock">
+                        <label class="lock-toggle">
+                            <input type="checkbox" id="ws-lock" onchange="updateBgSummary()">
+                            <span class="lock-track"><span class="lock-thumb"></span></span>
+                            <span class="lock-label">🔒 锁死世界稳定度</span>
+                        </label>
+                        <span class="lock-hint" id="ws-lock-hint">关闭：稳定度由世界自然浮动；开启：稳定度锁定为 100（不会因剧情波动崩毁）</span>
+                    </div>
+
+                    <div class="summary-card">
+                        <div class="summary-header"><span class="summary-title">因果羁绊预览</span><div class="summary-points"><span>剩余空间币：</span><span class="points-value" id="bg-coins">1000</span></div></div>
+                        <div class="summary-rows" id="bg-summary"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANE 4 -->
+            <div class="step-pane" id="pane-4">
+                <!-- 视觉呈现面板 -->
+                <div id="visual-summary"></div>
+                <!-- 移除了原本的 JSON 显示框与两颗旧按钮 -->
+            </div>
+        </div>
+
+        <footer class="app-footer">
+            <button class="btn" id="btn-prev" onclick="goStep(-1)" style="visibility:hidden;">返回上一步</button>
+            <!-- 下一步按钮将被 JS 动态接管 -->
+            <button class="btn primary" id="btn-next" onclick="goStep(1)">前往下一步</button>
+        </footer>
+    </div>
+
+    <!-- 🌟 新增：保存预设询问弹窗 -->
+    <div class="modal-overlay" id="save-confirm-modal" style="display:none; z-index: 10000;">
+        <div class="modal-container" style="max-width: 420px; text-align: center;">
+            <div class="modal-header" style="justify-content: center; background: rgba(102, 252, 241, 0.08); border-bottom: 1px solid var(--accent-dark);">
+                <h3 class="modal-title" style="color: var(--accent);"><i class="fa-solid fa-link"></i> 确认链接协议</h3>
+            </div>
+            <div class="modal-content" style="padding: 30px 20px;">
+                <p style="font-size: 1.05rem; color: #fff; margin: 0 0 10px 0; font-weight: bold;">即将把档案数据注入世界，是否保存为预设？</p>
+                <p style="font-size: 0.85rem; color: var(--text-sub); font-style: italic; margin: 0 0 25px 0;">保存后，下次轮回可一键快速加载相同配置</p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button class="btn" style="background: var(--accent); color: #000; border: none; font-weight: bold;" onclick="goToSavePreset()"><i class="fa-solid fa-save"></i> 保存配置</button>
+                    <button class="btn" style="background: var(--surface-light); color: var(--text); border: 1px solid var(--border);" onclick="skipAndStart()"><i class="fa-solid fa-paper-plane"></i> 不保存，直接开始</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 预设管理 Modal (三段式精装修版) -->
+    <div class="modal-overlay" id="preset-modal" style="display:none; z-index: 10001;">
+        <div class="modal-container" style="max-width: 680px;">
+            <div class="modal-header" style="background: rgba(0,0,0,0.5);">
+                <h3 class="modal-title" style="color: var(--text);"><i class="fa-solid fa-folder-open"></i> 预设管理</h3>
+                <button class="close-button" onclick="closePresetModal()">✕</button>
+            </div>
+            <div class="modal-content" style="padding: 25px;">
+                
+                <!-- 1. 保存区 -->
+                <div class="preset-section">
+                    <div class="preset-sec-title"><i class="fa-solid fa-save" style="color: #b8941f;"></i> 保存当前配置</div>
+                    <div class="preset-row">
+                        <input type="text" class="preset-input" id="preset-name-input" placeholder="输入预设名称 (如：剑士·废土开局)...">
+                        <button class="btn-p save" onclick="saveNewPreset()"><i class="fa-solid fa-save"></i> 保存预设</button>
+                    </div>
+                </div>
+
+                <!-- 2. 导入区 -->
+                <div class="preset-section">
+                    <div class="preset-sec-title"><i class="fa-solid fa-file-import" style="color: #00897b;"></i> 导入预设</div>
+                    <div class="preset-row">
+                        <button class="btn-p import" onclick="document.getElementById('import-file').click()"><i class="fa-solid fa-upload"></i> 导入预设文件</button>
+                        <span class="preset-hint">支持 .json 格式的预设文件</span>
+                        <input type="file" id="import-file" style="display:none;" accept=".json" onchange="importPreset(event)">
+                    </div>
+                </div>
+
+                <!-- 3. 列表区 -->
+                <div class="preset-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div class="preset-sec-title" style="margin-bottom: 0; color: #5c6bc0;"><i class="fa-solid fa-list-ul"></i> 已保存的预设 (<span id="preset-count">0</span>)</div>
+                        <button class="btn-p export-all" onclick="exportAllPresets()"><i class="fa-solid fa-file-export"></i> 全部导出</button>
+                    </div>
+                    <div class="preset-list" id="preset-list">
+                        <!-- 动态列表生成区 -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="welcome-load-modal" style="display:none; z-index: 10002;">
+        <div class="modal-container" style="max-width: 500px;">
+            <div class="modal-header" style="background: rgba(46, 125, 50, 0.15); border-bottom: 1px solid #4caf50;">
+                <h3 class="modal-title" style="color: #4caf50;"><i class="fa-solid fa-clock-rotate-left"></i> 检测到历史预设</h3>
+                <button class="close-button" onclick="closeWelcomeLoadModal()">✕</button>
+            </div>
+            <div class="modal-content" style="padding: 25px;">
+                <p style="font-size: 0.95rem; color: var(--text); margin: 0 0 15px 0;">发现本地保存的轮回建档预设，是否需要直接加载？<br><span style="color:var(--text-sub);font-size:0.85rem;">（不加载则直接关闭此窗口进行全新建档）</span></p>
+                
+                <div class="preset-section" style="margin-bottom: 20px; border: none; padding: 0;">
+                    <div class="preset-list" id="welcome-preset-list" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                        </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border);">
+                    <button class="btn cancel" style="border: 1px solid var(--text-sub);" onclick="closeWelcomeLoadModal()">✕ 取消，全新建档</button>
+                    <button class="btn primary" id="btn-welcome-load" onclick="confirmWelcomeLoad()"><i class="fa-solid fa-download"></i> 确认加载</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>//__OPENING_SCRIPT_BUNDLE__</script>
+</body>
+</html>
+```

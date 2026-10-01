@@ -16,6 +16,24 @@ export function createWorkshopViews(context) {
     openModal: context.ui.openModal,
     host: context.host,
   };
+  const author = createAuthorView({
+    ...common,
+    workshopApi: context.workshopApi,
+    projectService: context.projectService,
+    doc: context.doc,
+    categoryLabels: CATEGORY_LABELS,
+    artifactLabels: ARTIFACT_LABELS,
+    statusLabels: STATUS_LABELS,
+    getAuth: context.getAuth,
+  });
+  const installed = createInstalledView({
+    ...common,
+    projectService: context.projectService,
+    workshopApi: context.workshopApi,
+    doc: context.doc,
+    categoryLabels: CATEGORY_LABELS,
+    editLocalTest: (project, onSaved) => author.editLocalTest(project, onSaved),
+  });
   return {
     discover: createDiscoverView({
       ...common,
@@ -27,23 +45,8 @@ export function createWorkshopViews(context) {
       getAuth: context.getAuth,
       doc: context.doc,
     }),
-    installed: createInstalledView({
-      ...common,
-      projectService: context.projectService,
-      workshopApi: context.workshopApi,
-      doc: context.doc,
-      categoryLabels: CATEGORY_LABELS,
-    }),
-    author: createAuthorView({
-      ...common,
-      workshopApi: context.workshopApi,
-      projectService: context.projectService,
-      doc: context.doc,
-      categoryLabels: CATEGORY_LABELS,
-      artifactLabels: ARTIFACT_LABELS,
-      statusLabels: STATUS_LABELS,
-      getAuth: context.getAuth,
-    }),
+    installed,
+    author,
     maintenance: createMaintenanceView({
       ...common,
       projectService: context.projectService,

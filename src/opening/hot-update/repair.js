@@ -6,9 +6,13 @@ export function inspectOpeningInstallation(files = []) {
   const missing = required.filter(file => !existing.has(file));
 
   return {
+    id: OPENING_COMPONENT.id,
+    label: OPENING_COMPONENT.label,
+    version: OPENING_COMPONENT.version,
     healthy: missing.length === 0,
     repairable: true,
     missing,
     loader: OPENING_COMPONENT.repair.loader,
+    requiredFiles: [...required],
   };
 }

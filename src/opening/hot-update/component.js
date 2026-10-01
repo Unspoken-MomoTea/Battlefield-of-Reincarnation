@@ -4,8 +4,8 @@ export const OPENING_COMPONENT = Object.freeze({
   id: 'opening',
   label: '开局系统',
   version: OPENING_VERSION,
-  entryPath: '/Regular/开局.html',
-  sourcePath: 'Regular/开局.html',
+  entryPath: '/src/opening/entry.html',
+  sourcePath: 'src/opening/entry.html',
   tagPrefixes: ['opening-v'],
 });
 

@@ -5,9 +5,11 @@
  * 未接入时只保留事件，方便测试环境运行。
  */
 
+import { mapOpeningBuild } from './state-mapper.js';
+
 function handleOpeningBuild(event) {
   const detail = event.detail || {};
-  const build = detail.build || {};
+  const build = mapOpeningBuild(detail.build || {});
 
   const host = window.Samsara || {};
 

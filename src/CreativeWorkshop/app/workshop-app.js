@@ -3,6 +3,7 @@ import { workshopApi } from '../services/api.js';
 import { projectService } from '../services/project-service.js';
 import { workshopSelfUpdater } from '../services/self-update.js';
 import { worldEngineUpdater } from '../services/world-engine-update.js';
+import { statusBarUpdater } from '../services/status-bar-update.js';
 import { createUiHelpers } from '../ui/helpers.js';
 import { createWorkshopShell } from '../ui/shell.js';
 import { createWorkshopUpdateNotice } from '../views/update-notice.js';
@@ -65,6 +66,7 @@ export function bootWorkshop() {
     host, doc, nodes, ui, workshopApi, projectService,
     selfUpdater: workshopSelfUpdater,
     worldEngineUpdater,
+    statusBarUpdater,
     version: WORKSHOP_VERSION,
     currentSha: CURRENT_SHA,
     hotUpdateClient: updateLoaderOnly,
@@ -108,6 +110,7 @@ export function bootWorkshop() {
         const normalized = await Promise.allSettled([
           workshopSelfUpdater.normalizeFormalLoaderLink?.(),
           worldEngineUpdater.normalizeFormalLoaderLink?.(),
+          statusBarUpdater.normalizeFormalLoaderLink?.(),
         ]);
         for (const result of normalized) {
           if (result.status === 'rejected') {
@@ -258,6 +261,7 @@ export function bootWorkshop() {
     projectService,
     selfUpdater: workshopSelfUpdater,
     worldEngineUpdater,
+    statusBarUpdater,
   });
   host[GLOBAL_NAME] = bridge;
   host.dispatchEvent(new CustomEvent('reincarnation-workshop-ready', {

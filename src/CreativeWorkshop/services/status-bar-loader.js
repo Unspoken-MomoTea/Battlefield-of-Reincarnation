@@ -1,7 +1,7 @@
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
 const ENTRY_PATH = '/script/悬浮球状态栏.js';
 const JSDELIVR_PATTERN = new RegExp(
-  `(https:\\/\\/(?:(?:testingcf|cdn)\\.)?jsdelivr\\.net\\/gh\\/Unspoken-MomoTea\\/Battlefield-of-Reincarnation@)([^/'"\\s]+)(\\/script\\/世界推进系统\\.js)`,
+  `(https:\\/\\/(?:(?:testingcf|cdn)\\.)?jsdelivr\\.net\\/gh\\/Unspoken-MomoTea\\/Battlefield-of-Reincarnation@)([^/'"\\s]+)(\\/script\\/悬浮球状态栏\\.js)`,
   'gu',
 );
 
@@ -16,7 +16,7 @@ export function statusBarLoaderRefs(content) {
 
 export function isLegacyStatusBarScript(script) {
   const content = String(script?.content || '');
-  return content.includes('/* 轮回战场 · 世界引擎') && content.includes('host.Samsara.statusBar');
+  return content.includes('[轮回空间] 主神终端系统 UI') && content.includes('__悬浮球状态栏_loaded__') && statusBarLoaderRefs(content).length === 0;
 }
 
 export function rewriteStatusBarLoaderContent(content, ref, resolvedSha = '') {
@@ -56,3 +56,4 @@ export function buildStatusBarLoaderContent(ref, resolvedSha = '') {
 
 export const STATUS_BAR_REPOSITORY = REPOSITORY;
 export const STATUS_BAR_ENTRY_PATH = ENTRY_PATH;
+export const STATUS_BAR_SOURCE_PATH = 'script/悬浮球状态栏.js';

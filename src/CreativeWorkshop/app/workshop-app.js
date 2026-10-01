@@ -5,6 +5,7 @@ import { workshopSelfUpdater } from '../services/self-update.js';
 import { worldEngineUpdater } from '../services/world-engine-update.js';
 import { statusBarUpdater } from '../services/status-bar-update.js';
 import { calculatorUpdater } from '../services/calculator-update.js';
+import { openingUpdater } from '../services/opening-update.js';
 import { createUiHelpers } from '../ui/helpers.js';
 import { createWorkshopShell } from '../ui/shell.js';
 import { createWorkshopUpdateNotice } from '../views/update-notice.js';
@@ -69,6 +70,7 @@ export function bootWorkshop() {
     worldEngineUpdater,
     statusBarUpdater,
     calculatorUpdater,
+    openingUpdater,
     version: WORKSHOP_VERSION,
     currentSha: CURRENT_SHA,
     hotUpdateClient: updateLoaderOnly,

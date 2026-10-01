@@ -16,6 +16,7 @@ export function createMaintenanceView({
   worldEngineUpdater,
   statusBarUpdater,
   calculatorUpdater,
+  openingUpdater,
 }) {
   let activeModal = null;
 
@@ -525,6 +526,59 @@ export function createMaintenanceView({
     }
   }
 
+  async function renderOpeningSection(container) {
+    container.replaceChildren();
+    container.className = 'rw-maintenance-section rw-maintenance-client';
+
+    const head = element('div', 'rw-maintenance-section-head');
+    const copy = element('div', '');
+    copy.append(
+      element('strong', '', '开局系统'),
+      element('div', 'rw-muted', '固定入口由工坊服务解析；每次打开开局都会自动取得当前交付版本。'),
+    );
+    head.appendChild(copy);
+    container.appendChild(head);
+
+    if (!openingUpdater) {
+      container.appendChild(statusBox('当前客户端没有加载开局系统检查器。', 'bad'));
+      return;
+    }
+
+    const state = statusBox('正在检查开局入口…');
+    container.appendChild(state);
+    try {
+      const result = await openingUpdater.check();
+      state.remove();
+      const channelLabel = result.channel === 'testing' ? '测试版' : '正式版';
+      const targetLabel = result.version ? ('v' + result.version) : result.shortSha;
+      container.appendChild(statusBox('✓ 开局入口正常 · ' + channelLabel + ' · ' + targetLabel, 'ok'));
+
+      const actions = element('div', 'rw-row rw-maintenance-client-actions');
+      actions.appendChild(button('重新检查', '', () => renderOpeningSection(container)));
+
+      const details = element('details', 'rw-update-details');
+      const detailBody = element('div', 'rw-update-details-body');
+      detailBody.append(
+        element('div', '', '更新通道：' + channelLabel + ' · ' + (result.ref || '未知引用')),
+        element('div', '', '目标：' + (result.tag || result.shortSha)),
+        element('div', '', '交付：' + (result.entryPath || '未知')),
+        element('div', '', '固定入口：' + result.loaderUrl),
+        element('div', '', '更新方式：无需替换开局地址；下次打开自动使用当前版本。'),
+      );
+      details.append(element('summary', '', '查看开局载入信息'), detailBody);
+      actions.appendChild(details);
+      container.appendChild(actions);
+    } catch (error) {
+      state.remove();
+      const failed = element('div', 'rw-update-state rw-update-state--problem');
+      failed.append(
+        element('strong', '', '检查开局入口失败'),
+        element('span', '', error.message),
+      );
+      container.appendChild(failed);
+      container.appendChild(button('重新检查', '', () => renderOpeningSection(container)));
+    }
+  }
   async function renderInstalledSection(container) {
     container.replaceChildren();
     const head = element('div', 'rw-maintenance-section-head');
@@ -606,14 +660,16 @@ export function createMaintenanceView({
     const worldEngine = element('section', 'rw-maintenance-section');
     const statusBar = element('section', 'rw-maintenance-section');
     const calculator = element('section', 'rw-maintenance-section');
+    const opening = element('section', 'rw-maintenance-section');
     const installed = element('section', 'rw-maintenance-section');
-    modal.body.append(client, worldEngine, statusBar, calculator, installed);
+    modal.body.append(client, worldEngine, statusBar, calculator, opening, installed);
 
     await Promise.allSettled([
       renderClientSection(client),
       renderWorldEngineSection(worldEngine),
       renderStatusBarSection(statusBar),
       renderCalculatorSection(calculator),
+      renderOpeningSection(opening),
       renderInstalledSection(installed),
     ]);
   }

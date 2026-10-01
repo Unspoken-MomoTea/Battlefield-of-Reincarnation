@@ -111,6 +111,23 @@ test('library opening partner forwards the published appearance into the MVU par
   assert.match(picker, /<em>外貌<\/em>/u);
 });
 
+test('opening library shows portraits and selected build details before launch', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const opening = fs.readFileSync(
+    fileURLToPath(new URL('../../../Regular/开局.html', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(opening, /asset\.avatarUrl/u);
+  assert.match(opening, /class="asset-library-avatar"/u);
+  assert.match(opening, /function renderSelectedAssetPanel\(asset, kind\)/u);
+  assert.match(opening, /血统原始属性/u);
+  assert.match(opening, /blood\.data\.原始属性/u);
+  assert.match(opening, /selectedOpeningAttributePoints/u);
+  assert.match(opening, /applyOpeningAttributePoints\(selectedOpeningAttributePoints\(asset\)\)/u);
+});
+
 test('creator styles hide the character subtype outside character category and keep compact grids inside bounds', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');

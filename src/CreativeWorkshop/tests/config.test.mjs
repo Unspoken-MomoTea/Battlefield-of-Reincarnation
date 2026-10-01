@@ -8,6 +8,8 @@ import {
   getWorldEngineUpdateRef,
   getStatusBarUpdateChannel,
   getStatusBarUpdateRef,
+  getCalculatorUpdateChannel,
+  getCalculatorUpdateRef,
 } from '../config.js';
 
 function withConfig(config, fn) {
@@ -36,6 +38,8 @@ test('testing workshop stays on main while world engine stays on formal stable b
     assert.equal(getWorldEngineUpdateRef(), 'world-engine-v*');
     assert.equal(getStatusBarUpdateChannel(), 'stable');
     assert.equal(getStatusBarUpdateRef(), 'status-bar-v*');
+    assert.equal(getCalculatorUpdateChannel(), 'stable');
+    assert.equal(getCalculatorUpdateRef(), 'calculator-v*');
   });
 });
 
@@ -63,5 +67,19 @@ test('status bar testing must be explicitly opted into', () => {
   }, () => {
     assert.equal(getStatusBarUpdateChannel(), 'testing');
     assert.equal(getStatusBarUpdateRef(), 'main');
+  });
+});
+
+
+test('calculator testing must be explicitly opted into', () => {
+  withConfig({
+    apiBase: 'https://workshop-test.6661816.xyz',
+    updateChannel: 'testing',
+    updateRef: 'main',
+    calculatorUpdateChannel: 'testing',
+    calculatorUpdateRef: 'main',
+  }, () => {
+    assert.equal(getCalculatorUpdateChannel(), 'testing');
+    assert.equal(getCalculatorUpdateRef(), 'main');
   });
 });

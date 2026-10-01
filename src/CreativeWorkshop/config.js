@@ -106,3 +106,25 @@ export function getStatusBarUpdateRef() {
   if (configured) return configured;
   return getStatusBarUpdateChannel() === 'testing' ? 'main' : 'status-bar-v*';
 }
+
+
+export function getCalculatorUpdateChannel() {
+  const host = resolveHostWindow();
+  const configured = String(
+    host.ReincarnationWorkshopConfig?.calculatorUpdateChannel ??
+    globalThis.window?.ReincarnationWorkshopConfig?.calculatorUpdateChannel ??
+    '',
+  ).trim().toLowerCase();
+  return UPDATE_CHANNELS.has(configured) ? configured : 'stable';
+}
+
+export function getCalculatorUpdateRef() {
+  const host = resolveHostWindow();
+  const configured = String(
+    host.ReincarnationWorkshopConfig?.calculatorUpdateRef ??
+    globalThis.window?.ReincarnationWorkshopConfig?.calculatorUpdateRef ??
+    '',
+  ).trim();
+  if (configured) return configured;
+  return getCalculatorUpdateChannel() === 'testing' ? 'main' : 'calculator-v*';
+}

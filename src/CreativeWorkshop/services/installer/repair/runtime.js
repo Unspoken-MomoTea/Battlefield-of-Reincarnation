@@ -1,13 +1,15 @@
 import { applyProject } from '../apply.js';
 import { inspectInstalledProject } from './inspect.js';
 import { saveRepairState } from './registry.js';
+import { inspectOpeningInstallation } from '../repair.js';
 
 export async function inspectProjectInstallation({ adapter, storage }, projectId) {
   const installed = await storage.getInstalledProject(projectId);
   if (!installed) throw new Error('本地没有这个作品');
   const health = await inspectInstalledProject(adapter, installed);
   const record = await saveRepairState(storage, installed, health);
-  return { health, record };
+  const openingHealth = inspectOpeningInstallation(installed?.files ?? []);
+  return { health, openingHealth, record };
 }
 
 export async function repairInstalledProject({ adapter, storage }, projectId) {
@@ -25,5 +27,6 @@ export async function repairInstalledProject({ adapter, storage }, projectId) {
   const applied = await storage.getInstalledProject(projectId);
   const health = await inspectInstalledProject(adapter, applied);
   const record = await saveRepairState(storage, applied, health, { repaired: true });
-  return { health, record };
+  const openingHealth = inspectOpeningInstallation(applied?.files ?? []);
+  return { health, openingHealth, record };
 }

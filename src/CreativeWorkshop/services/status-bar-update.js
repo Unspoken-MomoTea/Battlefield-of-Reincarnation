@@ -11,7 +11,7 @@ import {
 } from './status-bar-loader.js';
 
 const REPOSITORY = 'Unspoken-MomoTea/Battlefield-of-Reincarnation';
-const SOURCE_PATH = 'script/状态栏系统.js';
+const SOURCE_PATH = 'script/悬浮球状态栏.js';
 const TAG_PREFIXES = ['status-bar-v'];
 const GITHUB_COMMITS_URL = `https://api.github.com/repos/${REPOSITORY}/commits`;
 const GITHUB_COMPARE_BASE = `https://api.github.com/repos/${REPOSITORY}/compare/`;
@@ -34,7 +34,7 @@ async function githubStatusBarSha(fetchImpl, ref) {
 }
 
 async function serverLatest(fetchImpl, channel, ref) {
-  const response = await fetchImpl(`${getApiBase()}/api/components/latest?component=world-engine`, {
+  const response = await fetchImpl(`${getApiBase()}/api/components/latest?component=status-bar`, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
   });
@@ -96,14 +96,15 @@ function classifyStatusBarScript(script) {
 }
 
 function currentRuntime(host) {
-  const engine = host?.Samsara?.statusBar;
-  const info = host?.Samsara?.WorldEngineInfo || {};
-  const loader = host?.SamsaraWorldEngineLoader || {};
+  const runtime = host?.SamsaraStatusBarRuntime || {};
+  const info = host?.Samsara?.StatusBarInfo || {};
+  const loader = host?.SamsaraStatusBarLoader || {};
   return {
-    installed: Boolean(engine || loader.sha),
-    version: String(engine?.version || info.version || ''),
-    sha: String(info.sha || loader.sha || ''),
-    busy: engine?.busy === true || engine?.committing === true,
+    installed: Boolean(runtime.version || info.version || loader.sha || host?.__悬浮球状态栏_loaded__),
+    managedRuntime: Boolean(runtime.version || info.version),
+    version: String(runtime.version || info.version || ''),
+    sha: String(info.sha || runtime.sha || loader.sha || ''),
+    ref: String(info.ref || runtime.ref || loader.ref || ''),
   };
 }
 
@@ -162,12 +163,14 @@ export function createStatusBarUpdater({
 
     const changedScopes = new Set();
     let changedScripts = 0;
+    let migratedLegacy = false;
     for (const item of treeScan.matches) {
       const script = scriptFromScan(treeScan, item);
       if (!script || typeof script.content !== 'string') continue;
       let next = script.content;
       if (item.kind === 'legacy') {
         next = buildStatusBarLoaderContent(latestLoaderRef, latest.sha);
+        migratedLegacy = true;
       } else {
         const checks = await Promise.all(item.refs.map(currentRef => refNeedsUpdate(fetchImpl, currentRef, latest)));
         if (!checks.some(Boolean)) continue;
@@ -213,15 +216,22 @@ export function createStatusBarUpdater({
       latestVersion: latest.version || '',
       latestTag: latest.tag || '',
       latestImportUrl: statusBarImportUrl(latestLoaderRef),
+      migratedLegacy,
     };
   }
 
   async function hotReload(updated) {
-    const before = host?.Samsara?.statusBar;
-    if (before?.busy === true || before?.committing === true) {
-      return { hotReloaded: false, reloadRequired: true, busy: true };
+    if (updated.migratedLegacy) {
+      return {
+        hotReloaded: false,
+        reloadRequired: true,
+        legacyMigration: true,
+        hotReloadError: '旧式内联状态栏无法可靠注销历史订阅；本次先迁移为 loader，下次载入自动启用新版运行时',
+      };
     }
-    host.SamsaraWorldEngineLoader = {
+
+    const before = host?.SamsaraStatusBarRuntime;
+    host.SamsaraStatusBarLoader = {
       repository: REPOSITORY,
       ref: updated.latestLoaderRef || updated.latestSha,
       sha: updated.latestSha,
@@ -232,11 +242,11 @@ export function createStatusBarUpdater({
     } catch (error) {
       return { hotReloaded: false, reloadRequired: true, hotReloadError: error?.message || String(error) };
     }
-    const after = host?.Samsara?.statusBar;
+    const after = host?.SamsaraStatusBarRuntime;
     if (!after || after === before) {
       return { hotReloaded: false, reloadRequired: true, hotReloadError: '新状态栏脚本未建立新的运行实例' };
     }
-    return { hotReloaded: true, reloadRequired: false, busy: false };
+    return { hotReloaded: true, reloadRequired: false };
   }
 
   async function normalizeFormalLoaderLink() {

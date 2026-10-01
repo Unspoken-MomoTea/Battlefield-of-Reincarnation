@@ -15,7 +15,9 @@ export function getOpeningSelection() {
 }
 
 export function setOpeningSelection(path, value) {
-  const keys = path.split('.');
+  const keys = String(path || '').split('.').filter(Boolean);
+  if (!keys.length) throw new TypeError('opening selection path is required');
+
   let target = state;
   while (keys.length > 1) {
     const key = keys.shift();
@@ -23,6 +25,7 @@ export function setOpeningSelection(path, value) {
     target = target[key];
   }
   target[keys[0]] = value;
+  return state;
 }
 
 export function resetOpeningSelection() {
@@ -34,4 +37,6 @@ export function resetOpeningSelection() {
     skills: [],
     worldbookCharacters: [],
   };
+  state.products = [];
+  return state;
 }

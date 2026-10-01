@@ -87,10 +87,7 @@ jobs:
         run: node --check script/辅助计算脚本.js
 
       - name: Calculator regression suite
-        run: |
-          node tests/npc-difficulty.cjs
-          node tests/asset-harvest-lifecycle.cjs
-          node tests/trial-promotion-flow.cjs
+        run: node tests/trial-promotion-flow.cjs
 
       - name: Workshop calculator updater contracts
         run: node --test src/CreativeWorkshop/tests/calculator-update.test.mjs

@@ -2,6 +2,10 @@ const OPENING_RANKS = new Set(['Ⅰ', 'Ⅱ', 'Ⅲ']);
 const RANK_QUALITY = { 'Ⅰ': 'F', 'Ⅱ': 'E', 'Ⅲ': 'D' };
 const STORE_QUALITIES = new Set(['F', 'E', 'D']);
 const EQUIPMENT_ATTR_QUALITIES = new Set(['F', 'E', 'D', 'C', 'B', 'A']);
+const STORE_ATTRIBUTE_NAMES = new Set(['力量', '敏捷', '体质', '精神', '魅力', 'ATK', 'DEF', 'MATK', 'MDEF', 'AP']);
+const STORE_ATTR_POINTS = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5 };
+const STORE_ATTR_MAX_POINTS = 12;
+const STORE_ATTR_MAX_COUNT = 3;
 const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
 const STORE_ITEM_TYPES = new Set(['消耗', '材料', '特殊']);
 const POINT_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
@@ -295,10 +299,24 @@ function validateStoreCatalog(catalog) {
         if (!Number.isInteger(equipmentType) || equipmentType < 0 || equipmentType > 17) {
           throw new Error(`装备“${item.name}”类型必须是开局装备分类 0-17`);
         }
-        for (const [attr, value] of Object.entries(item.attrs || {})) {
-          if (!EQUIPMENT_ATTR_QUALITIES.has(String(value || '').toUpperCase())) {
+        const attributeEntries = Object.entries(item.attrs || {})
+          .filter(([, value]) => String(value || '').trim());
+        if (attributeEntries.length > STORE_ATTR_MAX_COUNT) {
+          throw new Error(`装备“${item.name}”原始属性最多只能设置 ${STORE_ATTR_MAX_COUNT} 项`);
+        }
+        let attributePoints = 0;
+        for (const [attr, value] of attributeEntries) {
+          if (!STORE_ATTRIBUTE_NAMES.has(attr)) {
+            throw new Error(`装备“${item.name}”包含未知原始属性：${attr}`);
+          }
+          const qualityValue = String(value || '').toUpperCase();
+          if (!EQUIPMENT_ATTR_QUALITIES.has(qualityValue)) {
             throw new Error(`装备“${item.name}”原始属性 ${attr} 只能是 F-A`);
           }
+          attributePoints += STORE_ATTR_POINTS[qualityValue] ?? 0;
+        }
+        if (attributePoints > STORE_ATTR_MAX_POINTS) {
+          throw new Error(`装备“${item.name}”原始属性点超过上限：当前 ${attributePoints} / ${STORE_ATTR_MAX_POINTS}`);
         }
       }
       if (Object.keys(item.effects || {}).length > 2) {

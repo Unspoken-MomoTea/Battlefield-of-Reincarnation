@@ -1,6 +1,25 @@
 const DB_NAME = 'reincarnation-workshop';
 const STORE_NAME = 'opening_store_catalogs';
 const DB_VERSION = 4;
+export const OPENING_STORE_CHANGED_EVENT = 'reincarnation:opening-store-changed';
+
+function notifyOpeningStoreChanged(detail = {}) {
+  const roots = [];
+  for (const root of [
+    globalThis.window,
+    (() => { try { return globalThis.window?.parent; } catch { return null; } })(),
+    (() => { try { return globalThis.window?.top; } catch { return null; } })(),
+  ]) {
+    if (!root || roots.includes(root) || typeof root.dispatchEvent !== 'function') continue;
+    roots.push(root);
+    try {
+      const EventCtor = root.CustomEvent || globalThis.CustomEvent;
+      if (typeof EventCtor === 'function') {
+        root.dispatchEvent(new EventCtor(OPENING_STORE_CHANGED_EVENT, { detail }));
+      }
+    } catch {}
+  }
+}
 
 function hasIndexedDb() {
   return typeof indexedDB !== 'undefined' && typeof indexedDB?.open === 'function';
@@ -27,7 +46,7 @@ async function all() {
   const db=await openDb();
   try{return await new Promise((resolve,reject)=>{const r=db.transaction(STORE_NAME,'readonly').objectStore(STORE_NAME).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error);});}finally{db.close();}
 }
-export async function removeProjectStoreCatalogs(projectId) {
+async function removeProjectStoreCatalogsInternal(projectId) {
   if(!hasIndexedDb()) return 0;
   const rows=(await all()).filter(row=>row.sourceProjectId===projectId);
   if(!rows.length)return 0;
@@ -35,16 +54,26 @@ export async function removeProjectStoreCatalogs(projectId) {
   try{await new Promise((resolve,reject)=>{const tx=db.transaction(STORE_NAME,'readwrite');rows.forEach(row=>tx.objectStore(STORE_NAME).delete(row.id));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();}
   return rows.length;
 }
+
+export async function removeProjectStoreCatalogs(projectId) {
+  const removed = await removeProjectStoreCatalogsInternal(projectId);
+  if (removed) notifyOpeningStoreChanged({ action: 'remove', projectId, count: removed });
+  return removed;
+}
 export async function replaceProjectStoreCatalogs(project, dataArtifacts=[]) {
   const catalogs=dataArtifacts.flatMap(a=>Array.isArray(a?.content)?a.content:[a?.content]).filter(c=>c?.kind==='store_catalog');
   if(!hasIndexedDb()) {
     if(catalogs.length) throw new Error('当前环境不支持 IndexedDB，无法安装开局商店扩展');
     return 0;
   }
-  await removeProjectStoreCatalogs(project.id);
-  if(!catalogs.length)return 0;
+  await removeProjectStoreCatalogsInternal(project.id);
+  if(!catalogs.length) {
+    notifyOpeningStoreChanged({ action: 'replace', projectId: project.id, count: 0 });
+    return 0;
+  }
   const db=await openDb();
   try{await new Promise((resolve,reject)=>{const tx=db.transaction(STORE_NAME,'readwrite');catalogs.forEach((catalog,index)=>tx.objectStore(STORE_NAME).put({id:`${project.id}:${index}`,sourceProjectId:project.id,sourceProjectName:project.name,sourceVersion:project.version,catalog:structuredClone(catalog.catalog||{})}));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+  notifyOpeningStoreChanged({ action: 'replace', projectId: project.id, count: catalogs.length });
   return catalogs.length;
 }
 export async function getInstalledStoreCatalog() {
@@ -61,8 +90,12 @@ export async function restoreProjectStoreCatalogs(projectId, rows = []) {
     if(rows.length) throw new Error('当前环境不支持 IndexedDB，无法恢复开局商店扩展');
     return;
   }
-  await removeProjectStoreCatalogs(projectId);
-  if (!rows.length) return;
+  await removeProjectStoreCatalogsInternal(projectId);
+  if (!rows.length) {
+    notifyOpeningStoreChanged({ action: 'restore', projectId, count: 0 });
+    return;
+  }
   const db=await openDb();
   try{await new Promise((resolve,reject)=>{const tx=db.transaction(STORE_NAME,'readwrite');rows.forEach(row=>tx.objectStore(STORE_NAME).put(structuredClone(row)));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}finally{db.close();}
+  notifyOpeningStoreChanged({ action: 'restore', projectId, count: rows.length });
 }

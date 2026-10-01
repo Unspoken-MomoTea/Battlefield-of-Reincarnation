@@ -88,6 +88,9 @@ assert.match(html,/function availableRarities\(\)/,'opening derives rarity tabs 
 assert.match(html,/if \(rarities\.length === 1\) activeRarity = rarities\[0\];/,'single available rarity does not keep redundant all-level tabs');
 assert.match(html,/DB\.rarityList\.filter\(r => present\.has\(r\)\)/,'rarity buttons omit levels with no merchandise');
 assert.match(html,/opening_store_catalogs/,'opening loads installed workshop store catalogs');
+assert.match(html,/addEventListener\('reincarnation:opening-store-changed'/,'opening listens for live workshop store changes');
+assert.match(html,/DB\[group\] = DB\[group\]\.filter\(item => !item\._sourceProjectId\)/,'store refresh replaces previous workshop rows instead of accumulating stale items');
+assert.match(html,/loadOpeningStoreCatalogs\(projectId\)/,'store refresh reloads the changed project without page reload');
 assert.match(html,/DB\.equipments\.some\(e=>e\.id===i\.id\)/,'selected workshop equipment is exported through the normal equipment path');
 assert.match(html,/DB\.items\.some\(e=>e\.id===i\.id\)/,'selected workshop items are exported through the normal item path');
 assert.match(html,/DB\.skills\.some\(e=>e\.id===i\.id\)/,'selected workshop skills are exported through the normal skill path');

@@ -159,6 +159,39 @@ test('opening library live-refreshes installed assets and shows bloodline effect
   assert.match(panel, /\$\{equipmentSection\}/u);
 });
 
+test('opening live-refresh covers characters, partners, and store catalogs', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const opening = fs.readFileSync(
+    fileURLToPath(new URL('../../../Regular/开局.html', import.meta.url)),
+    'utf8',
+  );
+  const catalogs = fs.readFileSync(
+    fileURLToPath(new URL('../../opening/store/installed-catalogs.js', import.meta.url)),
+    'utf8',
+  );
+  const editor = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/dedicated-editor.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(catalogs, /OPENING_STORE_CHANGED_EVENT = 'reincarnation:opening-store-changed'/u);
+  assert.match(catalogs, /notifyOpeningStoreChanged\(\{ action: 'replace'/u);
+  assert.match(catalogs, /notifyOpeningStoreChanged\(\{ action: 'remove'/u);
+  assert.match(opening, /addEventListener\('reincarnation:opening-store-changed'/u);
+  assert.match(opening, /loadOpeningStoreCatalogs\(projectId\)/u);
+  assert.match(opening, /DB\[group\] = DB\[group\]\.filter\(item => !item\._sourceProjectId\)/u);
+  assert.match(opening, /renderSubCategories\(\);[\s\S]*renderRarityFilter\(\);[\s\S]*renderItems\(\);/u);
+
+  assert.match(opening, /renderOpeningCharacterLibrary\(\);[\s\S]*renderOpeningPartnerLibrary\(\);/u);
+  assert.match(opening, /实时刷新创意工坊角色\/伙伴失败/u);
+
+  assert.match(editor, /STORE_ATTR_MAX_POINTS = 12/u);
+  assert.match(editor, /STORE_ATTR_MAX_COUNT = 3/u);
+  assert.match(editor, /已选 \$\{usage\.count\}\/\$\{STORE_ATTR_MAX_COUNT\} 项/u);
+  assert.match(editor, /本次选择已撤回/u);
+});
+
 test('creator styles hide the character subtype outside character category and keep compact grids inside bounds', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');

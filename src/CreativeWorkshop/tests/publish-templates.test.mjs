@@ -400,6 +400,46 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
     }, 'store_catalog', '坏商店'),
     /最多只能填写 2 条效果/u,
   );
+
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: {
+        equipments: [{
+          ...store.equipments[0],
+          attrs: { 力量: 'A', 敏捷: 'A', 体质: 'D', 精神: 'F' },
+        }],
+        items: [],
+        skills: [],
+      },
+    }, 'store_catalog', '坏商店'),
+    /最多只能设置 3 项/u,
+  );
+
+  assert.throws(
+    () => buildDedicatedArtifacts({
+      store_catalog: {
+        equipments: [{
+          ...store.equipments[0],
+          attrs: { 力量: 'A', 敏捷: 'A', 体质: 'C' },
+        }],
+        items: [],
+        skills: [],
+      },
+    }, 'store_catalog', '坏商店'),
+    /13 \/ 12/u,
+  );
+
+  const capped = buildDedicatedArtifacts({
+    store_catalog: {
+      equipments: [{
+        ...store.equipments[0],
+        attrs: { 力量: 'A', 敏捷: 'A', 体质: 'D' },
+      }],
+      items: [],
+      skills: [],
+    },
+  }, 'store_catalog', '合法商店')[0].content;
+  assert.deepEqual(capped.catalog.equipments[0].attrs, { 力量: 'A', 敏捷: 'A', 体质: 'D' });
 });
 
 test('dedicated update values recover point allocation, skills, partner equipment and store catalog', () => {

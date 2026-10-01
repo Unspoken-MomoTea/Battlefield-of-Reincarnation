@@ -73,6 +73,7 @@ async function refNeedsUpdate(fetchImpl, currentRef, latest) {
   const ref = String(currentRef || '').trim();
   if (!ref) return true;
   if (ref === latest.sha || (latest.tag && ref === latest.tag)) return false;
+  if (latest?.releaseSource === 'tag') return true;
   if (!validCommitSha(ref)) return true;
   try {
     const response = await fetchImpl(

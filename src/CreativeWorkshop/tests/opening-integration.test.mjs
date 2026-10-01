@@ -192,6 +192,8 @@ test('opening live-refresh covers characters, partners, and store catalogs', asy
   assert.match(editor, /F=1 \/ E=2 \/ D=3 \/ C=4 \/ B=5 \/ A=6/u);
   assert.match(editor, /已选 \$\{usage\.count\}\/\$\{STORE_ATTR_MAX_COUNT\} 项/u);
   assert.match(editor, /select\.disabled = selectionLocked && !select\.value/u);
+  assert.match(editor, /remainingPoints = Math\.max\(0, STORE_ATTR_MAX_POINTS - otherPoints\)/u);
+  assert.match(editor, /最高可选品质/u);
   assert.match(editor, /本次选择已撤回/u);
 });
 
@@ -248,7 +250,11 @@ test('creator flows require a cover before local testing or publishing', async (
   assert.match(template, /data-drop-target="heretic-cover"/u);
   assert.match(template, /data-role="heretic-cover-preview"/u);
   assert.match(template, /data-role="heretic-cover-state"/u);
-  assert.match(create, /发布作品必须提供图片/u);
+  assert.match(create, /所有本地测试和正式作品都必须带封面/u);
+  assert.match(create, /所有正式作品都必须带封面/u);
+  assert.match(create, /showRequiredField/u);
+  assert.doesNotMatch(create, /return notifyError\(new Error\('请先填写作品名称'\)\)/u);
+  assert.doesNotMatch(create, /return notifyError\(new Error\('请选择封面图片；发布作品必须提供图片'\)\)/u);
   assert.match(create, /const coverDataUrl = await readFileDataUrl\(cover\)/u);
   assert.match(editor, /本地测试也必须带图片/u);
   assert.match(editor, /发布作品必须提供图片/u);

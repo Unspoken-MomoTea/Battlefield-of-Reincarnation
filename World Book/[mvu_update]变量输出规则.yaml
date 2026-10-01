@@ -18,7 +18,6 @@ variables_update_format:
   format: |-
     <UpdateVariable>
       <Analysis>/* IN Chinese, more than 150 Chinese characters; every numeric change needs an explicit formula line, every affected character needs one independent driver line, and every changed axis must be declared separately */
-      - ${Time & Environment: calculate exact passed time and /世界/时间 increment, verify current location, and check exploration progress stage (0/10/30/60/90/100)}
       - ${Combat & Resources: calculate user HP/EP/THP changes with explicit formulas, check form/vehicle durability and fuel consumption, verify buff/debuff durations and remove expired ones}
       - ${Entity Tracking & Mobs: verify newly encountered entities/mobs from Step.2 draft, ensure full panel insertion (bloodline/gear/skills) without empty objects, calculate NPC favorability change (routine ±1~5 / critical ±10) with psychological drivers, and update presence/attitude}
       - ${Inventory & Equipment: verify new gear insertion with base attributes, update equip status 0<->1, track consumable item count changes, and remove items when quantity reaches 0}

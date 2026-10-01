@@ -637,8 +637,8 @@
                     <div>
                         <h2 class="section-title">协同实体 (伙伴)</h2>
                         <div class="asset-library-shell">
-                            <div class="asset-mode-tabs"><button type="button" id="partner-mode-library" class="active" onclick="setPartnerMode('library')">开局伙伴库</button><button type="button" id="partner-mode-custom" onclick="setPartnerMode('custom')">自定义伙伴</button></div>
-                            <div id="opening-partner-library"></div>
+                            <div class="asset-mode-tabs"><button type="button" id="partner-mode-custom" class="active" onclick="setPartnerMode('custom')">自定义伙伴</button><button type="button" id="partner-mode-library" onclick="setPartnerMode('library')">开局伙伴库</button></div>
+                            <div id="opening-partner-library" style="display:none;"></div>
                         </div>
                     </div>
                     <div class="custom-partner-direct" id="custom-partner-form" style="display:none;">
@@ -1112,7 +1112,8 @@
     let selectedOpeningPartner = null;
     let characterMode = 'custom';
     let customOpeningAttributePoints = null;
-    let partnerMode = 'library';
+    let partnerMode = 'custom';
+    let openingAssetDefaultsApplied = false;
     let openingAssets = [];
     let customItems = [];
     let activeItemTab = 'equipment';
@@ -1227,9 +1228,25 @@
         if (selectedPartnerId) {
             selectedOpeningPartner = openingAssets.find(asset => asset.id === selectedPartnerId && asset.kind === 'opening_partner') || null;
         }
+
+        if (!openingAssetDefaultsApplied) {
+            openingAssetDefaultsApplied = true;
+            characterMode = openingAssets.some(asset => asset.kind === 'opening_character') ? 'library' : 'custom';
+            partnerMode = openingAssets.some(asset => asset.kind === 'opening_partner') ? 'library' : 'custom';
+        }
+
+        if ($('character-mode-custom')) $('character-mode-custom').classList.toggle('active', characterMode === 'custom');
+        if ($('character-mode-library')) $('character-mode-library').classList.toggle('active', characterMode === 'library');
+        if ($('opening-character-library')) $('opening-character-library').style.display = characterMode === 'library' ? '' : 'none';
+        if ($('partner-mode-custom')) $('partner-mode-custom').classList.toggle('active', partnerMode === 'custom');
+        if ($('partner-mode-library')) $('partner-mode-library').classList.toggle('active', partnerMode === 'library');
+        if ($('custom-partner-form')) $('custom-partner-form').style.display = partnerMode === 'custom' ? '' : 'none';
+        if ($('opening-partner-library')) $('opening-partner-library').style.display = partnerMode === 'library' ? '' : 'none';
+
         renderOpeningCharacterLibrary();
         renderOpeningPartnerLibrary();
         syncOpeningAttributePanel();
+        if (partnerMode === 'custom') updatePartnerBuildBtnState();
     }
     function assetBuild(asset) {
         return asset && (asset.build || asset.character) || {};

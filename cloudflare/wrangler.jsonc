@@ -11,7 +11,9 @@
     "SESSION_TTL_SECONDS": "2592000",
     "ADMIN_DISCORD_IDS": "1292524256764231700",
     "CLIENT_UPDATE_CHANNEL": "stable",
-    "CLIENT_UPDATE_REF": "workshop-stable"
+    "CLIENT_UPDATE_REF": "workshop-stable",
+    "OPENING_UPDATE_CHANNEL": "testing",
+    "OPENING_UPDATE_REF": "main"
   },
 
   "d1_databases": [
@@ -50,7 +52,9 @@
         "SESSION_TTL_SECONDS": "2592000",
         "ADMIN_DISCORD_IDS": "1292524256764231700",
         "CLIENT_UPDATE_CHANNEL": "testing",
-        "CLIENT_UPDATE_REF": "main"
+        "CLIENT_UPDATE_REF": "main",
+        "OPENING_UPDATE_CHANNEL": "testing",
+        "OPENING_UPDATE_REF": "main"
       },
       "d1_databases": [
         {
@@ -86,7 +90,9 @@
         "SESSION_TTL_SECONDS": "2592000",
         "ADMIN_DISCORD_IDS": "1292524256764231700",
         "CLIENT_UPDATE_CHANNEL": "stable",
-        "CLIENT_UPDATE_REF": "workshop-stable"
+        "CLIENT_UPDATE_REF": "workshop-stable",
+        "OPENING_UPDATE_CHANNEL": "testing",
+        "OPENING_UPDATE_REF": "main"
       },
       "d1_databases": [
         {

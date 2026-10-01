@@ -3,6 +3,8 @@ import './components/character.js';
 import './components/partner.js';
 import './components/store.js';
 import './components/worldbook.js';
+import './components/bloodline.js';
+import './components/equipment.js';
 import { getOpeningComponent } from './components/registry.js';
 
 const root = document.getElementById('opening-root');
@@ -13,6 +15,8 @@ const openingModules = [
   'partner',
   'store',
   'worldbook',
+  'bloodline',
+  'equipment',
 ];
 
 export function mountOpening() {

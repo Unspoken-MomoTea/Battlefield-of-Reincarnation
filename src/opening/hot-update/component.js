@@ -21,7 +21,7 @@ const UPDATE_CHANNELS = new Set(['stable', 'testing']);
 
 export function getOpeningUpdateChannel(env = {}) {
   const configured = String(env.OPENING_UPDATE_CHANNEL || '').trim().toLowerCase();
-  return UPDATE_CHANNELS.has(configured) ? configured : 'testing';
+  return UPDATE_CHANNELS.has(configured) ? configured : 'stable';
 }
 
 export function getOpeningUpdateRef(env = {}) {

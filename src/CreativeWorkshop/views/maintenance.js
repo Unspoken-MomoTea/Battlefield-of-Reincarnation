@@ -425,7 +425,7 @@ export function createMaintenanceView({
       state.remove();
 
       if (!result.installed) {
-        container.appendChild(statusBox('未找到已安装的辅助计算脚本脚本。', 'bad'));
+        container.appendChild(statusBox('未找到已安装的辅助计算脚本。', 'bad'));
         return;
       }
 

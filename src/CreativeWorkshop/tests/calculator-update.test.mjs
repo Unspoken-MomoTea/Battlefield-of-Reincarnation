@@ -24,7 +24,7 @@ function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-test('status bar loader exposes and rewrites its pinned ref', () => {
+test('calculator loader exposes and rewrites its pinned ref', () => {
   const sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
   const content = buildCalculatorLoaderContent(sha, sha);
   assert.deepEqual(calculatorLoaderRefs(content), [sha]);
@@ -32,7 +32,7 @@ test('status bar loader exposes and rewrites its pinned ref', () => {
   assert.match(content, /script\/辅助计算脚本\.js/u);
 });
 
-test('legacy inline status bar migrates to loader but defers first runtime replacement', async () => {
+test('legacy inline calculator migrates to loader but defers first runtime replacement', async () => {
   const legacy = `(function(){ eventOn(Mvu.events.VARIABLE_UPDATE_ENDED, function(){}); window.__辅助计算脚本_loaded__ = true; })();`;
   const adapter = adapterFixture(legacy);
   const latest = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -64,7 +64,7 @@ test('legacy inline status bar migrates to loader but defers first runtime repla
   assert.match(adapter.state.character[0].content, new RegExp(`@${latest}/script/辅助计算脚本\\.js`, 'u'));
 });
 
-test('managed status bar loader can hot reload a newer testing sha', async () => {
+test('managed calculator loader can hot reload a newer testing sha', async () => {
   const old = 'cccccccccccccccccccccccccccccccccccccccc';
   const latest = 'dddddddddddddddddddddddddddddddddddddddd';
   const adapter = adapterFixture(buildCalculatorLoaderContent(old, old));
@@ -102,7 +102,7 @@ test('managed status bar loader can hot reload a newer testing sha', async () =>
   assert.match(adapter.state.character[0].content, new RegExp(`@${latest}/script/辅助计算脚本\\.js`, 'u'));
 });
 
-test('stable status bar refuses main when no formal calculator tag exists', async () => {
+test('stable calculator refuses main when no formal calculator tag exists', async () => {
   const adapter = adapterFixture(buildCalculatorLoaderContent('main'));
   const updater = createCalculatorUpdater({
     adapter,
@@ -123,7 +123,7 @@ test('stable status bar refuses main when no formal calculator tag exists', asyn
   assert.equal(result.updateAvailable, false);
 });
 
-test('stable status bar rewrites a sha loader to the formal calculator tag', async () => {
+test('stable calculator rewrites a sha loader to the formal calculator tag', async () => {
   const old = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
   const latest = 'ffffffffffffffffffffffffffffffffffffffff';
   const adapter = adapterFixture(buildCalculatorLoaderContent(old, old));

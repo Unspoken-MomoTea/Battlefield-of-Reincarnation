@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: git checkout --detach "${{ steps.target.outputs.sha }}"
 
-      - name: Validate status bar release version
+      - name: Validate calculator release version
         id: release
         shell: bash
         env:
@@ -83,8 +83,8 @@ jobs:
       - name: Calculator source contracts
         run: node --test src/Calculator/tests/*.test.mjs
 
-      - name: Generated status bar syntax
-        run: node --check script/悬浮球辅助计算.js
+      - name: Generated calculator syntax
+        run: node --check script/辅助计算脚本.js
 
       - name: Calculator regression suite
         run: |
@@ -92,10 +92,10 @@ jobs:
           node tests/asset-harvest-lifecycle.cjs
           node tests/trial-promotion-flow.cjs
 
-      - name: Workshop status bar updater contracts
+      - name: Workshop calculator updater contracts
         run: node --test src/CreativeWorkshop/tests/calculator-update.test.mjs
 
-      - name: Create immutable status bar tag
+      - name: Create immutable calculator tag
         shell: bash
         run: |
           set -euo pipefail
@@ -104,7 +104,7 @@ jobs:
           git tag -a "${{ steps.release.outputs.tag }}" "${{ steps.target.outputs.sha }}" \
             -m "Reincarnation Calculator v${{ steps.release.outputs.version }}"
 
-      - name: Publish status bar tag
+      - name: Publish calculator tag
         shell: bash
         run: |
           set -euo pipefail

@@ -386,3 +386,36 @@ test('production opening preview endpoint follows its independent main channel w
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test('status bar component endpoint remains independent from workshop and world engine tags', async () => {
+  const originalFetch = globalThis.fetch;
+  const statusSha = '7878787878787878787878787878787878787878';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('/tags?')) {
+      return new Response(JSON.stringify([
+        { name: 'workshop-v3.0.0', commit: { sha: '8989898989898989898989898989898989898989' } },
+        { name: 'world-engine-v3.0.0', commit: { sha: '9090909090909090909090909090909090909090' } },
+        { name: 'status-bar-v1.0.0', commit: { sha: statusSha } },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/components/latest?component=status-bar'),
+      env({
+        STATUS_BAR_UPDATE_CHANNEL: 'stable',
+        STATUS_BAR_UPDATE_REF: 'status-bar-v*',
+        SESSION_KV: new MemoryKV(),
+      }),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.tag, 'status-bar-v1.0.0');
+    assert.equal(body.sha, statusSha);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

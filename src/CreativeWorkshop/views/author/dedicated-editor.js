@@ -358,10 +358,31 @@ function storeEditor(doc, initial, emit) {
           ], item.attrs?.[attr] || '');
           select.dataset.previousValue = select.value;
           select.addEventListener('change', () => {
+            const selectedValue = String(select.value || '').toUpperCase();
+            const otherPoints = [...attrSelects.values()]
+              .filter(other => other !== select)
+              .reduce((sum, other) => sum + (STORE_ATTR_POINTS[String(other.value || '').toUpperCase()] ?? 0), 0);
+            const remainingPoints = Math.max(0, STORE_ATTR_MAX_POINTS - otherPoints);
+
+            if (selectedValue && (STORE_ATTR_POINTS[selectedValue] ?? 0) > remainingPoints) {
+              const fallback = [...EQUIPMENT_ATTR_QUALITIES]
+                .reverse()
+                .find(qualityValue => (STORE_ATTR_POINTS[qualityValue] ?? 0) <= remainingPoints) || '';
+              select.value = fallback;
+              select.dataset.previousValue = fallback;
+              renderAttrBudget(
+                fallback
+                  ? `剩余 ${remainingPoints} 点，已自动调整为最高可选品质 ${fallback}。`
+                  : '剩余属性点不足，已自动改回“无”。',
+              );
+              emit();
+              return;
+            }
+
             const usage = attrUsage();
-            if (usage.count > STORE_ATTR_MAX_COUNT || usage.points > STORE_ATTR_MAX_POINTS) {
+            if (usage.count > STORE_ATTR_MAX_COUNT) {
               select.value = select.dataset.previousValue || '';
-              renderAttrBudget(`属性限制：最多 ${STORE_ATTR_MAX_COUNT} 项、合计 ${STORE_ATTR_MAX_POINTS} 点；本次选择已撤回。`);
+              renderAttrBudget(`属性限制：最多 ${STORE_ATTR_MAX_COUNT} 项；本次选择已撤回。`);
             } else {
               select.dataset.previousValue = select.value;
               renderAttrBudget();

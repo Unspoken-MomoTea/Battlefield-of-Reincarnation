@@ -29,3 +29,16 @@ calculator-vX.Y.Z
 ```
 
 正式安装只保留一个版本化 loader，之后由创意工坊“修复”页改写 Tag 并安全热重载。测试 main 必须显式配置 `calculatorUpdateChannel: 'testing'` 与 `calculatorUpdateRef: 'main'`。
+
+
+首个正式 loader：
+
+```js
+(async () => {
+  await import(
+    'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@calculator-v1.0.0/script/辅助计算脚本.js'
+  );
+})();
+```
+
+之后由创意工坊原位把 Tag 改写为新的 `calculator-vX.Y.Z`，不需要玩家维护第二套地址。

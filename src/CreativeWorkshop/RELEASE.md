@@ -382,3 +382,24 @@ window.ReincarnationWorkshopConfig = {
 “修复”页会显示独立的“状态栏更新”区。旧角色卡中完整内联的 `悬浮球状态栏.js` 可直接被接管并改写成版本 loader；第一次接管只持久化 loader，不在当前页面强制叠加新版运行时。由 loader 启动的新版状态栏会登记 `SamsaraStatusBarRuntime`、`Samsara.StatusBarInfo` 并集中持有可停止的事件订阅，后续版本才允许安全热重载。
 
 正式发布使用 `.github/workflows/status-bar-promote-stable.yml` 或提交标记 `[publish status-bar]`。发布前会校验 `STATUS_BAR_VERSION`、生成交付同步、状态栏语法/回归和工坊 updater 合同；成功后只创建 `status-bar-vX.Y.Z`，不会移动 `workshop-stable`，也不会发布世界推进。
+
+
+## 辅助计算独立发布
+
+```text
+src/Calculator/**                         # 唯一开发源码
+python tools/build-calculator.py         # 生成
+script/辅助计算脚本.js                   # 酒馆单文件交付
+calculator-vX.Y.Z                        # 正式不可变 Tag
+```
+
+正式工坊默认只检查 `calculator-v*`。测试辅助计算必须显式配置：
+
+```js
+window.ReincarnationWorkshopConfig = {
+  calculatorUpdateChannel: 'testing',
+  calculatorUpdateRef: 'main',
+};
+```
+
+正式发布使用 `.github/workflows/calculator-promote-stable.yml` 或提交标记 `[publish calculator]`。辅助计算发布不会移动世界推进、状态栏或工坊的正式 Tag。

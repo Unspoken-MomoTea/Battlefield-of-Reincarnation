@@ -148,9 +148,17 @@ UI 组件不得绕过 service/installer 层直接修改酒馆数据。
 - 创意工坊：`workshop-vX.Y.Z`，`workshop-stable` 仍是正式部署/更新指针。
 - 世界推进：`world-engine-vX.Y.Z`。
 - 状态栏：`status-bar-vX.Y.Z`；唯一开发源码位于 `src/StatusBar/`，酒馆交付仍是生成后的 `script/悬浮球状态栏.js`。
+- 辅助计算：`calculator-vX.Y.Z`；唯一开发源码位于 `src/Calculator/`，酒馆交付为生成后的 `script/辅助计算脚本.js`。
 
 状态栏与世界推进一样支持旧式内联脚本接管：工坊会扫描 Tavern Helper 的 character / preset / global ScriptTree，识别旧的完整状态栏并原位替换成版本 loader。第一次从旧内联状态栏迁移时不会在当前页面强行再加载一份新版，避免旧脚本无法注销的历史事件监听重复；下次页面载入后进入受管运行时，此后的版本更新可由工坊直接热重载。
 
 测试状态栏不会跟随工坊 testing 自动开启。需要测试时显式设置 `statusBarUpdateChannel: 'testing'` 与 `statusBarUpdateRef: 'main'`；默认始终使用正式 `status-bar-v*`。正式 loader 保存不可变 Tag，同时记录解析后的精确 commit SHA 作为诊断元数据。
 
 世界推进迁移期间仍识别历史 `VX.Y.Z` 统一 Tag；状态栏从独立版本体系起只使用 `status-bar-vX.Y.Z`，不借用历史统一 Tag。
+
+
+## 辅助计算热更新
+
+辅助计算与状态栏使用同一套版本 loader 机制。创意工坊“修复”页会扫描 Tavern Helper ScriptTree；首次识别到旧式内联辅助计算时改写为 `calculator-vX.Y.Z` loader，后续版本由 `SamsaraCalculatorRuntime` 停止旧 MVU 订阅后安全热重载。
+
+测试 main 必须显式设置 `calculatorUpdateChannel: 'testing'` 与 `calculatorUpdateRef: 'main'`；正式默认只接受 `calculator-v*`。

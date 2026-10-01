@@ -3,7 +3,7 @@ import { worldCharacterTemplate } from './publish-templates.js';
 const OPENING_RANKS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
 const STORE_QUALITIES = ['F', 'E', 'D'];
 const EQUIPMENT_ATTR_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A'];
-const STORE_ATTR_POINTS = Object.fromEntries(EQUIPMENT_ATTR_QUALITIES.map((quality, index) => [quality, index]));
+const STORE_ATTR_POINTS = Object.fromEntries(EQUIPMENT_ATTR_QUALITIES.map((quality, index) => [quality, index + 1]));
 const STORE_ATTR_MAX_POINTS = 15;
 const STORE_ATTR_MAX_COUNT = 3;
 const STORE_PRICE_FLOOR = { F: 50, E: 300, D: 700 };
@@ -345,7 +345,7 @@ function storeEditor(doc, initial, emit) {
           for (const select of attrSelects.values()) {
             select.disabled = selectionLocked && !select.value;
           }
-          attrBudget.textContent = message || `已选 ${usage.count}/${STORE_ATTR_MAX_COUNT} 项 · 使用 ${usage.points}/${STORE_ATTR_MAX_POINTS} 点（F=0 / E=1 / D=2 / C=3 / B=4 / A=5）`;
+          attrBudget.textContent = message || `已选 ${usage.count}/${STORE_ATTR_MAX_COUNT} 项 · 使用 ${usage.points}/${STORE_ATTR_MAX_POINTS} 点（F=1 / E=2 / D=3 / C=4 / B=5 / A=6）`;
           attrBudget.classList.toggle(
             'is-error',
             usage.count > STORE_ATTR_MAX_COUNT || usage.points > STORE_ATTR_MAX_POINTS,

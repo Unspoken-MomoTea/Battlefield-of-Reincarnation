@@ -379,7 +379,7 @@ test('production opening preview endpoint follows its independent main channel w
     assert.equal(response.status, 302);
     assert.equal(response.headers.get('x-opening-channel'), 'testing');
     assert.equal(response.headers.get('x-opening-ref'), 'main');
-    assert.match(response.headers.get('location') || '', new RegExp('@' + sha + '/Regular/%E5%BC%80%E5%B1%80\\.html\\?v='));
+    assert.match(response.headers.get('location') || '', new RegExp('@' + sha + '/src/opening/entry\\.html\\?v='));
     assert.match(response.headers.get('cache-control') || '', /no-store/u);
     assert.equal(response.headers.get('access-control-allow-origin'), '*');
   } finally {

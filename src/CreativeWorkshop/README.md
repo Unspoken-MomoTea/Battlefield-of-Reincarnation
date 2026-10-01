@@ -99,6 +99,10 @@ const exported = await ReincarnationWorkshop.exportProject(projectId);
 await ReincarnationWorkshop.importProject(file);
 await ReincarnationWorkshop.checkWorkshopUpdate();
 await ReincarnationWorkshop.updateWorkshopLoaderLink();
+await ReincarnationWorkshop.checkWorldEngineUpdate();
+await ReincarnationWorkshop.updateWorldEngine();
+await ReincarnationWorkshop.checkStatusBarUpdate();
+await ReincarnationWorkshop.updateStatusBar();
 ```
 
 “下载到本地”和“安装到酒馆”仍然是两个动作：前者只更新 IndexedDB 缓存，不执行脚本；后者才通过 Tavern Helper API 修改酒馆资源并启用属于该作品的脚本。普通 `data` artifact 仍只缓存；只有受支持的 `opening_character`、`opening_partner` 与 `store_catalog` 会进入开局本地 Registry。
@@ -139,8 +143,14 @@ UI 组件不得绕过 service/installer 层直接修改酒馆数据。
 
 ## 核心组件维护
 
-“修复”同时管理第一方核心组件与工坊作品，但**创意工坊和世界推进已经拆成独立正式版本**。测试通道仍读取 `main` 对应组件最后修改提交并写入固定 SHA。
+“修复”同时管理第一方核心组件与工坊作品。**创意工坊、世界推进、悬浮球状态栏均使用独立正式版本与独立更新通道**，不会因为另一个组件发布而产生伪更新。
 
-正式创意工坊使用 `workshop-vX.Y.Z`，并由 `workshop-stable` 作为正式部署/更新指针；正式世界推进使用独立的 `world-engine-vX.Y.Z`，不跟随 `workshop-stable`。因此只发布创意工坊不会再制造世界推进更新，反过来也一样。
+- 创意工坊：`workshop-vX.Y.Z`，`workshop-stable` 仍是正式部署/更新指针。
+- 世界推进：`world-engine-vX.Y.Z`。
+- 状态栏：`status-bar-vX.Y.Z`；唯一开发源码位于 `src/StatusBar/`，酒馆交付仍是生成后的 `script/悬浮球状态栏.js`。
 
-迁移期间仍识别历史 `VX.Y.Z` 统一 Tag，保证旧 loader 可以继续更新；新的正式发布不再创建统一 Tag。正式 loader 保留各自可读的不可变 Tag，运行时同时保存解析后的精确 commit SHA 作为诊断元数据。
+状态栏与世界推进一样支持旧式内联脚本接管：工坊会扫描 Tavern Helper 的 character / preset / global ScriptTree，识别旧的完整状态栏并原位替换成版本 loader。第一次从旧内联状态栏迁移时不会在当前页面强行再加载一份新版，避免旧脚本无法注销的历史事件监听重复；下次页面载入后进入受管运行时，此后的版本更新可由工坊直接热重载。
+
+测试状态栏不会跟随工坊 testing 自动开启。需要测试时显式设置 `statusBarUpdateChannel: 'testing'` 与 `statusBarUpdateRef: 'main'`；默认始终使用正式 `status-bar-v*`。正式 loader 保存不可变 Tag，同时记录解析后的精确 commit SHA 作为诊断元数据。
+
+世界推进迁移期间仍识别历史 `VX.Y.Z` 统一 Tag；状态栏从独立版本体系起只使用 `status-bar-vX.Y.Z`，不借用历史统一 Tag。

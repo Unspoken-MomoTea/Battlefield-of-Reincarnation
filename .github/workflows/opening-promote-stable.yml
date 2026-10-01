@@ -2,6 +2,9 @@ name: opening promote stable
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'opening-v*'
 
 jobs:
   validate-opening:
@@ -12,3 +15,5 @@ jobs:
         run: python tools/build-opening.py
       - name: Opening syntax
         run: find src/opening -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Verify opening version
+        run: grep "OPENING_VERSION" src/opening/version.js

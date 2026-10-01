@@ -7,6 +7,7 @@ import './components/bloodline.js';
 import './components/equipment.js';
 import './components/attribute.js';
 import './components/skill.js';
+import './components/selection.js';
 import '../opening/data/opening-state.js';
 import { getOpeningComponent } from './components/registry.js';
 
@@ -22,6 +23,7 @@ const openingModules = [
   'equipment',
   'attribute',
   'skill',
+  'selection',
 ];
 
 export function mountOpening() {

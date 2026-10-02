@@ -181,10 +181,9 @@ test('opening latest redirects to an immutable main sha with no-cache headers', 
     assert.equal(response.headers.get('x-opening-channel'), 'testing');
     assert.equal(response.headers.get('x-opening-ref'), 'main');
     assert.equal(response.headers.get('x-opening-sha'), sha);
-    assert.equal(writes.length, 2);
-    assert.equal(writes[0].key, 'public:core-component:v3:opening:testing:main');
-    assert.equal(writes[1].key, 'public:core-component:last-known:v1:opening:testing:main');
-    assert.equal(writes[1].options, undefined);
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].key, 'public:core-component:last-known:v1:opening:testing:main');
+    assert.equal(writes[0].options, undefined);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -2866,7 +2866,8 @@
                 ...pb,
                 姓名: selectedOpeningPartner.name || '未命名伙伴',
                 在场: true,
-                是否队友: true,
+                是否队友: typeof pb.是否队友 === 'boolean' ? pb.是否队友 : true,
+                好感度: Number.isFinite(Number(pb.好感度)) ? Math.max(-100, Math.min(100, Number(pb.好感度))) : 0,
                 性格: pp.性格 || pb.性格 || '',
                 喜爱: pp.喜爱 || pb.喜爱 || '',
                 外貌: pp.外貌 || pb.外貌 || '',
@@ -2875,7 +2876,7 @@
             partnerIsCompleteAsset = true;
         }
         if (selectedPartner === 'custom' && useCustomPartnerFlag) {
-            partnerNode = { 姓名:$('cp-name').value.trim(), 层级:$('cp-tier').value, 种族:$('cp-race').value.trim(), 身份:[$('f-identity').value, $('cp-gender').value], 在场:true, 是否队友:true, 喜爱:$('cp-like').value.trim(), 外貌:$('cp-app').value.trim(), 背景故事:$('cp-bg').value.trim() };
+            partnerNode = { 姓名:$('cp-name').value.trim(), 层级:$('cp-tier').value, 种族:$('cp-race').value.trim(), 身份:[$('f-identity').value, $('cp-gender').value], 在场:true, 是否队友:true, 好感度:0, 喜爱:$('cp-like').value.trim(), 外貌:$('cp-app').value.trim(), 背景故事:$('cp-bg').value.trim() };
         }
 
         const wsLocked = (() => { const el=$('ws-lock'); return el ? el.checked : false; })();

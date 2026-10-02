@@ -1,0 +1,91 @@
+name: deploy-workshop-production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare/**'
+      - '.github/workflows/deploy-workshop-production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workshop-production-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.ref_name == 'main' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy workshop production]')) }}
+    name: Test and deploy production Worker only
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: workshop-production
+      url: https://workshop.6661816.xyz
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check required secrets
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::缺少 GitHub Secret: CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::缺少 GitHub Secret: CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+
+      - name: Checkout deployment commit
+        uses: actions/checkout@v4
+
+      - name: Confirm Worker-only deployment
+        shell: bash
+        run: |
+          echo "Deploying Worker commit $(git rev-parse HEAD) to production."
+          echo "This workflow never moves workshop-stable and never creates workshop-v* tags."
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloudflare/package-lock.json
+
+      - name: Install Worker dependencies
+        working-directory: cloudflare
+        run: npm ci --no-audit --no-fund
+
+      - name: Worker contract tests
+        working-directory: cloudflare
+        run: npm test
+
+      - name: Worker syntax
+        shell: bash
+        run: |
+          find cloudflare/src -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+          find cloudflare/scripts -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | sort -z | xargs -0 -n1 node --check
+
+      - name: Validate production Worker deployment
+        working-directory: cloudflare
+        run: npx wrangler deploy --env production --dry-run
+
+      - name: Apply shared D1 migrations
+        working-directory: cloudflare
+        run: npx wrangler d1 migrations apply DB --env production --remote
+
+      - name: Deploy production Worker
+        working-directory: cloudflare
+        run: npx wrangler deploy --env production
+
+      - name: Production smoke test
+        run: node cloudflare/scripts/smoke-production.mjs
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          echo "### Workshop production Worker hotfix deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Worker commit: `$(git rev-parse HEAD)`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Production API: `https://workshop.6661816.xyz`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- `workshop-stable`: unchanged" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Formal workshop tag/version: unchanged" >> "$GITHUB_STEP_SUMMARY"

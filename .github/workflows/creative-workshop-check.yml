@@ -20,6 +20,7 @@ on:
       - '.github/workflows/calculator-promote-stable.yml'
       - '.github/workflows/opening-preview-deploy.yml'
       - '.github/workflows/deploy-workshop-staging.yml'
+      - '.github/workflows/deploy-workshop-production.yml'
       - '创意工坊更新工具.bat'
   push:
     branches: [main]
@@ -36,6 +37,7 @@ on:
       - '.github/workflows/creative-workshop-check.yml'
       - '.github/workflows/creative-workshop-promote-stable.yml'
       - '.github/workflows/deploy-workshop-staging.yml'
+      - '.github/workflows/deploy-workshop-production.yml'
       - '创意工坊更新工具.bat'
   workflow_dispatch:
 

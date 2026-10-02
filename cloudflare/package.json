@@ -15,7 +15,8 @@
     "db:migrate:staging": "npx wrangler d1 migrations apply DB --env staging --remote",
     "deploy:staging": "npx wrangler deploy --env staging",
     "deploy:production": "node scripts/production-command.mjs deploy",
-    "db:migrate:production": "node scripts/production-command.mjs migrate"
+    "db:migrate:production": "node scripts/production-command.mjs migrate",
+    "smoke:production": "node scripts/smoke-production.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.131.1"

@@ -200,6 +200,23 @@ function snapshotKey(env, component) {
   return `public:core-component:last-known:v1:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
 }
 
+async function safeKvGet(env, key) {
+  try {
+    return await env.SESSION_KV?.get?.(key, 'json') ?? null;
+  } catch (error) {
+    console.warn('[workshop-system] KV read failed', key, error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+async function safeKvPut(env, key, value, options) {
+  try {
+    await env.SESSION_KV?.put?.(key, value, options);
+  } catch (error) {
+    console.warn('[workshop-system] KV write failed', key, error instanceof Error ? error.message : String(error));
+  }
+}
+
 function validCachedComponent(cached, component, channel, ref) {
   return (
     cached?.component === component.id
@@ -221,11 +238,11 @@ async function fetchLatestComponent(env, componentId) {
   const ref = componentUpdateRef(env, component);
   const key = cacheKey(env, component);
   const fallbackKey = snapshotKey(env, component);
-  const cached = await env.SESSION_KV?.get?.(key, 'json');
+  const cached = await safeKvGet(env, key);
   if (validCachedComponent(cached, component, channel, ref)) {
     return { ...cached, cached: true };
   }
-  const snapshot = await env.SESSION_KV?.get?.(fallbackKey, 'json');
+  const snapshot = await safeKvGet(env, fallbackKey);
 
   let sha = '';
   let version = '';
@@ -281,8 +298,8 @@ async function fetchLatestComponent(env, componentId) {
     source_path: component.sourcePath,
     checked_at: Math.floor(Date.now() / 1000),
   };
-  await env.SESSION_KV?.put?.(key, JSON.stringify(result), { expirationTtl: CACHE_TTL_SECONDS });
-  await env.SESSION_KV?.put?.(fallbackKey, JSON.stringify(result));
+  await safeKvPut(env, key, JSON.stringify(result), { expirationTtl: CACHE_TTL_SECONDS });
+  await safeKvPut(env, fallbackKey, JSON.stringify(result));
   return { ...result, cached: false };
 }
 

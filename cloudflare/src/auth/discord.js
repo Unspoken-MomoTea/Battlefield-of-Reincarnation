@@ -1,6 +1,7 @@
 import { HttpError, html } from '../http.js';
 import { isValidLoginId, normalizeOpenerOrigin, randomToken } from '../security.js';
 import { discordCallbackUrl, required } from './config.js';
+import { authStorePut } from './store.js';
 import { upsertDiscordUser } from './users.js';
 
 const DISCORD_AUTHORIZE_URL = 'https://discord.com/oauth2/authorize';
@@ -17,7 +18,8 @@ export async function startDiscordLogin(request, env) {
   const openerOriginParam = url.searchParams.get('opener_origin');
   const openerOrigin = openerOriginParam ? normalizeOpenerOrigin(openerOriginParam) : null;
   const state = randomToken(24);
-  await env.SESSION_KV.put(
+  await authStorePut(
+    env,
     `oauth:${state}`,
     JSON.stringify({ loginId, openerOrigin, createdAt: Date.now() }),
     { expirationTtl: 600 },

@@ -123,6 +123,11 @@ async function githubJson(env, url) {
   return response.json();
 }
 
+function shouldFallbackToAtom(error) {
+  const status = Number(error?.status || 0);
+  return status === 0 || status === 403 || status === 429 || status >= 500;
+}
+
 async function githubBranchHeadFromAtom(ref) {
   const url = `https://github.com/${REPOSITORY}/commits/${encodeURIComponent(ref)}.atom`;
   const response = await fetch(url, {
@@ -157,7 +162,7 @@ async function latestPathCommit(env, component, ref) {
     if (!validSha(sha)) throw new Error(`GitHub returned invalid ${component.id} commit for ${ref}`);
     return sha;
   } catch (error) {
-    if (Number(error?.status || 0) !== 403 && Number(error?.status || 0) !== 429) throw error;
+    if (!shouldFallbackToAtom(error)) throw error;
     return githubBranchHeadFromAtom(ref);
   }
 }
@@ -169,7 +174,7 @@ async function refHead(env, ref) {
     if (!validSha(sha)) throw new Error(`GitHub returned invalid ref head for ${ref}`);
     return sha;
   } catch (error) {
-    if (Number(error?.status || 0) !== 403 && Number(error?.status || 0) !== 429) throw error;
+    if (!shouldFallbackToAtom(error)) throw error;
     return githubBranchHeadFromAtom(ref);
   }
 }

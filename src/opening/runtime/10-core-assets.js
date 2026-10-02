@@ -45,6 +45,65 @@
         });
     }
 
+    const OPENING_DATA_REQUEST = 'reincarnation:opening-data-request';
+    const OPENING_DATA_RESPONSE = 'reincarnation:opening-data-response';
+    const OPENING_DATA_CHANGED = 'reincarnation:opening-data-changed';
+    let openingHostDataCache = null;
+    let openingHostDataPromise = null;
+
+    function openingHostTargets() {
+        const targets = [];
+        for (const target of [
+            (() => { try { return window.parent; } catch(e) { return null; } })(),
+            (() => { try { return window.top; } catch(e) { return null; } })()
+        ]) {
+            if (!target || target === window || targets.includes(target) || typeof target.postMessage !== 'function') continue;
+            targets.push(target);
+        }
+        return targets;
+    }
+
+    function normalizeOpeningHostData(data) {
+        if (!data || typeof data !== 'object') return null;
+        return {
+            assets: Array.isArray(data.assets) ? structuredClone(data.assets) : [],
+            storeCatalogs: Array.isArray(data.storeCatalogs) ? structuredClone(data.storeCatalogs) : []
+        };
+    }
+
+    function loadHostOpeningData(force = false) {
+        if (!force && openingHostDataCache) return Promise.resolve(openingHostDataCache);
+        if (openingHostDataPromise) return openingHostDataPromise;
+        const targets = openingHostTargets();
+        if (!targets.length) return Promise.resolve(null);
+
+        const requestId = 'opening-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+        openingHostDataPromise = new Promise(resolve => {
+            let settled = false;
+            let timer = null;
+            const finish = value => {
+                if (settled) return;
+                settled = true;
+                if (timer) clearTimeout(timer);
+                window.removeEventListener('message', onMessage);
+                if (value) openingHostDataCache = value;
+                resolve(value);
+            };
+            const onMessage = event => {
+                if (!targets.includes(event.source)) return;
+                const data = event.data || {};
+                if (data.type !== OPENING_DATA_RESPONSE || data.requestId !== requestId) return;
+                finish(normalizeOpeningHostData(data));
+            };
+            window.addEventListener('message', onMessage);
+            timer = setTimeout(() => finish(null), 900);
+            for (const target of targets) {
+                try { target.postMessage({ type: OPENING_DATA_REQUEST, requestId }, '*'); } catch(e) {}
+            }
+        }).finally(() => { openingHostDataPromise = null; });
+        return openingHostDataPromise;
+    }
+
     function openingDb() {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open('reincarnation-workshop', 4);
@@ -60,15 +119,21 @@
             request.onerror = () => reject(request.error);
         });
     }
-    async function loadOpeningStoreCatalogs(changedProjectId = '') {
+    async function loadOpeningStoreCatalogs(changedProjectId = '', hostData = undefined) {
         try {
-            const db = await openingDb();
-            const rows = await new Promise((resolve,reject) => {
-                const req = db.transaction('opening_store_catalogs','readonly').objectStore('opening_store_catalogs').getAll();
-                req.onsuccess = () => resolve(req.result || []);
-                req.onerror = () => reject(req.error);
-            });
-            db.close();
+            const bridged = hostData === undefined ? await loadHostOpeningData() : hostData;
+            let rows;
+            if (bridged) {
+                rows = Array.isArray(bridged.storeCatalogs) ? structuredClone(bridged.storeCatalogs) : [];
+            } else {
+                const db = await openingDb();
+                rows = await new Promise((resolve,reject) => {
+                    const req = db.transaction('opening_store_catalogs','readonly').objectStore('opening_store_catalogs').getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+                db.close();
+            }
 
             const groups = ['equipments','items','skills'];
             if (changedProjectId) {
@@ -108,17 +173,22 @@
             console.warn('[轮回战场开局] 读取工坊商店目录失败', error);
         }
     }
-    async function loadOpeningAssets() {
+    async function loadOpeningAssets(hostData = undefined) {
         const selectedCharacterId = selectedOpeningCharacter && selectedOpeningCharacter.id;
         const selectedPartnerId = selectedOpeningPartner && selectedOpeningPartner.id;
         try {
-            const db = await openingDb();
-            openingAssets = await new Promise((resolve,reject) => {
-                const req = db.transaction('opening_assets','readonly').objectStore('opening_assets').getAll();
-                req.onsuccess = () => resolve(req.result || []);
-                req.onerror = () => reject(req.error);
-            });
-            db.close();
+            const bridged = hostData === undefined ? await loadHostOpeningData() : hostData;
+            if (bridged) {
+                openingAssets = Array.isArray(bridged.assets) ? structuredClone(bridged.assets) : [];
+            } else {
+                const db = await openingDb();
+                openingAssets = await new Promise((resolve,reject) => {
+                    const req = db.transaction('opening_assets','readonly').objectStore('opening_assets').getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => reject(req.error);
+                });
+                db.close();
+            }
         } catch(e) { openingAssets = []; }
         if (selectedCharacterId) {
             selectedOpeningCharacter = openingAssets.find(asset => asset.id === selectedCharacterId && asset.kind === 'opening_character') || null;
@@ -355,6 +425,26 @@
     });
 
     function bindOpeningLiveRefresh() {
+        window.addEventListener('message', event => {
+            if (!openingHostTargets().includes(event.source)) return;
+            const data = event.data || {};
+            if (data.type !== OPENING_DATA_CHANGED) return;
+            const bridged = normalizeOpeningHostData(data);
+            if (!bridged) return;
+            openingHostDataCache = bridged;
+            const projectId = String(data.detail && data.detail.projectId || '');
+            void Promise.all([
+                loadOpeningAssets(bridged),
+                loadOpeningStoreCatalogs(projectId, bridged)
+            ]).then(() => {
+                renderSubCategories(); renderRarityFilter(); renderItems();
+                renderSelectedPanel();
+                updateBgSummary();
+            }).catch(error => {
+                console.warn('[轮回战场开局] 跨域刷新创意工坊开局资产失败', error);
+            });
+        });
+
         const roots = [];
         for (const root of [
             window,

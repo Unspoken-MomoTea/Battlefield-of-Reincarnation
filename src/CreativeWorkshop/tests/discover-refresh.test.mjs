@@ -54,3 +54,20 @@ test('public catalog requests bypass browser HTTP cache', async () => {
   assert.match(calls[0].path, /kind=opening_character/u);
   assert.equal(calls[0].init?.cache, 'no-store');
 });
+
+
+test('discover home does not reference the character-only kind variable', () => {
+  const discover = readFileSync(
+    fileURLToPath(new URL('../views/discover.js', import.meta.url)),
+    'utf8',
+  );
+  const homeStart = discover.indexOf('async function loadShowcase()');
+  const characterStart = discover.indexOf('async function loadCharacterHome()', homeStart);
+  const homeBlock = discover.slice(homeStart, characterStart);
+  assert.ok(homeStart >= 0 && characterStart > homeStart);
+  assert.doesNotMatch(homeBlock, /filterProjectsForScope\([\s\S]{0,120}'character',[\s\S]{0,80}\bkind\b/u);
+
+  const characterEnd = discover.indexOf('function showCatalog(', characterStart);
+  const characterBlock = discover.slice(characterStart, characterEnd);
+  assert.match(characterBlock, /filterProjectsForScope\([\s\S]{0,120}'character',[\s\S]{0,80}\bkind\b/u);
+});

@@ -275,11 +275,7 @@ export function createDiscoverView({
         });
       }));
       targets.forEach(([target], index) => {
-        const items = filterProjectsForScope(
-          results[index]?.items,
-          'character',
-          kind,
-        ).slice(0, 6);
+        const items = (results[index]?.items || []).slice(0, 6);
         if (!items.length) empty(target, '暂时没有作品');
         else target.replaceChildren(...items.slice(0, 5).map(showcaseCard), showcaseMoreCard(targets[index][1]));
       });
@@ -317,7 +313,11 @@ export function createDiscoverView({
         });
       }));
       targets.forEach(([target, kind, moreLabel], index) => {
-        const items = (results[index]?.items || []).slice(0, 6);
+        const items = filterProjectsForScope(
+          results[index]?.items,
+          'character',
+          kind,
+        ).slice(0, 6);
         if (!items.length) empty(target, '暂时没有作品');
         else target.replaceChildren(
           ...items.slice(0, 5).map(showcaseCard),

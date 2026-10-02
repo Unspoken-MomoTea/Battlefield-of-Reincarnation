@@ -979,7 +979,7 @@ function openingEditor(doc, mode, initial, emit) {
         opening_attributes: allocator.values(),
         opening_skills: skillEditor.values(),
         ...(partner ? {
-          opening_favorability: Math.max(-100, Math.min(100, Number(getValue(root, 'opening_favorability')) || 0)),
+          opening_favorability: Math.max(-100, Math.min(100, Math.trunc(Number(getValue(root, 'opening_favorability')) || 0))),
           opening_is_teammate: getValue(root, 'opening_is_teammate') !== 'false',
           opening_partner_equipment: equipmentEditor?.values() || [],
           opening_worldbook_enabled: worldbookEnabled,

@@ -224,7 +224,7 @@ test('installed opening partner writes configured affection and teammate flag in
 
   assert.match(
     opening,
-    /好感度:\s*Number\.isFinite\(Number\(pb\.好感度\)\) \? Math\.max\(-100, Math\.min\(100, Number\(pb\.好感度\)\)\) : 0/u,
+    /好感度:\s*Math\.max\(-100, Math\.min\(100, Math\.trunc\(Number\(pb\.好感度\) \|\| 0\)\)\)/u,
   );
   assert.match(
     opening,

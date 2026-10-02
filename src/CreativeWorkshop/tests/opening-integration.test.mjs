@@ -273,6 +273,62 @@ test('opening data bridge returns installed assets to trusted CDN frames', async
   cleanup();
 });
 
+test('opening data bridge accepts sandboxed opening iframe with opaque origin', async () => {
+  const {
+    OPENING_DATA_REQUEST,
+    OPENING_DATA_RESPONSE,
+    bindOpeningDataBridge,
+  } = await import('../app/opening-data-bridge.js');
+
+  const listeners = new Map();
+  const sent = [];
+  const source = {
+    postMessage(data, targetOrigin) { sent.push({ data, targetOrigin }); },
+  };
+  const unrelatedSource = { postMessage() { throw new Error('must not be called'); } };
+  const openingFrame = {
+    contentWindow: source,
+    src: '',
+    srcdoc: '<!DOCTYPE html><title>轮回战场 · 建档协议</title><script>reincarnation:opening-data-request<\/script>',
+  };
+  const host = {
+    location: { origin: 'https://tavern.example' },
+    document: { querySelectorAll: selector => selector === 'iframe' ? [openingFrame] : [] },
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    removeEventListener(type, listener) {
+      if (listeners.get(type) === listener) listeners.delete(type);
+    },
+  };
+
+  const cleanup = bindOpeningDataBridge({
+    host,
+    readAssets: async () => [{ id: 'partner:opaque', kind: 'opening_partner', name: '沙箱伙伴' }],
+    readStoreCatalogs: async () => [],
+  });
+
+  listeners.get('message')?.({
+    origin: 'null',
+    source,
+    data: { type: OPENING_DATA_REQUEST, requestId: 'opaque-1' },
+  });
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].targetOrigin, '*');
+  assert.equal(sent[0].data.type, OPENING_DATA_RESPONSE);
+  assert.equal(sent[0].data.assets[0].name, '沙箱伙伴');
+
+  listeners.get('message')?.({
+    origin: 'null',
+    source: unrelatedSource,
+    data: { type: OPENING_DATA_REQUEST, requestId: 'opaque-2' },
+  });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(sent.length, 1);
+
+  cleanup();
+});
+
 test('opening defaults character and partner tabs from installed workshop assets', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');

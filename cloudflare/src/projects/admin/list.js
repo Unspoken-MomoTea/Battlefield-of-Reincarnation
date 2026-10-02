@@ -20,13 +20,14 @@ export async function listAdminProjects(request, env, user) {
        )
        LEFT JOIN users reviewer ON reviewer.id = rr.reviewer_user_id
       WHERE p.latest_version > 0
+        AND (v.review_status <> 'draft' OR ? = 'draft')
         AND (? = '' OR v.review_status = ?)
         AND (? = '' OR v.name LIKE ? OR v.summary LIKE ? OR owner.display_name LIKE ?)
         AND (? = '' OR v.project_type = ?)
       ORDER BY CASE v.review_status WHEN 'pending' THEN 0 WHEN 'rejected' THEN 1 WHEN 'draft' THEN 2 WHEN 'approved' THEN 3 ELSE 4 END,
         COALESCE(v.submitted_at, v.reviewed_at, v.created_at) DESC, p.updated_at DESC
       LIMIT ? OFFSET ?`,
-  ).bind(reviewStatus, reviewStatus, query, like, like, like, category, category, limit + 1, offset).all();
+  ).bind(reviewStatus, reviewStatus, reviewStatus, query, like, like, like, category, category, limit + 1, offset).all();
   const rows = result.results || [];
   return json({ items: rows.slice(0, limit).map(projectAdmin), next_offset: rows.length > limit ? offset + limit : null });
 }

@@ -4,7 +4,7 @@ export function workshopTemplate(version) {
     <header class="rw-head">
       <div class="rw-title">创意工坊</div>
       <div class="rw-head-discover-tools" data-role="discover-head-tools">
-        <input class="rw-input grow" data-field="search" placeholder="搜索项目、作者、简介或 #标签">
+        <input class="rw-input grow" data-field="search" placeholder="搜索项目、作者、简介或标签">
         <select class="rw-select" data-field="sort" aria-label="作品排序">
           <option value="latest">最新</option>
           <option value="popular">热门</option>
@@ -288,7 +288,7 @@ export function workshopTemplate(version) {
         <div data-admin-section="projects">
           <div class="rw-toolbar">
             <input class="rw-input grow" data-field="admin-search" placeholder="搜索作品或作者">
-            <select class="rw-select" data-field="admin-status"><option value="">全部审核状态</option><option value="pending">审核中</option><option value="approved">已通过</option><option value="rejected">已拒绝</option><option value="draft">未提交审核</option></select>
+            <select class="rw-select" data-field="admin-status"><option value="pending" selected>审核中</option><option value="">全部审核状态</option><option value="approved">已通过</option><option value="rejected">已拒绝</option></select>
             <select class="rw-select" data-field="admin-category"><option value="">全部类型</option><option value="extension">扩展</option><option value="character">角色</option></select>
             <button class="rw-button" data-action="admin-search" type="button">筛选</button>
           </div>

@@ -140,7 +140,7 @@ export function createDiscoverView({
 
     const meta = element('div', 'rw-meta');
     meta.append(element('span', 'rw-pill', `v${project.version}`));
-    for (const tag of (project.tags || []).slice(0, 3)) meta.append(element('span', 'rw-pill', `#${tag}`));
+    for (const tag of (project.tags || []).slice(0, 3)) meta.append(element('span', 'rw-pill', `${tag}`));
     card.appendChild(meta);
 
     card.appendChild(element('div', 'rw-muted rw-project-summary', project.summary || '暂无简介'));
@@ -538,7 +538,7 @@ export function createDiscoverView({
       );
       const headerTags = element('div', 'rw-meta');
       headerTags.append(element('span', 'rw-pill', `v${project.version}`));
-      for (const tag of project.tags || []) headerTags.append(element('span', 'rw-pill', `#${tag}`));
+      for (const tag of project.tags || []) headerTags.append(element('span', 'rw-pill', `${tag}`));
       header.append(headerCopy, headerTags);
       shell.appendChild(header);
 

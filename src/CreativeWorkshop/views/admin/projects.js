@@ -129,10 +129,11 @@ export function createAdminProjectsView({
   }
 
   async function reviewAction(item, decision, modal) {
-    const note = decision === 'approved'
-      ? (host.prompt?.('审核备注（可留空）', '') ?? '')
-      : (host.prompt?.('请输入驳回原因（必填）', '') ?? '');
-    if (decision === 'rejected' && !note.trim()) throw new Error('驳回时必须填写原因');
+    let note = '';
+    if (decision === 'rejected') {
+      note = host.prompt?.('请输入驳回原因（必填）', '') ?? '';
+      if (!note.trim()) throw new Error('驳回时必须填写原因');
+    }
 
     const label = decision === 'approved' ? '批准' : '驳回';
     const confirmed = await confirmDialog({
@@ -274,7 +275,7 @@ export function createAdminProjectsView({
       );
       if (project.project_status === 'archived') headerMeta.appendChild(element('span', 'rw-pill', '管理员已下架'));
       if (project.owner_hidden) headerMeta.appendChild(element('span', 'rw-pill rw-pill--warning', '作者已下架'));
-      for (const tag of project.tags || []) headerMeta.appendChild(element('span', 'rw-pill', `#${tag}`));
+      for (const tag of project.tags || []) headerMeta.appendChild(element('span', 'rw-pill', `${tag}`));
       header.append(headerCopy, headerMeta);
       shell.appendChild(header);
 

@@ -23,7 +23,7 @@ export async function getPendingProjectReview(env, user, projectId) {
     env.PROJECTS.get(row.content_key),
     env.DB.prepare(`SELECT version, name, summary, tags, dependencies, project_type AS category, cover_key, changelog, review_status, created_at, submitted_at, reviewed_at FROM project_versions WHERE project_id = ? ORDER BY version DESC`).bind(projectId).all(),
     env.DB.prepare(`SELECT rr.version, rr.decision, rr.note, rr.created_at, reviewer.display_name AS reviewer_name FROM review_records rr JOIN users reviewer ON reviewer.id = rr.reviewer_user_id WHERE rr.project_id = ? ORDER BY rr.id DESC`).bind(projectId).all(),
-    env.DB.prepare(`SELECT log.project_version, log.action, log.note, log.created_at, actor.display_name AS actor_name FROM admin_audit_logs log JOIN users actor ON actor.id = log.actor_user_id WHERE log.project_id = ? ORDER BY log.id DESC LIMIT 100`).bind(projectId).all(),
+    env.DB.prepare(`SELECT log.project_version, log.action, log.note, log.created_at, actor.display_name AS actor_name FROM admin_audit_logs log JOIN users actor ON actor.id = log.actor_user_id WHERE log.project_id = ? AND log.action NOT IN ('review_approved', 'review_rejected') ORDER BY log.id DESC LIMIT 100`).bind(projectId).all(),
   ]);
   if (!manifestObject) throw new HttpError(500, 'manifest_missing', '作品最新版本的 manifest 缺失');
   if (!bundleObject) throw new HttpError(500, 'bundle_missing', '作品最新版本的 bundle 缺失');

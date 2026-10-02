@@ -189,7 +189,7 @@ export function createAuthorView({
     if (project.owner_hidden) meta.append(element('span', 'rw-pill rw-pill--warning', '作者已下架'));
     if (project.has_cover) meta.append(element('span', 'rw-pill', '已有封面'));
     if (project.dependencies?.length) meta.append(element('span', 'rw-pill', `依赖 ${project.dependencies.length}`));
-    for (const tag of project.tags || []) meta.append(element('span', 'rw-pill', `#${tag}`));
+    for (const tag of project.tags || []) meta.append(element('span', 'rw-pill', `${tag}`));
     card.appendChild(meta);
 
     card.appendChild(element('div', 'rw-muted', project.summary || '暂无简介'));

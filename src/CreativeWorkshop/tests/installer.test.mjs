@@ -242,6 +242,78 @@ test('a worldbook-only mod can be uninstalled from the upgraded version of the s
   assert.equal(adapter.state.worldbooks.has(SHARED_WORLDBOOK_NAME), false);
 });
 
+
+test('character-local regex and script mods can reapply and uninstall after the same card version upgrades', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.character = '轮回战场 重构版 V3.6.11';
+  const storage = memoryStorage(project([
+    {
+      kind: 'regex',
+      name: '正则.json',
+      format: 'json',
+      content: [{ scriptName: '工坊正则', findRegex: 'foo', replaceString: 'bar' }],
+    },
+    {
+      kind: 'script',
+      name: '角色脚本.js',
+      format: 'text',
+      scope: 'character',
+      content: "console.log('v2')",
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  const first = await installer.apply('project-1');
+  assert.equal(first.targetCharacterName, '轮回战场 重构版 V3.6.11');
+  assert.equal(first.installTargets.regexIds.length, 1);
+  assert.equal(first.installTargets.scripts.character.length, 1);
+
+  await storage.putInstalledProject({
+    ...storage.current(),
+    version: 3,
+    bundle: {
+      schema_version: 1,
+      artifacts: [
+        {
+          kind: 'regex',
+          name: '正则.json',
+          format: 'json',
+          content: [{ scriptName: '工坊正则', findRegex: 'foo', replaceString: 'baz' }],
+        },
+        {
+          kind: 'script',
+          name: '角色脚本.js',
+          format: 'text',
+          scope: 'character',
+          content: "console.log('v3')",
+        },
+      ],
+    },
+  });
+
+  adapter.state.character = '轮回战场 重构版 V3.7';
+
+  const migrated = await installer.apply('project-1');
+  assert.equal(migrated.appliedVersion, 3);
+  assert.equal(migrated.targetCharacterName, '轮回战场 重构版 V3.7');
+  assert.equal(
+    adapter.state.regexes.find(regex => String(regex.id || '').startsWith('rw:project-1:'))?.replace_string,
+    'baz',
+  );
+  assert.equal(
+    adapter.state.scripts.character.find(script => script.id !== 'manual-script')?.content,
+    "console.log('v3')",
+  );
+
+  const removed = await installer.uninstall('project-1');
+  assert.equal(removed.applied, false);
+  assert.equal(removed.targetCharacterName, null);
+  assert.deepEqual(adapter.state.regexes, [{ id: 'manual', script_name: '玩家正则' }]);
+  assert.deepEqual(adapter.state.scripts.character, [
+    { type: 'script', id: 'manual-script', name: '玩家脚本', enabled: true, content: 'manual' },
+  ]);
+});
+
 test('uninstall restores a preset that existed before workshop installation', async () => {
   const adapter = fakeAdapter();
   const targetPreset = '[创意工坊] 测试作品 · 预设.json · project--1';

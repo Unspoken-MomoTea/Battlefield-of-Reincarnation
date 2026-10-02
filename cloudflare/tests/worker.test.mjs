@@ -267,6 +267,54 @@ test('Discord login start falls back to D1 when KV writes are exhausted', async 
   assert.equal([...db.auth.keys()].some(key => key.startsWith('oauth:')), true);
 });
 
+test('login exchange and authenticated session use D1 when KV writes are exhausted', async () => {
+  const user = {
+    id: 17,
+    discord_id: '1717',
+    username: 'd1-user',
+    display_name: 'D1 User',
+    avatar: null,
+    is_admin: 0,
+    is_moderator: 0,
+    is_banned: 0,
+    ban_reason: '',
+    banned_at: null,
+    created_at: 1,
+    updated_at: 1,
+  };
+  const db = new AuthFallbackDb(user);
+  const loginId = 'f'.repeat(64);
+  db.auth.set(`login_result:${loginId}`, {
+    value: JSON.stringify({ userId: user.id, createdAt: Date.now() }),
+    expires_at: Math.floor(Date.now() / 1000) + 120,
+    updated_at: Math.floor(Date.now() / 1000),
+  });
+  const testEnv = env({ SESSION_KV: new QuotaExceededKV(), DB: db });
+
+  const exchangeResponse = await handleRequest(
+    new Request('https://workshop.example/api/auth/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login_id: loginId }),
+    }),
+    testEnv,
+  );
+  assert.equal(exchangeResponse.status, 200);
+  const exchange = await exchangeResponse.json();
+  assert.ok(exchange.token);
+  assert.equal(db.auth.has(`login_result:${loginId}`), false);
+  assert.equal([...db.auth.keys()].some(key => key.startsWith('session:')), true);
+
+  const meResponse = await handleRequest(
+    new Request('https://workshop.example/api/auth/me', {
+      headers: { Authorization: `Bearer ${exchange.token}` },
+    }),
+    testEnv,
+  );
+  assert.equal(meResponse.status, 200);
+  assert.equal((await meResponse.json()).user.discord_id, '1717');
+});
+
 test('Discord login start rejects caller supplied non-random login ids', async () => {
   const response = await handleRequest(
     new Request('https://workshop.example/api/auth/discord/start?login_id=abc&opener_origin=https://tavern.example'),

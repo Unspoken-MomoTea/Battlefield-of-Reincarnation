@@ -17,8 +17,6 @@ def patch_prompt_version_test(rel,old,new,label):
         return
     patch(rel,old,new,label)
 
-patch('script/世界引擎接入说明.md','另存最后处理标识与最近20轮运行说明。','另存最后处理标识；每次成功推进直接写入当前楼层的近期历史锚点，同楼重推覆盖该叶子。','architecture docs')
-patch('script/世界引擎接入说明.md','`最近变化`只保存本轮成功提交产生的新变化，跨轮记录由运行记录与历史锚点承担。','`最近变化`只保存本轮成功提交产生的新变化；跨轮记忆由近期历史锚点与长期历史总结承担，运行诊断只保留在当前会话的请求检查中。','memory docs')
 patch('tests/world-engine.cjs',"assert.equal(calls,1); assert.equal(x.writes(),1); assert.equal(x.get().世界.后台.运行记录.length,1);","assert.equal(calls,1); assert.equal(x.writes(),1); assert.equal(Object.hasOwn(x.get().世界.后台,'运行记录'),false);",'core regression')
 patch_prompt_version_test('tests/world-engine-prompt-pipeline.cjs',"assert(source.includes(\"version:19,\\n        builtin:true,\\n        name:'默认设置'\"), 'built-in prompt version should be 19');","assert(source.includes(\"version:20,\\n        builtin:true,\\n        name:'默认设置'\"), 'built-in prompt version should be 20');",'prompt version regression')
 patch_prompt_version_test('tests/world-engine-asset-writeback.cjs',"assert.match(source, /version:19,\\n        builtin:true,\\n        name:'默认设置'/, '资产边界收紧应升级内置默认提示词到 v19');","assert.match(source, /version:20,\\n        builtin:true,\\n        name:'默认设置'/, '内置默认提示词应包含当前历史摘要规则版本 v20');",'asset prompt version regression')

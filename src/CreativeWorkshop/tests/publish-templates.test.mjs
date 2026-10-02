@@ -227,8 +227,10 @@ test('opening partner defaults affection to 0, teammate to true, and clamps affe
 
   const high = buildDedicatedArtifacts({ ...base, opening_favorability: '999' }, 'opening_partner', '作品')[0].content.build;
   const low = buildDedicatedArtifacts({ ...base, opening_favorability: '-999' }, 'opening_partner', '作品')[0].content.build;
+  const decimal = buildDedicatedArtifacts({ ...base, opening_favorability: '35.9' }, 'opening_partner', '作品')[0].content.build;
   assert.equal(high.好感度, 100);
   assert.equal(low.好感度, -100);
+  assert.equal(decimal.好感度, 35);
 });
 
 test('opening partner worldbook reuses the freeform character template and green-light keywords', () => {

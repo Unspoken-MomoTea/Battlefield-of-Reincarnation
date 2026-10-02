@@ -81,6 +81,44 @@ test('client latest survives a transient KV read failure when GitHub is availabl
   }
 });
 
+test('client latest falls back to workshop-stable when GitHub API is temporarily 502', async () => {
+  const originalFetch = globalThis.fetch;
+  const stableSha = 'efefefefefefefefefefefefefefefefefefefef';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.startsWith('https://api.github.com/')) {
+      return new Response('bad gateway', { status: 502 });
+    }
+    if (value === 'https://github.com/Unspoken-MomoTea/Battlefield-of-Reincarnation/commits/workshop-stable.atom') {
+      return new Response(
+        `<?xml version="1.0"?><feed><entry><link href="https://github.com/Unspoken-MomoTea/Battlefield-of-Reincarnation/commit/${stableSha}"/></entry></feed>`,
+        { status: 200, headers: { 'Content-Type': 'application/atom+xml' } },
+      );
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+
+  try {
+    const response = await routeSystem(
+      new Request('https://workshop.example/api/client/latest'),
+      {
+        CLIENT_UPDATE_CHANNEL: 'stable',
+        CLIENT_UPDATE_REF: 'workshop-stable',
+        SESSION_KV: { get: async () => null, put: async () => {} },
+      },
+      '/api/client/latest',
+      'test',
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.sha, stableSha);
+    assert.equal(body.ref, 'workshop-stable');
+    assert.equal(body.release_source, 'legacy-ref');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('world engine endpoint reports missing formal tag without falling back to main', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async url => {

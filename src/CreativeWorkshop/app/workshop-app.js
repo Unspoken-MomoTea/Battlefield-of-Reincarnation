@@ -9,6 +9,7 @@ import { createUiHelpers } from '../ui/helpers.js';
 import { createWorkshopShell } from '../ui/shell.js';
 import { createWorkshopUpdateNotice } from '../views/update-notice.js';
 import { createWorkshopBridge } from './bridge.js';
+import { bindOpeningDataBridge } from './opening-data-bridge.js';
 import { bindWorkshopEvents } from './events.js';
 import { bindWorkshopLauncher } from './launcher.js';
 import { createWorkshopViews } from './views.js';
@@ -60,6 +61,7 @@ export function bootWorkshop() {
   let updateNotice = null;
   let cleanupEvents = () => {};
   let cleanupLauncher = () => {};
+  let cleanupOpeningDataBridge = () => {};
   let authRefreshPromise = null;
   let lastAuthRefreshAt = 0;
 
@@ -201,6 +203,7 @@ export function bootWorkshop() {
     try { views.author?.destroy?.(); } catch {}
     try { cleanupEvents?.(); } catch {}
     try { cleanupLauncher?.(); } catch {}
+    try { cleanupOpeningDataBridge?.(); } catch {}
     window.removeEventListener('pagehide', onPageHide);
     host.removeEventListener?.('focus', syncAuthOnResume);
     doc.removeEventListener?.('visibilitychange', onVisibilityChange);
@@ -273,6 +276,7 @@ export function bootWorkshop() {
     calculatorUpdater,
   });
   host[GLOBAL_NAME] = bridge;
+  cleanupOpeningDataBridge = bindOpeningDataBridge({ host });
   host.dispatchEvent(new CustomEvent('reincarnation-workshop-ready', {
     detail: { version: WORKSHOP_VERSION },
   }));

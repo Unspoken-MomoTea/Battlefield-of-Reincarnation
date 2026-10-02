@@ -447,7 +447,7 @@ test('pending author cards hide empty overflow menus and pending moderation hide
   assert.doesNotMatch(
     reviewActions.slice(
       reviewActions.indexOf("if (project.review_status === 'pending'"),
-      reviewActions.indexOf("if (project.review_status === 'approved'"),
+      reviewActions.indexOf("if (project.review_status !== 'approved'"),
     ),
     /下架作品|删除作品/u,
   );

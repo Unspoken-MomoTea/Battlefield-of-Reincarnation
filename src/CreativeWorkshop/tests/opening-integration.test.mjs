@@ -197,6 +197,32 @@ test('opening live-refresh covers characters, partners, and store catalogs', asy
   assert.match(editor, /本次选择已撤回/u);
 });
 
+test('cross-origin opening delivery reads installed assets through the workshop host bridge', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const openingSource = fs.readFileSync(
+    fileURLToPath(new URL('../../opening/runtime/10-core-assets.js', import.meta.url)),
+    'utf8',
+  );
+  const workshopApp = fs.readFileSync(
+    fileURLToPath(new URL('../app/workshop-app.js', import.meta.url)),
+    'utf8',
+  );
+  const bridge = fs.readFileSync(
+    fileURLToPath(new URL('../app/opening-data-bridge.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(openingSource, /reincarnation:opening-data-request/u);
+  assert.match(openingSource, /reincarnation:opening-data-response/u);
+  assert.match(openingSource, /window\.parent\.postMessage|target\.postMessage/u);
+  assert.match(openingSource, /loadHostOpeningData/u);
+  assert.match(workshopApp, /bindOpeningDataBridge/u);
+  assert.match(bridge, /listOpeningAssets/u);
+  assert.match(bridge, /listInstalledStoreCatalogs/u);
+  assert.match(bridge, /cdn\.jsdelivr\.net/u);
+});
+
 test('opening defaults character and partner tabs from installed workshop assets', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');

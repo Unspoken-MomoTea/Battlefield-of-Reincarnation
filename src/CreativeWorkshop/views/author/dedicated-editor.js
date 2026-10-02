@@ -827,16 +827,16 @@ function openingEditor(doc, mode, initial, emit) {
       field(
         doc,
         '初始好感度',
-        makeInput(doc, 'opening_favorability', initial.opening_favorability ?? 0, { type: 'number', min: -100, max: 100, step: 1 }),
+        makeInput(doc, 'opening_affection', initial.opening_affection ?? 0, { type: 'number', min: -100, max: 100, step: 1 }),
         '-100 ~ 100；默认 0。',
       ),
       field(
         doc,
         '是否队友',
-        makeSelect(doc, 'opening_is_teammate', [
+        makeSelect(doc, 'opening_teammate', [
           { value: 'true', label: '是' },
           { value: 'false', label: '否' },
-        ], initial.opening_is_teammate === false ? 'false' : 'true'),
+        ], String(initial.opening_teammate ?? 'true') === 'false' ? 'false' : 'true'),
         '默认是；关闭后仍会写入关系列表，但不会标记为队友。',
       ),
     );
@@ -979,8 +979,8 @@ function openingEditor(doc, mode, initial, emit) {
         opening_attributes: allocator.values(),
         opening_skills: skillEditor.values(),
         ...(partner ? {
-          opening_favorability: Math.max(-100, Math.min(100, Number(getValue(root, 'opening_favorability')) || 0)),
-          opening_is_teammate: getValue(root, 'opening_is_teammate') !== 'false',
+          opening_affection: getValue(root, 'opening_affection') || '0',
+          opening_teammate: getValue(root, 'opening_teammate') || 'true',
           opening_partner_equipment: equipmentEditor?.values() || [],
           opening_worldbook_enabled: worldbookEnabled,
           opening_worldbook_keywords: worldbookKeywords?.value || '',

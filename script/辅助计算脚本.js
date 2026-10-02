@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    var CALCULATOR_VERSION = '1.0.0';
+    var CALCULATOR_VERSION = '1.0.1';
     var CALCULATOR_HOST = (function () {
         var host = window;
         try {

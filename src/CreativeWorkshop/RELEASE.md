@@ -2,6 +2,7 @@
 
 ## 最近正式热修
 
+- `workshop-v2.0.21`：继续修复酒馆 sandbox 开局页无法读取已安装伙伴的问题。部分酒馆/移动客户端把 HTML 放进 opaque-origin iframe，`postMessage` 的 `event.origin` 会变成 `null`；2.0.20 的安全白名单因此仍会拒绝真实开局页。现在只对当前页面中能确认属于轮回战场开局的 iframe 放行 opaque origin，请求源必须匹配 iframe `contentWindow` 且其 `src/srcdoc` 能识别为开局页面，未知 sandbox iframe 仍拒绝。同期辅助计算 `v1.0.1` 把页面生命周期清理从受 Permissions Policy 限制的 `unload` 改为原生 `pagehide`，消除相关控制台警告。
 - `workshop-v2.0.20`：修复固定开局地址 `/opening/latest` 经 jsDelivr 跨域运行时无法读取创意工坊本地安装资产的问题。此前工坊把开局角色/伙伴与商店目录写入酒馆宿主 origin 的 IndexedDB，而 CDN 开局页读取的是另一个 origin 下的同名空库，因此会出现“作品已安装，但开局伙伴库/商店仍为空”。现在创意工坊宿主通过受信任的 `postMessage` 数据桥向开局页提供 `opening_assets` 与 `opening_store_catalogs`，并在安装、更新、卸载后主动推送刷新；同源环境仍保留 IndexedDB 兜底。桥只接受当前宿主、`cdn.jsdelivr.net` 与工坊正式/测试域名请求。
 - `workshop-v2.0.19`：开局伙伴发布面板新增“初始好感度”和“是否队友”两个 MVU 字段。初始好感度默认 `0`、仅接受 `-100～100` 并按整数写入；是否队友默认“是”。字段会随伙伴 data artifact 保存，重新编辑时原样回填；玩家在开局选择已安装的工坊伙伴后，会把对应 `好感度` / `是否队友` 写入 `stat_data.关系列表.<伙伴名>`。旧伙伴资源缺少这两个字段时继续按 `0 / true` 兼容。
 - `workshop-v2.0.18`：修复作者“我的作品”中待审核作品仍显示空三点菜单的问题；待审核作品没有可执行管理操作时不再显示菜单。管理员审核详情中，审核中的版本只显示“批准 / 驳回”，下架、恢复与永久删除仅对已经审核通过的作品显示。正式更新检查也不再盲信与当前安装版本相同的 Worker 缓存：当 Worker 返回缓存中的“已是最新版”时，会额外核对 `workshop-stable` / 正式 Tag，避免新版本发布后被旧 5 分钟缓存压住；正式发布前的 production smoke 也不再预热 `/api/client/latest` 旧版本缓存。

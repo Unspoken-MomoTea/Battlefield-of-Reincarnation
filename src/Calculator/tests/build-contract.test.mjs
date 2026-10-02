@@ -17,7 +17,7 @@ test('calculator delivery is generated from explicit source parts and exposes ma
   const bootstrap = read('src/Calculator/core/CalculatorBootstrap.part.js');
   const generated = read('script/辅助计算脚本.js');
 
-  assert.match(foundation, /CALCULATOR_VERSION\s*=\s*'1\.0\.0'/u);
+  assert.match(foundation, /CALCULATOR_VERSION\s*=\s*'1\.0\.1'/u);
   assert.match(foundation, /class CalculatorRuntimeLifecycle/u);
   assert.match(foundation, /SamsaraCalculatorRuntime/u);
   assert.match(foundation, /Samsara\.CalculatorInfo/u);

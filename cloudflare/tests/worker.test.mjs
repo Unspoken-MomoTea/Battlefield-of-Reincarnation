@@ -197,7 +197,11 @@ test('testing latest endpoint resolves main and uses component cache key', async
     globalThis.fetch = originalFetch;
   }
   assert.equal(
-    await testEnv.SESSION_KV.get('public:core-component:v3:workshop:testing:main') !== null,
+    await testEnv.SESSION_KV.get('public:core-component:v3:workshop:testing:main'),
+    null,
+  );
+  assert.equal(
+    await testEnv.SESSION_KV.get('public:core-component:last-known:v1:workshop:testing:main') !== null,
     true,
   );
 });

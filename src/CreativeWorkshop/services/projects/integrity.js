@@ -1,13 +1,10 @@
+import { sha256Hex } from './sha256.js';
+
 const ALLOWED_KINDS = new Set(['worldbook', 'regex', 'preset', 'script', 'data']);
 const ALLOWED_FORMATS = new Set(['json', 'text']);
 
 function artifactContentText(artifact) {
   return artifact.format === 'text' ? artifact.content : JSON.stringify(artifact.content);
-}
-
-async function sha256Hex(value) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export function validateDownloadedBundle(bundle) {

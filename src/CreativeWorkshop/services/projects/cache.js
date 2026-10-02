@@ -2,6 +2,7 @@ import {
   deleteInstalledProject, getInstalledProject, getInstalledProjects, putInstalledProject,
 } from '../storage.js';
 import { verifyBundleAgainstManifest } from './integrity.js';
+import { sha256Hex } from './sha256.js';
 import { createOfflinePackage, MAX_OFFLINE_BYTES, parseOfflinePackageText } from './offline.js';
 import { withWorkshopMutation } from '../installer/mutation-lock.js';
 
@@ -78,7 +79,6 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
   const manifestArtifacts = await Promise.all(bundle.artifacts.map(async artifact => {
     const text = artifact.format === 'text' ? artifact.content : JSON.stringify(artifact.content);
     const bytes = new TextEncoder().encode(text);
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
     return {
       kind: artifact.kind,
       name: artifact.name,
@@ -86,7 +86,7 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
       ...(artifact.scope ? { scope: artifact.scope } : {}),
       ...(artifact.original_conflicts ? { original_conflicts: artifact.original_conflicts } : {}),
       byte_size: bytes.byteLength,
-      sha256: Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join(''),
+      sha256: await sha256Hex(text),
     };
   }));
   const manifest = {

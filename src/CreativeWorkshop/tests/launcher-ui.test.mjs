@@ -443,7 +443,7 @@ test('pending author cards hide empty overflow menus and pending moderation hide
     reviewActions,
     /if \(project\.review_status === 'pending'[\s\S]*批准这个版本[\s\S]*驳回这个版本[\s\S]*return section;/u,
   );
-  assert.match(reviewActions, /if \(project\.review_status === 'approved'\)/u);
+  assert.match(reviewActions, /if \(project\.review_status !== 'approved'\) return null;/u);
   assert.doesNotMatch(
     reviewActions.slice(
       reviewActions.indexOf("if (project.review_status === 'pending'"),

@@ -197,6 +197,21 @@ test('opening live-refresh covers characters, partners, and store catalogs', asy
   assert.match(editor, /本次选择已撤回/u);
 });
 
+test('workshop boot reconciles applied projects back into the opening registries', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const app = fs.readFileSync(
+    fileURLToPath(new URL('../app/workshop-app.js', import.meta.url)),
+    'utf8',
+  );
+  const maintenance = fs.readFileSync(
+    fileURLToPath(new URL('../views/maintenance.js', import.meta.url)),
+    'utf8',
+  );
+  assert.match(app, /reconcileOpeningData/u);
+  assert.match(maintenance, /reconcileOpeningData/u);
+});
+
 test('cross-origin opening delivery reads installed assets through the workshop host bridge', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');

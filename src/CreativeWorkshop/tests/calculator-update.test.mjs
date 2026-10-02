@@ -191,6 +191,55 @@ test('stable calculator refuses main when no formal calculator tag exists', asyn
   assert.equal(result.updateAvailable, false);
 });
 
+test('stable calculator verifies a matching cached Worker tag before declaring no update', async () => {
+  const oldSha = '1010101010101010101010101010101010101010';
+  const newSha = '2020202020202020202020202020202020202020';
+  const adapter = adapterFixture(buildCalculatorLoaderContent('calculator-v1.0.0', oldSha));
+  const urls = [];
+
+  const updater = createCalculatorUpdater({
+    adapter,
+    host: {
+      SamsaraCalculatorRuntime: { version: '1.0.0', sha: oldSha, ref: 'calculator-v1.0.0' },
+      Samsara: { CalculatorInfo: { version: '1.0.0', sha: oldSha, ref: 'calculator-v1.0.0' } },
+    },
+    channel: 'stable',
+    ref: 'calculator-v*',
+    fetchImpl: async url => {
+      const value = String(url);
+      urls.push(value);
+      if (value.includes('/api/components/latest')) {
+        return json({
+          component: 'calculator',
+          sha: oldSha,
+          channel: 'stable',
+          ref: 'calculator-v*',
+          version: '1.0.0',
+          tag: 'calculator-v1.0.0',
+          release_source: 'tag',
+          cached: true,
+          stale: false,
+        });
+      }
+      if (value.includes('/tags?')) {
+        return json([
+          { name: 'calculator-v1.0.1', commit: { sha: newSha } },
+          { name: 'calculator-v1.0.0', commit: { sha: oldSha } },
+        ]);
+      }
+      throw new Error(`unexpected ${value}`);
+    },
+    loadScript: async () => {},
+  });
+
+  const result = await updater.check();
+  assert.equal(result.latestVersion, '1.0.1');
+  assert.equal(result.latestTag, 'calculator-v1.0.1');
+  assert.equal(result.latestSha, newSha);
+  assert.equal(result.updateAvailable, true);
+  assert.ok(urls.some(value => value.includes('/tags?')));
+});
+
 test('stable calculator rewrites a sha loader to the formal calculator tag', async () => {
   const old = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
   const latest = 'ffffffffffffffffffffffffffffffffffffffff';

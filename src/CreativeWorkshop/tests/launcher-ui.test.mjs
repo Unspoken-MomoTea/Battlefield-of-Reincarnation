@@ -359,6 +359,7 @@ test('login action labels are centered and workshop release stays isolated from 
   assert.match(workflow, /Deploy production Worker/u);
   assert.match(workflow, /Production smoke test/u);
   assert.match(workflow, /cloudflare\/scripts\/smoke-production\.mjs/u);
+  assert.match(workflow, /smoke-production\.mjs --skip-client-latest/u);
   const productionSmoke = fs.readFileSync(
     fileURLToPath(new URL('../../../cloudflare/scripts/smoke-production.mjs', import.meta.url)),
     'utf8',

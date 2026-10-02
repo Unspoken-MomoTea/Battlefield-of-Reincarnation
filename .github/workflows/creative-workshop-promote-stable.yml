@@ -120,7 +120,7 @@ jobs:
         run: npx wrangler deploy --env production
 
       - name: Production smoke test
-        run: node cloudflare/scripts/smoke-production.mjs
+        run: node cloudflare/scripts/smoke-production.mjs --skip-client-latest
 
       - name: Create immutable release tag
         shell: bash

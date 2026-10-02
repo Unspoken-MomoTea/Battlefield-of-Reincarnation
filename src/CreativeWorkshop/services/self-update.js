@@ -91,6 +91,8 @@ async function serverLatest(fetchImpl, expectedChannel, expectedRef) {
     version: String(data?.version || ''),
     tag: String(data?.tag || ''),
     releaseSource: String(data?.release_source || ''),
+    cached: Boolean(data?.cached),
+    checkedAt: Number(data?.checked_at || 0),
   };
 }
 
@@ -140,7 +142,18 @@ async function resolveLatestShaForRefs(fetchImpl, refs, channel, ref) {
     }
   }
 
-  if (server?.releaseSource === 'tag') return server;
+  if (server?.releaseSource === 'tag') {
+    const serverMatchesInstalled = refs.length > 0
+      && refs.every(currentRef => currentRef === server.sha || currentRef === server.tag);
+    if (!server.cached || !serverMatchesInstalled) return server;
+
+    try {
+      const stable = await githubStableWorkshop(fetchImpl, ref);
+      if (stable.releaseSource === 'tag') return stable;
+    } catch {}
+    return server;
+  }
+
   try {
     const stable = await githubStableWorkshop(fetchImpl, ref);
     if (stable.releaseSource === 'tag') return stable;

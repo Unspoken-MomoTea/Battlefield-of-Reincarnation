@@ -221,22 +221,28 @@ export function createAdminProjectsView({
   }
 
   function reviewActions(item, project, modal) {
-    const section = element('section', 'rw-admin-review-decision');
-    section.appendChild(element('div', 'rw-workshop-rail-label', project.review_status === 'pending' ? '审核操作' : '管理操作'));
-
     if (project.review_status === 'pending' && project.project_status !== 'archived') {
+      const section = element('section', 'rw-admin-review-decision');
+      section.appendChild(element('div', 'rw-workshop-rail-label', '审核操作'));
       section.append(
         button('批准这个版本', 'good rw-admin-review-primary', () => reviewAction(item, 'approved', modal)),
         button('驳回这个版本', 'danger', () => reviewAction(item, 'rejected', modal)),
       );
+      return section;
     }
 
+    if (project.review_status !== 'approved') return null;
+
+    const section = element('section', 'rw-admin-review-decision');
+    section.appendChild(element('div', 'rw-workshop-rail-label', '管理操作'));
     if (project.project_status === 'archived') {
       section.appendChild(button('恢复作品', 'good', () => stateAction(item, 'restore', modal)));
     } else {
       section.appendChild(button('下架作品', 'danger', () => stateAction(item, 'archive', modal)));
     }
-    if (Number(getAuth()?.user?.is_admin)) section.appendChild(button('删除作品', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
+    if (Number(getAuth()?.user?.is_admin)) {
+      section.appendChild(button('删除作品', 'danger rw-admin-delete-project', () => deleteAction(item, modal)));
+    }
     return section;
   }
 
@@ -324,7 +330,8 @@ export function createAdminProjectsView({
         detailRow('点赞 / 收藏', `${project.likes_count || 0} / ${project.favorites_count || 0}`),
       );
       reviewSummary.appendChild(facts);
-      rail.appendChild(reviewActions(item, project, modal));
+      const actionSection = reviewActions(item, project, modal);
+      if (actionSection) rail.appendChild(actionSection);
       rail.appendChild(reviewSummary);
 
       const protectedSection = renderProtectedTargets(detail.content_preview?.resource_overrides || []);

@@ -174,8 +174,10 @@ export function createAuthorView({
       }));
     }
 
-    menu.append(menuTrigger, menuDropdown);
-    card.appendChild(menu);
+    if (menuDropdown.childElementCount) {
+      menu.append(menuTrigger, menuDropdown);
+      card.appendChild(menu);
+    }
 
     card.appendChild(element('h3', '', project.name));
 

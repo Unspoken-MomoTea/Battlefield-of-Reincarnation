@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 const base = String(process.env.WORKSHOP_PRODUCTION_BASE_URL || 'https://workshop.6661816.xyz')
   .replace(/\/+$/u, '');
 const shaPattern = /^[0-9a-f]{40}$/iu;
+const skipClientLatest = process.argv.includes('--skip-client-latest');
 
 async function retry(label, fn, attempts = 8) {
   let last;
@@ -41,20 +42,25 @@ await retry('health', async () => {
   console.log('Production health passed:', body);
 });
 
-const clientLatest = await retry('client latest', async () => {
-  const { response, body } = await fetchJson(`${base}/api/client/latest`);
-  if (
-    !response.ok
-    || !shaPattern.test(String(body.sha || ''))
-    || body.channel !== 'stable'
-    || body.ref !== 'workshop-stable'
-    || !['tag', 'legacy-ref'].includes(String(body.release_source || ''))
-  ) {
-    throw new Error(`unexpected client latest response: ${response.status} ${JSON.stringify(body)}`);
-  }
-  return body;
-});
-console.log('Production client latest passed:', clientLatest);
+if (!skipClientLatest) {
+  const clientLatest = await retry('client latest', async () => {
+    const { response, body } = await fetchJson(`${base}/api/client/latest`);
+    if (
+      !response.ok
+      || !shaPattern.test(String(body.sha || ''))
+      || body.channel !== 'stable'
+      || body.ref !== 'workshop-stable'
+      || !['tag', 'legacy-ref'].includes(String(body.release_source || ''))
+    ) {
+      throw new Error(`unexpected client latest response: ${response.status} ${JSON.stringify(body)}`);
+    }
+    return body;
+  });
+  console.log('Production client latest passed:', clientLatest);
+  
+} else {
+  console.log('Production client latest skipped before stable promotion to avoid warming the previous release.');
+}
 
 const openingComponent = await retry('opening component', async () => {
   const { response, body } = await fetchJson(`${base}/api/components/latest?component=opening`);

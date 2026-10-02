@@ -167,7 +167,7 @@ test('preflight accepts a portable installed mod on the same card family after a
 });
 
 
-test('preflight keeps version migration blocked when the old card still owns character-local resources', async () => {
+test('preflight allows same-card version migration even when the old install owns character-local resources', async () => {
   const adapter = fakeAdapter();
   adapter.state.character = '轮回战场 重构版 V3.7';
   const installed = project([], {
@@ -176,7 +176,7 @@ test('preflight keeps version migration blocked when the old card still owns cha
     installTargets: {
       worldbook: SHARED_WORLDBOOK_NAME,
       regexIds: ['rw:project-1:0:0'],
-      scripts: { character: [], preset: [], global: [] },
+      scripts: { character: ['rw:script'], preset: [], global: [] },
       presets: [],
     },
   });
@@ -185,7 +185,7 @@ test('preflight keeps version migration blocked when the old card still owns cha
     installed,
     { worldbook: [], regexes: [], presets: [], scripts: { character: [], preset: [], global: [] }, data: [] },
   );
-  assert.deepEqual(result.blocking.map(item => item.type), ['character_mismatch']);
+  assert.deepEqual(result.blocking, []);
 });
 
 

@@ -223,6 +223,56 @@ test('cross-origin opening delivery reads installed assets through the workshop 
   assert.match(bridge, /cdn\.jsdelivr\.net/u);
 });
 
+test('opening data bridge returns installed assets to trusted CDN frames', async () => {
+  const {
+    OPENING_DATA_REQUEST,
+    OPENING_DATA_RESPONSE,
+    bindOpeningDataBridge,
+  } = await import('../app/opening-data-bridge.js');
+
+  const listeners = new Map();
+  const host = {
+    location: { origin: 'https://tavern.example' },
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    removeEventListener(type, listener) {
+      if (listeners.get(type) === listener) listeners.delete(type);
+    },
+  };
+  const sent = [];
+  const source = {
+    postMessage(data, targetOrigin) { sent.push({ data, targetOrigin }); },
+  };
+  const cleanup = bindOpeningDataBridge({
+    host,
+    readAssets: async () => [{ id: 'partner:1', kind: 'opening_partner', name: '测试伙伴' }],
+    readStoreCatalogs: async () => [{ id: 'store:1', catalog: { equipments: [], items: [], skills: [] } }],
+  });
+
+  listeners.get('message')?.({
+    origin: 'https://cdn.jsdelivr.net',
+    source,
+    data: { type: OPENING_DATA_REQUEST, requestId: 'req-1' },
+  });
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].targetOrigin, 'https://cdn.jsdelivr.net');
+  assert.equal(sent[0].data.type, OPENING_DATA_RESPONSE);
+  assert.equal(sent[0].data.requestId, 'req-1');
+  assert.equal(sent[0].data.assets[0].kind, 'opening_partner');
+  assert.equal(sent[0].data.storeCatalogs[0].id, 'store:1');
+
+  listeners.get('message')?.({
+    origin: 'https://evil.example',
+    source,
+    data: { type: OPENING_DATA_REQUEST, requestId: 'req-2' },
+  });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(sent.length, 1);
+
+  cleanup();
+});
+
 test('opening defaults character and partner tabs from installed workshop assets', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');

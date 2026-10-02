@@ -96,6 +96,24 @@ test('downloaded bundle must match manifest byte size and sha256', async () => {
   );
 });
 
+
+test('download integrity verification works when Web Crypto subtle is unavailable', async () => {
+  const bundle = sample();
+  const manifest = await manifestFor(bundle);
+  const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+
+  try {
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: {},
+    });
+    await verifyBundleAgainstManifest(bundle, manifest, { id: 'p1', version: 2 });
+  } finally {
+    if (cryptoDescriptor) Object.defineProperty(globalThis, 'crypto', cryptoDescriptor);
+    else delete globalThis.crypto;
+  }
+});
+
 test('offline package round trip preserves verified bundle and project identity', async () => {
   const bundle = sample();
   const manifest = await manifestFor(bundle);

@@ -357,9 +357,17 @@ test('login action labels are centered and workshop release stays isolated from 
     'utf8',
   );
   assert.match(workflow, /Deploy production Worker/u);
-  assert.match(workflow, /Verify production health and Discord login start/u);
-  assert.match(workflow, /\/api\/auth\/discord\/start\?login_id=/u);
-  assert.match(workflow, /Production auth polling\/CORS passed/u);
+  assert.match(workflow, /Production smoke test/u);
+  assert.match(workflow, /cloudflare\/scripts\/smoke-production\.mjs/u);
+  const productionSmoke = fs.readFileSync(
+    fileURLToPath(new URL('../../../cloudflare/scripts/smoke-production.mjs', import.meta.url)),
+    'utf8',
+  );
+  assert.match(productionSmoke, /\/api\/client\/latest/u);
+  assert.match(productionSmoke, /\/api\/components\/latest\?component=opening/u);
+  assert.match(productionSmoke, /\/opening\/latest/u);
+  assert.match(productionSmoke, /\/api\/auth\/discord\/start\?login_id=/u);
+  assert.match(productionSmoke, /Production Discord auth\/CORS passed/u);
   assert.match(workflow, /validate-release-version\.mjs workshop/u);
   assert.doesNotMatch(workflow, /World engine regression suite/u);
   assert.doesNotMatch(workflow, /WORLD_ENGINE_VERSION/u);

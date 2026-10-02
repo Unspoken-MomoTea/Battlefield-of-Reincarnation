@@ -399,6 +399,31 @@ test('centered workshop buttons still honor the hidden attribute', () => {
 });
 
 
+test('admin review queue is focused and approval does not ask for optional feedback', () => {
+  const html = workshopTemplate('test');
+  assert.match(
+    html,
+    /data-field="admin-status">[\s\S]*<option value="pending" selected>审核中<\/option>/u,
+  );
+  assert.doesNotMatch(html, /<option value="draft">未提交审核<\/option>/u);
+
+  const adminProjects = fs.readFileSync(
+    fileURLToPath(new URL('../views/admin/projects.js', import.meta.url)),
+    'utf8',
+  );
+  assert.doesNotMatch(adminProjects, /审核备注（可留空）/u);
+  assert.match(adminProjects, /请输入驳回原因（必填）/u);
+
+  for (const relative of [
+    '../views/admin/projects.js',
+    '../views/discover.js',
+    '../views/author.js',
+  ]) {
+    const source = fs.readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8');
+    assert.doesNotMatch(source, /`#\$\{tag\}`/u);
+  }
+});
+
 test('per-mod stop and local cache delete actions execute without confirmation dialogs', () => {
   const source = fs.readFileSync(
     fileURLToPath(new URL('../views/installed.js', import.meta.url)),

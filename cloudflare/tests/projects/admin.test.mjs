@@ -143,7 +143,43 @@ test('admin can inspect approved or rejected uploads and their review history', 
   assert.equal(detail.reviews[0].decision, 'approved');
   assert.equal(detail.reviews[0].note, '首版通过');
   assert.equal(detail.reviews[0].reviewer_name, 'Admin');
+  assert.equal(detail.admin_audit.some(log => log.action === 'review_approved'), false);
   assert.equal(detail.bundle.artifacts[0].name, 'v1');
+});
+
+test('admin all-review listing excludes author drafts that were never submitted', async () => {
+  const { env, author, admin } = setup();
+
+  const draftResponse = await createProject(
+    request('/api/projects', 'POST', { name: '未提交草稿', summary: '草稿', category: 'extension' }),
+    env,
+    author,
+  );
+  const draft = (await responseJson(draftResponse)).project;
+  await uploadProjectVersion(
+    request(`/api/projects/${draft.id}/versions`, 'POST', { changelog: 'draft', bundle: bundle('draft') }),
+    env,
+    author,
+    draft.id,
+  );
+
+  const submitted = await createWorldbookProject(env, author);
+  await uploadProjectVersion(
+    request(`/api/projects/${submitted.id}/versions`, 'POST', { changelog: 'pending', bundle: bundle('pending-visible') }),
+    env,
+    author,
+    submitted.id,
+  );
+  await submitProjectForReview(env, author, submitted.id);
+
+  const all = await responseJson(await listAdminProjects(request('/api/admin/projects'), env, admin));
+  assert.equal(all.items.some(item => item.id === draft.id), false);
+  assert.equal(all.items.some(item => item.id === submitted.id), true);
+
+  const explicitDraft = await responseJson(
+    await listAdminProjects(request('/api/admin/projects?review_status=draft'), env, admin),
+  );
+  assert.equal(explicitDraft.items.some(item => item.id === draft.id), true);
 });
 
 test('non-admin cannot use management listing', async () => {

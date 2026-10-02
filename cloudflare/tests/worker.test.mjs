@@ -38,6 +38,54 @@ class UserDb {
   }
 }
 
+class QuotaExceededKV {
+  async get() { return null; }
+  async put() { throw new Error('KV put() limit exceeded for the day.'); }
+  async delete() {}
+}
+
+class AuthFallbackDb {
+  constructor(user = null) {
+    this.user = user;
+    this.auth = new Map();
+  }
+
+  prepare(sql) {
+    return {
+      bind: (...args) => ({
+        first: async () => {
+          if (/FROM auth_store WHERE key = \?/u.test(sql)) {
+            const row = this.auth.get(String(args[0]));
+            return row ? { value: row.value, expires_at: row.expires_at } : null;
+          }
+          if (/FROM users WHERE id = \?/u.test(sql)) {
+            if (!this.user) return null;
+            return Number(args[0]) === Number(this.user.id) ? this.user : null;
+          }
+          return null;
+        },
+        run: async () => {
+          if (/INSERT INTO auth_store/u.test(sql)) {
+            this.auth.set(String(args[0]), {
+              value: String(args[1]),
+              expires_at: Number(args[2]),
+              updated_at: Number(args[3]),
+            });
+          } else if (/DELETE FROM auth_store WHERE key = \?/u.test(sql)) {
+            this.auth.delete(String(args[0]));
+          } else if (/DELETE FROM auth_store WHERE expires_at <= \?/u.test(sql)) {
+            const threshold = Number(args[0]);
+            for (const [key, row] of this.auth) {
+              if (Number(row.expires_at) <= threshold) this.auth.delete(key);
+            }
+          }
+          return { success: true };
+        },
+      }),
+    };
+  }
+}
+
 function env(extra = {}) {
   return {
     DISCORD_CLIENT_ID: '1234567890',
@@ -204,6 +252,19 @@ test('testing latest endpoint resolves main and uses component cache key', async
     await testEnv.SESSION_KV.get('public:core-component:last-known:v1:workshop:testing:main') !== null,
     true,
   );
+});
+
+test('Discord login start falls back to D1 when KV writes are exhausted', async () => {
+  const db = new AuthFallbackDb();
+  const loginId = 'e'.repeat(64);
+  const response = await handleRequest(
+    new Request(`https://workshop.example/api/auth/discord/start?login_id=${loginId}`),
+    env({ SESSION_KV: new QuotaExceededKV(), DB: db }),
+  );
+
+  assert.equal(response.status, 302);
+  assert.match(response.headers.get('location') || '', /^https:\/\/discord\.com\/oauth2\/authorize/u);
+  assert.equal([...db.auth.keys()].some(key => key.startsWith('oauth:')), true);
 });
 
 test('Discord login start rejects caller supplied non-random login ids', async () => {

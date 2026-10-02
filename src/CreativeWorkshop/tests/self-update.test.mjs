@@ -155,6 +155,54 @@ test('testing channel ignores newer main commits that did not change CreativeWor
   assert.match(adapter.state.character[0].content, new RegExp(`@${newerMain}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
 
+test('stable channel verifies a cached current Worker result before declaring no update', async () => {
+  const adapter = adapterFixture('https://workshop.6661816.xyz');
+  adapter.state.character[0].content = adapter.state.character[0].content.replace(
+    '593cf339818e5ed1c8e2ed363d28e34ff98fa835',
+    'workshop-v2.0.17',
+  );
+  const oldSha = '1717171717171717171717171717171717171717';
+  const newSha = '1818181818181818181818181818181818181818';
+  const urls = [];
+
+  const updater = createWorkshopSelfUpdater({
+    adapter,
+    channel: 'stable',
+    ref: 'workshop-stable',
+    fetchImpl: async url => {
+      const value = String(url);
+      urls.push(value);
+      if (value.includes('/api/client/latest')) {
+        return response(oldSha, {
+          channel: 'stable',
+          ref: 'workshop-stable',
+          version: '2.0.17',
+          tag: 'workshop-v2.0.17',
+          release_source: 'tag',
+          cached: true,
+          checked_at: 1,
+        });
+      }
+      if (value.includes('/tags?')) {
+        return new Response(JSON.stringify([
+          { name: 'workshop-v2.0.18', commit: { sha: newSha } },
+          { name: 'workshop-v2.0.17', commit: { sha: oldSha } },
+        ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (value.includes('/commits/workshop-stable')) return response(newSha);
+      throw new Error(`unexpected request: ${value}`);
+    },
+  });
+
+  const check = await updater.check();
+  assert.equal(check.latestVersion, '2.0.18');
+  assert.equal(check.latestTag, 'workshop-v2.0.18');
+  assert.equal(check.latestSha, newSha);
+  assert.equal(check.updateAvailable, true);
+  assert.ok(urls.some(url => url.includes('/tags?')));
+  assert.ok(urls.some(url => url.includes('/commits/workshop-stable')));
+});
+
 test('stable channel uses workshop tag when it matches workshop-stable and never checks main', async () => {
   const adapter = adapterFixture('https://workshop.6661816.xyz');
   const stable = 'abcdefabcdefabcdefabcdefabcdefabcdefabcd';

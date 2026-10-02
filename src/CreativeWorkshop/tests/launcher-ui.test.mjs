@@ -424,6 +424,34 @@ test('admin review queue is focused and approval does not ask for optional feedb
   }
 });
 
+test('pending author cards hide empty overflow menus and pending moderation hides management actions', () => {
+  const author = fs.readFileSync(
+    fileURLToPath(new URL('../views/author.js', import.meta.url)),
+    'utf8',
+  );
+  assert.match(author, /if \(menuDropdown\.childElementCount\) \{[\s\S]*menu\.append\(menuTrigger, menuDropdown\)/u);
+
+  const admin = fs.readFileSync(
+    fileURLToPath(new URL('../views/admin/projects.js', import.meta.url)),
+    'utf8',
+  );
+  const start = admin.indexOf('function reviewActions');
+  const end = admin.indexOf('async function showReview', start);
+  const reviewActions = admin.slice(start, end);
+  assert.match(
+    reviewActions,
+    /if \(project\.review_status === 'pending'[\s\S]*批准这个版本[\s\S]*驳回这个版本[\s\S]*return section;/u,
+  );
+  assert.match(reviewActions, /if \(project\.review_status === 'approved'\)/u);
+  assert.doesNotMatch(
+    reviewActions.slice(
+      reviewActions.indexOf("if (project.review_status === 'pending'"),
+      reviewActions.indexOf("if (project.review_status === 'approved'"),
+    ),
+    /下架作品|删除作品/u,
+  );
+});
+
 test('per-mod stop and local cache delete actions execute without confirmation dialogs', () => {
   const source = fs.readFileSync(
     fileURLToPath(new URL('../views/installed.js', import.meta.url)),

@@ -106,6 +106,10 @@ test('dedicated editor removes world-character MVU fields and exposes optional p
   assert.match(source, /['"]opening_worldbook_keywords['"]/u);
   assert.match(source, /['"]opening_worldbook_content['"]/u);
   assert.match(source, /['"]opening_appearance['"]/u);
+  assert.match(source, /['"]opening_affection['"]/u);
+  assert.match(source, /['"]opening_teammate['"]/u);
+  assert.match(source, /min:\s*-100/u);
+  assert.match(source, /max:\s*100/u);
   assert.doesNotMatch(source, /partnerWorldbookFromForm/u);
   assert.doesNotMatch(source, /修改上方基础资料时，前序会同步更新/u);
   assert.match(source, /关键词 \/ 别名/u);
@@ -183,6 +187,8 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
     opening_likes: '茶',
     opening_appearance: '银色长发，灰蓝双眼。',
     opening_background: '旧友',
+    opening_affection: '35',
+    opening_teammate: 'false',
     opening_bloodline_name: '强化血统',
     opening_attributes: { 力量: 4, 敏捷: 4, 体质: 4, 精神: 2, 魅力: 2 },
     opening_skills: [{ name: '护卫', type: '1', effectName: '', effectDesc: '', desc: '', consume: '' }],
@@ -200,10 +206,29 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
   assert.equal(asset.profile.性格, '沉稳');
   assert.equal(asset.profile.外貌, '银色长发，灰蓝双眼。');
   assert.equal(asset.build.层级, 'Ⅲ');
+  assert.equal(asset.build.好感度, 35);
+  assert.equal(asset.build.是否队友, false);
   assert.equal(asset.build.血统.强化血统.品质, 'D');
   assert.equal(asset.build.技能.护卫.品质, 'D');
   assert.equal(asset.build.装备.伙伴长剑.品质, 'D');
   assert.equal(asset.build.装备.伙伴长剑.原始属性.ATK, 'A');
+});
+
+test('opening partner defaults affection to 0, teammate to true, and clamps affection to MVU range', () => {
+  const base = {
+    opening_name: '默认伙伴',
+    opening_rank: 'Ⅰ',
+    opening_bloodline_name: '默认血统',
+  };
+
+  const defaults = buildDedicatedArtifacts(base, 'opening_partner', '作品')[0].content.build;
+  assert.equal(defaults.好感度, 0);
+  assert.equal(defaults.是否队友, true);
+
+  const high = buildDedicatedArtifacts({ ...base, opening_affection: '999' }, 'opening_partner', '作品')[0].content.build;
+  const low = buildDedicatedArtifacts({ ...base, opening_affection: '-999' }, 'opening_partner', '作品')[0].content.build;
+  assert.equal(high.好感度, 100);
+  assert.equal(low.好感度, -100);
 });
 
 test('opening partner worldbook reuses the freeform character template and green-light keywords', () => {
@@ -458,6 +483,8 @@ test('dedicated update values recover point allocation, skills, partner equipmen
       name: '角色',
       build: {
         层级: 'Ⅲ',
+        好感度: -42,
+        是否队友: false,
         血统: {
           人类强化: {
             品质: 'D',
@@ -478,6 +505,8 @@ test('dedicated update values recover point allocation, skills, partner equipmen
   }], 'opening_partner', '作品');
 
   assert.equal(values.opening_rank, 'Ⅲ');
+  assert.equal(values.opening_affection, '-42');
+  assert.equal(values.opening_teammate, 'false');
   assert.equal(values.opening_bloodline_name, '人类强化');
   assert.equal(values.opening_attributes.力量, 4);
   assert.equal(values.opening_skills.length, 2);

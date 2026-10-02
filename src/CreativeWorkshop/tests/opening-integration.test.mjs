@@ -214,6 +214,22 @@ test('opening defaults character and partner tabs from installed workshop assets
   assert.match(opening, /id="opening-partner-library" style="display:none;"/u);
 });
 
+test('installed opening partner writes configured affection and teammate flag into MVU relation node', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const opening = fs.readFileSync(
+    fileURLToPath(new URL('../../../Regular/开局.html', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(opening, /好感度:\s*Math\.max\(-100, Math\.min\(100, Math\.trunc\(Number\(pb\.好感度\) \|\| 0\)\)\)/u);
+  assert.match(opening, /是否队友:\s*pb\.是否队友 !== false/u);
+  assert.doesNotMatch(
+    opening,
+    /partnerNode = \{[\s\S]{0,500}姓名: selectedOpeningPartner\.name[\s\S]{0,500}是否队友: true/u,
+  );
+});
+
 test('installed opening partner suppresses the AI completion instruction', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');

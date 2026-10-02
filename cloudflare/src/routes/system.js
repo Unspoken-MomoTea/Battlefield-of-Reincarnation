@@ -222,6 +222,49 @@ async function safeKvPut(env, key, value, options) {
   }
 }
 
+function edgeCacheRequest(key) {
+  return new Request(`https://workshop-component-cache.invalid/${encodeURIComponent(key)}`);
+}
+
+async function edgeCacheGet(key) {
+  try {
+    const cache = globalThis.caches?.default;
+    if (!cache?.match) return null;
+    const response = await cache.match(edgeCacheRequest(key));
+    if (!response) return null;
+    return await response.json();
+  } catch (error) {
+    console.warn('[workshop-system] edge cache read failed', key, error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+async function edgeCachePut(key, value) {
+  try {
+    const cache = globalThis.caches?.default;
+    if (!cache?.put) return;
+    const response = new Response(JSON.stringify(value), {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': `public, max-age=${CACHE_TTL_SECONDS}`,
+      },
+    });
+    await cache.put(edgeCacheRequest(key), response);
+  } catch (error) {
+    console.warn('[workshop-system] edge cache write failed', key, error instanceof Error ? error.message : String(error));
+  }
+}
+
+function sameSnapshot(left, right, component, channel, ref) {
+  return (
+    validCachedComponent(left, component, channel, ref)
+    && left.sha === right.sha
+    && String(left.version || '') === String(right.version || '')
+    && String(left.tag || '') === String(right.tag || '')
+    && String(left.release_source || '') === String(right.release_source || '')
+  );
+}
+
 function validCachedComponent(cached, component, channel, ref) {
   return (
     cached?.component === component.id
@@ -243,8 +286,14 @@ async function fetchLatestComponent(env, componentId) {
   const ref = componentUpdateRef(env, component);
   const key = cacheKey(env, component);
   const fallbackKey = snapshotKey(env, component);
+  const edgeCached = await edgeCacheGet(key);
+  if (validCachedComponent(edgeCached, component, channel, ref)) {
+    return { ...edgeCached, cached: true };
+  }
+  // Backward-compatible read for the old KV hot-cache key. New deployments no longer write it.
   const cached = await safeKvGet(env, key);
   if (validCachedComponent(cached, component, channel, ref)) {
+    await edgeCachePut(key, cached);
     return { ...cached, cached: true };
   }
   const snapshot = await safeKvGet(env, fallbackKey);
@@ -308,8 +357,10 @@ async function fetchLatestComponent(env, componentId) {
     source_path: component.sourcePath,
     checked_at: Math.floor(Date.now() / 1000),
   };
-  await safeKvPut(env, key, JSON.stringify(result), { expirationTtl: CACHE_TTL_SECONDS });
-  await safeKvPut(env, fallbackKey, JSON.stringify(result));
+  await edgeCachePut(key, result);
+  if (!sameSnapshot(snapshot, result, component, channel, ref)) {
+    await safeKvPut(env, fallbackKey, JSON.stringify(result));
+  }
   return { ...result, cached: false };
 }
 

@@ -266,7 +266,13 @@ function openingBuild(source, mode) {
     层级: rank,
     血统: bloodline,
     技能: skills,
-    ...(mode === 'opening_partner' ? { 装备: validatePartnerEquipment(source) } : {}),
+    ...(mode === 'opening_partner' ? {
+      好感度: Math.max(-100, Math.min(100, Number(source?.opening_favorability) || 0)),
+      是否队友: source?.opening_is_teammate === undefined
+        ? true
+        : source.opening_is_teammate === true || String(source.opening_is_teammate) === 'true',
+      装备: validatePartnerEquipment(source),
+    } : {}),
   };
 }
 
@@ -516,6 +522,11 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
     });
 
     if (mode === 'opening_partner') {
+      const initialFavorability = Number(build.好感度);
+      result.opening_favorability = Number.isFinite(initialFavorability)
+        ? Math.max(-100, Math.min(100, initialFavorability))
+        : 0;
+      result.opening_is_teammate = typeof build.是否队友 === 'boolean' ? build.是否队友 : true;
       result.opening_partner_equipment = Object.entries(build.装备 || {}).map(([name, item]) => ({
         name,
         ...structuredClone(item),

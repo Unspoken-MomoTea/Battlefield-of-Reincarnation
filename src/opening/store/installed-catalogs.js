@@ -76,6 +76,10 @@ export async function replaceProjectStoreCatalogs(project, dataArtifacts=[]) {
   notifyOpeningStoreChanged({ action: 'replace', projectId: project.id, count: catalogs.length });
   return catalogs.length;
 }
+export async function listInstalledStoreCatalogs() {
+  return all();
+}
+
 export async function getInstalledStoreCatalog() {
   const merged={equipments:[],items:[],skills:[]};
   for(const row of await all()) for(const key of Object.keys(merged)) for(const item of row.catalog?.[key]||[]) merged[key].push({...structuredClone(item),sourceProjectId:row.sourceProjectId,sourceProjectName:row.sourceProjectName});

@@ -2119,10 +2119,10 @@
     };
 
     try {
-        var unloadHandler = function () { calculatorPreClean(); };
-        if (typeof $ === 'function') {
-            $(window).off('unload.samsaraCalculator').on('unload.samsaraCalculator', unloadHandler);
-            trackCalculatorSubscription({ stop: function () { try { $(window).off('unload.samsaraCalculator', unloadHandler); } catch (_) {} } });
+        var pagehideHandler = function () { calculatorPreClean(); };
+        if (window && typeof window.addEventListener === 'function') {
+            window.addEventListener('pagehide', pagehideHandler);
+            trackCalculatorSubscription({ stop: function () { try { window.removeEventListener('pagehide', pagehideHandler); } catch (_) {} } });
         }
     } catch (_) {}
 

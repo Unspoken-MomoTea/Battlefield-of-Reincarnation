@@ -20,6 +20,62 @@ export function isTrustedOpeningOrigin(origin, host) {
   return Boolean(value && (value === hostOrigin(host) || TRUSTED_OPENING_ORIGINS.has(value)));
 }
 
+function openingFrameLooksTrusted(frame) {
+  const src = String(
+    frame?.getAttribute?.('src')
+    || frame?.src
+    || '',
+  ).trim();
+  if (src) {
+    try {
+      const origin = new URL(src, hostOrigin(globalThis.window) || undefined).origin;
+      if (TRUSTED_OPENING_ORIGINS.has(origin)) return true;
+    } catch {}
+  }
+
+  const srcdoc = String(
+    frame?.getAttribute?.('srcdoc')
+    || frame?.srcdoc
+    || '',
+  );
+  return (
+    srcdoc.includes('轮回战场 · 建档协议')
+    || srcdoc.includes('reincarnation:opening-data-request')
+    || srcdoc.includes('class="wizard-layout"')
+  );
+}
+
+function isTrustedOpaqueOpeningSource(source, host) {
+  const rootDocument = host?.document;
+  if (!source || !rootDocument?.querySelectorAll) return false;
+  const visited = new Set();
+
+  const scan = doc => {
+    if (!doc || visited.has(doc)) return false;
+    visited.add(doc);
+    let frames = [];
+    try { frames = [...doc.querySelectorAll('iframe')]; } catch { return false; }
+
+    for (const frame of frames) {
+      let frameWindow = null;
+      try { frameWindow = frame.contentWindow; } catch {}
+      if (frameWindow === source && openingFrameLooksTrusted(frame)) return true;
+      try {
+        if (frameWindow?.document && scan(frameWindow.document)) return true;
+      } catch {}
+    }
+    return false;
+  };
+
+  return scan(rootDocument);
+}
+
+function isTrustedOpeningRequest(event, host) {
+  if (isTrustedOpeningOrigin(event?.origin, host)) return true;
+  return String(event?.origin || '') === 'null'
+    && isTrustedOpaqueOpeningSource(event?.source, host);
+}
+
 export function bindOpeningDataBridge({
   host = globalThis.window,
   readAssets = listOpeningAssets,
@@ -55,7 +111,7 @@ export function bindOpeningDataBridge({
 
   const onMessage = event => {
     if (event?.data?.type !== OPENING_DATA_REQUEST) return;
-    if (!isTrustedOpeningOrigin(event.origin, host)) return;
+    if (!isTrustedOpeningRequest(event, host)) return;
     if (!event.source?.postMessage) return;
     clients.set(event.source, event.origin);
     void send(

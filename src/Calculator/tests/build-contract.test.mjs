@@ -32,7 +32,8 @@ test('calculator delivery is generated from explicit source parts and exposes ma
 test('calculator lifecycle cleanup avoids blocked unload listeners', () => {
   const bootstrap = read('src/Calculator/core/CalculatorBootstrap.part.js');
   assert.doesNotMatch(bootstrap, /unload\.samsaraCalculator/u);
-  assert.match(bootstrap, /pagehide\.samsaraCalculator/u);
+  assert.match(bootstrap, /addEventListener\('pagehide'/u);
+  assert.match(bootstrap, /removeEventListener\('pagehide'/u);
 });
 
 test('calculator managed runtime can stop a previous MVU subscription before hot reload', () => {

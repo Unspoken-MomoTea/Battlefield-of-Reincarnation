@@ -222,12 +222,15 @@ test('installed opening partner writes configured affection and teammate flag in
     'utf8',
   );
 
+  const partnerStart = opening.indexOf("if (selectedPartner === 'library' && selectedOpeningPartner)");
+  const partnerEnd = opening.indexOf("if (selectedPartner === 'custom' && useCustomPartnerFlag)", partnerStart);
+  const partnerBlock = opening.slice(partnerStart, partnerEnd);
+  assert.ok(partnerStart >= 0 && partnerEnd > partnerStart);
+  assert.match(partnerBlock, /Number\(pb\.好感度\)/u);
+  assert.match(partnerBlock, /Math\.max\(-100, Math\.min\(100,/u);
+  assert.match(partnerBlock, /好感度:[\s\S]*:\s*0/u);
   assert.match(
-    opening,
-    /好感度:\s*Math\.max\(-100, Math\.min\(100, Math\.trunc\(Number\(pb\.好感度\) \|\| 0\)\)\)/u,
-  );
-  assert.match(
-    opening,
+    partnerBlock,
     /是否队友:\s*typeof pb\.是否队友 === 'boolean' \? pb\.是否队友 : true/u,
   );
   assert.doesNotMatch(

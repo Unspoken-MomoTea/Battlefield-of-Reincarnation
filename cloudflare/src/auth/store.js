@@ -11,6 +11,9 @@ async function d1Put(env, key, value, ttl) {
   if (!env.DB?.prepare) return false;
   const now = nowSeconds();
   const expiresAt = now + positiveTtl(ttl);
+  try {
+    await env.DB.prepare('DELETE FROM auth_store WHERE expires_at <= ?').bind(now).run();
+  } catch {}
   await env.DB.prepare(
     `INSERT INTO auth_store (key, value, expires_at, updated_at)
      VALUES (?, ?, ?, ?)

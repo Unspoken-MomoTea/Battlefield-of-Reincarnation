@@ -1,5 +1,6 @@
 import { HttpError, json, readJson } from '../http.js';
 import { parseBearerToken, positiveInt, randomToken, sha256Hex } from '../security.js';
+import { authStoreDelete, authStoreGet, authStorePut } from './store.js';
 import { getUserById } from './users.js';
 
 export async function exchangeLogin(request, env) {
@@ -8,10 +9,10 @@ export async function exchangeLogin(request, env) {
   if (!/^[a-f0-9]{64}$/u.test(loginId)) throw new HttpError(400, 'invalid_login_id', 'login_id 无效');
 
   const resultKey = `login_result:${loginId}`;
-  const resultRaw = await env.SESSION_KV.get(resultKey);
+  const resultRaw = await authStoreGet(env, resultKey);
   if (!resultRaw) throw new HttpError(409, 'login_pending', 'Discord 登录尚未完成');
 
-  await env.SESSION_KV.delete(resultKey);
+  await authStoreDelete(env, resultKey);
   const result = JSON.parse(resultRaw);
   if (!result?.userId) throw new HttpError(500, 'login_result_invalid', '登录结果无效');
 
@@ -20,7 +21,8 @@ export async function exchangeLogin(request, env) {
   const ttl = positiveInt(env.SESSION_TTL_SECONDS, 30 * 24 * 60 * 60);
   const expiresAt = Math.floor(Date.now() / 1000) + ttl;
 
-  await env.SESSION_KV.put(
+  await authStorePut(
+    env,
     `session:${tokenHash}`,
     JSON.stringify({ userId: result.userId, expiresAt }),
     { expirationTtl: ttl },
@@ -32,12 +34,12 @@ export async function requireUser(request, env) {
   const token = parseBearerToken(request);
   const tokenHash = await sha256Hex(token);
   const key = `session:${tokenHash}`;
-  const sessionRaw = await env.SESSION_KV.get(key);
+  const sessionRaw = await authStoreGet(env, key);
   if (!sessionRaw) throw new HttpError(401, 'unauthorized', '登录状态已失效');
 
   const session = JSON.parse(sessionRaw);
   if (!session?.userId || session.expiresAt <= Math.floor(Date.now() / 1000)) {
-    await env.SESSION_KV.delete(key);
+    await authStoreDelete(env, key);
     throw new HttpError(401, 'session_expired', '登录状态已过期');
   }
 
@@ -57,6 +59,6 @@ export async function getMe(request, env) {
 export async function logout(request, env) {
   const token = parseBearerToken(request);
   const tokenHash = await sha256Hex(token);
-  await env.SESSION_KV.delete(`session:${tokenHash}`);
+  await authStoreDelete(env, `session:${tokenHash}`);
   return new Response(null, { status: 204 });
 }

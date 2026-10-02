@@ -1,7 +1,7 @@
 import { HttpError, html } from '../http.js';
 import { isValidLoginId, normalizeOpenerOrigin, randomToken } from '../security.js';
 import { discordCallbackUrl, required } from './config.js';
-import { authStorePut } from './store.js';
+import { authStoreDelete, authStoreGet, authStorePut } from './store.js';
 import { upsertDiscordUser } from './users.js';
 
 const DISCORD_AUTHORIZE_URL = 'https://discord.com/oauth2/authorize';
@@ -80,15 +80,16 @@ export async function finishDiscordLogin(request, env) {
   if (!code || !state) throw new HttpError(400, 'oauth_callback_invalid', 'Discord 回调缺少 code 或 state');
 
   const stateKey = `oauth:${state}`;
-  const pendingRaw = await env.SESSION_KV.get(stateKey);
+  const pendingRaw = await authStoreGet(env, stateKey);
   if (!pendingRaw) throw new HttpError(400, 'oauth_state_expired', '登录请求已过期，请重新登录');
-  await env.SESSION_KV.delete(stateKey);
+  await authStoreDelete(env, stateKey);
 
   const pending = JSON.parse(pendingRaw);
   if (!isValidLoginId(pending.loginId)) throw new HttpError(400, 'oauth_state_invalid', '登录请求状态无效');
 
   const user = await upsertDiscordUser(env, await fetchDiscordUser(env, code));
-  await env.SESSION_KV.put(
+  await authStorePut(
+    env,
     `login_result:${pending.loginId}`,
     JSON.stringify({ userId: user.id, createdAt: Date.now() }),
     { expirationTtl: 120 },

@@ -153,6 +153,42 @@ test('opening latest redirects to an immutable main sha with no-cache headers', 
 });
 
 
+test('opening latest falls back to GitHub Atom when the commits API returns 502', async () => {
+  const originalFetch = globalThis.fetch;
+  const sha = 'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('api.github.com/repos/') && value.includes('/commits?')) {
+      return new Response('bad gateway', { status: 502 });
+    }
+    if (value === 'https://github.com/Unspoken-MomoTea/Battlefield-of-Reincarnation/commits/main.atom') {
+      return new Response(
+        `<?xml version="1.0"?><feed><entry><link href="https://github.com/Unspoken-MomoTea/Battlefield-of-Reincarnation/commit/${sha}"/></entry></feed>`,
+        { status: 200, headers: { 'Content-Type': 'application/atom+xml' } },
+      );
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+
+  try {
+    const response = await routeSystem(
+      new Request('https://workshop.6661816.xyz/opening/latest'),
+      {
+        OPENING_UPDATE_CHANNEL: 'testing',
+        OPENING_UPDATE_REF: 'main',
+        SESSION_KV: { get: async () => null, put: async () => {} },
+      },
+      '/opening/latest',
+      'test',
+    );
+    assert.equal(response.status, 302);
+    assert.equal(response.headers.get('x-opening-sha'), sha);
+    assert.match(response.headers.get('location') || '', new RegExp('@' + sha + '/dist/opening/entry\\.html'));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('status bar endpoint uses only status-bar tags on stable channel', async () => {
   const originalFetch = globalThis.fetch;
   const statusSha = '1212121212121212121212121212121212121212';

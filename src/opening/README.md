@@ -10,7 +10,7 @@ var url = 'https://workshop.6661816.xyz/opening/latest';
 - `page/template.html`：页面骨架。
 - `styles/core.css`、`styles/extra.css`：页面样式。
 - `runtime/00-70*.js`：数据库、资产读取、变量模式、角色、商店、伙伴/剧情、导航/预设、最终降临。
-- `character-assets/`：工坊开局角色/伙伴资产。
+- `character-assets/`：工坊开局角色/伙伴资产；伙伴资产的 `build.好感度` 默认 0、`build.是否队友` 默认 true，并在最终降临时写入 `stat_data.关系列表`。
 - `store/`：核心与工坊商店。
 - `hot-update/`：Opening 独立热更新元数据。
 

@@ -1,71 +1,51 @@
 # WorldEngine
 
-`src/WorldEngine/` 是世界推进的唯一开发源码与架构文档目录。
+`src/WorldEngine/` 是世界推进的唯一开发源码目录。运行时仍由 `tools/build-world-engine.py` 按固定顺序拼接 `.part.js`，生成酒馆单文件 `script/世界推进系统.js`；生成文件只作为交付物，不作为第二份手工源码维护。
 
-运行时仍由 `tools/build-world-engine.py` 按固定顺序拼接这里的 `.part.js`，生成单文件 `script/世界推进系统.js`；酒馆安装方式不变。`script/world-engine-src/` 已在 Phase 56 删除，禁止重新建立第二套源码树。
+## 当前边界
 
-## 目标
+- 世界推进拥有 `世界.后台`、`世界.因果轨道`、`世界.势力`、`世界.探索`、世界历史/传播、运行配置与提示词配置。
+- 正式人物档案仍由状态栏负责；世界推进的人物编辑只修改 `世界.后台.人物` 的场外活动记录，不直接维护 `关系列表` 正式档案。
+- 顶层 `资产` 是共享资产账簿；世界推进只按已确认的场外事实维护资产变化，不建立第二套资产数据库。
+- `WorldResult` 的 Schema、写入白名单、时间/引用/状态完整性校验属于程序契约，不开放为可编辑 Prompt。
 
-- `SamsaraWorldEngine` 最终只负责生命周期与模块编排，不再继续承载事件、人物、提示词等业务实现。
-- `WorldStateModel` 提供共享记录目录与实体身份匹配基础策略；旧 `10-world-state.part.js` 已删除。
-- `src/WorldEngine/core/SamsaraWorldEngine.part.js` 是完整 Application/UI Shell；旧 `40-engine-runtime.part.js` / `50-engine-ui.part.js` 已删除，领域算法与业务页面不得回流到 shell。
-- 每个业务域通过独立 class 暴露稳定接口。
-- 所有实际发送给 AI 的 system 提示词必须登记在 `WorldPromptRegistry`，并在“提示词预设”页面可见、可编辑、可保存到预设文档。
-- UI、领域逻辑、MVU 写回、提示词配置分离。
-- 保持单文件交付和现有存档兼容；生成文件不作为第二份手工源码维护。
+## 源码结构
 
-## 当前类
+- `core/`：Application Facade、Service Container、生命周期、配置、Feature Registry、宿主适配与 bootstrap。
+- `domains/`：世界状态投影、WorldResult 编译/物化/校验、时间线、因果、事件、人物活动、探索、传闻、资产、历史、请求与重试等领域能力。
+- `prompts/`：默认提示词、`WorldPromptRegistry` 与 Prompt 集成。
+- `ui/`：Panel Controller/Renderer、业务 View、编辑器、提示词工作台、主题与 API 预设控制。
 
-- `WorldEngineServiceContainer`：服务组合根。
-- `WorldRuntimeContextService`：当前楼层/MVU/chat 指纹读取与基础阻塞判断。\n- `WorldKnowledgeService`：角色/聊天/全局世界书目录与蓝绿灯读取。\n- `WorldRequestBuilder`：主推进的基础请求构造；Feature Registry 与 Prompt Registry 在其后继续装饰。\n- `WorldApiTransportService`：专属 API/主神终端传输、结构化降级、模型目录与 API 预设。\n- `WorldPromptDocumentService`：提示词文档保存、导入、导出与删除。\n- `WorldRunOrchestrator`：一次世界推进的请求→重试→编译→验收→提交 Application Flow；统一处理请求错误、空回、局部业务失败、按模型重试与 fallback 切换。\n- `WorldStateProjector`：世界状态 → 世界推进热上下文的唯一投影入口。
-- `WorldTimelinePolicy`：事件时间锚点、时间线显示/排序、陈旧活动检测与未来时间异常规则。
-- `WorldTimePolicy`：世界时间候选解析、日历兼容、禁止回退、编译事务快照与最终时间 patch。
-- `WorldLifecycleService`：冷结束事件归档、事件软引用解绑与传播过期判定。
-- `WorldResultCompiler`：WorldResult 标准化、分片验收、补丁编译与 materialize 入口。
-- `WorldRetryGuidanceService`：业务失败 → 纠错补充清单；所有静态纠错动作模板从 Prompt Registry 读取。
-- `WorldValidationService`：编译后统一执行到期事件、时间锚点、超期事件、时间异常、异端、NPC 审计与宏观骨架验收。
-- `WorldCommitService`：稳定值重算、最近变化、历史/replay 提交装饰、Schema 二次确认与单次 MVU 写入。
-- `WorldMutationService`：世界推进变量的原子写回与 replay 合并入口。
-- `WorldSnapshotService`：当前聊天的手动世界快照保存/恢复；只回滚世界侧状态，不回滚玩家角色与任务系统。
-- `WorldEventService`：事件修正、重命名、删除。
-- `WorldPersonActivityService`：只管理 `世界.后台.人物` 活动记录。
-- `WorldHistoryService`：历史记忆读取、压缩入口与手动修正。
-- `WorldCausalService`：因果偏移编辑、删除与稳定值重算。
-- `WorldExplorationService`：探索快照、整体地标粒度校验、当前地点最低探索投影与旧版子区域合并；`WorldRumorService` / `WorldRequestService`：传播与请求领域入口。
-- `WorldEngineViewRegistry`：业务视图注册。
-- `WorldEditorController`：事件、世界人物、因果偏移、历史记忆的统一编辑控制器。
-- `WorldPromptWorkspaceController`：提示词预设 UI 控制器。
-- `WorldBasePromptDefaults`：默认预设、核心约束、内置默认 Prompt 文档与基础预设编辑 helper 的物理源码归属。
-- `WorldPromptRegistry`：system、user payload、辅助模型与重试静态指令的唯一注册表。
-- `WorldEngineFeatureRegistry`：统一挂载不值得继续继承主类的 feature/controller 生命周期。
-- `WorldApiPresetController`：专属 API 预设选择态。
-- `WorldCausalOverviewController`：因果摘要/因果档案 UI。
-- `WorldNpcAuditPromptFeature`：NPC 审计默认提示词迁移。
-- `WorldRequestFeature`：所有请求装饰 feature 的公共 seam。
-- `WorldSoftMaintenanceFeature`：软维护验收 payload/manifest。
-- `WorldIntegrityRequestFeature`：因果与时间约束 manifest。
-- `WorldActivityRequestFeature`：世界活动交付 payload/timeline/manifest。
-- `WorldDueEventFeature`：到期事件软复核清单。
-- `WorldTaskAwarenessFeature`：任务只读投影与任务世界书选择恢复。
-- `WorldChronologyFeature`：原著/数据库时间线资料读取与时间线基准请求装饰。
-- `WorldRumorRequestFeature`：传闻维护 payload、世界侧取材边界、运行时复核与传闻 UI 收口。
+详细职责边界见 [`ARCHITECTURE.md`](./ARCHITECTURE.md)。原著剧情与时间约束见 [`CHRONOLOGY.md`](./CHRONOLOGY.md)。静态提示词规则见 [`PROMPT-REGISTRY.md`](./PROMPT-REGISTRY.md)。发布候选验收见 [`RC-CHECKLIST.md`](./RC-CHECKLIST.md)。
 
-## 后续开发硬规则
+## 开发硬规则
 
-- `src/WorldEngine/` 是唯一源码树；禁止恢复 `script/world-engine-src/` 或直接手改生成文件承载业务实现。
-- `WorldEngineClassBridge` 是唯一允许的 `extends SamsaraWorldEngine` 兼容层；新功能必须进入 service / policy / controller / feature / view，不得新增主类继承补丁。
-- 禁止通过重新赋值 `compileWorldResult / retryPlanForFailure / projectWorldContext / applyPatches / validateState / materializeWorldUpdate` 追加行为；需要扩展时显式组合对应领域服务。
-- 纯常量放 vocabulary/catalog/constants，纯工具放 utilities；不要为了“类化”机械创建空 class，也不要仅因为文件较大就拆散职责完整的领域类。
-- 所有实际发送给 AI 的静态指令继续必须登记 `WorldPromptRegistry` 并通过提示词源码审计；程序 Schema、白名单和校验规则保持不可编辑。
-- 每次迁移保持公开 seam 与单文件交付兼容，先用现有回归锁行为，再移动实现。
+- 只在 `src/WorldEngine/` 修改世界推进业务源码；禁止恢复 `script/world-engine-src/`。
+- `WorldEngineClassBridge` 是唯一允许的 `extends SamsaraWorldEngine` 兼容层；新能力进入 service / policy / controller / feature / view。
+- 禁止重新通过覆盖 `compileWorldResult / retryPlanForFailure / projectWorldContext / applyPatches / validateState / materializeWorldUpdate` 追加业务行为。
+- 纯常量放 vocabulary/catalog/constants，纯工具放 utilities；不要为了文件尺寸机械拆 class。
+- 所有实际发送给 AI 的静态指令必须登记 `WorldPromptRegistry`，并能在提示词工作台查看和编辑；Schema、白名单、校验算法仍由程序维护。
+- 新改动应保持现有公开 seam、存档兼容与单文件交付契约；先用回归锁住行为，再调整内部职责。
 
-详细迁移边界见 `ARCHITECTURE.md` 与 `REFACTOR-PLAN.md`；提示词清单规则见 `PROMPT-REGISTRY.md`。
+## 构建与验收
 
+修改世界引擎源码后至少执行：
 
-## 版本与热更新
+```bash
+python tools/build-world-engine.py
+python tools/build-world-engine.py --check
+node tests/world-engine-modules.cjs
+node tests/run-world-engine-suite.cjs
+```
 
-世界推进运行时公开 `WORLD_ENGINE_VERSION` 与 `Samsara.WorldEngineInfo`。正式版本使用独立、不可覆盖的 `world-engine-vX.Y.Z` Git Tag；测试维护通道读取 `main` 中生成交付文件 `script/世界推进系统.js` 的最后修改提交。
+`tests/world-engine-class-architecture.cjs` 负责锁定类化边界、唯一继承层、legacy source tree 不回流和核心 seam 不被重新 monkey patch。Prompt 源码审计继续保证静态 AI 指令不会重新藏回业务文件。
 
-创意工坊“修复”页可识别旧式内联 `世界推进系统.js`，原位迁移为受维护的版本 loader。测试通道写固定 SHA；正式通道优先写 `world-engine-vX.Y.Z`，迁移期仍兼容历史 `VX.Y.Z` 统一 Tag。若当前引擎不处于 `busy/committing` 状态，写入后立即加载目标版本；若正在推进，只保存新 loader，本轮不强制切换。
+## 运行与热更新
 
-`WORLD_ENGINE_VERSION` 与 `WORKSHOP_VERSION` 不再要求相同。发布世界推进时，根目录 `创意工坊更新工具.bat` 的“发布世界推进正式版”只校验世界推进源码与生成交付、运行世界推进完整回归并创建 `world-engine-vX.Y.Z`；不会推进 `workshop-stable`，也不会修改创意工坊版本。
+世界推进运行时公开 `WORLD_ENGINE_VERSION` 与 `Samsara.WorldEngineInfo`。测试维护通道跟踪 `main` 中的生成交付；正式世界推进使用独立、不可覆盖的 `world-engine-vX.Y.Z` Git Tag。
+
+创意工坊“修复”页负责把旧式内联世界推进脚本迁移为受维护的版本 loader。世界推进发布与创意工坊版本相互独立：发布世界推进只校验世界引擎源码/交付、运行回归并创建世界推进正式 Tag，不修改创意工坊正式发布指针。
+
+## 文档维护
+
+这里的文档只描述**当前事实和长期约束**。已经完成的 Phase、一次性迁移步骤和历史实施矩阵不再作为长期文档保留；真正难以逆转且需要解释取舍的决定应进入 `docs/adr/`。

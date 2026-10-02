@@ -9,7 +9,7 @@ const clone=value=>JSON.parse(JSON.stringify(value));
 
 for(const file of [
   'src/WorldEngine/PROMPT-REGISTRY.md',
-  'src/WorldEngine/REFACTOR-PLAN.md',
+  'src/WorldEngine/ARCHITECTURE.md',
   'src/WorldEngine/ui/WorldEditorController.part.js',
   'src/WorldEngine/domains/WorldCausalService.part.js',
 ]){

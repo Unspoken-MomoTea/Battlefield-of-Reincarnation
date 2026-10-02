@@ -46,10 +46,7 @@ export function hasCharacterLocalTargets(targets = {}) {
 
 export function canMigrateCharacterTarget(installed, actualCharacter) {
   if (!installed?.applied || !installed.targetCharacterName) return false;
-  if (characterTargetRelation(installed.targetCharacterName, actualCharacter) !== 'version_migration') {
-    return false;
-  }
-  return !hasCharacterLocalTargets(installed.installTargets ?? {});
+  return characterTargetRelation(installed.targetCharacterName, actualCharacter) === 'version_migration';
 }
 
 export function characterTargetMatches(installed, actualCharacter) {

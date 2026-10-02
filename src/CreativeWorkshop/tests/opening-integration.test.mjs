@@ -222,8 +222,14 @@ test('installed opening partner writes configured affection and teammate flag in
     'utf8',
   );
 
-  assert.match(opening, /好感度:\s*Math\.max\(-100, Math\.min\(100, Math\.trunc\(Number\(pb\.好感度\) \|\| 0\)\)\)/u);
-  assert.match(opening, /是否队友:\s*pb\.是否队友 !== false/u);
+  assert.match(
+    opening,
+    /好感度:\s*Number\.isFinite\(Number\(pb\.好感度\)\) \? Math\.max\(-100, Math\.min\(100, Number\(pb\.好感度\)\)\) : 0/u,
+  );
+  assert.match(
+    opening,
+    /是否队友:\s*typeof pb\.是否队友 === 'boolean' \? pb\.是否队友 : true/u,
+  );
   assert.doesNotMatch(
     opening,
     /partnerNode = \{[\s\S]{0,500}姓名: selectedOpeningPartner\.name[\s\S]{0,500}是否队友: true/u,

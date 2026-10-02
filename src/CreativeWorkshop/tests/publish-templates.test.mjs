@@ -106,8 +106,8 @@ test('dedicated editor removes world-character MVU fields and exposes optional p
   assert.match(source, /['"]opening_worldbook_keywords['"]/u);
   assert.match(source, /['"]opening_worldbook_content['"]/u);
   assert.match(source, /['"]opening_appearance['"]/u);
-  assert.match(source, /['"]opening_affection['"]/u);
-  assert.match(source, /['"]opening_teammate['"]/u);
+  assert.match(source, /['"]opening_favorability['"]/u);
+  assert.match(source, /['"]opening_is_teammate['"]/u);
   assert.match(source, /min:\s*-100/u);
   assert.match(source, /max:\s*100/u);
   assert.doesNotMatch(source, /partnerWorldbookFromForm/u);
@@ -187,8 +187,8 @@ test('opening partner gets 16 point budget, auto D quality at rank III and can c
     opening_likes: '茶',
     opening_appearance: '银色长发，灰蓝双眼。',
     opening_background: '旧友',
-    opening_affection: '35',
-    opening_teammate: 'false',
+    opening_favorability: '35',
+    opening_is_teammate: 'false',
     opening_bloodline_name: '强化血统',
     opening_attributes: { 力量: 4, 敏捷: 4, 体质: 4, 精神: 2, 魅力: 2 },
     opening_skills: [{ name: '护卫', type: '1', effectName: '', effectDesc: '', desc: '', consume: '' }],
@@ -225,8 +225,8 @@ test('opening partner defaults affection to 0, teammate to true, and clamps affe
   assert.equal(defaults.好感度, 0);
   assert.equal(defaults.是否队友, true);
 
-  const high = buildDedicatedArtifacts({ ...base, opening_affection: '999' }, 'opening_partner', '作品')[0].content.build;
-  const low = buildDedicatedArtifacts({ ...base, opening_affection: '-999' }, 'opening_partner', '作品')[0].content.build;
+  const high = buildDedicatedArtifacts({ ...base, opening_favorability: '999' }, 'opening_partner', '作品')[0].content.build;
+  const low = buildDedicatedArtifacts({ ...base, opening_favorability: '-999' }, 'opening_partner', '作品')[0].content.build;
   assert.equal(high.好感度, 100);
   assert.equal(low.好感度, -100);
 });
@@ -505,8 +505,8 @@ test('dedicated update values recover point allocation, skills, partner equipmen
   }], 'opening_partner', '作品');
 
   assert.equal(values.opening_rank, 'Ⅲ');
-  assert.equal(values.opening_affection, '-42');
-  assert.equal(values.opening_teammate, 'false');
+  assert.equal(values.opening_favorability, -42);
+  assert.equal(values.opening_is_teammate, false);
   assert.equal(values.opening_bloodline_name, '人类强化');
   assert.equal(values.opening_attributes.力量, 4);
   assert.equal(values.opening_skills.length, 2);

@@ -257,7 +257,12 @@ async function fetchLatestComponent(env, componentId) {
     if (channel === 'testing') {
       sha = await latestPathCommit(env, component, ref);
     } else {
-      const tagged = await latestTaggedRelease(env, component);
+      let tagged = null;
+      try {
+        tagged = await latestTaggedRelease(env, component);
+      } catch (error) {
+        if (component.id !== 'workshop' || !shouldFallbackToAtom(error)) throw error;
+      }
       if (component.id === 'workshop') {
         const stableRef = component.legacyStableRef || ref;
         const stableHead = await refHead(env, stableRef);

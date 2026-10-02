@@ -26,7 +26,7 @@ test('character target relation recognizes explicit card version upgrades only',
   );
 });
 
-test('only installs without old character-local regex or script targets can migrate automatically', () => {
+test('same-card version upgrades stay migratable even with old character-local targets', () => {
   const portable = {
     applied: true,
     targetCharacterName: '轮回战场 重构版 V3.6.11',
@@ -47,13 +47,29 @@ test('only installs without old character-local regex or script targets can migr
   assert.equal(hasCharacterLocalTargets(withRegex.installTargets), true);
   assert.equal(
     canMigrateCharacterTarget(withRegex, '轮回战场 重构版 V3.7'),
-    false,
+    true,
   );
 
   const withCharacterScript = structuredClone(portable);
   withCharacterScript.installTargets.scripts.character = ['rw:script'];
   assert.equal(
     canMigrateCharacterTarget(withCharacterScript, '轮回战场 重构版 V3.7'),
+    true,
+  );
+});
+
+
+test('different character families remain blocked even when versions differ', () => {
+  const installed = {
+    applied: true,
+    targetCharacterName: '轮回战场 重构版 V3.7',
+    installTargets: {
+      regexIds: ['rw:project:0:0'],
+      scripts: { character: ['rw:script'], preset: [], global: [] },
+    },
+  };
+  assert.equal(
+    canMigrateCharacterTarget(installed, '其他角色 V3.8'),
     false,
   );
 });

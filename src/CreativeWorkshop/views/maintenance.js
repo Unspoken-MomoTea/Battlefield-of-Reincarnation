@@ -527,14 +527,6 @@ export function createMaintenanceView({
 
   async function renderInstalledSection(container) {
     container.replaceChildren();
-    try {
-      const reconciled = await projectService.reconcileOpeningData();
-      if (reconciled?.failed) {
-        console.warn('[轮回战场创意工坊] 重新扫描时有开局 Registry 修复失败', reconciled.items);
-      }
-    } catch (error) {
-      console.warn('[轮回战场创意工坊] 重新扫描开局 Registry 失败', error);
-    }
     const head = element('div', 'rw-maintenance-section-head');
     const copy = element('div', '');
     copy.append(
@@ -543,8 +535,37 @@ export function createMaintenanceView({
     );
     head.appendChild(copy);
 
+    const actions = element('div', 'rw-actions');
     const scanButton = button('重新扫描', '', () => renderInstalledSection(container));
-    head.appendChild(scanButton);
+    const rebuildOpeningButton = button('重建开局资产索引', '', async () => {
+      rebuildOpeningButton.disabled = true;
+      rebuildOpeningButton.textContent = '正在重建…';
+      try {
+        const result = await projectService.reconcileOpeningData();
+        if (result?.failed) {
+          try {
+            host.toastr?.warning?.(
+              `已重建 ${result.reconciled || 0} 个项目，${result.failed} 个项目失败；请查看控制台详情。`,
+              '开局资产索引',
+            );
+          } catch {}
+          console.warn('[轮回战场创意工坊] 手动重建开局 Registry 有失败项目', result.items);
+        } else {
+          try {
+            host.toastr?.success?.(
+              `已重建 ${result?.reconciled || 0} 个开局相关项目的资产索引。`,
+              '开局资产索引',
+            );
+          } catch {}
+        }
+      } finally {
+        rebuildOpeningButton.disabled = false;
+        rebuildOpeningButton.textContent = '重建开局资产索引';
+      }
+      await renderInstalledSection(container);
+    });
+    actions.append(scanButton, rebuildOpeningButton);
+    head.appendChild(actions);
     container.appendChild(head);
 
     const projects = (await projectService.installed()).filter(item => item.applied);

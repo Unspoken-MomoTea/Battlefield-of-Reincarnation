@@ -72,6 +72,34 @@ test('approved project updates become public immediately after upload', async ()
   assert.equal(download.artifacts[0].name, 'v2');
 });
 
+test('versioned project download keeps bundle and manifest on the same release', async () => {
+  const { env, author, admin } = setup();
+  const project = await createWorldbookProject(env, author);
+  await publishVersion(env, author, admin, project.id, bundle('v1'));
+
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'v2', bundle: bundle('v2') }),
+    env,
+    author,
+    project.id,
+  );
+
+  const current = await downloadPublicProject(project.id, env);
+  assert.equal(current.headers.get('cache-control'), 'no-store');
+  assert.equal(current.headers.get('x-workshop-project-version'), '2');
+  assert.equal((await responseJson(current)).artifacts[0].name, 'v2');
+
+  const pinned = await downloadPublicProject(project.id, env, 1);
+  assert.equal(pinned.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  assert.equal(pinned.headers.get('x-workshop-project-version'), '1');
+  assert.equal((await responseJson(pinned)).artifacts[0].name, 'v1');
+
+  await assert.rejects(
+    () => downloadPublicProject(project.id, env, 'not-a-version'),
+    error => error?.status === 400 && error?.code === 'invalid_project_version',
+  );
+});
+
 test('rejected first release remains unavailable to the public', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);

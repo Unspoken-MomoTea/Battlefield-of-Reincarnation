@@ -26,8 +26,15 @@ export function createProjectApi(request, requestRaw) {
       });
     },
 
-    downloadProject(projectId) {
-      return request(`/api/projects/${encodeURIComponent(projectId)}/download`);
+    downloadProject(projectId, version = null, { cacheBust = false } = {}) {
+      const params = new URLSearchParams();
+      const normalizedVersion = Number(version);
+      if (Number.isInteger(normalizedVersion) && normalizedVersion > 0) {
+        params.set('version', String(normalizedVersion));
+      }
+      if (cacheBust) params.set('_', String(Date.now()));
+      const query = params.size ? `?${params}` : '';
+      return request(`/api/projects/${encodeURIComponent(projectId)}/download${query}`);
     },
 
     listOwnProjects() {

@@ -44,7 +44,10 @@ export async function routeProjects(request, env, pathname) {
   if (request.method === 'GET' && versionId) return getPublicProjectVersion(versionId, env);
 
   const downloadId = projectIdFrom(pathname, '/download');
-  if (request.method === 'GET' && downloadId) return downloadPublicProject(downloadId, env);
+  if (request.method === 'GET' && downloadId) {
+    const requestedVersion = new URL(request.url).searchParams.get('version');
+    return downloadPublicProject(downloadId, env, requestedVersion);
+  }
 
   const coverId = projectIdFrom(pathname, '/cover');
   if (request.method === 'GET' && coverId) return getPublicProjectCover(env, coverId);

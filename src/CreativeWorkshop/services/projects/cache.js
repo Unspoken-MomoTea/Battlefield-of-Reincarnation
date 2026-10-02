@@ -33,11 +33,33 @@ function baseRecord(project, manifest, bundle, previous, source) {
   };
 }
 
+function isRetryableIntegrityMismatch(error) {
+  return error instanceof Error && /(?:大小校验失败|SHA-256 校验失败)/u.test(error.message);
+}
+
+export async function fetchVerifiedRemoteProject(workshopApi, projectId) {
+  const detail = await workshopApi.getProject(projectId);
+  const version = Number(detail?.project?.version);
+  if (!Number.isInteger(version) || version < 1) {
+    throw new Error('远程作品版本无效');
+  }
+
+  let bundle = await workshopApi.downloadProject(projectId, version);
+  try {
+    await verifyBundleAgainstManifest(bundle, detail.manifest, detail.project);
+  } catch (error) {
+    if (!isRetryableIntegrityMismatch(error)) throw error;
+    bundle = await workshopApi.downloadProject(projectId, version, { cacheBust: true });
+    await verifyBundleAgainstManifest(bundle, detail.manifest, detail.project);
+  }
+
+  return { detail, bundle };
+}
+
 export const cacheRemoteProject = (workshopApi, projectId) => withWorkshopMutation(() => cacheRemoteProjectUnlocked(workshopApi, projectId));
 
 async function cacheRemoteProjectUnlocked(workshopApi, projectId) {
-  const [detail, bundle] = await Promise.all([workshopApi.getProject(projectId), workshopApi.downloadProject(projectId)]);
-  await verifyBundleAgainstManifest(bundle, detail.manifest, detail.project);
+  const { detail, bundle } = await fetchVerifiedRemoteProject(workshopApi, projectId);
   const previous = await getInstalledProject(projectId);
   const record = baseRecord(detail.project, detail.manifest, bundle, previous, 'remote');
   if (record.hasCover && typeof workshopApi.getProjectCoverUrl === 'function') {

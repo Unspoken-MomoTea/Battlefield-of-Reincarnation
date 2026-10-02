@@ -197,7 +197,7 @@ test('opening live-refresh covers characters, partners, and store catalogs', asy
   assert.match(editor, /本次选择已撤回/u);
 });
 
-test('workshop boot reconciles applied projects back into the opening registries', async () => {
+test('opening registry rebuild stays out of boot and normal rescan hot paths', async () => {
   const fs = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const app = fs.readFileSync(
@@ -208,8 +208,15 @@ test('workshop boot reconciles applied projects back into the opening registries
     fileURLToPath(new URL('../views/maintenance.js', import.meta.url)),
     'utf8',
   );
-  assert.match(app, /reconcileOpeningData/u);
-  assert.match(maintenance, /reconcileOpeningData/u);
+
+  assert.doesNotMatch(app, /projectService\.reconcileOpeningData/u);
+  assert.match(maintenance, /重建开局资产索引/u);
+  assert.match(maintenance, /projectService\.reconcileOpeningData\(\)/u);
+
+  const renderStart = maintenance.indexOf('async function renderInstalledSection(container)');
+  const rebuildStart = maintenance.indexOf("const rebuildOpeningButton = button('重建开局资产索引'", renderStart);
+  const reconcileCall = maintenance.indexOf('projectService.reconcileOpeningData()', renderStart);
+  assert.ok(renderStart >= 0 && rebuildStart > renderStart && reconcileCall > rebuildStart);
 });
 
 test('cross-origin opening delivery reads installed assets through the workshop host bridge', async () => {

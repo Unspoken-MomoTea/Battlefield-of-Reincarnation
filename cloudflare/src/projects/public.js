@@ -141,16 +141,32 @@ export async function getPublicProjectVersion(projectId, env) {
   });
 }
 
-export async function downloadPublicProject(projectId, env) {
-  const row = await env.DB.prepare(
-    `SELECT v.content_key
-       FROM projects p
-       JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
-      WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'
-        AND p.owner_hidden = 0`,
-  )
-    .bind(projectId)
-    .first();
+export async function downloadPublicProject(projectId, env, requestedVersion = null) {
+  const hasRequestedVersion = requestedVersion !== null && requestedVersion !== undefined && String(requestedVersion).trim() !== '';
+  const version = hasRequestedVersion ? Number(requestedVersion) : null;
+  if (hasRequestedVersion && (!Number.isInteger(version) || version < 1)) {
+    throw new HttpError(400, 'invalid_project_version', '作品版本号无效');
+  }
+
+  const row = hasRequestedVersion
+    ? await env.DB.prepare(
+      `SELECT v.content_key, v.version
+         FROM projects p
+         JOIN project_versions v ON v.project_id = p.id
+        WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'
+          AND p.owner_hidden = 0
+          AND v.version = ?
+          AND v.version <= p.published_version
+          AND v.review_status = 'approved'`,
+    ).bind(projectId, version).first()
+    : await env.DB.prepare(
+      `SELECT v.content_key, v.version
+         FROM projects p
+         JOIN project_versions v ON v.project_id = p.id AND v.version = p.published_version
+        WHERE p.id = ? AND p.published_version > 0 AND p.status <> 'archived'
+          AND p.owner_hidden = 0`,
+    ).bind(projectId).first();
+
   if (!row) throw new HttpError(404, 'project_not_found', '已发布作品不存在');
   const object = await env.PROJECTS.get(row.content_key);
   if (!object) throw new HttpError(500, 'bundle_missing', '作品包文件缺失');
@@ -159,7 +175,10 @@ export async function downloadPublicProject(projectId, env) {
     status: 200,
     headers: {
       'Content-Type': object.httpMetadata?.contentType || 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=300',
+      'Cache-Control': hasRequestedVersion
+        ? 'public, max-age=31536000, immutable'
+        : 'no-store',
+      'X-Workshop-Project-Version': String(row.version),
     },
   });
 }

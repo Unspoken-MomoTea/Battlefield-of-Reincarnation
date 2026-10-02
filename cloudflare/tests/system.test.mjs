@@ -38,6 +38,49 @@ test('client latest endpoint serves cached component metadata', async () => {
   assert.equal(data.cached, true);
 });
 
+test('client latest survives a transient KV read failure when GitHub is available', async () => {
+  const originalFetch = globalThis.fetch;
+  const stableSha = 'abababababababababababababababababababab';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('/tags?')) {
+      return new Response(JSON.stringify([
+        { name: 'workshop-v2.0.16', commit: { sha: stableSha } },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (value.includes('/commits/workshop-stable')) {
+      return new Response(JSON.stringify({ sha: stableSha }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+
+  try {
+    const response = await routeSystem(
+      new Request('https://workshop.example/api/client/latest'),
+      {
+        CLIENT_UPDATE_CHANNEL: 'stable',
+        CLIENT_UPDATE_REF: 'workshop-stable',
+        SESSION_KV: {
+          get: async () => { throw new Error('KV temporarily unavailable'); },
+          put: async () => {},
+        },
+      },
+      '/api/client/latest',
+      'test',
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.sha, stableSha);
+    assert.equal(body.tag, 'workshop-v2.0.16');
+    assert.equal(body.release_source, 'tag');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('world engine endpoint reports missing formal tag without falling back to main', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async url => {

@@ -23,6 +23,33 @@ export function bindWorkshopEvents({
 
   overlay.querySelector('[data-action="maintenance"]').addEventListener('click', () => void views.maintenance.open());
 
+  const refreshWorkshopButton = overlay.querySelector('[data-action="refresh-workshop"]');
+  refreshWorkshopButton?.addEventListener('click', async () => {
+    refreshWorkshopButton.disabled = true;
+    const previousText = refreshWorkshopButton.textContent;
+    refreshWorkshopButton.textContent = '刷新中…';
+    try {
+      views.discover.invalidate();
+      const activeTab = getActiveTab();
+      if (activeTab === 'discover') {
+        await views.discover.refreshCurrent({ force: true });
+      } else {
+        const activeView = {
+          installed: views.installed,
+          mine: views.author,
+          admin: views.admin,
+        }[activeTab];
+        await activeView?.refresh?.();
+      }
+      try { host.toastr?.success?.('已重新读取工坊作品列表', '创意工坊'); } catch {}
+    } catch (error) {
+      notifyError(error);
+    } finally {
+      refreshWorkshopButton.disabled = false;
+      refreshWorkshopButton.textContent = previousText || '刷新工坊';
+    }
+  });
+
   overlay.querySelector('[data-action="search"]').addEventListener('click', () => void views.discover.refresh());
   nodes.search.addEventListener('keydown', event => { if (event.key === 'Enter') void views.discover.refresh(); });
   nodes.sort.addEventListener('change', () => void views.discover.refresh());

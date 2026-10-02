@@ -2,6 +2,7 @@
 
 ## 最近正式热修
 
+- `workshop-v2.0.24`：修复发现页分类列表长期复用旧内存缓存后出现“扩展/开局商店看不到新作品、角色三个栏目显示串类作品”的问题。分类渲染现在会再次按 `category + kind` 校验返回项目，避免错误响应串入其它栏目；公开作品列表同时改为 `no-store`，客户端列表请求也显式绕过浏览器 HTTP 缓存。工坊顶栏新增“刷新工坊”按钮，可一键清空发现页缓存并按当前所在的发现首页、角色首页、分类目录或管理页重新读取数据。
 - `workshop-v2.0.23`：撤出 2.0.22 新增的启动/普通“重新扫描”自动全量开局 Registry 重建，避免每次进入工坊或维护页都遍历已安装项目并重复扫描 IndexedDB；“修复”页改为单独的“重建开局资产索引”手动动作。与此同时修复 Mod 刚发布新版时详情 manifest 已更新、`/download` 却仍命中旧 5 分钟缓存而触发 artifact 大小/SHA 校验失败的问题：客户端下载先锁定详情中的精确版本，服务端支持 `?version=N` 的不可变版本包；若完整性校验仍命中大小/SHA 不一致，客户端会使用 cache-buster 强制重取一次，校验本身继续保留。
 - `workshop-v2.0.22`：修复“本地测试开局伙伴可见，但早先从正式工坊安装的伙伴仍不显示”的历史安装状态问题。工坊现在在启动及维护页重新扫描时，会从所有 `applied` 项目已缓存的 bundle 重新构建 `opening_assets` / `opening_store_catalogs`，自动补回旧版本曾漏写或丢失的开局 Registry，并同步修正安装记录中的数量，无需用户卸载重装。辅助计算更新检查同时修复与工坊旧缓存相同的问题：当 Worker 缓存返回的正式 Tag 恰好等于当前已安装版本时，会再向 GitHub 核对最新 `calculator-v*`，因此已发布的 `calculator-v1.0.1` 不会再被旧的 1.0.0 五分钟缓存压住。
 - `workshop-v2.0.21`：继续修复酒馆 sandbox 开局页无法读取已安装伙伴的问题。部分酒馆/移动客户端把 HTML 放进 opaque-origin iframe，`postMessage` 的 `event.origin` 会变成 `null`；2.0.20 的安全白名单因此仍会拒绝真实开局页。现在只对当前页面中能确认属于轮回战场开局的 iframe 放行 opaque origin，请求源必须匹配 iframe `contentWindow` 且其 `src/srcdoc` 能识别为开局页面，未知 sandbox iframe 仍拒绝。同期辅助计算 `v1.0.1` 把页面生命周期清理从受 Permissions Policy 限制的 `unload` 改为原生 `pagehide`，消除相关控制台警告。

@@ -8,7 +8,7 @@ export function createProjectApi(request, requestRaw) {
       if (category) params.set('category', category);
       if (kind) params.set('kind', kind);
       if (tag.trim()) params.set('tag', tag.trim());
-      return request(`/api/projects?${params}`);
+      return request(`/api/projects?${params}`, { cache: 'no-store' });
     },
 
     getProject(projectId) {

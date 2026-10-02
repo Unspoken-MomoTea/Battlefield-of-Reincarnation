@@ -33,7 +33,9 @@ test('published project appears in public catalog and can be downloaded', async 
   const project = await createWorldbookProject(env, author);
   await publishVersion(env, author, admin, project.id, bundle('v1'));
 
-  const list = await responseJson(await listPublicProjects(request('/api/projects'), env));
+  const listResponse = await listPublicProjects(request('/api/projects'), env);
+  assert.equal(listResponse.headers.get('cache-control'), 'no-store');
+  const list = await responseJson(listResponse);
   assert.equal(list.items.length, 1);
   assert.equal(list.items[0].id, project.id);
   assert.equal(list.items[0].version, 1);

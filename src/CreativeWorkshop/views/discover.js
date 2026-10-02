@@ -6,6 +6,13 @@ import {
   renderVersionHistory,
 } from './discover/content-preview.js';
 
+export function filterProjectsForScope(items, category = '', kind = '') {
+  return (Array.isArray(items) ? items : []).filter(project => (
+    (!category || project?.category === category)
+    && (!kind || project?.kind === kind)
+  ));
+}
+
 export function createDiscoverView({
   nodes,
   element,
@@ -52,10 +59,7 @@ export function createDiscoverView({
 
   function filterCachedAll(result, category, kind = '') {
     if ((!category && !kind) || !result || result.next_offset !== null) return null;
-    const items = (result.items || []).filter(item => (
-      (!category || item.category === category)
-      && (!kind || item.kind === kind)
-    ));
+    const items = filterProjectsForScope(result.items, category, kind);
     return { ...result, items, next_offset: null };
   }
 
@@ -271,7 +275,11 @@ export function createDiscoverView({
         });
       }));
       targets.forEach(([target], index) => {
-        const items = (results[index]?.items || []).slice(0, 6);
+        const items = filterProjectsForScope(
+          results[index]?.items,
+          'character',
+          kind,
+        ).slice(0, 6);
         if (!items.length) empty(target, '暂时没有作品');
         else target.replaceChildren(...items.slice(0, 5).map(showcaseCard), showcaseMoreCard(targets[index][1]));
       });
@@ -377,7 +385,7 @@ export function createDiscoverView({
       }
       if (serial !== requestSerial) return;
 
-      const items = Array.isArray(result.items) ? result.items : [];
+      const items = filterProjectsForScope(result.items, state.category, state.kind);
       if (!append && !items.length) {
         empty(nodes.discoverList, '暂时没有符合条件的已发布作品');
         nodes.discoverCount.textContent = '0 个作品';
@@ -748,6 +756,13 @@ export function createDiscoverView({
   }
 
 
+  async function refreshCurrent({ force = false } = {}) {
+    if (force) pageCache.clear();
+    if (nodes.characterHome && !nodes.characterHome.hidden) return loadCharacterHome();
+    if (nodes.discoverCatalog && !nodes.discoverCatalog.hidden) return loadPage({ append: false });
+    return loadShowcase();
+  }
+
   return {
     home: loadShowcase,
     characters: loadCharacterHome,
@@ -756,6 +771,7 @@ export function createDiscoverView({
       if (force) pageCache.clear();
       return loadPage({ append: false });
     },
+    refreshCurrent,
     loadMore: () => loadPage({ append: true }),
     showDetail,
     invalidate: () => pageCache.clear(),

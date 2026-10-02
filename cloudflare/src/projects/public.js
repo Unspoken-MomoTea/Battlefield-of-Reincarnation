@@ -47,6 +47,8 @@ export async function listPublicProjects(request, env) {
   return json({
     items: rows.slice(0, limit).map(projectPublic),
     next_offset: hasMore ? offset + limit : null,
+  }, 200, {
+    'Cache-Control': 'no-store',
   });
 }
 

@@ -5,7 +5,7 @@
 - `GET /api/health`
 - Discord OAuth 起始与回调
 - 一次性登录交换码
-- KV Session
+- D1 主存的 OAuth / 登录结果 / Session（KV 仅作旧数据与故障回退）
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
 - D1 初始表结构（用户、项目、项目版本、审核记录）
@@ -14,12 +14,27 @@
 
 代码只依赖三个 binding：
 
-- `DB`：D1，项目与用户元数据
-- `SESSION_KV`：OAuth state、一次性登录结果、会话
-- `PROJECTS`：R2，下一阶段用于项目包、世界书、正则和封面
+- `DB`：D1，项目/用户元数据，以及 `auth_store` 中的 OAuth state、一次性登录结果和 Session
+- `SESSION_KV`：旧认证数据兼容回退与组件 last-known 快照；不再承担高频组件热缓存
+- `PROJECTS`：R2，项目包、世界书、正则、脚本与封面
 
 `wrangler.jsonc` 中 staging 与 production 故意绑定同一套 D1 / KV / R2，以节省 Cloudflare 容量。现有共享资源沿用早期 staging 名称；不要为了命名整洁再复制一套数据。Worker、域名与客户端更新通道仍保持独立。
 
+## 组件版本缓存与容灾
+
+`/api/client/latest`、`/api/components/latest` 与 `/opening/latest` 的 5 分钟热缓存使用 Cloudflare Cache API，不再周期性写 `SESSION_KV`。KV 只保存版本真正变化时更新的 last-known 快照，用于 GitHub REST / Atom 都不可用时兜底。
+
+GitHub REST 遇到 403、429、5xx、网络异常或无效返回时，分支型组件会回退 GitHub Atom；正式工坊如果 Tag 查询临时失败，会降级读取 `workshop-stable`，不会因此把更新接口打成 502。KV 读写异常本身也不会阻断公开版本解析。
+
+## 正式 Worker 热修
+
+纯 Worker / API 修复不提升 `WORKSHOP_VERSION`，不移动 `workshop-stable`，也不创建 `workshop-v*` Tag。使用 GitHub Actions：
+
+```text
+deploy-workshop-production
+```
+
+该流程执行 Worker 测试、production dry-run、共享 D1 migration、正式 Worker 部署，并实际验证 health、工坊 latest、开局 metadata、`/opening/latest` 最终 HTML 与 Discord 登录起点。
 ## Discord
 
 Discord Developer Portal 需要同时登记两个 Redirect URL：
@@ -60,6 +75,8 @@ DISCORD_CLIENT_SECRET=你的密钥
 0002_admin_audit.sql
 ...
 0008_project_type.sql
+...
+0013_auth_store.sql
 ```
 
 执行：
@@ -85,7 +102,7 @@ npx wrangler dev
 ## 安全边界
 
 - 浏览器只持有随机 Session Token。
-- KV 只保存 Token 的 SHA-256，不保存明文 Session Token。
+- 新 Session 的 SHA-256 存入 D1 `auth_store`，不保存明文 Session Token；旧 KV Session 仍可读取直到自然过期。
 - Discord Client Secret 仅存在 Worker Secret。
 - OAuth state 单次使用并在 10 分钟后过期。
 - OAuth 登录结果只保留 2 分钟并且只能交换一次。

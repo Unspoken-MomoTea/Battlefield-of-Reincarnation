@@ -53,24 +53,53 @@ async function serverLatest(fetchImpl, channel, ref) {
     tag: String(data?.tag || ''),
     releaseSource: String(data?.release_source || ''),
     lookupSource: 'server',
+    cached: Boolean(data?.cached),
     stale: Boolean(data?.stale),
   };
 }
 
-async function resolveLatest(fetchImpl, channel, ref) {
+async function resolveLatest(fetchImpl, channel, ref, currentRefs = []) {
   let fromServer = null;
   try { fromServer = await serverLatest(fetchImpl, channel, ref); } catch {}
   if (channel === 'testing') {
     if (fromServer?.releaseSource === 'branch') return fromServer;
     const sha = await githubCalculatorSha(fetchImpl, ref);
-    return { sha, channel, ref, version: '', tag: '', releaseSource: 'branch', lookupSource: 'github', stale: false };
+    return { sha, channel, ref, version: '', tag: '', releaseSource: 'branch', lookupSource: 'github', cached: false, stale: false };
   }
-  if (fromServer?.releaseSource === 'tag') return fromServer;
+  if (fromServer?.releaseSource === 'tag') {
+    const refs = [...new Set((currentRefs || []).map(value => String(value || '').trim()).filter(Boolean))];
+    const matchesInstalled = refs.length > 0
+      && refs.every(value => value === fromServer.sha || value === fromServer.tag);
+    if (!fromServer.cached || !matchesInstalled) return fromServer;
+    try {
+      const tagged = await latestTaggedRelease(fetchImpl, TAG_PREFIXES);
+      if (tagged) {
+        return {
+          ...tagged,
+          channel,
+          ref,
+          lookupSource: 'github',
+          cached: false,
+          stale: false,
+        };
+      }
+    } catch {}
+    return fromServer;
+  }
   try {
     const tagged = await latestTaggedRelease(fetchImpl, TAG_PREFIXES);
-    if (tagged) return { ...tagged, channel, ref };
+    if (tagged) return { ...tagged, channel, ref, lookupSource: 'github', cached: false, stale: false };
   } catch {}
   return null;
+}
+
+function currentRefsForScan(treeScan, host) {
+  const runtime = currentRuntime(host);
+  return [...new Set([
+    ...treeScan.matches.flatMap(item => item.refs || []),
+    runtime.ref,
+    runtime.sha,
+  ].map(value => String(value || '').trim()).filter(Boolean))];
 }
 
 async function refNeedsUpdate(fetchImpl, currentRef, latest) {
@@ -131,7 +160,7 @@ export function createCalculatorUpdater({
 
   async function check() {
     const treeScan = await scan();
-    const latest = await resolveLatest(fetchImpl, channel, ref);
+    const latest = await resolveLatest(fetchImpl, channel, ref, currentRefsForScan(treeScan, host));
     const loaders = treeScan.matches.filter(item => item.kind === 'loader');
     const legacy = treeScan.matches.filter(item => item.kind === 'legacy');
     let updateAvailable = legacy.length > 0 && Boolean(latest);
@@ -165,7 +194,7 @@ export function createCalculatorUpdater({
 
   async function updateLoaderLink() {
     const treeScan = await scan();
-    const latest = await resolveLatest(fetchImpl, channel, ref);
+    const latest = await resolveLatest(fetchImpl, channel, ref, currentRefsForScan(treeScan, host));
     if (!latest) throw new Error('当前正式通道尚未发布 calculator-vX.Y.Z Tag');
     if (!treeScan.matches.length) throw new Error('没有找到已安装的辅助计算脚本');
     const latestLoaderRef = installRefForLatest(latest);
@@ -260,7 +289,7 @@ export function createCalculatorUpdater({
 
   async function normalizeFormalLoaderLink() {
     const treeScan = await scan();
-    const latest = await resolveLatest(fetchImpl, channel, ref);
+    const latest = await resolveLatest(fetchImpl, channel, ref, currentRefsForScan(treeScan, host));
     if (channel !== 'stable' || latest?.releaseSource !== 'tag' || !latest?.tag || !latest?.sha) {
       return { normalized: false, changedScripts: 0, changedScopes: [] };
     }

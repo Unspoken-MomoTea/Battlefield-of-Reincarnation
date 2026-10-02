@@ -527,6 +527,14 @@ export function createMaintenanceView({
 
   async function renderInstalledSection(container) {
     container.replaceChildren();
+    try {
+      const reconciled = await projectService.reconcileOpeningData();
+      if (reconciled?.failed) {
+        console.warn('[轮回战场创意工坊] 重新扫描时有开局 Registry 修复失败', reconciled.items);
+      }
+    } catch (error) {
+      console.warn('[轮回战场创意工坊] 重新扫描开局 Registry 失败', error);
+    }
     const head = element('div', 'rw-maintenance-section-head');
     const copy = element('div', '');
     copy.append(

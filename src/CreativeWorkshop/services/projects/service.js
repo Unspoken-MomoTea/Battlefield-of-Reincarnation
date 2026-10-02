@@ -6,6 +6,7 @@ import {
   cacheRemoteProject, checkCachedProjectUpdate, exportCachedProject,
   importOfflineProject, listCachedProjects, removeCachedProject, saveLocalTestProject, updateRemoteProject,
 } from './cache.js';
+import { reconcileAppliedOpeningData } from './opening-reconcile.js';
 
 export class ProjectService {
   list(query = '', category = '', offset = 0, tag = '', sort = 'latest', kind = '') {
@@ -28,6 +29,7 @@ export class ProjectService {
   removeCached(projectId) { return removeCachedProject(projectId); }
   storageEstimate() { return storageManager.estimate(); }
   cleanupCacheOnly() { return storageManager.cleanupCacheOnly(); }
+  reconcileOpeningData() { return reconcileAppliedOpeningData(); }
 }
 
 export const projectService = new ProjectService();

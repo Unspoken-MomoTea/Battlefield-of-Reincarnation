@@ -277,6 +277,13 @@ export function bootWorkshop() {
   });
   host[GLOBAL_NAME] = bridge;
   cleanupOpeningDataBridge = bindOpeningDataBridge({ host });
+  void projectService.reconcileOpeningData().then(result => {
+    if (result?.failed) {
+      console.warn('[轮回战场创意工坊] 开局 Registry 自动修复有失败项目', result.items);
+    }
+  }).catch(error => {
+    console.warn('[轮回战场创意工坊] 开局 Registry 自动修复失败', error);
+  });
   host.dispatchEvent(new CustomEvent('reincarnation-workshop-ready', {
     detail: { version: WORKSHOP_VERSION },
   }));

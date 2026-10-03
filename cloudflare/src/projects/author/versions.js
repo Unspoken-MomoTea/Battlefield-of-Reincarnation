@@ -1,7 +1,10 @@
 import { HttpError, json, readJson } from '../../http.js';
+import { assertR2Capacity } from '../../storage-policy.js';
 import {
   buildManifest, getOwnedProject, nowSeconds, textField, validateBundle,
 } from '../core.js';
+import { invalidatePublicCatalog } from '../catalog.js';
+import { cleanupProjectVersions } from '../version-retention.js';
 
 function hasApprovedRelease(project) {
   return Number(project?.published_version || 0) > 0;
@@ -58,9 +61,24 @@ export async function uploadProjectVersion(request, env, user, projectId) {
     throw new HttpError(409, 'cover_required', '发布新版本前必须先上传封面图片');
   }
   const reviewStatus = autoPublish ? 'approved' : 'draft';
+  const manifestText = JSON.stringify(manifest);
+  const bundleText = JSON.stringify(bundle);
+  const oldVersions = await env.DB.prepare(
+    'SELECT manifest_key, content_key FROM project_versions WHERE project_id = ?',
+  ).bind(project.id).all();
+  const reclaimKeys = [];
+  for (const row of oldVersions.results || []) {
+    if (row.manifest_key) reclaimKeys.push(row.manifest_key);
+    if (row.content_key) reclaimKeys.push(row.content_key);
+  }
+  await assertR2Capacity(
+    env,
+    new TextEncoder().encode(manifestText).byteLength + new TextEncoder().encode(bundleText).byteLength,
+    { reclaimKeys },
+  );
 
-  await env.PROJECTS.put(manifestKey, JSON.stringify(manifest), { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
-  await env.PROJECTS.put(contentKey, JSON.stringify(bundle), { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
+  await env.PROJECTS.put(manifestKey, manifestText, { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
+  await env.PROJECTS.put(contentKey, bundleText, { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
 
   const now = nowSeconds();
   try {
@@ -86,14 +104,22 @@ export async function uploadProjectVersion(request, env, user, projectId) {
     await Promise.allSettled([env.PROJECTS.delete(manifestKey), env.PROJECTS.delete(contentKey)]);
     throw error;
   }
+
+  try {
+    await cleanupProjectVersions(env, project.id, [version]);
+  } catch (error) {
+    console.error('[workshop] failed to cleanup superseded versions', error);
+  }
+  if (autoPublish) await invalidatePublicCatalog(env);
+
   return json({ project_id: project.id, version, manifest, auto_published: autoPublish }, 201);
 }
 
-export async function submitProjectForReview(env, user, projectId) {
+export async function submitProjectForReview(env, user, projectId, { localBackupConfirmed = false } = {}) {
   const project = await getOwnedProject(env, projectId, user);
   if (project.status === 'archived') throw new HttpError(409, 'project_archived', '已归档作品不能提交审核');
   if (Number(project.latest_version) < 1) throw new HttpError(409, 'version_required', '请先上传至少一个版本');
-  const version = await env.DB.prepare('SELECT version, review_status FROM project_versions WHERE project_id = ? AND version = ?')
+  const version = await env.DB.prepare('SELECT version, review_status, local_backup_confirmed FROM project_versions WHERE project_id = ? AND version = ?')
     .bind(project.id, project.latest_version).first();
   if (!version) throw new HttpError(500, 'version_missing', '最新版本记录缺失');
 
@@ -118,8 +144,8 @@ export async function submitProjectForReview(env, user, projectId) {
     throw new HttpError(409, 'invalid_review_state', '当前版本不能再次提交审核');
   }
   const now = nowSeconds();
-  await env.DB.prepare("UPDATE project_versions SET review_status = 'pending', submitted_at = ? WHERE project_id = ? AND version = ?")
-    .bind(now, project.id, project.latest_version).run();
+  await env.DB.prepare("UPDATE project_versions SET review_status = 'pending', submitted_at = ?, local_backup_confirmed = ? WHERE project_id = ? AND version = ?")
+    .bind(now, localBackupConfirmed ? 1 : Number(version.local_backup_confirmed || 0), project.id, project.latest_version).run();
   await env.DB.prepare("UPDATE projects SET status = 'pending', updated_at = ? WHERE id = ?")
     .bind(now, project.id).run();
   return json({ ok: true, version: Number(project.latest_version), auto_published: false });

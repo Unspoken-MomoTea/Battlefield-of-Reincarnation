@@ -1,3 +1,5 @@
+import { renderMvuPreview } from './mvu-preview.js';
+
 function positionLabel(entry) {
   const legacy = [
     'before_character_definition',
@@ -288,7 +290,8 @@ function statusLabel(status) {
   return ['−', '删除', 'removed'];
 }
 
-function fieldLabel(field) {
+function fieldLabel(field, group = '') {
+  if (group === 'MVU 数据' && field === 'content') return 'MVU 数据';
   return ({
     content: '正文',
     primary_keys: '主要关键词',
@@ -352,6 +355,7 @@ export function renderChangePreview(doc, changePreview, changelog = '') {
     ['世界书', changePreview.worldbook || []],
     ['正则', changePreview.regex || []],
     ['脚本', changePreview.scripts || []],
+    ['MVU 数据', changePreview.data || []],
   ];
   for (const [label, values] of groups) {
     if (!values.length) continue;
@@ -370,7 +374,7 @@ export function renderChangePreview(doc, changePreview, changelog = '') {
       name.textContent = change.title || '未命名';
       const fields = doc.createElement('small');
       fields.textContent = change.changed_fields?.length
-        ? change.changed_fields.map(fieldLabel).join(' · ')
+        ? change.changed_fields.map(field => fieldLabel(field, label)).join(' · ')
         : '';
       row.append(badge, name, fields);
       group.appendChild(row);
@@ -410,15 +414,21 @@ export function renderVersionHistory(doc, history) {
 export function renderContentPreview(doc, detail) {
   const preview = detail?.content_preview || {};
   const fragment = doc.createDocumentFragment();
+  const dataEntries = Array.isArray(preview.data_entries) ? preview.data_entries : [];
+  const mvu = renderMvuPreview(doc, dataEntries);
+  if (mvu) fragment.appendChild(mvu);
 
-  fragment.appendChild(createWorkspace(
-    doc,
-    '世界书内容',
-    '直接查看条目关键词、位置和正文',
-    Array.isArray(preview.worldbook_entries) ? preview.worldbook_entries : [],
-    renderWorldbookEntry,
-    '这个版本没有世界书内容。',
-  ));
+  const worldbookEntries = Array.isArray(preview.worldbook_entries) ? preview.worldbook_entries : [];
+  if (worldbookEntries.length || !dataEntries.length) {
+    fragment.appendChild(createWorkspace(
+      doc,
+      '世界书内容',
+      '直接查看条目关键词、位置和正文',
+      worldbookEntries,
+      renderWorldbookEntry,
+      '这个版本没有世界书内容。',
+    ));
+  }
 
   if (preview.regex_entries?.length) {
     fragment.appendChild(createWorkspace(
@@ -442,25 +452,25 @@ export function renderContentPreview(doc, detail) {
     ));
   }
 
-  const extras = (preview.artifacts || []).filter(item => ['preset', 'data'].includes(item.kind));
-  if (extras.length) {
+  const presets = (preview.artifacts || []).filter(item => item.kind === 'preset');
+  if (presets.length) {
     const section = doc.createElement('section');
     section.className = 'rw-detail-content-section';
     const heading = doc.createElement('div');
     heading.className = 'rw-detail-content-heading';
     const copy = doc.createElement('div');
     copy.append(
-      Object.assign(doc.createElement('strong'), { textContent: '其他内容' }),
-      Object.assign(doc.createElement('span'), { textContent: '预设与数据文件' }),
+      Object.assign(doc.createElement('strong'), { textContent: '预设' }),
+      Object.assign(doc.createElement('span'), { textContent: '作者随作品提交的预设文件' }),
     );
-    heading.append(copy, makeChip(doc, `${extras.length} 项`));
+    heading.append(copy, makeChip(doc, `${presets.length} 项`));
     section.appendChild(heading);
 
-    for (const artifact of extras) {
+    for (const artifact of presets) {
       const details = doc.createElement('details');
       details.className = 'rw-extra-artifact';
       const summary = doc.createElement('summary');
-      summary.textContent = `${artifact.kind === 'preset' ? '预设' : '数据'} · ${artifact.name}`;
+      summary.textContent = `预设 · ${artifact.name}`;
       const pre = doc.createElement('pre');
       pre.className = 'rw-content-source';
       pre.textContent = artifact.preview || '（空）';

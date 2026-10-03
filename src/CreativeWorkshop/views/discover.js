@@ -575,9 +575,9 @@ export function createDiscoverView({
       );
       reading.appendChild(overview);
 
+      reading.appendChild(renderContentPreview(doc, detail));
       reading.appendChild(renderChangePreview(doc, detail.change_preview, detail.changelog || ''));
       reading.appendChild(renderVersionHistory(doc, detail.version_history || []));
-      reading.appendChild(renderContentPreview(doc, detail));
 
       const counts = detail.content_preview?.counts || {};
       const facts = element('section', 'rw-workshop-rail-section');
@@ -586,10 +586,10 @@ export function createDiscoverView({
       factGrid.append(
         detailFact('版本', `v${project.version}`),
         detailFact('更新', formatPublishedTime(project.updated_at)),
+        detailFact('MVU 数据', `${counts.mvu_data || counts.data || 0} 项`),
         detailFact('世界书', `${counts.worldbook_entries || 0} 条`),
-        detailFact('正则', `${counts.regex_entries || 0} 条`),
-        detailFact('脚本', `${counts.scripts || 0} 项`),
-        detailFact('其他', `${(counts.presets || 0) + (counts.data || 0)} 项`),
+        detailFact('正则 / 脚本', `${(counts.regex_entries || 0) + (counts.scripts || 0)} 项`),
+        detailFact('预设', `${counts.presets || 0} 项`),
       );
       facts.appendChild(factGrid);
 

@@ -369,9 +369,9 @@ export function createAdminProjectsView({
       );
       reading.appendChild(overview);
 
+      reading.appendChild(renderContentPreview(doc, detail));
       reading.appendChild(renderChangePreview(doc, detail.change_preview, project.changelog || ''));
       reading.appendChild(renderVersionHistory(doc, detail.versions || []));
-      reading.appendChild(renderContentPreview(doc, detail));
       reading.appendChild(renderReviewHistory(detail));
 
       const reviewSummary = element('section', 'rw-workshop-rail-section rw-admin-review-summary');

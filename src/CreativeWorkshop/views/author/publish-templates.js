@@ -24,6 +24,13 @@ function csv(value) {
     .filter(Boolean);
 }
 
+function normalizeTags(value) {
+  if (Array.isArray(value)) {
+    return value.map(item => String(item || '').trim()).filter(Boolean);
+  }
+  return csv(value);
+}
+
 function clampPoint(value) {
   return Math.max(0, Math.min(8, Math.trunc(Number(value) || 0)));
 }
@@ -253,7 +260,7 @@ function openingBuild(source, mode) {
     skills[name] = {
       品质: autoQuality,
       类型: Math.max(0, Math.min(2, Number(row?.type) || 0)),
-      标签: [],
+      标签: normalizeTags(row?.tags ?? row?.标签),
       效果: effect(row?.effectName, row?.effectDesc),
       描述: String(row?.desc || '').trim(),
       消耗: String(row?.consume || '').trim(),
@@ -515,6 +522,7 @@ export function dedicatedInitialValues(artifacts = [], mode, projectName = '') {
         name,
         type: String(Math.max(0, Math.min(2, Number(skill.类型) || 0))),
         consume: skill.消耗 || '',
+        tags: normalizeTags(skill.标签),
         effectName,
         effectDesc,
         desc: skill.描述 || '',

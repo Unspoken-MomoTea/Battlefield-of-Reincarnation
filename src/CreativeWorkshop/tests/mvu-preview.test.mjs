@@ -65,3 +65,32 @@ test('generic data remains available as raw data instead of disappearing', () =>
   assert.equal(summary.typeLabel, '数据');
   assert.equal(summary.title, 'custom');
 });
+
+
+test('detail views render structured content before update history and no longer label MVU as other content', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const discover = fs.readFileSync(
+    fileURLToPath(new URL('../views/discover.js', import.meta.url)),
+    'utf8',
+  );
+  const admin = fs.readFileSync(
+    fileURLToPath(new URL('../views/admin/projects.js', import.meta.url)),
+    'utf8',
+  );
+  const contentPreview = fs.readFileSync(
+    fileURLToPath(new URL('../views/discover/content-preview.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.ok(
+    discover.indexOf('renderContentPreview(doc, detail)')
+      < discover.indexOf('renderChangePreview(doc, detail.change_preview'),
+  );
+  assert.ok(
+    admin.indexOf('renderContentPreview(doc, detail)')
+      < admin.indexOf('renderChangePreview(doc, detail.change_preview'),
+  );
+  assert.doesNotMatch(contentPreview, /textContent: '其他内容'/u);
+  assert.match(contentPreview, /renderMvuPreview\(doc, dataEntries\)/u);
+});

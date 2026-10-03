@@ -75,3 +75,37 @@ test('reject review uses one workshop dialog with an embedded reason field', () 
   assert.match(source, /rw-review-reject-reason/u);
   assert.match(source, /驳回原因/u);
 });
+
+
+test('local-test save hashes each artifact once and does not re-verify its self-built manifest', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../services/projects/cache.js', import.meta.url)),
+    'utf8',
+  );
+  const start = source.indexOf('export const saveLocalTestProject');
+  const end = source.indexOf('export async function exportCachedProject', start);
+  const block = source.slice(start, end);
+  assert.match(block, /validateDownloadedBundle\(bundle\)/u);
+  assert.doesNotMatch(block, /verifyBundleAgainstManifest\(/u);
+  assert.equal((block.match(/sha256Hex\(/gu) || []).length, 1);
+});
+
+test('successful save and submit UI is not held open by background list refreshes', () => {
+  const create = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/create-project.js', import.meta.url)),
+    'utf8',
+  );
+  const editor = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/project-editor.js', import.meta.url)),
+    'utf8',
+  );
+
+  const createSuccess = create.slice(
+    create.indexOf("setSubmitStatus('success', '提交成功"),
+    create.indexOf('} catch (error)', create.indexOf("setSubmitStatus('success', '提交成功")),
+  );
+  assert.doesNotMatch(createSuccess, /await refreshMine\(\)/u);
+  assert.match(createSuccess, /void \(async \(\) =>/u);
+
+  assert.match(editor, /void \(async \(\) => \{\s*try \{ await options\.onLocalSaved\?\.\(\); \} catch \{\}/u);
+});

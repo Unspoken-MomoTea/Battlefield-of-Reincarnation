@@ -2,6 +2,7 @@ import { HttpError } from './http.js';
 
 export const R2_FREE_LIMIT_BYTES = 10_000_000_000;
 export const R2_HARD_LIMIT_BYTES = 9_500_000_000;
+export const R2_UPLOAD_LIMIT_BYTES = 9_450_000_000;
 export const D1_FREE_LIMIT_BYTES = 500_000_000;
 
 export async function scanR2Usage(bucket) {
@@ -30,7 +31,7 @@ async function reclaimableBytes(bucket, keys = []) {
   return total;
 }
 
-export async function assertR2Capacity(env, incomingBytes, { reclaimKeys = [], limitBytes = R2_HARD_LIMIT_BYTES } = {}) {
+export async function assertR2Capacity(env, incomingBytes, { reclaimKeys = [], limitBytes = R2_UPLOAD_LIMIT_BYTES } = {}) {
   const usage = await scanR2Usage(env.PROJECTS);
   const reclaim = await reclaimableBytes(env.PROJECTS, reclaimKeys);
   const projectedBytes = Math.max(0, usage.usedBytes - reclaim) + Math.max(0, Number(incomingBytes || 0));
@@ -38,7 +39,7 @@ export async function assertR2Capacity(env, incomingBytes, { reclaimKeys = [], l
     throw new HttpError(
       507,
       'r2_storage_limit',
-      '工坊对象存储已接近免费额度上限，当前上传会超过 9.5 GB 硬限制，请先清理内容后再试',
+      '工坊对象存储已接近免费额度上限，当前上传会突破安全预算，请先清理内容后再试',
     );
   }
   return { ...usage, reclaimableBytes: reclaim, projectedBytes, limitBytes };

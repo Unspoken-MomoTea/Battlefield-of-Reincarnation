@@ -62,7 +62,14 @@ export async function routeProjects(request, env, pathname) {
 
   const submitId = projectIdFrom(pathname, '/submit');
   if (request.method === 'POST' && submitId) {
-    return submitProjectForReview(env, await authenticatedUser(request, env), submitId);
+    let body = {};
+    try { body = await request.clone().json(); } catch {}
+    return submitProjectForReview(
+      env,
+      await authenticatedUser(request, env),
+      submitId,
+      { localBackupConfirmed: Boolean(body?.local_backup_confirmed) },
+    );
   }
 
   const reportId = projectIdFrom(pathname, '/report');

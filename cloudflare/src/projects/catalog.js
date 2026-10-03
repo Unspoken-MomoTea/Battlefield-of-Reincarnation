@@ -6,6 +6,71 @@ const CATALOG_KEY = 'system/catalog/public-v1.json';
 const CATALOG_MAX_AGE_SECONDS = 300;
 const PUBLIC_KIND_SQL = "COALESCE(NULLIF(v.content_kind, ''), CASE WHEN v.project_type = 'character' AND EXISTS (SELECT 1 FROM json_each(v.tags) legacy_kind WHERE legacy_kind.value = '异端库') THEN 'heretic' WHEN v.project_type = 'character' THEN 'world_character' ELSE 'extension' END)";
 
+function normalized(value) {
+  return String(value ?? '').trim().toLocaleLowerCase();
+}
+
+function score(project) {
+  return Number(project?.likes_count || 0) * 3
+    + Number(project?.favorites_count || 0) * 4
+    + Number(project?.downloads_count || 0);
+}
+
+function compareNumberDesc(field) {
+  return (a, b) => Number(b?.[field] || 0) - Number(a?.[field] || 0)
+    || Number(b?.updated_at || 0) - Number(a?.updated_at || 0)
+    || String(a?.id || '').localeCompare(String(b?.id || ''));
+}
+
+const SORTERS = {
+  latest: compareNumberDesc('updated_at'),
+  downloads: compareNumberDesc('downloads_count'),
+  likes: compareNumberDesc('likes_count'),
+  favorites: compareNumberDesc('favorites_count'),
+  popular: (a, b) => score(b) - score(a)
+    || Number(b?.updated_at || 0) - Number(a?.updated_at || 0)
+    || String(a?.id || '').localeCompare(String(b?.id || '')),
+};
+
+export function filterPublicCatalog(items, {
+  query = '',
+  category = '',
+  kind = '',
+  tag = '',
+  sort = 'latest',
+  offset = 0,
+  limit = 24,
+} = {}) {
+  const q = normalized(query);
+  const wantedTag = normalized(tag);
+  const filtered = (Array.isArray(items) ? items : []).filter(project => {
+    if (category && project?.category !== category) return false;
+    if (kind && project?.kind !== kind) return false;
+    if (wantedTag) {
+      const tags = Array.isArray(project?.tags) ? project.tags : [];
+      if (!tags.some(value => normalized(value) === wantedTag)) return false;
+    }
+    if (q) {
+      const haystack = [
+        project?.name,
+        project?.summary,
+        project?.owner_name,
+        ...(Array.isArray(project?.tags) ? project.tags : []),
+      ].map(normalized).join('\n');
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+  filtered.sort(SORTERS[sort] || SORTERS.latest);
+  const start = Math.max(0, Number(offset || 0));
+  const size = Math.max(1, Number(limit || 24));
+  return {
+    items: filtered.slice(start, start + size),
+    next_offset: start + size < filtered.length ? start + size : null,
+    total: filtered.length,
+  };
+}
+
 async function catalogRows(env) {
   const result = await env.DB.prepare(
     `SELECT p.id, p.slug,
@@ -67,7 +132,7 @@ export async function invalidatePublicCatalog(env) {
   try { await env.PROJECTS.delete(CATALOG_KEY); } catch {}
 }
 
-export async function getPublicCatalog(env) {
+export async function readPublicCatalog(env) {
   let payload = null;
   const object = await env.PROJECTS.get(CATALOG_KEY);
   if (object) {
@@ -77,6 +142,11 @@ export async function getPublicCatalog(env) {
   if (!payload || !Array.isArray(payload.items) || now - Number(payload.generated_at || 0) > CATALOG_MAX_AGE_SECONDS) {
     payload = await rebuildPublicCatalog(env);
   }
+  return payload;
+}
+
+export async function getPublicCatalog(env) {
+  const payload = await readPublicCatalog(env);
   return json(payload, 200, {
     'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
   });

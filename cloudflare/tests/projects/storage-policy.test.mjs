@@ -134,3 +134,12 @@ test('admin storage usage reports R2 hard cap and D1 free cap', async () => {
   assert.equal(usage.d1.free_limit_bytes, 500_000_000);
   assert.ok(Number(usage.d1.used_bytes) > 0);
 });
+
+
+test('storage capacity administration is restricted to primary admins', async () => {
+  const { env, author } = setup();
+  await assert.rejects(
+    () => getAdminStorageUsage(env, author),
+    error => error?.status === 403 && error?.code === 'admin_required',
+  );
+});

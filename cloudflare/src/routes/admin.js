@@ -3,6 +3,7 @@ import { listAdminReports, resolveProjectReport } from '../moderation/reports.js
 import { listAdminUsers, setUserBan, setUserModerator } from '../moderation/users.js';
 import {
   deleteAdminProject, getAdminProjectCover, getAdminProjectDiff, getPendingProjectReview,
+  cleanupAdminStorage, getAdminStorageUsage,
   listAdminAuditLogs, listAdminProjectUpdates, listAdminProjects, reviewProject,
   setAdminProjectState,
 } from '../projects.js';
@@ -24,6 +25,12 @@ export async function routeAdmin(request, env, pathname) {
   }
   if (request.method === 'GET' && pathname === '/api/admin/reports') {
     return listAdminReports(request, env, await authenticatedUser(request, env));
+  }
+  if (request.method === 'GET' && pathname === '/api/admin/storage') {
+    return getAdminStorageUsage(env, await authenticatedUser(request, env));
+  }
+  if (request.method === 'POST' && pathname === '/api/admin/storage/cleanup') {
+    return cleanupAdminStorage(env, await authenticatedUser(request, env));
   }
 
   const userRoleId = adminEntityIdFrom(pathname, 'users', 'role');

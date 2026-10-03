@@ -79,9 +79,7 @@ export async function uploadProjectCover(request, env, user, projectId) {
   }
 
   const key = `projects/${project.id}/covers/${crypto.randomUUID()}.${extension}`;
-  await assertR2Capacity(env, buffer.byteLength, {
-    reclaimKeys: project.cover_key ? [project.cover_key] : [],
-  });
+  await assertR2Capacity(env, buffer.byteLength);
   await env.PROJECTS.put(key, buffer, {
     httpMetadata: {
       contentType,

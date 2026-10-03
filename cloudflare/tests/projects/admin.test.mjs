@@ -344,7 +344,7 @@ test('only primary admin can permanently delete projects', async () => {
 });
 
 
-test('admin detail compares an author-published update with the previous approved release', async () => {
+test('admin detail exposes only the current author-published update after history cleanup', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);
   await publishVersion(env, author, admin, project.id, bundle('v1'), '首版');
@@ -377,10 +377,8 @@ test('admin detail compares an author-published update with the previous approve
   assert.equal(detail.project.reviewed_at, 0);
   assert.equal(detail.content_preview.worldbook_entries.length, 2);
   assert.equal(detail.content_preview.worldbook_entries[0].strategy_type, 'constant');
-  assert.equal(detail.change_preview.from_version, 1);
-  assert.equal(detail.change_preview.to_version, 2);
-  assert.ok(detail.change_preview.summary.added >= 1);
-  assert.ok(detail.change_preview.summary.modified >= 1);
+  assert.equal(detail.change_preview, null);
+  assert.deepEqual(detail.versions, []);
 });
 
 

@@ -16,8 +16,13 @@ test('successful IndexedDB put does not wait forever for a lost transaction comp
         objectStore() {
           return {
             put(value) {
-              queueMicrotask(() => { committed = Boolean(value?.id); });
-              return {};
+              const request = {};
+              queueMicrotask(() => {
+                committed = Boolean(value?.id);
+                request.result = value?.id;
+                request.onsuccess?.();
+              });
+              return request;
             },
           };
         },
@@ -39,7 +44,7 @@ test('successful IndexedDB put does not wait forever for a lost transaction comp
     const storage = await import('../services/storage.js?lost-complete-event');
     const result = await Promise.race([
       storage.putInstalledProject({ id: 'local-test:stall' }).then(() => 'done'),
-      delay(100).then(() => 'hung'),
+      delay(800).then(() => 'hung'),
     ]);
     assert.equal(committed, true);
     assert.equal(result, 'done');

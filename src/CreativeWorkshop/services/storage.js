@@ -12,6 +12,7 @@ let coordinator = null;
 let pagehideBound = false;
 
 const DATABASE_BLOCK_TIMEOUT_MS = 15_000;
+const TRANSACTION_COMPLETION_GRACE_MS = 300;
 
 function hostWindow() {
   try {
@@ -62,6 +63,28 @@ function transactionDone(transaction) {
     transaction.onerror = () => reject(transaction.error ?? new Error('IndexedDB 事务失败'));
     transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB 事务已中止'));
   });
+}
+
+async function finishWriteRequest(request, transaction) {
+  const completion = transactionDone(transaction);
+  await requestResult(request);
+
+  let timer = null;
+  const completed = await Promise.race([
+    completion.then(() => true),
+    new Promise(resolve => {
+      timer = globalThis.setTimeout?.(() => resolve(false), TRANSACTION_COMPLETION_GRACE_MS);
+      if (timer == null) resolve(false);
+    }),
+  ]);
+  if (timer != null) globalThis.clearTimeout?.(timer);
+
+  if (!completed) {
+    console.warn('[轮回战场创意工坊] IndexedDB 写入请求已成功，但事务完成事件迟迟未返回；按已写入继续，避免界面永久等待');
+    void completion.catch(error => {
+      console.error('[轮回战场创意工坊] IndexedDB 延迟事务随后失败', error);
+    });
+  }
 }
 
 function openDb() {
@@ -135,15 +158,15 @@ async function getAllRecords(storeName) {
 async function putRecord(storeName, value) {
   const db = await openDb();
   const transaction = db.transaction(storeName, 'readwrite');
-  transaction.objectStore(storeName).put(value);
-  await transactionDone(transaction);
+  const request = transaction.objectStore(storeName).put(value);
+  await finishWriteRequest(request, transaction);
 }
 
 async function deleteRecord(storeName, key) {
   const db = await openDb();
   const transaction = db.transaction(storeName, 'readwrite');
-  transaction.objectStore(storeName).delete(key);
-  await transactionDone(transaction);
+  const request = transaction.objectStore(storeName).delete(key);
+  await finishWriteRequest(request, transaction);
 }
 
 export const getAuthRecord = () => getRecord(AUTH_STORE, 'session');

@@ -36,6 +36,10 @@ export function createProjectApi(request, requestRaw, { submitTimeoutMs = 10_000
   }
 
   return {
+    getProjectCatalog() {
+      return request('/api/projects/catalog', { cache: 'no-store' });
+    },
+
     listProjects(query = '', category = '', offset = 0, tag = '', sort = 'latest', kind = '') {
       const params = new URLSearchParams({ limit: '24', offset: String(offset), sort });
       if (query.trim()) params.set('query', query.trim());

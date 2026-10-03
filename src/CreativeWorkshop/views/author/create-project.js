@@ -560,9 +560,11 @@ export function bindCreateProjectFlow({
         setSubmitStatus('success', '提交成功 · 作品已经进入审核队列。');
         dirty = false;
         try { host.toastr?.success?.('作品已提交审核', '创意工坊'); } catch {}
-        try { await refreshMine(); } catch (refreshError) {
-          console.warn('[轮回战场创意工坊] 提交成功，但刷新我的作品失败', refreshError);
-        }
+        void (async () => {
+          try { await refreshMine(); } catch (refreshError) {
+            console.warn('[轮回战场创意工坊] 提交成功，但刷新我的作品失败', refreshError);
+          }
+        })();
 
         host.setTimeout?.(() => {
           reset();

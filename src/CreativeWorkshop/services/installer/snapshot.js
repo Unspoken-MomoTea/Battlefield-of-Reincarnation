@@ -69,8 +69,8 @@ export async function createInstallSnapshot(adapter, installed, plan, characterN
     state.scripts.set(scope, Array.isArray(trees) ? clone(trees) : []);
   }
 
-  const presetNames = await maybe(adapter.getPresetNames());
-  const existing = new Set(Array.isArray(presetNames) ? presetNames : []);
+  const availablePresetNames = await maybe(adapter.getPresetNames());
+  const existing = new Set(Array.isArray(availablePresetNames) ? availablePresetNames : []);
   for (const name of presetNames) {
     state.presets.set(name, {
       existed: existing.has(name),

@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS project_versions (
   created_at INTEGER NOT NULL,
   submitted_at INTEGER,
   reviewed_at INTEGER,
+  local_backup_confirmed INTEGER NOT NULL DEFAULT 0 CHECK (local_backup_confirmed IN (0, 1)),
   UNIQUE(project_id, version),
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );

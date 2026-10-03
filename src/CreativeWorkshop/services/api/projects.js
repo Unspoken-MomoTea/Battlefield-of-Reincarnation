@@ -1,6 +1,40 @@
 import { getApiBase } from '../../config.js';
 
-export function createProjectApi(request, requestRaw) {
+export function createProjectApi(request, requestRaw, { submitTimeoutMs = 10_000 } = {}) {
+  async function submitWithRecovery(projectId) {
+    const path = `/api/projects/${encodeURIComponent(projectId)}/submit`;
+    const timeoutMs = Math.max(100, Number(submitTimeoutMs) || 10_000);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const controller = typeof AbortController === 'function' ? new AbortController() : null;
+      let timer = null;
+      const timeout = new Promise((resolve, reject) => {
+        timer = setTimeout(() => {
+          const error = new Error('提交审核响应超时，正在确认服务器状态');
+          error.code = 'request_timeout';
+          reject(error);
+          try { controller?.abort(); } catch {}
+        }, timeoutMs);
+      });
+
+      try {
+        return await Promise.race([
+          request(
+            path,
+            { method: 'POST', ...(controller ? { signal: controller.signal } : {}) },
+            true,
+          ),
+          timeout,
+        ]);
+      } catch (error) {
+        if (error?.code !== 'request_timeout' || attempt > 0) throw error;
+      } finally {
+        if (timer != null) clearTimeout(timer);
+      }
+    }
+    throw new Error('提交审核失败');
+  }
+
   return {
     listProjects(query = '', category = '', offset = 0, tag = '', sort = 'latest', kind = '') {
       const params = new URLSearchParams({ limit: '24', offset: String(offset), sort });
@@ -95,7 +129,7 @@ export function createProjectApi(request, requestRaw) {
     },
 
     submitProject(projectId) {
-      return request(`/api/projects/${encodeURIComponent(projectId)}/submit`, { method: 'POST' }, true);
+      return submitWithRecovery(projectId);
     },
 
     uploadProjectCover(projectId, file) {

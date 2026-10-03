@@ -52,6 +52,8 @@ export function collectWorkshopNodes(overlay) {
     userSearch: query('[data-field="admin-user-search"]'),
     userBanned: query('[data-field="admin-user-banned"]'),
     userList: query('[data-role="user-list"]'),
+    adminStorageRefreshButton: query('[data-action="admin-storage-refresh"]'),
+    adminStorageList: query('[data-role="admin-storage-list"]'),
     createForm: query('[data-form="create-project"]'),
     createVersion: query('[data-field="create-version"]'),
     createWorldbook: query('[data-field="create-worldbook"]'),

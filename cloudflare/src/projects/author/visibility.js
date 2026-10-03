@@ -1,5 +1,6 @@
 import { HttpError, json, readJson } from '../../http.js';
 import { getOwnedProject, nowSeconds } from '../core.js';
+import { invalidatePublicCatalog } from '../catalog.js';
 
 export async function setOwnerProjectVisibility(request, env, user, projectId) {
   const project = await getOwnedProject(env, projectId, user);
@@ -20,6 +21,7 @@ export async function setOwnerProjectVisibility(request, env, user, projectId) {
   await env.DB.prepare(
     'UPDATE projects SET owner_hidden = ?, updated_at = ? WHERE id = ?',
   ).bind(body.hidden ? 1 : 0, now, project.id).run();
+  await invalidatePublicCatalog(env);
 
   return json({
     ok: true,

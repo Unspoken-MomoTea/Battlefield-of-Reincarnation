@@ -28,3 +28,6 @@ export { getAdminProjectCover, getOwnedProjectCover, getPublicProjectCover, uplo
 export { getAdminProjectDiff } from './projects/diff.js';
 
 export { getPublicProjectVersionsBatch } from './projects/versions.js';
+
+export { getPublicCatalog, invalidatePublicCatalog, rebuildPublicCatalog } from './projects/catalog.js';
+export { cleanupAdminStorage, getAdminStorageUsage } from './projects/admin/storage.js';

@@ -549,7 +549,9 @@ export function createAuthorProjectEditor({
           ? '本地测试已保存。若当前已安装旧版，会保留已应用版本，回到“已安装”后可点击“应用新版”。'
           : '已保存到本地测试。不会上传服务器，也不会提交审核；可到“已安装”中安装测试。';
         try { host.toastr?.success?.(isLocalTest ? '本地测试修改已保存' : '本地测试版本已保存', '创意工坊'); } catch {}
-        try { await options.onLocalSaved?.(); } catch {}
+        void (async () => {
+          try { await options.onLocalSaved?.(); } catch {}
+        })();
       } catch (error) {
         localTest.textContent = localTestIdleText;
         localTest.classList.remove('good');
@@ -652,8 +654,12 @@ export function createAuthorProjectEditor({
           localSubmit.disabled = true;
           localSubmit.textContent = '已提交审核';
           try { host.toastr?.success?.('本地测试已提交审核', '创意工坊'); } catch {}
-          try { await options.onLocalSaved?.(); } catch {}
-          try { await refreshMine(); } catch {}
+          void (async () => {
+            try { await options.onLocalSaved?.(); } catch {}
+          })();
+          void (async () => {
+            try { await refreshMine(); } catch {}
+          })();
         } catch (error) {
           progress.className = 'rw-submit-progress rw-submit-progress--error';
           progress.textContent = `提交审核失败：${error instanceof Error ? error.message : String(error)}\n再次点击会从失败步骤继续。`;
@@ -742,7 +748,9 @@ export function createAuthorProjectEditor({
         try {
           host.toastr?.success?.(autoPublish ? '新版本已发布' : '新版本已提交审核', '创意工坊');
         } catch {}
-        try { await refreshMine(); } catch {}
+        void (async () => {
+          try { await refreshMine(); } catch {}
+        })();
         host.setTimeout?.(() => modal.close({ force: true }), 650);
       } catch (error) {
         const failedAt = !attempt.metadataSaved

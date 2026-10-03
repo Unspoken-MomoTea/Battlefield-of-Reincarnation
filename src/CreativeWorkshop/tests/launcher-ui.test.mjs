@@ -413,7 +413,8 @@ test('admin review queue is focused and approval does not ask for optional feedb
     'utf8',
   );
   assert.doesNotMatch(adminProjects, /审核备注（可留空）/u);
-  assert.match(adminProjects, /请输入驳回原因（必填）/u);
+  assert.match(adminProjects, /驳回原因（必填）/u);
+  assert.doesNotMatch(adminProjects, /host\.prompt\?\.\('请输入驳回原因/u);
 
   for (const relative of [
     '../views/admin/projects.js',

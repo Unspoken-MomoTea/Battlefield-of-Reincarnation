@@ -16,6 +16,8 @@ import {
   uploadProjectVersion,
 } from '../../src/projects.js';
 import { getPublicCatalog } from '../../src/projects/catalog.js';
+import { getAdminStorageUsage } from '../../src/projects/admin/storage.js';
+import { assertR2Capacity } from '../../src/storage-policy.js';
 
 test('published updates keep only the current server version and delete old R2 version objects', async () => {
   const { env, author, admin } = setup();
@@ -101,4 +103,34 @@ test('public catalog snapshot contains all published metadata without per-search
   assert.equal(body.items[0].id, one.id);
   assert.equal(body.items[0].name, '测试世界书');
   assert.ok(Number(body.generated_at) > 0);
+});
+
+
+test('R2 upload budget rejects writes before the free tier can be crossed', async () => {
+  const env = {
+    PROJECTS: {
+      async list() {
+        return {
+          objects: [{ key: 'existing', size: 9_440_000_000 }],
+          truncated: false,
+        };
+      },
+      async head() { return null; },
+    },
+  };
+  await assert.rejects(
+    () => assertR2Capacity(env, 20_000_000),
+    error => error?.code === 'r2_storage_limit' && error?.status === 507,
+  );
+});
+
+test('admin storage usage reports R2 hard cap and D1 free cap', async () => {
+  const { env, admin } = setup();
+  await env.PROJECTS.put('sample', 'hello');
+  const usage = await responseJson(await getAdminStorageUsage(env, admin));
+  assert.equal(usage.r2.hard_limit_bytes, 9_500_000_000);
+  assert.equal(usage.r2.free_limit_bytes, 10_000_000_000);
+  assert.equal(usage.r2.used_bytes, 5);
+  assert.equal(usage.d1.free_limit_bytes, 500_000_000);
+  assert.ok(Number(usage.d1.used_bytes) > 0);
 });

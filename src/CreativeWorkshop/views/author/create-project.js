@@ -513,6 +513,7 @@ export function bindCreateProjectFlow({
         key: attemptKey,
         projectId: null,
         localBackupSaved: false,
+        localCoverDataUrl: '',
         versionUploaded: false,
         coverUploaded: !cover,
         submitted: false,
@@ -526,6 +527,7 @@ export function bindCreateProjectFlow({
           submitButton.textContent = '正在保存本地副本…';
           setSubmitStatus('working', '步骤 1/5 · 先保存完整本地副本，审核驳回后服务器草稿会直接删除…');
           const coverDataUrl = await readFileDataUrl(cover);
+          submitAttempt.localCoverDataUrl = coverDataUrl;
           await projectService.saveLocalTest({
             id: localDraftId,
             name,
@@ -578,9 +580,21 @@ export function bindCreateProjectFlow({
           setSubmitStatus('working', '步骤 5/5 · 正在提交审核…');
           await workshopApi.submitProject(submitAttempt.projectId, { localBackupConfirmed: true });
           submitAttempt.submitted = true;
+          await projectService.saveLocalTest({
+            id: localDraftId,
+            name,
+            summary,
+            category,
+            tags,
+            dependencies,
+            version: 1,
+            bundle,
+            coverDataUrl: submitAttempt.localCoverDataUrl,
+            submittedProjectId: submitAttempt.projectId,
+          });
         }
 
-        setSubmitStatus('success', '提交成功 · 作品已经进入审核队列。');
+        setSubmitStatus('success', '提交成功 · 作品已经进入审核队列；本地副本会继续保留。');
         dirty = false;
         try { host.toastr?.success?.('作品已提交审核', '创意工坊'); } catch {}
         void (async () => {

@@ -246,11 +246,10 @@ test('stable workshop keeps the previous formal tag while GitHub tag listing lag
   }
 });
 
-test('stable workshop keeps legacy stable behavior until a tag matches stable head', async () => {
+test('stable workshop refuses a bare stable head until a matching immutable tag is visible', async () => {
   const originalFetch = globalThis.fetch;
   const tagSha = '1111111111111111111111111111111111111111';
   const stableHead = '2222222222222222222222222222222222222222';
-  const componentSha = '3333333333333333333333333333333333333333';
   globalThis.fetch = async url => {
     const value = String(url);
     if (value.includes('/tags?')) {
@@ -265,12 +264,6 @@ test('stable workshop keeps legacy stable behavior until a tag matches stable he
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    if (value.includes('/commits?')) {
-      return new Response(JSON.stringify([{ sha: componentSha }]), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
     throw new Error(`unexpected request: ${value}`);
   };
   try {
@@ -278,10 +271,9 @@ test('stable workshop keeps legacy stable behavior until a tag matches stable he
       new Request('https://workshop.example/api/client/latest'),
       env({ SESSION_KV: new MemoryKV() }),
     );
+    assert.equal(response.status, 503);
     const body = await response.json();
-    assert.equal(body.release_source, 'legacy-ref');
-    assert.equal(body.sha, componentSha);
-    assert.equal(body.tag, '');
+    assert.equal(body.code, 'component_release_pending');
   } finally {
     globalThis.fetch = originalFetch;
   }

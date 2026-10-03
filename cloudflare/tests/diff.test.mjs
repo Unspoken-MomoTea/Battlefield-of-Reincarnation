@@ -113,7 +113,7 @@ async function approve(env, author, admin, projectId, bundle) {
   );
 }
 
-test('admin diff compares author-published update against the previous public version', async () => {
+test('admin diff treats the current author-published version as standalone after history cleanup', async () => {
   const { env, author, admin, project } = await setup();
   await approve(env, author, admin, project.id, worldbook('主世界书', 'old'));
 
@@ -137,14 +137,13 @@ test('admin diff compares author-published update against the previous public ve
     project.id,
   );
   const diff = await getAdminProjectDiff(env, admin, project.id);
-  assert.equal(diff.base_version, 1);
+  assert.equal(diff.base_version, 0);
   assert.equal(diff.target_version, 2);
   assert.equal(diff.target_review_status, 'approved');
-  assert.deepEqual(diff.metadata.name, { before: '名称 v1', after: '名称 v2' });
-  assert.deepEqual(diff.metadata.tags, { before: ['old'], after: ['new'] });
-  assert.equal(diff.artifacts.changed.length, 1);
-  assert.equal(diff.artifacts.changed[0].name, '主世界书');
-  assert.equal(diff.artifacts.added.length, 0);
+  assert.deepEqual(diff.metadata.name, { before: null, after: '名称 v2' });
+  assert.deepEqual(diff.metadata.tags, { before: [], after: ['new'] });
+  assert.equal(diff.artifacts.changed.length, 0);
+  assert.equal(diff.artifacts.added.length, 1);
   assert.equal(diff.artifacts.removed.length, 0);
 });
 

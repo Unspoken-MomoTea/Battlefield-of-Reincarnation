@@ -41,6 +41,18 @@ export function createAuthorProjectEditor({
     coverUrl = '';
   }
 
+  const yieldToUi = () => new Promise(resolve => {
+    if (typeof host.requestAnimationFrame === 'function') {
+      host.requestAnimationFrame(() => resolve());
+      return;
+    }
+    if (typeof host.setTimeout === 'function') {
+      host.setTimeout(resolve, 0);
+      return;
+    }
+    resolve();
+  });
+
   function readFileDataUrl(file) {
     if (!file) return Promise.resolve('');
     return new Promise((resolve, reject) => {
@@ -164,10 +176,16 @@ export function createAuthorProjectEditor({
     const right = element('section', 'rw-publish-column rw-publish-upload-column');
     let attempt = null;
     let localSubmitAttempt = null;
+    let localTest = null;
+    const localTestIdleText = isLocalTest ? '保存本地修改' : '保存到本地测试';
 
     const resetAttempt = () => {
       attempt = null;
       localSubmitAttempt = null;
+      if (localTest && !localTest.disabled) {
+        localTest.textContent = localTestIdleText;
+        localTest.classList.remove('good');
+      }
     };
 
     const step1 = element('div', 'rw-publish-step-title');
@@ -482,20 +500,35 @@ export function createAuthorProjectEditor({
     );
     const footerActions = element('div', 'rw-row');
     const cancel = button('取消', '', () => modal.close());
-    const localTest = button(isLocalTest ? '保存本地修改' : '保存到本地测试', '', async () => {
+    localTest = button(localTestIdleText, '', async () => {
       const nextName = name.value.trim();
       if (!nextName) throw new Error('请填写作品名称');
-      const bundle = buildVersionBundle(nextName);
-      const version = Math.max(1, Number(current.latest_version || 0) + 1);
+
+      localTest.textContent = '正在准备…';
+      localTest.classList.remove('good');
       progress.hidden = false;
       progress.className = 'rw-submit-progress rw-submit-progress--working';
-      progress.textContent = isLocalTest ? '正在保存本地修改…' : '正在保存本地测试版本…';
+      progress.textContent = '正在整理本地测试内容…';
+      await yieldToUi();
+
       try {
+        const bundle = buildVersionBundle(nextName);
+        const version = Math.max(1, Number(current.latest_version || 0) + 1);
         const selectedCover = coverInput.files?.[0] || null;
         let coverDataUrl = existingLocalCoverDataUrl;
-        if (selectedCover) coverDataUrl = await readFileDataUrl(selectedCover);
-        else if (!coverDataUrl && currentCoverBlob) coverDataUrl = await readFileDataUrl(currentCoverBlob);
+
+        if (selectedCover || (!coverDataUrl && currentCoverBlob)) {
+          localTest.textContent = '正在读取封面…';
+          progress.textContent = '正在读取封面并准备本地数据…';
+          coverDataUrl = selectedCover
+            ? await readFileDataUrl(selectedCover)
+            : await readFileDataUrl(currentCoverBlob);
+        }
         if (!coverDataUrl) throw new Error('请选择封面图片；本地测试也必须带图片');
+
+        localTest.textContent = '正在保存…';
+        progress.textContent = '正在校验并写入当前浏览器；内容较大时可能需要几秒…';
+        await yieldToUi();
         await projectService.saveLocalTest({
           id: isLocalTest ? (project.remoteProjectId || current.id) : current.id,
           name: nextName,
@@ -509,6 +542,8 @@ export function createAuthorProjectEditor({
           submittedProjectId: current.submitted_project_id || null,
         });
         current.latest_version = version;
+        localTest.textContent = isLocalTest ? '✓ 本地修改已保存' : '✓ 已保存到本地测试';
+        localTest.classList.add('good');
         progress.className = 'rw-submit-progress rw-submit-progress--success';
         progress.textContent = isLocalTest
           ? '本地测试已保存。若当前已安装旧版，会保留已应用版本，回到“已安装”后可点击“应用新版”。'
@@ -516,6 +551,8 @@ export function createAuthorProjectEditor({
         try { host.toastr?.success?.(isLocalTest ? '本地测试修改已保存' : '本地测试版本已保存', '创意工坊'); } catch {}
         try { await options.onLocalSaved?.(); } catch {}
       } catch (error) {
+        localTest.textContent = localTestIdleText;
+        localTest.classList.remove('good');
         progress.className = 'rw-submit-progress rw-submit-progress--error';
         progress.textContent = `保存本地测试失败：${error instanceof Error ? error.message : String(error)}`;
         notifyError(error);

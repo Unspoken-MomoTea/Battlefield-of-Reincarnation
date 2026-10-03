@@ -63,6 +63,7 @@ export function createWorkshopViews(context) {
       workshopApi: context.workshopApi,
       doc: context.doc,
       categoryLabels: CATEGORY_LABELS,
+      kindLabels: PROJECT_KIND_LABELS,
       artifactLabels: ARTIFACT_LABELS,
       getAuth: context.getAuth,
     }),

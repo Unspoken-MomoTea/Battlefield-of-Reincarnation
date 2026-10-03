@@ -46,7 +46,7 @@ export function bindWorkshopEvents({
       notifyError(error);
     } finally {
       refreshWorkshopButton.disabled = false;
-      refreshWorkshopButton.textContent = previousText || '刷新工坊';
+      refreshWorkshopButton.textContent = previousText || '刷新';
     }
   });
 

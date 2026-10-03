@@ -63,6 +63,7 @@ export function bindCreateProjectFlow({
         onChange: () => {
           dirty = true;
           submitAttempt = null;
+          markLocalTestDirty();
         },
       });
       dedicatedEditorMode = mode;
@@ -92,6 +93,25 @@ export function bindCreateProjectFlow({
   };
   const submitButton = nodes.createForm.querySelector('button[type="submit"]');
   const localTestButton = nodes.createForm.querySelector('[data-action="create-project-local-test"]');
+  const localTestIdleText = '保存本地测试（不上传）';
+
+  const yieldToUi = () => new Promise(resolve => {
+    if (typeof host.requestAnimationFrame === 'function') {
+      host.requestAnimationFrame(() => resolve());
+      return;
+    }
+    if (typeof host.setTimeout === 'function') {
+      host.setTimeout(resolve, 0);
+      return;
+    }
+    resolve();
+  });
+
+  const markLocalTestDirty = () => {
+    if (!localTestButton || localTestButton.disabled) return;
+    localTestButton.textContent = localTestIdleText;
+    localTestButton.classList.remove('good');
+  };
 
   let dirty = false;
   let coverUrl = '';
@@ -126,6 +146,7 @@ export function bindCreateProjectFlow({
     onChange: () => {
       dirty = true;
       submitAttempt = null;
+      markLocalTestDirty();
     },
   });
   nodes.createResourceStates.replaceChildren(resourceEditor.node);
@@ -200,7 +221,8 @@ export function bindCreateProjectFlow({
     submitButton.textContent = '提交审核（上传）';
     if (localTestButton) {
       localTestButton.disabled = false;
-      localTestButton.textContent = '保存本地测试（不上传）';
+      localTestButton.textContent = localTestIdleText;
+      localTestButton.classList.remove('good');
     }
     dedicatedDrafts.clear();
     dedicatedEditor = null;
@@ -302,11 +324,13 @@ export function bindCreateProjectFlow({
     if (event.target?.closest?.('.rw-resource-state-editor')) return;
     dirty = true;
     submitAttempt = null;
+    markLocalTestDirty();
   });
   nodes.createForm.addEventListener('change', event => {
     if (event.target?.closest?.('.rw-resource-state-editor')) return;
     dirty = true;
     submitAttempt = null;
+    markLocalTestDirty();
   });
 
   openButton?.addEventListener('click', () => {
@@ -366,7 +390,7 @@ export function bindCreateProjectFlow({
     } catch {}
   }
 
-  localTestButton?.addEventListener('click', () => {
+  localTestButton?.addEventListener('click', async () => {
     if (localTestButton.disabled) return;
 
     const form = new FormData(nodes.createForm);
@@ -374,9 +398,6 @@ export function bindCreateProjectFlow({
     const summary = String(form.get('summary') || '');
     const categorySelection = String(form.get('category') || 'extension');
     const category = projectCategoryForSelection(categorySelection);
-    const character_kind = categorySelection === 'character'
-      ? String(form.get('character_kind') || 'world_character')
-      : '';
     const dependencies = dependencyPicker.values();
 
     if (!name) {
@@ -388,47 +409,52 @@ export function bindCreateProjectFlow({
       showRequiredField('还不能保存：请选择封面图片。所有本地测试和正式作品都必须带封面。', nodes.createForm.querySelector('[data-drop-target="create-cover"]'));
       return;
     }
-    let bundle;
+
+    localTestButton.disabled = true;
+    localTestButton.classList.remove('good');
+    localTestButton.textContent = '正在准备…';
+    setSubmitStatus('working', '正在整理本地测试内容…');
+    await yieldToUi();
+
     try {
-      bundle = buildPublishBundle(form, name);
+      const bundle = buildPublishBundle(form, name);
+      localTestButton.textContent = '正在读取封面…';
+      setSubmitStatus('working', '正在读取封面并准备本地数据…');
+      const coverDataUrl = await readFileDataUrl(cover);
+
+      localTestButton.textContent = '正在保存…';
+      setSubmitStatus('working', '正在校验并写入当前浏览器；内容较大时可能需要几秒…');
+      await yieldToUi();
+      await projectService.saveLocalTest({
+        id: localDraftId,
+        name,
+        summary,
+        category,
+        dependencies,
+        version: 1,
+        bundle,
+        coverDataUrl,
+      });
+
+      dirty = false;
+      localTestButton.textContent = '✓ 已保存本地测试';
+      localTestButton.classList.add('good');
+      setSubmitStatus(
+        'success',
+        '已保存到本地测试。不会上传服务器，也不会进入审核队列；可到“已安装”中安装测试。',
+      );
+      try { host.toastr?.success?.('本地测试版本已保存', '创意工坊'); } catch {}
     } catch (error) {
-      return notifyError(error);
+      localTestButton.textContent = localTestIdleText;
+      localTestButton.classList.remove('good');
+      setSubmitStatus(
+        'error',
+        `保存本地测试失败：${error instanceof Error ? error.message : String(error)}`,
+      );
+      notifyError(error);
+    } finally {
+      if (localTestButton.isConnected) localTestButton.disabled = false;
     }
-    void (async () => {
-      localTestButton.disabled = true;
-      localTestButton.textContent = '正在保存本地测试…';
-      setSubmitStatus('working', '正在保存本地测试版本；不会上传服务器或提交审核…');
-      try {
-        const coverDataUrl = await readFileDataUrl(cover);
-        await projectService.saveLocalTest({
-          id: localDraftId,
-          name,
-          summary,
-          category,
-          dependencies,
-          version: 1,
-          bundle,
-          coverDataUrl,
-        });
-        dirty = false;
-        setSubmitStatus(
-          'success',
-          '已保存到本地测试。不会上传服务器，也不会进入审核队列；可到“已安装”中安装测试。',
-        );
-        try { host.toastr?.success?.('本地测试版本已保存', '创意工坊'); } catch {}
-      } catch (error) {
-        setSubmitStatus(
-          'error',
-          `保存本地测试失败：${error instanceof Error ? error.message : String(error)}`,
-        );
-        notifyError(error);
-      } finally {
-        if (localTestButton.isConnected) {
-          localTestButton.disabled = false;
-          localTestButton.textContent = '保存本地测试（不上传）';
-        }
-      }
-    })();
   });
 
   nodes.createForm.addEventListener('submit', event => {

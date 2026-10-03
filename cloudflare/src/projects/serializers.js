@@ -36,7 +36,8 @@ export function projectOwn(row) {
 export function projectAdmin(row) {
   return {
     id: row.id, slug: row.slug, name: row.name, summary: row.summary,
-    tags: parseTags(row.tags), dependencies: parseDependencies(row.dependencies), category: row.category, has_cover: Boolean(row.cover_key),
+    tags: parseTags(row.tags), dependencies: parseDependencies(row.dependencies), category: row.category,
+    kind: publicKind(row), has_cover: Boolean(row.cover_key),
     project_status: row.status, owner_hidden: Boolean(Number(row.owner_hidden || 0)), latest_version: Number(row.latest_version),
     published_version: Number(row.published_version || 0), owner_name: row.owner_name,
     owner_discord_id: row.owner_discord_id, owner_is_banned: Number(row.owner_is_banned || 0), review_status: row.review_status,

@@ -66,6 +66,47 @@ test('admin pending queue contains submitted versions', async () => {
   assert.equal(Number(pending.items[0].latest_version), 1);
 });
 
+test('admin review exposes the exact character subtype', async () => {
+  const { env, author, admin } = setup();
+  const created = await responseJson(await createProject(
+    request('/api/projects', 'POST', { name: '开局伙伴待审', summary: '', category: 'character' }),
+    env,
+    author,
+  ));
+  const project = created.project;
+  const partnerBundle = {
+    schema_version: 1,
+    artifacts: [{
+      kind: 'data',
+      name: 'partner.json',
+      format: 'json',
+      content: {
+        schema_version: 1,
+        kind: 'opening_partner',
+        name: '测试伙伴',
+        build: { 层级: 'Ⅰ', 血统: {}, 技能: {} },
+      },
+    }],
+  };
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', { changelog: '', bundle: partnerBundle }),
+    env,
+    author,
+    project.id,
+  );
+  await submitProjectForReview(env, author, project.id);
+
+  const pending = await responseJson(
+    await listAdminProjects(request('/api/admin/projects?review_status=pending'), env, admin),
+  );
+  const listed = pending.items.find(item => item.id === project.id);
+  assert.equal(listed.kind, 'opening_partner');
+
+  const detail = await responseJson(await getPendingProjectReview(env, admin, project.id));
+  assert.equal(detail.project.kind, 'opening_partner');
+  assert.equal(detail.versions[0].kind, 'opening_partner');
+});
+
 test('admin can inspect the exact pending manifest and bundle before approval', async () => {
   const { env, author, admin, other } = setup();
   const project = await createWorldbookProject(env, author);

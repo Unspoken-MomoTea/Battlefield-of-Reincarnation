@@ -95,10 +95,14 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
     throw new Error('本地测试作品资料不完整');
   }
   const localId = `local-test:${project.id}`;
-  const previous = await getInstalledProject(localId);
   const version = Number(project.version || 1);
   const bundle = structuredClone(project.bundle);
-  const manifestArtifacts = await Promise.all(bundle.artifacts.map(async artifact => {
+  const artifacts = Array.isArray(bundle?.artifacts) ? bundle.artifacts : [];
+  if (!artifacts.length) {
+    throw new Error('本地测试内容无效：没有可保存的作品内容，请重新打开编辑器后再试');
+  }
+  const previous = await getInstalledProject(localId);
+  const manifestArtifacts = await Promise.all(artifacts.map(async artifact => {
     const text = artifact.format === 'text' ? artifact.content : JSON.stringify(artifact.content);
     const bytes = new TextEncoder().encode(text);
     return {
@@ -120,7 +124,7 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
       version,
       dependencies: Array.isArray(project.dependencies) ? structuredClone(project.dependencies) : [],
     },
-    artifact_count: bundle.artifacts.length,
+    artifact_count: artifacts.length,
     total_bytes: manifestArtifacts.reduce((sum, artifact) => sum + artifact.byte_size, 0),
     artifacts: manifestArtifacts,
     resource_overrides: structuredClone(bundle.resource_overrides || []),

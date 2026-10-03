@@ -6,7 +6,7 @@ export async function listAdminProjects(request, env, user) {
   const { query, category, limit, offset, reviewStatus } = adminPageParams(request);
   const like = `%${query}%`;
   const result = await env.DB.prepare(
-    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
+    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.content_kind AS kind, v.cover_key,
             p.status, p.owner_hidden, p.latest_version, p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count, p.created_at, p.updated_at,
             owner.display_name AS owner_name, owner.discord_id AS owner_discord_id, owner.is_banned AS owner_is_banned,

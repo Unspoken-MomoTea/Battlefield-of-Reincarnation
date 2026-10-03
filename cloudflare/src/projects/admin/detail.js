@@ -5,7 +5,7 @@ import { buildPublicChangePreview, buildPublicContentPreview } from '../public-p
 export async function getPendingProjectReview(env, user, projectId) {
   assertReviewer(user);
   const row = await env.DB.prepare(
-    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.cover_key,
+    `SELECT p.id, p.slug, v.name, v.summary, v.tags, v.dependencies, v.project_type AS category, v.content_kind AS kind, v.cover_key,
             p.status, p.owner_hidden, p.latest_version, p.published_version,
             p.downloads_count, p.likes_count, p.favorites_count, p.created_at, p.updated_at,
             owner.display_name AS owner_name, owner.discord_id AS owner_discord_id,
@@ -21,7 +21,7 @@ export async function getPendingProjectReview(env, user, projectId) {
   const [manifestObject, bundleObject, versionsResult, reviewsResult, auditResult] = await Promise.all([
     env.PROJECTS.get(row.manifest_key),
     env.PROJECTS.get(row.content_key),
-    env.DB.prepare(`SELECT version, name, summary, tags, dependencies, project_type AS category, cover_key, changelog, review_status, created_at, submitted_at, reviewed_at FROM project_versions WHERE project_id = ? ORDER BY version DESC`).bind(projectId).all(),
+    env.DB.prepare(`SELECT version, name, summary, tags, dependencies, project_type AS category, content_kind AS kind, cover_key, changelog, review_status, created_at, submitted_at, reviewed_at FROM project_versions WHERE project_id = ? ORDER BY version DESC`).bind(projectId).all(),
     env.DB.prepare(`SELECT rr.version, rr.decision, rr.note, rr.created_at, reviewer.display_name AS reviewer_name FROM review_records rr JOIN users reviewer ON reviewer.id = rr.reviewer_user_id WHERE rr.project_id = ? ORDER BY rr.id DESC`).bind(projectId).all(),
     env.DB.prepare(`SELECT log.project_version, log.action, log.note, log.created_at, actor.display_name AS actor_name FROM admin_audit_logs log JOIN users actor ON actor.id = log.actor_user_id WHERE log.project_id = ? AND log.action NOT IN ('review_approved', 'review_rejected') ORDER BY log.id DESC LIMIT 100`).bind(projectId).all(),
   ]);
@@ -60,7 +60,8 @@ export async function getPendingProjectReview(env, user, projectId) {
   return json({
     project: {
       id: row.id, slug: row.slug, name: row.name, summary: row.summary, tags: parseTags(row.tags), dependencies: parseDependencies(row.dependencies),
-      category: row.category, has_cover: Boolean(row.cover_key), project_status: row.status,
+      category: row.category, kind: row.kind || (row.category === 'character' ? 'world_character' : 'extension'),
+      has_cover: Boolean(row.cover_key), project_status: row.status,
       owner_hidden: Boolean(Number(row.owner_hidden || 0)),
       owner_name: row.owner_name, owner_discord_id: row.owner_discord_id,
       latest_version: Number(row.latest_version), published_version: Number(row.published_version || 0),
@@ -75,7 +76,9 @@ export async function getPendingProjectReview(env, user, projectId) {
     change_preview: changePreview,
     versions: (versionsResult.results || []).map(version => ({
       version: Number(version.version), name: version.name || '', summary: version.summary || '',
-      tags: parseTags(version.tags), dependencies: parseDependencies(version.dependencies), category: version.category || '', has_cover: Boolean(version.cover_key),
+      tags: parseTags(version.tags), dependencies: parseDependencies(version.dependencies), category: version.category || '',
+      kind: version.kind || (version.category === 'character' ? 'world_character' : 'extension'),
+      has_cover: Boolean(version.cover_key),
       changelog: version.changelog || '', review_status: version.review_status,
       created_at: Number(version.created_at || 0), submitted_at: Number(version.submitted_at || 0),
       reviewed_at: Number(version.reviewed_at || 0),

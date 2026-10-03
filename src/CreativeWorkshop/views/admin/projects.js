@@ -13,6 +13,7 @@ export function createAdminProjectsView({
   host,
   doc,
   categoryLabels,
+  kindLabels,
   getAuth,
   openModal,
   confirmDialog,
@@ -20,6 +21,12 @@ export function createAdminProjectsView({
 }) {
   function reviewStatusLabel(status) {
     return ({ draft: '未提交审核', pending: '审核中', approved: '已通过', rejected: '已拒绝' })[status] || status;
+  }
+
+  function projectKindLabel(project) {
+    const kind = String(project?.kind || '');
+    if (kindLabels?.[kind]) return kindLabels[kind];
+    return categoryLabels[project?.category] || project?.category || '作品';
   }
 
   function formatTime(seconds) {
@@ -272,7 +279,7 @@ export function createAdminProjectsView({
 
       const headerMeta = element('div', 'rw-meta');
       headerMeta.append(
-        element('span', 'rw-pill', categoryLabels[project.category] || project.category),
+        element('span', 'rw-pill rw-pill--type', projectKindLabel(project)),
         element(
           'span',
           `rw-local-state rw-local-state--${autoPublished ? 'update' : project.review_status === 'approved' ? 'installed' : project.review_status === 'rejected' ? 'bad' : 'update'}`,
@@ -322,6 +329,7 @@ export function createAdminProjectsView({
       reviewSummary.appendChild(element('div', 'rw-workshop-rail-label', '版本资料'));
       const facts = element('div', 'rw-workshop-facts');
       facts.append(
+        detailRow('作品类型', projectKindLabel(project)),
         detailRow('当前版本', `v${project.latest_version}`),
         detailRow('公开版本', `v${project.published_version}`),
         detailRow(autoPublished ? '作者发布' : '提交审核', formatTime(autoPublished ? project.version_created_at : project.submitted_at)),
@@ -382,7 +390,7 @@ export function createAdminProjectsView({
 
     const meta = element('div', 'rw-meta');
     meta.append(
-      element('span', 'rw-pill', categoryLabels[item.category] || item.category),
+      element('span', 'rw-pill rw-pill--type', projectKindLabel(item)),
       element('span', 'rw-pill', `公开 v${item.published_version}`),
     );
     if (item.project_status === 'archived') meta.append(element('span', 'rw-pill', '管理员已下架'));

@@ -512,6 +512,24 @@ test('opening skills and partner equipment preserve editable MVU tags through pu
   const recovered = dedicatedInitialValues([artifact], 'opening_partner', '作品');
   assert.deepEqual(recovered.opening_skills[0].tags, ['潜行', '辅助']);
   assert.deepEqual(recovered.opening_partner_equipment[0].标签, ['轻型', '近战']);
+
+  const character = buildDedicatedArtifacts({
+    opening_name: '标签角色',
+    opening_race: '人类',
+    opening_identity: '游侠',
+    opening_rank: 'Ⅰ',
+    opening_bloodline_name: '人类血统',
+    opening_skills: [{
+      name: '观察',
+      type: '1',
+      tags: ['侦察', '辅助'],
+      consume: '无',
+      effectName: '洞察',
+      effectDesc: '观察环境',
+      desc: '基础侦察',
+    }],
+  }, 'opening_character', '角色')[0];
+  assert.deepEqual(character.content.build.技能.观察.标签, ['侦察', '辅助']);
 });
 
 test('opening editor exposes tag fields for skills and partner equipment', () => {

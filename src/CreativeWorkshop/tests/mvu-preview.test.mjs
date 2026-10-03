@@ -93,7 +93,7 @@ test('detail views render structured content before update history and no longer
       < admin.indexOf('renderChangePreview(doc, detail.change_preview'),
   );
   assert.doesNotMatch(contentPreview, /textContent: '其他内容'/u);
-  assert.match(contentPreview, /renderMvuPreview\(doc, dataEntries\)/u);
+  assert.match(contentPreview, /renderMvuPreview\(doc, visibleMvuEntries\)/u);
 });
 
 

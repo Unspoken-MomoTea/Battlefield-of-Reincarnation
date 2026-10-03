@@ -5,6 +5,8 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 test('successful IndexedDB put does not wait forever for a lost transaction completion event', async () => {
   const originalIndexedDB = globalThis.indexedDB;
+  const originalBroadcastChannel = globalThis.BroadcastChannel;
+  globalThis.BroadcastChannel = undefined;
   let committed = false;
   const fakeDb = {
     objectStoreNames: { contains: () => true },
@@ -44,5 +46,7 @@ test('successful IndexedDB put does not wait forever for a lost transaction comp
   } finally {
     if (originalIndexedDB === undefined) delete globalThis.indexedDB;
     else globalThis.indexedDB = originalIndexedDB;
+    if (originalBroadcastChannel === undefined) delete globalThis.BroadcastChannel;
+    else globalThis.BroadcastChannel = originalBroadcastChannel;
   }
 });

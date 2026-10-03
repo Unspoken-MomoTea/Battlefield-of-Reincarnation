@@ -4,6 +4,7 @@ import {
 } from '../engagement.js';
 import {
   createProject, deleteProject, downloadPublicProject, getOwnedProjectCover, getOwnedProjectEditor,
+  getPublicCatalog,
   getPublicProject, getPublicProjectCover, getPublicProjectVersion, getPublicProjectVersionsBatch,
   listOwnProjects, listPublicProjects, setOwnerProjectVisibility, submitProjectForReview,
   updateProject, uploadProjectCover, uploadProjectVersion,
@@ -14,6 +15,9 @@ import { projectIdFrom } from './match.js';
 export async function routeProjects(request, env, pathname) {
   if (request.method === 'GET' && pathname === '/api/projects') {
     return listPublicProjects(request, env);
+  }
+  if (request.method === 'GET' && pathname === '/api/projects/catalog') {
+    return getPublicCatalog(env);
   }
   if (request.method === 'POST' && pathname === '/api/projects') {
     return createProject(request, env, await authenticatedUser(request, env));

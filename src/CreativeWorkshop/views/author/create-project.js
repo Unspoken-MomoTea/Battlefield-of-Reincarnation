@@ -430,6 +430,10 @@ export function bindCreateProjectFlow({
         name,
         summary,
         category,
+        tags: String(form.get('tags') || '')
+          .split(/[,，\n]/u)
+          .map(value => value.trim())
+          .filter(Boolean),
         dependencies,
         version: 1,
         bundle,
@@ -508,6 +512,7 @@ export function bindCreateProjectFlow({
       submitAttempt = {
         key: attemptKey,
         projectId: null,
+        localBackupSaved: false,
         versionUploaded: false,
         coverUploaded: !cover,
         submitted: false,
@@ -517,9 +522,27 @@ export function bindCreateProjectFlow({
     void (async () => {
       submitButton.disabled = true;
       try {
+        if (!submitAttempt.localBackupSaved) {
+          submitButton.textContent = '正在保存本地副本…';
+          setSubmitStatus('working', '步骤 1/5 · 先保存完整本地副本，审核驳回后服务器草稿会直接删除…');
+          const coverDataUrl = await readFileDataUrl(cover);
+          await projectService.saveLocalTest({
+            id: localDraftId,
+            name,
+            summary,
+            category,
+            tags,
+            dependencies,
+            version: 1,
+            bundle,
+            coverDataUrl,
+          });
+          submitAttempt.localBackupSaved = true;
+        }
+
         if (!submitAttempt.projectId) {
           submitButton.textContent = '正在创建作品…';
-          setSubmitStatus('working', '步骤 1/4 · 正在创建作品草稿…');
+          setSubmitStatus('working', '步骤 2/5 · 正在创建作品草稿…');
           const created = await workshopApi.createProject({
             name,
             summary,
@@ -534,8 +557,8 @@ export function bindCreateProjectFlow({
         if (!submitAttempt.versionUploaded) {
           submitButton.textContent = '正在上传内容…';
           setSubmitStatus('working', currentMode() === 'extension'
-            ? '步骤 2/4 · 正在上传扩展内容与原版资源状态…'
-            : '步骤 2/4 · 正在上传专用作品数据…');
+            ? '步骤 3/5 · 正在上传扩展内容与原版资源状态…'
+            : '步骤 3/5 · 正在上传专用作品数据…');
           await workshopApi.uploadProjectVersion(
             submitAttempt.projectId,
             { changelog: '', bundle },
@@ -545,15 +568,15 @@ export function bindCreateProjectFlow({
 
         if (cover && !submitAttempt.coverUploaded) {
           submitButton.textContent = '正在上传封面…';
-          setSubmitStatus('working', '步骤 3/4 · 正在上传封面…');
+          setSubmitStatus('working', '步骤 4/5 · 正在上传封面…');
           await workshopApi.uploadProjectCover(submitAttempt.projectId, cover);
           submitAttempt.coverUploaded = true;
         }
 
         if (!submitAttempt.submitted) {
           submitButton.textContent = '正在提交审核…';
-          setSubmitStatus('working', '步骤 4/4 · 正在提交审核…');
-          await workshopApi.submitProject(submitAttempt.projectId);
+          setSubmitStatus('working', '步骤 5/5 · 正在提交审核…');
+          await workshopApi.submitProject(submitAttempt.projectId, { localBackupConfirmed: true });
           submitAttempt.submitted = true;
         }
 
@@ -571,13 +594,15 @@ export function bindCreateProjectFlow({
           nodes.createForm.hidden = true;
         }, 650);
       } catch (error) {
-        const failedAt = !submitAttempt?.projectId
-          ? '创建作品'
-          : !submitAttempt.versionUploaded
-            ? '上传作品内容'
-            : !submitAttempt.coverUploaded
-              ? '上传封面'
-              : '提交审核';
+        const failedAt = !submitAttempt?.localBackupSaved
+          ? '保存本地副本'
+          : !submitAttempt?.projectId
+            ? '创建作品'
+            : !submitAttempt.versionUploaded
+              ? '上传作品内容'
+              : !submitAttempt.coverUploaded
+                ? '上传封面'
+                : '提交审核';
         setSubmitStatus(
           'error',
           `${failedAt}失败：${errorDescription(error)}${submitAttempt?.projectId ? '\n再次点击会从失败步骤继续，不会重复创建作品。' : ''}`,

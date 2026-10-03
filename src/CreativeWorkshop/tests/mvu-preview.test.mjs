@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { mvuEntriesForDisplay } from '../views/discover/content-preview.js';
 import { summarizeMvuEntry } from '../views/discover/mvu-preview.js';
 
 test('opening partner summary exposes identity, rank and nested content counts', () => {
@@ -92,5 +93,19 @@ test('detail views render structured content before update history and no longer
       < admin.indexOf('renderChangePreview(doc, detail.change_preview'),
   );
   assert.doesNotMatch(contentPreview, /textContent: '其他内容'/u);
-  assert.match(contentPreview, /renderMvuPreview\(doc, dataEntries\)/u);
+  assert.match(contentPreview, /renderMvuPreview\(doc, visibleMvuEntries\)/u);
+});
+
+
+test('worldbook character data skips the generic MVU work preview because worldbook content already renders it', () => {
+  const entries = [
+    { kind: 'world_character', name: '角色 A' },
+    { kind: 'opening_character', name: '角色 B' },
+    { kind: 'opening_partner', name: '伙伴 C' },
+  ];
+
+  assert.deepEqual(
+    mvuEntriesForDisplay(entries).map(entry => entry.kind),
+    ['opening_character', 'opening_partner'],
+  );
 });

@@ -22,7 +22,25 @@ async function catalogRows(env) {
         AND p.status <> 'archived'
         AND p.owner_hidden = 0`,
   ).all();
-  return (result.results || []).map(projectPublic);
+  return (result.results || []).map(row => {
+    const project = projectPublic(row);
+    return {
+      id: project.id,
+      name: project.name,
+      summary: project.summary,
+      tags: project.tags,
+      category: project.category,
+      kind: project.kind,
+      has_cover: project.has_cover,
+      version: project.version,
+      owner_name: project.owner_name,
+      created_at: project.created_at,
+      updated_at: project.updated_at,
+      downloads_count: project.downloads_count,
+      likes_count: project.likes_count,
+      favorites_count: project.favorites_count,
+    };
+  });
 }
 
 export async function rebuildPublicCatalog(env) {

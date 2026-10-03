@@ -6,12 +6,12 @@ import {
   readD1Usage,
   scanR2Usage,
 } from '../../storage-policy.js';
-import { assertReviewer, writeAdminAudit } from '../core.js';
+import { assertAdmin, writeAdminAudit } from '../core.js';
 import { rebuildPublicCatalog } from '../catalog.js';
 import { cleanupAllHistoricalVersions } from '../version-retention.js';
 
 export async function getAdminStorageUsage(env, user) {
-  assertReviewer(user);
+  assertAdmin(user);
   const [r2, d1, projects, versions] = await Promise.all([
     scanR2Usage(env.PROJECTS),
     readD1Usage(env),
@@ -44,7 +44,7 @@ export async function getAdminStorageUsage(env, user) {
 }
 
 export async function cleanupAdminStorage(env, user) {
-  assertReviewer(user);
+  assertAdmin(user);
   const before = await scanR2Usage(env.PROJECTS);
   const cleanup = await cleanupAllHistoricalVersions(env);
   await rebuildPublicCatalog(env);

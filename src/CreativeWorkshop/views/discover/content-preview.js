@@ -321,7 +321,7 @@ export function renderChangePreview(doc, changePreview, changelog = '') {
     Object.assign(doc.createElement('span'), {
       textContent: changePreview
         ? `v${changePreview.from_version} → v${changePreview.to_version}`
-        : '首次发布',
+        : '只保留当前版本',
     }),
   );
   heading.appendChild(copy);
@@ -337,7 +337,7 @@ export function renderChangePreview(doc, changePreview, changelog = '') {
   if (!changePreview) {
     const first = doc.createElement('div');
     first.className = 'rw-content-empty';
-    first.textContent = '首次发布，没有上一版本可比较。';
+    first.textContent = '服务器不保留历史版本，因此不提供旧版对比；作者的当前版本说明保留在上方。';
     section.appendChild(first);
     return section;
   }

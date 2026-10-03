@@ -63,3 +63,15 @@ test('admin review UI shows the project subtype rather than only the top-level c
   assert.match(source, /detailRow\('作品类型', projectKindLabel\(project\)\)/u);
   assert.match(views, /kindLabels: PROJECT_KIND_LABELS/u);
 });
+
+
+test('reject review uses one workshop dialog with an embedded reason field', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../views/admin/projects.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.doesNotMatch(source, /host\.prompt\?\.\('请输入驳回原因/u);
+  assert.match(source, /rw-review-reject-reason/u);
+  assert.match(source, /驳回原因/u);
+});

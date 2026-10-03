@@ -602,6 +602,9 @@ function openingEquipmentEditor(doc, initial = [], emit) {
     next.品质 = STORE_QUALITIES.includes(String(next.品质 || '').toUpperCase())
       ? String(next.品质).toUpperCase()
       : 'F';
+    next.标签 = Array.isArray(next.标签)
+      ? next.标签.map(value => String(value || '').trim()).filter(Boolean)
+      : [];
     next.效果 = Object.fromEntries(Object.entries(next.效果 || {}).slice(0, 2));
     return next;
   });
@@ -632,6 +635,12 @@ function openingEquipmentEditor(doc, initial = [], emit) {
         field(doc, '装备名称 *', makeInput(doc, 'partner_equipment_name', item.name || '', { maxLength: 120 })),
         field(doc, '品质', makeSelect(doc, 'partner_equipment_quality', STORE_QUALITIES, item.品质 || 'F')),
         field(doc, '类型', makeSelect(doc, 'partner_equipment_type', EQUIPMENT_TYPES, String(item.类型 ?? 0))),
+        field(
+          doc,
+          '标签',
+          makeInput(doc, 'partner_equipment_tags', item.标签.join(', '), { maxLength: 500 }),
+          '多个标签用逗号分隔，例如：近战、轻型、破甲。',
+        ),
       );
       card.appendChild(grid);
 
@@ -664,7 +673,10 @@ function openingEquipmentEditor(doc, initial = [], emit) {
           name: getValue(card, 'partner_equipment_name').trim(),
           品质: getValue(card, 'partner_equipment_quality') || 'F',
           类型: Math.max(0, Math.min(8, Number(getValue(card, 'partner_equipment_type')) || 0)),
-          标签: [],
+          标签: String(getValue(card, 'partner_equipment_tags') || '')
+            .split(/[,，\n]/u)
+            .map(value => value.trim())
+            .filter(Boolean),
           原始属性: attrsValue,
           效果: effectsFromCard(card),
           描述: getValue(card, 'partner_equipment_desc').trim(),
@@ -716,6 +728,9 @@ function openingSkillEditor(doc, initial = [], getQuality, emit) {
     name: String(item?.name || ''),
     type: String(item?.type ?? '0'),
     consume: String(item?.consume || ''),
+    tags: Array.isArray(item?.tags)
+      ? item.tags.map(value => String(value || '').trim()).filter(Boolean)
+      : [],
     effectName: String(item?.effectName || ''),
     effectDesc: String(item?.effectDesc || ''),
     desc: String(item?.desc || ''),
@@ -746,6 +761,7 @@ function openingSkillEditor(doc, initial = [], getQuality, emit) {
         { value: '2', label: '特殊' },
       ], item.type);
       const consume = makeInput(doc, 'opening_skill_consume', item.consume, { maxLength: 300 });
+      const tags = makeInput(doc, 'opening_skill_tags', item.tags.join(', '), { maxLength: 500 });
       const effectName = makeInput(doc, 'opening_skill_effect_name', item.effectName, { maxLength: 80 });
       const effectDesc = makeInput(doc, 'opening_skill_effect_desc', item.effectDesc, { textarea: true, maxLength: 1600 });
       const desc = makeInput(doc, 'opening_skill_desc', item.desc, { textarea: true, maxLength: 1600 });
@@ -754,6 +770,7 @@ function openingSkillEditor(doc, initial = [], getQuality, emit) {
         field(doc, '技能名称 *', name),
         field(doc, '类型', type),
         field(doc, '消耗', consume),
+        field(doc, '标签', tags, '多个标签用逗号分隔，例如：近战、控制、辅助。'),
         field(doc, '效果名称', effectName),
         field(doc, '效果', effectDesc),
       );
@@ -763,6 +780,10 @@ function openingSkillEditor(doc, initial = [], getQuality, emit) {
         item.name = name.value;
         item.type = type.value;
         item.consume = consume.value;
+        item.tags = String(tags.value || '')
+          .split(/[,，\n]/u)
+          .map(value => value.trim())
+          .filter(Boolean);
         item.effectName = effectName.value;
         item.effectDesc = effectDesc.value;
         item.desc = desc.value;
@@ -785,7 +806,7 @@ function openingSkillEditor(doc, initial = [], getQuality, emit) {
 
   add.addEventListener('click', () => {
     if (entries.length >= 2) return;
-    entries.push({ name: '', type: '0', consume: '', effectName: '', effectDesc: '', desc: '' });
+    entries.push({ name: '', type: '0', consume: '', tags: [], effectName: '', effectDesc: '', desc: '' });
     render();
     emit();
   });

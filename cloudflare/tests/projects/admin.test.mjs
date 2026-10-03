@@ -378,7 +378,8 @@ test('admin detail exposes only the current author-published update after histor
   assert.equal(detail.content_preview.worldbook_entries.length, 2);
   assert.equal(detail.content_preview.worldbook_entries[0].strategy_type, 'constant');
   assert.equal(detail.change_preview, null);
-  assert.deepEqual(detail.versions, []);
+  assert.equal(detail.versions.length, 1);
+  assert.equal(detail.versions[0].version, 2);
 });
 
 

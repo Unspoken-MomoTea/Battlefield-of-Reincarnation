@@ -268,6 +268,7 @@ export function bindWorkshopEvents({
       host,
       overlay,
       workshopApi,
+      projectService,
       notifyError,
       refreshMine: () => views.author.refresh(),
     });

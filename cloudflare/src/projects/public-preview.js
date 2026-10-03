@@ -239,11 +239,41 @@ function textPreview(value) {
   return String(text ?? '');
 }
 
+function dataEntryName(content, artifact, index = 0) {
+  const source = objectValue(content);
+  const explicit = String(source?.name || source?.profile?.name || '').trim();
+  if (explicit) return explicit;
+  const base = String(artifact?.name || `数据 ${index + 1}`)
+    .replace(/\.(?:opening|store|character)?\.json$/iu, '')
+    .replace(/\.json$/iu, '')
+    .trim();
+  return base || `数据 ${index + 1}`;
+}
+
+function dataEntriesFromArtifact(artifact) {
+  const parsed = parseArtifactContent(artifact);
+  const values = Array.isArray(parsed) ? parsed : [parsed];
+  return values.map((value, index) => {
+    const source = objectValue(value);
+    const kind = String(source?.kind || 'generic_data').trim() || 'generic_data';
+    const name = dataEntryName(value, artifact, index);
+    return {
+      key: `${kind}:${name}:${artifact?.name || ''}:${index}`,
+      kind,
+      name,
+      schema_version: Number(source?.schema_version || 0),
+      artifact_name: String(artifact?.name || ''),
+      content: value,
+    };
+  });
+}
+
 export function buildPublicContentPreview(bundle) {
   const artifacts = [];
   const worldbookEntries = [];
   const regexEntries = [];
   const scripts = [];
+  const dataEntries = [];
   let presetCount = 0;
   let dataCount = 0;
   const resourceOverrides = bundleResourceOverrides(bundle);
@@ -278,7 +308,17 @@ export function buildPublicContentPreview(bundle) {
     }
 
     if (artifact.kind === 'preset') presetCount += 1;
-    if (artifact.kind === 'data') dataCount += 1;
+    if (artifact.kind === 'data') {
+      dataCount += 1;
+      const entries = dataEntriesFromArtifact(artifact);
+      dataEntries.push(...entries);
+      artifacts.push({
+        ...base,
+        entry_count: entries.length || 1,
+        preview: textPreview(parseArtifactContent(artifact)),
+      });
+      continue;
+    }
     artifacts.push({
       ...base,
       entry_count: 1,
@@ -291,6 +331,7 @@ export function buildPublicContentPreview(bundle) {
     worldbook_entries: worldbookEntries,
     regex_entries: regexEntries,
     scripts,
+    data_entries: dataEntries,
     resource_overrides: resourceOverrides,
     counts: {
       artifacts: artifacts.length,
@@ -299,6 +340,11 @@ export function buildPublicContentPreview(bundle) {
       scripts: scripts.length,
       presets: presetCount,
       data: dataCount,
+      mvu_data: dataEntries.length,
+      world_character: dataEntries.filter(item => item.kind === 'world_character').length,
+      opening_character: dataEntries.filter(item => item.kind === 'opening_character').length,
+      opening_partner: dataEntries.filter(item => item.kind === 'opening_partner').length,
+      store_catalog: dataEntries.filter(item => item.kind === 'store_catalog').length,
       resource_overrides: resourceOverrides.length,
     },
   };
@@ -338,12 +384,13 @@ export function buildPublicChangePreview(previousPreview, currentPreview, previo
   const worldbook = diffCollection(previousPreview.worldbook_entries, currentPreview.worldbook_entries);
   const regex = diffCollection(previousPreview.regex_entries, currentPreview.regex_entries);
   const scripts = diffCollection(previousPreview.scripts, currentPreview.scripts);
+  const data = diffCollection(previousPreview.data_entries, currentPreview.data_entries);
   const resourceOverrides = diffCollection(
     previousPreview.resource_overrides,
     currentPreview.resource_overrides,
     'key',
   );
-  const all = [...worldbook, ...regex, ...scripts, ...resourceOverrides];
+  const all = [...worldbook, ...regex, ...scripts, ...data, ...resourceOverrides];
   return {
     from_version: Number(previousVersion),
     to_version: Number(currentVersion),
@@ -355,6 +402,7 @@ export function buildPublicChangePreview(previousPreview, currentPreview, previo
     worldbook,
     regex,
     scripts,
+    data,
     resource_overrides: resourceOverrides,
   };
 }

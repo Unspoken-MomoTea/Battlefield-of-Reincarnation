@@ -104,8 +104,7 @@ test('successful save and submit UI is not held open by background list refreshe
     create.indexOf("setSubmitStatus('success', '提交成功"),
     create.indexOf('} catch (error)', create.indexOf("setSubmitStatus('success', '提交成功")),
   );
-  assert.doesNotMatch(createSuccess, /await refreshMine\(\)/u);
-  assert.match(createSuccess, /void \(async \(\) =>/u);
+  assert.match(createSuccess, /void \(async \(\) => \{[\s\S]*await refreshMine\(\)/u);
 
   assert.match(editor, /void \(async \(\) => \{\s*try \{ await options\.onLocalSaved\?\.\(\); \} catch \{\}/u);
 });

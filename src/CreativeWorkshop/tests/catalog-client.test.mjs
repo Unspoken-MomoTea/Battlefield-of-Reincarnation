@@ -36,3 +36,16 @@ test('catalog search covers author and tags and keeps paging local', () => {
   assert.deepEqual(page.items.map(item => item.id), ['c', 'a']);
   assert.equal(page.next_offset, 2);
 });
+
+
+test('dependency picker also searches the shared catalog instead of the D1-backed list endpoint', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../ui/dependency-picker.js', import.meta.url)),
+    'utf8',
+  );
+  assert.match(source, /getProjectCatalog\(\)/u);
+  assert.match(source, /filterAndPageCatalog\(/u);
+  assert.doesNotMatch(source, /workshopApi\.listProjects\(/u);
+});

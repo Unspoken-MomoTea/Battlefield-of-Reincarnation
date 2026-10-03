@@ -67,10 +67,16 @@ export function createAdminView(context) {
   nodes.adminStorageRefreshButton?.addEventListener('click', refreshStorageIfActive);
 
   async function refreshAdmin() {
-    if (!Number(getAuth()?.user?.is_admin)) {
-      empty(nodes.pendingList, '需要管理员权限');
+    const user = getAuth()?.user;
+    const canReview = Number(user?.is_admin) || Number(user?.is_moderator);
+    if (!canReview) {
+      empty(nodes.pendingList, '需要管理员或审核员权限');
       return;
     }
+
+    const storageButton = nodes.adminViewButtons.find(button => button.dataset.adminView === 'storage');
+    if (storageButton) storageButton.hidden = !Number(user?.is_admin);
+    if (active === 'storage' && !Number(user?.is_admin)) active = 'projects';
     await show(active);
   }
 

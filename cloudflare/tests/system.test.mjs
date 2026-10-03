@@ -81,7 +81,7 @@ test('client latest survives a transient KV read failure when GitHub is availabl
   }
 });
 
-test('client latest falls back to workshop-stable when GitHub API is temporarily 502', async () => {
+test('client latest does not downgrade a formal stable release to a bare sha when GitHub tag lookup is unavailable', async () => {
   const originalFetch = globalThis.fetch;
   const stableSha = 'efefefefefefefefefefefefefefefefefefefef';
   globalThis.fetch = async url => {
@@ -109,11 +109,9 @@ test('client latest falls back to workshop-stable when GitHub API is temporarily
       '/api/client/latest',
       'test',
     );
-    assert.equal(response.status, 200);
+    assert.equal(response.status, 503);
     const body = await response.json();
-    assert.equal(body.sha, stableSha);
-    assert.equal(body.ref, 'workshop-stable');
-    assert.equal(body.release_source, 'legacy-ref');
+    assert.equal(body.code, 'component_release_pending');
   } finally {
     globalThis.fetch = originalFetch;
   }

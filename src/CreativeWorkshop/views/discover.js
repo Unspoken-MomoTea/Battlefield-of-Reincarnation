@@ -757,7 +757,10 @@ export function createDiscoverView({
 
 
   async function refreshCurrent({ force = false } = {}) {
-    if (force) pageCache.clear();
+    if (force) {
+      pageCache.clear();
+      try { await projectService.refreshCatalog?.(); } catch {}
+    }
     if (nodes.characterHome && !nodes.characterHome.hidden) return loadCharacterHome();
     if (nodes.discoverCatalog && !nodes.discoverCatalog.hidden) return loadPage({ append: false });
     return loadShowcase();

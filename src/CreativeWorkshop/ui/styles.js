@@ -1439,7 +1439,6 @@ export const WORKSHOP_CSS = `
   .rw-mvu-raw{border-top:1px solid rgba(255,255,255,.055);background:rgba(0,0,0,.11)}
   .rw-mvu-raw>summary{cursor:pointer;padding:10px 16px;color:#77736d;font-size:9px;list-style-position:inside}
   .rw-mvu-json{margin:0 14px 14px;max-height:420px;overflow:auto;font-size:10px}
-  .rw-change-row:has(.rw-content-chip){min-width:0}
 
   @media(max-width:760px){
     .rw-resource-state-row-main{grid-template-columns:1fr}

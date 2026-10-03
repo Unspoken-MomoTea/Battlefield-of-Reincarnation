@@ -1,4 +1,5 @@
 import { HttpError, json } from '../http.js';
+import { assertR2Capacity } from '../storage-policy.js';
 import { assertReviewer, getOwnedProject } from './core.js';
 
 const MAX_COVER_BYTES = 3 * 1024 * 1024;
@@ -78,6 +79,7 @@ export async function uploadProjectCover(request, env, user, projectId) {
   }
 
   const key = `projects/${project.id}/covers/${crypto.randomUUID()}.${extension}`;
+  await assertR2Capacity(env, buffer.byteLength);
   await env.PROJECTS.put(key, buffer, {
     httpMetadata: {
       contentType,

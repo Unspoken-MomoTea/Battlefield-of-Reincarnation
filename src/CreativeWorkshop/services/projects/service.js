@@ -7,11 +7,45 @@ import {
   importOfflineProject, listCachedProjects, removeCachedProject, saveLocalTestProject, updateRemoteProject,
 } from './cache.js';
 import { reconcileAppliedOpeningData } from './opening-reconcile.js';
+import { filterAndPageCatalog } from './catalog.js';
 
 export class ProjectService {
-  list(query = '', category = '', offset = 0, tag = '', sort = 'latest', kind = '') {
-    return workshopApi.listProjects(query, category, offset, tag, sort, kind);
+  constructor() {
+    this.catalogCache = null;
+    this.catalogPromise = null;
+    this.catalogFetchedAt = 0;
+    this.catalogTtlMs = 5 * 60 * 1000;
   }
+
+  async catalog(force = false) {
+    const expired = this.catalogCache
+      && Date.now() - this.catalogFetchedAt >= this.catalogTtlMs;
+    if (force || expired) {
+      this.catalogCache = null;
+      this.catalogPromise = null;
+      this.catalogFetchedAt = 0;
+    }
+    if (this.catalogCache) return this.catalogCache;
+    if (!this.catalogPromise) {
+      this.catalogPromise = workshopApi.getProjectCatalog()
+        .then(result => {
+          this.catalogCache = result && Array.isArray(result.items) ? result : { items: [] };
+          this.catalogFetchedAt = Date.now();
+          return this.catalogCache;
+        })
+        .finally(() => { this.catalogPromise = null; });
+    }
+    return this.catalogPromise;
+  }
+
+  async list(query = '', category = '', offset = 0, tag = '', sort = 'latest', kind = '') {
+    const catalog = await this.catalog();
+    return filterAndPageCatalog(catalog.items, {
+      query, category, offset, tag, sort, kind, limit: 24,
+    });
+  }
+
+  refreshCatalog() { return this.catalog(true); }
   detail(projectId) { return workshopApi.getProject(projectId); }
   cache(projectId) { return cacheRemoteProject(workshopApi, projectId); }
   importOffline(file) { return importOfflineProject(file); }

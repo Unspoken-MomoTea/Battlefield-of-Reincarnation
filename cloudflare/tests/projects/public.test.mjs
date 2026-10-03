@@ -46,7 +46,7 @@ test('published project appears in public catalog and can be downloaded', async 
   assert.equal(detail.content_preview.worldbook_entries.length, 1);
   assert.equal(detail.content_preview.worldbook_entries[0].name, 'v1');
   assert.equal(detail.content_preview.worldbook_entries[0].content, 'hello');
-  assert.equal(detail.version_history.length, 1);
+  assert.equal(detail.version_history.length, 0);
   assert.equal(detail.change_preview, null);
 
   const download = await responseJson(await downloadPublicProject(project.id, env));
@@ -74,7 +74,7 @@ test('approved project updates become public immediately after upload', async ()
   assert.equal(download.artifacts[0].name, 'v2');
 });
 
-test('versioned project download keeps bundle and manifest on the same release', async () => {
+test('versioned project download only serves the retained current release', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);
   await publishVersion(env, author, admin, project.id, bundle('v1'));
@@ -91,10 +91,10 @@ test('versioned project download keeps bundle and manifest on the same release',
   assert.equal(current.headers.get('x-workshop-project-version'), '2');
   assert.equal((await responseJson(current)).artifacts[0].name, 'v2');
 
-  const pinned = await downloadPublicProject(project.id, env, 1);
-  assert.equal(pinned.headers.get('cache-control'), 'public, max-age=31536000, immutable');
-  assert.equal(pinned.headers.get('x-workshop-project-version'), '1');
-  assert.equal((await responseJson(pinned)).artifacts[0].name, 'v1');
+  await assert.rejects(
+    () => downloadPublicProject(project.id, env, 1),
+    error => error?.status === 404 && error?.code === 'project_not_found',
+  );
 
   await assert.rejects(
     () => downloadPublicProject(project.id, env, 'not-a-version'),
@@ -461,7 +461,7 @@ test('public detail exposes readable worldbook regex and script previews', async
   assert.match(detail.content_preview.scripts[0].content, /helper/u);
 });
 
-test('public detail summarizes an author-published update against the previous approved version', async () => {
+test('public detail exposes only the retained current author-published version', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);
   await publishVersion(env, author, admin, project.id, bundle('v1'));
@@ -493,12 +493,8 @@ test('public detail summarizes an author-published update against the previous a
   assert.equal(uploaded.auto_published, true);
 
   const detail = await responseJson(await getPublicProject(project.id, env));
-  assert.equal(detail.version_history.length, 2);
-  assert.equal(detail.version_history[0].version, 2);
-  assert.equal(detail.version_history[0].changelog, '修改世界书正文');
-  assert.equal(detail.change_preview.from_version, 1);
-  assert.equal(detail.change_preview.to_version, 2);
-  assert.ok(detail.change_preview.summary.added >= 1);
-  assert.ok(detail.change_preview.summary.modified >= 1);
+  assert.deepEqual(detail.version_history, []);
+  assert.equal(detail.changelog, '修改世界书正文');
+  assert.equal(detail.change_preview, null);
 });
 

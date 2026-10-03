@@ -3,7 +3,6 @@ import { promptProjectReport } from './discover/report.js';
 import {
   renderChangePreview,
   renderContentPreview,
-  renderVersionHistory,
 } from './discover/content-preview.js';
 
 export function filterProjectsForScope(items, category = '', kind = '') {
@@ -577,7 +576,6 @@ export function createDiscoverView({
 
       reading.appendChild(renderContentPreview(doc, detail));
       reading.appendChild(renderChangePreview(doc, detail.change_preview, detail.changelog || ''));
-      reading.appendChild(renderVersionHistory(doc, detail.version_history || []));
 
       const counts = detail.content_preview?.counts || {};
       const facts = element('section', 'rw-workshop-rail-section');
@@ -757,7 +755,10 @@ export function createDiscoverView({
 
 
   async function refreshCurrent({ force = false } = {}) {
-    if (force) pageCache.clear();
+    if (force) {
+      pageCache.clear();
+      try { await projectService.refreshCatalog?.(); } catch {}
+    }
     if (nodes.characterHome && !nodes.characterHome.hidden) return loadCharacterHome();
     if (nodes.discoverCatalog && !nodes.discoverCatalog.hidden) return loadPage({ append: false });
     return loadShowcase();

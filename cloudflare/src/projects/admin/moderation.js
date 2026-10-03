@@ -1,5 +1,6 @@
 import { HttpError, json, readJson } from '../../http.js';
 import { assertReviewer, nowSeconds, textField, writeAdminAudit } from '../core.js';
+import { invalidatePublicCatalog } from '../catalog.js';
 
 export async function setAdminProjectState(request, env, user, projectId) {
   assertReviewer(user);
@@ -29,5 +30,6 @@ export async function setAdminProjectState(request, env, user, projectId) {
     projectId, projectVersion: Number(project.latest_version || 0),
     action: action === 'archive' ? 'project_archived' : 'project_restored', note,
   });
+  await invalidatePublicCatalog(env);
   return json({ ok: true, status: nextStatus });
 }

@@ -1,5 +1,7 @@
 import { HttpError, json, readJson } from '../../http.js';
 import { assertReviewer, nowSeconds, textField, writeAdminAudit } from '../core.js';
+import { invalidatePublicCatalog } from '../catalog.js';
+import { permanentlyDeleteProject } from '../delete.js';
 
 export async function reviewProject(request, env, user, projectId) {
   assertReviewer(user);
@@ -10,7 +12,7 @@ export async function reviewProject(request, env, user, projectId) {
   if (decision === 'rejected' && !note) throw new HttpError(400, 'rejection_note_required', '驳回时必须填写原因');
   const project = await env.DB.prepare('SELECT id, latest_version, published_version, status FROM projects WHERE id = ?').bind(projectId).first();
   if (!project) throw new HttpError(404, 'project_not_found', '作品不存在');
-  const version = await env.DB.prepare('SELECT version, review_status, cover_key FROM project_versions WHERE project_id = ? AND version = ?').bind(projectId, project.latest_version).first();
+  const version = await env.DB.prepare('SELECT version, review_status, cover_key, local_backup_confirmed FROM project_versions WHERE project_id = ? AND version = ?').bind(projectId, project.latest_version).first();
   if (!version || version.review_status !== 'pending') throw new HttpError(409, 'review_not_pending', '当前最新版本不在待审核状态');
   if (decision === 'approved' && !version.cover_key) {
     throw new HttpError(409, 'cover_required', '作品必须有封面图片才能审核通过');
@@ -20,14 +22,30 @@ export async function reviewProject(request, env, user, projectId) {
     .bind(projectId, project.latest_version, user.id, decision, note, now).run();
   await env.DB.prepare('UPDATE project_versions SET review_status = ?, reviewed_at = ? WHERE project_id = ? AND version = ?')
     .bind(decision, now, projectId, project.latest_version).run();
-  if (decision === 'approved') {
-    await env.DB.prepare("UPDATE projects SET published_version = latest_version, status = 'published', updated_at = ? WHERE id = ?").bind(now, projectId).run();
-  } else {
-    await env.DB.prepare("UPDATE projects SET status = 'rejected', updated_at = ? WHERE id = ?").bind(now, projectId).run();
-  }
+
   await writeAdminAudit(env, user, {
     projectId, projectVersion: Number(project.latest_version),
     action: decision === 'approved' ? 'review_approved' : 'review_rejected', note,
   });
-  return json({ ok: true, decision, version: Number(project.latest_version) });
+
+  if (decision === 'approved') {
+    await env.DB.prepare("UPDATE projects SET published_version = latest_version, status = 'published', updated_at = ? WHERE id = ?").bind(now, projectId).run();
+    await invalidatePublicCatalog(env);
+    return json({ ok: true, decision, version: Number(project.latest_version), deleted: false });
+  }
+
+  if (Number(project.published_version || 0) === 0 && Number(version.local_backup_confirmed || 0) === 1) {
+    await permanentlyDeleteProject(env, { ...project, id: projectId });
+    await invalidatePublicCatalog(env);
+    return json({
+      ok: true,
+      decision,
+      version: Number(project.latest_version),
+      deleted: true,
+      local_only: true,
+    });
+  }
+
+  await env.DB.prepare("UPDATE projects SET status = 'rejected', updated_at = ? WHERE id = ?").bind(now, projectId).run();
+  return json({ ok: true, decision, version: Number(project.latest_version), deleted: false });
 }

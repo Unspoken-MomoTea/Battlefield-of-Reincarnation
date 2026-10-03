@@ -79,6 +79,14 @@ export function createAdminApi(request, requestRaw) {
       );
     },
 
+    getAdminStorage() {
+      return request('/api/admin/storage', {}, true);
+    },
+
+    cleanupAdminStorage() {
+      return request('/api/admin/storage/cleanup', { method: 'POST' }, true);
+    },
+
     listAdminReports({ status = 'open', offset = 0 } = {}) {
       const params = new URLSearchParams({ limit: '50', offset: String(offset) });
       if (status) params.set('status', status);

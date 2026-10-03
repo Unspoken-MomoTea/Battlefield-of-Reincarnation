@@ -284,6 +284,7 @@ export function workshopTemplate(version) {
           <button class="rw-tab" data-admin-view="updates" type="button">更新动态</button>
           <button class="rw-tab" data-admin-view="reports" type="button">举报处理</button>
           <button class="rw-tab" data-admin-view="users" type="button">用户管理</button>
+          <button class="rw-tab" data-admin-view="storage" type="button">容量</button>
         </div>
 
         <div data-admin-section="projects">
@@ -328,6 +329,14 @@ export function workshopTemplate(version) {
             <button class="rw-button" data-action="admin-user-search" type="button">搜索用户</button>
           </div>
           <div class="rw-grid" data-role="user-list"></div>
+        </div>
+
+        <div data-admin-section="storage" hidden>
+          <div class="rw-toolbar">
+            <div class="rw-muted grow">Free 模式容量监控：R2 硬限制 9.5 GB，D1 参考 Free 单库 500 MB。</div>
+            <button class="rw-button" data-action="admin-storage-refresh" type="button">刷新容量</button>
+          </div>
+          <div data-role="admin-storage-list"></div>
         </div>
       </section>
     </main>

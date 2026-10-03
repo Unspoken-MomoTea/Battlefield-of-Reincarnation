@@ -1,6 +1,6 @@
 import { HttpError, json } from '../../http.js';
 import { assertReviewer, parseDependencies, parseTags } from '../core.js';
-import { buildPublicChangePreview, buildPublicContentPreview } from '../public-preview.js';
+import { buildPublicContentPreview } from '../public-preview.js';
 
 export async function getPendingProjectReview(env, user, projectId) {
   assertReviewer(user);
@@ -18,10 +18,9 @@ export async function getPendingProjectReview(env, user, projectId) {
   ).bind(projectId).first();
   if (!row) throw new HttpError(404, 'project_not_found', '作品不存在或尚未上传版本');
 
-  const [manifestObject, bundleObject, versionsResult, reviewsResult, auditResult] = await Promise.all([
+  const [manifestObject, bundleObject, reviewsResult, auditResult] = await Promise.all([
     env.PROJECTS.get(row.manifest_key),
     env.PROJECTS.get(row.content_key),
-    env.DB.prepare(`SELECT version, name, summary, tags, dependencies, project_type AS category, content_kind AS kind, cover_key, changelog, review_status, created_at, submitted_at, reviewed_at FROM project_versions WHERE project_id = ? ORDER BY version DESC`).bind(projectId).all(),
     env.DB.prepare(`SELECT rr.version, rr.decision, rr.note, rr.created_at, reviewer.display_name AS reviewer_name FROM review_records rr JOIN users reviewer ON reviewer.id = rr.reviewer_user_id WHERE rr.project_id = ? ORDER BY rr.id DESC`).bind(projectId).all(),
     env.DB.prepare(`SELECT log.project_version, log.action, log.note, log.created_at, actor.display_name AS actor_name FROM admin_audit_logs log JOIN users actor ON actor.id = log.actor_user_id WHERE log.project_id = ? AND log.action NOT IN ('review_approved', 'review_rejected') ORDER BY log.id DESC LIMIT 100`).bind(projectId).all(),
   ]);
@@ -32,30 +31,6 @@ export async function getPendingProjectReview(env, user, projectId) {
   ]);
   const bundle = JSON.parse(bundleText);
   const contentPreview = buildPublicContentPreview(bundle);
-
-  const previousVersion = await env.DB.prepare(
-    `SELECT version, content_key
-       FROM project_versions
-      WHERE project_id = ?
-        AND version < ?
-        AND review_status = 'approved'
-      ORDER BY version DESC
-      LIMIT 1`,
-  ).bind(projectId, Number(row.version)).first();
-
-  let changePreview = null;
-  if (previousVersion?.content_key) {
-    const previousObject = await env.PROJECTS.get(previousVersion.content_key);
-    if (previousObject) {
-      const previousBundle = JSON.parse(await new Response(previousObject.body).text());
-      changePreview = buildPublicChangePreview(
-        buildPublicContentPreview(previousBundle),
-        contentPreview,
-        previousVersion.version,
-        row.version,
-      );
-    }
-  }
 
   return json({
     project: {
@@ -73,16 +48,22 @@ export async function getPendingProjectReview(env, user, projectId) {
     },
     manifest: JSON.parse(manifestText), bundle,
     content_preview: contentPreview,
-    change_preview: changePreview,
-    versions: (versionsResult.results || []).map(version => ({
-      version: Number(version.version), name: version.name || '', summary: version.summary || '',
-      tags: parseTags(version.tags), dependencies: parseDependencies(version.dependencies), category: version.category || '',
-      kind: version.kind || (version.category === 'character' ? 'world_character' : 'extension'),
-      has_cover: Boolean(version.cover_key),
-      changelog: version.changelog || '', review_status: version.review_status,
-      created_at: Number(version.created_at || 0), submitted_at: Number(version.submitted_at || 0),
-      reviewed_at: Number(version.reviewed_at || 0),
-    })),
+    change_preview: null,
+    versions: [{
+      version: Number(row.version),
+      name: row.name || '',
+      summary: row.summary || '',
+      tags: parseTags(row.tags),
+      dependencies: parseDependencies(row.dependencies),
+      category: row.category || '',
+      kind: row.kind || (row.category === 'character' ? 'world_character' : 'extension'),
+      has_cover: Boolean(row.cover_key),
+      changelog: row.changelog || '',
+      review_status: row.review_status,
+      created_at: Number(row.version_created_at || 0),
+      submitted_at: Number(row.submitted_at || 0),
+      reviewed_at: Number(row.reviewed_at || 0),
+    }],
     reviews: (reviewsResult.results || []).map(review => ({
       version: Number(review.version), decision: review.decision, note: review.note || '',
       reviewer_name: review.reviewer_name || '', created_at: Number(review.created_at || 0),

@@ -108,3 +108,26 @@ test('successful save and submit UI is not held open by background list refreshe
 
   assert.match(editor, /void \(async \(\) => \{\s*try \{ await options\.onLocalSaved\?\.\(\); \} catch \{\}/u);
 });
+
+
+test('first-review uploads keep a local backup and explicitly confirm it to the server', () => {
+  const create = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/create-project.js', import.meta.url)),
+    'utf8',
+  );
+  const heretic = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/create-heretic.js', import.meta.url)),
+    'utf8',
+  );
+  const editor = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/project-editor.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.ok(create.indexOf('projectService.saveLocalTest({') < create.indexOf('workshopApi.createProject({'));
+  assert.match(create, /submitProject\(submitAttempt\.projectId, \{ localBackupConfirmed: true \}\)/u);
+  assert.match(heretic, /projectService\.saveLocalTest\(\{/u);
+  assert.match(heretic, /submitProject\(id,\{localBackupConfirmed:true\}\)/u);
+  assert.match(editor, /submitProject\(localSubmitAttempt\.projectId, \{ localBackupConfirmed: true \}\)/u);
+  assert.match(editor, /Number\(error\?\.status \|\| 0\) === 404/u);
+});

@@ -1,3 +1,5 @@
+import { filterAndPageCatalog } from '../services/projects/catalog.js';
+
 function clone(value) {
   return structuredClone(value);
 }
@@ -29,6 +31,19 @@ export function createDependencyPicker({
 
   const selected = new Map();
   const labels = new Map();
+  let catalogPromise = null;
+
+  function loadCatalog() {
+    if (!catalogPromise) {
+      catalogPromise = workshopApi.getProjectCatalog()
+        .then(result => Array.isArray(result?.items) ? result.items : [])
+        .catch(error => {
+          catalogPromise = null;
+          throw error;
+        });
+    }
+    return catalogPromise;
+  }
 
   for (const item of Array.isArray(initial) ? initial : []) {
     const key = dependencyKey(item);
@@ -125,7 +140,13 @@ export function createDependencyPicker({
       searchButton.disabled = true;
       results.textContent = '正在搜索…';
       try {
-        const response = await workshopApi.listProjects(input.value, '', 0, '', 'latest');
+        const catalog = await loadCatalog();
+        const response = filterAndPageCatalog(catalog, {
+          query: input.value,
+          sort: 'latest',
+          offset: 0,
+          limit: 24,
+        });
         const items = (response.items || [])
           .filter(item => item.id !== excludeProjectId);
         results.replaceChildren();

@@ -33,12 +33,25 @@ class D1Database {
 
 class MemoryR2 {
   constructor() { this.objects = new Map(); }
-  async put(key, value, options = {}) { this.objects.set(key, { value: String(value), httpMetadata: options.httpMetadata }); }
+  async put(key, value, options = {}) {
+    const text = typeof value === 'string' ? value : value instanceof ArrayBuffer ? Buffer.from(value) : String(value);
+    const size = typeof text === 'string' ? Buffer.byteLength(text) : text.byteLength;
+    this.objects.set(key, { value: text, size, httpMetadata: options.httpMetadata });
+  }
   async get(key) {
     const item = this.objects.get(key);
-    return item ? { body: item.value, httpMetadata: item.httpMetadata } : null;
+    return item ? { body: item.value, size: item.size, httpMetadata: item.httpMetadata } : null;
+  }
+  async head(key) {
+    const item = this.objects.get(key);
+    return item ? { size: item.size, httpMetadata: item.httpMetadata } : null;
   }
   async delete(key) { this.objects.delete(key); }
+  async list({ cursor } = {}) {
+    const values = [...this.objects.entries()].map(([key, item]) => ({ key, size: item.size }));
+    if (cursor) return { objects: [], truncated: false };
+    return { objects: values, truncated: false };
+  }
 }
 
 export function request(path, method = 'GET', body) {

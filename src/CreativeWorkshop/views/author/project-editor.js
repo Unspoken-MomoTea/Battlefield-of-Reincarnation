@@ -125,6 +125,32 @@ export function createAuthorProjectEditor({
 
     let detail;
     try {
+      let submittedProjectId = project.submittedProjectId || null;
+      if (isLocalTest && submittedProjectId) {
+        try {
+          await workshopApi.getOwnProjectEditor(submittedProjectId);
+        } catch (error) {
+          if (Number(error?.status || 0) === 404) {
+            submittedProjectId = null;
+            project.submittedProjectId = null;
+            try {
+              await projectService.saveLocalTest({
+                id: project.remoteProjectId || String(project.id || '').replace(/^local-test:/u, ''),
+                name: String(project.name || '').replace(/（本地测试）$/u, '').trim(),
+                summary: project.summary || '',
+                category: project.category || 'extension',
+                tags: Array.isArray(project.tags) ? project.tags : [],
+                dependencies: Array.isArray(project.dependencies) ? project.dependencies : [],
+                version: Number(project.version || 1),
+                bundle: structuredClone(project.bundle || { schema_version: 1, artifacts: [] }),
+                coverDataUrl: project.coverUrl || '',
+                submittedProjectId: null,
+              });
+            } catch {}
+          }
+        }
+      }
+
       if (isLocalTest) {
         const localSourceId = project.remoteProjectId
           || String(project.id || '').replace(/^local-test:/u, '');
@@ -141,7 +167,7 @@ export function createAuthorProjectEditor({
             latest_version: Number(project.version || 1),
             published_version: 0,
             status: 'draft',
-            submitted_project_id: project.submittedProjectId || null,
+            submitted_project_id: submittedProjectId || null,
           },
           latest: {
             version: Number(project.version || 1),
@@ -632,7 +658,7 @@ export function createAuthorProjectEditor({
 
           if (!localSubmitAttempt.submitted) {
             progress.textContent = '步骤 4/4 · 正在提交审核…';
-            await workshopApi.submitProject(localSubmitAttempt.projectId);
+            await workshopApi.submitProject(localSubmitAttempt.projectId, { localBackupConfirmed: true });
             localSubmitAttempt.submitted = true;
           }
 

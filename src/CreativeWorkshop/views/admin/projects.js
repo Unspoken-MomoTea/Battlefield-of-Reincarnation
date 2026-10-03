@@ -1,7 +1,6 @@
 import {
   renderChangePreview,
   renderContentPreview,
-  renderVersionHistory,
 } from '../discover/content-preview.js';
 
 export function createAdminProjectsView({
@@ -371,7 +370,6 @@ export function createAdminProjectsView({
 
       reading.appendChild(renderContentPreview(doc, detail));
       reading.appendChild(renderChangePreview(doc, detail.change_preview, project.changelog || ''));
-      reading.appendChild(renderVersionHistory(doc, detail.versions || []));
       reading.appendChild(renderReviewHistory(detail));
 
       const reviewSummary = element('section', 'rw-workshop-rail-section rw-admin-review-summary');

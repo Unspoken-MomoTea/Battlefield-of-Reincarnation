@@ -1,5 +1,6 @@
 import { HttpError, json } from '../../http.js';
 import { getOwnedProject } from '../core.js';
+import { invalidatePublicCatalog } from '../catalog.js';
 import { permanentlyDeleteProject } from '../delete.js';
 
 export async function deleteProject(env, user, projectId) {
@@ -20,5 +21,6 @@ export async function deleteProject(env, user, projectId) {
   }
 
   const cleanup = await permanentlyDeleteProject(env, project);
+  await invalidatePublicCatalog(env);
   return json({ ok: true, ...cleanup });
 }

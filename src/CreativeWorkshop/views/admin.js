@@ -2,6 +2,7 @@ import { createAdminProjectsView } from './admin/projects.js';
 import { createAdminReportsView } from './admin/reports.js';
 import { createAdminUpdatesView } from './admin/updates.js';
 import { createAdminUsersView } from './admin/users.js';
+import { createAdminStorageView } from './admin/storage.js';
 
 export function createAdminView(context) {
   const { nodes, empty, getAuth } = context;
@@ -11,6 +12,7 @@ export function createAdminView(context) {
     updates: createAdminUpdatesView({ ...context, showProject: projects.showReview }),
     reports: createAdminReportsView(context),
     users: createAdminUsersView(context),
+    storage: createAdminStorageView(context),
   };
   let active = 'projects';
 
@@ -42,6 +44,9 @@ export function createAdminView(context) {
   const refreshUsersIfActive = () => {
     if (active === 'users') void views.users.refresh();
   };
+  const refreshStorageIfActive = () => {
+    if (active === 'storage') void views.storage.refresh();
+  };
 
   nodes.adminSearchButton.addEventListener('click', refreshProjectsIfActive);
   nodes.adminSearch.addEventListener('keydown', event => {
@@ -59,12 +64,19 @@ export function createAdminView(context) {
     if (event.key === 'Enter') refreshUsersIfActive();
   });
   nodes.userBanned.addEventListener('change', refreshUsersIfActive);
+  nodes.adminStorageRefreshButton?.addEventListener('click', refreshStorageIfActive);
 
   async function refreshAdmin() {
-    if (!Number(getAuth()?.user?.is_admin)) {
-      empty(nodes.pendingList, '需要管理员权限');
+    const user = getAuth()?.user;
+    const canReview = Number(user?.is_admin) || Number(user?.is_moderator);
+    if (!canReview) {
+      empty(nodes.pendingList, '需要管理员或审核员权限');
       return;
     }
+
+    const storageButton = nodes.adminViewButtons.find(button => button.dataset.adminView === 'storage');
+    if (storageButton) storageButton.hidden = !Number(user?.is_admin);
+    if (active === 'storage' && !Number(user?.is_admin)) active = 'projects';
     await show(active);
   }
 

@@ -1,7 +1,7 @@
 import { getApiBase } from '../../config.js';
 
 export function createProjectApi(request, requestRaw, { submitTimeoutMs = 10_000 } = {}) {
-  async function submitWithRecovery(projectId) {
+  async function submitWithRecovery(projectId, { localBackupConfirmed = false } = {}) {
     const path = `/api/projects/${encodeURIComponent(projectId)}/submit`;
     const timeoutMs = Math.max(100, Number(submitTimeoutMs) || 10_000);
 
@@ -21,7 +21,11 @@ export function createProjectApi(request, requestRaw, { submitTimeoutMs = 10_000
         return await Promise.race([
           request(
             path,
-            { method: 'POST', ...(controller ? { signal: controller.signal } : {}) },
+            {
+              method: 'POST',
+              body: JSON.stringify({ local_backup_confirmed: Boolean(localBackupConfirmed) }),
+              ...(controller ? { signal: controller.signal } : {}),
+            },
             true,
           ),
           timeout,
@@ -36,6 +40,10 @@ export function createProjectApi(request, requestRaw, { submitTimeoutMs = 10_000
   }
 
   return {
+    getProjectCatalog() {
+      return request('/api/projects/catalog', { cache: 'no-store' });
+    },
+
     listProjects(query = '', category = '', offset = 0, tag = '', sort = 'latest', kind = '') {
       const params = new URLSearchParams({ limit: '24', offset: String(offset), sort });
       if (query.trim()) params.set('query', query.trim());
@@ -128,8 +136,8 @@ export function createProjectApi(request, requestRaw, { submitTimeoutMs = 10_000
       );
     },
 
-    submitProject(projectId) {
-      return submitWithRecovery(projectId);
+    submitProject(projectId, options = {}) {
+      return submitWithRecovery(projectId, options);
     },
 
     uploadProjectCover(projectId, file) {

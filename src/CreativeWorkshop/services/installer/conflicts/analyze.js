@@ -139,9 +139,11 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
   }
 
   if (plan.worldbook.length) {
-    const names = await maybe(adapter.getWorldbookNames());
+    const worldbookNames = await maybe(adapter.getWorldbookNames());
+    const names = Array.isArray(worldbookNames) ? worldbookNames : [];
     if (names.includes(SHARED_WORLDBOOK_NAME)) {
-      const entries = await maybe(adapter.getWorldbook(SHARED_WORLDBOOK_NAME));
+      const worldbookEntries = await maybe(adapter.getWorldbook(SHARED_WORLDBOOK_NAME));
+      const entries = Array.isArray(worldbookEntries) ? worldbookEntries : [];
       const unrelated = entries.filter(entry => !isProjectWorldbookEntry(entry, installed.id));
       const occupied = new Set(unrelated.map(entry => normalizedName(entry.name ?? entry.comment)).filter(Boolean));
       const emitted = new Set();
@@ -156,7 +158,8 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
   }
 
   if (plan.regexes.length) {
-    const current = await maybe(adapter.getCharacterRegexes());
+    const currentRegexes = await maybe(adapter.getCharacterRegexes());
+    const current = Array.isArray(currentRegexes) ? currentRegexes : [];
     const existingIds = new Set(current.map(regex => String(regex.id || '')).filter(Boolean));
     const knownOwnIds = new Set(oldTargets.regexIds ?? []);
     for (const regex of plan.regexes) {
@@ -169,7 +172,8 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
   for (const scope of ['character', 'preset', 'global']) {
     const scripts = plan.scripts?.[scope] ?? [];
     if (!scripts.length) continue;
-    const current = await maybe(adapter.getScriptTrees(scope));
+    const currentTrees = await maybe(adapter.getScriptTrees(scope));
+    const current = Array.isArray(currentTrees) ? currentTrees : [];
     const existingIds = new Set(current.map(tree => String(tree.id || '')).filter(Boolean));
     const knownOwnIds = new Set(oldTargets.scripts?.[scope] ?? []);
     for (const tree of scripts) {
@@ -180,7 +184,8 @@ export async function analyzeInstallConflicts(adapter, installed, plan) {
   }
 
   if (plan.presets.length) {
-    const existingNames = new Set(await maybe(adapter.getPresetNames()));
+    const presetNames = await maybe(adapter.getPresetNames());
+    const existingNames = new Set(Array.isArray(presetNames) ? presetNames : []);
     const knownOwnNames = new Set(oldTargets.presets ?? []);
     for (const preset of plan.presets) {
       if (existingNames.has(preset.name) && !knownOwnNames.has(preset.name)) {

@@ -149,7 +149,8 @@ export async function syncOriginalScriptConflicts({ adapter, storage }, installe
   const working = new Map();
   const baseline = new Map();
   for (const scope of state.scripts.keys()) {
-    const trees = clone(await maybe(adapter.getScriptTrees(scope)));
+    const currentTrees = await maybe(adapter.getScriptTrees(scope));
+    const trees = Array.isArray(currentTrees) ? clone(currentTrees) : [];
     working.set(scope, trees);
     baseline.set(scope, clone(trees));
   }

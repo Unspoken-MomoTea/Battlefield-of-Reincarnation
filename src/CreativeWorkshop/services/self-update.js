@@ -157,11 +157,11 @@ async function resolveLatestShaForRefs(fetchImpl, refs, channel, ref) {
   try {
     const stable = await githubStableWorkshop(fetchImpl, ref);
     if (stable.releaseSource === 'tag') return stable;
-    return server || stable;
-  } catch {
-    if (server) return server;
-    throw new Error('无法解析创意工坊正式版本');
-  }
+  } catch {}
+
+  const error = new Error('创意工坊正式版本 Tag 尚未就绪，请稍后重新检查');
+  error.code = 'formal_release_tag_pending';
+  throw error;
 }
 
 async function scanLoaders(adapter) {

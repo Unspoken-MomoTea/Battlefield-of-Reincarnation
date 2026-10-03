@@ -283,7 +283,7 @@ import('https://example.com/another-plugin.js');`;
   assert.match(content, new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
 
-test('mismatched worker metadata falls back to stable channel without main', async () => {
+test('mismatched worker metadata never makes the stable channel fall back to a bare sha or main', async () => {
   const adapter = adapterFixture('https://workshop.6661816.xyz');
   const stable = 'fedcbafedcbafedcbafedcbafedcbafedcbafedc';
   const stableHead = '2222222222222222222222222222222222222222';
@@ -309,21 +309,11 @@ test('mismatched worker metadata falls back to stable channel without main', asy
       }
       if (value.includes('/commits/workshop-stable')) return response(stableHead);
       if (value.includes('/commits?') && value.includes('sha=workshop-stable')) return response(stable);
-      if (value.includes('/compare/')) {
-        return new Response(JSON.stringify({ status: 'behind' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
       throw new Error(`unexpected request: ${value}`);
     },
   });
 
-  const check = await updater.check();
-  assert.equal(check.latestSha, stable);
-  assert.equal(check.channel, 'stable');
-  assert.equal(check.ref, 'workshop-stable');
-  assert.equal(check.releaseSource, 'legacy-ref');
+  await assert.rejects(() => updater.check(), /正式版本.*Tag/u);
   assert.equal(urls.some(url => url.includes('sha=main')), false);
 });
 
@@ -451,4 +441,47 @@ test('stable latest sha is silently normalized to the equivalent workshop tag', 
   assert.equal(normalized.latestLoaderRef, 'workshop-v2.0.4');
   assert.match(adapter.state.character[0].content, /@workshop-v2\.0\.4\/src\/CreativeWorkshop\/index\.js/u);
   assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${latest}/src/CreativeWorkshop/index\\.js`, 'u'));
+});
+
+
+test('stable channel never rewrites a formal loader to a bare sha while the release tag is still propagating', async () => {
+  const adapter = adapterFixture('https://workshop.6661816.xyz');
+  adapter.state.character[0].content = adapter.state.character[0].content.replace(
+    '593cf339818e5ed1c8e2ed363d28e34ff98fa835',
+    'workshop-v2.0.28',
+  );
+  const nextSha = '2929292929292929292929292929292929292929';
+  const oldSha = '2828282828282828282828282828282828282828';
+
+  const updater = createWorkshopSelfUpdater({
+    adapter,
+    channel: 'stable',
+    ref: 'workshop-stable',
+    fetchImpl: async url => {
+      const value = String(url);
+      if (value.includes('/api/client/latest')) {
+        return response(nextSha, {
+          channel: 'stable',
+          ref: 'workshop-stable',
+          release_source: 'legacy-ref',
+          cached: false,
+        });
+      }
+      if (value.includes('/tags?')) {
+        return new Response(JSON.stringify([
+          { name: 'workshop-v2.0.28', commit: { sha: oldSha } },
+        ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (value.includes('/commits/workshop-stable')) return response(nextSha);
+      if (value.includes('/commits?') && value.includes('sha=workshop-stable')) return response(nextSha);
+      throw new Error(`unexpected request: ${value}`);
+    },
+  });
+
+  await assert.rejects(
+    () => updater.updateLoaderLink(),
+    /正式版本.*Tag/u,
+  );
+  assert.match(adapter.state.character[0].content, /@workshop-v2\.0\.28\/src\/CreativeWorkshop\/index\.js/u);
+  assert.doesNotMatch(adapter.state.character[0].content, new RegExp(`@${nextSha}/src/CreativeWorkshop/index\\.js`, 'u'));
 });

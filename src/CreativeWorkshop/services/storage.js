@@ -65,8 +65,7 @@ function transactionDone(transaction) {
   });
 }
 
-async function finishWriteRequest(request, transaction) {
-  const completion = transactionDone(transaction);
+async function finishWriteRequest(request, completion) {
   await requestResult(request);
 
   let timer = null;
@@ -158,15 +157,17 @@ async function getAllRecords(storeName) {
 async function putRecord(storeName, value) {
   const db = await openDb();
   const transaction = db.transaction(storeName, 'readwrite');
+  const completion = transactionDone(transaction);
   const request = transaction.objectStore(storeName).put(value);
-  await finishWriteRequest(request, transaction);
+  await finishWriteRequest(request, completion);
 }
 
 async function deleteRecord(storeName, key) {
   const db = await openDb();
   const transaction = db.transaction(storeName, 'readwrite');
+  const completion = transactionDone(transaction);
   const request = transaction.objectStore(storeName).delete(key);
-  await finishWriteRequest(request, transaction);
+  await finishWriteRequest(request, completion);
 }
 
 export const getAuthRecord = () => getRecord(AUTH_STORE, 'session');

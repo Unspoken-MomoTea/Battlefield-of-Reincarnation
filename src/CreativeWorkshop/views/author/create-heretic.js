@@ -147,12 +147,13 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,projectService,
           coverSize:Number(cover.size||0),
         });
         if(!attempt||attempt.signature!==signature){
-          attempt={signature,projectId:null,localBackupSaved:false,coverUploaded:false,versionUploaded:false,submitted:false};
+          attempt={signature,projectId:null,localBackupSaved:false,coverDataUrl:'',coverUploaded:false,versionUploaded:false,submitted:false};
         }
         submit.disabled=true; submit.textContent='正在提交…';
         const bundle={schema_version:1,artifacts:[{kind:'data',name:'异端角色.json',format:'json',content:asset}]};
         if(!attempt.localBackupSaved){
           const coverDataUrl=await readFileDataUrl(cover);
+          attempt.coverDataUrl=coverDataUrl;
           await projectService.saveLocalTest({
             id:localDraftId,
             name,
@@ -183,8 +184,20 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,projectService,
         if(!attempt.submitted){
           await workshopApi.submitProject(id,{localBackupConfirmed:true});
           attempt.submitted=true;
+          await projectService.saveLocalTest({
+            id:localDraftId,
+            name,
+            summary,
+            category:'character',
+            tags:['异端库'],
+            dependencies:[],
+            version:1,
+            bundle,
+            coverDataUrl:attempt.coverDataUrl,
+            submittedProjectId:id,
+          });
         }
-        try{host.toastr?.success?.('异端角色已提交审核','创意工坊');}catch{}
+        try{host.toastr?.success?.('异端角色已提交审核，本地副本已保留','创意工坊');}catch{}
         close(); await refreshMine();
       }catch(error){notifyError(error);}
       finally{if(submit?.isConnected){submit.disabled=false;submit.textContent='提交异端审核';}}

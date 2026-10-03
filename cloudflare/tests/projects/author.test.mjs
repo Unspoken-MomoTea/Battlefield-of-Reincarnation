@@ -39,6 +39,23 @@ test('only owner or admin can upload project versions', async () => {
   );
 });
 
+test('submitting an already-pending version is idempotent after a lost client response', async () => {
+  const { env, author } = setup();
+  const project = await createWorldbookProject(env, author);
+  await uploadProjectVersion(
+    request(`/api/projects/${project.id}/versions`, 'POST', { changelog: 'v1', bundle: bundle('pending') }),
+    env,
+    author,
+    project.id,
+  );
+
+  const first = await responseJson(await submitProjectForReview(env, author, project.id));
+  assert.equal(first.ok, true);
+  const second = await responseJson(await submitProjectForReview(env, author, project.id));
+  assert.equal(second.ok, true);
+  assert.equal(second.version, 1);
+});
+
 test('author sees the latest rejection note on their project', async () => {
   const { env, author, admin } = setup();
   const project = await createWorldbookProject(env, author);

@@ -63,3 +63,48 @@ test('admin review UI shows the project subtype rather than only the top-level c
   assert.match(source, /detailRow\('作品类型', projectKindLabel\(project\)\)/u);
   assert.match(views, /kindLabels: PROJECT_KIND_LABELS/u);
 });
+
+
+test('reject review uses one workshop dialog with an embedded reason field', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../views/admin/projects.js', import.meta.url)),
+    'utf8',
+  );
+
+  assert.doesNotMatch(source, /host\.prompt\?\.\('请输入驳回原因/u);
+  assert.match(source, /rw-review-reject-reason/u);
+  assert.match(source, /驳回原因/u);
+});
+
+
+test('local-test save hashes each artifact once and does not re-verify its self-built manifest', () => {
+  const source = fs.readFileSync(
+    fileURLToPath(new URL('../services/projects/cache.js', import.meta.url)),
+    'utf8',
+  );
+  const start = source.indexOf('export const saveLocalTestProject');
+  const end = source.indexOf('export async function exportCachedProject', start);
+  const block = source.slice(start, end);
+  assert.match(block, /validateDownloadedBundle\(bundle\)/u);
+  assert.doesNotMatch(block, /verifyBundleAgainstManifest\(/u);
+  assert.equal((block.match(/sha256Hex\(/gu) || []).length, 1);
+});
+
+test('successful save and submit UI is not held open by background list refreshes', () => {
+  const create = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/create-project.js', import.meta.url)),
+    'utf8',
+  );
+  const editor = fs.readFileSync(
+    fileURLToPath(new URL('../views/author/project-editor.js', import.meta.url)),
+    'utf8',
+  );
+
+  const createSuccess = create.slice(
+    create.indexOf("setSubmitStatus('success', '提交成功"),
+    create.indexOf('} catch (error)', create.indexOf("setSubmitStatus('success', '提交成功")),
+  );
+  assert.match(createSuccess, /void \(async \(\) => \{[\s\S]*await refreshMine\(\)/u);
+
+  assert.match(editor, /void \(async \(\) => \{\s*try \{ await options\.onLocalSaved\?\.\(\); \} catch \{\}/u);
+});

@@ -135,25 +135,74 @@ export function createAdminProjectsView({
     return section;
   }
 
+  function openRejectReviewDialog(item, parentModal) {
+    const rejectModal = openModal(`驳回“${item.name}”？`, { wide: true });
+    rejectModal.body.appendChild(
+      element('div', 'rw-muted', `目标版本：v${item.latest_version} · 请填写作者能直接理解的驳回原因。`),
+    );
+
+    const field = element('label', 'rw-field');
+    field.appendChild(element('span', '', '驳回原因（必填）'));
+    const reason = doc.createElement('textarea');
+    reason.className = 'rw-textarea rw-review-reject-reason';
+    reason.rows = 5;
+    reason.placeholder = '例如：角色资料缺少必要字段，请补全后重新提交。';
+    field.appendChild(reason);
+    rejectModal.body.appendChild(field);
+
+    const status = element('div', 'rw-submit-progress');
+    status.hidden = true;
+    rejectModal.body.appendChild(status);
+
+    const actions = element('div', 'rw-confirm-actions');
+    const cancel = button('取消', '', () => rejectModal.close({ force: true }));
+    const reject = button('确认驳回', 'danger', async () => {
+      const note = reason.value.trim();
+      if (!note) {
+        status.hidden = false;
+        status.className = 'rw-submit-progress rw-submit-progress--error';
+        status.textContent = '请先填写驳回原因。';
+        reason.focus();
+        return;
+      }
+
+      status.hidden = false;
+      status.className = 'rw-submit-progress rw-submit-progress--working';
+      status.textContent = '正在驳回这个版本…';
+      try {
+        await workshopApi.reviewProject(item.id, 'rejected', note);
+        status.className = 'rw-submit-progress rw-submit-progress--success';
+        status.textContent = '已驳回。';
+        rejectModal.close({ force: true });
+        parentModal?.close({ force: true });
+        await refreshProjects();
+      } catch (error) {
+        status.className = 'rw-submit-progress rw-submit-progress--error';
+        status.textContent = `驳回失败：${error instanceof Error ? error.message : String(error)}`;
+        notifyError(error);
+      }
+    });
+    actions.append(cancel, reject);
+    rejectModal.body.appendChild(actions);
+    host.setTimeout?.(() => reason.focus(), 0);
+  }
+
   async function reviewAction(item, decision, modal) {
-    let note = '';
     if (decision === 'rejected') {
-      note = host.prompt?.('请输入驳回原因（必填）', '') ?? '';
-      if (!note.trim()) throw new Error('驳回时必须填写原因');
+      openRejectReviewDialog(item, modal);
+      return;
     }
 
-    const label = decision === 'approved' ? '批准' : '驳回';
     const confirmed = await confirmDialog({
-      title: `${label}“${item.name}”？`,
-      message: `目标版本：v${item.latest_version}${note.trim() ? `\n审核备注：${note.trim()}` : ''}`,
-      confirmText: label,
+      title: `批准“${item.name}”？`,
+      message: `目标版本：v${item.latest_version}`,
+      confirmText: '批准',
       cancelText: '取消',
-      danger: decision === 'rejected',
     });
     if (!confirmed) return;
 
     try {
-      await workshopApi.reviewProject(item.id, decision, note);
+      await workshopApi.reviewProject(item.id, 'approved', '');
       modal?.close({ force: true });
       await refreshProjects();
     } catch (error) {

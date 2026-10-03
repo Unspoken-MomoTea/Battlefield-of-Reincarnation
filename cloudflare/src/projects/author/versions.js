@@ -105,6 +105,15 @@ export async function submitProjectForReview(env, user, projectId) {
     return json({ ok: true, version: Number(project.latest_version), auto_published: true });
   }
 
+  if (version.review_status === 'pending' && project.status === 'pending') {
+    return json({
+      ok: true,
+      version: Number(project.latest_version),
+      auto_published: false,
+      already_pending: true,
+    });
+  }
+
   if (!['draft', 'rejected'].includes(version.review_status)) {
     throw new HttpError(409, 'invalid_review_state', '当前版本不能再次提交审核');
   }

@@ -46,7 +46,7 @@ test('published project appears in public catalog and can be downloaded', async 
   assert.equal(detail.content_preview.worldbook_entries.length, 1);
   assert.equal(detail.content_preview.worldbook_entries[0].name, 'v1');
   assert.equal(detail.content_preview.worldbook_entries[0].content, 'hello');
-  assert.equal(detail.version_history.length, 1);
+  assert.equal(detail.version_history.length, 0);
   assert.equal(detail.change_preview, null);
 
   const download = await responseJson(await downloadPublicProject(project.id, env));

@@ -13,18 +13,24 @@ export class ProjectService {
   constructor() {
     this.catalogCache = null;
     this.catalogPromise = null;
+    this.catalogFetchedAt = 0;
+    this.catalogTtlMs = 5 * 60 * 1000;
   }
 
   async catalog(force = false) {
-    if (force) {
+    const expired = this.catalogCache
+      && Date.now() - this.catalogFetchedAt >= this.catalogTtlMs;
+    if (force || expired) {
       this.catalogCache = null;
       this.catalogPromise = null;
+      this.catalogFetchedAt = 0;
     }
     if (this.catalogCache) return this.catalogCache;
     if (!this.catalogPromise) {
       this.catalogPromise = workshopApi.getProjectCatalog()
         .then(result => {
           this.catalogCache = result && Array.isArray(result.items) ? result : { items: [] };
+          this.catalogFetchedAt = Date.now();
           return this.catalogCache;
         })
         .finally(() => { this.catalogPromise = null; });

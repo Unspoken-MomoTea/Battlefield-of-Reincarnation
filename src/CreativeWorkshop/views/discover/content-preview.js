@@ -411,15 +411,21 @@ export function renderVersionHistory(doc, history) {
   return details;
 }
 
+export function mvuEntriesForDisplay(dataEntries = []) {
+  return (Array.isArray(dataEntries) ? dataEntries : [])
+    .filter(entry => String(entry?.kind || '') !== 'world_character');
+}
+
 export function renderContentPreview(doc, detail) {
   const preview = detail?.content_preview || {};
   const fragment = doc.createDocumentFragment();
   const dataEntries = Array.isArray(preview.data_entries) ? preview.data_entries : [];
-  const mvu = renderMvuPreview(doc, dataEntries);
+  const visibleMvuEntries = mvuEntriesForDisplay(dataEntries);
+  const mvu = renderMvuPreview(doc, visibleMvuEntries);
   if (mvu) fragment.appendChild(mvu);
 
   const worldbookEntries = Array.isArray(preview.worldbook_entries) ? preview.worldbook_entries : [];
-  if (worldbookEntries.length || !dataEntries.length) {
+  if (worldbookEntries.length || !visibleMvuEntries.length) {
     fragment.appendChild(createWorkspace(
       doc,
       '世界书内容',

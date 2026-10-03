@@ -1,5 +1,6 @@
 import { HttpError, json } from '../../http.js';
 import { assertAdmin, writeAdminAudit } from '../core.js';
+import { invalidatePublicCatalog } from '../catalog.js';
 import { permanentlyDeleteProject } from '../delete.js';
 
 export async function deleteAdminProject(env, user, projectId) {
@@ -13,6 +14,7 @@ export async function deleteAdminProject(env, user, projectId) {
   if (!project) throw new HttpError(404, 'project_not_found', '作品不存在');
 
   const cleanup = await permanentlyDeleteProject(env, project);
+  await invalidatePublicCatalog(env);
 
   try {
     await writeAdminAudit(env, user, {

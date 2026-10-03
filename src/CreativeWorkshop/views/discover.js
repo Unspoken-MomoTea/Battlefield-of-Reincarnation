@@ -3,7 +3,6 @@ import { promptProjectReport } from './discover/report.js';
 import {
   renderChangePreview,
   renderContentPreview,
-  renderVersionHistory,
 } from './discover/content-preview.js';
 
 export function filterProjectsForScope(items, category = '', kind = '') {
@@ -577,7 +576,6 @@ export function createDiscoverView({
 
       reading.appendChild(renderContentPreview(doc, detail));
       reading.appendChild(renderChangePreview(doc, detail.change_preview, detail.changelog || ''));
-      reading.appendChild(renderVersionHistory(doc, detail.version_history || []));
 
       const counts = detail.content_preview?.counts || {};
       const facts = element('section', 'rw-workshop-rail-section');

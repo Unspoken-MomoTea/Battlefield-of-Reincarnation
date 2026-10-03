@@ -6,6 +6,9 @@ export const R2_UPLOAD_LIMIT_BYTES = 9_450_000_000;
 export const D1_FREE_LIMIT_BYTES = 500_000_000;
 
 export async function scanR2Usage(bucket) {
+  if (!bucket || typeof bucket.list !== 'function') {
+    return { usedBytes: 0, objectCount: 0, unavailable: true };
+  }
   let cursor;
   let usedBytes = 0;
   let objectCount = 0;

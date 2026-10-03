@@ -14,7 +14,7 @@ function currentCharacter(host) {
   throw new Error('未读取到当前 MVU 角色，请先进入有效存档后再上传异端');
 }
 
-export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,refreshMine}) {
+export function bindHereticPublishFlow({host,overlay,workshopApi,projectService,notifyError,refreshMine}) {
   const form=overlay.querySelector('[data-form="create-heretic"]');
   const open=overlay.querySelector('[data-action="create-heretic-open"]');
   const cancels=[...overlay.querySelectorAll('[data-action="create-heretic-cancel"]')];
@@ -27,6 +27,17 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,ref
   let attempt=null;
   let coverFile=null;
   let coverUrl='';
+  const createLocalDraftId=()=>`heretic:${host.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+  let localDraftId=createLocalDraftId();
+  const readFileDataUrl=file=>new Promise((resolve,reject)=>{
+    try{
+      const Reader=host.FileReader||FileReader;
+      const reader=new Reader();
+      reader.onload=()=>resolve(String(reader.result||''));
+      reader.onerror=()=>reject(reader.error||new Error('读取封面失败'));
+      reader.readAsDataURL(file);
+    }catch(error){reject(error);}
+  });
 
   const revokeCoverPreview=()=>{
     if(!coverUrl) return;
@@ -60,6 +71,7 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,ref
     snapshot=null;
     attempt=null;
     coverFile=null;
+    localDraftId=createLocalDraftId();
     revokeCoverPreview();
     form.reset();
     if(preview)preview.textContent='打开后读取当前 MVU。';
@@ -135,9 +147,25 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,ref
           coverSize:Number(cover.size||0),
         });
         if(!attempt||attempt.signature!==signature){
-          attempt={signature,projectId:null,coverUploaded:false,versionUploaded:false,submitted:false};
+          attempt={signature,projectId:null,localBackupSaved:false,coverUploaded:false,versionUploaded:false,submitted:false};
         }
         submit.disabled=true; submit.textContent='正在提交…';
+        const bundle={schema_version:1,artifacts:[{kind:'data',name:'异端角色.json',format:'json',content:asset}]};
+        if(!attempt.localBackupSaved){
+          const coverDataUrl=await readFileDataUrl(cover);
+          await projectService.saveLocalTest({
+            id:localDraftId,
+            name,
+            summary,
+            category:'character',
+            tags:['异端库'],
+            dependencies:[],
+            version:1,
+            bundle,
+            coverDataUrl,
+          });
+          attempt.localBackupSaved=true;
+        }
         if(!attempt.projectId){
           const created=await workshopApi.createProject({name,summary,category:'character',tags:['异端库'],dependencies:[]});
           attempt.projectId=created?.project?.id||null;
@@ -149,11 +177,11 @@ export function bindHereticPublishFlow({host,overlay,workshopApi,notifyError,ref
           attempt.coverUploaded=true;
         }
         if(!attempt.versionUploaded){
-          await workshopApi.uploadProjectVersion(id,{changelog:'',bundle:{schema_version:1,artifacts:[{kind:'data',name:'异端角色.json',format:'json',content:asset}]}});
+          await workshopApi.uploadProjectVersion(id,{changelog:'',bundle});
           attempt.versionUploaded=true;
         }
         if(!attempt.submitted){
-          await workshopApi.submitProject(id);
+          await workshopApi.submitProject(id,{localBackupConfirmed:true});
           attempt.submitted=true;
         }
         try{host.toastr?.success?.('异端角色已提交审核','创意工坊');}catch{}

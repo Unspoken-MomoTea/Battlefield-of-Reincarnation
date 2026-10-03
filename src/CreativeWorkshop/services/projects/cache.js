@@ -1,7 +1,7 @@
 import {
   deleteInstalledProject, getInstalledProject, getInstalledProjects, putInstalledProject,
 } from '../storage.js';
-import { verifyBundleAgainstManifest } from './integrity.js';
+import { validateDownloadedBundle, verifyBundleAgainstManifest } from './integrity.js';
 import { sha256Hex } from './sha256.js';
 import { createOfflinePackage, MAX_OFFLINE_BYTES, parseOfflinePackageText } from './offline.js';
 import { withWorkshopMutation } from '../installer/mutation-lock.js';
@@ -97,6 +97,7 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
   const localId = `local-test:${project.id}`;
   const version = Number(project.version || 1);
   const bundle = structuredClone(project.bundle);
+  validateDownloadedBundle(bundle);
   const artifacts = Array.isArray(bundle?.artifacts) ? bundle.artifacts : [];
   if (!artifacts.length) {
     throw new Error('本地测试内容无效：没有可保存的作品内容，请重新打开编辑器后再试');
@@ -129,7 +130,8 @@ export const saveLocalTestProject = project => withWorkshopMutation(async () => 
     artifacts: manifestArtifacts,
     resource_overrides: structuredClone(bundle.resource_overrides || []),
   };
-  await verifyBundleAgainstManifest(bundle, manifest, { id: localId, version });
+  // manifest 由当前 bundle 同步构造，前面已完成结构校验和单次 SHA-256 计算；
+  // 不再对同一份本地数据重复做第二轮完整哈希。
   const record = baseRecord({
     id: localId,
     name: `${project.name}（本地测试）`,

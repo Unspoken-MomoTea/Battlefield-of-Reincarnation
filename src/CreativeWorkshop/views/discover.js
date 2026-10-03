@@ -575,9 +575,9 @@ export function createDiscoverView({
       );
       reading.appendChild(overview);
 
+      reading.appendChild(renderContentPreview(doc, detail));
       reading.appendChild(renderChangePreview(doc, detail.change_preview, detail.changelog || ''));
       reading.appendChild(renderVersionHistory(doc, detail.version_history || []));
-      reading.appendChild(renderContentPreview(doc, detail));
 
       const counts = detail.content_preview?.counts || {};
       const facts = element('section', 'rw-workshop-rail-section');

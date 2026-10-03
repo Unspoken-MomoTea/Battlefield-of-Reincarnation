@@ -117,7 +117,8 @@ export async function syncOriginalRegexConflicts({ adapter, storage }, installed
     return { changes: [], warnings: [], unrestored: [] };
   }
 
-  const working = clone(await maybe(adapter.getCharacterRegexes()));
+  const currentRegexes = await maybe(adapter.getCharacterRegexes());
+  const working = Array.isArray(currentRegexes) ? clone(currentRegexes) : [];
   const baseline = clone(working);
   const previousByKey = new Map(previous.map(change => [identityKey(change.identity), change]));
   const claims = otherClaims(await installedProjects(storage), installed.id, await maybe(adapter.getCurrentCharacterName()));

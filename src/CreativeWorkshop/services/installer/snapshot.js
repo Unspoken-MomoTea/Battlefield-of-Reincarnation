@@ -36,29 +36,41 @@ export async function createInstallSnapshot(adapter, installed, plan, characterN
     originalWorldbooks: new Map(),
   };
   if (worldbookAffected || conflictAffected) {
-    state.binding = clone(await maybe(adapter.getCharWorldbookNames()));
+    const binding = await maybe(adapter.getCharWorldbookNames());
+    state.binding = {
+      primary: binding?.primary ?? null,
+      additional: Array.isArray(binding?.additional) ? clone(binding.additional) : [],
+    };
   }
   if (worldbookAffected) {
-    const names = await maybe(adapter.getWorldbookNames());
+    const worldbookNames = await maybe(adapter.getWorldbookNames());
+    const names = Array.isArray(worldbookNames) ? worldbookNames : [];
     const existed = names.includes(SHARED_WORLDBOOK_NAME);
+    const currentEntries = existed ? await maybe(adapter.getWorldbook(SHARED_WORLDBOOK_NAME)) : [];
     state.worldbook = {
       existed,
-      entries: existed ? clone(await maybe(adapter.getWorldbook(SHARED_WORLDBOOK_NAME))) : [],
+      entries: Array.isArray(currentEntries) ? clone(currentEntries) : [],
     };
   }
   if (conflictAffected) {
-    const existingNames = new Set(await maybe(adapter.getWorldbookNames()));
+    const names = await maybe(adapter.getWorldbookNames());
+    const existingNames = new Set(Array.isArray(names) ? names : []);
     for (const name of existingNames) {
       if (!name || name === SHARED_WORLDBOOK_NAME) continue;
       state.originalWorldbooks.set(name, clone(await maybe(adapter.getWorldbook(name))));
     }
   }
-  if (regexAffected) state.regexes = clone(await maybe(adapter.getCharacterRegexes()));
+  if (regexAffected) {
+    const regexes = await maybe(adapter.getCharacterRegexes());
+    state.regexes = Array.isArray(regexes) ? clone(regexes) : [];
+  }
   for (const scope of scriptScopes) {
-    state.scripts.set(scope, clone(await maybe(adapter.getScriptTrees(scope))));
+    const trees = await maybe(adapter.getScriptTrees(scope));
+    state.scripts.set(scope, Array.isArray(trees) ? clone(trees) : []);
   }
 
-  const existing = new Set(await maybe(adapter.getPresetNames()));
+  const presetNames = await maybe(adapter.getPresetNames());
+  const existing = new Set(Array.isArray(presetNames) ? presetNames : []);
   for (const name of presetNames) {
     state.presets.set(name, {
       existed: existing.has(name),

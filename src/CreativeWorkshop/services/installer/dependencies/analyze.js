@@ -8,7 +8,8 @@ export async function analyzeProjectDependencies(installed, listInstalled, curre
   const dependencies = Array.isArray(installed?.dependencies) ? installed.dependencies : [];
   if (!dependencies.length) return { blocking: [], warnings: [] };
 
-  const localProjects = await listInstalled();
+  const listedProjects = await listInstalled();
+  const localProjects = Array.isArray(listedProjects) ? listedProjects : [];
   const byId = new Map(localProjects.map(project => [project.id, project]));
   const blocking = [];
 

@@ -477,6 +477,50 @@ test('store catalog accepts F-E-D, price <= 1000, quantities, and at most two ef
   assert.match(publishSource, /STORE_ATTR_MAX_POINTS = 15/u);
 });
 
+
+test('opening skills and partner equipment preserve editable MVU tags through publish and edit round-trip', () => {
+  const artifact = buildDedicatedArtifacts({
+    opening_name: '标签伙伴',
+    opening_race: '人类',
+    opening_identity: '斥候',
+    opening_rank: 'Ⅱ',
+    opening_bloodline_name: '人类血统',
+    opening_skills: [{
+      name: '潜行',
+      type: '1',
+      tags: ['潜行', '辅助'],
+      consume: 'EP 5',
+      effectName: '隐匿',
+      effectDesc: '降低存在感',
+      desc: '隐蔽行动',
+    }],
+    opening_partner_equipment: [{
+      name: '轻匕首',
+      品质: 'E',
+      类型: 0,
+      标签: ['轻型', '近战'],
+      原始属性: {},
+      效果: {},
+      描述: '便携武器',
+      消耗: '无',
+    }],
+  }, 'opening_partner', '作品')[0];
+
+  assert.deepEqual(artifact.content.build.技能.潜行.标签, ['潜行', '辅助']);
+  assert.deepEqual(artifact.content.build.装备.轻匕首.标签, ['轻型', '近战']);
+
+  const recovered = dedicatedInitialValues([artifact], 'opening_partner', '作品');
+  assert.deepEqual(recovered.opening_skills[0].tags, ['潜行', '辅助']);
+  assert.deepEqual(recovered.opening_partner_equipment[0].标签, ['轻型', '近战']);
+});
+
+test('opening editor exposes tag fields for skills and partner equipment', () => {
+  const editorSource = fs.readFileSync(new URL('../views/author/dedicated-editor.js', import.meta.url), 'utf8');
+  assert.match(editorSource, /opening_skill_tags/u);
+  assert.match(editorSource, /partner_equipment_tags/u);
+  assert.match(editorSource, /多个标签用逗号分隔/u);
+});
+
 test('dedicated update values recover point allocation, skills, partner equipment and store catalog', () => {
   const values = dedicatedInitialValues([{
     kind: 'data',

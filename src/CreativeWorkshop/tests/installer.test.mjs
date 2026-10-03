@@ -99,6 +99,47 @@ test('regex parser namespaces ids so uninstall never removes unrelated regexes',
   assert.equal(regexes[0].source.ai_output, true);
 });
 
+test('install accepts an empty regex store when Tavern Helper returns undefined', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.regexes = [];
+  adapter.getCharacterRegexes = () => undefined;
+  const storage = memoryStorage(project([
+    {
+      kind: 'regex',
+      name: '正则.json',
+      format: 'json',
+      content: [{ scriptName: '工坊正则', findRegex: 'foo', replaceString: 'bar' }],
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await assert.doesNotReject(() => installer.preflight('project-1'));
+  const applied = await installer.apply('project-1');
+  assert.equal(applied.applied, true);
+  assert.equal(adapter.state.regexes.length, 1);
+});
+
+test('install accepts an empty script tree store when Tavern Helper returns undefined', async () => {
+  const adapter = fakeAdapter();
+  adapter.state.scripts.character = [];
+  adapter.getScriptTrees = () => undefined;
+  const storage = memoryStorage(project([
+    {
+      kind: 'script',
+      name: '角色脚本.js',
+      format: 'text',
+      scope: 'character',
+      content: "console.log('workshop')",
+    },
+  ]));
+  const installer = createWorkshopInstaller({ adapter, storage });
+
+  await assert.doesNotReject(() => installer.preflight('project-1'));
+  const applied = await installer.apply('project-1');
+  assert.equal(applied.applied, true);
+  assert.equal(adapter.state.scripts.character.length, 1);
+});
+
 test('apply and uninstall preserve unrelated worldbook entries and regexes', async () => {
   const adapter = fakeAdapter();
   adapter.state.worldbooks.set(SHARED_WORLDBOOK_NAME, [{ name: '玩家条目', extra: { custom: true } }]);

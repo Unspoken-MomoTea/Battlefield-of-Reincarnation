@@ -181,6 +181,71 @@ test('world engine stable endpoint ignores newer workshop tags and selects its o
   }
 });
 
+
+test('stable workshop keeps the previous formal tag while GitHub tag listing lags behind the new stable head', async () => {
+  const originalFetch = globalThis.fetch;
+  const previousSha = '2828282828282828282828282828282828282828';
+  const nextSha = '2929292929292929292929292929292929292929';
+  globalThis.fetch = async url => {
+    const value = String(url);
+    if (value.includes('/tags?')) {
+      return new Response(JSON.stringify([
+        { name: 'workshop-v2.0.28', commit: { sha: previousSha } },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (value.includes('/commits/workshop-stable')) {
+      return new Response(JSON.stringify({ sha: nextSha }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (value.includes('/commits?') && value.includes('sha=workshop-stable')) {
+      return new Response(JSON.stringify([{ sha: nextSha }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected request: ${value}`);
+  };
+
+  const previousSnapshot = {
+    component: 'workshop',
+    channel: 'stable',
+    ref: 'workshop-stable',
+    sha: previousSha,
+    short_sha: previousSha.slice(0, 8),
+    version: '2.0.28',
+    tag: 'workshop-v2.0.28',
+    release_source: 'tag',
+    repository: 'Unspoken-MomoTea/Battlefield-of-Reincarnation',
+    entry_path: '/src/CreativeWorkshop/index.js',
+    source_path: 'src/CreativeWorkshop',
+    checked_at: 1,
+  };
+
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/client/latest'),
+      env({
+        SESSION_KV: {
+          get: async key => key === 'public:core-component:last-known:v1:workshop:stable:workshop-stable'
+            ? previousSnapshot
+            : null,
+          put: async () => {},
+        },
+      }),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.sha, previousSha);
+    assert.equal(body.tag, 'workshop-v2.0.28');
+    assert.equal(body.release_source, 'tag');
+    assert.equal(body.stale, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('stable workshop keeps legacy stable behavior until a tag matches stable head', async () => {
   const originalFetch = globalThis.fetch;
   const tagSha = '1111111111111111111111111111111111111111';

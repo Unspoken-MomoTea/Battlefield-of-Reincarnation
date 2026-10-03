@@ -36,7 +36,7 @@ test('workshop exposes a manual refresh that clears discovery cache and reloads 
     'utf8',
   );
 
-  assert.match(html, /data-action="refresh-workshop"[^>]*>刷新工坊<\/button>/u);
+  assert.match(html, /data-action="refresh-workshop"[^>]*>刷新<\/button>/u);
   assert.match(events, /views\.discover\.invalidate\(\)/u);
   assert.match(events, /views\.discover\.refreshCurrent\(\{ force: true \}\)/u);
   assert.match(discover, /async function refreshCurrent\(\{ force = false \} = \{\}\)/u);

@@ -321,8 +321,10 @@ async function fetchLatestComponent(env, componentId) {
           tag = tagged.tag;
           releaseSource = 'tag';
         } else {
-          sha = await latestPathCommit(env, component, stableRef);
-          releaseSource = 'legacy-ref';
+          const error = new Error('Workshop stable head is newer than the visible immutable release tag; wait for GitHub tag propagation');
+          error.status = 503;
+          error.code = 'component_release_pending';
+          throw error;
         }
       } else if (tagged) {
         sha = tagged.sha;

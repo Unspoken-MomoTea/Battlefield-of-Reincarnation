@@ -1,5 +1,5 @@
 import { json } from '../http.js';
-import { assertR2Capacity } from '../storage-policy.js';
+import { R2_HARD_LIMIT_BYTES, assertR2Capacity } from '../storage-policy.js';
 import { projectPublic } from './serializers.js';
 
 const CATALOG_KEY = 'system/catalog/public-v1.json';
@@ -32,7 +32,10 @@ export async function rebuildPublicCatalog(env) {
   };
   const text = JSON.stringify(payload);
   const bytes = new TextEncoder().encode(text).byteLength;
-  await assertR2Capacity(env, bytes, { reclaimKeys: [CATALOG_KEY] });
+  await assertR2Capacity(env, bytes, {
+    reclaimKeys: [CATALOG_KEY],
+    limitBytes: R2_HARD_LIMIT_BYTES,
+  });
   await env.PROJECTS.put(CATALOG_KEY, text, {
     httpMetadata: {
       contentType: 'application/json; charset=utf-8',

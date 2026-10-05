@@ -78,6 +78,41 @@ export async function setProjectEngagement(env, user, projectId, kind, enabled) 
   return getProjectEngagement(env, user, projectId);
 }
 
+export async function listProjectFavorites(env, user, { limit = 100, offset = 0 } = {}) {
+  const normalizedLimit = Math.max(1, Math.min(200, Number(limit) || 100));
+  const normalizedOffset = Math.max(0, Number(offset) || 0);
+  const result = await env.DB.prepare(
+    `SELECT f.project_id, f.created_at
+       FROM project_favorites f
+       JOIN projects p ON p.id = f.project_id
+      WHERE f.user_id = ?
+        AND p.published_version > 0
+        AND p.status <> 'archived'
+        AND p.owner_hidden = 0
+      ORDER BY f.created_at DESC
+      LIMIT ? OFFSET ?`,
+  )
+    .bind(user.id, normalizedLimit + 1, normalizedOffset)
+    .all();
+  const rows = Array.isArray(result?.results) ? result.results : [];
+  const hasMore = rows.length > normalizedLimit;
+  return {
+    items: rows.slice(0, normalizedLimit).map(row => ({
+      project_id: String(row.project_id),
+      favorited_at: Number(row.created_at || 0),
+    })),
+    next_offset: hasMore ? normalizedOffset + normalizedLimit : null,
+  };
+}
+
+export async function listProjectFavoritesResponse(request, env, user) {
+  const url = new URL(request.url);
+  return json(await listProjectFavorites(env, user, {
+    limit: url.searchParams.get('limit'),
+    offset: url.searchParams.get('offset'),
+  }));
+}
+
 export async function recordProjectDownload(env, projectId) {
   const project = await requirePublishedProject(env, projectId);
   await env.DB.prepare(

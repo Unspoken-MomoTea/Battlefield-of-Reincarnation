@@ -455,6 +455,15 @@
                 #sam-world-engine .we-switch-track i{display:block;width:17px;height:17px;border-radius:50%;background:#fff;transition:transform .15s}
                 #sam-world-engine .we-switch.on .we-switch-track{background:var(--we-accent,var(--gold))}
                 #sam-world-engine .we-switch.on .we-switch-track i{transform:translateX(19px)}
+                #sam-world-engine .we-manual-advance-mask{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:24px;background:#08111bcc;backdrop-filter:blur(5px)}
+                #sam-world-engine .we-manual-advance-dialog{width:min(620px,100%);max-height:min(78vh,720px);overflow:auto;padding:20px;border:1px solid var(--we-line,var(--line));border-radius:14px;background:var(--we-card,#fffdf8);color:var(--we-ink,var(--ink));box-shadow:0 24px 80px #0008}
+                #sam-world-engine .we-manual-advance-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+                #sam-world-engine .we-manual-advance-head b{display:block;font:600 18px/1.35 Georgia,"SimSun",serif}
+                #sam-world-engine .we-manual-advance-head small{display:block;margin-top:3px;color:var(--we-sub,var(--sub));font-size:11px}
+                #sam-world-engine .we-manual-advance-dialog>p{margin:8px 0 12px;color:var(--we-sub,var(--sub));font-size:12px}
+                #sam-world-engine .we-manual-advance-dialog textarea{min-height:150px;max-height:42vh;padding:12px;background:var(--we-input,#121b26);color:var(--we-ink,var(--ink));border:1px solid var(--we-line,var(--line));border-radius:9px;line-height:1.65}
+                #sam-world-engine .we-manual-advance-rerun{margin:0 0 12px;padding:10px 12px;border-left:3px solid var(--we-accent,var(--gold));border-radius:7px;background:color-mix(in srgb,var(--we-accent,var(--gold)) 10%,transparent);font-size:12px}
+                #sam-world-engine .we-manual-advance-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
                 @media(max-width:1100px){
                     #sam-world-engine .we-world-focus{grid-template-columns:1fr}
                     #sam-world-engine .we-dashboard{grid-template-columns:1fr}

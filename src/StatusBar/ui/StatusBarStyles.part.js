@@ -351,10 +351,11 @@
 
         /* Tab主体 — flex 滚动链需 min-height:0，否则展开后无法内部滚动 */
         .sam-main { display:flex; flex:1; min-height:0; overflow:hidden; }
-        .sam-tab-rail { flex:0 0 58px; display:flex; flex-direction:column; border-right:1px solid var(--sam-border); background:var(--sam-dark); overflow-y:auto; min-height:0; -webkit-overflow-scrolling:touch; }
+        .sam-tab-rail { flex:0 0 58px; display:flex; flex-direction:column; border-right:1px solid var(--sam-border); background:var(--sam-dark); overflow-x:hidden; overflow-y:auto; min-height:0; overscroll-behavior-y:contain; scrollbar-gutter:stable; -webkit-overflow-scrolling:touch; }
+        .sam-tab-rail > * { flex-shrink:0; }
         .sam-tab-rail::-webkit-scrollbar { width:4px; }
         .sam-tab-rail::-webkit-scrollbar-thumb { background:var(--sam-border); }
-        .sam-tab-btn { padding:8px 2px; text-align:center; font-size:11px; font-weight:bold; cursor:pointer; border-left:3px solid transparent; color:var(--sam-sub); transition:all 0.2s; line-height:1.2; }
+        .sam-tab-btn { flex:0 0 auto; padding:8px 2px; text-align:center; font-size:11px; font-weight:bold; cursor:pointer; border-left:3px solid transparent; color:var(--sam-sub); transition:all 0.2s; line-height:1.2; }
         .sam-tab-btn:hover { background:var(--sam-hover); color:var(--sam-text); }
         .sam-tab-btn.active { color:var(--sam-accent); border-left-color:var(--sam-accent); background:var(--sam-hover); }
         .sam-tab-content { flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; touch-action:pan-y; padding:8px 10px; }

@@ -42,8 +42,13 @@ test('status bar exposes an independent version and reload-safe event lifecycle'
 });
 
 
-test('status bar left tab rail keeps workshop extension entries vertically scrollable', () => {
-  assert.match(generated, /\.sam-tab-rail \{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;[^}]*overscroll-behavior-y:contain;[^}]*scrollbar-gutter:stable;/u);
+test('status bar left tab rail keeps workshop extension entries scrollable and visibly discoverable', () => {
+  assert.match(generated, /\.sam-main \{ position:relative;/u);
+  assert.match(generated, /\.sam-main::before \{[^}]*width:58px;[^}]*pointer-events:none;[^}]*linear-gradient/u);
+  assert.match(generated, /\.sam-main::after \{[^}]*content:"⌄";[^}]*width:58px;[^}]*pointer-events:none;/u);
+  assert.match(generated, /\.sam-tab-rail \{[^}]*overflow-x:hidden;[^}]*overflow-y:scroll;[^}]*overscroll-behavior-y:contain;[^}]*scrollbar-gutter:stable;[^}]*scrollbar-width:thin;[^}]*touch-action:pan-y;/u);
   assert.match(generated, /\.sam-tab-rail > \* \{ flex-shrink:0; \}/u);
+  assert.match(generated, /\.sam-tab-rail::-webkit-scrollbar-track \{ background:rgba\(255,255,255,\.04\); \}/u);
+  assert.match(generated, /\.sam-tab-rail:hover::-webkit-scrollbar-thumb \{ background:var\(--sam-accent\); \}/u);
   assert.match(generated, /\.sam-tab-btn \{ flex:0 0 auto;/u);
 });

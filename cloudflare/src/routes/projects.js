@@ -1,6 +1,6 @@
 import { createProjectReport } from '../moderation/reports.js';
 import {
-  getProjectEngagementResponse, setProjectEngagementFromRequest,
+  getProjectEngagementResponse, listProjectFavoritesResponse, setProjectEngagementFromRequest,
 } from '../engagement.js';
 import {
   createProject, deleteProject, downloadPublicProject, getOwnedProjectCover, getOwnedProjectEditor,
@@ -24,6 +24,9 @@ export async function routeProjects(request, env, pathname) {
   }
   if (request.method === 'GET' && pathname === '/api/my/projects') {
     return listOwnProjects(env, await authenticatedUser(request, env));
+  }
+  if (request.method === 'GET' && pathname === '/api/my/favorites') {
+    return listProjectFavoritesResponse(request, env, await authenticatedUser(request, env));
   }
   if (request.method === 'POST' && pathname === '/api/projects/versions/batch') {
     return getPublicProjectVersionsBatch(request, env);

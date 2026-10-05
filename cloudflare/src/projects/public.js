@@ -6,14 +6,6 @@ import { buildPublicContentPreview } from './public-preview.js';
 
 const PUBLIC_KIND_SQL = "COALESCE(NULLIF(v.content_kind, ''), CASE WHEN v.project_type = 'character' AND EXISTS (SELECT 1 FROM json_each(v.tags) legacy_kind WHERE legacy_kind.value = '异端库') THEN 'heretic' WHEN v.project_type = 'character' THEN 'world_character' ELSE 'extension' END)";
 
-const PUBLIC_SORT_SQL = {
-  latest: 'COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
-  popular: '(p.likes_count * 3 + p.favorites_count * 4 + p.downloads_count) DESC, COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
-  downloads: 'p.downloads_count DESC, COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
-  likes: 'p.likes_count DESC, COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
-  favorites: 'p.favorites_count DESC, COALESCE(v.reviewed_at, v.created_at) DESC, p.id ASC',
-};
-
 export async function listPublicProjects(request, env) {
   const params = pageParams(request);
   const catalog = await readPublicCatalog(env);

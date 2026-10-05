@@ -101,6 +101,7 @@
             engine._runOrchestrator=this.run;
             this.autoProgress=new WorldAutoProgressController(engine);
             this.replay=new WorldReplayService(engine);
+            this.manualAdvance=new WorldManualAdvanceFeature(engine);
             this.timeOwnership=new WorldTimeOwnershipFeature(engine,this.timePolicy);
             this.npcAuditPolicy=new WorldNpcAuditPolicy(engine,this.knowledgeSelection);
             this.historyLifecycle=new WorldHistoryLifecycle(engine,this.historyMemory);
@@ -125,6 +126,7 @@
             // history > replay > auto-progress > policy nesting without inheritance.
             this.features.register('historyLifecycle',this.historyLifecycle);
             this.features.register('replay',this.replay);
+            this.features.register('manualAdvance',this.manualAdvance);
             this.features.register('autoProgress',this.autoProgress);
             this.features.register('npcAuditPolicy',this.npcAuditPolicy);
             this.features.register('timeOwnership',this.timeOwnership);

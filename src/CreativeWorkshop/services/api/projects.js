@@ -83,6 +83,14 @@ export function createProjectApi(request, requestRaw, { submitTimeoutMs = 10_000
       return request('/api/my/projects', {}, true);
     },
 
+    listFavoriteProjects(offset = 0, limit = 100) {
+      const params = new URLSearchParams({
+        offset: String(Math.max(0, Number(offset) || 0)),
+        limit: String(Math.max(1, Math.min(200, Number(limit) || 100))),
+      });
+      return request(`/api/my/favorites?${params}`, { cache: 'no-store' }, true);
+    },
+
     createProject(input) {
       return request('/api/projects', { method: 'POST', body: JSON.stringify(input) }, true);
     },

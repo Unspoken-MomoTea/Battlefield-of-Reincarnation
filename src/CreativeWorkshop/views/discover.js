@@ -31,6 +31,9 @@ export function createDiscoverView({
 }) {
   let nextOffset = null;
   let loadedCount = 0;
+  let favoriteNextOffset = null;
+  let favoriteLoadedCount = 0;
+  let favoriteRequestSerial = 0;
   let requestSerial = 0;
   let localProjects = new Map();
   const pageCache = new Map();
@@ -76,36 +79,54 @@ export function createDiscoverView({
     return localProjects;
   }
 
-  function cardFor(projectId) {
-    return [...nodes.discoverList.querySelectorAll('.rw-project-card')]
-      .find(card => card.dataset.projectId === String(projectId)) || null;
+  function cardsFor(projectId) {
+    const id = String(projectId);
+    return [nodes.discoverList, nodes.favoritesList]
+      .filter(Boolean)
+      .flatMap(root => [...root.querySelectorAll('.rw-project-card')])
+      .filter(card => card.dataset.projectId === id);
   }
 
   function localActionLabel(project, local) {
     if (!local) return '下载';
     if (Number(local.version) < Number(project.version)) return '有更新';
-    if (local.applied && Number(local.appliedVersion || 0) >= Number(local.version)) return '已安装';
+    if (local.applied && Number(local.appliedVersion || 0) >= Number(local.version)) return '已启用';
     return '已下载';
   }
 
   function updateCardLocalState(project) {
-    const card = cardFor(project.id);
-    const action = card?.querySelector('.rw-card-primary');
-    if (!action) return;
     const local = localProject(project.id);
-    action.textContent = localActionLabel(project, local);
-    action.classList.toggle('is-installed', Boolean(local?.applied));
-    action.classList.toggle('is-cached', Boolean(local && !local.applied));
-    action.classList.toggle('has-update', Boolean(local && Number(local.version) < Number(project.version)));
+    for (const card of cardsFor(project.id)) {
+      const action = card.querySelector('.rw-card-primary');
+      if (!action) continue;
+      action.textContent = localActionLabel(project, local);
+      action.classList.toggle('is-installed', Boolean(local?.applied));
+      action.classList.toggle('is-cached', Boolean(local && !local.applied));
+      action.classList.toggle('has-update', Boolean(local && Number(local.version) < Number(project.version)));
+    }
   }
 
   function updateCardEngagement(projectId, state) {
-    const card = cardFor(projectId);
-    if (!card) return;
-    const likes = card.querySelector('[data-stat="likes"]');
-    const favorites = card.querySelector('[data-stat="favorites"]');
-    if (likes) likes.textContent = `♥ ${state.likes_count || 0}`;
-    if (favorites) favorites.textContent = `★ ${state.favorites_count || 0}`;
+    for (const card of cardsFor(projectId)) {
+      const likes = card.querySelector('[data-stat="likes"]');
+      const favorites = card.querySelector('[data-stat="favorites"]');
+      if (likes) likes.textContent = `♥ ${state.likes_count || 0}`;
+      if (favorites) favorites.textContent = `★ ${state.favorites_count || 0}`;
+    }
+  }
+
+  function removeFavoriteCard(projectId) {
+    if (!nodes.favoritesList) return;
+    for (const card of [...nodes.favoritesList.querySelectorAll('.rw-project-card')]) {
+      if (card.dataset.projectId === String(projectId)) card.remove();
+    }
+    favoriteLoadedCount = nodes.favoritesList.querySelectorAll('.rw-project-card').length;
+    if (nodes.favoritesCount) {
+      nodes.favoritesCount.textContent = favoriteLoadedCount
+        ? `已收藏 ${favoriteLoadedCount} 个作品`
+        : '0 个收藏';
+    }
+    if (!favoriteLoadedCount) empty(nodes.favoritesList, '还没有收藏作品；在作品详情中点击“收藏”即可加入这里。');
   }
 
   function projectCard(project) {
@@ -414,6 +435,65 @@ export function createDiscoverView({
     }
   }
 
+  async function loadFavorites({ append = false } = {}) {
+    const serial = ++favoriteRequestSerial;
+    const offset = append ? favoriteNextOffset : 0;
+    if (append && offset === null) return;
+    if (!getAuth()?.user) {
+      favoriteNextOffset = null;
+      favoriteLoadedCount = 0;
+      if (nodes.favoritesCount) nodes.favoritesCount.textContent = '请先登录';
+      if (nodes.favoritesMore) nodes.favoritesMore.hidden = true;
+      return empty(nodes.favoritesList, 'Discord 登录后可以跨设备查看你的收藏。');
+    }
+
+    if (!append) {
+      favoriteNextOffset = null;
+      favoriteLoadedCount = 0;
+      if (nodes.favoritesMore) nodes.favoritesMore.hidden = true;
+      if (nodes.favoritesCount) nodes.favoritesCount.textContent = '正在载入';
+      empty(nodes.favoritesList, '正在加载收藏...');
+      void syncLocalProjects().catch(() => {});
+    } else if (nodes.favoritesMore) {
+      nodes.favoritesMore.disabled = true;
+      nodes.favoritesMore.textContent = '加载中...';
+    }
+
+    try {
+      const result = await projectService.favorites(offset || 0, 100);
+      if (serial !== favoriteRequestSerial) return;
+      const items = Array.isArray(result?.items) ? result.items : [];
+      if (!append && !items.length) {
+        favoriteNextOffset = null;
+        if (nodes.favoritesCount) nodes.favoritesCount.textContent = '0 个收藏';
+        if (nodes.favoritesMore) nodes.favoritesMore.hidden = true;
+        return empty(nodes.favoritesList, '还没有收藏作品；在作品详情中点击“收藏”即可加入这里。');
+      }
+      const cards = items.map(projectCard);
+      if (append) nodes.favoritesList.append(...cards);
+      else nodes.favoritesList.replaceChildren(...cards);
+      favoriteLoadedCount += items.length;
+      favoriteNextOffset = result?.next_offset ?? null;
+      if (nodes.favoritesCount) {
+        nodes.favoritesCount.textContent = favoriteNextOffset === null
+          ? `已收藏 ${favoriteLoadedCount} 个作品`
+          : `已显示 ${favoriteLoadedCount} 个 · 还有更多`;
+      }
+      if (nodes.favoritesMore) nodes.favoritesMore.hidden = favoriteNextOffset === null;
+    } catch (error) {
+      if (append) notifyError(error);
+      else {
+        empty(nodes.favoritesList, `加载失败：${error.message}`);
+        if (nodes.favoritesCount) nodes.favoritesCount.textContent = '加载失败';
+      }
+    } finally {
+      if (nodes.favoritesMore) {
+        nodes.favoritesMore.disabled = false;
+        nodes.favoritesMore.textContent = '加载更多';
+      }
+    }
+  }
+
   async function applyCachedProject(project, local, onChanged) {
     const preflight = await projectService.preflight(project.id);
     if (preflight.blocking.length) {
@@ -431,7 +511,7 @@ export function createDiscoverView({
     const result = await projectService.apply(project.id);
     const installed = (await projectService.installed()).find(item => item.id === project.id) || local;
     localProjects.set(project.id, installed);
-    try { host.toastr?.success?.(`已安装 ${result.name} v${result.appliedVersion}`, '创意工坊'); } catch {}
+    try { host.toastr?.success?.(`已启用 ${result.name} v${result.appliedVersion}`, '创意工坊'); } catch {}
     updateCardLocalState(project);
     onChanged?.(installed);
     return installed;
@@ -601,20 +681,20 @@ export function createDiscoverView({
         if (!local) {
           installButton.textContent = '下载到本地';
         } else if (Number(local.version) < Number(project.version)) {
-          installButton.textContent = local.applied ? `一键升级到 v${project.version}` : `下载新版 v${project.version}`;
+          installButton.textContent = local.applied ? `更新项目 · v${project.version}` : `下载更新 · v${project.version}`;
         } else if (!local.applied) {
-          installButton.textContent = `安装本地 v${local.version}`;
+          installButton.textContent = '安装到酒馆';
         } else if (Number(local.appliedVersion || 0) < Number(local.version)) {
-          installButton.textContent = `应用本地 v${local.version}`;
+          installButton.textContent = `应用已下载新版 · v${local.version}`;
         } else {
-          installButton.textContent = `已安装 v${local.appliedVersion}`;
+          installButton.textContent = '停用并还原';
           installButton.classList.add('is-installed');
         }
       };
 
       const actionPanel = element('section', 'rw-workshop-action-panel');
       const installStatus = local?.applied
-        ? element('div', 'rw-workshop-install-badge', `✓ 已安装 v${local.appliedVersion || local.version}`)
+        ? element('div', 'rw-workshop-install-badge', `✓ 已启用 v${local.appliedVersion || local.version}`)
         : element('div', 'rw-workshop-install-badge muted', local ? `已下载 v${local.version}` : '尚未下载');
       actionPanel.appendChild(installStatus);
 
@@ -645,19 +725,26 @@ export function createDiscoverView({
           }
           updateCardLocalState(project);
           installStatus.textContent = local.applied
-            ? `✓ 已安装 v${local.appliedVersion || local.version}`
+            ? `✓ 已启用 v${local.appliedVersion || local.version}`
             : `已下载 v${local.version}`;
           installStatus.classList.toggle('muted', !local.applied);
           renderInstallButton();
           return;
         }
         if (local.applied && Number(local.appliedVersion || 0) >= Number(local.version)) {
-          try { host.toastr?.info?.(`已安装 v${local.appliedVersion}`, project.name); } catch {}
+          const disabled = await projectService.uninstall(project.id);
+          localProjects.set(project.id, disabled);
+          local = disabled;
+          try { host.toastr?.success?.('已停用作品，并按安装前记录还原原版内容', project.name); } catch {}
+          updateCardLocalState(project);
+          installStatus.textContent = `已下载 v${disabled.version}`;
+          installStatus.classList.add('muted');
+          renderInstallButton();
           return;
         }
         await applyCachedProject(project, local, next => {
           local = next;
-          installStatus.textContent = `✓ 已安装 v${next.appliedVersion || next.version}`;
+          installStatus.textContent = `✓ 已启用 v${next.appliedVersion || next.version}`;
           installStatus.classList.remove('muted');
           renderInstallButton();
         });
@@ -689,6 +776,11 @@ export function createDiscoverView({
           !engagementState.user_favorited,
         );
         renderEngagement();
+        if (engagementState.user_favorited) {
+          try { host.toastr?.success?.('已加入“我的收藏”', project.name); } catch {}
+        } else {
+          removeFavoriteCard(project.id);
+        }
       });
       const downloadStat = element('div', 'rw-workshop-interaction rw-workshop-interaction--stat');
       downloadStat.append(
@@ -774,6 +866,8 @@ export function createDiscoverView({
     },
     refreshCurrent,
     loadMore: () => loadPage({ append: true }),
+    favorites: () => loadFavorites({ append: false }),
+    loadMoreFavorites: () => loadFavorites({ append: true }),
     showDetail,
     invalidate: () => pageCache.clear(),
   };

@@ -1,6 +1,7 @@
 import { getUpdateChannel, resolveHostWindow } from '../config.js';
 import { workshopApi } from '../services/api.js';
 import { projectService } from '../services/project-service.js';
+import { createMarketService } from '../services/market-service.js';
 import { workshopSelfUpdater } from '../services/self-update.js';
 import { worldEngineUpdater } from '../services/world-engine-update.js';
 import { statusBarUpdater } from '../services/status-bar-update.js';
@@ -53,6 +54,9 @@ export function bootWorkshop() {
 
   const doc = host.document;
   const { style, launcher, overlay, nodes } = createWorkshopShell(doc, WORKSHOP_VERSION);
+  const marketEnabled = getUpdateChannel() === 'testing';
+  const marketService = createMarketService({ host, api: workshopApi });
+  if (nodes.marketTab) nodes.marketTab.hidden = !marketEnabled;
   const ui = createUiHelpers(doc, host, overlay);
   let auth = null;
   let activeTab = 'discover';
@@ -74,11 +78,13 @@ export function bootWorkshop() {
     version: WORKSHOP_VERSION,
     currentSha: CURRENT_SHA,
     hotUpdateClient: updateLoaderOnly,
+    marketService,
     getAuth: () => auth,
   });
 
   function showTab(name, { refresh = true } = {}) {
     if (name === 'admin' && !Number(auth?.user?.is_admin) && !Number(auth?.user?.is_moderator)) return;
+    if (name === 'market' && !marketEnabled) return;
     activeTab = name;
     overlay.querySelectorAll('.rw-tab[data-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.tab === name));
     overlay.querySelectorAll('.rw-section').forEach(section => { section.hidden = section.dataset.section !== name; });
@@ -95,7 +101,7 @@ export function bootWorkshop() {
       if (refresh) void views.discover.favorites();
       return;
     }
-    const view = { installed: views.installed, mine: views.author, admin: views.admin }[name];
+    const view = { installed: views.installed, market: views.market, mine: views.author, admin: views.admin }[name];
     if (view) void view.refresh();
   }
 
@@ -280,6 +286,7 @@ export function bootWorkshop() {
     worldEngineUpdater,
     statusBarUpdater,
     calculatorUpdater,
+    marketService,
   });
   host[GLOBAL_NAME] = bridge;
   cleanupOpeningDataBridge = bindOpeningDataBridge({ host });

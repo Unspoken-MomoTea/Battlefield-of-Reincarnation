@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
-import { getProjectEngagement, recordProjectDownload, setProjectEngagement } from '../src/engagement.js';
+import { getProjectEngagement, listProjectFavorites, recordProjectDownload, setProjectEngagement } from '../src/engagement.js';
 
 class D1Statement {
   constructor(db, sql, args = []) {
@@ -81,4 +81,32 @@ test('download recording increments only published visible projects', async () =
     () => recordProjectDownload(env, 'p1'),
     error => error?.status === 404 && error?.code === 'project_not_found',
   );
+});
+
+
+test('favorite library returns only the signed-in user\'s visible published projects in favorite order', async () => {
+  const { env, user } = setup();
+  env.DB.db.prepare(
+    `INSERT INTO projects
+      (id, owner_user_id, slug, name, summary, project_type, status, latest_version, published_version, created_at, updated_at)
+     VALUES ('p2', ?, 'p2', '第二作品', '', 'extension', 'published', 1, 1, 1, 1)`,
+  ).run(user.id);
+  env.DB.db.prepare(
+    'INSERT INTO project_favorites (project_id, user_id, created_at) VALUES (?, ?, ?)',
+  ).run('p1', user.id, 10);
+  env.DB.db.prepare(
+    'INSERT INTO project_favorites (project_id, user_id, created_at) VALUES (?, ?, ?)',
+  ).run('p2', user.id, 20);
+
+  let page = await listProjectFavorites(env, user, { limit: 1, offset: 0 });
+  assert.deepEqual(page.items.map(item => item.project_id), ['p2']);
+  assert.equal(page.next_offset, 1);
+
+  page = await listProjectFavorites(env, user, { limit: 10, offset: 0 });
+  assert.deepEqual(page.items.map(item => item.project_id), ['p2', 'p1']);
+  assert.equal(page.next_offset, null);
+
+  env.DB.db.prepare("UPDATE projects SET owner_hidden = 1 WHERE id = 'p2'").run();
+  page = await listProjectFavorites(env, user, { limit: 10, offset: 0 });
+  assert.deepEqual(page.items.map(item => item.project_id), ['p1']);
 });

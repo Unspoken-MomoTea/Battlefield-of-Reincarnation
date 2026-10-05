@@ -1,11 +1,12 @@
 import { collectWorkshopNodes } from './nodes.js';
 import { WORKSHOP_CSS } from './styles.js';
+import { MARKET_CSS } from './market-styles.js';
 import { workshopTemplate } from './template.js';
 
 export function createWorkshopShell(doc, version) {
   const style = doc.createElement('style');
   style.dataset.reincarnationWorkshop = 'style';
-  style.textContent = WORKSHOP_CSS;
+  style.textContent = `${WORKSHOP_CSS}\n${MARKET_CSS}`;
   doc.head.appendChild(style);
 
   const launcher = doc.createElement('button');

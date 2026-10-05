@@ -52,10 +52,61 @@
             const keys=new Set([...Object.keys(before),...Object.keys(after)]);
             for(const key of keys){if(!forbidden.has(key))this.collect(before[key],after[key],path.concat(key),operations);}
         }
+        collectRerunBaseline(before,after,path,records){
+            if(same(before,after))return;
+            if(before===undefined||after===undefined||this.atomicPath(path)||!plain(before)||!plain(after)){
+                records.push({
+                    path:copy(path),
+                    before:before===undefined?{exists:false}:{exists:true,value:copy(before)},
+                    after:after===undefined?{exists:false}:{exists:true,value:copy(after)}
+                });
+                return;
+            }
+            const keys=new Set([...Object.keys(before),...Object.keys(after)]);
+            for(const key of keys){if(!forbidden.has(key))this.collectRerunBaseline(before[key],after[key],path.concat(key),records);}
+        }
         buildPackage(beforeStat,afterStat,fingerprint){
             if(!plain(beforeStat)||!plain(afterStat)||!fingerprint)return null;
-            const operations=[];for(const scope of WORLD_REPLAY_SCOPES)this.collect(get(beforeStat,scope),get(afterStat,scope),scope,operations);
-            return operations.length?{version:WORLD_REPLAY_VERSION,fingerprint:String(fingerprint),operations}:null;
+            const operations=[],rerunBaseline=[];
+            for(const scope of WORLD_REPLAY_SCOPES){
+                this.collect(get(beforeStat,scope),get(afterStat,scope),scope,operations);
+                this.collectRerunBaseline(get(beforeStat,scope),get(afterStat,scope),scope,rerunBaseline);
+            }
+            return operations.length?{version:WORLD_REPLAY_VERSION,fingerprint:String(fingerprint),operations,rerunBaseline}:null;
+        }
+        readPath(stat,path){
+            let cursor=stat;
+            for(const key of path){
+                if(!plain(cursor)||!Object.prototype.hasOwnProperty.call(cursor,key))return {exists:false,value:undefined};
+                cursor=cursor[key];
+            }
+            return {exists:true,value:cursor};
+        }
+        restoreManualBaseline(stat,packageValue){
+            const records=packageValue?.rerunBaseline;
+            if(!plain(stat)||!plain(packageValue)||packageValue.version!==WORLD_REPLAY_VERSION||!Array.isArray(records))return 0;
+            for(const record of records){
+                const path=Array.isArray(record?.path)?record.path.map(String):[];
+                if(!this.pathAllowed(path)||!plain(record?.before)||!plain(record?.after))return 0;
+            }
+            let restored=0;
+            for(const record of records){
+                const path=record.path.map(String),current=this.readPath(stat,path),after=record.after;
+                const matchesAfter=after.exists===true
+                    ?current.exists===true&&same(current.value,after.value)
+                    :current.exists===false;
+                if(!matchesAfter)continue;
+                let parent=stat;
+                for(const key of path.slice(0,-1)){
+                    if(!plain(parent[key]))parent[key]={};
+                    parent=parent[key];
+                }
+                const key=path.at(-1),before=record.before;
+                if(before.exists===true)parent[key]=copy(before.value);
+                else delete parent[key];
+                restored++;
+            }
+            return restored;
         }
         applyPackage(stat,packageValue){
             if(!plain(stat)||!plain(packageValue)||packageValue.version!==WORLD_REPLAY_VERSION||!Array.isArray(packageValue.operations))return false;
@@ -161,6 +212,11 @@
         adjustSnapshot(snapshot){
             const e=this.engine;
             if(e.worldReplayManualForce&&snapshot?.fingerprint&&snapshot?.stat?.世界?.[PATH]?.已处理楼层===snapshot.fingerprint){
+                const replay=snapshot?.raw?.__samsaraWorldReplay;
+                const restored=plain(replay)&&String(replay.fingerprint||'')===String(snapshot.fingerprint)
+                    ?this.restoreManualBaseline(snapshot.stat,replay):0;
+                if(restored>0)snapshot.manualRerun={restored:true,count:restored};
+                snapshot.stat.世界[PATH]=Object.assign(emptyState(),snapshot.stat.世界[PATH]||{});
                 snapshot.stat.世界[PATH].已处理楼层='';snapshot.stat.世界[PATH].已处理时间='';
             }
             return snapshot;

@@ -5,4 +5,4 @@
  */
 (function (root) {
     'use strict';
-    const WORLD_ENGINE_VERSION='2.0.9';
+    const WORLD_ENGINE_VERSION='2.0.10';

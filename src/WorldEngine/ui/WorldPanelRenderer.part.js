@@ -37,9 +37,13 @@
                 :'';
             const runButton=engine.panel.querySelector('[data-action=run]');
             const stopping=engine.busy&&!!engine.controller?.signal.aborted;
-            runButton.disabled=engine.busy?(engine.committing||stopping):!!reason||!!availabilityReason;
+            // 空闲时不要把运行器的业务阻塞条件复制成 disabled。
+            // 手动入口需要可点击，真正不能推进时由 RunOrchestrator 给出明确状态/错误。
+            runButton.disabled=engine.busy?(engine.committing||stopping):false;
             runButton.textContent=engine.busy?(engine.committing?'保存中…':stopping?'停止中…':'停止推进'):'推进世界';
-            runButton.setAttribute('aria-label',runButton.textContent);
+            const runHint=!engine.busy?(availabilityReason||reason||'手动推进世界；可填写本轮一次性指导'):'';
+            runButton.title=runHint;
+            runButton.setAttribute('aria-label',runButton.textContent+(runHint?' · '+runHint:''));
 
             const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['资产','▣'],['传闻','◎'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋','历史记忆'],['设置','⚙']];
             engine.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i,label])=>'<button data-tab="'+t+'" aria-selected="'+(engine.tab===t)+'"><span class="we-tab-icon" aria-hidden="true">'+i+'</span>'+(label||t)+'</button>').join('');

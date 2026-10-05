@@ -71,3 +71,23 @@ test('discover home does not reference the character-only kind variable', () => 
   const characterBlock = discover.slice(characterStart, characterEnd);
   assert.match(characterBlock, /filterProjectsForScope\([\s\S]{0,120}'character',[\s\S]{0,80}\bkind\b/u);
 });
+
+
+test('favorite library is a signed-in account view backed by the personalized favorites endpoint', async () => {
+  const html = workshopTemplate('test');
+  assert.match(html, /data-tab="favorites"[^>]*>我的收藏<\/button>/u);
+  assert.match(html, /data-section="favorites"/u);
+  assert.match(html, /data-tab="installed"[^>]*>本地库<\/button>/u);
+  assert.doesNotMatch(html, /data-tab="installed"[^>]*>已安装<\/button>/u);
+
+  const calls = [];
+  const api = createProjectApi((path, init, auth) => {
+    calls.push({ path, init, auth });
+    return Promise.resolve({ items: [], next_offset: null });
+  }, async () => { throw new Error('unused'); });
+
+  await api.listFavoriteProjects(0, 100);
+  assert.match(calls[0].path, /^\/api\/my\/favorites\?/u);
+  assert.equal(calls[0].init?.cache, 'no-store');
+  assert.equal(calls[0].auth, true);
+});

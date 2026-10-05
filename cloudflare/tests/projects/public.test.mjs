@@ -18,6 +18,7 @@ import {
   updateProject,
   validateBundle,
 } from '../../src/projects.js';
+import { filterPublicCatalog } from '../../src/projects/catalog.js';
 
 import {
   bundle,
@@ -388,6 +389,42 @@ test('public catalog supports server-side sorting by engagement counters', async
     await listPublicProjects(request('/api/projects?sort=popular'), env),
   );
   assert.equal(popular.items[0].id, second.id);
+});
+
+
+test('popular recommendation differs from raw downloads and is stable within a day', () => {
+  const nowSeconds = 1_800_000_000;
+  const candidates = [
+    {
+      id: 'old-download-hit',
+      created_at: nowSeconds - 400 * 86400,
+      updated_at: nowSeconds - 200 * 86400,
+      downloads_count: 500,
+      likes_count: 1,
+      favorites_count: 1,
+    },
+    {
+      id: 'fresh-player-pick',
+      created_at: nowSeconds - 3 * 86400,
+      updated_at: nowSeconds - 2 * 86400,
+      downloads_count: 30,
+      likes_count: 12,
+      favorites_count: 10,
+    },
+  ];
+  const realNow = Date.now;
+  Date.now = () => nowSeconds * 1000;
+  try {
+    const downloads = filterPublicCatalog(candidates, { sort: 'downloads' }).items.map(item => item.id);
+    const popularA = filterPublicCatalog(candidates, { sort: 'popular' }).items.map(item => item.id);
+    const popularB = filterPublicCatalog(candidates, { sort: 'popular' }).items.map(item => item.id);
+
+    assert.deepEqual(downloads, ['old-download-hit', 'fresh-player-pick']);
+    assert.deepEqual(popularA, ['fresh-player-pick', 'old-download-hit']);
+    assert.deepEqual(popularB, popularA);
+  } finally {
+    Date.now = realNow;
+  }
 });
 
 test('public catalog rejects unknown sort and kind modes', async () => {

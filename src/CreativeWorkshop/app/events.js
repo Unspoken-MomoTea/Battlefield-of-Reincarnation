@@ -34,12 +34,16 @@ export function bindWorkshopEvents({
       if (activeTab === 'discover') {
         await views.discover.refreshCurrent({ force: true });
       } else {
-        const activeView = {
-          installed: views.installed,
-          mine: views.author,
-          admin: views.admin,
-        }[activeTab];
-        await activeView?.refresh?.();
+        if (activeTab === 'favorites') {
+          await views.discover.favorites();
+        } else {
+          const activeView = {
+            installed: views.installed,
+            mine: views.author,
+            admin: views.admin,
+          }[activeTab];
+          await activeView?.refresh?.();
+        }
       }
       try { host.toastr?.success?.('已重新读取工坊作品列表', '创意工坊'); } catch {}
     } catch (error) {
@@ -90,6 +94,7 @@ export function bindWorkshopEvents({
     });
   });
   nodes.discoverMore.addEventListener('click', () => void views.discover.loadMore());
+  nodes.favoritesMore?.addEventListener('click', () => void views.discover.loadMoreFavorites());
 
   const closeAccountMenu = () => { nodes.accountMenu.hidden = true; };
   nodes.account.addEventListener('click', event => {

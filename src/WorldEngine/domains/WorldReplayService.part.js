@@ -201,8 +201,13 @@
             if(!plain(variables))return false;
             const pending=String(e.worldReplayPendingFingerprint||''),handled=String(variables?.stat_data?.世界?.[PATH]?.已处理楼层||'');
             if(pending&&handled===pending&&plain(before?.stat_data)&&plain(variables.stat_data)){
-                const replay=this.buildPackage(before.stat_data,variables.stat_data,pending);
-                if(replay)variables.__samsaraWorldReplay=replay;
+                // 主世界提交已经按本轮真正的推演基线生成 replay。尤其手动重推时，
+                // 当前 MVU before 仍是“不满意的旧结果”，不能在变量事件里用 B→C 覆盖掉 A→C。
+                // 只有调用方没有随主提交带来有效 replay 时，才退回事件 before 现场重建。
+                const supplied=variables.__samsaraWorldReplay;
+                const suppliedValid=plain(supplied)&&String(supplied.fingerprint||'')===pending&&Array.isArray(supplied.operations);
+                const replay=suppliedValid?supplied:this.buildPackage(before.stat_data,variables.stat_data,pending);
+                if(replay&&!suppliedValid)variables.__samsaraWorldReplay=replay;
                 if(e.worldReplayManualForce)this.markEventInternal();
                 return !!replay;
             }

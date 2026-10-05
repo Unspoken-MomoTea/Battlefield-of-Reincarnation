@@ -74,12 +74,12 @@ export function createInstalledView({
     }
     if (!item.applied) return { label: '已下载', className: 'cached' };
     if (Number(item.appliedVersion || 0) < Number(item.version)) {
-      return { label: `待应用 v${item.version}`, className: 'update' };
+      return { label: `待更新 v${item.version}`, className: 'update' };
     }
     if (item.repairState?.lastCheckedAt && !item.repairState.healthy) {
-      return { label: '安装异常', className: 'bad' };
+      return { label: '启用异常', className: 'bad' };
     }
-    return { label: `已安装 v${item.appliedVersion}`, className: 'installed' };
+    return { label: `已启用 v${item.appliedVersion}`, className: 'installed' };
   }
 
   function protectionChanges(item) {
@@ -193,8 +193,8 @@ export function createInstalledView({
       : '';
     const summary =
       `工坊本地记录：${estimate.projectCount} 个\n` +
-      `已安装：${estimate.appliedCount} 个\n` +
-      `仅缓存：${estimate.cacheOnlyCount} 个\n` +
+      `已启用：${estimate.appliedCount} 个\n` +
+      `仅下载：${estimate.cacheOnlyCount} 个\n` +
       `工坊记录逻辑大小：${formatBytes(estimate.logicalBytes)}\n` +
       `可清理缓存约：${formatBytes(estimate.cacheOnlyBytes)}\n` +
       origin;
@@ -206,7 +206,7 @@ export function createInstalledView({
 
     const confirmed = await confirmDialog({
       title: '清理本地缓存？',
-      message: `${summary}\n只会删除“仅缓存”作品，已安装到酒馆的项目不会被删除。`,
+      message: `${summary}\n只会删除“仅下载”作品，已经启用到酒馆的项目不会被删除。`,
       confirmText: '清理缓存',
       cancelText: '取消',
       danger: true,
@@ -261,7 +261,7 @@ export function createInstalledView({
       if (!confirmed) return null;
     }
     const result = await projectService.apply(item.id);
-    try { host.toastr?.success?.(`已应用 ${result.name} v${result.appliedVersion}`, '创意工坊'); } catch {}
+    try { host.toastr?.success?.(`已启用 ${result.name} v${result.appliedVersion}`, '创意工坊'); } catch {}
     showRestoreWarnings(result, item.name);
     await refreshInstalled();
     return result;
@@ -307,19 +307,27 @@ export function createInstalledView({
     }
     const shouldSync = await confirmDialog({
       title: '发现新版本',
-      message: `服务器已有 v${result.remoteVersion}。是否立即下载最新版${item.applied ? '并重新应用到酒馆' : ''}？`,
-      confirmText: item.applied ? '下载并升级' : '下载新版',
+      message: `服务器已有 v${result.remoteVersion}。是否立即${item.applied ? '更新项目并继续启用' : '下载最新版'}？`,
+      confirmText: item.applied ? '更新项目' : '下载更新',
       cancelText: '取消',
     });
     if (!shouldSync) return result;
     const updated = await projectService.updateLatest(item.id);
     try {
       host.toastr?.success?.(
-        item.applied ? `已一键升级并应用到 v${updated.version}` : `已同步缓存到 v${updated.version}`,
+        item.applied ? `已更新并启用 v${updated.version}` : `已下载更新 v${updated.version}`,
         item.name,
       );
     } catch {}
     showRestoreWarnings(updated, item.name);
+    await refreshInstalled();
+    return result;
+  }
+
+  async function deactivateItem(item) {
+    const result = await projectService.uninstall(item.id);
+    try { host.toastr?.success?.(`已停用 ${item.name}，并按安装前记录还原原版内容`, '创意工坊'); } catch {}
+    showRestoreWarnings(result, item.name);
     await refreshInstalled();
     return result;
   }
@@ -404,22 +412,18 @@ export function createInstalledView({
     const remoteUpdate = updateState(item);
     if (item.source === 'remote' && remoteUpdate?.updateAvailable) {
       primary = button(
-        item.applied ? `升级到 v${remoteUpdate.remoteVersion}` : `下载 v${remoteUpdate.remoteVersion}`,
+        item.applied ? `更新项目 · v${remoteUpdate.remoteVersion}` : `下载更新 · v${remoteUpdate.remoteVersion}`,
         'primary rw-local-primary',
         () => checkUpdate(item),
       );
-    } else if (!item.applied || Number(item.appliedVersion || 0) < Number(item.version)) {
-      primary = button(
-        item.applied ? '应用新版' : '安装到酒馆',
-        'primary rw-local-primary',
-        () => applyItem(item),
-      );
+    } else if (!item.applied) {
+      primary = button('安装到酒馆', 'primary rw-local-primary', () => applyItem(item));
+    } else if (Number(item.appliedVersion || 0) < Number(item.version)) {
+      primary = button(`应用已下载新版 · v${item.version}`, 'primary rw-local-primary', () => applyItem(item));
     } else if (item.repairState?.lastCheckedAt && !item.repairState.healthy) {
       primary = button('检查并修复', 'primary rw-local-primary', () => inspectAndRepair(item));
-    } else if (item.source === 'remote') {
-      primary = button('检查更新', 'primary rw-local-primary', () => checkUpdate(item));
     } else {
-      primary = button('重新应用', 'primary rw-local-primary', () => applyItem(item));
+      primary = button('停用并还原', 'rw-local-primary danger', () => deactivateItem(item));
     }
     actions.appendChild(primary);
     if (item.source === 'local-test' && typeof editLocalTest === 'function') {
@@ -450,17 +454,17 @@ export function createInstalledView({
           showProtectedOriginals(item);
         }));
       }
-      menuDropdown.appendChild(button('重新应用', '', async () => {
+      menuDropdown.appendChild(button('重新启用', '', async () => {
         closeMenu();
         await applyItem(item);
       }));
-      menuDropdown.appendChild(button('检查安装', '', async () => {
+      menuDropdown.appendChild(button('检查启用状态', '', async () => {
         closeMenu();
         await inspectAndRepair(item);
       }));
     }
-    if (item.source === 'remote' && !(item.applied && Number(item.appliedVersion || 0) >= Number(item.version))) {
-      menuDropdown.appendChild(button('检查更新', '', async () => {
+    if (item.source === 'remote') {
+      menuDropdown.appendChild(button('重新检查更新', '', async () => {
         closeMenu();
         await checkUpdate(item);
       }));
@@ -470,15 +474,7 @@ export function createInstalledView({
       await exportItem(item);
     }));
 
-    if (item.applied) {
-      menuDropdown.appendChild(button('停用并还原原版', 'danger', async () => {
-        closeMenu();
-        const result = await projectService.uninstall(item.id);
-        try { host.toastr?.success?.(`已停用 ${item.name}，原版内容已按恢复记录处理`, '创意工坊'); } catch {}
-        showRestoreWarnings(result, item.name);
-        await refreshInstalled();
-      }));
-    } else {
+    if (!item.applied) {
       menuDropdown.appendChild(button('删除本地缓存', 'danger', async () => {
         closeMenu();
         await projectService.removeCached(item.id);

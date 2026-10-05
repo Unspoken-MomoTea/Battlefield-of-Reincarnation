@@ -1,0 +1,570 @@
+import { HttpError, json, readJson } from './http.js';
+
+const MARKET_KINDS = new Set(['equipment', 'item', 'skill']);
+const MARKET_ID_RE = /^[A-Za-z0-9:_-]{6,96}$/u;
+const MAX_ASSET_BYTES = 32 * 1024;
+const MAX_NAME_LENGTH = 120;
+const MAX_PRICE = 1_000_000_000;
+const MAX_QUANTITY = 9999;
+const DEFAULT_LIMIT = 24;
+const MAX_LIMIT = 60;
+
+function nowMs() {
+  return Date.now();
+}
+
+function integer(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.trunc(number) : fallback;
+}
+
+function positiveInteger(value, { min = 1, max = Number.MAX_SAFE_INTEGER, code = 'invalid_number', label = '数值' } = {}) {
+  const number = integer(value, NaN);
+  if (!Number.isInteger(number) || number < min || number > max) {
+    throw new HttpError(400, code, `${label}必须是 ${min}-${max} 的整数`);
+  }
+  return number;
+}
+
+function marketId(value, label = 'ID') {
+  const id = String(value || '').trim();
+  if (!MARKET_ID_RE.test(id)) {
+    throw new HttpError(400, 'market_invalid_id', `${label} 格式无效`);
+  }
+  return id;
+}
+
+function text(value, maxLength = MAX_NAME_LENGTH) {
+  return String(value ?? '').trim().slice(0, maxLength);
+}
+
+function parseJson(value, fallback = {}) {
+  try { return JSON.parse(String(value || '')); } catch { return fallback; }
+}
+
+function assetFromBody(input) {
+  const kind = String(input?.kind || '').trim();
+  if (!MARKET_KINDS.has(kind)) {
+    throw new HttpError(400, 'market_invalid_kind', '暂时只支持装备、道具和技能');
+  }
+
+  const name = text(input?.name);
+  if (!name) throw new HttpError(400, 'market_invalid_name', '资产名称不能为空');
+
+  const data = input?.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new HttpError(400, 'market_invalid_asset', '资产数据无效');
+  }
+
+  const quantity = kind === 'item'
+    ? positiveInteger(input?.quantity, { max: MAX_QUANTITY, code: 'market_invalid_quantity', label: '数量' })
+    : 1;
+
+  const assetJson = JSON.stringify(data);
+  if (new TextEncoder().encode(assetJson).byteLength > MAX_ASSET_BYTES) {
+    throw new HttpError(413, 'market_asset_too_large', '单件交易资产数据过大');
+  }
+
+  return { kind, name, quantity, data, assetJson };
+}
+
+function parseAsset(kind, name, assetJson, quantity) {
+  return {
+    kind: String(kind || ''),
+    name: String(name || ''),
+    quantity: integer(quantity, 1),
+    data: parseJson(assetJson, {}),
+  };
+}
+
+function listingFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    asset: parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.remaining_quantity),
+    unit_price: integer(row.unit_price),
+    total_quantity: integer(row.total_quantity),
+    remaining_quantity: integer(row.remaining_quantity),
+    status: row.status,
+    created_at: integer(row.created_at),
+    updated_at: integer(row.updated_at),
+    seller: {
+      id: integer(row.seller_user_id),
+      display_name: row.seller_display_name || row.seller_username || '匿名轮回者',
+      username: row.seller_username || '',
+    },
+  };
+}
+
+function tradeFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    listing_id: row.listing_id,
+    asset: parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.quantity),
+    quantity: integer(row.quantity),
+    unit_price: integer(row.unit_price),
+    total_price: integer(row.total_price),
+    delivered_at: row.delivered_at == null ? null : integer(row.delivered_at),
+    created_at: integer(row.created_at),
+    seller: {
+      id: integer(row.seller_user_id),
+      display_name: row.seller_display_name || row.seller_username || '匿名轮回者',
+      username: row.seller_username || '',
+    },
+    buyer: {
+      id: integer(row.buyer_user_id),
+      display_name: row.buyer_display_name || row.buyer_username || '匿名轮回者',
+      username: row.buyer_username || '',
+    },
+  };
+}
+
+function returnFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    listing_id: row.listing_id,
+    asset: parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.quantity),
+    quantity: integer(row.quantity),
+    confirmed_at: row.confirmed_at == null ? null : integer(row.confirmed_at),
+    created_at: integer(row.created_at),
+  };
+}
+
+function payoutFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    amount: integer(row.amount),
+    confirmed_at: row.confirmed_at == null ? null : integer(row.confirmed_at),
+    created_at: integer(row.created_at),
+  };
+}
+
+async function all(env, sql, args = []) {
+  const response = await env.DB.prepare(sql).bind(...args).all();
+  return response?.results || [];
+}
+
+async function first(env, sql, args = []) {
+  return env.DB.prepare(sql).bind(...args).first();
+}
+
+async function runBatch(env, statements) {
+  if (typeof env.DB?.batch === 'function') return env.DB.batch(statements);
+  const results = [];
+  for (const statement of statements) results.push(await statement.run());
+  return results;
+}
+
+const LISTING_SELECT = `
+  SELECT
+    l.*,
+    seller.username AS seller_username,
+    seller.display_name AS seller_display_name
+  FROM market_listings l
+  JOIN users seller ON seller.id = l.seller_user_id
+`;
+
+const TRADE_SELECT = `
+  SELECT
+    t.*,
+    seller.username AS seller_username,
+    seller.display_name AS seller_display_name,
+    buyer.username AS buyer_username,
+    buyer.display_name AS buyer_display_name
+  FROM market_trades t
+  JOIN users seller ON seller.id = t.seller_user_id
+  JOIN users buyer ON buyer.id = t.buyer_user_id
+`;
+
+async function getListing(env, listingId) {
+  return listingFromRow(await first(env, `${LISTING_SELECT} WHERE l.id = ? LIMIT 1`, [listingId]));
+}
+
+async function getTradeRow(env, tradeId) {
+  return first(env, `${TRADE_SELECT} WHERE t.id = ? LIMIT 1`, [tradeId]);
+}
+
+export async function listMarketListings(request, env) {
+  const url = new URL(request.url);
+  const kind = String(url.searchParams.get('kind') || '').trim();
+  const query = text(url.searchParams.get('q') || '', 80);
+  const limit = Math.min(
+    MAX_LIMIT,
+    Math.max(1, integer(url.searchParams.get('limit'), DEFAULT_LIMIT)),
+  );
+  const offset = Math.max(0, integer(url.searchParams.get('offset'), 0));
+  const sort = String(url.searchParams.get('sort') || 'latest');
+
+  const clauses = ["l.status = 'active'", 'l.remaining_quantity > 0'];
+  const args = [];
+  if (kind) {
+    if (!MARKET_KINDS.has(kind)) throw new HttpError(400, 'market_invalid_kind', '资产类型无效');
+    clauses.push('l.asset_kind = ?');
+    args.push(kind);
+  }
+  if (query) {
+    clauses.push('l.asset_name LIKE ?');
+    args.push(`%${query}%`);
+  }
+
+  const orderBy = {
+    latest: 'l.created_at DESC',
+    price_asc: 'l.unit_price ASC, l.created_at DESC',
+    price_desc: 'l.unit_price DESC, l.created_at DESC',
+  }[sort] || 'l.created_at DESC';
+
+  const rows = await all(
+    env,
+    `${LISTING_SELECT}
+     WHERE ${clauses.join(' AND ')}
+     ORDER BY ${orderBy}
+     LIMIT ? OFFSET ?`,
+    [...args, limit + 1, offset],
+  );
+  const hasMore = rows.length > limit;
+  const items = rows.slice(0, limit).map(listingFromRow);
+  return json({
+    items,
+    next_offset: hasMore ? offset + limit : null,
+  });
+}
+
+export async function createMarketListing(request, env, user) {
+  const body = await readJson(request, { maxBytes: 64 * 1024 });
+  const id = marketId(body?.id, '挂单 ID');
+  const unitPrice = positiveInteger(body?.unit_price, {
+    max: MAX_PRICE,
+    code: 'market_invalid_price',
+    label: '单价',
+  });
+  const asset = assetFromBody(body?.asset);
+
+  const existing = await getListing(env, id);
+  if (existing) {
+    if (existing.seller.id !== Number(user.id)) {
+      throw new HttpError(409, 'market_id_conflict', '挂单 ID 已被占用');
+    }
+    return json({ listing: existing });
+  }
+
+  const now = nowMs();
+  await env.DB.prepare(
+    `INSERT INTO market_listings
+      (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+       total_quantity, remaining_quantity, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+  ).bind(
+    id,
+    user.id,
+    asset.kind,
+    asset.name,
+    asset.assetJson,
+    unitPrice,
+    asset.quantity,
+    asset.quantity,
+    now,
+    now,
+  ).run();
+
+  return json({ listing: await getListing(env, id) }, 201);
+}
+
+export async function buyMarketListing(request, env, user, listingIdValue) {
+  const listingId = marketId(listingIdValue, '挂单 ID');
+  const body = await readJson(request, { maxBytes: 16 * 1024 });
+  const tradeId = marketId(body?.trade_id, '交易 ID');
+  const requestedQuantity = positiveInteger(body?.quantity ?? 1, {
+    max: MAX_QUANTITY,
+    code: 'market_invalid_quantity',
+    label: '购买数量',
+  });
+
+  const existingTradeRow = await getTradeRow(env, tradeId);
+  if (existingTradeRow) {
+    if (Number(existingTradeRow.buyer_user_id) !== Number(user.id)) {
+      throw new HttpError(409, 'market_trade_id_conflict', '交易 ID 已被占用');
+    }
+    return json({
+      trade: tradeFromRow(existingTradeRow),
+      listing: await getListing(env, existingTradeRow.listing_id),
+    });
+  }
+
+  const listing = await getListing(env, listingId);
+  if (!listing || listing.status !== 'active' || listing.remaining_quantity <= 0) {
+    throw new HttpError(409, 'market_listing_unavailable', '该挂单已经不可购买');
+  }
+  if (listing.seller.id === Number(user.id)) {
+    throw new HttpError(409, 'market_own_listing', '不能购买自己的挂单');
+  }
+
+  const quantity = listing.asset.kind === 'item' ? requestedQuantity : 1;
+  if (quantity > listing.remaining_quantity) {
+    throw new HttpError(409, 'market_quantity_unavailable', '挂单剩余数量不足');
+  }
+
+  const now = nowMs();
+  const statements = [
+    env.DB.prepare(
+      `INSERT INTO market_trades
+        (id, listing_id, seller_user_id, buyer_user_id, asset_kind, asset_name, asset_json,
+         quantity, unit_price, total_price, delivered_at, created_at)
+       SELECT ?, l.id, l.seller_user_id, ?, l.asset_kind, l.asset_name, l.asset_json,
+              ?, l.unit_price, l.unit_price * ?, NULL, ?
+       FROM market_listings l
+       WHERE l.id = ?
+         AND l.status = 'active'
+         AND l.remaining_quantity >= ?
+         AND l.seller_user_id <> ?`,
+    ).bind(tradeId, user.id, quantity, quantity, now, listingId, quantity, user.id),
+    env.DB.prepare(
+      `UPDATE market_listings
+       SET remaining_quantity = remaining_quantity - ?,
+           status = CASE WHEN remaining_quantity - ? <= 0 THEN 'sold' ELSE 'active' END,
+           updated_at = ?
+       WHERE id = ?
+         AND EXISTS (
+           SELECT 1 FROM market_trades
+           WHERE id = ? AND listing_id = ? AND buyer_user_id = ?
+         )`,
+    ).bind(quantity, quantity, now, listingId, tradeId, listingId, user.id),
+    env.DB.prepare(
+      `INSERT INTO market_wallets (user_id, balance, updated_at)
+       SELECT seller_user_id, total_price, ?
+       FROM market_trades
+       WHERE id = ?
+       ON CONFLICT(user_id) DO UPDATE SET
+         balance = market_wallets.balance + excluded.balance,
+         updated_at = excluded.updated_at`,
+    ).bind(now, tradeId),
+  ];
+
+  try {
+    await runBatch(env, statements);
+  } catch (error) {
+    const retryTrade = await getTradeRow(env, tradeId);
+    if (!retryTrade) throw error;
+  }
+
+  const tradeRow = await getTradeRow(env, tradeId);
+  if (!tradeRow) {
+    throw new HttpError(409, 'market_listing_unavailable', '该挂单刚刚被其他玩家买走或数量不足');
+  }
+
+  return json({
+    trade: tradeFromRow(tradeRow),
+    listing: await getListing(env, listingId),
+  });
+}
+
+export async function getMarketTrade(env, user, tradeIdValue) {
+  const tradeId = marketId(tradeIdValue, '交易 ID');
+  const row = await getTradeRow(env, tradeId);
+  if (!row || (Number(row.buyer_user_id) !== Number(user.id) && Number(row.seller_user_id) !== Number(user.id))) {
+    throw new HttpError(404, 'market_trade_not_found', '交易记录不存在');
+  }
+  return json({ trade: tradeFromRow(row) });
+}
+
+export async function confirmMarketDelivery(env, user, tradeIdValue) {
+  const tradeId = marketId(tradeIdValue, '交易 ID');
+  const now = nowMs();
+  await env.DB.prepare(
+    `UPDATE market_trades
+     SET delivered_at = COALESCE(delivered_at, ?)
+     WHERE id = ? AND buyer_user_id = ?`,
+  ).bind(now, tradeId, user.id).run();
+
+  const row = await getTradeRow(env, tradeId);
+  if (!row || Number(row.buyer_user_id) !== Number(user.id)) {
+    throw new HttpError(404, 'market_trade_not_found', '交易记录不存在');
+  }
+  return json({ trade: tradeFromRow(row) });
+}
+
+export async function cancelMarketListing(env, user, listingIdValue) {
+  const listingId = marketId(listingIdValue, '挂单 ID');
+  const listing = await getListing(env, listingId);
+  if (!listing || listing.seller.id !== Number(user.id)) {
+    throw new HttpError(404, 'market_listing_not_found', '挂单不存在');
+  }
+
+  const existingReturn = await first(
+    env,
+    'SELECT * FROM market_returns WHERE listing_id = ? AND user_id = ? LIMIT 1',
+    [listingId, user.id],
+  );
+  if (existingReturn) {
+    return json({
+      listing: await getListing(env, listingId),
+      return: returnFromRow(existingReturn),
+    });
+  }
+
+  if (listing.status !== 'active' || listing.remaining_quantity <= 0) {
+    throw new HttpError(409, 'market_listing_not_cancellable', '该挂单已经无法撤回');
+  }
+
+  const returnId = `return:${listingId}`;
+  const now = nowMs();
+  await runBatch(env, [
+    env.DB.prepare(
+      `UPDATE market_listings
+       SET status = 'cancelled', updated_at = ?
+       WHERE id = ? AND seller_user_id = ? AND status = 'active' AND remaining_quantity > 0`,
+    ).bind(now, listingId, user.id),
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO market_returns
+        (id, listing_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, seller_user_id, asset_kind, asset_name, asset_json, remaining_quantity, NULL, ?
+       FROM market_listings
+       WHERE id = ? AND seller_user_id = ? AND status = 'cancelled' AND remaining_quantity > 0`,
+    ).bind(returnId, now, listingId, user.id),
+    env.DB.prepare(
+      `UPDATE market_listings
+       SET remaining_quantity = 0, updated_at = ?
+       WHERE id = ?
+         AND EXISTS (SELECT 1 FROM market_returns WHERE id = ? AND listing_id = ?)`,
+    ).bind(now, listingId, returnId, listingId),
+  ]);
+
+  const returned = await first(env, 'SELECT * FROM market_returns WHERE id = ? LIMIT 1', [returnId]);
+  if (!returned) {
+    throw new HttpError(409, 'market_listing_not_cancellable', '挂单状态已经变化，请刷新后重试');
+  }
+
+  return json({
+    listing: await getListing(env, listingId),
+    return: returnFromRow(returned),
+  });
+}
+
+export async function confirmMarketReturn(env, user, returnIdValue) {
+  const returnId = marketId(returnIdValue, '返还 ID');
+  const now = nowMs();
+  await env.DB.prepare(
+    `UPDATE market_returns
+     SET confirmed_at = COALESCE(confirmed_at, ?)
+     WHERE id = ? AND user_id = ?`,
+  ).bind(now, returnId, user.id).run();
+
+  const row = await first(
+    env,
+    'SELECT * FROM market_returns WHERE id = ? AND user_id = ? LIMIT 1',
+    [returnId, user.id],
+  );
+  if (!row) throw new HttpError(404, 'market_return_not_found', '返还记录不存在');
+  return json({ return: returnFromRow(row) });
+}
+
+export async function claimMarketPayout(request, env, user) {
+  const body = await readJson(request, { maxBytes: 8 * 1024 });
+  const payoutId = marketId(body?.payout_id, '货款领取 ID');
+
+  const existing = await first(
+    env,
+    'SELECT * FROM market_payouts WHERE id = ? LIMIT 1',
+    [payoutId],
+  );
+  if (existing) {
+    if (Number(existing.user_id) !== Number(user.id)) {
+      throw new HttpError(409, 'market_payout_id_conflict', '货款领取 ID 已被占用');
+    }
+    return json({ payout: payoutFromRow(existing) });
+  }
+
+  const now = nowMs();
+  await runBatch(env, [
+    env.DB.prepare(
+      `INSERT INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
+       SELECT ?, user_id, balance, NULL, ?
+       FROM market_wallets
+       WHERE user_id = ? AND balance > 0`,
+    ).bind(payoutId, now, user.id),
+    env.DB.prepare(
+      `UPDATE market_wallets
+       SET balance = balance - COALESCE((SELECT amount FROM market_payouts WHERE id = ? AND user_id = ?), 0),
+           updated_at = ?
+       WHERE user_id = ?`,
+    ).bind(payoutId, user.id, now, user.id),
+  ]);
+
+  const payout = await first(
+    env,
+    'SELECT * FROM market_payouts WHERE id = ? AND user_id = ? LIMIT 1',
+    [payoutId, user.id],
+  );
+  if (!payout) throw new HttpError(409, 'market_no_proceeds', '当前没有待领取货款');
+  return json({ payout: payoutFromRow(payout) });
+}
+
+export async function confirmMarketPayout(env, user, payoutIdValue) {
+  const payoutId = marketId(payoutIdValue, '货款领取 ID');
+  const now = nowMs();
+  await env.DB.prepare(
+    `UPDATE market_payouts
+     SET confirmed_at = COALESCE(confirmed_at, ?)
+     WHERE id = ? AND user_id = ?`,
+  ).bind(now, payoutId, user.id).run();
+
+  const row = await first(
+    env,
+    'SELECT * FROM market_payouts WHERE id = ? AND user_id = ? LIMIT 1',
+    [payoutId, user.id],
+  );
+  if (!row) throw new HttpError(404, 'market_payout_not_found', '货款领取记录不存在');
+  return json({ payout: payoutFromRow(row) });
+}
+
+export async function getMarketMe(env, user) {
+  const wallet = await first(
+    env,
+    'SELECT balance, updated_at FROM market_wallets WHERE user_id = ? LIMIT 1',
+    [user.id],
+  );
+  const listings = await all(
+    env,
+    `${LISTING_SELECT} WHERE l.seller_user_id = ? ORDER BY l.created_at DESC LIMIT 50`,
+    [user.id],
+  );
+  const purchases = await all(
+    env,
+    `${TRADE_SELECT} WHERE t.buyer_user_id = ? ORDER BY t.created_at DESC LIMIT 50`,
+    [user.id],
+  );
+  const sales = await all(
+    env,
+    `${TRADE_SELECT} WHERE t.seller_user_id = ? ORDER BY t.created_at DESC LIMIT 50`,
+    [user.id],
+  );
+  const pendingReturns = await all(
+    env,
+    `SELECT * FROM market_returns
+     WHERE user_id = ? AND confirmed_at IS NULL
+     ORDER BY created_at ASC LIMIT 50`,
+    [user.id],
+  );
+  const pendingPayouts = await all(
+    env,
+    `SELECT * FROM market_payouts
+     WHERE user_id = ? AND confirmed_at IS NULL
+     ORDER BY created_at ASC LIMIT 50`,
+    [user.id],
+  );
+
+  return json({
+    wallet: {
+      balance: integer(wallet?.balance, 0),
+      updated_at: integer(wallet?.updated_at, 0),
+    },
+    listings: listings.map(listingFromRow),
+    purchases: purchases.map(tradeFromRow),
+    sales: sales.map(tradeFromRow),
+    pending_deliveries: purchases.filter(row => row.delivered_at == null).map(tradeFromRow),
+    pending_returns: pendingReturns.map(returnFromRow),
+    pending_payouts: pendingPayouts.map(payoutFromRow),
+  });
+}

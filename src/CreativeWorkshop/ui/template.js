@@ -42,6 +42,7 @@ export function workshopTemplate(version) {
       <button class="rw-tab rw-nav-filter" data-category-filter="extension" data-kind-filter="store_catalog" type="button">开局商店</button>
       <div class="rw-nav-divider"></div>
       <button class="rw-tab" data-tab="favorites" type="button" hidden>我的收藏</button>
+      <button class="rw-tab rw-market-tab" data-tab="market" type="button" hidden>空间集市 <span class="rw-market-test-badge">TEST</span></button>
       <button class="rw-tab" data-tab="installed" type="button">本地库</button>
       <div class="rw-nav-connection">● 已连接 SillyTavern</div>
     </nav>
@@ -97,6 +98,39 @@ export function workshopTemplate(version) {
         </div>
         <div class="rw-grid rw-project-grid" data-role="favorites-list"></div>
         <div class="rw-load-more-wrap"><button class="rw-button" data-action="favorites-more" type="button" hidden>加载更多</button></div>
+      </section>
+      <section class="rw-section rw-market-page" data-section="market" hidden>
+        <div class="rw-market-hero">
+          <div class="rw-market-hero-copy">
+            <small>SPACE BAZAAR · TESTING</small>
+            <h2>空间集市</h2>
+            <p>玩家之间交易当前存档里的装备、道具与技能。第一版使用空间币固定价交易；求购与以物易物后续再扩展。</p>
+          </div>
+          <div class="rw-market-hero-actions">
+            <button class="rw-button" data-action="market-mine" type="button">我的交易</button>
+            <button class="rw-button primary" data-action="market-sell" type="button">上架资产</button>
+          </div>
+        </div>
+        <div class="rw-market-summary" data-role="market-summary"></div>
+        <div class="rw-market-toolbar">
+          <input class="rw-input" data-field="market-search" placeholder="搜索装备、道具或技能名称">
+          <select class="rw-select" data-field="market-kind" aria-label="集市资产类型">
+            <option value="">全部类型</option>
+            <option value="equipment">装备</option>
+            <option value="item">道具</option>
+            <option value="skill">技能</option>
+          </select>
+          <select class="rw-select" data-field="market-sort" aria-label="集市排序">
+            <option value="latest">最新上架</option>
+            <option value="price_asc">价格从低到高</option>
+            <option value="price_desc">价格从高到低</option>
+          </select>
+          <button class="rw-button" data-action="market-search" type="button">搜索</button>
+        </div>
+        <div class="rw-market-note">测试版规则：服务器负责账号、挂单、成交、待领取与流水；资产来源仍是玩家本地 MVU 存档，因此不把商品标记为“官方认证资产”。交易写入只允许在主神空间进行，任务世界只能浏览。</div>
+        <div class="rw-page-head-meta" data-role="market-count">正在载入</div>
+        <div class="rw-market-grid" data-role="market-list"></div>
+        <div class="rw-load-more-wrap"><button class="rw-button" data-action="market-more" type="button" hidden>加载更多</button></div>
       </section>
       <section class="rw-section" data-section="installed" hidden>
         <div class="rw-page-head">

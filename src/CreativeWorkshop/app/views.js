@@ -3,6 +3,7 @@ import { createAdminView } from '../views/admin.js';
 import { createAuthorView } from '../views/author.js';
 import { createDiscoverView } from '../views/discover.js';
 import { createInstalledView } from '../views/installed.js';
+import { createMarketView } from '../views/market.js';
 import { createMaintenanceView } from '../views/maintenance.js';
 
 export function createWorkshopViews(context) {
@@ -46,6 +47,12 @@ export function createWorkshopViews(context) {
       doc: context.doc,
     }),
     installed,
+    market: createMarketView({
+      ...common,
+      marketService: context.marketService,
+      getAuth: context.getAuth,
+      doc: context.doc,
+    }),
     author,
     maintenance: createMaintenanceView({
       ...common,

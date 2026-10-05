@@ -39,6 +39,7 @@ export function bindWorkshopEvents({
         } else {
           const activeView = {
             installed: views.installed,
+            market: views.market,
             mine: views.author,
             admin: views.admin,
           }[activeTab];

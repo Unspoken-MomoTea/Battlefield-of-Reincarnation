@@ -101,3 +101,15 @@ test('reviewer cannot manage users or reviewer roles', async () => {
     error => error?.status === 403 && error?.code === 'admin_required',
   );
 });
+
+
+test('admin user list hides synthetic market test identities', async () => {
+  const { env, admin } = setup();
+  env.DB.db.prepare(
+    "INSERT INTO users (discord_id, username, display_name, is_admin, created_at, updated_at) VALUES ('__market_test_vendor__','market-test-vendor','轮回集市测试员 · 虚拟账号',0,1,1)",
+  ).run();
+
+  const response = await listAdminUsers(new Request('https://workshop.example/api/admin/users'), env, admin);
+  const body = await response.json();
+  assert.equal(body.items.some(item => item.discord_id === '__market_test_vendor__'), false);
+});

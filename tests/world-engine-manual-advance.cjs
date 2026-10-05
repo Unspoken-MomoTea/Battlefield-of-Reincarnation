@@ -72,7 +72,7 @@ function baseState(){
   const payload=JSON.parse(decorated.input);
   assert.equal(payload.本轮人工指导.模式,'重新推演当前楼层');
   assert.equal(payload.本轮人工指导.要求,'暂时不要开 Boss 战，重点维护攻略组准备。');
-  assert.match(payload.本轮人工指导.执行规则,/仅对本轮有效/);
+  assert.match(payload.本轮人工指导.执行规则,/只对本轮有效/);
   assert.equal(decorated.manifest.人工指导.启用,true);
 
   const panelSource=fs.readFileSync(path.join(root,'src/WorldEngine/ui/WorldPanelController.part.js'),'utf8');

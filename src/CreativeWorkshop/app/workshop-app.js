@@ -90,6 +90,11 @@ export function bootWorkshop() {
       else void views.discover.refresh();
       return;
     }
+    if (name === 'favorites') {
+      if (!auth?.user) return showTab('discover');
+      if (refresh) void views.discover.favorites();
+      return;
+    }
     const view = { installed: views.installed, mine: views.author, admin: views.admin }[name];
     if (view) void view.refresh();
   }
@@ -105,7 +110,8 @@ export function bootWorkshop() {
     nodes.login.hidden = Boolean(user);
     nodes.logout.hidden = !user;
     nodes.adminTab.hidden = !Number(user?.is_admin) && !Number(user?.is_moderator);
-    if (!user && (activeTab === 'mine' || activeTab === 'admin')) showTab('discover');
+    if (nodes.favoritesTab) nodes.favoritesTab.hidden = !user;
+    if (!user && (activeTab === 'mine' || activeTab === 'admin' || activeTab === 'favorites')) showTab('discover');
   }
 
   async function checkWorkshopUpdateAfterConnection() {

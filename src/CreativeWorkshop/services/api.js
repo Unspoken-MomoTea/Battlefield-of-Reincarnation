@@ -1,5 +1,6 @@
 import { createAdminApi } from './api/admin.js';
 import { createAuthApi } from './api/auth.js';
+import { createMarketApi } from './api/market.js';
 import { createProjectApi } from './api/projects.js';
 import { request, requestRaw, WorkshopApiError } from './api/transport.js';
 
@@ -9,6 +10,7 @@ export const workshopApi = {
   request,
   health: () => request('/api/health'),
   ...createAuthApi(request),
+  ...createMarketApi(request),
   ...createProjectApi(request, requestRaw),
   ...createAdminApi(request, requestRaw),
 };

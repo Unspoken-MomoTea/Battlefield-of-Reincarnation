@@ -11,7 +11,7 @@
  */
 (function () {
     'use strict';
-    var STATUS_BAR_VERSION = '1.0.0';
+    var STATUS_BAR_VERSION = '1.0.1';
     try { console.log('%c[主神终端] ⚡ 轮回终端 v2 接入中...', 'color:#8f9fff;font-weight:bold'); } catch (e) {}
 
     /* ===== 1. 父窗口重定向 ===== */

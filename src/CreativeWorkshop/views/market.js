@@ -1,4 +1,9 @@
 import { MARKET_KIND_LABELS } from '../services/market-service.js';
+import {
+  buildMarketRows,
+  marketPriceLadder,
+  planMarketPurchase,
+} from './market-model.js';
 
 const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const coin = value => Math.max(0, Math.trunc(num(value))).toLocaleString('zh-CN');
@@ -11,37 +16,58 @@ const when = value => {
 };
 const summary = asset => String(
   asset?.data?.描述 || asset?.data?.说明 || asset?.data?.简介 || '',
-).trim().slice(0, 160);
+).trim().slice(0, 180);
 
 export function createMarketView({
-  nodes, element, button, empty, notifyError, confirmDialog, openModal,
-  host, doc, marketService, getAuth,
+  nodes, element, button, empty, notifyError, confirmDialog,
+  host, marketService, getAuth,
 }) {
-  let items = [];
+  let listings = [];
+  let rows = [];
   let nextOffset = null;
   let loading = false;
+  let selectedKey = '';
+  let currentKind = '';
+  let currentMode = 'browse';
+  let sellInventory = null;
+  let selectedSellIndex = -1;
+
+  const currentUserId = () => Number(getAuth()?.user?.id || 0);
 
   const requireLogin = () => {
-    if (!getAuth()?.user) throw new Error('请先登录 Discord 后再进行空间集市交易');
+    const user = getAuth()?.user;
+    if (!user) throw new Error('请先登录 Discord 后再进行空间集市交易');
+    return user;
   };
 
-  const detail = asset => {
-    const box = element('div', 'rw-market-detail');
-    const rows = [
-      ['类型', MARKET_KIND_LABELS[asset?.kind] || '资产'],
-      ['名称', asset?.name || '未命名'],
+  const kindLabel = kind => MARKET_KIND_LABELS[kind] || '资产';
+
+  const assetFacts = asset => {
+    const data = asset?.data || {};
+    const facts = [
+      ['类型', kindLabel(asset?.kind)],
       ['品质 / 层级', quality(asset) || '未标注'],
-      ['数量', String(asset?.quantity || 1)],
     ];
-    for (const entry of rows) {
-      const row = element('div', 'rw-market-detail-row');
-      row.append(element('span', '', entry[0]), element('strong', '', entry[1]));
-      box.append(row);
+    if (data.类型 !== undefined && data.类型 !== '') facts.push(['子类型', String(data.类型)]);
+    if (data.消耗) facts.push(['消耗', String(data.消耗)]);
+    return facts;
+  };
+
+  const assetDetail = asset => {
+    const box = element('div', 'rw-ah-asset-detail');
+    const facts = element('div', 'rw-ah-fact-grid');
+    for (const [label, value] of assetFacts(asset)) {
+      const fact = element('div', 'rw-ah-fact');
+      fact.append(element('span', '', label), element('strong', '', value));
+      facts.append(fact);
     }
+    box.append(facts);
+
     const copy = summary(asset);
-    if (copy) box.append(element('p', 'rw-market-card-copy', copy));
+    if (copy) box.append(element('p', 'rw-ah-description', copy));
+
     const more = element('details', 'rw-market-json');
-    more.append(element('summary', '', '查看完整资产数据'));
+    more.append(element('summary', '', '完整资产数据'));
     const pre = element('pre');
     pre.textContent = JSON.stringify(asset?.data || {}, null, 2);
     more.append(pre);
@@ -49,56 +75,259 @@ export function createMarketView({
     return box;
   };
 
-  const card = listing => {
-    const node = element('article', 'rw-market-card');
-    const top = element('div', 'rw-market-card-head');
-    const badges = element('div', 'rw-market-badges');
-    badges.append(element('span', 'rw-market-kind', MARKET_KIND_LABELS[listing.asset?.kind] || '资产'));
-    if (quality(listing.asset)) badges.append(element('span', 'rw-market-quality', quality(listing.asset)));
-    top.append(badges, element('span', 'rw-market-qty', '剩余 ' + listing.remaining_quantity));
+  const setModeVisuals = () => {
+    for (const tab of nodes.marketModes || []) {
+      tab.classList.toggle('is-active', tab.dataset.marketMode === currentMode);
+    }
+    for (const panel of nodes.marketPanels || []) {
+      panel.hidden = panel.dataset.marketPanel !== currentMode;
+    }
+  };
 
-    node.append(
-      top,
-      element('h3', '', listing.asset?.name || '未命名资产'),
-      element('p', 'rw-market-card-copy', summary(listing.asset) || '卖家未提供额外说明'),
-      element('div', 'rw-market-card-meta', '卖家 · ' + (listing.seller?.display_name || listing.seller?.username || '匿名轮回者')),
+  async function setMode(mode) {
+    if (!['browse', 'sell', 'mine'].includes(mode)) return;
+    if (mode !== 'browse') requireLogin();
+    currentMode = mode;
+    setModeVisuals();
+    if (mode === 'sell') await renderSellMode();
+    if (mode === 'mine') await renderMineMode();
+    if (mode === 'browse' && !listings.length) await refresh();
+    await refreshSummary();
+  }
+
+  const rowIcon = marketRow => {
+    const icon = element('span', 'rw-ah-item-icon', (marketRow.name || '?').slice(0, 1));
+    icon.dataset.kind = marketRow.kind;
+    return icon;
+  };
+
+  const resultRow = marketRow => {
+    const node = element('button', 'rw-ah-result-row');
+    node.type = 'button';
+    node.classList.toggle('is-selected', selectedKey === marketRow.key);
+
+    const itemCell = element('span', 'rw-ah-result-item');
+    const itemCopy = element('span', 'rw-ah-result-item-copy');
+    itemCopy.append(
+      element('strong', '', marketRow.name),
+      element(
+        'small',
+        '',
+        marketRow.kind === 'item'
+          ? marketRow.sellerCount + ' 位卖家 · ' + marketRow.listings.length + ' 个价格档'
+          : (marketRow.listings[0]?.seller?.display_name || '匿名轮回者'),
+      ),
+    );
+    itemCell.append(rowIcon(marketRow), itemCopy);
+
+    const qualityCell = element('span', 'rw-ah-result-quality', quality(marketRow.asset) || '—');
+    const stockCell = element('span', 'rw-ah-result-stock', String(marketRow.totalStock || 0));
+    const priceCell = element('span', 'rw-ah-result-price');
+    priceCell.append(
+      element('strong', '', coin(marketRow.lowestPrice)),
+      element('small', '', ' 空间币'),
     );
 
-    const foot = element('div', 'rw-market-card-foot');
-    const price = element('div', 'rw-market-price');
-    price.append(element('strong', '', coin(listing.unit_price)), element('span', '', ' 空间币 / 件'));
-    const mine = Number(getAuth()?.user?.id) === Number(listing.seller?.id);
-    foot.append(price, button(mine ? '我的挂单' : '购买', mine ? '' : 'primary', async () => {
-      if (mine) return openMine();
-      return openBuy(listing);
-    }));
-    node.append(foot);
+    node.append(itemCell, qualityCell, stockCell, priceCell);
+    node.addEventListener('click', () => {
+      selectedKey = marketRow.key;
+      renderRows();
+      renderInspector(marketRow);
+    });
     return node;
   };
 
-  const render = () => {
-    if (!items.length) empty(nodes.marketList, '当前没有符合条件的挂单。');
-    else nodes.marketList.replaceChildren(...items.map(card));
-    nodes.marketCount.textContent = items.length + ' 个挂单';
+  function renderRows() {
+    rows = buildMarketRows(listings, currentUserId());
+    if (!rows.length) {
+      empty(nodes.marketList, '当前没有符合条件的商品。');
+      selectedKey = '';
+      renderInspector(null);
+    } else {
+      nodes.marketList.replaceChildren(...rows.map(resultRow));
+      const selected = rows.find(row => row.key === selectedKey);
+      if (selected) renderInspector(selected);
+      else if (!selectedKey) {
+        selectedKey = rows[0].key;
+        renderRows();
+        return;
+      } else {
+        selectedKey = rows[0].key;
+        renderInspector(rows[0]);
+      }
+    }
+    nodes.marketCount.textContent = rows.length + ' 种商品 · ' + listings.length + ' 个挂单';
     nodes.marketMore.hidden = nextOffset == null;
-  };
+  }
+
+  function purchaseSummary(marketRow, quantity) {
+    try {
+      return planMarketPurchase(marketRow, quantity, currentUserId());
+    } catch {
+      return null;
+    }
+  }
+
+  function renderInspector(marketRow) {
+    if (!nodes.marketInspector) return;
+    if (!marketRow) {
+      const blank = element('div', 'rw-ah-empty-inspector');
+      blank.append(
+        element('div', 'rw-ah-empty-icon', '◇'),
+        element('strong', '', '选择一个商品'),
+        element('span', '', '右侧会显示详情、卖家与购买数量。'),
+      );
+      nodes.marketInspector.replaceChildren(blank);
+      return;
+    }
+
+    const wrap = element('div', 'rw-ah-inspector-body');
+    const head = element('div', 'rw-ah-inspector-head');
+    const headCopy = element('div');
+    const kicker = element('div', 'rw-ah-inspector-kicker');
+    kicker.append(
+      element('span', 'rw-market-kind', kindLabel(marketRow.kind)),
+      element('span', 'rw-market-quality', quality(marketRow.asset) || '未标注'),
+    );
+    headCopy.append(kicker, element('h3', '', marketRow.name));
+    head.append(rowIcon(marketRow), headCopy);
+    wrap.append(head, assetDetail(marketRow.asset));
+
+    const marketStats = element('div', 'rw-ah-market-stats');
+    const statPairs = [
+      ['总库存', String(marketRow.totalStock || 0)],
+      ['卖家', String(marketRow.sellerCount || 0)],
+      ['最低单价', coin(marketRow.lowestPrice) + ' 空间币'],
+    ];
+    for (const [label, value] of statPairs) {
+      const cell = element('div');
+      cell.append(element('span', '', label), element('strong', '', value));
+      marketStats.append(cell);
+    }
+    wrap.append(marketStats);
+
+    if (marketRow.kind === 'item') {
+      const ladder = marketPriceLadder(marketRow, currentUserId());
+      const box = element('div', 'rw-ah-ladder');
+      box.append(element('div', 'rw-ah-section-label', '市场价格'));
+      if (!ladder.length) {
+        box.append(element('div', 'rw-ah-muted-line', '只有你自己的挂单'));
+      } else {
+        for (const level of ladder.slice(0, 5)) {
+          const line = element('div', 'rw-ah-ladder-row');
+          line.append(
+            element('span', '', coin(level.price) + ' 空间币'),
+            element('span', '', level.stock + ' 件'),
+          );
+          box.append(line);
+        }
+      }
+      wrap.append(box);
+    } else {
+      const listing = marketRow.listings[0];
+      const seller = element('div', 'rw-ah-seller-line');
+      seller.append(
+        element('span', '', '卖家'),
+        element('strong', '', listing?.seller?.display_name || listing?.seller?.username || '匿名轮回者'),
+      );
+      wrap.append(seller);
+    }
+
+    const purchase = element('div', 'rw-ah-purchase-box');
+    if (marketRow.ownedOnly || marketRow.buyableStock <= 0) {
+      purchase.append(
+        element('strong', '', '这是你的挂单'),
+        element('p', '', '不能购买自己的商品。可以前往“我的拍卖”撤回或查看成交记录。'),
+        button('查看我的拍卖', 'primary', () => setMode('mine')),
+      );
+      wrap.append(purchase);
+      nodes.marketInspector.replaceChildren(wrap);
+      return;
+    }
+
+    const quantityLabel = element('label', 'rw-ah-quantity-field');
+    quantityLabel.append(element('span', '', '购买数量'));
+    const quantity = element('input', 'rw-input');
+    quantity.type = 'number';
+    quantity.min = '1';
+    quantity.step = '1';
+    quantity.max = String(marketRow.kind === 'item' ? marketRow.buyableStock : 1);
+    quantity.value = '1';
+    quantity.disabled = marketRow.kind !== 'item';
+    quantityLabel.append(quantity);
+
+    const total = element('div', 'rw-ah-buy-total');
+    const action = button('购买', 'primary', async () => {
+      requireLogin();
+      const plan = purchaseSummary(marketRow, quantity.value);
+      if (!plan) throw new Error('可购买库存不足');
+
+      const local = await marketService.inventory();
+      if (Number(local.coin || 0) < plan.total) {
+        throw new Error('空间币不足：需要 ' + coin(plan.total) + '，当前只有 ' + coin(local.coin));
+      }
+
+      const ok = await confirmDialog({
+        title: '确认购买',
+        message: '购买“' + marketRow.name + '” ×' + plan.quantity
+          + '，合计 ' + coin(plan.total) + ' 空间币？',
+        confirmText: '确认购买',
+      });
+      if (!ok) return;
+
+      for (const line of plan.lines) {
+        await marketService.buy(line.listing, line.quantity);
+      }
+      try { host.toastr?.success?.('购买完成，资产已写入当前存档', '空间集市'); } catch {}
+      await refresh();
+    });
+
+    const updateTotal = () => {
+      const max = Math.max(1, Number(quantity.max) || 1);
+      const requested = marketRow.kind === 'item'
+        ? Math.max(1, Math.min(max, Math.floor(Number(quantity.value) || 1)))
+        : 1;
+      quantity.value = String(requested);
+      const plan = purchaseSummary(marketRow, requested);
+      total.replaceChildren(
+        element('span', '', '预计支付'),
+        element('strong', '', plan ? coin(plan.total) + ' 空间币' : '库存不足'),
+      );
+    };
+    quantity.addEventListener('input', updateTotal);
+    updateTotal();
+
+    purchase.append(
+      quantityLabel,
+      total,
+      action,
+      element('small', 'rw-ah-purchase-help', marketRow.kind === 'item'
+        ? '系统会从最低价开始自动购买，数量不足时继续匹配下一档价格。'
+        : '装备与技能按独立挂单成交。'),
+    );
+    wrap.append(purchase);
+    nodes.marketInspector.replaceChildren(wrap);
+  }
 
   async function refresh({ append = false } = {}) {
     if (loading) return;
     loading = true;
     try {
-      if (!append) empty(nodes.marketList, '正在读取空间集市…');
+      if (!append) {
+        empty(nodes.marketList, '正在读取空间集市…');
+        selectedKey = '';
+      }
       const offset = append && nextOffset != null ? nextOffset : 0;
       const page = await marketService.list({
         query: nodes.marketSearch.value,
-        kind: nodes.marketKind.value,
+        kind: currentKind,
         sort: nodes.marketSort.value,
         offset,
-        limit: 24,
+        limit: 48,
       });
-      items = append ? items.concat(page.items || []) : (page.items || []);
+      listings = append ? listings.concat(page.items || []) : (page.items || []);
       nextOffset = page.next_offset ?? null;
-      render();
+      renderRows();
       await refreshSummary();
     } finally {
       loading = false;
@@ -106,145 +335,165 @@ export function createMarketView({
   }
 
   async function refreshSummary() {
+    if (!nodes.marketSummary) return;
     const cells = [];
     try {
       const local = await marketService.inventory();
-      cells.push(['当前空间币', coin(local.coin)]);
-      cells.push(['可交易资产', String(local.assets.length)]);
-      cells.push(['交易区域', local.inHub ? '主神空间 · 可交易' : '任务世界 · 仅浏览']);
+      cells.push(['空间币', coin(local.coin)]);
+      cells.push(['背包资产', String(local.assets.length)]);
+      cells.push(['区域', local.inHub ? '主神空间' : '任务世界']);
     } catch {
-      cells.push(['当前存档', '未读取 MVU']);
+      cells.push(['当前存档', '未读取']);
     }
+
     if (getAuth()?.user) {
       try {
         const mine = await marketService.mine();
         cells.push(['待领货款', coin(mine.wallet?.balance)]);
-        cells.push([
-          '待恢复事务',
-          String((mine.pending_deliveries?.length || 0) + (mine.pending_returns?.length || 0) + (mine.pending_payouts?.length || 0)),
-        ]);
       } catch {}
     }
-    nodes.marketSummary.replaceChildren(...cells.map(entry => {
-      const cell = element('div', 'rw-market-stat');
-      cell.append(element('span', '', entry[0]), element('strong', '', entry[1]));
+
+    nodes.marketSummary.replaceChildren(...cells.map(([label, value]) => {
+      const cell = element('div', 'rw-ah-account-cell');
+      cell.append(element('span', '', label), element('strong', '', value));
       return cell;
     }));
   }
 
-  async function openBuy(listing) {
-    requireLogin();
-    const modal = openModal('购买 · ' + (listing.asset?.name || '资产'), { wide: true });
-    modal.body.append(detail({ ...listing.asset, quantity: listing.remaining_quantity }));
+  const sellRow = (asset, index) => {
+    const row = element('button', 'rw-ah-inventory-row');
+    row.type = 'button';
+    row.classList.toggle('is-selected', selectedSellIndex === index);
+    const copy = element('span', 'rw-ah-inventory-copy');
+    copy.append(
+      element('strong', '', asset.name),
+      element('small', '', kindLabel(asset.kind) + (quality(asset) ? ' · ' + quality(asset) : '')),
+    );
+    row.append(
+      rowIcon({ name: asset.name, kind: asset.kind }),
+      copy,
+      element('span', 'rw-ah-inventory-qty', asset.kind === 'item' ? '×' + asset.quantity : '1'),
+    );
+    row.addEventListener('click', () => {
+      selectedSellIndex = index;
+      renderSellList();
+      void renderSellEditor(asset).catch(notifyError);
+    });
+    return row;
+  };
 
-    const field = element('label', 'rw-field');
-    field.append(element('span', '', '购买数量'));
-    const qty = element('input', 'rw-input');
-    qty.type = 'number';
-    qty.min = '1';
-    qty.max = String(Math.max(1, Number(listing.remaining_quantity) || 1));
-    qty.step = '1';
-    qty.value = '1';
-    qty.disabled = listing.asset?.kind !== 'item';
-    field.append(qty);
-
-    const total = element('div', 'rw-market-total');
-    const syncTotal = () => {
-      const amount = listing.asset?.kind === 'item'
-        ? Math.max(1, Math.min(Number(qty.max), Math.floor(Number(qty.value) || 1)))
-        : 1;
-      qty.value = String(amount);
-      total.textContent = '合计：' + coin(Number(listing.unit_price) * amount) + ' 空间币';
-    };
-    qty.addEventListener('input', syncTotal);
-    syncTotal();
-
-    const notice = element('p', 'rw-market-notice',
-      '购买会先从当前存档扣除空间币，再由服务器锁定挂单；写回失败的资产会保留在“我的交易”中等待再次领取。');
-    const actions = element('div', 'rw-page-actions');
-    actions.append(button('确认购买', 'primary', async () => {
-      const amount = listing.asset?.kind === 'item' ? Number(qty.value) : 1;
-      const ok = await confirmDialog({
-        title: '确认空间集市交易',
-        message: '购买“' + listing.asset?.name + '” ×' + amount + '，支付 ' + coin(Number(listing.unit_price) * amount) + ' 空间币？',
-        confirmText: '确认购买',
-      });
-      if (!ok) return;
-      await marketService.buy(listing, amount);
-      try { host.toastr?.success?.('交易完成，资产已写入当前存档', '空间集市'); } catch {}
-      modal.close({ force: true });
-      await refresh();
-    }));
-    modal.body.append(field, total, notice, actions);
+  function renderSellList() {
+    const assets = sellInventory?.assets || [];
+    if (!assets.length) empty(nodes.marketSellList, '当前角色没有可出售资产。');
+    else nodes.marketSellList.replaceChildren(...assets.map(sellRow));
+    nodes.marketSellCount.textContent = assets.length + ' 项';
   }
 
-  async function openSell() {
-    requireLogin();
-    const local = await marketService.inventory();
-    if (!local.inHub) throw new Error('请回到主神空间后再上架资产');
-    if (!local.assets.length) throw new Error('当前角色没有可上架的装备、道具或技能');
+  async function renderSellEditor(asset) {
+    if (!asset) {
+      const blank = element('div', 'rw-ah-empty-inspector');
+      blank.append(
+        element('div', 'rw-ah-empty-icon', '＋'),
+        element('strong', '', '从左侧选择资产'),
+        element('span', '', '选择后设置数量与一口价。'),
+      );
+      nodes.marketSellEditor.replaceChildren(blank);
+      return;
+    }
 
-    const modal = openModal('上架资产 · 空间集市', { wide: true, confirmDiscard: true });
-    const selectField = element('label', 'rw-field');
-    selectField.append(element('span', '', '选择资产'));
-    const select = element('select', 'rw-select');
-    local.assets.forEach((asset, index) => {
-      const option = doc.createElement('option');
-      option.value = String(index);
-      option.textContent = MARKET_KIND_LABELS[asset.kind] + ' · ' + asset.name
-        + (asset.quality ? ' · ' + asset.quality : '')
-        + (asset.kind === 'item' ? ' ×' + asset.quantity : '');
-      select.append(option);
-    });
-    selectField.append(select);
+    const editor = element('div', 'rw-ah-sell-editor-body');
+    const head = element('div', 'rw-ah-inspector-head');
+    const headCopy = element('div');
+    const tags = element('div', 'rw-ah-inspector-kicker');
+    tags.append(
+      element('span', 'rw-market-kind', kindLabel(asset.kind)),
+      element('span', 'rw-market-quality', quality(asset) || '未标注'),
+    );
+    headCopy.append(tags, element('h3', '', asset.name));
+    head.append(rowIcon({ name: asset.name, kind: asset.kind }), headCopy);
+    editor.append(head, assetDetail(asset));
 
-    const qtyField = element('label', 'rw-field');
-    qtyField.append(element('span', '', '上架数量'));
+    let reference = null;
+    try {
+      const page = await marketService.list({
+        query: asset.name,
+        kind: asset.kind,
+        sort: 'price_asc',
+        offset: 0,
+        limit: 20,
+      });
+      reference = (page.items || []).find(item => item.asset?.name === asset.name) || null;
+    } catch {}
+
+    const referenceBox = element('div', 'rw-ah-reference-price');
+    referenceBox.append(
+      element('span', '', '当前市场最低价'),
+      element('strong', '', reference ? coin(reference.unit_price) + ' 空间币' : '暂无同名商品'),
+    );
+    editor.append(referenceBox);
+
+    if (!sellInventory?.inHub) {
+      const block = element('div', 'rw-ah-blocked');
+      block.append(
+        element('strong', '', '当前只能浏览'),
+        element('span', '', '请回到主神空间后再上架资产。'),
+      );
+      editor.append(block);
+      nodes.marketSellEditor.replaceChildren(editor);
+      return;
+    }
+
+    const form = element('div', 'rw-ah-sell-form');
+    const qtyField = element('label', 'rw-ah-form-field');
+    qtyField.append(element('span', '', '数量'));
     const qty = element('input', 'rw-input');
     qty.type = 'number';
     qty.min = '1';
     qty.step = '1';
+    qty.max = String(asset.kind === 'item' ? asset.quantity : 1);
     qty.value = '1';
+    qty.disabled = asset.kind !== 'item';
     qtyField.append(qty);
 
-    const priceField = element('label', 'rw-field');
-    priceField.append(element('span', '', '单价 · 空间币'));
+    const priceField = element('label', 'rw-ah-form-field');
+    priceField.append(element('span', '', '一口价 / 件'));
     const price = element('input', 'rw-input');
     price.type = 'number';
     price.min = '1';
     price.max = '1000000000';
-    price.required = true;
-    price.placeholder = '例如 500';
+    price.step = '1';
+    if (reference?.unit_price) price.value = String(reference.unit_price);
+    price.placeholder = '输入空间币';
     priceField.append(price);
 
-    const preview = element('div', 'rw-market-sell-preview');
-    const selected = () => local.assets[Math.max(0, Number(select.value) || 0)];
-    const sync = () => {
-      const asset = selected();
-      const max = asset.kind === 'item' ? asset.quantity : 1;
-      qty.max = String(max);
-      qty.disabled = asset.kind !== 'item';
-      qty.value = String(Math.max(1, Math.min(max, Math.floor(Number(qty.value) || 1))));
-      preview.replaceChildren(detail({ ...asset, quantity: Number(qty.value) }));
+    const total = element('div', 'rw-ah-sell-total');
+    const syncTotal = () => {
+      const amount = asset.kind === 'item'
+        ? Math.max(1, Math.min(Number(qty.max), Math.floor(Number(qty.value) || 1)))
+        : 1;
+      qty.value = String(amount);
+      const unitPrice = Math.max(0, Math.floor(Number(price.value) || 0));
+      total.textContent = unitPrice > 0
+        ? '成交总额 ' + coin(unitPrice * amount) + ' 空间币'
+        : '设置一口价后可上架';
     };
-    select.addEventListener('change', sync);
-    qty.addEventListener('input', sync);
-    sync();
+    qty.addEventListener('input', syncTotal);
+    price.addEventListener('input', syncTotal);
+    syncTotal();
 
-    const warning = element('p', 'rw-market-notice warning',
-      '测试版说明：商品属于玩家本地存档资产，不作为官方防作弊认证。上架成功后，资产会从当前存档移出。');
-    const actions = element('div', 'rw-page-actions');
-    actions.append(button('确认上架', 'primary', async () => {
-      const asset = selected();
+    const submit = button('创建拍卖', 'primary', async () => {
       const amount = asset.kind === 'item' ? Math.floor(Number(qty.value) || 1) : 1;
       const unitPrice = Math.floor(Number(price.value) || 0);
-      if (unitPrice <= 0) throw new Error('请输入有效的空间币单价');
+      if (unitPrice <= 0) throw new Error('请输入有效的一口价');
+
       const ok = await confirmDialog({
         title: '确认上架',
-        message: '将“' + asset.name + '” ×' + amount + ' 移入空间集市，单价 ' + coin(unitPrice) + ' 空间币？',
-        confirmText: '确认上架',
+        message: '上架“' + asset.name + '” ×' + amount
+          + '，一口价 ' + coin(unitPrice) + ' 空间币 / 件？',
+        confirmText: '创建拍卖',
       });
       if (!ok) return;
+
       await marketService.sell({
         kind: asset.kind,
         key: asset.key,
@@ -252,140 +501,183 @@ export function createMarketView({
         quantity: amount,
         unitPrice,
       });
-      modal.markClean();
-      modal.close({ force: true });
-      try { host.toastr?.success?.('资产已上架空间集市', '空间集市'); } catch {}
-      await refresh();
-    }));
+      try { host.toastr?.success?.('已创建拍卖', '空间集市'); } catch {}
+      selectedSellIndex = -1;
+      await renderSellMode();
+      await refresh({ append: false });
+    });
 
-    modal.body.append(selectField, qtyField, priceField, preview, warning, actions);
+    form.append(qtyField, priceField, total, submit);
+    editor.append(form, element(
+      'p',
+      'rw-market-notice warning',
+      '上架成功后资产会从当前存档移入服务器交易记录；测试版仍属于玩家存档资产，不做官方真伪认证。',
+    ));
+    nodes.marketSellEditor.replaceChildren(editor);
   }
 
-  const txRow = (title, meta, actions = []) => {
-    const row = element('div', 'rw-market-tx-row');
-    const copy = element('div', 'rw-market-tx-copy');
+  async function renderSellMode() {
+    requireLogin();
+    try {
+      sellInventory = await marketService.inventory();
+    } catch (error) {
+      sellInventory = { assets: [], inHub: false, coin: 0 };
+      empty(nodes.marketSellList, error.message || '无法读取当前存档');
+      throw error;
+    }
+    renderSellList();
+
+    const asset = sellInventory.assets?.[selectedSellIndex] || null;
+    await renderSellEditor(asset);
+  }
+
+  const transactionRow = (title, meta, actions = []) => {
+    const row = element('div', 'rw-ah-transaction-row');
+    const copy = element('div', 'rw-ah-transaction-copy');
     copy.append(element('strong', '', title), element('span', '', meta));
-    const buttons = element('div', 'rw-market-tx-actions');
-    buttons.append(...actions);
-    row.append(copy, buttons);
+    const actionBox = element('div', 'rw-ah-transaction-actions');
+    actionBox.append(...actions);
+    row.append(copy, actionBox);
     return row;
   };
 
-  async function openMine() {
+  const section = (title, count = '') => {
+    const node = element('section', 'rw-ah-mine-section');
+    const head = element('div', 'rw-ah-mine-section-head');
+    head.append(element('h4', '', title), element('span', '', count));
+    node.append(head);
+    return node;
+  };
+
+  async function renderMineMode() {
     requireLogin();
     const state = await marketService.mine();
-    const modal = openModal('我的交易 · 空间集市', { extraWide: true });
+    const content = element('div', 'rw-ah-mine-stack');
 
-    const wallet = element('section', 'rw-market-wallet');
+    const wallet = element('div', 'rw-ah-wallet');
     const walletCopy = element('div');
     walletCopy.append(
-      element('span', '', '服务器待领货款'),
+      element('span', '', '待领取货款'),
       element('strong', '', coin(state.wallet?.balance) + ' 空间币'),
     );
     wallet.append(walletCopy);
     if (Number(state.wallet?.balance) > 0) {
       wallet.append(button('领取到当前存档', 'primary', async () => {
         await marketService.claimProceeds();
-        modal.close({ force: true });
         try { host.toastr?.success?.('货款已写入当前存档', '空间集市'); } catch {}
-        await openMine();
+        await renderMineMode();
         await refreshSummary();
       }));
     }
+    content.append(wallet);
 
-    const recovery = element('section', 'rw-market-mine-section');
-    recovery.append(element('h3', '', '待恢复 / 待领取'));
-    let recoveryCount = 0;
+    const pendingCount = (state.pending_deliveries?.length || 0)
+      + (state.pending_returns?.length || 0)
+      + (state.pending_payouts?.length || 0);
+    const recovery = section('待领取 / 待恢复', String(pendingCount));
+    if (!pendingCount) recovery.append(element('div', 'rw-ah-muted-line', '没有待恢复事务。'));
+
     for (const trade of state.pending_deliveries || []) {
-      recoveryCount += 1;
-      recovery.append(txRow(
-        '待领取 · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
+      recovery.append(transactionRow(
+        '购买待领取 · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
         coin(trade.total_price) + ' 空间币 · ' + when(trade.created_at),
-        [button('写入当前存档', 'primary', async () => {
+        [button('领取', 'primary', async () => {
           await marketService.deliverTrade(trade);
-          modal.close({ force: true });
-          await openMine();
+          await renderMineMode();
         })],
       ));
     }
     for (const returned of state.pending_returns || []) {
-      recoveryCount += 1;
-      recovery.append(txRow(
-        '撤回返还 · ' + (returned.asset?.name || '资产') + ' ×' + (returned.quantity || 1),
+      recovery.append(transactionRow(
+        '撤回待返还 · ' + (returned.asset?.name || '资产') + ' ×' + (returned.quantity || 1),
         when(returned.created_at),
-        [button('返还当前存档', 'primary', async () => {
+        [button('返还', 'primary', async () => {
           await marketService.receiveReturn(returned);
-          modal.close({ force: true });
-          await openMine();
+          await renderMineMode();
         })],
       ));
     }
     for (const payout of state.pending_payouts || []) {
-      recoveryCount += 1;
-      recovery.append(txRow(
-        '待写入货款 · ' + coin(payout.amount) + ' 空间币',
+      recovery.append(transactionRow(
+        '货款待写入 · ' + coin(payout.amount) + ' 空间币',
         when(payout.created_at),
-        [button('写入当前存档', 'primary', async () => {
+        [button('写入', 'primary', async () => {
           await marketService.receivePayout(payout);
-          modal.close({ force: true });
-          await openMine();
+          await renderMineMode();
           await refreshSummary();
         })],
       ));
     }
-    if (!recoveryCount) recovery.append(element('p', 'rw-muted', '没有待恢复事务。'));
+    content.append(recovery);
 
-    const listings = element('section', 'rw-market-mine-section');
-    listings.append(element('h3', '', '我的挂单'));
     const active = (state.listings || []).filter(value => value.status === 'active');
-    if (!active.length) listings.append(element('p', 'rw-muted', '当前没有在售挂单。'));
+    const activeSection = section('正在出售', String(active.length));
+    if (!active.length) activeSection.append(element('div', 'rw-ah-muted-line', '当前没有在售拍卖。'));
     for (const listing of active) {
-      listings.append(txRow(
+      activeSection.append(transactionRow(
         (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
-        coin(listing.unit_price) + ' 空间币 / 件',
-        [button('撤回', 'danger', async () => {
+        coin(listing.unit_price) + ' 空间币 / 件 · ' + when(listing.created_at),
+        [button('取消拍卖', 'danger', async () => {
           const ok = await confirmDialog({
-            title: '撤回挂单',
+            title: '取消拍卖',
             message: '撤回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity + ' 件？',
-            confirmText: '撤回',
+            confirmText: '取消拍卖',
             danger: true,
           });
           if (!ok) return;
           await marketService.cancel(listing.id);
-          modal.close({ force: true });
-          await openMine();
+          try { host.toastr?.success?.('拍卖已取消，剩余资产已返还', '空间集市'); } catch {}
+          await renderMineMode();
           await refresh();
         })],
       ));
     }
+    content.append(activeSection);
 
-    const history = element('section', 'rw-market-mine-section');
-    history.append(element('h3', '', '最近成交'));
     const records = []
       .concat((state.purchases || []).map(value => ({ ...value, side: '买入' })))
       .concat((state.sales || []).map(value => ({ ...value, side: '卖出' })))
       .sort((a, b) => Number(b.created_at) - Number(a.created_at))
       .slice(0, 30);
-    if (!records.length) history.append(element('p', 'rw-muted', '还没有成交记录。'));
+    const history = section('成交记录', String(records.length));
+    if (!records.length) history.append(element('div', 'rw-ah-muted-line', '还没有成交记录。'));
     for (const trade of records) {
-      history.append(txRow(
+      history.append(transactionRow(
         trade.side + ' · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
         coin(trade.total_price) + ' 空间币 · ' + when(trade.created_at),
       ));
     }
+    content.append(history);
 
-    modal.body.append(wallet, recovery, listings, history);
+    nodes.marketMineContent.replaceChildren(content);
   }
 
   nodes.marketSearchButton?.addEventListener('click', () => void refresh().catch(notifyError));
   nodes.marketSearch?.addEventListener('keydown', event => {
     if (event.key === 'Enter') void refresh().catch(notifyError);
   });
-  nodes.marketKind?.addEventListener('change', () => void refresh().catch(notifyError));
   nodes.marketSort?.addEventListener('change', () => void refresh().catch(notifyError));
   nodes.marketMore?.addEventListener('click', () => void refresh({ append: true }).catch(notifyError));
-  nodes.marketSell?.addEventListener('click', () => void openSell().catch(notifyError));
-  nodes.marketMine?.addEventListener('click', () => void openMine().catch(notifyError));
+  nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
 
-  return { refresh, openSell, openMine };
+  for (const tab of nodes.marketModes || []) {
+    tab.addEventListener('click', () => void setMode(tab.dataset.marketMode).catch(notifyError));
+  }
+  for (const category of nodes.marketCategories || []) {
+    category.addEventListener('click', () => {
+      currentKind = category.dataset.marketKind || '';
+      for (const candidate of nodes.marketCategories || []) {
+        candidate.classList.toggle('is-active', candidate === category);
+      }
+      void refresh().catch(notifyError);
+    });
+  }
+
+  setModeVisuals();
+
+  return {
+    refresh,
+    openSell: () => setMode('sell'),
+    openMine: () => setMode('mine'),
+  };
 }

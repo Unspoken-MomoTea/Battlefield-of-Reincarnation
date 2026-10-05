@@ -121,6 +121,9 @@
         worldPersonRecord(name){return this.services.people.get(name);}
         setWorldPersonRecord(name,record){return this.services.people.save(name,record);}
         removeWorldPersonRecord(name){return this.services.people.remove(name);}
+        worldDirectoryRecord(kind,name){return this.services.exploration.record(kind,name);}
+        setWorldDirectoryRecord(kind,oldName,newName,payload){return this.services.exploration.saveRecord(kind,oldName,newName,payload);}
+        removeWorldDirectoryRecord(kind,name){return this.services.exploration.removeRecord(kind,name);}
         persistCausalOffsetMutation(mutator,status){return this.services.causal.commit(mutator,status);}
         causalOffsetRecord(name){return this.services.causal.get(name);}
         setCausalOffsetRecord(oldName,newName,record){return this.services.causal.save(oldName,newName,record);}

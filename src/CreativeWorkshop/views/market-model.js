@@ -6,7 +6,7 @@ export function buildMarketRows(listings = [], currentUserId = null) {
     if (!listing?.id || !listing?.asset) continue;
     const kind = String(listing.asset.kind || '');
     const name = String(listing.asset.name || '未命名资产');
-    const key = kind === 'item' ? `item:\${name}` : `listing:\${listing.id}`;
+    const key = kind === 'item' ? 'item:' + name : 'listing:' + listing.id;
 
     let row = grouped.get(key);
     if (!row) {

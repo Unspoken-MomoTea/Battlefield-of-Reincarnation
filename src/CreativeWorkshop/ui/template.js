@@ -99,38 +99,102 @@ export function workshopTemplate(version) {
         <div class="rw-grid rw-project-grid" data-role="favorites-list"></div>
         <div class="rw-load-more-wrap"><button class="rw-button" data-action="favorites-more" type="button" hidden>加载更多</button></div>
       </section>
-      <section class="rw-section rw-market-page" data-section="market" hidden>
-        <div class="rw-market-hero">
-          <div class="rw-market-hero-copy">
-            <small>SPACE BAZAAR · TESTING</small>
+      <section class="rw-section rw-market-page rw-auction-house" data-section="market" hidden>
+        <div class="rw-ah-head">
+          <div class="rw-ah-title">
+            <div class="rw-ah-kicker">SPACE BAZAAR <span class="rw-market-test-badge">TEST</span></div>
             <h2>空间集市</h2>
-            <p>玩家之间交易当前存档里的装备、道具与技能。第一版使用空间币固定价交易；求购与以物易物后续再扩展。</p>
+            <p>参考拍卖行的信息架构：先找商品，再看最低价与库存，最后在右侧完成购买。</p>
           </div>
-          <div class="rw-market-hero-actions">
-            <button class="rw-button" data-action="market-mine" type="button">我的交易</button>
-            <button class="rw-button primary" data-action="market-sell" type="button">上架资产</button>
+          <div class="rw-ah-account-strip" data-role="market-summary"></div>
+        </div>
+
+        <div class="rw-ah-tabs" role="tablist" aria-label="空间集市">
+          <button class="rw-ah-tab is-active" data-market-mode="browse" type="button">浏览</button>
+          <button class="rw-ah-tab" data-market-mode="sell" type="button">出售</button>
+          <button class="rw-ah-tab" data-market-mode="mine" type="button">我的拍卖</button>
+          <div class="rw-ah-tab-spacer"></div>
+          <span class="rw-ah-region-note">主神空间可交易 · 任务世界仅浏览</span>
+        </div>
+
+        <div class="rw-ah-panel" data-market-panel="browse">
+          <div class="rw-ah-toolbar">
+            <div class="rw-ah-search">
+              <span aria-hidden="true">⌕</span>
+              <input class="rw-input" data-field="market-search" placeholder="搜索物品名称">
+            </div>
+            <select class="rw-select" data-field="market-sort" aria-label="集市排序">
+              <option value="price_asc">最低价优先</option>
+              <option value="latest">最新上架</option>
+              <option value="price_desc">最高价优先</option>
+            </select>
+            <button class="rw-button primary" data-action="market-search" type="button">搜索</button>
+            <div class="rw-ah-result-count" data-role="market-count">正在载入</div>
+          </div>
+
+          <div class="rw-ah-browser">
+            <aside class="rw-ah-categories" aria-label="商品分类">
+              <div class="rw-ah-side-title">分类</div>
+              <button class="rw-ah-category is-active" data-market-kind="" type="button"><span>全部商品</span><small>ALL</small></button>
+              <button class="rw-ah-category" data-market-kind="equipment" type="button"><span>装备</span><small>EQUIP</small></button>
+              <button class="rw-ah-category" data-market-kind="item" type="button"><span>道具</span><small>ITEM</small></button>
+              <button class="rw-ah-category" data-market-kind="skill" type="button"><span>技能</span><small>SKILL</small></button>
+              <div class="rw-ah-side-rule"></div>
+              <div class="rw-ah-side-help">商品来自玩家本地存档。测试版不声明防作弊认证。</div>
+            </aside>
+
+            <section class="rw-ah-results">
+              <div class="rw-ah-table-head">
+                <span>物品</span>
+                <span>品质</span>
+                <span>库存</span>
+                <span>单价</span>
+              </div>
+              <div class="rw-ah-list" data-role="market-list"></div>
+              <div class="rw-ah-load-more">
+                <button class="rw-button" data-action="market-more" type="button" hidden>加载更多</button>
+              </div>
+            </section>
+
+            <aside class="rw-ah-inspector" data-role="market-inspector">
+              <div class="rw-ah-empty-inspector">
+                <div class="rw-ah-empty-icon">◇</div>
+                <strong>选择一个商品</strong>
+                <span>右侧会显示详情、卖家与购买数量。</span>
+              </div>
+            </aside>
           </div>
         </div>
-        <div class="rw-market-summary" data-role="market-summary"></div>
-        <div class="rw-market-toolbar">
-          <input class="rw-input" data-field="market-search" placeholder="搜索装备、道具或技能名称">
-          <select class="rw-select" data-field="market-kind" aria-label="集市资产类型">
-            <option value="">全部类型</option>
-            <option value="equipment">装备</option>
-            <option value="item">道具</option>
-            <option value="skill">技能</option>
-          </select>
-          <select class="rw-select" data-field="market-sort" aria-label="集市排序">
-            <option value="latest">最新上架</option>
-            <option value="price_asc">价格从低到高</option>
-            <option value="price_desc">价格从高到低</option>
-          </select>
-          <button class="rw-button" data-action="market-search" type="button">搜索</button>
+
+        <div class="rw-ah-panel" data-market-panel="sell" hidden>
+          <div class="rw-ah-sell-layout">
+            <section class="rw-ah-inventory-pane">
+              <div class="rw-ah-pane-head">
+                <div><small>INVENTORY</small><h3>选择要出售的资产</h3></div>
+                <span data-role="market-sell-count">—</span>
+              </div>
+              <div class="rw-ah-inventory-list" data-role="market-sell-list"></div>
+            </section>
+            <section class="rw-ah-sell-editor" data-role="market-sell-editor">
+              <div class="rw-ah-empty-inspector">
+                <div class="rw-ah-empty-icon">＋</div>
+                <strong>从左侧选择资产</strong>
+                <span>选择后设置数量与一口价。</span>
+              </div>
+            </section>
+          </div>
         </div>
-        <div class="rw-market-note">测试版规则：服务器负责账号、挂单、成交、待领取与流水；资产来源仍是玩家本地 MVU 存档，因此不把商品标记为“官方认证资产”。交易写入只允许在主神空间进行，任务世界只能浏览。</div>
-        <div class="rw-page-head-meta" data-role="market-count">正在载入</div>
-        <div class="rw-market-grid" data-role="market-list"></div>
-        <div class="rw-load-more-wrap"><button class="rw-button" data-action="market-more" type="button" hidden>加载更多</button></div>
+
+        <div class="rw-ah-panel" data-market-panel="mine" hidden>
+          <div class="rw-ah-mine-toolbar">
+            <div>
+              <small>ACCOUNT</small>
+              <h3>我的拍卖</h3>
+            </div>
+            <button class="rw-button" data-action="market-mine-refresh" type="button">刷新</button>
+          </div>
+          <div class="rw-ah-mine-content" data-role="market-mine-content"></div>
+        </div>
       </section>
       <section class="rw-section" data-section="installed" hidden>
         <div class="rw-page-head">

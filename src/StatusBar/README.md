@@ -68,3 +68,5 @@ window.ReincarnationWorkshopConfig = {
 ```
 
 默认仍走正式 `status-bar-v*`，不会因为创意工坊自身处于 testing/main 就自动把测试状态栏推给用户。
+
+`v1.0.2` 起，左侧 Tab 轨道始终保留可见的滚动轨道、上下边缘渐隐与底部轻量下拉提示；鼠标悬停时滚动条会强调。按钮未溢出时不制造假的空白回弹，真正超出高度后使用原生纵向滚动，并保持 `.sam-tab-rail` / `.sam-tab-btn` / `data-tab` 扩展挂载约定不变。

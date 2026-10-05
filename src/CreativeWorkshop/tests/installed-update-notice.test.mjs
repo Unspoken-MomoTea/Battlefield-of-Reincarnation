@@ -164,6 +164,7 @@ test('background update check records update state without forcing the Installed
 
 test('enabled up-to-date project uses stop and restore as its primary action instead of check update', async () => {
   const installedList = new FakeNode();
+  const primaryLabels = [];
   const view = createInstalledView({
     nodes: {
       installedList,
@@ -178,6 +179,7 @@ test('enabled up-to-date project uses stop and restore as its primary action ins
       const node = new FakeNode(label);
       node.className = className;
       node.onClick = onClick;
+      if (className.includes('rw-local-primary')) primaryLabels.push(label);
       return node;
     },
     empty: (node, message) => node.replaceChildren(new FakeNode(message)),
@@ -217,6 +219,5 @@ test('enabled up-to-date project uses stop and restore as its primary action ins
   await view.refresh();
   const rendered = textOf(installedList);
   assert.match(rendered, /已启用 v3/u);
-  assert.match(rendered, /停用并还原/u);
-  assert.doesNotMatch(rendered, /检查更新/u);
+  assert.deepEqual(primaryLabels, ['停用并还原']);
 });

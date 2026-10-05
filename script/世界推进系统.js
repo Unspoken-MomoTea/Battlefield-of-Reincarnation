@@ -5,7 +5,7 @@
  */
 (function (root) {
     'use strict';
-    const WORLD_ENGINE_VERSION='2.0.8';
+    const WORLD_ENGINE_VERSION='2.0.9';
     const copy = value => JSON.parse(JSON.stringify(value));
     const plain = value => !!value && typeof value === 'object' && !Array.isArray(value);
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -4271,6 +4271,15 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
                 #sam-world-engine .we-switch-track i{display:block;width:17px;height:17px;border-radius:50%;background:#fff;transition:transform .15s}
                 #sam-world-engine .we-switch.on .we-switch-track{background:var(--we-accent,var(--gold))}
                 #sam-world-engine .we-switch.on .we-switch-track i{transform:translateX(19px)}
+                #sam-world-engine .we-manual-advance-mask{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:24px;background:#08111bcc;backdrop-filter:blur(5px)}
+                #sam-world-engine .we-manual-advance-dialog{width:min(620px,100%);max-height:min(78vh,720px);overflow:auto;padding:20px;border:1px solid var(--we-line,var(--line));border-radius:14px;background:var(--we-card,#fffdf8);color:var(--we-ink,var(--ink));box-shadow:0 24px 80px #0008}
+                #sam-world-engine .we-manual-advance-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
+                #sam-world-engine .we-manual-advance-head b{display:block;font:600 18px/1.35 Georgia,"SimSun",serif}
+                #sam-world-engine .we-manual-advance-head small{display:block;margin-top:3px;color:var(--we-sub,var(--sub));font-size:11px}
+                #sam-world-engine .we-manual-advance-dialog>p{margin:8px 0 12px;color:var(--we-sub,var(--sub));font-size:12px}
+                #sam-world-engine .we-manual-advance-dialog textarea{min-height:150px;max-height:42vh;padding:12px;background:var(--we-input,#121b26);color:var(--we-ink,var(--ink));border:1px solid var(--we-line,var(--line));border-radius:9px;line-height:1.65}
+                #sam-world-engine .we-manual-advance-rerun{margin:0 0 12px;padding:10px 12px;border-left:3px solid var(--we-accent,var(--gold));border-radius:7px;background:color-mix(in srgb,var(--we-accent,var(--gold)) 10%,transparent);font-size:12px}
+                #sam-world-engine .we-manual-advance-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
                 @media(max-width:1100px){
                     #sam-world-engine .we-world-focus{grid-template-columns:1fr}
                     #sam-world-engine .we-dashboard{grid-template-columns:1fr}
@@ -6348,6 +6357,87 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         constructor(engine){this.engine=engine;}
         async afterBuildRequest(request,_base){return request;}
     }
+    class WorldManualAdvanceFeature extends WorldRequestFeature {
+        constructor(engine){super(engine);this.engine=engine;}
+        normalizeInstruction(value){return String(value||'').trim().slice(0,4000);}
+        rerunInfo(){
+            const e=this.engine;
+            try{
+                const snapshot=e.snapshot(),handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
+                const replay=snapshot?.raw?.__samsaraWorldReplay;
+                return {
+                    processed:!!snapshot?.fingerprint&&handled===String(snapshot.fingerprint),
+                    baseline:!!(plain(replay)&&String(replay.fingerprint||'')===String(snapshot?.fingerprint||'')&&Array.isArray(replay.rerunBaseline)&&replay.rerunBaseline.length)
+                };
+            }catch(_){return {processed:false,baseline:false};}
+        }
+        requestInstruction(){
+            const e=this.engine,panel=e.panel,doc=e.host?.document;
+            if(!panel||!doc||typeof doc.createElement!=='function')return Promise.resolve('');
+            const existing=panel.querySelector('[data-manual-advance-dialog]');
+            if(existing)existing.remove();
+            const info=this.rerunInfo();
+            return new Promise(resolve=>{
+                const mask=doc.createElement('div');
+                mask.className='we-manual-advance-mask';mask.dataset.manualAdvanceDialog='';
+                const note=info.processed&&info.baseline
+                    ?'<div class="we-manual-advance-rerun">当前楼层已有推进结果。本次会从这轮推进前的世界状态重新推演，并用新结果替换原结果。</div>'
+                    :'';
+                mask.innerHTML='<div class="we-manual-advance-dialog" role="dialog" aria-modal="true" aria-labelledby="we-manual-advance-title">'
+                    +'<div class="we-manual-advance-head"><div><b id="we-manual-advance-title">本次推进指导</b><small>可选 · 仅本轮有效</small></div></div>'
+                    +'<p>可以告诉世界 AI 这一次重点推进、暂缓或重新处理什么。留空则按正常规则推进。</p>'
+                    +note
+                    +'<textarea data-manual-advance-input rows="7" maxlength="4000" placeholder="例如：暂时不要推进第一层 Boss，重点维护攻略组准备和其他角色的场外行动。"></textarea>'
+                    +'<div class="we-manual-advance-actions"><button type="button" class="we-btn" data-manual-advance-cancel>取消</button><button type="button" class="we-btn we-primary" data-manual-advance-submit>推进世界</button></div>'
+                    +'</div>';
+                panel.appendChild(mask);
+                const input=mask.querySelector('[data-manual-advance-input]');
+                let settled=false;
+                const finish=value=>{
+                    if(settled)return;settled=true;
+                    mask.remove();
+                    resolve(value);
+                };
+                mask.querySelector('[data-manual-advance-cancel]')?.addEventListener('click',()=>finish(null));
+                mask.querySelector('[data-manual-advance-submit]')?.addEventListener('click',()=>finish(this.normalizeInstruction(input?.value)));
+                mask.addEventListener('click',event=>{if(event.target===mask)finish(null);});
+                mask.addEventListener('keydown',event=>{
+                    if(event.key==='Escape'){event.preventDefault();finish(null);return;}
+                    if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();finish(this.normalizeInstruction(input?.value));}
+                });
+                try{input?.focus();}catch(_){}
+            });
+        }
+        async trigger(){
+            const e=this.engine;if(e.busy)return false;
+            const instruction=await this.requestInstruction();
+            if(instruction===null)return false;
+            return e.run({automatic:false,instruction});
+        }
+        async aroundRun(next,options={}){
+            const e=this.engine,previous=e.manualAdvanceInstruction;
+            const automatic=plain(options)&&options.automatic===true;
+            e.manualAdvanceInstruction=automatic?'':this.normalizeInstruction(options?.instruction);
+            try{return await next();}
+            finally{e.manualAdvanceInstruction=previous;}
+        }
+        async afterBuildRequest(request,base){
+            const instruction=this.normalizeInstruction(this.engine.manualAdvanceInstruction);
+            if(!instruction)return request;
+            let payload;try{payload=JSON.parse(String(request.input||''));}catch(_){return request;}
+            const registry=this.engine.services?.prompts;
+            const fallback=typeof WORLD_PROMPT_MANUAL_ADVANCE_GUIDANCE==='string'?WORLD_PROMPT_MANUAL_ADVANCE_GUIDANCE:'';
+            payload.本轮人工指导={
+                来源:'玩家手动推进',
+                模式:base?.manualRerun?.restored===true?'重新推演当前楼层':'正常手动推进',
+                要求:instruction,
+                执行规则:String(registry?.value?.('manualAdvanceGuidance')||fallback)
+            };
+            request.input=JSON.stringify(payload,null,2);
+            request.manifest=Object.assign({},request.manifest,{人工指导:{启用:true,模式:payload.本轮人工指导.模式,字符数:instruction.length}});
+            return request;
+        }
+    }
     class WorldAutoProgressController {
         constructor(engine){this.engine=engine;}
         initialize(){
@@ -6571,10 +6661,61 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const keys=new Set([...Object.keys(before),...Object.keys(after)]);
             for(const key of keys){if(!forbidden.has(key))this.collect(before[key],after[key],path.concat(key),operations);}
         }
+        collectRerunBaseline(before,after,path,records){
+            if(same(before,after))return;
+            if(before===undefined||after===undefined||this.atomicPath(path)||!plain(before)||!plain(after)){
+                records.push({
+                    path:copy(path),
+                    before:before===undefined?{exists:false}:{exists:true,value:copy(before)},
+                    after:after===undefined?{exists:false}:{exists:true,value:copy(after)}
+                });
+                return;
+            }
+            const keys=new Set([...Object.keys(before),...Object.keys(after)]);
+            for(const key of keys){if(!forbidden.has(key))this.collectRerunBaseline(before[key],after[key],path.concat(key),records);}
+        }
         buildPackage(beforeStat,afterStat,fingerprint){
             if(!plain(beforeStat)||!plain(afterStat)||!fingerprint)return null;
-            const operations=[];for(const scope of WORLD_REPLAY_SCOPES)this.collect(get(beforeStat,scope),get(afterStat,scope),scope,operations);
-            return operations.length?{version:WORLD_REPLAY_VERSION,fingerprint:String(fingerprint),operations}:null;
+            const operations=[],rerunBaseline=[];
+            for(const scope of WORLD_REPLAY_SCOPES){
+                this.collect(get(beforeStat,scope),get(afterStat,scope),scope,operations);
+                this.collectRerunBaseline(get(beforeStat,scope),get(afterStat,scope),scope,rerunBaseline);
+            }
+            return operations.length?{version:WORLD_REPLAY_VERSION,fingerprint:String(fingerprint),operations,rerunBaseline}:null;
+        }
+        readPath(stat,path){
+            let cursor=stat;
+            for(const key of path){
+                if(!plain(cursor)||!Object.prototype.hasOwnProperty.call(cursor,key))return {exists:false,value:undefined};
+                cursor=cursor[key];
+            }
+            return {exists:true,value:cursor};
+        }
+        restoreManualBaseline(stat,packageValue){
+            const records=packageValue?.rerunBaseline;
+            if(!plain(stat)||!plain(packageValue)||packageValue.version!==WORLD_REPLAY_VERSION||!Array.isArray(records))return 0;
+            for(const record of records){
+                const path=Array.isArray(record?.path)?record.path.map(String):[];
+                if(!this.pathAllowed(path)||!plain(record?.before)||!plain(record?.after))return 0;
+            }
+            let restored=0;
+            for(const record of records){
+                const path=record.path.map(String),current=this.readPath(stat,path),after=record.after;
+                const matchesAfter=after.exists===true
+                    ?current.exists===true&&same(current.value,after.value)
+                    :current.exists===false;
+                if(!matchesAfter)continue;
+                let parent=stat;
+                for(const key of path.slice(0,-1)){
+                    if(!plain(parent[key]))parent[key]={};
+                    parent=parent[key];
+                }
+                const key=path.at(-1),before=record.before;
+                if(before.exists===true)parent[key]=copy(before.value);
+                else delete parent[key];
+                restored++;
+            }
+            return restored;
         }
         applyPackage(stat,packageValue){
             if(!plain(stat)||!plain(packageValue)||packageValue.version!==WORLD_REPLAY_VERSION||!Array.isArray(packageValue.operations))return false;
@@ -6680,6 +6821,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         adjustSnapshot(snapshot){
             const e=this.engine;
             if(e.worldReplayManualForce&&snapshot?.fingerprint&&snapshot?.stat?.世界?.[PATH]?.已处理楼层===snapshot.fingerprint){
+                const replay=snapshot?.raw?.__samsaraWorldReplay;
+                const restored=plain(replay)&&String(replay.fingerprint||'')===String(snapshot.fingerprint)
+                    ?this.restoreManualBaseline(snapshot.stat,replay):0;
+                if(restored>0)snapshot.manualRerun={restored:true,count:restored};
+                snapshot.stat.世界[PATH]=Object.assign(emptyState(),snapshot.stat.世界[PATH]||{});
                 snapshot.stat.世界[PATH].已处理楼层='';snapshot.stat.世界[PATH].已处理时间='';
             }
             return snapshot;
@@ -7225,6 +7371,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
     const WORLD_PROMPT_RETRY_FRESH='修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。';
     const WORLD_PROMPT_PROJECTION_GUIDANCE='非战斗正文会读取完整因果轨道：当前阶段用于当前局势，故事线/下一节点用于长期叙事方向，偏移记录用于跨章因果记忆；这些是规划依据，不等于角色预知或自动知晓幕后信息。正文还会读取进行中当前事件的公开字段，以及程序筛选的场外场景：每个热地区只出现一次共享环境/现场群体，人物列表只携带各自行动事实，关联事件只作索引；活跃异端始终保留在其所在热场景。以上均用于叙事连续性，不代表角色已知。可能影响当前场景的当前事件应维护公开征兆和可见影响；不要把隐藏条件、默认走向或未来宏观事件详情塞进公开字段。';
     const WORLD_PROMPT_REQUEST_SUMMARY='当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。';
+    const WORLD_PROMPT_MANUAL_ADVANCE_GUIDANCE='这是玩家对本次手动世界推进的临时指导，只对本轮有效。优先满足玩家明确提出的推进、暂缓与修正要求；最新已确认正文事实高于本指导，不得为迎合要求篡改正文已经发生的事实。未涉及部分继续按既有规则正常推演；仍须遵守世界推进的数据所有权、WorldResult Schema、时间与引用约束、任务只读等程序契约。';
     const WORLD_PROMPT_MACRO_PLANNING='本轮必须补齐骨架，不能以时间未推进、正文没有宏观变化或无业务变化为由省略。建立待发生节点属于未来规划，可排在下一宏观边界之后，不表示事件现在发生；近期细节与已发生事实仍受本轮时间容量和下一宏观边界限制。不得为凑数提前原著日期，或预先结算未来事件的结果；更新时间使用当前世界时间。';
     const WORLD_PROMPT_MACRO_ACCEPTANCE='按已有状态与本轮结果合并后计数；若本轮结束或取消已有宏观节点，须补足被移出窗口的数量。重试时以已接受业务结果和最新补充清单为准，不重复创建已接受节点。';
     const WORLD_PROMPT_DUE_REVIEW='软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。';
@@ -7304,6 +7451,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 def({key:'macroAcceptanceGuidance',title:'宏观骨架 · 验收',group:'请求内指令',source:'40-engine-runtime.part.js / 本轮必须完成的宏观骨架',scope:'user payload',condition:'本轮要求补足宏观骨架时',defaultValue:()=>WORLD_PROMPT_MACRO_ACCEPTANCE}),
                 def({key:'projectionGuidance',title:'正文可见投影规则',group:'请求内指令',source:'40-engine-runtime.part.js / 正文可见投影规则',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_PROJECTION_GUIDANCE}),
                 def({key:'requestSummaryGuidance',title:'本轮输入总说明',group:'请求内指令',source:'40-engine-runtime.part.js / 说明',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_REQUEST_SUMMARY}),
+                def({key:'manualAdvanceGuidance',title:'手动推进 · 本轮人工指导',group:'请求内指令',source:'WorldManualAdvanceFeature / 本轮人工指导',scope:'user payload',condition:'玩家手动推进且填写指导时',defaultValue:()=>WORLD_PROMPT_MANUAL_ADVANCE_GUIDANCE}),
                 def({key:'dueReviewGuidance',title:'到期事件复核说明',group:'请求内指令',source:'59-due-event-relaxation.part.js',scope:'user payload',condition:'本轮存在到期事件时',defaultValue:()=>WORLD_PROMPT_DUE_REVIEW}),
                 def({key:'chronologyInputGuidance',title:'时间线基准 · 要求',group:'请求内指令',source:'58-chronology-guard.part.js / 时间线基准',scope:'user payload',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_INPUT}),
                 def({key:'chronologyPrinciples',title:'时间线基准 · 规划原则',group:'请求内指令',source:'58-chronology-guard.part.js / 规划原则',scope:'user payload JSON',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_PRINCIPLES}),
@@ -8072,7 +8220,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 if(a==='close')engine.close();
                 else if(a==='run'){
                     if(engine.busy){if(!engine.committing){engine.cancel();engine.status='已请求停止';engine.render();}}
-                    else engine.run().catch(()=>{});
+                    else (engine.services?.manualAdvance?.trigger?.()||engine.run()).catch(()=>{});
                 }
                 else if(a==='cancel'){engine.cancel();engine.status='已请求停止';engine.render();}
                 else if(a==='save'){
@@ -9230,6 +9378,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             engine._runOrchestrator=this.run;
             this.autoProgress=new WorldAutoProgressController(engine);
             this.replay=new WorldReplayService(engine);
+            this.manualAdvance=new WorldManualAdvanceFeature(engine);
             this.timeOwnership=new WorldTimeOwnershipFeature(engine,this.timePolicy);
             this.npcAuditPolicy=new WorldNpcAuditPolicy(engine,this.knowledgeSelection);
             this.historyLifecycle=new WorldHistoryLifecycle(engine,this.historyMemory);
@@ -9254,6 +9403,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             // history > replay > auto-progress > policy nesting without inheritance.
             this.features.register('historyLifecycle',this.historyLifecycle);
             this.features.register('replay',this.replay);
+            this.features.register('manualAdvance',this.manualAdvance);
             this.features.register('autoProgress',this.autoProgress);
             this.features.register('npcAuditPolicy',this.npcAuditPolicy);
             this.features.register('timeOwnership',this.timeOwnership);

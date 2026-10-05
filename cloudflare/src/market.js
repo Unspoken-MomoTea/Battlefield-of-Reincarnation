@@ -8,6 +8,82 @@ const MAX_PRICE = 1_000_000_000;
 const MAX_QUANTITY = 9999;
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 60;
+const TEST_VENDOR_DISCORD_ID = '__market_test_vendor__';
+const TEST_VENDOR_USERNAME = 'market-test-vendor';
+const TEST_VENDOR_DISPLAY_NAME = '轮回集市测试员 · 虚拟账号';
+const TEST_VENDOR_FIXTURES = [
+  {
+    id: 'test-vendor:item:healing-potion',
+    kind: 'item',
+    name: '测试用恢复药剂',
+    quantity: 20,
+    unitPrice: 25,
+    data: {
+      品质: 'F', 类型: '消耗品', 数量: 20, 标签: ['测试商品'],
+      效果: { 恢复: '用于验证空间集市购买与堆叠写回' },
+      描述: '虚拟卖家测试商品。价格刻意设置很低。', 状态: 0,
+    },
+  },
+  {
+    id: 'test-vendor:item:rare-material',
+    kind: 'item',
+    name: '测试用稀有材料',
+    quantity: 12,
+    unitPrice: 40,
+    data: {
+      品质: 'E', 类型: '材料', 数量: 12, 标签: ['测试商品'],
+      效果: {}, 描述: '用于测试多数量购买与剩余库存。', 状态: 0,
+    },
+  },
+  {
+    id: 'test-vendor:equipment:iron-sword',
+    kind: 'equipment',
+    name: '测试铁剑',
+    quantity: 1,
+    unitPrice: 60,
+    data: {
+      类型: 0, 状态: 0, 品质: 'F', 标签: ['测试商品'],
+      原始属性: { 攻击: 1 }, 效果: {},
+      描述: '用于测试装备购买、入包与同名冲突。', 消耗: '',
+    },
+  },
+  {
+    id: 'test-vendor:equipment:guard-cloak',
+    kind: 'equipment',
+    name: '测试守护披风',
+    quantity: 1,
+    unitPrice: 70,
+    data: {
+      类型: 4, 状态: 0, 品质: 'F', 标签: ['测试商品'],
+      原始属性: { 防御: 1 }, 效果: {},
+      描述: '第二件测试装备，避免单件买完后无法继续测。', 消耗: '',
+    },
+  },
+  {
+    id: 'test-vendor:skill:quick-step',
+    kind: 'skill',
+    name: '测试技能·疾步',
+    quantity: 1,
+    unitPrice: 50,
+    data: {
+      等级: 1, 品质: 'F', 类型: 0, 消耗: '少量体力',
+      效果: { 说明: '短时间提升移动能力' },
+      描述: '用于测试技能购买与写入。', 标签: ['测试商品'],
+    },
+  },
+  {
+    id: 'test-vendor:skill:focus',
+    kind: 'skill',
+    name: '测试技能·专注',
+    quantity: 1,
+    unitPrice: 55,
+    data: {
+      等级: 1, 品质: 'F', 类型: 1, 消耗: '少量精神',
+      效果: { 说明: '短时间提升专注能力' },
+      描述: '第二个测试技能。', 标签: ['测试商品'],
+    },
+  },
+];
 
 function nowMs() {
   return Date.now();
@@ -151,6 +227,55 @@ async function first(env, sql, args = []) {
   return env.DB.prepare(sql).bind(...args).first();
 }
 
+async function ensureTestingMarketFixtures(env) {
+  const channel = String(env.CLIENT_UPDATE_CHANNEL || '').trim().toLowerCase();
+  if (channel !== 'testing') return;
+
+  const now = nowMs();
+  await env.DB.prepare(
+    `INSERT INTO users
+      (discord_id, username, display_name, avatar, is_admin, is_moderator, is_banned, ban_reason, created_at, updated_at)
+     VALUES (?, ?, ?, NULL, 0, 0, 0, '', ?, ?)
+     ON CONFLICT(discord_id) DO UPDATE SET
+       username = excluded.username,
+       display_name = excluded.display_name,
+       updated_at = excluded.updated_at`,
+  ).bind(
+    TEST_VENDOR_DISCORD_ID,
+    TEST_VENDOR_USERNAME,
+    TEST_VENDOR_DISPLAY_NAME,
+    now,
+    now,
+  ).run();
+
+  const seller = await first(
+    env,
+    'SELECT id FROM users WHERE discord_id = ? LIMIT 1',
+    [TEST_VENDOR_DISCORD_ID],
+  );
+  if (!seller?.id) return;
+
+  for (const fixture of TEST_VENDOR_FIXTURES) {
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO market_listings
+        (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+         total_quantity, remaining_quantity, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+    ).bind(
+      fixture.id,
+      seller.id,
+      fixture.kind,
+      fixture.name,
+      JSON.stringify(fixture.data),
+      fixture.unitPrice,
+      fixture.quantity,
+      fixture.quantity,
+      now,
+      now,
+    ).run();
+  }
+}
+
 async function runBatch(env, statements) {
   if (typeof env.DB?.batch === 'function') return env.DB.batch(statements);
   const results = [];
@@ -188,6 +313,7 @@ async function getTradeRow(env, tradeId) {
 }
 
 export async function listMarketListings(request, env) {
+  await ensureTestingMarketFixtures(env);
   const url = new URL(request.url);
   const kind = String(url.searchParams.get('kind') || '').trim();
   const query = text(url.searchParams.get('q') || '', 80);

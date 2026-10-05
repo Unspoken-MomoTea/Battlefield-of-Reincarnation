@@ -36,7 +36,7 @@
                 if(a==='close')engine.close();
                 else if(a==='run'){
                     if(engine.busy){if(!engine.committing){engine.cancel();engine.status='已请求停止';engine.render();}}
-                    else engine.run().catch(()=>{});
+                    else (engine.services?.manualAdvance?.trigger?.()||engine.run()).catch(()=>{});
                 }
                 else if(a==='cancel'){engine.cancel();engine.status='已请求停止';engine.render();}
                 else if(a==='save'){

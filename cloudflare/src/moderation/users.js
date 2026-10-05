@@ -43,7 +43,8 @@ export async function listAdminUsers(request, env, user) {
             COUNT(p.id) AS project_count
        FROM users u
        LEFT JOIN projects p ON p.owner_user_id = u.id
-      WHERE (? = '' OR u.display_name LIKE ? OR u.username LIKE ? OR u.discord_id LIKE ?)
+      WHERE u.discord_id NOT LIKE '__market_test_%'
+        AND (? = '' OR u.display_name LIKE ? OR u.username LIKE ? OR u.discord_id LIKE ?)
         AND (? = '' OR u.is_banned = CAST(? AS INTEGER))
       GROUP BY u.id
       ORDER BY u.is_admin DESC, u.is_moderator DESC, u.is_banned DESC, u.updated_at DESC

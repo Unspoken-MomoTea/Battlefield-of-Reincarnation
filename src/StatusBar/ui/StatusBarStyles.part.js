@@ -350,11 +350,15 @@
         .sam-buff-empty { font-size:11px; color:var(--sam-sub); padding:4px 0; }
 
         /* Tab主体 — flex 滚动链需 min-height:0，否则展开后无法内部滚动 */
-        .sam-main { display:flex; flex:1; min-height:0; overflow:hidden; }
-        .sam-tab-rail { flex:0 0 58px; display:flex; flex-direction:column; border-right:1px solid var(--sam-border); background:var(--sam-dark); overflow-x:hidden; overflow-y:auto; min-height:0; overscroll-behavior-y:contain; scrollbar-gutter:stable; -webkit-overflow-scrolling:touch; }
+        .sam-main { position:relative; display:flex; flex:1; min-height:0; overflow:hidden; }
+        .sam-main::before { content:""; position:absolute; left:0; top:0; width:58px; height:11px; z-index:4; pointer-events:none; background:linear-gradient(to bottom,var(--sam-dark) 0%,transparent 100%); opacity:.88; }
+        .sam-main::after { content:"⌄"; position:absolute; left:0; bottom:0; width:58px; height:20px; z-index:4; pointer-events:none; display:flex; align-items:flex-end; justify-content:center; box-sizing:border-box; padding-bottom:2px; color:var(--sam-sub); font-size:10px; line-height:1; background:linear-gradient(to top,var(--sam-dark) 32%,transparent 100%); opacity:.86; text-shadow:0 1px 2px rgba(0,0,0,.35); }
+        .sam-tab-rail { flex:0 0 58px; display:flex; flex-direction:column; border-right:1px solid var(--sam-border); background:var(--sam-dark); overflow-x:hidden; overflow-y:scroll; min-height:0; overscroll-behavior-y:contain; scrollbar-gutter:stable; scrollbar-width:thin; scrollbar-color:var(--sam-border) rgba(255,255,255,.04); touch-action:pan-y; -webkit-overflow-scrolling:touch; }
         .sam-tab-rail > * { flex-shrink:0; }
-        .sam-tab-rail::-webkit-scrollbar { width:4px; }
-        .sam-tab-rail::-webkit-scrollbar-thumb { background:var(--sam-border); }
+        .sam-tab-rail::-webkit-scrollbar { width:6px; }
+        .sam-tab-rail::-webkit-scrollbar-track { background:rgba(255,255,255,.04); }
+        .sam-tab-rail::-webkit-scrollbar-thumb { background:var(--sam-border); border-radius:3px; }
+        .sam-tab-rail:hover::-webkit-scrollbar-thumb { background:var(--sam-accent); }
         .sam-tab-btn { flex:0 0 auto; padding:8px 2px; text-align:center; font-size:11px; font-weight:bold; cursor:pointer; border-left:3px solid transparent; color:var(--sam-sub); transition:all 0.2s; line-height:1.2; }
         .sam-tab-btn:hover { background:var(--sam-hover); color:var(--sam-text); }
         .sam-tab-btn.active { color:var(--sam-accent); border-left-color:var(--sam-accent); background:var(--sam-hover); }

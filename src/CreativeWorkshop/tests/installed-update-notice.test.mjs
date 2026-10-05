@@ -93,7 +93,7 @@ test('installed view automatically surfaces a newer remote version on the local 
   assert.deepEqual(calls, [false]);
   const rendered = textOf(installedList);
   assert.match(rendered, /有更新 v2/u);
-  assert.match(rendered, /升级到 v2/u);
+  assert.match(rendered, /更新项目 · v2/u);
   assert.equal(checkAllUpdates.textContent, '检查全部更新 · 1');
 });
 
@@ -159,4 +159,64 @@ test('background update check records update state without forcing the Installed
   assert.equal(checkAllUpdates.textContent, '检查全部更新 · 1');
   assert.equal(notices.length, 1);
   assert.equal(notices[0].title, '创意工坊 · 发现更新');
+});
+
+
+test('enabled up-to-date project uses stop and restore as its primary action instead of check update', async () => {
+  const installedList = new FakeNode();
+  const view = createInstalledView({
+    nodes: {
+      installedList,
+      checkAllUpdates: new FakeNode('检查全部更新'),
+    },
+    element: (_tag, className = '', text = '') => {
+      const node = new FakeNode(text);
+      node.className = className;
+      return node;
+    },
+    button: (label, className = '', onClick = null) => {
+      const node = new FakeNode(label);
+      node.className = className;
+      node.onClick = onClick;
+      return node;
+    },
+    empty: (node, message) => node.replaceChildren(new FakeNode(message)),
+    confirmDialog: async () => false,
+    openModal: () => ({ body: new FakeNode() }),
+    projectService: {
+      installed: async () => [{
+        id: 'remote-1',
+        name: '测试扩展',
+        category: 'extension',
+        source: 'remote',
+        version: 3,
+        applied: true,
+        appliedVersion: 3,
+        updatedAt: 1,
+        manifest: { artifact_count: 1 },
+        dependencies: [],
+      }],
+      checkAllUpdates: async () => ({
+        fromCache: false,
+        items: [{
+          id: 'remote-1',
+          name: '测试扩展',
+          localVersion: 3,
+          remoteVersion: 3,
+          updateAvailable: false,
+          unavailable: false,
+        }],
+      }),
+    },
+    workshopApi: {},
+    host: {},
+    doc: {},
+    categoryLabels: { extension: '扩展' },
+  });
+
+  await view.refresh();
+  const rendered = textOf(installedList);
+  assert.match(rendered, /已启用 v3/u);
+  assert.match(rendered, /停用并还原/u);
+  assert.doesNotMatch(rendered, /检查更新/u);
 });

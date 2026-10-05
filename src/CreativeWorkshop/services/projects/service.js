@@ -46,6 +46,21 @@ export class ProjectService {
   }
 
   refreshCatalog() { return this.catalog(true); }
+
+  async favorites(offset = 0, limit = 100) {
+    const [favoriteRefs, catalog] = await Promise.all([
+      workshopApi.listFavoriteProjects(offset, limit),
+      this.catalog(),
+    ]);
+    const byId = new Map((catalog?.items || []).map(item => [String(item.id), item]));
+    return {
+      items: (favoriteRefs?.items || [])
+        .map(entry => byId.get(String(entry.project_id)))
+        .filter(Boolean),
+      next_offset: favoriteRefs?.next_offset ?? null,
+    };
+  }
+
   detail(projectId) { return workshopApi.getProject(projectId); }
   cache(projectId) { return cacheRemoteProject(workshopApi, projectId); }
   importOffline(file) { return importOfflineProject(file); }

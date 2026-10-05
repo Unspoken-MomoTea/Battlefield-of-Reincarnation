@@ -2,7 +2,7 @@ import { HttpError, json, withCors } from './http.js';
 import { guardRequest } from './middleware/request-guard.js';
 import { routeRequest } from './router.js';
 
-export const SERVICE_VERSION = '0.13.5';
+export const SERVICE_VERSION = '0.13.4';
 
 export async function handleRequest(request, env) {
   if (request.method === 'OPTIONS') {

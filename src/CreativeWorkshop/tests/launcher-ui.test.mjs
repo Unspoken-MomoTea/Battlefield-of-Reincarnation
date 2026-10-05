@@ -460,16 +460,19 @@ test('per-mod stop and local cache delete actions execute without confirmation d
     'utf8',
   );
 
-  const stopStart = source.indexOf("button('停用并还原原版'");
+  const deactivateStart = source.indexOf('async function deactivateItem(item)');
+  const exportStart = source.indexOf('async function exportItem(item)', deactivateStart);
   const deleteStart = source.indexOf("button('删除本地缓存'");
-  assert.ok(stopStart >= 0);
+  assert.ok(deactivateStart >= 0);
+  assert.ok(exportStart > deactivateStart);
   assert.ok(deleteStart >= 0);
+  assert.match(source, /primary = button\('停用并还原',[\s\S]{0,160}deactivateItem\(item\)/u);
 
-  const stopBlock = source.slice(stopStart, deleteStart);
+  const deactivateBlock = source.slice(deactivateStart, exportStart);
   const deleteBlock = source.slice(deleteStart, source.indexOf("menu.append(menuTrigger", deleteStart));
 
-  assert.match(stopBlock, /projectService\.uninstall\(item\.id\)/u);
-  assert.doesNotMatch(stopBlock, /confirmDialog\(/u);
+  assert.match(deactivateBlock, /projectService\.uninstall\(item\.id\)/u);
+  assert.doesNotMatch(deactivateBlock, /confirmDialog\(/u);
 
   assert.match(deleteBlock, /projectService\.removeCached\(item\.id\)/u);
   assert.doesNotMatch(deleteBlock, /confirmDialog\(/u);

@@ -3,6 +3,7 @@
     const WORLD_PROMPT_RETRY_FRESH='修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。';
     const WORLD_PROMPT_PROJECTION_GUIDANCE='非战斗正文会读取完整因果轨道：当前阶段用于当前局势，故事线/下一节点用于长期叙事方向，偏移记录用于跨章因果记忆；这些是规划依据，不等于角色预知或自动知晓幕后信息。正文还会读取进行中当前事件的公开字段，以及程序筛选的场外场景：每个热地区只出现一次共享环境/现场群体，人物列表只携带各自行动事实，关联事件只作索引；活跃异端始终保留在其所在热场景。以上均用于叙事连续性，不代表角色已知。可能影响当前场景的当前事件应维护公开征兆和可见影响；不要把隐藏条件、默认走向或未来宏观事件详情塞进公开字段。';
     const WORLD_PROMPT_REQUEST_SUMMARY='当前变量为已确认热事实，不重复结算；已归档旧事件和已回收传播不要重新创建；世界书为空不构成阻塞；只提交业务事实，存储路径由程序编译。';
+    const WORLD_PROMPT_MANUAL_ADVANCE_GUIDANCE='这是玩家对本次手动世界推进的临时指导，只对本轮有效。优先满足玩家明确提出的推进、暂缓与修正要求；最新已确认正文事实高于本指导，不得为迎合要求篡改正文已经发生的事实。未涉及部分继续按既有规则正常推演；仍须遵守世界推进的数据所有权、WorldResult Schema、时间与引用约束、任务只读等程序契约。';
     const WORLD_PROMPT_MACRO_PLANNING='本轮必须补齐骨架，不能以时间未推进、正文没有宏观变化或无业务变化为由省略。建立待发生节点属于未来规划，可排在下一宏观边界之后，不表示事件现在发生；近期细节与已发生事实仍受本轮时间容量和下一宏观边界限制。不得为凑数提前原著日期，或预先结算未来事件的结果；更新时间使用当前世界时间。';
     const WORLD_PROMPT_MACRO_ACCEPTANCE='按已有状态与本轮结果合并后计数；若本轮结束或取消已有宏观节点，须补足被移出窗口的数量。重试时以已接受业务结果和最新补充清单为准，不重复创建已接受节点。';
     const WORLD_PROMPT_DUE_REVIEW='软提醒：该事件已到计划/复核时间。条件与前因满足则转为进行中；若暂不发生，可保持待发生并优先填写新的“下次检查”。“条件”只表示事件触发条件，不要改写成延期阻碍。未处理不会导致本轮世界推进被驳回。';
@@ -82,6 +83,7 @@
                 def({key:'macroAcceptanceGuidance',title:'宏观骨架 · 验收',group:'请求内指令',source:'40-engine-runtime.part.js / 本轮必须完成的宏观骨架',scope:'user payload',condition:'本轮要求补足宏观骨架时',defaultValue:()=>WORLD_PROMPT_MACRO_ACCEPTANCE}),
                 def({key:'projectionGuidance',title:'正文可见投影规则',group:'请求内指令',source:'40-engine-runtime.part.js / 正文可见投影规则',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_PROJECTION_GUIDANCE}),
                 def({key:'requestSummaryGuidance',title:'本轮输入总说明',group:'请求内指令',source:'40-engine-runtime.part.js / 说明',scope:'user payload',condition:'每次主世界推进请求',defaultValue:()=>WORLD_PROMPT_REQUEST_SUMMARY}),
+                def({key:'manualAdvanceGuidance',title:'手动推进 · 本轮人工指导',group:'请求内指令',source:'WorldManualAdvanceFeature / 本轮人工指导',scope:'user payload',condition:'玩家手动推进且填写指导时',defaultValue:()=>WORLD_PROMPT_MANUAL_ADVANCE_GUIDANCE}),
                 def({key:'dueReviewGuidance',title:'到期事件复核说明',group:'请求内指令',source:'59-due-event-relaxation.part.js',scope:'user payload',condition:'本轮存在到期事件时',defaultValue:()=>WORLD_PROMPT_DUE_REVIEW}),
                 def({key:'chronologyInputGuidance',title:'时间线基准 · 要求',group:'请求内指令',source:'58-chronology-guard.part.js / 时间线基准',scope:'user payload',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_INPUT}),
                 def({key:'chronologyPrinciples',title:'时间线基准 · 规划原则',group:'请求内指令',source:'58-chronology-guard.part.js / 规划原则',scope:'user payload JSON',condition:'时间轴保护层运行时',defaultValue:()=>WORLD_PROMPT_CHRONOLOGY_PRINCIPLES}),

@@ -43,7 +43,7 @@
             runButton.textContent=engine.busy?(engine.committing?'保存中…':stopping?'停止中…':'停止推进'):'推进世界';
             const runHint=!engine.busy?(availabilityReason||reason||'手动推进世界；可填写本轮一次性指导'):'';
             runButton.title=runHint;
-            runButton.setAttribute('aria-label',runButton.textContent+(runHint?' · '+runHint:''));
+            runButton.setAttribute('aria-label',runButton.textContent);
 
             const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['资产','▣'],['传闻','◎'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋','历史记忆'],['设置','⚙']];
             engine.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i,label])=>'<button data-tab="'+t+'" aria-selected="'+(engine.tab===t)+'"><span class="we-tab-icon" aria-hidden="true">'+i+'</span>'+(label||t)+'</button>').join('');

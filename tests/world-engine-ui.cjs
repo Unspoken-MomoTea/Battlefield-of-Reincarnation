@@ -40,7 +40,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.getByRole('heading',{name:'世界法则',exact:true}).count(),1);
  assert.equal(await page.getByRole('heading',{name:'货币与经济',exact:true}).count(),1);
  assert.equal(await page.locator('[data-action="enabled"]').count(),0);
- assert.equal(await page.locator('[data-action="run"]').isDisabled(),true);
+ assert.equal(await page.locator('[data-action="run"]').isDisabled(),false,'空闲的手动推进入口不能因预检查而静默变灰');
+ assert.match(await page.locator('[data-action="run"]').getAttribute('title'),/额外模型未准备好/,'不可运行原因应作为提示保留，由运行器在点击后权威拦截');
  assert.equal(await page.getByText(/额外模型未准备好/).count(),1);
  assert.equal(await page.locator('#sam-world-engine').getAttribute('data-tone'),'night','世界推进必须读取状态栏共享色调，而不是旧的独立 crimson 配置');
  assert.equal(await page.evaluate(()=>Object.hasOwn(Samsara.worldEngine.config,'tone')),false,'世界推进配置不再保存独立色调');
@@ -216,6 +217,13 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.getByRole('heading',{name:'区域档案',exact:true}).count(),1);
  assert.equal(await page.locator('.we-explore-card[data-area="灰港外港"]').getByText('65%',{exact:true}).count(),1,'选中区域卡应明确展示探索度');
  assert.equal(await page.getByText('深入',{exact:true}).count()>=1,true,'探索度阶段要一眼可见');
+ assert.equal(await page.locator('[data-action="world-edit-mode"]').count(),1,'探索与势力页必须接入统一编辑模式');
+ await page.locator('[data-action="world-edit-mode"]').click();
+ assert.equal(await page.locator('[data-action="world-directory-edit"][data-directory-kind="exploration"]').count(),1,'探索编辑模式应提供编辑入口');
+ assert.equal(await page.locator('[data-action="world-directory-delete"][data-directory-kind="exploration"]').count(),1,'探索编辑模式应提供删除入口');
+ await page.locator('[data-action="world-directory-edit"][data-directory-kind="exploration"]').click();
+ assert.equal(await page.locator('[data-world-directory-edit][data-directory-kind="exploration"]').count(),1,'探索档案应使用面板内联编辑器');
+ await page.locator('[data-action="world-directory-cancel"]').click();
  const areaNoteStyle=await page.locator('.we-area-note').first().evaluate(el=>{const s=getComputedStyle(el);return {fontSize:parseFloat(s.fontSize),background:s.backgroundColor,color:s.color};});
  assert.equal(areaNoteStyle.fontSize>=14,true,'区域档案说明文字不得继续使用10px');
  assert.notEqual(areaNoteStyle.background,'rgb(245, 247, 243)','暗色主题下区域档案不得保留旧白色说明框');
@@ -225,6 +233,8 @@ b.事件={'北境援军抵达':b.事件['北境援军抵达'],'商会紧急议�
  assert.equal(await page.getByRole('heading',{name:'势力结算名录',exact:true}).count(),1,'势力使用与探索一致的主从式仪表盘');
  assert.equal(await page.locator('.we-faction-card').count(),1);
  assert.equal(await page.getByText('声望 320',{exact:true}).count(),1);
+ assert.equal(await page.locator('[data-action="world-directory-edit"][data-directory-kind="faction"]').count(),1,'势力也应共享编辑模式');
+ assert.equal(await page.locator('[data-action="world-directory-delete"][data-directory-kind="faction"]').count(),1,'势力编辑模式应提供删除入口');
  await page.locator('[data-tab="世界事件"]').click();
  assert.equal(await page.getByRole('heading',{name:'当前任务',exact:true}).count(),0);
  assert.equal(await page.getByRole('heading',{name:'副本成就',exact:true}).count(),0);

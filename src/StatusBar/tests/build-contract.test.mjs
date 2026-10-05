@@ -33,7 +33,7 @@ test('status bar delivery is assembled exactly from modular source parts', () =>
 });
 
 test('status bar exposes an independent version and reload-safe event lifecycle', () => {
-  assert.match(generated, /STATUS_BAR_VERSION = '1\.0\.1'/u);
+  assert.match(generated, /STATUS_BAR_VERSION = '1\.0\.2'/u);
   assert.match(generated, /class StatusBarRuntimeLifecycle/u);
   assert.match(generated, /SamsaraStatusBarRuntime/u);
   assert.match(generated, /Samsara\.StatusBarInfo/u);

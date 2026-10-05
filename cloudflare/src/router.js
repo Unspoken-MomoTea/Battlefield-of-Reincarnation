@@ -1,6 +1,7 @@
 import { json } from './http.js';
 import { routeAdmin } from './routes/admin.js';
 import { routeAuth } from './routes/auth.js';
+import { routeMarket } from './routes/market.js';
 import { routeProjects } from './routes/projects.js';
 import { routeSystem } from './routes/system.js';
 
@@ -9,6 +10,7 @@ export async function routeRequest(request, env, serviceVersion) {
   return (
     (await routeSystem(request, env, pathname, serviceVersion)) ??
     (await routeAuth(request, env, pathname)) ??
+    (await routeMarket(request, env, pathname)) ??
     (await routeProjects(request, env, pathname)) ??
     (await routeAdmin(request, env, pathname)) ??
     json({ error: 'not_found', code: 'not_found' }, 404)

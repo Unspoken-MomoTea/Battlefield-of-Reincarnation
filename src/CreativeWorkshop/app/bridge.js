@@ -11,6 +11,7 @@ export function createWorkshopBridge({
   worldEngineUpdater,
   statusBarUpdater,
   calculatorUpdater,
+  marketService,
 }) {
   return {
     version, open, close, refresh, destroy, hotUpdate,
@@ -38,5 +39,8 @@ export function createWorkshopBridge({
     updateStatusBar: () => statusBarUpdater.updateAndReload(),
     checkCalculatorUpdate: () => calculatorUpdater.check(),
     updateCalculator: () => calculatorUpdater.updateAndReload(),
+    listMarketListings: filters => marketService.list(filters || {}),
+    getMarketInventory: () => marketService.inventory(),
+    getMarketState: () => marketService.mine(),
   };
 }

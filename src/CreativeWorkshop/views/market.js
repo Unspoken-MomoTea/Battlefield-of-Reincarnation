@@ -124,7 +124,7 @@ export function createMarketView({
     const stockCell = element('span', 'rw-ah-result-stock', String(marketRow.totalStock || 0));
     const priceCell = element('span', 'rw-ah-result-price');
     priceCell.append(
-      element('strong', '', coin(marketRow.lowestPrice)),
+      element('strong', '', coin(marketRow.buyPrice ?? marketRow.lowestPrice)),
       element('small', '', ' 空间币'),
     );
 
@@ -197,7 +197,7 @@ export function createMarketView({
     const statPairs = [
       ['总库存', String(marketRow.totalStock || 0)],
       ['卖家', String(marketRow.sellerCount || 0)],
-      ['最低单价', coin(marketRow.lowestPrice) + ' 空间币'],
+      ['最低可买价', coin(marketRow.buyPrice ?? marketRow.lowestPrice) + ' 空间币'],
     ];
     for (const [label, value] of statPairs) {
       const cell = element('div');

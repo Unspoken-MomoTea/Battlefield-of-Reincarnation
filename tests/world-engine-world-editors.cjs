@@ -20,6 +20,8 @@ assert.match(eventEditor,/world-event-delete-confirm/,'event deletion must requi
 assert.doesNotMatch(eventEditor,/globalThis\.prompt|globalThis\.confirm|window\.prompt|window\.confirm/,'event editing must stay inside the world-engine panel');
 assert.match(personEditor,/data-world-person-edit/,'world activity records must expose an inline editor');
 assert.match(personEditor,/世界活动记录/,'person editor must describe that it edits only world-engine activity data');
+assert.match(controller,/data-action="world-directory-edit"/,'exploration/faction detail must expose inline editing in edit mode');
+assert.match(controller,/data-action="world-directory-delete"/,'exploration/faction detail must expose deletion in edit mode');
 assert.doesNotMatch(personEditor,/好感度|背景故事|血统|装备|技能/,'world person editor must not edit formal profile fields owned by the status bar');
 
 function eventRecord(overrides={}){
@@ -67,11 +69,13 @@ function personRecord(overrides={}){
   backend.事件['后续事件']=eventRecord({分类:'近期节点',状态:'待发生',描述:'后续',前因:['旧事件'],关联事件:undefined});
   backend.人物.卫兵=personRecord();
   backend.势力地区.北门={...clone(RECORDS.势力地区),类型:'地区',描述:'北门',关联事件:['旧事件'],更新时间:'2026年09月26日-上午',控制方:'守军',争夺方:[],资源:[],内部派系:[],近期变化:[],环境状态:[],现场群体:[]};
+  backend.势力地区.废弃旧桥={...clone(RECORDS.势力地区),类型:'地区',描述:'旧桥区域',目标:'确认通道',进展:'已检查桥面',公开动态:'附近有人巡查',控制方:'守军',争夺方:['走私者'],环境状态:['浓雾']};
+  backend.势力地区.灰港商会={...clone(RECORDS.势力地区),类型:'势力',描述:'粮食商会',目标:'恢复商路',进展:'募集护卫',公开动态:'商会公开招募'};
   backend.传播.警报={...clone(RECORDS.传播),关联事件:['旧事件'],来源:'守军',范围:'北门',时间:'2026年09月26日-上午',内容:'封锁警报',真相:'确有封锁',状态:'传播中',更新时间:'2026年09月26日-上午',到期时间:'',受众:[],引发行动:[]};
   backend.历史.旧闻={...clone(RECORDS.历史),时间:'2026年09月26日-上午',事实:'旧事件已经发生。',关联事件:['旧事件']};
 
   let current={stat_data:{
-    世界:{名称:'测试世界',时间:'2026年09月26日-上午',地点:'北门',稳定:100,后台:backend,势力:{},探索:{},历法:{},法则:[],货币:{},因果轨道:{当前阶段:'封锁',故事线:'',下一节点:'旧事件',偏移记录:{}},异端雷达:{名单:{}}},
+    世界:{名称:'测试世界',时间:'2026年09月26日-上午',地点:'北门',稳定:100,后台:backend,势力:{灰港商会:{实力:'C',声望:320,领地:'灰港集市',描述:'旧势力描述'}},探索:{废弃旧桥:{风险:'D',探索度:35,描述:'旧探索描述',隐藏真相:'桥下通道'}},历法:{},法则:[],货币:{},因果轨道:{当前阶段:'封锁',故事线:'',下一节点:'旧事件',偏移记录:{}},异端雷达:{名单:{}}},
     系统状态:{是否在主神空间:false},设置:{},任务:{列表:{}},资产:{},
     关系列表:{卫兵:{背景故事:'正式人物资料只能由状态栏编辑',态度:'警惕',好感度:5}},
     传闻:{街头巷议:{},情报交易:{},布告与檄文:{}}
@@ -97,6 +101,9 @@ function personRecord(overrides={}){
   assert.equal(typeof engine.removeWorldEventRecord,'function');
   assert.equal(typeof engine.setWorldPersonRecord,'function');
   assert.equal(typeof engine.removeWorldPersonRecord,'function');
+  assert.equal(typeof engine.worldDirectoryRecord,'function');
+  assert.equal(typeof engine.setWorldDirectoryRecord,'function');
+  assert.equal(typeof engine.removeWorldDirectoryRecord,'function');
 
   const fingerprint=engine.snapshot().fingerprint;
   current.__samsaraWorldReplay={version:1,fingerprint,operations:[
@@ -137,6 +144,35 @@ function personRecord(overrides={}){
   assert.equal(current.stat_data.世界.后台.人物.卫兵.行动,'重新核验通行名单');
   assert.deepEqual(current.stat_data.关系列表.卫兵,formalBefore,'editing a formal person from world management must never touch the formal status-bar profile');
   assert.ok(current.__samsaraWorldReplay.operations.some(op=>op.op==='set'&&op.path.join('/')==='世界/后台/人物/卫兵'&&op.value.地点==='南门'),'same-floor replay must preserve corrected world-person activity');
+
+  await engine.setWorldDirectoryRecord('exploration','废弃旧桥','旧桥遗址',{
+    ledger:{风险:'C',探索度:52,描述:'玩家修正后的探索描述',隐藏真相:'桥下通道仍存在'},
+    backend:{描述:'旧桥遗址区域',目标:'继续确认地下通道',进展:'已检查桥下入口',公开动态:'守军暂时封锁入口',控制方:'守军',争夺方:['走私者','河运派'],环境状态:['浓雾','湿滑']}
+  });
+  assert.equal(current.stat_data.世界.探索.废弃旧桥,undefined,'renaming exploration must remove the old ledger key');
+  assert.equal(current.stat_data.世界.探索.旧桥遗址.探索度,52);
+  assert.equal(current.stat_data.世界.后台.势力地区.废弃旧桥,undefined,'renaming exploration must also rename its same-type backend mirror');
+  assert.equal(current.stat_data.世界.后台.势力地区.旧桥遗址.控制方,'守军');
+  assert.deepEqual(current.stat_data.世界.后台.势力地区.旧桥遗址.环境状态,['浓雾','湿滑']);
+  assert.ok(current.__samsaraWorldReplay.operations.some(op=>op.op==='set'&&op.path.join('/')==='世界/探索/旧桥遗址'),'same-floor replay must preserve exploration corrections');
+
+  await engine.setWorldDirectoryRecord('faction','灰港商会','灰港联合商会',{
+    ledger:{实力:'B',声望:860,领地:'灰港市场',描述:'玩家修正后的势力描述'},
+    backend:{描述:'玩家修正后的势力描述',目标:'重建商路',进展:'已整合河运资源',公开动态:'联合商会宣布新航线',下次检查:'2026年09月27日-上午'}
+  });
+  assert.equal(current.stat_data.世界.势力.灰港商会,undefined,'renaming faction must remove the old ledger key');
+  assert.equal(current.stat_data.世界.势力.灰港联合商会.声望,860);
+  assert.equal(current.stat_data.世界.后台.势力地区.灰港商会,undefined,'renaming faction must rename its same-type backend mirror');
+  assert.equal(current.stat_data.世界.后台.势力地区.灰港联合商会.类型,'势力');
+  assert.equal(current.stat_data.世界.后台.势力地区.灰港联合商会.目标,'重建商路');
+
+  await engine.removeWorldDirectoryRecord('exploration','旧桥遗址');
+  assert.equal(current.stat_data.世界.探索.旧桥遗址,undefined,'exploration ledger must be removable');
+  assert.equal(current.stat_data.世界.后台.势力地区.旧桥遗址,undefined,'deleting exploration must remove its same-type backend mirror to prevent resurrection');
+
+  await engine.removeWorldDirectoryRecord('faction','灰港联合商会');
+  assert.equal(current.stat_data.世界.势力.灰港联合商会,undefined,'faction ledger must be removable');
+  assert.equal(current.stat_data.世界.后台.势力地区.灰港联合商会,undefined,'deleting faction must remove its same-type backend mirror');
 
   await engine.removeWorldEventRecord('修正事件');
   assert.equal(current.stat_data.世界.后台.事件.修正事件,undefined);

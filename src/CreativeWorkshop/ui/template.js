@@ -41,7 +41,8 @@ export function workshopTemplate(version) {
       <button class="rw-tab rw-nav-filter" data-character-home type="button">角色</button>
       <button class="rw-tab rw-nav-filter" data-category-filter="extension" data-kind-filter="store_catalog" type="button">开局商店</button>
       <div class="rw-nav-divider"></div>
-      <button class="rw-tab" data-tab="installed" type="button">已安装</button>
+      <button class="rw-tab" data-tab="favorites" type="button" hidden>我的收藏</button>
+      <button class="rw-tab" data-tab="installed" type="button">本地库</button>
       <div class="rw-nav-connection">● 已连接 SillyTavern</div>
     </nav>
     <main class="rw-body">
@@ -89,16 +90,24 @@ export function workshopTemplate(version) {
           <div class="rw-load-more-wrap"><button class="rw-button" data-action="discover-more" type="button" hidden>加载更多</button></div>
         </div>
       </section>
+      <section class="rw-section" data-section="favorites" hidden>
+        <div class="rw-page-head">
+          <div class="rw-page-head-copy"><small>FAVORITES</small><h2>我的收藏</h2><p>收藏跟随你的工坊账号同步，不会自动下载或启用作品。</p></div>
+          <div class="rw-page-head-meta" data-role="favorites-count">正在载入</div>
+        </div>
+        <div class="rw-grid rw-project-grid" data-role="favorites-list"></div>
+        <div class="rw-load-more-wrap"><button class="rw-button" data-action="favorites-more" type="button" hidden>加载更多</button></div>
+      </section>
       <section class="rw-section" data-section="installed" hidden>
         <div class="rw-page-head">
-          <div class="rw-page-head-copy"><small>LIBRARY</small><h2>本地作品</h2><p>下载只是缓存；安装、升级和卸载仍由你明确触发。</p></div>
+          <div class="rw-page-head-copy"><small>LIBRARY</small><h2>本地库</h2><p>下载只会保存到本地；点击“安装到酒馆”后作品才会真正启用。</p></div>
           <div class="rw-page-actions">
             <button class="rw-button" data-action="check-all-updates" type="button">检查全部更新</button>
             <button class="rw-button" data-action="storage-manager" type="button">存储管理</button>
             <label class="rw-button rw-inline-file">导入离线包<input data-action="import-offline" type="file" accept=".rwpack,application/json" hidden></label>
           </div>
         </div>
-        <div class="rw-local-note">工坊会在安装前校验 manifest、大小与 SHA-256；酒馆助手脚本只有在主动安装后才会写入并启用。</div>
+        <div class="rw-local-note">这里保存下载、本地测试与离线包。已启用作品可直接停用并还原；只有发现新版本时才显示更新操作。</div>
         <div class="rw-grid rw-local-grid" data-role="installed-list"></div>
       </section>
       <section class="rw-section" data-section="mine" hidden>

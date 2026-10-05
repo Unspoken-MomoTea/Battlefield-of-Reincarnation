@@ -257,3 +257,34 @@ test('cancelling a listing creates a recoverable return and proceeds use pending
   assert.equal(confirmedPayout.response.status, 200);
   assert.ok(Number(confirmedPayout.body.payout.confirmed_at) > 0);
 });
+
+
+test('testing catalog auto-seeds virtual seller fixtures that a real user can purchase', async () => {
+  const testEnv = env();
+  const buyer = createUser(testEnv, '500', 'Solo Tester');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'solo-tester-token');
+
+  const catalog = await jsonRequest(testEnv, '/api/market/listings?sort=price_asc');
+  assert.equal(catalog.response.status, 200);
+  assert.ok(catalog.body.items.length >= 5);
+  assert.ok(catalog.body.items.every(item => item.seller.display_name === '轮回集市测试员 · 虚拟账号'));
+
+  const potion = catalog.body.items.find(item => item.id === 'test-vendor:item:healing-potion');
+  assert.ok(potion);
+  assert.equal(potion.asset.kind, 'item');
+  assert.equal(potion.remaining_quantity, 20);
+
+  const purchase = await jsonRequest(testEnv, '/api/market/listings/test-vendor%3Aitem%3Ahealing-potion/buy', {
+    method: 'POST',
+    headers: buyerHeaders,
+    body: JSON.stringify({ trade_id: 'trade-solo-test', quantity: 2 }),
+  });
+  assert.equal(purchase.response.status, 200);
+  assert.equal(purchase.body.trade.quantity, 2);
+  assert.equal(purchase.body.trade.seller.display_name, '轮回集市测试员 · 虚拟账号');
+  assert.equal(purchase.body.listing.remaining_quantity, 18);
+
+  const refreshed = await jsonRequest(testEnv, '/api/market/listings?sort=price_asc');
+  const refreshedPotion = refreshed.body.items.find(item => item.id === 'test-vendor:item:healing-potion');
+  assert.equal(refreshedPotion.remaining_quantity, 18);
+});

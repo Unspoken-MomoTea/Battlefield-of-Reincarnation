@@ -1,3 +1,19 @@
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (!value || typeof value !== 'object') return value;
+  const out = {};
+  for (const key of Object.keys(value).sort()) {
+    if (key === '数量') continue;
+    out[key] = canonical(value[key]);
+  }
+  return out;
+}
+
+function commodityKey(asset) {
+  return 'item:' + String(asset?.name || '')
+    + ':' + JSON.stringify(canonical(asset?.data || {}));
+}
+
 export function buildMarketRows(listings = [], currentUserId = null) {
   const rows = [];
   const grouped = new Map();
@@ -6,7 +22,7 @@ export function buildMarketRows(listings = [], currentUserId = null) {
     if (!listing?.id || !listing?.asset) continue;
     const kind = String(listing.asset.kind || '');
     const name = String(listing.asset.name || '未命名资产');
-    const key = kind === 'item' ? 'item:' + name : 'listing:' + listing.id;
+    const key = kind === 'item' ? commodityKey(listing.asset) : 'listing:' + listing.id;
 
     let row = grouped.get(key);
     if (!row) {

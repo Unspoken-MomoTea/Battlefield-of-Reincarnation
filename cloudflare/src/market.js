@@ -319,7 +319,7 @@ export async function listMarketListings(request, env) {
   const query = text(url.searchParams.get('q') || '', 80);
   const limit = Math.min(
     MAX_LIMIT,
-    Math.max(1, integer(url.searchParams.get('limit'), DEFAULT_LIMIT)),
+    Math.max(1, integer(url.searchParams.get('limit') || DEFAULT_LIMIT, DEFAULT_LIMIT)),
   );
   const offset = Math.max(0, integer(url.searchParams.get('offset'), 0));
   const sort = String(url.searchParams.get('sort') || 'latest');

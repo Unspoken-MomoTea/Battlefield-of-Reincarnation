@@ -131,7 +131,8 @@ test('testing market supports listing, idempotent purchase, delivery and seller 
 
   const catalog = await jsonRequest(testEnv, '/api/market/listings?kind=item&sort=price_asc');
   assert.equal(catalog.response.status, 200);
-  assert.deepEqual(catalog.body.items.map(item => item.id), ['listing-1']);
+  assert.ok(catalog.body.items.some(item => item.id === 'listing-1'));
+  assert.ok(catalog.body.items.some(item => item.id === 'test-vendor:item:healing-potion'));
 
   const ownBuy = await jsonRequest(testEnv, '/api/market/listings/listing-1/buy', {
     method: 'POST',

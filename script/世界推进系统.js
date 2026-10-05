@@ -5,7 +5,7 @@
  */
 (function (root) {
     'use strict';
-    const WORLD_ENGINE_VERSION='2.0.9';
+    const WORLD_ENGINE_VERSION='2.0.10';
     const copy = value => JSON.parse(JSON.stringify(value));
     const plain = value => !!value && typeof value === 'object' && !Array.isArray(value);
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -2423,6 +2423,96 @@ Step 7 · 输出差分：先按“历史摘要”规则写摘要，再只输出�
             };
             if(index>=0)list.splice(index,1,item);else list.push(item);
             return result;
+        }
+        record(kind,name){
+            const source=this.snapshot(),bucket=kind==='faction'?source.势力:source.探索;
+            const actual=stableNameIn(bucket,String(name||'').trim());if(!actual)return null;
+            const backendName=stableNameIn(source.势力地区,actual),backend=backendName?source.势力地区[backendName]:null;
+            return {kind,name:actual,ledger:copy(bucket[actual]),backendName,backend:plain(backend)?copy(backend):null};
+        }
+        normalizeRank(value,label){
+            const rank=String(value||'').trim().toUpperCase();
+            if(!QUALITY_RANKS.includes(rank))throw new Error(label+'必须是 '+QUALITY_RANKS.join(' / '));
+            return rank;
+        }
+        async saveRecord(kind,oldName,newName,payload){
+            if(!['exploration','faction'].includes(kind))throw new Error('未知探索/势力编辑类型');
+            const engine=this.engine,oldKey=String(oldName||'').trim(),nextName=String(newName||'').trim();
+            if(!nextName)throw new Error(kind==='faction'?'势力名称不能为空':'探索地标名称不能为空');
+            if(kind==='exploration'){
+                const granularity=this.granularity(nextName);
+                if(granularity.invalid)throw new Error('探索粒度过细：'+nextName+(granularity.parent?'；请改为“'+granularity.parent+'”':''));
+            }
+            const input=plain(payload)?payload:{},ledgerInput=plain(input.ledger)?input.ledger:{},backendInput=plain(input.backend)?input.backend:{};
+            const ok=await engine.services.mutations.commit(stat=>{
+                const world=stat.世界||(stat.世界={}),backend=engine.services.mutations.backend(stat),bucket=kind==='faction'?(world.势力||(world.势力={})):(world.探索||(world.探索={}));
+                const actual=stableNameIn(bucket,oldKey);if(!actual)throw new Error(kind==='faction'?'势力记录不存在：'+oldKey:'探索记录不存在：'+oldKey);
+                const conflict=stableNameIn(bucket,nextName);
+                if(conflict&&conflict!==actual)throw new Error('名称已存在：'+nextName);
+                const current=plain(bucket[actual])?copy(bucket[actual]):{};
+                let nextLedger;
+                if(kind==='faction'){
+                    nextLedger=Object.assign(copy(EXISTING.势力),current,{
+                        实力:this.normalizeRank(ledgerInput.实力??current.实力??'F','势力实力'),
+                        声望:Math.max(-5000,Math.min(10000,Number(ledgerInput.声望??current.声望)||0)),
+                        领地:String(ledgerInput.领地??current.领地??'').trim(),
+                        描述:String(ledgerInput.描述??current.描述??'').trim()
+                    });
+                }else{
+                    nextLedger=Object.assign(copy(EXISTING.探索),current,{
+                        风险:this.normalizeRank(ledgerInput.风险??current.风险??'F','探索风险'),
+                        探索度:Math.max(0,Math.min(100,Number(ledgerInput.探索度??current.探索度)||0)),
+                        描述:String(ledgerInput.描述??current.描述??'').trim(),
+                        隐藏真相:String(ledgerInput.隐藏真相??current.隐藏真相??'').trim()
+                    });
+                }
+                if(actual!==nextName)delete bucket[actual];
+                bucket[nextName]=nextLedger;
+
+                const areas=backend.势力地区||(backend.势力地区={}),areaName=stableNameIn(areas,actual)||stableNameIn(areas,nextName);
+                const expectedFaction=kind==='faction';
+                const existingArea=areaName&&plain(areas[areaName])?copy(areas[areaName]):null;
+                const sameType=existingArea?(String(existingArea.类型||'地区')==='势力')===expectedFaction:true;
+                if(sameType){
+                    const area=Object.assign(copy(RECORDS.势力地区),existingArea||{},copy(backendInput),{类型:expectedFaction?'势力':'地区'});
+                    area.描述=String(backendInput.描述??area.描述??nextLedger.描述??'').trim();
+                    area.目标=String(backendInput.目标??area.目标??'').trim();
+                    area.进展=String(backendInput.进展??area.进展??'').trim();
+                    area.下次检查=String(backendInput.下次检查??area.下次检查??'').trim();
+                    area.公开动态=String(backendInput.公开动态??area.公开动态??'').trim();
+                    if(Object.hasOwn(backendInput,'控制方'))area.控制方=String(backendInput.控制方||'').trim();
+                    if(Object.hasOwn(backendInput,'争夺方'))area.争夺方=engine.services.mutations.textList(backendInput.争夺方);
+                    if(Object.hasOwn(backendInput,'环境状态'))area.环境状态=engine.services.mutations.textList(backendInput.环境状态);
+                    if(areaName&&areaName!==nextName)delete areas[areaName];
+                    areas[nextName]=area;
+                }
+                return true;
+            },kind==='faction'?'势力档案已手动修正':'探索档案已手动修正');
+            if(ok){
+                if(kind==='faction')engine.selectedFaction=nextName;else engine.selectedArea=nextName;
+                engine.render(true);
+            }
+            return ok;
+        }
+        async removeRecord(kind,name){
+            if(!['exploration','faction'].includes(kind))throw new Error('未知探索/势力编辑类型');
+            const engine=this.engine,key=String(name||'').trim();
+            const ok=await engine.services.mutations.commit(stat=>{
+                const world=stat.世界||(stat.世界={}),backend=engine.services.mutations.backend(stat),bucket=kind==='faction'?(world.势力||(world.势力={})):(world.探索||(world.探索={}));
+                const actual=stableNameIn(bucket,key);if(!actual)return false;
+                delete bucket[actual];
+                const areas=backend.势力地区||(backend.势力地区={}),areaName=stableNameIn(areas,actual);
+                if(areaName&&plain(areas[areaName])){
+                    const isFaction=String(areas[areaName].类型||'地区')==='势力';
+                    if(isFaction===(kind==='faction'))delete areas[areaName];
+                }
+                return true;
+            },kind==='faction'?'势力档案已删除':'探索档案已删除');
+            if(ok){
+                if(kind==='faction')engine.selectedFaction='';else engine.selectedArea='';
+                engine.render(true);
+            }
+            return ok;
         }
         prepareResult(stat,result){return this.ensureCurrentProjection(stat,result);}
     }
@@ -8473,9 +8563,13 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 :'';
             const runButton=engine.panel.querySelector('[data-action=run]');
             const stopping=engine.busy&&!!engine.controller?.signal.aborted;
-            runButton.disabled=engine.busy?(engine.committing||stopping):!!reason||!!availabilityReason;
+            // 空闲时不要把运行器的业务阻塞条件复制成 disabled。
+            // 手动入口需要可点击，真正不能推进时由 RunOrchestrator 给出明确状态/错误。
+            runButton.disabled=engine.busy?(engine.committing||stopping):false;
             runButton.textContent=engine.busy?(engine.committing?'保存中…':stopping?'停止中…':'停止推进'):'推进世界';
-            runButton.setAttribute('aria-label',runButton.textContent);
+            const runHint=!engine.busy?(availabilityReason||reason||'手动推进世界；可填写本轮一次性指导'):'';
+            runButton.title=runHint;
+            runButton.setAttribute('aria-label',runButton.textContent+(runHint?' · '+runHint:''));
 
             const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['资产','▣'],['传闻','◎'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋','历史记忆'],['设置','⚙']];
             engine.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i,label])=>'<button data-tab="'+t+'" aria-selected="'+(engine.tab===t)+'"><span class="we-tab-icon" aria-hidden="true">'+i+'</span>'+(label||t)+'</button>').join('');
@@ -8728,8 +8822,16 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         // ---- 共用编辑模式 ----
         mountModeToggle(){
             const engine=this.engine;
-            if(!engine.panel||!['世界推进','角色管理'].includes(engine.tab))return;
-            const title=engine.tab==='世界推进'?'事件时间线':'人物名册',section=this.section(title),head=section?.querySelector('.we-section-head');
+            if(!engine.panel||!['世界推进','角色管理','探索与势力'].includes(engine.tab))return;
+            let title='';
+            if(engine.tab==='世界推进')title='事件时间线';
+            else if(engine.tab==='角色管理')title='人物名册';
+            else{
+                const dir=engine.directoryTab||'探索';
+                if(dir==='热点')return;
+                title=dir==='势力'?'势力结算名录':'探索结算名录';
+            }
+            const section=this.section(title),head=section?.querySelector('.we-section-head');
             if(!head||head.querySelector('[data-action="world-edit-mode"]'))return;
             const button=engine.host.document.createElement('button');
             button.type='button';button.className='we-btn we-world-edit-toggle';button.dataset.action='world-edit-mode';
@@ -8879,6 +8981,96 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             actions.querySelector('[data-action="world-person-delete-cancel"]')?.remove();return true;
         }
 
+        // ---- 探索与势力 ----
+        directoryInlineHtml(kind,name,found){
+            const esc=value=>this.escape(value),ledger=found?.ledger||{},backend=found?.backend||{};
+            const rank=(value,field)=>'<select data-world-directory-field="'+field+'">'+QUALITY_RANKS.map(option=>'<option value="'+option+'"'+(String(value||'F').toUpperCase()===option?' selected':'')+'>'+option+'</option>').join('')+'</select>';
+            const lines=value=>Array.isArray(value)?value.join('\n'):String(value||'');
+            if(kind==='faction'){
+                return '<div class="we-world-editor" data-world-directory-edit data-directory-kind="faction" data-directory-name="'+esc(name)+'"><div class="we-world-editor-grid">'
+                    +'<label><span>势力名称</span><input data-world-directory-field="name" value="'+esc(name)+'"></label>'
+                    +'<label><span>实力</span>'+rank(ledger.实力,'rank')+'</label>'
+                    +'<label><span>声望</span><input type="number" min="-5000" max="10000" data-world-directory-field="reputation" value="'+esc(Number(ledger.声望)||0)+'"></label>'
+                    +'<label><span>领地</span><input data-world-directory-field="territory" value="'+esc(ledger.领地||'')+'"></label>'
+                    +'<label class="we-world-editor-wide"><span>势力描述</span><textarea data-world-directory-field="description">'+esc(ledger.描述||backend.描述||'')+'</textarea></label>'
+                    +'<label><span>当前目标</span><input data-world-directory-field="goal" value="'+esc(backend.目标||'')+'"></label>'
+                    +'<label><span>下次检查</span><input data-world-directory-field="nextCheck" value="'+esc(backend.下次检查||'')+'"></label>'
+                    +'<label class="we-world-editor-wide"><span>世界进展</span><textarea data-world-directory-field="progress">'+esc(backend.进展||'')+'</textarea></label>'
+                    +'<label class="we-world-editor-wide"><span>公开动态</span><textarea data-world-directory-field="public">'+esc(backend.公开动态||'')+'</textarea></label>'
+                    +'</div><div class="we-world-editor-actions"><button type="button" class="we-world-editor-save" data-action="world-directory-save" data-directory-kind="faction" data-directory-name="'+esc(name)+'">保存修正</button><button type="button" data-action="world-directory-cancel">取消</button></div></div>';
+            }
+            return '<div class="we-world-editor" data-world-directory-edit data-directory-kind="exploration" data-directory-name="'+esc(name)+'"><div class="we-world-editor-grid">'
+                +'<label><span>探索地标名称</span><input data-world-directory-field="name" value="'+esc(name)+'"></label>'
+                +'<label><span>风险</span>'+rank(ledger.风险,'risk')+'</label>'
+                +'<label><span>探索度</span><input type="number" min="0" max="100" data-world-directory-field="exploration" value="'+esc(Number(ledger.探索度)||0)+'"></label>'
+                +'<label><span>控制方</span><input data-world-directory-field="control" value="'+esc(backend.控制方||'')+'"></label>'
+                +'<label class="we-world-editor-wide"><span>探索描述</span><textarea data-world-directory-field="description">'+esc(ledger.描述||backend.描述||'')+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>隐藏真相</span><textarea data-world-directory-field="truth">'+esc(ledger.隐藏真相||'')+'</textarea></label>'
+                +'<label><span>争夺方（每行一个）</span><textarea data-world-directory-field="contenders">'+esc(lines(backend.争夺方))+'</textarea></label>'
+                +'<label><span>环境状态（每行一个）</span><textarea data-world-directory-field="environment">'+esc(lines(backend.环境状态))+'</textarea></label>'
+                +'<label><span>当前目标</span><input data-world-directory-field="goal" value="'+esc(backend.目标||'')+'"></label>'
+                +'<label><span>下次检查</span><input data-world-directory-field="nextCheck" value="'+esc(backend.下次检查||'')+'"></label>'
+                +'<label class="we-world-editor-wide"><span>世界进展</span><textarea data-world-directory-field="progress">'+esc(backend.进展||'')+'</textarea></label>'
+                +'<label class="we-world-editor-wide"><span>公开动态</span><textarea data-world-directory-field="public">'+esc(backend.公开动态||'')+'</textarea></label>'
+                +'</div><div class="we-world-editor-actions"><button type="button" class="we-world-editor-save" data-action="world-directory-save" data-directory-kind="exploration" data-directory-name="'+esc(name)+'">保存修正</button><button type="button" data-action="world-directory-cancel">取消</button></div></div>';
+        }
+        selectedDirectoryName(kind){
+            const panel=this.engine.panel;if(!panel||this.engine.tab!=='探索与势力')return '';
+            if(kind==='faction')return String(panel.querySelector('.we-faction-card.active')?.dataset?.faction||this.engine.selectedFaction||'').trim();
+            return String(panel.querySelector('.we-explore-card.active')?.dataset?.area||this.engine.selectedArea||'').trim();
+        }
+        directorySection(kind){return this.section(kind==='faction'?'势力档案':'区域档案');}
+        beginDirectory(kind,name,section){
+            const found=this.engine.services.exploration.record(kind,name);if(!found||!section)return false;
+            const head=section.querySelector('.we-section-head');
+            Array.from(section.children).forEach(child=>{if(child!==head)child.hidden=true;});
+            const holder=this.engine.host.document.createElement('div');holder.innerHTML=this.directoryInlineHtml(kind,found.name,found);
+            const node=holder.firstElementChild;section.appendChild(node);
+            try{node?.querySelector('[data-world-directory-field="name"]')?.focus?.();}catch(_){}
+            return true;
+        }
+        saveDirectory(section,kind,oldName){
+            const editor=section?.querySelector('[data-world-directory-edit]');if(!editor)return false;
+            const value=key=>editor.querySelector('[data-world-directory-field="'+key+'"]')?.value;
+            const nextName=String(value('name')||'').trim();
+            if(kind==='faction'){
+                return this.engine.services.exploration.saveRecord(kind,oldName,nextName,{
+                    ledger:{实力:value('rank'),声望:Number(value('reputation')),领地:String(value('territory')||'').trim(),描述:String(value('description')||'').trim()},
+                    backend:{描述:String(value('description')||'').trim(),目标:String(value('goal')||'').trim(),下次检查:String(value('nextCheck')||'').trim(),进展:String(value('progress')||'').trim(),公开动态:String(value('public')||'').trim()}
+                });
+            }
+            return this.engine.services.exploration.saveRecord(kind,oldName,nextName,{
+                ledger:{风险:value('risk'),探索度:Number(value('exploration')),描述:String(value('description')||'').trim(),隐藏真相:String(value('truth')||'').trim()},
+                backend:{描述:String(value('description')||'').trim(),控制方:String(value('control')||'').trim(),争夺方:this.textList(value('contenders')),环境状态:this.textList(value('environment')),目标:String(value('goal')||'').trim(),下次检查:String(value('nextCheck')||'').trim(),进展:String(value('progress')||'').trim(),公开动态:String(value('public')||'').trim()}
+            });
+        }
+        mountDirectoryControls(){
+            const engine=this.engine;if(!engine.panel||engine.tab!=='探索与势力'||!this.modeEnabled())return;
+            const dir=engine.directoryTab||'探索';if(dir==='热点')return;
+            const kind=dir==='势力'?'faction':'exploration',name=this.selectedDirectoryName(kind),found=engine.services.exploration.record(kind,name);
+            if(!found)return;
+            const section=this.directorySection(kind),head=section?.querySelector('.we-section-head');
+            if(!section||!head||head.querySelector('.we-world-directory-actions'))return;
+            const actions=engine.host.document.createElement('span');actions.className='we-world-directory-actions';
+            const label=kind==='faction'?'势力':'探索';
+            actions.innerHTML='<button type="button" data-action="world-directory-edit" data-directory-kind="'+kind+'" data-directory-name="'+this.escape(found.name)+'">编辑'+label+'</button><button type="button" data-action="world-directory-delete" data-directory-kind="'+kind+'" data-directory-name="'+this.escape(found.name)+'">删除'+label+'</button>';
+            head.appendChild(actions);
+        }
+        armDirectoryDelete(button,kind,name){
+            const actions=button?.closest?.('.we-world-directory-actions');if(!actions)return false;
+            button.dataset.action='world-directory-delete-confirm';button.textContent='确认删除';button.classList.add('we-world-editor-danger');
+            if(!actions.querySelector('[data-action="world-directory-delete-cancel"]')){
+                const cancel=this.engine.host.document.createElement('button');cancel.type='button';cancel.dataset.action='world-directory-delete-cancel';cancel.dataset.directoryKind=kind;cancel.dataset.directoryName=name;cancel.textContent='取消';actions.appendChild(cancel);
+            }
+            return true;
+        }
+        cancelDirectoryDelete(button){
+            const actions=button?.closest?.('.we-world-directory-actions');if(!actions)return false;
+            const confirm=actions.querySelector('[data-action="world-directory-delete-confirm"]');
+            if(confirm){confirm.dataset.action='world-directory-delete';confirm.textContent=confirm.dataset.directoryKind==='faction'?'删除势力':'删除探索';confirm.classList.remove('we-world-editor-danger');}
+            actions.querySelector('[data-action="world-directory-delete-cancel"]')?.remove();return true;
+        }
+
         // ---- 因果偏移 ----
         causalInlineHtml(name,record){
             const impact=Number(record?.影响程度),esc=value=>this.escape(value);
@@ -8978,8 +9170,8 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const engine=this.engine;if(!engine.style||engine.style.textContent.includes('.we-world-editor-actions{'))return;
             engine.style.textContent+='\n'
                 +'#sam-world-engine .we-world-edit-toggle{margin-left:auto}'
-                +'#sam-world-engine .we-world-event-actions,#sam-world-engine .we-world-editor-actions,#sam-world-engine .we-history-actions,#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap;margin-top:9px}'
-                +'#sam-world-engine .we-world-event-actions button,#sam-world-engine .we-world-editor-actions button,#sam-world-engine .we-history-actions button,#sam-world-engine .we-offset-actions button,#sam-world-engine .we-world-person-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;cursor:pointer}'
+                +'#sam-world-engine .we-world-event-actions,#sam-world-engine .we-world-editor-actions,#sam-world-engine .we-world-directory-actions,#sam-world-engine .we-history-actions,#sam-world-engine .we-offset-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap;margin-top:9px}'
+                +'#sam-world-engine .we-world-event-actions button,#sam-world-engine .we-world-editor-actions button,#sam-world-engine .we-world-directory-actions button,#sam-world-engine .we-history-actions button,#sam-world-engine .we-offset-actions button,#sam-world-engine .we-world-person-actions button{border:1px solid var(--we-line,var(--line));border-radius:7px;background:transparent;color:var(--we-sub,var(--sub));padding:5px 10px;cursor:pointer}'
                 +'#sam-world-engine .we-world-editor-danger,#sam-world-engine .we-offset-delete-confirm{color:#ff8c8c!important;border-color:#b85c5c!important}'
                 +'#sam-world-engine .we-world-editor-save,#sam-world-engine .we-history-save,#sam-world-engine .we-offset-save{color:var(--we-accent,var(--gold))!important}'
                 +'#sam-world-engine .we-world-editor,#sam-world-engine .we-history-inline-editor,#sam-world-engine .we-offset-inline-editor{display:grid;gap:9px}'
@@ -8989,7 +9181,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                 +'#sam-world-engine .we-offset-edit-field textarea{height:92px!important;min-height:80px!important;max-height:180px!important;resize:vertical;line-height:1.55}'
                 +'#sam-world-engine .we-history-edit-field textarea,#sam-world-engine .we-world-editor-grid textarea{min-height:78px!important;max-height:240px!important;resize:vertical;line-height:1.5}'
                 +'#sam-world-engine .we-world-editor-wide,#sam-world-engine .we-history-edit-wide,#sam-world-engine .we-offset-edit-wide{grid-column:1/-1}'
-                +'#sam-world-engine .we-world-person-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}'
+                +'#sam-world-engine .we-world-person-actions,#sam-world-engine .we-world-directory-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}'
                 +'#sam-world-engine .we-world-editor-note,#sam-world-engine .we-history-edit-title{display:flex;justify-content:space-between;gap:10px;align-items:center}'
                 +'@media(max-width:680px){#sam-world-engine .we-world-editor-grid,#sam-world-engine .we-history-edit-grid,#sam-world-engine .we-offset-edit-grid{grid-template-columns:1fr}#sam-world-engine .we-world-editor-wide,#sam-world-engine .we-history-edit-wide,#sam-world-engine .we-offset-edit-wide{grid-column:auto}}';
         }
@@ -8998,7 +9190,7 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
             const panel=this.engine.panel;if(!panel||this.boundPanel===panel)return;
             this.boundPanel=panel;
             panel.addEventListener('click',event=>{
-                const button=event.target?.closest?.('[data-action="world-edit-mode"],[data-action^="world-event-"],[data-action^="world-person-"],[data-action^="causal-offset-"],[data-action^="history-anchor-"],[data-action^="history-summary-"]');
+                const button=event.target?.closest?.('[data-action="world-edit-mode"],[data-action^="world-event-"],[data-action^="world-person-"],[data-action^="world-directory-"],[data-action^="causal-offset-"],[data-action^="history-anchor-"],[data-action^="history-summary-"]');
                 if(!button||!panel.contains(button))return;
                 const action=String(button.dataset.action||'');
                 if(action==='world-edit-mode'){event.preventDefault();event.stopPropagation();this.toggleMode();return;}
@@ -9021,6 +9213,16 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     else if(action==='world-person-delete')this.armPersonDelete(button,name);
                     else if(action==='world-person-delete-confirm')task=this.engine.services.people.remove(name);
                     else if(action==='world-person-delete-cancel')this.cancelPersonDelete(button);
+                }else if(action.startsWith('world-directory-')){
+                    event.preventDefault();event.stopPropagation();
+                    const kind=String(button.dataset.directoryKind||button.closest('[data-world-directory-edit]')?.dataset?.directoryKind||'exploration');
+                    const section=this.directorySection(kind),name=String(button.dataset.directoryName||section?.querySelector?.('[data-world-directory-edit]')?.dataset?.directoryName||this.selectedDirectoryName(kind)||'');
+                    if(action==='world-directory-edit')this.beginDirectory(kind,name,section);
+                    else if(action==='world-directory-save')task=this.saveDirectory(section,kind,name);
+                    else if(action==='world-directory-cancel')this.engine.render(true);
+                    else if(action==='world-directory-delete')this.armDirectoryDelete(button,kind,name);
+                    else if(action==='world-directory-delete-confirm')task=this.engine.services.exploration.removeRecord(kind,name);
+                    else if(action==='world-directory-delete-cancel')this.cancelDirectoryDelete(button);
                 }else if(action.startsWith('causal-offset-')){
                     event.preventDefault();event.stopPropagation();
                     const card=button.closest('.we-offset'),name=String(button.dataset.offsetName||card?.dataset?.offsetName||card?.querySelector?.('[data-offset-editor]')?.dataset?.offsetOriginalName||'');
@@ -9039,11 +9241,11 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
                     else if(action==='history-summary-save')task=this.saveHistory('summary',card,name);
                     else if(action.endsWith('-cancel'))this.engine.render(true);
                 }
-                if(task)Promise.resolve(task).catch(error=>this.reportError(error,action.startsWith('history-')?'历史记忆':action.startsWith('causal-')?'因果偏移':action.startsWith('world-person-')?'世界人物':'世界事件'));
+                if(task)Promise.resolve(task).catch(error=>this.reportError(error,action.startsWith('history-')?'历史记忆':action.startsWith('causal-')?'因果偏移':action.startsWith('world-directory-')?'探索与势力':action.startsWith('world-person-')?'世界人物':'世界事件'));
             });
         }
         afterRender(){
-            this.ensureStyles();this.mountModeToggle();this.mountEventControls();this.mountPersonControls();this.mountCausalControls();this.mountHistoryControls();
+            this.ensureStyles();this.mountModeToggle();this.mountEventControls();this.mountPersonControls();this.mountDirectoryControls();this.mountCausalControls();this.mountHistoryControls();
         }
         dispose(){this.boundPanel=null;}
     }
@@ -9628,6 +9830,9 @@ Schema、非法状态、因果引用、明确日期冲突是硬错误；排期�
         worldPersonRecord(name){return this.services.people.get(name);}
         setWorldPersonRecord(name,record){return this.services.people.save(name,record);}
         removeWorldPersonRecord(name){return this.services.people.remove(name);}
+        worldDirectoryRecord(kind,name){return this.services.exploration.record(kind,name);}
+        setWorldDirectoryRecord(kind,oldName,newName,payload){return this.services.exploration.saveRecord(kind,oldName,newName,payload);}
+        removeWorldDirectoryRecord(kind,name){return this.services.exploration.removeRecord(kind,name);}
         persistCausalOffsetMutation(mutator,status){return this.services.causal.commit(mutator,status);}
         causalOffsetRecord(name){return this.services.causal.get(name);}
         setCausalOffsetRecord(oldName,newName,record){return this.services.causal.save(oldName,newName,record);}

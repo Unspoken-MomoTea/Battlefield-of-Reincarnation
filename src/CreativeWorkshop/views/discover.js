@@ -677,7 +677,14 @@ export function createDiscoverView({
       const renderInstallButton = () => {
         if (!installButton) return;
         local = localProject(project.id);
+        const canDeactivate = Boolean(
+          local?.applied
+          && Number(local.version) >= Number(project.version)
+          && Number(local.appliedVersion || 0) >= Number(local.version)
+        );
         installButton.classList.remove('is-installed');
+        installButton.classList.toggle('danger', canDeactivate);
+        installButton.classList.toggle('primary', !canDeactivate);
         if (!local) {
           installButton.textContent = '下载到本地';
         } else if (Number(local.version) < Number(project.version)) {

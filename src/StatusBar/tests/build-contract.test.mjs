@@ -40,3 +40,10 @@ test('status bar exposes an independent version and reload-safe event lifecycle'
   assert.match(generated, /trackStatusBarSubscription\(eventOn\(/u);
   assert.match(generated, /stopSubscriptions\(\)/u);
 });
+
+
+test('status bar left tab rail keeps workshop extension entries vertically scrollable', () => {
+  assert.match(generated, /\.sam-tab-rail \{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;[^}]*overscroll-behavior-y:contain;[^}]*scrollbar-gutter:stable;/u);
+  assert.match(generated, /\.sam-tab-rail > \* \{ flex-shrink:0; \}/u);
+  assert.match(generated, /\.sam-tab-btn \{ flex:0 0 auto;/u);
+});

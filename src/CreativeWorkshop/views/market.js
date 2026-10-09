@@ -692,12 +692,11 @@ export function createMarketView({
     nodes.marketMineContent.replaceChildren(content);
   }
 
-  nodes.marketSearchButton?.addEventListener('click', () => void refresh().catch(notifyError));
+  nodes.marketSearchButton?.addEventListener('click', renderRows);
   nodes.marketSearch?.addEventListener('keydown', event => {
-    if (event.key === 'Enter') void refresh().catch(notifyError);
+    if (event.key === 'Enter') renderRows();
   });
-  nodes.marketSort?.addEventListener('change', () => void refresh().catch(notifyError));
-  nodes.marketMore?.addEventListener('click', () => void refresh({ append: true }).catch(notifyError));
+  nodes.marketSort?.addEventListener('change', renderRows);
   nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
 
   for (const tab of nodes.marketModes || []) {
@@ -709,7 +708,7 @@ export function createMarketView({
       for (const candidate of nodes.marketCategories || []) {
         candidate.classList.toggle('is-active', candidate === category);
       }
-      void refresh().catch(notifyError);
+      renderRows();
     });
   }
 

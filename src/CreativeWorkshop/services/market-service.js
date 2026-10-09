@@ -460,9 +460,10 @@ export function createMarketService({ host, api }) {
   }
 
   async function auctionQuote(asset, quantity = 1, durationHours = 24) {
+    const payload = listingAssetSnapshot(assetPayload(asset, quantity));
     return api.quoteMarketAction({
       action: 'auction',
-      asset: assetPayload(asset, quantity),
+      asset: payload,
       duration_hours: durationHours,
     });
   }
@@ -965,13 +966,34 @@ export function createMarketService({ host, api }) {
 
   async function recoverAll(stateValue = null) {
     const state = stateValue || await mine();
-    for (const trade of state.pending_deliveries || []) await deliverTrade(trade);
-    for (const fill of state.orders?.pending_deliveries || []) await deliverOrderFill(fill);
-    for (const returned of state.pending_returns || []) await receiveReturn(returned);
-    for (const delivery of state.barters?.pending_deliveries || []) await receiveBarterDelivery(delivery);
-    for (const payout of state.pending_payouts || []) await receivePayout(payout);
-    if (Number(state.wallet?.balance || 0) > 0) await claimProceeds();
-    return mine();
+    const failures = [];
+    const attempt = async (label, operation) => {
+      try { await operation(); } catch (error) {
+        failures.push(label + '：' + (error?.message || String(error)));
+      }
+    };
+
+    for (const trade of state.pending_deliveries || []) {
+      await attempt('拍卖领取 ' + (trade.asset?.name || trade.id), () => deliverTrade(trade));
+    }
+    for (const fill of state.orders?.pending_deliveries || []) {
+      await attempt('求购领取 ' + (fill.asset?.name || fill.id), () => deliverOrderFill(fill));
+    }
+    for (const returned of state.pending_returns || []) {
+      await attempt('资产返还 ' + (returned.asset?.name || returned.id), () => receiveReturn(returned));
+    }
+    for (const delivery of state.barters?.pending_deliveries || []) {
+      await attempt('交换领取 ' + (delivery.asset?.name || delivery.id), () => receiveBarterDelivery(delivery));
+    }
+    for (const payout of state.pending_payouts || []) {
+      await attempt('空间币写入 ' + payout.id, () => receivePayout(payout));
+    }
+    if (Number(state.wallet?.balance || 0) > 0) {
+      await attempt('货款领取', () => claimProceeds());
+    }
+
+    const refreshed = await mine();
+    return { state: refreshed, failures };
   }
 
   async function claimProceeds() {

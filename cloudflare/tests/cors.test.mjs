@@ -26,3 +26,16 @@ test('CORS preflight allows PUT for cover uploads', async () => {
   assert.match(headers.toLowerCase(), /authorization/u);
   assert.match(headers.toLowerCase(), /content-type/u);
 });
+
+test('CORS preflight permits the market save-scope header', async () => {
+  const response = await handleRequest(new Request('https://workshop.example/api/market/me', {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'https://chat.example',
+      'Access-Control-Request-Method': 'GET',
+      'Access-Control-Request-Headers': 'authorization,x-market-save',
+    },
+  }), {});
+  assert.equal(response.status, 204);
+  assert.match(response.headers.get('Access-Control-Allow-Headers'), /X-Market-Save/iu);
+});

@@ -228,6 +228,7 @@ CREATE TABLE IF NOT EXISTS market_trades (
   market_fee INTEGER NOT NULL DEFAULT 0,
   seller_proceeds INTEGER NOT NULL DEFAULT 0,
   delivered_at INTEGER,
+  seller_announced_at INTEGER,
   created_at INTEGER NOT NULL,
   FOREIGN KEY (listing_id) REFERENCES market_listings(id),
   FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE,

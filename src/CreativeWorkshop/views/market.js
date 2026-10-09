@@ -1667,6 +1667,7 @@ export function createMarketView({
   for (const category of nodes.marketCategories || []) {
     category.addEventListener('click', () => {
       currentKind = category.dataset.marketKind || '';
+      if (nodes.marketSubtype) nodes.marketSubtype.value = '';
       selectedKey = '';
       selectedDetail = null;
       for (const candidate of nodes.marketCategories || []) {

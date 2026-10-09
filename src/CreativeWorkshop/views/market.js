@@ -13,7 +13,15 @@ const coin = value => Math.max(0, Math.trunc(num(value))).toLocaleString('zh-CN'
 const quality = asset => String(
   asset?.quality || asset?.data?.品质 || asset?.data?.层级 || asset?.data?.等级 || '',
 ).trim();
-const qualityRank = asset => quality(asset).toUpperCase().match(/^(SSS|SS|S|A|B|C|D|E|F)$/u)?.[0] || 'NONE';
+const RANK_QUALITY = {
+  'Ⅰ': 'F', 'Ⅱ': 'E', 'Ⅲ': 'D', 'Ⅳ': 'C', 'Ⅴ': 'B',
+  'Ⅵ': 'A', 'Ⅶ': 'S', 'Ⅷ': 'SS', 'Ⅸ': 'SSS',
+};
+const qualityRank = asset => {
+  const raw = quality(asset);
+  if (RANK_QUALITY[raw]) return RANK_QUALITY[raw];
+  return raw.toUpperCase().match(/^(SSS|SS|S|A|B|C|D|E|F)$/u)?.[0] || 'NONE';
+};
 const qualityName = (node, asset) => {
   node.classList.add('rw-ah-quality-name');
   node.dataset.quality = qualityRank(asset);
@@ -543,7 +551,10 @@ export function createMarketView({
     };
 
     qty.addEventListener('input', syncGross);
-    qty.addEventListener('change', () => void refreshQuote().catch(notifyError));
+    qty.addEventListener('change', () => {
+      void refreshQuote().catch(notifyError);
+      void refreshBuyback().catch(notifyError);
+    });
     price.addEventListener('input', syncGross);
     duration.addEventListener('change', () => void refreshQuote().catch(notifyError));
     syncGross();
@@ -589,37 +600,44 @@ export function createMarketView({
     form.append(qtyField, priceField, durationField, fee, total, submit);
     editor.append(form);
 
-    if (asset.kind === 'equipment') {
-      const buybackQuote = await marketService.quoteBuyback(asset).catch(() => null);
-      const buyback = element('div', 'rw-ah-buyback-box');
-      const copy = element('div', 'rw-ah-buyback-copy');
-      copy.append(
-        element('span', '', '系统回收'),
-        element(
-          'strong',
-          '',
-          buybackQuote
-            ? coin(buybackQuote.total_price) + ' 空间币'
-            : '暂时无法估价',
-        ),
-        element('small', '', '按该品质商城最低价 × 野货最低收购比例结算；不区分是否带主神空间标签。'),
-      );
-      buyback.append(copy);
-      if (buybackQuote) {
-        buyback.append(button('直接卖给系统', '', async () => {
-          await marketService.sellToSystem({
-            kind: asset.kind,
-            key: asset.key,
-            name: asset.name,
-          });
-          try { host.toastr?.success?.('装备已由系统回收，空间币已写入当前存档', '空间集市'); } catch {}
-          selectedSellIndex = -1;
-          await renderSellMode();
-          await refreshSummary();
-        }));
-      }
-      editor.append(buyback);
+    const buyback = element('div', 'rw-ah-buyback-box');
+    const buybackCopy = element('div', 'rw-ah-buyback-copy');
+    const buybackValue = element('strong', '', '计算中…');
+    buybackCopy.append(
+      element('span', '', '系统回收'),
+      buybackValue,
+      element('small', '', '按该品质商城最低价 × 野货最低收购比例结算；不区分是否带主神空间标签。'),
+    );
+    const buybackButton = button('直接卖给系统', '', async () => {
+      const amount = amountValue();
+      const quote = await marketService.quoteBuyback(asset, amount);
+      if (!quote) throw new Error('系统暂时无法估价');
+      await marketService.sellToSystem({
+        kind: asset.kind,
+        key: asset.key,
+        name: asset.name,
+        quantity: amount,
+      });
+      try { host.toastr?.success?.('资产已由系统回收，空间币已写入当前存档', '空间集市'); } catch {}
+      selectedSellIndex = -1;
+      await renderSellMode();
+      await refreshSummary();
+    });
+    buyback.append(buybackCopy, buybackButton);
+    editor.append(buyback);
+
+    async function refreshBuyback() {
+      const quote = await marketService.quoteBuyback(asset, amountValue());
+      buybackValue.textContent = quote
+        ? coin(quote.total_price) + ' 空间币'
+        : '暂时无法估价';
+      buybackButton.disabled = !quote;
+      return quote;
     }
+    await refreshBuyback().catch(() => {
+      buybackValue.textContent = '暂时无法估价';
+      buybackButton.disabled = true;
+    });
 
     editor.append(element(
       'p',

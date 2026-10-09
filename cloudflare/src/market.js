@@ -1167,36 +1167,6 @@ export async function confirmMarketPayout(env, user, payoutIdValue) {
   return json({ payout: payoutFromRow(row) });
 }
 
-export async function confirmMarketSaleBroadcast(env, user, tradeIdValue) {
-  const id = marketId(tradeIdValue, '成交播报 ID');
-  const row = await first(env,
-    `SELECT t.id FROM market_trades t
-     JOIN market_listings l ON l.id = t.listing_id
-     WHERE t.id = ? AND t.seller_user_id = ? AND l.save_id = ? AND l.is_system = 0
-     LIMIT 1`,
-    [id, user.id, user.market_save_id]);
-  if (!row) throw new HttpError(404, 'market_broadcast_not_found', '待播报的集市交易不存在');
-  await env.DB.prepare(
-    `UPDATE market_trades SET seller_announced_at = COALESCE(seller_announced_at, ?)
-     WHERE id = ? AND seller_user_id = ?`,
-  ).bind(nowMs(), id, user.id).run();
-  return json({ acknowledged: true, id });
-}
-
-export async function confirmMarketRecycleBroadcast(env, user, recycleIdValue) {
-  const id = marketId(recycleIdValue, '到期回收播报 ID');
-  const row = await first(env,
-    `SELECT id FROM market_recycles WHERE id = ? AND user_id = ? AND save_id = ?
-     AND credited_at IS NOT NULL LIMIT 1`,
-    [id, user.id, user.market_save_id]);
-  if (!row) throw new HttpError(404, 'market_broadcast_not_found', '待播报的集市回收不存在');
-  await env.DB.prepare(
-    `UPDATE market_recycles SET broadcast_at = COALESCE(broadcast_at, ?)
-     WHERE id = ? AND user_id = ? AND save_id = ?`,
-  ).bind(nowMs(), id, user.id, user.market_save_id).run();
-  return json({ acknowledged: true, id });
-}
-
 export async function getMarketMe(env, user) {
   await settleExpiredMarketListings(env);
   await settleExpiredMarketOrders(env);
@@ -1216,15 +1186,6 @@ export async function getMarketMe(env, user) {
      AND t.delivered_at IS NULL ORDER BY t.created_at ASC LIMIT 200`,
     [user.id, user.market_save_id],
   );
-  const pendingSaleBroadcasts = await all(
-    env,
-    `${TRADE_SELECT}
-     JOIN market_listings sold_listing ON sold_listing.id = t.listing_id
-     WHERE t.seller_user_id = ? AND sold_listing.save_id = ?
-       AND sold_listing.is_system = 0 AND t.seller_announced_at IS NULL
-     ORDER BY t.created_at ASC LIMIT 200`,
-    [user.id, user.market_save_id],
-  );
   const pendingReturns = await all(
     env,
     `SELECT * FROM market_returns
@@ -1239,14 +1200,6 @@ export async function getMarketMe(env, user) {
      ORDER BY created_at ASC LIMIT 50`,
     [user.id, user.market_save_id],
   );
-  const pendingRecycleBroadcasts = await all(
-    env,
-    `SELECT * FROM market_recycles
-     WHERE user_id = ? AND save_id = ? AND credited_at IS NOT NULL
-       AND broadcast_at IS NULL ORDER BY created_at ASC LIMIT 200`,
-    [user.id, user.market_save_id],
-  );
-
   const orderState = await getMarketOrderState(env, user);
   const activeCount = await first(env,
     `SELECT COUNT(*) AS count FROM market_listings
@@ -1262,8 +1215,6 @@ export async function getMarketMe(env, user) {
     },
     listings: listings.map(listingFromRow),
     pending_deliveries: pendingDeliveries.map(tradeFromRow),
-    pending_sale_broadcasts: pendingSaleBroadcasts.map(tradeFromRow),
-    pending_recycle_broadcasts: pendingRecycleBroadcasts.map(recycleFromRow),
     pending_returns: pendingReturns.map(returnFromRow),
     pending_payouts: pendingPayouts.map(payoutFromRow),
     ...orderState,

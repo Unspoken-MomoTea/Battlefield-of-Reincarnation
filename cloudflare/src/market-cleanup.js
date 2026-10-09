@@ -44,10 +44,6 @@ export async function cleanupCompletedMarketRecords(env, { limit = 200, now = Da
     `DELETE FROM market_trades WHERE id IN
       (SELECT t.id FROM market_trades t
        WHERE t.delivered_at IS NOT NULL AND t.delivered_at < ?
-         AND (t.seller_announced_at IS NOT NULL OR EXISTS (
-           SELECT 1 FROM market_listings owner_listing
-           WHERE owner_listing.id = t.listing_id AND owner_listing.is_system = 1
-         ))
          AND (t.purchase_id = '' OR NOT EXISTS (
            SELECT 1 FROM market_trades sibling
            WHERE sibling.purchase_id = t.purchase_id
@@ -77,8 +73,7 @@ export async function cleanupCompletedMarketRecords(env, { limit = 200, now = Da
   removed.recycles = await prune(env, 'market_recycles',
     `DELETE FROM market_recycles WHERE id IN
       (SELECT id FROM market_recycles
-       WHERE credited_at IS NOT NULL AND credited_at < ?
-         AND broadcast_at IS NOT NULL LIMIT ?)`, [cutoff, batch]);
+       WHERE credited_at IS NOT NULL AND credited_at < ? LIMIT ?)`, [cutoff, batch]);
 
   removed.payouts = await prune(env, 'market_payouts',
     `DELETE FROM market_payouts WHERE id IN

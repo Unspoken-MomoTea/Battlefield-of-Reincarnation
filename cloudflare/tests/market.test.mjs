@@ -1299,10 +1299,6 @@ test('completed market receipts are pruned, but anything awaiting delivery or re
     method: 'POST', headers: buyerHeaders,
   });
   assert.equal(ack.response.status, 200);
-  const sellerAck = await jsonRequest(testEnv, '/api/market/trades/cleanup-delivered/announced', {
-    method: 'POST', headers: sellerHeaders,
-  });
-  assert.equal(sellerAck.response.status, 200);
   const db = testEnv.DB.db;
   db.prepare("UPDATE market_trades SET delivered_at = ? WHERE id = 'cleanup-delivered'").run(since);
   db.prepare("UPDATE market_trades SET created_at = ? WHERE id IN ('cleanup-delivered','cleanup-pending')").run(since);
@@ -1350,99 +1346,76 @@ test('completed buybacks can be pruned after confirmed payout; pending payouts n
   assert.equal(removed.payouts, 1);
 });
 
-test('offline seller sales queue a one-time, save-scoped narration event until acknowledged', async () => {
+test('seller receives funds but no server-only sale narration or acknowledgement endpoint', async () => {
   const testEnv = env();
-  const seller = createUser(testEnv, 'broadcast-seller', 'Broadcast Seller');
-  const buyer = createUser(testEnv, 'broadcast-buyer', 'Broadcast Buyer');
-  const sellerA = authHeaders(testEnv, seller, 'broadcast-seller-a', 'save:seller-a');
-  const sellerB = authHeaders(testEnv, seller, 'broadcast-seller-b', 'save:seller-b');
-  const buyerHeaders = authHeaders(testEnv, buyer, 'broadcast-buyer-a', 'save:buyer-a');
-  const listing = await jsonRequest(testEnv, '/api/market/listings', {
-    method: 'POST', headers: sellerA,
+  const seller = createUser(testEnv, 'no-broadcast-seller', 'Seller');
+  const buyer = createUser(testEnv, 'no-broadcast-buyer', 'Buyer');
+  const sellerHeaders = authHeaders(testEnv, seller, 'no-broadcast-seller-token');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'no-broadcast-buyer-token');
+  const created = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: sellerHeaders,
     body: JSON.stringify({
-      id: 'broadcast-listing', asset: { kind: 'item', name: '播报药剂', quantity: 1,
-        data: { 名称: '播报药剂', 数量: 1, 品质: 'E' } }, unit_price: 100,
+      id: 'no-broadcast-listing', asset: { kind: 'item', name: '播报测试材料', quantity: 1,
+        data: { 名称: '播报测试材料', 品质: 'E', 数量: 1 } }, unit_price: 100,
     }),
   });
-  assert.equal(listing.response.status, 201);
-  const purchased = await jsonRequest(testEnv, '/api/market/listings/broadcast-listing/buy', {
+  assert.equal(created.response.status, 201);
+  const bought = await jsonRequest(testEnv, '/api/market/listings/no-broadcast-listing/buy', {
     method: 'POST', headers: buyerHeaders,
-    body: JSON.stringify({ trade_id: 'broadcast-sale', quantity: 1 }),
+    body: JSON.stringify({ trade_id: 'no-broadcast-sale', quantity: 1 }),
   });
-  assert.equal(purchased.response.status, 200);
-  const pending = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
-  assert.equal(pending.body.pending_sale_broadcasts.length, 1);
-  assert.equal(pending.body.pending_sale_broadcasts[0].seller_proceeds, 97);
-  const otherSave = await jsonRequest(testEnv, '/api/market/me', { headers: sellerB });
-  assert.equal(otherSave.body.pending_sale_broadcasts.length, 0);
-  const denied = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/announced', {
-    method: 'POST', headers: sellerB,
+  assert.equal(bought.response.status, 200);
+  const me = await jsonRequest(testEnv, '/api/market/me', { headers: sellerHeaders });
+  assert.ok(me.body.wallet.balance > 0, 'seller must still receive their proceeds');
+  assert.equal(Object.hasOwn(me.body, 'pending_sale_broadcasts'), false);
+  assert.equal(Object.hasOwn(me.body, 'pending_recycle_broadcasts'), false);
+  const deprecated = await jsonRequest(testEnv, '/api/market/trades/no-broadcast-sale/announced', {
+    method: 'POST', headers: sellerHeaders,
   });
-  assert.equal(denied.response.status, 404);
-  const buyerDenied = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/announced', {
-    method: 'POST', headers: buyerHeaders,
-  });
-  assert.equal(buyerDenied.response.status, 404);
+  assert.equal(deprecated.response.status, 404);
 
-  // Even if the buyer acknowledged delivery long ago, an unannounced sale remains.
-  const delivered = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/delivered', {
+  const delivered = await jsonRequest(testEnv, '/api/market/trades/no-broadcast-sale/delivered', {
     method: 'POST', headers: buyerHeaders,
   });
   assert.equal(delivered.response.status, 200);
   const old = Date.now() - 3 * 24 * 60 * 60 * 1000;
   testEnv.DB.db.prepare('UPDATE market_trades SET delivered_at = ? WHERE id = ?')
-    .run(old, 'broadcast-sale');
-  await cleanupCompletedMarketRecords(testEnv);
-  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_trades WHERE id = ?').get('broadcast-sale').count, 1);
-
-  const ack = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/announced', {
-    method: 'POST', headers: sellerA,
-  });
-  assert.equal(ack.response.status, 200);
-  const again = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/announced', {
-    method: 'POST', headers: sellerA,
-  });
-  assert.equal(again.response.status, 200);
-  const after = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
-  assert.equal(after.body.pending_sale_broadcasts.length, 0);
-  await cleanupCompletedMarketRecords(testEnv);
-  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_trades WHERE id = ?').get('broadcast-sale').count, 0);
+    .run(old, 'no-broadcast-sale');
+  const removed = await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(removed.trades, 1, 'completed sales should not wait for narration');
+  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_trades WHERE id = ?')
+    .get('no-broadcast-sale').count, 0);
 });
 
-test('unannounced auto recycle survives cleanup and only its originating save can acknowledge it', async () => {
+test('expired listing auto-recycle does not queue narration and cleanup remains unblocked', async () => {
   const testEnv = env();
-  const seller = createUser(testEnv, 'broadcast-recycle-owner', 'Recycle Owner');
-  const sellerA = authHeaders(testEnv, seller, 'broadcast-recycle-a', 'save:recycle-a');
-  const sellerB = authHeaders(testEnv, seller, 'broadcast-recycle-b', 'save:recycle-b');
+  const seller = createUser(testEnv, 'no-broadcast-recycle', 'Recycle Owner');
+  const headers = authHeaders(testEnv, seller, 'no-broadcast-recycle-token');
   const created = await jsonRequest(testEnv, '/api/market/listings', {
-    method: 'POST', headers: sellerA,
+    method: 'POST', headers,
     body: JSON.stringify({
-      id: 'broadcast-recycle-listing',
-      asset: { kind: 'item', name: '过期药剂', quantity: 1,
-        data: { 名称: '过期药剂', 品质: 'E', 数量: 1 } },
+      id: 'no-broadcast-expiring',
+      asset: { kind: 'item', name: '到期道具', quantity: 1,
+        data: { 名称: '到期道具', 品质: 'E', 数量: 1 } },
       unit_price: 10,
     }),
   });
   assert.equal(created.response.status, 201);
   const old = Date.now() - 3 * 24 * 60 * 60 * 1000;
   testEnv.DB.db.prepare('UPDATE market_listings SET expires_at = ?, recycle_at = ? WHERE id = ?')
-    .run(old, old, 'broadcast-recycle-listing');
-  const pending = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
-  assert.equal(pending.body.pending_recycle_broadcasts.length, 1);
-  const record = pending.body.pending_recycle_broadcasts[0];
-  testEnv.DB.db.prepare('UPDATE market_recycles SET credited_at = ? WHERE id = ?').run(old, record.id);
-  await cleanupCompletedMarketRecords(testEnv);
-  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_recycles WHERE id = ?').get(record.id).count, 1);
-  const bad = await jsonRequest(testEnv, '/api/market/recycles/' + encodeURIComponent(record.id) + '/announced', {
-    method: 'POST', headers: sellerB,
+    .run(old, old, 'no-broadcast-expiring');
+  const me = await jsonRequest(testEnv, '/api/market/me', { headers });
+  assert.equal(Object.hasOwn(me.body, 'pending_recycle_broadcasts'), false);
+  assert.ok(me.body.wallet.balance >= 0);
+  const recycle = testEnv.DB.db.prepare('SELECT * FROM market_recycles WHERE listing_id = ?')
+    .get('no-broadcast-expiring');
+  assert.ok(recycle, 'recycling should still credit the owner');
+  testEnv.DB.db.prepare('UPDATE market_recycles SET credited_at = ? WHERE id = ?')
+    .run(old, recycle.id);
+  const removed = await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(removed.recycles, 1);
+  const deprecated = await jsonRequest(testEnv, '/api/market/recycles/' + encodeURIComponent(recycle.id) + '/announced', {
+    method: 'POST', headers,
   });
-  assert.equal(bad.response.status, 404);
-  const good = await jsonRequest(testEnv, '/api/market/recycles/' + encodeURIComponent(record.id) + '/announced', {
-    method: 'POST', headers: sellerA,
-  });
-  assert.equal(good.response.status, 200);
-  const after = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
-  assert.equal(after.body.pending_recycle_broadcasts.length, 0);
-  await cleanupCompletedMarketRecords(testEnv);
-  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_recycles WHERE id = ?').get(record.id).count, 0);
+  assert.equal(deprecated.response.status, 404);
 });

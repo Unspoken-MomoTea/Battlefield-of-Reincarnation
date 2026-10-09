@@ -102,7 +102,7 @@ export function createMarketBrowseStore({
   async function refresh() {
     if (pendingSnapshot) return pendingSnapshot;
     const requestGeneration = ++generation;
-    const request = Promise.resolve().then(() => marketService.catalogSnapshot())
+    const request = Promise.resolve(marketService.catalogSnapshot())
       .then(next => {
         if (requestGeneration !== generation) return snapshot;
         const items = Array.isArray(next?.items) ? next.items.slice() : [];

@@ -422,8 +422,11 @@ test('system credential listings restock daily and do not credit a synthetic sel
 
   const eCredential = catalog.body.items.find(item => item.id === 'system:credential:E');
   assert.equal(eCredential.unit_price, 999);
-  const sssCredential = catalog.body.items.find(item => item.id === 'system:credential:SSS');
-  assert.equal(sssCredential.unit_price, 5_120_000);
+  const aCredential = catalog.body.items.find(item => item.id === 'system:credential:A');
+  assert.equal(aCredential.unit_price, 319_999);
+  assert.equal(catalog.body.items.some(item => item.id === 'system:credential:S'), false);
+  assert.equal(catalog.body.items.some(item => item.id === 'system:credential:SS'), false);
+  assert.equal(catalog.body.items.some(item => item.id === 'system:credential:SSS'), false);
 
   const purchase = await jsonRequest(testEnv, '/api/market/listings/system%3Acredential%3AF/buy', {
     method: 'POST',
@@ -442,4 +445,109 @@ test('system credential listings restock daily and do not credit a synthetic sel
     'SELECT balance FROM market_wallets WHERE user_id = ?',
   ).get(systemUser.id);
   assert.equal(wallet, undefined);
+});
+
+
+test('bloodlines forms and teammates survive listing, purchase and logical-kind filtering', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, '900', 'Expanded Seller');
+  const buyer = createUser(testEnv, '901', 'Expanded Buyer');
+  const sellerHeaders = authHeaders(testEnv, seller, 'expanded-seller-token');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'expanded-buyer-token');
+
+  const assets = [
+    {
+      id: 'listing-bloodline-1',
+      kind: 'bloodline',
+      name: '龙血',
+      data: { 品质: 'D', 标签: ['血统'], 描述: '测试血统' },
+    },
+    {
+      id: 'listing-form-1',
+      kind: 'form',
+      name: '超载',
+      data: { 层级: 'Ⅲ', 标签: ['形态'], 状态: '完好' },
+    },
+    {
+      id: 'listing-teammate-1',
+      kind: 'teammate',
+      name: '旅伴',
+      data: { 是否队友: true, 层级: 'Ⅱ', 好感度: 50, 种族: '人类' },
+    },
+  ];
+
+  for (const asset of assets) {
+    const created = await jsonRequest(testEnv, '/api/market/listings', {
+      method: 'POST',
+      headers: sellerHeaders,
+      body: JSON.stringify({
+        id: asset.id,
+        duration_hours: 24,
+        asset: {
+          kind: asset.kind,
+          name: asset.name,
+          quantity: 1,
+          data: asset.data,
+        },
+        unit_price: 100,
+      }),
+    });
+    assert.equal(created.response.status, 201);
+    assert.equal(created.body.listing.asset.kind, asset.kind);
+  }
+
+  const forms = await jsonRequest(testEnv, '/api/market/listings?kind=form&sort=latest');
+  assert.equal(forms.response.status, 200);
+  assert.ok(forms.body.items.some(item => item.id === 'listing-form-1'));
+  assert.ok(forms.body.items.every(item => item.asset.kind === 'form'));
+
+  const purchase = await jsonRequest(testEnv, '/api/market/listings/listing-teammate-1/buy', {
+    method: 'POST',
+    headers: buyerHeaders,
+    body: JSON.stringify({ trade_id: 'trade-expanded-teammate', quantity: 1 }),
+  });
+  assert.equal(purchase.response.status, 200);
+  assert.equal(purchase.body.trade.asset.kind, 'teammate');
+  assert.equal(purchase.body.trade.asset.name, '旅伴');
+});
+
+test('system buyback accepts stacked items and ranked teammates with the same quality economy', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, '910', 'Universal Buyback Seller');
+  const headers = authHeaders(testEnv, seller, 'universal-buyback-token');
+
+  const itemBuyback = await jsonRequest(testEnv, '/api/market/buybacks', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      id: 'buyback-item-stack',
+      asset: {
+        kind: 'item',
+        name: 'F级材料',
+        quantity: 3,
+        data: { 名称: 'F级材料', 品质: 'F', 类型: '材料', 数量: 3 },
+      },
+    }),
+  });
+  assert.equal(itemBuyback.response.status, 201);
+  assert.equal(itemBuyback.body.buyback.asset.kind, 'item');
+  assert.equal(itemBuyback.body.buyback.quantity, 3);
+  assert.equal(itemBuyback.body.buyback.amount, 9);
+
+  const teammateQuote = await jsonRequest(testEnv, '/api/market/quote', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      action: 'buyback',
+      asset: {
+        kind: 'teammate',
+        name: 'Ⅱ级旅伴',
+        quantity: 1,
+        data: { 是否队友: true, 层级: 'Ⅱ' },
+      },
+    }),
+  });
+  assert.equal(teammateQuote.response.status, 200);
+  assert.equal(teammateQuote.body.quote.quality, 'E');
+  assert.equal(teammateQuote.body.quote.total_price, 35);
 });

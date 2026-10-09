@@ -683,18 +683,55 @@ export function createMarketView({
       ));
     }
 
-    const referencePrices = listings
-      .filter(item => item?.asset?.kind === asset.kind && item?.asset?.name === asset.name)
-      .map(item => Number(item.unit_price || 0))
-      .filter(value => Number.isFinite(value) && value > 0)
-      .sort((left, right) => left - right);
-    const referencePrice = referencePrices[0] || 0;
+    let referenceDetail = null;
+    let referencePrice = 0;
+    try {
+      const result = await marketService.catalog({
+        query: asset.name,
+        kind: asset.kind,
+        sort: 'price_asc',
+        limit: 20,
+      });
+      const same = (result?.items || []).find(item => (
+        item.name === asset.name
+        && (!quality(asset) || qualityRank(item.asset) === qualityRank(asset))
+      )) || (result?.items || []).find(item => item.name === asset.name);
+      if (same?.key) {
+        referenceDetail = await marketService.catalogDetail(same.key);
+        referencePrice = Number(referenceDetail?.catalog?.lowest_price || 0);
+      }
+    } catch {}
 
-    const referenceBox = element('div', 'rw-ah-reference-price');
-    referenceBox.append(
-      element('span', '', '当前市场最低价'),
-      element('strong', '', referencePrice ? coin(referencePrice) + ' 空间币' : '暂无同名商品'),
+    const referenceBox = element('div', 'rw-ah-sell-market');
+    const referenceHead = element('div', 'rw-ah-sell-market-head');
+    referenceHead.append(
+      element('span', '', '当前市场'),
+      element('strong', '', referencePrice ? coin(referencePrice) + ' 空间币 / 件' : '暂无同名商品'),
     );
+    referenceBox.append(referenceHead);
+    if (referenceDetail?.ladder?.length) {
+      const ladder = element('div', 'rw-ah-sell-market-ladder');
+      for (const level of referenceDetail.ladder.slice(0, 5)) {
+        const row = element('div', 'rw-ah-sell-market-row');
+        row.append(
+          element('span', '', coin(level.price)),
+          element('span', '', level.stock + ' 件'),
+          element('span', '', level.seller_count + ' 位卖家'),
+        );
+        ladder.append(row);
+      }
+      referenceBox.append(ladder);
+    }
+    if (referenceDetail?.history?.length) {
+      const latest = referenceDetail.history[referenceDetail.history.length - 1];
+      referenceBox.append(element(
+        'small',
+        'rw-ah-sell-market-history',
+        '最近成交：均价 ' + coin(latest.average) + ' · '
+          + '最低 ' + coin(latest.low) + ' · 最高 ' + coin(latest.high)
+          + ' · 成交量 ' + latest.volume,
+      ));
+    }
     editor.append(referenceBox);
 
     if (!sellInventory?.inHub) {
@@ -733,6 +770,15 @@ export function createMarketView({
     if (referencePrice) price.value = String(referencePrice);
     price.placeholder = '输入空间币';
     priceField.append(price);
+    if (referencePrice) {
+      const follow = button('跟随最低价', '', () => {
+        price.value = String(referencePrice);
+        price.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      follow.type = 'button';
+      follow.title = 'WoW式同价竞争：不必刻意压低价格；同价时后上架优先成交。';
+      priceField.append(follow);
+    }
 
     const durationField = element('label', 'rw-ah-form-field');
     durationField.append(element('span', '', '挂牌时长'));

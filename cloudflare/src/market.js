@@ -9,7 +9,7 @@ import {
   marketSaleSettlement,
 } from './market-economy.js';
 
-const MARKET_KINDS = new Set(['equipment', 'item', 'skill']);
+const MARKET_KINDS = new Set(['equipment', 'item', 'skill', 'bloodline', 'form', 'teammate']);
 const MARKET_ID_RE = /^[A-Za-z0-9:_-]{6,96}$/u;
 const MAX_ASSET_BYTES = 32 * 1024;
 const MAX_NAME_LENGTH = 120;
@@ -130,10 +130,19 @@ function parseJson(value, fallback = {}) {
   try { return JSON.parse(String(value || '')); } catch { return fallback; }
 }
 
+function storageKind(kind, { buyback = false } = {}) {
+  if (buyback) return 'equipment';
+  return ['equipment', 'item', 'skill'].includes(kind) ? kind : 'item';
+}
+
+function logicalKind(row) {
+  return String(row?.market_kind || row?.asset_kind || '');
+}
+
 function assetFromBody(input) {
   const kind = String(input?.kind || '').trim();
   if (!MARKET_KINDS.has(kind)) {
-    throw new HttpError(400, 'market_invalid_kind', '暂时只支持装备、道具和技能');
+    throw new HttpError(400, 'market_invalid_kind', '资产类型无效');
   }
 
   const name = text(input?.name);
@@ -169,7 +178,7 @@ function listingFromRow(row) {
   if (!row) return null;
   return {
     id: row.id,
-    asset: parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.remaining_quantity),
+    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.remaining_quantity),
     unit_price: integer(row.unit_price),
     total_quantity: integer(row.total_quantity),
     remaining_quantity: integer(row.remaining_quantity),
@@ -198,7 +207,7 @@ function tradeFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
-    asset: parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.quantity),
+    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.market_quantity || row.quantity),
     quantity: integer(row.quantity),
     unit_price: integer(row.unit_price),
     total_price: integer(row.total_price),
@@ -224,7 +233,7 @@ function returnFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
-    asset: parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.quantity),
+    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.market_quantity || row.quantity),
     quantity: integer(row.quantity),
     confirmed_at: row.confirmed_at == null ? null : integer(row.confirmed_at),
     created_at: integer(row.created_at),
@@ -246,7 +255,7 @@ function recycleFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
-    asset: parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.quantity),
+    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.market_quantity || row.quantity),
     quantity: integer(row.quantity, 1),
     amount: integer(row.amount),
     credited_at: row.credited_at == null ? null : integer(row.credited_at),
@@ -291,6 +300,12 @@ async function ensureSystemCredentialListings(env) {
 
   const now = nowMs();
   const day = marketDayKey(now);
+  await env.DB.prepare(
+    `UPDATE market_listings
+     SET status = 'cancelled', remaining_quantity = 0, updated_at = ?
+     WHERE id IN ('system:credential:S', 'system:credential:SS', 'system:credential:SSS')
+       AND is_system = 1`,
+  ).bind(now).run();
   for (const spec of marketCredentialSpecs()) {
     const existing = await first(
       env,
@@ -387,19 +402,20 @@ export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
   );
 
   for (const row of rows) {
-    const asset = parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.remaining_quantity);
+    const asset = parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.remaining_quantity);
     const quote = marketBuybackQuote(asset, row.remaining_quantity);
     const recycleId = `recycle:${row.id}`;
     await runBatch(env, [
       env.DB.prepare(
         `INSERT OR IGNORE INTO market_recycles
-          (id, listing_id, user_id, asset_kind, asset_name, asset_json, quantity, amount, credited_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+          (id, listing_id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, amount, credited_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
       ).bind(
         recycleId,
         row.id,
         row.seller_user_id,
         row.asset_kind,
+        logicalKind(row),
         row.asset_name,
         row.asset_json,
         row.remaining_quantity,
@@ -553,7 +569,7 @@ export async function listMarketListings(request, env) {
   const args = [nowMs()];
   if (kind) {
     if (!MARKET_KINDS.has(kind)) throw new HttpError(400, 'market_invalid_kind', '资产类型无效');
-    clauses.push('l.asset_kind = ?');
+    clauses.push("COALESCE(NULLIF(l.market_kind, ''), l.asset_kind) = ?");
     args.push(kind);
   }
   if (query) {
@@ -591,9 +607,6 @@ export async function quoteMarketAction(request, env, user) {
   const action = String(body?.action || 'auction');
 
   if (action === 'buyback') {
-    if (asset.kind !== 'equipment') {
-      throw new HttpError(400, 'market_buyback_kind', '当前系统回收只支持装备');
-    }
     return json({ quote: marketBuybackQuote(asset, asset.quantity) });
   }
 
@@ -642,13 +655,14 @@ export async function createMarketListing(request, env, user) {
   const recycleAt = marketRecycleAt(expiresAt);
   await env.DB.prepare(
     `INSERT INTO market_listings
-      (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+      (id, seller_user_id, asset_kind, market_kind, asset_name, asset_json, unit_price,
        total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
        listing_fee, is_system, restock_day, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?)`,
   ).bind(
     id,
     user.id,
+    storageKind(asset.kind),
     asset.kind,
     asset.name,
     asset.assetJson,
@@ -670,7 +684,7 @@ function buybackFromRow(row) {
   if (!row) return null;
   return {
     id: row.id,
-    asset: parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.quantity),
+    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.market_quantity || row.quantity),
     quantity: integer(row.quantity, 1),
     amount: integer(row.amount),
     payout_id: row.payout_id,
@@ -682,9 +696,6 @@ export async function createMarketBuyback(request, env, user) {
   const body = await readJson(request, { maxBytes: 64 * 1024 });
   const id = marketId(body?.id, '回收 ID');
   const asset = assetFromBody(body?.asset);
-  if (asset.kind !== 'equipment') {
-    throw new HttpError(400, 'market_buyback_kind', '当前系统回收只支持装备');
-  }
 
   const existing = await first(env, 'SELECT * FROM market_buybacks WHERE id = ? LIMIT 1', [id]);
   if (existing) {
@@ -695,7 +706,7 @@ export async function createMarketBuyback(request, env, user) {
     return json({ buyback: buybackFromRow(existing), payout: payoutFromRow(payout) });
   }
 
-  const quote = marketBuybackQuote(asset, 1);
+  const quote = marketBuybackQuote(asset, asset.quantity);
   const payoutId = id;
   const now = nowMs();
   await runBatch(env, [
@@ -705,9 +716,20 @@ export async function createMarketBuyback(request, env, user) {
     ).bind(payoutId, user.id, quote.total_price, now),
     env.DB.prepare(
       `INSERT INTO market_buybacks
-        (id, user_id, asset_kind, asset_name, asset_json, quantity, amount, payout_id, created_at)
-       VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)`,
-    ).bind(id, user.id, asset.kind, asset.name, asset.assetJson, quote.total_price, payoutId, now),
+        (id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, market_quantity, amount, payout_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+    ).bind(
+      id,
+      user.id,
+      storageKind(asset.kind, { buyback: true }),
+      asset.kind,
+      asset.name,
+      asset.assetJson,
+      asset.quantity,
+      quote.total_price,
+      payoutId,
+      now,
+    ),
   ]);
 
   const row = await first(env, 'SELECT * FROM market_buybacks WHERE id = ? LIMIT 1', [id]);
@@ -774,9 +796,9 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
   const statements = [
     env.DB.prepare(
       `INSERT INTO market_trades
-        (id, listing_id, seller_user_id, buyer_user_id, asset_kind, asset_name, asset_json,
+        (id, listing_id, seller_user_id, buyer_user_id, asset_kind, market_kind, asset_name, asset_json,
          quantity, unit_price, total_price, market_fee, seller_proceeds, delivered_at, created_at)
-       SELECT ?, l.id, l.seller_user_id, ?, l.asset_kind, l.asset_name, l.asset_json,
+       SELECT ?, l.id, l.seller_user_id, ?, l.asset_kind, COALESCE(NULLIF(l.market_kind, ''), l.asset_kind), l.asset_name, l.asset_json,
               ?, l.unit_price, l.unit_price * ?, ?, ?, NULL, ?
        FROM market_listings l
        WHERE l.id = ?
@@ -897,8 +919,8 @@ export async function cancelMarketListing(env, user, listingIdValue) {
     ).bind(now, listingId, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_returns
-        (id, listing_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       SELECT ?, id, seller_user_id, asset_kind, asset_name, asset_json, remaining_quantity, NULL, ?
+        (id, listing_id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, seller_user_id, asset_kind, COALESCE(NULLIF(market_kind, ''), asset_kind), asset_name, asset_json, remaining_quantity, NULL, ?
        FROM market_listings
        WHERE id = ? AND seller_user_id = ? AND status = 'cancelled' AND remaining_quantity > 0`,
     ).bind(returnId, now, listingId, user.id),

@@ -394,6 +394,7 @@ CREATE TABLE IF NOT EXISTS market_order_fills (
   total_price INTEGER NOT NULL CHECK (total_price > 0),
   market_fee INTEGER NOT NULL DEFAULT 0,
   seller_proceeds INTEGER NOT NULL DEFAULT 0,
+  seller_credited_at INTEGER,
   delivered_at INTEGER,
   created_at INTEGER NOT NULL,
   FOREIGN KEY (order_id) REFERENCES market_orders(id),

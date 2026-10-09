@@ -171,6 +171,25 @@ export async function refreshMarketCatalogForListing(env, listingId) {
   return refreshMarketCatalogKey(env, row.catalog_key);
 }
 
+export async function refreshExpiredMarketCatalogs(env, { limit = 100 } = {}) {
+  const rows = await all(
+    env,
+    `SELECT DISTINCT catalog_key
+     FROM market_listings
+     WHERE status = 'active'
+       AND is_system = 0
+       AND remaining_quantity > 0
+       AND expires_at > 0
+       AND expires_at <= ?
+       AND catalog_key <> ''
+     ORDER BY expires_at ASC
+     LIMIT ?`,
+    [Date.now(), Math.max(1, Math.min(500, integer(limit, 100)))],
+  );
+  for (const row of rows) await refreshMarketCatalogKey(env, row.catalog_key);
+  return rows.length;
+}
+
 export async function rebuildMarketCatalog(env, { limit = 500 } = {}) {
   const backfilled = await backfillMarketCatalogMetadata(env, { limit });
   const rows = await all(

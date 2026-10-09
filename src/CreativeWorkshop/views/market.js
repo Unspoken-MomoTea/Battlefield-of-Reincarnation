@@ -197,7 +197,11 @@ export function createMarketView({
   };
 
   function renderRows() {
-    rows = buildMarketRows(listings, currentUserId());
+    rows = filterMarketRows(allRows, {
+      kind: currentKind,
+      query: nodes.marketSearch?.value || '',
+      sort: nodes.marketSort?.value || 'price_asc',
+    });
     if (!rows.length) {
       empty(nodes.marketList, '当前没有符合条件的商品。');
       selectedKey = '';
@@ -206,17 +210,13 @@ export function createMarketView({
       nodes.marketList.replaceChildren(...rows.map(resultRow));
       const selected = rows.find(row => row.key === selectedKey);
       if (selected) renderInspector(selected);
-      else if (!selectedKey) {
-        selectedKey = rows[0].key;
-        renderRows();
-        return;
-      } else {
+      else {
         selectedKey = rows[0].key;
         renderInspector(rows[0]);
+        nodes.marketList.firstElementChild?.classList.add('is-selected');
       }
     }
-    nodes.marketCount.textContent = rows.length + ' 种商品 · ' + listings.length + ' 个挂单';
-    nodes.marketMore.hidden = nextOffset == null;
+    nodes.marketCount.textContent = rows.length + ' 种商品 · 共 ' + listings.length + ' 个挂单';
   }
 
   function purchaseSummary(marketRow, quantity) {

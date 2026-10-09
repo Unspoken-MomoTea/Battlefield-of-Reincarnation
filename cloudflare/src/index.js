@@ -2,6 +2,7 @@ import { HttpError, json, withCors } from './http.js';
 import { guardRequest } from './middleware/request-guard.js';
 import { routeRequest } from './router.js';
 import { settleExpiredMarketListings } from './market.js';
+import { settleExpiredMarketOrders } from './market-orders.js';
 
 export const SERVICE_VERSION = '0.13.7';
 
@@ -33,7 +34,10 @@ export default {
   scheduled(controller, env, ctx) {
     void controller;
     if (String(env.CLIENT_UPDATE_CHANNEL || '').trim().toLowerCase() !== 'testing') return;
-    const task = settleExpiredMarketListings(env, { limit: 500 });
+    const task = Promise.all([
+      settleExpiredMarketListings(env, { limit: 500 }),
+      settleExpiredMarketOrders(env, { limit: 500 }),
+    ]);
     if (ctx?.waitUntil) ctx.waitUntil(task);
     return task;
   },

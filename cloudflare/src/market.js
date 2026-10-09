@@ -339,16 +339,18 @@ async function ensureSystemCredentialListings(env) {
       描述: '悖论公证所系统柜台每日限量补货。',
     };
     const assetJson = JSON.stringify(data);
+    const marketKey = marketAssetKey({ kind: 'item', name: spec.name, quantity: spec.quantity, data });
     if (!existing) {
       await env.DB.prepare(
         `INSERT INTO market_listings
-          (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+          (id, seller_user_id, asset_kind, market_kind, market_key, asset_name, asset_json, unit_price,
            total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
            listing_fee, is_system, restock_day, created_at, updated_at)
-         VALUES (?, ?, 'item', ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, ?, ?, ?)`,
+         VALUES (?, ?, 'item', 'item', ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, ?, ?, ?)`,
       ).bind(
         spec.id,
         seller.id,
+        marketKey,
         spec.name,
         assetJson,
         spec.unit_price,
@@ -365,6 +367,8 @@ async function ensureSystemCredentialListings(env) {
       await env.DB.prepare(
         `UPDATE market_listings
          SET seller_user_id = ?,
+             market_kind = 'item',
+             market_key = ?,
              asset_name = ?,
              asset_json = ?,
              unit_price = ?,
@@ -381,6 +385,7 @@ async function ensureSystemCredentialListings(env) {
          WHERE id = ?`,
       ).bind(
         seller.id,
+        marketKey,
         spec.name,
         assetJson,
         spec.unit_price,
@@ -396,11 +401,18 @@ async function ensureSystemCredentialListings(env) {
     if (String(existing.asset_json || '') !== assetJson || integer(existing.unit_price) !== spec.unit_price) {
       await env.DB.prepare(
         `UPDATE market_listings
-         SET asset_name = ?, asset_json = ?, unit_price = ?, updated_at = ?
+         SET market_kind = 'item', market_key = ?, asset_name = ?, asset_json = ?, unit_price = ?, updated_at = ?
          WHERE id = ?`,
-      ).bind(spec.name, assetJson, spec.unit_price, now, spec.id).run();
+      ).bind(marketKey, spec.name, assetJson, spec.unit_price, now, spec.id).run();
     }
   }
+
+  const credentialRows = await all(
+    env,
+    `SELECT market_key FROM market_listings
+     WHERE id LIKE 'system:credential:%' AND market_key <> ''`,
+  );
+  for (const row of credentialRows) await refreshMarketProduct(env, row.market_key);
 }
 
 export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
@@ -426,14 +438,15 @@ export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
     await runBatch(env, [
       env.DB.prepare(
         `INSERT OR IGNORE INTO market_recycles
-          (id, listing_id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, amount, credited_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+          (id, listing_id, user_id, asset_kind, market_kind, market_key, asset_name, asset_json, quantity, amount, credited_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
       ).bind(
         recycleId,
         row.id,
         row.seller_user_id,
         row.asset_kind,
         logicalKind(row),
+        row.market_key || '',
         row.asset_name,
         row.asset_json,
         row.remaining_quantity,
@@ -464,6 +477,7 @@ export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
            )`,
       ).bind(now, row.id, row.id),
     ]);
+    if (row.market_key) await refreshMarketProduct(env, row.market_key);
   }
 
   return { processed: rows.length };
@@ -498,16 +512,24 @@ async function ensureTestingMarketFixtures(env) {
   if (!seller?.id) return;
 
   for (const fixture of TEST_VENDOR_FIXTURES) {
+    const marketKey = marketAssetKey({
+      kind: fixture.kind,
+      name: fixture.name,
+      quantity: fixture.quantity,
+      data: fixture.data,
+    });
     await env.DB.prepare(
       `INSERT OR IGNORE INTO market_listings
-        (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+        (id, seller_user_id, asset_kind, market_kind, market_key, asset_name, asset_json, unit_price,
          total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
          listing_fee, is_system, restock_day, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, '', ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, '', ?, ?)`,
     ).bind(
       fixture.id,
       seller.id,
       fixture.kind,
+      fixture.kind,
+      marketKey,
       fixture.name,
       JSON.stringify(fixture.data),
       fixture.unitPrice,
@@ -519,13 +541,16 @@ async function ensureTestingMarketFixtures(env) {
     await env.DB.prepare(
       `UPDATE market_listings
        SET is_system = 1,
+           market_kind = ?,
+           market_key = ?,
            duration_hours = 0,
            expires_at = 0,
            recycle_at = 0,
            listing_fee = 0,
            updated_at = ?
        WHERE id = ?`,
-    ).bind(now, fixture.id).run();
+    ).bind(fixture.kind, marketKey, now, fixture.id).run();
+    await refreshMarketProduct(env, marketKey);
   }
 }
 

@@ -439,6 +439,22 @@ export function createMarketService({ host, api }) {
     return items;
   }
 
+  async function catalog(filters = {}) {
+    return api.listMarketCatalog(filters);
+  }
+
+  async function catalogDetail(catalogKey) {
+    return api.getMarketCatalog(catalogKey);
+  }
+
+  async function listBuyOrders(filters = {}) {
+    return api.listMarketBuyOrders(filters);
+  }
+
+  async function listSwaps(filters = {}) {
+    return api.listMarketSwaps(filters);
+  }
+
   async function quoteAuction(asset, quantity = 1, durationHours = 24) {
     return (await api.quoteMarketAction({
       action: 'auction',
@@ -585,6 +601,233 @@ export function createMarketService({ host, api }) {
     return result;
   }
 
+  async function createBuyOrder({
+    kind,
+    name,
+    quality = '',
+    subtype = '',
+    quantity = 1,
+    unitPrice,
+    durationHours = 24,
+  }) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const resolvedQuantity = kind === 'item'
+      ? Math.max(1, Math.floor(Number(quantity) || 1))
+      : 1;
+    const price = Math.max(1, Math.floor(Number(unitPrice) || 0));
+    const total = price * resolvedQuantity;
+    if (Number(snapshot.data.stat_data.角色.空间币 || 0) < total) {
+      throw new Error('空间币不足：求购托管需要 ' + total);
+    }
+
+    const id = randomId(host, 'order');
+    await mutateLatest(host, next => {
+      assertHub(next.stat_data);
+      const current = Number(next.stat_data.角色.空间币 || 0);
+      if (current < total) throw new Error('空间币不足');
+      next.stat_data.角色.空间币 = current - total;
+    });
+
+    try {
+      return await api.createMarketBuyOrder({
+        id,
+        kind,
+        name,
+        quality,
+        subtype,
+        quantity: resolvedQuantity,
+        unit_price: price,
+        duration_hours: durationHours,
+      });
+    } catch (error) {
+      let recovered = null;
+      try { recovered = await api.getMarketBuyOrder(id); } catch {}
+      if (recovered?.order) return recovered;
+      await mutateLatest(host, next => {
+        next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
+      });
+      throw error;
+    }
+  }
+
+  async function fillBuyOrder(order, selection) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
+    const available = assetQuantity(selection.kind, located.value);
+    const requested = selection.kind === 'item'
+      ? Math.max(1, Math.min(
+          available,
+          Number(order?.remaining_quantity || 1),
+          Math.floor(Number(selection.quantity) || 1),
+        ))
+      : 1;
+    if (requested <= 0) throw new Error('没有可成交的资产');
+
+    const original = {
+      kind: selection.kind,
+      name: String(selection.name || assetName(selection.key, located.value)).trim(),
+      quantity: requested,
+      data: deepClone(located.value),
+    };
+    const outgoing = listingAssetSnapshot(original);
+    const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
+    const fillId = randomId(host, 'orderfill');
+
+    await mutateLatest(host, next => {
+      removeAsset(next.stat_data, { ...selection, quantity: requested });
+    });
+
+    try {
+      return await api.fillMarketBuyOrder(order.id, {
+        fill_id: fillId,
+        asset: assetPayload(outgoing, requested),
+      });
+    } catch (error) {
+      const state = await api.getMarketMe().catch(() => null);
+      const recovered = state?.order_fills?.find(item => item.id === fillId);
+      if (recovered) return { fill: recovered };
+      await mutateLatest(host, next => {
+        addAsset(next.stat_data, original);
+        restoreFormActivation(next.stat_data, activeFormSnapshot);
+      });
+      throw error;
+    }
+  }
+
+  async function cancelBuyOrder(orderId) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const result = await api.cancelMarketBuyOrder(orderId);
+    if (result?.payout) await receivePayout(result.payout);
+    return result;
+  }
+
+  async function deliverOrderFill(fill) {
+    if (!fill?.id) throw new Error('求购交付记录无效');
+    await mutateLatest(host, next => {
+      assertHub(next.stat_data);
+      const deliveries = ledgerBucket(next, 'orderDeliveries');
+      if (deliveries[fill.id]) return;
+      if (collisionFor(next.stat_data, fill.asset)) {
+        throw new Error(`无法领取“${fill.asset.name}”：当前存档已有同名资产`);
+      }
+      addAsset(next.stat_data, fill.asset);
+      deliveries[fill.id] = Date.now();
+    });
+    await api.confirmMarketOrderDelivery(fill.id);
+    return fill;
+  }
+
+  async function createSwap({
+    offered,
+    wanted,
+    durationHours = 24,
+  }) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const located = findAsset(snapshot.data.stat_data, offered.kind, offered.key);
+    const available = assetQuantity(offered.kind, located.value);
+    const offeredQuantity = offered.kind === 'item'
+      ? Math.max(1, Math.min(available, Math.floor(Number(offered.quantity) || 1)))
+      : 1;
+    const original = {
+      kind: offered.kind,
+      name: String(offered.name || assetName(offered.key, located.value)).trim(),
+      quantity: offeredQuantity,
+      data: deepClone(located.value),
+    };
+    const outgoing = listingAssetSnapshot(original);
+    const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, offered);
+    const id = randomId(host, 'swap');
+
+    await mutateLatest(host, next => {
+      removeAsset(next.stat_data, { ...offered, quantity: offeredQuantity });
+    });
+
+    try {
+      return await api.createMarketSwap({
+        id,
+        offered: assetPayload(outgoing, offeredQuantity),
+        wanted,
+        duration_hours: durationHours,
+      });
+    } catch (error) {
+      let recovered = null;
+      try { recovered = await api.getMarketSwap(id); } catch {}
+      if (recovered?.swap) return recovered;
+      await mutateLatest(host, next => {
+        addAsset(next.stat_data, original);
+        restoreFormActivation(next.stat_data, activeFormSnapshot);
+      });
+      throw error;
+    }
+  }
+
+  async function acceptSwap(swap, selection) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
+    const available = assetQuantity(selection.kind, located.value);
+    const requested = selection.kind === 'item'
+      ? Math.max(1, Math.min(
+          available,
+          Number(swap?.wanted?.quantity || 1),
+          Math.floor(Number(selection.quantity) || 1),
+        ))
+      : 1;
+    const original = {
+      kind: selection.kind,
+      name: String(selection.name || assetName(selection.key, located.value)).trim(),
+      quantity: requested,
+      data: deepClone(located.value),
+    };
+    const outgoing = listingAssetSnapshot(original);
+    const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
+
+    await mutateLatest(host, next => {
+      removeAsset(next.stat_data, { ...selection, quantity: requested });
+    });
+
+    try {
+      return await api.acceptMarketSwap(swap.id, {
+        asset: assetPayload(outgoing, requested),
+      });
+    } catch (error) {
+      const state = await api.getMarketMe().catch(() => null);
+      const recovered = state?.swaps?.find(item => item.id === swap.id && item.status === 'completed');
+      if (recovered) return { swap: recovered };
+      await mutateLatest(host, next => {
+        addAsset(next.stat_data, original);
+        restoreFormActivation(next.stat_data, activeFormSnapshot);
+      });
+      throw error;
+    }
+  }
+
+  async function cancelSwap(swapId) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    return api.cancelMarketSwap(swapId);
+  }
+
+  async function receiveSwapTransfer(transfer) {
+    if (!transfer?.id) throw new Error('交换交付记录无效');
+    await mutateLatest(host, next => {
+      assertHub(next.stat_data);
+      const transfers = ledgerBucket(next, 'swapTransfers');
+      if (transfers[transfer.id]) return;
+      if (collisionFor(next.stat_data, transfer.asset)) {
+        throw new Error(`无法领取“${transfer.asset.name}”：当前存档已有同名资产`);
+      }
+      addAsset(next.stat_data, transfer.asset);
+      transfers[transfer.id] = Date.now();
+    });
+    await api.confirmMarketSwapTransfer(transfer.id);
+    return transfer;
+  }
+
   async function deliverTrade(trade) {
     if (!trade?.id) throw new Error('交易记录无效');
     await mutateLatest(host, next => {
@@ -703,11 +946,23 @@ export function createMarketService({ host, api }) {
     inventory,
     list,
     listAll,
+    catalog,
+    catalogDetail,
+    listBuyOrders,
+    listSwaps,
     quoteAuction,
     quoteBuyback,
     mine,
     sell,
     sellToSystem,
+    createBuyOrder,
+    fillBuyOrder,
+    cancelBuyOrder,
+    deliverOrderFill,
+    createSwap,
+    acceptSwap,
+    cancelSwap,
+    receiveSwapTransfer,
     buy,
     cancel,
     deliverTrade,

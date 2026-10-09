@@ -323,6 +323,9 @@ CREATE INDEX IF NOT EXISTS idx_market_listings_catalog
 CREATE INDEX IF NOT EXISTS idx_market_listings_filters
   ON market_listings(status, market_kind, quality, subtype, unit_price);
 
+CREATE INDEX IF NOT EXISTS idx_market_listings_catalog_expiry
+  ON market_listings(status, is_system, expires_at, catalog_key);
+
 CREATE INDEX IF NOT EXISTS idx_market_trades_purchase
   ON market_trades(purchase_id, buyer_user_id, created_at);
 

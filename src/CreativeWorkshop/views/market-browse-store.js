@@ -94,63 +94,48 @@ export function createMarketBrowseStore({
   if (!marketService) throw new Error('marketService is required');
 
   let snapshot = null;
+  let pendingSnapshot = null;
   let generation = 0;
   const detailCache = new Map();
   const detailRequests = new Map();
 
-  async function refresh(filters = {}) {
-    const applied = { ...filters, offset: 0 };
+  async function refresh() {
+    if (pendingSnapshot) return pendingSnapshot;
     const requestGeneration = ++generation;
-    detailCache.clear();
-    detailRequests.clear();
-    // Only fetch a single server-filtered page. Do not download the entire market.
-    const response = await marketService.catalog(applied);
-    if (requestGeneration !== generation) return snapshot;
-    const items = Array.isArray(response?.items) ? response.items.slice() : [];
-    snapshot = {
-      items,
-      counts: countsFrom(items, response?.counts || {}),
-      facets: response?.facets || facets(items, applied.kind || ''),
-      next_offset: response?.next_offset ?? null,
-      filters: { ...filters },
-      loaded_at: now(),
-    };
-    return snapshot;
+    const request = Promise.resolve().then(() => marketService.catalogSnapshot())
+      .then(next => {
+        if (requestGeneration !== generation) return snapshot;
+        const items = Array.isArray(next?.items) ? next.items.slice() : [];
+        snapshot = {
+          items,
+          counts: countsFrom(items, next?.counts || {}),
+          loaded_at: now(),
+        };
+        return snapshot;
+      }).finally(() => {
+        if (pendingSnapshot === request) pendingSnapshot = null;
+      });
+    pendingSnapshot = request;
+    return request;
   }
 
-  async function ensureSnapshot(filters = {}) {
-    return snapshot && JSON.stringify(snapshot.filters) === JSON.stringify(filters)
-      ? snapshot
-      : refresh(filters);
+  async function ensureSnapshot() {
+    return snapshot || pendingSnapshot || refresh();
   }
 
+  // The complete catalog is small; filters and sorting are always local.
   async function append() {
-    const current = snapshot;
-    if (!current || current.next_offset == null) return current;
-    const requestGeneration = generation;
-    const response = await marketService.catalog({
-      ...current.filters,
-      offset: current.next_offset,
-    });
-    if (requestGeneration !== generation || snapshot !== current) return snapshot;
-    const existingKeys = new Set(current.items.map(item => item.key));
-    for (const item of response?.items || []) {
-      if (!existingKeys.has(item.key)) {
-        current.items.push(item);
-        existingKeys.add(item.key);
-      }
-    }
-    current.next_offset = response?.next_offset ?? null;
-    return current;
+    return ensureSnapshot();
   }
 
   function query(filters = {}) {
     const source = snapshot?.items || [];
+    const kind = normalized(filters.kind);
     return {
-      items: Object.keys(filters).length ? filterItems(source, filters) : source.slice(),
+      items: filterItems(source, filters),
       counts: { ...(snapshot?.counts || {}) },
-      facets: snapshot?.facets || facets(source),
-      next_offset: snapshot?.next_offset ?? null,
+      facets: facets(source, kind),
+      next_offset: null,
       loaded_at: snapshot?.loaded_at || 0,
     };
   }
@@ -193,6 +178,7 @@ export function createMarketBrowseStore({
 
   function invalidate({ details = true } = {}) {
     snapshot = null;
+    pendingSnapshot = null;
     generation += 1;
     if (details) {
       detailCache.clear();

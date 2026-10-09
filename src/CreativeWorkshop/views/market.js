@@ -290,7 +290,10 @@ export function createMarketView({
     const options = [element('option', '', '全部子类型')];
     options[0].value = '';
     for (const item of catalogFacets.subtypes || []) {
-      const option = element('option', '', item.value + ' · ' + item.count);
+      const label = currentKind
+        ? marketAssetFieldDisplay({ kind: currentKind }, '类型', item.value)
+        : item.value;
+      const option = element('option', '', String(label) + ' · ' + item.count);
       option.value = item.value;
       options.push(option);
     }

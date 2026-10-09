@@ -2,12 +2,19 @@ const KIND_FIELDS = {
   equipment: '装备',
   item: '道具',
   skill: '技能',
+  bloodline: '血统',
+  form: '形态库',
 };
+
+const CREDENTIAL_KEY_PREFIX = '__credential:';
 
 export const MARKET_KIND_LABELS = {
   equipment: '装备',
   item: '道具',
   skill: '技能',
+  bloodline: '血统',
+  form: '形态',
+  teammate: '队友',
 };
 
 function deepClone(value) {
@@ -155,6 +162,7 @@ export function marketInventoryFromData(data) {
     if (!bucket || typeof bucket !== 'object' || Array.isArray(bucket)) continue;
     for (const [key, value] of Object.entries(bucket)) {
       if (!value || typeof value !== 'object') continue;
+      if (kind === 'equipment' && ![0, 2].includes(Number(value.状态))) continue;
       const quantity = assetQuantity(kind, value);
       if (quantity <= 0) continue;
       assets.push({
@@ -168,6 +176,44 @@ export function marketInventoryFromData(data) {
     }
   }
 
+  const credentials = character.权限凭证;
+  if (credentials && typeof credentials === 'object' && !Array.isArray(credentials)) {
+    for (const [grade, rawQuantity] of Object.entries(credentials)) {
+      const quantity = Math.max(0, Math.floor(Number(rawQuantity) || 0));
+      if (!quantity) continue;
+      const quality = String(grade || '').trim().toUpperCase();
+      assets.push({
+        kind: 'item',
+        key: CREDENTIAL_KEY_PREFIX + quality,
+        name: quality + '级权限凭证',
+        quantity,
+        quality,
+        data: {
+          品质: quality,
+          类型: '权限凭证',
+          数量: quantity,
+          标签: ['权限凭证'],
+          描述: '角色账户持有的权限凭证。',
+        },
+      });
+    }
+  }
+
+  const relations = statData?.关系列表;
+  if (relations && typeof relations === 'object' && !Array.isArray(relations)) {
+    for (const [key, value] of Object.entries(relations)) {
+      if (!value || typeof value !== 'object' || value.是否队友 !== true) continue;
+      assets.push({
+        kind: 'teammate',
+        key,
+        name: key,
+        quantity: 1,
+        quality: String(value.层级 || value.品质 || ''),
+        data: deepClone(value),
+      });
+    }
+  }
+
   return {
     inHub: statData?.系统状态?.是否在主神空间 === true,
     coin: Math.max(0, Number(character.空间币 || 0)),
@@ -175,33 +221,89 @@ export function marketInventoryFromData(data) {
   };
 }
 
-function findAsset(character, kind, key) {
+function credentialKeyGrade(key) {
+  const value = String(key || '');
+  return value.startsWith(CREDENTIAL_KEY_PREFIX)
+    ? value.slice(CREDENTIAL_KEY_PREFIX.length).trim().toUpperCase()
+    : '';
+}
+
+function findAsset(statData, kind, key) {
+  const character = statData?.角色 || {};
+  const credential = kind === 'item' ? credentialKeyGrade(key) : '';
+  if (credential) {
+    const quantity = Math.max(0, Math.floor(Number(character?.权限凭证?.[credential]) || 0));
+    if (!quantity) throw new Error('待交易权限凭证已经不在当前存档中，请刷新后重试');
+    return {
+      value: {
+        品质: credential,
+        类型: '权限凭证',
+        数量: quantity,
+        标签: ['权限凭证'],
+        描述: '角色账户持有的权限凭证。',
+      },
+      credential,
+    };
+  }
+
+  if (kind === 'teammate') {
+    const value = statData?.关系列表?.[key];
+    if (!value || typeof value !== 'object' || value.是否队友 !== true) {
+      throw new Error('待交易队友已经不在当前存档中，请刷新后重试');
+    }
+    return { bucket: statData.关系列表, value };
+  }
+
   const field = KIND_FIELDS[kind];
   const bucket = field ? character?.[field] : null;
   const value = bucket?.[key];
   if (!field || !value || typeof value !== 'object') {
     throw new Error('待交易资产已经不在当前存档中，请刷新后重试');
   }
+  if (kind === 'equipment' && ![0, 2].includes(Number(value.状态))) {
+    throw new Error('已装备中的装备不能交易，请先卸下或放入仓库');
+  }
   return { field, bucket, value };
 }
 
-function removeAsset(character, selection) {
+function removeAsset(statData, selection) {
   const { kind, key } = selection;
-  const { bucket, value } = findAsset(character, kind, key);
+  const located = findAsset(statData, kind, key);
+  const value = located.value;
+
+  if (located.credential) {
+    const character = statData.角色;
+    const current = Math.max(0, Math.floor(Number(character.权限凭证[located.credential]) || 0));
+    const quantity = Math.max(1, Math.floor(Number(selection.quantity) || 1));
+    if (quantity > current) throw new Error('权限凭证数量不足');
+    const left = current - quantity;
+    if (left > 0) character.权限凭证[located.credential] = left;
+    else delete character.权限凭证[located.credential];
+    return { quantity, data: deepClone({ ...value, 数量: quantity }) };
+  }
+
   if (kind === 'item') {
     const current = assetQuantity(kind, value);
     const quantity = Math.max(1, Math.floor(Number(selection.quantity) || 1));
     if (quantity > current) throw new Error('道具数量不足');
-    if (quantity === current) delete bucket[key];
+    if (quantity === current) delete located.bucket[key];
     else value.数量 = current - quantity;
     return { quantity, data: deepClone({ ...value, 数量: quantity }) };
   }
 
-  delete bucket[key];
+  delete located.bucket[key];
+  if (
+    kind === 'form'
+    && statData?.角色?.当前形态?.激活 === true
+    && String(statData.角色.当前形态.名称 || '') === String(key)
+  ) {
+    statData.角色.当前形态 = { 激活: false, 名称: '' };
+  }
   return { quantity: 1, data: deepClone(value) };
 }
 
-function addAsset(character, asset) {
+function addAsset(statData, asset) {
+  const character = statData.角色 || (statData.角色 = {});
   const credential = credentialGrade(asset);
   if (credential) {
     if (!character.权限凭证 || typeof character.权限凭证 !== 'object' || Array.isArray(character.权限凭证)) {
@@ -213,6 +315,22 @@ function addAsset(character, asset) {
   }
 
   const kind = asset?.kind;
+  const key = String(asset.name || '').trim();
+  if (!key) throw new Error('待领取资产缺少名称');
+
+  if (kind === 'teammate') {
+    if (!statData.关系列表 || typeof statData.关系列表 !== 'object' || Array.isArray(statData.关系列表)) {
+      statData.关系列表 = {};
+    }
+    if (statData.关系列表[key]) {
+      throw new Error('当前存档已经存在同名队友“' + key + '”，请先处理重名角色再领取');
+    }
+    const next = deepClone(asset.data || {});
+    next.是否队友 = true;
+    statData.关系列表[key] = next;
+    return;
+  }
+
   const field = KIND_FIELDS[kind];
   if (!field) throw new Error('不支持的集市资产类型');
 
@@ -220,8 +338,6 @@ function addAsset(character, asset) {
     character[field] = {};
   }
   const bucket = character[field];
-  const key = String(asset.name || '').trim();
-  if (!key) throw new Error('待领取资产缺少名称');
 
   if (kind === 'item') {
     const quantity = Math.max(1, Math.floor(Number(asset.quantity) || 1));
@@ -237,6 +353,9 @@ function addAsset(character, asset) {
     return;
   }
 
+  if (kind === 'bloodline' && Object.keys(bucket).length > 0) {
+    throw new Error('当前存档已经持有血统，请先处理现有血统再领取');
+  }
   if (bucket[key]) {
     throw new Error(`当前存档已经存在同名${MARKET_KIND_LABELS[kind]}“${key}”，请先处理重名资产再领取`);
   }
@@ -245,11 +364,16 @@ function addAsset(character, asset) {
   bucket[key] = next;
 }
 
-function collisionFor(character, asset) {
+function collisionFor(statData, asset) {
   if (credentialGrade(asset)) return false;
-  const field = KIND_FIELDS[asset?.kind];
-  if (!field || asset?.kind === 'item') return false;
-  return Boolean(character?.[field]?.[asset?.name]);
+  const kind = asset?.kind;
+  if (kind === 'item') return false;
+  if (kind === 'teammate') return Boolean(statData?.关系列表?.[asset?.name]);
+  const field = KIND_FIELDS[kind];
+  const bucket = field ? statData?.角色?.[field] : null;
+  if (!field) return false;
+  if (kind === 'bloodline') return Boolean(bucket && Object.keys(bucket).length);
+  return Boolean(bucket?.[asset?.name]);
 }
 
 export function createMarketService({ host, api }) {
@@ -291,10 +415,10 @@ export function createMarketService({ host, api }) {
     }))?.quote;
   }
 
-  async function quoteBuyback(asset) {
+  async function quoteBuyback(asset, quantity = 1) {
     return (await api.quoteMarketAction({
       action: 'buyback',
-      asset: assetPayload(asset, 1),
+      asset: assetPayload(asset, quantity),
     }))?.quote;
   }
 
@@ -306,7 +430,7 @@ export function createMarketService({ host, api }) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
 
-    const located = findAsset(snapshot.data.stat_data.角色, selection.kind, selection.key);
+    const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
     const available = assetQuantity(selection.kind, located.value);
     const requestedQuantity = selection.kind === 'item'
       ? Math.max(1, Math.floor(Number(selection.quantity) || 1))
@@ -333,7 +457,7 @@ export function createMarketService({ host, api }) {
       assertHub(next.stat_data);
       const currentCoin = Number(next.stat_data.角色.空间币 || 0);
       if (currentCoin < listingFee) throw new Error('空间币不足，无法支付上架税');
-      removed = removeAsset(next.stat_data.角色, {
+      removed = removeAsset(next.stat_data, {
         ...selection,
         quantity: requestedQuantity,
       });
@@ -363,7 +487,7 @@ export function createMarketService({ host, api }) {
 
       try {
         await mutateLatest(host, next => {
-          addAsset(next.stat_data.角色, asset);
+          addAsset(next.stat_data, asset);
           next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + listingFee;
         });
       } catch (restoreError) {
@@ -378,24 +502,29 @@ export function createMarketService({ host, api }) {
   async function sellToSystem(selection) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
-    if (selection?.kind !== 'equipment') throw new Error('当前系统回收只支持装备');
 
-    const located = findAsset(snapshot.data.stat_data.角色, selection.kind, selection.key);
+    const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
+    const available = assetQuantity(selection.kind, located.value);
+    const requestedQuantity = selection.kind === 'item'
+      ? Math.max(1, Math.floor(Number(selection.quantity) || 1))
+      : 1;
+    if (requestedQuantity > available) throw new Error('待回收资产数量不足');
+
     const asset = assetPayload({
       kind: selection.kind,
       key: selection.key,
       name: String(selection.name || assetName(selection.key, located.value)).trim(),
-      quantity: 1,
+      quantity: requestedQuantity,
       data: deepClone(located.value),
-    }, 1);
+    }, requestedQuantity);
     const buybackId = randomId(host, 'buyback');
 
     await mutateLatest(host, next => {
       assertHub(next.stat_data);
-      removeAsset(next.stat_data.角色, {
+      removeAsset(next.stat_data, {
         kind: selection.kind,
         key: selection.key,
-        quantity: 1,
+        quantity: requestedQuantity,
       });
     });
 
@@ -409,7 +538,7 @@ export function createMarketService({ host, api }) {
 
       if (!result?.buyback) {
         await mutateLatest(host, next => {
-          addAsset(next.stat_data.角色, asset);
+          addAsset(next.stat_data, asset);
         });
         throw error;
       }
@@ -425,10 +554,10 @@ export function createMarketService({ host, api }) {
       assertHub(next.stat_data);
       const deliveries = ledgerBucket(next, 'deliveries');
       if (deliveries[trade.id]) return;
-      if (collisionFor(next.stat_data.角色, trade.asset)) {
+      if (collisionFor(next.stat_data, trade.asset)) {
         throw new Error(`无法领取“${trade.asset.name}”：当前存档已有同名资产`);
       }
-      addAsset(next.stat_data.角色, trade.asset);
+      addAsset(next.stat_data, trade.asset);
       deliveries[trade.id] = Date.now();
     });
     await api.confirmMarketDelivery(trade.id);
@@ -444,7 +573,7 @@ export function createMarketService({ host, api }) {
     const total = Number(listing?.unit_price || 0) * resolvedQuantity;
     if (!Number.isFinite(total) || total <= 0) throw new Error('挂单价格无效');
     if (Number(snapshot.data.stat_data.角色.空间币 || 0) < total) throw new Error('空间币不足');
-    if (collisionFor(snapshot.data.stat_data.角色, listing.asset)) {
+    if (collisionFor(snapshot.data.stat_data, listing.asset)) {
       throw new Error(`当前存档已有同名${MARKET_KIND_LABELS[listing.asset.kind]}，暂不能购买`);
     }
 
@@ -494,10 +623,10 @@ export function createMarketService({ host, api }) {
       assertHub(next.stat_data);
       const returns = ledgerBucket(next, 'returns');
       if (returns[returnRecord.id]) return;
-      if (collisionFor(next.stat_data.角色, returnRecord.asset)) {
+      if (collisionFor(next.stat_data, returnRecord.asset)) {
         throw new Error(`无法返还“${returnRecord.asset.name}”：当前存档已有同名资产`);
       }
-      addAsset(next.stat_data.角色, returnRecord.asset);
+      addAsset(next.stat_data, returnRecord.asset);
       returns[returnRecord.id] = Date.now();
     });
     await api.confirmMarketReturn(returnRecord.id);

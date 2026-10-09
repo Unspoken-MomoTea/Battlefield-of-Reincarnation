@@ -18,6 +18,15 @@ const when = value => {
     ? date.toLocaleString('zh-CN', { hour12: false })
     : '—';
 };
+const until = value => {
+  const diff = Number(value || 0) - Date.now();
+  if (!Number.isFinite(diff) || diff <= 0) return '已到期';
+  const hours = Math.max(1, Math.ceil(diff / (60 * 60 * 1000)));
+  if (hours < 24) return hours + '小时';
+  const days = Math.floor(hours / 24);
+  const remain = hours % 24;
+  return remain ? days + '天' + remain + '小时' : days + '天';
+};
 export function createMarketView({
   nodes, element, button, empty, notifyError, confirmDialog,
   host, marketService, getAuth,
@@ -175,6 +184,14 @@ export function createMarketView({
 
   function renderRows() {
     allRows = buildMarketRows(listings, currentUserId());
+    for (const category of nodes.marketCategories || []) {
+      const kind = category.dataset.marketKind || '';
+      const count = kind
+        ? listings.filter(listing => listing?.asset?.kind === kind).length
+        : listings.length;
+      const badge = category.querySelector?.('[data-market-kind-count]');
+      if (badge) badge.textContent = String(count);
+    }
     rows = filterMarketRows(allRows, {
       kind: currentKind,
       query: nodes.marketSearch?.value || '',
@@ -247,8 +264,13 @@ export function createMarketView({
       const listing = marketRow.listings[0];
       const seller = element('div', 'rw-ah-seller-line');
       seller.append(
-        element('span', '', '卖家'),
-        element('strong', '', listing?.seller?.display_name || listing?.seller?.username || '匿名轮回者'),
+        element('span', '', listing?.is_system ? '系统柜台' : '卖家'),
+        element(
+          'strong',
+          '',
+          (listing?.seller?.display_name || listing?.seller?.username || '匿名轮回者')
+            + (listing?.is_system ? ' · 每日补货' : (listing?.expires_at ? ' · ' + until(listing.expires_at) + '后到期' : '')),
+        ),
       );
       wrap.append(seller);
     }

@@ -443,7 +443,7 @@ test('system credential listings restock daily and do not credit a synthetic sel
     "SELECT id FROM users WHERE discord_id = '__market_system_vendor__'",
   ).get();
   const wallet = testEnv.DB.db.prepare(
-    'SELECT balance FROM market_wallets WHERE user_id = ?',
+    'SELECT balance FROM market_save_wallets WHERE user_id = ?',
   ).get(systemUser.id);
   assert.equal(wallet, undefined);
 });
@@ -1197,4 +1197,81 @@ test('market suspension hides active offers but still lets owners recover escrow
   assert.ok(ownerMe.body.pending_returns.some(item => item.listing_id === 'suspension-listing'));
   assert.ok(ownerMe.body.pending_payouts.some(item => item.amount === 50));
   assert.ok(ownerMe.body.pending_swap_transfers.some(item => item.swap_id === 'suspension-swap'));
+});
+
+test('a user cannot exceed ten active listings, including concurrent-looking sequential submissions', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, '20110', 'Limited Seller');
+  const headers = authHeaders(testEnv, seller, 'limit-token');
+  for (let i = 0; i < 10; i += 1) {
+    const result = await jsonRequest(testEnv, '/api/market/listings', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        id: 'limit-listing-' + i,
+        asset: { kind: 'item', name: '测试挂单药剂', quantity: 1, data: { 名称: '测试挂单药剂', 品质: 'E', 数量: 1 } },
+        unit_price: 10,
+        duration_hours: 24,
+      }),
+    });
+    assert.equal(result.response.status, 201);
+  }
+  const denied = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      id: 'limit-listing-over',
+      asset: { kind: 'item', name: '测试挂单药剂', quantity: 1, data: { 名称: '测试挂单药剂', 品质: 'E', 数量: 1 } },
+      unit_price: 10,
+    }),
+  });
+  assert.equal(denied.response.status, 409);
+  assert.equal(denied.body.code, 'market_listing_limit');
+  const me = await jsonRequest(testEnv, '/api/market/me', { headers });
+  assert.equal(me.body.active_listing_count, 10);
+
+  const cancel = await jsonRequest(testEnv, '/api/market/listings/limit-listing-0/cancel',
+    { method: 'POST', headers });
+  assert.equal(cancel.response.status, 200);
+  const retry = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      id: 'limit-listing-new',
+      asset: { kind: 'item', name: '测试挂单药剂', quantity: 1, data: { 名称: '测试挂单药剂', 品质: 'E', 数量: 1 } },
+      unit_price: 10,
+    }),
+  });
+  assert.equal(retry.response.status, 201);
+});
+
+test('different saves cannot take another save market inventory or earnings', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, '20320', 'Scoped Seller');
+  const buyer = createUser(testEnv, '20321', 'Scoped Buyer');
+  const sellerA = authHeaders(testEnv, seller, 'scope-seller', 'save:first-slot');
+  const sellerB = authHeaders(testEnv, seller, 'scope-seller', 'save:second-slot');
+  const buyerA = authHeaders(testEnv, buyer, 'scope-buyer', 'save:buyer-slot');
+  const buyerB = authHeaders(testEnv, buyer, 'scope-buyer', 'save:other-slot');
+  const created = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: sellerA,
+    body: JSON.stringify({
+      id: 'scope-listing-1',
+      asset: { kind: 'item', name: '存档药剂', quantity: 2, data: { 名称: '存档药剂', 品质: 'E', 数量: 2 } },
+      unit_price: 15,
+    }),
+  });
+  assert.equal(created.response.status, 201);
+  const otherMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerB });
+  assert.equal(otherMe.body.listings.length, 0);
+  const wrongCancel = await jsonRequest(testEnv, '/api/market/listings/scope-listing-1/cancel',
+    { method: 'POST', headers: sellerB });
+  assert.equal(wrongCancel.response.status, 404);
+  const trade = await jsonRequest(testEnv, '/api/market/listings/scope-listing-1/buy', {
+    method: 'POST', headers: buyerA,
+    body: JSON.stringify({ trade_id: 'scope-trade-1', quantity: 1 }),
+  });
+  assert.equal(trade.response.status, 200);
+  assert.equal(trade.body.trade.buyer_save_id, 'save:buyer-slot');
+  assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: buyerB })).body.pending_deliveries.length, 0);
+  assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: buyerA })).body.pending_deliveries.length, 1);
+  assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: sellerB })).body.wallet.balance, 0);
+  assert.ok((await jsonRequest(testEnv, '/api/market/me', { headers: sellerA })).body.wallet.balance > 0);
 });

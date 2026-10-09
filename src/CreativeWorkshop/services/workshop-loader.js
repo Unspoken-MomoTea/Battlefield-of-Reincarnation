@@ -16,6 +16,14 @@ export function workshopLoaderRefs(content) {
   return refs;
 }
 
+
+export function workshopLoaderChannel(content) {
+  const value = String(content || '').toLowerCase();
+  if (value.includes('workshop-test.6661816.xyz')) return 'testing';
+  if (value.includes('workshop.6661816.xyz')) return 'stable';
+  return '';
+}
+
 export function isWorkshopLoaderScript(script) {
   const content = String(script?.content || '');
   if (!content) return false;

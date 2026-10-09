@@ -302,13 +302,71 @@ test('testing latest endpoint resolves main and uses component cache key', async
     globalThis.fetch = originalFetch;
   }
   assert.equal(
-    await testEnv.SESSION_KV.get('public:core-component:v3:workshop:testing:main'),
+    await testEnv.SESSION_KV.get('public:core-component:v4:workshop:testing:main'),
     null,
   );
   assert.equal(
-    await testEnv.SESSION_KV.get('public:core-component:last-known:v1:workshop:testing:main') !== null,
+    await testEnv.SESSION_KV.get('public:core-component:last-known:v2:workshop:testing:main') !== null,
     true,
   );
+});
+
+test('testing latest never substitutes unrelated main HEAD when path lookup is rate limited', async () => {
+  const originalFetch = globalThis.fetch;
+  const knownWorkshopSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const unrelatedMainHead = 'cccccccccccccccccccccccccccccccccccccccc';
+  let atomRequests = 0;
+  globalThis.fetch = async input => {
+    const value = String(input);
+    if (value.includes('/commits?') && value.includes('path=src%2FCreativeWorkshop')) {
+      return new Response('rate limited', { status: 403 });
+    }
+    if (value.includes('/commits/main.atom')) {
+      atomRequests += 1;
+      return new Response(
+        '<feed><entry><id>https://github.com/Unspoken-MomoTea/Battlefield-of-Reincarnation/commit/' + unrelatedMainHead + '</id></entry></feed>',
+        { status: 200, headers: { 'Content-Type': 'application/atom+xml' } },
+      );
+    }
+    throw new Error('unexpected request: ' + value);
+  };
+
+  const store = new MemoryKV();
+  await store.put(
+    'public:core-component:last-known:v2:workshop:testing:main',
+    JSON.stringify({
+      component: 'workshop',
+      channel: 'testing',
+      ref: 'main',
+      sha: knownWorkshopSha,
+      short_sha: knownWorkshopSha.slice(0, 8),
+      version: '',
+      tag: '',
+      release_source: 'branch',
+      repository: 'Unspoken-MomoTea/Battlefield-of-Reincarnation',
+      entry_path: '/src/CreativeWorkshop/index.js',
+      source_path: 'src/CreativeWorkshop',
+      checked_at: 1,
+    }),
+  );
+
+  try {
+    const response = await handleRequest(
+      new Request('https://workshop.example/api/client/latest'),
+      env({
+        CLIENT_UPDATE_CHANNEL: 'testing',
+        CLIENT_UPDATE_REF: 'main',
+        SESSION_KV: store,
+      }),
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.sha, knownWorkshopSha);
+    assert.equal(body.stale, true);
+    assert.equal(atomRequests, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('Discord login start falls back to D1 when KV writes are exhausted', async () => {

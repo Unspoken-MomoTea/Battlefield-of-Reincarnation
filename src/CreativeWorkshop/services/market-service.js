@@ -844,6 +844,63 @@ export function createMarketService({ host, api }) {
     return trade;
   }
 
+  async function buyCatalog(catalogItem, quantity = 1) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+
+    const catalogKey = String(catalogItem?.key || catalogItem?.catalog_key || '').trim();
+    const asset = catalogItem?.asset;
+    if (!catalogKey || !asset) throw new Error('商品目录数据无效');
+
+    const resolvedQuantity = asset.kind === 'item'
+      ? Math.max(1, Math.floor(Number(quantity) || 1))
+      : 1;
+    if (collisionFor(snapshot.data.stat_data, asset)) {
+      throw new Error(`当前存档已有同名${MARKET_KIND_LABELS[asset.kind]}，暂不能购买`);
+    }
+
+    const quote = (await api.quoteMarketCatalogPurchase(catalogKey, resolvedQuantity))?.quote;
+    const total = Number(quote?.total_price || 0);
+    const quotedQuantity = Number(quote?.quantity || resolvedQuantity);
+    if (!Number.isFinite(total) || total <= 0) throw new Error('市场报价无效');
+    if (Number(snapshot.data.stat_data.角色.空间币 || 0) < total) {
+      throw new Error('空间币不足：需要 ' + total);
+    }
+
+    const purchaseId = randomId(host, 'purchase');
+    await mutateLatest(host, next => {
+      assertHub(next.stat_data);
+      const current = Number(next.stat_data.角色.空间币 || 0);
+      if (current < total) throw new Error('空间币不足');
+      next.stat_data.角色.空间币 = current - total;
+    });
+
+    let result;
+    try {
+      result = await api.buyMarketCatalog(catalogKey, {
+        purchase_id: purchaseId,
+        quantity: quotedQuantity,
+        expected_total: total,
+      });
+    } catch (error) {
+      try {
+        result = await api.getMarketPurchase(purchaseId);
+      } catch {}
+
+      if (!result?.purchase || result.purchase.status !== 'completed') {
+        await mutateLatest(host, next => {
+          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
+        });
+        throw error;
+      }
+    }
+
+    for (const trade of result.trades || []) {
+      await deliverTrade(trade);
+    }
+    return result;
+  }
+
   async function buy(listing, quantity = 1) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
@@ -963,6 +1020,7 @@ export function createMarketService({ host, api }) {
     acceptSwap,
     cancelSwap,
     receiveSwapTransfer,
+    buyCatalog,
     buy,
     cancel,
     deliverTrade,

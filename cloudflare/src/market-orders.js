@@ -316,10 +316,28 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
       `INSERT INTO market_order_fills
         (id, order_id, seller_user_id, buyer_user_id, asset_kind, asset_name, asset_json,
          quantity, unit_price, total_price, delivered_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+       SELECT ?, o.id, ?, o.buyer_user_id, ?, ?, ?, ?, o.unit_price, o.unit_price * ?, NULL, ?
+       FROM market_buy_orders o
+       WHERE o.id = ?
+         AND o.status = 'active'
+         AND o.expires_at > ?
+         AND o.buyer_user_id <> ?
+         AND o.remaining_quantity >= ?
+         AND o.escrow_balance >= o.unit_price * ?`,
     ).bind(
-      fillId, orderId, user.id, order.buyer_user_id, asset.kind, asset.name, asset.assetJson,
-      quantity, order.unit_price, total, now,
+      fillId,
+      user.id,
+      asset.kind,
+      asset.name,
+      asset.assetJson,
+      quantity,
+      quantity,
+      now,
+      orderId,
+      now,
+      user.id,
+      quantity,
+      quantity,
     ),
     env.DB.prepare(
       `UPDATE market_buy_orders
@@ -327,17 +345,26 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
            escrow_balance = escrow_balance - ?,
            status = CASE WHEN remaining_quantity - ? <= 0 THEN 'filled' ELSE 'active' END,
            updated_at = ?
-       WHERE id = ? AND status = 'active' AND remaining_quantity >= ? AND escrow_balance >= ?`,
-    ).bind(quantity, total, quantity, now, orderId, quantity, total),
+       WHERE id = ?
+         AND EXISTS (
+           SELECT 1 FROM market_order_fills
+           WHERE id = ? AND order_id = ? AND seller_user_id = ?
+         )`,
+    ).bind(quantity, total, quantity, now, orderId, fillId, orderId, user.id),
     env.DB.prepare(
       `INSERT INTO market_wallets (user_id, balance, updated_at)
-       VALUES (?, ?, ?)
+       SELECT seller_user_id, total_price, ?
+       FROM market_order_fills
+       WHERE id = ? AND seller_user_id = ?
        ON CONFLICT(user_id) DO UPDATE SET
          balance = market_wallets.balance + excluded.balance,
          updated_at = excluded.updated_at`,
-    ).bind(user.id, total, now),
+    ).bind(now, fillId, user.id),
   ]);
   const row = await first(env, 'SELECT * FROM market_order_fills WHERE id = ? LIMIT 1', [fillId]);
+  if (!row) {
+    throw new HttpError(409, 'market_order_changed', '求购单刚刚被其他玩家完成或剩余数量已变化');
+  }
   return json({ fill: orderFillFromRow(row) });
 }
 
@@ -350,29 +377,30 @@ export async function cancelMarketBuyOrder(env, user, orderIdValue) {
   }
   if (order.status !== 'active') return json({ order: orderFromRow(order), payout: null });
 
-  const amount = integer(order.escrow_balance);
   const now = Date.now();
   const payoutId = ('order-refund:' + id).slice(0, 96);
-  const statements = [
+  await runBatch(env, [
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
+       SELECT ?, buyer_user_id, escrow_balance, NULL, ?
+       FROM market_buy_orders
+       WHERE id = ? AND buyer_user_id = ? AND status = 'active' AND escrow_balance > 0`,
+    ).bind(payoutId, now, id, user.id),
     env.DB.prepare(
       `UPDATE market_buy_orders
        SET status = 'cancelled', escrow_balance = 0, updated_at = ?
-       WHERE id = ? AND status = 'active'`,
-    ).bind(now, id),
-  ];
-  if (amount > 0) {
-    statements.push(
-      env.DB.prepare(
-        `INSERT OR IGNORE INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
-         VALUES (?, ?, ?, NULL, ?)`,
-      ).bind(payoutId, user.id, amount, now),
-    );
-  }
-  await runBatch(env, statements);
+       WHERE id = ? AND buyer_user_id = ? AND status = 'active'
+         AND (
+           escrow_balance = 0
+           OR EXISTS (
+             SELECT 1 FROM market_payouts
+             WHERE id = ? AND user_id = ?
+           )
+         )`,
+    ).bind(now, id, user.id, payoutId, user.id),
+  ]);
   const updated = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
-  const payout = amount > 0
-    ? await first(env, 'SELECT * FROM market_payouts WHERE id = ? LIMIT 1', [payoutId])
-    : null;
+  const payout = await first(env, 'SELECT * FROM market_payouts WHERE id = ? LIMIT 1', [payoutId]);
   return json({
     order: orderFromRow(updated),
     payout: payout ? {
@@ -498,23 +526,30 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
     env.DB.prepare(
       `UPDATE market_swaps
        SET status = 'completed', accepted_by_user_id = ?, updated_at = ?
-       WHERE id = ? AND status = 'active'`,
-    ).bind(user.id, now, id),
+       WHERE id = ? AND status = 'active' AND expires_at > ? AND owner_user_id <> ?`,
+    ).bind(user.id, now, id, now, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
         (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
-    ).bind(
-      offeredTransferId, id, user.id, swap.offered_kind, swap.offered_name,
-      swap.offered_json, swap.offered_quantity, now,
-    ),
+       SELECT ?, id, ?, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
+       FROM market_swaps
+       WHERE id = ? AND status = 'completed' AND accepted_by_user_id = ?`,
+    ).bind(offeredTransferId, user.id, now, id, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
         (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+       SELECT ?, id, owner_user_id, ?, ?, ?, ?, NULL, ?
+       FROM market_swaps
+       WHERE id = ? AND status = 'completed' AND accepted_by_user_id = ?`,
     ).bind(
-      wantedTransferId, id, swap.owner_user_id, asset.kind, asset.name,
-      asset.assetJson, swap.wanted_quantity, now,
+      wantedTransferId,
+      asset.kind,
+      asset.name,
+      asset.assetJson,
+      swap.wanted_quantity,
+      now,
+      id,
+      user.id,
     ),
   ]);
   const updated = await first(
@@ -523,6 +558,9 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
      FROM market_swaps s JOIN users u ON u.id = s.owner_user_id WHERE s.id = ? LIMIT 1`,
     [id],
   );
+  if (!updated || Number(updated.accepted_by_user_id) !== Number(user.id)) {
+    throw new HttpError(409, 'market_swap_changed', '交换单刚刚被其他玩家接受或已失效');
+  }
   return json({ swap: swapFromRow(updated) });
 }
 
@@ -539,16 +577,17 @@ export async function cancelMarketSwap(env, user, swapIdValue) {
   const transferId = ('swap-return:' + id).slice(0, 96);
   await runBatch(env, [
     env.DB.prepare(
-      `UPDATE market_swaps SET status = 'cancelled', updated_at = ? WHERE id = ? AND status = 'active'`,
-    ).bind(now, id),
+      `UPDATE market_swaps
+       SET status = 'cancelled', updated_at = ?
+       WHERE id = ? AND owner_user_id = ? AND status = 'active'`,
+    ).bind(now, id, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
         (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
-    ).bind(
-      transferId, id, user.id, swap.offered_kind, swap.offered_name,
-      swap.offered_json, swap.offered_quantity, now,
-    ),
+       SELECT ?, id, owner_user_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
+       FROM market_swaps
+       WHERE id = ? AND owner_user_id = ? AND status = 'cancelled'`,
+    ).bind(transferId, now, id, user.id),
   ]);
   const updated = await first(env, 'SELECT * FROM market_swaps WHERE id = ? LIMIT 1', [id]);
   return json({ swap: swapFromRow(updated) });

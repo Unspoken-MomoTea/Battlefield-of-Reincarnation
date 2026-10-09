@@ -202,6 +202,7 @@ function listingFromRow(row) {
     subtype: row.subtype || '',
     market_lowest_price: integer(row.market_lowest_price, 0),
     market_total_stock: integer(row.market_total_stock, 0),
+    seller_market_suspended: integer(row.seller_market_suspended, 0) === 1,
     expired: integer(row.is_system, 0) !== 1
       && integer(row.expires_at, 0) > 0
       && integer(row.expires_at, 0) <= nowMs(),
@@ -580,10 +581,12 @@ const LISTING_SELECT = `
     seller.username AS seller_username,
     seller.display_name AS seller_display_name,
     catalog.lowest_price AS market_lowest_price,
-    catalog.total_stock AS market_total_stock
+    catalog.total_stock AS market_total_stock,
+    COALESCE(seller_control.is_suspended, 0) AS seller_market_suspended
   FROM market_listings l
   JOIN users seller ON seller.id = l.seller_user_id
   LEFT JOIN market_catalog catalog ON catalog.catalog_key = l.catalog_key
+  LEFT JOIN market_user_controls seller_control ON seller_control.user_id = l.seller_user_id
 `;
 
 const TRADE_SELECT = `
@@ -627,6 +630,7 @@ export async function listMarketListings(request, env) {
 
   const clauses = [
     "l.status = 'active'",
+    'COALESCE(seller_control.is_suspended, 0) = 0',
     'l.remaining_quantity > 0',
     '(l.is_system = 1 OR l.expires_at = 0 OR l.expires_at > ?)',
   ];
@@ -849,6 +853,7 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
     !listing
     || listing.status !== 'active'
     || listing.remaining_quantity <= 0
+    || listing.seller_market_suspended
     || (!listing.is_system && listing.expires_at > 0 && listing.expires_at <= nowMs())
   ) {
     throw new HttpError(
@@ -884,8 +889,10 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
        SELECT ?, l.id, l.seller_user_id, ?, l.asset_kind, COALESCE(NULLIF(l.market_kind, ''), l.asset_kind), l.asset_name, l.asset_json,
               ?, l.unit_price, l.unit_price * ?, ?, ?, NULL, ?
        FROM market_listings l
+       LEFT JOIN market_user_controls seller_control ON seller_control.user_id = l.seller_user_id
        WHERE l.id = ?
          AND l.status = 'active'
+         AND COALESCE(seller_control.is_suspended, 0) = 0
          AND l.remaining_quantity >= ?
          AND l.seller_user_id <> ?
          AND (l.is_system = 1 OR l.expires_at = 0 OR l.expires_at > ?)`,
@@ -927,8 +934,7 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
   if (listing.catalog_key) {
     statements.push(marketPriceHistoryStatement(env, {
       catalogKey: listing.catalog_key,
-      unitPrice: listing.unit_price,
-      quantity,
+      tradeId,
       now,
     }));
   }

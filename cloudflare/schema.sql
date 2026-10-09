@@ -368,22 +368,6 @@ CREATE INDEX IF NOT EXISTS idx_market_catalog_filters
 CREATE INDEX IF NOT EXISTS idx_market_catalog_latest
   ON market_catalog(latest_at DESC);
 
-CREATE TABLE IF NOT EXISTS market_price_daily (
-  catalog_key TEXT NOT NULL,
-  day_key TEXT NOT NULL,
-  low_price INTEGER NOT NULL,
-  high_price INTEGER NOT NULL,
-  last_price INTEGER NOT NULL,
-  total_quantity INTEGER NOT NULL DEFAULT 0,
-  total_notional INTEGER NOT NULL DEFAULT 0,
-  trade_count INTEGER NOT NULL DEFAULT 0,
-  updated_at INTEGER NOT NULL,
-  PRIMARY KEY (catalog_key, day_key)
-);
-
-CREATE INDEX IF NOT EXISTS idx_market_price_daily_key
-  ON market_price_daily(catalog_key, day_key DESC);
-
 CREATE TABLE IF NOT EXISTS market_purchases (
   save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,

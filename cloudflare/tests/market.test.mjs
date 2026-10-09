@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
 import { handleRequest } from '../src/index.js';
+import { cleanupCompletedMarketRecords } from '../src/market-cleanup.js';
 
 class D1Statement {
   constructor(db, sql, args = []) {
@@ -168,9 +169,8 @@ test('testing market supports listing, idempotent purchase, delivery and seller 
   });
   assert.equal(sellerMe.response.status, 200);
   assert.equal(sellerMe.body.wallet.balance, 242);
-  assert.equal(sellerMe.body.sales[0].market_fee, 8);
-  assert.equal(sellerMe.body.sales[0].seller_proceeds, 242);
-  assert.equal(sellerMe.body.sales.length, 1);
+  assert.equal(Object.hasOwn(sellerMe.body, 'sales'), false);
+  assert.equal(Object.hasOwn(sellerMe.body, 'purchases'), false);
 
   const buyerMe = await jsonRequest(testEnv, '/api/market/me', {
     headers: buyerHeaders,
@@ -554,7 +554,7 @@ test('system buyback accepts stacked items and ranked teammates with the same qu
 });
 
 
-test('server catalog aggregates commodities, filters them and records daily trade history', async () => {
+test('server catalog aggregates commodities without retaining trade histories', async () => {
   const testEnv = env();
   const sellerA = createUser(testEnv, '1000', 'Catalog Seller A');
   const sellerB = createUser(testEnv, '1001', 'Catalog Seller B');
@@ -617,10 +617,7 @@ test('server catalog aggregates commodities, filters them and records daily trad
   detail = await jsonRequest(testEnv, '/api/market/catalog/' + encodeURIComponent(product.key));
   assert.equal(detail.body.catalog.total_stock, 3);
   assert.equal(detail.body.catalog.lowest_price, 25);
-  assert.equal(detail.body.history.length, 1);
-  assert.equal(detail.body.history[0].average, 25);
-  assert.equal(detail.body.history[0].volume, 2);
-  assert.equal(detail.body.history[0].trades, 1);
+  assert.equal(Object.hasOwn(detail.body, 'history'), false);
 });
 
 test('buy orders escrow value, fill atomically, deliver to buyer and refund unused escrow', async () => {
@@ -959,12 +956,10 @@ test('grouped catalog purchase atomically spans price levels and is idempotent',
 
   const detail = await jsonRequest(testEnv, '/api/market/catalog/' + encodeURIComponent(product.key));
   assert.equal(detail.response.status, 200);
-  assert.equal(detail.body.history.length, 1);
-  assert.equal(detail.body.history[0].volume, 4);
-  assert.equal(detail.body.history[0].trades, 2);
+  assert.equal(Object.hasOwn(detail.body, 'history'), false);
 });
 
-test('grouped purchase rejects stale total without partial stock or history writes', async () => {
+test('grouped purchase rejects stale total without partial stock changes', async () => {
   const testEnv = env();
   const seller = createUser(testEnv, '1410', 'Stale Seller');
   const buyer = createUser(testEnv, '1411', 'Stale Buyer');
@@ -1047,9 +1042,8 @@ test('grouped purchase rejects stale total without partial stock or history writ
     0,
   );
 
-  const history = await jsonRequest(testEnv, '/api/market/catalog/' + encodeURIComponent(product.key));
-  assert.equal(history.body.history[0].volume, 1);
-  assert.equal(history.body.history[0].last, 10);
+  const current = await jsonRequest(testEnv, '/api/market/catalog/' + encodeURIComponent(product.key));
+  assert.equal(Object.hasOwn(current.body, 'history'), false);
 });
 
 
@@ -1274,4 +1268,79 @@ test('different saves cannot take another save market inventory or earnings', as
   assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: buyerA })).body.pending_deliveries.length, 1);
   assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: sellerB })).body.wallet.balance, 0);
   assert.ok((await jsonRequest(testEnv, '/api/market/me', { headers: sellerA })).body.wallet.balance > 0);
+});
+
+test('completed market receipts are pruned, but anything awaiting delivery or refund survives', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, 'cleanup-seller', 'Cleanup Seller');
+  const buyer = createUser(testEnv, 'cleanup-buyer', 'Cleanup Buyer');
+  const sellerHeaders = authHeaders(testEnv, seller, 'cleanup-seller-session');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'cleanup-buyer-session');
+  const since = Date.now() - 3 * 24 * 60 * 60 * 1000;
+
+  await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: sellerHeaders,
+    body: JSON.stringify({
+      id: 'cleanup-sale', asset: {
+        kind: 'item', name: '清理货物', quantity: 2,
+        data: { 名称: '清理货物', 品质: 'E', 数量: 2 },
+      }, unit_price: 10,
+    }),
+  });
+  for (const id of ['cleanup-delivered', 'cleanup-pending']) {
+    const purchase = await jsonRequest(testEnv, '/api/market/listings/cleanup-sale/buy', {
+      method: 'POST', headers: buyerHeaders,
+      body: JSON.stringify({ trade_id: id, quantity: 1 }),
+    });
+    assert.equal(purchase.response.status, 200);
+  }
+  const ack = await jsonRequest(testEnv, '/api/market/trades/cleanup-delivered/delivered', {
+    method: 'POST', headers: buyerHeaders,
+  });
+  assert.equal(ack.response.status, 200);
+  const db = testEnv.DB.db;
+  db.prepare("UPDATE market_trades SET delivered_at = ? WHERE id = 'cleanup-delivered'").run(since);
+  db.prepare("UPDATE market_trades SET created_at = ? WHERE id IN ('cleanup-delivered','cleanup-pending')").run(since);
+
+  const before = await jsonRequest(testEnv, '/api/market/me', { headers: buyerHeaders });
+  assert.equal(before.body.pending_deliveries.length, 1);
+  assert.equal(Object.hasOwn(before.body, 'purchases'), false);
+  const removed = await cleanupCompletedMarketRecords(testEnv, { now: Date.now() });
+  assert.equal(removed.trades, 1);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM market_trades WHERE id = 'cleanup-delivered'").get().count, 0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM market_trades WHERE id = 'cleanup-pending'").get().count, 1);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM market_listings WHERE id = 'cleanup-sale'").get().count, 1);
+  const after = await jsonRequest(testEnv, '/api/market/me', { headers: buyerHeaders });
+  assert.equal(after.body.pending_deliveries[0].id, 'cleanup-pending');
+});
+
+test('completed buybacks can be pruned after confirmed payout; pending payouts never are', async () => {
+  const testEnv = env();
+  const user = createUser(testEnv, 'cleanup-payout-owner', 'Cleanup Owner');
+  const headers = authHeaders(testEnv, user, 'cleanup-payout-token');
+  const result = await jsonRequest(testEnv, '/api/market/buyback', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      id: 'cleanup-buyback',
+      asset: { kind: 'equipment', name: '待回收武器', quantity: 1,
+        data: { 名称: '待回收武器', 品质: 'E', 状态: 0 } },
+    }),
+  });
+  assert.equal(result.response.status, 201);
+  const db = testEnv.DB.db;
+  const old = Date.now() - 3 * 24 * 60 * 60 * 1000;
+  db.prepare('UPDATE market_buybacks SET created_at = ? WHERE id = ?').run(old, 'cleanup-buyback');
+  db.prepare('UPDATE market_payouts SET created_at = ? WHERE id = ?').run(old, 'cleanup-buyback');
+  await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM market_buybacks').get().count, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM market_payouts').get().count, 1);
+  const confirmed = await jsonRequest(testEnv, '/api/market/payouts/cleanup-buyback/confirmed', {
+    method: 'POST', headers,
+  });
+  assert.equal(confirmed.response.status, 200);
+  db.prepare('UPDATE market_payouts SET confirmed_at = ? WHERE id = ?').run(old, 'cleanup-buyback');
+  const removed = await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(removed.buybacks, 1);
+  assert.equal(removed.payouts, 1);
 });

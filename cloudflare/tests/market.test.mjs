@@ -855,3 +855,198 @@ test('market moderation can detect risky trades, force delist and suspend tradin
   );
   assert.equal(recovery.response.status, 200);
 });
+
+
+test('grouped catalog purchase atomically spans price levels and is idempotent', async () => {
+  const testEnv = env();
+  const sellerA = createUser(testEnv, '1400', 'Grouped Seller A');
+  const sellerB = createUser(testEnv, '1401', 'Grouped Seller B');
+  const buyer = createUser(testEnv, '1402', 'Grouped Buyer');
+  const sellerAHeaders = authHeaders(testEnv, sellerA, 'grouped-seller-a');
+  const sellerBHeaders = authHeaders(testEnv, sellerB, 'grouped-seller-b');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'grouped-buyer');
+
+  for (const [headers, id, quantity, price] of [
+    [sellerAHeaders, 'grouped-listing-a', 2, 30],
+    [sellerBHeaders, 'grouped-listing-b', 3, 25],
+  ]) {
+    const created = await jsonRequest(testEnv, '/api/market/listings', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        id,
+        duration_hours: 24,
+        asset: {
+          kind: 'item',
+          name: '批量成交药剂',
+          quantity,
+          data: { 名称: '批量成交药剂', 品质: 'E', 类型: '消耗品', 数量: quantity },
+        },
+        unit_price: price,
+      }),
+    });
+    assert.equal(created.response.status, 201);
+  }
+
+  const catalog = await jsonRequest(testEnv, '/api/market/catalog?kind=item&q=' + encodeURIComponent('批量成交药剂'));
+  const product = catalog.body.items.find(item => item.name === '批量成交药剂');
+  assert.ok(product);
+
+  const quote = await jsonRequest(
+    testEnv,
+    '/api/market/catalog/' + encodeURIComponent(product.key) + '/quote?quantity=4',
+    { headers: buyerHeaders },
+  );
+  assert.equal(quote.response.status, 200);
+  assert.equal(quote.body.quote.total_price, 105);
+  assert.deepEqual(quote.body.quote.levels, [
+    { price: 25, quantity: 3 },
+    { price: 30, quantity: 1 },
+  ]);
+
+  const purchase = await jsonRequest(
+    testEnv,
+    '/api/market/catalog/' + encodeURIComponent(product.key) + '/buy',
+    {
+      method: 'POST',
+      headers: buyerHeaders,
+      body: JSON.stringify({
+        purchase_id: 'grouped-purchase-1',
+        quantity: 4,
+        expected_total: 105,
+      }),
+    },
+  );
+  assert.equal(purchase.response.status, 200);
+  assert.equal(purchase.body.purchase.status, 'completed');
+  assert.equal(purchase.body.purchase.quantity, 4);
+  assert.equal(purchase.body.purchase.total_price, 105);
+  assert.equal(purchase.body.trades.length, 2);
+  assert.deepEqual(
+    purchase.body.trades.map(trade => [trade.unit_price, trade.quantity]),
+    [[25, 3], [30, 1]],
+  );
+
+  const remainingA = testEnv.DB.db.prepare(
+    'SELECT remaining_quantity FROM market_listings WHERE id = ?',
+  ).get('grouped-listing-a');
+  const remainingB = testEnv.DB.db.prepare(
+    'SELECT remaining_quantity FROM market_listings WHERE id = ?',
+  ).get('grouped-listing-b');
+  assert.equal(remainingA.remaining_quantity, 1);
+  assert.equal(remainingB.remaining_quantity, 0);
+
+  const repeated = await jsonRequest(
+    testEnv,
+    '/api/market/catalog/' + encodeURIComponent(product.key) + '/buy',
+    {
+      method: 'POST',
+      headers: buyerHeaders,
+      body: JSON.stringify({
+        purchase_id: 'grouped-purchase-1',
+        quantity: 4,
+        expected_total: 105,
+      }),
+    },
+  );
+  assert.equal(repeated.response.status, 200);
+  assert.equal(repeated.body.trades.length, 2);
+  assert.equal(
+    testEnv.DB.db.prepare('SELECT remaining_quantity FROM market_listings WHERE id = ?').get('grouped-listing-a').remaining_quantity,
+    1,
+  );
+
+  const detail = await jsonRequest(testEnv, '/api/market/catalog/' + encodeURIComponent(product.key));
+  assert.equal(detail.response.status, 200);
+  assert.equal(detail.body.history.length, 1);
+  assert.equal(detail.body.history[0].volume, 4);
+  assert.equal(detail.body.history[0].trades, 2);
+});
+
+test('grouped purchase rejects stale total without partial stock or history writes', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, '1410', 'Stale Seller');
+  const buyer = createUser(testEnv, '1411', 'Stale Buyer');
+  const other = createUser(testEnv, '1412', 'Stale Other');
+  const sellerHeaders = authHeaders(testEnv, seller, 'stale-seller');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'stale-buyer');
+  const otherHeaders = authHeaders(testEnv, other, 'stale-other');
+
+  await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST',
+    headers: sellerHeaders,
+    body: JSON.stringify({
+      id: 'stale-listing-cheap',
+      duration_hours: 24,
+      asset: {
+        kind: 'item',
+        name: '价格变化材料',
+        quantity: 1,
+        data: { 名称: '价格变化材料', 品质: 'E', 类型: '材料', 数量: 1 },
+      },
+      unit_price: 10,
+    }),
+  });
+  await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST',
+    headers: sellerHeaders,
+    body: JSON.stringify({
+      id: 'stale-listing-next',
+      duration_hours: 24,
+      asset: {
+        kind: 'item',
+        name: '价格变化材料',
+        quantity: 2,
+        data: { 名称: '价格变化材料', 品质: 'E', 类型: '材料', 数量: 2 },
+      },
+      unit_price: 20,
+    }),
+  });
+
+  const catalog = await jsonRequest(testEnv, '/api/market/catalog?kind=item&q=' + encodeURIComponent('价格变化材料'));
+  const product = catalog.body.items.find(item => item.name === '价格变化材料');
+  assert.ok(product);
+
+  const oldQuote = await jsonRequest(
+    testEnv,
+    '/api/market/catalog/' + encodeURIComponent(product.key) + '/quote?quantity=1',
+    { headers: buyerHeaders },
+  );
+  assert.equal(oldQuote.body.quote.total_price, 10);
+
+  const consumed = await jsonRequest(testEnv, '/api/market/listings/stale-listing-cheap/buy', {
+    method: 'POST',
+    headers: otherHeaders,
+    body: JSON.stringify({ trade_id: 'stale-consume-trade', quantity: 1 }),
+  });
+  assert.equal(consumed.response.status, 200);
+
+  const failed = await jsonRequest(
+    testEnv,
+    '/api/market/catalog/' + encodeURIComponent(product.key) + '/buy',
+    {
+      method: 'POST',
+      headers: buyerHeaders,
+      body: JSON.stringify({
+        purchase_id: 'stale-grouped-purchase',
+        quantity: 1,
+        expected_total: 10,
+      }),
+    },
+  );
+  assert.equal(failed.response.status, 409);
+  assert.equal(failed.body.code, 'market_price_changed');
+  assert.equal(failed.body.details.current_total, 20);
+  assert.equal(
+    testEnv.DB.db.prepare('SELECT remaining_quantity FROM market_listings WHERE id = ?').get('stale-listing-next').remaining_quantity,
+    2,
+  );
+  assert.equal(
+    testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_purchases WHERE id = ?').get('stale-grouped-purchase').count,
+    0,
+  );
+
+  const history = await jsonRequest(testEnv, '/api/market/catalog/' + encodeURIComponent(product.key));
+  assert.equal(history.body.history[0].volume, 1);
+  assert.equal(history.body.history[0].last, 10);
+});

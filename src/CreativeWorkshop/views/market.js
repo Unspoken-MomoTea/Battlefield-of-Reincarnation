@@ -241,15 +241,11 @@ export function createMarketView({
     }
 
     const wrap = element('div', 'rw-ah-inspector-body');
-    const head = element('div', 'rw-ah-inspector-head');
-    const headCopy = element('div');
-    const kicker = element('div', 'rw-ah-inspector-kicker');
-    kicker.append(
-      element('span', 'rw-market-kind', kindLabel(marketRow.kind)),
-      element('span', 'rw-market-quality', quality(marketRow.asset) || '未标注'),
+    const head = element('div', 'rw-ah-detail-head');
+    head.append(
+      element('div', 'rw-ah-inspector-title', '详情'),
+      element('h3', '', marketRow.name),
     );
-    headCopy.append(kicker, element('h3', '', marketRow.name));
-    head.append(rowIcon(marketRow), headCopy);
     wrap.append(head, assetDetail(marketRow.asset));
 
     const marketStats = element('div', 'rw-ah-market-stats');

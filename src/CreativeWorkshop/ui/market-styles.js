@@ -133,8 +133,16 @@ export const MARKET_CSS = `
 .rw-ah-reference-price span{font-size:10px;color:#7f8996}
 .rw-ah-reference-price strong{font-size:13px;color:#e4bf66}
 .rw-ah-sell-form{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:11px;border:1px solid rgba(215,170,74,.2);border-radius:8px;background:rgba(215,170,74,.04)}
+.rw-ah-listing-fee{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border:1px solid var(--ah-line);border-radius:7px;background:rgba(0,0,0,.12)}
+.rw-ah-listing-fee span{font-size:10px;color:#8c96a3}
+.rw-ah-listing-fee strong{font-size:12px;color:#e6c26d}
 .rw-ah-sell-total{grid-column:1/-1;padding-top:7px;border-top:1px solid var(--ah-line);font-size:12px;color:#d7b460}
 .rw-ah-sell-form>.rw-button{grid-column:1/-1}
+.rw-ah-buyback-box{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px;border:1px solid rgba(96,165,250,.2);border-radius:8px;background:rgba(96,165,250,.045)}
+.rw-ah-buyback-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.rw-ah-buyback-copy>span{font-size:10px;color:#8e99a7}
+.rw-ah-buyback-copy>strong{font-size:15px;color:#a9c8f5}
+.rw-ah-buyback-copy>small{font-size:10px;line-height:1.5;color:#778391}
 .rw-ah-blocked{display:flex;flex-direction:column;gap:3px;padding:11px;border:1px solid rgba(239,68,68,.2);border-radius:7px;background:rgba(239,68,68,.055)}
 .rw-ah-blocked strong{font-size:12px;color:#e3aaaa}
 .rw-ah-blocked span{font-size:10px;color:#9b8080}
@@ -188,7 +196,8 @@ export const MARKET_CSS = `
   .rw-ah-sell-layout{display:flex;flex-direction:column}
   .rw-ah-inventory-pane{border-right:0;border-bottom:1px solid var(--ah-line);max-height:280px}
   .rw-ah-sell-form{grid-template-columns:1fr}
-  .rw-ah-sell-total,.rw-ah-sell-form>.rw-button{grid-column:1}
+  .rw-ah-listing-fee,.rw-ah-sell-total,.rw-ah-sell-form>.rw-button{grid-column:1}
+  .rw-ah-buyback-box{align-items:stretch;flex-direction:column}
   .rw-ah-transaction-row{align-items:flex-start;flex-direction:column}
 }
 `;

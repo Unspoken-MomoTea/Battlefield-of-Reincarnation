@@ -1180,21 +1180,10 @@ export async function getMarketMe(env, user) {
     `${LISTING_SELECT} WHERE l.seller_user_id = ? AND l.save_id = ? ORDER BY l.created_at DESC LIMIT 50`,
     [user.id, user.market_save_id],
   );
-  const purchases = await all(
-    env,
-    `${TRADE_SELECT} WHERE t.buyer_user_id = ? AND t.buyer_save_id = ? ORDER BY t.created_at DESC LIMIT 50`,
-    [user.id, user.market_save_id],
-  );
   const pendingDeliveries = await all(
     env,
     `${TRADE_SELECT} WHERE t.buyer_user_id = ? AND t.buyer_save_id = ?
      AND t.delivered_at IS NULL ORDER BY t.created_at ASC LIMIT 200`,
-    [user.id, user.market_save_id],
-  );
-  const sales = await all(
-    env,
-    `${TRADE_SELECT} JOIN market_listings owned_listing ON owned_listing.id = t.listing_id
-     WHERE t.seller_user_id = ? AND owned_listing.save_id = ? ORDER BY t.created_at DESC LIMIT 50`,
     [user.id, user.market_save_id],
   );
   const pendingReturns = await all(
@@ -1209,20 +1198,6 @@ export async function getMarketMe(env, user) {
     `SELECT * FROM market_payouts
      WHERE user_id = ? AND save_id = ? AND confirmed_at IS NULL
      ORDER BY created_at ASC LIMIT 50`,
-    [user.id, user.market_save_id],
-  );
-  const recycles = await all(
-    env,
-    `SELECT * FROM market_recycles
-     WHERE user_id = ? AND save_id = ?
-     ORDER BY created_at DESC LIMIT 50`,
-    [user.id, user.market_save_id],
-  );
-  const buybacks = await all(
-    env,
-    `SELECT * FROM market_buybacks
-     WHERE user_id = ? AND save_id = ?
-     ORDER BY created_at DESC LIMIT 50`,
     [user.id, user.market_save_id],
   );
 
@@ -1240,13 +1215,9 @@ export async function getMarketMe(env, user) {
       updated_at: integer(wallet?.updated_at, 0),
     },
     listings: listings.map(listingFromRow),
-    purchases: purchases.map(tradeFromRow),
-    sales: sales.map(tradeFromRow),
     pending_deliveries: pendingDeliveries.map(tradeFromRow),
     pending_returns: pendingReturns.map(returnFromRow),
     pending_payouts: pendingPayouts.map(payoutFromRow),
-    recycles: recycles.map(recycleFromRow),
-    buybacks: buybacks.map(buybackFromRow),
     ...orderState,
   });
 }

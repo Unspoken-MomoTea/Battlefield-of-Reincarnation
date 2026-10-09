@@ -206,7 +206,12 @@ export async function listMarketBuyOrders(request, env) {
   const query = text(url.searchParams.get('q'), 80);
   const limit = Math.max(1, Math.min(80, integer(url.searchParams.get('limit'), 40)));
   const offset = Math.max(0, integer(url.searchParams.get('offset'), 0));
-  const clauses = ["o.status = 'active'", 'o.remaining_quantity > 0', 'o.expires_at > ?'];
+  const clauses = [
+    "o.status = 'active'",
+    'o.remaining_quantity > 0',
+    'o.expires_at > ?',
+    'COALESCE(mc.is_suspended, 0) = 0',
+  ];
   const args = [Date.now()];
   if (kind) { clauses.push('o.asset_kind = ?'); args.push(kind); }
   if (quality) { clauses.push('o.quality = ?'); args.push(quality); }
@@ -217,6 +222,7 @@ export async function listMarketBuyOrders(request, env) {
     `SELECT o.*, u.username AS buyer_username, u.display_name AS buyer_display_name
      FROM market_buy_orders o
      JOIN users u ON u.id = o.buyer_user_id
+     LEFT JOIN market_user_controls mc ON mc.user_id = o.buyer_user_id
      WHERE ${clauses.join(' AND ')}
      ORDER BY o.unit_price DESC, o.created_at DESC
      LIMIT ? OFFSET ?`,
@@ -281,8 +287,21 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
     return json({ fill: orderFillFromRow(existingFill) });
   }
 
-  const order = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [orderId]);
-  if (!order || order.status !== 'active' || integer(order.remaining_quantity) <= 0 || integer(order.expires_at) <= Date.now()) {
+  const order = await first(
+    env,
+    `SELECT o.*, COALESCE(mc.is_suspended, 0) AS buyer_market_suspended
+     FROM market_buy_orders o
+     LEFT JOIN market_user_controls mc ON mc.user_id = o.buyer_user_id
+     WHERE o.id = ? LIMIT 1`,
+    [orderId],
+  );
+  if (
+    !order
+    || order.status !== 'active'
+    || Number(order.buyer_market_suspended)
+    || integer(order.remaining_quantity) <= 0
+    || integer(order.expires_at) <= Date.now()
+  ) {
     throw new HttpError(409, 'market_order_unavailable', '求购单已经不可成交');
   }
   if (Number(order.buyer_user_id) === Number(user.id)) {
@@ -318,8 +337,10 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
          quantity, unit_price, total_price, delivered_at, created_at)
        SELECT ?, o.id, ?, o.buyer_user_id, ?, ?, ?, ?, o.unit_price, o.unit_price * ?, NULL, ?
        FROM market_buy_orders o
+       LEFT JOIN market_user_controls buyer_control ON buyer_control.user_id = o.buyer_user_id
        WHERE o.id = ?
          AND o.status = 'active'
+         AND COALESCE(buyer_control.is_suspended, 0) = 0
          AND o.expires_at > ?
          AND o.buyer_user_id <> ?
          AND o.remaining_quantity >= ?
@@ -369,7 +390,6 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
 }
 
 export async function cancelMarketBuyOrder(env, user, orderIdValue) {
-  await assertMarketActive(env, user);
   const id = marketId(orderIdValue, '求购单ID');
   const order = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
   if (!order || Number(order.buyer_user_id) !== Number(user.id)) {
@@ -433,7 +453,11 @@ export async function listMarketSwaps(request, env) {
   const query = text(url.searchParams.get('q'), 80);
   const limit = Math.max(1, Math.min(80, integer(url.searchParams.get('limit'), 40)));
   const offset = Math.max(0, integer(url.searchParams.get('offset'), 0));
-  const clauses = ["s.status = 'active'", 's.expires_at > ?'];
+  const clauses = [
+    "s.status = 'active'",
+    's.expires_at > ?',
+    'COALESCE(mc.is_suspended, 0) = 0',
+  ];
   const args = [Date.now()];
   if (kind) { clauses.push('s.wanted_kind = ?'); args.push(kind); }
   if (quality) { clauses.push('s.wanted_quality = ?'); args.push(quality); }
@@ -446,6 +470,7 @@ export async function listMarketSwaps(request, env) {
     `SELECT s.*, u.username AS owner_username, u.display_name AS owner_display_name
      FROM market_swaps s
      JOIN users u ON u.id = s.owner_user_id
+     LEFT JOIN market_user_controls mc ON mc.user_id = s.owner_user_id
      WHERE ${clauses.join(' AND ')}
      ORDER BY s.created_at DESC
      LIMIT ? OFFSET ?`,
@@ -502,8 +527,20 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
   const id = marketId(swapIdValue, '交换单ID');
   const body = await readJson(request, { maxBytes: 64 * 1024 });
   const asset = assetFromBody(body?.asset);
-  const swap = await first(env, 'SELECT * FROM market_swaps WHERE id = ? LIMIT 1', [id]);
-  if (!swap || swap.status !== 'active' || integer(swap.expires_at) <= Date.now()) {
+  const swap = await first(
+    env,
+    `SELECT s.*, COALESCE(mc.is_suspended, 0) AS owner_market_suspended
+     FROM market_swaps s
+     LEFT JOIN market_user_controls mc ON mc.user_id = s.owner_user_id
+     WHERE s.id = ? LIMIT 1`,
+    [id],
+  );
+  if (
+    !swap
+    || swap.status !== 'active'
+    || Number(swap.owner_market_suspended)
+    || integer(swap.expires_at) <= Date.now()
+  ) {
     throw new HttpError(409, 'market_swap_unavailable', '交换单已经不可成交');
   }
   if (Number(swap.owner_user_id) === Number(user.id)) {
@@ -526,7 +563,14 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
     env.DB.prepare(
       `UPDATE market_swaps
        SET status = 'completed', accepted_by_user_id = ?, updated_at = ?
-       WHERE id = ? AND status = 'active' AND expires_at > ? AND owner_user_id <> ?`,
+       WHERE id = ?
+         AND status = 'active'
+         AND expires_at > ?
+         AND owner_user_id <> ?
+         AND NOT EXISTS (
+           SELECT 1 FROM market_user_controls mc
+           WHERE mc.user_id = market_swaps.owner_user_id AND mc.is_suspended = 1
+         )`,
     ).bind(user.id, now, id, now, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
@@ -565,7 +609,6 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
 }
 
 export async function cancelMarketSwap(env, user, swapIdValue) {
-  await assertMarketActive(env, user);
   const id = marketId(swapIdValue, '交换单ID');
   const swap = await first(env, 'SELECT * FROM market_swaps WHERE id = ? LIMIT 1', [id]);
   if (!swap || Number(swap.owner_user_id) !== Number(user.id)) {

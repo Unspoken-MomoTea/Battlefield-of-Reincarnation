@@ -207,7 +207,7 @@ function tradeFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
-    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.market_quantity || row.quantity),
+    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity),
     unit_price: integer(row.unit_price),
     total_price: integer(row.total_price),
@@ -233,7 +233,7 @@ function returnFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
-    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.market_quantity || row.quantity),
+    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity),
     confirmed_at: row.confirmed_at == null ? null : integer(row.confirmed_at),
     created_at: integer(row.created_at),
@@ -255,7 +255,7 @@ function recycleFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
-    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.market_quantity || row.quantity),
+    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity, 1),
     amount: integer(row.amount),
     credited_at: row.credited_at == null ? null : integer(row.credited_at),
@@ -682,10 +682,11 @@ export async function createMarketListing(request, env, user) {
 
 function buybackFromRow(row) {
   if (!row) return null;
+  const quantity = integer(row.market_quantity, 0) || integer(row.quantity, 1);
   return {
     id: row.id,
-    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.market_quantity || row.quantity),
-    quantity: integer(row.quantity, 1),
+    asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, quantity),
+    quantity,
     amount: integer(row.amount),
     payout_id: row.payout_id,
     created_at: integer(row.created_at),

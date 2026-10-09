@@ -403,15 +403,16 @@ export function createMarketView({
     }
     const listingCount = Object.values(catalogCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     nodes.marketCount.textContent = catalogItems.length + ' 种商品 · ' + listingCount + ' 个当前挂单';
-    if (nodes.marketMore) nodes.marketMore.hidden = true;
+    if (nodes.marketMore) nodes.marketMore.hidden = browseStore.query().next_offset == null;
     renderCategoryCounts();
   }
 
   async function loadCatalog({ force = false } = {}) {
-    if (force) await browseStore.refresh();
-    else await browseStore.ensureSnapshot();
+    const filters = browseFilters();
+    if (force) await browseStore.refresh(filters);
+    else await browseStore.ensureSnapshot(filters);
 
-    const result = browseStore.query(browseFilters());
+    const result = browseStore.query(filters);
     catalogItems = result.items;
     catalogCounts = result.counts;
     catalogFacets = result.facets;
@@ -790,11 +791,12 @@ export function createMarketView({
 
     let referenceDetail = null;
     let referencePrice = 0;
-    const referenceResult = browseStore.query({
+    const referenceResult = await marketService.catalog({
       query: asset.name,
       kind: asset.kind,
       sort: 'price_asc',
-    });
+      limit: 20,
+    }).catch(() => ({ items: [] }));
     const referenceItem = (referenceResult?.items || []).find(item => (
       item.name === asset.name
       && (!quality(asset) || qualityRank(item.asset) === qualityRank(asset))
@@ -1729,7 +1731,15 @@ export function createMarketView({
   nodes.marketSubtype?.addEventListener('change', applyBrowseFilters);
   nodes.marketMinPrice?.addEventListener('change', applyBrowseFilters);
   nodes.marketMaxPrice?.addEventListener('change', applyBrowseFilters);
-  nodes.marketMore?.addEventListener('click', () => {});
+  nodes.marketMore?.addEventListener('click', () => {
+    void browseStore.append().then(() => {
+      const result = browseStore.query(browseFilters());
+      catalogItems = result.items;
+      catalogCounts = result.counts;
+      catalogFacets = result.facets;
+      renderCatalogRows();
+    }).catch(notifyError);
+  });
   nodes.marketMineRefresh?.addEventListener('click', () => {
     invalidateMineState();
     void renderMineMode({ force: true }).catch(notifyError);

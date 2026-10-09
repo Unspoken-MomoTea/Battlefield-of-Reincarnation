@@ -1183,6 +1183,20 @@ export async function confirmMarketSaleBroadcast(env, user, tradeIdValue) {
   return json({ acknowledged: true, id });
 }
 
+export async function confirmMarketRecycleBroadcast(env, user, recycleIdValue) {
+  const id = marketId(recycleIdValue, '到期回收播报 ID');
+  const row = await first(env,
+    `SELECT id FROM market_recycles WHERE id = ? AND user_id = ? AND save_id = ?
+     AND credited_at IS NOT NULL LIMIT 1`,
+    [id, user.id, user.market_save_id]);
+  if (!row) throw new HttpError(404, 'market_broadcast_not_found', '待播报的集市回收不存在');
+  await env.DB.prepare(
+    `UPDATE market_recycles SET broadcast_at = COALESCE(broadcast_at, ?)
+     WHERE id = ? AND user_id = ? AND save_id = ?`,
+  ).bind(nowMs(), id, user.id, user.market_save_id).run();
+  return json({ acknowledged: true, id });
+}
+
 export async function getMarketMe(env, user) {
   await settleExpiredMarketListings(env);
   await settleExpiredMarketOrders(env);
@@ -1225,6 +1239,13 @@ export async function getMarketMe(env, user) {
      ORDER BY created_at ASC LIMIT 50`,
     [user.id, user.market_save_id],
   );
+  const pendingRecycleBroadcasts = await all(
+    env,
+    `SELECT * FROM market_recycles
+     WHERE user_id = ? AND save_id = ? AND credited_at IS NOT NULL
+       AND broadcast_at IS NULL ORDER BY created_at ASC LIMIT 200`,
+    [user.id, user.market_save_id],
+  );
 
   const orderState = await getMarketOrderState(env, user);
   const activeCount = await first(env,
@@ -1242,6 +1263,7 @@ export async function getMarketMe(env, user) {
     listings: listings.map(listingFromRow),
     pending_deliveries: pendingDeliveries.map(tradeFromRow),
     pending_sale_broadcasts: pendingSaleBroadcasts.map(tradeFromRow),
+    pending_recycle_broadcasts: pendingRecycleBroadcasts.map(recycleFromRow),
     pending_returns: pendingReturns.map(returnFromRow),
     pending_payouts: pendingPayouts.map(payoutFromRow),
     ...orderState,

@@ -670,8 +670,8 @@ export async function settleExpiredMarketOrders(env, { limit = 100 } = {}) {
     const payoutId = ('order-expired:' + order.id).slice(0, 96);
     await runBatch(env, [
       env.DB.prepare(
-        `INSERT OR IGNORE INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
-         SELECT ?, buyer_user_id, escrow_balance, NULL, ?
+        `INSERT OR IGNORE INTO market_payouts (id, user_id, save_id, amount, confirmed_at, created_at)
+         SELECT ?, buyer_user_id, save_id, escrow_balance, NULL, ?
          FROM market_buy_orders
          WHERE id = ? AND status = 'active' AND expires_at <= ? AND escrow_balance > 0`,
       ).bind(payoutId, now, order.id, now),
@@ -704,8 +704,8 @@ export async function settleExpiredMarketOrders(env, { limit = 100 } = {}) {
       ).bind(now, swap.id, now),
       env.DB.prepare(
         `INSERT OR IGNORE INTO market_swap_transfers
-          (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-         SELECT ?, id, owner_user_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
+          (id, swap_id, user_id, save_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+         SELECT ?, id, owner_user_id, owner_save_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
          FROM market_swaps
          WHERE id = ? AND status = 'expired'`,
       ).bind(transferId, now, swap.id),
@@ -716,7 +716,8 @@ export async function settleExpiredMarketOrders(env, { limit = 100 } = {}) {
 
 export async function getMarketOrderState(env, user) {
   const [orders, fills, swaps, transfers] = await Promise.all([
-    all(env, 'SELECT * FROM market_buy_orders WHERE buyer_user_id = ? ORDER BY created_at DESC LIMIT 100', [user.id]),
+    all(env, 'SELECT * FROM market_buy_orders WHERE buyer_user_id = ? AND save_id = ? ORDER BY created_at DESC LIMIT 100',
+      [user.id, user.market_save_id]),
     all(
       env,
       `SELECT f.*,
@@ -725,25 +726,27 @@ export async function getMarketOrderState(env, user) {
        FROM market_order_fills f
        JOIN users su ON su.id = f.seller_user_id
        JOIN users bu ON bu.id = f.buyer_user_id
-       WHERE f.buyer_user_id = ? OR f.seller_user_id = ?
+       WHERE (f.buyer_user_id = ? AND f.buyer_save_id = ?)
+          OR (f.seller_user_id = ? AND f.seller_save_id = ?)
        ORDER BY f.created_at DESC LIMIT 100`,
-      [user.id, user.id],
+      [user.id, user.market_save_id, user.id, user.market_save_id],
     ),
     all(
       env,
       `SELECT s.*, u.display_name AS owner_display_name, u.username AS owner_username
        FROM market_swaps s
        JOIN users u ON u.id = s.owner_user_id
-       WHERE s.owner_user_id = ? OR s.accepted_by_user_id = ?
+       WHERE (s.owner_user_id = ? AND s.owner_save_id = ?)
+          OR (s.accepted_by_user_id = ? AND s.accepted_save_id = ?)
        ORDER BY s.created_at DESC LIMIT 100`,
-      [user.id, user.id],
+      [user.id, user.market_save_id, user.id, user.market_save_id],
     ),
     all(
       env,
       `SELECT * FROM market_swap_transfers
-       WHERE user_id = ?
+       WHERE user_id = ? AND save_id = ?
        ORDER BY created_at DESC LIMIT 100`,
-      [user.id],
+      [user.id, user.market_save_id],
     ),
   ]);
   return {

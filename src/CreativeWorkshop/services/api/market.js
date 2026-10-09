@@ -1,5 +1,20 @@
 export function createMarketApi(request) {
   return {
+    listMarketCatalog({ offset = 0, limit = 200 } = {}) {
+      const params = new URLSearchParams({
+        offset: String(Math.max(0, Number(offset) || 0)),
+        limit: String(Math.max(1, Math.min(500, Number(limit) || 200))),
+      });
+      return request(`/api/market/catalog?${params}`, { cache: 'no-store' });
+    },
+
+    getMarketProduct(marketKey) {
+      return request(
+        `/api/market/catalog/${encodeURIComponent(marketKey)}`,
+        { cache: 'no-store' },
+      );
+    },
+
     listMarketListings({ query = '', kind = '', sort = 'latest', offset = 0, limit = 24 } = {}) {
       const params = new URLSearchParams({
         sort,
@@ -98,6 +113,82 @@ export function createMarketApi(request) {
     confirmMarketPayout(payoutId) {
       return request(
         `/api/market/payouts/${encodeURIComponent(payoutId)}/confirmed`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
+    createMarketOrder(input) {
+      return request('/api/market/orders', { method: 'POST', body: JSON.stringify(input) }, true);
+    },
+
+    getMarketOrder(orderId) {
+      return request(`/api/market/orders/${encodeURIComponent(orderId)}`, { cache: 'no-store' }, true);
+    },
+
+    cancelMarketOrder(orderId) {
+      return request(
+        `/api/market/orders/${encodeURIComponent(orderId)}/cancel`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
+    fillMarketOrder(orderId, input) {
+      return request(
+        `/api/market/orders/${encodeURIComponent(orderId)}/fill`,
+        { method: 'POST', body: JSON.stringify(input) },
+        true,
+      );
+    },
+
+    getMarketOrderFill(fillId) {
+      return request(`/api/market/order-fills/${encodeURIComponent(fillId)}`, { cache: 'no-store' }, true);
+    },
+
+    confirmMarketOrderDelivery(fillId) {
+      return request(
+        `/api/market/order-fills/${encodeURIComponent(fillId)}/delivered`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
+    listMarketBarters({ offset = 0, limit = 60 } = {}) {
+      const params = new URLSearchParams({
+        offset: String(Math.max(0, Number(offset) || 0)),
+        limit: String(Math.max(1, Math.min(100, Number(limit) || 60))),
+      });
+      return request(`/api/market/barters?${params}`, { cache: 'no-store' });
+    },
+
+    createMarketBarter(input) {
+      return request('/api/market/barters', { method: 'POST', body: JSON.stringify(input) }, true);
+    },
+
+    getMarketBarter(barterId) {
+      return request(`/api/market/barters/${encodeURIComponent(barterId)}`, { cache: 'no-store' }, true);
+    },
+
+    acceptMarketBarter(barterId, input) {
+      return request(
+        `/api/market/barters/${encodeURIComponent(barterId)}/accept`,
+        { method: 'POST', body: JSON.stringify(input) },
+        true,
+      );
+    },
+
+    cancelMarketBarter(barterId) {
+      return request(
+        `/api/market/barters/${encodeURIComponent(barterId)}/cancel`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
+    confirmMarketBarterDelivery(deliveryId) {
+      return request(
+        `/api/market/barter-deliveries/${encodeURIComponent(deliveryId)}/confirmed`,
         { method: 'POST' },
         true,
       );

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildCatalogRows,
   buildMarketRows,
   filterMarketRows,
   marketAssetDetailEntries,
@@ -229,4 +230,64 @@ test('generic market detail also hides hp ep thp and final attribute caches', ()
     ['层级', 'Ⅰ'],
     ['描述', '保留信息'],
   ]);
+});
+
+
+test('catalog rows use materialized product summaries without needing listing rows', () => {
+  const rows = buildCatalogRows([
+    {
+      key: 'mk:potion',
+      kind: 'item',
+      name: '治疗药剂',
+      asset: { kind: 'item', name: '治疗药剂', data: { 品质: 'E', 类型: '消耗品', 数量: 10 } },
+      quality: 'E',
+      subtype: '消耗品',
+      lowest_price: 999,
+      total_stock: 30,
+      listing_count: 4,
+      seller_count: 3,
+      latest_at: 100,
+    },
+  ]);
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].key, 'mk:potion');
+  assert.equal(rows[0].totalStock, 30);
+  assert.equal(rows[0].listingCount, 4);
+  assert.equal(rows[0].sellerCount, 3);
+  assert.equal(rows[0].lowestPrice, 999);
+  assert.deepEqual(rows[0].listings, []);
+});
+
+test('advanced catalog filters combine kind quality subtype price and local search', () => {
+  const rows = buildCatalogRows([
+    {
+      key: 'a', kind: 'item', name: 'E级治疗药剂',
+      asset: { kind: 'item', name: 'E级治疗药剂', data: { 品质: 'E', 类型: '消耗品' } },
+      quality: 'E', subtype: '消耗品', lowest_price: 500, total_stock: 5, listing_count: 1, seller_count: 1,
+    },
+    {
+      key: 'b', kind: 'item', name: 'D级治疗药剂',
+      asset: { kind: 'item', name: 'D级治疗药剂', data: { 品质: 'D', 类型: '消耗品' } },
+      quality: 'D', subtype: '消耗品', lowest_price: 1200, total_stock: 3, listing_count: 1, seller_count: 1,
+    },
+    {
+      key: 'c', kind: 'equipment', name: 'E级长剑',
+      asset: { kind: 'equipment', name: 'E级长剑', data: { 品质: 'E', 类型: 0 } },
+      quality: 'E', subtype: '武器', lowest_price: 800, total_stock: 1, listing_count: 1, seller_count: 1,
+    },
+  ]);
+
+  assert.deepEqual(
+    filterMarketRows(rows, {
+      kind: 'item',
+      quality: 'E',
+      subtype: '消耗品',
+      minPrice: '400',
+      maxPrice: '900',
+      query: '治疗',
+      sort: 'price_asc',
+    }).map(row => row.key),
+    ['a'],
+  );
 });

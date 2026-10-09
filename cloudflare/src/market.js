@@ -1,4 +1,18 @@
 import { HttpError, json, readJson } from './http.js';
+import { assertMarketUserAllowed } from './market-access.js';
+import {
+  ensureMarketCatalog,
+  getMarketPriceHistory,
+  getMarketProduct,
+  listMarketProducts,
+  listProductRows,
+  marketAssetKey,
+  recordMarketTrade,
+  referenceForAsset,
+  refreshMarketProduct,
+} from './market-catalog.js';
+import { marketOrderStateForUser } from './market-orders.js';
+import { marketBarterStateForUser } from './market-barter.js';
 import {
   MARKET_AUCTION_DURATIONS,
   marketAuctionQuote,
@@ -178,6 +192,7 @@ function listingFromRow(row) {
   if (!row) return null;
   return {
     id: row.id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.remaining_quantity),
     unit_price: integer(row.unit_price),
     total_quantity: integer(row.total_quantity),
@@ -207,6 +222,7 @@ function tradeFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity),
     unit_price: integer(row.unit_price),
@@ -233,6 +249,7 @@ function returnFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity),
     confirmed_at: row.confirmed_at == null ? null : integer(row.confirmed_at),
@@ -255,6 +272,7 @@ function recycleFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity, 1),
     amount: integer(row.amount),
@@ -321,16 +339,18 @@ async function ensureSystemCredentialListings(env) {
       描述: '悖论公证所系统柜台每日限量补货。',
     };
     const assetJson = JSON.stringify(data);
+    const marketKey = marketAssetKey({ kind: 'item', name: spec.name, quantity: spec.quantity, data });
     if (!existing) {
       await env.DB.prepare(
         `INSERT INTO market_listings
-          (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+          (id, seller_user_id, asset_kind, market_kind, market_key, asset_name, asset_json, unit_price,
            total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
            listing_fee, is_system, restock_day, created_at, updated_at)
-         VALUES (?, ?, 'item', ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, ?, ?, ?)`,
+         VALUES (?, ?, 'item', 'item', ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, ?, ?, ?)`,
       ).bind(
         spec.id,
         seller.id,
+        marketKey,
         spec.name,
         assetJson,
         spec.unit_price,
@@ -347,6 +367,8 @@ async function ensureSystemCredentialListings(env) {
       await env.DB.prepare(
         `UPDATE market_listings
          SET seller_user_id = ?,
+             market_kind = 'item',
+             market_key = ?,
              asset_name = ?,
              asset_json = ?,
              unit_price = ?,
@@ -363,6 +385,7 @@ async function ensureSystemCredentialListings(env) {
          WHERE id = ?`,
       ).bind(
         seller.id,
+        marketKey,
         spec.name,
         assetJson,
         spec.unit_price,
@@ -378,11 +401,18 @@ async function ensureSystemCredentialListings(env) {
     if (String(existing.asset_json || '') !== assetJson || integer(existing.unit_price) !== spec.unit_price) {
       await env.DB.prepare(
         `UPDATE market_listings
-         SET asset_name = ?, asset_json = ?, unit_price = ?, updated_at = ?
+         SET market_kind = 'item', market_key = ?, asset_name = ?, asset_json = ?, unit_price = ?, updated_at = ?
          WHERE id = ?`,
-      ).bind(spec.name, assetJson, spec.unit_price, now, spec.id).run();
+      ).bind(marketKey, spec.name, assetJson, spec.unit_price, now, spec.id).run();
     }
   }
+
+  const credentialRows = await all(
+    env,
+    `SELECT market_key FROM market_listings
+     WHERE id LIKE 'system:credential:%' AND market_key <> ''`,
+  );
+  for (const row of credentialRows) await refreshMarketProduct(env, row.market_key);
 }
 
 export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
@@ -408,14 +438,15 @@ export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
     await runBatch(env, [
       env.DB.prepare(
         `INSERT OR IGNORE INTO market_recycles
-          (id, listing_id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, amount, credited_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+          (id, listing_id, user_id, asset_kind, market_kind, market_key, asset_name, asset_json, quantity, amount, credited_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
       ).bind(
         recycleId,
         row.id,
         row.seller_user_id,
         row.asset_kind,
         logicalKind(row),
+        row.market_key || '',
         row.asset_name,
         row.asset_json,
         row.remaining_quantity,
@@ -446,6 +477,7 @@ export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
            )`,
       ).bind(now, row.id, row.id),
     ]);
+    if (row.market_key) await refreshMarketProduct(env, row.market_key);
   }
 
   return { processed: rows.length };
@@ -480,16 +512,24 @@ async function ensureTestingMarketFixtures(env) {
   if (!seller?.id) return;
 
   for (const fixture of TEST_VENDOR_FIXTURES) {
+    const marketKey = marketAssetKey({
+      kind: fixture.kind,
+      name: fixture.name,
+      quantity: fixture.quantity,
+      data: fixture.data,
+    });
     await env.DB.prepare(
       `INSERT OR IGNORE INTO market_listings
-        (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+        (id, seller_user_id, asset_kind, market_kind, market_key, asset_name, asset_json, unit_price,
          total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
          listing_fee, is_system, restock_day, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, '', ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, '', ?, ?)`,
     ).bind(
       fixture.id,
       seller.id,
       fixture.kind,
+      fixture.kind,
+      marketKey,
       fixture.name,
       JSON.stringify(fixture.data),
       fixture.unitPrice,
@@ -501,13 +541,16 @@ async function ensureTestingMarketFixtures(env) {
     await env.DB.prepare(
       `UPDATE market_listings
        SET is_system = 1,
+           market_kind = ?,
+           market_key = ?,
            duration_hours = 0,
            expires_at = 0,
            recycle_at = 0,
            listing_fee = 0,
            updated_at = ?
        WHERE id = ?`,
-    ).bind(now, fixture.id).run();
+    ).bind(fixture.kind, marketKey, now, fixture.id).run();
+    await refreshMarketProduct(env, marketKey);
   }
 }
 
@@ -545,6 +588,33 @@ async function getListing(env, listingId) {
 
 async function getTradeRow(env, tradeId) {
   return first(env, `${TRADE_SELECT} WHERE t.id = ? LIMIT 1`, [tradeId]);
+}
+
+export async function listMarketCatalog(request, env) {
+  await settleExpiredMarketListings(env);
+  await ensureTestingMarketFixtures(env);
+  await ensureSystemCredentialListings(env);
+  const url = new URL(request.url);
+  const offset = Math.max(0, integer(url.searchParams.get('offset'), 0));
+  const limit = Math.max(1, Math.min(500, integer(url.searchParams.get('limit'), 200)));
+  return json(await listMarketProducts(env, { offset, limit }));
+}
+
+export async function getMarketCatalogProduct(env, marketKeyValue) {
+  await settleExpiredMarketListings(env);
+  await ensureTestingMarketFixtures(env);
+  await ensureSystemCredentialListings(env);
+  await ensureMarketCatalog(env);
+  const marketKey = text(marketKeyValue, 80);
+  const product = await getMarketProduct(env, marketKey);
+  if (!product) throw new HttpError(404, 'market_product_not_found', '该商品已经没有有效挂单');
+  const rows = await listProductRows(env, marketKey);
+  const history = await getMarketPriceHistory(env, marketKey, { days: 14 });
+  return json({
+    product,
+    listings: rows.map(listingFromRow),
+    history,
+  });
 }
 
 export async function listMarketListings(request, env) {
@@ -600,14 +670,14 @@ export async function listMarketListings(request, env) {
 }
 
 export async function quoteMarketAction(request, env, user) {
-  void env;
   void user;
   const body = await readJson(request, { maxBytes: 64 * 1024 });
   const asset = assetFromBody(body?.asset);
   const action = String(body?.action || 'auction');
+  const reference = await referenceForAsset(env, asset);
 
   if (action === 'buyback') {
-    return json({ quote: marketBuybackQuote(asset, asset.quantity) });
+    return json({ quote: marketBuybackQuote(asset, asset.quantity), reference });
   }
 
   const durationHours = positiveInteger(body?.duration_hours ?? 24, {
@@ -619,10 +689,11 @@ export async function quoteMarketAction(request, env, user) {
   if (!MARKET_AUCTION_DURATIONS.includes(durationHours)) {
     throw new HttpError(400, 'market_invalid_duration', '拍卖时长只支持 24、48 或 72 小时');
   }
-  return json({ quote: marketAuctionQuote(asset, asset.quantity, durationHours) });
+  return json({ quote: marketAuctionQuote(asset, asset.quantity, durationHours), reference });
 }
 
 export async function createMarketListing(request, env, user) {
+  await assertMarketUserAllowed(env, user);
   const body = await readJson(request, { maxBytes: 64 * 1024 });
   const id = marketId(body?.id, '挂单 ID');
   const unitPrice = positiveInteger(body?.unit_price, {
@@ -641,6 +712,7 @@ export async function createMarketListing(request, env, user) {
     throw new HttpError(400, 'market_invalid_duration', '拍卖时长只支持 24、48 或 72 小时');
   }
   const quote = marketAuctionQuote(asset, asset.quantity, durationHours);
+  const marketKey = marketAssetKey(asset);
 
   const existing = await getListing(env, id);
   if (existing) {
@@ -655,15 +727,16 @@ export async function createMarketListing(request, env, user) {
   const recycleAt = marketRecycleAt(expiresAt);
   await env.DB.prepare(
     `INSERT INTO market_listings
-      (id, seller_user_id, asset_kind, market_kind, asset_name, asset_json, unit_price,
+      (id, seller_user_id, asset_kind, market_kind, market_key, asset_name, asset_json, unit_price,
        total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
        listing_fee, is_system, restock_day, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?)`,
   ).bind(
     id,
     user.id,
     storageKind(asset.kind),
     asset.kind,
+    marketKey,
     asset.name,
     asset.assetJson,
     unitPrice,
@@ -677,6 +750,7 @@ export async function createMarketListing(request, env, user) {
     now,
   ).run();
 
+  await refreshMarketProduct(env, marketKey);
   return json({ listing: await getListing(env, id), quote }, 201);
 }
 
@@ -685,6 +759,7 @@ function buybackFromRow(row) {
   const quantity = integer(row.market_quantity, 0) || integer(row.quantity, 1);
   return {
     id: row.id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, quantity),
     quantity,
     amount: integer(row.amount),
@@ -694,6 +769,7 @@ function buybackFromRow(row) {
 }
 
 export async function createMarketBuyback(request, env, user) {
+  await assertMarketUserAllowed(env, user);
   const body = await readJson(request, { maxBytes: 64 * 1024 });
   const id = marketId(body?.id, '回收 ID');
   const asset = assetFromBody(body?.asset);
@@ -708,6 +784,7 @@ export async function createMarketBuyback(request, env, user) {
   }
 
   const quote = marketBuybackQuote(asset, asset.quantity);
+  const marketKey = marketAssetKey(asset);
   const payoutId = id;
   const now = nowMs();
   await runBatch(env, [
@@ -717,13 +794,14 @@ export async function createMarketBuyback(request, env, user) {
     ).bind(payoutId, user.id, quote.total_price, now),
     env.DB.prepare(
       `INSERT INTO market_buybacks
-        (id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, market_quantity, amount, payout_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+        (id, user_id, asset_kind, market_kind, market_key, asset_name, asset_json, quantity, market_quantity, amount, payout_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
     ).bind(
       id,
       user.id,
       storageKind(asset.kind, { buyback: true }),
       asset.kind,
+      marketKey,
       asset.name,
       asset.assetJson,
       asset.quantity,
@@ -749,6 +827,7 @@ export async function getMarketBuyback(env, user, buybackIdValue) {
 }
 
 export async function buyMarketListing(request, env, user, listingIdValue) {
+  await assertMarketUserAllowed(env, user);
   await settleExpiredMarketListings(env);
   await ensureTestingMarketFixtures(env);
   await ensureSystemCredentialListings(env);
@@ -797,9 +876,9 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
   const statements = [
     env.DB.prepare(
       `INSERT INTO market_trades
-        (id, listing_id, seller_user_id, buyer_user_id, asset_kind, market_kind, asset_name, asset_json,
+        (id, listing_id, seller_user_id, buyer_user_id, asset_kind, market_kind, market_key, asset_name, asset_json,
          quantity, unit_price, total_price, market_fee, seller_proceeds, delivered_at, created_at)
-       SELECT ?, l.id, l.seller_user_id, ?, l.asset_kind, COALESCE(NULLIF(l.market_kind, ''), l.asset_kind), l.asset_name, l.asset_json,
+       SELECT ?, l.id, l.seller_user_id, ?, l.asset_kind, COALESCE(NULLIF(l.market_kind, ''), l.asset_kind), l.market_key, l.asset_name, l.asset_json,
               ?, l.unit_price, l.unit_price * ?, ?, ?, NULL, ?
        FROM market_listings l
        WHERE l.id = ?
@@ -854,6 +933,17 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
   if (!tradeRow) {
     throw new HttpError(409, 'market_listing_unavailable', '该挂单刚刚被其他玩家买走或数量不足');
   }
+
+  await recordMarketTrade(env, {
+    marketKey: tradeRow.market_key,
+    kind: logicalKind(tradeRow),
+    name: tradeRow.asset_name,
+    assetJson: tradeRow.asset_json,
+    unitPrice: tradeRow.unit_price,
+    quantity: tradeRow.quantity,
+    at: tradeRow.created_at,
+  });
+  if (tradeRow.market_key) await refreshMarketProduct(env, tradeRow.market_key);
 
   return json({
     trade: tradeFromRow(tradeRow),
@@ -920,8 +1010,8 @@ export async function cancelMarketListing(env, user, listingIdValue) {
     ).bind(now, listingId, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_returns
-        (id, listing_id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       SELECT ?, id, seller_user_id, asset_kind, COALESCE(NULLIF(market_kind, ''), asset_kind), asset_name, asset_json, remaining_quantity, NULL, ?
+        (id, listing_id, user_id, asset_kind, market_kind, market_key, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, seller_user_id, asset_kind, COALESCE(NULLIF(market_kind, ''), asset_kind), market_key, asset_name, asset_json, remaining_quantity, NULL, ?
        FROM market_listings
        WHERE id = ? AND seller_user_id = ? AND status = 'cancelled' AND remaining_quantity > 0`,
     ).bind(returnId, now, listingId, user.id),
@@ -938,6 +1028,7 @@ export async function cancelMarketListing(env, user, listingIdValue) {
     throw new HttpError(409, 'market_listing_not_cancellable', '挂单状态已经变化，请刷新后重试');
   }
 
+  if (listing.market_key) await refreshMarketProduct(env, listing.market_key);
   return json({
     listing: await getListing(env, listingId),
     return: returnFromRow(returned),
@@ -1023,6 +1114,8 @@ export async function confirmMarketPayout(env, user, payoutIdValue) {
 
 export async function getMarketMe(env, user) {
   await settleExpiredMarketListings(env);
+  const orderState = await marketOrderStateForUser(env, user);
+  const barterState = await marketBarterStateForUser(env, user);
   const wallet = await first(
     env,
     'SELECT balance, updated_at FROM market_wallets WHERE user_id = ? LIMIT 1',
@@ -1085,5 +1178,7 @@ export async function getMarketMe(env, user) {
     pending_payouts: pendingPayouts.map(payoutFromRow),
     recycles: recycles.map(recycleFromRow),
     buybacks: buybacks.map(buybackFromRow),
+    orders: orderState,
+    barters: barterState,
   });
 }

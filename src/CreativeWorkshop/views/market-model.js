@@ -126,6 +126,50 @@ const EQUIPMENT_TYPE_LABELS = ['武器', '手部', '头部', '胸部', '腿部',
 const EQUIPMENT_STATUS_LABELS = ['未装备', '已装备', '仓库'];
 const SKILL_TYPE_LABELS = ['主动', '被动', '特殊'];
 
+const MARKET_RANK_QUALITY = Object.freeze({
+  'Ⅰ': 'F', 'Ⅱ': 'E', 'Ⅲ': 'D', 'Ⅳ': 'C', 'Ⅴ': 'B',
+  'Ⅵ': 'A', 'Ⅶ': 'S', 'Ⅷ': 'SS', 'Ⅸ': 'SSS',
+});
+
+export function marketAssetQuality(asset) {
+  const raw = String(asset?.quality || asset?.data?.品质 || asset?.data?.层级 || asset?.data?.等级 || '').trim();
+  if (MARKET_RANK_QUALITY[raw]) return MARKET_RANK_QUALITY[raw];
+  const upper = raw.toUpperCase();
+  return /^(F|E|D|C|B|A|S|SS|SSS)$/u.test(upper) ? upper : '';
+}
+
+export function marketAssetSubtype(asset) {
+  const raw = asset?.data?.类型;
+  const translated = marketAssetFieldDisplay(asset, '类型', raw);
+  if (translated != null && String(translated).trim()) return String(translated).trim();
+  if (asset?.kind === 'teammate') return String(asset?.data?.种族 || '').trim();
+  return '';
+}
+
+export function buildCatalogRows(products = []) {
+  return (Array.isArray(products) ? products : [])
+    .filter(product => product?.key && product?.asset)
+    .map(product => ({
+      key: product.key,
+      kind: String(product.kind || product.asset.kind || ''),
+      name: String(product.name || product.asset.name || '未命名资产'),
+      asset: product.asset,
+      listings: [],
+      totalStock: Math.max(0, Number(product.total_stock || 0)),
+      buyableStock: Math.max(0, Number(product.total_stock || 0)),
+      lowestPrice: Number(product.lowest_price || 0),
+      buyPrice: Number(product.lowest_price || 0),
+      sellerCount: Math.max(0, Number(product.seller_count || 0)),
+      listingCount: Math.max(0, Number(product.listing_count || 0)),
+      latestAt: Math.max(0, Number(product.latest_at || 0)),
+      quality: String(product.quality || marketAssetQuality(product.asset)),
+      subtype: String(product.subtype || marketAssetSubtype(product.asset)),
+      ownedOnly: false,
+      catalog: true,
+    }));
+}
+
+
 export function marketAssetFieldDisplay(asset, key, value) {
   const kind = String(asset?.kind || '');
   if (key === '类型') {
@@ -279,6 +323,7 @@ export function marketPriceLadder(row, currentUserId = null) {
 
 
 function marketRowTime(row) {
+  if (Number(row?.latestAt || 0) > 0) return Number(row.latestAt);
   return Math.max(0, ...(row?.listings || []).map(listing => Number(listing.created_at || 0)));
 }
 
@@ -287,11 +332,28 @@ function marketRowPrice(row) {
   return Number.isFinite(Number(value)) ? Number(value) : Number.MAX_SAFE_INTEGER;
 }
 
-export function filterMarketRows(rows = [], { kind = '', query = '', sort = 'price_asc' } = {}) {
+export function filterMarketRows(rows = [], {
+  kind = '',
+  query = '',
+  sort = 'price_asc',
+  quality = '',
+  subtype = '',
+  minPrice = '',
+  maxPrice = '',
+} = {}) {
   const needle = String(query || '').trim().toLocaleLowerCase('zh-CN');
+  const min = String(minPrice).trim() === '' ? null : Number(minPrice);
+  const max = String(maxPrice).trim() === '' ? null : Number(maxPrice);
   const filtered = (Array.isArray(rows) ? rows : []).filter(row => {
     if (kind && row?.kind !== kind) return false;
     if (needle && !String(row?.name || '').toLocaleLowerCase('zh-CN').includes(needle)) return false;
+    const rowQuality = String(row?.quality || marketAssetQuality(row?.asset));
+    if (quality && rowQuality !== quality) return false;
+    const rowSubtype = String(row?.subtype || marketAssetSubtype(row?.asset));
+    if (subtype && rowSubtype !== subtype) return false;
+    const price = marketRowPrice(row);
+    if (Number.isFinite(min) && min != null && price < min) return false;
+    if (Number.isFinite(max) && max != null && price > max) return false;
     return true;
   });
 

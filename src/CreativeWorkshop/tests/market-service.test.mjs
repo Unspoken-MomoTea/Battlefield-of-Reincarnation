@@ -532,3 +532,150 @@ test('failed teammate auction restores the original trust state instead of the l
   assert.equal(restored.态度, '完全信任原主');
   assert.equal(host.read().stat_data.角色.空间币, 1000);
 });
+
+
+test('buy order escrows local coins and cancellation payout restores them', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 1000,
+      装备: {}, 道具: {}, 技能: {}, 血统: {}, 形态库: {},
+    },
+    关系列表: {},
+  });
+  let created = null;
+  const api = {
+    async createMarketOrder(input) {
+      created = clone(input);
+      return {
+        order: {
+          id: input.id,
+          asset: input.asset,
+          quantity_total: input.quantity,
+          quantity_remaining: input.quantity,
+          unit_price: input.unit_price,
+          escrow_balance: input.quantity * input.unit_price,
+          status: 'active',
+        },
+      };
+    },
+    async getMarketOrder() { throw new Error('not needed'); },
+    async cancelMarketOrder(id) {
+      return {
+        order: { id, status: 'cancelled' },
+        payout: { id: 'refund:' + id, amount: 240, confirmed_at: null },
+      };
+    },
+    async confirmMarketPayout() { return {}; },
+  };
+  const market = createMarketService({ host, api });
+  const product = {
+    asset: { kind: 'item', name: '治疗药剂', quantity: 1, data: { 名称: '治疗药剂', 品质: 'F', 数量: 1 } },
+  };
+
+  const order = await market.createOrder(product, { quantity: 3, unitPrice: 80, durationHours: 24 });
+  assert.equal(host.read().stat_data.角色.空间币, 760);
+  assert.equal(created.quantity, 3);
+  assert.equal(created.unit_price, 80);
+
+  await market.cancelOrder(order.id);
+  assert.equal(host.read().stat_data.角色.空间币, 1000);
+});
+
+test('failed buy order creation refunds escrowed local coins', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: { 空间币: 500, 装备: {}, 道具: {}, 技能: {}, 血统: {}, 形态库: {} },
+    关系列表: {},
+  });
+  const api = {
+    async createMarketOrder() { throw new Error('server unavailable'); },
+    async getMarketOrder() { throw new Error('not created'); },
+  };
+  const market = createMarketService({ host, api });
+  await assert.rejects(
+    () => market.createOrder({
+      asset: { kind: 'item', name: '材料', quantity: 1, data: { 名称: '材料', 品质: 'F', 数量: 1 } },
+    }, { quantity: 2, unitPrice: 100, durationHours: 24 }),
+    /server unavailable/u,
+  );
+  assert.equal(host.read().stat_data.角色.空间币, 500);
+});
+
+test('barter creation escrows offered asset and cancellation returns it', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 10,
+      装备: {},
+      道具: { 苹果: { 名称: '苹果', 品质: 'F', 数量: 3 } },
+      技能: {}, 血统: {}, 形态库: {},
+    },
+    关系列表: {},
+  });
+  let created = null;
+  const api = {
+    async createMarketBarter(input) {
+      created = clone(input);
+      return {
+        barter: {
+          id: input.id,
+          offered: input.offered_asset,
+          wanted: input.wanted_asset,
+          status: 'active',
+        },
+      };
+    },
+    async getMarketBarter() { throw new Error('not needed'); },
+    async cancelMarketBarter(id) {
+      return {
+        barter: { id, status: 'cancelled' },
+        delivery: {
+          id: 'delivery:' + id,
+          barter_id: id,
+          asset: clone(created.offered_asset),
+          quantity: created.offered_quantity,
+          confirmed_at: null,
+        },
+      };
+    },
+    async confirmMarketBarterDelivery() { return {}; },
+  };
+  const market = createMarketService({ host, api });
+
+  const barter = await market.createBarter(
+    { kind: 'item', key: '苹果', name: '苹果' },
+    { asset: { kind: 'item', name: '梨', quantity: 1, data: { 名称: '梨', 品质: 'F', 数量: 1 } } },
+    { offeredQuantity: 2, wantedQuantity: 1, durationHours: 24 },
+  );
+  assert.equal(host.read().stat_data.角色.道具.苹果.数量, 1);
+
+  await market.cancelBarter(barter.id);
+  assert.equal(host.read().stat_data.角色.道具.苹果.数量, 3);
+});
+
+test('failed barter acceptance restores the locally removed requested asset', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 0,
+      装备: {},
+      道具: { 梨: { 名称: '梨', 品质: 'F', 数量: 2 } },
+      技能: {}, 血统: {}, 形态库: {},
+    },
+    关系列表: {},
+  });
+  const api = {
+    async acceptMarketBarter() { throw new Error('asset mismatch'); },
+    async getMarketBarter() { return { barter: { id: 'barter:test', status: 'active' } }; },
+  };
+  const market = createMarketService({ host, api });
+  await assert.rejects(
+    () => market.acceptBarter({
+      id: 'barter:test',
+      wanted: { kind: 'item', name: '梨', quantity: 2, data: { 名称: '梨', 品质: 'F', 数量: 2 } },
+    }, { kind: 'item', key: '梨', name: '梨' }),
+    /asset mismatch/u,
+  );
+  assert.equal(host.read().stat_data.角色.道具.梨.数量, 2);
+});

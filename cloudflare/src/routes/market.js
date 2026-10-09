@@ -8,11 +8,29 @@ import {
   confirmMarketReturn,
   createMarketListing,
   getMarketBuyback,
+  getMarketCatalogProduct,
   getMarketMe,
   getMarketTrade,
+  listMarketCatalog,
   listMarketListings,
   quoteMarketAction,
 } from '../market.js';
+import {
+  cancelMarketOrder,
+  confirmMarketOrderDelivery,
+  createMarketOrder,
+  fillMarketOrder,
+  getMarketOrder,
+  getMarketOrderFill,
+} from '../market-orders.js';
+import {
+  acceptMarketBarter,
+  cancelMarketBarter,
+  confirmMarketBarterDelivery,
+  createMarketBarter,
+  getMarketBarter,
+  listMarketBarters,
+} from '../market-barter.js';
 import { authenticatedUser } from './context.js';
 
 function marketEnabled(env) {
@@ -33,6 +51,19 @@ function entityId(pathname, entity, suffix = '') {
 export async function routeMarket(request, env, pathname) {
   if (!marketEnabled(env)) return null;
 
+  if (request.method === 'GET' && pathname === '/api/market/catalog') {
+    return listMarketCatalog(request, env);
+  }
+  if (request.method === 'GET' && pathname === '/api/market/barters') {
+    return listMarketBarters(request, env);
+  }
+  if (request.method === 'POST' && pathname === '/api/market/barters') {
+    return createMarketBarter(request, env, await authenticatedUser(request, env));
+  }
+  if (request.method === 'POST' && pathname === '/api/market/orders') {
+    return createMarketOrder(request, env, await authenticatedUser(request, env));
+  }
+
   if (request.method === 'GET' && pathname === '/api/market/listings') {
     return listMarketListings(request, env);
   }
@@ -50,6 +81,50 @@ export async function routeMarket(request, env, pathname) {
   }
   if (request.method === 'POST' && pathname === '/api/market/payouts/claim') {
     return claimMarketPayout(request, env, await authenticatedUser(request, env));
+  }
+
+  const catalogKey = entityId(pathname, 'catalog');
+  if (request.method === 'GET' && catalogKey) {
+    return getMarketCatalogProduct(env, catalogKey);
+  }
+
+  const orderId = entityId(pathname, 'orders');
+  if (request.method === 'GET' && orderId) {
+    return getMarketOrder(env, await authenticatedUser(request, env), orderId);
+  }
+  const orderCancelId = entityId(pathname, 'orders', 'cancel');
+  if (request.method === 'POST' && orderCancelId) {
+    return cancelMarketOrder(env, await authenticatedUser(request, env), orderCancelId);
+  }
+  const orderFillId = entityId(pathname, 'orders', 'fill');
+  if (request.method === 'POST' && orderFillId) {
+    return fillMarketOrder(request, env, await authenticatedUser(request, env), orderFillId);
+  }
+
+  const fillId = entityId(pathname, 'order-fills');
+  if (request.method === 'GET' && fillId) {
+    return getMarketOrderFill(env, await authenticatedUser(request, env), fillId);
+  }
+  const fillDeliveredId = entityId(pathname, 'order-fills', 'delivered');
+  if (request.method === 'POST' && fillDeliveredId) {
+    return confirmMarketOrderDelivery(env, await authenticatedUser(request, env), fillDeliveredId);
+  }
+
+  const barterId = entityId(pathname, 'barters');
+  if (request.method === 'GET' && barterId) {
+    return getMarketBarter(env, await authenticatedUser(request, env), barterId);
+  }
+  const barterAcceptId = entityId(pathname, 'barters', 'accept');
+  if (request.method === 'POST' && barterAcceptId) {
+    return acceptMarketBarter(request, env, await authenticatedUser(request, env), barterAcceptId);
+  }
+  const barterCancelId = entityId(pathname, 'barters', 'cancel');
+  if (request.method === 'POST' && barterCancelId) {
+    return cancelMarketBarter(env, await authenticatedUser(request, env), barterCancelId);
+  }
+  const barterDeliveryId = entityId(pathname, 'barter-deliveries', 'confirmed');
+  if (request.method === 'POST' && barterDeliveryId) {
+    return confirmMarketBarterDelivery(env, await authenticatedUser(request, env), barterDeliveryId);
   }
 
   const buyId = entityId(pathname, 'listings', 'buy');

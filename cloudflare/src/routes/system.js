@@ -156,10 +156,16 @@ async function githubBranchHeadFromAtom(ref) {
 
 async function latestPathCommit(env, component, ref) {
   const query = new URLSearchParams({ sha: ref, path: component.sourcePath, per_page: '1' });
-  const payload = await githubJson(env, `https://api.github.com/repos/${REPOSITORY}/commits?${query}`);
-  const sha = String(Array.isArray(payload) ? payload[0]?.sha : payload?.sha || '').trim();
-  if (!validSha(sha)) throw new Error(`GitHub returned invalid ${component.id} commit for ${ref}`);
-  return sha;
+  try {
+    const payload = await githubJson(env, `https://api.github.com/repos/${REPOSITORY}/commits?${query}`);
+    const sha = String(Array.isArray(payload) ? payload[0]?.sha : payload?.sha || '').trim();
+    if (!validSha(sha)) throw new Error(`GitHub returned invalid ${component.id} commit for ${ref}`);
+    return sha;
+  } catch (error) {
+    if (component?.id === 'workshop') throw error;
+    if (!shouldFallbackToAtom(error)) throw error;
+    return githubBranchHeadFromAtom(ref);
+  }
 }
 
 async function refHead(env, ref) {
@@ -192,12 +198,24 @@ async function latestTaggedRelease(env, component) {
   return candidates[0] || null;
 }
 
+function cacheGeneration(env, component) {
+  return component?.id === 'workshop' && componentUpdateChannel(env, component) === 'testing'
+    ? 'v4'
+    : 'v3';
+}
+
+function snapshotGeneration(env, component) {
+  return component?.id === 'workshop' && componentUpdateChannel(env, component) === 'testing'
+    ? 'v2'
+    : 'v1';
+}
+
 function cacheKey(env, component) {
-  return `public:core-component:v4:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
+  return `public:core-component:${cacheGeneration(env, component)}:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
 }
 
 function snapshotKey(env, component) {
-  return `public:core-component:last-known:v2:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
+  return `public:core-component:last-known:${snapshotGeneration(env, component)}:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
 }
 
 async function safeKvGet(env, key) {

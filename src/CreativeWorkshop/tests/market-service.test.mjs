@@ -398,6 +398,9 @@ test('selling an active form clears current form and selling a teammate removes 
   saved = host.read().stat_data;
   assert.equal(saved.关系列表.旅伴, undefined);
   assert.deepEqual(listings.map(value => value.asset.kind), ['form', 'teammate']);
+  const teammateListing = listings.find(value => value.asset.kind === 'teammate');
+  assert.equal(teammateListing.asset.data.好感度, 0);
+  assert.equal(teammateListing.asset.data.态度, '被交易的货物，对原主失去一切信任');
 });
 
 test('permission credentials can be listed from the account ledger at every owned quality', async () => {
@@ -487,4 +490,45 @@ test('items and teammates can be sold directly to the system, including stacked 
     ['item', 2],
     ['teammate', 1],
   ]);
+});
+
+
+test('failed teammate auction restores the original trust state instead of the listing snapshot', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 1000,
+      装备: {}, 道具: {}, 技能: {}, 血统: {}, 形态库: {},
+    },
+    关系列表: {
+      旅伴: {
+        是否队友: true,
+        层级: 'Ⅱ',
+        好感度: 75,
+        态度: '完全信任原主',
+      },
+    },
+  });
+  const api = {
+    async quoteMarketAction() { return { quote: { listing_fee: 1 } }; },
+    async createMarketListing() { throw new Error('network failed'); },
+    async getMarketMe() { return { listings: [] }; },
+  };
+  const market = createMarketService({ host, api });
+
+  await assert.rejects(
+    () => market.sell({
+      kind: 'teammate',
+      key: '旅伴',
+      name: '旅伴',
+      unitPrice: 200,
+      durationHours: 24,
+    }),
+    /network failed/u,
+  );
+
+  const restored = host.read().stat_data.关系列表.旅伴;
+  assert.equal(restored.好感度, 75);
+  assert.equal(restored.态度, '完全信任原主');
+  assert.equal(host.read().stat_data.角色.空间币, 1000);
 });

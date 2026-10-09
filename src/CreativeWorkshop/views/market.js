@@ -469,6 +469,9 @@ export function createMarketView({
       return;
     }
 
+    const auctionLabel = element('div', 'rw-ah-section-label', '拍卖');
+    editor.append(auctionLabel);
+
     const form = element('div', 'rw-ah-sell-form');
     const qtyField = element('label', 'rw-ah-form-field');
     qtyField.append(element('span', '', '数量'));
@@ -492,31 +495,87 @@ export function createMarketView({
     price.placeholder = '输入空间币';
     priceField.append(price);
 
+    const durationField = element('label', 'rw-ah-form-field');
+    durationField.append(element('span', '', '挂牌时长'));
+    const duration = element('select', 'rw-select');
+    for (const hours of [24, 48, 72]) {
+      const option = element('option', '', hours + ' 小时');
+      option.value = String(hours);
+      if (hours === 24) option.selected = true;
+      duration.append(option);
+    }
+    durationField.append(duration);
+
+    const fee = element('div', 'rw-ah-listing-fee');
+    fee.append(
+      element('span', '', '上架税'),
+      element('strong', '', '计算中…'),
+    );
+    const feeValue = fee.querySelector('strong');
+
     const total = element('div', 'rw-ah-sell-total');
-    const syncTotal = () => {
-      const amount = asset.kind === 'item'
-        ? Math.max(1, Math.min(Number(qty.max), Math.floor(Number(qty.value) || 1)))
-        : 1;
+    let lastQuote = null;
+    let quoteSerial = 0;
+
+    const amountValue = () => asset.kind === 'item'
+      ? Math.max(1, Math.min(Number(qty.max), Math.floor(Number(qty.value) || 1)))
+      : 1;
+
+    const syncGross = () => {
+      const amount = amountValue();
       qty.value = String(amount);
       const unitPrice = Math.max(0, Math.floor(Number(price.value) || 0));
+      const gross = unitPrice * amount;
       total.textContent = unitPrice > 0
-        ? '成交总额 ' + coin(unitPrice * amount) + ' 空间币'
+        ? '预计成交额 ' + coin(gross) + ' 空间币 · 成交后另扣 3% 公证费'
         : '设置一口价后可上架';
     };
-    qty.addEventListener('input', syncTotal);
-    price.addEventListener('input', syncTotal);
-    syncTotal();
+
+    const refreshQuote = async () => {
+      const serial = ++quoteSerial;
+      const amount = amountValue();
+      const hours = Number(duration.value) || 24;
+      feeValue.textContent = '计算中…';
+      try {
+        const quote = await marketService.quoteAuction(asset, amount, hours);
+        if (serial !== quoteSerial) return;
+        lastQuote = quote;
+        feeValue.textContent = coin(quote?.listing_fee || 0) + ' 空间币';
+      } catch (error) {
+        if (serial !== quoteSerial) return;
+        lastQuote = null;
+        feeValue.textContent = '无法计算';
+        throw error;
+      }
+    };
+
+    qty.addEventListener('input', syncGross);
+    qty.addEventListener('change', () => void refreshQuote().catch(notifyError));
+    price.addEventListener('input', syncGross);
+    duration.addEventListener('change', () => void refreshQuote().catch(notifyError));
+    syncGross();
+    await refreshQuote();
 
     const submit = button('创建拍卖', 'primary', async () => {
-      const amount = asset.kind === 'item' ? Math.floor(Number(qty.value) || 1) : 1;
+      const amount = amountValue();
       const unitPrice = Math.floor(Number(price.value) || 0);
+      const durationHours = Number(duration.value) || 24;
       if (unitPrice <= 0) throw new Error('请输入有效的一口价');
+
+      const quote = await marketService.quoteAuction(asset, amount, durationHours);
+      const listingFee = Number(quote?.listing_fee || 0);
+      const local = await marketService.inventory();
+      if (Number(local.coin || 0) < listingFee) {
+        throw new Error('空间币不足：上架税需要 ' + coin(listingFee));
+      }
 
       const ok = await confirmDialog({
         title: '确认上架',
         message: '上架“' + asset.name + '” ×' + amount
-          + '，一口价 ' + coin(unitPrice) + ' 空间币 / 件？',
-        confirmText: '创建拍卖',
+          + '，一口价 ' + coin(unitPrice) + ' 空间币 / 件，挂牌 ' + durationHours
+          + ' 小时。立即收取上架税 ' + coin(listingFee)
+          + ' 空间币；成交后再从卖家货款扣 3% 公证费。到期后有 72 小时取回期，逾期由系统自动回收。',
+        confirmText: '支付上架税并拍卖',
       });
       if (!ok) return;
 
@@ -526,6 +585,7 @@ export function createMarketView({
         name: asset.name,
         quantity: amount,
         unitPrice,
+        durationHours,
       });
       try { host.toastr?.success?.('已创建拍卖', '空间集市'); } catch {}
       selectedSellIndex = -1;
@@ -533,11 +593,52 @@ export function createMarketView({
       await refresh();
     });
 
-    form.append(qtyField, priceField, total, submit);
-    editor.append(form, element(
+    form.append(qtyField, priceField, durationField, fee, total, submit);
+    editor.append(form);
+
+    if (asset.kind === 'equipment') {
+      const buybackQuote = await marketService.quoteBuyback(asset).catch(() => null);
+      const buyback = element('div', 'rw-ah-buyback-box');
+      const copy = element('div', 'rw-ah-buyback-copy');
+      copy.append(
+        element('span', '', '系统回收'),
+        element(
+          'strong',
+          '',
+          buybackQuote
+            ? coin(buybackQuote.total_price) + ' 空间币'
+            : '暂时无法估价',
+        ),
+        element('small', '', '按该品质商城最低价 × 野货最低收购比例结算；不区分是否带主神空间标签。'),
+      );
+      buyback.append(copy);
+      if (buybackQuote) {
+        buyback.append(button('直接卖给系统', '', async () => {
+          const ok = await confirmDialog({
+            title: '确认系统回收',
+            message: '将“' + asset.name + '”直接出售给系统，立即获得 '
+              + coin(buybackQuote.total_price) + ' 空间币？系统回收成交后不可撤销。',
+            confirmText: '确认回收',
+          });
+          if (!ok) return;
+          await marketService.sellToSystem({
+            kind: asset.kind,
+            key: asset.key,
+            name: asset.name,
+          });
+          try { host.toastr?.success?.('装备已由系统回收，空间币已写入当前存档', '空间集市'); } catch {}
+          selectedSellIndex = -1;
+          await renderSellMode();
+          await refreshSummary();
+        }));
+      }
+      editor.append(buyback);
+    }
+
+    editor.append(element(
       'p',
       'rw-market-notice warning',
-      '上架成功后资产会从当前存档移入服务器交易记录；测试版仍属于玩家存档资产，不做官方真伪认证。',
+      '玩家拍卖最多 72 小时；到期立即从公开列表下架。到期后 72 小时内可从“我的拍卖”取回，逾期由服务器按系统回收价自动换成待领空间币。',
     ));
     nodes.marketSellEditor.replaceChildren(editor);
   }

@@ -967,11 +967,430 @@ export function createMarketView({
     return node;
   };
 
-  async function renderMineMode() {
-    requireLogin();
-    const state = await marketService.mine();
-    const content = element('div', 'rw-ah-mine-stack');
+  const marketKindSelect = value => {
+    const select = element('select', 'rw-select');
+    for (const [kind, label] of Object.entries(MARKET_KIND_LABELS)) {
+      const option = element('option', '', label);
+      option.value = kind;
+      option.selected = kind === value;
+      select.append(option);
+    }
+    return select;
+  };
 
+  const marketQualitySelect = value => {
+    const select = element('select', 'rw-select');
+    const blank = element('option', '', '不限品质');
+    blank.value = '';
+    select.append(blank);
+    for (const rank of ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS']) {
+      const option = element('option', '', rank);
+      option.value = rank;
+      option.selected = rank === value;
+      select.append(option);
+    }
+    return select;
+  };
+
+  const field = (label, control) => {
+    const node = element('label', 'rw-ah-order-field');
+    node.append(element('span', '', label), control);
+    return node;
+  };
+
+  async function renderCreateBuyOrder() {
+    requireLogin();
+    const editor = element('div', 'rw-ah-order-form');
+    editor.append(
+      element('div', 'rw-ah-section-label', '创建求购'),
+      element('p', 'rw-ah-order-help', '空间币会先从当前存档扣除并作为求购托管；成交后自动支付给卖家，取消或到期会退回未使用金额。'),
+    );
+
+    const kind = marketKindSelect(orderDraft?.kind || 'item');
+    const name = element('input', 'rw-input');
+    name.placeholder = '准确商品名称';
+    name.value = orderDraft?.name || '';
+    const qualitySelect = marketQualitySelect(orderDraft?.quality || '');
+    const subtype = element('input', 'rw-input');
+    subtype.placeholder = '可选，例如 材料 / 消耗品';
+    subtype.value = orderDraft?.subtype || '';
+    const quantity = element('input', 'rw-input');
+    quantity.type = 'number';
+    quantity.min = '1';
+    quantity.max = '9999';
+    quantity.value = String(orderDraft?.quantity || 1);
+    const unitPrice = element('input', 'rw-input');
+    unitPrice.type = 'number';
+    unitPrice.min = '1';
+    unitPrice.max = '1000000000';
+    unitPrice.placeholder = '每件愿意支付多少空间币';
+    unitPrice.value = orderDraft?.unitPrice ? String(orderDraft.unitPrice) : '';
+    const duration = element('select', 'rw-select');
+    for (const hours of [24, 48, 72]) {
+      const option = element('option', '', hours + ' 小时');
+      option.value = String(hours);
+      duration.append(option);
+    }
+
+    const syncQuantity = () => {
+      const stackable = kind.value === 'item';
+      quantity.disabled = !stackable;
+      if (!stackable) quantity.value = '1';
+    };
+    kind.addEventListener('change', syncQuantity);
+    syncQuantity();
+
+    const grid = element('div', 'rw-ah-order-form-grid');
+    grid.append(
+      field('类型', kind),
+      field('商品名称', name),
+      field('品质', qualitySelect),
+      field('子类型', subtype),
+      field('数量', quantity),
+      field('求购单价', unitPrice),
+      field('有效期', duration),
+    );
+    editor.append(grid);
+
+    const total = element('div', 'rw-ah-order-total');
+    const updateTotal = () => {
+      const amount = kind.value === 'item' ? Math.max(1, Math.floor(Number(quantity.value) || 1)) : 1;
+      const price = Math.max(0, Math.floor(Number(unitPrice.value) || 0));
+      total.textContent = price ? '需要托管 ' + coin(price * amount) + ' 空间币' : '设置求购单价后计算托管金额';
+    };
+    quantity.addEventListener('input', updateTotal);
+    unitPrice.addEventListener('input', updateTotal);
+    kind.addEventListener('change', updateTotal);
+    updateTotal();
+    editor.append(total);
+
+    editor.append(button('创建求购单', 'primary', async () => {
+      const productName = name.value.trim();
+      const price = Math.floor(Number(unitPrice.value) || 0);
+      const amount = kind.value === 'item' ? Math.max(1, Math.floor(Number(quantity.value) || 1)) : 1;
+      if (!productName) throw new Error('请输入准确商品名称');
+      if (price <= 0) throw new Error('请输入有效求购单价');
+      await marketService.createBuyOrder({
+        kind: kind.value,
+        name: productName,
+        quality: qualitySelect.value,
+        subtype: subtype.value.trim(),
+        quantity: amount,
+        unitPrice: price,
+        durationHours: Number(duration.value) || 24,
+      });
+      orderDraft = null;
+      try { host.toastr?.success?.('求购单已创建，空间币已进入托管', '空间集市'); } catch {}
+      await renderOrderMode();
+      await refreshSummary();
+    }));
+    nodes.marketOrdersEditor.replaceChildren(editor);
+  }
+
+  async function renderCreateSwap() {
+    requireLogin();
+    const inventory = await marketService.inventory();
+    if (!inventory.inHub) throw new Error('请回到主神空间后再创建交换');
+    const assets = inventory.assets || [];
+    if (!assets.length) {
+      empty(nodes.marketOrdersEditor, '当前没有可用于交换的资产。');
+      return;
+    }
+
+    const editor = element('div', 'rw-ah-order-form');
+    editor.append(
+      element('div', 'rw-ah-section-label', '创建交换'),
+      element('p', 'rw-ah-order-help', '你提供的资产会先进入交换托管；成交后双方各自领取对方资产。取消或到期时原资产返还。'),
+    );
+
+    const offered = element('select', 'rw-select');
+    assets.forEach((asset, index) => {
+      const option = element('option', '', kindLabel(asset.kind) + ' · ' + asset.name + (asset.kind === 'item' ? ' ×' + asset.quantity : ''));
+      option.value = String(index);
+      offered.append(option);
+    });
+    const offeredQuantity = element('input', 'rw-input');
+    offeredQuantity.type = 'number';
+    offeredQuantity.min = '1';
+    offeredQuantity.value = '1';
+
+    const wantedKind = marketKindSelect('item');
+    const wantedName = element('input', 'rw-input');
+    wantedName.placeholder = '希望获得的准确商品名称';
+    const wantedQuality = marketQualitySelect('');
+    const wantedSubtype = element('input', 'rw-input');
+    wantedSubtype.placeholder = '可选子类型';
+    const wantedQuantity = element('input', 'rw-input');
+    wantedQuantity.type = 'number';
+    wantedQuantity.min = '1';
+    wantedQuantity.value = '1';
+    const duration = element('select', 'rw-select');
+    for (const hours of [24, 48, 72]) {
+      const option = element('option', '', hours + ' 小时');
+      option.value = String(hours);
+      duration.append(option);
+    }
+
+    const syncOffer = () => {
+      const asset = assets[Number(offered.value) || 0];
+      const stackable = asset?.kind === 'item';
+      offeredQuantity.disabled = !stackable;
+      offeredQuantity.max = String(stackable ? Math.max(1, Number(asset.quantity) || 1) : 1);
+      if (!stackable) offeredQuantity.value = '1';
+    };
+    const syncWanted = () => {
+      const stackable = wantedKind.value === 'item';
+      wantedQuantity.disabled = !stackable;
+      if (!stackable) wantedQuantity.value = '1';
+    };
+    offered.addEventListener('change', syncOffer);
+    wantedKind.addEventListener('change', syncWanted);
+    syncOffer();
+    syncWanted();
+
+    const grid = element('div', 'rw-ah-order-form-grid');
+    grid.append(
+      field('我提供', offered),
+      field('提供数量', offeredQuantity),
+      field('我需要', wantedKind),
+      field('商品名称', wantedName),
+      field('品质', wantedQuality),
+      field('子类型', wantedSubtype),
+      field('需要数量', wantedQuantity),
+      field('有效期', duration),
+    );
+    editor.append(grid);
+
+    editor.append(button('发布交换单', 'primary', async () => {
+      const asset = assets[Number(offered.value) || 0];
+      const productName = wantedName.value.trim();
+      if (!asset) throw new Error('请选择用于交换的资产');
+      if (!productName) throw new Error('请输入希望获得的商品名称');
+      await marketService.createSwap({
+        offered: {
+          kind: asset.kind,
+          key: asset.key,
+          name: asset.name,
+          quantity: asset.kind === 'item'
+            ? Math.max(1, Math.min(Number(asset.quantity) || 1, Math.floor(Number(offeredQuantity.value) || 1)))
+            : 1,
+        },
+        wanted: {
+          kind: wantedKind.value,
+          name: productName,
+          quality: wantedQuality.value,
+          subtype: wantedSubtype.value.trim(),
+          quantity: wantedKind.value === 'item'
+            ? Math.max(1, Math.floor(Number(wantedQuantity.value) || 1))
+            : 1,
+        },
+        durationHours: Number(duration.value) || 24,
+      });
+      try { host.toastr?.success?.('交换单已发布，提供资产已进入托管', '空间集市'); } catch {}
+      await renderOrderMode();
+    }));
+    nodes.marketOrdersEditor.replaceChildren(editor);
+  }
+
+  async function renderBuyOrderDetail(order) {
+    const editor = element('div', 'rw-ah-order-detail');
+    editor.append(
+      element('div', 'rw-ah-section-label', '求购详情'),
+      element('h3', '', order.asset_name),
+    );
+    const facts = element('div', 'rw-ah-order-facts');
+    facts.append(
+      element('span', '', kindLabel(order.asset_kind)),
+      element('span', '', order.quality || '不限品质'),
+      element('span', '', coin(order.unit_price) + ' 空间币 / 件'),
+      element('span', '', '剩余 ' + order.remaining_quantity),
+      element('span', '', until(order.expires_at) + '后到期'),
+    );
+    editor.append(facts);
+
+    const inventory = await marketService.inventory();
+    const matches = marketInventoryMatchesWanted(inventory.assets, {
+      kind: order.asset_kind,
+      name: order.asset_name,
+      quality: order.quality,
+      subtype: order.subtype,
+    });
+    const mine = Number(order.buyer?.id || 0) === currentUserId();
+    if (mine) {
+      editor.append(element('p', 'rw-ah-order-help', '这是你的求购单。可以在“我的拍卖 → 订单”里取消并取回剩余托管金额。'));
+    } else if (!inventory.inHub) {
+      editor.append(element('p', 'rw-market-notice warning', '当前在任务世界，只能浏览订单；回到主神空间后才能交付。'));
+    } else if (!matches.length) {
+      editor.append(element('p', 'rw-ah-order-help', '当前存档没有符合该求购条件的资产。'));
+    } else {
+      editor.append(element('div', 'rw-ah-section-label', '可交付资产'));
+      const list = element('div', 'rw-ah-order-match-list');
+      for (const asset of matches) {
+        const row = element('div', 'rw-ah-order-match');
+        const copy = element('div', 'rw-ah-order-match-copy');
+        copy.append(
+          qualityName(element('strong', '', asset.name), asset),
+          element('span', '', kindLabel(asset.kind) + (quality(asset) ? ' · ' + quality(asset) : '')),
+        );
+        const qty = element('input', 'rw-input');
+        qty.type = 'number';
+        qty.min = '1';
+        qty.max = String(asset.kind === 'item'
+          ? Math.min(Number(asset.quantity) || 1, Number(order.remaining_quantity) || 1)
+          : 1);
+        qty.value = '1';
+        qty.disabled = asset.kind !== 'item';
+        const action = button('交付', 'primary', async () => {
+          const amount = asset.kind === 'item' ? Math.max(1, Math.floor(Number(qty.value) || 1)) : 1;
+          await marketService.fillBuyOrder(order, {
+            kind: asset.kind,
+            key: asset.key,
+            name: asset.name,
+            quantity: amount,
+          });
+          try { host.toastr?.success?.('已完成求购交付，货款进入待领取余额', '空间集市'); } catch {}
+          await renderOrderMode();
+          await refreshSummary();
+        });
+        row.append(copy, qty, action);
+        list.append(row);
+      }
+      editor.append(list);
+    }
+    nodes.marketOrdersEditor.replaceChildren(editor);
+  }
+
+  async function renderSwapDetail(swap) {
+    const editor = element('div', 'rw-ah-order-detail');
+    editor.append(
+      element('div', 'rw-ah-section-label', '交换详情'),
+      element('h3', '', swap.offered?.name || '交换单'),
+    );
+    const exchange = element('div', 'rw-ah-swap-exchange');
+    const offered = element('div', 'rw-ah-swap-side');
+    offered.append(
+      element('span', '', '对方提供'),
+      element('strong', '', (swap.offered?.name || '资产') + ' ×' + (swap.offered?.quantity || 1)),
+      element('small', '', kindLabel(swap.offered?.kind)),
+    );
+    const wanted = element('div', 'rw-ah-swap-side');
+    wanted.append(
+      element('span', '', '对方需要'),
+      element('strong', '', (swap.wanted?.name || '资产') + ' ×' + (swap.wanted?.quantity || 1)),
+      element('small', '', kindLabel(swap.wanted?.kind) + (swap.wanted?.quality ? ' · ' + swap.wanted.quality : '')),
+    );
+    exchange.append(offered, element('div', 'rw-ah-swap-arrow', '⇄'), wanted);
+    editor.append(exchange, element('p', 'rw-ah-order-help', until(swap.expires_at) + '后到期'));
+
+    const mine = Number(swap.owner?.id || 0) === currentUserId();
+    if (mine) {
+      editor.append(element('p', 'rw-ah-order-help', '这是你的交换单。可以在“我的拍卖 → 订单”中取消。'));
+      nodes.marketOrdersEditor.replaceChildren(editor);
+      return;
+    }
+
+    const inventory = await marketService.inventory();
+    const matches = marketInventoryMatchesWanted(inventory.assets, swap.wanted);
+    if (!inventory.inHub) {
+      editor.append(element('p', 'rw-market-notice warning', '回到主神空间后才能接受交换。'));
+    } else if (!matches.length) {
+      editor.append(element('p', 'rw-ah-order-help', '当前存档没有符合交换要求的资产。'));
+    } else {
+      editor.append(element('div', 'rw-ah-section-label', '选择用于交换的资产'));
+      const list = element('div', 'rw-ah-order-match-list');
+      for (const asset of matches) {
+        const row = element('div', 'rw-ah-order-match');
+        const copy = element('div', 'rw-ah-order-match-copy');
+        copy.append(
+          qualityName(element('strong', '', asset.name), asset),
+          element('span', '', kindLabel(asset.kind) + (quality(asset) ? ' · ' + quality(asset) : '')),
+        );
+        const qty = element('input', 'rw-input');
+        qty.type = 'number';
+        qty.min = '1';
+        qty.max = String(asset.kind === 'item'
+          ? Math.min(Number(asset.quantity) || 1, Number(swap.wanted?.quantity) || 1)
+          : 1);
+        qty.value = String(asset.kind === 'item' ? Math.min(Number(swap.wanted?.quantity) || 1, Number(asset.quantity) || 1) : 1);
+        qty.disabled = asset.kind !== 'item';
+        row.append(copy, qty, button('接受交换', 'primary', async () => {
+          const amount = asset.kind === 'item' ? Math.max(1, Math.floor(Number(qty.value) || 1)) : 1;
+          await marketService.acceptSwap(swap, {
+            kind: asset.kind,
+            key: asset.key,
+            name: asset.name,
+            quantity: amount,
+          });
+          try { host.toastr?.success?.('交换完成，请到“我的拍卖 → 待领取”领取对方资产', '空间集市'); } catch {}
+          await renderOrderMode();
+        }));
+        list.append(row);
+      }
+      editor.append(list);
+    }
+    nodes.marketOrdersEditor.replaceChildren(editor);
+  }
+
+  async function renderOrderMode() {
+    requireLogin();
+    const result = currentOrderView === 'swap'
+      ? await marketService.listSwaps({ limit: 60 })
+      : await marketService.listBuyOrders({ limit: 60 });
+    const items = result?.items || [];
+    for (const tab of nodes.marketOrderViews || []) {
+      tab.classList.toggle('is-active', tab.dataset.marketOrderView === currentOrderView);
+    }
+    if (nodes.marketOrderCreate) nodes.marketOrderCreate.hidden = currentOrderView !== 'buy';
+    if (nodes.marketSwapCreate) nodes.marketSwapCreate.hidden = currentOrderView !== 'swap';
+
+    if (!items.length) {
+      empty(nodes.marketOrdersList, currentOrderView === 'swap' ? '当前没有公开交换单。' : '当前没有公开求购单。');
+      selectedOrderId = '';
+      if (!orderDraft) {
+        empty(nodes.marketOrdersEditor, currentOrderView === 'swap' ? '可以创建第一条交换单。' : '可以创建第一条求购单。');
+      }
+      return;
+    }
+
+    const cards = items.map(item => {
+      const row = element('button', 'rw-ah-order-row');
+      row.type = 'button';
+      row.classList.toggle('is-selected', item.id === selectedOrderId);
+      if (currentOrderView === 'swap') {
+        row.append(
+          element('strong', '', (item.offered?.name || '资产') + ' ⇄ ' + (item.wanted?.name || '资产')),
+          element('span', '', '提供 ×' + (item.offered?.quantity || 1) + ' · 需要 ×' + (item.wanted?.quantity || 1)),
+          element('small', '', (item.owner?.display_name || '匿名轮回者') + ' · ' + until(item.expires_at)),
+        );
+      } else {
+        row.append(
+          qualityName(element('strong', '', item.asset_name), { quality: item.quality }),
+          element('span', '', coin(item.unit_price) + ' 空间币 / 件 · 剩余 ' + item.remaining_quantity),
+          element('small', '', (item.buyer?.display_name || '匿名轮回者') + ' · ' + until(item.expires_at)),
+        );
+      }
+      row.addEventListener('click', () => {
+        selectedOrderId = item.id;
+        void renderOrderMode().then(() => (
+          currentOrderView === 'swap' ? renderSwapDetail(item) : renderBuyOrderDetail(item)
+        )).catch(notifyError);
+      });
+      return row;
+    });
+    nodes.marketOrdersList.replaceChildren(...cards);
+
+    const selected = items.find(item => item.id === selectedOrderId) || items[0];
+    selectedOrderId = selected.id;
+    for (const [index, child] of [...nodes.marketOrdersList.children].entries()) {
+      child.classList.toggle('is-selected', items[index]?.id === selectedOrderId);
+    }
+    if (!orderDraft) {
+      if (currentOrderView === 'swap') await renderSwapDetail(selected);
+      else await renderBuyOrderDetail(selected);
+    }
+  }
+
+  const renderWallet = (state, content) => {
     const wallet = element('div', 'rw-ah-wallet');
     const walletCopy = element('div');
     walletCopy.append(
@@ -988,149 +1407,181 @@ export function createMarketView({
       }));
     }
     content.append(wallet);
+  };
 
-    const pendingCount = (state.pending_deliveries?.length || 0)
-      + (state.pending_returns?.length || 0)
-      + (state.pending_payouts?.length || 0);
-    const recovery = section('待领取 / 待恢复', String(pendingCount));
-    if (!pendingCount) recovery.append(element('div', 'rw-ah-muted-line', '没有待恢复事务。'));
+  async function renderMineMode() {
+    requireLogin();
+    const state = await marketService.mine();
+    for (const tab of nodes.marketMineViews || []) {
+      tab.classList.toggle('is-active', tab.dataset.marketMineView === currentMineView);
+    }
+    const content = element('div', 'rw-ah-mine-stack');
+    renderWallet(state, content);
 
-    for (const trade of state.pending_deliveries || []) {
-      recovery.append(transactionRow(
-        '购买待领取 · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
-        coin(trade.total_price) + ' 空间币 · ' + when(trade.created_at),
-        [button('领取', 'primary', async () => {
-          await marketService.deliverTrade(trade);
-          await renderMineMode();
-        })],
-      ));
-    }
-    for (const returned of state.pending_returns || []) {
-      recovery.append(transactionRow(
-        '撤回待返还 · ' + (returned.asset?.name || '资产') + ' ×' + (returned.quantity || 1),
-        when(returned.created_at),
-        [button('返还', 'primary', async () => {
-          await marketService.receiveReturn(returned);
-          await renderMineMode();
-        })],
-      ));
-    }
-    for (const payout of state.pending_payouts || []) {
-      recovery.append(transactionRow(
-        '货款待写入 · ' + coin(payout.amount) + ' 空间币',
-        when(payout.created_at),
-        [button('写入', 'primary', async () => {
-          await marketService.receivePayout(payout);
+    if (currentMineView === 'active') {
+      const active = (state.listings || []).filter(value => value.status === 'active' && !value.expired);
+      const activeSection = section('正在出售', String(active.length));
+      if (!active.length) activeSection.append(element('div', 'rw-ah-muted-line', '当前没有在售拍卖。'));
+      for (const listing of active) {
+        const expiryText = listing.expires_at ? until(listing.expires_at) + '后到期' : '无到期时间';
+        const marketLow = Number(listing.market_lowest_price || 0);
+        const position = marketLow > 0
+          ? Number(listing.unit_price) <= marketLow
+            ? '当前最低价'
+            : '高于最低价 ' + coin(Number(listing.unit_price) - marketLow)
+          : '暂无可比市场价';
+        activeSection.append(transactionRow(
+          (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
+          coin(listing.unit_price) + ' / 件 · ' + position + ' · ' + expiryText,
+          [button('取消拍卖', 'danger', async () => {
+            const ok = await confirmDialog({
+              title: '取消拍卖',
+              message: '撤回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity + ' 件？上架税不会退还。',
+              confirmText: '取消拍卖',
+              danger: true,
+            });
+            if (!ok) return;
+            await marketService.cancel(listing.id);
+            catalogCache.clear();
+            await renderMineMode();
+          })],
+        ));
+      }
+      content.append(activeSection);
+    } else if (currentMineView === 'expired') {
+      const expired = (state.listings || []).filter(
+        value => value.status === 'active' && value.expired && Number(value.remaining_quantity || 0) > 0,
+      );
+      const expiredSection = section('已到期 · 待取回', String(expired.length));
+      if (!expired.length) expiredSection.append(element('div', 'rw-ah-muted-line', '没有等待取回的到期拍卖。'));
+      for (const listing of expired) {
+        expiredSection.append(transactionRow(
+          (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
+          '已下架 · ' + until(listing.recycle_at) + '后系统自动回收',
+          [button('取回资产', 'primary', async () => {
+            await marketService.cancel(listing.id);
+            await renderMineMode();
+          })],
+        ));
+      }
+      content.append(expiredSection);
+    } else if (currentMineView === 'recovery') {
+      const pending = []
+        .concat((state.pending_deliveries || []).map(value => ({ type: 'trade', value })))
+        .concat((state.pending_returns || []).map(value => ({ type: 'return', value })))
+        .concat((state.pending_payouts || []).map(value => ({ type: 'payout', value })))
+        .concat((state.pending_order_deliveries || []).map(value => ({ type: 'order', value })))
+        .concat((state.pending_swap_transfers || []).map(value => ({ type: 'swap', value })));
+      const recovery = section('待领取 / 待恢复', String(pending.length));
+      if (!pending.length) recovery.append(element('div', 'rw-ah-muted-line', '没有待恢复事务。'));
+      if (pending.length) {
+        recovery.append(button('全部领取', 'primary', async () => {
+          for (const entry of pending) {
+            if (entry.type === 'trade') await marketService.deliverTrade(entry.value);
+            else if (entry.type === 'return') await marketService.receiveReturn(entry.value);
+            else if (entry.type === 'payout') await marketService.receivePayout(entry.value);
+            else if (entry.type === 'order') await marketService.deliverOrderFill(entry.value);
+            else if (entry.type === 'swap') await marketService.receiveSwapTransfer(entry.value);
+          }
           await renderMineMode();
           await refreshSummary();
-        })],
-      ));
-    }
-    content.append(recovery);
+        }));
+      }
+      for (const entry of pending) {
+        const value = entry.value;
+        const title = {
+          trade: '购买待领取',
+          return: '撤回待返还',
+          payout: '货款待写入',
+          order: '求购待领取',
+          swap: '交换待领取',
+        }[entry.type];
+        const assetName = value.asset?.name || (entry.type === 'payout' ? coin(value.amount) + ' 空间币' : '资产');
+        recovery.append(transactionRow(
+          title + ' · ' + assetName + (value.asset ? ' ×' + (value.quantity || value.asset.quantity || 1) : ''),
+          when(value.created_at),
+          [button('领取', 'primary', async () => {
+            if (entry.type === 'trade') await marketService.deliverTrade(value);
+            else if (entry.type === 'return') await marketService.receiveReturn(value);
+            else if (entry.type === 'payout') await marketService.receivePayout(value);
+            else if (entry.type === 'order') await marketService.deliverOrderFill(value);
+            else if (entry.type === 'swap') await marketService.receiveSwapTransfer(value);
+            await renderMineMode();
+            await refreshSummary();
+          })],
+        ));
+      }
+      content.append(recovery);
+    } else if (currentMineView === 'history') {
+      const recycleRecords = []
+        .concat((state.buybacks || []).map(value => ({ ...value, side: '主动回收', amount: Number(value.amount || 0) })))
+        .concat((state.recycles || []).map(value => ({ ...value, side: '到期自动回收', amount: Number(value.amount || 0) })))
+        .sort((a, b) => Number(b.created_at) - Number(a.created_at))
+        .slice(0, 30);
+      const recycleHistory = section('系统回收记录', String(recycleRecords.length));
+      if (!recycleRecords.length) recycleHistory.append(element('div', 'rw-ah-muted-line', '还没有系统回收记录。'));
+      for (const record of recycleRecords) {
+        recycleHistory.append(transactionRow(
+          record.side + ' · ' + (record.asset?.name || '资产') + ' ×' + (record.quantity || 1),
+          coin(record.amount) + ' 空间币 · ' + when(record.created_at),
+        ));
+      }
+      content.append(recycleHistory);
 
-    const active = (state.listings || []).filter(
-      value => value.status === 'active' && !value.expired,
-    );
-    const activeSection = section('正在出售', String(active.length));
-    if (!active.length) activeSection.append(element('div', 'rw-ah-muted-line', '当前没有在售拍卖。'));
-    for (const listing of active) {
-      const expiryText = listing.expires_at
-        ? until(listing.expires_at) + '后到期'
-        : '无到期时间';
-      const feeText = listing.listing_fee
-        ? ' · 上架税 ' + coin(listing.listing_fee)
-        : '';
-      activeSection.append(transactionRow(
-        (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
-        coin(listing.unit_price) + ' 空间币 / 件 · ' + expiryText + feeText,
-        [button('取消拍卖', 'danger', async () => {
-          const ok = await confirmDialog({
-            title: '取消拍卖',
-            message: '撤回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity
-              + ' 件？已支付的上架税不会退还。',
-            confirmText: '取消拍卖',
-            danger: true,
-          });
-          if (!ok) return;
-          await marketService.cancel(listing.id);
-          try { host.toastr?.success?.('拍卖已取消，剩余资产已返还', '空间集市'); } catch {}
-          await renderMineMode();
-          await refresh();
-        })],
-      ));
-    }
-    content.append(activeSection);
+      const records = []
+        .concat((state.purchases || []).map(value => ({ ...value, side: '买入' })))
+        .concat((state.sales || []).map(value => ({ ...value, side: '卖出' })))
+        .concat((state.order_fills || []).map(value => ({
+          ...value,
+          side: Number(value.buyer?.id || 0) === currentUserId() ? '求购获得' : '完成求购',
+        })))
+        .sort((a, b) => Number(b.created_at) - Number(a.created_at))
+        .slice(0, 50);
+      const history = section('成交记录', String(records.length));
+      if (!records.length) history.append(element('div', 'rw-ah-muted-line', '还没有成交记录。'));
+      for (const trade of records) {
+        let settlement = '成交 ' + coin(trade.total_price) + ' 空间币';
+        if (trade.side === '卖出') {
+          settlement = '成交 ' + coin(trade.total_price) + ' · 公证费 ' + coin(trade.market_fee) + ' · 实收 ' + coin(trade.seller_proceeds);
+        }
+        history.append(transactionRow(
+          trade.side + ' · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
+          settlement + ' · ' + when(trade.created_at),
+        ));
+      }
+      content.append(history);
+    } else if (currentMineView === 'orders') {
+      const activeOrders = (state.buy_orders || []).filter(value => value.status === 'active');
+      const orderSection = section('我的求购', String(activeOrders.length));
+      if (!activeOrders.length) orderSection.append(element('div', 'rw-ah-muted-line', '当前没有进行中的求购单。'));
+      for (const order of activeOrders) {
+        orderSection.append(transactionRow(
+          order.asset_name + ' · 剩余 ' + order.remaining_quantity,
+          coin(order.unit_price) + ' / 件 · 托管余额 ' + coin(order.escrow_balance) + ' · ' + until(order.expires_at),
+          [button('取消求购', 'danger', async () => {
+            await marketService.cancelBuyOrder(order.id);
+            await renderMineMode();
+            await refreshSummary();
+          })],
+        ));
+      }
+      content.append(orderSection);
 
-    const expired = (state.listings || []).filter(
-      value => value.status === 'active' && value.expired && Number(value.remaining_quantity || 0) > 0,
-    );
-    const expiredSection = section('已到期 · 待取回', String(expired.length));
-    if (!expired.length) {
-      expiredSection.append(element('div', 'rw-ah-muted-line', '没有等待取回的到期拍卖。'));
+      const activeSwaps = (state.swaps || []).filter(value => value.status === 'active' && Number(value.owner?.id || 0) === currentUserId());
+      const swapSection = section('我的交换', String(activeSwaps.length));
+      if (!activeSwaps.length) swapSection.append(element('div', 'rw-ah-muted-line', '当前没有进行中的交换单。'));
+      for (const swap of activeSwaps) {
+        swapSection.append(transactionRow(
+          (swap.offered?.name || '资产') + ' ⇄ ' + (swap.wanted?.name || '资产'),
+          until(swap.expires_at) + '后到期',
+          [button('取消交换', 'danger', async () => {
+            await marketService.cancelSwap(swap.id);
+            await renderMineMode();
+          })],
+        ));
+      }
+      content.append(swapSection);
     }
-    for (const listing of expired) {
-      expiredSection.append(transactionRow(
-        (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
-        '已下架 · ' + until(listing.recycle_at) + '后系统自动回收',
-        [button('取回资产', 'primary', async () => {
-          const ok = await confirmDialog({
-            title: '取回到期资产',
-            message: '取回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity
-              + ' 件？超过回收时限后服务器会自动折算为空间币。',
-            confirmText: '取回',
-          });
-          if (!ok) return;
-          await marketService.cancel(listing.id);
-          try { host.toastr?.success?.('到期资产已返还当前存档', '空间集市'); } catch {}
-          await renderMineMode();
-        })],
-      ));
-    }
-    content.append(expiredSection);
-
-    const recycleRecords = []
-      .concat((state.buybacks || []).map(value => ({
-        ...value,
-        side: '主动回收',
-        amount: Number(value.amount || 0),
-      })))
-      .concat((state.recycles || []).map(value => ({
-        ...value,
-        side: '到期自动回收',
-        amount: Number(value.amount || 0),
-      })))
-      .sort((a, b) => Number(b.created_at) - Number(a.created_at))
-      .slice(0, 30);
-    const recycleHistory = section('系统回收记录', String(recycleRecords.length));
-    if (!recycleRecords.length) {
-      recycleHistory.append(element('div', 'rw-ah-muted-line', '还没有系统回收记录。'));
-    }
-    for (const record of recycleRecords) {
-      recycleHistory.append(transactionRow(
-        record.side + ' · ' + (record.asset?.name || '资产') + ' ×' + (record.quantity || 1),
-        coin(record.amount) + ' 空间币 · ' + when(record.created_at),
-      ));
-    }
-    content.append(recycleHistory);
-
-    const records = []
-      .concat((state.purchases || []).map(value => ({ ...value, side: '买入' })))
-      .concat((state.sales || []).map(value => ({ ...value, side: '卖出' })))
-      .sort((a, b) => Number(b.created_at) - Number(a.created_at))
-      .slice(0, 30);
-    const history = section('成交记录', String(records.length));
-    if (!records.length) history.append(element('div', 'rw-ah-muted-line', '还没有成交记录。'));
-    for (const trade of records) {
-      const settlement = trade.side === '卖出'
-        ? '成交 ' + coin(trade.total_price) + ' · 公证费 ' + coin(trade.market_fee)
-          + ' · 实收 ' + coin(trade.seller_proceeds)
-        : '支付 ' + coin(trade.total_price);
-      history.append(transactionRow(
-        trade.side + ' · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
-        settlement + ' 空间币 · ' + when(trade.created_at),
-      ));
-    }
-    content.append(history);
 
     nodes.marketMineContent.replaceChildren(content);
   }

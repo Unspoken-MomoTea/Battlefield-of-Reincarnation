@@ -395,11 +395,25 @@ export async function buyMarketCatalog(request, env, user, catalogKey) {
     await runBatch(env, statements);
   } catch (error) {
     const recovered = await purchaseRows(env, purchaseId);
-    if (!recovered?.purchase || recovered.purchase.status !== 'completed') throw error;
+    const recoveredOwner = recovered?.purchase
+      ? await first(env, 'SELECT buyer_user_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId])
+      : null;
+    if (
+      !recovered?.purchase
+      || recovered.purchase.status !== 'completed'
+      || Number(recoveredOwner?.buyer_user_id) !== Number(user.id)
+    ) throw error;
   }
 
   const result = await purchaseRows(env, purchaseId);
-  if (!result?.purchase || result.purchase.status !== 'completed') {
+  const resultOwner = result?.purchase
+    ? await first(env, 'SELECT buyer_user_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId])
+    : null;
+  if (
+    !result?.purchase
+    || result.purchase.status !== 'completed'
+    || Number(resultOwner?.buyer_user_id) !== Number(user.id)
+  ) {
     const current = await planCatalogPurchase(env, user, catalogKey, requestedQuantity).catch(() => null);
     throw new HttpError(409, 'market_purchase_changed', '市场库存或价格刚刚发生变化，请重新确认', {
       catalog_key: String(catalogKey || ''),

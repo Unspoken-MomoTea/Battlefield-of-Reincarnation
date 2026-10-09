@@ -1176,6 +1176,12 @@ export async function getMarketMe(env, user) {
     `${TRADE_SELECT} WHERE t.buyer_user_id = ? AND t.buyer_save_id = ? ORDER BY t.created_at DESC LIMIT 50`,
     [user.id, user.market_save_id],
   );
+  const pendingDeliveries = await all(
+    env,
+    `${TRADE_SELECT} WHERE t.buyer_user_id = ? AND t.buyer_save_id = ?
+     AND t.delivered_at IS NULL ORDER BY t.created_at ASC LIMIT 200`,
+    [user.id, user.market_save_id],
+  );
   const sales = await all(
     env,
     `${TRADE_SELECT} JOIN market_listings owned_listing ON owned_listing.id = t.listing_id
@@ -1227,7 +1233,7 @@ export async function getMarketMe(env, user) {
     listings: listings.map(listingFromRow),
     purchases: purchases.map(tradeFromRow),
     sales: sales.map(tradeFromRow),
-    pending_deliveries: purchases.filter(row => row.delivered_at == null).map(tradeFromRow),
+    pending_deliveries: pendingDeliveries.map(tradeFromRow),
     pending_returns: pendingReturns.map(returnFromRow),
     pending_payouts: pendingPayouts.map(payoutFromRow),
     recycles: recycles.map(recycleFromRow),

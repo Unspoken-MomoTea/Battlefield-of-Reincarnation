@@ -28,15 +28,26 @@ function createHost(initialStatData) {
   };
 }
 
-test('market inventory exposes tradable equipment, items, skills and current space coin', () => {
+test('market inventory excludes equipped gear and exposes all supported tradable assets', () => {
   const result = marketInventoryFromData({
     stat_data: {
       系统状态: { 是否在主神空间: true },
       角色: {
         空间币: 900,
-        装备: { 长剑: { 名称: '长剑', 品质: 'D' } },
+        装备: {
+          长剑: { 名称: '长剑', 品质: 'D', 状态: 0 },
+          护甲: { 名称: '护甲', 品质: 'E', 状态: 1 },
+          仓库枪: { 名称: '仓库枪', 品质: 'C', 状态: 2 },
+        },
         道具: { 药剂: { 名称: '药剂', 品质: 'E', 数量: 3 } },
         技能: { 闪避: { 名称: '闪避', 品质: 'E' } },
+        血统: { 龙血: { 品质: 'D', 描述: '测试血统' } },
+        形态库: { 超载: { 层级: 'Ⅲ', 状态: '完好' } },
+        权限凭证: { F: 2, S: 1 },
+      },
+      关系列表: {
+        旅伴: { 是否队友: true, 层级: 'Ⅱ', 好感度: 50 },
+        路人: { 是否队友: false, 层级: 'Ⅰ', 好感度: 0 },
       },
     },
   });
@@ -47,8 +58,14 @@ test('market inventory exposes tradable equipment, items, skills and current spa
     result.assets.map(asset => [asset.kind, asset.name, asset.quantity]),
     [
       ['equipment', '长剑', 1],
+      ['equipment', '仓库枪', 1],
       ['item', '药剂', 3],
       ['skill', '闪避', 1],
+      ['bloodline', '龙血', 1],
+      ['form', '超载', 1],
+      ['item', 'F级权限凭证', 2],
+      ['item', 'S级权限凭证', 1],
+      ['teammate', '旅伴', 1],
     ],
   );
 });
@@ -324,4 +341,144 @@ test('equipment can be removed locally, recycled by the system and paid out idem
   assert.equal(saved.空间币, 13);
   assert.equal(posted.asset.kind, 'equipment');
   assert.match(posted.id, /^buyback:/u);
+});
+
+
+test('selling an active form clears current form and selling a teammate removes the relation record', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 1000,
+      装备: {},
+      道具: {},
+      技能: {},
+      血统: {},
+      形态库: { 超载: { 层级: 'Ⅱ', 状态: '完好' } },
+      当前形态: { 激活: true, 名称: '超载' },
+    },
+    关系列表: {
+      旅伴: { 是否队友: true, 层级: 'Ⅱ', 好感度: 50 },
+    },
+  });
+  const listings = [];
+  const api = {
+    async quoteMarketAction() { return { quote: { listing_fee: 1 } }; },
+    async createMarketListing(input) {
+      listings.push(clone(input));
+      return { listing: { id: input.id, asset: input.asset } };
+    },
+    async getMarketMe() { return { listings: [] }; },
+  };
+  const market = createMarketService({ host, api });
+
+  await market.sell({
+    kind: 'form',
+    key: '超载',
+    name: '超载',
+    unitPrice: 100,
+    durationHours: 24,
+  });
+  let saved = host.read().stat_data;
+  assert.equal(saved.角色.形态库.超载, undefined);
+  assert.deepEqual(saved.角色.当前形态, { 激活: false, 名称: '' });
+
+  await market.sell({
+    kind: 'teammate',
+    key: '旅伴',
+    name: '旅伴',
+    unitPrice: 200,
+    durationHours: 24,
+  });
+  saved = host.read().stat_data;
+  assert.equal(saved.关系列表.旅伴, undefined);
+  assert.deepEqual(listings.map(value => value.asset.kind), ['form', 'teammate']);
+});
+
+test('permission credentials can be listed from the account ledger at every owned quality', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 1000,
+      权限凭证: { S: 2 },
+      装备: {}, 道具: {}, 技能: {}, 血统: {}, 形态库: {},
+    },
+    关系列表: {},
+  });
+  let posted = null;
+  const api = {
+    async quoteMarketAction() { return { quote: { listing_fee: 1 } }; },
+    async createMarketListing(input) {
+      posted = clone(input);
+      return { listing: { id: input.id, asset: input.asset } };
+    },
+    async getMarketMe() { return { listings: [] }; },
+  };
+  const market = createMarketService({ host, api });
+  const credential = (await market.inventory()).assets.find(asset => asset.name === 'S级权限凭证');
+  assert.ok(credential);
+
+  await market.sell({
+    kind: credential.kind,
+    key: credential.key,
+    name: credential.name,
+    quantity: 1,
+    unitPrice: 320000,
+    durationHours: 24,
+  });
+
+  assert.equal(host.read().stat_data.角色.权限凭证.S, 1);
+  assert.equal(posted.asset.data.类型, '权限凭证');
+  assert.equal(posted.asset.data.数量, 1);
+});
+
+test('items and teammates can be sold directly to the system, including stacked item quantity', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 10,
+      装备: {},
+      道具: { 材料: { 名称: '材料', 品质: 'F', 数量: 4 } },
+      技能: {},
+      血统: {},
+      形态库: {},
+    },
+    关系列表: {
+      旅伴: { 是否队友: true, 层级: 'Ⅱ', 好感度: 30 },
+    },
+  });
+  const posted = [];
+  const api = {
+    async createMarketBuyback(input) {
+      posted.push(clone(input));
+      const amount = input.asset.kind === 'item' ? 6 : 35;
+      return {
+        buyback: { id: input.id, amount },
+        payout: { id: input.id, amount, confirmed_at: null },
+      };
+    },
+    async getMarketBuyback() { throw new Error('not needed'); },
+    async confirmMarketPayout() { return {}; },
+  };
+  const market = createMarketService({ host, api });
+
+  await market.sellToSystem({
+    kind: 'item',
+    key: '材料',
+    name: '材料',
+    quantity: 2,
+  });
+  assert.equal(host.read().stat_data.角色.道具.材料.数量, 2);
+
+  await market.sellToSystem({
+    kind: 'teammate',
+    key: '旅伴',
+    name: '旅伴',
+  });
+  const saved = host.read().stat_data;
+  assert.equal(saved.关系列表.旅伴, undefined);
+  assert.equal(saved.角色.空间币, 51);
+  assert.deepEqual(posted.map(value => [value.asset.kind, value.asset.quantity]), [
+    ['item', 2],
+    ['teammate', 1],
+  ]);
 });

@@ -924,6 +924,102 @@ export function createMarketView({
       buybackButton.disabled = true;
     });
 
+    const highestOrder = (initialReference?.orders || []).find(
+      order => Number(order.buyer_user_id || 0) !== currentUserId(),
+    );
+    if (highestOrder) {
+      const orderBox = element('div', 'rw-ah-direct-order');
+      const orderCopy = element('div', 'rw-ah-buyback-copy');
+      orderCopy.append(
+        element('span', '', '最高求购价'),
+        element('strong', '', coin(highestOrder.unit_price) + ' 空间币 / 件'),
+        element('small', '', '剩余求购 ' + highestOrder.quantity_remaining + ' 件 · 直接成交，不收上架税；成交公证费仍为 3%。'),
+      );
+      orderBox.append(
+        orderCopy,
+        button('卖给最高求购', 'primary', async () => {
+          const amount = asset.kind === 'item'
+            ? Math.min(amountValue(), Number(highestOrder.quantity_remaining || 1))
+            : 1;
+          await marketService.fillOrder({
+            kind: asset.kind,
+            key: asset.key,
+            name: asset.name,
+          }, highestOrder, amount);
+          try { host.toastr?.success?.('已按最高求购价成交，货款进入待领取余额', '空间集市'); } catch {}
+          selectedSellIndex = -1;
+          await renderSellMode();
+          await refreshSummary();
+        }),
+      );
+      editor.append(orderBox);
+    }
+
+    const barterTargets = products.filter(product => product?.asset?.kind && product?.asset?.name);
+    if (barterTargets.length) {
+      const barterBox = element('div', 'rw-ah-create-barter');
+      barterBox.append(element('div', 'rw-ah-section-label', '以物易物'));
+      const barterGrid = element('div', 'rw-ah-order-grid');
+      const targetSelect = element('select', 'rw-select');
+      for (let index = 0; index < barterTargets.length; index += 1) {
+        const productValue = barterTargets[index];
+        const option = element(
+          'option',
+          '',
+          kindLabel(productValue.asset.kind) + ' · ' + productValue.name
+            + (productValue.quality ? ' · ' + productValue.quality : ''),
+        );
+        option.value = String(index);
+        targetSelect.append(option);
+      }
+      const wantedQty = element('input', 'rw-input');
+      wantedQty.type = 'number';
+      wantedQty.min = '1';
+      wantedQty.step = '1';
+      wantedQty.value = '1';
+      const barterDuration = element('select', 'rw-select');
+      for (const hours of [24, 48, 72]) {
+        const option = element('option', '', hours + ' 小时');
+        option.value = String(hours);
+        barterDuration.append(option);
+      }
+      const syncWanted = () => {
+        const target = barterTargets[Number(targetSelect.value) || 0];
+        wantedQty.disabled = target?.asset?.kind !== 'item';
+        if (wantedQty.disabled) wantedQty.value = '1';
+      };
+      targetSelect.addEventListener('change', syncWanted);
+      syncWanted();
+      barterGrid.append(
+        element('span', '', '想换'), targetSelect,
+        element('span', '', '目标数量'), wantedQty,
+        element('span', '', '有效期'), barterDuration,
+      );
+      barterBox.append(
+        barterGrid,
+        button('发布交换单', '', async () => {
+          const target = barterTargets[Number(targetSelect.value) || 0];
+          if (!target) throw new Error('请选择交换目标');
+          await marketService.createBarter({
+            kind: asset.kind,
+            key: asset.key,
+            name: asset.name,
+          }, target, {
+            offeredQuantity: amountValue(),
+            wantedQuantity: target.asset.kind === 'item'
+              ? Math.max(1, Math.floor(Number(wantedQty.value) || 1))
+              : 1,
+            durationHours: Number(barterDuration.value) || 24,
+          });
+          try { host.toastr?.success?.('交换单已发布，提供资产已进入交易托管', '空间集市'); } catch {}
+          selectedSellIndex = -1;
+          await renderSellMode();
+          await renderBarterMode();
+        }),
+      );
+      editor.append(barterBox);
+    }
+
     editor.append(element(
       'p',
       'rw-market-notice warning',

@@ -11,10 +11,34 @@ export function createMarketApi(request) {
       return request(`/api/market/listings?${params}`, { cache: 'no-store' });
     },
 
+    quoteMarketAction(input) {
+      return request(
+        '/api/market/quote',
+        { method: 'POST', body: JSON.stringify(input) },
+        true,
+      );
+    },
+
     createMarketListing(input) {
       return request(
         '/api/market/listings',
         { method: 'POST', body: JSON.stringify(input) },
+        true,
+      );
+    },
+
+    createMarketBuyback(input) {
+      return request(
+        '/api/market/buybacks',
+        { method: 'POST', body: JSON.stringify(input) },
+        true,
+      );
+    },
+
+    getMarketBuyback(buybackId) {
+      return request(
+        `/api/market/buybacks/${encodeURIComponent(buybackId)}`,
+        { cache: 'no-store' },
         true,
       );
     },

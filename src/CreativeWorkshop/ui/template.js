@@ -138,10 +138,10 @@ export function workshopTemplate(version) {
           <div class="rw-ah-browser">
             <aside class="rw-ah-categories" aria-label="商品分类">
               <div class="rw-ah-side-title">分类</div>
-              <button class="rw-ah-category is-active" data-market-kind="" type="button"><span>全部商品</span><small>ALL</small></button>
-              <button class="rw-ah-category" data-market-kind="equipment" type="button"><span>装备</span><small>EQUIP</small></button>
-              <button class="rw-ah-category" data-market-kind="item" type="button"><span>道具</span><small>ITEM</small></button>
-              <button class="rw-ah-category" data-market-kind="skill" type="button"><span>技能</span><small>SKILL</small></button>
+              <button class="rw-ah-category is-active" data-market-kind="" type="button"><span>全部商品</span><small data-market-kind-count>0</small></button>
+              <button class="rw-ah-category" data-market-kind="equipment" type="button"><span>装备</span><small data-market-kind-count>0</small></button>
+              <button class="rw-ah-category" data-market-kind="item" type="button"><span>道具</span><small data-market-kind-count>0</small></button>
+              <button class="rw-ah-category" data-market-kind="skill" type="button"><span>技能</span><small data-market-kind-count>0</small></button>
               <div class="rw-ah-side-rule"></div>
               <div class="rw-ah-side-help">商品来自玩家本地存档。测试版不声明防作弊认证。</div>
             </aside>

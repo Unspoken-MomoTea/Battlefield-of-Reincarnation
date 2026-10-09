@@ -184,6 +184,12 @@ CREATE TABLE IF NOT EXISTS market_listings (
   remaining_quantity INTEGER NOT NULL CHECK (remaining_quantity >= 0),
   status TEXT NOT NULL DEFAULT 'active'
     CHECK (status IN ('active', 'sold', 'cancelled')),
+  duration_hours INTEGER NOT NULL DEFAULT 72,
+  expires_at INTEGER NOT NULL DEFAULT 0,
+  recycle_at INTEGER NOT NULL DEFAULT 0,
+  listing_fee INTEGER NOT NULL DEFAULT 0,
+  is_system INTEGER NOT NULL DEFAULT 0 CHECK (is_system IN (0, 1)),
+  restock_day TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   FOREIGN KEY (seller_user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -194,6 +200,9 @@ CREATE INDEX IF NOT EXISTS idx_market_listings_active
 
 CREATE INDEX IF NOT EXISTS idx_market_listings_seller
   ON market_listings(seller_user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_market_listings_expiry
+  ON market_listings(is_system, status, recycle_at, expires_at);
 
 CREATE TABLE IF NOT EXISTS market_trades (
   id TEXT PRIMARY KEY,
@@ -206,6 +215,8 @@ CREATE TABLE IF NOT EXISTS market_trades (
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   unit_price INTEGER NOT NULL CHECK (unit_price > 0),
   total_price INTEGER NOT NULL CHECK (total_price > 0),
+  market_fee INTEGER NOT NULL DEFAULT 0,
+  seller_proceeds INTEGER NOT NULL DEFAULT 0,
   delivered_at INTEGER,
   created_at INTEGER NOT NULL,
   FOREIGN KEY (listing_id) REFERENCES market_listings(id),
@@ -254,3 +265,38 @@ CREATE TABLE IF NOT EXISTS market_returns (
 
 CREATE INDEX IF NOT EXISTS idx_market_returns_user
   ON market_returns(user_id, confirmed_at, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS market_recycles (
+  id TEXT PRIMARY KEY,
+  listing_id TEXT NOT NULL UNIQUE,
+  user_id INTEGER NOT NULL,
+  asset_kind TEXT NOT NULL CHECK (asset_kind IN ('equipment', 'item', 'skill')),
+  asset_name TEXT NOT NULL,
+  asset_json TEXT NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  credited_at INTEGER,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (listing_id) REFERENCES market_listings(id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_recycles_user
+  ON market_recycles(user_id, credited_at, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS market_buybacks (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  asset_kind TEXT NOT NULL CHECK (asset_kind = 'equipment'),
+  asset_name TEXT NOT NULL,
+  asset_json TEXT NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity = 1),
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  payout_id TEXT NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (payout_id) REFERENCES market_payouts(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_buybacks_user
+  ON market_buybacks(user_id, created_at DESC);

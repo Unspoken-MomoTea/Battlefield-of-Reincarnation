@@ -65,6 +65,9 @@ test('selling a stack removes only the listed quantity before creating the serve
   });
   let posted = null;
   const api = {
+    async quoteMarketAction() {
+      return { quote: { listing_fee: 6 } };
+    },
     async createMarketListing(input) {
       posted = clone(input);
       return {
@@ -89,9 +92,11 @@ test('selling a stack removes only the listed quantity before creating the serve
   });
 
   assert.equal(host.read().stat_data.角色.道具.药剂.数量, 3);
+  assert.equal(host.read().stat_data.角色.空间币, 994);
   assert.equal(posted.asset.quantity, 2);
   assert.equal(posted.asset.data.数量, 2);
   assert.equal(posted.unit_price, 120);
+  assert.equal(posted.duration_hours, 24);
   assert.match(posted.id, /^listing:/u);
 });
 
@@ -248,4 +253,76 @@ test('complete market snapshot follows pagination once and exposes all listings 
     { sort: 'latest', offset: 0, limit: 60 },
     { sort: 'latest', offset: 2, limit: 60 },
   ]);
+});
+
+
+test('system credential delivery writes the dedicated credential ledger instead of item inventory', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 100,
+      权限凭证: { F: 1 },
+      装备: {},
+      道具: {},
+      技能: {},
+    },
+  });
+  const api = {
+    async confirmMarketDelivery() { return {}; },
+  };
+  const market = createMarketService({ host, api });
+  await market.deliverTrade({
+    id: 'trade:credential',
+    asset: {
+      kind: 'item',
+      name: 'F级权限凭证',
+      quantity: 2,
+      data: {
+        品质: 'F',
+        类型: '权限凭证',
+        系统商品: 'permission_credential',
+        凭证品质: 'F',
+      },
+    },
+  });
+
+  const saved = host.read().stat_data.角色;
+  assert.equal(saved.权限凭证.F, 3);
+  assert.equal(saved.道具['F级权限凭证'], undefined);
+});
+
+test('equipment can be removed locally, recycled by the system and paid out idempotently', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 10,
+      装备: { 旧剑: { 名称: '旧剑', 品质: 'F', 类型: 0 } },
+      道具: {},
+      技能: {},
+    },
+  });
+  let posted = null;
+  const api = {
+    async createMarketBuyback(input) {
+      posted = clone(input);
+      return {
+        buyback: { id: input.id, amount: 3 },
+        payout: { id: input.id, amount: 3, confirmed_at: null },
+      };
+    },
+    async getMarketBuyback() { throw new Error('not needed'); },
+    async confirmMarketPayout() { return {}; },
+  };
+  const market = createMarketService({ host, api });
+  await market.sellToSystem({
+    kind: 'equipment',
+    key: '旧剑',
+    name: '旧剑',
+  });
+
+  const saved = host.read().stat_data.角色;
+  assert.equal(saved.装备.旧剑, undefined);
+  assert.equal(saved.空间币, 13);
+  assert.equal(posted.asset.kind, 'equipment');
+  assert.match(posted.id, /^buyback:/u);
 });

@@ -44,6 +44,9 @@
   "env": {
     "staging": {
       "name": "reincarnation-workshop-staging",
+      "triggers": {
+        "crons": ["0 * * * *"]
+      },
       "routes": [
         {
           "pattern": "workshop-test.6661816.xyz",

@@ -904,6 +904,9 @@ export function createMarketService({ host, api }) {
       }
       addAsset(next.stat_data, fill.asset);
       deliveries[fill.id] = Date.now();
+      appendMarketBroadcast(next, 'order-receive:' + fill.id,
+        '[空间集市求购到账][角色] 领取' + receiptAsset(fill.asset, fill.quantity)
+        + '｜原求购托管成交 ' + coin(fill.total_price));
     });
     await api.confirmMarketOrderDelivery(fill.id);
     return fill;
@@ -1038,6 +1041,8 @@ export function createMarketService({ host, api }) {
       }
       addAsset(next.stat_data, transfer.asset);
       transfers[transfer.id] = Date.now();
+      appendMarketBroadcast(next, 'swap-receive:' + transfer.id,
+        '[空间集市交换领取][角色] 领取' + receiptAsset(transfer.asset, transfer.quantity));
     });
     await api.confirmMarketSwapTransfer(transfer.id);
     return transfer;
@@ -1059,6 +1064,10 @@ export function createMarketService({ host, api }) {
       }
       addAsset(next.stat_data, trade.asset);
       deliveries[trade.id] = Date.now();
+      appendMarketBroadcast(next, 'purchase:' + trade.id,
+        '[空间集市买入][角色] 获得' + receiptAsset(trade.asset, trade.quantity)
+        + '｜支付 ' + coin(trade.total_price)
+        + '｜余额 ' + coin(next.stat_data.角色.空间币));
     });
     await api.confirmMarketDelivery(trade.id);
     return trade;
@@ -1178,6 +1187,10 @@ export function createMarketService({ host, api }) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
     const result = await api.cancelMarketListing(listingId);
+    if (result?.listing?.status === 'cancelled' || result?.return) {
+      await broadcast(snapshot.saveId, 'listing-cancel:' + listingId,
+        '[空间集市撤回拍卖][角色] 挂单已取消或到期撤回｜未售出资产待取回');
+    }
     if (result?.return) await receiveReturn(result.return);
     return result;
   }
@@ -1198,6 +1211,8 @@ export function createMarketService({ host, api }) {
       }
       addAsset(next.stat_data, returnRecord.asset);
       returns[returnRecord.id] = Date.now();
+      appendMarketBroadcast(next, 'return:' + returnRecord.id,
+        '[空间集市取回资产][角色] ' + receiptAsset(returnRecord.asset, returnRecord.quantity));
     });
     await api.confirmMarketReturn(returnRecord.id);
     return returnRecord;
@@ -1216,6 +1231,9 @@ export function createMarketService({ host, api }) {
       if (payouts[payout.id]) return;
       next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + Number(payout.amount || 0);
       payouts[payout.id] = Date.now();
+      appendMarketBroadcast(next, 'payout:' + payout.id,
+        '[空间集市领取空间币][角色] 入账 ' + coin(payout.amount)
+        + '｜余额 ' + coin(next.stat_data.角色.空间币));
     });
     await api.confirmMarketPayout(payout.id);
     return payout;

@@ -691,6 +691,9 @@ export async function getMarketBuyback(env, user, buybackIdValue) {
 }
 
 export async function buyMarketListing(request, env, user, listingIdValue) {
+  await settleExpiredMarketListings(env);
+  await ensureTestingMarketFixtures(env);
+  await ensureSystemCredentialListings(env);
   const listingId = marketId(listingIdValue, '挂单 ID');
   const body = await readJson(request, { maxBytes: 16 * 1024 });
   const tradeId = marketId(body?.trade_id, '交易 ID');
@@ -712,8 +715,13 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
   }
 
   const listing = await getListing(env, listingId);
-  if (!listing || listing.status !== 'active' || listing.remaining_quantity <= 0) {
-    throw new HttpError(409, 'market_listing_unavailable', '该挂单已经不可购买');
+  if (
+    !listing
+    || listing.status !== 'active'
+    || listing.remaining_quantity <= 0
+    || (!listing.is_system && listing.expires_at > 0 && listing.expires_at <= nowMs())
+  ) {
+    throw new HttpError(409, 'market_listing_unavailable', '该挂单已经到期或不可购买');
   }
   if (listing.seller.id === Number(user.id)) {
     throw new HttpError(409, 'market_own_listing', '不能购买自己的挂单');
@@ -725,19 +733,33 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
   }
 
   const now = nowMs();
+  const settlement = marketSaleSettlement(listing.unit_price * quantity);
   const statements = [
     env.DB.prepare(
       `INSERT INTO market_trades
         (id, listing_id, seller_user_id, buyer_user_id, asset_kind, asset_name, asset_json,
-         quantity, unit_price, total_price, delivered_at, created_at)
+         quantity, unit_price, total_price, market_fee, seller_proceeds, delivered_at, created_at)
        SELECT ?, l.id, l.seller_user_id, ?, l.asset_kind, l.asset_name, l.asset_json,
-              ?, l.unit_price, l.unit_price * ?, NULL, ?
+              ?, l.unit_price, l.unit_price * ?, ?, ?, NULL, ?
        FROM market_listings l
        WHERE l.id = ?
          AND l.status = 'active'
          AND l.remaining_quantity >= ?
-         AND l.seller_user_id <> ?`,
-    ).bind(tradeId, user.id, quantity, quantity, now, listingId, quantity, user.id),
+         AND l.seller_user_id <> ?
+         AND (l.is_system = 1 OR l.expires_at = 0 OR l.expires_at > ?)`,
+    ).bind(
+      tradeId,
+      user.id,
+      quantity,
+      quantity,
+      settlement.market_fee,
+      settlement.seller_proceeds,
+      now,
+      listingId,
+      quantity,
+      user.id,
+      now,
+    ),
     env.DB.prepare(
       `UPDATE market_listings
        SET remaining_quantity = remaining_quantity - ?,
@@ -751,9 +773,10 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
     ).bind(quantity, quantity, now, listingId, tradeId, listingId, user.id),
     env.DB.prepare(
       `INSERT INTO market_wallets (user_id, balance, updated_at)
-       SELECT seller_user_id, total_price, ?
-       FROM market_trades
-       WHERE id = ?
+       SELECT t.seller_user_id, t.seller_proceeds, ?
+       FROM market_trades t
+       JOIN market_listings l ON l.id = t.listing_id
+       WHERE t.id = ? AND l.is_system = 0 AND t.seller_proceeds > 0
        ON CONFLICT(user_id) DO UPDATE SET
          balance = market_wallets.balance + excluded.balance,
          updated_at = excluded.updated_at`,

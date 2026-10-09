@@ -1318,7 +1318,7 @@ test('completed buybacks can be pruned after confirmed payout; pending payouts n
   const testEnv = env();
   const user = createUser(testEnv, 'cleanup-payout-owner', 'Cleanup Owner');
   const headers = authHeaders(testEnv, user, 'cleanup-payout-token');
-  const result = await jsonRequest(testEnv, '/api/market/buyback', {
+  const result = await jsonRequest(testEnv, '/api/market/buybacks', {
     method: 'POST',
     headers,
     body: JSON.stringify({

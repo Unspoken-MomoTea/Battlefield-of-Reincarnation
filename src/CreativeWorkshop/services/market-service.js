@@ -669,9 +669,10 @@ export function createMarketService({ host, api }) {
     };
     const listingAsset = listingAssetSnapshot(restoreAsset);
 
+    let created;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.createMarketListing({
+      created = await api.createMarketListing({
         id: listingId,
         asset: listingAsset,
         unit_price: Math.max(1, Math.floor(Number(selection.unitPrice) || 0)),
@@ -681,22 +682,29 @@ export function createMarketService({ host, api }) {
       try {
         const state = await api.getMarketMe();
         const recovered = state?.listings?.find(item => item.id === listingId);
-        if (recovered) return { listing: recovered, quote };
+        if (recovered) created = { listing: recovered, quote };
       } catch {}
 
-      try {
-        await mutateBound(next => {
-          addAsset(next.stat_data, restoreAsset);
-          restoreFormActivation(next.stat_data, activeFormSnapshot);
-          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + listingFee;
-        });
-      } catch (restoreError) {
-        const combined = new Error(`上架请求失败，而且本地资产/上架税自动恢复也失败：${restoreError.message}`);
-        combined.cause = error;
-        throw combined;
+      if (!created) {
+        try {
+          await mutateBound(next => {
+            addAsset(next.stat_data, restoreAsset);
+            restoreFormActivation(next.stat_data, activeFormSnapshot);
+            next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + listingFee;
+          });
+        } catch (restoreError) {
+          const combined = new Error(`上架请求失败，而且本地资产/上架税自动恢复也失败：${restoreError.message}`);
+          combined.cause = error;
+          throw combined;
+        }
+        throw error;
       }
-      throw error;
     }
+    await broadcast(snapshot.saveId, 'list:' + listingId,
+      '[空间集市上架][角色] ' + receiptAsset(listingAsset, requestedQuantity)
+      + '｜一口价 ' + coin(selection.unitPrice) + '/件｜上架税 ' + coin(listingFee)
+      + '｜余额 ' + coin(readLatest(host).data.stat_data.角色.空间币));
+    return created;
   }
 
   async function sellToSystem(selection) {
@@ -748,6 +756,9 @@ export function createMarketService({ host, api }) {
       }
     }
 
+    await broadcast(snapshot.saveId, 'buyback:' + buybackId,
+      '[空间集市系统回收][角色] ' + receiptAsset(asset, requestedQuantity)
+      + '｜回收收入 ' + coin(result?.buyback?.amount ?? result?.payout?.amount));
     if (result?.payout) await receivePayout(result.payout);
     return result;
   }

@@ -1,13 +1,16 @@
 import { MARKET_KIND_LABELS } from '../services/market-service.js';
 import {
   buildMarketRows,
+  filterMarketRows,
   marketPriceLadder,
   planMarketPurchase,
 } from './market-model.js';
 
 const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const coin = value => Math.max(0, Math.trunc(num(value))).toLocaleString('zh-CN');
-const quality = asset => String(asset?.data?.品质 || asset?.data?.层级 || asset?.data?.等级 || '').trim();
+const quality = asset => String(
+  asset?.quality || asset?.data?.品质 || asset?.data?.层级 || asset?.data?.等级 || '',
+).trim();
 const when = value => {
   const date = new Date(Number(value) || 0);
   return Number.isFinite(date.getTime()) && date.getTime() > 0
@@ -23,8 +26,8 @@ export function createMarketView({
   host, marketService, getAuth,
 }) {
   let listings = [];
+  let allRows = [];
   let rows = [];
-  let nextOffset = null;
   let loading = false;
   let selectedKey = '';
   let currentKind = '';

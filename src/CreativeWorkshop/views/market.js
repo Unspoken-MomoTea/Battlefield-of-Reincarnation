@@ -1043,6 +1043,148 @@ export function createMarketView({
     await renderSellEditor(asset);
   }
 
+  const barterRow = barter => {
+    const row = element('button', 'rw-ah-barter-row');
+    row.type = 'button';
+    row.classList.toggle('is-selected', selectedBarterId === barter.id);
+    const offer = element('div', 'rw-ah-barter-side');
+    offer.append(
+      element('small', '', '提供'),
+      qualityName(element('strong', '', barter.offered?.name || '未命名资产'), barter.offered),
+      element('span', '', kindLabel(barter.offered?.kind) + ' ×' + (barter.offered?.quantity || 1)),
+    );
+    const arrow = element('span', 'rw-ah-barter-arrow', '→');
+    const wanted = element('div', 'rw-ah-barter-side');
+    wanted.append(
+      element('small', '', '需要'),
+      qualityName(element('strong', '', barter.wanted?.name || '未命名资产'), barter.wanted),
+      element('span', '', kindLabel(barter.wanted?.kind) + ' ×' + (barter.wanted?.quantity || 1)),
+    );
+    row.append(offer, arrow, wanted);
+    row.addEventListener('click', () => {
+      selectedBarterId = barter.id;
+      renderBarterList();
+      void renderBarterInspector(barter).catch(notifyError);
+    });
+    return row;
+  };
+
+  function renderBarterList() {
+    if (!nodes.marketBarterList) return;
+    if (!barters.length) {
+      empty(nodes.marketBarterList, '当前没有公开交换单。');
+      nodes.marketBarterCount.textContent = '0';
+      return;
+    }
+    nodes.marketBarterList.replaceChildren(...barters.map(barterRow));
+    nodes.marketBarterCount.textContent = barters.length + ' 个交换单';
+  }
+
+  async function renderBarterInspector(barter) {
+    if (!nodes.marketBarterInspector) return;
+    if (!barter) {
+      empty(nodes.marketBarterInspector, '选择交换单后查看详情。');
+      return;
+    }
+
+    const wrap = element('div', 'rw-ah-barter-detail');
+    const head = element('div', 'rw-ah-detail-head');
+    head.append(
+      element('div', 'rw-ah-inspector-title', '交换详情'),
+      element('h3', '', (barter.owner?.display_name || '匿名轮回者') + ' 的交换单'),
+    );
+    wrap.append(head);
+
+    const compare = element('div', 'rw-ah-barter-compare');
+    const offer = element('section', 'rw-ah-barter-card');
+    offer.append(
+      element('span', '', '对方提供'),
+      qualityName(element('strong', '', barter.offered?.name || '资产'), barter.offered),
+      element('small', '', kindLabel(barter.offered?.kind) + ' ×' + (barter.offered?.quantity || 1)),
+      assetDetail(barter.offered),
+    );
+    const wanted = element('section', 'rw-ah-barter-card');
+    wanted.append(
+      element('span', '', '对方需要'),
+      qualityName(element('strong', '', barter.wanted?.name || '资产'), barter.wanted),
+      element('small', '', kindLabel(barter.wanted?.kind) + ' ×' + (barter.wanted?.quantity || 1)),
+      assetDetail(barter.wanted),
+    );
+    compare.append(offer, wanted);
+    wrap.append(compare);
+
+    const meta = element('div', 'rw-ah-seller-line');
+    meta.append(
+      element('span', '', '剩余时间'),
+      element('strong', '', until(barter.expires_at)),
+    );
+    wrap.append(meta);
+
+    if (Number(barter.owner?.id || 0) === currentUserId()) {
+      wrap.append(element('p', 'rw-market-notice', '这是你的交换单，可在“我的交易 → 交换”中撤回。'));
+      nodes.marketBarterInspector.replaceChildren(wrap);
+      return;
+    }
+
+    const inventory = await marketService.inventory();
+    const candidates = (inventory.assets || []).filter(asset => (
+      asset.kind === barter.wanted?.kind
+      && asset.name === barter.wanted?.name
+      && (asset.kind !== 'item' || Number(asset.quantity || 0) >= Number(barter.wanted?.quantity || 1))
+    ));
+    if (!candidates.length) {
+      wrap.append(element(
+        'p',
+        'rw-market-notice warning',
+        '当前存档没有符合名称与类型的交换资产。资产完整数据仍会由服务器再次校验。',
+      ));
+      nodes.marketBarterInspector.replaceChildren(wrap);
+      return;
+    }
+
+    const actionBox = element('div', 'rw-ah-purchase-box');
+    const select = element('select', 'rw-select');
+    for (let index = 0; index < candidates.length; index += 1) {
+      const asset = candidates[index];
+      const option = element(
+        'option',
+        '',
+        asset.name + (quality(asset) ? ' · ' + quality(asset) : '')
+          + (asset.kind === 'item' ? ' · 持有' + asset.quantity : ''),
+      );
+      option.value = String(index);
+      select.append(option);
+    }
+    actionBox.append(
+      element('strong', '', '用当前存档完成交换'),
+      select,
+      button('接受交换', 'primary', async () => {
+        const candidate = candidates[Number(select.value) || 0];
+        if (!candidate) throw new Error('交换资产无效');
+        await marketService.acceptBarter(barter, {
+          kind: candidate.kind,
+          key: candidate.key,
+          name: candidate.name,
+        });
+        try { host.toastr?.success?.('交换完成，对方资产已写入当前存档', '空间集市'); } catch {}
+        await renderBarterMode();
+        await refreshSummary();
+      }),
+      element('small', 'rw-ah-purchase-help', '接受时双方资产由服务器事务交换；若完整资产数据不一致，会拒绝成交而不会吞掉本地资产。'),
+    );
+    wrap.append(actionBox);
+    nodes.marketBarterInspector.replaceChildren(wrap);
+  }
+
+  async function renderBarterMode() {
+    requireLogin();
+    barters = await marketService.listAllBarters();
+    renderBarterList();
+    const selected = barters.find(value => value.id === selectedBarterId) || barters[0] || null;
+    selectedBarterId = selected?.id || '';
+    await renderBarterInspector(selected);
+  }
+
   const transactionRow = (title, meta, actions = []) => {
     const row = element('div', 'rw-ah-transaction-row');
     const copy = element('div', 'rw-ah-transaction-copy');

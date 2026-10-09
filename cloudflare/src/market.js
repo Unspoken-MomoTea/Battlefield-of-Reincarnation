@@ -858,7 +858,8 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
 
   const existingTradeRow = await getTradeRow(env, tradeId);
   if (existingTradeRow) {
-    if (Number(existingTradeRow.buyer_user_id) !== Number(user.id)) {
+    if (Number(existingTradeRow.buyer_user_id) !== Number(user.id)
+      || existingTradeRow.buyer_save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_trade_id_conflict', '交易 ID 已被占用');
     }
     return json({
@@ -903,9 +904,9 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
   const statements = [
     env.DB.prepare(
       `INSERT INTO market_trades
-        (id, listing_id, seller_user_id, buyer_user_id, asset_kind, market_kind, asset_name, asset_json,
+        (id, listing_id, seller_user_id, buyer_user_id, buyer_save_id, asset_kind, market_kind, asset_name, asset_json,
          quantity, unit_price, total_price, market_fee, seller_proceeds, delivered_at, created_at)
-       SELECT ?, l.id, l.seller_user_id, ?, l.asset_kind, COALESCE(NULLIF(l.market_kind, ''), l.asset_kind), l.asset_name, l.asset_json,
+       SELECT ?, l.id, l.seller_user_id, ?, ?, l.asset_kind, COALESCE(NULLIF(l.market_kind, ''), l.asset_kind), l.asset_name, l.asset_json,
               ?, l.unit_price, l.unit_price * ?, ?, ?, NULL, ?
        FROM market_listings l
        LEFT JOIN market_user_controls seller_control ON seller_control.user_id = l.seller_user_id
@@ -918,6 +919,7 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
     ).bind(
       tradeId,
       user.id,
+      user.market_save_id,
       quantity,
       quantity,
       settlement.market_fee,
@@ -940,13 +942,13 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
          )`,
     ).bind(quantity, quantity, now, listingId, tradeId, listingId, user.id),
     env.DB.prepare(
-      `INSERT INTO market_wallets (user_id, balance, updated_at)
-       SELECT t.seller_user_id, t.seller_proceeds, ?
+      `INSERT INTO market_save_wallets (user_id, save_id, balance, updated_at)
+       SELECT t.seller_user_id, l.save_id, t.seller_proceeds, ?
        FROM market_trades t
        JOIN market_listings l ON l.id = t.listing_id
        WHERE t.id = ? AND l.is_system = 0 AND t.seller_proceeds > 0
-       ON CONFLICT(user_id) DO UPDATE SET
-         balance = market_wallets.balance + excluded.balance,
+       ON CONFLICT(user_id, save_id) DO UPDATE SET
+         balance = market_save_wallets.balance + excluded.balance,
          updated_at = excluded.updated_at`,
     ).bind(now, tradeId),
   ];
@@ -985,7 +987,13 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
 export async function getMarketTrade(env, user, tradeIdValue) {
   const tradeId = marketId(tradeIdValue, '交易 ID');
   const row = await getTradeRow(env, tradeId);
-  if (!row || (Number(row.buyer_user_id) !== Number(user.id) && Number(row.seller_user_id) !== Number(user.id))) {
+  const sellerSave = Number(row?.seller_user_id) === Number(user.id)
+    ? await first(env, 'SELECT save_id FROM market_listings WHERE id = ? LIMIT 1', [row.listing_id])
+    : null;
+  if (!row || !(
+    (Number(row.buyer_user_id) === Number(user.id) && row.buyer_save_id === user.market_save_id)
+    || (Number(row.seller_user_id) === Number(user.id) && sellerSave?.save_id === user.market_save_id)
+  )) {
     throw new HttpError(404, 'market_trade_not_found', '交易记录不存在');
   }
   return json({ trade: tradeFromRow(row) });
@@ -997,11 +1005,12 @@ export async function confirmMarketDelivery(env, user, tradeIdValue) {
   await env.DB.prepare(
     `UPDATE market_trades
      SET delivered_at = COALESCE(delivered_at, ?)
-     WHERE id = ? AND buyer_user_id = ?`,
-  ).bind(now, tradeId, user.id).run();
+     WHERE id = ? AND buyer_user_id = ? AND buyer_save_id = ?`,
+  ).bind(now, tradeId, user.id, user.market_save_id).run();
 
   const row = await getTradeRow(env, tradeId);
-  if (!row || Number(row.buyer_user_id) !== Number(user.id)) {
+  if (!row || Number(row.buyer_user_id) !== Number(user.id)
+    || row.buyer_save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_trade_not_found', '交易记录不存在');
   }
   return json({ trade: tradeFromRow(row) });

@@ -197,6 +197,7 @@ export function createMarketView({
   };
 
   function renderRows() {
+    allRows = buildMarketRows(listings, currentUserId());
     rows = filterMarketRows(allRows, {
       kind: currentKind,
       query: nodes.marketSearch?.value || '',
@@ -371,7 +372,6 @@ export function createMarketView({
       empty(nodes.marketList, '正在读取空间集市…');
       selectedKey = '';
       listings = await marketService.listAll();
-      allRows = buildMarketRows(listings, currentUserId());
       renderRows();
       await refreshSummary();
     } finally {

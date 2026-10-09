@@ -241,7 +241,7 @@ export async function createMarketBuyOrder(request, env, user) {
   const id = marketId(body?.id, '求购单ID');
   const existing = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
   if (existing) {
-    if (Number(existing.buyer_user_id) !== Number(user.id)) {
+    if (Number(existing.buyer_user_id) !== Number(user.id) || existing.save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_id_conflict', '求购单ID已被占用');
     }
     return json({ order: orderFromRow(existing) });
@@ -254,11 +254,11 @@ export async function createMarketBuyOrder(request, env, user) {
   const now = Date.now();
   await env.DB.prepare(
     `INSERT INTO market_buy_orders
-      (id, buyer_user_id, asset_kind, asset_name, quality, subtype, unit_price,
+      (id, buyer_user_id, save_id, asset_kind, asset_name, quality, subtype, unit_price,
        total_quantity, remaining_quantity, escrow_balance, status, expires_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
   ).bind(
-    id, user.id, wanted.kind, wanted.name, wanted.quality, wanted.subtype, unitPrice,
+    id, user.id, user.market_save_id, wanted.kind, wanted.name, wanted.quality, wanted.subtype, unitPrice,
     wanted.quantity, wanted.quantity, total, now + hours * 60 * 60 * 1000, now, now,
   ).run();
   const row = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
@@ -268,7 +268,7 @@ export async function createMarketBuyOrder(request, env, user) {
 export async function getMarketBuyOrder(env, user, orderIdValue) {
   const id = marketId(orderIdValue, '求购单ID');
   const row = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
-  if (!row || Number(row.buyer_user_id) !== Number(user.id)) {
+  if (!row || Number(row.buyer_user_id) !== Number(user.id) || row.save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_order_not_found', '求购单不存在');
   }
   return json({ order: orderFromRow(row) });
@@ -281,7 +281,8 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
   const fillId = marketId(body?.fill_id, '成交ID');
   const existingFill = await first(env, 'SELECT * FROM market_order_fills WHERE id = ? LIMIT 1', [fillId]);
   if (existingFill) {
-    if (Number(existingFill.seller_user_id) !== Number(user.id)) {
+    if (Number(existingFill.seller_user_id) !== Number(user.id)
+      || existingFill.seller_save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_id_conflict', '成交ID已被占用');
     }
     return json({ fill: orderFillFromRow(existingFill) });
@@ -333,9 +334,9 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
   await runBatch(env, [
     env.DB.prepare(
       `INSERT INTO market_order_fills
-        (id, order_id, seller_user_id, buyer_user_id, asset_kind, asset_name, asset_json,
+        (id, order_id, seller_user_id, buyer_user_id, buyer_save_id, seller_save_id, asset_kind, asset_name, asset_json,
          quantity, unit_price, total_price, delivered_at, created_at)
-       SELECT ?, o.id, ?, o.buyer_user_id, ?, ?, ?, ?, o.unit_price, o.unit_price * ?, NULL, ?
+       SELECT ?, o.id, ?, o.buyer_user_id, o.save_id, ?, ?, ?, ?, ?, o.unit_price, o.unit_price * ?, NULL, ?
        FROM market_buy_orders o
        LEFT JOIN market_user_controls buyer_control ON buyer_control.user_id = o.buyer_user_id
        WHERE o.id = ?
@@ -348,6 +349,7 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
     ).bind(
       fillId,
       user.id,
+      user.market_save_id,
       asset.kind,
       asset.name,
       asset.assetJson,
@@ -373,14 +375,14 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
          )`,
     ).bind(quantity, total, quantity, now, orderId, fillId, orderId, user.id),
     env.DB.prepare(
-      `INSERT INTO market_wallets (user_id, balance, updated_at)
-       SELECT seller_user_id, total_price, ?
+      `INSERT INTO market_save_wallets (user_id, save_id, balance, updated_at)
+       SELECT seller_user_id, seller_save_id, total_price, ?
        FROM market_order_fills
-       WHERE id = ? AND seller_user_id = ?
-       ON CONFLICT(user_id) DO UPDATE SET
-         balance = market_wallets.balance + excluded.balance,
+       WHERE id = ? AND seller_user_id = ? AND seller_save_id = ?
+       ON CONFLICT(user_id, save_id) DO UPDATE SET
+         balance = market_save_wallets.balance + excluded.balance,
          updated_at = excluded.updated_at`,
-    ).bind(now, fillId, user.id),
+    ).bind(now, fillId, user.id, user.market_save_id),
   ]);
   const row = await first(env, 'SELECT * FROM market_order_fills WHERE id = ? LIMIT 1', [fillId]);
   if (!row) {

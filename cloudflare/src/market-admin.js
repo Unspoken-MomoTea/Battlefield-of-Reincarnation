@@ -253,6 +253,21 @@ export async function adminSetMarketUserState(request, env, user, targetUserIdVa
        updated_by_user_id = excluded.updated_by_user_id,
        updated_at = excluded.updated_at`,
   ).bind(targetUserId, suspended ? 1 : 0, note, user.id, now).run();
+
+  const catalogRows = await all(
+    env,
+    `SELECT DISTINCT catalog_key
+     FROM market_listings
+     WHERE seller_user_id = ?
+       AND catalog_key <> ''
+       AND status = 'active'
+       AND remaining_quantity > 0`,
+    [targetUserId],
+  );
+  for (const row of catalogRows) {
+    await refreshMarketCatalogKey(env, row.catalog_key);
+  }
+
   await writeModerationAudit(env, user, {
     action: suspended ? 'market_user_suspend' : 'market_user_restore',
     targetUserId,

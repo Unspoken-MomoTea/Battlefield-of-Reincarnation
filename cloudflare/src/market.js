@@ -497,7 +497,9 @@ async function getTradeRow(env, tradeId) {
 }
 
 export async function listMarketListings(request, env) {
+  await settleExpiredMarketListings(env);
   await ensureTestingMarketFixtures(env);
+  await ensureSystemCredentialListings(env);
   const url = new URL(request.url);
   const kind = String(url.searchParams.get('kind') || '').trim();
   const query = text(url.searchParams.get('q') || '', 80);
@@ -508,8 +510,12 @@ export async function listMarketListings(request, env) {
   const offset = Math.max(0, integer(url.searchParams.get('offset'), 0));
   const sort = String(url.searchParams.get('sort') || 'latest');
 
-  const clauses = ["l.status = 'active'", 'l.remaining_quantity > 0'];
-  const args = [];
+  const clauses = [
+    "l.status = 'active'",
+    'l.remaining_quantity > 0',
+    '(l.is_system = 1 OR l.expires_at = 0 OR l.expires_at > ?)',
+  ];
+  const args = [nowMs()];
   if (kind) {
     if (!MARKET_KINDS.has(kind)) throw new HttpError(400, 'market_invalid_kind', '资产类型无效');
     clauses.push('l.asset_kind = ?');

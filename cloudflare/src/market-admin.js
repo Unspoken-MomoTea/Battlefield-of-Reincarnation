@@ -1,5 +1,6 @@
 import { HttpError, json, readJson } from './http.js';
 import { marketQualityHigh, marketQuality } from './market-economy.js';
+import { refreshMarketCatalogKey } from './market-catalog.js';
 import { assertModerator, moderationText, writeModerationAudit } from './moderation/common.js';
 
 function integer(value, fallback = 0) {
@@ -226,6 +227,7 @@ export async function adminCancelMarketListing(env, user, listingId) {
       row.asset_name, row.asset_json, row.remaining_quantity, now,
     ),
   ]);
+  if (row.catalog_key) await refreshMarketCatalogKey(env, row.catalog_key);
   await writeModerationAudit(env, user, {
     action: 'market_listing_cancel',
     targetUserId: row.seller_user_id,

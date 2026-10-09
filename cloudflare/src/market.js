@@ -187,7 +187,6 @@ function listingFromRow(row) {
   if (!row) return null;
   return {
     id: row.id,
-    save_id: row.save_id || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.remaining_quantity),
     unit_price: integer(row.unit_price),
     total_quantity: integer(row.total_quantity),
@@ -608,7 +607,13 @@ const TRADE_SELECT = `
 `;
 
 async function getListing(env, listingId) {
-  return listingFromRow(await first(env, `${LISTING_SELECT} WHERE l.id = ? LIMIT 1`, [listingId]));
+  const row = await first(env, `${LISTING_SELECT} WHERE l.id = ? LIMIT 1`, [listingId]);
+  const listing = listingFromRow(row);
+  if (listing) {
+    // Internal authorization metadata; do not leak other players' save identifiers in public listings.
+    Object.defineProperty(listing, 'save_id', { value: row.save_id || '' });
+  }
+  return listing;
 }
 
 async function getTradeRow(env, tradeId) {

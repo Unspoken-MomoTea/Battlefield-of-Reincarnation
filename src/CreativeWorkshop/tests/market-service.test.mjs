@@ -532,3 +532,151 @@ test('failed teammate auction restores the original trust state instead of the l
   assert.equal(restored.态度, '完全信任原主');
   assert.equal(host.read().stat_data.角色.空间币, 1000);
 });
+
+
+test('buy order escrow deducts local coins and cancellation refund is written back once', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 500,
+      装备: {}, 道具: {}, 技能: {}, 血统: {}, 形态库: {},
+    },
+    关系列表: {},
+  });
+  let created = null;
+  const api = {
+    async createMarketBuyOrder(input) {
+      created = clone(input);
+      return {
+        order: {
+          id: input.id,
+          asset_kind: input.kind,
+          asset_name: input.name,
+          quantity: input.quantity,
+          unit_price: input.unit_price,
+        },
+      };
+    },
+    async getMarketBuyOrder() { throw new Error('not needed'); },
+    async cancelMarketBuyOrder(orderId) {
+      return {
+        order: { id: orderId, status: 'cancelled' },
+        payout: { id: 'order-refund:test', amount: 150, confirmed_at: null },
+      };
+    },
+    async confirmMarketPayout() { return {}; },
+  };
+  const market = createMarketService({ host, api });
+
+  const result = await market.createBuyOrder({
+    kind: 'item',
+    name: '求购材料',
+    quality: 'E',
+    subtype: '材料',
+    quantity: 3,
+    unitPrice: 50,
+    durationHours: 24,
+  });
+  assert.ok(result.order.id);
+  assert.equal(created.unit_price, 50);
+  assert.equal(host.read().stat_data.角色.空间币, 350);
+
+  await market.cancelBuyOrder(result.order.id);
+  assert.equal(host.read().stat_data.角色.空间币, 500);
+});
+
+test('filling a buy order removes only the delivered local stack and preserves teammate trade reset', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 0,
+      装备: {},
+      道具: { 材料: { 名称: '材料', 品质: 'E', 类型: '材料', 数量: 5 } },
+      技能: {}, 血统: {}, 形态库: {},
+    },
+    关系列表: {
+      旅伴: { 是否队友: true, 层级: 'Ⅱ', 好感度: 80, 态度: '信任' },
+    },
+  });
+  const fills = [];
+  const api = {
+    async fillMarketBuyOrder(orderId, input) {
+      fills.push(clone({ orderId, input }));
+      return { fill: { id: input.fill_id, asset: input.asset } };
+    },
+    async getMarketMe() { return { order_fills: [] }; },
+  };
+  const market = createMarketService({ host, api });
+
+  await market.fillBuyOrder({
+    id: 'order:item',
+    asset_kind: 'item',
+    asset_name: '材料',
+    remaining_quantity: 3,
+  }, {
+    kind: 'item',
+    key: '材料',
+    name: '材料',
+    quantity: 2,
+  });
+  assert.equal(host.read().stat_data.角色.道具.材料.数量, 3);
+  assert.equal(fills[0].input.asset.quantity, 2);
+
+  await market.fillBuyOrder({
+    id: 'order:teammate',
+    asset_kind: 'teammate',
+    asset_name: '旅伴',
+    remaining_quantity: 1,
+  }, {
+    kind: 'teammate',
+    key: '旅伴',
+    name: '旅伴',
+  });
+  assert.equal(host.read().stat_data.关系列表.旅伴, undefined);
+  assert.equal(fills[1].input.asset.data.好感度, 0);
+  assert.equal(fills[1].input.asset.data.态度, '被交易的货物，对原主失去一切信任');
+});
+
+test('failed swap creation restores escrowed local asset while successful transfer delivery is idempotent', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 0,
+      装备: {},
+      道具: { 药剂: { 名称: '药剂', 品质: 'F', 类型: '消耗品', 数量: 2 } },
+      技能: {}, 血统: {}, 形态库: {},
+    },
+    关系列表: {},
+  });
+  let confirmCount = 0;
+  const api = {
+    async createMarketSwap() { throw new Error('swap network failed'); },
+    async getMarketSwap() { throw new Error('missing'); },
+    async confirmMarketSwapTransfer() { confirmCount += 1; return {}; },
+  };
+  const market = createMarketService({ host, api });
+
+  await assert.rejects(
+    () => market.createSwap({
+      offered: { kind: 'item', key: '药剂', name: '药剂', quantity: 2 },
+      wanted: { kind: 'item', name: '材料', quality: 'E', subtype: '材料', quantity: 1 },
+      durationHours: 24,
+    }),
+    /swap network failed/u,
+  );
+  assert.equal(host.read().stat_data.角色.道具.药剂.数量, 2);
+
+  const transfer = {
+    id: 'swap-transfer:test',
+    asset: {
+      kind: 'item',
+      name: '材料',
+      quantity: 1,
+      data: { 名称: '材料', 品质: 'E', 类型: '材料', 数量: 1 },
+    },
+  };
+  await market.receiveSwapTransfer(transfer);
+  await market.receiveSwapTransfer(transfer);
+  assert.equal(host.read().stat_data.角色.道具.材料.数量, 1);
+  assert.equal(confirmCount, 2);
+});

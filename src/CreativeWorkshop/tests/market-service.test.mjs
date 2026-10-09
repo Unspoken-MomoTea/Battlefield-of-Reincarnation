@@ -880,3 +880,23 @@ test('an operation interrupted by a chat switch never deducts from the newly ope
   assert.equal(host.read().stat_data.角色.道具.药剂.数量, 3);
   assert.equal(host.read().stat_data.角色.空间币, 500);
 });
+
+test('a receipt from another save is refused before local asset mutation', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: { 空间币: 100, 道具: {} },
+  });
+  const service = createMarketService({
+    host,
+    api: { async confirmMarketDelivery() { throw new Error('receipt must not be confirmed'); } },
+  });
+  await assert.rejects(
+    service.deliverTrade({
+      id: 'receipt-from-another-save',
+      buyer_save_id: 'save:another-chat',
+      asset: { kind: 'item', name: '测试道具', quantity: 1, data: { 名称: '测试道具', 数量: 1 } },
+    }),
+    /另一个存档/u,
+  );
+  assert.deepEqual(host.read().stat_data.角色.道具, {});
+});

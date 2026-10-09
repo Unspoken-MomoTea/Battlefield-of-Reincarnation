@@ -4,7 +4,7 @@ import { routeRequest } from './router.js';
 import { settleExpiredMarketListings } from './market.js';
 import { settleExpiredMarketOrders } from './market-orders.js';
 
-export const SERVICE_VERSION = '0.13.7';
+export const SERVICE_VERSION = '0.13.8';
 
 export async function handleRequest(request, env) {
   if (request.method === 'OPTIONS') {

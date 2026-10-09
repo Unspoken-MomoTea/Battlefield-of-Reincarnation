@@ -22,6 +22,7 @@ function createHost(initialStatData) {
   };
   return {
     Mvu,
+    getCurrentChatId: () => 'test-market-chat',
     eventEmit(...args) { events.push(args); },
     crypto: {
       randomUUID: () => {

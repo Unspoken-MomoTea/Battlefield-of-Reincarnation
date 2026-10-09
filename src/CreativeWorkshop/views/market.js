@@ -737,17 +737,26 @@ export function createMarketView({
     }
     content.append(recovery);
 
-    const active = (state.listings || []).filter(value => value.status === 'active');
+    const active = (state.listings || []).filter(
+      value => value.status === 'active' && !value.expired,
+    );
     const activeSection = section('正在出售', String(active.length));
     if (!active.length) activeSection.append(element('div', 'rw-ah-muted-line', '当前没有在售拍卖。'));
     for (const listing of active) {
+      const expiryText = listing.expires_at
+        ? until(listing.expires_at) + '后到期'
+        : '无到期时间';
+      const feeText = listing.listing_fee
+        ? ' · 上架税 ' + coin(listing.listing_fee)
+        : '';
       activeSection.append(transactionRow(
         (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
-        coin(listing.unit_price) + ' 空间币 / 件 · ' + when(listing.created_at),
+        coin(listing.unit_price) + ' 空间币 / 件 · ' + expiryText + feeText,
         [button('取消拍卖', 'danger', async () => {
           const ok = await confirmDialog({
             title: '取消拍卖',
-            message: '撤回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity + ' 件？',
+            message: '撤回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity
+              + ' 件？已支付的上架税不会退还。',
             confirmText: '取消拍卖',
             danger: true,
           });
@@ -761,6 +770,58 @@ export function createMarketView({
     }
     content.append(activeSection);
 
+    const expired = (state.listings || []).filter(
+      value => value.status === 'active' && value.expired && Number(value.remaining_quantity || 0) > 0,
+    );
+    const expiredSection = section('已到期 · 待取回', String(expired.length));
+    if (!expired.length) {
+      expiredSection.append(element('div', 'rw-ah-muted-line', '没有等待取回的到期拍卖。'));
+    }
+    for (const listing of expired) {
+      expiredSection.append(transactionRow(
+        (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
+        '已下架 · ' + until(listing.recycle_at) + '后系统自动回收',
+        [button('取回资产', 'primary', async () => {
+          const ok = await confirmDialog({
+            title: '取回到期资产',
+            message: '取回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity
+              + ' 件？超过回收时限后服务器会自动折算为空间币。',
+            confirmText: '取回',
+          });
+          if (!ok) return;
+          await marketService.cancel(listing.id);
+          try { host.toastr?.success?.('到期资产已返还当前存档', '空间集市'); } catch {}
+          await renderMineMode();
+        })],
+      ));
+    }
+    content.append(expiredSection);
+
+    const recycleRecords = []
+      .concat((state.buybacks || []).map(value => ({
+        ...value,
+        side: '主动回收',
+        amount: Number(value.amount || 0),
+      })))
+      .concat((state.recycles || []).map(value => ({
+        ...value,
+        side: '到期自动回收',
+        amount: Number(value.amount || 0),
+      })))
+      .sort((a, b) => Number(b.created_at) - Number(a.created_at))
+      .slice(0, 30);
+    const recycleHistory = section('系统回收记录', String(recycleRecords.length));
+    if (!recycleRecords.length) {
+      recycleHistory.append(element('div', 'rw-ah-muted-line', '还没有系统回收记录。'));
+    }
+    for (const record of recycleRecords) {
+      recycleHistory.append(transactionRow(
+        record.side + ' · ' + (record.asset?.name || '资产') + ' ×' + (record.quantity || 1),
+        coin(record.amount) + ' 空间币 · ' + when(record.created_at),
+      ));
+    }
+    content.append(recycleHistory);
+
     const records = []
       .concat((state.purchases || []).map(value => ({ ...value, side: '买入' })))
       .concat((state.sales || []).map(value => ({ ...value, side: '卖出' })))
@@ -769,9 +830,13 @@ export function createMarketView({
     const history = section('成交记录', String(records.length));
     if (!records.length) history.append(element('div', 'rw-ah-muted-line', '还没有成交记录。'));
     for (const trade of records) {
+      const settlement = trade.side === '卖出'
+        ? '成交 ' + coin(trade.total_price) + ' · 公证费 ' + coin(trade.market_fee)
+          + ' · 实收 ' + coin(trade.seller_proceeds)
+        : '支付 ' + coin(trade.total_price);
       history.append(transactionRow(
         trade.side + ' · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
-        coin(trade.total_price) + ' 空间币 · ' + when(trade.created_at),
+        settlement + ' 空间币 · ' + when(trade.created_at),
       ));
     }
     content.append(history);

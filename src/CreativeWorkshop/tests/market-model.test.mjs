@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildMarketRows,
   filterMarketRows,
+  marketAssetFieldDisplay,
   marketPriceLadder,
   planMarketPurchase,
 } from '../views/market-model.js';
@@ -124,4 +125,13 @@ test('cached auction rows filter, search and sort without rebuilding server quer
     filterMarketRows(rows, { sort: 'latest' }).map(row => row.name),
     ['疾步', '铁剑', '治疗药剂'],
   );
+});
+
+
+test('market asset display translates equipment, skill and status enums', () => {
+  assert.equal(marketAssetFieldDisplay({ kind: 'equipment' }, '类型', 0), '武器');
+  assert.equal(marketAssetFieldDisplay({ kind: 'equipment' }, '类型', 8), '世界遗物');
+  assert.equal(marketAssetFieldDisplay({ kind: 'skill' }, '类型', 1), '被动');
+  assert.equal(marketAssetFieldDisplay({ kind: 'item' }, '类型', '材料'), '材料');
+  assert.equal(marketAssetFieldDisplay({ kind: 'equipment' }, '状态', 2), '仓库');
 });

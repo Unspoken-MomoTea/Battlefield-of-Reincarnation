@@ -1,6 +1,6 @@
 import { HttpError, json, readJson } from './http.js';
 import { assertMarketActive } from './market-access.js';
-import { marketPriceHistoryStatement, refreshMarketCatalogKey } from './market-catalog.js';
+import { refreshMarketCatalogKey } from './market-catalog.js';
 import { marketSaleSettlement } from './market-economy.js';
 
 const MARKET_ID_RE = /^[A-Za-z0-9:_-]{6,96}$/u;
@@ -386,14 +386,6 @@ export async function buyMarketCatalog(request, env, user, catalogKey) {
          updated_at = excluded.updated_at`,
     ).bind(now, purchaseId),
   );
-
-  plan.lines.forEach((line, index) => {
-    statements.push(marketPriceHistoryStatement(env, {
-      catalogKey: plan.catalog_key,
-      tradeId: tradeIdFor(purchaseId, index),
-      now,
-    }));
-  });
 
   try {
     await runBatch(env, statements);

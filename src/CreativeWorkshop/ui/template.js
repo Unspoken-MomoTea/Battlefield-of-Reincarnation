@@ -41,8 +41,11 @@ export function workshopTemplate(version) {
       <button class="rw-tab rw-nav-filter" data-character-home type="button">角色</button>
       <button class="rw-tab rw-nav-filter" data-category-filter="extension" data-kind-filter="store_catalog" type="button">开局商店</button>
       <div class="rw-nav-divider"></div>
-      <button class="rw-tab" data-tab="favorites" type="button" hidden>我的收藏</button>
+      <div class="rw-nav-label" data-role="market-nav-label" hidden>交易</div>
       <button class="rw-tab rw-market-tab" data-tab="market" type="button" hidden>空间集市 <span class="rw-market-test-badge">TEST</span></button>
+      <div class="rw-nav-divider" data-role="market-nav-divider" hidden></div>
+      <div class="rw-nav-label">个人</div>
+      <button class="rw-tab" data-tab="favorites" type="button" hidden>我的收藏</button>
       <button class="rw-tab" data-tab="installed" type="button">本地库</button>
       <div class="rw-nav-connection">● 已连接 SillyTavern</div>
     </nav>
@@ -146,14 +149,12 @@ export function workshopTemplate(version) {
             <section class="rw-ah-results">
               <div class="rw-ah-table-head">
                 <span>物品</span>
+                <span>类型</span>
                 <span>品质</span>
                 <span>库存</span>
                 <span>单价</span>
               </div>
               <div class="rw-ah-list" data-role="market-list"></div>
-              <div class="rw-ah-load-more">
-                <button class="rw-button" data-action="market-more" type="button" hidden>加载更多</button>
-              </div>
             </section>
 
             <aside class="rw-ah-inspector" data-role="market-inspector">

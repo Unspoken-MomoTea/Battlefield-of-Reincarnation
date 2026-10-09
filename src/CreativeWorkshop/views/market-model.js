@@ -126,3 +126,35 @@ export function marketPriceLadder(row, currentUserId = null) {
     .sort((a, b) => a.price - b.price)
     .map(level => ({ price: level.price, stock: level.stock, sellerCount: level.sellers.size }));
 }
+
+
+function marketRowTime(row) {
+  return Math.max(0, ...(row?.listings || []).map(listing => Number(listing.created_at || 0)));
+}
+
+function marketRowPrice(row) {
+  const value = row?.buyPrice ?? row?.lowestPrice;
+  return Number.isFinite(Number(value)) ? Number(value) : Number.MAX_SAFE_INTEGER;
+}
+
+export function filterMarketRows(rows = [], { kind = '', query = '', sort = 'price_asc' } = {}) {
+  const needle = String(query || '').trim().toLocaleLowerCase('zh-CN');
+  const filtered = (Array.isArray(rows) ? rows : []).filter(row => {
+    if (kind && row?.kind !== kind) return false;
+    if (needle && !String(row?.name || '').toLocaleLowerCase('zh-CN').includes(needle)) return false;
+    return true;
+  });
+
+  return filtered.sort((left, right) => {
+    if (sort === 'latest') {
+      return marketRowTime(right) - marketRowTime(left)
+        || String(left?.name || '').localeCompare(String(right?.name || ''), 'zh-CN');
+    }
+    if (sort === 'price_desc') {
+      return marketRowPrice(right) - marketRowPrice(left)
+        || String(left?.name || '').localeCompare(String(right?.name || ''), 'zh-CN');
+    }
+    return marketRowPrice(left) - marketRowPrice(right)
+      || String(left?.name || '').localeCompare(String(right?.name || ''), 'zh-CN');
+  });
+}

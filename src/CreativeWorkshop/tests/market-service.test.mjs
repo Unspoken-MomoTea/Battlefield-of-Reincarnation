@@ -222,3 +222,30 @@ test('trade-changing operations are blocked outside the hub', async () => {
     /只允许在主神空间/u,
   );
 });
+
+
+test('complete market snapshot follows pagination once and exposes all listings to the view', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: { 空间币: 0, 装备: {}, 道具: {}, 技能: {} },
+  });
+  const calls = [];
+  const api = {
+    async listMarketListings(input) {
+      calls.push(clone(input));
+      if (input.offset === 0) {
+        return { items: [{ id: 'a' }, { id: 'b' }], next_offset: 2 };
+      }
+      return { items: [{ id: 'c' }], next_offset: null };
+    },
+  };
+
+  const market = createMarketService({ host, api });
+  const items = await market.listAll();
+
+  assert.deepEqual(items.map(item => item.id), ['a', 'b', 'c']);
+  assert.deepEqual(calls, [
+    { sort: 'latest', offset: 0, limit: 60 },
+    { sort: 'latest', offset: 2, limit: 60 },
+  ]);
+});

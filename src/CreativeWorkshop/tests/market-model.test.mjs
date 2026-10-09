@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   buildMarketRows,
+  filterMarketRows,
   marketPriceLadder,
   planMarketPurchase,
 } from '../views/market-model.js';
@@ -82,4 +83,45 @@ test('price ladder aggregates sellers at the same unit price', () => {
     { price: 25, stock: 5, sellerCount: 2 },
     { price: 30, stock: 4, sellerCount: 1 },
   ]);
+});
+
+
+test('cached auction rows filter, search and sort without rebuilding server queries', () => {
+  const rows = buildMarketRows([
+    listing('item-a', 1, 30, 2, '治疗药剂'),
+    listing('item-b', 2, 25, 3, '治疗药剂'),
+    {
+      id: 'equip-a',
+      unit_price: 80,
+      remaining_quantity: 1,
+      created_at: 9,
+      seller: { id: 3 },
+      asset: { kind: 'equipment', name: '铁剑', data: { 品质: 'E' } },
+    },
+    {
+      id: 'skill-a',
+      unit_price: 50,
+      remaining_quantity: 1,
+      created_at: 12,
+      seller: { id: 4 },
+      asset: { kind: 'skill', name: '疾步', data: { 品质: 'F' } },
+    },
+  ], 99);
+
+  assert.deepEqual(
+    filterMarketRows(rows, { kind: 'item', sort: 'price_asc' }).map(row => row.name),
+    ['治疗药剂'],
+  );
+  assert.deepEqual(
+    filterMarketRows(rows, { query: '铁', sort: 'price_asc' }).map(row => row.name),
+    ['铁剑'],
+  );
+  assert.deepEqual(
+    filterMarketRows(rows, { sort: 'price_desc' }).map(row => row.name),
+    ['铁剑', '疾步', '治疗药剂'],
+  );
+  assert.deepEqual(
+    filterMarketRows(rows, { sort: 'latest' }).map(row => row.name),
+    ['疾步', '铁剑', '治疗药剂'],
+  );
 });

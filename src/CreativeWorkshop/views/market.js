@@ -1,13 +1,16 @@
 import { MARKET_KIND_LABELS } from '../services/market-service.js';
 import {
   buildMarketRows,
+  filterMarketRows,
   marketPriceLadder,
   planMarketPurchase,
 } from './market-model.js';
 
 const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const coin = value => Math.max(0, Math.trunc(num(value))).toLocaleString('zh-CN');
-const quality = asset => String(asset?.data?.品质 || asset?.data?.层级 || asset?.data?.等级 || '').trim();
+const quality = asset => String(
+  asset?.quality || asset?.data?.品质 || asset?.data?.层级 || asset?.data?.等级 || '',
+).trim();
 const when = value => {
   const date = new Date(Number(value) || 0);
   return Number.isFinite(date.getTime()) && date.getTime() > 0
@@ -23,8 +26,8 @@ export function createMarketView({
   host, marketService, getAuth,
 }) {
   let listings = [];
+  let allRows = [];
   let rows = [];
-  let nextOffset = null;
   let loading = false;
   let selectedKey = '';
   let currentKind = '';
@@ -53,6 +56,48 @@ export function createMarketView({
     return facts;
   };
 
+  const dataValue = (value, depth = 0) => {
+    if (value == null) return element('span', 'rw-ah-data-value muted', '—');
+
+    if (Array.isArray(value)) {
+      const list = element('div', 'rw-ah-data-list');
+      if (!value.length) {
+        list.append(element('span', 'rw-ah-data-value muted', '—'));
+        return list;
+      }
+      const primitive = value.every(item => item == null || ['string', 'number', 'boolean'].includes(typeof item));
+      if (primitive) {
+        for (const item of value) {
+          list.append(element('span', 'rw-ah-data-chip', item == null ? '—' : String(item)));
+        }
+        return list;
+      }
+      value.forEach((item, index) => {
+        const row = element('div', 'rw-ah-data-nested');
+        row.append(element('span', 'rw-ah-data-key', String(index + 1)), dataValue(item, depth + 1));
+        list.append(row);
+      });
+      return list;
+    }
+
+    if (typeof value === 'object') {
+      const group = element('div', depth > 0 ? 'rw-ah-data-object nested' : 'rw-ah-data-object');
+      const entries = Object.entries(value);
+      if (!entries.length) {
+        group.append(element('span', 'rw-ah-data-value muted', '—'));
+        return group;
+      }
+      for (const [key, nested] of entries) {
+        const row = element('div', 'rw-ah-data-row');
+        row.append(element('span', 'rw-ah-data-key', key), dataValue(nested, depth + 1));
+        group.append(row);
+      }
+      return group;
+    }
+
+    return element('span', 'rw-ah-data-value', String(value));
+  };
+
   const assetDetail = asset => {
     const box = element('div', 'rw-ah-asset-detail');
     const facts = element('div', 'rw-ah-fact-grid');
@@ -66,12 +111,21 @@ export function createMarketView({
     const copy = summary(asset);
     if (copy) box.append(element('p', 'rw-ah-description', copy));
 
-    const more = element('details', 'rw-market-json');
-    more.append(element('summary', '', '完整资产数据'));
-    const pre = element('pre');
-    pre.textContent = JSON.stringify(asset?.data || {}, null, 2);
-    more.append(pre);
-    box.append(more);
+    const dataSection = element('section', 'rw-ah-data-section');
+    dataSection.append(element('div', 'rw-ah-section-label', '资产数据'));
+    const dataBody = element('div', 'rw-ah-data-object');
+    const entries = Object.entries(asset?.data || {});
+    if (!entries.length) {
+      dataBody.append(element('div', 'rw-ah-muted-line', '没有额外资产字段。'));
+    } else {
+      for (const [key, value] of entries) {
+        const row = element('div', 'rw-ah-data-row');
+        row.append(element('span', 'rw-ah-data-key', key), dataValue(value));
+        dataBody.append(row);
+      }
+    }
+    dataSection.append(dataBody);
+    box.append(dataSection);
     return box;
   };
 
@@ -89,15 +143,18 @@ export function createMarketView({
     if (mode !== 'browse') requireLogin();
     currentMode = mode;
     setModeVisuals();
+    if (!listings.length) await refresh();
     if (mode === 'sell') await renderSellMode();
     if (mode === 'mine') await renderMineMode();
-    if (mode === 'browse' && !listings.length) await refresh();
     await refreshSummary();
   }
 
-  const rowIcon = marketRow => {
-    const icon = element('span', 'rw-ah-item-icon', (marketRow.name || '?').slice(0, 1));
-    icon.dataset.kind = marketRow.kind;
+  const rowIcon = subject => {
+    const asset = subject?.asset || subject || {};
+    const name = String(subject?.name || asset?.name || '?');
+    const icon = element('span', 'rw-ah-item-icon', name.slice(0, 1) || '?');
+    const rank = quality(asset).toUpperCase().match(/[A-Z]+/u)?.[0] || '';
+    icon.dataset.quality = rank || 'NONE';
     return icon;
   };
 
@@ -120,6 +177,8 @@ export function createMarketView({
     );
     itemCell.append(rowIcon(marketRow), itemCopy);
 
+    const kindCell = element('span', 'rw-ah-result-kind');
+    kindCell.append(element('span', 'rw-ah-type-tag', kindLabel(marketRow.kind)));
     const qualityCell = element('span', 'rw-ah-result-quality', quality(marketRow.asset) || '—');
     const stockCell = element('span', 'rw-ah-result-stock', String(marketRow.totalStock || 0));
     const priceCell = element('span', 'rw-ah-result-price');
@@ -128,7 +187,7 @@ export function createMarketView({
       element('small', '', ' 空间币'),
     );
 
-    node.append(itemCell, qualityCell, stockCell, priceCell);
+    node.append(itemCell, kindCell, qualityCell, stockCell, priceCell);
     node.addEventListener('click', () => {
       selectedKey = marketRow.key;
       renderRows();
@@ -138,7 +197,12 @@ export function createMarketView({
   };
 
   function renderRows() {
-    rows = buildMarketRows(listings, currentUserId());
+    allRows = buildMarketRows(listings, currentUserId());
+    rows = filterMarketRows(allRows, {
+      kind: currentKind,
+      query: nodes.marketSearch?.value || '',
+      sort: nodes.marketSort?.value || 'price_asc',
+    });
     if (!rows.length) {
       empty(nodes.marketList, '当前没有符合条件的商品。');
       selectedKey = '';
@@ -147,17 +211,13 @@ export function createMarketView({
       nodes.marketList.replaceChildren(...rows.map(resultRow));
       const selected = rows.find(row => row.key === selectedKey);
       if (selected) renderInspector(selected);
-      else if (!selectedKey) {
-        selectedKey = rows[0].key;
-        renderRows();
-        return;
-      } else {
+      else {
         selectedKey = rows[0].key;
         renderInspector(rows[0]);
+        nodes.marketList.firstElementChild?.classList.add('is-selected');
       }
     }
-    nodes.marketCount.textContent = rows.length + ' 种商品 · ' + listings.length + ' 个挂单';
-    nodes.marketMore.hidden = nextOffset == null;
+    nodes.marketCount.textContent = rows.length + ' 种商品 · 共 ' + listings.length + ' 个挂单';
   }
 
   function purchaseSummary(marketRow, quantity) {
@@ -182,15 +242,11 @@ export function createMarketView({
     }
 
     const wrap = element('div', 'rw-ah-inspector-body');
-    const head = element('div', 'rw-ah-inspector-head');
-    const headCopy = element('div');
-    const kicker = element('div', 'rw-ah-inspector-kicker');
-    kicker.append(
-      element('span', 'rw-market-kind', kindLabel(marketRow.kind)),
-      element('span', 'rw-market-quality', quality(marketRow.asset) || '未标注'),
+    const head = element('div', 'rw-ah-detail-head');
+    head.append(
+      element('div', 'rw-ah-inspector-title', '详情'),
+      element('h3', '', marketRow.name),
     );
-    headCopy.append(kicker, element('h3', '', marketRow.name));
-    head.append(rowIcon(marketRow), headCopy);
     wrap.append(head, assetDetail(marketRow.asset));
 
     const marketStats = element('div', 'rw-ah-market-stats');
@@ -309,24 +365,13 @@ export function createMarketView({
     nodes.marketInspector.replaceChildren(wrap);
   }
 
-  async function refresh({ append = false } = {}) {
+  async function refresh() {
     if (loading) return;
     loading = true;
     try {
-      if (!append) {
-        empty(nodes.marketList, '正在读取空间集市…');
-        selectedKey = '';
-      }
-      const offset = append && nextOffset != null ? nextOffset : 0;
-      const page = await marketService.list({
-        query: nodes.marketSearch.value,
-        kind: currentKind,
-        sort: nodes.marketSort.value,
-        offset,
-        limit: 48,
-      });
-      listings = append ? listings.concat(page.items || []) : (page.items || []);
-      nextOffset = page.next_offset ?? null;
+      empty(nodes.marketList, '正在读取空间集市…');
+      selectedKey = '';
+      listings = await marketService.listAll();
       renderRows();
       await refreshSummary();
     } finally {
@@ -370,7 +415,7 @@ export function createMarketView({
       element('small', '', kindLabel(asset.kind) + (quality(asset) ? ' · ' + quality(asset) : '')),
     );
     row.append(
-      rowIcon({ name: asset.name, kind: asset.kind }),
+      rowIcon(asset),
       copy,
       element('span', 'rw-ah-inventory-qty', asset.kind === 'item' ? '×' + asset.quantity : '1'),
     );
@@ -410,25 +455,20 @@ export function createMarketView({
       element('span', 'rw-market-quality', quality(asset) || '未标注'),
     );
     headCopy.append(tags, element('h3', '', asset.name));
-    head.append(rowIcon({ name: asset.name, kind: asset.kind }), headCopy);
+    head.append(rowIcon(asset), headCopy);
     editor.append(head, assetDetail(asset));
 
-    let reference = null;
-    try {
-      const page = await marketService.list({
-        query: asset.name,
-        kind: asset.kind,
-        sort: 'price_asc',
-        offset: 0,
-        limit: 20,
-      });
-      reference = (page.items || []).find(item => item.asset?.name === asset.name) || null;
-    } catch {}
+    const referencePrices = listings
+      .filter(item => item?.asset?.kind === asset.kind && item?.asset?.name === asset.name)
+      .map(item => Number(item.unit_price || 0))
+      .filter(value => Number.isFinite(value) && value > 0)
+      .sort((left, right) => left - right);
+    const referencePrice = referencePrices[0] || 0;
 
     const referenceBox = element('div', 'rw-ah-reference-price');
     referenceBox.append(
       element('span', '', '当前市场最低价'),
-      element('strong', '', reference ? coin(reference.unit_price) + ' 空间币' : '暂无同名商品'),
+      element('strong', '', referencePrice ? coin(referencePrice) + ' 空间币' : '暂无同名商品'),
     );
     editor.append(referenceBox);
 
@@ -462,7 +502,7 @@ export function createMarketView({
     price.min = '1';
     price.max = '1000000000';
     price.step = '1';
-    if (reference?.unit_price) price.value = String(reference.unit_price);
+    if (referencePrice) price.value = String(referencePrice);
     price.placeholder = '输入空间币';
     priceField.append(price);
 
@@ -504,7 +544,7 @@ export function createMarketView({
       try { host.toastr?.success?.('已创建拍卖', '空间集市'); } catch {}
       selectedSellIndex = -1;
       await renderSellMode();
-      await refresh({ append: false });
+      await refresh();
     });
 
     form.append(qtyField, priceField, total, submit);
@@ -652,12 +692,11 @@ export function createMarketView({
     nodes.marketMineContent.replaceChildren(content);
   }
 
-  nodes.marketSearchButton?.addEventListener('click', () => void refresh().catch(notifyError));
+  nodes.marketSearchButton?.addEventListener('click', renderRows);
   nodes.marketSearch?.addEventListener('keydown', event => {
-    if (event.key === 'Enter') void refresh().catch(notifyError);
+    if (event.key === 'Enter') renderRows();
   });
-  nodes.marketSort?.addEventListener('change', () => void refresh().catch(notifyError));
-  nodes.marketMore?.addEventListener('click', () => void refresh({ append: true }).catch(notifyError));
+  nodes.marketSort?.addEventListener('change', renderRows);
   nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
 
   for (const tab of nodes.marketModes || []) {
@@ -669,7 +708,7 @@ export function createMarketView({
       for (const candidate of nodes.marketCategories || []) {
         candidate.classList.toggle('is-active', candidate === category);
       }
-      void refresh().catch(notifyError);
+      renderRows();
     });
   }
 

@@ -226,6 +226,28 @@ export function createMarketService({ host, api }) {
     return api.listMarketListings(filters);
   }
 
+  async function listAll() {
+    const items = [];
+    const seenOffsets = new Set();
+    let offset = 0;
+
+    while (!seenOffsets.has(offset)) {
+      seenOffsets.add(offset);
+      const page = await api.listMarketListings({
+        sort: 'latest',
+        offset,
+        limit: 60,
+      });
+      items.push(...(Array.isArray(page?.items) ? page.items : []));
+      if (page?.next_offset == null) break;
+      const nextOffset = Math.max(0, Number(page.next_offset) || 0);
+      if (nextOffset === offset) break;
+      offset = nextOffset;
+    }
+
+    return items;
+  }
+
   async function mine() {
     return api.getMarketMe();
   }
@@ -391,6 +413,7 @@ export function createMarketService({ host, api }) {
   return {
     inventory,
     list,
+    listAll,
     mine,
     sell,
     buy,

@@ -1450,13 +1450,43 @@ export function createMarketView({
     nodes.marketMineContent.replaceChildren(content);
   }
 
-  nodes.marketSearchButton?.addEventListener('click', renderRows);
+  nodes.marketSearchButton?.addEventListener('click', () => renderRows());
   nodes.marketSearch?.addEventListener('keydown', event => {
     if (event.key === 'Enter') renderRows();
   });
-  nodes.marketSort?.addEventListener('change', renderRows);
+  for (const control of [
+    nodes.marketQuality,
+    nodes.marketSubtype,
+    nodes.marketMinPrice,
+    nodes.marketMaxPrice,
+    nodes.marketSort,
+  ]) {
+    control?.addEventListener('change', () => renderRows());
+  }
+  nodes.marketFilterReset?.addEventListener('click', () => {
+    if (nodes.marketSearch) nodes.marketSearch.value = '';
+    if (nodes.marketQuality) nodes.marketQuality.value = '';
+    if (nodes.marketSubtype) nodes.marketSubtype.value = '';
+    if (nodes.marketMinPrice) nodes.marketMinPrice.value = '';
+    if (nodes.marketMaxPrice) nodes.marketMaxPrice.value = '';
+    if (nodes.marketSort) nodes.marketSort.value = 'price_asc';
+    renderRows();
+  });
   nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
+  nodes.marketRecoverAll?.addEventListener('click', () => void (async () => {
+    const state = await marketService.mine();
+    await marketService.recoverAll(state);
+    try { host.toastr?.success?.('可领取的资产与空间币已经全部处理', '空间集市'); } catch {}
+    await renderMineMode();
+    await refreshSummary();
+  })().catch(notifyError));
 
+  for (const tab of nodes.marketMineViews || []) {
+    tab.addEventListener('click', () => {
+      currentMineView = tab.dataset.marketMineView || 'active';
+      void renderMineMode().catch(notifyError);
+    });
+  }
   for (const tab of nodes.marketModes || []) {
     tab.addEventListener('click', () => void setMode(tab.dataset.marketMode).catch(notifyError));
   }
@@ -1475,6 +1505,7 @@ export function createMarketView({
   return {
     refresh,
     openSell: () => setMode('sell'),
+    openBarter: () => setMode('barter'),
     openMine: () => setMode('mine'),
   };
 }

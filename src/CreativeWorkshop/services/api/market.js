@@ -223,6 +223,14 @@ export function createMarketApi(request) {
       );
     },
 
+    confirmMarketRecycleBroadcast(recycleId) {
+      return scopedRequest(
+        `/api/market/recycles/${encodeURIComponent(recycleId)}/announced`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
     buyMarketListing(listingId, input) {
       return scopedRequest(
         `/api/market/listings/${encodeURIComponent(listingId)}/buy`,

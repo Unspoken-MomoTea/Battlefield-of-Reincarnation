@@ -265,6 +265,11 @@ export function createMarketView({
     else orderStateCache.clear();
   };
 
+  const invalidateTradingViews = () => {
+    invalidateMineState();
+    invalidateOrderState();
+  };
+
   async function loadMineState({ force = false } = {}) {
     const fresh = mineStateCache && Date.now() - mineStateLoadedAt <= MARKET_VIEW_CACHE_MS;
     if (!force && fresh) return mineStateCache;
@@ -589,6 +594,7 @@ export function createMarketView({
 
       try {
         await marketService.buyCatalog(catalog, quote.quantity, quote);
+        invalidateTradingViews();
       } catch (error) {
         if ([
           'market_catalog_unavailable',
@@ -675,11 +681,8 @@ export function createMarketView({
       cells.push(['当前存档', '未读取']);
     }
 
-    if (getAuth()?.user) {
-      try {
-        const mine = await loadMineState();
-        cells.push(['待领货款', coin(mine.wallet?.balance)]);
-      } catch {}
+    if (getAuth()?.user && mineStateCache) {
+      cells.push(['待领货款', coin(mineStateCache.wallet?.balance)]);
     }
 
     nodes.marketSummary.replaceChildren(...cells.map(([label, value]) => {
@@ -687,6 +690,12 @@ export function createMarketView({
       cell.append(element('span', '', label), element('strong', '', value));
       return cell;
     }));
+
+    if (getAuth()?.user && !mineStateCache) {
+      void loadMineState()
+        .then(() => refreshSummary())
+        .catch(() => {});
+    }
   }
 
   const sellRow = (asset, index) => {
@@ -937,6 +946,7 @@ export function createMarketView({
         unitPrice,
         durationHours,
       });
+      invalidateTradingViews();
       try { host.toastr?.success?.('已创建拍卖', '空间集市'); } catch {}
       selectedSellIndex = -1;
       await renderSellMode();
@@ -964,6 +974,7 @@ export function createMarketView({
         name: asset.name,
         quantity: amount,
       });
+      invalidateTradingViews();
       try { host.toastr?.success?.('资产已由系统回收，空间币已写入当前存档', '空间集市'); } catch {}
       selectedSellIndex = -1;
       await renderSellMode();
@@ -1139,6 +1150,7 @@ export function createMarketView({
         durationHours: Number(duration.value) || 24,
       });
       orderDraft = null;
+      invalidateTradingViews();
       try { host.toastr?.success?.('求购单已创建，空间币已进入托管', '空间集市'); } catch {}
       await renderOrderMode();
       await refreshSummary();
@@ -1245,6 +1257,7 @@ export function createMarketView({
         },
         durationHours: Number(duration.value) || 24,
       });
+      invalidateTradingViews();
       try { host.toastr?.success?.('交换单已发布，提供资产已进入托管', '空间集市'); } catch {}
       await renderOrderMode();
     }));
@@ -1307,6 +1320,7 @@ export function createMarketView({
             name: asset.name,
             quantity: amount,
           });
+          invalidateTradingViews();
           try { host.toastr?.success?.('已完成求购交付，货款进入待领取余额', '空间集市'); } catch {}
           await renderOrderMode();
           await refreshSummary();
@@ -1380,6 +1394,7 @@ export function createMarketView({
             name: asset.name,
             quantity: amount,
           });
+          invalidateTradingViews();
           try { host.toastr?.success?.('交换完成，请到“我的拍卖 → 待领取”领取对方资产', '空间集市'); } catch {}
           await renderOrderMode();
         }));
@@ -1460,6 +1475,7 @@ export function createMarketView({
     if (Number(state.wallet?.balance) > 0) {
       wallet.append(button('领取到当前存档', 'primary', async () => {
         await marketService.claimProceeds();
+        invalidateTradingViews();
         try { host.toastr?.success?.('货款已写入当前存档', '空间集市'); } catch {}
         await renderMineMode();
         await refreshSummary();
@@ -1502,6 +1518,7 @@ export function createMarketView({
             if (!ok) return;
             await marketService.cancel(listing.id);
             browseStore.invalidate();
+            invalidateTradingViews();
             await renderMineMode();
           })],
         ));
@@ -1519,6 +1536,8 @@ export function createMarketView({
           '已下架 · ' + until(listing.recycle_at) + '后系统自动回收',
           [button('取回资产', 'primary', async () => {
             await marketService.cancel(listing.id);
+            browseStore.invalidate();
+            invalidateTradingViews();
             await renderMineMode();
           })],
         ));
@@ -1542,6 +1561,7 @@ export function createMarketView({
             else if (entry.type === 'order') await marketService.deliverOrderFill(entry.value);
             else if (entry.type === 'swap') await marketService.receiveSwapTransfer(entry.value);
           }
+          invalidateTradingViews();
           await renderMineMode();
           await refreshSummary();
         }));
@@ -1565,6 +1585,7 @@ export function createMarketView({
             else if (entry.type === 'payout') await marketService.receivePayout(value);
             else if (entry.type === 'order') await marketService.deliverOrderFill(value);
             else if (entry.type === 'swap') await marketService.receiveSwapTransfer(value);
+            invalidateTradingViews();
             await renderMineMode();
             await refreshSummary();
           })],
@@ -1619,6 +1640,7 @@ export function createMarketView({
           coin(order.unit_price) + ' / 件 · 托管余额 ' + coin(order.escrow_balance) + ' · ' + until(order.expires_at),
           [button('取消求购', 'danger', async () => {
             await marketService.cancelBuyOrder(order.id);
+            invalidateTradingViews();
             await renderMineMode();
             await refreshSummary();
           })],
@@ -1635,6 +1657,7 @@ export function createMarketView({
           until(swap.expires_at) + '后到期',
           [button('取消交换', 'danger', async () => {
             await marketService.cancelSwap(swap.id);
+            invalidateTradingViews();
             await renderMineMode();
           })],
         ));

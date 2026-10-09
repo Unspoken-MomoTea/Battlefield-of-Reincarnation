@@ -551,3 +551,259 @@ test('system buyback accepts stacked items and ranked teammates with the same qu
   assert.equal(teammateQuote.body.quote.quality, 'E');
   assert.equal(teammateQuote.body.quote.total_price, 35);
 });
+
+
+test('materialized catalog groups identical commodities and records price history after purchase', async () => {
+  const testEnv = env();
+  const sellerA = createUser(testEnv, '1100', 'Catalog Seller A');
+  const sellerB = createUser(testEnv, '1101', 'Catalog Seller B');
+  const buyer = createUser(testEnv, '1102', 'Catalog Buyer');
+  const sellerAHeaders = authHeaders(testEnv, sellerA, 'catalog-a-token');
+  const sellerBHeaders = authHeaders(testEnv, sellerB, 'catalog-b-token');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'catalog-buyer-token');
+
+  const makeListing = async (headers, id, quantity, price) => jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      id,
+      duration_hours: 24,
+      asset: {
+        kind: 'item',
+        name: '目录测试药剂',
+        quantity,
+        data: { 名称: '目录测试药剂', 品质: 'E', 类型: '消耗品', 数量: quantity, 描述: '同规格商品' },
+      },
+      unit_price: price,
+    }),
+  });
+
+  assert.equal((await makeListing(sellerAHeaders, 'catalog-listing-a', 3, 100)).response.status, 201);
+  assert.equal((await makeListing(sellerBHeaders, 'catalog-listing-b', 2, 120)).response.status, 201);
+
+  const catalog = await jsonRequest(testEnv, '/api/market/catalog?limit=200');
+  assert.equal(catalog.response.status, 200);
+  const product = catalog.body.items.find(item => item.name === '目录测试药剂');
+  assert.ok(product);
+  assert.equal(product.total_stock, 5);
+  assert.equal(product.listing_count, 2);
+  assert.equal(product.seller_count, 2);
+  assert.equal(product.lowest_price, 100);
+  assert.equal(product.quality, 'E');
+  assert.equal(product.subtype, '消耗品');
+
+  const details = await jsonRequest(testEnv, '/api/market/catalog/' + encodeURIComponent(product.key));
+  assert.equal(details.response.status, 200);
+  assert.deepEqual(details.body.listings.map(item => item.unit_price), [100, 120]);
+  assert.deepEqual(details.body.history, []);
+
+  const buy = await jsonRequest(testEnv, '/api/market/listings/catalog-listing-a/buy', {
+    method: 'POST',
+    headers: buyerHeaders,
+    body: JSON.stringify({ trade_id: 'catalog-trade-1', quantity: 2 }),
+  });
+  assert.equal(buy.response.status, 200);
+
+  const after = await jsonRequest(testEnv, '/api/market/catalog/' + encodeURIComponent(product.key));
+  assert.equal(after.response.status, 200);
+  assert.equal(after.body.product.total_stock, 3);
+  assert.equal(after.body.history.length, 1);
+  assert.equal(after.body.history[0].last, 100);
+  assert.equal(after.body.history[0].volume, 2);
+});
+
+test('buy orders escrow server budget, fill exactly matching assets and refund unused balance', async () => {
+  const testEnv = env();
+  const buyer = createUser(testEnv, '1200', 'Order Buyer');
+  const seller = createUser(testEnv, '1201', 'Order Seller');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'order-buyer-token');
+  const sellerHeaders = authHeaders(testEnv, seller, 'order-seller-token');
+
+  const created = await jsonRequest(testEnv, '/api/market/orders', {
+    method: 'POST',
+    headers: buyerHeaders,
+    body: JSON.stringify({
+      id: 'order-test-1',
+      asset: {
+        kind: 'item',
+        name: '求购测试材料',
+        quantity: 2,
+        data: { 名称: '求购测试材料', 品质: 'E', 类型: '材料', 数量: 2 },
+      },
+      quantity: 2,
+      unit_price: 90,
+      duration_hours: 24,
+    }),
+  });
+  assert.equal(created.response.status, 201);
+  assert.equal(created.body.order.escrow_balance, 180);
+  assert.equal(created.body.order.quantity_remaining, 2);
+
+  const fill = await jsonRequest(testEnv, '/api/market/orders/order-test-1/fill', {
+    method: 'POST',
+    headers: sellerHeaders,
+    body: JSON.stringify({
+      fill_id: 'order-fill-test-1',
+      asset: {
+        kind: 'item',
+        name: '求购测试材料',
+        quantity: 1,
+        data: { 名称: '求购测试材料', 品质: 'E', 类型: '材料', 数量: 1 },
+      },
+      quantity: 1,
+    }),
+  });
+  assert.equal(fill.response.status, 200);
+  assert.equal(fill.body.fill.total_price, 90);
+  assert.equal(fill.body.fill.market_fee, 3);
+  assert.equal(fill.body.fill.seller_proceeds, 87);
+  assert.equal(fill.body.order.quantity_remaining, 1);
+  assert.equal(fill.body.order.escrow_balance, 90);
+
+  const sellerMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerHeaders });
+  assert.equal(sellerMe.body.wallet.balance, 87);
+  const buyerMe = await jsonRequest(testEnv, '/api/market/me', { headers: buyerHeaders });
+  assert.equal(buyerMe.body.orders.pending_deliveries.length, 1);
+
+  const delivered = await jsonRequest(testEnv, '/api/market/order-fills/order-fill-test-1/delivered', {
+    method: 'POST',
+    headers: buyerHeaders,
+  });
+  assert.equal(delivered.response.status, 200);
+  assert.ok(delivered.body.fill.delivered_at);
+
+  const cancelled = await jsonRequest(testEnv, '/api/market/orders/order-test-1/cancel', {
+    method: 'POST',
+    headers: buyerHeaders,
+  });
+  assert.equal(cancelled.response.status, 200);
+  assert.equal(cancelled.body.order.status, 'cancelled');
+  assert.equal(cancelled.body.payout.amount, 90);
+});
+
+test('barter holds offered asset, atomically completes and creates one delivery for each side', async () => {
+  const testEnv = env();
+  const owner = createUser(testEnv, '1300', 'Barter Owner');
+  const acceptor = createUser(testEnv, '1301', 'Barter Acceptor');
+  const ownerHeaders = authHeaders(testEnv, owner, 'barter-owner-token');
+  const acceptorHeaders = authHeaders(testEnv, acceptor, 'barter-acceptor-token');
+
+  const created = await jsonRequest(testEnv, '/api/market/barters', {
+    method: 'POST',
+    headers: ownerHeaders,
+    body: JSON.stringify({
+      id: 'barter-test-1',
+      offered_asset: {
+        kind: 'item',
+        name: '红苹果',
+        quantity: 2,
+        data: { 名称: '红苹果', 品质: 'F', 类型: '食物', 数量: 2 },
+      },
+      offered_quantity: 2,
+      wanted_asset: {
+        kind: 'item',
+        name: '青梨',
+        quantity: 1,
+        data: { 名称: '青梨', 品质: 'F', 类型: '食物', 数量: 1 },
+      },
+      wanted_quantity: 1,
+      duration_hours: 24,
+    }),
+  });
+  assert.equal(created.response.status, 201);
+  assert.equal(created.body.barter.status, 'active');
+
+  const publicList = await jsonRequest(testEnv, '/api/market/barters');
+  assert.equal(publicList.response.status, 200);
+  assert.ok(publicList.body.items.some(item => item.id === 'barter-test-1'));
+
+  const accepted = await jsonRequest(testEnv, '/api/market/barters/barter-test-1/accept', {
+    method: 'POST',
+    headers: acceptorHeaders,
+    body: JSON.stringify({
+      asset: {
+        kind: 'item',
+        name: '青梨',
+        quantity: 1,
+        data: { 名称: '青梨', 品质: 'F', 类型: '食物', 数量: 1 },
+      },
+      quantity: 1,
+    }),
+  });
+  assert.equal(accepted.response.status, 200);
+  assert.equal(accepted.body.barter.status, 'completed');
+  assert.equal(accepted.body.delivery.asset.name, '红苹果');
+
+  const ownerMe = await jsonRequest(testEnv, '/api/market/me', { headers: ownerHeaders });
+  assert.equal(ownerMe.body.barters.pending_deliveries.length, 1);
+  assert.equal(ownerMe.body.barters.pending_deliveries[0].asset.name, '青梨');
+
+  const acceptorMe = await jsonRequest(testEnv, '/api/market/me', { headers: acceptorHeaders });
+  assert.equal(acceptorMe.body.barters.pending_deliveries.length, 1);
+  assert.equal(acceptorMe.body.barters.pending_deliveries[0].asset.name, '红苹果');
+});
+
+test('market moderators can force-cancel listings and freeze only market trading', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, '1400', 'Moderated Seller');
+  const admin = createUser(testEnv, '1401', 'Market Admin');
+  testEnv.DB.db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(admin.id);
+  admin.is_admin = 1;
+  const sellerHeaders = authHeaders(testEnv, seller, 'moderated-seller-token');
+  const adminHeaders = authHeaders(testEnv, admin, 'market-admin-token');
+
+  const created = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST',
+    headers: sellerHeaders,
+    body: JSON.stringify({
+      id: 'moderated-listing-1',
+      asset: {
+        kind: 'item',
+        name: '异常测试物品',
+        quantity: 1,
+        data: { 名称: '异常测试物品', 品质: 'F', 类型: '材料', 数量: 1 },
+      },
+      unit_price: 5000,
+      duration_hours: 24,
+    }),
+  });
+  assert.equal(created.response.status, 201);
+
+  const adminView = await jsonRequest(testEnv, '/api/admin/market', { headers: adminHeaders });
+  assert.equal(adminView.response.status, 200);
+  assert.ok(adminView.body.listings.some(item => item.id === 'moderated-listing-1'));
+
+  const blocked = await jsonRequest(testEnv, '/api/admin/market-users/' + seller.id + '/state', {
+    method: 'POST',
+    headers: adminHeaders,
+    body: JSON.stringify({ blocked: true, reason: '异常交易测试' }),
+  });
+  assert.equal(blocked.response.status, 200);
+
+  const rejected = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST',
+    headers: sellerHeaders,
+    body: JSON.stringify({
+      id: 'moderated-listing-2',
+      asset: {
+        kind: 'item',
+        name: '被冻结后的物品',
+        quantity: 1,
+        data: { 名称: '被冻结后的物品', 品质: 'F', 数量: 1 },
+      },
+      unit_price: 20,
+      duration_hours: 24,
+    }),
+  });
+  assert.equal(rejected.response.status, 403);
+  assert.equal(rejected.body.code, 'market_user_blocked');
+
+  const forced = await jsonRequest(testEnv, '/api/admin/market-listings/moderated-listing-1/cancel', {
+    method: 'POST',
+    headers: adminHeaders,
+    body: JSON.stringify({ note: '测试强制下架' }),
+  });
+  assert.equal(forced.response.status, 200);
+  const sellerMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerHeaders });
+  assert.ok(sellerMe.body.pending_returns.some(item => item.asset.name === '异常测试物品'));
+});

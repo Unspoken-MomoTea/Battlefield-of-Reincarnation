@@ -5,6 +5,7 @@ import { SCRIPT_TREE_SCOPES, cloneScriptTree, scriptsInTrees } from './script-tr
 import {
   isWorkshopLoaderScript,
   rewriteWorkshopLoaderContent,
+  workshopLoaderChannel,
   workshopLoaderRefs,
 } from './workshop-loader.js';
 
@@ -164,7 +165,7 @@ async function resolveLatestShaForRefs(fetchImpl, refs, channel, ref) {
   throw error;
 }
 
-async function scanLoaders(adapter) {
+async function scanLoaders(adapter, updateChannel = '') {
   const loaders = [];
   const treesByScope = new Map();
   for (const scope of SCRIPT_TREE_SCOPES) {
@@ -179,6 +180,8 @@ async function scanLoaders(adapter) {
     for (const location of scriptsInTrees(trees)) {
       const refs = workshopLoaderRefs(location.script.content);
       if (!refs.length && !isWorkshopLoaderScript(location.script)) continue;
+      const detectedChannel = workshopLoaderChannel(location.script.content);
+      if (detectedChannel && updateChannel && detectedChannel !== updateChannel) continue;
       loaders.push({
         scope,
         treeIndex: location.treeIndex,
@@ -187,6 +190,7 @@ async function scanLoaders(adapter) {
         id: String(location.script.id || ''),
         name: String(location.script.name || ''),
         refs,
+        detectedChannel,
       });
     }
   }
@@ -224,7 +228,7 @@ export function createWorkshopSelfUpdater({
   }
 
   async function normalizeFormalLoaderLink() {
-    const scan = await scanLoaders(adapter);
+    const scan = await scanLoaders(adapter, updateChannel);
     const { latest } = await resolve(scan);
     if (updateChannel !== 'stable' || latest?.releaseSource !== 'tag' || !latest?.tag || !latest?.sha) {
       return { normalized: false, changedScripts: 0, changedScopes: [] };
@@ -264,7 +268,7 @@ export function createWorkshopSelfUpdater({
         await adapter.replaceScriptTrees(scan.treesByScope.get(scope), scope);
         written.push(scope);
       }
-      const verified = await scanLoaders(adapter);
+      const verified = await scanLoaders(adapter, updateChannel);
       const writtenLoaders = verified.loaders.filter(item => changedScopes.has(item.scope));
       const invalid = writtenLoaders.filter(item =>
         !item.refs.length || item.refs.some(currentRef => currentRef !== latest.tag)
@@ -292,7 +296,7 @@ export function createWorkshopSelfUpdater({
   return {
     normalizeFormalLoaderLink,
     async check() {
-      const scan = await scanLoaders(adapter);
+      const scan = await scanLoaders(adapter, updateChannel);
       const { refs, latest, staleRefs } = await resolve(scan);
       return {
         repository: REPOSITORY,
@@ -314,7 +318,7 @@ export function createWorkshopSelfUpdater({
     },
 
     async updateLoaderLink() {
-      const scan = await scanLoaders(adapter);
+      const scan = await scanLoaders(adapter, updateChannel);
       const { refs, latest, staleRefs } = await resolve(scan);
       const latestSha = latest.sha;
       const latestLoaderRef = installRefForLatest(latest);
@@ -385,7 +389,7 @@ export function createWorkshopSelfUpdater({
           written.push(scope);
         }
 
-        const verified = await scanLoaders(adapter);
+        const verified = await scanLoaders(adapter, updateChannel);
         const writtenLoaders = verified.loaders.filter(item => changedScopes.has(item.scope));
         const stale = writtenLoaders.filter(item =>
           !item.refs.length || item.refs.some(currentRef => currentRef !== latestLoaderRef)

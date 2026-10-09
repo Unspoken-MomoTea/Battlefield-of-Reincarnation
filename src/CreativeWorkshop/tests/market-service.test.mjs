@@ -680,3 +680,123 @@ test('failed swap creation restores escrowed local asset while successful transf
   assert.equal(host.read().stat_data.角色.道具.材料.数量, 1);
   assert.equal(confirmCount, 2);
 });
+
+
+test('grouped catalog purchase deducts one total and delivers all server trades once', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 500,
+      装备: {},
+      道具: {},
+      技能: {},
+      血统: {},
+      形态库: {},
+    },
+    关系列表: {},
+  });
+  const confirmed = [];
+  const api = {
+    async quoteMarketCatalogPurchase() {
+      return {
+        quote: {
+          catalog_key: 'catalog:item:test',
+          quantity: 4,
+          total_price: 105,
+          levels: [
+            { price: 25, quantity: 3 },
+            { price: 30, quantity: 1 },
+          ],
+        },
+      };
+    },
+    async buyMarketCatalog(catalogKey, input) {
+      assert.equal(catalogKey, 'catalog:item:test');
+      assert.equal(input.quantity, 4);
+      assert.equal(input.expected_total, 105);
+      return {
+        purchase: {
+          id: input.purchase_id,
+          catalog_key: catalogKey,
+          quantity: 4,
+          total_price: 105,
+          status: 'completed',
+        },
+        trades: [
+          {
+            id: 'grouped-trade-a',
+            asset: {
+              kind: 'item',
+              name: '批量药剂',
+              quantity: 3,
+              data: { 名称: '批量药剂', 品质: 'E', 类型: '消耗品', 数量: 3 },
+            },
+          },
+          {
+            id: 'grouped-trade-b',
+            asset: {
+              kind: 'item',
+              name: '批量药剂',
+              quantity: 1,
+              data: { 名称: '批量药剂', 品质: 'E', 类型: '消耗品', 数量: 1 },
+            },
+          },
+        ],
+      };
+    },
+    async getMarketPurchase() { throw new Error('not needed'); },
+    async confirmMarketDelivery(tradeId) {
+      confirmed.push(tradeId);
+      return {};
+    },
+  };
+  const market = createMarketService({ host, api });
+  const catalog = {
+    key: 'catalog:item:test',
+    asset: {
+      kind: 'item',
+      name: '批量药剂',
+      quantity: 5,
+      data: { 名称: '批量药剂', 品质: 'E', 类型: '消耗品' },
+    },
+  };
+  const quote = await market.quoteCatalogPurchase(catalog.key, 4);
+  await market.buyCatalog(catalog, 4, quote);
+
+  const saved = host.read().stat_data;
+  assert.equal(saved.角色.空间币, 395);
+  assert.equal(saved.角色.道具.批量药剂.数量, 4);
+  assert.deepEqual(confirmed, ['grouped-trade-a', 'grouped-trade-b']);
+});
+
+test('failed grouped catalog purchase refunds the single local deduction', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 200,
+      装备: {}, 道具: {}, 技能: {}, 血统: {}, 形态库: {},
+    },
+    关系列表: {},
+  });
+  const error = Object.assign(new Error('market changed'), { code: 'market_price_changed' });
+  const api = {
+    async quoteMarketCatalogPurchase() {
+      return { quote: { quantity: 2, total_price: 80, levels: [{ price: 40, quantity: 2 }] } };
+    },
+    async buyMarketCatalog() { throw error; },
+    async getMarketPurchase() { throw new Error('missing'); },
+  };
+  const market = createMarketService({ host, api });
+  const catalog = {
+    key: 'catalog:item:refund',
+    asset: {
+      kind: 'item',
+      name: '退款材料',
+      quantity: 2,
+      data: { 名称: '退款材料', 品质: 'E', 类型: '材料' },
+    },
+  };
+  const quote = await market.quoteCatalogPurchase(catalog.key, 2);
+  await assert.rejects(() => market.buyCatalog(catalog, 2, quote), /market changed/u);
+  assert.equal(host.read().stat_data.角色.空间币, 200);
+});

@@ -619,22 +619,23 @@ export async function settleExpiredMarketOrders(env, { limit = 100 } = {}) {
   );
   for (const order of orders) {
     const payoutId = ('order-expired:' + order.id).slice(0, 96);
-    const statements = [
+    await runBatch(env, [
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
+         SELECT ?, buyer_user_id, escrow_balance, NULL, ?
+         FROM market_buy_orders
+         WHERE id = ? AND status = 'active' AND expires_at <= ? AND escrow_balance > 0`,
+      ).bind(payoutId, now, order.id, now),
       env.DB.prepare(
         `UPDATE market_buy_orders
          SET status = 'expired', escrow_balance = 0, updated_at = ?
-         WHERE id = ? AND status = 'active'`,
-      ).bind(now, order.id),
-    ];
-    if (integer(order.escrow_balance) > 0) {
-      statements.push(
-        env.DB.prepare(
-          `INSERT OR IGNORE INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
-           VALUES (?, ?, ?, NULL, ?)`,
-        ).bind(payoutId, order.buyer_user_id, order.escrow_balance, now),
-      );
-    }
-    await runBatch(env, statements);
+         WHERE id = ? AND status = 'active' AND expires_at <= ?
+           AND (
+             escrow_balance = 0
+             OR EXISTS (SELECT 1 FROM market_payouts WHERE id = ?)
+           )`,
+      ).bind(now, order.id, now, payoutId),
+    ]);
   }
 
   const swaps = await all(
@@ -648,17 +649,17 @@ export async function settleExpiredMarketOrders(env, { limit = 100 } = {}) {
     const transferId = ('swap-expired:' + swap.id).slice(0, 96);
     await runBatch(env, [
       env.DB.prepare(
-        `UPDATE market_swaps SET status = 'expired', updated_at = ?
-         WHERE id = ? AND status = 'active'`,
-      ).bind(now, swap.id),
+        `UPDATE market_swaps
+         SET status = 'expired', updated_at = ?
+         WHERE id = ? AND status = 'active' AND expires_at <= ?`,
+      ).bind(now, swap.id, now),
       env.DB.prepare(
         `INSERT OR IGNORE INTO market_swap_transfers
           (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
-      ).bind(
-        transferId, swap.id, swap.owner_user_id, swap.offered_kind, swap.offered_name,
-        swap.offered_json, swap.offered_quantity, now,
-      ),
+         SELECT ?, id, owner_user_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
+         FROM market_swaps
+         WHERE id = ? AND status = 'expired'`,
+      ).bind(transferId, now, swap.id),
     ]);
   }
   return { orders: orders.length, swaps: swaps.length };

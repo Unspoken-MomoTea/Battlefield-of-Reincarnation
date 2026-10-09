@@ -401,8 +401,9 @@ test('expired auction disappears, stays reclaimable for 72 hours, then server re
   const recycled = mine.body.listings.find(item => item.id === 'listing-expiry-1');
   assert.equal(recycled.status, 'cancelled');
   assert.equal(recycled.remaining_quantity, 0);
-  assert.equal(mine.body.recycles.length, 1);
-  assert.equal(mine.body.recycles[0].amount, 250);
+  assert.equal(Object.hasOwn(mine.body, 'recycles'), false);
+  assert.equal(testEnv.DB.db.prepare('SELECT amount FROM market_recycles WHERE listing_id = ?')
+    .get('listing-expiry-1').amount, 250);
   assert.equal(mine.body.wallet.balance, 250);
 });
 
@@ -772,7 +773,7 @@ test('asset swaps transfer both escrowed sides once and reject a second concurre
   assert.equal(ownerMe.body.pending_swap_transfers[0].asset.name, '交换材料');
 });
 
-test('market moderation can detect risky trades, force delist and suspend trading without blocking recovery', async () => {
+test('market moderation has no trade-history endpoint but can still delist and suspend without blocking recovery', async () => {
   const testEnv = env();
   const admin = createUser(testEnv, '1300', 'Market Admin');
   testEnv.DB.db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(admin.id);
@@ -807,8 +808,8 @@ test('market moderation can detect risky trades, force delist and suspend tradin
   const risky = await jsonRequest(testEnv, '/api/admin/market?view=trades&risk=1', {
     headers: adminHeaders,
   });
-  assert.equal(risky.response.status, 200);
-  assert.ok(risky.body.items.some(item => item.id === 'moderation-risk-trade' && item.risk.suspicious));
+  assert.equal(risky.response.status, 404);
+  assert.equal(risky.body.code, 'market_history_removed');
 
   const delisted = await jsonRequest(testEnv, '/api/admin/market-listings/moderation-listing-1/cancel', {
     method: 'POST',

@@ -4,7 +4,8 @@ import {
   filterMarketRows,
   marketAssetDetailEntries,
   marketAssetFieldDisplay,
-  marketPriceLadder,
+  marketInventoryMatchesWanted,
+  marketRowFromCatalogDetail,
   marketTeammateDetailModel,
   planMarketPurchase,
 } from './market-model.js';
@@ -48,12 +49,18 @@ export function createMarketView({
   host, marketService, getAuth,
 }) {
   let listings = [];
-  let allRows = [];
-  let rows = [];
-  let loading = false;
+  let catalogItems = [];
+  let catalogCounts = {};
+  let catalogNextOffset = null;
+  let catalogFacets = { qualities: [], subtypes: [] };
+  const catalogCache = new Map();
   let selectedKey = '';
+  let selectedDetail = null;
+  let loading = false;
   let currentKind = '';
   let currentMode = 'browse';
+  let currentOrderView = 'buy';
+  let currentMineView = 'active';
   let sellInventory = null;
   let selectedSellIndex = -1;
 
@@ -255,143 +262,227 @@ export function createMarketView({
     await refreshSummary();
   }
 
-  const resultRow = marketRow => {
+  const browseFilters = () => ({
+    query: nodes.marketSearch?.value || '',
+    kind: currentKind,
+    quality: nodes.marketQuality?.value || '',
+    subtype: nodes.marketSubtype?.value || '',
+    minPrice: Math.max(0, Math.floor(Number(nodes.marketMinPrice?.value) || 0)),
+    maxPrice: Math.max(0, Math.floor(Number(nodes.marketMaxPrice?.value) || 0)),
+    sort: nodes.marketSort?.value || 'price_asc',
+    limit: 40,
+  });
+
+  const browseCacheKey = filters => JSON.stringify({
+    query: filters.query || '',
+    kind: filters.kind || '',
+    quality: filters.quality || '',
+    subtype: filters.subtype || '',
+    minPrice: filters.minPrice || 0,
+    maxPrice: filters.maxPrice || 0,
+    sort: filters.sort || 'price_asc',
+  });
+
+  const syncSubtypeOptions = () => {
+    if (!nodes.marketSubtype) return;
+    const selected = nodes.marketSubtype.value;
+    const options = [element('option', '', '全部子类型')];
+    options[0].value = '';
+    for (const item of catalogFacets.subtypes || []) {
+      const option = element('option', '', item.value + ' · ' + item.count);
+      option.value = item.value;
+      options.push(option);
+    }
+    nodes.marketSubtype.replaceChildren(...options);
+    if ([...nodes.marketSubtype.options].some(option => option.value === selected)) {
+      nodes.marketSubtype.value = selected;
+    }
+  };
+
+  const renderCategoryCounts = () => {
+    const total = Object.values(catalogCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+    for (const category of nodes.marketCategories || []) {
+      const kind = category.dataset.marketKind || '';
+      const badge = category.querySelector?.('[data-market-kind-count]');
+      if (badge) badge.textContent = String(kind ? Number(catalogCounts?.[kind] || 0) : total);
+    }
+  };
+
+  const resultRow = item => {
     const node = element('button', 'rw-ah-result-row');
     node.type = 'button';
-    node.classList.toggle('is-selected', selectedKey === marketRow.key);
+    node.classList.toggle('is-selected', selectedKey === item.key);
 
     const itemCell = element('span', 'rw-ah-result-item');
-    const itemCopy = element('span', 'rw-ah-result-item-copy');
-    itemCopy.append(
-      qualityName(element('strong', '', marketRow.name), marketRow.asset),
+    const copy = element('span', 'rw-ah-result-item-copy');
+    copy.append(
+      qualityName(element('strong', '', item.name), item.asset),
       element(
         'small',
         '',
-        marketRow.kind === 'item'
-          ? marketRow.sellerCount + ' 位卖家 · ' + marketRow.listings.length + ' 个价格档'
-          : (marketRow.listings[0]?.seller?.display_name || '匿名轮回者'),
+        item.kind === 'item'
+          ? item.seller_count + ' 位卖家 · ' + item.listing_count + ' 个挂单'
+          : item.listing_count + ' 个挂单',
       ),
     );
-    itemCell.append(itemCopy);
+    itemCell.append(copy);
 
     const kindCell = element('span', 'rw-ah-result-kind');
-    kindCell.append(element('span', 'rw-ah-type-tag', kindLabel(marketRow.kind)));
-    const qualityCell = element('span', 'rw-ah-result-quality', quality(marketRow.asset) || '—');
-    const stockCell = element('span', 'rw-ah-result-stock', String(marketRow.totalStock || 0));
+    kindCell.append(element('span', 'rw-ah-type-tag', kindLabel(item.kind)));
+    const qualityCell = element('span', 'rw-ah-result-quality', item.quality || quality(item.asset) || '—');
+    const stockCell = element('span', 'rw-ah-result-stock', String(item.total_stock || 0));
     const priceCell = element('span', 'rw-ah-result-price');
-    priceCell.append(
-      element('strong', '', coin(marketRow.buyPrice ?? marketRow.lowestPrice)),
-    );
+    priceCell.append(element('strong', '', coin(item.lowest_price)));
 
     node.append(itemCell, kindCell, qualityCell, stockCell, priceCell);
     node.addEventListener('click', () => {
-      selectedKey = marketRow.key;
-      renderRows();
-      renderInspector(marketRow);
+      selectedKey = item.key;
+      renderCatalogRows();
+      void loadCatalogDetail(item.key).catch(notifyError);
     });
     return node;
   };
 
-  function renderRows() {
-    allRows = buildMarketRows(listings, currentUserId());
-    for (const category of nodes.marketCategories || []) {
-      const kind = category.dataset.marketKind || '';
-      const count = kind
-        ? listings.filter(listing => listing?.asset?.kind === kind).length
-        : listings.length;
-      const badge = category.querySelector?.('[data-market-kind-count]');
-      if (badge) badge.textContent = String(count);
-    }
-    rows = filterMarketRows(allRows, {
-      kind: currentKind,
-      query: nodes.marketSearch?.value || '',
-      sort: nodes.marketSort?.value || 'price_asc',
-    });
-    if (!rows.length) {
+  function renderCatalogRows() {
+    if (!catalogItems.length) {
       empty(nodes.marketList, '当前没有符合条件的商品。');
       selectedKey = '';
+      selectedDetail = null;
       renderInspector(null);
     } else {
-      nodes.marketList.replaceChildren(...rows.map(resultRow));
-      const selected = rows.find(row => row.key === selectedKey);
-      if (selected) renderInspector(selected);
-      else {
-        selectedKey = rows[0].key;
-        renderInspector(rows[0]);
-        nodes.marketList.firstElementChild?.classList.add('is-selected');
+      nodes.marketList.replaceChildren(...catalogItems.map(resultRow));
+      const selected = catalogItems.find(item => item.key === selectedKey) || catalogItems[0];
+      selectedKey = selected.key;
+      for (const child of nodes.marketList.children) {
+        child.classList.toggle('is-selected', child === nodes.marketList.children[catalogItems.indexOf(selected)]);
+      }
+      if (!selectedDetail || selectedDetail.catalog?.key !== selectedKey) {
+        void loadCatalogDetail(selectedKey).catch(notifyError);
+      } else {
+        renderInspector(selectedDetail);
       }
     }
-    nodes.marketCount.textContent = rows.length + ' 种商品 · 共 ' + listings.length + ' 个挂单';
+    const listingCount = Object.values(catalogCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+    nodes.marketCount.textContent = catalogItems.length + ' 种商品 · ' + listingCount + ' 个当前挂单';
+    if (nodes.marketMore) nodes.marketMore.hidden = catalogNextOffset == null;
+    renderCategoryCounts();
   }
 
-  function purchaseSummary(marketRow, quantity) {
+  async function loadCatalog({ force = false, append = false } = {}) {
+    const filters = browseFilters();
+    const key = browseCacheKey(filters);
+    if (!append && !force && catalogCache.has(key)) {
+      const cached = catalogCache.get(key);
+      catalogItems = cached.items.slice();
+      catalogCounts = { ...cached.counts };
+      catalogNextOffset = cached.next_offset;
+      catalogFacets = cached.facets || catalogFacets;
+      syncSubtypeOptions();
+      renderCatalogRows();
+      return cached;
+    }
+
+    const offset = append ? Number(catalogNextOffset || 0) : 0;
+    const result = await marketService.catalog({ ...filters, offset });
+    const nextItems = Array.isArray(result?.items) ? result.items : [];
+    catalogItems = append ? catalogItems.concat(nextItems) : nextItems;
+    catalogCounts = result?.counts || catalogCounts;
+    catalogNextOffset = result?.next_offset ?? null;
+    catalogFacets = result?.facets || catalogFacets;
+    syncSubtypeOptions();
+    catalogCache.set(key, {
+      items: catalogItems.slice(),
+      counts: { ...catalogCounts },
+      next_offset: catalogNextOffset,
+      facets: catalogFacets,
+    });
+    renderCatalogRows();
+    return result;
+  }
+
+  async function loadCatalogDetail(catalogKey) {
+    const detail = await marketService.catalogDetail(catalogKey);
+    if (selectedKey !== catalogKey) return detail;
+    selectedDetail = detail;
+    renderInspector(detail);
+    return detail;
+  }
+
+  function purchaseSummary(detail, quantity) {
     try {
-      return planMarketPurchase(marketRow, quantity, currentUserId());
+      const row = marketRowFromCatalogDetail(detail, currentUserId());
+      return row ? planMarketPurchase(row, quantity, currentUserId()) : null;
     } catch {
       return null;
     }
   }
 
-  function renderInspector(marketRow) {
+  function renderInspector(detail) {
     if (!nodes.marketInspector) return;
-    if (!marketRow) {
+    if (!detail?.catalog) {
       const blank = element('div', 'rw-ah-empty-inspector');
       blank.append(
         element('div', 'rw-ah-empty-icon', '◇'),
         element('strong', '', '选择一个商品'),
-        element('span', '', '右侧会显示详情、卖家与购买数量。'),
+        element('span', '', '右侧会显示详情、价格梯度与成交历史。'),
       );
       nodes.marketInspector.replaceChildren(blank);
       return;
     }
 
+    const marketRow = marketRowFromCatalogDetail(detail, currentUserId());
+    const catalog = detail.catalog;
     const wrap = element('div', 'rw-ah-inspector-body');
     const head = element('div', 'rw-ah-detail-head');
     head.append(
       element('div', 'rw-ah-inspector-title', '详情'),
-      qualityName(element('h3', '', marketRow.name), marketRow.asset),
+      qualityName(element('h3', '', catalog.name), catalog.asset),
     );
-    wrap.append(head, assetDetail(marketRow.asset));
+    wrap.append(head, assetDetail(catalog.asset));
 
-    if (marketRow.kind === 'item') {
-      const ladder = marketPriceLadder(marketRow, currentUserId());
-      const box = element('div', 'rw-ah-ladder');
-      box.append(element('div', 'rw-ah-section-label', '市场价格'));
-      if (!ladder.length) {
-        box.append(element('div', 'rw-ah-muted-line', '只有你自己的挂单'));
-      } else {
-        for (const level of ladder.slice(0, 5)) {
-          const line = element('div', 'rw-ah-ladder-row');
-          line.append(
-            element('span', '', coin(level.price) + ' 空间币'),
-            element('span', '', level.stock + ' 件'),
-          );
-          box.append(line);
-        }
-      }
-      wrap.append(box);
+    const ladder = element('div', 'rw-ah-ladder');
+    ladder.append(element('div', 'rw-ah-section-label', '当前市场'));
+    if (!detail.ladder?.length) {
+      ladder.append(element('div', 'rw-ah-muted-line', '没有其他玩家可购买的挂单。'));
     } else {
-      const listing = marketRow.listings[0];
-      const seller = element('div', 'rw-ah-seller-line');
-      seller.append(
-        element('span', '', listing?.is_system ? '系统柜台' : '卖家'),
-        element(
-          'strong',
-          '',
-          (listing?.seller?.display_name || listing?.seller?.username || '匿名轮回者')
-            + (listing?.is_system ? ' · 每日补货' : (listing?.expires_at ? ' · ' + until(listing.expires_at) + '后到期' : '')),
-        ),
-      );
-      wrap.append(seller);
+      for (const level of detail.ladder.slice(0, 8)) {
+        const line = element('div', 'rw-ah-ladder-row');
+        line.append(
+          element('span', '', coin(level.price) + ' 空间币'),
+          element('span', '', level.stock + ' 件 · ' + level.seller_count + ' 位卖家'),
+        );
+        ladder.append(line);
+      }
+    }
+    wrap.append(ladder);
+
+    if (detail.history?.length) {
+      const history = element('div', 'rw-ah-price-history');
+      history.append(element('div', 'rw-ah-section-label', '最近成交'));
+      const table = element('div', 'rw-ah-price-history-table');
+      for (const point of detail.history.slice(-7)) {
+        const line = element('div', 'rw-ah-price-history-row');
+        line.append(
+          element('span', '', point.day.slice(5)),
+          element('span', '', '均 ' + coin(point.average)),
+          element('span', '', coin(point.low) + ' - ' + coin(point.high)),
+          element('span', '', '量 ' + point.volume),
+        );
+        table.append(line);
+      }
+      history.append(table);
+      wrap.append(history);
     }
 
     const purchase = element('div', 'rw-ah-purchase-box');
-    if (marketRow.ownedOnly || marketRow.buyableStock <= 0) {
+    if (!marketRow || marketRow.ownedOnly || marketRow.buyableStock <= 0) {
       purchase.append(
-        element('strong', '', '这是你的挂单'),
-        element('p', '', '不能购买自己的商品。可以前往“我的拍卖”撤回或查看成交记录。'),
-        button('查看我的拍卖', 'primary', () => setMode('mine')),
+        element('strong', '', marketRow?.ownedOnly ? '只有你自己的挂单' : '当前没有可购买库存'),
+        element('p', '', marketRow?.ownedOnly
+          ? '不能购买自己的商品，可以前往“我的拍卖”查看或撤回。'
+          : '市场库存刚刚发生变化，请刷新后再试。'),
       );
+      if (marketRow?.ownedOnly) purchase.append(button('查看我的拍卖', 'primary', () => setMode('mine')));
       wrap.append(purchase);
       nodes.marketInspector.replaceChildren(wrap);
       return;
@@ -403,44 +494,73 @@ export function createMarketView({
     quantity.type = 'number';
     quantity.min = '1';
     quantity.step = '1';
-    quantity.max = String(marketRow.kind === 'item' ? marketRow.buyableStock : 1);
+    quantity.max = String(catalog.kind === 'item' ? marketRow.buyableStock : 1);
     quantity.value = '1';
-    quantity.disabled = marketRow.kind !== 'item';
+    quantity.disabled = catalog.kind !== 'item';
     quantityLabel.append(quantity);
 
     const total = element('div', 'rw-ah-buy-total');
     const action = button('购买', 'primary', async () => {
       requireLogin();
-      const plan = purchaseSummary(marketRow, quantity.value);
+      const plan = purchaseSummary(detail, quantity.value);
       if (!plan) throw new Error('可购买库存不足');
-
       const local = await marketService.inventory();
       if (Number(local.coin || 0) < plan.total) {
         throw new Error('空间币不足：需要 ' + coin(plan.total) + '，当前只有 ' + coin(local.coin));
       }
-
+      const breakdown = plan.lines.length > 1
+        ? '\n' + plan.lines.map(line => (
+            coin(line.listing.unit_price) + ' × ' + line.quantity + ' = ' + coin(line.subtotal)
+          )).join('\n')
+        : '';
       const ok = await confirmDialog({
         title: '确认购买',
-        message: '购买“' + marketRow.name + '” ×' + plan.quantity
-          + '，合计 ' + coin(plan.total) + ' 空间币？',
+        message: '购买“' + catalog.name + '” ×' + plan.quantity
+          + '，合计 ' + coin(plan.total) + ' 空间币？' + breakdown,
         confirmText: '确认购买',
       });
       if (!ok) return;
 
-      for (const line of plan.lines) {
-        await marketService.buy(line.listing, line.quantity);
+      let completed = 0;
+      try {
+        for (const line of plan.lines) {
+          await marketService.buy(line.listing, line.quantity);
+          completed += line.quantity;
+        }
+      } catch (error) {
+        if (['market_listing_unavailable', 'market_quantity_unavailable'].includes(error?.code)) {
+          catalogCache.clear();
+          try {
+            await loadCatalog({ force: true });
+            if (selectedKey) await loadCatalogDetail(selectedKey);
+          } catch {}
+          try {
+            host.toastr?.warning?.(
+              completed
+                ? '市场在购买过程中发生变化，已完成 ' + completed + ' 件，其余未扣款；列表已刷新。'
+                : '库存或价格刚刚发生变化，已刷新当前商品，请重新确认。',
+              '空间集市',
+            );
+          } catch {}
+          return;
+        }
+        throw error;
       }
+
       try { host.toastr?.success?.('购买完成，资产已写入当前存档', '空间集市'); } catch {}
-      await refresh();
+      catalogCache.clear();
+      await loadCatalog({ force: true });
+      if (selectedKey) await loadCatalogDetail(selectedKey).catch(() => {});
+      await refreshSummary();
     });
 
     const updateTotal = () => {
       const max = Math.max(1, Number(quantity.max) || 1);
-      const requested = marketRow.kind === 'item'
+      const requested = catalog.kind === 'item'
         ? Math.max(1, Math.min(max, Math.floor(Number(quantity.value) || 1)))
         : 1;
       quantity.value = String(requested);
-      const plan = purchaseSummary(marketRow, requested);
+      const plan = purchaseSummary(detail, requested);
       total.replaceChildren(
         element('span', '', '预计支付'),
         element('strong', '', plan ? coin(plan.total) + ' 空间币' : '库存不足'),
@@ -453,9 +573,13 @@ export function createMarketView({
       quantityLabel,
       total,
       action,
-      element('small', 'rw-ah-purchase-help', marketRow.kind === 'item'
-        ? '系统会从最低价开始自动购买，数量不足时继续匹配下一档价格。'
-        : '非堆叠资产按独立挂单成交。'),
+      element(
+        'small',
+        'rw-ah-purchase-help',
+        catalog.kind === 'item'
+          ? '按 WoW 商品撮合方式自动从最低价开始购买；同价挂单优先最新上架。'
+          : '非堆叠资产购买当前最低价挂单。',
+      ),
     );
     wrap.append(purchase);
     nodes.marketInspector.replaceChildren(wrap);
@@ -466,9 +590,8 @@ export function createMarketView({
     loading = true;
     try {
       empty(nodes.marketList, '正在读取空间集市…');
-      selectedKey = '';
-      listings = await marketService.listAll();
-      renderRows();
+      selectedDetail = null;
+      await loadCatalog({ force: true });
       await refreshSummary();
     } finally {
       loading = false;

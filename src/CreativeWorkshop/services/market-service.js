@@ -123,7 +123,21 @@ function ledgerBucket(data, key) {
   return root[key];
 }
 
-async function mutateLatest(host, mutator, expectedSaveId = '') {
+const pendingMvuMutations = new WeakMap();
+
+function mutateLatest(host, mutator, expectedSaveId = '') {
+  const previous = pendingMvuMutations.get(host) || Promise.resolve();
+  // All market operations sharing a host must write MVU sequentially; otherwise
+  // two concurrent actions could overwrite each other's coin/asset changes.
+  const task = previous.catch(() => {}).then(() => mutateLatestUnlocked(host, mutator, expectedSaveId));
+  pendingMvuMutations.set(host, task);
+  void task.finally(() => {
+    if (pendingMvuMutations.get(host) === task) pendingMvuMutations.delete(host);
+  }).catch(() => {});
+  return task;
+}
+
+async function mutateLatestUnlocked(host, mutator, expectedSaveId = '') {
   const { root, mvu, data, saveId } = readLatest(host);
   if (expectedSaveId && expectedSaveId !== saveId) {
     throw new Error('交易期间切换了存档；请返回原存档处理未完成的交易');

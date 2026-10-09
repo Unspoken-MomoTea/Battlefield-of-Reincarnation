@@ -338,6 +338,25 @@ export async function referenceForAsset(env, asset) {
   const key = marketAssetKey(asset);
   const product = await getMarketProduct(env, key);
   const history = await getMarketPriceHistory(env, key, { days: 14 });
+  const rows = product ? await listProductRows(env, key) : [];
+  const levels = new Map();
+  for (const row of rows) {
+    const price = integer(row.unit_price);
+    const stock = Math.max(0, integer(row.remaining_quantity));
+    if (!price || !stock) continue;
+    const level = levels.get(price) || { price, stock: 0, sellers: new Set() };
+    level.stock += stock;
+    level.sellers.add(integer(row.seller_user_id));
+    levels.set(price, level);
+  }
+  const ladder = [...levels.values()]
+    .sort((left, right) => left.price - right.price)
+    .slice(0, 8)
+    .map(level => ({
+      price: level.price,
+      stock: level.stock,
+      seller_count: level.sellers.size,
+    }));
   const orders = await all(
     env,
     `SELECT id, buyer_user_id, quantity_remaining, unit_price, expires_at, created_at
@@ -350,6 +369,7 @@ export async function referenceForAsset(env, asset) {
   return {
     market_key: key,
     product,
+    ladder,
     history,
     orders: orders.map(row => ({
       id: row.id,

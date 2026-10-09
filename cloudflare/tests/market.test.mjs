@@ -1050,3 +1050,150 @@ test('grouped purchase rejects stale total without partial stock or history writ
   assert.equal(history.body.history[0].volume, 1);
   assert.equal(history.body.history[0].last, 10);
 });
+
+
+test('market suspension hides active offers but still lets owners recover escrow', async () => {
+  const testEnv = env();
+  const admin = createUser(testEnv, '1500', 'Suspension Admin');
+  testEnv.DB.db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(admin.id);
+  const owner = createUser(testEnv, '1501', 'Suspended Owner');
+  const other = createUser(testEnv, '1502', 'Suspension Other');
+  const adminHeaders = authHeaders(testEnv, admin, 'suspension-admin');
+  const ownerHeaders = authHeaders(testEnv, owner, 'suspension-owner');
+  const otherHeaders = authHeaders(testEnv, other, 'suspension-other');
+
+  const listing = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST',
+    headers: ownerHeaders,
+    body: JSON.stringify({
+      id: 'suspension-listing',
+      duration_hours: 24,
+      asset: {
+        kind: 'item',
+        name: '冻结卖家材料',
+        quantity: 2,
+        data: { 名称: '冻结卖家材料', 品质: 'E', 类型: '材料', 数量: 2 },
+      },
+      unit_price: 40,
+    }),
+  });
+  assert.equal(listing.response.status, 201);
+
+  const order = await jsonRequest(testEnv, '/api/market/orders', {
+    method: 'POST',
+    headers: ownerHeaders,
+    body: JSON.stringify({
+      id: 'suspension-order',
+      kind: 'item',
+      name: '冻结求购材料',
+      quality: 'E',
+      subtype: '材料',
+      quantity: 1,
+      unit_price: 50,
+      duration_hours: 24,
+    }),
+  });
+  assert.equal(order.response.status, 201);
+
+  const swap = await jsonRequest(testEnv, '/api/market/swaps', {
+    method: 'POST',
+    headers: ownerHeaders,
+    body: JSON.stringify({
+      id: 'suspension-swap',
+      offered: {
+        kind: 'item',
+        name: '冻结交换药剂',
+        quantity: 1,
+        data: { 名称: '冻结交换药剂', 品质: 'F', 类型: '消耗品', 数量: 1 },
+      },
+      wanted: {
+        kind: 'item',
+        name: '冻结交换材料',
+        quality: 'E',
+        subtype: '材料',
+        quantity: 1,
+      },
+      duration_hours: 24,
+    }),
+  });
+  assert.equal(swap.response.status, 201);
+
+  const suspended = await jsonRequest(testEnv, '/api/admin/market-users/' + owner.id + '/state', {
+    method: 'POST',
+    headers: adminHeaders,
+    body: JSON.stringify({ suspended: true, note: '冻结测试' }),
+  });
+  assert.equal(suspended.response.status, 200);
+
+  const catalog = await jsonRequest(
+    testEnv,
+    '/api/market/catalog?kind=item&q=' + encodeURIComponent('冻结卖家材料'),
+  );
+  assert.equal(catalog.body.items.some(item => item.name === '冻结卖家材料'), false);
+
+  const directBuy = await jsonRequest(testEnv, '/api/market/listings/suspension-listing/buy', {
+    method: 'POST',
+    headers: otherHeaders,
+    body: JSON.stringify({ trade_id: 'suspension-buy', quantity: 1 }),
+  });
+  assert.equal(directBuy.response.status, 409);
+
+  const orders = await jsonRequest(testEnv, '/api/market/orders?q=' + encodeURIComponent('冻结求购材料'));
+  assert.equal(orders.body.items.some(item => item.id === 'suspension-order'), false);
+  const orderFill = await jsonRequest(testEnv, '/api/market/orders/suspension-order/fill', {
+    method: 'POST',
+    headers: otherHeaders,
+    body: JSON.stringify({
+      fill_id: 'suspension-order-fill',
+      asset: {
+        kind: 'item',
+        name: '冻结求购材料',
+        quantity: 1,
+        data: { 名称: '冻结求购材料', 品质: 'E', 类型: '材料', 数量: 1 },
+      },
+    }),
+  });
+  assert.equal(orderFill.response.status, 409);
+
+  const swaps = await jsonRequest(testEnv, '/api/market/swaps?q=' + encodeURIComponent('冻结交换'));
+  assert.equal(swaps.body.items.some(item => item.id === 'suspension-swap'), false);
+  const swapAccept = await jsonRequest(testEnv, '/api/market/swaps/suspension-swap/accept', {
+    method: 'POST',
+    headers: otherHeaders,
+    body: JSON.stringify({
+      asset: {
+        kind: 'item',
+        name: '冻结交换材料',
+        quantity: 1,
+        data: { 名称: '冻结交换材料', 品质: 'E', 类型: '材料', 数量: 1 },
+      },
+    }),
+  });
+  assert.equal(swapAccept.response.status, 409);
+
+  const listingCancel = await jsonRequest(testEnv, '/api/market/listings/suspension-listing/cancel', {
+    method: 'POST',
+    headers: ownerHeaders,
+  });
+  assert.equal(listingCancel.response.status, 200);
+  assert.equal(listingCancel.body.return.quantity, 2);
+
+  const orderCancel = await jsonRequest(testEnv, '/api/market/orders/suspension-order/cancel', {
+    method: 'POST',
+    headers: ownerHeaders,
+  });
+  assert.equal(orderCancel.response.status, 200);
+  assert.equal(orderCancel.body.payout.amount, 50);
+
+  const swapCancel = await jsonRequest(testEnv, '/api/market/swaps/suspension-swap/cancel', {
+    method: 'POST',
+    headers: ownerHeaders,
+  });
+  assert.equal(swapCancel.response.status, 200);
+  assert.equal(swapCancel.body.swap.status, 'cancelled');
+
+  const ownerMe = await jsonRequest(testEnv, '/api/market/me', { headers: ownerHeaders });
+  assert.ok(ownerMe.body.pending_returns.some(item => item.listing_id === 'suspension-listing'));
+  assert.ok(ownerMe.body.pending_payouts.some(item => item.amount === 50));
+  assert.ok(ownerMe.body.pending_swap_transfers.some(item => item.swap_id === 'suspension-swap'));
+});

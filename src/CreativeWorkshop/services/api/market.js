@@ -11,6 +11,124 @@ export function createMarketApi(request) {
       return request(`/api/market/listings?${params}`, { cache: 'no-store' });
     },
 
+    listMarketCatalog({
+      query = '',
+      kind = '',
+      quality = '',
+      subtype = '',
+      minPrice = 0,
+      maxPrice = 0,
+      sort = 'price_asc',
+      offset = 0,
+      limit = 40,
+    } = {}) {
+      const params = new URLSearchParams({
+        sort,
+        offset: String(Math.max(0, Number(offset) || 0)),
+        limit: String(Math.max(1, Math.min(80, Number(limit) || 40))),
+      });
+      if (String(query).trim()) params.set('q', String(query).trim());
+      if (kind) params.set('kind', kind);
+      if (quality) params.set('quality', quality);
+      if (subtype) params.set('subtype', subtype);
+      if (Number(minPrice) > 0) params.set('min_price', String(Math.floor(Number(minPrice))));
+      if (Number(maxPrice) > 0) params.set('max_price', String(Math.floor(Number(maxPrice))));
+      return request(`/api/market/catalog?${params}`, { cache: 'no-store' });
+    },
+
+    getMarketCatalog(catalogKey) {
+      return request(
+        `/api/market/catalog/${encodeURIComponent(catalogKey)}`,
+        { cache: 'no-store' },
+      );
+    },
+
+    listMarketBuyOrders({ query = '', kind = '', quality = '', offset = 0, limit = 40 } = {}) {
+      const params = new URLSearchParams({
+        offset: String(Math.max(0, Number(offset) || 0)),
+        limit: String(Math.max(1, Math.min(80, Number(limit) || 40))),
+      });
+      if (String(query).trim()) params.set('q', String(query).trim());
+      if (kind) params.set('kind', kind);
+      if (quality) params.set('quality', quality);
+      return request(`/api/market/orders?${params}`, { cache: 'no-store' });
+    },
+
+    createMarketBuyOrder(input) {
+      return request('/api/market/orders', { method: 'POST', body: JSON.stringify(input) }, true);
+    },
+
+    getMarketBuyOrder(orderId) {
+      return request(`/api/market/orders/${encodeURIComponent(orderId)}`, { cache: 'no-store' }, true);
+    },
+
+    fillMarketBuyOrder(orderId, input) {
+      return request(
+        `/api/market/orders/${encodeURIComponent(orderId)}/fill`,
+        { method: 'POST', body: JSON.stringify(input) },
+        true,
+      );
+    },
+
+    cancelMarketBuyOrder(orderId) {
+      return request(
+        `/api/market/orders/${encodeURIComponent(orderId)}/cancel`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
+    confirmMarketOrderDelivery(fillId) {
+      return request(
+        `/api/market/order-fills/${encodeURIComponent(fillId)}/delivered`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
+    listMarketSwaps({ query = '', kind = '', quality = '', offset = 0, limit = 40 } = {}) {
+      const params = new URLSearchParams({
+        offset: String(Math.max(0, Number(offset) || 0)),
+        limit: String(Math.max(1, Math.min(80, Number(limit) || 40))),
+      });
+      if (String(query).trim()) params.set('q', String(query).trim());
+      if (kind) params.set('kind', kind);
+      if (quality) params.set('quality', quality);
+      return request(`/api/market/swaps?${params}`, { cache: 'no-store' });
+    },
+
+    createMarketSwap(input) {
+      return request('/api/market/swaps', { method: 'POST', body: JSON.stringify(input) }, true);
+    },
+
+    getMarketSwap(swapId) {
+      return request(`/api/market/swaps/${encodeURIComponent(swapId)}`, { cache: 'no-store' }, true);
+    },
+
+    acceptMarketSwap(swapId, input) {
+      return request(
+        `/api/market/swaps/${encodeURIComponent(swapId)}/accept`,
+        { method: 'POST', body: JSON.stringify(input) },
+        true,
+      );
+    },
+
+    cancelMarketSwap(swapId) {
+      return request(
+        `/api/market/swaps/${encodeURIComponent(swapId)}/cancel`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
+    confirmMarketSwapTransfer(transferId) {
+      return request(
+        `/api/market/swap-transfers/${encodeURIComponent(transferId)}/confirmed`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
     quoteMarketAction(input) {
       return request(
         '/api/market/quote',

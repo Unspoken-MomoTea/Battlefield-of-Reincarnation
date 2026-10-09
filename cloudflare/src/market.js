@@ -1,4 +1,18 @@
 import { HttpError, json, readJson } from './http.js';
+import { assertMarketUserAllowed } from './market-access.js';
+import {
+  ensureMarketCatalog,
+  getMarketPriceHistory,
+  getMarketProduct,
+  listMarketProducts,
+  listProductRows,
+  marketAssetKey,
+  recordMarketTrade,
+  referenceForAsset,
+  refreshMarketProduct,
+} from './market-catalog.js';
+import { marketOrderStateForUser } from './market-orders.js';
+import { marketBarterStateForUser } from './market-barter.js';
 import {
   MARKET_AUCTION_DURATIONS,
   marketAuctionQuote,
@@ -178,6 +192,7 @@ function listingFromRow(row) {
   if (!row) return null;
   return {
     id: row.id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.remaining_quantity),
     unit_price: integer(row.unit_price),
     total_quantity: integer(row.total_quantity),
@@ -207,6 +222,7 @@ function tradeFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity),
     unit_price: integer(row.unit_price),
@@ -233,6 +249,7 @@ function returnFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity),
     confirmed_at: row.confirmed_at == null ? null : integer(row.confirmed_at),
@@ -255,6 +272,7 @@ function recycleFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity, 1),
     amount: integer(row.amount),
@@ -685,6 +703,7 @@ function buybackFromRow(row) {
   const quantity = integer(row.market_quantity, 0) || integer(row.quantity, 1);
   return {
     id: row.id,
+    market_key: row.market_key || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, quantity),
     quantity,
     amount: integer(row.amount),

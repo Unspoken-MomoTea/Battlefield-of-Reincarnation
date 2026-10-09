@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildMarketRows,
   filterMarketRows,
+  marketAssetDetailEntries,
   marketAssetFieldDisplay,
   marketPriceLadder,
   planMarketPurchase,
@@ -134,4 +135,30 @@ test('market asset display translates equipment, skill and status enums', () => 
   assert.equal(marketAssetFieldDisplay({ kind: 'skill' }, '类型', 1), '被动');
   assert.equal(marketAssetFieldDisplay({ kind: 'item' }, '类型', '材料'), '材料');
   assert.equal(marketAssetFieldDisplay({ kind: 'equipment' }, '状态', 2), '仓库');
+});
+
+
+test('market detail hides true stats, technical credential fields and empty values', () => {
+  const entries = marketAssetDetailEntries({
+    kind: 'equipment',
+    data: {
+      品质: 'E',
+      原始属性: {},
+      真属性: { ATK: 999 },
+      效果: { 主效果: '', 副效果: null },
+      描述: '有效描述',
+      消耗: '',
+      状态: 0,
+      系统商品: 'permission_credential',
+      凭证品质: 'E',
+      标签: ['主神空间'],
+    },
+  });
+
+  assert.deepEqual(entries, [
+    ['品质', 'E'],
+    ['描述', '有效描述'],
+    ['状态', 0],
+    ['标签', ['主神空间']],
+  ]);
 });

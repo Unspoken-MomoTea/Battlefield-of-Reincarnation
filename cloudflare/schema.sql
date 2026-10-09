@@ -297,6 +297,7 @@ CREATE TABLE IF NOT EXISTS market_buybacks (
   asset_name TEXT NOT NULL,
   asset_json TEXT NOT NULL,
   quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity = 1),
+  market_quantity INTEGER NOT NULL DEFAULT 0,
   amount INTEGER NOT NULL CHECK (amount > 0),
   payout_id TEXT NOT NULL UNIQUE,
   created_at INTEGER NOT NULL,

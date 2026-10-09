@@ -443,6 +443,40 @@ export function createMarketService({ host, api }) {
     return api.listMarketCatalog(filters);
   }
 
+  async function catalogSnapshot() {
+    const items = [];
+    const byKey = new Map();
+    const seenOffsets = new Set();
+    let counts = {};
+    let offset = 0;
+
+    while (!seenOffsets.has(offset)) {
+      seenOffsets.add(offset);
+      const page = await api.listMarketCatalog({
+        sort: 'price_asc',
+        offset,
+        limit: 80,
+      });
+      if (!Object.keys(counts).length && page?.counts) counts = { ...page.counts };
+      for (const item of Array.isArray(page?.items) ? page.items : []) {
+        const key = String(item?.key || '');
+        if (!key) continue;
+        if (byKey.has(key)) {
+          items[byKey.get(key)] = item;
+        } else {
+          byKey.set(key, items.length);
+          items.push(item);
+        }
+      }
+      if (page?.next_offset == null) break;
+      const nextOffset = Math.max(0, Number(page.next_offset) || 0);
+      if (nextOffset === offset) break;
+      offset = nextOffset;
+    }
+
+    return { items, counts };
+  }
+
   async function catalogDetail(catalogKey) {
     return api.getMarketCatalog(catalogKey);
   }
@@ -1008,6 +1042,7 @@ export function createMarketService({ host, api }) {
     list,
     listAll,
     catalog,
+    catalogSnapshot,
     catalogDetail,
     listBuyOrders,
     listSwaps,

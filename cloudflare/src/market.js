@@ -849,7 +849,12 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
     || listing.remaining_quantity <= 0
     || (!listing.is_system && listing.expires_at > 0 && listing.expires_at <= nowMs())
   ) {
-    throw new HttpError(409, 'market_listing_unavailable', '该挂单已经到期或不可购买');
+    throw new HttpError(
+      409,
+      'market_listing_unavailable',
+      '该挂单已经到期或不可购买',
+      { catalog_key: listing?.catalog_key || '', remaining_quantity: listing?.remaining_quantity || 0 },
+    );
   }
   if (listing.seller.id === Number(user.id)) {
     throw new HttpError(409, 'market_own_listing', '不能购买自己的挂单');
@@ -857,7 +862,12 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
 
   const quantity = listing.asset.kind === 'item' ? requestedQuantity : 1;
   if (quantity > listing.remaining_quantity) {
-    throw new HttpError(409, 'market_quantity_unavailable', '挂单剩余数量不足');
+    throw new HttpError(
+      409,
+      'market_quantity_unavailable',
+      '挂单剩余数量不足',
+      { catalog_key: listing.catalog_key || '', remaining_quantity: listing.remaining_quantity },
+    );
   }
 
   const now = nowMs();
@@ -930,7 +940,12 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
 
   const tradeRow = await getTradeRow(env, tradeId);
   if (!tradeRow) {
-    throw new HttpError(409, 'market_listing_unavailable', '该挂单刚刚被其他玩家买走或数量不足');
+    throw new HttpError(
+      409,
+      'market_listing_unavailable',
+      '该挂单刚刚被其他玩家买走或数量不足',
+      { catalog_key: listing.catalog_key || '', remaining_quantity: 0 },
+    );
   }
 
   if (listing.catalog_key) await refreshMarketCatalogKey(env, listing.catalog_key);

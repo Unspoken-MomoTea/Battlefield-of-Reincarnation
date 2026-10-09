@@ -84,6 +84,8 @@ function orderFillFromRow(row) {
   return {
     id: row.id,
     order_id: row.order_id,
+    buyer_save_id: row.buyer_save_id || '',
+    seller_save_id: row.seller_save_id || '',
     asset: {
       kind: row.asset_kind,
       name: row.asset_name,
@@ -141,6 +143,7 @@ function swapTransferFromRow(row) {
   return {
     id: row.id,
     swap_id: row.swap_id,
+    save_id: row.save_id || '',
     asset: {
       kind: row.asset_kind,
       name: row.asset_name,

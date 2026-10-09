@@ -1,4 +1,5 @@
 import { MARKET_KIND_LABELS } from '../services/market-service.js';
+import { createMarketBrowseStore } from './market-browse-store.js';
 import {
   marketAssetDetailEntries,
   marketAssetFieldDisplay,
@@ -48,9 +49,9 @@ export function createMarketView({
 }) {
   let catalogItems = [];
   let catalogCounts = {};
-  let catalogNextOffset = null;
   let catalogFacets = { qualities: [], subtypes: [] };
-  const catalogCache = new Map();
+  const browseStore = createMarketBrowseStore({ marketService });
+  let detailTimer = null;
   let selectedKey = '';
   let selectedDetail = null;
   let loading = false;
@@ -60,6 +61,10 @@ export function createMarketView({
   let currentMineView = 'active';
   let selectedOrderId = '';
   let orderDraft = null;
+  const MARKET_VIEW_CACHE_MS = 15_000;
+  let mineStateCache = null;
+  let mineStateLoadedAt = 0;
+  const orderStateCache = new Map();
   let sellInventory = null;
   let selectedSellIndex = -1;
 
@@ -250,12 +255,47 @@ export function createMarketView({
     }
   };
 
+  const invalidateMineState = () => {
+    mineStateCache = null;
+    mineStateLoadedAt = 0;
+  };
+
+  const invalidateOrderState = (view = '') => {
+    if (view) orderStateCache.delete(view);
+    else orderStateCache.clear();
+  };
+
+  const invalidateTradingViews = () => {
+    invalidateMineState();
+    invalidateOrderState();
+  };
+
+  async function loadMineState({ force = false } = {}) {
+    const fresh = mineStateCache && Date.now() - mineStateLoadedAt <= MARKET_VIEW_CACHE_MS;
+    if (!force && fresh) return mineStateCache;
+    mineStateCache = await marketService.mine();
+    mineStateLoadedAt = Date.now();
+    return mineStateCache;
+  }
+
+  async function loadOrderState(view, { force = false } = {}) {
+    const cached = orderStateCache.get(view);
+    if (!force && cached && Date.now() - cached.loadedAt <= MARKET_VIEW_CACHE_MS) {
+      return cached.result;
+    }
+    const result = view === 'swap'
+      ? await marketService.listSwaps({ limit: 60 })
+      : await marketService.listBuyOrders({ limit: 60 });
+    orderStateCache.set(view, { result, loadedAt: Date.now() });
+    return result;
+  }
+
   async function setMode(mode) {
     if (!['browse', 'sell', 'orders', 'mine'].includes(mode)) return;
     if (mode !== 'browse') requireLogin();
     currentMode = mode;
     setModeVisuals();
-    if (!catalogItems.length) await refresh();
+    if (!browseStore.query().loaded_at) await refresh();
     if (mode === 'sell') await renderSellMode();
     if (mode === 'orders') await renderOrderMode();
     if (mode === 'mine') await renderMineMode();
@@ -271,16 +311,6 @@ export function createMarketView({
     maxPrice: Math.max(0, Math.floor(Number(nodes.marketMaxPrice?.value) || 0)),
     sort: nodes.marketSort?.value || 'price_asc',
     limit: 40,
-  });
-
-  const browseCacheKey = filters => JSON.stringify({
-    query: filters.query || '',
-    kind: filters.kind || '',
-    quality: filters.quality || '',
-    subtype: filters.subtype || '',
-    minPrice: filters.minPrice || 0,
-    maxPrice: filters.maxPrice || 0,
-    sort: filters.sort || 'price_asc',
   });
 
   const syncSubtypeOptions = () => {
@@ -340,8 +370,8 @@ export function createMarketView({
     node.append(itemCell, kindCell, qualityCell, stockCell, priceCell);
     node.addEventListener('click', () => {
       selectedKey = item.key;
+      selectedDetail = browseStore.peekDetail(item.key);
       renderCatalogRows();
-      void loadCatalogDetail(item.key).catch(notifyError);
     });
     return node;
   };
@@ -359,52 +389,83 @@ export function createMarketView({
       for (const child of nodes.marketList.children) {
         child.classList.toggle('is-selected', child === nodes.marketList.children[catalogItems.indexOf(selected)]);
       }
-      if (!selectedDetail || selectedDetail.catalog?.key !== selectedKey) {
-        void loadCatalogDetail(selectedKey).catch(notifyError);
+      const cached = browseStore.peekDetail(selectedKey);
+      if (cached) {
+        selectedDetail = cached;
+        renderInspector(cached);
       } else {
-        renderInspector(selectedDetail);
+        selectedDetail = null;
+        renderInspectorPreview(selected);
+        scheduleCatalogDetail(selectedKey);
       }
     }
     const listingCount = Object.values(catalogCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     nodes.marketCount.textContent = catalogItems.length + ' 种商品 · ' + listingCount + ' 个当前挂单';
-    if (nodes.marketMore) nodes.marketMore.hidden = catalogNextOffset == null;
+    if (nodes.marketMore) nodes.marketMore.hidden = true;
     renderCategoryCounts();
   }
 
-  async function loadCatalog({ force = false, append = false } = {}) {
-    const filters = browseFilters();
-    const key = browseCacheKey(filters);
-    if (!append && !force && catalogCache.has(key)) {
-      const cached = catalogCache.get(key);
-      catalogItems = cached.items.slice();
-      catalogCounts = { ...cached.counts };
-      catalogNextOffset = cached.next_offset;
-      catalogFacets = cached.facets || catalogFacets;
-      syncSubtypeOptions();
-      renderCatalogRows();
-      return cached;
-    }
+  async function loadCatalog({ force = false } = {}) {
+    if (force) await browseStore.refresh();
+    else await browseStore.ensureSnapshot();
 
-    const offset = append ? Number(catalogNextOffset || 0) : 0;
-    const result = await marketService.catalog({ ...filters, offset });
-    const nextItems = Array.isArray(result?.items) ? result.items : [];
-    catalogItems = append ? catalogItems.concat(nextItems) : nextItems;
-    catalogCounts = result?.counts || catalogCounts;
-    catalogNextOffset = result?.next_offset ?? null;
-    catalogFacets = result?.facets || catalogFacets;
+    const result = browseStore.query(browseFilters());
+    catalogItems = result.items;
+    catalogCounts = result.counts;
+    catalogFacets = result.facets;
     syncSubtypeOptions();
-    catalogCache.set(key, {
-      items: catalogItems.slice(),
-      counts: { ...catalogCounts },
-      next_offset: catalogNextOffset,
-      facets: catalogFacets,
-    });
     renderCatalogRows();
     return result;
   }
 
-  async function loadCatalogDetail(catalogKey) {
-    const detail = await marketService.catalogDetail(catalogKey);
+  function renderInspectorPreview(item) {
+    if (!nodes.marketInspector || !item) {
+      renderInspector(null);
+      return;
+    }
+    const wrap = element('div', 'rw-ah-inspector-body');
+    const head = element('div', 'rw-ah-detail-head');
+    head.append(
+      element('div', 'rw-ah-inspector-title', '详情'),
+      qualityName(element('h3', '', item.name), item.asset),
+    );
+    wrap.append(head, assetDetail(item.asset));
+
+    const live = element('div', 'rw-ah-ladder');
+    live.append(
+      element('div', 'rw-ah-section-label', '当前市场'),
+      element(
+        'div',
+        'rw-ah-muted-line',
+        (Number(item.lowest_price || 0) > 0
+          ? '当前最低价 ' + coin(item.lowest_price) + ' 空间币 · 库存 ' + Number(item.total_stock || 0)
+          : '当前暂无公开库存')
+          + ' · 实时价格梯度正在后台同步…',
+      ),
+    );
+    wrap.append(live);
+
+    const purchase = element('div', 'rw-ah-purchase-box');
+    purchase.append(
+      element('strong', '', '实时库存同步中'),
+      element('p', '', '资产详情已从本地目录快照立即显示；购买按钮会在实时价格档位同步后启用。'),
+    );
+    wrap.append(purchase);
+    nodes.marketInspector.replaceChildren(wrap);
+  }
+
+  function scheduleCatalogDetail(catalogKey) {
+    if (detailTimer != null) clearTimeout(detailTimer);
+    const key = String(catalogKey || '');
+    detailTimer = setTimeout(() => {
+      detailTimer = null;
+      if (!key || selectedKey !== key) return;
+      void loadCatalogDetail(key).catch(notifyError);
+    }, 120);
+  }
+
+  async function loadCatalogDetail(catalogKey, { force = false } = {}) {
+    const detail = await browseStore.detail(catalogKey, { force });
     if (selectedKey !== catalogKey) return detail;
     selectedDetail = detail;
     renderInspector(detail);
@@ -533,6 +594,7 @@ export function createMarketView({
 
       try {
         await marketService.buyCatalog(catalog, quote.quantity, quote);
+        invalidateTradingViews();
       } catch (error) {
         if ([
           'market_catalog_unavailable',
@@ -540,7 +602,7 @@ export function createMarketView({
           'market_price_changed',
           'market_purchase_changed',
         ].includes(error?.code)) {
-          catalogCache.clear();
+          browseStore.invalidate();
           try {
             await loadCatalog({ force: true });
             if (selectedKey) await loadCatalogDetail(selectedKey);
@@ -557,7 +619,7 @@ export function createMarketView({
       }
 
       try { host.toastr?.success?.('购买完成，资产已写入当前存档', '空间集市'); } catch {}
-      catalogCache.clear();
+      browseStore.invalidate();
       await loadCatalog({ force: true });
       if (selectedKey) await loadCatalogDetail(selectedKey).catch(() => {});
       await refreshSummary();
@@ -619,11 +681,8 @@ export function createMarketView({
       cells.push(['当前存档', '未读取']);
     }
 
-    if (getAuth()?.user) {
-      try {
-        const mine = await marketService.mine();
-        cells.push(['待领货款', coin(mine.wallet?.balance)]);
-      } catch {}
+    if (getAuth()?.user && mineStateCache) {
+      cells.push(['待领货款', coin(mineStateCache.wallet?.balance)]);
     }
 
     nodes.marketSummary.replaceChildren(...cells.map(([label, value]) => {
@@ -631,6 +690,12 @@ export function createMarketView({
       cell.append(element('span', '', label), element('strong', '', value));
       return cell;
     }));
+
+    if (getAuth()?.user && !mineStateCache) {
+      void loadMineState()
+        .then(() => refreshSummary())
+        .catch(() => {});
+    }
   }
 
   const sellRow = (asset, index) => {
@@ -694,22 +759,19 @@ export function createMarketView({
 
     let referenceDetail = null;
     let referencePrice = 0;
-    try {
-      const result = await marketService.catalog({
-        query: asset.name,
-        kind: asset.kind,
-        sort: 'price_asc',
-        limit: 20,
-      });
-      const same = (result?.items || []).find(item => (
-        item.name === asset.name
-        && (!quality(asset) || qualityRank(item.asset) === qualityRank(asset))
-      )) || (result?.items || []).find(item => item.name === asset.name);
-      if (same?.key) {
-        referenceDetail = await marketService.catalogDetail(same.key);
-        referencePrice = Number(referenceDetail?.catalog?.lowest_price || 0);
-      }
-    } catch {}
+    const referenceResult = browseStore.query({
+      query: asset.name,
+      kind: asset.kind,
+      sort: 'price_asc',
+    });
+    const referenceItem = (referenceResult?.items || []).find(item => (
+      item.name === asset.name
+      && (!quality(asset) || qualityRank(item.asset) === qualityRank(asset))
+    )) || (referenceResult?.items || []).find(item => item.name === asset.name);
+    if (referenceItem?.key) {
+      referenceDetail = browseStore.peekDetail(referenceItem.key);
+      referencePrice = Number(referenceItem.lowest_price || 0);
+    }
 
     const referenceBox = element('div', 'rw-ah-sell-market');
     const referenceHead = element('div', 'rw-ah-sell-market-head');
@@ -851,7 +913,7 @@ export function createMarketView({
     price.addEventListener('input', syncGross);
     duration.addEventListener('change', () => void refreshQuote().catch(notifyError));
     syncGross();
-    await refreshQuote();
+    void refreshQuote().catch(notifyError);
 
     const submit = button('创建拍卖', 'primary', async () => {
       const amount = amountValue();
@@ -884,6 +946,7 @@ export function createMarketView({
         unitPrice,
         durationHours,
       });
+      invalidateTradingViews();
       try { host.toastr?.success?.('已创建拍卖', '空间集市'); } catch {}
       selectedSellIndex = -1;
       await renderSellMode();
@@ -911,6 +974,7 @@ export function createMarketView({
         name: asset.name,
         quantity: amount,
       });
+      invalidateTradingViews();
       try { host.toastr?.success?.('资产已由系统回收，空间币已写入当前存档', '空间集市'); } catch {}
       selectedSellIndex = -1;
       await renderSellMode();
@@ -927,7 +991,7 @@ export function createMarketView({
       buybackButton.disabled = !quote;
       return quote;
     }
-    await refreshBuyback().catch(() => {
+    void refreshBuyback().catch(() => {
       buybackValue.textContent = '暂时无法估价';
       buybackButton.disabled = true;
     });
@@ -1086,6 +1150,7 @@ export function createMarketView({
         durationHours: Number(duration.value) || 24,
       });
       orderDraft = null;
+      invalidateTradingViews();
       try { host.toastr?.success?.('求购单已创建，空间币已进入托管', '空间集市'); } catch {}
       await renderOrderMode();
       await refreshSummary();
@@ -1192,6 +1257,7 @@ export function createMarketView({
         },
         durationHours: Number(duration.value) || 24,
       });
+      invalidateTradingViews();
       try { host.toastr?.success?.('交换单已发布，提供资产已进入托管', '空间集市'); } catch {}
       await renderOrderMode();
     }));
@@ -1254,6 +1320,7 @@ export function createMarketView({
             name: asset.name,
             quantity: amount,
           });
+          invalidateTradingViews();
           try { host.toastr?.success?.('已完成求购交付，货款进入待领取余额', '空间集市'); } catch {}
           await renderOrderMode();
           await refreshSummary();
@@ -1327,6 +1394,7 @@ export function createMarketView({
             name: asset.name,
             quantity: amount,
           });
+          invalidateTradingViews();
           try { host.toastr?.success?.('交换完成，请到“我的拍卖 → 待领取”领取对方资产', '空间集市'); } catch {}
           await renderOrderMode();
         }));
@@ -1337,11 +1405,9 @@ export function createMarketView({
     nodes.marketOrdersEditor.replaceChildren(editor);
   }
 
-  async function renderOrderMode() {
+  async function renderOrderMode({ force = false } = {}) {
     requireLogin();
-    const result = currentOrderView === 'swap'
-      ? await marketService.listSwaps({ limit: 60 })
-      : await marketService.listBuyOrders({ limit: 60 });
+    const result = await loadOrderState(currentOrderView, { force });
     const items = result?.items || [];
     for (const tab of nodes.marketOrderViews || []) {
       tab.classList.toggle('is-active', tab.dataset.marketOrderView === currentOrderView);
@@ -1377,9 +1443,11 @@ export function createMarketView({
       }
       row.addEventListener('click', () => {
         selectedOrderId = item.id;
-        void renderOrderMode().then(() => (
-          currentOrderView === 'swap' ? renderSwapDetail(item) : renderBuyOrderDetail(item)
-        )).catch(notifyError);
+        for (const [index, child] of [...nodes.marketOrdersList.children].entries()) {
+          child.classList.toggle('is-selected', items[index]?.id === selectedOrderId);
+        }
+        void (currentOrderView === 'swap' ? renderSwapDetail(item) : renderBuyOrderDetail(item))
+          .catch(notifyError);
       });
       return row;
     });
@@ -1407,6 +1475,7 @@ export function createMarketView({
     if (Number(state.wallet?.balance) > 0) {
       wallet.append(button('领取到当前存档', 'primary', async () => {
         await marketService.claimProceeds();
+        invalidateTradingViews();
         try { host.toastr?.success?.('货款已写入当前存档', '空间集市'); } catch {}
         await renderMineMode();
         await refreshSummary();
@@ -1415,9 +1484,9 @@ export function createMarketView({
     content.append(wallet);
   };
 
-  async function renderMineMode() {
+  async function renderMineMode({ force = false } = {}) {
     requireLogin();
-    const state = await marketService.mine();
+    const state = await loadMineState({ force });
     for (const tab of nodes.marketMineViews || []) {
       tab.classList.toggle('is-active', tab.dataset.marketMineView === currentMineView);
     }
@@ -1448,7 +1517,8 @@ export function createMarketView({
             });
             if (!ok) return;
             await marketService.cancel(listing.id);
-            catalogCache.clear();
+            browseStore.invalidate();
+            invalidateTradingViews();
             await renderMineMode();
           })],
         ));
@@ -1466,6 +1536,8 @@ export function createMarketView({
           '已下架 · ' + until(listing.recycle_at) + '后系统自动回收',
           [button('取回资产', 'primary', async () => {
             await marketService.cancel(listing.id);
+            browseStore.invalidate();
+            invalidateTradingViews();
             await renderMineMode();
           })],
         ));
@@ -1489,6 +1561,7 @@ export function createMarketView({
             else if (entry.type === 'order') await marketService.deliverOrderFill(entry.value);
             else if (entry.type === 'swap') await marketService.receiveSwapTransfer(entry.value);
           }
+          invalidateTradingViews();
           await renderMineMode();
           await refreshSummary();
         }));
@@ -1512,6 +1585,7 @@ export function createMarketView({
             else if (entry.type === 'payout') await marketService.receivePayout(value);
             else if (entry.type === 'order') await marketService.deliverOrderFill(value);
             else if (entry.type === 'swap') await marketService.receiveSwapTransfer(value);
+            invalidateTradingViews();
             await renderMineMode();
             await refreshSummary();
           })],
@@ -1566,6 +1640,7 @@ export function createMarketView({
           coin(order.unit_price) + ' / 件 · 托管余额 ' + coin(order.escrow_balance) + ' · ' + until(order.expires_at),
           [button('取消求购', 'danger', async () => {
             await marketService.cancelBuyOrder(order.id);
+            invalidateTradingViews();
             await renderMineMode();
             await refreshSummary();
           })],
@@ -1582,6 +1657,7 @@ export function createMarketView({
           until(swap.expires_at) + '后到期',
           [button('取消交换', 'danger', async () => {
             await marketService.cancelSwap(swap.id);
+            invalidateTradingViews();
             await renderMineMode();
           })],
         ));
@@ -1595,7 +1671,7 @@ export function createMarketView({
   const applyBrowseFilters = () => {
     selectedKey = '';
     selectedDetail = null;
-    void loadCatalog({ force: true }).catch(notifyError);
+    void loadCatalog().catch(notifyError);
   };
 
   nodes.marketSearchButton?.addEventListener('click', applyBrowseFilters);
@@ -1607,9 +1683,15 @@ export function createMarketView({
   nodes.marketSubtype?.addEventListener('change', applyBrowseFilters);
   nodes.marketMinPrice?.addEventListener('change', applyBrowseFilters);
   nodes.marketMaxPrice?.addEventListener('change', applyBrowseFilters);
-  nodes.marketMore?.addEventListener('click', () => void loadCatalog({ append: true }).catch(notifyError));
-  nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
-  nodes.marketOrderRefresh?.addEventListener('click', () => void renderOrderMode().catch(notifyError));
+  nodes.marketMore?.addEventListener('click', () => {});
+  nodes.marketMineRefresh?.addEventListener('click', () => {
+    invalidateMineState();
+    void renderMineMode({ force: true }).catch(notifyError);
+  });
+  nodes.marketOrderRefresh?.addEventListener('click', () => {
+    invalidateOrderState(currentOrderView);
+    void renderOrderMode({ force: true }).catch(notifyError);
+  });
 
   nodes.marketOrderCreate?.addEventListener('click', () => {
     currentOrderView = 'buy';
@@ -1648,6 +1730,7 @@ export function createMarketView({
   for (const category of nodes.marketCategories || []) {
     category.addEventListener('click', () => {
       currentKind = category.dataset.marketKind || '';
+      if (nodes.marketSubtype) nodes.marketSubtype.value = '';
       selectedKey = '';
       selectedDetail = null;
       for (const candidate of nodes.marketCategories || []) {

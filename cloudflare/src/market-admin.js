@@ -64,42 +64,7 @@ export async function listAdminMarket(request, env, user) {
   const offset = Math.max(0, integer(url.searchParams.get('offset'), 0));
 
   if (view === 'trades') {
-    const clauses = [];
-    const args = [];
-    if (query) {
-      clauses.push('(t.asset_name LIKE ? OR su.display_name LIKE ? OR bu.display_name LIKE ?)');
-      args.push('%' + query + '%', '%' + query + '%', '%' + query + '%');
-    }
-    const rows = await all(
-      env,
-      `SELECT t.*,
-              su.display_name AS seller_display_name, su.username AS seller_username,
-              bu.display_name AS buyer_display_name, bu.username AS buyer_username
-       FROM market_trades t
-       JOIN users su ON su.id = t.seller_user_id
-       JOIN users bu ON bu.id = t.buyer_user_id
-       ${clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''}
-       ORDER BY t.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...args, limit * (riskOnly ? 4 : 1), offset],
-    );
-    let items = rows.map(row => {
-      const risk = priceRisk(row);
-      return {
-        id: row.id,
-        listing_id: row.listing_id,
-        asset: asset(row, 'quantity'),
-        quantity: integer(row.quantity),
-        unit_price: integer(row.unit_price),
-        total_price: integer(row.total_price),
-        created_at: integer(row.created_at),
-        seller: { id: integer(row.seller_user_id), display_name: row.seller_display_name || row.seller_username },
-        buyer: { id: integer(row.buyer_user_id), display_name: row.buyer_display_name || row.buyer_username },
-        risk,
-      };
-    });
-    if (riskOnly) items = items.filter(item => item.risk.suspicious).slice(0, limit);
-    return json({ view, items, next_offset: rows.length >= limit ? offset + limit : null });
+    throw new HttpError(404, 'market_history_removed', '空间集市不再保存可查询的成交历史');
   }
 
   if (view === 'orders') {

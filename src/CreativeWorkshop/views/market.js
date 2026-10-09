@@ -67,6 +67,8 @@ export function createMarketView({
   const orderStateCache = new Map();
   let sellInventory = null;
   let selectedSellIndex = -1;
+  const expandedSellKinds = new Set(['equipment']);
+  const MAX_ACTIVE_LISTINGS = 10;
 
   const currentUserId = () => Number(getAuth()?.user?.id || 0);
 
@@ -401,15 +403,16 @@ export function createMarketView({
     }
     const listingCount = Object.values(catalogCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     nodes.marketCount.textContent = catalogItems.length + ' 种商品 · ' + listingCount + ' 个当前挂单';
-    if (nodes.marketMore) nodes.marketMore.hidden = true;
+    if (nodes.marketMore) nodes.marketMore.hidden = browseStore.query().next_offset == null;
     renderCategoryCounts();
   }
 
   async function loadCatalog({ force = false } = {}) {
-    if (force) await browseStore.refresh();
-    else await browseStore.ensureSnapshot();
+    const filters = browseFilters();
+    if (force) await browseStore.refresh(filters);
+    else await browseStore.ensureSnapshot(filters);
 
-    const result = browseStore.query(browseFilters());
+    const result = browseStore.query(filters);
     catalogItems = result.items;
     catalogCounts = result.counts;
     catalogFacets = result.facets;
@@ -705,7 +708,7 @@ export function createMarketView({
     const copy = element('span', 'rw-ah-inventory-copy');
     copy.append(
       qualityName(element('strong', '', asset.name), asset),
-      element('small', '', kindLabel(asset.kind) + (quality(asset) ? ' · ' + quality(asset) : '')),
+      qualityName(element('small', '', kindLabel(asset.kind) + (quality(asset) ? ' · ' + quality(asset) : '')), asset),
     );
     row.append(
       copy,
@@ -721,8 +724,37 @@ export function createMarketView({
 
   function renderSellList() {
     const assets = sellInventory?.assets || [];
-    if (!assets.length) empty(nodes.marketSellList, '当前角色没有可出售资产。');
-    else nodes.marketSellList.replaceChildren(...assets.map(sellRow));
+    if (!assets.length) {
+      empty(nodes.marketSellList, '当前角色没有可出售资产。');
+    } else {
+      const groups = new Map();
+      assets.forEach((asset, index) => {
+        if (!groups.has(asset.kind)) groups.set(asset.kind, []);
+        groups.get(asset.kind).push({ asset, index });
+      });
+      const sections = [];
+      for (const kind of Object.keys(MARKET_KIND_LABELS)) {
+        const entries = groups.get(kind) || [];
+        if (!entries.length) continue;
+        const section = element('details', 'rw-ah-inventory-group');
+        section.open = expandedSellKinds.has(kind)
+          || entries.some(entry => entry.index === selectedSellIndex);
+        const summary = element('summary', 'rw-ah-inventory-group-head');
+        summary.append(
+          element('span', '', kindLabel(kind)),
+          element('small', '', entries.length + ' 项'),
+        );
+        const body = element('div', 'rw-ah-inventory-group-content');
+        body.append(...entries.map(({ asset, index }) => sellRow(asset, index)));
+        section.append(summary, body);
+        section.addEventListener('toggle', () => {
+          if (section.open) expandedSellKinds.add(kind);
+          else expandedSellKinds.delete(kind);
+        });
+        sections.push(section);
+      }
+      nodes.marketSellList.replaceChildren(...sections);
+    }
     nodes.marketSellCount.textContent = assets.length + ' 项';
   }
 
@@ -759,11 +791,12 @@ export function createMarketView({
 
     let referenceDetail = null;
     let referencePrice = 0;
-    const referenceResult = browseStore.query({
+    const referenceResult = await marketService.catalog({
       query: asset.name,
       kind: asset.kind,
       sort: 'price_asc',
-    });
+      limit: 20,
+    }).catch(() => ({ items: [] }));
     const referenceItem = (referenceResult?.items || []).find(item => (
       item.name === asset.name
       && (!quality(asset) || qualityRank(item.asset) === qualityRank(asset))
@@ -818,6 +851,16 @@ export function createMarketView({
 
     const auctionLabel = element('div', 'rw-ah-section-label', '拍卖');
     editor.append(auctionLabel);
+    const mine = await loadMineState();
+    const activeListingCount = Number(mine?.active_listing_count ?? 0);
+    const listingLimit = Number(mine?.active_listing_limit || MAX_ACTIVE_LISTINGS);
+    const slots = element('div', 'rw-ah-listing-slots', '在售挂单 ' + activeListingCount + ' / ' + listingLimit);
+    if (activeListingCount >= listingLimit) {
+      slots.classList.add('is-full');
+      editor.append(element('p', 'rw-market-notice warning',
+        '已达到最多 ' + listingLimit + ' 个在售挂单的上限。撤回、售完或到期后才能继续上架；系统回收不受限制。'));
+    }
+    editor.append(slots);
 
     const form = element('div', 'rw-ah-sell-form');
     const qtyField = element('label', 'rw-ah-form-field');
@@ -916,6 +959,10 @@ export function createMarketView({
     void refreshQuote().catch(notifyError);
 
     const submit = button('创建拍卖', 'primary', async () => {
+      const latestMine = await marketService.mine();
+      if (Number(latestMine?.active_listing_count || 0) >= Number(latestMine?.active_listing_limit || MAX_ACTIVE_LISTINGS)) {
+        throw new Error('在售挂单已达到 10 个上限，请先撤回或等待售完');
+      }
       const amount = amountValue();
       const unitPrice = Math.floor(Number(price.value) || 0);
       const durationHours = Number(duration.value) || 24;
@@ -953,6 +1000,7 @@ export function createMarketView({
       await refresh();
     });
 
+    submit.disabled = activeListingCount >= listingLimit;
     form.append(qtyField, priceField, durationField, fee, total, submit);
     editor.append(form);
 
@@ -1683,7 +1731,15 @@ export function createMarketView({
   nodes.marketSubtype?.addEventListener('change', applyBrowseFilters);
   nodes.marketMinPrice?.addEventListener('change', applyBrowseFilters);
   nodes.marketMaxPrice?.addEventListener('change', applyBrowseFilters);
-  nodes.marketMore?.addEventListener('click', () => {});
+  nodes.marketMore?.addEventListener('click', () => {
+    void browseStore.append().then(() => {
+      const result = browseStore.query(browseFilters());
+      catalogItems = result.items;
+      catalogCounts = result.counts;
+      catalogFacets = result.facets;
+      renderCatalogRows();
+    }).catch(notifyError);
+  });
   nodes.marketMineRefresh?.addEventListener('click', () => {
     invalidateMineState();
     void renderMineMode({ force: true }).catch(notifyError);

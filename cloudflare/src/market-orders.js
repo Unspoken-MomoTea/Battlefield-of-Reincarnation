@@ -84,6 +84,8 @@ function orderFillFromRow(row) {
   return {
     id: row.id,
     order_id: row.order_id,
+    buyer_save_id: row.buyer_save_id || '',
+    seller_save_id: row.seller_save_id || '',
     asset: {
       kind: row.asset_kind,
       name: row.asset_name,
@@ -141,6 +143,7 @@ function swapTransferFromRow(row) {
   return {
     id: row.id,
     swap_id: row.swap_id,
+    save_id: row.save_id || '',
     asset: {
       kind: row.asset_kind,
       name: row.asset_name,
@@ -241,7 +244,7 @@ export async function createMarketBuyOrder(request, env, user) {
   const id = marketId(body?.id, '求购单ID');
   const existing = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
   if (existing) {
-    if (Number(existing.buyer_user_id) !== Number(user.id)) {
+    if (Number(existing.buyer_user_id) !== Number(user.id) || existing.save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_id_conflict', '求购单ID已被占用');
     }
     return json({ order: orderFromRow(existing) });
@@ -254,11 +257,11 @@ export async function createMarketBuyOrder(request, env, user) {
   const now = Date.now();
   await env.DB.prepare(
     `INSERT INTO market_buy_orders
-      (id, buyer_user_id, asset_kind, asset_name, quality, subtype, unit_price,
+      (id, buyer_user_id, save_id, asset_kind, asset_name, quality, subtype, unit_price,
        total_quantity, remaining_quantity, escrow_balance, status, expires_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
   ).bind(
-    id, user.id, wanted.kind, wanted.name, wanted.quality, wanted.subtype, unitPrice,
+    id, user.id, user.market_save_id, wanted.kind, wanted.name, wanted.quality, wanted.subtype, unitPrice,
     wanted.quantity, wanted.quantity, total, now + hours * 60 * 60 * 1000, now, now,
   ).run();
   const row = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
@@ -268,7 +271,7 @@ export async function createMarketBuyOrder(request, env, user) {
 export async function getMarketBuyOrder(env, user, orderIdValue) {
   const id = marketId(orderIdValue, '求购单ID');
   const row = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
-  if (!row || Number(row.buyer_user_id) !== Number(user.id)) {
+  if (!row || Number(row.buyer_user_id) !== Number(user.id) || row.save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_order_not_found', '求购单不存在');
   }
   return json({ order: orderFromRow(row) });
@@ -281,7 +284,8 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
   const fillId = marketId(body?.fill_id, '成交ID');
   const existingFill = await first(env, 'SELECT * FROM market_order_fills WHERE id = ? LIMIT 1', [fillId]);
   if (existingFill) {
-    if (Number(existingFill.seller_user_id) !== Number(user.id)) {
+    if (Number(existingFill.seller_user_id) !== Number(user.id)
+      || existingFill.seller_save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_id_conflict', '成交ID已被占用');
     }
     return json({ fill: orderFillFromRow(existingFill) });
@@ -333,9 +337,9 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
   await runBatch(env, [
     env.DB.prepare(
       `INSERT INTO market_order_fills
-        (id, order_id, seller_user_id, buyer_user_id, asset_kind, asset_name, asset_json,
+        (id, order_id, seller_user_id, buyer_user_id, buyer_save_id, seller_save_id, asset_kind, asset_name, asset_json,
          quantity, unit_price, total_price, delivered_at, created_at)
-       SELECT ?, o.id, ?, o.buyer_user_id, ?, ?, ?, ?, o.unit_price, o.unit_price * ?, NULL, ?
+       SELECT ?, o.id, ?, o.buyer_user_id, o.save_id, ?, ?, ?, ?, ?, o.unit_price, o.unit_price * ?, NULL, ?
        FROM market_buy_orders o
        LEFT JOIN market_user_controls buyer_control ON buyer_control.user_id = o.buyer_user_id
        WHERE o.id = ?
@@ -348,6 +352,7 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
     ).bind(
       fillId,
       user.id,
+      user.market_save_id,
       asset.kind,
       asset.name,
       asset.assetJson,
@@ -373,14 +378,14 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
          )`,
     ).bind(quantity, total, quantity, now, orderId, fillId, orderId, user.id),
     env.DB.prepare(
-      `INSERT INTO market_wallets (user_id, balance, updated_at)
-       SELECT seller_user_id, total_price, ?
+      `INSERT INTO market_save_wallets (user_id, save_id, balance, updated_at)
+       SELECT seller_user_id, seller_save_id, total_price, ?
        FROM market_order_fills
-       WHERE id = ? AND seller_user_id = ?
-       ON CONFLICT(user_id) DO UPDATE SET
-         balance = market_wallets.balance + excluded.balance,
+       WHERE id = ? AND seller_user_id = ? AND seller_save_id = ?
+       ON CONFLICT(user_id, save_id) DO UPDATE SET
+         balance = market_save_wallets.balance + excluded.balance,
          updated_at = excluded.updated_at`,
-    ).bind(now, fillId, user.id),
+    ).bind(now, fillId, user.id, user.market_save_id),
   ]);
   const row = await first(env, 'SELECT * FROM market_order_fills WHERE id = ? LIMIT 1', [fillId]);
   if (!row) {
@@ -392,7 +397,8 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
 export async function cancelMarketBuyOrder(env, user, orderIdValue) {
   const id = marketId(orderIdValue, '求购单ID');
   const order = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
-  if (!order || Number(order.buyer_user_id) !== Number(user.id)) {
+  if (!order || Number(order.buyer_user_id) !== Number(user.id)
+    || order.save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_order_not_found', '求购单不存在');
   }
   if (order.status !== 'active') return json({ order: orderFromRow(order), payout: null });
@@ -401,8 +407,8 @@ export async function cancelMarketBuyOrder(env, user, orderIdValue) {
   const payoutId = ('order-refund:' + id).slice(0, 96);
   await runBatch(env, [
     env.DB.prepare(
-      `INSERT OR IGNORE INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
-       SELECT ?, buyer_user_id, escrow_balance, NULL, ?
+      `INSERT OR IGNORE INTO market_payouts (id, user_id, save_id, amount, confirmed_at, created_at)
+       SELECT ?, buyer_user_id, save_id, escrow_balance, NULL, ?
        FROM market_buy_orders
        WHERE id = ? AND buyer_user_id = ? AND status = 'active' AND escrow_balance > 0`,
     ).bind(payoutId, now, id, user.id),
@@ -425,6 +431,7 @@ export async function cancelMarketBuyOrder(env, user, orderIdValue) {
     order: orderFromRow(updated),
     payout: payout ? {
       id: payout.id,
+      save_id: payout.save_id || '',
       amount: integer(payout.amount),
       confirmed_at: payout.confirmed_at == null ? null : integer(payout.confirmed_at),
       created_at: integer(payout.created_at),
@@ -435,12 +442,13 @@ export async function cancelMarketBuyOrder(env, user, orderIdValue) {
 export async function confirmMarketOrderFill(env, user, fillIdValue) {
   const id = marketId(fillIdValue, '成交ID');
   const row = await first(env, 'SELECT * FROM market_order_fills WHERE id = ? LIMIT 1', [id]);
-  if (!row || Number(row.buyer_user_id) !== Number(user.id)) {
+  if (!row || Number(row.buyer_user_id) !== Number(user.id)
+    || row.buyer_save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_order_fill_not_found', '求购成交记录不存在');
   }
   if (row.delivered_at == null) {
-    await env.DB.prepare('UPDATE market_order_fills SET delivered_at = ? WHERE id = ? AND delivered_at IS NULL')
-      .bind(Date.now(), id).run();
+    await env.DB.prepare('UPDATE market_order_fills SET delivered_at = ? WHERE id = ? AND buyer_save_id = ? AND delivered_at IS NULL')
+      .bind(Date.now(), id, user.market_save_id).run();
   }
   const updated = await first(env, 'SELECT * FROM market_order_fills WHERE id = ? LIMIT 1', [id]);
   return json({ fill: orderFillFromRow(updated) });
@@ -489,7 +497,7 @@ export async function createMarketSwap(request, env, user) {
   const id = marketId(body?.id, '交换单ID');
   const existing = await first(env, 'SELECT * FROM market_swaps WHERE id = ? LIMIT 1', [id]);
   if (existing) {
-    if (Number(existing.owner_user_id) !== Number(user.id)) {
+    if (Number(existing.owner_user_id) !== Number(user.id) || existing.owner_save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_id_conflict', '交换单ID已被占用');
     }
     return json({ swap: swapFromRow(existing) });
@@ -500,12 +508,12 @@ export async function createMarketSwap(request, env, user) {
   const now = Date.now();
   await env.DB.prepare(
     `INSERT INTO market_swaps
-      (id, owner_user_id, offered_kind, offered_name, offered_json, offered_quantity,
+      (id, owner_user_id, owner_save_id, offered_kind, offered_name, offered_json, offered_quantity,
        wanted_kind, wanted_name, wanted_quality, wanted_subtype, wanted_quantity,
        status, accepted_by_user_id, expires_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?, ?)`,
   ).bind(
-    id, user.id, offered.kind, offered.name, offered.assetJson, offered.quantity,
+    id, user.id, user.market_save_id, offered.kind, offered.name, offered.assetJson, offered.quantity,
     wanted.kind, wanted.name, wanted.quality, wanted.subtype, wanted.quantity,
     now + hours * 60 * 60 * 1000, now, now,
   ).run();
@@ -516,7 +524,7 @@ export async function createMarketSwap(request, env, user) {
 export async function getMarketSwap(env, user, swapIdValue) {
   const id = marketId(swapIdValue, '交换单ID');
   const row = await first(env, 'SELECT * FROM market_swaps WHERE id = ? LIMIT 1', [id]);
-  if (!row || Number(row.owner_user_id) !== Number(user.id)) {
+  if (!row || Number(row.owner_user_id) !== Number(user.id) || row.owner_save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_swap_not_found', '交换单不存在');
   }
   return json({ swap: swapFromRow(row) });
@@ -562,7 +570,7 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
   await runBatch(env, [
     env.DB.prepare(
       `UPDATE market_swaps
-       SET status = 'completed', accepted_by_user_id = ?, updated_at = ?
+       SET status = 'completed', accepted_by_user_id = ?, accepted_save_id = ?, updated_at = ?
        WHERE id = ?
          AND status = 'active'
          AND expires_at > ?
@@ -571,18 +579,18 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
            SELECT 1 FROM market_user_controls mc
            WHERE mc.user_id = market_swaps.owner_user_id AND mc.is_suspended = 1
          )`,
-    ).bind(user.id, now, id, now, user.id),
+    ).bind(user.id, user.market_save_id, now, id, now, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
-        (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       SELECT ?, id, ?, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
+        (id, swap_id, user_id, save_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, ?, accepted_save_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
        FROM market_swaps
        WHERE id = ? AND status = 'completed' AND accepted_by_user_id = ?`,
     ).bind(offeredTransferId, user.id, now, id, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
-        (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       SELECT ?, id, owner_user_id, ?, ?, ?, ?, NULL, ?
+        (id, swap_id, user_id, save_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, owner_user_id, owner_save_id, ?, ?, ?, ?, NULL, ?
        FROM market_swaps
        WHERE id = ? AND status = 'completed' AND accepted_by_user_id = ?`,
     ).bind(
@@ -602,7 +610,8 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
      FROM market_swaps s JOIN users u ON u.id = s.owner_user_id WHERE s.id = ? LIMIT 1`,
     [id],
   );
-  if (!updated || Number(updated.accepted_by_user_id) !== Number(user.id)) {
+  if (!updated || Number(updated.accepted_by_user_id) !== Number(user.id)
+    || updated.accepted_save_id !== user.market_save_id) {
     throw new HttpError(409, 'market_swap_changed', '交换单刚刚被其他玩家接受或已失效');
   }
   return json({ swap: swapFromRow(updated) });
@@ -611,7 +620,8 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
 export async function cancelMarketSwap(env, user, swapIdValue) {
   const id = marketId(swapIdValue, '交换单ID');
   const swap = await first(env, 'SELECT * FROM market_swaps WHERE id = ? LIMIT 1', [id]);
-  if (!swap || Number(swap.owner_user_id) !== Number(user.id)) {
+  if (!swap || Number(swap.owner_user_id) !== Number(user.id)
+    || swap.owner_save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_swap_not_found', '交换单不存在');
   }
   if (swap.status !== 'active') return json({ swap: swapFromRow(swap) });
@@ -626,8 +636,8 @@ export async function cancelMarketSwap(env, user, swapIdValue) {
     ).bind(now, id, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
-        (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       SELECT ?, id, owner_user_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
+        (id, swap_id, user_id, save_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, owner_user_id, owner_save_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
        FROM market_swaps
        WHERE id = ? AND owner_user_id = ? AND status = 'cancelled'`,
     ).bind(transferId, now, id, user.id),
@@ -639,13 +649,13 @@ export async function cancelMarketSwap(env, user, swapIdValue) {
 export async function confirmMarketSwapTransfer(env, user, transferIdValue) {
   const id = marketId(transferIdValue, '交换交付ID');
   const row = await first(env, 'SELECT * FROM market_swap_transfers WHERE id = ? LIMIT 1', [id]);
-  if (!row || Number(row.user_id) !== Number(user.id)) {
+  if (!row || Number(row.user_id) !== Number(user.id) || row.save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_swap_transfer_not_found', '交换交付记录不存在');
   }
   if (row.confirmed_at == null) {
     await env.DB.prepare(
-      'UPDATE market_swap_transfers SET confirmed_at = ? WHERE id = ? AND confirmed_at IS NULL',
-    ).bind(Date.now(), id).run();
+      'UPDATE market_swap_transfers SET confirmed_at = ? WHERE id = ? AND save_id = ? AND confirmed_at IS NULL',
+    ).bind(Date.now(), id, user.market_save_id).run();
   }
   const updated = await first(env, 'SELECT * FROM market_swap_transfers WHERE id = ? LIMIT 1', [id]);
   return json({ transfer: swapTransferFromRow(updated) });
@@ -664,8 +674,8 @@ export async function settleExpiredMarketOrders(env, { limit = 100 } = {}) {
     const payoutId = ('order-expired:' + order.id).slice(0, 96);
     await runBatch(env, [
       env.DB.prepare(
-        `INSERT OR IGNORE INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
-         SELECT ?, buyer_user_id, escrow_balance, NULL, ?
+        `INSERT OR IGNORE INTO market_payouts (id, user_id, save_id, amount, confirmed_at, created_at)
+         SELECT ?, buyer_user_id, save_id, escrow_balance, NULL, ?
          FROM market_buy_orders
          WHERE id = ? AND status = 'active' AND expires_at <= ? AND escrow_balance > 0`,
       ).bind(payoutId, now, order.id, now),
@@ -698,8 +708,8 @@ export async function settleExpiredMarketOrders(env, { limit = 100 } = {}) {
       ).bind(now, swap.id, now),
       env.DB.prepare(
         `INSERT OR IGNORE INTO market_swap_transfers
-          (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-         SELECT ?, id, owner_user_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
+          (id, swap_id, user_id, save_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+         SELECT ?, id, owner_user_id, owner_save_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
          FROM market_swaps
          WHERE id = ? AND status = 'expired'`,
       ).bind(transferId, now, swap.id),
@@ -710,7 +720,8 @@ export async function settleExpiredMarketOrders(env, { limit = 100 } = {}) {
 
 export async function getMarketOrderState(env, user) {
   const [orders, fills, swaps, transfers] = await Promise.all([
-    all(env, 'SELECT * FROM market_buy_orders WHERE buyer_user_id = ? ORDER BY created_at DESC LIMIT 100', [user.id]),
+    all(env, 'SELECT * FROM market_buy_orders WHERE buyer_user_id = ? AND save_id = ? ORDER BY created_at DESC LIMIT 100',
+      [user.id, user.market_save_id]),
     all(
       env,
       `SELECT f.*,
@@ -719,33 +730,52 @@ export async function getMarketOrderState(env, user) {
        FROM market_order_fills f
        JOIN users su ON su.id = f.seller_user_id
        JOIN users bu ON bu.id = f.buyer_user_id
-       WHERE f.buyer_user_id = ? OR f.seller_user_id = ?
+       WHERE (f.buyer_user_id = ? AND f.buyer_save_id = ?)
+          OR (f.seller_user_id = ? AND f.seller_save_id = ?)
        ORDER BY f.created_at DESC LIMIT 100`,
-      [user.id, user.id],
+      [user.id, user.market_save_id, user.id, user.market_save_id],
     ),
     all(
       env,
       `SELECT s.*, u.display_name AS owner_display_name, u.username AS owner_username
        FROM market_swaps s
        JOIN users u ON u.id = s.owner_user_id
-       WHERE s.owner_user_id = ? OR s.accepted_by_user_id = ?
+       WHERE (s.owner_user_id = ? AND s.owner_save_id = ?)
+          OR (s.accepted_by_user_id = ? AND s.accepted_save_id = ?)
        ORDER BY s.created_at DESC LIMIT 100`,
-      [user.id, user.id],
+      [user.id, user.market_save_id, user.id, user.market_save_id],
     ),
     all(
       env,
       `SELECT * FROM market_swap_transfers
-       WHERE user_id = ?
+       WHERE user_id = ? AND save_id = ?
        ORDER BY created_at DESC LIMIT 100`,
-      [user.id],
+      [user.id, user.market_save_id],
     ),
+  ]);
+  const [pendingFills, pendingTransfers] = await Promise.all([
+    all(env,
+      `SELECT f.*,
+              su.display_name AS seller_display_name, su.username AS seller_username,
+              bu.display_name AS buyer_display_name, bu.username AS buyer_username
+       FROM market_order_fills f
+       JOIN users su ON su.id = f.seller_user_id
+       JOIN users bu ON bu.id = f.buyer_user_id
+       WHERE f.buyer_user_id = ? AND f.buyer_save_id = ? AND f.delivered_at IS NULL
+       ORDER BY f.created_at ASC LIMIT 200`,
+      [user.id, user.market_save_id]),
+    all(env,
+      `SELECT * FROM market_swap_transfers
+       WHERE user_id = ? AND save_id = ? AND confirmed_at IS NULL
+       ORDER BY created_at ASC LIMIT 200`,
+      [user.id, user.market_save_id]),
   ]);
   return {
     buy_orders: orders.map(orderFromRow),
     order_fills: fills.map(orderFillFromRow),
-    pending_order_deliveries: fills.filter(row => Number(row.buyer_user_id) === Number(user.id) && row.delivered_at == null).map(orderFillFromRow),
+    pending_order_deliveries: pendingFills.map(orderFillFromRow),
     swaps: swaps.map(swapFromRow),
     swap_transfers: transfers.map(swapTransferFromRow),
-    pending_swap_transfers: transfers.filter(row => row.confirmed_at == null).map(swapTransferFromRow),
+    pending_swap_transfers: pendingTransfers.map(swapTransferFromRow),
   };
 }

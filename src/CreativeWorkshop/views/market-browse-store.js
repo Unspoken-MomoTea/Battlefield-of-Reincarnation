@@ -98,31 +98,59 @@ export function createMarketBrowseStore({
   const detailCache = new Map();
   const detailRequests = new Map();
 
-  async function refresh() {
-    generation += 1;
+  async function refresh(filters = {}) {
+    const applied = { ...filters, offset: 0 };
+    const requestGeneration = ++generation;
     detailCache.clear();
     detailRequests.clear();
-    const next = await marketService.catalogSnapshot();
-    const items = Array.isArray(next?.items) ? next.items.slice() : [];
+    // Only fetch a single server-filtered page. Do not download the entire market.
+    const response = await marketService.catalog(applied);
+    if (requestGeneration !== generation) return snapshot;
+    const items = Array.isArray(response?.items) ? response.items.slice() : [];
     snapshot = {
       items,
-      counts: countsFrom(items, next?.counts || {}),
+      counts: countsFrom(items, response?.counts || {}),
+      facets: response?.facets || facets(items, applied.kind || ''),
+      next_offset: response?.next_offset ?? null,
+      filters: { ...filters },
       loaded_at: now(),
     };
     return snapshot;
   }
 
-  async function ensureSnapshot() {
-    return snapshot || refresh();
+  async function ensureSnapshot(filters = {}) {
+    return snapshot && JSON.stringify(snapshot.filters) === JSON.stringify(filters)
+      ? snapshot
+      : refresh(filters);
+  }
+
+  async function append() {
+    const current = snapshot;
+    if (!current || current.next_offset == null) return current;
+    const requestGeneration = generation;
+    const response = await marketService.catalog({
+      ...current.filters,
+      offset: current.next_offset,
+    });
+    if (requestGeneration !== generation || snapshot !== current) return snapshot;
+    const existingKeys = new Set(current.items.map(item => item.key));
+    for (const item of response?.items || []) {
+      if (!existingKeys.has(item.key)) {
+        current.items.push(item);
+        existingKeys.add(item.key);
+      }
+    }
+    current.next_offset = response?.next_offset ?? null;
+    return current;
   }
 
   function query(filters = {}) {
     const source = snapshot?.items || [];
-    const kind = normalized(filters.kind);
     return {
-      items: filterItems(source, filters),
+      items: Object.keys(filters).length ? filterItems(source, filters) : source.slice(),
       counts: { ...(snapshot?.counts || {}) },
-      facets: facets(source, kind),
+      facets: snapshot?.facets || facets(source),
+      next_offset: snapshot?.next_offset ?? null,
       loaded_at: snapshot?.loaded_at || 0,
     };
   }
@@ -186,6 +214,7 @@ export function createMarketBrowseStore({
   return {
     refresh,
     ensureSnapshot,
+    append,
     query,
     item,
     peekDetail,

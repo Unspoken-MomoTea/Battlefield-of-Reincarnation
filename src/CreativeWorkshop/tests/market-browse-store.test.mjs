@@ -48,35 +48,36 @@ const SNAPSHOT = {
   counts: { item: 3, skill: 1 },
 };
 
-test('browse snapshot filters and sorts locally without refetching the server', async () => {
-  let snapshotCalls = 0;
+test('server-filtered pages keep counts, facets and an explicit load-more cursor', async () => {
+  const calls = [];
   const marketService = {
-    async catalogSnapshot() {
-      snapshotCalls += 1;
-      return structuredClone(SNAPSHOT);
+    async catalog(filters) {
+      calls.push({ ...filters });
+      const kind = filters.kind || '';
+      const items = SNAPSHOT.items.filter(item => !kind || item.kind === kind);
+      const offset = Number(filters.offset || 0);
+      const limit = Number(filters.limit || 2);
+      return {
+        items: structuredClone(items.slice(offset, offset + limit)),
+        counts: { ...SNAPSHOT.counts },
+        facets: { qualities: [], subtypes: [] },
+        next_offset: offset + limit < items.length ? offset + limit : null,
+      };
     },
-    async catalogDetail() {
-      throw new Error('detail not used');
-    },
+    async catalogDetail() { throw new Error('detail not used'); },
   };
   const store = createMarketBrowseStore({ marketService });
-
-  await store.refresh();
-  assert.equal(snapshotCalls, 1);
-
-  assert.deepEqual(
-    store.query({ kind: 'item', sort: 'price_asc' }).items.map(item => item.name),
-    ['治疗药剂', '稀有材料'],
-  );
-  assert.deepEqual(
-    store.query({ kind: 'skill', sort: 'price_asc' }).items.map(item => item.name),
-    ['专注'],
-  );
-  assert.deepEqual(
-    store.query({ query: '材料', quality: 'D', minPrice: 900, maxPrice: 1200 }).items.map(item => item.name),
-    ['稀有材料'],
-  );
-  assert.equal(snapshotCalls, 1);
+  await store.refresh({ kind: 'item', limit: 1 });
+  assert.equal(store.query().items.length, 1);
+  assert.equal(store.query().next_offset, 1);
+  await store.append();
+  assert.equal(store.query().items.length, 2);
+  assert.equal(store.query().next_offset, null);
+  await store.ensureSnapshot({ kind: 'item', limit: 1 });
+  assert.equal(calls.length, 2);
+  await store.ensureSnapshot({ kind: 'skill', limit: 1 });
+  assert.equal(calls.length, 3);
+  assert.deepEqual(store.query().items.map(item => item.name), ['专注']);
 });
 
 test('browse detail cache returns immediately after first fetch and refreshes only after ttl', async () => {
@@ -84,7 +85,7 @@ test('browse detail cache returns immediately after first fetch and refreshes on
   let snapshotCalls = 0;
   let detailCalls = 0;
   const marketService = {
-    async catalogSnapshot() {
+    async catalog() {
       snapshotCalls += 1;
       return structuredClone(SNAPSHOT);
     },

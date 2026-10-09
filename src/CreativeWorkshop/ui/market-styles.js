@@ -148,6 +148,16 @@ export const MARKET_CSS = `
 .rw-ah-pane-head h3,.rw-ah-mine-toolbar h3{margin:2px 0 0;font-size:14px}
 .rw-ah-pane-head>span{font-size:10px;color:#7d8794}
 .rw-ah-inventory-list{max-height:590px;overflow:auto}
+.rw-ah-inventory-group{border-bottom:1px solid var(--ah-line)}
+.rw-ah-inventory-group-head{display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;font-size:12px;font-weight:800;color:#c7cedb;background:rgba(255,255,255,.035);list-style:none;user-select:none}
+.rw-ah-inventory-group-head::-webkit-details-marker{display:none}
+.rw-ah-inventory-group-head::before{content:'▸';font-size:12px;color:#cba457;transition:transform .15s}
+.rw-ah-inventory-group[open]>.rw-ah-inventory-group-head::before{transform:rotate(90deg)}
+.rw-ah-inventory-group-head small{margin-left:auto;color:#8792a2;font-weight:600}
+.rw-ah-inventory-group-head:hover{background:rgba(215,170,74,.09)}
+.rw-ah-inventory-group-content{padding-left:6px}
+.rw-ah-listing-slots{align-self:flex-start;padding:5px 9px;border:1px solid rgba(215,170,74,.3);border-radius:6px;color:#ddc184;background:rgba(215,170,74,.07);font-size:11px;font-weight:800}
+.rw-ah-listing-slots.is-full{color:#f6a6a6;border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.08)}
 .rw-ah-inventory-row{display:flex;align-items:center;gap:9px;width:100%;padding:7px 10px;border:0;border-bottom:1px solid rgba(255,255,255,.045);background:transparent;color:#d6dce4;font:inherit;text-align:left;cursor:pointer}
 .rw-ah-inventory-row:hover{background:rgba(255,255,255,.035)}
 .rw-ah-inventory-row.is-selected{background:rgba(215,170,74,.09);box-shadow:inset 2px 0 #d2a448}

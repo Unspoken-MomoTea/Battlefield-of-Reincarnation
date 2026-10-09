@@ -1,4 +1,31 @@
+// Bind authenticated marketplace operations to a stable chat/save scope instead
+// of a changing message index. The header is a routing guard, not anti-cheat.
+export function currentMarketSaveId(host = globalThis) {
+  const roots = [host];
+  try { if (host?.parent && !roots.includes(host.parent)) roots.push(host.parent); } catch {}
+  try { if (host?.top && !roots.includes(host.top)) roots.push(host.top); } catch {}
+  let chatId = '';
+  for (const root of roots) {
+    try {
+      chatId = String(root?.getCurrentChatId?.() || root?.SillyTavern?.getContext?.()?.chatId || '').trim();
+      if (chatId) break;
+    } catch {}
+  }
+  if (!chatId) throw new Error('空间集市无法识别当前聊天存档，请先进入有效存档');
+  let hash = 1469598103934665603n;
+  for (const byte of new TextEncoder().encode(chatId)) {
+    hash ^= BigInt(byte);
+    hash = (hash * 1099511628211n) & ((1n << 64n) - 1n);
+  }
+  return 'save:' + hash.toString(16).padStart(16, '0');
+}
+
 export function createMarketApi(request) {
+  const scopedRequest = (url, init = {}, requireAuth = false) => {
+    if (!requireAuth) return request(url, init, false);
+    const headers = { ...(init.headers || {}), 'X-Market-Save': currentMarketSaveId() };
+    return request(url, { ...init, headers }, true);
+  };
   return {
     listMarketListings({ query = '', kind = '', sort = 'latest', offset = 0, limit = 24 } = {}) {
       const params = new URLSearchParams({
@@ -8,7 +35,7 @@ export function createMarketApi(request) {
       });
       if (String(query).trim()) params.set('q', String(query).trim());
       if (kind) params.set('kind', kind);
-      return request(`/api/market/listings?${params}`, { cache: 'no-store' });
+      return scopedRequest(`/api/market/listings?${params}`, { cache: 'no-store' });
     },
 
     listMarketCatalog({
@@ -33,11 +60,11 @@ export function createMarketApi(request) {
       if (subtype) params.set('subtype', subtype);
       if (Number(minPrice) > 0) params.set('min_price', String(Math.floor(Number(minPrice))));
       if (Number(maxPrice) > 0) params.set('max_price', String(Math.floor(Number(maxPrice))));
-      return request(`/api/market/catalog?${params}`, { cache: 'no-store' });
+      return scopedRequest(`/api/market/catalog?${params}`, { cache: 'no-store' });
     },
 
     getMarketCatalog(catalogKey) {
-      return request(
+      return scopedRequest(
         `/api/market/catalog/${encodeURIComponent(catalogKey)}`,
         { cache: 'no-store' },
       );
@@ -47,7 +74,7 @@ export function createMarketApi(request) {
       const params = new URLSearchParams({
         quantity: String(Math.max(1, Math.floor(Number(quantity) || 1))),
       });
-      return request(
+      return scopedRequest(
         `/api/market/catalog/${encodeURIComponent(catalogKey)}/quote?${params}`,
         { cache: 'no-store' },
         true,
@@ -55,7 +82,7 @@ export function createMarketApi(request) {
     },
 
     buyMarketCatalog(catalogKey, input) {
-      return request(
+      return scopedRequest(
         `/api/market/catalog/${encodeURIComponent(catalogKey)}/buy`,
         { method: 'POST', body: JSON.stringify(input) },
         true,
@@ -63,7 +90,7 @@ export function createMarketApi(request) {
     },
 
     getMarketPurchase(purchaseId) {
-      return request(
+      return scopedRequest(
         `/api/market/purchases/${encodeURIComponent(purchaseId)}`,
         { cache: 'no-store' },
         true,
@@ -78,19 +105,19 @@ export function createMarketApi(request) {
       if (String(query).trim()) params.set('q', String(query).trim());
       if (kind) params.set('kind', kind);
       if (quality) params.set('quality', quality);
-      return request(`/api/market/orders?${params}`, { cache: 'no-store' });
+      return scopedRequest(`/api/market/orders?${params}`, { cache: 'no-store' });
     },
 
     createMarketBuyOrder(input) {
-      return request('/api/market/orders', { method: 'POST', body: JSON.stringify(input) }, true);
+      return scopedRequest('/api/market/orders', { method: 'POST', body: JSON.stringify(input) }, true);
     },
 
     getMarketBuyOrder(orderId) {
-      return request(`/api/market/orders/${encodeURIComponent(orderId)}`, { cache: 'no-store' }, true);
+      return scopedRequest(`/api/market/orders/${encodeURIComponent(orderId)}`, { cache: 'no-store' }, true);
     },
 
     fillMarketBuyOrder(orderId, input) {
-      return request(
+      return scopedRequest(
         `/api/market/orders/${encodeURIComponent(orderId)}/fill`,
         { method: 'POST', body: JSON.stringify(input) },
         true,
@@ -98,7 +125,7 @@ export function createMarketApi(request) {
     },
 
     cancelMarketBuyOrder(orderId) {
-      return request(
+      return scopedRequest(
         `/api/market/orders/${encodeURIComponent(orderId)}/cancel`,
         { method: 'POST' },
         true,
@@ -106,7 +133,7 @@ export function createMarketApi(request) {
     },
 
     confirmMarketOrderDelivery(fillId) {
-      return request(
+      return scopedRequest(
         `/api/market/order-fills/${encodeURIComponent(fillId)}/delivered`,
         { method: 'POST' },
         true,
@@ -121,19 +148,19 @@ export function createMarketApi(request) {
       if (String(query).trim()) params.set('q', String(query).trim());
       if (kind) params.set('kind', kind);
       if (quality) params.set('quality', quality);
-      return request(`/api/market/swaps?${params}`, { cache: 'no-store' });
+      return scopedRequest(`/api/market/swaps?${params}`, { cache: 'no-store' });
     },
 
     createMarketSwap(input) {
-      return request('/api/market/swaps', { method: 'POST', body: JSON.stringify(input) }, true);
+      return scopedRequest('/api/market/swaps', { method: 'POST', body: JSON.stringify(input) }, true);
     },
 
     getMarketSwap(swapId) {
-      return request(`/api/market/swaps/${encodeURIComponent(swapId)}`, { cache: 'no-store' }, true);
+      return scopedRequest(`/api/market/swaps/${encodeURIComponent(swapId)}`, { cache: 'no-store' }, true);
     },
 
     acceptMarketSwap(swapId, input) {
-      return request(
+      return scopedRequest(
         `/api/market/swaps/${encodeURIComponent(swapId)}/accept`,
         { method: 'POST', body: JSON.stringify(input) },
         true,
@@ -141,7 +168,7 @@ export function createMarketApi(request) {
     },
 
     cancelMarketSwap(swapId) {
-      return request(
+      return scopedRequest(
         `/api/market/swaps/${encodeURIComponent(swapId)}/cancel`,
         { method: 'POST' },
         true,
@@ -149,7 +176,7 @@ export function createMarketApi(request) {
     },
 
     confirmMarketSwapTransfer(transferId) {
-      return request(
+      return scopedRequest(
         `/api/market/swap-transfers/${encodeURIComponent(transferId)}/confirmed`,
         { method: 'POST' },
         true,
@@ -157,7 +184,7 @@ export function createMarketApi(request) {
     },
 
     quoteMarketAction(input) {
-      return request(
+      return scopedRequest(
         '/api/market/quote',
         { method: 'POST', body: JSON.stringify(input) },
         true,
@@ -165,7 +192,7 @@ export function createMarketApi(request) {
     },
 
     createMarketListing(input) {
-      return request(
+      return scopedRequest(
         '/api/market/listings',
         { method: 'POST', body: JSON.stringify(input) },
         true,
@@ -173,7 +200,7 @@ export function createMarketApi(request) {
     },
 
     createMarketBuyback(input) {
-      return request(
+      return scopedRequest(
         '/api/market/buybacks',
         { method: 'POST', body: JSON.stringify(input) },
         true,
@@ -181,7 +208,7 @@ export function createMarketApi(request) {
     },
 
     getMarketBuyback(buybackId) {
-      return request(
+      return scopedRequest(
         `/api/market/buybacks/${encodeURIComponent(buybackId)}`,
         { cache: 'no-store' },
         true,
@@ -189,7 +216,7 @@ export function createMarketApi(request) {
     },
 
     buyMarketListing(listingId, input) {
-      return request(
+      return scopedRequest(
         `/api/market/listings/${encodeURIComponent(listingId)}/buy`,
         { method: 'POST', body: JSON.stringify(input) },
         true,
@@ -197,7 +224,7 @@ export function createMarketApi(request) {
     },
 
     cancelMarketListing(listingId) {
-      return request(
+      return scopedRequest(
         `/api/market/listings/${encodeURIComponent(listingId)}/cancel`,
         { method: 'POST' },
         true,
@@ -205,7 +232,7 @@ export function createMarketApi(request) {
     },
 
     getMarketTrade(tradeId) {
-      return request(
+      return scopedRequest(
         `/api/market/trades/${encodeURIComponent(tradeId)}`,
         { cache: 'no-store' },
         true,
@@ -213,7 +240,7 @@ export function createMarketApi(request) {
     },
 
     confirmMarketDelivery(tradeId) {
-      return request(
+      return scopedRequest(
         `/api/market/trades/${encodeURIComponent(tradeId)}/delivered`,
         { method: 'POST' },
         true,
@@ -221,11 +248,11 @@ export function createMarketApi(request) {
     },
 
     getMarketMe() {
-      return request('/api/market/me', { cache: 'no-store' }, true);
+      return scopedRequest('/api/market/me', { cache: 'no-store' }, true);
     },
 
     confirmMarketReturn(returnId) {
-      return request(
+      return scopedRequest(
         `/api/market/returns/${encodeURIComponent(returnId)}/confirmed`,
         { method: 'POST' },
         true,
@@ -233,7 +260,7 @@ export function createMarketApi(request) {
     },
 
     claimMarketPayout(payoutId) {
-      return request(
+      return scopedRequest(
         '/api/market/payouts/claim',
         { method: 'POST', body: JSON.stringify({ payout_id: payoutId }) },
         true,
@@ -241,7 +268,7 @@ export function createMarketApi(request) {
     },
 
     confirmMarketPayout(payoutId) {
-      return request(
+      return scopedRequest(
         `/api/market/payouts/${encodeURIComponent(payoutId)}/confirmed`,
         { method: 'POST' },
         true,

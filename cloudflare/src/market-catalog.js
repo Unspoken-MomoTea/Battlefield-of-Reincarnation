@@ -106,32 +106,27 @@ export async function refreshMarketCatalogKey(env, catalogKey) {
   const key = String(catalogKey || '').trim();
   if (!key) return null;
   const now = Date.now();
-  const rows = await all(
-    env,
-    `SELECT l.*,
-            u.username AS seller_username,
-            u.display_name AS seller_display_name
-     FROM market_listings l
-     JOIN users u ON u.id = l.seller_user_id
+  const condition = `FROM market_listings l
      LEFT JOIN market_user_controls mc ON mc.user_id = l.seller_user_id
      WHERE l.catalog_key = ?
        AND COALESCE(mc.is_suspended, 0) = 0
        AND l.status = 'active'
        AND l.remaining_quantity > 0
-       AND (l.is_system = 1 OR l.expires_at = 0 OR l.expires_at > ?)
-     ORDER BY l.unit_price ASC, l.created_at DESC`,
-    [key, now],
-  );
-
-  if (!rows.length) {
+       AND (l.is_system = 1 OR l.expires_at = 0 OR l.expires_at > ?)`;
+  const summary = await first(env,
+    `SELECT COUNT(*) AS listing_count,
+            COALESCE(SUM(l.remaining_quantity), 0) AS total_stock,
+            COUNT(DISTINCT l.seller_user_id) AS seller_count,
+            MAX(l.created_at) AS latest_at
+     ${condition}`, [key, now]);
+  if (!integer(summary?.listing_count)) {
     await env.DB.prepare('DELETE FROM market_catalog WHERE catalog_key = ?').bind(key).run();
     return null;
   }
-
-  const cheapest = rows[0];
-  const sellerIds = new Set(rows.map(row => Number(row.seller_user_id)));
-  const totalStock = rows.reduce((sum, row) => sum + Math.max(0, integer(row.remaining_quantity)), 0);
-  const latestAt = Math.max(...rows.map(row => integer(row.created_at)));
+  // Let indexed SQLite queries aggregate popular items; never materialize all listings in Worker memory.
+  const cheapest = await first(env,
+    `SELECT l.* ${condition}
+     ORDER BY l.unit_price ASC, l.created_at DESC LIMIT 1`, [key, now]);
   await env.DB.prepare(
     `INSERT INTO market_catalog
       (catalog_key, asset_kind, asset_name, quality, subtype, asset_json,
@@ -157,10 +152,10 @@ export async function refreshMarketCatalogKey(env, catalogKey) {
     cheapest.subtype || '',
     cheapest.asset_json,
     integer(cheapest.unit_price),
-    totalStock,
-    rows.length,
-    sellerIds.size,
-    latestAt,
+    integer(summary.total_stock),
+    integer(summary.listing_count),
+    integer(summary.seller_count),
+    integer(summary.latest_at),
     now,
   ).run();
 
@@ -303,38 +298,47 @@ export async function listMarketCatalog(request, env) {
   const hasMore = rows.length > params.limit;
   const page = hasMore ? rows.slice(0, params.limit) : rows;
 
-  const countRows = await all(
-    env,
-    `SELECT asset_kind, SUM(listing_count) AS count
-     FROM market_catalog
-     WHERE total_stock > 0
-     GROUP BY asset_kind`,
-  );
-  const counts = Object.fromEntries(countRows.map(row => [String(row.asset_kind), integer(row.count)]));
-  const facetClauses = ['total_stock > 0'];
-  const facetArgs = [];
-  if (params.kind) {
-    facetClauses.push('asset_kind = ?');
-    facetArgs.push(params.kind);
+  // Facets only matter on the first page. Recalculating all catalog counts
+  // for every subsequent 80-row page exhausts D1 read quotas as the market grows.
+  const includeFacets = params.offset === 0;
+  let counts = {};
+  let qualityRows = [];
+  let subtypeRows = [];
+  if (includeFacets) {
+    const countRows = await all(
+      env,
+      `SELECT asset_kind, SUM(listing_count) AS count
+       FROM market_catalog
+       WHERE total_stock > 0
+       GROUP BY asset_kind`,
+    );
+    counts = Object.fromEntries(countRows.map(row => [String(row.asset_kind), integer(row.count)]));
+    const facetClauses = ['total_stock > 0'];
+    const facetArgs = [];
+    if (params.kind) {
+      facetClauses.push('asset_kind = ?');
+      facetArgs.push(params.kind);
+    }
+    const facetWhere = facetClauses.join(' AND ');
+    qualityRows = await all(
+      env,
+      `SELECT quality, SUM(listing_count) AS count
+       FROM market_catalog
+       WHERE ${facetWhere} AND quality <> ''
+       GROUP BY quality`,
+      facetArgs,
+    );
+    subtypeRows = await all(
+      env,
+      `SELECT subtype, SUM(listing_count) AS count
+       FROM market_catalog
+       WHERE ${facetWhere} AND subtype <> ''
+       GROUP BY subtype ORDER BY count DESC LIMIT 40`,
+      facetArgs,
+    );
+  
+  
   }
-  const facetWhere = facetClauses.join(' AND ');
-  const qualityRows = await all(
-    env,
-    `SELECT quality, SUM(listing_count) AS count
-     FROM market_catalog
-     WHERE ${facetWhere} AND quality <> ''
-     GROUP BY quality`,
-    facetArgs,
-  );
-  const subtypeRows = await all(
-    env,
-    `SELECT subtype, SUM(listing_count) AS count
-     FROM market_catalog
-     WHERE ${facetWhere} AND subtype <> ''
-     GROUP BY subtype ORDER BY count DESC LIMIT 40`,
-    facetArgs,
-  );
-
   return json({
     items: page.map(catalogItem),
     counts,

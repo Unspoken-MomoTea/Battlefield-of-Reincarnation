@@ -1,3 +1,4 @@
+import { currentMarketSaveId } from './api/market.js';
 const KIND_FIELDS = {
   equipment: '装备',
   item: '道具',
@@ -45,10 +46,17 @@ function runtimeFor(host) {
 }
 
 function readLatest(host) {
+  const saveId = currentMarketSaveId(host);
   const runtime = runtimeFor(host);
   const data = runtime.mvu.getMvuData({ type: 'message', message_id: 'latest' });
   if (!data?.stat_data?.角色) throw new Error('当前楼层没有可交易的角色数据');
-  return { ...runtime, data };
+  return { ...runtime, data, saveId };
+}
+
+function assertCurrentSave(host, expectedSaveId) {
+  if (currentMarketSaveId(host) !== expectedSaveId) {
+    throw new Error('交易期间切换了存档，请返回原存档核对本次操作');
+  }
 }
 
 function assertHub(statData) {
@@ -115,11 +123,32 @@ function ledgerBucket(data, key) {
   return root[key];
 }
 
-async function mutateLatest(host, mutator) {
-  const { root, mvu, data } = readLatest(host);
+const pendingMvuMutations = new WeakMap();
+
+function mutateLatest(host, mutator, expectedSaveId = '') {
+  const previous = pendingMvuMutations.get(host) || Promise.resolve();
+  // All market operations sharing a host must write MVU sequentially; otherwise
+  // two concurrent actions could overwrite each other's coin/asset changes.
+  const task = previous.catch(() => {}).then(() => mutateLatestUnlocked(host, mutator, expectedSaveId));
+  pendingMvuMutations.set(host, task);
+  void task.finally(() => {
+    if (pendingMvuMutations.get(host) === task) pendingMvuMutations.delete(host);
+  }).catch(() => {});
+  return task;
+}
+
+async function mutateLatestUnlocked(host, mutator, expectedSaveId = '') {
+  const { root, mvu, data, saveId } = readLatest(host);
+  if (expectedSaveId && expectedSaveId !== saveId) {
+    throw new Error('交易期间切换了存档；请返回原存档处理未完成的交易');
+  }
   const before = deepClone(data);
   const next = deepClone(data);
-  await mutator(next);
+  const result = mutator(next);
+  if (result?.then) await result;
+  if (currentMarketSaveId(host) !== saveId) {
+    throw new Error('交易期间切换了存档，本次本地写入已取消');
+  }
 
   const touchedRoots = rootsFor(host);
   for (const target of touchedRoots) {
@@ -302,6 +331,37 @@ function removeAsset(statData, selection) {
   return { quantity: 1, data: deepClone(value) };
 }
 
+function comparableItem(value) {
+  if (Array.isArray(value)) return value.map(comparableItem);
+  if (!value || typeof value !== 'object') return value;
+  const output = {};
+  for (const key of Object.keys(value).sort()) {
+    if (key === '数量') continue;
+    output[key] = comparableItem(value[key]);
+  }
+  return output;
+}
+
+// Item names are the MVU dictionary keys. Different item definitions with the
+// same name cannot share one key or one stack; keep the original payload intact.
+export function marketItemStorageSlot(bucket, asset) {
+  const name = String(asset?.name || '').trim();
+  const incoming = JSON.stringify(comparableItem(asset?.data || {}));
+  for (const [key, value] of Object.entries(bucket || {})) {
+    if (!value || typeof value !== 'object') continue;
+    if (String(value.名称 || key).trim() !== name) continue;
+    if (JSON.stringify(comparableItem(value)) === incoming) return key;
+  }
+  if (!Object.prototype.hasOwnProperty.call(bucket, name)) return name;
+  const quality = String(asset?.data?.品质 || '不同属性').trim();
+  const base = name + '（' + quality + '·集市）';
+  let key = base;
+  for (let index = 2; Object.prototype.hasOwnProperty.call(bucket, key); index += 1) {
+    key = base + '#' + index;
+  }
+  return key;
+}
+
 function addAsset(statData, asset) {
   const character = statData.角色 || (statData.角色 = {});
   const credential = credentialGrade(asset);
@@ -341,7 +401,8 @@ function addAsset(statData, asset) {
 
   if (kind === 'item') {
     const quantity = Math.max(1, Math.floor(Number(asset.quantity) || 1));
-    const existing = bucket[key];
+    const storageKey = marketItemStorageSlot(bucket, asset);
+    const existing = bucket[storageKey];
     if (existing && typeof existing === 'object') {
       existing.数量 = assetQuantity('item', existing) + quantity;
       return;
@@ -349,7 +410,7 @@ function addAsset(statData, asset) {
     const next = deepClone(asset.data || {});
     next.数量 = quantity;
     if (!next.名称) next.名称 = key;
-    bucket[key] = next;
+    bucket[storageKey] = next;
     return;
   }
 
@@ -510,6 +571,7 @@ export function createMarketService({ host, api }) {
 
   async function sell(selection) {
     const snapshot = readLatest(host);
+    const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
     assertHub(snapshot.data.stat_data);
 
     const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
@@ -536,7 +598,7 @@ export function createMarketService({ host, api }) {
 
     const listingId = randomId(host, 'listing');
     let removed;
-    await mutateLatest(host, next => {
+    await mutateBound(next => {
       assertHub(next.stat_data);
       const currentCoin = Number(next.stat_data.角色.空间币 || 0);
       if (currentCoin < listingFee) throw new Error('空间币不足，无法支付上架税');
@@ -556,6 +618,7 @@ export function createMarketService({ host, api }) {
     const listingAsset = listingAssetSnapshot(restoreAsset);
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.createMarketListing({
         id: listingId,
         asset: listingAsset,
@@ -570,7 +633,7 @@ export function createMarketService({ host, api }) {
       } catch {}
 
       try {
-        await mutateLatest(host, next => {
+        await mutateBound(next => {
           addAsset(next.stat_data, restoreAsset);
           restoreFormActivation(next.stat_data, activeFormSnapshot);
           next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + listingFee;
@@ -586,6 +649,7 @@ export function createMarketService({ host, api }) {
 
   async function sellToSystem(selection) {
     const snapshot = readLatest(host);
+    const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
     assertHub(snapshot.data.stat_data);
 
     const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
@@ -605,7 +669,7 @@ export function createMarketService({ host, api }) {
     }, requestedQuantity);
     const buybackId = randomId(host, 'buyback');
 
-    await mutateLatest(host, next => {
+    await mutateBound(next => {
       assertHub(next.stat_data);
       removeAsset(next.stat_data, {
         kind: selection.kind,
@@ -616,6 +680,7 @@ export function createMarketService({ host, api }) {
 
     let result;
     try {
+      assertCurrentSave(host, snapshot.saveId);
       result = await api.createMarketBuyback({ id: buybackId, asset });
     } catch (error) {
       try {
@@ -623,7 +688,7 @@ export function createMarketService({ host, api }) {
       } catch {}
 
       if (!result?.buyback) {
-        await mutateLatest(host, next => {
+        await mutateBound(next => {
           addAsset(next.stat_data, asset);
           restoreFormActivation(next.stat_data, activeFormSnapshot);
         });
@@ -645,6 +710,7 @@ export function createMarketService({ host, api }) {
     durationHours = 24,
   }) {
     const snapshot = readLatest(host);
+    const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
     assertHub(snapshot.data.stat_data);
     const resolvedQuantity = kind === 'item'
       ? Math.max(1, Math.floor(Number(quantity) || 1))
@@ -656,7 +722,7 @@ export function createMarketService({ host, api }) {
     }
 
     const id = randomId(host, 'order');
-    await mutateLatest(host, next => {
+    await mutateBound(next => {
       assertHub(next.stat_data);
       const current = Number(next.stat_data.角色.空间币 || 0);
       if (current < total) throw new Error('空间币不足');
@@ -664,6 +730,7 @@ export function createMarketService({ host, api }) {
     });
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.createMarketBuyOrder({
         id,
         kind,
@@ -678,7 +745,7 @@ export function createMarketService({ host, api }) {
       let recovered = null;
       try { recovered = await api.getMarketBuyOrder(id); } catch {}
       if (recovered?.order) return recovered;
-      await mutateLatest(host, next => {
+      await mutateBound(next => {
         next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
       });
       throw error;
@@ -687,6 +754,7 @@ export function createMarketService({ host, api }) {
 
   async function fillBuyOrder(order, selection) {
     const snapshot = readLatest(host);
+    const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
     assertHub(snapshot.data.stat_data);
     const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
     const available = assetQuantity(selection.kind, located.value);
@@ -709,11 +777,12 @@ export function createMarketService({ host, api }) {
     const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
     const fillId = randomId(host, 'orderfill');
 
-    await mutateLatest(host, next => {
+    await mutateBound(next => {
       removeAsset(next.stat_data, { ...selection, quantity: requested });
     });
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.fillMarketBuyOrder(order.id, {
         fill_id: fillId,
         asset: assetPayload(outgoing, requested),
@@ -722,7 +791,7 @@ export function createMarketService({ host, api }) {
       const state = await api.getMarketMe().catch(() => null);
       const recovered = state?.order_fills?.find(item => item.id === fillId);
       if (recovered) return { fill: recovered };
-      await mutateLatest(host, next => {
+      await mutateBound(next => {
         addAsset(next.stat_data, original);
         restoreFormActivation(next.stat_data, activeFormSnapshot);
       });
@@ -740,7 +809,12 @@ export function createMarketService({ host, api }) {
 
   async function deliverOrderFill(fill) {
     if (!fill?.id) throw new Error('求购交付记录无效');
-    await mutateLatest(host, next => {
+    const receiptSaveId = currentMarketSaveId(host);
+    if (fill.buyer_save_id && fill.buyer_save_id !== receiptSaveId) {
+      throw new Error('这笔待领取交易属于另一个存档，请切换回原存档领取');
+    }
+    const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
+    await mutateBound(next => {
       assertHub(next.stat_data);
       const deliveries = ledgerBucket(next, 'orderDeliveries');
       if (deliveries[fill.id]) return;
@@ -760,6 +834,7 @@ export function createMarketService({ host, api }) {
     durationHours = 24,
   }) {
     const snapshot = readLatest(host);
+    const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
     assertHub(snapshot.data.stat_data);
     const located = findAsset(snapshot.data.stat_data, offered.kind, offered.key);
     const available = assetQuantity(offered.kind, located.value);
@@ -776,11 +851,12 @@ export function createMarketService({ host, api }) {
     const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, offered);
     const id = randomId(host, 'swap');
 
-    await mutateLatest(host, next => {
+    await mutateBound(next => {
       removeAsset(next.stat_data, { ...offered, quantity: offeredQuantity });
     });
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.createMarketSwap({
         id,
         offered: assetPayload(outgoing, offeredQuantity),
@@ -791,7 +867,7 @@ export function createMarketService({ host, api }) {
       let recovered = null;
       try { recovered = await api.getMarketSwap(id); } catch {}
       if (recovered?.swap) return recovered;
-      await mutateLatest(host, next => {
+      await mutateBound(next => {
         addAsset(next.stat_data, original);
         restoreFormActivation(next.stat_data, activeFormSnapshot);
       });
@@ -801,6 +877,7 @@ export function createMarketService({ host, api }) {
 
   async function acceptSwap(swap, selection) {
     const snapshot = readLatest(host);
+    const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
     assertHub(snapshot.data.stat_data);
     const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
     const available = assetQuantity(selection.kind, located.value);
@@ -820,11 +897,12 @@ export function createMarketService({ host, api }) {
     const outgoing = listingAssetSnapshot(original);
     const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
 
-    await mutateLatest(host, next => {
+    await mutateBound(next => {
       removeAsset(next.stat_data, { ...selection, quantity: requested });
     });
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.acceptMarketSwap(swap.id, {
         asset: assetPayload(outgoing, requested),
       });
@@ -832,7 +910,7 @@ export function createMarketService({ host, api }) {
       const state = await api.getMarketMe().catch(() => null);
       const recovered = state?.swaps?.find(item => item.id === swap.id && item.status === 'completed');
       if (recovered) return { swap: recovered };
-      await mutateLatest(host, next => {
+      await mutateBound(next => {
         addAsset(next.stat_data, original);
         restoreFormActivation(next.stat_data, activeFormSnapshot);
       });
@@ -848,7 +926,12 @@ export function createMarketService({ host, api }) {
 
   async function receiveSwapTransfer(transfer) {
     if (!transfer?.id) throw new Error('交换交付记录无效');
-    await mutateLatest(host, next => {
+    const receiptSaveId = currentMarketSaveId(host);
+    if (transfer.save_id && transfer.save_id !== receiptSaveId) {
+      throw new Error('这笔待领取交易属于另一个存档，请切换回原存档领取');
+    }
+    const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
+    await mutateBound(next => {
       assertHub(next.stat_data);
       const transfers = ledgerBucket(next, 'swapTransfers');
       if (transfers[transfer.id]) return;
@@ -864,7 +947,12 @@ export function createMarketService({ host, api }) {
 
   async function deliverTrade(trade) {
     if (!trade?.id) throw new Error('交易记录无效');
-    await mutateLatest(host, next => {
+    const receiptSaveId = currentMarketSaveId(host);
+    if (trade.buyer_save_id && trade.buyer_save_id !== receiptSaveId) {
+      throw new Error('这笔待领取交易属于另一个存档，请切换回原存档领取');
+    }
+    const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
+    await mutateBound(next => {
       assertHub(next.stat_data);
       const deliveries = ledgerBucket(next, 'deliveries');
       if (deliveries[trade.id]) return;
@@ -884,6 +972,7 @@ export function createMarketService({ host, api }) {
 
   async function buyCatalog(catalogItem, quantity = 1, suppliedQuote = null) {
     const snapshot = readLatest(host);
+    const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
     assertHub(snapshot.data.stat_data);
 
     const catalogKey = String(catalogItem?.key || catalogItem?.catalog_key || '').trim();
@@ -906,7 +995,7 @@ export function createMarketService({ host, api }) {
     }
 
     const purchaseId = randomId(host, 'purchase');
-    await mutateLatest(host, next => {
+    await mutateBound(next => {
       assertHub(next.stat_data);
       const current = Number(next.stat_data.角色.空间币 || 0);
       if (current < total) throw new Error('空间币不足');
@@ -915,6 +1004,7 @@ export function createMarketService({ host, api }) {
 
     let result;
     try {
+      assertCurrentSave(host, snapshot.saveId);
       result = await api.buyMarketCatalog(catalogKey, {
         purchase_id: purchaseId,
         quantity: quotedQuantity,
@@ -926,7 +1016,7 @@ export function createMarketService({ host, api }) {
       } catch {}
 
       if (!result?.purchase || result.purchase.status !== 'completed') {
-        await mutateLatest(host, next => {
+        await mutateBound(next => {
           next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
         });
         throw error;
@@ -941,6 +1031,7 @@ export function createMarketService({ host, api }) {
 
   async function buy(listing, quantity = 1) {
     const snapshot = readLatest(host);
+    const mutateBound = mutator => mutateLatest(host, mutator, snapshot.saveId);
     assertHub(snapshot.data.stat_data);
     const resolvedQuantity = listing?.asset?.kind === 'item'
       ? Math.max(1, Math.floor(Number(quantity) || 1))
@@ -953,7 +1044,7 @@ export function createMarketService({ host, api }) {
     }
 
     const tradeId = randomId(host, 'trade');
-    await mutateLatest(host, next => {
+    await mutateBound(next => {
       assertHub(next.stat_data);
       const current = Number(next.stat_data.角色.空间币 || 0);
       if (current < total) throw new Error('空间币不足');
@@ -962,6 +1053,7 @@ export function createMarketService({ host, api }) {
 
     let trade;
     try {
+      assertCurrentSave(host, snapshot.saveId);
       const result = await api.buyMarketListing(listing.id, {
         trade_id: tradeId,
         quantity: resolvedQuantity,
@@ -973,7 +1065,7 @@ export function createMarketService({ host, api }) {
       } catch {}
 
       if (!trade) {
-        await mutateLatest(host, next => {
+        await mutateBound(next => {
           next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
         });
         throw error;
@@ -994,7 +1086,12 @@ export function createMarketService({ host, api }) {
 
   async function receiveReturn(returnRecord) {
     if (!returnRecord?.id) throw new Error('返还记录无效');
-    await mutateLatest(host, next => {
+    const receiptSaveId = currentMarketSaveId(host);
+    if (returnRecord.save_id && returnRecord.save_id !== receiptSaveId) {
+      throw new Error('这笔待领取交易属于另一个存档，请切换回原存档领取');
+    }
+    const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
+    await mutateBound(next => {
       assertHub(next.stat_data);
       const returns = ledgerBucket(next, 'returns');
       if (returns[returnRecord.id]) return;
@@ -1010,7 +1107,12 @@ export function createMarketService({ host, api }) {
 
   async function receivePayout(payout) {
     if (!payout?.id) throw new Error('货款领取记录无效');
-    await mutateLatest(host, next => {
+    const receiptSaveId = currentMarketSaveId(host);
+    if (payout.save_id && payout.save_id !== receiptSaveId) {
+      throw new Error('这笔待领取交易属于另一个存档，请切换回原存档领取');
+    }
+    const mutateBound = mutator => mutateLatest(host, mutator, receiptSaveId);
+    await mutateBound(next => {
       assertHub(next.stat_data);
       const payouts = ledgerBucket(next, 'payouts');
       if (payouts[payout.id]) return;
@@ -1027,6 +1129,7 @@ export function createMarketService({ host, api }) {
     const payoutId = randomId(host, 'payout');
     let payout;
     try {
+      assertCurrentSave(host, snapshot.saveId);
       payout = (await api.claimMarketPayout(payoutId))?.payout;
     } catch (error) {
       const state = await api.getMarketMe().catch(() => null);

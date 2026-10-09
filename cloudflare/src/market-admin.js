@@ -220,10 +220,10 @@ export async function adminCancelMarketListing(env, user, listingId) {
     ).bind(now, row.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_returns
-        (id, listing_id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+        (id, listing_id, user_id, save_id, asset_kind, market_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
     ).bind(
-      returnId, row.id, row.seller_user_id, row.asset_kind, logicalKind(row),
+      returnId, row.id, row.seller_user_id, row.save_id, row.asset_kind, logicalKind(row),
       row.asset_name, row.asset_json, row.remaining_quantity, now,
     ),
   ]);

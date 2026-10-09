@@ -180,7 +180,7 @@ export async function refreshExpiredMarketCatalogs(env, { limit = 100 } = {}) {
      FROM market_listings
      WHERE status = 'active'
        AND is_system = 0
-       AND l.remaining_quantity > 0
+       AND remaining_quantity > 0
        AND expires_at > 0
        AND expires_at <= ?
        AND catalog_key <> ''
@@ -200,7 +200,7 @@ export async function rebuildMarketCatalog(env, { limit = 500 } = {}) {
      FROM market_listings
      WHERE catalog_key <> ''
        AND status = 'active'
-       AND l.remaining_quantity > 0
+       AND remaining_quantity > 0
      ORDER BY updated_at DESC
      LIMIT ?`,
     [Math.max(1, Math.min(1000, integer(limit, 500)))],
@@ -440,18 +440,18 @@ export async function getMarketCatalogDetail(env, catalogKey, currentUserId = 0)
 
 export function marketPriceHistoryStatement(env, {
   catalogKey,
-  unitPrice,
-  quantity,
+  tradeId,
   now = Date.now(),
 }) {
   const day = new Date(Number(now) + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const price = Math.max(1, integer(unitPrice, 1));
-  const qty = Math.max(1, integer(quantity, 1));
   return env.DB.prepare(
     `INSERT INTO market_price_daily
       (catalog_key, day_key, low_price, high_price, last_price, total_quantity,
        total_notional, trade_count, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+     SELECT ?, ?, t.unit_price, t.unit_price, t.unit_price, t.quantity,
+            t.total_price, 1, ?
+     FROM market_trades t
+     WHERE t.id = ?
      ON CONFLICT(catalog_key, day_key) DO UPDATE SET
        low_price = MIN(market_price_daily.low_price, excluded.low_price),
        high_price = MAX(market_price_daily.high_price, excluded.high_price),
@@ -460,7 +460,7 @@ export function marketPriceHistoryStatement(env, {
        total_notional = market_price_daily.total_notional + excluded.total_notional,
        trade_count = market_price_daily.trade_count + 1,
        updated_at = excluded.updated_at`,
-  ).bind(keyOrEmpty(catalogKey), day, price, price, price, qty, price * qty, integer(now));
+  ).bind(keyOrEmpty(catalogKey), day, integer(now), String(tradeId || '').trim());
 }
 
 function keyOrEmpty(value) {

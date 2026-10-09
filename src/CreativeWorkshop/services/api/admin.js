@@ -87,6 +87,34 @@ export function createAdminApi(request, requestRaw) {
       return request('/api/admin/storage/cleanup', { method: 'POST' }, true);
     },
 
+    listAdminMarket({ view = 'listings', query = '', status = '', risk = false, offset = 0 } = {}) {
+      const params = new URLSearchParams({
+        view,
+        limit: '50',
+        offset: String(Math.max(0, Number(offset) || 0)),
+      });
+      if (String(query).trim()) params.set('q', String(query).trim());
+      if (status) params.set('status', status);
+      if (risk) params.set('risk', '1');
+      return request(`/api/admin/market?${params}`, {}, true);
+    },
+
+    cancelAdminMarketListing(listingId) {
+      return request(
+        `/api/admin/market-listings/${encodeURIComponent(listingId)}/cancel`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
+    setAdminMarketUserState(userId, suspended, note = '') {
+      return request(
+        `/api/admin/market-users/${encodeURIComponent(userId)}/state`,
+        { method: 'POST', body: JSON.stringify({ suspended, note }) },
+        true,
+      );
+    },
+
     listAdminReports({ status = 'open', offset = 0 } = {}) {
       const params = new URLSearchParams({ limit: '50', offset: String(offset) });
       if (status) params.set('status', status);

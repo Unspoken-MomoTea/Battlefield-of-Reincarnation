@@ -1,4 +1,5 @@
 import { MARKET_KIND_LABELS } from '../services/market-service.js';
+import { createMarketBrowseStore } from './market-browse-store.js';
 import {
   marketAssetDetailEntries,
   marketAssetFieldDisplay,
@@ -48,9 +49,9 @@ export function createMarketView({
 }) {
   let catalogItems = [];
   let catalogCounts = {};
-  let catalogNextOffset = null;
   let catalogFacets = { qualities: [], subtypes: [] };
-  const catalogCache = new Map();
+  const browseStore = createMarketBrowseStore({ marketService });
+  let detailTimer = null;
   let selectedKey = '';
   let selectedDetail = null;
   let loading = false;
@@ -273,16 +274,6 @@ export function createMarketView({
     limit: 40,
   });
 
-  const browseCacheKey = filters => JSON.stringify({
-    query: filters.query || '',
-    kind: filters.kind || '',
-    quality: filters.quality || '',
-    subtype: filters.subtype || '',
-    minPrice: filters.minPrice || 0,
-    maxPrice: filters.maxPrice || 0,
-    sort: filters.sort || 'price_asc',
-  });
-
   const syncSubtypeOptions = () => {
     if (!nodes.marketSubtype) return;
     const selected = nodes.marketSubtype.value;
@@ -340,8 +331,8 @@ export function createMarketView({
     node.append(itemCell, kindCell, qualityCell, stockCell, priceCell);
     node.addEventListener('click', () => {
       selectedKey = item.key;
+      selectedDetail = browseStore.peekDetail(item.key);
       renderCatalogRows();
-      void loadCatalogDetail(item.key).catch(notifyError);
     });
     return node;
   };
@@ -359,52 +350,83 @@ export function createMarketView({
       for (const child of nodes.marketList.children) {
         child.classList.toggle('is-selected', child === nodes.marketList.children[catalogItems.indexOf(selected)]);
       }
-      if (!selectedDetail || selectedDetail.catalog?.key !== selectedKey) {
-        void loadCatalogDetail(selectedKey).catch(notifyError);
+      const cached = browseStore.peekDetail(selectedKey);
+      if (cached) {
+        selectedDetail = cached;
+        renderInspector(cached);
       } else {
-        renderInspector(selectedDetail);
+        selectedDetail = null;
+        renderInspectorPreview(selected);
+        scheduleCatalogDetail(selectedKey);
       }
     }
     const listingCount = Object.values(catalogCounts || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     nodes.marketCount.textContent = catalogItems.length + ' 种商品 · ' + listingCount + ' 个当前挂单';
-    if (nodes.marketMore) nodes.marketMore.hidden = catalogNextOffset == null;
+    if (nodes.marketMore) nodes.marketMore.hidden = true;
     renderCategoryCounts();
   }
 
-  async function loadCatalog({ force = false, append = false } = {}) {
-    const filters = browseFilters();
-    const key = browseCacheKey(filters);
-    if (!append && !force && catalogCache.has(key)) {
-      const cached = catalogCache.get(key);
-      catalogItems = cached.items.slice();
-      catalogCounts = { ...cached.counts };
-      catalogNextOffset = cached.next_offset;
-      catalogFacets = cached.facets || catalogFacets;
-      syncSubtypeOptions();
-      renderCatalogRows();
-      return cached;
-    }
+  async function loadCatalog({ force = false } = {}) {
+    if (force) await browseStore.refresh();
+    else await browseStore.ensureSnapshot();
 
-    const offset = append ? Number(catalogNextOffset || 0) : 0;
-    const result = await marketService.catalog({ ...filters, offset });
-    const nextItems = Array.isArray(result?.items) ? result.items : [];
-    catalogItems = append ? catalogItems.concat(nextItems) : nextItems;
-    catalogCounts = result?.counts || catalogCounts;
-    catalogNextOffset = result?.next_offset ?? null;
-    catalogFacets = result?.facets || catalogFacets;
+    const result = browseStore.query(browseFilters());
+    catalogItems = result.items;
+    catalogCounts = result.counts;
+    catalogFacets = result.facets;
     syncSubtypeOptions();
-    catalogCache.set(key, {
-      items: catalogItems.slice(),
-      counts: { ...catalogCounts },
-      next_offset: catalogNextOffset,
-      facets: catalogFacets,
-    });
     renderCatalogRows();
     return result;
   }
 
-  async function loadCatalogDetail(catalogKey) {
-    const detail = await marketService.catalogDetail(catalogKey);
+  function renderInspectorPreview(item) {
+    if (!nodes.marketInspector || !item) {
+      renderInspector(null);
+      return;
+    }
+    const wrap = element('div', 'rw-ah-inspector-body');
+    const head = element('div', 'rw-ah-detail-head');
+    head.append(
+      element('div', 'rw-ah-inspector-title', '详情'),
+      qualityName(element('h3', '', item.name), item.asset),
+    );
+    wrap.append(head, assetDetail(item.asset));
+
+    const live = element('div', 'rw-ah-ladder');
+    live.append(
+      element('div', 'rw-ah-section-label', '当前市场'),
+      element(
+        'div',
+        'rw-ah-muted-line',
+        (Number(item.lowest_price || 0) > 0
+          ? '当前最低价 ' + coin(item.lowest_price) + ' 空间币 · 库存 ' + Number(item.total_stock || 0)
+          : '当前暂无公开库存')
+          + ' · 实时价格梯度正在后台同步…',
+      ),
+    );
+    wrap.append(live);
+
+    const purchase = element('div', 'rw-ah-purchase-box');
+    purchase.append(
+      element('strong', '', '实时库存同步中'),
+      element('p', '', '资产详情已从本地目录快照立即显示；购买按钮会在实时价格档位同步后启用。'),
+    );
+    wrap.append(purchase);
+    nodes.marketInspector.replaceChildren(wrap);
+  }
+
+  function scheduleCatalogDetail(catalogKey) {
+    if (detailTimer != null) clearTimeout(detailTimer);
+    const key = String(catalogKey || '');
+    detailTimer = setTimeout(() => {
+      detailTimer = null;
+      if (!key || selectedKey !== key) return;
+      void loadCatalogDetail(key).catch(notifyError);
+    }, 120);
+  }
+
+  async function loadCatalogDetail(catalogKey, { force = false } = {}) {
+    const detail = await browseStore.detail(catalogKey, { force });
     if (selectedKey !== catalogKey) return detail;
     selectedDetail = detail;
     renderInspector(detail);
@@ -540,7 +562,7 @@ export function createMarketView({
           'market_price_changed',
           'market_purchase_changed',
         ].includes(error?.code)) {
-          catalogCache.clear();
+          browseStore.invalidate();
           try {
             await loadCatalog({ force: true });
             if (selectedKey) await loadCatalogDetail(selectedKey);
@@ -557,7 +579,7 @@ export function createMarketView({
       }
 
       try { host.toastr?.success?.('购买完成，资产已写入当前存档', '空间集市'); } catch {}
-      catalogCache.clear();
+      browseStore.invalidate();
       await loadCatalog({ force: true });
       if (selectedKey) await loadCatalogDetail(selectedKey).catch(() => {});
       await refreshSummary();
@@ -1448,7 +1470,7 @@ export function createMarketView({
             });
             if (!ok) return;
             await marketService.cancel(listing.id);
-            catalogCache.clear();
+            browseStore.invalidate();
             await renderMineMode();
           })],
         ));
@@ -1595,7 +1617,7 @@ export function createMarketView({
   const applyBrowseFilters = () => {
     selectedKey = '';
     selectedDetail = null;
-    void loadCatalog({ force: true }).catch(notifyError);
+    void loadCatalog().catch(notifyError);
   };
 
   nodes.marketSearchButton?.addEventListener('click', applyBrowseFilters);
@@ -1607,7 +1629,7 @@ export function createMarketView({
   nodes.marketSubtype?.addEventListener('change', applyBrowseFilters);
   nodes.marketMinPrice?.addEventListener('change', applyBrowseFilters);
   nodes.marketMaxPrice?.addEventListener('change', applyBrowseFilters);
-  nodes.marketMore?.addEventListener('click', () => void loadCatalog({ append: true }).catch(notifyError));
+  nodes.marketMore?.addEventListener('click', () => {});
   nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
   nodes.marketOrderRefresh?.addEventListener('click', () => void renderOrderMode().catch(notifyError));
 

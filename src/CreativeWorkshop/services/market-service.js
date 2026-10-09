@@ -936,24 +936,29 @@ export function createMarketService({ host, api }) {
       removeAsset(next.stat_data, { ...offered, quantity: offeredQuantity });
     });
 
+    let result;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.createMarketSwap({
+      result = await api.createMarketSwap({
         id,
         offered: assetPayload(outgoing, offeredQuantity),
         wanted,
         duration_hours: durationHours,
       });
     } catch (error) {
-      let recovered = null;
-      try { recovered = await api.getMarketSwap(id); } catch {}
-      if (recovered?.swap) return recovered;
-      await mutateBound(next => {
-        addAsset(next.stat_data, original);
-        restoreFormActivation(next.stat_data, activeFormSnapshot);
-      });
-      throw error;
+      try { result = await api.getMarketSwap(id); } catch {}
+      if (!result?.swap) {
+        await mutateBound(next => {
+          addAsset(next.stat_data, original);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
+        });
+        throw error;
+      }
     }
+    await broadcast(snapshot.saveId, 'swap:' + id,
+      '[空间集市发布交换][角色] 提供' + receiptAsset(outgoing, offeredQuantity)
+      + '｜希望换取「' + String(wanted?.name || '资产') + '」×' + Number(wanted?.quantity || 1));
+    return result;
   }
 
   async function acceptSwap(swap, selection) {
@@ -982,27 +987,39 @@ export function createMarketService({ host, api }) {
       removeAsset(next.stat_data, { ...selection, quantity: requested });
     });
 
+    let result;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.acceptMarketSwap(swap.id, {
+      result = await api.acceptMarketSwap(swap.id, {
         asset: assetPayload(outgoing, requested),
       });
     } catch (error) {
       const state = await api.getMarketMe().catch(() => null);
       const recovered = state?.swaps?.find(item => item.id === swap.id && item.status === 'completed');
-      if (recovered) return { swap: recovered };
-      await mutateBound(next => {
-        addAsset(next.stat_data, original);
-        restoreFormActivation(next.stat_data, activeFormSnapshot);
-      });
-      throw error;
+      if (recovered) result = { swap: recovered };
+      if (!result) {
+        await mutateBound(next => {
+          addAsset(next.stat_data, original);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
+        });
+        throw error;
+      }
     }
+    await broadcast(snapshot.saveId, 'swap-accept:' + swap.id,
+      '[空间集市完成交换][角色] 交出' + receiptAsset(outgoing, requested)
+      + '｜换取「' + String(swap?.offered?.name || '资产') + '」待领取');
+    return result;
   }
 
   async function cancelSwap(swapId) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
-    return api.cancelMarketSwap(swapId);
+    const result = await api.cancelMarketSwap(swapId);
+    if (result?.swap?.status === 'cancelled') {
+      await broadcast(snapshot.saveId, 'swap-cancel:' + swapId,
+        '[空间集市取消交换][角色] 交换单已撤销｜待取回提供的资产');
+    }
+    return result;
   }
 
   async function receiveSwapTransfer(transfer) {

@@ -314,6 +314,9 @@ export function createMarketView({
     currentMode = mode;
     setModeVisuals();
     if (mode === 'browse' && !browseStore.query().loaded_at) await refresh();
+    if (mode === 'sell' && !browseStore.query().loaded_at) {
+      void browseStore.ensureSnapshot().catch(() => {});
+    }
     if (mode === 'sell') await renderSellMode();
     if (mode === 'orders') await renderOrderMode();
     if (mode === 'mine') await renderMineMode();
@@ -1068,21 +1071,12 @@ export function createMarketView({
     editor.append(buyback);
 
     async function refreshBuyback() {
-      const quote = await marketService.quoteBuyback(asset, amountValue());
-      buybackValue.textContent = quote
-        ? coin(quote.total_price) + ' 空间币'
-        : '暂时无法估价';
-      buybackButton.disabled = !quote;
-      return quote;
-    }
-    buybackButton.disabled = true;
-    const initialBuyback = refreshBuyback;
-    refreshBuyback = async () => {
       try {
-        const value = await initialBuyback();
+        const quote = await marketService.quoteBuyback(asset, amountValue());
         if (serial !== sellEditorSerial) return null;
-        buybackButton.disabled = !value;
-        return value;
+        buybackValue.textContent = quote ? coin(quote.total_price) + ' 空间币' : '暂时无法估价';
+        buybackButton.disabled = !quote;
+        return quote;
       } catch {
         if (serial === sellEditorSerial) {
           buybackValue.textContent = '暂时无法估价';
@@ -1090,7 +1084,8 @@ export function createMarketView({
         }
         return null;
       }
-    };
+    }
+    buybackButton.disabled = true;
     scheduleSellQuotes();
 
     editor.append(element(

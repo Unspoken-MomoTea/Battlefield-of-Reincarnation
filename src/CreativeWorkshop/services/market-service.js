@@ -364,6 +364,24 @@ function addAsset(statData, asset) {
   bucket[key] = next;
 }
 
+function formActivationSnapshot(statData, selection) {
+  if (
+    selection?.kind === 'form'
+    && statData?.角色?.当前形态?.激活 === true
+    && String(statData.角色.当前形态.名称 || '') === String(selection.key || '')
+  ) {
+    return { 激活: true, 名称: String(selection.key || '') };
+  }
+  return null;
+}
+
+function restoreFormActivation(statData, snapshot) {
+  if (!snapshot || !statData?.角色) return;
+  if (statData.角色.形态库?.[snapshot.名称]) {
+    statData.角色.当前形态 = deepClone(snapshot);
+  }
+}
+
 function collisionFor(statData, asset) {
   if (credentialGrade(asset)) return false;
   const kind = asset?.kind;
@@ -430,6 +448,7 @@ export function createMarketService({ host, api }) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
 
+    const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
     const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
     const available = assetQuantity(selection.kind, located.value);
     const requestedQuantity = selection.kind === 'item'
@@ -488,6 +507,7 @@ export function createMarketService({ host, api }) {
       try {
         await mutateLatest(host, next => {
           addAsset(next.stat_data, asset);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
           next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + listingFee;
         });
       } catch (restoreError) {
@@ -503,6 +523,7 @@ export function createMarketService({ host, api }) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
 
+    const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
     const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
     const available = assetQuantity(selection.kind, located.value);
     const requestedQuantity = selection.kind === 'item'
@@ -539,6 +560,7 @@ export function createMarketService({ host, api }) {
       if (!result?.buyback) {
         await mutateLatest(host, next => {
           addAsset(next.stat_data, asset);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
         });
         throw error;
       }

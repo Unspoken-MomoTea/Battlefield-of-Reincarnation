@@ -11,6 +11,7 @@ import {
   getMarketMe,
   getMarketTrade,
   listMarketListings,
+  prepareMarketBrowse,
   quoteMarketAction,
 } from '../market.js';
 import { getMarketCatalogDetail, listMarketCatalog } from '../market-catalog.js';
@@ -49,6 +50,7 @@ export async function routeMarket(request, env, pathname) {
   if (!marketEnabled(env)) return null;
 
   if (request.method === 'GET' && pathname === '/api/market/catalog') {
+    await prepareMarketBrowse(env);
     return listMarketCatalog(request, env);
   }
   if (request.method === 'GET' && pathname === '/api/market/orders') {
@@ -85,6 +87,7 @@ export async function routeMarket(request, env, pathname) {
 
   const catalogId = entityId(pathname, 'catalog');
   if (request.method === 'GET' && catalogId) {
+    await prepareMarketBrowse(env);
     return getMarketCatalogDetail(env, catalogId);
   }
 

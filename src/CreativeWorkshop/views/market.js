@@ -542,24 +542,6 @@ export function createMarketView({
     }
     wrap.append(ladder);
 
-    if (detail.history?.length) {
-      const history = element('div', 'rw-ah-price-history');
-      history.append(element('div', 'rw-ah-section-label', '最近成交'));
-      const table = element('div', 'rw-ah-price-history-table');
-      for (const point of detail.history.slice(-7)) {
-        const line = element('div', 'rw-ah-price-history-row');
-        line.append(
-          element('span', '', point.day.slice(5)),
-          element('span', '', '均 ' + coin(point.average)),
-          element('span', '', coin(point.low) + ' - ' + coin(point.high)),
-          element('span', '', '量 ' + point.volume),
-        );
-        table.append(line);
-      }
-      history.append(table);
-      wrap.append(history);
-    }
-
     const purchase = element('div', 'rw-ah-purchase-box');
     if (!marketRow || marketRow.ownedOnly || marketRow.buyableStock <= 0) {
       purchase.append(
@@ -847,16 +829,6 @@ export function createMarketView({
         ladder.append(row);
       }
       referenceBox.append(ladder);
-    }
-    if (referenceDetail?.history?.length) {
-      const latest = referenceDetail.history[referenceDetail.history.length - 1];
-      referenceBox.append(element(
-        'small',
-        'rw-ah-sell-market-history',
-        '最近成交：均价 ' + coin(latest.average) + ' · '
-          + '最低 ' + coin(latest.low) + ' · 最高 ' + coin(latest.high)
-          + ' · 成交量 ' + latest.volume,
-      ));
     }
     editor.append(referenceBox);
 
@@ -1684,44 +1656,6 @@ export function createMarketView({
         ));
       }
       content.append(recovery);
-    } else if (currentMineView === 'history') {
-      const recycleRecords = []
-        .concat((state.buybacks || []).map(value => ({ ...value, side: '主动回收', amount: Number(value.amount || 0) })))
-        .concat((state.recycles || []).map(value => ({ ...value, side: '到期自动回收', amount: Number(value.amount || 0) })))
-        .sort((a, b) => Number(b.created_at) - Number(a.created_at))
-        .slice(0, 30);
-      const recycleHistory = section('系统回收记录', String(recycleRecords.length));
-      if (!recycleRecords.length) recycleHistory.append(element('div', 'rw-ah-muted-line', '还没有系统回收记录。'));
-      for (const record of recycleRecords) {
-        recycleHistory.append(transactionRow(
-          record.side + ' · ' + (record.asset?.name || '资产') + ' ×' + (record.quantity || 1),
-          coin(record.amount) + ' 空间币 · ' + when(record.created_at),
-        ));
-      }
-      content.append(recycleHistory);
-
-      const records = []
-        .concat((state.purchases || []).map(value => ({ ...value, side: '买入' })))
-        .concat((state.sales || []).map(value => ({ ...value, side: '卖出' })))
-        .concat((state.order_fills || []).map(value => ({
-          ...value,
-          side: Number(value.buyer?.id || 0) === currentUserId() ? '求购获得' : '完成求购',
-        })))
-        .sort((a, b) => Number(b.created_at) - Number(a.created_at))
-        .slice(0, 50);
-      const history = section('成交记录', String(records.length));
-      if (!records.length) history.append(element('div', 'rw-ah-muted-line', '还没有成交记录。'));
-      for (const trade of records) {
-        let settlement = '成交 ' + coin(trade.total_price) + ' 空间币';
-        if (trade.side === '卖出') {
-          settlement = '成交 ' + coin(trade.total_price) + ' · 公证费 ' + coin(trade.market_fee) + ' · 实收 ' + coin(trade.seller_proceeds);
-        }
-        history.append(transactionRow(
-          trade.side + ' · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
-          settlement + ' · ' + when(trade.created_at),
-        ));
-      }
-      content.append(history);
     } else if (currentMineView === 'orders') {
       const activeOrders = (state.buy_orders || []).filter(value => value.status === 'active');
       const orderSection = section('我的求购', String(activeOrders.length));

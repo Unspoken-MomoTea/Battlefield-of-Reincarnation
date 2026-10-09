@@ -1,7 +1,5 @@
 import { MARKET_KIND_LABELS } from '../services/market-service.js';
 import {
-  buildMarketRows,
-  filterMarketRows,
   marketAssetDetailEntries,
   marketAssetFieldDisplay,
   marketInventoryMatchesWanted,
@@ -1586,23 +1584,68 @@ export function createMarketView({
     nodes.marketMineContent.replaceChildren(content);
   }
 
-  nodes.marketSearchButton?.addEventListener('click', renderRows);
-  nodes.marketSearch?.addEventListener('keydown', event => {
-    if (event.key === 'Enter') renderRows();
-  });
-  nodes.marketSort?.addEventListener('change', renderRows);
-  nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
+  const applyBrowseFilters = () => {
+    selectedKey = '';
+    selectedDetail = null;
+    void loadCatalog({ force: true }).catch(notifyError);
+  };
 
+  nodes.marketSearchButton?.addEventListener('click', applyBrowseFilters);
+  nodes.marketSearch?.addEventListener('keydown', event => {
+    if (event.key === 'Enter') applyBrowseFilters();
+  });
+  nodes.marketSort?.addEventListener('change', applyBrowseFilters);
+  nodes.marketQuality?.addEventListener('change', applyBrowseFilters);
+  nodes.marketSubtype?.addEventListener('change', applyBrowseFilters);
+  nodes.marketMinPrice?.addEventListener('change', applyBrowseFilters);
+  nodes.marketMaxPrice?.addEventListener('change', applyBrowseFilters);
+  nodes.marketMore?.addEventListener('click', () => void loadCatalog({ append: true }).catch(notifyError));
+  nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
+  nodes.marketOrderRefresh?.addEventListener('click', () => void renderOrderMode().catch(notifyError));
+
+  nodes.marketOrderCreate?.addEventListener('click', () => {
+    currentOrderView = 'buy';
+    orderDraft = {};
+    for (const tab of nodes.marketOrderViews || []) {
+      tab.classList.toggle('is-active', tab.dataset.marketOrderView === 'buy');
+    }
+    void renderCreateBuyOrder().catch(notifyError);
+  });
+  nodes.marketSwapCreate?.addEventListener('click', () => {
+    currentOrderView = 'swap';
+    orderDraft = { swap: true };
+    for (const tab of nodes.marketOrderViews || []) {
+      tab.classList.toggle('is-active', tab.dataset.marketOrderView === 'swap');
+    }
+    void renderCreateSwap().catch(notifyError);
+  });
+
+  for (const tab of nodes.marketOrderViews || []) {
+    tab.addEventListener('click', () => {
+      currentOrderView = tab.dataset.marketOrderView || 'buy';
+      orderDraft = null;
+      selectedOrderId = '';
+      void renderOrderMode().catch(notifyError);
+    });
+  }
+  for (const tab of nodes.marketMineViews || []) {
+    tab.addEventListener('click', () => {
+      currentMineView = tab.dataset.marketMineView || 'active';
+      void renderMineMode().catch(notifyError);
+    });
+  }
   for (const tab of nodes.marketModes || []) {
     tab.addEventListener('click', () => void setMode(tab.dataset.marketMode).catch(notifyError));
   }
   for (const category of nodes.marketCategories || []) {
     category.addEventListener('click', () => {
       currentKind = category.dataset.marketKind || '';
+      selectedKey = '';
+      selectedDetail = null;
       for (const candidate of nodes.marketCategories || []) {
         candidate.classList.toggle('is-active', candidate === category);
       }
-      renderRows();
+      void loadCatalog().catch(notifyError);
     });
   }
 
@@ -1611,6 +1654,7 @@ export function createMarketView({
   return {
     refresh,
     openSell: () => setMode('sell'),
+    openOrders: () => setMode('orders'),
     openMine: () => setMode('mine'),
   };
 }

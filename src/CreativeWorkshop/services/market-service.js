@@ -507,36 +507,6 @@ export function createMarketService({ host, api }) {
     }, saveId);
   }
 
-  async function collectPendingBroadcasts(state, saveId) {
-    const sales = (state?.pending_sale_broadcasts || []).filter(item => item?.id);
-    const recycles = (state?.pending_recycle_broadcasts || []).filter(item => item?.id);
-    if (!sales.length && !recycles.length) return state;
-    // One MVU write even when several offline sales are waiting. Never delay the
-    // market panel on the subsequent per-event server acknowledgements.
-    await mutateLatest(host, next => {
-      for (const sale of sales) {
-        appendMarketBroadcast(next, 'sale:' + sale.id,
-          '[空间集市成交][角色] ' + receiptAsset(sale.asset, sale.quantity)
-          + ' 已被其他轮回者购买｜成交 ' + coin(sale.total_price)
-          + '｜实收待领取 ' + coin(sale.seller_proceeds));
-      }
-      for (const recycle of recycles) {
-        appendMarketBroadcast(next, 'recycle:' + recycle.id,
-          '[空间集市到期回收][角色] ' + receiptAsset(recycle.asset, recycle.quantity)
-          + ' 已超过取回期限｜自动兑换 ' + coin(recycle.amount) + '｜货款待领取');
-      }
-    }, saveId);
-    assertCurrentSave(host, saveId);
-    const acknowledgements = [
-      ...sales.map(sale => api.confirmMarketSaleBroadcast(sale.id)),
-      ...recycles.map(recycle => api.confirmMarketRecycleBroadcast(recycle.id)),
-    ];
-    // A failed ACK is safe: the same receipt ID can be replayed next visit, and
-    // appendMarketBroadcast will not duplicate it.
-    void Promise.allSettled(acknowledgements);
-    return state;
-  }
-
   async function inventory() {
     return marketInventoryFromData(readLatest(host).data);
   }
@@ -632,11 +602,10 @@ export function createMarketService({ host, api }) {
     }))?.quote;
   }
 
+  // A market account read must never alter MVU or create narration receipts.
+  // Only confirmed player-initiated local asset/coin mutations are narrated.
   async function mine() {
-    const saveId = currentMarketSaveId(host);
-    const state = await api.getMarketMe();
-    assertCurrentSave(host, saveId);
-    return collectPendingBroadcasts(state, saveId);
+    return api.getMarketMe();
   }
 
   async function sell(selection) {
@@ -898,10 +867,8 @@ export function createMarketService({ host, api }) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
     const result = await api.cancelMarketBuyOrder(orderId);
-    if (result?.order?.status === 'cancelled') {
-      await broadcast(snapshot.saveId, 'order-cancel:' + orderId,
-        '[空间集市取消求购][角色] 求购单已取消｜未成交托管空间币退回待领取');
-    }
+    // Canceling an order changes remote state only; receiving its refund
+    // separately writes MVU and produces the single relevant receipt.
     if (result?.payout) await receivePayout(result.payout);
     return result;
   }
@@ -1035,12 +1002,9 @@ export function createMarketService({ host, api }) {
   async function cancelSwap(swapId) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
-    const result = await api.cancelMarketSwap(swapId);
-    if (result?.swap?.status === 'cancelled') {
-      await broadcast(snapshot.saveId, 'swap-cancel:' + swapId,
-        '[空间集市取消交换][角色] 交换单已撤销｜待取回提供的资产');
-    }
-    return result;
+    // The remote cancellation itself does not change MVU. Any returned
+    // assets are announced by receiveSwapTransfer when actually written back.
+    return api.cancelMarketSwap(swapId);
   }
 
   async function receiveSwapTransfer(transfer) {
@@ -1205,10 +1169,7 @@ export function createMarketService({ host, api }) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
     const result = await api.cancelMarketListing(listingId);
-    if (result?.listing?.status === 'cancelled' || result?.return) {
-      await broadcast(snapshot.saveId, 'listing-cancel:' + listingId,
-        '[空间集市撤回拍卖][角色] 挂单已取消或到期撤回｜未售出资产待取回');
-    }
+    // Only the actual local return belongs in the narrative receipt.
     if (result?.return) await receiveReturn(result.return);
     return result;
   }

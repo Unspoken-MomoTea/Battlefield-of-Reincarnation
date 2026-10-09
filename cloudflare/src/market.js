@@ -11,7 +11,6 @@ import {
 import { assertMarketActive } from './market-access.js';
 import {
   marketCatalogMetadata,
-  marketPriceHistoryStatement,
   refreshExpiredMarketCatalogs,
   refreshMarketCatalogKey,
 } from './market-catalog.js';
@@ -975,14 +974,6 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
          updated_at = excluded.updated_at`,
     ).bind(now, tradeId),
   ];
-  if (listing.catalog_key) {
-    statements.push(marketPriceHistoryStatement(env, {
-      catalogKey: listing.catalog_key,
-      tradeId,
-      now,
-    }));
-  }
-
   try {
     await runBatch(env, statements);
   } catch (error) {

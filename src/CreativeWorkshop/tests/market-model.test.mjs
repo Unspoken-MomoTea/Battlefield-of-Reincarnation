@@ -7,6 +7,7 @@ import {
   marketAssetDetailEntries,
   marketAssetFieldDisplay,
   marketPriceLadder,
+  marketTeammateDetailModel,
   planMarketPurchase,
 } from '../views/market-model.js';
 
@@ -160,5 +161,72 @@ test('market detail hides true stats, technical credential fields and empty valu
     ['描述', '有效描述'],
     ['状态', 0],
     ['标签', ['主神空间']],
+  ]);
+});
+
+
+test('teammate detail omits combat caches and compacts nested build data', () => {
+  const detail = marketTeammateDetailModel({
+    kind: 'teammate',
+    data: {
+      在场: false,
+      是否队友: true,
+      层级: 'Ⅱ',
+      种族: '灵狐',
+      身份: ['侦察员', '旅伴'],
+      职业: {
+        游侠: { 类型: '战斗', 特性: ['追踪'] },
+      },
+      HP_MAX: 40,
+      HP: 40,
+      THP: 0,
+      EP_MAX: 24,
+      EP: 24,
+      最终属性: { 力量: 4, ATK: 2 },
+      血统: { 灵狐血统: { 品质: 'E', 真属性: { 力量: 5 } } },
+      技能: { 追踪: { 品质: 'E' }, 夜行: { 品质: 'F' } },
+      装备: { 短弓: { 品质: 'E', 状态: 1 } },
+      道具: { 绷带: { 品质: 'F', 数量: 3 } },
+      形态库: { 月影: { 层级: 'Ⅱ' } },
+      状态: { 警觉: { 品质: 'F' } },
+      当前形态: { 激活: true, 名称: '月影' },
+      性格: '谨慎',
+      外貌: '银发狐耳',
+      背景故事: '来自边境。',
+      好感度: 0,
+      态度: '被交易的货物，对原主失去一切信任',
+    },
+  });
+
+  assert.deepEqual(detail.overview, [['层级', 'Ⅱ'], ['种族', '灵狐']]);
+  assert.deepEqual(detail.identity, ['侦察员', '旅伴']);
+  assert.deepEqual(detail.occupations, [{ name: '游侠', meta: '战斗' }]);
+  assert.deepEqual(detail.builds[0], ['血统', [{ name: '灵狐血统', rank: 'E', quantity: 1 }]]);
+  assert.deepEqual(
+    detail.builds.find(([label]) => label === '道具'),
+    ['道具', [{ name: '绷带', rank: 'F', quantity: 3 }]],
+  );
+  assert.equal(detail.currentForm, '月影');
+  assert.equal(detail.extra.some(([key]) => ['HP', 'HP_MAX', 'THP', 'EP', 'EP_MAX', '最终属性'].includes(key)), false);
+});
+
+test('generic market detail also hides hp ep thp and final attribute caches', () => {
+  const entries = marketAssetDetailEntries({
+    kind: 'teammate',
+    data: {
+      层级: 'Ⅰ',
+      HP_MAX: 40,
+      HP: 35,
+      THP: 5,
+      EP_MAX: 20,
+      EP: 10,
+      最终属性: { ATK: 9 },
+      描述: '保留信息',
+    },
+  });
+
+  assert.deepEqual(entries, [
+    ['层级', 'Ⅰ'],
+    ['描述', '保留信息'],
   ]);
 });

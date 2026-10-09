@@ -48,36 +48,50 @@ const SNAPSHOT = {
   counts: { item: 3, skill: 1 },
 };
 
-test('server-filtered pages keep counts, facets and an explicit load-more cursor', async () => {
-  const calls = [];
+test('category, quality, sort and repeat switches never request catalog again', async () => {
+  let catalogCalls = 0;
   const marketService = {
-    async catalog(filters) {
-      calls.push({ ...filters });
-      const kind = filters.kind || '';
-      const items = SNAPSHOT.items.filter(item => !kind || item.kind === kind);
-      const offset = Number(filters.offset || 0);
-      const limit = Number(filters.limit || 2);
-      return {
-        items: structuredClone(items.slice(offset, offset + limit)),
-        counts: { ...SNAPSHOT.counts },
-        facets: { qualities: [], subtypes: [] },
-        next_offset: offset + limit < items.length ? offset + limit : null,
-      };
+    async catalogSnapshot() {
+      catalogCalls += 1;
+      return structuredClone(SNAPSHOT);
     },
-    async catalogDetail() { throw new Error('detail not used'); },
+    async catalog() {
+      throw new Error('clicking a category must not fetch a server page');
+    },
+    async catalogDetail() {
+      throw new Error('detail not used');
+    },
   };
   const store = createMarketBrowseStore({ marketService });
-  await store.refresh({ kind: 'item', limit: 1 });
-  assert.equal(store.query().items.length, 1);
-  assert.equal(store.query().next_offset, 1);
-  await store.append();
-  assert.equal(store.query().items.length, 2);
+  await store.ensureSnapshot();
+  assert.deepEqual(store.query({kind:'item', sort:'price_asc'}).items.map(x=>x.name),
+    ['治疗药剂', '稀有材料']);
+  assert.deepEqual(store.query({kind:'skill'}).items.map(x=>x.name), ['专注']);
+  assert.deepEqual(store.query({kind:'item', quality:'D'}).items.map(x=>x.name), ['稀有材料']);
+  assert.deepEqual(store.query({kind:'item', sort:'price_desc'}).items.map(x=>x.name),
+    ['稀有材料', '治疗药剂']);
+  await store.ensureSnapshot({kind:'skill'});
+  await store.ensureSnapshot({kind:'item'});
+  assert.equal(catalogCalls, 1);
   assert.equal(store.query().next_offset, null);
-  await store.ensureSnapshot({ kind: 'item', limit: 1 });
-  assert.equal(calls.length, 2);
-  await store.ensureSnapshot({ kind: 'skill', limit: 1 });
-  assert.equal(calls.length, 3);
-  assert.deepEqual(store.query().items.map(item => item.name), ['专注']);
+});
+
+test('simultaneous snapshot loads coalesce to a single request', async () => {
+  let resolve;
+  let calls = 0;
+  const store = createMarketBrowseStore({marketService: {
+    catalogSnapshot() {
+      calls += 1;
+      return new Promise(r => { resolve = r; });
+    },
+    async catalogDetail() { return {}; },
+  }});
+  const one = store.ensureSnapshot();
+  const two = store.ensureSnapshot({kind:'equipment'});
+  assert.equal(calls, 1);
+  resolve(structuredClone(SNAPSHOT));
+  await Promise.all([one,two]);
+  assert.equal(store.query().items.length, 3);
 });
 
 test('browse detail cache returns immediately after first fetch and refreshes only after ttl', async () => {
@@ -85,7 +99,7 @@ test('browse detail cache returns immediately after first fetch and refreshes on
   let snapshotCalls = 0;
   let detailCalls = 0;
   const marketService = {
-    async catalog() {
+    async catalogSnapshot() {
       snapshotCalls += 1;
       return structuredClone(SNAPSHOT);
     },

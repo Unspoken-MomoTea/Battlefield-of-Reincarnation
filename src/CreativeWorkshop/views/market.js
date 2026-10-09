@@ -64,6 +64,10 @@ export function createMarketView({
   const MARKET_VIEW_CACHE_MS = 15_000;
   let mineStateCache = null;
   let mineStateLoadedAt = 0;
+  let mineStatePending = null;
+  let mineRequestSerial = 0;
+  let sellEditorSerial = 0;
+  let sellQuoteTimer = null;
   const orderStateCache = new Map();
   let sellInventory = null;
   let selectedSellIndex = -1;
@@ -260,6 +264,8 @@ export function createMarketView({
   const invalidateMineState = () => {
     mineStateCache = null;
     mineStateLoadedAt = 0;
+    mineStatePending = null;
+    mineRequestSerial += 1;
   };
 
   const invalidateOrderState = (view = '') => {
@@ -275,9 +281,19 @@ export function createMarketView({
   async function loadMineState({ force = false } = {}) {
     const fresh = mineStateCache && Date.now() - mineStateLoadedAt <= MARKET_VIEW_CACHE_MS;
     if (!force && fresh) return mineStateCache;
-    mineStateCache = await marketService.mine();
-    mineStateLoadedAt = Date.now();
-    return mineStateCache;
+    if (!force && mineStatePending) return mineStatePending;
+    const serial = ++mineRequestSerial;
+    const request = marketService.mine().then(state => {
+      if (serial === mineRequestSerial) {
+        mineStateCache = state;
+        mineStateLoadedAt = Date.now();
+      }
+      return state;
+    }).finally(() => {
+      if (mineStatePending === request) mineStatePending = null;
+    });
+    mineStatePending = request;
+    return request;
   }
 
   async function loadOrderState(view, { force = false } = {}) {
@@ -297,7 +313,10 @@ export function createMarketView({
     if (mode !== 'browse') requireLogin();
     currentMode = mode;
     setModeVisuals();
-    if (!browseStore.query().loaded_at) await refresh();
+    if (mode === 'browse' && !browseStore.query().loaded_at) await refresh();
+    if (mode === 'sell' && !browseStore.query().loaded_at) {
+      void browseStore.ensureSnapshot().catch(() => {});
+    }
     if (mode === 'sell') await renderSellMode();
     if (mode === 'orders') await renderOrderMode();
     if (mode === 'mine') await renderMineMode();
@@ -716,7 +735,9 @@ export function createMarketView({
     );
     row.addEventListener('click', () => {
       selectedSellIndex = index;
-      renderSellList();
+      for (const item of nodes.marketSellList.querySelectorAll('.rw-ah-inventory-row')) {
+        item.classList.toggle('is-selected', item === row);
+      }
       void renderSellEditor(asset).catch(notifyError);
     });
     return row;
@@ -759,6 +780,11 @@ export function createMarketView({
   }
 
   async function renderSellEditor(asset) {
+    const serial = ++sellEditorSerial;
+    if (sellQuoteTimer != null) {
+      clearTimeout(sellQuoteTimer);
+      sellQuoteTimer = null;
+    }
     if (!asset) {
       const blank = element('div', 'rw-ah-empty-inspector');
       blank.append(
@@ -789,28 +815,24 @@ export function createMarketView({
       ));
     }
 
-    let referenceDetail = null;
-    let referencePrice = 0;
-    const referenceResult = await marketService.catalog({
+    // Asset selection reads only the in-memory market snapshot. No HTTP round-trip
+    // may delay the right-hand editor, even when no market snapshot exists yet.
+    const referenceResult = browseStore.query({
       query: asset.name,
       kind: asset.kind,
       sort: 'price_asc',
-      limit: 20,
-    }).catch(() => ({ items: [] }));
-    const referenceItem = (referenceResult?.items || []).find(item => (
+    });
+    const referenceItem = referenceResult.items.find(item => (
       item.name === asset.name
       && (!quality(asset) || qualityRank(item.asset) === qualityRank(asset))
-    )) || (referenceResult?.items || []).find(item => item.name === asset.name);
-    if (referenceItem?.key) {
-      referenceDetail = browseStore.peekDetail(referenceItem.key);
-      referencePrice = Number(referenceItem.lowest_price || 0);
-    }
-
+    )) || referenceResult.items.find(item => item.name === asset.name);
+    const referenceDetail = referenceItem?.key ? browseStore.peekDetail(referenceItem.key) : null;
+    const referencePrice = Number(referenceItem?.lowest_price || 0);
     const referenceBox = element('div', 'rw-ah-sell-market');
     const referenceHead = element('div', 'rw-ah-sell-market-head');
     referenceHead.append(
       element('span', '', '当前市场'),
-      element('strong', '', referencePrice ? coin(referencePrice) + ' 空间币 / 件' : '暂无同名商品'),
+      element('strong', '', referencePrice ? coin(referencePrice) + ' 空间币 / 件' : '暂无本地参考价'),
     );
     referenceBox.append(referenceHead);
     if (referenceDetail?.ladder?.length) {
@@ -851,16 +873,13 @@ export function createMarketView({
 
     const auctionLabel = element('div', 'rw-ah-section-label', '拍卖');
     editor.append(auctionLabel);
-    const mine = await loadMineState();
-    const activeListingCount = Number(mine?.active_listing_count ?? 0);
-    const listingLimit = Number(mine?.active_listing_limit || MAX_ACTIVE_LISTINGS);
-    const slots = element('div', 'rw-ah-listing-slots', '在售挂单 ' + activeListingCount + ' / ' + listingLimit);
-    if (activeListingCount >= listingLimit) {
-      slots.classList.add('is-full');
-      editor.append(element('p', 'rw-market-notice warning',
-        '已达到最多 ' + listingLimit + ' 个在售挂单的上限。撤回、售完或到期后才能继续上架；系统回收不受限制。'));
-    }
-    editor.append(slots);
+    const cachedMine = mineStateCache;
+    const activeListingCount = Number(cachedMine?.active_listing_count || 0);
+    const listingLimit = Number(cachedMine?.active_listing_limit || MAX_ACTIVE_LISTINGS);
+    const slots = element('div', 'rw-ah-listing-slots',
+      cachedMine ? '在售挂单 ' + activeListingCount + ' / ' + listingLimit : '正在同步挂单名额…');
+    const limitNotice = element('p', 'rw-market-notice warning');
+    editor.append(slots, limitNotice);
 
     const form = element('div', 'rw-ah-sell-form');
     const qtyField = element('label', 'rw-ah-form-field');
@@ -949,14 +968,19 @@ export function createMarketView({
     };
 
     qty.addEventListener('input', syncGross);
-    qty.addEventListener('change', () => {
-      void refreshQuote().catch(notifyError);
-      void refreshBuyback().catch(notifyError);
-    });
+    const scheduleSellQuotes = () => {
+      if (sellQuoteTimer != null) clearTimeout(sellQuoteTimer);
+      sellQuoteTimer = setTimeout(() => {
+        sellQuoteTimer = null;
+        if (serial !== sellEditorSerial) return;
+        void refreshQuote().catch(() => {});
+        void refreshBuyback().catch(() => {});
+      }, 180);
+    };
+    qty.addEventListener('change', scheduleSellQuotes);
     price.addEventListener('input', syncGross);
-    duration.addEventListener('change', () => void refreshQuote().catch(notifyError));
+    duration.addEventListener('change', scheduleSellQuotes);
     syncGross();
-    void refreshQuote().catch(notifyError);
 
     const submit = button('创建拍卖', 'primary', async () => {
       const latestMine = await marketService.mine();
@@ -1000,7 +1024,22 @@ export function createMarketView({
       await refresh();
     });
 
-    submit.disabled = activeListingCount >= listingLimit;
+    const updateSlots = mine => {
+      if (serial !== sellEditorSerial) return;
+      const count = Number(mine?.active_listing_count || 0);
+      const limit = Number(mine?.active_listing_limit || MAX_ACTIVE_LISTINGS);
+      slots.textContent = '在售挂单 ' + count + ' / ' + limit;
+      slots.classList.toggle('is-full', count >= limit);
+      submit.disabled = count >= limit;
+      limitNotice.textContent = count >= limit
+        ? '最多同时上架 ' + limit + ' 个商品，请先撤回或等待挂单售完；系统回收不受限制。'
+        : '';
+    };
+    if (cachedMine) updateSlots(cachedMine);
+    // The server remains authoritative; the visual quota is filled asynchronously.
+    void loadMineState().then(updateSlots).catch(() => {
+      if (serial === sellEditorSerial) slots.textContent = '挂单名额暂不可用，上架时将重新校验';
+    });
     form.append(qtyField, priceField, durationField, fee, total, submit);
     editor.append(form);
 
@@ -1032,17 +1071,22 @@ export function createMarketView({
     editor.append(buyback);
 
     async function refreshBuyback() {
-      const quote = await marketService.quoteBuyback(asset, amountValue());
-      buybackValue.textContent = quote
-        ? coin(quote.total_price) + ' 空间币'
-        : '暂时无法估价';
-      buybackButton.disabled = !quote;
-      return quote;
+      try {
+        const quote = await marketService.quoteBuyback(asset, amountValue());
+        if (serial !== sellEditorSerial) return null;
+        buybackValue.textContent = quote ? coin(quote.total_price) + ' 空间币' : '暂时无法估价';
+        buybackButton.disabled = !quote;
+        return quote;
+      } catch {
+        if (serial === sellEditorSerial) {
+          buybackValue.textContent = '暂时无法估价';
+          buybackButton.disabled = true;
+        }
+        return null;
+      }
     }
-    void refreshBuyback().catch(() => {
-      buybackValue.textContent = '暂时无法估价';
-      buybackButton.disabled = true;
-    });
+    buybackButton.disabled = true;
+    scheduleSellQuotes();
 
     editor.append(element(
       'p',

@@ -716,22 +716,19 @@ export function createMarketView({
 
     let referenceDetail = null;
     let referencePrice = 0;
-    try {
-      const result = await marketService.catalog({
-        query: asset.name,
-        kind: asset.kind,
-        sort: 'price_asc',
-        limit: 20,
-      });
-      const same = (result?.items || []).find(item => (
-        item.name === asset.name
-        && (!quality(asset) || qualityRank(item.asset) === qualityRank(asset))
-      )) || (result?.items || []).find(item => item.name === asset.name);
-      if (same?.key) {
-        referenceDetail = await marketService.catalogDetail(same.key);
-        referencePrice = Number(referenceDetail?.catalog?.lowest_price || 0);
-      }
-    } catch {}
+    const referenceResult = browseStore.query({
+      query: asset.name,
+      kind: asset.kind,
+      sort: 'price_asc',
+    });
+    const referenceItem = (referenceResult?.items || []).find(item => (
+      item.name === asset.name
+      && (!quality(asset) || qualityRank(item.asset) === qualityRank(asset))
+    )) || (referenceResult?.items || []).find(item => item.name === asset.name);
+    if (referenceItem?.key) {
+      referenceDetail = browseStore.peekDetail(referenceItem.key);
+      referencePrice = Number(referenceItem.lowest_price || 0);
+    }
 
     const referenceBox = element('div', 'rw-ah-sell-market');
     const referenceHead = element('div', 'rw-ah-sell-market-head');
@@ -873,7 +870,7 @@ export function createMarketView({
     price.addEventListener('input', syncGross);
     duration.addEventListener('change', () => void refreshQuote().catch(notifyError));
     syncGross();
-    await refreshQuote();
+    void refreshQuote().catch(notifyError);
 
     const submit = button('创建拍卖', 'primary', async () => {
       const amount = amountValue();
@@ -949,7 +946,7 @@ export function createMarketView({
       buybackButton.disabled = !quote;
       return quote;
     }
-    await refreshBuyback().catch(() => {
+    void refreshBuyback().catch(() => {
       buybackValue.textContent = '暂时无法估价';
       buybackButton.disabled = true;
     });

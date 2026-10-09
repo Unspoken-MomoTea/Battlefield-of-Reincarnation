@@ -61,6 +61,8 @@ export function createMarketView({
   let currentMode = 'browse';
   let currentOrderView = 'buy';
   let currentMineView = 'active';
+  let selectedOrderId = '';
+  let orderDraft = null;
   let sellInventory = null;
   let selectedSellIndex = -1;
 

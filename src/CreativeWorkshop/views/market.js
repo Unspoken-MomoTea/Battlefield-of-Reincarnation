@@ -364,24 +364,14 @@ export function createMarketView({
     nodes.marketInspector.replaceChildren(wrap);
   }
 
-  async function refresh({ append = false } = {}) {
+  async function refresh() {
     if (loading) return;
     loading = true;
     try {
-      if (!append) {
-        empty(nodes.marketList, '正在读取空间集市…');
-        selectedKey = '';
-      }
-      const offset = append && nextOffset != null ? nextOffset : 0;
-      const page = await marketService.list({
-        query: nodes.marketSearch.value,
-        kind: currentKind,
-        sort: nodes.marketSort.value,
-        offset,
-        limit: 48,
-      });
-      listings = append ? listings.concat(page.items || []) : (page.items || []);
-      nextOffset = page.next_offset ?? null;
+      empty(nodes.marketList, '正在读取空间集市…');
+      selectedKey = '';
+      listings = await marketService.listAll();
+      allRows = buildMarketRows(listings, currentUserId());
       renderRows();
       await refreshSummary();
     } finally {
@@ -559,7 +549,7 @@ export function createMarketView({
       try { host.toastr?.success?.('已创建拍卖', '空间集市'); } catch {}
       selectedSellIndex = -1;
       await renderSellMode();
-      await refresh({ append: false });
+      await refresh();
     });
 
     form.append(qtyField, priceField, total, submit);

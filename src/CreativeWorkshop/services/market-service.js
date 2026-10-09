@@ -67,6 +67,26 @@ function assetName(key, value) {
   return String(value?.名称 || value?.name || key || '').trim();
 }
 
+function credentialGrade(asset) {
+  if (asset?.data?.系统商品 !== 'permission_credential') return '';
+  return String(asset?.data?.凭证品质 || asset?.data?.品质 || '').trim().toUpperCase();
+}
+
+function assetPayload(asset, quantity = null) {
+  const kind = String(asset?.kind || '');
+  const resolvedQuantity = kind === 'item'
+    ? Math.max(1, Math.floor(Number(quantity ?? asset?.quantity ?? 1) || 1))
+    : 1;
+  const data = deepClone(asset?.data || {});
+  if (kind === 'item') data.数量 = resolvedQuantity;
+  return {
+    kind,
+    name: String(asset?.name || asset?.key || '').trim(),
+    quantity: resolvedQuantity,
+    data,
+  };
+}
+
 function ledger(data) {
   const root = data.__reincarnationMarketLedger;
   if (root && typeof root === 'object') return root;
@@ -178,6 +198,16 @@ function removeAsset(character, selection) {
 }
 
 function addAsset(character, asset) {
+  const credential = credentialGrade(asset);
+  if (credential) {
+    if (!character.权限凭证 || typeof character.权限凭证 !== 'object' || Array.isArray(character.权限凭证)) {
+      character.权限凭证 = {};
+    }
+    const quantity = Math.max(1, Math.floor(Number(asset?.quantity) || 1));
+    character.权限凭证[credential] = Math.max(0, Number(character.权限凭证[credential] || 0)) + quantity;
+    return;
+  }
+
   const kind = asset?.kind;
   const field = KIND_FIELDS[kind];
   if (!field) throw new Error('不支持的集市资产类型');
@@ -212,6 +242,7 @@ function addAsset(character, asset) {
 }
 
 function collisionFor(character, asset) {
+  if (credentialGrade(asset)) return false;
   const field = KIND_FIELDS[asset?.kind];
   if (!field || asset?.kind === 'item') return false;
   return Boolean(character?.[field]?.[asset?.name]);
@@ -248,6 +279,21 @@ export function createMarketService({ host, api }) {
     return items;
   }
 
+  async function quoteAuction(asset, quantity = 1, durationHours = 24) {
+    return (await api.quoteMarketAction({
+      action: 'auction',
+      asset: assetPayload(asset, quantity),
+      duration_hours: durationHours,
+    }))?.quote;
+  }
+
+  async function quoteBuyback(asset) {
+    return (await api.quoteMarketAction({
+      action: 'buyback',
+      asset: assetPayload(asset, 1),
+    }))?.quote;
+  }
+
   async function mine() {
     return api.getMarketMe();
   }
@@ -255,17 +301,44 @@ export function createMarketService({ host, api }) {
   async function sell(selection) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
+
+    const located = findAsset(snapshot.data.stat_data.角色, selection.kind, selection.key);
+    const available = assetQuantity(selection.kind, located.value);
+    const requestedQuantity = selection.kind === 'item'
+      ? Math.max(1, Math.floor(Number(selection.quantity) || 1))
+      : 1;
+    if (requestedQuantity > available) throw new Error('待交易资产数量不足');
+
+    const sourceAsset = {
+      kind: selection.kind,
+      key: selection.key,
+      name: String(selection.name || assetName(selection.key, located.value)).trim(),
+      quantity: requestedQuantity,
+      data: deepClone(located.value),
+    };
+    const durationHours = Math.max(24, Math.floor(Number(selection.durationHours) || 24));
+    const quote = await quoteAuction(sourceAsset, requestedQuantity, durationHours);
+    const listingFee = Math.max(0, Number(quote?.listing_fee || 0));
+    if (Number(snapshot.data.stat_data.角色.空间币 || 0) < listingFee) {
+      throw new Error(`空间币不足：上架税需要 ${listingFee}`);
+    }
+
     const listingId = randomId(host, 'listing');
     let removed;
-
     await mutateLatest(host, next => {
       assertHub(next.stat_data);
-      removed = removeAsset(next.stat_data.角色, selection);
+      const currentCoin = Number(next.stat_data.角色.空间币 || 0);
+      if (currentCoin < listingFee) throw new Error('空间币不足，无法支付上架税');
+      removed = removeAsset(next.stat_data.角色, {
+        ...selection,
+        quantity: requestedQuantity,
+      });
+      next.stat_data.角色.空间币 = currentCoin - listingFee;
     });
 
     const asset = {
       kind: selection.kind,
-      name: String(selection.name || selection.key || '').trim(),
+      name: sourceAsset.name,
       quantity: removed.quantity,
       data: removed.data,
     };
@@ -275,25 +348,71 @@ export function createMarketService({ host, api }) {
         id: listingId,
         asset,
         unit_price: Math.max(1, Math.floor(Number(selection.unitPrice) || 0)),
+        duration_hours: durationHours,
       });
     } catch (error) {
       try {
         const state = await api.getMarketMe();
         const recovered = state?.listings?.find(item => item.id === listingId);
-        if (recovered) return { listing: recovered };
+        if (recovered) return { listing: recovered, quote };
       } catch {}
 
       try {
         await mutateLatest(host, next => {
           addAsset(next.stat_data.角色, asset);
+          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + listingFee;
         });
       } catch (restoreError) {
-        const combined = new Error(`上架请求失败，而且本地资产自动恢复也失败：${restoreError.message}`);
+        const combined = new Error(`上架请求失败，而且本地资产/上架税自动恢复也失败：${restoreError.message}`);
         combined.cause = error;
         throw combined;
       }
       throw error;
     }
+  }
+
+  async function sellToSystem(selection) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    if (selection?.kind !== 'equipment') throw new Error('当前系统回收只支持装备');
+
+    const located = findAsset(snapshot.data.stat_data.角色, selection.kind, selection.key);
+    const asset = assetPayload({
+      kind: selection.kind,
+      key: selection.key,
+      name: String(selection.name || assetName(selection.key, located.value)).trim(),
+      quantity: 1,
+      data: deepClone(located.value),
+    }, 1);
+    const buybackId = randomId(host, 'buyback');
+
+    await mutateLatest(host, next => {
+      assertHub(next.stat_data);
+      removeAsset(next.stat_data.角色, {
+        kind: selection.kind,
+        key: selection.key,
+        quantity: 1,
+      });
+    });
+
+    let result;
+    try {
+      result = await api.createMarketBuyback({ id: buybackId, asset });
+    } catch (error) {
+      try {
+        result = await api.getMarketBuyback(buybackId);
+      } catch {}
+
+      if (!result?.buyback) {
+        await mutateLatest(host, next => {
+          addAsset(next.stat_data.角色, asset);
+        });
+        throw error;
+      }
+    }
+
+    if (result?.payout) await receivePayout(result.payout);
+    return result;
   }
 
   async function deliverTrade(trade) {
@@ -414,8 +533,11 @@ export function createMarketService({ host, api }) {
     inventory,
     list,
     listAll,
+    quoteAuction,
+    quoteBuyback,
     mine,
     sell,
+    sellToSystem,
     buy,
     cancel,
     deliverTrade,

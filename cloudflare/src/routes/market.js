@@ -16,6 +16,11 @@ import {
 } from '../market.js';
 import { getMarketCatalogDetail, listMarketCatalog } from '../market-catalog.js';
 import {
+  buyMarketCatalog,
+  getMarketPurchase,
+  quoteMarketCatalogPurchase,
+} from '../market-purchases.js';
+import {
   acceptMarketSwap,
   cancelMarketBuyOrder,
   cancelMarketSwap,
@@ -89,6 +94,31 @@ export async function routeMarket(request, env, pathname) {
   if (request.method === 'GET' && catalogId) {
     await prepareMarketBrowse(env);
     return getMarketCatalogDetail(env, catalogId);
+  }
+  const catalogQuoteId = entityId(pathname, 'catalog', 'quote');
+  if (request.method === 'GET' && catalogQuoteId) {
+    await prepareMarketBrowse(env);
+    return quoteMarketCatalogPurchase(
+      request,
+      env,
+      await authenticatedUser(request, env),
+      catalogQuoteId,
+    );
+  }
+  const catalogBuyId = entityId(pathname, 'catalog', 'buy');
+  if (request.method === 'POST' && catalogBuyId) {
+    await prepareMarketBrowse(env);
+    return buyMarketCatalog(
+      request,
+      env,
+      await authenticatedUser(request, env),
+      catalogBuyId,
+    );
+  }
+
+  const purchaseId = entityId(pathname, 'purchases');
+  if (request.method === 'GET' && purchaseId) {
+    return getMarketPurchase(env, await authenticatedUser(request, env), purchaseId);
   }
 
   const orderId = entityId(pathname, 'orders');

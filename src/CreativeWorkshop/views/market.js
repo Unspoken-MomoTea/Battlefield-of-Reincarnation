@@ -415,7 +415,7 @@ export function createMarketView({
       element('small', '', kindLabel(asset.kind) + (quality(asset) ? ' · ' + quality(asset) : '')),
     );
     row.append(
-      rowIcon({ name: asset.name, kind: asset.kind }),
+      rowIcon(asset),
       copy,
       element('span', 'rw-ah-inventory-qty', asset.kind === 'item' ? '×' + asset.quantity : '1'),
     );
@@ -455,7 +455,7 @@ export function createMarketView({
       element('span', 'rw-market-quality', quality(asset) || '未标注'),
     );
     headCopy.append(tags, element('h3', '', asset.name));
-    head.append(rowIcon({ name: asset.name, kind: asset.kind }), headCopy);
+    head.append(rowIcon(asset), headCopy);
     editor.append(head, assetDetail(asset));
 
     const referencePrices = listings

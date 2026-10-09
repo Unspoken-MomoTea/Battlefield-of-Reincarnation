@@ -203,6 +203,9 @@ CREATE INDEX IF NOT EXISTS idx_market_listings_active
 CREATE INDEX IF NOT EXISTS idx_market_listings_seller
   ON market_listings(seller_user_id, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_market_listings_seller_slots
+  ON market_listings(seller_user_id, is_system, status, expires_at);
+
 CREATE INDEX IF NOT EXISTS idx_market_listings_expiry
   ON market_listings(is_system, status, recycle_at, expires_at);
 

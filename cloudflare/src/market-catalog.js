@@ -113,7 +113,9 @@ export async function refreshMarketCatalogKey(env, catalogKey) {
             u.display_name AS seller_display_name
      FROM market_listings l
      JOIN users u ON u.id = l.seller_user_id
+     LEFT JOIN market_user_controls mc ON mc.user_id = l.seller_user_id
      WHERE l.catalog_key = ?
+       AND COALESCE(mc.is_suspended, 0) = 0
        AND l.status = 'active'
        AND l.remaining_quantity > 0
        AND (l.is_system = 1 OR l.expires_at = 0 OR l.expires_at > ?)
@@ -178,7 +180,7 @@ export async function refreshExpiredMarketCatalogs(env, { limit = 100 } = {}) {
      FROM market_listings
      WHERE status = 'active'
        AND is_system = 0
-       AND remaining_quantity > 0
+       AND l.remaining_quantity > 0
        AND expires_at > 0
        AND expires_at <= ?
        AND catalog_key <> ''
@@ -198,7 +200,7 @@ export async function rebuildMarketCatalog(env, { limit = 500 } = {}) {
      FROM market_listings
      WHERE catalog_key <> ''
        AND status = 'active'
-       AND remaining_quantity > 0
+       AND l.remaining_quantity > 0
      ORDER BY updated_at DESC
      LIMIT ?`,
     [Math.max(1, Math.min(1000, integer(limit, 500)))],
@@ -376,7 +378,9 @@ export async function getMarketCatalogDetail(env, catalogKey, currentUserId = 0)
             u.display_name AS seller_display_name
      FROM market_listings l
      JOIN users u ON u.id = l.seller_user_id
+     LEFT JOIN market_user_controls mc ON mc.user_id = l.seller_user_id
      WHERE l.catalog_key = ?
+       AND COALESCE(mc.is_suspended, 0) = 0
        AND l.status = 'active'
        AND l.remaining_quantity > 0
        AND (l.is_system = 1 OR l.expires_at = 0 OR l.expires_at > ?)
@@ -386,17 +390,19 @@ export async function getMarketCatalogDetail(env, catalogKey, currentUserId = 0)
 
   const ladderRows = await all(
     env,
-    `SELECT unit_price AS price,
-            SUM(remaining_quantity) AS stock,
-            COUNT(DISTINCT seller_user_id) AS seller_count
-     FROM market_listings
-     WHERE catalog_key = ?
-       AND status = 'active'
-       AND remaining_quantity > 0
-       AND (is_system = 1 OR expires_at = 0 OR expires_at > ?)
-       AND seller_user_id <> ?
-     GROUP BY unit_price
-     ORDER BY unit_price ASC
+    `SELECT l.unit_price AS price,
+            SUM(l.remaining_quantity) AS stock,
+            COUNT(DISTINCT l.seller_user_id) AS seller_count
+     FROM market_listings l
+     LEFT JOIN market_user_controls mc ON mc.user_id = l.seller_user_id
+     WHERE l.catalog_key = ?
+       AND COALESCE(mc.is_suspended, 0) = 0
+       AND l.status = 'active'
+       AND l.remaining_quantity > 0
+       AND (l.is_system = 1 OR l.expires_at = 0 OR l.expires_at > ?)
+       AND l.seller_user_id <> ?
+     GROUP BY l.unit_price
+     ORDER BY l.unit_price ASC
      LIMIT 20`,
     [key, now, integer(currentUserId)],
   );

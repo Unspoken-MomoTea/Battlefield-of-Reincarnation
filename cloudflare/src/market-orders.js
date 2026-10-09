@@ -753,12 +753,29 @@ export async function getMarketOrderState(env, user) {
       [user.id, user.market_save_id],
     ),
   ]);
+  const [pendingFills, pendingTransfers] = await Promise.all([
+    all(env,
+      `SELECT f.*,
+              su.display_name AS seller_display_name, su.username AS seller_username,
+              bu.display_name AS buyer_display_name, bu.username AS buyer_username
+       FROM market_order_fills f
+       JOIN users su ON su.id = f.seller_user_id
+       JOIN users bu ON bu.id = f.buyer_user_id
+       WHERE f.buyer_user_id = ? AND f.buyer_save_id = ? AND f.delivered_at IS NULL
+       ORDER BY f.created_at ASC LIMIT 200`,
+      [user.id, user.market_save_id]),
+    all(env,
+      `SELECT * FROM market_swap_transfers
+       WHERE user_id = ? AND save_id = ? AND confirmed_at IS NULL
+       ORDER BY created_at ASC LIMIT 200`,
+      [user.id, user.market_save_id]),
+  ]);
   return {
     buy_orders: orders.map(orderFromRow),
     order_fills: fills.map(orderFillFromRow),
-    pending_order_deliveries: fills.filter(row => Number(row.buyer_user_id) === Number(user.id) && row.delivered_at == null).map(orderFillFromRow),
+    pending_order_deliveries: pendingFills.map(orderFillFromRow),
     swaps: swaps.map(swapFromRow),
     swap_transfers: transfers.map(swapTransferFromRow),
-    pending_swap_transfers: transfers.filter(row => row.confirmed_at == null).map(swapTransferFromRow),
+    pending_swap_transfers: pendingTransfers.map(swapTransferFromRow),
   };
 }

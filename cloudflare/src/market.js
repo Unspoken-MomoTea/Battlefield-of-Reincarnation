@@ -869,9 +869,7 @@ export async function getMarketBuyback(env, user, buybackIdValue) {
 
 export async function buyMarketListing(request, env, user, listingIdValue) {
   await assertMarketActive(env, user);
-  await settleExpiredMarketListings(env);
-  await ensureTestingMarketFixtures(env);
-  await ensureSystemCredentialListings(env);
+  await prepareMarketBrowse(env);
   const listingId = marketId(listingIdValue, '挂单 ID');
   const body = await readJson(request, { maxBytes: 16 * 1024 });
   const tradeId = marketId(body?.trade_id, '交易 ID');

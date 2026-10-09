@@ -199,6 +199,8 @@ function listingFromRow(row) {
     catalog_key: row.catalog_key || '',
     quality: row.quality || '',
     subtype: row.subtype || '',
+    market_lowest_price: integer(row.market_lowest_price, 0),
+    market_total_stock: integer(row.market_total_stock, 0),
     expired: integer(row.is_system, 0) !== 1
       && integer(row.expires_at, 0) > 0
       && integer(row.expires_at, 0) <= nowMs(),
@@ -575,9 +577,12 @@ const LISTING_SELECT = `
   SELECT
     l.*,
     seller.username AS seller_username,
-    seller.display_name AS seller_display_name
+    seller.display_name AS seller_display_name,
+    catalog.lowest_price AS market_lowest_price,
+    catalog.total_stock AS market_total_stock
   FROM market_listings l
   JOIN users seller ON seller.id = l.seller_user_id
+  LEFT JOIN market_catalog catalog ON catalog.catalog_key = l.catalog_key
 `;
 
 const TRADE_SELECT = `
@@ -600,10 +605,14 @@ async function getTradeRow(env, tradeId) {
   return first(env, `${TRADE_SELECT} WHERE t.id = ? LIMIT 1`, [tradeId]);
 }
 
-export async function listMarketListings(request, env) {
+export async function prepareMarketBrowse(env) {
   await settleExpiredMarketListings(env);
   await ensureTestingMarketFixtures(env);
   await ensureSystemCredentialListings(env);
+}
+
+export async function listMarketListings(request, env) {
+  await prepareMarketBrowse(env);
   const url = new URL(request.url);
   const kind = String(url.searchParams.get('kind') || '').trim();
   const query = text(url.searchParams.get('q') || '', 80);

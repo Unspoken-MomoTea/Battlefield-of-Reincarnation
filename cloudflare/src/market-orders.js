@@ -244,7 +244,20 @@ export async function cancelMarketOrder(env, user, idValue) {
     throw new HttpError(404, 'market_order_not_found', '求购单不存在');
   }
   if (row.status === 'active') await cancelOrderRow(env, row, 'cancelled');
-  return json({ order: await getOrder(env, id), refund_id: refundId(id) });
+  const payout = await first(
+    env,
+    'SELECT * FROM market_payouts WHERE id = ? AND user_id = ? LIMIT 1',
+    [refundId(id), user.id],
+  );
+  return json({
+    order: await getOrder(env, id),
+    payout: payout ? {
+      id: payout.id,
+      amount: integer(payout.amount),
+      confirmed_at: payout.confirmed_at == null ? null : integer(payout.confirmed_at),
+      created_at: integer(payout.created_at),
+    } : null,
+  });
 }
 
 export async function expireMarketOrders(env, { limit = 200 } = {}) {

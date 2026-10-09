@@ -174,6 +174,7 @@ CREATE INDEX IF NOT EXISTS idx_auth_store_expires
   ON auth_store(expires_at);
 
 CREATE TABLE IF NOT EXISTS market_listings (
+  save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   seller_user_id INTEGER NOT NULL,
   asset_kind TEXT NOT NULL CHECK (asset_kind IN ('equipment', 'item', 'skill')),
@@ -209,6 +210,7 @@ CREATE INDEX IF NOT EXISTS idx_market_listings_logical_kind
   ON market_listings(status, market_kind, unit_price, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS market_trades (
+  buyer_save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   listing_id TEXT NOT NULL,
   seller_user_id INTEGER NOT NULL,
@@ -242,7 +244,17 @@ CREATE TABLE IF NOT EXISTS market_wallets (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS market_save_wallets (
+  user_id INTEGER NOT NULL,
+  save_id TEXT NOT NULL,
+  balance INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0),
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, save_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS market_payouts (
+  save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
   amount INTEGER NOT NULL CHECK (amount > 0),
@@ -255,6 +267,7 @@ CREATE INDEX IF NOT EXISTS idx_market_payouts_user
   ON market_payouts(user_id, confirmed_at, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS market_returns (
+  save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   listing_id TEXT NOT NULL UNIQUE,
   user_id INTEGER NOT NULL,
@@ -273,6 +286,7 @@ CREATE INDEX IF NOT EXISTS idx_market_returns_user
   ON market_returns(user_id, confirmed_at, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS market_recycles (
+  save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   listing_id TEXT NOT NULL UNIQUE,
   user_id INTEGER NOT NULL,
@@ -292,6 +306,7 @@ CREATE INDEX IF NOT EXISTS idx_market_recycles_user
   ON market_recycles(user_id, credited_at, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS market_buybacks (
+  save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
   asset_kind TEXT NOT NULL CHECK (asset_kind = 'equipment'),
@@ -367,6 +382,7 @@ CREATE INDEX IF NOT EXISTS idx_market_price_daily_key
   ON market_price_daily(catalog_key, day_key DESC);
 
 CREATE TABLE IF NOT EXISTS market_purchases (
+  save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   buyer_user_id INTEGER NOT NULL,
   catalog_key TEXT NOT NULL,
@@ -382,6 +398,7 @@ CREATE INDEX IF NOT EXISTS idx_market_purchases_buyer
   ON market_purchases(buyer_user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS market_buy_orders (
+  save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   buyer_user_id INTEGER NOT NULL,
   asset_kind TEXT NOT NULL,
@@ -407,6 +424,8 @@ CREATE INDEX IF NOT EXISTS idx_market_buy_orders_buyer
   ON market_buy_orders(buyer_user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS market_order_fills (
+  buyer_save_id TEXT NOT NULL DEFAULT '',
+  seller_save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   order_id TEXT NOT NULL,
   seller_user_id INTEGER NOT NULL,
@@ -431,6 +450,8 @@ CREATE INDEX IF NOT EXISTS idx_market_order_fills_seller
   ON market_order_fills(seller_user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS market_swaps (
+  owner_save_id TEXT NOT NULL DEFAULT '',
+  accepted_save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   owner_user_id INTEGER NOT NULL,
   offered_kind TEXT NOT NULL,
@@ -459,6 +480,7 @@ CREATE INDEX IF NOT EXISTS idx_market_swaps_owner
   ON market_swaps(owner_user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS market_swap_transfers (
+  save_id TEXT NOT NULL DEFAULT '',
   id TEXT PRIMARY KEY,
   swap_id TEXT NOT NULL,
   user_id INTEGER NOT NULL,

@@ -674,7 +674,7 @@ export async function createMarketBuyback(request, env, user) {
   }
 
   const quote = marketBuybackQuote(asset, 1);
-  const payoutId = `payout:${id}`;
+  const payoutId = id;
   const now = nowMs();
   await runBatch(env, [
     env.DB.prepare(

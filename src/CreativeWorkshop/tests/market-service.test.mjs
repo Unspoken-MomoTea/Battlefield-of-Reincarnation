@@ -970,41 +970,46 @@ test('asset deliveries and payouts narrate once, even when client retries the co
   assert.match(receipt, /空间集市取回资产/u);
 });
 
-test('offline seller sales and expired buybacks are read into the original save once', async () => {
-  const host = createHost({ 系统状态: { 是否在主神空间: true }, 角色: { 空间币: 0 } });
-  const confirmed = [];
-  const sale = {
-    id: 'sale-offline',
-    asset: { kind: 'item', name: '夜光粉', quantity: 1 },
-    quantity: 1, total_price: 200, seller_proceeds: 194,
-  };
-  const recycle = {
-    id: 'recycle-offline',
-    asset: { kind: 'item', name: '回收药剂', quantity: 2 },
-    quantity: 2, amount: 10,
-  };
-  const api = {
+test('reading the auction account never mutates MVU or narrates server-only events', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true, 待播报记录: '原有叙事' },
+    角色: { 空间币: 30, 道具: {} },
+  });
+  const before = host.read();
+  let reads = 0;
+  const service = createMarketService({ host, api: {
     async getMarketMe() {
-      return { pending_sale_broadcasts: [sale], pending_recycle_broadcasts: [recycle] };
+      reads += 1;
+      return {
+        pending_sale_broadcasts: [{ id: 'legacy-offline-sale', asset: { kind: 'item', name: '材料' } }],
+        pending_recycle_broadcasts: [{ id: 'legacy-auto-recycle', amount: 12 }],
+        wallet: { balance: 30 },
+      };
     },
-    async confirmMarketSaleBroadcast(id) { confirmed.push('sale:' + id); },
-    async confirmMarketRecycleBroadcast(id) { confirmed.push('recycle:' + id); },
-  };
-  const market = createMarketService({ host, api });
-  await market.mine();
-  await market.mine();
-  const lines = host.read().stat_data.系统状态.待播报记录.split('\n');
-  assert.equal(lines.length, 2);
-  assert.match(lines[0], /空间集市成交/u);
-  assert.match(lines[1], /空间集市到期回收/u);
-  assert.deepEqual(confirmed, [
-    'sale:sale-offline', 'recycle:recycle-offline',
-    'sale:sale-offline', 'recycle:recycle-offline',
-  ]);
-  let resolve;
-  api.getMarketMe = () => new Promise(r => { resolve = r; });
-  const pending = market.mine();
-  host.setChatId('a-different-chat');
-  resolve({ pending_sale_broadcasts: [sale] });
-  await assert.rejects(pending, /切换了存档/u);
+    async confirmMarketSaleBroadcast() { throw new Error('deprecated notice API must not be called'); },
+    async confirmMarketRecycleBroadcast() { throw new Error('deprecated notice API must not be called'); },
+  } });
+  await service.mine();
+  await service.mine();
+  assert.equal(reads, 2);
+  assert.deepEqual(host.read(), before);
+  assert.deepEqual(host.events, []);
+});
+
+test('remote order and swap cancellations create no narration unless refunded coins enter MVU', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: { 空间币: 20, 道具: {} },
+  });
+  const service = createMarketService({ host, api: {
+    async cancelMarketBuyOrder() { return { order: { status: 'cancelled' } }; },
+    async cancelMarketSwap() { return { swap: { status: 'cancelled' } }; },
+    async cancelMarketListing() { return { listing: { status: 'cancelled' } }; },
+  } });
+  await service.cancelBuyOrder('test-order');
+  await service.cancelSwap('test-swap');
+  await service.cancel('test-listing');
+  assert.equal(host.read().stat_data.系统状态.待播报记录, undefined);
+  assert.deepEqual(host.events, []);
+  assert.equal(host.read().stat_data.角色.空间币, 20);
 });

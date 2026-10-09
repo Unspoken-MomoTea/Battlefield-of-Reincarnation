@@ -156,15 +156,10 @@ async function githubBranchHeadFromAtom(ref) {
 
 async function latestPathCommit(env, component, ref) {
   const query = new URLSearchParams({ sha: ref, path: component.sourcePath, per_page: '1' });
-  try {
-    const payload = await githubJson(env, `https://api.github.com/repos/${REPOSITORY}/commits?${query}`);
-    const sha = String(Array.isArray(payload) ? payload[0]?.sha : payload?.sha || '').trim();
-    if (!validSha(sha)) throw new Error(`GitHub returned invalid ${component.id} commit for ${ref}`);
-    return sha;
-  } catch (error) {
-    if (!shouldFallbackToAtom(error)) throw error;
-    return githubBranchHeadFromAtom(ref);
-  }
+  const payload = await githubJson(env, `https://api.github.com/repos/${REPOSITORY}/commits?${query}`);
+  const sha = String(Array.isArray(payload) ? payload[0]?.sha : payload?.sha || '').trim();
+  if (!validSha(sha)) throw new Error(`GitHub returned invalid ${component.id} commit for ${ref}`);
+  return sha;
 }
 
 async function refHead(env, ref) {
@@ -198,11 +193,11 @@ async function latestTaggedRelease(env, component) {
 }
 
 function cacheKey(env, component) {
-  return `public:core-component:v3:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
+  return `public:core-component:v4:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
 }
 
 function snapshotKey(env, component) {
-  return `public:core-component:last-known:v1:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
+  return `public:core-component:last-known:v2:${component.id}:${componentUpdateChannel(env, component)}:${componentUpdateRef(env, component)}`;
 }
 
 async function safeKvGet(env, key) {

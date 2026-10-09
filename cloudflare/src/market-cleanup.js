@@ -77,7 +77,8 @@ export async function cleanupCompletedMarketRecords(env, { limit = 200, now = Da
   removed.recycles = await prune(env, 'market_recycles',
     `DELETE FROM market_recycles WHERE id IN
       (SELECT id FROM market_recycles
-       WHERE credited_at IS NOT NULL AND credited_at < ? LIMIT ?)`, [cutoff, batch]);
+       WHERE credited_at IS NOT NULL AND credited_at < ?
+         AND broadcast_at IS NOT NULL LIMIT ?)`, [cutoff, batch]);
 
   removed.payouts = await prune(env, 'market_payouts',
     `DELETE FROM market_payouts WHERE id IN

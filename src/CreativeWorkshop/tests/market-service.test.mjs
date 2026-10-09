@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createMarketService, marketInventoryFromData } from '../services/market-service.js';
+import { createMarketService, marketInventoryFromData, marketItemStorageSlot } from '../services/market-service.js';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -10,6 +10,7 @@ function clone(value) {
 function createHost(initialStatData) {
   let current = { stat_data: clone(initialStatData) };
   let uuidSequence = 0;
+  let chatId = 'test-market-chat';
   const events = [];
   const Mvu = {
     events: { VARIABLE_UPDATE_ENDED: 'VARIABLE_UPDATE_ENDED' },
@@ -22,7 +23,8 @@ function createHost(initialStatData) {
   };
   return {
     Mvu,
-    getCurrentChatId: () => 'test-market-chat',
+    getCurrentChatId: () => chatId,
+    setChatId: value => { chatId = value; },
     eventEmit(...args) { events.push(args); },
     crypto: {
       randomUUID: () => {
@@ -840,4 +842,41 @@ test('catalog snapshot reads all compact catalog pages once for local browsing',
     { sort: 'price_asc', offset: 0, limit: 80 },
     { sort: 'price_asc', offset: 80, limit: 80 },
   ]);
+});
+
+test('same-name item with different payload gets a separate stable storage slot', () => {
+  const bucket = {
+    治疗药剂: { 名称: '治疗药剂', 品质: 'E', 数量: 4, 效果: { 治疗: 10 } },
+  };
+  const same = { name: '治疗药剂', data: { 名称: '治疗药剂', 品质: 'E', 数量: 2, 效果: { 治疗: 10 } } };
+  const different = { name: '治疗药剂', data: { 名称: '治疗药剂', 品质: 'D', 数量: 1, 效果: { 治疗: 30 } } };
+  assert.equal(marketItemStorageSlot(bucket, same), '治疗药剂');
+  const key = marketItemStorageSlot(bucket, different);
+  assert.notEqual(key, '治疗药剂');
+  bucket[key] = { ...different.data };
+  assert.equal(marketItemStorageSlot(bucket, different), key);
+  assert.equal(bucket.治疗药剂.效果.治疗, 10);
+});
+
+test('an operation interrupted by a chat switch never deducts from the newly opened save', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: {
+      空间币: 500,
+      道具: { 药剂: { 名称: '药剂', 品质: 'E', 数量: 3 } },
+    },
+  });
+  const api = {
+    async quoteMarketAction() {
+      host.setChatId('switched-chat');
+      return { quote: { listing_fee: 10 } };
+    },
+    async createMarketListing() { throw new Error('must not post after chat switched'); },
+  };
+  const service = createMarketService({ host, api });
+  await assert.rejects(service.sell({
+    kind: 'item', key: '药剂', name: '药剂', quantity: 1, unitPrice: 50,
+  }), /切换了存档/u);
+  assert.equal(host.read().stat_data.角色.道具.药剂.数量, 3);
+  assert.equal(host.read().stat_data.角色.空间币, 500);
 });

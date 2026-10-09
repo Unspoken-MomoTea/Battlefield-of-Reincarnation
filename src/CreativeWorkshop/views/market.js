@@ -458,22 +458,17 @@ export function createMarketView({
     head.append(rowIcon({ name: asset.name, kind: asset.kind }), headCopy);
     editor.append(head, assetDetail(asset));
 
-    let reference = null;
-    try {
-      const page = await marketService.list({
-        query: asset.name,
-        kind: asset.kind,
-        sort: 'price_asc',
-        offset: 0,
-        limit: 20,
-      });
-      reference = (page.items || []).find(item => item.asset?.name === asset.name) || null;
-    } catch {}
+    const referencePrices = listings
+      .filter(item => item?.asset?.kind === asset.kind && item?.asset?.name === asset.name)
+      .map(item => Number(item.unit_price || 0))
+      .filter(value => Number.isFinite(value) && value > 0)
+      .sort((left, right) => left - right);
+    const referencePrice = referencePrices[0] || 0;
 
     const referenceBox = element('div', 'rw-ah-reference-price');
     referenceBox.append(
       element('span', '', '当前市场最低价'),
-      element('strong', '', reference ? coin(reference.unit_price) + ' 空间币' : '暂无同名商品'),
+      element('strong', '', referencePrice ? coin(referencePrice) + ' 空间币' : '暂无同名商品'),
     );
     editor.append(referenceBox);
 
@@ -507,7 +502,7 @@ export function createMarketView({
     price.min = '1';
     price.max = '1000000000';
     price.step = '1';
-    if (reference?.unit_price) price.value = String(reference.unit_price);
+    if (referencePrice) price.value = String(referencePrice);
     price.placeholder = '输入空间币';
     priceField.append(price);
 

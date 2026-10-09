@@ -70,7 +70,7 @@ function createUser(testEnv, discordId, displayName) {
   return testEnv.DB.db.prepare('SELECT * FROM users WHERE discord_id = ?').get(discordId);
 }
 
-function authHeaders(testEnv, user, token) {
+function authHeaders(testEnv, user, token, saveId = 'test-save-1') {
   const hash = createHash('sha256').update(token).digest('hex');
   const now = Math.floor(Date.now() / 1000);
   testEnv.DB.db.prepare(
@@ -84,6 +84,7 @@ function authHeaders(testEnv, user, token) {
   return {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
+    'X-Market-Save': saveId,
   };
 }
 

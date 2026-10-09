@@ -235,7 +235,6 @@ export function workshopTemplate(version) {
               <button class="rw-ah-subtab is-active" data-market-mine-view="active" type="button">在售</button>
               <button class="rw-ah-subtab" data-market-mine-view="expired" type="button">到期</button>
               <button class="rw-ah-subtab" data-market-mine-view="recovery" type="button">待领取</button>
-              <button class="rw-ah-subtab" data-market-mine-view="history" type="button">成交</button>
               <button class="rw-ah-subtab" data-market-mine-view="orders" type="button">订单</button>
             </div>
             <button class="rw-button" data-action="market-mine-refresh" type="button">刷新</button>
@@ -490,7 +489,6 @@ export function workshopTemplate(version) {
           <div class="rw-toolbar">
             <select class="rw-select" data-field="admin-market-view">
               <option value="listings">当前挂单</option>
-              <option value="trades">成交记录</option>
               <option value="orders">求购单</option>
               <option value="swaps">交换单</option>
             </select>

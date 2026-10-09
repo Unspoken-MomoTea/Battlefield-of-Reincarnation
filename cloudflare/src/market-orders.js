@@ -394,7 +394,8 @@ export async function fillMarketBuyOrder(request, env, user, orderIdValue) {
 export async function cancelMarketBuyOrder(env, user, orderIdValue) {
   const id = marketId(orderIdValue, '求购单ID');
   const order = await first(env, 'SELECT * FROM market_buy_orders WHERE id = ? LIMIT 1', [id]);
-  if (!order || Number(order.buyer_user_id) !== Number(user.id)) {
+  if (!order || Number(order.buyer_user_id) !== Number(user.id)
+    || order.save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_order_not_found', '求购单不存在');
   }
   if (order.status !== 'active') return json({ order: orderFromRow(order), payout: null });
@@ -403,8 +404,8 @@ export async function cancelMarketBuyOrder(env, user, orderIdValue) {
   const payoutId = ('order-refund:' + id).slice(0, 96);
   await runBatch(env, [
     env.DB.prepare(
-      `INSERT OR IGNORE INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
-       SELECT ?, buyer_user_id, escrow_balance, NULL, ?
+      `INSERT OR IGNORE INTO market_payouts (id, user_id, save_id, amount, confirmed_at, created_at)
+       SELECT ?, buyer_user_id, save_id, escrow_balance, NULL, ?
        FROM market_buy_orders
        WHERE id = ? AND buyer_user_id = ? AND status = 'active' AND escrow_balance > 0`,
     ).bind(payoutId, now, id, user.id),
@@ -437,12 +438,13 @@ export async function cancelMarketBuyOrder(env, user, orderIdValue) {
 export async function confirmMarketOrderFill(env, user, fillIdValue) {
   const id = marketId(fillIdValue, '成交ID');
   const row = await first(env, 'SELECT * FROM market_order_fills WHERE id = ? LIMIT 1', [id]);
-  if (!row || Number(row.buyer_user_id) !== Number(user.id)) {
+  if (!row || Number(row.buyer_user_id) !== Number(user.id)
+    || row.buyer_save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_order_fill_not_found', '求购成交记录不存在');
   }
   if (row.delivered_at == null) {
-    await env.DB.prepare('UPDATE market_order_fills SET delivered_at = ? WHERE id = ? AND delivered_at IS NULL')
-      .bind(Date.now(), id).run();
+    await env.DB.prepare('UPDATE market_order_fills SET delivered_at = ? WHERE id = ? AND buyer_save_id = ? AND delivered_at IS NULL')
+      .bind(Date.now(), id, user.market_save_id).run();
   }
   const updated = await first(env, 'SELECT * FROM market_order_fills WHERE id = ? LIMIT 1', [id]);
   return json({ fill: orderFillFromRow(updated) });

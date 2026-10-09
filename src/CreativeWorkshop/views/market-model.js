@@ -1,3 +1,60 @@
+const RANK_TO_QUALITY = Object.freeze({
+  'Ⅰ': 'F',
+  'Ⅱ': 'E',
+  'Ⅲ': 'D',
+  'Ⅳ': 'C',
+  'Ⅴ': 'B',
+  'Ⅵ': 'A',
+  'Ⅶ': 'S',
+  'Ⅷ': 'SS',
+  'Ⅸ': 'SSS',
+});
+
+function normalizedQuality(value) {
+  const raw = String(value || '').trim();
+  return RANK_TO_QUALITY[raw] || raw.toUpperCase();
+}
+
+export function marketRowFromCatalogDetail(detail, currentUserId = null) {
+  const catalog = detail?.catalog;
+  if (!catalog) return null;
+  const listings = Array.isArray(detail?.listings) ? detail.listings.slice() : [];
+  listings.sort((left, right) => (
+    Number(left.unit_price || 0) - Number(right.unit_price || 0)
+    || Number(right.created_at || 0) - Number(left.created_at || 0)
+  ));
+  const buyable = listings.filter(
+    listing => Number(listing.seller?.id || 0) !== Number(currentUserId || 0),
+  );
+  return {
+    key: catalog.key,
+    kind: catalog.kind,
+    name: catalog.name,
+    asset: catalog.asset,
+    listings,
+    totalStock: Number(catalog.total_stock || 0),
+    buyableStock: buyable.reduce((sum, listing) => sum + Math.max(0, Number(listing.remaining_quantity || 0)), 0),
+    lowestPrice: Number(catalog.lowest_price || 0),
+    buyPrice: buyable.length ? Number(buyable[0].unit_price || 0) : null,
+    sellerCount: Number(catalog.seller_count || 0),
+    ownedOnly: listings.length > 0 && buyable.length === 0,
+  };
+}
+
+export function marketInventoryMatchesWanted(assets = [], wanted = {}) {
+  const kind = String(wanted?.kind || '');
+  const name = String(wanted?.name || '').trim();
+  const quality = normalizedQuality(wanted?.quality);
+  const subtype = String(wanted?.subtype || '').trim();
+  return (Array.isArray(assets) ? assets : []).filter(asset => {
+    if (kind && asset?.kind !== kind) return false;
+    if (name && String(asset?.name || '').trim() !== name) return false;
+    if (quality && normalizedQuality(asset?.quality || asset?.data?.品质 || asset?.data?.层级) !== quality) return false;
+    if (subtype && String(asset?.data?.类型 ?? asset?.data?.子类型 ?? '').trim() !== subtype) return false;
+    return true;
+  });
+}
+
 const HIDDEN_MARKET_DETAIL_KEYS = new Set([
   '真属性',
   '系统商品',

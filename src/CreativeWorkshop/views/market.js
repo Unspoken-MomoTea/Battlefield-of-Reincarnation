@@ -717,19 +717,32 @@ export function createMarketView({
       ));
     }
 
-    const referencePrices = listings
-      .filter(item => item?.asset?.kind === asset.kind && item?.asset?.name === asset.name)
-      .map(item => Number(item.unit_price || 0))
-      .filter(value => Number.isFinite(value) && value > 0)
-      .sort((left, right) => left - right);
-    const referencePrice = referencePrices[0] || 0;
+    const initialReferenceResult = await marketService.auctionQuote(asset, 1, 24).catch(() => null);
+    const initialReference = initialReferenceResult?.reference || {};
+    const referencePrice = Number(initialReference?.product?.lowest_price || 0);
 
-    const referenceBox = element('div', 'rw-ah-reference-price');
-    referenceBox.append(
+    const referenceBox = element('section', 'rw-ah-seller-reference');
+    const referenceHead = element('div', 'rw-ah-reference-price');
+    referenceHead.append(
       element('span', '', '当前市场最低价'),
       element('strong', '', referencePrice ? coin(referencePrice) + ' 空间币' : '暂无同名商品'),
     );
+    referenceBox.append(referenceHead);
+
+    if (initialReference?.ladder?.length) {
+      const ladder = element('div', 'rw-ah-seller-ladder');
+      for (const level of initialReference.ladder.slice(0, 5)) {
+        const row = element('div', 'rw-ah-ladder-row');
+        row.append(
+          element('span', '', coin(level.price) + ' 空间币'),
+          element('span', '', level.stock + ' 件 · ' + level.seller_count + ' 位卖家'),
+        );
+        ladder.append(row);
+      }
+      referenceBox.append(ladder);
+    }
     editor.append(referenceBox);
+    if (initialReference?.history?.length) editor.append(historyPanel(initialReference.history));
 
     if (!sellInventory?.inHub) {
       const block = element('div', 'rw-ah-blocked');

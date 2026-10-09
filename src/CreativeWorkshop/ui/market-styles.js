@@ -195,6 +195,65 @@ export const MARKET_CSS = `
 .rw-market-notice{padding:8px 9px;border-radius:7px;background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.17);font-size:10px;line-height:1.5;color:#9fb7d3}
 .rw-market-notice.warning{background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.2);color:#cbb17b}
 
+
+.rw-ah-toolbar--browse{flex-wrap:wrap}
+.rw-ah-toolbar--browse .rw-ah-search{min-width:260px;flex:1 1 320px}
+.rw-ah-toolbar--browse>.rw-select{min-width:120px}
+.rw-ah-price-filter{width:94px;flex:0 0 94px}
+.rw-ah-load-more{display:flex;justify-content:center;padding:10px;border-top:1px solid var(--ah-line)}
+.rw-ah-price-history{padding:8px;border:1px solid var(--ah-line);border-radius:7px;background:rgba(0,0,0,.1)}
+.rw-ah-price-history-table{display:flex;flex-direction:column}
+.rw-ah-price-history-row{display:grid;grid-template-columns:42px 1fr 1.25fr 54px;gap:7px;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,.04);font-size:10px}
+.rw-ah-price-history-row:last-child{border-bottom:0}
+.rw-ah-price-history-row span:first-child{color:#7e8997}
+.rw-ah-price-history-row span:nth-child(2){color:#dec071}
+.rw-ah-price-history-row span:nth-child(n+3){text-align:right;color:#929dab}
+.rw-ah-sell-market{overflow:hidden;border:1px solid var(--ah-line);border-radius:8px;background:rgba(0,0,0,.1)}
+.rw-ah-sell-market-head{display:flex;justify-content:space-between;gap:10px;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
+.rw-ah-sell-market-head span{font-size:10px;color:#7f8996}
+.rw-ah-sell-market-head strong{font-size:13px;color:#e4bf66}
+.rw-ah-sell-market-ladder{display:flex;flex-direction:column;padding:4px 10px}
+.rw-ah-sell-market-row{display:grid;grid-template-columns:1fr 70px 80px;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:10px}
+.rw-ah-sell-market-row:last-child{border-bottom:0}
+.rw-ah-sell-market-row span:first-child{color:#dfbd66}
+.rw-ah-sell-market-row span:nth-child(n+2){text-align:right;color:#8d97a4}
+.rw-ah-sell-market-history{display:block;padding:7px 10px;border-top:1px solid rgba(255,255,255,.05);color:#7f8996;font-size:9px;line-height:1.45}
+.rw-ah-subtab{border:1px solid transparent;border-radius:6px;background:transparent;padding:6px 9px;color:#8e98a5;font:inherit;font-size:10px;font-weight:700;cursor:pointer}
+.rw-ah-subtab:hover{color:#dce2ea;background:rgba(255,255,255,.035)}
+.rw-ah-subtab.is-active{border-color:rgba(215,170,74,.25);background:rgba(215,170,74,.09);color:#e4c477}
+.rw-ah-mine-tabs,.rw-ah-orders-tabs,.rw-ah-orders-actions{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.rw-ah-orders-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border:1px solid var(--ah-line);border-top:0;background:rgba(0,0,0,.1)}
+.rw-ah-orders-layout{display:grid;grid-template-columns:minmax(280px,38%) minmax(0,1fr);min-height:500px;border:1px solid var(--ah-line);border-top:0;border-radius:0 0 14px 14px;overflow:hidden}
+.rw-ah-orders-list{overflow:auto;border-right:1px solid var(--ah-line);background:rgba(0,0,0,.11)}
+.rw-ah-orders-editor{overflow:auto;padding:14px;background:rgba(0,0,0,.055)}
+.rw-ah-order-row{display:flex;flex-direction:column;gap:3px;width:100%;padding:9px 11px;border:0;border-bottom:1px solid rgba(255,255,255,.045);background:transparent;color:#cbd2db;font:inherit;text-align:left;cursor:pointer}
+.rw-ah-order-row:hover{background:rgba(255,255,255,.035)}
+.rw-ah-order-row.is-selected{background:rgba(215,170,74,.08);box-shadow:inset 2px 0 #d2a448}
+.rw-ah-order-row strong{font-size:11px}
+.rw-ah-order-row span{font-size:10px;color:#c6aa64}
+.rw-ah-order-row small{font-size:9px;color:#747f8d}
+.rw-ah-order-form,.rw-ah-order-detail{display:flex;flex-direction:column;gap:10px;max-width:720px}
+.rw-ah-order-form h3,.rw-ah-order-detail h3{margin:0;font-size:17px}
+.rw-ah-order-help{margin:0;font-size:10px;line-height:1.55;color:#84909e}
+.rw-ah-order-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px;border:1px solid var(--ah-line);border-radius:8px;background:rgba(0,0,0,.1)}
+.rw-ah-order-field{display:flex;flex-direction:column;gap:5px}
+.rw-ah-order-field>span{font-size:9px;color:#7c8795}
+.rw-ah-order-total{padding:9px 10px;border:1px solid rgba(215,170,74,.18);border-radius:7px;background:rgba(215,170,74,.045);color:#e1bd67;font-size:12px}
+.rw-ah-order-facts{display:flex;flex-wrap:wrap;gap:5px}
+.rw-ah-order-facts span{padding:3px 6px;border:1px solid rgba(255,255,255,.07);border-radius:5px;background:rgba(255,255,255,.02);font-size:9px;color:#aeb7c2}
+.rw-ah-order-match-list{display:flex;flex-direction:column;border:1px solid var(--ah-line);border-radius:8px;overflow:hidden}
+.rw-ah-order-match{display:grid;grid-template-columns:minmax(0,1fr) 78px auto;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.045)}
+.rw-ah-order-match:last-child{border-bottom:0}
+.rw-ah-order-match-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rw-ah-order-match-copy strong{font-size:11px}
+.rw-ah-order-match-copy span{font-size:9px;color:#788390}
+.rw-ah-swap-exchange{display:grid;grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);gap:8px;align-items:stretch}
+.rw-ah-swap-side{display:flex;flex-direction:column;gap:4px;padding:10px;border:1px solid var(--ah-line);border-radius:8px;background:rgba(255,255,255,.018)}
+.rw-ah-swap-side>span{font-size:9px;color:#778391}
+.rw-ah-swap-side>strong{font-size:12px;color:#d4dbe4}
+.rw-ah-swap-side>small{font-size:9px;color:#968bc3}
+.rw-ah-swap-arrow{display:grid;place-items:center;color:#caa955;font-size:16px}
+
 @media (max-width:1050px){
   .rw-ah-browser{grid-template-columns:150px minmax(320px,1fr) 280px}
   .rw-ah-sell-layout{grid-template-columns:280px minmax(0,1fr)}
@@ -225,6 +284,14 @@ export const MARKET_CSS = `
   .rw-ah-listing-fee,.rw-ah-sell-total,.rw-ah-sell-form>.rw-button{grid-column:1}
   .rw-ah-buyback-box{align-items:stretch;flex-direction:column}
   .rw-ah-teammate-meta-row,.rw-ah-teammate-build-row,.rw-ah-teammate-profile-row,.rw-ah-teammate-relation-row{grid-template-columns:50px minmax(0,1fr)}
+  .rw-ah-order-form-grid{grid-template-columns:1fr}
+  .rw-ah-orders-head{align-items:stretch;flex-direction:column}
+  .rw-ah-orders-layout{display:flex;flex-direction:column}
+  .rw-ah-orders-list{max-height:300px;border-right:0;border-bottom:1px solid var(--ah-line)}
+  .rw-ah-order-match{grid-template-columns:minmax(0,1fr) 72px}
+  .rw-ah-order-match>.rw-button{grid-column:1/-1}
+  .rw-ah-swap-exchange{grid-template-columns:1fr}
+  .rw-ah-swap-arrow{transform:rotate(90deg)}
   .rw-ah-transaction-row{align-items:flex-start;flex-direction:column}
 }
 `;

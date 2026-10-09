@@ -519,15 +519,20 @@ export function createMarketView({
         });
         if (!ok) return;
 
+        let completedQuantity = 0;
         try {
-          for (const line of plan.lines) await marketService.buy(line.listing, line.quantity);
+          for (const line of plan.lines) {
+            await marketService.buy(line.listing, line.quantity);
+            completedQuantity += Number(line.quantity || 0);
+          }
         } catch (error) {
           if (marketChangedError(error)) {
             productDetailsCache.delete(marketRow.key);
-            try { host.toastr?.warning?.('市场库存或价格刚刚发生变化，已刷新当前商品。', '空间集市'); } catch {}
+            const message = completedQuantity > 0
+              ? '已成交 ' + completedQuantity + ' 件；其余挂单刚刚发生变化，已刷新当前商品。'
+              : '市场库存或价格刚刚发生变化，已刷新当前商品。';
+            try { host.toastr?.warning?.(message, '空间集市'); } catch {}
             await refresh({ preserveSelection: true });
-            const current = allRows.find(row => row.key === marketRow.key);
-            if (current) await renderInspector(current, { force: true });
             return;
           }
           throw error;
@@ -1475,8 +1480,17 @@ export function createMarketView({
   nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
   nodes.marketRecoverAll?.addEventListener('click', () => void (async () => {
     const state = await marketService.mine();
-    await marketService.recoverAll(state);
-    try { host.toastr?.success?.('可领取的资产与空间币已经全部处理', '空间集市'); } catch {}
+    const result = await marketService.recoverAll(state);
+    if (result.failures?.length) {
+      try {
+        host.toastr?.warning?.(
+          '已处理其余可领取事务；仍有 ' + result.failures.length + ' 项因重名或存档冲突无法领取。',
+          '空间集市',
+        );
+      } catch {}
+    } else {
+      try { host.toastr?.success?.('可领取的资产与空间币已经全部处理', '空间集市'); } catch {}
+    }
     await renderMineMode();
     await refreshSummary();
   })().catch(notifyError));

@@ -3,6 +3,7 @@ import { createAdminReportsView } from './admin/reports.js';
 import { createAdminUpdatesView } from './admin/updates.js';
 import { createAdminUsersView } from './admin/users.js';
 import { createAdminStorageView } from './admin/storage.js';
+import { createAdminMarketView } from './admin/market.js';
 
 export function createAdminView(context) {
   const { nodes, empty, getAuth } = context;
@@ -12,6 +13,7 @@ export function createAdminView(context) {
     updates: createAdminUpdatesView({ ...context, showProject: projects.showReview }),
     reports: createAdminReportsView(context),
     users: createAdminUsersView(context),
+    market: createAdminMarketView(context),
     storage: createAdminStorageView(context),
   };
   let active = 'projects';
@@ -47,6 +49,9 @@ export function createAdminView(context) {
   const refreshStorageIfActive = () => {
     if (active === 'storage') void views.storage.refresh();
   };
+  const refreshMarketIfActive = () => {
+    if (active === 'market') void views.market.refresh();
+  };
 
   nodes.adminSearchButton.addEventListener('click', refreshProjectsIfActive);
   nodes.adminSearch.addEventListener('keydown', event => {
@@ -65,6 +70,10 @@ export function createAdminView(context) {
   });
   nodes.userBanned.addEventListener('change', refreshUsersIfActive);
   nodes.adminStorageRefreshButton?.addEventListener('click', refreshStorageIfActive);
+  nodes.adminMarketRefreshButton?.addEventListener('click', refreshMarketIfActive);
+  nodes.adminMarketSearch?.addEventListener('keydown', event => {
+    if (event.key === 'Enter') refreshMarketIfActive();
+  });
 
   async function refreshAdmin() {
     const user = getAuth()?.user;

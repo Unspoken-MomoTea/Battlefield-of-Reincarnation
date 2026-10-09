@@ -18,10 +18,6 @@ const when = value => {
     ? date.toLocaleString('zh-CN', { hour12: false })
     : '—';
 };
-const summary = asset => String(
-  asset?.data?.描述 || asset?.data?.说明 || asset?.data?.简介 || '',
-).trim().slice(0, 180);
-
 export function createMarketView({
   nodes, element, button, empty, notifyError, confirmDialog,
   host, marketService, getAuth,
@@ -90,9 +86,6 @@ export function createMarketView({
 
   const assetDetail = asset => {
     const box = element('div', 'rw-ah-asset-detail');
-
-    const copy = summary(asset);
-    if (copy) box.append(element('p', 'rw-ah-description', copy));
 
     const dataSection = element('section', 'rw-ah-data-section');
     dataSection.append(element('div', 'rw-ah-section-label', '资产数据'));

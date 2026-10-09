@@ -1345,3 +1345,100 @@ test('completed buybacks can be pruned after confirmed payout; pending payouts n
   assert.equal(removed.buybacks, 1);
   assert.equal(removed.payouts, 1);
 });
+
+test('offline seller sales queue a one-time, save-scoped narration event until acknowledged', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, 'broadcast-seller', 'Broadcast Seller');
+  const buyer = createUser(testEnv, 'broadcast-buyer', 'Broadcast Buyer');
+  const sellerA = authHeaders(testEnv, seller, 'broadcast-seller-a', 'save:seller-a');
+  const sellerB = authHeaders(testEnv, seller, 'broadcast-seller-b', 'save:seller-b');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'broadcast-buyer-a', 'save:buyer-a');
+  const listing = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: sellerA,
+    body: JSON.stringify({
+      id: 'broadcast-listing', asset: { kind: 'item', name: '播报药剂', quantity: 1,
+        data: { 名称: '播报药剂', 数量: 1, 品质: 'E' } }, unit_price: 100,
+    }),
+  });
+  assert.equal(listing.response.status, 201);
+  const purchased = await jsonRequest(testEnv, '/api/market/listings/broadcast-listing/buy', {
+    method: 'POST', headers: buyerHeaders,
+    body: JSON.stringify({ trade_id: 'broadcast-sale', quantity: 1 }),
+  });
+  assert.equal(purchased.response.status, 200);
+  const pending = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
+  assert.equal(pending.body.pending_sale_broadcasts.length, 1);
+  assert.equal(pending.body.pending_sale_broadcasts[0].seller_proceeds, 97);
+  const otherSave = await jsonRequest(testEnv, '/api/market/me', { headers: sellerB });
+  assert.equal(otherSave.body.pending_sale_broadcasts.length, 0);
+  const denied = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/announced', {
+    method: 'POST', headers: sellerB,
+  });
+  assert.equal(denied.response.status, 404);
+  const buyerDenied = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/announced', {
+    method: 'POST', headers: buyerHeaders,
+  });
+  assert.equal(buyerDenied.response.status, 404);
+
+  // Even if the buyer acknowledged delivery long ago, an unannounced sale remains.
+  const delivered = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/delivered', {
+    method: 'POST', headers: buyerHeaders,
+  });
+  assert.equal(delivered.response.status, 200);
+  const old = Date.now() - 3 * 24 * 60 * 60 * 1000;
+  testEnv.DB.db.prepare('UPDATE market_trades SET delivered_at = ? WHERE id = ?')
+    .run(old, 'broadcast-sale');
+  await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_trades WHERE id = ?').get('broadcast-sale').count, 1);
+
+  const ack = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/announced', {
+    method: 'POST', headers: sellerA,
+  });
+  assert.equal(ack.response.status, 200);
+  const again = await jsonRequest(testEnv, '/api/market/trades/broadcast-sale/announced', {
+    method: 'POST', headers: sellerA,
+  });
+  assert.equal(again.response.status, 200);
+  const after = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
+  assert.equal(after.body.pending_sale_broadcasts.length, 0);
+  await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_trades WHERE id = ?').get('broadcast-sale').count, 0);
+});
+
+test('unannounced auto recycle survives cleanup and only its originating save can acknowledge it', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, 'broadcast-recycle-owner', 'Recycle Owner');
+  const sellerA = authHeaders(testEnv, seller, 'broadcast-recycle-a', 'save:recycle-a');
+  const sellerB = authHeaders(testEnv, seller, 'broadcast-recycle-b', 'save:recycle-b');
+  const created = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: sellerA,
+    body: JSON.stringify({
+      id: 'broadcast-recycle-listing',
+      asset: { kind: 'item', name: '过期药剂', quantity: 1,
+        data: { 名称: '过期药剂', 品质: 'E', 数量: 1 } },
+      unit_price: 10,
+    }),
+  });
+  assert.equal(created.response.status, 201);
+  const old = Date.now() - 3 * 24 * 60 * 60 * 1000;
+  testEnv.DB.db.prepare('UPDATE market_listings SET expires_at = ?, recycle_at = ? WHERE id = ?')
+    .run(old, old, 'broadcast-recycle-listing');
+  const pending = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
+  assert.equal(pending.body.pending_recycle_broadcasts.length, 1);
+  const record = pending.body.pending_recycle_broadcasts[0];
+  testEnv.DB.db.prepare('UPDATE market_recycles SET credited_at = ? WHERE id = ?').run(old, record.id);
+  await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_recycles WHERE id = ?').get(record.id).count, 1);
+  const bad = await jsonRequest(testEnv, '/api/market/recycles/' + encodeURIComponent(record.id) + '/announced', {
+    method: 'POST', headers: sellerB,
+  });
+  assert.equal(bad.response.status, 404);
+  const good = await jsonRequest(testEnv, '/api/market/recycles/' + encodeURIComponent(record.id) + '/announced', {
+    method: 'POST', headers: sellerA,
+  });
+  assert.equal(good.response.status, 200);
+  const after = await jsonRequest(testEnv, '/api/market/me', { headers: sellerA });
+  assert.equal(after.body.pending_recycle_broadcasts.length, 0);
+  await cleanupCompletedMarketRecords(testEnv);
+  assert.equal(testEnv.DB.db.prepare('SELECT COUNT(*) AS count FROM market_recycles WHERE id = ?').get(record.id).count, 0);
+});

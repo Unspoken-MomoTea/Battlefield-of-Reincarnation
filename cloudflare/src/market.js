@@ -1158,58 +1158,59 @@ export async function getMarketMe(env, user) {
   await settleExpiredMarketOrders(env);
   const wallet = await first(
     env,
-    'SELECT balance, updated_at FROM market_wallets WHERE user_id = ? LIMIT 1',
-    [user.id],
+    'SELECT balance, updated_at FROM market_save_wallets WHERE user_id = ? AND save_id = ? LIMIT 1',
+    [user.id, user.market_save_id],
   );
   const listings = await all(
     env,
-    `${LISTING_SELECT} WHERE l.seller_user_id = ? ORDER BY l.created_at DESC LIMIT 50`,
-    [user.id],
+    `${LISTING_SELECT} WHERE l.seller_user_id = ? AND l.save_id = ? ORDER BY l.created_at DESC LIMIT 50`,
+    [user.id, user.market_save_id],
   );
   const purchases = await all(
     env,
-    `${TRADE_SELECT} WHERE t.buyer_user_id = ? ORDER BY t.created_at DESC LIMIT 50`,
-    [user.id],
+    `${TRADE_SELECT} WHERE t.buyer_user_id = ? AND t.buyer_save_id = ? ORDER BY t.created_at DESC LIMIT 50`,
+    [user.id, user.market_save_id],
   );
   const sales = await all(
     env,
-    `${TRADE_SELECT} WHERE t.seller_user_id = ? ORDER BY t.created_at DESC LIMIT 50`,
-    [user.id],
+    `${TRADE_SELECT} JOIN market_listings owned_listing ON owned_listing.id = t.listing_id
+     WHERE t.seller_user_id = ? AND owned_listing.save_id = ? ORDER BY t.created_at DESC LIMIT 50`,
+    [user.id, user.market_save_id],
   );
   const pendingReturns = await all(
     env,
     `SELECT * FROM market_returns
-     WHERE user_id = ? AND confirmed_at IS NULL
+     WHERE user_id = ? AND save_id = ? AND confirmed_at IS NULL
      ORDER BY created_at ASC LIMIT 50`,
-    [user.id],
+    [user.id, user.market_save_id],
   );
   const pendingPayouts = await all(
     env,
     `SELECT * FROM market_payouts
-     WHERE user_id = ? AND confirmed_at IS NULL
+     WHERE user_id = ? AND save_id = ? AND confirmed_at IS NULL
      ORDER BY created_at ASC LIMIT 50`,
-    [user.id],
+    [user.id, user.market_save_id],
   );
   const recycles = await all(
     env,
     `SELECT * FROM market_recycles
-     WHERE user_id = ?
+     WHERE user_id = ? AND save_id = ?
      ORDER BY created_at DESC LIMIT 50`,
-    [user.id],
+    [user.id, user.market_save_id],
   );
   const buybacks = await all(
     env,
     `SELECT * FROM market_buybacks
-     WHERE user_id = ?
+     WHERE user_id = ? AND save_id = ?
      ORDER BY created_at DESC LIMIT 50`,
-    [user.id],
+    [user.id, user.market_save_id],
   );
 
   const orderState = await getMarketOrderState(env, user);
   const activeCount = await first(env,
     `SELECT COUNT(*) AS count FROM market_listings
-     WHERE seller_user_id = ? AND is_system = 0 AND status = 'active'
-       AND remaining_quantity > 0 AND expires_at > ?`, [user.id, nowMs()]);
+     WHERE seller_user_id = ? AND save_id = ? AND is_system = 0 AND status = 'active'
+       AND remaining_quantity > 0 AND expires_at > ?`, [user.id, user.market_save_id, nowMs()]);
 
   return json({
     active_listing_count: integer(activeCount?.count),

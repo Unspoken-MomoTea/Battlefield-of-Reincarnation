@@ -844,7 +844,11 @@ export function createMarketService({ host, api }) {
     return trade;
   }
 
-  async function buyCatalog(catalogItem, quantity = 1) {
+  async function quoteCatalogPurchase(catalogKey, quantity = 1) {
+    return (await api.quoteMarketCatalogPurchase(catalogKey, quantity))?.quote;
+  }
+
+  async function buyCatalog(catalogItem, quantity = 1, suppliedQuote = null) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
 
@@ -859,7 +863,7 @@ export function createMarketService({ host, api }) {
       throw new Error(`当前存档已有同名${MARKET_KIND_LABELS[asset.kind]}，暂不能购买`);
     }
 
-    const quote = (await api.quoteMarketCatalogPurchase(catalogKey, resolvedQuantity))?.quote;
+    const quote = suppliedQuote || await quoteCatalogPurchase(catalogKey, resolvedQuantity);
     const total = Number(quote?.total_price || 0);
     const quotedQuantity = Number(quote?.quantity || resolvedQuantity);
     if (!Number.isFinite(total) || total <= 0) throw new Error('市场报价无效');
@@ -1020,6 +1024,7 @@ export function createMarketService({ host, api }) {
     acceptSwap,
     cancelSwap,
     receiveSwapTransfer,
+    quoteCatalogPurchase,
     buyCatalog,
     buy,
     cancel,

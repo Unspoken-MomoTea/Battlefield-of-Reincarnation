@@ -1,4 +1,13 @@
 import { HttpError, json, readJson } from './http.js';
+import {
+  MARKET_AUCTION_DURATIONS,
+  marketAuctionQuote,
+  marketBuybackQuote,
+  marketCredentialSpecs,
+  marketDayKey,
+  marketRecycleAt,
+  marketSaleSettlement,
+} from './market-economy.js';
 
 const MARKET_KINDS = new Set(['equipment', 'item', 'skill']);
 const MARKET_ID_RE = /^[A-Za-z0-9:_-]{6,96}$/u;
@@ -11,6 +20,9 @@ const MAX_LIMIT = 60;
 const TEST_VENDOR_DISCORD_ID = '__market_test_vendor__';
 const TEST_VENDOR_USERNAME = 'market-test-vendor';
 const TEST_VENDOR_DISPLAY_NAME = '轮回集市测试员 · 虚拟账号';
+const SYSTEM_VENDOR_DISCORD_ID = '__market_system_vendor__';
+const SYSTEM_VENDOR_USERNAME = 'market-system-vendor';
+const SYSTEM_VENDOR_DISPLAY_NAME = '悖论公证所 · 系统柜台';
 const TEST_VENDOR_FIXTURES = [
   {
     id: 'test-vendor:item:healing-potion',
@@ -162,6 +174,15 @@ function listingFromRow(row) {
     total_quantity: integer(row.total_quantity),
     remaining_quantity: integer(row.remaining_quantity),
     status: row.status,
+    duration_hours: integer(row.duration_hours, 72),
+    expires_at: integer(row.expires_at, 0),
+    recycle_at: integer(row.recycle_at, 0),
+    listing_fee: integer(row.listing_fee, 0),
+    is_system: integer(row.is_system, 0) === 1,
+    restock_day: row.restock_day || '',
+    expired: integer(row.is_system, 0) !== 1
+      && integer(row.expires_at, 0) > 0
+      && integer(row.expires_at, 0) <= nowMs(),
     created_at: integer(row.created_at),
     updated_at: integer(row.updated_at),
     seller: {
@@ -181,6 +202,8 @@ function tradeFromRow(row) {
     quantity: integer(row.quantity),
     unit_price: integer(row.unit_price),
     total_price: integer(row.total_price),
+    market_fee: integer(row.market_fee, 0),
+    seller_proceeds: integer(row.seller_proceeds, integer(row.total_price)),
     delivered_at: row.delivered_at == null ? null : integer(row.delivered_at),
     created_at: integer(row.created_at),
     seller: {

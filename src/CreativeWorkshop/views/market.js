@@ -61,6 +61,10 @@ export function createMarketView({
   let currentMineView = 'active';
   let selectedOrderId = '';
   let orderDraft = null;
+  const MARKET_VIEW_CACHE_MS = 15_000;
+  let mineStateCache = null;
+  let mineStateLoadedAt = 0;
+  const orderStateCache = new Map();
   let sellInventory = null;
   let selectedSellIndex = -1;
 
@@ -251,12 +255,42 @@ export function createMarketView({
     }
   };
 
+  const invalidateMineState = () => {
+    mineStateCache = null;
+    mineStateLoadedAt = 0;
+  };
+
+  const invalidateOrderState = (view = '') => {
+    if (view) orderStateCache.delete(view);
+    else orderStateCache.clear();
+  };
+
+  async function loadMineState({ force = false } = {}) {
+    const fresh = mineStateCache && Date.now() - mineStateLoadedAt <= MARKET_VIEW_CACHE_MS;
+    if (!force && fresh) return mineStateCache;
+    mineStateCache = await marketService.mine();
+    mineStateLoadedAt = Date.now();
+    return mineStateCache;
+  }
+
+  async function loadOrderState(view, { force = false } = {}) {
+    const cached = orderStateCache.get(view);
+    if (!force && cached && Date.now() - cached.loadedAt <= MARKET_VIEW_CACHE_MS) {
+      return cached.result;
+    }
+    const result = view === 'swap'
+      ? await marketService.listSwaps({ limit: 60 })
+      : await marketService.listBuyOrders({ limit: 60 });
+    orderStateCache.set(view, { result, loadedAt: Date.now() });
+    return result;
+  }
+
   async function setMode(mode) {
     if (!['browse', 'sell', 'orders', 'mine'].includes(mode)) return;
     if (mode !== 'browse') requireLogin();
     currentMode = mode;
     setModeVisuals();
-    if (!catalogItems.length) await refresh();
+    if (!browseStore.query().loaded_at) await refresh();
     if (mode === 'sell') await renderSellMode();
     if (mode === 'orders') await renderOrderMode();
     if (mode === 'mine') await renderMineMode();
@@ -643,7 +677,7 @@ export function createMarketView({
 
     if (getAuth()?.user) {
       try {
-        const mine = await marketService.mine();
+        const mine = await loadMineState();
         cells.push(['待领货款', coin(mine.wallet?.balance)]);
       } catch {}
     }
@@ -1356,11 +1390,9 @@ export function createMarketView({
     nodes.marketOrdersEditor.replaceChildren(editor);
   }
 
-  async function renderOrderMode() {
+  async function renderOrderMode({ force = false } = {}) {
     requireLogin();
-    const result = currentOrderView === 'swap'
-      ? await marketService.listSwaps({ limit: 60 })
-      : await marketService.listBuyOrders({ limit: 60 });
+    const result = await loadOrderState(currentOrderView, { force });
     const items = result?.items || [];
     for (const tab of nodes.marketOrderViews || []) {
       tab.classList.toggle('is-active', tab.dataset.marketOrderView === currentOrderView);
@@ -1396,9 +1428,11 @@ export function createMarketView({
       }
       row.addEventListener('click', () => {
         selectedOrderId = item.id;
-        void renderOrderMode().then(() => (
-          currentOrderView === 'swap' ? renderSwapDetail(item) : renderBuyOrderDetail(item)
-        )).catch(notifyError);
+        for (const [index, child] of [...nodes.marketOrdersList.children].entries()) {
+          child.classList.toggle('is-selected', items[index]?.id === selectedOrderId);
+        }
+        void (currentOrderView === 'swap' ? renderSwapDetail(item) : renderBuyOrderDetail(item))
+          .catch(notifyError);
       });
       return row;
     });
@@ -1434,9 +1468,9 @@ export function createMarketView({
     content.append(wallet);
   };
 
-  async function renderMineMode() {
+  async function renderMineMode({ force = false } = {}) {
     requireLogin();
-    const state = await marketService.mine();
+    const state = await loadMineState({ force });
     for (const tab of nodes.marketMineViews || []) {
       tab.classList.toggle('is-active', tab.dataset.marketMineView === currentMineView);
     }
@@ -1627,8 +1661,14 @@ export function createMarketView({
   nodes.marketMinPrice?.addEventListener('change', applyBrowseFilters);
   nodes.marketMaxPrice?.addEventListener('change', applyBrowseFilters);
   nodes.marketMore?.addEventListener('click', () => {});
-  nodes.marketMineRefresh?.addEventListener('click', () => void renderMineMode().catch(notifyError));
-  nodes.marketOrderRefresh?.addEventListener('click', () => void renderOrderMode().catch(notifyError));
+  nodes.marketMineRefresh?.addEventListener('click', () => {
+    invalidateMineState();
+    void renderMineMode({ force: true }).catch(notifyError);
+  });
+  nodes.marketOrderRefresh?.addEventListener('click', () => {
+    invalidateOrderState(currentOrderView);
+    void renderOrderMode({ force: true }).catch(notifyError);
+  });
 
   nodes.marketOrderCreate?.addEventListener('click', () => {
     currentOrderView = 'buy';

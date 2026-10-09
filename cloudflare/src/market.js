@@ -241,6 +241,19 @@ function payoutFromRow(row) {
   };
 }
 
+function recycleFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    listing_id: row.listing_id,
+    asset: parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.quantity),
+    quantity: integer(row.quantity, 1),
+    amount: integer(row.amount),
+    credited_at: row.credited_at == null ? null : integer(row.credited_at),
+    created_at: integer(row.created_at),
+  };
+}
+
 async function all(env, sql, args = []) {
   const response = await env.DB.prepare(sql).bind(...args).all();
   return response?.results || [];
@@ -733,7 +746,9 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
   }
 
   const now = nowMs();
-  const settlement = marketSaleSettlement(listing.unit_price * quantity);
+  const settlement = listing.is_system
+    ? { gross: listing.unit_price * quantity, market_fee: 0, seller_proceeds: 0 }
+    : marketSaleSettlement(listing.unit_price * quantity);
   const statements = [
     env.DB.prepare(
       `INSERT INTO market_trades
@@ -827,6 +842,7 @@ export async function confirmMarketDelivery(env, user, tradeIdValue) {
 }
 
 export async function cancelMarketListing(env, user, listingIdValue) {
+  await settleExpiredMarketListings(env);
   const listingId = marketId(listingIdValue, '挂单 ID');
   const listing = await getListing(env, listingId);
   if (!listing || listing.seller.id !== Number(user.id)) {
@@ -961,6 +977,7 @@ export async function confirmMarketPayout(env, user, payoutIdValue) {
 }
 
 export async function getMarketMe(env, user) {
+  await settleExpiredMarketListings(env);
   const wallet = await first(
     env,
     'SELECT balance, updated_at FROM market_wallets WHERE user_id = ? LIMIT 1',
@@ -995,6 +1012,20 @@ export async function getMarketMe(env, user) {
      ORDER BY created_at ASC LIMIT 50`,
     [user.id],
   );
+  const recycles = await all(
+    env,
+    `SELECT * FROM market_recycles
+     WHERE user_id = ?
+     ORDER BY created_at DESC LIMIT 50`,
+    [user.id],
+  );
+  const buybacks = await all(
+    env,
+    `SELECT * FROM market_buybacks
+     WHERE user_id = ?
+     ORDER BY created_at DESC LIMIT 50`,
+    [user.id],
+  );
 
   return json({
     wallet: {
@@ -1007,5 +1038,7 @@ export async function getMarketMe(env, user) {
     pending_deliveries: purchases.filter(row => row.delivered_at == null).map(tradeFromRow),
     pending_returns: pendingReturns.map(returnFromRow),
     pending_payouts: pendingPayouts.map(payoutFromRow),
+    recycles: recycles.map(recycleFromRow),
+    buybacks: buybacks.map(buybackFromRow),
   });
 }

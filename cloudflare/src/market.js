@@ -23,6 +23,7 @@ const MAX_ASSET_BYTES = 32 * 1024;
 const MAX_NAME_LENGTH = 120;
 const MAX_PRICE = 1_000_000_000;
 const MAX_QUANTITY = 9999;
+const MAX_ACTIVE_LISTINGS = 10;
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 60;
 const TEST_VENDOR_DISCORD_ID = '__market_test_vendor__';
@@ -723,12 +724,17 @@ export async function createMarketListing(request, env, user) {
   const now = nowMs();
   const expiresAt = now + durationHours * 60 * 60 * 1000;
   const recycleAt = marketRecycleAt(expiresAt);
-  await env.DB.prepare(
+  // Count inside the INSERT rather than relying on a client-side check: D1 serializes this write.
+  // Expired listings are not considered active slots even before the scheduled cleanup runs.
+  const inserted = await env.DB.prepare(
     `INSERT INTO market_listings
       (id, seller_user_id, asset_kind, market_kind, asset_name, asset_json, unit_price,
        total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
        listing_fee, is_system, restock_day, created_at, updated_at, catalog_key, quality, subtype)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?, ?, ?, ?)`,
+     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?, ?, ?, ?
+     WHERE (SELECT COUNT(*) FROM market_listings
+            WHERE seller_user_id = ? AND is_system = 0 AND status = 'active'
+              AND remaining_quantity > 0 AND expires_at > ?) < ?`,
   ).bind(
     id,
     user.id,
@@ -748,7 +754,13 @@ export async function createMarketListing(request, env, user) {
     meta.catalog_key,
     meta.quality,
     meta.subtype,
+    user.id,
+    now,
+    MAX_ACTIVE_LISTINGS,
   ).run();
+  if (Number(inserted.meta?.changes || 0) !== 1) {
+    throw new HttpError(409, 'market_listing_limit', '最多只能同时上架 10 个商品，请先撤回或等待挂单售完');
+  }
 
   await refreshMarketCatalogKey(env, meta.catalog_key);
   return json({ listing: await getListing(env, id), quote }, 201);
@@ -1177,8 +1189,14 @@ export async function getMarketMe(env, user) {
   );
 
   const orderState = await getMarketOrderState(env, user);
+  const activeCount = await first(env,
+    `SELECT COUNT(*) AS count FROM market_listings
+     WHERE seller_user_id = ? AND is_system = 0 AND status = 'active'
+       AND remaining_quantity > 0 AND expires_at > ?`, [user.id, nowMs()]);
 
   return json({
+    active_listing_count: integer(activeCount?.count),
+    active_listing_limit: MAX_ACTIVE_LISTINGS,
     wallet: {
       balance: integer(wallet?.balance, 0),
       updated_at: integer(wallet?.updated_at, 0),

@@ -68,8 +68,12 @@ function assetName(key, value) {
 }
 
 function credentialGrade(asset) {
-  if (asset?.data?.系统商品 !== 'permission_credential') return '';
-  return String(asset?.data?.凭证品质 || asset?.data?.品质 || '').trim().toUpperCase();
+  const data = asset?.data || {};
+  const legacy = data.系统商品 === 'permission_credential';
+  const typed = String(data.类型 || '').trim() === '权限凭证';
+  const tagged = Array.isArray(data.标签) && data.标签.includes('权限凭证');
+  if (!legacy && !typed && !tagged) return '';
+  return String(data.凭证品质 || data.品质 || '').trim().toUpperCase();
 }
 
 function assetPayload(asset, quantity = null) {

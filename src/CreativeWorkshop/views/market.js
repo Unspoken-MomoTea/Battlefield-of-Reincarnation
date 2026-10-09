@@ -2,6 +2,7 @@ import { MARKET_KIND_LABELS } from '../services/market-service.js';
 import {
   buildMarketRows,
   filterMarketRows,
+  marketAssetDetailEntries,
   marketAssetFieldDisplay,
   marketPriceLadder,
   planMarketPurchase,
@@ -12,6 +13,12 @@ const coin = value => Math.max(0, Math.trunc(num(value))).toLocaleString('zh-CN'
 const quality = asset => String(
   asset?.quality || asset?.data?.品质 || asset?.data?.层级 || asset?.data?.等级 || '',
 ).trim();
+const qualityRank = asset => quality(asset).toUpperCase().match(/^(SSS|SS|S|A|B|C|D|E|F)$/u)?.[0] || 'NONE';
+const qualityName = (node, asset) => {
+  node.classList.add('rw-ah-quality-name');
+  node.dataset.quality = qualityRank(asset);
+  return node;
+};
 const when = value => {
   const date = new Date(Number(value) || 0);
   return Number.isFinite(date.getTime()) && date.getTime() > 0
@@ -95,20 +102,17 @@ export function createMarketView({
 
   const assetDetail = asset => {
     const box = element('div', 'rw-ah-asset-detail');
+    const entries = marketAssetDetailEntries(asset);
+    if (!entries.length) return box;
 
     const dataSection = element('section', 'rw-ah-data-section');
     dataSection.append(element('div', 'rw-ah-section-label', '资产数据'));
     const dataBody = element('div', 'rw-ah-data-object');
-    const entries = Object.entries(asset?.data || {});
-    if (!entries.length) {
-      dataBody.append(element('div', 'rw-ah-muted-line', '没有额外资产字段。'));
-    } else {
-      for (const [key, value] of entries) {
-        const row = element('div', 'rw-ah-data-row');
-        const displayValue = marketAssetFieldDisplay(asset, key, value);
-        row.append(element('span', 'rw-ah-data-key', key), dataValue(displayValue));
-        dataBody.append(row);
-      }
+    for (const [key, value] of entries) {
+      const row = element('div', 'rw-ah-data-row');
+      const displayValue = marketAssetFieldDisplay(asset, key, value);
+      row.append(element('span', 'rw-ah-data-key', key), dataValue(displayValue));
+      dataBody.append(row);
     }
     dataSection.append(dataBody);
     box.append(dataSection);
@@ -135,15 +139,6 @@ export function createMarketView({
     await refreshSummary();
   }
 
-  const rowIcon = subject => {
-    const asset = subject?.asset || subject || {};
-    const name = String(subject?.name || asset?.name || '?');
-    const icon = element('span', 'rw-ah-item-icon', name.slice(0, 1) || '?');
-    const rank = quality(asset).toUpperCase().match(/[A-Z]+/u)?.[0] || '';
-    icon.dataset.quality = rank || 'NONE';
-    return icon;
-  };
-
   const resultRow = marketRow => {
     const node = element('button', 'rw-ah-result-row');
     node.type = 'button';
@@ -152,7 +147,7 @@ export function createMarketView({
     const itemCell = element('span', 'rw-ah-result-item');
     const itemCopy = element('span', 'rw-ah-result-item-copy');
     itemCopy.append(
-      element('strong', '', marketRow.name),
+      qualityName(element('strong', '', marketRow.name), marketRow.asset),
       element(
         'small',
         '',
@@ -161,7 +156,7 @@ export function createMarketView({
           : (marketRow.listings[0]?.seller?.display_name || '匿名轮回者'),
       ),
     );
-    itemCell.append(rowIcon(marketRow), itemCopy);
+    itemCell.append(itemCopy);
 
     const kindCell = element('span', 'rw-ah-result-kind');
     kindCell.append(element('span', 'rw-ah-type-tag', kindLabel(marketRow.kind)));
@@ -170,7 +165,6 @@ export function createMarketView({
     const priceCell = element('span', 'rw-ah-result-price');
     priceCell.append(
       element('strong', '', coin(marketRow.buyPrice ?? marketRow.lowestPrice)),
-      element('small', '', ' 空间币'),
     );
 
     node.append(itemCell, kindCell, qualityCell, stockCell, priceCell);
@@ -239,7 +233,7 @@ export function createMarketView({
     const head = element('div', 'rw-ah-detail-head');
     head.append(
       element('div', 'rw-ah-inspector-title', '详情'),
-      element('h3', '', marketRow.name),
+      qualityName(element('h3', '', marketRow.name), marketRow.asset),
     );
     wrap.append(head, assetDetail(marketRow.asset));
 
@@ -397,11 +391,10 @@ export function createMarketView({
     row.classList.toggle('is-selected', selectedSellIndex === index);
     const copy = element('span', 'rw-ah-inventory-copy');
     copy.append(
-      element('strong', '', asset.name),
+      qualityName(element('strong', '', asset.name), asset),
       element('small', '', kindLabel(asset.kind) + (quality(asset) ? ' · ' + quality(asset) : '')),
     );
     row.append(
-      rowIcon(asset),
       copy,
       element('span', 'rw-ah-inventory-qty', asset.kind === 'item' ? '×' + asset.quantity : '1'),
     );
@@ -440,8 +433,8 @@ export function createMarketView({
       element('span', 'rw-market-kind', kindLabel(asset.kind)),
       element('span', 'rw-market-quality', quality(asset) || '未标注'),
     );
-    headCopy.append(tags, element('h3', '', asset.name));
-    head.append(rowIcon(asset), headCopy);
+    headCopy.append(tags, qualityName(element('h3', '', asset.name), asset));
+    head.append(headCopy);
     editor.append(head, assetDetail(asset));
 
     const referencePrices = listings
@@ -614,13 +607,6 @@ export function createMarketView({
       buyback.append(copy);
       if (buybackQuote) {
         buyback.append(button('直接卖给系统', '', async () => {
-          const ok = await confirmDialog({
-            title: '确认系统回收',
-            message: '将“' + asset.name + '”直接出售给系统，立即获得 '
-              + coin(buybackQuote.total_price) + ' 空间币？系统回收成交后不可撤销。',
-            confirmText: '确认回收',
-          });
-          if (!ok) return;
           await marketService.sellToSystem({
             kind: asset.kind,
             key: asset.key,

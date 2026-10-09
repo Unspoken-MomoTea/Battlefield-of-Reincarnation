@@ -294,7 +294,7 @@ test('testing catalog auto-seeds virtual seller fixtures that a real user can pu
 });
 
 
-test('auction quote uses quality floor, duration tax and direct equipment buyback floor', async () => {
+test('auction quote uses quality high for tax and quality floor for equipment buyback', async () => {
   const testEnv = env();
   const seller = createUser(testEnv, '600', 'Economy Seller');
   const headers = authHeaders(testEnv, seller, 'economy-seller-token');
@@ -315,7 +315,8 @@ test('auction quote uses quality floor, duration tax and direct equipment buybac
   });
   assert.equal(auction.response.status, 200);
   assert.equal(auction.body.quote.quality_floor, 100);
-  assert.equal(auction.body.quote.listing_fee, 27);
+  assert.equal(auction.body.quote.quality_high, 999);
+  assert.equal(auction.body.quote.listing_fee, 900);
 
   const buybackQuote = await jsonRequest(testEnv, '/api/market/quote', {
     method: 'POST',
@@ -375,7 +376,7 @@ test('expired auction disappears, stays reclaimable for 72 hours, then server re
   });
   assert.equal(created.response.status, 201);
   assert.equal(created.body.listing.duration_hours, 24);
-  assert.equal(created.body.listing.listing_fee, 30);
+  assert.equal(created.body.listing.listing_fee, 500);
   assert.ok(created.body.listing.recycle_at > created.body.listing.expires_at);
 
   const now = Date.now();
@@ -414,8 +415,15 @@ test('system credential listings restock daily and do not credit a synthetic sel
   assert.ok(credential);
   assert.equal(credential.is_system, true);
   assert.equal(credential.remaining_quantity, 30);
-  assert.equal(credential.unit_price, 10);
-  assert.equal(credential.asset.data.系统商品, 'permission_credential');
+  assert.equal(credential.unit_price, 99);
+  assert.equal(credential.asset.data.类型, '权限凭证');
+  assert.equal(credential.asset.data.系统商品, undefined);
+  assert.equal(credential.asset.data.凭证品质, undefined);
+
+  const eCredential = catalog.body.items.find(item => item.id === 'system:credential:E');
+  assert.equal(eCredential.unit_price, 999);
+  const sssCredential = catalog.body.items.find(item => item.id === 'system:credential:SSS');
+  assert.equal(sssCredential.unit_price, 5_120_000);
 
   const purchase = await jsonRequest(testEnv, '/api/market/listings/system%3Acredential%3AF/buy', {
     method: 'POST',

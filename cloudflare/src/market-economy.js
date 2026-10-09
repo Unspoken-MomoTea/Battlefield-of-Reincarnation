@@ -12,6 +12,19 @@ export const MARKET_QUALITY_FLOORS = Object.freeze({
   SSS: 5_120_000,
 });
 
+export const MARKET_QUALITY_HIGHS = Object.freeze({
+  F: 99,
+  E: 999,
+  D: 4_999,
+  C: 19_999,
+  B: 79_999,
+  A: 319_999,
+  S: 1_270_000,
+  SS: 5_110_000,
+  // SSS 在世界书中只有“512w+”而没有有限上限；系统固定价以 512w 基准计算。
+  SSS: 5_120_000,
+});
+
 export const MARKET_BUYBACK_BPS = Object.freeze({
   F: 3_500,
   E: 3_500,
@@ -25,7 +38,7 @@ export const MARKET_BUYBACK_BPS = Object.freeze({
 });
 
 export const MARKET_AUCTION_DURATIONS = Object.freeze([24, 48, 72]);
-export const MARKET_LISTING_DAILY_BPS = 300;
+export const MARKET_LISTING_DAILY_BPS = 1_000;
 export const MARKET_SUCCESS_FEE_BPS = 300;
 export const MARKET_EXPIRED_GRACE_HOURS = 72;
 export const MARKET_CREDENTIAL_DAILY_STOCK = 30;
@@ -46,6 +59,10 @@ export function marketQualityFromAsset(asset) {
 
 export function marketQualityFloor(quality) {
   return MARKET_QUALITY_FLOORS[marketQuality(quality)];
+}
+
+export function marketQualityHigh(quality) {
+  return MARKET_QUALITY_HIGHS[marketQuality(quality)];
 }
 
 export function marketBuybackUnitPrice(quality) {
@@ -73,7 +90,7 @@ export function marketAuctionQuote(asset, quantity = 1, durationHours = 24) {
     throw new Error('拍卖时长只支持 24、48 或 72 小时');
   }
 
-  const baseValue = marketQualityFloor(quality) * resolvedQuantity;
+  const baseValue = marketQualityHigh(quality) * resolvedQuantity;
   const listingFee = Math.max(
     1,
     Math.ceil(baseValue * MARKET_LISTING_DAILY_BPS * (hours / 24) / 10_000),
@@ -84,6 +101,7 @@ export function marketAuctionQuote(asset, quantity = 1, durationHours = 24) {
     quantity: resolvedQuantity,
     duration_hours: hours,
     quality_floor: marketQualityFloor(quality),
+    quality_high: marketQualityHigh(quality),
     listing_fee: listingFee,
   };
 }
@@ -111,7 +129,7 @@ export function marketCredentialSpecs() {
     quality,
     id: `system:credential:${quality}`,
     name: `${quality}级权限凭证`,
-    unit_price: marketQualityFloor(quality),
+    unit_price: marketQualityHigh(quality),
     quantity: MARKET_CREDENTIAL_DAILY_STOCK,
   }));
 }

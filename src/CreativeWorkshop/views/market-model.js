@@ -1,3 +1,36 @@
+const HIDDEN_MARKET_DETAIL_KEYS = new Set(['真属性', '系统商品', '凭证品质']);
+
+function pruneMarketDetailValue(value) {
+  if (value == null) return undefined;
+  if (typeof value === 'string') return value.trim() ? value : undefined;
+  if (Array.isArray(value)) {
+    const items = value
+      .map(pruneMarketDetailValue)
+      .filter(item => item !== undefined);
+    return items.length ? items : undefined;
+  }
+  if (typeof value === 'object') {
+    const out = {};
+    for (const [key, nested] of Object.entries(value)) {
+      if (HIDDEN_MARKET_DETAIL_KEYS.has(key)) continue;
+      const pruned = pruneMarketDetailValue(nested);
+      if (pruned !== undefined) out[key] = pruned;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  return value;
+}
+
+export function marketAssetDetailEntries(asset) {
+  const entries = [];
+  for (const [key, value] of Object.entries(asset?.data || {})) {
+    if (HIDDEN_MARKET_DETAIL_KEYS.has(key)) continue;
+    const pruned = pruneMarketDetailValue(value);
+    if (pruned !== undefined) entries.push([key, pruned]);
+  }
+  return entries;
+}
+
 const EQUIPMENT_TYPE_LABELS = ['武器', '手部', '头部', '胸部', '腿部', '鞋子', '披风', '饰品', '世界遗物'];
 const EQUIPMENT_STATUS_LABELS = ['未装备', '已装备', '仓库'];
 const SKILL_TYPE_LABELS = ['主动', '被动', '特殊'];

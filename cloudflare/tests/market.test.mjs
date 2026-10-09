@@ -1299,6 +1299,10 @@ test('completed market receipts are pruned, but anything awaiting delivery or re
     method: 'POST', headers: buyerHeaders,
   });
   assert.equal(ack.response.status, 200);
+  const sellerAck = await jsonRequest(testEnv, '/api/market/trades/cleanup-delivered/announced', {
+    method: 'POST', headers: sellerHeaders,
+  });
+  assert.equal(sellerAck.response.status, 200);
   const db = testEnv.DB.db;
   db.prepare("UPDATE market_trades SET delivered_at = ? WHERE id = 'cleanup-delivered'").run(since);
   db.prepare("UPDATE market_trades SET created_at = ? WHERE id IN ('cleanup-delivered','cleanup-pending')").run(since);

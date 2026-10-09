@@ -438,6 +438,7 @@ export function workshopTemplate(version) {
           <button class="rw-tab" data-admin-view="updates" type="button">更新动态</button>
           <button class="rw-tab" data-admin-view="reports" type="button">举报处理</button>
           <button class="rw-tab" data-admin-view="users" type="button">用户管理</button>
+          <button class="rw-tab" data-admin-view="market" type="button">市场管理</button>
           <button class="rw-tab" data-admin-view="storage" type="button">容量</button>
         </div>
 
@@ -483,6 +484,29 @@ export function workshopTemplate(version) {
             <button class="rw-button" data-action="admin-user-search" type="button">搜索用户</button>
           </div>
           <div class="rw-grid" data-role="user-list"></div>
+        </div>
+
+        <div data-admin-section="market" hidden>
+          <div class="rw-toolbar">
+            <select class="rw-select" data-field="admin-market-view">
+              <option value="listings">当前挂单</option>
+              <option value="trades">成交记录</option>
+              <option value="orders">求购单</option>
+              <option value="swaps">交换单</option>
+            </select>
+            <input class="rw-input grow" data-field="admin-market-search" placeholder="搜索商品或玩家">
+            <select class="rw-select" data-field="admin-market-status">
+              <option value="">全部状态</option>
+              <option value="active">进行中</option>
+              <option value="sold">已售出</option>
+              <option value="cancelled">已取消</option>
+              <option value="filled">已完成</option>
+              <option value="expired">已到期</option>
+            </select>
+            <label class="rw-inline-check"><input type="checkbox" data-field="admin-market-risk"> 只看异常价格</label>
+            <button class="rw-button" data-action="admin-market-refresh" type="button">刷新市场</button>
+          </div>
+          <div class="rw-grid" data-role="admin-market-list"></div>
         </div>
 
         <div data-admin-section="storage" hidden>

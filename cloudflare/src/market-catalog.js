@@ -127,14 +127,6 @@ export async function refreshMarketCatalogKey(env, catalogKey) {
   const cheapest = await first(env,
     `SELECT l.* ${condition}
      ORDER BY l.unit_price ASC, l.created_at DESC LIMIT 1`, [key, now]);
-  await env.DB.prepare('DELETE FROM market_catalog WHERE catalog_key = ?').bind(key).run();
-    return null;
-  }
-
-  const cheapest = rows[0];
-  const sellerIds = new Set(rows.map(row => Number(row.seller_user_id)));
-  const totalStock = rows.reduce((sum, row) => sum + Math.max(0, integer(row.remaining_quantity)), 0);
-  const latestAt = Math.max(...rows.map(row => integer(row.created_at)));
   await env.DB.prepare(
     `INSERT INTO market_catalog
       (catalog_key, asset_kind, asset_name, quality, subtype, asset_json,

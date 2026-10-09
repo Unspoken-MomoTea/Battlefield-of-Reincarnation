@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS market_save_wallets (
 
 CREATE INDEX IF NOT EXISTS idx_market_listings_user_save
   ON market_listings(seller_user_id, save_id, status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_market_listings_seller_slots
+  ON market_listings(seller_user_id, is_system, status, expires_at);
 CREATE INDEX IF NOT EXISTS idx_market_trades_buyer_save
   ON market_trades(buyer_user_id, buyer_save_id, delivered_at);
 CREATE INDEX IF NOT EXISTS idx_market_payouts_save

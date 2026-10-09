@@ -302,6 +302,37 @@ function removeAsset(statData, selection) {
   return { quantity: 1, data: deepClone(value) };
 }
 
+function comparableItem(value) {
+  if (Array.isArray(value)) return value.map(comparableItem);
+  if (!value || typeof value !== 'object') return value;
+  const output = {};
+  for (const key of Object.keys(value).sort()) {
+    if (key === '数量') continue;
+    output[key] = comparableItem(value[key]);
+  }
+  return output;
+}
+
+// Item names are the MVU dictionary keys. Different item definitions with the
+// same name cannot share one key or one stack; keep the original payload intact.
+export function marketItemStorageSlot(bucket, asset) {
+  const name = String(asset?.name || '').trim();
+  const incoming = JSON.stringify(comparableItem(asset?.data || {}));
+  for (const [key, value] of Object.entries(bucket || {})) {
+    if (!value || typeof value !== 'object') continue;
+    if (String(value.名称 || key).trim() !== name) continue;
+    if (JSON.stringify(comparableItem(value)) === incoming) return key;
+  }
+  if (!Object.prototype.hasOwnProperty.call(bucket, name)) return name;
+  const quality = String(asset?.data?.品质 || '不同属性').trim();
+  const base = name + '（' + quality + '·集市）';
+  let key = base;
+  for (let index = 2; Object.prototype.hasOwnProperty.call(bucket, key); index += 1) {
+    key = base + '#' + index;
+  }
+  return key;
+}
+
 function addAsset(statData, asset) {
   const character = statData.角色 || (statData.角色 = {});
   const credential = credentialGrade(asset);
@@ -341,7 +372,8 @@ function addAsset(statData, asset) {
 
   if (kind === 'item') {
     const quantity = Math.max(1, Math.floor(Number(asset.quantity) || 1));
-    const existing = bucket[key];
+    const storageKey = marketItemStorageSlot(bucket, asset);
+    const existing = bucket[storageKey];
     if (existing && typeof existing === 'object') {
       existing.数量 = assetQuantity('item', existing) + quantity;
       return;
@@ -349,7 +381,7 @@ function addAsset(statData, asset) {
     const next = deepClone(asset.data || {});
     next.数量 = quantity;
     if (!next.名称) next.名称 = key;
-    bucket[key] = next;
+    bucket[storageKey] = next;
     return;
   }
 

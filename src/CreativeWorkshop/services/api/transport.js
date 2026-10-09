@@ -2,11 +2,12 @@ import { getApiBase } from '../../config.js';
 import { clearAuthRecord, getAuthRecord } from '../storage.js';
 
 export class WorkshopApiError extends Error {
-  constructor(message, status = 0, code = 'request_failed') {
+  constructor(message, status = 0, code = 'request_failed', details = null) {
     super(message);
     this.name = 'WorkshopApiError';
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -17,6 +18,7 @@ async function readError(response) {
       body.error || body.message || `请求失败（${response.status}）`,
       response.status,
       body.code,
+      body.details || null,
     );
   } catch {
     return new WorkshopApiError(`请求失败（${response.status}）`, response.status);

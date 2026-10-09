@@ -1,4 +1,14 @@
-const HIDDEN_MARKET_DETAIL_KEYS = new Set(['真属性', '系统商品', '凭证品质']);
+const HIDDEN_MARKET_DETAIL_KEYS = new Set([
+  '真属性',
+  '系统商品',
+  '凭证品质',
+  '最终属性',
+  'HP_MAX',
+  'HP',
+  'THP',
+  'EP_MAX',
+  'EP',
+]);
 
 function pruneMarketDetailValue(value) {
   if (value == null) return undefined;
@@ -29,6 +39,87 @@ export function marketAssetDetailEntries(asset) {
     if (pruned !== undefined) entries.push([key, pruned]);
   }
   return entries;
+}
+
+const TEAMMATE_DETAIL_OMIT = new Set([
+  ...HIDDEN_MARKET_DETAIL_KEYS,
+  '在场',
+  '是否队友',
+  '数量',
+]);
+
+function compactNamedAssets(bucket, { quantity = false } = {}) {
+  if (!bucket || typeof bucket !== 'object' || Array.isArray(bucket)) return [];
+  return Object.entries(bucket)
+    .filter(([, value]) => value && typeof value === 'object' && !Array.isArray(value))
+    .map(([name, value]) => ({
+      name: String(name || '').trim(),
+      rank: String(value.品质 || value.层级 || '').trim(),
+      quantity: quantity ? Math.max(1, Math.floor(Number(value.数量) || 1)) : 1,
+    }))
+    .filter(item => item.name);
+}
+
+function compactOccupations(bucket) {
+  if (!bucket || typeof bucket !== 'object' || Array.isArray(bucket)) return [];
+  return Object.entries(bucket)
+    .map(([name, value]) => ({
+      name: String(name || '').trim(),
+      meta: String(value?.类型 || '').trim(),
+    }))
+    .filter(item => item.name);
+}
+
+export function marketTeammateDetailModel(asset) {
+  if (String(asset?.kind || '') !== 'teammate') return null;
+  const data = asset?.data && typeof asset.data === 'object' && !Array.isArray(asset.data)
+    ? asset.data
+    : {};
+
+  const identity = Array.isArray(data.身份)
+    ? data.身份.map(value => String(value || '').trim()).filter(Boolean)
+    : [];
+  const currentForm = data.当前形态?.激活 && String(data.当前形态?.名称 || '').trim()
+    ? String(data.当前形态.名称).trim()
+    : '';
+
+  return {
+    overview: [
+      ['层级', String(data.层级 || data.品质 || '').trim()],
+      ['种族', String(data.种族 || '').trim()],
+    ].filter(([, value]) => value),
+    identity,
+    occupations: compactOccupations(data.职业),
+    builds: [
+      ['血统', compactNamedAssets(data.血统)],
+      ['技能', compactNamedAssets(data.技能)],
+      ['装备', compactNamedAssets(data.装备)],
+      ['道具', compactNamedAssets(data.道具, { quantity: true })],
+      ['形态', compactNamedAssets(data.形态库)],
+      ['状态', compactNamedAssets(data.状态)],
+    ].filter(([, items]) => items.length),
+    currentForm,
+    profile: [
+      ['性格', String(data.性格 || '').trim()],
+      ['喜爱', String(data.喜爱 || '').trim()],
+      ['外貌', String(data.外貌 || '').trim()],
+      ['着装', String(data.着装 || '').trim()],
+      ['背景故事', String(data.背景故事 || '').trim()],
+    ].filter(([, value]) => value),
+    relation: [
+      ['好感度', Number.isFinite(Number(data.好感度)) ? String(Number(data.好感度)) : '0'],
+      ['态度', String(data.态度 || '').trim()],
+    ].filter(([, value]) => value),
+    extra: Object.entries(data)
+      .filter(([key]) => !TEAMMATE_DETAIL_OMIT.has(key))
+      .filter(([key]) => ![
+        '层级', '品质', '种族', '身份', '职业', '血统', '技能', '装备', '道具',
+        '形态库', '当前形态', '状态', '性格', '喜爱', '外貌', '着装', '背景故事',
+        '好感度', '态度',
+      ].includes(key))
+      .map(([key, value]) => [key, pruneMarketDetailValue(value)])
+      .filter(([, value]) => value !== undefined),
+  };
 }
 
 const EQUIPMENT_TYPE_LABELS = ['武器', '手部', '头部', '胸部', '腿部', '鞋子', '披风', '饰品', '世界遗物'];

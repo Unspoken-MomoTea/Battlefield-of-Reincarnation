@@ -5,6 +5,7 @@ import {
   marketAssetDetailEntries,
   marketAssetFieldDisplay,
   marketPriceLadder,
+  marketTeammateDetailModel,
   planMarketPurchase,
 } from './market-model.js';
 
@@ -108,7 +109,114 @@ export function createMarketView({
     return element('span', 'rw-ah-data-value', String(value));
   };
 
+  const teammateChips = (items, { occupations = false } = {}) => {
+    const wrap = element('div', 'rw-ah-teammate-chips');
+    for (const item of items || []) {
+      const chip = element('span', 'rw-ah-teammate-chip');
+      chip.append(element('strong', '', item.name || String(item)));
+      if (occupations && item.meta) chip.append(element('small', '', item.meta));
+      else if (!occupations && item.rank) chip.append(element('small', '', item.rank));
+      if (!occupations && Number(item.quantity || 1) > 1) {
+        chip.append(element('em', '', '×' + Number(item.quantity)));
+      }
+      wrap.append(chip);
+    }
+    return wrap;
+  };
+
+  const teammateDetail = asset => {
+    const model = marketTeammateDetailModel(asset);
+    const box = element('div', 'rw-ah-teammate-detail');
+    if (!model) return box;
+
+    const summary = element('section', 'rw-ah-teammate-card');
+    const summaryHead = element('div', 'rw-ah-teammate-card-head');
+    summaryHead.append(
+      element('strong', '', '人物概览'),
+      model.currentForm ? element('span', 'rw-ah-teammate-active-form', '当前形态 · ' + model.currentForm) : element('span'),
+    );
+    summary.append(summaryHead);
+
+    if (model.overview.length) {
+      const grid = element('div', 'rw-ah-teammate-overview');
+      for (const [key, value] of model.overview) {
+        const cell = element('div', 'rw-ah-teammate-overview-cell');
+        cell.append(element('span', '', key), element('strong', '', value));
+        grid.append(cell);
+      }
+      summary.append(grid);
+    }
+
+    if (model.identity.length) {
+      const row = element('div', 'rw-ah-teammate-meta-row');
+      row.append(
+        element('span', 'rw-ah-teammate-meta-label', '身份'),
+        teammateChips(model.identity.map(name => ({ name }))),
+      );
+      summary.append(row);
+    }
+
+    if (model.occupations.length) {
+      const row = element('div', 'rw-ah-teammate-meta-row');
+      row.append(
+        element('span', 'rw-ah-teammate-meta-label', '职业'),
+        teammateChips(model.occupations, { occupations: true }),
+      );
+      summary.append(row);
+    }
+    box.append(summary);
+
+    if (model.builds.length) {
+      const section = element('section', 'rw-ah-teammate-card');
+      section.append(element('div', 'rw-ah-teammate-card-title', '能力构筑'));
+      const list = element('div', 'rw-ah-teammate-build-list');
+      for (const [label, items] of model.builds) {
+        const row = element('div', 'rw-ah-teammate-build-row');
+        row.append(
+          element('span', 'rw-ah-teammate-meta-label', label),
+          teammateChips(items),
+        );
+        list.append(row);
+      }
+      section.append(list);
+      box.append(section);
+    }
+
+    if (model.profile.length) {
+      const section = element('section', 'rw-ah-teammate-card');
+      section.append(element('div', 'rw-ah-teammate-card-title', '人物档案'));
+      const list = element('div', 'rw-ah-teammate-profile');
+      for (const [label, value] of model.profile) {
+        const row = element('div', 'rw-ah-teammate-profile-row');
+        row.append(
+          element('span', 'rw-ah-teammate-meta-label', label),
+          element('p', '', value),
+        );
+        list.append(row);
+      }
+      section.append(list);
+      box.append(section);
+    }
+
+    if (model.relation.length) {
+      const section = element('section', 'rw-ah-teammate-card rw-ah-teammate-relation-card');
+      section.append(element('div', 'rw-ah-teammate-card-title', '交易状态'));
+      const grid = element('div', 'rw-ah-teammate-relation');
+      for (const [label, value] of model.relation) {
+        const row = element('div', 'rw-ah-teammate-relation-row');
+        row.append(element('span', '', label), element('strong', '', value));
+        grid.append(row);
+      }
+      section.append(grid);
+      box.append(section);
+    }
+
+    return box;
+  };
+
   const assetDetail = asset => {
+    if (asset?.kind === 'teammate') return teammateDetail(asset);
+
     const box = element('div', 'rw-ah-asset-detail');
     const entries = marketAssetDetailEntries(asset);
     if (!entries.length) return box;
@@ -347,7 +455,7 @@ export function createMarketView({
       action,
       element('small', 'rw-ah-purchase-help', marketRow.kind === 'item'
         ? '系统会从最低价开始自动购买，数量不足时继续匹配下一档价格。'
-        : '装备与技能按独立挂单成交。'),
+        : '非堆叠资产按独立挂单成交。'),
     );
     wrap.append(purchase);
     nodes.marketInspector.replaceChildren(wrap);
@@ -444,6 +552,13 @@ export function createMarketView({
     headCopy.append(tags, qualityName(element('h3', '', asset.name), asset));
     head.append(headCopy);
     editor.append(head, assetDetail(asset));
+    if (asset.kind === 'teammate') {
+      editor.append(element(
+        'p',
+        'rw-market-notice warning',
+        '队友一旦成功上架，好感度会归零（原本为负数则保留负值），态度重置为“被交易的货物，对原主失去一切信任”。撤回拍卖时也会保留该交易状态。',
+      ));
+    }
 
     const referencePrices = listings
       .filter(item => item?.asset?.kind === asset.kind && item?.asset?.name === asset.name)

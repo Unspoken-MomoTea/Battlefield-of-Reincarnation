@@ -364,6 +364,20 @@ function addAsset(statData, asset) {
   bucket[key] = next;
 }
 
+const TEAMMATE_TRADE_ATTITUDE = '被交易的货物，对原主失去一切信任';
+
+function listingAssetSnapshot(asset) {
+  const next = deepClone(asset);
+  if (String(next?.kind || '') !== 'teammate') return next;
+  const data = next.data && typeof next.data === 'object' && !Array.isArray(next.data)
+    ? next.data
+    : (next.data = {});
+  const favor = Number(data.好感度);
+  data.好感度 = Number.isFinite(favor) ? Math.min(0, favor) : 0;
+  data.态度 = TEAMMATE_TRADE_ATTITUDE;
+  return next;
+}
+
 function formActivationSnapshot(statData, selection) {
   if (
     selection?.kind === 'form'
@@ -483,17 +497,18 @@ export function createMarketService({ host, api }) {
       next.stat_data.角色.空间币 = currentCoin - listingFee;
     });
 
-    const asset = {
+    const restoreAsset = {
       kind: selection.kind,
       name: sourceAsset.name,
       quantity: removed.quantity,
       data: removed.data,
     };
+    const listingAsset = listingAssetSnapshot(restoreAsset);
 
     try {
       return await api.createMarketListing({
         id: listingId,
-        asset,
+        asset: listingAsset,
         unit_price: Math.max(1, Math.floor(Number(selection.unitPrice) || 0)),
         duration_hours: durationHours,
       });
@@ -506,7 +521,7 @@ export function createMarketService({ host, api }) {
 
       try {
         await mutateLatest(host, next => {
-          addAsset(next.stat_data, asset);
+          addAsset(next.stat_data, restoreAsset);
           restoreFormActivation(next.stat_data, activeFormSnapshot);
           next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + listingFee;
         });

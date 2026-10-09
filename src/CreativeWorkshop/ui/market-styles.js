@@ -95,6 +95,34 @@ export const MARKET_CSS = `
 .rw-ah-data-list{display:flex;gap:4px;flex-wrap:wrap;min-width:0}
 .rw-ah-data-chip{padding:2px 5px;border:1px solid rgba(255,255,255,.075);border-radius:999px;background:rgba(255,255,255,.025);font-size:9px;color:#b7c0cb}
 .rw-ah-section-label{margin-bottom:5px;color:#7c8795;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+
+.rw-ah-teammate-detail{display:flex;flex-direction:column;gap:9px}
+.rw-ah-teammate-card{overflow:hidden;border:1px solid var(--ah-line);border-radius:8px;background:rgba(255,255,255,.018)}
+.rw-ah-teammate-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.018)}
+.rw-ah-teammate-card-head>strong,.rw-ah-teammate-card-title{font-size:11px;font-weight:800;color:#d7dde5}
+.rw-ah-teammate-card-title{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.018)}
+.rw-ah-teammate-active-form{max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;color:#c7a75e}
+.rw-ah-teammate-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:rgba(255,255,255,.045)}
+.rw-ah-teammate-overview-cell{display:flex;flex-direction:column;gap:2px;padding:8px 10px;background:#0e1013}
+.rw-ah-teammate-overview-cell span{font-size:9px;color:#778391}
+.rw-ah-teammate-overview-cell strong{font-size:12px;color:#dbe1e8}
+.rw-ah-teammate-meta-row,.rw-ah-teammate-build-row,.rw-ah-teammate-profile-row{display:grid;grid-template-columns:56px minmax(0,1fr);gap:8px;align-items:start;padding:8px 10px;border-top:1px solid rgba(255,255,255,.04)}
+.rw-ah-teammate-overview+.rw-ah-teammate-meta-row{border-top:0}
+.rw-ah-teammate-meta-label{padding-top:2px;font-size:9px;font-weight:700;color:#75808e}
+.rw-ah-teammate-chips{display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.rw-ah-teammate-chip{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:3px 6px;border:1px solid rgba(255,255,255,.08);border-radius:5px;background:rgba(255,255,255,.025)}
+.rw-ah-teammate-chip strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:#cbd2db}
+.rw-ah-teammate-chip small{font-size:9px;color:#9d90d0}
+.rw-ah-teammate-chip em{font-style:normal;font-size:9px;color:#8b95a2}
+.rw-ah-teammate-build-list,.rw-ah-teammate-profile{display:flex;flex-direction:column}
+.rw-ah-teammate-build-row:first-child,.rw-ah-teammate-profile-row:first-child{border-top:0}
+.rw-ah-teammate-profile-row p{margin:0;font-size:10px;line-height:1.55;color:#bcc5cf;white-space:pre-wrap;word-break:break-word}
+.rw-ah-teammate-relation-card{border-color:rgba(215,170,74,.2);background:rgba(215,170,74,.025)}
+.rw-ah-teammate-relation{display:flex;flex-direction:column}
+.rw-ah-teammate-relation-row{display:grid;grid-template-columns:56px minmax(0,1fr);gap:8px;padding:8px 10px;border-top:1px solid rgba(255,255,255,.04)}
+.rw-ah-teammate-relation-row:first-child{border-top:0}
+.rw-ah-teammate-relation-row span{font-size:9px;color:#8c8068}
+.rw-ah-teammate-relation-row strong{font-size:10px;line-height:1.55;color:#ddc58f;word-break:break-word}
 .rw-ah-ladder{padding:8px;border:1px solid var(--ah-line);border-radius:7px;background:rgba(0,0,0,.12)}
 .rw-ah-ladder-row{display:flex;justify-content:space-between;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,.04);font-size:11px}
 .rw-ah-ladder-row:last-child{border-bottom:0}
@@ -196,6 +224,7 @@ export const MARKET_CSS = `
   .rw-ah-sell-form{grid-template-columns:1fr}
   .rw-ah-listing-fee,.rw-ah-sell-total,.rw-ah-sell-form>.rw-button{grid-column:1}
   .rw-ah-buyback-box{align-items:stretch;flex-direction:column}
+  .rw-ah-teammate-meta-row,.rw-ah-teammate-build-row,.rw-ah-teammate-profile-row,.rw-ah-teammate-relation-row{grid-template-columns:50px minmax(0,1fr)}
   .rw-ah-transaction-row{align-items:flex-start;flex-direction:column}
 }
 `;

@@ -309,17 +309,28 @@ export async function listMarketCatalog(request, env) {
      GROUP BY asset_kind`,
   );
   const counts = Object.fromEntries(countRows.map(row => [String(row.asset_kind), integer(row.count)]));
+  const facetClauses = ['total_stock > 0'];
+  const facetArgs = [];
+  if (params.kind) {
+    facetClauses.push('asset_kind = ?');
+    facetArgs.push(params.kind);
+  }
+  const facetWhere = facetClauses.join(' AND ');
   const qualityRows = await all(
     env,
     `SELECT quality, SUM(listing_count) AS count
-     FROM market_catalog WHERE total_stock > 0 AND quality <> ''
+     FROM market_catalog
+     WHERE ${facetWhere} AND quality <> ''
      GROUP BY quality`,
+    facetArgs,
   );
   const subtypeRows = await all(
     env,
     `SELECT subtype, SUM(listing_count) AS count
-     FROM market_catalog WHERE total_stock > 0 AND subtype <> ''
+     FROM market_catalog
+     WHERE ${facetWhere} AND subtype <> ''
      GROUP BY subtype ORDER BY count DESC LIMIT 40`,
+    facetArgs,
   );
 
   return json({

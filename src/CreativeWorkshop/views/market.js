@@ -46,7 +46,6 @@ export function createMarketView({
   nodes, element, button, empty, notifyError, confirmDialog,
   host, marketService, getAuth,
 }) {
-  let listings = [];
   let catalogItems = [];
   let catalogCounts = {};
   let catalogNextOffset = null;

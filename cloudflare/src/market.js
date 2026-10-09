@@ -250,6 +250,166 @@ async function first(env, sql, args = []) {
   return env.DB.prepare(sql).bind(...args).first();
 }
 
+async function ensureSyntheticUser(env, { discordId, username, displayName }) {
+  const now = nowMs();
+  await env.DB.prepare(
+    `INSERT INTO users
+      (discord_id, username, display_name, avatar, is_admin, is_moderator, is_banned, ban_reason, created_at, updated_at)
+     VALUES (?, ?, ?, NULL, 0, 0, 0, '', ?, ?)
+     ON CONFLICT(discord_id) DO UPDATE SET
+       username = excluded.username,
+       display_name = excluded.display_name,
+       updated_at = excluded.updated_at`,
+  ).bind(discordId, username, displayName, now, now).run();
+
+  return first(env, 'SELECT id FROM users WHERE discord_id = ? LIMIT 1', [discordId]);
+}
+
+async function ensureSystemCredentialListings(env) {
+  const channel = String(env.CLIENT_UPDATE_CHANNEL || '').trim().toLowerCase();
+  if (channel !== 'testing') return;
+
+  const seller = await ensureSyntheticUser(env, {
+    discordId: SYSTEM_VENDOR_DISCORD_ID,
+    username: SYSTEM_VENDOR_USERNAME,
+    displayName: SYSTEM_VENDOR_DISPLAY_NAME,
+  });
+  if (!seller?.id) return;
+
+  const now = nowMs();
+  const day = marketDayKey(now);
+  for (const spec of marketCredentialSpecs()) {
+    const existing = await first(env, 'SELECT id, restock_day FROM market_listings WHERE id = ? LIMIT 1', [spec.id]);
+    const data = {
+      名称: spec.name,
+      品质: spec.quality,
+      类型: '权限凭证',
+      数量: spec.quantity,
+      标签: ['主神空间', '系统商品', '权限凭证'],
+      系统商品: 'permission_credential',
+      凭证品质: spec.quality,
+      描述: '悖论公证所系统柜台每日限量补货。',
+    };
+    if (!existing) {
+      await env.DB.prepare(
+        `INSERT INTO market_listings
+          (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+           total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
+           listing_fee, is_system, restock_day, created_at, updated_at)
+         VALUES (?, ?, 'item', ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, ?, ?, ?)`,
+      ).bind(
+        spec.id,
+        seller.id,
+        spec.name,
+        JSON.stringify(data),
+        spec.unit_price,
+        spec.quantity,
+        spec.quantity,
+        day,
+        now,
+        now,
+      ).run();
+      continue;
+    }
+
+    if (String(existing.restock_day || '') !== day) {
+      await env.DB.prepare(
+        `UPDATE market_listings
+         SET seller_user_id = ?,
+             asset_name = ?,
+             asset_json = ?,
+             unit_price = ?,
+             total_quantity = ?,
+             remaining_quantity = ?,
+             status = 'active',
+             duration_hours = 0,
+             expires_at = 0,
+             recycle_at = 0,
+             listing_fee = 0,
+             is_system = 1,
+             restock_day = ?,
+             updated_at = ?
+         WHERE id = ?`,
+      ).bind(
+        seller.id,
+        spec.name,
+        JSON.stringify(data),
+        spec.unit_price,
+        spec.quantity,
+        spec.quantity,
+        day,
+        now,
+        spec.id,
+      ).run();
+    }
+  }
+}
+
+export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
+  const now = nowMs();
+  const rows = await all(
+    env,
+    `SELECT *
+     FROM market_listings
+     WHERE is_system = 0
+       AND status = 'active'
+       AND remaining_quantity > 0
+       AND recycle_at > 0
+       AND recycle_at <= ?
+     ORDER BY recycle_at ASC
+     LIMIT ?`,
+    [now, Math.max(1, Math.min(500, integer(limit, 100)))],
+  );
+
+  for (const row of rows) {
+    const asset = parseAsset(row.asset_kind, row.asset_name, row.asset_json, row.remaining_quantity);
+    const quote = marketBuybackQuote(asset, row.remaining_quantity);
+    const recycleId = `recycle:${row.id}`;
+    await runBatch(env, [
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO market_recycles
+          (id, listing_id, user_id, asset_kind, asset_name, asset_json, quantity, amount, credited_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+      ).bind(
+        recycleId,
+        row.id,
+        row.seller_user_id,
+        row.asset_kind,
+        row.asset_name,
+        row.asset_json,
+        row.remaining_quantity,
+        quote.total_price,
+        now,
+      ),
+      env.DB.prepare(
+        `INSERT INTO market_wallets (user_id, balance, updated_at)
+         SELECT user_id, amount, ?
+         FROM market_recycles
+         WHERE listing_id = ? AND credited_at IS NULL
+         ON CONFLICT(user_id) DO UPDATE SET
+           balance = market_wallets.balance + excluded.balance,
+           updated_at = excluded.updated_at`,
+      ).bind(now, row.id),
+      env.DB.prepare(
+        `UPDATE market_recycles
+         SET credited_at = COALESCE(credited_at, ?)
+         WHERE listing_id = ?`,
+      ).bind(now, row.id),
+      env.DB.prepare(
+        `UPDATE market_listings
+         SET status = 'cancelled', remaining_quantity = 0, updated_at = ?
+         WHERE id = ?
+           AND EXISTS (
+             SELECT 1 FROM market_recycles
+             WHERE listing_id = ? AND credited_at IS NOT NULL
+           )`,
+      ).bind(now, row.id, row.id),
+    ]);
+  }
+
+  return { processed: rows.length };
+}
+
 async function ensureTestingMarketFixtures(env) {
   const channel = String(env.CLIENT_UPDATE_CHANNEL || '').trim().toLowerCase();
   if (channel !== 'testing') return;
@@ -282,8 +442,9 @@ async function ensureTestingMarketFixtures(env) {
     await env.DB.prepare(
       `INSERT OR IGNORE INTO market_listings
         (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
-         total_quantity, remaining_quantity, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`,
+         total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
+         listing_fee, is_system, restock_day, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, '', ?, ?)`,
     ).bind(
       fixture.id,
       seller.id,

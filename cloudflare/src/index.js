@@ -2,8 +2,9 @@ import { HttpError, json, withCors } from './http.js';
 import { guardRequest } from './middleware/request-guard.js';
 import { routeRequest } from './router.js';
 import { settleExpiredMarketListings } from './market.js';
+import { settleExpiredMarketOrders } from './market-orders.js';
 
-export const SERVICE_VERSION = '0.13.7';
+export const SERVICE_VERSION = '0.13.8';
 
 export async function handleRequest(request, env) {
   if (request.method === 'OPTIONS') {
@@ -15,7 +16,11 @@ export async function handleRequest(request, env) {
     return withCors(await routeRequest(request, env, SERVICE_VERSION), request);
   } catch (error) {
     if (error instanceof HttpError) {
-      return withCors(json({ error: error.message, code: error.code }, error.status), request);
+      return withCors(json({
+        error: error.message,
+        code: error.code,
+        ...(error.details ? { details: error.details } : {}),
+      }, error.status), request);
     }
     console.error('[workshop] unhandled error:', error);
     return withCors(json({ error: '服务器内部错误', code: 'internal_error' }, 500), request);
@@ -29,7 +34,10 @@ export default {
   scheduled(controller, env, ctx) {
     void controller;
     if (String(env.CLIENT_UPDATE_CHANNEL || '').trim().toLowerCase() !== 'testing') return;
-    const task = settleExpiredMarketListings(env, { limit: 500 });
+    const task = Promise.all([
+      settleExpiredMarketListings(env, { limit: 500 }),
+      settleExpiredMarketOrders(env, { limit: 500 }),
+    ]);
     if (ctx?.waitUntil) ctx.waitUntil(task);
     return task;
   },

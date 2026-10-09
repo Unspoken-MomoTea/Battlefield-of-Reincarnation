@@ -6,7 +6,9 @@ import {
   filterMarketRows,
   marketAssetDetailEntries,
   marketAssetFieldDisplay,
+  marketInventoryMatchesWanted,
   marketPriceLadder,
+  marketRowFromCatalogDetail,
   marketTeammateDetailModel,
   planMarketPurchase,
 } from '../views/market-model.js';
@@ -229,4 +231,63 @@ test('generic market detail also hides hp ep thp and final attribute caches', ()
     ['层级', 'Ⅰ'],
     ['描述', '保留信息'],
   ]);
+});
+
+
+test('server catalog detail becomes a purchase row without downloading the whole market', () => {
+  const row = marketRowFromCatalogDetail({
+    catalog: {
+      key: 'catalog:item:test',
+      kind: 'item',
+      name: '治疗药剂',
+      total_stock: 8,
+      lowest_price: 25,
+      seller_count: 3,
+      asset: { kind: 'item', name: '治疗药剂', quantity: 8, data: { 品质: 'F', 类型: '消耗品' } },
+    },
+    listings: [
+      { id: 'mine', unit_price: 20, remaining_quantity: 2, seller: { id: 7 } },
+      { id: 'cheap', unit_price: 25, remaining_quantity: 3, seller: { id: 8 } },
+      { id: 'next', unit_price: 30, remaining_quantity: 3, seller: { id: 9 } },
+    ],
+  }, 7);
+
+  assert.equal(row.key, 'catalog:item:test');
+  assert.equal(row.buyableStock, 6);
+  assert.equal(row.buyPrice, 25);
+  assert.equal(row.ownedOnly, false);
+  const plan = planMarketPurchase(row, 4, 7);
+  assert.equal(plan.total, 105);
+  assert.deepEqual(plan.lines.map(line => [line.listing.id, line.quantity]), [
+    ['cheap', 3],
+    ['next', 1],
+  ]);
+});
+
+test('order matching respects logical kind, exact name, rank quality and subtype', () => {
+  const assets = [
+    { kind: 'item', name: '灵药', quality: 'E', data: { 品质: 'E', 类型: '消耗品' } },
+    { kind: 'item', name: '灵药', quality: 'D', data: { 品质: 'D', 类型: '消耗品' } },
+    { kind: 'teammate', name: '灵药', quality: 'E', data: { 层级: 'Ⅱ' } },
+    { kind: 'form', name: '月影', quality: 'Ⅱ', data: { 层级: 'Ⅱ', 类型: '战斗形态' } },
+  ];
+
+  assert.deepEqual(
+    marketInventoryMatchesWanted(assets, {
+      kind: 'item',
+      name: '灵药',
+      quality: 'E',
+      subtype: '消耗品',
+    }).map(asset => asset.quality),
+    ['E'],
+  );
+  assert.deepEqual(
+    marketInventoryMatchesWanted(assets, {
+      kind: 'form',
+      name: '月影',
+      quality: 'E',
+      subtype: '战斗形态',
+    }).map(asset => asset.name),
+    ['月影'],
+  );
 });

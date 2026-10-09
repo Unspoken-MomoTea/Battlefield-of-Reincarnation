@@ -792,9 +792,10 @@ export function createMarketService({ host, api }) {
       next.stat_data.角色.空间币 = current - total;
     });
 
+    let result;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.createMarketBuyOrder({
+      result = await api.createMarketBuyOrder({
         id,
         kind,
         name,
@@ -805,14 +806,19 @@ export function createMarketService({ host, api }) {
         duration_hours: durationHours,
       });
     } catch (error) {
-      let recovered = null;
-      try { recovered = await api.getMarketBuyOrder(id); } catch {}
-      if (recovered?.order) return recovered;
-      await mutateBound(next => {
-        next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
-      });
-      throw error;
+      try { result = await api.getMarketBuyOrder(id); } catch {}
+      if (!result?.order) {
+        await mutateBound(next => {
+          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
+        });
+        throw error;
+      }
     }
+    await broadcast(snapshot.saveId, 'order:' + id,
+      '[空间集市发布求购][角色] 求购' + (MARKET_KIND_LABELS[kind] || '资产')
+      + '「' + String(name || '') + '」×' + resolvedQuantity
+      + '｜托管 ' + coin(total) + '｜余额 ' + coin(readLatest(host).data.stat_data.角色.空间币));
+    return result;
   }
 
   async function fillBuyOrder(order, selection) {
@@ -844,28 +850,40 @@ export function createMarketService({ host, api }) {
       removeAsset(next.stat_data, { ...selection, quantity: requested });
     });
 
+    let result;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.fillMarketBuyOrder(order.id, {
+      result = await api.fillMarketBuyOrder(order.id, {
         fill_id: fillId,
         asset: assetPayload(outgoing, requested),
       });
     } catch (error) {
       const state = await api.getMarketMe().catch(() => null);
       const recovered = state?.order_fills?.find(item => item.id === fillId);
-      if (recovered) return { fill: recovered };
-      await mutateBound(next => {
-        addAsset(next.stat_data, original);
-        restoreFormActivation(next.stat_data, activeFormSnapshot);
-      });
-      throw error;
+      if (recovered) result = { fill: recovered };
+      if (!result) {
+        await mutateBound(next => {
+          addAsset(next.stat_data, original);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
+        });
+        throw error;
+      }
     }
+    await broadcast(snapshot.saveId, 'fill:' + fillId,
+      '[空间集市完成求购][角色] 出售' + receiptAsset(original, requested)
+      + '｜成交额 ' + coin(result?.fill?.total_price || Number(order.unit_price || 0) * requested)
+      + '｜货款待领取');
+    return result;
   }
 
   async function cancelBuyOrder(orderId) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
     const result = await api.cancelMarketBuyOrder(orderId);
+    if (result?.order?.status === 'cancelled') {
+      await broadcast(snapshot.saveId, 'order-cancel:' + orderId,
+        '[空间集市取消求购][角色] 求购单已取消｜未成交托管空间币退回待领取');
+    }
     if (result?.payout) await receivePayout(result.payout);
     return result;
   }

@@ -9,7 +9,7 @@ test('client latest endpoint serves cached component metadata', async () => {
     CLIENT_UPDATE_REF: 'workshop-stable',
     SESSION_KV: {
       get: async (key, type) => {
-        assert.equal(key, 'public:core-component:v3:workshop:stable:workshop-stable');
+        assert.equal(key, 'public:core-component:v4:workshop:stable:workshop-stable');
         assert.equal(type, 'json');
         return {
           component: 'workshop',
@@ -180,7 +180,7 @@ test('opening latest redirects to an immutable main sha with no-cache headers', 
     assert.equal(response.headers.get('x-opening-ref'), 'main');
     assert.equal(response.headers.get('x-opening-sha'), sha);
     assert.equal(writes.length, 1);
-    assert.equal(writes[0].key, 'public:core-component:last-known:v1:opening:testing:main');
+    assert.equal(writes[0].key, 'public:core-component:last-known:v2:opening:testing:main');
     assert.equal(writes[0].options, undefined);
   } finally {
     globalThis.fetch = originalFetch;
@@ -432,7 +432,7 @@ test('opening component uses persistent last-known metadata when upstream resolu
         OPENING_UPDATE_REF: 'main',
         SESSION_KV: {
           get: async key => {
-            if (key === 'public:core-component:last-known:v1:opening:testing:main') {
+            if (key === 'public:core-component:last-known:v2:opening:testing:main') {
               return {
                 component: 'opening',
                 channel: 'testing',

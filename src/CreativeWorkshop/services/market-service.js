@@ -507,16 +507,23 @@ export function createMarketService({ host, api }) {
     }, saveId);
   }
 
-  async function collectPendingSales(state) {
-    if (!Array.isArray(state?.pending_sale_broadcasts) || !state.pending_sale_broadcasts.length) return state;
-    const saveId = currentMarketSaveId(host);
-    for (const sale of state.pending_sale_broadcasts) {
+  async function collectPendingBroadcasts(state, saveId) {
+    for (const sale of state?.pending_sale_broadcasts || []) {
       if (!sale?.id) continue;
       await broadcast(saveId, 'sale:' + sale.id,
         '[空间集市成交][角色] ' + receiptAsset(sale.asset, sale.quantity)
         + ' 已被其他轮回者购买｜成交 ' + coin(sale.total_price)
         + '｜实收待领取 ' + coin(sale.seller_proceeds));
+      assertCurrentSave(host, saveId);
       await api.confirmMarketSaleBroadcast(sale.id);
+    }
+    for (const recycle of state?.pending_recycle_broadcasts || []) {
+      if (!recycle?.id) continue;
+      await broadcast(saveId, 'recycle:' + recycle.id,
+        '[空间集市到期回收][角色] ' + receiptAsset(recycle.asset, recycle.quantity)
+        + ' 已超过取回期限｜自动兑换 ' + coin(recycle.amount) + '｜货款待领取');
+      assertCurrentSave(host, saveId);
+      await api.confirmMarketRecycleBroadcast(recycle.id);
     }
     return state;
   }
@@ -617,8 +624,10 @@ export function createMarketService({ host, api }) {
   }
 
   async function mine() {
+    const saveId = currentMarketSaveId(host);
     const state = await api.getMarketMe();
-    return collectPendingSales(state);
+    assertCurrentSave(host, saveId);
+    return collectPendingBroadcasts(state, saveId);
   }
 
   async function sell(selection) {

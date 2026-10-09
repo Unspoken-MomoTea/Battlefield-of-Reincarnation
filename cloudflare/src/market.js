@@ -1209,8 +1209,8 @@ export async function getMarketMe(env, user) {
   const orderState = await getMarketOrderState(env, user);
   const activeCount = await first(env,
     `SELECT COUNT(*) AS count FROM market_listings
-     WHERE seller_user_id = ? AND save_id = ? AND is_system = 0 AND status = 'active'
-       AND remaining_quantity > 0 AND expires_at > ?`, [user.id, user.market_save_id, nowMs()]);
+     WHERE seller_user_id = ? AND is_system = 0 AND status = 'active'
+       AND remaining_quantity > 0 AND expires_at > ?`, [user.id, nowMs()]);
 
   return json({
     active_listing_count: integer(activeCount?.count),

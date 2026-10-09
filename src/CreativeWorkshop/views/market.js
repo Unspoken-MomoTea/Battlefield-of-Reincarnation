@@ -2,6 +2,7 @@ import { MARKET_KIND_LABELS } from '../services/market-service.js';
 import {
   buildMarketRows,
   filterMarketRows,
+  marketAssetFieldDisplay,
   marketPriceLadder,
   planMarketPurchase,
 } from './market-model.js';
@@ -17,10 +18,6 @@ const when = value => {
     ? date.toLocaleString('zh-CN', { hour12: false })
     : '—';
 };
-const summary = asset => String(
-  asset?.data?.描述 || asset?.data?.说明 || asset?.data?.简介 || '',
-).trim().slice(0, 180);
-
 export function createMarketView({
   nodes, element, button, empty, notifyError, confirmDialog,
   host, marketService, getAuth,
@@ -44,17 +41,6 @@ export function createMarketView({
   };
 
   const kindLabel = kind => MARKET_KIND_LABELS[kind] || '资产';
-
-  const assetFacts = asset => {
-    const data = asset?.data || {};
-    const facts = [
-      ['类型', kindLabel(asset?.kind)],
-      ['品质 / 层级', quality(asset) || '未标注'],
-    ];
-    if (data.类型 !== undefined && data.类型 !== '') facts.push(['子类型', String(data.类型)]);
-    if (data.消耗) facts.push(['消耗', String(data.消耗)]);
-    return facts;
-  };
 
   const dataValue = (value, depth = 0) => {
     if (value == null) return element('span', 'rw-ah-data-value muted', '—');
@@ -100,16 +86,6 @@ export function createMarketView({
 
   const assetDetail = asset => {
     const box = element('div', 'rw-ah-asset-detail');
-    const facts = element('div', 'rw-ah-fact-grid');
-    for (const [label, value] of assetFacts(asset)) {
-      const fact = element('div', 'rw-ah-fact');
-      fact.append(element('span', '', label), element('strong', '', value));
-      facts.append(fact);
-    }
-    box.append(facts);
-
-    const copy = summary(asset);
-    if (copy) box.append(element('p', 'rw-ah-description', copy));
 
     const dataSection = element('section', 'rw-ah-data-section');
     dataSection.append(element('div', 'rw-ah-section-label', '资产数据'));
@@ -120,7 +96,8 @@ export function createMarketView({
     } else {
       for (const [key, value] of entries) {
         const row = element('div', 'rw-ah-data-row');
-        row.append(element('span', 'rw-ah-data-key', key), dataValue(value));
+        const displayValue = marketAssetFieldDisplay(asset, key, value);
+        row.append(element('span', 'rw-ah-data-key', key), dataValue(displayValue));
         dataBody.append(row);
       }
     }
@@ -248,19 +225,6 @@ export function createMarketView({
       element('h3', '', marketRow.name),
     );
     wrap.append(head, assetDetail(marketRow.asset));
-
-    const marketStats = element('div', 'rw-ah-market-stats');
-    const statPairs = [
-      ['总库存', String(marketRow.totalStock || 0)],
-      ['卖家', String(marketRow.sellerCount || 0)],
-      ['最低可买价', coin(marketRow.buyPrice ?? marketRow.lowestPrice) + ' 空间币'],
-    ];
-    for (const [label, value] of statPairs) {
-      const cell = element('div');
-      cell.append(element('span', '', label), element('strong', '', value));
-      marketStats.append(cell);
-    }
-    wrap.append(marketStats);
 
     if (marketRow.kind === 'item') {
       const ladder = marketPriceLadder(marketRow, currentUserId());

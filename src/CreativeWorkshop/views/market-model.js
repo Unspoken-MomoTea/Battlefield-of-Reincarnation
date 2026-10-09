@@ -1,3 +1,29 @@
+const EQUIPMENT_TYPE_LABELS = ['武器', '手部', '头部', '胸部', '腿部', '鞋子', '披风', '饰品', '世界遗物'];
+const EQUIPMENT_STATUS_LABELS = ['未装备', '已装备', '仓库'];
+const SKILL_TYPE_LABELS = ['主动', '被动', '特殊'];
+
+export function marketAssetFieldDisplay(asset, key, value) {
+  const kind = String(asset?.kind || '');
+  if (key === '类型') {
+    const index = Number(value);
+    if (kind === 'equipment' && Number.isInteger(index) && EQUIPMENT_TYPE_LABELS[index]) {
+      return EQUIPMENT_TYPE_LABELS[index];
+    }
+    if (kind === 'skill' && Number.isInteger(index) && SKILL_TYPE_LABELS[index]) {
+      return SKILL_TYPE_LABELS[index];
+    }
+  }
+
+  if (key === '状态') {
+    const index = Number(value);
+    if ((kind === 'equipment' || kind === 'item') && Number.isInteger(index) && EQUIPMENT_STATUS_LABELS[index]) {
+      return EQUIPMENT_STATUS_LABELS[index];
+    }
+  }
+
+  return value;
+}
+
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (!value || typeof value !== 'object') return value;

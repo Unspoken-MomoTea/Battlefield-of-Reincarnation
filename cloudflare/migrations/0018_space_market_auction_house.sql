@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS market_purchases (
   catalog_key TEXT NOT NULL,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   total_price INTEGER NOT NULL CHECK (total_price > 0),
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'completed')),
   created_at INTEGER NOT NULL,
   FOREIGN KEY (buyer_user_id) REFERENCES users(id) ON DELETE CASCADE
 );

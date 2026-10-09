@@ -252,12 +252,13 @@ export function createMarketView({
   };
 
   async function setMode(mode) {
-    if (!['browse', 'sell', 'mine'].includes(mode)) return;
+    if (!['browse', 'sell', 'orders', 'mine'].includes(mode)) return;
     if (mode !== 'browse') requireLogin();
     currentMode = mode;
     setModeVisuals();
-    if (!listings.length) await refresh();
+    if (!catalogItems.length) await refresh();
     if (mode === 'sell') await renderSellMode();
+    if (mode === 'orders') await renderOrderMode();
     if (mode === 'mine') await renderMineMode();
     await refreshSummary();
   }

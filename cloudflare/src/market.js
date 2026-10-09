@@ -391,7 +391,7 @@ async function ensureSystemCredentialListings(env) {
              catalog_key = ?,
              quality = ?,
              subtype = ?
-         WHERE id = ?`,
+         WHERE id = ? AND restock_day <> ?`,
       ).bind(
         seller.id,
         spec.name,
@@ -405,6 +405,7 @@ async function ensureSystemCredentialListings(env) {
         meta.quality,
         meta.subtype,
         spec.id,
+        day,
       ).run();
       await refreshMarketCatalogKey(env, meta.catalog_key);
       continue;
@@ -620,10 +621,29 @@ async function getTradeRow(env, tradeId) {
   return first(env, `${TRADE_SELECT} WHERE t.id = ? LIMIT 1`, [tradeId]);
 }
 
+const marketFixtureReady = new WeakMap();
+
 export async function prepareMarketBrowse(env) {
   await settleExpiredMarketListings(env);
-  await ensureTestingMarketFixtures(env);
-  await ensureSystemCredentialListings(env);
+  const today = marketDayKey(nowMs());
+  const previous = marketFixtureReady.get(env.DB);
+  if (previous?.day === today) {
+    await previous.promise;
+  } else {
+    // Coalesce initial fixture and daily credential seeding on the same Worker DB
+    // binding. Ordinary browsing must not re-read every system listing.
+    const promise = (async () => {
+      await ensureTestingMarketFixtures(env);
+      await ensureSystemCredentialListings(env);
+    })();
+    marketFixtureReady.set(env.DB, { day: today, promise });
+    try {
+      await promise;
+    } catch (error) {
+      marketFixtureReady.delete(env.DB);
+      throw error;
+    }
+  }
   await refreshExpiredMarketCatalogs(env, { limit: 100 });
 }
 

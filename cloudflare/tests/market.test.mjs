@@ -166,7 +166,9 @@ test('testing market supports listing, idempotent purchase, delivery and seller 
     headers: sellerHeaders,
   });
   assert.equal(sellerMe.response.status, 200);
-  assert.equal(sellerMe.body.wallet.balance, 250);
+  assert.equal(sellerMe.body.wallet.balance, 242);
+  assert.equal(sellerMe.body.sales[0].market_fee, 8);
+  assert.equal(sellerMe.body.sales[0].seller_proceeds, 242);
   assert.equal(sellerMe.body.sales.length, 1);
 
   const buyerMe = await jsonRequest(testEnv, '/api/market/me', {
@@ -228,7 +230,7 @@ test('cancelling a listing creates a recoverable return and proceeds use pending
   let sellerMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerHeaders });
   assert.equal(sellerMe.body.pending_returns.length, 1);
   assert.equal(sellerMe.body.pending_returns[0].quantity, 3);
-  assert.equal(sellerMe.body.wallet.balance, 50);
+  assert.equal(sellerMe.body.wallet.balance, 48);
 
   const confirmedReturn = await jsonRequest(
     testEnv,
@@ -244,7 +246,7 @@ test('cancelling a listing creates a recoverable return and proceeds use pending
     body: JSON.stringify({ payout_id: 'payout-1' }),
   });
   assert.equal(payout.response.status, 200);
-  assert.equal(payout.body.payout.amount, 50);
+  assert.equal(payout.body.payout.amount, 48);
   assert.equal(payout.body.payout.confirmed_at, null);
 
   sellerMe = await jsonRequest(testEnv, '/api/market/me', { headers: sellerHeaders });
@@ -268,7 +270,8 @@ test('testing catalog auto-seeds virtual seller fixtures that a real user can pu
   const catalog = await jsonRequest(testEnv, '/api/market/listings?sort=price_asc');
   assert.equal(catalog.response.status, 200);
   assert.ok(catalog.body.items.length >= 5);
-  assert.ok(catalog.body.items.every(item => item.seller.display_name === '轮回集市测试员 · 虚拟账号'));
+  assert.ok(catalog.body.items.some(item => item.seller.display_name === '轮回集市测试员 · 虚拟账号'));
+  assert.ok(catalog.body.items.some(item => item.seller.display_name === '悖论公证所 · 系统柜台'));
 
   const potion = catalog.body.items.find(item => item.id === 'test-vendor:item:healing-potion');
   assert.ok(potion);
@@ -288,4 +291,147 @@ test('testing catalog auto-seeds virtual seller fixtures that a real user can pu
   const refreshed = await jsonRequest(testEnv, '/api/market/listings?sort=price_asc');
   const refreshedPotion = refreshed.body.items.find(item => item.id === 'test-vendor:item:healing-potion');
   assert.equal(refreshedPotion.remaining_quantity, 18);
+});
+
+
+test('auction quote uses quality floor, duration tax and direct equipment buyback floor', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, '600', 'Economy Seller');
+  const headers = authHeaders(testEnv, seller, 'economy-seller-token');
+
+  const auction = await jsonRequest(testEnv, '/api/market/quote', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      action: 'auction',
+      duration_hours: 72,
+      asset: {
+        kind: 'item',
+        name: 'E级材料',
+        quantity: 3,
+        data: { 名称: 'E级材料', 品质: 'E', 类型: '材料', 数量: 3 },
+      },
+    }),
+  });
+  assert.equal(auction.response.status, 200);
+  assert.equal(auction.body.quote.quality_floor, 100);
+  assert.equal(auction.body.quote.listing_fee, 27);
+
+  const buybackQuote = await jsonRequest(testEnv, '/api/market/quote', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      action: 'buyback',
+      asset: {
+        kind: 'equipment',
+        name: 'F级旧剑',
+        quantity: 1,
+        data: { 名称: 'F级旧剑', 品质: 'F', 类型: 0 },
+      },
+    }),
+  });
+  assert.equal(buybackQuote.response.status, 200);
+  assert.equal(buybackQuote.body.quote.unit_price, 3);
+  assert.equal(buybackQuote.body.quote.total_price, 3);
+
+  const buyback = await jsonRequest(testEnv, '/api/market/buybacks', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      id: 'buyback-economy-1',
+      asset: {
+        kind: 'equipment',
+        name: 'F级旧剑',
+        quantity: 1,
+        data: { 名称: 'F级旧剑', 品质: 'F', 类型: 0 },
+      },
+    }),
+  });
+  assert.equal(buyback.response.status, 201);
+  assert.equal(buyback.body.buyback.amount, 3);
+  assert.equal(buyback.body.payout.amount, 3);
+  assert.equal(buyback.body.payout.confirmed_at, null);
+});
+
+test('expired auction disappears, stays reclaimable for 72 hours, then server recycles it', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, '700', 'Expiry Seller');
+  const headers = authHeaders(testEnv, seller, 'expiry-seller-token');
+
+  const created = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      id: 'listing-expiry-1',
+      duration_hours: 24,
+      asset: {
+        kind: 'equipment',
+        name: 'D级旧甲',
+        quantity: 1,
+        data: { 名称: 'D级旧甲', 品质: 'D', 类型: 3 },
+      },
+      unit_price: 1500,
+    }),
+  });
+  assert.equal(created.response.status, 201);
+  assert.equal(created.body.listing.duration_hours, 24);
+  assert.equal(created.body.listing.listing_fee, 30);
+  assert.ok(created.body.listing.recycle_at > created.body.listing.expires_at);
+
+  const now = Date.now();
+  testEnv.DB.db.prepare(
+    'UPDATE market_listings SET expires_at = ?, recycle_at = ? WHERE id = ?',
+  ).run(now - 1000, now + 60_000, 'listing-expiry-1');
+
+  let catalog = await jsonRequest(testEnv, '/api/market/listings?sort=latest');
+  assert.equal(catalog.body.items.some(item => item.id === 'listing-expiry-1'), false);
+
+  let mine = await jsonRequest(testEnv, '/api/market/me', { headers });
+  const waiting = mine.body.listings.find(item => item.id === 'listing-expiry-1');
+  assert.equal(waiting.status, 'active');
+  assert.equal(waiting.expired, true);
+
+  testEnv.DB.db.prepare(
+    'UPDATE market_listings SET recycle_at = ? WHERE id = ?',
+  ).run(now - 1, 'listing-expiry-1');
+
+  mine = await jsonRequest(testEnv, '/api/market/me', { headers });
+  const recycled = mine.body.listings.find(item => item.id === 'listing-expiry-1');
+  assert.equal(recycled.status, 'cancelled');
+  assert.equal(recycled.remaining_quantity, 0);
+  assert.equal(mine.body.recycles.length, 1);
+  assert.equal(mine.body.recycles[0].amount, 250);
+  assert.equal(mine.body.wallet.balance, 250);
+});
+
+test('system credential listings restock daily and do not credit a synthetic seller wallet', async () => {
+  const testEnv = env();
+  const buyer = createUser(testEnv, '800', 'Credential Buyer');
+  const headers = authHeaders(testEnv, buyer, 'credential-buyer-token');
+
+  const catalog = await jsonRequest(testEnv, '/api/market/listings?kind=item&sort=price_asc');
+  const credential = catalog.body.items.find(item => item.id === 'system:credential:F');
+  assert.ok(credential);
+  assert.equal(credential.is_system, true);
+  assert.equal(credential.remaining_quantity, 30);
+  assert.equal(credential.unit_price, 10);
+  assert.equal(credential.asset.data.系统商品, 'permission_credential');
+
+  const purchase = await jsonRequest(testEnv, '/api/market/listings/system%3Acredential%3AF/buy', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ trade_id: 'trade-credential-1', quantity: 2 }),
+  });
+  assert.equal(purchase.response.status, 200);
+  assert.equal(purchase.body.trade.market_fee, 0);
+  assert.equal(purchase.body.trade.seller_proceeds, 0);
+  assert.equal(purchase.body.listing.remaining_quantity, 28);
+
+  const systemUser = testEnv.DB.db.prepare(
+    "SELECT id FROM users WHERE discord_id = '__market_system_vendor__'",
+  ).get();
+  const wallet = testEnv.DB.db.prepare(
+    'SELECT balance FROM market_wallets WHERE user_id = ?',
+  ).get(systemUser.id);
+  assert.equal(wallet, undefined);
 });

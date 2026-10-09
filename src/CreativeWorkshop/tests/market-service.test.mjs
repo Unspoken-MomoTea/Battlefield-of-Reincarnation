@@ -9,6 +9,7 @@ function clone(value) {
 
 function createHost(initialStatData) {
   let current = { stat_data: clone(initialStatData) };
+  let uuidSequence = 0;
   const events = [];
   const Mvu = {
     events: { VARIABLE_UPDATE_ENDED: 'VARIABLE_UPDATE_ENDED' },
@@ -22,7 +23,12 @@ function createHost(initialStatData) {
   return {
     Mvu,
     eventEmit(...args) { events.push(args); },
-    crypto: { randomUUID: () => '11111111-2222-4333-8444-555555555555' },
+    crypto: {
+      randomUUID: () => {
+        uuidSequence += 1;
+        return '11111111-2222-4333-8444-' + String(uuidSequence).padStart(12, '0');
+      },
+    },
     read() { return clone(current); },
     events,
   };
@@ -312,7 +318,7 @@ test('equipment can be removed locally, recycled by the system and paid out idem
     系统状态: { 是否在主神空间: true },
     角色: {
       空间币: 10,
-      装备: { 旧剑: { 名称: '旧剑', 品质: 'F', 类型: 0 } },
+      装备: { 旧剑: { 名称: '旧剑', 品质: 'F', 类型: 0, 状态: 0 } },
       道具: {},
       技能: {},
     },

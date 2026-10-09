@@ -1247,9 +1247,9 @@ test('different saves cannot take another save market inventory or earnings', as
   const seller = createUser(testEnv, '20320', 'Scoped Seller');
   const buyer = createUser(testEnv, '20321', 'Scoped Buyer');
   const sellerA = authHeaders(testEnv, seller, 'scope-seller', 'save:first-slot');
-  const sellerB = authHeaders(testEnv, seller, 'scope-seller', 'save:second-slot');
+  const sellerB = authHeaders(testEnv, seller, 'scope-seller-other', 'save:second-slot');
   const buyerA = authHeaders(testEnv, buyer, 'scope-buyer', 'save:buyer-slot');
-  const buyerB = authHeaders(testEnv, buyer, 'scope-buyer', 'save:other-slot');
+  const buyerB = authHeaders(testEnv, buyer, 'scope-buyer-other', 'save:other-slot');
   const created = await jsonRequest(testEnv, '/api/market/listings', {
     method: 'POST', headers: sellerA,
     body: JSON.stringify({

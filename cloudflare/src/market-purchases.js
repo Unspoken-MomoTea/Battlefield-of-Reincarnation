@@ -41,6 +41,7 @@ function purchaseFromRow(row) {
   if (!row) return null;
   return {
     id: row.id,
+    save_id: row.save_id || '',
     catalog_key: row.catalog_key,
     quantity: integer(row.quantity),
     total_price: integer(row.total_price),
@@ -53,6 +54,7 @@ function tradeFromRow(row) {
   if (!row) return null;
   return {
     id: row.id,
+    buyer_save_id: row.buyer_save_id || '',
     purchase_id: row.purchase_id || '',
     listing_id: row.listing_id,
     asset: {
@@ -244,8 +246,8 @@ export async function buyMarketCatalog(request, env, user, catalogKey) {
 
   const existing = await purchaseRows(env, purchaseId);
   if (existing) {
-    const row = await first(env, 'SELECT buyer_user_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId]);
-    if (Number(row?.buyer_user_id) !== Number(user.id)) {
+    const row = await first(env, 'SELECT buyer_user_id, save_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId]);
+    if (Number(row?.buyer_user_id) !== Number(user.id) || row?.save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_purchase_id_conflict', '购买ID已被占用');
     }
     if (existing.purchase.status === 'completed') return json(existing);
@@ -266,9 +268,9 @@ export async function buyMarketCatalog(request, env, user, catalogKey) {
   const statements = [
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_purchases
-        (id, buyer_user_id, catalog_key, quantity, total_price, status, created_at)
-       VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
-    ).bind(purchaseId, user.id, plan.catalog_key, plan.quantity, plan.total_price, now),
+        (id, buyer_user_id, save_id, catalog_key, quantity, total_price, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+    ).bind(purchaseId, user.id, user.market_save_id, plan.catalog_key, plan.quantity, plan.total_price, now),
   ];
 
   plan.lines.forEach((line, index) => {
@@ -277,10 +279,10 @@ export async function buyMarketCatalog(request, env, user, catalogKey) {
     statements.push(
       env.DB.prepare(
         `INSERT OR IGNORE INTO market_trades
-          (id, listing_id, seller_user_id, buyer_user_id, asset_kind, market_kind, asset_name,
+          (id, listing_id, seller_user_id, buyer_user_id, buyer_save_id, asset_kind, market_kind, asset_name,
            asset_json, quantity, unit_price, total_price, market_fee, seller_proceeds,
            purchase_id, delivered_at, created_at)
-         SELECT ?, l.id, l.seller_user_id, ?, l.asset_kind,
+         SELECT ?, l.id, l.seller_user_id, ?, ?, l.asset_kind,
                 COALESCE(NULLIF(l.market_kind, ''), l.asset_kind), l.asset_name, l.asset_json,
                 ?, l.unit_price, l.unit_price * ?, ?, ?, ?, NULL, ?
          FROM market_listings l
@@ -300,6 +302,7 @@ export async function buyMarketCatalog(request, env, user, catalogKey) {
       ).bind(
         tradeId,
         user.id,
+        user.market_save_id,
         line.quantity,
         line.quantity,
         line.market_fee,
@@ -369,16 +372,17 @@ export async function buyMarketCatalog(request, env, user, catalogKey) {
        WHERE id = ? AND buyer_user_id = ? AND status = 'pending'`,
     ).bind(purchaseId, user.id),
     env.DB.prepare(
-      `INSERT INTO market_wallets (user_id, balance, updated_at)
-       SELECT t.seller_user_id, SUM(t.seller_proceeds), ?
+      `INSERT INTO market_save_wallets (user_id, save_id, balance, updated_at)
+       SELECT t.seller_user_id, l.save_id, SUM(t.seller_proceeds), ?
        FROM market_trades t
        JOIN market_purchases p ON p.id = t.purchase_id
+       JOIN market_listings l ON l.id = t.listing_id
        WHERE t.purchase_id = ?
          AND p.status = 'completed'
          AND t.seller_proceeds > 0
-       GROUP BY t.seller_user_id
-       ON CONFLICT(user_id) DO UPDATE SET
-         balance = market_wallets.balance + excluded.balance,
+       GROUP BY t.seller_user_id, l.save_id
+       ON CONFLICT(user_id, save_id) DO UPDATE SET
+         balance = market_save_wallets.balance + excluded.balance,
          updated_at = excluded.updated_at`,
     ).bind(now, purchaseId),
   );
@@ -396,23 +400,25 @@ export async function buyMarketCatalog(request, env, user, catalogKey) {
   } catch (error) {
     const recovered = await purchaseRows(env, purchaseId);
     const recoveredOwner = recovered?.purchase
-      ? await first(env, 'SELECT buyer_user_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId])
+      ? await first(env, 'SELECT buyer_user_id, save_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId])
       : null;
     if (
       !recovered?.purchase
       || recovered.purchase.status !== 'completed'
       || Number(recoveredOwner?.buyer_user_id) !== Number(user.id)
+      || recoveredOwner?.save_id !== user.market_save_id
     ) throw error;
   }
 
   const result = await purchaseRows(env, purchaseId);
   const resultOwner = result?.purchase
-    ? await first(env, 'SELECT buyer_user_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId])
+    ? await first(env, 'SELECT buyer_user_id, save_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId])
     : null;
   if (
     !result?.purchase
     || result.purchase.status !== 'completed'
     || Number(resultOwner?.buyer_user_id) !== Number(user.id)
+    || resultOwner?.save_id !== user.market_save_id
   ) {
     const current = await planCatalogPurchase(env, user, catalogKey, requestedQuantity).catch(() => null);
     throw new HttpError(409, 'market_purchase_changed', '市场库存或价格刚刚发生变化，请重新确认', {
@@ -429,8 +435,8 @@ export async function buyMarketCatalog(request, env, user, catalogKey) {
 
 export async function getMarketPurchase(env, user, purchaseIdValue) {
   const purchaseId = marketId(purchaseIdValue, '购买ID');
-  const owner = await first(env, 'SELECT buyer_user_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId]);
-  if (!owner || Number(owner.buyer_user_id) !== Number(user.id)) {
+  const owner = await first(env, 'SELECT buyer_user_id, save_id FROM market_purchases WHERE id = ? LIMIT 1', [purchaseId]);
+  if (!owner || Number(owner.buyer_user_id) !== Number(user.id) || owner.save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_purchase_not_found', '购买记录不存在');
   }
   const result = await purchaseRows(env, purchaseId);

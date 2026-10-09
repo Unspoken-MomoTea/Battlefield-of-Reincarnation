@@ -292,17 +292,20 @@ async function ensureSystemCredentialListings(env) {
   const now = nowMs();
   const day = marketDayKey(now);
   for (const spec of marketCredentialSpecs()) {
-    const existing = await first(env, 'SELECT id, restock_day FROM market_listings WHERE id = ? LIMIT 1', [spec.id]);
+    const existing = await first(
+      env,
+      'SELECT id, restock_day, asset_json, unit_price FROM market_listings WHERE id = ? LIMIT 1',
+      [spec.id],
+    );
     const data = {
       名称: spec.name,
       品质: spec.quality,
       类型: '权限凭证',
       数量: spec.quantity,
-      标签: ['主神空间', '系统商品', '权限凭证'],
-      系统商品: 'permission_credential',
-      凭证品质: spec.quality,
+      标签: ['主神空间', '权限凭证'],
       描述: '悖论公证所系统柜台每日限量补货。',
     };
+    const assetJson = JSON.stringify(data);
     if (!existing) {
       await env.DB.prepare(
         `INSERT INTO market_listings
@@ -314,7 +317,7 @@ async function ensureSystemCredentialListings(env) {
         spec.id,
         seller.id,
         spec.name,
-        JSON.stringify(data),
+        assetJson,
         spec.unit_price,
         spec.quantity,
         spec.quantity,
@@ -346,7 +349,7 @@ async function ensureSystemCredentialListings(env) {
       ).bind(
         seller.id,
         spec.name,
-        JSON.stringify(data),
+        assetJson,
         spec.unit_price,
         spec.quantity,
         spec.quantity,
@@ -354,6 +357,15 @@ async function ensureSystemCredentialListings(env) {
         now,
         spec.id,
       ).run();
+      continue;
+    }
+
+    if (String(existing.asset_json || '') !== assetJson || integer(existing.unit_price) !== spec.unit_price) {
+      await env.DB.prepare(
+        `UPDATE market_listings
+         SET asset_name = ?, asset_json = ?, unit_price = ?, updated_at = ?
+         WHERE id = ?`,
+      ).bind(spec.name, assetJson, spec.unit_price, now, spec.id).run();
     }
   }
 }

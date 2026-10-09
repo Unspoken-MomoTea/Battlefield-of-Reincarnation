@@ -53,6 +53,12 @@ function readLatest(host) {
   return { ...runtime, data, saveId };
 }
 
+function assertCurrentSave(host, expectedSaveId) {
+  if (currentMarketSaveId(host) !== expectedSaveId) {
+    throw new Error('交易期间切换了存档，请返回原存档核对本次操作');
+  }
+}
+
 function assertHub(statData) {
   if (statData?.系统状态?.是否在主神空间 !== true) {
     throw new Error('空间集市只允许在主神空间执行上架、购买与领取操作');
@@ -598,6 +604,7 @@ export function createMarketService({ host, api }) {
     const listingAsset = listingAssetSnapshot(restoreAsset);
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.createMarketListing({
         id: listingId,
         asset: listingAsset,
@@ -659,6 +666,7 @@ export function createMarketService({ host, api }) {
 
     let result;
     try {
+      assertCurrentSave(host, snapshot.saveId);
       result = await api.createMarketBuyback({ id: buybackId, asset });
     } catch (error) {
       try {
@@ -708,6 +716,7 @@ export function createMarketService({ host, api }) {
     });
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.createMarketBuyOrder({
         id,
         kind,
@@ -759,6 +768,7 @@ export function createMarketService({ host, api }) {
     });
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.fillMarketBuyOrder(order.id, {
         fill_id: fillId,
         asset: assetPayload(outgoing, requested),
@@ -832,6 +842,7 @@ export function createMarketService({ host, api }) {
     });
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.createMarketSwap({
         id,
         offered: assetPayload(outgoing, offeredQuantity),
@@ -877,6 +888,7 @@ export function createMarketService({ host, api }) {
     });
 
     try {
+      assertCurrentSave(host, snapshot.saveId);
       return await api.acceptMarketSwap(swap.id, {
         asset: assetPayload(outgoing, requested),
       });
@@ -978,6 +990,7 @@ export function createMarketService({ host, api }) {
 
     let result;
     try {
+      assertCurrentSave(host, snapshot.saveId);
       result = await api.buyMarketCatalog(catalogKey, {
         purchase_id: purchaseId,
         quantity: quotedQuantity,
@@ -1026,6 +1039,7 @@ export function createMarketService({ host, api }) {
 
     let trade;
     try {
+      assertCurrentSave(host, snapshot.saveId);
       const result = await api.buyMarketListing(listing.id, {
         trade_id: tradeId,
         quantity: resolvedQuantity,
@@ -1101,6 +1115,7 @@ export function createMarketService({ host, api }) {
     const payoutId = randomId(host, 'payout');
     let payout;
     try {
+      assertCurrentSave(host, snapshot.saveId);
       payout = (await api.claimMarketPayout(payoutId))?.payout;
     } catch (error) {
       const state = await api.getMarketMe().catch(() => null);

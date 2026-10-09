@@ -1,14 +1,17 @@
 import {
   buyMarketListing,
   cancelMarketListing,
+  createMarketBuyback,
   claimMarketPayout,
   confirmMarketDelivery,
   confirmMarketPayout,
   confirmMarketReturn,
   createMarketListing,
+  getMarketBuyback,
   getMarketMe,
   getMarketTrade,
   listMarketListings,
+  quoteMarketAction,
 } from '../market.js';
 import { authenticatedUser } from './context.js';
 
@@ -36,6 +39,12 @@ export async function routeMarket(request, env, pathname) {
   if (request.method === 'POST' && pathname === '/api/market/listings') {
     return createMarketListing(request, env, await authenticatedUser(request, env));
   }
+  if (request.method === 'POST' && pathname === '/api/market/quote') {
+    return quoteMarketAction(request, env, await authenticatedUser(request, env));
+  }
+  if (request.method === 'POST' && pathname === '/api/market/buybacks') {
+    return createMarketBuyback(request, env, await authenticatedUser(request, env));
+  }
   if (request.method === 'GET' && pathname === '/api/market/me') {
     return getMarketMe(env, await authenticatedUser(request, env));
   }
@@ -51,6 +60,11 @@ export async function routeMarket(request, env, pathname) {
   const cancelId = entityId(pathname, 'listings', 'cancel');
   if (request.method === 'POST' && cancelId) {
     return cancelMarketListing(env, await authenticatedUser(request, env), cancelId);
+  }
+
+  const buybackId = entityId(pathname, 'buybacks');
+  if (request.method === 'GET' && buybackId) {
+    return getMarketBuyback(env, await authenticatedUser(request, env), buybackId);
   }
 
   const tradeId = entityId(pathname, 'trades');

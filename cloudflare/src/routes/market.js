@@ -5,6 +5,8 @@ import {
   createMarketBuyback,
   claimMarketPayout,
   confirmMarketDelivery,
+  confirmMarketSaleBroadcast,
+  confirmMarketRecycleBroadcast,
   confirmMarketPayout,
   confirmMarketReturn,
   createMarketListing,
@@ -183,6 +185,16 @@ export async function routeMarket(request, env, pathname) {
   const tradeId = entityId(pathname, 'trades');
   if (request.method === 'GET' && tradeId) {
     return getMarketTrade(env, await marketUser(request, env), tradeId);
+  }
+
+  const recycleBroadcastId = entityId(pathname, 'recycles', 'announced');
+  if (request.method === 'POST' && recycleBroadcastId) {
+    return confirmMarketRecycleBroadcast(env, await marketUser(request, env), recycleBroadcastId);
+  }
+
+  const announcedId = entityId(pathname, 'trades', 'announced');
+  if (request.method === 'POST' && announcedId) {
+    return confirmMarketSaleBroadcast(env, await marketUser(request, env), announcedId);
   }
 
   const deliveredId = entityId(pathname, 'trades', 'delivered');

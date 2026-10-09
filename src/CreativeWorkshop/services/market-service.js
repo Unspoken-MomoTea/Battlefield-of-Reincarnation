@@ -123,6 +123,37 @@ function ledgerBucket(data, key) {
   return root[key];
 }
 
+function receiptAsset(asset, quantity) {
+  const label = MARKET_KIND_LABELS[asset?.kind] || '资产';
+  const name = String(asset?.name || '未知资产').replace(/[\r\n]+/gu, ' ').trim();
+  return label + '「' + name + '」×' + Math.max(1, Number(quantity ?? asset?.quantity) || 1);
+}
+
+function coin(value) {
+  return Math.max(0, Math.floor(Number(value) || 0)) + '空间币';
+}
+
+// One-shot narrative notice, NOT a permanent trade history. The same server
+// receipt ID must never be appended twice during a delivery retry.
+export function appendMarketBroadcast(next, eventId, line) {
+  const id = String(eventId || '').trim();
+  const message = String(line || '').replace(/[\r\n]+/gu, ' ').trim();
+  if (!id || !message || !next?.stat_data) return false;
+  const events = ledgerBucket(next, 'broadcasts');
+  if (events[id]) return false;
+  const state = next.stat_data.系统状态 ||= {};
+  const previous = String(state.待播报记录 || '').trim();
+  state.待播报记录 = previous ? previous + '\n' + message : message;
+  events[id] = Date.now();
+  // Only replay keys are kept. Retain a bounded set, not a second history log.
+  const keys = Object.keys(events);
+  if (keys.length > 256) {
+    keys.sort((a, b) => Number(events[a] || 0) - Number(events[b] || 0));
+    for (const key of keys.slice(0, keys.length - 192)) delete events[key];
+  }
+  return true;
+}
+
 const pendingMvuMutations = new WeakMap();
 
 function mutateLatest(host, mutator, expectedSaveId = '') {
@@ -470,6 +501,42 @@ function collisionFor(statData, asset) {
 }
 
 export function createMarketService({ host, api }) {
+  async function broadcast(saveId, id, line) {
+    return mutateLatest(host, next => {
+      appendMarketBroadcast(next, id, line);
+    }, saveId);
+  }
+
+  async function collectPendingBroadcasts(state, saveId) {
+    const sales = (state?.pending_sale_broadcasts || []).filter(item => item?.id);
+    const recycles = (state?.pending_recycle_broadcasts || []).filter(item => item?.id);
+    if (!sales.length && !recycles.length) return state;
+    // One MVU write even when several offline sales are waiting. Never delay the
+    // market panel on the subsequent per-event server acknowledgements.
+    await mutateLatest(host, next => {
+      for (const sale of sales) {
+        appendMarketBroadcast(next, 'sale:' + sale.id,
+          '[空间集市成交][角色] ' + receiptAsset(sale.asset, sale.quantity)
+          + ' 已被其他轮回者购买｜成交 ' + coin(sale.total_price)
+          + '｜实收待领取 ' + coin(sale.seller_proceeds));
+      }
+      for (const recycle of recycles) {
+        appendMarketBroadcast(next, 'recycle:' + recycle.id,
+          '[空间集市到期回收][角色] ' + receiptAsset(recycle.asset, recycle.quantity)
+          + ' 已超过取回期限｜自动兑换 ' + coin(recycle.amount) + '｜货款待领取');
+      }
+    }, saveId);
+    assertCurrentSave(host, saveId);
+    const acknowledgements = [
+      ...sales.map(sale => api.confirmMarketSaleBroadcast(sale.id)),
+      ...recycles.map(recycle => api.confirmMarketRecycleBroadcast(recycle.id)),
+    ];
+    // A failed ACK is safe: the same receipt ID can be replayed next visit, and
+    // appendMarketBroadcast will not duplicate it.
+    void Promise.allSettled(acknowledgements);
+    return state;
+  }
+
   async function inventory() {
     return marketInventoryFromData(readLatest(host).data);
   }
@@ -566,7 +633,10 @@ export function createMarketService({ host, api }) {
   }
 
   async function mine() {
-    return api.getMarketMe();
+    const saveId = currentMarketSaveId(host);
+    const state = await api.getMarketMe();
+    assertCurrentSave(host, saveId);
+    return collectPendingBroadcasts(state, saveId);
   }
 
   async function sell(selection) {
@@ -617,9 +687,10 @@ export function createMarketService({ host, api }) {
     };
     const listingAsset = listingAssetSnapshot(restoreAsset);
 
+    let created;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.createMarketListing({
+      created = await api.createMarketListing({
         id: listingId,
         asset: listingAsset,
         unit_price: Math.max(1, Math.floor(Number(selection.unitPrice) || 0)),
@@ -629,22 +700,29 @@ export function createMarketService({ host, api }) {
       try {
         const state = await api.getMarketMe();
         const recovered = state?.listings?.find(item => item.id === listingId);
-        if (recovered) return { listing: recovered, quote };
+        if (recovered) created = { listing: recovered, quote };
       } catch {}
 
-      try {
-        await mutateBound(next => {
-          addAsset(next.stat_data, restoreAsset);
-          restoreFormActivation(next.stat_data, activeFormSnapshot);
-          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + listingFee;
-        });
-      } catch (restoreError) {
-        const combined = new Error(`上架请求失败，而且本地资产/上架税自动恢复也失败：${restoreError.message}`);
-        combined.cause = error;
-        throw combined;
+      if (!created) {
+        try {
+          await mutateBound(next => {
+            addAsset(next.stat_data, restoreAsset);
+            restoreFormActivation(next.stat_data, activeFormSnapshot);
+            next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + listingFee;
+          });
+        } catch (restoreError) {
+          const combined = new Error(`上架请求失败，而且本地资产/上架税自动恢复也失败：${restoreError.message}`);
+          combined.cause = error;
+          throw combined;
+        }
+        throw error;
       }
-      throw error;
     }
+    await broadcast(snapshot.saveId, 'list:' + listingId,
+      '[空间集市上架][角色] ' + receiptAsset(listingAsset, requestedQuantity)
+      + '｜一口价 ' + coin(selection.unitPrice) + '/件｜上架税 ' + coin(listingFee)
+      + '｜余额 ' + coin(readLatest(host).data.stat_data.角色.空间币));
+    return created;
   }
 
   async function sellToSystem(selection) {
@@ -696,6 +774,9 @@ export function createMarketService({ host, api }) {
       }
     }
 
+    await broadcast(snapshot.saveId, 'buyback:' + buybackId,
+      '[空间集市系统回收][角色] ' + receiptAsset(asset, requestedQuantity)
+      + '｜回收收入 ' + coin(result?.buyback?.amount ?? result?.payout?.amount));
     if (result?.payout) await receivePayout(result.payout);
     return result;
   }
@@ -729,9 +810,10 @@ export function createMarketService({ host, api }) {
       next.stat_data.角色.空间币 = current - total;
     });
 
+    let result;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.createMarketBuyOrder({
+      result = await api.createMarketBuyOrder({
         id,
         kind,
         name,
@@ -742,14 +824,19 @@ export function createMarketService({ host, api }) {
         duration_hours: durationHours,
       });
     } catch (error) {
-      let recovered = null;
-      try { recovered = await api.getMarketBuyOrder(id); } catch {}
-      if (recovered?.order) return recovered;
-      await mutateBound(next => {
-        next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
-      });
-      throw error;
+      try { result = await api.getMarketBuyOrder(id); } catch {}
+      if (!result?.order) {
+        await mutateBound(next => {
+          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
+        });
+        throw error;
+      }
     }
+    await broadcast(snapshot.saveId, 'order:' + id,
+      '[空间集市发布求购][角色] 求购' + (MARKET_KIND_LABELS[kind] || '资产')
+      + '「' + String(name || '') + '」×' + resolvedQuantity
+      + '｜托管 ' + coin(total) + '｜余额 ' + coin(readLatest(host).data.stat_data.角色.空间币));
+    return result;
   }
 
   async function fillBuyOrder(order, selection) {
@@ -781,28 +868,40 @@ export function createMarketService({ host, api }) {
       removeAsset(next.stat_data, { ...selection, quantity: requested });
     });
 
+    let result;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.fillMarketBuyOrder(order.id, {
+      result = await api.fillMarketBuyOrder(order.id, {
         fill_id: fillId,
         asset: assetPayload(outgoing, requested),
       });
     } catch (error) {
       const state = await api.getMarketMe().catch(() => null);
       const recovered = state?.order_fills?.find(item => item.id === fillId);
-      if (recovered) return { fill: recovered };
-      await mutateBound(next => {
-        addAsset(next.stat_data, original);
-        restoreFormActivation(next.stat_data, activeFormSnapshot);
-      });
-      throw error;
+      if (recovered) result = { fill: recovered };
+      if (!result) {
+        await mutateBound(next => {
+          addAsset(next.stat_data, original);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
+        });
+        throw error;
+      }
     }
+    await broadcast(snapshot.saveId, 'fill:' + fillId,
+      '[空间集市完成求购][角色] 出售' + receiptAsset(original, requested)
+      + '｜成交额 ' + coin(result?.fill?.total_price || Number(order.unit_price || 0) * requested)
+      + '｜货款待领取');
+    return result;
   }
 
   async function cancelBuyOrder(orderId) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
     const result = await api.cancelMarketBuyOrder(orderId);
+    if (result?.order?.status === 'cancelled') {
+      await broadcast(snapshot.saveId, 'order-cancel:' + orderId,
+        '[空间集市取消求购][角色] 求购单已取消｜未成交托管空间币退回待领取');
+    }
     if (result?.payout) await receivePayout(result.payout);
     return result;
   }
@@ -823,6 +922,9 @@ export function createMarketService({ host, api }) {
       }
       addAsset(next.stat_data, fill.asset);
       deliveries[fill.id] = Date.now();
+      appendMarketBroadcast(next, 'order-receive:' + fill.id,
+        '[空间集市求购到账][角色] 领取' + receiptAsset(fill.asset, fill.quantity)
+        + '｜原求购托管成交 ' + coin(fill.total_price));
     });
     await api.confirmMarketOrderDelivery(fill.id);
     return fill;
@@ -855,24 +957,29 @@ export function createMarketService({ host, api }) {
       removeAsset(next.stat_data, { ...offered, quantity: offeredQuantity });
     });
 
+    let result;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.createMarketSwap({
+      result = await api.createMarketSwap({
         id,
         offered: assetPayload(outgoing, offeredQuantity),
         wanted,
         duration_hours: durationHours,
       });
     } catch (error) {
-      let recovered = null;
-      try { recovered = await api.getMarketSwap(id); } catch {}
-      if (recovered?.swap) return recovered;
-      await mutateBound(next => {
-        addAsset(next.stat_data, original);
-        restoreFormActivation(next.stat_data, activeFormSnapshot);
-      });
-      throw error;
+      try { result = await api.getMarketSwap(id); } catch {}
+      if (!result?.swap) {
+        await mutateBound(next => {
+          addAsset(next.stat_data, original);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
+        });
+        throw error;
+      }
     }
+    await broadcast(snapshot.saveId, 'swap:' + id,
+      '[空间集市发布交换][角色] 提供' + receiptAsset(outgoing, offeredQuantity)
+      + '｜希望换取「' + String(wanted?.name || '资产') + '」×' + Number(wanted?.quantity || 1));
+    return result;
   }
 
   async function acceptSwap(swap, selection) {
@@ -901,27 +1008,39 @@ export function createMarketService({ host, api }) {
       removeAsset(next.stat_data, { ...selection, quantity: requested });
     });
 
+    let result;
     try {
       assertCurrentSave(host, snapshot.saveId);
-      return await api.acceptMarketSwap(swap.id, {
+      result = await api.acceptMarketSwap(swap.id, {
         asset: assetPayload(outgoing, requested),
       });
     } catch (error) {
       const state = await api.getMarketMe().catch(() => null);
       const recovered = state?.swaps?.find(item => item.id === swap.id && item.status === 'completed');
-      if (recovered) return { swap: recovered };
-      await mutateBound(next => {
-        addAsset(next.stat_data, original);
-        restoreFormActivation(next.stat_data, activeFormSnapshot);
-      });
-      throw error;
+      if (recovered) result = { swap: recovered };
+      if (!result) {
+        await mutateBound(next => {
+          addAsset(next.stat_data, original);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
+        });
+        throw error;
+      }
     }
+    await broadcast(snapshot.saveId, 'swap-accept:' + swap.id,
+      '[空间集市完成交换][角色] 交出' + receiptAsset(outgoing, requested)
+      + '｜换取「' + String(swap?.offered?.name || '资产') + '」待领取');
+    return result;
   }
 
   async function cancelSwap(swapId) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
-    return api.cancelMarketSwap(swapId);
+    const result = await api.cancelMarketSwap(swapId);
+    if (result?.swap?.status === 'cancelled') {
+      await broadcast(snapshot.saveId, 'swap-cancel:' + swapId,
+        '[空间集市取消交换][角色] 交换单已撤销｜待取回提供的资产');
+    }
+    return result;
   }
 
   async function receiveSwapTransfer(transfer) {
@@ -940,6 +1059,8 @@ export function createMarketService({ host, api }) {
       }
       addAsset(next.stat_data, transfer.asset);
       transfers[transfer.id] = Date.now();
+      appendMarketBroadcast(next, 'swap-receive:' + transfer.id,
+        '[空间集市交换领取][角色] 领取' + receiptAsset(transfer.asset, transfer.quantity));
     });
     await api.confirmMarketSwapTransfer(transfer.id);
     return transfer;
@@ -961,6 +1082,10 @@ export function createMarketService({ host, api }) {
       }
       addAsset(next.stat_data, trade.asset);
       deliveries[trade.id] = Date.now();
+      appendMarketBroadcast(next, 'purchase:' + trade.id,
+        '[空间集市买入][角色] 获得' + receiptAsset(trade.asset, trade.quantity)
+        + '｜支付 ' + coin(trade.total_price)
+        + '｜余额 ' + coin(next.stat_data.角色.空间币));
     });
     await api.confirmMarketDelivery(trade.id);
     return trade;
@@ -1080,6 +1205,10 @@ export function createMarketService({ host, api }) {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
     const result = await api.cancelMarketListing(listingId);
+    if (result?.listing?.status === 'cancelled' || result?.return) {
+      await broadcast(snapshot.saveId, 'listing-cancel:' + listingId,
+        '[空间集市撤回拍卖][角色] 挂单已取消或到期撤回｜未售出资产待取回');
+    }
     if (result?.return) await receiveReturn(result.return);
     return result;
   }
@@ -1100,6 +1229,8 @@ export function createMarketService({ host, api }) {
       }
       addAsset(next.stat_data, returnRecord.asset);
       returns[returnRecord.id] = Date.now();
+      appendMarketBroadcast(next, 'return:' + returnRecord.id,
+        '[空间集市取回资产][角色] ' + receiptAsset(returnRecord.asset, returnRecord.quantity));
     });
     await api.confirmMarketReturn(returnRecord.id);
     return returnRecord;
@@ -1118,6 +1249,9 @@ export function createMarketService({ host, api }) {
       if (payouts[payout.id]) return;
       next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + Number(payout.amount || 0);
       payouts[payout.id] = Date.now();
+      appendMarketBroadcast(next, 'payout:' + payout.id,
+        '[空间集市领取空间币][角色] 入账 ' + coin(payout.amount)
+        + '｜余额 ' + coin(next.stat_data.角色.空间币));
     });
     await api.confirmMarketPayout(payout.id);
     return payout;

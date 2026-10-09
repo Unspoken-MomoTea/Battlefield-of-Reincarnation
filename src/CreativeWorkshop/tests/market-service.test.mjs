@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createMarketService, marketInventoryFromData, marketItemStorageSlot } from '../services/market-service.js';
+import { createMarketService, marketInventoryFromData, marketItemStorageSlot, appendMarketBroadcast } from '../services/market-service.js';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -899,4 +899,112 @@ test('a receipt from another save is refused before local asset mutation', async
     /另一个存档/u,
   );
   assert.deepEqual(host.read().stat_data.角色.道具, {});
+});
+
+test('market notices append to existing narration receipts and do not replay duplicate operation IDs', () => {
+  const data = { stat_data: { 系统状态: { 待播报记录: '[主神商城] 已购买其他装备' } } };
+  assert.equal(appendMarketBroadcast(data, 'listing:a', '[空间集市上架][角色] 道具「药剂」×2'), true);
+  assert.equal(appendMarketBroadcast(data, 'listing:a', '[空间集市上架][角色] 道具「药剂」×2'), false);
+  assert.equal(appendMarketBroadcast(data, 'payout:a', '[空间集市领取空间币][角色] 入账 100空间币'), true);
+  assert.deepEqual(data.stat_data.系统状态.待播报记录.split('\n'), [
+    '[主神商城] 已购买其他装备',
+    '[空间集市上架][角色] 道具「药剂」×2',
+    '[空间集市领取空间币][角色] 入账 100空间币',
+  ]);
+});
+
+test('successful listings narrate once, while rejected listings never enter pending broadcasts', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true, 待播报记录: '原有叙事' },
+    角色: { 空间币: 100, 道具: { 药剂: { 名称: '药剂', 数量: 3, 品质: 'E' } } },
+  });
+  let reject = false;
+  const api = {
+    async quoteMarketAction() { return { quote: { listing_fee: 5 } }; },
+    async createMarketListing(input) {
+      if (reject) throw new Error('上架失败');
+      return { listing: { id: input.id, asset: input.asset } };
+    },
+    async getMarketMe() { return { listings: [] }; },
+  };
+  const market = createMarketService({ host, api });
+  await market.sell({ kind: 'item', key: '药剂', name: '药剂', quantity: 1, unitPrice: 50 });
+  let text = host.read().stat_data.系统状态.待播报记录;
+  assert.match(text, /原有叙事/u);
+  assert.match(text, /空间集市上架/u);
+  assert.match(text, /药剂/u);
+  assert.match(text, /上架税 5空间币/u);
+  reject = true;
+  await assert.rejects(market.sell({ kind: 'item', key: '药剂', quantity: 1, unitPrice: 40 }), /上架失败/u);
+  assert.equal(host.read().stat_data.系统状态.待播报记录, text);
+});
+
+test('asset deliveries and payouts narrate once, even when client retries the confirmation', async () => {
+  const host = createHost({
+    系统状态: { 是否在主神空间: true },
+    角色: { 空间币: 10, 道具: {} },
+  });
+  const api = {
+    async confirmMarketDelivery() { return {}; },
+    async confirmMarketPayout() { return {}; },
+    async confirmMarketReturn() { return {}; },
+    async confirmMarketOrderDelivery() { return {}; },
+    async confirmMarketSwapTransfer() { return {}; },
+  };
+  const market = createMarketService({ host, api });
+  const asset = { kind: 'item', name: '测试药剂', quantity: 2, data: { 名称: '测试药剂', 品质: 'E', 数量: 2 } };
+  const trade = { id: 'trade-repeat', asset, quantity: 2, total_price: 16 };
+  const payout = { id: 'payout-repeat', amount: 42 };
+  const refund = { id: 'return-repeat', asset: { ...asset, name: '测试材料', data: { ...asset.data, 名称: '测试材料' } } };
+  for (let i = 0; i < 2; i++) {
+    await market.deliverTrade(trade);
+    await market.receivePayout(payout);
+    await market.receiveReturn(refund);
+  }
+  assert.equal(host.read().stat_data.角色.空间币, 52);
+  assert.equal(host.read().stat_data.角色.道具.测试药剂.数量, 2);
+  const receipt = host.read().stat_data.系统状态.待播报记录;
+  assert.equal(receipt.split('\n').length, 3);
+  assert.match(receipt, /空间集市买入/u);
+  assert.match(receipt, /空间集市领取空间币/u);
+  assert.match(receipt, /空间集市取回资产/u);
+});
+
+test('offline seller sales and expired buybacks are read into the original save once', async () => {
+  const host = createHost({ 系统状态: { 是否在主神空间: true }, 角色: { 空间币: 0 } });
+  const confirmed = [];
+  const sale = {
+    id: 'sale-offline',
+    asset: { kind: 'item', name: '夜光粉', quantity: 1 },
+    quantity: 1, total_price: 200, seller_proceeds: 194,
+  };
+  const recycle = {
+    id: 'recycle-offline',
+    asset: { kind: 'item', name: '回收药剂', quantity: 2 },
+    quantity: 2, amount: 10,
+  };
+  const api = {
+    async getMarketMe() {
+      return { pending_sale_broadcasts: [sale], pending_recycle_broadcasts: [recycle] };
+    },
+    async confirmMarketSaleBroadcast(id) { confirmed.push('sale:' + id); },
+    async confirmMarketRecycleBroadcast(id) { confirmed.push('recycle:' + id); },
+  };
+  const market = createMarketService({ host, api });
+  await market.mine();
+  await market.mine();
+  const lines = host.read().stat_data.系统状态.待播报记录.split('\n');
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /空间集市成交/u);
+  assert.match(lines[1], /空间集市到期回收/u);
+  assert.deepEqual(confirmed, [
+    'sale:sale-offline', 'recycle:recycle-offline',
+    'sale:sale-offline', 'recycle:recycle-offline',
+  ]);
+  let resolve;
+  api.getMarketMe = () => new Promise(r => { resolve = r; });
+  const pending = market.mine();
+  host.setChatId('a-different-chat');
+  resolve({ pending_sale_broadcasts: [sale] });
+  await assert.rejects(pending, /切换了存档/u);
 });

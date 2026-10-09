@@ -94,10 +94,14 @@ export function createMarketBrowseStore({
   if (!marketService) throw new Error('marketService is required');
 
   let snapshot = null;
+  let generation = 0;
   const detailCache = new Map();
   const detailRequests = new Map();
 
   async function refresh() {
+    generation += 1;
+    detailCache.clear();
+    detailRequests.clear();
     const next = await marketService.catalogSnapshot();
     const items = Array.isArray(next?.items) ? next.items.slice() : [];
     snapshot = {
@@ -144,9 +148,12 @@ export function createMarketBrowseStore({
     }
     if (!force && detailRequests.has(key)) return detailRequests.get(key);
 
+    const requestGeneration = generation;
     const request = Promise.resolve(marketService.catalogDetail(key))
       .then(result => {
-        detailCache.set(key, { detail: result, loaded_at: now() });
+        if (requestGeneration === generation) {
+          detailCache.set(key, { detail: result, loaded_at: now() });
+        }
         return result;
       })
       .finally(() => {
@@ -158,6 +165,7 @@ export function createMarketBrowseStore({
 
   function invalidate({ details = true } = {}) {
     snapshot = null;
+    generation += 1;
     if (details) {
       detailCache.clear();
       detailRequests.clear();

@@ -8,6 +8,13 @@ import {
   marketRecycleAt,
   marketSaleSettlement,
 } from './market-economy.js';
+import { assertMarketActive } from './market-access.js';
+import {
+  marketCatalogMetadata,
+  marketPriceHistoryStatement,
+  refreshMarketCatalogKey,
+} from './market-catalog.js';
+import { getMarketOrderState, settleExpiredMarketOrders } from './market-orders.js';
 
 const MARKET_KINDS = new Set(['equipment', 'item', 'skill', 'bloodline', 'form', 'teammate']);
 const MARKET_ID_RE = /^[A-Za-z0-9:_-]{6,96}$/u;
@@ -189,6 +196,9 @@ function listingFromRow(row) {
     listing_fee: integer(row.listing_fee, 0),
     is_system: integer(row.is_system, 0) === 1,
     restock_day: row.restock_day || '',
+    catalog_key: row.catalog_key || '',
+    quality: row.quality || '',
+    subtype: row.subtype || '',
     expired: integer(row.is_system, 0) !== 1
       && integer(row.expires_at, 0) > 0
       && integer(row.expires_at, 0) <= nowMs(),
@@ -321,13 +331,19 @@ async function ensureSystemCredentialListings(env) {
       描述: '悖论公证所系统柜台每日限量补货。',
     };
     const assetJson = JSON.stringify(data);
+    const meta = marketCatalogMetadata({
+      kind: 'item',
+      name: spec.name,
+      quantity: spec.quantity,
+      data,
+    });
     if (!existing) {
       await env.DB.prepare(
         `INSERT INTO market_listings
-          (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+          (id, seller_user_id, asset_kind, market_kind, asset_name, asset_json, unit_price,
            total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
-           listing_fee, is_system, restock_day, created_at, updated_at)
-         VALUES (?, ?, 'item', ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, ?, ?, ?)`,
+           listing_fee, is_system, restock_day, created_at, updated_at, catalog_key, quality, subtype)
+         VALUES (?, ?, 'item', 'item', ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         spec.id,
         seller.id,
@@ -339,7 +355,11 @@ async function ensureSystemCredentialListings(env) {
         day,
         now,
         now,
+        meta.catalog_key,
+        meta.quality,
+        meta.subtype,
       ).run();
+      await refreshMarketCatalogKey(env, meta.catalog_key);
       continue;
     }
 
@@ -359,7 +379,10 @@ async function ensureSystemCredentialListings(env) {
              listing_fee = 0,
              is_system = 1,
              restock_day = ?,
-             updated_at = ?
+             updated_at = ?,
+             catalog_key = ?,
+             quality = ?,
+             subtype = ?
          WHERE id = ?`,
       ).bind(
         seller.id,
@@ -370,18 +393,27 @@ async function ensureSystemCredentialListings(env) {
         spec.quantity,
         day,
         now,
+        meta.catalog_key,
+        meta.quality,
+        meta.subtype,
         spec.id,
       ).run();
+      await refreshMarketCatalogKey(env, meta.catalog_key);
       continue;
     }
 
     if (String(existing.asset_json || '') !== assetJson || integer(existing.unit_price) !== spec.unit_price) {
       await env.DB.prepare(
         `UPDATE market_listings
-         SET asset_name = ?, asset_json = ?, unit_price = ?, updated_at = ?
+         SET asset_name = ?, asset_json = ?, unit_price = ?, updated_at = ?,
+             catalog_key = ?, quality = ?, subtype = ?
          WHERE id = ?`,
-      ).bind(spec.name, assetJson, spec.unit_price, now, spec.id).run();
+      ).bind(
+        spec.name, assetJson, spec.unit_price, now,
+        meta.catalog_key, meta.quality, meta.subtype, spec.id,
+      ).run();
     }
+    await refreshMarketCatalogKey(env, meta.catalog_key);
   }
 }
 
@@ -446,6 +478,7 @@ export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
            )`,
       ).bind(now, row.id, row.id),
     ]);
+    if (row.catalog_key) await refreshMarketCatalogKey(env, row.catalog_key);
   }
 
   return { processed: rows.length };
@@ -480,15 +513,22 @@ async function ensureTestingMarketFixtures(env) {
   if (!seller?.id) return;
 
   for (const fixture of TEST_VENDOR_FIXTURES) {
+    const fixtureMeta = marketCatalogMetadata({
+      kind: fixture.kind,
+      name: fixture.name,
+      quantity: fixture.quantity,
+      data: fixture.data,
+    });
     await env.DB.prepare(
       `INSERT OR IGNORE INTO market_listings
-        (id, seller_user_id, asset_kind, asset_name, asset_json, unit_price,
+        (id, seller_user_id, asset_kind, market_kind, asset_name, asset_json, unit_price,
          total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
-         listing_fee, is_system, restock_day, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, '', ?, ?)`,
+         listing_fee, is_system, restock_day, created_at, updated_at, catalog_key, quality, subtype)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, '', ?, ?, ?, ?, ?)`,
     ).bind(
       fixture.id,
       seller.id,
+      fixture.kind,
       fixture.kind,
       fixture.name,
       JSON.stringify(fixture.data),
@@ -497,6 +537,9 @@ async function ensureTestingMarketFixtures(env) {
       fixture.quantity,
       now,
       now,
+      fixtureMeta.catalog_key,
+      fixtureMeta.quality,
+      fixtureMeta.subtype,
     ).run();
     await env.DB.prepare(
       `UPDATE market_listings
@@ -505,9 +548,19 @@ async function ensureTestingMarketFixtures(env) {
            expires_at = 0,
            recycle_at = 0,
            listing_fee = 0,
+           catalog_key = ?,
+           quality = ?,
+           subtype = ?,
            updated_at = ?
        WHERE id = ?`,
-    ).bind(now, fixture.id).run();
+    ).bind(
+      fixtureMeta.catalog_key,
+      fixtureMeta.quality,
+      fixtureMeta.subtype,
+      now,
+      fixture.id,
+    ).run();
+    await refreshMarketCatalogKey(env, fixtureMeta.catalog_key);
   }
 }
 
@@ -623,6 +676,7 @@ export async function quoteMarketAction(request, env, user) {
 }
 
 export async function createMarketListing(request, env, user) {
+  await assertMarketActive(env, user);
   const body = await readJson(request, { maxBytes: 64 * 1024 });
   const id = marketId(body?.id, '挂单 ID');
   const unitPrice = positiveInteger(body?.unit_price, {
@@ -641,6 +695,7 @@ export async function createMarketListing(request, env, user) {
     throw new HttpError(400, 'market_invalid_duration', '拍卖时长只支持 24、48 或 72 小时');
   }
   const quote = marketAuctionQuote(asset, asset.quantity, durationHours);
+  const meta = marketCatalogMetadata(asset);
 
   const existing = await getListing(env, id);
   if (existing) {
@@ -657,8 +712,8 @@ export async function createMarketListing(request, env, user) {
     `INSERT INTO market_listings
       (id, seller_user_id, asset_kind, market_kind, asset_name, asset_json, unit_price,
        total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
-       listing_fee, is_system, restock_day, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?)`,
+       listing_fee, is_system, restock_day, created_at, updated_at, catalog_key, quality, subtype)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?, ?, ?, ?)`,
   ).bind(
     id,
     user.id,
@@ -675,8 +730,12 @@ export async function createMarketListing(request, env, user) {
     quote.listing_fee,
     now,
     now,
+    meta.catalog_key,
+    meta.quality,
+    meta.subtype,
   ).run();
 
+  await refreshMarketCatalogKey(env, meta.catalog_key);
   return json({ listing: await getListing(env, id), quote }, 201);
 }
 
@@ -694,6 +753,7 @@ function buybackFromRow(row) {
 }
 
 export async function createMarketBuyback(request, env, user) {
+  await assertMarketActive(env, user);
   const body = await readJson(request, { maxBytes: 64 * 1024 });
   const id = marketId(body?.id, '回收 ID');
   const asset = assetFromBody(body?.asset);
@@ -749,6 +809,7 @@ export async function getMarketBuyback(env, user, buybackIdValue) {
 }
 
 export async function buyMarketListing(request, env, user, listingIdValue) {
+  await assertMarketActive(env, user);
   await settleExpiredMarketListings(env);
   await ensureTestingMarketFixtures(env);
   await ensureSystemCredentialListings(env);
@@ -842,6 +903,14 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
          updated_at = excluded.updated_at`,
     ).bind(now, tradeId),
   ];
+  if (listing.catalog_key) {
+    statements.push(marketPriceHistoryStatement(env, {
+      catalogKey: listing.catalog_key,
+      unitPrice: listing.unit_price,
+      quantity,
+      now,
+    }));
+  }
 
   try {
     await runBatch(env, statements);
@@ -855,6 +924,7 @@ export async function buyMarketListing(request, env, user, listingIdValue) {
     throw new HttpError(409, 'market_listing_unavailable', '该挂单刚刚被其他玩家买走或数量不足');
   }
 
+  if (listing.catalog_key) await refreshMarketCatalogKey(env, listing.catalog_key);
   return json({
     trade: tradeFromRow(tradeRow),
     listing: await getListing(env, listingId),
@@ -938,6 +1008,7 @@ export async function cancelMarketListing(env, user, listingIdValue) {
     throw new HttpError(409, 'market_listing_not_cancellable', '挂单状态已经变化，请刷新后重试');
   }
 
+  if (listing.catalog_key) await refreshMarketCatalogKey(env, listing.catalog_key);
   return json({
     listing: await getListing(env, listingId),
     return: returnFromRow(returned),
@@ -1023,6 +1094,7 @@ export async function confirmMarketPayout(env, user, payoutIdValue) {
 
 export async function getMarketMe(env, user) {
   await settleExpiredMarketListings(env);
+  await settleExpiredMarketOrders(env);
   const wallet = await first(
     env,
     'SELECT balance, updated_at FROM market_wallets WHERE user_id = ? LIMIT 1',
@@ -1072,6 +1144,8 @@ export async function getMarketMe(env, user) {
     [user.id],
   );
 
+  const orderState = await getMarketOrderState(env, user);
+
   return json({
     wallet: {
       balance: integer(wallet?.balance, 0),
@@ -1085,5 +1159,6 @@ export async function getMarketMe(env, user) {
     pending_payouts: pendingPayouts.map(payoutFromRow),
     recycles: recycles.map(recycleFromRow),
     buybacks: buybacks.map(buybackFromRow),
+    ...orderState,
   });
 }

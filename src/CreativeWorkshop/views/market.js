@@ -505,33 +505,41 @@ export function createMarketView({
     const total = element('div', 'rw-ah-buy-total');
     const action = button('购买', 'primary', async () => {
       requireLogin();
-      const plan = purchaseSummary(detail, quantity.value);
-      if (!plan) throw new Error('可购买库存不足');
+      const max = Math.max(1, Number(quantity.max) || 1);
+      const requested = catalog.kind === 'item'
+        ? Math.max(1, Math.min(max, Math.floor(Number(quantity.value) || 1)))
+        : 1;
+      const quote = await marketService.quoteCatalogPurchase(catalog.key, requested);
+      if (!quote?.total_price) throw new Error('当前没有可购买库存');
+
       const local = await marketService.inventory();
-      if (Number(local.coin || 0) < plan.total) {
-        throw new Error('空间币不足：需要 ' + coin(plan.total) + '，当前只有 ' + coin(local.coin));
+      if (Number(local.coin || 0) < Number(quote.total_price)) {
+        throw new Error(
+          '空间币不足：需要 ' + coin(quote.total_price) + '，当前只有 ' + coin(local.coin),
+        );
       }
-      const breakdown = plan.lines.length > 1
-        ? '\n' + plan.lines.map(line => (
-            coin(line.listing.unit_price) + ' × ' + line.quantity + ' = ' + coin(line.subtotal)
+      const breakdown = (quote.levels || []).length > 1
+        ? '\n' + quote.levels.map(level => (
+            coin(level.price) + ' × ' + level.quantity
           )).join('\n')
         : '';
       const ok = await confirmDialog({
         title: '确认购买',
-        message: '购买“' + catalog.name + '” ×' + plan.quantity
-          + '，合计 ' + coin(plan.total) + ' 空间币？' + breakdown,
+        message: '购买“' + catalog.name + '” ×' + quote.quantity
+          + '，合计 ' + coin(quote.total_price) + ' 空间币？' + breakdown,
         confirmText: '确认购买',
       });
       if (!ok) return;
 
-      let completed = 0;
       try {
-        for (const line of plan.lines) {
-          await marketService.buy(line.listing, line.quantity);
-          completed += line.quantity;
-        }
+        await marketService.buyCatalog(catalog, quote.quantity, quote);
       } catch (error) {
-        if (['market_listing_unavailable', 'market_quantity_unavailable'].includes(error?.code)) {
+        if ([
+          'market_catalog_unavailable',
+          'market_quantity_unavailable',
+          'market_price_changed',
+          'market_purchase_changed',
+        ].includes(error?.code)) {
           catalogCache.clear();
           try {
             await loadCatalog({ force: true });
@@ -539,9 +547,7 @@ export function createMarketView({
           } catch {}
           try {
             host.toastr?.warning?.(
-              completed
-                ? '市场在购买过程中发生变化，已完成 ' + completed + ' 件，其余未扣款；列表已刷新。'
-                : '库存或价格刚刚发生变化，已刷新当前商品，请重新确认。',
+              '库存或价格刚刚发生变化，本次未扣款；列表已刷新，请重新确认。',
               '空间集市',
             );
           } catch {}
@@ -580,7 +586,7 @@ export function createMarketView({
         'small',
         'rw-ah-purchase-help',
         catalog.kind === 'item'
-          ? '按 WoW 商品撮合方式自动从最低价开始购买；同价挂单优先最新上架。'
+          ? '按 WoW 商品撮合方式由服务器一次性从最低价开始成交；确认前若价格或库存变化会整笔取消并刷新。'
           : '非堆叠资产购买当前最低价挂单。',
       ),
     );

@@ -16,7 +16,7 @@ import { bindWorkshopLauncher } from './launcher.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '2.0.36';
+export const WORKSHOP_VERSION = '2.0.37';
 
 const CURRENT_SHA = (() => {
   const match = String(import.meta.url).match(
@@ -57,6 +57,8 @@ export function bootWorkshop() {
   const marketEnabled = getUpdateChannel() === 'testing';
   const marketService = createMarketService({ host, api: workshopApi });
   if (nodes.marketTab) nodes.marketTab.hidden = !marketEnabled;
+  if (nodes.marketNavLabel) nodes.marketNavLabel.hidden = !marketEnabled;
+  if (nodes.marketNavDivider) nodes.marketNavDivider.hidden = !marketEnabled;
   const ui = createUiHelpers(doc, host, overlay);
   let auth = null;
   let activeTab = 'discover';

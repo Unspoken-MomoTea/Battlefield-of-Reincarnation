@@ -1020,14 +1020,14 @@ export async function cancelMarketListing(env, user, listingIdValue) {
   await settleExpiredMarketListings(env);
   const listingId = marketId(listingIdValue, '挂单 ID');
   const listing = await getListing(env, listingId);
-  if (!listing || listing.seller.id !== Number(user.id)) {
+  if (!listing || listing.seller.id !== Number(user.id) || listing.save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_listing_not_found', '挂单不存在');
   }
 
   const existingReturn = await first(
     env,
-    'SELECT * FROM market_returns WHERE listing_id = ? AND user_id = ? LIMIT 1',
-    [listingId, user.id],
+    'SELECT * FROM market_returns WHERE listing_id = ? AND user_id = ? AND save_id = ? LIMIT 1',
+    [listingId, user.id, user.market_save_id],
   );
   if (existingReturn) {
     return json({
@@ -1050,8 +1050,8 @@ export async function cancelMarketListing(env, user, listingIdValue) {
     ).bind(now, listingId, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_returns
-        (id, listing_id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       SELECT ?, id, seller_user_id, asset_kind, COALESCE(NULLIF(market_kind, ''), asset_kind), asset_name, asset_json, remaining_quantity, NULL, ?
+        (id, listing_id, user_id, save_id, asset_kind, market_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, seller_user_id, save_id, asset_kind, COALESCE(NULLIF(market_kind, ''), asset_kind), asset_name, asset_json, remaining_quantity, NULL, ?
        FROM market_listings
        WHERE id = ? AND seller_user_id = ? AND status = 'cancelled' AND remaining_quantity > 0`,
     ).bind(returnId, now, listingId, user.id),
@@ -1081,13 +1081,13 @@ export async function confirmMarketReturn(env, user, returnIdValue) {
   await env.DB.prepare(
     `UPDATE market_returns
      SET confirmed_at = COALESCE(confirmed_at, ?)
-     WHERE id = ? AND user_id = ?`,
-  ).bind(now, returnId, user.id).run();
+     WHERE id = ? AND user_id = ? AND save_id = ?`,
+  ).bind(now, returnId, user.id, user.market_save_id).run();
 
   const row = await first(
     env,
-    'SELECT * FROM market_returns WHERE id = ? AND user_id = ? LIMIT 1',
-    [returnId, user.id],
+    'SELECT * FROM market_returns WHERE id = ? AND user_id = ? AND save_id = ? LIMIT 1',
+    [returnId, user.id, user.market_save_id],
   );
   if (!row) throw new HttpError(404, 'market_return_not_found', '返还记录不存在');
   return json({ return: returnFromRow(row) });
@@ -1103,7 +1103,7 @@ export async function claimMarketPayout(request, env, user) {
     [payoutId],
   );
   if (existing) {
-    if (Number(existing.user_id) !== Number(user.id)) {
+    if (Number(existing.user_id) !== Number(user.id) || existing.save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_payout_id_conflict', '货款领取 ID 已被占用');
     }
     return json({ payout: payoutFromRow(existing) });
@@ -1112,23 +1112,24 @@ export async function claimMarketPayout(request, env, user) {
   const now = nowMs();
   await runBatch(env, [
     env.DB.prepare(
-      `INSERT INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
-       SELECT ?, user_id, balance, NULL, ?
-       FROM market_wallets
-       WHERE user_id = ? AND balance > 0`,
-    ).bind(payoutId, now, user.id),
+      `INSERT INTO market_payouts (id, user_id, save_id, amount, confirmed_at, created_at)
+       SELECT ?, user_id, save_id, balance, NULL, ?
+       FROM market_save_wallets
+       WHERE user_id = ? AND save_id = ? AND balance > 0`,
+    ).bind(payoutId, now, user.id, user.market_save_id),
     env.DB.prepare(
-      `UPDATE market_wallets
-       SET balance = balance - COALESCE((SELECT amount FROM market_payouts WHERE id = ? AND user_id = ?), 0),
+      `UPDATE market_save_wallets
+       SET balance = balance - COALESCE((SELECT amount FROM market_payouts
+                                         WHERE id = ? AND user_id = ? AND save_id = ?), 0),
            updated_at = ?
-       WHERE user_id = ?`,
-    ).bind(payoutId, user.id, now, user.id),
+       WHERE user_id = ? AND save_id = ?`,
+    ).bind(payoutId, user.id, user.market_save_id, now, user.id, user.market_save_id),
   ]);
 
   const payout = await first(
     env,
-    'SELECT * FROM market_payouts WHERE id = ? AND user_id = ? LIMIT 1',
-    [payoutId, user.id],
+    'SELECT * FROM market_payouts WHERE id = ? AND user_id = ? AND save_id = ? LIMIT 1',
+    [payoutId, user.id, user.market_save_id],
   );
   if (!payout) throw new HttpError(409, 'market_no_proceeds', '当前没有待领取货款');
   return json({ payout: payoutFromRow(payout) });
@@ -1140,13 +1141,13 @@ export async function confirmMarketPayout(env, user, payoutIdValue) {
   await env.DB.prepare(
     `UPDATE market_payouts
      SET confirmed_at = COALESCE(confirmed_at, ?)
-     WHERE id = ? AND user_id = ?`,
-  ).bind(now, payoutId, user.id).run();
+     WHERE id = ? AND user_id = ? AND save_id = ?`,
+  ).bind(now, payoutId, user.id, user.market_save_id).run();
 
   const row = await first(
     env,
-    'SELECT * FROM market_payouts WHERE id = ? AND user_id = ? LIMIT 1',
-    [payoutId, user.id],
+    'SELECT * FROM market_payouts WHERE id = ? AND user_id = ? AND save_id = ? LIMIT 1',
+    [payoutId, user.id, user.market_save_id],
   );
   if (!row) throw new HttpError(404, 'market_payout_not_found', '货款领取记录不存在');
   return json({ payout: payoutFromRow(row) });

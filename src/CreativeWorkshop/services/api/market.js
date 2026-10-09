@@ -215,6 +215,14 @@ export function createMarketApi(request) {
       );
     },
 
+    confirmMarketSaleBroadcast(tradeId) {
+      return scopedRequest(
+        `/api/market/trades/${encodeURIComponent(tradeId)}/announced`,
+        { method: 'POST' },
+        true,
+      );
+    },
+
     buyMarketListing(listingId, input) {
       return scopedRequest(
         `/api/market/listings/${encodeURIComponent(listingId)}/buy`,

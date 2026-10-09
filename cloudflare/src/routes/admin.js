@@ -2,6 +2,11 @@ import { json } from '../http.js';
 import { listAdminReports, resolveProjectReport } from '../moderation/reports.js';
 import { listAdminUsers, setUserBan, setUserModerator } from '../moderation/users.js';
 import {
+  adminCancelMarketListing,
+  adminSetMarketUserState,
+  listAdminMarket,
+} from '../market-admin.js';
+import {
   deleteAdminProject, getAdminProjectCover, getAdminProjectDiff, getPendingProjectReview,
   cleanupAdminStorage, getAdminStorageUsage,
   listAdminAuditLogs, listAdminProjectUpdates, listAdminProjects, reviewProject,
@@ -26,6 +31,9 @@ export async function routeAdmin(request, env, pathname) {
   if (request.method === 'GET' && pathname === '/api/admin/reports') {
     return listAdminReports(request, env, await authenticatedUser(request, env));
   }
+  if (request.method === 'GET' && pathname === '/api/admin/market') {
+    return listAdminMarket(request, env, await authenticatedUser(request, env));
+  }
   if (request.method === 'GET' && pathname === '/api/admin/storage') {
     return getAdminStorageUsage(env, await authenticatedUser(request, env));
   }
@@ -46,6 +54,16 @@ export async function routeAdmin(request, env, pathname) {
   const reportId = adminEntityIdFrom(pathname, 'reports');
   if (request.method === 'POST' && reportId) {
     return resolveProjectReport(request, env, await authenticatedUser(request, env), reportId);
+  }
+
+  const marketListingId = adminEntityIdFrom(pathname, 'market-listings', 'cancel');
+  if (request.method === 'POST' && marketListingId) {
+    return adminCancelMarketListing(env, await authenticatedUser(request, env), marketListingId);
+  }
+
+  const marketUserId = adminEntityIdFrom(pathname, 'market-users', 'state');
+  if (request.method === 'POST' && marketUserId) {
+    return adminSetMarketUserState(request, env, await authenticatedUser(request, env), marketUserId);
   }
 
   const deleteId = adminProjectIdFrom(pathname);

@@ -1114,6 +1114,8 @@ export async function confirmMarketPayout(env, user, payoutIdValue) {
 
 export async function getMarketMe(env, user) {
   await settleExpiredMarketListings(env);
+  const orderState = await marketOrderStateForUser(env, user);
+  const barterState = await marketBarterStateForUser(env, user);
   const wallet = await first(
     env,
     'SELECT balance, updated_at FROM market_wallets WHERE user_id = ? LIMIT 1',
@@ -1176,5 +1178,7 @@ export async function getMarketMe(env, user) {
     pending_payouts: pendingPayouts.map(payoutFromRow),
     recycles: recycles.map(recycleFromRow),
     buybacks: buybacks.map(buybackFromRow),
+    orders: orderState,
+    barters: barterState,
   });
 }

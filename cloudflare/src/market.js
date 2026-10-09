@@ -470,6 +470,16 @@ async function ensureTestingMarketFixtures(env) {
       now,
       now,
     ).run();
+    await env.DB.prepare(
+      `UPDATE market_listings
+       SET is_system = 1,
+           duration_hours = 0,
+           expires_at = 0,
+           recycle_at = 0,
+           listing_fee = 0,
+           updated_at = ?
+       WHERE id = ?`,
+    ).bind(now, fixture.id).run();
   }
 }
 

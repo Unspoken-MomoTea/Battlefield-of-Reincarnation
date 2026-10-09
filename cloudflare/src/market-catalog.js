@@ -89,15 +89,17 @@ export async function backfillMarketCatalogMetadata(env, { limit = 250 } = {}) {
      LIMIT ?`,
     [Math.max(1, Math.min(1000, integer(limit, 250)))],
   );
+  const keys = new Set();
   for (const row of rows) {
     const meta = marketCatalogMetadata(listingAsset(row));
+    keys.add(meta.catalog_key);
     await env.DB.prepare(
       `UPDATE market_listings
        SET catalog_key = ?, quality = ?, subtype = ?
        WHERE id = ? AND catalog_key = ''`,
     ).bind(meta.catalog_key, meta.quality, meta.subtype, row.id).run();
   }
-  return rows.length;
+  return [...keys];
 }
 
 export async function refreshMarketCatalogKey(env, catalogKey) {
@@ -170,7 +172,7 @@ export async function refreshMarketCatalogForListing(env, listingId) {
 }
 
 export async function rebuildMarketCatalog(env, { limit = 500 } = {}) {
-  await backfillMarketCatalogMetadata(env, { limit });
+  const backfilled = await backfillMarketCatalogMetadata(env, { limit });
   const rows = await all(
     env,
     `SELECT DISTINCT catalog_key
@@ -182,8 +184,19 @@ export async function rebuildMarketCatalog(env, { limit = 500 } = {}) {
      LIMIT ?`,
     [Math.max(1, Math.min(1000, integer(limit, 500)))],
   );
-  for (const row of rows) await refreshMarketCatalogKey(env, row.catalog_key);
-  return { refreshed: rows.length };
+  const keys = new Set([...backfilled, ...rows.map(row => row.catalog_key)]);
+  for (const key of keys) await refreshMarketCatalogKey(env, key);
+  return { refreshed: keys.size };
+}
+
+async function ensureMarketCatalogReady(env) {
+  const row = await first(env, 'SELECT COUNT(*) AS count FROM market_catalog');
+  if (!integer(row?.count)) {
+    await rebuildMarketCatalog(env, { limit: 1000 });
+    return;
+  }
+  const keys = await backfillMarketCatalogMetadata(env, { limit: 50 });
+  for (const key of keys) await refreshMarketCatalogKey(env, key);
 }
 
 function catalogItem(row) {
@@ -223,7 +236,7 @@ function filterParams(request) {
 }
 
 export async function listMarketCatalog(request, env) {
-  await rebuildMarketCatalog(env, { limit: 500 });
+  await ensureMarketCatalogReady(env);
   const params = filterParams(request);
   const clauses = ['total_stock > 0'];
   const args = [];
@@ -277,10 +290,26 @@ export async function listMarketCatalog(request, env) {
      GROUP BY asset_kind`,
   );
   const counts = Object.fromEntries(countRows.map(row => [String(row.asset_kind), integer(row.count)]));
+  const qualityRows = await all(
+    env,
+    `SELECT quality, SUM(listing_count) AS count
+     FROM market_catalog WHERE total_stock > 0 AND quality <> ''
+     GROUP BY quality`,
+  );
+  const subtypeRows = await all(
+    env,
+    `SELECT subtype, SUM(listing_count) AS count
+     FROM market_catalog WHERE total_stock > 0 AND subtype <> ''
+     GROUP BY subtype ORDER BY count DESC LIMIT 40`,
+  );
 
   return json({
     items: page.map(catalogItem),
     counts,
+    facets: {
+      qualities: qualityRows.map(row => ({ value: row.quality, count: integer(row.count) })),
+      subtypes: subtypeRows.map(row => ({ value: row.subtype, count: integer(row.count) })),
+    },
     next_offset: hasMore ? params.offset + params.limit : null,
   });
 }

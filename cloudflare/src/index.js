@@ -15,7 +15,11 @@ export async function handleRequest(request, env) {
     return withCors(await routeRequest(request, env, SERVICE_VERSION), request);
   } catch (error) {
     if (error instanceof HttpError) {
-      return withCors(json({ error: error.message, code: error.code }, error.status), request);
+      return withCors(json({
+        error: error.message,
+        code: error.code,
+        ...(error.details ? { details: error.details } : {}),
+      }, error.status), request);
     }
     console.error('[workshop] unhandled error:', error);
     return withCors(json({ error: '服务器内部错误', code: 'internal_error' }, 500), request);

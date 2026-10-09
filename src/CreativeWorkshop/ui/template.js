@@ -142,8 +142,11 @@ export function workshopTemplate(version) {
               <button class="rw-ah-category" data-market-kind="equipment" type="button"><span>装备</span><small data-market-kind-count>0</small></button>
               <button class="rw-ah-category" data-market-kind="item" type="button"><span>道具</span><small data-market-kind-count>0</small></button>
               <button class="rw-ah-category" data-market-kind="skill" type="button"><span>技能</span><small data-market-kind-count>0</small></button>
+              <button class="rw-ah-category" data-market-kind="bloodline" type="button"><span>血统</span><small data-market-kind-count>0</small></button>
+              <button class="rw-ah-category" data-market-kind="form" type="button"><span>形态</span><small data-market-kind-count>0</small></button>
+              <button class="rw-ah-category" data-market-kind="teammate" type="button"><span>队友</span><small data-market-kind-count>0</small></button>
               <div class="rw-ah-side-rule"></div>
-              <div class="rw-ah-side-help">商品来自玩家本地存档。测试版不声明防作弊认证。</div>
+              <div class="rw-ah-side-help">商品来自玩家本地存档。已装备中的装备不会进入可出售列表。</div>
             </aside>
 
             <section class="rw-ah-results">

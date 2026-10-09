@@ -100,5 +100,28 @@ export function createAdminApi(request, requestRaw) {
         true,
       );
     },
+
+    listAdminMarket(query = '') {
+      const params = new URLSearchParams();
+      if (String(query).trim()) params.set('q', String(query).trim());
+      const suffix = params.toString();
+      return request(`/api/admin/market${suffix ? '?' + suffix : ''}`, {}, true);
+    },
+
+    forceCancelMarketListing(listingId, note = '') {
+      return request(
+        `/api/admin/market-listings/${encodeURIComponent(listingId)}/cancel`,
+        { method: 'POST', body: JSON.stringify({ note }) },
+        true,
+      );
+    },
+
+    setMarketUserBlock(userId, blocked, reason = '') {
+      return request(
+        `/api/admin/market-users/${encodeURIComponent(userId)}/state`,
+        { method: 'POST', body: JSON.stringify({ blocked, reason }) },
+        true,
+      );
+    },
   };
 }

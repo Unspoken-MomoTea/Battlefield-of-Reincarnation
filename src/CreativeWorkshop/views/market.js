@@ -143,9 +143,9 @@ export function createMarketView({
     if (mode !== 'browse') requireLogin();
     currentMode = mode;
     setModeVisuals();
+    if (!listings.length) await refresh();
     if (mode === 'sell') await renderSellMode();
     if (mode === 'mine') await renderMineMode();
-    if (mode === 'browse' && !listings.length) await refresh();
     await refreshSummary();
   }
 

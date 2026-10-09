@@ -123,6 +123,37 @@ function ledgerBucket(data, key) {
   return root[key];
 }
 
+function receiptAsset(asset, quantity) {
+  const label = MARKET_KIND_LABELS[asset?.kind] || '资产';
+  const name = String(asset?.name || '未知资产').replace(/[\r\n]+/gu, ' ').trim();
+  return label + '「' + name + '」×' + Math.max(1, Number(quantity ?? asset?.quantity) || 1);
+}
+
+function coin(value) {
+  return Math.max(0, Math.floor(Number(value) || 0)) + '空间币';
+}
+
+// One-shot narrative notice, NOT a permanent trade history. The same server
+// receipt ID must never be appended twice during a delivery retry.
+export function appendMarketBroadcast(next, eventId, line) {
+  const id = String(eventId || '').trim();
+  const message = String(line || '').replace(/[\r\n]+/gu, ' ').trim();
+  if (!id || !message || !next?.stat_data) return false;
+  const events = ledgerBucket(next, 'broadcasts');
+  if (events[id]) return false;
+  const state = next.stat_data.系统状态 ||= {};
+  const previous = String(state.待播报记录 || '').trim();
+  state.待播报记录 = previous ? previous + '\n' + message : message;
+  events[id] = Date.now();
+  // Only replay keys are kept. Retain a bounded set, not a second history log.
+  const keys = Object.keys(events);
+  if (keys.length > 256) {
+    keys.sort((a, b) => Number(events[a] || 0) - Number(events[b] || 0));
+    for (const key of keys.slice(0, keys.length - 192)) delete events[key];
+  }
+  return true;
+}
+
 const pendingMvuMutations = new WeakMap();
 
 function mutateLatest(host, mutator, expectedSaveId = '') {
@@ -470,6 +501,26 @@ function collisionFor(statData, asset) {
 }
 
 export function createMarketService({ host, api }) {
+  async function broadcast(saveId, id, line) {
+    return mutateLatest(host, next => {
+      appendMarketBroadcast(next, id, line);
+    }, saveId);
+  }
+
+  async function collectPendingSales(state) {
+    if (!Array.isArray(state?.pending_sale_broadcasts) || !state.pending_sale_broadcasts.length) return state;
+    const saveId = currentMarketSaveId(host);
+    for (const sale of state.pending_sale_broadcasts) {
+      if (!sale?.id) continue;
+      await broadcast(saveId, 'sale:' + sale.id,
+        '[空间集市成交][角色] ' + receiptAsset(sale.asset, sale.quantity)
+        + ' 已被其他轮回者购买｜成交 ' + coin(sale.total_price)
+        + '｜实收待领取 ' + coin(sale.seller_proceeds));
+      await api.confirmMarketSaleBroadcast(sale.id);
+    }
+    return state;
+  }
+
   async function inventory() {
     return marketInventoryFromData(readLatest(host).data);
   }
@@ -566,7 +617,8 @@ export function createMarketService({ host, api }) {
   }
 
   async function mine() {
-    return api.getMarketMe();
+    const state = await api.getMarketMe();
+    return collectPendingSales(state);
   }
 
   async function sell(selection) {

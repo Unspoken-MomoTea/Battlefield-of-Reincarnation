@@ -16,7 +16,7 @@ import { bindWorkshopLauncher } from './launcher.js';
 import { createWorkshopViews } from './views.js';
 
 export const GLOBAL_NAME = 'ReincarnationWorkshop';
-export const WORKSHOP_VERSION = '2.0.37';
+export const WORKSHOP_VERSION = '2.0.38';
 
 const CURRENT_SHA = (() => {
   const match = String(import.meta.url).match(

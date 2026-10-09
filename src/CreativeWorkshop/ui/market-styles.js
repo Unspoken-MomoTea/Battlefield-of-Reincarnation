@@ -23,6 +23,11 @@ export const MARKET_CSS = `
 
 .rw-ah-panel{min-height:0}
 .rw-ah-toolbar{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--ah-line);border-top:0;background:rgba(255,255,255,.018)}
+.rw-ah-toolbar--catalog{display:grid;grid-template-columns:minmax(220px,1fr) auto auto minmax(180px,240px) auto auto auto max-content}
+.rw-ah-toolbar--catalog .rw-ah-search{min-width:0}
+.rw-ah-price-range{display:flex;align-items:center;gap:5px;min-width:0}
+.rw-ah-price-range .rw-input{width:94px;min-width:0}
+.rw-ah-price-range>span{font-size:10px;color:#66717e}
 .rw-ah-search{display:flex;align-items:center;gap:7px;flex:1;min-width:180px;padding-left:9px;border:1px solid var(--ah-line);border-radius:7px;background:rgba(0,0,0,.18)}
 .rw-ah-search>span{font-size:15px;color:#788392}
 .rw-ah-search .rw-input{flex:1;border:0!important;background:transparent!important;box-shadow:none!important;padding-left:0}
@@ -140,7 +145,37 @@ export const MARKET_CSS = `
 .rw-ah-buy-total span{font-size:10px;color:#7f8996}
 .rw-ah-buy-total strong{font-size:15px;color:#e6c26d}
 .rw-ah-purchase-help{color:#737d89;font-size:10px;line-height:1.45}
+.rw-ah-history{overflow:hidden;border:1px solid var(--ah-line);border-radius:7px;background:rgba(0,0,0,.1)}
+.rw-ah-history>.rw-ah-section-label{padding:8px 9px;margin:0;border-bottom:1px solid var(--ah-line)}
+.rw-ah-history-row{display:grid;grid-template-columns:1.15fr repeat(4,minmax(0,.8fr));gap:6px;padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.035);font-size:9px;text-align:right}
+.rw-ah-history-row:last-child{border-bottom:0}
+.rw-ah-history-row span:first-child{text-align:left;color:#818b98}
+.rw-ah-history-head{color:#697480;background:rgba(255,255,255,.018)}
+.rw-ah-order-box,.rw-ah-create-barter{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid rgba(96,165,250,.2);border-radius:8px;background:rgba(96,165,250,.04)}
+.rw-ah-order-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px 9px;align-items:center}
+.rw-ah-order-grid>span{font-size:10px;color:#7f8996}
+.rw-ah-direct-order{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px;border:1px solid rgba(34,197,94,.22);border-radius:8px;background:rgba(34,197,94,.045)}
+.rw-ah-seller-reference{overflow:hidden;border:1px solid var(--ah-line);border-radius:8px;background:rgba(255,255,255,.018)}
+.rw-ah-seller-reference>.rw-ah-reference-price{border:0;border-bottom:1px solid var(--ah-line);border-radius:0}
+.rw-ah-seller-ladder{padding:5px 9px}
 
+.rw-ah-barter-layout{display:grid;grid-template-columns:minmax(360px,1fr) minmax(360px,.9fr);min-height:535px;border:1px solid var(--ah-line);border-top:0;border-radius:0 0 14px 14px;overflow:hidden}
+.rw-ah-barter-list-pane{min-width:0;border-right:1px solid var(--ah-line);background:rgba(0,0,0,.11)}
+.rw-ah-barter-inspector{min-width:0;padding:14px;overflow:auto;background:rgba(0,0,0,.08)}
+.rw-ah-barter-row{display:grid;grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr);align-items:center;gap:8px;width:100%;padding:10px;border:0;border-bottom:1px solid rgba(255,255,255,.045);background:transparent;color:inherit;text-align:left;cursor:pointer}
+.rw-ah-barter-row:hover{background:rgba(255,255,255,.03)}
+.rw-ah-barter-row.is-selected{background:rgba(215,170,74,.08);box-shadow:inset 2px 0 #d2a448}
+.rw-ah-barter-side{display:flex;min-width:0;flex-direction:column;gap:2px}
+.rw-ah-barter-side small{font-size:9px;color:#6f7a88}
+.rw-ah-barter-side strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.rw-ah-barter-side span{font-size:9px;color:#8994a1}
+.rw-ah-barter-arrow{text-align:center;color:#927d4c}
+.rw-ah-barter-detail{display:flex;flex-direction:column;gap:10px}
+.rw-ah-barter-compare{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rw-ah-barter-card{display:flex;min-width:0;flex-direction:column;gap:6px;padding:9px;border:1px solid var(--ah-line);border-radius:8px;background:rgba(255,255,255,.018)}
+.rw-ah-barter-card>span{font-size:9px;color:#7c8795}
+.rw-ah-barter-card>strong{font-size:13px}
+.rw-ah-barter-card>small{font-size:9px;color:#8c96a3}
 .rw-ah-sell-layout{display:grid;grid-template-columns:320px minmax(0,1fr);min-height:535px;border:1px solid var(--ah-line);border-top:0;border-radius:0 0 14px 14px;overflow:hidden}
 .rw-ah-inventory-pane{display:flex;min-height:0;flex-direction:column;border-right:1px solid var(--ah-line);background:rgba(0,0,0,.13)}
 .rw-ah-pane-head,.rw-ah-mine-toolbar{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid var(--ah-line)}
@@ -173,6 +208,10 @@ export const MARKET_CSS = `
 .rw-ah-blocked strong{font-size:12px;color:#e3aaaa}
 .rw-ah-blocked span{font-size:10px;color:#9b8080}
 
+.rw-ah-mine-tabs{display:flex;gap:3px;padding:7px 10px;border:1px solid var(--ah-line);border-top:0;background:rgba(0,0,0,.13);overflow:auto}
+.rw-ah-mini-tab{padding:6px 10px;border:1px solid transparent;border-radius:6px;background:transparent;color:#8e98a5;font:inherit;font-size:10px;font-weight:700;white-space:nowrap;cursor:pointer}
+.rw-ah-mini-tab:hover{color:#d5dbe3;background:rgba(255,255,255,.03)}
+.rw-ah-mini-tab.is-active{color:#e4c16b;border-color:rgba(215,170,74,.22);background:rgba(215,170,74,.07)}
 .rw-ah-mine-toolbar{border:1px solid var(--ah-line);border-top:0;background:rgba(0,0,0,.1)}
 .rw-ah-mine-content{min-height:490px;padding:12px;border:1px solid var(--ah-line);border-top:0;border-radius:0 0 14px 14px;background:rgba(0,0,0,.08)}
 .rw-ah-mine-stack{display:flex;flex-direction:column;gap:10px}
@@ -192,6 +231,10 @@ export const MARKET_CSS = `
 .rw-ah-transaction-actions{display:flex;gap:5px;flex-shrink:0}
 .rw-ah-muted-line{padding:9px;color:#707b89;font-size:10px}
 
+.rw-admin-market-wrap{display:flex;flex-direction:column;gap:12px}
+.rw-admin-market-section{display:grid;gap:8px}
+.rw-admin-market-section>h3{margin:0;font-size:13px}
+.rw-admin-market-audit{padding:8px 10px;border:1px solid rgba(255,255,255,.06);border-radius:7px;background:rgba(0,0,0,.08);white-space:pre-wrap;font-size:10px;color:#909aa7}
 .rw-market-notice{padding:8px 9px;border-radius:7px;background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.17);font-size:10px;line-height:1.5;color:#9fb7d3}
 .rw-market-notice.warning{background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.2);color:#cbb17b}
 
@@ -210,6 +253,9 @@ export const MARKET_CSS = `
   .rw-ah-tabs{overflow:auto}
   .rw-ah-region-note{display:none}
   .rw-ah-toolbar{align-items:stretch;flex-wrap:wrap}
+  .rw-ah-toolbar--catalog{display:flex}
+  .rw-ah-price-range{flex:1 1 180px}
+  .rw-ah-price-range .rw-input{width:auto;flex:1}
   .rw-ah-search{flex-basis:100%}
   .rw-ah-result-count{display:none}
   .rw-ah-browser{display:flex;flex-direction:column}
@@ -219,7 +265,9 @@ export const MARKET_CSS = `
   .rw-ah-category small{display:none}
   .rw-ah-table-head,.rw-ah-result-row{grid-template-columns:minmax(145px,1fr) 44px 40px 84px}
   .rw-ah-table-head span:nth-child(3),.rw-ah-result-quality{display:none}
-  .rw-ah-sell-layout{display:flex;flex-direction:column}
+  .rw-ah-sell-layout,.rw-ah-barter-layout{display:flex;flex-direction:column}
+  .rw-ah-barter-list-pane{border-right:0;border-bottom:1px solid var(--ah-line);max-height:320px}
+  .rw-ah-barter-compare{grid-template-columns:1fr}
   .rw-ah-inventory-pane{border-right:0;border-bottom:1px solid var(--ah-line);max-height:280px}
   .rw-ah-sell-form{grid-template-columns:1fr}
   .rw-ah-listing-fee,.rw-ah-sell-total,.rw-ah-sell-form>.rw-button{grid-column:1}

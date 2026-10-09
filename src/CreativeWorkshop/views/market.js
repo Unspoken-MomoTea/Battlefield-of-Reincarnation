@@ -1,5 +1,6 @@
 import { MARKET_KIND_LABELS } from '../services/market-service.js';
 import {
+  buildCatalogRows,
   buildMarketRows,
   filterMarketRows,
   marketAssetDetailEntries,
@@ -48,14 +49,19 @@ export function createMarketView({
   host, marketService, getAuth,
 }) {
   let listings = [];
+  let products = [];
   let allRows = [];
   let rows = [];
   let loading = false;
   let selectedKey = '';
+  let selectedProductDetails = null;
   let currentKind = '';
   let currentMode = 'browse';
+  let currentMineView = 'active';
   let sellInventory = null;
   let selectedSellIndex = -1;
+  let barters = [];
+  let selectedBarterId = '';
 
   const currentUserId = () => Number(getAuth()?.user?.id || 0);
 

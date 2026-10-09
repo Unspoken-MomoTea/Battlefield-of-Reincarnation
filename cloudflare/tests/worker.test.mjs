@@ -331,24 +331,26 @@ test('testing latest never substitutes unrelated main HEAD when path lookup is r
     throw new Error('unexpected request: ' + value);
   };
 
-  const store = new MemoryKV();
-  await store.put(
-    'public:core-component:last-known:v2:workshop:testing:main',
-    JSON.stringify({
-      component: 'workshop',
-      channel: 'testing',
-      ref: 'main',
-      sha: knownWorkshopSha,
-      short_sha: knownWorkshopSha.slice(0, 8),
-      version: '',
-      tag: '',
-      release_source: 'branch',
-      repository: 'Unspoken-MomoTea/Battlefield-of-Reincarnation',
-      entry_path: '/src/CreativeWorkshop/index.js',
-      source_path: 'src/CreativeWorkshop',
-      checked_at: 1,
-    }),
-  );
+  const previousSnapshot = {
+    component: 'workshop',
+    channel: 'testing',
+    ref: 'main',
+    sha: knownWorkshopSha,
+    short_sha: knownWorkshopSha.slice(0, 8),
+    version: '',
+    tag: '',
+    release_source: 'branch',
+    repository: 'Unspoken-MomoTea/Battlefield-of-Reincarnation',
+    entry_path: '/src/CreativeWorkshop/index.js',
+    source_path: 'src/CreativeWorkshop',
+    checked_at: 1,
+  };
+  const store = {
+    get: async key => key === 'public:core-component:last-known:v2:workshop:testing:main'
+      ? previousSnapshot
+      : null,
+    put: async () => {},
+  };
 
   try {
     const response = await handleRequest(

@@ -493,7 +493,7 @@ export async function createMarketSwap(request, env, user) {
   const id = marketId(body?.id, '交换单ID');
   const existing = await first(env, 'SELECT * FROM market_swaps WHERE id = ? LIMIT 1', [id]);
   if (existing) {
-    if (Number(existing.owner_user_id) !== Number(user.id)) {
+    if (Number(existing.owner_user_id) !== Number(user.id) || existing.owner_save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_id_conflict', '交换单ID已被占用');
     }
     return json({ swap: swapFromRow(existing) });
@@ -504,12 +504,12 @@ export async function createMarketSwap(request, env, user) {
   const now = Date.now();
   await env.DB.prepare(
     `INSERT INTO market_swaps
-      (id, owner_user_id, offered_kind, offered_name, offered_json, offered_quantity,
+      (id, owner_user_id, owner_save_id, offered_kind, offered_name, offered_json, offered_quantity,
        wanted_kind, wanted_name, wanted_quality, wanted_subtype, wanted_quantity,
        status, accepted_by_user_id, expires_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?, ?)`,
   ).bind(
-    id, user.id, offered.kind, offered.name, offered.assetJson, offered.quantity,
+    id, user.id, user.market_save_id, offered.kind, offered.name, offered.assetJson, offered.quantity,
     wanted.kind, wanted.name, wanted.quality, wanted.subtype, wanted.quantity,
     now + hours * 60 * 60 * 1000, now, now,
   ).run();
@@ -520,7 +520,7 @@ export async function createMarketSwap(request, env, user) {
 export async function getMarketSwap(env, user, swapIdValue) {
   const id = marketId(swapIdValue, '交换单ID');
   const row = await first(env, 'SELECT * FROM market_swaps WHERE id = ? LIMIT 1', [id]);
-  if (!row || Number(row.owner_user_id) !== Number(user.id)) {
+  if (!row || Number(row.owner_user_id) !== Number(user.id) || row.owner_save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_swap_not_found', '交换单不存在');
   }
   return json({ swap: swapFromRow(row) });
@@ -566,7 +566,7 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
   await runBatch(env, [
     env.DB.prepare(
       `UPDATE market_swaps
-       SET status = 'completed', accepted_by_user_id = ?, updated_at = ?
+       SET status = 'completed', accepted_by_user_id = ?, accepted_save_id = ?, updated_at = ?
        WHERE id = ?
          AND status = 'active'
          AND expires_at > ?
@@ -575,18 +575,18 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
            SELECT 1 FROM market_user_controls mc
            WHERE mc.user_id = market_swaps.owner_user_id AND mc.is_suspended = 1
          )`,
-    ).bind(user.id, now, id, now, user.id),
+    ).bind(user.id, user.market_save_id, now, id, now, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
-        (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       SELECT ?, id, ?, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
+        (id, swap_id, user_id, save_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, ?, accepted_save_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
        FROM market_swaps
        WHERE id = ? AND status = 'completed' AND accepted_by_user_id = ?`,
     ).bind(offeredTransferId, user.id, now, id, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
-        (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       SELECT ?, id, owner_user_id, ?, ?, ?, ?, NULL, ?
+        (id, swap_id, user_id, save_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, owner_user_id, owner_save_id, ?, ?, ?, ?, NULL, ?
        FROM market_swaps
        WHERE id = ? AND status = 'completed' AND accepted_by_user_id = ?`,
     ).bind(
@@ -606,7 +606,8 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
      FROM market_swaps s JOIN users u ON u.id = s.owner_user_id WHERE s.id = ? LIMIT 1`,
     [id],
   );
-  if (!updated || Number(updated.accepted_by_user_id) !== Number(user.id)) {
+  if (!updated || Number(updated.accepted_by_user_id) !== Number(user.id)
+    || updated.accepted_save_id !== user.market_save_id) {
     throw new HttpError(409, 'market_swap_changed', '交换单刚刚被其他玩家接受或已失效');
   }
   return json({ swap: swapFromRow(updated) });
@@ -615,7 +616,8 @@ export async function acceptMarketSwap(request, env, user, swapIdValue) {
 export async function cancelMarketSwap(env, user, swapIdValue) {
   const id = marketId(swapIdValue, '交换单ID');
   const swap = await first(env, 'SELECT * FROM market_swaps WHERE id = ? LIMIT 1', [id]);
-  if (!swap || Number(swap.owner_user_id) !== Number(user.id)) {
+  if (!swap || Number(swap.owner_user_id) !== Number(user.id)
+    || swap.owner_save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_swap_not_found', '交换单不存在');
   }
   if (swap.status !== 'active') return json({ swap: swapFromRow(swap) });
@@ -630,8 +632,8 @@ export async function cancelMarketSwap(env, user, swapIdValue) {
     ).bind(now, id, user.id),
     env.DB.prepare(
       `INSERT OR IGNORE INTO market_swap_transfers
-        (id, swap_id, user_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
-       SELECT ?, id, owner_user_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
+        (id, swap_id, user_id, save_id, asset_kind, asset_name, asset_json, quantity, confirmed_at, created_at)
+       SELECT ?, id, owner_user_id, owner_save_id, offered_kind, offered_name, offered_json, offered_quantity, NULL, ?
        FROM market_swaps
        WHERE id = ? AND owner_user_id = ? AND status = 'cancelled'`,
     ).bind(transferId, now, id, user.id),
@@ -643,13 +645,13 @@ export async function cancelMarketSwap(env, user, swapIdValue) {
 export async function confirmMarketSwapTransfer(env, user, transferIdValue) {
   const id = marketId(transferIdValue, '交换交付ID');
   const row = await first(env, 'SELECT * FROM market_swap_transfers WHERE id = ? LIMIT 1', [id]);
-  if (!row || Number(row.user_id) !== Number(user.id)) {
+  if (!row || Number(row.user_id) !== Number(user.id) || row.save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_swap_transfer_not_found', '交换交付记录不存在');
   }
   if (row.confirmed_at == null) {
     await env.DB.prepare(
-      'UPDATE market_swap_transfers SET confirmed_at = ? WHERE id = ? AND confirmed_at IS NULL',
-    ).bind(Date.now(), id).run();
+      'UPDATE market_swap_transfers SET confirmed_at = ? WHERE id = ? AND save_id = ? AND confirmed_at IS NULL',
+    ).bind(Date.now(), id, user.market_save_id).run();
   }
   const updated = await first(env, 'SELECT * FROM market_swap_transfers WHERE id = ? LIMIT 1', [id]);
   return json({ transfer: swapTransferFromRow(updated) });

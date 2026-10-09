@@ -155,6 +155,56 @@ test('testing channel ignores newer main commits that did not change CreativeWor
   assert.match(adapter.state.character[0].content, new RegExp(`@${newerMain}/src/CreativeWorkshop/index\\.js`, 'u'));
 });
 
+test('testing updater ignores coexisting stable loader and only rewrites testing loader', async () => {
+  const adapter = adapterFixture('https://workshop-test.6661816.xyz');
+  adapter.state.global.push({
+    type: 'script',
+    id: 'workshop-stable-loader',
+    name: '创意工坊',
+    enabled: true,
+    content: `(async () => {
+  window.ReincarnationWorkshopConfig = {
+    apiBase: 'https://workshop.6661816.xyz',
+  };
+  await import(
+    'https://cdn.jsdelivr.net/gh/Unspoken-MomoTea/Battlefield-of-Reincarnation@workshop-v2.0.35/src/CreativeWorkshop/index.js'
+  );
+})();`,
+  });
+
+  const latest = '7777777777777777777777777777777777777777';
+  const updater = createWorkshopSelfUpdater({
+    adapter,
+    channel: 'testing',
+    ref: 'main',
+    fetchImpl: async url => {
+      const value = String(url);
+      if (value.includes('/api/client/latest')) {
+        return response(latest, { channel: 'testing', ref: 'main' });
+      }
+      if (value.includes('/commits?')) return response(latest);
+      if (value.includes('/compare/')) {
+        return new Response(JSON.stringify({ status: 'behind' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      throw new Error('unexpected request: ' + value);
+    },
+  });
+
+  const beforeStable = adapter.state.global[0].content;
+  const check = await updater.check();
+  assert.equal(check.loaders.length, 1);
+  assert.equal(check.loaders[0].scope, 'character');
+
+  const updated = await updater.updateLoaderLink();
+  assert.equal(updated.changedScripts, 1);
+  assert.match(adapter.state.character[0].content, new RegExp('@' + latest + '/src/CreativeWorkshop/index\\.js', 'u'));
+  assert.equal(adapter.state.global[0].content, beforeStable);
+  assert.match(adapter.state.global[0].content, /@workshop-v2\.0\.35\/src\/CreativeWorkshop\/index\.js/u);
+});
+
 test('stable channel verifies a cached current Worker result before declaring no update', async () => {
   const adapter = adapterFixture('https://workshop.6661816.xyz');
   adapter.state.character[0].content = adapter.state.character[0].content.replace(

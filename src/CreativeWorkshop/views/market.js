@@ -56,6 +56,48 @@ export function createMarketView({
     return facts;
   };
 
+  const dataValue = (value, depth = 0) => {
+    if (value == null) return element('span', 'rw-ah-data-value muted', '—');
+
+    if (Array.isArray(value)) {
+      const list = element('div', 'rw-ah-data-list');
+      if (!value.length) {
+        list.append(element('span', 'rw-ah-data-value muted', '—'));
+        return list;
+      }
+      const primitive = value.every(item => item == null || ['string', 'number', 'boolean'].includes(typeof item));
+      if (primitive) {
+        for (const item of value) {
+          list.append(element('span', 'rw-ah-data-chip', item == null ? '—' : String(item)));
+        }
+        return list;
+      }
+      value.forEach((item, index) => {
+        const row = element('div', 'rw-ah-data-nested');
+        row.append(element('span', 'rw-ah-data-key', String(index + 1)), dataValue(item, depth + 1));
+        list.append(row);
+      });
+      return list;
+    }
+
+    if (typeof value === 'object') {
+      const group = element('div', depth > 0 ? 'rw-ah-data-object nested' : 'rw-ah-data-object');
+      const entries = Object.entries(value);
+      if (!entries.length) {
+        group.append(element('span', 'rw-ah-data-value muted', '—'));
+        return group;
+      }
+      for (const [key, nested] of entries) {
+        const row = element('div', 'rw-ah-data-row');
+        row.append(element('span', 'rw-ah-data-key', key), dataValue(nested, depth + 1));
+        group.append(row);
+      }
+      return group;
+    }
+
+    return element('span', 'rw-ah-data-value', String(value));
+  };
+
   const assetDetail = asset => {
     const box = element('div', 'rw-ah-asset-detail');
     const facts = element('div', 'rw-ah-fact-grid');
@@ -69,12 +111,21 @@ export function createMarketView({
     const copy = summary(asset);
     if (copy) box.append(element('p', 'rw-ah-description', copy));
 
-    const more = element('details', 'rw-market-json');
-    more.append(element('summary', '', '完整资产数据'));
-    const pre = element('pre');
-    pre.textContent = JSON.stringify(asset?.data || {}, null, 2);
-    more.append(pre);
-    box.append(more);
+    const dataSection = element('section', 'rw-ah-data-section');
+    dataSection.append(element('div', 'rw-ah-section-label', '资产数据'));
+    const dataBody = element('div', 'rw-ah-data-object');
+    const entries = Object.entries(asset?.data || {});
+    if (!entries.length) {
+      dataBody.append(element('div', 'rw-ah-muted-line', '没有额外资产字段。'));
+    } else {
+      for (const [key, value] of entries) {
+        const row = element('div', 'rw-ah-data-row');
+        row.append(element('span', 'rw-ah-data-key', key), dataValue(value));
+        dataBody.append(row);
+      }
+    }
+    dataSection.append(dataBody);
+    box.append(dataSection);
     return box;
   };
 

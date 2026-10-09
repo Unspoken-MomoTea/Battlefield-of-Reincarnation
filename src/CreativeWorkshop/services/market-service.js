@@ -14,7 +14,7 @@ export const MARKET_KIND_LABELS = {
   skill: '技能',
   bloodline: '血统',
   form: '形态',
-  teammate: '队友',
+  teammate: '角色',
 };
 
 function deepClone(value) {
@@ -439,19 +439,63 @@ export function createMarketService({ host, api }) {
     return items;
   }
 
-  async function quoteAuction(asset, quantity = 1, durationHours = 24) {
-    return (await api.quoteMarketAction({
+  async function catalogAll() {
+    const items = [];
+    const seenOffsets = new Set();
+    let offset = 0;
+    while (!seenOffsets.has(offset)) {
+      seenOffsets.add(offset);
+      const page = await api.listMarketCatalog({ offset, limit: 200 });
+      items.push(...(Array.isArray(page?.items) ? page.items : []));
+      if (page?.next_offset == null) break;
+      const next = Math.max(0, Number(page.next_offset) || 0);
+      if (next === offset) break;
+      offset = next;
+    }
+    return items;
+  }
+
+  async function product(marketKey) {
+    return api.getMarketProduct(marketKey);
+  }
+
+  async function auctionQuote(asset, quantity = 1, durationHours = 24) {
+    return api.quoteMarketAction({
       action: 'auction',
       asset: assetPayload(asset, quantity),
       duration_hours: durationHours,
-    }))?.quote;
+    });
+  }
+
+  async function quoteAuction(asset, quantity = 1, durationHours = 24) {
+    return (await auctionQuote(asset, quantity, durationHours))?.quote;
+  }
+
+  async function buybackQuote(asset, quantity = 1) {
+    return api.quoteMarketAction({
+      action: 'buyback',
+      asset: assetPayload(asset, quantity),
+    });
   }
 
   async function quoteBuyback(asset, quantity = 1) {
-    return (await api.quoteMarketAction({
-      action: 'buyback',
-      asset: assetPayload(asset, quantity),
-    }))?.quote;
+    return (await buybackQuote(asset, quantity))?.quote;
+  }
+
+  async function listAllBarters() {
+    const items = [];
+    const seenOffsets = new Set();
+    let offset = 0;
+    while (!seenOffsets.has(offset)) {
+      seenOffsets.add(offset);
+      const page = await api.listMarketBarters({ offset, limit: 60 });
+      items.push(...(Array.isArray(page?.items) ? page.items : []));
+      if (page?.next_offset == null) break;
+      const next = Math.max(0, Number(page.next_offset) || 0);
+      if (next === offset) break;
+      offset = next;
+    }
+    return items;
   }
 
   async function mine() {
@@ -683,6 +727,253 @@ export function createMarketService({ host, api }) {
     return payout;
   }
 
+  async function createOrder(productValue, { quantity = 1, unitPrice, durationHours = 24 } = {}) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const asset = productValue?.asset || productValue;
+    if (!asset?.kind || !asset?.name) throw new Error('求购目标无效');
+    const resolvedQuantity = asset.kind === 'item'
+      ? Math.max(1, Math.floor(Number(quantity) || 1))
+      : 1;
+    const price = Math.max(1, Math.floor(Number(unitPrice) || 0));
+    const total = price * resolvedQuantity;
+    if (Number(snapshot.data.stat_data.角色.空间币 || 0) < total) {
+      throw new Error('空间币不足：求购托管需要 ' + total);
+    }
+
+    const orderId = randomId(host, 'order');
+    await mutateLatest(host, next => {
+      assertHub(next.stat_data);
+      const current = Number(next.stat_data.角色.空间币 || 0);
+      if (current < total) throw new Error('空间币不足');
+      next.stat_data.角色.空间币 = current - total;
+    });
+
+    let result;
+    try {
+      result = await api.createMarketOrder({
+        id: orderId,
+        asset: assetPayload(asset, resolvedQuantity),
+        quantity: resolvedQuantity,
+        unit_price: price,
+        duration_hours: durationHours,
+      });
+    } catch (error) {
+      try { result = await api.getMarketOrder(orderId); } catch {}
+      if (!result?.order) {
+        await mutateLatest(host, next => {
+          next.stat_data.角色.空间币 = Number(next.stat_data.角色.空间币 || 0) + total;
+        });
+        throw error;
+      }
+    }
+    return result.order;
+  }
+
+  async function cancelOrder(orderId) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const result = await api.cancelMarketOrder(orderId);
+    if (result?.payout) await receivePayout(result.payout);
+    return result;
+  }
+
+  async function deliverOrderFill(fill) {
+    if (!fill?.id) throw new Error('求购成交记录无效');
+    await mutateLatest(host, next => {
+      assertHub(next.stat_data);
+      const deliveries = ledgerBucket(next, 'orderDeliveries');
+      if (deliveries[fill.id]) return;
+      if (collisionFor(next.stat_data, fill.asset)) {
+        throw new Error(`无法领取“${fill.asset.name}”：当前存档已有同名资产`);
+      }
+      addAsset(next.stat_data, fill.asset);
+      deliveries[fill.id] = Date.now();
+    });
+    await api.confirmMarketOrderDelivery(fill.id);
+    return fill;
+  }
+
+  async function fillOrder(selection, order, quantity = 1) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
+    const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
+    const available = assetQuantity(selection.kind, located.value);
+    const resolvedQuantity = selection.kind === 'item'
+      ? Math.max(1, Math.min(available, Math.floor(Number(quantity) || 1)))
+      : 1;
+    const fillId = randomId(host, 'fill');
+    let removed;
+    await mutateLatest(host, next => {
+      removed = removeAsset(next.stat_data, { ...selection, quantity: resolvedQuantity });
+    });
+    const restoreAsset = {
+      kind: selection.kind,
+      name: String(selection.name || assetName(selection.key, located.value)).trim(),
+      quantity: removed.quantity,
+      data: removed.data,
+    };
+    const tradeAsset = listingAssetSnapshot(restoreAsset);
+
+    let result;
+    try {
+      result = await api.fillMarketOrder(order.id, {
+        fill_id: fillId,
+        asset: assetPayload(tradeAsset, resolvedQuantity),
+        quantity: resolvedQuantity,
+      });
+    } catch (error) {
+      try { result = { fill: (await api.getMarketOrderFill(fillId))?.fill }; } catch {}
+      if (!result?.fill) {
+        await mutateLatest(host, next => {
+          addAsset(next.stat_data, restoreAsset);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
+        });
+        throw error;
+      }
+    }
+    return result.fill;
+  }
+
+  async function createBarter(selection, wantedProduct, {
+    offeredQuantity = 1,
+    wantedQuantity = 1,
+    durationHours = 24,
+  } = {}) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const wanted = wantedProduct?.asset || wantedProduct;
+    if (!wanted?.kind || !wanted?.name) throw new Error('交换目标无效');
+
+    const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
+    const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
+    const available = assetQuantity(selection.kind, located.value);
+    const resolvedOffered = selection.kind === 'item'
+      ? Math.max(1, Math.min(available, Math.floor(Number(offeredQuantity) || 1)))
+      : 1;
+    const resolvedWanted = wanted.kind === 'item'
+      ? Math.max(1, Math.floor(Number(wantedQuantity) || 1))
+      : 1;
+    const barterId = randomId(host, 'barter');
+    let removed;
+    await mutateLatest(host, next => {
+      removed = removeAsset(next.stat_data, { ...selection, quantity: resolvedOffered });
+    });
+    const restoreAsset = {
+      kind: selection.kind,
+      name: String(selection.name || assetName(selection.key, located.value)).trim(),
+      quantity: removed.quantity,
+      data: removed.data,
+    };
+    const offeredAsset = listingAssetSnapshot(restoreAsset);
+
+    let result;
+    try {
+      result = await api.createMarketBarter({
+        id: barterId,
+        offered_asset: assetPayload(offeredAsset, resolvedOffered),
+        offered_quantity: resolvedOffered,
+        wanted_asset: assetPayload(wanted, resolvedWanted),
+        wanted_quantity: resolvedWanted,
+        duration_hours: durationHours,
+      });
+    } catch (error) {
+      try { result = await api.getMarketBarter(barterId); } catch {}
+      if (!result?.barter) {
+        await mutateLatest(host, next => {
+          addAsset(next.stat_data, restoreAsset);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
+        });
+        throw error;
+      }
+    }
+    return result.barter;
+  }
+
+  async function receiveBarterDelivery(delivery) {
+    if (!delivery?.id) throw new Error('交换领取记录无效');
+    await mutateLatest(host, next => {
+      assertHub(next.stat_data);
+      const deliveries = ledgerBucket(next, 'barterDeliveries');
+      if (deliveries[delivery.id]) return;
+      if (collisionFor(next.stat_data, delivery.asset)) {
+        throw new Error(`无法领取“${delivery.asset.name}”：当前存档已有同名资产`);
+      }
+      addAsset(next.stat_data, delivery.asset);
+      deliveries[delivery.id] = Date.now();
+    });
+    await api.confirmMarketBarterDelivery(delivery.id);
+    return delivery;
+  }
+
+  async function cancelBarter(barterId) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const result = await api.cancelMarketBarter(barterId);
+    if (result?.delivery) await receiveBarterDelivery(result.delivery);
+    return result;
+  }
+
+  async function acceptBarter(barter, selection) {
+    const snapshot = readLatest(host);
+    assertHub(snapshot.data.stat_data);
+    const activeFormSnapshot = formActivationSnapshot(snapshot.data.stat_data, selection);
+    const located = findAsset(snapshot.data.stat_data, selection.kind, selection.key);
+    const needed = Math.max(1, Number(barter?.wanted?.quantity || 1));
+    const available = assetQuantity(selection.kind, located.value);
+    if (selection.kind === 'item' && available < needed) throw new Error('用于交换的资产数量不足');
+    let removed;
+    await mutateLatest(host, next => {
+      removed = removeAsset(next.stat_data, { ...selection, quantity: needed });
+    });
+    const restoreAsset = {
+      kind: selection.kind,
+      name: String(selection.name || assetName(selection.key, located.value)).trim(),
+      quantity: removed.quantity,
+      data: removed.data,
+    };
+    const tradeAsset = listingAssetSnapshot(restoreAsset);
+
+    let result;
+    try {
+      result = await api.acceptMarketBarter(barter.id, {
+        asset: assetPayload(tradeAsset, needed),
+        quantity: needed,
+      });
+    } catch (error) {
+      let recovered = null;
+      try { recovered = await api.getMarketBarter(barter.id); } catch {}
+      if (recovered?.barter?.status === 'completed') result = recovered;
+      else {
+        await mutateLatest(host, next => {
+          addAsset(next.stat_data, restoreAsset);
+          restoreFormActivation(next.stat_data, activeFormSnapshot);
+        });
+        throw error;
+      }
+    }
+
+    let delivery = result?.delivery || null;
+    if (!delivery) {
+      const state = await api.getMarketMe().catch(() => null);
+      delivery = state?.barters?.pending_deliveries?.find(item => item.barter_id === barter.id) || null;
+    }
+    if (delivery) await receiveBarterDelivery(delivery);
+    return result?.barter || barter;
+  }
+
+  async function recoverAll(stateValue = null) {
+    const state = stateValue || await mine();
+    for (const trade of state.pending_deliveries || []) await deliverTrade(trade);
+    for (const fill of state.orders?.pending_deliveries || []) await deliverOrderFill(fill);
+    for (const returned of state.pending_returns || []) await receiveReturn(returned);
+    for (const delivery of state.barters?.pending_deliveries || []) await receiveBarterDelivery(delivery);
+    for (const payout of state.pending_payouts || []) await receivePayout(payout);
+    if (Number(state.wallet?.balance || 0) > 0) await claimProceeds();
+    return mine();
+  }
+
   async function claimProceeds() {
     const snapshot = readLatest(host);
     assertHub(snapshot.data.stat_data);
@@ -703,8 +994,13 @@ export function createMarketService({ host, api }) {
     inventory,
     list,
     listAll,
+    catalogAll,
+    product,
+    auctionQuote,
     quoteAuction,
+    buybackQuote,
     quoteBuyback,
+    listAllBarters,
     mine,
     sell,
     sellToSystem,
@@ -712,6 +1008,15 @@ export function createMarketService({ host, api }) {
     cancel,
     deliverTrade,
     receiveReturn,
+    createOrder,
+    cancelOrder,
+    fillOrder,
+    deliverOrderFill,
+    createBarter,
+    cancelBarter,
+    acceptBarter,
+    receiveBarterDelivery,
+    recoverAll,
     claimProceeds,
     receivePayout,
   };

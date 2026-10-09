@@ -508,23 +508,32 @@ export function createMarketService({ host, api }) {
   }
 
   async function collectPendingBroadcasts(state, saveId) {
-    for (const sale of state?.pending_sale_broadcasts || []) {
-      if (!sale?.id) continue;
-      await broadcast(saveId, 'sale:' + sale.id,
-        '[空间集市成交][角色] ' + receiptAsset(sale.asset, sale.quantity)
-        + ' 已被其他轮回者购买｜成交 ' + coin(sale.total_price)
-        + '｜实收待领取 ' + coin(sale.seller_proceeds));
-      assertCurrentSave(host, saveId);
-      await api.confirmMarketSaleBroadcast(sale.id);
-    }
-    for (const recycle of state?.pending_recycle_broadcasts || []) {
-      if (!recycle?.id) continue;
-      await broadcast(saveId, 'recycle:' + recycle.id,
-        '[空间集市到期回收][角色] ' + receiptAsset(recycle.asset, recycle.quantity)
-        + ' 已超过取回期限｜自动兑换 ' + coin(recycle.amount) + '｜货款待领取');
-      assertCurrentSave(host, saveId);
-      await api.confirmMarketRecycleBroadcast(recycle.id);
-    }
+    const sales = (state?.pending_sale_broadcasts || []).filter(item => item?.id);
+    const recycles = (state?.pending_recycle_broadcasts || []).filter(item => item?.id);
+    if (!sales.length && !recycles.length) return state;
+    // One MVU write even when several offline sales are waiting. Never delay the
+    // market panel on the subsequent per-event server acknowledgements.
+    await mutateLatest(host, next => {
+      for (const sale of sales) {
+        appendMarketBroadcast(next, 'sale:' + sale.id,
+          '[空间集市成交][角色] ' + receiptAsset(sale.asset, sale.quantity)
+          + ' 已被其他轮回者购买｜成交 ' + coin(sale.total_price)
+          + '｜实收待领取 ' + coin(sale.seller_proceeds));
+      }
+      for (const recycle of recycles) {
+        appendMarketBroadcast(next, 'recycle:' + recycle.id,
+          '[空间集市到期回收][角色] ' + receiptAsset(recycle.asset, recycle.quantity)
+          + ' 已超过取回期限｜自动兑换 ' + coin(recycle.amount) + '｜货款待领取');
+      }
+    }, saveId);
+    assertCurrentSave(host, saveId);
+    const acknowledgements = [
+      ...sales.map(sale => api.confirmMarketSaleBroadcast(sale.id)),
+      ...recycles.map(recycle => api.confirmMarketRecycleBroadcast(recycle.id)),
+    ];
+    // A failed ACK is safe: the same receipt ID can be replayed next visit, and
+    // appendMarketBroadcast will not duplicate it.
+    void Promise.allSettled(acknowledgements);
     return state;
   }
 

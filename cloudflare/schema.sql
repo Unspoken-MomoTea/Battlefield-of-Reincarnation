@@ -177,6 +177,7 @@ CREATE TABLE IF NOT EXISTS market_listings (
   id TEXT PRIMARY KEY,
   seller_user_id INTEGER NOT NULL,
   asset_kind TEXT NOT NULL CHECK (asset_kind IN ('equipment', 'item', 'skill')),
+  market_kind TEXT NOT NULL DEFAULT '',
   asset_name TEXT NOT NULL,
   asset_json TEXT NOT NULL,
   unit_price INTEGER NOT NULL CHECK (unit_price > 0),
@@ -204,12 +205,16 @@ CREATE INDEX IF NOT EXISTS idx_market_listings_seller
 CREATE INDEX IF NOT EXISTS idx_market_listings_expiry
   ON market_listings(is_system, status, recycle_at, expires_at);
 
+CREATE INDEX IF NOT EXISTS idx_market_listings_logical_kind
+  ON market_listings(status, market_kind, unit_price, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS market_trades (
   id TEXT PRIMARY KEY,
   listing_id TEXT NOT NULL,
   seller_user_id INTEGER NOT NULL,
   buyer_user_id INTEGER NOT NULL,
   asset_kind TEXT NOT NULL CHECK (asset_kind IN ('equipment', 'item', 'skill')),
+  market_kind TEXT NOT NULL DEFAULT '',
   asset_name TEXT NOT NULL,
   asset_json TEXT NOT NULL,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
@@ -254,6 +259,7 @@ CREATE TABLE IF NOT EXISTS market_returns (
   listing_id TEXT NOT NULL UNIQUE,
   user_id INTEGER NOT NULL,
   asset_kind TEXT NOT NULL CHECK (asset_kind IN ('equipment', 'item', 'skill')),
+  market_kind TEXT NOT NULL DEFAULT '',
   asset_name TEXT NOT NULL,
   asset_json TEXT NOT NULL,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
@@ -271,6 +277,7 @@ CREATE TABLE IF NOT EXISTS market_recycles (
   listing_id TEXT NOT NULL UNIQUE,
   user_id INTEGER NOT NULL,
   asset_kind TEXT NOT NULL CHECK (asset_kind IN ('equipment', 'item', 'skill')),
+  market_kind TEXT NOT NULL DEFAULT '',
   asset_name TEXT NOT NULL,
   asset_json TEXT NOT NULL,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
@@ -288,9 +295,11 @@ CREATE TABLE IF NOT EXISTS market_buybacks (
   id TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
   asset_kind TEXT NOT NULL CHECK (asset_kind = 'equipment'),
+  market_kind TEXT NOT NULL DEFAULT '',
   asset_name TEXT NOT NULL,
   asset_json TEXT NOT NULL,
   quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity = 1),
+  market_quantity INTEGER NOT NULL DEFAULT 0,
   amount INTEGER NOT NULL CHECK (amount > 0),
   payout_id TEXT NOT NULL UNIQUE,
   created_at INTEGER NOT NULL,

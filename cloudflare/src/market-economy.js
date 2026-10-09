@@ -1,4 +1,15 @@
 export const MARKET_QUALITIES = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+export const MARKET_RANK_QUALITIES = Object.freeze({
+  'Ⅰ': 'F',
+  'Ⅱ': 'E',
+  'Ⅲ': 'D',
+  'Ⅳ': 'C',
+  'Ⅴ': 'B',
+  'Ⅵ': 'A',
+  'Ⅶ': 'S',
+  'Ⅷ': 'SS',
+  'Ⅸ': 'SSS',
+});
 
 export const MARKET_QUALITY_FLOORS = Object.freeze({
   F: 10,
@@ -49,7 +60,9 @@ function integer(value, fallback = 0) {
 }
 
 export function marketQuality(value) {
-  const quality = String(value || '').trim().toUpperCase();
+  const raw = String(value || '').trim();
+  if (MARKET_RANK_QUALITIES[raw]) return MARKET_RANK_QUALITIES[raw];
+  const quality = raw.toUpperCase();
   return MARKET_QUALITIES.includes(quality) ? quality : 'F';
 }
 
@@ -125,7 +138,7 @@ export function marketDayKey(now = Date.now()) {
 }
 
 export function marketCredentialSpecs() {
-  return MARKET_QUALITIES.map(quality => ({
+  return MARKET_QUALITIES.slice(0, 6).map(quality => ({
     quality,
     id: `system:credential:${quality}`,
     name: `${quality}级权限凭证`,

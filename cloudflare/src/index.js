@@ -3,7 +3,7 @@ import { guardRequest } from './middleware/request-guard.js';
 import { routeRequest } from './router.js';
 import { settleExpiredMarketListings } from './market.js';
 
-export const SERVICE_VERSION = '0.13.6';
+export const SERVICE_VERSION = '0.13.7';
 
 export async function handleRequest(request, env) {
   if (request.method === 'OPTIONS') {

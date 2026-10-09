@@ -12,6 +12,7 @@ import { assertMarketActive } from './market-access.js';
 import {
   marketCatalogMetadata,
   marketPriceHistoryStatement,
+  refreshExpiredMarketCatalogs,
   refreshMarketCatalogKey,
 } from './market-catalog.js';
 import { getMarketOrderState, settleExpiredMarketOrders } from './market-orders.js';
@@ -609,6 +610,7 @@ export async function prepareMarketBrowse(env) {
   await settleExpiredMarketListings(env);
   await ensureTestingMarketFixtures(env);
   await ensureSystemCredentialListings(env);
+  await refreshExpiredMarketCatalogs(env, { limit: 100 });
 }
 
 export async function listMarketListings(request, env) {

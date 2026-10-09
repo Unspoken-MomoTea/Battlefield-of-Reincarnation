@@ -280,8 +280,7 @@ test('system credential delivery writes the dedicated credential ledger instead 
       data: {
         品质: 'F',
         类型: '权限凭证',
-        系统商品: 'permission_credential',
-        凭证品质: 'F',
+        标签: ['主神空间', '权限凭证'],
       },
     },
   });

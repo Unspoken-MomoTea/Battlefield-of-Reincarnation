@@ -14,7 +14,7 @@ export const MARKET_KIND_LABELS = {
   skill: '技能',
   bloodline: '血统',
   form: '形态',
-  teammate: '队友',
+  teammate: '角色',
 };
 
 function deepClone(value) {

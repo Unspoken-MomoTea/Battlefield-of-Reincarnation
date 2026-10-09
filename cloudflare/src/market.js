@@ -187,6 +187,7 @@ function listingFromRow(row) {
   if (!row) return null;
   return {
     id: row.id,
+    save_id: row.save_id || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.remaining_quantity),
     unit_price: integer(row.unit_price),
     total_quantity: integer(row.total_quantity),
@@ -222,6 +223,7 @@ function tradeFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
+    buyer_save_id: row.buyer_save_id || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity),
     unit_price: integer(row.unit_price),
@@ -715,7 +717,7 @@ export async function createMarketListing(request, env, user) {
 
   const existing = await getListing(env, id);
   if (existing) {
-    if (existing.seller.id !== Number(user.id)) {
+    if (existing.seller.id !== Number(user.id) || existing.save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_id_conflict', '挂单 ID 已被占用');
     }
     return json({ listing: existing, quote });
@@ -728,16 +730,17 @@ export async function createMarketListing(request, env, user) {
   // Expired listings are not considered active slots even before the scheduled cleanup runs.
   const inserted = await env.DB.prepare(
     `INSERT INTO market_listings
-      (id, seller_user_id, asset_kind, market_kind, asset_name, asset_json, unit_price,
+      (id, seller_user_id, save_id, asset_kind, market_kind, asset_name, asset_json, unit_price,
        total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
        listing_fee, is_system, restock_day, created_at, updated_at, catalog_key, quality, subtype)
-     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?, ?, ?, ?
+     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, 0, '', ?, ?, ?, ?, ?
      WHERE (SELECT COUNT(*) FROM market_listings
             WHERE seller_user_id = ? AND is_system = 0 AND status = 'active'
               AND remaining_quantity > 0 AND expires_at > ?) < ?`,
   ).bind(
     id,
     user.id,
+    user.market_save_id,
     storageKind(asset.kind),
     asset.kind,
     asset.name,

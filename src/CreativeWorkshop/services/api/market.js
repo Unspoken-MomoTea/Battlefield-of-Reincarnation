@@ -43,6 +43,33 @@ export function createMarketApi(request) {
       );
     },
 
+    quoteMarketCatalogPurchase(catalogKey, quantity) {
+      const params = new URLSearchParams({
+        quantity: String(Math.max(1, Math.floor(Number(quantity) || 1))),
+      });
+      return request(
+        `/api/market/catalog/${encodeURIComponent(catalogKey)}/quote?${params}`,
+        { cache: 'no-store' },
+        true,
+      );
+    },
+
+    buyMarketCatalog(catalogKey, input) {
+      return request(
+        `/api/market/catalog/${encodeURIComponent(catalogKey)}/buy`,
+        { method: 'POST', body: JSON.stringify(input) },
+        true,
+      );
+    },
+
+    getMarketPurchase(purchaseId) {
+      return request(
+        `/api/market/purchases/${encodeURIComponent(purchaseId)}`,
+        { cache: 'no-store' },
+        true,
+      );
+    },
+
     listMarketBuyOrders({ query = '', kind = '', quality = '', offset = 0, limit = 40 } = {}) {
       const params = new URLSearchParams({
         offset: String(Math.max(0, Number(offset) || 0)),

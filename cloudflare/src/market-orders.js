@@ -431,6 +431,7 @@ export async function cancelMarketBuyOrder(env, user, orderIdValue) {
     order: orderFromRow(updated),
     payout: payout ? {
       id: payout.id,
+      save_id: payout.save_id || '',
       amount: integer(payout.amount),
       confirmed_at: payout.confirmed_at == null ? null : integer(payout.confirmed_at),
       created_at: integer(payout.created_at),

@@ -115,23 +115,39 @@ export function workshopTemplate(version) {
         <div class="rw-ah-tabs" role="tablist" aria-label="空间集市">
           <button class="rw-ah-tab is-active" data-market-mode="browse" type="button">浏览</button>
           <button class="rw-ah-tab" data-market-mode="sell" type="button">出售</button>
-          <button class="rw-ah-tab" data-market-mode="mine" type="button">我的拍卖</button>
+          <button class="rw-ah-tab" data-market-mode="barter" type="button">交换</button>
+          <button class="rw-ah-tab" data-market-mode="mine" type="button">我的交易</button>
           <div class="rw-ah-tab-spacer"></div>
           <span class="rw-ah-region-note">主神空间可交易 · 任务世界仅浏览</span>
         </div>
 
         <div class="rw-ah-panel" data-market-panel="browse">
-          <div class="rw-ah-toolbar">
+          <div class="rw-ah-toolbar rw-ah-toolbar--catalog">
             <div class="rw-ah-search">
               <span aria-hidden="true">⌕</span>
-              <input class="rw-input" data-field="market-search" placeholder="搜索物品名称">
+              <input class="rw-input" data-field="market-search" placeholder="搜索商品名称">
+            </div>
+            <select class="rw-select" data-field="market-quality" aria-label="品质筛选">
+              <option value="">全部品质</option>
+              <option value="F">F</option><option value="E">E</option><option value="D">D</option>
+              <option value="C">C</option><option value="B">B</option><option value="A">A</option>
+              <option value="S">S</option><option value="SS">SS</option><option value="SSS">SSS</option>
+            </select>
+            <select class="rw-select" data-field="market-subtype" aria-label="子类型筛选">
+              <option value="">全部子类型</option>
+            </select>
+            <div class="rw-ah-price-range">
+              <input class="rw-input" data-field="market-min-price" inputmode="numeric" placeholder="最低价">
+              <span>—</span>
+              <input class="rw-input" data-field="market-max-price" inputmode="numeric" placeholder="最高价">
             </div>
             <select class="rw-select" data-field="market-sort" aria-label="集市排序">
               <option value="price_asc">最低价优先</option>
               <option value="latest">最新上架</option>
               <option value="price_desc">最高价优先</option>
             </select>
-            <button class="rw-button primary" data-action="market-search" type="button">搜索</button>
+            <button class="rw-button" data-action="market-filter-reset" type="button">重置</button>
+            <button class="rw-button primary" data-action="market-search" type="button">筛选</button>
             <div class="rw-ah-result-count" data-role="market-count">正在载入</div>
           </div>
 
@@ -144,7 +160,7 @@ export function workshopTemplate(version) {
               <button class="rw-ah-category" data-market-kind="skill" type="button"><span>技能</span><small data-market-kind-count>0</small></button>
               <button class="rw-ah-category" data-market-kind="bloodline" type="button"><span>血统</span><small data-market-kind-count>0</small></button>
               <button class="rw-ah-category" data-market-kind="form" type="button"><span>形态</span><small data-market-kind-count>0</small></button>
-              <button class="rw-ah-category" data-market-kind="teammate" type="button"><span>队友</span><small data-market-kind-count>0</small></button>
+              <button class="rw-ah-category" data-market-kind="teammate" type="button"><span>角色</span><small data-market-kind-count>0</small></button>
               <div class="rw-ah-side-rule"></div>
               <div class="rw-ah-side-help">商品来自玩家本地存档。已装备中的装备不会进入可出售列表。</div>
             </aside>
@@ -189,13 +205,43 @@ export function workshopTemplate(version) {
           </div>
         </div>
 
+        <div class="rw-ah-panel" data-market-panel="barter" hidden>
+          <div class="rw-ah-barter-layout">
+            <section class="rw-ah-barter-list-pane">
+              <div class="rw-ah-pane-head">
+                <div><small>BARTER</small><h3>公开交换</h3></div>
+                <span data-role="market-barter-count">—</span>
+              </div>
+              <div class="rw-ah-list" data-role="market-barter-list"></div>
+            </section>
+            <aside class="rw-ah-barter-inspector" data-role="market-barter-inspector">
+              <div class="rw-ah-empty-inspector">
+                <div class="rw-ah-empty-icon">⇄</div>
+                <strong>选择一个交换单</strong>
+                <span>查看对方提供与需要的资产，并用当前存档完成交换。</span>
+              </div>
+            </aside>
+          </div>
+        </div>
+
         <div class="rw-ah-panel" data-market-panel="mine" hidden>
           <div class="rw-ah-mine-toolbar">
             <div>
               <small>ACCOUNT</small>
-              <h3>我的拍卖</h3>
+              <h3>我的交易</h3>
             </div>
-            <button class="rw-button" data-action="market-mine-refresh" type="button">刷新</button>
+            <div class="rw-row">
+              <button class="rw-button" data-action="market-recover-all" type="button">全部领取</button>
+              <button class="rw-button" data-action="market-mine-refresh" type="button">刷新</button>
+            </div>
+          </div>
+          <div class="rw-ah-mine-tabs">
+            <button class="rw-ah-mini-tab is-active" data-market-mine-view="active" type="button">拍卖</button>
+            <button class="rw-ah-mini-tab" data-market-mine-view="recovery" type="button">待处理</button>
+            <button class="rw-ah-mini-tab" data-market-mine-view="orders" type="button">求购</button>
+            <button class="rw-ah-mini-tab" data-market-mine-view="barter" type="button">交换</button>
+            <button class="rw-ah-mini-tab" data-market-mine-view="history" type="button">成交</button>
+            <button class="rw-ah-mini-tab" data-market-mine-view="recycle" type="button">回收</button>
           </div>
           <div class="rw-ah-mine-content" data-role="market-mine-content"></div>
         </div>
@@ -395,6 +441,7 @@ export function workshopTemplate(version) {
           <button class="rw-tab" data-admin-view="updates" type="button">更新动态</button>
           <button class="rw-tab" data-admin-view="reports" type="button">举报处理</button>
           <button class="rw-tab" data-admin-view="users" type="button">用户管理</button>
+          <button class="rw-tab" data-admin-view="market" type="button">市场</button>
           <button class="rw-tab" data-admin-view="storage" type="button">容量</button>
         </div>
 
@@ -440,6 +487,14 @@ export function workshopTemplate(version) {
             <button class="rw-button" data-action="admin-user-search" type="button">搜索用户</button>
           </div>
           <div class="rw-grid" data-role="user-list"></div>
+        </div>
+
+        <div data-admin-section="market" hidden>
+          <div class="rw-toolbar">
+            <input class="rw-input grow" data-field="admin-market-search" placeholder="搜索商品或卖家">
+            <button class="rw-button" data-action="admin-market-refresh" type="button">刷新市场</button>
+          </div>
+          <div data-role="admin-market-content"></div>
         </div>
 
         <div data-admin-section="storage" hidden>

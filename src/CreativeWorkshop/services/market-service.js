@@ -323,7 +323,7 @@ function addAsset(statData, asset) {
       statData.关系列表 = {};
     }
     if (statData.关系列表[key]) {
-      throw new Error('当前存档已经存在同名队友“' + key + '”，请先处理重名角色再领取');
+      throw new Error('当前存档已经存在同名角色“' + key + '”，请先处理重名角色再领取');
     }
     const next = deepClone(asset.data || {});
     next.是否队友 = true;

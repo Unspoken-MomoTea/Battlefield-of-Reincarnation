@@ -1208,6 +1208,10 @@ export function createMarketView({
     const state = await marketService.mine();
     const content = element('div', 'rw-ah-mine-stack');
 
+    for (const tab of nodes.marketMineViews || []) {
+      tab.classList.toggle('is-active', tab.dataset.marketMineView === currentMineView);
+    }
+
     const wallet = element('div', 'rw-ah-wallet');
     const walletCopy = element('div');
     walletCopy.append(
@@ -1225,148 +1229,223 @@ export function createMarketView({
     }
     content.append(wallet);
 
-    const pendingCount = (state.pending_deliveries?.length || 0)
-      + (state.pending_returns?.length || 0)
-      + (state.pending_payouts?.length || 0);
-    const recovery = section('待领取 / 待恢复', String(pendingCount));
-    if (!pendingCount) recovery.append(element('div', 'rw-ah-muted-line', '没有待恢复事务。'));
+    if (currentMineView === 'active') {
+      const active = (state.listings || []).filter(value => value.status === 'active' && !value.expired);
+      const activeSection = section('正在出售', String(active.length));
+      if (!active.length) activeSection.append(element('div', 'rw-ah-muted-line', '当前没有在售拍卖。'));
+      for (const listing of active) {
+        const expiryText = listing.expires_at ? until(listing.expires_at) + '后到期' : '无到期时间';
+        const feeText = listing.listing_fee ? ' · 上架税 ' + coin(listing.listing_fee) : '';
+        activeSection.append(transactionRow(
+          (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
+          coin(listing.unit_price) + ' 空间币 / 件 · ' + expiryText + feeText,
+          [button('取消拍卖', 'danger', async () => {
+            const ok = await confirmDialog({
+              title: '取消拍卖',
+              message: '撤回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity
+                + ' 件？已支付的上架税不会退还。',
+              confirmText: '取消拍卖',
+              danger: true,
+            });
+            if (!ok) return;
+            await marketService.cancel(listing.id);
+            try { host.toastr?.success?.('拍卖已取消，剩余资产已返还', '空间集市'); } catch {}
+            productDetailsCache.delete(listing.market_key);
+            await renderMineMode();
+            await refresh({ preserveSelection: true });
+          })],
+        ));
+      }
+      content.append(activeSection);
 
-    for (const trade of state.pending_deliveries || []) {
-      recovery.append(transactionRow(
-        '购买待领取 · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
-        coin(trade.total_price) + ' 空间币 · ' + when(trade.created_at),
-        [button('领取', 'primary', async () => {
-          await marketService.deliverTrade(trade);
-          await renderMineMode();
-        })],
-      ));
+      const expired = (state.listings || []).filter(
+        value => value.status === 'active' && value.expired && Number(value.remaining_quantity || 0) > 0,
+      );
+      const expiredSection = section('已到期 · 待取回', String(expired.length));
+      if (!expired.length) expiredSection.append(element('div', 'rw-ah-muted-line', '没有等待取回的到期拍卖。'));
+      for (const listing of expired) {
+        expiredSection.append(transactionRow(
+          (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
+          '已下架 · ' + until(listing.recycle_at) + '后系统自动回收',
+          [button('取回资产', 'primary', async () => {
+            await marketService.cancel(listing.id);
+            try { host.toastr?.success?.('到期资产已返还当前存档', '空间集市'); } catch {}
+            await renderMineMode();
+          })],
+        ));
+      }
+      content.append(expiredSection);
     }
-    for (const returned of state.pending_returns || []) {
-      recovery.append(transactionRow(
-        '撤回待返还 · ' + (returned.asset?.name || '资产') + ' ×' + (returned.quantity || 1),
-        when(returned.created_at),
-        [button('返还', 'primary', async () => {
-          await marketService.receiveReturn(returned);
-          await renderMineMode();
-        })],
-      ));
-    }
-    for (const payout of state.pending_payouts || []) {
-      recovery.append(transactionRow(
-        '货款待写入 · ' + coin(payout.amount) + ' 空间币',
-        when(payout.created_at),
-        [button('写入', 'primary', async () => {
-          await marketService.receivePayout(payout);
-          await renderMineMode();
-          await refreshSummary();
-        })],
-      ));
-    }
-    content.append(recovery);
 
-    const active = (state.listings || []).filter(
-      value => value.status === 'active' && !value.expired,
-    );
-    const activeSection = section('正在出售', String(active.length));
-    if (!active.length) activeSection.append(element('div', 'rw-ah-muted-line', '当前没有在售拍卖。'));
-    for (const listing of active) {
-      const expiryText = listing.expires_at
-        ? until(listing.expires_at) + '后到期'
-        : '无到期时间';
-      const feeText = listing.listing_fee
-        ? ' · 上架税 ' + coin(listing.listing_fee)
-        : '';
-      activeSection.append(transactionRow(
-        (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
-        coin(listing.unit_price) + ' 空间币 / 件 · ' + expiryText + feeText,
-        [button('取消拍卖', 'danger', async () => {
-          const ok = await confirmDialog({
-            title: '取消拍卖',
-            message: '撤回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity
-              + ' 件？已支付的上架税不会退还。',
-            confirmText: '取消拍卖',
-            danger: true,
-          });
-          if (!ok) return;
-          await marketService.cancel(listing.id);
-          try { host.toastr?.success?.('拍卖已取消，剩余资产已返还', '空间集市'); } catch {}
-          await renderMineMode();
-          await refresh();
-        })],
-      ));
-    }
-    content.append(activeSection);
+    if (currentMineView === 'recovery') {
+      const orderPending = state.orders?.pending_deliveries || [];
+      const barterPending = state.barters?.pending_deliveries || [];
+      const pendingCount = (state.pending_deliveries?.length || 0)
+        + (state.pending_returns?.length || 0)
+        + (state.pending_payouts?.length || 0)
+        + orderPending.length
+        + barterPending.length;
+      const recovery = section('待领取 / 待恢复', String(pendingCount));
+      if (!pendingCount) recovery.append(element('div', 'rw-ah-muted-line', '没有待恢复事务。'));
 
-    const expired = (state.listings || []).filter(
-      value => value.status === 'active' && value.expired && Number(value.remaining_quantity || 0) > 0,
-    );
-    const expiredSection = section('已到期 · 待取回', String(expired.length));
-    if (!expired.length) {
-      expiredSection.append(element('div', 'rw-ah-muted-line', '没有等待取回的到期拍卖。'));
+      for (const trade of state.pending_deliveries || []) {
+        recovery.append(transactionRow(
+          '拍卖购买待领取 · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
+          coin(trade.total_price) + ' 空间币 · ' + when(trade.created_at),
+          [button('领取', 'primary', async () => {
+            await marketService.deliverTrade(trade);
+            await renderMineMode();
+          })],
+        ));
+      }
+      for (const fill of orderPending) {
+        recovery.append(transactionRow(
+          '求购成交待领取 · ' + (fill.asset?.name || '资产') + ' ×' + (fill.quantity || 1),
+          coin(fill.total_price) + ' 空间币 · ' + when(fill.created_at),
+          [button('领取', 'primary', async () => {
+            await marketService.deliverOrderFill(fill);
+            await renderMineMode();
+          })],
+        ));
+      }
+      for (const returned of state.pending_returns || []) {
+        recovery.append(transactionRow(
+          '撤回待返还 · ' + (returned.asset?.name || '资产') + ' ×' + (returned.quantity || 1),
+          when(returned.created_at),
+          [button('返还', 'primary', async () => {
+            await marketService.receiveReturn(returned);
+            await renderMineMode();
+          })],
+        ));
+      }
+      for (const delivery of barterPending) {
+        recovery.append(transactionRow(
+          '交换待领取 · ' + (delivery.asset?.name || '资产') + ' ×' + (delivery.quantity || 1),
+          when(delivery.created_at),
+          [button('领取', 'primary', async () => {
+            await marketService.receiveBarterDelivery(delivery);
+            await renderMineMode();
+          })],
+        ));
+      }
+      for (const payout of state.pending_payouts || []) {
+        recovery.append(transactionRow(
+          '空间币待写入 · ' + coin(payout.amount) + ' 空间币',
+          when(payout.created_at),
+          [button('写入', 'primary', async () => {
+            await marketService.receivePayout(payout);
+            await renderMineMode();
+            await refreshSummary();
+          })],
+        ));
+      }
+      content.append(recovery);
     }
-    for (const listing of expired) {
-      expiredSection.append(transactionRow(
-        (listing.asset?.name || '资产') + ' · 剩余 ' + listing.remaining_quantity,
-        '已下架 · ' + until(listing.recycle_at) + '后系统自动回收',
-        [button('取回资产', 'primary', async () => {
-          const ok = await confirmDialog({
-            title: '取回到期资产',
-            message: '取回“' + listing.asset?.name + '”剩余 ' + listing.remaining_quantity
-              + ' 件？超过回收时限后服务器会自动折算为空间币。',
-            confirmText: '取回',
-          });
-          if (!ok) return;
-          await marketService.cancel(listing.id);
-          try { host.toastr?.success?.('到期资产已返还当前存档', '空间集市'); } catch {}
-          await renderMineMode();
-        })],
-      ));
-    }
-    content.append(expiredSection);
 
-    const recycleRecords = []
-      .concat((state.buybacks || []).map(value => ({
-        ...value,
-        side: '主动回收',
-        amount: Number(value.amount || 0),
-      })))
-      .concat((state.recycles || []).map(value => ({
-        ...value,
-        side: '到期自动回收',
-        amount: Number(value.amount || 0),
-      })))
-      .sort((a, b) => Number(b.created_at) - Number(a.created_at))
-      .slice(0, 30);
-    const recycleHistory = section('系统回收记录', String(recycleRecords.length));
-    if (!recycleRecords.length) {
-      recycleHistory.append(element('div', 'rw-ah-muted-line', '还没有系统回收记录。'));
+    if (currentMineView === 'orders') {
+      const orders = state.orders?.orders || [];
+      const orderSection = section('我的求购', String(orders.length));
+      if (!orders.length) orderSection.append(element('div', 'rw-ah-muted-line', '还没有发布求购单。'));
+      const statusLabel = { active: '求购中', filled: '已完成', cancelled: '已取消', expired: '已过期' };
+      for (const order of orders) {
+        const actions = [];
+        if (order.status === 'active') {
+          actions.push(button('取消求购', 'danger', async () => {
+            await marketService.cancelOrder(order.id);
+            try { host.toastr?.success?.('求购已取消，剩余托管空间币已返还', '空间集市'); } catch {}
+            await renderMineMode();
+            await refreshSummary();
+          }));
+        }
+        orderSection.append(transactionRow(
+          (order.asset?.name || '资产') + ' · 剩余 ' + order.quantity_remaining + '/' + order.quantity_total,
+          (statusLabel[order.status] || order.status)
+            + ' · ' + coin(order.unit_price) + ' / 件'
+            + ' · 托管余额 ' + coin(order.escrow_balance)
+            + (order.status === 'active' ? ' · ' + until(order.expires_at) : ''),
+          actions,
+        ));
+      }
+      content.append(orderSection);
     }
-    for (const record of recycleRecords) {
-      recycleHistory.append(transactionRow(
-        record.side + ' · ' + (record.asset?.name || '资产') + ' ×' + (record.quantity || 1),
-        coin(record.amount) + ' 空间币 · ' + when(record.created_at),
-      ));
-    }
-    content.append(recycleHistory);
 
-    const records = []
-      .concat((state.purchases || []).map(value => ({ ...value, side: '买入' })))
-      .concat((state.sales || []).map(value => ({ ...value, side: '卖出' })))
-      .sort((a, b) => Number(b.created_at) - Number(a.created_at))
-      .slice(0, 30);
-    const history = section('成交记录', String(records.length));
-    if (!records.length) history.append(element('div', 'rw-ah-muted-line', '还没有成交记录。'));
-    for (const trade of records) {
-      const settlement = trade.side === '卖出'
-        ? '成交 ' + coin(trade.total_price) + ' · 公证费 ' + coin(trade.market_fee)
-          + ' · 实收 ' + coin(trade.seller_proceeds)
-        : '支付 ' + coin(trade.total_price);
-      history.append(transactionRow(
-        trade.side + ' · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
-        settlement + ' 空间币 · ' + when(trade.created_at),
-      ));
+    if (currentMineView === 'barter') {
+      const owned = state.barters?.owned || [];
+      const accepted = state.barters?.accepted || [];
+      const barterSection = section('我的交换', String(owned.length + accepted.length));
+      if (!owned.length && !accepted.length) {
+        barterSection.append(element('div', 'rw-ah-muted-line', '还没有交换记录。'));
+      }
+      const appendBarter = (barter, side) => {
+        const actions = [];
+        if (side === '发布' && barter.status === 'active') {
+          actions.push(button('撤回交换', 'danger', async () => {
+            await marketService.cancelBarter(barter.id);
+            try { host.toastr?.success?.('交换单已撤回，托管资产已返还', '空间集市'); } catch {}
+            await renderMineMode();
+            await renderBarterMode();
+          }));
+        }
+        barterSection.append(transactionRow(
+          side + ' · ' + (barter.offered?.name || '资产') + ' → ' + (barter.wanted?.name || '资产'),
+          barter.status + ' · ' + when(barter.created_at)
+            + (barter.status === 'active' ? ' · ' + until(barter.expires_at) : ''),
+          actions,
+        ));
+      };
+      for (const barter of owned) appendBarter(barter, '发布');
+      for (const barter of accepted) appendBarter(barter, '接受');
+      content.append(barterSection);
     }
-    content.append(history);
+
+    if (currentMineView === 'history') {
+      const records = []
+        .concat((state.purchases || []).map(value => ({ ...value, side: '拍卖买入' })))
+        .concat((state.sales || []).map(value => ({ ...value, side: '拍卖卖出' })))
+        .concat((state.orders?.purchases || []).map(value => ({ ...value, side: '求购买入' })))
+        .concat((state.orders?.sales || []).map(value => ({ ...value, side: '求购卖出' })))
+        .sort((a, b) => Number(b.created_at) - Number(a.created_at))
+        .slice(0, 80);
+      const history = section('成交记录', String(records.length));
+      if (!records.length) history.append(element('div', 'rw-ah-muted-line', '还没有成交记录。'));
+      for (const trade of records) {
+        const selling = trade.side.includes('卖出');
+        const settlement = selling
+          ? '成交 ' + coin(trade.total_price) + ' · 公证费 ' + coin(trade.market_fee)
+            + ' · 实收 ' + coin(trade.seller_proceeds)
+          : '支付 ' + coin(trade.total_price);
+        history.append(transactionRow(
+          trade.side + ' · ' + (trade.asset?.name || '资产') + ' ×' + (trade.quantity || 1),
+          settlement + ' 空间币 · ' + when(trade.created_at),
+        ));
+      }
+      content.append(history);
+    }
+
+    if (currentMineView === 'recycle') {
+      const recycleRecords = []
+        .concat((state.buybacks || []).map(value => ({
+          ...value,
+          side: '主动回收',
+          amount: Number(value.amount || 0),
+        })))
+        .concat((state.recycles || []).map(value => ({
+          ...value,
+          side: '到期自动回收',
+          amount: Number(value.amount || 0),
+        })))
+        .sort((a, b) => Number(b.created_at) - Number(a.created_at))
+        .slice(0, 80);
+      const recycleHistory = section('系统回收记录', String(recycleRecords.length));
+      if (!recycleRecords.length) recycleHistory.append(element('div', 'rw-ah-muted-line', '还没有系统回收记录。'));
+      for (const record of recycleRecords) {
+        recycleHistory.append(transactionRow(
+          record.side + ' · ' + (record.asset?.name || '资产') + ' ×' + (record.quantity || 1),
+          coin(record.amount) + ' 空间币 · ' + when(record.created_at),
+        ));
+      }
+      content.append(recycleHistory);
+    }
 
     nodes.marketMineContent.replaceChildren(content);
   }

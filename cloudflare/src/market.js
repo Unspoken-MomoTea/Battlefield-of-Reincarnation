@@ -250,6 +250,7 @@ function returnFromRow(row) {
   return {
     id: row.id,
     listing_id: row.listing_id,
+    save_id: row.save_id || '',
     asset: parseAsset(logicalKind(row), row.asset_name, row.asset_json, row.quantity),
     quantity: integer(row.quantity),
     confirmed_at: row.confirmed_at == null ? null : integer(row.confirmed_at),
@@ -261,6 +262,7 @@ function payoutFromRow(row) {
   if (!row) return null;
   return {
     id: row.id,
+    save_id: row.save_id || '',
     amount: integer(row.amount),
     confirmed_at: row.confirmed_at == null ? null : integer(row.confirmed_at),
     created_at: integer(row.created_at),
@@ -447,12 +449,13 @@ export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
     await runBatch(env, [
       env.DB.prepare(
         `INSERT OR IGNORE INTO market_recycles
-          (id, listing_id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, amount, credited_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+          (id, listing_id, user_id, save_id, asset_kind, market_kind, asset_name, asset_json, quantity, amount, credited_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
       ).bind(
         recycleId,
         row.id,
         row.seller_user_id,
+        row.save_id,
         row.asset_kind,
         logicalKind(row),
         row.asset_name,
@@ -462,12 +465,12 @@ export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
         now,
       ),
       env.DB.prepare(
-        `INSERT INTO market_wallets (user_id, balance, updated_at)
-         SELECT user_id, amount, ?
+        `INSERT INTO market_save_wallets (user_id, save_id, balance, updated_at)
+         SELECT user_id, save_id, amount, ?
          FROM market_recycles
          WHERE listing_id = ? AND credited_at IS NULL
-         ON CONFLICT(user_id) DO UPDATE SET
-           balance = market_wallets.balance + excluded.balance,
+         ON CONFLICT(user_id, save_id) DO UPDATE SET
+           balance = market_save_wallets.balance + excluded.balance,
            updated_at = excluded.updated_at`,
       ).bind(now, row.id),
       env.DB.prepare(
@@ -790,7 +793,7 @@ export async function createMarketBuyback(request, env, user) {
 
   const existing = await first(env, 'SELECT * FROM market_buybacks WHERE id = ? LIMIT 1', [id]);
   if (existing) {
-    if (Number(existing.user_id) !== Number(user.id)) {
+    if (Number(existing.user_id) !== Number(user.id) || existing.save_id !== user.market_save_id) {
       throw new HttpError(409, 'market_buyback_id_conflict', '回收 ID 已被占用');
     }
     const payout = await first(env, 'SELECT * FROM market_payouts WHERE id = ? LIMIT 1', [existing.payout_id]);
@@ -802,16 +805,17 @@ export async function createMarketBuyback(request, env, user) {
   const now = nowMs();
   await runBatch(env, [
     env.DB.prepare(
-      `INSERT INTO market_payouts (id, user_id, amount, confirmed_at, created_at)
-       VALUES (?, ?, ?, NULL, ?)`,
-    ).bind(payoutId, user.id, quote.total_price, now),
+      `INSERT INTO market_payouts (id, user_id, save_id, amount, confirmed_at, created_at)
+       VALUES (?, ?, ?, ?, NULL, ?)`,
+    ).bind(payoutId, user.id, user.market_save_id, quote.total_price, now),
     env.DB.prepare(
       `INSERT INTO market_buybacks
-        (id, user_id, asset_kind, market_kind, asset_name, asset_json, quantity, market_quantity, amount, payout_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+        (id, user_id, save_id, asset_kind, market_kind, asset_name, asset_json, quantity, market_quantity, amount, payout_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
     ).bind(
       id,
       user.id,
+      user.market_save_id,
       storageKind(asset.kind, { buyback: true }),
       asset.kind,
       asset.name,
@@ -831,7 +835,7 @@ export async function createMarketBuyback(request, env, user) {
 export async function getMarketBuyback(env, user, buybackIdValue) {
   const id = marketId(buybackIdValue, '回收 ID');
   const row = await first(env, 'SELECT * FROM market_buybacks WHERE id = ? LIMIT 1', [id]);
-  if (!row || Number(row.user_id) !== Number(user.id)) {
+  if (!row || Number(row.user_id) !== Number(user.id) || row.save_id !== user.market_save_id) {
     throw new HttpError(404, 'market_buyback_not_found', '系统回收记录不存在');
   }
   const payout = await first(env, 'SELECT * FROM market_payouts WHERE id = ? LIMIT 1', [row.payout_id]);

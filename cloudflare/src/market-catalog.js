@@ -410,16 +410,6 @@ export async function getMarketCatalogDetail(env, catalogKey, currentUserId = 0)
      LIMIT 20`,
     [key, now, integer(currentUserId)],
   );
-  const historyRows = await all(
-    env,
-    `SELECT day_key, low_price, high_price, last_price, total_quantity, total_notional, trade_count
-     FROM market_price_daily
-     WHERE catalog_key = ?
-     ORDER BY day_key DESC
-     LIMIT 14`,
-    [key],
-  );
-
   return json({
     catalog: catalogItem(catalog),
     listings: listings.map(listingView),
@@ -428,45 +418,6 @@ export async function getMarketCatalogDetail(env, catalogKey, currentUserId = 0)
       stock: integer(row.stock),
       seller_count: integer(row.seller_count),
     })),
-    history: historyRows.reverse().map(row => ({
-      day: row.day_key,
-      low: integer(row.low_price),
-      high: integer(row.high_price),
-      last: integer(row.last_price),
-      volume: integer(row.total_quantity),
-      average: integer(row.total_quantity)
-        ? Math.round(integer(row.total_notional) / integer(row.total_quantity))
-        : 0,
-      trades: integer(row.trade_count),
-    })),
   });
 }
 
-export function marketPriceHistoryStatement(env, {
-  catalogKey,
-  tradeId,
-  now = Date.now(),
-}) {
-  const day = new Date(Number(now) + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  return env.DB.prepare(
-    `INSERT INTO market_price_daily
-      (catalog_key, day_key, low_price, high_price, last_price, total_quantity,
-       total_notional, trade_count, updated_at)
-     SELECT ?, ?, t.unit_price, t.unit_price, t.unit_price, t.quantity,
-            t.total_price, 1, ?
-     FROM market_trades t
-     WHERE t.id = ?
-     ON CONFLICT(catalog_key, day_key) DO UPDATE SET
-       low_price = MIN(market_price_daily.low_price, excluded.low_price),
-       high_price = MAX(market_price_daily.high_price, excluded.high_price),
-       last_price = excluded.last_price,
-       total_quantity = market_price_daily.total_quantity + excluded.total_quantity,
-       total_notional = market_price_daily.total_notional + excluded.total_notional,
-       trade_count = market_price_daily.trade_count + 1,
-       updated_at = excluded.updated_at`,
-  ).bind(keyOrEmpty(catalogKey), day, integer(now), String(tradeId || '').trim());
-}
-
-function keyOrEmpty(value) {
-  return String(value || '').trim();
-}

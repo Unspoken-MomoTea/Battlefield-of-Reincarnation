@@ -46,29 +46,6 @@ export function createAdminMarketView({
     const node = element('article', 'rw-card rw-market-admin-card');
     const view = nodes.adminMarketView?.value || 'listings';
 
-    if (view === 'trades') {
-      node.append(element('h3', '', (item.asset?.name || '资产') + ' ×' + (item.quantity || 1)));
-      const meta = element('div', 'rw-meta');
-      meta.append(
-        element('span', 'rw-pill', coin(item.unit_price) + ' / 件'),
-        element('span', 'rw-pill', '总额 ' + coin(item.total_price)),
-        element('span', 'rw-pill', when(item.created_at)),
-      );
-      if (item.risk?.suspicious) meta.append(element('span', 'rw-pill rw-pill--warning', '异常价格'));
-      node.append(meta);
-      node.append(element(
-        'div',
-        'rw-muted',
-        '卖家：' + (item.seller?.display_name || '—') + '\n'
-          + '买家：' + (item.buyer?.display_name || '—')
-          + (item.risk?.reasons?.length ? '\n风险：' + item.risk.reasons.join('；') : ''),
-      ));
-      const actions = element('div', 'rw-row');
-      actions.append(...userActions(item.seller), ...userActions(item.buyer));
-      node.append(actions);
-      return node;
-    }
-
     if (view === 'orders') {
       node.append(element('h3', '', '求购 · ' + item.asset_name));
       const meta = element('div', 'rw-meta');

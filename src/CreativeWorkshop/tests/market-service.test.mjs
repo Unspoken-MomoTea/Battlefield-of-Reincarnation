@@ -800,3 +800,43 @@ test('failed grouped catalog purchase refunds the single local deduction', async
   await assert.rejects(() => market.buyCatalog(catalog, 2, quote), /market changed/u);
   assert.equal(host.read().stat_data.角色.空间币, 200);
 });
+
+
+test('catalog snapshot reads all compact catalog pages once for local browsing', async () => {
+  const calls = [];
+  const api = {
+    async listMarketCatalog(input) {
+      calls.push({ ...input });
+      if (Number(input.offset) === 0) {
+        return {
+          items: [
+            { key: 'catalog:item:a', kind: 'item', name: 'A' },
+            { key: 'catalog:skill:b', kind: 'skill', name: 'B' },
+          ],
+          counts: { item: 1, skill: 1 },
+          next_offset: 80,
+        };
+      }
+      return {
+        items: [
+          { key: 'catalog:item:c', kind: 'item', name: 'C' },
+        ],
+        counts: { item: 2, skill: 1 },
+        next_offset: null,
+      };
+    },
+  };
+  const market = createMarketService({ host: {}, api });
+  const snapshot = await market.catalogSnapshot();
+
+  assert.deepEqual(snapshot.items.map(item => item.key), [
+    'catalog:item:a',
+    'catalog:skill:b',
+    'catalog:item:c',
+  ]);
+  assert.deepEqual(snapshot.counts, { item: 1, skill: 1 });
+  assert.deepEqual(calls, [
+    { sort: 'price_asc', offset: 0, limit: 80 },
+    { sort: 'price_asc', offset: 80, limit: 80 },
+  ]);
+});

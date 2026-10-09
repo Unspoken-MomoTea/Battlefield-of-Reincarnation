@@ -149,9 +149,12 @@ export function createMarketView({
     await refreshSummary();
   }
 
-  const rowIcon = marketRow => {
-    const icon = element('span', 'rw-ah-item-icon', (marketRow.name || '?').slice(0, 1));
-    icon.dataset.kind = marketRow.kind;
+  const rowIcon = subject => {
+    const asset = subject?.asset || subject || {};
+    const name = String(subject?.name || asset?.name || '?');
+    const icon = element('span', 'rw-ah-item-icon', name.slice(0, 1) || '?');
+    const rank = quality(asset).toUpperCase().match(/[A-Z]+/u)?.[0] || '';
+    icon.dataset.quality = rank || 'NONE';
     return icon;
   };
 
@@ -174,6 +177,8 @@ export function createMarketView({
     );
     itemCell.append(rowIcon(marketRow), itemCopy);
 
+    const kindCell = element('span', 'rw-ah-result-kind');
+    kindCell.append(element('span', 'rw-ah-type-tag', kindLabel(marketRow.kind)));
     const qualityCell = element('span', 'rw-ah-result-quality', quality(marketRow.asset) || '—');
     const stockCell = element('span', 'rw-ah-result-stock', String(marketRow.totalStock || 0));
     const priceCell = element('span', 'rw-ah-result-price');
@@ -182,7 +187,7 @@ export function createMarketView({
       element('small', '', ' 空间币'),
     );
 
-    node.append(itemCell, qualityCell, stockCell, priceCell);
+    node.append(itemCell, kindCell, qualityCell, stockCell, priceCell);
     node.addEventListener('click', () => {
       selectedKey = marketRow.key;
       renderRows();

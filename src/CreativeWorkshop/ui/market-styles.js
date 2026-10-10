@@ -1,6 +1,5 @@
 export const MARKET_CSS = `
 .rw-market-tab{position:relative}
-.rw-market-test-badge{margin-left:6px;padding:1px 5px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.08em;color:#ffd98a;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.38)}
 .rw-market-page{display:flex;flex-direction:column;gap:0;min-height:0}
 .rw-auction-house{--ah-line:rgba(255,255,255,.085);--ah-soft:rgba(255,255,255,.035);--ah-gold:#e7bd63;--ah-muted:var(--rw-muted,#9099a8)}
 .rw-ah-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:14px 16px 12px;border:1px solid var(--ah-line);border-bottom:0;border-radius:14px 14px 0 0;background:linear-gradient(180deg,rgba(245,158,11,.065),rgba(255,255,255,.015))}

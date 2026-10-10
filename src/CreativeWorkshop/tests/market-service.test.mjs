@@ -223,7 +223,7 @@ test('repeating local delivery does not duplicate an already applied asset', asy
   assert.ok(saved.__reincarnationMarketLedger.deliveries['trade:idempotent']);
 });
 
-test('trade-changing operations are blocked outside the hub', async () => {
+test('normal multi-world runs cannot trade outside the hub', async () => {
   const host = createHost({
     系统状态: { 是否在主神空间: false },
     角色: {
@@ -250,7 +250,7 @@ test('trade-changing operations are blocked outside the hub', async () => {
       quantity: 1,
       unitPrice: 50,
     }),
-    /只允许在主神空间/u,
+    /普通模式须返回主神空间/u,
   );
 });
 

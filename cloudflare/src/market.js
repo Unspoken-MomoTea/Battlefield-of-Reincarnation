@@ -222,7 +222,9 @@ async function ensureSyntheticUser(env, { discordId, username, displayName }) {
      ON CONFLICT(discord_id) DO UPDATE SET
        username = excluded.username,
        display_name = excluded.display_name,
-       updated_at = excluded.updated_at`,
+       updated_at = excluded.updated_at
+     WHERE users.username <> excluded.username
+        OR users.display_name <> excluded.display_name`,
   ).bind(discordId, username, displayName, now, now).run();
 
   return first(env, 'SELECT id FROM users WHERE discord_id = ? LIMIT 1', [discordId]);
@@ -245,7 +247,8 @@ async function ensureSystemCredentialListings(env) {
     `UPDATE market_listings
      SET status = 'cancelled', remaining_quantity = 0, updated_at = ?
      WHERE id IN ('system:credential:S', 'system:credential:SS', 'system:credential:SSS')
-       AND is_system = 1`,
+       AND is_system = 1
+       AND (status <> 'cancelled' OR remaining_quantity <> 0)`,
   ).bind(now).run();
   for (const spec of marketCredentialSpecs()) {
     const existing = await first(
@@ -334,6 +337,7 @@ async function ensureSystemCredentialListings(env) {
       continue;
     }
 
+    let catalogDirty = false;
     // A same-day deploy can lower the quota. Keep units already sold today
     // counted; never silently replenish a 30-unit legacy row back to ten.
     if (integer(existing.total_quantity) > spec.quantity) {
@@ -351,7 +355,7 @@ async function ensureSystemCredentialListings(env) {
         spec.quantity, spec.quantity, spec.quantity, now,
         spec.id, day, spec.quantity,
       ).run();
-      await refreshMarketCatalogKey(env, meta.catalog_key);
+      catalogDirty = true;
     }
 
     if (String(existing.asset_json || '') !== assetJson || integer(existing.unit_price) !== spec.unit_price) {
@@ -364,8 +368,9 @@ async function ensureSystemCredentialListings(env) {
         spec.name, assetJson, spec.unit_price, now,
         meta.catalog_key, meta.quality, meta.subtype, spec.id,
       ).run();
+      catalogDirty = true;
     }
-    await refreshMarketCatalogKey(env, meta.catalog_key);
+    if (catalogDirty) await refreshMarketCatalogKey(env, meta.catalog_key);
   }
 }
 

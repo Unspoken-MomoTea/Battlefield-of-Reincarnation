@@ -2087,3 +2087,22 @@ test('cleanup removes only stale empty save wallets, preserving nonzero balances
   assert.deepEqual(db.prepare('SELECT save_id FROM market_save_wallets ORDER BY save_id')
     .all().map(x=>x.save_id),['balance-old','empty-recent','payout-old']);
 });
+
+test('opening the same-day system voucher catalogue never rewrites unchanged items or vendor',async()=>{
+  const testEnv=env();
+  const first=await jsonRequest(testEnv,'/api/market/catalog?kind=item');
+  assert.equal(first.response.status,200);
+  const db=testEnv.DB.db;
+  const voucher=db.prepare("SELECT id, catalog_key, updated_at FROM market_listings WHERE id='system:credential:F'").get();
+  assert.ok(voucher?.catalog_key);
+  const system=db.prepare("SELECT id,updated_at FROM users WHERE discord_id='__market_system_vendor__'").get();
+  assert.ok(system?.id);
+  // Use a sentinel to prove no catalog refresh or unnecessary row rewrite runs on
+  // the second same-day request. The test is about actual storage writes, not HTTP caching.
+  db.prepare('UPDATE market_catalog SET updated_at=? WHERE catalog_key=?').run(123,voucher.catalog_key);
+  const second=await jsonRequest(testEnv,'/api/market/catalog?kind=item&offset=0');
+  assert.equal(second.response.status,200);
+  assert.equal(db.prepare('SELECT updated_at FROM market_catalog WHERE catalog_key=?').get(voucher.catalog_key).updated_at,123);
+  assert.equal(db.prepare('SELECT updated_at FROM market_listings WHERE id=?').get(voucher.id).updated_at,voucher.updated_at);
+  assert.equal(db.prepare('SELECT updated_at FROM users WHERE id=?').get(system.id).updated_at,system.updated_at);
+});

@@ -25,86 +25,9 @@ const MAX_QUANTITY = 9999;
 const MAX_ACTIVE_LISTINGS = 10;
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 60;
-const TEST_VENDOR_DISCORD_ID = '__market_test_vendor__';
-const TEST_VENDOR_USERNAME = 'market-test-vendor';
-const TEST_VENDOR_DISPLAY_NAME = '轮回集市测试员 · 虚拟账号';
 const SYSTEM_VENDOR_DISCORD_ID = '__market_system_vendor__';
 const SYSTEM_VENDOR_USERNAME = 'market-system-vendor';
 const SYSTEM_VENDOR_DISPLAY_NAME = '悖论公证所 · 系统柜台';
-const TEST_VENDOR_FIXTURES = [
-  {
-    id: 'test-vendor:item:healing-potion',
-    kind: 'item',
-    name: '测试用恢复药剂',
-    quantity: 20,
-    unitPrice: 25,
-    data: {
-      品质: 'F', 类型: '消耗品', 数量: 20, 标签: ['测试商品'],
-      效果: { 恢复: '用于验证空间集市购买与堆叠写回' },
-      描述: '虚拟卖家测试商品。价格刻意设置很低。', 状态: 0,
-    },
-  },
-  {
-    id: 'test-vendor:item:rare-material',
-    kind: 'item',
-    name: '测试用稀有材料',
-    quantity: 12,
-    unitPrice: 40,
-    data: {
-      品质: 'E', 类型: '材料', 数量: 12, 标签: ['测试商品'],
-      效果: {}, 描述: '用于测试多数量购买与剩余库存。', 状态: 0,
-    },
-  },
-  {
-    id: 'test-vendor:equipment:iron-sword',
-    kind: 'equipment',
-    name: '测试铁剑',
-    quantity: 1,
-    unitPrice: 60,
-    data: {
-      类型: 0, 状态: 0, 品质: 'F', 标签: ['测试商品'],
-      原始属性: { 攻击: 1 }, 效果: {},
-      描述: '用于测试装备购买、入包与同名冲突。', 消耗: '',
-    },
-  },
-  {
-    id: 'test-vendor:equipment:guard-cloak',
-    kind: 'equipment',
-    name: '测试守护披风',
-    quantity: 1,
-    unitPrice: 70,
-    data: {
-      类型: 4, 状态: 0, 品质: 'F', 标签: ['测试商品'],
-      原始属性: { 防御: 1 }, 效果: {},
-      描述: '第二件测试装备，避免单件买完后无法继续测。', 消耗: '',
-    },
-  },
-  {
-    id: 'test-vendor:skill:quick-step',
-    kind: 'skill',
-    name: '测试技能·疾步',
-    quantity: 1,
-    unitPrice: 50,
-    data: {
-      等级: 1, 品质: 'F', 类型: 0, 消耗: '少量体力',
-      效果: { 说明: '短时间提升移动能力' },
-      描述: '用于测试技能购买与写入。', 标签: ['测试商品'],
-    },
-  },
-  {
-    id: 'test-vendor:skill:focus',
-    kind: 'skill',
-    name: '测试技能·专注',
-    quantity: 1,
-    unitPrice: 55,
-    data: {
-      等级: 1, 品质: 'F', 类型: 1, 消耗: '少量精神',
-      效果: { 说明: '短时间提升专注能力' },
-      描述: '第二个测试技能。', 标签: ['测试商品'],
-    },
-  },
-];
-
 function nowMs() {
   return Date.now();
 }
@@ -326,7 +249,7 @@ async function ensureSystemCredentialListings(env) {
   for (const spec of marketCredentialSpecs()) {
     const existing = await first(
       env,
-      'SELECT id, restock_day, asset_json, unit_price FROM market_listings WHERE id = ? LIMIT 1',
+      'SELECT id, restock_day, asset_json, unit_price, total_quantity, remaining_quantity FROM market_listings WHERE id = ? LIMIT 1',
       [spec.id],
     );
     const data = {
@@ -408,6 +331,26 @@ async function ensureSystemCredentialListings(env) {
       ).run();
       await refreshMarketCatalogKey(env, meta.catalog_key);
       continue;
+    }
+
+    // A same-day deploy can lower the quota. Keep units already sold today
+    // counted; never silently replenish a 30-unit legacy row back to ten.
+    if (integer(existing.total_quantity) > spec.quantity) {
+      await env.DB.prepare(
+        `UPDATE market_listings
+         SET remaining_quantity = MAX(0, ? - (total_quantity - remaining_quantity)),
+             total_quantity = ?,
+             status = CASE
+               WHEN MAX(0, ? - (total_quantity - remaining_quantity)) = 0 THEN 'sold'
+               ELSE 'active'
+             END,
+             updated_at = ?
+         WHERE id = ? AND restock_day = ? AND total_quantity > ?`,
+      ).bind(
+        spec.quantity, spec.quantity, spec.quantity, now,
+        spec.id, day, spec.quantity,
+      ).run();
+      await refreshMarketCatalogKey(env, meta.catalog_key);
     }
 
     if (String(existing.asset_json || '') !== assetJson || integer(existing.unit_price) !== spec.unit_price) {
@@ -493,86 +436,6 @@ export async function settleExpiredMarketListings(env, { limit = 100 } = {}) {
   return { processed: rows.length };
 }
 
-async function ensureTestingMarketFixtures(env) {
-  const channel = String(env.CLIENT_UPDATE_CHANNEL || '').trim().toLowerCase();
-  if (channel !== 'testing') return;
-
-  const now = nowMs();
-  await env.DB.prepare(
-    `INSERT INTO users
-      (discord_id, username, display_name, avatar, is_admin, is_moderator, is_banned, ban_reason, created_at, updated_at)
-     VALUES (?, ?, ?, NULL, 0, 0, 0, '', ?, ?)
-     ON CONFLICT(discord_id) DO UPDATE SET
-       username = excluded.username,
-       display_name = excluded.display_name,
-       updated_at = excluded.updated_at`,
-  ).bind(
-    TEST_VENDOR_DISCORD_ID,
-    TEST_VENDOR_USERNAME,
-    TEST_VENDOR_DISPLAY_NAME,
-    now,
-    now,
-  ).run();
-
-  const seller = await first(
-    env,
-    'SELECT id FROM users WHERE discord_id = ? LIMIT 1',
-    [TEST_VENDOR_DISCORD_ID],
-  );
-  if (!seller?.id) return;
-
-  for (const fixture of TEST_VENDOR_FIXTURES) {
-    const fixtureMeta = marketCatalogMetadata({
-      kind: fixture.kind,
-      name: fixture.name,
-      quantity: fixture.quantity,
-      data: fixture.data,
-    });
-    await env.DB.prepare(
-      `INSERT OR IGNORE INTO market_listings
-        (id, seller_user_id, asset_kind, market_kind, asset_name, asset_json, unit_price,
-         total_quantity, remaining_quantity, status, duration_hours, expires_at, recycle_at,
-         listing_fee, is_system, restock_day, created_at, updated_at, catalog_key, quality, subtype)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 0, 0, 0, 0, 1, '', ?, ?, ?, ?, ?)`,
-    ).bind(
-      fixture.id,
-      seller.id,
-      fixture.kind,
-      fixture.kind,
-      fixture.name,
-      JSON.stringify(fixture.data),
-      fixture.unitPrice,
-      fixture.quantity,
-      fixture.quantity,
-      now,
-      now,
-      fixtureMeta.catalog_key,
-      fixtureMeta.quality,
-      fixtureMeta.subtype,
-    ).run();
-    await env.DB.prepare(
-      `UPDATE market_listings
-       SET is_system = 1,
-           duration_hours = 0,
-           expires_at = 0,
-           recycle_at = 0,
-           listing_fee = 0,
-           catalog_key = ?,
-           quality = ?,
-           subtype = ?,
-           updated_at = ?
-       WHERE id = ?`,
-    ).bind(
-      fixtureMeta.catalog_key,
-      fixtureMeta.quality,
-      fixtureMeta.subtype,
-      now,
-      fixture.id,
-    ).run();
-    await refreshMarketCatalogKey(env, fixtureMeta.catalog_key);
-  }
-}
-
 async function runBatch(env, statements) {
   if (typeof env.DB?.batch === 'function') return env.DB.batch(statements);
   const results = [];
@@ -629,12 +492,9 @@ export async function prepareMarketBrowse(env) {
   if (previous?.day === today) {
     await previous.promise;
   } else {
-    // Coalesce initial fixture and daily credential seeding on the same Worker DB
-    // binding. Ordinary browsing must not re-read every system listing.
-    const promise = (async () => {
-      await ensureTestingMarketFixtures(env);
-      await ensureSystemCredentialListings(env);
-    })();
+    // Only legitimate system credentials are seeded. Obsolete virtual testing
+    // products must never reappear after the one-time market reset.
+    const promise = ensureSystemCredentialListings(env);
     marketFixtureReady.set(env.DB, { day: today, promise });
     try {
       await promise;
@@ -1178,7 +1038,7 @@ export async function getMarketMe(env, user) {
   );
   const listings = await all(
     env,
-    `${LISTING_SELECT} WHERE l.seller_user_id = ? AND l.save_id = ? ORDER BY l.created_at DESC LIMIT 50`,
+    `${LISTING_SELECT} WHERE l.seller_user_id = ? AND l.save_id = ? AND l.updated_at > 0 ORDER BY l.created_at DESC LIMIT 50`,
     [user.id, user.market_save_id],
   );
   const pendingDeliveries = await all(

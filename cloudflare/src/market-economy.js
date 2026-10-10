@@ -51,7 +51,7 @@ export const MARKET_BUYBACK_BPS = Object.freeze({
 export const MARKET_AUCTION_DURATIONS = Object.freeze([24, 48, 72]);
 export const MARKET_LISTING_DAILY_BPS = 1_000;
 export const MARKET_EXPIRED_GRACE_HOURS = 72;
-export const MARKET_CREDENTIAL_DAILY_STOCK = 30;
+export const MARKET_CREDENTIAL_DAILY_STOCK = 10;
 
 function integer(value, fallback = 0) {
   const number = Number(value);

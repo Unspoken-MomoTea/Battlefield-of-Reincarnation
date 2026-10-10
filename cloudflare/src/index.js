@@ -5,7 +5,7 @@ import { settleExpiredMarketListings } from './market.js';
 import { settleExpiredMarketOrders } from './market-orders.js';
 import { cleanupCompletedMarketRecords } from './market-cleanup.js';
 
-export const SERVICE_VERSION = '0.13.14';
+export const SERVICE_VERSION = '0.13.15';
 
 export async function handleRequest(request, env) {
   if (request.method === 'OPTIONS') {

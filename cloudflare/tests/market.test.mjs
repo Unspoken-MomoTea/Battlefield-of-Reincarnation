@@ -134,7 +134,7 @@ test('testing market supports listing, idempotent purchase, delivery and seller 
   const catalog = await jsonRequest(testEnv, '/api/market/listings?kind=item&sort=price_asc');
   assert.equal(catalog.response.status, 200);
   assert.ok(catalog.body.items.some(item => item.id === 'listing-1'));
-  assert.ok(catalog.body.items.some(item => item.id === 'test-vendor:item:healing-potion'));
+  assert.equal(catalog.body.items.some(item => item.id.startsWith('test-vendor:')), false);
 
   const ownBuy = await jsonRequest(testEnv, '/api/market/listings/listing-1/buy', {
     method: 'POST',
@@ -265,37 +265,17 @@ test('cancelling a listing creates a recoverable return and proceeds use pending
 });
 
 
-test('testing catalog auto-seeds virtual seller fixtures that a real user can purchase', async () => {
+test('testing catalog starts with real system credentials only, never virtual test merchandise', async () => {
   const testEnv = env();
-  const buyer = createUser(testEnv, '500', 'Solo Tester');
-  const buyerHeaders = authHeaders(testEnv, buyer, 'solo-tester-token');
-
-  const catalog = await jsonRequest(testEnv, '/api/market/listings?sort=price_asc');
+  const catalog = await jsonRequest(testEnv, '/api/market/listings?sort=price_asc&limit=60');
   assert.equal(catalog.response.status, 200);
-  assert.ok(catalog.body.items.length >= 5);
-  assert.ok(catalog.body.items.some(item => item.seller.display_name === '轮回集市测试员 · 虚拟账号'));
-  assert.ok(catalog.body.items.some(item => item.seller.display_name === '悖论公证所 · 系统柜台'));
-
-  const potion = catalog.body.items.find(item => item.id === 'test-vendor:item:healing-potion');
-  assert.ok(potion);
-  assert.equal(potion.asset.kind, 'item');
-  assert.equal(potion.remaining_quantity, 20);
-
-  const purchase = await jsonRequest(testEnv, '/api/market/listings/test-vendor%3Aitem%3Ahealing-potion/buy', {
-    method: 'POST',
-    headers: buyerHeaders,
-    body: JSON.stringify({ trade_id: 'trade-solo-test', quantity: 2 }),
-  });
-  assert.equal(purchase.response.status, 200);
-  assert.equal(purchase.body.trade.quantity, 2);
-  assert.equal(purchase.body.trade.seller.display_name, '轮回集市测试员 · 虚拟账号');
-  assert.equal(purchase.body.listing.remaining_quantity, 18);
-
-  const refreshed = await jsonRequest(testEnv, '/api/market/listings?sort=price_asc');
-  const refreshedPotion = refreshed.body.items.find(item => item.id === 'test-vendor:item:healing-potion');
-  assert.equal(refreshedPotion.remaining_quantity, 18);
+  assert.equal(catalog.body.items.length, 6);
+  assert.equal(catalog.body.items.every(item => item.id.startsWith('system:credential:')), true);
+  assert.equal(catalog.body.items.every(item => item.remaining_quantity === 10), true);
+  const names = catalog.body.items.map(item => item.id).sort();
+  assert.deepEqual(names, ['A', 'B', 'C', 'D', 'E', 'F'].map(x => 'system:credential:' + x).sort());
+  assert.equal(testEnv.DB.db.prepare("SELECT COUNT(*) AS count FROM market_listings WHERE id LIKE 'test-vendor:%'").get().count, 0);
 });
-
 
 test('auction quote uses quality high for tax and quality floor for equipment buyback', async () => {
   const testEnv = env();
@@ -418,7 +398,7 @@ test('system credential listings restock daily and do not credit a synthetic sel
   const credential = catalog.body.items.find(item => item.id === 'system:credential:F');
   assert.ok(credential);
   assert.equal(credential.is_system, true);
-  assert.equal(credential.remaining_quantity, 30);
+  assert.equal(credential.remaining_quantity, 10);
   assert.equal(credential.unit_price, 99);
   assert.equal(credential.asset.data.类型, '权限凭证');
   assert.equal(credential.asset.data.系统商品, undefined);
@@ -440,7 +420,7 @@ test('system credential listings restock daily and do not credit a synthetic sel
   assert.equal(purchase.response.status, 200);
   assert.equal(purchase.body.trade.market_fee, 0);
   assert.equal(purchase.body.trade.seller_proceeds, 0);
-  assert.equal(purchase.body.listing.remaining_quantity, 28);
+  assert.equal(purchase.body.listing.remaining_quantity, 8);
 
   const systemUser = testEnv.DB.db.prepare(
     "SELECT id FROM users WHERE discord_id = '__market_system_vendor__'",
@@ -451,6 +431,42 @@ test('system credential listings restock daily and do not credit a synthetic sel
   assert.equal(wallet, undefined);
 });
 
+
+test('F voucher daily ten-stock pool is shared across buyers and never refills the same day', async () => {
+  const testEnv = env();
+  const userA = createUser(testEnv, 'stock-buyer-A', 'Stock A');
+  const userB = createUser(testEnv, 'stock-buyer-B', 'Stock B');
+  const headersA = authHeaders(testEnv, userA, 'stock-a-token');
+  const headersB = authHeaders(testEnv, userB, 'stock-b-token');
+
+  const initial = await jsonRequest(testEnv, '/api/market/listings?kind=item&sort=price_asc');
+  assert.equal(initial.response.status, 200);
+  assert.equal(initial.body.items.find(x => x.id === 'system:credential:F').remaining_quantity, 10);
+
+  async function purchase(headers, tradeId, quantity) {
+    return jsonRequest(testEnv, '/api/market/listings/system%3Acredential%3AF/buy', {
+      method: 'POST', headers, body: JSON.stringify({ trade_id: tradeId, quantity }),
+    });
+  }
+  assert.equal((await purchase(headersA, 'stock-trade-six', 6)).response.status, 200);
+  assert.equal((await purchase(headersB, 'stock-trade-four', 4)).response.status, 200);
+  const empty = await jsonRequest(testEnv, '/api/market/listings?kind=item&sort=price_asc');
+  assert.equal(empty.body.items.some(item => item.id === 'system:credential:F'), false);
+  assert.equal((await purchase(headersB, 'stock-trade-over', 1)).response.status, 409,
+    'a sold-out shared voucher may not be bought by a different user');
+  const row = testEnv.DB.db.prepare("SELECT total_quantity, remaining_quantity, restock_day FROM market_listings WHERE id='system:credential:F'").get();
+  assert.equal(row.total_quantity, 10);
+  assert.equal(row.remaining_quantity, 0);
+
+  // Simulate yesterday's stock to exercise next-day replenishment. A fresh D1
+  // binding also exercises the daily seed path rather than its in-isolate cache.
+  testEnv.DB.db.prepare("UPDATE market_listings SET restock_day='2000-01-01' WHERE id='system:credential:F'").run();
+  const nextDayEnv = { ...testEnv, DB: new Proxy(testEnv.DB, {}) };
+  const replenished = await jsonRequest(nextDayEnv, '/api/market/listings?kind=item&sort=price_asc');
+  assert.equal(replenished.response.status, 200);
+  assert.equal(replenished.body.items.find(item => item.id === 'system:credential:F').remaining_quantity, 10);
+  assert.equal(testEnv.DB.db.prepare("SELECT total_quantity FROM market_listings WHERE id='system:credential:F'").get().total_quantity, 10);
+});
 
 test('bloodlines forms and teammates survive listing, purchase and logical-kind filtering', async () => {
   const testEnv = env();
@@ -1478,4 +1494,68 @@ test('every save independently gets ten slots, even when another save holds ten 
   assert.equal(secondFull.body.code, 'market_listing_limit');
   assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: first })).body.active_listing_count, 10);
   assert.equal((await jsonRequest(testEnv, '/api/market/me', { headers: second })).body.active_listing_count, 10);
+});
+
+
+test('legacy 30-unit voucher stock is reduced to ten without granting extra same-day units', async () => {
+  const testEnv = env();
+  const before = await jsonRequest(testEnv, '/api/market/listings?kind=item');
+  assert.equal(before.response.status, 200);
+  const db = testEnv.DB.db;
+  db.prepare("UPDATE market_listings SET total_quantity = 30, remaining_quantity = 22, status = 'active' WHERE id = 'system:credential:F'").run();
+  const reloaded = await jsonRequest({ ...testEnv, DB: new Proxy(testEnv.DB, {}) }, '/api/market/listings?kind=item');
+  assert.equal(reloaded.response.status, 200);
+  const fVoucher = reloaded.body.items.find(x => x.id === 'system:credential:F');
+  assert.ok(fVoucher);
+  assert.equal(fVoucher.remaining_quantity, 2, 'eight sold under the old pool leave only two under the new cap');
+  const record = db.prepare("SELECT total_quantity, remaining_quantity FROM market_listings WHERE id = 'system:credential:F'").get();
+  assert.equal(record.total_quantity, 10);
+  assert.equal(record.remaining_quantity, 2);
+});
+
+test('one-time staging stock reset hides all old auctions but preserves workshop users and unsettled claims', async () => {
+  const testEnv = env();
+  const seller = createUser(testEnv, 'reset-seller', 'Reset Seller');
+  const buyer = createUser(testEnv, 'reset-buyer', 'Reset Buyer');
+  const sellerHeaders = authHeaders(testEnv, seller, 'reset-seller-token');
+  const buyerHeaders = authHeaders(testEnv, buyer, 'reset-buyer-token');
+  const oldListing = await jsonRequest(testEnv, '/api/market/listings', {
+    method: 'POST', headers: sellerHeaders, body: JSON.stringify({
+      id: 'reset-old-listing',
+      asset: {kind:'item',name:'旧测试物品',quantity:2,data:{名称:'旧测试物品',品质:'E',数量:2}},
+      unit_price:42,
+    }),
+  });
+  assert.equal(oldListing.response.status, 201);
+  const trade = await jsonRequest(testEnv, '/api/market/listings/reset-old-listing/buy', {
+    method: 'POST', headers: buyerHeaders,
+    body: JSON.stringify({trade_id:'reset-old-pending-trade',quantity:1}),
+  });
+  assert.equal(trade.response.status, 200);
+  const db = testEnv.DB.db;
+  const userCountBefore = db.prepare('SELECT COUNT(*) AS total FROM users').get().total;
+  const sellerBalanceBefore = (await jsonRequest(testEnv, '/api/market/me', {headers:sellerHeaders})).body.wallet.balance;
+  const stockBefore = db.prepare("SELECT COUNT(*) AS total FROM market_listings WHERE status = 'active' AND remaining_quantity > 0").get().total;
+  assert.ok(stockBefore > 0);
+  const sql = readFileSync(new URL('../migrations/0023_deactivate_old_market_inventory.sql', import.meta.url), 'utf8');
+  db.exec('PRAGMA foreign_keys = ON');
+  db.exec(sql);
+  assert.equal(db.prepare("SELECT COUNT(*) AS total FROM market_listings WHERE status = 'active' AND remaining_quantity > 0").get().total, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM market_catalog WHERE total_stock > 0').get().total, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS total FROM users').get().total, userCountBefore);
+  assert.equal(db.prepare("SELECT COUNT(*) AS total FROM market_trades WHERE id = 'reset-old-pending-trade'").get().total, 1);
+  const afterSeller = (await jsonRequest(testEnv, '/api/market/me', {headers:sellerHeaders})).body;
+  assert.equal(afterSeller.wallet.balance, sellerBalanceBefore);
+  assert.equal(afterSeller.listings.some(item => item.id === 'reset-old-listing'), false,
+    'archived testing listings must disappear from my auctions too');
+  // A freshly deployed Worker has a new D1 binding; only its six legitimate
+  // daily credential listings may reappear, and each starts at ten.
+  const fresh = { ...testEnv, DB: new Proxy(testEnv.DB, {}) };
+  const after = await jsonRequest(fresh, '/api/market/listings?limit=60');
+  assert.equal(after.response.status, 200);
+  assert.equal(after.body.items.length, 6);
+  assert.ok(after.body.items.every(item => item.id.startsWith('system:credential:') && item.remaining_quantity === 10));
+  assert.equal(after.body.items.some(item => item.id === 'reset-old-listing'), false);
+  const buyerState = await jsonRequest(fresh, '/api/market/me', {headers:buyerHeaders});
+  assert.equal(buyerState.body.pending_deliveries.length, 1, 'pending claims are still recoverable');
 });

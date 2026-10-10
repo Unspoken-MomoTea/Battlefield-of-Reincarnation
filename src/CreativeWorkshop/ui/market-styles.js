@@ -1,6 +1,5 @@
 export const MARKET_CSS = `
 .rw-market-tab{position:relative}
-.rw-market-test-badge{margin-left:6px;padding:1px 5px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.08em;color:#ffd98a;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.38)}
 .rw-market-page{display:flex;flex-direction:column;gap:0;min-height:0}
 .rw-auction-house{--ah-line:rgba(255,255,255,.085);--ah-soft:rgba(255,255,255,.035);--ah-gold:#e7bd63;--ah-muted:var(--rw-muted,#9099a8)}
 .rw-ah-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:14px 16px 12px;border:1px solid var(--ah-line);border-bottom:0;border-radius:14px 14px 0 0;background:linear-gradient(180deg,rgba(245,158,11,.065),rgba(255,255,255,.015))}
@@ -114,6 +113,11 @@ export const MARKET_CSS = `
 .rw-ah-teammate-chip strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:#cbd2db}
 .rw-ah-teammate-chip small{font-size:9px;color:#9d90d0}
 .rw-ah-teammate-chip em{font-style:normal;font-size:9px;color:#8b95a2}
+.rw-ah-teammate-chip.has-raw{flex-wrap:wrap;align-items:flex-start}
+.rw-ah-teammate-raw{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;min-width:0}
+.rw-ah-teammate-chip>.rw-ah-teammate-raw{flex-basis:100%;padding-top:3px;border-top:1px solid rgba(255,255,255,.055)}
+.rw-ah-teammate-raw-item{display:inline-flex;align-items:baseline;gap:2px;max-width:100%;font-size:9px;color:#8290a1;word-break:break-word}
+.rw-ah-teammate-raw-item strong{font-size:9px;font-weight:800;color:#cbd5e1}
 .rw-ah-teammate-build-list,.rw-ah-teammate-profile{display:flex;flex-direction:column}
 .rw-ah-teammate-build-row:first-child,.rw-ah-teammate-profile-row:first-child{border-top:0}
 .rw-ah-teammate-profile-row p{margin:0;font-size:10px;line-height:1.55;color:#bcc5cf;white-space:pre-wrap;word-break:break-word}

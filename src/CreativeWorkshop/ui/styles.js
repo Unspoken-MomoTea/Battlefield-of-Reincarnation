@@ -1483,12 +1483,19 @@ export const WORKSHOP_CSS = `
     .rw-head .rw-button[data-action="login"]{min-height:36px;padding:0 8px;font-size:10px}
     .rw-close{min-height:36px;padding:0 9px}
     .rw-tabs{
-      grid-column:1;grid-row:3;position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
-      gap:2px;padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
-      border:0;border-top:1px solid var(--rw-line);background:rgba(20,21,24,.97);overflow-x:auto
+      grid-column:1;grid-row:3;position:relative;display:flex;flex-direction:row;align-items:stretch;
+      gap:6px;padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
+      border:0;border-top:1px solid var(--rw-line);background:rgba(20,21,24,.97);
+      min-width:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;
+      -webkit-overflow-scrolling:touch;touch-action:pan-x;scroll-snap-type:x proximity;
+      scrollbar-width:thin;scrollbar-color:var(--rw-line-strong) transparent
     }
     .rw-tabs::before,.rw-tabs::after,.rw-nav-label,.rw-nav-divider,.rw-nav-connection{display:none}
-    .rw-tab{min-width:0;min-height:46px;justify-content:center;padding:0 4px;border-radius:9px;text-align:center;font-size:11px}
+    .rw-tabs>.rw-tab{
+      flex:0 0 auto;width:auto;min-width:78px;min-height:46px;justify-content:center;
+      padding:0 10px;border-radius:9px;text-align:center;font-size:11px;white-space:nowrap;
+      scroll-snap-align:start
+    }
     .rw-nav-filter.is-filter-active::after{margin-left:5px}
     .rw-tab.is-active::before{display:none}
     .rw-body{grid-column:1;grid-row:2;padding:12px 12px 20px}

@@ -291,3 +291,45 @@ test('order matching respects logical kind, exact name, rank quality and subtype
     ['月影'],
   );
 });
+
+test('asset detail does not repeat names but preserves real raw attributes', () => {
+  const entries = marketAssetDetailEntries({
+    kind: 'equipment',
+    name: '测试铁剑',
+    data: {
+      名称: '测试铁剑',
+      品质: 'D',
+      原始属性: { 力量: 'D', 攻击: 'E', 体质: 5 },
+      真属性: { ATK: 999 },
+      最终属性: { 力量: 99 },
+    },
+  });
+  assert.deepEqual(entries, [
+    ['品质', 'D'],
+    ['原始属性', { 力量: 'D', 攻击: 'E', 体质: 5 }],
+  ]);
+});
+
+test('teammate detail preserves personal and nested build raw attributes', () => {
+  const model = marketTeammateDetailModel({
+    kind: 'teammate',
+    name: '灵鸟',
+    data: {
+      层级: 'Ⅱ', 原始属性: { 力量: 'F', 敏捷: 'D' },
+      血统: { 人类血统: {
+        品质: 'F', 原始属性: { 体质: 'E', 力量: 'D' },
+        真属性: { 力量: 20 },
+      } },
+      装备: { 羽刃: { 品质: 'E', 原始属性: { 攻击: 'C' } } },
+    },
+  });
+  assert.deepEqual(model.rawAttributes, [
+    { name: '力量', value: 'F' }, { name: '敏捷', value: 'D' },
+  ]);
+  assert.deepEqual(model.builds.find(([kind]) => kind === '血统')[1][0].rawAttributes, [
+    { name: '体质', value: 'E' }, { name: '力量', value: 'D' },
+  ]);
+  assert.deepEqual(model.builds.find(([kind]) => kind === '装备')[1][0].rawAttributes, [
+    { name: '攻击', value: 'C' },
+  ]);
+});

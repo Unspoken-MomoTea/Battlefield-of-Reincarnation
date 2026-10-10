@@ -84,7 +84,7 @@ export function createMarketView({
 
   const kindLabel = kind => MARKET_KIND_LABELS[kind] || '资产';
 
-  const dataValue = (value, depth = 0) => {
+  const dataValue = (value, depth = 0, decorateQuality = false) => {
     if (value == null) return element('span', 'rw-ah-data-value muted', '—');
 
     if (Array.isArray(value)) {
@@ -96,13 +96,15 @@ export function createMarketView({
       const primitive = value.every(item => item == null || ['string', 'number', 'boolean'].includes(typeof item));
       if (primitive) {
         for (const item of value) {
-          list.append(element('span', 'rw-ah-data-chip', item == null ? '—' : String(item)));
+          const chip = element('span', 'rw-ah-data-chip', item == null ? '—' : String(item));
+          if (decorateQuality && qualityRank({ quality: item }) !== 'NONE') qualityName(chip, { quality: item });
+          list.append(chip);
         }
         return list;
       }
       value.forEach((item, index) => {
         const row = element('div', 'rw-ah-data-nested');
-        row.append(element('span', 'rw-ah-data-key', String(index + 1)), dataValue(item, depth + 1));
+        row.append(element('span', 'rw-ah-data-key', String(index + 1)), dataValue(item, depth + 1, decorateQuality));
         list.append(row);
       });
       return list;
@@ -117,13 +119,34 @@ export function createMarketView({
       }
       for (const [key, nested] of entries) {
         const row = element('div', 'rw-ah-data-row');
-        row.append(element('span', 'rw-ah-data-key', key), dataValue(nested, depth + 1));
+        row.append(
+          element('span', 'rw-ah-data-key', key),
+          dataValue(nested, depth + 1, decorateQuality || key === '品质' || key === '原始属性'),
+        );
         group.append(row);
       }
       return group;
     }
 
-    return element('span', 'rw-ah-data-value', String(value));
+    const text = element('span', 'rw-ah-data-value', String(value));
+    return decorateQuality && qualityRank({ quality: value }) !== 'NONE'
+      ? qualityName(text, { quality: value })
+      : text;
+  };
+
+  const rawAttributeChips = attributes => {
+    const wrap = element('span', 'rw-ah-teammate-raw');
+    for (const attr of attributes || []) {
+      const chip = element('span', 'rw-ah-teammate-raw-item');
+      chip.append(
+        element('span', '', attr.name + '：'),
+        qualityRank({ quality: attr.value }) !== 'NONE'
+          ? qualityName(element('strong', '', attr.value), { quality: attr.value })
+          : element('strong', '', attr.value),
+      );
+      wrap.append(chip);
+    }
+    return wrap;
   };
 
   const teammateChips = (items, { occupations = false } = {}) => {
@@ -132,9 +155,15 @@ export function createMarketView({
       const chip = element('span', 'rw-ah-teammate-chip');
       chip.append(element('strong', '', item.name || String(item)));
       if (occupations && item.meta) chip.append(element('small', '', item.meta));
-      else if (!occupations && item.rank) chip.append(element('small', '', item.rank));
+      else if (!occupations && item.rank) chip.append(
+        qualityName(element('small', '', item.rank), { quality: item.rank }),
+      );
       if (!occupations && Number(item.quantity || 1) > 1) {
         chip.append(element('em', '', '×' + Number(item.quantity)));
+      }
+      if (!occupations && item.rawAttributes?.length) {
+        chip.classList.add('has-raw');
+        chip.append(rawAttributeChips(item.rawAttributes));
       }
       wrap.append(chip);
     }
@@ -162,6 +191,15 @@ export function createMarketView({
         grid.append(cell);
       }
       summary.append(grid);
+    }
+
+    if (model.rawAttributes?.length) {
+      const row = element('div', 'rw-ah-teammate-meta-row');
+      row.append(
+        element('span', 'rw-ah-teammate-meta-label', '原始属性'),
+        rawAttributeChips(model.rawAttributes),
+      );
+      summary.append(row);
     }
 
     if (model.identity.length) {
@@ -244,7 +282,10 @@ export function createMarketView({
     for (const [key, value] of entries) {
       const row = element('div', 'rw-ah-data-row');
       const displayValue = marketAssetFieldDisplay(asset, key, value);
-      row.append(element('span', 'rw-ah-data-key', key), dataValue(displayValue));
+      row.append(
+        element('span', 'rw-ah-data-key', key),
+        dataValue(displayValue, 0, key === '品质' || key === '原始属性'),
+      );
       dataBody.append(row);
     }
     dataSection.append(dataBody);
@@ -447,10 +488,7 @@ export function createMarketView({
     }
     const wrap = element('div', 'rw-ah-inspector-body');
     const head = element('div', 'rw-ah-detail-head');
-    head.append(
-      element('div', 'rw-ah-inspector-title', '详情'),
-      qualityName(element('h3', '', item.name), item.asset),
-    );
+    head.append(element('div', 'rw-ah-inspector-title', '详情'));
     wrap.append(head, assetDetail(item.asset));
 
     const live = element('div', 'rw-ah-ladder');
@@ -520,10 +558,7 @@ export function createMarketView({
     const catalog = detail.catalog;
     const wrap = element('div', 'rw-ah-inspector-body');
     const head = element('div', 'rw-ah-detail-head');
-    head.append(
-      element('div', 'rw-ah-inspector-title', '详情'),
-      qualityName(element('h3', '', catalog.name), catalog.asset),
-    );
+    head.append(element('div', 'rw-ah-inspector-title', '详情'));
     wrap.append(head, assetDetail(catalog.asset));
 
     const ladder = element('div', 'rw-ah-ladder');
@@ -784,9 +819,9 @@ export function createMarketView({
     const tags = element('div', 'rw-ah-inspector-kicker');
     tags.append(
       element('span', 'rw-market-kind', kindLabel(asset.kind)),
-      element('span', 'rw-market-quality', quality(asset) || '未标注'),
+      qualityName(element('span', 'rw-market-quality', quality(asset) || '未标注'), asset),
     );
-    headCopy.append(tags, qualityName(element('h3', '', asset.name), asset));
+    headCopy.append(tags);
     head.append(headCopy);
     editor.append(head, assetDetail(asset));
     if (asset.kind === 'teammate') {

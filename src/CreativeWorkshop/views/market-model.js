@@ -91,7 +91,8 @@ function pruneMarketDetailValue(value) {
 export function marketAssetDetailEntries(asset) {
   const entries = [];
   for (const [key, value] of Object.entries(asset?.data || {})) {
-    if (HIDDEN_MARKET_DETAIL_KEYS.has(key)) continue;
+    // The selected item's name is already visible in the market listing.
+    if (key === '名称' || key === 'name' || HIDDEN_MARKET_DETAIL_KEYS.has(key)) continue;
     const pruned = pruneMarketDetailValue(value);
     if (pruned !== undefined) entries.push([key, pruned]);
   }
@@ -105,15 +106,27 @@ const TEAMMATE_DETAIL_OMIT = new Set([
   '数量',
 ]);
 
+function compactRawAttributes(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
+  return Object.entries(raw)
+    .filter(([name, value]) => String(name).trim() && value != null && String(value).trim())
+    .filter(([, value]) => ['string', 'number'].includes(typeof value))
+    .map(([name, value]) => ({ name, value: String(value) }));
+}
+
 function compactNamedAssets(bucket, { quantity = false } = {}) {
   if (!bucket || typeof bucket !== 'object' || Array.isArray(bucket)) return [];
   return Object.entries(bucket)
     .filter(([, value]) => value && typeof value === 'object' && !Array.isArray(value))
-    .map(([name, value]) => ({
-      name: String(name || '').trim(),
-      rank: String(value.品质 || value.层级 || '').trim(),
-      quantity: quantity ? Math.max(1, Math.floor(Number(value.数量) || 1)) : 1,
-    }))
+    .map(([name, value]) => {
+      const rawAttributes = compactRawAttributes(value.原始属性);
+      return {
+        name: String(name || '').trim(),
+        rank: String(value.品质 || value.层级 || '').trim(),
+        ...(rawAttributes.length ? { rawAttributes } : {}),
+        quantity: quantity ? Math.max(1, Math.floor(Number(value.数量) || 1)) : 1,
+      };
+    })
     .filter(item => item.name);
 }
 
@@ -145,6 +158,7 @@ export function marketTeammateDetailModel(asset) {
       ['层级', String(data.层级 || data.品质 || '').trim()],
       ['种族', String(data.种族 || '').trim()],
     ].filter(([, value]) => value),
+    rawAttributes: compactRawAttributes(data.原始属性),
     identity,
     occupations: compactOccupations(data.职业),
     builds: [
